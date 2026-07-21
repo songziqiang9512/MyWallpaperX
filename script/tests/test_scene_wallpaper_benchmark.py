@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import json
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(SCRIPT_DIR))
+
+import scene_wallpaper_benchmark as benchmark
+
+
+class SceneWallpaperBenchmarkTests(unittest.TestCase):
+    def test_load_matrix_accepts_version_one_samples(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-scene-matrix-") as directory:
+            path = Path(directory) / "matrix.json"
+            path.write_text(
+                json.dumps({"schema_version": 1, "name": "fixture", "samples": [{"id": "1"}]}),
+                encoding="utf-8",
+            )
+            self.assertEqual(benchmark.load_matrix(path)["samples"][0]["id"], "1")
+
+    def test_load_matrix_rejects_unknown_schema(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-scene-matrix-") as directory:
+            path = Path(directory) / "matrix.json"
+            path.write_text(
+                json.dumps({"schema_version": 2, "samples": []}),
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValueError):
+                benchmark.load_matrix(path)
+
+    def test_copy_sample_requires_project_and_package(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-scene-copy-") as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            (source / "project.json").write_text("{}", encoding="utf-8")
+            with self.assertRaises(FileNotFoundError):
+                benchmark.copy_sample(source, root / "missing")
+
+            (source / "scene.pkg").write_bytes(b"PKGV")
+            destination = root / "copied"
+            benchmark.copy_sample(source, destination)
+            self.assertEqual((destination / "scene.pkg").read_bytes(), b"PKGV")
+
+    def test_runtime_log_patterns_capture_ready_and_release(self) -> None:
+        ready = benchmark.READY_RE.search(
+            "MWX DEBUG SCENE: phase=ready root=/tmp/sample layers=35 "
+            "imageLayers=24 effects=29 surfaces=1 windows=42 previewLog=/tmp/log"
+        )
+        stopped = benchmark.STOPPED_RE.search(
+            "MWX DEBUG SCENE: phase=stopped surfacesBefore=1 surfacesAfter=0"
+        )
+        loaded = benchmark.LOADED_RE.search("loaded: 20 / 24")
+        self.assertEqual(ready.group("images"), "24")
+        self.assertEqual(stopped.group("after"), "0")
+        self.assertEqual(loaded.group("loaded"), "20")
+
+
+if __name__ == "__main__":
+    unittest.main()

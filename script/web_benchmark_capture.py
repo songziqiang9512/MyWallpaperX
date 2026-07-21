@@ -186,11 +186,11 @@ def _paeth(left: int, up: int, upper_left: int) -> int:
     return (left, up, upper_left)[distances.index(min(distances))]
 
 
-def png_has_non_black_pixel(path: Path, threshold: int = 2) -> bool:
+def _decode_png_rows(path: Path) -> tuple[int, int, int, int, list[bytes]] | None:
     try:
         payload = path.read_bytes()
         if payload[:8] != b"\x89PNG\r\n\x1a\n":
-            return False
+            return None
         offset = 8
         width = height = bit_depth = color_type = interlace = None
         compressed = bytearray()
@@ -207,11 +207,12 @@ def png_has_non_black_pixel(path: Path, threshold: int = 2) -> bool:
                 break
         channels = {0: 1, 2: 3, 4: 2, 6: 4}.get(color_type)
         if not width or not height or bit_depth != 8 or interlace != 0 or channels is None:
-            return False
+            return None
         decoded = zlib.decompress(compressed)
         stride = width * channels
         previous = bytearray(stride)
         cursor = 0
+        rows: list[bytes] = []
         for _ in range(height):
             filter_type = decoded[cursor]
             source = decoded[cursor + 1 : cursor + 1 + stride]
@@ -232,19 +233,58 @@ def png_has_non_black_pixel(path: Path, threshold: int = 2) -> bool:
                 elif filter_type == 4:
                     predictor = _paeth(left, up, upper_left)
                 else:
-                    return False
+                    return None
                 row[index] = (value + predictor) & 0xFF
-            color_channels = 1 if color_type in {0, 4} else 3
-            if any(
-                row[pixel + channel] > threshold
-                for pixel in range(0, stride, channels)
-                for channel in range(color_channels)
-            ):
-                return True
+            rows.append(bytes(row))
             previous = row
     except (IndexError, OSError, struct.error, ValueError, zlib.error):
+        return None
+    color_channels = 1 if color_type in {0, 4} else 3
+    return width, height, channels, color_channels, rows
+
+
+def png_has_non_black_pixel(path: Path, threshold: int = 2) -> bool:
+    decoded = _decode_png_rows(path)
+    if decoded is None:
         return False
-    return False
+    width, _, channels, color_channels, rows = decoded
+    stride = width * channels
+    return any(
+        row[pixel + channel] > threshold
+        for row in rows
+        for pixel in range(0, stride, channels)
+        for channel in range(color_channels)
+    )
+
+
+def png_motion_metrics(
+    first_path: Path,
+    second_path: Path,
+    threshold: int = 2,
+) -> dict[str, float] | None:
+    first = _decode_png_rows(first_path)
+    second = _decode_png_rows(second_path)
+    if first is None or second is None or first[:4] != second[:4]:
+        return None
+    width, height, channels, color_channels, first_rows = first
+    second_rows = second[4]
+    changed_pixels = 0
+    total_delta = 0
+    for first_row, second_row in zip(first_rows, second_rows):
+        for pixel in range(0, width * channels, channels):
+            deltas = [
+                abs(first_row[pixel + channel] - second_row[pixel + channel])
+                for channel in range(color_channels)
+            ]
+            total_delta += sum(deltas)
+            if max(deltas) > threshold:
+                changed_pixels += 1
+    pixel_count = width * height
+    component_count = pixel_count * color_channels
+    return {
+        "mean_delta": total_delta / max(component_count * 255, 1),
+        "changed_ratio": changed_pixels / max(pixel_count, 1),
+    }
 
 
 def capture_non_black_screenshot(path: Path) -> Path | None:

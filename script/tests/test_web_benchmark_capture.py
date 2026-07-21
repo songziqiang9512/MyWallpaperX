@@ -72,6 +72,23 @@ class WebBenchmarkCaptureTests(unittest.TestCase):
             self.assertFalse(capture.png_has_non_black_pixel(black))
             self.assertTrue(capture.png_has_non_black_pixel(visible))
 
+    def test_png_motion_metrics_distinguish_identical_and_changed_pixels(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-capture-motion-") as directory:
+            root = Path(directory)
+            first = root / "first.png"
+            same = root / "same.png"
+            changed = root / "changed.png"
+            write_rgb_png(first, 8, 16, 32)
+            write_rgb_png(same, 8, 16, 32)
+            write_rgb_png(changed, 64, 16, 32)
+
+            same_metrics = capture.png_motion_metrics(first, same)
+            changed_metrics = capture.png_motion_metrics(first, changed)
+            self.assertEqual(same_metrics, {"mean_delta": 0.0, "changed_ratio": 0.0})
+            self.assertIsNotNone(changed_metrics)
+            self.assertGreater(changed_metrics["mean_delta"], 0)
+            self.assertEqual(changed_metrics["changed_ratio"], 1.0)
+
     @mock.patch.object(capture, "_identity_values")
     @mock.patch.object(capture, "_verify_signature")
     @mock.patch.object(capture, "_ditto_copy")
