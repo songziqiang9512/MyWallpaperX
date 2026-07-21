@@ -16,6 +16,7 @@ from typing import Any
 
 from web_benchmark_capture import (
     AppIdentityError,
+    png_flat_border_ratio,
     png_has_non_black_pixel,
     png_motion_metrics,
     require_fresh_output_dir,
@@ -31,6 +32,11 @@ READY_RE = re.compile(
 STOPPED_RE = re.compile(r"phase=stopped surfacesBefore=(?P<before>\d+) surfacesAfter=(?P<after>\d+)")
 LOADED_RE = re.compile(r"^loaded: (?P<loaded>\d+) / (?P<total>\d+)$", re.MULTILINE)
 TEXT_LOADED_RE = re.compile(r"^text loaded: (?P<loaded>\d+) / (?P<total>\d+)$", re.MULTILINE)
+CAMERA_RE = re.compile(
+    r"^camera: projection=(?P<projection>\S+) parallax=(?P<parallax>true|false) "
+    r"amount=(?P<amount>[\d.]+) mouseInfluence=(?P<influence>[\d.]+)$",
+    re.MULTILINE,
+)
 
 
 def sha256(path: Path) -> str:
@@ -126,10 +132,15 @@ def run_sample(
     text_loaded_match = TEXT_LOADED_RE.search(preview_text)
     text_loaded = int(text_loaded_match.group("loaded")) if text_loaded_match else 0
     text_total = int(text_loaded_match.group("total")) if text_loaded_match else 0
+    camera_match = CAMERA_RE.search(preview_text)
     ready_snapshot = result_dir / "scene-ready-window.png"
     after_snapshot = result_dir / "scene-after-window.png"
     ready_non_black = png_has_non_black_pixel(ready_snapshot)
     after_non_black = png_has_non_black_pixel(after_snapshot)
+    flat_border_ratio = {
+        "ready": png_flat_border_ratio(ready_snapshot),
+        "after": png_flat_border_ratio(after_snapshot),
+    }
     motion = png_motion_metrics(ready_snapshot, after_snapshot)
 
     if timed_out:
@@ -144,6 +155,13 @@ def run_sample(
         failures.append("Scene surfaces not released")
     if "phase=snapshot-failed" in log_text:
         failures.append("window snapshot failed")
+    if camera_match is None or camera_match.group("projection") != "cover":
+        failures.append("camera projection evidence missing")
+    expected_parallax = sample.get("expected_camera_parallax")
+    if expected_parallax is not None:
+        actual_parallax = camera_match and camera_match.group("parallax") == "true"
+        if actual_parallax != bool(expected_parallax):
+            failures.append("camera parallax state mismatch")
     if loaded_ratio < float(sample.get("minimum_loaded_ratio", 0)):
         failures.append(f"loaded ratio {loaded_ratio:.3f} below minimum")
     if text_loaded < int(sample.get("minimum_text_loaded", 0)):
@@ -160,6 +178,15 @@ def run_sample(
         minimum_changed_ratio = float(sample.get("minimum_changed_ratio", 0))
         if motion is None or motion["changed_ratio"] < minimum_changed_ratio:
             failures.append("animated output evidence below minimum")
+    maximum_changed_ratio = sample.get("maximum_changed_ratio")
+    if maximum_changed_ratio is not None:
+        if motion is None or motion["changed_ratio"] > float(maximum_changed_ratio):
+            failures.append("static output evidence above maximum")
+    maximum_flat_border_ratio = sample.get("maximum_flat_border_ratio")
+    if maximum_flat_border_ratio is not None:
+        ratios = [value for value in flat_border_ratio.values() if value is not None]
+        if len(ratios) != 2 or max(ratios) > float(maximum_flat_border_ratio):
+            failures.append("flat border evidence above maximum")
 
     return {
         "id": sample_id,
@@ -179,6 +206,7 @@ def run_sample(
             "after_snapshot": str(after_snapshot),
             "ready_non_black": ready_non_black,
             "after_non_black": after_non_black,
+            "flat_border_ratio": flat_border_ratio,
             "motion": motion,
         },
         "runtime": {
@@ -191,6 +219,10 @@ def run_sample(
             "loaded_ratio": round(loaded_ratio, 4),
             "loaded_textures_text": text_loaded,
             "text_candidates": text_total,
+            "camera_projection": camera_match.group("projection") if camera_match else None,
+            "camera_parallax": camera_match.group("parallax") == "true" if camera_match else None,
+            "camera_parallax_amount": float(camera_match.group("amount")) if camera_match else None,
+            "camera_parallax_mouse_influence": float(camera_match.group("influence")) if camera_match else None,
             "offscreen_route_count": preview_text.count("offscreen skeleton"),
             "gaussian_blur_runtime_count": blur_runtime_count,
             "bloom_runtime_count": bloom_runtime_count,

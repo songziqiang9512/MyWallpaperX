@@ -328,9 +328,8 @@ struct SceneMetalRenderer {
 
     // MARK: - Matrix construction
 
-    // Computes the view * projection matrix from the scene camera, applying a
-    // "fit" (letterbox) aspect to the drawable so the entire ortho box is
-    // visible regardless of the viewport's aspect ratio.
+    // Computes a cover projection: preserve aspect and crop overflow so the
+    // Scene fills the drawable without exposing the camera clear color.
     //
     // Coordinate convention (inferred from samples):
     // - World origin is the bottom-left corner of the scene; main image
@@ -355,11 +354,9 @@ struct SceneMetalRenderer {
         let eyeOffset = SIMD3<Float>(camera.eye, fill: 0)
         let centerOffset = SIMD3<Float>(camera.center, fill: 0)
         let upDir = SIMD3<Float>(camera.up, fill: 0)
-        // Camera parallax: small lateral camera offset following the cursor.
-        // 4% of the ortho box is a subtle, non-disorienting amount; we always
-        // apply it (regardless of scene general.cameraparallax flag) so the
-        // preview gives obvious "alive" feedback when the user moves the mouse.
-        let parallaxScale: Float = 0.04
+        let parallaxScale = camera.parallaxEnabled
+            ? min(max(camera.parallaxAmount * camera.parallaxMouseInfluence * 0.04, 0), 0.04)
+            : 0
         let parallaxOffset = SIMD3<Float>(
             mouseNormalized.x * orthoW * parallaxScale,
             mouseNormalized.y * orthoH * parallaxScale,
@@ -369,25 +366,20 @@ struct SceneMetalRenderer {
         let center = sceneCenter + centerOffset + parallaxOffset
         let view = SceneMatrix.lookAt(eye: eye, center: center, up: upDir)
 
-        let drawableAspect = Float(viewportSize.width / viewportSize.height)
-        let sceneAspect = orthoW / orthoH
-
-        var halfW = orthoW / 2
-        var halfH = orthoH / 2
-        if drawableAspect > sceneAspect {
-            // Viewport is wider than the scene: expand horizontally for letterbox.
-            halfW = halfH * drawableAspect
-        } else {
-            halfH = halfW / drawableAspect
-        }
+        let halfExtents = SceneCameraProjection.coverHalfExtents(
+            orthoWidth: orthoW,
+            orthoHeight: orthoH,
+            viewportSize: viewportSize,
+            centerOffset: centerOffset
+        )
 
         // World is Y-down (see modelMatrix comment) so swap ortho top/bottom
         // to flip the Y axis on its way to Metal's Y-up NDC. The net effect:
         // world (0, 0) (top-left of the ortho box) lands at NDC (-1, +1)
         // (top-left of the drawable).
         let proj = SceneMatrix.ortho(
-            left: -halfW, right: halfW,
-            bottom: halfH, top: -halfH,
+            left: -halfExtents.x, right: halfExtents.x,
+            bottom: halfExtents.y, top: -halfExtents.y,
             near: camera.nearZ, far: camera.farZ
         )
         return proj * view

@@ -72,6 +72,12 @@ class WebBenchmarkCaptureTests(unittest.TestCase):
             self.assertFalse(capture.png_has_non_black_pixel(black))
             self.assertTrue(capture.png_has_non_black_pixel(visible))
 
+    def test_png_flat_border_ratio_detects_uniform_frame(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-capture-border-") as directory:
+            flat = Path(directory) / "flat.png"
+            write_rgb_png(flat, 128, 128, 128)
+            self.assertEqual(capture.png_flat_border_ratio(flat), 1.0)
+
     def test_png_motion_metrics_distinguish_identical_and_changed_pixels(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-capture-motion-") as directory:
             root = Path(directory)

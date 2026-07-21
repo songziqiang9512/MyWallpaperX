@@ -14,8 +14,8 @@ struct SceneInterpretationFile: Codable {
 }
 
 struct SceneInterpretationFileWriter {
-    // formatVersion 4 adds typed text style data for deterministic texture generation.
-    static let currentFormatVersion = 4
+    // formatVersion 5 adds typed text styles and camera parallax parameters.
+    static let currentFormatVersion = 5
 
     func write(
         renderDescriptor: SceneRenderDescriptor,

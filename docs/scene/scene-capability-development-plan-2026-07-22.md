@@ -32,6 +32,7 @@
 - model/material 摘要、解释文件、资源索引和缺口诊断；
 - PNG/JPEG、raw RGBA8、R8、BC1/BC3/BC5 与 MP4 payload 纹理路径；
 - Metal image layer 合成、父子 transform、source-order、alpha、正交相机和桌面多屏宿主；
+- 包内字体的静态 text layer 纹理化、父容器可见性传播、cover 投影和按 `general.cameraparallax` 参数启停的鼠标视差；
 - foliage/water/cursor/chromatic/iris/opacity 等手写效果子集及 mask 路径；
 - 多 pass 的 offscreen ping-pong 路由、coarse gaussian blur，以及 Bloom 的亮部提取、横纵模糊与 tint composite 真实 GPU pass；
 - Video/Web/Scene runtime 切换时的 Scene 宿主释放。
@@ -40,7 +41,7 @@
 
 - Scene 自动矩阵已扩至 7 个样本并覆盖 MP4 payload、particle layer、脚本密集场景和音频声明，但这些标签不代表对应高级能力已经渲染；
 - godrays/glitter/fluid/bokeh blur 等仍是 route-only；blur precise 也尚未实现真实数学；
-- text、particle、timeline、用户属性、SceneScript、puppet/mesh、音频响应和 built-in 资源未形成运行能力；
+- 动态 text/SceneScript、particle、timeline、用户属性、puppet/mesh、音频响应和 built-in 资源未形成完整运行能力；
 - 自定义 material/shader 只解析引用，不执行或转译；
 - Scene 未接入 pause/resume、fullscreen/battery、目标 FPS 和系统状态评估；
 - 已有签名身份、非黑双帧、动态像素和退出释放门；CPU/GPU/显存、性能退化和 soak 门仍未建立。
@@ -219,4 +220,13 @@ Wallpaper Engine 官方设计文档把 Scene 主要能力分为：
 - `3723230275` 的主图包含真实纹理和 16-pass Workshop Bloom；旧实现只做 identity ping-pong。现在 `SceneBloomPipeline` 执行 threshold、separable gaussian blur、tint/intensity composite，并保留此前 foliage 等内联效果结果。
 - 正式矩阵 **7/7 通过**。纹理加载率依次为 `100% / 50% / 12.12% / 83.33% / 100% / 100% / 50%`；六个动态样本 changed ratio 为 `7.38% / 38.88% / 44.29% / 10.72% / 12.66% / 18.52%`，静态样本为 `0%`。Bloom runtime 命中 1 层，Gaussian runtime 命中 1 层，所有样本 stop 后 surface 为 0。
 - 最终报告：`.codex/scene-bloom-full-matrix-final-20260722/report.json`。App 身份为 Team `H9QWU9XN8R`、CDHash `7e77a8aad22a6a94353394971a95d5973001556f`、版本 `2.0.8 (268)`、可执行文件 SHA-256 `5605fb190f8f66d68051800fa5d2295ea27c224bcf3cc1fb2f57cb9fa8ca7e5b`。
-- 低加载率样本是有意保留的兼容缺口证据，不是全能力通过。下一优先级应先补 built-in 资源与 text/container 基础语义，再让 `blurprecise`、SceneScript 属性绑定和音频可视化获得可渲染输入；bokeh/godrays 等后处理继续按有真实纹理的样本推进。
+- 低加载率样本是有意保留的兼容缺口证据，不是全能力通过。后续优先通用 effect/pass 合成、built-in 资源与 container 语义；样本只作为能力验收，不增加 ID/名称适配分支。
+
+## 11. 2026-07-22 文本与相机语义结果
+
+- 新增 typed text style 与 CoreText 纹理链，使用包内 TTF/OTF、point size、颜色/亮度、背景、padding 和对齐默认值；有效父链下 `3723230275` 为 3/3、`3723257973` 为 10/10、`3723344874` 为 4/4、`3724289844` 为 3/3。interpretation contract 升至 v5。
+- 文字目前渲染 descriptor 的静态 `value`，不执行未知 SceneScript；时钟、日期、属性绑定和音频驱动仍不会动态更新，不能据此声明脚本兼容。
+- 正交相机由 letterbox 改为 cover；对非零 camera center 保留作者构图，同时限制可见矩形在 Scene 边界内。静态样本 `3724095562` 的灰色边带消失，ready/after 变化率为 0，边缘单色占比从修复前 82.70% 降至 25.48%。
+- parallax 不再默认套用。正式矩阵逐项验证 `3723230275`、`3723257973` 为启用，其余五项为关闭，并记录 amount 与 mouse influence；静态样本增加最大动态像素门。
+- 最终 7 样本矩阵 **7/7 通过**，报告为 `.codex/scene-camera-semantics-final-20260722/report.json`。App 身份为 Team `H9QWU9XN8R`、CDHash `a43628baf354f21e6c8bfdbc629ef779d0d95816`、版本 `2.0.8 (268)`、可执行文件 SHA-256 `f7f0c5973a0d69412ecbfd63603671f35f6279da078a9cf1f4f0d1f5043f4a71`。
+- 下一阶段先推进通用 shader/effect pass 顺序、blend/composite 与 mask 语义，再处理动态属性和脚本子集；不得把所有效果默认打开，也不得按样本 ID 修图。

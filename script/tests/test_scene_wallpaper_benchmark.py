@@ -58,10 +58,15 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         )
         loaded = benchmark.LOADED_RE.search("loaded: 20 / 24")
         text_loaded = benchmark.TEXT_LOADED_RE.search("text loaded: 10 / 10")
+        camera = benchmark.CAMERA_RE.search(
+            "camera: projection=cover parallax=false amount=0.5 mouseInfluence=0.5"
+        )
         self.assertEqual(ready.group("images"), "24")
         self.assertEqual(stopped.group("after"), "0")
         self.assertEqual(loaded.group("loaded"), "20")
         self.assertEqual(text_loaded.group("loaded"), "10")
+        self.assertEqual(camera.group("projection"), "cover")
+        self.assertEqual(camera.group("parallax"), "false")
 
 
 if __name__ == "__main__":

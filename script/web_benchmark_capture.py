@@ -257,6 +257,34 @@ def png_has_non_black_pixel(path: Path, threshold: int = 2) -> bool:
     )
 
 
+def png_flat_border_ratio(
+    path: Path,
+    band: int = 12,
+    quantization: int = 8,
+) -> float | None:
+    decoded = _decode_png_rows(path)
+    if decoded is None:
+        return None
+    width, height, channels, color_channels, rows = decoded
+    thickness = max(1, min(band, width // 2, height // 2))
+    counts: dict[tuple[int, ...], int] = {}
+    total = 0
+    for y, row in enumerate(rows):
+        if y < thickness or y >= height - thickness:
+            x_values = range(width)
+        else:
+            x_values = (*range(thickness), *range(width - thickness, width))
+        for x in x_values:
+            offset = x * channels
+            color = tuple(
+                row[offset + channel] // quantization
+                for channel in range(color_channels)
+            )
+            counts[color] = counts.get(color, 0) + 1
+            total += 1
+    return max(counts.values(), default=0) / max(total, 1)
+
+
 def png_motion_metrics(
     first_path: Path,
     second_path: Path,

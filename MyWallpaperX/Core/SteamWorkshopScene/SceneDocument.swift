@@ -17,6 +17,9 @@ struct SceneDocument {
         let clearEnabled: Bool
         let nearZ: Float?
         let farZ: Float?
+        let cameraParallaxEnabled: Bool
+        let cameraParallaxAmount: Float
+        let cameraParallaxMouseInfluence: Float
     }
 
     struct ShaderValue: Codable {
@@ -139,13 +142,17 @@ struct SceneDocumentLoader {
         let clearEnabled = (root?["clearenabled"] as? Bool) ?? true
         let nearZ = root?["nearz"].flatMap { Self.floatValue($0) }
         let farZ = root?["farz"].flatMap { Self.floatValue($0) }
+        let cameraParallaxEnabled = visibleValue(root?["cameraparallax"]) ?? false
         return SceneDocument.GeneralDescriptor(
             orthoWidth: width,
             orthoHeight: height,
             clearColor: clearColor,
             clearEnabled: clearEnabled,
             nearZ: nearZ,
-            farZ: farZ
+            farZ: farZ,
+            cameraParallaxEnabled: cameraParallaxEnabled,
+            cameraParallaxAmount: root?["cameraparallaxamount"].flatMap(Self.floatValue) ?? 0,
+            cameraParallaxMouseInfluence: root?["cameraparallaxmouseinfluence"].flatMap(Self.floatValue) ?? 0
         )
     }
 
@@ -172,6 +179,7 @@ struct SceneDocumentLoader {
         if let d = value as? Double { return Float(d) }
         if let i = value as? Int { return Float(i) }
         if let s = value as? String, let f = Float(s) { return f }
+        if let keyed = value as? [String: Any] { return floatValue(keyed["value"]) }
         return nil
     }
 

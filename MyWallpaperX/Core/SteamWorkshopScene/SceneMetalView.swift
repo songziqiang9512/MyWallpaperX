@@ -160,9 +160,9 @@ class SceneMetalView: NSView {
         var loadedWaterMasks: [Int: MTLTexture] = [:]
         var loadedFoliageMasks: [Int: MTLTexture] = [:]
         report.append("Scene preview texture load report")
+        report.append("camera: projection=cover parallax=\(renderer.renderDescriptor.camera.parallaxEnabled) amount=\(renderer.renderDescriptor.camera.parallaxAmount) mouseInfluence=\(renderer.renderDescriptor.camera.parallaxMouseInfluence)")
         report.append("cacheDirectory: \(cacheDirectory.path)")
         report.append("imageLayerCount: \(renderer.renderDescriptor.layers.filter { $0.contentKind == "image" }.count)")
-        report.append("")
         for layer in renderer.renderDescriptor.layers where layer.contentKind == "image" {
             let name = layer.name ?? "(unnamed)"
             let placementSummary = renderer.debugPlacementSummary(for: layer)

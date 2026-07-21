@@ -15,6 +15,9 @@ struct SceneRenderDescriptor: Codable {
         let farZ: Float
         let clearColor: [Float]   // [r, g, b]
         let clearEnabled: Bool
+        let parallaxEnabled: Bool
+        let parallaxAmount: Float
+        let parallaxMouseInfluence: Float
     }
 
     struct EffectDescriptor: Identifiable, Codable {
@@ -239,7 +242,10 @@ struct SceneRenderDescriptorBuilder {
             nearZ: gen.nearZ ?? 0.01,
             farZ: gen.farZ ?? 10_000,
             clearColor: clear,
-            clearEnabled: gen.clearEnabled
+            clearEnabled: gen.clearEnabled,
+            parallaxEnabled: gen.cameraParallaxEnabled,
+            parallaxAmount: gen.cameraParallaxAmount,
+            parallaxMouseInfluence: gen.cameraParallaxMouseInfluence
         )
     }
 
