@@ -17,6 +17,7 @@ struct SceneMetalRenderer {
     let commandQueue: MTLCommandQueue
     let renderDescriptor: SceneRenderDescriptor
     private let gaussianBlurPipeline: SceneGaussianBlurPipeline
+    private let bloomPipeline: SceneBloomPipeline
 
     // Cached scene-graph world frames for every layer. Frames are
     // translate+rotate+userScale (no size-scale baked in) so parents propagate
@@ -27,13 +28,15 @@ struct SceneMetalRenderer {
     init?(renderDescriptor: SceneRenderDescriptor) {
         guard let device = MTLCreateSystemDefaultDevice(),
               let commandQueue = device.makeCommandQueue(),
-              let gaussianBlurPipeline = SceneGaussianBlurPipeline(device: device) else {
+              let gaussianBlurPipeline = SceneGaussianBlurPipeline(device: device),
+              let bloomPipeline = SceneBloomPipeline(device: device) else {
             return nil
         }
         self.device = device
         self.commandQueue = commandQueue
         self.renderDescriptor = renderDescriptor
         self.gaussianBlurPipeline = gaussianBlurPipeline
+        self.bloomPipeline = bloomPipeline
 
         let byID = Dictionary(uniqueKeysWithValues: renderDescriptor.layers.map { ($0.id, $0) })
         self.layersByID = byID
@@ -216,7 +219,7 @@ struct SceneMetalRenderer {
                let offscreenTexturePool,
                let offscreenPair = offscreenTexturePool.textures(for: texture) {
                 closeMainEncoder()
-                let finalTexture = renderLayerOffscreen(
+                let finalTexture = SceneOffscreenEffectRenderer.render(
                     sourceTexture: texture,
                     waterMaskTexture: waterMaskTexture,
                     foliageMaskTexture: foliageMaskTexture,
@@ -224,8 +227,11 @@ struct SceneMetalRenderer {
                     offscreenPair: offscreenPair,
                     offscreenPassCount: offscreenPassCount,
                     blurPlan: effectPlan.gaussianBlur,
+                    bloomPlan: effectPlan.bloom,
                     sourceUniforms: directUniforms,
                     pipeline: pipeline,
+                    gaussianBlurPipeline: gaussianBlurPipeline,
+                    bloomPipeline: bloomPipeline,
                     commandBuffer: commandBuffer
                 ) ?? texture
                 guard let encoder = ensureMainEncoder() else { continue }
@@ -291,89 +297,6 @@ struct SceneMetalRenderer {
         return SIMD2(u, v)
     }
 
-    // Resolves which inline effect approximations apply to a layer by
-    // matching directory names in its `effectFiles` (e.g. "effects/foliagesway/
-    // effect.json"). This is a stand-in for a real effect runtime — only the
-    // effects we have hand-written shader paths for are honored; everything
-    // else is silently ignored at this stage.
-    private func renderLayerOffscreen(
-        sourceTexture: MTLTexture,
-        waterMaskTexture: MTLTexture?,
-        foliageMaskTexture: MTLTexture?,
-        auxMaskTexture: MTLTexture?,
-        offscreenPair: SceneOffscreenTexturePool.Pair,
-        offscreenPassCount: Int,
-        blurPlan: SceneGaussianBlurPlan?,
-        sourceUniforms: SceneLayerFragmentUniforms,
-        pipeline: SceneImageLayerPipeline,
-        commandBuffer: MTLCommandBuffer
-    ) -> MTLTexture? {
-        guard let sourceEncoder = beginRenderEncoder(
-            commandBuffer: commandBuffer,
-            target: offscreenPair.primary,
-            loadAction: .clear,
-            clearColor: MTLClearColorMake(0, 0, 0, 0)
-        ) else {
-            return nil
-        }
-        pipeline.bind(encoder: sourceEncoder)
-        pipeline.drawLayer(
-            texture: sourceTexture,
-            shakeMaskTexture: nil,
-            waterMaskTexture: waterMaskTexture,
-            foliageMaskTexture: foliageMaskTexture,
-            auxMaskTexture: auxMaskTexture,
-            mvp: Self.fullTargetMVP,
-            uniforms: sourceUniforms,
-            encoder: sourceEncoder
-        )
-        sourceEncoder.endEncoding()
-
-        if let blurPlan {
-            guard gaussianBlurPipeline.encode(
-                source: offscreenPair.primary,
-                target: offscreenPair.secondary,
-                step: SIMD2(blurPlan.horizontalStep, 0),
-                commandBuffer: commandBuffer
-            ), gaussianBlurPipeline.encode(
-                source: offscreenPair.secondary,
-                target: offscreenPair.primary,
-                step: SIMD2(0, blurPlan.verticalStep),
-                commandBuffer: commandBuffer
-            ) else {
-                return offscreenPair.primary
-            }
-            return offscreenPair.primary
-        }
-
-        guard offscreenPassCount > 1,
-              let effectEncoder = beginRenderEncoder(
-                commandBuffer: commandBuffer,
-                target: offscreenPair.secondary,
-                loadAction: .clear,
-                clearColor: MTLClearColorMake(0, 0, 0, 0)
-              ) else {
-            return offscreenPair.primary
-        }
-
-        // Keep exactly one ping-pong hop alive for now so blur/bloom-style
-        // layers already exercise the offscreen route without pretending the
-        // actual per-pass shader math exists yet.
-        pipeline.bind(encoder: effectEncoder)
-        pipeline.drawLayer(
-            texture: offscreenPair.primary,
-            shakeMaskTexture: nil,
-            waterMaskTexture: nil,
-            foliageMaskTexture: nil,
-            auxMaskTexture: nil,
-            mvp: Self.fullTargetMVP,
-            uniforms: Self.neutralUniforms(alpha: 1),
-            encoder: effectEncoder
-        )
-        effectEncoder.endEncoding()
-        return offscreenPair.secondary
-    }
-
     private func beginRenderEncoder(
         commandBuffer: MTLCommandBuffer,
         target: MTLTexture,
@@ -387,8 +310,6 @@ struct SceneMetalRenderer {
         descriptor.colorAttachments[0].storeAction = .store
         return commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
     }
-
-    private static let fullTargetMVP = SceneMatrix.scale(SIMD3<Float>(2, 2, 1))
 
     private static func neutralUniforms(alpha: Float) -> SceneLayerFragmentUniforms {
         SceneLayerFragmentUniforms(

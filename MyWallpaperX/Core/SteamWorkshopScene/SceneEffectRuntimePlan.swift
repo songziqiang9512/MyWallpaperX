@@ -14,9 +14,18 @@ struct SceneGaussianBlurPlan {
     let verticalStep: Float
 }
 
+struct SceneBloomPlan {
+    let threshold: Float
+    let gamma: Float
+    let radius: Float
+    let intensity: Float
+    let tint: SIMD3<Float>
+}
+
 struct SceneEffectRuntimePlan {
     let inputs: SceneLayerEffectInputs
     let gaussianBlur: SceneGaussianBlurPlan?
+    let bloom: SceneBloomPlan?
     let offscreenPassCount: Int
     let skipDirectRender: Bool
 }
@@ -38,6 +47,7 @@ enum SceneEffectRuntimePlanner {
                 hasFoliageMask: hasFoliageMask
             ),
             gaussianBlur: gaussianBlurPlan(for: layer),
+            bloom: bloomPlan(for: layer),
             offscreenPassCount: offscreenPassCount(for: layer),
             skipDirectRender: shouldSkipDirectRender(for: layer)
         )
@@ -58,6 +68,9 @@ enum SceneEffectRuntimePlanner {
         if gaussianBlurPlan(for: layer) != nil {
             return "effect runtime gaussian-blur; \(passCount) declared pass(es)"
         }
+        if bloomPlan(for: layer) != nil {
+            return "effect runtime bloom; \(passCount) declared pass(es)"
+        }
         return "offscreen route-only; \(passCount) declared pass(es)"
     }
 
@@ -73,6 +86,27 @@ enum SceneEffectRuntimePlanner {
         let verticalPass = effect.passes.count > 2 ? effect.passes[2] : effect.passes.dropFirst().first
         let vertical = blurScale(in: verticalPass, component: 1)
         return SceneGaussianBlurPlan(horizontalStep: horizontal, verticalStep: vertical)
+    }
+
+    private static func bloomPlan(for layer: SceneRenderDescriptor.Layer) -> SceneBloomPlan? {
+        guard let effect = layer.effects.first(where: {
+            $0.visible != false && $0.file.localizedLowercase.contains("/bloom/")
+        }), let firstPass = effect.passes.first else {
+            return nil
+        }
+        let values = firstPass.constantShaderValues
+        let opacity = firstFloat(forKeys: ["opacity"], in: values, default: 1)
+        let strength = firstFloat(forKeys: ["strength"], in: values, default: 1)
+        let tintValues = effect.passes.reversed().lazy
+            .map { floatComponents(forKey: "tint", in: $0.constantShaderValues) }
+            .first(where: { !$0.isEmpty }) ?? [1, 1, 1]
+        return SceneBloomPlan(
+            threshold: min(max(firstFloat(forKeys: ["threshold"], in: values, default: 0.5), 0), 0.999),
+            gamma: min(max(firstFloat(forKeys: ["gamma"], in: values, default: 1), 0.1), 4),
+            radius: min(max(firstFloat(forKeys: ["radius"], in: values, default: 2), 0.5), 12),
+            intensity: min(max(opacity * strength, 0), 2),
+            tint: SIMD3(tintValues, fill: 1)
+        )
     }
 
     private static func blurScale(

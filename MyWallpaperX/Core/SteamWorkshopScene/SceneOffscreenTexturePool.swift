@@ -4,6 +4,7 @@ final class SceneOffscreenTexturePool {
     struct Pair {
         let primary: MTLTexture
         let secondary: MTLTexture
+        let tertiary: MTLTexture
     }
 
     private let device: MTLDevice
@@ -34,11 +35,12 @@ final class SceneOffscreenTexturePool {
         }
 
         guard let primary = makeTexture(width: width, height: height, label: "SceneOffscreenA \(key)"),
-              let secondary = makeTexture(width: width, height: height, label: "SceneOffscreenB \(key)") else {
+              let secondary = makeTexture(width: width, height: height, label: "SceneOffscreenB \(key)"),
+              let tertiary = makeTexture(width: width, height: height, label: "SceneOffscreenC \(key)") else {
             return nil
         }
 
-        let pair = Pair(primary: primary, secondary: secondary)
+        let pair = Pair(primary: primary, secondary: secondary, tertiary: tertiary)
         cachedPairs[key] = pair
         return pair
     }

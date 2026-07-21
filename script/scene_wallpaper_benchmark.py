@@ -145,6 +145,9 @@ def run_sample(
     blur_runtime_count = preview_text.count("effect runtime gaussian-blur")
     if blur_runtime_count < int(sample.get("minimum_gaussian_blur_runtime_count", 0)):
         failures.append("gaussian blur runtime count below minimum")
+    bloom_runtime_count = preview_text.count("effect runtime bloom")
+    if bloom_runtime_count < int(sample.get("minimum_bloom_runtime_count", 0)):
+        failures.append("bloom runtime count below minimum")
     if not ready_non_black or not after_non_black:
         failures.append("non-black window evidence missing")
     if sample.get("requires_motion"):
@@ -182,6 +185,7 @@ def run_sample(
             "loaded_ratio": round(loaded_ratio, 4),
             "offscreen_route_count": preview_text.count("offscreen skeleton"),
             "gaussian_blur_runtime_count": blur_runtime_count,
+            "bloom_runtime_count": bloom_runtime_count,
             "route_only_effect_count": preview_text.count("offscreen route-only"),
         },
     }
