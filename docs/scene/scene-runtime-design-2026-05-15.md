@@ -51,17 +51,17 @@ Steam 模块对接：
 
 文件：`<样本目录>/.mywallpaperx-scene-interpretation.json`（隐藏文件，与 `project.json` / `scene.pkg` 同级，对齐 Web 链路 `.mywallpaperx-web-analysis.json` 边界）。
 
-- `formatVersion = 6`（当前版本；包含 typed text/camera parallax 与 layer color blend mode）
+- `formatVersion = 7`（当前版本；包含 typed text/camera parallax、layer color blend mode，以及 effect/material nullable texture slots 与 shader combos）
 - 写入：`SceneDiagnosticsBuilder.build(rootURL:)` 每次都覆盖，**删除文件后下次诊断/预览自动重建**。
 - 读取：`SceneInterpretationFileReader` 严格校验版本，不兼容旧版本时由 builder 当场重生。
 - 大体积资源（材质、shader、`.tex` 等解包出来的几十 MB）仍在 `~/Library/Caches/MyWallpaperX/SteamWorkshopScene/<hash>/`，**不污染下载目录**。
 
-### `SceneRenderDescriptor` 字段约定（formatVersion 6）
+### `SceneRenderDescriptor` 字段约定（formatVersion 7）
 
 - `entryPath`、`camera` (eye/center/up + orthoWidth/orthoHeight + nearZ/farZ + clearColor + clearEnabled)
-- `layers[]`：id / layerIndex / name / contentKind (`image` / `particle` / `text` / `container`) / imagePath / particlePath / parentID / childLayerIDs / visible / alpha / colorBlendMode / **原始字符串 transform** (origin/size/scale/angles) / **数值 transform**（originXYZ/sizeWH/scaleXYZ/anglesXYZ）/ **modelCropOffsetXY**（来自 `models/*.json cropoffset`）/ text / hasInlineScript / effects (effect pass + typed constantShaderValues) / effectFiles / texturePaths
+- `layers[]`：id / layerIndex / name / contentKind (`image` / `particle` / `text` / `container`) / imagePath / particlePath / parentID / childLayerIDs / visible / alpha / colorBlendMode / **原始字符串 transform** (origin/size/scale/angles) / **数值 transform**（originXYZ/sizeWH/scaleXYZ/anglesXYZ）/ **modelCropOffsetXY**（来自 `models/*.json cropoffset`）/ text / hasInlineScript / effects（effect pass + typed constantShaderValues + texturePaths + 有序 nullable textureSlots + 整数 combos）/ effectFiles / texturePaths
 - `rootLayerIDs` / `renderOrderLayerIDs` / `renderOrderPolicy = "source-order"`
-- `modelMaterialLinks` / `materialPasses`（含 typed constantShaderValues）
+- `modelMaterialLinks` / `materialPasses`（含 typed constantShaderValues、兼容用 texturePaths、有序 nullable textureSlots 与整数 combos）
 - `shaderReferences` / `textureReferences` / `missingResources` / `builtInReferenceCount` / `firstStageRendererGaps`
 
 renderer 只消费这个结构。如果要扩字段，**bump `formatVersion`** 并在 reader 里更新版本校验。
@@ -139,7 +139,7 @@ CGContext 上传时**不要加** translateBy + scaleBy 翻转——`CGBitmapCont
 
 Mouse parallax 不是 effect，是 view-matrix 级别的相机偏移；只在 Scene general 声明启用时应用，并读取 amount 与 mouse influence。
 
-可见 coarse `blur` 与 `blurprecise` 已有横纵两次 9-tap gaussian GPU pass；Bloom 已有 threshold、blur 和 tint composite。默认 UV/repeat 的 perspective 与后续 opacity mask 已有 projective replacement pass，layer `colorBlendMode=9` 在最后使用 additive composite。`godrays` / `glitter` / `fluidsimulation` / `waterflow` 等仍没有真实 per-pass shader 数学；waterripple 仍是正弦近似，nullable texture slots、combos 和 normal map 绑定尚未完成。
+可见 coarse `blur` 与 `blurprecise` 已有横纵两次 9-tap gaussian GPU pass；Bloom 已有 threshold、blur 和 tint composite。默认 UV/repeat 的 perspective 与后续 opacity mask 已有 projective replacement pass，layer `colorBlendMode=9` 在最后使用 additive composite。nullable texture slots 与 combos 已保留到 v7 descriptor，但 renderer 尚未按它们执行通用材质 pass；`godrays` / `glitter` / `fluidsimulation` / `waterflow` 等仍没有真实 per-pass shader 数学，waterripple 仍是正弦近似，normal map 尚未进入采样路径。
 
 仍未实现但样本里出现的 effect：`audioline`（需音频输入）、复杂 `opacity` / `shadow` 语义、各种 workshop 自定义 shader 数学。
 

@@ -36,13 +36,14 @@
 - foliage/water/cursor/chromatic/iris/opacity 等手写效果子集及 mask 路径；
 - 多 pass 的 offscreen ping-pong 路由、coarse/precise gaussian blur，以及 Bloom 的亮部提取、横纵模糊与 tint composite 真实 GPU pass；
 - layer `colorBlendMode=9` additive 最终合成，以及默认 UV/repeat 语义的 perspective+opacity replacement pass；
+- interpretation v7 保留 effect/material pass 的有序 nullable texture slots 与整数 shader combos，同时保留旧 `texturePaths` 兼容消费方；
 - Video/Web/Scene runtime 切换时的 Scene 宿主释放。
 
 ### 尚未闭环
 
 - Scene 自动矩阵已扩至 7 个样本并覆盖 MP4 payload、particle layer、脚本密集场景和音频声明，但这些标签不代表对应高级能力已经渲染；
 - godrays/glitter/fluid/bokeh blur、shadow 和 waterflow 等仍未形成完整 pass 数学；waterripple 当前仍是正弦近似，尚未采样作者 normal map；
-- effect/material pass 的 nullable texture slots 与 combos 尚未进入 interpretation，因此非默认 perspective mode/repeat 和完整有序 pass executor 仍待实现；
+- nullable texture slots 与 combos 已进入 interpretation，但 renderer 尚未按这些元数据执行通用材质 pass；非默认 perspective mode/repeat 和完整有序 pass executor 仍待实现；
 - 动态 text/SceneScript、particle、timeline、用户属性、puppet/mesh、音频响应和 built-in 资源未形成完整运行能力；
 - 自定义 material/shader 只解析引用，不执行或转译；
 - Scene 未接入 pause/resume、fullscreen/battery、目标 FPS 和系统状态评估；
@@ -237,7 +238,7 @@ Wallpaper Engine 官方设计文档把 Scene 主要能力分为：
 
 - `blurprecise` 已接入与 coarse blur 共用的两遍 Gaussian GPU 路径；作者 `scale` 按像素半径解释，再按实际离屏纹理宽高归一化。`3724289844` 三个可见文字层分别读取 `0.43 / 1.33 / 1.28`，运行日志命中 3 层，不再记为 route-only。
 - `3723230275` 原有逻辑会按层名 `ripple` 和包含不可见 pulse 的效果列表跳过整层。直接取消跳过会暴露两张黑底纹理，因为该链还依赖未完整实现的 waterflow、waterripple、perspective 和 opacity 合成。
-- 中间版本先改成只检查可见 pass 的 capability gate；随后补齐 layer `colorBlendMode`、interpretation v6、真实 projective UV+opacity replacement pass 和 mode 9 additive final composite。两层现在均进入 runtime，`unsupported composite skipped` 从 2 降为 0，黑矩形消失。
+- 中间版本先改成只检查可见 pass 的 capability gate；随后补齐 layer `colorBlendMode`、真实 projective UV+opacity replacement pass 和 mode 9 additive final composite。两层现在均进入 runtime，`unsupported composite skipped` 从 2 降为 0，黑矩形消失。
 - 最新正式矩阵 **7/7 通过**；coarse blur 1 层、precise blur 3 层、Bloom 1 层、perspective-opacity 2 层、color blend mode 9 两层，fallback 为 0。报告保存在 `.codex/scene-perspective-blend-matrix-20260722/`。
 - 最新签名 App 身份为 Team `H9QWU9XN8R`、CDHash `7d2a5032b6cf1aa31ae9cb1b26cce8d976dcff04`、版本 `2.0.8 (268)`、可执行文件 SHA-256 `7a2689fd9cabc9f8610d1846538afb83e5a5ea97fd55e42c7ccfb3856f6d4bc5`；81 个脚本测试、签名 Debug build 和代码健康门通过。
 
@@ -245,4 +246,10 @@ Wallpaper Engine 官方设计文档把 Scene 主要能力分为：
 
 - 以“常见 2D Scene 能启动、铺满屏幕、保持主要图层与基础动态、可切换和可诊断”为目标，当前基础可用度约 **60% 到 70%**。
 - 以“接近 Wallpaper Engine 官方的视觉与行为兼容”为目标，当前约 **35% 到 45%**；差距集中在原始材质/pass 语义、SceneScript、timeline/property、粒子、音频、3D/puppet 和性能生命周期。
-- 下一批按可用收益排序：先保留 nullable texture slots/combos 并用作者 normal map 替换 waterripple 正弦近似，再补 waterflow；随后处理 shadow、godrays/glitter、用户属性、timeline 和 sprite 粒子。小幅视觉误差可后修，但整层缺失、错误默认效果、黑框和生命周期泄漏继续作为阻断项。
+- 下一批按可用收益排序：先按 v7 槽位与 combos 用作者 normal map 替换 waterripple 正弦近似，再补 waterflow；随后处理 shadow、godrays/glitter、用户属性、timeline 和 sprite 粒子。小幅视觉误差可后修，但整层缺失、错误默认效果、黑框和生命周期泄漏继续作为阻断项。
+
+## 13. 2026-07-22 pass 元数据合同结果
+
+- effect 实例 pass 与 material pass 现在同时保留有序 `textureSlots: [String?]` 和 `combos: [String: Int]`；原有去空的 `texturePaths` 继续存在，当前纹理加载和渲染路径没有行为变化。
+- interpretation 升至 v7。固定 SHA 的 `3723230275` 精确验收为 effect 37 槽/20 空洞/17 combo 条目、material 24 槽/8 空洞/12 combo 条目；`waterripple` 的 `[null, null, normal]` 与 `ripple.json` 的 `VERSION=2` 均已进入 renderer descriptor。
+- 最新正式矩阵 **7/7 通过**，报告为 `.codex/scene-v7-contract-matrix-20260722/report.json`。签名 App 为 Team `H9QWU9XN8R`、CDHash `64879014f3bf56763b127d0b5075cfeb0c468a30`、版本 `2.0.8 (268)`、可执行文件 SHA-256 `d9543c624e35e010a931acfe2ab12ee5664b2a799deeb2d62d22944678120b5a`；83 个脚本测试、签名 Debug build 和代码健康门通过。
