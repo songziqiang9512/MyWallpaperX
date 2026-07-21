@@ -37,12 +37,13 @@
 - 多 pass 的 offscreen ping-pong 路由、coarse/precise gaussian blur，以及 Bloom 的亮部提取、横纵模糊与 tint composite 真实 GPU pass；
 - layer `colorBlendMode=9` additive 最终合成，以及默认 UV/repeat 语义的 perspective+opacity replacement pass；
 - interpretation v7 保留 effect/material pass 的有序 nullable texture slots 与整数 shader combos，同时保留旧 `texturePaths` 兼容消费方；
+- 无 mask/specular 的 waterripple 按作者 T2 normal map、双 UV 采样、时间/方向/比例与 `strength²` 位移执行独立 GPU replacement pass；
 - Video/Web/Scene runtime 切换时的 Scene 宿主释放。
 
 ### 尚未闭环
 
 - Scene 自动矩阵已扩至 7 个样本并覆盖 MP4 payload、particle layer、脚本密集场景和音频声明，但这些标签不代表对应高级能力已经渲染；
-- godrays/glitter/fluid/bokeh blur、shadow 和 waterflow 等仍未形成完整 pass 数学；waterripple 当前仍是正弦近似，尚未采样作者 normal map；
+- godrays/glitter/fluid/bokeh blur、shadow 和 waterflow 等仍未形成完整 pass 数学；带 T1 mask 或 SPECULAR combo 的 waterripple 仍保留正弦近似，尚未进入真实 normal-map pass；
 - nullable texture slots 与 combos 已进入 interpretation，但 renderer 尚未按这些元数据执行通用材质 pass；非默认 perspective mode/repeat 和完整有序 pass executor 仍待实现；
 - 动态 text/SceneScript、particle、timeline、用户属性、puppet/mesh、音频响应和 built-in 资源未形成完整运行能力；
 - 自定义 material/shader 只解析引用，不执行或转译；
@@ -246,10 +247,17 @@ Wallpaper Engine 官方设计文档把 Scene 主要能力分为：
 
 - 以“常见 2D Scene 能启动、铺满屏幕、保持主要图层与基础动态、可切换和可诊断”为目标，当前基础可用度约 **60% 到 70%**。
 - 以“接近 Wallpaper Engine 官方的视觉与行为兼容”为目标，当前约 **35% 到 45%**；差距集中在原始材质/pass 语义、SceneScript、timeline/property、粒子、音频、3D/puppet 和性能生命周期。
-- 下一批按可用收益排序：先按 v7 槽位与 combos 用作者 normal map 替换 waterripple 正弦近似，再补 waterflow；随后处理 shadow、godrays/glitter、用户属性、timeline 和 sprite 粒子。小幅视觉误差可后修，但整层缺失、错误默认效果、黑框和生命周期泄漏继续作为阻断项。
+- 下一批按可用收益排序：先给 normal-map waterripple 补 T1 mask 语义，再实现位于其前面的 waterflow；随后处理 shadow、godrays/glitter、用户属性、timeline 和 sprite 粒子。小幅视觉误差可后修，但整层缺失、错误默认效果、黑框和生命周期泄漏继续作为阻断项。
 
 ## 13. 2026-07-22 pass 元数据合同结果
 
 - effect 实例 pass 与 material pass 现在同时保留有序 `textureSlots: [String?]` 和 `combos: [String: Int]`；原有去空的 `texturePaths` 继续存在，当前纹理加载和渲染路径没有行为变化。
 - interpretation 升至 v7。固定 SHA 的 `3723230275` 精确验收为 effect 37 槽/20 空洞/17 combo 条目、material 24 槽/8 空洞/12 combo 条目；`waterripple` 的 `[null, null, normal]` 与 `ripple.json` 的 `VERSION=2` 均已进入 renderer descriptor。
 - 最新正式矩阵 **7/7 通过**，报告为 `.codex/scene-v7-contract-matrix-20260722/report.json`。签名 App 为 Team `H9QWU9XN8R`、CDHash `64879014f3bf56763b127d0b5075cfeb0c468a30`、版本 `2.0.8 (268)`、可执行文件 SHA-256 `d9543c624e35e010a931acfe2ab12ee5664b2a799deeb2d62d22944678120b5a`；83 个脚本测试、签名 Debug build 和代码健康门通过。
+
+## 14. 2026-07-22 normal-map waterripple 结果
+
+- 新 runtime 按同一可见 waterripple pass 的 `textureSlots[2]` 绑定 normal map，使用作者 shader 的两组 UV、相反动画相位、方向滚动、source aspect、ratio 与 `ripplestrength²` 数学；normal 采样 repeat，source 采样 clamp。
+- 新 pass 激活时移除旧 `.waterwaves` 正弦 flag，执行顺序为 source → normal ripple → perspective+opacity → final blend，避免双重扰动或 perspective 重新读取旧 source。T1 mask 或 `MASK/SPECULAR=1` 尚未实现时不冒充支持，保留 legacy 路径。
+- 最终矩阵 **7/7 通过**。`3723230275` 两层均加载 `256×256` normal，normal runtime 2、legacy 0、perspective-opacity 2、mode 9 两层、fallback 0；`3724289844` 的 T1 mask 变体保持 normal runtime 0、legacy 1，precise blur 仍为 3。报告为 `.codex/scene-normal-ripple-final-matrix-20260722/report.json`。
+- 最终签名 App 为 Team `H9QWU9XN8R`、CDHash `1dcb8d87465cc9fd241bd10e6581694861267aa1`、版本 `2.0.8 (268)`、可执行文件 SHA-256 `5c47f37d35a370a0232a5a796e4e1d2403acd6cf2e92bb51132ef3f5026caac8`；83 个脚本测试、签名 Debug build 和代码健康门通过。`SceneMetalView` 已从历史 419 行降至 300 行并退出 legacy baseline，`SceneMetalRenderer` 基线从 454 收紧到 418。
