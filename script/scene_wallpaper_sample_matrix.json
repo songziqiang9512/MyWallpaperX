@@ -25,6 +25,7 @@
         "bloom_runtime",
         "text_runtime",
         "masked_layers",
+        "unsupported_composite_fallback",
         "audio_responsive_metadata",
         "animated_output"
       ],
@@ -33,6 +34,7 @@
       "minimum_loaded_ratio": 0.5,
       "minimum_bloom_runtime_count": 1,
       "minimum_text_loaded": 3,
+      "minimum_skipped_composite_count": 2,
       "expected_camera_parallax": true,
       "requires_motion": true,
       "minimum_changed_ratio": 0.0001

@@ -28,7 +28,7 @@ struct SceneEffectRuntimePlan {
     let gaussianBlur: SceneGaussianBlurPlan?
     let bloom: SceneBloomPlan?
     let offscreenPassCount: Int
-    let skipDirectRender: Bool
+    let skipsUnsupportedComposite: Bool
 }
 
 enum SceneEffectRuntimePlanner {
@@ -50,7 +50,7 @@ enum SceneEffectRuntimePlanner {
             gaussianBlur: gaussianBlurPlan(for: layer),
             bloom: bloomPlan(for: layer),
             offscreenPassCount: offscreenPassCount(for: layer),
-            skipDirectRender: shouldSkipDirectRender(for: layer)
+            skipsUnsupportedComposite: skipsUnsupportedComposite(for: layer)
         )
     }
 
@@ -64,6 +64,9 @@ enum SceneEffectRuntimePlanner {
     }
 
     static func runtimeSummary(for layer: SceneRenderDescriptor.Layer) -> String? {
+        if skipsUnsupportedComposite(for: layer) {
+            return "unsupported composite skipped; waterflow+waterripple+perspective+opacity"
+        }
         let passCount = offscreenPassCount(for: layer)
         guard passCount > 0 else { return nil }
         if gaussianBlurPlan(for: layer)?.usesPixelSteps == true {
@@ -252,14 +255,14 @@ enum SceneEffectRuntimePlanner {
         return values.first(where: { $0.key.localizedLowercase == lowerKey })?.value.components?.map(Float.init) ?? []
     }
 
-    private static func shouldSkipDirectRender(for layer: SceneRenderDescriptor.Layer) -> Bool {
-        guard layer.name?.localizedLowercase.contains("ripple") == true else { return false }
-        let effectSet = Set(layer.effectFiles.map(\.localizedLowercase))
-        return effectSet.contains(where: { $0.contains("opacity") })
-            && effectSet.contains(where: { $0.contains("perspective") })
-            && effectSet.contains(where: { $0.contains("pulse") })
-            && effectSet.contains(where: { $0.contains("waterflow") })
-            && effectSet.contains(where: { $0.contains("waterripple") })
+    private static func skipsUnsupportedComposite(for layer: SceneRenderDescriptor.Layer) -> Bool {
+        let visiblePaths = layer.effects.compactMap { effect -> String? in
+            guard effect.visible != false else { return nil }
+            return effect.file.localizedLowercase
+        }
+        return ["waterflow", "waterripple", "perspective", "opacity"].allSatisfy { fragment in
+            visiblePaths.contains(where: { $0.contains(fragment) })
+        }
     }
 
     private static func shouldRouteEffectOffscreen(path: String, passCount: Int) -> Bool {

@@ -197,7 +197,7 @@ struct SceneMetalRenderer {
                 hasWaterMask: waterMaskTexture != nil,
                 hasFoliageMask: foliageMaskTexture != nil
             )
-            guard effectPlan.skipDirectRender == false else { continue }
+            guard effectPlan.skipsUnsupportedComposite == false else { continue }
             let effectInputs = effectPlan.inputs
             let model = modelMatrix(for: layer)
             let mvp = viewProj * model
@@ -213,7 +213,6 @@ struct SceneMetalRenderer {
                 effectParams2: effectInputs.params2,
                 effectParams3: effectInputs.params3
             )
-
             let offscreenPassCount = effectPlan.offscreenPassCount
             if offscreenPassCount > 0,
                let offscreenTexturePool,
