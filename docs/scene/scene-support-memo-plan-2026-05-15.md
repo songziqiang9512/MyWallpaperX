@@ -1,5 +1,7 @@
 # Scene 壁纸支持 — 进度与下一阶段计划
 
+> 历史交接快照：正文保留 2026-05 至 2026-06 的实现过程和当时样本结论，不作为当前本地样本、自动门或下一步的现役答案。当前执行计划见 [`scene-capability-development-plan-2026-07-22.md`](./scene-capability-development-plan-2026-07-22.md)，当前能力结论见 [`../reviews/web-scene-current-state-roadmap-2026-07-19.md`](../reviews/web-scene-current-state-roadmap-2026-07-19.md)。
+>
 > 配套技术设计：[`scene-runtime-design-2026-05-15.md`](./scene-runtime-design-2026-05-15.md)。
 > 工程目标：在 MyWallpaperX 内做出一套可维护、可诊断、可扩展的**独立 Scene 播放系统**，与现有 Video / Web 链路完全区分。
 > 不承诺 100% 复刻 Wallpaper Engine。
@@ -76,7 +78,7 @@
 
 ### 1.3 当前样本覆盖情况
 
-8 个真实 Steam Workshop Scene 样本在 `~/Movies/MyWallpaperX/创意工坊/`：
+以下 8 个真实 Steam Workshop Scene 样本是历史交接时点记录；2026-07-22 真实 Workshop 的 `Scene/` 目录为空，现役自动门使用 `.codex` 隔离下载的 `3723344874` 与 `3724095562`：
 
 | 样本 ID | image layers | 可加载 | 主要阻塞 |
 |---|---|---|---|

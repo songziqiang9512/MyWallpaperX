@@ -1,6 +1,6 @@
 # Scene Runtime 技术设计
 
-> 最后整理：交接前快照。`progress` 一节描述当前实际状态，其余是不变的架构约定。
+> 最后整理：2026-07-22。现役实施顺序见 [`scene-capability-development-plan-2026-07-22.md`](./scene-capability-development-plan-2026-07-22.md)。
 
 ## 0. 总线结论
 
@@ -101,16 +101,18 @@ CGContext 上传时**不要加** translateBy + scaleBy 翻转——`CGBitmapCont
 ## 5. Metal 渲染管线
 
 - `SceneMatrix`：simd 矩阵工具（translation/scale/rotation/lookAt/ortho），右手系 + Metal [0,1] 深度 NDC。
-- `SceneMetalPipeline`：单一 textured-quad pipeline state（内嵌 MSL），含 effect flag fragment 分支。
+- `SceneMetalPipeline`：textured-quad pipeline state（内嵌 MSL），含 effect flag fragment 分支。
   - vertex buffer 0：unit quad 顶点（含 UV）
   - vertex buffer 1：MVP 4×4
   - fragment buffer 0：`SceneLayerFragmentUniforms`（time / alpha / effectFlags / cursorUV + effectParams0/1，64 字节）
   - fragment texture 1：可选的单张辅助 mask sampler（当前给 `iris` / `opacity` 复用；冲突时 `iris` 优先）
   - 混合：premultiplied source-over
 - `SceneOffscreenTexturePool`：按源纹理尺寸复用一对 ping-pong `MTLTexture`，最长边等比 clamp 到 `2048`，专供多 pass / post-process layer 的中间结果。
+- `SceneGaussianBlurPipeline`：coarse gaussian blur 的 9-tap separable Metal pipeline，先横向再纵向采样；typed scale 来自可见 `effects/blur/effect.json` pass，并做安全限幅。
+- `SceneEffectRuntimePlanner`：统一决定 inline flags、真实 gaussian blur 和仍为 route-only 的 offscreen effect，不再让 renderer 同时承担 effect 解析与 GPU 调度。
 - `SceneMetalRenderer`：
   - 预计算所有 layer 的 worldFrame（沿 parentID 链路组合 translate+rotate+userScale；size 单独应用，避免父 scale 重缩子 quad geometry）。
-  - 每帧：算 view+projection（含 4% mouse parallax 偏移）→ 按 `renderOrderLayerIDs` 顺序遍历 image layer → 算 model → 算 effectFlags → 直绘或走 `source -> offscreenA -> (optional offscreenB bounce) -> framebuffer`。
+  - 每帧：算 view+projection（含 4% mouse parallax 偏移）→ 按 `renderOrderLayerIDs` 顺序遍历 image layer → 算 model/effect plan → 直绘、真实 gaussian blur 或 route-only offscreen 路径 → framebuffer。
   - 主 framebuffer 不再假设“一帧只有一个 render encoder”；命中 offscreen layer 时会先结束主 encoder，跑完离屏 pass，再用 `loadAction = .load` 继续往同一 drawable 里画，保住原图层顺序。
   - clear color 用 scene `general.clearcolor`。
 - `SceneMetalView`：
@@ -118,7 +120,7 @@ CGContext 上传时**不要加** translateBy + scaleBy 翻转——`CGBitmapCont
   - 在 `init` / `setFrameSize` / `viewDidMoveToWindow` / `viewDidChangeBackingProperties` 都更新 `drawableSize`。
   - `Timer` 60fps 渲染循环，运行在 `.common` mode（菜单/拖拽时不停）。
   - `NSTrackingArea` 监听本地 mouse，归一化为 `[-1, +1]` 视图坐标；也支持宿主从 screen-space 主动注入鼠标位置。
-  - `loadImageLayers(from:logURL:)`：用 `SceneTexturePathResolver` 走 layer → model → material → texture name → 实际文件路径的链路；可选写一份逐 layer 加载报告到样本目录的 `.mywallpaperx-scene-preview-log.txt`，并标出哪些 layer 已进入 offscreen skeleton、命中的主纹理相对 cache 路径、辅助 mask 加载结果与 world placement 摘要。
+  - `loadImageLayers(from:logURL:)`：用 `SceneTexturePathResolver` 走 layer → model → material → texture name → 实际文件路径的链路；可选写逐 layer 报告，并明确区分 `effect runtime gaussian-blur` 与 `offscreen route-only`。
 - `SceneDesktopWallpaperHost`：
   - 每个 `NSScreen` 建一个透明 borderless `NSWindow`，level = `desktopWindow + 1`，contentView 挂 `SceneMetalView`，成为真实壁纸层。
   - 监听显示器变化重建 surfaces，监听 active space 变化后重新 `orderFrontRegardless()` 保持可见。
@@ -137,7 +139,7 @@ CGContext 上传时**不要加** translateBy + scaleBy 翻转——`CGBitmapCont
 
 Mouse parallax 不是 effect，是 view-matrix 级别的相机偏移，无条件应用。
 
-`blurprecise` / `bloom` / `blur` / `godrays` / `glitter` / `fluidsimulation` 等多 pass effect 现在已经能进入离屏骨架，但**还没有真实 per-pass shader 数学**；当前只是先把 render-to-texture / ping-pong / composite 的路径打通。`opacity` 仍在单辅助 mask 槽限制下工作；若同一 layer 同时需要多张不同 effect mask，当前不会尝试做多纹理联立还原。
+可见 coarse `blur` 已有横纵两次 9-tap gaussian GPU pass。`blurprecise` / `bloom` / `godrays` / `glitter` / `fluidsimulation` 等仍只有 route-only 离屏路径，**没有真实 per-pass shader 数学**。`opacity` 仍在单辅助 mask 槽限制下工作；若同一 layer 同时需要多张不同 effect mask，当前不会尝试做多纹理联立还原。
 
 仍未实现但样本里出现的 effect：`audioline`（需音频输入）、复杂 `opacity` / `shadow` 语义、各种 workshop 自定义 shader 数学。
 
@@ -169,6 +171,6 @@ Mouse parallax 不是 effect，是 view-matrix 级别的相机偏移，无条件
 - 禁止把 Scene 接入 WebView 或视频播放器作为兜底。
 - Scene 切入顺序必须是：先 launch `SceneDesktopWallpaperHost`，再广播 `.wallpaperRuntimeWillSwitch(kind: scene)`；反过来会让新宿主吃到自己的 observer 后立刻 stop。
 
-## 9. 当前 progress（交接时点）
+## 9. 当前 progress
 
-参见 `scene-support-memo-plan-2026-05-15.md` §当前状态。
+当前能力、样本证据和下一阶段以 `scene-capability-development-plan-2026-07-22.md` 与 Web/Scene 现状路线图为准；`scene-support-memo-plan-2026-05-15.md` 仅保留历史交接过程。

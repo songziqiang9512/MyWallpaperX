@@ -33,13 +33,13 @@
 - PNG/JPEG、raw RGBA8、R8、BC1/BC3/BC5 与 MP4 payload 纹理路径；
 - Metal image layer 合成、父子 transform、source-order、alpha、正交相机和桌面多屏宿主；
 - foliage/water/cursor/chromatic/iris/opacity 等手写效果子集及 mask 路径；
-- 多 pass 的 offscreen ping-pong 路由骨架；
+- 多 pass 的 offscreen ping-pong 路由，以及 coarse gaussian blur 的横纵两次真实 GPU pass；
 - Video/Web/Scene runtime 切换时的 Scene 宿主释放。
 
 ### 尚未闭环
 
-- 没有 Scene 自动化样本矩阵；旧 8 样本结果是历史手工证据，当前本地 Scene 目录为空；
-- offscreen blur/bloom/godrays/glitter 等仍是 identity bounce，没有真实 pass 数学；
+- 首批 Scene 自动矩阵只有 2 个样本，尚未覆盖计划要求的 MP4 texture、particle、脚本和音频声明；
+- bloom/godrays/glitter/fluid 等仍是 route-only；blur precise 也尚未实现真实数学；
 - text、particle、timeline、用户属性、SceneScript、puppet/mesh、音频响应和 built-in 资源未形成运行能力；
 - 自定义 material/shader 只解析引用，不执行或转译；
 - Scene 未接入 pause/resume、fullscreen/battery、目标 FPS 和系统状态评估；
@@ -177,9 +177,9 @@ Wallpaper Engine 官方设计文档把 Scene 主要能力分为：
 
 ## 8. 首轮实施
 
-### 问题
+### 问题（实施前）
 
-当前没有可自动启动和评估 Scene 的正式回归门；`3723344874` 的 blur/fluidsimulation/glitter/godrays layer 虽进入 offscreen skeleton，但 identity bounce 不产生对应视觉效果。
+实施前没有可自动启动和评估 Scene 的正式回归门；`3723344874` 的 blur/fluidsimulation/glitter/godrays layer 虽进入 offscreen skeleton，但 identity bounce 不产生对应视觉效果。
 
 ### 根因假设
 
@@ -202,3 +202,12 @@ Wallpaper Engine 官方设计文档把 Scene 主要能力分为：
 - blur pass 有确定性 GPU/像素或截图证据，不再标记 route-only；
 - 相关非 blur image/mask 路径无回归；
 - 脚本测试、代码健康和 Debug build 通过；每个独立问题单独提交。
+
+## 9. 2026-07-22 首轮结果
+
+- `DebugScenePlaybackRunner` 可从隔离 root 直启 Scene，并拒绝真实 Workshop 路径；Debug evidence 模式使用当前 Space 的可捕获窗口，不改变生产 desktop-level 窗口语义。
+- `scene_wallpaper_benchmark.py` 会隔离复制签名 App、样本和 HOME，校验样本 SHA-256、App 身份、ready、纹理加载率、非黑双帧、像素变化和 stop 后 surface=0。
+- SteamCMD App ID `431960` 下载并固化两个代表样本：`3723344874`（复杂多层/effect）与 `3724095562`（单图层直绘），二进制只保存在 `.codex`。
+- 当前两样本矩阵 **2/2 通过**。`3723344874` 为 35 layers / 24 image layers / 29 effects，20/24 主纹理加载，1 层真实 gaussian blur、2 层 route-only，两帧 changed ratio 10.60%；`3724095562` 为 1/1 主纹理、静态两帧一致。
+- 报告：`.codex/scene-benchmark-gaussian-blur-matrix2-20260722/report.json`。App 身份为 Team `H9QWU9XN8R`、CDHash `17d3751df90e55868ae1d2e0500682746026b665`、版本 `2.0.8 (268)`、可执行文件 SHA-256 `650da4e5ece48cd464c30ce6896aed908844aa0eef44474f546e5527a2bdc858`，运行前后验证一致。
+- 下一步：扩充 bloom/godrays 目标样本与 typed pass；并继续补 MP4、particle、SceneScript、音频声明样本，使 S0 从初始门扩展为代表矩阵。
