@@ -60,6 +60,7 @@ struct SceneRenderDescriptor: Codable {
         let anglesXYZ: [Float]?
         let modelCropOffsetXY: [Float]?
         let text: String?
+        let textStyle: SceneTextDescriptor?
         let hasInlineScript: Bool
         let effects: [EffectDescriptor]
         let effectFiles: [String]
@@ -148,6 +149,7 @@ struct SceneRenderDescriptorBuilder {
                     anglesXYZ: padVector(parseVector(object.angles), length: 3, fill: 0),
                     modelCropOffsetXY: object.imagePath.flatMap { modelCropOffsetsByPath[$0] } ?? nil,
                     text: object.text,
+                    textStyle: object.textStyle,
                     hasInlineScript: object.hasInlineScript,
                     effects: effectDescriptors(from: object),
                     effectFiles: object.effectFiles,

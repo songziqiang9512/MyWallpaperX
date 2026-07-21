@@ -22,6 +22,7 @@
       "capabilities": [
         "image_layers",
         "bloom_runtime",
+        "text_runtime",
         "masked_layers",
         "audio_responsive_metadata",
         "animated_output"
@@ -30,6 +31,7 @@
       "package_sha256": "3cc8802640ddfb7d0291d2dc1e0c35405b843e205a1497b006cf3149a2344525",
       "minimum_loaded_ratio": 0.5,
       "minimum_bloom_runtime_count": 1,
+      "minimum_text_loaded": 3,
       "requires_motion": true,
       "minimum_changed_ratio": 0.0001
     },
@@ -39,6 +41,7 @@
       "capabilities": [
         "large_scene_graph",
         "video_payload",
+        "text_runtime",
         "scene_script_heavy",
         "audio_responsive_metadata",
         "animated_output"
@@ -46,6 +49,7 @@
       "project_sha256": "a702a1425b0dd21e15724837af1379411342c643be5f7e7c223f47f6a2c65bad",
       "package_sha256": "83008e01fb04baca8ae752271bf06b61ce34d40e6a59789a4b587fe3225c0301",
       "minimum_loaded_ratio": 0.12,
+      "minimum_text_loaded": 10,
       "requires_motion": true,
       "minimum_changed_ratio": 0.0001
     },

@@ -54,6 +54,7 @@ struct SceneDocument {
         let scale: String?
         let angles: String?
         let text: String?
+        let textStyle: SceneTextDescriptor?
         let hasInlineScript: Bool
         let effects: [SceneEffect]
         let effectFiles: [String]
@@ -180,6 +181,7 @@ struct SceneDocumentLoader {
         let parsedEffects = effects.compactMap(Self.parseEffect)
         let effectFiles = parsedEffects.map(\.file)
         let texturePaths = effects.flatMap(Self.effectTexturePaths)
+        let text = textValue(root["text"])
 
         return SceneDocument.SceneObject(
             id: id,
@@ -193,7 +195,8 @@ struct SceneDocumentLoader {
             size: stringValue(root["size"]),
             scale: stringValue(root["scale"]),
             angles: stringValue(root["angles"]),
-            text: textValue(root["text"]),
+            text: text,
+            textStyle: text == nil ? nil : SceneTextDescriptor.parse(root),
             hasInlineScript: containsInlineScript(root),
             effects: parsedEffects,
             effectFiles: uniqueSorted(effectFiles),

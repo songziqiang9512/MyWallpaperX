@@ -8,7 +8,7 @@
   "legacyFiles": {
     "MyWallpaperX/App/MainWindowCoordinator.swift": 628,
     "MyWallpaperX/Core/SteamWorkshopScene/SceneMetalRenderer.swift": 463,
-    "MyWallpaperX/Core/SteamWorkshopScene/SceneMetalView.swift": 421,
+    "MyWallpaperX/Core/SteamWorkshopScene/SceneMetalView.swift": 419,
     "MyWallpaperX/Core/SteamWorkshopScene/SceneTextureLoader.swift": 436,
     "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+BootstrapResourceRewriting.swift": 426,
     "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+HostBridge.swift": 665,

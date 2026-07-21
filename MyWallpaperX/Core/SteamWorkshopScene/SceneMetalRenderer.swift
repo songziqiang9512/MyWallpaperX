@@ -18,10 +18,9 @@ struct SceneMetalRenderer {
     let renderDescriptor: SceneRenderDescriptor
     private let gaussianBlurPipeline: SceneGaussianBlurPipeline
     private let bloomPipeline: SceneBloomPipeline
+    private let visibleLayerIDs: Set<Int>
 
-    // Cached scene-graph world frames for every layer. Frames are
-    // translate+rotate+userScale (no size-scale baked in) so parents propagate
-    // pivot/orientation without double-scaling child quads.
+    // Cached transforms propagate parent pivot/orientation without double-scaling child quads.
     private let worldFramesByLayerID: [Int: simd_float4x4]
     private let layersByID: [Int: SceneRenderDescriptor.Layer]
 
@@ -37,6 +36,7 @@ struct SceneMetalRenderer {
         self.renderDescriptor = renderDescriptor
         self.gaussianBlurPipeline = gaussianBlurPipeline
         self.bloomPipeline = bloomPipeline
+        self.visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: renderDescriptor)
 
         let byID = Dictionary(uniqueKeysWithValues: renderDescriptor.layers.map { ($0.id, $0) })
         self.layersByID = byID
@@ -182,8 +182,8 @@ struct SceneMetalRenderer {
             mainEncoder = nil
         }
 
-        for layer in orderedLayers where layer.contentKind == "image" {
-            guard layer.visible != false else { continue }
+        for layer in orderedLayers where layer.contentKind == "image" || layer.contentKind == "text" {
+            guard visibleLayerIDs.contains(layer.id) else { continue }
             guard let texture = imageTextures[layer.id] else { continue }
             let irisMaskTexture = irisMaskTextures[layer.id]
             let opacityMaskTexture = opacityMaskTextures[layer.id]

@@ -2,12 +2,7 @@ import AppKit
 import Metal
 import QuartzCore
 
-// Layer-hosting NSView that drives SceneMetalRenderer via a 60fps timer.
-// Uses CAMetalLayer set directly as the view's layer (not via makeBackingLayer)
-// so the layer exists immediately after init and drawableSize can be primed
-// before the first nextDrawable() call. makeBackingLayer is lazy and would
-// leave drawableSize at zero until first layout, causing nextDrawable to
-// return nil and producing a black window.
+// Layer-hosting NSView that drives SceneMetalRenderer through a CAMetalLayer.
 class SceneMetalView: NSView {
     private let metalDevice: MTLDevice
     private let renderer: SceneMetalRenderer
@@ -266,6 +261,9 @@ class SceneMetalView: NSView {
             }
         }
         imageTextures = loaded
+        let textLoad = SceneTextTextureLoader.load(descriptor: renderer.renderDescriptor, cacheDirectory: cacheDirectory, device: metalDevice)
+        imageTextures.merge(textLoad.textures) { _, incoming in incoming }
+        report.append(contentsOf: textLoad.messages)
         videoTextureSources = loadedVideoSources
         irisMaskTextures = loadedIrisMasks
         opacityMaskTextures = loadedOpacityMasks

@@ -57,9 +57,11 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "MWX DEBUG SCENE: phase=stopped surfacesBefore=1 surfacesAfter=0"
         )
         loaded = benchmark.LOADED_RE.search("loaded: 20 / 24")
+        text_loaded = benchmark.TEXT_LOADED_RE.search("text loaded: 10 / 10")
         self.assertEqual(ready.group("images"), "24")
         self.assertEqual(stopped.group("after"), "0")
         self.assertEqual(loaded.group("loaded"), "20")
+        self.assertEqual(text_loaded.group("loaded"), "10")
 
 
 if __name__ == "__main__":

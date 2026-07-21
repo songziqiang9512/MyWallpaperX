@@ -14,9 +14,8 @@ struct SceneInterpretationFile: Codable {
 }
 
 struct SceneInterpretationFileWriter {
-    // formatVersion 3: layer modelCropOffsetXY carries models/*.json
-    // cropoffset so the renderer can position cropped textures correctly.
-    static let currentFormatVersion = 3
+    // formatVersion 4 adds typed text style data for deterministic texture generation.
+    static let currentFormatVersion = 4
 
     func write(
         renderDescriptor: SceneRenderDescriptor,

@@ -30,6 +30,7 @@ READY_RE = re.compile(
 )
 STOPPED_RE = re.compile(r"phase=stopped surfacesBefore=(?P<before>\d+) surfacesAfter=(?P<after>\d+)")
 LOADED_RE = re.compile(r"^loaded: (?P<loaded>\d+) / (?P<total>\d+)$", re.MULTILINE)
+TEXT_LOADED_RE = re.compile(r"^text loaded: (?P<loaded>\d+) / (?P<total>\d+)$", re.MULTILINE)
 
 
 def sha256(path: Path) -> str:
@@ -122,6 +123,9 @@ def run_sample(
     loaded = int(loaded_match.group("loaded")) if loaded_match else 0
     total = int(loaded_match.group("total")) if loaded_match else 0
     loaded_ratio = loaded / total if total else 0.0
+    text_loaded_match = TEXT_LOADED_RE.search(preview_text)
+    text_loaded = int(text_loaded_match.group("loaded")) if text_loaded_match else 0
+    text_total = int(text_loaded_match.group("total")) if text_loaded_match else 0
     ready_snapshot = result_dir / "scene-ready-window.png"
     after_snapshot = result_dir / "scene-after-window.png"
     ready_non_black = png_has_non_black_pixel(ready_snapshot)
@@ -142,6 +146,8 @@ def run_sample(
         failures.append("window snapshot failed")
     if loaded_ratio < float(sample.get("minimum_loaded_ratio", 0)):
         failures.append(f"loaded ratio {loaded_ratio:.3f} below minimum")
+    if text_loaded < int(sample.get("minimum_text_loaded", 0)):
+        failures.append("text texture count below minimum")
     blur_runtime_count = preview_text.count("effect runtime gaussian-blur")
     if blur_runtime_count < int(sample.get("minimum_gaussian_blur_runtime_count", 0)):
         failures.append("gaussian blur runtime count below minimum")
@@ -183,6 +189,8 @@ def run_sample(
             "loaded_textures": loaded,
             "texture_candidates": total,
             "loaded_ratio": round(loaded_ratio, 4),
+            "loaded_textures_text": text_loaded,
+            "text_candidates": text_total,
             "offscreen_route_count": preview_text.count("offscreen skeleton"),
             "gaussian_blur_runtime_count": blur_runtime_count,
             "bloom_runtime_count": bloom_runtime_count,
