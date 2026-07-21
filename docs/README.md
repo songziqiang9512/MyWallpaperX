@@ -6,6 +6,7 @@
 
 - [architecture/framework-architecture-memo.md](architecture/framework-architecture-memo.md)：截至 2026-05-05 的框架结构、公共协议和模块边界基线；使用前需与当前代码核对。
 - [reviews/web-scene-current-state-roadmap-2026-07-19.md](reviews/web-scene-current-state-roadmap-2026-07-19.md)：Web / Scene 当前能力、验证结果、闭环边界和后续路线。
+- [scene/scene-capability-development-plan-2026-07-22.md](scene/scene-capability-development-plan-2026-07-22.md)：Scene 对齐 Wallpaper Engine 常用播放能力的现役实施顺序、样本规范和测试门。
 - [architecture/project-working-memory.md](architecture/project-working-memory.md)：截至 2026-05-17 的 AppKit / Steam 协作快照；使用前需与当前代码核对。
 - [web/README.md](web/README.md)：Web 壁纸专题入口。
 - [agents/README.md](agents/README.md)：多 Agent 协作与角色入口。
