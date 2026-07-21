@@ -175,6 +175,16 @@ def run_sample(
     skipped_composite_count = preview_text.count("unsupported composite skipped;")
     if skipped_composite_count < int(sample.get("minimum_skipped_composite_count", 0)):
         failures.append("unsupported composite fallback count below minimum")
+    maximum_skipped_composite_count = sample.get("maximum_skipped_composite_count")
+    if maximum_skipped_composite_count is not None:
+        if skipped_composite_count > int(maximum_skipped_composite_count):
+            failures.append("unsupported composite fallback count above maximum")
+    perspective_opacity_count = preview_text.count("effect runtime perspective-opacity;")
+    if perspective_opacity_count < int(sample.get("minimum_perspective_opacity_runtime_count", 0)):
+        failures.append("perspective opacity runtime count below minimum")
+    color_blend_mode_9_count = preview_text.count("layer color blend mode=9")
+    if color_blend_mode_9_count < int(sample.get("minimum_color_blend_mode_9_count", 0)):
+        failures.append("layer color blend mode 9 count below minimum")
     bloom_runtime_count = preview_text.count("effect runtime bloom")
     if bloom_runtime_count < int(sample.get("minimum_bloom_runtime_count", 0)):
         failures.append("bloom runtime count below minimum")
@@ -233,6 +243,8 @@ def run_sample(
             "gaussian_blur_runtime_count": blur_runtime_count,
             "precise_blur_runtime_count": precise_blur_runtime_count,
             "skipped_unsupported_composite_count": skipped_composite_count,
+            "perspective_opacity_runtime_count": perspective_opacity_count,
+            "color_blend_mode_9_count": color_blend_mode_9_count,
             "bloom_runtime_count": bloom_runtime_count,
             "route_only_effect_count": preview_text.count("offscreen route-only"),
         },

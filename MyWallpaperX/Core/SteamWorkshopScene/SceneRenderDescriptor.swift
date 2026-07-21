@@ -48,6 +48,7 @@ struct SceneRenderDescriptor: Codable {
         let childLayerIDs: [Int]
         let visible: Bool?
         let alpha: Double?
+        let colorBlendMode: Int?
         let origin: String?
         let size: String?
         let scale: String?
@@ -142,6 +143,7 @@ struct SceneRenderDescriptorBuilder {
                     childLayerIDs: childIDsByParentID[object.id] ?? [],
                     visible: object.visible,
                     alpha: object.alpha,
+                    colorBlendMode: object.colorBlendMode,
                     origin: object.origin,
                     size: object.size,
                     scale: object.scale,

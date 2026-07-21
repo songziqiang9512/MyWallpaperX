@@ -2,33 +2,25 @@ import Metal
 import QuartzCore
 import simd
 
-struct SceneMetalRendererDiagnostic {
-    let imageLayerCount: Int
-    let particleLayerCount: Int
-    let textLayerCount: Int
-    let containerLayerCount: Int
-    let effectPassCount: Int
-    let materialPassCount: Int
-    let rendererGaps: [String]
-}
-
 struct SceneMetalRenderer {
     let device: MTLDevice
     let commandQueue: MTLCommandQueue
     let renderDescriptor: SceneRenderDescriptor
     private let gaussianBlurPipeline: SceneGaussianBlurPipeline
     private let bloomPipeline: SceneBloomPipeline
+    private let perspectiveOpacityPipeline: ScenePerspectiveOpacityPipeline
+    private let additivePipeline: SceneImageLayerPipeline
     private let visibleLayerIDs: Set<Int>
-
     // Cached transforms propagate parent pivot/orientation without double-scaling child quads.
     private let worldFramesByLayerID: [Int: simd_float4x4]
     private let layersByID: [Int: SceneRenderDescriptor.Layer]
-
     init?(renderDescriptor: SceneRenderDescriptor) {
         guard let device = MTLCreateSystemDefaultDevice(),
               let commandQueue = device.makeCommandQueue(),
               let gaussianBlurPipeline = SceneGaussianBlurPipeline(device: device),
-              let bloomPipeline = SceneBloomPipeline(device: device) else {
+              let bloomPipeline = SceneBloomPipeline(device: device),
+              let perspectiveOpacityPipeline = ScenePerspectiveOpacityPipeline(device: device),
+              let additivePipeline = SceneImageLayerPipeline(device: device, blendMode: .additive) else {
             return nil
         }
         self.device = device
@@ -36,6 +28,8 @@ struct SceneMetalRenderer {
         self.renderDescriptor = renderDescriptor
         self.gaussianBlurPipeline = gaussianBlurPipeline
         self.bloomPipeline = bloomPipeline
+        self.perspectiveOpacityPipeline = perspectiveOpacityPipeline
+        self.additivePipeline = additivePipeline
         self.visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: renderDescriptor)
 
         let byID = Dictionary(uniqueKeysWithValues: renderDescriptor.layers.map { ($0.id, $0) })
@@ -227,14 +221,18 @@ struct SceneMetalRenderer {
                     offscreenPassCount: offscreenPassCount,
                     blurPlan: effectPlan.gaussianBlur,
                     bloomPlan: effectPlan.bloom,
+                    perspectiveOpacityPlan: effectPlan.perspectiveOpacity,
                     sourceUniforms: directUniforms,
                     pipeline: pipeline,
                     gaussianBlurPipeline: gaussianBlurPipeline,
                     bloomPipeline: bloomPipeline,
+                    perspectiveOpacityPipeline: perspectiveOpacityPipeline,
                     commandBuffer: commandBuffer
                 ) ?? texture
                 guard let encoder = ensureMainEncoder() else { continue }
-                pipeline.drawLayer(
+                let compositePipeline = layer.colorBlendMode == 9 ? additivePipeline : pipeline
+                compositePipeline.bind(encoder: encoder)
+                compositePipeline.drawLayer(
                     texture: finalTexture,
                     shakeMaskTexture: nil,
                     waterMaskTexture: nil,
@@ -248,7 +246,9 @@ struct SceneMetalRenderer {
             }
 
             guard let encoder = ensureMainEncoder() else { continue }
-            pipeline.drawLayer(
+            let compositePipeline = layer.colorBlendMode == 9 ? additivePipeline : pipeline
+            compositePipeline.bind(encoder: encoder)
+            compositePipeline.drawLayer(
                 texture: texture,
                 shakeMaskTexture: nil,
                 waterMaskTexture: waterMaskTexture,

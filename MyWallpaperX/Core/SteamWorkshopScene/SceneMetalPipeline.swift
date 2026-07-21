@@ -9,6 +9,11 @@ struct SceneQuadVertex {
     var texcoord: SIMD2<Float>
 }
 
+enum SceneLayerBlendMode {
+    case sourceOver
+    case additive
+}
+
 // Bitmask of effects the fragment shader applies inline. Each bit toggles a
 // hand-written shader path that approximates the corresponding Wallpaper
 // Engine effect. These are not faithful HLSL→MSL translations, just minimal
@@ -237,7 +242,11 @@ struct SceneImageLayerPipeline {
         SceneQuadVertex(position: SIMD2( 0.5,  0.5), texcoord: SIMD2(1, 0))
     ]
 
-    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {
+    init?(
+        device: MTLDevice,
+        pixelFormat: MTLPixelFormat = .bgra8Unorm,
+        blendMode: SceneLayerBlendMode = .sourceOver
+    ) {
         let options = MTLCompileOptions()
         guard let library = try? device.makeLibrary(source: imageLayerShaderSource, options: options),
               let vertFn = library.makeFunction(name: "sceneImageLayerVert"),
@@ -251,7 +260,7 @@ struct SceneImageLayerPipeline {
         // premultipliedLast, so rgb is already alpha-scaled.
         descriptor.colorAttachments[0].isBlendingEnabled = true
         descriptor.colorAttachments[0].sourceRGBBlendFactor = .one
-        descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+        descriptor.colorAttachments[0].destinationRGBBlendFactor = blendMode == .additive ? .one : .oneMinusSourceAlpha
         descriptor.colorAttachments[0].sourceAlphaBlendFactor = .one
         descriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
 

@@ -14,8 +14,8 @@ struct SceneInterpretationFile: Codable {
 }
 
 struct SceneInterpretationFileWriter {
-    // formatVersion 5 adds typed text styles and camera parallax parameters.
-    static let currentFormatVersion = 5
+    // formatVersion 6 adds per-layer color blend mode.
+    static let currentFormatVersion = 6
 
     func write(
         renderDescriptor: SceneRenderDescriptor,

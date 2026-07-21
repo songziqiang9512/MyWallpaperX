@@ -27,6 +27,7 @@ struct SceneEffectRuntimePlan {
     let inputs: SceneLayerEffectInputs
     let gaussianBlur: SceneGaussianBlurPlan?
     let bloom: SceneBloomPlan?
+    let perspectiveOpacity: ScenePerspectiveOpacityPlan?
     let offscreenPassCount: Int
     let skipsUnsupportedComposite: Bool
 }
@@ -39,18 +40,23 @@ enum SceneEffectRuntimePlanner {
         hasWaterMask: Bool,
         hasFoliageMask: Bool
     ) -> SceneEffectRuntimePlan {
-        SceneEffectRuntimePlan(
+        let perspectiveOpacity = perspectiveOpacityPlan(
+            for: layer,
+            hasOpacityMask: hasOpacityMask
+        )
+        return SceneEffectRuntimePlan(
             inputs: effectInputs(
                 for: layer,
                 hasIrisMask: hasIrisMask,
-                hasOpacityMask: hasOpacityMask,
+                hasOpacityMask: hasOpacityMask && perspectiveOpacity == nil,
                 hasWaterMask: hasWaterMask,
                 hasFoliageMask: hasFoliageMask
             ),
             gaussianBlur: gaussianBlurPlan(for: layer),
             bloom: bloomPlan(for: layer),
+            perspectiveOpacity: perspectiveOpacity,
             offscreenPassCount: offscreenPassCount(for: layer),
-            skipsUnsupportedComposite: skipsUnsupportedComposite(for: layer)
+            skipsUnsupportedComposite: skipsUnsupportedComposite(for: layer) && perspectiveOpacity == nil
         )
     }
 
@@ -64,6 +70,9 @@ enum SceneEffectRuntimePlanner {
     }
 
     static func runtimeSummary(for layer: SceneRenderDescriptor.Layer) -> String? {
+        if perspectiveOpacityPlan(for: layer, hasOpacityMask: true) != nil {
+            return "effect runtime perspective-opacity; layer color blend mode=\(layer.colorBlendMode ?? 0)"
+        }
         if skipsUnsupportedComposite(for: layer) {
             return "unsupported composite skipped; waterflow+waterripple+perspective+opacity"
         }
@@ -132,6 +141,66 @@ enum SceneEffectRuntimePlanner {
             intensity: min(max(opacity * strength, 0), 2),
             tint: SIMD3(tintValues, fill: 1)
         )
+    }
+
+    private static func perspectiveOpacityPlan(
+        for layer: SceneRenderDescriptor.Layer,
+        hasOpacityMask: Bool
+    ) -> ScenePerspectiveOpacityPlan? {
+        guard hasOpacityMask else { return nil }
+        let visibleEffects = layer.effects.filter { $0.visible != false }
+        guard let perspectiveIndex = visibleEffects.firstIndex(where: {
+            $0.file.localizedLowercase.contains("perspective")
+        }), let opacityIndex = visibleEffects.firstIndex(where: {
+            $0.file.localizedLowercase.contains("opacity")
+        }), perspectiveIndex < opacityIndex,
+        let perspectivePass = visibleEffects[perspectiveIndex].passes.first,
+        let opacityPass = visibleEffects[opacityIndex].passes.first else {
+            return nil
+        }
+
+        let values = perspectivePass.constantShaderValues
+        let edges = SIMD4<Float>(
+            clampedPerspectiveEdge(firstFloat(forKeys: ["top"], in: values, default: 0)),
+            clampedPerspectiveEdge(firstFloat(forKeys: ["bottom"], in: values, default: 0)),
+            clampedPerspectiveEdge(firstFloat(forKeys: ["left"], in: values, default: 0)),
+            clampedPerspectiveEdge(firstFloat(forKeys: ["right"], in: values, default: 0))
+        )
+        guard let weights = perspectiveWeights(edges: edges) else { return nil }
+        let opacity = min(max(
+            firstFloat(forKeys: ["alpha"], in: opacityPass.constantShaderValues, default: 1),
+            0
+        ), 1)
+        return ScenePerspectiveOpacityPlan(edges: edges, weights: weights, opacity: opacity)
+    }
+
+    private static func clampedPerspectiveEdge(_ value: Float) -> Float {
+        guard value.isFinite else { return 0 }
+        return min(max(value, -0.49), 0.49)
+    }
+
+    private static func perspectiveWeights(edges: SIMD4<Float>) -> SIMD4<Float>? {
+        let top = edges.x
+        let bottom = edges.y
+        let left = edges.z
+        let right = edges.w
+        let p3 = SIMD2(top, left)
+        let p2 = SIMD2(1 - top, right)
+        let p1 = SIMD2(1 - bottom, 1 - right)
+        let p0 = SIMD2(bottom, 1 - left)
+        let a = p2 - p0
+        let b = p3 - p1
+        let c = p0 - p1
+        let cross = a.x * b.y - a.y * b.x
+        guard cross.isFinite, abs(cross) >= 0.00001 else { return nil }
+        let s = (a.x * c.y - a.y * c.x) / cross
+        let t = (b.x * c.y - b.y * c.x) / cross
+        guard s.isFinite, t.isFinite,
+              s > 0.00001, s < 0.99999,
+              t > 0.00001, t < 0.99999 else {
+            return nil
+        }
+        return SIMD4(1 / (1 - t), 1 / (1 - s), 1 / t, 1 / s)
     }
 
     private static func blurScale(

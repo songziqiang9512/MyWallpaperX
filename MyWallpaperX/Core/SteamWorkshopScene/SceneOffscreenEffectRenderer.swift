@@ -11,10 +11,12 @@ enum SceneOffscreenEffectRenderer {
         offscreenPassCount: Int,
         blurPlan: SceneGaussianBlurPlan?,
         bloomPlan: SceneBloomPlan?,
+        perspectiveOpacityPlan: ScenePerspectiveOpacityPlan?,
         sourceUniforms: SceneLayerFragmentUniforms,
         pipeline: SceneImageLayerPipeline,
         gaussianBlurPipeline: SceneGaussianBlurPipeline,
         bloomPipeline: SceneBloomPipeline,
+        perspectiveOpacityPipeline: ScenePerspectiveOpacityPipeline,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         guard let sourceEncoder = beginEncoder(
@@ -35,6 +37,17 @@ enum SceneOffscreenEffectRenderer {
             encoder: sourceEncoder
         )
         sourceEncoder.endEncoding()
+
+        if let perspectiveOpacityPlan, let auxMaskTexture,
+           perspectiveOpacityPipeline.encode(
+               source: offscreenPair.primary,
+               opacityMask: auxMaskTexture,
+               target: offscreenPair.secondary,
+               plan: perspectiveOpacityPlan,
+               commandBuffer: commandBuffer
+           ) {
+            return offscreenPair.secondary
+        }
 
         if let bloomPlan {
             return renderBloom(
