@@ -108,11 +108,11 @@ CGContext 上传时**不要加** translateBy + scaleBy 翻转——`CGBitmapCont
   - fragment texture 1：可选的单张辅助 mask sampler（当前给 `iris` / `opacity` 复用；冲突时 `iris` 优先）
   - 混合：premultiplied source-over
 - `SceneOffscreenTexturePool`：按源纹理尺寸复用一对 ping-pong `MTLTexture`，最长边等比 clamp 到 `2048`，专供多 pass / post-process layer 的中间结果。
-- `SceneGaussianBlurPipeline`：coarse gaussian blur 的 9-tap separable Metal pipeline，先横向再纵向采样；typed scale 来自可见 `effects/blur/effect.json` pass，并做安全限幅。
-- `SceneEffectRuntimePlanner`：统一决定 inline flags、真实 gaussian blur 和仍为 route-only 的 offscreen effect，不再让 renderer 同时承担 effect 解析与 GPU 调度。
+- `SceneGaussianBlurPipeline`：coarse/precise gaussian blur 的 9-tap separable Metal pipeline，先横向再纵向采样；coarse scale 使用归一化 UV，precise scale 使用作者像素半径并按离屏纹理尺寸归一化。
+- `SceneEffectRuntimePlanner`：统一决定 inline flags、真实 gaussian blur/Bloom、仍为 route-only 的 offscreen effect，以及暂不支持复合链的明确降级，不再让 renderer 同时承担 effect 解析与 GPU 调度。
 - `SceneMetalRenderer`：
   - 预计算所有 layer 的 worldFrame（沿 parentID 链路组合 translate+rotate+userScale；size 单独应用，避免父 scale 重缩子 quad geometry）。
-  - 每帧：算 view+projection（含 4% mouse parallax 偏移）→ 按 `renderOrderLayerIDs` 顺序遍历 image layer → 算 model/effect plan → 直绘、真实 gaussian blur 或 route-only offscreen 路径 → framebuffer。
+  - 每帧：按 cover 规则算 view+projection，并只在 `general.cameraparallax` 声明启用时施加作者幅度的 mouse parallax → 按 `renderOrderLayerIDs` 顺序遍历 image/text layer → 算 model/effect plan → 直绘、真实 blur/Bloom 或 route-only offscreen 路径 → framebuffer。
   - 主 framebuffer 不再假设“一帧只有一个 render encoder”；命中 offscreen layer 时会先结束主 encoder，跑完离屏 pass，再用 `loadAction = .load` 继续往同一 drawable 里画，保住原图层顺序。
   - clear color 用 scene `general.clearcolor`。
 - `SceneMetalView`：
@@ -120,7 +120,7 @@ CGContext 上传时**不要加** translateBy + scaleBy 翻转——`CGBitmapCont
   - 在 `init` / `setFrameSize` / `viewDidMoveToWindow` / `viewDidChangeBackingProperties` 都更新 `drawableSize`。
   - `Timer` 60fps 渲染循环，运行在 `.common` mode（菜单/拖拽时不停）。
   - `NSTrackingArea` 监听本地 mouse，归一化为 `[-1, +1]` 视图坐标；也支持宿主从 screen-space 主动注入鼠标位置。
-  - `loadImageLayers(from:logURL:)`：用 `SceneTexturePathResolver` 走 layer → model → material → texture name → 实际文件路径的链路；可选写逐 layer 报告，并明确区分 `effect runtime gaussian-blur` 与 `offscreen route-only`。
+  - `loadImageLayers(from:logURL:)`：用 `SceneTexturePathResolver` 走 layer → model → material → texture name → 实际文件路径的链路；可选写逐 layer 报告，并明确区分 coarse/precise blur、Bloom、route-only 与 unsupported composite fallback。
 - `SceneDesktopWallpaperHost`：
   - 每个 `NSScreen` 建一个透明 borderless `NSWindow`，level = `desktopWindow + 1`，contentView 挂 `SceneMetalView`，成为真实壁纸层。
   - 监听显示器变化重建 surfaces，监听 active space 变化后重新 `orderFrontRegardless()` 保持可见。
@@ -137,9 +137,9 @@ CGContext 上传时**不要加** translateBy + scaleBy 翻转——`CGBitmapCont
 - `iris` (bit 4)：第二张 mask 纹理按同 UV 采样，并用 `scale/speed/phase/rough/noiseamount` 做最小扰动后裁切可见域
 - `opacity` (bit 5)：单 pass `opacity` effect 读取 mask 纹理与 `alpha` 常量，按 premultiplied 路径衰减图层颜色/alpha
 
-Mouse parallax 不是 effect，是 view-matrix 级别的相机偏移，无条件应用。
+Mouse parallax 不是 effect，是 view-matrix 级别的相机偏移；只在 Scene general 声明启用时应用，并读取 amount 与 mouse influence。
 
-可见 coarse `blur` 已有横纵两次 9-tap gaussian GPU pass。`blurprecise` / `bloom` / `godrays` / `glitter` / `fluidsimulation` 等仍只有 route-only 离屏路径，**没有真实 per-pass shader 数学**。`opacity` 仍在单辅助 mask 槽限制下工作；若同一 layer 同时需要多张不同 effect mask，当前不会尝试做多纹理联立还原。
+可见 coarse `blur` 与 `blurprecise` 已有横纵两次 9-tap gaussian GPU pass；Bloom 已有 threshold、blur 和 tint composite。`godrays` / `glitter` / `fluidsimulation` 等仍只有 route-only 离屏路径，**没有真实 per-pass shader 数学**。`opacity` 仍在单辅助 mask 槽限制下工作；同时要求 waterflow、waterripple、perspective 和 opacity 的复合层会明确降级，不输出已知黑框。
 
 仍未实现但样本里出现的 effect：`audioline`（需音频输入）、复杂 `opacity` / `shadow` 语义、各种 workshop 自定义 shader 数学。
 

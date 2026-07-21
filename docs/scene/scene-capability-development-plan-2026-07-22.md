@@ -34,13 +34,14 @@
 - Metal image layer 合成、父子 transform、source-order、alpha、正交相机和桌面多屏宿主；
 - 包内字体的静态 text layer 纹理化、父容器可见性传播、cover 投影和按 `general.cameraparallax` 参数启停的鼠标视差；
 - foliage/water/cursor/chromatic/iris/opacity 等手写效果子集及 mask 路径；
-- 多 pass 的 offscreen ping-pong 路由、coarse gaussian blur，以及 Bloom 的亮部提取、横纵模糊与 tint composite 真实 GPU pass；
+- 多 pass 的 offscreen ping-pong 路由、coarse/precise gaussian blur，以及 Bloom 的亮部提取、横纵模糊与 tint composite 真实 GPU pass；
 - Video/Web/Scene runtime 切换时的 Scene 宿主释放。
 
 ### 尚未闭环
 
 - Scene 自动矩阵已扩至 7 个样本并覆盖 MP4 payload、particle layer、脚本密集场景和音频声明，但这些标签不代表对应高级能力已经渲染；
-- godrays/glitter/fluid/bokeh blur 等仍是 route-only；blur precise 也尚未实现真实数学；
+- godrays/glitter/fluid/bokeh blur、shadow、perspective 和 waterflow 等仍未形成完整 pass 数学；
+- 同时声明 waterflow、waterripple、perspective 和 opacity 的可见复合层会按能力降级并明确跳过，避免输出黑框；当前 7 样本矩阵命中 2 层；
 - 动态 text/SceneScript、particle、timeline、用户属性、puppet/mesh、音频响应和 built-in 资源未形成完整运行能力；
 - 自定义 material/shader 只解析引用，不执行或转译；
 - Scene 未接入 pause/resume、fullscreen/battery、目标 FPS 和系统状态评估；
@@ -230,3 +231,17 @@ Wallpaper Engine 官方设计文档把 Scene 主要能力分为：
 - parallax 不再默认套用。正式矩阵逐项验证 `3723230275`、`3723257973` 为启用，其余五项为关闭，并记录 amount 与 mouse influence；静态样本增加最大动态像素门。
 - 最终 7 样本矩阵 **7/7 通过**，报告为 `.codex/scene-camera-semantics-final-20260722/report.json`。App 身份为 Team `H9QWU9XN8R`、CDHash `a43628baf354f21e6c8bfdbc629ef779d0d95816`、版本 `2.0.8 (268)`、可执行文件 SHA-256 `f7f0c5973a0d69412ecbfd63603671f35f6279da078a9cf1f4f0d1f5043f4a71`。
 - 下一阶段先推进通用 shader/effect pass 顺序、blend/composite 与 mask 语义，再处理动态属性和脚本子集；不得把所有效果默认打开，也不得按样本 ID 修图。
+
+## 12. 2026-07-22 precise blur 与复合链降级结果
+
+- `blurprecise` 已接入与 coarse blur 共用的两遍 Gaussian GPU 路径；作者 `scale` 按像素半径解释，再按实际离屏纹理宽高归一化。`3724289844` 三个可见文字层分别读取 `0.43 / 1.33 / 1.28`，运行日志命中 3 层，不再记为 route-only。
+- `3723230275` 原有逻辑会按层名 `ripple` 和包含不可见 pulse 的效果列表跳过整层。直接取消跳过会暴露两张黑底纹理，因为该链还依赖未完整实现的 waterflow、waterripple、perspective 和 opacity 合成。
+- 当前改为只检查可见 effect pass 的通用 capability gate，不读取样本 ID 或层名；命中时记录 `unsupported composite skipped`。这维持可用画面，同时把 2 个待实现层变成可自动计数的后续目标。
+- 最新正式矩阵 **7/7 通过**；coarse blur 1 层、precise blur 3 层、Bloom 1 层、unsupported composite fallback 2 层。报告分别保存在 `.codex/scene-precise-blur-matrix-20260722/` 与 `.codex/scene-composite-fallback-matrix-20260722/`。
+- 最新签名 App 身份为 Team `H9QWU9XN8R`、CDHash `8a934424b469cf3d1587ba61d76df91fb4f23afc`、版本 `2.0.8 (268)`、可执行文件 SHA-256 `e87c73cff65ca41e87812a1d04b34076c81ec79114fc7c0d1775676521221056`；81 个脚本测试、签名 Debug build 和代码健康门通过。
+
+### 当前产品判断
+
+- 以“常见 2D Scene 能启动、铺满屏幕、保持主要图层与基础动态、可切换和可诊断”为目标，当前基础可用度约 **60% 到 70%**。
+- 以“接近 Wallpaper Engine 官方的视觉与行为兼容”为目标，当前约 **35% 到 45%**；差距集中在原始材质/pass 语义、SceneScript、timeline/property、粒子、音频、3D/puppet 和性能生命周期。
+- 下一批按可用收益排序：先补 blend/perspective/waterflow 以解锁当前 2 层复合链；再补 opacity/shadow 与 godrays/glitter；随后做用户属性、timeline 和 sprite 粒子。小幅视觉误差可后修，但整层缺失、错误默认效果、黑框和生命周期泄漏继续作为阻断项。
