@@ -93,6 +93,7 @@
       "capabilities": [
         "image_layers",
         "particle_layers",
+        "precise_blur_runtime",
         "water_effects",
         "audio_responsive_metadata",
         "animated_output"
@@ -100,6 +101,7 @@
       "project_sha256": "8e327d8c3cbc5d91836b15b3ba6c0097c28e57da6760cb865cffc01ae568c873",
       "package_sha256": "80bedf2c69b26ab1f33dccfc2013ab53b3f0ad21bfa8b9b2a877608cdda8c467",
       "minimum_loaded_ratio": 1.0,
+      "minimum_precise_blur_runtime_count": 3,
       "expected_camera_parallax": false,
       "requires_motion": true,
       "minimum_changed_ratio": 0.0001

@@ -166,9 +166,12 @@ def run_sample(
         failures.append(f"loaded ratio {loaded_ratio:.3f} below minimum")
     if text_loaded < int(sample.get("minimum_text_loaded", 0)):
         failures.append("text texture count below minimum")
-    blur_runtime_count = preview_text.count("effect runtime gaussian-blur")
+    blur_runtime_count = preview_text.count("effect runtime gaussian-blur;")
     if blur_runtime_count < int(sample.get("minimum_gaussian_blur_runtime_count", 0)):
         failures.append("gaussian blur runtime count below minimum")
+    precise_blur_runtime_count = preview_text.count("effect runtime gaussian-blur-precise;")
+    if precise_blur_runtime_count < int(sample.get("minimum_precise_blur_runtime_count", 0)):
+        failures.append("precise gaussian blur runtime count below minimum")
     bloom_runtime_count = preview_text.count("effect runtime bloom")
     if bloom_runtime_count < int(sample.get("minimum_bloom_runtime_count", 0)):
         failures.append("bloom runtime count below minimum")
@@ -225,6 +228,7 @@ def run_sample(
             "camera_parallax_mouse_influence": float(camera_match.group("influence")) if camera_match else None,
             "offscreen_route_count": preview_text.count("offscreen skeleton"),
             "gaussian_blur_runtime_count": blur_runtime_count,
+            "precise_blur_runtime_count": precise_blur_runtime_count,
             "bloom_runtime_count": bloom_runtime_count,
             "route_only_effect_count": preview_text.count("offscreen route-only"),
         },

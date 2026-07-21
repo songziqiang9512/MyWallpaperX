@@ -12,6 +12,7 @@ struct SceneLayerEffectInputs {
 struct SceneGaussianBlurPlan {
     let horizontalStep: Float
     let verticalStep: Float
+    let usesPixelSteps: Bool
 }
 
 struct SceneBloomPlan {
@@ -65,6 +66,9 @@ enum SceneEffectRuntimePlanner {
     static func runtimeSummary(for layer: SceneRenderDescriptor.Layer) -> String? {
         let passCount = offscreenPassCount(for: layer)
         guard passCount > 0 else { return nil }
+        if gaussianBlurPlan(for: layer)?.usesPixelSteps == true {
+            return "effect runtime gaussian-blur-precise; \(passCount) declared pass(es)"
+        }
         if gaussianBlurPlan(for: layer) != nil {
             return "effect runtime gaussian-blur; \(passCount) declared pass(es)"
         }
@@ -77,6 +81,20 @@ enum SceneEffectRuntimePlanner {
     private static func gaussianBlurPlan(
         for layer: SceneRenderDescriptor.Layer
     ) -> SceneGaussianBlurPlan? {
+        if let effect = layer.effects.first(where: {
+            $0.visible != false && $0.file.localizedLowercase.contains("/blurprecise/")
+        }) {
+            let horizontal = preciseBlurScale(in: effect.passes.first, component: 0)
+            let vertical = preciseBlurScale(
+                in: effect.passes.dropFirst().first ?? effect.passes.first,
+                component: 1
+            )
+            return SceneGaussianBlurPlan(
+                horizontalStep: horizontal,
+                verticalStep: vertical,
+                usesPixelSteps: true
+            )
+        }
         guard let effect = layer.effects.first(where: {
             $0.visible != false && $0.file.localizedLowercase.contains("/blur/effect.json")
         }) else {
@@ -85,7 +103,11 @@ enum SceneEffectRuntimePlanner {
         let horizontal = blurScale(in: effect.passes.dropFirst().first, component: 0)
         let verticalPass = effect.passes.count > 2 ? effect.passes[2] : effect.passes.dropFirst().first
         let vertical = blurScale(in: verticalPass, component: 1)
-        return SceneGaussianBlurPlan(horizontalStep: horizontal, verticalStep: vertical)
+        return SceneGaussianBlurPlan(
+            horizontalStep: horizontal,
+            verticalStep: vertical,
+            usesPixelSteps: false
+        )
     }
 
     private static func bloomPlan(for layer: SceneRenderDescriptor.Layer) -> SceneBloomPlan? {
@@ -120,6 +142,19 @@ enum SceneEffectRuntimePlanner {
             ? Float(components[component])
             : Float(components.first ?? 0.002)
         return min(max(abs(raw), 0.00025), 0.02)
+    }
+
+    private static func preciseBlurScale(
+        in pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor?,
+        component: Int
+    ) -> Float {
+        let components = pass?.constantShaderValues.first(where: {
+            $0.key.localizedLowercase == "scale"
+        })?.value.components ?? []
+        let raw = components.indices.contains(component)
+            ? Float(components[component])
+            : Float(components.first ?? 1)
+        return min(max(abs(raw), 0.1), 16)
     }
 
     private static func effectInputs(
