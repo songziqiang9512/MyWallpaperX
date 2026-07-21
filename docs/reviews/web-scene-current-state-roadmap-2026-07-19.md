@@ -22,7 +22,7 @@ Web 目前没有已确认的宿主 P0 阻断，当前 HEAD 的 34+5+3 已知样�
 
 ### Scene
 
-Scene 已建立清晰的独立模块、PKGV 读取、受控缓存、typed interpretation、纹理解码、Metal 渲染和桌面宿主，工程边界与可审计性较好。2026-07-22 已增加隔离 Scene 直启 runner、签名 App 身份门，并把 Steam 代表样本矩阵从 2 项扩到 7 项；coarse/precise gaussian blur、Bloom、静态 text layer、cover 投影和样本声明驱动的 parallax 已形成真实运行路径。历史 ripple 层名硬编码已改为只检查可见 pass 的通用 capability gate，并对尚不能正确合成的 2 层输出明确降级证据。
+Scene 已建立清晰的独立模块、PKGV 读取、受控缓存、typed interpretation、纹理解码、Metal 渲染和桌面宿主，工程边界与可审计性较好。2026-07-22 已增加隔离 Scene 直启 runner、签名 App 身份门，并把 Steam 代表样本矩阵从 2 项扩到 7 项；coarse/precise gaussian blur、Bloom、静态 text layer、cover 投影和样本声明驱动的 parallax 已形成真实运行路径。历史 ripple 层名硬编码已删除；此前降级的 2 层现已通过 perspective+opacity replacement 与 layer color blend mode 9 additive composite 恢复，运行 fallback 为 0。
 
 当前能力仍属于“第一阶段 Scene 子集”，不能称为 Wallpaper Engine Scene 兼容运行时。renderer 可绘制 image 与静态 text 图层，但材质 shader、SceneScript、粒子、puppet、音频处理和完整用户属性链路尚未实现；部分 effect 是手写视觉近似而非原始 shader 语义。产品目标现已明确为：先建设通用 layer/effect/pass/runtime 语义，再以真实样本验收，不按样本 ID 适配；执行顺序见 [Scene 播放能力开发计划](../scene/scene-capability-development-plan-2026-07-22.md)。
 
@@ -55,6 +55,7 @@ Scene 已建立清晰的独立模块、PKGV 读取、受控缓存、typed interp
 23. 2026-07-22 的 Scene 扩充门：新增 `3722933264`、`3723230275`、`3723257973`、`3724289844`、`3724553795`，正式矩阵 7/7 通过；覆盖 126 层脚本密集场景、MP4 payload、particle layer 和音频声明。`3723230275` 的真实 Bloom GPU 链命中 1 层，另有 2 层 route-only；全矩阵加载率为 12.12% 到 100%，低值仍作为 built-in/SceneScript 缺口保留。报告保存在 `.codex/scene-bloom-full-matrix-final-20260722/`。
 24. 2026-07-22 的 Scene 文本与相机门：包内字体静态 text layer 分别命中 3/3、10/10、4/4、3/3；7 项 projection 均为 cover，只有样本声明启用的 `3723230275`、`3723257973` 启用 parallax。静态样本变化率为 0，灰色边带已消失，边缘单色占比由 82.70% 降至 25.48%；报告保存在 `.codex/scene-camera-semantics-final-20260722/`。
 25. 2026-07-22 的 Scene precise blur 与复合链门：`3724289844` 三个文字层按作者 scale 命中真实两遍 precise blur；`3723230275` 的 2 个未完整支持复合层按可见 waterflow/waterripple/perspective/opacity pass 降级，不再读取层名或不可见 pulse。最终 7/7 通过，报告保存在 `.codex/scene-precise-blur-matrix-20260722/` 与 `.codex/scene-composite-fallback-matrix-20260722/`。
+26. 2026-07-22 的 Scene perspective/color blend 门：interpretation 升至 v6 并保留 layer `colorBlendMode`；`3723230275` 两层命中 perspective-opacity runtime 与 mode 9 additive composite，fallback 从 2 降至 0，截图无黑矩形。最终 7/7 通过，报告保存在 `.codex/scene-perspective-blend-matrix-20260722/`。
 
 前序专项报告保存在 `.codex/web-closure-final-20260720/`；作者源码、Steam CDN、34 项历史基线、系统中断门、音频配置失效门、文件持久化门、偏好隔离矩阵和 Space/屏幕门报告分别保存在 `.codex/web-external-final-20260720/results/`、`.codex/web-steam-final-20260720/results/`、`.codex/web-full-final-20260720/results/`、`.codex/web-system-state-final-20260721/results-pass2/`、`.codex/web-audio-restart-final-20260721/results-pass/`、`.codex/web-property-persistence-final-20260721/results-suite-pass/`、`.codex/web-defaults-isolation-final-20260721/matrix-regression/` 和 `.codex/web-space-lifecycle-final-20260721/results-pass2/`；作者源码和 Steam 样本副本分别保存在 `.codex/web-external-representative-samples-20260722/` 与 `.codex/web-steam-representative-samples-20260720/`。这些目录被 Git 忽略，只作为本地复核证据保留到分支合并，不替代仓库内的矩阵定义和生产测试。
 
@@ -382,7 +383,7 @@ descriptor 能识别 image、particle、text、container；renderer 当前绘制
 
 #### 存在应先修复的正确性和健壮性问题
 
-- 历史 ripple/effect 名称硬编码已删除；当前 2 个同时要求 waterflow、waterripple、perspective 和 opacity 的可见复合层会按通用 capability gate 降级，完整 pass 链仍待实现。
+- 历史 ripple/effect 名称硬编码及 2 层 capability fallback 已消除；当前已执行 perspective+opacity 与 mode 9 additive composite，但 waterflow 仍未实现，waterripple 仍是正弦近似。
 - 鼠标视差已服从 Scene 配置启停与幅度；delay、zoom、shake 和更完整 interaction 语义仍待实现。
 - PKG reader 每取一个 entry 会重新读取并解析整个包；cache extractor 也会先删除缓存，复杂度和重复 IO 较高。
 - `entryCount` 缺少合理上限，损坏包可能触发异常内存分配。
@@ -403,7 +404,7 @@ descriptor 能识别 image、particle、text、container；renderer 当前绘制
 
 ### 阶段 1：正确性、安全和性能基础
 
-1. ripple/effect 样本特征硬编码已删除并改为通用 layer/pass capability gate；下一步实现 blend/perspective/waterflow 后移除该降级。
+1. ripple/effect 样本特征硬编码及 capability gate 已由通用 perspective/opacity/color blend runtime 取代；下一步补 nullable slots、combos、normal-map waterripple 和 waterflow。
 2. cover 相机和 parallax 开关/幅度已服从 scene/general 默认值；继续补 delay、zoom、shake 和 interaction 语义。
 3. 为 PKG header、entry count、offset、length 和总解包大小设置边界。
 4. 一次读取/解析 PKG 索引，批量提取需要的 entry；缓存按 package signature 复用，不在每次诊断时无条件重建。

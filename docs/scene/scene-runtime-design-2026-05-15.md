@@ -51,15 +51,15 @@ Steam 模块对接：
 
 文件：`<样本目录>/.mywallpaperx-scene-interpretation.json`（隐藏文件，与 `project.json` / `scene.pkg` 同级，对齐 Web 链路 `.mywallpaperx-web-analysis.json` 边界）。
 
-- `formatVersion = 3`（当前版本）
+- `formatVersion = 6`（当前版本；包含 typed text/camera parallax 与 layer color blend mode）
 - 写入：`SceneDiagnosticsBuilder.build(rootURL:)` 每次都覆盖，**删除文件后下次诊断/预览自动重建**。
 - 读取：`SceneInterpretationFileReader` 严格校验版本，不兼容旧版本时由 builder 当场重生。
 - 大体积资源（材质、shader、`.tex` 等解包出来的几十 MB）仍在 `~/Library/Caches/MyWallpaperX/SteamWorkshopScene/<hash>/`，**不污染下载目录**。
 
-### `SceneRenderDescriptor` 字段约定（formatVersion 3）
+### `SceneRenderDescriptor` 字段约定（formatVersion 6）
 
 - `entryPath`、`camera` (eye/center/up + orthoWidth/orthoHeight + nearZ/farZ + clearColor + clearEnabled)
-- `layers[]`：id / layerIndex / name / contentKind (`image` / `particle` / `text` / `container`) / imagePath / particlePath / parentID / childLayerIDs / visible / alpha / **原始字符串 transform** (origin/size/scale/angles) / **数值 transform**（originXYZ/sizeWH/scaleXYZ/anglesXYZ）/ **modelCropOffsetXY**（来自 `models/*.json cropoffset`）/ text / hasInlineScript / effects (effect pass + typed constantShaderValues) / effectFiles / texturePaths
+- `layers[]`：id / layerIndex / name / contentKind (`image` / `particle` / `text` / `container`) / imagePath / particlePath / parentID / childLayerIDs / visible / alpha / colorBlendMode / **原始字符串 transform** (origin/size/scale/angles) / **数值 transform**（originXYZ/sizeWH/scaleXYZ/anglesXYZ）/ **modelCropOffsetXY**（来自 `models/*.json cropoffset`）/ text / hasInlineScript / effects (effect pass + typed constantShaderValues) / effectFiles / texturePaths
 - `rootLayerIDs` / `renderOrderLayerIDs` / `renderOrderPolicy = "source-order"`
 - `modelMaterialLinks` / `materialPasses`（含 typed constantShaderValues）
 - `shaderReferences` / `textureReferences` / `missingResources` / `builtInReferenceCount` / `firstStageRendererGaps`
@@ -109,7 +109,7 @@ CGContext 上传时**不要加** translateBy + scaleBy 翻转——`CGBitmapCont
   - 混合：premultiplied source-over
 - `SceneOffscreenTexturePool`：按源纹理尺寸复用一对 ping-pong `MTLTexture`，最长边等比 clamp 到 `2048`，专供多 pass / post-process layer 的中间结果。
 - `SceneGaussianBlurPipeline`：coarse/precise gaussian blur 的 9-tap separable Metal pipeline，先横向再纵向采样；coarse scale 使用归一化 UV，precise scale 使用作者像素半径并按离屏纹理尺寸归一化。
-- `SceneEffectRuntimePlanner`：统一决定 inline flags、真实 gaussian blur/Bloom、仍为 route-only 的 offscreen effect，以及暂不支持复合链的明确降级，不再让 renderer 同时承担 effect 解析与 GPU 调度。
+- `SceneEffectRuntimePlanner`：统一决定 inline flags、真实 gaussian blur/Bloom、perspective+opacity replacement 和仍为 route-only 的 offscreen effect，不再让 renderer 同时承担 effect 解析与 GPU 调度。
 - `SceneMetalRenderer`：
   - 预计算所有 layer 的 worldFrame（沿 parentID 链路组合 translate+rotate+userScale；size 单独应用，避免父 scale 重缩子 quad geometry）。
   - 每帧：按 cover 规则算 view+projection，并只在 `general.cameraparallax` 声明启用时施加作者幅度的 mouse parallax → 按 `renderOrderLayerIDs` 顺序遍历 image/text layer → 算 model/effect plan → 直绘、真实 blur/Bloom 或 route-only offscreen 路径 → framebuffer。
@@ -120,7 +120,7 @@ CGContext 上传时**不要加** translateBy + scaleBy 翻转——`CGBitmapCont
   - 在 `init` / `setFrameSize` / `viewDidMoveToWindow` / `viewDidChangeBackingProperties` 都更新 `drawableSize`。
   - `Timer` 60fps 渲染循环，运行在 `.common` mode（菜单/拖拽时不停）。
   - `NSTrackingArea` 监听本地 mouse，归一化为 `[-1, +1]` 视图坐标；也支持宿主从 screen-space 主动注入鼠标位置。
-  - `loadImageLayers(from:logURL:)`：用 `SceneTexturePathResolver` 走 layer → model → material → texture name → 实际文件路径的链路；可选写逐 layer 报告，并明确区分 coarse/precise blur、Bloom、route-only 与 unsupported composite fallback。
+  - `loadImageLayers(from:logURL:)`：用 `SceneTexturePathResolver` 走 layer → model → material → texture name → 实际文件路径的链路；可选写逐 layer 报告，并明确区分 coarse/precise blur、Bloom、perspective-opacity、color blend mode 与 route-only。
 - `SceneDesktopWallpaperHost`：
   - 每个 `NSScreen` 建一个透明 borderless `NSWindow`，level = `desktopWindow + 1`，contentView 挂 `SceneMetalView`，成为真实壁纸层。
   - 监听显示器变化重建 surfaces，监听 active space 变化后重新 `orderFrontRegardless()` 保持可见。
@@ -139,7 +139,7 @@ CGContext 上传时**不要加** translateBy + scaleBy 翻转——`CGBitmapCont
 
 Mouse parallax 不是 effect，是 view-matrix 级别的相机偏移；只在 Scene general 声明启用时应用，并读取 amount 与 mouse influence。
 
-可见 coarse `blur` 与 `blurprecise` 已有横纵两次 9-tap gaussian GPU pass；Bloom 已有 threshold、blur 和 tint composite。`godrays` / `glitter` / `fluidsimulation` 等仍只有 route-only 离屏路径，**没有真实 per-pass shader 数学**。`opacity` 仍在单辅助 mask 槽限制下工作；同时要求 waterflow、waterripple、perspective 和 opacity 的复合层会明确降级，不输出已知黑框。
+可见 coarse `blur` 与 `blurprecise` 已有横纵两次 9-tap gaussian GPU pass；Bloom 已有 threshold、blur 和 tint composite。默认 UV/repeat 的 perspective 与后续 opacity mask 已有 projective replacement pass，layer `colorBlendMode=9` 在最后使用 additive composite。`godrays` / `glitter` / `fluidsimulation` / `waterflow` 等仍没有真实 per-pass shader 数学；waterripple 仍是正弦近似，nullable texture slots、combos 和 normal map 绑定尚未完成。
 
 仍未实现但样本里出现的 effect：`audioline`（需音频输入）、复杂 `opacity` / `shadow` 语义、各种 workshop 自定义 shader 数学。
 
