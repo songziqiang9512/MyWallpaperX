@@ -22,7 +22,7 @@ Web 目前没有已确认的宿主 P0 阻断，当前 HEAD 的 34+5+3 已知样�
 
 ### Scene
 
-Scene 已建立清晰的独立模块、PKGV 读取、受控缓存、typed interpretation、纹理解码、Metal 渲染和桌面宿主，工程边界与可审计性较好。2026-07-22 已增加隔离 Scene 直启 runner、签名 App 身份门和首批 2 个 Steam 代表样本矩阵；coarse gaussian blur 已从 identity offscreen bounce 升级为横纵两次真实 GPU pass。
+Scene 已建立清晰的独立模块、PKGV 读取、受控缓存、typed interpretation、纹理解码、Metal 渲染和桌面宿主，工程边界与可审计性较好。2026-07-22 已增加隔离 Scene 直启 runner、签名 App 身份门，并把 Steam 代表样本矩阵从 2 项扩到 7 项；coarse gaussian blur 与 Bloom 已从 identity offscreen bounce 升级为真实 GPU pass。
 
 当前能力仍属于“第一阶段 Scene 子集”，不能称为 Wallpaper Engine Scene 兼容运行时。renderer 实际只绘制 image 图层；材质 shader、SceneScript、粒子、puppet、音频处理和完整用户属性链路尚未实现；部分 effect 是手写视觉近似而非原始 shader 语义。产品目标现已明确为：在可审计、可测试和可复现构建的前提下，按真实样本频率持续扩充兼容 runtime；执行顺序见 [Scene 播放能力开发计划](../scene/scene-capability-development-plan-2026-07-22.md)。
 
@@ -52,6 +52,7 @@ Scene 已建立清晰的独立模块、PKGV 读取、受控缓存、typed interp
 20. 2026-07-22 的当前最终作者源码门：5A，平均 98.8，coverage 97.9%，矩阵门通过；报告保存在 `.codex/web-external-final-pass2-20260722/`。
 21. 2026-07-22 的当前最终 Steam CDN 门：3A，平均 98.0，coverage 94.8%，矩阵门通过；报告保存在 `.codex/web-steam-final-pass-20260722/`。
 22. 2026-07-22 的首批 Scene 自动门：SteamCMD 隔离样本 `3723344874` 与 `3724095562` 均通过；前者 20/24 image texture、1 层真实 gaussian blur、2 层明确 route-only、两帧变化率 10.60%，后者 1/1 texture 且静态两帧一致；两者均有签名身份、非黑窗口和 stop 后 surface=0 证据。报告保存在 `.codex/scene-benchmark-gaussian-blur-matrix2-20260722/`。
+23. 2026-07-22 的 Scene 扩充门：新增 `3722933264`、`3723230275`、`3723257973`、`3724289844`、`3724553795`，正式矩阵 7/7 通过；覆盖 126 层脚本密集场景、MP4 payload、particle layer 和音频声明。`3723230275` 的真实 Bloom GPU 链命中 1 层，另有 2 层 route-only；全矩阵加载率为 12.12% 到 100%，低值仍作为 built-in/SceneScript 缺口保留。报告保存在 `.codex/scene-bloom-full-matrix-final-20260722/`。
 
 前序专项报告保存在 `.codex/web-closure-final-20260720/`；作者源码、Steam CDN、34 项历史基线、系统中断门、音频配置失效门、文件持久化门、偏好隔离矩阵和 Space/屏幕门报告分别保存在 `.codex/web-external-final-20260720/results/`、`.codex/web-steam-final-20260720/results/`、`.codex/web-full-final-20260720/results/`、`.codex/web-system-state-final-20260721/results-pass2/`、`.codex/web-audio-restart-final-20260721/results-pass/`、`.codex/web-property-persistence-final-20260721/results-suite-pass/`、`.codex/web-defaults-isolation-final-20260721/matrix-regression/` 和 `.codex/web-space-lifecycle-final-20260721/results-pass2/`；作者源码和 Steam 样本副本分别保存在 `.codex/web-external-representative-samples-20260722/` 与 `.codex/web-steam-representative-samples-20260720/`。这些目录被 Git 忽略，只作为本地复核证据保留到分支合并，不替代仓库内的矩阵定义和生产测试。
 
@@ -364,7 +365,7 @@ python3 script/web_wallpaper_benchmark.py \
 - 使用 versioned `.mywallpaperx-scene-interpretation.json` 作为稳定中间层。
 - 能解析 scene、models、materials、effects、资源引用、层级、camera 和 typed shader constants。
 - 支持 PNG/JPEG、部分 TEXB0001-4、BC1/BC3/BC5、RGBA/RG/R8、LZ4 和 MP4 payload。
-- 已有 Metal textured-quad、层级 transform、基础混合、离屏纹理池、coarse gaussian blur、多屏桌面窗口和鼠标位置转发。
+- 已有 Metal textured-quad、层级 transform、基础混合、三纹理离屏工作集、coarse gaussian blur、Bloom threshold/blur/composite、多屏桌面窗口和鼠标位置转发。
 - 代码入口：[SceneDiagnostics.swift](../../MyWallpaperX/Core/SteamWorkshopScene/SceneDiagnostics.swift)、[SceneRenderDescriptor.swift](../../MyWallpaperX/Core/SteamWorkshopScene/SceneRenderDescriptor.swift)、[SceneMetalRenderer.swift](../../MyWallpaperX/Core/SteamWorkshopScene/SceneMetalRenderer.swift)、[SceneDesktopWallpaperHost.swift](../../MyWallpaperX/Core/SteamWorkshopScene/SceneDesktopWallpaperHost.swift)。
 
 ### 5.2 核心缺口
@@ -390,13 +391,13 @@ descriptor 能识别 image、particle、text、container，但 renderer 当前�
 - 没有 Scene 用户属性编辑、条件显示和运行时热更新完整链路。
 - 没有按屏 pause/resume、FPS、音量、画质策略和独立 Scene 状态。
 - 没有 SceneScript、粒子、音频响应、完整视频纹理生命周期。
-- 已有 2 个真实 Scene 样本的初始自动门，但尚未覆盖 MP4 texture、particle、SceneScript、音频声明、更多 effect 和性能预算，不能替代完整代表矩阵。
+- 已有 7 个真实 Scene 样本的自动门，样本层面覆盖 MP4 payload、particle、SceneScript 和音频声明；renderer 仍未实现 particle/SceneScript/音频可视化本身，也没有性能预算，因此不能把 7/7 启动回归等同于完整兼容。
 
 ## 6. Scene 演进方向
 
 ### 阶段 0：产品边界与执行门（已确定方向，进行中）
 
-当前选择“可审计的兼容 Runtime”方向：不承诺私有格式 100% 复刻，但按真实样本频率推进 effect、属性、timeline、particle、音频和受限 SceneScript；任何引入的第三方 runtime/translator 必须具备许可证、源码 revision、可复现构建和自动测试。首批 runner、签名身份门和两样本矩阵已落地；后续不得退回单样本手工预览作为唯一验收。
+当前选择“可审计的兼容 Runtime”方向：不承诺私有格式 100% 复刻，但按真实样本频率推进 effect、属性、timeline、particle、音频和受限 SceneScript；任何引入的第三方 runtime/translator 必须具备许可证、源码 revision、可复现构建和自动测试。runner、签名身份门和 7 样本矩阵已落地；后续不得退回单样本手工预览作为唯一验收。
 
 ### 阶段 1：正确性、安全和性能基础
 
@@ -464,12 +465,12 @@ descriptor 能识别 image、particle、text、container，但 renderer 当前�
 
 ### M5：Scene 基础质量收口
 
-- 已建立首批 2 个真实 Scene 样本、签名身份、非黑双帧、动态像素和 surface 释放门；继续扩至 MP4、particle、脚本、音频和更多 effect 样本。
-- coarse gaussian blur 已落地；下一步按频率实现 bloom/godrays，再推进属性、timeline 与生命周期。
+- 已建立 7 个真实 Scene 样本、签名身份、非黑双帧、动态像素和 surface 释放门，样本覆盖 MP4 payload、particle、脚本密集图层、音频声明和更多 effect。
+- coarse gaussian blur 与 Bloom 已落地；下一步优先补 built-in/text/container 输入链，再按有真实纹理的样本推进 blur precise、bokeh/godrays、属性与音频响应。
 - 继续修复硬编码、parallax、PKG 边界与重复解析，并建立 CPU/GPU/显存预算。
 
 ## 8. 最终判断
 
 Web 的运行主链已从“基本可用”推进到“有固定、作者源码、Steam CDN、完整四层兼容门、远程网络降级门、真实音频证据、文件跨重启恢复门、确定性系统中断恢复门、配置失效重建门、Space/屏幕 observer 门和释放门”。2026-07-22 当前 HEAD 的 34+5+3 与独立偏好域 10 项门均全绿；Google Fonts 在国内无直连或代理失效时不再阻塞启动，Web 音频也已从重复的桌面假波形改为按需 signed stereo FFT，并补回旧样本依赖的兼容幅度响应。当前可声明“当前构建 34+5+3 的已知样本功能兼容闭环、当前非沙盒发行链的 Web 文件服务持久化闭环、Web 音频宿主主链及确定性睡眠/锁屏、配置失效和 Space observer 恢复闭环”；仍不能声明“发布级最终完全闭环”或“以后所有样本都会成功”。后续应集中完成 runtime 互切、物理设备与真实 OS 状态、长期资源预算、真实 UI/签名沙盒授权回归和发布流程接入。当前专用 WKWebView 宿主、受控资源协议、按需 loopback 和结构化诊断路线应继续保留，不应改回宽权限 `file://` 或引入重复宿主。
 
-Scene 的基础架构成立，运行能力仍是明确子集，但已经从纯手工 Scene Lite 验证进入“签名 App + 隔离 Steam 样本 + 双帧/释放门”的可持续开发阶段，并完成第一个真实 offscreen effect。后续按现役开发计划建设来源清晰、可测试的兼容 runtime；继续增加样本硬编码或把 route-only 视觉替身写成支持，仍不会形成最终兼容闭环。
+Scene 的基础架构成立，运行能力仍是明确子集，但已经从纯手工 Scene Lite 验证进入“签名 App + 7 个隔离 Steam 样本 + 双帧/释放门”的可持续开发阶段，并完成 coarse gaussian blur 与 Bloom 两类真实 offscreen effect。后续按现役开发计划建设来源清晰、可测试的兼容 runtime；继续增加样本硬编码或把 route-only 视觉替身写成支持，仍不会形成最终兼容闭环。

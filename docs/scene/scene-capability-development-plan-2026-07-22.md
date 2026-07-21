@@ -33,17 +33,17 @@
 - PNG/JPEG、raw RGBA8、R8、BC1/BC3/BC5 与 MP4 payload 纹理路径；
 - Metal image layer 合成、父子 transform、source-order、alpha、正交相机和桌面多屏宿主；
 - foliage/water/cursor/chromatic/iris/opacity 等手写效果子集及 mask 路径；
-- 多 pass 的 offscreen ping-pong 路由，以及 coarse gaussian blur 的横纵两次真实 GPU pass；
+- 多 pass 的 offscreen ping-pong 路由、coarse gaussian blur，以及 Bloom 的亮部提取、横纵模糊与 tint composite 真实 GPU pass；
 - Video/Web/Scene runtime 切换时的 Scene 宿主释放。
 
 ### 尚未闭环
 
-- 首批 Scene 自动矩阵只有 2 个样本，尚未覆盖计划要求的 MP4 texture、particle、脚本和音频声明；
-- bloom/godrays/glitter/fluid 等仍是 route-only；blur precise 也尚未实现真实数学；
+- Scene 自动矩阵已扩至 7 个样本并覆盖 MP4 payload、particle layer、脚本密集场景和音频声明，但这些标签不代表对应高级能力已经渲染；
+- godrays/glitter/fluid/bokeh blur 等仍是 route-only；blur precise 也尚未实现真实数学；
 - text、particle、timeline、用户属性、SceneScript、puppet/mesh、音频响应和 built-in 资源未形成运行能力；
 - 自定义 material/shader 只解析引用，不执行或转译；
 - Scene 未接入 pause/resume、fullscreen/battery、目标 FPS 和系统状态评估；
-- 没有首帧、动态像素、窗口身份、退出释放、CPU/GPU/显存或 soak 门。
+- 已有签名身份、非黑双帧、动态像素和退出释放门；CPU/GPU/显存、性能退化和 soak 门仍未建立。
 
 ## 3. 官方能力面
 
@@ -207,7 +207,16 @@ Wallpaper Engine 官方设计文档把 Scene 主要能力分为：
 
 - `DebugScenePlaybackRunner` 可从隔离 root 直启 Scene，并拒绝真实 Workshop 路径；Debug evidence 模式使用当前 Space 的可捕获窗口，不改变生产 desktop-level 窗口语义。
 - `scene_wallpaper_benchmark.py` 会隔离复制签名 App、样本和 HOME，校验样本 SHA-256、App 身份、ready、纹理加载率、非黑双帧、像素变化和 stop 后 surface=0。
-- SteamCMD App ID `431960` 下载并固化两个代表样本：`3723344874`（复杂多层/effect）与 `3724095562`（单图层直绘），二进制只保存在 `.codex`。
-- 当前两样本矩阵 **2/2 通过**。`3723344874` 为 35 layers / 24 image layers / 29 effects，20/24 主纹理加载，1 层真实 gaussian blur、2 层 route-only，两帧 changed ratio 10.60%；`3724095562` 为 1/1 主纹理、静态两帧一致。
+- SteamCMD App ID `431960` 下载并固化两个初始代表样本：`3723344874`（复杂多层/effect）与 `3724095562`（单图层直绘），二进制只保存在 `.codex`。
+- 初始两样本矩阵 **2/2 通过**。`3723344874` 为 35 layers / 24 image layers / 29 effects，20/24 主纹理加载，1 层真实 gaussian blur、2 层 route-only，两帧 changed ratio 10.60%；`3724095562` 为 1/1 主纹理、静态两帧一致。
 - 报告：`.codex/scene-benchmark-gaussian-blur-matrix2-20260722/report.json`。App 身份为 Team `H9QWU9XN8R`、CDHash `17d3751df90e55868ae1d2e0500682746026b665`、版本 `2.0.8 (268)`、可执行文件 SHA-256 `650da4e5ece48cd464c30ce6896aed908844aa0eef44474f546e5527a2bdc858`，运行前后验证一致。
-- 下一步：扩充 bloom/godrays 目标样本与 typed pass；并继续补 MP4、particle、SceneScript、音频声明样本，使 S0 从初始门扩展为代表矩阵。
+- 下一步见下一节的扩充结果和当前优先级。
+
+## 10. 2026-07-22 第二轮样本扩充与 Bloom 结果
+
+- 新增 SteamCMD 隔离样本 `3722933264`、`3723230275`、`3723257973`、`3724289844`、`3724553795`；加上初始两项，正式矩阵现为 7 个真实样本。候选 `3722249669` 和两个当前热门候选在匿名 SteamCMD 下不可下载，没有混入运行失败统计。
+- 新矩阵覆盖 1 到 126 层、0 到 66 个 effect、MP4 payload、particle layer、103 个 inline-script layer、音频响应声明、单图直绘和复杂 mask/offscreen 路径。样本二进制与运行副本均在 `.codex`，真实 Workshop 根保持只读。
+- `3723230275` 的主图包含真实纹理和 16-pass Workshop Bloom；旧实现只做 identity ping-pong。现在 `SceneBloomPipeline` 执行 threshold、separable gaussian blur、tint/intensity composite，并保留此前 foliage 等内联效果结果。
+- 正式矩阵 **7/7 通过**。纹理加载率依次为 `100% / 50% / 12.12% / 83.33% / 100% / 100% / 50%`；六个动态样本 changed ratio 为 `7.38% / 38.88% / 44.29% / 10.72% / 12.66% / 18.52%`，静态样本为 `0%`。Bloom runtime 命中 1 层，Gaussian runtime 命中 1 层，所有样本 stop 后 surface 为 0。
+- 最终报告：`.codex/scene-bloom-full-matrix-final-20260722/report.json`。App 身份为 Team `H9QWU9XN8R`、CDHash `7e77a8aad22a6a94353394971a95d5973001556f`、版本 `2.0.8 (268)`、可执行文件 SHA-256 `5605fb190f8f66d68051800fa5d2295ea27c224bcf3cc1fb2f57cb9fa8ca7e5b`。
+- 低加载率样本是有意保留的兼容缺口证据，不是全能力通过。下一优先级应先补 built-in 资源与 text/container 基础语义，再让 `blurprecise`、SceneScript 属性绑定和音频可视化获得可渲染输入；bokeh/godrays 等后处理继续按有真实纹理的样本推进。
