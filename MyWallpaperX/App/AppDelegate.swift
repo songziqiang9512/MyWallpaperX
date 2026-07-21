@@ -83,6 +83,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
  func applicationDidFinishLaunching(_ notification: Notification) {
 #if DEBUG
+ if DebugScenePlaybackRunner.runsIsolatedSceneSample {
+ DebugScenePlaybackRunner.scheduleScenePlaybackIfRequested()
+ return
+ }
  if DebugWebPlaybackRunner.runsIsolatedWebWorkshopSample {
  DebugWebPlaybackRunner.scheduleWebWorkshopRuntimeIfRequested()
  return
@@ -135,6 +139,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
  func applicationWillTerminate(_ notification: Notification) {
 #if DEBUG
+ if DebugScenePlaybackRunner.runsIsolatedSceneSample {
+ SceneDesktopWallpaperHost.shared.stop()
+ return
+ }
  if DebugWebPlaybackRunner.runsIsolatedWebWorkshopSample {
  WallpaperEngine.shared.cleanup()
  return

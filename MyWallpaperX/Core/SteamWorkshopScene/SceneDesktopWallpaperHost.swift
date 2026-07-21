@@ -5,9 +5,16 @@ import Foundation
 final class SceneDesktopWallpaperHost {
     static let shared = SceneDesktopWallpaperHost()
 
+#if DEBUG
+    struct DebugSnapshot {
+        let surfaceCount: Int
+        let windowNumbers: [Int]
+    }
+#endif
+
     private final class HostWindow: NSWindow {
-        override var canBecomeKey: Bool { false }
-        override var canBecomeMain: Bool { false }
+        override var canBecomeKey: Bool { SceneDesktopWallpaperHost.usesDebugEvidenceWindow }
+        override var canBecomeMain: Bool { SceneDesktopWallpaperHost.usesDebugEvidenceWindow }
     }
 
     private struct Surface {
@@ -52,6 +59,15 @@ final class SceneDesktopWallpaperHost {
     func stop() {
         teardownSurfaces(clearContext: true)
     }
+
+#if DEBUG
+    func debugSnapshot() -> DebugSnapshot {
+        DebugSnapshot(
+            surfaceCount: surfaces.count,
+            windowNumbers: surfaces.values.map { $0.window.windowNumber }.sorted()
+        )
+    }
+#endif
 
     private func installObservers() {
         let center = NotificationCenter.default
@@ -148,10 +164,15 @@ final class SceneDesktopWallpaperHost {
             window.isOpaque = false
             window.hasShadow = false
             window.hidesOnDeactivate = false
+            window.sharingType = .readOnly
             window.level = Self.wallpaperWindowLevel
-            window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+            window.collectionBehavior = Self.windowCollectionBehavior
             window.contentView = metalView
-            window.orderFrontRegardless()
+            if Self.usesDebugEvidenceWindow {
+                window.makeKeyAndOrderFront(nil)
+            } else {
+                window.orderFrontRegardless()
+            }
             metalView.startRendering()
 
             surfaces[screenID] = Surface(
@@ -190,7 +211,25 @@ final class SceneDesktopWallpaperHost {
     }
 
     private static var wallpaperWindowLevel: NSWindow.Level {
-        NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)) + 1)
+        if usesDebugEvidenceWindow {
+            return .floating
+        }
+        return NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)) + 1)
+    }
+
+    private static var windowCollectionBehavior: NSWindow.CollectionBehavior {
+        if usesDebugEvidenceWindow {
+            return [.moveToActiveSpace, .fullScreenAuxiliary, .ignoresCycle]
+        }
+        return [.canJoinAllSpaces, .stationary, .ignoresCycle]
+    }
+
+    private static var usesDebugEvidenceWindow: Bool {
+#if DEBUG
+        ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-evidence-dir")
+#else
+        false
+#endif
     }
 
     private func startMouseTracking() {
