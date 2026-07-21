@@ -14,8 +14,20 @@
       "project_sha256": "15b015692e0b293f6adce9405b895e1bdbb9a7e1e13a6c760e7f6a728c6ba388",
       "package_sha256": "3213da7a43f8bbb5494a25bdc54ca58553f86950c088545481157bba39c89c4c",
       "minimum_loaded_ratio": 0.8,
+      "minimum_gaussian_blur_runtime_count": 1,
       "requires_motion": true,
       "minimum_changed_ratio": 0.0001
+    },
+    {
+      "id": "3724095562",
+      "title": "今汐",
+      "capabilities": [
+        "single_image_direct_render"
+      ],
+      "project_sha256": "9cc9070ac359e35707037d54b4b966c1195429fc1c7e7e5ded76614ead44eacf",
+      "package_sha256": "be46f641f923cc5fa634a9cd283d070572498e39486e72c20a2b7453147fc233",
+      "minimum_loaded_ratio": 1.0,
+      "requires_motion": false
     }
   ]
 }

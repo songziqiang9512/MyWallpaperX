@@ -13,17 +13,10 @@ struct SceneMetalRendererDiagnostic {
 }
 
 struct SceneMetalRenderer {
-    private struct LayerEffectInputs {
-        let flags: SceneEffectFlags
-        let params0: SIMD4<Float>
-        let params1: SIMD4<Float>
-        let params2: SIMD4<Float>
-        let params3: SIMD4<Float>
-    }
-
     let device: MTLDevice
     let commandQueue: MTLCommandQueue
     let renderDescriptor: SceneRenderDescriptor
+    private let gaussianBlurPipeline: SceneGaussianBlurPipeline
 
     // Cached scene-graph world frames for every layer. Frames are
     // translate+rotate+userScale (no size-scale baked in) so parents propagate
@@ -33,12 +26,14 @@ struct SceneMetalRenderer {
 
     init?(renderDescriptor: SceneRenderDescriptor) {
         guard let device = MTLCreateSystemDefaultDevice(),
-              let commandQueue = device.makeCommandQueue() else {
+              let commandQueue = device.makeCommandQueue(),
+              let gaussianBlurPipeline = SceneGaussianBlurPipeline(device: device) else {
             return nil
         }
         self.device = device
         self.commandQueue = commandQueue
         self.renderDescriptor = renderDescriptor
+        self.gaussianBlurPipeline = gaussianBlurPipeline
 
         let byID = Dictionary(uniqueKeysWithValues: renderDescriptor.layers.map { ($0.id, $0) })
         self.layersByID = byID
@@ -86,7 +81,11 @@ struct SceneMetalRenderer {
     }
 
     func offscreenPassCount(for layer: SceneRenderDescriptor.Layer) -> Int {
-        Self.offscreenPassCount(for: layer)
+        SceneEffectRuntimePlanner.offscreenPassCount(for: layer)
+    }
+
+    func effectRuntimeSummary(for layer: SceneRenderDescriptor.Layer) -> String? {
+        SceneEffectRuntimePlanner.runtimeSummary(for: layer)
     }
 
     func debugPlacementSummary(for layer: SceneRenderDescriptor.Layer) -> String {
@@ -183,20 +182,20 @@ struct SceneMetalRenderer {
         for layer in orderedLayers where layer.contentKind == "image" {
             guard layer.visible != false else { continue }
             guard let texture = imageTextures[layer.id] else { continue }
-            guard Self.shouldSkipDirectRender(for: layer) == false else { continue }
-
             let irisMaskTexture = irisMaskTextures[layer.id]
             let opacityMaskTexture = opacityMaskTextures[layer.id]
             let waterMaskTexture = waterMaskTextures[layer.id]
             let foliageMaskTexture = foliageMaskTextures[layer.id]
             let auxMaskTexture = irisMaskTexture ?? opacityMaskTexture
-            let effectInputs = Self.effectInputs(
+            let effectPlan = SceneEffectRuntimePlanner.plan(
                 for: layer,
                 hasIrisMask: irisMaskTexture != nil,
                 hasOpacityMask: opacityMaskTexture != nil && irisMaskTexture == nil,
                 hasWaterMask: waterMaskTexture != nil,
                 hasFoliageMask: foliageMaskTexture != nil
             )
+            guard effectPlan.skipDirectRender == false else { continue }
+            let effectInputs = effectPlan.inputs
             let model = modelMatrix(for: layer)
             let mvp = viewProj * model
             let directUniforms = SceneLayerFragmentUniforms(
@@ -212,7 +211,7 @@ struct SceneMetalRenderer {
                 effectParams3: effectInputs.params3
             )
 
-            let offscreenPassCount = Self.offscreenPassCount(for: layer)
+            let offscreenPassCount = effectPlan.offscreenPassCount
             if offscreenPassCount > 0,
                let offscreenTexturePool,
                let offscreenPair = offscreenTexturePool.textures(for: texture) {
@@ -224,6 +223,7 @@ struct SceneMetalRenderer {
                     auxMaskTexture: auxMaskTexture,
                     offscreenPair: offscreenPair,
                     offscreenPassCount: offscreenPassCount,
+                    blurPlan: effectPlan.gaussianBlur,
                     sourceUniforms: directUniforms,
                     pipeline: pipeline,
                     commandBuffer: commandBuffer
@@ -296,129 +296,6 @@ struct SceneMetalRenderer {
     // effect.json"). This is a stand-in for a real effect runtime — only the
     // effects we have hand-written shader paths for are honored; everything
     // else is silently ignored at this stage.
-    private static func effectInputs(
-        for layer: SceneRenderDescriptor.Layer,
-        hasIrisMask: Bool,
-        hasOpacityMask: Bool,
-        hasWaterMask: Bool,
-        hasFoliageMask: Bool
-    ) -> LayerEffectInputs {
-        var flags: SceneEffectFlags = []
-        var params0 = SIMD4<Float>(0, 0, 0, 0)
-        var params1 = SIMD4<Float>(0, 0, 0, 0)
-        var params2 = SIMD4<Float>(12, 1, 0.08, 0)
-        let params3 = SIMD4<Float>(1, 0, 1, 0)
-        for path in layer.effectFiles {
-            let lower = path.localizedLowercase
-            if lower.contains("foliagesway") {
-                flags.insert(.foliagesway)
-            }
-            // waterripple shares enough character with waterwaves at the
-            // visual-stand-in level that we route both to the same shader path.
-            if lower.contains("waterwaves") || lower.contains("waterripple") {
-                flags.insert(.waterwaves)
-            }
-            if lower.contains("cursorripple") {
-                flags.insert(.cursorripple)
-            }
-            if lower.contains("chromaticaberration") {
-                flags.insert(.chromaticaberration)
-            }
-        }
-
-        for effect in layer.effects where effect.visible != false {
-            let lower = effect.file.localizedLowercase
-            guard let firstPass = effect.passes.first else { continue }
-
-            if hasWaterMask && (lower.contains("waterwaves") || lower.contains("waterripple")) {
-                flags.insert(.hasWaterMask)
-            }
-            if hasFoliageMask && (lower.contains("foliagesway") || lower.contains("cursorripple")) {
-                flags.insert(.hasFoliageMask)
-            }
-
-            if hasIrisMask && lower.contains("iris") {
-                flags.insert(.irisMask)
-                let scale = floatComponents(forKey: "scale", in: firstPass.constantShaderValues)
-                params0.x = scale.count > 0 ? scale[0] : 1
-                params0.y = scale.count > 1 ? scale[1] : params0.x
-                params0.z = firstFloat(forKey: "speed", in: firstPass.constantShaderValues, default: 1)
-                params0.w = firstFloat(forKey: "phase", in: firstPass.constantShaderValues, default: 0)
-                params1.x = firstFloat(forKey: "rough", in: firstPass.constantShaderValues, default: 0.2)
-                params1.y = firstFloat(forKey: "noiseamount", in: firstPass.constantShaderValues, default: 0)
-            }
-
-            if hasOpacityMask && lower.contains("opacity") {
-                flags.insert(.opacityMask)
-                params1.z = firstFloat(forKey: "alpha", in: firstPass.constantShaderValues, default: 1)
-            }
-
-            if lower.contains("waterwaves") || lower.contains("waterripple") {
-                params2.x = firstFloat(
-                    forKeys: ["scale"],
-                    in: firstPass.constantShaderValues,
-                    default: params2.x
-                )
-                params2.y = firstFloat(
-                    forKeys: ["speed", "animationspeed", "scrollspeed"],
-                    in: firstPass.constantShaderValues,
-                    default: params2.y
-                )
-                params2.z = firstFloat(
-                    forKeys: ["strength", "ripplestrength"],
-                    in: firstPass.constantShaderValues,
-                    default: params2.z
-                )
-                params2.w = firstFloat(
-                    forKeys: ["direction", "scrolldirection"],
-                    in: firstPass.constantShaderValues,
-                    default: params2.w
-                )
-            }
-
-        }
-
-        return LayerEffectInputs(flags: flags, params0: params0, params1: params1, params2: params2, params3: params3)
-    }
-
-    private static func firstFloat(
-        forKey key: String,
-        in values: [String: SceneDocument.ShaderValue],
-        default defaultValue: Float
-    ) -> Float {
-        let lowerKey = key.localizedLowercase
-        guard let components = values.first(where: { $0.key.localizedLowercase == lowerKey })?.value.components,
-              let first = components.first else {
-            return defaultValue
-        }
-        return Float(first)
-    }
-
-    private static func firstFloat(
-        forKeys keys: [String],
-        in values: [String: SceneDocument.ShaderValue],
-        default defaultValue: Float
-    ) -> Float {
-        for key in keys {
-            let value = firstFloat(forKey: key, in: values, default: .nan)
-            if value.isNaN == false {
-                return value
-            }
-        }
-        return defaultValue
-    }
-
-    private static func floatComponents(
-        forKey key: String,
-        in values: [String: SceneDocument.ShaderValue]
-    ) -> [Float] {
-        let lowerKey = key.localizedLowercase
-        guard let components = values.first(where: { $0.key.localizedLowercase == lowerKey })?.value.components else {
-            return []
-        }
-        return components.map(Float.init)
-    }
-
     private func renderLayerOffscreen(
         sourceTexture: MTLTexture,
         waterMaskTexture: MTLTexture?,
@@ -426,6 +303,7 @@ struct SceneMetalRenderer {
         auxMaskTexture: MTLTexture?,
         offscreenPair: SceneOffscreenTexturePool.Pair,
         offscreenPassCount: Int,
+        blurPlan: SceneGaussianBlurPlan?,
         sourceUniforms: SceneLayerFragmentUniforms,
         pipeline: SceneImageLayerPipeline,
         commandBuffer: MTLCommandBuffer
@@ -450,6 +328,23 @@ struct SceneMetalRenderer {
             encoder: sourceEncoder
         )
         sourceEncoder.endEncoding()
+
+        if let blurPlan {
+            guard gaussianBlurPipeline.encode(
+                source: offscreenPair.primary,
+                target: offscreenPair.secondary,
+                step: SIMD2(blurPlan.horizontalStep, 0),
+                commandBuffer: commandBuffer
+            ), gaussianBlurPipeline.encode(
+                source: offscreenPair.secondary,
+                target: offscreenPair.primary,
+                step: SIMD2(0, blurPlan.verticalStep),
+                commandBuffer: commandBuffer
+            ) else {
+                return offscreenPair.primary
+            }
+            return offscreenPair.primary
+        }
 
         guard offscreenPassCount > 1,
               let effectEncoder = beginRenderEncoder(
@@ -508,57 +403,6 @@ struct SceneMetalRenderer {
             effectParams2: .zero,
             effectParams3: .zero
         )
-    }
-
-    private static func shouldSkipDirectRender(for layer: SceneRenderDescriptor.Layer) -> Bool {
-        guard (layer.name?.localizedLowercase.contains("ripple") == true) else {
-            return false
-        }
-        let effectSet = Set(layer.effectFiles.map(\.localizedLowercase))
-        return effectSet.contains(where: { $0.contains("opacity") })
-            && effectSet.contains(where: { $0.contains("perspective") })
-            && effectSet.contains(where: { $0.contains("pulse") })
-            && effectSet.contains(where: { $0.contains("waterflow") })
-            && effectSet.contains(where: { $0.contains("waterripple") })
-    }
-
-    private static func offscreenPassCount(for layer: SceneRenderDescriptor.Layer) -> Int {
-        layer.effects.reduce(into: 0) { total, effect in
-            guard effect.visible != false else { return }
-            let lower = effect.file.localizedLowercase
-            guard shouldRouteEffectOffscreen(path: lower, passCount: effect.passes.count) else { return }
-            total += max(1, effect.passes.count)
-        }
-    }
-
-    private static func shouldRouteEffectOffscreen(path: String, passCount: Int) -> Bool {
-        if isInlineEffectPath(path) {
-            return false
-        }
-        if passCount > 1 {
-            return true
-        }
-        return isSinglePassOffscreenEffectPath(path)
-    }
-
-    private static func isInlineEffectPath(_ path: String) -> Bool {
-        path.contains("foliagesway")
-            || path.contains("waterwaves")
-            || path.contains("waterripple")
-            || path.contains("cursorripple")
-            || path.contains("chromaticaberration")
-            || path.contains("iris")
-    }
-
-    private static func isSinglePassOffscreenEffectPath(_ path: String) -> Bool {
-        path.contains("blurprecise")
-            || path.contains("/blur/")
-            || path.contains("bloom")
-            || path.contains("motionblur")
-            || path.contains("godrays")
-            || path.contains("glitter")
-            || path.contains("opacity")
-            || path.contains("shadow")
     }
 
     // MARK: - Matrix construction

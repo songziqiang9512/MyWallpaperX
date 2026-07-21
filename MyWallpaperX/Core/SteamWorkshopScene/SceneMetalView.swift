@@ -187,9 +187,8 @@ class SceneMetalView: NSView {
                     message += " → \(initialTexture.width)×\(initialTexture.height)"
                 }
                 message += " [\(relativePath(for: url, cacheDirectory: cacheDirectory))]"
-                let offscreenPassCount = renderer.offscreenPassCount(for: layer)
-                if offscreenPassCount > 0 {
-                    message += "; offscreen skeleton \(offscreenPassCount) pass(es)"
+                if let effectSummary = renderer.effectRuntimeSummary(for: layer) {
+                    message += "; \(effectSummary)"
                 }
                 message += "; \(placementSummary)"
                 report.append(message)
@@ -199,9 +198,8 @@ class SceneMetalView: NSView {
             case .loaded(let texture):
                 loaded[layer.id] = texture
                 var message = "layer \(layer.id) \"\(name)\": OK \(url.lastPathComponent) → \(texture.width)×\(texture.height) [\(relativePath(for: url, cacheDirectory: cacheDirectory))]"
-                let offscreenPassCount = renderer.offscreenPassCount(for: layer)
-                if offscreenPassCount > 0 {
-                    message += "; offscreen skeleton \(offscreenPassCount) pass(es)"
+                if let effectSummary = renderer.effectRuntimeSummary(for: layer) {
+                    message += "; \(effectSummary)"
                 }
                 if let irisMaskURL = resolveEffectMaskTextureURL(
                     for: layer,
