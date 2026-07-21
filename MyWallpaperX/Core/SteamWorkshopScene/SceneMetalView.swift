@@ -13,6 +13,7 @@ class SceneMetalView: NSView {
     private var opacityMaskTextures: [Int: MTLTexture] = [:]
     private var waterMaskTextures: [Int: MTLTexture] = [:]
     private var foliageMaskTextures: [Int: MTLTexture] = [:]
+    private var waterRippleNormalTextures: [Int: MTLTexture] = [:]
     private var imagePipeline: SceneImageLayerPipeline?
     private let offscreenTexturePool: SceneOffscreenTexturePool
     private var displayTimer: Timer?
@@ -159,6 +160,7 @@ class SceneMetalView: NSView {
         var loadedOpacityMasks: [Int: MTLTexture] = [:]
         var loadedWaterMasks: [Int: MTLTexture] = [:]
         var loadedFoliageMasks: [Int: MTLTexture] = [:]
+        var loadedWaterRippleNormals: [Int: MTLTexture] = [:]
         report.append("Scene preview texture load report")
         report.append("camera: projection=cover parallax=\(renderer.renderDescriptor.camera.parallaxEnabled) amount=\(renderer.renderDescriptor.camera.parallaxAmount) mouseInfluence=\(renderer.renderDescriptor.camera.parallaxMouseInfluence)")
         report.append("cacheDirectory: \(cacheDirectory.path)")
@@ -193,56 +195,27 @@ class SceneMetalView: NSView {
             case .loaded(let texture):
                 loaded[layer.id] = texture
                 var message = "layer \(layer.id) \"\(name)\": OK \(url.lastPathComponent) → \(texture.width)×\(texture.height) [\(relativePath(for: url, cacheDirectory: cacheDirectory))]"
-                if let effectSummary = renderer.effectRuntimeSummary(for: layer) {
+                let effectTextures = SceneLayerEffectTextureLoader.load(
+                    for: layer,
+                    resolver: resolver,
+                    loader: loader,
+                    device: metalDevice
+                )
+                effectTextures.merge(
+                    layerID: layer.id,
+                    irisMasks: &loadedIrisMasks,
+                    opacityMasks: &loadedOpacityMasks,
+                    waterMasks: &loadedWaterMasks,
+                    foliageMasks: &loadedFoliageMasks,
+                    waterRippleNormals: &loadedWaterRippleNormals
+                )
+                message += effectTextures.message
+                if let effectSummary = renderer.effectRuntimeSummary(
+                    for: layer,
+                    hasWaterRippleNormal: effectTextures.waterRippleNormal != nil,
+                    hasOpacityMask: effectTextures.opacityMask != nil
+                ) {
                     message += "; \(effectSummary)"
-                }
-                if let irisMaskURL = resolveEffectMaskTextureURL(
-                    for: layer,
-                    effectNameFragment: "iris",
-                    resolver: resolver
-                ) {
-                    appendMaskLoadMessage(
-                        layerID: layer.id,
-                        label: "iris mask",
-                        maskURL: irisMaskURL,
-                        loader: loader,
-                        message: &message,
-                        loadedMasks: &loadedIrisMasks
-                    )
-                }
-                if let opacityMaskURL = resolveEffectMaskTextureURL(
-                    for: layer,
-                    effectNameFragment: "opacity",
-                    resolver: resolver
-                ) {
-                    appendMaskLoadMessage(
-                        layerID: layer.id,
-                        label: "opacity mask",
-                        maskURL: opacityMaskURL,
-                        loader: loader,
-                        message: &message,
-                        loadedMasks: &loadedOpacityMasks
-                    )
-                }
-                if let waterMaskURL = resolveWaterEffectMaskTextureURL(for: layer, resolver: resolver) {
-                    appendMaskLoadMessage(
-                        layerID: layer.id,
-                        label: "water mask",
-                        maskURL: waterMaskURL,
-                        loader: loader,
-                        message: &message,
-                        loadedMasks: &loadedWaterMasks
-                    )
-                }
-                if let foliageMaskURL = resolveFoliageEffectMaskTextureURL(for: layer, resolver: resolver) {
-                    appendMaskLoadMessage(
-                        layerID: layer.id,
-                        label: "foliage mask",
-                        maskURL: foliageMaskURL,
-                        loader: loader,
-                        message: &message,
-                        loadedMasks: &loadedFoliageMasks
-                    )
                 }
                 message += "; \(placementSummary)"
                 report.append(message)
@@ -269,6 +242,7 @@ class SceneMetalView: NSView {
         opacityMaskTextures = loadedOpacityMasks
         waterMaskTextures = loadedWaterMasks
         foliageMaskTextures = loadedFoliageMasks
+        waterRippleNormalTextures = loadedWaterRippleNormals
         report.append("")
         let loadedLayerCount = Set(loaded.keys).union(loadedVideoSources.keys).count
         report.append("loaded: \(loadedLayerCount) / \(report.filter { $0.starts(with: "layer ") }.count)")
@@ -310,6 +284,7 @@ class SceneMetalView: NSView {
             opacityMaskTextures: opacityMaskTextures,
             waterMaskTextures: waterMaskTextures,
             foliageMaskTextures: foliageMaskTextures,
+            waterRippleNormalTextures: waterRippleNormalTextures,
             imagePipeline: imagePipeline,
             offscreenTexturePool: offscreenTexturePool,
             time: elapsed,
@@ -317,100 +292,6 @@ class SceneMetalView: NSView {
             to: drawable,
             viewportSize: metalLayer.drawableSize
         )
-    }
-
-    private func resolveEffectMaskTextureURL(
-        for layer: SceneRenderDescriptor.Layer,
-        effectNameFragment: String,
-        resolver: SceneTexturePathResolver
-    ) -> URL? {
-        for effect in layer.effects where effect.file.localizedLowercase.contains(effectNameFragment) {
-            for pass in effect.passes {
-                for texturePath in pass.texturePaths {
-                    if let url = resolver.resolveTextureFile(named: texturePath) {
-                        return url
-                    }
-                }
-            }
-        }
-        return nil
-    }
-
-    private func resolveWaterEffectMaskTextureURL(
-        for layer: SceneRenderDescriptor.Layer,
-        resolver: SceneTexturePathResolver
-    ) -> URL? {
-        for fragment in ["waterwaves", "waterripple"] {
-            if let url = resolveMaskedEffectTextureURL(
-                for: layer,
-                effectNameFragment: fragment,
-                resolver: resolver
-            ) {
-                return url
-            }
-        }
-        return nil
-    }
-
-    private func resolveFoliageEffectMaskTextureURL(
-        for layer: SceneRenderDescriptor.Layer,
-        resolver: SceneTexturePathResolver
-    ) -> URL? {
-        for fragment in ["foliagesway", "cursorripple"] {
-            if let url = resolveMaskedEffectTextureURL(
-                for: layer,
-                effectNameFragment: fragment,
-                resolver: resolver
-            ) {
-                return url
-            }
-        }
-        return nil
-    }
-
-    private func resolveMaskedEffectTextureURL(
-        for layer: SceneRenderDescriptor.Layer,
-        effectNameFragment: String,
-        resolver: SceneTexturePathResolver
-    ) -> URL? {
-        for effect in layer.effects where effect.visible != false {
-            let lower = effect.file.localizedLowercase
-            guard lower.contains(effectNameFragment) else { continue }
-            for pass in effect.passes {
-                if let texturePath = pass.texturePaths.first(where: { $0.localizedLowercase.contains("mask") }),
-                   let url = resolver.resolveTextureFile(named: texturePath) {
-                    return url
-                }
-            }
-        }
-        return nil
-    }
-
-    private func appendMaskLoadMessage(
-        layerID: Int,
-        label: String,
-        maskURL: URL,
-        loader: SceneTextureLoader,
-        message: inout String,
-        loadedMasks: inout [Int: MTLTexture]
-    ) {
-        switch loader.load(from: maskURL, device: metalDevice) {
-        case .loaded(let maskTexture):
-            loadedMasks[layerID] = maskTexture
-            message += "; \(label) OK \(maskURL.lastPathComponent) → \(maskTexture.width)×\(maskTexture.height)"
-        case .unsupportedFormat(let ext):
-            message += "; \(label) unsupported \(ext) (\(maskURL.lastPathComponent))"
-        case .unsupportedTexFormat(let code):
-            message += "; \(label) unsupported .tex format \(code) (\(maskURL.lastPathComponent))"
-        case .texNoEmbeddedImage:
-            message += "; \(label) has no embedded JPEG/PNG (\(maskURL.lastPathComponent))"
-        case .texContainsVideoPayload:
-            message += "; \(label) is mp4 payload (\(maskURL.lastPathComponent))"
-        case .decodeFailed(let msg):
-            message += "; \(label) decode failed (\(msg))"
-        case .textureAllocationFailed(let w, let h):
-            message += "; \(label) allocation failed at \(w)×\(h)"
-        }
     }
 
     private func relativePath(for url: URL, cacheDirectory: URL) -> String {

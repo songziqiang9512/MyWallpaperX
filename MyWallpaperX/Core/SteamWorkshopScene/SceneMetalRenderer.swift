@@ -8,6 +8,7 @@ struct SceneMetalRenderer {
     let renderDescriptor: SceneRenderDescriptor
     private let gaussianBlurPipeline: SceneGaussianBlurPipeline
     private let bloomPipeline: SceneBloomPipeline
+    private let waterRipplePipeline: SceneWaterRipplePipeline
     private let perspectiveOpacityPipeline: ScenePerspectiveOpacityPipeline
     private let additivePipeline: SceneImageLayerPipeline
     private let visibleLayerIDs: Set<Int>
@@ -19,6 +20,7 @@ struct SceneMetalRenderer {
               let commandQueue = device.makeCommandQueue(),
               let gaussianBlurPipeline = SceneGaussianBlurPipeline(device: device),
               let bloomPipeline = SceneBloomPipeline(device: device),
+              let waterRipplePipeline = SceneWaterRipplePipeline(device: device),
               let perspectiveOpacityPipeline = ScenePerspectiveOpacityPipeline(device: device),
               let additivePipeline = SceneImageLayerPipeline(device: device, blendMode: .additive) else {
             return nil
@@ -28,6 +30,7 @@ struct SceneMetalRenderer {
         self.renderDescriptor = renderDescriptor
         self.gaussianBlurPipeline = gaussianBlurPipeline
         self.bloomPipeline = bloomPipeline
+        self.waterRipplePipeline = waterRipplePipeline
         self.perspectiveOpacityPipeline = perspectiveOpacityPipeline
         self.additivePipeline = additivePipeline
         self.visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: renderDescriptor)
@@ -81,8 +84,16 @@ struct SceneMetalRenderer {
         SceneEffectRuntimePlanner.offscreenPassCount(for: layer)
     }
 
-    func effectRuntimeSummary(for layer: SceneRenderDescriptor.Layer) -> String? {
-        SceneEffectRuntimePlanner.runtimeSummary(for: layer)
+    func effectRuntimeSummary(
+        for layer: SceneRenderDescriptor.Layer,
+        hasWaterRippleNormal: Bool = false,
+        hasOpacityMask: Bool = false
+    ) -> String? {
+        SceneEffectRuntimePlanner.runtimeSummary(
+            for: layer,
+            hasWaterRippleNormal: hasWaterRippleNormal,
+            hasOpacityMask: hasOpacityMask
+        )
     }
 
     func debugPlacementSummary(for layer: SceneRenderDescriptor.Layer) -> String {
@@ -134,6 +145,7 @@ struct SceneMetalRenderer {
         opacityMaskTextures: [Int: MTLTexture],
         waterMaskTextures: [Int: MTLTexture],
         foliageMaskTextures: [Int: MTLTexture],
+        waterRippleNormalTextures: [Int: MTLTexture],
         imagePipeline: SceneImageLayerPipeline?,
         offscreenTexturePool: SceneOffscreenTexturePool?,
         time: Float,
@@ -147,7 +159,11 @@ struct SceneMetalRenderer {
         }
         guard let commandBuffer = commandQueue.makeCommandBuffer() else { return }
 
-        let viewProj = makeViewProjection(viewportSize: viewportSize, mouseNormalized: mouseNormalized)
+        let viewProj = SceneCameraProjection.viewProjection(
+            camera: renderDescriptor.camera,
+            viewportSize: viewportSize,
+            mouseNormalized: mouseNormalized
+        )
         let cursorWorld = cursorWorldPosition(mouseNormalized: mouseNormalized, viewportSize: viewportSize)
         let orderedLayers = renderDescriptor.renderOrderLayerIDs.compactMap { layersByID[$0] }
 
@@ -183,13 +199,15 @@ struct SceneMetalRenderer {
             let opacityMaskTexture = opacityMaskTextures[layer.id]
             let waterMaskTexture = waterMaskTextures[layer.id]
             let foliageMaskTexture = foliageMaskTextures[layer.id]
+            let waterRippleNormalTexture = waterRippleNormalTextures[layer.id]
             let auxMaskTexture = irisMaskTexture ?? opacityMaskTexture
             let effectPlan = SceneEffectRuntimePlanner.plan(
                 for: layer,
                 hasIrisMask: irisMaskTexture != nil,
                 hasOpacityMask: opacityMaskTexture != nil && irisMaskTexture == nil,
                 hasWaterMask: waterMaskTexture != nil,
-                hasFoliageMask: foliageMaskTexture != nil
+                hasFoliageMask: foliageMaskTexture != nil,
+                hasWaterRippleNormal: waterRippleNormalTexture != nil
             )
             guard effectPlan.skipsUnsupportedComposite == false else { continue }
             let effectInputs = effectPlan.inputs
@@ -221,11 +239,14 @@ struct SceneMetalRenderer {
                     offscreenPassCount: offscreenPassCount,
                     blurPlan: effectPlan.gaussianBlur,
                     bloomPlan: effectPlan.bloom,
+                    waterRippleNormalPlan: effectPlan.waterRippleNormal,
+                    waterRippleNormalTexture: waterRippleNormalTexture,
                     perspectiveOpacityPlan: effectPlan.perspectiveOpacity,
                     sourceUniforms: directUniforms,
                     pipeline: pipeline,
                     gaussianBlurPipeline: gaussianBlurPipeline,
                     bloomPipeline: bloomPipeline,
+                    waterRipplePipeline: waterRipplePipeline,
                     perspectiveOpacityPipeline: perspectiveOpacityPipeline,
                     commandBuffer: commandBuffer
                 ) ?? texture
@@ -326,63 +347,6 @@ struct SceneMetalRenderer {
     }
 
     // MARK: - Matrix construction
-
-    // Computes a cover projection: preserve aspect and crop overflow so the
-    // Scene fills the drawable without exposing the camera clear color.
-    //
-    // Coordinate convention (inferred from samples):
-    // - World origin is the bottom-left corner of the scene; main image
-    //   layers have origin=(orthoW/2, orthoH/2) and size=(orthoW, orthoH).
-    // - scene.json's camera.eye/center are relative to the *scene center*
-    //   ((orthoW/2, orthoH/2)), not the raw world origin. So default
-    //   eye=(0,0,0) places the camera at the scene center looking down -Z.
-    private func makeViewProjection(viewportSize: CGSize, mouseNormalized: SIMD2<Float>) -> simd_float4x4 {
-        let camera = renderDescriptor.camera
-        let orthoW = camera.orthoWidth ?? Float(viewportSize.width)
-        let orthoH = camera.orthoHeight ?? Float(viewportSize.height)
-        guard orthoW > 0, orthoH > 0, viewportSize.width > 0, viewportSize.height > 0 else {
-            return SceneMatrix.identity()
-        }
-
-        // Place the camera at z=cameraDepth (+Z) above the layer plane so
-        // layers at world z=0 fall comfortably within the [-near, -far]
-        // view-space range and are not near-clipped. cameraDepth is arbitrary
-        // (ortho doesn't change size with depth) but must be > near.
-        let cameraDepth: Float = max(1, camera.nearZ * 10)
-        let sceneCenter = SIMD3<Float>(orthoW / 2, orthoH / 2, cameraDepth)
-        let eyeOffset = SIMD3<Float>(camera.eye, fill: 0)
-        let centerOffset = SIMD3<Float>(camera.center, fill: 0)
-        let upDir = SIMD3<Float>(camera.up, fill: 0)
-        let parallaxScale = camera.parallaxEnabled
-            ? min(max(camera.parallaxAmount * camera.parallaxMouseInfluence * 0.04, 0), 0.04)
-            : 0
-        let parallaxOffset = SIMD3<Float>(
-            mouseNormalized.x * orthoW * parallaxScale,
-            mouseNormalized.y * orthoH * parallaxScale,
-            0
-        )
-        let eye = sceneCenter + eyeOffset + parallaxOffset
-        let center = sceneCenter + centerOffset + parallaxOffset
-        let view = SceneMatrix.lookAt(eye: eye, center: center, up: upDir)
-
-        let halfExtents = SceneCameraProjection.coverHalfExtents(
-            orthoWidth: orthoW,
-            orthoHeight: orthoH,
-            viewportSize: viewportSize,
-            centerOffset: centerOffset
-        )
-
-        // World is Y-down (see modelMatrix comment) so swap ortho top/bottom
-        // to flip the Y axis on its way to Metal's Y-up NDC. The net effect:
-        // world (0, 0) (top-left of the ortho box) lands at NDC (-1, +1)
-        // (top-left of the drawable).
-        let proj = SceneMatrix.ortho(
-            left: -halfExtents.x, right: halfExtents.x,
-            bottom: halfExtents.y, top: -halfExtents.y,
-            near: camera.nearZ, far: camera.farZ
-        )
-        return proj * view
-    }
 
     private func modelMatrix(for layer: SceneRenderDescriptor.Layer) -> simd_float4x4 {
         let size = SIMD2(layer.sizeWH ?? [], fill: 0)

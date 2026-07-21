@@ -27,6 +27,7 @@ struct SceneEffectRuntimePlan {
     let inputs: SceneLayerEffectInputs
     let gaussianBlur: SceneGaussianBlurPlan?
     let bloom: SceneBloomPlan?
+    let waterRippleNormal: SceneWaterRippleNormalPlan?
     let perspectiveOpacity: ScenePerspectiveOpacityPlan?
     let offscreenPassCount: Int
     let skipsUnsupportedComposite: Bool
@@ -38,8 +39,13 @@ enum SceneEffectRuntimePlanner {
         hasIrisMask: Bool,
         hasOpacityMask: Bool,
         hasWaterMask: Bool,
-        hasFoliageMask: Bool
+        hasFoliageMask: Bool,
+        hasWaterRippleNormal: Bool
     ) -> SceneEffectRuntimePlan {
+        let waterRippleNormal = SceneWaterRippleRuntimePlanner.plan(
+            for: layer,
+            hasNormalTexture: hasWaterRippleNormal
+        )
         let perspectiveOpacity = perspectiveOpacityPlan(
             for: layer,
             hasOpacityMask: hasOpacityMask
@@ -50,12 +56,14 @@ enum SceneEffectRuntimePlanner {
                 hasIrisMask: hasIrisMask,
                 hasOpacityMask: hasOpacityMask && perspectiveOpacity == nil,
                 hasWaterMask: hasWaterMask,
-                hasFoliageMask: hasFoliageMask
+                hasFoliageMask: hasFoliageMask,
+                usesNormalWaterRipple: waterRippleNormal != nil
             ),
             gaussianBlur: gaussianBlurPlan(for: layer),
             bloom: bloomPlan(for: layer),
+            waterRippleNormal: waterRippleNormal,
             perspectiveOpacity: perspectiveOpacity,
-            offscreenPassCount: offscreenPassCount(for: layer),
+            offscreenPassCount: max(offscreenPassCount(for: layer), waterRippleNormal == nil ? 0 : 1),
             skipsUnsupportedComposite: skipsUnsupportedComposite(for: layer) && perspectiveOpacity == nil
         )
     }
@@ -69,12 +77,33 @@ enum SceneEffectRuntimePlanner {
         }
     }
 
-    static func runtimeSummary(for layer: SceneRenderDescriptor.Layer) -> String? {
-        if perspectiveOpacityPlan(for: layer, hasOpacityMask: true) != nil {
-            return "effect runtime perspective-opacity; layer color blend mode=\(layer.colorBlendMode ?? 0)"
+    static func runtimeSummary(
+        for layer: SceneRenderDescriptor.Layer,
+        hasWaterRippleNormal: Bool = false,
+        hasOpacityMask: Bool = false
+    ) -> String? {
+        let waterRippleNormal = SceneWaterRippleRuntimePlanner.plan(
+            for: layer,
+            hasNormalTexture: hasWaterRippleNormal
+        )
+        let hasDeclaredWaterRipple = layer.effects.contains {
+            $0.visible != false && $0.file.localizedLowercase.contains("waterripple")
+        }
+        let legacyRipple = hasDeclaredWaterRipple && waterRippleNormal == nil
+            ? "effect runtime waterripple-legacy; "
+            : ""
+        if perspectiveOpacityPlan(for: layer, hasOpacityMask: hasOpacityMask) != nil {
+            let ripple = waterRippleNormal == nil ? "" : "effect runtime waterripple-normal; "
+            return "\(ripple)\(legacyRipple)effect runtime perspective-opacity; layer color blend mode=\(layer.colorBlendMode ?? 0)"
         }
         if skipsUnsupportedComposite(for: layer) {
             return "unsupported composite skipped; waterflow+waterripple+perspective+opacity"
+        }
+        if waterRippleNormal != nil {
+            return "effect runtime waterripple-normal; 1 declared pass(es)"
+        }
+        if legacyRipple.isEmpty == false {
+            return "\(legacyRipple)inline approximation"
         }
         let passCount = offscreenPassCount(for: layer)
         guard passCount > 0 else { return nil }
@@ -234,7 +263,8 @@ enum SceneEffectRuntimePlanner {
         hasIrisMask: Bool,
         hasOpacityMask: Bool,
         hasWaterMask: Bool,
-        hasFoliageMask: Bool
+        hasFoliageMask: Bool,
+        usesNormalWaterRipple: Bool
     ) -> SceneLayerEffectInputs {
         var flags: SceneEffectFlags = []
         var params0 = SIMD4<Float>(0, 0, 0, 0)
@@ -244,7 +274,7 @@ enum SceneEffectRuntimePlanner {
         for path in layer.effectFiles {
             let lower = path.localizedLowercase
             if lower.contains("foliagesway") { flags.insert(.foliagesway) }
-            if lower.contains("waterwaves") || lower.contains("waterripple") {
+            if lower.contains("waterwaves") || (lower.contains("waterripple") && !usesNormalWaterRipple) {
                 flags.insert(.waterwaves)
             }
             if lower.contains("cursorripple") { flags.insert(.cursorripple) }

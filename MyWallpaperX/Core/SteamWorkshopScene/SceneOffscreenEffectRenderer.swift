@@ -11,11 +11,14 @@ enum SceneOffscreenEffectRenderer {
         offscreenPassCount: Int,
         blurPlan: SceneGaussianBlurPlan?,
         bloomPlan: SceneBloomPlan?,
+        waterRippleNormalPlan: SceneWaterRippleNormalPlan?,
+        waterRippleNormalTexture: MTLTexture?,
         perspectiveOpacityPlan: ScenePerspectiveOpacityPlan?,
         sourceUniforms: SceneLayerFragmentUniforms,
         pipeline: SceneImageLayerPipeline,
         gaussianBlurPipeline: SceneGaussianBlurPipeline,
         bloomPipeline: SceneBloomPipeline,
+        waterRipplePipeline: SceneWaterRipplePipeline,
         perspectiveOpacityPipeline: ScenePerspectiveOpacityPipeline,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
@@ -38,15 +41,34 @@ enum SceneOffscreenEffectRenderer {
         )
         sourceEncoder.endEncoding()
 
+        var effectSource = offscreenPair.primary
+        var perspectiveTarget = offscreenPair.secondary
+        if let waterRippleNormalPlan, let waterRippleNormalTexture,
+           waterRipplePipeline.encode(
+               source: offscreenPair.primary,
+               normalMap: waterRippleNormalTexture,
+               target: offscreenPair.secondary,
+               plan: waterRippleNormalPlan,
+               time: sourceUniforms.time,
+               commandBuffer: commandBuffer
+           ) {
+            effectSource = offscreenPair.secondary
+            perspectiveTarget = offscreenPair.tertiary
+        }
+
         if let perspectiveOpacityPlan, let auxMaskTexture,
            perspectiveOpacityPipeline.encode(
-               source: offscreenPair.primary,
+               source: effectSource,
                opacityMask: auxMaskTexture,
-               target: offscreenPair.secondary,
+               target: perspectiveTarget,
                plan: perspectiveOpacityPlan,
                commandBuffer: commandBuffer
            ) {
-            return offscreenPair.secondary
+            return perspectiveTarget
+        }
+
+        if effectSource === offscreenPair.secondary {
+            return effectSource
         }
 
         if let bloomPlan {

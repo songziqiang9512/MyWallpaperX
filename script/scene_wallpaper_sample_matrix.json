@@ -27,6 +27,7 @@
         "text_runtime",
         "masked_layers",
         "perspective_opacity_runtime",
+        "normal_map_water_ripple_runtime",
         "color_blend_mode_9",
         "nullable_texture_slots",
         "shader_combos",
@@ -46,6 +47,9 @@
       "minimum_bloom_runtime_count": 1,
       "minimum_text_loaded": 3,
       "minimum_perspective_opacity_runtime_count": 2,
+      "minimum_water_ripple_normal_runtime_count": 2,
+      "minimum_water_ripple_normal_load_count": 2,
+      "maximum_legacy_water_ripple_runtime_count": 0,
       "minimum_color_blend_mode_9_count": 2,
       "maximum_skipped_composite_count": 0,
       "expected_camera_parallax": true,
@@ -113,6 +117,7 @@
         "particle_layers",
         "precise_blur_runtime",
         "water_effects",
+        "masked_water_ripple_legacy",
         "audio_responsive_metadata",
         "animated_output"
       ],
@@ -121,6 +126,7 @@
       "expected_interpretation_format": 7,
       "minimum_loaded_ratio": 1.0,
       "minimum_precise_blur_runtime_count": 3,
+      "minimum_legacy_water_ripple_runtime_count": 1,
       "expected_camera_parallax": false,
       "requires_motion": true,
       "minimum_changed_ratio": 0.0001

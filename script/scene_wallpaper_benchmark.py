@@ -240,6 +240,19 @@ def run_sample(
     perspective_opacity_count = preview_text.count("effect runtime perspective-opacity;")
     if perspective_opacity_count < int(sample.get("minimum_perspective_opacity_runtime_count", 0)):
         failures.append("perspective opacity runtime count below minimum")
+    water_ripple_normal_count = preview_text.count("effect runtime waterripple-normal;")
+    if water_ripple_normal_count < int(sample.get("minimum_water_ripple_normal_runtime_count", 0)):
+        failures.append("normal-map water ripple runtime count below minimum")
+    water_ripple_normal_load_count = preview_text.count("waterripple normal OK")
+    if water_ripple_normal_load_count < int(sample.get("minimum_water_ripple_normal_load_count", 0)):
+        failures.append("normal-map water ripple texture load count below minimum")
+    legacy_water_ripple_count = preview_text.count("effect runtime waterripple-legacy;")
+    if legacy_water_ripple_count < int(sample.get("minimum_legacy_water_ripple_runtime_count", 0)):
+        failures.append("legacy water ripple runtime count below minimum")
+    maximum_legacy_water_ripple_count = sample.get("maximum_legacy_water_ripple_runtime_count")
+    if maximum_legacy_water_ripple_count is not None:
+        if legacy_water_ripple_count > int(maximum_legacy_water_ripple_count):
+            failures.append("legacy water ripple runtime count above maximum")
     color_blend_mode_9_count = preview_text.count("layer color blend mode=9")
     if color_blend_mode_9_count < int(sample.get("minimum_color_blend_mode_9_count", 0)):
         failures.append("layer color blend mode 9 count below minimum")
@@ -316,6 +329,9 @@ def run_sample(
             "precise_blur_runtime_count": precise_blur_runtime_count,
             "skipped_unsupported_composite_count": skipped_composite_count,
             "perspective_opacity_runtime_count": perspective_opacity_count,
+            "water_ripple_normal_runtime_count": water_ripple_normal_count,
+            "water_ripple_normal_load_count": water_ripple_normal_load_count,
+            "legacy_water_ripple_runtime_count": legacy_water_ripple_count,
             "color_blend_mode_9_count": color_blend_mode_9_count,
             "bloom_runtime_count": bloom_runtime_count,
             "route_only_effect_count": preview_text.count("offscreen route-only"),
