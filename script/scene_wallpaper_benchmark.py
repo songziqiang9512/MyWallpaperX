@@ -60,6 +60,61 @@ def copy_sample(source: Path, destination: Path) -> None:
     shutil.copytree(source, destination)
 
 
+def pass_metadata_metrics(passes: list[Any]) -> tuple[int, int, int]:
+    slot_count = 0
+    slot_holes = 0
+    combo_count = 0
+    for item in passes:
+        if not isinstance(item, dict):
+            raise ValueError("Scene interpretation pass is not an object")
+        slots = item.get("textureSlots")
+        combos = item.get("combos")
+        if not isinstance(slots, list) or any(slot is not None and not isinstance(slot, str) for slot in slots):
+            raise ValueError("Scene interpretation textureSlots has an invalid shape")
+        if not isinstance(combos, dict) or any(type(value) is not int for value in combos.values()):
+            raise ValueError("Scene interpretation combos has an invalid shape")
+        slot_count += len(slots)
+        slot_holes += sum(slot is None for slot in slots)
+        combo_count += len(combos)
+    return slot_count, slot_holes, combo_count
+
+
+def interpretation_metrics(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        descriptor = payload["renderDescriptor"]
+        effect_passes = [
+            item
+            for layer in descriptor.get("layers", [])
+            for effect in layer.get("effects", [])
+            for item in effect.get("passes", [])
+        ]
+        material_passes = descriptor.get("materialPasses", [])
+        effect_slot_count, effect_slot_holes, effect_combo_count = pass_metadata_metrics(effect_passes)
+        material_slot_count, material_slot_holes, material_combo_count = pass_metadata_metrics(material_passes)
+        return {
+            "format_version": int(payload["formatVersion"]),
+            "effect_texture_slot_count": effect_slot_count,
+            "effect_texture_slot_hole_count": effect_slot_holes,
+            "effect_combo_entry_count": effect_combo_count,
+            "material_texture_slot_count": material_slot_count,
+            "material_texture_slot_hole_count": material_slot_holes,
+            "material_combo_entry_count": material_combo_count,
+            "error": None,
+        }
+    except (AttributeError, KeyError, TypeError, ValueError, json.JSONDecodeError, OSError) as error:
+        return {
+            "format_version": None,
+            "effect_texture_slot_count": 0,
+            "effect_texture_slot_hole_count": 0,
+            "effect_combo_entry_count": 0,
+            "material_texture_slot_count": 0,
+            "material_texture_slot_hole_count": 0,
+            "material_combo_entry_count": 0,
+            "error": str(error),
+        }
+
+
 def run_sample(
     runtime_binary: Path,
     sample_root: Path,
@@ -142,6 +197,9 @@ def run_sample(
         "after": png_flat_border_ratio(after_snapshot),
     }
     motion = png_motion_metrics(ready_snapshot, after_snapshot)
+    interpretation = interpretation_metrics(
+        runtime_sample / ".mywallpaperx-scene-interpretation.json"
+    )
 
     if timed_out:
         failures.append("process timeout")
@@ -185,6 +243,20 @@ def run_sample(
     color_blend_mode_9_count = preview_text.count("layer color blend mode=9")
     if color_blend_mode_9_count < int(sample.get("minimum_color_blend_mode_9_count", 0)):
         failures.append("layer color blend mode 9 count below minimum")
+    if interpretation["format_version"] is None:
+        failures.append("Scene interpretation evidence missing or invalid")
+    interpretation_expectations = {
+        "expected_interpretation_format": "format_version",
+        "expected_effect_texture_slot_count": "effect_texture_slot_count",
+        "expected_effect_texture_slot_hole_count": "effect_texture_slot_hole_count",
+        "expected_effect_combo_entry_count": "effect_combo_entry_count",
+        "expected_material_texture_slot_count": "material_texture_slot_count",
+        "expected_material_texture_slot_hole_count": "material_texture_slot_hole_count",
+        "expected_material_combo_entry_count": "material_combo_entry_count",
+    }
+    for expectation, metric in interpretation_expectations.items():
+        if expectation in sample and interpretation[metric] != int(sample[expectation]):
+            failures.append(f"Scene interpretation {metric} mismatch")
     bloom_runtime_count = preview_text.count("effect runtime bloom")
     if bloom_runtime_count < int(sample.get("minimum_bloom_runtime_count", 0)):
         failures.append("bloom runtime count below minimum")
@@ -247,6 +319,7 @@ def run_sample(
             "color_blend_mode_9_count": color_blend_mode_9_count,
             "bloom_runtime_count": bloom_runtime_count,
             "route_only_effect_count": preview_text.count("offscreen route-only"),
+            "interpretation": interpretation,
         },
     }
 

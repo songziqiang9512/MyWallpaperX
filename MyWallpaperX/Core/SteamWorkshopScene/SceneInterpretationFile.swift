@@ -14,8 +14,8 @@ struct SceneInterpretationFile: Codable {
 }
 
 struct SceneInterpretationFileWriter {
-    // formatVersion 6 adds per-layer color blend mode.
-    static let currentFormatVersion = 6
+    // formatVersion 7 preserves nullable texture slots and shader combos.
+    static let currentFormatVersion = 7
 
     func write(
         renderDescriptor: SceneRenderDescriptor,

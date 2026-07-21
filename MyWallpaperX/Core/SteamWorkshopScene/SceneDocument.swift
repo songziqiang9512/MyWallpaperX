@@ -33,6 +33,8 @@ struct SceneDocument {
         struct Pass: Identifiable {
             let id: Int?
             let textures: [String]
+            let textureSlots: [String?]
+            let combos: [String: Int]
             let constantShaderValues: [String: ShaderValue]
             let constantShaderValueKeys: [String]
         }
@@ -220,6 +222,8 @@ struct SceneDocumentLoader {
             SceneDocument.SceneEffect.Pass(
                 id: pass["id"] as? Int,
                 textures: texturePaths(in: pass),
+                textureSlots: (pass["textures"] as? [Any] ?? []).map { normalizedPath($0 as? String) },
+                combos: pass["combos"] as? [String: Int] ?? [:],
                 constantShaderValues: constantShaderValues(in: pass),
                 constantShaderValueKeys: constantShaderValueKeys(in: pass)
             )

@@ -25,6 +25,8 @@ struct SceneRenderDescriptor: Codable {
             let id: Int?
             let passIndex: Int
             let texturePaths: [String]
+            let textureSlots: [String?]
+            let combos: [String: Int]
             let constantShaderValues: [String: SceneDocument.ShaderValue]
             let constantShaderValueKeys: [String]
         }
@@ -84,6 +86,8 @@ struct SceneRenderDescriptor: Codable {
         let passIndex: Int
         let shaderPath: String?
         let texturePaths: [String]
+        let textureSlots: [String?]
+        let combos: [String: Int]
         let constantShaderValues: [String: SceneDocument.ShaderValue]
         let blending: String?
         let depthTest: String?
@@ -206,6 +210,8 @@ struct SceneRenderDescriptorBuilder {
                     passIndex: index,
                     shaderPath: pass.shader,
                     texturePaths: pass.textures,
+                    textureSlots: pass.textureSlots,
+                    combos: pass.combos,
                     constantShaderValues: pass.constantShaderValues,
                     blending: pass.blending,
                     depthTest: pass.depthTest,
@@ -274,6 +280,8 @@ struct SceneRenderDescriptorBuilder {
                         id: pass.id,
                         passIndex: passIndex,
                         texturePaths: pass.textures,
+                        textureSlots: pass.textureSlots,
+                        combos: pass.combos,
                         constantShaderValues: pass.constantShaderValues,
                         constantShaderValueKeys: pass.constantShaderValueKeys
                     )
