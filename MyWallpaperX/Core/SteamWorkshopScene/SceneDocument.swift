@@ -192,8 +192,6 @@ struct SceneDocumentLoader {
         let texturePaths = effects.flatMap(Self.effectTexturePaths)
         let text = textValue(root["text"])
         let imagePath = normalizedPath(root["image"] as? String)
-        let parallaxDepth = stringValue(root["parallaxDepth"])
-            ?? (imagePath?.lowercased() == "models/util/composelayer.json" ? "1 1" : nil)
 
         return SceneDocument.SceneObject(
             id: id,
@@ -214,7 +212,7 @@ struct SceneDocumentLoader {
             size: stringValue(root["size"]),
             scale: stringValue(root["scale"]),
             angles: stringValue(root["angles"]),
-            parallaxDepth: parallaxDepth,
+            parallaxDepth: stringValue(root["parallaxDepth"]),
             disablesParallaxPropagation: visibleValue(root["disablepropagation"]) ?? false,
             text: text,
             textStyle: text == nil ? nil : SceneTextDescriptor.parse(root),

@@ -77,6 +77,17 @@ SCENE_FIXTURE = {
                 }
             ],
         },
+        {
+            "id": 50,
+            "name": "Composition without parallax",
+            "image": "models/util/composelayer.json",
+        },
+        {
+            "id": 60,
+            "name": "Composition with authored parallax",
+            "image": "models/util/composelayer.json",
+            "parallaxDepth": "0.25 -0.5",
+        },
     ],
 }
 
@@ -253,6 +264,9 @@ enum Harness {
             } ?? [],
             "wrappedShaderComponents": layers[40]?.effects.first?.passes.first?
                 .constantShaderValues["Opacity"]?.components ?? [],
+            "compositionParallaxDepths": [50, 60].map {
+                layers[$0]?.parallaxDepthXY ?? []
+            },
             "imageRenderable": [10, 20, 30, 40].map {
                 layers[$0]?.isImageRenderable ?? false
             },
@@ -352,6 +366,9 @@ class SceneSolidLayerTests(unittest.TestCase):
 
     def test_numeric_shader_wrapper_preserves_components(self) -> None:
         self.assertEqual(self.result["wrappedShaderComponents"], [0.75])
+
+    def test_composition_parallax_requires_an_authored_depth(self) -> None:
+        self.assertEqual(self.result["compositionParallaxDepths"], [[], [0.25, -0.5]])
 
     def test_fragment_uniform_carries_layer_tint(self) -> None:
         for actual, expected in zip(self.result["uniformTint"], [0.1, 0.2, 0.3, 1]):
