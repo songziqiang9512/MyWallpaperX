@@ -39,6 +39,7 @@ struct SceneImageLayerDrawRequest {
 
 struct SceneImageLayerCompositor {
     private let gaussianBlurPipeline: SceneGaussianBlurPipeline
+    private let standardBlurPipeline: SceneStandardBlurPipeline
     private let bloomPipeline: SceneBloomPipeline
     private let gradientColorPipeline: SceneGradientColorPipeline
     private let waterRipplePipeline: SceneWaterRipplePipeline
@@ -47,6 +48,7 @@ struct SceneImageLayerCompositor {
 
     init?(device: MTLDevice) {
         guard let gaussianBlurPipeline = SceneGaussianBlurPipeline(device: device),
+              let standardBlurPipeline = SceneStandardBlurPipeline(device: device),
               let bloomPipeline = SceneBloomPipeline(device: device),
               let gradientColorPipeline = SceneGradientColorPipeline(device: device),
               let waterRipplePipeline = SceneWaterRipplePipeline(device: device),
@@ -55,6 +57,7 @@ struct SceneImageLayerCompositor {
             return nil
         }
         self.gaussianBlurPipeline = gaussianBlurPipeline
+        self.standardBlurPipeline = standardBlurPipeline
         self.bloomPipeline = bloomPipeline
         self.gradientColorPipeline = gradientColorPipeline
         self.waterRipplePipeline = waterRipplePipeline
@@ -105,39 +108,66 @@ struct SceneImageLayerCompositor {
             dependencyBlendMode: routesOffscreen ? nil : request.dependencyEffect?.blendMode
         )
         if routesOffscreen,
-           let pool = request.offscreenTexturePool,
-           let textures = pool.textures(
-               width: requestedOffscreenWidth,
-               height: requestedOffscreenHeight
-           ) {
-            if request.authoredEffectPlan != nil,
-               (textures.primary.width != requestedOffscreenWidth
-                   || textures.primary.height != requestedOffscreenHeight) {
-                return false
-            }
-            let renderedTexture = mainPass.encodeOffscreen { commandBuffer in
-                SceneOffscreenEffectRenderer.render(
-                    sourceTexture: request.texture,
-                    waterMaskTexture: masks.water,
-                    foliageMaskTexture: masks.foliage,
-                    auxMaskTexture: auxMask,
-                    offscreenPair: textures,
-                    offscreenPassCount: max(effectPlan.offscreenPassCount, 1),
-                    blurPlan: effectPlan.gaussianBlur,
-                    bloomPlan: effectPlan.bloom,
-                    gradientColorPlan: effectPlan.gradientColor,
-                    waterRippleNormalPlan: effectPlan.waterRippleNormal,
-                    waterRippleNormalTexture: masks.waterRippleNormal,
-                    perspectiveOpacityPlan: effectPlan.perspectiveOpacity,
-                    sourceUniforms: directUniforms,
-                    pipeline: pipeline,
-                    gaussianBlurPipeline: gaussianBlurPipeline,
-                    bloomPipeline: bloomPipeline,
-                    gradientColorPipeline: gradientColorPipeline,
-                    waterRipplePipeline: waterRipplePipeline,
-                    perspectiveOpacityPipeline: perspectiveOpacityPipeline,
-                    commandBuffer: commandBuffer
-                )
+           let pool = request.offscreenTexturePool {
+            let renderedTexture: MTLTexture?
+            if let standardBlur = effectPlan.standardBlur {
+                guard let targets = pool.standardBlurTargets(
+                    width: requestedOffscreenWidth,
+                    height: requestedOffscreenHeight,
+                    scale: standardBlur.renderTargetScale
+                ) else {
+                    return false
+                }
+                renderedTexture = mainPass.encodeOffscreen { commandBuffer in
+                    SceneOffscreenEffectRenderer.renderStandardBlur(
+                        sourceTexture: request.texture,
+                        waterMaskTexture: masks.water,
+                        foliageMaskTexture: masks.foliage,
+                        auxMaskTexture: auxMask,
+                        targets: targets,
+                        plan: standardBlur,
+                        sourceUniforms: directUniforms,
+                        pipeline: pipeline,
+                        standardBlurPipeline: standardBlurPipeline,
+                        commandBuffer: commandBuffer
+                    )
+                }
+            } else {
+                guard let textures = pool.textures(
+                    width: requestedOffscreenWidth,
+                    height: requestedOffscreenHeight
+                ) else {
+                    return false
+                }
+                if request.authoredEffectPlan?.requiresExactInputExtent == true,
+                   (textures.primary.width != requestedOffscreenWidth
+                       || textures.primary.height != requestedOffscreenHeight) {
+                    return false
+                }
+                renderedTexture = mainPass.encodeOffscreen { commandBuffer in
+                    SceneOffscreenEffectRenderer.render(
+                        sourceTexture: request.texture,
+                        waterMaskTexture: masks.water,
+                        foliageMaskTexture: masks.foliage,
+                        auxMaskTexture: auxMask,
+                        offscreenPair: textures,
+                        offscreenPassCount: max(effectPlan.offscreenPassCount, 1),
+                        blurPlan: effectPlan.gaussianBlur,
+                        bloomPlan: effectPlan.bloom,
+                        gradientColorPlan: effectPlan.gradientColor,
+                        waterRippleNormalPlan: effectPlan.waterRippleNormal,
+                        waterRippleNormalTexture: masks.waterRippleNormal,
+                        perspectiveOpacityPlan: effectPlan.perspectiveOpacity,
+                        sourceUniforms: directUniforms,
+                        pipeline: pipeline,
+                        gaussianBlurPipeline: gaussianBlurPipeline,
+                        bloomPipeline: bloomPipeline,
+                        gradientColorPipeline: gradientColorPipeline,
+                        waterRipplePipeline: waterRipplePipeline,
+                        perspectiveOpacityPipeline: perspectiveOpacityPipeline,
+                        commandBuffer: commandBuffer
+                    )
+                }
             }
             guard let finalTexture = renderedTexture ?? (
                 request.requiresSourceCopy || request.authoredEffectPlan != nil ? nil : request.texture

@@ -288,7 +288,7 @@ present or read back
 |---|---|---|
 | Scene/object IR | format 16 已保留实例与 EffectDefinition/FBO/pass/bind/command，并按作者顺序编译 graph、blocker 与 canonical SHA | 保持 raw/typed 双层合同，不把未知字段静默解释为支持 |
 | dependency | graph 已结构化区分固定 `previous`、effect-scoped RT 和 copy/swap；bounded named target/clipping/static provider 仍由旧执行器执行 | 建 resource registry 与 compose/history 数据流判定，再扩通用 GPU executor |
-| material/shader | sparse-slot resolver 与 strict 2-pass precise backend 已落地；运行时整体仍以手写 MSL 近似为主 | 先实现 standard Blur quarter-RT backend，再补 shader defaults、resource registry 和更多 pass |
+| material/shader | sparse-slot resolver、strict 2-pass precise 与 stock standard Blur default-profile 4-pass backend 已落地；运行时整体仍以手写 MSL 近似为主 | 补 shader defaults、resource registry/provider、nested target 和更多 pass；非默认 standard 变体按独立证据扩展 |
 | local deformation | Foliage/Water/Shake 等有不同程度近似 | 以 [Effects 全集](effects-reference.md) 的输入、空间和 mask 合同替换 |
 | live values | 属性覆盖部分 target；Timeline/SceneScript/provider 未统一 | 建 typed target snapshot 和统一 frame context |
 

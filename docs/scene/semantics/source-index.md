@@ -190,8 +190,10 @@ https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/<Name>.htm
 - [21 个用户样本评估](../scene-sample-assessment-2026-07-22.md)
 - [Scene 开发计划](../scene-capability-development-plan-2026-07-22.md)
 - v16 结构基线：`.codex/scene-effect-graph-canonical-final-20260723/report.json`（canonical graph 身份，不等于 GPU 执行）
-- 最新正式 13 样本运行门：`.codex/scene-authored-precise-final13-20260723/report.json`（strict precise 子集 5 个成功层、0 失败；不是 shader/像素 parity）
-- precise 正负定向门：`.codex/scene-authored-precise-failclosed-related-20260723/report.json`（含 layer 20 legacy fallback 阻断与隐藏层不执行）
+- 最新正式 13 样本运行门：`.codex/scene-standard-blur-alpha-final13-20260723/report.json`（strict Blur graph 成功 6 层、失败 0、legacy blur blocked 3 层；含宿主 alpha 边界修复，不是 shader/像素 parity）
+- standard Blur 正向门：`.codex/scene-standard-blur-alpha-290-20260723/report.json`（`2902406982` layer 530 GPU succeeded，utility capture layers 410/530）
+- standard Blur 负向门：`.codex/scene-standard-blur-alpha-negative-20260723/report.json`（`3723344874:348` 与 `3750813609:358` 阻断 legacy fallback）
+- precise 阶段证据：`.codex/scene-authored-precise-final13-20260723/report.json` 与 `.codex/scene-authored-precise-failclosed-related-20260723/report.json`（5 个成功层、layer 20 fallback 阻断与隐藏层不执行）
 
 样本可证明 instance 如何引用 effect、texture、particle、script 和 user property。它们不能单独证明内置 shader 的全部默认算法。
 

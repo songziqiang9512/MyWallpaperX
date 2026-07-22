@@ -7,17 +7,29 @@ final class SceneOffscreenTexturePool {
         let tertiary: MTLTexture
     }
 
+    struct StandardBlurTargets {
+        let previousFull: MTLTexture
+        let outputFull: MTLTexture
+        let quarterA: MTLTexture
+        let quarterB: MTLTexture
+    }
+
     private let device: MTLDevice
     private let pixelFormat: MTLPixelFormat
+    private enum Allocation {
+        case pair(Pair)
+        case standardBlur(StandardBlurTargets)
+    }
+
     private struct Entry {
-        let pair: Pair
+        let allocation: Allocation
         let byteCost: Int
         var lastAccess: UInt64
     }
 
     private let maxDimension: Int
     private let byteBudget: Int
-    private var cachedPairs: [String: Entry] = [:]
+    private var cachedAllocations: [String: Entry] = [:]
     private var cachedByteCost = 0
     private var accessCounter: UInt64 = 0
 
@@ -38,18 +50,13 @@ final class SceneOffscreenTexturePool {
     }
 
     func textures(width requestedWidth: Int, height requestedHeight: Int) -> Pair? {
-        let sourceWidth = max(1, requestedWidth)
-        let sourceHeight = max(1, requestedHeight)
-        let longestEdge = max(sourceWidth, sourceHeight)
-        let scale = longestEdge > maxDimension ? Double(maxDimension) / Double(longestEdge) : 1
-        let width = max(1, Int((Double(sourceWidth) * scale).rounded()))
-        let height = max(1, Int((Double(sourceHeight) * scale).rounded()))
-        let key = "\(width)x\(height)"
+        let (width, height) = limitedDimensions(width: requestedWidth, height: requestedHeight)
+        let key = "pair:\(width)x\(height)"
         accessCounter &+= 1
-        if var cached = cachedPairs[key] {
+        if var cached = cachedAllocations[key], case .pair(let pair) = cached.allocation {
             cached.lastAccess = accessCounter
-            cachedPairs[key] = cached
-            return cached.pair
+            cachedAllocations[key] = cached
+            return pair
         }
 
         let byteCost = width * height * 4 * 3
@@ -62,17 +69,77 @@ final class SceneOffscreenTexturePool {
         }
 
         let pair = Pair(primary: primary, secondary: secondary, tertiary: tertiary)
-        cachedPairs[key] = Entry(pair: pair, byteCost: byteCost, lastAccess: accessCounter)
+        cachedAllocations[key] = Entry(
+            allocation: .pair(pair), byteCost: byteCost, lastAccess: accessCounter
+        )
         cachedByteCost += byteCost
         return pair
     }
 
+    func standardBlurTargets(
+        width requestedWidth: Int,
+        height requestedHeight: Int,
+        scale: Int
+    ) -> StandardBlurTargets? {
+        guard scale > 0 else { return nil }
+        let (width, height) = limitedDimensions(width: requestedWidth, height: requestedHeight)
+        let quarterWidth = max(1, width / scale)
+        let quarterHeight = max(1, height / scale)
+        let key = "standard-blur:\(width)x\(height):\(quarterWidth)x\(quarterHeight)"
+        accessCounter &+= 1
+        if var cached = cachedAllocations[key],
+           case .standardBlur(let targets) = cached.allocation {
+            cached.lastAccess = accessCounter
+            cachedAllocations[key] = cached
+            return targets
+        }
+
+        let byteCost = ((width * height * 2) + (quarterWidth * quarterHeight * 2)) * 4
+        guard byteCost <= byteBudget else { return nil }
+        evictUntilAffordable(byteCost)
+        guard let previous = makeTexture(
+            width: width, height: height, label: "SceneStandardBlurPrevious \(key)"
+        ), let output = makeTexture(
+            width: width, height: height, label: "SceneStandardBlurOutput \(key)"
+        ), let quarterA = makeTexture(
+            width: quarterWidth, height: quarterHeight, label: "SceneStandardBlurQuarterA \(key)"
+        ), let quarterB = makeTexture(
+            width: quarterWidth, height: quarterHeight, label: "SceneStandardBlurQuarterB \(key)"
+        ) else {
+            return nil
+        }
+        let targets = StandardBlurTargets(
+            previousFull: previous,
+            outputFull: output,
+            quarterA: quarterA,
+            quarterB: quarterB
+        )
+        cachedAllocations[key] = Entry(
+            allocation: .standardBlur(targets), byteCost: byteCost, lastAccess: accessCounter
+        )
+        cachedByteCost += byteCost
+        return targets
+    }
+
+    private func limitedDimensions(width requestedWidth: Int, height requestedHeight: Int) -> (Int, Int) {
+        let sourceWidth = max(1, requestedWidth)
+        let sourceHeight = max(1, requestedHeight)
+        let longestEdge = max(sourceWidth, sourceHeight)
+        let scale = longestEdge > maxDimension ? Double(maxDimension) / Double(longestEdge) : 1
+        return (
+            max(1, Int((Double(sourceWidth) * scale).rounded())),
+            max(1, Int((Double(sourceHeight) * scale).rounded()))
+        )
+    }
+
     private func evictUntilAffordable(_ incomingByteCost: Int) {
-        while !cachedPairs.isEmpty,
+        while !cachedAllocations.isEmpty,
               cachedByteCost + incomingByteCost > byteBudget,
-              let oldest = cachedPairs.min(by: { $0.value.lastAccess < $1.value.lastAccess }) {
+              let oldest = cachedAllocations.min(by: {
+                  $0.value.lastAccess < $1.value.lastAccess
+              }) {
             cachedByteCost -= oldest.value.byteCost
-            cachedPairs.removeValue(forKey: oldest.key)
+            cachedAllocations.removeValue(forKey: oldest.key)
         }
     }
 

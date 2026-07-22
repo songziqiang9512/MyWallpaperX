@@ -287,7 +287,8 @@
       "expected_particle_visible": 3,
       "expected_particle_skipped_hidden": 1,
       "required_particle_loaded_layer_ids": [584],
-      "minimum_gaussian_blur_runtime_count": 1,
+      "expected_authored_effect_graph_succeeded_layer_ids": [],
+      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [348],
       "expected_camera_parallax": false,
       "requires_motion": true,
       "minimum_changed_ratio": 0.0001
@@ -488,7 +489,7 @@
         "built_in_resource_reference",
         "built_in_drop_particle",
         "sprite_trail_renderer",
-        "gaussian_blur_runtime",
+        "blur_profile_fail_closed",
         "authored_parallax",
         "animated_output"
       ],
@@ -542,7 +543,8 @@
       "expected_particle_visible": 9,
       "expected_particle_skipped_hidden": 0,
       "required_particle_loaded_layer_ids": [200, 516],
-      "minimum_gaussian_blur_runtime_count": 1,
+      "expected_authored_effect_graph_succeeded_layer_ids": [],
+      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [358],
       "minimum_authored_parallax_layer_count": 3,
       "required_effect_files": [
         "effects/blur/effect.json",
@@ -618,7 +620,7 @@
       "title": "麻匪 月半与鬼哭 所有元素自定义",
       "capabilities": [
         "utility_frame_capture",
-        "composition_blur",
+        "authored_standard_blur_runtime",
         "utility_dependencies"
       ],
       "project_sha256": "42664ae4949af13ee7b53bef3e9b01a65a0bf04990d4626115c8463ba394174e",
@@ -667,6 +669,9 @@
       "required_utility_capture_succeeded_layer_ids": [410, 530],
       "required_named_target_capture_succeeded_layer_ids": [125, 84, 91, 253, 271, 291],
       "required_named_target_binding_succeeded_layer_ids": [70, 791, 182, 217, 245, 265, 285],
+      "expected_authored_effect_graph_succeeded_layer_ids": [530],
+      "required_authored_effect_graph_succeeded_layer_ids": [530],
+      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "minimum_loaded_ratio": 1.0,
       "requires_motion": false
     },

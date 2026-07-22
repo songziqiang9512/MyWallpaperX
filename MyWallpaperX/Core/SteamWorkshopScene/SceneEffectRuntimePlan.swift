@@ -21,6 +21,7 @@ struct SceneBloomPlan {
 struct SceneEffectRuntimePlan {
     let inputs: SceneLayerEffectInputs
     let gaussianBlur: SceneGaussianBlurPlan?
+    let standardBlur: SceneStandardBlurPlan?
     let bloom: SceneBloomPlan?
     let gradientColor: SceneGradientColorPlan?
     let waterRippleNormal: SceneWaterRippleNormalPlan?
@@ -63,6 +64,7 @@ enum SceneEffectRuntimePlanner {
                 authoredEffectPlan: authoredEffectPlan,
                 blocksLegacyGaussianBlur: blocksLegacyGaussianBlur
             ),
+            standardBlur: authoredEffectPlan?.standardBlur,
             bloom: bloomPlan(for: layer),
             gradientColor: gradientColor,
             waterRippleNormal: waterRippleNormal,
@@ -139,6 +141,9 @@ enum SceneEffectRuntimePlanner {
             authoredEffectPlan: authoredEffectPlan,
             blocksLegacyGaussianBlur: blocksLegacyGaussianBlur
         )
+        if authoredEffectPlan?.standardBlur != nil {
+            return "\(foliage)effect runtime standard-blur-authored; \(passCount) declared pass(es)"
+        }
         if gaussianBlur?.isPrecise == true {
             return "\(foliage)effect runtime gaussian-blur-precise; \(passCount) declared pass(es)"
         }

@@ -24,24 +24,18 @@ enum SceneOffscreenEffectRenderer {
         perspectiveOpacityPipeline: ScenePerspectiveOpacityPipeline,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
-        guard let sourceEncoder = beginEncoder(
-            commandBuffer: commandBuffer,
-            target: offscreenPair.primary
-        ) else {
-            return nil
-        }
-        pipeline.bind(encoder: sourceEncoder)
-        pipeline.drawLayer(
-            texture: sourceTexture,
-            shakeMaskTexture: nil,
+        guard captureSource(
+            sourceTexture: sourceTexture,
             waterMaskTexture: waterMaskTexture,
             foliageMaskTexture: foliageMaskTexture,
             auxMaskTexture: auxMaskTexture,
-            mvp: fullTargetMVP,
-            uniforms: sourceUniforms,
-            encoder: sourceEncoder
-        )
-        sourceEncoder.endEncoding()
+            target: offscreenPair.primary,
+            sourceUniforms: sourceUniforms,
+            pipeline: pipeline,
+            commandBuffer: commandBuffer
+        ) else {
+            return nil
+        }
 
         if let gradientColorPlan {
             guard gradientColorPipeline.encode(
@@ -143,6 +137,38 @@ enum SceneOffscreenEffectRenderer {
         return offscreenPair.secondary
     }
 
+    static func renderStandardBlur(
+        sourceTexture: MTLTexture,
+        waterMaskTexture: MTLTexture?,
+        foliageMaskTexture: MTLTexture?,
+        auxMaskTexture: MTLTexture?,
+        targets: SceneOffscreenTexturePool.StandardBlurTargets,
+        plan: SceneStandardBlurPlan,
+        sourceUniforms: SceneLayerFragmentUniforms,
+        pipeline: SceneImageLayerPipeline,
+        standardBlurPipeline: SceneStandardBlurPipeline,
+        commandBuffer: MTLCommandBuffer
+    ) -> MTLTexture? {
+        guard captureSource(
+            sourceTexture: sourceTexture,
+            waterMaskTexture: waterMaskTexture,
+            foliageMaskTexture: foliageMaskTexture,
+            auxMaskTexture: auxMaskTexture,
+            target: targets.previousFull,
+            sourceUniforms: sourceUniforms,
+            pipeline: pipeline,
+            commandBuffer: commandBuffer
+        ) else {
+            return nil
+        }
+        return SceneStandardBlurRenderer.render(
+            plan: plan,
+            targets: targets,
+            pipeline: standardBlurPipeline,
+            commandBuffer: commandBuffer
+        )
+    }
+
     private static func renderBloom(
         plan: SceneBloomPlan,
         textures: SceneOffscreenTexturePool.Pair,
@@ -189,6 +215,34 @@ enum SceneOffscreenEffectRenderer {
         descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
         descriptor.colorAttachments[0].storeAction = .store
         return commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
+    }
+
+    private static func captureSource(
+        sourceTexture: MTLTexture,
+        waterMaskTexture: MTLTexture?,
+        foliageMaskTexture: MTLTexture?,
+        auxMaskTexture: MTLTexture?,
+        target: MTLTexture,
+        sourceUniforms: SceneLayerFragmentUniforms,
+        pipeline: SceneImageLayerPipeline,
+        commandBuffer: MTLCommandBuffer
+    ) -> Bool {
+        guard let encoder = beginEncoder(commandBuffer: commandBuffer, target: target) else {
+            return false
+        }
+        pipeline.bind(encoder: encoder)
+        pipeline.drawLayer(
+            texture: sourceTexture,
+            shakeMaskTexture: nil,
+            waterMaskTexture: waterMaskTexture,
+            foliageMaskTexture: foliageMaskTexture,
+            auxMaskTexture: auxMaskTexture,
+            mvp: fullTargetMVP,
+            uniforms: sourceUniforms,
+            encoder: encoder
+        )
+        encoder.endEncoding()
+        return true
     }
 
     private static let fullTargetMVP = SceneMatrix.scale(SIMD3<Float>(2, 2, 1))

@@ -570,7 +570,7 @@ https://docs.wallpaperengine.io/en/scene/rgb/introduction.html
 
 本节是通用第三方播放器的能力依赖建议，不是对 Workshop 覆盖率的官方统计，也不直接代表 MyWallpaperX 当前优先级。“绝大多数”“热门”等覆盖结论必须由项目自己的隔离样本矩阵支持。
 
-对 MyWallpaperX 当前阶段，bounded named-target capture/binding 与 strict precise-blur graph slice 已落地，不应继续写成待启动项。近期先实现 standard Blur 的 4-pass quarter-RT 图，再补 effectful/media/sceneTexture provider、nested/child composition 和更广 graph backend；之后建立时间、媒体、音频、属性等 live-value runtime，并按隔离样本命中率补高频 built-in particle/operator。Puppet Warp、3D 和任意自定义 shader 仍后置；唯一权威顺序以 [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md) 为准。
+对 MyWallpaperX 当前阶段，bounded named-target capture/binding、strict precise-blur 与 stock standard Blur 默认 profile graph slice 已落地，不应继续写成待启动项；standard 的非默认 kernel/composite/blend/alpha/mask 变体仍未支持。近期先补 effectful/media/sceneTexture provider、resource registry、nested/child composition 和更广 graph backend；之后建立时间、媒体、音频、属性等 live-value runtime，并按隔离样本命中率补高频 built-in particle/operator。Puppet Warp、3D 和任意自定义 shader 仍后置；唯一权威顺序以 [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md) 为准。
 
 ### P0：基础播放可见
 

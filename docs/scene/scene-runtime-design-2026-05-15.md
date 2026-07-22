@@ -1,6 +1,6 @@
 # Scene Runtime 技术设计
 
-> 最后整理：2026-07-22。现役实施顺序见 [`scene-capability-development-plan-2026-07-22.md`](./scene-capability-development-plan-2026-07-22.md)。
+> 历史架构快照：正文保留早期 interpretation v7 与 bounded effect 设计，不能作为当前格式或能力状态。现役 interpretation 为 v16；当前事实与实施顺序以 [`scene-capability-development-plan-2026-07-22.md`](./scene-capability-development-plan-2026-07-22.md) 和 [`../reviews/web-scene-current-state-roadmap-2026-07-19.md`](../reviews/web-scene-current-state-roadmap-2026-07-19.md) 为准。
 
 ## 0. 总线结论
 

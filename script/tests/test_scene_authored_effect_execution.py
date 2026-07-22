@@ -17,6 +17,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "SceneAuthoredMaterialResolver.swift",
     SOURCE_ROOT / "SceneAuthoredEffectExecutionPlan.swift",
+    SOURCE_ROOT / "SceneAuthoredStandardBlurPlanner.swift",
 ]
 
 
@@ -241,6 +242,168 @@ enum Harness {
         )
     }
 
+    static func standardBlurInstanceEffect(
+        layerID: Int = 530,
+        gaussianCombos: [String: Int] = [:],
+        combineCombos: [String: Int] = [:]
+    ) -> SceneRenderDescriptor.EffectDescriptor {
+        let scale = SceneDocument.ShaderValue(
+            valueKind: "binding", userBinding: "newproperty", components: [0.6]
+        )
+        return .init(
+            id: "\(layerID)#effect#0",
+            visible: true,
+            passes: [
+                .init(
+                    passIndex: 0, textureSlots: [], userTextureInputs: [], combos: [:],
+                    constantShaderValues: [:]
+                ),
+                .init(
+                    passIndex: 1, textureSlots: [], userTextureInputs: [],
+                    combos: gaussianCombos, constantShaderValues: ["scale": scale]
+                ),
+                .init(
+                    passIndex: 2, textureSlots: [], userTextureInputs: [], combos: [:],
+                    constantShaderValues: ["scale": scale]
+                ),
+                .init(
+                    passIndex: 3, textureSlots: [], userTextureInputs: [],
+                    combos: combineCombos,
+                    constantShaderValues: [
+                        "compositecolor": .init(components: [1, 1, 1]),
+                    ]
+                ),
+            ]
+        )
+    }
+
+    static func standardBlurMaterials(
+        gaussianShader: String = "effects/blur_gaussian",
+        blending: String = "normal",
+        combineCombos: [String: Int] = [:]
+    ) -> [SceneRenderDescriptor.MaterialPassDescriptor] {
+        func material(
+            _ name: String,
+            shader: String,
+            combos: [String: Int] = [:]
+        ) -> SceneRenderDescriptor.MaterialPassDescriptor {
+            .init(
+                id: "materials/effects/\(name).json#0",
+                materialPath: "materials/effects/\(name).json",
+                shaderPath: shader, textureSlots: [], combos: combos,
+                constantShaderValues: [:], blending: blending, depthTest: "disabled",
+                depthWrite: "disabled", cullMode: "nocull"
+            )
+        }
+        return [
+            material("blur_downsample4", shader: "effects/blur_downsample4"),
+            material("blur_gaussian_x", shader: gaussianShader),
+            material(
+                "blur_gaussian_y", shader: gaussianShader,
+                combos: ["VERTICAL": 1]
+            ),
+            material(
+                "blur_combine", shader: "effects/blur_combine", combos: combineCombos
+            ),
+        ]
+    }
+
+    static func standardBlurDescriptor(
+        effect: SceneRenderDescriptor.EffectDescriptor = standardBlurInstanceEffect(),
+        materials: [SceneRenderDescriptor.MaterialPassDescriptor] = standardBlurMaterials()
+    ) -> SceneRenderDescriptor {
+        .init(
+            layers: [
+                .init(
+                    id: 530, parentID: nil, visible: true, contentKind: "composition",
+                    effects: [effect]
+                ),
+            ],
+            materialPasses: materials
+        )
+    }
+
+    static func standardBlurGraph(
+        wrongExtent: Bool = false,
+        wrongBinding: Bool = false,
+        extraMixedEffect: Bool = false
+    ) -> Graph {
+        let layerID = 530
+        let key = Graph.EffectKey(
+            layerID: layerID, effectIndex: 0, descriptorID: "530#effect#0"
+        )
+        let source = texture(.layerSource, layerID: layerID)
+        let output = texture(.effectOutput, layerID: layerID, effect: key)
+        let quarterA = texture(
+            .framebuffer, layerID: layerID, effect: key,
+            name: "_rt_QuarterCompoBuffer1"
+        )
+        let quarterB = texture(
+            .framebuffer, layerID: layerID, effect: key,
+            name: "_rt_QuarterCompoBuffer2"
+        )
+        let materials = [
+            "materials/effects/blur_downsample4.json",
+            "materials/effects/blur_gaussian_x.json",
+            "materials/effects/blur_gaussian_y.json",
+            "materials/effects/blur_combine.json",
+        ]
+        let bindings: [[Graph.Binding]] = [
+            [
+                .init(
+                    slot: wrongBinding ? 1 : 0, authoredName: "previous",
+                    texture: source, conditions: nil
+                ),
+            ],
+            [.init(slot: 0, authoredName: "_rt_QuarterCompoBuffer1", texture: quarterA, conditions: nil)],
+            [.init(slot: 0, authoredName: "_rt_QuarterCompoBuffer2", texture: quarterB, conditions: nil)],
+            [
+                .init(slot: 0, authoredName: "_rt_QuarterCompoBuffer1", texture: quarterA, conditions: nil),
+                .init(slot: 2, authoredName: "previous", texture: source, conditions: nil),
+            ],
+        ]
+        let targets: [Graph.TextureIdentity] = [quarterA, quarterB, quarterA, output]
+        let nodes = materials.indices.map { ordinal in
+            Graph.Node(
+                nodeIndex: ordinal, effect: key, definitionPassIndex: ordinal,
+                materialOrdinal: ordinal, instancePassIndex: ordinal, kind: .material,
+                materialPath: materials[ordinal],
+                materialPassID: "\(materials[ordinal])#0", target: targets[ordinal],
+                bindings: bindings[ordinal], commandSource: nil, commandTarget: nil,
+                compose: nil, conditions: nil
+            )
+        }
+        let effect = Graph.Effect(
+            key: key, definitionPath: "effects/blur/effect.json", input: source,
+            output: output, nodeIndices: [0, 1, 2, 3]
+        )
+        let mixedKey = Graph.EffectKey(
+            layerID: layerID, effectIndex: 1, descriptorID: "530#effect#1"
+        )
+        let mixed = Graph.Effect(
+            key: mixedKey, definitionPath: "effects/water/effect.json", input: output,
+            output: texture(.effectOutput, layerID: layerID, effect: mixedKey),
+            nodeIndices: []
+        )
+        return Graph(
+            layerID: layerID,
+            effects: extraMixedEffect ? [effect, mixed] : [effect],
+            renderTargets: [quarterA, quarterB].enumerated().map { index, texture in
+                .init(
+                    texture: texture,
+                    extent: .init(
+                        kind: wrongExtent && index == 0 ? .input : .scale,
+                        first: wrongExtent && index == 0 ? nil : 4,
+                        second: nil
+                    ),
+                    format: "rgba_backbuffer", declaredUnique: false, clear: nil,
+                    uvs: nil, conditions: nil
+                )
+            },
+            nodes: nodes, finalOutput: output, blockers: []
+        )
+    }
+
     static func resolverPrecedence() -> [String] {
         let key = Graph.EffectKey(layerID: 99, effectIndex: 0, descriptorID: "resolver")
         let graphTexture = texture(.layerSource, layerID: 99)
@@ -305,6 +468,11 @@ enum Harness {
             ]
         )
         let visiblePlan = catalog.plansByLayerID[10]!
+        let preciseBlur = visiblePlan.gaussianBlur!
+        let preciseBackendMatched: Bool = {
+            if case .preciseGaussian = visiblePlan.backend { return true }
+            return false
+        }()
         let badStateDescriptor = SceneRenderDescriptor(layers: layers, materialPasses: materials(blending: "additive"))
         let badShaderDescriptor = SceneRenderDescriptor(layers: layers, materialPasses: materials(shader: "effects/unknown"))
         let duplicateComboDescriptor = SceneRenderDescriptor(
@@ -328,13 +496,55 @@ enum Harness {
             effect: Graph.EffectKey(layerID: 10, effectIndex: 0, descriptorID: "10#effect#1"),
             definitionPassIndex: nil, reason: .unsupportedCondition, detail: "fixture"
         )
+        let standardDescriptor = standardBlurDescriptor()
+        let standardGraph = standardBlurGraph()
+        let standardPlan = SceneAuthoredStandardBlurPlanner.plan(
+            graph: standardGraph, descriptor: standardDescriptor
+        )!
+        let standardBlur = standardPlan.standardBlur!
+        let standardBackendMatched: Bool = {
+            if case .standardBlur = standardPlan.backend { return true }
+            return false
+        }()
+        let standardCatalog = SceneAuthoredEffectExecutionCatalog(
+            descriptor: standardDescriptor, authoredPlans: [standardGraph]
+        )
+        let standardBadStateDescriptor = standardBlurDescriptor(
+            materials: standardBlurMaterials(blending: "additive")
+        )
+        let standardBadShaderDescriptor = standardBlurDescriptor(
+            materials: standardBlurMaterials(gaussianShader: "effects/unknown")
+        )
+        let standardKernelDescriptor = standardBlurDescriptor(
+            effect: standardBlurInstanceEffect(gaussianCombos: ["KERNEL": 2])
+        )
+        let standardCompositeDescriptor = standardBlurDescriptor(
+            effect: standardBlurInstanceEffect(combineCombos: ["COMPOSITE": 2])
+        )
+        func standardRejected(
+            graph: Graph = standardGraph,
+            descriptor: SceneRenderDescriptor = standardDescriptor
+        ) -> Bool {
+            SceneAuthoredStandardBlurPlanner.plan(graph: graph, descriptor: descriptor) == nil
+        }
+        func standardLegacyBlocked(
+            graph: Graph,
+            descriptor: SceneRenderDescriptor = standardDescriptor
+        ) -> [Int] {
+            SceneAuthoredEffectExecutionCatalog(
+                descriptor: descriptor, authoredPlans: [graph]
+            ).legacyGaussianBlurBlockedLayerIDs.sorted()
+        }
         let result: [String: Any] = [
             "planned": catalog.plansByLayerID.keys.sorted(),
             "hidden": catalog.hiddenEligibleLayerIDs,
             "legacyBlurBlocked": catalog.legacyGaussianBlurBlockedLayerIDs.sorted(),
-            "scale": [visiblePlan.gaussianBlur.horizontalStep, visiblePlan.gaussianBlur.verticalStep],
+            "scale": [preciseBlur.horizontalStep, preciseBlur.verticalStep],
             "nodes": visiblePlan.materialNodeCount,
             "targets": visiblePlan.logicalRenderTargetCount,
+            "preciseBackendMatched": preciseBackendMatched
+                && visiblePlan.standardBlur == nil
+                && visiblePlan.requiresExactInputExtent,
             "precedence": resolverPrecedence(),
             "extraEffectRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10, extraEffect: true), descriptor: descriptor) == nil,
             "blockerRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10, blockers: [blocker]), descriptor: descriptor) == nil,
@@ -349,6 +559,29 @@ enum Harness {
             "threeComponentScaleRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: threeComponentScaleDescriptor) == nil,
             "badShaderLegacyBlocked": SceneAuthoredEffectExecutionCatalog(descriptor: badShaderDescriptor, authoredPlans: [graph(layerID: 10)]).legacyGaussianBlurBlockedLayerIDs.sorted(),
             "missingMaterialLegacyBlocked": SceneAuthoredEffectExecutionCatalog(descriptor: missingMaterialDescriptor, authoredPlans: [graph(layerID: 10)]).legacyGaussianBlurBlockedLayerIDs.sorted(),
+            "standardPlanned": standardCatalog.plansByLayerID.keys.sorted(),
+            "standardScale": [standardBlur.horizontalStep, standardBlur.verticalStep],
+            "standardRTScale": standardBlur.renderTargetScale,
+            "standardNodes": standardPlan.materialNodeCount,
+            "standardTargets": standardPlan.logicalRenderTargetCount,
+            "standardBackendMatched": standardBackendMatched
+                && standardPlan.gaussianBlur == nil
+                && !standardPlan.requiresExactInputExtent,
+            "standardLegacyBlocked": standardCatalog.legacyGaussianBlurBlockedLayerIDs.sorted(),
+            "standardWrongExtentRejected": standardRejected(graph: standardBlurGraph(wrongExtent: true)),
+            "standardWrongBindingRejected": standardRejected(graph: standardBlurGraph(wrongBinding: true)),
+            "standardBadShaderRejected": standardRejected(descriptor: standardBadShaderDescriptor),
+            "standardBadStateRejected": standardRejected(descriptor: standardBadStateDescriptor),
+            "standardKernelRejected": standardRejected(descriptor: standardKernelDescriptor),
+            "standardCompositeRejected": standardRejected(descriptor: standardCompositeDescriptor),
+            "standardMixedEffectRejected": standardRejected(graph: standardBlurGraph(extraMixedEffect: true)),
+            "standardWrongExtentLegacyBlocked": standardLegacyBlocked(graph: standardBlurGraph(wrongExtent: true)),
+            "standardWrongBindingLegacyBlocked": standardLegacyBlocked(graph: standardBlurGraph(wrongBinding: true)),
+            "standardBadShaderLegacyBlocked": standardLegacyBlocked(graph: standardGraph, descriptor: standardBadShaderDescriptor),
+            "standardBadStateLegacyBlocked": standardLegacyBlocked(graph: standardGraph, descriptor: standardBadStateDescriptor),
+            "standardKernelLegacyBlocked": standardLegacyBlocked(graph: standardGraph, descriptor: standardKernelDescriptor),
+            "standardCompositeLegacyBlocked": standardLegacyBlocked(graph: standardGraph, descriptor: standardCompositeDescriptor),
+            "standardMixedEffectLegacyBlocked": standardLegacyBlocked(graph: standardBlurGraph(extraMixedEffect: true)),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -395,6 +628,17 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertEqual(self.result["targets"], 1)
         self.assertAlmostEqual(self.result["scale"][0], 1.28, places=5)
         self.assertAlmostEqual(self.result["scale"][1], 1.28, places=5)
+        self.assertTrue(self.result["preciseBackendMatched"])
+
+    def test_default_standard_blur_graph_is_planned(self) -> None:
+        self.assertEqual(self.result["standardPlanned"], [530])
+        self.assertEqual(self.result["standardLegacyBlocked"], [])
+        self.assertEqual(self.result["standardNodes"], 4)
+        self.assertEqual(self.result["standardTargets"], 2)
+        self.assertEqual(self.result["standardRTScale"], 4)
+        self.assertAlmostEqual(self.result["standardScale"][0], 0.6, places=5)
+        self.assertAlmostEqual(self.result["standardScale"][1], 0.6, places=5)
+        self.assertTrue(self.result["standardBackendMatched"])
 
     def test_texture_precedence_preserves_slots(self) -> None:
         self.assertEqual(
@@ -419,6 +663,30 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
             self.assertTrue(self.result[key], key)
         self.assertEqual(self.result["badShaderLegacyBlocked"], [10])
         self.assertEqual(self.result["missingMaterialLegacyBlocked"], [10])
+
+    def test_unsupported_standard_blur_shapes_fail_closed(self) -> None:
+        rejection_keys = (
+            "standardWrongExtentRejected",
+            "standardWrongBindingRejected",
+            "standardBadShaderRejected",
+            "standardBadStateRejected",
+            "standardKernelRejected",
+            "standardCompositeRejected",
+            "standardMixedEffectRejected",
+        )
+        for key in rejection_keys:
+            self.assertTrue(self.result[key], key)
+        blocking_keys = (
+            "standardWrongExtentLegacyBlocked",
+            "standardWrongBindingLegacyBlocked",
+            "standardBadShaderLegacyBlocked",
+            "standardBadStateLegacyBlocked",
+            "standardKernelLegacyBlocked",
+            "standardCompositeLegacyBlocked",
+            "standardMixedEffectLegacyBlocked",
+        )
+        for key in blocking_keys:
+            self.assertEqual(self.result[key], [530], key)
 
 
 if __name__ == "__main__":

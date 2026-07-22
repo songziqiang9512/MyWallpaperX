@@ -1,10 +1,30 @@
 import Foundation
 
 nonisolated struct SceneAuthoredEffectExecutionPlan {
+    enum Backend {
+        case preciseGaussian(SceneGaussianBlurPlan)
+        case standardBlur(SceneStandardBlurPlan)
+    }
+
     let layerID: Int
-    let gaussianBlur: SceneGaussianBlurPlan
+    let backend: Backend
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
+
+    var gaussianBlur: SceneGaussianBlurPlan? {
+        guard case .preciseGaussian(let plan) = backend else { return nil }
+        return plan
+    }
+
+    var standardBlur: SceneStandardBlurPlan? {
+        guard case .standardBlur(let plan) = backend else { return nil }
+        return plan
+    }
+
+    var requiresExactInputExtent: Bool {
+        if case .preciseGaussian = backend { return true }
+        return false
+    }
 }
 
 nonisolated struct SceneAuthoredEffectExecutionCatalog {
@@ -20,10 +40,13 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
         let grouped = Dictionary(grouping: authoredPlans, by: \.layerID)
         var eligible: [Int: SceneAuthoredEffectExecutionPlan] = [:]
         for (layerID, candidates) in grouped where candidates.count == 1 {
+            let graph = candidates[0]
             guard let plan = SceneAuthoredEffectExecutionPlanner.plan(
-                graph: candidates[0],
+                graph: graph,
                 descriptor: descriptor
-            ) else { continue }
+            ) ?? SceneAuthoredStandardBlurPlanner.plan(graph: graph, descriptor: descriptor) else {
+                continue
+            }
             eligible[layerID] = plan
         }
         plansByLayerID = eligible.filter { visible.contains($0.key) }
@@ -34,7 +57,12 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
                 descriptor: descriptor
             ) ? graph.layerID : nil
         })
+        let standardBlurCandidateLayers = Set(authoredPlans.compactMap { graph in
+            SceneAuthoredStandardBlurPlanner.containsCandidate(graph: graph)
+                ? graph.layerID : nil
+        })
         legacyGaussianBlurBlockedLayerIDs = preciseBlurCandidateLayers
+            .union(standardBlurCandidateLayers)
             .intersection(visible)
             .subtracting(plansByLayerID.keys)
     }
@@ -131,12 +159,12 @@ enum SceneAuthoredEffectExecutionPlanner {
 
         return SceneAuthoredEffectExecutionPlan(
             layerID: graph.layerID,
-            gaussianBlur: SceneGaussianBlurPlan(
+            backend: .preciseGaussian(SceneGaussianBlurPlan(
                 horizontalStep: horizontalScale,
                 verticalStep: verticalScale,
                 sampleResolutionScale: 1,
                 isPrecise: true
-            ),
+            )),
             materialNodeCount: 2,
             logicalRenderTargetCount: 1
         )

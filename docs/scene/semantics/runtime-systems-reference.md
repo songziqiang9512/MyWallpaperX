@@ -380,7 +380,7 @@ Realtime Adapter              Offline Adapter
 |---|---|---|
 | Particle | 作者 2D sprite、部分 emitter/initializer/operator、built-in drop、Sprite Trail 子集 | child/rope/control point/collision/audio/全部 preset 完整 |
 | Text | CoreText 静态纹理、部分 font/pointsize/padding/scale | 动态时间、完整 alignment/effects/SceneScript |
-| Effect graph | v16 已保留 EffectDefinition 并结构化编译 graph；strict precise 子集有 5 个 layer 的 degraded GPU 执行 | 通用 material/pass 已执行、authored shader 语义等价或达到 WE 像素一致 |
+| Effect graph | v16 已保留 EffectDefinition 并结构化编译 graph；strict precise 子集有 5 个 layer、standard Blur 默认 profile 有 1 个 layer 的 degraded GPU 执行；非默认 standard 图明确 blocked | 通用 material/pass 已执行、authored shader 语义等价或达到 WE 像素一致 |
 | Timeline | 数据识别不足或空壳 | 任意动画模式可用 |
 | SceneScript | 只检测 script | ECMAScript/runtime/API 可用 |
 | User Properties | 独立窗口、条件、默认/override、部分 target 与持久化 | 403 个样本属性全部可调 |
@@ -388,8 +388,8 @@ Realtime Adapter              Offline Adapter
 
 ## 11. 实施顺序
 
-1. 先完成 standard Blur 的 4-pass quarter-RT graph slice，并让未闭合 compose/functions/conditions fail closed；
-2. 建 resource registry，扩更多 shader/material/pass backend，再让 Text/Particle 复用同一语义；
+1. 先建 resource registry，闭合 effectful/media/sceneTexture/nested provider、copy/swap/compose/history；未闭合 functions/conditions 继续 fail closed；
+2. 再扩更多 shader/material/pass backend；standard Blur 非默认 kernel/composite/blend/alpha/mask 变体按独立证据加入，再让 Text/Particle 复用同一语义；
 3. 建统一 SceneClock、Timeline 和动态 text；
 4. 在 typed target 稳定后接 SceneScript 核心生命周期；
 5. 再接 cursor/audio/media providers 与可重放测试源；

@@ -19,6 +19,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneMainPassEncoder.swift",
     SOURCE_ROOT / "SceneOffscreenTexturePool.swift",
     SOURCE_ROOT / "SceneGaussianBlurPipeline.swift",
+    SOURCE_ROOT / "SceneStandardBlurPipeline.swift",
+    SOURCE_ROOT / "SceneStandardBlurRenderer.swift",
     SOURCE_ROOT / "SceneImageBlendPipeline.swift",
     SOURCE_ROOT / "SceneGradientColorPipeline.swift",
     SOURCE_ROOT / "SceneBloomPipeline.swift",
@@ -116,8 +118,16 @@ struct SceneTexContainerReader {
 }
 
 struct SceneAuthoredEffectExecutionPlan {
-    let gaussianBlur: SceneGaussianBlurPlan
+    let gaussianBlur: SceneGaussianBlurPlan?
+    let standardBlur: SceneStandardBlurPlan?
     let materialNodeCount: Int
+    let requiresExactInputExtent: Bool
+}
+
+struct SceneStandardBlurPlan {
+    let horizontalStep: Float
+    let verticalStep: Float
+    let renderTargetScale: Int
 }
 
 @main
@@ -249,6 +259,23 @@ enum Harness {
             pipeline: pipeline,
             compositor: compositor
         )
+        let authoredStandardBlur = try authoredStandardBlurWithClamp(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor
+        )
+        let authoredStandardBlurAlpha = try authoredStandardBlurPremultipliedAlpha(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor
+        )
+        let authoredStandardBlurOverridesLegacy = standardBlurOverridesLegacy()
+        let standardBlurAlphaAwareDownsample = try alphaAwareDownsamplePixel(
+            device: device,
+            queue: queue
+        )
         let foliage = foliageInputs(mode: 0)
         let unsupportedFoliage = foliageInputs(mode: 1)
         let mappedMaskScale = SceneTextureMappedUVScale.resolve(
@@ -298,6 +325,17 @@ enum Harness {
         let firstSmall = evictionPool.textures(width: 8, height: 8)?.primary
         _ = evictionPool.textures(width: 16, height: 16)
         let secondSmall = evictionPool.textures(width: 8, height: 8)?.primary
+        let standardTargets = SceneOffscreenTexturePool(
+            device: device, maxDimension: 64
+        ).standardBlurTargets(width: 128, height: 64, scale: 4)
+        let standardTargetsAreDistinct = standardTargets.map { targets in
+            targets.previousFull !== targets.outputFull
+                && targets.previousFull !== targets.quarterA
+                && targets.previousFull !== targets.quarterB
+                && targets.outputFull !== targets.quarterA
+                && targets.outputFull !== targets.quarterB
+                && targets.quarterA !== targets.quarterB
+        } ?? false
 
         let result: [String: Any] = [
             "drew": drew,
@@ -328,6 +366,20 @@ enum Harness {
             "preciseBlurIsPrecise": preciseBlur?.isPrecise ?? false,
             "blockedPreciseBlurIsNil": blockedPreciseBlur == nil,
             "authoredExtentMismatchRefused": authoredExtentMismatchRefused,
+            "authoredStandardBlurClampEncoded": authoredStandardBlur.encoded,
+            "authoredStandardBlurConstantBGRA": authoredStandardBlur.pixel,
+            "authoredStandardBlurPremultipliedAlphaBGRA": authoredStandardBlurAlpha,
+            "authoredStandardBlurOverridesLegacy": authoredStandardBlurOverridesLegacy,
+            "standardBlurAlphaAwareDownsampleBGRA": standardBlurAlphaAwareDownsample,
+            "standardBlurFullSize": [
+                standardTargets?.previousFull.width ?? 0,
+                standardTargets?.previousFull.height ?? 0,
+            ],
+            "standardBlurQuarterSize": [
+                standardTargets?.quarterA.width ?? 0,
+                standardTargets?.quarterA.height ?? 0,
+            ],
+            "standardBlurTargetsAreDistinct": standardTargetsAreDistinct,
             "foliageFlags": foliage.flags.rawValue,
             "foliageParams3": [
                 foliage.params3.x, foliage.params3.y, foliage.params3.z, foliage.params3.w,
@@ -636,7 +688,9 @@ enum Harness {
                         sampleResolutionScale: 1,
                         isPrecise: true
                     ),
-                    materialNodeCount: 2
+                    standardBlur: nil,
+                    materialNodeCount: 2,
+                    requiresExactInputExtent: true
                 ),
                 blocksLegacyGaussianBlur: false
             ),
@@ -648,6 +702,193 @@ enum Harness {
         commandBuffer.waitUntilCompleted()
         guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
         return !encoded
+    }
+
+    static func authoredStandardBlurWithClamp(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor
+    ) throws -> (encoded: Bool, pixel: [UInt8]) {
+        try authoredStandardBlurPixel(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor,
+            sourceBGRA: [48, 96, 144, 255]
+        )
+    }
+
+    static func authoredStandardBlurPremultipliedAlpha(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor
+    ) throws -> [UInt8] {
+        try authoredStandardBlurPixel(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor,
+            sourceBGRA: [20, 50, 100, 128]
+        ).pixel
+    }
+
+    static func authoredStandardBlurPixel(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor,
+        sourceBGRA: [UInt8]
+    ) throws -> (encoded: Bool, pixel: [UInt8]) {
+        guard let source = makeTexture(device: device, size: 8, usage: .shaderRead),
+              let target = makeTexture(
+                  device: device,
+                  size: 8,
+                  usage: [.renderTarget, .shaderRead]
+              ),
+              let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.metalUnavailable
+        }
+        fill(source, bgra: sourceBGRA)
+        let layer = standardBlurLayer()
+        let mainPass = SceneMainPassEncoder(
+            commandBuffer: commandBuffer,
+            target: target,
+            clearColor: MTLClearColorMake(0, 0, 0, 0)
+        )
+        let encoded = compositor.draw(
+            SceneImageLayerDrawRequest(
+                layer: layer,
+                texture: source,
+                masks: .empty,
+                textureFrame: .identity,
+                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+                uniforms: SceneImageLayerUniformValues(time: 0, alpha: 1, cursorUV: .zero),
+                offscreenTexturePool: SceneOffscreenTexturePool(device: device, maxDimension: 4),
+                offscreenSize: nil,
+                requiresSourceCopy: false,
+                finalCompositeAlpha: nil,
+                dependencyEffect: nil,
+                authoredEffectPlan: authoredStandardBlurPlan(),
+                blocksLegacyGaussianBlur: false
+            ),
+            pipeline: pipeline,
+            mainPass: mainPass
+        )
+        mainPass.finishEnsuringClear()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
+        return (encoded, pixel(target, x: 4, y: 4))
+    }
+
+    static func alphaAwareDownsamplePixel(
+        device: MTLDevice,
+        queue: MTLCommandQueue
+    ) throws -> [UInt8] {
+        guard let pipeline = SceneStandardBlurPipeline(device: device),
+              let source = makeTexture(device: device, size: 4, usage: .shaderRead),
+              let target = makeTexture(
+                  device: device,
+                  size: 1,
+                  usage: [.renderTarget, .shaderRead]
+              ),
+              let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.metalUnavailable
+        }
+        let colors: [[UInt8]] = [
+            [0, 0, 255, 255],
+            [0, 255, 0, 128],
+            [255, 0, 0, 64],
+            [255, 255, 255, 0],
+        ]
+        var bytes = [UInt8](repeating: 0, count: source.width * source.height * 4)
+        for y in 0..<source.height {
+            for x in 0..<source.width {
+                let quadrant = (y >= source.height / 2 ? 2 : 0)
+                    + (x >= source.width / 2 ? 1 : 0)
+                let offset = (y * source.width + x) * 4
+                bytes.replaceSubrange(offset..<(offset + 4), with: colors[quadrant])
+            }
+        }
+        source.replace(
+            region: MTLRegionMake2D(0, 0, source.width, source.height),
+            mipmapLevel: 0,
+            withBytes: bytes,
+            bytesPerRow: source.width * 4
+        )
+        guard pipeline.encodeDownsample(
+            source: source,
+            target: target,
+            commandBuffer: commandBuffer
+        ) else {
+            throw HarnessError.encoderUnavailable
+        }
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
+        return pixel(target, x: 0, y: 0)
+    }
+
+    static func standardBlurOverridesLegacy() -> Bool {
+        let layer = standardBlurLayer()
+        let legacy = SceneEffectRuntimePlanner.plan(
+            for: layer,
+            hasIrisMask: false,
+            hasOpacityMask: false,
+            hasWaterMask: false,
+            hasFoliageMask: false,
+            hasWaterRippleNormal: false
+        )
+        let authored = SceneEffectRuntimePlanner.plan(
+            for: layer,
+            hasIrisMask: false,
+            hasOpacityMask: false,
+            hasWaterMask: false,
+            hasFoliageMask: false,
+            hasWaterRippleNormal: false,
+            authoredEffectPlan: authoredStandardBlurPlan()
+        )
+        return legacy.gaussianBlur != nil
+            && authored.standardBlur != nil
+            && authored.gaussianBlur == nil
+            && authored.offscreenPassCount == 4
+    }
+
+    static func standardBlurLayer() -> SceneRenderDescriptor.Layer {
+        let empty = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
+            texturePaths: [], textureSlots: [], combos: [:], constantShaderValues: [:]
+        )
+        let scaled = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
+            texturePaths: [],
+            textureSlots: [],
+            combos: [:],
+            constantShaderValues: ["scale": .init(components: [0.6, 0.6])]
+        )
+        return SceneRenderDescriptor.Layer(
+            contentKind: "image",
+            colorRGB: nil,
+            colorBlendMode: nil,
+            effects: [.init(
+                file: "effects/blur/effect.json",
+                visible: true,
+                passes: [empty, scaled, scaled, empty]
+            )]
+        )
+    }
+
+    static func authoredStandardBlurPlan() -> SceneAuthoredEffectExecutionPlan {
+        SceneAuthoredEffectExecutionPlan(
+            gaussianBlur: nil,
+            standardBlur: SceneStandardBlurPlan(
+                horizontalStep: 0.6,
+                verticalStep: 0.6,
+                renderTargetScale: 4
+            ),
+            materialNodeCount: 4,
+            requiresExactInputExtent: false
+        )
     }
 
     static func foliageInputs(mode: Int) -> SceneLayerEffectInputs {
@@ -822,6 +1063,30 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertTrue(self.result["preciseBlurIsPrecise"])
         self.assertTrue(self.result["blockedPreciseBlurIsNil"])
         self.assertTrue(self.result["authoredExtentMismatchRefused"])
+
+    def test_standard_blur_executes_under_clamp_and_preserves_constant_color(self) -> None:
+        self.assertTrue(self.result["authoredStandardBlurClampEncoded"])
+        self.assert_pixel_close(
+            self.result["authoredStandardBlurConstantBGRA"], [48, 96, 144, 255], 2
+        )
+        self.assert_pixel_close(
+            self.result["authoredStandardBlurPremultipliedAlphaBGRA"],
+            [20, 50, 100, 64],
+            3,
+        )
+        self.assertTrue(self.result["authoredStandardBlurOverridesLegacy"])
+
+    def test_standard_blur_targets_are_quarter_sized_and_do_not_alias(self) -> None:
+        self.assertEqual(self.result["standardBlurFullSize"], [64, 32])
+        self.assertEqual(self.result["standardBlurQuarterSize"], [16, 8])
+        self.assertTrue(self.result["standardBlurTargetsAreDistinct"])
+
+    def test_standard_blur_downsample_is_alpha_aware(self) -> None:
+        self.assert_pixel_close(
+            self.result["standardBlurAlphaAwareDownsampleBGRA"],
+            [37, 73, 146, 84],
+            3,
+        )
 
     def test_single_builtin_foliage_plan_preserves_authored_parameters(self) -> None:
         self.assertNotEqual(self.result["foliageFlags"] & 1, 0)
