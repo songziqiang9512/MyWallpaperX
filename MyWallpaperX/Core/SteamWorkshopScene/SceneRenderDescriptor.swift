@@ -27,6 +27,7 @@ struct SceneRenderDescriptor: Codable {
             let passIndex: Int
             let texturePaths: [String]
             let textureSlots: [String?]
+            let textureInputs: [SceneEffectTextureInput?]
             let combos: [String: Int]
             let constantShaderValues: [String: SceneDocument.ShaderValue]
             let constantShaderValueKeys: [String]
@@ -322,6 +323,7 @@ struct SceneRenderDescriptorBuilder {
                         passIndex: passIndex,
                         texturePaths: pass.textures,
                         textureSlots: pass.textureSlots,
+                        textureInputs: pass.textureInputs,
                         combos: pass.combos,
                         constantShaderValues: pass.constantShaderValues,
                         constantShaderValueKeys: pass.constantShaderValueKeys

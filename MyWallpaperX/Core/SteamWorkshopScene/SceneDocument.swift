@@ -35,6 +35,7 @@ struct SceneDocument {
             let id: Int?
             let textures: [String]
             let textureSlots: [String?]
+            let textureInputs: [SceneEffectTextureInput?]
             let combos: [String: Int]
             let constantShaderValues: [String: ShaderValue]
             let constantShaderValueKeys: [String]
@@ -231,6 +232,7 @@ struct SceneDocumentLoader {
                 id: pass["id"] as? Int,
                 textures: texturePaths(in: pass),
                 textureSlots: (pass["textures"] as? [Any] ?? []).map { normalizedPath($0 as? String) },
+                textureInputs: (pass["textures"] as? [Any] ?? []).map(SceneEffectTextureInput.parse),
                 combos: pass["combos"] as? [String: Int] ?? [:],
                 constantShaderValues: constantShaderValues(in: pass),
                 constantShaderValueKeys: constantShaderValueKeys(in: pass)

@@ -16,6 +16,7 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneDocument.swift",
     SOURCE_ROOT / "SceneDocument+NumericParsing.swift",
+    SOURCE_ROOT / "SceneEffectTextureInput.swift",
     SOURCE_ROOT / "SceneUtilityLayer.swift",
     SOURCE_ROOT / "SceneRenderDescriptor.swift",
     SOURCE_ROOT / "SceneMetalPipeline.swift",
@@ -54,6 +55,21 @@ SCENE_FIXTURE = {
             "name": "Regular image",
             "image": "models/user/photo.json",
             "size": "100 100",
+            "effects": [
+                {
+                    "file": "effects/blend/effect.json",
+                    "passes": [
+                        {
+                            "textures": [
+                                None,
+                                {"type": "system", "name": "$mediaThumbnail"},
+                                "newproperty25",
+                                "_rt_imageLayerComposite_42_a",
+                            ]
+                        }
+                    ],
+                }
+            ],
         },
     ],
 }
@@ -226,6 +242,9 @@ enum Harness {
             "descriptorColors": [10, 20, 30].map { layers[$0]?.colorRGB ?? [] },
             "documentAlphas": [10, 20, 30, 40].map { objects[$0]?.alpha ?? -1 },
             "descriptorAlphas": [10, 20, 30, 40].map { layers[$0]?.alpha ?? -1 },
+            "textureInputKinds": layers[40]?.effects.first?.passes.first?.textureInputs.map {
+                $0?.kind.rawValue ?? "nil"
+            } ?? [],
             "imageRenderable": [10, 20, 30, 40].map {
                 layers[$0]?.isImageRenderable ?? false
             },
@@ -316,6 +335,12 @@ class SceneSolidLayerTests(unittest.TestCase):
         expected = [0.75, 0, 0.25, -1]
         self.assertEqual(self.result["documentAlphas"], expected)
         self.assertEqual(self.result["descriptorAlphas"], expected)
+
+    def test_effect_texture_inputs_keep_system_property_and_path_slots_typed(self) -> None:
+        self.assertEqual(
+            self.result["textureInputKinds"],
+            ["nil", "system", "property", "path"],
+        )
 
     def test_fragment_uniform_carries_layer_tint(self) -> None:
         for actual, expected in zip(self.result["uniformTint"], [0.1, 0.2, 0.3, 1]):

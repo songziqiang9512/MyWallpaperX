@@ -12,8 +12,8 @@ struct SceneInterpretationFile: Codable {
 }
 
 struct SceneInterpretationFileWriter {
-    // formatVersion 12 separates utility layers and preserves layer dependencies.
-    static let currentFormatVersion = 12
+    // Format 13 preserves typed effect texture inputs for dependency planning.
+    static let currentFormatVersion = 13
 
     func write(
         renderDescriptor: SceneRenderDescriptor,
