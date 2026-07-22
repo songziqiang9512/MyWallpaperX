@@ -43,6 +43,18 @@ https://docs.wallpaperengine.io/en/scene/overview.html
 | 3D | 模型、相机、材质、骨骼动画、附件、灯光、阴影、体积光 |
 | Shader | 内置 shader、自定义 effect shader、uniform、平台差异 |
 
+### 1.2 Composition 与动态图层引用
+
+官方 RGB 文档明确说明 Composition layer 像相机一样记录其下方图层；Effects 与 Blend 文档还允许效果链接其他动态 image layer，shader sampler 也可能指向内部 render target。这说明兼容播放器需要保留 source order、离屏目标和跨层纹理读取语义。
+
+官方来源：
+https://docs.wallpaperengine.io/en/scene/rgb/introduction.html
+https://docs.wallpaperengine.io/en/scene/effects/introduction.html
+https://docs.wallpaperengine.io/en/scene/effects/effect/blend.html
+https://docs.wallpaperengine.io/en/scene/shader/variables.html
+
+官方没有公开 Workshop named-target 名称、dependency DAG 或 `projectlayer/fullscreenlayer` 的稳定序列化格式。第三方播放器可依据真实样本建立内部 typed contract，但不能把样本观察包装成官方格式保证。
+
 ---
 
 ## 2. 官方内置 Effects 分类
@@ -180,13 +192,13 @@ https://docs.wallpaperengine.io/en/scene/particles/introduction.html
 | 组件 | 作用 | 兼容要点 |
 |---|---|---|
 | General | 粒子纹理、基础设置、生成数量 | 需要解析粒子系统主配置 |
-| Renderers | 控制粒子如何绘制 | sprite、additive、alpha、序列图等 |
-| Emitters | 控制粒子何时、何处、如何生成 | 发射区域、频率、burst、loop |
+| Renderers | 控制粒子如何绘制 | Sprite、Sprite Trail、Rope、Rope Trail |
+| Emitters | 控制粒子何时、何处、如何生成 | Sphere random、Box random、Layer image，以及 rate、instantaneous、duration、delay、periodic |
 | Initializers | 设置粒子初始状态 | 初始速度、尺寸、颜色、寿命、旋转 |
 | Operators | 随时间修改粒子属性 | 重力、阻尼、颜色变化、尺寸变化、噪声 |
 | Child Particle Systems | 子粒子系统 | 粒子死亡或事件触发子粒子 |
 | Control Points | 控制点 | 可绑定鼠标、脚本、动画或其他对象 |
-| Audio Response | 跨组件能力，不是第八类粒子 component | 可由 operator、控制点或脚本让速度、发射率、颜色等随音乐变化 |
+| Audio Response | 跨组件能力，不是第八类粒子 component | emitter 和部分 operator 可直接响应音频，脚本也可驱动相关属性 |
 
 ### 10.2 Sprite Sheet
 
@@ -251,10 +263,10 @@ https://docs.wallpaperengine.io/en/scene/puppet-warp/introduction.html
 | 网格变形 | 根据骨骼影响权重变形图像 |
 | 关键帧动画 | 骨骼位置/旋转随时间变化 |
 | Spring simulation | 骨骼弹性回弹 |
-| Rigid simulation | 类似刚体/惯性模拟 |
+| Rigid simulation | 拖拽式模拟并保持最终位置，不等同完整刚体求解器 |
 | Rope / chain | 绳状或链式结构 |
-| Wind | 风力影响部分骨骼 |
-| Animation events | 动画帧事件触发脚本或声音 |
+| Wind | kinematic-chain rope physics 中的风力，且需要 Puppet 已有启用动画 |
+| Animation events | 动画帧事件先触发同层 SceneScript，再由脚本执行声音或图层逻辑 |
 
 ### 12.2 风险点
 
@@ -317,10 +329,12 @@ https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/media.html
 
 ## 14. SceneScript 能力
 
-SceneScript 是 Wallpaper Engine 的自定义脚本语言，基于 ECMAScript，类似 JavaScript，但移除了 Web 相关功能，并加入壁纸专用 API。
+SceneScript 是 Wallpaper Engine 的属性绑定型脚本环境，遵循 ECMAScript 2018，移除了 Web 相关功能，并加入壁纸专用 API。官方当前声明文件标为 v2.8；实现应以 `lib.sceneScript.d.ts` 与事件参考为合同，不能先造一个脱离 layer/effect/text/particle target 的泛化 JavaScript 执行器。
 
 官方来源：
 https://docs.wallpaperengine.io/en/scene/scenescript/introduction.html
+https://docs.wallpaperengine.io/en/scene/scenescript/reference.html
+https://docs.wallpaperengine.io/reference/lib.sceneScript.d.ts
 
 SceneScript 可用于：
 
@@ -399,7 +413,7 @@ https://docs.wallpaperengine.io/en/scene/userproperties/texturevariant.html
 
 ### 15.2 applyUserProperties
 
-官方说明 `applyUserProperties` 会在壁纸加载时调用一次，并在用户修改属性后再次调用。
+官方说明 `applyUserProperties` 会在壁纸加载时调用一次，并在用户修改属性后再次调用。首次初始化之后的回调只包含发生变化的键，脚本不能假设每次都收到完整属性表。
 
 官方来源：
 https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/applyUserProperties.html
@@ -531,7 +545,7 @@ https://docs.wallpaperengine.io/en/scene/rgb/introduction.html
 - 正确解析 RGB 相关配置；
 - 忽略硬件输出；
 - 不让 RGB 字段导致项目加载失败；
-- 保留 Composition layer 对画面本身的影响；
+- 保留 Composition 的非 RGB 渲染语义，但不能仅因 RGB 配置就假定该 layer 必须直接合入主画面；
 - 后续若支持外设，再接入 OpenRGB、Razer、Corsair 等生态。
 
 ---
@@ -551,6 +565,7 @@ https://docs.wallpaperengine.io/en/scene/rgb/introduction.html
 - 图片/音频/视频资产加载；
 - 基础变换：位置、旋转、缩放、透明度；
 - 图层顺序与混合；
+- Composition/render-target 顺序、跨层纹理引用与 mask fail-closed；
 - 常见内置 effects；
 - Timeline 的 Loop / Mirror / Single；
 - 用户属性默认值；
@@ -579,7 +594,7 @@ https://docs.wallpaperengine.io/en/scene/rgb/introduction.html
 应实现：
 
 - 实时灯光；
-- 法线/高度参与光照；
+- normal / metallic / roughness / reflection maps 参与 2D 光照；
 - 反射；
 - 3D 模型；
 - 骨骼动画；
@@ -757,6 +772,7 @@ Platform Layer macOS
 | 测试类型 | 用例 |
 |---|---|
 | 基础图层 | 多图层、透明度、旋转缩放、裁切 |
+| Utility / Render target | capture 范围与顺序、局部/全画布 geometry、named target、隐藏 provider、nested/child、mask、cycle 与 GPU failure fail-closed |
 | Effects | 每个官方内置 effect 单独测试 |
 | Timeline | loop、mirror、single、多个属性动画 |
 | 粒子 | 雨、雪、火、落叶、魔法粒子、音频粒子 |
@@ -804,6 +820,8 @@ Platform Layer macOS
 | 3D Model Lighting | https://docs.wallpaperengine.io/en/scene/models/lighting.html |
 | Shader Overview | https://docs.wallpaperengine.io/en/scene/shader/overview.html |
 | Shader Variables | https://docs.wallpaperengine.io/en/scene/shader/variables.html |
+| Effects Introduction | https://docs.wallpaperengine.io/en/scene/effects/introduction.html |
+| Blend Effect | https://docs.wallpaperengine.io/en/scene/effects/effect/blend.html |
 | RGB Introduction | https://docs.wallpaperengine.io/en/scene/rgb/introduction.html |
 | Texture Performance | https://docs.wallpaperengine.io/en/scene/performance/texture.html |
 
@@ -821,4 +839,4 @@ Wallpaper Engine 的 Scene 壁纸本质上是一个实时渲染场景系统，�
 4. **再追求高级视觉**：Bloom、灯光、Puppet Warp、3D、Shader；
 5. **最后补齐边缘生态**：RGB、用户快捷方式、高级物理、复杂自定义 shader。
 
-如果目标是兼容 Workshop 热门壁纸，SceneScript、粒子、Bloom/HDR、Timeline、Puppet Warp 会是最关键的五个技术方向。
+SceneScript、粒子、Bloom/HDR、Timeline、Puppet Warp 都是重要能力方向，但官方没有给出它们在 Workshop 热门壁纸中的覆盖率统计。具体项目仍应按自己的隔离样本命中频率、主构图影响和可验证性排序；对 MyWallpaperX 而言，当前 bounded composition/named-target 主构图应先于高级 Puppet、3D 与任意 shader graph。

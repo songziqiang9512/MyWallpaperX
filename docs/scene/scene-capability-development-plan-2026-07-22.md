@@ -29,7 +29,7 @@
 
 ### 已真实进入运行链
 
-- `project.json` / entry 同名 `gifscene.json` 识别、PKGV 索引、受控缓存解包、路径校验和 interpretation v11；
+- `project.json` / entry 同名 `gifscene.json` 识别、PKGV 索引、受控缓存解包、路径校验和 interpretation v12；
 - PNG/JPEG、raw RGBA/RG/R8、BC1/BC2/BC3/BC5、LZ4、MP4 payload 和 TEX sprite sequence；
 - Metal image/solid/text/particle 合成、父子 transform、有效可见性、source order、alpha、正交/透视粒子相机和桌面多屏宿主；
 - cover 投影；Camera Parallax 服从 Scene options、逐层 depth、传播和属性 override，未声明时不启用；
@@ -37,11 +37,12 @@
 - 静态 text 的 authored `pointsize * 4`、vector padding、包内字体、系统字体别名和缺失字体诊断；
 - 作者包内 2D sprite 粒子的 definition/resource graph、sphere/box、rate/burst/prewarm、常见 initializer/operator、sequence/random frame、additive/translucent、朝向、静态 override、CPU simulation 与 Metal instancing；
 - 用户属性定义、group/display condition/options、默认值/override、visibility/text/camera 与部分 effect target、按壁纸持久化、活动 Scene 受控重建和独立属性窗口；
-- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；当前正式矩阵 **11/11 通过**，solid 为 `34/34`。
+- typed `composition/project/fullscreen` 与 generic dependency layer ID；对可见、无 child/dependency consumer、效果栈完整受支持且无需缺失 mask 的 utility layer，执行当前 framebuffer 前缀捕获并按作者 transform/alpha 合回；
+- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；当前正式矩阵 **12/12 通过**，image `136/137`、solid `43/43`、text `71/84`、particle `3/26`。
 
 ### 仅解析/诊断或部分实现
 
-- `composelayer/projectlayer/fullscreenlayer` 仍只被识别为 built-in，尚无通用 provider；Composition layer 没有捕获下方图层的 render-target 语义；
+- utility current-frame capture 只是首个受限子集；named render target、dependency texture 注入、隐藏 provider、child/nested target、utility mask 与任意 material/shader pass 尚未实现；
 - material pass 的 texture slots、combos、constant values 已保留，但 renderer 不执行 Wallpaper Engine material/shader；多数 blend mode、mask/composite 和 effect pass 仍缺失；
 - Timeline 只有数据模型空壳，没有关键帧、Loop/Mirror/Single、Bézier、wrap-loop、pause 或 target 写回；
 - SceneScript 只检测 inline script / `.js`，没有 ECMAScript runtime、`init/update`、事件、globals 或属性写回；
@@ -50,7 +51,7 @@
 - Scene 音频/媒体未接现有系统服务；动态时间/日期/媒体 text、puppet/mesh/3D/lighting、自定义 shader 均未实现；
 - pause/resume、fullscreen/battery、目标 FPS、CPU/GPU/显存预算和 soak 尚未闭环。
 
-11 样本 PASS 不能解释成视觉兼容率：当前矩阵实际加载 image/solid `106/113`，其中 solid `34/34`，text `27/27`、particle `3/25`。21 样本首轮分级是历史截图基线；新增能力需要重跑后才能重新分级。
+12 样本 PASS 不能解释成视觉兼容率：正式矩阵仅证明已声明的解析、GPU 完成、非黑画面和释放门通过。Utility 定向 4 样本共有 42 个候选，只有 2 个进入 capture，仍有 26 条 dependency edge 与 18 个 named-target 缺口；`2902406982` 最新截图仍有白色三角形，主构图 P0 尚未关闭。21 样本首轮分级是历史截图基线；新增能力需要重跑后才能重新分级。
 
 ## 3. 官方资料核验后的契约边界
 
@@ -64,12 +65,13 @@
 4. [User Properties](https://docs.wallpaperengine.io/en/scene/userproperties/overview.html) 的控件、默认值、直接绑定、条件显示与持久化应先于脚本回调；`applyUserProperties` 首次加载后只携带变化键。
 5. [SceneScript AudioBuffers](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AudioBuffers.html) 为 16/32/64 可选频段，提供 left/right/average 并每个渲染帧更新；不能直接套用 Web 固定 64+64、约 30Hz 回调合同。
 6. [Bloom](https://docs.wallpaperengine.io/en/scene/effects/bloom.html) 区分标准 Bloom 和 Ultra HDR，并有逐层 HDR brightness；自定义 shader/3D/Puppet 的能力虽强，但没有当前 2D 主构图资源链优先。
+7. [RGB Composition](https://docs.wallpaperengine.io/en/scene/rgb/introduction.html) 明确像相机一样记录其下方图层；[Effects](https://docs.wallpaperengine.io/en/scene/effects/introduction.html) 和 [Blend](https://docs.wallpaperengine.io/en/scene/effects/effect/blend.html) 允许链接动态 layer。官方没有公开 Workshop named-target 名称、dependency DAG 或 `projectlayer` 稳定格式，这些只能由隔离样本建立内部合同。
 
 ## 4. 重新排序后的实施路线
 
 ### S0：可重复基线与作者语义门（已完成）
 
-- 隔离 runner、签名身份、Metal 双帧、11 样本语义矩阵和 surface 释放门已落地；
+- 隔离 runner、签名身份、Metal 双帧、12 样本语义矩阵和 surface 释放门已落地；
 - cover、Camera Parallax、effect/particle visibility 均按作者声明执行；
 - 未声明或默认关闭的效果必须继续作为负向门，不能用“能力存在”替代启用条件。
 
@@ -78,9 +80,10 @@
 按依赖顺序实施：
 
 1. **已完成** `models/util/solidlayer.json` 与 model JSON `solidlayer:true` 程序化色块：保留作者 color，复用 1×1 白纹理，只对 solid 在通用 fragment 中乘 layer tint；提交 `c8c463b`。
-2. `composelayer/projectlayer/fullscreenlayer`：下方图层捕获、嵌套 render target、mask、source-over/additive/opacity 和有序 material pass executor。
-3. sceneTexture / Texture Variants：项目默认资源、用户授权替换、属性条件、持久化和 renderer 热更新共用同一 resource provider。
-4. 重新运行 21 样本视觉矩阵，优先关闭 `2902406982`、`2938612768`、`3122339805`、`3768229922` 的主构图 P0；`3766415113` 的 gifscene UV/sampler 已修复，不再列为待办。
+2. **已完成 S1.2a**：typed utility、受支持 effect 的 current-frame prefix capture、受限离屏池、mask fail-closed 与 GPU completion telemetry；提交 `1517f4a`、`1f8f148`。
+3. **当前 S1.2b**：只实现样本已证明的 `dependency -> layer-ID target -> consumer texture slot`，包含隐藏 provider、缺失/forward/cycle/budget fail-closed；不扩成任意 pass DAG 或 shader graph。
+4. sceneTexture / Texture Variants：项目默认资源、用户授权替换、属性条件、持久化和 renderer 热更新共用同一 resource provider。
+5. 重新运行 21 样本视觉矩阵，优先关闭 `2902406982`、`2938612768`、`3122339805`、`3768229922` 的主构图 P0；`3766415113` 的 gifscene UV/sampler 已修复，不再列为待办。
 
 ### S2：统一 live-value runtime（P1）
 
@@ -116,14 +119,22 @@
 - 定向 `3122339805 / 3750813609 / 3765760121` 为 **3/3**；正式 11 样本为 **11/11**，solid `34/34`，image/solid `106/113`。`3122339805` 为 `90/90`，中性灰底像素由 45.96% 降至 0.33%。
 - 报告：`.codex/scene-solid-targeted-pass2-20260722/`、`.codex/scene-solid-matrix11-pass2-20260722/`；提交：`c8c463b`。
 
-### 当前执行项：S1.2 composition / project / fullscreen layer
+### 已完成：S1.2a utility current-frame capture
 
-- **预期**：组合层只捕获作者指定的下方有序图层，在独立 render target 中执行其 material/effect/mask，再按 layer transform、alpha、visibility 和 blend 合回主画布；fullscreen/project 资源通过同一 provider 解析。
-- **实际**：descriptor 保留 built-in 引用与 material pass，但没有组合捕获范围、离屏所有权或回填语义，对应层通常因无普通纹理而跳过。
-- **根因假设**：当前 renderer 以单层纹理直接绘制为核心，缺少“图层范围 -> render target -> pass executor -> composite”的 typed 计划；不能靠 path resolver 伪造一张静态纹理解决。
-- **修改范围**：先从真实样本提取 model/material/pass 和相邻层范围合同，再增加最小 composition plan、受限纹理池和明确 unsupported 诊断；不在首个切片中实现任意 HLSL/MSL 转译。
-- **目标样本**：主构图正向 `2902406982`、`2938612768`、`3765760121`、`3768229922`；没有组合声明的 `3122339805` 与正式 11 样本作为负向/公共回归。
-- **验收**：只执行作者声明的组合层，不捕获自身或跨越错误层级；无全屏白块、递归 render target 或默认 effect；GPU 资源有上限并释放；定向视觉门、代码健康、签名构建和相关矩阵通过后单独提交。
+- `composelayer/projectlayer/fullscreenlayer` 已进入 typed descriptor；generic dependency ID、局部 composition geometry 与 project/fullscreen 全画布 geometry 均有确定性合同。
+- 当前只对作者可见、无 child/dependency consumer、所有可见 effect 均受支持且不缺 mask 的 utility layer 执行捕获。未支持、部分支持、隐藏、无 effect 和带缺失 mask 的层均明确跳过，不把能力默认套给样本。
+- source copy 与 effect encoder 失败均 fail closed；离屏纹理限制为最大 2048 维、96 MiB 预算，capture 成功只在 Metal command buffer 完成后上报。
+- 定向 4 样本 **4/4**：42 个 utility candidate 中 2 个 capture，layer `410/530` 均 GPU succeeded，0 failed；正式矩阵 **12/12**，17 candidates / 2 capture / 8 dependency edges / 6 named-target gaps。
+- 报告：`.codex/scene-utility-render-targeted-pass-20260722/`、`.codex/scene-utility-formal12-20260722/`；提交：`1517f4a`、`1f8f148`。
+
+### 当前执行项：S1.2b named layer target / dependency texture
+
+- **预期**：作者 dependency 引用的 layer 在其 authored source-order 位置发布稳定的 layer-ID target；consumer 只在声明匹配的 effect/pass/slot 读取，不重排主图层顺序。
+- **实际**：v12 已保留 26 条定向 dependency edge，但 renderer 尚不发布 named target，也不向 consumer slot 注入；`2902406982` 的 6 个 target gap 使白色三角仍遮挡主构图。
+- **根因假设**：现有三纹理池是瞬时工作集，同尺寸 target 会互相覆盖；同时缺少 typed slot binding、按帧 target 生命周期、cycle/forward/missing 校验和明确的首个 consumer executor。
+- **修改范围**：先支持严格 `_rt_imageLayerComposite_<id>_a` 引用、独立有预算的 layer-ID target pool、隐藏 provider 与 cycle/missing/budget fail-closed；首个 consumer 只覆盖真实样本证明的 clipping-mask 合成，不实现任意 shader/pass DAG。
+- **目标样本**：`2902406982` 为视觉正向，`3768229922` 验证隐藏 provider 计划，`2938612768` 验证 forward/ordinary provider 诊断；无 dependency 的正式样本为负向回归。
+- **验收**：290 的 6 个 provider 与 8 个 consumer binding 精确匹配，白三角不再由缺失 named target 产生；循环、缺失、forward unsupported 和预算失败均不递归、不错误采样；代码健康、签名构建、定向视觉门与正式矩阵通过后单独提交。
 
 ## 5. 样本规范
 

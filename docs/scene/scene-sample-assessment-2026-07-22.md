@@ -11,7 +11,7 @@
 - P2（主体可用，仍有明确的次级效果差距）：4 个；
 - P3（仅小幅视觉偏差）：0 个。
 
-首轮评估确认的方向仍成立：优先建设通用 runtime，而不是增加按样本命中的 effect 分支。此后属性主链、作者 sprite 粒子子集、程序化 solid、静态文字几何/字体和 11 样本语义门已经落地；动态脚本/文字、组合层、其余内建资源和高级粒子仍是主要缺口。现有开发顺序和架构约束见 [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md)；Web 与 Scene 的统一状态入口见 [Web / Scene 当前状态与路线图](../reviews/web-scene-current-state-roadmap-2026-07-19.md)。
+首轮评估确认的方向仍成立：优先建设通用 runtime，而不是增加按样本命中的 effect 分支。此后属性主链、作者 sprite 粒子子集、程序化 solid、静态文字几何/字体、utility current-frame capture 子集和 12 样本语义门已经落地；动态脚本/文字、named-target dependency、utility mask/嵌套组合、其余内建资源和高级粒子仍是主要缺口。现有开发顺序和架构约束见 [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md)；Web 与 Scene 的统一状态入口见 [Web / Scene 当前状态与路线图](../reviews/web-scene-current-state-roadmap-2026-07-19.md)。
 
 ## 范围与证据
 
@@ -20,7 +20,7 @@
 - `3766415113` 使用 `gifscene.json` / `gifscene.pkg`，以 [gifscene 单样本报告](../../.codex/scene-gifscene-entry-gate-20260722/report.json) 为准。
 - `3738202317` 在 20 样本旧报告中因 `.tex format 6` 显示灰底；该结果已经被 [BC2/DXT3 修复后报告](../../.codex/scene-bc2-format6-final-20260722/report.json) 覆盖，当前为 1/1 纹理加载成功。
 - “作者预期”来自包内 scene 描述、`project.json` 属性和样本自带 preview。preview 不是逐帧金标准，最终仍需在相同分辨率、相同属性默认值下与 Wallpaper Engine 录屏做差异验收。
-- 首轮 21 样本报告保留为修复前视觉基线；当前增量证据以 `.codex/scene-property-*-20260722/`、`.codex/scene-particle-*-20260722/`、`.codex/scene-text-fixed-20260722/`、`.codex/scene-solid-targeted-pass2-20260722/` 和 `.codex/scene-solid-matrix11-pass2-20260722/` 为准。
+- 首轮 21 样本报告保留为修复前视觉基线；当前增量证据以 `.codex/scene-property-*-20260722/`、`.codex/scene-particle-*-20260722/`、`.codex/scene-text-fixed-20260722/`、`.codex/scene-solid-targeted-pass2-20260722/`、`.codex/scene-utility-render-targeted-pass-20260722/` 和 `.codex/scene-utility-formal12-20260722/` 为准。
 
 表中 `I/P/T` 分别表示 image / particle / text 图层声明数量；`prop` 不含每个项目都有的 `schemecolor`。纹理加载率只统计当前 renderer 识别为 image candidate 的图层，不应直接当成视觉完成度。
 
@@ -29,10 +29,11 @@
 | 能力 | 当前已验证 | 仍未覆盖 |
 | --- | --- | --- |
 | 用户属性 | bool/slider/combo/color/textinput、group/condition/options；layer visibility、text、camera parallax 与部分 effect target；按壁纸持久化；独立可拖动属性窗口 | sceneTexture、transform、particle/audio、puppet 与未支持 effect target；无需重建的通用热更新 |
-| Solid | 固定 built-in 与 model `solidlayer:true`；共享白纹理、作者 color/alpha/visibility/effect/blend；定向 84/84、正式 34/34 | 带动态 `$mediaThumbnail`/sceneTexture 的 solid 实例；普通 image 基础 color multiplier；组合层捕获 |
+| Solid | 固定 built-in 与 model `solidlayer:true`；共享白纹理、作者 color/alpha/visibility/effect/blend；定向 84/84、正式 43/43 | 带动态 `$mediaThumbnail`/sceneTexture 的 solid 实例；普通 image 基础 color multiplier；完整 dependency/mask 组合语义 |
+| Utility / Composition | typed composition/project/fullscreen；当前 framebuffer 前缀捕获；局部/full-frame geometry；受限纹理池；mask/partial effect fail-closed；290 的 project 410 chromatic 与 composition 530 blur 均 GPU 完成 | named target 与 dependency slot、隐藏 provider、child/nested target、utility mask、任意 material/shader pass；定向 42 candidates 仅 2 capture，仍有 26 edges / 18 gaps |
 | Particle | 包内 texture、sprite/sequence、continuous/burst initial、基础 lifetime/opacity/color/size/rotation/velocity、additive/translucent blend、正交/透视相机、层级可见性与 parallax；`3742133044`、`3750813609`、`2998757800` 各有 1 个真实 layer | built-in texture、child system、trail/rope、world-space、完整 control point/attractor、音频与属性动态 operator |
 | Text | authored `pointsize * 4`、vector padding、包内字体、系统字体别名、确定性 fallback 诊断；`3766387484` 3/3、`3122339805` 80/81、`2134765860` 4/6 candidate | SceneScript、真实时钟/日期/媒体值、完整对齐/描边/阴影/effect 语义 |
-| 自动门 | 11 个真实隔离样本，interpretation v11，签名 App、Metal ready/after 非黑帧、solid/文字/粒子 ID 语义合同、无 timeout、stop 后 surface=0 | 不是 21 样本视觉重评，也没有 Windows Wallpaper Engine 同配置录屏差异门 |
+| 自动门 | 12 个真实隔离样本，interpretation v12，签名 App、Metal ready/after 非黑帧；image 136/137、solid 43/43、text 71/84、particle 3/26；utility 17 candidates / 2 capture / 8 edges / 6 gaps；无 timeout、stop 后 surface=0 | 不是 21 样本视觉重评，也没有 Windows Wallpaper Engine 同配置录屏差异门；290 白三角仍在，12/12 不代表主构图闭合 |
 
 ## 横向能力判断
 
@@ -45,7 +46,7 @@
 
 ### Particle
 
-21 个样本中有 18 个声明 particle，共 60 个 particle layer，按默认可见性与父链计算有 54 个有效层。当前 renderer 已有作者包内 2D sprite 主链，但正式 11 样本中 `3742133044`、`3750813609` 仅各加载 1 个粒子 layer，`3765760121` 的默认隐藏 particle 保持不创建。样本还声明 box/sphere emitter、sprite trail、rope trail、child graph、音频驱动和 Wallpaper Engine 内建资源；这些高级语义仍需逐类补齐，不能用“已有粒子”概括成完整支持。
+21 个样本中有 18 个声明 particle，共 60 个 particle layer，按默认可见性与父链计算有 54 个有效层。当前 renderer 已有作者包内 2D sprite 主链，但正式 12 样本中 `3742133044`、`3750813609` 仅各加载 1 个粒子 layer，`3765760121` 的默认隐藏 particle 保持不创建。样本还声明 box/sphere emitter、sprite trail、rope trail、child graph、音频驱动和 Wallpaper Engine 内建资源；这些高级语义仍需逐类补齐，不能用“已有粒子”概括成完整支持。
 
 ### 项目属性与详情面板
 
@@ -85,10 +86,10 @@
 
 ## 首轮开发与回归顺序及进度
 
-1. P0 通用根因已关闭 `gifscene` UV/sampler 与 built-in/model solid；`3122339805` 的 84 个 solid 全部加载，灰底和窗口框架已恢复。下一步是组合层/遮罩/内建纹理与脚本驱动初始状态，继续面向 `2902406982`、`2938612768`、`3768229922` 的主构图闭合，不增加 ID 分支。
+1. P0 通用根因已关闭 `gifscene` UV/sampler、built-in/model solid 和受支持 utility effect 的 current-prefix capture；`3122339805` 的 84 个 solid 全部加载，290 的 410/530 已进入 GPU runtime。下一步是 named-target dependency、consumer texture slot、遮罩/内建纹理与脚本驱动初始状态；290 最新截图仍有白三角，主构图 P0 未关闭。
 2. 项目属性主链已完成第一阶段：parser、condition、受支持 target、持久化和独立窗口已落地；`3766387484` parallax off 与 `2134765860` text/day-night/custom text 门通过。`sceneTexture`、transform、particle/audio target 和 `2902406982` 大规模 UI/滚动门仍未完成。
 3. sprite particle MVP 已完成第一阶段：3 个样本各有 1 个作者 layer 进入真实渲染，`3765760121` 默认隐藏负向门通过。child/trail/rope、built-in、world-space 和音频粒子仍未完成。
 4. 静态 text geometry/font 已修正并通过 3 样本门；动态时间/日期/媒体、完整效果与 100 层最终性能门仍未完成。
-5. 在主构图和上述三条基础能力稳定后，再逐类提高 waterflow/ripple、depth parallax、godrays/glitter、puppet、音频和复杂 offscreen pass 的视觉一致性。
+5. Named-target/mask 是当前主构图 P0，不能整体后置；任意 material/shader pass、waterflow/ripple、depth parallax、godrays/glitter、puppet 和音频则在 bounded dependency 切片与 live-value runtime 稳定后逐类推进。
 
 每一步都应同时保留两类门：一类证明声明的能力确实出现，另一类证明未声明或默认关闭的效果不会被全局套用。所有样本仍从真实 Workshop 复制到隔离 root，并使用临时 HOME 运行；流程 PASS、非黑截图和加载率只能作为底线，不能替代与作者 preview/Wallpaper Engine 的视觉对照。
