@@ -106,7 +106,8 @@ nonisolated enum SceneParticleOrientation: Equatable, Sendable {
                 fallback: SIMD3(0, 1, 0)
             )
             let horizontal = simd_cross(cameraForward, up)
-            let right = simd_length_squared(horizontal) > 1e-8 ? horizontal : cameraRight
+            let aligned = simd_dot(horizontal, cameraRight) < 0 ? -horizontal : horizontal
+            let right = simd_length_squared(aligned) > 1e-8 ? aligned : cameraRight
             return SceneParticleOrientationBasis.orthonormalized(right: right, up: up)
         case .fixed:
             return SceneParticleOrientationBasis.orthonormalized(

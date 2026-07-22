@@ -81,6 +81,7 @@
       "title": "【凡人修仙传】玄骨 借尸还魂",
       "capabilities": [
         "image_layers",
+        "particle_layers",
         "mask_effects",
         "offscreen_effects",
         "animated_output"
@@ -89,6 +90,9 @@
       "package_sha256": "3213da7a43f8bbb5494a25bdc54ca58553f86950c088545481157bba39c89c4c",
       "expected_interpretation_format": 9,
       "minimum_loaded_ratio": 0.8,
+      "minimum_particle_loaded": 1,
+      "expected_particle_candidates": 3,
+      "minimum_particle_initial_live": 1,
       "minimum_gaussian_blur_runtime_count": 1,
       "expected_camera_parallax": false,
       "requires_motion": true,

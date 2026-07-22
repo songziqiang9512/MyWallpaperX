@@ -1,28 +1,125 @@
+import Foundation
 import Metal
 import simd
 
-final class SceneParticleMetalInstanceBuffer {
-    private(set) var buffer: MTLBuffer?
-    private(set) var count = 0
-    private var capacity = 0
+final class SceneParticleMetalInstanceBuffer: @unchecked Sendable {
+    private struct Slot {
+        var buffer: MTLBuffer
+        var capacity: Int
+        var isInFlight: Bool
+    }
+
+    private let lock = NSLock()
+    private var slots: [Slot] = []
+    private var currentSlotIndex: Int?
+    private var currentCount = 0
+
+    var buffer: MTLBuffer? {
+        withLock {
+            currentSlotIndex.map { slots[$0].buffer }
+        }
+    }
+
+    var count: Int {
+        withLock { currentCount }
+    }
 
     func update(device: MTLDevice, instances: [SceneParticleGPUInstance]) -> Bool {
-        count = instances.count
-        guard !instances.isEmpty else { return true }
+        withLock {
+            currentCount = instances.count
+            guard !instances.isEmpty else {
+                currentSlotIndex = nil
+                return true
+            }
 
-        let stride = MemoryLayout<SceneParticleGPUInstance>.stride
-        let requiredLength = instances.count * stride
-        if buffer == nil || capacity < instances.count {
-            capacity = max(instances.count, max(capacity * 2, 64))
-            buffer = device.makeBuffer(length: capacity * stride, options: .storageModeShared)
-            buffer?.label = "Scene particle instances"
+            guard let slotIndex = prepareSlot(device: device, requiredCount: instances.count) else {
+                currentCount = 0
+                currentSlotIndex = nil
+                return false
+            }
+            currentSlotIndex = slotIndex
+            let requiredLength = instances.count * MemoryLayout<SceneParticleGPUInstance>.stride
+            instances.withUnsafeBufferPointer { values in
+                guard let source = values.baseAddress else { return }
+                slots[slotIndex].buffer.contents().copyMemory(
+                    from: source,
+                    byteCount: requiredLength
+                )
+            }
+            return true
         }
-        guard let buffer else { return false }
-        instances.withUnsafeBufferPointer { values in
-            guard let source = values.baseAddress else { return }
-            buffer.contents().copyMemory(from: source, byteCount: requiredLength)
+    }
+
+    @discardableResult
+    func markSubmitted(on commandBuffer: MTLCommandBuffer) -> Bool {
+        let submittedSlot: Int? = withLock {
+            guard let currentSlotIndex else { return nil }
+            slots[currentSlotIndex].isInFlight = true
+            self.currentSlotIndex = nil
+            return currentSlotIndex
+        }
+        guard let submittedSlot else { return false }
+        commandBuffer.addCompletedHandler { [weak self] _ in
+            self?.releaseSlot(at: submittedSlot)
         }
         return true
+    }
+
+    fileprivate func currentDrawState() -> (buffer: MTLBuffer, count: Int)? {
+        withLock {
+            guard currentCount > 0, let currentSlotIndex else { return nil }
+            return (slots[currentSlotIndex].buffer, currentCount)
+        }
+    }
+
+    private func prepareSlot(device: MTLDevice, requiredCount: Int) -> Int? {
+        let slotIndex = currentSlotIndex
+            ?? slots.indices.first(where: {
+                !slots[$0].isInFlight && slots[$0].capacity >= requiredCount
+            })
+            ?? slots.indices.first(where: { !slots[$0].isInFlight })
+
+        if let slotIndex {
+            guard slots[slotIndex].capacity < requiredCount else { return slotIndex }
+            let capacity = max(requiredCount, max(slots[slotIndex].capacity * 2, 64))
+            guard let buffer = makeBuffer(device: device, capacity: capacity, slotIndex: slotIndex) else {
+                return nil
+            }
+            slots[slotIndex] = Slot(buffer: buffer, capacity: capacity, isInFlight: false)
+            return slotIndex
+        }
+
+        let capacity = max(requiredCount, max(slots.map(\.capacity).max() ?? 0, 64))
+        let newIndex = slots.count
+        guard let buffer = makeBuffer(device: device, capacity: capacity, slotIndex: newIndex) else {
+            return nil
+        }
+        slots.append(Slot(buffer: buffer, capacity: capacity, isInFlight: false))
+        return newIndex
+    }
+
+    private func makeBuffer(
+        device: MTLDevice,
+        capacity: Int,
+        slotIndex: Int
+    ) -> MTLBuffer? {
+        let length = capacity * MemoryLayout<SceneParticleGPUInstance>.stride
+        let buffer = device.makeBuffer(length: length, options: .storageModeShared)
+        buffer?.label = "Scene particle instances slot \(slotIndex)"
+        return buffer
+    }
+
+    private func releaseSlot(at index: Int) {
+        withLock {
+            guard slots.indices.contains(index) else { return }
+            slots[index].isInFlight = false
+        }
+    }
+
+    private func withLock<Result>(_ operation: () -> Result) -> Result {
+        lock.lock()
+        defer { lock.unlock() }
+        return operation()
     }
 }
 
@@ -80,8 +177,11 @@ vertex Varyings sceneParticleVert(
         float3(quadVertex.position * particle.positionAndSize.w, 0.0),
         particle.rotationAndAlpha.xyz);
     float3 normal = normalize(cross(uniforms.basisRight.xyz, uniforms.basisUp.xyz));
-    float3 offset = uniforms.basisRight.xyz * local.x
-                  + uniforms.basisUp.xyz * local.y + normal * local.z;
+    float2 layerScale = float2(length(uniforms.layerModel[0].xyz),
+                               length(uniforms.layerModel[1].xyz));
+    float3 offset = uniforms.basisRight.xyz * local.x * layerScale.x
+                  + uniforms.basisUp.xyz * local.y * layerScale.y
+                  + normal * local.z;
     float4 center = uniforms.layerModel * float4(particle.positionAndSize.xyz, 1.0);
 
     Varyings out;
@@ -164,7 +264,7 @@ struct SceneParticleMetalPipeline {
         blendMode: SceneParticlePipelineBlendMode,
         encoder: MTLRenderCommandEncoder
     ) {
-        guard instances.count > 0, let instanceBuffer = instances.buffer else { return }
+        guard let drawState = instances.currentDrawState() else { return }
         encoder.setRenderPipelineState(
             blendMode == .additive ? additiveState : translucentState
         )
@@ -174,7 +274,7 @@ struct SceneParticleMetalPipeline {
             length: quad.count * MemoryLayout<SceneParticleQuadVertex>.stride,
             index: 0
         )
-        encoder.setVertexBuffer(instanceBuffer, offset: 0, index: 1)
+        encoder.setVertexBuffer(drawState.buffer, offset: 0, index: 1)
         var uniformCopy = uniforms
         encoder.setVertexBytes(
             &uniformCopy,
@@ -186,7 +286,7 @@ struct SceneParticleMetalPipeline {
             type: .triangleStrip,
             vertexStart: 0,
             vertexCount: Self.unitQuad.count,
-            instanceCount: instances.count
+            instanceCount: drawState.count
         )
     }
 

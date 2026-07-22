@@ -6,11 +6,7 @@ struct SceneMetalRenderer {
     let device: MTLDevice
     let commandQueue: MTLCommandQueue
     let renderDescriptor: SceneRenderDescriptor
-    private let gaussianBlurPipeline: SceneGaussianBlurPipeline
-    private let bloomPipeline: SceneBloomPipeline
-    private let waterRipplePipeline: SceneWaterRipplePipeline
-    private let perspectiveOpacityPipeline: ScenePerspectiveOpacityPipeline
-    private let additivePipeline: SceneImageLayerPipeline
+    private let imageCompositor: SceneImageLayerCompositor
     private let visibleLayerIDs: Set<Int>
     // Cached transforms propagate parent pivot/orientation without double-scaling child quads.
     private let worldFramesByLayerID: [Int: simd_float4x4]
@@ -19,21 +15,13 @@ struct SceneMetalRenderer {
     init?(renderDescriptor: SceneRenderDescriptor) {
         guard let device = MTLCreateSystemDefaultDevice(),
               let commandQueue = device.makeCommandQueue(),
-              let gaussianBlurPipeline = SceneGaussianBlurPipeline(device: device),
-              let bloomPipeline = SceneBloomPipeline(device: device),
-              let waterRipplePipeline = SceneWaterRipplePipeline(device: device),
-              let perspectiveOpacityPipeline = ScenePerspectiveOpacityPipeline(device: device),
-              let additivePipeline = SceneImageLayerPipeline(device: device, blendMode: .additive) else {
+              let imageCompositor = SceneImageLayerCompositor(device: device) else {
             return nil
         }
         self.device = device
         self.commandQueue = commandQueue
         self.renderDescriptor = renderDescriptor
-        self.gaussianBlurPipeline = gaussianBlurPipeline
-        self.bloomPipeline = bloomPipeline
-        self.waterRipplePipeline = waterRipplePipeline
-        self.perspectiveOpacityPipeline = perspectiveOpacityPipeline
-        self.additivePipeline = additivePipeline
+        self.imageCompositor = imageCompositor
         self.visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: renderDescriptor)
 
         let byID = Dictionary(uniqueKeysWithValues: renderDescriptor.layers.map { ($0.id, $0) })
@@ -159,6 +147,8 @@ struct SceneMetalRenderer {
         foliageMaskTextures: [Int: MTLTexture],
         waterRippleNormalTextures: [Int: MTLTexture],
         imagePipeline: SceneImageLayerPipeline?,
+        particleBatches: [SceneParticleDrawBatch],
+        particlePipeline: SceneParticleMetalPipeline?,
         offscreenTexturePool: SceneOffscreenTexturePool?,
         time: Float,
         mouseNormalized: SIMD2<Float>,
@@ -166,13 +156,9 @@ struct SceneMetalRenderer {
         to drawable: CAMetalDrawable,
         viewportSize: CGSize
     ) {
-        guard let pipeline = imagePipeline else {
-            renderClearPass(to: drawable)
-            return
-        }
         guard let commandBuffer = commandQueue.makeCommandBuffer() else { return }
 
-        let viewProj = SceneCameraProjection.viewProjection(
+        let cameraFrame = SceneParticleCameraFrame(
             camera: renderDescriptor.camera,
             viewportSize: viewportSize
         )
@@ -188,132 +174,75 @@ struct SceneMetalRenderer {
             cameraEyeOffset: SIMD2(camera.eye, fill: 0)
         )
         let orderedLayers = renderDescriptor.renderOrderLayerIDs.compactMap { layersByID[$0] }
+        let particleBatchesByID = Dictionary(
+            uniqueKeysWithValues: particleBatches.map { ($0.layerID, $0) }
+        )
+        let mainPass = SceneMainPassEncoder(
+            commandBuffer: commandBuffer,
+            target: drawable.texture,
+            clearColor: sceneClearColor
+        )
 
-        var mainLoadAction: MTLLoadAction = .clear
-        var mainEncoder: MTLRenderCommandEncoder?
-
-        func ensureMainEncoder() -> MTLRenderCommandEncoder? {
-            if let mainEncoder {
-                return mainEncoder
-            }
-            mainEncoder = beginRenderEncoder(
-                commandBuffer: commandBuffer,
-                target: drawable.texture,
-                loadAction: mainLoadAction,
-                clearColor: sceneClearColor
-            )
-            mainLoadAction = .load
-            if let mainEncoder {
-                pipeline.bind(encoder: mainEncoder)
-            }
-            return mainEncoder
-        }
-
-        func closeMainEncoder() {
-            mainEncoder?.endEncoding()
-            mainEncoder = nil
-        }
-
-        for layer in orderedLayers where layer.contentKind == "image" || layer.contentKind == "text" {
+        for layer in orderedLayers {
             guard visibleLayerIDs.contains(layer.id) else { continue }
-            guard let texture = imageTextures[layer.id] else { continue }
-            let irisMaskTexture = irisMaskTextures[layer.id]
-            let opacityMaskTexture = opacityMaskTextures[layer.id]
-            let waterMaskTexture = waterMaskTextures[layer.id]
-            let foliageMaskTexture = foliageMaskTextures[layer.id]
-            let waterRippleNormalTexture = waterRippleNormalTextures[layer.id]
-            let auxMaskTexture = irisMaskTexture ?? opacityMaskTexture
-            let effectPlan = SceneEffectRuntimePlanner.plan(
-                for: layer,
-                hasIrisMask: irisMaskTexture != nil,
-                hasOpacityMask: opacityMaskTexture != nil && irisMaskTexture == nil,
-                hasWaterMask: waterMaskTexture != nil,
-                hasFoliageMask: foliageMaskTexture != nil,
-                hasWaterRippleNormal: waterRippleNormalTexture != nil
-            )
-            guard effectPlan.skipsUnsupportedComposite == false else { continue }
-            let effectInputs = effectPlan.inputs
-            let textureFrame = spriteAnimations[layer.id]?.transform(at: time) ?? .identity
-            let model = modelMatrix(
-                for: layer,
-                parallaxMouseNormalized: parallaxMouseNormalized,
-                configuration: parallaxConfiguration
-            )
-            let mvp = viewProj * model
-            let directUniforms = SceneLayerFragmentUniforms(
-                time: time,
-                alpha: Float(layer.alpha ?? 1.0),
-                effectFlags: effectInputs.flags.rawValue,
-                _pad0: 0,
-                cursorUV: cursorUV(for: layer, cursorWorld: cursorWorld),
-                _pad1: .zero,
-                effectParams0: effectInputs.params0,
-                effectParams1: effectInputs.params1,
-                effectParams2: effectInputs.params2,
-                effectParams3: effectInputs.params3,
-                textureFrame0: textureFrame.uniform0,
-                textureFrame1: textureFrame.uniform1
-            )
-            let offscreenPassCount = effectPlan.offscreenPassCount
-            if offscreenPassCount > 0,
-               let offscreenTexturePool,
-               let offscreenPair = offscreenTexturePool.textures(for: texture) {
-                closeMainEncoder()
-                let finalTexture = SceneOffscreenEffectRenderer.render(
-                    sourceTexture: texture,
-                    waterMaskTexture: waterMaskTexture,
-                    foliageMaskTexture: foliageMaskTexture,
-                    auxMaskTexture: auxMaskTexture,
-                    offscreenPair: offscreenPair,
-                    offscreenPassCount: offscreenPassCount,
-                    blurPlan: effectPlan.gaussianBlur,
-                    bloomPlan: effectPlan.bloom,
-                    waterRippleNormalPlan: effectPlan.waterRippleNormal,
-                    waterRippleNormalTexture: waterRippleNormalTexture,
-                    perspectiveOpacityPlan: effectPlan.perspectiveOpacity,
-                    sourceUniforms: directUniforms,
-                    pipeline: pipeline,
-                    gaussianBlurPipeline: gaussianBlurPipeline,
-                    bloomPipeline: bloomPipeline,
-                    waterRipplePipeline: waterRipplePipeline,
-                    perspectiveOpacityPipeline: perspectiveOpacityPipeline,
-                    commandBuffer: commandBuffer
-                ) ?? texture
-                guard let encoder = ensureMainEncoder() else { continue }
-                let compositePipeline = layer.colorBlendMode == 9 ? additivePipeline : pipeline
-                compositePipeline.bind(encoder: encoder)
-                compositePipeline.drawLayer(
-                    texture: finalTexture,
-                    shakeMaskTexture: nil,
-                    waterMaskTexture: nil,
-                    foliageMaskTexture: nil,
-                    auxMaskTexture: nil,
-                    mvp: mvp,
-                    uniforms: .neutral(),
+            switch layer.contentKind {
+            case "image", "text":
+                guard let imagePipeline, let texture = imageTextures[layer.id] else { continue }
+                let model = imageModelMatrix(
+                    for: layer,
+                    parallaxMouseNormalized: parallaxMouseNormalized,
+                    configuration: parallaxConfiguration
+                )
+                let request = SceneImageLayerDrawRequest(
+                    layer: layer,
+                    texture: texture,
+                    masks: SceneImageLayerMasks(
+                        iris: irisMaskTextures[layer.id],
+                        opacity: opacityMaskTextures[layer.id],
+                        water: waterMaskTextures[layer.id],
+                        foliage: foliageMaskTextures[layer.id],
+                        waterRippleNormal: waterRippleNormalTextures[layer.id]
+                    ),
+                    textureFrame: spriteAnimations[layer.id]?.transform(at: time) ?? .identity,
+                    mvp: cameraFrame.orthographicViewProjection * model,
+                    uniforms: SceneImageLayerUniformValues(
+                        time: time,
+                        alpha: Float(layer.alpha ?? 1),
+                        cursorUV: cursorUV(for: layer, cursorWorld: cursorWorld)
+                    ),
+                    offscreenTexturePool: offscreenTexturePool
+                )
+                imageCompositor.draw(request, pipeline: imagePipeline, mainPass: mainPass)
+            case "particle":
+                guard let particlePipeline,
+                      let batch = particleBatchesByID[layer.id],
+                      let encoder = mainPass.encoder() else { continue }
+                let model = particleModelMatrix(
+                    for: layer,
+                    parallaxMouseNormalized: parallaxMouseNormalized,
+                    configuration: parallaxConfiguration
+                )
+                let basis = particleBasis(for: batch, layerModel: model, cameraFrame: cameraFrame)
+                particlePipeline.draw(
+                    texture: batch.texture,
+                    instances: batch.instanceBuffer,
+                    uniforms: SceneParticleLayerUniforms(
+                        viewProjection: cameraFrame.viewProjection(
+                            usesPerspective: batch.usesPerspective
+                        ),
+                        layerModel: model,
+                        basis: basis
+                    ),
+                    blendMode: batch.blendMode,
                     encoder: encoder
                 )
+                batch.instanceBuffer.markSubmitted(on: commandBuffer)
+            default:
                 continue
             }
-
-            guard let encoder = ensureMainEncoder() else { continue }
-            let compositePipeline = layer.colorBlendMode == 9 ? additivePipeline : pipeline
-            compositePipeline.bind(encoder: encoder)
-            compositePipeline.drawLayer(
-                texture: texture,
-                shakeMaskTexture: nil,
-                waterMaskTexture: waterMaskTexture,
-                foliageMaskTexture: foliageMaskTexture,
-                auxMaskTexture: auxMaskTexture,
-                mvp: mvp,
-                uniforms: directUniforms,
-                encoder: encoder
-            )
         }
 
-        if mainEncoder == nil {
-            _ = ensureMainEncoder()
-        }
-        closeMainEncoder()
+        mainPass.finishEnsuringClear()
         commandBuffer.present(drawable)
         commandBuffer.commit()
     }
@@ -346,23 +275,9 @@ struct SceneMetalRenderer {
         return SIMD2(u, v)
     }
 
-    private func beginRenderEncoder(
-        commandBuffer: MTLCommandBuffer,
-        target: MTLTexture,
-        loadAction: MTLLoadAction,
-        clearColor: MTLClearColor
-    ) -> MTLRenderCommandEncoder? {
-        let descriptor = MTLRenderPassDescriptor()
-        descriptor.colorAttachments[0].texture = target
-        descriptor.colorAttachments[0].loadAction = loadAction
-        descriptor.colorAttachments[0].clearColor = clearColor
-        descriptor.colorAttachments[0].storeAction = .store
-        return commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
-    }
-
     // MARK: - Matrix construction
 
-    private func modelMatrix(
+    private func imageModelMatrix(
         for layer: SceneRenderDescriptor.Layer,
         parallaxMouseNormalized: SIMD2<Float>,
         configuration: SceneLayerParallax.Configuration
@@ -374,11 +289,71 @@ struct SceneMetalRenderer {
         // smaller world-Y (visually upper) edge of the layer.
         let sizeScale = SceneMatrix.scale(SIMD3(size.x, -size.y, 1))
         let world = worldFramesByLayerID[layer.id] ?? SceneMatrix.identity()
-        let worldPosition = SIMD2(world.columns.3.x, world.columns.3.y)
-        let parallax = SceneLayerParallax.offset(
-            resolution: parallaxByLayerID[layer.id], configuration: configuration,
-            layerPosition: worldPosition, mouseNormalized: parallaxMouseNormalized
+        let parallax = parallaxOffset(
+            for: layer,
+            worldFrame: world,
+            mouseNormalized: parallaxMouseNormalized,
+            configuration: configuration
         )
         return SceneMatrix.translation(SIMD3(parallax.x, parallax.y, 0)) * world * sizeScale
+    }
+
+    private func particleModelMatrix(
+        for layer: SceneRenderDescriptor.Layer,
+        parallaxMouseNormalized: SIMD2<Float>,
+        configuration: SceneLayerParallax.Configuration
+    ) -> simd_float4x4 {
+        let world = worldFramesByLayerID[layer.id] ?? SceneMatrix.identity()
+        let parallax = parallaxOffset(
+            for: layer,
+            worldFrame: world,
+            mouseNormalized: parallaxMouseNormalized,
+            configuration: configuration
+        )
+        return SceneParticleCameraFrame.particleLayerModel(
+            worldFrame: world,
+            parallaxOffset: parallax
+        )
+    }
+
+    private func parallaxOffset(
+        for layer: SceneRenderDescriptor.Layer,
+        worldFrame: simd_float4x4,
+        mouseNormalized: SIMD2<Float>,
+        configuration: SceneLayerParallax.Configuration
+    ) -> SIMD2<Float> {
+        SceneLayerParallax.offset(
+            resolution: parallaxByLayerID[layer.id],
+            configuration: configuration,
+            layerPosition: SIMD2(worldFrame.columns.3.x, worldFrame.columns.3.y),
+            mouseNormalized: mouseNormalized
+        )
+    }
+
+    private func particleBasis(
+        for batch: SceneParticleDrawBatch,
+        layerModel: simd_float4x4,
+        cameraFrame: SceneParticleCameraFrame
+    ) -> SceneParticleOrientationBasis {
+        guard batch.orientation == .fixed else {
+            return cameraFrame.basis(for: batch.orientation)
+        }
+        let rawAxis = batch.orientationAxis ?? SIMD3<Float>(0, 0, 1)
+        let axisLength = simd_length_squared(rawAxis)
+        let normal = axisLength.isFinite && axisLength > 1e-8
+            ? rawAxis / sqrt(axisLength)
+            : SIMD3<Float>(0, 0, 1)
+        let reference = abs(normal.y) < 0.999 ? SIMD3<Float>(0, 1, 0) : SIMD3(1, 0, 0)
+        let localRight = simd_normalize(simd_cross(reference, normal))
+        let localUp = simd_normalize(simd_cross(normal, localRight))
+        let transformedRight = layerModel * SIMD4(localRight.x, localRight.y, localRight.z, 0)
+        let transformedUp = layerModel * SIMD4(localUp.x, localUp.y, localUp.z, 0)
+        let fixedRight = SIMD3(transformedRight.x, transformedRight.y, transformedRight.z)
+        let fixedUp = SIMD3(transformedUp.x, transformedUp.y, transformedUp.z)
+        return cameraFrame.basis(
+            for: batch.orientation,
+            fixedRight: fixedRight,
+            fixedUp: fixedUp
+        )
     }
 }

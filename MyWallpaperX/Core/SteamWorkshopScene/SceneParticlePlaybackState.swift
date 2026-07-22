@@ -1,0 +1,76 @@
+import Foundation
+import Metal
+
+final class SceneParticlePlaybackState {
+    let pipeline: SceneParticleMetalPipeline
+    private let runtime: SceneParticleRuntime
+    private(set) var batches: [SceneParticleDrawBatch]
+
+    init?(
+        descriptor: SceneRenderDescriptor,
+        cacheDirectory: URL,
+        device: MTLDevice
+    ) {
+        guard let pipeline = SceneParticleMetalPipeline(device: device) else { return nil }
+        self.pipeline = pipeline
+        self.runtime = SceneParticleRuntime(
+            descriptor: descriptor,
+            cacheDirectory: cacheDirectory,
+            device: device
+        )
+        self.batches = runtime.advance(by: 0)
+    }
+
+    func advance(by frameDelta: TimeInterval) -> [SceneParticleDrawBatch] {
+        batches = runtime.advance(by: min(max(frameDelta, 0), 0.25))
+        return batches
+    }
+
+    func loadReportLines(descriptor: SceneRenderDescriptor) -> [String] {
+        let particleLayers = descriptor.layers.filter { $0.contentKind == "particle" }
+        let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
+        let visibleLayers = particleLayers.filter { visibleIDs.contains($0.id) }
+        let batchesByID = Dictionary(uniqueKeysWithValues: batches.map { ($0.layerID, $0) })
+        var lines = [
+            "particle authored: \(particleLayers.count)",
+            "particle visible: \(visibleLayers.count)"
+        ]
+
+        for layer in particleLayers {
+            let name = layer.name ?? "(unnamed)"
+            guard visibleIDs.contains(layer.id) else {
+                lines.append("particle layer \(layer.id) \"\(name)\": skipped hidden")
+                continue
+            }
+            guard let batch = batchesByID[layer.id] else {
+                lines.append("particle layer \(layer.id) \"\(name)\": unavailable")
+                continue
+            }
+            lines.append(
+                "particle layer \(layer.id) \"\(name)\": OK \(batch.texture.width)x\(batch.texture.height) "
+                    + "blend=\(batch.blendMode == .additive ? "additive" : "translucent") "
+                    + "initial=\(batch.instances.count) perspective=\(batch.usesPerspective)"
+            )
+        }
+        for value in runtime.diagnostics {
+            lines.append(
+                "particle diagnostic \(value.kind.rawValue) layer=\(value.layerID.map(String.init) ?? "nil") "
+                    + "path=\(value.particlePath) detail=\(value.detail ?? "")"
+            )
+        }
+        lines.append(Self.loadedSummaryLine(
+            batchLayerIDs: batches.map(\.layerID),
+            visibleLayerCount: visibleLayers.count
+        ))
+        lines.append("particle initial live: \(batches.reduce(0) { $0 + $1.instances.count })")
+        lines.append("particle skipped hidden: \(particleLayers.count - visibleLayers.count)")
+        return lines
+    }
+
+    nonisolated static func loadedSummaryLine(
+        batchLayerIDs: [Int],
+        visibleLayerCount: Int
+    ) -> String {
+        "particle loaded: \(Set(batchLayerIDs).count) / \(visibleLayerCount)"
+    }
+}

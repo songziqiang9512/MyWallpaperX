@@ -211,6 +211,8 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         )
         loaded = benchmark.LOADED_RE.search("loaded: 20 / 24")
         text_loaded = benchmark.TEXT_LOADED_RE.search("text loaded: 10 / 10")
+        particle_loaded = benchmark.PARTICLE_LOADED_RE.search("particle loaded: 3 / 4")
+        particle_live = benchmark.PARTICLE_INITIAL_LIVE_RE.search("particle initial live: 96")
         camera = benchmark.CAMERA_RE.search(
             "camera: projection=cover parallax=false amount=8e-2 delay=0.25 mouseInfluence=-1.0"
         )
@@ -222,11 +224,61 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(stopped.group("after"), "0")
         self.assertEqual(loaded.group("loaded"), "20")
         self.assertEqual(text_loaded.group("loaded"), "10")
+        self.assertEqual(particle_loaded.group("loaded"), "3")
+        self.assertEqual(particle_loaded.group("total"), "4")
+        self.assertEqual(particle_live.group("live"), "96")
         self.assertEqual(camera.group("projection"), "cover")
         self.assertEqual(camera.group("parallax"), "false")
         self.assertEqual(float(camera.group("amount")), 0.08)
         self.assertEqual(float(camera.group("delay")), 0.25)
         self.assertEqual(float(camera.group("influence")), -1.0)
+
+    def test_particle_runtime_fixture_metrics_and_optional_gates(self) -> None:
+        preview_log = """Scene preview texture load report
+loaded: 20 / 24
+text loaded: 10 / 10
+particle loaded: 3 / 4
+particle initial live: 96
+"""
+        metrics = benchmark.particle_runtime_metrics(preview_log)
+        self.assertTrue(metrics["has_load_evidence"])
+        self.assertTrue(metrics["has_initial_live_evidence"])
+        self.assertEqual(metrics["loaded"], 3)
+        self.assertEqual(metrics["candidates"], 4)
+        self.assertEqual(metrics["loaded_ratio"], 0.75)
+        self.assertEqual(metrics["initial_live"], 96)
+        self.assertEqual(
+            benchmark.particle_runtime_failures({
+                "minimum_particle_loaded": 3,
+                "expected_particle_candidates": 4,
+                "minimum_particle_initial_live": 96,
+            }, metrics),
+            [],
+        )
+        self.assertEqual(
+            benchmark.particle_runtime_failures({
+                "minimum_particle_loaded": 4,
+                "expected_particle_candidates": 5,
+                "minimum_particle_initial_live": 97,
+            }, metrics),
+            [
+                "particle loaded count below minimum",
+                "particle candidate count mismatch",
+                "particle initial live count below minimum",
+            ],
+        )
+
+        missing = benchmark.particle_runtime_metrics("loaded: 20 / 24\n")
+        self.assertEqual(
+            benchmark.particle_runtime_failures({
+                "expected_particle_candidates": 0,
+                "minimum_particle_initial_live": 0,
+            }, missing),
+            [
+                "particle load evidence missing",
+                "particle initial live evidence missing",
+            ],
+        )
 
 
 if __name__ == "__main__":

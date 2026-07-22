@@ -1,0 +1,252 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import json
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+SWIFT_SOURCES = [
+    SOURCE_ROOT / "SceneMatrix.swift",
+    SOURCE_ROOT / "SceneCameraProjection.swift",
+    SOURCE_ROOT / "SceneParticleRenderSupport.swift",
+    SOURCE_ROOT / "SceneParticleCameraFrame.swift",
+]
+
+
+HARNESS_SOURCE = r'''
+import CoreGraphics
+import Foundation
+import simd
+
+struct SceneRenderDescriptor {
+    struct CameraDescriptor {
+        let eye: [Float]
+        let center: [Float]
+        let up: [Float]
+        let orthoWidth: Float?
+        let orthoHeight: Float?
+        let nearZ: Float
+        let farZ: Float
+    }
+}
+
+@main
+enum Harness {
+    static func main() throws {
+        let camera = SceneRenderDescriptor.CameraDescriptor(
+            eye: [0, 0, 0], center: [0, 0, -1], up: [0, 1, 0],
+            orthoWidth: 1920, orthoHeight: 1080,
+            nearZ: 0.01, farZ: 10_000
+        )
+        let viewport = CGSize(width: 1280, height: 832)
+        let frame = SceneParticleCameraFrame(camera: camera, viewportSize: viewport)
+        let center = SIMD4<Float>(960, 540, 0, 1)
+        let edge = SIMD4<Float>(
+            960 + frame.coverHalfExtents.x,
+            540 + frame.coverHalfExtents.y,
+            0,
+            1
+        )
+
+        let scaledWorld = SceneMatrix.translation(SIMD3(100, 200, 0))
+            * SceneMatrix.rotationZ(.pi / 6)
+            * SceneMatrix.scale(SIMD3(2, 3, 1))
+        let layerModel = SceneParticleCameraFrame.particleLayerModel(
+            worldFrame: scaledWorld,
+            parallaxOffset: SIMD2(5, -7)
+        )
+        let inheritedScale = SceneParticleCameraFrame.billboardScale(
+            inheritedFrom: layerModel
+        )
+        let stationary = layerModel * SIMD4<Float>(0, 0, 0, 1)
+        let falling = layerModel * SIMD4<Float>(0, -10, 0, 1)
+        let stationaryNDC = ndc(frame.orthographicViewProjection, stationary)
+        let fallingNDC = ndc(frame.orthographicViewProjection, falling)
+        let screenBasis = frame.basis(for: .screen)
+        let uprightBasis = frame.basis(for: .upright)
+        let fixedBasis = frame.basis(for: .fixed)
+        let sceneCenter = SIMD3<Float>(960, 540, 0)
+
+        let invalidCamera = SceneRenderDescriptor.CameraDescriptor(
+            eye: [], center: [], up: [], orthoWidth: 0, orthoHeight: 0,
+            nearZ: 0, farZ: 0
+        )
+        let invalidFrame = SceneParticleCameraFrame(
+            camera: invalidCamera,
+            viewportSize: .zero
+        )
+
+        let result: [String: Any] = [
+            "coverHalfExtents": vector2(frame.coverHalfExtents),
+            "orthoCenterNDC": ndc(frame.orthographicViewProjection, center),
+            "orthoEdgeNDC": ndc(frame.orthographicViewProjection, edge),
+            "perspectiveCenterNDC": ndc(frame.perspectiveViewProjection, center),
+            "perspectiveEdgeNDC": ndc(frame.perspectiveViewProjection, edge),
+            "selectedOrtho": frame.viewProjection(usesPerspective: false)
+                == frame.orthographicViewProjection,
+            "selectedPerspective": frame.viewProjection(usesPerspective: true)
+                == frame.perspectiveViewProjection,
+            "cameraRight": vector3(frame.cameraRight),
+            "cameraUp": vector3(frame.cameraUp),
+            "cameraForward": vector3(frame.cameraForward),
+            "screenRight": vector3(screenBasis.right),
+            "screenUp": vector3(screenBasis.up),
+            "uprightRight": vector3(uprightBasis.right),
+            "uprightUp": vector3(uprightBasis.up),
+            "fixedRight": vector3(fixedBasis.right),
+            "fixedUp": vector3(fixedBasis.up),
+            "orthoScreenOrientation": orientationMetrics(
+                basis: screenBasis,
+                viewProjection: frame.orthographicViewProjection,
+                center: sceneCenter
+            ),
+            "orthoUprightOrientation": orientationMetrics(
+                basis: uprightBasis,
+                viewProjection: frame.orthographicViewProjection,
+                center: sceneCenter
+            ),
+            "orthoFixedOrientation": orientationMetrics(
+                basis: fixedBasis,
+                viewProjection: frame.orthographicViewProjection,
+                center: sceneCenter
+            ),
+            "perspectiveScreenOrientation": orientationMetrics(
+                basis: screenBasis,
+                viewProjection: frame.perspectiveViewProjection,
+                center: sceneCenter
+            ),
+            "perspectiveUprightOrientation": orientationMetrics(
+                basis: uprightBasis,
+                viewProjection: frame.perspectiveViewProjection,
+                center: sceneCenter
+            ),
+            "perspectiveFixedOrientation": orientationMetrics(
+                basis: fixedBasis,
+                viewProjection: frame.perspectiveViewProjection,
+                center: sceneCenter
+            ),
+            "layerCenter": vector4(stationary),
+            "inheritedScale": vector2(inheritedScale),
+            "stationaryNDCY": stationaryNDC[1],
+            "fallingNDCY": fallingNDC[1],
+            "invalidPerspectiveIsIdentity": invalidFrame.perspectiveViewProjection
+                == SceneMatrix.identity(),
+        ]
+        let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
+        print(String(decoding: data, as: UTF8.self))
+    }
+
+    private static func ndc(_ matrix: simd_float4x4, _ point: SIMD4<Float>) -> [Float] {
+        let clip = matrix * point
+        return [clip.x / clip.w, clip.y / clip.w, clip.z / clip.w]
+    }
+
+    private static func vector2(_ value: SIMD2<Float>) -> [Float] {
+        [value.x, value.y]
+    }
+
+    private static func vector3(_ value: SIMD3<Float>) -> [Float] {
+        [value.x, value.y, value.z]
+    }
+
+    private static func vector4(_ value: SIMD4<Float>) -> [Float] {
+        [value.x, value.y, value.z, value.w]
+    }
+
+    private static func orientationMetrics(
+        basis: SceneParticleOrientationBasis,
+        viewProjection: simd_float4x4,
+        center: SIMD3<Float>
+    ) -> [String: Float] {
+        let top = ndc(viewProjection, SIMD4(center + basis.up * 10, 1))
+        let bottom = ndc(viewProjection, SIMD4(center - basis.up * 10, 1))
+        let authoredRight = ndc(viewProjection, SIMD4(center + basis.right * 10, 1))
+        let authoredLeft = ndc(viewProjection, SIMD4(center - basis.right * 10, 1))
+        return [
+            "topY": top[1],
+            "bottomY": bottom[1],
+            "rightX": authoredRight[0],
+            "leftX": authoredLeft[0],
+        ]
+    }
+}
+'''
+
+
+class SceneParticleCameraFrameTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.temporary_directory = tempfile.TemporaryDirectory(
+            prefix="mwx-particle-camera-frame-"
+        )
+        directory = Path(cls.temporary_directory.name)
+        harness = directory / "Harness.swift"
+        harness.write_text(HARNESS_SOURCE, encoding="utf-8")
+        cls.binary = directory / "scene-particle-camera-frame"
+        compilation = subprocess.run(
+            [
+                "xcrun", "--sdk", "macosx", "swiftc",
+                *(str(path) for path in SWIFT_SOURCES), str(harness),
+                "-o", str(cls.binary),
+            ],
+            capture_output=True, text=True,
+        )
+        if compilation.returncode != 0:
+            raise RuntimeError(compilation.stderr)
+        completed = subprocess.run(
+            [str(cls.binary)], check=True, capture_output=True, text=True
+        )
+        cls.result = json.loads(completed.stdout)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temporary_directory.cleanup()
+
+    def test_cover_uses_drawable_aspect_without_letterboxing(self) -> None:
+        self.assertAlmostEqual(self.result["coverHalfExtents"][0], 830.7692, places=3)
+        self.assertAlmostEqual(self.result["coverHalfExtents"][1], 540, places=4)
+
+    def test_both_projections_map_cover_center_and_boundary_to_ndc(self) -> None:
+        for key in ("orthoCenterNDC", "perspectiveCenterNDC"):
+            self.assertAlmostEqual(self.result[key][0], 0, places=5)
+            self.assertAlmostEqual(self.result[key][1], 0, places=5)
+        for key in ("orthoEdgeNDC", "perspectiveEdgeNDC"):
+            self.assertAlmostEqual(self.result[key][0], 1, places=5)
+            self.assertAlmostEqual(self.result[key][1], -1, places=5)
+        self.assertTrue(self.result["selectedOrtho"])
+        self.assertTrue(self.result["selectedPerspective"])
+
+    def test_camera_axes_match_we_global_particle_camera(self) -> None:
+        self.assertEqual(self.result["cameraRight"], [1, 0, 0])
+        self.assertEqual(self.result["cameraUp"], [0, 1, 0])
+        self.assertEqual(self.result["cameraForward"], [0, 0, -1])
+        for orientation in ("screen", "upright", "fixed"):
+            self.assertEqual(self.result[f"{orientation}Right"], [1, 0, 0])
+            self.assertEqual(self.result[f"{orientation}Up"], [0, -1, 0])
+
+    def test_authored_top_and_right_keep_visual_orientation(self) -> None:
+        for projection in ("ortho", "perspective"):
+            for orientation in ("Screen", "Upright", "Fixed"):
+                metrics = self.result[f"{projection}{orientation}Orientation"]
+                self.assertGreater(metrics["topY"], metrics["bottomY"])
+                self.assertGreater(metrics["rightX"], metrics["leftX"])
+
+    def test_layer_model_flips_y_and_inherits_world_scale(self) -> None:
+        self.assertAlmostEqual(self.result["layerCenter"][0], 105, places=5)
+        self.assertAlmostEqual(self.result["layerCenter"][1], 193, places=5)
+        self.assertAlmostEqual(self.result["inheritedScale"][0], 2, places=5)
+        self.assertAlmostEqual(self.result["inheritedScale"][1], 3, places=5)
+        self.assertLess(self.result["fallingNDCY"], self.result["stationaryNDCY"])
+
+    def test_invalid_dimensions_fail_closed(self) -> None:
+        self.assertTrue(self.result["invalidPerspectiveIsIdentity"])
+
+
+if __name__ == "__main__":
+    unittest.main()

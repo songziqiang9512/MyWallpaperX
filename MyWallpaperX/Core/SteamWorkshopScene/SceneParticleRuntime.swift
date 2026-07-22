@@ -36,6 +36,7 @@ struct SceneParticleDrawBatch {
     let instanceBuffer: SceneParticleMetalInstanceBuffer
     let instances: [SceneParticleGPUInstance]
     let orientation: SceneParticleOrientation
+    let orientationAxis: SIMD3<Float>?
     let usesPerspective: Bool
 }
 
@@ -51,6 +52,7 @@ final class SceneParticleRuntime {
         let blendMode: SceneParticlePipelineBlendMode
         let spriteAnimation: SceneSpriteAnimation?
         let orientation: SceneParticleOrientation
+        let orientationAxis: SIMD3<Float>?
         let usesPerspective: Bool
         let layerAlpha: Float
         let instanceBuffer = SceneParticleMetalInstanceBuffer()
@@ -155,6 +157,9 @@ final class SceneParticleRuntime {
                 blendMode: asset.blendMode == .additive ? .additive : .translucent,
                 spriteAnimation: SceneSpriteAnimation.load(from: textureURL),
                 orientation: SceneParticleOrientation(authoredValue: sprite.orientation),
+                orientationAxis: sprite.axis.map {
+                    SceneParticleSimulationMath.vector($0, fallback: SIMD3(0, 0, 1)).floatValue
+                },
                 usesPerspective: asset.definition.flags.usesPerspective,
                 layerAlpha: Float(min(max(layer.alpha ?? 1, 0), 1)),
                 simulator: simulator
@@ -184,6 +189,7 @@ final class SceneParticleRuntime {
                 instanceBuffer: layers[index].instanceBuffer,
                 instances: instances,
                 orientation: layers[index].orientation,
+                orientationAxis: layers[index].orientationAxis,
                 usesPerspective: layers[index].usesPerspective
             ))
         }

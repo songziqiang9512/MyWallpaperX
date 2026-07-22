@@ -32,6 +32,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneSpriteAnimation.swift",
     SOURCE_ROOT / "SceneLayerVisibility.swift",
     SOURCE_ROOT / "SceneParticleRuntime.swift",
+    SOURCE_ROOT / "SceneParticlePlaybackState.swift",
 ]
 
 
@@ -44,6 +45,7 @@ import Metal
 struct SceneRenderDescriptor: Codable {
     struct Layer: Codable {
         let id: Int
+        let name: String?
         let contentKind: String
         let particlePath: String?
         let particleInstanceOverride: SceneParticleInstanceOverride?
@@ -128,6 +130,12 @@ enum Harness {
         let secondPositions = advancedInstances.map(\.positionAndSize)
         let override = interpretation.renderDescriptor.layers
             .first(where: { $0.id == 196 })?.particleInstanceOverride
+        guard let playback = SceneParticlePlaybackState(
+            descriptor: interpretation.renderDescriptor,
+            cacheDirectory: cache,
+            device: device
+        ) else { throw HarnessError.noParticlePipeline }
+        let playbackReport = playback.loadReportLines(descriptor: interpretation.renderDescriptor)
 
         return [
             "activeLayerIDs": runtime.activeLayerIDs,
@@ -147,6 +155,10 @@ enum Harness {
             "overrideLifetime": scalar(override?.lifetime),
             "overrideSize": scalar(override?.size),
             "diagnosticKinds": runtime.diagnostics.map { $0.kind.rawValue },
+            "playbackLoadedLine": playbackReport.first { $0.hasPrefix("particle loaded:") } ?? "",
+            "missingBatchLoadedLine": SceneParticlePlaybackState.loadedSummaryLine(
+                batchLayerIDs: [], visibleLayerCount: 1
+            ),
         ]
     }
 
@@ -220,7 +232,7 @@ enum Harness {
         visible: Bool = true
     ) -> SceneRenderDescriptor.Layer {
         .init(
-            id: id, contentKind: "particle", particlePath: path,
+            id: id, name: nil, contentKind: "particle", particlePath: path,
             particleInstanceOverride: nil, parentID: nil, visible: visible, alpha: 1
         )
     }
@@ -282,6 +294,7 @@ enum Harness {
         case missingMode
         case missingPath
         case noMetal
+        case noParticlePipeline
         case imageWrite
     }
 }
@@ -346,6 +359,8 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertLessEqual(result["maximumLocalSize"], 72.001)
         self.assertGreater(result["maximumLocalSize"], 9)
         self.assertLess(result["meanLocalY"], 700)
+        self.assertEqual(result["playbackLoadedLine"], "particle loaded: 1 / 1")
+        self.assertEqual(result["missingBatchLoadedLine"], "particle loaded: 0 / 1")
 
     def test_synthetic_rejects_unsupported_roots_and_keeps_diagnostics(self) -> None:
         result = self.run_harness("synthetic")

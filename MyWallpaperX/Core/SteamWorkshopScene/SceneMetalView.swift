@@ -16,6 +16,7 @@ class SceneMetalView: NSView {
     private var foliageMaskTextures: [Int: MTLTexture] = [:]
     private var waterRippleNormalTextures: [Int: MTLTexture] = [:]
     private var imagePipeline: SceneImageLayerPipeline?
+    private var particlePlayback: SceneParticlePlaybackState?
     private let offscreenTexturePool: SceneOffscreenTexturePool
     private var displayTimer: Timer?
     // Wall-clock anchor for the shader `g_Time` uniform. Resampled per frame
@@ -267,6 +268,16 @@ class SceneMetalView: NSView {
         waterMaskTextures = loadedWaterMasks
         foliageMaskTextures = loadedFoliageMasks
         waterRippleNormalTextures = loadedWaterRippleNormals
+        particlePlayback = SceneParticlePlaybackState(
+            descriptor: renderer.renderDescriptor,
+            cacheDirectory: cacheDirectory,
+            device: metalDevice
+        )
+        if let particlePlayback {
+            report.append(contentsOf: particlePlayback.loadReportLines(descriptor: renderer.renderDescriptor))
+        } else {
+            report.append("particle runtime: pipeline unavailable")
+        }
         report.append("")
         let loadedLayerCount = Set(loaded.keys).union(loadedVideoSources.keys).count
         report.append("loaded: \(loadedLayerCount) / \(report.filter { $0.starts(with: "layer ") }.count)")
@@ -279,6 +290,7 @@ class SceneMetalView: NSView {
 
     func startRendering() {
         guard displayTimer == nil else { return }
+        lastRenderTime = CACurrentMediaTime()
         // Use .common so the timer keeps firing during menu tracking and live resize.
         let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
             self?.renderFrame()
@@ -299,6 +311,7 @@ class SceneMetalView: NSView {
         let frameDelta = max(0, hostTime - lastRenderTime)
         lastRenderTime = hostTime
         let parallaxMouseNormalized = parallaxPointerSmoother.advance(delta: frameDelta)
+        let particleBatches = particlePlayback?.advance(by: frameDelta) ?? []
         var currentImageTextures = imageTextures
         for (layerID, videoSource) in videoTextureSources {
             if let texture = videoSource.currentTexture(forHostTime: hostTime) {
@@ -314,6 +327,8 @@ class SceneMetalView: NSView {
             foliageMaskTextures: foliageMaskTextures,
             waterRippleNormalTextures: waterRippleNormalTextures,
             imagePipeline: imagePipeline,
+            particleBatches: particleBatches,
+            particlePipeline: particlePlayback?.pipeline,
             offscreenTexturePool: offscreenTexturePool,
             time: elapsed,
             mouseNormalized: mouseNormalized,

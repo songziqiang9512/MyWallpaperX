@@ -36,6 +36,14 @@ INTERPRETATION_RE = re.compile(
 STOPPED_RE = re.compile(r"phase=stopped surfacesBefore=(?P<before>\d+) surfacesAfter=(?P<after>\d+)")
 LOADED_RE = re.compile(r"^loaded: (?P<loaded>\d+) / (?P<total>\d+)$", re.MULTILINE)
 TEXT_LOADED_RE = re.compile(r"^text loaded: (?P<loaded>\d+) / (?P<total>\d+)$", re.MULTILINE)
+PARTICLE_LOADED_RE = re.compile(
+    r"^particle loaded: (?P<loaded>\d+) / (?P<total>\d+)$",
+    re.MULTILINE,
+)
+PARTICLE_INITIAL_LIVE_RE = re.compile(
+    r"^particle initial live: (?P<live>\d+)$",
+    re.MULTILINE,
+)
 FLOAT_PATTERN = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
 CAMERA_RE = re.compile(
     r"^camera: projection=(?P<projection>\S+) parallax=(?P<parallax>true|false) "
@@ -166,6 +174,47 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
         }
 
 
+def particle_runtime_metrics(preview_text: str) -> dict[str, Any]:
+    loaded_match = PARTICLE_LOADED_RE.search(preview_text)
+    initial_live_match = PARTICLE_INITIAL_LIVE_RE.search(preview_text)
+    loaded = int(loaded_match.group("loaded")) if loaded_match else 0
+    candidates = int(loaded_match.group("total")) if loaded_match else 0
+    return {
+        "has_load_evidence": loaded_match is not None,
+        "has_initial_live_evidence": initial_live_match is not None,
+        "loaded": loaded,
+        "candidates": candidates,
+        "loaded_ratio": loaded / candidates if candidates else 0.0,
+        "initial_live": int(initial_live_match.group("live")) if initial_live_match else 0,
+    }
+
+
+def particle_runtime_failures(
+    sample: dict[str, Any],
+    metrics: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    requires_load_evidence = (
+        "minimum_particle_loaded" in sample
+        or "expected_particle_candidates" in sample
+    )
+    if requires_load_evidence and not metrics["has_load_evidence"]:
+        failures.append("particle load evidence missing")
+    else:
+        if metrics["loaded"] < int(sample.get("minimum_particle_loaded", 0)):
+            failures.append("particle loaded count below minimum")
+        expected_candidates = sample.get("expected_particle_candidates")
+        if expected_candidates is not None and metrics["candidates"] != int(expected_candidates):
+            failures.append("particle candidate count mismatch")
+
+    if "minimum_particle_initial_live" in sample:
+        if not metrics["has_initial_live_evidence"]:
+            failures.append("particle initial live evidence missing")
+        elif metrics["initial_live"] < int(sample["minimum_particle_initial_live"]):
+            failures.append("particle initial live count below minimum")
+    return failures
+
+
 def run_sample(
     runtime_binary: Path,
     sample_root: Path,
@@ -250,6 +299,7 @@ def run_sample(
     text_loaded_match = TEXT_LOADED_RE.search(preview_text)
     text_loaded = int(text_loaded_match.group("loaded")) if text_loaded_match else 0
     text_total = int(text_loaded_match.group("total")) if text_loaded_match else 0
+    particle_runtime = particle_runtime_metrics(preview_text)
     camera_match = CAMERA_RE.search(preview_text)
     ready_snapshot = result_dir / "scene-ready-window.png"
     after_snapshot = result_dir / "scene-after-window.png"
@@ -312,6 +362,7 @@ def run_sample(
         failures.append(f"loaded ratio {loaded_ratio:.3f} below minimum")
     if text_loaded < int(sample.get("minimum_text_loaded", 0)):
         failures.append("text texture count below minimum")
+    failures.extend(particle_runtime_failures(sample, particle_runtime))
     blur_runtime_count = preview_text.count("effect runtime gaussian-blur;")
     if blur_runtime_count < int(sample.get("minimum_gaussian_blur_runtime_count", 0)):
         failures.append("gaussian blur runtime count below minimum")
@@ -433,6 +484,10 @@ def run_sample(
             "loaded_ratio": round(loaded_ratio, 4),
             "loaded_textures_text": text_loaded,
             "text_candidates": text_total,
+            "loaded_particle_layers": particle_runtime["loaded"],
+            "particle_candidates": particle_runtime["candidates"],
+            "particle_loaded_ratio": round(particle_runtime["loaded_ratio"], 4),
+            "particle_initial_live": particle_runtime["initial_live"],
             "camera_projection": camera_match.group("projection") if camera_match else None,
             "camera_parallax": camera_match.group("parallax") == "true" if camera_match else None,
             "camera_parallax_amount": float(camera_match.group("amount")) if camera_match else None,

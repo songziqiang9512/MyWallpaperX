@@ -20,6 +20,7 @@ SWIFT_SOURCES = [
 
 HARNESS_SOURCE = r'''
 import Foundation
+import Dispatch
 import Metal
 import simd
 
@@ -118,6 +119,7 @@ enum Harness {
                 additive.destinationAlpha == .oneMinusSourceAlpha,
             ],
             "metalDraw": renderSmokeTest(),
+            "instanceBufferSlots": instanceBufferSlotTest(),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -218,9 +220,77 @@ enum Harness {
             blendMode: .additive, encoder: encoder
         )
         encoder.endEncoding()
+        let submitted = instances.markSubmitted(on: command)
+        let completed = commitAndWait(command)
+        return submitted && completed && command.status == .completed && instances.count == 2
+    }
+
+    private static func instanceBufferSlotTest() -> [String: Any] {
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let queue = device.makeCommandQueue(),
+              let firstCommand = queue.makeCommandBuffer(),
+              let secondCommand = queue.makeCommandBuffer(),
+              let thirdCommand = queue.makeCommandBuffer() else {
+            return ["available": false]
+        }
+        let instances = SceneParticleMetalInstanceBuffer()
+        guard instances.update(device: device, instances: [instance(x: 1)]),
+              let firstBuffer = instances.buffer else {
+            return ["available": false]
+        }
+        let firstValue = firstBuffer.contents()
+            .assumingMemoryBound(to: SceneParticleGPUInstance.self)
+            .pointee.positionAndSize.x
+        let firstSubmitted = instances.markSubmitted(on: firstCommand)
+
+        guard instances.update(device: device, instances: [instance(x: 2)]),
+              let secondBuffer = instances.buffer else {
+            return ["available": false]
+        }
+        let firstPreserved = firstBuffer.contents()
+            .assumingMemoryBound(to: SceneParticleGPUInstance.self)
+            .pointee.positionAndSize.x == firstValue
+        let secondSubmitted = instances.markSubmitted(on: secondCommand)
+
+        guard instances.update(device: device, instances: [instance(x: 3)]),
+              let thirdBuffer = instances.buffer else {
+            return ["available": false]
+        }
+        let thirdSubmitted = instances.markSubmitted(on: thirdCommand)
+        let firstCompleted = commitAndWait(firstCommand)
+
+        guard instances.update(device: device, instances: [instance(x: 4)]),
+              let reusedBuffer = instances.buffer else {
+            return ["available": false]
+        }
+        let secondCompleted = commitAndWait(secondCommand)
+        let thirdCompleted = commitAndWait(thirdCommand)
+        return [
+            "available": true,
+            "firstSubmitted": firstSubmitted,
+            "secondSubmitted": secondSubmitted,
+            "thirdSubmitted": thirdSubmitted,
+            "firstPreserved": firstPreserved,
+            "grewForSecond": firstBuffer !== secondBuffer,
+            "grewForThird": firstBuffer !== thirdBuffer && secondBuffer !== thirdBuffer,
+            "firstCompleted": firstCompleted,
+            "reusedFirst": reusedBuffer === firstBuffer,
+            "cleanupCompleted": secondCompleted && thirdCompleted,
+        ]
+    }
+
+    private static func instance(x: Float) -> SceneParticleGPUInstance {
+        SceneParticleGPUInstance(
+            position: SIMD3(x, 0, 0), size: 1, rotation: .zero,
+            color: SIMD3(repeating: 1), alpha: 1
+        )
+    }
+
+    private static func commitAndWait(_ command: MTLCommandBuffer) -> Bool {
+        let completion = DispatchSemaphore(value: 0)
+        command.addCompletedHandler { _ in completion.signal() }
         command.commit()
-        command.waitUntilCompleted()
-        return command.status == .completed && instances.count == 2
+        return completion.wait(timeout: .now() + 5) == .success
     }
 }
 '''
@@ -291,6 +361,19 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertEqual(self.result["translucentBlend"], [True, True, True, True])
         self.assertEqual(self.result["additiveBlend"], [True, True, True, True])
         self.assertTrue(self.result["metalDraw"])
+
+    def test_in_flight_instance_slots_are_not_reused_until_completion(self) -> None:
+        slots = self.result["instanceBufferSlots"]
+        self.assertTrue(slots["available"])
+        self.assertTrue(slots["firstSubmitted"])
+        self.assertTrue(slots["secondSubmitted"])
+        self.assertTrue(slots["thirdSubmitted"])
+        self.assertTrue(slots["firstPreserved"])
+        self.assertTrue(slots["grewForSecond"])
+        self.assertTrue(slots["grewForThird"])
+        self.assertTrue(slots["firstCompleted"])
+        self.assertTrue(slots["reusedFirst"])
+        self.assertTrue(slots["cleanupCompleted"])
 
 
 if __name__ == "__main__":
