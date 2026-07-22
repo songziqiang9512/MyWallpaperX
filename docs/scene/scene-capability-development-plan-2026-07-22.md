@@ -2,6 +2,8 @@
 
 > 建立日期：2026-07-22
 >
+> 最近更新：2026-07-22（按官方资料、当前代码与 21 个隔离样本重新排序）
+>
 > 作用：定义 MyWallpaperX Scene runtime 从当前可审计子集向 Wallpaper Engine 常用能力逼近的实施顺序、样本门和验收标准。当前能力结论仍以 [`../reviews/web-scene-current-state-roadmap-2026-07-19.md`](../reviews/web-scene-current-state-roadmap-2026-07-19.md) 与最新运行证据为准；历史 memo 不反向覆盖本计划。
 
 ## 1. 目标与边界
@@ -23,120 +25,98 @@
 - 不执行未知 SceneScript，也不直接加载来源不明的预编译 DirectX shader；
 - 不直接修改真实 Workshop 样本。
 
-## 2. 2026-07-22 代码事实
+## 2. 2026-07-22 当前代码事实
 
-### 已实现
+### 已真实进入运行链
 
-- `project.json` Scene 识别、PKGV 文件表读取和受控资源解包；
-- `scene.json` camera、general、object、effect、pass、常量和资源引用解析；
-- model/material 摘要、解释文件、资源索引和缺口诊断；
-- PNG/JPEG、raw RGBA8、R8、BC1/BC3/BC5 与 MP4 payload 纹理路径；
-- Metal image layer 合成、父子 transform、source-order、alpha、正交相机和桌面多屏宿主；
-- 包内字体的静态 text layer 纹理化、父容器可见性传播、cover 投影和按 `general.cameraparallax` 参数启停的鼠标视差；
-- foliage/water/cursor/chromatic/iris/opacity 等手写效果子集及 mask 路径；
-- 多 pass 的 offscreen ping-pong 路由、coarse/precise gaussian blur，以及 Bloom 的亮部提取、横纵模糊与 tint composite 真实 GPU pass；
-- layer `colorBlendMode=9` additive 最终合成，以及默认 UV/repeat 语义的 perspective+opacity replacement pass；
-- interpretation v7 保留 effect/material pass 的有序 nullable texture slots 与整数 shader combos，同时保留旧 `texturePaths` 兼容消费方；
-- 无 mask/specular 的 waterripple 按作者 T2 normal map、双 UV 采样、时间/方向/比例与 `strength²` 位移执行独立 GPU replacement pass；
-- Video/Web/Scene runtime 切换时的 Scene 宿主释放。
+- `project.json` / entry 同名 `gifscene.json` 识别、PKGV 索引、受控缓存解包、路径校验和 interpretation v10；
+- PNG/JPEG、raw RGBA/RG/R8、BC1/BC2/BC3/BC5、LZ4、MP4 payload 和 TEX sprite sequence；
+- Metal image/text/particle 合成、父子 transform、有效可见性、source order、alpha、正交/透视粒子相机和桌面多屏宿主；
+- cover 投影；Camera Parallax 服从 Scene options、逐层 depth、传播和属性 override，未声明时不启用；
+- coarse/precise gaussian blur、标准 Bloom 子集、normal-map waterripple 子集、perspective+opacity、mode 9 additive，以及 foliage/water/cursor/chromatic/iris 等明确标注为近似的内联 effect；
+- 静态 text 的 authored `pointsize * 4`、vector padding、包内字体、系统字体别名和缺失字体诊断；
+- 作者包内 2D sprite 粒子的 definition/resource graph、sphere/box、rate/burst/prewarm、常见 initializer/operator、sequence/random frame、additive/translucent、朝向、静态 override、CPU simulation 与 Metal instancing；
+- 用户属性定义、group/display condition/options、默认值/override、visibility/text/camera 与部分 effect target、按壁纸持久化、活动 Scene 受控重建和独立属性窗口；
+- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；当前正式矩阵 **11/11 通过**。
 
-### 尚未闭环
+### 仅解析/诊断或部分实现
 
-- Scene 自动矩阵已扩至 7 个样本并覆盖 MP4 payload、particle layer、脚本密集场景和音频声明，但这些标签不代表对应高级能力已经渲染；
-- godrays/glitter/fluid/bokeh blur、shadow 和 waterflow 等仍未形成完整 pass 数学；带 T1 mask 或 SPECULAR combo 的 waterripple 仍保留正弦近似，尚未进入真实 normal-map pass；
-- nullable texture slots 与 combos 已进入 interpretation，但 renderer 尚未按这些元数据执行通用材质 pass；非默认 perspective mode/repeat 和完整有序 pass executor 仍待实现；
-- 动态 text/SceneScript、particle、timeline、用户属性、puppet/mesh、音频响应和 built-in 资源未形成完整运行能力；
-- 自定义 material/shader 只解析引用，不执行或转译；
-- Scene 未接入 pause/resume、fullscreen/battery、目标 FPS 和系统状态评估；
-- 已有签名身份、非黑双帧、动态像素和退出释放门；CPU/GPU/显存、性能退化和 soak 门仍未建立。
+- `models/util/solidlayer/composelayer/projectlayer/fullscreenlayer` 只被识别为 built-in，尚无通用 provider；Composition layer 没有捕获下方图层的 render-target 语义；
+- material pass 的 texture slots、combos、constant values 已保留，但 renderer 不执行 Wallpaper Engine material/shader；多数 blend mode、mask/composite 和 effect pass 仍缺失；
+- Timeline 只有数据模型空壳，没有关键帧、Loop/Mirror/Single、Bézier、wrap-loop、pause 或 target 写回；
+- SceneScript 只检测 inline script / `.js`，没有 ECMAScript runtime、`init/update`、事件、globals 或属性写回；
+- 用户属性未闭环 sceneTexture/texture variants、transform、alpha、particle/audio/puppet target 和 `applyUserProperties`；
+- child particle graph 可遍历但不实例化；built-in particle texture、trail/rope、world-space、control point、collision、音频和动态 override 未实现；
+- Scene 音频/媒体未接现有系统服务；动态时间/日期/媒体 text、puppet/mesh/3D/lighting、自定义 shader 均未实现；
+- pause/resume、fullscreen/battery、目标 FPS、CPU/GPU/显存预算和 soak 尚未闭环。
 
-## 3. 官方能力面
+11 样本 PASS 不能解释成视觉兼容率：当前矩阵实际加载 image `72/113`、text `27/27`、particle `3/25`。21 样本首轮分级是历史截图基线；新增能力需要重跑后才能重新分级。
 
-Wallpaper Engine 官方设计文档把 Scene 主要能力分为：
+## 3. 官方资料核验后的契约边界
 
-- image/effect stack；
-- user properties；
-- timeline animations；
-- particle systems；
-- audio visualization；
-- parallax 与交互；
-- SceneScript；
-- custom shaders、3D models、puppet warp；
-- 性能和纹理预算。
+[Wallpaper Engine Scene 能力参考](wallpaper_engine_scene_compatibility.md) 的能力地图总体成立，但官方资料描述编辑器/官方运行时行为，没有公开稳定的 Workshop 序列化格式。实现仍以真实隔离样本和可复现 parser/runtime 证据为准。
 
-参考入口：
+当前直接影响架构与验收的官方契约：
 
-- [Scene Editor Overview](https://docs.wallpaperengine.io/en/scene/overview.html)
-- [Effects Overview](https://docs.wallpaperengine.io/en/scene/effects/overview.html)
-- [User Properties](https://docs.wallpaperengine.io/en/scene/userproperties/overview.html)
-- [Timeline Animations](https://docs.wallpaperengine.io/en/scene/timeline/introduction.html)
-- [Particle Systems](https://docs.wallpaperengine.io/en/scene/particles/introduction.html)
-- [Audio Visualization](https://docs.wallpaperengine.io/en/scene/audiovisualizer/overview.html)
-- [Shader Programming](https://docs.wallpaperengine.io/en/scene/shader/overview.html)
+1. [Camera Parallax](https://docs.wallpaperengine.io/en/scene/parallax/introduction.html) 必须由 Scene options 开启，并逐层尊重 parallax depth；0 表示该层关闭。[Depth Parallax](https://docs.wallpaperengine.io/en/scene/effects/effect/depthparallax.html) 是独立 effect，还要求 Camera Parallax 开启且当前层普通 depth 为 0。
+2. [Timeline](https://docs.wallpaperengine.io/en/scene/timeline/introduction.html) 包含 Loop/Mirror/Single、start paused、默认 Bézier、左右切线和 wrap-loop。动画事件通过同层 SceneScript `animationEvent` 触发，不直接操作声音或图层。
+3. [SceneScript](https://docs.wallpaperengine.io/en/scene/scenescript/reference.html) 是属性绑定型 ECMAScript 运行时；动画先求值，脚本再更新并可覆盖结果。不能先造一个与 layer/effect/text/particle target 脱节的通用 JS 执行器。
+4. [User Properties](https://docs.wallpaperengine.io/en/scene/userproperties/overview.html) 的控件、默认值、直接绑定、条件显示与持久化应先于脚本回调；`applyUserProperties` 首次加载后只携带变化键。
+5. [SceneScript AudioBuffers](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AudioBuffers.html) 为 16/32/64 可选频段，提供 left/right/average 并每个渲染帧更新；不能直接套用 Web 固定 64+64、约 30Hz 回调合同。
+6. [Bloom](https://docs.wallpaperengine.io/en/scene/effects/bloom.html) 区分标准 Bloom 和 Ultra HDR，并有逐层 HDR brightness；自定义 shader/3D/Puppet 的能力虽强，但没有当前 2D 主构图资源链优先。
 
-## 4. 分阶段路线
+## 4. 重新排序后的实施路线
 
-### S0：可重复基线与证据门
+### S0：可重复基线与作者语义门（已完成）
 
-交付：
+- 隔离 runner、签名身份、Metal 双帧、11 样本语义矩阵和 surface 释放门已落地；
+- cover、Camera Parallax、effect/particle visibility 均按作者声明执行；
+- 未声明或默认关闭的效果必须继续作为负向门，不能用“能力存在”替代启用条件。
 
-- Debug 参数可从隔离根目录直接启动指定 Scene；
-- benchmark 固化样本来源、SHA-256、App 身份、解释结果、纹理加载、窗口可见性、首帧与动态证据；
-- teardown 后窗口、timer、video source 和临时资源归零；
-- 首批矩阵至少覆盖静态多层、mask effect、offscreen effect、MP4 texture、particle、脚本和音频声明。
+### S1：首帧主构图闭合（当前 P0）
 
-验收：同一签名 Debug App、临时 HOME、隔离样本根下重复运行结果稳定；任一关键短板使矩阵非零退出。
+按依赖顺序实施：
 
-### S1：高频 2D effect runtime
+1. `models/util/solidlayer.json` 程序化色块：解析作者 color，复用 1×1 白纹理，在通用 fragment 中乘 layer tint；不得按样本或颜色创建纹理分支。
+2. `composelayer/projectlayer/fullscreenlayer`：下方图层捕获、嵌套 render target、mask、source-over/additive/opacity 和有序 material pass executor。
+3. sceneTexture / Texture Variants：项目默认资源、用户授权替换、属性条件、持久化和 renderer 热更新共用同一 resource provider。
+4. 重新运行 21 样本视觉矩阵，优先关闭 `2902406982`、`2938612768`、`3122339805`、`3768229922` 的主构图 P0；`3766415113` 的 gifscene UV/sampler 已修复，不再列为待办。
 
-按真实样本频率依次推进：
+### S2：统一 live-value runtime（P1）
 
-1. coarse gaussian blur / blur precise；
-2. bloom 与 glow composite；
-3. godrays / light shafts；
-4. glitter、reflection、color/tint、blend；
-5. water/foliage/shake 等已有近似路径的参数和 mask 对齐。
+1. 先建立 layer/effect/text/particle 的 typed target setter 和每帧值快照；属性、Timeline、SceneScript、音频只能经此层写值。
+2. Timeline 先实现 keyframe、duration/FPS、Loop/Mirror/Single、start paused、Bézier、wrap-loop 和多属性同步；动画事件在脚本核心可用后接入。
+3. SceneScript 以官方属性绑定契约为边界，先实现 `init/update`、Vec/Mat、Date/Math、`engine` 基础字段、`thisScene/thisLayer/thisObject/shared` 和确定执行顺序，再加入 user/cursor/audio/media 事件。
+4. 动态时钟/日期/媒体 text、transform/alpha/effect/particle property target 与无重建热更新复用同一 live-value 层。
 
-每个 effect 必须有独立 pass 类型、参数解析、GPU 实现和基准截图/像素差证据。没有真实数学的 effect 继续标记 unsupported，不得只因进入 offscreen 路由就算支持。
+### S3：高级粒子与音频（P1 后段）
 
-### S2：属性、时间轴与生命周期
+- built-in particle resource provider、world-space、常用 emitter/operator/control point；
+- child、sprite trail、rope/rope trail、collision 分批实现，不一次性做大而全；
+- Scene 音频桥按脚本选择提供 16/32/64 left/right/average，并按渲染帧更新；
+- 媒体桥提供可缺省的播放状态、标题/作者/专辑、封面和颜色，必须有可注入测试源。
 
-- 解析 `general.properties` 和默认值；
-- 建立 property key 到 visibility、transform、texture、effect uniform 的绑定索引；
-- 保存每个 wallpaper / display 的用户覆盖；
-- 实现 timeline keyframe、duration、loop/mirror/single、插值与 pause；
-- 接入应用暂停、全屏、睡眠、电池和目标 FPS；
-- 建立 Scene/Video/Web 快速互切和跨重启恢复门。
+### S4：视觉与角色能力（P2）
 
-### S3：粒子系统子集
+- 标准 Bloom 完整参数、颜色空间/预乘 alpha、常见 blend 与高频内置 effect/material；
+- waterflow/ripple、godrays/glitter/shadow 等按真实样本和官方录屏逐类提高一致性；
+- Puppet 基础 mesh/weights/timeline 后，再做 physics、IK、复杂 mixing；
+- 实时 2D lighting 与 HDR 必须带 GPU/显存和降级门。
 
-先实现高覆盖 sprite 粒子：
+### S5：高级兼容与发布门（P3）
 
-- emitter rate/burst；
-- lifetime、position、velocity、gravity；
-- size/color/alpha over lifetime；
-- sprite sheet 与基础 blend；
-- 确定性随机种子、粒子上限和 GPU buffer 预算。
+- 3D model、lighting/shadow/volumetric、自定义 shader translation 和 RGB 均后置；
+- 每个阶段持续记录加载时间、纹理内存、粒子上限、帧时和降级原因；
+- 最终建立固定/扩展/新下载三层矩阵、30 分钟交互、2 小时 soak、系统生命周期和发布 checklist。
 
-再按样本增加 child emitter、collision、mouse/audio operator。未知 component 必须诊断并跳过，不能拖垮整个场景。
+### 当前执行项：S1.1 solid layer
 
-### S4：高级动态内容
-
-- 复用系统音频 64+64 stereo 频谱，把音频 uniform 接到 effect/particle；
-- 基于至少 20 个脚本语料定义 SceneScript 白名单子集；
-- text/font、puppet warp、mesh/3D model；
-- 常见 built-in 资源和材质语义；
-- 评估开源 shader IR/跨编译方案的来源、许可证与 Metal 可维护性。
-
-完整未知脚本执行和不受控二进制 shader 加载仍不接受。
-
-### S5：发布级门禁
-
-- 固定、扩展和新下载三层样本矩阵；
-- 单/双屏 CPU、GPU、内存、显存、功耗和缓存预算；
-- 30 分钟交互运行、2 小时 soak、睡眠/唤醒和显示器/音频设备变化；
-- Scene runtime 矩阵接入 CI/发布 checklist；
-- 所有“支持”结论必须能追溯到样本、构建身份、报告和提交。
+- **预期**：`models/util/solidlayer.json` 按 authored size/origin/scale/color/alpha/visibility/effect/blend 绘制，不依赖包内纹理。
+- **实际**：当前只标记 built-in，texture resolver 返回空，整层跳过；`3122339805` 因此缺失 79 个 UI 色块，11 样本中另有 4 个样本/9 个实例命中。
+- **根因**：built-in 被当成外部 image resource，而 renderer descriptor 没有程序化 layer color，fragment 也没有通用 tint。
+- **修改范围**：`SceneDocument` / `SceneRenderDescriptor` 增加 typed color 与 solid kind；Metal view 复用单个白纹理；fragment 增加 layer tint；interpretation 版本与矩阵合同同步升级。
+- **目标样本**：正向 `3122339805`、`3750813609`；负向 `3742133044` 和 `3765760121` 的默认隐藏链；公共回归为现有 11 样本。
+- **验收**：solid 候选全部进入真实 draw，颜色/alpha/属性值正确；无伪纹理文件、无样本 ID 分支、无默认启用隐藏层；定向测试、代码健康、签名 Debug build 和相关矩阵通过后单独提交。
 
 ## 5. 样本规范
 
@@ -181,6 +161,8 @@ Wallpaper Engine 官方设计文档把 Scene 主要能力分为：
 - 长批次失败不能用单样本重试替代，只能作为独立诊断证据。
 
 ## 8. 首轮实施
+
+> 第 8-14 节是已完成阶段的证据记录，不再决定当前优先级；当前执行顺序以第 2-4 节为准。
 
 ### 问题（实施前）
 
@@ -243,11 +225,9 @@ Wallpaper Engine 官方设计文档把 Scene 主要能力分为：
 - 最新正式矩阵 **7/7 通过**；coarse blur 1 层、precise blur 3 层、Bloom 1 层、perspective-opacity 2 层、color blend mode 9 两层，fallback 为 0。报告保存在 `.codex/scene-perspective-blend-matrix-20260722/`。
 - 最新签名 App 身份为 Team `H9QWU9XN8R`、CDHash `7d2a5032b6cf1aa31ae9cb1b26cce8d976dcff04`、版本 `2.0.8 (268)`、可执行文件 SHA-256 `7a2689fd9cabc9f8610d1846538afb83e5a5ea97fd55e42c7ccfb3856f6d4bc5`；81 个脚本测试、签名 Debug build 和代码健康门通过。
 
-### 当前产品判断
+### 当时产品判断（历史）
 
-- 以“常见 2D Scene 能启动、铺满屏幕、保持主要图层与基础动态、可切换和可诊断”为目标，当前基础可用度约 **60% 到 70%**。
-- 以“接近 Wallpaper Engine 官方的视觉与行为兼容”为目标，当前约 **35% 到 45%**；差距集中在原始材质/pass 语义、SceneScript、timeline/property、粒子、音频、3D/puppet 和性能生命周期。
-- 下一批按可用收益排序：先给 normal-map waterripple 补 T1 mask 语义，再实现位于其前面的 waterflow；随后处理 shadow、godrays/glitter、用户属性、timeline 和 sprite 粒子。小幅视觉误差可后修，但整层缺失、错误默认效果、黑框和生命周期泄漏继续作为阻断项。
+这一阶段曾按 7 样本与 v6/v7 renderer 估算完成度，并把 water/effect 精修排在前面。属性、基础粒子、文字和 11 样本语义门落地后，该估值与顺序已经失效；当前判断和 S1-S5 顺序以第 2-4 节为准，不再维护无统一量尺的百分比。
 
 ## 13. 2026-07-22 pass 元数据合同结果
 
