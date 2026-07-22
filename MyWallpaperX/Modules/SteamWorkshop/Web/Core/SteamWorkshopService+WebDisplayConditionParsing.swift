@@ -313,10 +313,12 @@ extension SteamWorkshopService {
             default:
                 if character.isNumber || character == "-" {
                     let hasMinus = character == "-"
-                    advance()
-                    // 跳过负号后可能存在的空白（如 "value > - 0.5"）
-                    while index < input.endIndex, input[index].isWhitespace {
+                    if hasMinus {
                         advance()
+                        // 跳过负号后可能存在的空白（如 "value > - 0.5"）
+                        while index < input.endIndex, input[index].isWhitespace {
+                            advance()
+                        }
                     }
                     let numberStart = index
                     while index < input.endIndex, input[index].isNumber || input[index] == "." {
