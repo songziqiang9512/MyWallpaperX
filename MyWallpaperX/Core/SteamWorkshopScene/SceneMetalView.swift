@@ -44,7 +44,7 @@ class SceneMetalView: NSView {
         let layer = CAMetalLayer()
         layer.device = renderer.device
         layer.pixelFormat = .bgra8Unorm
-        layer.framebufferOnly = true
+        layer.framebufferOnly = !renderDescriptor.requiresReadableFramebuffer
 #if DEBUG
         debugFrameCapture.configure(layer)
 #endif
@@ -188,6 +188,7 @@ class SceneMetalView: NSView {
         let imageLayers = renderer.renderDescriptor.layers.filter(\.isImageRenderable)
         report.append("imageLayerCount: \(imageLayers.count)")
         report.append("solidLayerCount: \(imageLayers.filter { $0.contentKind == "solid" }.count)")
+        report.append(contentsOf: SceneUtilityLayerRuntimePlanner.reportLines(descriptor: renderer.renderDescriptor))
         for layer in imageLayers {
             let name = layer.name ?? "(unnamed)"
             let placementSummary = renderer.debugPlacementSummary(for: layer)
@@ -214,7 +215,7 @@ class SceneMetalView: NSView {
                     layer.id, name, color.x, color.y, color.z
                 )
                 message += effectTextures.message
-                if let effectSummary = renderer.effectRuntimeSummary(for: layer) {
+                if let effectSummary = renderer.effectRuntimeSummary(for: layer, hasWaterMask: effectTextures.waterMask != nil, hasFoliageMask: effectTextures.foliageMask != nil) {
                     message += "; \(effectSummary)"
                 }
                 message += "; \(placementSummary)"
@@ -274,11 +275,13 @@ class SceneMetalView: NSView {
                 if let effectSummary = renderer.effectRuntimeSummary(
                     for: layer,
                     hasWaterRippleNormal: effectTextures.waterRippleNormal != nil,
-                    hasOpacityMask: effectTextures.opacityMask != nil
+                    hasOpacityMask: effectTextures.opacityMask != nil,
+                    hasWaterMask: effectTextures.waterMask != nil,
+                    hasFoliageMask: effectTextures.foliageMask != nil
                 ) {
                     message += "; \(effectSummary)"
                 }
-                if let inlineSummary = SceneInlineEffectRuntime.summary(for: layer) {
+                if let inlineSummary = SceneInlineEffectRuntime.summary(for: layer, hasWaterMask: effectTextures.waterMask != nil) {
                     message += "; \(inlineSummary)"
                 }
                 message += "; \(placementSummary)"

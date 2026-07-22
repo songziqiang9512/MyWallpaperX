@@ -106,7 +106,7 @@ enum SceneLayerEffectTextureLoader {
         for effect in layer.effects where effect.visible != false {
             guard effectFragments.contains(where: effect.file.localizedLowercase.contains) else { continue }
             for pass in effect.passes {
-                if let path = pass.texturePaths.first(where: { $0.localizedLowercase.contains("mask") }),
+                if let path = SceneEffectMaskSemantics.maskPath(in: pass),
                    let url = resolver.resolveTextureFile(named: path) {
                     return url
                 }

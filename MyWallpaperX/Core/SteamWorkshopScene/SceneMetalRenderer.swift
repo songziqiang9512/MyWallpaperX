@@ -12,6 +12,8 @@ struct SceneMetalRenderer {
     private let worldFramesByLayerID: [Int: simd_float4x4]
     private let parallaxByLayerID: [Int: SceneLayerParallax.Resolution]
     private let layersByID: [Int: SceneRenderDescriptor.Layer]
+    private let utilityPlansByLayerID: [Int: SceneUtilityLayerRuntimePlan]
+    private let utilityCaptureTelemetry = SceneUtilityCaptureTelemetry()
     init?(renderDescriptor: SceneRenderDescriptor) {
         guard let device = MTLCreateSystemDefaultDevice(),
               let commandQueue = device.makeCommandQueue(),
@@ -26,6 +28,7 @@ struct SceneMetalRenderer {
 
         let byID = Dictionary(uniqueKeysWithValues: renderDescriptor.layers.map { ($0.id, $0) })
         self.layersByID = byID
+        self.utilityPlansByLayerID = SceneUtilityLayerRuntimePlanner.plans(in: renderDescriptor)
         self.worldFramesByLayerID = SceneLayerWorldFrameResolver.compute(
             layers: renderDescriptor.layers,
             byID: byID,
@@ -86,12 +89,16 @@ struct SceneMetalRenderer {
     func effectRuntimeSummary(
         for layer: SceneRenderDescriptor.Layer,
         hasWaterRippleNormal: Bool = false,
-        hasOpacityMask: Bool = false
+        hasOpacityMask: Bool = false,
+        hasWaterMask: Bool = false,
+        hasFoliageMask: Bool = false
     ) -> String? {
         SceneEffectRuntimePlanner.runtimeSummary(
             for: layer,
             hasWaterRippleNormal: hasWaterRippleNormal,
-            hasOpacityMask: hasOpacityMask
+            hasOpacityMask: hasOpacityMask,
+            hasWaterMask: hasWaterMask,
+            hasFoliageMask: hasFoliageMask
         )
     }
 
@@ -211,9 +218,28 @@ struct SceneMetalRenderer {
                         alpha: Float(layer.alpha ?? 1),
                         cursorUV: cursorUV(for: layer, cursorWorld: cursorWorld)
                     ),
-                    offscreenTexturePool: offscreenTexturePool
+                    offscreenTexturePool: offscreenTexturePool,
+                    offscreenSize: nil,
+                    requiresSourceCopy: false,
+                    finalCompositeAlpha: nil
                 )
                 imageCompositor.draw(request, pipeline: imagePipeline, mainPass: mainPass)
+            case "composition", "project", "fullscreen":
+                guard let imagePipeline, let offscreenTexturePool,
+                      let plan = utilityPlansByLayerID[layer.id], plan.shouldCapture else { continue }
+                let model = imageModelMatrix(
+                    for: layer,
+                    parallaxMouseNormalized: parallaxMouseNormalized,
+                    configuration: parallaxConfiguration
+                )
+                let captured = SceneUtilityLayerRenderer.draw(
+                    layer: layer, plan: plan,
+                    layerMVP: cameraFrame.orthographicViewProjection * model,
+                    viewportSize: viewportSize, time: time,
+                    pipeline: imagePipeline, compositor: imageCompositor,
+                    offscreenTexturePool: offscreenTexturePool, mainPass: mainPass
+                )
+                utilityCaptureTelemetry.record(layerID: layer.id, encoded: captured, on: commandBuffer)
             case "particle":
                 guard let particlePipeline,
                       let batch = particleBatchesByID[layer.id],

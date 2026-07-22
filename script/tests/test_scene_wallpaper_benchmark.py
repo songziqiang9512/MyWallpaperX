@@ -50,6 +50,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "3742133044": (0, 0, 0),
             "3750813609": (1, 1, 1),
             "3766387484": (0, 0, 0),
+            "2902406982": (9, 6, 1),
             "3765760121": (0, 0, 0),
         }
         self.assertEqual(set(samples), set(expected))
@@ -394,6 +395,54 @@ particle skipped hidden: 2
                 "particle layer 202 should be loaded",
             ],
         )
+
+    def test_utility_runtime_fixture_preserves_distinct_dispositions(self) -> None:
+        preview_log = """Scene preview texture load report
+utilityLayerCount: 3
+utilityCapturePlannedCount: 1
+utilityDependencyEdgeCount: 0
+utilityNamedTargetGapCount: 0
+utility layer 187: capture kind=project
+utility layer 96: unsupportedEffects kind=composition
+utility layer 763: skippedHidden kind=composition
+"""
+        metrics = benchmark.utility_runtime_metrics(preview_log)
+        self.assertTrue(metrics["has_evidence"])
+        self.assertEqual(metrics["candidates"], 3)
+        self.assertEqual(metrics["capture_planned"], 1)
+        self.assertEqual(
+            benchmark.utility_runtime_failures({
+                "expected_utility_candidates": 3,
+                "expected_utility_capture_planned": 1,
+                "expected_utility_dependency_edges": 0,
+                "expected_utility_named_target_gaps": 0,
+                "required_utility_dispositions": {
+                    "187": "capture",
+                    "96": "unsupportedEffects",
+                    "763": "skippedHidden",
+                },
+            }, metrics),
+            [],
+        )
+        self.assertEqual(
+            benchmark.utility_runtime_failures({
+                "expected_utility_capture_planned": 2,
+                "required_utility_dispositions": {"96": "capture"},
+            }, metrics),
+            [
+                "utility capture_planned mismatch",
+                "utility layer 96 disposition should be capture",
+            ],
+        )
+
+    def test_utility_capture_execution_prefers_eventual_success(self) -> None:
+        metrics = benchmark.utility_capture_execution_metrics(
+            "phase=utility-capture layer=530 status=failed\n"
+            "phase=utility-capture layer=530 status=succeeded\n"
+            "phase=utility-capture layer=410 status=failed\n"
+        )
+        self.assertEqual(metrics["succeeded_layer_ids"], [530])
+        self.assertEqual(metrics["failed_layer_ids"], [410])
 
         missing = benchmark.particle_runtime_metrics("loaded: 20 / 24\n")
         self.assertEqual(

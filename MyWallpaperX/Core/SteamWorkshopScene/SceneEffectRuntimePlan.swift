@@ -80,7 +80,9 @@ enum SceneEffectRuntimePlanner {
     static func runtimeSummary(
         for layer: SceneRenderDescriptor.Layer,
         hasWaterRippleNormal: Bool = false,
-        hasOpacityMask: Bool = false
+        hasOpacityMask: Bool = false,
+        hasWaterMask: Bool = false,
+        hasFoliageMask: Bool = false
     ) -> String? {
         let waterRippleNormal = SceneWaterRippleRuntimePlanner.plan(
             for: layer,
@@ -89,7 +91,14 @@ enum SceneEffectRuntimePlanner {
         let hasDeclaredWaterRipple = layer.effects.contains {
             $0.visible != false && $0.file.localizedLowercase.contains("waterripple")
         }
+        let inlineFlags = SceneInlineEffectRuntime.flags(
+            for: layer,
+            usesNormalWaterRipple: waterRippleNormal != nil,
+            hasWaterMask: hasWaterMask,
+            hasFoliageMask: hasFoliageMask
+        )
         let legacyRipple = hasDeclaredWaterRipple && waterRippleNormal == nil
+            && inlineFlags.contains(.waterwaves)
             ? "effect runtime waterripple-legacy; "
             : ""
         if perspectiveOpacityPlan(for: layer, hasOpacityMask: hasOpacityMask) != nil {
@@ -268,7 +277,9 @@ enum SceneEffectRuntimePlanner {
     ) -> SceneLayerEffectInputs {
         var flags = SceneInlineEffectRuntime.flags(
             for: layer,
-            usesNormalWaterRipple: usesNormalWaterRipple
+            usesNormalWaterRipple: usesNormalWaterRipple,
+            hasWaterMask: hasWaterMask,
+            hasFoliageMask: hasFoliageMask
         )
         var params0 = SIMD4<Float>(0, 0, 0, 0)
         var params1 = SIMD4<Float>(0, 0, 0, 0)

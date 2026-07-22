@@ -37,8 +37,7 @@ enum SceneWaterRippleRuntimePlanner {
     private static func maskIsDisabled(
         in pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor
     ) -> Bool {
-        let maskPath = pass.textureSlots.indices.contains(1) ? pass.textureSlots[1] : nil
-        return maskPath == nil && combo("MASK", in: pass) != 1
+        !SceneEffectMaskSemantics.declaresMask(in: pass)
     }
 
     private static func combo(

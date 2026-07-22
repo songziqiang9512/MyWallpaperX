@@ -48,6 +48,14 @@ final class SceneMainPassEncoder {
         return operation(commandBuffer)
     }
 
+    func withReadableTarget<Result>(
+        _ operation: (MTLTexture) -> Result
+    ) -> Result? {
+        guard encoder() != nil else { return nil }
+        closeForOffscreen()
+        return operation(target)
+    }
+
     func finishEnsuringClear() {
         guard !isFinished else { return }
         if activeEncoder == nil {

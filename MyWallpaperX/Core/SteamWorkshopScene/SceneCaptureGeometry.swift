@@ -1,0 +1,65 @@
+import CoreGraphics
+import simd
+
+struct SceneCaptureGeometry {
+    let sourceUV: SceneTextureUVTransform
+    let outputMVP: simd_float4x4
+    let pixelSize: CGSize
+}
+
+enum SceneCaptureGeometryResolver {
+    nonisolated static func resolve(
+        kind: SceneUtilityLayer.Kind,
+        layerMVP: simd_float4x4,
+        viewportSize: CGSize
+    ) -> SceneCaptureGeometry? {
+        guard viewportSize.width.isFinite, viewportSize.height.isFinite,
+              viewportSize.width > 0, viewportSize.height > 0 else {
+            return nil
+        }
+        guard kind == .composition else {
+            return SceneCaptureGeometry(
+                sourceUV: .identity,
+                outputMVP: fullTargetMVP,
+                pixelSize: viewportSize
+            )
+        }
+
+        guard let topLeft = sourceUV(position: SIMD2(-0.5, 0.5), mvp: layerMVP),
+              let topRight = sourceUV(position: SIMD2(0.5, 0.5), mvp: layerMVP),
+              let bottomLeft = sourceUV(position: SIMD2(-0.5, -0.5), mvp: layerMVP),
+              let bottomRight = sourceUV(position: SIMD2(0.5, -0.5), mvp: layerMVP) else {
+            return nil
+        }
+        let points = [topLeft, topRight, bottomLeft, bottomRight]
+        let minX = points.map(\.x).min() ?? 0
+        let maxX = points.map(\.x).max() ?? 0
+        let minY = points.map(\.y).min() ?? 0
+        let maxY = points.map(\.y).max() ?? 0
+        let width = max(1, ceil(CGFloat(maxX - minX) * viewportSize.width))
+        let height = max(1, ceil(CGFloat(maxY - minY) * viewportSize.height))
+
+        return SceneCaptureGeometry(
+            sourceUV: SceneTextureUVTransform(
+                origin: topLeft,
+                xAxis: topRight - topLeft,
+                yAxis: bottomLeft - topLeft
+            ),
+            outputMVP: layerMVP,
+            pixelSize: CGSize(width: width, height: height)
+        )
+    }
+
+    nonisolated private static func sourceUV(
+        position: SIMD2<Float>,
+        mvp: simd_float4x4
+    ) -> SIMD2<Float>? {
+        let clip = mvp * SIMD4(position.x, position.y, 0, 1)
+        guard clip.w.isFinite, abs(clip.w) > 1e-8 else { return nil }
+        let ndc = SIMD2(clip.x / clip.w, clip.y / clip.w)
+        guard ndc.x.isFinite, ndc.y.isFinite else { return nil }
+        return SIMD2((ndc.x + 1) * 0.5, (1 - ndc.y) * 0.5)
+    }
+
+    nonisolated private static let fullTargetMVP = SceneMatrix.scale(SIMD3<Float>(2, 2, 1))
+}

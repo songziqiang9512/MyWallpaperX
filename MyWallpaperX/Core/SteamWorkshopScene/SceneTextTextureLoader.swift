@@ -36,7 +36,7 @@ enum SceneTextTextureLoader {
             if let effectSummary = SceneEffectRuntimePlanner.runtimeSummary(for: layer) {
                 message += "; \(effectSummary)"
             }
-            if let inlineSummary = SceneInlineEffectRuntime.summary(for: layer) {
+            if let inlineSummary = SceneInlineEffectRuntime.summary(for: layer, hasWaterMask: false) {
                 message += "; \(inlineSummary)"
             }
             messages.append(message)

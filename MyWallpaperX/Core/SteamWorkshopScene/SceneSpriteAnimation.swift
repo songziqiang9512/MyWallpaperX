@@ -6,7 +6,7 @@ struct SceneTextureUVTransform {
     let xAxis: SIMD2<Float>
     let yAxis: SIMD2<Float>
 
-    static let identity = SceneTextureUVTransform(
+    nonisolated static let identity = SceneTextureUVTransform(
         origin: .zero,
         xAxis: SIMD2(1, 0),
         yAxis: SIMD2(0, 1)

@@ -43,27 +43,31 @@ enum SceneOffscreenEffectRenderer {
 
         var effectSource = offscreenPair.primary
         var perspectiveTarget = offscreenPair.secondary
-        if let waterRippleNormalPlan, let waterRippleNormalTexture,
-           waterRipplePipeline.encode(
+        if let waterRippleNormalPlan, let waterRippleNormalTexture {
+            guard waterRipplePipeline.encode(
                source: offscreenPair.primary,
                normalMap: waterRippleNormalTexture,
                target: offscreenPair.secondary,
                plan: waterRippleNormalPlan,
                time: sourceUniforms.time,
                commandBuffer: commandBuffer
-           ) {
+            ) else {
+                return nil
+            }
             effectSource = offscreenPair.secondary
             perspectiveTarget = offscreenPair.tertiary
         }
 
-        if let perspectiveOpacityPlan, let auxMaskTexture,
-           perspectiveOpacityPipeline.encode(
+        if let perspectiveOpacityPlan, let auxMaskTexture {
+            guard perspectiveOpacityPipeline.encode(
                source: effectSource,
                opacityMask: auxMaskTexture,
                target: perspectiveTarget,
                plan: perspectiveOpacityPlan,
                commandBuffer: commandBuffer
-           ) {
+            ) else {
+                return nil
+            }
             return perspectiveTarget
         }
 
@@ -99,17 +103,17 @@ enum SceneOffscreenEffectRenderer {
                 step: SIMD2(0, verticalStep),
                 commandBuffer: commandBuffer
             ) else {
-                return offscreenPair.primary
+                return nil
             }
             return offscreenPair.primary
         }
 
-        guard offscreenPassCount > 1,
-              let effectEncoder = beginEncoder(
+        guard offscreenPassCount > 1 else { return offscreenPair.primary }
+        guard let effectEncoder = beginEncoder(
                 commandBuffer: commandBuffer,
                 target: offscreenPair.secondary
               ) else {
-            return offscreenPair.primary
+            return nil
         }
         pipeline.bind(encoder: effectEncoder)
         pipeline.drawLayer(
@@ -132,7 +136,7 @@ enum SceneOffscreenEffectRenderer {
         gaussianBlurPipeline: SceneGaussianBlurPipeline,
         bloomPipeline: SceneBloomPipeline,
         commandBuffer: MTLCommandBuffer
-    ) -> MTLTexture {
+    ) -> MTLTexture? {
         let horizontalStep = SIMD2(plan.radius / Float(textures.secondary.width), 0)
         let verticalStep = SIMD2(0, plan.radius / Float(textures.secondary.height))
         guard bloomPipeline.encodeThreshold(
@@ -157,7 +161,7 @@ enum SceneOffscreenEffectRenderer {
             plan: plan,
             commandBuffer: commandBuffer
         ) else {
-            return textures.primary
+            return nil
         }
         return textures.tertiary
     }

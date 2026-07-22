@@ -430,6 +430,41 @@
       "maximum_flat_border_ratio": 0.1
     },
     {
+      "id": "2902406982",
+      "title": "麻匪 月半与鬼哭 所有元素自定义",
+      "capabilities": [
+        "utility_frame_capture",
+        "composition_blur",
+        "utility_dependencies"
+      ],
+      "project_sha256": "42664ae4949af13ee7b53bef3e9b01a65a0bf04990d4626115c8463ba394174e",
+      "package_sha256": "57d26227f86014706887b5325ea84437c2b4d20d98fa03f46c6c3f53199459c4",
+      "expected_interpretation_format": 12,
+      "expected_solid_layer_count": 9,
+      "expected_authored_solid_color_layer_count": 6,
+      "expected_effective_visible_solid_layer_count": 1,
+      "required_solid_layer_ids": [645, 516, 449, 462, 275, 486, 491, 494, 1115],
+      "required_solid_loaded_layer_ids": [645, 516, 449, 462, 275, 486, 491, 494, 1115],
+      "expected_solid_candidates": 9,
+      "expected_composition_layer_count": 10,
+      "expected_project_layer_count": 1,
+      "expected_fullscreen_layer_count": 0,
+      "expected_dependency_edge_count": 8,
+      "expected_utility_candidates": 11,
+      "expected_utility_capture_planned": 1,
+      "expected_utility_dependency_edges": 8,
+      "expected_utility_named_target_gaps": 6,
+      "required_utility_dispositions": {
+        "410": "unsupportedEffects",
+        "530": "capture",
+        "125": "skippedNoEffect",
+        "414": "unsupportedEffects"
+      },
+      "required_utility_capture_succeeded_layer_ids": [530],
+      "minimum_loaded_ratio": 1.0,
+      "requires_motion": false
+    },
+    {
       "id": "3765760121",
       "title": "【4K】三色堇与她",
       "capabilities": [
@@ -457,6 +492,15 @@
       "expected_composition_layer_count": 2,
       "expected_project_layer_count": 1,
       "expected_fullscreen_layer_count": 0,
+      "expected_utility_candidates": 3,
+      "expected_utility_capture_planned": 0,
+      "expected_utility_dependency_edges": 0,
+      "expected_utility_named_target_gaps": 0,
+      "required_utility_dispositions": {
+        "187": "unsupportedEffects",
+        "96": "unsupportedEffects",
+        "763": "skippedHidden"
+      },
       "minimum_loaded_ratio": 0.5,
       "minimum_text_loaded": 3,
       "expected_text_candidates": 3,

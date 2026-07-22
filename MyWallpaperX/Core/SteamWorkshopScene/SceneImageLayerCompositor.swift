@@ -23,6 +23,9 @@ struct SceneImageLayerDrawRequest {
     let mvp: simd_float4x4
     let uniforms: SceneImageLayerUniformValues
     let offscreenTexturePool: SceneOffscreenTexturePool?
+    let offscreenSize: CGSize?
+    let requiresSourceCopy: Bool
+    let finalCompositeAlpha: Float?
 }
 
 struct SceneImageLayerCompositor {
@@ -73,17 +76,19 @@ struct SceneImageLayerCompositor {
                 ? SIMD3(request.layer.colorRGB ?? [], fill: 1)
                 : SIMD3(repeating: 1)
         )
-        if effectPlan.offscreenPassCount > 0,
+        if effectPlan.offscreenPassCount > 0 || request.requiresSourceCopy,
            let pool = request.offscreenTexturePool,
-           let textures = pool.textures(for: request.texture) {
-            let finalTexture = mainPass.encodeOffscreen { commandBuffer in
+           let textures = request.offscreenSize.map({ size in
+               pool.textures(width: Int(size.width.rounded(.up)), height: Int(size.height.rounded(.up)))
+           }) ?? pool.textures(for: request.texture) {
+            let renderedTexture = mainPass.encodeOffscreen { commandBuffer in
                 SceneOffscreenEffectRenderer.render(
                     sourceTexture: request.texture,
                     waterMaskTexture: masks.water,
                     foliageMaskTexture: masks.foliage,
                     auxMaskTexture: auxMask,
                     offscreenPair: textures,
-                    offscreenPassCount: effectPlan.offscreenPassCount,
+                    offscreenPassCount: max(effectPlan.offscreenPassCount, 1),
                     blurPlan: effectPlan.gaussianBlur,
                     bloomPlan: effectPlan.bloom,
                     waterRippleNormalPlan: effectPlan.waterRippleNormal,
@@ -97,17 +102,21 @@ struct SceneImageLayerCompositor {
                     perspectiveOpacityPipeline: perspectiveOpacityPipeline,
                     commandBuffer: commandBuffer
                 )
-            } ?? request.texture
+            }
+            guard let finalTexture = renderedTexture ?? (request.requiresSourceCopy ? nil : request.texture) else {
+                return false
+            }
             return drawToMainPass(
                 texture: finalTexture,
                 masks: .empty,
                 mvp: request.mvp,
-                uniforms: .neutral(),
+                uniforms: .neutral(alpha: request.finalCompositeAlpha ?? 1),
                 layer: request.layer,
                 pipeline: pipeline,
                 mainPass: mainPass
             )
         }
+        if request.requiresSourceCopy { return false }
 
         return drawToMainPass(
             texture: request.texture,
@@ -169,7 +178,7 @@ struct SceneImageLayerCompositor {
     }
 }
 
-private extension SceneImageLayerMasks {
+extension SceneImageLayerMasks {
     static let empty = SceneImageLayerMasks(
         iris: nil,
         opacity: nil,
