@@ -161,7 +161,7 @@ nonisolated struct SceneParticleFrameTransform: Equatable, Sendable {
     )
 }
 
-// Seven float4 values keep this layout identical to ParticleInstance in MSL.
+// Eight float4 values keep this layout identical to ParticleInstance in MSL.
 nonisolated struct SceneParticleGPUInstance: Sendable {
     var positionAndSize: SIMD4<Float>
     var rotationAndAlpha: SIMD4<Float>
@@ -170,6 +170,7 @@ nonisolated struct SceneParticleGPUInstance: Sendable {
     var frame0B: SIMD4<Float>
     var frame1A: SIMD4<Float>
     var frame1B: SIMD4<Float>
+    var velocityAndTrail: SIMD4<Float>
 
     nonisolated init(
         position: SIMD3<Float>,
@@ -177,6 +178,8 @@ nonisolated struct SceneParticleGPUInstance: Sendable {
         rotation: SIMD3<Float>,
         color: SIMD3<Float>,
         alpha: Float,
+        velocity: SIMD3<Float> = .zero,
+        trailStretch: Float? = nil,
         currentFrame: SceneParticleFrameTransform = .identity,
         nextFrame: SceneParticleFrameTransform? = nil,
         frameMix: Float = 0
@@ -199,6 +202,12 @@ nonisolated struct SceneParticleGPUInstance: Sendable {
             following.xAxis.y
         )
         frame1B = SIMD4(following.yAxis.x, following.yAxis.y, 0, 0)
+        velocityAndTrail = SIMD4(
+            velocity.x,
+            velocity.y,
+            velocity.z,
+            trailStretch.map { max($0, 0) } ?? -1
+        )
     }
 }
 

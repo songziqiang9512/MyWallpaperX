@@ -400,7 +400,6 @@ class SceneParticleSimulatorTests(unittest.TestCase):
                 "controlPointForceIgnored",
                 "dynamicOverrideIgnored",
                 "pointerControlPointIgnored",
-                "trailRendererIgnored",
                 "unsupportedInitializer",
                 "unsupportedOperator",
                 "unsupportedOperator",

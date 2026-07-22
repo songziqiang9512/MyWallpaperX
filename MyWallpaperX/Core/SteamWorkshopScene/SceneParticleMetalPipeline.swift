@@ -141,6 +141,7 @@ struct ParticleInstance {
     float4 frame0B;
     float4 frame1A;
     float4 frame1B;
+    float4 velocityAndTrail;
 };
 struct LayerUniforms {
     float4x4 viewProjection;
@@ -173,17 +174,34 @@ vertex Varyings sceneParticleVert(
     constant LayerUniforms &uniforms [[buffer(2)]]) {
     QuadVertex quadVertex = quad[vertexID];
     ParticleInstance particle = instances[instanceID];
-    float3 local = rotateXYZ(
-        float3(quadVertex.position * particle.positionAndSize.w, 0.0),
-        particle.rotationAndAlpha.xyz);
+    float4 center = uniforms.layerModel * float4(particle.positionAndSize.xyz, 1.0);
+    float3 local;
+    if (particle.velocityAndTrail.w >= 0.0) {
+        float3 worldVelocity = (uniforms.layerModel
+            * float4(particle.velocityAndTrail.xyz, 0.0)).xyz;
+        float4 projectedStart = uniforms.viewProjection * center;
+        float4 projectedEnd = uniforms.viewProjection
+            * float4(center.xyz + worldVelocity * 0.001, 1.0);
+        float2 velocity = projectedEnd.xy / max(abs(projectedEnd.w), 0.00001)
+            - projectedStart.xy / max(abs(projectedStart.w), 0.00001);
+        float speed = length(velocity);
+        float2 direction = speed > 0.00001 ? velocity / speed : float2(1.0, 0.0);
+        float2 perpendicular = float2(-direction.y, direction.x);
+        float2 aligned = direction * quadVertex.position.x
+            * particle.positionAndSize.w * particle.velocityAndTrail.w
+            + perpendicular * quadVertex.position.y * particle.positionAndSize.w;
+        local = float3(aligned, 0.0);
+    } else {
+        local = rotateXYZ(
+            float3(quadVertex.position * particle.positionAndSize.w, 0.0),
+            particle.rotationAndAlpha.xyz);
+    }
     float3 normal = normalize(cross(uniforms.basisRight.xyz, uniforms.basisUp.xyz));
     float2 layerScale = float2(length(uniforms.layerModel[0].xyz),
                                length(uniforms.layerModel[1].xyz));
     float3 offset = uniforms.basisRight.xyz * local.x * layerScale.x
                   + uniforms.basisUp.xyz * local.y * layerScale.y
                   + normal * local.z;
-    float4 center = uniforms.layerModel * float4(particle.positionAndSize.xyz, 1.0);
-
     Varyings out;
     out.position = uniforms.viewProjection * float4(center.xyz + offset, 1.0);
     out.uv0 = particle.frame0A.xy + quadVertex.texcoord.x * particle.frame0A.zw

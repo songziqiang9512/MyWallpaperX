@@ -48,6 +48,7 @@ final class SceneParticleRuntime {
         let layerID: Int
         let particlePath: String
         let definition: SceneParticleDefinition
+        let trail: SceneParticleTrailRenderPlan?
         let texture: MTLTexture
         let blendMode: SceneParticlePipelineBlendMode
         let spriteAnimation: SceneSpriteAnimation?
@@ -119,7 +120,7 @@ final class SceneParticleRuntime {
             guard let rawPath = layer.particlePath else { continue }
             let path = SceneParticleAssetGraphLoader.normalizedPath(rawPath)
             guard let asset = graph.assetsByPath[path] else { continue }
-            guard let sprite = supportedSpriteRenderer(
+            guard let render = supportedRenderer(
                 in: asset.definition,
                 layerID: layer.id,
                 path: path
@@ -173,11 +174,12 @@ final class SceneParticleRuntime {
                 layerID: layer.id,
                 particlePath: path,
                 definition: asset.definition,
+                trail: render.trail,
                 texture: texture,
                 blendMode: asset.blendMode == .additive ? .additive : .translucent,
                 spriteAnimation: spriteAnimation,
-                orientation: SceneParticleOrientation(authoredValue: sprite.orientation),
-                orientationAxis: sprite.axis.map {
+                orientation: SceneParticleOrientation(authoredValue: render.renderer.orientation),
+                orientationAxis: render.renderer.axis.map {
                     SceneParticleSimulationMath.vector($0, fallback: SIMD3(0, 0, 1)).floatValue
                 },
                 usesPerspective: asset.definition.flags.usesPerspective,
@@ -231,6 +233,8 @@ final class SceneParticleRuntime {
                 rotation: particle.rotation.floatValue,
                 color: particle.color.floatValue,
                 alpha: Float(particle.alpha) * layer.layerAlpha,
+                velocity: particle.velocity.floatValue,
+                trailStretch: layer.trail?.stretch(for: particle.velocity),
                 currentFrame: frames.current,
                 nextFrame: frames.next,
                 frameMix: frames.mix
@@ -264,18 +268,34 @@ final class SceneParticleRuntime {
         )
     }
 
-    private func supportedSpriteRenderer(
+    private func supportedRenderer(
         in definition: SceneParticleDefinition,
         layerID: Int,
         path: String
-    ) -> SceneParticleRenderer? {
-        var sprite: SceneParticleRenderer?
+    ) -> (renderer: SceneParticleRenderer, trail: SceneParticleTrailRenderPlan?)? {
+        var supported: (SceneParticleRenderer, SceneParticleTrailRenderPlan?)?
+        var sawSpriteRenderer = false
         for renderer in definition.renderers {
             switch renderer.kind {
             case .sprite:
-                if sprite == nil { sprite = renderer }
+                sawSpriteRenderer = true
+                if supported == nil { supported = (renderer, nil) }
             case .spriteTrail:
-                addDiagnostic(kind: .trailRendererUnsupported, layerID: layerID, path: path, detail: "spritetrail")
+                sawSpriteRenderer = true
+                if let trail = SceneParticleTrailRenderPlan(
+                    length: renderer.length,
+                    minimumLength: renderer.minimumLength,
+                    maximumLength: renderer.maximumLength
+                ) {
+                    if supported == nil { supported = (renderer, trail) }
+                } else {
+                    addDiagnostic(
+                        kind: .trailRendererUnsupported,
+                        layerID: layerID,
+                        path: path,
+                        detail: "spritetrail:invalidLength"
+                    )
+                }
             case .rope:
                 addDiagnostic(kind: .ropeRendererUnsupported, layerID: layerID, path: path, detail: "rope")
             case .ropeTrail:
@@ -284,10 +304,10 @@ final class SceneParticleRuntime {
                 addDiagnostic(kind: .missingSpriteRenderer, layerID: layerID, path: path, detail: name)
             }
         }
-        if sprite == nil {
+        if supported == nil && !sawSpriteRenderer {
             addDiagnostic(kind: .missingSpriteRenderer, layerID: layerID, path: path)
         }
-        return sprite
+        return supported
     }
 
     private func appendSimulationDiagnostics(

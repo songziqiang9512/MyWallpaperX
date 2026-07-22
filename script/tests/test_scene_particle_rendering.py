@@ -119,6 +119,15 @@ enum Harness {
                 additive.destinationAlpha == .oneMinusSourceAlpha,
             ],
             "metalDraw": renderSmokeTest(),
+            "horizontalTrailBounds": trailBounds(velocity: SIMD3(1, 0, 0)),
+            "verticalTrailBounds": trailBounds(velocity: SIMD3(0, 1, 0)),
+            "rotatedTrailBounds": trailBounds(
+                velocity: SIMD3(1, 0, 0),
+                layerModel: simd_float4x4(columns: (
+                    SIMD4(0, 1, 0, 0), SIMD4(-1, 0, 0, 0),
+                    SIMD4(0, 0, 1, 0), SIMD4(0, 0, 0, 1)
+                ))
+            ),
             "instanceBufferSlots": instanceBufferSlotTest(),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -134,6 +143,7 @@ enum Harness {
             MemoryLayout<SceneParticleGPUInstance>.offset(of: \.frame0B),
             MemoryLayout<SceneParticleGPUInstance>.offset(of: \.frame1A),
             MemoryLayout<SceneParticleGPUInstance>.offset(of: \.frame1B),
+            MemoryLayout<SceneParticleGPUInstance>.offset(of: \.velocityAndTrail),
         ].compactMap { $0 }
     }
 
@@ -184,6 +194,7 @@ enum Harness {
         let pass = MTLRenderPassDescriptor()
         pass.colorAttachments[0].texture = output
         pass.colorAttachments[0].loadAction = .clear
+        pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
         pass.colorAttachments[0].storeAction = .store
         guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return false }
 
@@ -279,6 +290,85 @@ enum Harness {
         ]
     }
 
+    private static func trailBounds(
+        velocity: SIMD3<Float>,
+        layerModel: simd_float4x4 = SceneMatrix.identity()
+    ) -> [String: Int] {
+        let size = 64
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let pipeline = SceneParticleMetalPipeline(device: device),
+              let queue = device.makeCommandQueue(),
+              let command = queue.makeCommandBuffer() else { return [:] }
+        let inputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false
+        )
+        inputDescriptor.usage = .shaderRead
+        let outputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm, width: size, height: size, mipmapped: false
+        )
+        outputDescriptor.usage = .renderTarget
+        outputDescriptor.storageMode = .shared
+        guard let input = device.makeTexture(descriptor: inputDescriptor),
+              let output = device.makeTexture(descriptor: outputDescriptor) else { return [:] }
+        var white = [UInt8](repeating: 255, count: 4)
+        input.replace(
+            region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
+            withBytes: &white, bytesPerRow: 4
+        )
+        let instances = SceneParticleMetalInstanceBuffer()
+        let values = [SceneParticleGPUInstance(
+            position: .zero, size: 0.2, rotation: .zero,
+            color: SIMD3(repeating: 1), alpha: 1,
+            velocity: velocity, trailStretch: 4
+        )]
+        guard instances.update(device: device, instances: values) else { return [:] }
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = output
+        pass.colorAttachments[0].loadAction = .clear
+        pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+        pass.colorAttachments[0].storeAction = .store
+        guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return [:] }
+        pipeline.draw(
+            texture: input,
+            instances: instances,
+            uniforms: SceneParticleLayerUniforms(
+                viewProjection: SceneMatrix.identity(),
+                layerModel: layerModel,
+                basis: SceneParticleOrientation.screen.basis(
+                    cameraRight: SIMD3(1, 0, 0), cameraUp: SIMD3(0, 1, 0),
+                    cameraForward: SIMD3(0, 0, -1)
+                )
+            ),
+            blendMode: .translucent,
+            encoder: encoder
+        )
+        encoder.endEncoding()
+        guard instances.markSubmitted(on: command), commitAndWait(command) else { return [:] }
+        var pixels = [UInt8](repeating: 0, count: size * size * 4)
+        output.getBytes(
+            &pixels,
+            bytesPerRow: size * 4,
+            from: MTLRegionMake2D(0, 0, size, size),
+            mipmapLevel: 0
+        )
+        var minimumX = size
+        var minimumY = size
+        var maximumX = -1
+        var maximumY = -1
+        for y in 0..<size {
+            for x in 0..<size where pixels[(y * size + x) * 4 + 3] > 0 {
+                minimumX = min(minimumX, x)
+                minimumY = min(minimumY, y)
+                maximumX = max(maximumX, x)
+                maximumY = max(maximumY, y)
+            }
+        }
+        return [
+            "width": maximumX >= minimumX ? maximumX - minimumX + 1 : 0,
+            "height": maximumY >= minimumY ? maximumY - minimumY + 1 : 0,
+        ]
+    }
+
     private static func instance(x: Float) -> SceneParticleGPUInstance {
         SceneParticleGPUInstance(
             position: SIMD3(x, 0, 0), size: 1, rotation: .zero,
@@ -322,9 +412,9 @@ class SceneParticleRenderingTests(unittest.TestCase):
         cls.temporary_directory.cleanup()
 
     def test_cpu_and_msl_instance_layouts_match(self) -> None:
-        self.assertEqual(self.result["instanceStride"], 112)
+        self.assertEqual(self.result["instanceStride"], 128)
         self.assertEqual(self.result["instanceAlignment"], 16)
-        self.assertEqual(self.result["instanceOffsets"], [0, 16, 32, 48, 64, 80, 96])
+        self.assertEqual(self.result["instanceOffsets"], [0, 16, 32, 48, 64, 80, 96, 112])
         self.assertEqual(self.result["uniformStride"], 160)
         self.assertEqual(self.result["uniformOffsets"], [0, 64, 128, 144])
 
@@ -361,6 +451,14 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertEqual(self.result["translucentBlend"], [True, True, True, True])
         self.assertEqual(self.result["additiveBlend"], [True, True, True, True])
         self.assertTrue(self.result["metalDraw"])
+
+    def test_sprite_trails_align_and_stretch_along_velocity(self) -> None:
+        horizontal = self.result["horizontalTrailBounds"]
+        vertical = self.result["verticalTrailBounds"]
+        rotated = self.result["rotatedTrailBounds"]
+        self.assertGreater(horizontal["width"], horizontal["height"] * 2.5)
+        self.assertGreater(vertical["height"], vertical["width"] * 2.5)
+        self.assertGreater(rotated["height"], rotated["width"] * 2.5)
 
     def test_in_flight_instance_slots_are_not_reused_until_completion(self) -> None:
         slots = self.result["instanceBufferSlots"]

@@ -141,7 +141,7 @@ nonisolated enum SceneParticleSimulationMath {
             case .sprite:
                 break
             case .spriteTrail:
-                add(.trailRendererIgnored, "spritetrail")
+                break
             case .rope:
                 add(.unsupportedRenderer, "rope")
             case .ropeTrail:

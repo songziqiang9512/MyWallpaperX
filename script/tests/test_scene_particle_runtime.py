@@ -26,6 +26,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneParticleAssetGraph.swift",
     SOURCE_ROOT / "SceneParticleSimulationSupport.swift",
     SOURCE_ROOT / "SceneParticleSimulator.swift",
+    SOURCE_ROOT / "SceneParticleTrailRenderPlan.swift",
     SOURCE_ROOT / "SceneParticleRenderSupport.swift",
     SOURCE_ROOT / "SceneParticleMetalPipeline.swift",
     SOURCE_ROOT / "SceneTexContainer.swift",
@@ -184,7 +185,9 @@ enum Harness {
         try writeParticle("particles/world.json", material: "materials/shared.json", flags: 1, under: directory)
         try writeParticle(
             "particles/trail.json", material: "materials/shared.json",
-            renderer: "spritetrail", under: directory
+            renderer: "spritetrail", rendererLength: 0.05,
+            rendererMinimumLength: 1, rendererMaximumLength: 10,
+            velocityX: 100, under: directory
         )
         try writeParticle(
             "particles/child-root.json", material: "materials/shared.json",
@@ -232,6 +235,12 @@ enum Harness {
             "batchTextureSizes": Dictionary(uniqueKeysWithValues: batches.map {
                 (String($0.layerID), [$0.texture.width, $0.texture.height])
             }),
+            "trailStretch": batches.first(where: { $0.layerID == 3 })?
+                .instances.first?.velocityAndTrail.w ?? -1,
+            "trailVelocity": batches.first(where: { $0.layerID == 3 })?
+                .instances.first.map {
+                    [$0.velocityAndTrail.x, $0.velocityAndTrail.y, $0.velocityAndTrail.z]
+                } ?? [],
             "diagnostics": runtime.diagnostics.map {
                 [
                     "kind": $0.kind.rawValue,
@@ -262,19 +271,35 @@ enum Harness {
         material: String,
         flags: Int = 0,
         renderer: String = "sprite",
+        rendererLength: Double? = nil,
+        rendererMinimumLength: Double? = nil,
+        rendererMaximumLength: Double? = nil,
+        velocityX: Double? = nil,
         children: [[String: Any]] = [],
         under root: URL
     ) throws {
+        var initializers: [[String: Any]] = [
+            ["name": "lifetimerandom", "min": 10, "max": 10],
+            ["name": "sizerandom", "min": 8, "max": 8],
+        ]
+        if let velocityX {
+            initializers.append([
+                "name": "velocityrandom",
+                "min": [velocityX, 0, 0],
+                "max": [velocityX, 0, 0],
+            ])
+        }
+        var rendererDefinition: [String: Any] = ["name": renderer]
+        if let rendererLength { rendererDefinition["length"] = rendererLength }
+        if let rendererMinimumLength { rendererDefinition["minlength"] = rendererMinimumLength }
+        if let rendererMaximumLength { rendererDefinition["maxlength"] = rendererMaximumLength }
         try writeJSON([
             "material": material,
             "maxcount": 100,
             "flags": flags,
             "emitter": [["name": "sphererandom", "rate": 60, "distancemin": 0, "distancemax": 0]],
-            "initializer": [
-                ["name": "lifetimerandom", "min": 10, "max": 10],
-                ["name": "sizerandom", "min": 8, "max": 8],
-            ],
-            "renderer": [["name": renderer]],
+            "initializer": initializers,
+            "renderer": [rendererDefinition],
             "children": children,
         ], to: root.appendingPathComponent(path))
     }
@@ -384,17 +409,19 @@ class SceneParticleRuntimeTests(unittest.TestCase):
 
     def test_synthetic_rejects_unsupported_roots_and_keeps_diagnostics(self) -> None:
         result = self.run_harness("synthetic")
-        self.assertEqual(result["activeLayerIDs"], [4, 6])
-        self.assertEqual(result["batchLayerIDs"], [4, 6])
+        self.assertEqual(result["activeLayerIDs"], [3, 4, 6])
+        self.assertEqual(result["batchLayerIDs"], [3, 4, 6])
         self.assertGreater(result["activeParticleCount"], 0)
         self.assertEqual(result["batchTextureSizes"]["6"], [32, 32])
+        self.assertAlmostEqual(result["trailStretch"], 5)
+        self.assertEqual(result["trailVelocity"], [100, 0, 0])
         self.assertFalse(result["hiddenMentioned"])
         diagnostics = result["diagnostics"]
         kinds = {value["kind"] for value in diagnostics}
         self.assertIn("missingTextureReference", kinds)
         self.assertIn("worldSpaceUnsupported", kinds)
-        self.assertIn("trailRendererUnsupported", kinds)
-        self.assertIn("missingSpriteRenderer", kinds)
+        self.assertNotIn("trailRendererUnsupported", kinds)
+        self.assertNotIn("missingSpriteRenderer", kinds)
         self.assertIn("childSystemsUnsupported", kinds)
 
 
