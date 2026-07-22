@@ -123,7 +123,13 @@ struct SceneDiagnosticsBuilder {
         }
 
         if let assetCatalog {
-            issues.append(.init(severity: .info, message: "已解析资产：model \(assetCatalog.models.count) 个，material \(assetCatalog.materials.count) 个，pass \(assetCatalog.materialPassCount) 个，shader 引用 \(assetCatalog.shaderReferences.count) 个。"))
+            issues.append(.init(severity: .info, message: "已解析资产：model \(assetCatalog.models.count) 个，material \(assetCatalog.materials.count) 个，effect definition \(assetCatalog.effectDefinitions.count) 个，material pass \(assetCatalog.materialPassCount) 个，shader 引用 \(assetCatalog.shaderReferences.count) 个。"))
+            if !assetCatalog.effectDefinitionDiagnostics.isEmpty {
+                issues.append(.init(
+                    severity: .warning,
+                    message: "Effect definition 有 \(assetCatalog.effectDefinitionDiagnostics.count) 项保真诊断，已写入派生解释文件。"
+                ))
+            }
         } else if project != nil {
             issues.append(.init(severity: .warning, message: "models/materials 资产摘要尚未解析成功。"))
         }

@@ -57,7 +57,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(set(samples), set(expected))
         for sample_id, (solid_count, authored_color_count, effective_count) in expected.items():
             sample = samples[sample_id]
-            self.assertEqual(sample["expected_interpretation_format"], 14)
+            self.assertEqual(sample["expected_interpretation_format"], 15)
             self.assertEqual(sample["expected_solid_layer_count"], solid_count)
             self.assertEqual(
                 sample["expected_authored_solid_color_layer_count"],
@@ -219,6 +219,15 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                             "textureSlots": [None, None, "phase.tex"],
                             "combos": {"VERSION": 2, "MODE": 0},
                         }],
+                        "effectDefinitions": [{
+                            "passes": [
+                                {"materialPath": "materials/effects/test.json"},
+                                {"command": "copy"},
+                                {"command": "swap"},
+                            ],
+                            "framebuffers": [{"name": "one"}, {"name": "two"}],
+                        }],
+                        "effectDefinitionDiagnostics": [{"code": "unknownFields"}],
                         "builtInReferenceCount": 4,
                         "missingResources": ["one", "two"],
                         "layers": [{
@@ -264,6 +273,13 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             self.assertEqual(metrics["material_texture_slot_count"], 3)
             self.assertEqual(metrics["material_texture_slot_hole_count"], 2)
             self.assertEqual(metrics["material_combo_entry_count"], 2)
+            self.assertEqual(metrics["effect_definition_count"], 1)
+            self.assertEqual(metrics["effect_definition_pass_count"], 3)
+            self.assertEqual(metrics["effect_definition_material_pass_count"], 1)
+            self.assertEqual(metrics["effect_definition_fbo_count"], 2)
+            self.assertEqual(metrics["effect_definition_copy_command_count"], 1)
+            self.assertEqual(metrics["effect_definition_swap_command_count"], 1)
+            self.assertEqual(metrics["effect_definition_diagnostic_count"], 1)
             self.assertEqual(metrics["visible_layer_count"], 3)
             self.assertEqual(metrics["visible_layer_ids"], [7, 8, 9])
             self.assertEqual(metrics["root_layer_count"], 2)

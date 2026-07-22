@@ -233,6 +233,18 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
             for item in effect.get("passes", [])
         ]
         material_passes = descriptor.get("materialPasses", [])
+        effect_definitions = descriptor.get("effectDefinitions", [])
+        definition_passes = [
+            item
+            for definition in effect_definitions
+            for item in definition.get("passes", [])
+        ]
+        definition_framebuffers = [
+            item
+            for definition in effect_definitions
+            for item in definition.get("framebuffers", [])
+        ]
+        definition_diagnostics = descriptor.get("effectDefinitionDiagnostics", [])
         graph = layer_graph_metrics(layers)
         solid_layers = [layer for layer in layers if layer.get("contentKind") == "solid"]
         utility_layers = [
@@ -274,6 +286,19 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
             "material_texture_slot_count": material_slot_count,
             "material_texture_slot_hole_count": material_slot_holes,
             "material_combo_entry_count": material_combo_count,
+            "effect_definition_count": len(effect_definitions),
+            "effect_definition_pass_count": len(definition_passes),
+            "effect_definition_material_pass_count": sum(
+                isinstance(item.get("materialPath"), str) for item in definition_passes
+            ),
+            "effect_definition_fbo_count": len(definition_framebuffers),
+            "effect_definition_copy_command_count": sum(
+                item.get("command") == "copy" for item in definition_passes
+            ),
+            "effect_definition_swap_command_count": sum(
+                item.get("command") == "swap" for item in definition_passes
+            ),
+            "effect_definition_diagnostic_count": len(definition_diagnostics),
             "visible_layer_count": sum(layer.get("visible") is not False for layer in layers),
             "visible_layer_ids": [layer.get("id") for layer in layers if layer.get("visible") is not False],
             **graph,
@@ -321,6 +346,13 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
             "material_texture_slot_count": 0,
             "material_texture_slot_hole_count": 0,
             "material_combo_entry_count": 0,
+            "effect_definition_count": 0,
+            "effect_definition_pass_count": 0,
+            "effect_definition_material_pass_count": 0,
+            "effect_definition_fbo_count": 0,
+            "effect_definition_copy_command_count": 0,
+            "effect_definition_swap_command_count": 0,
+            "effect_definition_diagnostic_count": 0,
             "visible_layer_count": 0,
             "visible_layer_ids": [],
             "root_layer_count": 0,
@@ -845,6 +877,13 @@ def run_sample(
         "expected_material_texture_slot_count": "material_texture_slot_count",
         "expected_material_texture_slot_hole_count": "material_texture_slot_hole_count",
         "expected_material_combo_entry_count": "material_combo_entry_count",
+        "expected_effect_definition_count": "effect_definition_count",
+        "expected_effect_definition_pass_count": "effect_definition_pass_count",
+        "expected_effect_definition_material_pass_count": "effect_definition_material_pass_count",
+        "expected_effect_definition_fbo_count": "effect_definition_fbo_count",
+        "expected_effect_definition_copy_command_count": "effect_definition_copy_command_count",
+        "expected_effect_definition_swap_command_count": "effect_definition_swap_command_count",
+        "expected_effect_definition_diagnostic_count": "effect_definition_diagnostic_count",
         "expected_visible_layer_count": "visible_layer_count",
         "expected_root_layer_count": "root_layer_count",
         "expected_child_edge_count": "child_edge_count",

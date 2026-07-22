@@ -123,6 +123,8 @@ struct SceneRenderDescriptor: Codable {
     let renderOrderPolicy: String
     let modelMaterialLinks: [ModelMaterialLink]
     let materialPasses: [MaterialPassDescriptor]
+    let effectDefinitions: [SceneEffectDefinition]
+    let effectDefinitionDiagnostics: [SceneEffectDefinitionDiagnostic]
     let shaderReferences: [String]
     let textureReferences: [String]
     let missingResources: [String]
@@ -205,6 +207,11 @@ struct SceneRenderDescriptorBuilder {
                 )
             },
             materialPasses: materialPassDescriptors(from: assetCatalog),
+            effectDefinitions: assetCatalog.effectDefinitions,
+            effectDefinitionDiagnostics: effectDefinitionDiagnostics(
+                from: sceneDocument,
+                catalog: assetCatalog
+            ),
             shaderReferences: assetCatalog.shaderReferences,
             textureReferences: assetCatalog.textureReferences,
             missingResources: resourceReferences.missingReferences,
@@ -330,6 +337,47 @@ struct SceneRenderDescriptorBuilder {
                     )
                 }
             )
+        }
+    }
+
+    nonisolated private func effectDefinitionDiagnostics(
+        from document: SceneDocument,
+        catalog: SceneAssetCatalog
+    ) -> [SceneEffectDefinitionDiagnostic] {
+        let definitionsByPath = Dictionary(
+            uniqueKeysWithValues: catalog.effectDefinitions.map {
+                ($0.relativePath.localizedLowercase, $0)
+            }
+        )
+        var diagnostics = catalog.effectDefinitionDiagnostics
+
+        for object in document.objects {
+            for (effectIndex, effect) in object.effects.enumerated() {
+                let effectPath = effect.file.localizedLowercase
+                guard let definition = definitionsByPath[effectPath] else {
+                    diagnostics.append(.init(
+                        code: .missingDefinition,
+                        effectPath: effect.file,
+                        layerID: object.id,
+                        effectIndex: effectIndex,
+                        detail: "Referenced effect definition was not found in the extracted asset graph."
+                    ))
+                    continue
+                }
+                guard !effect.passes.isEmpty,
+                      effect.passes.count != definition.materialPassCount else { continue }
+                diagnostics.append(.init(
+                    code: .passCountMismatch,
+                    effectPath: effect.file,
+                    layerID: object.id,
+                    effectIndex: effectIndex,
+                    detail: "Instance passes \(effect.passes.count) do not match definition material passes \(definition.materialPassCount)."
+                ))
+            }
+        }
+        return diagnostics.sorted {
+            ($0.effectPath, $0.layerID ?? -1, $0.effectIndex ?? -1, $0.code.rawValue)
+                < ($1.effectPath, $1.layerID ?? -1, $1.effectIndex ?? -1, $1.code.rawValue)
         }
     }
 }

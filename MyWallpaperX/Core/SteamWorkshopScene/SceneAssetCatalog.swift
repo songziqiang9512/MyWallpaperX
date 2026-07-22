@@ -34,6 +34,8 @@ struct SceneAssetCatalog {
     let rootURL: URL
     let models: [ModelAsset]
     let materials: [MaterialAsset]
+    let effectDefinitions: [SceneEffectDefinition]
+    let effectDefinitionDiagnostics: [SceneEffectDefinitionDiagnostic]
 
     nonisolated var materialPassCount: Int {
         materials.reduce(0) { $0 + $1.passes.count }
@@ -69,12 +71,48 @@ struct SceneAssetCatalogLoader {
         let materialResources = resourceIndex.resources.filter {
             $0.kind == .material && $0.relativePath.localizedLowercase.hasSuffix(".json")
         }
+        let effectResources = resourceIndex.resources.filter { $0.kind == .effectDefinition }
+        let effectResults = effectResources.map(loadEffectDefinition)
 
         return SceneAssetCatalog(
             rootURL: rootURL,
             models: modelResources.compactMap(loadModel),
-            materials: materialResources.compactMap(loadMaterial)
+            materials: materialResources.compactMap(loadMaterial),
+            effectDefinitions: effectResults.compactMap(\.definition),
+            effectDefinitionDiagnostics: effectResults.compactMap(\.diagnostic)
         )
+    }
+
+    nonisolated private func loadEffectDefinition(
+        _ resource: SceneResourceIndex.Resource
+    ) -> (definition: SceneEffectDefinition?, diagnostic: SceneEffectDefinitionDiagnostic?) {
+        do {
+            let definition = try SceneEffectDefinitionLoader().load(
+                from: resource.url,
+                relativePath: resource.relativePath
+            )
+            let diagnostic: SceneEffectDefinitionDiagnostic? = definition.unknownFieldPaths.isEmpty
+                ? nil
+                : .init(
+                    code: .unknownFields,
+                    effectPath: definition.relativePath,
+                    layerID: nil,
+                    effectIndex: nil,
+                    detail: definition.unknownFieldPaths.joined(separator: ", ")
+                )
+            return (definition, diagnostic)
+        } catch {
+            return (
+                nil,
+                .init(
+                    code: .invalidDefinition,
+                    effectPath: resource.relativePath,
+                    layerID: nil,
+                    effectIndex: nil,
+                    detail: error.localizedDescription
+                )
+            )
+        }
     }
 
     nonisolated private func loadModel(_ resource: SceneResourceIndex.Resource) -> SceneAssetCatalog.ModelAsset? {

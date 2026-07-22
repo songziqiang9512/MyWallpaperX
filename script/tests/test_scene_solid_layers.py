@@ -16,6 +16,8 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneDocument.swift",
     SOURCE_ROOT / "SceneDocument+NumericParsing.swift",
+    SOURCE_ROOT / "SceneJSONValue.swift",
+    SOURCE_ROOT / "SceneEffectDefinition.swift",
     SOURCE_ROOT / "SceneEffectTextureInput.swift",
     SOURCE_ROOT / "SceneUtilityLayer.swift",
     SOURCE_ROOT / "SceneRenderDescriptor.swift",
@@ -177,6 +179,8 @@ struct SceneAssetCatalog {
 
     let models: [ModelAsset]
     let materials: [MaterialAsset]
+    let effectDefinitions: [SceneEffectDefinition]
+    let effectDefinitionDiagnostics: [SceneEffectDefinitionDiagnostic]
     let shaderReferences: [String]
     let textureReferences: [String]
 }
@@ -213,7 +217,12 @@ enum Harness {
             project: project,
             sceneDocument: document,
             assetCatalog: SceneAssetCatalog(
-                models: [], materials: [], shaderReferences: [], textureReferences: []
+                models: [],
+                materials: [],
+                effectDefinitions: [],
+                effectDefinitionDiagnostics: [],
+                shaderReferences: [],
+                textureReferences: []
             ),
             resourceReferences: SceneResourceReferenceIndex(
                 missingReferences: [], builtInReferenceCount: 3

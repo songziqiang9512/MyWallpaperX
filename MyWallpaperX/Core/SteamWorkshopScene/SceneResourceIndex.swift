@@ -6,6 +6,7 @@ struct SceneResourceIndex {
         case package
         case shader
         case shaderBlob
+        case effectDefinition
         case material
         case model
         case texture
@@ -85,6 +86,9 @@ struct SceneResourceIndexBuilder {
         if normalized == "scene.pkg" { return .package }
         if normalized.contains("/blobssm") && ext == "dxs" { return .shaderBlob }
         if normalized.hasPrefix("shaders/") { return .shader }
+        if normalized.hasPrefix("effects/") && normalized.hasSuffix("/effect.json") {
+            return .effectDefinition
+        }
         if normalized.hasPrefix("materials/") {
             return ext == "tex" ? .texture : .material
         }
