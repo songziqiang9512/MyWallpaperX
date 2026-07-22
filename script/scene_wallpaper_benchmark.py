@@ -32,9 +32,10 @@ READY_RE = re.compile(
 STOPPED_RE = re.compile(r"phase=stopped surfacesBefore=(?P<before>\d+) surfacesAfter=(?P<after>\d+)")
 LOADED_RE = re.compile(r"^loaded: (?P<loaded>\d+) / (?P<total>\d+)$", re.MULTILINE)
 TEXT_LOADED_RE = re.compile(r"^text loaded: (?P<loaded>\d+) / (?P<total>\d+)$", re.MULTILINE)
+FLOAT_PATTERN = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
 CAMERA_RE = re.compile(
     r"^camera: projection=(?P<projection>\S+) parallax=(?P<parallax>true|false) "
-    r"amount=(?P<amount>[\d.]+) mouseInfluence=(?P<influence>[\d.]+)$",
+    rf"amount=(?P<amount>{FLOAT_PATTERN}) mouseInfluence=(?P<influence>{FLOAT_PATTERN})$",
     re.MULTILINE,
 )
 
