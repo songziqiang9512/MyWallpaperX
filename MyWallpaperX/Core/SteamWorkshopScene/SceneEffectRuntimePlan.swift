@@ -266,21 +266,14 @@ enum SceneEffectRuntimePlanner {
         hasFoliageMask: Bool,
         usesNormalWaterRipple: Bool
     ) -> SceneLayerEffectInputs {
-        var flags: SceneEffectFlags = []
+        var flags = SceneInlineEffectRuntime.flags(
+            for: layer,
+            usesNormalWaterRipple: usesNormalWaterRipple
+        )
         var params0 = SIMD4<Float>(0, 0, 0, 0)
         var params1 = SIMD4<Float>(0, 0, 0, 0)
         var params2 = SIMD4<Float>(12, 1, 0.08, 0)
         let params3 = SIMD4<Float>(1, 0, 1, 0)
-        for path in layer.effectFiles {
-            let lower = path.localizedLowercase
-            if lower.contains("foliagesway") { flags.insert(.foliagesway) }
-            if lower.contains("waterwaves") || (lower.contains("waterripple") && !usesNormalWaterRipple) {
-                flags.insert(.waterwaves)
-            }
-            if lower.contains("cursorripple") { flags.insert(.cursorripple) }
-            if lower.contains("chromaticaberration") { flags.insert(.chromaticaberration) }
-        }
-
         for effect in layer.effects where effect.visible != false {
             let lower = effect.file.localizedLowercase
             guard let firstPass = effect.passes.first else { continue }

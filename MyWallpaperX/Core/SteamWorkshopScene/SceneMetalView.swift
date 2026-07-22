@@ -217,6 +217,9 @@ class SceneMetalView: NSView {
                 ) {
                     message += "; \(effectSummary)"
                 }
+                if let inlineSummary = SceneInlineEffectRuntime.summary(for: layer) {
+                    message += "; \(inlineSummary)"
+                }
                 message += "; \(placementSummary)"
                 report.append(message)
             case .unsupportedFormat(let ext):

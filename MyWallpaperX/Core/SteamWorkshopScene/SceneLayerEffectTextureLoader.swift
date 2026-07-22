@@ -89,7 +89,8 @@ enum SceneLayerEffectTextureLoader {
         effectFragment: String,
         resolver: SceneTexturePathResolver
     ) -> URL? {
-        for effect in layer.effects where effect.file.localizedLowercase.contains(effectFragment) {
+        for effect in layer.effects where effect.visible != false
+            && effect.file.localizedLowercase.contains(effectFragment) {
             for path in effect.passes.flatMap(\.texturePaths) {
                 if let url = resolver.resolveTextureFile(named: path) { return url }
             }

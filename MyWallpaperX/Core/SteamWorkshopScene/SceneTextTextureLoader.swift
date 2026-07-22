@@ -31,6 +31,9 @@ enum SceneTextTextureLoader {
             if let effectSummary = SceneEffectRuntimePlanner.runtimeSummary(for: layer) {
                 message += "; \(effectSummary)"
             }
+            if let inlineSummary = SceneInlineEffectRuntime.summary(for: layer) {
+                message += "; \(inlineSummary)"
+            }
             messages.append(message)
         }
         messages.append("text loaded: \(textures.count) / \(candidates.count)")
