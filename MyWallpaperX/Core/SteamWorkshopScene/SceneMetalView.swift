@@ -30,6 +30,9 @@ class SceneMetalView: NSView {
     private var mouseNormalized: SIMD2<Float> = .zero
     private var parallaxPointerSmoother: SceneParallaxPointerSmoother
     private var trackingArea: NSTrackingArea?
+#if DEBUG
+    private let debugFrameCapture = SceneDebugFrameCapture()
+#endif
 
     init?(renderDescriptor: SceneRenderDescriptor, frame: NSRect) {
         guard let renderer = SceneMetalRenderer(renderDescriptor: renderDescriptor) else { return nil }
@@ -40,6 +43,9 @@ class SceneMetalView: NSView {
         layer.device = renderer.device
         layer.pixelFormat = .bgra8Unorm
         layer.framebufferOnly = true
+#if DEBUG
+        debugFrameCapture.configure(layer)
+#endif
         layer.contentsGravity = .resizeAspect
         layer.frame = frame
         // Prime drawableSize so the very first render has a non-zero target.
@@ -304,6 +310,12 @@ class SceneMetalView: NSView {
         displayTimer = nil
     }
 
+#if DEBUG
+    func requestDebugSnapshot(reason: String, outputDirectory: URL) {
+        debugFrameCapture.request(reason: reason, outputDirectory: outputDirectory)
+    }
+#endif
+
     private func renderFrame() {
         guard let drawable = metalLayer.nextDrawable() else { return }
         let elapsed = Float(CACurrentMediaTime() - renderStartTime)
@@ -318,6 +330,11 @@ class SceneMetalView: NSView {
                 currentImageTextures[layerID] = texture
             }
         }
+#if DEBUG
+        let frameReadback: ((MTLTexture, MTLCommandBuffer) -> Void)? = debugFrameCapture.encodeIfRequested
+#else
+        let frameReadback: ((MTLTexture, MTLCommandBuffer) -> Void)? = nil
+#endif
         renderer.renderFrame(
             imageTextures: currentImageTextures,
             spriteAnimations: spriteAnimations,
@@ -333,6 +350,7 @@ class SceneMetalView: NSView {
             time: elapsed,
             mouseNormalized: mouseNormalized,
             parallaxMouseNormalized: parallaxMouseNormalized,
+            encodeFrameReadback: frameReadback,
             to: drawable,
             viewportSize: metalLayer.drawableSize
         )

@@ -117,11 +117,17 @@ enum DebugScenePlaybackRunner {
     ) {
         for (reason, delay) in [("ready", 1.0), ("after", 3.0)] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                DebugSceneWindowCapture.capture(
+                let accepted = SceneDesktopWallpaperHost.shared.requestDebugSnapshot(
                     windowNumber: windowNumber,
                     reason: reason,
                     outputDirectory: outputDirectory
                 )
+                if !accepted {
+                    NSLog(
+                        "MWX DEBUG SCENE: phase=snapshot-failed reason=%@ stage=surface-lookup error=unknown",
+                        reason
+                    )
+                }
             }
         }
     }

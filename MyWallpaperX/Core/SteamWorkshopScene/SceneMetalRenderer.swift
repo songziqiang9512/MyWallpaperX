@@ -153,6 +153,7 @@ struct SceneMetalRenderer {
         time: Float,
         mouseNormalized: SIMD2<Float>,
         parallaxMouseNormalized: SIMD2<Float>,
+        encodeFrameReadback: ((MTLTexture, MTLCommandBuffer) -> Void)? = nil,
         to drawable: CAMetalDrawable,
         viewportSize: CGSize
     ) {
@@ -243,6 +244,7 @@ struct SceneMetalRenderer {
         }
 
         mainPass.finishEnsuringClear()
+        encodeFrameReadback?(drawable.texture, commandBuffer)
         commandBuffer.present(drawable)
         commandBuffer.commit()
     }

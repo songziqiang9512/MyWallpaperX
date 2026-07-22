@@ -72,6 +72,22 @@ final class SceneDesktopWallpaperHost {
             windowNumbers: surfaces.values.map { $0.window.windowNumber }.sorted()
         )
     }
+
+    @discardableResult
+    func requestDebugSnapshot(
+        windowNumber: Int,
+        reason: String,
+        outputDirectory: URL
+    ) -> Bool {
+        guard let surface = surfaces.values.first(where: {
+            $0.window.windowNumber == windowNumber
+        }) else { return false }
+        surface.metalView.requestDebugSnapshot(
+            reason: reason,
+            outputDirectory: outputDirectory
+        )
+        return true
+    }
 #endif
 
     private func installObservers() {
