@@ -6,6 +6,7 @@
 
 - [architecture/framework-architecture-memo.md](architecture/framework-architecture-memo.md)：截至 2026-05-05 的框架结构、公共协议和模块边界基线；使用前需与当前代码核对。
 - [reviews/web-scene-current-state-roadmap-2026-07-19.md](reviews/web-scene-current-state-roadmap-2026-07-19.md)：Web / Scene 当前能力、验证结果、闭环边界和后续路线。
+- [scene/semantics/coverage-ledger.md](scene/semantics/coverage-ledger.md)：Scene 官方能力全集到当前代码的逐项支持等级、证据、缺口和 coverage-first 批次；新会话先从这里选公共依赖。
 - [scene/scene-capability-development-plan-2026-07-22.md](scene/scene-capability-development-plan-2026-07-22.md)：Scene 对齐 Wallpaper Engine 常用播放能力的现役实施顺序、样本规范和测试门。
 - [scene/semantics/README.md](scene/semantics/README.md)：Wallpaper Engine Scene 的现役语义手册入口，包含 Render Graph、45 个官方 effect、粒子/文字/脚本合同和证据索引。
 - [architecture/project-working-memory.md](architecture/project-working-memory.md)：截至 2026-05-17 的 AppKit / Steam 协作快照；使用前需与当前代码核对。

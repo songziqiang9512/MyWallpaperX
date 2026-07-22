@@ -182,7 +182,7 @@ Motion Blur 等定义含显式 copy，用来复制 source 像素到 target；省
 
 资源注册表应以 `wallpaper + screen + object + effect instance + RT name` 作为身份基础。是否跨帧保留必须由 read-before-write、copy/swap、function/reset 和生命周期数据流判定，不能只看 `unique`。最终判为 persistent 的资源在 resize、壁纸切换、seek、停止和设备丢失时必须清理或重建。
 
-MyWallpaperX v17 已落地第一段逐帧 registry：实例随当前 renderer/screen 隔离，帧内 identity 区分 layer source、完整 named layer target（包含 variant）、user property 与 system key；entry 记录 ready/pending/unavailable 和 generation，resolver 按作者候选顺序选首个 ready provider。每帧重新发布可防止旧 named target 泄漏，A/B variant 也不会串用。它还没有实现 effect-instance RT/history、跨帧 persistent 判定、文件/媒体 source 或 copy/swap 生命周期，不能替代上述目标模型。
+MyWallpaperX v17 已落地第一段逐帧 registry：实例随当前 renderer/screen 隔离，帧内 identity 区分 layer source、完整 named layer target（包含 variant）、user property 与 system key；entry 记录 ready/pending/unavailable 和 generation，resolver 按作者候选顺序选首个 ready provider。每帧重新发布可防止旧 named target 泄漏，A/B variant 也不会串用。当前另有一个受限 file-backed property source：授权 PNG/JPEG 可供严格静态 image-blend consumer 使用，并在缺失或失败时回退作者资源；它还不是通用 file source。effect-instance RT/history、跨帧 persistent、system/media/video/Texture Variants、通用 material consumer 和 copy/swap 生命周期仍未实现。
 
 ## 7. Material definition
 
@@ -289,10 +289,10 @@ present or read back
 | 层级 | 当前状态 | 下一合同 |
 |---|---|---|
 | Scene/object IR | format 17 继承 v16 的实例、EffectDefinition/FBO/pass/bind/command 与 authored graph/canonical SHA，并增加 material usertexture、property key 和 runtime provider metadata | 保持 raw/typed 双层合同，不把未知字段静默解释为支持 |
-| dependency | graph 已结构化区分固定 `previous`、effect-scoped RT 和 copy/swap；bounded frame registry 已按 identity/status/generation 处理 named target 与 property-authored fallback，其他受限 clipping/static provider 仍由旧执行器执行 | 给现有 registry 接实际 file/system/media/effectful/nested source，并补 compose/history 数据流判定，再扩通用 GPU executor |
-| material/shader | sparse-slot candidate resolver、strict 2-pass precise 与 stock standard Blur default-profile 4-pass backend 已落地；运行时整体仍以手写 MSL 近似为主 | 补 shader defaults、真实 provider source、nested target 和更多 pass；非默认 standard 变体按独立证据扩展 |
+| dependency | graph 已结构化区分固定 `previous`、effect-scoped RT 和 copy/swap；bounded frame registry 已按 identity/status/generation 处理 named target、property-authored fallback 与受限 PNG/JPEG property source，其他 clipping/static provider 仍由旧执行器执行 | 接 system/media/video/variant/effectful/nested source，并补 compose/history 数据流判定，再扩通用 GPU executor |
+| material/shader | sparse-slot candidate resolver、strict 2-pass precise 与 stock standard Blur default-profile 4-pass backend 已落地；运行时整体仍以手写 MSL 近似为主 | 补 shader defaults、通用 provider consumer、nested target 和更多 pass；非默认 standard 变体按独立证据扩展 |
 | local deformation | Foliage/Water/Shake 等有不同程度近似 | 以 [Effects 全集](effects-reference.md) 的输入、空间和 mask 合同替换 |
-| live values | 属性覆盖部分 target；Timeline/SceneScript/provider 未统一 | 建 typed target snapshot 和统一 frame context |
+| live values | 属性覆盖部分 target；统一 Frame Context 第一阶段已由 shader/video/particle/parallax 消费，属性变化仍重建 Scene；Timeline/SceneScript 未接入 | 建 typed target snapshot、优先级和无重建更新，再接 Timeline/SceneScript/audio/media |
 
 ## 12. 验收要求
 

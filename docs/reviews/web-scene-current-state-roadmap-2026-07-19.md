@@ -24,7 +24,7 @@ Web 目前没有已确认的宿主 P0 阻断，当前 HEAD 的 34+5+3 已知样�
 
 Scene 已建立独立模块、PKGV 读取、受控缓存、typed interpretation、纹理解码、Metal 渲染和桌面宿主。当前链路为 interpretation v17：v15 保真保存 EffectDefinition，v16 把可见 layer/effect 编译为 authored graph，v17 在不改变 graph identity 的前提下加入 material usertexture、property key 和运行时 provider metadata。renderer 现已消费两个严格注册的 Blur 子集；逐帧 typed texture registry 也已支持 layer/named/property/system identity、provider 状态/generation 和属性缺失时的 authored fallback。文件型 `sceneTexture` 的首个产品切片已经接通 PNG/JPEG 选择、按壁纸 bookmark、限时 security scope、逐屏 Metal 解码上传和失败回退，但只开放给当前实际可执行的静态 image-blend property consumer。其他 current-prefix、named dependency、静态 blend 和手写 effect 仍是 bounded GPU 路径。这不是任意 graph、material、shader 或完整 sceneTexture/media executor。
 
-当前正式语义矩阵为 **13/13 通过**。definition/graph 结构基线仍为 106 definitions、182 passes、179 material passes、50 FBO，以及 197 layer plans、300 effects、411 nodes、76 RT；5 个 blocker 仍集中在 `3723344874` fluid layer。graph GPU 门成功执行 `2902406982:[530]`、`3724289844:[28,36]` 与 `3765760121:[68,76,82]`，失败为 0；不满足严格合同的 layers `20/348/358` 已拒绝并阻断 legacy blur fallback。`2938612768` 的 static image blend 保持 **5/5**；隔离注入 `newproperty25/26` 已证明真实用户文件会替换对应 provider，空值或解码失败仍沿作者候选回退。宿主级 `SceneFrameTiming` / `SceneFrameContext` 第一阶段现已统一所有屏幕的 frame index、host/scene/wall time，并迁移 shader、video、particle 和 parallax 消费者；pause/resume、delta clamp、fixed timestep 和 live-value targets 仍未完成。后续采用 coverage-first：先把官方主要系统横向接到可运行、可诊断基线，再按共享根因校准视觉精度；唯一权威顺序见 [Scene 播放能力开发计划](../scene/scene-capability-development-plan-2026-07-22.md)。
+当前正式语义矩阵为 **13/13 通过**。definition/graph 结构基线仍为 106 definitions、182 passes、179 material passes、50 FBO，以及 197 layer plans、300 effects、411 nodes、76 RT；5 个 blocker 仍集中在 `3723344874` fluid layer。graph GPU 门成功执行 `2902406982:[530]`、`3724289844:[28,36]` 与 `3765760121:[68,76,82]`，失败为 0；不满足严格合同的 layers `20/348/358` 已拒绝并阻断 legacy blur fallback。`2938612768` 的 static image blend 保持 **5/5**；隔离注入 `newproperty25/26` 已证明真实用户文件会替换对应 provider，空值或解码失败仍沿作者候选回退。宿主级 `SceneFrameTiming` / `SceneFrameContext` 第一阶段现已统一所有屏幕的 frame index、host/scene/wall time，并迁移 shader、video、particle 和 parallax 消费者；pause/resume、delta clamp、fixed timestep 和 live-value targets 仍未完成。后续采用 coverage-first：先把官方主要系统横向接到可运行、可诊断基线，再按共享根因校准视觉精度；逐项等级与缺口见 [Scene 官方语义与实现覆盖台账](../scene/semantics/coverage-ledger.md)，执行顺序见 [Scene 播放能力开发计划](../scene/scene-capability-development-plan-2026-07-22.md)。
 
 ## 2. 评估口径与证据边界
 
@@ -449,13 +449,14 @@ descriptor 能识别 image、solid、particle、text、container 与 typed utili
 
 ### 阶段 0：产品边界与执行门（已确定方向，进行中）
 
-当前选择“可审计的兼容 Runtime”方向：不承诺私有格式 100% 复刻，但按官方行为合同、真实样本频率和 [Scene 语义手册](../scene/semantics/README.md) 推进。Effect-definition IR、authored graph planner、S2.3a precise-blur、S2.3b standard Blur 默认 profile、resource identity/property authored-fallback，以及 file-backed `sceneTexture` 第一切片已完成；当前下一独立切片是 system/media/variant/effectful provider 和更广 graph backend。既有 bounded executor 在新路径取得 GPU/golden 等价证据前保留，但不再扩展名称分支。
+当前选择“可审计的兼容 Runtime”方向：不承诺私有格式 100% 复刻，但按官方行为合同、真实样本频率和 [Scene 语义手册](../scene/semantics/README.md) 推进。Effect-definition IR、authored graph planner、两个严格 Blur 子图、resource identity/property authored-fallback、file-backed `sceneTexture`、统一 Frame Context 第一阶段和首批 built-in 粒子纹理已完成。当前下一独立切片是 typed DynamicValue/target snapshot；Timeline、SceneScript、动态文字、audio/media 再横向接入同一合同。既有 bounded executor 在新路径取得 GPU/golden 等价证据前保留，但不再扩展名称分支。完整等级以 [覆盖台账](../scene/semantics/coverage-ledger.md) 为准。
 
 ### 阶段 1：正确性、安全和性能基础
 
-1. 在现有 typed registry 上闭合 resource provider、composition 与 ordered effect/pass 主链：把已完成的授权 PNG/JPEG `sceneTexture` 从受限静态 image-blend 扩到通用 material consumer，并接入 `$mediaThumbnail`、Texture Variants、effectful/dynamic provider、mask、child/nested target 和多消费者生命周期，严格按作者顺序消费 typed texture/usertexture、combo、render state 与 intermediate target；先关闭 `2902406982`、`2938612768`、`3750813609` 已观察到的组合错误，再扩 masked waterripple、waterflow 和其他高频 effect。
-2. 接通 live value 与 media：`$mediaThumbnail`、动态时间/日期/媒体文字、sceneTexture 动态 alpha 和相关属性值必须进入同一帧合同，不再以静态占位值替代。
-3. 扩展剩余粒子语义：在现有 author sprite、built-in drop 和 sprite trail 上补常见 built-in texture、renderer、initializer/operator、child/world-space 与雨雪类组合；每类都要有未声明反例，禁止全局强开。
+1. 建立 typed DynamicValue/target registry、同帧不可变 snapshot 和 `authored -> user -> Timeline -> SceneScript` 优先级；先让受支持属性、动态文字和 visibility 无需整场重建。
+2. 在同一 target/frame 合同上横向接通 Timeline core、SceneScript core、cursor/audio/media snapshot，再让 `$mediaThumbnail`、时间/日期/媒体文字和相关属性值成为真实消费者。
+3. 并行扩展 typed provider 与粒子广度：接 Texture Variants、video/system/media、通用 material、effectful/nested/child source；补高频 atlas/multi-texture、world/child/control point/rope/audio/collision 最小闭环。每类都要有作者关闭反例和失败降级。
+4. 上述公共合同稳定后再扩 copy/swap/compose、RT history 和 45 类 effect backend；最后用固定矩阵与 Windows golden 集中校准字体、视差、粒子和效果精度。
 4. 在上述视觉主链之外继续补 PKG header/entry/解包边界、索引与纹理复用、按屏刷新率/FPS 和性能预算。
 
 验收标准：无样本 ID/名称特例；effect/pass 顺序、live 输入和 dependency GPU 成败可审计；未声明能力保持关闭；逐步扩充的代表 Scene 矩阵在 image/solid/text/particle、位置、方向、alpha、层级和释放上无回归。损坏包仍须受控失败，同一 pkg 不应重复全量解析。
@@ -517,7 +518,7 @@ descriptor 能识别 image、solid、particle、text、container 与 typed utili
 ### M5：Scene 基础质量收口
 
 - 已建立 13 个真实 Scene 样本、签名身份、Metal 非黑双帧、语义字段、动态像素、dependency GPU 完成和 surface 释放门，样本覆盖层级/有效可见性、MP4 payload、作者与 built-in sprite 粒子、静态文字、脚本密集图层、音频声明和更多 effect。
-- 受限 legacy coarse/precise Gaussian blur、strict standard Blur 默认 4-pass、Bloom、程序化 solid、静态 text geometry/font、camera cover/显式 parallax、无 mask normal-map waterripple、perspective/opacity、mode 9 composite、单层 built-in UV foliage、9 个精确 built-in 粒子程序纹理/sprite trail、utility current-prefix、bounded named target、简单静态 image blend、typed provider fallback、file-backed `sceneTexture` 第一切片和统一 Frame Context 第一阶段已落地；v17 保留 v16 authored graph 并增加 resource metadata，strict precise 与 standard-default 子图已进入 GPU。下一步只以 [Scene 播放能力开发计划](../scene/scene-capability-development-plan-2026-07-22.md) 的 coverage-first S2-S5 为执行顺序。
+- 受限 legacy coarse/precise Gaussian blur、strict standard Blur 默认 4-pass、Bloom、程序化 solid、静态 text geometry/font、camera cover/显式 parallax、无 mask normal-map waterripple、perspective/opacity、mode 9 composite、单层 built-in UV foliage、9 个精确 built-in 粒子程序纹理/sprite trail、utility current-prefix、bounded named target、简单静态 image blend、typed provider fallback、file-backed `sceneTexture` 第一切片和统一 Frame Context 第一阶段已落地；v17 保留 v16 authored graph 并增加 resource metadata，strict precise 与 standard-default 子图已进入 GPU。下一步只以 [覆盖台账](../scene/semantics/coverage-ledger.md) 的 B0-B4 和 [Scene 播放能力开发计划](../scene/scene-capability-development-plan-2026-07-22.md) 为执行顺序。
 - Scene 属性当前通过独立窗口编辑受支持 target；实际可执行的 texture key 支持 PNG/JPEG 选择和恢复作者默认，不再把未实现 target 伪装成可调控件。
 - 继续移除效果硬编码，修复 PKG 边界与重复解析，并建立 CPU/GPU/显存预算；样本只作验收，不新增 ID 适配。
 

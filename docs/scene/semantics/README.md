@@ -27,12 +27,13 @@ Scene 兼容的核心不是不断增加“看起来差不多”的效果分支�
 
 | 问题 | 先看 |
 |---|---|
+| 官方能力是否已收集、MyWallpaperX 当前做到哪一级、下一道公共门是什么 | [官方语义与实现覆盖台账](coverage-ledger.md) |
 | `project.json`、`scene.json`、对象、动态值和资源如何组成场景 | [场景格式与 Render Graph](scene-format-and-render-graph.md) |
 | effect 为什么启用、纹理槽是什么、多 pass 如何执行 | [内置 Effects 语义全集](effects-reference.md) |
 | 粒子、文字、Timeline、SceneScript、属性、音频和媒体如何工作 | [运行时系统语义](runtime-systems-reference.md) |
 | 官方站当前有哪些 Scene 页面、某个 API 专页在哪里 | [官方页面全目录](official-page-catalog.md) |
 | 某条结论来自官方、样本还是第三方实现 | [资料来源与证据索引](source-index.md) |
-| MyWallpaperX 当前做到哪里、下一步做什么 | [Scene 播放能力开发计划](../scene-capability-development-plan-2026-07-22.md) |
+| 已选批次的详细实施顺序、样本和测试门 | [Scene 播放能力开发计划](../scene-capability-development-plan-2026-07-22.md) |
 | Wallpaper Engine 的上层能力地图 | [Scene 兼容能力综述](../wallpaper_engine_scene_compatibility.md) |
 
 ## 3. 证据等级
@@ -118,7 +119,7 @@ scene.json / scene.pkg / assets
 ## 7. 维护约定
 
 - 本目录记录稳定语义和实现合同，不记录单次调试流水账。
-- 当前支持进度只在 `scene-capability-development-plan-2026-07-22.md` 与现役状态文档维护；本目录只放短状态映射。
+- 当前支持等级和缺口以 [覆盖台账](coverage-ledger.md) 为唯一能力表；实施细节和最新证据同步到 `scene-capability-development-plan-2026-07-22.md` 与现役状态文档。
 - 新发现的字段先标证据等级和样本来源，再判断是否进入实现。
 - 官方文档或 `lib.sceneScript.d.ts` 版本变化时，更新 [资料来源与证据索引](source-index.md) 的核验日期和差异。
 - 第三方播放器与官方资料冲突时，记录其偏差，不修正文档去迎合第三方行为。

@@ -570,7 +570,7 @@ https://docs.wallpaperengine.io/en/scene/rgb/introduction.html
 
 本节是通用第三方播放器的能力依赖建议，不是对 Workshop 覆盖率的官方统计，也不直接代表 MyWallpaperX 当前优先级。“绝大多数”“热门”等覆盖结论必须由项目自己的隔离样本矩阵支持。
 
-对 MyWallpaperX 当前阶段，bounded named-target capture/binding、strict precise-blur、stock standard Blur 默认 profile、typed frame registry/property authored-fallback，以及授权 PNG/JPEG `sceneTexture` 的受限静态 consumer 第一切片已落地，不应继续写成待启动项；standard 的非默认 kernel/composite/blend/alpha/mask 变体仍未支持。近期先给现有 registry 接入 system/media、Texture Variants、视频、通用 material consumer、effectful/nested/child provider 和更广 graph backend；之后建立时间、媒体、音频、属性等 live-value runtime，并按隔离样本命中率补高频 built-in particle/operator。Puppet Warp、3D 和任意自定义 shader 仍后置；唯一权威顺序以 [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md) 为准。
+对 MyWallpaperX 当前阶段，bounded named-target capture/binding、两个严格 Blur 子图、typed frame registry/property authored-fallback、授权 PNG/JPEG `sceneTexture` 的受限静态 consumer、统一 Frame Context 第一阶段和首批 9 个 built-in 粒子纹理已经落地，不应继续写成待启动项。当前采用 coverage-first：先完成 typed dynamic target/snapshot，并横向接通 Timeline core、SceneScript core、动态文字、audio/media 输入；同时补 provider 与高命中粒子骨架，使跨系统冲突在共同合同上暴露。之后再扩通用 material、RT history 和 45 类 effect backend，最后集中做 Windows golden 精度校准。能力等级以 [官方语义与实现覆盖台账](semantics/coverage-ledger.md) 为准，具体执行顺序以 [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md) 为准。
 
 ### P0：基础播放可见
 
@@ -855,10 +855,10 @@ Wallpaper Engine 的 Scene 壁纸本质上是一个实时渲染场景系统，�
 
 对 MyWallpaperX 当前阶段，兼容优先级应按主构图影响和真实样本命中推进：
 
-1. **先闭合剩余组合链**：在现有 typed registry/file-backed property 第一切片上接 system/media/Texture Variants、视频、通用 material consumer、effectful/nested/child provider、mask 与动态 blend；
-2. **再让动态值真实运行**：时间、媒体、音频、用户属性和 SceneScript 目标生命周期；
-3. **再扩高命中粒子**：常见 built-in preset、operator、child/control point，并继续保持未声明效果不启用；
-4. **再扩大常见视觉链**：Timeline、Bloom/HDR、water/lighting 等由矩阵证明高影响的 effect；
+1. **先建立 live-value 公共底座**：typed target、同帧 snapshot、属性/Timeline/SceneScript 优先级、动态文字和 cursor/audio/media 输入；
+2. **并行闭合 provider 与粒子骨架**：system/media/Texture Variants、视频、通用 material、effectful/nested/child provider，以及高频 atlas/world/child/control point/operator；
+3. **再扩通用 Render Graph**：copy/swap/compose、RT history、shader/material family 和 45 类 effect backend；
+4. **再集中校准视觉精度**：字体、视差、粒子、Bloom/HDR、water/lighting 与 Windows WE golden；
 5. **后置高成本长尾**：Puppet Warp、3D、任意自定义 shader、RGB 与高级物理。
 
-SceneScript、粒子、Bloom/HDR、Timeline、Puppet Warp 都是重要能力方向，但官方没有给出它们在 Workshop 热门壁纸中的覆盖率统计。具体项目仍应按自己的隔离样本命中频率、主构图影响和可验证性排序；MyWallpaperX 当前只实现了 bounded named-target、property absent -> authored fallback、受限 PNG/JPEG property source、单个 built-in UV Foliage Sway、built-in drop / Sprite Trail 等子集，不能据此宣称完整 sceneTexture、Scene、Foliage、Particle 或 Wallpaper Engine 兼容。
+SceneScript、粒子、Bloom/HDR、Timeline、Puppet Warp 都是重要能力方向，但官方没有给出它们在 Workshop 热门壁纸中的覆盖率统计。具体项目仍应按隔离样本命中频率、主构图影响和可验证性排序；MyWallpaperX 当前只实现 bounded named-target、property fallback、受限 PNG/JPEG property source、11 个 L3 effect 子集、9 个确定性 built-in 粒子 key 和 Sprite Trail 等边界，不能据此宣称完整 sceneTexture、Scene、Effect、Particle 或 Wallpaper Engine 兼容。当前精确等级统一查 [覆盖台账](semantics/coverage-ledger.md)。

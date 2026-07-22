@@ -64,11 +64,11 @@ MyWallpaperX 深度利用 macOS 原生能力，围绕**素材管理 → 资源�
 | **Steam Workshop 浏览** | ✅ | 完全原生的 AppKit NSCollectionView 网格浏览 Wallpaper Engine 创意工坊，内置 SteamCMD Runtime |
 | **视频壁纸播放** | ✅ | 独立守护进程承载视频播放，支持切换、音量、播放速率、音量控制，DaemonProtocol 跨进程通信 |
 | **Web 壁纸支持** | ✅ | `project.json → descriptor → runtime model → playback context` 四层解析管线；已知样本功能主链通过门禁，发布级生命周期和长期稳定性仍在验收 |
-| **Scene 壁纸渲染** | 🚧 | Metal 渲染器已实现图像层、层级变换、纹理/mask 子集、coarse gaussian blur 和桌面宿主；高级 effect、属性、timeline、粒子、SceneScript 与 puppet 仍在开发 |
+| **Scene 壁纸渲染** | 🚧 | 已具备 Scene/PKG/TEX 解析、Metal 桌面宿主、基础层级、受限 graph/provider/effect、静态文字、声明驱动视差、属性窗口和粒子子集；Timeline、SceneScript、动态输入与高级对象仍在开发 |
 | **系统音频频谱** | 🚧 | 已验证真实音源相关性、Wallpaper Engine 64+64 双声道布局和兼容幅度响应；设备切换、系统静音和睡眠恢复仍待发布验收 |
 | **菜单栏控制** | ✅ | 状态栏入口，GPU 占用实时显示，快速访问播放控制与模块切换 |
 
-> **Scene 壁纸说明**：Scene 渲染器已完成 `scene.json` 解析、`scene.pkg` 资源包解包、TEX 纹理加载、Metal 管线、桌面宿主和首批 2 个真实 Steam 样本自动门。当前可渲染基础图像层与有限手写 effect，coarse gaussian blur 已有真实横纵 GPU pass；材质 shader、复杂多 pass、用户属性、timeline、粒子、SceneScript 和 puppet warp 尚未闭环。
+> **Scene 壁纸说明**：当前 13 个固定隔离样本通过签名 App 运行门，正式可见粒子为 14/27；这只证明受限子集可运行，不代表 Wallpaper Engine 视觉等价。45 类官方 Effect 和各运行系统的当前等级、证据与缺口见 [Scene 官方语义与实现覆盖台账](docs/scene/semantics/coverage-ledger.md)。
 
 > Web / Scene 的当前验证数据、明确边界和后续路线见 [现状评估与演进路线](docs/reviews/web-scene-current-state-roadmap-2026-07-19.md)。
 
