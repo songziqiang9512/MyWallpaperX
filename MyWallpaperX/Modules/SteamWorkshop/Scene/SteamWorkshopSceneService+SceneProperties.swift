@@ -11,9 +11,9 @@ struct SteamWorkshopScenePropertyContext {
         return definitions.enumerated().compactMap { index, definition in
             if actionableKeys.contains(definition.key) {
                 switch definition.kind {
-                case .bool, .slider, .color, .combo, .textInput, .text:
+                case .bool, .slider, .color, .combo, .textInput, .text, .sceneTexture:
                     return definition
-                case .group, .sceneTexture, .unsupported:
+                case .group, .unsupported:
                     break
                 }
             }
@@ -37,9 +37,9 @@ struct SteamWorkshopScenePropertyContext {
 
     private static func supportsEditorControl(_ kind: SceneUserPropertyKind) -> Bool {
         switch kind {
-        case .bool, .slider, .color, .combo, .textInput:
+        case .bool, .slider, .color, .combo, .textInput, .sceneTexture:
             return true
-        case .text, .group, .sceneTexture, .unsupported:
+        case .text, .group, .unsupported:
             return false
         }
     }
@@ -94,14 +94,20 @@ extension SteamWorkshopService {
     ) -> SteamWorkshopScenePropertyContext? {
         guard record.contentType == .scene,
               let project = report.project,
-              let document = report.sceneDocument else {
+              let document = report.sceneDocument,
+              let renderDescriptor = report.renderDescriptor else {
             return nil
         }
-        let actionableKeys = Set(
+        var actionableKeys = Set(
             document.userPropertyResolution.bindingReport.bindings.compactMap { binding in
                 supportsScenePropertyTarget(binding.target) ? binding.reference.key : nil
             }
         )
+        let blendPlan = SceneImageBlendRenderPlan(
+            descriptor: renderDescriptor,
+            visibleLayerIDs: Set(renderDescriptor.layers.map(\.id))
+        )
+        actionableKeys.formUnion(blendPlan.executedUserPropertyKeys)
         let catalog = project.userProperties
         let context = SteamWorkshopScenePropertyContext(
             catalog: catalog,
@@ -158,6 +164,7 @@ extension SteamWorkshopService {
     }
 
     func resetScenePropertyValues(for record: SteamWorkshopDownloadRecord) {
+        clearSceneTexturePropertyBookmarks(for: record)
         saveScenePropertyOverrides([:], for: record)
         objectWillChange.send()
         scheduleActiveScenePropertyRender(for: record)

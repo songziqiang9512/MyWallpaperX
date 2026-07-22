@@ -26,6 +26,7 @@ final class SceneDesktopWallpaperHost {
     private struct LaunchContext {
         let renderDescriptor: SceneRenderDescriptor
         let authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan]
+        let userPropertyTextureURLs: [String: URL]
         let cacheDirectory: URL
         let logURL: URL?
         let recordID: String?
@@ -50,6 +51,7 @@ final class SceneDesktopWallpaperHost {
     func launch(
         renderDescriptor: SceneRenderDescriptor,
         authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan],
+        userPropertyTextureURLs: [String: URL] = [:],
         cacheDirectory: URL,
         logURL: URL?,
         recordID: String? = nil
@@ -57,6 +59,7 @@ final class SceneDesktopWallpaperHost {
         launchContext = LaunchContext(
             renderDescriptor: renderDescriptor,
             authoredEffectRenderPlans: authoredEffectRenderPlans,
+            userPropertyTextureURLs: userPropertyTextureURLs,
             cacheDirectory: cacheDirectory,
             logURL: logURL,
             recordID: recordID
@@ -155,6 +158,11 @@ final class SceneDesktopWallpaperHost {
             return false
         }
 
+        let scopedURLs = launchContext.userPropertyTextureURLs.values.filter {
+            $0.startAccessingSecurityScopedResource()
+        }
+        defer { scopedURLs.forEach { $0.stopAccessingSecurityScopedResource() } }
+
         teardownSurfaces(clearContext: false)
 
         var created = false
@@ -165,6 +173,7 @@ final class SceneDesktopWallpaperHost {
             guard let metalView = SceneMetalView(
                 renderDescriptor: launchContext.renderDescriptor,
                 authoredEffectRenderPlans: launchContext.authoredEffectRenderPlans,
+                userPropertyTextureURLs: launchContext.userPropertyTextureURLs,
                 frame: frame
             ) else {
                 continue

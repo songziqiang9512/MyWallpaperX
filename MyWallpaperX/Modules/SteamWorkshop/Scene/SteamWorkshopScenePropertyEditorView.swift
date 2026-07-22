@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SteamWorkshopScenePropertyEditorView: View {
     let record: SteamWorkshopDownloadRecord
@@ -88,9 +89,62 @@ struct SteamWorkshopScenePropertyEditorView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-        case .sceneTexture, .unsupported:
+        case .sceneTexture:
+            sceneTextureRow(definition)
+        case .unsupported:
             EmptyView()
         }
+    }
+
+    private func sceneTextureRow(_ definition: SceneUserPropertyDefinition) -> some View {
+        let selectedURL = service.resolvedSceneTexturePropertyURL(
+            forKey: definition.key,
+            record: record
+        )
+        return VStack(alignment: .leading, spacing: 7) {
+            Text(title(for: definition))
+            HStack(spacing: 8) {
+                Text(selectedURL?.lastPathComponent ?? "使用作者默认纹理")
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                if selectedURL != nil {
+                    Button {
+                        values[definition.key] = definition.defaultValue ?? .string("")
+                        service.updateSceneTexturePropertyURL(
+                            nil,
+                            definition: definition,
+                            record: record
+                        )
+                    } label: {
+                        Image(systemName: "xmark.circle")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("恢复作者提供的默认纹理")
+                }
+                Button("选择图像", systemImage: "photo.badge.plus") {
+                    selectSceneTexture(for: definition)
+                }
+                .help("选择 PNG 或 JPEG 图像")
+            }
+        }
+    }
+
+    private func selectSceneTexture(for definition: SceneUserPropertyDefinition) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.png, .jpeg]
+        panel.prompt = "选择"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard service.updateSceneTexturePropertyURL(
+            url,
+            definition: definition,
+            record: record
+        ) else { return }
+        values[definition.key] = .string(url.path)
     }
 
     private func sliderRow(_ definition: SceneUserPropertyDefinition) -> some View {

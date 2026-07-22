@@ -82,7 +82,13 @@ enum Harness {
             blend(provider: 100, omitAlpha: true, neutralTransformConstants: true),
         ])
         let propertyFallback = image(18, dependencies: [100], effects: [
-            blend(provider: 100, propertySource: "cover", scriptedAlpha: true),
+            blend(provider: 100, propertySource: "newproperty25", scriptedAlpha: true),
+        ])
+        let secondPropertyFallback = image(20, dependencies: [100], effects: [
+            blend(provider: 100, propertySource: "newproperty26"),
+        ])
+        let unplannedProperty = image(21, effects: [
+            blend(provider: 100, propertySource: "declared-but-unplanned"),
         ])
         let unsupportedScript = image(19, dependencies: [100], effects: [
             blend(provider: 100, scriptedAlpha: true),
@@ -93,9 +99,18 @@ enum Harness {
         ])
         let layers = [valid, mismatch, effectful, boundValue, transformed, secondary,
                       defaulted, nonNeutralConstants, propertyFallback,
-                      unsupportedScript, provider, effectfulProvider]
+                      unsupportedScript, secondPropertyFallback, unplannedProperty,
+                      provider, effectfulProvider]
         let plan = SceneImageBlendRenderPlan(
-            descriptor: .init(layers: layers, texturePropertyKeys: ["cover"]),
+            descriptor: .init(
+                layers: layers,
+                texturePropertyKeys: [
+                    "newproperty25",
+                    "newproperty26",
+                    "declared-but-unplanned",
+                    "declared-and-unused",
+                ]
+            ),
             visibleLayerIDs: Set(layers.compactMap { $0.visible == false ? nil : $0.id })
         )
         let operation = plan.operationsByConsumerLayerID[10]
@@ -111,6 +126,7 @@ enum Harness {
                 .textureSelection.candidates.map(\.reportToken) ?? [],
             "propertyUsesInitialAlpha": plan.operationsByConsumerLayerID[18]?
                 .usesAuthoredInitialAlpha ?? false,
+            "executedUserPropertyKeys": plan.executedUserPropertyKeys.sorted(),
             "report": plan.reportLines(),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -230,7 +246,7 @@ class SceneImageBlendPlanTests(unittest.TestCase):
         cls.temporary_directory.cleanup()
 
     def test_hidden_forward_static_provider_is_planned(self) -> None:
-        self.assertEqual(self.result["consumers"], [10, 16, 18])
+        self.assertEqual(self.result["consumers"], [10, 16, 18, 20])
         self.assertEqual(self.result["provider"], 100)
         self.assertEqual(self.result["multiply"], 1)
         self.assertEqual(self.result["alpha"], 1)
@@ -241,13 +257,19 @@ class SceneImageBlendPlanTests(unittest.TestCase):
     def test_property_provider_preserves_authored_layer_fallback(self) -> None:
         self.assertEqual(
             self.result["propertyCandidates"],
-            ["property:cover", "layer:100"],
+            ["property:newproperty25", "layer:100"],
         )
         self.assertTrue(self.result["propertyUsesInitialAlpha"])
 
+    def test_executed_property_keys_exclude_declared_but_unplanned_properties(self) -> None:
+        self.assertEqual(
+            self.result["executedUserPropertyKeys"],
+            ["newproperty25", "newproperty26"],
+        )
+
     def test_media_bound_and_unsupported_operations_do_not_enter_static_plan(self) -> None:
-        self.assertEqual(len(self.result["report"]), 4)
-        self.assertIn("imageBlendPlannedCount: 3", self.result["report"])
+        self.assertEqual(len(self.result["report"]), 5)
+        self.assertIn("imageBlendPlannedCount: 4", self.result["report"])
 
 
 if __name__ == "__main__":

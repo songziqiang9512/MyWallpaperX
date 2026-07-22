@@ -8,6 +8,7 @@ class SceneMetalView: NSView {
     private let renderer: SceneMetalRenderer
     private let metalLayer: CAMetalLayer
     private let solidLayerTexture: MTLTexture?
+    private let userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
     private var imageTextures: [Int: MTLTexture] = [:]
     private var spriteAnimations: [Int: SceneSpriteAnimation] = [:]
     private var videoTextureSources: [Int: SceneVideoTextureSource] = [:]
@@ -34,6 +35,7 @@ class SceneMetalView: NSView {
     init?(
         renderDescriptor: SceneRenderDescriptor,
         authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan],
+        userPropertyTextureURLs: [String: URL] = [:],
         frame: NSRect
     ) {
         guard let renderer = SceneMetalRenderer(
@@ -43,6 +45,9 @@ class SceneMetalView: NSView {
         self.metalDevice = renderer.device
         self.renderer = renderer
         self.solidLayerTexture = SceneSolidLayerTexture.make(device: renderer.device)
+        self.userPropertyTextureLoad = SceneUserPropertyTextureLoader().load(
+            urlsByPropertyKey: userPropertyTextureURLs, device: renderer.device
+        )
 
         let layer = CAMetalLayer()
         layer.device = renderer.device
@@ -184,6 +189,7 @@ class SceneMetalView: NSView {
         report.append("Scene preview texture load report")
         report.append("camera: projection=cover parallax=\(renderer.renderDescriptor.camera.parallaxEnabled) amount=\(renderer.renderDescriptor.camera.parallaxAmount) delay=\(renderer.renderDescriptor.camera.parallaxDelay) mouseInfluence=\(renderer.renderDescriptor.camera.parallaxMouseInfluence)")
         report.append("cacheDirectory: \(cacheDirectory.path)")
+        report.append(contentsOf: userPropertyTextureLoad.reportLines)
         let imageLayers = renderer.renderDescriptor.layers.filter(\.isImageRenderable)
         report.append("imageLayerCount: \(imageLayers.count)")
         report.append("solidLayerCount: \(imageLayers.filter { $0.contentKind == "solid" }.count)")
@@ -365,6 +371,7 @@ class SceneMetalView: NSView {
 #endif
         renderer.renderFrame(
             imageTextures: currentImageTextures,
+            userPropertyTextures: userPropertyTextureLoad.textures,
             spriteAnimations: spriteAnimations,
             irisMaskTextures: effectTextures.irisMasks,
             opacityMaskTextures: effectTextures.opacityMasks,

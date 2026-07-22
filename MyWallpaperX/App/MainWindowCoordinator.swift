@@ -451,8 +451,7 @@ enum MainWindowCoordinator {
         observerTokens.append(observer)
     }
 
-    /// 监听 Steam Scene 壁纸渲染请求，创建 desktop-level Scene 宿主窗口。
-    /// Scene 链路和 Web/Video 保持独立，切换通过通知中转，不直接跨模块调用。
+    /// 监听 Steam Scene 请求并创建与 Web/Video 分离的 desktop-level 宿主窗口。
     private static func observeSteamWorkshopSceneReadyToRender() {
         let observer = NotificationCenter.default.addObserver(
             forName: .steamWorkshopSceneReadyToRender,
@@ -463,14 +462,15 @@ enum MainWindowCoordinator {
                   let interpretationFileURL = notification.userInfo?["interpretationFileURL"] as? URL,
                   let previewLogURL = notification.userInfo?["previewLogURL"] as? URL,
                   let recordID = notification.userInfo?["recordID"] as? String else { return }
+            let userTextureURLs = notification.userInfo?["userPropertyTextureURLs"] as? [String: URL] ?? [:]
             guard let file = try? SceneInterpretationFileReader().read(from: interpretationFileURL) else { return }
             guard SceneDesktopWallpaperHost.shared.launch(
                 renderDescriptor: file.renderDescriptor, authoredEffectRenderPlans: file.authoredEffectRenderPlans,
+                userPropertyTextureURLs: userTextureURLs,
                 cacheDirectory: cacheDirectory,
                 logURL: previewLogURL,
                 recordID: recordID
             ) else { return }
-
             postWallpaperRuntimeWillSwitch(to: .scene)
             wallpaperManager.clearCurrentWallpaperReference()
             wallpaperManager.activeWallpaperRuntime = .scene

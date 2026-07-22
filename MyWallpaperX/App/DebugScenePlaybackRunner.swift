@@ -21,7 +21,8 @@ enum DebugScenePlaybackRunner {
     }
 
     private static func launchScene(rootPath: String) {
-        let rootURL = URL(fileURLWithPath: rootPath, isDirectory: true).standardizedFileURL
+        let rootURL = URL(fileURLWithPath: rootPath, isDirectory: true)
+            .resolvingSymlinksInPath().standardizedFileURL
         guard isIsolatedSampleRoot(rootURL) else {
             NSLog("MWX DEBUG SCENE: phase=precondition-failed reason=isolated-root-required root=%@", rootURL.path)
             terminate(after: 0.1)
@@ -55,9 +56,11 @@ enum DebugScenePlaybackRunner {
                 throw SceneRuntimeModelBuilder.BuildError.missingRenderDescriptor
             }
             let previewLogURL = evidenceDirectory?.appendingPathComponent("scene-preview.log")
+            let userPropertyTextureURLs = requestedUserPropertyTextureURLs(rootURL: rootURL)
             let launched = SceneDesktopWallpaperHost.shared.launch(
                 renderDescriptor: model.renderDescriptor,
                 authoredEffectRenderPlans: model.authoredEffectRenderPlans,
+                userPropertyTextureURLs: userPropertyTextureURLs,
                 cacheDirectory: cacheDirectory,
                 logURL: previewLogURL
             )
@@ -153,7 +156,7 @@ enum DebugScenePlaybackRunner {
         }
         let realWorkshopRoot = fileManager.homeDirectoryForCurrentUser
             .appendingPathComponent("Movies/MyWallpaperX/创意工坊", isDirectory: true)
-            .standardizedFileURL.path
+            .resolvingSymlinksInPath().standardizedFileURL.path
         return rootURL.path != realWorkshopRoot
             && rootURL.path.hasPrefix(realWorkshopRoot + "/") == false
     }
@@ -181,6 +184,31 @@ enum DebugScenePlaybackRunner {
         }
         return object.reduce(into: [:]) { values, entry in
             values[entry.key] = SceneUserPropertyValue.parse(entry.value)
+        }
+    }
+
+    private static func requestedUserPropertyTextureURLs(rootURL: URL) -> [String: URL] {
+        guard let payload = argumentValue(after: "--mwx-debug-scene-textures-json"),
+              let data = payload.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: String] else {
+            return [:]
+        }
+        let resolvedRootURL = rootURL.resolvingSymlinksInPath().standardizedFileURL
+        let rootPrefix = resolvedRootURL.path + "/"
+        return object.reduce(into: [:]) { urls, entry in
+            let url = URL(fileURLWithPath: entry.value, relativeTo: resolvedRootURL)
+                .resolvingSymlinksInPath().standardizedFileURL
+            guard url.path.hasPrefix(rootPrefix),
+                  SceneUserPropertyTextureLoader.supports(url: url),
+                  FileManager.default.fileExists(atPath: url.path) else {
+                NSLog(
+                    "MWX DEBUG SCENE: phase=user-texture-rejected key=%@ file=%@",
+                    entry.key,
+                    url.lastPathComponent
+                )
+                return
+            }
+            urls[entry.key] = url
         }
     }
 }

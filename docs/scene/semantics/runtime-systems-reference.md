@@ -340,7 +340,7 @@ Scene 与 Web 音频合同不同：
 - color/alpha/format；
 - consumer slots。
 
-当前 v17 第一切片已实现 frame-scoped typed identity、ready/pending/unavailable、generation、完整 named-target variant，以及 property provider 缺失时按有序候选回退 authored layer；下一帧未重新发布的 named target 会清空。当前 `SceneMetalView` 尚未向 registry 提供真实 user-property texture 或 system texture，因此这只证明 identity/fallback 合同，不证明用户文件、`$mediaThumbnail`、Texture Variants 或视频帧已经可用。
+当前 v17 已实现 frame-scoped typed identity、ready/pending/unavailable、generation、完整 named-target variant，以及 property provider 缺失时按有序候选回退 authored layer；下一帧未重新发布的 named target 会清空。文件型第一切片还会把按 wallpaper/property 保存的 PNG/JPEG bookmark 在同步 security scope 内解码为每屏设备的 `MTLTexture`，并由 `SceneMetalView` 发布到 registry；只为当前严格静态 image-blend consumer 暴露控件。它不证明 `$mediaThumbnail`、Texture Variants、视频帧、通用 material consumer、动态 alpha 或 SceneScript 已经可用。
 
 ## 8. Puppet、3D 和 Lighting
 
@@ -385,13 +385,13 @@ Realtime Adapter              Offline Adapter
 | Effect graph | v17 继承 v16 EffectDefinition/authored graph，并增加 provider metadata；strict precise 子集有 5 个 layer、standard Blur 默认 profile 有 1 个 layer 的 degraded GPU 执行；非默认 standard 图明确 blocked | 通用 material/pass 已执行、authored shader 语义等价或达到 WE 像素一致 |
 | Timeline | 数据识别不足或空壳 | 任意动画模式可用 |
 | SceneScript | 只检测 script | ECMAScript/runtime/API 可用 |
-| User Properties | 独立窗口、条件、默认/override、部分 target 与持久化；`texture`/`scenetexture` 内部归一 | 403 个样本属性全部可调、文件纹理已能选择/授权/解码 |
-| Texture Provider | frame identity/status/generation、named variant 隔离、property absent -> authored fallback | sceneTexture 文件、system media、Texture Variants、effectful/nested provider 已闭环 |
+| User Properties | 独立窗口、条件、默认/override、部分 target 与持久化；`texture`/`scenetexture` 内部归一；受限静态 consumer 可选择 PNG/JPEG | 403 个样本属性全部可调、所有 texture target/variant/live value 已闭环 |
+| Texture Provider | frame identity/status/generation、named variant 隔离、property absent -> authored fallback、受限 file-backed property source | system media、Texture Variants、视频、通用 material 与 effectful/nested provider 已闭环 |
 | Audio/Media | Web 侧已有服务，但 Scene consumer 未闭合 | Scene 音频/媒体可用 |
 
 ## 11. 实施顺序
 
-1. 在现有 frame registry 上接入授权文件、system media、Texture Variants、effectful/nested provider，并闭合 copy/swap/compose/history；未闭合 functions/conditions 继续 fail closed；
+1. 在现有 frame registry/file-backed property source 上接入 system media、Texture Variants、视频、通用 material consumer、effectful/nested provider，并闭合 copy/swap/compose/history；未闭合 functions/conditions 继续 fail closed；
 2. 再扩更多 shader/material/pass backend；standard Blur 非默认 kernel/composite/blend/alpha/mask 变体按独立证据加入，再让 Text/Particle 复用同一语义；
 3. 建统一 SceneClock、Timeline 和动态 text；
 4. 在 typed target 稳定后接 SceneScript 核心生命周期；

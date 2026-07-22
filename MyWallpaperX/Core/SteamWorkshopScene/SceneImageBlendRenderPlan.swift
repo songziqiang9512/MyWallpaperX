@@ -14,6 +14,14 @@ nonisolated struct SceneImageBlendRenderPlan {
 
     let operationsByConsumerLayerID: [Int: Operation]
 
+    nonisolated var executedUserPropertyKeys: Set<String> {
+        operationsByConsumerLayerID.values.reduce(into: Set<String>()) { keys, operation in
+            for case let .userProperty(key) in operation.textureSelection.candidates {
+                keys.insert(key)
+            }
+        }
+    }
+
     nonisolated init(
         descriptor: SceneRenderDescriptor,
         visibleLayerIDs: Set<Int>

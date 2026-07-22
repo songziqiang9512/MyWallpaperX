@@ -22,18 +22,31 @@ extension SteamWorkshopService {
         let previewLogURL = cacheDirectory.appendingPathComponent(
             ".mywallpaperx-scene-preview-log.txt"
         )
+        let userPropertyTextureKeys: Set<String> = report.renderDescriptor.map { descriptor in
+            let plan = SceneImageBlendRenderPlan(
+                descriptor: descriptor,
+                visibleLayerIDs: SceneLayerVisibility.visibleLayerIDs(in: descriptor)
+            )
+            return plan.executedUserPropertyKeys
+        } ?? []
 
-        NotificationCenter.default.post(
-            name: .steamWorkshopSceneReadyToRender,
-            object: nil,
-            userInfo: [
-                "rootURL": record.folderURL,
-                "cacheDirectory": cacheDirectory,
-                "interpretationFileURL": interpretationFileURL,
-                "previewLogURL": previewLogURL,
-                "recordID": record.id
-            ]
-        )
+        withResolvedSceneTexturePropertyURLs(
+            for: record,
+            keys: userPropertyTextureKeys
+        ) { userPropertyTextureURLs in
+            NotificationCenter.default.post(
+                name: .steamWorkshopSceneReadyToRender,
+                object: nil,
+                userInfo: [
+                    "rootURL": record.folderURL,
+                    "cacheDirectory": cacheDirectory,
+                    "interpretationFileURL": interpretationFileURL,
+                    "previewLogURL": previewLogURL,
+                    "userPropertyTextureURLs": userPropertyTextureURLs,
+                    "recordID": record.id
+                ]
+            )
+        }
         statusMessage = "已将 \(record.title) 发送到 Scene 壁纸宿主"
     }
 }
