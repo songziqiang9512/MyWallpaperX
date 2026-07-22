@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 import subprocess
@@ -57,7 +58,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(set(samples), set(expected))
         for sample_id, (solid_count, authored_color_count, effective_count) in expected.items():
             sample = samples[sample_id]
-            self.assertEqual(sample["expected_interpretation_format"], 15)
+            self.assertEqual(sample["expected_interpretation_format"], 16)
             self.assertEqual(sample["expected_solid_layer_count"], solid_count)
             self.assertEqual(
                 sample["expected_authored_solid_color_layer_count"],
@@ -211,9 +212,25 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
     def test_interpretation_metrics_preserve_slots_and_combos(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-interpretation-") as directory:
             path = Path(directory) / ".mywallpaperx-scene-interpretation.json"
+            effect_graphs = [{
+                "effects": [{"key": "one"}, {"key": "two"}],
+                "renderTargets": [{"name": "one"}, {"name": "two"}],
+                "nodes": [
+                    {"kind": "material"},
+                    {"kind": "copy"},
+                    {"kind": "swap"},
+                ],
+                "blockers": [{"reason": "unsupportedCondition"}],
+            }, {
+                "effects": [{"key": "three"}],
+                "renderTargets": [],
+                "nodes": [{"kind": "material"}],
+                "blockers": [],
+            }]
             path.write_text(
                 json.dumps({
                     "formatVersion": 7,
+                    "authoredEffectRenderPlans": effect_graphs,
                     "renderDescriptor": {
                         "materialPasses": [{
                             "textureSlots": [None, None, "phase.tex"],
@@ -280,6 +297,28 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             self.assertEqual(metrics["effect_definition_copy_command_count"], 1)
             self.assertEqual(metrics["effect_definition_swap_command_count"], 1)
             self.assertEqual(metrics["effect_definition_diagnostic_count"], 1)
+            self.assertEqual(metrics["effect_graph_layer_count"], 2)
+            self.assertEqual(metrics["effect_graph_effect_count"], 3)
+            self.assertEqual(metrics["effect_graph_node_count"], 4)
+            self.assertEqual(metrics["effect_graph_material_node_count"], 2)
+            self.assertEqual(metrics["effect_graph_copy_node_count"], 1)
+            self.assertEqual(metrics["effect_graph_swap_node_count"], 1)
+            self.assertEqual(metrics["effect_graph_render_target_count"], 2)
+            self.assertEqual(metrics["effect_graph_blocker_count"], 1)
+            self.assertEqual(
+                metrics["effect_graph_blocker_reasons"],
+                {"unsupportedCondition": 1},
+            )
+            self.assertEqual(metrics["effect_graph_unblocked_layer_count"], 1)
+            self.assertEqual(
+                metrics["effect_graph_sha256"],
+                hashlib.sha256(json.dumps(
+                    effect_graphs,
+                    ensure_ascii=True,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")).hexdigest(),
+            )
             self.assertEqual(metrics["visible_layer_count"], 3)
             self.assertEqual(metrics["visible_layer_ids"], [7, 8, 9])
             self.assertEqual(metrics["root_layer_count"], 2)

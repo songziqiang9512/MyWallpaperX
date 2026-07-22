@@ -29,7 +29,7 @@ struct SceneEffectDefinition: Codable, Equatable, Identifiable, Sendable {
         let height: SceneJSONValue?
         let fit: SceneJSONValue?
         let format: String?
-        let unique: Bool?
+        let unique: SceneJSONValue?
         let clear: SceneJSONValue?
         let uvs: SceneJSONValue?
         let conditions: SceneJSONValue?
@@ -171,7 +171,7 @@ struct SceneEffectDefinitionLoader {
             height: root["height"].flatMap(SceneJSONValue.init(jsonObject:)),
             fit: root["fit"].flatMap(SceneJSONValue.init(jsonObject:)),
             format: trimmedString(root["format"]),
-            unique: boolValue(root["unique"]),
+            unique: root["unique"].flatMap(SceneJSONValue.init(jsonObject:)),
             clear: root["clear"].flatMap(SceneJSONValue.init(jsonObject:)),
             uvs: root["uvs"].flatMap(SceneJSONValue.init(jsonObject:)),
             conditions: root["conditions"].flatMap(SceneJSONValue.init(jsonObject:)),

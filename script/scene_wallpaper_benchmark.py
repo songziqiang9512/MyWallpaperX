@@ -245,6 +245,30 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
             for item in definition.get("framebuffers", [])
         ]
         definition_diagnostics = descriptor.get("effectDefinitionDiagnostics", [])
+        effect_graphs = payload.get("authoredEffectRenderPlans", [])
+        effect_graph_nodes = [
+            node
+            for graph_plan in effect_graphs
+            for node in graph_plan.get("nodes", [])
+        ]
+        effect_graph_blockers = [
+            blocker
+            for graph_plan in effect_graphs
+            for blocker in graph_plan.get("blockers", [])
+        ]
+        effect_graph_blocker_reasons: dict[str, int] = {}
+        for blocker in effect_graph_blockers:
+            reason = blocker.get("reason")
+            if isinstance(reason, str):
+                effect_graph_blocker_reasons[reason] = (
+                    effect_graph_blocker_reasons.get(reason, 0) + 1
+                )
+        effect_graph_sha256 = hashlib.sha256(json.dumps(
+            effect_graphs,
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")).hexdigest()
         graph = layer_graph_metrics(layers)
         solid_layers = [layer for layer in layers if layer.get("contentKind") == "solid"]
         utility_layers = [
@@ -299,6 +323,29 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
                 item.get("command") == "swap" for item in definition_passes
             ),
             "effect_definition_diagnostic_count": len(definition_diagnostics),
+            "effect_graph_layer_count": len(effect_graphs),
+            "effect_graph_effect_count": sum(
+                len(graph_plan.get("effects", [])) for graph_plan in effect_graphs
+            ),
+            "effect_graph_node_count": len(effect_graph_nodes),
+            "effect_graph_material_node_count": sum(
+                node.get("kind") == "material" for node in effect_graph_nodes
+            ),
+            "effect_graph_copy_node_count": sum(
+                node.get("kind") == "copy" for node in effect_graph_nodes
+            ),
+            "effect_graph_swap_node_count": sum(
+                node.get("kind") == "swap" for node in effect_graph_nodes
+            ),
+            "effect_graph_render_target_count": sum(
+                len(graph_plan.get("renderTargets", [])) for graph_plan in effect_graphs
+            ),
+            "effect_graph_blocker_count": len(effect_graph_blockers),
+            "effect_graph_blocker_reasons": effect_graph_blocker_reasons,
+            "effect_graph_unblocked_layer_count": sum(
+                not graph_plan.get("blockers", []) for graph_plan in effect_graphs
+            ),
+            "effect_graph_sha256": effect_graph_sha256,
             "visible_layer_count": sum(layer.get("visible") is not False for layer in layers),
             "visible_layer_ids": [layer.get("id") for layer in layers if layer.get("visible") is not False],
             **graph,
@@ -353,6 +400,17 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
             "effect_definition_copy_command_count": 0,
             "effect_definition_swap_command_count": 0,
             "effect_definition_diagnostic_count": 0,
+            "effect_graph_layer_count": 0,
+            "effect_graph_effect_count": 0,
+            "effect_graph_node_count": 0,
+            "effect_graph_material_node_count": 0,
+            "effect_graph_copy_node_count": 0,
+            "effect_graph_swap_node_count": 0,
+            "effect_graph_render_target_count": 0,
+            "effect_graph_blocker_count": 0,
+            "effect_graph_blocker_reasons": {},
+            "effect_graph_unblocked_layer_count": 0,
+            "effect_graph_sha256": None,
             "visible_layer_count": 0,
             "visible_layer_ids": [],
             "root_layer_count": 0,
@@ -884,6 +942,15 @@ def run_sample(
         "expected_effect_definition_copy_command_count": "effect_definition_copy_command_count",
         "expected_effect_definition_swap_command_count": "effect_definition_swap_command_count",
         "expected_effect_definition_diagnostic_count": "effect_definition_diagnostic_count",
+        "expected_effect_graph_layer_count": "effect_graph_layer_count",
+        "expected_effect_graph_effect_count": "effect_graph_effect_count",
+        "expected_effect_graph_node_count": "effect_graph_node_count",
+        "expected_effect_graph_material_node_count": "effect_graph_material_node_count",
+        "expected_effect_graph_copy_node_count": "effect_graph_copy_node_count",
+        "expected_effect_graph_swap_node_count": "effect_graph_swap_node_count",
+        "expected_effect_graph_render_target_count": "effect_graph_render_target_count",
+        "expected_effect_graph_blocker_count": "effect_graph_blocker_count",
+        "expected_effect_graph_unblocked_layer_count": "effect_graph_unblocked_layer_count",
         "expected_visible_layer_count": "visible_layer_count",
         "expected_root_layer_count": "root_layer_count",
         "expected_child_edge_count": "child_edge_count",
@@ -903,6 +970,10 @@ def run_sample(
     for expectation, metric in interpretation_expectations.items():
         if expectation in sample and interpretation[metric] != int(sample[expectation]):
             failures.append(f"Scene interpretation {metric} mismatch")
+    expected_effect_graph_sha256 = sample.get("expected_effect_graph_sha256")
+    if expected_effect_graph_sha256 is not None:
+        if interpretation["effect_graph_sha256"] != expected_effect_graph_sha256:
+            failures.append("Scene interpretation effect graph sha256 mismatch")
     expected_text_value = sample.get("expected_text_value")
     if expected_text_value is not None and expected_text_value not in interpretation["text_values"]:
         failures.append("Scene interpretation text property mismatch")

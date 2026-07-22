@@ -1,7 +1,7 @@
 import CoreFoundation
 import Foundation
 
-indirect enum SceneJSONValue: Codable, Equatable, Sendable {
+nonisolated indirect enum SceneJSONValue: Codable, Equatable, Sendable {
     case null
     case bool(Bool)
     case number(Double)

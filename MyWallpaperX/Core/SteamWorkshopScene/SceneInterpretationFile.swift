@@ -9,11 +9,12 @@ struct SceneInterpretationFile: Codable {
     let generatedAt: Date
     let sourceEntryPath: String
     let renderDescriptor: SceneRenderDescriptor
+    let authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan]
 }
 
 struct SceneInterpretationFileWriter {
-    // Format 15 preserves effect definitions, ordered passes, FBOs, binds, and commands.
-    static let currentFormatVersion = 15
+    // Format 16 compiles preserved effect definitions into inspectable authored graphs.
+    static let currentFormatVersion = 16
 
     func write(
         renderDescriptor: SceneRenderDescriptor,
@@ -23,7 +24,10 @@ struct SceneInterpretationFileWriter {
             formatVersion: Self.currentFormatVersion,
             generatedAt: Date(),
             sourceEntryPath: renderDescriptor.entryPath,
-            renderDescriptor: renderDescriptor
+            renderDescriptor: renderDescriptor,
+            authoredEffectRenderPlans: SceneAuthoredEffectRenderPlanner.plans(
+                for: renderDescriptor
+            )
         )
         let outputURL = outputDirectory.appendingPathComponent(SceneInterpretationFile.fileName)
         let encoder = JSONEncoder()

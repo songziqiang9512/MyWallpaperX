@@ -165,7 +165,7 @@ enum Harness {
             "motionCommands": motion.passes.map { $0.command ?? "material" },
             "motionMaterialPassCount": motion.materialPassCount,
             "motionCopy": [motion.passes[1].source ?? "", motion.passes[1].target ?? ""],
-            "motionUnique": motion.framebuffers.map { $0.unique ?? false },
+            "motionUnique": motion.framebuffers.map { $0.unique?.boolValue ?? false },
             "fluidCommand": fluid.passes[1].command ?? "",
             "fluidConditionsPreserved": fluid.passes[0].conditions != nil
                 && fluid.passes[0].bindings[0].conditions != nil
