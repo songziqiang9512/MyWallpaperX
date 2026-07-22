@@ -48,6 +48,8 @@ struct SceneRenderDescriptor: Codable {
         let imagePath: String?
         let particlePath: String?
         let particleInstanceOverride: SceneParticleInstanceOverride?
+        let utilityLayer: SceneUtilityLayer?
+        let dependencyLayerIDs: [Int]
         let parentID: Int?
         let childLayerIDs: [Int]
         let visible: Bool?
@@ -165,6 +167,8 @@ struct SceneRenderDescriptorBuilder {
                     imagePath: object.imagePath,
                     particlePath: object.particlePath,
                     particleInstanceOverride: object.particleInstanceOverride,
+                    utilityLayer: object.utilityLayer,
+                    dependencyLayerIDs: object.dependencyLayerIDs,
                     parentID: object.parentID,
                     childLayerIDs: childIDsByParentID[object.id] ?? [],
                     visible: object.visible,
@@ -251,6 +255,9 @@ struct SceneRenderDescriptorBuilder {
         for object: SceneDocument.SceneObject,
         solidModelPaths: Set<String>
     ) -> String {
+        if let utilityLayer = object.utilityLayer {
+            return utilityLayer.kind.rawValue
+        }
         let normalizedImagePath = object.imagePath?.localizedLowercase
         if normalizedImagePath == "models/util/solidlayer.json"
             || normalizedImagePath.map(solidModelPaths.contains) == true {

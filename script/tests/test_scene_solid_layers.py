@@ -16,6 +16,7 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneDocument.swift",
     SOURCE_ROOT / "SceneDocument+NumericParsing.swift",
+    SOURCE_ROOT / "SceneUtilityLayer.swift",
     SOURCE_ROOT / "SceneRenderDescriptor.swift",
     SOURCE_ROOT / "SceneMetalPipeline.swift",
     SOURCE_ROOT / "SceneSolidLayerTexture.swift",

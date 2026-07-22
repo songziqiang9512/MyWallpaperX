@@ -12,8 +12,8 @@ struct SceneInterpretationFile: Codable {
 }
 
 struct SceneInterpretationFileWriter {
-    // formatVersion 11 carries authored layer color and procedural solid layers.
-    static let currentFormatVersion = 11
+    // formatVersion 12 separates utility layers and preserves layer dependencies.
+    static let currentFormatVersion = 12
 
     func write(
         renderDescriptor: SceneRenderDescriptor,

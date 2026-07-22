@@ -197,6 +197,17 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
         material_passes = descriptor.get("materialPasses", [])
         graph = layer_graph_metrics(layers)
         solid_layers = [layer for layer in layers if layer.get("contentKind") == "solid"]
+        utility_layers = [
+            layer
+            for layer in layers
+            if layer.get("contentKind") in {"composition", "project", "fullscreen"}
+        ]
+        dependency_edges = [
+            (layer.get("id"), dependency_id)
+            for layer in layers
+            for dependency_id in layer.get("dependencyLayerIDs", [])
+            if type(layer.get("id")) is int and type(dependency_id) is int
+        ]
         solid_layer_ids = [
             layer["id"] for layer in solid_layers if type(layer.get("id")) is int
         ]
@@ -234,6 +245,19 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
             "authored_solid_color_layer_ids": authored_solid_color_layer_ids,
             "effective_visible_solid_layer_count": len(effective_visible_solid_layer_ids),
             "effective_visible_solid_layer_ids": effective_visible_solid_layer_ids,
+            "composition_layer_count": sum(
+                layer.get("contentKind") == "composition" for layer in utility_layers
+            ),
+            "project_layer_count": sum(
+                layer.get("contentKind") == "project" for layer in utility_layers
+            ),
+            "fullscreen_layer_count": sum(
+                layer.get("contentKind") == "fullscreen" for layer in utility_layers
+            ),
+            "utility_layer_ids": [layer["id"] for layer in utility_layers],
+            "dependency_edge_count": len(dependency_edges),
+            "dependency_consumer_layer_ids": sorted({edge[0] for edge in dependency_edges}),
+            "dependency_source_layer_ids": sorted({edge[1] for edge in dependency_edges}),
             "authored_parallax_layer_count": len(parallax_layers),
             "authored_parallax_layer_ids": [layer.get("id") for layer in parallax_layers],
             "parallax_propagation_block_count": sum(
@@ -273,6 +297,13 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
             "authored_solid_color_layer_ids": [],
             "effective_visible_solid_layer_count": 0,
             "effective_visible_solid_layer_ids": [],
+            "composition_layer_count": 0,
+            "project_layer_count": 0,
+            "fullscreen_layer_count": 0,
+            "utility_layer_ids": [],
+            "dependency_edge_count": 0,
+            "dependency_consumer_layer_ids": [],
+            "dependency_source_layer_ids": [],
             "authored_parallax_layer_count": 0,
             "authored_parallax_layer_ids": [],
             "parallax_propagation_block_count": 0,
@@ -608,6 +639,10 @@ def run_sample(
         "expected_effective_visible_solid_layer_count": "effective_visible_solid_layer_count",
         "expected_built_in_reference_count": "built_in_reference_count",
         "expected_missing_resource_count": "missing_resource_count",
+        "expected_composition_layer_count": "composition_layer_count",
+        "expected_project_layer_count": "project_layer_count",
+        "expected_fullscreen_layer_count": "fullscreen_layer_count",
+        "expected_dependency_edge_count": "dependency_edge_count",
     }
     for expectation, metric in interpretation_expectations.items():
         if expectation in sample and interpretation[metric] != int(sample[expectation]):
