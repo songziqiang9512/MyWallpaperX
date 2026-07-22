@@ -100,6 +100,30 @@ enum SceneMatrix {
             SIMD4(-(right + left) / rl, -(top + bottom) / tb, -near / fn, 1)
         ))
     }
+
+    // Right-handed perspective projection for Metal NDC depth [0, 1]. `near`
+    // and `far` are positive distances while visible view-space Z is negative.
+    static func perspectiveRHMetal(
+        fovYRadians: Float,
+        aspect: Float,
+        near: Float,
+        far: Float
+    ) -> simd_float4x4 {
+        guard fovYRadians.isFinite, fovYRadians > 0, fovYRadians < .pi,
+              aspect.isFinite, aspect > 0,
+              near.isFinite, far.isFinite, near > 0, far > near else {
+            return identity()
+        }
+        let yScale = 1 / tan(fovYRadians * 0.5)
+        let xScale = yScale / aspect
+        let depth = far / (near - far)
+        return simd_float4x4(columns: (
+            SIMD4(xScale, 0, 0, 0),
+            SIMD4(0, yScale, 0, 0),
+            SIMD4(0, 0, depth, -1),
+            SIMD4(0, 0, depth * near, 0)
+        ))
+    }
 }
 
 extension SIMD3 where Scalar == Float {

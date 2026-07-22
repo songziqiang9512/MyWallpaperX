@@ -1,0 +1,297 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import json
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+SWIFT_SOURCES = [
+    SOURCE_ROOT / "SceneMatrix.swift",
+    SOURCE_ROOT / "SceneParticleRenderSupport.swift",
+    SOURCE_ROOT / "SceneParticleMetalPipeline.swift",
+]
+
+
+HARNESS_SOURCE = r'''
+import Foundation
+import Metal
+import simd
+
+@main
+enum Harness {
+    static func main() throws {
+        let sequence = SceneParticleSpriteFrameSelector.select(
+            mode: .sequence, frameDurations: [1, 1, 2],
+            age: 3.75, lifetime: 10, sequenceMultiplier: 2,
+            particleID: 7, blendsFrames: true
+        )!
+        let noBlend = SceneParticleSpriteFrameSelector.select(
+            mode: .sequence, frameDurations: [1, 1, 2],
+            age: 3.75, lifetime: 10, sequenceMultiplier: 2,
+            particleID: 7, blendsFrames: false
+        )!
+        let reverse = SceneParticleSpriteFrameSelector.select(
+            mode: .sequence, frameDurations: [1, 1, 2],
+            age: 2.5, lifetime: 10, sequenceMultiplier: -1,
+            particleID: 7, blendsFrames: true
+        )!
+        let random = (0..<16).map { id in
+            SceneParticleSpriteFrameSelector.select(
+                mode: .randomFrame, frameDurations: [1, 1, 1, 1],
+                age: 9, lifetime: 10, sequenceMultiplier: 4,
+                particleID: UInt64(id), blendsFrames: true
+            )!
+        }
+
+        let screen = SceneParticleOrientation.screen.basis(
+            cameraRight: SIMD3(2, 0, 0), cameraUp: SIMD3(1, 3, 0),
+            cameraForward: SIMD3(0, 0, -1)
+        )
+        let upright = SceneParticleOrientation.upright.basis(
+            cameraRight: SIMD3(1, 0, 0), cameraUp: SIMD3(0, 1, 0),
+            cameraForward: SIMD3(0, 0, -1)
+        )
+        let fixed = SceneParticleOrientation.fixed.basis(
+            cameraRight: SIMD3(1, 0, 0), cameraUp: SIMD3(0, 1, 0),
+            cameraForward: SIMD3(0, 0, -1),
+            fixedRight: SIMD3(0, 1, 0), fixedUp: SIMD3(0, 0, 1)
+        )
+
+        let width: Float = 1280
+        let height: Float = 832
+        let distance: Float = 1000
+        let eye = SIMD3(width / 2, height / 2, distance)
+        let view = SceneMatrix.lookAt(
+            eye: eye, center: SIMD3(width / 2, height / 2, 0), up: SIMD3(0, 1, 0)
+        )
+        let fov = 2 * atan(height / (2 * distance))
+        let projection = SceneMatrix.perspectiveRHMetal(
+            fovYRadians: fov, aspect: width / height, near: 0.1, far: 5000
+        )
+        let viewProjection = projection * view
+
+        let translucent = SceneParticleMetalPipeline.blendConfiguration(for: .translucent)
+        let additive = SceneParticleMetalPipeline.blendConfiguration(for: .additive)
+        let result: [String: Any] = [
+            "instanceStride": MemoryLayout<SceneParticleGPUInstance>.stride,
+            "instanceAlignment": MemoryLayout<SceneParticleGPUInstance>.alignment,
+            "instanceOffsets": instanceOffsets(),
+            "uniformStride": MemoryLayout<SceneParticleLayerUniforms>.stride,
+            "uniformOffsets": uniformOffsets(),
+            "sequence": selection(sequence),
+            "noBlend": selection(noBlend),
+            "reverse": selection(reverse),
+            "randomIndices": random.map(\.currentIndex),
+            "randomNoBlend": random.allSatisfy { $0.currentIndex == $0.nextIndex && $0.mix == 0 },
+            "modeSequence": SceneParticleSpriteAnimationMode(authoredValue: "Sequence") == .sequence,
+            "modeRandom": SceneParticleSpriteAnimationMode(authoredValue: "randomframe") == .randomFrame,
+            "orientationDefault": SceneParticleOrientation(authoredValue: nil) == .screen,
+            "screenRight": vector(screen.right),
+            "screenUp": vector(screen.up),
+            "uprightRight": vector(upright.right),
+            "uprightUp": vector(upright.up),
+            "fixedRight": vector(fixed.right),
+            "fixedUp": vector(fixed.up),
+            "nearNDC": ndc(projection, SIMD4(0, 0, -0.1, 1)),
+            "farNDC": ndc(projection, SIMD4(0, 0, -5000, 1)),
+            "sceneCenterNDC": ndc(viewProjection, SIMD4(width / 2, height / 2, 0, 1)),
+            "sceneTopRightNDC": ndc(viewProjection, SIMD4(width, height, 0, 1)),
+            "invalidPerspectiveIsIdentity": SceneMatrix.perspectiveRHMetal(
+                fovYRadians: 0, aspect: 0, near: -1, far: 0
+            ) == SceneMatrix.identity(),
+            "translucentBlend": [
+                translucent.sourceRGB == .one,
+                translucent.destinationRGB == .oneMinusSourceAlpha,
+                translucent.sourceAlpha == .one,
+                translucent.destinationAlpha == .oneMinusSourceAlpha,
+            ],
+            "additiveBlend": [
+                additive.sourceRGB == .one,
+                additive.destinationRGB == .one,
+                additive.sourceAlpha == .one,
+                additive.destinationAlpha == .oneMinusSourceAlpha,
+            ],
+            "metalDraw": renderSmokeTest(),
+        ]
+        let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
+        print(String(decoding: data, as: UTF8.self))
+    }
+
+    private static func instanceOffsets() -> [Int] {
+        [
+            MemoryLayout<SceneParticleGPUInstance>.offset(of: \.positionAndSize),
+            MemoryLayout<SceneParticleGPUInstance>.offset(of: \.rotationAndAlpha),
+            MemoryLayout<SceneParticleGPUInstance>.offset(of: \.colorAndFrameMix),
+            MemoryLayout<SceneParticleGPUInstance>.offset(of: \.frame0A),
+            MemoryLayout<SceneParticleGPUInstance>.offset(of: \.frame0B),
+            MemoryLayout<SceneParticleGPUInstance>.offset(of: \.frame1A),
+            MemoryLayout<SceneParticleGPUInstance>.offset(of: \.frame1B),
+        ].compactMap { $0 }
+    }
+
+    private static func uniformOffsets() -> [Int] {
+        [
+            MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.viewProjection),
+            MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.layerModel),
+            MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.basisRight),
+            MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.basisUp),
+        ].compactMap { $0 }
+    }
+
+    private static func selection(_ value: SceneParticleSpriteFrameSelection) -> [String: Any] {
+        ["current": value.currentIndex, "next": value.nextIndex, "mix": value.mix]
+    }
+
+    private static func vector(_ value: SIMD3<Float>) -> [Float] {
+        [value.x, value.y, value.z]
+    }
+
+    private static func ndc(_ matrix: simd_float4x4, _ point: SIMD4<Float>) -> [Float] {
+        let clip = matrix * point
+        return [clip.x / clip.w, clip.y / clip.w, clip.z / clip.w]
+    }
+
+    private static func renderSmokeTest() -> Bool {
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let pipeline = SceneParticleMetalPipeline(device: device),
+              let queue = device.makeCommandQueue(),
+              let command = queue.makeCommandBuffer() else { return false }
+
+        let inputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false
+        )
+        inputDescriptor.usage = .shaderRead
+        guard let input = device.makeTexture(descriptor: inputDescriptor) else { return false }
+        var white = [UInt8](repeating: 255, count: 4)
+        input.replace(
+            region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
+            withBytes: &white, bytesPerRow: 4
+        )
+
+        let outputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm, width: 8, height: 8, mipmapped: false
+        )
+        outputDescriptor.usage = .renderTarget
+        guard let output = device.makeTexture(descriptor: outputDescriptor) else { return false }
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = output
+        pass.colorAttachments[0].loadAction = .clear
+        pass.colorAttachments[0].storeAction = .store
+        guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return false }
+
+        let values = [
+            SceneParticleGPUInstance(
+                position: SIMD3(-0.25, 0, 0), size: 0.5, rotation: .zero,
+                color: SIMD3(repeating: 1), alpha: 1
+            ),
+            SceneParticleGPUInstance(
+                position: SIMD3(0.25, 0, 0), size: 0.5, rotation: SIMD3(0, 0, 0.2),
+                color: SIMD3(1, 0, 0), alpha: 0.5
+            ),
+        ]
+        let instances = SceneParticleMetalInstanceBuffer()
+        guard instances.update(device: device, instances: values) else { return false }
+        let basis = SceneParticleOrientation.screen.basis(
+            cameraRight: SIMD3(1, 0, 0), cameraUp: SIMD3(0, 1, 0),
+            cameraForward: SIMD3(0, 0, -1)
+        )
+        pipeline.draw(
+            texture: input, instances: instances,
+            uniforms: SceneParticleLayerUniforms(
+                viewProjection: SceneMatrix.identity(),
+                layerModel: SceneMatrix.identity(), basis: basis
+            ),
+            blendMode: .translucent, encoder: encoder
+        )
+        pipeline.draw(
+            texture: input, instances: instances,
+            uniforms: SceneParticleLayerUniforms(
+                viewProjection: SceneMatrix.identity(),
+                layerModel: SceneMatrix.identity(), basis: basis
+            ),
+            blendMode: .additive, encoder: encoder
+        )
+        encoder.endEncoding()
+        command.commit()
+        command.waitUntilCompleted()
+        return command.status == .completed && instances.count == 2
+    }
+}
+'''
+
+
+class SceneParticleRenderingTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-particle-render-")
+        directory = Path(cls.temporary_directory.name)
+        harness = directory / "Harness.swift"
+        harness.write_text(HARNESS_SOURCE, encoding="utf-8")
+        cls.binary = directory / "scene-particle-render"
+        subprocess.run(
+            [
+                "xcrun", "--sdk", "macosx", "swiftc",
+                *(str(path) for path in SWIFT_SOURCES), str(harness),
+                "-framework", "Metal", "-o", str(cls.binary),
+            ],
+            check=True, capture_output=True, text=True,
+        )
+        completed = subprocess.run(
+            [str(cls.binary)], check=True, capture_output=True, text=True
+        )
+        cls.result = json.loads(completed.stdout)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temporary_directory.cleanup()
+
+    def test_cpu_and_msl_instance_layouts_match(self) -> None:
+        self.assertEqual(self.result["instanceStride"], 112)
+        self.assertEqual(self.result["instanceAlignment"], 16)
+        self.assertEqual(self.result["instanceOffsets"], [0, 16, 32, 48, 64, 80, 96])
+        self.assertEqual(self.result["uniformStride"], 160)
+        self.assertEqual(self.result["uniformOffsets"], [0, 64, 128, 144])
+
+    def test_lifetime_sprite_selection_and_frame_blending(self) -> None:
+        self.assertEqual(self.result["sequence"]["current"], 2)
+        self.assertEqual(self.result["sequence"]["next"], 0)
+        self.assertAlmostEqual(self.result["sequence"]["mix"], 0.5, places=6)
+        self.assertEqual(self.result["noBlend"], {"current": 2, "next": 2, "mix": 0})
+        self.assertEqual(self.result["reverse"], self.result["sequence"])
+        self.assertGreater(len(set(self.result["randomIndices"])), 1)
+        self.assertTrue(self.result["randomNoBlend"])
+        self.assertTrue(self.result["modeSequence"])
+        self.assertTrue(self.result["modeRandom"])
+
+    def test_orientation_bases_are_authored_and_orthonormal(self) -> None:
+        self.assertTrue(self.result["orientationDefault"])
+        self.assertEqual(self.result["screenRight"], [1, 0, 0])
+        self.assertEqual(self.result["screenUp"], [0, 1, 0])
+        self.assertEqual(self.result["uprightRight"], [1, 0, 0])
+        self.assertEqual(self.result["uprightUp"], [0, 1, 0])
+        self.assertEqual(self.result["fixedRight"], [0, 1, 0])
+        self.assertEqual(self.result["fixedUp"], [0, 0, 1])
+
+    def test_metal_right_handed_perspective_matches_scene_camera(self) -> None:
+        self.assertAlmostEqual(self.result["nearNDC"][2], 0, places=5)
+        self.assertAlmostEqual(self.result["farNDC"][2], 1, places=5)
+        for actual, expected in zip(self.result["sceneCenterNDC"], [0, 0, 0.99992]):
+            self.assertAlmostEqual(actual, expected, places=4)
+        for actual, expected in zip(self.result["sceneTopRightNDC"][:2], [1, 1]):
+            self.assertAlmostEqual(actual, expected, places=5)
+        self.assertTrue(self.result["invalidPerspectiveIsIdentity"])
+
+    def test_both_blend_states_compile_and_encode_instanced_draws(self) -> None:
+        self.assertEqual(self.result["translucentBlend"], [True, True, True, True])
+        self.assertEqual(self.result["additiveBlend"], [True, True, True, True])
+        self.assertTrue(self.result["metalDraw"])
+
+
+if __name__ == "__main__":
+    unittest.main()
