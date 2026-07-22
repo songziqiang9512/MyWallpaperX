@@ -263,6 +263,9 @@ struct SceneDocumentLoader {
         if let int = value as? Int {
             return Double(int)
         }
+        if let keyed = value as? [String: Any] {
+            return doubleValue(keyed["value"])
+        }
         return nil
     }
 

@@ -32,6 +32,7 @@ SCENE_FIXTURE = {
             "image": "models/util/solidlayer.json",
             "color": "0.1 0.2 0.3",
             "size": "1920 1080",
+            "alpha": 0.75,
         },
         {
             "id": 20,
@@ -39,12 +40,14 @@ SCENE_FIXTURE = {
             "image": "models/util/solidlayer.json",
             "color": {"value": "0.4 0.5 0.6"},
             "size": "640 480",
+            "alpha": {"script": "export function update() {}", "value": 0},
         },
         {
             "id": 30,
             "name": "Default white solid",
             "image": "models/util/solidlayer.json",
             "size": "320 200",
+            "alpha": {"user": "opacity", "value": 0.25},
         },
         {
             "id": 40,
@@ -219,6 +222,8 @@ enum Harness {
             "documentColors": [10, 20, 30].map { objects[$0]?.colorRGB ?? [] },
             "contentKinds": [10, 20, 30, 40].map { layers[$0]?.contentKind ?? "" },
             "descriptorColors": [10, 20, 30].map { layers[$0]?.colorRGB ?? [] },
+            "documentAlphas": [10, 20, 30, 40].map { objects[$0]?.alpha ?? -1 },
+            "descriptorAlphas": [10, 20, 30, 40].map { layers[$0]?.alpha ?? -1 },
             "imageRenderable": [10, 20, 30, 40].map {
                 layers[$0]?.isImageRenderable ?? false
             },
@@ -304,6 +309,11 @@ class SceneSolidLayerTests(unittest.TestCase):
                 self.assertEqual(len(actual), len(wanted))
                 for component, expected_component in zip(actual, wanted):
                     self.assertAlmostEqual(component, expected_component, places=6)
+
+    def test_plain_script_and_user_wrapped_alpha_preserve_authored_value(self) -> None:
+        expected = [0.75, 0, 0.25, -1]
+        self.assertEqual(self.result["documentAlphas"], expected)
+        self.assertEqual(self.result["descriptorAlphas"], expected)
 
     def test_fragment_uniform_carries_layer_tint(self) -> None:
         for actual, expected in zip(self.result["uniformTint"], [0.1, 0.2, 0.3, 1]):
