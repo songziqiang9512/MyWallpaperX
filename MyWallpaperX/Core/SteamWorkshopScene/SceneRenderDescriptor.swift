@@ -17,6 +17,7 @@ struct SceneRenderDescriptor: Codable {
         let clearEnabled: Bool
         let parallaxEnabled: Bool
         let parallaxAmount: Float
+        let parallaxDelay: Float
         let parallaxMouseInfluence: Float
     }
 
@@ -64,6 +65,8 @@ struct SceneRenderDescriptor: Codable {
         let sizeWH: [Float]?
         let scaleXYZ: [Float]?
         let anglesXYZ: [Float]?
+        let parallaxDepthXY: [Float]?
+        let disablesParallaxPropagation: Bool
         let modelCropOffsetXY: [Float]?
         let text: String?
         let textStyle: SceneTextDescriptor?
@@ -156,6 +159,8 @@ struct SceneRenderDescriptorBuilder {
                     sizeWH: padVector(parseVector(object.size), length: 2, fill: 0),
                     scaleXYZ: padVector(parseVector(object.scale), length: 3, fill: 1),
                     anglesXYZ: padVector(parseVector(object.angles), length: 3, fill: 0),
+                    parallaxDepthXY: padVector(parseVector(object.parallaxDepth), length: 2, fill: 0),
+                    disablesParallaxPropagation: object.disablesParallaxPropagation,
                     modelCropOffsetXY: object.imagePath.flatMap { modelCropOffsetsByPath[$0] } ?? nil,
                     text: object.text,
                     textStyle: object.textStyle,
@@ -253,6 +258,7 @@ struct SceneRenderDescriptorBuilder {
             clearEnabled: gen.clearEnabled,
             parallaxEnabled: gen.cameraParallaxEnabled,
             parallaxAmount: gen.cameraParallaxAmount,
+            parallaxDelay: gen.cameraParallaxDelay,
             parallaxMouseInfluence: gen.cameraParallaxMouseInfluence
         )
     }

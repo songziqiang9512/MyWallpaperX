@@ -39,7 +39,8 @@ TEXT_LOADED_RE = re.compile(r"^text loaded: (?P<loaded>\d+) / (?P<total>\d+)$", 
 FLOAT_PATTERN = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
 CAMERA_RE = re.compile(
     r"^camera: projection=(?P<projection>\S+) parallax=(?P<parallax>true|false) "
-    rf"amount=(?P<amount>{FLOAT_PATTERN}) mouseInfluence=(?P<influence>{FLOAT_PATTERN})$",
+    rf"amount=(?P<amount>{FLOAT_PATTERN}) (?:delay=(?P<delay>{FLOAT_PATTERN}) )?"
+    rf"mouseInfluence=(?P<influence>{FLOAT_PATTERN})$",
     re.MULTILINE,
 )
 SAMPLE_ROOT_DERIVED_FILES = (
@@ -120,6 +121,12 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
             for item in effect.get("passes", [])
         ]
         material_passes = descriptor.get("materialPasses", [])
+        parallax_layers = [
+            layer
+            for layer in layers
+            if isinstance(layer.get("parallaxDepthXY"), list)
+            and any(abs(float(value)) > 1e-8 for value in layer["parallaxDepthXY"])
+        ]
         effect_slot_count, effect_slot_holes, effect_combo_count = pass_metadata_metrics(effect_passes)
         material_slot_count, material_slot_holes, material_combo_count = pass_metadata_metrics(material_passes)
         return {
@@ -132,6 +139,11 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
             "material_combo_entry_count": material_combo_count,
             "visible_layer_count": sum(layer.get("visible") is not False for layer in layers),
             "visible_layer_ids": [layer.get("id") for layer in layers if layer.get("visible") is not False],
+            "authored_parallax_layer_count": len(parallax_layers),
+            "authored_parallax_layer_ids": [layer.get("id") for layer in parallax_layers],
+            "parallax_propagation_block_count": sum(
+                layer.get("disablesParallaxPropagation") is True for layer in layers
+            ),
             "text_values": [layer.get("text") for layer in layers if isinstance(layer.get("text"), str)],
             "error": None,
         }
@@ -146,6 +158,9 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
             "material_combo_entry_count": 0,
             "visible_layer_count": 0,
             "visible_layer_ids": [],
+            "authored_parallax_layer_count": 0,
+            "authored_parallax_layer_ids": [],
+            "parallax_propagation_block_count": 0,
             "text_values": [],
             "error": str(error),
         }
@@ -290,6 +305,9 @@ def run_sample(
         actual_parallax = camera_match and camera_match.group("parallax") == "true"
         if actual_parallax != bool(expected_parallax):
             failures.append("camera parallax state mismatch")
+    minimum_parallax_layers = int(sample.get("minimum_authored_parallax_layer_count", 0))
+    if interpretation["authored_parallax_layer_count"] < minimum_parallax_layers:
+        failures.append("authored parallax layer count below minimum")
     if loaded_ratio < float(sample.get("minimum_loaded_ratio", 0)):
         failures.append(f"loaded ratio {loaded_ratio:.3f} below minimum")
     if text_loaded < int(sample.get("minimum_text_loaded", 0)):
@@ -418,6 +436,11 @@ def run_sample(
             "camera_projection": camera_match.group("projection") if camera_match else None,
             "camera_parallax": camera_match.group("parallax") == "true" if camera_match else None,
             "camera_parallax_amount": float(camera_match.group("amount")) if camera_match else None,
+            "camera_parallax_delay": (
+                float(camera_match.group("delay"))
+                if camera_match and camera_match.group("delay") is not None
+                else None
+            ),
             "camera_parallax_mouse_influence": float(camera_match.group("influence")) if camera_match else None,
             "offscreen_route_count": preview_text.count("offscreen skeleton"),
             "gaussian_blur_runtime_count": blur_runtime_count,

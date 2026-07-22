@@ -19,6 +19,7 @@ struct SceneDocument {
         let farZ: Float?
         let cameraParallaxEnabled: Bool
         let cameraParallaxAmount: Float
+        let cameraParallaxDelay: Float
         let cameraParallaxMouseInfluence: Float
     }
 
@@ -59,6 +60,8 @@ struct SceneDocument {
         let size: String?
         let scale: String?
         let angles: String?
+        let parallaxDepth: String?
+        let disablesParallaxPropagation: Bool
         let text: String?
         let textStyle: SceneTextDescriptor?
         let hasInlineScript: Bool
@@ -171,35 +174,9 @@ struct SceneDocumentLoader {
             farZ: farZ,
             cameraParallaxEnabled: cameraParallaxEnabled,
             cameraParallaxAmount: root?["cameraparallaxamount"].flatMap(Self.floatValue) ?? 0,
+            cameraParallaxDelay: root?["cameraparallaxdelay"].flatMap(Self.floatValue) ?? 0,
             cameraParallaxMouseInfluence: root?["cameraparallaxmouseinfluence"].flatMap(Self.floatValue) ?? 0
         )
-    }
-
-    /// Parses Wallpaper Engine vector strings ("x y z" or "x y") and JSON arrays
-    /// into a [Float] vector. Returns nil if the value isn't recognized.
-    nonisolated static func floatVector(_ value: Any?) -> [Float]? {
-        if let array = value as? [Any] {
-            let vals = array.compactMap(Self.floatValue)
-            return vals.isEmpty ? nil : vals
-        }
-        if let keyed = value as? [String: Any], let inner = keyed["value"] {
-            return floatVector(inner)
-        }
-        if let s = value as? String {
-            let parts = s.split(whereSeparator: { $0 == " " || $0 == "," || $0 == "\t" })
-            let vals = parts.compactMap { Float($0) }
-            return vals.isEmpty ? nil : vals
-        }
-        return nil
-    }
-
-    nonisolated static func floatValue(_ value: Any?) -> Float? {
-        if let f = value as? Float { return f }
-        if let d = value as? Double { return Float(d) }
-        if let i = value as? Int { return Float(i) }
-        if let s = value as? String, let f = Float(s) { return f }
-        if let keyed = value as? [String: Any] { return floatValue(keyed["value"]) }
-        return nil
     }
 
     nonisolated private static func parseObject(_ root: [String: Any]) -> SceneDocument.SceneObject? {
@@ -209,11 +186,14 @@ struct SceneDocumentLoader {
         let effectFiles = parsedEffects.map(\.file)
         let texturePaths = effects.flatMap(Self.effectTexturePaths)
         let text = textValue(root["text"])
+        let imagePath = normalizedPath(root["image"] as? String)
+        let parallaxDepth = stringValue(root["parallaxDepth"])
+            ?? (imagePath?.lowercased() == "models/util/composelayer.json" ? "1 1" : nil)
 
         return SceneDocument.SceneObject(
             id: id,
             name: root["name"] as? String,
-            imagePath: normalizedPath(root["image"] as? String),
+            imagePath: imagePath,
             particlePath: normalizedPath(root["particle"] as? String),
             parentID: root["parent"] as? Int,
             visible: visibleValue(root["visible"]),
@@ -223,6 +203,8 @@ struct SceneDocumentLoader {
             size: stringValue(root["size"]),
             scale: stringValue(root["scale"]),
             angles: stringValue(root["angles"]),
+            parallaxDepth: parallaxDepth,
+            disablesParallaxPropagation: visibleValue(root["disablepropagation"]) ?? false,
             text: text,
             textStyle: text == nil ? nil : SceneTextDescriptor.parse(root),
             hasInlineScript: containsInlineScript(root),

@@ -4,8 +4,7 @@ import simd
 enum SceneCameraProjection {
     static func viewProjection(
         camera: SceneRenderDescriptor.CameraDescriptor,
-        viewportSize: CGSize,
-        mouseNormalized: SIMD2<Float>
+        viewportSize: CGSize
     ) -> simd_float4x4 {
         let orthoWidth = camera.orthoWidth ?? Float(viewportSize.width)
         let orthoHeight = camera.orthoHeight ?? Float(viewportSize.height)
@@ -19,17 +18,9 @@ enum SceneCameraProjection {
         let eyeOffset = SIMD3<Float>(camera.eye, fill: 0)
         let centerOffset = SIMD3<Float>(camera.center, fill: 0)
         let upDirection = SIMD3<Float>(camera.up, fill: 0)
-        let parallaxScale = camera.parallaxEnabled
-            ? min(max(camera.parallaxAmount * camera.parallaxMouseInfluence * 0.04, 0), 0.04)
-            : 0
-        let parallaxOffset = SIMD3<Float>(
-            mouseNormalized.x * orthoWidth * parallaxScale,
-            mouseNormalized.y * orthoHeight * parallaxScale,
-            0
-        )
         let view = SceneMatrix.lookAt(
-            eye: sceneCenter + eyeOffset + parallaxOffset,
-            center: sceneCenter + centerOffset + parallaxOffset,
+            eye: sceneCenter + eyeOffset,
+            center: sceneCenter + centerOffset,
             up: upDirection
         )
         let halfExtents = coverHalfExtents(

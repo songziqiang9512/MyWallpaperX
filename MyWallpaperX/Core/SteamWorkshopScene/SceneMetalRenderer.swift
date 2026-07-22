@@ -14,6 +14,7 @@ struct SceneMetalRenderer {
     private let visibleLayerIDs: Set<Int>
     // Cached transforms propagate parent pivot/orientation without double-scaling child quads.
     private let worldFramesByLayerID: [Int: simd_float4x4]
+    private let parallaxByLayerID: [Int: SceneLayerParallax.Resolution]
     private let layersByID: [Int: SceneRenderDescriptor.Layer]
     init?(renderDescriptor: SceneRenderDescriptor) {
         guard let device = MTLCreateSystemDefaultDevice(),
@@ -37,11 +38,21 @@ struct SceneMetalRenderer {
 
         let byID = Dictionary(uniqueKeysWithValues: renderDescriptor.layers.map { ($0.id, $0) })
         self.layersByID = byID
-        self.worldFramesByLayerID = Self.computeWorldFrames(
+        self.worldFramesByLayerID = SceneLayerWorldFrameResolver.compute(
             layers: renderDescriptor.layers,
             byID: byID,
             sceneOrthoHeight: renderDescriptor.camera.orthoHeight
         )
+        let parallaxNodes = byID.mapValues { layer in
+            SceneLayerParallax.Node(
+                id: layer.id, parentID: layer.parentID,
+                depth: SIMD2(layer.parallaxDepthXY ?? [], fill: 0),
+                propagatesToChildren: !layer.disablesParallaxPropagation
+            )
+        }
+        self.parallaxByLayerID = Dictionary(uniqueKeysWithValues: byID.keys.compactMap { id in
+            SceneLayerParallax.resolve(layerID: id, nodesByID: parallaxNodes).map { (id, $0) }
+        })
     }
 
     func diagnostics() -> SceneMetalRendererDiagnostic {
@@ -151,6 +162,7 @@ struct SceneMetalRenderer {
         offscreenTexturePool: SceneOffscreenTexturePool?,
         time: Float,
         mouseNormalized: SIMD2<Float>,
+        parallaxMouseNormalized: SIMD2<Float>,
         to drawable: CAMetalDrawable,
         viewportSize: CGSize
     ) {
@@ -162,10 +174,19 @@ struct SceneMetalRenderer {
 
         let viewProj = SceneCameraProjection.viewProjection(
             camera: renderDescriptor.camera,
-            viewportSize: viewportSize,
-            mouseNormalized: mouseNormalized
+            viewportSize: viewportSize
         )
         let cursorWorld = cursorWorldPosition(mouseNormalized: mouseNormalized, viewportSize: viewportSize)
+        let camera = renderDescriptor.camera
+        let parallaxConfiguration = SceneLayerParallax.Configuration(
+            enabled: camera.parallaxEnabled, amount: camera.parallaxAmount,
+            mouseInfluence: camera.parallaxMouseInfluence,
+            orthoSize: SIMD2(
+                camera.orthoWidth ?? Float(viewportSize.width),
+                camera.orthoHeight ?? Float(viewportSize.height)
+            ),
+            cameraEyeOffset: SIMD2(camera.eye, fill: 0)
+        )
         let orderedLayers = renderDescriptor.renderOrderLayerIDs.compactMap { layersByID[$0] }
 
         var mainLoadAction: MTLLoadAction = .clear
@@ -213,7 +234,11 @@ struct SceneMetalRenderer {
             guard effectPlan.skipsUnsupportedComposite == false else { continue }
             let effectInputs = effectPlan.inputs
             let textureFrame = spriteAnimations[layer.id]?.transform(at: time) ?? .identity
-            let model = modelMatrix(for: layer)
+            let model = modelMatrix(
+                for: layer,
+                parallaxMouseNormalized: parallaxMouseNormalized,
+                configuration: parallaxConfiguration
+            )
             let mvp = viewProj * model
             let directUniforms = SceneLayerFragmentUniforms(
                 time: time,
@@ -337,7 +362,11 @@ struct SceneMetalRenderer {
 
     // MARK: - Matrix construction
 
-    private func modelMatrix(for layer: SceneRenderDescriptor.Layer) -> simd_float4x4 {
+    private func modelMatrix(
+        for layer: SceneRenderDescriptor.Layer,
+        parallaxMouseNormalized: SIMD2<Float>,
+        configuration: SceneLayerParallax.Configuration
+    ) -> simd_float4x4 {
         let size = SIMD2(layer.sizeWH ?? [], fill: 0)
         // Wallpaper Engine world coords are Y-down (origin at the ortho box's
         // top-left, +Y grows downward). Our quad is Y-up (+0.5 at the visual
@@ -345,63 +374,11 @@ struct SceneMetalRenderer {
         // smaller world-Y (visually upper) edge of the layer.
         let sizeScale = SceneMatrix.scale(SIMD3(size.x, -size.y, 1))
         let world = worldFramesByLayerID[layer.id] ?? SceneMatrix.identity()
-        return world * sizeScale
-    }
-
-    // World frame = compose translate+rotate+userScale up the parent chain.
-    // Scene object origins behave as bottom-left/world Y-up for root objects,
-    // while parented child offsets are authored relative to that same axis in
-    // local space. Convert roots with (sceneH - y), convert child local
-    // offsets with (-y), and mirror Z rotation direction to preserve the
-    // authored clockwise/counter-clockwise placement once everything lands in
-    // the renderer's Y-down world.
-    // Size is intentionally NOT baked in here so children inherit a parent's
-    // pivot/orientation/scale without double-scaling their own quad.
-    private static func computeWorldFrames(
-        layers: [SceneRenderDescriptor.Layer],
-        byID: [Int: SceneRenderDescriptor.Layer],
-        sceneOrthoHeight: Float?
-    ) -> [Int: simd_float4x4] {
-        var cache: [Int: simd_float4x4] = [:]
-
-        func localFrame(_ layer: SceneRenderDescriptor.Layer) -> simd_float4x4 {
-            var origin = SIMD3(layer.originXYZ ?? [], fill: 0)
-            let scale = SIMD3(layer.scaleXYZ ?? [], fill: 1)
-            var angles = SIMD3(layer.anglesXYZ ?? [], fill: 0)
-            if layer.parentID == nil {
-                if let sceneOrthoHeight, sceneOrthoHeight > 0 {
-                    origin.y = sceneOrthoHeight - origin.y
-                }
-            } else {
-                origin.y = -origin.y
-            }
-            angles.z = -angles.z
-            let t = SceneMatrix.translation(origin)
-            let r = SceneMatrix.eulerXYZ(angles)
-            let s = SceneMatrix.scale(scale)
-            return t * r * s
-        }
-
-        func resolve(_ layer: SceneRenderDescriptor.Layer, visiting: Set<Int>) -> simd_float4x4 {
-            if let cached = cache[layer.id] { return cached }
-            var nextVisiting = visiting
-            nextVisiting.insert(layer.id)
-            let local = localFrame(layer)
-            let world: simd_float4x4
-            if let parentID = layer.parentID,
-               !visiting.contains(parentID),
-               let parent = byID[parentID] {
-                world = resolve(parent, visiting: nextVisiting) * local
-            } else {
-                world = local
-            }
-            cache[layer.id] = world
-            return world
-        }
-
-        for layer in layers {
-            _ = resolve(layer, visiting: [])
-        }
-        return cache
+        let worldPosition = SIMD2(world.columns.3.x, world.columns.3.y)
+        let parallax = SceneLayerParallax.offset(
+            resolution: parallaxByLayerID[layer.id], configuration: configuration,
+            layerPosition: worldPosition, mouseNormalized: parallaxMouseNormalized
+        )
+        return SceneMatrix.translation(SIMD3(parallax.x, parallax.y, 0)) * world * sizeScale
     }
 }

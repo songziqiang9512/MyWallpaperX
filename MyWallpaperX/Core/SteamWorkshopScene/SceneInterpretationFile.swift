@@ -12,8 +12,8 @@ struct SceneInterpretationFile: Codable {
 }
 
 struct SceneInterpretationFileWriter {
-    // formatVersion 7 preserves nullable texture slots and shader combos.
-    static let currentFormatVersion = 7
+    // formatVersion 8 adds authored per-layer parallax and camera delay.
+    static let currentFormatVersion = 8
 
     func write(
         renderDescriptor: SceneRenderDescriptor,

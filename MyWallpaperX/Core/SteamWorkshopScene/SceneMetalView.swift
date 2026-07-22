@@ -22,10 +22,12 @@ class SceneMetalView: NSView {
     // and passed to the renderer so shader-side effects (foliagesway, etc.)
     // advance in real time independent of frame rate.
     private let renderStartTime = CACurrentMediaTime()
+    private var lastRenderTime = CACurrentMediaTime()
     // Mouse position normalized to view bounds: x and y in [-1, +1] with
     // (0,0) at the view's center, +Y up. Defaults to (0,0) when the cursor
-    // is outside the view. Drives parallax camera offset + cursorripple UV.
+    // is outside the view. Drives authored layer parallax + cursorripple UV.
     private var mouseNormalized: SIMD2<Float> = .zero
+    private var parallaxPointerSmoother: SceneParallaxPointerSmoother
     private var trackingArea: NSTrackingArea?
 
     init?(renderDescriptor: SceneRenderDescriptor, frame: NSRect) {
@@ -45,6 +47,9 @@ class SceneMetalView: NSView {
         layer.drawableSize = CGSize(width: frame.width * initialScale, height: frame.height * initialScale)
         self.metalLayer = layer
         self.offscreenTexturePool = SceneOffscreenTexturePool(device: metalDevice)
+        self.parallaxPointerSmoother = SceneParallaxPointerSmoother(
+            delay: renderDescriptor.camera.parallaxDelay
+        )
 
         super.init(frame: frame)
 
@@ -101,26 +106,26 @@ class SceneMetalView: NSView {
     }
 
     override func mouseExited(with event: NSEvent) {
-        mouseNormalized = .zero
+        setMouseNormalized(.zero)
     }
 
     func updateMouseLocationInScreen(_ screenPoint: CGPoint) {
         guard let window else {
-            mouseNormalized = .zero
+            setMouseNormalized(.zero)
             return
         }
         let windowPoint = window.convertPoint(fromScreen: screenPoint)
         let local = convert(windowPoint, from: nil)
         guard bounds.contains(local), bounds.width > 0, bounds.height > 0 else {
-            mouseNormalized = .zero
+            setMouseNormalized(.zero)
             return
         }
         let nx = Float((local.x / bounds.width) * 2 - 1)
         let ny = Float((local.y / bounds.height) * 2 - 1)
-        mouseNormalized = SIMD2(
+        setMouseNormalized(SIMD2(
             max(-1, min(1, nx)),
             max(-1, min(1, ny))
-        )
+        ))
     }
 
     private func updateMouseNormalized(_ event: NSEvent) {
@@ -128,10 +133,15 @@ class SceneMetalView: NSView {
         guard bounds.width > 0, bounds.height > 0 else { return }
         let nx = Float((local.x / bounds.width) * 2 - 1)
         let ny = Float((local.y / bounds.height) * 2 - 1)
-        mouseNormalized = SIMD2(
+        setMouseNormalized(SIMD2(
             max(-1, min(1, nx)),
             max(-1, min(1, ny))
-        )
+        ))
+    }
+
+    private func setMouseNormalized(_ value: SIMD2<Float>) {
+        mouseNormalized = value
+        parallaxPointerSmoother.setTarget(value, timestamp: CACurrentMediaTime())
     }
 
     private func updateDrawableSize() {
@@ -164,7 +174,7 @@ class SceneMetalView: NSView {
         var loadedFoliageMasks: [Int: MTLTexture] = [:]
         var loadedWaterRippleNormals: [Int: MTLTexture] = [:]
         report.append("Scene preview texture load report")
-        report.append("camera: projection=cover parallax=\(renderer.renderDescriptor.camera.parallaxEnabled) amount=\(renderer.renderDescriptor.camera.parallaxAmount) mouseInfluence=\(renderer.renderDescriptor.camera.parallaxMouseInfluence)")
+        report.append("camera: projection=cover parallax=\(renderer.renderDescriptor.camera.parallaxEnabled) amount=\(renderer.renderDescriptor.camera.parallaxAmount) delay=\(renderer.renderDescriptor.camera.parallaxDelay) mouseInfluence=\(renderer.renderDescriptor.camera.parallaxMouseInfluence)")
         report.append("cacheDirectory: \(cacheDirectory.path)")
         report.append("imageLayerCount: \(renderer.renderDescriptor.layers.filter { $0.contentKind == "image" }.count)")
         for layer in renderer.renderDescriptor.layers where layer.contentKind == "image" {
@@ -286,6 +296,9 @@ class SceneMetalView: NSView {
         guard let drawable = metalLayer.nextDrawable() else { return }
         let elapsed = Float(CACurrentMediaTime() - renderStartTime)
         let hostTime = CACurrentMediaTime()
+        let frameDelta = max(0, hostTime - lastRenderTime)
+        lastRenderTime = hostTime
+        let parallaxMouseNormalized = parallaxPointerSmoother.advance(delta: frameDelta)
         var currentImageTextures = imageTextures
         for (layerID, videoSource) in videoTextureSources {
             if let texture = videoSource.currentTexture(forHostTime: hostTime) {
@@ -304,6 +317,7 @@ class SceneMetalView: NSView {
             offscreenTexturePool: offscreenTexturePool,
             time: elapsed,
             mouseNormalized: mouseNormalized,
+            parallaxMouseNormalized: parallaxMouseNormalized,
             to: drawable,
             viewportSize: metalLayer.drawableSize
         )

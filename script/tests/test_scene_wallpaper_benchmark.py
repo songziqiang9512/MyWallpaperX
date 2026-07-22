@@ -146,13 +146,20 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 json.dumps({
                     "formatVersion": 7,
                     "renderDescriptor": {
-                        "layers": [{"effects": [{"passes": [{
-                            "textureSlots": [None, "normal.tex"],
-                            "combos": {"REPEAT": 1},
-                        }]}], "id": 7, "visible": True, "text": "property gate"}],
                         "materialPasses": [{
                             "textureSlots": [None, None, "phase.tex"],
                             "combos": {"VERSION": 2, "MODE": 0},
+                        }],
+                        "layers": [{
+                            "effects": [{"passes": [{
+                                "textureSlots": [None, "normal.tex"],
+                                "combos": {"REPEAT": 1},
+                            }]}],
+                            "id": 7,
+                            "visible": True,
+                            "text": "property gate",
+                            "parallaxDepthXY": [2, 0],
+                            "disablesParallaxPropagation": True,
                         }],
                     },
                 }),
@@ -168,6 +175,9 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             self.assertEqual(metrics["material_combo_entry_count"], 2)
             self.assertEqual(metrics["visible_layer_count"], 1)
             self.assertEqual(metrics["visible_layer_ids"], [7])
+            self.assertEqual(metrics["authored_parallax_layer_count"], 1)
+            self.assertEqual(metrics["authored_parallax_layer_ids"], [7])
+            self.assertEqual(metrics["parallax_propagation_block_count"], 1)
             self.assertEqual(metrics["text_values"], ["property gate"])
             self.assertIsNone(metrics["error"])
 
@@ -202,7 +212,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         loaded = benchmark.LOADED_RE.search("loaded: 20 / 24")
         text_loaded = benchmark.TEXT_LOADED_RE.search("text loaded: 10 / 10")
         camera = benchmark.CAMERA_RE.search(
-            "camera: projection=cover parallax=false amount=8e-2 mouseInfluence=-1.0"
+            "camera: projection=cover parallax=false amount=8e-2 delay=0.25 mouseInfluence=-1.0"
         )
         self.assertEqual(ready.group("images"), "24")
         self.assertEqual(
@@ -215,6 +225,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(camera.group("projection"), "cover")
         self.assertEqual(camera.group("parallax"), "false")
         self.assertEqual(float(camera.group("amount")), 0.08)
+        self.assertEqual(float(camera.group("delay")), 0.25)
         self.assertEqual(float(camera.group("influence")), -1.0)
 
 
