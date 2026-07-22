@@ -12,8 +12,8 @@ struct SceneInterpretationFile: Codable {
 }
 
 struct SceneInterpretationFileWriter {
-    // Format 13 preserves typed effect texture inputs for dependency planning.
-    static let currentFormatVersion = 13
+    // Format 14 separates authored texture slots from user-bound texture inputs.
+    static let currentFormatVersion = 14
 
     func write(
         renderDescriptor: SceneRenderDescriptor,

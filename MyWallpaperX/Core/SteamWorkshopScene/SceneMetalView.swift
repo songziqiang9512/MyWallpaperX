@@ -181,6 +181,10 @@ class SceneMetalView: NSView {
         report.append("imageLayerCount: \(imageLayers.count)")
         report.append("solidLayerCount: \(imageLayers.filter { $0.contentKind == "solid" }.count)")
         report.append(contentsOf: SceneUtilityLayerRuntimePlanner.reportLines(descriptor: renderer.renderDescriptor))
+        report.append(contentsOf: SceneImageBlendRenderPlan(
+            descriptor: renderer.renderDescriptor,
+            visibleLayerIDs: SceneLayerVisibility.visibleLayerIDs(in: renderer.renderDescriptor)
+        ).reportLines())
         for layer in imageLayers {
             let name = layer.name ?? "(unnamed)"
             let placementSummary = renderer.debugPlacementSummary(for: layer)

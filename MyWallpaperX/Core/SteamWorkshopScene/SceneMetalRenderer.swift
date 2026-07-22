@@ -28,10 +28,8 @@ struct SceneMetalRenderer {
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: renderDescriptor)
         self.visibleLayerIDs = visibleLayerIDs
         self.dependencyRuntime = SceneDependencyFrameRuntime(
-            plan: SceneDependencyRenderPlan(
-                descriptor: renderDescriptor,
-                visibleLayerIDs: visibleLayerIDs
-            ),
+            descriptor: renderDescriptor,
+            visibleLayerIDs: visibleLayerIDs,
             device: device
         )
 
@@ -217,6 +215,12 @@ struct SceneMetalRenderer {
                     dependencyRuntime.recordBindingFailure(for: layer.id)
                     continue
                 }
+                let preparedTexture = dependencyRuntime.preparedSourceTexture(
+                    for: layer.id,
+                    sourceTexture: texture,
+                    imageTextures: imageTextures,
+                    mainPass: mainPass
+                )
                 let model = imageModelMatrix(
                     for: layer,
                     parallaxMouseNormalized: parallaxMouseNormalized,
@@ -224,7 +228,7 @@ struct SceneMetalRenderer {
                 )
                 let request = SceneImageLayerDrawRequest(
                     layer: layer,
-                    texture: texture,
+                    texture: preparedTexture,
                     masks: SceneImageLayerMasks(
                         iris: irisMaskTextures[layer.id],
                         opacity: opacityMaskTextures[layer.id],

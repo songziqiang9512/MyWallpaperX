@@ -19,6 +19,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneMainPassEncoder.swift",
     SOURCE_ROOT / "SceneOffscreenTexturePool.swift",
     SOURCE_ROOT / "SceneGaussianBlurPipeline.swift",
+    SOURCE_ROOT / "SceneImageBlendPipeline.swift",
     SOURCE_ROOT / "SceneBloomPipeline.swift",
     SOURCE_ROOT / "SceneWaterRipplePipeline.swift",
     SOURCE_ROOT / "ScenePerspectiveOpacityPipeline.swift",
@@ -91,6 +92,7 @@ enum Harness {
         guard let device = MTLCreateSystemDefaultDevice(),
               let queue = device.makeCommandQueue(),
               let pipeline = SceneImageLayerPipeline(device: device),
+              let imageBlendPipeline = SceneImageBlendPipeline(device: device),
               let compositor = SceneImageLayerCompositor(device: device),
               let source = makeTexture(device: device, size: 8, usage: .shaderRead),
               let target = makeTexture(
@@ -206,6 +208,23 @@ enum Harness {
             mappedWidth: 3840,
             mappedHeight: 2160
         )
+        let imageBlend = try imageBlendPixel(
+            device: device,
+            queue: queue,
+            pipeline: imageBlendPipeline,
+            multiply: 1
+        )
+        let halfImageBlend = try imageBlendPixel(
+            device: device,
+            queue: queue,
+            pipeline: imageBlendPipeline,
+            multiply: 0.5
+        )
+        let partialAlphaImageBlend = try partialAlphaImageBlendPixel(
+            device: device,
+            queue: queue,
+            pipeline: imageBlendPipeline
+        )
 
         let limited = pool.textures(width: 4_000, height: 2_000)
         let evictionPool = SceneOffscreenTexturePool(
@@ -251,6 +270,9 @@ enum Harness {
             ],
             "unsupportedFoliageFlags": unsupportedFoliage.flags.rawValue,
             "mappedMaskScale": [mappedMaskScale.x, mappedMaskScale.y],
+            "imageBlendBGRA": imageBlend,
+            "halfImageBlendBGRA": halfImageBlend,
+            "partialAlphaImageBlendBGRA": partialAlphaImageBlend,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -305,6 +327,71 @@ enum Harness {
         )
         guard drew else { throw HarnessError.drawRefused }
         mainPass.finishEnsuringClear()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
+        return pixel(target, x: 4, y: 4)
+    }
+
+    static func imageBlendPixel(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageBlendPipeline,
+        multiply: Float
+    ) throws -> [UInt8] {
+        guard let source = makeTexture(device: device, size: 8, usage: .shaderRead),
+              let blend = makeTexture(device: device, size: 8, usage: .shaderRead),
+              let target = makeTexture(
+                  device: device, size: 8, usage: [.renderTarget, .shaderRead]
+              ),
+              let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.metalUnavailable
+        }
+        fill(source, bgra: [0, 0, 0, 0])
+        fill(blend, bgra: [192, 32, 64, 255])
+        guard pipeline.encode(
+            source: source,
+            blend: blend,
+            target: target,
+            multiply: multiply,
+            alphaMultiply: 1,
+            writesAlpha: true,
+            commandBuffer: commandBuffer
+        ) else {
+            throw HarnessError.encoderUnavailable
+        }
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
+        return pixel(target, x: 4, y: 4)
+    }
+
+    static func partialAlphaImageBlendPixel(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageBlendPipeline
+    ) throws -> [UInt8] {
+        guard let source = makeTexture(device: device, size: 8, usage: .shaderRead),
+              let blend = makeTexture(device: device, size: 8, usage: .shaderRead),
+              let target = makeTexture(
+                  device: device, size: 8, usage: [.renderTarget, .shaderRead]
+              ),
+              let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.metalUnavailable
+        }
+        fill(source, bgra: [0, 0, 128, 128])
+        fill(blend, bgra: [128, 0, 0, 128])
+        guard pipeline.encode(
+            source: source,
+            blend: blend,
+            target: target,
+            multiply: 1,
+            alphaMultiply: 1,
+            writesAlpha: true,
+            commandBuffer: commandBuffer
+        ) else {
+            throw HarnessError.encoderUnavailable
+        }
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
         guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
@@ -524,6 +611,13 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
     def test_foliage_mask_uses_mapped_to_physical_uv_scale(self) -> None:
         self.assertAlmostEqual(self.result["mappedMaskScale"][0], 0.9375, places=6)
         self.assertAlmostEqual(self.result["mappedMaskScale"][1], 0.52734375, places=6)
+
+    def test_static_image_blend_writes_provider_color_and_alpha(self) -> None:
+        self.assert_pixel_close(self.result["imageBlendBGRA"], [192, 32, 64, 255])
+        self.assert_pixel_close(self.result["halfImageBlendBGRA"], [96, 16, 32, 128])
+        self.assert_pixel_close(
+            self.result["partialAlphaImageBlendBGRA"], [128, 0, 64, 192]
+        )
 
     def test_dependency_mode_reuses_uniform_padding_without_layout_growth(self) -> None:
         self.assertEqual(self.result["fragmentUniformSize"], 176)

@@ -5,13 +5,28 @@ import simd
 final class SceneDependencyFrameRuntime {
     private let plan: SceneDependencyRenderPlan
     private let targetPool: SceneNamedRenderTargetPool
+    private let imageBlendRuntime: SceneImageBlendRuntime?
     private let captureTelemetry = SceneGPUCompletionTelemetry(phase: "named-target-capture")
     private let bindingTelemetry = SceneGPUCompletionTelemetry(phase: "named-target-binding")
     private var currentFrameTargetsByProviderLayerID: [Int: MTLTexture] = [:]
 
-    init(plan: SceneDependencyRenderPlan, device: MTLDevice) {
-        self.plan = plan
+    init(
+        descriptor: SceneRenderDescriptor,
+        visibleLayerIDs: Set<Int>,
+        device: MTLDevice
+    ) {
+        self.plan = SceneDependencyRenderPlan(
+            descriptor: descriptor,
+            visibleLayerIDs: visibleLayerIDs
+        )
         self.targetPool = SceneNamedRenderTargetPool(device: device)
+        self.imageBlendRuntime = SceneImageBlendRuntime(
+            plan: SceneImageBlendRenderPlan(
+                descriptor: descriptor,
+                visibleLayerIDs: visibleLayerIDs
+            ),
+            device: device
+        )
     }
 
     func beginFrame() {
@@ -32,6 +47,20 @@ final class SceneDependencyFrameRuntime {
             return nil
         }
         return SceneDependencyEffectInput(texture: texture, blendMode: binding.blendMode)
+    }
+
+    func preparedSourceTexture(
+        for consumerLayerID: Int,
+        sourceTexture: MTLTexture,
+        imageTextures: [Int: MTLTexture],
+        mainPass: SceneMainPassEncoder
+    ) -> MTLTexture {
+        imageBlendRuntime?.preparedTexture(
+            for: consumerLayerID,
+            sourceTexture: sourceTexture,
+            imageTextures: imageTextures,
+            mainPass: mainPass
+        ) ?? sourceTexture
     }
 
     func recordBindingIfRequired(

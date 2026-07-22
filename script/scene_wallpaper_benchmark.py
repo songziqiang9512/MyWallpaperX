@@ -89,6 +89,12 @@ NAMED_TARGET_CAPTURE_EXECUTION_RE = re.compile(
 NAMED_TARGET_BINDING_EXECUTION_RE = re.compile(
     r"phase=named-target-binding layer=(?P<id>\d+) status=(?P<status>succeeded|failed)"
 )
+IMAGE_BLEND_PLANNED_RE = re.compile(
+    r"^imageBlendPlannedCount: (?P<count>\d+)$", re.MULTILINE
+)
+IMAGE_BLEND_EXECUTION_RE = re.compile(
+    r"phase=image-blend layer=(?P<id>\d+) status=(?P<status>succeeded|failed)"
+)
 FLOAT_PATTERN = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
 CAMERA_RE = re.compile(
     r"^camera: projection=(?P<projection>\S+) parallax=(?P<parallax>true|false) "
@@ -474,6 +480,41 @@ def named_target_binding_execution_metrics(log_text: str) -> dict[str, Any]:
     return capture_execution_metrics(log_text, NAMED_TARGET_BINDING_EXECUTION_RE)
 
 
+def image_blend_runtime_metrics(
+    preview_text: str,
+    log_text: str,
+) -> dict[str, Any]:
+    planned_match = IMAGE_BLEND_PLANNED_RE.search(preview_text)
+    execution = capture_execution_metrics(log_text, IMAGE_BLEND_EXECUTION_RE)
+    return {
+        "has_evidence": planned_match is not None,
+        "planned": int(planned_match.group("count")) if planned_match else 0,
+        **execution,
+    }
+
+
+def image_blend_runtime_failures(
+    sample: dict[str, Any],
+    metrics: dict[str, Any],
+) -> list[str]:
+    requires_evidence = "expected_image_blend_planned" in sample or bool(
+        sample.get("required_image_blend_succeeded_layer_ids")
+    )
+    if requires_evidence and not metrics["has_evidence"]:
+        return ["image blend runtime evidence missing"]
+    failures: list[str] = []
+    if "expected_image_blend_planned" in sample:
+        if metrics["planned"] != int(sample["expected_image_blend_planned"]):
+            failures.append("image blend planned count mismatch")
+    succeeded = set(metrics["succeeded_layer_ids"])
+    if len(succeeded) < metrics["planned"]:
+        failures.append("image blend execution below planned count")
+    for layer_id in sample.get("required_image_blend_succeeded_layer_ids", []):
+        if layer_id not in succeeded:
+            failures.append(f"image blend consumer {layer_id} should succeed")
+    return failures
+
+
 def capture_execution_metrics(
     log_text: str,
     pattern: re.Pattern[str],
@@ -662,6 +703,7 @@ def run_sample(
     utility_capture_execution = utility_capture_execution_metrics(log_text)
     named_target_capture_execution = named_target_capture_execution_metrics(log_text)
     named_target_binding_execution = named_target_binding_execution_metrics(log_text)
+    image_blend_runtime = image_blend_runtime_metrics(preview_text, log_text)
     particle_runtime = particle_runtime_metrics(preview_text)
     camera_match = CAMERA_RE.search(preview_text)
     ready_snapshot = result_dir / "scene-ready-window.png"
@@ -749,6 +791,7 @@ def run_sample(
         utility_runtime["named_binding_planned"],
         named_target_binding_execution,
     ))
+    failures.extend(image_blend_runtime_failures(sample, image_blend_runtime))
     failures.extend(particle_runtime_failures(sample, particle_runtime))
     blur_runtime_count = preview_text.count("effect runtime gaussian-blur;")
     if blur_runtime_count < int(sample.get("minimum_gaussian_blur_runtime_count", 0)):
@@ -925,6 +968,9 @@ def run_sample(
             "named_target_capture_failed_layer_ids": named_target_capture_execution["failed_layer_ids"],
             "named_target_binding_succeeded_layer_ids": named_target_binding_execution["succeeded_layer_ids"],
             "named_target_binding_failed_layer_ids": named_target_binding_execution["failed_layer_ids"],
+            "image_blend_planned": image_blend_runtime["planned"],
+            "image_blend_succeeded_layer_ids": image_blend_runtime["succeeded_layer_ids"],
+            "image_blend_failed_layer_ids": image_blend_runtime["failed_layer_ids"],
             "loaded_particle_layers": particle_runtime["loaded"],
             "particle_candidates": particle_runtime["candidates"],
             "particle_loaded_ratio": round(particle_runtime["loaded_ratio"], 4),

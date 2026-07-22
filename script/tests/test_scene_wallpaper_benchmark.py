@@ -52,11 +52,12 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "3766387484": (0, 0, 0),
             "2902406982": (9, 6, 1),
             "3765760121": (0, 0, 0),
+            "2938612768": (11, 9, 2),
         }
         self.assertEqual(set(samples), set(expected))
         for sample_id, (solid_count, authored_color_count, effective_count) in expected.items():
             sample = samples[sample_id]
-            self.assertEqual(sample["expected_interpretation_format"], 13)
+            self.assertEqual(sample["expected_interpretation_format"], 14)
             self.assertEqual(sample["expected_solid_layer_count"], solid_count)
             self.assertEqual(
                 sample["expected_authored_solid_color_layer_count"],
@@ -470,6 +471,24 @@ utility layer 763: skippedHidden kind=composition
         )
         self.assertEqual(metrics["succeeded_layer_ids"], [530])
         self.assertEqual(metrics["failed_layer_ids"], [410])
+
+    def test_image_blend_runtime_pins_planned_and_completed_consumers(self) -> None:
+        metrics = benchmark.image_blend_runtime_metrics(
+            "imageBlendPlannedCount: 1\n",
+            "phase=image-blend layer=1509 status=succeeded\n",
+        )
+        self.assertEqual(metrics["planned"], 1)
+        self.assertEqual(metrics["succeeded_layer_ids"], [1509])
+        self.assertEqual(
+            benchmark.image_blend_runtime_failures(
+                {
+                    "expected_image_blend_planned": 1,
+                    "required_image_blend_succeeded_layer_ids": [1509],
+                },
+                metrics,
+            ),
+            [],
+        )
 
         named_metrics = benchmark.named_target_capture_execution_metrics(
             "phase=named-target-capture layer=125 status=failed\n"

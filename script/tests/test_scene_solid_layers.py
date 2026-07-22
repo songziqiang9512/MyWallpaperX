@@ -62,10 +62,13 @@ SCENE_FIXTURE = {
                         {
                             "textures": [
                                 None,
+                                "_rt_imageLayerComposite_42_a",
+                            ],
+                            "usertextures": [
+                                None,
                                 {"type": "system", "name": "$mediaThumbnail"},
                                 "newproperty25",
-                                "_rt_imageLayerComposite_42_a",
-                            ]
+                            ],
                         }
                     ],
                 }
@@ -242,7 +245,7 @@ enum Harness {
             "descriptorColors": [10, 20, 30].map { layers[$0]?.colorRGB ?? [] },
             "documentAlphas": [10, 20, 30, 40].map { objects[$0]?.alpha ?? -1 },
             "descriptorAlphas": [10, 20, 30, 40].map { layers[$0]?.alpha ?? -1 },
-            "textureInputKinds": layers[40]?.effects.first?.passes.first?.textureInputs.map {
+            "userTextureInputKinds": layers[40]?.effects.first?.passes.first?.userTextureInputs.map {
                 $0?.kind.rawValue ?? "nil"
             } ?? [],
             "imageRenderable": [10, 20, 30, 40].map {
@@ -338,8 +341,8 @@ class SceneSolidLayerTests(unittest.TestCase):
 
     def test_effect_texture_inputs_keep_system_property_and_path_slots_typed(self) -> None:
         self.assertEqual(
-            self.result["textureInputKinds"],
-            ["nil", "system", "property", "path"],
+            self.result["userTextureInputKinds"],
+            ["nil", "system", "property"],
         )
 
     def test_fragment_uniform_carries_layer_tint(self) -> None:
