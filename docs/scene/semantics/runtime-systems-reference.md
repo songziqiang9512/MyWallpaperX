@@ -376,10 +376,11 @@ Realtime Adapter              Offline Adapter
 
 当前事实仍以 [Scene 开发计划](../scene-capability-development-plan-2026-07-22.md) 为准。这里仅列语义边界：
 
-| 系统 | 当前可执行子集 | 不能据此宣称 |
+| 系统 | 当前实现状态 | 不能据此宣称 |
 |---|---|---|
 | Particle | 作者 2D sprite、部分 emitter/initializer/operator、built-in drop、Sprite Trail 子集 | child/rope/control point/collision/audio/全部 preset 完整 |
 | Text | CoreText 静态纹理、部分 font/pointsize/padding/scale | 动态时间、完整 alignment/effects/SceneScript |
+| Effect graph | v16 已保留 EffectDefinition 并结构化编译 authored graph、blocker 与 canonical SHA | 通用 material/pass 已由 GPU 执行或与 WE 像素等价 |
 | Timeline | 数据识别不足或空壳 | 任意动画模式可用 |
 | SceneScript | 只检测 script | ECMAScript/runtime/API 可用 |
 | User Properties | 独立窗口、条件、默认/override、部分 target 与持久化 | 403 个样本属性全部可调 |
@@ -387,7 +388,7 @@ Realtime Adapter              Offline Adapter
 
 ## 11. 实施顺序
 
-1. 先完成通用 Render Graph、texture provider 和 typed target；
+1. 先让 slot/material resolver、resource registry 和最小 GPU executor 消费已建立的 v16 graph，并让未闭合 compose/functions/conditions fail closed；
 2. 再让 Text/Particle 使用相同 effect/material/resource 语义；
 3. 建统一 SceneClock、Timeline 和动态 text；
 4. 在 typed target 稳定后接 SceneScript 核心生命周期；

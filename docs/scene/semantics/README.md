@@ -20,7 +20,7 @@ Scene 兼容的核心不是不断增加“看起来差不多”的效果分支�
 
 - 头发、山体整块晃动：把局部 UV/flow/mask 变形错做成 layer transform；
 - 不需要水波或视差的样本也在动：播放器按“具备能力”启用，而不是按作者声明启用；
-- 背景重复、层层叠加：`previous`、scene compose、named target、copy 和历史 RT 被合并成同一种缓冲；
+- 背景重复、层层叠加：`previous`、scene compose、named target、copy/swap 和历史 RT 被合并成同一种缓冲；
 - 时钟、字体、雨和粒子缺失：把它们当附加装饰，而不是 text/particle/SceneScript 正式运行时对象。
 
 ## 2. 查阅入口
@@ -53,7 +53,7 @@ Wallpaper Engine 没有公开稳定、完整的 Workshop Scene 序列化规范�
 
 ### 4.1 能力存在不等于启用
 
-- Camera Parallax 只在 `scene.general.cameraparallax` 解析为 true 时启用；逐层 `parallaxDepth` 只调整已启用的相机视差。
+- Camera Parallax 只在 `scene.general.cameraparallax` 解析为 true 时启用；逐层 `parallaxDepth` 缺失或两轴均为零时该层不移动，composition 类型本身不隐含任何视差深度。
 - Depth Parallax 是对象显式引用的独立 effect，并需要 depth map；它不是 Camera Parallax 的别名。
 - 水波、摇摆、摆动、模糊、粒子、文字和脚本都必须由对象或属性绑定显式声明。
 - effect 的 optional texture combo 只在对应资源真实绑定时启用。
@@ -64,7 +64,7 @@ Wallpaper Engine 没有公开稳定、完整的 Workshop Scene 序列化规范�
 - 保留 scene object source order、effect order、pass order 和 material pass order。
 - texture slot 数组中的 `null` 是占位，不得压缩；slot 语义由 shader/material 决定，不存在通用的“slot 1 永远是 mask”。
 - `previous`、原始 layer、scene background、named target、临时 RT 和跨帧 history RT 必须是不同资源身份。
-- `compose`、`copy`、显式 `bind` 和 pass `target` 必须进入 Render Graph，不能丢成编辑器元数据。
+- `compose`、copy/swap command、显式 `bind` 和 pass `target` 必须进入 Render Graph，不能丢成编辑器元数据；command 不消耗实例 material-pass ordinal。
 
 ### 4.3 不支持必须可见
 
@@ -108,7 +108,7 @@ scene.json / scene.pkg / assets
 
 1. 明确的作者启用条件；
 2. 输入资源和 texture slot 含义；
-3. pass、RT、history、compose/copy 的执行要求；
+3. pass、RT、history、compose/copy/swap 的执行要求；
 4. 动态 uniform/provider 和生命周期；
 5. 正向样本、默认关闭反例和失败降级；
 6. 证据等级与仍未知项。

@@ -189,7 +189,7 @@ https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/<Name>.htm
 
 - [21 个用户样本评估](../scene-sample-assessment-2026-07-22.md)
 - [Scene 开发计划](../scene-capability-development-plan-2026-07-22.md)
-- 最新正式 13 样本报告：`.codex/scene-static-fallback-formal13-20260722/report.json`
+- 最新正式 13 样本报告：`.codex/scene-effect-graph-canonical-final-20260723/report.json`（v16 authored graph；结构门不等于通用 GPU 执行）
 
 样本可证明 instance 如何引用 effect、texture、particle、script 和 user property。它们不能单独证明内置 shader 的全部默认算法。
 

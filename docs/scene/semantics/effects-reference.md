@@ -119,11 +119,11 @@ WE-compatible asset payload 还包含 `_empty` / `empty`：它是内部 passthro
 
 ## 9. Parser 注意项
 
-- `effect.json` 的 pass order、`target`、`bind{name,index}`、`compose`、`command:copy`、FBO `scale/fit/width/height/format/unique/uvs/conditions` 都是执行字段。
+- `effect.json` 的 pass order、`target`、`bind{name,index}`、raw `compose`、copy/swap command、FBO `scale/fit/width/height/format/clear/unique/uvs/conditions` 都是执行字段；command 不消耗 material-pass ordinal。
 - Advanced Fluid definition 的一个观察副本含 trailing comma。若合法官方 assets 也确认这一点，应在 effect-definition 专用入口做可诊断的 relaxed JSON；不能对所有 JSON 粗暴字符串替换。
 - shader/material texture array 必须保留 `null` hole。
 - optional mask/texture 未绑定时关闭对应 combo；不能绑定空白 texture 后仍把 combo 当 enabled。
-- effect 可挂到 image、text、fullscreen、composition 等 layer，IR 不应绑定到某一种 base content；但 RT/history 必须按 effect instance 隔离。
+- effect 可挂到 image、text、fullscreen、composition 等 layer，IR 不应绑定到某一种 base content；RT identity 必须包含 effect instance。raw `unique` 只声明实例唯一性，history 仍需数据流和生命周期分析。
 
 ## 10. 支持度记录格式
 
@@ -147,3 +147,5 @@ knownDeviation
 ```
 
 `supportLevel` 至少区分：`recognized`、`graph-built`、`executed-degraded`、`semantics-verified`，不能把“识别名称”统计成效果已支持。
+
+当前 MyWallpaperX v15 已把 EffectDefinition 计为 `recognized`，v16 已把 13 样本中可见实例结构化编译为 `graph-built` 并用 canonical SHA 验证身份；仍有 5 个 fluid condition/function blocker，Metal renderer 也尚未消费通用 graph。当前没有 effect 可仅凭这张图升级为 `executed-degraded` 或 `semantics-verified`。

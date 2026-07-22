@@ -13,7 +13,7 @@
 | `scene.pkg` / `gifscene.pkg` | models、materials、textures、particles、scripts 等虚拟文件 | 与 loose files 组成统一只读 VFS | B/D |
 | model JSON | material、autosize、solid、crop、puppet | 定义可绘制资源与几何/角色关联 | B/D |
 | material JSON | ordered passes、shader、texture slots、combos、constants、render state | 定义实际 draw pipeline | B/C/D |
-| effect JSON | FBO、ordered passes、bind/target/compose/copy、dependency | 定义对象 effect 子图 | C/D |
+| effect JSON | FBO、ordered passes、bind/target/compose/copy/swap、dependency | 定义对象 effect 子图 | C/D |
 | shader | GLSL-like 源码、combo、uniform/texture annotations、includes | 定义每个像素/顶点的真实算法 | A/C/D |
 | particle JSON | emitter、initializer、operator、renderer、control point、children | 定义粒子 simulation graph | A/B/D |
 | SceneScript | property-bound ECMAScript module | 在事件和每帧阶段更新作者绑定值 | A/B |
@@ -116,18 +116,23 @@ EffectDefinition
     name
     scale | width/height | fit
     format
-    unique
-    uvs / conditions?
+    clear?
+    unique? (raw declaration)
+    uvs? / conditions?
   passes[] (ordered)
     material?
     target?
-    bind[] { name, index }
+    bind[] { name, index, conditions? }
     compose?
-    command? = copy
+    command? (raw; observed copy/swap)
     source?
     target?
-  gizmos / editor metadata
+    conditions?
+  functions? / gizmos? / extraFields
+  unknownFieldPaths[]
 ```
+
+实例 material pass 只与 definition 中的 material pass 按 ordinal 对齐；copy/swap 等 command 不消耗该 ordinal。v15 按上述合同保真保存定义，v16 在不猜测未知字段的前提下把它编译成 authored graph。
 
 ### 5.1 显式启用
 
@@ -141,11 +146,11 @@ pass 顺序是执行合同。典型类型：
 - ping-pong：downsample -> horizontal -> vertical -> combine；
 - scene compose：先捕获该 layer 后方场景，再执行折射/混合；
 - stateful：本帧输入 + history RT -> 新 history -> final combine；
-- command：显式 copy source -> target，不运行 material shader。
+- command：显式 copy source -> target 或 swap 资源 identity/handle，不运行 material shader，也不消耗 material ordinal。
 
 ### 5.3 `previous` 不是“当前屏幕”
 
-在观察到的内置定义中，pass 常把上一 effect 或基础 layer 输出作为 `previous`。它与以下资源都不同：
+在观察到的内置定义中，`previous` 是当前 effect 开始前的固定输入：同一 effect 内所有引用都解析为同一 identity，不是“上一 pass 的 target”；只有整个 effect 完成后，effect chain 的输入才前进到该 effect 输出。它与以下资源都不同：
 
 - 原始、未处理的 layer texture；
 - 已经绘制到 Scene 的下方背景；
@@ -158,11 +163,11 @@ pass 顺序是执行合同。典型类型：
 
 ### 5.4 `compose`
 
-`compose:true` 表示 effect 需要已合成场景作为输入。Refraction 是已确认的典型：先捕获 layer 后面的场景，再用 normal map 折射。它不能用 layer 自身 texture 或最终屏幕截图替代。
+官方 Refraction 行为明确需要先捕获 layer 后面的场景，再用 normal map 折射；但私有 definition 中 raw `compose:true` 是否在所有 effect 上都等价于这一输入，当前证据不足。v16 保留 raw compose 并阻断通用执行，不能仅看到 `compose:true` 就绑定 scene background；经逐 definition 验证后再映射具体 provider。
 
-### 5.5 `copy`
+### 5.5 copy 与 swap
 
-Motion Blur 等定义含显式 copy，用来更新跨帧历史。省略 copy 或把它当普通 pass，会改变 read/write 顺序并形成同一纹理读写冲突。
+Motion Blur 等定义含显式 copy，用来复制 source 像素到 target；省略 copy 或把它当 material pass，会改变 read/write 顺序。观察到的 swap command 则交换资源 identity/handle，不是像素 copy。两者都不消耗 material ordinal；swap 还必须验证 allocation scope、UV、clear/reset 和 condition 合同兼容后才能执行。
 
 ## 6. Render target 与生命周期
 
@@ -171,11 +176,11 @@ Motion Blur 等定义含显式 copy，用来更新跨帧历史。省略 copy 或
 | `scale` | 相对 effect/source 尺寸分配 RT | blur kernel、texel size 与性能均错误 |
 | fixed `width/height` / `fit` | 固定 simulation grid 或按约束 fit | ripple/fluid 状态尺寸不稳定 |
 | `format` | R8、RG16F、RGBA 等数据语义 | normal、pressure、mask 精度和通道错误 |
-| `unique` | effect 实例私有、通常需跨帧保留 | 多实例串状态或 history 每帧丢失 |
+| `unique` | 作者声明该资源需要实例唯一性；本字段本身不等于 history | 多 effect 实例错误共享；或错误常驻造成资源泄漏 |
 | UV/wrap mode | repeat、clamp 或特定映射 | 云、水、glitter 出现切边或平铺错误 |
 | named target | 供后续 pass/layer 精确引用 | provider 内容缺失或绑定到错误画面 |
 
-资源注册表应以 `wallpaper + screen + object + effect instance + RT name` 作为身份基础。resize、壁纸切换、seek、停止和设备丢失必须清理或重建 history，不能让旧壁纸状态泄漏。
+资源注册表应以 `wallpaper + screen + object + effect instance + RT name` 作为身份基础。是否跨帧保留必须由 read-before-write、copy/swap、function/reset 和生命周期数据流判定，不能只看 `unique`。最终判为 persistent 的资源在 resize、壁纸切换、seek、停止和设备丢失时必须清理或重建。
 
 ## 7. Material definition
 
@@ -264,8 +269,10 @@ for object in authored source order:
     for pass in authored order:
       resolve shader variant and render state
       resolve texture0...7 without compacting holes
-      execute compose/copy/material pass to declared target
-      publish named target and advance previous when definition requires
+      execute compose/copy/swap/material node to declared target
+      publish named target; keep this effect's previous fixed
+
+    advance effect-chain input to this effect output
 
   composite final object output into scene target
 
@@ -277,9 +284,9 @@ present or read back
 
 | 层级 | 当前状态 | 下一合同 |
 |---|---|---|
-| Scene/object IR | format 14 已保留 camera、层级、effects、nullable slots、combos、typed constants | 补全 effect definition/FBO/pass command，而不只保留实例 override |
-| dependency | bounded named target、clipping 和单静态 image provider 已执行 | 扩展为通用、可诊断 DAG，区分 scene compose 与 history |
-| material/shader | 只解析 material metadata；运行时主要是手写 MSL 近似 | 先建统一 slot/combo/uniform/render-state executor，再迁移高频 effect |
+| Scene/object IR | format 16 已保留实例与 EffectDefinition/FBO/pass/bind/command，并按作者顺序编译 graph、blocker 与 canonical SHA | 保持 raw/typed 双层合同，不把未知字段静默解释为支持 |
+| dependency | graph 已结构化区分固定 `previous`、effect-scoped RT 和 copy/swap；bounded named target/clipping/static provider 仍由旧执行器执行 | 建 resource registry 与 compose/history 数据流判定，再接通通用 GPU executor |
+| material/shader | metadata 与 graph node 已保留；运行时仍主要是手写 MSL 近似，未消费通用图 | 建统一 slot/combo/uniform/render-state resolver 和最小 executor，再迁移高频 effect |
 | local deformation | Foliage/Water/Shake 等有不同程度近似 | 以 [Effects 全集](effects-reference.md) 的输入、空间和 mask 合同替换 |
 | live values | 属性覆盖部分 target；Timeline/SceneScript/provider 未统一 | 建 typed target snapshot 和统一 frame context |
 
@@ -290,8 +297,8 @@ present or read back
 1. texture slot 保留 `null`，绑定身份和 resolution 正确；
 2. 单 pass、ping-pong、多尺寸、多 format RT；
 3. `previous`、original、scene compose、named target 和 history 互不串用；
-4. `copy` 在 command 顺序内执行且没有同纹理 read/write hazard；
-5. `unique` 状态按 effect instance 隔离，resize/switch/stop 后清零；
+4. copy/swap 在 command 顺序内执行、command 不占 material ordinal，且没有同纹理 read/write hazard；
+5. raw `unique` 只控制实例身份；history 由数据流判定并在 resize/switch/stop 后清零；
 6. optional texture 缺失时 combo 关闭，资源出现后选择正确 shader variant；
 7. 未声明/默认关闭 effect 不创建 pipeline 或 RT；
 8. unsupported pass 保持可诊断 passthrough，不改变后续 effect 顺序；
