@@ -191,9 +191,7 @@ nonisolated struct SceneDependencyRenderPlan {
         issues: inout [Issue]
     ) -> Binding? {
         let visibleEffects = layer.effects.filter { $0.visible != false }
-        guard visibleEffects.count == 1,
-              let effect = visibleEffects.first,
-              effect.file.localizedLowercase.contains("clipping_mask"),
+        guard let effect = supportedClippingEffect(in: visibleEffects),
               effect.passes.count == 1,
               let pass = effect.passes.first,
               references.count == 1,
@@ -246,6 +244,21 @@ nonisolated struct SceneDependencyRenderPlan {
             slot: reference.slot,
             blendMode: blendMode
         )
+    }
+
+    private nonisolated static func supportedClippingEffect(
+        in visibleEffects: [SceneRenderDescriptor.EffectDescriptor]
+    ) -> SceneRenderDescriptor.EffectDescriptor? {
+        if visibleEffects.count == 1,
+           visibleEffects[0].file.localizedLowercase.contains("clipping_mask") {
+            return visibleEffects[0]
+        }
+        guard visibleEffects.count == 2,
+              SceneGradientColorRuntimePlanner.plan(for: visibleEffects[0]) != nil,
+              visibleEffects[1].file.localizedLowercase.contains("clipping_mask") else {
+            return nil
+        }
+        return visibleEffects[1]
     }
 
     private nonisolated static func combo(

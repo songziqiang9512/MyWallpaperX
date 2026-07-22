@@ -101,6 +101,18 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             sample["required_named_target_binding_succeeded_layer_ids"],
             [70, 791, 182, 217, 245, 265, 285],
         )
+        media_sample = next(item for item in matrix["samples"] if item["id"] == "2938612768")
+        self.assertEqual(media_sample["expected_utility_named_target_planned"], 2)
+        self.assertEqual(media_sample["expected_utility_named_binding_planned"], 2)
+        self.assertEqual(media_sample["expected_utility_named_target_gaps"], 1)
+        self.assertEqual(
+            media_sample["required_named_target_capture_succeeded_layer_ids"],
+            [141, 1340],
+        )
+        self.assertEqual(
+            media_sample["required_named_target_binding_succeeded_layer_ids"],
+            [299, 322],
+        )
 
     def test_entry_basename_package_is_preferred_and_copied(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-copy-variant-") as directory:

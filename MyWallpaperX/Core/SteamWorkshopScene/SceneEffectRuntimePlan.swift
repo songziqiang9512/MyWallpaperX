@@ -22,6 +22,7 @@ struct SceneEffectRuntimePlan {
     let inputs: SceneLayerEffectInputs
     let gaussianBlur: SceneGaussianBlurPlan?
     let bloom: SceneBloomPlan?
+    let gradientColor: SceneGradientColorPlan?
     let waterRippleNormal: SceneWaterRippleNormalPlan?
     let perspectiveOpacity: ScenePerspectiveOpacityPlan?
     let offscreenPassCount: Int
@@ -41,6 +42,7 @@ enum SceneEffectRuntimePlanner {
             for: layer,
             hasNormalTexture: hasWaterRippleNormal
         )
+        let gradientColor = SceneGradientColorRuntimePlanner.plan(for: layer)
         let perspectiveOpacity = perspectiveOpacityPlan(
             for: layer,
             hasOpacityMask: hasOpacityMask
@@ -56,9 +58,13 @@ enum SceneEffectRuntimePlanner {
             ),
             gaussianBlur: SceneGaussianBlurRuntimePlanner.plan(for: layer),
             bloom: bloomPlan(for: layer),
+            gradientColor: gradientColor,
             waterRippleNormal: waterRippleNormal,
             perspectiveOpacity: perspectiveOpacity,
-            offscreenPassCount: max(offscreenPassCount(for: layer), waterRippleNormal == nil ? 0 : 1),
+            offscreenPassCount: max(
+                offscreenPassCount(for: layer),
+                waterRippleNormal == nil && gradientColor == nil ? 0 : 1
+            ),
             skipsUnsupportedComposite: skipsUnsupportedComposite(for: layer) && perspectiveOpacity == nil
         )
     }
@@ -114,6 +120,9 @@ enum SceneEffectRuntimePlanner {
             return "\(legacyRipple)inline approximation"
         }
         let passCount = offscreenPassCount(for: layer)
+        if SceneGradientColorRuntimePlanner.plan(for: layer) != nil {
+            return "\(foliage)effect runtime gradient-color; \(passCount) declared pass(es)"
+        }
         guard passCount > 0 else {
             return foliage.isEmpty ? nil : String(foliage.dropLast(2))
         }
@@ -346,5 +355,6 @@ enum SceneEffectRuntimePlanner {
             || path.contains("glitter")
             || path.contains("opacity")
             || path.contains("shadow")
+            || path.hasSuffix("/gradient_color/effect.json")
     }
 }

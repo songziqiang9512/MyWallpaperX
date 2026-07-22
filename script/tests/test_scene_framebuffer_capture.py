@@ -20,12 +20,14 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneOffscreenTexturePool.swift",
     SOURCE_ROOT / "SceneGaussianBlurPipeline.swift",
     SOURCE_ROOT / "SceneImageBlendPipeline.swift",
+    SOURCE_ROOT / "SceneGradientColorPipeline.swift",
     SOURCE_ROOT / "SceneBloomPipeline.swift",
     SOURCE_ROOT / "SceneWaterRipplePipeline.swift",
     SOURCE_ROOT / "ScenePerspectiveOpacityPipeline.swift",
     SOURCE_ROOT / "SceneEffectMaskSemantics.swift",
     SOURCE_ROOT / "SceneFoliageSwayRuntimePlan.swift",
     SOURCE_ROOT / "SceneGaussianBlurRuntimePlan.swift",
+    SOURCE_ROOT / "SceneGradientColorRuntimePlan.swift",
     SOURCE_ROOT / "SceneTextureMappedUVScale.swift",
     SOURCE_ROOT / "SceneWaterRippleRuntimePlan.swift",
     SOURCE_ROOT / "SceneInlineEffectRuntime.swift",
@@ -43,7 +45,19 @@ import simd
 
 struct SceneDocument {
     struct ShaderValue {
+        let valueKind: String
+        let userBinding: String?
         let components: [Double]?
+
+        init(
+            valueKind: String = "number",
+            userBinding: String? = nil,
+            components: [Double]?
+        ) {
+            self.valueKind = valueKind
+            self.userBinding = userBinding
+            self.components = components
+        }
     }
 }
 
@@ -52,8 +66,23 @@ struct SceneRenderDescriptor {
         struct PassDescriptor {
             let texturePaths: [String]
             let textureSlots: [String?]
+            let userTextureInputs: [Int?]
             let combos: [String: Int]
             let constantShaderValues: [String: SceneDocument.ShaderValue]
+
+            init(
+                texturePaths: [String],
+                textureSlots: [String?],
+                userTextureInputs: [Int?] = [],
+                combos: [String: Int],
+                constantShaderValues: [String: SceneDocument.ShaderValue]
+            ) {
+                self.texturePaths = texturePaths
+                self.textureSlots = textureSlots
+                self.userTextureInputs = userTextureInputs
+                self.combos = combos
+                self.constantShaderValues = constantShaderValues
+            }
         }
 
         let file: String
@@ -225,6 +254,22 @@ enum Harness {
             queue: queue,
             pipeline: imageBlendPipeline
         )
+        let standaloneGradientPixels = try gradientPixels(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor,
+            sourceBGRA: [255, 255, 255, 255],
+            dependencyBGRA: nil
+        )
+        let clippedGradientPixels = try gradientPixels(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor,
+            sourceBGRA: [128, 128, 128, 128],
+            dependencyBGRA: [0, 255, 0, 255]
+        )
 
         let limited = pool.textures(width: 4_000, height: 2_000)
         let evictionPool = SceneOffscreenTexturePool(
@@ -273,6 +318,9 @@ enum Harness {
             "imageBlendBGRA": imageBlend,
             "halfImageBlendBGRA": halfImageBlend,
             "partialAlphaImageBlendBGRA": partialAlphaImageBlend,
+            "gradientTopBGRA": standaloneGradientPixels[0],
+            "gradientBottomBGRA": standaloneGradientPixels[1],
+            "clippedGradientTopBGRA": clippedGradientPixels[0],
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -396,6 +444,92 @@ enum Harness {
         commandBuffer.waitUntilCompleted()
         guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
         return pixel(target, x: 4, y: 4)
+    }
+
+    static func gradientPixels(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor,
+        sourceBGRA: [UInt8],
+        dependencyBGRA: [UInt8]?
+    ) throws -> [[UInt8]] {
+        guard let source = makeTexture(device: device, size: 8, usage: .shaderRead),
+              let target = makeTexture(
+                  device: device, size: 8, usage: [.renderTarget, .shaderRead]
+              ), let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.metalUnavailable
+        }
+        fill(source, bgra: sourceBGRA)
+        let dependency = dependencyBGRA.flatMap { color -> MTLTexture? in
+            guard let texture = makeTexture(device: device, size: 8, usage: .shaderRead) else {
+                return nil
+            }
+            fill(texture, bgra: color)
+            return texture
+        }
+        let layer = gradientLayer(includesClipping: dependency != nil)
+        let mainPass = SceneMainPassEncoder(
+            commandBuffer: commandBuffer,
+            target: target,
+            clearColor: MTLClearColorMake(0, 0, 0, 0)
+        )
+        let drew = compositor.draw(
+            SceneImageLayerDrawRequest(
+                layer: layer,
+                texture: source,
+                masks: .empty,
+                textureFrame: .identity,
+                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+                uniforms: SceneImageLayerUniformValues(time: 0, alpha: 1, cursorUV: .zero),
+                offscreenTexturePool: SceneOffscreenTexturePool(device: device),
+                offscreenSize: nil,
+                requiresSourceCopy: false,
+                finalCompositeAlpha: nil,
+                dependencyEffect: dependency.map {
+                    SceneDependencyEffectInput(texture: $0, blendMode: 0)
+                }
+            ),
+            pipeline: pipeline,
+            mainPass: mainPass
+        )
+        guard drew else { throw HarnessError.drawRefused }
+        mainPass.finishEnsuringClear()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
+        return [pixel(target, x: 4, y: 0), pixel(target, x: 4, y: 7)]
+    }
+
+    static func gradientLayer(includesClipping: Bool) -> SceneRenderDescriptor.Layer {
+        let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
+            texturePaths: [],
+            textureSlots: [],
+            combos: ["AXIS": 1, "BLENDMODE": 0],
+            constantShaderValues: [
+                "Amount": .init(components: [1]),
+                "Color 1": .init(components: [1, 0, 0]),
+                "Color 2": .init(components: [0, 0, 1]),
+                "Hue Speed": .init(components: [0]),
+                "Opacity": .init(components: [1]),
+                "Oscillate": .init(components: [0]),
+            ]
+        )
+        var effects = [SceneRenderDescriptor.EffectDescriptor(
+            file: "effects/workshop/2552475732/gradient_color/effect.json",
+            visible: true,
+            passes: [pass]
+        )]
+        if includesClipping {
+            effects.append(.init(
+                file: "effects/workshop/2800594362/clipping_mask/effect.json",
+                visible: true,
+                passes: []
+            ))
+        }
+        return SceneRenderDescriptor.Layer(
+            contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: effects
+        )
     }
 
     static func blurPlan(path: String, scale: Double) -> SceneGaussianBlurPlan? {
@@ -619,14 +753,21 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             self.result["partialAlphaImageBlendBGRA"], [128, 0, 64, 192]
         )
 
+    def test_gradient_color_runs_before_dependency_clipping_and_preserves_alpha(self) -> None:
+        self.assert_pixel_close(self.result["gradientTopBGRA"], [16, 0, 239, 255], 2)
+        self.assert_pixel_close(self.result["gradientBottomBGRA"], [239, 0, 16, 255], 2)
+        self.assert_pixel_close(self.result["clippedGradientTopBGRA"], [4, 128, 60, 128], 2)
+
     def test_dependency_mode_reuses_uniform_padding_without_layout_growth(self) -> None:
         self.assertEqual(self.result["fragmentUniformSize"], 176)
         self.assertEqual(self.result["dependencyBlendModeOffset"], 12)
 
-    def assert_pixel_close(self, actual: list[int], expected: list[int]) -> None:
+    def assert_pixel_close(
+        self, actual: list[int], expected: list[int], tolerance: int = 1
+    ) -> None:
         self.assertEqual(len(actual), len(expected))
         for component, wanted in zip(actual, expected):
-            self.assertLessEqual(abs(component - wanted), 1)
+            self.assertLessEqual(abs(component - wanted), tolerance)
 
 
 if __name__ == "__main__":

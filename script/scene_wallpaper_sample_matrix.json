@@ -541,6 +541,7 @@
       "capabilities": [
         "wrapped_alpha",
         "static_image_dependency_blend",
+        "gradient_color_dependency_stack",
         "utility_frame_capture"
       ],
       "project_sha256": "224360470a676696a07fc15a620c422126d1653f193d58b089c49b4e1a34f547",
@@ -558,13 +559,13 @@
       "expected_utility_capture_planned": 0,
       "expected_utility_dependency_edges": 9,
       "expected_utility_named_consumers": 7,
-      "expected_utility_named_target_planned": 1,
-      "expected_utility_named_binding_planned": 1,
-      "expected_utility_named_target_gaps": 2,
+      "expected_utility_named_target_planned": 2,
+      "expected_utility_named_binding_planned": 2,
+      "expected_utility_named_target_gaps": 1,
       "expected_image_blend_planned": 1,
       "required_image_blend_succeeded_layer_ids": [1509],
-      "required_named_target_capture_succeeded_layer_ids": [1340],
-      "required_named_target_binding_succeeded_layer_ids": [322],
+      "required_named_target_capture_succeeded_layer_ids": [141, 1340],
+      "required_named_target_binding_succeeded_layer_ids": [299, 322],
       "minimum_loaded_ratio": 0.6,
       "requires_motion": false,
       "maximum_flat_border_ratio": 0.1

@@ -11,6 +11,7 @@ enum SceneOffscreenEffectRenderer {
         offscreenPassCount: Int,
         blurPlan: SceneGaussianBlurPlan?,
         bloomPlan: SceneBloomPlan?,
+        gradientColorPlan: SceneGradientColorPlan?,
         waterRippleNormalPlan: SceneWaterRippleNormalPlan?,
         waterRippleNormalTexture: MTLTexture?,
         perspectiveOpacityPlan: ScenePerspectiveOpacityPlan?,
@@ -18,6 +19,7 @@ enum SceneOffscreenEffectRenderer {
         pipeline: SceneImageLayerPipeline,
         gaussianBlurPipeline: SceneGaussianBlurPipeline,
         bloomPipeline: SceneBloomPipeline,
+        gradientColorPipeline: SceneGradientColorPipeline,
         waterRipplePipeline: SceneWaterRipplePipeline,
         perspectiveOpacityPipeline: ScenePerspectiveOpacityPipeline,
         commandBuffer: MTLCommandBuffer
@@ -40,6 +42,19 @@ enum SceneOffscreenEffectRenderer {
             encoder: sourceEncoder
         )
         sourceEncoder.endEncoding()
+
+        if let gradientColorPlan {
+            guard gradientColorPipeline.encode(
+                source: offscreenPair.primary,
+                target: offscreenPair.secondary,
+                plan: gradientColorPlan,
+                time: sourceUniforms.time,
+                commandBuffer: commandBuffer
+            ) else {
+                return nil
+            }
+            return offscreenPair.secondary
+        }
 
         var effectSource = offscreenPair.primary
         var perspectiveTarget = offscreenPair.secondary

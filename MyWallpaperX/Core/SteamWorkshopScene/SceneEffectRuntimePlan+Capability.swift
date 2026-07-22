@@ -4,6 +4,7 @@ extension SceneEffectRuntimePlan {
             !inputs.flags.isEmpty
                 || gaussianBlur != nil
                 || bloom != nil
+                || gradientColor != nil
                 || waterRippleNormal != nil
                 || perspectiveOpacity != nil
         )

@@ -14,6 +14,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneNamedTextureReference.swift",
+    SOURCE_ROOT / "SceneGradientColorRuntimePlan.swift",
     SOURCE_ROOT / "SceneDependencyRenderPlan.swift",
 ]
 
@@ -21,7 +22,21 @@ HARNESS_SOURCE = r'''
 import Foundation
 
 struct SceneDocument {
-    struct ShaderValue { let components: [Double]? }
+    struct ShaderValue {
+        let valueKind: String
+        let userBinding: String?
+        let components: [Double]?
+
+        init(
+            valueKind: String = "number",
+            userBinding: String? = nil,
+            components: [Double]?
+        ) {
+            self.valueKind = valueKind
+            self.userBinding = userBinding
+            self.components = components
+        }
+    }
 }
 struct SceneUtilityLayer {
     enum Kind { case composition, project, fullscreen }
@@ -31,9 +46,27 @@ struct SceneRenderDescriptor {
     struct EffectDescriptor {
         struct PassDescriptor {
             let passIndex: Int
+            let texturePaths: [String]
             let textureSlots: [String?]
+            let userTextureInputs: [Int?]
             let combos: [String: Int]
             let constantShaderValues: [String: SceneDocument.ShaderValue]
+
+            init(
+                passIndex: Int,
+                texturePaths: [String] = [],
+                textureSlots: [String?],
+                userTextureInputs: [Int?] = [],
+                combos: [String: Int],
+                constantShaderValues: [String: SceneDocument.ShaderValue]
+            ) {
+                self.passIndex = passIndex
+                self.texturePaths = texturePaths
+                self.textureSlots = textureSlots
+                self.userTextureInputs = userTextureInputs
+                self.combos = combos
+                self.constantShaderValues = constantShaderValues
+            }
         }
         let id: String
         let file: String
@@ -71,17 +104,21 @@ enum Harness {
             provider: 1,
             effectPath: "effects/blend/effect.json"
         )
+        let supportedGradientConsumer = gradientConsumer(12, provider: 1)
+        let reversedGradientConsumer = gradientConsumer(13, provider: 1, reversed: true)
+        let invalidGradientConsumer = gradientConsumer(14, provider: 1, axis: 2)
         let descriptor = SceneRenderDescriptor(
             layers: [
                 provider, visibleConsumer, hiddenConsumer,
                 cycleA, cycleB, forwardConsumer, forwardProvider, partialConsumer,
                 neutralOpacityConsumer, nonNeutralOpacityConsumer, unsupportedBlendConsumer,
+                supportedGradientConsumer, reversedGradientConsumer, invalidGradientConsumer,
             ],
-            renderOrderLayerIDs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+            renderOrderLayerIDs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
         )
         let plan = SceneDependencyRenderPlan(
             descriptor: descriptor,
-            visibleLayerIDs: [1, 2, 4, 5, 6, 7, 8, 9, 10, 11]
+            visibleLayerIDs: [1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
         )
         let matrixProviders = (10...15).map { layer($0, kind: .composition) }
         let matrixProviderIDs = [10, 10, 10, 11, 12, 13, 14, 15]
@@ -184,6 +221,42 @@ enum Harness {
             )]
         )
     }
+
+    static func gradientConsumer(
+        _ id: Int,
+        provider: Int,
+        reversed: Bool = false,
+        axis: Int = 1
+    ) -> SceneRenderDescriptor.Layer {
+        let gradient = SceneRenderDescriptor.EffectDescriptor(
+            id: "gradient-\(id)",
+            file: "effects/workshop/2552475732/gradient_color/effect.json",
+            visible: true,
+            passes: [.init(
+                passIndex: 0,
+                textureSlots: [],
+                combos: ["AXIS": axis, "BLENDMODE": 0],
+                constantShaderValues: [
+                    "Amount": .init(components: [1]),
+                    "Color 1": .init(components: [1, 0, 0.2]),
+                    "Color 2": .init(components: [0, 0, 1]),
+                    "Hue Speed": .init(components: [0]),
+                    "Opacity": .init(components: [1]),
+                    "Oscillate": .init(components: [0]),
+                ]
+            )]
+        )
+        let clipping = effect(id: id, provider: provider)
+        return .init(
+            id: id,
+            contentKind: "image",
+            utilityLayer: nil,
+            dependencyLayerIDs: [provider],
+            childLayerIDs: [],
+            visible: true,
+            effects: reversed ? [clipping, gradient] : [gradient, clipping]
+        )
+    }
 }
 '''
 
@@ -223,10 +296,10 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         self.assertTrue(self.result["invalidReference"])
 
     def test_only_visible_backward_clipping_consumer_is_executable(self) -> None:
-        self.assertEqual(self.result["referenceCount"], 7)
-        self.assertEqual(self.result["namedConsumers"], [2, 6, 8, 9, 10, 11])
-        self.assertEqual(self.result["requiredEffectConsumers"], [2, 6, 8, 9, 10])
-        self.assertEqual(self.result["bindingConsumers"], [2, 9])
+        self.assertEqual(self.result["referenceCount"], 10)
+        self.assertEqual(self.result["namedConsumers"], [2, 6, 8, 9, 10, 11, 12, 13, 14])
+        self.assertEqual(self.result["requiredEffectConsumers"], [2, 6, 8, 9, 10, 12, 13, 14])
+        self.assertEqual(self.result["bindingConsumers"], [2, 9, 12])
         self.assertEqual(self.result["requiredProviders"], [1])
 
     def test_cycle_forward_and_partial_stacks_fail_closed(self) -> None:
@@ -235,6 +308,8 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         self.assertIn("6:forwardUtilityProvider:7", self.result["issues"])
         self.assertIn("8:unsupportedConsumer:-1", self.result["issues"])
         self.assertIn("10:unsupportedConsumer:-1", self.result["issues"])
+        self.assertIn("13:unsupportedConsumer:-1", self.result["issues"])
+        self.assertIn("14:unsupportedConsumer:-1", self.result["issues"])
 
     def test_matrix_shape_keeps_hidden_consumer_out_of_runtime_liveness(self) -> None:
         self.assertEqual(self.result["matrixBindingCount"], 7)
