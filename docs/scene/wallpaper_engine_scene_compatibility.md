@@ -55,6 +55,8 @@ https://docs.wallpaperengine.io/en/scene/shader/variables.html
 
 官方没有公开 Workshop named-target 名称、dependency DAG 或 `projectlayer/fullscreenlayer` 的稳定序列化格式。第三方播放器可依据真实样本建立内部 typed contract，但不能把样本观察包装成官方格式保证。
 
+官方 shader 变量还区分纹理的物理尺寸与有效映射尺寸：`g_TextureNResolution.xy` 是物理 texture size，`.zw` 是 mapped size；例如纹理补齐到下一个 2 次幂后，mapped size 会小于物理尺寸。Effect、mask 和 dependency input 不能默认两者相同，否则 blur 半径、UV 位移和局部合成会随资源布局产生错误。
+
 ---
 
 ## 2. 官方内置 Effects 分类
@@ -70,7 +72,7 @@ https://docs.wallpaperengine.io/en/scene/effects/overview.html
 
 | 效果 | 能力说明 | 兼容要点 |
 |---|---|---|
-| Foliage Sway | 树叶、草、灌木风吹摆动 | 需要支持局部位移、风向、强度、遮罩 |
+| Foliage Sway | 树叶、草、灌木风吹摆动 | 必须区分逐像素 UV 与整层 Vertex 两种模式，保留作者参数与 opacity mask |
 | Iris Movement | 角色眼睛运动 | 常用于二次元角色眼球跟随或循环运动 |
 | Pulse | 颜色或亮度脉冲 | 可用于灯光闪烁、呼吸光、魔法阵 |
 | Cloud Motion | 云层运动 | 通常是噪声/纹理偏移 |
@@ -82,6 +84,11 @@ https://docs.wallpaperengine.io/en/scene/effects/overview.html
 | Water Flow | 局部连续流动 | 可用于水、云、烟、能量流 |
 | Water Ripple | 水波纹变形 | 需要波纹传播或法线扰动 |
 | Water Waves | 抽象水波 | 可用于水面、布料、头发 |
+
+Foliage Sway 官方定义了两种不同语义。**UV** 模式逐像素作用，可用于普通 image layer，作者可调 phase、power、ratio、scale、direction、speed、strength；**Vertex** 模式会摆动完整 image layer，适合已用透明背景切出的对象，并使用 corner/direction weights 等整层参数。Opacity mask 决定效果实际覆盖的区域。兼容实现不能把 Vertex 当成局部头发网格，也不能忽略 mask 或把统一强度/速度套到所有图层；没有作者声明的图层必须保持不动。
+
+官方来源：
+https://docs.wallpaperengine.io/en/scene/effects/effect/sway.html
 
 ---
 
@@ -200,7 +207,14 @@ https://docs.wallpaperengine.io/en/scene/particles/introduction.html
 | Control Points | 控制点 | 可绑定鼠标、脚本、动画或其他对象 |
 | Audio Response | 跨组件能力，不是第八类粒子 component | emitter 和部分 operator 可直接响应音频，脚本也可驱动相关属性 |
 
-### 10.2 Sprite Sheet
+### 10.2 Particle Renderer 语义
+
+官方 Renderer 文档把 Sprite、Sprite Trail、Rope、Rope Trail 定义为不同渲染器。**Sprite Trail** 会让单个 sprite 沿当前速度方向朝向，并按速度拉伸；其理想拉伸长度为 `speed * length`，随后受作者 `Min Length` / `Max Length` 限制。它不保存粒子路径，也不等于 Rope Trail 的历史 segments；把 Sprite Trail 实现成历史绳带会产生错误轨迹、成本和生命周期语义。
+
+官方来源：
+https://docs.wallpaperengine.io/en/scene/particles/component/renderer.html
+
+### 10.3 Sprite Sheet
 
 官方粒子系统支持 sprite sheets，一个粒子系统内可使用序列图或多贴图表现动画粒子。
 
@@ -554,6 +568,8 @@ https://docs.wallpaperengine.io/en/scene/rgb/introduction.html
 
 本节是通用第三方播放器的能力依赖建议，不是对 Workshop 覆盖率的官方统计，也不直接代表 MyWallpaperX 当前优先级。“绝大多数”“热门”等覆盖结论必须由项目自己的隔离样本矩阵支持。
 
+对 MyWallpaperX 当前阶段，已经落地的 bounded named-target capture/binding 不应继续写成待启动项。近期顺序应是：先补 effectful/media/sceneTexture provider 与 nested/child composition，再建立时间、媒体、音频、属性等 live-value runtime，然后按隔离样本命中率补高频 built-in particle / operator。Puppet Warp、3D 和任意自定义 shader 仍重要，但在这些主构图与动态数据链之后；项目的唯一权威执行顺序以 [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md) 为准。
+
 ### P0：基础播放可见
 
 目标：绝大多数简单 Scene 能显示基本画面。
@@ -566,6 +582,7 @@ https://docs.wallpaperengine.io/en/scene/rgb/introduction.html
 - 基础变换：位置、旋转、缩放、透明度；
 - 图层顺序与混合；
 - Composition/render-target 顺序、跨层纹理引用与 mask fail-closed；
+- effectful/media/sceneTexture provider 与 nested/child composition；
 - 常见内置 effects；
 - Timeline 的 Loop / Mirror / Single；
 - 用户属性默认值；
@@ -584,7 +601,7 @@ https://docs.wallpaperengine.io/en/scene/rgb/introduction.html
 - Bloom / HDR；
 - 粒子 operators；
 - 粒子 control points；
-- Puppet Warp 基础骨骼动画；
+- 时间、媒体、音频与用户属性 live-value runtime；
 - 用户属性变更回调。
 
 ### P2：高级壁纸兼容
@@ -603,7 +620,8 @@ https://docs.wallpaperengine.io/en/scene/rgb/introduction.html
 - 媒体播放信息；
 - 专辑封面；
 - 专辑主色提取或传递；
-- 高级粒子行为。
+- 高级粒子行为；
+- Puppet Warp 基础骨骼动画。
 
 ### P3：边缘与创作者高级功能
 
@@ -800,7 +818,9 @@ Platform Layer macOS
 | Scene Overview | https://docs.wallpaperengine.io/en/scene/overview.html |
 | Effects Overview | https://docs.wallpaperengine.io/en/scene/effects/overview.html |
 | Bloom | https://docs.wallpaperengine.io/en/scene/effects/bloom.html |
+| Foliage Sway | https://docs.wallpaperengine.io/en/scene/effects/effect/sway.html |
 | Particles Introduction | https://docs.wallpaperengine.io/en/scene/particles/introduction.html |
+| Particle Renderers | https://docs.wallpaperengine.io/en/scene/particles/component/renderer.html |
 | Timeline Introduction | https://docs.wallpaperengine.io/en/scene/timeline/introduction.html |
 | Animation Events | https://docs.wallpaperengine.io/en/scene/timeline/animationevents.html |
 | Puppet Warp Introduction | https://docs.wallpaperengine.io/en/scene/puppet-warp/introduction.html |
@@ -831,12 +851,12 @@ Platform Layer macOS
 
 Wallpaper Engine 的 Scene 壁纸本质上是一个实时渲染场景系统，而不是简单媒体播放器。它包含图层、效果栈、时间轴动画、脚本、粒子、音频响应、用户属性、灯光、3D 模型、自定义 shader 和后处理等能力。
 
-对 macOS 兼容播放器而言，建议不要一开始追求完整复刻，而是按兼容优先级推进：
+对 MyWallpaperX 当前阶段，兼容优先级应按主构图影响和真实样本命中推进：
 
-1. **先显示正确**：图层、资产、基础变换、透明度、常见效果；
-2. **再动起来**：Timeline、粒子、音频响应；
-3. **再可交互**：SceneScript、鼠标、用户属性、媒体信息；
-4. **再追求高级视觉**：Bloom、灯光、Puppet Warp、3D、Shader；
-5. **最后补齐边缘生态**：RGB、用户快捷方式、高级物理、复杂自定义 shader。
+1. **先闭合剩余组合链**：effectful provider、media / sceneTexture、nested/child composition、mask 与动态 blend；
+2. **再让动态值真实运行**：时间、媒体、音频、用户属性和 SceneScript 目标生命周期；
+3. **再扩高命中粒子**：常见 built-in preset、operator、child/control point，并继续保持未声明效果不启用；
+4. **再扩大常见视觉链**：Timeline、Bloom/HDR、water/lighting 等由矩阵证明高影响的 effect；
+5. **后置高成本长尾**：Puppet Warp、3D、任意自定义 shader、RGB 与高级物理。
 
-SceneScript、粒子、Bloom/HDR、Timeline、Puppet Warp 都是重要能力方向，但官方没有给出它们在 Workshop 热门壁纸中的覆盖率统计。具体项目仍应按自己的隔离样本命中频率、主构图影响和可验证性排序；对 MyWallpaperX 而言，当前 bounded composition/named-target 主构图应先于高级 Puppet、3D 与任意 shader graph。
+SceneScript、粒子、Bloom/HDR、Timeline、Puppet Warp 都是重要能力方向，但官方没有给出它们在 Workshop 热门壁纸中的覆盖率统计。具体项目仍应按自己的隔离样本命中频率、主构图影响和可验证性排序；MyWallpaperX 当前只实现了 bounded named-target、单个 built-in UV Foliage Sway、built-in drop / Sprite Trail 等子集，不能据此宣称完整 Scene、Foliage、Particle 或 Wallpaper Engine 兼容。

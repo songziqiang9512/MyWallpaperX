@@ -2,7 +2,7 @@
 
 > 建立日期：2026-07-22
 >
-> 最近更新：2026-07-22（按官方资料、当前代码与 21 个隔离样本重新排序）
+> 最近更新：2026-07-22（按 interpretation format 14、13 个正式隔离样本与最新视觉证据重新排序）
 >
 > 作用：定义 MyWallpaperX Scene runtime 从当前可审计子集向 Wallpaper Engine 常用能力逼近的实施顺序、样本门和验收标准。当前能力结论仍以 [`../reviews/web-scene-current-state-roadmap-2026-07-19.md`](../reviews/web-scene-current-state-roadmap-2026-07-19.md) 与最新运行证据为准；历史 memo 不反向覆盖本计划。
 
@@ -29,29 +29,32 @@
 
 ### 已真实进入运行链
 
-- `project.json` / entry 同名 `gifscene.json` 识别、PKGV 索引、受控缓存解包、路径校验和 interpretation v12；
+- `project.json` / entry 同名 `gifscene.json` 识别、PKGV 索引、受控缓存解包、路径校验和 interpretation format 14；
 - PNG/JPEG、raw RGBA/RG/R8、BC1/BC2/BC3/BC5、LZ4、MP4 payload 和 TEX sprite sequence；
 - Metal image/solid/text/particle 合成、父子 transform、有效可见性、source order、alpha、正交/透视粒子相机和桌面多屏宿主；
 - cover 投影；Camera Parallax 服从 Scene options、逐层 depth、传播和属性 override，未声明时不启用；
-- coarse/precise gaussian blur、标准 Bloom 子集、normal-map waterripple 子集、perspective+opacity、mode 9 additive，以及 foliage/water/cursor/chromatic/iris 等明确标注为近似的内联 effect；
+- coarse blur 已按作者像素半径归一化并使用四分之一分辨率采样；precise gaussian blur、标准 Bloom 子集、normal-map waterripple 子集、perspective+opacity、mode 9 additive，以及 water/cursor/chromatic/iris 等仍是明确标注的受限实现；
+- 单个 built-in UV Foliage Sway 已读取作者 strength/speed/phase/power/noise/ratio/direction 和 mask 映射；多 foliage 栈与 vertex/workshop 变体不会误套该近似实现；
 - 静态 text 的 authored `pointsize * 4`、vector padding、包内字体、系统字体别名和缺失字体诊断；
-- 作者包内 2D sprite 粒子的 definition/resource graph、sphere/box、rate/burst/prewarm、常见 initializer/operator、sequence/random frame、additive/translucent、朝向、静态 override、CPU simulation 与 Metal instancing；
+- 作者包内 2D sprite 粒子的 definition/resource graph、sphere/box、rate/burst/prewarm、常见 initializer/operator、sequence/random frame、additive/translucent、朝向、静态 override、CPU simulation 与 Metal instancing；已增加受限 built-in `particle/drop` 纹理和按速度对齐、按作者 length/min/max stretch 的 Sprite Trail；
 - 用户属性定义、group/display condition/options、默认值/override、visibility/text/camera 与部分 effect target、按壁纸持久化、活动 Scene 受控重建和独立属性窗口；
-- typed `composition/project/fullscreen` 与 generic dependency layer ID；对可见、无 child/dependency consumer、效果栈完整受支持且无需缺失 mask 的 utility layer，执行当前 framebuffer 前缀捕获并按作者 transform/alpha 合回；
-- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；当前正式矩阵 **12/12 通过**，image `136/137`、solid `43/43`、text `71/84`、particle `3/26`。
+- typed `composition/project/fullscreen` 与 generic dependency layer ID；对满足严格边界的 utility layer 执行当前 framebuffer 前缀捕获，并支持 `_rt_imageLayerComposite_<id>_a` named target 的有预算发布与 clipping consumer 绑定。`2902406982` 的 6 个 provider / 7 个 consumer binding 已闭合，原白色三角缺口不再由缺失 named target 产生；
+- effect pass 的 typed user texture input 已保留。`2938612768` 已支持单个隐藏普通 image provider 经静态 normal blend 供给可见 consumer，并修复 `{value: 0}` 包装 alpha；彩色主背景已恢复，但 media、后续 effect 链、字体与粒子仍未闭合；
+- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；最新正式矩阵 **13/13 通过**，image **180/181**、solid **54/54**、text **79/108**、particle **6/27**。named capture 7 success / 0 fail、binding 8 success / 1 fail，static image blend 1/1。最终报告：`.codex/scene-particle-trail-formal13-projected-final-20260722/report.json`。
 
 ### 仅解析/诊断或部分实现
 
-- utility current-frame capture 只是首个受限子集；named render target、dependency texture 注入、隐藏 provider、child/nested target、utility mask 与任意 material/shader pass 尚未实现；
-- material pass 的 texture slots、combos、constant values 已保留，但 renderer 不执行 Wallpaper Engine material/shader；多数 blend mode、mask/composite 和 effect pass 仍缺失；
+- named target 和静态 image blend 都只是由真实样本证明的受限执行器；child/nested target、effectful provider、media provider、任意 target 链、通用 mask/composite 和完整 ordered effect DAG 尚未实现；
+- material pass 的 texture slots、user texture inputs、combos、constant values 已保留，但 renderer 不执行通用 Wallpaper Engine material/shader；多数 blend mode、mask/composite 和 effect pass 仍缺失；
 - Timeline 只有数据模型空壳，没有关键帧、Loop/Mirror/Single、Bézier、wrap-loop、pause 或 target 写回；
-- SceneScript 只检测 inline script / `.js`，没有 ECMAScript runtime、`init/update`、事件、globals 或属性写回；
-- 用户属性未闭环 sceneTexture/texture variants、transform、alpha、particle/audio/puppet target 和 `applyUserProperties`；
-- child particle graph 可遍历但不实例化；built-in particle texture、trail/rope、world-space、control point、collision、音频和动态 override 未实现；
+- SceneScript 只检测 inline script / `.js`，没有 ECMAScript runtime、`init/update`、事件、globals、Date/Math live value 或属性写回；
+- 用户属性未闭环 sceneTexture/texture variants、media texture、transform、alpha、particle/audio/puppet target 和 `applyUserProperties`；
+- child particle graph 可遍历但不实例化；除 `particle/drop` 外的 built-in particle、rope/rope trail、world-space、control point、collision、音频和动态 override 未实现；Sprite Trail 当前只覆盖 2D sprite velocity-aligned stretch 子集；
+- 多 foliage 栈、vertex sway 与 workshop 自定义 sway 未实现；它们当前保持静态或进入明确诊断，不用单层 UV 近似替代；
 - Scene 音频/媒体未接现有系统服务；动态时间/日期/媒体 text、puppet/mesh/3D/lighting、自定义 shader 均未实现；
 - pause/resume、fullscreen/battery、目标 FPS、CPU/GPU/显存预算和 soak 尚未闭环。
 
-12 样本 PASS 不能解释成视觉兼容率：正式矩阵仅证明已声明的解析、GPU 完成、非黑画面和释放门通过。Utility 定向 4 样本共有 42 个候选，只有 2 个进入 capture，仍有 26 条 dependency edge 与 18 个 named-target 缺口；`2902406982` 最新截图仍有白色三角形，主构图 P0 尚未关闭。21 样本首轮分级是历史截图基线；新增能力需要重跑后才能重新分级。
+13 样本 PASS 不能解释成 Wallpaper Engine 视觉兼容率：正式矩阵只证明当前声明的解析、GPU 完成、非黑画面、能力计数和释放门通过。`2902406982` 的 named target 主缺口与 `2938612768` 的首个静态背景依赖已经关闭，但两者仍有字体、时序、媒体、后续 effect 和粒子差异；`3750813609` 仍缺动态时钟、cloud effect、其他雨粒子系统和完整合成。21 样本首轮分级仍只是历史截图基线，必须在下一轮统一视觉重跑后才能重新分级。
 
 ## 3. 官方资料核验后的契约边界
 
@@ -66,49 +69,52 @@
 5. [SceneScript AudioBuffers](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AudioBuffers.html) 为 16/32/64 可选频段，提供 left/right/average 并每个渲染帧更新；不能直接套用 Web 固定 64+64、约 30Hz 回调合同。
 6. [Bloom](https://docs.wallpaperengine.io/en/scene/effects/bloom.html) 区分标准 Bloom 和 Ultra HDR，并有逐层 HDR brightness；自定义 shader/3D/Puppet 的能力虽强，但没有当前 2D 主构图资源链优先。
 7. [RGB Composition](https://docs.wallpaperengine.io/en/scene/rgb/introduction.html) 明确像相机一样记录其下方图层；[Effects](https://docs.wallpaperengine.io/en/scene/effects/introduction.html) 和 [Blend](https://docs.wallpaperengine.io/en/scene/effects/effect/blend.html) 允许链接动态 layer。官方没有公开 Workshop named-target 名称、dependency DAG 或 `projectlayer` 稳定格式，这些只能由隔离样本建立内部合同。
+8. [Foliage Sway](https://docs.wallpaperengine.io/en/scene/effects/effect/sway.html) 区分 UV 与 Vertex 模式，并由 mask 和作者参数限定作用区域。当前只把单个 built-in UV 变体计为受支持，多 effect 栈、Vertex 和 workshop shader 必须继续 fail closed。
+9. [Shader Variables](https://docs.wallpaperengine.io/en/scene/shader/variables.html) 中 `g_TextureNResolution.xy` 表示物理纹理尺寸、`.zw` 表示映射尺寸；mask/effect UV 需要保留这两套尺度，不能假设 source 与 mapped size 相同。
+10. [Particle Renderer](https://docs.wallpaperengine.io/en/scene/particles/component/renderer.html) 定义 Sprite Trail 按粒子速度方向对齐，并按 speed、length 与 min/max stretch 控制长度。当前实现仅复用 2D sprite quad 覆盖该子集，不据此宣称 rope、child 或完整粒子 renderer 兼容。
 
 ## 4. 重新排序后的实施路线
 
 ### S0：可重复基线与作者语义门（已完成）
 
-- 隔离 runner、签名身份、Metal 双帧、12 样本语义矩阵和 surface 释放门已落地；
+- 隔离 runner、签名身份、Metal 双帧、13 样本语义矩阵和 surface 释放门已落地；
 - cover、Camera Parallax、effect/particle visibility 均按作者声明执行；
 - 未声明或默认关闭的效果必须继续作为负向门，不能用“能力存在”替代启用条件。
 
-### S1：首帧主构图闭合（当前 P0）
+### S1：首帧主构图基础闭合（受限完成）
 
 按依赖顺序实施：
 
 1. **已完成** `models/util/solidlayer.json` 与 model JSON `solidlayer:true` 程序化色块：保留作者 color，复用 1×1 白纹理，只对 solid 在通用 fragment 中乘 layer tint；提交 `c8c463b`。
 2. **已完成 S1.2a**：typed utility、受支持 effect 的 current-frame prefix capture、受限离屏池、mask fail-closed 与 GPU completion telemetry；提交 `1517f4a`、`1f8f148`。
-3. **当前 S1.2b**：只实现样本已证明的 `dependency -> layer-ID target -> consumer texture slot`，包含隐藏 provider、缺失/forward/cycle/budget fail-closed；不扩成任意 pass DAG 或 shader graph。
-4. sceneTexture / Texture Variants：项目默认资源、用户授权替换、属性条件、持久化和 renderer 热更新共用同一 resource provider。
-5. 重新运行 21 样本视觉矩阵，优先关闭 `2902406982`、`2938612768`、`3122339805`、`3768229922` 的主构图 P0；`3766415113` 的 gifscene UV/sampler 已修复，不再列为待办。
+3. **已完成 S1.2b 受限子集**：`_rt_imageLayerComposite_<id>_a` named target、独立预算池、clipping consumer 绑定与 GPU completion 门；`2902406982` 为 6 provider / 7 binding，提交 `d881bb1`。
+4. **已完成 S1.2c 受限子集**：wrapped alpha、typed user texture input、单 hidden ordinary image provider 的 static normal blend；`2938612768` 的首个彩色背景依赖恢复，提交 `375c3ca`、`b75a20f`、`f1493b2`。
+5. **已完成高命中视觉子集**：coarse blur 像素尺度修正、单 built-in UV Foliage Sway、built-in `particle/drop`、2D Sprite Trail，提交 `f223bd1`、`c2fd29b`、`ddd87e1`、`064c2e7`。
 
-### S2：统一 live-value runtime（P1）
+### S2：主构图与高命中效果闭合（当前 P0）
 
-1. 先建立 layer/effect/text/particle 的 typed target setter 和每帧值快照；属性、Timeline、SceneScript、音频只能经此层写值。
-2. Timeline 先实现 keyframe、duration/FPS、Loop/Mirror/Single、start paused、Bézier、wrap-loop 和多属性同步；动画事件在脚本核心可用后接入。
-3. SceneScript 以官方属性绑定契约为边界，先实现 `init/update`、Vec/Mat、Date/Math、`engine` 基础字段、`thisScene/thisLayer/thisObject/shared` 和确定执行顺序，再加入 user/cursor/audio/media 事件。
+1. **资源提供链**：先实现 media `$mediaThumbnail`、sceneTexture / Texture Variants 的 typed provider、授权替换与缺失诊断，优先恢复 `2938612768` 等样本缺失的主背景/媒体层。
+2. **有序 effect DAG**：按 source order 执行 provider effect、consumer pass、blendgradient、mask/composite 和最终 alpha；先覆盖样本实际命中的 normal/additive/opacity 链，保留 cycle/missing/budget fail-closed，不扩成任意 shader 翻译器。
+3. **高命中视觉模式**：补多 foliage 栈、Vertex sway 和 workshop 变体的明确执行边界；继续按真实样本频率补 clouds/rain、常见 blur/composite 与内置 effect，不按样本 ID 修图。
+4. **视觉门**：先定向复核 `2902406982`、`2938612768`、`3750813609`，再重跑 21 样本 cover 对比；验收同时要求主构图、局部运动区域、字体/alpha 和关键粒子接近封面或官方运行证据。
+
+### S3：统一 live-value runtime（P1）
+
+1. 建立 layer/effect/text/particle 的 typed target setter 和每帧值快照；属性、Timeline、SceneScript、音频只能经此层写值。
+2. Timeline 实现 keyframe、duration/FPS、Loop/Mirror/Single、start paused、Bézier、wrap-loop 和多属性同步；动画事件在脚本核心可用后接入。
+3. SceneScript 以官方属性绑定契约为边界，实现 `init/update`、Vec/Mat、Date/Math、`engine` 基础字段、`thisScene/thisLayer/thisObject/shared` 和确定执行顺序，再加入 user/cursor/audio/media 事件。
 4. 动态时钟/日期/媒体 text、transform/alpha/effect/particle property target 与无重建热更新复用同一 live-value 层。
 
-### S3：高级粒子与音频（P1 后段）
+### S4：粒子图谱扩展（P1 后段）
 
-- built-in particle resource provider、world-space、常用 emitter/operator/control point；
-- child、sprite trail、rope/rope trail、collision 分批实现，不一次性做大而全；
-- Scene 音频桥按脚本选择提供 16/32/64 left/right/average，并按渲染帧更新；
-- 媒体桥提供可缺省的播放状态、标题/作者/专辑、封面和颜色，必须有可注入测试源。
+- 先按正式矩阵缺失频率增加其他 built-in particle texture 和常用 renderer/operator；当前正式覆盖只有 **6/27**；
+- 再实现 child/rope/rope trail、world-space、control point、collision 和动态 override，每项单独建立 fixture、GPU 像素门与真实样本门；
+- 不把 `particle/drop` 或 Sprite Trail 的单一子集推断为全部雨、绳索、child graph 或粒子系统兼容。
 
-### S4：视觉与角色能力（P2）
+### S5：音频、角色、高级兼容与发布门（P2-P3）
 
-- 标准 Bloom 完整参数、颜色空间/预乘 alpha、常见 blend 与高频内置 effect/material；
-- waterflow/ripple、godrays/glitter/shadow 等按真实样本和官方录屏逐类提高一致性；
-- Puppet 基础 mesh/weights/timeline 后，再做 physics、IK、复杂 mixing；
-- 实时 2D lighting 与 HDR 必须带 GPU/显存和降级门。
-
-### S5：高级兼容与发布门（P3）
-
-- 3D model、lighting/shadow/volumetric、自定义 shader translation 和 RGB 均后置；
+- Scene 音频桥按脚本选择提供 16/32/64 left/right/average，并按渲染帧更新；媒体桥提供可注入测试源；
+- 标准 Bloom 完整参数、颜色空间/预乘 alpha、Puppet、实时 2D lighting/HDR、3D、自定义 shader translation 和 RGB 按样本收益后置；
 - 每个阶段持续记录加载时间、纹理内存、粒子上限、帧时和降级原因；
 - 最终建立固定/扩展/新下载三层矩阵、30 分钟交互、2 小时 soak、系统生命周期和发布 checklist。
 
@@ -117,7 +123,7 @@
 - 固定 built-in 路径和 model JSON `solidlayer:true` 实例统一进入 typed `solid`；缺失作者 color 在 descriptor 中保留 `nil`，渲染时才回退白色。
 - 共享 1×1 白纹理随 `SceneMetalView` 创建一次；color/alpha/effect/mask/blend 继续走现有 compositor，没有伪纹理、样本 ID 或普通 image/text 全局乘色分支。
 - 定向 `3122339805 / 3750813609 / 3765760121` 为 **3/3**；正式 11 样本为 **11/11**，solid `34/34`，image/solid `106/113`。`3122339805` 为 `90/90`，中性灰底像素由 45.96% 降至 0.33%。
-- 报告：`.codex/scene-solid-targeted-pass2-20260722/`、`.codex/scene-solid-matrix11-pass2-20260722/`；提交：`c8c463b`。
+- 历史验收由上述计数和提交 `c8c463b` 保留；重复的阶段性 runtime 副本可回收。
 
 ### 已完成：S1.2a utility current-frame capture
 
@@ -125,16 +131,19 @@
 - 当前只对作者可见、无 child/dependency consumer、所有可见 effect 均受支持且不缺 mask 的 utility layer 执行捕获。未支持、部分支持、隐藏、无 effect 和带缺失 mask 的层均明确跳过，不把能力默认套给样本。
 - source copy 与 effect encoder 失败均 fail closed；离屏纹理限制为最大 2048 维、96 MiB 预算，capture 成功只在 Metal command buffer 完成后上报。
 - 定向 4 样本 **4/4**：42 个 utility candidate 中 2 个 capture，layer `410/530` 均 GPU succeeded，0 failed；正式矩阵 **12/12**，17 candidates / 2 capture / 8 dependency edges / 6 named-target gaps。
-- 报告：`.codex/scene-utility-render-targeted-pass-20260722/`、`.codex/scene-utility-formal12-20260722/`；提交：`1517f4a`、`1f8f148`。
+- 历史验收由上述计数和提交 `1517f4a`、`1f8f148` 保留；当前以 format 14 最终矩阵为准。
 
-### 当前执行项：S1.2b named layer target / dependency texture
+### 已完成：S1.2b-S1.2c named target 与静态 image dependency blend
 
-- **预期**：作者 dependency 引用的 layer 在其 authored source-order 位置发布稳定的 layer-ID target；consumer 只在声明匹配的 effect/pass/slot 读取，不重排主图层顺序。
-- **实际**：v12 已保留 26 条定向 dependency edge，但 renderer 尚不发布 named target，也不向 consumer slot 注入；`2902406982` 的 6 个 target gap 使白色三角仍遮挡主构图。
-- **根因假设**：现有三纹理池是瞬时工作集，同尺寸 target 会互相覆盖；同时缺少 typed slot binding、按帧 target 生命周期、cycle/forward/missing 校验和明确的首个 consumer executor。
-- **修改范围**：先支持严格 `_rt_imageLayerComposite_<id>_a` 引用、独立有预算的 layer-ID target pool、隐藏 provider 与 cycle/missing/budget fail-closed；首个 consumer 只覆盖真实样本证明的 clipping-mask 合成，不实现任意 shader/pass DAG。
-- **目标样本**：`2902406982` 为视觉正向，`3768229922` 验证隐藏 provider 计划，`2938612768` 验证 forward/ordinary provider 诊断；无 dependency 的正式样本为负向回归。
-- **验收**：290 的 6 个 provider 与 8 个 consumer binding 精确匹配，白三角不再由缺失 named target 产生；循环、缺失、forward unsupported 和预算失败均不递归、不错误采样；代码健康、签名构建、定向视觉门与正式矩阵通过后单独提交。
+- `d881bb1`：发布受预算约束的 named render target，并把真实 clipping consumer 绑定到声明的 layer-ID target；`2902406982` 为 6 个 provider / 7 个 binding，GPU capture/binding 均纳入 benchmark 门。
+- `375c3ca`：递归读取 `{value: ...}` 包装数值，修复 `2938612768` 中 authored alpha 0 被当成不透明的黑色覆盖层。
+- `b75a20f`：在 interpretation 合同保留 typed effect user texture input，区分 layer target、system/media 与普通文件输入。
+- `f1493b2`：执行单个 hidden ordinary image provider 到可见 consumer 的 static normal blend；`2938612768` 的彩色背景恢复，但 `$mediaThumbnail`、blendgradient、effectful provider 与完整后续 DAG 明确不在本子集。
+- `f223bd1`：coarse blur 保留作者像素单位并按四分之一分辨率采样，修复 `2902406982` 的重复/层叠背景和 `3750813609` 的多重时钟轮廓；并不等于完整 WE blur/composite 兼容。
+- `c2fd29b`：单 built-in UV Foliage Sway 读取作者参数和 mask 映射；多 foliage 栈、Vertex/workshop 变体保持未实现，不再把统一晃动默认套给所有样本。
+- `ddd87e1`：为已证明的 built-in `particle/drop` 提供受控软粒子纹理，未知 built-in fail closed。
+- `064c2e7`：按速度方向和作者 length/min/max stretch 渲染 2D Sprite Trail；rope、child 和其他 renderer 继续未实现。
+- 最新 interpretation 为 format 14；正式矩阵 **13/13**，image **180/181**、solid **54/54**、text **79/108**、particle **6/27**。named capture 7 success / 0 fail、binding 8 success / 1 fail，static image blend 1/1。最终报告：`.codex/scene-particle-trail-formal13-projected-final-20260722/report.json`。该结果是能力与生命周期门，不是视觉等价声明。
 
 ## 5. 样本规范
 
@@ -214,7 +223,7 @@
 - `scene_wallpaper_benchmark.py` 会隔离复制签名 App、样本和 HOME，校验样本 SHA-256、App 身份、ready、纹理加载率、非黑双帧、像素变化和 stop 后 surface=0。
 - SteamCMD App ID `431960` 下载并固化两个初始代表样本：`3723344874`（复杂多层/effect）与 `3724095562`（单图层直绘），二进制只保存在 `.codex`。
 - 初始两样本矩阵 **2/2 通过**。`3723344874` 为 35 layers / 24 image layers / 29 effects，20/24 主纹理加载，1 层真实 gaussian blur、2 层 route-only，两帧 changed ratio 10.60%；`3724095562` 为 1/1 主纹理、静态两帧一致。
-- 报告：`.codex/scene-benchmark-gaussian-blur-matrix2-20260722/report.json`。App 身份为 Team `H9QWU9XN8R`、CDHash `17d3751df90e55868ae1d2e0500682746026b665`、版本 `2.0.8 (268)`、可执行文件 SHA-256 `650da4e5ece48cd464c30ce6896aed908844aa0eef44474f546e5527a2bdc858`，运行前后验证一致。
+- 当时 App 身份为 Team `H9QWU9XN8R`、CDHash `17d3751df90e55868ae1d2e0500682746026b665`、版本 `2.0.8 (268)`、可执行文件 SHA-256 `650da4e5ece48cd464c30ce6896aed908844aa0eef44474f546e5527a2bdc858`，运行前后验证一致。
 - 下一步见下一节的扩充结果和当前优先级。
 
 ## 10. 2026-07-22 第二轮样本扩充与 Bloom 结果
@@ -223,7 +232,7 @@
 - 新矩阵覆盖 1 到 126 层、0 到 66 个 effect、MP4 payload、particle layer、103 个 inline-script layer、音频响应声明、单图直绘和复杂 mask/offscreen 路径。样本二进制与运行副本均在 `.codex`，真实 Workshop 根保持只读。
 - `3723230275` 的主图包含真实纹理和 16-pass Workshop Bloom；旧实现只做 identity ping-pong。现在 `SceneBloomPipeline` 执行 threshold、separable gaussian blur、tint/intensity composite，并保留此前 foliage 等内联效果结果。
 - 正式矩阵 **7/7 通过**。纹理加载率依次为 `100% / 50% / 12.12% / 83.33% / 100% / 100% / 50%`；六个动态样本 changed ratio 为 `7.38% / 38.88% / 44.29% / 10.72% / 12.66% / 18.52%`，静态样本为 `0%`。Bloom runtime 命中 1 层，Gaussian runtime 命中 1 层，所有样本 stop 后 surface 为 0。
-- 最终报告：`.codex/scene-bloom-full-matrix-final-20260722/report.json`。App 身份为 Team `H9QWU9XN8R`、CDHash `7e77a8aad22a6a94353394971a95d5973001556f`、版本 `2.0.8 (268)`、可执行文件 SHA-256 `5605fb190f8f66d68051800fa5d2295ea27c224bcf3cc1fb2f57cb9fa8ca7e5b`。
+- 当时 App 身份为 Team `H9QWU9XN8R`、CDHash `7e77a8aad22a6a94353394971a95d5973001556f`、版本 `2.0.8 (268)`、可执行文件 SHA-256 `5605fb190f8f66d68051800fa5d2295ea27c224bcf3cc1fb2f57cb9fa8ca7e5b`。
 - 低加载率样本是有意保留的兼容缺口证据，不是全能力通过。后续优先通用 effect/pass 合成、built-in 资源与 container 语义；样本只作为能力验收，不增加 ID/名称适配分支。
 
 ## 11. 2026-07-22 文本与相机语义结果
@@ -232,7 +241,7 @@
 - 文字目前渲染 descriptor 的静态 `value`，不执行未知 SceneScript；时钟、日期、属性绑定和音频驱动仍不会动态更新，不能据此声明脚本兼容。
 - 正交相机由 letterbox 改为 cover；对非零 camera center 保留作者构图，同时限制可见矩形在 Scene 边界内。静态样本 `3724095562` 的灰色边带消失，ready/after 变化率为 0，边缘单色占比从修复前 82.70% 降至 25.48%。
 - parallax 不再默认套用。正式矩阵逐项验证 `3723230275`、`3723257973` 为启用，其余五项为关闭，并记录 amount 与 mouse influence；静态样本增加最大动态像素门。
-- 最终 7 样本矩阵 **7/7 通过**，报告为 `.codex/scene-camera-semantics-final-20260722/report.json`。App 身份为 Team `H9QWU9XN8R`、CDHash `a43628baf354f21e6c8bfdbc629ef779d0d95816`、版本 `2.0.8 (268)`、可执行文件 SHA-256 `f7f0c5973a0d69412ecbfd63603671f35f6279da078a9cf1f4f0d1f5043f4a71`。
+- 最终 7 样本矩阵 **7/7 通过**。当时 App 身份为 Team `H9QWU9XN8R`、CDHash `a43628baf354f21e6c8bfdbc629ef779d0d95816`、版本 `2.0.8 (268)`、可执行文件 SHA-256 `f7f0c5973a0d69412ecbfd63603671f35f6279da078a9cf1f4f0d1f5043f4a71`。
 - 下一阶段先推进通用 shader/effect pass 顺序、blend/composite 与 mask 语义，再处理动态属性和脚本子集；不得把所有效果默认打开，也不得按样本 ID 修图。
 
 ## 12. 2026-07-22 precise blur 与复合水波层结果
@@ -240,7 +249,7 @@
 - `blurprecise` 已接入与 coarse blur 共用的两遍 Gaussian GPU 路径；作者 `scale` 按像素半径解释，再按实际离屏纹理宽高归一化。`3724289844` 三个可见文字层分别读取 `0.43 / 1.33 / 1.28`，运行日志命中 3 层，不再记为 route-only。
 - `3723230275` 原有逻辑会按层名 `ripple` 和包含不可见 pulse 的效果列表跳过整层。直接取消跳过会暴露两张黑底纹理，因为该链还依赖未完整实现的 waterflow、waterripple、perspective 和 opacity 合成。
 - 中间版本先改成只检查可见 pass 的 capability gate；随后补齐 layer `colorBlendMode`、真实 projective UV+opacity replacement pass 和 mode 9 additive final composite。两层现在均进入 runtime，`unsupported composite skipped` 从 2 降为 0，黑矩形消失。
-- 最新正式矩阵 **7/7 通过**；coarse blur 1 层、precise blur 3 层、Bloom 1 层、perspective-opacity 2 层、color blend mode 9 两层，fallback 为 0。报告保存在 `.codex/scene-perspective-blend-matrix-20260722/`。
+- 最新正式矩阵 **7/7 通过**；coarse blur 1 层、precise blur 3 层、Bloom 1 层、perspective-opacity 2 层、color blend mode 9 两层，fallback 为 0。
 - 最新签名 App 身份为 Team `H9QWU9XN8R`、CDHash `7d2a5032b6cf1aa31ae9cb1b26cce8d976dcff04`、版本 `2.0.8 (268)`、可执行文件 SHA-256 `7a2689fd9cabc9f8610d1846538afb83e5a5ea97fd55e42c7ccfb3856f6d4bc5`；81 个脚本测试、签名 Debug build 和代码健康门通过。
 
 ### 当时产品判断（历史）
@@ -251,11 +260,11 @@
 
 - effect 实例 pass 与 material pass 现在同时保留有序 `textureSlots: [String?]` 和 `combos: [String: Int]`；原有去空的 `texturePaths` 继续存在，当前纹理加载和渲染路径没有行为变化。
 - interpretation 升至 v7。固定 SHA 的 `3723230275` 精确验收为 effect 37 槽/20 空洞/17 combo 条目、material 24 槽/8 空洞/12 combo 条目；`waterripple` 的 `[null, null, normal]` 与 `ripple.json` 的 `VERSION=2` 均已进入 renderer descriptor。
-- 最新正式矩阵 **7/7 通过**，报告为 `.codex/scene-v7-contract-matrix-20260722/report.json`。签名 App 为 Team `H9QWU9XN8R`、CDHash `64879014f3bf56763b127d0b5075cfeb0c468a30`、版本 `2.0.8 (268)`、可执行文件 SHA-256 `d9543c624e35e010a931acfe2ab12ee5664b2a799deeb2d62d22944678120b5a`；83 个脚本测试、签名 Debug build 和代码健康门通过。
+- 最新正式矩阵 **7/7 通过**。签名 App 为 Team `H9QWU9XN8R`、CDHash `64879014f3bf56763b127d0b5075cfeb0c468a30`、版本 `2.0.8 (268)`、可执行文件 SHA-256 `d9543c624e35e010a931acfe2ab12ee5664b2a799deeb2d62d22944678120b5a`；83 个脚本测试、签名 Debug build 和代码健康门通过。
 
 ## 14. 2026-07-22 normal-map waterripple 结果
 
 - 新 runtime 按同一可见 waterripple pass 的 `textureSlots[2]` 绑定 normal map，使用作者 shader 的两组 UV、相反动画相位、方向滚动、source aspect、ratio 与 `ripplestrength²` 数学；normal 采样 repeat，source 采样 clamp。
 - 新 pass 激活时移除旧 `.waterwaves` 正弦 flag，执行顺序为 source → normal ripple → perspective+opacity → final blend，避免双重扰动或 perspective 重新读取旧 source。T1 mask 或 `MASK/SPECULAR=1` 尚未实现时不冒充支持，保留 legacy 路径。
-- 最终矩阵 **7/7 通过**。`3723230275` 两层均加载 `256×256` normal，normal runtime 2、legacy 0、perspective-opacity 2、mode 9 两层、fallback 0；`3724289844` 的 T1 mask 变体保持 normal runtime 0、legacy 1，precise blur 仍为 3。报告为 `.codex/scene-normal-ripple-final-matrix-20260722/report.json`。
+- 最终矩阵 **7/7 通过**。`3723230275` 两层均加载 `256×256` normal，normal runtime 2、legacy 0、perspective-opacity 2、mode 9 两层、fallback 0；`3724289844` 的 T1 mask 变体保持 normal runtime 0、legacy 1，precise blur 仍为 3。
 - 最终签名 App 为 Team `H9QWU9XN8R`、CDHash `1dcb8d87465cc9fd241bd10e6581694861267aa1`、版本 `2.0.8 (268)`、可执行文件 SHA-256 `5c47f37d35a370a0232a5a796e4e1d2403acd6cf2e92bb51132ef3f5026caac8`；83 个脚本测试、签名 Debug build 和代码健康门通过。`SceneMetalView` 已从历史 419 行降至 300 行并退出 legacy baseline，`SceneMetalRenderer` 基线从 454 收紧到 418。
