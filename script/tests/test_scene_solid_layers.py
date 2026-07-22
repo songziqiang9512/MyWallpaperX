@@ -64,6 +64,9 @@ SCENE_FIXTURE = {
                                 None,
                                 "_rt_imageLayerComposite_42_a",
                             ],
+                            "constantshadervalues": {
+                                "Opacity": {"user": "opacity", "value": 0.75},
+                            },
                             "usertextures": [
                                 None,
                                 {"type": "system", "name": "$mediaThumbnail"},
@@ -248,6 +251,8 @@ enum Harness {
             "userTextureInputKinds": layers[40]?.effects.first?.passes.first?.userTextureInputs.map {
                 $0?.kind.rawValue ?? "nil"
             } ?? [],
+            "wrappedShaderComponents": layers[40]?.effects.first?.passes.first?
+                .constantShaderValues["Opacity"]?.components ?? [],
             "imageRenderable": [10, 20, 30, 40].map {
                 layers[$0]?.isImageRenderable ?? false
             },
@@ -344,6 +349,9 @@ class SceneSolidLayerTests(unittest.TestCase):
             self.result["userTextureInputKinds"],
             ["nil", "system", "property"],
         )
+
+    def test_numeric_shader_wrapper_preserves_components(self) -> None:
+        self.assertEqual(self.result["wrappedShaderComponents"], [0.75])
 
     def test_fragment_uniform_carries_layer_tint(self) -> None:
         for actual, expected in zip(self.result["uniformTint"], [0.1, 0.2, 0.3, 1]):

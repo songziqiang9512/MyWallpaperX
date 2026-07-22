@@ -357,7 +357,10 @@ struct SceneDocumentLoader {
             )
         }
         if let keyed = value as? [String: Any] {
-            let rawValue = stringValue(keyed["value"]) ?? "\(keyed)"
+            let rawValue: String
+            if let string = stringValue(keyed["value"]) { rawValue = string }
+            else if let number = doubleValue(keyed["value"]) { rawValue = String(number) }
+            else { rawValue = "\(keyed)" }
             let components = numericComponents(in: rawValue)
             return SceneDocument.ShaderValue(
                 rawValue: rawValue,
