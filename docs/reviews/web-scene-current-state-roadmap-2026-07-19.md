@@ -24,7 +24,7 @@ Web 目前没有已确认的宿主 P0 阻断，当前 HEAD 的 34+5+3 已知样�
 
 Scene 已建立清晰的独立模块、PKGV 读取、受控缓存、typed interpretation、纹理解码、Metal 渲染和桌面宿主。2026-07-22 的当前链路已推进到 interpretation v14：除 entry 同名 `gifscene.pkg`、BC2/DXT3、TEX sprite sequence、有效父链可见性、程序化 solid、静态文字几何与字体解析和作者 2D sprite 粒子外，descriptor 现已保留 typed effect `usertextures`，renderer 具备受限 current-prefix capture、bounded layer-ID named target/consumer、简单静态 image dependency blend、按像素语义执行的 coarse blur、单层 built-in UV foliage sway，以及 built-in `particle/drop` 与 velocity-aligned `spritetrail`。详情页只保留“属性调节”入口，实际控件在可独立拖动的 Scene 属性窗口中显示。相机 cover 与 parallax、precise blur、Bloom、normal-map waterripple、perspective+opacity 和 mode 9 additive composite 也已有真实运行路径；未声明或默认关闭的相机、粒子和 effect 不会被全局强开。
 
-当前正式语义矩阵为 **13/13 通过**：image `180/181`、solid `54/54`、text `79/108`、particle `6/27`。24 个 utility candidate 中 current-prefix capture 计划并完成 2 个；17 条 dependency edge、14 个 named consumer 中，bounded named capture 为 7 成功/0 失败、binding 为 8 成功/1 失败，仍有 2 个 named-target gap；简单静态 image blend 为 1/1 成功。Debug 证据帧直接从 Metal drawable 同一 command buffer 回读，GPU 成功只在 command buffer 完成后记录。这个 PASS 只表示矩阵声明的解析、可见性、资源、受支持 GPU 路径、画面和释放门满足，不表示已达到 Wallpaper Engine 逐像素兼容。`2902406982` 的白三角和重复背景已修复，但动态内容、文字和剩余 effect 尚未闭合；`2938612768` 已恢复彩色背景，仍有扭曲、media、sceneTexture 和组合链缺口；`3750813609` 已出现雨线，但时钟、云层和叶片效果仍不正确。下一步先闭合 resource provider、composition 与 ordered effect/pass 主链，再推进 live value/media，随后扩展高命中粒子；SceneScript、音频响应、puppet/mesh 和通用 shader/material 仍是主要距离。唯一权威执行顺序见 [Scene 播放能力开发计划](../scene/scene-capability-development-plan-2026-07-22.md)。
+当前正式语义矩阵为 **13/13 通过**：image `180/181`、solid `54/54`、text `79/108`、particle `6/27`。24 个 utility candidate 中 current-prefix capture 计划并完成 2 个；17 条 dependency edge、14 个 named consumer 中，bounded named capture 为 8/8、binding 为 9/9，仍有 1 个 named-target gap；简单静态 image blend 为 3/3。Debug 证据帧直接从 Metal drawable 同一 command buffer 回读，GPU 成功只在 command buffer 完成后记录。这个 PASS 只表示矩阵声明的解析、可见性、资源、受支持 GPU 路径、画面和释放门满足，不表示已达到 Wallpaper Engine 逐像素兼容。`2902406982` 的白三角和重复背景已修复，但动态内容、文字和剩余 effect 尚未闭合；`2938612768` 已恢复彩色背景，仍有扭曲、media、sceneTexture 和组合链缺口；`3750813609` 已出现雨线，但时钟、云层和叶片效果仍不正确。下一步先闭合 resource provider、composition 与 ordered effect/pass 主链，再推进 live value/media，随后扩展高命中粒子；SceneScript、音频响应、puppet/mesh 和通用 shader/material 仍是主要距离。唯一权威执行顺序见 [Scene 播放能力开发计划](../scene/scene-capability-development-plan-2026-07-22.md)。
 
 ## 2. 评估口径与证据边界
 
@@ -66,7 +66,8 @@ Scene 已建立清晰的独立模块、PKGV 读取、受控缓存、typed interp
 34. 2026-07-22 的 Scene 当前正式语义门：矩阵扩至 11 个真实隔离样本，并对层级、有效可见性、作者/可见/隐藏粒子数、实际加载 layer ID、文字 layer ID、effect/resource 计数和 interpretation v10 建立逐样本合同。当前 **11/11 通过**，全部 `exit=0`、无 timeout、ready/after 非黑、stop 后 surface=0，样本副本无运行残留；对应提交为 `ca9bef8`。
 35. 2026-07-22 的 Scene solid 主构图门：固定路径与 model JSON `solidlayer:true` 实例统一分类，interpretation 升至 v11；单个 1x1 白纹理通过通用 fragment 按作者 color/alpha 合成，不给普通 image/text 默认乘色。定向样本 **3/3**、正式矩阵 **11/11** 通过，solid `34/34`，image/solid 总加载从 `72/113` 提升到 `106/113`；`3122339805` 为 `90/90`，原中性灰底像素从 45.96% 降至 0.33%；对应提交为 `c8c463b`。
 36. 2026-07-22 的 Scene utility current-frame capture 门：interpretation 升至 v12，typed composition/project/fullscreen、dependency ID、局部/full-frame geometry、受限离屏池、mask/partial fail-closed 和 GPU completion telemetry 已落地。四样本定向门 **4/4**，42 candidates 中 2 个 capture、26 dependency edges、18 named-target gaps；`2902406982` 的 layers `410/530` 均 GPU succeeded、0 failed。正式矩阵 **12/12**，17 candidates / 2 capture / 8 edges / 6 gaps，全部 ready/after 非黑、无 timeout、stop 后 surface=0、样本根无运行残留；对应提交为 `1517f4a`、`1f8f148`。这只证明受限 current-prefix 子集，不代表 named target 或 290 主构图已闭合。
-37. 2026-07-22 的 Scene named dependency、effect 语义和粒子推进门：提交 `d881bb1`、`375c3ca`、`f223bd1`、`c2fd29b`、`b75a20f`、`f1493b2`、`ddd87e1`、`064c2e7` 依次落地 bounded named target/consumer、wrapped alpha、像素空间 coarse blur、作者参数驱动的单层 built-in UV foliage、typed effect `usertextures`、简单静态 image dependency blend、built-in drop 纹理和 velocity-aligned sprite trail；interpretation 升至 v14。最终隔离矩阵 **13/13** 通过，image `180/181`、solid `54/54`、text `79/108`、particle `6/27`，named capture 7 成功/0 失败、binding 8 成功/1 失败，静态 image blend 1/1 成功。正式样本根为 `.codex/scene-matrix13-samples-20260722`，报告保存在 `.codex/scene-particle-trail-formal13-projected-final-20260722/report.json`。这组门证明新增受限路径真实执行并未破坏矩阵合同，不证明任意 material/pass、完整 composition 或 Wallpaper Engine 画面一致性。
+37. 2026-07-22 的 Scene named dependency、effect 语义和粒子推进门：提交 `d881bb1`、`375c3ca`、`f223bd1`、`c2fd29b`、`b75a20f`、`f1493b2`、`ddd87e1`、`064c2e7` 依次落地 bounded named target/consumer、wrapped alpha、像素空间 coarse blur、作者参数驱动的单层 built-in UV foliage、typed effect `usertextures`、简单静态 image dependency blend、built-in drop 纹理和 velocity-aligned sprite trail；interpretation 升至 v14。当时的阶段矩阵 **13/13** 通过，image `180/181`、solid `54/54`、text `79/108`、particle `6/27`，named capture 7 成功/0 失败、binding 8 成功/1 失败，静态 image blend 1/1 成功。正式样本根为 `.codex/scene-matrix13-samples-20260722`，阶段报告保存在 `.codex/scene-particle-trail-formal13-projected-final-20260722/report.json`。这组门证明新增受限路径真实执行并未破坏矩阵合同，不证明任意 material/pass、完整 composition 或 Wallpaper Engine 画面一致性。
+38. 2026-07-22 的 Scene binding、gradient clipping 与静态 blend 默认值闭环：提交 `b5a33f1`、`4ceb94d`、`687b45a` 依次保留数字型 shader binding components、执行严格的 gradient-color -> clipping-mask stack，并让符合边界的静态 image blend 服从作者默认值。最新矩阵仍为 **13/13**，named capture `8/8`、binding `9/9`、static image blend `3/3`，失败均为 0；仍有 1 个 named-target gap 和 34 个 route-only effect。当前报告为 `.codex/scene-static-fallback-formal13-20260722/report.json`。
 
 前序专项报告保存在 `.codex/web-closure-final-20260720/`；作者源码、Steam CDN、34 项历史基线、系统中断门、音频配置失效门、文件持久化门、偏好隔离矩阵和 Space/屏幕门报告分别保存在 `.codex/web-external-final-20260720/results/`、`.codex/web-steam-final-20260720/results/`、`.codex/web-full-final-20260720/results/`、`.codex/web-system-state-final-20260721/results-pass2/`、`.codex/web-audio-restart-final-20260721/results-pass/`、`.codex/web-property-persistence-final-20260721/results-suite-pass/`、`.codex/web-defaults-isolation-final-20260721/matrix-regression/` 和 `.codex/web-space-lifecycle-final-20260721/results-pass2/`；作者源码和 Steam 样本副本分别保存在 `.codex/web-external-representative-samples-20260722/` 与 `.codex/web-steam-representative-samples-20260720/`。这些目录被 Git 忽略，只作为本地复核证据保留到分支合并，不替代仓库内的矩阵定义和生产测试。
 
@@ -381,7 +382,7 @@ python3 script/scene_wallpaper_benchmark.py \
   --duration 3.0
 ```
 
-`<isolated-scene-sample-root>` 必须包含测试副本 `Scene/<id>`；不得直接传入真实 `~/Movies/MyWallpaperX/创意工坊/Scene`。当前正式复核使用 `.codex/scene-matrix13-samples-20260722`，最新报告为 `.codex/scene-particle-trail-formal13-projected-final-20260722/report.json`；旧的 12 样本 utility 报告只保留为阶段性证据，不能反向覆盖 v14 的当前结论。
+`<isolated-scene-sample-root>` 必须包含测试副本 `Scene/<id>`；不得直接传入真实 `~/Movies/MyWallpaperX/创意工坊/Scene`。当前正式复核使用 `.codex/scene-matrix13-samples-20260722`，最新报告为 `.codex/scene-static-fallback-formal13-20260722/report.json`；旧的 12 样本 utility 和 13 样本 particle-trail 报告只保留为阶段性证据，不能反向覆盖 v14 的当前结论。
 
 ## 5. Scene 当前实现状况
 
@@ -391,7 +392,7 @@ python3 script/scene_wallpaper_benchmark.py \
 - 支持 `scene.pkg` PKGV 索引、受控缓存解包和相对路径校验。
 - 使用 versioned `.mywallpaperx-scene-interpretation.json` 作为稳定中间层；当前 format 为 v14。
 - 能解析 scene、models、materials、effects、资源引用、层级、camera 和 typed shader constants。
-- v14 descriptor 保留 effect/material pass 的有序 nullable texture slots、typed effect `usertextures`、shader combos、层级/有效可见性、作者 parallax、静态文字几何、solid 作者颜色、typed utility kind 和 dependency layer ID，同时维持旧 texture path 摘要兼容性。
+- v14 descriptor 保留 effect/material pass 的有序 nullable texture slots、typed effect `usertextures`、shader combos、层级/有效可见性、作者 parallax、静态文字几何、solid 作者颜色、typed utility kind 和 dependency layer ID，同时维持旧 texture path 摘要兼容性。底层作者/执行合同统一查 [Scene 语义手册](../scene/semantics/README.md)。
 - 支持 PNG/JPEG、部分 TEXB0001-4、BC1/BC2/BC3/BC5、RGBA/RG/R8、LZ4、MP4 payload 和 TEX sprite sequence；支持标准 `scene.pkg` 与 entry 同名 `gifscene.pkg`。
 - 已有 Metal textured-quad、共享白纹理程序化 solid、静态 text texture、作者定义 2D sprite 粒子 instancing、层级 transform/visibility、基础混合、像素空间 coarse/precise gaussian blur、Bloom threshold/blur/composite、cover 相机和声明驱动的 parallax。单层 built-in UV foliage 读取作者 strength/speed/phase/power/noise/mask 参数；粒子可解析包内纹理和受限 built-in `particle/drop`，`spritetrail` 按速度方向和作者 length/min/max stretch 拉伸。
 - Utility current-prefix capture 区分 composition 局部 quad 与 project/fullscreen 全画布，bounded named target/consumer 可把受支持 provider 转交给依赖 slot，简单静态普通 image provider 可进入 normal blend；这些路径都使用受限离屏池并在 GPU 完成后上报结果。
@@ -402,7 +403,7 @@ python3 script/scene_wallpaper_benchmark.py \
 ### 5.2 用户重点样本现状
 
 - `2902406982`：image `30/30`、solid `9/9`、text `44/57`、particle `0/1`；6 个 named provider capture 与 7 个 consumer binding 成功，白三角和 coarse blur 导致的重复背景已消除。仍有 9 个 route-only effect、6 个缺失资源，以及动态内容、文字和剩余 effect 未闭合。
-- `2938612768`：image `44/44`、solid `11/11`、text `8/24`、particle `0/1`；provider `1340` capture、consumer `322` binding 和 layer `1509` 静态 image blend 成功，彩色背景已恢复。consumer `299` binding 仍失败，画面仍有扭曲，media/sceneTexture、18 个 route-only effect 和 6 个缺失资源尚未闭合。
+- `2938612768`：image `44/44`、solid `11/11`、text `8/24`、particle `0/1`；providers `141/1340` capture、consumers `299/322` binding 和 layers `239/657/1509` 静态 image blend 均成功，彩色背景已恢复。画面仍有扭曲，media/sceneTexture、18 个 route-only effect 和 6 个缺失资源尚未闭合。
 - `3750813609`：image `2/2`、solid `1/1`、text `1/1`、particle `2/9`，粒子 layers `200/516` 已进入真实渲染，built-in drop + sprite trail 使雨线出现。时钟内容/样式、云层、叶片与 1 个 route-only effect 仍不正确。
 
 这些结果来自同一份最终 13 样本报告，描述的是当前实现相对作者 preview 的已知改善和缺口；没有 Windows Wallpaper Engine 同配置录屏，不能据此声称逐帧一致。
@@ -431,13 +432,13 @@ descriptor 能识别 image、solid、particle、text、container 与 typed utili
 - Scene 用户属性已有独立编辑窗口、条件显示、持久化和活动壁纸受控重建；sceneTexture、transform、particle、puppet 和未支持 effect uniform 等 target 仍不开放，因此不是完整属性兼容链。
 - 没有按屏 pause/resume、FPS、音量、画质策略和独立 Scene 状态。
 - 没有 SceneScript、动态文字、音频响应、puppet/mesh 和完整视频纹理生命周期；粒子除作者包内 sprite 外只新增了 built-in drop 与 sprite trail 子集，其余 21/27 candidate 仍未加载。
-- 已有 13 个真实 Scene 样本的语义自动门，当前验证 image `180/181`、solid `54/54`、text `79/108`、particle `6/27`，并记录所有受限 dependency GPU 结果；但没有完整性能预算，也没有与 Windows Wallpaper Engine 同配置录屏的图像差异门，因此不能把 13/13 等同于完整兼容或 WE parity。
+- 已有 13 个真实 Scene 样本的语义自动门，当前验证 image `180/181`、solid `54/54`、text `79/108`、particle `6/27`，named capture `8/8`、binding `9/9`、static image blend `3/3`，并记录所有受限 dependency GPU 结果；但仍有 34 个 route-only effect，没有完整性能预算，也没有与 Windows Wallpaper Engine 同配置录屏的图像差异门，因此不能把 13/13 等同于完整兼容或 WE parity。
 
 ## 6. Scene 演进方向
 
 ### 阶段 0：产品边界与执行门（已确定方向，进行中）
 
-当前选择“可审计的兼容 Runtime”方向：不承诺私有格式 100% 复刻，但按真实样本频率推进 effect、属性、timeline、particle、音频和受限 SceneScript；任何引入的第三方 runtime/translator 必须具备许可证、源码 revision、可复现构建和自动测试。runner、签名身份门、Metal 帧证据和 13 样本语义矩阵已落地；后续不得退回单样本手工预览作为唯一验收。
+当前选择“可审计的兼容 Runtime”方向：不承诺私有格式 100% 复刻，但按官方行为合同、真实样本频率和 [Scene 语义手册](../scene/semantics/README.md) 推进 effect、属性、timeline、particle、音频和受限 SceneScript。下一步先建立 effect-definition IR、通用 slot/combo/uniform resolver 和 Render Graph，不再扩展按名称的整层/单 pass 近似；任何引入的第三方 runtime/translator 必须具备许可证、源码 revision、可复现构建和自动测试。runner、签名身份门、Metal 帧证据和 13 样本语义矩阵已落地；后续不得退回单样本手工预览作为唯一验收。
 
 ### 阶段 1：正确性、安全和性能基础
 

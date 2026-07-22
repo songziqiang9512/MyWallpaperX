@@ -7,6 +7,7 @@
 - [architecture/framework-architecture-memo.md](architecture/framework-architecture-memo.md)：截至 2026-05-05 的框架结构、公共协议和模块边界基线；使用前需与当前代码核对。
 - [reviews/web-scene-current-state-roadmap-2026-07-19.md](reviews/web-scene-current-state-roadmap-2026-07-19.md)：Web / Scene 当前能力、验证结果、闭环边界和后续路线。
 - [scene/scene-capability-development-plan-2026-07-22.md](scene/scene-capability-development-plan-2026-07-22.md)：Scene 对齐 Wallpaper Engine 常用播放能力的现役实施顺序、样本规范和测试门。
+- [scene/semantics/README.md](scene/semantics/README.md)：Wallpaper Engine Scene 的现役语义手册入口，包含 Render Graph、45 个官方 effect、粒子/文字/脚本合同和证据索引。
 - [architecture/project-working-memory.md](architecture/project-working-memory.md)：截至 2026-05-17 的 AppKit / Steam 协作快照；使用前需与当前代码核对。
 - [web/README.md](web/README.md)：Web 壁纸专题入口。
 - [agents/README.md](agents/README.md)：多 Agent 协作与角色入口。
@@ -16,7 +17,7 @@
 
 - `architecture/`：当前架构事实、AppKit 迁移和跨 Web / Scene 的整体方案。
 - `web/`：Web 壁纸规范、运行模型、评测标准、样本回归记录和历史方案。
-- `scene/`：Scene 壁纸设计、计划和历史评审。
+- `scene/`：Scene 壁纸设计、现役计划、`semantics/` 语义手册和历史评审。
 - `steam/`：Steam Workshop、SteamCMD、下载库重构和相关评审。
 - `release/`：发布、签名、版本和 notarization。
 - `reviews/`：跨项目审计、模块审查和 WaifuX 对比资料。

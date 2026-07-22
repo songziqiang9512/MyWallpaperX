@@ -11,7 +11,7 @@
 - P2（主体可用，仍有明确的次级效果差距）：4 个；
 - P3（仅小幅视觉偏差）：0 个。
 
-首轮评估确认的方向仍成立：优先建设通用 runtime，而不是增加按样本命中的 effect 分支。此后属性主链、作者 sprite 与 built-in drop / Sprite Trail 粒子子集、程序化 solid、静态文字几何/字体、utility current-frame capture、受限 named-target dependency、wrapped alpha、静态 image dependency blend、单个 built-in UV Foliage Sway 和 13 样本语义门已经落地；动态脚本/文字、effectful/media/sceneTexture provider、nested/child composition、utility mask、其余内建效果和高级粒子仍是主要缺口。现有开发顺序和架构约束见 [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md)；Web 与 Scene 的统一状态入口见 [Web / Scene 当前状态与路线图](../reviews/web-scene-current-state-roadmap-2026-07-19.md)。
+首轮评估确认的方向仍成立：优先建设通用 runtime，而不是增加按样本命中的 effect 分支。此后属性主链、作者 sprite 与 built-in drop / Sprite Trail 粒子子集、程序化 solid、静态文字几何/字体、utility current-frame capture、受限 named-target dependency、wrapped alpha、静态 image dependency blend、单个 built-in UV Foliage Sway 和 13 样本语义门已经落地；动态脚本/文字、effectful/media/sceneTexture provider、nested/child composition、utility mask、其余内建效果和高级粒子仍是主要缺口。底层作者/执行合同查 [Scene 语义手册](semantics/README.md)，现有开发顺序和架构约束见 [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md)；Web 与 Scene 的统一状态入口见 [Web / Scene 当前状态与路线图](../reviews/web-scene-current-state-roadmap-2026-07-19.md)。
 
 ## 范围与证据
 
@@ -20,7 +20,7 @@
 - `3766415113` 使用 `gifscene.json` / `gifscene.pkg`，以包含 entry、sequence 和单图 UV 修正的 [gifscene 最终报告](../../.codex/scene-gifscene-sprite-gate-20260722/report.json) 为准。
 - `3738202317` 在 20 样本旧报告中因 `.tex format 6` 显示灰底；该结果已经被 [BC2/DXT3 修复后报告](../../.codex/scene-bc2-format6-final-20260722/report.json) 覆盖，当前为 1/1 纹理加载成功。
 - “作者预期”来自包内 scene 描述、`project.json` 属性和样本自带 preview。preview 不是逐帧金标准，最终仍需在相同分辨率、相同属性默认值下与 Wallpaper Engine 录屏做差异验收。
-- 首轮 21 样本报告保留为修复前视觉基线。当前正式语义门以 [13 样本最终报告](../../.codex/scene-particle-trail-formal13-projected-final-20260722/report.json) 为准：13/13 PASS，interpretation format 14；`2998757800` 的 6 个 built-in rain layer 另以 [粒子定向报告](../../.codex/scene-particle-trail-projected-gate-20260722/report.json) 为准。两份报告都包含 Sprite Trail 投影方向修正，只证明所列能力门和运行生命周期通过，不是 Wallpaper Engine 逐帧视觉一致性证明。
+- 首轮 21 样本报告保留为修复前视觉基线。当前正式语义门以 [13 样本最终报告](../../.codex/scene-static-fallback-formal13-20260722/report.json) 为准：13/13 PASS，interpretation format 14；`2998757800` 的 6 个 built-in rain layer 另以 [粒子定向报告](../../.codex/scene-particle-trail-projected-gate-20260722/report.json) 为准。两份报告都包含 Sprite Trail 投影方向修正，只证明所列能力门和运行生命周期通过，不是 Wallpaper Engine 逐帧视觉一致性证明。
 
 表中 `I/P/T` 分别表示 image / particle / text 图层声明数量；`prop` 不含每个项目都有的 `schemecolor`。纹理加载率只统计当前 renderer 识别为 image candidate 的图层，不应直接当成视觉完成度。
 
@@ -30,10 +30,10 @@
 | --- | --- | --- |
 | 用户属性 | bool/slider/combo/color/textinput、group/condition/options；layer visibility、text、camera parallax 与部分 effect target；按壁纸持久化；独立可拖动属性窗口 | sceneTexture、transform、particle/audio、puppet 与未支持 effect target；无需重建的通用热更新 |
 | Solid | 固定 built-in 与 model `solidlayer:true`；共享白纹理、作者 color/alpha/visibility/effect/blend；当前正式门 54/54 | 带动态 `$mediaThumbnail`/sceneTexture 的 solid 实例；普通 image 基础 color multiplier；完整 dependency/mask 组合语义 |
-| Utility / Composition | typed composition/project/fullscreen；当前 framebuffer 前缀捕获；局部/full-frame geometry；受限纹理池；mask/partial effect fail-closed；290 的 project 410 / composition 530 与 6 个 named provider / 7 个 consumer 已完成 GPU capture/binding；293 的 provider 1340 / consumer 322 与隐藏普通 image 1321 到 layer 1509 的静态 blend 已进入 GPU runtime | effectful provider、media / sceneTexture input、nested/child target、utility mask、动态 blendgradient 与任意 material/shader pass；293 的 consumer 299 仍 binding fail，不能把受限 named-target 子集写成完整 dependency graph |
+| Utility / Composition | typed composition/project/fullscreen；当前 framebuffer 前缀捕获；局部/full-frame geometry；受限纹理池；mask/partial effect fail-closed；290 的 project 410 / composition 530 与 6 个 named provider / 7 个 consumer 已完成 GPU capture/binding；293 的 providers 141/1340、consumers 299/322 与隐藏普通 image providers 到 layers 239/657/1509 的静态 blend 已进入 GPU runtime | effectful provider、media / sceneTexture input、nested/child target、utility mask、动态 blendgradient 与任意 material/shader pass；不能把受限 named-target / static image 子集写成完整 dependency graph |
 | Particle | 包内 texture、sprite/sequence、built-in `particle/drop`、continuous/burst initial、基础 lifetime/opacity/color/size/rotation/velocity、additive/translucent blend、Sprite Trail 沿速度方向并按作者 length/min/max 拉伸、正交/透视相机、层级可见性与 parallax；正式门 6/27，375 雨层 516 已加载；定向门中 299 的 6 个 `rainperspective` 层与原有作者层共 7/15 | 其余 built-in texture/preset、child system、rope/rope trail、world-space、完整 control point/attractor、动态 instance override、音频与属性动态 operator |
-| Text | authored `pointsize * 4`、vector padding、包内字体、系统字体别名、确定性 fallback 诊断；`3766387484` 3/3、`3122339805` 80/81、`2134765860` 4/6 candidate | SceneScript、真实时钟/日期/媒体值、完整对齐/描边/阴影/effect 语义 |
-| 自动门 | 13 个真实隔离样本，interpretation format 14，签名 App、Metal ready/after 非黑帧；image 180/181、solid 54/54、text 79/108、particle 6/27；named capture 7 成功、binding 8 成功 / 1 失败、static image blend 1/1；无 timeout、stop 后 surface=0 | 不是 21 样本视觉重评，也没有 Windows Wallpaper Engine 同配置录屏差异门；13/13 只证明声明的语义门闭合，不代表动态脚本、全部效果或逐帧视觉一致 |
+| Text | 当前以 authored `pointsize * 4` 近似官方 300 DPI point raster，处理 vector padding、包内字体、系统字体别名和确定性 fallback 诊断；`3766387484` 3/3、`3122339805` 80/81、`2134765860` 4/6 candidate | 精确 DPI/scene-unit 校准、SceneScript、真实时钟/日期/媒体值、完整对齐/描边/阴影/effect 语义 |
+| 自动门 | 13 个真实隔离样本，interpretation format 14，签名 App、Metal ready/after 非黑帧；image 180/181、solid 54/54、text 79/108、particle 6/27；named capture 8/8、binding 9/9、static image blend 3/3；无 timeout、stop 后 surface=0 | 仍有 1 个 named-target gap 和 34 个 route-only effect；不是 21 样本视觉重评，也没有 Windows Wallpaper Engine 同配置录屏差异门；13/13 只证明声明的语义门闭合，不代表动态脚本、全部效果或逐帧视觉一致 |
 
 ## 横向能力判断
 
@@ -54,12 +54,12 @@
 
 ### Text 与字体
 
-13/21 个样本共声明 258 个 text layer。当前 CoreText 路径已修正 `pointsize * 4`、vector padding、包内字体和系统字体别名，`3766387484` 的非均匀 scale 静态几何已明显接近 preview；但 `3750813609` 的 200pt 时钟仍是过大的黑色静态占位，说明字号几何修正并未闭合最终字体、颜色和 effect 语义。未知 SceneScript 不执行，时钟、日期、媒体信息和随机文本仍是静态值，对齐、描边/阴影和 effect pass 也未完整复刻。`3750813609`、`3766387484`、`3122339805` 继续作为大字号、非均匀缩放和 100 层压力三类文字基准。
+13/21 个样本共声明 258 个 text layer。当前 CoreText 路径以 `pointsize * 4` 近似官方声明的 300 DPI point raster，并处理 vector padding、包内字体和系统字体别名；`3766387484` 的非均匀 scale 静态几何已明显接近 preview，但该倍率仍需 Windows 官方输出校准。`3750813609` 的 200pt 时钟仍是过大的黑色静态占位，说明字号几何修正并未闭合最终字体、颜色和 effect 语义。未知 SceneScript 不执行，时钟、日期、媒体信息和随机文本仍是静态值，对齐、描边/阴影和 effect pass 也未完整复刻。`3750813609`、`3766387484`、`3122339805` 继续作为大字号、非均匀缩放和 100 层压力三类文字基准。
 
 ## 四个重点样本的当前增量状态
 
 - `2902406982`：当前 image 30/30、text 44/57、particle 0/1；6 个 named provider capture 与 7 个 consumer binding 全部成功，三角区域已经采到对应内容，旧截图中的无依据白色三角和背景重复叠影不再是当前现象。最新截图仍与作者效果有明显距离：9 个 effect route-only、6 个资源缺失，字体/文字层、SceneScript、媒体/音频和属性驱动仍不完整，不能从“主体已可辨认”推导出主构图完全一致。
-- `2938612768`：当前 image 44/44、text 8/24、particle 0/1；wrapped alpha 已消除错误黑色覆盖，named provider 1340 / consumer 322 成功，隐藏普通 image 1321 通过静态 normal blend 合入 layer 1509，彩色背景已恢复且不再露出大面积灰底。播放器主体仍只有部分静态组件，consumer 299 binding 失败，并有 18 个 effect route-only、6 个资源缺失；媒体封面、动态标题/时间、sceneTexture、blendgradient、音频和粒子仍未闭环。
+- `2938612768`：当前 image 44/44、text 8/24、particle 0/1；wrapped alpha 已消除错误黑色覆盖，named providers 141/1340、consumers 299/322 和 static image blend layers 239/657/1509 均成功，彩色背景已恢复且不再露出大面积灰底。播放器主体仍只有部分静态组件，并有 18 个 effect route-only、6 个资源缺失；媒体封面、动态标题/时间、sceneTexture、blendgradient、音频和粒子仍未闭环。
 - `3750813609`：当前 image 2/2、text 1/1、particle 2/9；coarse blur 的像素单位与单个 built-in UV Foliage Sway 作者参数已生效，雨层 516 使用 built-in drop + Sprite Trail 进入运行时，画面已能看到贯穿场景的雨线。剩余 7 个粒子层、Clouds effect（1 个 route-only）、动态时间脚本和完整文字效果未实现；时钟目前仍是过大的黑色静态 `12:34`，不能当成最终字体/时钟效果。
 - `2998757800`：定向粒子门为 image 5/5、particle 7/15；6 个 `rainperspective` built-in 雨层 172/181/187/193/199/205 与原有作者层 287181 同时绘制，雨幕已覆盖作者声明的多个深度层。其余 8 个粒子层、6 个雨层的动态 `instanceoverride`、天气/触摸、puppet 与完整 foliage/waterripple/xray 语义仍缺失；当前主图和雨可用，不代表交互与天气壁纸已经复刻。
 

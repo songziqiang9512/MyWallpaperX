@@ -5,6 +5,8 @@
 > 说明：本文依据 Wallpaper Engine 官方文档整理，偏向第三方播放器兼容实现视角。
 >
 > 核验边界（2026-07-22）：官方资料描述的是编辑器与官方运行时行为，并未公开稳定的 Workshop 序列化格式规范。本文用于能力地图，不直接充当 MyWallpaperX parser / renderer 实现规范；项目当前事实与实施顺序以 [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md) 为准。
+>
+> 执行语义入口（2026-07-22）：effect/pass/FBO/texture slot、45 个内置 effect、Particle、Text、Timeline、SceneScript 与资料证据等级已经拆入 [Scene 语义手册](semantics/README.md)。后续实现以该专题的执行合同为准，本文继续作为上层能力地图，不再重复维护底层 pass 表。
 
 ---
 

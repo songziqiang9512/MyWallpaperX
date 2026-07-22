@@ -2,9 +2,9 @@
 
 > 建立日期：2026-07-22
 >
-> 最近更新：2026-07-22（按 interpretation format 14、13 个正式隔离样本与最新视觉证据重新排序）
+> 最近更新：2026-07-22（按 Scene 官方语义手册、interpretation format 14、13 个正式隔离样本与最新视觉证据重新排序）
 >
-> 作用：定义 MyWallpaperX Scene runtime 从当前可审计子集向 Wallpaper Engine 常用能力逼近的实施顺序、样本门和验收标准。当前能力结论仍以 [`../reviews/web-scene-current-state-roadmap-2026-07-19.md`](../reviews/web-scene-current-state-roadmap-2026-07-19.md) 与最新运行证据为准；历史 memo 不反向覆盖本计划。
+> 作用：定义 MyWallpaperX Scene runtime 从当前可审计子集向 Wallpaper Engine 常用能力逼近的实施顺序、样本门和验收标准。作者/执行语义先查 [`semantics/README.md`](semantics/README.md)；当前能力结论仍以 [`../reviews/web-scene-current-state-roadmap-2026-07-19.md`](../reviews/web-scene-current-state-roadmap-2026-07-19.md) 与最新运行证据为准；历史 memo 不反向覆盖本计划。
 
 ## 1. 目标与边界
 
@@ -35,12 +35,12 @@
 - cover 投影；Camera Parallax 服从 Scene options、逐层 depth、传播和属性 override，未声明时不启用；
 - coarse blur 已按作者像素半径归一化并使用四分之一分辨率采样；precise gaussian blur、标准 Bloom 子集、normal-map waterripple 子集、perspective+opacity、mode 9 additive，以及 water/cursor/chromatic/iris 等仍是明确标注的受限实现；
 - 单个 built-in UV Foliage Sway 已读取作者 strength/speed/phase/power/noise/ratio/direction 和 mask 映射；多 foliage 栈与 vertex/workshop 变体不会误套该近似实现；
-- 静态 text 的 authored `pointsize * 4`、vector padding、包内字体、系统字体别名和缺失字体诊断；
+- 静态 text 当前以 authored `pointsize * 4` 近似 300 DPI point raster、处理 vector padding、包内字体、系统字体别名和缺失字体诊断；`* 4` 是样本验证近似，不是完整官方换算合同；
 - 作者包内 2D sprite 粒子的 definition/resource graph、sphere/box、rate/burst/prewarm、常见 initializer/operator、sequence/random frame、additive/translucent、朝向、静态 override、CPU simulation 与 Metal instancing；已增加受限 built-in `particle/drop` 纹理和按速度对齐、按作者 length/min/max stretch 的 Sprite Trail；
 - 用户属性定义、group/display condition/options、默认值/override、visibility/text/camera 与部分 effect target、按壁纸持久化、活动 Scene 受控重建和独立属性窗口；
 - typed `composition/project/fullscreen` 与 generic dependency layer ID；对满足严格边界的 utility layer 执行当前 framebuffer 前缀捕获，并支持 `_rt_imageLayerComposite_<id>_a` named target 的有预算发布与 clipping consumer 绑定。`2902406982` 的 6 个 provider / 7 个 consumer binding 已闭合，原白色三角缺口不再由缺失 named target 产生；
 - effect pass 的 typed user texture input 已保留。`2938612768` 已支持单个隐藏普通 image provider 经静态 normal blend 供给可见 consumer，并修复 `{value: 0}` 包装 alpha；彩色主背景已恢复，但 media、后续 effect 链、字体与粒子仍未闭合；
-- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；最新正式矩阵 **13/13 通过**，image **180/181**、solid **54/54**、text **79/108**、particle **6/27**。named capture 7 success / 0 fail、binding 8 success / 1 fail，static image blend 1/1。最终报告：`.codex/scene-particle-trail-formal13-projected-final-20260722/report.json`。
+- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；最新正式矩阵 **13/13 通过**，image **180/181**、solid **54/54**、text **79/108**、particle **6/27**。named capture **8/8**、binding **9/9**，static image blend **3/3**；仍有 34 个 route-only effect。最终报告：`.codex/scene-static-fallback-formal13-20260722/report.json`。
 
 ### 仅解析/诊断或部分实现
 
@@ -58,7 +58,7 @@
 
 ## 3. 官方资料核验后的契约边界
 
-[Wallpaper Engine Scene 能力参考](wallpaper_engine_scene_compatibility.md) 的能力地图总体成立，但官方资料描述编辑器/官方运行时行为，没有公开稳定的 Workshop 序列化格式。实现仍以真实隔离样本和可复现 parser/runtime 证据为准。
+[Wallpaper Engine Scene 能力参考](wallpaper_engine_scene_compatibility.md) 的能力地图总体成立；底层开发合同现统一放在 [Scene 语义手册](semantics/README.md)。官方资料描述编辑器/官方运行时行为，没有公开稳定的 Workshop 序列化格式。实现必须标注“官方行为、样本实例、WE-compatible asset 观察、第三方播放器解释、MyWallpaperX 现状”五类证据，不能把后两类反向写成官方规则。
 
 当前直接影响架构与验收的官方契约：
 
@@ -72,6 +72,8 @@
 8. [Foliage Sway](https://docs.wallpaperengine.io/en/scene/effects/effect/sway.html) 区分 UV 与 Vertex 模式，并由 mask 和作者参数限定作用区域。当前只把单个 built-in UV 变体计为受支持，多 effect 栈、Vertex 和 workshop shader 必须继续 fail closed。
 9. [Shader Variables](https://docs.wallpaperengine.io/en/scene/shader/variables.html) 中 `g_TextureNResolution.xy` 表示物理纹理尺寸、`.zw` 表示映射尺寸；mask/effect UV 需要保留这两套尺度，不能假设 source 与 mapped size 相同。
 10. [Particle Renderer](https://docs.wallpaperengine.io/en/scene/particles/component/renderer.html) 定义 Sprite Trail 按粒子速度方向对齐，并按 speed、length 与 min/max stretch 控制长度。当前实现仅复用 2D sprite quad 覆盖该子集，不据此宣称 rope、child 或完整粒子 renderer 兼容。
+11. [Shader Variables](https://docs.wallpaperengine.io/en/scene/shader/variables.html) 公开 `g_Texture0...7`，但 slot 含义由当前 material/shader annotation 决定；nullable texture slot 不得压缩，也不存在通用的“slot 1 永远是 mask”。
+12. WE-compatible effect definitions 与可审计播放器共同证明 `target`、`bind`、`compose`、`command:copy`、RT scale/format/unique 和 history 是执行字段；其 raw schema 并非官方公开合同，进入实现前仍要由合法官方 assets 或真实样本交叉验证。
 
 ## 4. 重新排序后的实施路线
 
@@ -93,10 +95,12 @@
 
 ### S2：主构图与高命中效果闭合（当前 P0）
 
-1. **资源提供链**：先实现 media `$mediaThumbnail`、sceneTexture / Texture Variants 的 typed provider、授权替换与缺失诊断，优先恢复 `2938612768` 等样本缺失的主背景/媒体层。
-2. **有序 effect DAG**：按 source order 执行 provider effect、consumer pass、blendgradient、mask/composite 和最终 alpha；先覆盖样本实际命中的 normal/additive/opacity 链，保留 cycle/missing/budget fail-closed，不扩成任意 shader 翻译器。
-3. **高命中视觉模式**：补多 foliage 栈、Vertex sway 和 workshop 变体的明确执行边界；继续按真实样本频率补 clouds/rain、常见 blur/composite 与内置 effect，不按样本 ID 修图。
-4. **视觉门**：先定向复核 `2902406982`、`2938612768`、`3750813609`，再重跑 21 样本 cover 对比；验收同时要求主构图、局部运动区域、字体/alpha 和关键粒子接近封面或官方运行证据。
+1. **Effect-definition IR**：先把 effect FBO、ordered pass、`target`、`bind`、`compose`、`copy`、scale/format/unique/UV/condition 解析成版本化合同；未知字段保持可诊断 unsupported，不再继续扩大按名称的内联近似。
+2. **通用 slot/combo/uniform resolver**：保留 `g_Texture0...7` 的 nullable 位置，按当前 shader/material/instance/bind 解析资源身份；统一上传 time/pointer/audio/resolution/effect/layer matrices，combo 只在作者值和 optional resource 满足时启用。
+3. **通用 Render Graph**：区分 base/original、`previous`、scene compose、named target、ping-pong 和 history RT，按 source/effect/pass order 执行，保留 cycle/missing/budget/pipeline fail-closed。
+4. **资源提供链**：在统一 texture provider 上接 media `$mediaThumbnail`、sceneTexture / Texture Variants、其他 layer、video 与授权文件替换；缺失时使用 authored fallback，不能把绝对路径或空白纹理冒充成功。
+5. **语义正确的高命中批次**：优先迁移 Shake/Swing/Foliage、Water Flow/Waves/Ripple、Depth Parallax、Blend/Opacity、Blur/God Rays/Shine/Motion Blur；每项按 [Effects 语义全集](semantics/effects-reference.md) 的局部空间、mask、slot 和 pass 合同实现，不再调一个全局近似覆盖多种 effect。
+6. **视觉门**：先定向复核 `2902406982`、`2938612768`、`3750813609`，再重跑 21 样本 cover 对比；验收同时要求主构图、局部运动区域、字体/alpha 和关键粒子接近封面或 Windows 官方运行证据。
 
 ### S3：统一 live-value runtime（P1）
 
@@ -143,7 +147,7 @@
 - `c2fd29b`：单 built-in UV Foliage Sway 读取作者参数和 mask 映射；多 foliage 栈、Vertex/workshop 变体保持未实现，不再把统一晃动默认套给所有样本。
 - `ddd87e1`：为已证明的 built-in `particle/drop` 提供受控软粒子纹理，未知 built-in fail closed。
 - `064c2e7`：按速度方向和作者 length/min/max stretch 渲染 2D Sprite Trail；rope、child 和其他 renderer 继续未实现。
-- 最新 interpretation 为 format 14；正式矩阵 **13/13**，image **180/181**、solid **54/54**、text **79/108**、particle **6/27**。named capture 7 success / 0 fail、binding 8 success / 1 fail，static image blend 1/1。最终报告：`.codex/scene-particle-trail-formal13-projected-final-20260722/report.json`。该结果是能力与生命周期门，不是视觉等价声明。
+- 后续 `b5a33f1` 保留数字型 shader binding components，`4ceb94d` 执行严格的 gradient-color -> clipping-mask stack，`687b45a` 让符合边界的静态 image blend 服从作者默认值。最新 interpretation 仍为 format 14；正式矩阵 **13/13**，image **180/181**、solid **54/54**、text **79/108**、particle **6/27**，named capture **8/8**、binding **9/9**、static image blend **3/3**，route-only effect 仍有 **34**。最终报告：`.codex/scene-static-fallback-formal13-20260722/report.json`。该结果是能力与生命周期门，不是视觉等价声明。
 
 ## 5. 样本规范
 
