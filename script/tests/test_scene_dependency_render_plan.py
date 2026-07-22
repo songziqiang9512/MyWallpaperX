@@ -20,7 +20,9 @@ SWIFT_SOURCES = [
 HARNESS_SOURCE = r'''
 import Foundation
 
-struct SceneDocument { struct ShaderValue {} }
+struct SceneDocument {
+    struct ShaderValue { let components: [Double]? }
+}
 struct SceneUtilityLayer {
     enum Kind { case composition, project, fullscreen }
     let kind: Kind
@@ -62,16 +64,19 @@ enum Harness {
         let forwardConsumer = consumer(6, provider: 7)
         let forwardProvider = layer(7, kind: .composition)
         let partialConsumer = consumer(8, provider: 1, extraEffect: true)
+        let neutralOpacityConsumer = consumer(9, provider: 1, opacity: 1)
+        let nonNeutralOpacityConsumer = consumer(10, provider: 1, opacity: 0.5)
         let descriptor = SceneRenderDescriptor(
             layers: [
                 provider, visibleConsumer, hiddenConsumer,
                 cycleA, cycleB, forwardConsumer, forwardProvider, partialConsumer,
+                neutralOpacityConsumer, nonNeutralOpacityConsumer,
             ],
-            renderOrderLayerIDs: [1, 2, 3, 4, 5, 6, 7, 8]
+            renderOrderLayerIDs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         )
         let plan = SceneDependencyRenderPlan(
             descriptor: descriptor,
-            visibleLayerIDs: [1, 2, 4, 5, 6, 7, 8]
+            visibleLayerIDs: [1, 2, 4, 5, 6, 7, 8, 9, 10]
         )
         let matrixProviders = (10...15).map { layer($0, kind: .composition) }
         let matrixProviderIDs = [10, 10, 10, 11, 12, 13, 14, 15]
@@ -128,9 +133,10 @@ enum Harness {
         provider: Int,
         dependencies: [Int]? = nil,
         visible: Bool? = true,
-        extraEffect: Bool = false
+        extraEffect: Bool = false,
+        opacity: Double? = nil
     ) -> SceneRenderDescriptor.Layer {
-        var effects = [effect(id: id, provider: provider)]
+        var effects = [effect(id: id, provider: provider, opacity: opacity)]
         if extraEffect {
             effects.append(.init(id: "tint", file: "effects/tint/effect.json", visible: true, passes: []))
         }
@@ -145,7 +151,11 @@ enum Harness {
         )
     }
 
-    static func effect(id: Int, provider: Int) -> SceneRenderDescriptor.EffectDescriptor {
+    static func effect(
+        id: Int,
+        provider: Int,
+        opacity: Double? = nil
+    ) -> SceneRenderDescriptor.EffectDescriptor {
         .init(
             id: "effect-\(id)",
             file: "effects/workshop/clipping_mask/effect.json",
@@ -154,7 +164,9 @@ enum Harness {
                 passIndex: 0,
                 textureSlots: [nil, "_rt_imageLayerComposite_\(provider)_a"],
                 combos: ["BLENDMODE": 5],
-                constantShaderValues: [:]
+                constantShaderValues: opacity.map {
+                    ["Opacity": SceneDocument.ShaderValue(components: [$0])]
+                } ?? [:]
             )]
         )
     }
@@ -197,8 +209,8 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         self.assertTrue(self.result["invalidReference"])
 
     def test_only_visible_backward_clipping_consumer_is_executable(self) -> None:
-        self.assertEqual(self.result["referenceCount"], 4)
-        self.assertEqual(self.result["bindingConsumers"], [2])
+        self.assertEqual(self.result["referenceCount"], 6)
+        self.assertEqual(self.result["bindingConsumers"], [2, 9])
         self.assertEqual(self.result["requiredProviders"], [1])
 
     def test_cycle_forward_and_partial_stacks_fail_closed(self) -> None:
@@ -206,6 +218,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         self.assertIn("2:dependencyMismatch:1", self.result["issues"])
         self.assertIn("6:forwardUtilityProvider:7", self.result["issues"])
         self.assertIn("8:unsupportedConsumer:-1", self.result["issues"])
+        self.assertIn("10:unsupportedConsumer:-1", self.result["issues"])
 
     def test_matrix_shape_keeps_hidden_consumer_out_of_runtime_liveness(self) -> None:
         self.assertEqual(self.result["matrixBindingCount"], 7)

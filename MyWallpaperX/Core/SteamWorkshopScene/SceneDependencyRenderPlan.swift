@@ -183,7 +183,7 @@ nonisolated struct SceneDependencyRenderPlan {
               references.count == 1,
               let reference = references.first,
               reference.slot.slotIndex == 1,
-              pass.constantShaderValues.isEmpty,
+              supportsClippingConstants(pass.constantShaderValues),
               pass.combos.allSatisfy({ key, value in
                   key.caseInsensitiveCompare("BLENDMODE") == .orderedSame || value == 0
               }) else {
@@ -237,5 +237,19 @@ nonisolated struct SceneDependencyRenderPlan {
         in pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor
     ) -> Int? {
         pass.combos.first { $0.key.caseInsensitiveCompare(name) == .orderedSame }?.value
+    }
+
+    private nonisolated static func supportsClippingConstants(
+        _ values: [String: SceneDocument.ShaderValue]
+    ) -> Bool {
+        values.allSatisfy { key, value in
+            guard key.caseInsensitiveCompare("Opacity") == .orderedSame,
+                  let components = value.components,
+                  components.count == 1,
+                  let opacity = components.first else {
+                return false
+            }
+            return opacity.isFinite && abs(opacity - 1) < 0.000_001
+        }
     }
 }
