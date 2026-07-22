@@ -2,7 +2,7 @@
 
 > 建立日期：2026-07-22
 >
-> 最近更新：2026-07-23（按 Scene 官方语义手册、interpretation format 16、13 个正式隔离样本与 authored graph 证据重新排序）
+> 最近更新：2026-07-23（严格 precise-blur graph backend、fail-closed 路由与最终 13 样本证据）
 >
 > 作用：定义 MyWallpaperX Scene runtime 从当前可审计子集向 Wallpaper Engine 常用能力逼近的实施顺序、样本门和验收标准。作者/执行语义先查 [`semantics/README.md`](semantics/README.md)；当前能力结论仍以 [`../reviews/web-scene-current-state-roadmap-2026-07-19.md`](../reviews/web-scene-current-state-roadmap-2026-07-19.md) 与最新运行证据为准；历史 memo 不反向覆盖本计划。
 
@@ -33,7 +33,7 @@
 - PNG/JPEG、raw RGBA/RG/R8、BC1/BC2/BC3/BC5、LZ4、MP4 payload 和 TEX sprite sequence；
 - Metal image/solid/text/particle 合成、父子 transform、有效可见性、source order、alpha、正交/透视粒子相机和桌面多屏宿主；
 - cover 投影；Camera Parallax 服从 Scene options、显式逐层 depth、传播和属性 override；包括 composition 在内，缺失或零 depth 不产生逐层位移；
-- coarse blur 已按作者像素半径归一化，但当前是在全尺寸 RT 上使用 4 倍 texel step 的近似，不是 WE 的 4-pass quarter-RT downsample/combine；precise gaussian blur、标准 Bloom 子集、normal-map waterripple 子集、perspective+opacity、mode 9 additive，以及 water/cursor/chromatic/iris 等仍是明确标注的受限实现；
+- coarse blur 已按作者像素半径归一化，但当前是在全尺寸 RT 上使用 4 倍 texel step 的近似，不是 WE 的 4-pass quarter-RT downsample/combine；precise gaussian blur 已由 v16 graph 严格选路到固定两遍近似 kernel，标准 Bloom、normal-map waterripple、perspective+opacity、mode 9 additive，以及 water/cursor/chromatic/iris 等仍是明确标注的受限实现；
 - 单个 built-in UV Foliage Sway 已读取作者 strength/speed/phase/power/noise/ratio/direction 和 mask 映射；多 foliage 栈与 vertex/workshop 变体不会误套该近似实现；
 - 静态 text 当前以 authored `pointsize * 4` 近似 300 DPI point raster、处理 vector padding、包内字体、系统字体别名和缺失字体诊断；`* 4` 是样本验证近似，不是完整官方换算合同；
 - 作者包内 2D sprite 粒子的 definition/resource graph、sphere/box、rate/burst/prewarm、常见 initializer/operator、sequence/random frame、additive/translucent、朝向、静态 override、CPU simulation 与 Metal instancing；已增加受限 built-in `particle/drop` 纹理和按速度对齐、按作者 length/min/max stretch 的 Sprite Trail；
@@ -41,13 +41,14 @@
 - typed `composition/project/fullscreen` 与 generic dependency layer ID；对满足严格边界的 utility layer 执行当前 framebuffer 前缀捕获，并支持 `_rt_imageLayerComposite_<id>_a` named target 的有预算发布与 clipping consumer 绑定。`2902406982` 的 6 个 provider / 7 个 consumer binding 已闭合，原白色三角缺口不再由缺失 named target 产生；
 - effect pass 的 typed user texture input 已保留。`2938612768` 已支持单个隐藏普通 image provider 经静态 normal blend 供给可见 consumer，并修复 `{value: 0}` 包装 alpha；彩色主背景已恢复，但 media、后续 effect 链、字体与粒子仍未闭合；
 - v15 已保真保存 EffectDefinition/FBO/ordered pass/bind/compose/command/condition/function/unknown fields，并按 material-pass ordinal 关联实例 pass；copy/swap command 不消耗 material ordinal；
-- v16 已按作者 source/effect/pass order 编译 CPU authored graph，保留固定 effect input `previous`、effect-instance RT identity、raw `unique`、copy/swap、blocker 和逐样本 canonical SHA；
-- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；最新正式矩阵 **13/13 通过**。definition 层为 **106 definitions / 182 passes / 179 material passes / 50 FBO**；可见图为 **197 layer plans / 300 effects / 411 nodes / 76 RT**，196 个 plan 结构上无 blocker，5 个 blocker 均来自 `3723344874` fluid layer 的 condition/function。最终报告：`.codex/scene-effect-graph-canonical-final-20260723/report.json`。
+- v16 已按作者 source/effect/pass order 编译 CPU authored graph，保留固定 effect input `previous`、effect-instance RT identity、raw `unique`、copy/swap、blocker 和逐样本 canonical SHA；material resolver 保留 8 个 sparse slot，并按 material -> instance -> user texture -> explicit bind 合并，combo/constant 由实例覆盖 material；
+- renderer 已消费严格注册的 precise-blur 子图：仅接受单 effect、两 material node、一个 input-extent `rgba_backbuffer` RT、已验证 shader/state/combo/binding 和静态二维 `scale`；当前复用固定近似 Gaussian kernel，所以能力级别是 `executed-degraded`，不是 authored shader 或 WE 像素等价；
+- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；最新正式矩阵 **13/13 通过**。结构基线仍为 **106 definitions / 182 passes / 179 material passes / 50 FBO** 与 **197 layer plans / 300 effects / 411 nodes / 76 RT**；新 GPU 门成功层仅为 `3724289844:[28,36]`、`3765760121:[68,76,82]`，失败为 0，`3724289844` layer 20 的混合 effect 明确阻断旧 precise fallback。最终报告：`.codex/scene-authored-precise-final13-20260723/report.json`。
 
 ### 仅解析/诊断或部分实现
 
-- authored graph 已结构化编译但尚未由 Metal renderer 消费；named target、静态 image blend 和手写 effect 仍是由真实样本证明的受限执行器，child/nested target、effectful/media provider、任意 target 链和通用 mask/composite 尚未实现；
-- material pass 的 texture slots、user texture inputs、combos、constant values 已保留，但没有通用 slot/material/shader executor；多数 blend mode、mask/composite 和 effect pass 仍缺失；
+- authored graph 只有上述 precise-blur 严格子集进入 renderer；named target、静态 image blend 和其余手写 effect 仍是受限执行器，child/nested target、effectful/media provider、任意 target 链和通用 mask/composite 尚未实现；
+- resolver 已能保留并合并 material pass 的 slots、user texture、combo 和 constant 来源，但没有 shader annotation/default 解析、通用 resource registry 或任意 shader/pass executor；多数 blend mode、mask/composite 和 effect pass 仍缺失；
 - Timeline 只有数据模型空壳，没有关键帧、Loop/Mirror/Single、Bézier、wrap-loop、pause 或 target 写回；
 - SceneScript 只检测 inline script / `.js`，没有 ECMAScript runtime、`init/update`、事件、globals、Date/Math live value 或属性写回；
 - 用户属性未闭环 sceneTexture/texture variants、media texture、transform、alpha、particle/audio/puppet target 和 `applyUserProperties`；
@@ -100,11 +101,12 @@
 ### S2：主构图与高命中效果闭合（当前 P0）
 
 1. **Effect-definition IR（已完成保真阶段）**：v15 保留 effect FBO、ordered pass、`target`、`bind`、`compose`、copy/swap、scale/format/raw unique/UV/condition/function 和未知字段；这不等于 effect 支持完成。
-2. **Authored graph planner（已完成结构阶段）**：v16 区分 effect input `previous`、effect-scoped RT、material/command ordinal、copy/swap 和 blocker，并用 canonical SHA 锁定逐样本图身份。当前 5 个 condition/function blocker 均 fail closed；图尚未执行。
-3. **通用 slot/combo/uniform resolver + GPU executor（当前下一任务）**：保留 `g_Texture0...7` nullable 位置，按 shader/material/instance/bind 解析资源身份和 render state，执行 v16 node/target 顺序；第一版继续阻断未证明的 compose/functions/conditions，不把结构无 blocker 当成像素支持。
-4. **资源提供链**：在统一 texture provider 上接 media `$mediaThumbnail`、sceneTexture / Texture Variants、其他 layer、video 与授权文件替换；缺失时使用 authored fallback，不能把绝对路径或空白纹理冒充成功。
-5. **语义正确的高命中批次**：优先迁移 Shake/Swing/Foliage、Water Flow/Waves/Ripple、Depth Parallax、Blend/Opacity、Blur/God Rays/Shine/Motion Blur；每项按 [Effects 语义全集](semantics/effects-reference.md) 的局部空间、mask、slot 和 pass 合同实现，不再调一个全局近似覆盖多种 effect。
-6. **视觉门**：先定向复核 `2902406982`、`2938612768`、`3750813609`，再重跑 21 样本 cover 对比；验收同时要求主构图、局部运动区域、字体/alpha 和关键粒子接近封面或 Windows 官方运行证据。
+2. **Authored graph planner（已完成结构阶段）**：v16 区分 effect input `previous`、effect-scoped RT、material/command ordinal、copy/swap 和 blocker，并用 canonical SHA 锁定逐样本图身份。当前 5 个 condition/function blocker 均 fail closed。
+3. **S2.3a precise-blur graph backend（已完成受限阶段）**：统一 resolver 与严格 topology/state/resource gate 驱动 5 个可见层进入固定近似 Gaussian；不满足合同的 layer 20 不再回退旧文件名模糊，隐藏层不执行，RT 被预算缩放时拒绝。
+4. **S2.3b standard Blur graph backend（当前下一任务）**：以 `2902406982` layers 290/530 的真实 4-node、2 个 quarter RT 图为门，完成 alpha-aware downsample -> 13/7/3 Gaussian -> fixed previous combine；先替换现有全尺寸 4 倍 step 近似。
+5. **资源提供链与更广 graph executor**：建立统一 resource registry，接 media `$mediaThumbnail`、sceneTexture / Texture Variants、其他 layer、video 与授权文件替换，再扩 copy/swap、compose、更多 render state 与 shader backend；缺失时使用 authored fallback，不能把绝对路径或空白纹理冒充成功。
+6. **语义正确的高命中批次**：优先迁移 Shake/Swing/Foliage、Water Flow/Waves/Ripple、Depth Parallax、Blend/Opacity、God Rays/Shine/Motion Blur；每项按 [Effects 语义全集](semantics/effects-reference.md) 的局部空间、mask、slot 和 pass 合同实现，不再调一个全局近似覆盖多种 effect。
+7. **视觉门**：先定向复核 `2902406982`、`2938612768`、`3750813609`，再重跑 21 样本 cover 对比；验收同时要求主构图、局部运动区域、字体/alpha 和关键粒子接近封面或 Windows 官方运行证据。
 
 ### S3：统一 live-value runtime（P1）
 
@@ -158,7 +160,14 @@
 - `6eadcf8` 将 interpretation 升至 v15，保真保存定义和实例关联；13/13 报告 `.codex/scene-effect-ir-formal13-final-20260723/report.json` 为 106 definitions / 182 passes / 179 material passes / 50 FBO，diagnostics 0。这里的 0 只表示当前识别字段没有保真诊断，不证明私有 schema 完整或 pass 已执行。
 - `c7a0745` 将 interpretation 升至 v16，结构化编译 197 layer plans / 300 effects / 411 nodes / 76 RT；copy/swap、固定 `previous`、effect-scoped identity、raw unique 和 blocker 已进入图合同。当前 5 个 blocker 全部可解释，逐样本 canonical SHA 在独立复跑中稳定。
 - 迁移策略：有正负样本约束的 bounded executor 暂时保留，禁止继续扩大 effect path 分支；只有通用 graph GPU 路径取得等价像素/golden 证据后，才删除对应旧执行器。
-- 当前下一任务是 resolver、resource registry 与最小 GPU executor，不是继续为单个 effect 增加旁路。
+
+### 已完成：S2.3a precise-blur graph backend
+
+- runtime 读取 v16 interpretation 后不再丢弃 authored plans；resolver 保留 8 个 sparse texture slot，记录 material/instance/user texture/explicit bind 来源，并合并 combo、constant 和 render state。
+- backend 只接受已验证的两 pass full-resolution precise topology。缺失、动态 binding、大小写冲突、负数/越界 `scale`，未知 shader/state/combo/binding、非精确 RT extent 或混合 effect 都 fail closed；graph 编码/分配失败不会静默回源。
+- `3724289844` layers `28/36` 与 `3765760121` layers `68/76/82` GPU succeeded，失败 0；layer `20` 因 precise+shadow 图不完整而阻断旧 fallback；`3723257973` 的 5 层和 `3765760121` 的 3 层因有效不可见未执行。
+- 定向报告为 `.codex/scene-authored-precise-failclosed-related-20260723/report.json`，最终 13/13 报告为 `.codex/scene-authored-precise-final13-20260723/report.json`。App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`；118 项 Scene 测试通过，1 项跳过。preview 明确输出 `authoredEffectGraphSupportLevel: executed-degraded`，矩阵同时锁定成功、失败和 legacy-blur blocked layer ID。
+- 当前下一任务是 S2.3b 的 4-pass quarter-RT coarse Blur；现有 precise backend 使用固定 9-tap 近似 kernel，未解析 shader annotations/defaults，不能提升为 `semantics-verified`。
 
 ## 5. 样本规范
 
@@ -185,12 +194,14 @@
 
 - PKGV/TEX/scene JSON fixture；
 - EffectDefinition raw IR、实例 material ordinal、command ordinal、graph identity 与 canonical SHA；
+- material precedence、sparse slot、combo/constant 冲突、graph topology/state/binding 与 fail-closed legacy 路由；
 - property/timeline/particle 数据模型；
 - transform、插值、资源路径和评分规则。
 
 ### GPU/集成层
 
 - 小尺寸离屏纹理输入，验证输出像素、alpha 和 mask；
+- authored graph exact-ID GPU completion、RT extent 不被预算静默缩放，以及 rejected graph 不执行旧 effect heuristic；
 - Debug runner 启动真实 Scene，确认解释文件和纹理加载；
 - 截取 ready 与 after-interaction 两帧，验证非黑、运动和窗口归属；
 - stop 后确认 surface/timer/video source 清零。

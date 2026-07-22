@@ -83,6 +83,13 @@ UTILITY_LAYER_RE = re.compile(
 UTILITY_CAPTURE_EXECUTION_RE = re.compile(
     r"phase=utility-capture layer=(?P<id>\d+) status=(?P<status>succeeded|failed)"
 )
+AUTHORED_EFFECT_GRAPH_EXECUTION_RE = re.compile(
+    r"phase=authored-effect-graph layer=(?P<id>\d+) status=(?P<status>succeeded|failed)"
+)
+AUTHORED_EFFECT_GRAPH_LEGACY_BLUR_BLOCKED_RE = re.compile(
+    r"^authoredEffectGraphLegacyBlurBlockedLayerIDs: ?(?P<ids>[\d,]*)$",
+    re.MULTILINE,
+)
 NAMED_TARGET_CAPTURE_EXECUTION_RE = re.compile(
     r"phase=named-target-capture layer=(?P<id>\d+) status=(?P<status>succeeded|failed)"
 )
@@ -562,6 +569,17 @@ def utility_capture_execution_metrics(log_text: str) -> dict[str, Any]:
     return capture_execution_metrics(log_text, UTILITY_CAPTURE_EXECUTION_RE)
 
 
+def authored_effect_graph_execution_metrics(log_text: str) -> dict[str, Any]:
+    return capture_execution_metrics(log_text, AUTHORED_EFFECT_GRAPH_EXECUTION_RE)
+
+
+def authored_effect_graph_legacy_blur_blocked_layer_ids(preview_text: str) -> list[int]:
+    match = AUTHORED_EFFECT_GRAPH_LEGACY_BLUR_BLOCKED_RE.search(preview_text)
+    if match is None or not match.group("ids"):
+        return []
+    return sorted({int(value) for value in match.group("ids").split(",")})
+
+
 def named_target_capture_execution_metrics(log_text: str) -> dict[str, Any]:
     return capture_execution_metrics(log_text, NAMED_TARGET_CAPTURE_EXECUTION_RE)
 
@@ -622,6 +640,31 @@ def capture_execution_metrics(
         "succeeded_layer_ids": sorted(succeeded),
         "failed_layer_ids": sorted(failed),
     }
+
+
+def authored_effect_graph_failures(
+    sample: dict[str, Any],
+    metrics: dict[str, Any],
+    legacy_blur_blocked_layer_ids: list[int],
+) -> list[str]:
+    failures = [
+        f"authored effect graph layer {layer_id} failed"
+        for layer_id in metrics["failed_layer_ids"]
+    ]
+    succeeded = set(metrics["succeeded_layer_ids"])
+    expected = sample.get("expected_authored_effect_graph_succeeded_layer_ids")
+    if expected is not None and succeeded != set(expected):
+        failures.append("authored effect graph succeeded layer IDs mismatch")
+    for layer_id in sample.get("required_authored_effect_graph_succeeded_layer_ids", []):
+        if layer_id not in succeeded:
+            failures.append(f"authored effect graph layer {layer_id} should succeed")
+    expected_blocked = sample.get(
+        "expected_authored_effect_graph_legacy_blur_blocked_layer_ids"
+    )
+    if expected_blocked is not None:
+        if set(legacy_blur_blocked_layer_ids) != set(expected_blocked):
+            failures.append("authored effect graph legacy blur blocked layer IDs mismatch")
+    return failures
 
 
 def named_target_binding_failures(
@@ -791,6 +834,10 @@ def run_sample(
     solid_runtime = solid_runtime_metrics(preview_text)
     utility_runtime = utility_runtime_metrics(preview_text)
     utility_capture_execution = utility_capture_execution_metrics(log_text)
+    authored_effect_graph_execution = authored_effect_graph_execution_metrics(log_text)
+    authored_effect_graph_legacy_blur_blocked = (
+        authored_effect_graph_legacy_blur_blocked_layer_ids(preview_text)
+    )
     named_target_capture_execution = named_target_capture_execution_metrics(log_text)
     named_target_binding_execution = named_target_binding_execution_metrics(log_text)
     image_blend_runtime = image_blend_runtime_metrics(preview_text, log_text)
@@ -864,6 +911,11 @@ def run_sample(
             failures.append(f"text layer {layer_id} should be loaded")
     failures.extend(solid_runtime_failures(sample, solid_runtime))
     failures.extend(utility_runtime_failures(sample, utility_runtime))
+    failures.extend(authored_effect_graph_failures(
+        sample,
+        authored_effect_graph_execution,
+        authored_effect_graph_legacy_blur_blocked,
+    ))
     succeeded_capture_ids = set(utility_capture_execution["succeeded_layer_ids"])
     if len(succeeded_capture_ids) < utility_runtime["capture_planned"]:
         failures.append("utility capture execution below planned count")
@@ -1074,6 +1126,9 @@ def run_sample(
             "utility_layers": utility_runtime["layers"],
             "utility_capture_succeeded_layer_ids": utility_capture_execution["succeeded_layer_ids"],
             "utility_capture_failed_layer_ids": utility_capture_execution["failed_layer_ids"],
+            "authored_effect_graph_succeeded_layer_ids": authored_effect_graph_execution["succeeded_layer_ids"],
+            "authored_effect_graph_failed_layer_ids": authored_effect_graph_execution["failed_layer_ids"],
+            "authored_effect_graph_legacy_blur_blocked_layer_ids": authored_effect_graph_legacy_blur_blocked,
             "named_target_capture_succeeded_layer_ids": named_target_capture_execution["succeeded_layer_ids"],
             "named_target_capture_failed_layer_ids": named_target_capture_execution["failed_layer_ids"],
             "named_target_binding_succeeded_layer_ids": named_target_binding_execution["succeeded_layer_ids"],

@@ -57,6 +57,7 @@ enum DebugScenePlaybackRunner {
             let previewLogURL = evidenceDirectory?.appendingPathComponent("scene-preview.log")
             let launched = SceneDesktopWallpaperHost.shared.launch(
                 renderDescriptor: model.renderDescriptor,
+                authoredEffectRenderPlans: model.authoredEffectRenderPlans,
                 cacheDirectory: cacheDirectory,
                 logURL: previewLogURL
             )

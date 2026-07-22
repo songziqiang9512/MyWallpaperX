@@ -224,6 +224,7 @@
       "expected_effective_visible_layer_count": 24,
       "minimum_loaded_ratio": 0.12,
       "minimum_text_loaded": 10,
+      "expected_authored_effect_graph_succeeded_layer_ids": [],
       "expected_camera_parallax": true,
       "requires_motion": true,
       "minimum_changed_ratio": 0.0001
@@ -367,7 +368,10 @@
       "expected_max_hierarchy_depth": 2,
       "expected_effective_visible_layer_count": 38,
       "minimum_loaded_ratio": 1.0,
-      "minimum_precise_blur_runtime_count": 3,
+      "minimum_precise_blur_runtime_count": 2,
+      "expected_authored_effect_graph_succeeded_layer_ids": [28, 36],
+      "required_authored_effect_graph_succeeded_layer_ids": [28, 36],
+      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [20],
       "minimum_legacy_water_ripple_runtime_count": 1,
       "expected_camera_parallax": false,
       "requires_motion": true,
@@ -731,6 +735,9 @@
       "required_effectively_visible_layer_ids": [68, 76, 82],
       "required_effectively_hidden_layer_ids": [161, 196, 202],
       "minimum_precise_blur_runtime_count": 3,
+      "expected_authored_effect_graph_succeeded_layer_ids": [68, 76, 82],
+      "required_authored_effect_graph_succeeded_layer_ids": [68, 76, 82],
+      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "required_effect_files": [
         "effects/workshop/2981960200/blurprecise/effect.json"
       ],

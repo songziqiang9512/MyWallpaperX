@@ -1,0 +1,425 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+SWIFT_SOURCES = [
+    SOURCE_ROOT / "SceneJSONValue.swift",
+    SOURCE_ROOT / "SceneAuthoredEffectRenderPlan.swift",
+    SOURCE_ROOT / "SceneAuthoredMaterialResolver.swift",
+    SOURCE_ROOT / "SceneAuthoredEffectExecutionPlan.swift",
+]
+
+
+HARNESS = r'''
+import Foundation
+
+struct SceneDocument {
+    struct ShaderValue {
+        let valueKind: String
+        let userBinding: String?
+        let components: [Double]?
+
+        init(
+            valueKind: String = "vector",
+            userBinding: String? = nil,
+            components: [Double]?
+        ) {
+            self.valueKind = valueKind
+            self.userBinding = userBinding
+            self.components = components
+        }
+    }
+}
+
+struct SceneEffectTextureInput {
+    let name: String
+}
+
+struct SceneGaussianBlurPlan {
+    let horizontalStep: Float
+    let verticalStep: Float
+    let sampleResolutionScale: Float
+    let isPrecise: Bool
+}
+
+struct SceneRenderDescriptor {
+    struct EffectDescriptor {
+        struct PassDescriptor {
+            let passIndex: Int
+            let textureSlots: [String?]
+            let userTextureInputs: [SceneEffectTextureInput?]
+            let combos: [String: Int]
+            let constantShaderValues: [String: SceneDocument.ShaderValue]
+        }
+
+        let id: String
+        let visible: Bool?
+        let passes: [PassDescriptor]
+    }
+
+    struct Layer {
+        let id: Int
+        let parentID: Int?
+        let visible: Bool?
+        let contentKind: String
+        let effects: [EffectDescriptor]
+    }
+
+    struct MaterialPassDescriptor {
+        let id: String
+        let materialPath: String
+        let shaderPath: String?
+        let textureSlots: [String?]
+        let combos: [String: Int]
+        let constantShaderValues: [String: SceneDocument.ShaderValue]
+        let blending: String?
+        let depthTest: String?
+        let depthWrite: String?
+        let cullMode: String?
+    }
+
+    let layers: [Layer]
+    let materialPasses: [MaterialPassDescriptor]
+}
+
+enum SceneLayerVisibility {
+    static func visibleLayerIDs(in descriptor: SceneRenderDescriptor) -> Set<Int> {
+        let byID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
+        return Set(descriptor.layers.compactMap { layer in
+            var current: SceneRenderDescriptor.Layer? = layer
+            var visited = Set<Int>()
+            while let candidate = current {
+                guard candidate.visible != false, visited.insert(candidate.id).inserted else {
+                    return nil
+                }
+                current = candidate.parentID.flatMap { byID[$0] }
+            }
+            return layer.id
+        })
+    }
+}
+
+@main
+enum Harness {
+    typealias Graph = SceneAuthoredEffectRenderPlan
+
+    static func texture(
+        _ kind: Graph.TextureKind,
+        layerID: Int,
+        effect: Graph.EffectKey? = nil,
+        name: String? = nil
+    ) -> Graph.TextureIdentity {
+        .init(kind: kind, layerID: layerID, effect: effect, name: name)
+    }
+
+    static func instanceEffect(
+        layerID: Int,
+        scale: Double = 1.28,
+        scaleComponents: [Double]? = nil,
+        valueKind: String = "vector",
+        userBinding: String? = nil,
+        duplicateScaleKey: Bool = false
+    ) -> SceneRenderDescriptor.EffectDescriptor {
+        var scaleValues = [
+            "scale": SceneDocument.ShaderValue(
+                valueKind: valueKind,
+                userBinding: userBinding,
+                components: scaleComponents ?? [scale, scale]
+            ),
+        ]
+        if duplicateScaleKey {
+            scaleValues["Scale"] = .init(components: [scale, scale])
+        }
+        return .init(
+            id: "\(layerID)#effect#1",
+            visible: true,
+            passes: [
+                .init(
+                    passIndex: 0, textureSlots: [], userTextureInputs: [], combos: [:],
+                    constantShaderValues: scaleValues
+                ),
+                .init(
+                    passIndex: 1, textureSlots: [], userTextureInputs: [],
+                    combos: ["VERTICAL": 1, "ENABLEMASK": 1],
+                    constantShaderValues: scaleValues
+                ),
+            ]
+        )
+    }
+
+    static func materials(
+        shader: String = "workshop/1/effects/blur_precise_gaussian",
+        blending: String = "normal",
+        verticalCombos: [String: Int] = ["VERTICAL": 1, "ENABLEMASK": 1]
+    ) -> [SceneRenderDescriptor.MaterialPassDescriptor] {
+        [
+            .init(
+                id: "materials/x.json#0", materialPath: "materials/x.json",
+                shaderPath: shader, textureSlots: [], combos: [:], constantShaderValues: [:],
+                blending: blending, depthTest: "disabled", depthWrite: "disabled", cullMode: "nocull"
+            ),
+            .init(
+                id: "materials/y.json#0", materialPath: "materials/y.json",
+                shaderPath: shader, textureSlots: [], combos: verticalCombos,
+                constantShaderValues: [:], blending: blending, depthTest: "disabled",
+                depthWrite: "disabled", cullMode: "nocull"
+            ),
+        ]
+    }
+
+    static func descriptorForLayer10(
+        effect: SceneRenderDescriptor.EffectDescriptor
+    ) -> SceneRenderDescriptor {
+        .init(
+            layers: [
+                .init(
+                    id: 10, parentID: nil, visible: true, contentKind: "text",
+                    effects: [effect]
+                ),
+            ],
+            materialPasses: materials()
+        )
+    }
+
+    static func graph(
+        layerID: Int,
+        blockers: [Graph.Blocker] = [],
+        extraEffect: Bool = false,
+        unique: Bool = false,
+        maskCombo: Bool = false
+    ) -> Graph {
+        let key = Graph.EffectKey(
+            layerID: layerID, effectIndex: 0, descriptorID: "\(layerID)#effect#1"
+        )
+        let source = texture(.layerSource, layerID: layerID)
+        let output = texture(.effectOutput, layerID: layerID, effect: key)
+        let rt = texture(.framebuffer, layerID: layerID, effect: key, name: "full")
+        let nodes = [
+            Graph.Node(
+                nodeIndex: 0, effect: key, definitionPassIndex: 0, materialOrdinal: 0,
+                instancePassIndex: 0, kind: .material, materialPath: "materials/x.json",
+                materialPassID: "materials/x.json#0", target: rt, bindings: [],
+                commandSource: nil, commandTarget: nil, compose: nil, conditions: nil
+            ),
+            Graph.Node(
+                nodeIndex: 1, effect: key, definitionPassIndex: 1, materialOrdinal: 1,
+                instancePassIndex: 1, kind: .material, materialPath: "materials/y.json",
+                materialPassID: "materials/y.json#0", target: output,
+                bindings: [
+                    .init(slot: 0, authoredName: "full", texture: rt, conditions: nil),
+                    .init(slot: maskCombo ? 2 : 1, authoredName: "previous", texture: source, conditions: nil),
+                ], commandSource: nil, commandTarget: nil, compose: nil, conditions: nil
+            ),
+        ]
+        let effect = Graph.Effect(
+            key: key, definitionPath: "effects/workshop/1/blurprecise/effect.json", input: source,
+            output: output, nodeIndices: [0, 1]
+        )
+        return Graph(
+            layerID: layerID,
+            effects: extraEffect ? [effect, effect] : [effect],
+            renderTargets: [
+                .init(
+                    texture: rt, extent: .init(kind: .input, first: nil, second: nil),
+                    format: "rgba_backbuffer", declaredUnique: unique, clear: nil,
+                    uvs: nil, conditions: nil
+                ),
+            ],
+            nodes: nodes,
+            finalOutput: output,
+            blockers: blockers
+        )
+    }
+
+    static func resolverPrecedence() -> [String] {
+        let key = Graph.EffectKey(layerID: 99, effectIndex: 0, descriptorID: "resolver")
+        let graphTexture = texture(.layerSource, layerID: 99)
+        let node = Graph.Node(
+            nodeIndex: 0, effect: key, definitionPassIndex: 0, materialOrdinal: 0,
+            instancePassIndex: 0, kind: .material, materialPath: "materials/resolver.json",
+            materialPassID: "materials/resolver.json#0", target: graphTexture,
+            bindings: [.init(slot: 1, authoredName: "previous", texture: graphTexture, conditions: nil)],
+            commandSource: nil, commandTarget: nil, compose: nil, conditions: nil
+        )
+        let effect = Graph.Effect(
+            key: key, definitionPath: "effect.json", input: graphTexture,
+            output: graphTexture, nodeIndices: [0]
+        )
+        let graph = Graph(
+            layerID: 99, effects: [effect], renderTargets: [], nodes: [node],
+            finalOutput: graphTexture, blockers: []
+        )
+        let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
+            passIndex: 0,
+            textureSlots: [nil, "instance-one", "instance-two"],
+            userTextureInputs: [nil, nil, .init(name: "user-two")],
+            combos: ["INSTANCE": 2],
+            constantShaderValues: ["value": .init(components: [2])]
+        )
+        let descriptor = SceneRenderDescriptor(
+            layers: [
+                .init(
+                    id: 99, parentID: nil, visible: true, contentKind: "image",
+                    effects: [.init(id: "resolver", visible: true, passes: [pass])]
+                ),
+            ],
+            materialPasses: [
+                .init(
+                    id: "materials/resolver.json#0", materialPath: "materials/resolver.json",
+                    shaderPath: "effects/test", textureSlots: ["material-zero", "material-one"],
+                    combos: ["MATERIAL": 1],
+                    constantShaderValues: ["value": .init(components: [1])],
+                    blending: "normal", depthTest: "disabled", depthWrite: "disabled", cullMode: "nocull"
+                ),
+            ]
+        )
+        let resolution = SceneAuthoredMaterialResolver.resolve(
+            node: node, graph: graph, descriptor: descriptor
+        )
+        return resolution.node!.textureSlots.map { $0?.provenance.rawValue ?? "hole" }
+    }
+
+    static func main() throws {
+        let layers: [SceneRenderDescriptor.Layer] = [
+            .init(id: 10, parentID: nil, visible: true, contentKind: "text", effects: [instanceEffect(layerID: 10, scale: 1.28)]),
+            .init(id: 20, parentID: nil, visible: false, contentKind: "text", effects: [instanceEffect(layerID: 20, scale: 0.43)]),
+            .init(id: 21, parentID: 20, visible: true, contentKind: "text", effects: [instanceEffect(layerID: 21, scale: 1.33)]),
+            .init(id: 30, parentID: nil, visible: true, contentKind: "text", effects: [instanceEffect(layerID: 30, scale: 0.43)]),
+        ]
+        let descriptor = SceneRenderDescriptor(layers: layers, materialPasses: materials())
+        let catalog = SceneAuthoredEffectExecutionCatalog(
+            descriptor: descriptor,
+            authoredPlans: [
+                graph(layerID: 10), graph(layerID: 20), graph(layerID: 21),
+                graph(layerID: 30, extraEffect: true),
+            ]
+        )
+        let visiblePlan = catalog.plansByLayerID[10]!
+        let badStateDescriptor = SceneRenderDescriptor(layers: layers, materialPasses: materials(blending: "additive"))
+        let badShaderDescriptor = SceneRenderDescriptor(layers: layers, materialPasses: materials(shader: "effects/unknown"))
+        let duplicateComboDescriptor = SceneRenderDescriptor(
+            layers: layers,
+            materialPasses: materials(verticalCombos: ["VERTICAL": 1, "vertical": 1, "ENABLEMASK": 1])
+        )
+        let dynamicScaleDescriptor = descriptorForLayer10(
+            effect: instanceEffect(layerID: 10, scale: 1.28, userBinding: "user.scale")
+        )
+        let outOfRangeScaleDescriptor = descriptorForLayer10(
+            effect: instanceEffect(layerID: 10, scale: -1)
+        )
+        let duplicateScaleDescriptor = descriptorForLayer10(
+            effect: instanceEffect(layerID: 10, scale: 1.28, duplicateScaleKey: true)
+        )
+        let threeComponentScaleDescriptor = descriptorForLayer10(
+            effect: instanceEffect(layerID: 10, scaleComponents: [1.28, 1.28, 1.28])
+        )
+        let missingMaterialDescriptor = SceneRenderDescriptor(layers: layers, materialPasses: [])
+        let blocker = Graph.Blocker(
+            effect: Graph.EffectKey(layerID: 10, effectIndex: 0, descriptorID: "10#effect#1"),
+            definitionPassIndex: nil, reason: .unsupportedCondition, detail: "fixture"
+        )
+        let result: [String: Any] = [
+            "planned": catalog.plansByLayerID.keys.sorted(),
+            "hidden": catalog.hiddenEligibleLayerIDs,
+            "legacyBlurBlocked": catalog.legacyGaussianBlurBlockedLayerIDs.sorted(),
+            "scale": [visiblePlan.gaussianBlur.horizontalStep, visiblePlan.gaussianBlur.verticalStep],
+            "nodes": visiblePlan.materialNodeCount,
+            "targets": visiblePlan.logicalRenderTargetCount,
+            "precedence": resolverPrecedence(),
+            "extraEffectRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10, extraEffect: true), descriptor: descriptor) == nil,
+            "blockerRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10, blockers: [blocker]), descriptor: descriptor) == nil,
+            "uniqueRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10, unique: true), descriptor: descriptor) == nil,
+            "bindingRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10, maskCombo: true), descriptor: descriptor) == nil,
+            "stateRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: badStateDescriptor) == nil,
+            "shaderRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: badShaderDescriptor) == nil,
+            "duplicateComboRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: duplicateComboDescriptor) == nil,
+            "dynamicScaleRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: dynamicScaleDescriptor) == nil,
+            "outOfRangeScaleRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: outOfRangeScaleDescriptor) == nil,
+            "duplicateScaleRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: duplicateScaleDescriptor) == nil,
+            "threeComponentScaleRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10), descriptor: threeComponentScaleDescriptor) == nil,
+            "badShaderLegacyBlocked": SceneAuthoredEffectExecutionCatalog(descriptor: badShaderDescriptor, authoredPlans: [graph(layerID: 10)]).legacyGaussianBlurBlockedLayerIDs.sorted(),
+            "missingMaterialLegacyBlocked": SceneAuthoredEffectExecutionCatalog(descriptor: missingMaterialDescriptor, authoredPlans: [graph(layerID: 10)]).legacyGaussianBlurBlockedLayerIDs.sorted(),
+        ]
+        let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
+        print(String(decoding: data, as: UTF8.self))
+    }
+}
+'''
+
+
+class SceneAuthoredEffectExecutionTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        if shutil.which("swiftc") is None:
+            raise unittest.SkipTest("swiftc is unavailable")
+        cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-scene-authored-execution-")
+        root = Path(cls.temporary_directory.name)
+        harness = root / "Harness.swift"
+        harness.write_text(HARNESS, encoding="utf-8")
+        cls.binary = root / "scene-authored-execution"
+        compilation = subprocess.run(
+            [
+                "xcrun", "--sdk", "macosx", "swiftc",
+                *(str(source) for source in SWIFT_SOURCES),
+                str(harness), "-o", str(cls.binary),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if compilation.returncode != 0:
+            raise RuntimeError(compilation.stderr)
+        completed = subprocess.run(
+            [str(cls.binary)], check=True, capture_output=True, text=True
+        )
+        cls.result = json.loads(completed.stdout)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temporary_directory.cleanup()
+
+    def test_only_effectively_visible_complete_graph_is_planned(self) -> None:
+        self.assertEqual(self.result["planned"], [10])
+        self.assertEqual(self.result["hidden"], [20, 21])
+        self.assertEqual(self.result["legacyBlurBlocked"], [30])
+        self.assertEqual(self.result["nodes"], 2)
+        self.assertEqual(self.result["targets"], 1)
+        self.assertAlmostEqual(self.result["scale"][0], 1.28, places=5)
+        self.assertAlmostEqual(self.result["scale"][1], 1.28, places=5)
+
+    def test_texture_precedence_preserves_slots(self) -> None:
+        self.assertEqual(
+            self.result["precedence"],
+            ["material", "explicitBinding", "userTexture", "hole", "hole", "hole", "hole", "hole"],
+        )
+
+    def test_unsupported_graph_shapes_fail_closed(self) -> None:
+        for key in (
+            "extraEffectRejected",
+            "blockerRejected",
+            "uniqueRejected",
+            "bindingRejected",
+            "stateRejected",
+            "shaderRejected",
+            "duplicateComboRejected",
+            "dynamicScaleRejected",
+            "outOfRangeScaleRejected",
+            "duplicateScaleRejected",
+            "threeComponentScaleRejected",
+        ):
+            self.assertTrue(self.result[key], key)
+        self.assertEqual(self.result["badShaderLegacyBlocked"], [10])
+        self.assertEqual(self.result["missingMaterialLegacyBlocked"], [10])
+
+
+if __name__ == "__main__":
+    unittest.main()

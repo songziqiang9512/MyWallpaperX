@@ -211,6 +211,8 @@ MaterialPass
 
 `Almamu/linux-wallpaperengine` 采用“shader default -> material -> effect override -> explicit bind”的优先级，这是一条有用的 D 级佐证，但仍需用合法官方 assets/真实样本逐类验证后才能固化为 MyWallpaperX 合同。
 
+MyWallpaperX 当前 resolver 采用 material -> instance -> user texture -> explicit bind，并保留 8 个 sparse slot。这是由现有 v16 数据模型和 precise-blur 样本验证的 E 级实现事实，不是官方公开的通用优先级；shader annotation/default 尚未进入 resolver，扩 backend 前仍需补齐。
+
 ### 7.2 Render state
 
 blend、depth 和 cull 属于 material/pass 语义。未知 blend mode 不能无声回退 normal 后仍宣称支持；至少应 passthrough 并记录 `unsupported-render-state`。alpha 的 straight/premultiplied 关系要在纹理解码、effect RT 和最终 composite 三处一致。
@@ -285,8 +287,8 @@ present or read back
 | 层级 | 当前状态 | 下一合同 |
 |---|---|---|
 | Scene/object IR | format 16 已保留实例与 EffectDefinition/FBO/pass/bind/command，并按作者顺序编译 graph、blocker 与 canonical SHA | 保持 raw/typed 双层合同，不把未知字段静默解释为支持 |
-| dependency | graph 已结构化区分固定 `previous`、effect-scoped RT 和 copy/swap；bounded named target/clipping/static provider 仍由旧执行器执行 | 建 resource registry 与 compose/history 数据流判定，再接通通用 GPU executor |
-| material/shader | metadata 与 graph node 已保留；运行时仍主要是手写 MSL 近似，未消费通用图 | 建统一 slot/combo/uniform/render-state resolver 和最小 executor，再迁移高频 effect |
+| dependency | graph 已结构化区分固定 `previous`、effect-scoped RT 和 copy/swap；bounded named target/clipping/static provider 仍由旧执行器执行 | 建 resource registry 与 compose/history 数据流判定，再扩通用 GPU executor |
+| material/shader | sparse-slot resolver 与 strict 2-pass precise backend 已落地；运行时整体仍以手写 MSL 近似为主 | 先实现 standard Blur quarter-RT backend，再补 shader defaults、resource registry 和更多 pass |
 | local deformation | Foliage/Water/Shake 等有不同程度近似 | 以 [Effects 全集](effects-reference.md) 的输入、空间和 mask 合同替换 |
 | live values | 属性覆盖部分 target；Timeline/SceneScript/provider 未统一 | 建 typed target snapshot 和统一 frame context |
 

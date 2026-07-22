@@ -36,7 +36,9 @@ enum SceneEffectRuntimePlanner {
         hasOpacityMask: Bool,
         hasWaterMask: Bool,
         hasFoliageMask: Bool,
-        hasWaterRippleNormal: Bool
+        hasWaterRippleNormal: Bool,
+        authoredEffectPlan: SceneAuthoredEffectExecutionPlan? = nil,
+        blocksLegacyGaussianBlur: Bool = false
     ) -> SceneEffectRuntimePlan {
         let waterRippleNormal = SceneWaterRippleRuntimePlanner.plan(
             for: layer,
@@ -56,13 +58,17 @@ enum SceneEffectRuntimePlanner {
                 hasFoliageMask: hasFoliageMask,
                 usesNormalWaterRipple: waterRippleNormal != nil
             ),
-            gaussianBlur: SceneGaussianBlurRuntimePlanner.plan(for: layer),
+            gaussianBlur: selectedGaussianBlur(
+                for: layer,
+                authoredEffectPlan: authoredEffectPlan,
+                blocksLegacyGaussianBlur: blocksLegacyGaussianBlur
+            ),
             bloom: bloomPlan(for: layer),
             gradientColor: gradientColor,
             waterRippleNormal: waterRippleNormal,
             perspectiveOpacity: perspectiveOpacity,
             offscreenPassCount: max(
-                offscreenPassCount(for: layer),
+                authoredEffectPlan?.materialNodeCount ?? offscreenPassCount(for: layer),
                 waterRippleNormal == nil && gradientColor == nil ? 0 : 1
             ),
             skipsUnsupportedComposite: skipsUnsupportedComposite(for: layer) && perspectiveOpacity == nil
@@ -83,7 +89,9 @@ enum SceneEffectRuntimePlanner {
         hasWaterRippleNormal: Bool = false,
         hasOpacityMask: Bool = false,
         hasWaterMask: Bool = false,
-        hasFoliageMask: Bool = false
+        hasFoliageMask: Bool = false,
+        authoredEffectPlan: SceneAuthoredEffectExecutionPlan? = nil,
+        blocksLegacyGaussianBlur: Bool = false
     ) -> String? {
         let waterRippleNormal = SceneWaterRippleRuntimePlanner.plan(
             for: layer,
@@ -126,16 +134,32 @@ enum SceneEffectRuntimePlanner {
         guard passCount > 0 else {
             return foliage.isEmpty ? nil : String(foliage.dropLast(2))
         }
-        if SceneGaussianBlurRuntimePlanner.plan(for: layer)?.isPrecise == true {
+        let gaussianBlur = selectedGaussianBlur(
+            for: layer,
+            authoredEffectPlan: authoredEffectPlan,
+            blocksLegacyGaussianBlur: blocksLegacyGaussianBlur
+        )
+        if gaussianBlur?.isPrecise == true {
             return "\(foliage)effect runtime gaussian-blur-precise; \(passCount) declared pass(es)"
         }
-        if SceneGaussianBlurRuntimePlanner.plan(for: layer) != nil {
+        if gaussianBlur != nil {
             return "\(foliage)effect runtime gaussian-blur; \(passCount) declared pass(es)"
         }
         if bloomPlan(for: layer) != nil {
             return "\(foliage)effect runtime bloom; \(passCount) declared pass(es)"
         }
         return "\(foliage)offscreen route-only; \(passCount) declared pass(es)"
+    }
+
+    private static func selectedGaussianBlur(
+        for layer: SceneRenderDescriptor.Layer,
+        authoredEffectPlan: SceneAuthoredEffectExecutionPlan?,
+        blocksLegacyGaussianBlur: Bool
+    ) -> SceneGaussianBlurPlan? {
+        if let authoredEffectPlan {
+            return authoredEffectPlan.gaussianBlur
+        }
+        return blocksLegacyGaussianBlur ? nil : SceneGaussianBlurRuntimePlanner.plan(for: layer)
     }
 
     private static func bloomPlan(for layer: SceneRenderDescriptor.Layer) -> SceneBloomPlan? {

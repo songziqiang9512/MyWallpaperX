@@ -25,6 +25,7 @@ final class SceneDesktopWallpaperHost {
 
     private struct LaunchContext {
         let renderDescriptor: SceneRenderDescriptor
+        let authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan]
         let cacheDirectory: URL
         let logURL: URL?
         let recordID: String?
@@ -48,12 +49,14 @@ final class SceneDesktopWallpaperHost {
     @discardableResult
     func launch(
         renderDescriptor: SceneRenderDescriptor,
+        authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan],
         cacheDirectory: URL,
         logURL: URL?,
         recordID: String? = nil
     ) -> Bool {
         launchContext = LaunchContext(
             renderDescriptor: renderDescriptor,
+            authoredEffectRenderPlans: authoredEffectRenderPlans,
             cacheDirectory: cacheDirectory,
             logURL: logURL,
             recordID: recordID
@@ -161,6 +164,7 @@ final class SceneDesktopWallpaperHost {
             let frame = screen.frame
             guard let metalView = SceneMetalView(
                 renderDescriptor: launchContext.renderDescriptor,
+                authoredEffectRenderPlans: launchContext.authoredEffectRenderPlans,
                 frame: frame
             ) else {
                 continue

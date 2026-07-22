@@ -465,7 +465,7 @@ enum MainWindowCoordinator {
                   let recordID = notification.userInfo?["recordID"] as? String else { return }
             guard let file = try? SceneInterpretationFileReader().read(from: interpretationFileURL) else { return }
             guard SceneDesktopWallpaperHost.shared.launch(
-                renderDescriptor: file.renderDescriptor,
+                renderDescriptor: file.renderDescriptor, authoredEffectRenderPlans: file.authoredEffectRenderPlans,
                 cacheDirectory: cacheDirectory,
                 logURL: previewLogURL,
                 recordID: recordID

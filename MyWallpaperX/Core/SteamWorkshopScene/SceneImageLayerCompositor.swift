@@ -33,6 +33,8 @@ struct SceneImageLayerDrawRequest {
     let requiresSourceCopy: Bool
     let finalCompositeAlpha: Float?
     let dependencyEffect: SceneDependencyEffectInput?
+    let authoredEffectPlan: SceneAuthoredEffectExecutionPlan?
+    let blocksLegacyGaussianBlur: Bool
 }
 
 struct SceneImageLayerCompositor {
@@ -77,10 +79,20 @@ struct SceneImageLayerCompositor {
             hasOpacityMask: masks.opacity != nil && masks.iris == nil,
             hasWaterMask: masks.water != nil,
             hasFoliageMask: masks.foliage != nil,
-            hasWaterRippleNormal: masks.waterRippleNormal != nil
+            hasWaterRippleNormal: masks.waterRippleNormal != nil,
+            authoredEffectPlan: request.authoredEffectPlan,
+            blocksLegacyGaussianBlur: request.blocksLegacyGaussianBlur
         )
         guard effectPlan.skipsUnsupportedComposite == false else { return false }
         let routesOffscreen = effectPlan.offscreenPassCount > 0 || request.requiresSourceCopy
+        let requestedOffscreenWidth = max(
+            1,
+            Int((request.offscreenSize?.width ?? CGFloat(request.texture.width)).rounded(.up))
+        )
+        let requestedOffscreenHeight = max(
+            1,
+            Int((request.offscreenSize?.height ?? CGFloat(request.texture.height)).rounded(.up))
+        )
 
         let directUniforms = makeFragmentUniforms(
             values: request.uniforms,
@@ -94,9 +106,15 @@ struct SceneImageLayerCompositor {
         )
         if routesOffscreen,
            let pool = request.offscreenTexturePool,
-           let textures = request.offscreenSize.map({ size in
-               pool.textures(width: Int(size.width.rounded(.up)), height: Int(size.height.rounded(.up)))
-           }) ?? pool.textures(for: request.texture) {
+           let textures = pool.textures(
+               width: requestedOffscreenWidth,
+               height: requestedOffscreenHeight
+           ) {
+            if request.authoredEffectPlan != nil,
+               (textures.primary.width != requestedOffscreenWidth
+                   || textures.primary.height != requestedOffscreenHeight) {
+                return false
+            }
             let renderedTexture = mainPass.encodeOffscreen { commandBuffer in
                 SceneOffscreenEffectRenderer.render(
                     sourceTexture: request.texture,
@@ -121,7 +139,9 @@ struct SceneImageLayerCompositor {
                     commandBuffer: commandBuffer
                 )
             }
-            guard let finalTexture = renderedTexture ?? (request.requiresSourceCopy ? nil : request.texture) else {
+            guard let finalTexture = renderedTexture ?? (
+                request.requiresSourceCopy || request.authoredEffectPlan != nil ? nil : request.texture
+            ) else {
                 return false
             }
             return drawToMainPass(
@@ -138,7 +158,9 @@ struct SceneImageLayerCompositor {
                 mainPass: mainPass
             )
         }
-        if request.requiresSourceCopy || (routesOffscreen && request.dependencyEffect != nil) {
+        if request.requiresSourceCopy
+            || request.authoredEffectPlan != nil
+            || (routesOffscreen && request.dependencyEffect != nil) {
             return false
         }
 

@@ -148,4 +148,4 @@ knownDeviation
 
 `supportLevel` 至少区分：`recognized`、`graph-built`、`executed-degraded`、`semantics-verified`，不能把“识别名称”统计成效果已支持。
 
-当前 MyWallpaperX v15 已把 EffectDefinition 计为 `recognized`，v16 已把 13 样本中可见实例结构化编译为 `graph-built` 并用 canonical SHA 验证身份；仍有 5 个 fluid condition/function blocker，Metal renderer 也尚未消费通用 graph。当前没有 effect 可仅凭这张图升级为 `executed-degraded` 或 `semantics-verified`。
+当前 MyWallpaperX v15 已把 EffectDefinition 计为 `recognized`，v16 已把 13 样本中可见实例结构化编译为 `graph-built` 并用 canonical SHA 验证身份；仍有 5 个 fluid condition/function blocker。严格匹配 2-pass / 1 full-size RT 的 `blur_precise_gaussian` 子集已有 5 个 visible layer 的 GPU completion，可记为 `executed-degraded`；它复用固定近似 kernel，未验证 shader annotations/default combos/完整 alpha 语义，不能记为 `semantics-verified`，其他 graph-built 节点也不能整体升级。

@@ -115,6 +115,11 @@ struct SceneTexContainerReader {
     }
 }
 
+struct SceneAuthoredEffectExecutionPlan {
+    let gaussianBlur: SceneGaussianBlurPlan
+    let materialNodeCount: Int
+}
+
 @main
 enum Harness {
     static func main() throws {
@@ -172,7 +177,9 @@ enum Harness {
                     offscreenSize: nil,
                     requiresSourceCopy: true,
                     finalCompositeAlpha: 1,
-                    dependencyEffect: nil
+                    dependencyEffect: nil,
+                    authoredEffectPlan: nil,
+                    blocksLegacyGaussianBlur: false
                 ),
                 pipeline: pipeline,
                 mainPass: mainPass
@@ -197,7 +204,9 @@ enum Harness {
                     offscreenSize: CGSize(width: 4, height: 4),
                     requiresSourceCopy: true,
                     finalCompositeAlpha: 1,
-                    dependencyEffect: nil
+                    dependencyEffect: nil,
+                    authoredEffectPlan: nil,
+                    blocksLegacyGaussianBlur: false
                 ),
                 pipeline: pipeline,
                 mainPass: mainPass
@@ -229,6 +238,17 @@ enum Harness {
         )
         let coarseBlur = blurPlan(path: "effects/blur/effect.json", scale: 0.6)
         let preciseBlur = blurPlan(path: "effects/blurprecise/effect.json", scale: 0.45)
+        let blockedPreciseBlur = blurPlan(
+            path: "effects/blurprecise/effect.json",
+            scale: 0.45,
+            blocksLegacyGaussianBlur: true
+        )
+        let authoredExtentMismatchRefused = try authoredExtentMismatchIsRefused(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor
+        )
         let foliage = foliageInputs(mode: 0)
         let unsupportedFoliage = foliageInputs(mode: 1)
         let mappedMaskScale = SceneTextureMappedUVScale.resolve(
@@ -306,6 +326,8 @@ enum Harness {
                 preciseBlur?.sampleResolutionScale ?? -1,
             ],
             "preciseBlurIsPrecise": preciseBlur?.isPrecise ?? false,
+            "blockedPreciseBlurIsNil": blockedPreciseBlur == nil,
+            "authoredExtentMismatchRefused": authoredExtentMismatchRefused,
             "foliageFlags": foliage.flags.rawValue,
             "foliageParams3": [
                 foliage.params3.x, foliage.params3.y, foliage.params3.z, foliage.params3.w,
@@ -368,7 +390,9 @@ enum Harness {
                 finalCompositeAlpha: nil,
                 dependencyEffect: blendMode.map {
                     SceneDependencyEffectInput(texture: dependency, blendMode: $0)
-                }
+                },
+                authoredEffectPlan: nil,
+                blocksLegacyGaussianBlur: false
             ),
             pipeline: pipeline,
             mainPass: mainPass
@@ -488,7 +512,9 @@ enum Harness {
                 finalCompositeAlpha: nil,
                 dependencyEffect: dependency.map {
                     SceneDependencyEffectInput(texture: $0, blendMode: 0)
-                }
+                },
+                authoredEffectPlan: nil,
+                blocksLegacyGaussianBlur: false
             ),
             pipeline: pipeline,
             mainPass: mainPass
@@ -532,7 +558,11 @@ enum Harness {
         )
     }
 
-    static func blurPlan(path: String, scale: Double) -> SceneGaussianBlurPlan? {
+    static func blurPlan(
+        path: String,
+        scale: Double,
+        blocksLegacyGaussianBlur: Bool = false
+    ) -> SceneGaussianBlurPlan? {
         let empty = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
             texturePaths: [], textureSlots: [], combos: [:], constantShaderValues: [:]
         )
@@ -557,8 +587,67 @@ enum Harness {
             hasOpacityMask: false,
             hasWaterMask: false,
             hasFoliageMask: false,
-            hasWaterRippleNormal: false
+            hasWaterRippleNormal: false,
+            blocksLegacyGaussianBlur: blocksLegacyGaussianBlur
         ).gaussianBlur
+    }
+
+    static func authoredExtentMismatchIsRefused(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor
+    ) throws -> Bool {
+        guard let source = makeTexture(device: device, size: 8, usage: .shaderRead),
+              let target = makeTexture(
+                  device: device,
+                  size: 8,
+                  usage: [.renderTarget, .shaderRead]
+              ),
+              let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.metalUnavailable
+        }
+        fill(source, bgra: [0, 0, 255, 255])
+        let layer = SceneRenderDescriptor.Layer(
+            contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
+        )
+        let mainPass = SceneMainPassEncoder(
+            commandBuffer: commandBuffer,
+            target: target,
+            clearColor: MTLClearColorMake(0, 0, 0, 0)
+        )
+        let encoded = compositor.draw(
+            SceneImageLayerDrawRequest(
+                layer: layer,
+                texture: source,
+                masks: .empty,
+                textureFrame: .identity,
+                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+                uniforms: SceneImageLayerUniformValues(time: 0, alpha: 1, cursorUV: .zero),
+                offscreenTexturePool: SceneOffscreenTexturePool(device: device, maxDimension: 4),
+                offscreenSize: nil,
+                requiresSourceCopy: false,
+                finalCompositeAlpha: nil,
+                dependencyEffect: nil,
+                authoredEffectPlan: SceneAuthoredEffectExecutionPlan(
+                    gaussianBlur: SceneGaussianBlurPlan(
+                        horizontalStep: 1,
+                        verticalStep: 1,
+                        sampleResolutionScale: 1,
+                        isPrecise: true
+                    ),
+                    materialNodeCount: 2
+                ),
+                blocksLegacyGaussianBlur: false
+            ),
+            pipeline: pipeline,
+            mainPass: mainPass
+        )
+        mainPass.finishEnsuringClear()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
+        return !encoded
     }
 
     static func foliageInputs(mode: Int) -> SceneLayerEffectInputs {
@@ -731,6 +820,8 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         for actual, expected in zip(self.result["preciseBlur"], [0.45, 0.45, 1]):
             self.assertAlmostEqual(actual, expected, places=6)
         self.assertTrue(self.result["preciseBlurIsPrecise"])
+        self.assertTrue(self.result["blockedPreciseBlurIsNil"])
+        self.assertTrue(self.result["authoredExtentMismatchRefused"])
 
     def test_single_builtin_foliage_plan_preserves_authored_parameters(self) -> None:
         self.assertNotEqual(self.result["foliageFlags"] & 1, 0)

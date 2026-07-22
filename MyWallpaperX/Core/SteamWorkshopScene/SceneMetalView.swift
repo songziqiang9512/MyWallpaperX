@@ -31,8 +31,15 @@ class SceneMetalView: NSView {
     private let debugFrameCapture = SceneDebugFrameCapture()
 #endif
 
-    init?(renderDescriptor: SceneRenderDescriptor, frame: NSRect) {
-        guard let renderer = SceneMetalRenderer(renderDescriptor: renderDescriptor) else { return nil }
+    init?(
+        renderDescriptor: SceneRenderDescriptor,
+        authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan],
+        frame: NSRect
+    ) {
+        guard let renderer = SceneMetalRenderer(
+            renderDescriptor: renderDescriptor,
+            authoredEffectRenderPlans: authoredEffectRenderPlans
+        ) else { return nil }
         self.metalDevice = renderer.device
         self.renderer = renderer
         self.solidLayerTexture = SceneSolidLayerTexture.make(device: renderer.device)
@@ -181,6 +188,7 @@ class SceneMetalView: NSView {
         report.append("imageLayerCount: \(imageLayers.count)")
         report.append("solidLayerCount: \(imageLayers.filter { $0.contentKind == "solid" }.count)")
         report.append(contentsOf: SceneUtilityLayerRuntimePlanner.reportLines(descriptor: renderer.renderDescriptor))
+        report.append(contentsOf: renderer.authoredEffectRuntimeReportLines())
         report.append(contentsOf: SceneImageBlendRenderPlan(
             descriptor: renderer.renderDescriptor,
             visibleLayerIDs: SceneLayerVisibility.visibleLayerIDs(in: renderer.renderDescriptor)
@@ -284,7 +292,12 @@ class SceneMetalView: NSView {
         }
         imageTextures = loaded
         spriteAnimations = loadedSpriteAnimations
-        let textLoad = SceneTextTextureLoader.load(descriptor: renderer.renderDescriptor, cacheDirectory: cacheDirectory, device: metalDevice)
+        let textLoad = SceneTextTextureLoader.load(
+            descriptor: renderer.renderDescriptor,
+            cacheDirectory: cacheDirectory,
+            device: metalDevice,
+            effectSummary: { [renderer] in renderer.effectRuntimeSummary(for: $0) }
+        )
         imageTextures.merge(textLoad.textures) { _, incoming in incoming }
         report.append(contentsOf: textLoad.messages)
         videoTextureSources = loadedVideoSources

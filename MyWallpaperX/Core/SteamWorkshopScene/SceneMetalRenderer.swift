@@ -13,9 +13,14 @@ struct SceneMetalRenderer {
     private let parallaxByLayerID: [Int: SceneLayerParallax.Resolution]
     private let layersByID: [Int: SceneRenderDescriptor.Layer]
     private let utilityPlansByLayerID: [Int: SceneUtilityLayerRuntimePlan]
+    private let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
     private let dependencyRuntime: SceneDependencyFrameRuntime
     private let utilityCaptureTelemetry = SceneGPUCompletionTelemetry(phase: "utility-capture")
-    init?(renderDescriptor: SceneRenderDescriptor) {
+    private let authoredEffectTelemetry = SceneGPUCompletionTelemetry(phase: "authored-effect-graph")
+    init?(
+        renderDescriptor: SceneRenderDescriptor,
+        authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan] = []
+    ) {
         guard let device = MTLCreateSystemDefaultDevice(),
               let commandQueue = device.makeCommandQueue(),
               let imageCompositor = SceneImageLayerCompositor(device: device) else {
@@ -27,6 +32,10 @@ struct SceneMetalRenderer {
         self.imageCompositor = imageCompositor
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: renderDescriptor)
         self.visibleLayerIDs = visibleLayerIDs
+        self.authoredEffectCatalog = SceneAuthoredEffectExecutionCatalog(
+            descriptor: renderDescriptor,
+            authoredPlans: authoredEffectRenderPlans
+        )
         self.dependencyRuntime = SceneDependencyFrameRuntime(
             descriptor: renderDescriptor,
             visibleLayerIDs: visibleLayerIDs,
@@ -53,34 +62,6 @@ struct SceneMetalRenderer {
         })
     }
 
-    func diagnostics() -> SceneMetalRendererDiagnostic {
-        let layers = renderDescriptor.layers
-        let imageCount = layers.filter(\.isImageRenderable).count
-        let particleCount = layers.filter { $0.contentKind == "particle" }.count
-        let textCount = layers.filter { $0.contentKind == "text" }.count
-        let containerCount = layers.filter { $0.contentKind == "container" }.count
-        let effectPassCount = layers.flatMap(\.effects).flatMap(\.passes).count
-
-        var gaps = renderDescriptor.firstStageRendererGaps
-        if effectPassCount > 0 {
-            gaps.append("effect shader execution (\(effectPassCount) passes)")
-        }
-        if renderDescriptor.materialPasses.contains(where: { $0.shaderPath != nil }) {
-            gaps.append("material shader compilation")
-        }
-        return SceneMetalRendererDiagnostic(
-            imageLayerCount: imageCount,
-            particleLayerCount: particleCount,
-            textLayerCount: textCount,
-            containerLayerCount: containerCount,
-            effectPassCount: effectPassCount,
-            materialPassCount: renderDescriptor.materialPasses.count,
-            rendererGaps: gaps
-        )
-    }
-
-    // Single MTLClearColor matching the scene's clearcolor (premultiplied for
-    // the framebuffer's alpha channel).
     var sceneClearColor: MTLClearColor {
         let c = renderDescriptor.camera.clearColor
         let r = Double(c.count > 0 ? c[0] : 0.7)
@@ -89,24 +70,16 @@ struct SceneMetalRenderer {
         return MTLClearColorMake(r, g, b, 1.0)
     }
 
-    func offscreenPassCount(for layer: SceneRenderDescriptor.Layer) -> Int {
-        SceneEffectRuntimePlanner.offscreenPassCount(for: layer)
+    func authoredEffectRuntimeReportLines() -> [String] {
+        authoredEffectCatalog.reportLines
     }
 
-    func effectRuntimeSummary(
-        for layer: SceneRenderDescriptor.Layer,
-        hasWaterRippleNormal: Bool = false,
-        hasOpacityMask: Bool = false,
-        hasWaterMask: Bool = false,
-        hasFoliageMask: Bool = false
-    ) -> String? {
-        SceneEffectRuntimePlanner.runtimeSummary(
-            for: layer,
-            hasWaterRippleNormal: hasWaterRippleNormal,
-            hasOpacityMask: hasOpacityMask,
-            hasWaterMask: hasWaterMask,
-            hasFoliageMask: hasFoliageMask
-        )
+    func authoredEffectPlan(for layerID: Int) -> SceneAuthoredEffectExecutionPlan? {
+        authoredEffectCatalog.plansByLayerID[layerID]
+    }
+
+    func blocksLegacyGaussianBlur(for layerID: Int) -> Bool {
+        authoredEffectCatalog.legacyGaussianBlurBlockedLayerIDs.contains(layerID)
     }
 
     func debugPlacementSummary(for layer: SceneRenderDescriptor.Layer) -> String {
@@ -131,14 +104,6 @@ struct SceneMetalRenderer {
         commandBuffer.commit()
     }
 
-    // Renders image layers in renderOrderLayerIDs order. Each layer uses its
-    // own model matrix (origin/size/scale/angles with parent chain) and a
-    // shared scene view+projection derived from the descriptor's camera.
-    // Layers without a loaded texture or with visible=false are skipped.
-    //
-    // `time` is elapsed seconds since render start; it drives shader-side
-    // effect approximations (foliagesway, waterwaves) keyed off the effect
-    // names referenced by each layer's effectFiles.
     func renderFrame(
         imageTextures: [Int: MTLTexture],
         spriteAnimations: [Int: SceneSpriteAnimation],
@@ -211,6 +176,7 @@ struct SceneMetalRenderer {
             case "image", "solid", "text":
                 guard let imagePipeline, let texture = imageTextures[layer.id] else { continue }
                 let dependencyEffect = dependencyRuntime.effectInput(for: layer.id)
+                let authoredEffectPlan = authoredEffectPlan(for: layer.id)
                 if dependencyRuntime.requiresEffect(for: layer.id), dependencyEffect == nil {
                     dependencyRuntime.recordBindingFailure(for: layer.id)
                     continue
@@ -252,9 +218,14 @@ struct SceneMetalRenderer {
                     offscreenSize: nil,
                     requiresSourceCopy: false,
                     finalCompositeAlpha: nil,
-                    dependencyEffect: dependencyEffect
+                    dependencyEffect: dependencyEffect,
+                    authoredEffectPlan: authoredEffectPlan,
+                    blocksLegacyGaussianBlur: blocksLegacyGaussianBlur(for: layer.id)
                 )
                 let encoded = imageCompositor.draw(request, pipeline: imagePipeline, mainPass: mainPass)
+                if authoredEffectPlan != nil {
+                    authoredEffectTelemetry.record(layerID: layer.id, encoded: encoded, on: commandBuffer)
+                }
                 dependencyRuntime.recordBindingIfRequired(
                     for: layer.id,
                     encoded: encoded,
@@ -268,14 +239,20 @@ struct SceneMetalRenderer {
                     parallaxMouseNormalized: parallaxMouseNormalized,
                     configuration: parallaxConfiguration
                 )
+                let authoredEffectPlan = authoredEffectPlan(for: layer.id)
                 let captured = SceneUtilityLayerRenderer.draw(
                     layer: layer, plan: plan,
                     layerMVP: cameraFrame.orthographicViewProjection * model,
                     viewportSize: viewportSize, time: time,
+                    authoredEffectPlan: authoredEffectPlan,
+                    blocksLegacyGaussianBlur: blocksLegacyGaussianBlur(for: layer.id),
                     pipeline: imagePipeline, compositor: imageCompositor,
                     offscreenTexturePool: offscreenTexturePool, mainPass: mainPass
                 )
                 utilityCaptureTelemetry.record(layerID: layer.id, encoded: captured, on: commandBuffer)
+                if authoredEffectPlan != nil {
+                    authoredEffectTelemetry.record(layerID: layer.id, encoded: captured, on: commandBuffer)
+                }
             case "particle":
                 guard let particlePipeline,
                       let batch = particleBatchesByID[layer.id],

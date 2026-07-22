@@ -120,6 +120,26 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             [239, 657, 1509],
         )
 
+    def test_default_matrix_pins_authored_effect_graph_execution(self) -> None:
+        matrix = benchmark.load_matrix(SCRIPT_DIR / "scene_wallpaper_sample_matrix.json")
+        samples = {sample["id"]: sample for sample in matrix["samples"]}
+        self.assertEqual(
+            samples["3765760121"]["expected_authored_effect_graph_succeeded_layer_ids"],
+            [68, 76, 82],
+        )
+        self.assertEqual(
+            samples["3724289844"]["expected_authored_effect_graph_succeeded_layer_ids"],
+            [28, 36],
+        )
+        self.assertEqual(
+            samples["3724289844"]["expected_authored_effect_graph_legacy_blur_blocked_layer_ids"],
+            [20],
+        )
+        self.assertEqual(
+            samples["3723257973"]["expected_authored_effect_graph_succeeded_layer_ids"],
+            [],
+        )
+
     def test_entry_basename_package_is_preferred_and_copied(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-copy-variant-") as directory:
             root = Path(directory)
@@ -543,6 +563,52 @@ utility layer 763: skippedHidden kind=composition
         )
         self.assertEqual(metrics["succeeded_layer_ids"], [530])
         self.assertEqual(metrics["failed_layer_ids"], [410])
+
+    def test_authored_effect_graph_execution_is_a_strict_layer_gate(self) -> None:
+        metrics = benchmark.authored_effect_graph_execution_metrics(
+            "phase=authored-effect-graph layer=68 status=failed\n"
+            "phase=authored-effect-graph layer=68 status=succeeded\n"
+            "phase=authored-effect-graph layer=76 status=succeeded\n"
+        )
+        self.assertEqual(metrics["succeeded_layer_ids"], [68, 76])
+        self.assertEqual(metrics["failed_layer_ids"], [])
+        self.assertEqual(
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_succeeded_layer_ids": [68, 76]},
+                metrics,
+                [],
+            ),
+            [],
+        )
+        self.assertIn(
+            "authored effect graph succeeded layer IDs mismatch",
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_succeeded_layer_ids": [68]},
+                metrics,
+                [],
+            ),
+        )
+
+    def test_authored_effect_graph_legacy_blur_block_is_an_exact_gate(self) -> None:
+        preview = "authoredEffectGraphLegacyBlurBlockedLayerIDs: 20,36\n"
+        blocked = benchmark.authored_effect_graph_legacy_blur_blocked_layer_ids(preview)
+        self.assertEqual(blocked, [20, 36])
+        self.assertEqual(
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [20, 36]},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                blocked,
+            ),
+            [],
+        )
+        self.assertIn(
+            "authored effect graph legacy blur blocked layer IDs mismatch",
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [20]},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                blocked,
+            ),
+        )
 
     def test_image_blend_runtime_pins_planned_and_completed_consumers(self) -> None:
         metrics = benchmark.image_blend_runtime_metrics(

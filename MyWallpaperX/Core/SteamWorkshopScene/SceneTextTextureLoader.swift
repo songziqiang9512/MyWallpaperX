@@ -18,7 +18,10 @@ enum SceneTextTextureLoader {
     static func load(
         descriptor: SceneRenderDescriptor,
         cacheDirectory: URL,
-        device: MTLDevice
+        device: MTLDevice,
+        effectSummary: (SceneRenderDescriptor.Layer) -> String? = {
+            SceneEffectRuntimePlanner.runtimeSummary(for: $0)
+        }
     ) -> SceneTextTextureLoadResult {
         let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let candidates = descriptor.layers.filter {
@@ -33,8 +36,8 @@ enum SceneTextTextureLoader {
             }
             textures[layer.id] = rendered.texture
             var message = "text layer \(layer.id) \"\(layer.name ?? "(unnamed)")\": OK \(rendered.texture.width)×\(rendered.texture.height); \(rendered.font.summary)"
-            if let effectSummary = SceneEffectRuntimePlanner.runtimeSummary(for: layer) {
-                message += "; \(effectSummary)"
+            if let summary = effectSummary(layer) {
+                message += "; \(summary)"
             }
             if let inlineSummary = SceneInlineEffectRuntime.summary(for: layer, hasWaterMask: false) {
                 message += "; \(inlineSummary)"

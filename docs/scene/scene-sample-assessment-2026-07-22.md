@@ -11,7 +11,7 @@
 - P2（主体可用，仍有明确的次级效果差距）：4 个；
 - P3（仅小幅视觉偏差）：0 个。
 
-首轮评估确认的方向仍成立：优先建设通用 runtime，而不是增加按样本命中的 effect 分支。此后属性主链、基础 layer/resource、受限 dependency/effect/particle 执行器和 13 样本语义门已经落地；2026-07-23 又完成 EffectDefinition 保真与 authored graph 结构编译。Metal renderer 尚未消费通用图，动态脚本/文字、effectful/media/sceneTexture provider、nested/child composition、utility mask、其余内建效果和高级粒子仍是主要缺口。底层作者/执行合同查 [Scene 语义手册](semantics/README.md)，现有开发顺序和架构约束见 [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md)；Web 与 Scene 的统一状态入口见 [Web / Scene 当前状态与路线图](../reviews/web-scene-current-state-roadmap-2026-07-19.md)。
+首轮评估确认的方向仍成立：优先建设通用 runtime，而不是增加按样本命中的 effect 分支。此后属性主链、基础 layer/resource、受限 dependency/effect/particle 执行器、EffectDefinition、v16 authored graph 和严格 precise-blur graph backend 已落地。renderer 只消费了这一小段 graph；动态脚本/文字、effectful/media/sceneTexture provider、nested/child composition、utility mask、其余内建效果和高级粒子仍是主要缺口。底层作者/执行合同查 [Scene 语义手册](semantics/README.md)，现有开发顺序和架构约束见 [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md)；Web 与 Scene 的统一状态入口见 [Web / Scene 当前状态与路线图](../reviews/web-scene-current-state-roadmap-2026-07-19.md)。
 
 ## 范围与证据
 
@@ -20,7 +20,7 @@
 - `3766415113` 使用 `gifscene.json` / `gifscene.pkg`，以包含 entry、sequence 和单图 UV 修正的 [gifscene 最终报告](../../.codex/scene-gifscene-sprite-gate-20260722/report.json) 为准。
 - `3738202317` 在 20 样本旧报告中因 `.tex format 6` 显示灰底；该结果已经被 [BC2/DXT3 修复后报告](../../.codex/scene-bc2-format6-final-20260722/report.json) 覆盖，当前为 1/1 纹理加载成功。
 - “作者预期”来自包内 scene 描述、`project.json` 属性和样本自带 preview。preview 不是逐帧金标准，最终仍需在相同分辨率、相同属性默认值下与 Wallpaper Engine 录屏做差异验收。
-- 首轮 21 样本报告保留为修复前视觉基线。当前正式语义门以 [13 样本 v16 authored graph 报告](../../.codex/scene-effect-graph-canonical-final-20260723/report.json) 为准：13/13 PASS；definition 层为 106 definitions / 182 passes / 179 material passes / 50 FBO，可见图为 197 layer plans / 300 effects / 411 nodes / 76 RT，196 个 plan 结构上无 blocker，另有 5 个 condition/function blocker。逐样本 canonical SHA 稳定只证明解释图身份，没有证明节点已由 GPU 执行或 Wallpaper Engine 逐帧视觉一致。
+- 首轮 21 样本报告保留为修复前视觉基线。v16 结构基线仍见 [canonical graph 报告](../../.codex/scene-effect-graph-canonical-final-20260723/report.json)；当前正式运行门为 [strict precise graph 13 样本报告](../../.codex/scene-authored-precise-final13-20260723/report.json)，13/13 PASS。GPU 成功层仅 `3724289844:[28,36]` 与 `3765760121:[68,76,82]`，失败 0；这证明固定近似 backend 完成，不证明 authored shader 或 Wallpaper Engine 逐帧一致。
 
 表中 `I/P/T` 分别表示 image / particle / text 图层声明数量；`prop` 不含每个项目都有的 `schemecolor`。纹理加载率只统计当前 renderer 识别为 image candidate 的图层，不应直接当成视觉完成度。
 
@@ -33,7 +33,7 @@
 | Utility / Composition | typed composition/project/fullscreen；当前 framebuffer 前缀捕获；局部/full-frame geometry；受限纹理池；mask/partial effect fail-closed；290 的 project 410 / composition 530 与 6 个 named provider / 7 个 consumer 已完成 GPU capture/binding；293 的 providers 141/1340、consumers 299/322 与隐藏普通 image providers 到 layers 239/657/1509 的静态 blend 已进入 GPU runtime | effectful provider、media / sceneTexture input、nested/child target、utility mask、动态 blendgradient 与任意 material/shader pass；不能把受限 named-target / static image 子集写成完整 dependency graph |
 | Particle | 包内 texture、sprite/sequence、built-in `particle/drop`、continuous/burst initial、基础 lifetime/opacity/color/size/rotation/velocity、additive/translucent blend、Sprite Trail 沿速度方向并按作者 length/min/max 拉伸、正交/透视相机、层级可见性与 parallax；正式门 6/27，375 雨层 516 已加载；定向门中 299 的 6 个 `rainperspective` 层与原有作者层共 7/15 | 其余 built-in texture/preset、child system、rope/rope trail、world-space、完整 control point/attractor、动态 instance override、音频与属性动态 operator |
 | Text | 当前以 authored `pointsize * 4` 近似官方 300 DPI point raster，处理 vector padding、包内字体、系统字体别名和确定性 fallback 诊断；`3766387484` 3/3、`3122339805` 80/81、`2134765860` 4/6 candidate | 精确 DPI/scene-unit 校准、SceneScript、真实时钟/日期/媒体值、完整对齐/描边/阴影/effect 语义 |
-| 自动门 | 13 个真实隔离样本，interpretation format 16，签名 App、Metal ready/after 非黑帧；既有 layer/dependency GPU 门继续通过，definition/graph 计数和逐样本 canonical SHA 进入合同；无 timeout、stop 后 surface=0 | authored graph 只是 CPU 结构合同，renderer 未消费通用图；5 个 fluid condition/function blocker、既有 route-only effect 和 1 个 named-target gap 仍保留；不是 21 样本视觉重评，也没有 Windows WE 同配置录屏差异门 |
+| 自动门 | 13 个真实隔离样本，interpretation format 16，签名 App、Metal ready/after 非黑帧；既有 layer/dependency GPU 门、definition/graph canonical SHA 与 precise exact-ID GPU completion 均进入合同；无 timeout、stop 后 surface=0 | 只有 strict precise 子图被消费；其余 graph、5 个 fluid blocker、35 个 route-only effect 和 1 个 named-target gap 仍保留；不是 21 样本视觉重评，也没有 Windows WE 同配置录屏差异门 |
 
 ## 横向能力判断
 
@@ -86,7 +86,7 @@ Camera Parallax 的当前负向合同已经补齐：包括 composition 在内，
 | `3750342273` Night snowy mountains | `scene.json`；8 层，I2/P1/T4，effect 6，prop 0；waterflow、shake、时钟日期、粒子；parallax 0.14 | 主图完整，image 2/2、text 4/4；中央文字过小/近似乱码，双帧无运动 | 动态文字和字体 fallback/scale 错误；粒子、水流及相机行为未达到作者效果 | P1 | 鼠标注入验证 0.14 视差；时钟日期在相同分辨率下与 preview 的占位和字号一致；粒子/水流只按声明运行，不附加额外 ripple |
 | `3750813609` Asian Temple in the Mountains | `scene.json`；13 层，I2/P9/T1，effect 5，prop 2；200pt 时钟、雨/云/叶粒子、depth parallax；parallax 0.1 | image 1/2、text 1/1；背景可用，但时钟发生多重叠影且尺寸远小于 preview；双帧变化约 33.3% | 9 个粒子系统和一处 image 缺失；文字度量/绘制刷新错误；属性开关未连接 | P1 | 200pt 时钟单次清晰绘制、无残影；12/24 小时切换正确；雨、叶、云分别可见；0.1 视差不与粒子漂移混淆 |
 | `3757555836` 名将杀 兰汤春酽_赵姬 | `scene.json`；9 层，I2/P7/T0，effect 9，prop 2；waterflow/waterripple、xray、7 粒子；parallax 关 | 主图完整，image 2/2；仅约 3.1% 双帧变化 | 7 个粒子系统缺失；水流/ripple/xray 仍是部分近似；属性滑杆没有绑定 | P1 | 默认无视差；粒子分层、blend 和遮挡与 WE 对照；滑杆只改变绑定参数；水效果不得越过作者 mask 或改变未声明区域 |
-| `3765760121` 4K 三色堇与她 | `scene.json`；13 层，I6/P1/T6，effect 12，prop 8；clock/date、audio bars、组合层、glitter；parallax 关；particle 默认关 | 主图完整但 image 3/6；text 3/3 可绘制，时钟/日期过小且位置不对；双帧变化约 8.3% | 组合层、audio bar、动态文字和字体效果不完整；属性缺失 | P1 | 默认无视差且 particle 保持关闭；用户显式开启后才创建粒子；时钟日期值、字体、位置正确；combo/bool/slider 的 8 项属性均有可见绑定 |
+| `3765760121` 4K 三色堇与她 | `scene.json`；13 层，I6/P1/T6，effect 12，prop 8；clock/date、audio bars、组合层、glitter；parallax 关；particle 默认关 | 主图完整但 image 3/6；text 3/3 可绘制；precise graph layers 68/76/82 GPU succeeded，隐藏 190/196/202 未执行 | 动态时钟/日期、audio bar、glitter、组合和完整字体效果仍不完整 | P1 | 默认无视差且 particle 保持关闭；用户显式开启后才创建粒子；时钟日期值、字体、位置正确；combo/bool/slider 的 8 项属性均有可见绑定 |
 | `3766387484` ARKNIGHTS ENDFIELD ARCANE CHEN XIANGYU | `scene.json`；7 层，I1/P1/T3，effect 13，prop 14；叶片、眼睛、光线、waterflow、depth parallax；parallax 0.06 与 shake 受属性控制 | 主图完整，image 1/1、text 3/3；文字缩得很小并堆在人物中央；双帧变化约 10.2% | point size 与非均匀 layer scale 组合错误；粒子、眼睛、光线和 14 项属性绑定缺失 | P1 | 默认值精确决定 parallax/shake；三层文字的字号、缩放、对齐和层级与 preview 对齐；叶片、眼睛、光线可分别开关，不互相代替 |
 | `3766415113` The last pour | `gifscene.json` + `gifscene.pkg`；1 层，I1/P0/T0，effect 0，prop 0；320x200 authored scene；parallax 关 | 入口和纹理 1/1 已加载，但 3200x1600 纹理被重复平铺成网格，画面不可用；上下黑边存在 | sampler/UV 与 10 倍纹理尺寸语义错误。作者 layer scale 约 `1.00471 x 0.86814`，上下黑边是作者构图，不应靠强制 cover 消除 | P0 | 最终只出现一幅完整瓶子画面，不重复采样；保留作者缩放产生的上下黑边；默认无视差、无水波；用边缘采样和重复图案检测锁定回归 |
 | `3767232084` 谬因 | `scene.json`；3 层，I1/P2/T0，effect 7，prop 0；waterflow、foliage、shine、puppet；parallax 关 | 主图完整，image 1/1；双帧变化约 1.4% | 2 个粒子和 puppet 缺失；foliage/waterflow/shine 只覆盖部分语义 | P2 | 默认无视差；发光生物粒子、局部水面与角色层遮挡正确；pointer 不应触发未声明的全局效果；停止后粒子资源归零 |
@@ -95,10 +95,10 @@ Camera Parallax 的当前负向合同已经补齐：包括 composition 在内，
 
 ## 首轮开发与回归顺序及进度
 
-1. P0 通用根因已关闭基础 layer/resource、290/293 命中的受限 dependency 子集，并完成 v15 EffectDefinition IR 与 v16 authored graph planner。下一步不再是“开始做 effect DAG”，而是让通用 slot/material resolver、resource registry 和最小 GPU executor 消费 v16 graph；compose/functions/conditions 在语义未闭合前继续 fail closed。
+1. P0 通用根因已关闭基础 layer/resource、290/293 命中的受限 dependency 子集，并完成 v15 EffectDefinition、v16 graph planner 与 strict precise backend。下一步是 `2902406982` 290/530 的 4-pass quarter-RT standard Blur，再扩 resource registry/provider 和更广 executor；compose/functions/conditions 在语义未闭合前继续 fail closed。
 2. 项目属性主链已完成第一阶段：parser、condition、受支持 target、持久化和独立窗口已落地；`3766387484` parallax off 与 `2134765860` text/day-night/custom text 门通过。`sceneTexture`、transform、particle/audio target 和 `2902406982` 大规模 UI/滚动门仍未完成。
 3. particle runtime 已完成第二个高频切片：作者 sprite、built-in drop 和 Sprite Trail 已进入真实渲染，正式门 6/27，375 的雨层 516 与 299 的 6 个雨层有定向证据，`3765760121` 默认隐藏负向门通过。其余 built-in、child、rope/rope trail、动态 override、world-space 和音频粒子仍未完成。
 4. 静态 text geometry/font 已修正并通过 3 样本门；动态时间/日期/媒体、完整效果与 100 层最终性能门仍未完成。
-5. 当前主构图 P0 的下一切片是 effectful/media/sceneTexture provider 与 nested/child composition，不是重复实现已经落地的 bounded named-target capture/binding。随后应补 live-value runtime 与样本高命中粒子；任意 material/shader pass、waterflow/ripple、depth parallax、godrays/glitter、puppet 和音频再按样本命中与视觉影响逐类推进。
+5. coarse Blur 图完成后，主构图 P0 转向 effectful/media/sceneTexture provider 与 nested/child composition，不重复实现已有 bounded named-target capture/binding。随后补 live-value runtime 与高命中粒子；任意 shader、waterflow/ripple、depth parallax、godrays/glitter、puppet 和音频仍按样本命中与视觉影响逐类推进。
 
 每一步都应同时保留两类门：一类证明声明的能力确实出现，另一类证明未声明或默认关闭的效果不会被全局套用。所有样本仍从真实 Workshop 复制到隔离 root，并使用临时 HOME 运行；流程 PASS、非黑截图和加载率只能作为底线，不能替代与作者 preview/Wallpaper Engine 的视觉对照。
