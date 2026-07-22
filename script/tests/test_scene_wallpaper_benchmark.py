@@ -120,6 +120,20 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             [239, 657, 775, 875, 1509],
         )
 
+    def test_default_matrix_pins_procedural_particle_layers(self) -> None:
+        matrix = benchmark.load_matrix(SCRIPT_DIR / "scene_wallpaper_sample_matrix.json")
+        samples = {sample["id"]: sample for sample in matrix["samples"]}
+        expected = {
+            "3724095562": [22],
+            "3750813609": [121, 200, 90, 504, 511, 516, 498],
+            "3766387484": [48],
+            "2902406982": [262],
+        }
+        for sample_id, layer_ids in expected.items():
+            sample = samples[sample_id]
+            self.assertEqual(sample["minimum_particle_loaded"], len(layer_ids))
+            self.assertEqual(sample["required_particle_loaded_layer_ids"], layer_ids)
+
     def test_default_matrix_pins_authored_effect_graph_execution(self) -> None:
         matrix = benchmark.load_matrix(SCRIPT_DIR / "scene_wallpaper_sample_matrix.json")
         samples = {sample["id"]: sample for sample in matrix["samples"]}

@@ -122,6 +122,7 @@ enum Harness {
         )
         let root = graph.assetsByPath["particles/root.json"]
         let child = graph.assetsByPath["particles/child.json"]
+        let halo = graph.assetsByPath["particles/builtin-texture.json"]
         let drop = graph.assetsByPath["particles/drop-texture.json"]
         try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/drop.tex", under: directory)
         let localDropGraph = SceneParticleAssetGraphLoader().load(
@@ -146,6 +147,7 @@ enum Harness {
             "childTextureExists": fileURL(child?.textureSource).map {
                 FileManager.default.fileExists(atPath: $0.path)
             } ?? false,
+            "haloTextureSource": sourceKind(halo?.textureSource),
             "dropTextureSource": sourceKind(drop?.textureSource),
             "localDropTextureSource": sourceKind(localDrop?.textureSource),
             "diagnostics": diagnostics
@@ -381,7 +383,7 @@ enum Harness {
     private static func sourceKind(_ source: SceneParticleTextureSource?) -> String {
         switch source {
         case .file: "file"
-        case .builtIn(.drop): "builtInDrop"
+        case let .builtIn(key): key.rawValue
         case nil: "missing"
         }
     }
@@ -456,12 +458,12 @@ class SceneParticleAssetTests(unittest.TestCase):
         self.assertEqual(result["childTexture"], "child.png")
         self.assertTrue(result["rootTextureExists"])
         self.assertTrue(result["childTextureExists"])
-        self.assertEqual(result["dropTextureSource"], "builtInDrop")
+        self.assertEqual(result["haloTextureSource"], "particle/halo")
+        self.assertEqual(result["dropTextureSource"], "particle/drop")
         self.assertEqual(result["localDropTextureSource"], "file")
         self.assertEqual(
             result["diagnostics"],
             {
-                "builtInTextureUnavailable": 1,
                 "cyclicChildReference": 1,
                 "missingDefinition": 1,
                 "missingMaterial": 1,
@@ -478,7 +480,7 @@ class SceneParticleAssetTests(unittest.TestCase):
         self.assertEqual(result["samplesWithParticles"], 18)
         self.assertEqual(result["reachableAssetCount"], 55)
         self.assertEqual(result["blendCounts"], {"additive": 42, "translucent": 13})
-        self.assertEqual(result["diagnosticCounts"].get("builtInTextureUnavailable", 0), 45)
+        self.assertEqual(result["diagnosticCounts"].get("builtInTextureUnavailable", 0), 22)
         for kind in (
             "missingDefinition",
             "missingMaterial",

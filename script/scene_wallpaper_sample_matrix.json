@@ -297,7 +297,8 @@
       "id": "3724095562",
       "title": "今汐",
       "capabilities": [
-        "single_image_direct_render"
+        "single_image_direct_render",
+        "procedural_builtin_particle_texture"
       ],
       "project_sha256": "9cc9070ac359e35707037d54b4b966c1195429fc1c7e7e5ded76614ead44eacf",
       "package_sha256": "be46f641f923cc5fa634a9cd283d070572498e39486e72c20a2b7453147fc233",
@@ -323,6 +324,12 @@
       "expected_authored_solid_color_layer_count": 0,
       "expected_solid_candidates": 0,
       "minimum_loaded_ratio": 1.0,
+      "minimum_particle_loaded": 1,
+      "expected_particle_candidates": 1,
+      "expected_particle_authored": 1,
+      "expected_particle_visible": 1,
+      "expected_particle_skipped_hidden": 0,
+      "required_particle_loaded_layer_ids": [22],
       "expected_camera_parallax": false,
       "requires_motion": false,
       "maximum_changed_ratio": 0.000001,
@@ -488,6 +495,7 @@
         "translucent_sequence_particle",
         "built_in_resource_reference",
         "built_in_drop_particle",
+        "procedural_builtin_particle_textures",
         "sprite_trail_renderer",
         "blur_profile_fail_closed",
         "authored_parallax",
@@ -537,12 +545,12 @@
       "minimum_text_loaded": 1,
       "expected_text_candidates": 1,
       "required_text_loaded_layer_ids": [358],
-      "minimum_particle_loaded": 2,
+      "minimum_particle_loaded": 7,
       "expected_particle_candidates": 9,
       "expected_particle_authored": 9,
       "expected_particle_visible": 9,
       "expected_particle_skipped_hidden": 0,
-      "required_particle_loaded_layer_ids": [200, 516],
+      "required_particle_loaded_layer_ids": [121, 200, 90, 504, 511, 516, 498],
       "expected_authored_effect_graph_succeeded_layer_ids": [],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [358],
       "minimum_authored_parallax_layer_count": 3,
@@ -564,6 +572,7 @@
         "vector_text_padding",
         "non_uniform_text_scale",
         "user_properties",
+        "procedural_builtin_particle_texture",
         "authored_parallax",
         "animated_output"
       ],
@@ -601,10 +610,12 @@
       "minimum_text_loaded": 3,
       "expected_text_candidates": 3,
       "required_text_loaded_layer_ids": [55, 62, 68],
+      "minimum_particle_loaded": 1,
       "expected_particle_candidates": 1,
       "expected_particle_authored": 1,
       "expected_particle_visible": 1,
       "expected_particle_skipped_hidden": 0,
+      "required_particle_loaded_layer_ids": [48],
       "minimum_authored_parallax_layer_count": 4,
       "required_effect_files": [
         "effects/depthparallax/effect.json",
@@ -621,6 +632,7 @@
       "capabilities": [
         "utility_frame_capture",
         "authored_standard_blur_runtime",
+        "procedural_builtin_particle_texture",
         "utility_dependencies"
       ],
       "project_sha256": "42664ae4949af13ee7b53bef3e9b01a65a0bf04990d4626115c8463ba394174e",
@@ -673,6 +685,12 @@
       "required_authored_effect_graph_succeeded_layer_ids": [530],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "minimum_loaded_ratio": 1.0,
+      "minimum_particle_loaded": 1,
+      "expected_particle_candidates": 1,
+      "expected_particle_authored": 1,
+      "expected_particle_visible": 1,
+      "expected_particle_skipped_hidden": 0,
+      "required_particle_loaded_layer_ids": [262],
       "requires_motion": false
     },
     {

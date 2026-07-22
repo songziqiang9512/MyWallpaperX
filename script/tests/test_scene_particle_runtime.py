@@ -195,6 +195,8 @@ enum Harness {
         )
         try writeParticle("particles/child.json", material: "materials/shared.json", under: directory)
         try writeParticle("particles/drop.json", material: "materials/drop.json", under: directory)
+        try writeParticle("particles/halo.json", material: "materials/halo.json", under: directory)
+        try writeParticle("particles/unknown.json", material: "materials/unknown.json", under: directory)
 
         let descriptor = SceneRenderDescriptor(
             layers: [
@@ -204,8 +206,10 @@ enum Harness {
                 layer(4, "particles/child-root.json"),
                 layer(5, "particles/hidden-never-loaded.json", visible: false),
                 layer(6, "particles/drop.json"),
+                layer(7, "particles/halo.json"),
+                layer(8, "particles/unknown.json"),
             ],
-            renderOrderLayerIDs: [1, 2, 3, 4, 5, 6],
+            renderOrderLayerIDs: [1, 2, 3, 4, 5, 6, 7, 8],
             materialPasses: [
                 .init(
                     materialPath: "materials/no-texture.json",
@@ -218,6 +222,14 @@ enum Harness {
                 .init(
                     materialPath: "materials/drop.json",
                     shaderPath: "genericparticle", texturePaths: ["particle/drop"], blending: "additive"
+                ),
+                .init(
+                    materialPath: "materials/halo.json",
+                    shaderPath: "genericparticle", texturePaths: ["particle/halo"], blending: "additive"
+                ),
+                .init(
+                    materialPath: "materials/unknown.json",
+                    shaderPath: "genericparticle", texturePaths: ["particle/not-supported"], blending: "additive"
                 ),
             ]
         )
@@ -409,10 +421,11 @@ class SceneParticleRuntimeTests(unittest.TestCase):
 
     def test_synthetic_rejects_unsupported_roots_and_keeps_diagnostics(self) -> None:
         result = self.run_harness("synthetic")
-        self.assertEqual(result["activeLayerIDs"], [3, 4, 6])
-        self.assertEqual(result["batchLayerIDs"], [3, 4, 6])
+        self.assertEqual(result["activeLayerIDs"], [3, 4, 6, 7])
+        self.assertEqual(result["batchLayerIDs"], [3, 4, 6, 7])
         self.assertGreater(result["activeParticleCount"], 0)
         self.assertEqual(result["batchTextureSizes"]["6"], [32, 32])
+        self.assertEqual(result["batchTextureSizes"]["7"], [64, 64])
         self.assertAlmostEqual(result["trailStretch"], 5)
         self.assertEqual(result["trailVelocity"], [100, 0, 0])
         self.assertFalse(result["hiddenMentioned"])
@@ -423,6 +436,7 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertNotIn("trailRendererUnsupported", kinds)
         self.assertNotIn("missingSpriteRenderer", kinds)
         self.assertIn("childSystemsUnsupported", kinds)
+        self.assertIn("builtInTextureUnavailable", kinds)
 
 
 if __name__ == "__main__":
