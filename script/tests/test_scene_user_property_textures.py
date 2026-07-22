@@ -195,7 +195,7 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
 
     def test_surface_rebuild_reopens_security_scoped_urls(self) -> None:
         source = HOST_SOURCE.read_text(encoding="utf-8")
-        rebuild = source.split("private func rebuildSurfaces() -> Bool", maxsplit=1)[1]
+        rebuild = source.split("private func rebuildSurfaces(", maxsplit=1)[1]
         rebuild = rebuild.split("private func teardownSurfaces", maxsplit=1)[0]
         self.assertIn("startAccessingSecurityScopedResource()", rebuild)
         self.assertIn("stopAccessingSecurityScopedResource()", rebuild)

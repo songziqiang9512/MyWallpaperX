@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import Foundation
+import QuartzCore
 
 final class SceneDesktopWallpaperHost {
     static let shared = SceneDesktopWallpaperHost()
@@ -35,7 +36,8 @@ final class SceneDesktopWallpaperHost {
     private var surfaces: [CGDirectDisplayID: Surface] = [:]
     private var launchContext: LaunchContext?
     private var observers: [NSObjectProtocol] = []
-    private var mouseTrackingTimer: Timer?
+    private var frameTimer: Timer?
+    private var sceneClock = SceneClock(hostTime: CACurrentMediaTime())
 
     var activeRecordID: String? { launchContext?.recordID }
 
@@ -64,7 +66,7 @@ final class SceneDesktopWallpaperHost {
             logURL: logURL,
             recordID: recordID
         )
-        return rebuildSurfaces()
+        return rebuildSurfaces(resetClock: true)
     }
 
     func stop() {
@@ -149,7 +151,7 @@ final class SceneDesktopWallpaperHost {
     }
 
     @discardableResult
-    private func rebuildSurfaces() -> Bool {
+    private func rebuildSurfaces(resetClock: Bool = false) -> Bool {
         guard let launchContext else { return false }
 
         let screens = NSScreen.screens
@@ -207,8 +209,6 @@ final class SceneDesktopWallpaperHost {
             } else {
                 window.orderFrontRegardless()
             }
-            metalView.startRendering()
-
             surfaces[screenID] = Surface(
                 screenID: screenID,
                 window: window,
@@ -222,15 +222,17 @@ final class SceneDesktopWallpaperHost {
             return false
         }
 
-        startMouseTracking()
+        if resetClock {
+            sceneClock.reset(hostTime: CACurrentMediaTime())
+        }
+        startFrameDriver()
         return true
     }
 
     private func teardownSurfaces(clearContext: Bool) {
-        mouseTrackingTimer?.invalidate()
-        mouseTrackingTimer = nil
+        frameTimer?.invalidate()
+        frameTimer = nil
         for surface in surfaces.values {
-            surface.metalView.stopRendering()
             surface.window.orderOut(nil)
             surface.window.close()
         }
@@ -266,13 +268,25 @@ final class SceneDesktopWallpaperHost {
 #endif
     }
 
-    private func startMouseTracking() {
-        mouseTrackingTimer?.invalidate()
-        let timer = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
-            self?.updateMouseLocations()
+    private func startFrameDriver() {
+        frameTimer?.invalidate()
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
+            self?.renderFrame()
         }
         RunLoop.main.add(timer, forMode: .common)
-        mouseTrackingTimer = timer
+        frameTimer = timer
+        renderFrame()
+    }
+
+    private func renderFrame() {
+        updateMouseLocations()
+        let timing = sceneClock.advance(
+            hostTime: CACurrentMediaTime(),
+            wallDate: Date()
+        )
+        for surface in surfaces.values {
+            surface.metalView.renderFrame(timing: timing)
+        }
     }
 
     private func updateMouseLocations() {

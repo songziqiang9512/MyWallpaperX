@@ -16,16 +16,11 @@ class SceneMetalView: NSView {
     private var imagePipeline: SceneImageLayerPipeline?
     private var particlePlayback: SceneParticlePlaybackState?
     private let offscreenTexturePool: SceneOffscreenTexturePool
-    private var displayTimer: Timer?
-    // Wall-clock anchor for the shader `g_Time` uniform. Resampled per frame
-    // and passed to the renderer so shader-side effects (foliagesway, etc.)
-    // advance in real time independent of frame rate.
-    private let renderStartTime = CACurrentMediaTime()
-    private var lastRenderTime = CACurrentMediaTime()
     // Mouse position normalized to view bounds: x and y in [-1, +1] with
     // (0,0) at the view's center, +Y up. Defaults to (0,0) when the cursor
     // is outside the view. Drives authored layer parallax + cursorripple UV.
     private var mouseNormalized: SIMD2<Float> = .zero
+    private var previousMouseNormalized: SIMD2<Float> = .zero
     private var parallaxPointerSmoother: SceneParallaxPointerSmoother
     private var trackingArea: NSTrackingArea?
 #if DEBUG
@@ -326,41 +321,21 @@ class SceneMetalView: NSView {
         }
     }
 
-    // MARK: - Render loop
-
-    func startRendering() {
-        guard displayTimer == nil else { return }
-        lastRenderTime = CACurrentMediaTime()
-        // Use .common so the timer keeps firing during menu tracking and live resize.
-        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
-            self?.renderFrame()
-        }
-        RunLoop.main.add(timer, forMode: .common)
-        displayTimer = timer
-    }
-
-    func stopRendering() {
-        displayTimer?.invalidate()
-        displayTimer = nil
-    }
-
 #if DEBUG
     func requestDebugSnapshot(reason: String, outputDirectory: URL) {
         debugFrameCapture.request(reason: reason, outputDirectory: outputDirectory)
     }
 #endif
 
-    private func renderFrame() {
+    func renderFrame(timing: SceneFrameTiming) {
         guard let drawable = metalLayer.nextDrawable() else { return }
-        let elapsed = Float(CACurrentMediaTime() - renderStartTime)
-        let hostTime = CACurrentMediaTime()
-        let frameDelta = max(0, hostTime - lastRenderTime)
-        lastRenderTime = hostTime
-        let parallaxMouseNormalized = parallaxPointerSmoother.advance(delta: frameDelta)
-        let particleBatches = particlePlayback?.advance(by: frameDelta) ?? []
+        let parallaxMouseNormalized = parallaxPointerSmoother.advance(delta: timing.frameTime)
+        let frameContext = makeFrameContext(timing: timing, parallax: parallaxMouseNormalized)
+        previousMouseNormalized = mouseNormalized
+        let particleBatches = particlePlayback?.advance(by: timing.frameTime) ?? []
         var currentImageTextures = imageTextures
         for (layerID, videoSource) in videoTextureSources {
-            if let texture = videoSource.currentTexture(forHostTime: hostTime) {
+            if let texture = videoSource.currentTexture(forHostTime: timing.hostTime) {
                 currentImageTextures[layerID] = texture
             }
         }
@@ -383,12 +358,28 @@ class SceneMetalView: NSView {
             particleBatches: particleBatches,
             particlePipeline: particlePlayback?.pipeline,
             offscreenTexturePool: offscreenTexturePool,
-            time: elapsed,
-            mouseNormalized: mouseNormalized,
-            parallaxMouseNormalized: parallaxMouseNormalized,
+            frameContext: frameContext,
             encodeFrameReadback: frameReadback,
-            to: drawable,
-            viewportSize: metalLayer.drawableSize
+            to: drawable
+        )
+    }
+
+    private func makeFrameContext(
+        timing: SceneFrameTiming,
+        parallax: SIMD2<Float>
+    ) -> SceneFrameContext {
+        let screenSize = metalLayer.drawableSize
+        let camera = renderer.renderDescriptor.camera
+        return SceneFrameContext(
+            timing: timing,
+            canvasSize: CGSize(
+                width: CGFloat(camera.orthoWidth ?? Float(screenSize.width)),
+                height: CGFloat(camera.orthoHeight ?? Float(screenSize.height))
+            ),
+            screenSize: screenSize,
+            pointerCurrent: mouseNormalized,
+            pointerPrevious: previousMouseNormalized,
+            cameraParallaxPosition: parallax
         )
     }
 

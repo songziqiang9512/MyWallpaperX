@@ -119,15 +119,16 @@ struct SceneMetalRenderer {
         particleBatches: [SceneParticleDrawBatch],
         particlePipeline: SceneParticleMetalPipeline?,
         offscreenTexturePool: SceneOffscreenTexturePool?,
-        time: Float,
-        mouseNormalized: SIMD2<Float>,
-        parallaxMouseNormalized: SIMD2<Float>,
+        frameContext: SceneFrameContext,
         encodeFrameReadback: ((MTLTexture, MTLCommandBuffer) -> Void)? = nil,
-        to drawable: CAMetalDrawable,
-        viewportSize: CGSize
+        to drawable: CAMetalDrawable
     ) {
         guard let commandBuffer = commandQueue.makeCommandBuffer() else { return }
 
+        let viewportSize = frameContext.screenSize
+        let time = Float(frameContext.sceneTime)
+        let mouseNormalized = frameContext.pointerCurrent
+        let parallaxMouseNormalized = frameContext.cameraParallaxPosition
         let cameraFrame = SceneParticleCameraFrame(
             camera: renderDescriptor.camera,
             viewportSize: viewportSize

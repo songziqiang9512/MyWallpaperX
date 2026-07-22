@@ -23,6 +23,10 @@ SceneFrameContext
 
 实时播放使用 display timing 和真实 provider；离线烘焙使用固定 timestep、可重放 provider 与固定 seed。二者必须走同一 simulation/update/render 入口。
 
+MyWallpaperX 当前已落地第一阶段 `SceneFrameTiming` / `SceneFrameContext`：桌面宿主每帧只采样一次 monotonic host time 与 wall date，并把相同的 frame index、scene time 和 frame delta 广播给所有屏幕；shader time、视频 host time、粒子推进和相机视差平滑已消费该快照。各屏仍保留自己的 viewport、pointer 和 particle simulation。
+
+这只是统一输入底座，不等于完整时钟合同。pause/resume、长帧 delta clamp、dropped-time 诊断、固定 timestep、buttons、audio/media/property generation、deterministic seed 和离线 adapter 尚未接入；Timeline、SceneScript 与动态文字也还没有消费该上下文。
+
 ## 2. Particle System
 
 官方 Particle 文档把系统明确拆成 General、Emitter、Initializer、Operator、Renderer、Control Point 和 Children。它不是“生成一些 sprite 然后向下移动”的单一算法。
@@ -383,6 +387,7 @@ Realtime Adapter              Offline Adapter
 | Particle | 作者 2D sprite、部分 emitter/initializer/operator、built-in drop、Sprite Trail 子集 | child/rope/control point/collision/audio/全部 preset 完整 |
 | Text | CoreText 静态纹理、部分 font/pointsize/padding/scale | 动态时间、完整 alignment/effects/SceneScript |
 | Effect graph | v17 继承 v16 EffectDefinition/authored graph，并增加 provider metadata；strict precise 子集有 5 个 layer、standard Blur 默认 profile 有 1 个 layer 的 degraded GPU 执行；非默认 standard 图明确 blocked | 通用 material/pass 已执行、authored shader 语义等价或达到 WE 像素一致 |
+| Frame Context | 宿主单一 60 Hz driver；所有屏幕共享 frame index/host/scene/wall time；shader、video、particle、parallax 已迁移 | pause/resume、delta clamp、固定 timestep、离线实时等价已闭环 |
 | Timeline | 数据识别不足或空壳 | 任意动画模式可用 |
 | SceneScript | 只检测 script | ECMAScript/runtime/API 可用 |
 | User Properties | 独立窗口、条件、默认/override、部分 target 与持久化；`texture`/`scenetexture` 内部归一；受限静态 consumer 可选择 PNG/JPEG | 403 个样本属性全部可调、所有 texture target/variant/live value 已闭环 |
@@ -391,11 +396,11 @@ Realtime Adapter              Offline Adapter
 
 ## 11. 实施顺序
 
-1. 在现有 frame registry/file-backed property source 上接入 system media、Texture Variants、视频、通用 material consumer、effectful/nested provider，并闭合 copy/swap/compose/history；未闭合 functions/conditions 继续 fail closed；
-2. 再扩更多 shader/material/pass backend；standard Blur 非默认 kernel/composite/blend/alpha/mask 变体按独立证据加入，再让 Text/Particle 复用同一语义；
-3. 建统一 SceneClock、Timeline 和动态 text；
-4. 在 typed target 稳定后接 SceneScript 核心生命周期；
-5. 再接 cursor/audio/media providers 与可重放测试源；
-6. 最后扩 Puppet/3D/Lighting 和离线编码产品层。
+1. 继续扩充已经落地第一阶段的 Frame Context，并建立 typed dynamic target / value snapshot；
+2. 以可运行基线为目标横向接通 Timeline、SceneScript core、动态 text、cursor/audio/media 输入，不先在单项视觉细节上反复打磨；
+3. 同批补齐高命中 built-in particle、Texture Variants、system/media/video provider 与通用 material consumer；
+4. 让上述 live/provider 能力进入 authored graph，再闭合 copy/swap/compose/history 和更多 shader/material/pass backend；
+5. 用固定、扩展和新下载样本矩阵集中暴露语义冲突，再按共享根因纵向校准 effect、text、particle 和动态值精度；
+6. 最后扩 Puppet/3D/Lighting、离线固定步进与编码产品层。
 
 每一步都同时需要正向样本和默认关闭/未声明反例。
