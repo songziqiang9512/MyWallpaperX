@@ -79,12 +79,8 @@ enum DebugScenePlaybackRunner {
                 previewLogURL?.path ?? "-",
                 model.diagnostics.interpretationFileURL?.path ?? "-"
             )
-            if let evidenceDirectory,
-               let windowNumber = snapshot.windowNumbers.first {
-                scheduleSnapshots(
-                    windowNumber: windowNumber,
-                    outputDirectory: evidenceDirectory
-                )
+            if let evidenceDirectory {
+                scheduleSnapshots(outputDirectory: evidenceDirectory)
             }
             scheduleStop(after: requestedDuration)
         } catch {
@@ -112,11 +108,18 @@ enum DebugScenePlaybackRunner {
     }
 
     private static func scheduleSnapshots(
-        windowNumber: Int,
         outputDirectory: URL
     ) {
         for (reason, delay) in [("ready", 1.0), ("after", 3.0)] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                guard let windowNumber = SceneDesktopWallpaperHost.shared
+                    .debugSnapshot().windowNumbers.first else {
+                    NSLog(
+                        "MWX DEBUG SCENE: phase=snapshot-failed reason=%@ stage=surface-lookup error=unknown",
+                        reason
+                    )
+                    return
+                }
                 let accepted = SceneDesktopWallpaperHost.shared.requestDebugSnapshot(
                     windowNumber: windowNumber,
                     reason: reason,
