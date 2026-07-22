@@ -12,7 +12,8 @@ struct SceneLayerEffectInputs {
 struct SceneGaussianBlurPlan {
     let horizontalStep: Float
     let verticalStep: Float
-    let usesPixelSteps: Bool
+    let sampleResolutionScale: Float
+    let isPrecise: Bool
 }
 
 struct SceneBloomPlan {
@@ -116,7 +117,7 @@ enum SceneEffectRuntimePlanner {
         }
         let passCount = offscreenPassCount(for: layer)
         guard passCount > 0 else { return nil }
-        if gaussianBlurPlan(for: layer)?.usesPixelSteps == true {
+        if gaussianBlurPlan(for: layer)?.isPrecise == true {
             return "effect runtime gaussian-blur-precise; \(passCount) declared pass(es)"
         }
         if gaussianBlurPlan(for: layer) != nil {
@@ -142,7 +143,8 @@ enum SceneEffectRuntimePlanner {
             return SceneGaussianBlurPlan(
                 horizontalStep: horizontal,
                 verticalStep: vertical,
-                usesPixelSteps: true
+                sampleResolutionScale: 1,
+                isPrecise: true
             )
         }
         guard let effect = layer.effects.first(where: {
@@ -156,7 +158,8 @@ enum SceneEffectRuntimePlanner {
         return SceneGaussianBlurPlan(
             horizontalStep: horizontal,
             verticalStep: vertical,
-            usesPixelSteps: false
+            sampleResolutionScale: 4,
+            isPrecise: false
         )
     }
 
@@ -251,7 +254,7 @@ enum SceneEffectRuntimePlanner {
         let raw = components.indices.contains(component)
             ? Float(components[component])
             : Float(components.first ?? 0.002)
-        return min(max(abs(raw), 0.00025), 0.02)
+        return min(max(abs(raw), 0.01), 2)
     }
 
     private static func preciseBlurScale(

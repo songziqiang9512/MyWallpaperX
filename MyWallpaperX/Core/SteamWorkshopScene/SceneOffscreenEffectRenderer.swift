@@ -86,12 +86,10 @@ enum SceneOffscreenEffectRenderer {
         }
 
         if let blurPlan {
-            let horizontalStep = blurPlan.usesPixelSteps
-                ? blurPlan.horizontalStep / Float(offscreenPair.primary.width)
-                : blurPlan.horizontalStep
-            let verticalStep = blurPlan.usesPixelSteps
-                ? blurPlan.verticalStep / Float(offscreenPair.primary.height)
-                : blurPlan.verticalStep
+            let horizontalStep = blurPlan.horizontalStep
+                * blurPlan.sampleResolutionScale / Float(offscreenPair.primary.width)
+            let verticalStep = blurPlan.verticalStep
+                * blurPlan.sampleResolutionScale / Float(offscreenPair.primary.height)
             guard gaussianBlurPipeline.encode(
                 source: offscreenPair.primary,
                 target: offscreenPair.secondary,

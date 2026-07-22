@@ -193,6 +193,8 @@ enum Harness {
             device: device, queue: queue, pipeline: pipeline, compositor: compositor,
             blendMode: 5, alpha: 0.5
         )
+        let coarseBlur = blurPlan(path: "effects/blur/effect.json", scale: 0.6)
+        let preciseBlur = blurPlan(path: "effects/blurprecise/effect.json", scale: 0.45)
 
         let limited = pool.textures(width: 4_000, height: 2_000)
         let evictionPool = SceneOffscreenTexturePool(
@@ -217,6 +219,18 @@ enum Harness {
             "dependencyBlendModeOffset": MemoryLayout<SceneLayerFragmentUniforms>.offset(
                 of: \SceneLayerFragmentUniforms.dependencyBlendMode
             ) ?? -1,
+            "coarseBlur": [
+                coarseBlur?.horizontalStep ?? -1,
+                coarseBlur?.verticalStep ?? -1,
+                coarseBlur?.sampleResolutionScale ?? -1,
+            ],
+            "coarseBlurIsPrecise": coarseBlur?.isPrecise ?? true,
+            "preciseBlur": [
+                preciseBlur?.horizontalStep ?? -1,
+                preciseBlur?.verticalStep ?? -1,
+                preciseBlur?.sampleResolutionScale ?? -1,
+            ],
+            "preciseBlurIsPrecise": preciseBlur?.isPrecise ?? false,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -275,6 +289,35 @@ enum Harness {
         commandBuffer.waitUntilCompleted()
         guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
         return pixel(target, x: 4, y: 4)
+    }
+
+    static func blurPlan(path: String, scale: Double) -> SceneGaussianBlurPlan? {
+        let empty = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
+            texturePaths: [], textureSlots: [], combos: [:], constantShaderValues: [:]
+        )
+        let scaled = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
+            texturePaths: [],
+            textureSlots: [],
+            combos: [:],
+            constantShaderValues: ["scale": .init(components: [scale, scale])]
+        )
+        let passes = path.contains("blurprecise")
+            ? [scaled, scaled]
+            : [empty, scaled, scaled, empty]
+        let layer = SceneRenderDescriptor.Layer(
+            contentKind: "image",
+            colorRGB: nil,
+            colorBlendMode: nil,
+            effects: [.init(file: path, visible: true, passes: passes)]
+        )
+        return SceneEffectRuntimePlanner.plan(
+            for: layer,
+            hasIrisMask: false,
+            hasOpacityMask: false,
+            hasWaterMask: false,
+            hasFoliageMask: false,
+            hasWaterRippleNormal: false
+        ).gaussianBlur
     }
 
     static func makeTexture(
@@ -403,6 +446,14 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assert_pixel_close(self.result["normalDependencyBGRA"], [112, 48, 96, 128])
         self.assert_pixel_close(self.result["darkenDependencyBGRA"], [32, 32, 64, 128])
         self.assert_pixel_close(self.result["darkenHalfAlphaBGRA"], [16, 16, 32, 64])
+
+    def test_blur_scales_remain_authored_pixels_until_target_normalization(self) -> None:
+        for actual, expected in zip(self.result["coarseBlur"], [0.6, 0.6, 4]):
+            self.assertAlmostEqual(actual, expected, places=6)
+        self.assertFalse(self.result["coarseBlurIsPrecise"])
+        for actual, expected in zip(self.result["preciseBlur"], [0.45, 0.45, 1]):
+            self.assertAlmostEqual(actual, expected, places=6)
+        self.assertTrue(self.result["preciseBlurIsPrecise"])
 
     def test_dependency_mode_reuses_uniform_padding_without_layout_growth(self) -> None:
         self.assertEqual(self.result["fragmentUniformSize"], 144)
