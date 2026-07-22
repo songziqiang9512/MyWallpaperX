@@ -284,8 +284,9 @@ final class SceneDesktopWallpaperHost {
             hostTime: CACurrentMediaTime(),
             wallDate: Date()
         )
+        let dynamicValues = SceneDynamicSnapshot.empty(frameIndex: timing.frameIndex)
         for surface in surfaces.values {
-            surface.metalView.renderFrame(timing: timing)
+            surface.metalView.renderFrame(timing: timing, dynamicValues: dynamicValues)
         }
     }
 

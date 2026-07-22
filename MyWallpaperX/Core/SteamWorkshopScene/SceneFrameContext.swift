@@ -11,6 +11,7 @@ nonisolated struct SceneFrameTiming: Equatable, Sendable {
 
 nonisolated struct SceneFrameContext: Equatable, Sendable {
     let timing: SceneFrameTiming
+    let dynamicValues: SceneDynamicSnapshot
     let canvasSize: CGSize
     let screenSize: CGSize
     let pointerCurrent: SIMD2<Float>

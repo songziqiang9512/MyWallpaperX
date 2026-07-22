@@ -327,10 +327,17 @@ class SceneMetalView: NSView {
     }
 #endif
 
-    func renderFrame(timing: SceneFrameTiming) {
+    func renderFrame(
+        timing: SceneFrameTiming,
+        dynamicValues: SceneDynamicSnapshot
+    ) {
         guard let drawable = metalLayer.nextDrawable() else { return }
         let parallaxMouseNormalized = parallaxPointerSmoother.advance(delta: timing.frameTime)
-        let frameContext = makeFrameContext(timing: timing, parallax: parallaxMouseNormalized)
+        let frameContext = makeFrameContext(
+            timing: timing,
+            dynamicValues: dynamicValues,
+            parallax: parallaxMouseNormalized
+        )
         previousMouseNormalized = mouseNormalized
         let particleBatches = particlePlayback?.advance(by: timing.frameTime) ?? []
         var currentImageTextures = imageTextures
@@ -366,12 +373,14 @@ class SceneMetalView: NSView {
 
     private func makeFrameContext(
         timing: SceneFrameTiming,
+        dynamicValues: SceneDynamicSnapshot,
         parallax: SIMD2<Float>
     ) -> SceneFrameContext {
         let screenSize = metalLayer.drawableSize
         let camera = renderer.renderDescriptor.camera
         return SceneFrameContext(
             timing: timing,
+            dynamicValues: dynamicValues,
             canvasSize: CGSize(
                 width: CGFloat(camera.orthoWidth ?? Float(screenSize.width)),
                 height: CGFloat(camera.orthoHeight ?? Float(screenSize.height))

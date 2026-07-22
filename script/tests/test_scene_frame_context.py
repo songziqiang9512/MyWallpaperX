@@ -11,6 +11,9 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/SceneFrameContext.swift"
+DYNAMIC_SOURCE = (
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/SceneDynamicSnapshot.swift"
+)
 HOST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/SceneDesktopWallpaperHost.swift"
 VIEW_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/SceneMetalView.swift"
 
@@ -40,6 +43,7 @@ enum Harness {
         )
         let context = SceneFrameContext(
             timing: second,
+            dynamicValues: .empty(frameIndex: second.frameIndex, generation: 4),
             canvasSize: CGSize(width: 1920, height: 1080),
             screenSize: CGSize(width: 3024, height: 1964),
             pointerCurrent: SIMD2(0.5, -0.25),
@@ -54,6 +58,9 @@ enum Harness {
             "context": [
                 "frameIndex": context.frameIndex,
                 "sceneTime": context.sceneTime,
+                "dynamicFrameIndex": context.dynamicValues.frameIndex,
+                "dynamicGeneration": context.dynamicValues.generation,
+                "dynamicCount": context.dynamicValues.count,
                 "pointerCurrent": [context.pointerCurrent.x, context.pointerCurrent.y],
                 "pointerPrevious": [context.pointerPrevious.x, context.pointerPrevious.y],
                 "canvas": [context.canvasSize.width, context.canvasSize.height],
@@ -86,7 +93,7 @@ class SceneFrameContextTests(unittest.TestCase):
         harness.write_text(HARNESS, encoding="utf-8")
         binary = directory / "scene-frame-context"
         compilation = subprocess.run(
-            ["swiftc", str(SOURCE), str(harness), "-o", str(binary)],
+            ["swiftc", str(DYNAMIC_SOURCE), str(SOURCE), str(harness), "-o", str(binary)],
             capture_output=True,
             text=True,
         )
@@ -119,6 +126,9 @@ class SceneFrameContextTests(unittest.TestCase):
 
     def test_context_keeps_per_surface_inputs_with_shared_timing(self) -> None:
         self.assertEqual(self.result["context"]["frameIndex"], 1)
+        self.assertEqual(self.result["context"]["dynamicFrameIndex"], 1)
+        self.assertEqual(self.result["context"]["dynamicGeneration"], 4)
+        self.assertEqual(self.result["context"]["dynamicCount"], 0)
         self.assertEqual(self.result["context"]["pointerCurrent"], [0.5, -0.25])
         self.assertEqual(self.result["context"]["pointerPrevious"], [0.25, -0.5])
         self.assertEqual(self.result["context"]["canvas"], [1920, 1080])
@@ -129,7 +139,19 @@ class SceneFrameContextTests(unittest.TestCase):
         view = VIEW_SOURCE.read_text(encoding="utf-8")
         self.assertIn("private var frameTimer: Timer?", host)
         self.assertIn("let timing = sceneClock.advance", host)
-        self.assertIn("surface.metalView.renderFrame(timing: timing)", host)
+        snapshot_creation = (
+            "let dynamicValues = SceneDynamicSnapshot.empty(frameIndex: timing.frameIndex)"
+        )
+        self.assertIn(snapshot_creation, host)
+        snapshot_position = host.index(snapshot_creation)
+        broadcast_position = host.index("for surface in surfaces.values", snapshot_position)
+        self.assertLess(snapshot_position, broadcast_position)
+        self.assertIn(
+            "surface.metalView.renderFrame(timing: timing, dynamicValues: dynamicValues)",
+            host,
+        )
+        self.assertIn("dynamicValues: SceneDynamicSnapshot", view)
+        self.assertIn("dynamicValues: dynamicValues", view)
         self.assertNotIn("displayTimer", view)
         self.assertNotIn("renderStartTime", view)
 
