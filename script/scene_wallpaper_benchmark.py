@@ -29,6 +29,10 @@ READY_RE = re.compile(
     r"phase=ready .* layers=(?P<layers>\d+) imageLayers=(?P<images>\d+) "
     r"effects=(?P<effects>\d+) surfaces=(?P<surfaces>\d+)"
 )
+INTERPRETATION_RE = re.compile(
+    r"phase=ready .* interpretation=(?P<path>.+)$",
+    re.MULTILINE,
+)
 STOPPED_RE = re.compile(r"phase=stopped surfacesBefore=(?P<before>\d+) surfacesAfter=(?P<after>\d+)")
 LOADED_RE = re.compile(r"^loaded: (?P<loaded>\d+) / (?P<total>\d+)$", re.MULTILINE)
 TEXT_LOADED_RE = re.compile(r"^text loaded: (?P<loaded>\d+) / (?P<total>\d+)$", re.MULTILINE)
@@ -37,6 +41,10 @@ CAMERA_RE = re.compile(
     r"^camera: projection=(?P<projection>\S+) parallax=(?P<parallax>true|false) "
     rf"amount=(?P<amount>{FLOAT_PATTERN}) mouseInfluence=(?P<influence>{FLOAT_PATTERN})$",
     re.MULTILINE,
+)
+SAMPLE_ROOT_DERIVED_FILES = (
+    ".mywallpaperx-scene-interpretation.json",
+    ".mywallpaperx-scene-preview-log.txt",
 )
 
 
@@ -151,6 +159,8 @@ def run_sample(
     result_dir.mkdir(parents=True)
     runtime_home.mkdir(parents=True)
     copy_sample(source, runtime_sample)
+    for file_name in SAMPLE_ROOT_DERIVED_FILES:
+        (runtime_sample / file_name).unlink(missing_ok=True)
     package_path = scene_package_path(source)
     if package_path is None:
         raise FileNotFoundError(f"Scene sample package is missing: {source}")
@@ -203,6 +213,7 @@ def run_sample(
     preview_log = result_dir / "scene-preview.log"
     preview_text = preview_log.read_text(encoding="utf-8", errors="replace") if preview_log.is_file() else ""
     ready_match = READY_RE.search(log_text)
+    interpretation_match = INTERPRETATION_RE.search(log_text)
     stopped_match = STOPPED_RE.search(log_text)
     loaded_match = LOADED_RE.search(preview_text)
     loaded = int(loaded_match.group("loaded")) if loaded_match else 0
@@ -221,9 +232,17 @@ def run_sample(
         "after": png_flat_border_ratio(after_snapshot),
     }
     motion = png_motion_metrics(ready_snapshot, after_snapshot)
-    interpretation = interpretation_metrics(
-        runtime_sample / ".mywallpaperx-scene-interpretation.json"
+    interpretation_path = (
+        Path(interpretation_match.group("path").strip())
+        if interpretation_match is not None
+        else Path("-")
     )
+    interpretation = interpretation_metrics(interpretation_path)
+    sample_root_residue = [
+        file_name
+        for file_name in SAMPLE_ROOT_DERIVED_FILES
+        if (runtime_sample / file_name).exists()
+    ]
 
     if timed_out:
         failures.append("process timeout")
@@ -233,6 +252,20 @@ def run_sample(
         failures.append("missing ready event")
     elif int(ready_match.group("surfaces")) < 1:
         failures.append("no Scene surface")
+    if interpretation_match is None:
+        failures.append("missing cache interpretation path")
+    else:
+        interpretation_cache_root = (
+            runtime_home / "Library/Caches/MyWallpaperX/SteamWorkshopScene"
+        ).resolve()
+        try:
+            interpretation_path.resolve().relative_to(interpretation_cache_root)
+        except ValueError:
+            failures.append("Scene interpretation path is outside package cache")
+    if sample_root_residue:
+        failures.append(
+            "Scene sample root contains derived files: " + ", ".join(sample_root_residue)
+        )
     if stopped_match is None or int(stopped_match.group("after")) != 0:
         failures.append("Scene surfaces not released")
     if "phase=snapshot-failed" in log_text:
@@ -338,6 +371,8 @@ def run_sample(
         "evidence": {
             "app_log": str(app_log),
             "preview_log": str(preview_log),
+            "interpretation": str(interpretation_path),
+            "sample_root_residue": sample_root_residue,
             "ready_snapshot": str(ready_snapshot),
             "after_snapshot": str(after_snapshot),
             "ready_non_black": ready_non_black,

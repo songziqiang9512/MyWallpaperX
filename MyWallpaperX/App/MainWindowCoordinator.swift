@@ -459,19 +459,16 @@ enum MainWindowCoordinator {
             object: nil,
             queue: .main
         ) { notification in
-            guard let rootURL = notification.userInfo?["rootURL"] as? URL,
-                  let cacheDirectory = notification.userInfo?["cacheDirectory"] as? URL else { return }
+            guard let cacheDirectory = notification.userInfo?["cacheDirectory"] as? URL,
+                  let interpretationFileURL = notification.userInfo?["interpretationFileURL"] as? URL,
+                  let previewLogURL = notification.userInfo?["previewLogURL"] as? URL else { return }
 
-            // Interpretation file lives in the sample directory (rootURL);
-            // unpacked textures/materials/shaders live in cacheDirectory.
-            let interpretationFileURL = rootURL.appendingPathComponent(SceneInterpretationFile.fileName)
             guard let file = try? SceneInterpretationFileReader().read(from: interpretationFileURL) else { return }
 
-            let logURL = rootURL.appendingPathComponent(".mywallpaperx-scene-preview-log.txt")
             guard SceneDesktopWallpaperHost.shared.launch(
                 renderDescriptor: file.renderDescriptor,
                 cacheDirectory: cacheDirectory,
-                logURL: logURL
+                logURL: previewLogURL
             ) else { return }
 
             postWallpaperRuntimeWillSwitch(to: .scene)

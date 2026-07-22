@@ -66,14 +66,15 @@ enum DebugScenePlaybackRunner {
             let snapshot = SceneDesktopWallpaperHost.shared.debugSnapshot()
             let imageLayerCount = model.renderDescriptor.layers.filter { $0.contentKind == "image" }.count
             NSLog(
-                "MWX DEBUG SCENE: phase=ready root=%@ layers=%d imageLayers=%d effects=%d surfaces=%d windows=%@ previewLog=%@",
+                "MWX DEBUG SCENE: phase=ready root=%@ layers=%d imageLayers=%d effects=%d surfaces=%d windows=%@ previewLog=%@ interpretation=%@",
                 rootURL.path,
                 model.renderDescriptor.layers.count,
                 imageLayerCount,
                 model.sceneDocument.effectCount,
                 snapshot.surfaceCount,
                 snapshot.windowNumbers.map(String.init).joined(separator: ","),
-                previewLogURL?.path ?? "-"
+                previewLogURL?.path ?? "-",
+                model.diagnostics.interpretationFileURL?.path ?? "-"
             )
             if let evidenceDirectory,
                let windowNumber = snapshot.windowNumbers.first {

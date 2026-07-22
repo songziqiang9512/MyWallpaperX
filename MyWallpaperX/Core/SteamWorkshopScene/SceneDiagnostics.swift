@@ -143,7 +143,7 @@ struct SceneDiagnosticsBuilder {
         }
         let interpretationFileResult = Self.writeInterpretationFileIfPossible(
             renderDescriptor: renderDescriptor,
-            outputDirectory: rootURL
+            outputDirectory: packageReport?.outputURL
         )
         let interpretationFileURL = interpretationFileResult.url
         if let interpretationFileURL {
@@ -167,16 +167,17 @@ struct SceneDiagnosticsBuilder {
         )
     }
 
-    // Writes the derived interpretation file into the sample directory itself so
-    // it lives alongside project.json / scene.pkg. Deleting the file forces a
-    // rebuild on the next SceneDiagnosticsBuilder.build call (which always
-    // overwrites). The package's extracted resources stay in the cache directory.
+    // Derived renderer state belongs to the package cache. The Workshop sample
+    // remains read-only, and rebuilding the package cache regenerates this file.
     private static func writeInterpretationFileIfPossible(
         renderDescriptor: SceneRenderDescriptor?,
-        outputDirectory: URL
+        outputDirectory: URL?
     ) -> (url: URL?, error: String?) {
         guard let renderDescriptor else {
             return (nil, nil)
+        }
+        guard let outputDirectory else {
+            return (nil, "Scene 缓存目录不可用，无法生成派生解释文件。")
         }
         do {
             let url = try SceneInterpretationFileWriter().write(

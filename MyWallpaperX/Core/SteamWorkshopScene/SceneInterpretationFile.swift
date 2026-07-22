@@ -1,10 +1,8 @@
 import Foundation
 
 struct SceneInterpretationFile: Codable {
-    // Hidden dotfile written into the sample directory itself (mirrors the web
-    // link pattern: .mywallpaperx-web-analysis.json / .mywallpaperx-web-runtime.json).
-    // Lives alongside project.json / scene.pkg; deletion triggers rebuild on next
-    // SceneDiagnosticsBuilder.build call.
+    // Cache-owned renderer input. Workshop samples remain read-only; deleting the
+    // package cache causes SceneDiagnosticsBuilder to regenerate this file.
     static let fileName = ".mywallpaperx-scene-interpretation.json"
 
     let formatVersion: Int

@@ -183,7 +183,13 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
     def test_runtime_log_patterns_capture_ready_and_release(self) -> None:
         ready = benchmark.READY_RE.search(
             "MWX DEBUG SCENE: phase=ready root=/tmp/sample layers=35 "
-            "imageLayers=24 effects=29 surfaces=1 windows=42 previewLog=/tmp/log"
+            "imageLayers=24 effects=29 surfaces=1 windows=42 previewLog=/tmp/log "
+            "interpretation=/tmp/cache/.mywallpaperx-scene-interpretation.json"
+        )
+        interpretation = benchmark.INTERPRETATION_RE.search(
+            "MWX DEBUG SCENE: phase=ready root=/tmp/sample layers=35 "
+            "imageLayers=24 effects=29 surfaces=1 windows=42 previewLog=/tmp/log "
+            "interpretation=/tmp/cache/.mywallpaperx-scene-interpretation.json"
         )
         stopped = benchmark.STOPPED_RE.search(
             "MWX DEBUG SCENE: phase=stopped surfacesBefore=1 surfacesAfter=0"
@@ -194,6 +200,10 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "camera: projection=cover parallax=false amount=8e-2 mouseInfluence=-1.0"
         )
         self.assertEqual(ready.group("images"), "24")
+        self.assertEqual(
+            interpretation.group("path"),
+            "/tmp/cache/.mywallpaperx-scene-interpretation.json",
+        )
         self.assertEqual(stopped.group("after"), "0")
         self.assertEqual(loaded.group("loaded"), "20")
         self.assertEqual(text_loaded.group("loaded"), "10")
