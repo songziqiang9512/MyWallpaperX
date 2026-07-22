@@ -36,6 +36,38 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 benchmark.load_matrix(path)
 
+    def test_default_matrix_pins_solid_layer_semantics(self) -> None:
+        matrix = benchmark.load_matrix(SCRIPT_DIR / "scene_wallpaper_sample_matrix.json")
+        samples = {sample["id"]: sample for sample in matrix["samples"]}
+        expected = {
+            "3722933264": (0, 0, 0),
+            "3723230275": (1, 0, 1),
+            "3723257973": (29, 3, 2),
+            "3723344874": (3, 1, 3),
+            "3724095562": (0, 0, 0),
+            "3724289844": (0, 0, 0),
+            "3724553795": (0, 0, 0),
+            "3742133044": (0, 0, 0),
+            "3750813609": (1, 1, 1),
+            "3766387484": (0, 0, 0),
+            "3765760121": (0, 0, 0),
+        }
+        self.assertEqual(set(samples), set(expected))
+        for sample_id, (solid_count, authored_color_count, effective_count) in expected.items():
+            sample = samples[sample_id]
+            self.assertEqual(sample["expected_interpretation_format"], 11)
+            self.assertEqual(sample["expected_solid_layer_count"], solid_count)
+            self.assertEqual(
+                sample["expected_authored_solid_color_layer_count"],
+                authored_color_count,
+            )
+            self.assertEqual(sample["expected_solid_candidates"], solid_count)
+            if solid_count:
+                self.assertEqual(
+                    sample["expected_effective_visible_solid_layer_count"],
+                    effective_count,
+                )
+
     def test_copy_sample_requires_project_and_package(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-copy-") as directory:
             root = Path(directory)
@@ -166,17 +198,21 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                             "visible": True,
                             "parentID": 1,
                             "text": "property gate",
+                            "contentKind": "solid",
                             "parallaxDepthXY": [2, 0],
                             "disablesParallaxPropagation": True,
                         }, {
                             "id": 8,
                             "visible": True,
                             "parentID": None,
+                            "contentKind": "solid",
+                            "colorRGB": [0.2, 0.4, 0.6],
                             "effects": [],
                         }, {
                             "id": 9,
                             "visible": True,
                             "parentID": 8,
+                            "contentKind": "solid",
                             "effects": [],
                         }],
                     },
@@ -199,6 +235,12 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             self.assertEqual(metrics["max_hierarchy_depth"], 1)
             self.assertEqual(metrics["effective_visible_layer_count"], 2)
             self.assertEqual(metrics["effective_visible_layer_ids"], [8, 9])
+            self.assertEqual(metrics["solid_layer_count"], 3)
+            self.assertEqual(metrics["solid_layer_ids"], [7, 8, 9])
+            self.assertEqual(metrics["authored_solid_color_layer_count"], 1)
+            self.assertEqual(metrics["authored_solid_color_layer_ids"], [8])
+            self.assertEqual(metrics["effective_visible_solid_layer_count"], 2)
+            self.assertEqual(metrics["effective_visible_solid_layer_ids"], [8, 9])
             self.assertEqual(metrics["authored_parallax_layer_count"], 1)
             self.assertEqual(metrics["authored_parallax_layer_ids"], [7])
             self.assertEqual(metrics["parallax_propagation_block_count"], 1)
@@ -259,6 +301,43 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(float(camera.group("amount")), 0.08)
         self.assertEqual(float(camera.group("delay")), 0.25)
         self.assertEqual(float(camera.group("influence")), -1.0)
+
+    def test_solid_runtime_fixture_metrics_and_optional_gates(self) -> None:
+        preview_log = """Scene preview texture load report
+solidLayerCount: 3
+layer 13 "Backdrop": OK procedural solid tint=(1.00000, 1.00000, 1.00000)
+layer 311 "Accent": OK procedural solid tint=(0.20000, 0.40000, 0.60000)
+"""
+        metrics = benchmark.solid_runtime_metrics(preview_log)
+        self.assertTrue(metrics["has_count_evidence"])
+        self.assertEqual(metrics["loaded"], 2)
+        self.assertEqual(metrics["candidates"], 3)
+        self.assertEqual(metrics["loaded_ratio"], 2 / 3)
+        self.assertEqual(metrics["loaded_layer_ids"], [13, 311])
+        self.assertEqual(
+            benchmark.solid_runtime_failures({
+                "expected_solid_candidates": 3,
+                "required_solid_loaded_layer_ids": [13, 311],
+            }, metrics),
+            [],
+        )
+        self.assertEqual(
+            benchmark.solid_runtime_failures({
+                "expected_solid_candidates": 4,
+                "required_solid_loaded_layer_ids": [551],
+            }, metrics),
+            [
+                "solid layer candidate count mismatch",
+                "solid layer 551 should be loaded",
+            ],
+        )
+        self.assertEqual(
+            benchmark.solid_runtime_failures(
+                {"expected_solid_candidates": 0},
+                benchmark.solid_runtime_metrics("loaded: 2 / 2\n"),
+            ),
+            ["solid layer count evidence missing"],
+        )
 
     def test_particle_runtime_fixture_metrics_and_optional_gates(self) -> None:
         preview_log = """Scene preview texture load report

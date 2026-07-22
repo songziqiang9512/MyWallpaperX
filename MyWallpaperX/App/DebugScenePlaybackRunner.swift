@@ -67,7 +67,7 @@ enum DebugScenePlaybackRunner {
             }
 
             let snapshot = SceneDesktopWallpaperHost.shared.debugSnapshot()
-            let imageLayerCount = model.renderDescriptor.layers.filter { $0.contentKind == "image" }.count
+            let imageLayerCount = model.renderDescriptor.layers.filter(\.isImageRenderable).count
             NSLog(
                 "MWX DEBUG SCENE: phase=ready root=%@ layers=%d imageLayers=%d effects=%d surfaces=%d windows=%@ previewLog=%@ interpretation=%@",
                 rootURL.path,

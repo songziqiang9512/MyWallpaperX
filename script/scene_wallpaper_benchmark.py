@@ -52,6 +52,11 @@ PARTICLE_SKIPPED_HIDDEN_RE = re.compile(
     re.MULTILINE,
 )
 PARTICLE_LAYER_OK_RE = re.compile(r'^particle layer (?P<id>\d+) .*: OK ', re.MULTILINE)
+SOLID_LAYER_COUNT_RE = re.compile(r"^solidLayerCount: (?P<count>\d+)$", re.MULTILINE)
+SOLID_LAYER_OK_RE = re.compile(
+    r'^layer (?P<id>\d+) .*: OK procedural solid(?:\s|$)',
+    re.MULTILINE,
+)
 FLOAT_PATTERN = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
 CAMERA_RE = re.compile(
     r"^camera: projection=(?P<projection>\S+) parallax=(?P<parallax>true|false) "
@@ -191,6 +196,19 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
         ]
         material_passes = descriptor.get("materialPasses", [])
         graph = layer_graph_metrics(layers)
+        solid_layers = [layer for layer in layers if layer.get("contentKind") == "solid"]
+        solid_layer_ids = [
+            layer["id"] for layer in solid_layers if type(layer.get("id")) is int
+        ]
+        effective_visible_ids = set(graph["effective_visible_layer_ids"])
+        effective_visible_solid_layer_ids = [
+            layer_id for layer_id in solid_layer_ids if layer_id in effective_visible_ids
+        ]
+        authored_solid_color_layer_ids = [
+            layer["id"]
+            for layer in solid_layers
+            if type(layer.get("id")) is int and isinstance(layer.get("colorRGB"), list)
+        ]
         parallax_layers = [
             layer
             for layer in layers
@@ -210,6 +228,12 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
             "visible_layer_count": sum(layer.get("visible") is not False for layer in layers),
             "visible_layer_ids": [layer.get("id") for layer in layers if layer.get("visible") is not False],
             **graph,
+            "solid_layer_count": len(solid_layers),
+            "solid_layer_ids": solid_layer_ids,
+            "authored_solid_color_layer_count": len(authored_solid_color_layer_ids),
+            "authored_solid_color_layer_ids": authored_solid_color_layer_ids,
+            "effective_visible_solid_layer_count": len(effective_visible_solid_layer_ids),
+            "effective_visible_solid_layer_ids": effective_visible_solid_layer_ids,
             "authored_parallax_layer_count": len(parallax_layers),
             "authored_parallax_layer_ids": [layer.get("id") for layer in parallax_layers],
             "parallax_propagation_block_count": sum(
@@ -243,6 +267,12 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
             "max_hierarchy_depth": 0,
             "effective_visible_layer_count": 0,
             "effective_visible_layer_ids": [],
+            "solid_layer_count": 0,
+            "solid_layer_ids": [],
+            "authored_solid_color_layer_count": 0,
+            "authored_solid_color_layer_ids": [],
+            "effective_visible_solid_layer_count": 0,
+            "effective_visible_solid_layer_ids": [],
             "authored_parallax_layer_count": 0,
             "authored_parallax_layer_ids": [],
             "parallax_propagation_block_count": 0,
@@ -278,6 +308,43 @@ def particle_runtime_metrics(preview_text: str) -> dict[str, Any]:
         "skipped_hidden": int(skipped_hidden_match.group("count")) if skipped_hidden_match else 0,
         "loaded_layer_ids": [int(match.group("id")) for match in PARTICLE_LAYER_OK_RE.finditer(preview_text)],
     }
+
+
+def solid_runtime_metrics(preview_text: str) -> dict[str, Any]:
+    count_match = SOLID_LAYER_COUNT_RE.search(preview_text)
+    loaded_layer_ids = [
+        int(match.group("id")) for match in SOLID_LAYER_OK_RE.finditer(preview_text)
+    ]
+    candidates = int(count_match.group("count")) if count_match else 0
+    return {
+        "has_count_evidence": count_match is not None,
+        "loaded": len(loaded_layer_ids),
+        "candidates": candidates,
+        "loaded_ratio": len(loaded_layer_ids) / candidates if candidates else 0.0,
+        "loaded_layer_ids": loaded_layer_ids,
+    }
+
+
+def solid_runtime_failures(
+    sample: dict[str, Any],
+    metrics: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    requires_count_evidence = (
+        "expected_solid_candidates" in sample
+        or bool(sample.get("required_solid_loaded_layer_ids"))
+    )
+    if requires_count_evidence and not metrics["has_count_evidence"]:
+        failures.append("solid layer count evidence missing")
+    elif "expected_solid_candidates" in sample:
+        if metrics["candidates"] != int(sample["expected_solid_candidates"]):
+            failures.append("solid layer candidate count mismatch")
+
+    loaded_layer_ids = set(metrics["loaded_layer_ids"])
+    for layer_id in sample.get("required_solid_loaded_layer_ids", []):
+        if layer_id not in loaded_layer_ids:
+            failures.append(f"solid layer {layer_id} should be loaded")
+    return failures
 
 
 def particle_runtime_failures(
@@ -407,6 +474,7 @@ def run_sample(
     text_loaded = int(text_loaded_match.group("loaded")) if text_loaded_match else 0
     text_total = int(text_loaded_match.group("total")) if text_loaded_match else 0
     text_loaded_layer_ids = [int(match.group("id")) for match in TEXT_LAYER_OK_RE.finditer(preview_text)]
+    solid_runtime = solid_runtime_metrics(preview_text)
     particle_runtime = particle_runtime_metrics(preview_text)
     camera_match = CAMERA_RE.search(preview_text)
     ready_snapshot = result_dir / "scene-ready-window.png"
@@ -475,6 +543,7 @@ def run_sample(
     for layer_id in sample.get("required_text_loaded_layer_ids", []):
         if layer_id not in text_loaded_layer_ids:
             failures.append(f"text layer {layer_id} should be loaded")
+    failures.extend(solid_runtime_failures(sample, solid_runtime))
     failures.extend(particle_runtime_failures(sample, particle_runtime))
     blur_runtime_count = preview_text.count("effect runtime gaussian-blur;")
     if blur_runtime_count < int(sample.get("minimum_gaussian_blur_runtime_count", 0)):
@@ -534,6 +603,9 @@ def run_sample(
         "expected_parent_layer_count": "parent_layer_count",
         "expected_max_hierarchy_depth": "max_hierarchy_depth",
         "expected_effective_visible_layer_count": "effective_visible_layer_count",
+        "expected_solid_layer_count": "solid_layer_count",
+        "expected_authored_solid_color_layer_count": "authored_solid_color_layer_count",
+        "expected_effective_visible_solid_layer_count": "effective_visible_solid_layer_count",
         "expected_built_in_reference_count": "built_in_reference_count",
         "expected_missing_resource_count": "missing_resource_count",
     }
@@ -557,6 +629,16 @@ def run_sample(
     for layer_id in sample.get("required_effectively_hidden_layer_ids", []):
         if layer_id in effective_visible_layer_ids:
             failures.append(f"Scene layer {layer_id} should be effectively hidden")
+    solid_layer_ids = set(interpretation["solid_layer_ids"])
+    for layer_id in sample.get("required_solid_layer_ids", []):
+        if layer_id not in solid_layer_ids:
+            failures.append(f"Scene solid layer {layer_id} is missing")
+    effective_visible_solid_layer_ids = set(
+        interpretation["effective_visible_solid_layer_ids"]
+    )
+    for layer_id in sample.get("required_effectively_visible_solid_layer_ids", []):
+        if layer_id not in effective_visible_solid_layer_ids:
+            failures.append(f"Scene solid layer {layer_id} should be effectively visible")
     effect_files = set(interpretation["effect_files"])
     for effect_file in sample.get("required_effect_files", []):
         if effect_file not in effect_files:
@@ -616,6 +698,10 @@ def run_sample(
             "loaded_textures_text": text_loaded,
             "text_candidates": text_total,
             "text_loaded_layer_ids": text_loaded_layer_ids,
+            "loaded_solid_layers": solid_runtime["loaded"],
+            "solid_candidates": solid_runtime["candidates"],
+            "solid_loaded_ratio": round(solid_runtime["loaded_ratio"], 4),
+            "solid_loaded_layer_ids": solid_runtime["loaded_layer_ids"],
             "loaded_particle_layers": particle_runtime["loaded"],
             "particle_candidates": particle_runtime["candidates"],
             "particle_loaded_ratio": round(particle_runtime["loaded_ratio"], 4),

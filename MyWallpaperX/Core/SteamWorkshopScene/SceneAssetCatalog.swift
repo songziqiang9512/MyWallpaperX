@@ -5,6 +5,7 @@ struct SceneAssetCatalog {
         let relativePath: String
         let materialPath: String?
         let autosize: Bool?
+        let isSolidLayer: Bool
         let cropOffsetXY: [Float]?
         let puppetPath: String?
 
@@ -82,6 +83,7 @@ struct SceneAssetCatalogLoader {
             relativePath: resource.relativePath,
             materialPath: normalizedPath(root["material"] as? String),
             autosize: root["autosize"] as? Bool,
+            isSolidLayer: root["solidlayer"] as? Bool ?? false,
             cropOffsetXY: parsedVector(root["cropoffset"], length: 2),
             puppetPath: normalizedPath(root["puppet"] as? String)
         )

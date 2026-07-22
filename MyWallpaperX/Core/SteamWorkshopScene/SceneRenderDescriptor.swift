@@ -52,6 +52,7 @@ struct SceneRenderDescriptor: Codable {
         let childLayerIDs: [Int]
         let visible: Bool?
         let alpha: Double?
+        let colorRGB: [Float]?
         let colorBlendMode: Int?
         let origin: String?
         let size: String?
@@ -75,6 +76,10 @@ struct SceneRenderDescriptor: Codable {
         let effects: [EffectDescriptor]
         let effectFiles: [String]
         let texturePaths: [String]
+
+        nonisolated var isImageRenderable: Bool {
+            contentKind == "image" || contentKind == "solid"
+        }
 
         nonisolated var renderSizeWH: [Float]? {
             guard contentKind == "text", let textStyle else { return sizeWH }
@@ -137,6 +142,9 @@ struct SceneRenderDescriptorBuilder {
         let modelCropOffsetsByPath = Dictionary(
             uniqueKeysWithValues: assetCatalog.models.map { ($0.relativePath, $0.cropOffsetXY) }
         )
+        let solidModelPaths = Set(
+            assetCatalog.models.filter(\.isSolidLayer).map { $0.relativePath.localizedLowercase }
+        )
         let childIDsByParentID = sceneDocument.objects.reduce(into: [Int: [Int]]()) { result, object in
             guard let parentID = object.parentID else { return }
             result[parentID, default: []].append(object.id)
@@ -148,11 +156,12 @@ struct SceneRenderDescriptorBuilder {
             entryPath: project.entryPath,
             camera: cameraDescriptor(from: sceneDocument),
             layers: sceneDocument.objects.enumerated().map { index, object in
-                SceneRenderDescriptor.Layer(
+                let contentKind = contentKind(for: object, solidModelPaths: solidModelPaths)
+                return SceneRenderDescriptor.Layer(
                     id: object.id,
                     layerIndex: index,
                     name: object.name,
-                    contentKind: contentKind(for: object),
+                    contentKind: contentKind,
                     imagePath: object.imagePath,
                     particlePath: object.particlePath,
                     particleInstanceOverride: object.particleInstanceOverride,
@@ -160,6 +169,7 @@ struct SceneRenderDescriptorBuilder {
                     childLayerIDs: childIDsByParentID[object.id] ?? [],
                     visible: object.visible,
                     alpha: object.alpha,
+                    colorRGB: padVector(object.colorRGB, length: 3, fill: 1),
                     colorBlendMode: object.colorBlendMode,
                     origin: object.origin,
                     size: object.size,
@@ -237,7 +247,15 @@ struct SceneRenderDescriptorBuilder {
         }
     }
 
-    nonisolated private func contentKind(for object: SceneDocument.SceneObject) -> String {
+    nonisolated private func contentKind(
+        for object: SceneDocument.SceneObject,
+        solidModelPaths: Set<String>
+    ) -> String {
+        let normalizedImagePath = object.imagePath?.localizedLowercase
+        if normalizedImagePath == "models/util/solidlayer.json"
+            || normalizedImagePath.map(solidModelPaths.contains) == true {
+            return "solid"
+        }
         if object.imagePath != nil {
             return "image"
         }

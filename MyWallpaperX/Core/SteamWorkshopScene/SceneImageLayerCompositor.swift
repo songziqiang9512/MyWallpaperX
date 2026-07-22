@@ -68,7 +68,10 @@ struct SceneImageLayerCompositor {
         let directUniforms = makeFragmentUniforms(
             values: request.uniforms,
             effectInputs: effectPlan.inputs,
-            textureFrame: request.textureFrame
+            textureFrame: request.textureFrame,
+            tint: request.layer.contentKind == "solid"
+                ? SIMD3(request.layer.colorRGB ?? [], fill: 1)
+                : SIMD3(repeating: 1)
         )
         if effectPlan.offscreenPassCount > 0,
            let pool = request.offscreenTexturePool,
@@ -145,7 +148,8 @@ struct SceneImageLayerCompositor {
     private func makeFragmentUniforms(
         values: SceneImageLayerUniformValues,
         effectInputs: SceneLayerEffectInputs,
-        textureFrame: SceneTextureUVTransform
+        textureFrame: SceneTextureUVTransform,
+        tint: SIMD3<Float>
     ) -> SceneLayerFragmentUniforms {
         SceneLayerFragmentUniforms(
             time: values.time,
@@ -154,6 +158,7 @@ struct SceneImageLayerCompositor {
             _pad0: 0,
             cursorUV: values.cursorUV,
             _pad1: .zero,
+            tint: SIMD4(tint.x, tint.y, tint.z, 1),
             effectParams0: effectInputs.params0,
             effectParams1: effectInputs.params1,
             effectParams2: effectInputs.params2,

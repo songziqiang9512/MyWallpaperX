@@ -12,8 +12,8 @@ struct SceneInterpretationFile: Codable {
 }
 
 struct SceneInterpretationFileWriter {
-    // formatVersion 10 expands text layer geometry by its authored padding.
-    static let currentFormatVersion = 10
+    // formatVersion 11 carries authored layer color and procedural solid layers.
+    static let currentFormatVersion = 11
 
     func write(
         renderDescriptor: SceneRenderDescriptor,

@@ -81,6 +81,7 @@ extension SceneLayerFragmentUniforms {
             _pad0: 0,
             cursorUV: .zero,
             _pad1: .zero,
+            tint: SIMD4(repeating: 1),
             effectParams0: .zero,
             effectParams1: .zero,
             effectParams2: .zero,

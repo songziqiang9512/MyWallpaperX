@@ -56,6 +56,7 @@ struct SceneDocument {
         let parentID: Int?
         let visible: Bool?
         let alpha: Double?
+        let colorRGB: [Float]?
         let colorBlendMode: Int?
         let origin: String?
         let size: String?
@@ -202,6 +203,7 @@ struct SceneDocumentLoader {
             parentID: root["parent"] as? Int,
             visible: visibleValue(root["visible"]),
             alpha: doubleValue(root["alpha"]),
+            colorRGB: floatVector(root["color"]),
             colorBlendMode: root["colorBlendMode"] as? Int,
             origin: stringValue(root["origin"]),
             size: stringValue(root["size"]),

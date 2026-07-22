@@ -7,6 +7,7 @@ class SceneMetalView: NSView {
     private let metalDevice: MTLDevice
     private let renderer: SceneMetalRenderer
     private let metalLayer: CAMetalLayer
+    private let solidLayerTexture: MTLTexture?
     private var imageTextures: [Int: MTLTexture] = [:]
     private var spriteAnimations: [Int: SceneSpriteAnimation] = [:]
     private var videoTextureSources: [Int: SceneVideoTextureSource] = [:]
@@ -38,6 +39,7 @@ class SceneMetalView: NSView {
         guard let renderer = SceneMetalRenderer(renderDescriptor: renderDescriptor) else { return nil }
         self.metalDevice = renderer.device
         self.renderer = renderer
+        self.solidLayerTexture = SceneSolidLayerTexture.make(device: renderer.device)
 
         let layer = CAMetalLayer()
         layer.device = renderer.device
@@ -183,10 +185,42 @@ class SceneMetalView: NSView {
         report.append("Scene preview texture load report")
         report.append("camera: projection=cover parallax=\(renderer.renderDescriptor.camera.parallaxEnabled) amount=\(renderer.renderDescriptor.camera.parallaxAmount) delay=\(renderer.renderDescriptor.camera.parallaxDelay) mouseInfluence=\(renderer.renderDescriptor.camera.parallaxMouseInfluence)")
         report.append("cacheDirectory: \(cacheDirectory.path)")
-        report.append("imageLayerCount: \(renderer.renderDescriptor.layers.filter { $0.contentKind == "image" }.count)")
-        for layer in renderer.renderDescriptor.layers where layer.contentKind == "image" {
+        let imageLayers = renderer.renderDescriptor.layers.filter(\.isImageRenderable)
+        report.append("imageLayerCount: \(imageLayers.count)")
+        report.append("solidLayerCount: \(imageLayers.filter { $0.contentKind == "solid" }.count)")
+        for layer in imageLayers {
             let name = layer.name ?? "(unnamed)"
             let placementSummary = renderer.debugPlacementSummary(for: layer)
+            if layer.contentKind == "solid" {
+                guard let texture = solidLayerTexture else {
+                    report.append("layer \(layer.id) \"\(name)\": procedural solid texture unavailable; \(placementSummary)")
+                    continue
+                }
+                loaded[layer.id] = texture
+                let effectTextures = SceneLayerEffectTextureLoader.load(
+                    for: layer, resolver: resolver, loader: loader, device: metalDevice
+                )
+                effectTextures.merge(
+                    layerID: layer.id,
+                    irisMasks: &loadedIrisMasks,
+                    opacityMasks: &loadedOpacityMasks,
+                    waterMasks: &loadedWaterMasks,
+                    foliageMasks: &loadedFoliageMasks,
+                    waterRippleNormals: &loadedWaterRippleNormals
+                )
+                let color = SIMD3(layer.colorRGB ?? [], fill: 1)
+                var message = String(
+                    format: "layer %d \"%@\": OK procedural solid tint=(%.5f, %.5f, %.5f)",
+                    layer.id, name, color.x, color.y, color.z
+                )
+                message += effectTextures.message
+                if let effectSummary = renderer.effectRuntimeSummary(for: layer) {
+                    message += "; \(effectSummary)"
+                }
+                message += "; \(placementSummary)"
+                report.append(message)
+                continue
+            }
             guard let url = resolver.resolvePrimaryTexture(for: layer) else {
                 report.append("layer \(layer.id) \"\(name)\": no texture URL (built-in or unresolvable); \(placementSummary)")
                 continue

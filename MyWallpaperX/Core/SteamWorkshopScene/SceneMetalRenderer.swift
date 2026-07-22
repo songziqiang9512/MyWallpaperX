@@ -45,7 +45,7 @@ struct SceneMetalRenderer {
 
     func diagnostics() -> SceneMetalRendererDiagnostic {
         let layers = renderDescriptor.layers
-        let imageCount = layers.filter { $0.contentKind == "image" }.count
+        let imageCount = layers.filter(\.isImageRenderable).count
         let particleCount = layers.filter { $0.contentKind == "particle" }.count
         let textCount = layers.filter { $0.contentKind == "text" }.count
         let containerCount = layers.filter { $0.contentKind == "container" }.count
@@ -187,7 +187,7 @@ struct SceneMetalRenderer {
         for layer in orderedLayers {
             guard visibleLayerIDs.contains(layer.id) else { continue }
             switch layer.contentKind {
-            case "image", "text":
+            case "image", "solid", "text":
                 guard let imagePipeline, let texture = imageTextures[layer.id] else { continue }
                 let model = imageModelMatrix(
                     for: layer,

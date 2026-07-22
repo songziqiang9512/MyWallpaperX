@@ -35,7 +35,7 @@ struct SceneEffectFlags: OptionSet {
 }
 
 // Per-layer uniform packed for setFragmentBytes. Layout matches MSL struct
-// LayerFragmentUniforms below; total 96 bytes (16-byte aligned).
+// LayerFragmentUniforms below; all vector fields stay 16-byte aligned.
 struct SceneLayerFragmentUniforms {
     var time: Float
     var alpha: Float
@@ -43,6 +43,7 @@ struct SceneLayerFragmentUniforms {
     var _pad0: UInt32      // pad to 16-byte boundary before float2 cursorUV
     var cursorUV: SIMD2<Float>   // cursor in layer-local UV space ([0..1])
     var _pad1: SIMD2<Float>      // pad to 32 bytes
+    var tint: SIMD4<Float>
     var effectParams0: SIMD4<Float>
     var effectParams1: SIMD4<Float>
     var effectParams2: SIMD4<Float>
@@ -75,6 +76,7 @@ struct LayerFragmentUniforms {
     uint  _pad0;
     float2 cursorUV;
     float2 _pad1;
+    float4 tint;
     float4 effectParams0;
     float4 effectParams1;
     float4 effectParams2;
@@ -233,7 +235,7 @@ fragment float4 sceneImageLayerFrag(
         color *= opacity;
     }
 
-    return color * u.alpha;
+    return color * u.tint * u.alpha;
 }
 """
 

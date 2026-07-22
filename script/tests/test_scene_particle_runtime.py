@@ -73,6 +73,7 @@ struct SceneLayerFragmentUniforms {
     var _pad0: UInt32
     var cursorUV: SIMD2<Float>
     var _pad1: SIMD2<Float>
+    var tint: SIMD4<Float>
     var effectParams0: SIMD4<Float>
     var effectParams1: SIMD4<Float>
     var effectParams2: SIMD4<Float>
