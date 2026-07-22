@@ -453,7 +453,10 @@
       "expected_utility_candidates": 11,
       "expected_utility_capture_planned": 2,
       "expected_utility_dependency_edges": 8,
-      "expected_utility_named_target_gaps": 6,
+      "expected_utility_named_consumers": 7,
+      "expected_utility_named_target_planned": 6,
+      "expected_utility_named_binding_planned": 7,
+      "expected_utility_named_target_gaps": 0,
       "required_utility_dispositions": {
         "410": "capture",
         "530": "capture",
@@ -461,6 +464,8 @@
         "414": "unsupportedEffects"
       },
       "required_utility_capture_succeeded_layer_ids": [410, 530],
+      "required_named_target_capture_succeeded_layer_ids": [125, 84, 91, 253, 271, 291],
+      "required_named_target_binding_succeeded_layer_ids": [70, 791, 182, 217, 245, 265, 285],
       "minimum_loaded_ratio": 1.0,
       "requires_motion": false
     },

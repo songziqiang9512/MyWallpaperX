@@ -62,14 +62,32 @@ enum SceneUtilityLayerRuntimePlanner {
         let plans = plans(in: descriptor)
         let ordered = descriptor.layers.compactMap { plans[$0.id] }
         let dependencyEdges = descriptor.layers.flatMap(\.dependencyLayerIDs).count
+        let dependencyPlan = SceneDependencyRenderPlan(
+            descriptor: descriptor,
+            visibleLayerIDs: SceneLayerVisibility.visibleLayerIDs(in: descriptor)
+        )
+        let namedTargetProviderIDs = dependencyPlan.requiredProviderLayerIDs
+        let namedTargetGaps = ordered.filter {
+            $0.requiresNamedTarget && !namedTargetProviderIDs.contains($0.layerID)
+        }
         var lines = [
             "utilityLayerCount: \(ordered.count)",
             "utilityCapturePlannedCount: \(ordered.filter(\.shouldCapture).count)",
             "utilityDependencyEdgeCount: \(dependencyEdges)",
-            "utilityNamedTargetGapCount: \(ordered.filter(\.requiresNamedTarget).count)"
+            "utilityNamedConsumerCount: \(dependencyPlan.namedReferenceConsumerLayerIDs.count)",
+            "utilityNamedTargetPlannedCount: \(namedTargetProviderIDs.count)",
+            "utilityNamedBindingPlannedCount: \(dependencyPlan.bindingsByConsumerLayerID.count)",
+            "utilityNamedTargetGapCount: \(namedTargetGaps.count)"
         ]
         for plan in ordered {
-            let namedTarget = plan.requiresNamedTarget ? "; named target unsupported" : ""
+            let namedTarget: String
+            if namedTargetProviderIDs.contains(plan.layerID) {
+                namedTarget = "; named target planned"
+            } else if plan.requiresNamedTarget {
+                namedTarget = "; named target unsupported"
+            } else {
+                namedTarget = ""
+            }
             lines.append(
                 "utility layer \(plan.layerID): \(plan.disposition.rawValue) kind=\(plan.kind.rawValue)\(namedTarget)"
             )
@@ -99,6 +117,13 @@ enum SceneUtilityLayerRuntimePlanner {
 
 extension SceneRenderDescriptor {
     var requiresReadableFramebuffer: Bool {
-        SceneUtilityLayerRuntimePlanner.plans(in: self).values.contains { $0.shouldCapture }
+        if SceneUtilityLayerRuntimePlanner.plans(in: self).values.contains(where: { $0.shouldCapture }) {
+            return true
+        }
+        let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: self)
+        return !SceneDependencyRenderPlan(
+            descriptor: self,
+            visibleLayerIDs: visibleLayerIDs
+        ).requiredProviderLayerIDs.isEmpty
     }
 }

@@ -31,6 +31,8 @@ nonisolated struct SceneDependencyRenderPlan {
     }
 
     let references: [Reference]
+    let namedReferenceConsumerLayerIDs: Set<Int>
+    let requiredEffectConsumerLayerIDs: Set<Int>
     let bindingsByConsumerLayerID: [Int: Binding]
     let requiredProviderLayerIDs: Set<Int>
     let cyclicLayerIDs: Set<Int>
@@ -77,6 +79,20 @@ nonisolated struct SceneDependencyRenderPlan {
         }
 
         self.references = references
+        self.namedReferenceConsumerLayerIDs = Set(references.compactMap { reference in
+            visibleLayerIDs.contains(reference.consumerLayerID) ? reference.consumerLayerID : nil
+        })
+        self.requiredEffectConsumerLayerIDs = Set(descriptor.layers.compactMap { layer in
+            guard visibleLayerIDs.contains(layer.id),
+                  references.contains(where: { $0.consumerLayerID == layer.id }),
+                  layer.effects.contains(where: {
+                      $0.visible != false
+                          && $0.file.localizedLowercase.contains("clipping_mask")
+                  }) else {
+                return nil
+            }
+            return layer.id
+        })
         self.bindingsByConsumerLayerID = bindings
         self.requiredProviderLayerIDs = Set(bindings.values.map(\.providerLayerID))
         self.cyclicLayerIDs = cyclicLayerIDs

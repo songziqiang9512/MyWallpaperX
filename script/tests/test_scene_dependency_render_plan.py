@@ -66,17 +66,22 @@ enum Harness {
         let partialConsumer = consumer(8, provider: 1, extraEffect: true)
         let neutralOpacityConsumer = consumer(9, provider: 1, opacity: 1)
         let nonNeutralOpacityConsumer = consumer(10, provider: 1, opacity: 0.5)
+        let unsupportedBlendConsumer = consumer(
+            11,
+            provider: 1,
+            effectPath: "effects/blend/effect.json"
+        )
         let descriptor = SceneRenderDescriptor(
             layers: [
                 provider, visibleConsumer, hiddenConsumer,
                 cycleA, cycleB, forwardConsumer, forwardProvider, partialConsumer,
-                neutralOpacityConsumer, nonNeutralOpacityConsumer,
+                neutralOpacityConsumer, nonNeutralOpacityConsumer, unsupportedBlendConsumer,
             ],
-            renderOrderLayerIDs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+            renderOrderLayerIDs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
         )
         let plan = SceneDependencyRenderPlan(
             descriptor: descriptor,
-            visibleLayerIDs: [1, 2, 4, 5, 6, 7, 8, 9, 10]
+            visibleLayerIDs: [1, 2, 4, 5, 6, 7, 8, 9, 10, 11]
         )
         let matrixProviders = (10...15).map { layer($0, kind: .composition) }
         let matrixProviderIDs = [10, 10, 10, 11, 12, 13, 14, 15]
@@ -100,6 +105,8 @@ enum Harness {
             "parsedVariants": parsed,
             "invalidReference": SceneNamedTextureReference.parse("_rt_imageLayerComposite_bad_a") == nil,
             "referenceCount": plan.references.count,
+            "namedConsumers": plan.namedReferenceConsumerLayerIDs.sorted(),
+            "requiredEffectConsumers": plan.requiredEffectConsumerLayerIDs.sorted(),
             "bindingConsumers": plan.bindingsByConsumerLayerID.keys.sorted(),
             "requiredProviders": plan.requiredProviderLayerIDs.sorted(),
             "cycles": plan.cyclicLayerIDs.sorted(),
@@ -134,9 +141,15 @@ enum Harness {
         dependencies: [Int]? = nil,
         visible: Bool? = true,
         extraEffect: Bool = false,
-        opacity: Double? = nil
+        opacity: Double? = nil,
+        effectPath: String = "effects/workshop/clipping_mask/effect.json"
     ) -> SceneRenderDescriptor.Layer {
-        var effects = [effect(id: id, provider: provider, opacity: opacity)]
+        var effects = [effect(
+            id: id,
+            provider: provider,
+            opacity: opacity,
+            path: effectPath
+        )]
         if extraEffect {
             effects.append(.init(id: "tint", file: "effects/tint/effect.json", visible: true, passes: []))
         }
@@ -154,11 +167,12 @@ enum Harness {
     static func effect(
         id: Int,
         provider: Int,
-        opacity: Double? = nil
+        opacity: Double? = nil,
+        path: String = "effects/workshop/clipping_mask/effect.json"
     ) -> SceneRenderDescriptor.EffectDescriptor {
         .init(
             id: "effect-\(id)",
-            file: "effects/workshop/clipping_mask/effect.json",
+            file: path,
             visible: true,
             passes: [.init(
                 passIndex: 0,
@@ -209,7 +223,9 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         self.assertTrue(self.result["invalidReference"])
 
     def test_only_visible_backward_clipping_consumer_is_executable(self) -> None:
-        self.assertEqual(self.result["referenceCount"], 6)
+        self.assertEqual(self.result["referenceCount"], 7)
+        self.assertEqual(self.result["namedConsumers"], [2, 6, 8, 9, 10, 11])
+        self.assertEqual(self.result["requiredEffectConsumers"], [2, 6, 8, 9, 10])
         self.assertEqual(self.result["bindingConsumers"], [2, 9])
         self.assertEqual(self.result["requiredProviders"], [1])
 

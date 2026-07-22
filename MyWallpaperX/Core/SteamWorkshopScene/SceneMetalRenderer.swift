@@ -13,7 +13,8 @@ struct SceneMetalRenderer {
     private let parallaxByLayerID: [Int: SceneLayerParallax.Resolution]
     private let layersByID: [Int: SceneRenderDescriptor.Layer]
     private let utilityPlansByLayerID: [Int: SceneUtilityLayerRuntimePlan]
-    private let utilityCaptureTelemetry = SceneUtilityCaptureTelemetry()
+    private let dependencyRuntime: SceneDependencyFrameRuntime
+    private let utilityCaptureTelemetry = SceneGPUCompletionTelemetry(phase: "utility-capture")
     init?(renderDescriptor: SceneRenderDescriptor) {
         guard let device = MTLCreateSystemDefaultDevice(),
               let commandQueue = device.makeCommandQueue(),
@@ -24,7 +25,15 @@ struct SceneMetalRenderer {
         self.commandQueue = commandQueue
         self.renderDescriptor = renderDescriptor
         self.imageCompositor = imageCompositor
-        self.visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: renderDescriptor)
+        let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: renderDescriptor)
+        self.visibleLayerIDs = visibleLayerIDs
+        self.dependencyRuntime = SceneDependencyFrameRuntime(
+            plan: SceneDependencyRenderPlan(
+                descriptor: renderDescriptor,
+                visibleLayerIDs: visibleLayerIDs
+            ),
+            device: device
+        )
 
         let byID = Dictionary(uniqueKeysWithValues: renderDescriptor.layers.map { ($0.id, $0) })
         self.layersByID = byID
@@ -103,22 +112,9 @@ struct SceneMetalRenderer {
     }
 
     func debugPlacementSummary(for layer: SceneRenderDescriptor.Layer) -> String {
-        let origin = SIMD3<Float>(layer.originXYZ ?? [], fill: 0)
-        let size = SIMD2<Float>(layer.renderSizeWH ?? [], fill: 0)
-        let scale = SIMD3<Float>(layer.scaleXYZ ?? [], fill: 1)
-        let angles = SIMD3<Float>(layer.anglesXYZ ?? [], fill: 0)
-        let cropOffset = SIMD2<Float>(layer.modelCropOffsetXY ?? [], fill: 0)
-        let world = worldFramesByLayerID[layer.id] ?? SceneMatrix.identity()
-        let worldCenter = world.columns.3
-        return String(
-            format: "parent=%@ localOrigin=(%.2f, %.2f, %.2f) worldCenter=(%.2f, %.2f, %.2f) size=(%.2f, %.2f) scale=(%.3f, %.3f, %.3f) angles=(%.3f, %.3f, %.3f) cropOffset=(%.2f, %.2f)",
-            layer.parentID.map(String.init) ?? "nil",
-            origin.x, origin.y, origin.z,
-            worldCenter.x, worldCenter.y, worldCenter.z,
-            size.x, size.y,
-            scale.x, scale.y, scale.z,
-            angles.x, angles.y, angles.z,
-            cropOffset.x, cropOffset.y
+        SceneLayerPlacementSummary.make(
+            layer: layer,
+            worldFrame: worldFramesByLayerID[layer.id] ?? SceneMatrix.identity()
         )
     }
 
@@ -170,7 +166,11 @@ struct SceneMetalRenderer {
             camera: renderDescriptor.camera,
             viewportSize: viewportSize
         )
-        let cursorWorld = cursorWorldPosition(mouseNormalized: mouseNormalized, viewportSize: viewportSize)
+        let cursorWorld = SceneLayerCursorGeometry.worldPosition(
+            camera: renderDescriptor.camera,
+            mouseNormalized: mouseNormalized,
+            viewportSize: viewportSize
+        )
         let camera = renderDescriptor.camera
         let parallaxConfiguration = SceneLayerParallax.Configuration(
             enabled: camera.parallaxEnabled, amount: camera.parallaxAmount,
@@ -191,11 +191,31 @@ struct SceneMetalRenderer {
             clearColor: sceneClearColor
         )
 
+        dependencyRuntime.beginFrame()
         for layer in orderedLayers {
+            if let imagePipeline, dependencyRuntime.requiresCapture(for: layer.id) {
+                let providerModel = imageModelMatrix(
+                    for: layer,
+                    parallaxMouseNormalized: parallaxMouseNormalized,
+                    configuration: parallaxConfiguration
+                )
+                _ = dependencyRuntime.captureProviderIfRequired(
+                    layer: layer,
+                    layerMVP: cameraFrame.orthographicViewProjection * providerModel,
+                    viewportSize: viewportSize,
+                    pipeline: imagePipeline,
+                    mainPass: mainPass
+                )
+            }
             guard visibleLayerIDs.contains(layer.id) else { continue }
             switch layer.contentKind {
             case "image", "solid", "text":
                 guard let imagePipeline, let texture = imageTextures[layer.id] else { continue }
+                let dependencyEffect = dependencyRuntime.effectInput(for: layer.id)
+                if dependencyRuntime.requiresEffect(for: layer.id), dependencyEffect == nil {
+                    dependencyRuntime.recordBindingFailure(for: layer.id)
+                    continue
+                }
                 let model = imageModelMatrix(
                     for: layer,
                     parallaxMouseNormalized: parallaxMouseNormalized,
@@ -216,14 +236,23 @@ struct SceneMetalRenderer {
                     uniforms: SceneImageLayerUniformValues(
                         time: time,
                         alpha: Float(layer.alpha ?? 1),
-                        cursorUV: cursorUV(for: layer, cursorWorld: cursorWorld)
+                        cursorUV: SceneLayerCursorGeometry.layerUV(
+                            for: layer,
+                            cursorWorld: cursorWorld
+                        )
                     ),
                     offscreenTexturePool: offscreenTexturePool,
                     offscreenSize: nil,
                     requiresSourceCopy: false,
-                    finalCompositeAlpha: nil
+                    finalCompositeAlpha: nil,
+                    dependencyEffect: dependencyEffect
                 )
-                imageCompositor.draw(request, pipeline: imagePipeline, mainPass: mainPass)
+                let encoded = imageCompositor.draw(request, pipeline: imagePipeline, mainPass: mainPass)
+                dependencyRuntime.recordBindingIfRequired(
+                    for: layer.id,
+                    encoded: encoded,
+                    on: commandBuffer
+                )
             case "composition", "project", "fullscreen":
                 guard let imagePipeline, let offscreenTexturePool,
                       let plan = utilityPlansByLayerID[layer.id], plan.shouldCapture else { continue }
@@ -273,34 +302,6 @@ struct SceneMetalRenderer {
         encodeFrameReadback?(drawable.texture, commandBuffer)
         commandBuffer.present(drawable)
         commandBuffer.commit()
-    }
-
-    // Maps the normalized mouse position to ortho-world coordinates so
-    // per-layer UV transforms can position the cursorripple correctly.
-    //
-    // mouseNormalized is +Y-up (NSView coords), world is Y-down — subtract
-    // the Y component instead of adding it so cursor's visual top matches
-    // world's smaller-Y top.
-    private func cursorWorldPosition(mouseNormalized: SIMD2<Float>, viewportSize: CGSize) -> SIMD2<Float> {
-        let cam = renderDescriptor.camera
-        let orthoW = cam.orthoWidth ?? Float(viewportSize.width)
-        let orthoH = cam.orthoHeight ?? Float(viewportSize.height)
-        return SIMD2(
-            orthoW * 0.5 + mouseNormalized.x * orthoW * 0.5,
-            orthoH * 0.5 - mouseNormalized.y * orthoH * 0.5
-        )
-    }
-
-    // Layer-local UV for the cursor, ignoring rotation/parent transforms (good
-    // enough for cursorripple's purely-decorative wave). Both world Y and
-    // texture V grow downward, so no flip is needed.
-    private func cursorUV(for layer: SceneRenderDescriptor.Layer, cursorWorld: SIMD2<Float>) -> SIMD2<Float> {
-        let origin = SIMD3<Float>(layer.originXYZ ?? [], fill: 0)
-        let size = SIMD2<Float>(layer.renderSizeWH ?? [], fill: 0)
-        guard size.x > 0, size.y > 0 else { return .zero }
-        let u = (cursorWorld.x - (origin.x - size.x / 2)) / size.x
-        let v = (cursorWorld.y - (origin.y - size.y / 2)) / size.y
-        return SIMD2(u, v)
     }
 
     // MARK: - Matrix construction

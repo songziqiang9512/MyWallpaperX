@@ -201,7 +201,7 @@ enum Harness {
             time: 0,
             alpha: 0.75,
             effectFlags: 0,
-            _pad0: 0,
+            dependencyBlendMode: 0,
             cursorUV: .zero,
             _pad1: .zero,
             tint: SIMD4(0.1, 0.2, 0.3, 1),

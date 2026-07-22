@@ -1,7 +1,7 @@
 import Foundation
 @preconcurrency import Metal
 
-nonisolated final class SceneUtilityCaptureTelemetry: @unchecked Sendable {
+nonisolated final class SceneGPUCompletionTelemetry: @unchecked Sendable {
     private enum Status {
         case pending
         case failed
@@ -9,12 +9,17 @@ nonisolated final class SceneUtilityCaptureTelemetry: @unchecked Sendable {
     }
 
     private let lock = NSLock()
+    private let phase: String
     private var statuses: [Int: Status] = [:]
     private var reportedFailures: Set<Int> = []
 
+    init(phase: String) {
+        self.phase = phase
+    }
+
     func record(layerID: Int, encoded: Bool, on commandBuffer: MTLCommandBuffer) {
         guard encoded else {
-            complete(layerID: layerID, succeeded: false)
+            recordFailure(layerID: layerID)
             return
         }
         let shouldObserve = withLock {
@@ -26,6 +31,10 @@ nonisolated final class SceneUtilityCaptureTelemetry: @unchecked Sendable {
         commandBuffer.addCompletedHandler { [weak self] completed in
             self?.complete(layerID: layerID, succeeded: completed.status == .completed)
         }
+    }
+
+    func recordFailure(layerID: Int) {
+        complete(layerID: layerID, succeeded: false)
     }
 
     private func complete(layerID: Int, succeeded: Bool) {
@@ -40,7 +49,8 @@ nonisolated final class SceneUtilityCaptureTelemetry: @unchecked Sendable {
         }
         guard shouldReport else { return }
         NSLog(
-            "MWX DEBUG SCENE: phase=utility-capture layer=%d status=%@",
+            "MWX DEBUG SCENE: phase=%@ layer=%d status=%@",
+            phase,
             layerID,
             succeeded ? "succeeded" : "failed"
         )

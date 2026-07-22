@@ -15,6 +15,11 @@ struct SceneImageLayerUniformValues {
     let cursorUV: SIMD2<Float>
 }
 
+struct SceneDependencyEffectInput {
+    let texture: MTLTexture
+    let blendMode: Int
+}
+
 struct SceneImageLayerDrawRequest {
     let layer: SceneRenderDescriptor.Layer
     let texture: MTLTexture
@@ -26,6 +31,7 @@ struct SceneImageLayerDrawRequest {
     let offscreenSize: CGSize?
     let requiresSourceCopy: Bool
     let finalCompositeAlpha: Float?
+    let dependencyEffect: SceneDependencyEffectInput?
 }
 
 struct SceneImageLayerCompositor {
@@ -56,6 +62,9 @@ struct SceneImageLayerCompositor {
         pipeline: SceneImageLayerPipeline,
         mainPass: SceneMainPassEncoder
     ) -> Bool {
+        guard request.dependencyEffect.map({ $0.blendMode == 0 || $0.blendMode == 5 }) ?? true else {
+            return false
+        }
         let masks = request.masks
         let auxMask = masks.iris ?? masks.opacity
         let effectPlan = SceneEffectRuntimePlanner.plan(
@@ -67,6 +76,7 @@ struct SceneImageLayerCompositor {
             hasWaterRippleNormal: masks.waterRippleNormal != nil
         )
         guard effectPlan.skipsUnsupportedComposite == false else { return false }
+        let routesOffscreen = effectPlan.offscreenPassCount > 0 || request.requiresSourceCopy
 
         let directUniforms = makeFragmentUniforms(
             values: request.uniforms,
@@ -74,9 +84,10 @@ struct SceneImageLayerCompositor {
             textureFrame: request.textureFrame,
             tint: request.layer.contentKind == "solid"
                 ? SIMD3(request.layer.colorRGB ?? [], fill: 1)
-                : SIMD3(repeating: 1)
+                : SIMD3(repeating: 1),
+            dependencyBlendMode: routesOffscreen ? nil : request.dependencyEffect?.blendMode
         )
-        if effectPlan.offscreenPassCount > 0 || request.requiresSourceCopy,
+        if routesOffscreen,
            let pool = request.offscreenTexturePool,
            let textures = request.offscreenSize.map({ size in
                pool.textures(width: Int(size.width.rounded(.up)), height: Int(size.height.rounded(.up)))
@@ -110,19 +121,26 @@ struct SceneImageLayerCompositor {
                 texture: finalTexture,
                 masks: .empty,
                 mvp: request.mvp,
-                uniforms: .neutral(alpha: request.finalCompositeAlpha ?? 1),
+                uniforms: .neutral(
+                    alpha: request.finalCompositeAlpha ?? 1,
+                    dependencyBlendMode: request.dependencyEffect?.blendMode
+                ),
+                dependencyTexture: request.dependencyEffect?.texture,
                 layer: request.layer,
                 pipeline: pipeline,
                 mainPass: mainPass
             )
         }
-        if request.requiresSourceCopy { return false }
+        if request.requiresSourceCopy || (routesOffscreen && request.dependencyEffect != nil) {
+            return false
+        }
 
         return drawToMainPass(
             texture: request.texture,
             masks: masks,
             mvp: request.mvp,
             uniforms: directUniforms,
+            dependencyTexture: request.dependencyEffect?.texture,
             layer: request.layer,
             pipeline: pipeline,
             mainPass: mainPass
@@ -134,6 +152,7 @@ struct SceneImageLayerCompositor {
         masks: SceneImageLayerMasks,
         mvp: simd_float4x4,
         uniforms: SceneLayerFragmentUniforms,
+        dependencyTexture: MTLTexture?,
         layer: SceneRenderDescriptor.Layer,
         pipeline: SceneImageLayerPipeline,
         mainPass: SceneMainPassEncoder
@@ -147,6 +166,7 @@ struct SceneImageLayerCompositor {
             waterMaskTexture: masks.water,
             foliageMaskTexture: masks.foliage,
             auxMaskTexture: masks.iris ?? masks.opacity,
+            dependencyTexture: dependencyTexture,
             mvp: mvp,
             uniforms: uniforms,
             encoder: encoder
@@ -158,13 +178,18 @@ struct SceneImageLayerCompositor {
         values: SceneImageLayerUniformValues,
         effectInputs: SceneLayerEffectInputs,
         textureFrame: SceneTextureUVTransform,
-        tint: SIMD3<Float>
+        tint: SIMD3<Float>,
+        dependencyBlendMode: Int?
     ) -> SceneLayerFragmentUniforms {
-        SceneLayerFragmentUniforms(
+        var flags = effectInputs.flags
+        if dependencyBlendMode != nil {
+            flags.insert(.dependencyBlend)
+        }
+        return SceneLayerFragmentUniforms(
             time: values.time,
             alpha: values.alpha,
-            effectFlags: effectInputs.flags.rawValue,
-            _pad0: 0,
+            effectFlags: flags.rawValue,
+            dependencyBlendMode: UInt32(dependencyBlendMode ?? 0),
             cursorUV: values.cursorUV,
             _pad1: .zero,
             tint: SIMD4(tint.x, tint.y, tint.z, 1),

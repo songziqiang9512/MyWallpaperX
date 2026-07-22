@@ -87,8 +87,19 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         matrix = benchmark.load_matrix(SCRIPT_DIR / "scene_wallpaper_sample_matrix.json")
         sample = next(item for item in matrix["samples"] if item["id"] == "2902406982")
         self.assertEqual(sample["expected_utility_capture_planned"], 2)
+        self.assertEqual(sample["expected_utility_named_target_planned"], 6)
+        self.assertEqual(sample["expected_utility_named_binding_planned"], 7)
+        self.assertEqual(sample["expected_utility_named_target_gaps"], 0)
         self.assertEqual(sample["required_utility_dispositions"]["410"], "capture")
         self.assertEqual(sample["required_utility_capture_succeeded_layer_ids"], [410, 530])
+        self.assertEqual(
+            sample["required_named_target_capture_succeeded_layer_ids"],
+            [125, 84, 91, 253, 271, 291],
+        )
+        self.assertEqual(
+            sample["required_named_target_binding_succeeded_layer_ids"],
+            [70, 791, 182, 217, 245, 265, 285],
+        )
 
     def test_entry_basename_package_is_preferred_and_copied(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-copy-variant-") as directory:
@@ -408,6 +419,9 @@ particle skipped hidden: 2
 utilityLayerCount: 3
 utilityCapturePlannedCount: 1
 utilityDependencyEdgeCount: 0
+utilityNamedConsumerCount: 0
+utilityNamedTargetPlannedCount: 0
+utilityNamedBindingPlannedCount: 0
 utilityNamedTargetGapCount: 0
 utility layer 187: capture kind=project
 utility layer 96: unsupportedEffects kind=composition
@@ -417,11 +431,17 @@ utility layer 763: skippedHidden kind=composition
         self.assertTrue(metrics["has_evidence"])
         self.assertEqual(metrics["candidates"], 3)
         self.assertEqual(metrics["capture_planned"], 1)
+        self.assertEqual(metrics["named_consumers"], 0)
+        self.assertEqual(metrics["named_target_planned"], 0)
+        self.assertEqual(metrics["named_binding_planned"], 0)
         self.assertEqual(
             benchmark.utility_runtime_failures({
                 "expected_utility_candidates": 3,
                 "expected_utility_capture_planned": 1,
                 "expected_utility_dependency_edges": 0,
+                "expected_utility_named_consumers": 0,
+                "expected_utility_named_target_planned": 0,
+                "expected_utility_named_binding_planned": 0,
                 "expected_utility_named_target_gaps": 0,
                 "required_utility_dispositions": {
                     "187": "capture",
@@ -450,6 +470,33 @@ utility layer 763: skippedHidden kind=composition
         )
         self.assertEqual(metrics["succeeded_layer_ids"], [530])
         self.assertEqual(metrics["failed_layer_ids"], [410])
+
+        named_metrics = benchmark.named_target_capture_execution_metrics(
+            "phase=named-target-capture layer=125 status=failed\n"
+            "phase=named-target-capture layer=125 status=succeeded\n"
+            "phase=named-target-capture layer=84 status=failed\n"
+        )
+        self.assertEqual(named_metrics["succeeded_layer_ids"], [125])
+        self.assertEqual(named_metrics["failed_layer_ids"], [84])
+
+        binding_metrics = benchmark.named_target_binding_execution_metrics(
+            "phase=named-target-binding layer=70 status=failed\n"
+            "phase=named-target-binding layer=70 status=succeeded\n"
+            "phase=named-target-binding layer=182 status=failed\n"
+        )
+        self.assertEqual(binding_metrics["succeeded_layer_ids"], [70])
+        self.assertEqual(binding_metrics["failed_layer_ids"], [182])
+        self.assertEqual(
+            benchmark.named_target_binding_failures(
+                {"required_named_target_binding_succeeded_layer_ids": [70, 182]},
+                2,
+                binding_metrics,
+            ),
+            [
+                "named target binding execution below planned count",
+                "named target consumer 182 binding should succeed",
+            ],
+        )
 
         missing = benchmark.particle_runtime_metrics("loaded: 20 / 24\n")
         self.assertEqual(

@@ -64,6 +64,15 @@ UTILITY_CAPTURE_COUNT_RE = re.compile(
 UTILITY_DEPENDENCY_COUNT_RE = re.compile(
     r"^utilityDependencyEdgeCount: (?P<count>\d+)$", re.MULTILINE
 )
+UTILITY_NAMED_TARGET_PLANNED_RE = re.compile(
+    r"^utilityNamedTargetPlannedCount: (?P<count>\d+)$", re.MULTILINE
+)
+UTILITY_NAMED_CONSUMER_COUNT_RE = re.compile(
+    r"^utilityNamedConsumerCount: (?P<count>\d+)$", re.MULTILINE
+)
+UTILITY_NAMED_BINDING_PLANNED_RE = re.compile(
+    r"^utilityNamedBindingPlannedCount: (?P<count>\d+)$", re.MULTILINE
+)
 UTILITY_NAMED_TARGET_GAP_RE = re.compile(
     r"^utilityNamedTargetGapCount: (?P<count>\d+)$", re.MULTILINE
 )
@@ -73,6 +82,12 @@ UTILITY_LAYER_RE = re.compile(
 )
 UTILITY_CAPTURE_EXECUTION_RE = re.compile(
     r"phase=utility-capture layer=(?P<id>\d+) status=(?P<status>succeeded|failed)"
+)
+NAMED_TARGET_CAPTURE_EXECUTION_RE = re.compile(
+    r"phase=named-target-capture layer=(?P<id>\d+) status=(?P<status>succeeded|failed)"
+)
+NAMED_TARGET_BINDING_EXECUTION_RE = re.compile(
+    r"phase=named-target-binding layer=(?P<id>\d+) status=(?P<status>succeeded|failed)"
 )
 FLOAT_PATTERN = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
 CAMERA_RE = re.compile(
@@ -377,6 +392,9 @@ def utility_runtime_metrics(preview_text: str) -> dict[str, Any]:
     count_match = UTILITY_LAYER_COUNT_RE.search(preview_text)
     capture_match = UTILITY_CAPTURE_COUNT_RE.search(preview_text)
     dependency_match = UTILITY_DEPENDENCY_COUNT_RE.search(preview_text)
+    named_consumer_match = UTILITY_NAMED_CONSUMER_COUNT_RE.search(preview_text)
+    named_target_match = UTILITY_NAMED_TARGET_PLANNED_RE.search(preview_text)
+    named_binding_match = UTILITY_NAMED_BINDING_PLANNED_RE.search(preview_text)
     named_gap_match = UTILITY_NAMED_TARGET_GAP_RE.search(preview_text)
     layers = [
         {
@@ -389,11 +407,22 @@ def utility_runtime_metrics(preview_text: str) -> dict[str, Any]:
     return {
         "has_evidence": all(
             match is not None
-            for match in (count_match, capture_match, dependency_match, named_gap_match)
+            for match in (
+                count_match,
+                capture_match,
+                dependency_match,
+                named_consumer_match,
+                named_target_match,
+                named_binding_match,
+                named_gap_match,
+            )
         ),
         "candidates": int(count_match.group("count")) if count_match else 0,
         "capture_planned": int(capture_match.group("count")) if capture_match else 0,
         "dependency_edges": int(dependency_match.group("count")) if dependency_match else 0,
+        "named_consumers": int(named_consumer_match.group("count")) if named_consumer_match else 0,
+        "named_target_planned": int(named_target_match.group("count")) if named_target_match else 0,
+        "named_binding_planned": int(named_binding_match.group("count")) if named_binding_match else 0,
         "named_target_gaps": int(named_gap_match.group("count")) if named_gap_match else 0,
         "layers": layers,
     }
@@ -407,6 +436,9 @@ def utility_runtime_failures(
         "expected_utility_candidates": "candidates",
         "expected_utility_capture_planned": "capture_planned",
         "expected_utility_dependency_edges": "dependency_edges",
+        "expected_utility_named_consumers": "named_consumers",
+        "expected_utility_named_target_planned": "named_target_planned",
+        "expected_utility_named_binding_planned": "named_binding_planned",
         "expected_utility_named_target_gaps": "named_target_gaps",
     }
     requires_evidence = any(key in sample for key in expected_metrics) or bool(
@@ -431,9 +463,24 @@ def utility_runtime_failures(
 
 
 def utility_capture_execution_metrics(log_text: str) -> dict[str, Any]:
+    return capture_execution_metrics(log_text, UTILITY_CAPTURE_EXECUTION_RE)
+
+
+def named_target_capture_execution_metrics(log_text: str) -> dict[str, Any]:
+    return capture_execution_metrics(log_text, NAMED_TARGET_CAPTURE_EXECUTION_RE)
+
+
+def named_target_binding_execution_metrics(log_text: str) -> dict[str, Any]:
+    return capture_execution_metrics(log_text, NAMED_TARGET_BINDING_EXECUTION_RE)
+
+
+def capture_execution_metrics(
+    log_text: str,
+    pattern: re.Pattern[str],
+) -> dict[str, Any]:
     succeeded: set[int] = set()
     failed: set[int] = set()
-    for match in UTILITY_CAPTURE_EXECUTION_RE.finditer(log_text):
+    for match in pattern.finditer(log_text):
         layer_id = int(match.group("id"))
         if match.group("status") == "succeeded":
             succeeded.add(layer_id)
@@ -444,6 +491,21 @@ def utility_capture_execution_metrics(log_text: str) -> dict[str, Any]:
         "succeeded_layer_ids": sorted(succeeded),
         "failed_layer_ids": sorted(failed),
     }
+
+
+def named_target_binding_failures(
+    sample: dict[str, Any],
+    planned_count: int,
+    metrics: dict[str, Any],
+) -> list[str]:
+    succeeded = set(metrics["succeeded_layer_ids"])
+    failures: list[str] = []
+    if len(succeeded) < planned_count:
+        failures.append("named target binding execution below planned count")
+    for layer_id in sample.get("required_named_target_binding_succeeded_layer_ids", []):
+        if layer_id not in succeeded:
+            failures.append(f"named target consumer {layer_id} binding should succeed")
+    return failures
 
 
 def solid_runtime_failures(
@@ -598,6 +660,8 @@ def run_sample(
     solid_runtime = solid_runtime_metrics(preview_text)
     utility_runtime = utility_runtime_metrics(preview_text)
     utility_capture_execution = utility_capture_execution_metrics(log_text)
+    named_target_capture_execution = named_target_capture_execution_metrics(log_text)
+    named_target_binding_execution = named_target_binding_execution_metrics(log_text)
     particle_runtime = particle_runtime_metrics(preview_text)
     camera_match = CAMERA_RE.search(preview_text)
     ready_snapshot = result_dir / "scene-ready-window.png"
@@ -674,6 +738,17 @@ def run_sample(
     for layer_id in sample.get("required_utility_capture_succeeded_layer_ids", []):
         if layer_id not in succeeded_capture_ids:
             failures.append(f"utility layer {layer_id} capture should succeed")
+    succeeded_named_target_ids = set(named_target_capture_execution["succeeded_layer_ids"])
+    if len(succeeded_named_target_ids) < utility_runtime["named_target_planned"]:
+        failures.append("named target capture execution below planned count")
+    for layer_id in sample.get("required_named_target_capture_succeeded_layer_ids", []):
+        if layer_id not in succeeded_named_target_ids:
+            failures.append(f"named target layer {layer_id} capture should succeed")
+    failures.extend(named_target_binding_failures(
+        sample,
+        utility_runtime["named_binding_planned"],
+        named_target_binding_execution,
+    ))
     failures.extend(particle_runtime_failures(sample, particle_runtime))
     blur_runtime_count = preview_text.count("effect runtime gaussian-blur;")
     if blur_runtime_count < int(sample.get("minimum_gaussian_blur_runtime_count", 0)):
@@ -839,10 +914,17 @@ def run_sample(
             "utility_candidates": utility_runtime["candidates"],
             "utility_capture_planned": utility_runtime["capture_planned"],
             "utility_dependency_edges": utility_runtime["dependency_edges"],
+            "utility_named_consumers": utility_runtime["named_consumers"],
+            "utility_named_target_planned": utility_runtime["named_target_planned"],
+            "utility_named_binding_planned": utility_runtime["named_binding_planned"],
             "utility_named_target_gaps": utility_runtime["named_target_gaps"],
             "utility_layers": utility_runtime["layers"],
             "utility_capture_succeeded_layer_ids": utility_capture_execution["succeeded_layer_ids"],
             "utility_capture_failed_layer_ids": utility_capture_execution["failed_layer_ids"],
+            "named_target_capture_succeeded_layer_ids": named_target_capture_execution["succeeded_layer_ids"],
+            "named_target_capture_failed_layer_ids": named_target_capture_execution["failed_layer_ids"],
+            "named_target_binding_succeeded_layer_ids": named_target_binding_execution["succeeded_layer_ids"],
+            "named_target_binding_failed_layer_ids": named_target_binding_execution["failed_layer_ids"],
             "loaded_particle_layers": particle_runtime["loaded"],
             "particle_candidates": particle_runtime["candidates"],
             "particle_loaded_ratio": round(particle_runtime["loaded_ratio"], 4),

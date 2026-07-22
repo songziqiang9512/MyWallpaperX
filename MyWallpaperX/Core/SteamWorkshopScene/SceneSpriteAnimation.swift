@@ -72,13 +72,20 @@ struct SceneSpriteAnimation {
 }
 
 extension SceneLayerFragmentUniforms {
-    static func neutral(alpha: Float = 1) -> SceneLayerFragmentUniforms {
+    static func neutral(
+        alpha: Float = 1,
+        dependencyBlendMode: Int? = nil
+    ) -> SceneLayerFragmentUniforms {
         let frame = SceneTextureUVTransform.identity
+        var flags = SceneEffectFlags()
+        if dependencyBlendMode != nil {
+            flags.insert(.dependencyBlend)
+        }
         return SceneLayerFragmentUniforms(
             time: 0,
             alpha: alpha,
-            effectFlags: 0,
-            _pad0: 0,
+            effectFlags: flags.rawValue,
+            dependencyBlendMode: UInt32(dependencyBlendMode ?? 0),
             cursorUV: .zero,
             _pad1: .zero,
             tint: SIMD4(repeating: 1),

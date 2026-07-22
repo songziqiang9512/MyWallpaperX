@@ -32,6 +32,7 @@ struct SceneEffectFlags: OptionSet {
     static let shake                = SceneEffectFlags(rawValue: 1 << 7)
     static let hasShakeMask         = SceneEffectFlags(rawValue: 1 << 8)
     static let hasFoliageMask       = SceneEffectFlags(rawValue: 1 << 9)
+    static let dependencyBlend      = SceneEffectFlags(rawValue: 1 << 10)
 }
 
 // Per-layer uniform packed for setFragmentBytes. Layout matches MSL struct
@@ -40,7 +41,7 @@ struct SceneLayerFragmentUniforms {
     var time: Float
     var alpha: Float
     var effectFlags: UInt32
-    var _pad0: UInt32      // pad to 16-byte boundary before float2 cursorUV
+    var dependencyBlendMode: UInt32
     var cursorUV: SIMD2<Float>   // cursor in layer-local UV space ([0..1])
     var _pad1: SIMD2<Float>      // pad to 32 bytes
     var tint: SIMD4<Float>
@@ -73,7 +74,7 @@ struct LayerFragmentUniforms {
     float time;
     float alpha;
     uint  effectFlags;
-    uint  _pad0;
+    uint  dependencyBlendMode;
     float2 cursorUV;
     float2 _pad1;
     float4 tint;
@@ -101,6 +102,7 @@ constant uint EFFECT_HAS_WATER_MASK      = 1u << 6;
 constant uint EFFECT_SHAKE               = 1u << 7;
 constant uint EFFECT_HAS_SHAKE_MASK      = 1u << 8;
 constant uint EFFECT_HAS_FOLIAGE_MASK    = 1u << 9;
+constant uint EFFECT_DEPENDENCY_BLEND    = 1u << 10;
 
 vertex QuadVaryings sceneImageLayerVert(
     uint vid [[vertex_id]],
@@ -120,6 +122,7 @@ fragment float4 sceneImageLayerFrag(
     texture2d<float> waterMaskTex [[texture(2)]],
     texture2d<float> foliageMaskTex [[texture(3)]],
     texture2d<float> auxMaskTex [[texture(4)]],
+    texture2d<float> dependencyTex [[texture(5)]],
     constant LayerFragmentUniforms &u [[buffer(0)]]
 ) {
     constexpr sampler s(filter::linear, address::clamp_to_edge);
@@ -235,6 +238,15 @@ fragment float4 sceneImageLayerFrag(
         color *= opacity;
     }
 
+    if ((u.effectFlags & EFFECT_DEPENDENCY_BLEND) != 0u) {
+        float3 target = dependencyTex.sample(s, clamp(in.texcoord, 0.0, 1.0)).rgb;
+        if (u.dependencyBlendMode == 0u) {
+            color.rgb = mix(color.rgb, target, color.a);
+        } else if (u.dependencyBlendMode == 5u) {
+            color.rgb = min(color.rgb, target);
+        }
+    }
+
     return color * u.tint * u.alpha;
 }
 """
@@ -298,6 +310,7 @@ struct SceneImageLayerPipeline {
         waterMaskTexture: MTLTexture?,
         foliageMaskTexture: MTLTexture?,
         auxMaskTexture: MTLTexture?,
+        dependencyTexture: MTLTexture? = nil,
         mvp: simd_float4x4,
         uniforms: SceneLayerFragmentUniforms,
         encoder: MTLRenderCommandEncoder
@@ -311,6 +324,7 @@ struct SceneImageLayerPipeline {
         encoder.setFragmentTexture(waterMaskTexture ?? texture, index: 2)
         encoder.setFragmentTexture(foliageMaskTexture ?? texture, index: 3)
         encoder.setFragmentTexture(auxMaskTexture ?? texture, index: 4)
+        encoder.setFragmentTexture(dependencyTexture ?? texture, index: 5)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
     }
 }

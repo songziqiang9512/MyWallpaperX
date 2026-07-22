@@ -23,7 +23,7 @@ enum SceneUtilityLayerRenderer {
               ) else {
             return false
         }
-        return mainPass.withReadableTarget { sourceTexture in
+        return mainPass.withReadableTarget { sourceTexture, _ in
             compositor.draw(
                 SceneImageLayerDrawRequest(
                     layer: layer,
@@ -39,7 +39,8 @@ enum SceneUtilityLayerRenderer {
                     offscreenTexturePool: offscreenTexturePool,
                     offscreenSize: geometry.pixelSize,
                     requiresSourceCopy: true,
-                    finalCompositeAlpha: Float(layer.alpha ?? 1)
+                    finalCompositeAlpha: Float(layer.alpha ?? 1),
+                    dependencyEffect: nil
                 ),
                 pipeline: pipeline,
                 mainPass: mainPass
