@@ -83,6 +83,13 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             benchmark.copy_sample(source, destination)
             self.assertEqual((destination / "scene.pkg").read_bytes(), b"PKGV")
 
+    def test_default_matrix_pins_utility_capture_layers(self) -> None:
+        matrix = benchmark.load_matrix(SCRIPT_DIR / "scene_wallpaper_sample_matrix.json")
+        sample = next(item for item in matrix["samples"] if item["id"] == "2902406982")
+        self.assertEqual(sample["expected_utility_capture_planned"], 2)
+        self.assertEqual(sample["required_utility_dispositions"]["410"], "capture")
+        self.assertEqual(sample["required_utility_capture_succeeded_layer_ids"], [410, 530])
+
     def test_entry_basename_package_is_preferred_and_copied(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-copy-variant-") as directory:
             root = Path(directory)

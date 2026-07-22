@@ -45,6 +45,7 @@ enum Harness {
         let plainFoliage = effect("effects/foliagesway/effect.json")
         let maskedWater = effect("effects/waterwaves/effect.json", maskCombo: 1)
         let chromatic = effect("effects/chromaticaberration/effect.json")
+        let workshopChromatic = effect("effects/workshop/2423877731/chromatic_aberration/effect.json")
         let cursorRipple = effect("effects/cursorripple/effect.json")
         let result: [String: Any] = [
             "missingFoliageMask": raw([maskedFoliage], water: false, foliage: false),
@@ -64,6 +65,8 @@ enum Harness {
             "utilityPlainFoliage": SceneEffectRuntimeSupport.supportsUtilityCapture(plainFoliage),
             "utilityCursorRipple": SceneEffectRuntimeSupport.supportsUtilityCapture(cursorRipple),
             "chromatic": raw([chromatic], water: false, foliage: false),
+            "workshopChromatic": raw([workshopChromatic], water: false, foliage: false),
+            "utilityWorkshopChromatic": SceneEffectRuntimeSupport.supportsUtilityCapture(workshopChromatic),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -146,6 +149,8 @@ class SceneEffectMaskGatingTests(unittest.TestCase):
     def test_unmasked_and_unrelated_effects_remain_available(self) -> None:
         self.assertNotEqual(self.result["unmaskedFoliage"], 0)
         self.assertNotEqual(self.result["chromatic"], 0)
+        self.assertNotEqual(self.result["workshopChromatic"], 0)
+        self.assertTrue(self.result["utilityWorkshopChromatic"])
         self.assertFalse(self.result["utilityMaskedFoliage"])
         self.assertTrue(self.result["utilityPlainFoliage"])
         self.assertFalse(self.result["utilityCursorRipple"])

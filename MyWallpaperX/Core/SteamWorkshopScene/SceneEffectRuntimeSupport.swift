@@ -8,7 +8,7 @@ enum SceneEffectRuntimeSupport {
         if path.contains("/blur/effect.json")
             || path.contains("/blurprecise/")
             || path.contains("bloom")
-            || path.contains("chromaticaberration") {
+            || isChromaticAberration(path) {
             return true
         }
         if path.contains("foliagesway")
@@ -17,5 +17,12 @@ enum SceneEffectRuntimeSupport {
             return !SceneEffectMaskSemantics.declaresMask(in: effect)
         }
         return false
+    }
+
+    nonisolated static func isChromaticAberration(_ path: String) -> Bool {
+        path.localizedLowercase
+            .replacingOccurrences(of: "_", with: "")
+            .replacingOccurrences(of: "-", with: "")
+            .contains("chromaticaberration")
     }
 }

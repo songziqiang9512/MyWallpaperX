@@ -25,6 +25,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneEffectMaskSemantics.swift",
     SOURCE_ROOT / "SceneWaterRippleRuntimePlan.swift",
     SOURCE_ROOT / "SceneInlineEffectRuntime.swift",
+    SOURCE_ROOT / "SceneEffectRuntimeSupport.swift",
     SOURCE_ROOT / "SceneEffectRuntimePlan.swift",
     SOURCE_ROOT / "SceneOffscreenEffectRenderer.swift",
     SOURCE_ROOT / "SceneImageLayerCompositor.swift",

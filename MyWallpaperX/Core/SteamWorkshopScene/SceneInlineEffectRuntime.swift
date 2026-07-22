@@ -21,7 +21,7 @@ enum SceneInlineEffectRuntime {
             if path.contains("cursorripple") && canRunMaskedEffect(effect, maskAvailable: hasFoliageMask) {
                 flags.insert(.cursorripple)
             }
-            if path.contains("chromaticaberration") {
+            if SceneEffectRuntimeSupport.isChromaticAberration(path) {
                 flags.insert(.chromaticaberration)
             }
         }
