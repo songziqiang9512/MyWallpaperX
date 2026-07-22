@@ -1,6 +1,6 @@
 # Scene Runtime 技术设计
 
-> 历史架构快照：正文保留早期 interpretation v7 与 bounded effect 设计，不能作为当前格式或能力状态。现役 interpretation 为 v16；当前事实与实施顺序以 [`scene-capability-development-plan-2026-07-22.md`](./scene-capability-development-plan-2026-07-22.md) 和 [`../reviews/web-scene-current-state-roadmap-2026-07-19.md`](../reviews/web-scene-current-state-roadmap-2026-07-19.md) 为准。
+> 历史架构快照：正文保留早期 interpretation v7 与 bounded effect 设计，不能作为当前格式或能力状态。现役 interpretation 为 v17；当前事实与实施顺序以 [`scene-capability-development-plan-2026-07-22.md`](./scene-capability-development-plan-2026-07-22.md) 和 [`../reviews/web-scene-current-state-roadmap-2026-07-19.md`](../reviews/web-scene-current-state-roadmap-2026-07-19.md) 为准。
 
 ## 0. 总线结论
 
@@ -51,12 +51,12 @@ Steam 模块对接：
 
 文件：`<样本目录>/.mywallpaperx-scene-interpretation.json`（隐藏文件，与 `project.json` / `scene.pkg` 同级，对齐 Web 链路 `.mywallpaperx-web-analysis.json` 边界）。
 
-- `formatVersion = 7`（当前版本；包含 typed text/camera parallax、layer color blend mode，以及 effect/material nullable texture slots 与 shader combos）
+- `formatVersion = 7`（本文形成时的版本；包含 typed text/camera parallax、layer color blend mode，以及 effect/material nullable texture slots 与 shader combos）
 - 写入：`SceneDiagnosticsBuilder.build(rootURL:)` 每次都覆盖，**删除文件后下次诊断/预览自动重建**。
 - 读取：`SceneInterpretationFileReader` 严格校验版本，不兼容旧版本时由 builder 当场重生。
 - 大体积资源（材质、shader、`.tex` 等解包出来的几十 MB）仍在 `~/Library/Caches/MyWallpaperX/SteamWorkshopScene/<hash>/`，**不污染下载目录**。
 
-### `SceneRenderDescriptor` 字段约定（formatVersion 7）
+### `SceneRenderDescriptor` 字段约定（当时的 formatVersion 7）
 
 - `entryPath`、`camera` (eye/center/up + orthoWidth/orthoHeight + nearZ/farZ + clearColor + clearEnabled)
 - `layers[]`：id / layerIndex / name / contentKind (`image` / `particle` / `text` / `container`) / imagePath / particlePath / parentID / childLayerIDs / visible / alpha / colorBlendMode / **原始字符串 transform** (origin/size/scale/angles) / **数值 transform**（originXYZ/sizeWH/scaleXYZ/anglesXYZ）/ **modelCropOffsetXY**（来自 `models/*.json cropoffset`）/ text / hasInlineScript / effects（effect pass + typed constantShaderValues + texturePaths + 有序 nullable textureSlots + 整数 combos）/ effectFiles / texturePaths

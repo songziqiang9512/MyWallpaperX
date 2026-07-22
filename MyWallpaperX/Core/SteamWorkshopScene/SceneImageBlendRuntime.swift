@@ -4,6 +4,7 @@ final class SceneImageBlendRuntime {
     private struct PreparedTarget {
         let source: MTLTexture
         let provider: MTLTexture
+        let providerGeneration: UInt64
         let target: MTLTexture
     }
 
@@ -26,11 +27,11 @@ final class SceneImageBlendRuntime {
     func preparedTexture(
         for consumerLayerID: Int,
         sourceTexture: MTLTexture,
-        imageTextures: [Int: MTLTexture],
+        textureRegistry: SceneFrameTextureRegistry,
         mainPass: SceneMainPassEncoder
     ) -> MTLTexture? {
         guard let operation = plan.operationsByConsumerLayerID[consumerLayerID],
-              let providerTexture = imageTextures[operation.providerLayerID],
+              let resolution = textureRegistry.resolve(operation.textureSelection),
               let target = targetPool.texture(
                   for: consumerLayerID,
                   width: sourceTexture.width,
@@ -38,9 +39,11 @@ final class SceneImageBlendRuntime {
               ) else {
             return nil
         }
+        let providerTexture = resolution.texture
         if let prepared = preparedTargets[consumerLayerID],
            prepared.source === sourceTexture,
            prepared.provider === providerTexture,
+           prepared.providerGeneration == resolution.generation,
            prepared.target === target {
             return prepared.target
         }
@@ -65,6 +68,7 @@ final class SceneImageBlendRuntime {
         preparedTargets[consumerLayerID] = PreparedTarget(
             source: sourceTexture,
             provider: providerTexture,
+            providerGeneration: resolution.generation,
             target: target
         )
         return target

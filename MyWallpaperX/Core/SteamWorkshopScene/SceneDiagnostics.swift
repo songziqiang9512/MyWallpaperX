@@ -135,12 +135,17 @@ struct SceneDiagnosticsBuilder {
         }
 
         if let resourceReferences {
+            let summary = "scene.json 资源引用分类：索引命中 \(resourceReferences.resolvedCount) 个，"
+                + "内置引用 \(resourceReferences.builtInReferenceCount) 个，"
+                + "运行时命名引用 \(resourceReferences.runtimeProvidedReferenceCount) 个"
             if resourceReferences.missingReferences.isEmpty {
-                let builtInCount = resourceReferences.builtInReferenceCount
-                issues.append(.init(severity: .info, message: "scene.json 资源引用已命中当前索引；内置引用 \(builtInCount) 个待 runtime 提供。"))
+                issues.append(.init(severity: .info, message: "\(summary)，无缺失引用。"))
             } else {
                 let preview = resourceReferences.missingReferences.prefix(3).joined(separator: "、")
-                issues.append(.init(severity: .warning, message: "scene.json 有 \(resourceReferences.missingReferences.count) 个资源引用未命中当前索引：\(preview)"))
+                issues.append(.init(
+                    severity: .warning,
+                    message: "\(summary)，另有 \(resourceReferences.missingReferences.count) 个引用未命中当前索引：\(preview)"
+                ))
             }
         }
 

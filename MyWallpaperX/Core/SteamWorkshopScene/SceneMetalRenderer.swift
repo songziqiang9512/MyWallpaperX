@@ -15,6 +15,7 @@ struct SceneMetalRenderer {
     private let utilityPlansByLayerID: [Int: SceneUtilityLayerRuntimePlan]
     private let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
     private let dependencyRuntime: SceneDependencyFrameRuntime
+    private let textureRegistry = SceneFrameTextureRegistry()
     private let utilityCaptureTelemetry = SceneGPUCompletionTelemetry(phase: "utility-capture")
     private let authoredEffectTelemetry = SceneGPUCompletionTelemetry(phase: "authored-effect-graph")
     init?(
@@ -106,6 +107,7 @@ struct SceneMetalRenderer {
 
     func renderFrame(
         imageTextures: [Int: MTLTexture],
+        userPropertyTextures: [String: MTLTexture] = [:],
         spriteAnimations: [Int: SceneSpriteAnimation],
         irisMaskTextures: [Int: MTLTexture],
         opacityMaskTextures: [Int: MTLTexture],
@@ -155,7 +157,10 @@ struct SceneMetalRenderer {
             clearColor: sceneClearColor
         )
 
-        dependencyRuntime.beginFrame()
+        textureRegistry.beginFrame(
+            layerSources: imageTextures,
+            userPropertyTextures: userPropertyTextures
+        )
         for layer in orderedLayers {
             if let imagePipeline, dependencyRuntime.requiresCapture(for: layer.id) {
                 let providerModel = imageModelMatrix(
@@ -168,6 +173,7 @@ struct SceneMetalRenderer {
                     layerMVP: cameraFrame.orthographicViewProjection * providerModel,
                     viewportSize: viewportSize,
                     pipeline: imagePipeline,
+                    textureRegistry: textureRegistry,
                     mainPass: mainPass
                 )
             }
@@ -175,7 +181,10 @@ struct SceneMetalRenderer {
             switch layer.contentKind {
             case "image", "solid", "text":
                 guard let imagePipeline, let texture = imageTextures[layer.id] else { continue }
-                let dependencyEffect = dependencyRuntime.effectInput(for: layer.id)
+                let dependencyEffect = dependencyRuntime.effectInput(
+                    for: layer.id,
+                    textureRegistry: textureRegistry
+                )
                 let authoredEffectPlan = authoredEffectPlan(for: layer.id)
                 if dependencyRuntime.requiresEffect(for: layer.id), dependencyEffect == nil {
                     dependencyRuntime.recordBindingFailure(for: layer.id)
@@ -184,7 +193,7 @@ struct SceneMetalRenderer {
                 let preparedTexture = dependencyRuntime.preparedSourceTexture(
                     for: layer.id,
                     sourceTexture: texture,
-                    imageTextures: imageTextures,
+                    textureRegistry: textureRegistry,
                     mainPass: mainPass
                 )
                 let model = imageModelMatrix(

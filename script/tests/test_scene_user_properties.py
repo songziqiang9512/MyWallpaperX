@@ -50,8 +50,9 @@ enum Harness {
           "mode":{"type":"combo","text":"Mode","order":5,"value":"1","options":[{"label":"One","value":"1"},{"label":"Two","value":"2"}]},
           "caption":{"type":"textinput","text":"Caption","order":6,"value":"Default"},
           "note":{"type":"text","text":"Read only","order":7,"value":"Note"},
-          "texture":{"type":"scenetexture","text":"Texture","order":8,"value":"default.tex"},
-          "future":{"type":"futuretype","text":"Future","order":9,"value":"x"}
+          "officialTexture":{"type":"texture","text":"Official Texture","order":8,"value":""},
+          "sceneTexture":{"type":"scenetexture","text":"Scene Texture","order":9,"value":"default.tex"},
+          "future":{"type":"futuretype","text":"Future","order":10,"value":"x"}
         }}}
         """#
         let sceneJSON = #"""
@@ -99,6 +100,7 @@ enum Harness {
             .mapValues(\.count)
         let kinds = Dictionary(grouping: catalog.definitions, by: \.kind.rawValue)
             .mapValues(\.count)
+        let definitionsByKey = Dictionary(uniqueKeysWithValues: catalog.definitions.map { ($0.key, $0) })
         return [
             "definitionCount": catalog.definitions.count,
             "definitionKinds": kinds,
@@ -106,6 +108,8 @@ enum Harness {
             "unsupportedDefinitionCount": catalog.unsupportedDefinitions.count,
             "sliderDefaultIsNumber": catalog.defaultValues["size"] == .number(1),
             "boolDefaultIsBool": catalog.defaultValues["enabled"] == .bool(true),
+            "officialTextureRuntimeType": definitionsByKey["officialTexture"]?.runtimeType ?? "",
+            "sceneTextureRuntimeType": definitionsByKey["sceneTexture"]?.runtimeType ?? "",
             "unknownOverrideIgnored": catalog.effectiveValues(overrides: ["unknown": .string("x")])["unknown"] == nil,
             "bindingCount": resolution.bindingReport.bindings.count,
             "conditionalBindingCount": resolution.bindingReport.conditionalBindingCount,
@@ -290,7 +294,7 @@ class SceneUserPropertyTests(unittest.TestCase):
 
     def test_definition_and_recursive_binding_resolution(self) -> None:
         result = self.run_harness("synthetic")
-        self.assertEqual(result["definitionCount"], 9)
+        self.assertEqual(result["definitionCount"], 10)
         self.assertEqual(result["unsupportedDefinitionCount"], 1)
         self.assertEqual(result["firstDefinition"], "heading")
         self.assertEqual(
@@ -300,7 +304,7 @@ class SceneUserPropertyTests(unittest.TestCase):
                 "color": 1,
                 "combo": 1,
                 "group": 1,
-                "scenetexture": 1,
+                "scenetexture": 2,
                 "slider": 1,
                 "text": 1,
                 "textinput": 1,
@@ -309,6 +313,8 @@ class SceneUserPropertyTests(unittest.TestCase):
         )
         self.assertTrue(result["sliderDefaultIsNumber"])
         self.assertTrue(result["boolDefaultIsBool"])
+        self.assertEqual(result["officialTextureRuntimeType"], "texture")
+        self.assertEqual(result["sceneTextureRuntimeType"], "scenetexture")
         self.assertTrue(result["unknownOverrideIgnored"])
         self.assertEqual(result["bindingCount"], 11)
         self.assertEqual(result["conditionalBindingCount"], 2)

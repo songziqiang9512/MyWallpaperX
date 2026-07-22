@@ -107,6 +107,7 @@ struct SceneRenderDescriptor: Codable {
         let shaderPath: String?
         let texturePaths: [String]
         let textureSlots: [String?]
+        let userTextureInputs: [SceneEffectTextureInput?]
         let combos: [String: Int]
         let constantShaderValues: [String: SceneDocument.ShaderValue]
         let blending: String?
@@ -129,6 +130,8 @@ struct SceneRenderDescriptor: Codable {
     let textureReferences: [String]
     let missingResources: [String]
     let builtInReferenceCount: Int
+    let runtimeProvidedReferenceCount: Int
+    let texturePropertyKeys: [String]
     let firstStageRendererGaps: [String]
 
     nonisolated var isResourceComplete: Bool {
@@ -216,6 +219,10 @@ struct SceneRenderDescriptorBuilder {
             textureReferences: assetCatalog.textureReferences,
             missingResources: resourceReferences.missingReferences,
             builtInReferenceCount: resourceReferences.builtInReferenceCount,
+            runtimeProvidedReferenceCount: resourceReferences.runtimeProvidedReferenceCount,
+            texturePropertyKeys: project.userProperties.definitions.compactMap {
+                $0.kind == .sceneTexture ? $0.key : nil
+            },
             firstStageRendererGaps: capabilityProfile.firstStageRendererGaps
         )
     }
@@ -248,6 +255,7 @@ struct SceneRenderDescriptorBuilder {
                     shaderPath: pass.shader,
                     texturePaths: pass.textures,
                     textureSlots: pass.textureSlots,
+                    userTextureInputs: pass.userTextureInputs,
                     combos: pass.combos,
                     constantShaderValues: pass.constantShaderValues,
                     blending: pass.blending,

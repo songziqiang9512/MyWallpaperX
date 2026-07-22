@@ -8,6 +8,8 @@ nonisolated struct SceneImageBlendRenderPlan {
         let multiply: Float
         let alphaMultiply: Float
         let writesAlpha: Bool
+        let textureSelection: SceneFrameTextureSelection
+        let usesAuthoredInitialAlpha: Bool
     }
 
     let operationsByConsumerLayerID: [Int: Operation]
@@ -23,7 +25,8 @@ nonisolated struct SceneImageBlendRenderPlan {
                 Self.operation(
                     consumer: layer,
                     effect: effect,
-                    layersByID: layersByID
+                    layersByID: layersByID,
+                    texturePropertyKeys: Set(descriptor.texturePropertyKeys)
                 )
             }
             if candidates.count == 1 {
@@ -39,7 +42,7 @@ nonisolated struct SceneImageBlendRenderPlan {
             $0.consumerLayerID < $1.consumerLayerID
         }) {
             lines.append(
-                "image blend consumer \(operation.consumerLayerID): provider=\(operation.providerLayerID) mode=normal writeAlpha=\(operation.writesAlpha)"
+                "image blend consumer \(operation.consumerLayerID): provider=\(operation.providerLayerID) source=\(operation.textureSelection.candidates.map(\.reportToken).joined(separator: " -> ")) mode=normal alphaSource=\(operation.usesAuthoredInitialAlpha ? "authored-initial" : "static") writeAlpha=\(operation.writesAlpha)"
             )
         }
         return lines
@@ -48,13 +51,13 @@ nonisolated struct SceneImageBlendRenderPlan {
     private nonisolated static func operation(
         consumer: SceneRenderDescriptor.Layer,
         effect: SceneRenderDescriptor.EffectDescriptor,
-        layersByID: [Int: SceneRenderDescriptor.Layer]
+        layersByID: [Int: SceneRenderDescriptor.Layer],
+        texturePropertyKeys: Set<String>
     ) -> Operation? {
         guard effect.visible != false,
               effect.file.localizedLowercase == "effects/blend/effect.json",
               effect.passes.count == 1,
               let pass = effect.passes.first,
-              pass.userTextureInputs.allSatisfy({ $0 == nil }),
               pass.textureSlots.indices.contains(1),
               let reference = SceneNamedTextureReference.parse(pass.textureSlots[1]),
               reference.variant == .primary,
@@ -75,7 +78,11 @@ nonisolated struct SceneImageBlendRenderPlan {
                 "alpha",
                 in: pass,
                 range: 0...1,
-                default: 1
+                default: 1,
+                allowsAuthoredInitialValue: hasTexturePropertyInput(
+                    pass,
+                    texturePropertyKeys: texturePropertyKeys
+                )
               ),
               let provider = layersByID[reference.providerLayerID],
               consumer.dependencyLayerIDs.contains(provider.id),
@@ -84,7 +91,12 @@ nonisolated struct SceneImageBlendRenderPlan {
               hasNoUtilityLayer(provider),
               provider.effects.isEmpty,
               provider.childLayerIDs.isEmpty,
-              provider.dependencyLayerIDs.isEmpty else {
+              provider.dependencyLayerIDs.isEmpty,
+              let textureSelection = textureSelection(
+                  pass: pass,
+                  fallbackLayerID: provider.id,
+                  texturePropertyKeys: texturePropertyKeys
+              ) else {
             return nil
         }
         return Operation(
@@ -97,28 +109,78 @@ nonisolated struct SceneImageBlendRenderPlan {
             ),
             multiply: multiply,
             alphaMultiply: alphaMultiply,
-            writesAlpha: combo("WRITEALPHA", in: pass) == 1
+            writesAlpha: combo("WRITEALPHA", in: pass) == 1,
+            textureSelection: textureSelection,
+            usesAuthoredInitialAlpha: usesAuthoredInitialValue("alpha", in: pass)
         )
+    }
+
+    private nonisolated static func hasTexturePropertyInput(
+        _ pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor,
+        texturePropertyKeys: Set<String>
+    ) -> Bool {
+        pass.userTextureInputs.enumerated().contains { index, input in
+            index == 1
+                && input?.kind == .property
+                && input.map { texturePropertyKeys.contains($0.value) } == true
+        }
+    }
+
+    private nonisolated static func textureSelection(
+        pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor,
+        fallbackLayerID: Int,
+        texturePropertyKeys: Set<String>
+    ) -> SceneFrameTextureSelection? {
+        let inputs = pass.userTextureInputs.enumerated().compactMap { index, input in
+            input.map { (index, $0) }
+        }
+        let fallback = SceneFrameTextureIdentity.layerSource(fallbackLayerID)
+        guard !inputs.isEmpty else {
+            return SceneFrameTextureSelection(candidates: [fallback])
+        }
+        guard inputs.count == 1,
+              let input = inputs.first,
+              input.0 == 1,
+              input.1.kind == .property,
+              texturePropertyKeys.contains(input.1.value) else {
+            return nil
+        }
+        return SceneFrameTextureSelection(candidates: [
+            .userProperty(input.1.value),
+            fallback,
+        ])
     }
 
     private nonisolated static func staticNumber(
         _ key: String,
         in pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor,
         range: ClosedRange<Float>,
-        default defaultValue: Float? = nil
+        default defaultValue: Float? = nil,
+        allowsAuthoredInitialValue: Bool = false
     ) -> Float? {
         guard let value = pass.constantShaderValues.first(where: {
             $0.key.caseInsensitiveCompare(key) == .orderedSame
         })?.value else {
             return defaultValue
         }
-        guard value.valueKind == "number", value.userBinding == nil,
+        let valueKind = value.valueKind.localizedLowercase
+        guard value.userBinding == nil,
+              valueKind == "number" || (allowsAuthoredInitialValue && valueKind == "binding"),
               let components = value.components, components.count == 1,
               let raw = components.first, raw.isFinite else {
             return nil
         }
         let result = Float(raw)
         return range.contains(result) ? result : nil
+    }
+
+    private nonisolated static func usesAuthoredInitialValue(
+        _ key: String,
+        in pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor
+    ) -> Bool {
+        pass.constantShaderValues.first {
+            $0.key.caseInsensitiveCompare(key) == .orderedSame
+        }?.value.valueKind.localizedLowercase == "binding"
     }
 
     private nonisolated static func supportsNeutralTransformConstants(

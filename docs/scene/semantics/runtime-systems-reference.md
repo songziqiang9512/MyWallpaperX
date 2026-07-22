@@ -294,7 +294,7 @@ Timeline 由 runtime time 求值，不应按“每渲染帧加一个 keyframe st
 
 Texture Variants 可由 Checkbox/Combo 选择；官方明确不能由 SceneScript 切换。macOS 的自定义文件需要 security-scoped bookmark、持久化恢复、替换失败回退和资源 generation，不能只把绝对路径字符串传入 renderer。
 
-官方 UI 文档把这类属性称为 `texture`，真实 Workshop/官方样本族中还会出现 `scenetexture` 序列化名称。parser 应把二者归入明确的 texture-provider 类型，同时保留原始 type 和版本以便诊断；不能只认一个字符串，也不能宣称两个 raw schema 在所有版本完全等价。
+官方 UI 文档把这类属性称为 `texture`，真实 Workshop/官方样本族中还会出现 `scenetexture` 序列化名称。MyWallpaperX v17 parser 已把二者归入同一内部 texture-provider 类型并保留原始 runtime type；这只是一项兼容归一化，仍不能宣称两个 raw schema 在所有版本完全等价。
 
 属性窗口读取 `project.json` 定义；shader editor uniform 不能自动冒充 Wallpaper 用户属性。MyWallpaperX 继续保留独立、可拖动属性窗口这一产品设计。
 
@@ -340,6 +340,8 @@ Scene 与 Web 音频合同不同：
 - color/alpha/format；
 - consumer slots。
 
+当前 v17 第一切片已实现 frame-scoped typed identity、ready/pending/unavailable、generation、完整 named-target variant，以及 property provider 缺失时按有序候选回退 authored layer；下一帧未重新发布的 named target 会清空。当前 `SceneMetalView` 尚未向 registry 提供真实 user-property texture 或 system texture，因此这只证明 identity/fallback 合同，不证明用户文件、`$mediaThumbnail`、Texture Variants 或视频帧已经可用。
+
 ## 8. Puppet、3D 和 Lighting
 
 这些能力不属于当前 P0，但格式和时钟设计不能提前封死：
@@ -380,15 +382,16 @@ Realtime Adapter              Offline Adapter
 |---|---|---|
 | Particle | 作者 2D sprite、部分 emitter/initializer/operator、built-in drop、Sprite Trail 子集 | child/rope/control point/collision/audio/全部 preset 完整 |
 | Text | CoreText 静态纹理、部分 font/pointsize/padding/scale | 动态时间、完整 alignment/effects/SceneScript |
-| Effect graph | v16 已保留 EffectDefinition 并结构化编译 graph；strict precise 子集有 5 个 layer、standard Blur 默认 profile 有 1 个 layer 的 degraded GPU 执行；非默认 standard 图明确 blocked | 通用 material/pass 已执行、authored shader 语义等价或达到 WE 像素一致 |
+| Effect graph | v17 继承 v16 EffectDefinition/authored graph，并增加 provider metadata；strict precise 子集有 5 个 layer、standard Blur 默认 profile 有 1 个 layer 的 degraded GPU 执行；非默认 standard 图明确 blocked | 通用 material/pass 已执行、authored shader 语义等价或达到 WE 像素一致 |
 | Timeline | 数据识别不足或空壳 | 任意动画模式可用 |
 | SceneScript | 只检测 script | ECMAScript/runtime/API 可用 |
-| User Properties | 独立窗口、条件、默认/override、部分 target 与持久化 | 403 个样本属性全部可调 |
+| User Properties | 独立窗口、条件、默认/override、部分 target 与持久化；`texture`/`scenetexture` 内部归一 | 403 个样本属性全部可调、文件纹理已能选择/授权/解码 |
+| Texture Provider | frame identity/status/generation、named variant 隔离、property absent -> authored fallback | sceneTexture 文件、system media、Texture Variants、effectful/nested provider 已闭环 |
 | Audio/Media | Web 侧已有服务，但 Scene consumer 未闭合 | Scene 音频/媒体可用 |
 
 ## 11. 实施顺序
 
-1. 先建 resource registry，闭合 effectful/media/sceneTexture/nested provider、copy/swap/compose/history；未闭合 functions/conditions 继续 fail closed；
+1. 在现有 frame registry 上接入授权文件、system media、Texture Variants、effectful/nested provider，并闭合 copy/swap/compose/history；未闭合 functions/conditions 继续 fail closed；
 2. 再扩更多 shader/material/pass backend；standard Blur 非默认 kernel/composite/blend/alpha/mask 变体按独立证据加入，再让 Text/Particle 复用同一语义；
 3. 建统一 SceneClock、Timeline 和动态 text；
 4. 在 typed target 稳定后接 SceneScript 核心生命周期；

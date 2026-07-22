@@ -81,6 +81,7 @@ struct SceneRenderDescriptor {
         let materialPath: String
         let shaderPath: String?
         let textureSlots: [String?]
+        let userTextureInputs: [SceneEffectTextureInput?]
         let combos: [String: Int]
         let constantShaderValues: [String: SceneDocument.ShaderValue]
         let blending: String?
@@ -166,12 +167,14 @@ enum Harness {
         [
             .init(
                 id: "materials/x.json#0", materialPath: "materials/x.json",
-                shaderPath: shader, textureSlots: [], combos: [:], constantShaderValues: [:],
+                shaderPath: shader, textureSlots: [], userTextureInputs: [],
+                combos: [:], constantShaderValues: [:],
                 blending: blending, depthTest: "disabled", depthWrite: "disabled", cullMode: "nocull"
             ),
             .init(
                 id: "materials/y.json#0", materialPath: "materials/y.json",
-                shaderPath: shader, textureSlots: [], combos: verticalCombos,
+                shaderPath: shader, textureSlots: [], userTextureInputs: [],
+                combos: verticalCombos,
                 constantShaderValues: [:], blending: blending, depthTest: "disabled",
                 depthWrite: "disabled", cullMode: "nocull"
             ),
@@ -290,7 +293,7 @@ enum Harness {
             .init(
                 id: "materials/effects/\(name).json#0",
                 materialPath: "materials/effects/\(name).json",
-                shaderPath: shader, textureSlots: [], combos: combos,
+                shaderPath: shader, textureSlots: [], userTextureInputs: [], combos: combos,
                 constantShaderValues: [:], blending: blending, depthTest: "disabled",
                 depthWrite: "disabled", cullMode: "nocull"
             )
@@ -404,7 +407,7 @@ enum Harness {
         )
     }
 
-    static func resolverPrecedence() -> [String] {
+    static func resolverPrecedence() -> [[String]] {
         let key = Graph.EffectKey(layerID: 99, effectIndex: 0, descriptorID: "resolver")
         let graphTexture = texture(.layerSource, layerID: 99)
         let node = Graph.Node(
@@ -439,7 +442,9 @@ enum Harness {
             materialPasses: [
                 .init(
                     id: "materials/resolver.json#0", materialPath: "materials/resolver.json",
-                    shaderPath: "effects/test", textureSlots: ["material-zero", "material-one"],
+                    shaderPath: "effects/test",
+                    textureSlots: ["material-zero", "material-one", "material-two"],
+                    userTextureInputs: [nil, .init(name: "material-user-one")],
                     combos: ["MATERIAL": 1],
                     constantShaderValues: ["value": .init(components: [1])],
                     blending: "normal", depthTest: "disabled", depthWrite: "disabled", cullMode: "nocull"
@@ -449,7 +454,9 @@ enum Harness {
         let resolution = SceneAuthoredMaterialResolver.resolve(
             node: node, graph: graph, descriptor: descriptor
         )
-        return resolution.node!.textureSlots.map { $0?.provenance.rawValue ?? "hole" }
+        return resolution.node!.textureSlots.map { slot in
+            slot?.candidates.map(\.provenance.rawValue) ?? ["hole"]
+        }
     }
 
     static func main() throws {
@@ -643,7 +650,12 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
     def test_texture_precedence_preserves_slots(self) -> None:
         self.assertEqual(
             self.result["precedence"],
-            ["material", "explicitBinding", "userTexture", "hole", "hole", "hole", "hole", "hole"],
+            [
+                ["material"],
+                ["material", "userTexture", "instance", "explicitBinding"],
+                ["material", "instance", "userTexture"],
+                ["hole"], ["hole"], ["hole"], ["hole"], ["hole"],
+            ],
         )
 
     def test_unsupported_graph_shapes_fail_closed(self) -> None:

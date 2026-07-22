@@ -14,10 +14,17 @@ nonisolated struct SceneResolvedMaterialNode {
         case graph(SceneAuthoredEffectRenderPlan.TextureIdentity)
     }
 
-    struct TextureSlot {
-        let index: Int
+    struct TextureCandidate {
         let source: TextureSource
         let provenance: TextureProvenance
+    }
+
+    struct TextureSlot {
+        let index: Int
+        let candidates: [TextureCandidate]
+
+        var source: TextureSource { candidates[candidates.count - 1].source }
+        var provenance: TextureProvenance { candidates[candidates.count - 1].provenance }
     }
 
     struct RenderState {
@@ -81,6 +88,7 @@ enum SceneAuthoredMaterialResolver {
             into: &slots,
             issues: &issues
         )
+        mergeUserTextures(material.userTextureInputs, into: &slots, issues: &issues)
         mergeAssets(
             instancePass.textureSlots,
             provenance: .instance,
@@ -142,7 +150,12 @@ enum SceneAuthoredMaterialResolver {
                 issues.append("Texture slot \(index) is outside g_Texture0...7.")
                 continue
             }
-            slots[index] = .init(index: index, source: .asset(value), provenance: provenance)
+            append(
+                source: .asset(value),
+                provenance: provenance,
+                at: index,
+                into: &slots
+            )
         }
     }
 
@@ -156,7 +169,12 @@ enum SceneAuthoredMaterialResolver {
                 issues.append("User texture slot \(index) is outside g_Texture0...7.")
                 continue
             }
-            slots[index] = .init(index: index, source: .userTexture(value), provenance: .userTexture)
+            append(
+                source: .userTexture(value),
+                provenance: .userTexture,
+                at: index,
+                into: &slots
+            )
         }
     }
 
@@ -179,12 +197,27 @@ enum SceneAuthoredMaterialResolver {
                 issues.append("Explicit binding at texture slot \(index) is unresolved.")
                 continue
             }
-            slots[index] = .init(
-                index: index,
+            append(
                 source: .graph(binding.texture),
-                provenance: .explicitBinding
+                provenance: .explicitBinding,
+                at: index,
+                into: &slots
             )
         }
+    }
+
+    private nonisolated static func append(
+        source: SceneResolvedMaterialNode.TextureSource,
+        provenance: SceneResolvedMaterialNode.TextureProvenance,
+        at index: Int,
+        into slots: inout [SceneResolvedMaterialNode.TextureSlot?]
+    ) {
+        let candidate = SceneResolvedMaterialNode.TextureCandidate(
+            source: source,
+            provenance: provenance
+        )
+        let candidates = (slots[index]?.candidates ?? []) + [candidate]
+        slots[index] = .init(index: index, candidates: candidates)
     }
 
     private nonisolated static func normalized(_ path: String) -> String {

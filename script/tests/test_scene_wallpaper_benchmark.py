@@ -58,7 +58,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(set(samples), set(expected))
         for sample_id, (solid_count, authored_color_count, effective_count) in expected.items():
             sample = samples[sample_id]
-            self.assertEqual(sample["expected_interpretation_format"], 16)
+            self.assertEqual(sample["expected_interpretation_format"], 17)
             self.assertEqual(sample["expected_solid_layer_count"], solid_count)
             self.assertEqual(
                 sample["expected_authored_solid_color_layer_count"],
@@ -114,10 +114,10 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             media_sample["required_named_target_binding_succeeded_layer_ids"],
             [299, 322],
         )
-        self.assertEqual(media_sample["expected_image_blend_planned"], 3)
+        self.assertEqual(media_sample["expected_image_blend_planned"], 5)
         self.assertEqual(
             media_sample["required_image_blend_succeeded_layer_ids"],
-            [239, 657, 1509],
+            [239, 657, 775, 875, 1509],
         )
 
     def test_default_matrix_pins_authored_effect_graph_execution(self) -> None:

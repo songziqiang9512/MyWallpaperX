@@ -25,7 +25,10 @@ nonisolated struct SceneUserPropertyDefinitionParser {
         property: [String: Any]
     ) -> SceneUserPropertyDefinition {
         let runtimeType = Self.trimmedString(property["type"] as? String)?.lowercased() ?? ""
-        let kind = SceneUserPropertyKind(rawValue: runtimeType) ?? .unsupported
+        let kind: SceneUserPropertyKind = switch runtimeType {
+        case "texture", "scenetexture": .sceneTexture
+        default: SceneUserPropertyKind(rawValue: runtimeType) ?? .unsupported
+        }
         let rawTitle = Self.trimmedString(property["text"] as? String)
         return SceneUserPropertyDefinition(
             key: key,

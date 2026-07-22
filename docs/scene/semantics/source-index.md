@@ -190,7 +190,8 @@ https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/<Name>.htm
 - [21 个用户样本评估](../scene-sample-assessment-2026-07-22.md)
 - [Scene 开发计划](../scene-capability-development-plan-2026-07-22.md)
 - v16 结构基线：`.codex/scene-effect-graph-canonical-final-20260723/report.json`（canonical graph 身份，不等于 GPU 执行）
-- 最新正式 13 样本运行门：`.codex/scene-standard-blur-alpha-final13-20260723/report.json`（strict Blur graph 成功 6 层、失败 0、legacy blur blocked 3 层；含宿主 alpha 边界修复，不是 shader/像素 parity）
+- 最新正式 13 样本运行门：`.codex/scene-texture-registry-final13-20260723/report.json`（format 17、13/13；strict Blur graph 成功 6 层、失败 0、legacy blur blocked 3 层；`2938612768` property-authored fallback image blend 5/5，不是动态 provider、shader 或像素 parity）
+- provider fallback 定向门：`.codex/scene-texture-fallback-293-v3-20260723/report.json`（空 `scenetexture` 时 layers 775/875 回退作者 890/1174；775 只使用 authored-initial alpha）与 `.codex/scene-texture-fallback-290-20260723/report.json`（290 既有 graph/dependency 无回归）
 - standard Blur 正向门：`.codex/scene-standard-blur-alpha-290-20260723/report.json`（`2902406982` layer 530 GPU succeeded，utility capture layers 410/530）
 - standard Blur 负向门：`.codex/scene-standard-blur-alpha-negative-20260723/report.json`（`3723344874:348` 与 `3750813609:358` 阻断 legacy fallback）
 - precise 阶段证据：`.codex/scene-authored-precise-final13-20260723/report.json` 与 `.codex/scene-authored-precise-failclosed-related-20260723/report.json`（5 个成功层、layer 20 fallback 阻断与隐藏层不执行）
@@ -281,7 +282,7 @@ https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/<Name>.htm
 
 以下内容目前只能由合法官方 assets、真实样本与黑盒对照继续确认：
 
-1. `project.json`、`scene.json`、`effect.json`、material/model/particle JSON 的完整、版本化 schema；官方 UI 类型 `texture` 与样本 raw type `scenetexture` 需兼容但不能无证据视作全版本同义；
+1. `project.json`、`scene.json`、`effect.json`、material/model/particle JSON 的完整、版本化 schema；官方 UI 类型 `texture` 与样本 raw type `scenetexture` 需兼容但不能无证据视作全版本同义；Texture Variants 的原始序列化形状、匹配优先级和混合细节也未公开；
 2. `previous`、`original`、named RT、full-frame aliases 的全部内部命名和默认 binding precedence；
 3. FBO `unique/fit/uv/conditions` 在所有版本中的精确生命周期；
 4. PKG/TEX/TEXB/MDL/Puppet 的完整版本矩阵；

@@ -8,7 +8,6 @@ final class SceneDependencyFrameRuntime {
     private let imageBlendRuntime: SceneImageBlendRuntime?
     private let captureTelemetry = SceneGPUCompletionTelemetry(phase: "named-target-capture")
     private let bindingTelemetry = SceneGPUCompletionTelemetry(phase: "named-target-binding")
-    private var currentFrameTargetsByProviderLayerID: [Int: MTLTexture] = [:]
 
     init(
         descriptor: SceneRenderDescriptor,
@@ -29,10 +28,6 @@ final class SceneDependencyFrameRuntime {
         )
     }
 
-    func beginFrame() {
-        currentFrameTargetsByProviderLayerID.removeAll(keepingCapacity: true)
-    }
-
     func requiresEffect(for consumerLayerID: Int) -> Bool {
         plan.requiredEffectConsumerLayerIDs.contains(consumerLayerID)
     }
@@ -41,9 +36,15 @@ final class SceneDependencyFrameRuntime {
         plan.requiredProviderLayerIDs.contains(providerLayerID)
     }
 
-    func effectInput(for consumerLayerID: Int) -> SceneDependencyEffectInput? {
+    func effectInput(
+        for consumerLayerID: Int,
+        textureRegistry: SceneFrameTextureRegistry
+    ) -> SceneDependencyEffectInput? {
         guard let binding = plan.bindingsByConsumerLayerID[consumerLayerID],
-              let texture = currentFrameTargetsByProviderLayerID[binding.providerLayerID] else {
+              let texture = textureRegistry.texture(for: .namedLayerTarget(.init(
+                  providerLayerID: binding.providerLayerID,
+                  variant: .primary
+              ))) else {
             return nil
         }
         return SceneDependencyEffectInput(texture: texture, blendMode: binding.blendMode)
@@ -52,13 +53,13 @@ final class SceneDependencyFrameRuntime {
     func preparedSourceTexture(
         for consumerLayerID: Int,
         sourceTexture: MTLTexture,
-        imageTextures: [Int: MTLTexture],
+        textureRegistry: SceneFrameTextureRegistry,
         mainPass: SceneMainPassEncoder
     ) -> MTLTexture {
         imageBlendRuntime?.preparedTexture(
             for: consumerLayerID,
             sourceTexture: sourceTexture,
-            imageTextures: imageTextures,
+            textureRegistry: textureRegistry,
             mainPass: mainPass
         ) ?? sourceTexture
     }
@@ -83,10 +84,15 @@ final class SceneDependencyFrameRuntime {
         layerMVP: simd_float4x4,
         viewportSize: CGSize,
         pipeline: SceneImageLayerPipeline,
+        textureRegistry: SceneFrameTextureRegistry,
         mainPass: SceneMainPassEncoder
     ) -> Bool? {
         guard plan.requiredProviderLayerIDs.contains(layer.id) else { return nil }
-        guard currentFrameTargetsByProviderLayerID[layer.id] == nil else { return true }
+        let identity = SceneFrameTextureIdentity.namedLayerTarget(SceneNamedTextureReference(
+            providerLayerID: layer.id,
+            variant: .primary
+        ))
+        guard textureRegistry.texture(for: identity) == nil else { return true }
         guard let utility = layer.utilityLayer,
               let geometry = SceneCaptureGeometryResolver.resolve(
                   kind: utility.kind,
@@ -139,7 +145,7 @@ final class SceneDependencyFrameRuntime {
             captureTelemetry.recordFailure(layerID: layer.id)
         }
         if encoded {
-            currentFrameTargetsByProviderLayerID[layer.id] = target
+            textureRegistry.set(.ready(target), for: identity)
         }
         return encoded
     }

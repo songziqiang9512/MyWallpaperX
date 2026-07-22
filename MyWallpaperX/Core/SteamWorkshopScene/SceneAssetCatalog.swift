@@ -17,6 +17,7 @@ struct SceneAssetCatalog {
             let shader: String?
             let textures: [String]
             let textureSlots: [String?]
+            let userTextureInputs: [SceneEffectTextureInput?]
             let combos: [String: Int]
             let constantShaderValues: [String: SceneDocument.ShaderValue]
             let blending: String?
@@ -135,6 +136,7 @@ struct SceneAssetCatalogLoader {
                 shader: normalizedPath(pass["shader"] as? String),
                 textures: texturePaths(in: pass),
                 textureSlots: textureSlots(in: pass),
+                userTextureInputs: userTextureInputs(in: pass),
                 combos: pass["combos"] as? [String: Int] ?? [:],
                 constantShaderValues: materialConstantShaderValues(in: pass),
                 blending: pass["blending"] as? String,
@@ -194,6 +196,12 @@ struct SceneAssetCatalogLoader {
     nonisolated private func textureSlots(in pass: [String: Any]) -> [String?] {
         guard let textures = pass["textures"] as? [Any] else { return [] }
         return textures.map { normalizedPath($0 as? String) }
+    }
+
+    nonisolated private func userTextureInputs(
+        in pass: [String: Any]
+    ) -> [SceneEffectTextureInput?] {
+        (pass["usertextures"] as? [Any] ?? []).map(SceneEffectTextureInput.parse)
     }
 
     nonisolated private func parsedVector(_ value: Any?, length: Int) -> [Float]? {

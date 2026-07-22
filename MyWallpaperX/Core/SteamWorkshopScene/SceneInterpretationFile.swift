@@ -13,8 +13,8 @@ struct SceneInterpretationFile: Codable {
 }
 
 struct SceneInterpretationFileWriter {
-    // Format 16 compiles preserved effect definitions into inspectable authored graphs.
-    static let currentFormatVersion = 16
+    // Format 17 preserves material user-texture providers and typed runtime references.
+    static let currentFormatVersion = 17
 
     func write(
         renderDescriptor: SceneRenderDescriptor,

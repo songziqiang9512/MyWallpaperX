@@ -122,8 +122,19 @@ enum SceneTextGeometry {
 
 enum SceneUserPropertyValue {}
 
+enum SceneUserPropertyKind {
+    case sceneTexture
+}
+
+struct SceneUserPropertyDefinition {
+    let key: String
+    let kind: SceneUserPropertyKind
+}
+
 struct SceneUserPropertyCatalog {
-    static let empty = SceneUserPropertyCatalog()
+    let definitions: [SceneUserPropertyDefinition]
+
+    static let empty = SceneUserPropertyCatalog(definitions: [])
 }
 
 struct SceneUserPropertyResolution {
@@ -165,6 +176,7 @@ struct SceneAssetCatalog {
             let shader: String?
             let textures: [String]
             let textureSlots: [String?]
+            let userTextureInputs: [SceneEffectTextureInput?]
             let combos: [String: Int]
             let constantShaderValues: [String: SceneDocument.ShaderValue]
             let blending: String?
@@ -188,6 +200,7 @@ struct SceneAssetCatalog {
 struct SceneResourceReferenceIndex {
     let missingReferences: [String]
     let builtInReferenceCount: Int
+    let runtimeProvidedReferenceCount: Int
 }
 
 struct SceneCapabilityProfile {
@@ -225,7 +238,8 @@ enum Harness {
                 textureReferences: []
             ),
             resourceReferences: SceneResourceReferenceIndex(
-                missingReferences: [], builtInReferenceCount: 3
+                missingReferences: [], builtInReferenceCount: 3,
+                runtimeProvidedReferenceCount: 0
             ),
             capabilityProfile: SceneCapabilityProfile(firstStageRendererGaps: [])
         )

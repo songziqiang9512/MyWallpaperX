@@ -5,13 +5,16 @@ struct SceneResourceReferenceIndex {
         let referencedPath: String
         let matchedPath: String?
         let isBuiltInReference: Bool
+        let isRuntimeProvidedReference: Bool
 
         nonisolated var isResolved: Bool {
             matchedPath != nil
         }
 
         nonisolated var isMissing: Bool {
-            isResolved == false && isBuiltInReference == false
+            isResolved == false
+                && isBuiltInReference == false
+                && isRuntimeProvidedReference == false
         }
     }
 
@@ -23,6 +26,10 @@ struct SceneResourceReferenceIndex {
 
     nonisolated var builtInReferenceCount: Int {
         matches.filter(\.isBuiltInReference).count
+    }
+
+    nonisolated var runtimeProvidedReferenceCount: Int {
+        matches.filter(\.isRuntimeProvidedReference).count
     }
 
     nonisolated var missingReferences: [String] {
@@ -45,7 +52,10 @@ struct SceneResourceReferenceIndexBuilder {
             return SceneResourceReferenceIndex.Match(
                 referencedPath: path,
                 matchedPath: Self.matchPath(normalized, in: availablePaths),
-                isBuiltInReference: Self.isBuiltInReference(normalized)
+                isBuiltInReference: Self.isBuiltInReference(normalized),
+                isRuntimeProvidedReference: SceneNamedTextureReference.parse(
+                    Self.normalizedReference(path)
+                ) != nil
             )
         }
 
@@ -85,9 +95,12 @@ struct SceneResourceReferenceIndexBuilder {
     }
 
     nonisolated private static func normalizedPath(_ path: String) -> String {
+        normalizedReference(path).localizedLowercase
+    }
+
+    nonisolated private static func normalizedReference(_ path: String) -> String {
         path
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "\\", with: "/")
-            .localizedLowercase
     }
 }

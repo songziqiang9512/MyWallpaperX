@@ -182,6 +182,8 @@ Motion Blur 等定义含显式 copy，用来复制 source 像素到 target；省
 
 资源注册表应以 `wallpaper + screen + object + effect instance + RT name` 作为身份基础。是否跨帧保留必须由 read-before-write、copy/swap、function/reset 和生命周期数据流判定，不能只看 `unique`。最终判为 persistent 的资源在 resize、壁纸切换、seek、停止和设备丢失时必须清理或重建。
 
+MyWallpaperX v17 已落地第一段逐帧 registry：实例随当前 renderer/screen 隔离，帧内 identity 区分 layer source、完整 named layer target（包含 variant）、user property 与 system key；entry 记录 ready/pending/unavailable 和 generation，resolver 按作者候选顺序选首个 ready provider。每帧重新发布可防止旧 named target 泄漏，A/B variant 也不会串用。它还没有实现 effect-instance RT/history、跨帧 persistent 判定、文件/媒体 source 或 copy/swap 生命周期，不能替代上述目标模型。
+
 ## 7. Material definition
 
 观察到的 material pass 合同：
@@ -211,7 +213,7 @@ MaterialPass
 
 `Almamu/linux-wallpaperengine` 采用“shader default -> material -> effect override -> explicit bind”的优先级，这是一条有用的 D 级佐证，但仍需用合法官方 assets/真实样本逐类验证后才能固化为 MyWallpaperX 合同。
 
-MyWallpaperX 当前 resolver 采用 material -> instance -> user texture -> explicit bind，并保留 8 个 sparse slot。这是由现有 v16 数据模型和 precise-blur 样本验证的 E 级实现事实，不是官方公开的通用优先级；shader annotation/default 尚未进入 resolver，扩 backend 前仍需补齐。
+MyWallpaperX 当前 material resolver 为每个 sparse slot 按低到高优先级保留候选，现有顺序是 material asset -> material usertexture -> instance asset -> instance usertexture -> explicit graph bind；现有 strict graph backend 取末项作为最高优先级 source。frame registry 使用的是另一份显式“首选 -> fallback”selection，并选择其中首个 ready provider；目前尚无通用 material candidate -> frame selection 桥。这是由现有 v17 数据模型和样本验证的 E 级实现事实，不是官方公开的通用优先级；shader annotation/default 尚未进入 resolver，扩 backend 前仍需补齐。
 
 ### 7.2 Render state
 
@@ -286,9 +288,9 @@ present or read back
 
 | 层级 | 当前状态 | 下一合同 |
 |---|---|---|
-| Scene/object IR | format 16 已保留实例与 EffectDefinition/FBO/pass/bind/command，并按作者顺序编译 graph、blocker 与 canonical SHA | 保持 raw/typed 双层合同，不把未知字段静默解释为支持 |
-| dependency | graph 已结构化区分固定 `previous`、effect-scoped RT 和 copy/swap；bounded named target/clipping/static provider 仍由旧执行器执行 | 建 resource registry 与 compose/history 数据流判定，再扩通用 GPU executor |
-| material/shader | sparse-slot resolver、strict 2-pass precise 与 stock standard Blur default-profile 4-pass backend 已落地；运行时整体仍以手写 MSL 近似为主 | 补 shader defaults、resource registry/provider、nested target 和更多 pass；非默认 standard 变体按独立证据扩展 |
+| Scene/object IR | format 17 继承 v16 的实例、EffectDefinition/FBO/pass/bind/command 与 authored graph/canonical SHA，并增加 material usertexture、property key 和 runtime provider metadata | 保持 raw/typed 双层合同，不把未知字段静默解释为支持 |
+| dependency | graph 已结构化区分固定 `previous`、effect-scoped RT 和 copy/swap；bounded frame registry 已按 identity/status/generation 处理 named target 与 property-authored fallback，其他受限 clipping/static provider 仍由旧执行器执行 | 给现有 registry 接实际 file/system/media/effectful/nested source，并补 compose/history 数据流判定，再扩通用 GPU executor |
+| material/shader | sparse-slot candidate resolver、strict 2-pass precise 与 stock standard Blur default-profile 4-pass backend 已落地；运行时整体仍以手写 MSL 近似为主 | 补 shader defaults、真实 provider source、nested target 和更多 pass；非默认 standard 变体按独立证据扩展 |
 | local deformation | Foliage/Water/Shake 等有不同程度近似 | 以 [Effects 全集](effects-reference.md) 的输入、空间和 mask 合同替换 |
 | live values | 属性覆盖部分 target；Timeline/SceneScript/provider 未统一 | 建 typed target snapshot 和统一 frame context |
 

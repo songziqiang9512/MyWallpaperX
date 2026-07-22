@@ -15,6 +15,7 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneEffectTextureInput.swift",
     SOURCE_ROOT / "SceneNamedTextureReference.swift",
+    SOURCE_ROOT / "SceneFrameTextureRegistry.swift",
     SOURCE_ROOT / "SceneImageBlendRenderPlan.swift",
 ]
 
@@ -54,6 +55,7 @@ struct SceneRenderDescriptor {
         let effects: [EffectDescriptor]
     }
     let layers: [Layer]
+    let texturePropertyKeys: [String]
 }
 
 @main
@@ -79,14 +81,21 @@ enum Harness {
         let defaulted = image(16, dependencies: [100], effects: [
             blend(provider: 100, omitAlpha: true, neutralTransformConstants: true),
         ])
+        let propertyFallback = image(18, dependencies: [100], effects: [
+            blend(provider: 100, propertySource: "cover", scriptedAlpha: true),
+        ])
+        let unsupportedScript = image(19, dependencies: [100], effects: [
+            blend(provider: 100, scriptedAlpha: true),
+        ])
         let nonNeutralConstants = image(17, dependencies: [100], effects: [
             blend(provider: 100, omitAlpha: true, neutralTransformConstants: true,
                   blendScale: 0.5),
         ])
         let layers = [valid, mismatch, effectful, boundValue, transformed, secondary,
-                      defaulted, nonNeutralConstants, provider, effectfulProvider]
+                      defaulted, nonNeutralConstants, propertyFallback,
+                      unsupportedScript, provider, effectfulProvider]
         let plan = SceneImageBlendRenderPlan(
-            descriptor: .init(layers: layers),
+            descriptor: .init(layers: layers, texturePropertyKeys: ["cover"]),
             visibleLayerIDs: Set(layers.compactMap { $0.visible == false ? nil : $0.id })
         )
         let operation = plan.operationsByConsumerLayerID[10]
@@ -98,6 +107,10 @@ enum Harness {
             "writesAlpha": operation?.writesAlpha ?? false,
             "defaultAlpha": plan.operationsByConsumerLayerID[16]?.alphaMultiply ?? -1,
             "defaultWritesAlpha": plan.operationsByConsumerLayerID[16]?.writesAlpha ?? true,
+            "propertyCandidates": plan.operationsByConsumerLayerID[18]?
+                .textureSelection.candidates.map(\.reportToken) ?? [],
+            "propertyUsesInitialAlpha": plan.operationsByConsumerLayerID[18]?
+                .usesAuthoredInitialAlpha ?? false,
             "report": plan.reportLines(),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -125,16 +138,22 @@ enum Harness {
     static func blend(
         provider: Int,
         systemSource: Bool = false,
+        propertySource: String? = nil,
         boundMultiply: Bool = false,
         transform: Bool = false,
         variant: String = "a",
         omitAlpha: Bool = false,
+        scriptedAlpha: Bool = false,
         neutralTransformConstants: Bool = false,
         blendScale: Double = 1
     ) -> SceneRenderDescriptor.EffectDescriptor {
-        let source = systemSource
-            ? SceneEffectTextureInput(kind: .system, value: "$mediaThumbnail")
-            : nil
+        let source: SceneEffectTextureInput? = if systemSource {
+            SceneEffectTextureInput(kind: .system, value: "$mediaThumbnail")
+        } else if let propertySource {
+            SceneEffectTextureInput(kind: .property, value: propertySource)
+        } else {
+            nil
+        }
         let target = "_rt_imageLayerComposite_\(provider)_\(variant)"
         var constants: [String: SceneDocument.ShaderValue] = [
             "multiply": .init(
@@ -144,7 +163,11 @@ enum Harness {
             ),
         ]
         if !omitAlpha {
-            constants["alpha"] = .init(valueKind: "number", userBinding: nil, components: [1])
+            constants["alpha"] = .init(
+                valueKind: scriptedAlpha ? "binding" : "number",
+                userBinding: nil,
+                components: [1]
+            )
         }
         if neutralTransformConstants {
             constants["blendangle"] = .init(
@@ -164,7 +187,7 @@ enum Harness {
             passes: [.init(
                 passIndex: 0,
                 textureSlots: [nil, target],
-                userTextureInputs: systemSource ? [nil, source] : [],
+                userTextureInputs: source == nil ? [] : [nil, source],
                 combos: [
                     "BLENDMODE": 0,
                     "WRITEALPHA": omitAlpha ? 0 : 1,
@@ -207,7 +230,7 @@ class SceneImageBlendPlanTests(unittest.TestCase):
         cls.temporary_directory.cleanup()
 
     def test_hidden_forward_static_provider_is_planned(self) -> None:
-        self.assertEqual(self.result["consumers"], [10, 16])
+        self.assertEqual(self.result["consumers"], [10, 16, 18])
         self.assertEqual(self.result["provider"], 100)
         self.assertEqual(self.result["multiply"], 1)
         self.assertEqual(self.result["alpha"], 1)
@@ -215,9 +238,16 @@ class SceneImageBlendPlanTests(unittest.TestCase):
         self.assertEqual(self.result["defaultAlpha"], 1)
         self.assertFalse(self.result["defaultWritesAlpha"])
 
+    def test_property_provider_preserves_authored_layer_fallback(self) -> None:
+        self.assertEqual(
+            self.result["propertyCandidates"],
+            ["property:cover", "layer:100"],
+        )
+        self.assertTrue(self.result["propertyUsesInitialAlpha"])
+
     def test_media_bound_and_unsupported_operations_do_not_enter_static_plan(self) -> None:
-        self.assertEqual(len(self.result["report"]), 3)
-        self.assertIn("imageBlendPlannedCount: 2", self.result["report"])
+        self.assertEqual(len(self.result["report"]), 4)
+        self.assertIn("imageBlendPlannedCount: 3", self.result["report"])
 
 
 if __name__ == "__main__":
