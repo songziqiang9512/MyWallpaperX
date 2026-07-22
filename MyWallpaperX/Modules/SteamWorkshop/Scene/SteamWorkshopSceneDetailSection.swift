@@ -3,6 +3,8 @@ import SwiftUI
 struct SteamWorkshopSceneDetailSection: View {
     let record: SteamWorkshopDownloadRecord
     let report: SceneDiagnosticsReport
+    let propertyContext: SteamWorkshopScenePropertyContext?
+    let openPropertyEditor: () -> Void
 
     private var rows: [SteamWorkshopSceneDiagnosticsRow] {
         let capabilityProfile = report.capabilityProfile
@@ -20,7 +22,10 @@ struct SteamWorkshopSceneDetailSection: View {
             SteamWorkshopSceneDiagnosticsRow(label: "引用命中", value: "\(report.resourceReferences?.resolvedCount ?? 0)"),
             SteamWorkshopSceneDiagnosticsRow(label: "内置引用", value: "\(report.resourceReferences?.builtInReferenceCount ?? 0)"),
             SteamWorkshopSceneDiagnosticsRow(label: "引用缺失", value: "\(report.resourceReferences?.missingReferences.count ?? 0)"),
-            SteamWorkshopSceneDiagnosticsRow(label: "scene.pkg", value: record.scenePackageURL == nil ? "缺失" : "已找到"),
+            SteamWorkshopSceneDiagnosticsRow(
+                label: report.project?.packageURL?.lastPathComponent ?? "Scene 资源包",
+                value: record.scenePackageURL == nil ? "缺失" : "已找到"
+            ),
             SteamWorkshopSceneDiagnosticsRow(label: "PKGV 索引", value: "\(report.packageReport?.packageIndex?.entries.count ?? 0)"),
             SteamWorkshopSceneDiagnosticsRow(label: "缓存解包", value: "\(report.packageReport?.discoveredPaths.count ?? 0)"),
             SteamWorkshopSceneDiagnosticsRow(label: "shader blob", value: "\(report.resourceIndex.count(kind: .shaderBlob))"),
@@ -39,10 +44,16 @@ struct SteamWorkshopSceneDetailSection: View {
     }
 
     var body: some View {
-        Divider()
-            .overlay(Color.white.opacity(0.035))
+        VStack(alignment: .leading, spacing: 12) {
+            Divider()
+                .overlay(Color.white.opacity(0.035))
 
-        VStack(alignment: .leading, spacing: 10) {
+            if propertyContext != nil {
+                Button("属性调节", systemImage: "slider.horizontal.3", action: openPropertyEditor)
+                    .buttonStyle(.bordered)
+                    .help("在独立窗口中调节 Scene 属性")
+            }
+
             Text("Scene 诊断")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.secondary)
@@ -62,5 +73,6 @@ struct SteamWorkshopSceneDetailSection: View {
             }
         }
         .padding(.horizontal, 2)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

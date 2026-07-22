@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import ObjectiveC
+import SwiftUI
 import UniformTypeIdentifiers
 
 final class AppKitSteamWorkshopItemDetailView: NSView {
@@ -611,20 +612,18 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         guard let record = sceneDownloadRecord,
               let report = service.sceneDiagnosticsReport(for: record) else { return }
 
-        contentStack.addArrangedSubview(divider())
-        let stack = verticalStack(spacing: 10)
-        stack.addArrangedSubview(sectionTitle("Scene 诊断"))
-
-        sceneDiagnosticsRows(record: record, report: report).forEach {
-            stack.addArrangedSubview(notice(icon: "square.stack.3d.up", text: "\($0.0)：\($0.1)"))
+        let propertyContext = service.scenePropertyContext(for: record, report: report)
+        let section = SteamWorkshopSceneDetailSection(
+            record: record,
+            report: report,
+            propertyContext: propertyContext
+        ) {
+            guard let propertyContext else { return }
+            ScenePropertyWindowController.shared.show(record: record, context: propertyContext)
         }
-        report.issues.forEach {
-            stack.addArrangedSubview(notice(
-                icon: $0.severity == .blocking ? "exclamationmark.triangle.fill" : "info.circle",
-                text: $0.message
-            ))
-        }
-        contentStack.addArrangedSubview(stack)
+        let hostingView = NSHostingView(rootView: section)
+        hostingView.translatesAutoresizingMaskIntoConstraints = false
+        contentStack.addArrangedSubview(hostingView)
     }
 
     private func buildFooterActions() {
@@ -1251,40 +1250,6 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         case "font": return [.font]
         default: return []
         }
-    }
-
-    private func sceneDiagnosticsRows(record: SteamWorkshopDownloadRecord, report: SceneDiagnosticsReport) -> [(String, String)] {
-        let capabilityProfile = report.capabilityProfile
-        let renderDescriptor = report.renderDescriptor
-        return [
-            ("入口", report.project?.entryPath ?? "未解析"),
-            ("资源数", "\(report.resourceIndex.resources.count)"),
-            ("对象数", "\(report.sceneDocument?.objectCount ?? 0)"),
-            ("effect", "\(report.sceneDocument?.effectCount ?? 0)"),
-            ("模型", "\(report.assetCatalog?.models.count ?? 0)"),
-            ("材质", "\(report.assetCatalog?.materials.count ?? 0)"),
-            ("材质 pass", "\(report.assetCatalog?.materialPassCount ?? 0)"),
-            ("shader 引用", "\(report.assetCatalog?.shaderReferences.count ?? 0)"),
-            ("资源引用", "\(report.sceneDocument?.referencedResourcePaths.count ?? 0)"),
-            ("引用命中", "\(report.resourceReferences?.resolvedCount ?? 0)"),
-            ("内置引用", "\(report.resourceReferences?.builtInReferenceCount ?? 0)"),
-            ("引用缺失", "\(report.resourceReferences?.missingReferences.count ?? 0)"),
-            ("scene.pkg", record.scenePackageURL == nil ? "缺失" : "已找到"),
-            ("PKGV 索引", "\(report.packageReport?.packageIndex?.entries.count ?? 0)"),
-            ("缓存解包", "\(report.packageReport?.discoveredPaths.count ?? 0)"),
-            ("shader blob", "\(report.resourceIndex.count(kind: .shaderBlob))"),
-            ("脚本", capabilityProfile?.hasScripts == true ? "有" : "无"),
-            ("粒子", capabilityProfile?.hasParticles == true ? "有" : "无"),
-            ("音频处理", capabilityProfile?.supportsAudioProcessing == true ? "声明支持" : "未声明"),
-            ("阻塞能力", capabilityProfile?.firstStageRendererGaps.joined(separator: "、") ?? "未解析"),
-            ("render layer", "\(renderDescriptor?.layers.count ?? 0)"),
-            ("root layer", "\(renderDescriptor?.rootLayerIDs.count ?? 0)"),
-            ("render order", renderDescriptor?.renderOrderPolicy ?? "未解析"),
-            ("render pass", "\(renderDescriptor?.materialPasses.count ?? 0)"),
-            ("effect pass", "\(report.sceneDocument?.objects.flatMap { $0.effects }.reduce(0) { $0 + $1.passes.count } ?? 0)"),
-            ("解释文件", report.interpretationFileURL?.lastPathComponent ?? report.interpretationFileError ?? "未生成"),
-            ("内联脚本", "\(report.sceneDocument?.objects.filter(\.hasInlineScript).count ?? 0)")
-        ]
     }
 
     private final class WebPropertySlider: NSSlider {
