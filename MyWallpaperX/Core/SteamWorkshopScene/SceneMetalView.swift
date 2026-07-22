@@ -8,6 +8,7 @@ class SceneMetalView: NSView {
     private let renderer: SceneMetalRenderer
     private let metalLayer: CAMetalLayer
     private var imageTextures: [Int: MTLTexture] = [:]
+    private var spriteAnimations: [Int: SceneSpriteAnimation] = [:]
     private var videoTextureSources: [Int: SceneVideoTextureSource] = [:]
     private var irisMaskTextures: [Int: MTLTexture] = [:]
     private var opacityMaskTextures: [Int: MTLTexture] = [:]
@@ -155,6 +156,7 @@ class SceneMetalView: NSView {
         )
         var report: [String] = []
         var loaded: [Int: MTLTexture] = [:]
+        var loadedSpriteAnimations: [Int: SceneSpriteAnimation] = [:]
         var loadedVideoSources: [Int: SceneVideoTextureSource] = [:]
         var loadedIrisMasks: [Int: MTLTexture] = [:]
         var loadedOpacityMasks: [Int: MTLTexture] = [:]
@@ -195,6 +197,14 @@ class SceneMetalView: NSView {
             case .loaded(let texture):
                 loaded[layer.id] = texture
                 var message = "layer \(layer.id) \"\(name)\": OK \(url.lastPathComponent) → \(texture.width)×\(texture.height) [\(relativePath(for: url, cacheDirectory: cacheDirectory))]"
+                if let animation = SceneSpriteAnimation.load(from: url) {
+                    loadedSpriteAnimations[layer.id] = animation
+                    message += String(
+                        format: "; sprite animation frames=%d duration=%.3fs",
+                        animation.frames.count,
+                        animation.duration
+                    )
+                }
                 let effectTextures = SceneLayerEffectTextureLoader.load(
                     for: layer,
                     resolver: resolver,
@@ -237,6 +247,7 @@ class SceneMetalView: NSView {
             }
         }
         imageTextures = loaded
+        spriteAnimations = loadedSpriteAnimations
         let textLoad = SceneTextTextureLoader.load(descriptor: renderer.renderDescriptor, cacheDirectory: cacheDirectory, device: metalDevice)
         imageTextures.merge(textLoad.textures) { _, incoming in incoming }
         report.append(contentsOf: textLoad.messages)
@@ -283,6 +294,7 @@ class SceneMetalView: NSView {
         }
         renderer.renderFrame(
             imageTextures: currentImageTextures,
+            spriteAnimations: spriteAnimations,
             irisMaskTextures: irisMaskTextures,
             opacityMaskTextures: opacityMaskTextures,
             waterMaskTextures: waterMaskTextures,

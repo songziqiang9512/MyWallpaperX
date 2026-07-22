@@ -141,6 +141,7 @@ struct SceneMetalRenderer {
     // names referenced by each layer's effectFiles.
     func renderFrame(
         imageTextures: [Int: MTLTexture],
+        spriteAnimations: [Int: SceneSpriteAnimation],
         irisMaskTextures: [Int: MTLTexture],
         opacityMaskTextures: [Int: MTLTexture],
         waterMaskTextures: [Int: MTLTexture],
@@ -211,6 +212,7 @@ struct SceneMetalRenderer {
             )
             guard effectPlan.skipsUnsupportedComposite == false else { continue }
             let effectInputs = effectPlan.inputs
+            let textureFrame = spriteAnimations[layer.id]?.transform(at: time) ?? .identity
             let model = modelMatrix(for: layer)
             let mvp = viewProj * model
             let directUniforms = SceneLayerFragmentUniforms(
@@ -223,7 +225,9 @@ struct SceneMetalRenderer {
                 effectParams0: effectInputs.params0,
                 effectParams1: effectInputs.params1,
                 effectParams2: effectInputs.params2,
-                effectParams3: effectInputs.params3
+                effectParams3: effectInputs.params3,
+                textureFrame0: textureFrame.uniform0,
+                textureFrame1: textureFrame.uniform1
             )
             let offscreenPassCount = effectPlan.offscreenPassCount
             if offscreenPassCount > 0,
@@ -260,7 +264,7 @@ struct SceneMetalRenderer {
                     foliageMaskTexture: nil,
                     auxMaskTexture: nil,
                     mvp: mvp,
-                    uniforms: Self.neutralUniforms(alpha: 1),
+                    uniforms: .neutral(),
                     encoder: encoder
                 )
                 continue
@@ -329,21 +333,6 @@ struct SceneMetalRenderer {
         descriptor.colorAttachments[0].clearColor = clearColor
         descriptor.colorAttachments[0].storeAction = .store
         return commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
-    }
-
-    private static func neutralUniforms(alpha: Float) -> SceneLayerFragmentUniforms {
-        SceneLayerFragmentUniforms(
-            time: 0,
-            alpha: alpha,
-            effectFlags: 0,
-            _pad0: 0,
-            cursorUV: .zero,
-            _pad1: .zero,
-            effectParams0: .zero,
-            effectParams1: .zero,
-            effectParams2: .zero,
-            effectParams3: .zero
-        )
     }
 
     // MARK: - Matrix construction

@@ -175,16 +175,5 @@ enum SceneOffscreenEffectRenderer {
     }
 
     private static let fullTargetMVP = SceneMatrix.scale(SIMD3<Float>(2, 2, 1))
-    private static let neutralUniforms = SceneLayerFragmentUniforms(
-        time: 0,
-        alpha: 1,
-        effectFlags: 0,
-        _pad0: 0,
-        cursorUV: .zero,
-        _pad1: .zero,
-        effectParams0: .zero,
-        effectParams1: .zero,
-        effectParams2: .zero,
-        effectParams3: .zero
-    )
+    private static let neutralUniforms = SceneLayerFragmentUniforms.neutral()
 }

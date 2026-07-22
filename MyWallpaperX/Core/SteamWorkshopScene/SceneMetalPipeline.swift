@@ -47,6 +47,8 @@ struct SceneLayerFragmentUniforms {
     var effectParams1: SIMD4<Float>
     var effectParams2: SIMD4<Float>
     var effectParams3: SIMD4<Float>
+    var textureFrame0: SIMD4<Float>
+    var textureFrame1: SIMD4<Float>
 }
 
 // Embedded MSL. Vertex shader transforms a unit quad by an MVP supplied in
@@ -77,7 +79,15 @@ struct LayerFragmentUniforms {
     float4 effectParams1;
     float4 effectParams2;
     float4 effectParams3;
+    float4 textureFrame0;
+    float4 textureFrame1;
 };
+
+float2 textureFrameUV(float2 uv, constant LayerFragmentUniforms &u) {
+    return u.textureFrame0.xy
+        + uv.x * u.textureFrame0.zw
+        + uv.y * u.textureFrame1.xy;
+}
 
 constant uint EFFECT_FOLIAGESWAY         = 1u << 0;
 constant uint EFFECT_WATERWAVES          = 1u << 1;
@@ -209,13 +219,13 @@ fragment float4 sceneImageLayerFrag(
     if ((u.effectFlags & EFFECT_CHROMATICABERRATION) != 0u) {
         float2 d = sampleUV - 0.5;
         float2 off = d * 0.004;
-        float r = tex.sample(s, sampleUV - off).r;
-        float g = tex.sample(s, sampleUV      ).g;
-        float b = tex.sample(s, sampleUV + off).b;
-        float a = tex.sample(s, sampleUV      ).a;
+        float r = tex.sample(s, textureFrameUV(clamp(sampleUV - off, 0.0, 1.0), u)).r;
+        float g = tex.sample(s, textureFrameUV(clamp(sampleUV,       0.0, 1.0), u)).g;
+        float b = tex.sample(s, textureFrameUV(clamp(sampleUV + off, 0.0, 1.0), u)).b;
+        float a = tex.sample(s, textureFrameUV(clamp(sampleUV,       0.0, 1.0), u)).a;
         color = float4(r, g, b, a);
     } else {
-        color = tex.sample(s, sampleUV);
+        color = tex.sample(s, textureFrameUV(clamp(sampleUV, 0.0, 1.0), u));
     }
 
     if ((u.effectFlags & EFFECT_OPACITY_MASK) != 0u) {

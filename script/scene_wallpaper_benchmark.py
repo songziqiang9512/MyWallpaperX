@@ -284,6 +284,9 @@ def run_sample(
     if maximum_legacy_waterwaves_count is not None:
         if legacy_waterwaves_count > int(maximum_legacy_waterwaves_count):
             failures.append("legacy waterwaves runtime count above maximum")
+    sprite_animation_count = preview_text.count("; sprite animation frames=")
+    if sprite_animation_count < int(sample.get("minimum_sprite_animation_count", 0)):
+        failures.append("sprite animation runtime count below minimum")
     color_blend_mode_9_count = preview_text.count("layer color blend mode=9")
     if color_blend_mode_9_count < int(sample.get("minimum_color_blend_mode_9_count", 0)):
         failures.append("layer color blend mode 9 count below minimum")
@@ -365,6 +368,7 @@ def run_sample(
             "water_ripple_normal_load_count": water_ripple_normal_load_count,
             "legacy_water_ripple_runtime_count": legacy_water_ripple_count,
             "legacy_waterwaves_runtime_count": legacy_waterwaves_count,
+            "sprite_animation_count": sprite_animation_count,
             "color_blend_mode_9_count": color_blend_mode_9_count,
             "bloom_runtime_count": bloom_runtime_count,
             "route_only_effect_count": preview_text.count("offscreen route-only"),

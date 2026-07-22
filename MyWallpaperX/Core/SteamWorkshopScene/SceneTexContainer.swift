@@ -16,6 +16,14 @@ struct SceneTexContainer {
         let data: Data
     }
 
+    struct SpriteFrame {
+        let imageIndex: Int
+        let duration: Float
+        let origin: SIMD2<Float>
+        let xAxis: SIMD2<Float>
+        let yAxis: SIMD2<Float>
+    }
+
     let format: UInt32
     let flags: UInt32
     let textureWidth: Int
@@ -27,6 +35,7 @@ struct SceneTexContainer {
     let freeImageFormat: Int32
     let isVideoMp4: Bool
     let mips: [Mip]
+    let spriteFrames: [SpriteFrame]
 
     var isAnimated: Bool {
         flags & 4 != 0
@@ -72,6 +81,7 @@ struct SceneTexContainerReader {
     enum ReadError: LocalizedError {
         case invalidHeader
         case invalidMipTable
+        case invalidSpriteTable
         case unsupportedCompression(UInt32)
         case decompressionFailed(expectedSize: Int, actualSize: Int)
 
@@ -81,6 +91,8 @@ struct SceneTexContainerReader {
                 return "无效的 TEXV0005 纹理头。"
             case .invalidMipTable:
                 return "无效的 TEX mip 数据表。"
+            case .invalidSpriteTable:
+                return "无效的 TEX sprite 帧数据表。"
             case let .unsupportedCompression(code):
                 return "不支持的 TEX mip 压缩方式: \(code)。"
             case let .decompressionFailed(expectedSize, actualSize):
@@ -92,6 +104,16 @@ struct SceneTexContainerReader {
     private static let maximumImageCount = 512
     private static let maximumMipCount = 32
     private static let maximumMipByteCount = 250_000_000
+    private static let maximumSpriteFrameCount = 65_536
+
+    private enum SpriteVersion: String {
+        case texs0001 = "TEXS0001"
+        case texs0002 = "TEXS0002"
+        case texs0003 = "TEXS0003"
+
+        var usesIntegerCoordinates: Bool { self == .texs0001 }
+        var hasAtlasSize: Bool { self == .texs0003 }
+    }
 
     func read(data: Data) throws -> SceneTexContainer {
         guard data.count >= 55,
@@ -142,6 +164,7 @@ struct SceneTexContainerReader {
         }
 
         var firstImageMips: [SceneTexContainer.Mip] = []
+        var imageSizes: [SIMD2<Float>] = []
         for imageIndex in 0..<imageCount {
             guard offset + 4 <= data.count else {
                 throw ReadError.invalidMipTable
@@ -153,12 +176,15 @@ struct SceneTexContainerReader {
             }
 
             var parsedMips: [SceneTexContainer.Mip] = []
-            for _ in 0..<mipCount {
+            for mipIndex in 0..<mipCount {
                 let mip = try readMip(
                     data: data,
                     offset: &offset,
                     containerVersion: effectiveContainerVersion
                 )
+                if mipIndex == 0 {
+                    imageSizes.append(SIMD2(Float(mip.width), Float(mip.height)))
+                }
                 if imageIndex == 0 {
                     parsedMips.append(mip)
                 }
@@ -172,6 +198,9 @@ struct SceneTexContainerReader {
         guard !firstImageMips.isEmpty else {
             throw ReadError.invalidMipTable
         }
+        let spriteFrames = flags & 4 == 0
+            ? []
+            : try readSpriteFrames(data: data, offset: &offset, imageSizes: imageSizes)
 
         return SceneTexContainer(
             format: format,
@@ -184,8 +213,70 @@ struct SceneTexContainerReader {
             containerVersion: effectiveContainerVersion,
             freeImageFormat: freeImageFormat,
             isVideoMp4: isVideoMp4,
-            mips: firstImageMips
+            mips: firstImageMips,
+            spriteFrames: spriteFrames
         )
+    }
+
+    private func readSpriteFrames(
+        data: Data,
+        offset: inout Int,
+        imageSizes: [SIMD2<Float>]
+    ) throws -> [SceneTexContainer.SpriteFrame] {
+        guard offset + 13 <= data.count,
+              data[offset + 8] == 0,
+              let rawVersion = String(data: data[offset..<(offset + 8)], encoding: .ascii),
+              let version = SpriteVersion(rawValue: rawVersion) else {
+            throw ReadError.invalidSpriteTable
+        }
+        offset += 9
+        let frameCount = Int(data.int32LE(at: offset))
+        offset += 4
+        guard frameCount >= 0, frameCount <= Self.maximumSpriteFrameCount else {
+            throw ReadError.invalidSpriteTable
+        }
+        if version.hasAtlasSize {
+            guard offset + 8 <= data.count,
+                  data.int32LE(at: offset) > 0,
+                  data.int32LE(at: offset + 4) > 0 else {
+                throw ReadError.invalidSpriteTable
+            }
+            offset += 8
+        }
+        let frameByteCount = 32
+        guard frameCount <= (data.count - offset) / frameByteCount else {
+            throw ReadError.invalidSpriteTable
+        }
+
+        var frames: [SceneTexContainer.SpriteFrame] = []
+        frames.reserveCapacity(frameCount)
+        for _ in 0..<frameCount {
+            let imageIndex = Int(data.int32LE(at: offset))
+            let duration = data.float32LE(at: offset + 4)
+            offset += 8
+            guard imageSizes.indices.contains(imageIndex), duration.isFinite, duration >= 0 else {
+                throw ReadError.invalidSpriteTable
+            }
+            let coordinates = (0..<6).map { index -> Float in
+                let coordinateOffset = offset + index * 4
+                return version.usesIntegerCoordinates
+                    ? Float(data.int32LE(at: coordinateOffset))
+                    : data.float32LE(at: coordinateOffset)
+            }
+            offset += 24
+            guard coordinates.allSatisfy(\.isFinite) else {
+                throw ReadError.invalidSpriteTable
+            }
+            let imageSize = imageSizes[imageIndex]
+            frames.append(.init(
+                imageIndex: imageIndex,
+                duration: duration,
+                origin: SIMD2(coordinates[0] / imageSize.x, coordinates[1] / imageSize.y),
+                xAxis: SIMD2(coordinates[2] / imageSize.x, coordinates[3] / imageSize.x),
+                yAxis: SIMD2(coordinates[4] / imageSize.y, coordinates[5] / imageSize.y)
+            ))
+        }
+        return frames
     }
 
     private func readMip(
@@ -291,6 +382,10 @@ private extension Data {
         self.withUnsafeBytes { rawBuffer in
             rawBuffer.loadUnaligned(fromByteOffset: offset, as: Int32.self).littleEndian
         }
+    }
+
+    func float32LE(at offset: Int) -> Float {
+        Float(bitPattern: uint32LE(at: offset))
     }
 
     func skipNullTerminatedString(at offset: inout Int) throws {
