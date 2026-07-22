@@ -150,16 +150,34 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                             "textureSlots": [None, None, "phase.tex"],
                             "combos": {"VERSION": 2, "MODE": 0},
                         }],
+                        "builtInReferenceCount": 4,
+                        "missingResources": ["one", "two"],
                         "layers": [{
-                            "effects": [{"passes": [{
+                            "id": 1,
+                            "visible": False,
+                            "parentID": None,
+                            "effects": [],
+                        }, {
+                            "effects": [{"file": "effects/test.json", "passes": [{
                                 "textureSlots": [None, "normal.tex"],
                                 "combos": {"REPEAT": 1},
                             }]}],
                             "id": 7,
                             "visible": True,
+                            "parentID": 1,
                             "text": "property gate",
                             "parallaxDepthXY": [2, 0],
                             "disablesParallaxPropagation": True,
+                        }, {
+                            "id": 8,
+                            "visible": True,
+                            "parentID": None,
+                            "effects": [],
+                        }, {
+                            "id": 9,
+                            "visible": True,
+                            "parentID": 8,
+                            "effects": [],
                         }],
                     },
                 }),
@@ -173,12 +191,21 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             self.assertEqual(metrics["material_texture_slot_count"], 3)
             self.assertEqual(metrics["material_texture_slot_hole_count"], 2)
             self.assertEqual(metrics["material_combo_entry_count"], 2)
-            self.assertEqual(metrics["visible_layer_count"], 1)
-            self.assertEqual(metrics["visible_layer_ids"], [7])
+            self.assertEqual(metrics["visible_layer_count"], 3)
+            self.assertEqual(metrics["visible_layer_ids"], [7, 8, 9])
+            self.assertEqual(metrics["root_layer_count"], 2)
+            self.assertEqual(metrics["child_edge_count"], 2)
+            self.assertEqual(metrics["parent_layer_count"], 2)
+            self.assertEqual(metrics["max_hierarchy_depth"], 1)
+            self.assertEqual(metrics["effective_visible_layer_count"], 2)
+            self.assertEqual(metrics["effective_visible_layer_ids"], [8, 9])
             self.assertEqual(metrics["authored_parallax_layer_count"], 1)
             self.assertEqual(metrics["authored_parallax_layer_ids"], [7])
             self.assertEqual(metrics["parallax_propagation_block_count"], 1)
             self.assertEqual(metrics["text_values"], ["property gate"])
+            self.assertEqual(metrics["effect_files"], ["effects/test.json"])
+            self.assertEqual(metrics["built_in_reference_count"], 4)
+            self.assertEqual(metrics["missing_resource_count"], 2)
             self.assertIsNone(metrics["error"])
 
     def test_interpretation_metrics_reject_invalid_slot_shape(self) -> None:
@@ -239,6 +266,11 @@ loaded: 20 / 24
 text loaded: 10 / 10
 particle loaded: 3 / 4
 particle initial live: 96
+particle authored: 5
+particle visible: 3
+particle layer 200 "Snow": OK 64x64 blend=additive initial=32 perspective=false
+particle layer 201 "Bird": OK 64x64 blend=translucent initial=64 perspective=true
+particle skipped hidden: 2
 """
         metrics = benchmark.particle_runtime_metrics(preview_log)
         self.assertTrue(metrics["has_load_evidence"])
@@ -247,11 +279,19 @@ particle initial live: 96
         self.assertEqual(metrics["candidates"], 4)
         self.assertEqual(metrics["loaded_ratio"], 0.75)
         self.assertEqual(metrics["initial_live"], 96)
+        self.assertEqual(metrics["authored"], 5)
+        self.assertEqual(metrics["visible"], 3)
+        self.assertEqual(metrics["skipped_hidden"], 2)
+        self.assertEqual(metrics["loaded_layer_ids"], [200, 201])
         self.assertEqual(
             benchmark.particle_runtime_failures({
                 "minimum_particle_loaded": 3,
                 "expected_particle_candidates": 4,
                 "minimum_particle_initial_live": 96,
+                "expected_particle_authored": 5,
+                "expected_particle_visible": 3,
+                "expected_particle_skipped_hidden": 2,
+                "required_particle_loaded_layer_ids": [200, 201],
             }, metrics),
             [],
         )
@@ -260,11 +300,19 @@ particle initial live: 96
                 "minimum_particle_loaded": 4,
                 "expected_particle_candidates": 5,
                 "minimum_particle_initial_live": 97,
+                "expected_particle_authored": 4,
+                "expected_particle_visible": 4,
+                "expected_particle_skipped_hidden": 1,
+                "required_particle_loaded_layer_ids": [202],
             }, metrics),
             [
                 "particle loaded count below minimum",
                 "particle candidate count mismatch",
                 "particle initial live count below minimum",
+                "particle authored count mismatch",
+                "particle visible count mismatch",
+                "particle skipped_hidden count mismatch",
+                "particle layer 202 should be loaded",
             ],
         )
 

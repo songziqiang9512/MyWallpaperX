@@ -36,6 +36,7 @@ INTERPRETATION_RE = re.compile(
 STOPPED_RE = re.compile(r"phase=stopped surfacesBefore=(?P<before>\d+) surfacesAfter=(?P<after>\d+)")
 LOADED_RE = re.compile(r"^loaded: (?P<loaded>\d+) / (?P<total>\d+)$", re.MULTILINE)
 TEXT_LOADED_RE = re.compile(r"^text loaded: (?P<loaded>\d+) / (?P<total>\d+)$", re.MULTILINE)
+TEXT_LAYER_OK_RE = re.compile(r'^text layer (?P<id>\d+) .*: OK ', re.MULTILINE)
 PARTICLE_LOADED_RE = re.compile(
     r"^particle loaded: (?P<loaded>\d+) / (?P<total>\d+)$",
     re.MULTILINE,
@@ -44,6 +45,13 @@ PARTICLE_INITIAL_LIVE_RE = re.compile(
     r"^particle initial live: (?P<live>\d+)$",
     re.MULTILINE,
 )
+PARTICLE_AUTHORED_RE = re.compile(r"^particle authored: (?P<count>\d+)$", re.MULTILINE)
+PARTICLE_VISIBLE_RE = re.compile(r"^particle visible: (?P<count>\d+)$", re.MULTILINE)
+PARTICLE_SKIPPED_HIDDEN_RE = re.compile(
+    r"^particle skipped hidden: (?P<count>\d+)$",
+    re.MULTILINE,
+)
+PARTICLE_LAYER_OK_RE = re.compile(r'^particle layer (?P<id>\d+) .*: OK ', re.MULTILINE)
 FLOAT_PATTERN = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
 CAMERA_RE = re.compile(
     r"^camera: projection=(?P<projection>\S+) parallax=(?P<parallax>true|false) "
@@ -117,6 +125,59 @@ def pass_metadata_metrics(passes: list[Any]) -> tuple[int, int, int]:
     return slot_count, slot_holes, combo_count
 
 
+def layer_graph_metrics(layers: list[dict[str, Any]]) -> dict[str, Any]:
+    layers_by_id = {layer["id"]: layer for layer in layers if type(layer.get("id")) is int}
+
+    def is_effectively_visible(layer: dict[str, Any]) -> bool:
+        current: dict[str, Any] | None = layer
+        visited: set[int] = set()
+        while current is not None:
+            layer_id = current.get("id")
+            if current.get("visible") is False or layer_id in visited:
+                return False
+            if type(layer_id) is int:
+                visited.add(layer_id)
+            parent_id = current.get("parentID")
+            current = layers_by_id.get(parent_id) if type(parent_id) is int else None
+        return True
+
+    def hierarchy_depth(layer: dict[str, Any]) -> int:
+        depth = 0
+        current = layer
+        visited: set[int] = set()
+        while type(current.get("parentID")) is int:
+            layer_id = current.get("id")
+            if layer_id in visited:
+                break
+            if type(layer_id) is int:
+                visited.add(layer_id)
+            parent = layers_by_id.get(current["parentID"])
+            if parent is None:
+                break
+            depth += 1
+            current = parent
+        return depth
+
+    effective_visible_ids = [
+        layer["id"]
+        for layer in layers
+        if type(layer.get("id")) is int and is_effectively_visible(layer)
+    ]
+    parent_ids = {
+        layer["parentID"]
+        for layer in layers
+        if type(layer.get("parentID")) is int
+    }
+    return {
+        "root_layer_count": sum(layer.get("parentID") is None for layer in layers),
+        "child_edge_count": sum(type(layer.get("parentID")) is int for layer in layers),
+        "parent_layer_count": len(parent_ids),
+        "max_hierarchy_depth": max((hierarchy_depth(layer) for layer in layers), default=0),
+        "effective_visible_layer_count": len(effective_visible_ids),
+        "effective_visible_layer_ids": effective_visible_ids,
+    }
+
+
 def interpretation_metrics(path: Path) -> dict[str, Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -129,6 +190,7 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
             for item in effect.get("passes", [])
         ]
         material_passes = descriptor.get("materialPasses", [])
+        graph = layer_graph_metrics(layers)
         parallax_layers = [
             layer
             for layer in layers
@@ -147,12 +209,21 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
             "material_combo_entry_count": material_combo_count,
             "visible_layer_count": sum(layer.get("visible") is not False for layer in layers),
             "visible_layer_ids": [layer.get("id") for layer in layers if layer.get("visible") is not False],
+            **graph,
             "authored_parallax_layer_count": len(parallax_layers),
             "authored_parallax_layer_ids": [layer.get("id") for layer in parallax_layers],
             "parallax_propagation_block_count": sum(
                 layer.get("disablesParallaxPropagation") is True for layer in layers
             ),
             "text_values": [layer.get("text") for layer in layers if isinstance(layer.get("text"), str)],
+            "effect_files": sorted({
+                effect.get("file")
+                for layer in layers
+                for effect in layer.get("effects", [])
+                if isinstance(effect.get("file"), str)
+            }),
+            "built_in_reference_count": int(descriptor.get("builtInReferenceCount", 0)),
+            "missing_resource_count": len(descriptor.get("missingResources", [])),
             "error": None,
         }
     except (AttributeError, KeyError, TypeError, ValueError, json.JSONDecodeError, OSError) as error:
@@ -166,10 +237,19 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
             "material_combo_entry_count": 0,
             "visible_layer_count": 0,
             "visible_layer_ids": [],
+            "root_layer_count": 0,
+            "child_edge_count": 0,
+            "parent_layer_count": 0,
+            "max_hierarchy_depth": 0,
+            "effective_visible_layer_count": 0,
+            "effective_visible_layer_ids": [],
             "authored_parallax_layer_count": 0,
             "authored_parallax_layer_ids": [],
             "parallax_propagation_block_count": 0,
             "text_values": [],
+            "effect_files": [],
+            "built_in_reference_count": 0,
+            "missing_resource_count": 0,
             "error": str(error),
         }
 
@@ -177,15 +257,26 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
 def particle_runtime_metrics(preview_text: str) -> dict[str, Any]:
     loaded_match = PARTICLE_LOADED_RE.search(preview_text)
     initial_live_match = PARTICLE_INITIAL_LIVE_RE.search(preview_text)
+    authored_match = PARTICLE_AUTHORED_RE.search(preview_text)
+    visible_match = PARTICLE_VISIBLE_RE.search(preview_text)
+    skipped_hidden_match = PARTICLE_SKIPPED_HIDDEN_RE.search(preview_text)
     loaded = int(loaded_match.group("loaded")) if loaded_match else 0
     candidates = int(loaded_match.group("total")) if loaded_match else 0
     return {
         "has_load_evidence": loaded_match is not None,
         "has_initial_live_evidence": initial_live_match is not None,
+        "has_visibility_evidence": all(
+            match is not None
+            for match in (authored_match, visible_match, skipped_hidden_match)
+        ),
         "loaded": loaded,
         "candidates": candidates,
         "loaded_ratio": loaded / candidates if candidates else 0.0,
         "initial_live": int(initial_live_match.group("live")) if initial_live_match else 0,
+        "authored": int(authored_match.group("count")) if authored_match else 0,
+        "visible": int(visible_match.group("count")) if visible_match else 0,
+        "skipped_hidden": int(skipped_hidden_match.group("count")) if skipped_hidden_match else 0,
+        "loaded_layer_ids": [int(match.group("id")) for match in PARTICLE_LAYER_OK_RE.finditer(preview_text)],
     }
 
 
@@ -197,6 +288,7 @@ def particle_runtime_failures(
     requires_load_evidence = (
         "minimum_particle_loaded" in sample
         or "expected_particle_candidates" in sample
+        or bool(sample.get("required_particle_loaded_layer_ids"))
     )
     if requires_load_evidence and not metrics["has_load_evidence"]:
         failures.append("particle load evidence missing")
@@ -212,6 +304,21 @@ def particle_runtime_failures(
             failures.append("particle initial live evidence missing")
         elif metrics["initial_live"] < int(sample["minimum_particle_initial_live"]):
             failures.append("particle initial live count below minimum")
+    visibility_expectations = {
+        "expected_particle_authored": "authored",
+        "expected_particle_visible": "visible",
+        "expected_particle_skipped_hidden": "skipped_hidden",
+    }
+    if any(key in sample for key in visibility_expectations) and not metrics["has_visibility_evidence"]:
+        failures.append("particle visibility evidence missing")
+    else:
+        for expectation, metric in visibility_expectations.items():
+            if expectation in sample and metrics[metric] != int(sample[expectation]):
+                failures.append(f"particle {metric} count mismatch")
+    loaded_layer_ids = set(metrics["loaded_layer_ids"])
+    for layer_id in sample.get("required_particle_loaded_layer_ids", []):
+        if layer_id not in loaded_layer_ids:
+            failures.append(f"particle layer {layer_id} should be loaded")
     return failures
 
 
@@ -299,6 +406,7 @@ def run_sample(
     text_loaded_match = TEXT_LOADED_RE.search(preview_text)
     text_loaded = int(text_loaded_match.group("loaded")) if text_loaded_match else 0
     text_total = int(text_loaded_match.group("total")) if text_loaded_match else 0
+    text_loaded_layer_ids = [int(match.group("id")) for match in TEXT_LAYER_OK_RE.finditer(preview_text)]
     particle_runtime = particle_runtime_metrics(preview_text)
     camera_match = CAMERA_RE.search(preview_text)
     ready_snapshot = result_dir / "scene-ready-window.png"
@@ -362,6 +470,11 @@ def run_sample(
         failures.append(f"loaded ratio {loaded_ratio:.3f} below minimum")
     if text_loaded < int(sample.get("minimum_text_loaded", 0)):
         failures.append("text texture count below minimum")
+    if "expected_text_candidates" in sample and text_total != int(sample["expected_text_candidates"]):
+        failures.append("text candidate count mismatch")
+    for layer_id in sample.get("required_text_loaded_layer_ids", []):
+        if layer_id not in text_loaded_layer_ids:
+            failures.append(f"text layer {layer_id} should be loaded")
     failures.extend(particle_runtime_failures(sample, particle_runtime))
     blur_runtime_count = preview_text.count("effect runtime gaussian-blur;")
     if blur_runtime_count < int(sample.get("minimum_gaussian_blur_runtime_count", 0)):
@@ -416,6 +529,13 @@ def run_sample(
         "expected_material_texture_slot_hole_count": "material_texture_slot_hole_count",
         "expected_material_combo_entry_count": "material_combo_entry_count",
         "expected_visible_layer_count": "visible_layer_count",
+        "expected_root_layer_count": "root_layer_count",
+        "expected_child_edge_count": "child_edge_count",
+        "expected_parent_layer_count": "parent_layer_count",
+        "expected_max_hierarchy_depth": "max_hierarchy_depth",
+        "expected_effective_visible_layer_count": "effective_visible_layer_count",
+        "expected_built_in_reference_count": "built_in_reference_count",
+        "expected_missing_resource_count": "missing_resource_count",
     }
     for expectation, metric in interpretation_expectations.items():
         if expectation in sample and interpretation[metric] != int(sample[expectation]):
@@ -430,6 +550,17 @@ def run_sample(
     for layer_id in sample.get("required_hidden_layer_ids", []):
         if layer_id in visible_layer_ids:
             failures.append(f"Scene property layer {layer_id} should be hidden")
+    effective_visible_layer_ids = set(interpretation["effective_visible_layer_ids"])
+    for layer_id in sample.get("required_effectively_visible_layer_ids", []):
+        if layer_id not in effective_visible_layer_ids:
+            failures.append(f"Scene layer {layer_id} should be effectively visible")
+    for layer_id in sample.get("required_effectively_hidden_layer_ids", []):
+        if layer_id in effective_visible_layer_ids:
+            failures.append(f"Scene layer {layer_id} should be effectively hidden")
+    effect_files = set(interpretation["effect_files"])
+    for effect_file in sample.get("required_effect_files", []):
+        if effect_file not in effect_files:
+            failures.append(f"Scene effect file missing: {effect_file}")
     bloom_runtime_count = preview_text.count("effect runtime bloom")
     if bloom_runtime_count < int(sample.get("minimum_bloom_runtime_count", 0)):
         failures.append("bloom runtime count below minimum")
@@ -484,10 +615,15 @@ def run_sample(
             "loaded_ratio": round(loaded_ratio, 4),
             "loaded_textures_text": text_loaded,
             "text_candidates": text_total,
+            "text_loaded_layer_ids": text_loaded_layer_ids,
             "loaded_particle_layers": particle_runtime["loaded"],
             "particle_candidates": particle_runtime["candidates"],
             "particle_loaded_ratio": round(particle_runtime["loaded_ratio"], 4),
             "particle_initial_live": particle_runtime["initial_live"],
+            "particle_authored": particle_runtime["authored"],
+            "particle_visible": particle_runtime["visible"],
+            "particle_skipped_hidden": particle_runtime["skipped_hidden"],
+            "particle_loaded_layer_ids": particle_runtime["loaded_layer_ids"],
             "camera_projection": camera_match.group("projection") if camera_match else None,
             "camera_parallax": camera_match.group("parallax") == "true" if camera_match else None,
             "camera_parallax_amount": float(camera_match.group("amount")) if camera_match else None,
