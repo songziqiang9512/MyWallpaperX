@@ -21,6 +21,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneResourceIndex.swift",
     SOURCE_ROOT / "SceneParticleDefinition.swift",
     SOURCE_ROOT / "SceneParticleDefinitionParser.swift",
+    SOURCE_ROOT / "SceneParticleTextureSource.swift",
+    SOURCE_ROOT / "SceneParticleBuiltInTextureRegistry.swift",
     SOURCE_ROOT / "SceneParticleAssetGraph.swift",
     SOURCE_ROOT / "SceneParticleSimulationSupport.swift",
     SOURCE_ROOT / "SceneParticleSimulator.swift",
@@ -189,6 +191,7 @@ enum Harness {
             children: [["name": "particles/child.json"]], under: directory
         )
         try writeParticle("particles/child.json", material: "materials/shared.json", under: directory)
+        try writeParticle("particles/drop.json", material: "materials/drop.json", under: directory)
 
         let descriptor = SceneRenderDescriptor(
             layers: [
@@ -197,8 +200,9 @@ enum Harness {
                 layer(3, "particles/trail.json"),
                 layer(4, "particles/child-root.json"),
                 layer(5, "particles/hidden-never-loaded.json", visible: false),
+                layer(6, "particles/drop.json"),
             ],
-            renderOrderLayerIDs: [1, 2, 3, 4, 5],
+            renderOrderLayerIDs: [1, 2, 3, 4, 5, 6],
             materialPasses: [
                 .init(
                     materialPath: "materials/no-texture.json",
@@ -207,6 +211,10 @@ enum Harness {
                 .init(
                     materialPath: "materials/shared.json",
                     shaderPath: "genericparticle", texturePaths: ["shared.png"], blending: "additive"
+                ),
+                .init(
+                    materialPath: "materials/drop.json",
+                    shaderPath: "genericparticle", texturePaths: ["particle/drop"], blending: "additive"
                 ),
             ]
         )
@@ -221,6 +229,9 @@ enum Harness {
             "activeLayerIDs": runtime.activeLayerIDs,
             "batchLayerIDs": batches.map(\.layerID),
             "activeParticleCount": batches.first?.instances.count ?? 0,
+            "batchTextureSizes": Dictionary(uniqueKeysWithValues: batches.map {
+                (String($0.layerID), [$0.texture.width, $0.texture.height])
+            }),
             "diagnostics": runtime.diagnostics.map {
                 [
                     "kind": $0.kind.rawValue,
@@ -373,9 +384,10 @@ class SceneParticleRuntimeTests(unittest.TestCase):
 
     def test_synthetic_rejects_unsupported_roots_and_keeps_diagnostics(self) -> None:
         result = self.run_harness("synthetic")
-        self.assertEqual(result["activeLayerIDs"], [4])
-        self.assertEqual(result["batchLayerIDs"], [4])
+        self.assertEqual(result["activeLayerIDs"], [4, 6])
+        self.assertEqual(result["batchLayerIDs"], [4, 6])
         self.assertGreater(result["activeParticleCount"], 0)
+        self.assertEqual(result["batchTextureSizes"]["6"], [32, 32])
         self.assertFalse(result["hiddenMentioned"])
         diagnostics = result["diagnostics"]
         kinds = {value["kind"] for value in diagnostics}

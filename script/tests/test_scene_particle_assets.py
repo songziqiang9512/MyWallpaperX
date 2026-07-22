@@ -17,6 +17,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneResourceIndex.swift",
     SOURCE_ROOT / "SceneParticleDefinition.swift",
     SOURCE_ROOT / "SceneParticleDefinitionParser.swift",
+    SOURCE_ROOT / "SceneParticleTextureSource.swift",
     SOURCE_ROOT / "SceneParticleAssetGraph.swift",
     SOURCE_ROOT / "ScenePkgReader.swift",
 ]
@@ -68,6 +69,10 @@ enum Harness {
             "material": "materials/particle/builtin-texture.json",
             "emitter": [["name": "sphereRandom"]]
         ], relativePath: "particles/builtin-texture.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/drop-texture.json",
+            "emitter": [["name": "sphereRandom"]]
+        ], relativePath: "particles/drop-texture.json", under: directory)
         try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/root.tex", under: directory)
         try write(Data([0x89, 0x50, 0x4e, 0x47]), relativePath: "materials/particle/child.png", under: directory)
 
@@ -95,6 +100,12 @@ enum Harness {
                 shaderPath: "shaders/genericparticle.json",
                 texturePaths: ["particle/halo"],
                 blending: nil
+            ),
+            SceneParticleMaterialPass(
+                materialPath: "materials/particle/drop-texture.json",
+                shaderPath: "shaders/genericparticle.json",
+                texturePaths: ["particle/drop"],
+                blending: nil
             )
         ]
         let graph = SceneParticleAssetGraphLoader().load(
@@ -103,6 +114,7 @@ enum Harness {
                 "particles/missing-material.json",
                 "particles/missing-texture.json",
                 "particles/builtin-texture.json",
+                "particles/drop-texture.json",
                 "particles/missing-definition.json"
             ],
             materialPasses: passes,
@@ -110,6 +122,14 @@ enum Harness {
         )
         let root = graph.assetsByPath["particles/root.json"]
         let child = graph.assetsByPath["particles/child.json"]
+        let drop = graph.assetsByPath["particles/drop-texture.json"]
+        try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/drop.tex", under: directory)
+        let localDropGraph = SceneParticleAssetGraphLoader().load(
+            rootPaths: ["particles/drop-texture.json"],
+            materialPasses: passes,
+            cacheDirectory: directory
+        )
+        let localDrop = localDropGraph.assetsByPath["particles/drop-texture.json"]
         let diagnostics = Dictionary(grouping: graph.diagnostics, by: { $0.kind.rawValue })
             .mapValues(\.count)
         return [
@@ -118,14 +138,16 @@ enum Harness {
             "rootChildren": root?.childPaths ?? [],
             "rootBlend": root?.blendMode.rawValue ?? "",
             "childBlend": child?.blendMode.rawValue ?? "",
-            "rootTexture": root?.textureURL?.lastPathComponent ?? "",
-            "childTexture": child?.textureURL?.lastPathComponent ?? "",
-            "rootTextureExists": root?.textureURL.map {
+            "rootTexture": fileURL(root?.textureSource)?.lastPathComponent ?? "",
+            "childTexture": fileURL(child?.textureSource)?.lastPathComponent ?? "",
+            "rootTextureExists": fileURL(root?.textureSource).map {
                 FileManager.default.fileExists(atPath: $0.path)
             } ?? false,
-            "childTextureExists": child?.textureURL.map {
+            "childTextureExists": fileURL(child?.textureSource).map {
                 FileManager.default.fileExists(atPath: $0.path)
             } ?? false,
+            "dropTextureSource": sourceKind(drop?.textureSource),
+            "localDropTextureSource": sourceKind(localDrop?.textureSource),
             "diagnostics": diagnostics
         ]
     }
@@ -351,6 +373,19 @@ enum Harness {
         return value.lowercased()
     }
 
+    private static func fileURL(_ source: SceneParticleTextureSource?) -> URL? {
+        guard case let .file(url)? = source else { return nil }
+        return url
+    }
+
+    private static func sourceKind(_ source: SceneParticleTextureSource?) -> String {
+        switch source {
+        case .file: "file"
+        case .builtIn(.drop): "builtInDrop"
+        case nil: "missing"
+        }
+    }
+
     private static func printJSON(_ value: [String: Any]) throws {
         let data = try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -402,7 +437,7 @@ class SceneParticleAssetTests(unittest.TestCase):
 
     def test_synthetic_asset_graph(self) -> None:
         result = self.run_harness("synthetic")
-        self.assertEqual(result["assetCount"], 5)
+        self.assertEqual(result["assetCount"], 6)
         self.assertEqual(
             result["rootPaths"],
             [
@@ -410,6 +445,7 @@ class SceneParticleAssetTests(unittest.TestCase):
                 "particles/missing-material.json",
                 "particles/missing-texture.json",
                 "particles/builtin-texture.json",
+                "particles/drop-texture.json",
                 "particles/missing-definition.json",
             ],
         )
@@ -420,6 +456,8 @@ class SceneParticleAssetTests(unittest.TestCase):
         self.assertEqual(result["childTexture"], "child.png")
         self.assertTrue(result["rootTextureExists"])
         self.assertTrue(result["childTextureExists"])
+        self.assertEqual(result["dropTextureSource"], "builtInDrop")
+        self.assertEqual(result["localDropTextureSource"], "file")
         self.assertEqual(
             result["diagnostics"],
             {
@@ -440,7 +478,7 @@ class SceneParticleAssetTests(unittest.TestCase):
         self.assertEqual(result["samplesWithParticles"], 18)
         self.assertEqual(result["reachableAssetCount"], 55)
         self.assertEqual(result["blendCounts"], {"additive": 42, "translucent": 13})
-        self.assertEqual(result["diagnosticCounts"].get("builtInTextureUnavailable", 0), 48)
+        self.assertEqual(result["diagnosticCounts"].get("builtInTextureUnavailable", 0), 45)
         for kind in (
             "missingDefinition",
             "missingMaterial",

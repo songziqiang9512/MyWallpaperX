@@ -17,7 +17,7 @@ nonisolated struct SceneParticleAsset: Sendable {
     let definitionURL: URL
     let definition: SceneParticleDefinition
     let materialPass: SceneParticleMaterialPass?
-    let textureURL: URL?
+    let textureSource: SceneParticleTextureSource?
     let blendMode: SceneParticleMaterialBlendMode
     let childPaths: [String]
 }
@@ -103,10 +103,10 @@ nonisolated struct SceneParticleAssetGraphLoader {
             if textureName == nil {
                 diagnose(.missingTextureReference, path, materialPath)
             }
-            let textureURL = textureName.flatMap {
-                Self.resolveTexture(named: $0, filesByPath: filesByPath)
+            let textureSource = textureName.flatMap {
+                Self.resolveTextureSource(named: $0, filesByPath: filesByPath)
             }
-            if let textureName, textureURL == nil {
+            if let textureName, textureSource == nil {
                 diagnose(
                     Self.isBuiltInTexture(textureName) ? .builtInTextureUnavailable : .missingTextureFile,
                     path,
@@ -131,7 +131,7 @@ nonisolated struct SceneParticleAssetGraphLoader {
                 definitionURL: definitionURL,
                 definition: definition,
                 materialPass: materialPass,
-                textureURL: textureURL,
+                textureSource: textureSource,
                 blendMode: blendMode,
                 childPaths: childPaths
             )
@@ -163,17 +163,20 @@ nonisolated struct SceneParticleAssetGraphLoader {
         return name == "genericparticle"
     }
 
-    private static func resolveTexture(
+    private static func resolveTextureSource(
         named rawName: String,
         filesByPath: [String: URL]
-    ) -> URL? {
+    ) -> SceneParticleTextureSource? {
         let name = normalizedPath(rawName)
         let bases = name.hasPrefix("materials/") ? [name] : ["materials/\(name)", name]
         var candidates = bases.flatMap { [$0, "\($0).tex"] }
         if URL(fileURLWithPath: name).pathExtension.isEmpty {
             candidates += bases.flatMap { ["\($0).png", "\($0).jpg", "\($0).jpeg"] }
         }
-        return candidates.lazy.compactMap { filesByPath[$0] }.first
+        if let localURL = candidates.lazy.compactMap({ filesByPath[$0] }).first {
+            return .file(localURL)
+        }
+        return SceneParticleTextureSource(reference: name)
     }
 
     private static func isBuiltInTexture(_ rawName: String) -> Bool {

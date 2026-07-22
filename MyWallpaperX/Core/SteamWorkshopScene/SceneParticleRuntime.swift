@@ -114,6 +114,7 @@ final class SceneParticleRuntime {
         }
 
         let textureLoader = SceneTextureLoader()
+        let builtInTextureRegistry = SceneParticleBuiltInTextureRegistry(device: device)
         for layer in particleLayers {
             guard let rawPath = layer.particlePath else { continue }
             let path = SceneParticleAssetGraphLoader.normalizedPath(rawPath)
@@ -131,16 +132,35 @@ final class SceneParticleRuntime {
             if !asset.definition.children.isEmpty {
                 addDiagnostic(kind: .childSystemsUnsupported, layerID: layer.id, path: path)
             }
-            guard let textureURL = asset.textureURL else { continue }
-            let textureOutcome = textureLoader.load(from: textureURL, device: device)
-            guard case let .loaded(texture) = textureOutcome else {
-                addDiagnostic(
-                    kind: .textureLoadFailed,
-                    layerID: layer.id,
-                    path: path,
-                    detail: Self.textureFailureDescription(textureOutcome)
-                )
-                continue
+            guard let textureSource = asset.textureSource else { continue }
+            let texture: MTLTexture
+            let spriteAnimation: SceneSpriteAnimation?
+            switch textureSource {
+            case let .file(textureURL):
+                let outcome = textureLoader.load(from: textureURL, device: device)
+                guard case let .loaded(loadedTexture) = outcome else {
+                    addDiagnostic(
+                        kind: .textureLoadFailed,
+                        layerID: layer.id,
+                        path: path,
+                        detail: Self.textureFailureDescription(outcome)
+                    )
+                    continue
+                }
+                texture = loadedTexture
+                spriteAnimation = SceneSpriteAnimation.load(from: textureURL)
+            case let .builtIn(key):
+                guard let loadedTexture = builtInTextureRegistry.texture(for: key) else {
+                    addDiagnostic(
+                        kind: .textureLoadFailed,
+                        layerID: layer.id,
+                        path: path,
+                        detail: "builtInTextureAllocationFailed:\(key.rawValue)"
+                    )
+                    continue
+                }
+                texture = loadedTexture
+                spriteAnimation = nil
             }
 
             let simulator = SceneParticleSimulator(
@@ -155,7 +175,7 @@ final class SceneParticleRuntime {
                 definition: asset.definition,
                 texture: texture,
                 blendMode: asset.blendMode == .additive ? .additive : .translucent,
-                spriteAnimation: SceneSpriteAnimation.load(from: textureURL),
+                spriteAnimation: spriteAnimation,
                 orientation: SceneParticleOrientation(authoredValue: sprite.orientation),
                 orientationAxis: sprite.axis.map {
                     SceneParticleSimulationMath.vector($0, fallback: SIMD3(0, 0, 1)).floatValue
