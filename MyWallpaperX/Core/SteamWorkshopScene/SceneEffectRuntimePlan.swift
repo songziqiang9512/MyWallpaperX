@@ -9,13 +9,6 @@ struct SceneLayerEffectInputs {
     let params3: SIMD4<Float>
 }
 
-struct SceneGaussianBlurPlan {
-    let horizontalStep: Float
-    let verticalStep: Float
-    let sampleResolutionScale: Float
-    let isPrecise: Bool
-}
-
 struct SceneBloomPlan {
     let threshold: Float
     let gamma: Float
@@ -60,7 +53,7 @@ enum SceneEffectRuntimePlanner {
                 hasFoliageMask: hasFoliageMask,
                 usesNormalWaterRipple: waterRippleNormal != nil
             ),
-            gaussianBlur: gaussianBlurPlan(for: layer),
+            gaussianBlur: SceneGaussianBlurRuntimePlanner.plan(for: layer),
             bloom: bloomPlan(for: layer),
             waterRippleNormal: waterRippleNormal,
             perspectiveOpacity: perspectiveOpacity,
@@ -117,50 +110,16 @@ enum SceneEffectRuntimePlanner {
         }
         let passCount = offscreenPassCount(for: layer)
         guard passCount > 0 else { return nil }
-        if gaussianBlurPlan(for: layer)?.isPrecise == true {
+        if SceneGaussianBlurRuntimePlanner.plan(for: layer)?.isPrecise == true {
             return "effect runtime gaussian-blur-precise; \(passCount) declared pass(es)"
         }
-        if gaussianBlurPlan(for: layer) != nil {
+        if SceneGaussianBlurRuntimePlanner.plan(for: layer) != nil {
             return "effect runtime gaussian-blur; \(passCount) declared pass(es)"
         }
         if bloomPlan(for: layer) != nil {
             return "effect runtime bloom; \(passCount) declared pass(es)"
         }
         return "offscreen route-only; \(passCount) declared pass(es)"
-    }
-
-    private static func gaussianBlurPlan(
-        for layer: SceneRenderDescriptor.Layer
-    ) -> SceneGaussianBlurPlan? {
-        if let effect = layer.effects.first(where: {
-            $0.visible != false && $0.file.localizedLowercase.contains("/blurprecise/")
-        }) {
-            let horizontal = preciseBlurScale(in: effect.passes.first, component: 0)
-            let vertical = preciseBlurScale(
-                in: effect.passes.dropFirst().first ?? effect.passes.first,
-                component: 1
-            )
-            return SceneGaussianBlurPlan(
-                horizontalStep: horizontal,
-                verticalStep: vertical,
-                sampleResolutionScale: 1,
-                isPrecise: true
-            )
-        }
-        guard let effect = layer.effects.first(where: {
-            $0.visible != false && $0.file.localizedLowercase.contains("/blur/effect.json")
-        }) else {
-            return nil
-        }
-        let horizontal = blurScale(in: effect.passes.dropFirst().first, component: 0)
-        let verticalPass = effect.passes.count > 2 ? effect.passes[2] : effect.passes.dropFirst().first
-        let vertical = blurScale(in: verticalPass, component: 1)
-        return SceneGaussianBlurPlan(
-            horizontalStep: horizontal,
-            verticalStep: vertical,
-            sampleResolutionScale: 4,
-            isPrecise: false
-        )
     }
 
     private static func bloomPlan(for layer: SceneRenderDescriptor.Layer) -> SceneBloomPlan? {
@@ -242,32 +201,6 @@ enum SceneEffectRuntimePlanner {
             return nil
         }
         return SIMD4(1 / (1 - t), 1 / (1 - s), 1 / t, 1 / s)
-    }
-
-    private static func blurScale(
-        in pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor?,
-        component: Int
-    ) -> Float {
-        let components = pass?.constantShaderValues.first(where: {
-            $0.key.localizedLowercase == "scale"
-        })?.value.components ?? []
-        let raw = components.indices.contains(component)
-            ? Float(components[component])
-            : Float(components.first ?? 0.002)
-        return min(max(abs(raw), 0.01), 2)
-    }
-
-    private static func preciseBlurScale(
-        in pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor?,
-        component: Int
-    ) -> Float {
-        let components = pass?.constantShaderValues.first(where: {
-            $0.key.localizedLowercase == "scale"
-        })?.value.components ?? []
-        let raw = components.indices.contains(component)
-            ? Float(components[component])
-            : Float(components.first ?? 1)
-        return min(max(abs(raw), 0.1), 16)
     }
 
     private static func effectInputs(

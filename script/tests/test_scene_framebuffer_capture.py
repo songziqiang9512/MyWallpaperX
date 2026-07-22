@@ -23,6 +23,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneWaterRipplePipeline.swift",
     SOURCE_ROOT / "ScenePerspectiveOpacityPipeline.swift",
     SOURCE_ROOT / "SceneEffectMaskSemantics.swift",
+    SOURCE_ROOT / "SceneGaussianBlurRuntimePlan.swift",
     SOURCE_ROOT / "SceneWaterRippleRuntimePlan.swift",
     SOURCE_ROOT / "SceneInlineEffectRuntime.swift",
     SOURCE_ROOT / "SceneEffectRuntimeSupport.swift",
