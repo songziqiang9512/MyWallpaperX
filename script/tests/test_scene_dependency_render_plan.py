@@ -1,0 +1,216 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+SWIFT_SOURCES = [
+    SOURCE_ROOT / "SceneNamedTextureReference.swift",
+    SOURCE_ROOT / "SceneDependencyRenderPlan.swift",
+]
+
+HARNESS_SOURCE = r'''
+import Foundation
+
+struct SceneDocument { struct ShaderValue {} }
+struct SceneUtilityLayer {
+    enum Kind { case composition, project, fullscreen }
+    let kind: Kind
+}
+struct SceneRenderDescriptor {
+    struct EffectDescriptor {
+        struct PassDescriptor {
+            let passIndex: Int
+            let textureSlots: [String?]
+            let combos: [String: Int]
+            let constantShaderValues: [String: SceneDocument.ShaderValue]
+        }
+        let id: String
+        let file: String
+        let visible: Bool?
+        let passes: [PassDescriptor]
+    }
+    struct Layer {
+        let id: Int
+        let contentKind: String
+        let utilityLayer: SceneUtilityLayer?
+        let dependencyLayerIDs: [Int]
+        let childLayerIDs: [Int]
+        let visible: Bool?
+        let effects: [EffectDescriptor]
+    }
+    let layers: [Layer]
+    let renderOrderLayerIDs: [Int]
+}
+
+@main
+enum Harness {
+    static func main() throws {
+        let provider = layer(1, kind: .composition, visible: false)
+        let visibleConsumer = consumer(2, provider: 1, dependencies: [])
+        let hiddenConsumer = consumer(3, provider: 1, visible: false)
+        let cycleA = layer(4, kind: .composition, dependencies: [5])
+        let cycleB = layer(5, kind: .composition, dependencies: [4])
+        let forwardConsumer = consumer(6, provider: 7)
+        let forwardProvider = layer(7, kind: .composition)
+        let partialConsumer = consumer(8, provider: 1, extraEffect: true)
+        let descriptor = SceneRenderDescriptor(
+            layers: [
+                provider, visibleConsumer, hiddenConsumer,
+                cycleA, cycleB, forwardConsumer, forwardProvider, partialConsumer,
+            ],
+            renderOrderLayerIDs: [1, 2, 3, 4, 5, 6, 7, 8]
+        )
+        let plan = SceneDependencyRenderPlan(
+            descriptor: descriptor,
+            visibleLayerIDs: [1, 2, 4, 5, 6, 7, 8]
+        )
+        let matrixProviders = (10...15).map { layer($0, kind: .composition) }
+        let matrixProviderIDs = [10, 10, 10, 11, 12, 13, 14, 15]
+        let matrixConsumers = matrixProviderIDs.enumerated().map { offset, providerID in
+            consumer(20 + offset, provider: providerID, visible: offset != 2)
+        }
+        let matrixLayers = matrixProviders + matrixConsumers
+        let matrixPlan = SceneDependencyRenderPlan(
+            descriptor: .init(
+                layers: matrixLayers,
+                renderOrderLayerIDs: matrixLayers.map(\.id)
+            ),
+            visibleLayerIDs: Set(matrixLayers.compactMap { $0.visible == false ? nil : $0.id })
+        )
+        let parsed = [
+            SceneNamedTextureReference.parse("_rt_imageLayerComposite_42")?.variant.rawValue ?? "nil",
+            SceneNamedTextureReference.parse("_rt_imageLayerComposite_42_a")?.variant.rawValue ?? "nil",
+            SceneNamedTextureReference.parse("_rt_imageLayerComposite_42_b")?.variant.rawValue ?? "nil",
+        ]
+        let result: [String: Any] = [
+            "parsedVariants": parsed,
+            "invalidReference": SceneNamedTextureReference.parse("_rt_imageLayerComposite_bad_a") == nil,
+            "referenceCount": plan.references.count,
+            "bindingConsumers": plan.bindingsByConsumerLayerID.keys.sorted(),
+            "requiredProviders": plan.requiredProviderLayerIDs.sorted(),
+            "cycles": plan.cyclicLayerIDs.sorted(),
+            "issues": plan.issues.map { "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)" },
+            "matrixBindingCount": matrixPlan.bindingsByConsumerLayerID.count,
+            "matrixRequiredProviders": matrixPlan.requiredProviderLayerIDs.sorted(),
+        ]
+        let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
+        print(String(decoding: data, as: UTF8.self))
+    }
+
+    static func layer(
+        _ id: Int,
+        kind: SceneUtilityLayer.Kind? = nil,
+        dependencies: [Int] = [],
+        visible: Bool? = true
+    ) -> SceneRenderDescriptor.Layer {
+        .init(
+            id: id,
+            contentKind: kind == nil ? "image" : "composition",
+            utilityLayer: kind.map(SceneUtilityLayer.init(kind:)),
+            dependencyLayerIDs: dependencies,
+            childLayerIDs: [],
+            visible: visible,
+            effects: []
+        )
+    }
+
+    static func consumer(
+        _ id: Int,
+        provider: Int,
+        dependencies: [Int]? = nil,
+        visible: Bool? = true,
+        extraEffect: Bool = false
+    ) -> SceneRenderDescriptor.Layer {
+        var effects = [effect(id: id, provider: provider)]
+        if extraEffect {
+            effects.append(.init(id: "tint", file: "effects/tint/effect.json", visible: true, passes: []))
+        }
+        return .init(
+            id: id,
+            contentKind: "image",
+            utilityLayer: nil,
+            dependencyLayerIDs: dependencies ?? [provider],
+            childLayerIDs: [],
+            visible: visible,
+            effects: effects
+        )
+    }
+
+    static func effect(id: Int, provider: Int) -> SceneRenderDescriptor.EffectDescriptor {
+        .init(
+            id: "effect-\(id)",
+            file: "effects/workshop/clipping_mask/effect.json",
+            visible: true,
+            passes: [.init(
+                passIndex: 0,
+                textureSlots: [nil, "_rt_imageLayerComposite_\(provider)_a"],
+                combos: ["BLENDMODE": 5],
+                constantShaderValues: [:]
+            )]
+        )
+    }
+}
+'''
+
+
+class SceneDependencyRenderPlanTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        if shutil.which("swiftc") is None:
+            raise unittest.SkipTest("swiftc is unavailable")
+        cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-scene-dependency-plan-")
+        directory = Path(cls.temporary_directory.name)
+        harness = directory / "Harness.swift"
+        harness.write_text(HARNESS_SOURCE, encoding="utf-8")
+        cls.binary = directory / "scene-dependency-plan"
+        compilation = subprocess.run(
+            [
+                "xcrun", "--sdk", "macosx", "swiftc",
+                *(str(path) for path in SWIFT_SOURCES),
+                str(harness), "-o", str(cls.binary),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if compilation.returncode != 0:
+            raise RuntimeError(compilation.stderr)
+        completed = subprocess.run(
+            [str(cls.binary)], check=True, capture_output=True, text=True
+        )
+        cls.result = json.loads(completed.stdout)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temporary_directory.cleanup()
+
+    def test_named_reference_variants_are_typed(self) -> None:
+        self.assertEqual(self.result["parsedVariants"], ["unspecified", "a", "b"])
+        self.assertTrue(self.result["invalidReference"])
+
+    def test_only_visible_backward_clipping_consumer_is_executable(self) -> None:
+        self.assertEqual(self.result["referenceCount"], 4)
+        self.assertEqual(self.result["bindingConsumers"], [2])
+        self.assertEqual(self.result["requiredProviders"], [1])
+
+    def test_cycle_forward_and_partial_stacks_fail_closed(self) -> None:
+        self.assertEqual(self.result["cycles"], [4, 5])
+        self.assertIn("2:dependencyMismatch:1", self.result["issues"])
+        self.assertIn("6:forwardUtilityProvider:7", self.result["issues"])
+        self.assertIn("8:unsupportedConsumer:-1", self.result["issues"])
+
+    def test_matrix_shape_keeps_hidden_consumer_out_of_runtime_liveness(self) -> None:
+        self.assertEqual(self.result["matrixBindingCount"], 7)
+        self.assertEqual(self.result["matrixRequiredProviders"], [10, 11, 12, 13, 14, 15])
+
+
+if __name__ == "__main__":
+    unittest.main()
