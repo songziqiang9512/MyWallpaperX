@@ -97,7 +97,7 @@ struct SceneMetalRenderer {
 
     func debugPlacementSummary(for layer: SceneRenderDescriptor.Layer) -> String {
         let origin = SIMD3<Float>(layer.originXYZ ?? [], fill: 0)
-        let size = SIMD2<Float>(layer.sizeWH ?? [], fill: 0)
+        let size = SIMD2<Float>(layer.renderSizeWH ?? [], fill: 0)
         let scale = SIMD3<Float>(layer.scaleXYZ ?? [], fill: 1)
         let angles = SIMD3<Float>(layer.anglesXYZ ?? [], fill: 0)
         let cropOffset = SIMD2<Float>(layer.modelCropOffsetXY ?? [], fill: 0)
@@ -268,7 +268,7 @@ struct SceneMetalRenderer {
     // texture V grow downward, so no flip is needed.
     private func cursorUV(for layer: SceneRenderDescriptor.Layer, cursorWorld: SIMD2<Float>) -> SIMD2<Float> {
         let origin = SIMD3<Float>(layer.originXYZ ?? [], fill: 0)
-        let size = SIMD2<Float>(layer.sizeWH ?? [], fill: 0)
+        let size = SIMD2<Float>(layer.renderSizeWH ?? [], fill: 0)
         guard size.x > 0, size.y > 0 else { return .zero }
         let u = (cursorWorld.x - (origin.x - size.x / 2)) / size.x
         let v = (cursorWorld.y - (origin.y - size.y / 2)) / size.y
@@ -282,7 +282,7 @@ struct SceneMetalRenderer {
         parallaxMouseNormalized: SIMD2<Float>,
         configuration: SceneLayerParallax.Configuration
     ) -> simd_float4x4 {
-        let size = SIMD2(layer.sizeWH ?? [], fill: 0)
+        let size = SIMD2(layer.renderSizeWH ?? [], fill: 0)
         // Wallpaper Engine world coords are Y-down (origin at the ortho box's
         // top-left, +Y grows downward). Our quad is Y-up (+0.5 at the visual
         // top), so negate the Y size to map the quad's +Y vertex to the

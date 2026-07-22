@@ -75,6 +75,14 @@ struct SceneRenderDescriptor: Codable {
         let effects: [EffectDescriptor]
         let effectFiles: [String]
         let texturePaths: [String]
+
+        nonisolated var renderSizeWH: [Float]? {
+            guard contentKind == "text", let textStyle else { return sizeWH }
+            return SceneTextGeometry.expandedSize(
+                authoredSize: sizeWH,
+                padding: textStyle.padding
+            ) ?? sizeWH
+        }
     }
 
     struct ModelMaterialLink: Identifiable, Codable {

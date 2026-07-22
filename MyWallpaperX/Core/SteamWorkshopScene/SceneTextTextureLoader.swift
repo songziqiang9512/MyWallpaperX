@@ -8,6 +8,11 @@ struct SceneTextTextureLoadResult {
 }
 
 enum SceneTextTextureLoader {
+    private struct RenderedTexture {
+        let texture: MTLTexture
+        let font: SceneTextFontResolver.Resolution
+    }
+
     private static let maxDimension = 2048
 
     static func load(
@@ -22,12 +27,12 @@ enum SceneTextTextureLoader {
         var textures: [Int: MTLTexture] = [:]
         var messages: [String] = []
         for layer in candidates {
-            guard let texture = makeTexture(for: layer, cacheDirectory: cacheDirectory, device: device) else {
+            guard let rendered = makeTexture(for: layer, cacheDirectory: cacheDirectory, device: device) else {
                 messages.append("text layer \(layer.id) \"\(layer.name ?? "(unnamed)")\": render failed")
                 continue
             }
-            textures[layer.id] = texture
-            var message = "text layer \(layer.id) \"\(layer.name ?? "(unnamed)")\": OK \(texture.width)×\(texture.height)"
+            textures[layer.id] = rendered.texture
+            var message = "text layer \(layer.id) \"\(layer.name ?? "(unnamed)")\": OK \(rendered.texture.width)×\(rendered.texture.height); \(rendered.font.summary)"
             if let effectSummary = SceneEffectRuntimePlanner.runtimeSummary(for: layer) {
                 message += "; \(effectSummary)"
             }
@@ -44,14 +49,20 @@ enum SceneTextTextureLoader {
         for layer: SceneRenderDescriptor.Layer,
         cacheDirectory: URL,
         device: MTLDevice
-    ) -> MTLTexture? {
+    ) -> RenderedTexture? {
         guard let text = layer.text, !text.isEmpty, let style = layer.textStyle else { return nil }
-        let sourceSize = layer.sizeWH ?? []
-        let sourceWidth = max(1, sourceSize.first ?? 1)
-        let sourceHeight = max(1, sourceSize.dropFirst().first ?? 1)
-        let scale = min(1, Float(maxDimension) / max(sourceWidth, sourceHeight))
-        let width = max(1, Int((sourceWidth * scale).rounded()))
-        let height = max(1, Int((sourceHeight * scale).rounded()))
+        guard let layout = SceneTextGeometry.rasterLayout(
+            renderSize: layer.renderSizeWH,
+            padding: style.padding,
+            maxDimension: maxDimension
+        ) else { return nil }
+        let font = SceneTextFontResolver.resolve(
+            path: style.fontPath,
+            size: CGFloat(SceneTextGeometry.pointSizeInPixels(style.pointSize) * layout.scale),
+            cacheDirectory: cacheDirectory
+        )
+        let width = layout.width
+        let height = layout.height
         let rowBytes = width * 4
         var pixels = [UInt8](repeating: 0, count: rowBytes * height)
 
@@ -71,8 +82,8 @@ enum SceneTextTextureLoader {
             draw(
                 text: text,
                 style: style,
-                cacheDirectory: cacheDirectory,
-                scale: scale,
+                font: font.font,
+                layout: layout,
                 width: width,
                 height: height,
                 context: context
@@ -96,14 +107,14 @@ enum SceneTextTextureLoader {
             withBytes: pixels,
             bytesPerRow: rowBytes
         )
-        return texture
+        return RenderedTexture(texture: texture, font: font)
     }
 
     private static func draw(
         text: String,
         style: SceneTextDescriptor,
-        cacheDirectory: URL,
-        scale: Float,
+        font: CTFont,
+        layout: SceneTextGeometry.RasterLayout,
         width: Int,
         height: Int,
         context: CGContext
@@ -115,14 +126,9 @@ enum SceneTextTextureLoader {
             context.fill(bounds)
         }
 
-        let padding = CGFloat(style.padding * scale)
-        let contentWidth = max(1, CGFloat(width) - padding * 2)
-        let contentHeight = max(1, CGFloat(height) - padding * 2)
-        let font = makeFont(
-            path: style.fontPath,
-            size: CGFloat(style.pointSize * scale),
-            cacheDirectory: cacheDirectory
-        )
+        let padding = CGFloat(layout.padding)
+        let contentWidth = CGFloat(layout.contentWidth)
+        let contentHeight = CGFloat(layout.contentHeight)
         var alignment = textAlignment(style.horizontalAlignment)
         var lineBreak = CTLineBreakMode.byWordWrapping
         let paragraph = withUnsafePointer(to: &alignment) { alignmentPointer in
@@ -172,16 +178,6 @@ enum SceneTextTextureLoader {
         let frame = CTFramesetterCreateFrame(framesetter, CFRange(location: 0, length: 0), path, nil)
         context.textMatrix = .identity
         CTFrameDraw(frame, context)
-    }
-
-    private static func makeFont(path: String?, size: CGFloat, cacheDirectory: URL) -> CTFont {
-        if let path,
-           let data = try? Data(contentsOf: cacheDirectory.appendingPathComponent(path)),
-           let provider = CGDataProvider(data: data as CFData),
-           let font = CGFont(provider) {
-            return CTFontCreateWithGraphicsFont(font, max(1, size), nil, nil)
-        }
-        return CTFontCreateWithName("Helvetica" as CFString, max(1, size), nil)
     }
 
     private static func color(_ rgb: [Float], brightness: Float) -> CGColor {

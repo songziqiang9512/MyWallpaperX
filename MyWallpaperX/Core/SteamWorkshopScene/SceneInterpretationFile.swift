@@ -12,8 +12,8 @@ struct SceneInterpretationFile: Codable {
 }
 
 struct SceneInterpretationFileWriter {
-    // formatVersion 9 carries resolved per-layer particle instance overrides.
-    static let currentFormatVersion = 9
+    // formatVersion 10 expands text layer geometry by its authored padding.
+    static let currentFormatVersion = 10
 
     func write(
         renderDescriptor: SceneRenderDescriptor,

@@ -39,10 +39,8 @@ struct SceneTextDescriptor: Codable {
     }
 
     nonisolated private static func number(_ value: Any?) -> Float? {
-        let value = unwrapped(value)
-        if let number = value as? NSNumber { return number.floatValue }
-        if let string = value as? String { return Float(string) }
-        return nil
+        SceneDocumentLoader.floatValue(value)
+            ?? SceneDocumentLoader.floatVector(value)?.first
     }
 
     nonisolated private static func bool(_ value: Any?) -> Bool? {
