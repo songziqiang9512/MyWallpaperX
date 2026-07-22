@@ -2,8 +2,10 @@ import Foundation
 
 extension SteamWorkshopDownloadRecord {
     var scenePackageURL: URL? {
-        let candidate = folderURL.appendingPathComponent("scene.pkg")
-        return FileManager.default.fileExists(atPath: candidate.path) ? candidate : nil
+        if let project = try? SceneProjectLoader().load(from: folderURL) {
+            return project.packageURL
+        }
+        return SceneProjectLoader.scenePackageURL(in: folderURL, entryPath: "scene.json")
     }
 
     var isSceneLaunchable: Bool {

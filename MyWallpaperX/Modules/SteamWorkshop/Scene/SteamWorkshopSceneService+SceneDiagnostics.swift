@@ -21,7 +21,7 @@ extension SteamWorkshopService {
         let resolvedReferences = report.resourceReferences?.resolvedCount ?? 0
         let builtInReferences = report.resourceReferences?.builtInReferenceCount ?? 0
         let missingReferences = report.resourceReferences?.missingReferences.count ?? 0
-        let packageState = record.scenePackageURL == nil ? "缺少 scene.pkg" : "已找到 scene.pkg"
+        let packageState = record.scenePackageURL.map { "已找到 \($0.lastPathComponent)" } ?? "缺少 Scene 资源包"
         return "Scene 资源 \(resources) 项 · 对象 \(objectCount) 个 · effect \(effectCount) 个 · model \(modelCount) 个 · material \(materialCount) 个 · 引用命中 \(resolvedReferences) 项 · 内置引用 \(builtInReferences) 项 · 引用缺失 \(missingReferences) 项 · PKGV 索引 \(packageEntries) 项 · 缓存解包 \(extractedEntries) 项 · \(packageState)"
     }
 }

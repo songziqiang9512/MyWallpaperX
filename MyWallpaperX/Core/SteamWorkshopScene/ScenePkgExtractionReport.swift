@@ -21,9 +21,9 @@ struct ScenePkgExtractionReport {
         case .notNeeded, .indexed, .extracted:
             return nil
         case .missingPackage:
-            return "未找到 scene.pkg。"
+            return "未找到 Scene 资源包。"
         case .toolUnavailable:
-            return "未找到可用的 scene.pkg 解包工具。"
+            return "未找到可用的 Scene 资源包解包工具。"
         case let .failed(message):
             return message
         }
@@ -41,7 +41,7 @@ struct ScenePkgExtractor: ScenePkgExtracting {
         var errorDescription: String? {
             switch self {
             case .missingTool:
-                return "未配置 repkg 或兼容的 scene.pkg 解包工具。"
+                return "未配置 repkg 或兼容的 Scene 资源包解包工具。"
             }
         }
     }
@@ -129,7 +129,7 @@ struct ScenePkgExtractor: ScenePkgExtracting {
             return ScenePkgExtractionReport(
                 packageURL: packageURL,
                 outputURL: outputURL,
-                status: .failed("scene.pkg 解包工具退出码：\(process.terminationStatus)"),
+                status: .failed("Scene 资源包解包工具退出码：\(process.terminationStatus)"),
                 discoveredPaths: [],
                 packageIndex: nil
             )

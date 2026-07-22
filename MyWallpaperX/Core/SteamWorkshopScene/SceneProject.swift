@@ -52,19 +52,30 @@ struct SceneProjectLoader {
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "\\", with: "/")
         let general = root["general"] as? [String: Any]
+        let resolvedEntryPath = entryPath.flatMap { $0.isEmpty ? nil : $0 } ?? "scene.json"
 
         return SceneProject(
             rootURL: rootURL,
             projectFileURL: projectFileURL,
-            entryPath: entryPath?.isEmpty == false ? entryPath! : "scene.json",
-            packageURL: SceneProjectLoader.scenePackageURL(in: rootURL),
+            entryPath: resolvedEntryPath,
+            packageURL: SceneProjectLoader.scenePackageURL(
+                in: rootURL,
+                entryPath: resolvedEntryPath
+            ),
             title: root["title"] as? String,
             supportsAudioProcessing: general?["supportsaudioprocessing"] as? Bool ?? false
         )
     }
 
-    static func scenePackageURL(in rootURL: URL) -> URL? {
-        let candidate = rootURL.appendingPathComponent("scene.pkg")
-        return FileManager.default.fileExists(atPath: candidate.path) ? candidate : nil
+    static func scenePackageURL(in rootURL: URL, entryPath: String) -> URL? {
+        let entryFileName = (entryPath as NSString).lastPathComponent
+        let entryBaseName = (entryFileName as NSString).deletingPathExtension
+        let derivedPackageName = entryBaseName.isEmpty ? "scene.pkg" : "\(entryBaseName).pkg"
+        let packageNames = derivedPackageName == "scene.pkg"
+            ? [derivedPackageName]
+            : [derivedPackageName, "scene.pkg"]
+        return packageNames
+            .map(rootURL.appendingPathComponent)
+            .first { FileManager.default.fileExists(atPath: $0.path) }
     }
 }

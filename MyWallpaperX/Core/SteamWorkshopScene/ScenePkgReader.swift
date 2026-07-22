@@ -26,15 +26,15 @@ struct ScenePkgReader {
         var errorDescription: String? {
             switch self {
             case .fileTooSmall:
-                return "scene.pkg 文件过小，无法读取 PKGV 头。"
+                return "Scene 资源包过小，无法读取 PKGV 头。"
             case let .invalidMagic(magic):
-                return "scene.pkg magic 不匹配：\(magic)"
+                return "Scene 资源包 magic 不匹配：\(magic)"
             case .truncatedTable:
-                return "scene.pkg 文件表不完整。"
+                return "Scene 资源包文件表不完整。"
             case .invalidPathData:
-                return "scene.pkg 文件表包含无法解析的路径。"
+                return "Scene 资源包文件表包含无法解析的路径。"
             case let .invalidEntry(path, offset, size):
-                return "scene.pkg 条目越界：\(path) offset=\(offset) size=\(size)"
+                return "Scene 资源包条目越界：\(path) offset=\(offset) size=\(size)"
             }
         }
     }

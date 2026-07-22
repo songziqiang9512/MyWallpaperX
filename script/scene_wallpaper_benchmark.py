@@ -55,8 +55,28 @@ def load_matrix(path: Path) -> dict[str, Any]:
     return payload
 
 
+def scene_package_path(source: Path) -> Path | None:
+    project_path = source / "project.json"
+    if not project_path.is_file():
+        return None
+    try:
+        project = json.loads(project_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        project = {}
+    raw_entry = project.get("file")
+    entry = raw_entry.strip().replace("\\", "/") if isinstance(raw_entry, str) else ""
+    entry_name = Path(entry).name if entry else "scene.json"
+    derived_name = str(Path(entry_name).with_suffix(".pkg"))
+    package_names = (
+        [derived_name]
+        if derived_name == "scene.pkg"
+        else [derived_name, "scene.pkg"]
+    )
+    return next((source / name for name in package_names if (source / name).is_file()), None)
+
+
 def copy_sample(source: Path, destination: Path) -> None:
-    if not (source / "project.json").is_file() or not (source / "scene.pkg").is_file():
+    if not (source / "project.json").is_file() or scene_package_path(source) is None:
         raise FileNotFoundError(f"Scene sample is incomplete: {source}")
     shutil.copytree(source, destination)
 
@@ -131,10 +151,13 @@ def run_sample(
     result_dir.mkdir(parents=True)
     runtime_home.mkdir(parents=True)
     copy_sample(source, runtime_sample)
+    package_path = scene_package_path(source)
+    if package_path is None:
+        raise FileNotFoundError(f"Scene sample package is missing: {source}")
 
     hashes = {
         "project_sha256": sha256(source / "project.json"),
-        "package_sha256": sha256(source / "scene.pkg"),
+        "package_sha256": sha256(package_path),
     }
     failures: list[str] = []
     for key, actual in hashes.items():
@@ -306,6 +329,7 @@ def run_sample(
         "exit_code": exit_code,
         "timed_out": timed_out,
         "hashes": hashes,
+        "package_file": package_path.name,
         "runtime_sample": str(runtime_sample),
         "runtime_home": str(runtime_home),
         "evidence": {

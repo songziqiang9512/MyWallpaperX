@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -47,6 +49,93 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             destination = root / "copied"
             benchmark.copy_sample(source, destination)
             self.assertEqual((destination / "scene.pkg").read_bytes(), b"PKGV")
+
+    def test_entry_basename_package_is_preferred_and_copied(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-scene-copy-variant-") as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            (source / "project.json").write_text(
+                json.dumps({"type": "scene", "file": "nested\\gifscene.json"}),
+                encoding="utf-8",
+            )
+            (source / "gifscene.pkg").write_bytes(b"NAMED")
+            (source / "scene.pkg").write_bytes(b"FALLBACK")
+
+            self.assertEqual(benchmark.scene_package_path(source), source / "gifscene.pkg")
+            destination = root / "copied"
+            benchmark.copy_sample(source, destination)
+            self.assertEqual((destination / "gifscene.pkg").read_bytes(), b"NAMED")
+
+    def test_custom_entry_falls_back_to_scene_package(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-scene-copy-fallback-") as directory:
+            source = Path(directory)
+            (source / "project.json").write_text(
+                json.dumps({"type": "scene", "file": "gifscene.json"}),
+                encoding="utf-8",
+            )
+            (source / "scene.pkg").write_bytes(b"FALLBACK")
+            self.assertEqual(benchmark.scene_package_path(source), source / "scene.pkg")
+
+    def test_swift_project_loader_resolves_entry_package_and_fallback(self) -> None:
+        swiftc = shutil.which("swiftc")
+        if swiftc is None:
+            self.skipTest("swiftc is unavailable")
+        with tempfile.TemporaryDirectory(prefix="mwx-scene-project-loader-") as directory:
+            root = Path(directory)
+            harness = root / "Harness.swift"
+            binary = root / "scene-project-loader"
+            harness.write_text(
+                """
+                import Foundation
+
+                @main
+                enum Harness {
+                    static func main() throws {
+                        let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
+                        let project = try SceneProjectLoader().load(from: root)
+                        print(project.packageURL?.lastPathComponent ?? "nil")
+                    }
+                }
+                """,
+                encoding="utf-8",
+            )
+            subprocess.run(
+                [
+                    swiftc,
+                    str(SCRIPT_DIR.parent / "MyWallpaperX/Core/SteamWorkshopScene/SceneProject.swift"),
+                    str(harness),
+                    "-o",
+                    str(binary),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            sample = root / "sample"
+            sample.mkdir()
+            (sample / "project.json").write_text(
+                json.dumps({"type": "scene", "file": "gifscene.json"}),
+                encoding="utf-8",
+            )
+            (sample / "gifscene.pkg").write_bytes(b"NAMED")
+            (sample / "scene.pkg").write_bytes(b"FALLBACK")
+            named = subprocess.run(
+                [str(binary), str(sample)],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(named.stdout.strip(), "gifscene.pkg")
+
+            (sample / "gifscene.pkg").unlink()
+            fallback = subprocess.run(
+                [str(binary), str(sample)],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(fallback.stdout.strip(), "scene.pkg")
 
     def test_interpretation_metrics_preserve_slots_and_combos(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-interpretation-") as directory:

@@ -62,7 +62,9 @@ struct ScenePkgCacheExtractor {
 
     private func shouldExtract(_ path: String) -> Bool {
         let normalized = path.replacingOccurrences(of: "\\", with: "/")
-        if normalized == "scene.json" {
+        let pathComponents = normalized.split(separator: "/")
+        let ext = (normalized as NSString).pathExtension.lowercased()
+        if pathComponents.count == 1 && ext == "json" {
             return true
         }
 
@@ -81,7 +83,6 @@ struct ScenePkgCacheExtractor {
             return true
         }
 
-        let ext = (normalized as NSString).pathExtension.lowercased()
         let imageExtensions: Set<String> = ["png", "jpg", "jpeg"]
         return imageExtensions.contains(ext)
     }

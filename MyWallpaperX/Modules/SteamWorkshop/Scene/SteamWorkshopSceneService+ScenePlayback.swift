@@ -9,7 +9,7 @@ extension SteamWorkshopService {
         let report = SceneDiagnosticsBuilder().build(rootURL: record.folderURL)
 
         guard let cacheDirectory = report.packageReport?.outputURL else {
-            downloadError = "Scene 资源尚未解包，无法设为壁纸。请确认 scene.pkg 存在且可读。"
+            downloadError = "Scene 资源尚未解包，无法设为壁纸。请确认入口对应的资源包存在且可读。"
             return
         }
         guard report.interpretationFileURL != nil else {

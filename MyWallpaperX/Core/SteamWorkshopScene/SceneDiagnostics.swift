@@ -83,10 +83,13 @@ struct SceneDiagnosticsBuilder {
             issues.append(.init(severity: .blocking, message: "无法按 Scene 项目读取 project.json。"))
         }
 
-        if project?.packageURL == nil {
-            issues.append(.init(severity: .blocking, message: "未找到 scene.pkg。"))
+        if let packageURL = project?.packageURL {
+            issues.append(.init(
+                severity: .info,
+                message: "已找到 \(packageURL.lastPathComponent)，正在使用受控缓存解包链路。"
+            ))
         } else {
-            issues.append(.init(severity: .info, message: "已找到 scene.pkg，正在使用受控缓存解包链路。"))
+            issues.append(.init(severity: .blocking, message: "未找到 Scene 资源包。"))
         }
 
         let shaderBlobCount = resourceIndex.count(kind: .shaderBlob)
@@ -103,7 +106,7 @@ struct SceneDiagnosticsBuilder {
             issues.append(.init(severity: .blocking, message: blockingMessage))
         } else if let packageReport {
             let magic = packageReport.packageIndex?.magic ?? "unknown"
-            issues.append(.init(severity: .info, message: "已读取 scene.pkg 文件表（\(magic)），缓存解包 \(packageReport.discoveredPaths.count) 项。"))
+            issues.append(.init(severity: .info, message: "已读取 Scene 资源包文件表（\(magic)），缓存解包 \(packageReport.discoveredPaths.count) 项。"))
         }
 
         if let sceneDocument {
