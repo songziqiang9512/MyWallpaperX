@@ -113,6 +113,11 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             media_sample["required_named_target_binding_succeeded_layer_ids"],
             [299, 322],
         )
+        self.assertEqual(media_sample["expected_image_blend_planned"], 3)
+        self.assertEqual(
+            media_sample["required_image_blend_succeeded_layer_ids"],
+            [239, 657, 1509],
+        )
 
     def test_entry_basename_package_is_preferred_and_copied(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-copy-variant-") as directory:

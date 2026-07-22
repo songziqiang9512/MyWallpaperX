@@ -65,9 +65,18 @@ nonisolated struct SceneImageBlendRenderPlan {
               pass.constantShaderValues.keys.allSatisfy({
                   $0.caseInsensitiveCompare("multiply") == .orderedSame
                       || $0.caseInsensitiveCompare("alpha") == .orderedSame
+                      || $0.caseInsensitiveCompare("blendangle") == .orderedSame
+                      || $0.caseInsensitiveCompare("blendoffset") == .orderedSame
+                      || $0.caseInsensitiveCompare("blendscale") == .orderedSame
               }),
+              supportsNeutralTransformConstants(in: pass),
               let multiply = staticNumber("multiply", in: pass, range: 0...1),
-              let alphaMultiply = staticNumber("alpha", in: pass, range: 0...1),
+              let alphaMultiply = staticNumber(
+                "alpha",
+                in: pass,
+                range: 0...1,
+                default: 1
+              ),
               let provider = layersByID[reference.providerLayerID],
               consumer.dependencyLayerIDs.contains(provider.id),
               provider.contentKind == "image",
@@ -95,18 +104,49 @@ nonisolated struct SceneImageBlendRenderPlan {
     private nonisolated static func staticNumber(
         _ key: String,
         in pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor,
-        range: ClosedRange<Float>
+        range: ClosedRange<Float>,
+        default defaultValue: Float? = nil
     ) -> Float? {
         guard let value = pass.constantShaderValues.first(where: {
             $0.key.caseInsensitiveCompare(key) == .orderedSame
-        })?.value,
-        value.valueKind == "number",
-        value.userBinding == nil,
-        let raw = value.components?.first,
-        raw.isFinite else {
+        })?.value else {
+            return defaultValue
+        }
+        guard value.valueKind == "number", value.userBinding == nil,
+              let components = value.components, components.count == 1,
+              let raw = components.first, raw.isFinite else {
             return nil
         }
-        return min(max(Float(raw), range.lowerBound), range.upperBound)
+        let result = Float(raw)
+        return range.contains(result) ? result : nil
+    }
+
+    private nonisolated static func supportsNeutralTransformConstants(
+        in pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor
+    ) -> Bool {
+        guard staticNumber(
+            "blendangle",
+            in: pass,
+            range: 0...0,
+            default: 0
+        ) != nil, staticNumber(
+            "blendscale",
+            in: pass,
+            range: 1...1,
+            default: 1
+        ) != nil else {
+            return false
+        }
+        guard let offset = pass.constantShaderValues.first(where: {
+            $0.key.caseInsensitiveCompare("blendoffset") == .orderedSame
+        })?.value else {
+            return true
+        }
+        guard offset.valueKind == "vector", offset.userBinding == nil,
+              let components = offset.components, components.count == 2 else {
+            return false
+        }
+        return components.allSatisfy { $0.isFinite && abs($0) < 0.000_001 }
     }
 
     private nonisolated static func combo(

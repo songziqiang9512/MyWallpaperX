@@ -76,8 +76,15 @@ enum Harness {
         let secondary = image(15, dependencies: [100], effects: [
             blend(provider: 100, variant: "b"),
         ])
+        let defaulted = image(16, dependencies: [100], effects: [
+            blend(provider: 100, omitAlpha: true, neutralTransformConstants: true),
+        ])
+        let nonNeutralConstants = image(17, dependencies: [100], effects: [
+            blend(provider: 100, omitAlpha: true, neutralTransformConstants: true,
+                  blendScale: 0.5),
+        ])
         let layers = [valid, mismatch, effectful, boundValue, transformed, secondary,
-                      provider, effectfulProvider]
+                      defaulted, nonNeutralConstants, provider, effectfulProvider]
         let plan = SceneImageBlendRenderPlan(
             descriptor: .init(layers: layers),
             visibleLayerIDs: Set(layers.compactMap { $0.visible == false ? nil : $0.id })
@@ -89,6 +96,8 @@ enum Harness {
             "multiply": operation?.multiply ?? -1,
             "alpha": operation?.alphaMultiply ?? -1,
             "writesAlpha": operation?.writesAlpha ?? false,
+            "defaultAlpha": plan.operationsByConsumerLayerID[16]?.alphaMultiply ?? -1,
+            "defaultWritesAlpha": plan.operationsByConsumerLayerID[16]?.writesAlpha ?? true,
             "report": plan.reportLines(),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -118,12 +127,36 @@ enum Harness {
         systemSource: Bool = false,
         boundMultiply: Bool = false,
         transform: Bool = false,
-        variant: String = "a"
+        variant: String = "a",
+        omitAlpha: Bool = false,
+        neutralTransformConstants: Bool = false,
+        blendScale: Double = 1
     ) -> SceneRenderDescriptor.EffectDescriptor {
         let source = systemSource
             ? SceneEffectTextureInput(kind: .system, value: "$mediaThumbnail")
             : nil
         let target = "_rt_imageLayerComposite_\(provider)_\(variant)"
+        var constants: [String: SceneDocument.ShaderValue] = [
+            "multiply": .init(
+                valueKind: boundMultiply ? "binding" : "number",
+                userBinding: boundMultiply ? "strength" : nil,
+                components: [1]
+            ),
+        ]
+        if !omitAlpha {
+            constants["alpha"] = .init(valueKind: "number", userBinding: nil, components: [1])
+        }
+        if neutralTransformConstants {
+            constants["blendangle"] = .init(
+                valueKind: "number", userBinding: nil, components: [0]
+            )
+            constants["blendoffset"] = .init(
+                valueKind: "vector", userBinding: nil, components: [0, 0]
+            )
+            constants["blendscale"] = .init(
+                valueKind: "number", userBinding: nil, components: [blendScale]
+            )
+        }
         return .init(
             id: "blend-\(provider)-\(systemSource)",
             file: "effects/blend/effect.json",
@@ -134,17 +167,10 @@ enum Harness {
                 userTextureInputs: systemSource ? [nil, source] : [],
                 combos: [
                     "BLENDMODE": 0,
-                    "WRITEALPHA": 1,
+                    "WRITEALPHA": omitAlpha ? 0 : 1,
                     "TRANSFORMUV": transform ? 1 : 0,
                 ],
-                constantShaderValues: [
-                    "multiply": .init(
-                        valueKind: boundMultiply ? "binding" : "number",
-                        userBinding: boundMultiply ? "strength" : nil,
-                        components: [1]
-                    ),
-                    "alpha": .init(valueKind: "number", userBinding: nil, components: [1]),
-                ]
+                constantShaderValues: constants
             )]
         )
     }
@@ -181,15 +207,17 @@ class SceneImageBlendPlanTests(unittest.TestCase):
         cls.temporary_directory.cleanup()
 
     def test_hidden_forward_static_provider_is_planned(self) -> None:
-        self.assertEqual(self.result["consumers"], [10])
+        self.assertEqual(self.result["consumers"], [10, 16])
         self.assertEqual(self.result["provider"], 100)
         self.assertEqual(self.result["multiply"], 1)
         self.assertEqual(self.result["alpha"], 1)
         self.assertTrue(self.result["writesAlpha"])
+        self.assertEqual(self.result["defaultAlpha"], 1)
+        self.assertFalse(self.result["defaultWritesAlpha"])
 
     def test_media_bound_and_unsupported_operations_do_not_enter_static_plan(self) -> None:
-        self.assertEqual(len(self.result["report"]), 2)
-        self.assertIn("imageBlendPlannedCount: 1", self.result["report"])
+        self.assertEqual(len(self.result["report"]), 3)
+        self.assertIn("imageBlendPlannedCount: 2", self.result["report"])
 
 
 if __name__ == "__main__":
