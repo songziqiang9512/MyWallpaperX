@@ -47,6 +47,7 @@ struct SceneRenderDescriptor: Codable {
         let contentKind: String
         let imagePath: String?
         let particlePath: String?
+        let particleInstanceOverride: SceneParticleInstanceOverride?
         let parentID: Int?
         let childLayerIDs: [Int]
         let visible: Bool?
@@ -146,6 +147,7 @@ struct SceneRenderDescriptorBuilder {
                     contentKind: contentKind(for: object),
                     imagePath: object.imagePath,
                     particlePath: object.particlePath,
+                    particleInstanceOverride: object.particleInstanceOverride,
                     parentID: object.parentID,
                     childLayerIDs: childIDsByParentID[object.id] ?? [],
                     visible: object.visible,

@@ -109,6 +109,11 @@ enum Harness {
         guard let override = parser.parseInstanceOverride(root["override"]) else {
             throw HarnessError.invalidJSON
         }
+        let encodedOverride = try JSONEncoder().encode(override)
+        let decodedOverride = try JSONDecoder().decode(
+            SceneParticleInstanceOverride.self,
+            from: encodedOverride
+        )
         let diagnostics = Dictionary(grouping: definition.diagnostics, by: { $0.kind.rawValue })
             .mapValues(\.count)
         return [
@@ -158,7 +163,8 @@ enum Harness {
             "overrideRateAnimation": override.rate?.hasAnimation ?? false,
             "overrideNormalizedColorUser": override.normalizedColor?.userPropertyKey ?? "",
             "overrideControlPoint": override.controlPoints[2]?.value?.vectorValue ?? [],
-            "overrideControlPointAngle": override.controlPointAngles[2]?.value?.vectorValue ?? []
+            "overrideControlPointAngle": override.controlPointAngles[2]?.value?.vectorValue ?? [],
+            "overrideRoundTrip": decodedOverride == override
         ]
     }
 
@@ -502,6 +508,7 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         self.assertEqual(result["overrideNormalizedColorUser"], "particle_color")
         self.assertEqual(result["overrideControlPoint"], [100, 200, 0])
         self.assertEqual(result["overrideControlPointAngle"], [0, 0, 1])
+        self.assertTrue(result["overrideRoundTrip"])
 
     def test_isolated_21_sample_particle_census(self) -> None:
         if not ISOLATED_SAMPLE_ROOT.is_dir():

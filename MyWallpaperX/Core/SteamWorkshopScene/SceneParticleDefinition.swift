@@ -1,6 +1,6 @@
 import Foundation
 
-nonisolated enum SceneParticleNumericValue: Equatable, Sendable {
+nonisolated enum SceneParticleNumericValue: Codable, Equatable, Sendable {
     case scalar(Double)
     case vector([Double])
 
@@ -219,14 +219,14 @@ nonisolated struct SceneParticleDefinition: Equatable, Sendable {
     let diagnostics: [SceneParticleDiagnostic]
 }
 
-nonisolated struct SceneParticleBoundValue: Equatable, Sendable {
+nonisolated struct SceneParticleBoundValue: Codable, Equatable, Sendable {
     let value: SceneParticleNumericValue?
     let userPropertyKey: String?
     let hasScript: Bool
     let hasAnimation: Bool
 }
 
-nonisolated struct SceneParticleInstanceOverride: Equatable, Sendable {
+nonisolated struct SceneParticleInstanceOverride: Codable, Equatable, Sendable {
     let id: Int?
     let alpha: SceneParticleBoundValue?
     let size: SceneParticleBoundValue?

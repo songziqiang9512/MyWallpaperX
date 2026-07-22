@@ -12,8 +12,8 @@ struct SceneInterpretationFile: Codable {
 }
 
 struct SceneInterpretationFileWriter {
-    // formatVersion 8 adds authored per-layer parallax and camera delay.
-    static let currentFormatVersion = 8
+    // formatVersion 9 carries resolved per-layer particle instance overrides.
+    static let currentFormatVersion = 9
 
     func write(
         renderDescriptor: SceneRenderDescriptor,

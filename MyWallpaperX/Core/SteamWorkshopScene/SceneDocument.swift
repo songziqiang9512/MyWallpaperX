@@ -52,6 +52,7 @@ struct SceneDocument {
         let name: String?
         let imagePath: String?
         let particlePath: String?
+        let particleInstanceOverride: SceneParticleInstanceOverride?
         let parentID: Int?
         let visible: Bool?
         let alpha: Double?
@@ -195,6 +196,9 @@ struct SceneDocumentLoader {
             name: root["name"] as? String,
             imagePath: imagePath,
             particlePath: normalizedPath(root["particle"] as? String),
+            particleInstanceOverride: SceneParticleDefinitionParser().parseInstanceOverride(
+                root["instanceoverride"]
+            ),
             parentID: root["parent"] as? Int,
             visible: visibleValue(root["visible"]),
             alpha: doubleValue(root["alpha"]),
