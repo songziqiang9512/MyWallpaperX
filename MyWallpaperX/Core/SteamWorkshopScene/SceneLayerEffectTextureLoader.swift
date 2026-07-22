@@ -1,26 +1,31 @@
 import Metal
+import simd
 
 struct SceneLayerEffectTextures {
     let irisMask: MTLTexture?
     let opacityMask: MTLTexture?
     let waterMask: MTLTexture?
     let foliageMask: MTLTexture?
+    let foliageUVScale: SIMD2<Float>
     let waterRippleNormal: MTLTexture?
     let message: String
+}
 
-    func merge(
-        layerID: Int,
-        irisMasks: inout [Int: MTLTexture],
-        opacityMasks: inout [Int: MTLTexture],
-        waterMasks: inout [Int: MTLTexture],
-        foliageMasks: inout [Int: MTLTexture],
-        waterRippleNormals: inout [Int: MTLTexture]
-    ) {
-        irisMasks[layerID] = irisMask
-        opacityMasks[layerID] = opacityMask
-        waterMasks[layerID] = waterMask
-        foliageMasks[layerID] = foliageMask
-        waterRippleNormals[layerID] = waterRippleNormal
+struct SceneLayerEffectTextureStore {
+    var irisMasks: [Int: MTLTexture] = [:]
+    var opacityMasks: [Int: MTLTexture] = [:]
+    var waterMasks: [Int: MTLTexture] = [:]
+    var foliageMasks: [Int: MTLTexture] = [:]
+    var foliageUVScales: [Int: SIMD2<Float>] = [:]
+    var waterRippleNormals: [Int: MTLTexture] = [:]
+
+    mutating func merge(layerID: Int, textures: SceneLayerEffectTextures) {
+        irisMasks[layerID] = textures.irisMask
+        opacityMasks[layerID] = textures.opacityMask
+        waterMasks[layerID] = textures.waterMask
+        foliageMasks[layerID] = textures.foliageMask
+        foliageUVScales[layerID] = textures.foliageUVScale
+        waterRippleNormals[layerID] = textures.waterRippleNormal
     }
 }
 
@@ -53,12 +58,13 @@ enum SceneLayerEffectTextureLoader {
             loader: loader,
             device: device
         )
+        let foliageURL = resolveMaskedTexture(
+            for: layer,
+            effectFragments: ["foliagesway", "cursorripple"],
+            resolver: resolver
+        )
         let foliage = loadTexture(
-            url: resolveMaskedTexture(
-                for: layer,
-                effectFragments: ["foliagesway", "cursorripple"],
-                resolver: resolver
-            ),
+            url: foliageURL,
             label: "foliage mask",
             loader: loader,
             device: device
@@ -74,13 +80,25 @@ enum SceneLayerEffectTextureLoader {
             loader: loader,
             device: device
         )
+        let foliageUVScale = mappedUVScale(for: foliageURL)
+        let foliageScaleMessage = foliage.texture == nil || foliageUVScale == SIMD2(repeating: 1)
+            ? ""
+            : String(
+                format: "; foliage mapped UV scale=(%.6f, %.6f)",
+                foliageUVScale.x,
+                foliageUVScale.y
+            )
         return SceneLayerEffectTextures(
             irisMask: iris.texture,
             opacityMask: opacity.texture,
             waterMask: water.texture,
             foliageMask: foliage.texture,
+            foliageUVScale: foliageUVScale,
             waterRippleNormal: normal.texture,
-            message: [iris.message, opacity.message, water.message, foliage.message, normal.message].joined()
+            message: [
+                iris.message, opacity.message, water.message, foliage.message,
+                foliageScaleMessage, normal.message,
+            ].joined()
         )
     }
 
@@ -156,5 +174,19 @@ enum SceneLayerEffectTextureLoader {
         case .textureAllocationFailed(let width, let height):
             return (nil, "; \(label) allocation failed at \(width)×\(height)")
         }
+    }
+
+    private static func mappedUVScale(for url: URL?) -> SIMD2<Float> {
+        guard let url, url.pathExtension.localizedLowercase == "tex",
+              let data = try? Data(contentsOf: url),
+              let container = try? SceneTexContainerReader().read(data: data) else {
+            return SIMD2(repeating: 1)
+        }
+        return SceneTextureMappedUVScale.resolve(
+            physicalWidth: container.textureWidth,
+            physicalHeight: container.textureHeight,
+            mappedWidth: container.imageWidth,
+            mappedHeight: container.imageHeight
+        )
     }
 }

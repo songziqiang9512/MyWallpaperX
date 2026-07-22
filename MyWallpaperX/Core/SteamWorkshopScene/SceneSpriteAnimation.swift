@@ -93,6 +93,8 @@ extension SceneLayerFragmentUniforms {
             effectParams1: .zero,
             effectParams2: .zero,
             effectParams3: .zero,
+            effectParams4: .zero,
+            effectParams5: SIMD4(1, 1, 0, 0),
             textureFrame0: frame.uniform0,
             textureFrame1: frame.uniform1
         )

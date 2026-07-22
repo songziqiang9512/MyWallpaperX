@@ -78,6 +78,8 @@ struct SceneLayerFragmentUniforms {
     var effectParams1: SIMD4<Float>
     var effectParams2: SIMD4<Float>
     var effectParams3: SIMD4<Float>
+    var effectParams4: SIMD4<Float>
+    var effectParams5: SIMD4<Float>
     var textureFrame0: SIMD4<Float>
     var textureFrame1: SIMD4<Float>
 }

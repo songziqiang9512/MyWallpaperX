@@ -148,6 +148,7 @@ struct SceneMetalRenderer {
         opacityMaskTextures: [Int: MTLTexture],
         waterMaskTextures: [Int: MTLTexture],
         foliageMaskTextures: [Int: MTLTexture],
+        foliageMaskUVScales: [Int: SIMD2<Float>],
         waterRippleNormalTextures: [Int: MTLTexture],
         imagePipeline: SceneImageLayerPipeline?,
         particleBatches: [SceneParticleDrawBatch],
@@ -229,6 +230,8 @@ struct SceneMetalRenderer {
                         opacity: opacityMaskTextures[layer.id],
                         water: waterMaskTextures[layer.id],
                         foliage: foliageMaskTextures[layer.id],
+                        foliageUVScale: foliageMaskUVScales[layer.id]
+                            ?? SIMD2(repeating: 1),
                         waterRippleNormal: waterRippleNormalTextures[layer.id]
                     ),
                     textureFrame: spriteAnimations[layer.id]?.transform(at: time) ?? .identity,

@@ -49,6 +49,8 @@ struct SceneLayerFragmentUniforms {
     var effectParams1: SIMD4<Float>
     var effectParams2: SIMD4<Float>
     var effectParams3: SIMD4<Float>
+    var effectParams4: SIMD4<Float>
+    var effectParams5: SIMD4<Float>
     var textureFrame0: SIMD4<Float>
     var textureFrame1: SIMD4<Float>
 }
@@ -82,6 +84,8 @@ struct LayerFragmentUniforms {
     float4 effectParams1;
     float4 effectParams2;
     float4 effectParams3;
+    float4 effectParams4;
+    float4 effectParams5;
     float4 textureFrame0;
     float4 textureFrame1;
 };
@@ -103,6 +107,21 @@ constant uint EFFECT_SHAKE               = 1u << 7;
 constant uint EFFECT_HAS_SHAKE_MASK      = 1u << 8;
 constant uint EFFECT_HAS_FOLIAGE_MASK    = 1u << 9;
 constant uint EFFECT_DEPENDENCY_BLEND    = 1u << 10;
+
+float foliageNoise(float2 point) {
+    float2 cell = floor(point);
+    float2 blend = fract(point);
+    blend = blend * blend * (3.0 - 2.0 * blend);
+    float a = fract(sin(dot(cell, float2(127.1, 311.7))) * 43758.5453);
+    float b = fract(sin(dot(cell + float2(1.0, 0.0), float2(127.1, 311.7))) * 43758.5453);
+    float c = fract(sin(dot(cell + float2(0.0, 1.0), float2(127.1, 311.7))) * 43758.5453);
+    float d = fract(sin(dot(cell + float2(1.0, 1.0), float2(127.1, 311.7))) * 43758.5453);
+    return mix(mix(a, b, blend.x), mix(c, d, blend.x), blend.y);
+}
+
+float4 foliageSignedPower(float4 value, float power) {
+    return pow(abs(value), float4(power)) * sign(value);
+}
 
 vertex QuadVaryings sceneImageLayerVert(
     uint vid [[vertex_id]],
@@ -137,7 +156,10 @@ fragment float4 sceneImageLayerFrag(
     }
     float foliageMask = 1.0;
     if ((u.effectFlags & EFFECT_HAS_FOLIAGE_MASK) != 0u) {
-        foliageMask = foliageMaskTex.sample(s, uv).r;
+        foliageMask = foliageMaskTex.sample(
+            s,
+            clamp(uv * u.effectParams5.xy, 0.0, 1.0)
+        ).r;
     }
     float auxMask = 1.0;
     bool usesAuxMask = (u.effectFlags & (EFFECT_IRIS_MASK | EFFECT_OPACITY_MASK)) != 0u;
@@ -145,13 +167,41 @@ fragment float4 sceneImageLayerFrag(
         auxMask = auxMaskTex.sample(s, uv).r;
     }
 
-    // foliagesway: horizontal sway whose amplitude grows from anchor (uv.y=1)
-    // toward the top (uv.y=0). Treats the texture as a flag/leaf hanging
-    // from its bottom edge.
     if ((u.effectFlags & EFFECT_FOLIAGESWAY) != 0u) {
-        float fall = 1.0 - uv.y;                       // 0 at bottom, 1 at top
-        float wave = sin(u.time * 1.7 + uv.y * 3.14);
-        uv.x += wave * 0.018 * fall * fall * foliageMask;
+        float strength = u.effectParams3.x;
+        float speed = u.effectParams3.y;
+        float phaseAmount = u.effectParams3.z;
+        float power = u.effectParams3.w;
+        float noiseScale = u.effectParams4.x;
+        float ratio = u.effectParams4.y;
+        float direction = u.effectParams4.z;
+        float sourceAspect = float(tex.get_width()) / max(float(tex.get_height()), 1.0);
+        float aspect = max(sourceAspect * ratio, 0.001);
+        float sine = sin(direction);
+        float cosine = cos(direction);
+        float2 directionScale = float2(
+            cosine / aspect - sine * aspect,
+            sine / aspect + cosine * aspect
+        );
+        float2 rotatedUV = float2(
+            cosine * uv.x - sine * uv.y,
+            sine * uv.x + cosine * uv.y
+        );
+        float noise = foliageNoise(uv * max(noiseScale, 0.0001) * 32.0);
+        float phase = (noise * 6.2831853 + rotatedUV.x * 10.0 + rotatedUV.y * 5.0)
+            * phaseAmount;
+        float4 waves = foliageSignedPower(
+            sin(phase + speed * u.time * float4(1.0, -0.16161616, 0.0083333, -0.00019841)),
+            power
+        );
+        float4 crossWaves = foliageSignedPower(
+            sin(0.4 + phase + speed * u.time * float4(-0.5, 0.041666666, -0.0013888889, 0.000024801587)),
+            power
+        );
+        float amplitude = strength * strength * 0.005 * foliageMask;
+        uv.x += directionScale.x * (waves.x + waves.y + waves.z + waves.w) * amplitude;
+        uv.y += directionScale.y
+            * (crossWaves.x + crossWaves.y + crossWaves.z + crossWaves.w) * amplitude;
     }
 
     // shake: simple left-right breathing-style translation using the authored

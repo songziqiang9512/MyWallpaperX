@@ -6,6 +6,7 @@ struct SceneImageLayerMasks {
     let opacity: MTLTexture?
     let water: MTLTexture?
     let foliage: MTLTexture?
+    let foliageUVScale: SIMD2<Float>
     let waterRippleNormal: MTLTexture?
 }
 
@@ -85,6 +86,7 @@ struct SceneImageLayerCompositor {
             tint: request.layer.contentKind == "solid"
                 ? SIMD3(request.layer.colorRGB ?? [], fill: 1)
                 : SIMD3(repeating: 1),
+            foliageMaskUVScale: masks.foliageUVScale,
             dependencyBlendMode: routesOffscreen ? nil : request.dependencyEffect?.blendMode
         )
         if routesOffscreen,
@@ -179,6 +181,7 @@ struct SceneImageLayerCompositor {
         effectInputs: SceneLayerEffectInputs,
         textureFrame: SceneTextureUVTransform,
         tint: SIMD3<Float>,
+        foliageMaskUVScale: SIMD2<Float>,
         dependencyBlendMode: Int?
     ) -> SceneLayerFragmentUniforms {
         var flags = effectInputs.flags
@@ -197,6 +200,8 @@ struct SceneImageLayerCompositor {
             effectParams1: effectInputs.params1,
             effectParams2: effectInputs.params2,
             effectParams3: effectInputs.params3,
+            effectParams4: effectInputs.params4,
+            effectParams5: SIMD4(foliageMaskUVScale.x, foliageMaskUVScale.y, 0, 0),
             textureFrame0: textureFrame.uniform0,
             textureFrame1: textureFrame.uniform1
         )
@@ -209,6 +214,7 @@ extension SceneImageLayerMasks {
         opacity: nil,
         water: nil,
         foliage: nil,
+        foliageUVScale: SIMD2(repeating: 1),
         waterRippleNormal: nil
     )
 }

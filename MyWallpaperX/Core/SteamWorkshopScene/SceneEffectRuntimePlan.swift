@@ -7,6 +7,7 @@ struct SceneLayerEffectInputs {
     let params1: SIMD4<Float>
     let params2: SIMD4<Float>
     let params3: SIMD4<Float>
+    let params4: SIMD4<Float>
 }
 
 struct SceneBloomPlan {
@@ -95,6 +96,10 @@ enum SceneEffectRuntimePlanner {
             && inlineFlags.contains(.waterwaves)
             ? "effect runtime waterripple-legacy; "
             : ""
+        let foliage = SceneFoliageSwayRuntimePlanner.plan(
+            for: layer,
+            hasMask: hasFoliageMask
+        ) == nil ? "" : "effect runtime foliagesway-uv; "
         if perspectiveOpacityPlan(for: layer, hasOpacityMask: hasOpacityMask) != nil {
             let ripple = waterRippleNormal == nil ? "" : "effect runtime waterripple-normal; "
             return "\(ripple)\(legacyRipple)effect runtime perspective-opacity; layer color blend mode=\(layer.colorBlendMode ?? 0)"
@@ -109,17 +114,19 @@ enum SceneEffectRuntimePlanner {
             return "\(legacyRipple)inline approximation"
         }
         let passCount = offscreenPassCount(for: layer)
-        guard passCount > 0 else { return nil }
+        guard passCount > 0 else {
+            return foliage.isEmpty ? nil : String(foliage.dropLast(2))
+        }
         if SceneGaussianBlurRuntimePlanner.plan(for: layer)?.isPrecise == true {
-            return "effect runtime gaussian-blur-precise; \(passCount) declared pass(es)"
+            return "\(foliage)effect runtime gaussian-blur-precise; \(passCount) declared pass(es)"
         }
         if SceneGaussianBlurRuntimePlanner.plan(for: layer) != nil {
-            return "effect runtime gaussian-blur; \(passCount) declared pass(es)"
+            return "\(foliage)effect runtime gaussian-blur; \(passCount) declared pass(es)"
         }
         if bloomPlan(for: layer) != nil {
-            return "effect runtime bloom; \(passCount) declared pass(es)"
+            return "\(foliage)effect runtime bloom; \(passCount) declared pass(es)"
         }
-        return "offscreen route-only; \(passCount) declared pass(es)"
+        return "\(foliage)offscreen route-only; \(passCount) declared pass(es)"
     }
 
     private static func bloomPlan(for layer: SceneRenderDescriptor.Layer) -> SceneBloomPlan? {
@@ -220,7 +227,17 @@ enum SceneEffectRuntimePlanner {
         var params0 = SIMD4<Float>(0, 0, 0, 0)
         var params1 = SIMD4<Float>(0, 0, 0, 0)
         var params2 = SIMD4<Float>(12, 1, 0.08, 0)
-        let params3 = SIMD4<Float>(1, 0, 1, 0)
+        var params3 = SIMD4<Float>(repeating: 0)
+        var params4 = SIMD4<Float>(repeating: 0)
+        if let foliage = SceneFoliageSwayRuntimePlanner.plan(
+            for: layer,
+            hasMask: hasFoliageMask
+        ) {
+            params3 = SIMD4(foliage.strength, foliage.speed, foliage.phase, foliage.power)
+            params4 = SIMD4(foliage.noiseScale, foliage.ratio, foliage.direction, 0)
+        } else {
+            flags.remove(.foliagesway)
+        }
         for effect in layer.effects where effect.visible != false {
             let lower = effect.file.localizedLowercase
             guard let firstPass = effect.passes.first else { continue }
@@ -268,7 +285,8 @@ enum SceneEffectRuntimePlanner {
             params0: params0,
             params1: params1,
             params2: params2,
-            params3: params3
+            params3: params3,
+            params4: params4
         )
     }
 

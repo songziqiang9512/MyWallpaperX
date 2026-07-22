@@ -23,7 +23,9 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneWaterRipplePipeline.swift",
     SOURCE_ROOT / "ScenePerspectiveOpacityPipeline.swift",
     SOURCE_ROOT / "SceneEffectMaskSemantics.swift",
+    SOURCE_ROOT / "SceneFoliageSwayRuntimePlan.swift",
     SOURCE_ROOT / "SceneGaussianBlurRuntimePlan.swift",
+    SOURCE_ROOT / "SceneTextureMappedUVScale.swift",
     SOURCE_ROOT / "SceneWaterRippleRuntimePlan.swift",
     SOURCE_ROOT / "SceneInlineEffectRuntime.swift",
     SOURCE_ROOT / "SceneEffectRuntimeSupport.swift",
@@ -196,6 +198,14 @@ enum Harness {
         )
         let coarseBlur = blurPlan(path: "effects/blur/effect.json", scale: 0.6)
         let preciseBlur = blurPlan(path: "effects/blurprecise/effect.json", scale: 0.45)
+        let foliage = foliageInputs(mode: 0)
+        let unsupportedFoliage = foliageInputs(mode: 1)
+        let mappedMaskScale = SceneTextureMappedUVScale.resolve(
+            physicalWidth: 4096,
+            physicalHeight: 4096,
+            mappedWidth: 3840,
+            mappedHeight: 2160
+        )
 
         let limited = pool.textures(width: 4_000, height: 2_000)
         let evictionPool = SceneOffscreenTexturePool(
@@ -232,6 +242,15 @@ enum Harness {
                 preciseBlur?.sampleResolutionScale ?? -1,
             ],
             "preciseBlurIsPrecise": preciseBlur?.isPrecise ?? false,
+            "foliageFlags": foliage.flags.rawValue,
+            "foliageParams3": [
+                foliage.params3.x, foliage.params3.y, foliage.params3.z, foliage.params3.w,
+            ],
+            "foliageParams4": [
+                foliage.params4.x, foliage.params4.y, foliage.params4.z, foliage.params4.w,
+            ],
+            "unsupportedFoliageFlags": unsupportedFoliage.flags.rawValue,
+            "mappedMaskScale": [mappedMaskScale.x, mappedMaskScale.y],
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -319,6 +338,42 @@ enum Harness {
             hasFoliageMask: false,
             hasWaterRippleNormal: false
         ).gaussianBlur
+    }
+
+    static func foliageInputs(mode: Int) -> SceneLayerEffectInputs {
+        let values: [String: SceneDocument.ShaderValue] = [
+            "strength": .init(components: [0.4]),
+            "speeduv": .init(components: [5]),
+            "phase": .init(components: [0.57]),
+            "power": .init(components: [1]),
+            "scale": .init(components: [0.05]),
+            "ratio": .init(components: [0.3]),
+            "scrolldirection": .init(components: [-0.5]),
+        ]
+        let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
+            texturePaths: ["mask"],
+            textureSlots: [nil, "mask"],
+            combos: ["MODE": mode],
+            constantShaderValues: values
+        )
+        let layer = SceneRenderDescriptor.Layer(
+            contentKind: "image",
+            colorRGB: nil,
+            colorBlendMode: nil,
+            effects: [.init(
+                file: "effects/foliagesway/effect.json",
+                visible: true,
+                passes: [pass]
+            )]
+        )
+        return SceneEffectRuntimePlanner.plan(
+            for: layer,
+            hasIrisMask: false,
+            hasOpacityMask: false,
+            hasWaterMask: false,
+            hasFoliageMask: true,
+            hasWaterRippleNormal: false
+        ).inputs
     }
 
     static func makeTexture(
@@ -456,8 +511,22 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             self.assertAlmostEqual(actual, expected, places=6)
         self.assertTrue(self.result["preciseBlurIsPrecise"])
 
+    def test_single_builtin_foliage_plan_preserves_authored_parameters(self) -> None:
+        self.assertNotEqual(self.result["foliageFlags"] & 1, 0)
+        expected3 = [0.4, 5, 0.57, 1]
+        expected4 = [0.05, 0.3, -0.5, 0]
+        for actual, expected in zip(self.result["foliageParams3"], expected3):
+            self.assertAlmostEqual(actual, expected, places=6)
+        for actual, expected in zip(self.result["foliageParams4"], expected4):
+            self.assertAlmostEqual(actual, expected, places=6)
+        self.assertEqual(self.result["unsupportedFoliageFlags"] & 1, 0)
+
+    def test_foliage_mask_uses_mapped_to_physical_uv_scale(self) -> None:
+        self.assertAlmostEqual(self.result["mappedMaskScale"][0], 0.9375, places=6)
+        self.assertAlmostEqual(self.result["mappedMaskScale"][1], 0.52734375, places=6)
+
     def test_dependency_mode_reuses_uniform_padding_without_layout_growth(self) -> None:
-        self.assertEqual(self.result["fragmentUniformSize"], 144)
+        self.assertEqual(self.result["fragmentUniformSize"], 176)
         self.assertEqual(self.result["dependencyBlendModeOffset"], 12)
 
     def assert_pixel_close(self, actual: list[int], expected: list[int]) -> None:

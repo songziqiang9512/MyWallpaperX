@@ -11,11 +11,7 @@ class SceneMetalView: NSView {
     private var imageTextures: [Int: MTLTexture] = [:]
     private var spriteAnimations: [Int: SceneSpriteAnimation] = [:]
     private var videoTextureSources: [Int: SceneVideoTextureSource] = [:]
-    private var irisMaskTextures: [Int: MTLTexture] = [:]
-    private var opacityMaskTextures: [Int: MTLTexture] = [:]
-    private var waterMaskTextures: [Int: MTLTexture] = [:]
-    private var foliageMaskTextures: [Int: MTLTexture] = [:]
-    private var waterRippleNormalTextures: [Int: MTLTexture] = [:]
+    private var effectTextures = SceneLayerEffectTextureStore()
     private var imagePipeline: SceneImageLayerPipeline?
     private var particlePlayback: SceneParticlePlaybackState?
     private let offscreenTexturePool: SceneOffscreenTexturePool
@@ -177,11 +173,7 @@ class SceneMetalView: NSView {
         var loaded: [Int: MTLTexture] = [:]
         var loadedSpriteAnimations: [Int: SceneSpriteAnimation] = [:]
         var loadedVideoSources: [Int: SceneVideoTextureSource] = [:]
-        var loadedIrisMasks: [Int: MTLTexture] = [:]
-        var loadedOpacityMasks: [Int: MTLTexture] = [:]
-        var loadedWaterMasks: [Int: MTLTexture] = [:]
-        var loadedFoliageMasks: [Int: MTLTexture] = [:]
-        var loadedWaterRippleNormals: [Int: MTLTexture] = [:]
+        var loadedEffectTextures = SceneLayerEffectTextureStore()
         report.append("Scene preview texture load report")
         report.append("camera: projection=cover parallax=\(renderer.renderDescriptor.camera.parallaxEnabled) amount=\(renderer.renderDescriptor.camera.parallaxAmount) delay=\(renderer.renderDescriptor.camera.parallaxDelay) mouseInfluence=\(renderer.renderDescriptor.camera.parallaxMouseInfluence)")
         report.append("cacheDirectory: \(cacheDirectory.path)")
@@ -201,14 +193,7 @@ class SceneMetalView: NSView {
                 let effectTextures = SceneLayerEffectTextureLoader.load(
                     for: layer, resolver: resolver, loader: loader, device: metalDevice
                 )
-                effectTextures.merge(
-                    layerID: layer.id,
-                    irisMasks: &loadedIrisMasks,
-                    opacityMasks: &loadedOpacityMasks,
-                    waterMasks: &loadedWaterMasks,
-                    foliageMasks: &loadedFoliageMasks,
-                    waterRippleNormals: &loadedWaterRippleNormals
-                )
+                loadedEffectTextures.merge(layerID: layer.id, textures: effectTextures)
                 let color = SIMD3(layer.colorRGB ?? [], fill: 1)
                 var message = String(
                     format: "layer %d \"%@\": OK procedural solid tint=(%.5f, %.5f, %.5f)",
@@ -263,14 +248,7 @@ class SceneMetalView: NSView {
                     loader: loader,
                     device: metalDevice
                 )
-                effectTextures.merge(
-                    layerID: layer.id,
-                    irisMasks: &loadedIrisMasks,
-                    opacityMasks: &loadedOpacityMasks,
-                    waterMasks: &loadedWaterMasks,
-                    foliageMasks: &loadedFoliageMasks,
-                    waterRippleNormals: &loadedWaterRippleNormals
-                )
+                loadedEffectTextures.merge(layerID: layer.id, textures: effectTextures)
                 message += effectTextures.message
                 if let effectSummary = renderer.effectRuntimeSummary(
                     for: layer,
@@ -306,11 +284,7 @@ class SceneMetalView: NSView {
         imageTextures.merge(textLoad.textures) { _, incoming in incoming }
         report.append(contentsOf: textLoad.messages)
         videoTextureSources = loadedVideoSources
-        irisMaskTextures = loadedIrisMasks
-        opacityMaskTextures = loadedOpacityMasks
-        waterMaskTextures = loadedWaterMasks
-        foliageMaskTextures = loadedFoliageMasks
-        waterRippleNormalTextures = loadedWaterRippleNormals
+        effectTextures = loadedEffectTextures
         particlePlayback = SceneParticlePlaybackState(
             descriptor: renderer.renderDescriptor,
             cacheDirectory: cacheDirectory,
@@ -375,11 +349,12 @@ class SceneMetalView: NSView {
         renderer.renderFrame(
             imageTextures: currentImageTextures,
             spriteAnimations: spriteAnimations,
-            irisMaskTextures: irisMaskTextures,
-            opacityMaskTextures: opacityMaskTextures,
-            waterMaskTextures: waterMaskTextures,
-            foliageMaskTextures: foliageMaskTextures,
-            waterRippleNormalTextures: waterRippleNormalTextures,
+            irisMaskTextures: effectTextures.irisMasks,
+            opacityMaskTextures: effectTextures.opacityMasks,
+            waterMaskTextures: effectTextures.waterMasks,
+            foliageMaskTextures: effectTextures.foliageMasks,
+            foliageMaskUVScales: effectTextures.foliageUVScales,
+            waterRippleNormalTextures: effectTextures.waterRippleNormals,
             imagePipeline: imagePipeline,
             particleBatches: particleBatches,
             particlePipeline: particlePlayback?.pipeline,
