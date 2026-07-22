@@ -3,7 +3,10 @@ import Foundation
 extension SteamWorkshopService {
     func sceneDiagnosticsReport(for record: SteamWorkshopDownloadRecord) -> SceneDiagnosticsReport? {
         guard record.contentType == .scene else { return nil }
-        return SceneDiagnosticsBuilder().build(rootURL: record.folderURL)
+        return SceneDiagnosticsBuilder().build(
+            rootURL: record.folderURL,
+            propertyOverrides: scenePropertyOverrides(for: record)
+        )
     }
 
     func sceneDiagnosticsSummary(for record: SteamWorkshopDownloadRecord) -> String {

@@ -1,6 +1,6 @@
 import Foundation
 
-struct SceneUserPropertyDefinitionParser {
+nonisolated struct SceneUserPropertyDefinitionParser {
     nonisolated func parse(projectRoot: [String: Any]) -> SceneUserPropertyCatalog {
         let general = projectRoot["general"] as? [String: Any]
         let properties = general?["properties"] as? [String: Any] ?? [:]

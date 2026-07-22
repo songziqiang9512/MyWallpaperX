@@ -31,7 +31,10 @@ struct SceneDiagnosticsReport {
 }
 
 struct SceneDiagnosticsBuilder {
-    func build(rootURL: URL) -> SceneDiagnosticsReport {
+    func build(
+        rootURL: URL,
+        propertyOverrides: [String: SceneUserPropertyValue] = [:]
+    ) -> SceneDiagnosticsReport {
         let project = try? SceneProjectLoader().load(from: rootURL)
         let resourceIndex = SceneResourceIndexBuilder().build(rootURL: rootURL)
         let packageReport: ScenePkgExtractionReport? = {
@@ -42,7 +45,11 @@ struct SceneDiagnosticsBuilder {
             )
         }()
         let sceneDocument = project.flatMap {
-            try? SceneDocumentLoader().load(project: $0, packageReport: packageReport)
+            try? SceneDocumentLoader().load(
+                project: $0,
+                packageReport: packageReport,
+                propertyOverrides: propertyOverrides
+            )
         }
         let assetCatalog = project.flatMap {
             try? SceneAssetCatalogLoader().load(project: $0, packageReport: packageReport)

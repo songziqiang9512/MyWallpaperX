@@ -1,11 +1,11 @@
 import Foundation
 
-enum SceneUserPropertyPathComponent: Codable, Equatable, Hashable {
+nonisolated enum SceneUserPropertyPathComponent: Codable, Equatable, Hashable {
     case key(String)
     case index(Int)
 }
 
-struct SceneUserPropertyPath: Codable, Equatable, Hashable, CustomStringConvertible {
+nonisolated struct SceneUserPropertyPath: Codable, Equatable, Hashable, CustomStringConvertible {
     let components: [SceneUserPropertyPathComponent]
 
     nonisolated var description: String {
@@ -18,7 +18,7 @@ struct SceneUserPropertyPath: Codable, Equatable, Hashable, CustomStringConverti
     }
 }
 
-enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
+nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
     enum TextField: String, Codable {
         case content
         case pointSize
@@ -55,21 +55,21 @@ enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
     }
 }
 
-struct SceneUserPropertyBindingReference: Codable, Equatable, Hashable {
+nonisolated struct SceneUserPropertyBindingReference: Codable, Equatable, Hashable {
     let key: String
     let condition: SceneUserPropertyValue?
 
     nonisolated var isConditional: Bool { condition != nil }
 }
 
-struct SceneUserPropertyBinding: Codable, Equatable, Hashable {
+nonisolated struct SceneUserPropertyBinding: Codable, Equatable, Hashable {
     let reference: SceneUserPropertyBindingReference
     let fallbackValue: SceneUserPropertyValue?
     let path: SceneUserPropertyPath
     let target: SceneUserPropertyBindingTarget
 }
 
-struct SceneUserPropertyBindingDiagnostic: Codable, Equatable, Hashable {
+nonisolated struct SceneUserPropertyBindingDiagnostic: Codable, Equatable, Hashable {
     enum Kind: String, Codable {
         case malformedUserReference
         case unsupportedTarget
@@ -83,7 +83,7 @@ struct SceneUserPropertyBindingDiagnostic: Codable, Equatable, Hashable {
     let message: String
 }
 
-struct SceneUserPropertyBindingReport {
+nonisolated struct SceneUserPropertyBindingReport {
     let bindings: [SceneUserPropertyBinding]
     let diagnostics: [SceneUserPropertyBindingDiagnostic]
 
@@ -96,7 +96,7 @@ struct SceneUserPropertyBindingReport {
     }
 }
 
-struct SceneUserPropertyResolution {
+nonisolated struct SceneUserPropertyResolution {
     let root: [String: Any]
     let bindingReport: SceneUserPropertyBindingReport
     let diagnostics: [SceneUserPropertyBindingDiagnostic]
@@ -107,7 +107,7 @@ struct SceneUserPropertyResolution {
     }
 }
 
-struct SceneUserPropertyBindingParser {
+nonisolated struct SceneUserPropertyBindingParser {
     nonisolated func parse(root: [String: Any]) -> SceneUserPropertyBindingReport {
         var bindings: [SceneUserPropertyBinding] = []
         var diagnostics: [SceneUserPropertyBindingDiagnostic] = []

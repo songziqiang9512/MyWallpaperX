@@ -103,6 +103,8 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             subprocess.run(
                 [
                     swiftc,
+                    str(SCRIPT_DIR.parent / "MyWallpaperX/Core/SteamWorkshopScene/SceneUserProperty.swift"),
+                    str(SCRIPT_DIR.parent / "MyWallpaperX/Core/SteamWorkshopScene/SceneUserPropertyDefinitionParser.swift"),
                     str(SCRIPT_DIR.parent / "MyWallpaperX/Core/SteamWorkshopScene/SceneProject.swift"),
                     str(harness),
                     "-o",
@@ -147,7 +149,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                         "layers": [{"effects": [{"passes": [{
                             "textureSlots": [None, "normal.tex"],
                             "combos": {"REPEAT": 1},
-                        }]}]}],
+                        }]}], "id": 7, "visible": True, "text": "property gate"}],
                         "materialPasses": [{
                             "textureSlots": [None, None, "phase.tex"],
                             "combos": {"VERSION": 2, "MODE": 0},
@@ -164,6 +166,9 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             self.assertEqual(metrics["material_texture_slot_count"], 3)
             self.assertEqual(metrics["material_texture_slot_hole_count"], 2)
             self.assertEqual(metrics["material_combo_entry_count"], 2)
+            self.assertEqual(metrics["visible_layer_count"], 1)
+            self.assertEqual(metrics["visible_layer_ids"], [7])
+            self.assertEqual(metrics["text_values"], ["property gate"])
             self.assertIsNone(metrics["error"])
 
     def test_interpretation_metrics_reject_invalid_slot_shape(self) -> None:

@@ -112,6 +112,7 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
         descriptor = payload["renderDescriptor"]
+        layers = descriptor.get("layers", [])
         effect_passes = [
             item
             for layer in descriptor.get("layers", [])
@@ -129,6 +130,9 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
             "material_texture_slot_count": material_slot_count,
             "material_texture_slot_hole_count": material_slot_holes,
             "material_combo_entry_count": material_combo_count,
+            "visible_layer_count": sum(layer.get("visible") is not False for layer in layers),
+            "visible_layer_ids": [layer.get("id") for layer in layers if layer.get("visible") is not False],
+            "text_values": [layer.get("text") for layer in layers if isinstance(layer.get("text"), str)],
             "error": None,
         }
     except (AttributeError, KeyError, TypeError, ValueError, json.JSONDecodeError, OSError) as error:
@@ -140,6 +144,9 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
             "material_texture_slot_count": 0,
             "material_texture_slot_hole_count": 0,
             "material_combo_entry_count": 0,
+            "visible_layer_count": 0,
+            "visible_layer_ids": [],
+            "text_values": [],
             "error": str(error),
         }
 
@@ -185,6 +192,12 @@ def run_sample(
         "--mwx-debug-scene-duration",
         str(duration),
     ]
+    property_overrides = sample.get("property_overrides")
+    if isinstance(property_overrides, dict) and property_overrides:
+        command.extend([
+            "--mwx-debug-scene-properties-json",
+            json.dumps(property_overrides, ensure_ascii=False, separators=(",", ":")),
+        ])
     environment = os.environ.copy()
     environment["HOME"] = str(runtime_home)
     environment["CFFIXED_USER_HOME"] = str(runtime_home)
@@ -333,10 +346,21 @@ def run_sample(
         "expected_material_texture_slot_count": "material_texture_slot_count",
         "expected_material_texture_slot_hole_count": "material_texture_slot_hole_count",
         "expected_material_combo_entry_count": "material_combo_entry_count",
+        "expected_visible_layer_count": "visible_layer_count",
     }
     for expectation, metric in interpretation_expectations.items():
         if expectation in sample and interpretation[metric] != int(sample[expectation]):
             failures.append(f"Scene interpretation {metric} mismatch")
+    expected_text_value = sample.get("expected_text_value")
+    if expected_text_value is not None and expected_text_value not in interpretation["text_values"]:
+        failures.append("Scene interpretation text property mismatch")
+    visible_layer_ids = set(interpretation["visible_layer_ids"])
+    for layer_id in sample.get("required_visible_layer_ids", []):
+        if layer_id not in visible_layer_ids:
+            failures.append(f"Scene property layer {layer_id} should be visible")
+    for layer_id in sample.get("required_hidden_layer_ids", []):
+        if layer_id in visible_layer_ids:
+            failures.append(f"Scene property layer {layer_id} should be hidden")
     bloom_runtime_count = preview_text.count("effect runtime bloom")
     if bloom_runtime_count < int(sample.get("minimum_bloom_runtime_count", 0)):
         failures.append("bloom runtime count below minimum")
@@ -360,6 +384,7 @@ def run_sample(
         "id": sample_id,
         "title": sample.get("title"),
         "capabilities": sample.get("capabilities", []),
+        "property_overrides": property_overrides if isinstance(property_overrides, dict) else {},
         "passed": not failures,
         "failures": failures,
         "exit_code": exit_code,

@@ -27,12 +27,15 @@ final class SceneDesktopWallpaperHost {
         let renderDescriptor: SceneRenderDescriptor
         let cacheDirectory: URL
         let logURL: URL?
+        let recordID: String?
     }
 
     private var surfaces: [CGDirectDisplayID: Surface] = [:]
     private var launchContext: LaunchContext?
     private var observers: [NSObjectProtocol] = []
     private var mouseTrackingTimer: Timer?
+
+    var activeRecordID: String? { launchContext?.recordID }
 
     private init() {
         installObservers()
@@ -46,12 +49,14 @@ final class SceneDesktopWallpaperHost {
     func launch(
         renderDescriptor: SceneRenderDescriptor,
         cacheDirectory: URL,
-        logURL: URL?
+        logURL: URL?,
+        recordID: String? = nil
     ) -> Bool {
         launchContext = LaunchContext(
             renderDescriptor: renderDescriptor,
             cacheDirectory: cacheDirectory,
-            logURL: logURL
+            logURL: logURL,
+            recordID: recordID
         )
         return rebuildSurfaces()
     }

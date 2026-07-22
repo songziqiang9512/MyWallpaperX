@@ -1,7 +1,7 @@
 import CoreFoundation
 import Foundation
 
-enum SceneUserPropertyKind: String, Codable, Equatable, Hashable {
+nonisolated enum SceneUserPropertyKind: String, Codable, Equatable, Hashable {
     case bool
     case slider
     case color
@@ -13,7 +13,7 @@ enum SceneUserPropertyKind: String, Codable, Equatable, Hashable {
     case unsupported
 }
 
-enum SceneUserPropertyValue: Codable, Equatable, Hashable {
+nonisolated enum SceneUserPropertyValue: Codable, Equatable, Hashable {
     case string(String)
     case number(Double)
     case bool(Bool)
@@ -136,7 +136,7 @@ enum SceneUserPropertyValue: Codable, Equatable, Hashable {
     }
 }
 
-struct SceneUserPropertyOption: Identifiable, Codable, Equatable, Hashable {
+nonisolated struct SceneUserPropertyOption: Identifiable, Codable, Equatable, Hashable {
     let label: String
     let value: SceneUserPropertyValue
     let displayCondition: String?
@@ -144,7 +144,7 @@ struct SceneUserPropertyOption: Identifiable, Codable, Equatable, Hashable {
     nonisolated var id: String { "\(label)|\(value)" }
 }
 
-struct SceneUserPropertyDefinition: Identifiable, Codable, Equatable, Hashable {
+nonisolated struct SceneUserPropertyDefinition: Identifiable, Codable, Equatable, Hashable {
     let key: String
     let title: String
     let kind: SceneUserPropertyKind
@@ -163,7 +163,7 @@ struct SceneUserPropertyDefinition: Identifiable, Codable, Equatable, Hashable {
     nonisolated var id: String { key }
 }
 
-struct SceneUserPropertyCatalog {
+nonisolated struct SceneUserPropertyCatalog {
     let definitions: [SceneUserPropertyDefinition]
 
     nonisolated var defaultValues: [String: SceneUserPropertyValue] {

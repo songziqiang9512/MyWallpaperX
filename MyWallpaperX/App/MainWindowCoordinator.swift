@@ -461,14 +461,14 @@ enum MainWindowCoordinator {
         ) { notification in
             guard let cacheDirectory = notification.userInfo?["cacheDirectory"] as? URL,
                   let interpretationFileURL = notification.userInfo?["interpretationFileURL"] as? URL,
-                  let previewLogURL = notification.userInfo?["previewLogURL"] as? URL else { return }
-
+                  let previewLogURL = notification.userInfo?["previewLogURL"] as? URL,
+                  let recordID = notification.userInfo?["recordID"] as? String else { return }
             guard let file = try? SceneInterpretationFileReader().read(from: interpretationFileURL) else { return }
-
             guard SceneDesktopWallpaperHost.shared.launch(
                 renderDescriptor: file.renderDescriptor,
                 cacheDirectory: cacheDirectory,
-                logURL: previewLogURL
+                logURL: previewLogURL,
+                recordID: recordID
             ) else { return }
 
             postWallpaperRuntimeWillSwitch(to: .scene)

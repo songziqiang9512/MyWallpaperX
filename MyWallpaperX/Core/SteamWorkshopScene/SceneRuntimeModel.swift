@@ -38,8 +38,14 @@ struct SceneRuntimeModelBuilder {
         }
     }
 
-    func build(rootURL: URL) throws -> SceneRuntimeModel {
-        let diagnostics = SceneDiagnosticsBuilder().build(rootURL: rootURL)
+    func build(
+        rootURL: URL,
+        propertyOverrides: [String: SceneUserPropertyValue] = [:]
+    ) throws -> SceneRuntimeModel {
+        let diagnostics = SceneDiagnosticsBuilder().build(
+            rootURL: rootURL,
+            propertyOverrides: propertyOverrides
+        )
         guard let project = diagnostics.project else {
             throw BuildError.missingProject
         }

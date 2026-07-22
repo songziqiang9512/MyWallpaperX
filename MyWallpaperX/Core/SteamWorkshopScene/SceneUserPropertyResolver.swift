@@ -1,6 +1,6 @@
 import Foundation
 
-struct SceneUserPropertyDocumentResolver {
+nonisolated struct SceneUserPropertyDocumentResolver {
     nonisolated func resolve(
         root: [String: Any],
         catalog: SceneUserPropertyCatalog,

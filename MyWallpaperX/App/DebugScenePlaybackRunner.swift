@@ -47,7 +47,10 @@ enum DebugScenePlaybackRunner {
             if evidenceDirectory != nil {
                 NSApp.activate(ignoringOtherApps: true)
             }
-            let model = try SceneRuntimeModelBuilder().build(rootURL: rootURL)
+            let model = try SceneRuntimeModelBuilder().build(
+                rootURL: rootURL,
+                propertyOverrides: requestedPropertyOverrides
+            )
             guard let cacheDirectory = model.diagnostics.packageReport?.outputURL else {
                 throw SceneRuntimeModelBuilder.BuildError.missingRenderDescriptor
             }
@@ -157,6 +160,17 @@ enum DebugScenePlaybackRunner {
     private static func terminate(after delay: TimeInterval) {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
             NSApp.terminate(nil)
+        }
+    }
+
+    private static var requestedPropertyOverrides: [String: SceneUserPropertyValue] {
+        guard let payload = argumentValue(after: "--mwx-debug-scene-properties-json"),
+              let data = payload.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return [:]
+        }
+        return object.reduce(into: [:]) { values, entry in
+            values[entry.key] = SceneUserPropertyValue.parse(entry.value)
         }
     }
 }

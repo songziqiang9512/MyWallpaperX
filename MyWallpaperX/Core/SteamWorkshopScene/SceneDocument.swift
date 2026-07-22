@@ -75,6 +75,7 @@ struct SceneDocument {
     let effectCount: Int
     let referencedResourcePaths: [String]
     let objects: [SceneObject]
+    let userPropertyResolution: SceneUserPropertyResolution
 }
 
 struct SceneDocumentLoader {
@@ -92,7 +93,11 @@ struct SceneDocumentLoader {
         }
     }
 
-    nonisolated func load(project: SceneProject, packageReport: ScenePkgExtractionReport?) throws -> SceneDocument {
+    nonisolated func load(
+        project: SceneProject,
+        packageReport: ScenePkgExtractionReport?,
+        propertyOverrides: [String: SceneUserPropertyValue] = [:]
+    ) throws -> SceneDocument {
         let candidates = [
             packageReport?.outputURL?.appendingPathComponent(project.entryPath),
             project.entryURL
@@ -101,14 +106,24 @@ struct SceneDocumentLoader {
         guard let sourceURL = candidates.first(where: { FileManager.default.fileExists(atPath: $0.path) }) else {
             throw LoadError.missingSceneJSON
         }
-        return try load(from: sourceURL)
+        return try load(from: sourceURL, propertyCatalog: project.userProperties, propertyOverrides: propertyOverrides)
     }
 
-    nonisolated func load(from sourceURL: URL) throws -> SceneDocument {
+    nonisolated func load(
+        from sourceURL: URL,
+        propertyCatalog: SceneUserPropertyCatalog = .empty,
+        propertyOverrides: [String: SceneUserPropertyValue] = [:]
+    ) throws -> SceneDocument {
         let data = try Data(contentsOf: sourceURL)
-        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        guard let sourceRoot = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw LoadError.invalidSceneJSON(sourceURL)
         }
+        let propertyResolution = SceneUserPropertyDocumentResolver().resolve(
+            root: sourceRoot,
+            catalog: propertyCatalog,
+            overrides: propertyOverrides
+        )
+        let root = propertyResolution.root
 
         let rawObjects = root["objects"] as? [[String: Any]] ?? []
         let objects = rawObjects.compactMap(Self.parseObject)
@@ -126,7 +141,8 @@ struct SceneDocumentLoader {
             referencedResourcePaths: referencedPaths.sorted {
                 $0.localizedStandardCompare($1) == .orderedAscending
             },
-            objects: objects
+            objects: objects,
+            userPropertyResolution: propertyResolution
         )
     }
 
