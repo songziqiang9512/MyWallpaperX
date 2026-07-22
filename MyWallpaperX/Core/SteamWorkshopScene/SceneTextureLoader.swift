@@ -248,41 +248,11 @@ struct SceneTextureLoader {
         pixelFormat: MTLPixelFormat,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
-        guard let firstMip = container.mips.first else {
-            return .decodeFailed("TEX container has no mip data")
-        }
-
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+        SceneCompressedTextureUploader.upload(
+            container: container,
             pixelFormat: pixelFormat,
-            width: firstMip.width,
-            height: firstMip.height,
-            mipmapped: false
+            device: device
         )
-        descriptor.usage = .shaderRead
-        descriptor.storageMode = .shared
-
-        guard let texture = device.makeTexture(descriptor: descriptor) else {
-            return .textureAllocationFailed(width: firstMip.width, height: firstMip.height)
-        }
-
-        let bytesPerBlock = Self.bytesPerBlock(for: pixelFormat)
-        let blocksWide = max(1, (firstMip.width + 3) / 4)
-        let blocksHigh = max(1, (firstMip.height + 3) / 4)
-        let bytesPerRow = blocksWide * bytesPerBlock
-        let expectedByteCount = bytesPerRow * blocksHigh
-        guard firstMip.data.count == expectedByteCount else {
-            return .decodeFailed("BC mip data size mismatch: \(firstMip.data.count) != \(expectedByteCount)")
-        }
-
-        firstMip.data.withUnsafeBytes { rawBuffer in
-            texture.replace(
-                region: MTLRegionMake2D(0, 0, firstMip.width, firstMip.height),
-                mipmapLevel: 0,
-                withBytes: rawBuffer.baseAddress!,
-                bytesPerRow: bytesPerRow
-            )
-        }
-        return .loaded(texture)
     }
 
     private func makeRawTexture(
@@ -400,17 +370,6 @@ struct SceneTextureLoader {
     private static func isEmbeddedImagePayload(_ data: Data) -> Bool {
         data.starts(with: Data([0x89, 0x50, 0x4E, 0x47]))
             || data.starts(with: Data([0xFF, 0xD8, 0xFF]))
-    }
-
-    private static func bytesPerBlock(for pixelFormat: MTLPixelFormat) -> Int {
-        switch pixelFormat {
-        case .bc1_rgba:
-            return 8
-        case .bc3_rgba, .bc5_rgSnorm:
-            return 16
-        default:
-            return 0
-        }
     }
 
     // format 0 raw payloads are authored with straight alpha. The renderer's

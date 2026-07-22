@@ -47,6 +47,8 @@ struct SceneTexContainer {
             return .bc3_rgba
         case 5:
             return .bc5_rgSnorm
+        case 6:
+            return .bc2_rgba
         case 7:
             return .bc1_rgba
         default:
