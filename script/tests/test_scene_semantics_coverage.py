@@ -412,7 +412,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
 
         report_paths = (
             ".codex/scene-shake-20260724/full26-final/report.json",
-            ".codex/scene-preview-visual-20260724/fixed13-final/report.json",
+            ".codex/scene-waterwaves-ordered-chain-fixed13-final-20260724/report.json",
         )
         for path in current_state_documents:
             for report_path in report_paths:
@@ -438,7 +438,8 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             "### E-GRAPH-LEGACY-COMPOSE: exact Blur Precise legacy two-pass normalization",
             evidence,
         )
-        self.assertIn("Scene tests 297 total / 294 pass / 3 skip", evidence)
+        self.assertIn("当前提交相关测试 40/40", evidence)
+        self.assertIn("297 total / 294 pass / 3 skip", evidence)
         self.assertIn("comparison_scope=same-sample-change-only", evidence)
         self.assertIn("cross_sample_ranking=false", evidence)
         self.assertIn("absolute_threshold=null", evidence)

@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-24
 >
-> 实现基线：`e505a9e`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。
+> 实现基线：`1766c76`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。
 
 本文把 45 个官方用户 Effect 逐项映射到 MyWallpaperX 当前执行级别和公共依赖。作者语义、输入槽和 pass/RT 结构见 [Effects 语义全集](effects-reference.md)，Graph/Shader 原子能力见 [Render Graph 与 Shader 覆盖表](render-graph-shader-coverage.md)，依赖 ID 见 [公共能力依赖图](capability-dependency-map.md)。
 
@@ -37,7 +37,7 @@
 | Twirl / `twirl` | `L1` | `IR-only` | [D2](capability-dependency-map.md#d2) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | center/size/feather/ellipse/inner/repeat/mask profile |
 | Water Flow / `waterflow` | `L1` | 只参与已知错误 composite 的 fail-closed 判断 | [D2](capability-dependency-map.md#d2) [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | flow/time-offset、phase/scale/direction/mask profile |
 | Water Ripple / `waterripple` | `L3` | `inline-profile`：无 mask normal-map 子集；另有 legacy 单 pass 近似 | [D2](capability-dependency-map.md#d2) [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-INLINE](runtime-evidence-index.md#e-effect-inline) | optional mask、双 normal、specular、Perspective、Windows golden |
-| Water Waves / `waterwaves` | `L3` | `inline-profile`：单组定向波近似，按声明启用 | [D2](capability-dependency-map.md#d2) [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-INLINE](runtime-evidence-index.md#e-effect-inline) | dual waves、time-offset、Perspective、mask 与边缘门 |
+| Water Waves / `waterwaves` | `L3` | `inline-profile`：仅当 Water Waves 是 owner layer 唯一可见 Effect 时执行单组定向波近似；mixed/repeated declarations 因无法保持作者顺序与独立参数而 fail closed | [D2](capability-dependency-map.md#d2) [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-INLINE](runtime-evidence-index.md#e-effect-inline) | authored-chain backend、双波、time-offset、Perspective、mask 边缘与 Windows golden |
 
 ## 3. Blur
 

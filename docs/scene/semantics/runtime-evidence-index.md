@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-24
 >
-> 实现基线：`3194ac5`
+> 实现基线：`1766c76`
 
 本页给覆盖表中的 `L3` 子集提供可追溯证据包。每个证据包至少包含代码、自动测试和真实运行或 GPU 证据；缺少任一项的能力只能标 `L0-L2`，或在专项表中明确写 `gate incomplete`。`.codex` 报告是本机隔离运行产物，不提交 Git；报告路径、App 身份和摘要写入现役文档，避免将其误当源码 fixture。
 
@@ -13,14 +13,14 @@
 | 项目 | 当前证据 |
 |---|---|
 | 当前完整快照门 | `.codex/scene-shake-20260724/full26-final/report.json` 为 26/26；报告 SHA-256 `112f3d50a63f2dd20002ca2c2f1d177fc86abaf82510f5dd85c7e5b8c0822f65`，仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` SHA-256 `9a44707e9c84069ce3dc5ffa8c93c001c5fc54cf4b02eba89e53a3daeb8cfb75` |
-| 固定回归门 | 同一签名 App 的 `.codex/scene-preview-visual-20260724/fixed13-final/report.json` 为 13/13；报告 SHA-256 `9ccfb3a8c760ebb8f868d489471e78ddc83a862e59e41105566130a9f38fbf62`，矩阵 SHA-256 `fbb252a64018cf785e20b2200db5966a300e9351a994b4a36f1fe9565c5b354c` |
-| 最新合同门 | Scene tests 297 total / 294 pass / 3 skip |
+| 固定回归门 | 当前 `1766c76` 签名 App 的 `.codex/scene-waterwaves-ordered-chain-fixed13-final-20260724/report.json` 为 13/13；报告 SHA-256 `6c67dd17a544f512daa8b4d00588840ed90495050a4696815dd047f22181637f`，矩阵 SHA-256 `049465cfb68eafd5e317348a1a697e12bbcc4d43ac39f4a466895f9f87dc62e6` |
+| 最新合同门 | 当前提交相关测试 40/40；上一实现基线完整 Scene suite 为 297 total / 294 pass / 3 skip。当前 framebuffer GPU harness 在沙箱内启动 Metal 时 `SIGTRAP`，由签名 App 固定 13 样本门覆盖集成路径 |
 | ShaderContract | 173 contracts = 143 authored + 30 host built-in；286 stages、0 diagnostics；source/IR include 155、annotation 1523、declaration 2660，见 E-SHADER-CONTRACT |
 | Live property | layer alpha、solid color、strict Local Contrast/Opacity 与 direct text content/point-size/color 均 accepted、surface/window identity 不变；报告见 E-LIVE-PROPERTY / E-DYNAMIC-TEXT |
 | Provider 双代 | `2938612768` static image blend 5/5；`2902406982` named capture 6/6、binding 7/7；报告见 E-PROVIDER |
 | 封面方向性证据 | 固定门 13/13 均生成 preview reference 与中心裁切并排图；9 个 GIF 取首帧、4 个 JPG 取静帧。六样本人工校准报告见 E-PREVIEW-VISUAL |
-| 签名 App | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `0d7efcabf4b99a101a3341e64fb10d80ef8a4020`，executable SHA-256 `7cdb04292a891e7787d0fa489c8fbeb5337332e436bc0ea2de1b9827a135cbca`；最终 26 样本门运行前后签名均验证 |
-| executable SHA-256 | `7cdb04292a891e7787d0fa489c8fbeb5337332e436bc0ea2de1b9827a135cbca` |
+| 签名 App | 当前固定门为 `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `d37ecaceedea6b82daadeac90e17159c63d93e73`，executable SHA-256 `95b667f4fc6a54865b1a78f207af9258d16a1dfa0785fd68ded09b5630792896`；benchmark staged App 运行前后签名均验证。完整 26 样本门仍是上一构建快照，身份见其报告 |
+| executable SHA-256 | `95b667f4fc6a54865b1a78f207af9258d16a1dfa0785fd68ded09b5630792896` |
 | 样本边界 | 真实 Workshop root 只读；报告均来自隔离 sample root 与临时 HOME |
 
 当前真实目录完整快照门加载 image `330/330`、text `212/212`、solid `126/126`，particle 为 `47/68`；named target capture `8/8`、binding `9/9`，仍有 13 个 named-target gap、64 个 route-only effect、16 个 legacy blocked layer 和 9 个缺失资源，graph target 为 153、graph blocker 为 0。strict graph 为 30 stage、3 条 multi-effect chain、Shake 3、0 failed；未修改 `2802243144` 的 layers `[41,64,115]` 首次进入完整 strict chain。固定 13 样本门仍单独保护 14 stage、1 条真实 chain、Workshop Shadow 1、Opacity 4、0 failed，并新增非阻断封面方向证据；两门互补，均不证明完整兼容或 WE parity。
@@ -136,9 +136,12 @@
 <a id="e-effect-inline"></a>
 ### E-EFFECT-INLINE: 受限手写 Effect profiles
 
+- Water Waves 顺序边界提交：`1766c76`。
 - 代码：[SceneEffectRuntimePlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Effects/SceneEffectRuntimePlan.swift)、[SceneInlineEffectRuntime.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Effects/SceneInlineEffectRuntime.swift)、[SceneMetalPipeline.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalPipeline.swift)
 - 自动门：[test_scene_effect_mask_gating.py](../../../script/tests/test_scene_effect_mask_gating.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)
-- 运行门：正式矩阵中的明确 runtime counters/summary。当前只是 Foliage/Iris/Water/Cursor/Chromatic/Perspective-Opacity 等表内子集，不执行 authored shader。
+- 运行门：`.codex/scene-waterwaves-ordered-chain-targeted-20260724/report.json` 为 5/5，当前固定门 `.codex/scene-waterwaves-ordered-chain-fixed13-final-20260724/report.json` 为 13/13。Water Waves 精确计数为 `3722933264=4`、`3723344874=2`、`3724553795=0`、`2902406982=0`、`2938612768=0`；矩阵同时锁定最小值和最大值。
+- Water Waves 边界：共享 inline uniforms 只能表达一个 effect，不能保持 Blend/Water Flow/Iris 等前序 stage、多个 Water Waves 的独立参数或作者顺序，因此只有唯一可见 Effect 为 Water Waves 时才准入；隐藏 sibling 不阻断，缺失声明 mask 继续 fail closed。`2938612768` 从 legacy count 1 降为 0 后不再全屏夸张扭曲，主要人物构图恢复；这不是 exact Water Waves，也没有把该 Effect 升级为 strict authored-chain backend。
+- 总边界：当前只是 Foliage/Iris/Water/Cursor/Chromatic/Perspective-Opacity 等表内子集，不执行 authored shader；Steam preview 指标没有可靠反映 293 的几何改善，人工 montage 仍是本次视觉判定依据。
 
 <a id="e-effect-blur"></a>
 ### E-EFFECT-BLUR: strict Blur graph profiles
@@ -187,7 +190,7 @@
 - 实现提交：scheduler `b541867`，首条真实链 backend `809b75e`。代码：[SceneAuthoredEffectExecutionChain.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectExecutionChain.swift)、[SceneAuthoredEffectChainRenderer.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectChainRenderer.swift)、[SceneOffscreenTexturePool.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneOffscreenTexturePool.swift)、[SceneImageLayerCompositor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneImageLayerCompositor.swift)。
 - 自动门：[test_scene_authored_effect_chain_planner.py](../../../script/tests/test_scene_authored_effect_chain_planner.py)、[test_scene_offscreen_texture_pool.py](../../../script/tests/test_scene_offscreen_texture_pool.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)、[test_scene_workshop_shadow_planner.py](../../../script/tests/test_scene_workshop_shadow_planner.py)、[test_scene_workshop_shadow_rendering.py](../../../script/tests/test_scene_workshop_shadow_rendering.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)。planner/pool 门覆盖 identity、连续输入、Shadow prior-effect role 与整链预算/LRU 原子回滚；synthetic precise -> precise GPU 门覆盖实际 stage texture transfer、末段合成和失败不泄漏，独立 Shadow GPU 门覆盖该 backend 的像素公式。
 - 集成门：代码路径把真实 `3724289844:20` 的 `Blur Precise -> Shadow` 放进同一 command buffer，首段只应用一次 layer masks/UV/alpha，后段使用 neutral uniforms/empty masks；定向矩阵记录两 stage 全部成功、画面非黑且发生变化。当前没有这条真实 compositor 链的逐 stage 像素 readback，因此整链像素原子性仍由 synthetic GPU 门约束，不把真实矩阵写成 Windows golden。
-- 运行门：`.codex/scene-shake-20260724/full26-final/report.json` 与 `.codex/scene-preview-visual-20260724/fixed13-final/report.json` 分别为 26/26、13/13。当前完整门共 3 条真实 multi-effect strict chain、30 个 strict stage、Shake 3，固定门保护 1 条 chain、14 stage、Opacity 4、Workshop Shadow 1；graph failures 均为空。`2802243144` 为 chains 3/stages 6、succeeded `[41,64,115]`，`3724289844` 为 chains 1/stages 4、succeeded `[20,28,36]`；`2938612768` 为 chains/stages 0，证明 unsupported mixed chains 没有被部分执行。
+- 运行门：上一完整快照 `.codex/scene-shake-20260724/full26-final/report.json` 为 26/26，当前固定门 `.codex/scene-waterwaves-ordered-chain-fixed13-final-20260724/report.json` 为 13/13。完整门共 3 条真实 multi-effect strict chain、30 个 strict stage、Shake 3，固定门保护 1 条 chain、14 stage、Opacity 4、Workshop Shadow 1；graph failures 均为空。`2802243144` 为 chains 3/stages 6、succeeded `[41,64,115]`，`3724289844` 为 chains 1/stages 4、succeeded `[20,28,36]`；`2938612768` 为 strict chains/stages 0，legacy Water Waves 也因 mixed chain 降为 0。
 - 边界：只调度六个 strict backends；Precise Blur 可在两个 material node 之间执行一个 copy 或 swap，Shake 可位于 Precise Blur 前后，其他 backend/topology 继续失败关闭。它不执行 generic compose/condition/function、跨帧 logical swap 或真实 history consumer，也不预处理、翻译或编译 authored shader。stock Opacity `MASK=0` direct alpha 已接入 per-surface snapshot；MASK1、SceneScript、动态 Shake variants、未知 hash/combo 与 unsupported 后续 stage 继续整链失败关闭。
 
 <a id="e-effect-rt"></a>

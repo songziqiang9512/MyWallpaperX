@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-24
 >
-> Scene 实现基线：`3194ac5`
+> Scene 实现基线：`1766c76`
 >
-> 当前完整快照门：`.codex/scene-shake-20260724/full26-final/report.json`；固定回归门：`.codex/scene-preview-visual-20260724/fixed13-final/report.json`
+> 当前完整快照门：`.codex/scene-shake-20260724/full26-final/report.json`（上一构建快照）；固定回归门：`.codex/scene-waterwaves-ordered-chain-fixed13-final-20260724/report.json`（当前构建）
 >
-> 最新运行门：最终构建的当前真实目录 26 样本完整快照 26/26；固定 13 样本门仍单独保留为回归证据，不能互相替代。固定门已为 13/13 生成非阻断 preview 并排图；当前 Scene 全量测试共 297 项、294 项通过、3 项跳过。聚合缺口、视觉证据边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：上一构建的当前真实目录 26 样本完整快照 26/26；当前 `1766c76` 固定 13 样本门 13/13，仍单独保留且不能互相替代。当前提交相关测试 40/40；上一实现基线完整 Scene suite 为 297 项、294 项通过、3 项跳过。聚合缺口、视觉证据边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -238,7 +238,7 @@
 | **B5 Fidelity** | `S2-S4` 广度完成后 | 字体、视差、粒子、常用 Effect 与 WE Windows golden 对齐 | 固定输入逐像素/数值阈值、性能预算、长稳和多屏门 |
 | **Advanced** | `S5` | Puppet、2D light/HDR、3D、arbitrary custom shader、RGB、offline bake | 每个系统有完整 IR/runtime/lifecycle/product gate 后再升级 |
 
-研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、B2 ordered strict chain、Workshop Shadow、stock Opacity、exact stock Shake、同帧 copy/swap foundation、受限 history seed/clear、Precise Blur 两种 material-command interleave 与 exact legacy compose 归一化已合龙。`e505a9e` 已证明以未修改样本的完整链解锁为目标可以产生真实动态增益：当前完整门新增 6 stage、3 chain，并将 blocked/route-only 分别降至 16/64。`3194ac5` 已把封面方向证据落到固定门，但人工校准证明任何综合分数或跨样本排名都会误导路线。后续继续按“解除完整效果链阻塞、未修改样本新增 stage、同一样本并排图/分项变化、单位实现成本”重排 B1-B5；封面门不替代 Windows WE 动态/像素 golden，route-only 只作布局诊断。
+研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、B2 ordered strict chain、Workshop Shadow、stock Opacity、exact stock Shake、同帧 copy/swap foundation、受限 history seed/clear、Precise Blur 两种 material-command interleave 与 exact legacy compose 归一化已合龙。`e505a9e` 已证明以未修改样本的完整链解锁为目标可以产生真实动态增益；`1766c76` 又证明错误的 effect-name inline 降级会直接破坏主构图，因此 Water Waves 现在只在 owner layer 唯一可见 Effect 时准入，mixed/repeated declarations fail closed。`3194ac5` 的封面方向证据仍只作辅助，293 的几何改善需要人工 montage 才能可靠识别。后续继续按“解除完整效果链阻塞、未修改样本新增 stage、同一样本并排图/分项变化、单位实现成本”重排 B1-B5；封面门不替代 Windows WE 动态/像素 golden，route-only 只作布局诊断。
 
 ## 9. 更新规则
 
