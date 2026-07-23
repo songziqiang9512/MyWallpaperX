@@ -330,7 +330,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         self.assertEqual(len(set(asset_ids)), 45, "Effect asset IDs must be unique")
         self.assertEqual(
             {level: levels[level] for level in ("L0", "L1", "L2", "L3", "L4")},
-            {"L0": 0, "L1": 28, "L2": 5, "L3": 12, "L4": 0},
+            {"L0": 0, "L1": 27, "L2": 5, "L3": 13, "L4": 0},
         )
 
     def test_generic_graph_primitives_remain_l2(self) -> None:
@@ -400,14 +400,14 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         for path in current_state_documents:
             text = document_text[path]
             self.assertIn(
-                "`4f13daf`",
+                "`e505a9e`",
                 text,
                 f"Current Scene entrypoint is missing the full-baseline implementation: {path}",
             )
 
         report_paths = (
-            ".codex/scene-legacy-compose-20260724/full26-results-pass3/report.json",
-            ".codex/scene-legacy-compose-20260724/final13-results/report.json",
+            ".codex/scene-shake-20260724/full26-final/report.json",
+            ".codex/scene-shake-20260724/fixed13-final/report.json",
         )
         for path in current_state_documents:
             for report_path in report_paths:
@@ -420,6 +420,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         evidence = document_text[RUNTIME_EVIDENCE_PATH]
         self.assertIn("### E-DYNAMIC-TEXT:", evidence)
         self.assertIn("### E-EFFECT-OPACITY:", evidence)
+        self.assertIn("### E-EFFECT-SHAKE:", evidence)
         self.assertIn("### E-EFFECT-WORKSHOP-SHADOW:", evidence)
         self.assertIn("### E-EFFECT-CHAIN: ordered strict effect-chain scheduler", evidence)
         self.assertIn("### E-GRAPH-COMMAND: same-frame copy/swap foundation", evidence)
@@ -431,8 +432,8 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             "### E-GRAPH-LEGACY-COMPOSE: exact Blur Precise legacy two-pass normalization",
             evidence,
         )
-        self.assertIn("Scene tests 286 total / 284 pass / 2 skip", evidence)
-        self.assertIn("strict graph 仍是 24 stage", evidence)
+        self.assertIn("Scene tests 292 total / 289 pass / 3 skip", evidence)
+        self.assertIn("strict graph 为 30 stage", evidence)
         self.assertIn("generic `compose` 整体仍为 `L2`", evidence)
         self.assertIn(
             "ordered strict effect-chain",
@@ -445,9 +446,9 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         current_status = "\n".join(document_text.values())
         for fact in (
             "interpretation v22",
-            "五个 strict backend",
-            "24 stage",
-            "67 个 route-only effect",
+            "六个 strict backend",
+            "30 stage",
+            "64 个 route-only effect",
             "particle 为 `47/68`",
             "customtext/textcolor/textsize",
             "stale cancellation",

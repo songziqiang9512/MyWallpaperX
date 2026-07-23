@@ -13,7 +13,7 @@
 - P2（主体可用，仍有明确的次级效果差距）：4 个；
 - P3（仅小幅视觉偏差）：0 个。
 
-首轮评估确认的方向仍成立：优先建设通用 runtime，而不是增加按样本命中的 effect 分支。当前增量已包含 authored graph、typed texture registry/property fallback、ShaderContract、B0 binding program/per-surface snapshot、direct dynamic text、五个 strict backend、ordered strict chain 与同帧 copy/swap command foundation。Timeline、SceneScript、system/media text producer、Texture Variants、通用/effectful/nested provider、persistent/history、material-command interleave、compose、其余 effect 和高级粒子仍是主要缺口。精确当前基线只在 [总覆盖台账](semantics/coverage-ledger.md) 维护。
+首轮评估确认的方向仍成立：优先建设通用 runtime，而不是增加按样本命中的 effect 分支。当前增量已包含 authored graph、typed texture registry/property fallback、ShaderContract、B0 binding program/per-surface snapshot、direct dynamic text、六个 strict backend、ordered strict chain、同帧 copy/swap、受限 history、Precise Blur interleave/legacy compose 与 exact stock Shake。Timeline、SceneScript、system/media text producer、Texture Variants、通用/effectful/nested provider、真实 persistent/history、generic compose、其余 effect 和高级粒子仍是主要缺口。精确当前基线只在 [总覆盖台账](semantics/coverage-ledger.md) 维护。
 
 ## 范围与证据
 
@@ -35,7 +35,7 @@
 | Utility / Composition | typed composition/project/fullscreen；framebuffer 前缀捕获；局部/full-frame geometry；受限纹理池；mask/partial effect fail-closed；290 的 project 410 / composition 530 与 6 个 named provider / 7 个 consumer 已完成 GPU capture/binding；registry 按 identity/status/generation 选择首个 ready 候选；293 的 providers 141/1340、consumers 299/322 与隐藏 image providers 到 layers 239/657/775/875/1509 的静态 blend 已进入 GPU runtime；受限 property file provider 已接入 | system/media/video/Texture Variants、effectful provider、nested/child target、utility mask、动态 blendgradient 与任意 material/shader pass；不能把受限 named-target/static image 子集写成完整 dependency graph |
 | Particle | 包内 texture、sprite sheet、9 个精确 built-in key、continuous/burst schedule、常见 initializer/operator、additive/translucent、Sprite Trail、静态 override、fixed-step/seed/budget 子集；正式门 14/27，`3750813609` 为 7/9 | 21 样本仍有 22 个 built-in texture unavailable；atlas/multi-texture、child runtime、rope/rope trail、world-space、动态 control point/override、collision、音频与属性 operator |
 | Text | 当前以 authored `pointsize * 4` 近似官方 300 DPI point raster，处理 vector padding、包内字体、系统字体别名和确定性 fallback 诊断；`3766387484` 3/3、`3122339805` 80/81、`2134765860` 4/6 candidate | 精确 DPI/scene-unit 校准、SceneScript、真实时钟/日期/媒体值、完整对齐/描边/阴影/effect 语义 |
-| 自动门 | 13 个真实隔离样本，interpretation format 22，签名 App、Metal 双帧；五个 strict backend、ordered chain、B0 property、dynamic text generation、provider/file override 与粒子合同；273 项 Scene 测试为 271 通过、2 跳过；无 timeout、stop 后 surface=0 | 当前真实 strict chain 为 1；2 个 legacy blocked layer、30 个 route-only 诊断仍保留；没有 Windows WE 同配置录屏差异门 |
+| 自动门 | 当前 26 样本完整快照与固定 13 样本回归门，interpretation format 22，签名 App、Metal 双帧；六个 strict backend、ordered chain、B0 property、dynamic text generation、provider/file override 与粒子合同；292 项 Scene 测试为 289 通过、3 跳过；无 timeout、stop 后 surface=0 | 当前 26 门为 3 条 Blur/Shake chain、16 个 legacy blocked layer、64 个 route-only；固定门另保留 1 条 Blur/Shadow chain、2 个 blocked、30 个 route-only；没有 Windows WE 同配置录屏差异门 |
 
 ## 横向能力判断
 
@@ -62,6 +62,7 @@ Camera Parallax 的当前负向合同已经补齐：包括 composition 在内，
 
 ## 五个重点样本的当前增量状态
 
+- `2802243144`：`e505a9e` 已让未修改样本 layers `[41,64,115]` 的 exact stock Shake 与 Blur Precise 按作者前后顺序进入 GPU；succeeded `[41,64,115]`、failed `[]`、Shake 3、chains 3、stages 6，warm-run changed ratio 约 `0.00977...0.01031`。这修正了首轮“定时双帧无运动”的旧结论，但雪粒子、系统时间/日期 producer、dynamic Shake/audio/noise/direction 和 Windows WE 时序/像素 parity 仍未闭合。
 - `3724289844`：当前 authored graph succeeded `[20,28,36]`、failed/blocked `[]`、stages 4、chains 1；layer `20` 的 exact `Blur Precise -> Shadow` 是首条真实 fully-supported strict chain，layers `28/36` 保持 precise Blur singleton。该 Shadow 只按完整 Workshop definition/material/ShaderContract/render-state/combo/static-parameter 合同准入，属于 exact Workshop `L3 executed-degraded`，不代表官方 45 项 Effect 表的通用 Shadow 或 generic shader。`common_blending` mode 0 无官方像素 oracle，当前没有 WE pixel-equivalence 结论。
 - `2902406982`：当前 image 30/30、text 44/57、particle 1/1；6 个 named provider capture 与 7 个 consumer binding 全部成功，layers `167/177` 的 Local Contrast、`530` 的 standard Blur 与 `[365,372,647,664]` 的 stock Opacity 均进入 GPU；`newproperty50=0.2` 可 live 更新而不替换 surface/window。三角区域已经采到对应内容，旧截图中的无依据白色三角和背景重复叠影不再是当前现象；字体/文字层、SceneScript、媒体/音频和剩余属性驱动仍不完整。
 - `2938612768`：当前 image 44/44、text 8/24、particle 0/1；wrapped alpha、named providers/consumers 和 static image blend 5 层均成功，中央播放器与静态封面已出现。Opacity candidates `[165,454,626,629,924]` 使用 SceneScript 值，当前保持 Opacity/stages 0，不能误写成 direct-binding 正例。属性纹理未绑定时仍回退作者资源；系统媒体封面/标题/时间仍无 producer。另有 1 个 named-target gap、18 个 route-only 诊断，waterwaves 近似、blendgradient、音频和 `particle/chromaticdot` 仍未闭环，当前整体画面仍明显失真。
@@ -76,7 +77,7 @@ Camera Parallax 的当前负向合同已经补齐：包括 composition 在内，
 | --- | --- | --- | --- | --- | --- |
 | `2134765860` Bunk | `scene.json`；42 层，I33/P1/T8，effect 79，prop 33；audio bars/ring、时钟日期、blur/waterwaves；parallax 关 | 房间主构图完整；image 12/33、text 4/6；双帧运动 0 | 大时钟、日期、音频可视化和部分装饰层缺失或尺寸过小；大量 built-in/组合资源未落地 | P1 | 默认无视差；时钟按真实时间更新且字号/位置与 preview 接近；开关 audio ring 后才出现对应效果；无音频时稳定，受控频谱时有响应 |
 | `2419444134` Nier Reincarnation - Akeha | `scene.json`；10 层，I5/P4/T0，effect 13，prop 5；fog、audio dots/stars、neon、waterwaves；parallax 关 | 人物和霓虹环完整，image 5/5；仅有极低双帧变化 | 4 个粒子系统及音频响应缺失，fog/星点开关无属性链 | P1 | 默认无视差；5 个属性逐项控制对应层；星点、雾和音频粒子分别可见，关闭后完全停止且不残留 |
-| `2802243144` 冰公主 | `scene.json`；12 层，I5/P2/T4，effect 8，prop 13；雪、时钟日期、precise blur；parallax 0.1 与 camera shake 受属性控制 | 主图完整，image 5/5、text 2/2；报告识别 parallax=true，但定时双帧无运动 | 雪粒子缺失；文字仅静态值，字体/时间格式未对齐；属性未生成 | P1 | 默认属性值决定视差和 shake，不得强开；鼠标注入时视差幅度受 0.1 限制；雪粒子、时间/日期和位置滑杆均可单独验证 |
+| `2802243144` 冰公主 | `scene.json`；12 层，I5/P2/T4，effect 8，prop 13；雪、时钟日期、precise blur；parallax 0.1 与 camera shake 受属性控制 | 首轮主图完整但定时双帧无运动；当前 exact stock Shake 已使 layers 41/64/115 形成 3 条 Blur/Shake chain，changed ratio 约 1% | 雪粒子、系统时间/日期和 dynamic Shake/audio/noise/direction 仍缺；当前不是 WE 时序/像素 parity | P1 | 默认属性值决定视差和 shake，不得强开；鼠标注入时视差幅度受 0.1 限制；雪粒子、时间/日期和位置滑杆均可单独验证 |
 | `2902406982` 麻匪 月半与鬼哭 | `scene.json`；140 层，I41/P1/T97，effect 115，prop 172；大量 mask/composite、动态文字、音频 bars、可换背景；parallax 0.5；两处 waterwaves 默认关 | image 21/41、text 44/57；画面被大块白色三角形遮挡，主体布局与 preview 明显不同；双帧无运动 | 组合层/内建 solid/mask 语义、13 个文字 candidate、SceneScript、属性和音频链均不完整 | P0 | 首帧不得出现无依据白块；默认 waterwaves 必须保持关闭；172 项属性按 order/group/condition 生成；背景、文字、颜色和音频条的代表性绑定可切换并持久化 |
 | `2938612768` 麻匪 音频识别 Media Player | `scene.json`；85 层，I51/P5/T29，effect 73，prop 78；媒体播放器、scene texture、audio bars、depth parallax/waterwaves；parallax 0.5 | image 33/51、text 8/24；大面积灰底，播放器只剩局部白色组件，和 preview 的彩色完整布局不一致；双帧无运动 | 18 个 image candidate、16 个 text candidate、组合/solid、动态媒体信息、scene texture、粒子和音频响应缺失 | P0 | 无灰底裸露且主播放器构图闭合；默认属性可复现作者首帧；受控曲目元数据、封面和频谱能更新；视差只按作者幅度生效 |
 | `2998757800` 碧蓝航线-利托里奥 | `scene.json`；22 层，I5/P15/T1，effect 22，prop 2；touch/weather、foliage、waterripple、puppet；parallax 关 | 主图完整，image 5/5、text 1/1；双帧变化约 16.2% | 15 个粒子、天气状态、触摸交互和 puppet 语义未实现；当前运动不能证明这些能力存在 | P1 | 默认无相机视差；两个属性只控制作者绑定内容；pointer 注入产生局部触摸响应；天气/粒子切换可见且停止后清理；主图不被全局水波扭曲 |
@@ -98,9 +99,9 @@ Camera Parallax 的当前负向合同已经补齐：包括 composition 在内，
 
 ## 首轮开发与回归顺序及进度
 
-1. P0 通用根因已关闭基础 layer/resource、290/293 命中的受限 dependency 子集，并完成 EffectDefinition/authored graph、五个 strict backend、ordered strict effect-chain、首条真实 chain、typed registry/property fallback、file-backed `sceneTexture`、统一 Frame Context 第一阶段和首批 built-in 粒子纹理。
+1. P0 通用根因已关闭基础 layer/resource、290/293 命中的受限 dependency 子集，并完成 EffectDefinition/authored graph、六个 strict backend、ordered strict effect-chain、Blur/Shadow 与 Blur/Shake 真实 chain、typed registry/property fallback、file-backed `sceneTexture`、统一 Frame Context 第一阶段和首批 built-in 粒子纹理。
 2. B0 binding program、per-surface transaction/snapshot 与 layer alpha、纯 solid color、exact Local Contrast strength consumer 已完成，不再列为当前待启动项。
-3. `3724289844:20` exact Workshop Shadow、首条真实 `Blur Precise -> Shadow` 正门和 stock Opacity `MASK=0` live alpha 已完成；下一项从结构化样本 census 与属性命中率选择，不以 route-only 单一计数代替能力缺口。
+3. `3724289844:20` exact Workshop Shadow、stock Opacity `MASK=0` live alpha 与 `2802243144` exact stock Shake 已完成；下一项从结构化样本 census、完整链解锁和封面方向性视觉门选择，不以 route-only 单一计数代替能力缺口。封面只检查固定画布上的主构图、主体位置、色调/亮度和明显效果范围，不验证动态时序或像素等价。
 4. B1 并行补 Provider Core 的 metadata/cancellation，再扩 Texture Variants、video/system/media、通用 material、effectful/nested/child source；B2 后续接 persistent/history、material-command interleave 与 compose。
 5. 静态 text geometry/font 已通过现有门，但动态时间/日期/媒体、Windows 字号/baseline、完整效果与 100 层最终性能门仍留到共享动态链和 B4 fidelity 阶段统一处理。
 

@@ -42,7 +42,7 @@ D3 + D4 + D5 + D6 + D7 + D8
 |---|---|---|
 | project/scene/PKG/TEX/resource ingest | 常见子集 `L3` | version、case、duplicate、symlink、损坏和 VFS golden |
 | object/content/effect/material/particle/script source preservation | 混合 `L0-L3` | raw + typed round-trip；未知字段可诊断，不静默丢失 |
-| cache wire schema | interpretation v22；继承 ShaderContract/Opacity，并增加 direct text content/point-size/color binding 合同 | 每次 schema 变化显式 bump、旧缓存拒绝或迁移 |
+| derived renderer input | interpretation v22；继承 ShaderContract/Opacity，并增加 direct text content/point-size/color binding 合同；当前每次解包都会重建，JSON 仍被同进程播放链写入后立即读回，不构成可复用缓存 | 保留 typed interpretation；播放改为内存对象直传，JSON 降为可选诊断证据。若以后恢复复用，必须增加 package/source/compiler identity，而不只校验 version/entry |
 
 <a id="d1"></a>
 ### D1 Stable identity and dependency graph
@@ -110,7 +110,7 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| ordered nodes、target/bind/compose/copy/swap | 通用 IR/runtime `L2`；5 类 strict backend 已按作者顺序消费 target table，`3724289844:20` 的 `Blur Precise -> Shadow` 是首条真实 chain；Precise Blur 的 `material -> copy/swap -> material` 两种白名单拓扑可按 authored nodeIndex 交错执行并达到受限 `L3` | 真实 history consumer、compose/condition/function、跨帧 logical swap 与通用 hazard |
+| ordered nodes、target/bind/compose/copy/swap | 通用 IR/runtime `L2`；6 类 strict backend 已按作者顺序消费 target table，`3724289844:20` 的 `Blur Precise -> Shadow` 与 `2802243144:[41,64,115]` 的 Blur/Shake 是真实 chain；Precise Blur 的 `material -> copy/swap -> material` 两种白名单拓扑可按 authored nodeIndex 交错执行并达到受限 `L3` | 真实 history consumer、compose/condition/function、跨帧 logical swap 与通用 hazard |
 | extent/format/clear/UV/unique | strict Blur 的 input/BGRA 与 stock Local Contrast 的 scale=4/RGBA target 子集为 `L3`；generic table 的其他形态仍为 `L2` | 其余 format-to-Metal、mapped size、sampler、load/store 和跨帧 reset |
 | history/ping-pong | `L0` | first frame、resize、seek、switch、stop 和 memory budget |
 
@@ -119,7 +119,7 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| material pass/slot hole/combo/constant/render state | IR `L2`；Blur、stock Local Contrast、exact Workshop Shadow 与 exact stock Opacity profile 子集 `L3`，后三者用完整 authored fingerprint 约束 | annotation defaults、variant key、typed uniform layout 与通用 executor 仍未完成 |
+| material pass/slot hole/combo/constant/render state | IR `L2`；Blur、stock Local Contrast、exact Workshop Shadow、exact stock Opacity 与 exact stock Shake profile 子集 `L3`，后三类 exact stock/Workshop profile 用完整 authored fingerprint 约束 | annotation defaults、variant key、typed uniform layout 与通用 executor 仍未完成 |
 | shader source/include/annotation/declaration | `8474ace` 已以 ShaderContract v1 达到 `L1`：安全保存完整 source/raw hash、stage、include reference、annotation、uniform/attribute/varying declaration、diagnostic 与 canonical identity；Local Contrast 只把 exact identity/fingerprint 用作 strict admission gate，仍调用手写 MSL | typed annotation/default schema、include expansion、macro/permutation preprocessor、stage link/translation/compile 与 executor |
 | built-in uniforms | time/pointer/matrix 子集 | per-slot resolution、audio、effect/local matrices、color/alpha contract |
 
@@ -130,14 +130,14 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 |---|---|---|
 | canvas/view/world/layer/effect/particle/control-point spaces | 2D 子集 | parent/rotation/scale/parallax inverse、mapped UV、3D handedness |
 | cover/crop/extent/aspect | cover 子集 `L3` | 多比例、多屏、Retina、oversized image 和 Windows golden |
-| mask/flow/normal/local region | effect-specific 子集 | 不得降成整层 transform；每种坐标和 sampler 独立验证 |
+| mask/flow/normal/local region | effect-specific 子集；exact Shake 已消费 RG8 flow、可选 R8 phase/white fallback 与映射 UV | 不得降成整层 transform；Shake MASK1/direction/noise、每种坐标和 sampler 独立验证 |
 
 ## 3. 消费层
 
 <a id="d9"></a>
 ### D9 Generic 2D execution layer
 
-这一层只消费 `D0-D8` 的统一合同：base layer compositor、generic material/pass executor、effect profile registry、particle geometry/material、text texture generation。`b541867` 已完成有界的 ordered strict effect-chain 调度，`809b75e` 再以 exact Workshop Shadow backend 闭合首条真实 `Blur Precise -> Shadow` chain；两者都只连接 catalog 中每个 stage 均有严格 backend 的链，不能替代 generic material/pass executor，也不能升级官方 Shadow/lighting。若某项需要在 renderer 内重新解析 JSON、猜 effect 名称、重新决定属性优先级或自行保存 history，说明底座仍有缺口，应回到对应 D 层修复。
+这一层只消费 `D0-D8` 的统一合同：base layer compositor、generic material/pass executor、effect profile registry、particle geometry/material、text texture generation。`b541867` 已完成有界的 ordered strict effect-chain 调度，`809b75e` 以 exact Workshop Shadow backend 闭合首条真实 `Blur Precise -> Shadow` chain，`e505a9e` 再以 exact stock Shake 闭合 `2802243144` 三条 Blur/Shake chain；它们都只连接 catalog 中每个 stage 均有严格 backend 的链，不能替代 generic material/pass executor，也不能升级官方 Shadow/lighting 或动态 Shake variants。若某项需要在 renderer 内重新解析 JSON、猜 effect 名称、重新决定属性优先级或自行保存 history，说明底座仍有缺口，应回到对应 D 层修复。
 
 <a id="d10"></a>
 ### D10 System runtimes
@@ -163,7 +163,7 @@ Puppet、lighting/HDR、3D、RGB 和 offline 复用 D0-D10。它们可以先补 
 | F1 身份与输入底座 | D1-D5 | 稳定 wire schema、binding program、source IR、provider generation、pause/stop |
 | F2 通用执行底座 | D6-D9 | scheduler、RT lifetime、material/shader contract、坐标空间和 fail-closed profile registry |
 | F3 常用能力广度 | Timeline、dynamic text、Particle、45 Effect family、audio/media | 每族至少一个完整正向、作者关闭、失败、lifecycle 和真实样本门 |
-| F4 视觉精度 | 高频样本与 Windows golden | 局部区域、字体、颜色/alpha、时序和像素阈值 |
+| F4 视觉精度 | 高频样本、样本封面方向性门与 Windows golden | 封面固定画布先检查主构图/主体/色调/明显效果范围；Windows golden 再验证局部区域、字体、颜色/alpha、时序和像素阈值 |
 | F5 高级能力 | SceneScript breadth、Puppet、HDR/light、3D、RGB、offline | 各系统独立 IR/runtime/lifecycle/product gate |
 
 F0 完成后才开始下一轮代码。F1/F2 优先级由公共依赖决定，不按单个样本的视觉显眼程度决定；F3 先做广度，再进入 F4 精调。

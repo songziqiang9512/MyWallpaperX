@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-24
 >
-> 实现基线：`4f13daf`
+> 实现基线：`e505a9e`
 
 本页给覆盖表中的 `L3` 子集提供可追溯证据包。每个证据包至少包含代码、自动测试和真实运行或 GPU 证据；缺少任一项的能力只能标 `L0-L2`，或在专项表中明确写 `gate incomplete`。`.codex` 报告是本机隔离运行产物，不提交 Git；报告路径、App 身份和摘要写入现役文档，避免将其误当源码 fixture。
 
@@ -12,17 +12,17 @@
 
 | 项目 | 当前证据 |
 |---|---|
-| 当前完整快照门 | `.codex/scene-legacy-compose-20260724/full26-results-pass3/report.json` 为 26/26；报告 SHA-256 `ebf1b8adb2683f5dc54b06b21ad735f0649f2864cfc038399c5c3c51ef4c613d`，仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` SHA-256 `13ff53b5e4d1275f861ca3858d68ccc2870a4d22a4295dfd8861b0db2fa96a05` |
-| 固定回归门 | 同一签名 App 的 `.codex/scene-legacy-compose-20260724/final13-results/report.json` 为 13/13；报告 SHA-256 `885ff69fffea108a69b40ef72dbfc1186c10bd9caccd3b58dcf5ec588b3cfc45`，矩阵 SHA-256 `fbb252a64018cf785e20b2200db5966a300e9351a994b4a36f1fe9565c5b354c` |
-| 最新合同门 | Scene tests 286 total / 284 pass / 2 skip |
+| 当前完整快照门 | `.codex/scene-shake-20260724/full26-final/report.json` 为 26/26；报告 SHA-256 `112f3d50a63f2dd20002ca2c2f1d177fc86abaf82510f5dd85c7e5b8c0822f65`，仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` SHA-256 `9a44707e9c84069ce3dc5ffa8c93c001c5fc54cf4b02eba89e53a3daeb8cfb75` |
+| 固定回归门 | 同一签名 App 的 `.codex/scene-shake-20260724/fixed13-final/report.json` 为 13/13；报告 SHA-256 `fe389f155ef7147e5246b65fe19a953fe64492753e32932b3569d41064149bbe`，矩阵 SHA-256 `fbb252a64018cf785e20b2200db5966a300e9351a994b4a36f1fe9565c5b354c` |
+| 最新合同门 | Scene tests 292 total / 289 pass / 3 skip |
 | ShaderContract | 173 contracts = 143 authored + 30 host built-in；286 stages、0 diagnostics；source/IR include 155、annotation 1523、declaration 2660，见 E-SHADER-CONTRACT |
 | Live property | layer alpha、solid color、strict Local Contrast/Opacity 与 direct text content/point-size/color 均 accepted、surface/window identity 不变；报告见 E-LIVE-PROPERTY / E-DYNAMIC-TEXT |
 | Provider 双代 | `2938612768` static image blend 5/5；`2902406982` named capture 6/6、binding 7/7；报告见 E-PROVIDER |
-| 签名 App | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `b82bb2a7ac697b34acf4ec491b0a9841224027c4`，executable SHA-256 `cf477e7b10b26e67144d0bc80a79f62de748229486742b2936422d4e4e2411bb`；最终 26 样本门运行前后签名均验证 |
-| executable SHA-256 | `cf477e7b10b26e67144d0bc80a79f62de748229486742b2936422d4e4e2411bb` |
+| 签名 App | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `0d7efcabf4b99a101a3341e64fb10d80ef8a4020`，executable SHA-256 `7cdb04292a891e7787d0fa489c8fbeb5337332e436bc0ea2de1b9827a135cbca`；最终 26 样本门运行前后签名均验证 |
+| executable SHA-256 | `7cdb04292a891e7787d0fa489c8fbeb5337332e436bc0ea2de1b9827a135cbca` |
 | 样本边界 | 真实 Workshop root 只读；报告均来自隔离 sample root 与临时 HOME |
 
-当前真实目录完整快照门加载 image `330/330`、text `212/212`、solid `126/126`，particle 为 `47/68`；named target capture `8/8`、binding `9/9`，仍有 13 个 named-target gap、67 个 route-only effect、19 个 legacy blocked layer 和 9 个缺失资源，graph target 为 153、graph blocker 已由 38 降为 0。其 strict graph 仍是 24 stage、0 failed，没有 multi-effect chain 或 Workshop Shadow；也就是说本批消除了错误 blocker，但没有让原始样本新增可执行 stage。此前固定 13 样本门仍单独保护 14 stage、1 条真实 chain、Workshop Shadow 1、Opacity 4、0 failed；两门互补，均不证明完整兼容、可见改善或 WE parity。
+当前真实目录完整快照门加载 image `330/330`、text `212/212`、solid `126/126`，particle 为 `47/68`；named target capture `8/8`、binding `9/9`，仍有 13 个 named-target gap、64 个 route-only effect、16 个 legacy blocked layer 和 9 个缺失资源，graph target 为 153、graph blocker 为 0。strict graph 为 30 stage、3 条 multi-effect chain、Shake 3、0 failed；未修改 `2802243144` 的 layers `[41,64,115]` 首次进入完整 strict chain。固定 13 样本门仍单独保护 14 stage、1 条真实 chain、Workshop Shadow 1、Opacity 4、0 failed；两门互补，均不证明完整兼容或 WE parity。
 
 ## 2. 证据包
 
@@ -163,14 +163,22 @@
 - 正向运行门：`.codex/scene-opacity-targeted-290-final-20260723-1722/report.json` 中 `2902406982:[365,372,647,664]` 精确执行，`newproperty50=0.2` accepted 且 surface/window identity 不变。负向 `.codex/scene-opacity-failclosed-293-final-20260723-1725/report.json` 中 candidates `[165,454,626,629,924]` 因 SceneScript 保持 Opacity/stages 0。正式 `.codex/scene-opacity-final13-20260723-1730/report.json` 为 13/13，矩阵 SHA-256 `47d01b05a60368cddc679393fb5dd11d562cd4b69cc9d4bd1f559c179fff4e23`，合计 14 stage、Opacity 4、failed 0、legacy blocked 2、route-only 30。
 - 边界：只证明 exact stock `MASK=0`；MASK1、SceneScript 计算值、Workshop variants、额外纹理/命令/condition、未知 hash/combo/state 和 unsupported mixed chain 均失败关闭。手写 Metal backend 没有 Windows pixel golden，不等于 generic authored shader 或 WE parity。
 
+<a id="e-effect-shake"></a>
+### E-EFFECT-SHAKE: exact stock flow-map Shake profile
+
+- 实现提交：`e505a9e`。代码：[SceneAuthoredShakePlanner.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShakePlanner.swift)、[SceneShakePipeline.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Effects/SceneShakePipeline.swift)、[SceneShakeRenderer.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Effects/SceneShakeRenderer.swift)、[SceneAuthoredEffectExecutionPlan+Backend.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift)。
+- 自动门：[test_scene_shake_planner.py](../../../script/tests/test_scene_shake_planner.py)、[test_scene_shake_rendering.py](../../../script/tests/test_scene_shake_rendering.py)、[test_scene_authored_effect_chain_planner.py](../../../script/tests/test_scene_authored_effect_chain_planner.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)。覆盖 exact definition/material/raw shader fingerprint、RG8 flow、R8 phase 或 authored white fallback、scene time、Blur 前后顺序、未知 fingerprint 和动态 audio/speed 失败关闭。
+- 运行门：`.codex/scene-shake-20260724/targeted-contract-final/report.json` 为 2/2，报告 SHA-256 `6658a772cf3f66d2f52704c5b89ebb0afd35fc6df664c6f30067728ecbc65f23`。未修改 `2802243144` 的 layers `[41,64,115]` succeeded、failed `[]`、Shake 3、chains 3、stages 6，warm-run changed ratio 稳定在约 `0.00977...0.01031`；`2134765860` 的动态 audio/speed variant 保持 Shake/stage 0，changed ratio 约 `0.00042`。
+- 边界：只接受 exact stock 单 pass `MASK=0/AUDIOPROCESSING=0/NOISETEXTURE=0`、当前固定 direction/speed profile 和已验证纹理槽；dynamic speed/audio/noise/direction、MASK1、未知 shader/combo/state 和 unsupported sibling 整链失败关闭。当前执行项目内 MSL，不编译 authored shader，也没有 Windows pixel golden。
+
 <a id="e-effect-chain"></a>
 ### E-EFFECT-CHAIN: ordered strict effect-chain scheduler
 
 - 实现提交：scheduler `b541867`，首条真实链 backend `809b75e`。代码：[SceneAuthoredEffectExecutionChain.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectExecutionChain.swift)、[SceneAuthoredEffectChainRenderer.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectChainRenderer.swift)、[SceneOffscreenTexturePool.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneOffscreenTexturePool.swift)、[SceneImageLayerCompositor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneImageLayerCompositor.swift)。
 - 自动门：[test_scene_authored_effect_chain_planner.py](../../../script/tests/test_scene_authored_effect_chain_planner.py)、[test_scene_offscreen_texture_pool.py](../../../script/tests/test_scene_offscreen_texture_pool.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)、[test_scene_workshop_shadow_planner.py](../../../script/tests/test_scene_workshop_shadow_planner.py)、[test_scene_workshop_shadow_rendering.py](../../../script/tests/test_scene_workshop_shadow_rendering.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)。planner/pool 门覆盖 identity、连续输入、Shadow prior-effect role 与整链预算/LRU 原子回滚；synthetic precise -> precise GPU 门覆盖实际 stage texture transfer、末段合成和失败不泄漏，独立 Shadow GPU 门覆盖该 backend 的像素公式。
 - 集成门：代码路径把真实 `3724289844:20` 的 `Blur Precise -> Shadow` 放进同一 command buffer，首段只应用一次 layer masks/UV/alpha，后段使用 neutral uniforms/empty masks；定向矩阵记录两 stage 全部成功、画面非黑且发生变化。当前没有这条真实 compositor 链的逐 stage 像素 readback，因此整链像素原子性仍由 synthetic GPU 门约束，不把真实矩阵写成 Windows golden。
-- 运行门：`.codex/scene-opacity-final13-20260723-1730/report.json` 为 13/13；当前共 1 条真实 multi-effect strict chain、14 个 strict stage、Opacity 4、Workshop Shadow 1，graph failures 为空。`3724289844` 为 chains 1/stages 4、succeeded `[20,28,36]`、blocked/failed 为空；`2938612768` 为 chains/stages 0，证明 unsupported mixed chains 没有被部分执行。
-- 边界：只调度五个 strict backends；Precise Blur 可在两个 material node 之间执行一个 copy 或 swap，其他 backend/topology 继续失败关闭。它不执行 compose/condition/function、跨帧 logical swap 或真实 history consumer，也不预处理、翻译或编译 authored shader。stock Opacity `MASK=0` direct alpha 已接入 per-surface snapshot；MASK1、SceneScript、Workshop variants、未知 hash/combo 与 unsupported 后续 stage 继续整链失败关闭。
+- 运行门：`.codex/scene-shake-20260724/full26-final/report.json` 与 `.codex/scene-shake-20260724/fixed13-final/report.json` 分别为 26/26、13/13。当前完整门共 3 条真实 multi-effect strict chain、30 个 strict stage、Shake 3，固定门保护 1 条 chain、14 stage、Opacity 4、Workshop Shadow 1；graph failures 均为空。`2802243144` 为 chains 3/stages 6、succeeded `[41,64,115]`，`3724289844` 为 chains 1/stages 4、succeeded `[20,28,36]`；`2938612768` 为 chains/stages 0，证明 unsupported mixed chains 没有被部分执行。
+- 边界：只调度六个 strict backends；Precise Blur 可在两个 material node 之间执行一个 copy 或 swap，Shake 可位于 Precise Blur 前后，其他 backend/topology 继续失败关闭。它不执行 generic compose/condition/function、跨帧 logical swap 或真实 history consumer，也不预处理、翻译或编译 authored shader。stock Opacity `MASK=0` direct alpha 已接入 per-surface snapshot；MASK1、SceneScript、动态 Shake variants、未知 hash/combo 与 unsupported 后续 stage 继续整链失败关闭。
 
 <a id="e-effect-rt"></a>
 ### E-EFFECT-RT: effect-instance render-target foundation and strict consumer

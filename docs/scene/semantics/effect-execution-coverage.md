@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-24
 >
-> 实现基线：`4f13daf`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。
+> 实现基线：`e505a9e`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。
 
 本文把 45 个官方用户 Effect 逐项映射到 MyWallpaperX 当前执行级别和公共依赖。作者语义、输入槽和 pass/RT 结构见 [Effects 语义全集](effects-reference.md)，Graph/Shader 原子能力见 [Render Graph 与 Shader 覆盖表](render-graph-shader-coverage.md)，依赖 ID 见 [公共能力依赖图](capability-dependency-map.md)。
 
@@ -31,7 +31,7 @@
 | Pulse / `pulse` | `L1` | `IR-only` | [D2](capability-dependency-map.md#d2) [D4](capability-dependency-map.md#d4) [D7](capability-dependency-map.md#d7) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | time/audio 两驱动、mask/color/alpha/blend profile |
 | Cloud Motion / `cloudmotion` | `L1` | `IR-only` | [D2](capability-dependency-map.md#d2) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | Perlin、mapped resolution、mask、repeat profile |
 | Scroll / `scroll` | `L1` | `IR-only` | [D2](capability-dependency-map.md#d2) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | UV-only movement、X/Y speed、repeat/wrap 和 author-off |
-| Shake / `shake` | `L1` | dormant shader code 不构成执行；planner 不设置 Shake flag | [D2](capability-dependency-map.md#d2) [D4](capability-dependency-map.md#d4) [D5](capability-dependency-map.md#d5) [D8](capability-dependency-map.md#d8) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | flow/time-offset/mask/audio、局部区域和不移动整层的门 |
+| Shake / `shake` | `L3` | `strict-graph-profile`：exact stock 单 pass `MASK=0/AUDIOPROCESSING=0/NOISETEXTURE=0`，RG8 flow + authored white phase fallback；可与 exact Blur Precise 按作者顺序组成全支持 chain | [D2](capability-dependency-map.md#d2) [D4](capability-dependency-map.md#d4) [D5](capability-dependency-map.md#d5) [D6](capability-dependency-map.md#d6) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-SHAKE](runtime-evidence-index.md#e-effect-shake) [E-EFFECT-CHAIN](runtime-evidence-index.md#e-effect-chain) | dynamic speed/audio/noise/direction、MASK1、非 exact fingerprint、局部坐标/采样和 Windows golden |
 | Spin / `spin` | `L1` | `IR-only` | [D2](capability-dependency-map.md#d2) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | local center/mask/ellipse/noise/repeat profile |
 | Swing / `swing` | `L1` | `IR-only` | [D2](capability-dependency-map.md#d2) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | p0/p1 hinge、feather、mask/noise、局部形变门 |
 | Twirl / `twirl` | `L1` | `IR-only` | [D2](capability-dependency-map.md#d2) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | center/size/feather/ellipse/inner/repeat/mask profile |
@@ -106,13 +106,13 @@
 | Workshop layer Bloom approximation | `L3` | 受限 threshold/blur/composite；不是官方 Scene-level Bloom/HDR，也不是 45 个 Effect 专页之一 |
 | Workshop `3488490208/shadow_____________` | `L3` | exact single-pass strict profile；只接受完整 definition/material/ShaderContract fingerprint、`MASK=0`、`BLENDMODE=0`、normal/nocull/depth disabled 与静态常量。不是官方 45 项 Effect、generic Shadow 或 authored shader；mode 0 尚无官方 Windows 像素 oracle |
 
-45 项汇总：`L1=28`、`L2=5`、`L3=12`、`L4=0`。这个统计只反映当前表中最小可声明级别，不是样本命中率、视觉相似度或已知语义比例。
+45 项汇总：`L1=27`、`L2=5`、`L3=13`、`L4=0`。这个统计只反映当前表中最小可声明级别，不是样本命中率、视觉相似度或已知语义比例。
 
-`b541867` 只增加 strict profile 之间的有序、全有或全无调度，没有改变 45 项数量或等级；其阶段报告 `.codex/scene-effect-chain-gated-final13-20260723/report.json` 的 8 stage、0 real chain 是 Shadow 前的历史负门。`809b75e` 的 exact Workshop Shadow、`b8842d8` 的 stock Opacity `MASK=0` 与 `4f13daf` 的 exact legacy Blur Precise compose 都只扩充既有 `L3` 行的受限 profile，不改变 45 项统计。当前完整门仍是 24 stage、19 个 legacy blocked layer；固定门仍保护 14 stage、1 条真实 multi-effect chain、Opacity 4、Workshop Shadow 1。最新路径与边界统一见 [运行证据索引](runtime-evidence-index.md)。
+`b541867` 只增加 strict profile 之间的有序、全有或全无调度，没有改变 45 项数量或等级；其阶段报告 `.codex/scene-effect-chain-gated-final13-20260723/report.json` 的 8 stage、0 real chain 是 Shadow 前的历史负门。`809b75e` 的 exact Workshop Shadow、`b8842d8` 的 stock Opacity `MASK=0` 与 `4f13daf` 的 exact legacy Blur Precise compose 都只扩充既有 `L3` 行的受限 profile。`e505a9e` 首次把官方 Shake 从 `L1` 提升为 `L3` 受限 profile，并让未修改 `2802243144` 的三层 `Blur Precise <-> Shake` 链真实执行。当前完整门为 30 stage、3 条 chain、16 个 legacy blocked layer；固定门仍保护 14 stage、1 条真实 chain、Opacity 4、Workshop Shadow 1。最新路径与边界统一见 [运行证据索引](runtime-evidence-index.md)。
 
 ## 9. 开发顺序
 
 1. D6 ordered strict effect-chain 骨架与 `3724289844:20` exact Workshop Shadow 正门已完成；后续仍只补可由完整 graph/material/ShaderContract fingerprint 约束的 backend，不扩大 path substring 分支。
-2. stock Opacity `MASK=0` strict profile 与 direct-binding live alpha 已完成；290 的四层是正门，293 的五个 SceneScript candidates 是负门。下一 Effect 只在结构化 authored-graph census 与公共 primitive 收益明确后选择；route-only 不能替代该 census。MASK1、Workshop variants、未知 combo/hash 和 unsupported 后续 stage 继续 fail closed。
+2. stock Opacity `MASK=0` 与 exact stock Shake strict profile 已完成；290 的四层 Opacity、`2802243144` 的三层 Shake chain 是正门，293 的 SceneScript Opacity 与 `2134765860` 的动态 audio/speed Shake 是负门。下一 Effect 只在结构化 authored-graph census 与公共 primitive 收益明确后选择；route-only 不能替代该 census。MASK1、Workshop variants、未知 combo/hash 和 unsupported 后续 stage 继续 fail closed。
 3. 每个 Effect 新增执行前必须锁定显式引用、author-off、missing input、slot/combo、local space、alpha/color、resize/switch/stop。
-4. 只有对应行取得 Windows golden，才能从 `L3` 升到 `L4`；封面只能用于方向性参考。
+4. 只有对应行取得 Windows golden，才能从 `L3` 升到 `L4`；样本封面只用于固定画布上的主构图、主体位置、色调、亮度和明显效果范围参考，不能验证动态时序、粒子轨迹、音频响应或像素等价。
