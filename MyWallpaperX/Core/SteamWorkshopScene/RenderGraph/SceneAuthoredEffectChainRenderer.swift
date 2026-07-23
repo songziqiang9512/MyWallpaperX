@@ -68,14 +68,14 @@ enum SceneAuthoredEffectChainRenderer {
     ) -> MTLTexture? {
         let auxMask = masks.iris ?? masks.opacity
         switch stage.backend {
-        case .preciseGaussian(let blur):
+        case .preciseGaussian:
             return SceneOffscreenEffectRenderer.renderPreciseBlur(
+                executionPlan: stage,
                 sourceTexture: sourceTexture,
                 waterMaskTexture: masks.water,
                 foliageMaskTexture: masks.foliage,
                 auxMaskTexture: auxMask,
                 targets: targets,
-                plan: blur,
                 sourceUniforms: sourceUniforms,
                 pipeline: pipeline,
                 gaussianBlurPipeline: gaussianBlurPipeline,

@@ -18,6 +18,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetTable.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphCommandRuntime.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphNodeScheduler.swift",
     SOURCE_ROOT / "Rendering/SceneMatrix.swift",
     SOURCE_ROOT / "Rendering/SceneMetalPipeline.swift",
     SOURCE_ROOT / "Rendering/SceneSpriteAnimation.swift",
@@ -270,7 +271,10 @@ enum Harness {
         .init(kind: kind, layerID: layerID, effect: effect, name: name)
     }
 
-    static func preciseBlurGraph(layerID: Int = 10) -> Graph {
+    static func preciseBlurGraph(
+        layerID: Int = 10,
+        commandKind: Graph.NodeKind? = nil
+    ) -> Graph {
         let effectKey = Graph.EffectKey(
             layerID: layerID,
             effectIndex: 0,
@@ -278,70 +282,112 @@ enum Harness {
         )
         let input = graphTexture(.layerSource, layerID: layerID)
         let output = graphTexture(.effectOutput, layerID: layerID, effect: effectKey)
-        let full = graphTexture(
+        let first = graphTexture(
             .framebuffer,
             layerID: layerID,
             effect: effectKey,
-            name: "full"
+            name: "first"
         )
-        let nodes = [
-            Graph.Node(
-                nodeIndex: 0,
-                effect: effectKey,
-                definitionPassIndex: 0,
-                materialOrdinal: 0,
-                instancePassIndex: 0,
-                kind: .material,
-                materialPath: "materials/blur_precise_x.json",
-                materialPassID: "materials/blur_precise_x.json#0",
-                target: full,
-                bindings: [],
-                commandSource: nil,
-                commandTarget: nil,
-                compose: nil,
-                conditions: nil
-            ),
-            Graph.Node(
+        let second = graphTexture(
+            .framebuffer,
+            layerID: layerID,
+            effect: effectKey,
+            name: "second"
+        )
+        let verticalInput = commandKind == nil ? first : second
+        let horizontal = Graph.Node(
+            nodeIndex: 0,
+            effect: effectKey,
+            definitionPassIndex: 0,
+            materialOrdinal: 0,
+            instancePassIndex: 0,
+            kind: .material,
+            materialPath: "materials/blur_precise_x.json",
+            materialPassID: "materials/blur_precise_x.json#0",
+            target: first,
+            bindings: [],
+            commandSource: nil,
+            commandTarget: nil,
+            compose: nil,
+            conditions: nil
+        )
+        let vertical = Graph.Node(
+            nodeIndex: commandKind == nil ? 1 : 2,
+            effect: effectKey,
+            definitionPassIndex: commandKind == nil ? 1 : 2,
+            materialOrdinal: 1,
+            instancePassIndex: 1,
+            kind: .material,
+            materialPath: "materials/blur_precise_y.json",
+            materialPassID: "materials/blur_precise_y.json#0",
+            target: output,
+            bindings: [
+                .init(
+                    slot: 0,
+                    authoredName: verticalInput.name,
+                    texture: verticalInput,
+                    conditions: nil
+                ),
+                .init(slot: 1, authoredName: "previous", texture: input, conditions: nil),
+            ],
+            commandSource: nil,
+            commandTarget: nil,
+            compose: nil,
+            conditions: nil
+        )
+        var nodes = [horizontal]
+        if let commandKind {
+            nodes.append(Graph.Node(
                 nodeIndex: 1,
                 effect: effectKey,
                 definitionPassIndex: 1,
-                materialOrdinal: 1,
-                instancePassIndex: 1,
-                kind: .material,
-                materialPath: "materials/blur_precise_y.json",
-                materialPassID: "materials/blur_precise_y.json#0",
-                target: output,
-                bindings: [
-                    .init(slot: 0, authoredName: "full", texture: full, conditions: nil),
-                    .init(slot: 1, authoredName: "previous", texture: input, conditions: nil),
-                ],
-                commandSource: nil,
-                commandTarget: nil,
+                materialOrdinal: nil,
+                instancePassIndex: nil,
+                kind: commandKind,
+                materialPath: nil,
+                materialPassID: nil,
+                target: nil,
+                bindings: [],
+                commandSource: first,
+                commandTarget: second,
                 compose: nil,
                 conditions: nil
-            ),
-        ]
+            ))
+        }
+        nodes.append(vertical)
         let effect = Graph.Effect(
             key: effectKey,
             definitionPath: "effects/blurprecise/effect.json",
             input: input,
             output: output,
-            nodeIndices: [0, 1]
+            nodeIndices: nodes.map(\.nodeIndex)
         )
+        var renderTargets = [
+            Graph.RenderTarget(
+                texture: first,
+                extent: .init(kind: .input, first: nil, second: nil),
+                format: "rgba_backbuffer",
+                declaredUnique: false,
+                clear: nil,
+                uvs: nil,
+                conditions: nil
+            ),
+        ]
+        if let commandKind {
+            renderTargets.append(.init(
+                texture: second,
+                extent: .init(kind: .input, first: nil, second: nil),
+                format: "rgba_backbuffer",
+                declaredUnique: commandKind == .swap,
+                clear: nil,
+                uvs: nil,
+                conditions: nil
+            ))
+        }
         return Graph(
             layerID: layerID,
             effects: [effect],
-            renderTargets: [
-                .init(
-                    texture: full,
-                    extent: .init(kind: .input, first: nil, second: nil),
-                    format: "rgba_backbuffer",
-                    declaredUnique: false,
-                    clear: nil,
-                    uvs: nil,
-                    conditions: nil
-                ),
-            ],
+            renderTargets: renderTargets,
             nodes: nodes,
             finalOutput: output,
             blockers: []
@@ -434,8 +480,10 @@ enum Harness {
         )
     }
 
-    static func authoredPreciseBlurPlan() -> SceneAuthoredEffectExecutionPlan {
-        let graph = preciseBlurGraph()
+    static func authoredPreciseBlurPlan(
+        commandKind: Graph.NodeKind? = nil
+    ) -> SceneAuthoredEffectExecutionPlan {
+        let graph = preciseBlurGraph(commandKind: commandKind)
         return SceneAuthoredEffectExecutionPlan(
             layerID: graph.layerID,
             renderGraph: graph,
@@ -446,7 +494,7 @@ enum Harness {
                 isPrecise: true
             )),
             materialNodeCount: 2,
-            logicalRenderTargetCount: 1
+            logicalRenderTargetCount: graph.renderTargets.count
         )
     }
 
@@ -591,6 +639,12 @@ enum Harness {
             pipeline: pipeline,
             compositor: compositor
         )
+        let authoredPreciseInterleave = try authoredPreciseInterleaveEvidence(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor
+        )
         let authoredStandardCheckerboard = try authoredStandardBlurCheckerboardEvidence(
             device: device,
             queue: queue,
@@ -692,6 +746,7 @@ enum Harness {
             "blockedPreciseBlurIsNil": blockedPreciseBlur == nil,
             "authoredExtentMismatchRefused": authoredExtentMismatchRefused,
             "authoredPreciseImpulse": authoredPreciseImpulse,
+            "authoredPreciseInterleave": authoredPreciseInterleave,
             "authoredStandardCheckerboard": authoredStandardCheckerboard,
             "authoredTwoStageChain": authoredTwoStageChain,
             "authoredOpacityLivePixels": authoredOpacityLivePixels,
@@ -1147,6 +1202,59 @@ enum Harness {
             "sourceToOutputDelta": maxDifference(sourceBytes, outputBytes),
             "sourceHasMixedAlpha": hasMixedAlpha(sourceBytes),
             "outputIsPremultiplied": isPremultiplied(outputBytes),
+        ]
+    }
+
+    static func authoredPreciseInterleaveEvidence(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor
+    ) throws -> [String: Any] {
+        let size = 8
+        guard let source = makeTexture(device: device, size: size, usage: .shaderRead),
+              let baselineTarget = makeTexture(
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
+              ),
+              let copyTarget = makeTexture(
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
+              ),
+              let swapTarget = makeTexture(
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
+              ) else {
+            throw HarnessError.metalUnavailable
+        }
+        fillPremultipliedImpulse(source)
+        let layer = SceneRenderDescriptor.Layer(
+            contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
+        )
+        let cases: [(MTLTexture, Graph.NodeKind?)] = [
+            (baselineTarget, nil),
+            (copyTarget, Graph.NodeKind.copy),
+            (swapTarget, Graph.NodeKind.swap),
+        ]
+        for (target, commandKind) in cases {
+            try drawAuthoredBlur(
+                source: source,
+                target: target,
+                layer: layer,
+                plan: authoredPreciseBlurPlan(commandKind: commandKind),
+                pool: SceneOffscreenTexturePool(device: device, maxDimension: size),
+                queue: queue,
+                pipeline: pipeline,
+                compositor: compositor
+            )
+        }
+        let baselineBytes = try textureBytes(baselineTarget, queue: queue)
+        let copyBytes = try textureBytes(copyTarget, queue: queue)
+        let swapBytes = try textureBytes(swapTarget, queue: queue)
+        return [
+            "copyMaxDelta": maxDifference(copyBytes, baselineBytes),
+            "swapMaxDelta": maxDifference(swapBytes, baselineBytes),
+            "copyHasPixels": copyBytes.contains(where: { $0 != 0 }),
+            "swapHasPixels": swapBytes.contains(where: { $0 != 0 }),
+            "copyIsPremultiplied": isPremultiplied(copyBytes),
+            "swapIsPremultiplied": isPremultiplied(swapBytes),
         ]
     }
 
@@ -2026,6 +2134,15 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertLessEqual(evidence["mainMaxDelta"], 2, evidence)
         self.assertGreater(evidence["horizontalToOutputDelta"], 2, evidence)
         self.assertGreater(evidence["sourceToOutputDelta"], 20, evidence)
+
+    def test_precise_graph_interleaves_copy_and_swap_between_material_nodes(self) -> None:
+        evidence = self.result["authoredPreciseInterleave"]
+        self.assertLessEqual(evidence["copyMaxDelta"], 1, evidence)
+        self.assertLessEqual(evidence["swapMaxDelta"], 1, evidence)
+        self.assertTrue(evidence["copyHasPixels"])
+        self.assertTrue(evidence["swapHasPixels"])
+        self.assertTrue(evidence["copyIsPremultiplied"])
+        self.assertTrue(evidence["swapIsPremultiplied"])
 
     def test_standard_graph_blur_runs_full_ping_pong_chain_on_mixed_alpha(self) -> None:
         evidence = self.result["authoredStandardCheckerboard"]

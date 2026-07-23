@@ -177,14 +177,14 @@ struct SceneImageLayerCompositor {
                         return nil
                     }
                     switch authoredPlan.backend {
-                    case .preciseGaussian(let blur):
+                    case .preciseGaussian:
                         return SceneOffscreenEffectRenderer.renderPreciseBlur(
+                            executionPlan: authoredPlan,
                             sourceTexture: request.texture,
                             waterMaskTexture: masks.water,
                             foliageMaskTexture: masks.foliage,
                             auxMaskTexture: auxMask,
                             targets: targets,
-                            plan: blur,
                             sourceUniforms: directUniforms,
                             pipeline: pipeline,
                             gaussianBlurPipeline: gaussianBlurPipeline,

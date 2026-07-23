@@ -21,6 +21,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredLocalContrastPlanner.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionChain.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredPreciseBlurPlanner+Topology.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredStandardBlurPlanner.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
 ]
@@ -282,6 +283,77 @@ enum Harness {
             nodes: nodes,
             finalOutput: output,
             blockers: blockers
+        )
+    }
+
+    static func interleavedGraph(
+        commandKind: Graph.NodeKind,
+        commandAfterVertical: Bool = false,
+        commandCompose: SceneJSONValue? = nil
+    ) -> Graph {
+        let layerID = 10
+        let key = Graph.EffectKey(
+            layerID: layerID, effectIndex: 0, descriptorID: "\(layerID)#effect#1"
+        )
+        let source = texture(.layerSource, layerID: layerID)
+        let output = texture(.effectOutput, layerID: layerID, effect: key)
+        let first = texture(.framebuffer, layerID: layerID, effect: key, name: "first")
+        let second = texture(.framebuffer, layerID: layerID, effect: key, name: "second")
+        let commandIndex = commandAfterVertical ? 2 : 1
+        let verticalIndex = commandAfterVertical ? 1 : 2
+        let horizontal = Graph.Node(
+            nodeIndex: 0, effect: key, definitionPassIndex: 0, materialOrdinal: 0,
+            instancePassIndex: 0, kind: .material, materialPath: "materials/x.json",
+            materialPassID: "materials/x.json#0", target: first, bindings: [],
+            commandSource: nil, commandTarget: nil, compose: nil, conditions: nil
+        )
+        let command = Graph.Node(
+            nodeIndex: commandIndex, effect: key, definitionPassIndex: 1,
+            materialOrdinal: nil, instancePassIndex: nil, kind: commandKind,
+            materialPath: nil, materialPassID: nil, target: nil, bindings: [],
+            commandSource: first, commandTarget: second, compose: commandCompose,
+            conditions: nil
+        )
+        let vertical = Graph.Node(
+            nodeIndex: verticalIndex, effect: key, definitionPassIndex: 2,
+            materialOrdinal: 1, instancePassIndex: 1, kind: .material,
+            materialPath: "materials/y.json", materialPassID: "materials/y.json#0",
+            target: output,
+            bindings: [
+                .init(slot: 0, authoredName: "second", texture: second, conditions: nil),
+                .init(slot: 1, authoredName: "previous", texture: source, conditions: nil),
+            ],
+            commandSource: nil, commandTarget: nil, compose: nil, conditions: nil
+        )
+        let nodes = commandAfterVertical
+            ? [horizontal, vertical, command]
+            : [horizontal, command, vertical]
+        return Graph(
+            layerID: layerID,
+            effects: [
+                .init(
+                    key: key,
+                    definitionPath: "effects/workshop/1/blurprecise/effect.json",
+                    input: source,
+                    output: output,
+                    nodeIndices: nodes.map(\.nodeIndex)
+                ),
+            ],
+            renderTargets: [
+                .init(
+                    texture: first, extent: .init(kind: .input, first: nil, second: nil),
+                    format: "rgba_backbuffer", declaredUnique: false, clear: nil,
+                    uvs: nil, conditions: nil
+                ),
+                .init(
+                    texture: second, extent: .init(kind: .input, first: nil, second: nil),
+                    format: "rgba_backbuffer", declaredUnique: commandKind == .swap,
+                    clear: nil, uvs: nil, conditions: nil
+                ),
+            ],
+            nodes: nodes,
+            finalOutput: output,
+            blockers: []
         )
     }
 
@@ -580,6 +652,32 @@ enum Harness {
         let standardCatalog = SceneAuthoredEffectExecutionCatalog(
             descriptor: standardDescriptor, authoredPlans: [standardGraph]
         )
+        let copyGraph = interleavedGraph(commandKind: .copy)
+        let swapGraph = interleavedGraph(commandKind: .swap)
+        let copyPlan = SceneAuthoredEffectExecutionPlanner.plan(
+            graph: copyGraph, descriptor: descriptor
+        )
+        let swapPlan = SceneAuthoredEffectExecutionPlanner.plan(
+            graph: swapGraph, descriptor: descriptor
+        )
+        let copyTargetPlan = copyPlan.flatMap { executionPlan -> SceneGraphRenderTargetPlan? in
+            guard case .success(let plan) = SceneGraphRenderTargetPlan.make(
+                executionPlan: executionPlan,
+                graph: copyGraph,
+                inputWidth: 1920,
+                inputHeight: 1080
+            ) else { return nil }
+            return plan
+        }
+        let swapTargetPlan = swapPlan.flatMap { executionPlan -> SceneGraphRenderTargetPlan? in
+            guard case .success(let plan) = SceneGraphRenderTargetPlan.make(
+                executionPlan: executionPlan,
+                graph: swapGraph,
+                inputWidth: 1920,
+                inputHeight: 1080
+            ) else { return nil }
+            return plan
+        }
         let standardBadStateDescriptor = standardBlurDescriptor(
             materials: standardBlurMaterials(blending: "additive")
         )
@@ -626,6 +724,22 @@ enum Harness {
             "preciseBackendMatched": preciseBackendMatched
                 && visiblePlan.standardBlur == nil
                 && visiblePlan.requiresExactInputExtent,
+            "copyInterleavedPlanned": copyPlan?.logicalRenderTargetCount == 2
+                && copyTargetPlan?.commands.map(\.nodeIndex) == [1],
+            "swapInterleavedPlanned": swapPlan?.logicalRenderTargetCount == 2
+                && swapTargetPlan?.commands.map(\.nodeIndex) == [1]
+                && swapTargetPlan?.logicalTargets.filter(\.lifetime.requiresHistorySeed).count == 1,
+            "lateCommandRejected": SceneAuthoredEffectExecutionPlanner.plan(
+                graph: interleavedGraph(commandKind: .copy, commandAfterVertical: true),
+                descriptor: descriptor
+            ) == nil,
+            "composedCommandRejected": SceneAuthoredEffectExecutionPlanner.plan(
+                graph: interleavedGraph(
+                    commandKind: .copy,
+                    commandCompose: .bool(true)
+                ),
+                descriptor: descriptor
+            ) == nil,
             "precedence": resolverPrecedence(),
             "extraEffectRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10, extraEffect: true), descriptor: descriptor) == nil,
             "blockerRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10, blockers: [blocker]), descriptor: descriptor) == nil,
@@ -723,6 +837,12 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertEqual(self.result["preciseGraphTargetExtents"], [[1279, 719]])
         self.assertTrue(self.result["preciseGraphIdentityMatched"])
         self.assertTrue(self.result["preciseBackendMatched"])
+
+    def test_precise_blur_accepts_only_ordered_copy_swap_interleave(self) -> None:
+        self.assertTrue(self.result["copyInterleavedPlanned"])
+        self.assertTrue(self.result["swapInterleavedPlanned"])
+        self.assertTrue(self.result["lateCommandRejected"])
+        self.assertTrue(self.result["composedCommandRejected"])
 
     def test_default_standard_blur_graph_is_planned(self) -> None:
         self.assertEqual(self.result["standardPlanned"], [530])

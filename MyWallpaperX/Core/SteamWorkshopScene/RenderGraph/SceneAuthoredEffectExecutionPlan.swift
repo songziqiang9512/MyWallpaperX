@@ -150,43 +150,69 @@ enum SceneAuthoredEffectExecutionPlanner {
         descriptor: SceneRenderDescriptor,
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneAuthoredEffectExecutionPlan? {
+        let materialNodes = graph.nodes.filter { $0.kind == .material }
+        let commandNodes = graph.nodes.filter { $0.kind == .copy || $0.kind == .swap }
         guard graph.blockers.isEmpty,
               graph.effects.count == 1,
-              graph.nodes.count == 2,
-              graph.renderTargets.count == 1,
+              materialNodes.count == 2,
+              commandNodes.count <= 1,
+              graph.nodes.count == materialNodes.count + commandNodes.count,
+              graph.renderTargets.count == 1 + commandNodes.count,
               let layer = descriptor.layers.first(where: { $0.id == graph.layerID }),
               ["image", "solid", "text"].contains(layer.contentKind) else {
             return nil
         }
         let effect = graph.effects[0]
-        let horizontalNode = graph.nodes[0]
-        let verticalNode = graph.nodes[1]
-        let target = graph.renderTargets[0]
-        guard effect.nodeIndices == [horizontalNode.nodeIndex, verticalNode.nodeIndex],
+        let horizontalNode = materialNodes[0]
+        let verticalNode = materialNodes[1]
+        let targetGroups = Dictionary(grouping: graph.renderTargets, by: \.texture)
+        guard targetGroups.values.allSatisfy({ $0.count == 1 }) else { return nil }
+        let targetsByIdentity = targetGroups.compactMapValues(\.first)
+        guard let horizontalTarget = horizontalNode.target,
+              let verticalInput = binding(verticalNode.bindings, slot: 0)?.texture,
+              effect.nodeIndices == graph.nodes.map(\.nodeIndex),
               SceneAuthoredEffectInputValidator.accepts(
                 effect.input, layerID: graph.layerID, role: inputRole
               ),
               effect.output == effectOutput(effect.key),
               graph.finalOutput == effect.output,
-              target.texture.kind == .framebuffer,
-              target.texture.effect == effect.key,
-              target.extent.kind == .input,
-              target.extent.first == nil,
-              target.extent.second == nil,
-              target.format?.lowercased() == "rgba_backbuffer",
-              !target.declaredUnique,
-              target.clear == nil,
-              target.uvs == nil,
-              target.conditions == nil,
+              graph.renderTargets.allSatisfy({
+                  validTarget($0, effect: effect.key)
+              }),
               validNode(horizontalNode, ordinal: 0, effect: effect.key),
               validNode(verticalNode, ordinal: 1, effect: effect.key),
-              horizontalNode.target == target.texture,
               verticalNode.target == effect.output,
               horizontalNode.bindings.isEmpty,
               verticalNode.bindings.count == 2,
-              binding(verticalNode.bindings, slot: 0)?.texture == target.texture,
               binding(verticalNode.bindings, slot: 1)?.texture == effect.input else {
             return nil
+        }
+        if let commandNode = commandNodes.first {
+            guard graph.nodes[0].nodeIndex == horizontalNode.nodeIndex,
+                  graph.nodes[1].nodeIndex == commandNode.nodeIndex,
+                  graph.nodes[2].nodeIndex == verticalNode.nodeIndex,
+                  validCommandNode(commandNode, effect: effect.key),
+                  commandNode.commandSource == horizontalTarget,
+                  commandNode.commandTarget == verticalInput,
+                  horizontalTarget != verticalInput,
+                  targetsByIdentity[horizontalTarget] != nil,
+                  targetsByIdentity[verticalInput] != nil else {
+                return nil
+            }
+            let uniqueIdentity = commandNode.kind == .swap ? verticalInput : nil
+            guard graph.renderTargets.allSatisfy({
+                $0.declaredUnique == ($0.texture == uniqueIdentity)
+            }) else {
+                return nil
+            }
+        } else {
+            guard graph.nodes[0].nodeIndex == horizontalNode.nodeIndex,
+                  graph.nodes[1].nodeIndex == verticalNode.nodeIndex,
+                  horizontalTarget == verticalInput,
+                  targetsByIdentity[horizontalTarget] != nil,
+                  graph.renderTargets.allSatisfy({ !$0.declaredUnique }) else {
+                return nil
+            }
         }
 
         let horizontal = SceneAuthoredMaterialResolver.resolve(
@@ -211,7 +237,7 @@ enum SceneAuthoredEffectExecutionPlanner {
               supportedCombos(horizontalMaterial.combos, vertical: false),
               supportedCombos(verticalMaterial.combos, vertical: true),
               horizontalMaterial.textureSlots.allSatisfy({ $0 == nil }),
-              graphSlot(verticalMaterial.textureSlots[0]) == target.texture,
+              graphSlot(verticalMaterial.textureSlots[0]) == verticalInput,
               graphSlot(verticalMaterial.textureSlots[1]) == effect.input,
               verticalMaterial.textureSlots.dropFirst(2).allSatisfy({ $0 == nil }),
               horizontalMaterial.constants.keys.allSatisfy({ $0.lowercased() == "scale" }),
@@ -231,7 +257,7 @@ enum SceneAuthoredEffectExecutionPlanner {
                 isPrecise: true
             )),
             materialNodeCount: 2,
-            logicalRenderTargetCount: 1,
+            logicalRenderTargetCount: graph.renderTargets.count,
             inputRole: inputRole
         )
     }

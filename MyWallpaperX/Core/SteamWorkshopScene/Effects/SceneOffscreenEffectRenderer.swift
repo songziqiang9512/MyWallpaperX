@@ -138,21 +138,20 @@ enum SceneOffscreenEffectRenderer {
     }
 
     static func renderPreciseBlur(
+        executionPlan: SceneAuthoredEffectExecutionPlan,
         sourceTexture: MTLTexture,
         waterMaskTexture: MTLTexture?,
         foliageMaskTexture: MTLTexture?,
         auxMaskTexture: MTLTexture?,
         targets: SceneGraphRenderTargetTable,
-        plan: SceneGaussianBlurPlan,
         sourceUniforms: SceneLayerFragmentUniforms,
         pipeline: SceneImageLayerPipeline,
         gaussianBlurPipeline: SceneGaussianBlurPipeline,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
-        guard targets.plan.logicalTargets.count == 1,
-              let intermediate = targets.texture(
-                  for: targets.plan.logicalTargets[0].identity
-              ), captureSource(
+        guard let effect = executionPlan.renderGraph.effects.first,
+              case .preciseGaussian(let plan) = executionPlan.backend,
+              captureSource(
                   sourceTexture: sourceTexture,
                   waterMaskTexture: waterMaskTexture,
                   foliageMaskTexture: foliageMaskTexture,
@@ -168,17 +167,43 @@ enum SceneOffscreenEffectRenderer {
             * plan.sampleResolutionScale / Float(targets.inputTexture.width)
         let verticalStep = plan.verticalStep
             * plan.sampleResolutionScale / Float(targets.inputTexture.height)
-        guard gaussianBlurPipeline.encode(
-            source: targets.inputTexture,
-            target: intermediate,
-            step: SIMD2(horizontalStep, 0),
+        let result = SceneGraphNodeScheduler.encode(
+            graph: executionPlan.renderGraph,
+            targets: targets,
             commandBuffer: commandBuffer
-        ), gaussianBlurPipeline.encode(
-            source: intermediate,
-            target: targets.outputTexture,
-            step: SIMD2(0, verticalStep),
-            commandBuffer: commandBuffer
-        ) else {
+        ) { node, textures in
+            guard let targetIdentity = node.target,
+                  let target = textures.texture(for: targetIdentity) else {
+                return false
+            }
+            switch node.materialOrdinal {
+            case 0:
+                guard node.bindings.isEmpty,
+                      let input = textures.texture(for: effect.input) else {
+                    return false
+                }
+                return gaussianBlurPipeline.encode(
+                    source: input,
+                    target: target,
+                    step: SIMD2(horizontalStep, 0),
+                    commandBuffer: commandBuffer
+                )
+            case 1:
+                guard let sourceIdentity = node.bindings.first(where: { $0.slot == 0 })?.texture,
+                      let source = textures.texture(for: sourceIdentity) else {
+                    return false
+                }
+                return gaussianBlurPipeline.encode(
+                    source: source,
+                    target: target,
+                    step: SIMD2(0, verticalStep),
+                    commandBuffer: commandBuffer
+                )
+            default:
+                return false
+            }
+        }
+        guard case .success = result else {
             return nil
         }
         return targets.outputTexture
