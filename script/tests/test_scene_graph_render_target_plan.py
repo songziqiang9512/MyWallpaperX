@@ -98,6 +98,31 @@ enum Harness {
         )
     }
 
+    static func commandNode(
+        _ index: Int,
+        kind: Graph.NodeKind,
+        key: Graph.EffectKey,
+        source: Graph.TextureIdentity,
+        target: Graph.TextureIdentity
+    ) -> Graph.Node {
+        .init(
+            nodeIndex: index,
+            effect: key,
+            definitionPassIndex: index,
+            materialOrdinal: nil,
+            instancePassIndex: nil,
+            kind: kind,
+            materialPath: nil,
+            materialPassID: nil,
+            target: nil,
+            bindings: [],
+            commandSource: source,
+            commandTarget: target,
+            compose: nil,
+            conditions: nil
+        )
+    }
+
     static func graph(
         targets: [Graph.RenderTarget],
         nodes: [Graph.Node],
@@ -229,6 +254,50 @@ enum Harness {
         guard case .success(let precisePlan) = preciseResult else {
             fatalError("precise fixture rejected")
         }
+        let commands = graph(
+            targets: [target(q1, extent: inputExtent), target(q2, extent: inputExtent)],
+            nodes: [
+                node(0, key: key, target: q1, reads: [input]),
+                node(1, key: key, target: q2, reads: [input]),
+                commandNode(2, kind: .copy, key: key, source: q1, target: q2),
+                commandNode(3, kind: .swap, key: key, source: q1, target: q2),
+                node(4, key: key, target: output, reads: [q1]),
+            ],
+            key: key,
+            input: input,
+            output: output
+        )
+        let commandsResult = SceneGraphRenderTargetPlan.make(
+            executionPlan: .init(
+                layerID: 10,
+                materialNodeCount: 3,
+                logicalRenderTargetCount: 2
+            ),
+            graph: commands,
+            inputWidth: 1920,
+            inputHeight: 1080
+        )
+        guard case .success(let commandsPlan) = commandsResult else {
+            fatalError("command fixture rejected")
+        }
+        let incompatibleCommands = graph(
+            targets: [target(q1, extent: inputExtent), target(q2, extent: scaleFour)],
+            nodes: commands.nodes,
+            key: key,
+            input: input,
+            output: output
+        )
+        let commandBeforeWrite = graph(
+            targets: [target(q1, extent: inputExtent), target(q2, extent: inputExtent)],
+            nodes: [
+                commandNode(0, kind: .copy, key: key, source: q1, target: q2),
+                node(1, key: key, target: q1, reads: [input]),
+                node(2, key: key, target: output, reads: [q1]),
+            ],
+            key: key,
+            input: input,
+            output: output
+        )
 
         let history = graph(
             targets: [target(q1, extent: scaleFour), target(q2, extent: scaleFour)],
@@ -299,6 +368,21 @@ enum Harness {
                 precisePlan.inputExtent.width, precisePlan.inputExtent.height,
             ],
             "preciseTargets": targetSummary(precisePlan),
+            "commandTargets": targetSummary(commandsPlan),
+            "commands": commandsPlan.commands.map {
+                [
+                    "node": $0.nodeIndex,
+                    "kind": $0.kind.rawValue,
+                    "source": $0.source.name ?? "",
+                    "target": $0.target.name ?? "",
+                ]
+            },
+            "incompatibleCommandFailure": failure(
+                incompatibleCommands, materialNodeCount: 3
+            ),
+            "commandBeforeWriteFailure": failure(
+                commandBeforeWrite, materialNodeCount: 2
+            ),
             "historyFailure": failure(history),
             "duplicateFailure": failure(duplicate),
             "incompleteFailure": failure(incomplete),
@@ -401,6 +485,43 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
 
     def test_read_before_first_write_requires_history(self) -> None:
         self.assertEqual(self.result["historyFailure"], "historyRequired")
+        self.assertEqual(self.result["commandBeforeWriteFailure"], "historyRequired")
+
+    def test_copy_and_swap_extend_target_lifetimes_in_authored_order(self) -> None:
+        self.assertEqual(
+            self.result["commands"],
+            [
+                {"node": 2, "kind": "copy", "source": "q1", "target": "q2"},
+                {"node": 3, "kind": "swap", "source": "q1", "target": "q2"},
+            ],
+        )
+        self.assertEqual(
+            self.result["commandTargets"],
+            [
+                {
+                    "name": "q1",
+                    "size": [1920, 1080],
+                    "format": "rgbaBackbuffer",
+                    "firstWrite": 0,
+                    "lastWrite": 3,
+                    "firstRead": 2,
+                    "lastRead": 4,
+                },
+                {
+                    "name": "q2",
+                    "size": [1920, 1080],
+                    "format": "rgbaBackbuffer",
+                    "firstWrite": 1,
+                    "lastWrite": 3,
+                    "firstRead": 3,
+                    "lastRead": 3,
+                },
+            ],
+        )
+        self.assertEqual(
+            self.result["incompatibleCommandFailure"],
+            "unsupportedTargetDescriptor",
+        )
 
     def test_duplicate_and_incomplete_identities_fail_closed(self) -> None:
         self.assertEqual(self.result["duplicateFailure"], "duplicateTarget")

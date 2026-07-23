@@ -27,6 +27,18 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         let lifetime: Lifetime
     }
 
+    enum CommandKind: String, Equatable {
+        case copy
+        case swap
+    }
+
+    struct Command: Equatable {
+        let nodeIndex: Int
+        let kind: CommandKind
+        let source: Graph.TextureIdentity
+        let target: Graph.TextureIdentity
+    }
+
     enum Failure: String, Error {
         case invalidInputExtent
         case executionMismatch
@@ -46,6 +58,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
     let inputRole: SceneAuthoredEffectInputRole
     let inputExtent: PixelExtent
     let logicalTargets: [LogicalTarget]
+    let commands: [Command]
 
     init(
         layerID: Int,
@@ -53,7 +66,8 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         output: Graph.TextureIdentity,
         inputRole: SceneAuthoredEffectInputRole = .layerSource,
         inputExtent: PixelExtent,
-        logicalTargets: [LogicalTarget]
+        logicalTargets: [LogicalTarget],
+        commands: [Command] = []
     ) {
         self.layerID = layerID
         self.input = input
@@ -61,6 +75,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         self.inputRole = inputRole
         self.inputExtent = inputExtent
         self.logicalTargets = logicalTargets
+        self.commands = commands
     }
 
     static func make(
@@ -115,15 +130,12 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         var lastWrites: [Graph.TextureIdentity: Int] = [:]
         var outputWriteCount = 0
         var previousNodeIndex: Int?
+        var commands: [Command] = []
 
         for node in graph.nodes {
             guard node.effect == effect.key,
-                  node.kind == .material,
                   node.compose == nil,
-                  node.conditions == nil,
-                  node.commandSource == nil,
-                  node.commandTarget == nil,
-                  let target = node.target else {
+                  node.conditions == nil else {
                 return .failure(.executionMismatch)
             }
             if let previousNodeIndex, node.nodeIndex <= previousNodeIndex {
@@ -131,37 +143,106 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             }
             previousNodeIndex = node.nodeIndex
 
-            for binding in node.bindings {
-                guard binding.conditions == nil else { return .failure(.executionMismatch) }
-                switch binding.texture.kind {
+            switch node.kind {
+            case .material:
+                guard node.commandSource == nil,
+                      node.commandTarget == nil,
+                      let target = node.target else {
+                    return .failure(.executionMismatch)
+                }
+                for binding in node.bindings {
+                    guard binding.conditions == nil else {
+                        return .failure(.executionMismatch)
+                    }
+                    switch binding.texture.kind {
+                    case .framebuffer:
+                        guard declarations[binding.texture] != nil else {
+                            return .failure(.invalidAccess)
+                        }
+                        guard firstWrites[binding.texture] != nil else {
+                            return .failure(.historyRequired)
+                        }
+                        firstReads[binding.texture] =
+                            firstReads[binding.texture] ?? node.nodeIndex
+                        lastReads[binding.texture] = node.nodeIndex
+                    case .layerSource, .effectOutput:
+                        guard binding.texture == effect.input else {
+                            return .failure(.invalidAccess)
+                        }
+                    case .unresolved:
+                        return .failure(.invalidAccess)
+                    }
+                }
+
+                switch target.kind {
                 case .framebuffer:
-                    guard declarations[binding.texture] != nil else {
+                    guard declarations[target] != nil else {
                         return .failure(.invalidAccess)
                     }
-                    guard firstWrites[binding.texture] != nil else {
-                        return .failure(.historyRequired)
-                    }
-                    firstReads[binding.texture] = firstReads[binding.texture] ?? node.nodeIndex
-                    lastReads[binding.texture] = node.nodeIndex
-                case .layerSource, .effectOutput:
-                    guard binding.texture == effect.input else {
+                    firstWrites[target] = firstWrites[target] ?? node.nodeIndex
+                    lastWrites[target] = node.nodeIndex
+                case .effectOutput:
+                    guard target == effect.output else {
                         return .failure(.invalidAccess)
                     }
-                case .unresolved:
+                    outputWriteCount += 1
+                case .layerSource, .unresolved:
                     return .failure(.invalidAccess)
                 }
-            }
+            case .copy, .swap:
+                guard node.target == nil,
+                      node.bindings.isEmpty,
+                      node.materialOrdinal == nil,
+                      node.instancePassIndex == nil,
+                      node.materialPath == nil,
+                      node.materialPassID == nil,
+                      let source = node.commandSource,
+                      let target = node.commandTarget,
+                      source != target,
+                      let sourceDeclaration = declarations[source],
+                      let targetDeclaration = declarations[target] else {
+                    return .failure(.invalidAccess)
+                }
+                guard let sourceDescriptor = targetDescriptor(
+                    sourceDeclaration,
+                    inputWidth: inputWidth,
+                    inputHeight: inputHeight
+                ), let targetDescriptor = targetDescriptor(
+                    targetDeclaration,
+                    inputWidth: inputWidth,
+                    inputHeight: inputHeight
+                ), sourceDescriptor == targetDescriptor else {
+                    return .failure(.unsupportedTargetDescriptor)
+                }
+                guard firstWrites[source] != nil else {
+                    return .failure(.historyRequired)
+                }
+                firstReads[source] = firstReads[source] ?? node.nodeIndex
+                lastReads[source] = node.nodeIndex
 
-            switch target.kind {
-            case .framebuffer:
-                guard declarations[target] != nil else { return .failure(.invalidAccess) }
+                let commandKind: CommandKind
+                if node.kind == .swap {
+                    guard firstWrites[target] != nil else {
+                        return .failure(.historyRequired)
+                    }
+                    firstReads[target] = firstReads[target] ?? node.nodeIndex
+                    lastReads[target] = node.nodeIndex
+                    firstWrites[source] = firstWrites[source] ?? node.nodeIndex
+                    lastWrites[source] = node.nodeIndex
+                    commandKind = .swap
+                } else {
+                    commandKind = .copy
+                }
                 firstWrites[target] = firstWrites[target] ?? node.nodeIndex
                 lastWrites[target] = node.nodeIndex
-            case .effectOutput:
-                guard target == effect.output else { return .failure(.invalidAccess) }
-                outputWriteCount += 1
-            case .layerSource, .unresolved:
-                return .failure(.invalidAccess)
+                commands.append(.init(
+                    nodeIndex: node.nodeIndex,
+                    kind: commandKind,
+                    source: source,
+                    target: target
+                ))
+            case .unknownCommand:
+                return .failure(.executionMismatch)
             }
         }
 
@@ -173,21 +254,17 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
                   let lastWrite = lastWrites[target.texture] else {
                 return .failure(.unwrittenTarget)
             }
-            guard let extent = pixelExtent(
-                target.extent,
+            guard let descriptor = targetDescriptor(
+                target,
                 inputWidth: inputWidth,
                 inputHeight: inputHeight
-            ), let format = textureFormat(target.format),
-            !target.declaredUnique,
-            target.clear == nil,
-            target.uvs == nil,
-            target.conditions == nil else {
+            ) else {
                 return .failure(.unsupportedTargetDescriptor)
             }
             targets.append(LogicalTarget(
                 identity: target.texture,
-                extent: extent,
-                format: format,
+                extent: descriptor.extent,
+                format: descriptor.format,
                 lifetime: Lifetime(
                     firstWriteNodeIndex: firstWrite,
                     lastWriteNodeIndex: lastWrite,
@@ -203,8 +280,33 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             output: effect.output,
             inputRole: inputRole,
             inputExtent: PixelExtent(width: inputWidth, height: inputHeight),
-            logicalTargets: targets
+            logicalTargets: targets,
+            commands: commands
         ))
+    }
+
+    private struct TargetDescriptor: Equatable {
+        let extent: PixelExtent
+        let format: TextureFormat
+    }
+
+    private static func targetDescriptor(
+        _ target: Graph.RenderTarget,
+        inputWidth: Int,
+        inputHeight: Int
+    ) -> TargetDescriptor? {
+        guard let extent = pixelExtent(
+            target.extent,
+            inputWidth: inputWidth,
+            inputHeight: inputHeight
+        ), let format = textureFormat(target.format),
+              !target.declaredUnique,
+              target.clear == nil,
+              target.uvs == nil,
+              target.conditions == nil else {
+            return nil
+        }
+        return TargetDescriptor(extent: extent, format: format)
     }
 
     private static func pixelExtent(

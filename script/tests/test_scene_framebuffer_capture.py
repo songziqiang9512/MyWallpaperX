@@ -17,6 +17,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "SceneGraphRenderTargetPlan.swift",
     SOURCE_ROOT / "SceneGraphRenderTargetTable.swift",
+    SOURCE_ROOT / "SceneGraphCommandRuntime.swift",
     SOURCE_ROOT / "SceneMatrix.swift",
     SOURCE_ROOT / "SceneMetalPipeline.swift",
     SOURCE_ROOT / "SceneSpriteAnimation.swift",

@@ -17,6 +17,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "SceneGraphRenderTargetPlan.swift",
     SOURCE_ROOT / "SceneGraphRenderTargetTable.swift",
+    SOURCE_ROOT / "SceneGraphCommandRuntime.swift",
 ]
 
 
@@ -147,6 +148,155 @@ enum Harness {
             descriptorID: "10#effect#3"
         )
         let unknown = identity(.framebuffer, effect: otherEffect, name: "quarterA")
+        let copyPlan = TargetPlan(
+            layerID: plan.layerID,
+            input: input,
+            output: output,
+            inputExtent: .init(width: 2, height: 2),
+            logicalTargets: [
+                logicalTarget(
+                    quarterA, width: 2, height: 2,
+                    firstWrite: 0, lastWrite: 0, firstRead: 2, lastRead: 2
+                ),
+                logicalTarget(
+                    quarterB, width: 2, height: 2,
+                    firstWrite: 1, lastWrite: 2, firstRead: nil, lastRead: nil
+                ),
+            ],
+            commands: [
+                .init(nodeIndex: 2, kind: .copy, source: quarterA, target: quarterB),
+            ]
+        )
+        guard case .success(let copyTable) = TargetTable.make(
+            plan: copyPlan,
+            device: device,
+            byteBudget: 128
+        ), var copyRuntime = copyTable.makeCommandRuntime(),
+        let queue = device.makeCommandQueue(),
+        let upload = device.makeBuffer(length: 16, options: .storageModeShared),
+        let readback = device.makeBuffer(length: 16, options: .storageModeShared),
+        let copyCommandBuffer = queue.makeCommandBuffer(),
+        let uploadEncoder = copyCommandBuffer.makeBlitCommandEncoder(),
+        let copySource = copyRuntime.texture(for: quarterA),
+        let copyTarget = copyRuntime.texture(for: quarterB) else {
+            fatalError("command runtime setup failed")
+        }
+        let pattern = Array(0..<16).map(UInt8.init)
+        pattern.withUnsafeBytes { bytes in
+            memcpy(upload.contents(), bytes.baseAddress!, bytes.count)
+        }
+        uploadEncoder.copy(
+            from: upload,
+            sourceOffset: 0,
+            sourceBytesPerRow: 8,
+            sourceBytesPerImage: 16,
+            sourceSize: .init(width: 2, height: 2, depth: 1),
+            to: copySource,
+            destinationSlice: 0,
+            destinationLevel: 0,
+            destinationOrigin: .init(x: 0, y: 0, z: 0)
+        )
+        uploadEncoder.endEncoding()
+        let wrongOrderFailure: String
+        switch copyRuntime.encodeCommand(at: 99, commandBuffer: copyCommandBuffer) {
+        case .success:
+            wrongOrderFailure = "success"
+        case .failure(let reason):
+            wrongOrderFailure = reason.rawValue
+        }
+        let copyResult = copyRuntime.encodeCommand(
+            at: 2,
+            commandBuffer: copyCommandBuffer
+        )
+        guard case .success = copyResult,
+              let readbackEncoder = copyCommandBuffer.makeBlitCommandEncoder() else {
+            fatalError("copy command failed")
+        }
+        readbackEncoder.copy(
+            from: copyTarget,
+            sourceSlice: 0,
+            sourceLevel: 0,
+            sourceOrigin: .init(x: 0, y: 0, z: 0),
+            sourceSize: .init(width: 2, height: 2, depth: 1),
+            to: readback,
+            destinationOffset: 0,
+            destinationBytesPerRow: 8,
+            destinationBytesPerImage: 16
+        )
+        readbackEncoder.endEncoding()
+        copyCommandBuffer.commit()
+        copyCommandBuffer.waitUntilCompleted()
+        let copiedBytes = Array(
+            UnsafeBufferPointer(
+                start: readback.contents().assumingMemoryBound(to: UInt8.self),
+                count: 16
+            )
+        )
+
+        let swapPlan = TargetPlan(
+            layerID: copyPlan.layerID,
+            input: copyPlan.input,
+            output: copyPlan.output,
+            inputExtent: copyPlan.inputExtent,
+            logicalTargets: copyPlan.logicalTargets,
+            commands: [
+                .init(nodeIndex: 3, kind: .swap, source: quarterA, target: quarterB),
+            ]
+        )
+        guard case .success(let swapTable) = TargetTable.make(
+            plan: swapPlan,
+            device: device,
+            byteBudget: 128
+        ), var swapRuntime = swapTable.makeCommandRuntime(),
+        let swapSourceBefore = swapRuntime.texture(for: quarterA),
+        let swapTargetBefore = swapRuntime.texture(for: quarterB),
+        let swapCommandBuffer = queue.makeCommandBuffer() else {
+            fatalError("swap command setup failed")
+        }
+        let swapResult = swapRuntime.encodeCommand(
+            at: 3,
+            commandBuffer: swapCommandBuffer
+        )
+        guard case .success = swapResult else {
+            fatalError("swap command failed")
+        }
+        let swapBindingsExchanged =
+            swapRuntime.texture(for: quarterA) === swapTargetBefore
+                && swapRuntime.texture(for: quarterB) === swapSourceBefore
+
+        let incompatiblePlan = TargetPlan(
+            layerID: copyPlan.layerID,
+            input: copyPlan.input,
+            output: copyPlan.output,
+            inputExtent: copyPlan.inputExtent,
+            logicalTargets: [
+                copyPlan.logicalTargets[0],
+                logicalTarget(
+                    quarterB, width: 2, height: 2,
+                    format: .rgba8888,
+                    firstWrite: 1, lastWrite: 2, firstRead: nil, lastRead: nil
+                ),
+            ],
+            commands: copyPlan.commands
+        )
+        guard case .success(let incompatibleTable) = TargetTable.make(
+            plan: incompatiblePlan,
+            device: device,
+            byteBudget: 128
+        ), var incompatibleRuntime = incompatibleTable.makeCommandRuntime(),
+        let incompatibleCommandBuffer = queue.makeCommandBuffer() else {
+            fatalError("incompatible command setup failed")
+        }
+        let incompatibleFailure: String
+        switch incompatibleRuntime.encodeCommand(
+            at: 2,
+            commandBuffer: incompatibleCommandBuffer
+        ) {
+        case .success:
+            incompatibleFailure = "success"
+        case .failure(let reason):
+            incompatibleFailure = reason.rawValue
+        }
 
         let duplicatePlan = TargetPlan(
             layerID: plan.layerID,
@@ -219,6 +369,13 @@ enum Harness {
                     && $0.usage.contains(.renderTarget)
                     && $0.usage.contains(.shaderRead)
             },
+            "copyBytesMatch": copiedBytes == pattern,
+            "copyRuntimeComplete": copyRuntime.isComplete
+                && copyRuntime.remainingCommandCount == 0,
+            "wrongOrderFailure": wrongOrderFailure,
+            "swapBindingsExchanged": swapBindingsExchanged,
+            "swapRuntimeComplete": swapRuntime.isComplete,
+            "incompatibleCommandFailure": incompatibleFailure,
             "budgetFailure": failure(TargetTable.make(
                 plan: plan, device: device, byteBudget: exactBudget - 1
             )),
@@ -302,6 +459,17 @@ class SceneGraphRenderTargetTableTests(unittest.TestCase):
         self.assertTrue(self.result["inputOutputFormat"])
         self.assertTrue(self.result["framebufferFormats"])
         self.assertTrue(self.result["textureContract"])
+
+    def test_copy_blits_bytes_and_swap_exchanges_logical_bindings(self) -> None:
+        self.assertTrue(self.result["copyBytesMatch"])
+        self.assertTrue(self.result["copyRuntimeComplete"])
+        self.assertEqual(self.result["wrongOrderFailure"], "commandOrderMismatch")
+        self.assertTrue(self.result["swapBindingsExchanged"])
+        self.assertTrue(self.result["swapRuntimeComplete"])
+        self.assertEqual(
+            self.result["incompatibleCommandFailure"],
+            "incompatibleTextures",
+        )
 
     def test_refuses_the_whole_allocation_before_exceeding_budget(self) -> None:
         self.assertEqual(self.result["budgetFailure"], "byteBudgetExceeded")

@@ -17,6 +17,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "SceneGraphRenderTargetPlan.swift",
     SOURCE_ROOT / "SceneGraphRenderTargetTable.swift",
+    SOURCE_ROOT / "SceneGraphCommandRuntime.swift",
     SOURCE_ROOT / "SceneLocalContrastPipeline.swift",
     SOURCE_ROOT / "SceneLocalContrastRenderer.swift",
 ]
