@@ -160,7 +160,10 @@ struct SceneDiagnosticsBuilder {
             issues.append(.init(severity: .info, message: "已建立 renderer 输入描述：layer \(renderDescriptor.layers.count) 个，material pass \(renderDescriptor.materialPasses.count) 个。"))
         }
         let interpretationFileResult = Self.writeInterpretationFileIfPossible(
+            project: project,
+            sceneDocument: sceneDocument,
             renderDescriptor: renderDescriptor,
+            propertyOverrides: propertyOverrides,
             outputDirectory: packageReport?.outputURL
         )
         let interpretationFileURL = interpretationFileResult.url
@@ -188,18 +191,29 @@ struct SceneDiagnosticsBuilder {
     // Derived renderer state belongs to the package cache. The Workshop sample
     // remains read-only, and rebuilding the package cache regenerates this file.
     private static func writeInterpretationFileIfPossible(
+        project: SceneProject?,
+        sceneDocument: SceneDocument?,
         renderDescriptor: SceneRenderDescriptor?,
+        propertyOverrides: [String: SceneUserPropertyValue],
         outputDirectory: URL?
     ) -> (url: URL?, error: String?) {
-        guard let renderDescriptor else {
+        guard let project, let sceneDocument, let renderDescriptor else {
             return (nil, nil)
         }
         guard let outputDirectory else {
             return (nil, "Scene 缓存目录不可用，无法生成派生解释文件。")
         }
         do {
+            let compilation = ScenePropertyBindingCompiler().compile(
+                report: sceneDocument.userPropertyResolution.bindingReport,
+                catalog: project.userProperties
+            )
             let url = try SceneInterpretationFileWriter().write(
                 renderDescriptor: renderDescriptor,
+                propertyBindingProgram: compilation.program,
+                effectivePropertyValues: project.userProperties.effectiveValues(
+                    overrides: propertyOverrides
+                ),
                 outputDirectory: outputDirectory
             )
             let file = try SceneInterpretationFileReader().read(from: url)

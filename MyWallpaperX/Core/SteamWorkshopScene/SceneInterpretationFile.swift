@@ -10,24 +10,43 @@ struct SceneInterpretationFile: Codable {
     let sourceEntryPath: String
     let renderDescriptor: SceneRenderDescriptor
     let authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan]
+    let propertyBindingProgram: ScenePropertyBindingProgram
+    let effectivePropertyValues: [String: SceneUserPropertyValue]
 }
 
 struct SceneInterpretationFileWriter {
-    // Format 17 preserves material user-texture providers and typed runtime references.
-    static let currentFormatVersion = 17
+    // Format 18 persists the live property program separately from resolved renderer state.
+    static let currentFormatVersion = 18
 
-    func write(
+    func make(
         renderDescriptor: SceneRenderDescriptor,
-        outputDirectory: URL
-    ) throws -> URL {
-        let file = SceneInterpretationFile(
+        propertyBindingProgram: ScenePropertyBindingProgram,
+        effectivePropertyValues: [String: SceneUserPropertyValue],
+        generatedAt: Date = Date()
+    ) -> SceneInterpretationFile {
+        SceneInterpretationFile(
             formatVersion: Self.currentFormatVersion,
-            generatedAt: Date(),
+            generatedAt: generatedAt,
             sourceEntryPath: renderDescriptor.entryPath,
             renderDescriptor: renderDescriptor,
             authoredEffectRenderPlans: SceneAuthoredEffectRenderPlanner.plans(
                 for: renderDescriptor
-            )
+            ),
+            propertyBindingProgram: propertyBindingProgram,
+            effectivePropertyValues: effectivePropertyValues
+        )
+    }
+
+    func write(
+        renderDescriptor: SceneRenderDescriptor,
+        propertyBindingProgram: ScenePropertyBindingProgram,
+        effectivePropertyValues: [String: SceneUserPropertyValue],
+        outputDirectory: URL
+    ) throws -> URL {
+        let file = make(
+            renderDescriptor: renderDescriptor,
+            propertyBindingProgram: propertyBindingProgram,
+            effectivePropertyValues: effectivePropertyValues
         )
         let outputURL = outputDirectory.appendingPathComponent(SceneInterpretationFile.fileName)
         let encoder = JSONEncoder()
@@ -48,13 +67,15 @@ struct SceneInterpretationFileReader {
         let data = try Data(contentsOf: url)
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let file = try decoder.decode(SceneInterpretationFile.self, from: data)
-
-        guard file.formatVersion == SceneInterpretationFileWriter.currentFormatVersion else {
-            throw SceneInterpretationFileError.unsupportedFormatVersion(file.formatVersion)
+        let header = try decoder.decode(FormatHeader.self, from: data)
+        guard header.formatVersion == SceneInterpretationFileWriter.currentFormatVersion else {
+            throw SceneInterpretationFileError.unsupportedFormatVersion(header.formatVersion)
         }
+        return try decoder.decode(SceneInterpretationFile.self, from: data)
+    }
 
-        return file
+    private struct FormatHeader: Decodable {
+        let formatVersion: Int
     }
 }
 

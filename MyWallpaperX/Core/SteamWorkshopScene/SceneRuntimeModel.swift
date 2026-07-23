@@ -9,6 +9,7 @@ struct SceneRuntimeModel {
     let capabilityProfile: SceneCapabilityProfile
     let renderDescriptor: SceneRenderDescriptor
     let authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan]
+    let interpretationFile: SceneInterpretationFile
     let diagnostics: SceneDiagnosticsReport
 }
 
@@ -68,6 +69,8 @@ struct SceneRuntimeModelBuilder {
         )
         let rendererInput = try loadRendererInput(
             project: project,
+            sceneDocument: sceneDocument,
+            propertyOverrides: propertyOverrides,
             diagnostics: diagnostics
         )
 
@@ -78,38 +81,40 @@ struct SceneRuntimeModelBuilder {
             resourceReferences: resourceReferences,
             resourceIndex: diagnostics.resourceIndex,
             capabilityProfile: capabilityProfile,
-            renderDescriptor: rendererInput.descriptor,
-            authoredEffectRenderPlans: rendererInput.authoredPlans,
+            renderDescriptor: rendererInput.renderDescriptor,
+            authoredEffectRenderPlans: rendererInput.authoredEffectRenderPlans,
+            interpretationFile: rendererInput,
             diagnostics: diagnostics
         )
     }
 
-    private struct RendererInput {
-        let descriptor: SceneRenderDescriptor
-        let authoredPlans: [SceneAuthoredEffectRenderPlan]
-    }
-
     private func loadRendererInput(
         project: SceneProject,
+        sceneDocument: SceneDocument,
+        propertyOverrides: [String: SceneUserPropertyValue],
         diagnostics: SceneDiagnosticsReport
-    ) throws -> RendererInput {
+    ) throws -> SceneInterpretationFile {
         if let interpretationFileURL = diagnostics.interpretationFileURL {
             let file = try SceneInterpretationFileReader().read(from: interpretationFileURL)
             guard file.sourceEntryPath == project.entryPath else {
                 throw BuildError.interpretationEntryMismatch(file.sourceEntryPath)
             }
-            return RendererInput(
-                descriptor: file.renderDescriptor,
-                authoredPlans: file.authoredEffectRenderPlans
-            )
+            return file
         }
 
         guard let renderDescriptor = diagnostics.renderDescriptor else {
             throw BuildError.missingRenderDescriptor
         }
-        return RendererInput(
-            descriptor: renderDescriptor,
-            authoredPlans: SceneAuthoredEffectRenderPlanner.plans(for: renderDescriptor)
+        let compilation = ScenePropertyBindingCompiler().compile(
+            report: sceneDocument.userPropertyResolution.bindingReport,
+            catalog: project.userProperties
+        )
+        return SceneInterpretationFileWriter().make(
+            renderDescriptor: renderDescriptor,
+            propertyBindingProgram: compilation.program,
+            effectivePropertyValues: project.userProperties.effectiveValues(
+                overrides: propertyOverrides
+            )
         )
     }
 }
