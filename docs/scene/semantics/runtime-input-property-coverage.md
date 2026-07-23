@@ -4,7 +4,9 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`b541867`
+> 实现基线：`809b75e`
+>
+> 当前正式门：`.codex/scene-workshop-shadow-final13-20260723-1540/report.json`（13/13、4 类 strict backend、10 stage、1 条真实 chain、Workshop Shadow 1、failed 0、blocked 2、route-only 34；相关测试 258 collected / 257 passed / 1 skipped）。
 
 本表把 Frame Context、动态目标、Timeline、用户属性、文字、光标、音频、媒体和纹理 provider 放在同一执行合同下。官方语义摘要见 [`runtime-systems-reference.md`](runtime-systems-reference.md)，等级口径见 [`coverage-ledger.md`](coverage-ledger.md)。
 
@@ -36,14 +38,14 @@ HostFrameInputs(time, properties, audio, media)
 | 同帧 host/scene/wall time | `L3` | [`SceneFrameContext.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneFrameContext.swift)、[E-FRAME](runtime-evidence-index.md#e-frame) | 未排除暂停时间，未标 discontinuity |
 | shader/video/particle/parallax 共用 timing | `L3` | [`SceneMetalView.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneMetalView.swift)、[E-FRAME](runtime-evidence-index.md#e-frame) | 补 pause、delta clamp、fixed step |
 | typed value 六类 | `L2` | `bool/scalar/vector2/vector3/vector4/string`；[`SceneDynamicSnapshot.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDynamicSnapshot.swift) | texture/provider 不属于普通值；新增类型仍需 wire/type/finite 门 |
-| typed target 族 | `L2` | scene/camera/layer/effect/text/particle/script instance 已定义；layer alpha/color 与 exact stock Local Contrast strength 进入 compiler | 其他 effect target 尚无严格 execution identity，不得直接开放 live |
+| typed target 族 | `L2` | scene/camera/layer/effect/text/particle/script instance 已定义；layer alpha/color 与 exact stock Local Contrast strength 进入 compiler | 下一切片为 exact stock Opacity `alpha` 注册稳定 effect-constant identity；其他 effect target 不得直接开放 live |
 | 固定 source priority | `L2` | authored -> property -> Timeline -> SceneScript；property producer 已执行 | Timeline/SceneScript 尚无 producer，接入后必须复用同一 resolver |
-| property binding program persistence | `L3` | format 20 持久化 definitions、instructions、rebuild-required keys 与 effective values；严格 decode/validation | 当前只证明 alpha/color 与 exact Local Contrast strength 编译，不能替代其他真实 consumer |
+| property binding program persistence | `L3` | format 20 持久化 definitions、instructions、rebuild-required keys 与 effective values；严格 decode/validation | 当前只证明 layer alpha/solid color 与 exact Local Contrast strength 编译；stock Opacity 必须在同批加入 mapping 与真实 consumer |
 | host-shared / surface-local scope | `L3` | property 输入由 host 捕获，每个 surface 有独立 transaction/snapshot/generation；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | pointer/matrix/provider/script 接入后继续补双屏隔离门 |
 | target invalidation domain | `L2` | layer alpha、solid color 与 strict Local Contrast strength 为 value-only；mixed/invalid/unsupported key 标记 rebuild | geometry/text/topology/provider/simulation target 逐项集中登记 |
 | per-surface evaluation transaction | `L3` | property evaluation、validation 与 atomic commit 已闭环；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | event/Timeline/SceneScript mutation 尚未接入 |
 | changed-target generation | `L3` | 每 surface 持有 generation，相同 payload 不增加；跨 surface 不共享 owner | local input/script/provider 接入后继续验证独立 diff |
-| live consumer | `L3` | image/solid/text 与 `shouldCapture` utility 的 layer alpha、solid-only color、strict execution catalog 中 Local Contrast pass 3 `strength` 读取 snapshot；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | particle/container/non-solid color、其他 effect constant、mixed/unsupported/no-consumer 均整场重建 |
+| live consumer | `L3` | image/solid/text 与 `shouldCapture` utility 的 layer alpha、solid-only color、strict execution catalog 中 Local Contrast pass 3 `strength` 读取 snapshot；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | 下一切片接 stock Opacity `alpha`；particle/container/non-solid color、其他 effect constant、mixed/unsupported/no-consumer 仍整场重建 |
 | Scene pause/resume | `L0` | 播放控制未控制 Scene clock | pause 冻结 scene time；resume 不补长帧 |
 | delta clamp / dropped-time | `L0` | `frameTime` 只做单调差值 | 同时保留 raw delta 和 simulation delta |
 | offline fixed-time adapter | `L0` | Debug PNG readback 不是离线 adapter | 注入 frame index/time/seed/provider replay |
@@ -363,9 +365,9 @@ Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选
 
 ## 10. 下一实现顺序
 
-1. **B0 live-property 已完成并由 `b541867` 继续消费**：format 20 binding program、per-surface transaction、atomic state、Host/Service/UI 路由，以及 layer alpha、solid color、strict Local Contrast strength consumer 均已闭环；ordered strict chain 中每个 Local Contrast stage 都从同一 per-surface frame snapshot 独立取值，整链失败不提交部分画面。隔离真实样本证明更新不替换 surface/window。
+1. **B0 live-property 已完成并由 ordered strict chain 继续消费**：format 20 binding program、per-surface transaction、atomic state、Host/Service/UI 路由，以及 layer alpha、solid color、strict Local Contrast strength consumer 均已闭环；ordered strict chain 中每个 Local Contrast stage 都从同一 per-surface frame snapshot 独立取值，整链失败不提交部分画面。`809b75e` 的 Workshop Shadow 只增加静态 exact backend，没有新增 live target。隔离真实样本已证明现有 live 更新不替换 surface/window。
 2. 新增任何 live target 时，必须在同一能力切片中补稳定 identity/value semantic、compiler definition/instruction、真实 renderer/runtime consumer、原子失败、fallback 与 identity 运行门；缺一项就保留整场重建。
-3. B2 ordered strict scheduler 已完成；下一主线按 [公共能力依赖图](capability-dependency-map.md) 实现 `3724289844:20` exact Workshop single-pass shadow profile，先取得真实 `Blur Precise -> Shadow` 正门，并行补 B1 Provider Core。其首切只接受静态、无 user binding 的常量；color 或其他 shader constant 不因已编译而抢在真实 consumer/语义门前开放。
+3. B2 ordered strict scheduler 与 `3724289844:20` exact Workshop Shadow 已完成，正式门取得首条真实 `Blur Precise -> Shadow` chain。下一切片实现 stock Opacity `MASK=0` strict profile，并在同批复用现有 binding program/per-surface snapshot 接入 live `alpha`：覆盖 `2902406982` 的 `365/372/647/664` 与 `2938612768` 的 `165/454/626/629/924`；不接受 optional mask、未知 fingerprint 或缺 consumer 的部分 live。
 4. visibility 只有在 render/dependency/text/particle topology invalidation 一起处理后才能取消整场重建；dynamic text 需要 per-layer texture generation 和 stale cancellation。
 5. Timeline 完整保存后接 evaluator；SceneScript 只有在 source/binding IR 和沙箱成立后接入同一 target 层。
 6. audio/media provider 必须有作者未启用反例、失败 fallback、generation/cancel 和 stop teardown。

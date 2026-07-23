@@ -3,6 +3,8 @@
 > 覆盖：Particle、Text、Timeline、SceneScript、User Properties、Cursor、Audio、Media、Puppet/3D，以及实时与离线共用的时钟和资源生命周期。
 >
 > 官方合同优先参考 Designer 文档与 `lib.sceneScript.d.ts` v2.8；raw JSON 字段来自真实样本观察，需按证据等级使用。
+>
+> 实现基线：`809b75e`；当前正式门：`.codex/scene-workshop-shadow-final13-20260723-1540/report.json`（13/13、4 类 strict backend、10 stage、1 条真实 chain、Workshop Shadow 1、failed 0、blocked 2、route-only 34；相关测试 258 collected / 257 passed / 1 skipped）。
 
 ## 1. 统一 Frame Context
 
@@ -26,7 +28,7 @@ HostFrameInputs
 
 MyWallpaperX 当前已落地第一阶段 `SceneFrameTiming` / `SceneFrameContext`：桌面宿主每帧只采样一次 monotonic host time 与 wall date，并把相同的 frame index、scene time 和 frame delta 广播给所有屏幕；shader time、视频 host time、粒子推进和相机视差平滑已消费该快照。各屏仍保留自己的 viewport、pointer 和 particle simulation。
 
-`36bfef0` 建立了六类 `SceneDynamicValue`、scene/camera/layer/effect/text/particle/script target、`authored -> userProperty -> Timeline -> SceneScript` 固定覆盖顺序和不可变 `SceneDynamicSnapshot`。此后 v20 已完成 property binding program、host-shared input 与 per-surface evaluation/final snapshot 拆分、原子 transaction 和 generation；layer alpha、纯 solid color、exact stock Local Contrast strength 已有真实 producer/consumer，并由 `b541867` ordered strict chain 逐 stage 消费同一 surface snapshot。这个 B0 子集不能外推到 Timeline、SceneScript、particle、dynamic text 或其他 effect constant；缺少 compiler target 或真实 consumer 的属性仍走整场重建。
+`36bfef0` 建立了六类 `SceneDynamicValue`、scene/camera/layer/effect/text/particle/script target、`authored -> userProperty -> Timeline -> SceneScript` 固定覆盖顺序和不可变 `SceneDynamicSnapshot`。此后 v20 已完成 property binding program、host-shared input 与 per-surface evaluation/final snapshot 拆分、原子 transaction 和 generation；layer alpha、纯 solid color、exact stock Local Contrast strength 已有真实 producer/consumer，并由 ordered strict chain 逐 stage 消费同一 surface snapshot。`809b75e` 的 exact Workshop Shadow 只增加静态 strict backend，没有新增 live target。这个 B0 子集不能外推到 Timeline、SceneScript、particle、dynamic text 或其他 effect constant；缺少 compiler target 或真实 consumer 的属性仍走整场重建。
 
 这仍不等于完整时钟和动态系统合同。pause/resume、长帧 delta clamp、dropped-time 诊断、固定 timestep、buttons、audio/media producer、deterministic seed 和离线 adapter 尚未接入；Timeline、SceneScript、动态文字、particle 与其他 effect target 也还没有真实 producer/consumer。
 
@@ -389,9 +391,9 @@ Realtime Adapter              Offline Adapter
 |---|---|---|
 | Particle | 作者 2D sprite、部分 emitter/initializer/operator、9 个精确 built-in key 的程序纹理、Sprite Trail 子集；正式可见层 14/27 | 程序纹理等于官方资产，或 child/rope/world-space/control point/collision/audio/全部 preset 完整 |
 | Text | CoreText 静态纹理、部分 font/pointsize/padding/scale | 动态时间、完整 alignment/effects/SceneScript |
-| Effect graph | v20 继承 EffectDefinition/authored graph/provider metadata，并保存 ShaderContract 与 binding program；precise Blur、standard Blur、stock Local Contrast 三个 strict backend 及 `b541867` all-supported ordered chain 已执行 | 通用 material/pass、copy/swap/compose/history 或 authored shader 语义等价；最新门见 `.codex/scene-effect-chain-gated-final13-20260723/report.json` |
+| Effect graph | v20 继承 EffectDefinition/authored graph/provider metadata，并保存 ShaderContract 与 binding program；precise Blur、standard Blur、stock Local Contrast、exact Workshop Shadow 共 4 类 strict backend 及 ordered chain 已执行，`3724289844:20` 是首条真实 `Blur Precise -> Shadow` chain | 通用 material/pass、copy/swap/compose/history、authored shader 语义等价或官方 Shadow/lighting；最新门见 `.codex/scene-workshop-shadow-final13-20260723-1540/report.json` |
 | Frame Context | 宿主单一 60 Hz driver；所有屏幕共享 frame index/host/scene/wall time；shader、video、particle、parallax 已迁移 | pause/resume、delta clamp、固定 timestep、离线实时等价已闭环 |
-| Dynamic target snapshot | 六类 typed value、主要 target 族、固定优先级、v20 binding program、per-surface evaluation transaction/snapshot/generation；layer alpha、纯 solid color、exact Local Contrast strength 有真实 producer/consumer | Timeline、SceneScript、dynamic text、particle 或其他 effect constant 已 live；unsupported target 仍走整场重建 |
+| Dynamic target snapshot | 六类 typed value、主要 target 族、固定优先级、v20 binding program、per-surface evaluation transaction/snapshot/generation；layer alpha、纯 solid color、exact Local Contrast strength 有真实 producer/consumer | Workshop Shadow 没有 live target；下一切片才接 stock Opacity `alpha`，Timeline、SceneScript、dynamic text、particle 与其他 effect constant 仍未 live |
 | Timeline | 数据识别不足或空壳 | 任意动画模式可用 |
 | SceneScript | 只检测 script | ECMAScript/runtime/API 可用 |
 | User Properties | 独立窗口、条件、默认/override、部分 target 与持久化；`texture`/`scenetexture` 内部归一；受限静态 consumer 可选择 PNG/JPEG；三类 B0 target 可无重建更新 | 全部样本属性可调、所有 texture target/variant/live value 已闭环 |
@@ -401,10 +403,10 @@ Realtime Adapter              Offline Adapter
 ## 11. 实施顺序
 
 1. D1-D4 的 B0 property 子集已完成：稳定 target、v20 binding program、per-surface evaluation transaction/snapshot、原子 generation 与三类真实 consumer；未迁移 target 继续使用 rebuild fallback。
-2. D6 ordered strict effect-chain 骨架已完成；当前实现 `3724289844:20` exact Workshop single-pass shadow profile，先取得真实 `Blur Precise -> Shadow` 正门，再扩 copy/swap/compose/history。
+2. D6 ordered strict effect-chain 与 `3724289844:20` exact Workshop single-pass Shadow 已完成，并取得首条真实 `Blur Precise -> Shadow` 正门；该 profile 不升级官方 Shadow/lighting/generic shader，`common_blending` mode 0 仍无官方 oracle。
 3. Provider Core 并行补 dynamic generation、metadata/cancellation；nested/effectful provider 和通用 material consumer 放在 B1/B2 集成层，不能互相形成前置环。
 4. Timeline、SceneScript core、动态 text、cursor/audio/media 与 particle 动态能力按 D10 的真实依赖接入，不作为无前置的同批任务。
-5. Effect 只按共享 primitive 或完整合同严格 profile 扩展，不继续新增 effect-name 近似；Particle 按 target/space -> provider/material -> fixed step/event -> child/collision/rope/audio 顺序推进。
+5. 下一 Effect 切片是 exact stock Opacity `MASK=0`，同批把 `alpha` 接入既有 binding program/per-surface snapshot；覆盖 `2902406982` 四层与 `2938612768` 五层。之后仍只按共享 primitive 或完整合同严格 profile 扩展，不新增 effect-name 近似；Particle 按 target/space -> provider/material -> fixed step/event -> child/collision/rope/audio 顺序推进。
 6. 广度闭合后用固定、扩展和新下载样本矩阵暴露冲突，再用 Windows golden 校准 effect、text、particle 和动态值精度；最后扩 Puppet/3D/Lighting 与离线编码产品层。
 
 每一步都同时需要正向样本和默认关闭/未声明反例。

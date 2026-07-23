@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`b541867`
+> 实现基线：`809b75e`
 
 本文把 45 个官方用户 Effect 逐项映射到 MyWallpaperX 当前执行级别和公共依赖。作者语义、输入槽和 pass/RT 结构见 [Effects 语义全集](effects-reference.md)，Graph/Shader 原子能力见 [Render Graph 与 Shader 覆盖表](render-graph-shader-coverage.md)，依赖 ID 见 [公共能力依赖图](capability-dependency-map.md)。
 
@@ -72,7 +72,7 @@
 | Fire / `fire` | `L1` | `IR-only` | [D2](capability-dependency-map.md#d2) [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | flow/albedo 分离、refract/blend/time variants |
 | Light Shafts / `lightshafts` | `L1` | `IR-only`；particle `light_shafts_6` 不是此 Effect | [D5](capability-dependency-map.md#d5) [D6](capability-dependency-map.md#d6) [D7](capability-dependency-map.md#d7) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | combo-dependent slot layout、direct draw、mask/noise |
 | Nitro / `nitro` | `L1` | `IR-only` | [D2](capability-dependency-map.md#d2) [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | cloud/mask/time/repeat/color/blend |
-| Opacity / `opacity` | `L3` | `inline-profile`：mask alpha；另有严格 Perspective -> Opacity 组合 | [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-INLINE](runtime-evidence-index.md#e-effect-inline) | standalone pass、所有顺序、RGB/alpha/premultiply |
+| Opacity / `opacity` | `L3` | `inline-profile`：mask alpha；另有严格 Perspective -> Opacity 组合 | [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-INLINE](runtime-evidence-index.md#e-effect-inline) | stock 单 pass `MASK=0` strict graph + binding program/per-surface snapshot live alpha；MASK1、Workshop variants、其他顺序及 RGB/alpha/premultiply |
 | Reflection / `reflection` | `L1` | `IR-only` | [D2](capability-dependency-map.md#d2) [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | dynamic reflection UV、mask、direction/speed/ratio/Perspective |
 | Tint / `tint` | `L1` | `IR-only`；base layer tint 不是此 Effect | [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | blend modes、mask、source alpha 和 color-space |
 | VHS / `vhs` | `L1` | `IR-only` | [D2](capability-dependency-map.md#d2) [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | scan/artifact/channel/noise/color variants、texel size |
@@ -104,14 +104,15 @@
 | internal `_empty` / `empty` | `L1` | passthrough 占位；未知 Effect 不得映射到它后宣称成功 |
 | Workshop `gradient_color` | `L3` | 项目样本中的严格单 pass profile；不是官方 Blend Gradient |
 | Workshop layer Bloom approximation | `L3` | 受限 threshold/blur/composite；不是官方 Scene-level Bloom/HDR，也不是 45 个 Effect 专页之一 |
+| Workshop `3488490208/shadow_____________` | `L3` | exact single-pass strict profile；只接受完整 definition/material/ShaderContract fingerprint、`MASK=0`、`BLENDMODE=0`、normal/nocull/depth disabled 与静态常量。不是官方 45 项 Effect、generic Shadow 或 authored shader；mode 0 尚无官方 Windows 像素 oracle |
 
 45 项汇总：`L1=28`、`L2=5`、`L3=12`、`L4=0`。这个统计只反映当前表中最小可声明级别，不是样本命中率、视觉相似度或已知语义比例。
 
-`b541867` 只增加 strict profile 之间的有序、全有或全无调度，没有改变 45 项数量或等级。synthetic 两段链已锁定 stage 顺序、一次 layer alpha、最终 stage 合成和后段失败不泄漏；正式报告 `.codex/scene-effect-chain-gated-final13-20260723/report.json` 中 strict chain count 仍为 0、strict stage count 为 8，因此真实 multi-effect 正向门尚未取得。
+`b541867` 只增加 strict profile 之间的有序、全有或全无调度，没有改变 45 项数量或等级；其阶段报告 `.codex/scene-effect-chain-gated-final13-20260723/report.json` 的 8 stage、0 real chain 是 Shadow 前的历史负门。`809b75e` 新增的 exact Workshop Shadow 也不改变 45 项统计；最新 `.codex/scene-workshop-shadow-final13-20260723-1540/report.json` 为 13/13、10 stage、1 条真实 multi-effect chain、Workshop Shadow 1、GPU failed 0、legacy blocked 2、route-only 34。
 
 ## 9. 开发顺序
 
-1. D6 ordered strict effect-chain 骨架已完成；下一步先补能解锁真实链、且可由完整 graph/material/ShaderContract fingerprint 约束的 backend，不继续扩大 path substring 分支。
-2. 当前首选是 `3724289844` layer `20` 的 exact Workshop single-pass shadow profile，因为它可与已有 precise Blur 组成首个真实正向链；它不是官方 45 项 Shadow 能力，不得写成 generic Shadow 支持。其后按共享 profile family 实现 local UV/mask deformation、single-pass color/alpha、multi-pass blur/glow、history simulation、scene-compose/provider，不按 45 个名称各写一套。
+1. D6 ordered strict effect-chain 骨架与 `3724289844:20` exact Workshop Shadow 正门已完成；后续仍只补可由完整 graph/material/ShaderContract fingerprint 约束的 backend，不扩大 path substring 分支。
+2. 当前首选 stock Opacity：只接受 `effects/opacity/effect.json` 单 pass `MASK=0` strict profile，并让 `alpha` 通过既有 binding program -> per-surface snapshot -> GPU consumer live 消费。MASK1、Workshop variants、未知 combo/hash 和 unsupported 后续 stage 必须 fail closed；premultiplied RGBA、非法或 mixed target rebuild、ordered chain 与 same surface/window 同批验收。Opacity 已因既有 inline 子集为 `L3`，此切片不改变 45 项等级统计。
 3. 每个 Effect 新增执行前必须锁定显式引用、author-off、missing input、slot/combo、local space、alpha/color、resize/switch/stop。
 4. 只有对应行取得 Windows golden，才能从 `L3` 升到 `L4`；封面只能用于方向性参考。

@@ -6,7 +6,7 @@
 >
 > 口径来源：[官方页面目录](official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[资料来源与证据索引](source-index.md)
 > 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，但还不是通用 Particle System；尤其没有 Layer Image、Children/Event、Collision、动态 Control Point、World Space、Rope、Audio Response 和完整 Particle Material。
-> Scene 实现基线：`b541867`；当前正式门：`.codex/scene-effect-chain-gated-final13-20260723/report.json`。全局下一主线为 `3724289844:20` exact Workshop single-pass shadow profile；粒子批次继续复用现有 B0 snapshot，而不是重建第二套动态值路径。
+> Scene 实现基线：`809b75e`；当前正式门：`.codex/scene-workshop-shadow-final13-20260723-1540/report.json`（13/13、4 类 strict backend、10 stage、1 条真实 chain、Workshop Shadow 1、failed 0、blocked 2、route-only 34；相关测试 258 collected / 257 passed / 1 skipped）。全局下一主线为 exact stock Opacity `MASK=0` strict profile + binding program/per-surface snapshot live `alpha`；粒子批次继续复用同一 B0 snapshot，不重建第二套动态值路径。Workshop Shadow 不改变本表任何粒子等级。
 
 本文把官方 Particle 的 General、Emitter、Initializer、Operator、Renderer、Control Point、Children、instance override 与 material 逐项映射到当前实现。它是 [总覆盖台账](coverage-ledger.md) 中 Particle 行的展开表；总表与本文冲突时，以本文更细粒度、更新的代码证据为准。
 

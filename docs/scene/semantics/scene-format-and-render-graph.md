@@ -3,6 +3,8 @@
 > 目的：把 Scene 从文件实例解释为可执行图，而不是按 effect 名称选择近似动画。
 >
 > 证据边界：作者行为以官方文档为准；序列化字段主要来自真实 Workshop 样本和开源解析器交叉验证，不是官方稳定 schema。
+>
+> 实现基线：`809b75e`；当前正式门：`.codex/scene-workshop-shadow-final13-20260723-1540/report.json`（13/13、4 类 strict backend、10 stage、1 条真实 chain、Workshop Shadow 1、failed 0、blocked 2、route-only 34；相关测试 258 collected / 257 passed / 1 skipped）。
 
 ## 1. 文件与资源层级
 
@@ -182,7 +184,7 @@ Motion Blur 等定义含显式 copy，用来复制 source 像素到 target；省
 
 资源注册表应以 `wallpaper + screen + object + effect instance + RT name` 作为身份基础。是否跨帧保留必须由 read-before-write、copy/swap、function/reset 和生命周期数据流判定，不能只看 `unique`。最终判为 persistent 的资源在 resize、壁纸切换、seek、停止和设备丢失时必须清理或重建。
 
-MyWallpaperX v20 继承了 v17 的逐帧 registry、v18 binding program 与 v19 ShaderContract：实例随当前 renderer/screen 隔离，帧内 identity 区分 layer source、完整 named layer target（包含 variant）、user property 与 system key；entry 记录 ready/pending/unavailable，并已把静态 resource generation 与 named frame epoch 分离。resolver 按作者候选顺序选首个 ready provider，下一帧未发布的 named target 不会残留，A/B variant 也不会串用。当前另有一个受限 file-backed property source：授权 PNG/JPEG 可供严格静态 image-blend consumer 使用，并在缺失或失败时回退作者资源；它还不是通用 file source。`73f415b` 已让 precise/standard strict Blur 消费独立于 named registry 的 effect-instance logical target/lifetime table；`228cdde` 让 table 保真映射 `rgba_backbuffer -> .bgra8Unorm` 与 `rgba8888 -> .rgba8Unorm`，synthetic input/output 保持 BGRA；`136d35c` 再让 stock Local Contrast 的两个 scale=4 quarter RGBA RT 进入四阶段 executor；`b541867` 把这些 strict backend 连接成 ordered all-supported chain。pool 会先为整链建立 plan/table、预算和 LRU 候选，再原子提交 cache；GPU 在同一 command buffer 顺序执行，仅把最终 stage 合成到主画面，任一后段失败时不泄漏前段画面。其他 RGBA graph、history、跨帧 persistent、system/media/video/Texture Variants、通用 material consumer 和 copy/swap 生命周期仍未实现。
+MyWallpaperX v20 继承了 v17 的逐帧 registry、v18 binding program 与 v19 ShaderContract：实例随当前 renderer/screen 隔离，帧内 identity 区分 layer source、完整 named layer target（包含 variant）、user property 与 system key；entry 记录 ready/pending/unavailable，并已把静态 resource generation 与 named frame epoch 分离。resolver 按作者候选顺序选首个 ready provider，下一帧未发布的 named target 不会残留，A/B variant 也不会串用。当前另有一个受限 file-backed property source：授权 PNG/JPEG 可供严格静态 image-blend consumer 使用，并在缺失或失败时回退作者资源；它还不是通用 file source。`73f415b` 已让 precise/standard strict Blur 消费独立于 named registry 的 effect-instance logical target/lifetime table；`228cdde` 让 table 保真映射 `rgba_backbuffer -> .bgra8Unorm` 与 `rgba8888 -> .rgba8Unorm`，synthetic input/output 保持 BGRA；`136d35c` 再让 stock Local Contrast 的两个 scale=4 quarter RGBA RT 进入四阶段 executor；`b541867` 把这些 strict backend 连接成 ordered all-supported chain；`809b75e` 又加入 exact Workshop single-pass Shadow backend，使 `3724289844:20` 的 `Blur Precise -> Shadow` 成为首条真实 strict chain。pool 会先为整链建立 plan/table、预算和 LRU 候选，再原子提交 cache；GPU 在同一 command buffer 顺序执行，仅把最终 stage 合成到主画面，任一后段失败时不泄漏前段画面。其他 RGBA graph、history、跨帧 persistent、system/media/video/Texture Variants、通用 material consumer 和 copy/swap 生命周期仍未实现。
 
 ## 7. Material definition
 
@@ -236,6 +238,8 @@ blend、depth 和 cull 属于 material/pass 语义。未知 blend mode 不能无
 `136d35c` 没有改变上述通用结论。它只在 stock Local Contrast strict planner 中核对三份 authored shader contract 的 identity、canonical SHA、stage path、raw SHA 和 source SHA，再调用项目内手写 MSL；Gaussian `scale=(1,1)` 与 combine `strength=1` 的缺省值只在这个 exact profile 内解释。该路径不预处理、翻译或编译 authored source，也不建立通用 uniform binder。
 
 `b541867` 同样没有改变上述 authored shader 边界。它只按作者 effect 顺序组合已由 strict planner 接受的手写 backend，并验证 layer source -> effect output 的输入连续性；每个 Local Contrast stage 从同一 per-surface snapshot 单独取得 strength。这个 scheduler 不读取任意 shader source，也不执行 copy/swap/compose/history/condition/function。
+
+`809b75e` 也只增加一个以完整 definition/material/ShaderContract fingerprint 准入的 exact Workshop Shadow profile，并调用项目内手写 Metal backend。它没有翻译或执行任意 authored shader，没有建立官方 Shadow/lighting 语义，也没有新增 live target；其 `common_blending` mode 0 路径不能充当官方 blend oracle 或 generic `ApplyBlending` 证明。
 
 ### 8.1 关键 built-in uniforms
 
@@ -295,10 +299,10 @@ present or read back
 | 层级 | 当前状态 | 下一合同 |
 |---|---|---|
 | Scene/object IR | format 20 继承 v19 ShaderContract、v18 binding program/effective values、v17 provider metadata 与 v16 authored graph/canonical SHA，并增加 strict Local Contrast strength live-binding contract | 保持 raw/typed 双层合同，不把未知字段静默解释为支持 |
-| dependency | graph 已结构化区分固定 `previous`、effect-scoped RT 和 copy/swap；strict Blur、stock Local Contrast 与 ordered strict effect-chain 已消费 effect target table，并闭合整链 identity/continuity、allocation/cache/LRU 事务、末段合成与 reset；table 已执行 BGRA backbuffer 和 Local Contrast quarter RGBA FBO；bounded frame registry 按另一命名空间处理 named target、property-authored fallback 和受限 PNG/JPEG property source | 下一步补能解锁真实链的 exact backend/graph primitive，并行补显式 dynamic generation、system/media/video/variant/effectful/nested source；copy/swap/compose/history 仍按独立合同接入 |
-| material/shader | sparse-slot candidate resolver、ShaderContract v1、strict 2-pass precise、stock standard Blur 4-pass、stock Local Contrast 4-pass backend 及其 all-supported chain 已落地；运行时整体仍以手写 MSL 近似为主 | 先补 `3724289844` layer `20` 的 exact Workshop single-pass shadow profile 作为真实链门，再补 typed shader defaults、preprocessor/translation/compile、通用 provider consumer、nested target 和更多 pass；不得把该 profile 写成官方 Shadow 或 generic shader 支持 |
+| dependency | graph 已结构化区分固定 `previous`、effect-scoped RT 和 copy/swap；strict Blur、stock Local Contrast、exact Workshop Shadow 与 ordered strict effect-chain 已消费 effect target table，并闭合整链 identity/continuity、allocation/cache/LRU 事务、末段合成与 reset；`3724289844:20` 已形成首条真实 `Blur Precise -> Shadow` chain；bounded frame registry 按另一命名空间处理 named target、property-authored fallback 和受限 PNG/JPEG property source | 下一步以 stock Opacity `MASK=0` 扩 single-pass alpha family；并行补显式 dynamic generation、system/media/video/variant/effectful/nested source，copy/swap/compose/history 仍按独立合同接入 |
+| material/shader | sparse-slot candidate resolver、ShaderContract v1、strict 2-pass precise、stock standard Blur 4-pass、stock Local Contrast 4-pass 与 exact Workshop Shadow single-pass 共 4 类 backend 已落地；运行时整体仍以手写 MSL 近似为主 | stock Opacity 首切只接受 exact `MASK=0`、无 optional mask/额外 slot 的 fingerprint，并复用现有 snapshot；再补 typed shader defaults、preprocessor/translation/compile、通用 provider consumer、nested target 和更多 pass。Workshop Shadow 不代表官方 Shadow/lighting/generic shader，`common_blending` mode 0 也无官方 oracle |
 | local deformation | Foliage/Water/Shake 等有不同程度近似 | 以 [Effects 全集](effects-reference.md) 的输入、空间和 mask 合同替换 |
-| live values | format 20 binding program；per-surface snapshot 与原子 state 已由 layer alpha、solid color 和 exact strict-catalog Local Contrast strength consumer 执行，其他 target 仍重建，Timeline/SceneScript 未接入 | 新 target 同批补 compiler/consumer/fallback/identity 门，再接 Timeline/SceneScript/audio/media |
+| live values | format 20 binding program；per-surface snapshot 与原子 state 已由 layer alpha、solid color 和 exact strict-catalog Local Contrast strength consumer 执行；Workshop Shadow 没有新增 live target，其他 target 仍重建，Timeline/SceneScript 未接入 | 下一切片把 stock Opacity `alpha` 同批接入 compiler target、per-surface snapshot consumer、原子 fallback 与 surface/window identity 门，再接 Timeline/SceneScript/audio/media |
 
 ## 12. 验收要求
 

@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-23
 >
-> Scene 实现基线：`b541867`
+> Scene 实现基线：`809b75e`
 >
-> 视觉运行基线：`.codex/scene-effect-chain-gated-final13-20260723/report.json`
+> 视觉运行基线：`.codex/scene-workshop-shadow-final13-20260723-1540/report.json`
 >
-> 最新运行门：ordered strict effect-chain 正式矩阵 13/13；三个 strict backend 合计 8 个 stage，当前真实 multi-effect strict chain 为 0，unsupported mixed chains 保持整链失败关闭。synthetic 两段链锁定顺序、单次 layer alpha、末段合成和后段失败不泄漏；当前 Scene 全量测试共 251 项、250 项通过、1 项跳过，最新签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：exact Workshop Shadow 正式矩阵 13/13；四个 strict backend 合计 10 个 stage、1 条真实 multi-effect strict chain、Workshop Shadow 1、GPU failed 0、legacy blocked 2、route-only 34。`3724289844:20` 的 `Blur Precise -> Shadow` 已成为真实正门，其他 unsupported mixed chains 仍整链失败关闭；当前 Scene 全量测试共 258 项、257 项通过、1 项跳过，最新签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -232,13 +232,13 @@
 |---|---|---|---|
 | **B0 Contract/Runtime Kernel** | `S3 第 1-4 项` | live-property 子阶段已闭合：v20 binding program、per-surface transaction、atomic state、alpha/solid-color/strict Local Contrast strength consumer 与 rebuild fallback；clock/lifecycle 其余合同继续单列 | 新 live target 必须同时具备 compiler definition/instruction、真实 consumer、原子失败与不换 surface/window 的运行门；pause/fixed-time 等按后续 B0 kernel 切片推进 |
 | **B1 Provider Core** | `S2 第 5 项 + S3` | 双代已完成；继续 identity/status/显式 generation/cancel/fallback、Texture Variants、video/system/media core、material candidate selection | 每种 provider 有 ready/pending/unavailable、metadata、fallback 和 teardown；不含 nested graph source |
-| **B2 Graph Resource Runtime** | `S2 第 1-5 项` | strict Blur、stock Local Contrast 与 ordered strict effect-chain 已消费 target table；cache/resize/reset、整链原子 allocation、D7 ShaderContract IR v1、BGRA/RGBA format 与 exact shader fingerprint gate 已完成；下一步 `3724289844:20` exact Workshop single-pass shadow profile、copy/swap/compose/history、typed shader defaults/built-ins/state | read/write、RT lifecycle、slot/combo/state 和 resize/switch/stop 门 |
+| **B2 Graph Resource Runtime** | `S2 第 1-5 项` | strict Blur、stock Local Contrast、exact Workshop `shadow_____________` 与 ordered strict effect-chain 已消费 target table；cache/resize/reset、整链原子 allocation、D7 ShaderContract IR v1、BGRA/RGBA format 与 exact shader fingerprint gate 已完成；下一步 stock Opacity `MASK=0` strict profile 与 binding program/per-surface snapshot live alpha，再接 copy/swap/compose/history、typed shader defaults/built-ins/state | read/write、RT lifecycle、slot/combo/state 和 resize/switch/stop 门 |
 | **B3 Provider-Graph Integration** | `S2 第 5-6 项` | nested/effectful/scene-background source、通用 material consumer、45 Effect 严格 profile family | B1+B2 均完成后接入；不得新增 effect-name 视觉旁路 |
 | **B4 Feature Breadth** | `S3-S4` | Timeline、SceneScript core、动态 text、cursor/audio/media、按依赖排序的 particle breadth | 每族正向、默认关闭、unsupported、determinism 和 lifecycle 门 |
 | **B5 Fidelity** | `S2-S4` 广度完成后 | 字体、视差、粒子、常用 Effect 与 WE Windows golden 对齐 | 固定输入逐像素/数值阈值、性能预算、长稳和多屏门 |
 | **Advanced** | `S5` | Puppet、2D light/HDR、3D、arbitrary custom shader、RGB、offline bake | 每个系统有完整 IR/runtime/lifecycle/product gate 后再升级 |
 
-研究可以并行，产品执行不能倒置：B0 live-property 底座与 B2 ordered strict effect-chain skeleton 已合龙，下一主线实现 `3724289844:20` exact Workshop single-pass shadow profile，取得首条真实 `Blur Precise -> Shadow` 正门；该样本 ID 只用于测试，产品以完整 definition/material/ShaderContract fingerprint 准入。B1 Provider Core 同时推进，再到 B3 -> B4 -> B5。nested/effectful provider、scene background 和通用 material consumer 必须等 B1/B2 在 B3 汇合；任何新属性只有在 binding compiler 和真实 renderer/runtime consumer 同时注册后才允许 live，否则必须继续整场重建。
+研究可以并行，产品执行不能倒置：B0 live-property 底座、B2 ordered strict effect-chain skeleton 与 exact Workshop `shadow_____________` profile 已合龙，`3724289844:20` 已取得首条真实 `Blur Precise -> Shadow` 正门。该 profile 只按完整 definition/material/ShaderContract fingerprint 准入，不是官方 45 项 Effect、generic Shadow 或 authored shader 执行；其 `BLENDMODE=0` 也没有官方 Windows 像素 oracle。下一主线实现 stock Opacity `MASK=0` strict profile，并让 `alpha` 同批进入既有 binding program、per-surface snapshot 和真实 GPU consumer；unsupported target 继续整场重建。B1 Provider Core 同时推进，再到 B3 -> B4 -> B5。nested/effectful provider、scene background 和通用 material consumer 必须等 B1/B2 在 B3 汇合。
 
 ## 9. 更新规则
 

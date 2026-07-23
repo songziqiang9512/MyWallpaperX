@@ -13,7 +13,7 @@
 - P2（主体可用，仍有明确的次级效果差距）：4 个；
 - P3（仅小幅视觉偏差）：0 个。
 
-首轮评估确认的方向仍成立：优先建设通用 runtime，而不是增加按样本命中的 effect 分支。当前 interpretation v20 已包含 authored graph、typed texture registry/property fallback、ShaderContract、B0 binding program 与 per-surface snapshot；precise Blur、standard Blur、stock Local Contrast 三个 strict backend 及 `b541867` ordered strict effect-chain scheduler 已进入 GPU。授权 PNG/JPEG file-backed `sceneTexture`、统一 Frame Context 第一阶段、受限 dependency/effect/particle executor 和 9 个精确 built-in 粒子纹理也已落地。Timeline、SceneScript、动态文字、system media、Texture Variants、通用/effectful/nested provider、copy/swap/compose/history、其余 effect 和高级粒子仍是主要缺口。下一门是 `3724289844:20` 的 exact Workshop single-pass shadow profile；底层作者/执行合同查 [Scene 语义手册](semantics/README.md)，现有开发顺序和架构约束见 [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md)。
+首轮评估确认的方向仍成立：优先建设通用 runtime，而不是增加按样本命中的 effect 分支。当前实现基线 `809b75e`、interpretation v20 已包含 authored graph、typed texture registry/property fallback、ShaderContract、B0 binding program 与 per-surface snapshot；precise Blur、standard Blur、stock Local Contrast、exact Workshop Shadow 四个 strict backend 及 ordered strict effect-chain scheduler 已进入 GPU，`3724289844:20` 已取得首条真实 `Blur Precise -> Shadow` chain。授权 PNG/JPEG file-backed `sceneTexture`、统一 Frame Context 第一阶段、受限 dependency/effect/particle executor 和 9 个精确 built-in 粒子纹理也已落地。Timeline、SceneScript、动态文字、system media、Texture Variants、通用/effectful/nested provider、copy/swap/compose/history、其余 effect 和高级粒子仍是主要缺口。下一门是 stock Opacity `MASK=0` strict profile + binding program / per-surface snapshot live alpha；底层作者/执行合同查 [Scene 语义手册](semantics/README.md)，现有开发顺序和架构约束见 [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md)。
 
 ## 范围与证据
 
@@ -22,7 +22,7 @@
 - `3766415113` 使用 `gifscene.json` / `gifscene.pkg`，以包含 entry、sequence 和单图 UV 修正的 [gifscene 最终报告](../../.codex/scene-gifscene-sprite-gate-20260722/report.json) 为准。
 - `3738202317` 在 20 样本旧报告中因 `.tex format 6` 显示灰底；该结果已经被 [BC2/DXT3 修复后报告](../../.codex/scene-bc2-format6-final-20260722/report.json) 覆盖，当前为 1/1 纹理加载成功。
 - “作者预期”来自包内 scene 描述、`project.json` 属性和样本自带 preview。preview 不是逐帧金标准，最终仍需在相同分辨率、相同属性默认值下与 Wallpaper Engine 录屏做差异验收。
-- 首轮 21 样本报告保留为修复前视觉基线。v16 结构基线仍见 [canonical graph 报告](../../.codex/scene-effect-graph-canonical-final-20260723/report.json)；当前正式运行门为 `.codex/scene-effect-chain-gated-final13-20260723/report.json`，13/13 PASS、interpretation format 20。三个 strict backend 合计执行 8 个 stage、0 个完整真实 multi-effect strict chain、GPU failed 0，legacy blocked layers 仍为 `20/348/358`；Scene 测试为 251 项中 250 通过、1 跳过。当前签名身份与逐样本计数统一查 [运行证据索引](semantics/runtime-evidence-index.md)；这些门仍不证明 authored shader、完整粒子或 Wallpaper Engine 逐帧一致。
+- 首轮 21 样本报告保留为修复前视觉基线。v16 结构基线仍见 [canonical graph 报告](../../.codex/scene-effect-graph-canonical-final-20260723/report.json)；当前正式运行门为 `.codex/scene-workshop-shadow-final13-20260723-1540/report.json`，13/13 PASS，对应定向门 `.codex/scene-workshop-shadow-targeted-20260723-1536/report.json` 为 1/1 PASS，interpretation format 20。四个 strict backend 合计执行 10 个 stage、1 个完整真实 multi-effect strict chain、Workshop Shadow 1、GPU failed 0、legacy blocked 2、route-only 34；`3724289844` succeeded `[20,28,36]`、failed/blocked `[]`、stages 4、chains 1。Scene 测试为 258 项中 257 通过、1 跳过。签名 CDHash 为 `e4c25d85cb1b878019ec6a7b9e334fd6caaef098`，executable SHA-256 为 `bd02f455de2e5e11cbc365dabee5063afa4c32ab28d959abcd8c8bb77746a8c0`；这些门仍不证明 authored shader、完整粒子或 Wallpaper Engine 逐帧一致。
 
 表中 `I/P/T` 分别表示 image / particle / text 图层声明数量；`prop` 不含每个项目都有的 `schemecolor`。纹理加载率只统计当前 renderer 识别为 image candidate 的图层，不应直接当成视觉完成度。
 
@@ -35,7 +35,7 @@
 | Utility / Composition | typed composition/project/fullscreen；framebuffer 前缀捕获；局部/full-frame geometry；受限纹理池；mask/partial effect fail-closed；290 的 project 410 / composition 530 与 6 个 named provider / 7 个 consumer 已完成 GPU capture/binding；registry 按 identity/status/generation 选择首个 ready 候选；293 的 providers 141/1340、consumers 299/322 与隐藏 image providers 到 layers 239/657/775/875/1509 的静态 blend 已进入 GPU runtime；受限 property file provider 已接入 | system/media/video/Texture Variants、effectful provider、nested/child target、utility mask、动态 blendgradient 与任意 material/shader pass；不能把受限 named-target/static image 子集写成完整 dependency graph |
 | Particle | 包内 texture、sprite sheet、9 个精确 built-in key、continuous/burst schedule、常见 initializer/operator、additive/translucent、Sprite Trail、静态 override、fixed-step/seed/budget 子集；正式门 14/27，`3750813609` 为 7/9 | 21 样本仍有 22 个 built-in texture unavailable；atlas/multi-texture、child runtime、rope/rope trail、world-space、动态 control point/override、collision、音频与属性 operator |
 | Text | 当前以 authored `pointsize * 4` 近似官方 300 DPI point raster，处理 vector padding、包内字体、系统字体别名和确定性 fallback 诊断；`3766387484` 3/3、`3122339805` 80/81、`2134765860` 4/6 candidate | 精确 DPI/scene-unit 校准、SceneScript、真实时钟/日期/媒体值、完整对齐/描边/阴影/effect 语义 |
-| 自动门 | 13 个真实隔离样本，interpretation format 20，签名 App、Metal ready/after 非黑帧；definition/graph/ShaderContract、三个 strict backend、ordered strict chain、B0 property、provider/file override 与粒子合同；251 项 Scene 测试为 250 通过、1 跳过；无 timeout、stop 后 surface=0 | 当前真实 strict chain 仍为 0；5 个 fluid blocker、3 个 legacy blocked layer、35 个 route-only effect 仍保留；不是 21 样本视觉重评，也没有 Windows WE 同配置录屏差异门 |
+| 自动门 | 13 个真实隔离样本，interpretation format 20，签名 App、Metal ready/after 非黑帧；definition/graph/ShaderContract、四个 strict backend、ordered strict chain、B0 property、provider/file override 与粒子合同；258 项 Scene 测试为 257 通过、1 跳过；无 timeout、stop 后 surface=0 | 当前真实 strict chain 为 1；5 个 fluid blocker、2 个 legacy blocked layer、34 个 route-only effect 仍保留；不是 21 样本视觉重评，也没有 Windows WE 同配置录屏差异门 |
 
 ## 横向能力判断
 
@@ -60,8 +60,9 @@
 
 Camera Parallax 的当前负向合同已经补齐：包括 composition 在内，layer 缺失 `parallaxDepth` 或两轴均为零时不产生逐层位移；composition 类型本身不隐含任何视差深度。位移归一化和 delay 曲线仍需 Windows golden 校准。
 
-## 四个重点样本的当前增量状态
+## 五个重点样本的当前增量状态
 
+- `3724289844`：当前 authored graph succeeded `[20,28,36]`、failed/blocked `[]`、stages 4、chains 1；layer `20` 的 exact `Blur Precise -> Shadow` 是首条真实 fully-supported strict chain，layers `28/36` 保持 precise Blur singleton。该 Shadow 只按完整 Workshop definition/material/ShaderContract/render-state/combo/static-parameter 合同准入，属于 exact Workshop `L3 executed-degraded`，不代表官方 45 项 Effect 表的通用 Shadow 或 generic shader。`common_blending` mode 0 无官方像素 oracle，当前没有 WE pixel-equivalence 结论。
 - `2902406982`：当前 image 30/30、text 44/57、particle 1/1；6 个 named provider capture 与 7 个 consumer binding 全部成功，layers `167/177` 的 exact stock Local Contrast 与 layer `530` 的 stock standard Blur 均进入 GPU，particle layer 262 的 `ripple_single` 程序纹理已加载。三角区域已经采到对应内容，旧截图中的无依据白色三角和背景重复叠影不再是当前现象；但 7 个 effect 仍 route-only，字体/文字层、SceneScript、媒体/音频和剩余属性驱动仍不完整。
 - `2938612768`：当前 image 44/44、text 8/24、particle 0/1；wrapped alpha、named providers/consumers 和 static image blend 5 层均成功，中央播放器与静态封面已出现。属性纹理未绑定时仍回退作者资源，PNG/JPEG 手动 override 的通用产品路径已存在，但本报告没有注入选择状态；系统媒体封面/标题/时间仍无 producer。另有 1 个 named-target gap、18 个 route-only effect，waterwaves 近似、blendgradient、音频和 `particle/chromaticdot` 仍未闭环。
 - `3750813609`：当前 image 2/2、text 1/1、particle 7/9；layers `121/200/90/504/511/516/498` 已加载，其中新增 fog/leaves/light shafts/lightning/halo 是确定性程序近似，不是官方纹理。layers `523/530` 因 world-space 保持 fail closed，121/504/511 仍有 child 诊断。layer `358` 的非默认 Blur+Clouds 图继续 blocked；动态时间脚本、Clouds 和完整文字效果未实现，时钟仍是过大的黑色静态 `12:34`。
@@ -97,9 +98,9 @@ Camera Parallax 的当前负向合同已经补齐：包括 composition 在内，
 
 ## 首轮开发与回归顺序及进度
 
-1. P0 通用根因已关闭基础 layer/resource、290/293 命中的受限 dependency 子集，并完成 EffectDefinition/authored graph、三个 strict backend、ordered strict effect-chain、typed registry/property fallback、file-backed `sceneTexture`、统一 Frame Context 第一阶段和首批 built-in 粒子纹理。
+1. P0 通用根因已关闭基础 layer/resource、290/293 命中的受限 dependency 子集，并完成 EffectDefinition/authored graph、四个 strict backend、ordered strict effect-chain、首条真实 chain、typed registry/property fallback、file-backed `sceneTexture`、统一 Frame Context 第一阶段和首批 built-in 粒子纹理。
 2. B0 binding program、per-surface transaction/snapshot 与 layer alpha、纯 solid color、exact Local Contrast strength consumer 已完成，不再列为当前待启动项。
-3. 当前 B2 先实现 `3724289844:20` exact Workshop single-pass shadow profile，取得首条真实 `Blur Precise -> Shadow` 正门；产品按完整 definition/material/ShaderContract fingerprint 准入，不按样本 ID 分派。
+3. `3724289844:20` exact Workshop single-pass Shadow 与首条真实 `Blur Precise -> Shadow` 正门已完成；当前 B2 转向 stock Opacity `MASK=0` strict profile，并把 alpha 接入既有 binding program / per-surface snapshot live 路径，不新建整场重建旁路。
 4. B1 并行补 Provider Core 的 dynamic generation/metadata/cancellation，再扩 Texture Variants、video/system/media、通用 material、effectful/nested/child source；B2 后续接 copy/swap/compose/history。
 5. 静态 text geometry/font 已通过现有门，但动态时间/日期/媒体、Windows 字号/baseline、完整效果与 100 层最终性能门仍留到共享动态链和 B4 fidelity 阶段统一处理。
 

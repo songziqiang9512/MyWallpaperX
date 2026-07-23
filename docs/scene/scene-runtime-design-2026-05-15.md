@@ -1,6 +1,6 @@
 # Scene Runtime 技术设计
 
-> 历史架构快照：正文保留早期 interpretation v7 与 bounded effect 设计，不能作为当前格式或能力状态。现役 interpretation 为 v20，当前实现基线为 `b541867`，最新正式门为 `.codex/scene-effect-chain-gated-final13-20260723/report.json`；下一步 `3724289844:20` exact Workshop single-pass shadow profile 与完整实施顺序以 [`scene-capability-development-plan-2026-07-22.md`](./scene-capability-development-plan-2026-07-22.md) 和 [`../reviews/web-scene-current-state-roadmap-2026-07-19.md`](../reviews/web-scene-current-state-roadmap-2026-07-19.md) 为准。
+> 历史架构快照：正文保留早期 interpretation v7 与 bounded effect 设计，不能作为当前格式或能力状态。现役 interpretation 为 v20，当前实现基线为 `809b75e`，最新正式门为 `.codex/scene-workshop-shadow-final13-20260723-1540/report.json`；exact Workshop Shadow 已取得首条真实 strict chain，但不代表官方 Shadow、generic shader 或 WE 像素等价。下一切片是 stock Opacity `MASK=0` strict profile + binding program / per-surface snapshot live alpha，完整实施顺序以 [`scene-capability-development-plan-2026-07-22.md`](./scene-capability-development-plan-2026-07-22.md) 和 [`../reviews/web-scene-current-state-roadmap-2026-07-19.md`](../reviews/web-scene-current-state-roadmap-2026-07-19.md) 为准。
 
 ## 0. 总线结论
 

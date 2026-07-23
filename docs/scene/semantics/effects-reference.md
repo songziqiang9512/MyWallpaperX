@@ -4,6 +4,8 @@
 >
 > 覆盖：官方 sitemap 中 45 个用户可见 Scene effect 页面，以及 1 个 asset 内部 `_empty` 占位。
 >
+> 实现基线：`809b75e`；当前正式门：`.codex/scene-workshop-shadow-final13-20260723-1540/report.json`（13/13、4 类 strict backend、10 stage、1 条真实 chain、Workshop Shadow 1、failed 0、blocked 2、route-only 34；相关测试 258 collected / 257 passed / 1 skipped）。
+>
 > 用法：先按 effect ID 查作者启用、输入、pass/RT，再决定 parser、renderer 和测试，不按名称直接套一个视觉近似。
 
 ## 1. 阅读约定
@@ -78,7 +80,7 @@ Depth Parallax          -> depth map 驱动的 UV/POM 重采样
 | [Fire](https://docs.wallpaperengine.io/en/scene/effects/effect/fire.html) / `fire` | flow map 决定火焰方向，cloud/albedo 决定形态；refract/blend variants | 1P | flow 和 albedo 是不同资源；没有对象声明不得创建 | A+C |
 | [Light Shafts](https://docs.wallpaperengine.io/en/scene/effects/effect/lightshafts.html) / `lightshafts` | noise、gradient、opacity mask 的槽位依 rendering/direct-draw combo 变化 | 1P | resolver 必须按 combo 构建 slot layout，不能固定绑定表 | A+C |
 | [Nitro](https://docs.wallpaperengine.io/en/scene/effects/effect/nitro.html) / `nitro` | cloud/albedo + optional mask，时间驱动静电/fizzle | 1P | 保留 repeat、颜色、blend 和强度，不降成普通 noise overlay | A+C |
-| [Opacity](https://docs.wallpaperengine.io/en/scene/effects/effect/opacity.html) / `opacity` | 只调整目标区域 alpha；可选 opacity mask | 1P | 保持 RGB/alpha 关系和 effect 顺序，避免后续 blend 暗边 | A+C |
+| [Opacity](https://docs.wallpaperengine.io/en/scene/effects/effect/opacity.html) / `opacity` | 只调整目标区域 alpha；可选 opacity mask | 1P | 保持 RGB/alpha 关系和 effect 顺序，避免后续 blend 暗边；下一 strict slice 仅接受 exact stock `MASK=0`，并把 `alpha` 接入既有 per-surface snapshot | A+C |
 | [Reflection](https://docs.wallpaperengine.io/en/scene/effects/effect/reflection.html) / `reflection` | 动态 reflection UV、mask、方向/速度/比例；可选 Perspective | 1P | 计算局部/透视坐标，不复制整层做倒影 | A+C |
 | [Tint](https://docs.wallpaperengine.io/en/scene/effects/effect/tint.html) / `tint` | 按指定 blend mode 着色，可选 mask | 1P | 不用简单 RGB multiply 代替全部模式；保留 source alpha | A+C |
 | [VHS](https://docs.wallpaperengine.io/en/scene/effects/effect/vhs.html) / `vhs` | time/noise 驱动扫描、artifact、通道错位和旧磁带着色；可选 mask | 1P | 依赖 texel size 和 variant；不能输出静态噪声贴图 | A+C |
@@ -148,4 +150,4 @@ knownDeviation
 
 `supportLevel` 至少区分：`recognized`、`graph-built`、`executed-degraded`、`semantics-verified`，不能把“识别名称”统计成效果已支持。
 
-当前 MyWallpaperX v20 继承 v15 EffectDefinition 与 v16 authored graph/canonical SHA，并加入 provider metadata、property binding program 和 loss-preserving ShaderContract；仍有 5 个 fluid condition/function blocker。严格匹配的 2-pass precise Blur、4-pass stock standard Blur 与 4-pass stock Local Contrast 三个 backend 已进入 GPU。Local Contrast 同时核对 exact graph/material/shader identity、canonical/stage/raw/source hash，合法 strength 从 per-surface snapshot 消费；fingerprint 只用于准入，实际仍执行项目内手写 MSL。`b541867` 又让整条链所有 stage 都严格受支持时按作者顺序执行，并保证整链 allocation 与最终合成原子性。最新 `.codex/scene-effect-chain-gated-final13-20260723/report.json` 为 13/13、strict stage 8、真实 multi-effect strict chain 0；这些子集都只能记为 `executed-degraded`，不能把 authored shader、通用 graph primitive 或其他 graph-built 节点整体升级。下一门是 `3724289844:20` exact Workshop single-pass shadow profile，它不是官方 45 项 Shadow 或 generic shader 支持。
+当前 MyWallpaperX v20 继承 v15 EffectDefinition 与 v16 authored graph/canonical SHA，并加入 provider metadata、property binding program 和 loss-preserving ShaderContract；仍有 5 个 fluid condition/function blocker。严格匹配的 2-pass precise Blur、4-pass stock standard Blur、4-pass stock Local Contrast 与 exact Workshop single-pass Shadow 共 4 类 backend 已进入 GPU。Local Contrast 同时核对 exact graph/material/shader identity、canonical/stage/raw/source hash，合法 strength 从 per-surface snapshot 消费；fingerprint 只用于准入，实际仍执行项目内手写 MSL。`b541867` 让全支持 chain 按作者顺序原子执行，`809b75e` 再让 `3724289844:20` 的 `Blur Precise -> Shadow` 成为首条真实 chain。正式报告为 13/13、10 stage、1 real chain、Workshop Shadow 1、failed 0、blocked 2、route-only 34。这些子集仍只能记为 `executed-degraded`；Workshop Shadow 不是官方 45 项 Shadow、lighting 或 generic shader 支持，也没有新增 live target，`common_blending` mode 0 仍无官方 oracle。下一门是 exact stock Opacity `MASK=0` strict profile 及其 binding program/per-surface snapshot live `alpha`，目标覆盖 `2902406982` 的 `365/372/647/664` 与 `2938612768` 的 `165/454/626/629/924`。

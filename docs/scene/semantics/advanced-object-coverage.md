@@ -4,9 +4,9 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`b541867`
+> 实现基线：`809b75e`
 >
-> 当前正式门：`.codex/scene-effect-chain-gated-final13-20260723/report.json`；全局下一主线为 `3724289844:20` exact Workshop single-pass shadow profile，本表高级对象仍按各自前置单独升级。
+> 当前正式门：`.codex/scene-workshop-shadow-final13-20260723-1540/report.json`（13/13、4 类 strict backend、10 stage、1 条真实 chain、Workshop Shadow 1、failed 0、blocked 2、route-only 34；相关测试 258 collected / 257 passed / 1 skipped）。下一主线为 exact stock Opacity `MASK=0` strict profile + binding program/per-surface snapshot live `alpha`；本表高级对象仍按各自前置单独升级。
 
 本表覆盖基础对象之外容易被笼统描述掩盖的能力：utility composition、sound、Puppet Warp、3D model、lighting/HDR、性能策略、RGB 和离线烘焙。等级口径见 [`coverage-ledger.md`](coverage-ledger.md)，逐页官方归属见 [`official-page-map.md`](official-page-map.md)，16 组导航见 [`official-page-crosswalk.md`](official-page-crosswalk.md)。
 
@@ -92,14 +92,14 @@ Puppet runtime 必须把 authored pose、animations/mixing/rules、constraints/I
 | <a id="op-light-introduction"></a>[Introduction](https://docs.wallpaperengine.io/en/scene/lighting/introduction.html) | `runtime-required` | 2D image material 只有作者启用 `Lighting` 或 `Reflection` 才响应；normal map 提供表面方向，metallic、roughness、reflection map/slider 控制反射。Scene ambient/background 参与结果，官方限制每 scene 最多四个 light。normal-map generator 与 mask painting 是 editor-only。 | `L0`：无 2D lit material/light IR；需 author enable/off、四灯上限、normal/metal/rough/reflection channel、ambient/background、color space 和 pixel fixture。 |
 | <a id="op-light-lights"></a>[Lights](https://docs.wallpaperengine.io/en/scene/lighting/lights.html) | `runtime-required` | Point 用 radius/intensity；Spot 用 height/direction/inner/outer cone；Tube 用可动画 start/end；Directional 无位置、只按方向覆盖全场。Spot 可投影 image/video/带完整 effects 的 layer；投影 source 在 2D Scene 可隐藏。Origin/intensity 可由 Timeline/SceneScript/audio 驱动，light Z/height 有意义，cursor script 只替换 X/Y 应保留 Z。 | `L0`：无 light/provider consumer；需四类 typed light、surface-local coordinates、projected provider/effect graph、live target/audio/cursor、hidden-source 与 author-off 门。 |
 
-2D lighting、3D lighting、official Scene Bloom/HDR 和 Workshop layer Bloom 是四条独立执行链。当前只有 Workshop layer Bloom approximation 为 `L3`（[E-EFFECT-INLINE](runtime-evidence-index.md#e-effect-inline)）；official Scene Bloom target identity 为 `L1`，其 HDR target、tone mapping、Ultra HDR、per-layer HDR brightness、shadow/reflection/volumetric runtime 均为 `L0`。不得用现有 layer Bloom 或 2D compositor 冒充上述官方系统。
+2D lighting、3D lighting、official Scene Bloom/HDR、Workshop layer Bloom 与 exact Workshop image-effect Shadow 是彼此独立的执行链。当前 Workshop layer Bloom approximation 为 `L3`（[E-EFFECT-INLINE](runtime-evidence-index.md#e-effect-inline)），`809b75e` 另执行一个 exact Workshop single-pass Shadow profile；后者不是 light/object shadow map，也没有建立 lighting 或 generic shader。official Scene Bloom target identity 为 `L1`，其 HDR target、tone mapping、Ultra HDR、per-layer HDR brightness、lighting shadow/reflection/volumetric runtime 均为 `L0`。不得用现有 layer Bloom、Workshop Shadow 或 2D compositor 冒充上述官方系统。
 
 ## 6. Shader 与高级 Effect 边界
 
 | 能力 | 等级 | 当前边界 | 权威细表 |
 |---|---|---|---|
 | effect/material/pass IR | `L2` | 字段可保存并建图 | [Graph/Shader 覆盖表](render-graph-shader-coverage.md) |
-| strict known graph executors | `L3` | precise/default Blur、stock Local Contrast 及全支持 ordered strict chain；[E-EFFECT-BLUR](runtime-evidence-index.md#e-effect-blur)、[E-EFFECT-LOCAL-CONTRAST](runtime-evidence-index.md#e-effect-local-contrast)、[E-EFFECT-CHAIN](runtime-evidence-index.md#e-effect-chain) | [Effect 执行表](effect-execution-coverage.md) |
+| strict known graph executors | `L3` | precise/default Blur、stock Local Contrast、exact Workshop Shadow 及全支持 ordered strict chain；首条真实链为 `3724289844:20` 的 `Blur Precise -> Shadow`；[E-EFFECT-BLUR](runtime-evidence-index.md#e-effect-blur)、[E-EFFECT-LOCAL-CONTRAST](runtime-evidence-index.md#e-effect-local-contrast)、[E-EFFECT-CHAIN](runtime-evidence-index.md#e-effect-chain) | [Effect 执行表](effect-execution-coverage.md) |
 | arbitrary authored shader | `L0` | 自有 Metal 近似不等于作者 shader | [Graph/Shader 覆盖表](render-graph-shader-coverage.md) |
 | history/copy/swap generic runtime | `L0` | IR 保留不等于跨帧执行 | [Graph/Shader 覆盖表](render-graph-shader-coverage.md) |
 
@@ -178,7 +178,7 @@ WaifuX 的可借鉴点是实时和 bake 共用核心，不是复制其实现。B
 
 ## 11. 开发顺序
 
-1. B0 live target program 与三类真实 consumer 已完成；当前先实现 `3724289844:20` exact Workshop single-pass shadow profile，并行补 Provider Core。Timeline/SceneScript source IR 和其他 target 继续复用同一 per-surface transaction/snapshot。
+1. B0 live target program 与三类真实 consumer 已完成；`809b75e` 已闭合 `3724289844:20` exact Workshop Shadow，但没有新增 live target，也不升级 lighting。下一切片以 stock Opacity `MASK=0` strict profile 接入第四类 effect-constant consumer `alpha`；Timeline/SceneScript source IR 和其他 target 继续复用同一 per-surface transaction/snapshot。
 2. 随后闭合 2D copy/swap/compose/history、particle 和高命中 effect，使 Scene Lite 先可用。
 3. 再做 Puppet 的 mesh/bone/animation 最小闭环，然后 lighting/HDR；每项必须沿现有 author-enable 和 fail-closed 规则。
 4. 3D、自定义 shader、RGB 和 offline encoder 后置，但基础时钟、target、provider 和 graph 不能封死这些输入。

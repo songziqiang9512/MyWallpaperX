@@ -334,11 +334,12 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             "Strict profiles and scheduler must not promote generic graph/shader primitives",
         )
 
-    def test_current_effect_chain_state_is_linked_across_active_documents(self) -> None:
+    def test_current_workshop_shadow_state_is_linked_across_active_documents(self) -> None:
         implementation_documents = (
             LEDGER_PATH,
             EFFECT_COVERAGE_PATH,
             RENDER_GRAPH_COVERAGE_PATH,
+            DEPENDENCY_MAP_PATH,
             RUNTIME_EVIDENCE_PATH,
             RUNTIME_INPUT_COVERAGE_PATH,
             SCENE_FORMAT_PATH,
@@ -360,12 +361,12 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
 
         for path, text in document_text.items():
             self.assertIn(
-                "`b541867`",
+                "`809b75e`",
                 text,
-                f"Current Scene document is missing the effect-chain baseline: {path}",
+                f"Current Scene document is missing the Workshop Shadow baseline: {path}",
             )
 
-        report_path = ".codex/scene-effect-chain-gated-final13-20260723/report.json"
+        report_path = ".codex/scene-workshop-shadow-final13-20260723-1540/report.json"
         for path in (
             LEDGER_PATH,
             EFFECT_COVERAGE_PATH,
@@ -386,21 +387,34 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             self.assertIn(
                 report_path,
                 document_text[path],
-                f"Current Scene document is missing the final effect-chain report: {path}",
+                f"Current Scene document is missing the final Workshop Shadow report: {path}",
             )
 
         evidence = document_text[RUNTIME_EVIDENCE_PATH]
+        self.assertIn("### E-EFFECT-WORKSHOP-SHADOW:", evidence)
         self.assertIn("### E-EFFECT-CHAIN: ordered strict effect-chain scheduler", evidence)
-        self.assertIn("Scene tests 251 total / 250 pass / 1 skip", evidence)
+        self.assertIn("Scene tests 258 total / 257 pass / 1 skip", evidence)
         self.assertIn(
             "ordered strict effect-chain",
-            DEPENDENCY_MAP_PATH.read_text(encoding="utf-8"),
+            document_text[DEPENDENCY_MAP_PATH],
         )
         for path, text in document_text.items():
             self.assertIn(
-                "exact Workshop single-pass shadow profile",
+                "stock Opacity",
                 text,
-                f"Current Scene document is missing the next strict-chain gate: {path}",
+                f"Current Scene document is missing the next strict-profile gate: {path}",
+            )
+
+        for path in (
+            DEVELOPMENT_PLAN_PATH,
+            RUNTIME_INPUT_COVERAGE_PATH,
+            RENDER_GRAPH_COVERAGE_PATH,
+            RUNTIME_EVIDENCE_PATH,
+        ):
+            self.assertIn(
+                "per-surface snapshot",
+                document_text[path],
+                f"Current Scene route bypasses the live-value snapshot: {path}",
             )
 
         stale_current_routes = (
@@ -409,6 +423,10 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             "先做 B2 generic scheduler",
             "先推进 B2 generic scheduler",
             "下一步 generic effect-chain/read-write scheduler",
+            "下一步实现 `3724289844",
+            "下一主切片是 `3724289844",
+            "当前先实现 `3724289844",
+            "当前目标是取得首条真实 strict chain",
         )
         for path, text in document_text.items():
             for stale_route in stale_current_routes:
