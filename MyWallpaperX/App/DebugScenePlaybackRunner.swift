@@ -9,6 +9,8 @@ import Foundation
 
 @MainActor
 enum DebugScenePlaybackRunner {
+    private static let debugRecordID = "debug-scene-playback"
+
     static var runsIsolatedSceneSample: Bool {
         argumentValue(after: "--mwx-debug-scene-root") != nil
     }
@@ -61,7 +63,8 @@ enum DebugScenePlaybackRunner {
                 interpretationFile: model.interpretationFile,
                 userPropertyTextureURLs: userPropertyTextureURLs,
                 cacheDirectory: cacheDirectory,
-                logURL: previewLogURL
+                logURL: previewLogURL,
+                recordID: debugRecordID
             )
             guard launched else {
                 NSLog("MWX DEBUG SCENE: phase=launch-failed reason=no-surface root=%@", rootURL.path)
@@ -84,6 +87,10 @@ enum DebugScenePlaybackRunner {
             )
             if let evidenceDirectory {
                 scheduleSnapshots(outputDirectory: evidenceDirectory)
+            }
+            let livePropertyOverrides = requestedLivePropertyOverrides
+            if !livePropertyOverrides.isEmpty {
+                scheduleLivePropertyUpdate(livePropertyOverrides)
             }
             scheduleStop(after: requestedDuration)
         } catch {
@@ -138,6 +145,29 @@ enum DebugScenePlaybackRunner {
         }
     }
 
+    private static func scheduleLivePropertyUpdate(
+        _ replacements: [String: SceneUserPropertyValue]
+    ) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            let before = SceneDesktopWallpaperHost.shared.debugSnapshot()
+            let accepted = SceneDesktopWallpaperHost.shared.applyUserPropertyValues(
+                replacements,
+                changedPropertyKeys: Set(replacements.keys),
+                recordID: debugRecordID
+            )
+            let after = SceneDesktopWallpaperHost.shared.debugSnapshot()
+            NSLog(
+                "MWX DEBUG SCENE: phase=live-property-update accepted=%@ surfacesBefore=%d surfacesAfter=%d windowsBefore=%@ windowsAfter=%@ keys=%@",
+                accepted ? "true" : "false",
+                before.surfaceCount,
+                after.surfaceCount,
+                before.windowNumbers.map(String.init).joined(separator: ","),
+                after.windowNumbers.map(String.init).joined(separator: ","),
+                replacements.keys.sorted().joined(separator: ",")
+            )
+        }
+    }
+
     private static var requestedDuration: TimeInterval {
         guard let raw = argumentValue(after: "--mwx-debug-scene-duration"),
               let duration = TimeInterval(raw) else {
@@ -176,7 +206,17 @@ enum DebugScenePlaybackRunner {
     }
 
     private static var requestedPropertyOverrides: [String: SceneUserPropertyValue] {
-        guard let payload = argumentValue(after: "--mwx-debug-scene-properties-json"),
+        requestedPropertyValues(after: "--mwx-debug-scene-properties-json")
+    }
+
+    private static var requestedLivePropertyOverrides: [String: SceneUserPropertyValue] {
+        requestedPropertyValues(after: "--mwx-debug-scene-live-properties-json")
+    }
+
+    private static func requestedPropertyValues(
+        after flag: String
+    ) -> [String: SceneUserPropertyValue] {
+        guard let payload = argumentValue(after: flag),
               let data = payload.data(using: .utf8),
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return [:]

@@ -13,6 +13,9 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPT_DIR))
+DEBUG_RUNNER_SOURCE = (
+    SCRIPT_DIR.parent / "MyWallpaperX/App/DebugScenePlaybackRunner.swift"
+)
 
 import scene_wallpaper_benchmark as benchmark
 
@@ -404,6 +407,11 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         stopped = benchmark.STOPPED_RE.search(
             "MWX DEBUG SCENE: phase=stopped surfacesBefore=1 surfacesAfter=0"
         )
+        live = benchmark.live_property_update_metrics(
+            "MWX DEBUG SCENE: phase=live-property-update accepted=true "
+            "surfacesBefore=1 surfacesAfter=1 windowsBefore=42 windowsAfter=42 "
+            "keys=newproperty11"
+        )
         loaded = benchmark.LOADED_RE.search("loaded: 20 / 24")
         text_loaded = benchmark.TEXT_LOADED_RE.search("text loaded: 10 / 10")
         particle_loaded = benchmark.PARTICLE_LOADED_RE.search("particle loaded: 3 / 4")
@@ -417,6 +425,14 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "/tmp/cache/.mywallpaperx-scene-interpretation.json",
         )
         self.assertEqual(stopped.group("after"), "0")
+        self.assertEqual(live, {
+            "accepted": True,
+            "surfaces_before": 1,
+            "surfaces_after": 1,
+            "windows_before": [42],
+            "windows_after": [42],
+            "keys": ["newproperty11"],
+        })
         self.assertEqual(loaded.group("loaded"), "20")
         self.assertEqual(text_loaded.group("loaded"), "10")
         self.assertEqual(particle_loaded.group("loaded"), "3")
@@ -427,6 +443,54 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(float(camera.group("amount")), 0.08)
         self.assertEqual(float(camera.group("delay")), 0.25)
         self.assertEqual(float(camera.group("influence")), -1.0)
+
+    def test_live_property_arguments_and_strict_identity_gate(self) -> None:
+        command = ["MyWallpaperX"]
+        benchmark.append_property_arguments(
+            command,
+            {"initial": 0.7},
+            {"newproperty11": 0},
+        )
+        self.assertEqual(command, [
+            "MyWallpaperX",
+            "--mwx-debug-scene-properties-json",
+            '{"initial":0.7}',
+            "--mwx-debug-scene-live-properties-json",
+            '{"newproperty11":0}',
+        ])
+        accepted = benchmark.live_property_update_metrics(
+            "phase=live-property-update accepted=true surfacesBefore=1 surfacesAfter=1 "
+            "windowsBefore=42 windowsAfter=42 keys=newproperty11"
+        )
+        replaced = benchmark.live_property_update_metrics(
+            "phase=live-property-update accepted=true surfacesBefore=1 surfacesAfter=1 "
+            "windowsBefore=42 windowsAfter=43 keys=newproperty11"
+        )
+        rejected = benchmark.live_property_update_metrics(
+            "phase=live-property-update accepted=false surfacesBefore=1 surfacesAfter=1 "
+            "windowsBefore=42 windowsAfter=42 keys=newproperty11"
+        )
+        requested = {"newproperty11": 0}
+        self.assertEqual(benchmark.live_property_update_failures(requested, accepted), [])
+        self.assertIn(
+            "live property update replaced Scene windows",
+            benchmark.live_property_update_failures(requested, replaced),
+        )
+        self.assertIn(
+            "live property update rejected",
+            benchmark.live_property_update_failures(requested, rejected),
+        )
+        self.assertIn(
+            "live property update evidence missing",
+            benchmark.live_property_update_failures(requested, None),
+        )
+
+    def test_debug_runner_updates_the_existing_host_record(self) -> None:
+        source = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
+        self.assertIn('private static let debugRecordID = "debug-scene-playback"', source)
+        self.assertIn("--mwx-debug-scene-live-properties-json", source)
+        self.assertIn("recordID: debugRecordID", source)
+        self.assertIn("phase=live-property-update", source)
 
     def test_solid_runtime_fixture_metrics_and_optional_gates(self) -> None:
         preview_log = """Scene preview texture load report

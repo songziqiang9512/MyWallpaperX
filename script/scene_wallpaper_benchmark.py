@@ -34,6 +34,12 @@ INTERPRETATION_RE = re.compile(
     re.MULTILINE,
 )
 STOPPED_RE = re.compile(r"phase=stopped surfacesBefore=(?P<before>\d+) surfacesAfter=(?P<after>\d+)")
+LIVE_PROPERTY_UPDATE_RE = re.compile(
+    r"phase=live-property-update accepted=(?P<accepted>true|false) "
+    r"surfacesBefore=(?P<before>\d+) surfacesAfter=(?P<after>\d+) "
+    r"windowsBefore=(?P<windows_before>[\d,]*) windowsAfter=(?P<windows_after>[\d,]*) "
+    r"keys=(?P<keys>[^\n]*)"
+)
 LOADED_RE = re.compile(r"^loaded: (?P<loaded>\d+) / (?P<total>\d+)$", re.MULTILINE)
 TEXT_LOADED_RE = re.compile(r"^text loaded: (?P<loaded>\d+) / (?P<total>\d+)$", re.MULTILINE)
 TEXT_LAYER_OK_RE = re.compile(r'^text layer (?P<id>\d+) .*: OK ', re.MULTILINE)
@@ -746,6 +752,62 @@ def particle_runtime_failures(
     return failures
 
 
+def append_property_arguments(
+    command: list[str],
+    property_overrides: Any,
+    live_property_overrides: Any,
+) -> None:
+    arguments = [
+        (property_overrides, "--mwx-debug-scene-properties-json"),
+        (live_property_overrides, "--mwx-debug-scene-live-properties-json"),
+    ]
+    for values, flag in arguments:
+        if isinstance(values, dict) and values:
+            command.extend([
+                flag,
+                json.dumps(values, ensure_ascii=False, separators=(",", ":")),
+            ])
+
+
+def live_property_update_metrics(log_text: str) -> dict[str, Any] | None:
+    match = LIVE_PROPERTY_UPDATE_RE.search(log_text)
+    if match is None:
+        return None
+
+    def window_numbers(raw: str) -> list[int]:
+        return [int(value) for value in raw.split(",") if value]
+
+    return {
+        "accepted": match.group("accepted") == "true",
+        "surfaces_before": int(match.group("before")),
+        "surfaces_after": int(match.group("after")),
+        "windows_before": window_numbers(match.group("windows_before")),
+        "windows_after": window_numbers(match.group("windows_after")),
+        "keys": [value for value in match.group("keys").split(",") if value],
+    }
+
+
+def live_property_update_failures(
+    requested: Any,
+    metrics: dict[str, Any] | None,
+) -> list[str]:
+    if not isinstance(requested, dict) or not requested:
+        return []
+    if metrics is None:
+        return ["live property update evidence missing"]
+
+    failures: list[str] = []
+    if not metrics["accepted"]:
+        failures.append("live property update rejected")
+    if metrics["surfaces_before"] != metrics["surfaces_after"]:
+        failures.append("live property update changed Scene surface count")
+    if metrics["windows_before"] != metrics["windows_after"]:
+        failures.append("live property update replaced Scene windows")
+    if metrics["keys"] != sorted(requested):
+        failures.append("live property update key evidence mismatch")
+    return failures
+
+
 def run_sample(
     runtime_binary: Path,
     sample_root: Path,
@@ -788,11 +850,8 @@ def run_sample(
         str(duration),
     ]
     property_overrides = sample.get("property_overrides")
-    if isinstance(property_overrides, dict) and property_overrides:
-        command.extend([
-            "--mwx-debug-scene-properties-json",
-            json.dumps(property_overrides, ensure_ascii=False, separators=(",", ":")),
-        ])
+    live_property_overrides = sample.get("live_property_overrides")
+    append_property_arguments(command, property_overrides, live_property_overrides)
     environment = os.environ.copy()
     environment["HOME"] = str(runtime_home)
     environment["CFFIXED_USER_HOME"] = str(runtime_home)
@@ -823,6 +882,7 @@ def run_sample(
     ready_match = READY_RE.search(log_text)
     interpretation_match = INTERPRETATION_RE.search(log_text)
     stopped_match = STOPPED_RE.search(log_text)
+    live_property_update = live_property_update_metrics(log_text)
     loaded_match = LOADED_RE.search(preview_text)
     loaded = int(loaded_match.group("loaded")) if loaded_match else 0
     total = int(loaded_match.group("total")) if loaded_match else 0
@@ -888,6 +948,10 @@ def run_sample(
         )
     if stopped_match is None or int(stopped_match.group("after")) != 0:
         failures.append("Scene surfaces not released")
+    failures.extend(live_property_update_failures(
+        live_property_overrides,
+        live_property_update,
+    ))
     if "phase=snapshot-failed" in log_text:
         failures.append("window snapshot failed")
     if camera_match is None or camera_match.group("projection") != "cover":
@@ -1081,6 +1145,9 @@ def run_sample(
         "title": sample.get("title"),
         "capabilities": sample.get("capabilities", []),
         "property_overrides": property_overrides if isinstance(property_overrides, dict) else {},
+        "live_property_overrides": (
+            live_property_overrides if isinstance(live_property_overrides, dict) else {}
+        ),
         "passed": not failures,
         "failures": failures,
         "exit_code": exit_code,
@@ -1106,6 +1173,7 @@ def run_sample(
             "image_layers": int(ready_match.group("images")) if ready_match else None,
             "effects": int(ready_match.group("effects")) if ready_match else None,
             "surfaces": int(ready_match.group("surfaces")) if ready_match else None,
+            "live_property_update": live_property_update,
             "loaded_textures": loaded,
             "texture_candidates": total,
             "loaded_ratio": round(loaded_ratio, 4),
