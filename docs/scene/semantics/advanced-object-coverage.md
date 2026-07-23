@@ -4,7 +4,9 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`36bfef0`
+> 实现基线：`b541867`
+>
+> 当前正式门：`.codex/scene-effect-chain-gated-final13-20260723/report.json`；全局下一主线为 `3724289844:20` exact Workshop single-pass shadow profile，本表高级对象仍按各自前置单独升级。
 
 本表覆盖基础对象之外容易被笼统描述掩盖的能力：utility composition、sound、Puppet Warp、3D model、lighting/HDR、性能策略、RGB 和离线烘焙。等级口径见 [`coverage-ledger.md`](coverage-ledger.md)，逐页官方归属见 [`official-page-map.md`](official-page-map.md)，16 组导航见 [`official-page-crosswalk.md`](official-page-crosswalk.md)。
 
@@ -17,7 +19,7 @@
 | TEX common decode | `L3` | [`SceneTextureLoader.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneTextureLoader.swift)、[E-INGEST](runtime-evidence-index.md#e-ingest) | 全容器/format/mip/color-space 边界 |
 | resource identity and missing diagnostics | `L3` | [`SceneResourceReferenceIndex.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneResourceReferenceIndex.swift)、[E-INGEST](runtime-evidence-index.md#e-ingest) | 统一 VFS、alias/case 规则与依赖版本 |
 | image layer | `L3` | Metal compositor、180/181 固定矩阵结构计数、[E-BASE](runtime-evidence-index.md#e-base) | 通用 material/effect/provider 和 WE pixel golden |
-| solid layer | `L3` | typed solid、1x1 white texture、author color、[E-BASE](runtime-evidence-index.md#e-base) | 动态 color/HDR/light |
+| solid layer | `L3` | typed solid、1x1 white texture、author color；纯 solid color 已由 B0 snapshot live 消费；[E-BASE](runtime-evidence-index.md#e-base)、[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | non-solid/mixed color、HDR/light |
 | text layer | `L3` | CoreText 静态纹理、79/108 结构门、[E-TEXT](runtime-evidence-index.md#e-text) | 动态值与 Windows typography |
 | particle layer | `L3` | 14/27 可见层进入受限 runtime、[E-PARTICLE](runtime-evidence-index.md#e-particle) | 逐组件状态见 [粒子表](particle-component-coverage.md) |
 | container/parent hierarchy | `L3` | source order、parent transform/visibility/parallax propagation、[E-BASE](runtime-evidence-index.md#e-base) | composition、动态 reparent、复杂 component |
@@ -35,7 +37,7 @@
 | source order | `L3` | render order 固定为 scene object 顺序；[E-BASE](runtime-evidence-index.md#e-base) | dynamic topology 与 official golden |
 | parent transform | `L3` | origin/size/scale/angles 合成；[E-BASE](runtime-evidence-index.md#e-base) | 3D、shear、动态 target 和数值 golden |
 | effective visibility | `L3` | parent/child/effect/particle gating；[E-BASE](runtime-evidence-index.md#e-base) | live topology invalidation |
-| layer alpha/color/blend mode | `L3` | 静态 descriptor/compositor 子集；[E-BASE](runtime-evidence-index.md#e-base) | live target、完整 blend/premultiply/color space |
+| layer alpha/color/blend mode | `L3` | 静态 descriptor/compositor 子集；layer alpha 与纯 solid color 已由 B0 per-surface snapshot live 消费；[E-BASE](runtime-evidence-index.md#e-base)、[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | visibility/topology、non-solid/mixed color、完整 blend/premultiply/color space |
 | dependency layer IDs | `L2` | 可保留并进入 dependency plan | 通用 nested/effectful/child provider |
 | typed composition/project/fullscreen layer | `L3` | 有限 current-frame prefix capture 与 geometry；[E-UTILITY](runtime-evidence-index.md#e-utility) | 完整子场景边界、嵌套和 target ordering |
 | current-frame capture | `L3` | bounded provider、clipping、GPU completion；[E-UTILITY](runtime-evidence-index.md#e-utility) | 通用 capture mask/format/extent |
@@ -97,7 +99,7 @@ Puppet runtime 必须把 authored pose、animations/mixing/rules、constraints/I
 | 能力 | 等级 | 当前边界 | 权威细表 |
 |---|---|---|---|
 | effect/material/pass IR | `L2` | 字段可保存并建图 | [Graph/Shader 覆盖表](render-graph-shader-coverage.md) |
-| strict known graph executors | `L3` | precise/default Blur 等受限子图；[E-EFFECT-BLUR](runtime-evidence-index.md#e-effect-blur) | [Effect 执行表](effect-execution-coverage.md) |
+| strict known graph executors | `L3` | precise/default Blur、stock Local Contrast 及全支持 ordered strict chain；[E-EFFECT-BLUR](runtime-evidence-index.md#e-effect-blur)、[E-EFFECT-LOCAL-CONTRAST](runtime-evidence-index.md#e-effect-local-contrast)、[E-EFFECT-CHAIN](runtime-evidence-index.md#e-effect-chain) | [Effect 执行表](effect-execution-coverage.md) |
 | arbitrary authored shader | `L0` | 自有 Metal 近似不等于作者 shader | [Graph/Shader 覆盖表](render-graph-shader-coverage.md) |
 | history/copy/swap generic runtime | `L0` | IR 保留不等于跨帧执行 | [Graph/Shader 覆盖表](render-graph-shader-coverage.md) |
 
@@ -162,7 +164,7 @@ RGB 不阻塞 Scene Lite；在 macOS 没有明确设备 adapter、授权和产�
 | sequence/video encoder | `L0` | 无产品输出 | PNG sequence 后再接编码/取消/进度 |
 | realtime-offline equivalence gate | `L0` | 无同输入 pixel comparison | 固定 sample/property/time/seed 阈值 |
 
-WaifuX 的可借鉴点是实时和 bake 共用核心，不是复制其实现。离线能力要等 live-value、provider 和 fixed-time 合同成立后进入产品层。
+WaifuX 的可借鉴点是实时和 bake 共用核心，不是复制其实现。B0 live-value 的 alpha/solid color/Local Contrast strength 子集已成立；离线能力仍要等 Provider Core、fixed-time、deterministic input replay 与其余 producer/consumer 合同成立后进入产品层。
 
 ## 10. 高级系统公共前置
 
@@ -176,8 +178,8 @@ WaifuX 的可借鉴点是实时和 bake 共用核心，不是复制其实现。�
 
 ## 11. 开发顺序
 
-1. 先完成 live target program、Timeline/SceneScript source IR 和通用 provider；它们同时服务 2D、Puppet、3D 和离线。
-2. 继续闭合 2D main composition、particle 和高命中 effect，使 Scene Lite 先可用。
+1. B0 live target program 与三类真实 consumer 已完成；当前先实现 `3724289844:20` exact Workshop single-pass shadow profile，并行补 Provider Core。Timeline/SceneScript source IR 和其他 target 继续复用同一 per-surface transaction/snapshot。
+2. 随后闭合 2D copy/swap/compose/history、particle 和高命中 effect，使 Scene Lite 先可用。
 3. 再做 Puppet 的 mesh/bone/animation 最小闭环，然后 lighting/HDR；每项必须沿现有 author-enable 和 fail-closed 规则。
 4. 3D、自定义 shader、RGB 和 offline encoder 后置，但基础时钟、target、provider 和 graph 不能封死这些输入。
 5. 每个系统从 `L0` 升级时同时增加结构、执行、author-off、失败、teardown 和性能门，不能只新增 parser 字段。

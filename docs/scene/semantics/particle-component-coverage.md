@@ -6,6 +6,7 @@
 >
 > 口径来源：[官方页面目录](official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[资料来源与证据索引](source-index.md)
 > 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，但还不是通用 Particle System；尤其没有 Layer Image、Children/Event、Collision、动态 Control Point、World Space、Rope、Audio Response 和完整 Particle Material。
+> Scene 实现基线：`b541867`；当前正式门：`.codex/scene-effect-chain-gated-final13-20260723/report.json`。全局下一主线为 `3724289844:20` exact Workshop single-pass shadow profile；粒子批次继续复用现有 B0 snapshot，而不是重建第二套动态值路径。
 
 本文把官方 Particle 的 General、Emitter、Initializer、Operator、Renderer、Control Point、Children、instance override 与 material 逐项映射到当前实现。它是 [总覆盖台账](coverage-ledger.md) 中 Particle 行的展开表；总表与本文冲突时，以本文更细粒度、更新的代码证据为准。
 
@@ -292,5 +293,5 @@
 - 本台账共覆盖 `171` 个粒子能力项：General 18、Emitter 17、Initializer 18、Operator 29、Renderer 14、Control Point 12、Children 12、Instance Override 16、Material 22、执行/生命周期 13。
 - 等级分布为 `L0 30 / L1 57 / L2 23 / L3 61 / L4 0`。`L3` 主要集中在 Sphere/Box、常见随机 initializer、基础 movement/change/oscillation、Sprite/Sprite Trail、已测试的静态 override、首纹理和两种 blend。
 - 当前正式矩阵的“可见粒子 14/27”与 `3750813609` 的“7/9”只是样本运行门，不是上述 171 项的兼容率；world-space fail-closed 也不能计为可播放。
-- 开发批次应优先消除公共断点：先完成动态 typed value/Control Point 与 author allow gates，再补 Layer Image、Children/Event、Collision 和 Rope，最后扩展 audio/material/lighting。逐样本 hardcode、把 unsupported 静默回退成 Sprite/translucent、或把程序纹理称为官方资产，都不允许升级等级。
+- 开发批次应优先消除公共断点：复用现有 per-surface typed snapshot 接入动态 Control Point 与 author allow gates，再补 Layer Image、Children/Event、Collision 和 Rope，最后扩展 audio/material/lighting。逐样本 hardcode、把 unsupported 静默回退成 Sprite/translucent、或把程序纹理称为官方资产，都不允许升级等级。
 - 任一条目升级时，必须同时更新本表的等级、边界、证据路径和下一验收门；只有跑过对应正向、负向、生命周期测试后才能从 `L2` 升到 `L3`。

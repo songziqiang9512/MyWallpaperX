@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`136d35c`
+> 实现基线：`b541867`
 
 本文把 45 个官方用户 Effect 逐项映射到 MyWallpaperX 当前执行级别和公共依赖。作者语义、输入槽和 pass/RT 结构见 [Effects 语义全集](effects-reference.md)，Graph/Shader 原子能力见 [Render Graph 与 Shader 覆盖表](render-graph-shader-coverage.md)，依赖 ID 见 [公共能力依赖图](capability-dependency-map.md)。
 
@@ -20,7 +20,7 @@
 | `L3` | 表中明确限定的 profile 有真实 GPU 执行、正反测试和运行证据；仍非 WE parity |
 | `L4` | 作者启用、输入、顺序、生命周期和视觉均经合法 Windows WE golden 验证 |
 
-执行通道：`IR-only` 只保留数据；`graph-only` 只建图或 route；`inline-profile` 是项目自写的有界 Metal 近似；`strict-graph-profile` 先匹配完整 graph/material 形状再执行固定 backend；`provider-profile` 是受限跨层纹理 consumer。当前没有 generic authored shader executor，也没有任何 `L4` Effect。
+执行通道：`IR-only` 只保留数据；`graph-only` 只建图或 route；`inline-profile` 是项目自写的有界 Metal 近似；`strict-graph-profile` 先匹配完整 graph/material 形状再执行固定 backend，且可在整链所有 stage 均严格准入时参与 ordered strict effect-chain；`provider-profile` 是受限跨层纹理 consumer。任一 stage 不受支持时整链失败关闭。当前没有 generic authored shader executor，也没有任何 `L4` Effect。
 
 ## 2. Animation
 
@@ -94,7 +94,7 @@
 |---|---|---|---|---|---|
 | Edge Detection / `edgedetection` | `L1` | `IR-only` | [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | Sobel texel size、threshold/color/blend、mask if authored |
 | God Rays / `godrays` | `L2` | `graph-only`：多 pass route，无 visual executor | [D5](capability-dependency-map.md#d5) [D6](capability-dependency-map.md#d6) [D7](capability-dependency-map.md#d7) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | 5 pass、half RT、full-frame alias、COPYBG/mask/noise |
-| Local Contrast / `localcontrast` | `L3` | `strict-graph-profile`：只执行 stock 单 effect、KERNEL0/GREYSCALE0/MASK0、Gaussian `scale=(1,1)` 的 4-pass/2-quarter-RGBA 图；exact graph/material/shader fingerprint 失败即关闭 | [D5](capability-dependency-map.md#d5) [D6](capability-dependency-map.md#d6) [D7](capability-dependency-map.md#d7) | [E-EFFECT-LOCAL-CONTRAST](runtime-evidence-index.md#e-effect-local-contrast) | mask/greyscale、非默认 kernel/Gaussian scale、mixed chain、generic shader 与 Windows golden |
+| Local Contrast / `localcontrast` | `L3` | `strict-graph-profile`：每个 stage 只接受 stock KERNEL0/GREYSCALE0/MASK0、Gaussian `scale=(1,1)` 的 4-pass/2-quarter-RGBA 图；exact graph/material/shader fingerprint 失败即关闭，可参与整链全部支持的 ordered strict chain | [D5](capability-dependency-map.md#d5) [D6](capability-dependency-map.md#d6) [D7](capability-dependency-map.md#d7) | [E-EFFECT-LOCAL-CONTRAST](runtime-evidence-index.md#e-effect-local-contrast) [E-EFFECT-CHAIN](runtime-evidence-index.md#e-effect-chain) | mask/greyscale、非默认 kernel/Gaussian scale、包含 unsupported stage 的 mixed chain、generic shader 与 Windows golden |
 | Shine / `shine` | `L2` | `graph-only`：多 pass identity，无 visual executor | [D2](capability-dependency-map.md#d2) [D5](capability-dependency-map.md#d5) [D6](capability-dependency-map.md#d6) [D7](capability-dependency-map.md#d7) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | 5 pass、half RT、threshold/noise/kernel/edge/COPYBG |
 
 ## 8. 非 45 项边界与汇总
@@ -107,9 +107,11 @@
 
 45 项汇总：`L1=28`、`L2=5`、`L3=12`、`L4=0`。这个统计只反映当前表中最小可声明级别，不是样本命中率、视觉相似度或已知语义比例。
 
+`b541867` 只增加 strict profile 之间的有序、全有或全无调度，没有改变 45 项数量或等级。synthetic 两段链已锁定 stage 顺序、一次 layer alpha、最终 stage 合成和后段失败不泄漏；正式报告 `.codex/scene-effect-chain-gated-final13-20260723/report.json` 中 strict chain count 仍为 0、strict stage count 为 8，因此真实 multi-effect 正向门尚未取得。
+
 ## 9. 开发顺序
 
-1. 先补 D3-D8 公共底座，不继续扩大 path substring 分支。
-2. 第一批按共享 profile family 实现：local UV/mask deformation、single-pass color/alpha、multi-pass blur/glow、history simulation、scene-compose/provider；不按 45 个名称各写一套。
+1. D6 ordered strict effect-chain 骨架已完成；下一步先补能解锁真实链、且可由完整 graph/material/ShaderContract fingerprint 约束的 backend，不继续扩大 path substring 分支。
+2. 当前首选是 `3724289844` layer `20` 的 exact Workshop single-pass shadow profile，因为它可与已有 precise Blur 组成首个真实正向链；它不是官方 45 项 Shadow 能力，不得写成 generic Shadow 支持。其后按共享 profile family 实现 local UV/mask deformation、single-pass color/alpha、multi-pass blur/glow、history simulation、scene-compose/provider，不按 45 个名称各写一套。
 3. 每个 Effect 新增执行前必须锁定显式引用、author-off、missing input、slot/combo、local space、alpha/color、resize/switch/stop。
 4. 只有对应行取得 Windows golden，才能从 `L3` 升到 `L4`；封面只能用于方向性参考。

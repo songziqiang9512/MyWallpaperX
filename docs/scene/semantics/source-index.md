@@ -1,6 +1,6 @@
 # Scene 资料来源与证据索引
 
-> 核验日期：2026-07-22
+> 核验日期：2026-07-23
 >
 > 网络核验使用系统代理 `http://127.0.0.1:7897`。
 >
@@ -190,7 +190,8 @@ https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/<Name>.htm
 - [21 个用户样本评估](../scene-sample-assessment-2026-07-22.md)
 - [Scene 开发计划](../scene-capability-development-plan-2026-07-22.md)
 - v16 结构基线：`.codex/scene-effect-graph-canonical-final-20260723/report.json`（canonical graph 身份，不等于 GPU 执行）
-- 最新正式 13 样本运行门：`.codex/scene-user-texture-final13-r2-20260723/report.json`（format 17、13/13；strict Blur graph 成功 6 层、失败 0、legacy blur blocked 3 层；`2938612768` image blend 5/5；签名 App `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `0256234220b2b02ba1aaf551ef27eb4d75bb95cc`、可执行文件 SHA-256 `4c294ff88338c64f0862a7b719134e39a51dbc05fe28362c5bc6819ab697475c`）
+- 最新正式 13 样本运行门：`.codex/scene-effect-chain-gated-final13-20260723/report.json`（实现基线 `b541867`、format 20、13/13；三个 strict backend 合计 8 个 stage、真实 multi-effect strict chain 0、GPU failed 0、legacy blocked 3 层；签名 App `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `61fc420b6dc3c014d1e18f2cdf16fef1d127d5ec`、可执行文件 SHA-256 `629ae6daf23a6e62f2d9502042dc94b69a54419749e801b26c4743651bc12758`）。下一门为 `3724289844:20` exact Workshop single-pass shadow profile；完整测试数与边界见 [运行证据索引](runtime-evidence-index.md)。
+- `.codex/scene-user-texture-final13-r2-20260723/report.json` 降为 format 17 file-property 阶段证据，不能反向覆盖上述当前矩阵或 App 身份。
 - file-backed property 定向门：`.codex/scene-user-texture-293-20260723-r1/`（隔离 `2938612768` 向 `newproperty25/26` 注入 200×200 PNG；两张纹理加载、image 44/44、static image blend 5/5，截图变化证明进入 renderer；不证明 system media、动态 current/previous thumbnail 或 WE 像素 parity）
 - provider fallback 定向门：`.codex/scene-texture-fallback-293-v3-20260723/report.json`（空 `scenetexture` 时 layers 775/875 回退作者 890/1174；775 只使用 authored-initial alpha）与 `.codex/scene-texture-fallback-290-20260723/report.json`（290 既有 graph/dependency 无回归）
 - standard Blur 正向门：`.codex/scene-standard-blur-alpha-290-20260723/report.json`（`2902406982` layer 530 GPU succeeded，utility capture layers 410/530）

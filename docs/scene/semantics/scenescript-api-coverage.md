@@ -10,7 +10,7 @@
 
 SceneScript 当前仍是 **L0 runtime**。项目只能发现独立 `.js` 文件和 inline `script` 的存在；inline 内容进入 `SceneDocument` 时被压缩为 `hasInlineScript: Bool`，粒子动态 wrapper 也只保留 `hasScript: Bool`。目前没有可执行源码 IR、property-script 绑定 IR、ECMAScript VM、host object bridge、事件队列、timer scheduler 或脚本输出消费者。
 
-`SceneDynamicSnapshot` 已预留 `.sceneScript` 优先级和 `scriptInstanceProperty` target，但宿主每帧仍把同一份空 snapshot 放入所有 surface，测试也只是直接注入 Swift 值验证优先级；这不是 SceneScript 执行证据。真实 VM 前必须拆成 host-shared inputs 与 per-surface evaluation/final snapshot，因为 screen resolution、pointer、resize 和脚本实例均按 surface 隔离。粗粒度总表中的 “Script presence L1” 只表示发现能力，本表对每一项 **API 行为** 均给单值 `L0`。
+`SceneDynamicSnapshot` 已预留 `.sceneScript` 优先级和 `scriptInstanceProperty` target；v20 也已把 host-shared inputs、per-surface evaluation/final snapshot、binding program、transaction 与 generation 用在 layer alpha、纯 solid color 和 exact Local Contrast strength。`b541867` ordered strict chain 会消费同一 surface snapshot，但仍没有 SceneScript source IR、producer、VM、API bridge、instance state 或输出 consumer，因此这不是 SceneScript 执行证据。粗粒度总表中的 “Script presence L1” 只表示发现能力，本表对每一项 **API 行为** 均给单值 `L0`；当前正式基线见 `.codex/scene-effect-chain-gated-final13-20260723/report.json`，下一 graph 切片是 `3724289844:20` exact Workshop single-pass shadow profile，并不改变本页 `L0` 结论。
 
 等级沿用总覆盖台账：
 
@@ -29,8 +29,8 @@ SceneScript 当前仍是 **L0 runtime**。项目只能发现独立 `.js` 文件�
 | `P` | [`SceneResourceIndex.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneResourceIndex.swift)、[`SceneCapabilityProfile.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneCapabilityProfile.swift) | `.js` 分类和 package-level presence | 源码读取、模块加载、执行 |
 | `I` | [`SceneDocument.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDocument.swift)、[`SceneRenderDescriptor.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneRenderDescriptor.swift) | 递归发现 inline `script`，只传递布尔值 | 源码、绑定 property、导出事件、返回类型 |
 | `W` | [`SceneParticleDefinitionParser.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneParticleDefinitionParser.swift)、[`test_scene_particle_definitions.py`](../../../script/tests/test_scene_particle_definitions.py) | 动态 wrapper 的 `hasScript` presence 可诊断 | wrapper script 的源码或求值 |
-| `D` | [`SceneDynamicSnapshot.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDynamicSnapshot.swift)、[`test_scene_dynamic_snapshot.py`](../../../script/tests/test_scene_dynamic_snapshot.py) | typed target、固定优先级和手工注入的 `.sceneScript` 值 | JavaScript、binding compiler、API bridge |
-| `F` | [`SceneFrameContext.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneFrameContext.swift)、[`SceneDesktopWallpaperHost.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDesktopWallpaperHost.swift)、[`test_scene_frame_context.py`](../../../script/tests/test_scene_frame_context.py) | 同帧时间和共享空 dynamic snapshot 脚手架 | host/surface scope、脚本实例、事件、Date/timer、输出提交 |
+| `D` | [`SceneDynamicSnapshot.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDynamicSnapshot.swift)、[`test_scene_dynamic_snapshot.py`](../../../script/tests/test_scene_dynamic_snapshot.py) | typed target、固定优先级和手工注入的 `.sceneScript` 值 | JavaScript、SceneScript source/property binding compiler、API bridge |
+| `F` | [`SceneFrameContext.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneFrameContext.swift)、[`SceneDesktopWallpaperHost.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDesktopWallpaperHost.swift)、[`test_scene_frame_context.py`](../../../script/tests/test_scene_frame_context.py) | 同帧时间、host-shared inputs 与 per-surface evaluation/snapshot 基础设施 | SceneScript producer、脚本实例、事件、Date/timer、输出提交 |
 | `N` | 全仓 `SceneScript`/VM/API 搜索及现有 Scene 测试 | 没有 VM、handle bridge 或任一官方 API 执行测试 | 不能把其他 Swift renderer 的同名能力算成脚本 API |
 
 ## 2. Property-bound 核心合同
@@ -43,7 +43,7 @@ SceneScript 当前仍是 **L0 runtime**。项目只能发现独立 `.js` 文件�
 | source/module loader | 加载 inline 或 `.js` 源码及其 export/import | `L0` | `P/I` 不保存可执行 source IR | 保真源码、规范化路径、UTF-8/大小限制、模块依赖图、循环/缺失/越界负向门 |
 | ECMAScript VM | 受控 ECMAScript 环境，无 DOM/Web/Node/shell/任意文件系统 | `L0` | `N` | 选定 VM；严格 global allowlist；网络/文件/进程逃逸测试 |
 | budget/error boundary | 每实例/每帧时间、指令、内存和 timer 有界；脚本错误不终止 renderer | `L0` | `N` | 超时、死循环、递归、OOM、异常、日志节流、单实例熔断和下一帧恢复门 |
-| instance ownership | 每屏/每 scene 的实例隔离；switch/stop 必须销毁 | `L0` | `F` 只有每帧共享空 snapshot | 双屏 frame/time 相同但 pointer/size/result/generation 隔离；pause/resume、switch、stop 后无 timer/handle/provider residue |
+| instance ownership | 每屏/每 scene 的实例隔离；switch/stop 必须销毁 | `L0` | `F` 已有 per-surface transaction/snapshot，但没有任何脚本实例 | 双屏 frame/time 相同但 pointer/size/result/generation 隔离；pause/resume、switch、stop 后无 timer/handle/provider residue |
 
 ## 3. 生命周期与事件
 

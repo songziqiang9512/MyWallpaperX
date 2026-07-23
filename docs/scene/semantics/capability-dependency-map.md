@@ -108,7 +108,7 @@ B0 live-property 合龙由 `00c5e9c` 到 `dbf2c82` 的主链、`95e0d58` 的 sol
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| ordered nodes、target/bind/compose/copy/swap | IR `L2`；material-only target lifetime plan 已落地，strict Blur 与 stock Local Contrast 已消费 table | generic scheduler、hazard validation、command execution |
+| ordered nodes、target/bind/compose/copy/swap | IR `L2`；ordered strict material-only chain 已按作者顺序消费 target table，同 command buffer、整链 allocation/LRU 与末段合成原子性有直接门 | copy/swap/compose/history/condition/function、通用 hazard 与 command execution |
 | extent/format/clear/UV/unique | strict Blur 的 input/BGRA 与 stock Local Contrast 的 scale=4/RGBA target 子集为 `L3`；generic table 的其他形态仍为 `L2` | 其余 format-to-Metal、mapped size、sampler、load/store 和跨帧 reset |
 | history/ping-pong | `L0` | first frame、resize、seek、switch、stop 和 memory budget |
 
@@ -135,7 +135,7 @@ B0 live-property 合龙由 `00c5e9c` 到 `dbf2c82` 的主链、`95e0d58` 的 sol
 <a id="d9"></a>
 ### D9 Generic 2D execution layer
 
-这一层只消费 `D0-D8` 的统一合同：base layer compositor、generic material/pass executor、effect profile registry、particle geometry/material、text texture generation。若某项需要在 renderer 内重新解析 JSON、猜 effect 名称、重新决定属性优先级或自行保存 history，说明底座仍有缺口，应回到对应 D 层修复。
+这一层只消费 `D0-D8` 的统一合同：base layer compositor、generic material/pass executor、effect profile registry、particle geometry/material、text texture generation。`b541867` 已完成有界的 ordered strict effect-chain 子集：只连接 catalog 中每个 stage 都有严格 backend 的链，不能替代 generic material/pass executor。若某项需要在 renderer 内重新解析 JSON、猜 effect 名称、重新决定属性优先级或自行保存 history，说明底座仍有缺口，应回到对应 D 层修复。
 
 <a id="d10"></a>
 ### D10 System runtimes
@@ -181,7 +181,7 @@ F0 完成后才开始下一轮代码。F1/F2 优先级由公共依赖决定，�
 
 ## 6. 下次会话的决策顺序
 
-1. B0 live-property、B2 strict Blur target-table 子集、D7 ShaderContract IR v1、`rgba8888` format 与 stock Local Contrast 严格默认单效果 profile 已合龙；`2902406982` layers `167/177` 为正向门，`2938612768` mixed-effect instances 为 fail-closed 负向门。当前从 B2 generic scheduler 的 effect-chain/read-write 执行骨架开始，再与 B1 Provider Core 的显式 dynamic generation/metadata/cancellation 并行推进；ShaderContract 的 preprocessor/translation/compile/executor 仍按 D7 后续门推进。
+1. B0 live-property、B2 target-table、D7 ShaderContract IR v1、`rgba8888` format、三个 strict backend 与 ordered strict effect-chain scheduler 已合龙；synthetic 两段链为正向 GPU 门，`3724289844` layer `20` 与 `2938612768` mixed-effect instances 为整链 fail-closed 负向门。当前先实现 `3724289844:20` exact Workshop single-pass shadow profile，把现有 precise Blur 后段输入推进变成真实正门；产品准入只使用完整 definition/material/ShaderContract fingerprint，不使用样本 ID，也不宣称官方 Shadow/generic shader。B1 Provider Core 的显式 dynamic generation/metadata/cancellation 并行推进；copy/swap/compose/history 和 ShaderContract preprocessor/translation/compile/executor 仍按 D6/D7 后续门推进。
 2. 打开对应专项表，确认作者启用、输入、当前等级、未知项、依赖和验收门。
 3. 查 [运行证据索引](runtime-evidence-index.md)，确认现有正反例，不重复制造无信息矩阵。
 4. 只实现一个可独立验证的公共合同；涉及 live property 时，compiler target、真实 consumer、fallback 和 surface/window identity 必须同批验收，目标样本和相关样本通过后单独提交。

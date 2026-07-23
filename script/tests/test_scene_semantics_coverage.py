@@ -17,6 +17,27 @@ LEDGER_PATH = SEMANTICS_ROOT / "coverage-ledger.md"
 OFFICIAL_PAGE_MAP_PATH = SEMANTICS_ROOT / "official-page-map.md"
 EFFECT_COVERAGE_PATH = SEMANTICS_ROOT / "effect-execution-coverage.md"
 RENDER_GRAPH_COVERAGE_PATH = SEMANTICS_ROOT / "render-graph-shader-coverage.md"
+DEPENDENCY_MAP_PATH = SEMANTICS_ROOT / "capability-dependency-map.md"
+RUNTIME_EVIDENCE_PATH = SEMANTICS_ROOT / "runtime-evidence-index.md"
+RUNTIME_INPUT_COVERAGE_PATH = SEMANTICS_ROOT / "runtime-input-property-coverage.md"
+SCENE_FORMAT_PATH = SEMANTICS_ROOT / "scene-format-and-render-graph.md"
+DEVELOPMENT_PLAN_PATH = (
+    REPOSITORY_ROOT / "docs/scene/scene-capability-development-plan-2026-07-22.md"
+)
+ROADMAP_PATH = (
+    REPOSITORY_ROOT / "docs/reviews/web-scene-current-state-roadmap-2026-07-19.md"
+)
+SAMPLE_ASSESSMENT_PATH = (
+    REPOSITORY_ROOT / "docs/scene/scene-sample-assessment-2026-07-22.md"
+)
+COMPATIBILITY_PATH = REPOSITORY_ROOT / "docs/scene/wallpaper_engine_scene_compatibility.md"
+RUNTIME_DESIGN_PATH = REPOSITORY_ROOT / "docs/scene/scene-runtime-design-2026-05-15.md"
+EFFECTS_REFERENCE_PATH = SEMANTICS_ROOT / "effects-reference.md"
+RUNTIME_SYSTEMS_REFERENCE_PATH = SEMANTICS_ROOT / "runtime-systems-reference.md"
+SCENESCRIPT_COVERAGE_PATH = SEMANTICS_ROOT / "scenescript-api-coverage.md"
+SOURCE_INDEX_PATH = SEMANTICS_ROOT / "source-index.md"
+ADVANCED_OBJECT_COVERAGE_PATH = SEMANTICS_ROOT / "advanced-object-coverage.md"
+PARTICLE_COMPONENT_COVERAGE_PATH = SEMANTICS_ROOT / "particle-component-coverage.md"
 
 SPECIALIZED_COVERAGE_TABLES = {
     "advanced-object-coverage.md",
@@ -310,8 +331,92 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         self.assertEqual(
             primitive_levels,
             {primitive: ["L2"] for primitive in expected_primitives},
-            "Strict Blur profiles must not promote generic graph/shader primitives",
+            "Strict profiles and scheduler must not promote generic graph/shader primitives",
         )
+
+    def test_current_effect_chain_state_is_linked_across_active_documents(self) -> None:
+        implementation_documents = (
+            LEDGER_PATH,
+            EFFECT_COVERAGE_PATH,
+            RENDER_GRAPH_COVERAGE_PATH,
+            RUNTIME_EVIDENCE_PATH,
+            RUNTIME_INPUT_COVERAGE_PATH,
+            SCENE_FORMAT_PATH,
+            DEVELOPMENT_PLAN_PATH,
+            ROADMAP_PATH,
+            SAMPLE_ASSESSMENT_PATH,
+            COMPATIBILITY_PATH,
+            RUNTIME_DESIGN_PATH,
+            EFFECTS_REFERENCE_PATH,
+            RUNTIME_SYSTEMS_REFERENCE_PATH,
+            SCENESCRIPT_COVERAGE_PATH,
+            SOURCE_INDEX_PATH,
+            ADVANCED_OBJECT_COVERAGE_PATH,
+            PARTICLE_COMPONENT_COVERAGE_PATH,
+        )
+        document_text = {
+            path: path.read_text(encoding="utf-8") for path in implementation_documents
+        }
+
+        for path, text in document_text.items():
+            self.assertIn(
+                "`b541867`",
+                text,
+                f"Current Scene document is missing the effect-chain baseline: {path}",
+            )
+
+        report_path = ".codex/scene-effect-chain-gated-final13-20260723/report.json"
+        for path in (
+            LEDGER_PATH,
+            EFFECT_COVERAGE_PATH,
+            RENDER_GRAPH_COVERAGE_PATH,
+            RUNTIME_EVIDENCE_PATH,
+            DEVELOPMENT_PLAN_PATH,
+            ROADMAP_PATH,
+            SAMPLE_ASSESSMENT_PATH,
+            COMPATIBILITY_PATH,
+            RUNTIME_DESIGN_PATH,
+            EFFECTS_REFERENCE_PATH,
+            RUNTIME_SYSTEMS_REFERENCE_PATH,
+            SCENESCRIPT_COVERAGE_PATH,
+            SOURCE_INDEX_PATH,
+            ADVANCED_OBJECT_COVERAGE_PATH,
+            PARTICLE_COMPONENT_COVERAGE_PATH,
+        ):
+            self.assertIn(
+                report_path,
+                document_text[path],
+                f"Current Scene document is missing the final effect-chain report: {path}",
+            )
+
+        evidence = document_text[RUNTIME_EVIDENCE_PATH]
+        self.assertIn("### E-EFFECT-CHAIN: ordered strict effect-chain scheduler", evidence)
+        self.assertIn("Scene tests 251 total / 250 pass / 1 skip", evidence)
+        self.assertIn(
+            "ordered strict effect-chain",
+            DEPENDENCY_MAP_PATH.read_text(encoding="utf-8"),
+        )
+        for path, text in document_text.items():
+            self.assertIn(
+                "exact Workshop single-pass shadow profile",
+                text,
+                f"Current Scene document is missing the next strict-chain gate: {path}",
+            )
+
+        stale_current_routes = (
+            "Generic graph scheduler（当前主线）",
+            "下一步先建 generic scheduler",
+            "先做 B2 generic scheduler",
+            "先推进 B2 generic scheduler",
+            "下一步 generic effect-chain/read-write scheduler",
+        )
+        for path, text in document_text.items():
+            for stale_route in stale_current_routes:
+                self.assertNotIn(
+                    stale_route,
+                    text,
+                    f"Stale Scene route remains in current document: {path}",
+                )
 
     def table_count(self, text: str, label: str) -> int:
         pattern = re.compile(

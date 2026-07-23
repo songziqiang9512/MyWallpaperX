@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-23
 >
-> Scene 实现基线：`136d35c`
+> Scene 实现基线：`b541867`
 >
-> 视觉运行基线：`.codex/scene-local-contrast-final13-20260723/report.json`
+> 视觉运行基线：`.codex/scene-effect-chain-gated-final13-20260723/report.json`
 >
-> 最新运行门：strict Local Contrast 定向矩阵 2/2、正式矩阵 13/13；`2902406982` 的 layers `167/177` 执行 stock 4-pass profile，连同既有 Blur layer `530` 均 GPU succeeded，动态 `brcontraststrength` 更新保持同一 surface/window；`2938612768` mixed chains 保持 0 个 Local Contrast 执行计划。当前 Scene 全量测试共 239 项、238 项通过、1 项跳过，最新签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：ordered strict effect-chain 正式矩阵 13/13；三个 strict backend 合计 8 个 stage，当前真实 multi-effect strict chain 为 0，unsupported mixed chains 保持整链失败关闭。synthetic 两段链锁定顺序、单次 layer alpha、末段合成和后段失败不泄漏；当前 Scene 全量测试共 251 项、250 项通过、1 项跳过，最新签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -69,11 +69,11 @@
 | User Properties | `L3` | 独立窗口、条件、持久化、PNG/JPEG `sceneTexture`；layer alpha、纯 solid color 与 strict Local Contrast strength 已无重建 live 更新 | unsupported/mixed bindings、Texture Variants、shortcut、跨重启 UI 门；精确 census 见 runtime-input 专项表 | **B0/B1** |
 | Typed texture provider | `L3` | layer/named/property identity、status/fallback；静态 resource generation 与 named frame epoch 已分离 | 显式 dynamic generation、metadata、cancel、system/media/video/variant、通用 material、nested/effectful/child | **B1** |
 | EffectDefinition/Material IR | `L2` | definition/pass/RT/material/slot hole/combo/constant 可保留并建图；ShaderContract 保存 source identity | 完整 schema、typed shader defaults、condition/function | B2 |
-| Bounded effect executors | `L3` | 两个严格 Blur 图、strict stock Local Contrast 与若干受限手写/单 pass executor | 其余 45 类、variant、mask、mixed effect chain 与 visual golden | B3/B4 |
+| Bounded effect executors | `L3` | 两个严格 Blur 图、strict stock Local Contrast、三者的 ordered strict chain 与若干受限手写/单 pass executor | 其余 45 类、variant、mask、unsupported mixed chain 与 visual golden | B3/B4 |
 | Current-frame capture | `L3` | bounded utility prefix capture 可执行 | 通用 capture/extent/format/mask | B2/B3 |
 | Named primary target | `L3` | bounded `_a` producer/consumer 可执行 | 通用 authored identity 和依赖环检测 | B2 |
 | Named secondary identity | `L2` | registry 区分完整 variant；无 `_b` producer/consumer flow | secondary 数据流、copy/swap/history | B2 |
-| Generic FBO command graph | `L2` | target/bind/compose/copy/swap/condition/function 可保留或 blocker；effect-scoped target/lifetime table 已由 strict Blur 与 stock Local Contrast 消费，BGRA backbuffer/RGBA8888 FBO、cache/resize/format/reset 均有门 | 已消费的 strict profile 为 `L3`，但通用 graph 仍需 scheduler、copy/swap/compose/history 与完整生命周期 | B2 |
+| Generic FBO command graph | `L2` | target/bind/compose/copy/swap/condition/function 可保留或 blocker；effect-scoped target/lifetime table 已由 strict Blur、stock Local Contrast 与 ordered strict chain 消费，整链 allocation/cache/LRU 事务有门 | strict material-only chain 子集为 `L3`；通用 graph 仍需 copy/swap/compose/history/condition/function、typed state 和完整生命周期 | B2 |
 | History RT | `L0` | 无跨帧通用 ping-pong/history 生命周期 | read-before-write、reset、resize/switch/stop、确定性门 | B2 |
 | Authored shader path/source identity | `L1` | material path 与 ShaderContract stage/source/raw hash/canonical identity 已安全保存 | 尚无 include expansion、translation、compile 或 executor | B2 |
 | Shader source/include/annotation/declaration contract | `L1` | 完整 source、include reference、annotation raw/structured value、uniform/attribute/varying declaration 已 loss-preserving 保存并诊断 | typed default/combo consumer、include expansion、macro/permutation preprocessor、stage link/translation/compile | B2 |
@@ -232,20 +232,20 @@
 |---|---|---|---|
 | **B0 Contract/Runtime Kernel** | `S3 第 1-4 项` | live-property 子阶段已闭合：v20 binding program、per-surface transaction、atomic state、alpha/solid-color/strict Local Contrast strength consumer 与 rebuild fallback；clock/lifecycle 其余合同继续单列 | 新 live target 必须同时具备 compiler definition/instruction、真实 consumer、原子失败与不换 surface/window 的运行门；pause/fixed-time 等按后续 B0 kernel 切片推进 |
 | **B1 Provider Core** | `S2 第 5 项 + S3` | 双代已完成；继续 identity/status/显式 generation/cancel/fallback、Texture Variants、video/system/media core、material candidate selection | 每种 provider 有 ready/pending/unavailable、metadata、fallback 和 teardown；不含 nested graph source |
-| **B2 Graph Resource Runtime** | `S2 第 1-5 项` | strict Blur 与 stock Local Contrast 已消费 target table；cache/resize/reset、D7 ShaderContract IR v1、BGRA/RGBA format 与 exact shader fingerprint gate 已完成；下一步 generic scheduler、copy/swap/compose/history、typed shader defaults/built-ins/state | read/write、RT lifecycle、slot/combo/state 和 resize/switch/stop 门 |
+| **B2 Graph Resource Runtime** | `S2 第 1-5 项` | strict Blur、stock Local Contrast 与 ordered strict effect-chain 已消费 target table；cache/resize/reset、整链原子 allocation、D7 ShaderContract IR v1、BGRA/RGBA format 与 exact shader fingerprint gate 已完成；下一步 `3724289844:20` exact Workshop single-pass shadow profile、copy/swap/compose/history、typed shader defaults/built-ins/state | read/write、RT lifecycle、slot/combo/state 和 resize/switch/stop 门 |
 | **B3 Provider-Graph Integration** | `S2 第 5-6 项` | nested/effectful/scene-background source、通用 material consumer、45 Effect 严格 profile family | B1+B2 均完成后接入；不得新增 effect-name 视觉旁路 |
 | **B4 Feature Breadth** | `S3-S4` | Timeline、SceneScript core、动态 text、cursor/audio/media、按依赖排序的 particle breadth | 每族正向、默认关闭、unsupported、determinism 和 lifecycle 门 |
 | **B5 Fidelity** | `S2-S4` 广度完成后 | 字体、视差、粒子、常用 Effect 与 WE Windows golden 对齐 | 固定输入逐像素/数值阈值、性能预算、长稳和多屏门 |
 | **Advanced** | `S5` | Puppet、2D light/HDR、3D、arbitrary custom shader、RGB、offline bake | 每个系统有完整 IR/runtime/lifecycle/product gate 后再升级 |
 
-研究可以并行，产品执行不能倒置：B0 live-property 底座已合龙，下一主线先建立 B2 generic scheduler，并行推进 B1 Provider Core，再到 B3 -> B4 -> B5。nested/effectful provider、scene background 和通用 material consumer 必须等 B1/B2 在 B3 汇合；Particle world/control-point/Layer Image/child/collision/rope/audio 也按各自依赖门进入 B4。任何新属性只有在 binding compiler 和真实 renderer/runtime consumer 同时注册后才允许 live，否则必须继续整场重建。样本 ID 只出现在测试门和证据里，不能进入产品分派逻辑。
+研究可以并行，产品执行不能倒置：B0 live-property 底座与 B2 ordered strict effect-chain skeleton 已合龙，下一主线实现 `3724289844:20` exact Workshop single-pass shadow profile，取得首条真实 `Blur Precise -> Shadow` 正门；该样本 ID 只用于测试，产品以完整 definition/material/ShaderContract fingerprint 准入。B1 Provider Core 同时推进，再到 B3 -> B4 -> B5。nested/effectful provider、scene background 和通用 material consumer 必须等 B1/B2 在 B3 汇合；任何新属性只有在 binding compiler 和真实 renderer/runtime consumer 同时注册后才允许 live，否则必须继续整场重建。
 
 ## 9. 更新规则
 
 1. 每次 Scene 能力提交必须更新本表对应行和精确边界；只更新开发流水账不算完成。
 2. 升级到 `L2` 必须有结构/路由测试；升级到 `L3` 必须有实际执行正例、作者关闭反例、失败降级和生命周期门；升级到 `L4` 必须有官方行为或 Windows golden。
 3. 新发现的官方能力先补 [官方页面全目录](official-page-catalog.md)、[页面能力映射](official-page-crosswalk.md) 和专题语义，再进入本表；私有字段按 [资料来源与证据索引](source-index.md) 标证据等级。
-4. 最新矩阵报告、测试总数、签名 App 身份只在现役计划/路线图和本表头维护；历史评估不得反向覆盖。
+4. 最新矩阵报告、测试总数、签名 App 身份以现役计划、路线图、本表头和运行证据索引为主答案；其他含“当前/现役/下一步”的被引用文档由语义同步测试锁定同一 baseline/report/route，历史评估不得反向覆盖。
 5. 开发开始顺序：先看本表选择最低公共依赖，再查专题合同和 source index，最后查看样本命中；不得先凭截图写视觉特判。
 6. 总表只允许单一 `L0` 到 `L4` 等级；若同一能力同时存在 IR 与 executor 子集，必须拆成两行或下沉专项表。
 7. 每行至少要能追溯到专项表中的代码、测试和运行证据；只有 parser 或结构时不得写成执行支持。

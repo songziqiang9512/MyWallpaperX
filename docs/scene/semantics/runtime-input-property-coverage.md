@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`136d35c`
+> 实现基线：`b541867`
 
 本表把 Frame Context、动态目标、Timeline、用户属性、文字、光标、音频、媒体和纹理 provider 放在同一执行合同下。官方语义摘要见 [`runtime-systems-reference.md`](runtime-systems-reference.md)，等级口径见 [`coverage-ledger.md`](coverage-ledger.md)。
 
@@ -363,9 +363,9 @@ Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选
 
 ## 10. 下一实现顺序
 
-1. **B0 live-property 已完成并由 `136d35c` 扩展**：format 20 binding program、per-surface transaction、atomic state、Host/Service/UI 路由，以及 layer alpha、solid color、strict Local Contrast strength consumer 均已闭环；隔离真实样本证明更新不替换 surface/window。
+1. **B0 live-property 已完成并由 `b541867` 继续消费**：format 20 binding program、per-surface transaction、atomic state、Host/Service/UI 路由，以及 layer alpha、solid color、strict Local Contrast strength consumer 均已闭环；ordered strict chain 中每个 Local Contrast stage 都从同一 per-surface frame snapshot 独立取值，整链失败不提交部分画面。隔离真实样本证明更新不替换 surface/window。
 2. 新增任何 live target 时，必须在同一能力切片中补稳定 identity/value semantic、compiler definition/instruction、真实 renderer/runtime consumer、原子失败、fallback 与 identity 运行门；缺一项就保留整场重建。
-3. 下一主线按 [公共能力依赖图](capability-dependency-map.md) 先推进 B2 generic scheduler，并行补 B1 Provider Core；color 或其他 shader constant 不因已编译而抢在真实 consumer/语义门前开放。
+3. B2 ordered strict scheduler 已完成；下一主线按 [公共能力依赖图](capability-dependency-map.md) 实现 `3724289844:20` exact Workshop single-pass shadow profile，先取得真实 `Blur Precise -> Shadow` 正门，并行补 B1 Provider Core。其首切只接受静态、无 user binding 的常量；color 或其他 shader constant 不因已编译而抢在真实 consumer/语义门前开放。
 4. visibility 只有在 render/dependency/text/particle topology invalidation 一起处理后才能取消整场重建；dynamic text 需要 per-layer texture generation 和 stale cancellation。
 5. Timeline 完整保存后接 evaluator；SceneScript 只有在 source/binding IR 和沙箱成立后接入同一 target 层。
 6. audio/media provider 必须有作者未启用反例、失败 fallback、generation/cancel 和 stop teardown。
