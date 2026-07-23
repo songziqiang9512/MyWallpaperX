@@ -177,6 +177,24 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
         values[target]
     }
 
+    nonisolated func hasSameValuePayload(as other: SceneDynamicSnapshot) -> Bool {
+        guard values.count == other.values.count else { return false }
+        return values.allSatisfy { target, resolved in
+            other.values[target]?.value == resolved.value
+        }
+    }
+
+    nonisolated func replacingIdentity(
+        frameIndex: UInt64,
+        generation: UInt64
+    ) -> SceneDynamicSnapshot {
+        SceneDynamicSnapshot(
+            frameIndex: frameIndex,
+            generation: generation,
+            values: values
+        )
+    }
+
     nonisolated static func empty(
         frameIndex: UInt64,
         generation: UInt64 = 0
