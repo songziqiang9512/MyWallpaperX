@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`b8842d8`；当前正式门：`.codex/scene-opacity-final13-20260723-1730/report.json`（13/13、5 类 strict backend、14 stage、1 条真实 chain、Opacity 4、Workshop Shadow 1、failed 0、blocked 2、route-only 30；相关测试 269 total / 267 passed / 2 skipped）。
+> 实现基线：`1762743`；当前正式门：`.codex/scene-dynamic-text-final13-20260723-1915/report.json`（13/13、interpretation v22、strict graph 14 stage/1 chain/0 failed；相关测试 273 total / 271 passed / 2 skipped）。
 >
 > 目的：先补公共底座，再扩 Effect、Particle、Text、Timeline、SceneScript 和高级对象；禁止为单个样本建立旁路。
 
@@ -42,7 +42,7 @@ D3 + D4 + D5 + D6 + D7 + D8
 |---|---|---|
 | project/scene/PKG/TEX/resource ingest | 常见子集 `L3` | version、case、duplicate、symlink、损坏和 VFS golden |
 | object/content/effect/material/particle/script source preservation | 混合 `L0-L3` | raw + typed round-trip；未知字段可诊断，不静默丢失 |
-| cache wire schema | interpretation v21；继承 ShaderContract/binding program，并增加 exact stock Opacity 候选与执行合同 | 每次 schema 变化显式 bump、旧缓存拒绝或迁移 |
+| cache wire schema | interpretation v22；继承 ShaderContract/Opacity，并增加 direct text content/point-size/color binding 合同 | 每次 schema 变化显式 bump、旧缓存拒绝或迁移 |
 
 <a id="d1"></a>
 ### D1 Stable identity and dependency graph
@@ -68,10 +68,10 @@ D3 + D4 + D5 + D6 + D7 + D8
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| value types and target definitions | 六类 value 与主要 target 由 v21 wire schema 持久化；strict Local Contrast strength 与 exact stock Opacity alpha 已注册 scalar effect-constant target | 新类型继续执行 type/finite/default validation，纹理仍走 provider；SceneScript 计算值不冒充 direct binding |
+| value types and target definitions | 六类 value 与主要 target 由 v22 持久化；direct text 与 strict Local Contrast/Opacity 已注册 typed target | 新类型继续执行 type/finite/default validation；SceneScript 计算值不冒充 direct binding |
 | source priority | `authored -> property -> Timeline -> SceneScript` 已定义；property producer 已执行 | Timeline/SceneScript 接入同一 resolver，不在 renderer 内重复求值 |
-| binding program | layer alpha/solid color、exact stock Local Contrast strength 与 stock Opacity alpha property 编译、验证和持久化已完成；mixed/invalid/SceneScript key 标记 rebuild | 下一高覆盖 target 必须同批增加 compiler mapping、稳定 target identity、per-surface snapshot consumer 和 fallback |
-| target scope and invalidation domain | alpha、solid color 与 strict Local Contrast strength 为 value-only live；mixed/unsupported/no-consumer 统一 rebuild | geometry/text/topology/provider/simulation target 逐类登记失效域 |
+| binding program | layer alpha/solid color、direct text、Local Contrast/Opacity 编译、验证和持久化已完成；mixed/invalid/SceneScript key 标记 rebuild | 下一 target 必须同批增加 compiler mapping、稳定 identity、snapshot consumer 和 fallback |
+| target scope and invalidation domain | direct text 使用 per-layer generation；alpha/color/effect scalar 为 value-only；mixed/hidden/no-consumer 统一 rebuild | topology/provider/simulation target 逐类登记失效域 |
 | evaluation transaction | property base evaluation、validation、atomic commit 已按 surface 执行 | events/Timeline/SceneScript mutation 依固定顺序接入同一 transaction |
 | immutable snapshot and generation | 每 surface 独立 snapshot/generation；相同 payload 不增 generation | 双屏 local input、script/provider 加入后继续验证不串用 |
 
@@ -84,7 +84,7 @@ HostFrameInputs(time, properties, audio, media)
   -> SurfaceDynamicSnapshot
 ```
 
-B0 live-property 合龙由 `00c5e9c` 到 `dbf2c82` 的主链、`95e0d58` 的 solid color consumer、`136d35c` 的 strict Local Contrast strength consumer 与 `b8842d8` 的 exact stock Opacity alpha consumer 持续扩展。当前允许 image/solid/text 以及 `shouldCapture` utility 的 layer alpha、纯 solid layer color、strict Local Contrast `strength` 和 exact stock Opacity direct-binding `alpha` 使用 live 路径；SceneScript opacity、particle、container、non-solid color、其他 effect constant、mixed、unsupported 或没有活动 consumer 的 key 一律返回整场重建。`3122339805:basecolor` 已证明 mixed key 不会部分 live，`2902406982:newproperty50` 已证明 Opacity 更新不替换 surface/window；不能只因为 program 能编译就宣称 live。
+B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color，并用 per-layer generation/stale cancellation/last-ready fallback 消费同一 snapshot。`2134765860` 证明三字段更新不替换 surface/window；默认隐藏文本第一次会因无活动 consumer 被拒绝，只有作者属性先启用 Custom 模式后才 live。SceneScript/time/media、particle、container、mixed、unsupported 或无活动 consumer 的 key继续整场重建。
 
 <a id="d4"></a>
 ### D4 Input snapshots and event queues
@@ -146,7 +146,7 @@ B0 live-property 合龙由 `00c5e9c` 到 `dbf2c82` 的主链、`95e0d58` 的 sol
 |---|---|---|
 | Timeline | D2 + D3 | lossless IR、Loop/Mirror/Single、tangent、event crossing、typed writes |
 | SceneScript | D2 + D3 + D4 + D5 | source/binding IR、sandbox VM、lifecycle、typed writes、budget |
-| dynamic text | D3 + D5 + D9 | per-layer generation、stale update cancellation、style/layout |
+| dynamic text | D3 + D5 + D9 | direct property 子集已完成 per-layer generation、stale cancellation、last-ready；SceneScript/system/media producer 与 layout fidelity仍待推进 |
 | particle breadth | D2 + D3 + D4 + D5 + D8 + D9 | control point、child/event、world space、rope、audio、collision |
 | audio/media | D4 + D5 | injectable inputs、event ordering、provider generation、teardown |
 
@@ -183,7 +183,7 @@ F0 完成后才开始下一轮代码。F1/F2 优先级由公共依赖决定，�
 
 ## 6. 下次会话的决策顺序
 
-1. B0 live-property、B2 target-table、D7 ShaderContract IR v1、`rgba8888` format、5 类 strict backend 与 ordered strict effect-chain scheduler 已合龙；`b8842d8` 已用完整 stock fingerprint 执行 Opacity `MASK=0`。`2902406982:[365,372,647,664]` 是 direct-binding 正门，`2938612768:[165,454,626,629,924]` 是 SceneScript fail-closed 负门，不得再写成同一覆盖目标。B1 Provider Core、copy/swap/compose/history 与 ShaderContract preprocessor/translation/compile/executor 继续按 D5-D7 独立推进；`route-only` 只是布局诊断，不能替代结构化未执行 graph census 或直接决定优先级。
+1. B0 live-property、direct dynamic text、B2 target-table、5 类 strict backend 与 ordered strict chain 已合龙。下一步按 D6 推进 copy/swap/compose/history；D5 把文本 provider 的 generation/cancel/fallback 推广到 system/media/video。`route-only` 只是布局诊断，不能决定优先级。
 2. 打开对应专项表，确认作者启用、输入、当前等级、未知项、依赖和验收门。
 3. 查 [运行证据索引](runtime-evidence-index.md)，确认现有正反例，不重复制造无信息矩阵。
 4. 只实现一个可独立验证的公共合同；涉及 live property 时，compiler target、真实 consumer、fallback 和 surface/window identity 必须同批验收，目标样本和相关样本通过后单独提交。

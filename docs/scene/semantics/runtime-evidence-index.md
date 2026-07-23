@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`b8842d8`
+> 实现基线：`1762743`
 
 本页给覆盖表中的 `L3` 子集提供可追溯证据包。每个证据包至少包含代码、自动测试和真实运行或 GPU 证据；缺少任一项的能力只能标 `L0-L2`，或在专项表中明确写 `gate incomplete`。`.codex` 报告是本机隔离运行产物，不提交 Git；报告路径、App 身份和摘要写入现役文档，避免将其误当源码 fixture。
 
@@ -12,13 +12,13 @@
 
 | 项目 | 当前证据 |
 |---|---|
-| 视觉矩阵 | exact stock Opacity 正式矩阵 `.codex/scene-opacity-final13-20260723-1730/report.json` 为 13/13；五个 strict backend 合计 14 stage、1 real chain、Opacity 4、Workshop Shadow 1、failed 0、legacy blocked 2、route-only 30，均不证明 WE parity |
-| 最新合同门 | Scene tests 269 total / 267 pass / 2 skip |
+| 视觉矩阵 | dynamic text 正式矩阵 `.codex/scene-dynamic-text-final13-20260723-1915/report.json` 为 13/13；strict graph 仍为 14 stage、1 real chain、failed 0，均不证明 WE parity |
+| 最新合同门 | Scene tests 273 total / 271 pass / 2 skip |
 | ShaderContract | 173 contracts = 143 authored + 30 host built-in；286 stages、0 diagnostics；source/IR include 155、annotation 1523、declaration 2660，见 E-SHADER-CONTRACT |
-| Live property | layer alpha 两项、solid color 两项、strict Local Contrast strength 与 stock Opacity alpha 均 accepted、surface/window identity 不变；报告见 E-LIVE-PROPERTY / E-EFFECT-OPACITY |
+| Live property | layer alpha、solid color、strict Local Contrast/Opacity 与 direct text content/point-size/color 均 accepted、surface/window identity 不变；报告见 E-LIVE-PROPERTY / E-DYNAMIC-TEXT |
 | Provider 双代 | `2938612768` static image blend 5/5；`2902406982` named capture 6/6、binding 7/7；报告见 E-PROVIDER |
-| 签名 App | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `6e70e547f61dcc6821009a4ebbd97af156fb5916`；正式矩阵运行前后签名均验证 |
-| executable SHA-256 | `0cbaff3bd989e5cb9f8807236fd270feec19ca1f18548c122ca3ccb74033774a` |
+| 签名 App | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `25f1e84ab81ee23d270ea1e436de0e47ccd34489`；正式矩阵运行前后签名均验证 |
+| executable SHA-256 | `85634666c237a9026ac89b04bc33815963f24fd77b339c1520f6cb20ae29f5d6` |
 | 样本边界 | 真实 Workshop root 只读；报告均来自隔离 sample root 与临时 HOME |
 
 ## 2. 证据包
@@ -63,9 +63,9 @@
 
 - 代码：[ScenePropertyBindingProgram.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/ScenePropertyBindingProgram.swift)、[ScenePropertyLiveUpdateState.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/ScenePropertyLiveUpdateState.swift)、[SceneSurfaceEvaluationTransaction.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneSurfaceEvaluationTransaction.swift)、[SceneDynamicLayerValues.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDynamicLayerValues.swift)、[SceneDesktopWallpaperHost.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDesktopWallpaperHost.swift)
 - 自动门：[test_scene_property_binding_program.py](../../../script/tests/test_scene_property_binding_program.py)、[test_scene_interpretation_file.py](../../../script/tests/test_scene_interpretation_file.py)、[test_scene_surface_evaluation_transaction.py](../../../script/tests/test_scene_surface_evaluation_transaction.py)、[test_scene_property_live_update_state.py](../../../script/tests/test_scene_property_live_update_state.py)、[test_scene_dynamic_layer_values.py](../../../script/tests/test_scene_dynamic_layer_values.py)、[test_scene_property_live_routing.py](../../../script/tests/test_scene_property_live_routing.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)
-- 运行门：alpha 的 `2902406982:newproperty11` 与 `2938612768:newproperty17` 分别见 `.codex/scene-b0-live-alpha-20260723-0941/report.json`、`.codex/scene-b0-live-alpha-293-20260723-0941/report.json`；solid color 的 `3122339805:accentcolourdefault800080` 与 `2902406982:newproperty33` 分别见 `.codex/scene-live-solid-color-312-accent-20260723-1011/report.json`、`.codex/scene-live-solid-color-290-20260723-1013/report.json`；strict Local Contrast 的 `2902406982:brcontraststrength=3.0` 见 `.codex/scene-local-contrast-targeted-20260723/report.json`；strict Opacity 的 `2902406982:newproperty50=0.2` 见 `.codex/scene-opacity-targeted-290-final-20260723-1722/report.json`。各项均 `accepted=true` 且 surface/window identity 不变。
+- 运行门：alpha/solid color/Local Contrast/Opacity 沿用既有定向报告；direct text 的 `2134765860:customtext/textcolor/textsize` 见 `.codex/scene-dynamic-text-targeted-213-final-20260723-1907/report.json`。各项均 `accepted=true` 且 surface/window identity 不变。
 - 负向门：`.codex/scene-live-solid-color-312-20260723-1006/report.json` 中 `basecolor` 被拒绝，因为同键除 48 条 solid color 指令外还有未支持目标；状态没有部分提交。
-- 边界：只证明 image/solid/text 与 `shouldCapture` utility 的 layer alpha、纯 solid layer color，以及 strict catalog 中 Local Contrast `strength` 和 stock Opacity `alpha`。每个 strict stage 从同一 per-surface snapshot 单独解析值，链失败不会提交部分画面；SceneScript、particle、container、non-solid color、其他 effect constant、unsupported mixed chain 或无活动 consumer 的 key 必须返回整场重建。program 可编译本身不构成 live 证据。
+- 边界：证明 layer alpha、solid color、有效可见 direct text 三字段，以及 strict Local Contrast/Opacity。SceneScript、hidden/no-consumer text、particle、container、non-solid color、其他 effect constant 或 unsupported mixed key 必须返回整场重建。program 可编译本身不构成 live 证据。
 
 <a id="e-text"></a>
 ### E-TEXT: 静态文字
@@ -73,6 +73,14 @@
 - 代码：[SceneTextTextureLoader.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneTextTextureLoader.swift)
 - 自动门：[test_scene_text_rendering.py](../../../script/tests/test_scene_text_rendering.py)、[test_scene_user_properties.py](../../../script/tests/test_scene_user_properties.py)
 - 运行门：`.codex/scene-text-fixed-20260722/report.json` 和正式矩阵的 text loaded/candidate 结构门；没有 Windows 字体/基线 golden。
+
+<a id="e-dynamic-text"></a>
+### E-DYNAMIC-TEXT: direct property 动态文字与 generation lifecycle
+
+- 代码：[SceneDynamicTextTextureStore.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDynamicTextTextureStore.swift)、[SceneDynamicTextGenerationState.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDynamicTextGenerationState.swift)、[ScenePropertyBindingCompiler+TargetMapping.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/ScenePropertyBindingCompiler+TargetMapping.swift)、[SceneTextTextureLoader.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneTextTextureLoader.swift)
+- 自动门：[test_scene_dynamic_text_binding.py](../../../script/tests/test_scene_dynamic_text_binding.py)、[test_scene_dynamic_text_generation.py](../../../script/tests/test_scene_dynamic_text_generation.py)、[test_scene_frame_context.py](../../../script/tests/test_scene_frame_context.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)。覆盖三类 typed value、错误 kind/conditional fail closed、重复值去重、A->B->C stale completion 拒绝、失败保留 last-ready 和 reset。
+- 运行门：`.codex/scene-dynamic-text-targeted-213-final-20260723-1907/report.json`；隔离 `2134765860` 先以 `text=2` 启用作者 Custom 模式，再 live 更新 `customtext/textcolor/textsize`，surface `1 -> 1`、window `[94398] -> [94398]`、changed ratio `0.003541478640192539`、text `6/6`。正式回归 `.codex/scene-dynamic-text-final13-20260723-1915/report.json` 为 13/13、sample root residue 0。
+- 边界：只接受 direct user property；有效可见且有 text/style 的 layer 才是活动 consumer。SceneScript、clock/date/media、hidden/no-consumer layer、静态 `text` label、conditional binding、Windows font/layout parity 均不在本证据包内。
 
 <a id="e-particle"></a>
 ### E-PARTICLE: 2D Particle 子集

@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-23
 >
-> Scene 实现基线：`b8842d8`
+> Scene 实现基线：`1762743`
 >
-> 视觉运行基线：`.codex/scene-opacity-final13-20260723-1730/report.json`
+> 视觉运行基线：`.codex/scene-dynamic-text-final13-20260723-1915/report.json`
 >
-> 最新运行门：exact stock Opacity 正式矩阵 13/13；五个 strict backend 合计 14 个 stage、1 条真实 multi-effect strict chain、Opacity 4、Workshop Shadow 1、GPU failed 0、legacy blocked 2、route-only 30。`2902406982:[365,372,647,664]` 是 direct-binding 正门，`2938612768:[165,454,626,629,924]` 是 SceneScript fail-closed 负门；当前 Scene 全量测试共 269 项、267 项通过、2 项跳过，最新签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：dynamic text 正式矩阵 13/13；五个 strict backend 指标保持 14 stage、1 real chain、0 failed。`2134765860` 的 `customtext/textcolor/textsize` 是 direct dynamic text 正门；SceneScript/time/media 仍 fail closed。当前 Scene 全量测试共 273 项、271 项通过、2 项跳过，最新签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -50,7 +50,7 @@
 | Utility composition | `L3` | typed composition/project/fullscreen、受限 current prefix 与 `_a` named target | nested/effectful/child、`_b` 数据流、RGB 语义 | B2/B3 |
 | 画布/cover/背景 | `L3` | cover 投影和作者声明视差门，未覆盖区域不再暴露灰底 | 多比例、多屏和 Windows 像素基准 | B5 |
 | Frame Context | `L3` | host 单一 60 Hz driver；shader/video/particle/parallax 同帧 timing | pause/resume、delta clamp、fixed step、目标 FPS、离线 adapter | B0 |
-| Dynamic target/value 与 property binding program | `L3` | 六类 value、主要 target、固定优先级；v21 保存 layer alpha/color、strict Local Contrast strength 与 exact stock Opacity alpha definitions/instructions/effective values；mixed/invalid/SceneScript key 标记重建 | 当前 live consumer 为 layer alpha、solid-only color、Local Contrast strength 与 stock Opacity alpha；其他 effect constant 仍重建 | **B0/B4** |
+| Dynamic target/value 与 property binding program | `L3` | 六类 value、主要 target、固定优先级；v22 保存 layer alpha/color、direct text 三字段、strict Local Contrast/Opacity definitions/instructions/effective values；mixed/invalid/SceneScript key 标记重建 | direct text 已有 per-layer generation/stale cancellation；hidden/no-consumer text 与其他 effect constant 仍重建 | **B0/B4** |
 | Per-surface dynamic snapshot | `L3` | host 共享 property 输入，每个 surface 独立 evaluation transaction、snapshot 与 generation；相同 payload 不增 generation | pointer/size/provider/Timeline/SceneScript 等 local producer 接入后继续扩充隔离门 | **B0/B4** |
 | Atomic live property state/routing | `L3` | layer alpha、纯 solid color、strict Local Contrast strength 与 stock Opacity alpha 先原子求值并直接供 renderer 消费；失败、mixed、SceneScript、unsupported 或无 consumer 时保留整场重建 fallback | 扩展 target 前必须补类型、eligibility、consumer、fallback 和 identity 门 | **B0/B4** |
 | Timeline runtime | `L0` | 没有 Timeline target/keyframe/mode/tangent/event IR | 保真 IR、确定性 evaluator、target 写回 | **B4** |
@@ -161,7 +161,7 @@
 
 | 类型/行为 | 当前级别 | 当前边界或升级门 |
 |---|---|---|
-| Catalog/bindings | `L3` | 21 样本 census、format 21 binding program 与受控 fallback；25 color instructions、1 条 exact Local Contrast strength 与 stock Opacity direct binding live，48 mixed-rebuild；SceneScript opacity fail closed |
+| Catalog/bindings | `L3` | 21 样本 census、format 22 binding program 与受控 fallback；direct text content/point-size/color、Local Contrast/Opacity live，mixed/hidden/no-consumer/SceneScript fail closed |
 | `color` | `L3` | UI/持久化/solid-only live consumer；补颜色空间、non-solid 与全部 target |
 | `slider` | `L3` | min/max/default/step/fraction/precision UI；layer alpha、exact Local Contrast strength 与 exact stock Opacity alpha 已 live，其他 target 依 consumer 决定重建 |
 | `bool` | `L3` | 条件/部分 target；不得按名称自动启用 effect |
@@ -230,15 +230,15 @@
 
 | 覆盖批次 | 开发计划映射 | 目标 | 完成判据 |
 |---|---|---|---|
-| **B0 Contract/Runtime Kernel** | `S3 第 1-4 项` | live-property 子阶段已闭合：v21 binding program、per-surface transaction、atomic state、alpha/solid-color/strict Local Contrast strength/stock Opacity alpha consumer 与 rebuild fallback；clock/lifecycle 其余合同继续单列 | 新 live target 必须同时具备 compiler definition/instruction、真实 consumer、原子失败与不换 surface/window 的运行门；pause/fixed-time 等按后续 B0 kernel 切片推进 |
-| **B1 Provider Core** | `S2 第 5 项 + S3` | 双代已完成；继续 identity/status/显式 generation/cancel/fallback、Texture Variants、video/system/media core、material candidate selection | 每种 provider 有 ready/pending/unavailable、metadata、fallback 和 teardown；不含 nested graph source |
+| **B0 Contract/Runtime Kernel** | `S3 第 1-4 项` | v22 binding program、per-surface transaction、atomic state、alpha/solid-color/direct-text/strict Local Contrast/Opacity consumer 与 rebuild fallback 已闭合 | 新 live target 继续要求 compiler、consumer、原子失败与不换 surface/window；pause/fixed-time 单列 |
+| **B1 Provider Core** | `S2 第 5 项 + S3` | dynamic text 已完成 per-layer generation、stale cancellation、last-ready fallback；frame registry 双代已完成 | 把 status/metadata/cancel/teardown 推广到 Texture Variants、video/system/media 与 material candidate；不含 nested graph source |
 | **B2 Graph Resource Runtime** | `S2 第 1-5 项` | strict Blur、stock Local Contrast、exact Workshop `shadow_____________`、exact stock Opacity 与 ordered strict effect-chain 已消费 target table；cache/resize/reset、整链原子 allocation、D7 ShaderContract IR v1、BGRA/RGBA format 与 exact shader fingerprint gate 已完成；下一步 copy/swap/compose/history、typed shader defaults/built-ins/state | read/write、RT lifecycle、slot/combo/state 和 resize/switch/stop 门 |
 | **B3 Provider-Graph Integration** | `S2 第 5-6 项` | nested/effectful/scene-background source、通用 material consumer、45 Effect 严格 profile family | B1+B2 均完成后接入；不得新增 effect-name 视觉旁路 |
-| **B4 Feature Breadth** | `S3-S4` | Timeline、SceneScript core、动态 text、cursor/audio/media、按依赖排序的 particle breadth | 每族正向、默认关闭、unsupported、determinism 和 lifecycle 门 |
+| **B4 Feature Breadth** | `S3-S4` | direct dynamic text 已完成首个子集；Timeline、SceneScript core、system/media text、cursor/audio/media、按依赖排序的 particle breadth仍待推进 | 每族正向、默认关闭、unsupported、determinism 和 lifecycle 门 |
 | **B5 Fidelity** | `S2-S4` 广度完成后 | 字体、视差、粒子、常用 Effect 与 WE Windows golden 对齐 | 固定输入逐像素/数值阈值、性能预算、长稳和多屏门 |
 | **Advanced** | `S5` | Puppet、2D light/HDR、3D、arbitrary custom shader、RGB、offline bake | 每个系统有完整 IR/runtime/lifecycle/product gate 后再升级 |
 
-研究可以并行，产品执行不能倒置：B0 live-property 底座、B2 ordered strict effect-chain skeleton、exact Workshop `shadow_____________` 与 stock Opacity `MASK=0` profile 已合龙。290 的四层 direct alpha 是正门；293 的五层 SceneScript alpha 是负门，不得误写为覆盖目标。下一主线按 21 样本结构化 census 推进高命中动态文字/Provider Core，并继续准备 copy/swap/compose/history，再到 B3 -> B4 -> B5。route-only 只作布局诊断，不是剩余 capability 总数。
+研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、B2 ordered strict chain、Workshop Shadow 与 stock Opacity 已合龙。下一主线推进 copy/swap/compose/history；B1 把文本验证过的 lifecycle 推广到 system/media/video，再到 B3 -> B4 -> B5。route-only 只作布局诊断。
 
 ## 9. 更新规则
 

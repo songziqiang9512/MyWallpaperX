@@ -13,7 +13,7 @@
 - P2（主体可用，仍有明确的次级效果差距）：4 个；
 - P3（仅小幅视觉偏差）：0 个。
 
-首轮评估确认的方向仍成立：优先建设通用 runtime，而不是增加按样本命中的 effect 分支。当前实现基线 `b8842d8`、interpretation v21 已包含 authored graph、typed texture registry/property fallback、ShaderContract、B0 binding program 与 per-surface snapshot；precise Blur、standard Blur、stock Local Contrast、exact Workshop Shadow、exact stock Opacity 五个 strict backend 及 ordered strict effect-chain scheduler 已进入 GPU。授权 PNG/JPEG file-backed `sceneTexture`、统一 Frame Context 第一阶段、受限 dependency/effect/particle executor 和 9 个精确 built-in 粒子纹理也已落地。Timeline、SceneScript、动态文字、system media、Texture Variants、通用/effectful/nested provider、copy/swap/compose/history、其余 effect 和高级粒子仍是主要缺口。底层作者/执行合同查 [Scene 语义手册](semantics/README.md)，现有开发顺序和架构约束见 [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md)。
+首轮评估确认的方向仍成立：优先建设通用 runtime，而不是增加按样本命中的 effect 分支。当前实现基线 `1762743`、interpretation v22 已包含 authored graph、typed texture registry/property fallback、ShaderContract、B0 binding program/per-surface snapshot，以及 direct text content/point-size/color 的异步 per-layer generation/stale cancellation。五个 strict backend、ordered strict chain、file-backed `sceneTexture`、Frame Context、受限 dependency/effect/particle executor 和 9 个 built-in 粒子纹理已落地。Timeline、SceneScript、system/media text producer、Texture Variants、通用/effectful/nested provider、copy/swap/compose/history、其余 effect 和高级粒子仍是主要缺口。
 
 ## 范围与证据
 
@@ -22,7 +22,7 @@
 - `3766415113` 使用 `gifscene.json` / `gifscene.pkg`，以包含 entry、sequence 和单图 UV 修正的 [gifscene 最终报告](../../.codex/scene-gifscene-sprite-gate-20260722/report.json) 为准。
 - `3738202317` 在 20 样本旧报告中因 `.tex format 6` 显示灰底；该结果已经被 [BC2/DXT3 修复后报告](../../.codex/scene-bc2-format6-final-20260722/report.json) 覆盖，当前为 1/1 纹理加载成功。
 - “作者预期”来自包内 scene 描述、`project.json` 属性和样本自带 preview。preview 不是逐帧金标准，最终仍需在相同分辨率、相同属性默认值下与 Wallpaper Engine 录屏做差异验收。
-- 首轮 21 样本报告保留为修复前视觉基线。v16 结构基线仍见 [canonical graph 报告](../../.codex/scene-effect-graph-canonical-final-20260723/report.json)；当前正式运行门为 `.codex/scene-opacity-final13-20260723-1730/report.json`，13/13 PASS，interpretation format 21。五个 strict backend 合计执行 14 个 stage、1 个完整真实 multi-effect strict chain、Opacity 4、Workshop Shadow 1、GPU failed 0、legacy blocked 2、route-only 30；290 的 Opacity layers 为 `[365,372,647,664]`，293 的 SceneScript candidates `[165,454,626,629,924]` 保持 Opacity/stages 0。Scene 测试为 269 项中 267 通过、2 跳过。签名 CDHash 为 `6e70e547f61dcc6821009a4ebbd97af156fb5916`，executable SHA-256 为 `0cbaff3bd989e5cb9f8807236fd270feec19ca1f18548c122ca3ccb74033774a`；这些门仍不证明 authored shader、完整粒子或 Wallpaper Engine 逐帧一致。
+- 首轮 21 样本报告保留为修复前视觉基线。当前正式运行门为 `.codex/scene-dynamic-text-final13-20260723-1915/report.json`，13/13 PASS，interpretation format 22；strict graph 指标保持 14 stage、1 chain、Opacity 4、Workshop Shadow 1、failed 0、blocked 2、route-only 30。定向 `.codex/scene-dynamic-text-targeted-213-final-20260723-1907/report.json` 证明 `2134765860` 的 `customtext/textcolor/textsize` 在作者 Custom 模式下 live accepted，surface/window 不变。Scene 测试为 273 项中 271 通过、2 跳过；签名 CDHash `25f1e84ab81ee23d270ea1e436de0e47ccd34489`，executable SHA-256 `85634666c237a9026ac89b04bc33815963f24fd77b339c1520f6cb20ae29f5d6`。
 
 表中 `I/P/T` 分别表示 image / particle / text 图层声明数量；`prop` 不含每个项目都有的 `schemecolor`。纹理加载率只统计当前 renderer 识别为 image candidate 的图层，不应直接当成视觉完成度。
 
@@ -30,12 +30,12 @@
 
 | 能力 | 当前已验证 | 仍未覆盖 |
 | --- | --- | --- |
-| 用户属性 | bool/slider/combo/color/textinput、group/condition/options；`texture`/`scenetexture` 归一为内部 provider 类型；按壁纸持久化与独立窗口；PNG/JPEG 选择/bookmark/security scope/静态 Blend override；B0 binding program 已让 layer alpha、纯 solid color、exact Local Contrast strength 与 stock Opacity direct alpha 通过 per-surface snapshot 无重建更新 | 21 样本旧 census 的 424 definitions/952 bindings 与 199 unsupported target 尚未按 v21 重算；Texture Variants、video/general material、transform、particle/audio、puppet；其他 target 继续整场重建 |
+| 用户属性 | bool/slider/combo/color/textinput、group/condition/options；独立窗口和持久化；PNG/JPEG `sceneTexture`；layer alpha、solid color、direct text 三字段、Local Contrast strength 与 Opacity alpha 通过 per-surface snapshot 无重建更新 | 21 样本旧 census 尚未按 v22 重算；hidden/no-consumer text、SceneScript/time/media、Texture Variants、video/general material、transform、particle/audio、puppet 继续重建或 fail closed |
 | Solid | 固定 built-in 与 model `solidlayer:true`；共享白纹理、作者 color/alpha/visibility/effect/blend；当前正式门 54/54 | 带动态 `$mediaThumbnail`/sceneTexture 的 solid 实例；普通 image 基础 color multiplier；完整 dependency/mask 组合语义 |
 | Utility / Composition | typed composition/project/fullscreen；framebuffer 前缀捕获；局部/full-frame geometry；受限纹理池；mask/partial effect fail-closed；290 的 project 410 / composition 530 与 6 个 named provider / 7 个 consumer 已完成 GPU capture/binding；registry 按 identity/status/generation 选择首个 ready 候选；293 的 providers 141/1340、consumers 299/322 与隐藏 image providers 到 layers 239/657/775/875/1509 的静态 blend 已进入 GPU runtime；受限 property file provider 已接入 | system/media/video/Texture Variants、effectful provider、nested/child target、utility mask、动态 blendgradient 与任意 material/shader pass；不能把受限 named-target/static image 子集写成完整 dependency graph |
 | Particle | 包内 texture、sprite sheet、9 个精确 built-in key、continuous/burst schedule、常见 initializer/operator、additive/translucent、Sprite Trail、静态 override、fixed-step/seed/budget 子集；正式门 14/27，`3750813609` 为 7/9 | 21 样本仍有 22 个 built-in texture unavailable；atlas/multi-texture、child runtime、rope/rope trail、world-space、动态 control point/override、collision、音频与属性 operator |
 | Text | 当前以 authored `pointsize * 4` 近似官方 300 DPI point raster，处理 vector padding、包内字体、系统字体别名和确定性 fallback 诊断；`3766387484` 3/3、`3122339805` 80/81、`2134765860` 4/6 candidate | 精确 DPI/scene-unit 校准、SceneScript、真实时钟/日期/媒体值、完整对齐/描边/阴影/effect 语义 |
-| 自动门 | 13 个真实隔离样本，interpretation format 21，签名 App、Metal ready/after 非黑帧；definition/graph/ShaderContract、五个 strict backend、ordered strict chain、B0 property、provider/file override 与粒子合同；269 项 Scene 测试为 267 通过、2 跳过；无 timeout、stop 后 surface=0 | 当前真实 strict chain 为 1；5 个 fluid blocker、2 个 legacy blocked layer、30 个 route-only 诊断仍保留；route-only 不是完整未支持 graph census；也没有 Windows WE 同配置录屏差异门 |
+| 自动门 | 13 个真实隔离样本，interpretation format 22，签名 App、Metal 双帧；五个 strict backend、ordered chain、B0 property、dynamic text generation、provider/file override 与粒子合同；273 项 Scene 测试为 271 通过、2 跳过；无 timeout、stop 后 surface=0 | 当前真实 strict chain 为 1；2 个 legacy blocked layer、30 个 route-only 诊断仍保留；没有 Windows WE 同配置录屏差异门 |
 
 ## 横向能力判断
 
@@ -52,7 +52,7 @@
 
 ### 项目属性与详情面板
 
-14/21 个样本声明了自定义项目属性；424 个 definition、952 个 binding 与 199 个 unsupported target 是 v21 前的旧 census，未重算前不得写成当前精确覆盖率。详情页只保留“属性调节”按钮，点击后打开独立可拖动窗口；已支持控件、条件、默认值/override 与按壁纸持久化。B0 binding program 已让 layer alpha、纯 solid color、exact Local Contrast strength 和 stock Opacity direct alpha 在同一 surface/window 上通过 per-surface snapshot 更新；其余 target 仍走 180 ms debounce 后的活动 Scene 重建。`texture`/`scenetexture` 的 PNG/JPEG picker、security-scoped bookmark、解码、静态 Blend override 和 authored fallback 已接通，Texture Variants、video/general material、transform、particle、puppet 等 target 尚未闭环。
+14/21 个样本声明了自定义项目属性；424 definition、952 binding 与 199 unsupported target 是 v22 前的旧 census，未重算前不得写成当前精确覆盖率。详情页只保留“属性调节”按钮并打开独立窗口。B0 已让 layer alpha、solid color、direct text content/point-size/color、Local Contrast strength 和 Opacity alpha 在同一 surface/window 上更新；动态文本只处理有效可见 direct binding，hidden/no-consumer 与 SceneScript/time/media 仍重建或 fail closed。Texture Variants、video/general material、transform、particle、puppet 尚未闭环。
 
 ### Text 与字体
 

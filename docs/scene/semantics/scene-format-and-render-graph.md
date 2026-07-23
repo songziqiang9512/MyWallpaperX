@@ -184,7 +184,7 @@ Motion Blur 等定义含显式 copy，用来复制 source 像素到 target；省
 
 资源注册表应以 `wallpaper + screen + object + effect instance + RT name` 作为身份基础。是否跨帧保留必须由 read-before-write、copy/swap、function/reset 和生命周期数据流判定，不能只看 `unique`。最终判为 persistent 的资源在 resize、壁纸切换、seek、停止和设备丢失时必须清理或重建。
 
-MyWallpaperX v21 继承逐帧 registry、binding program 与 ShaderContract：实例随当前 renderer/screen 隔离，帧内 identity 区分 layer source、完整 named layer target（包含 variant）、user property 与 system key；entry 记录 ready/pending/unavailable，并已把静态 resource generation 与 named frame epoch 分离。effect-instance target table 已被 precise/standard Blur、stock Local Contrast、exact Workshop Shadow 与 exact stock Opacity 消费；`b541867` 连接 ordered all-supported chain，`809b75e` 取得首条真实 `Blur Precise -> Shadow`，`b8842d8` 再让 stock Opacity direct alpha 从 per-surface snapshot 进入 GPU。pool 会先为整链建立 plan/table、预算和 LRU 候选，再原子提交 cache；GPU 仅在全部 stage 成功后合成最终输出。其他 RGBA graph、history、跨帧 persistent、system/media/video/Texture Variants、通用 material consumer 和 copy/swap 生命周期仍未实现。
+MyWallpaperX v22 继承逐帧 registry、binding program 与 ShaderContract，并加入 direct text content/point-size/color target。effect target table 已被五个 strict backend 消费；`1762743` 另以 per-layer signature/generation 更新文本纹理，不把 dynamic text 塞进 effect graph。pool 仍只在全部 strict stage 成功后提交最终输出。其他 RGBA graph、history、跨帧 persistent、system/media/video/Texture Variants、通用 material consumer 和 copy/swap 生命周期仍未实现。
 
 ## 7. Material definition
 
@@ -215,7 +215,7 @@ MaterialPass
 
 `Almamu/linux-wallpaperengine` 采用“shader default -> material -> effect override -> explicit bind”的优先级，这是一条有用的 D 级佐证，但仍需用合法官方 assets/真实样本逐类验证后才能固化为 MyWallpaperX 合同。
 
-MyWallpaperX 当前 material resolver 为每个 sparse slot 按低到高优先级保留候选，现有顺序是 material asset -> material usertexture -> instance asset -> instance usertexture -> explicit graph bind；现有 strict graph backend 取末项作为最高优先级 source。frame registry 使用的是另一份显式“首选 -> fallback”selection，并选择其中首个 ready provider；目前尚无通用 material candidate -> frame selection 桥。这是由现有数据模型和样本验证的 E 级实现事实，不是官方公开的通用优先级。v21 继续保留 ShaderContract 的 annotation/default raw/structured value；Local Contrast/Opacity planner 只对 exact stock fingerprint 使用固定 adapter，typed schema 与通用 resolver consumer 尚未实现，扩 generic backend 前仍需补齐。
+MyWallpaperX 当前 material resolver 与 frame registry 仍是两份明确分离的选择合同，尚无通用 material candidate -> frame selection 桥。v22 不改变 ShaderContract 或 strict adapter，只增加 direct text binding/generation；不能据此升级 generic shader/provider 能力。
 
 ### 7.2 Render state
 
@@ -298,11 +298,11 @@ present or read back
 
 | 层级 | 当前状态 | 下一合同 |
 |---|---|---|
-| Scene/object IR | format 20 继承 v19 ShaderContract、v18 binding program/effective values、v17 provider metadata 与 v16 authored graph/canonical SHA，并增加 strict Local Contrast strength live-binding contract | 保持 raw/typed 双层合同，不把未知字段静默解释为支持 |
+| Scene/object IR | format 22 继承 ShaderContract/provider/authored graph/Opacity，并增加 direct text content/point-size/color binding contract | 保持 raw/typed 双层合同，不把未知字段静默解释为支持 |
 | dependency | graph 已结构化区分固定 `previous`、effect-scoped RT 和 copy/swap；五个 strict backend 与 ordered chain 已消费 effect target table，并闭合整链 identity/continuity、allocation/cache/LRU 事务、末段合成与 reset；bounded frame registry 按另一命名空间处理 named target、property-authored fallback 和受限 PNG/JPEG property source | 并行补显式 dynamic generation、system/media/video/variant/effectful/nested source；copy/swap/compose/history 仍按独立合同接入 |
 | material/shader | sparse-slot candidate resolver、ShaderContract v1、strict 2-pass precise、stock standard Blur 4-pass、stock Local Contrast 4-pass、exact Workshop Shadow 与 exact stock Opacity single-pass 共 5 类 backend 已落地；运行时整体仍以手写 MSL 近似为主 | 补 typed shader defaults、preprocessor/translation/compile、通用 provider consumer、nested target 和更多 pass。现有 strict backend 不代表 official generic shader 或 Windows pixel parity |
 | local deformation | Foliage/Water/Shake 等有不同程度近似 | 以 [Effects 全集](effects-reference.md) 的输入、空间和 mask 合同替换 |
-| live values | format 21 binding program；per-surface snapshot 与原子 state 已由 layer alpha、solid color、exact Local Contrast strength 和 stock Opacity direct alpha consumer 执行；其他 target 仍重建，Timeline/SceneScript 未接入 | 下一高覆盖 target 必须同批接 compiler、consumer、原子 fallback 与 identity 门，再接 Timeline/SceneScript/audio/media |
+| live values | format 22 binding program；layer alpha、solid color、direct text、Local Contrast/Opacity consumer 已执行；hidden/no-consumer text 与其他 target 仍重建，Timeline/SceneScript 未接入 | 下一 target 继续同批接 compiler、consumer、fallback 与 identity 门 |
 
 ## 12. 验收要求
 

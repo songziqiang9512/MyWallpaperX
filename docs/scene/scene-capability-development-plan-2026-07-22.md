@@ -2,7 +2,7 @@
 
 > 建立日期：2026-07-22
 >
-> 最近更新：2026-07-23（当前实现基线 `b8842d8`；interpretation v21；B0 strict Local Contrast strength 与 exact stock Opacity alpha live 闭环；B2 五个 strict backend 与 ordered strict effect-chain scheduler 已执行；下一步按 21 样本结构化 census 推进高命中动态文字/Provider Core，并继续准备 copy/swap/compose/history）
+> 最近更新：2026-07-23（当前实现基线 `1762743`；interpretation v22；direct text content/point-size/color 已通过 per-surface snapshot、异步 generation/stale cancellation 与真实样本门；B2 五个 strict backend 与 ordered strict effect-chain scheduler 已执行；下一步推进 copy/swap/compose/history，并把文本 provider 的 lifecycle 合同推广到 system/media/video）
 >
 > 作用：定义 MyWallpaperX Scene runtime 从当前可审计子集向 Wallpaper Engine 常用能力逼近的实施顺序、样本门和验收标准。作者/执行语义先查 [`semantics/README.md`](semantics/README.md)；当前能力结论仍以 [`../reviews/web-scene-current-state-roadmap-2026-07-19.md`](../reviews/web-scene-current-state-roadmap-2026-07-19.md) 与最新运行证据为准；历史 memo 不反向覆盖本计划。
 
@@ -31,16 +31,16 @@
 
 ### 已真实进入运行链
 
-- `project.json` / entry 同名 `gifscene.json` 识别、PKGV 索引、受控缓存解包、路径校验和 interpretation format 21；v21 在既有 ShaderContract、property binding program/effective values、provider/resource metadata 与 authored graph 上加入 exact stock Opacity 候选和执行合同，不改变既有 graph identity；
+- `project.json` / entry 同名 `gifscene.json` 识别、PKGV 索引、受控缓存解包、路径校验和 interpretation format 22；v22 继承 exact stock Opacity、ShaderContract、provider/resource metadata 与 authored graph，并加入 direct text content/point-size/color binding program 合同；
 - PNG/JPEG、raw RGBA/RG/R8、BC1/BC2/BC3/BC5、LZ4、MP4 payload 和 TEX sprite sequence；
 - Metal image/solid/text/particle 合成、父子 transform、有效可见性、source order、alpha、正交/透视粒子相机和桌面多屏宿主；
 - 宿主级单一 60 Hz frame driver 与 `SceneFrameTiming` / `SceneFrameContext` 第一阶段：所有屏幕共享一次采样的 frame index、host time、scene time、frame delta 和 wall date；shader、视频帧、粒子 simulation 与 parallax smoothing 已迁移，屏幕尺寸和 pointer 仍按 surface 独立保存；
-- B0 live-property runtime 已合龙：`SceneDynamicValue` 覆盖 bool/scalar/vector2/vector3/vector4/string，target 覆盖 scene/camera/layer/effect/text/particle/script instance，resolver 固定按 `authored -> userProperty -> Timeline -> SceneScript` 覆盖并拒绝重复、错类型和非有限值；v21 的 binding program 包含 layer alpha/color、exact stock Local Contrast pass 3 `strength` 与 exact stock Opacity `alpha` target；Host 为每个 surface 独立求值和持有 generation，属性更新经原子 live state 路由到 renderer；
-- 当前 live consumer 严格限定为 image/solid/text 和 `shouldCapture` utility 的 layer alpha、solid layer color，以及已通过 strict planner 的 Local Contrast `strength`。普通 image/text 不乘动态 tint；particle、container、non-solid color、其他 effect constant、mixed、unsupported 或无活动 consumer 的 key 返回整场 `requestSceneRender`；以后任何新 target 都必须同时注册 compiler mapping、活动 consumer、snapshot 消费与 GPU 路径，不能只完成分类就宣称 live；
+- B0 live-property runtime 已合龙：`SceneDynamicValue` 覆盖 bool/scalar/vector2/vector3/vector4/string，target 覆盖 scene/camera/layer/effect/text/particle/script instance，resolver 固定按 `authored -> userProperty -> Timeline -> SceneScript` 覆盖并拒绝重复、错类型和非有限值；v22 的 binding program 包含 layer alpha/color、direct text content/point-size/color、exact stock Local Contrast pass 3 `strength` 与 exact stock Opacity `alpha` target；Host 为每个 surface 独立求值和持有 generation，属性更新经原子 live state 路由到 renderer；
+- 当前 live consumer 严格限定为 image/solid/text 和 `shouldCapture` utility 的 layer alpha、solid layer color、有效可见 text layer 的 direct content/point-size/color，以及已通过 strict planner 的 Local Contrast `strength`/Opacity `alpha`。文本只重栅格化变化层，重复值不生成，旧 generation 和失败结果不能覆盖最后可用纹理；hidden/no-consumer、SceneScript/time/media、particle、container、non-solid color、其他 effect constant、mixed 或 unsupported key 返回整场 `requestSceneRender`；
 - cover 投影；Camera Parallax 服从 Scene options、显式逐层 depth、传播和属性 override；包括 composition 在内，缺失或零 depth 不产生逐层位移；
 - legacy coarse blur 仍只服务尚未迁移的受限路径，采用全尺寸 RT + 4 倍 texel step 近似；authored graph 已分别把 precise Blur 严格选路到固定两遍近似 kernel，把 stock standard Blur 默认 profile 选路到真实 4-pass、2 个 quarter RT、alpha-aware downsample、13-tap Gaussian 与默认 combine，并把 exact stock Local Contrast 选路到 4-pass、2 个 FBO `scale=4` quarter RGBA RT、alpha-weighted downsample、13-tap Gaussian X/Y 与线性 contrast combine。标准 Bloom、normal-map waterripple、perspective+opacity、mode 9 additive，以及 water/cursor/chromatic/iris 等仍是明确标注的受限实现；
 - 单个 built-in UV Foliage Sway 已读取作者 strength/speed/phase/power/noise/ratio/direction 和 mask 映射；多 foliage 栈与 vertex/workshop 变体不会误套该近似实现；
-- 静态 text 当前以 authored `pointsize * 4` 近似 300 DPI point raster、处理 vector padding、包内字体、系统字体别名和缺失字体诊断；`* 4` 是样本验证近似，不是完整官方换算合同；
+- text 以 authored `pointsize * 4` 近似 300 DPI point raster、处理 vector padding、包内字体、系统字体别名和缺失字体诊断；direct user property 的 content/point-size/color 已按变化 layer 异步重栅格化，`* 4` 仍是样本验证近似，不是完整官方换算合同；
 - 作者包内 2D sprite 粒子的 definition/resource graph、sphere/box、rate/burst/prewarm、常见 initializer/operator、sequence/random frame、additive/translucent、朝向、静态 override、CPU simulation 与 Metal instancing；除 `particle/drop` 外，现对 `fog1`、`leaves7/8`、`light_shafts_6`、`lightning3`、`halo/halo_2`、`ripple_single` 精确 key 提供项目自行生成的确定性预乘纹理，并支持按速度方向和作者 length/min/max stretch 绘制 Sprite Trail；这些程序纹理是 `executed-degraded`，不是官方纹理副本或像素等价实现；
 - 用户属性定义、group/display condition/options、默认值/override、visibility/text/camera 与部分 effect target、按壁纸持久化、活动 Scene 受控重建和独立属性窗口；
 - 当前实际执行的 `sceneTexture` key 支持 PNG/JPEG picker、按 wallpaper/property bookmark、同步 security-scope 解码、逐屏 Metal 上传、恢复作者默认和失败回退；隐藏但可通过其他属性显示的受支持 consumer 也会进入能力发现，播放时仍只执行当帧可见层；
@@ -55,19 +55,19 @@
 - effect-chain target allocation 先在候选态完成所有 stage plan/table、预算与 LRU victims，再一次提交 cache/resident bytes/access counter；失败不刷新部分命中的 LRU，也不留下半条链。singleton strict plan 复用同一事务，旧直接测试入口保留；
 - `8474ace` 完成 D7 ShaderContract IR v1：完整 UTF-8 source、raw SHA-256、stage path/kind、include、JSON annotation、uniform/attribute/varying declaration、diagnostic 和 canonical SHA 进入 v19；绝对/穿越路径、shader root/stage/include symlink escape、无效 UTF-8、缺失 stage、畸形 annotation 和重复 identity 均 fail closed。generic D7 仍只达到 L1 识别/保留；`136d35c` 仅把 exact Local Contrast 的 identity/canonical/stage/raw source hashes 用作 strict 准入门，实际执行项目自有 Metal pipeline，不预处理、翻译、编译或执行 authored shader source；
 - `228cdde` 完成 Local Contrast 的资源格式前置：graph plan/table 新增 `rgba8888 -> .rgba8Unorm`，input/output 与 `rgba_backbuffer` 保持 `.bgra8Unorm`；两种格式均按 4 B/px 计费，格式变化原子替换 cache，未知格式继续 fail closed。该提交当时尚无执行层，随后 `136d35c` 已让 exact stock Local Contrast 消费该格式；
-- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；`b8842d8` 的最新正式矩阵 `.codex/scene-opacity-final13-20260723-1730/report.json` 为 **13/13**，矩阵 SHA-256 为 `47d01b05a60368cddc679393fb5dd11d562cd4b69cc9d4bd1f559c179fff4e23`。五个 strict backend 合计 stage 14、完整真实 chain 1、Opacity 4、Workshop Shadow 1、GPU failed 0、legacy blocked 2、route-only 30。`2902406982` 的 Opacity exact layers 为 `[365,372,647,664]`；`2938612768` 的 SceneScript candidates `[165,454,626,629,924]` 保持 Opacity/stages 0。全量 Scene 共 **269 项，其中 267 项通过、2 项跳过**。签名 App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `6e70e547f61dcc6821009a4ebbd97af156fb5916`、可执行文件 SHA-256 `0cbaff3bd989e5cb9f8807236fd270feec19ca1f18548c122ca3ccb74033774a`，运行前后签名均验证。
+- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；`1762743` 的最新正式矩阵 `.codex/scene-dynamic-text-final13-20260723-1915/report.json` 为 **13/13**，矩阵 SHA-256 为 `fbb252a64018cf785e20b2200db5966a300e9351a994b4a36f1fe9565c5b354c`。五个 strict backend 仍合计 stage 14、完整真实 chain 1、Opacity 4、Workshop Shadow 1、GPU failed 0、legacy blocked 2、route-only 30。动态文字定向门 `.codex/scene-dynamic-text-targeted-213-final-20260723-1907/report.json` 令 `2134765860` 先以 `text=2` 启用作者 Custom 模式，再 live 更新 `customtext/textcolor/textsize`；surface/window identity 不变，changed ratio `0.003541478640192539`。全量 Scene 共 **273 项，其中 271 项通过、2 项跳过**。签名 App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `25f1e84ab81ee23d270ea1e436de0e47ccd34489`、可执行文件 SHA-256 `85634666c237a9026ac89b04bc33815963f24fd77b339c1520f6cb20ae29f5d6`，运行前后签名均验证。
 
 ### 仅解析/诊断或部分实现
 
 - authored graph 只有 precise Blur、stock Blur、exact stock Local Contrast、exact Workshop Shadow 和 exact stock Opacity 五个 strict backend 进入 renderer；当前真实 13 样本只有 `3724289844:20` 一条正向 multi-effect chain。named target、静态 image blend 和其余手写 effect 仍是受限执行器，child/nested target、effectful/media provider、copy/swap/compose/history/condition/function 和通用 mask/material/shader 尚未实现；
-- typed frame texture registry、resource/frame 双代、authored fallback 和 PNG/JPEG property file/bookmark/decode 已进入 runtime，但只服务当前严格静态 image-blend consumer；显式 dynamic generation/metadata/cancel、`$mediaThumbnail`、Texture Variants、video frame、通用 material property consumer、effectful/nested provider 与 history/copy/swap 尚未接入；ShaderContract 已原样保留 annotation/default，但 resolver 尚无 typed default consumer、preprocessor 或任意 shader/pass executor；
+- typed frame texture registry、resource/frame 双代、authored fallback 和 PNG/JPEG property file/bookmark/decode 已进入 runtime；dynamic text 已提供 per-layer generation、串行异步栅格化、stale cancellation 和 last-ready fallback。通用 provider metadata/status/cancel、`$mediaThumbnail`、Texture Variants、video frame、通用 material property consumer、effectful/nested provider 与 history/copy/swap 尚未接入；
 - Timeline 没有正式 target/keyframe/mode/tangent/event IR；部分粒子动态 wrapper 只保留 presence/诊断，不能记为 Timeline 数据模型；
 - SceneScript 只发现 `.js` 资源和 inline `script` presence；inline/source 内容、owner/property binding 和返回类型会丢失，也没有 ECMAScript runtime、`init/update`、事件、globals、Date/Math live value 或属性写回；
-- 用户属性 parser 已把官方 `texture` 与样本 raw `scenetexture` 归一为内部 texture-provider 类型并保留原始 runtime type；PNG/JPEG 文件选择/授权/加载已闭合首个静态 consumer 子集，layer alpha、纯 solid layer color 与 exact stock Local Contrast strength 已无重建 live；Texture Variants、media/video texture、transform、non-solid/mixed color、其他 effect constant、particle/audio/puppet target 和 SceneScript `applyUserProperties` 仍未闭环；
+- 用户属性 parser 已把官方 `texture` 与样本 raw `scenetexture` 归一为内部 texture-provider 类型并保留原始 runtime type；PNG/JPEG 文件选择/授权/加载已闭合首个静态 consumer 子集，layer alpha、纯 solid layer color、direct text content/point-size/color、exact stock Local Contrast strength 与 stock Opacity alpha 已无重建 live；Texture Variants、media/video texture、transform、non-solid/mixed color、其他 effect constant、particle/audio/puppet target 和 SceneScript `applyUserProperties` 仍未闭环；
 - child particle graph 可遍历但不实例化；除上述 9 个精确 key 外的 built-in particle、rope/rope trail、world-space、control point、collision、音频和动态 override 未实现；Sprite Trail 当前只覆盖 2D sprite velocity-aligned stretch 子集；
 - particle exponent 已进入解析模型，但 simulation 尚未消费，不能记为已支持；
 - 多 foliage 栈、vertex sway 与 workshop 自定义 sway 未实现；它们当前保持静态或进入明确诊断，不用单层 UV 近似替代；
-- Scene 音频/媒体未接现有系统服务；动态时间/日期/媒体 text、puppet/mesh/3D/lighting、自定义 shader 均未实现；
+- Scene 音频/媒体未接现有系统服务；SceneScript/系统时间/日期/媒体驱动的 text、puppet/mesh/3D/lighting、自定义 shader 均未实现；
 - Frame Context 尚缺 pause/resume、长帧 delta clamp/dropped-time、fixed timestep、audio/media producer 和离线 adapter；property producer 与 per-surface changed-payload generation 已进入 B0，pointer/script/provider 的 local generation 隔离仍待对应 runtime 接入；fullscreen/battery、目标 FPS、CPU/GPU/显存预算和 soak 也未闭环。
 
 13 样本 PASS 不能解释成 Wallpaper Engine 视觉兼容率：正式矩阵只证明当前声明的解析、GPU 完成、非黑画面、能力计数和释放门通过。`2902406982` 的 named target 主缺口与 `2938612768` 的首个静态背景依赖已经关闭，但两者仍有字体、时序、媒体、后续 effect 和粒子差异；`3750813609` 已出现雾、叶片与光束等新增粒子，但仍缺动态时钟、完整 Clouds/Blur、child、world-space 雨滴溅射、control point/turbulence 和最终合成精度。21 样本首轮分级仍只是历史截图基线，必须在下一轮统一视觉重跑后才能重新分级。
@@ -117,7 +117,7 @@
 2. **Authored graph planner（已完成结构阶段）**：v16 区分 effect input `previous`、effect-scoped RT、material/command ordinal、copy/swap 和 blocker，并用 canonical SHA 锁定逐样本图身份。当前 5 个 condition/function blocker 均 fail closed。
 3. **S2.3a precise-blur graph backend（已完成受限阶段）**：统一 resolver 与严格 topology/state/resource gate 驱动 5 个可见层进入固定近似 Gaussian；不满足合同的 layer 20 不再回退旧文件名模糊，隐藏层不执行，RT 被预算缩放时拒绝。
 4. **S2.3b standard Blur graph backend（默认 profile 已完成）**：以 `2902406982` layer `530` 的真实 4-node、2 个 quarter RT 图为门，完成 alpha-aware downsample -> 13-tap horizontal/vertical Gaussian -> default previous combine；不支持的 KERNEL1/2、COMPOSITE1-3、MASK、BLURALPHA0 与混合图继续 fail closed，不回退 legacy coarse blur。
-5. **Provider Core 与 Graph Resource Runtime 分开闭合**：typed frame registry、resource/frame 双代、provider status、逐 slot 候选、authored fallback、PNG/JPEG `sceneTexture` 第一切片、effect target table、ShaderContract IR v1、`rgba8888` target format、五个 strict backend、ordered strict effect-chain scheduler 与首条真实 `Blur Precise -> Shadow` chain 已完成。exact stock Opacity `MASK=0` 已从既有 binding program / per-surface snapshot 进入 live GPU consumer；mask variant、SceneScript 值、未知 combo/state/source 和无活动 consumer 的绑定继续 fail closed。B1 下一步以动态文字为首个高命中 generation/stale-cancellation consumer；B2 继续准备 copy/swap/compose/history 与 typed shader defaults/built-ins/state。`2938612768` 可见 mixed chains 继续作为整链 fail-closed 负向门；route-only 不作为完整 gap census。
+5. **Provider Core 与 Graph Resource Runtime 分开闭合**：typed frame registry、resource/frame 双代、逐 slot 候选、authored fallback、PNG/JPEG `sceneTexture` 第一切片、effect target table、ShaderContract IR v1、`rgba8888` target format、五个 strict backend、ordered strict effect-chain scheduler 与首条真实 `Blur Precise -> Shadow` chain 已完成。dynamic text 已成为首个 per-layer generation/stale-cancellation/last-ready consumer；B1 下一步把相同 lifecycle 推广到 Texture Variants、video/system/media，B2 转入 copy/swap/compose/history 与 typed shader defaults/built-ins/state。`2938612768` 可见 mixed chains 继续作为整链 fail-closed 负向门；route-only 不作为完整 gap census。
 6. **高命中 Effect 批次有硬前置**：Shake/Swing/Foliage、Water、Depth Parallax、Blend/Opacity、God Rays/Shine/Motion Blur 继续是候选，但只能通过新增共享 graph/shader/provider/space primitive 或注册完整匹配且 fail-closed 的 strict profile实现。不得继续扩大 effect-name/path-substring 手写近似；逐项门见 [Effect 执行覆盖表](semantics/effect-execution-coverage.md)。
 7. **视觉门**：先定向复核 `2902406982`、`2938612768`、`3750813609`，再重跑 21 样本 cover 对比；验收同时要求主构图、局部运动区域、字体/alpha 和关键粒子接近封面或 Windows 官方运行证据。
 
@@ -125,12 +125,12 @@
 
 1. **Frame Context 第一阶段已完成**：宿主统一 frame driver 与时间采样，现有 shader/video/particle/parallax 消费同一帧；下一步补 pause/resume、raw/simulation delta、discontinuity、fixed-time test adapter 和目标 FPS。
 2. **B0 per-surface snapshot 已完成**：`HostFrameInputs -> SurfaceFrameContext -> Surface EvaluationTransaction -> SurfaceDynamicSnapshot` 已用于 property producer；双屏共享时间/属性输入，但最终 snapshot 和 generation 按 surface 隔离。
-3. **B0 TargetContract 与 binding program 已完成首个产品闭环**：v21 编译并持久化 alpha/color definitions/instructions、exact stock Local Contrast pass 3 `strength -> effectConstant` 与 exact stock Opacity `alpha -> effectConstant`；mixed/invalid/unsupported/SceneScript key 保留 rebuild fallback，四类 target 均已有真实 consumer。
+3. **B0 TargetContract 与 binding program 已完成首个产品闭环**：v22 编译并持久化 alpha/color、direct text content/point-size/color、exact stock Local Contrast `strength` 与 exact stock Opacity `alpha`；mixed/invalid/unsupported/SceneScript key 保留 rebuild fallback，已登记 target 均有真实 consumer。
 4. **B0 原子 live routing 已完成**：Host/Service/属性窗口更新与 reset 先尝试 atomic live state；image/solid/text 和 `shouldCapture` utility 的 alpha、纯 solid color、strict Local Contrast strength 成功时不重建，particle/container/non-solid color、其他 effect constant、mixed/unsupported/no-consumer 失败时才调度整场重建。事件、Timeline 和 SceneScript 以后按既定 transaction 顺序接入。
 5. Timeline 先完整保留 keyframe/mode/tangent/event 数据，再接 Loop/Mirror/Single 与线性/Bézier；SceneScript 先保存 source/binding IR，再接 sandbox VM、lifecycle、typed write 和 budget，不能从嵌入 VM 直接跳到 renderer setter。
 6. 动态 text、cursor/audio/media 输入与 transform/effect/particle target 按各自 provider、space、event 和 generation 前置接入，不再作为一组无依赖的“同时打通”任务。
 
-下一主线不再回头扩属性旁路：B2 ordered strict effect-chain skeleton、首条真实 `Blur Precise -> Shadow` 正门和 stock Opacity `MASK=0` live alpha 已完成；下一切片按 21 样本中 267 条 text content/point-size/color binding 推进动态文字与 B1 generation/stale cancellation，B2 copy/swap/compose/history 继续准备。Local Contrast 与 Opacity 已证明新属性只有在 compiler target、活动 consumer、per-surface snapshot、GPU 消费、原子失败/fallback 和 surface/window identity 运行门同时成立时才允许 live；以后所有属性能力沿用该门，不再先走整场重建、后补 snapshot 迁移。
+下一主线不再回头扩属性旁路：direct text 三类 target 与 B1 generation/stale cancellation 已由 `1762743` 完成首个闭环。下一切片推进 B2 copy/swap/compose/history；B1 同时只做 provider status/metadata/cancel 的共享化，不为 system/media/video 建旁路。以后所有属性能力继续要求 compiler target、活动 consumer、per-surface snapshot、原子失败/fallback 和 surface/window identity 同批验收。
 
 ### S4：按公共依赖扩展粒子图谱（分层推进）
 
@@ -160,7 +160,7 @@
 - 当前只对作者可见、无 child/dependency consumer、所有可见 effect 均受支持且不缺 mask 的 utility layer 执行捕获。未支持、部分支持、隐藏、无 effect 和带缺失 mask 的层均明确跳过，不把能力默认套给样本。
 - source copy 与 effect encoder 失败均 fail closed；离屏纹理限制为最大 2048 维、96 MiB 预算，capture 成功只在 Metal command buffer 完成后上报。
 - 定向 4 样本 **4/4**：42 个 utility candidate 中 2 个 capture，layer `410/530` 均 GPU succeeded，0 failed；正式矩阵 **12/12**，17 candidates / 2 capture / 8 dependency edges / 6 named-target gaps。
-- 历史验收由上述计数和提交 `1517f4a`、`1f8f148` 保留；该阶段截至后续 S1 提交时以 format 14 矩阵复核，当前状态仍以第 2-4 节的 v21 证据为准。
+- 历史验收由上述计数和提交 `1517f4a`、`1f8f148` 保留；该阶段截至后续 S1 提交时以 format 14 矩阵复核，当前状态仍以第 2-4 节的 v22 证据为准。
 
 ### 已完成：S1.2b-S1.2c named target 与静态 image dependency blend
 
@@ -182,7 +182,7 @@
 
 ### 已完成：S2.3a precise-blur graph backend
 
-- 当前 v21 runtime 继续消费 v16 建立的 authored plans；resolver 保留 8 个 sparse texture slot，记录 material/instance/user texture/explicit bind 来源，并合并 combo、constant 和 render state。
+- 当前 v22 runtime 继续消费 v16 建立的 authored plans；resolver 保留 8 个 sparse texture slot，记录 material/instance/user texture/explicit bind 来源，并合并 combo、constant 和 render state。
 - backend 只接受已验证的两 pass full-resolution precise topology。缺失、动态 binding、大小写冲突、负数/越界 `scale`，未知 shader/state/combo/binding、非精确 RT extent 或混合 effect 都 fail closed；graph 编码/分配失败不会静默回源。
 - `3724289844` layers `28/36` 与 `3765760121` layers `68/76/82` GPU succeeded，失败 0；layer `20` 因 precise+shadow 图不完整而阻断旧 fallback；`3723257973` 的 5 层和 `3765760121` 的 3 层因有效不可见未执行。
 - 定向报告为 `.codex/scene-authored-precise-failclosed-related-20260723/report.json`，最终 13/13 报告为 `.codex/scene-authored-precise-final13-20260723/report.json`。App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`；118 项 Scene 测试通过，1 项跳过。preview 明确输出 `authoredEffectGraphSupportLevel: executed-degraded`，矩阵同时锁定成功、失败和 legacy-blur blocked layer ID。
@@ -277,6 +277,13 @@
 - Opacity alpha 由既有 binding program/per-surface snapshot 每帧解析，renderer 在预乘宿主边界统一缩放 RGBA。snapshot -> ordered chain -> GPU 像素门验证 alpha `1.0 -> 0.2`；错误或无 consumer 的 key 继续走整场重建，不新增属性旁路。
 - 定向报告 `.codex/scene-opacity-targeted-290-final-20260723-1722/report.json` 验证 `2902406982` layers `[365,372,647,664]` 与 `newproperty50=0.2`；负向 `.codex/scene-opacity-failclosed-293-final-20260723-1725/report.json` 验证 `2938612768` candidates `[165,454,626,629,924]` 因 SceneScript 保持 Opacity/stages 0。正式 `.codex/scene-opacity-final13-20260723-1730/report.json` 为 **13/13**，矩阵 SHA-256 `47d01b05a60368cddc679393fb5dd11d562cd4b69cc9d4bd1f559c179fff4e23`；五个 strict backend 合计 stages 14、chains 1、Opacity 4、failed 0、legacy blocked 2、route-only 30。
 - 全量 Scene **269 项、267 项通过、2 项跳过**；签名身份为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `6e70e547f61dcc6821009a4ebbd97af156fb5916`、executable SHA-256 `0cbaff3bd989e5cb9f8807236fd270feec19ca1f18548c122ca3ccb74033774a`。293 仍有明显 unsupported effect 视觉偏差，不能把运行门升级为 WE parity。
+
+### 已完成：S2.4l direct dynamic text 与首个异步 generation consumer
+
+- `1762743` 将 interpretation 升至 v22，为 direct `textinput` content、slider point-size 和 color 编译稳定 text target；Host 只把有效可见且可栅格化的文本层登记为活动 consumer，隐藏层、conditional binding、静态 `text` label、SceneScript/time/media 继续 fail closed 或重建。
+- `SceneDynamicTextTextureStore` 按 layer signature 去重，在串行后台队列重栅格化；per-layer generation 拒绝 A->B->C 中迟到的 B，失败保留 authored/last-ready texture，空字符串生成透明纹理，stop/deinit 不保留可提交状态。`SceneMetalView` 每帧只合并 ready texture，不替换 surface/window。
+- 定向报告 `.codex/scene-dynamic-text-targeted-213-final-20260723-1907/report.json` 在隔离 `2134765860` 先用 `text=2` 启用作者 Custom 模式，再同时 live 更新 `customtext/textcolor/textsize`：accepted=true、surface `1 -> 1`、window `[94398] -> [94398]`、changed ratio `0.003541478640192539`、text `6/6`。正式 `.codex/scene-dynamic-text-final13-20260723-1915/report.json` 为 **13/13**，矩阵 SHA-256 `fbb252a64018cf785e20b2200db5966a300e9351a994b4a36f1fe9565c5b354c`，原 strict graph 指标保持 14 stage/1 chain/0 failed，sample root residue 为 0。
+- 全量 Scene **273 项、271 项通过、2 项跳过**；签名身份为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `25f1e84ab81ee23d270ea1e436de0e47ccd34489`、executable SHA-256 `85634666c237a9026ac89b04bc33815963f24fd77b339c1520f6cb20ae29f5d6`。这不等于 SceneScript clock/date/media 已执行，也不证明 Windows 字体/布局像素一致。
 
 ## 5. 样本规范
 

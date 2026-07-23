@@ -28,9 +28,9 @@ HostFrameInputs
 
 MyWallpaperX 当前已落地第一阶段 `SceneFrameTiming` / `SceneFrameContext`：桌面宿主每帧只采样一次 monotonic host time 与 wall date，并把相同的 frame index、scene time 和 frame delta 广播给所有屏幕；shader time、视频 host time、粒子推进和相机视差平滑已消费该快照。各屏仍保留自己的 viewport、pointer 和 particle simulation。
 
-`36bfef0` 建立了六类 `SceneDynamicValue`、scene/camera/layer/effect/text/particle/script target、`authored -> userProperty -> Timeline -> SceneScript` 固定覆盖顺序和不可变 `SceneDynamicSnapshot`。此后 v21 已完成 property binding program、host-shared input 与 per-surface evaluation/final snapshot 拆分、原子 transaction 和 generation；layer alpha、纯 solid color、exact stock Local Contrast strength 与 exact stock Opacity direct alpha 已有真实 producer/consumer，并由 ordered strict chain 逐 stage 消费同一 surface snapshot。这个 B0 子集不能外推到 Timeline、SceneScript、particle、dynamic text 或其他 effect constant；缺少 compiler target 或真实 consumer 的属性仍走整场重建。
+`36bfef0` 建立了六类 `SceneDynamicValue`、主要 target、固定覆盖顺序和不可变 snapshot。当前 v22 已完成 property binding program、per-surface transaction/generation，以及 layer alpha、solid color、direct text content/point-size/color、Local Contrast/Opacity producer/consumer。`1762743` 的 dynamic text 按 layer signature 异步生成并拒绝 stale completion；这个子集不能外推到 Timeline、SceneScript、particle、system/media text 或其他 effect constant。
 
-这仍不等于完整时钟和动态系统合同。pause/resume、长帧 delta clamp、dropped-time 诊断、固定 timestep、buttons、audio/media producer、deterministic seed 和离线 adapter 尚未接入；Timeline、SceneScript、动态文字、particle 与其他 effect target 也还没有真实 producer/consumer。
+这仍不等于完整时钟和动态系统合同。pause/resume、delta clamp、fixed timestep、buttons、audio/media producer、deterministic seed 和离线 adapter尚未接入；Timeline、SceneScript、system/media-driven text、particle 与其他 effect target 也还没有真实 producer/consumer。
 
 ## 2. Particle System
 
@@ -349,7 +349,7 @@ Scene 与 Web 音频合同不同：
 - color/alpha/format；
 - consumer slots。
 
-当前 v21 继承 typed identity、ready/pending/unavailable、完整 named-target variant，以及 property provider 缺失时按有序候选回退 authored layer。registry 已把两类代数分开：连续帧同 identity、同纹理对象的 layer/property/system publication 复用 resource generation，替换或缺席后重现时换代；named target 因内容会在当帧重写，使用 frame epoch 且下一帧未重新发布即清空。文件型第一切片把按 wallpaper/property 保存的 PNG/JPEG bookmark 在同步 security scope 内解码为每屏设备的 `MTLTexture`，并由 `SceneMetalView` 发布到 registry；只为当前严格静态 image-blend consumer 暴露控件。它不证明 `$mediaThumbnail`、Texture Variants、显式视频帧 generation、通用 material consumer 或 SceneScript 已经可用。
+当前 v22 继承 typed registry 的 identity/status/resource generation/frame epoch。文件型第一切片仍只服务静态 image-blend；dynamic text 另以 per-layer signature/generation、串行异步 raster、stale cancellation 和 last-ready fallback 验证首个动态内容 lifecycle。它尚未抽成所有 provider 共用的 status/metadata/teardown，也不证明 `$mediaThumbnail`、Texture Variants、video generation、通用 material consumer 或 SceneScript 可用。
 
 ## 8. Puppet、3D 和 Lighting
 

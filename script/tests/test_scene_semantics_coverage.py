@@ -334,7 +334,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             "Strict profiles and scheduler must not promote generic graph/shader primitives",
         )
 
-    def test_current_stock_opacity_state_is_linked_across_active_documents(self) -> None:
+    def test_current_scene_state_is_linked_from_authoritative_documents(self) -> None:
         implementation_documents = (
             LEDGER_PATH,
             EFFECT_COVERAGE_PATH,
@@ -359,64 +359,70 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             path: path.read_text(encoding="utf-8") for path in implementation_documents
         }
 
-        for path, text in document_text.items():
-            self.assertIn(
-                "`b8842d8`",
-                text,
-                f"Current Scene document is missing the stock Opacity baseline: {path}",
-            )
-
-        report_path = ".codex/scene-opacity-final13-20260723-1730/report.json"
-        for path in (
+        current_state_documents = (
             LEDGER_PATH,
-            EFFECT_COVERAGE_PATH,
-            RENDER_GRAPH_COVERAGE_PATH,
+            DEPENDENCY_MAP_PATH,
             RUNTIME_EVIDENCE_PATH,
+            RUNTIME_INPUT_COVERAGE_PATH,
+            SCENE_FORMAT_PATH,
             DEVELOPMENT_PLAN_PATH,
             ROADMAP_PATH,
             SAMPLE_ASSESSMENT_PATH,
-            COMPATIBILITY_PATH,
-            RUNTIME_DESIGN_PATH,
-            EFFECTS_REFERENCE_PATH,
             RUNTIME_SYSTEMS_REFERENCE_PATH,
-            SCENESCRIPT_COVERAGE_PATH,
-            SOURCE_INDEX_PATH,
-            ADVANCED_OBJECT_COVERAGE_PATH,
-            PARTICLE_COMPONENT_COVERAGE_PATH,
+        )
+        for path in current_state_documents:
+            text = document_text[path]
+            self.assertIn(
+                "`1762743`",
+                text,
+                f"Current Scene document is missing the dynamic-text baseline: {path}",
+            )
+
+        report_path = ".codex/scene-dynamic-text-final13-20260723-1915/report.json"
+        for path in (
+            LEDGER_PATH,
+            DEPENDENCY_MAP_PATH,
+            RUNTIME_EVIDENCE_PATH,
+            RUNTIME_INPUT_COVERAGE_PATH,
+            DEVELOPMENT_PLAN_PATH,
+            ROADMAP_PATH,
+            SAMPLE_ASSESSMENT_PATH,
         ):
             self.assertIn(
                 report_path,
                 document_text[path],
-                f"Current Scene document is missing the final stock Opacity report: {path}",
+                f"Current Scene document is missing the final dynamic-text report: {path}",
             )
 
         evidence = document_text[RUNTIME_EVIDENCE_PATH]
+        self.assertIn("### E-DYNAMIC-TEXT:", evidence)
         self.assertIn("### E-EFFECT-OPACITY:", evidence)
         self.assertIn("### E-EFFECT-WORKSHOP-SHADOW:", evidence)
         self.assertIn("### E-EFFECT-CHAIN: ordered strict effect-chain scheduler", evidence)
-        self.assertIn("Scene tests 269 total / 267 pass / 2 skip", evidence)
+        self.assertIn("Scene tests 273 total / 271 pass / 2 skip", evidence)
         self.assertIn(
             "ordered strict effect-chain",
             document_text[DEPENDENCY_MAP_PATH],
         )
-        for path, text in document_text.items():
+        for path in current_state_documents:
+            text = document_text[path]
             self.assertIn(
-                "Opacity",
+                "dynamic text",
                 text,
-                f"Current Scene document is missing the stock Opacity state: {path}",
+                f"Current Scene document is missing the dynamic-text state: {path}",
             )
 
         current_status = "\n".join(document_text.values())
         for fact in (
-            "interpretation v21",
+            "interpretation v22",
             "五个 strict backend",
             "14 stage",
             "route-only 30",
-            "[365,372,647,664]",
-            "[165,454,626,629,924]",
-            "SceneScript fail-closed",
+            "customtext/textcolor/textsize",
+            "stale cancellation",
+            "SceneScript/time/media",
         ):
-            self.assertIn(fact, current_status, f"Missing current Opacity fact: {fact}")
+            self.assertIn(fact, current_status, f"Missing current Scene fact: {fact}")
 
         for path in (
             DEVELOPMENT_PLAN_PATH,
@@ -444,6 +450,9 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             "下一步实现 stock Opacity",
             "下一主线为 exact stock Opacity",
             "下一门为 stock Opacity",
+            "下一主线推进 dynamic text",
+            "下一步推进 dynamic text",
+            "下一切片推进 dynamic text",
             "按 route-only 组成",
         )
         for path, text in document_text.items():
