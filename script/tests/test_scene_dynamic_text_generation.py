@@ -11,7 +11,7 @@ from pathlib import Path
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/SceneDynamicTextGenerationState.swift"
+SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Text/SceneDynamicTextGenerationState.swift"
 
 HARNESS = r'''
 import Foundation

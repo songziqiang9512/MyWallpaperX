@@ -46,6 +46,24 @@ Scene 兼容的核心不是不断增加“看起来差不多”的效果分支�
 | 已选批次的详细实施顺序、样本和测试门 | [Scene 播放能力开发计划](../scene-capability-development-plan-2026-07-22.md) |
 | Wallpaper Engine 的上层能力地图 | [Scene 兼容能力综述](../wallpaper_engine_scene_compatibility.md) |
 
+### 2.1 源码目录导航
+
+`MyWallpaperX/Core/SteamWorkshopScene` 按现有运行时职责分为九个一级目录，目录只负责导航和所有权，不改变 Swift Target 或访问边界：
+
+| 目录 | 主要职责 |
+|---|---|
+| `Format` | Project、Document、PKG/TEX、JSON、interpretation |
+| `Runtime` | Host、frame context、runtime model、descriptor、diagnostics |
+| `Properties` | 用户属性、binding program、dynamic snapshot、live update |
+| `Resources` | asset/resource index、texture loader、path resolver、video source |
+| `Rendering` | Metal 核心、compositor、layer、camera、geometry、utility |
+| `RenderGraph` | authored graph、dependency、render target、offscreen pool、ShaderContract |
+| `Effects` | 具体 effect pipeline、runtime plan、renderer |
+| `Text` | descriptor、font、geometry、texture、dynamic text |
+| `Particles` | definition、parser、simulation、pipeline、texture、trail |
+
+新增 Swift 文件必须进入既有职责目录；主类型 extension 与主文件同目录，不使用 `Misc`、`Common` 或 `Helpers` 兜底，也不为未来能力建立空目录。Timeline/Animation、SceneScript/Scripting、system/media/audio provider 或 Puppet/3D/Lighting 等新系统只有形成多个共同生命周期或明确依赖边界的实际文件后，才评估新增一级目录。结构约束由 `test_scene_semantics_coverage.py` 自动检查。
+
 ## 3. 证据等级
 
 Wallpaper Engine 没有公开稳定、完整的 Workshop Scene 序列化规范。本文必须区分“官方行为合同”和“观察到的数据格式”，不能混写成同等确定性。
@@ -135,3 +153,4 @@ scene.json / scene.pkg / assets
 - 新发现的字段先标证据等级和样本来源，再判断是否进入实现。
 - 官方文档或 `lib.sceneScript.d.ts` 版本变化时，更新 [资料来源与证据索引](source-index.md) 的核验日期和差异。
 - 第三方播放器与官方资料冲突时，记录其偏差，不修正文档去迎合第三方行为。
+- Scene 源码导航以本页九类目录为准；目录调整必须同步根 `AGENTS.md`、自动布局门、测试源码路径和文档代码链接。

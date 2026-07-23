@@ -12,20 +12,20 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-INTERPRETATION_SOURCE = SCENE_ROOT / "SceneInterpretationFile.swift"
-DIAGNOSTICS_SOURCE = SCENE_ROOT / "SceneDiagnostics.swift"
-RUNTIME_MODEL_SOURCE = SCENE_ROOT / "SceneRuntimeModel.swift"
-ASSET_CATALOG_SOURCE = SCENE_ROOT / "SceneAssetCatalog.swift"
-SHADER_CONTRACT_SOURCE = SCENE_ROOT / "SceneShaderContract.swift"
-SHADER_CONTRACT_LOADER_SOURCE = SCENE_ROOT / "SceneShaderContractLoader.swift"
+INTERPRETATION_SOURCE = SCENE_ROOT / "Format/SceneInterpretationFile.swift"
+DIAGNOSTICS_SOURCE = SCENE_ROOT / "Runtime/SceneDiagnostics.swift"
+RUNTIME_MODEL_SOURCE = SCENE_ROOT / "Runtime/SceneRuntimeModel.swift"
+ASSET_CATALOG_SOURCE = SCENE_ROOT / "Resources/SceneAssetCatalog.swift"
+SHADER_CONTRACT_SOURCE = SCENE_ROOT / "RenderGraph/SceneShaderContract.swift"
+SHADER_CONTRACT_LOADER_SOURCE = SCENE_ROOT / "RenderGraph/SceneShaderContractLoader.swift"
 SWIFT_SOURCES = [
-    SCENE_ROOT / "SceneUserProperty.swift",
-    SCENE_ROOT / "SceneUserPropertyBindings.swift",
-    SCENE_ROOT / "SceneDynamicSnapshot.swift",
-    SCENE_ROOT / "ScenePropertyBindingProgram.swift",
-    SCENE_ROOT / "ScenePropertyBindingCompiler+TargetMapping.swift",
-    SCENE_ROOT / "ScenePropertyBindingProgramValidator.swift",
-    SCENE_ROOT / "SceneJSONValue.swift",
+    SCENE_ROOT / "Properties/SceneUserProperty.swift",
+    SCENE_ROOT / "Properties/SceneUserPropertyBindings.swift",
+    SCENE_ROOT / "Properties/SceneDynamicSnapshot.swift",
+    SCENE_ROOT / "Properties/ScenePropertyBindingProgram.swift",
+    SCENE_ROOT / "Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
+    SCENE_ROOT / "Properties/ScenePropertyBindingProgramValidator.swift",
+    SCENE_ROOT / "Format/SceneJSONValue.swift",
     SHADER_CONTRACT_SOURCE,
     SHADER_CONTRACT_LOADER_SOURCE,
     INTERPRETATION_SOURCE,

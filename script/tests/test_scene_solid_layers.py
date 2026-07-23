@@ -14,15 +14,15 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
-    SOURCE_ROOT / "SceneDocument.swift",
-    SOURCE_ROOT / "SceneDocument+NumericParsing.swift",
-    SOURCE_ROOT / "SceneJSONValue.swift",
-    SOURCE_ROOT / "SceneEffectDefinition.swift",
-    SOURCE_ROOT / "SceneEffectTextureInput.swift",
-    SOURCE_ROOT / "SceneUtilityLayer.swift",
-    SOURCE_ROOT / "SceneRenderDescriptor.swift",
-    SOURCE_ROOT / "SceneMetalPipeline.swift",
-    SOURCE_ROOT / "SceneSolidLayerTexture.swift",
+    SOURCE_ROOT / "Format/SceneDocument.swift",
+    SOURCE_ROOT / "Format/SceneDocument+NumericParsing.swift",
+    SOURCE_ROOT / "Format/SceneJSONValue.swift",
+    SOURCE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
+    SOURCE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
+    SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift",
+    SOURCE_ROOT / "Runtime/SceneRenderDescriptor.swift",
+    SOURCE_ROOT / "Rendering/SceneMetalPipeline.swift",
+    SOURCE_ROOT / "Resources/SceneSolidLayerTexture.swift",
 ]
 
 
@@ -398,10 +398,10 @@ class SceneSolidLayerTests(unittest.TestCase):
         for actual, expected in zip(self.result["uniformTint"], [0.1, 0.2, 0.3, 1]):
             self.assertAlmostEqual(actual, expected, places=6)
 
-        compositor = (SOURCE_ROOT / "SceneImageLayerCompositor.swift").read_text(
+        compositor = (SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift").read_text(
             encoding="utf-8"
         )
-        shader = (SOURCE_ROOT / "SceneMetalPipeline.swift").read_text(encoding="utf-8")
+        shader = (SOURCE_ROOT / "Rendering/SceneMetalPipeline.swift").read_text(encoding="utf-8")
         self.assertRegex(
             compositor,
             re.compile(
@@ -419,7 +419,7 @@ class SceneSolidLayerTests(unittest.TestCase):
         self.assertEqual(self.result["textureSize"], [1, 1])
         self.assertEqual(self.result["texturePixel"], [255, 255, 255, 255])
 
-        view = (SOURCE_ROOT / "SceneMetalView.swift").read_text(encoding="utf-8")
+        view = (SOURCE_ROOT / "Rendering/SceneMetalView.swift").read_text(encoding="utf-8")
         self.assertRegex(view, r"private let solidLayerTexture\s*:\s*MTLTexture\??")
         self.assertEqual(view.count("SceneSolidLayerTexture.make("), 1)
         self.assertRegex(

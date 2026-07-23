@@ -12,12 +12,12 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-HOST_SOURCE = SOURCE_ROOT / "SceneDesktopWallpaperHost.swift"
+HOST_SOURCE = SOURCE_ROOT / "Runtime/SceneDesktopWallpaperHost.swift"
 SWIFT_SOURCES = [
-    SOURCE_ROOT / "SceneTexContainer.swift",
-    SOURCE_ROOT / "SceneCompressedTextureUploader.swift",
-    SOURCE_ROOT / "SceneTextureLoader.swift",
-    SOURCE_ROOT / "SceneUserPropertyTextureLoader.swift",
+    SOURCE_ROOT / "Format/SceneTexContainer.swift",
+    SOURCE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
+    SOURCE_ROOT / "Resources/SceneTextureLoader.swift",
+    SOURCE_ROOT / "Properties/SceneUserPropertyTextureLoader.swift",
 ]
 
 HARNESS_SOURCE = r'''

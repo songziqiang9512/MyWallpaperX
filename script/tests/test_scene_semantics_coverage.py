@@ -11,6 +11,7 @@ from urllib.parse import unquote, urlsplit
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SEMANTICS_ROOT = REPOSITORY_ROOT / "docs/scene/semantics"
+SCENE_SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 CATALOG_PATH = SEMANTICS_ROOT / "official-page-catalog.md"
 CROSSWALK_PATH = SEMANTICS_ROOT / "official-page-crosswalk.md"
 LEDGER_PATH = SEMANTICS_ROOT / "coverage-ledger.md"
@@ -49,6 +50,17 @@ SPECIALIZED_COVERAGE_TABLES = {
 REQUIRED_LEDGER_TARGETS = SPECIALIZED_COVERAGE_TABLES | {
     "official-page-crosswalk.md",
     "official-page-map.md",
+}
+EXPECTED_SCENE_SOURCE_DIRECTORIES = {
+    "Effects",
+    "Format",
+    "Particles",
+    "Properties",
+    "RenderGraph",
+    "Rendering",
+    "Resources",
+    "Runtime",
+    "Text",
 }
 
 CATALOG_SECTION_PATTERN = re.compile(
@@ -123,6 +135,28 @@ def table_level(cell: str) -> str | None:
 
 
 class SceneSemanticsCoverageTests(unittest.TestCase):
+    def test_scene_sources_follow_the_documented_directory_layout(self) -> None:
+        self.assertEqual(
+            sorted(path.name for path in SCENE_SOURCE_ROOT.glob("*.swift")),
+            [],
+            "SteamWorkshopScene is a classification root and must not contain Swift files",
+        )
+        actual_directories = {
+            path.parent.name
+            for path in SCENE_SOURCE_ROOT.glob("*/*.swift")
+            if path.is_file()
+        }
+        self.assertEqual(actual_directories, EXPECTED_SCENE_SOURCE_DIRECTORIES)
+        nested_sources = [
+            path.relative_to(SCENE_SOURCE_ROOT).as_posix()
+            for path in SCENE_SOURCE_ROOT.glob("*/*/*.swift")
+        ]
+        self.assertEqual(
+            nested_sources,
+            [],
+            "Scene source categories stay one level deep unless the layout contract changes",
+        )
+
     def test_official_catalog_has_16_sections_totalling_179_pages(self) -> None:
         text = CATALOG_PATH.read_text(encoding="utf-8")
         sections = [
@@ -385,7 +419,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         self.assertIn("### E-EFFECT-WORKSHOP-SHADOW:", evidence)
         self.assertIn("### E-EFFECT-CHAIN: ordered strict effect-chain scheduler", evidence)
         self.assertIn("### E-GRAPH-COMMAND: same-frame copy/swap foundation", evidence)
-        self.assertIn("Scene tests 275 total / 273 pass / 2 skip", evidence)
+        self.assertIn("Scene tests 276 total / 274 pass / 2 skip", evidence)
         self.assertIn(
             "ordered strict effect-chain",
             document_text[DEPENDENCY_MAP_PATH],

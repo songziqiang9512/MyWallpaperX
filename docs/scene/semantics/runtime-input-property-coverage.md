@@ -34,10 +34,10 @@ HostFrameInputs(time, properties, audio, media)
 
 | 能力 | 等级 | 当前证据 | 当前边界 / 下一门 |
 |---|---|---|---|
-| 宿主单一 frame driver | `L3` | [`SceneDesktopWallpaperHost.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDesktopWallpaperHost.swift)、[`test_scene_frame_context.py`](../../../script/tests/test_scene_frame_context.py)、[E-FRAME](runtime-evidence-index.md#e-frame) | 固定 60 Hz Timer；补屏幕刷新率/目标 FPS |
-| 同帧 host/scene/wall time | `L3` | [`SceneFrameContext.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneFrameContext.swift)、[E-FRAME](runtime-evidence-index.md#e-frame) | 未排除暂停时间，未标 discontinuity |
-| shader/video/particle/parallax 共用 timing | `L3` | [`SceneMetalView.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneMetalView.swift)、[E-FRAME](runtime-evidence-index.md#e-frame) | 补 pause、delta clamp、fixed step |
-| typed value 六类 | `L2` | `bool/scalar/vector2/vector3/vector4/string`；[`SceneDynamicSnapshot.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDynamicSnapshot.swift) | texture/provider 不属于普通值；新增类型仍需 wire/type/finite 门 |
+| 宿主单一 frame driver | `L3` | [`SceneDesktopWallpaperHost.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift)、[`test_scene_frame_context.py`](../../../script/tests/test_scene_frame_context.py)、[E-FRAME](runtime-evidence-index.md#e-frame) | 固定 60 Hz Timer；补屏幕刷新率/目标 FPS |
+| 同帧 host/scene/wall time | `L3` | [`SceneFrameContext.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneFrameContext.swift)、[E-FRAME](runtime-evidence-index.md#e-frame) | 未排除暂停时间，未标 discontinuity |
+| shader/video/particle/parallax 共用 timing | `L3` | [`SceneMetalView.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView.swift)、[E-FRAME](runtime-evidence-index.md#e-frame) | 补 pause、delta clamp、fixed step |
+| typed value 六类 | `L2` | `bool/scalar/vector2/vector3/vector4/string`；[`SceneDynamicSnapshot.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneDynamicSnapshot.swift) | texture/provider 不属于普通值；新增类型仍需 wire/type/finite 门 |
 | typed target 族 | `L2` | scene/camera/layer/effect/text/particle/script instance 已定义；layer alpha/color、exact stock Local Contrast strength 与 exact stock Opacity alpha 进入 compiler | 其他 effect target 不得直接开放 live；SceneScript 值必须与 direct binding 分开 |
 | 固定 source priority | `L2` | authored -> property -> Timeline -> SceneScript；property producer 已执行 | Timeline/SceneScript 尚无 producer，接入后必须复用同一 resolver |
 | property binding program persistence | `L3` | format 22 持久化 definitions、instructions、rebuild-required keys 与 effective values；严格 decode/validation | layer alpha/solid color、direct text 三字段、Local Contrast strength 与 Opacity alpha 均有真实 consumer |
@@ -79,7 +79,7 @@ B0 live-property 子阶段已从空 snapshot 脚手架合龙到真实 producer/c
 
 | 精确合同 | 等级 | 当前代码事实 | 最小升级门 |
 |---|---|---|---|
-| Scene enable 是全局前置条件 | `L3` | [`SceneLayerParallax.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneLayerParallax.swift) 先检查 `configuration.enabled`；有 author-off 门 | 保持默认关闭，补 cache/重建后的反例 |
+| Scene enable 是全局前置条件 | `L3` | [`SceneLayerParallax.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneLayerParallax.swift) 先检查 `configuration.enabled`；有 author-off 门 | 保持默认关闭，补 cache/重建后的反例 |
 | per-axis depth zero | `L3` | X/Y 独立相乘；`xOnly` 与两轴全零有 [`test_scene_layer_parallax.py`](../../../script/tests/test_scene_layer_parallax.py) | 加入负深度、极值和多比例数值门 |
 | mouse influence zero | `L2` | mouse 项会归零，但当前公式仍含 layer-to-camera 静态偏移 | 官方零值 fixture 必须对所有普通 2D layer 输出零位移 |
 | nonzero mouse influence / delay | `L3` | pointer smoother 和 authored scalar 已消费 | 与 Windows 同输入的幅度、方向和时间曲线 golden |

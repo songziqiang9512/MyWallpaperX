@@ -8,7 +8,7 @@
 >
 > 视觉运行基线：`.codex/scene-copy-swap-final13-20260723-1955/report.json`
 >
-> 最新运行门：copy/swap 正式矩阵 13/13；五个 strict backend 指标保持 14 stage、1 real chain、0 failed。`3723344874` 观察到 copy 1/swap 2，但仍因 function/condition 保持 0 stage/0 chain。当前 Scene 全量测试共 275 项、273 项通过、2 项跳过，最新签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：copy/swap 正式矩阵 13/13；五个 strict backend 指标保持 14 stage、1 real chain、0 failed。`3723344874` 观察到 copy 1/swap 2，但仍因 function/condition 保持 0 stage/0 chain。当前 Scene 全量测试共 276 项、274 项通过、2 项跳过，最新签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 

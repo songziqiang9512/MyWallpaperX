@@ -14,14 +14,14 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
-    SOURCE_ROOT / "SceneJSONValue.swift",
-    SOURCE_ROOT / "SceneEffectDefinition.swift",
-    SOURCE_ROOT / "SceneAuthoredEffectRenderPlan.swift",
-    SOURCE_ROOT / "SceneAuthoredMaterialResolver.swift",
-    SOURCE_ROOT / "SceneShaderContract.swift",
-    SOURCE_ROOT / "SceneShaderContractLoader.swift",
-    SOURCE_ROOT / "SceneDynamicSnapshot.swift",
-    SOURCE_ROOT / "SceneAuthoredOpacityPlanner.swift",
+    SOURCE_ROOT / "Format/SceneJSONValue.swift",
+    SOURCE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
+    SOURCE_ROOT / "RenderGraph/SceneShaderContract.swift",
+    SOURCE_ROOT / "RenderGraph/SceneShaderContractLoader.swift",
+    SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredOpacityPlanner.swift",
 ]
 
 VERTEX_BASE64 = (

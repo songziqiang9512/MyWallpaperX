@@ -12,8 +12,8 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
-    SOURCE_ROOT / "SceneParticleTextureSource.swift",
-    SOURCE_ROOT / "SceneParticleBuiltInTextureRegistry.swift",
+    SOURCE_ROOT / "Particles/SceneParticleTextureSource.swift",
+    SOURCE_ROOT / "Particles/SceneParticleBuiltInTextureRegistry.swift",
 ]
 
 

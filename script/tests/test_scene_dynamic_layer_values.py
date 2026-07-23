@@ -12,11 +12,11 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-DYNAMIC_SOURCE = SCENE_ROOT / "SceneDynamicSnapshot.swift"
-LAYER_VALUES_SOURCE = SCENE_ROOT / "SceneDynamicLayerValues.swift"
-RENDERER_SOURCE = SCENE_ROOT / "SceneMetalRenderer.swift"
-COMPOSITOR_SOURCE = SCENE_ROOT / "SceneImageLayerCompositor.swift"
-UTILITY_SOURCE = SCENE_ROOT / "SceneUtilityLayerRenderer.swift"
+DYNAMIC_SOURCE = SCENE_ROOT / "Properties/SceneDynamicSnapshot.swift"
+LAYER_VALUES_SOURCE = SCENE_ROOT / "Properties/SceneDynamicLayerValues.swift"
+RENDERER_SOURCE = SCENE_ROOT / "Rendering/SceneMetalRenderer.swift"
+COMPOSITOR_SOURCE = SCENE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
+UTILITY_SOURCE = SCENE_ROOT / "Rendering/SceneUtilityLayerRenderer.swift"
 
 HARNESS = r'''
 import Foundation

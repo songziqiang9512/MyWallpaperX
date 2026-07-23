@@ -13,12 +13,12 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
-    SOURCE_ROOT / "SceneJSONValue.swift",
-    SOURCE_ROOT / "SceneAuthoredEffectRenderPlan.swift",
-    SOURCE_ROOT / "SceneGraphRenderTargetPlan.swift",
-    SOURCE_ROOT / "SceneGraphRenderTargetTable.swift",
-    SOURCE_ROOT / "SceneGraphCommandRuntime.swift",
-    SOURCE_ROOT / "SceneOffscreenTexturePool.swift",
+    SOURCE_ROOT / "Format/SceneJSONValue.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetTable.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphCommandRuntime.swift",
+    SOURCE_ROOT / "RenderGraph/SceneOffscreenTexturePool.swift",
 ]
 
 

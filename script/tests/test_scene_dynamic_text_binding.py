@@ -13,12 +13,12 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
-    SOURCE_ROOT / "SceneUserProperty.swift",
-    SOURCE_ROOT / "SceneUserPropertyBindings.swift",
-    SOURCE_ROOT / "SceneDynamicSnapshot.swift",
-    SOURCE_ROOT / "ScenePropertyBindingProgram.swift",
-    SOURCE_ROOT / "ScenePropertyBindingCompiler+TargetMapping.swift",
-    SOURCE_ROOT / "ScenePropertyBindingProgramValidator.swift",
+    SOURCE_ROOT / "Properties/SceneUserProperty.swift",
+    SOURCE_ROOT / "Properties/SceneUserPropertyBindings.swift",
+    SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
+    SOURCE_ROOT / "Properties/ScenePropertyBindingProgram.swift",
+    SOURCE_ROOT / "Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
+    SOURCE_ROOT / "Properties/ScenePropertyBindingProgramValidator.swift",
 ]
 
 HARNESS = r'''

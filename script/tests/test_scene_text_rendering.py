@@ -13,9 +13,9 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
-    SOURCE_ROOT / "SceneTextDescriptor.swift",
-    SOURCE_ROOT / "SceneTextGeometry.swift",
-    SOURCE_ROOT / "SceneTextFontResolver.swift",
+    SOURCE_ROOT / "Text/SceneTextDescriptor.swift",
+    SOURCE_ROOT / "Text/SceneTextGeometry.swift",
+    SOURCE_ROOT / "Text/SceneTextFontResolver.swift",
 ]
 EMBEDDED_FONT_CANDIDATES = [
     Path("/System/Library/Fonts/Symbol.ttf"),

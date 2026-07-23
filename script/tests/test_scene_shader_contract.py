@@ -14,9 +14,9 @@ import unittest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
-    SCENE_ROOT / "SceneJSONValue.swift",
-    SCENE_ROOT / "SceneShaderContract.swift",
-    SCENE_ROOT / "SceneShaderContractLoader.swift",
+    SCENE_ROOT / "Format/SceneJSONValue.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderContractLoader.swift",
 ]
 
 HARNESS = r"""

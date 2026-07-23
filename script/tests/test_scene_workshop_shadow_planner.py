@@ -14,13 +14,13 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
-    SOURCE_ROOT / "SceneJSONValue.swift",
-    SOURCE_ROOT / "SceneEffectDefinition.swift",
-    SOURCE_ROOT / "SceneAuthoredEffectRenderPlan.swift",
-    SOURCE_ROOT / "SceneAuthoredMaterialResolver.swift",
-    SOURCE_ROOT / "SceneShaderContract.swift",
-    SOURCE_ROOT / "SceneShaderContractLoader.swift",
-    SOURCE_ROOT / "SceneAuthoredWorkshopShadowPlanner.swift",
+    SOURCE_ROOT / "Format/SceneJSONValue.swift",
+    SOURCE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
+    SOURCE_ROOT / "RenderGraph/SceneShaderContract.swift",
+    SOURCE_ROOT / "RenderGraph/SceneShaderContractLoader.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredWorkshopShadowPlanner.swift",
 ]
 
 VERTEX_BASE64 = "I2luY2x1ZGUgImNvbW1vbi5oIg0KI2luY2x1ZGUgImNvbW1vbl9wZXJzcGVjdGl2ZS5oIg0KDQp1bmlmb3JtIG1hdDQgZ19Nb2RlbFZpZXdQcm9qZWN0aW9uTWF0cml4Ow0KdW5pZm9ybSB2ZWM0IGdfVGV4dHVyZTFSZXNvbHV0aW9uOw0KDQphdHRyaWJ1dGUgdmVjMyBhX1Bvc2l0aW9uOw0KYXR0cmlidXRlIHZlYzIgYV9UZXhDb29yZDsNCg0KdmFyeWluZyB2ZWM0IHZfVGV4Q29vcmQ7DQp2YXJ5aW5nIHZlYzIgdl9SZWZsZWN0ZWRDb29yZDsNCg0KdW5pZm9ybSB2ZWMzIHVfU2hhZG93T2Zmc2V0OyAvLyB7ImRlZmF1bHQiOiIyIC0yIDAiLCJkZXNjcmlwdGlvbiI6IngveTrlgY/np7vph48gejrml4vovazop5LluqYo5byn5bqmKSIsImxhYmVsIjoic2hhZG93T2Zmc2V0L+mYtOW9seWBj+enuyIsIm1hdGVyaWFsIjoic2hhZG93T2Zmc2V0In0NCg0Kdm9pZCBtYWluKCkgew0KICAgIGdsX1Bvc2l0aW9uID0gbXVsKHZlYzQoYV9Qb3NpdGlvbiwgMS4wKSwgZ19Nb2RlbFZpZXdQcm9qZWN0aW9uTWF0cml4KTsNCiAgICB2X1RleENvb3JkID0gYV9UZXhDb29yZC54eXh5Ow0KDQogICAgI2lmIE1BU0sNCiAgICAgICAgdl9UZXhDb29yZC56ICo9IGdfVGV4dHVyZTFSZXNvbHV0aW9uLnogLyBnX1RleHR1cmUxUmVzb2x1dGlvbi54Ow0KICAgICAgICB2X1RleENvb3JkLncgKj0gZ19UZXh0dXJlMVJlc29sdXRpb24udyAvIGdfVGV4dHVyZTFSZXNvbHV0aW9uLnk7DQogICAgI2VuZGlmDQoNCiAgICB2ZWMyIGNlbnRlciA9IHZlYzIoMC41LCAwLjUpOw0KICAgIHZlYzIgZGVsdGEgPSBhX1RleENvb3JkIC0gY2VudGVyOw0KICAgIA0KICAgIGZsb2F0IHNpblJvdCA9IHNpbih1X1NoYWRvd09mZnNldC56KTsNCiAgICBmbG9hdCBjb3NSb3QgPSBjb3ModV9TaGFkb3dPZmZzZXQueik7DQogICAgZGVsdGEgPSB2ZWMyKA0KICAgICAgICBkZWx0YS54ICogY29zUm90IC0gZGVsdGEueSAqIHNpblJvdCwNCiAgICAgICAgZGVsdGEueCAqIHNpblJvdCArIGRlbHRhLnkgKiBjb3NSb3QNCiAgICApOw0KICAgIA0KICAgIGRlbHRhICs9IHVfU2hhZG93T2Zmc2V0Lnh5IC8gMTAwLjA7DQogICAgdl9SZWZsZWN0ZWRDb29yZCA9IGNlbnRlciArIGRlbHRhOw0KfQ=="

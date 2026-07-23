@@ -13,8 +13,8 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
-    SOURCE_ROOT / "SceneNamedTextureReference.swift",
-    SOURCE_ROOT / "SceneFrameTextureRegistry.swift",
+    SOURCE_ROOT / "Resources/SceneNamedTextureReference.swift",
+    SOURCE_ROOT / "Resources/SceneFrameTextureRegistry.swift",
 ]
 
 HARNESS_SOURCE = r'''

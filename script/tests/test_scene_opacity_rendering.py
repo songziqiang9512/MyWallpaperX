@@ -13,8 +13,8 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
-    SOURCE_ROOT / "SceneOpacityPipeline.swift",
-    SOURCE_ROOT / "SceneOpacityRenderer.swift",
+    SOURCE_ROOT / "Effects/SceneOpacityPipeline.swift",
+    SOURCE_ROOT / "Effects/SceneOpacityRenderer.swift",
 ]
 
 

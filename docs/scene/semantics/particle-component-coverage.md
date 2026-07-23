@@ -28,18 +28,18 @@
 
 | 缩写 | 路径 |
 |---|---|
-| DEF | [MyWallpaperX/Core/SteamWorkshopScene/SceneParticleDefinition.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneParticleDefinition.swift) |
-| PAR | [MyWallpaperX/Core/SteamWorkshopScene/SceneParticleDefinitionParser.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneParticleDefinitionParser.swift) |
-| SIM | [MyWallpaperX/Core/SteamWorkshopScene/SceneParticleSimulator.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneParticleSimulator.swift) |
-| SUP | [MyWallpaperX/Core/SteamWorkshopScene/SceneParticleSimulationSupport.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneParticleSimulationSupport.swift) |
-| RUN | [MyWallpaperX/Core/SteamWorkshopScene/SceneParticleRuntime.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneParticleRuntime.swift) |
-| AST | [MyWallpaperX/Core/SteamWorkshopScene/SceneParticleAssetGraph.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneParticleAssetGraph.swift) |
-| GPU | [MyWallpaperX/Core/SteamWorkshopScene/SceneParticleMetalPipeline.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneParticleMetalPipeline.swift) |
-| CAM | [MyWallpaperX/Core/SteamWorkshopScene/SceneParticleCameraFrame.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneParticleCameraFrame.swift) |
-| TRAIL | [MyWallpaperX/Core/SteamWorkshopScene/SceneParticleTrailRenderPlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneParticleTrailRenderPlan.swift) |
-| TEX | [MyWallpaperX/Core/SteamWorkshopScene/SceneParticleTextureSource.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneParticleTextureSource.swift) |
-| BUILTIN | [MyWallpaperX/Core/SteamWorkshopScene/SceneParticleBuiltInTextureRegistry.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneParticleBuiltInTextureRegistry.swift) |
-| PLAY | [MyWallpaperX/Core/SteamWorkshopScene/SceneParticlePlaybackState.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneParticlePlaybackState.swift) |
+| DEF | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleDefinition.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleDefinition.swift) |
+| PAR | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleDefinitionParser.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleDefinitionParser.swift) |
+| SIM | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleSimulator.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleSimulator.swift) |
+| SUP | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleSimulationSupport.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleSimulationSupport.swift) |
+| RUN | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleRuntime.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleRuntime.swift) |
+| AST | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleAssetGraph.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleAssetGraph.swift) |
+| GPU | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleMetalPipeline.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleMetalPipeline.swift) |
+| CAM | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleCameraFrame.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleCameraFrame.swift) |
+| TRAIL | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleTrailRenderPlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleTrailRenderPlan.swift) |
+| TEX | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleTextureSource.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleTextureSource.swift) |
+| BUILTIN | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleBuiltInTextureRegistry.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleBuiltInTextureRegistry.swift) |
+| PLAY | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticlePlaybackState.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticlePlaybackState.swift) |
 | T-DEF | [script/tests/test_scene_particle_definitions.py](../../../script/tests/test_scene_particle_definitions.py) |
 | T-SIM | [script/tests/test_scene_particle_simulator.py](../../../script/tests/test_scene_particle_simulator.py) |
 | T-RUN | [script/tests/test_scene_particle_runtime.py](../../../script/tests/test_scene_particle_runtime.py) |

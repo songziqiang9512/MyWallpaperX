@@ -127,3 +127,19 @@ Agent 修改 Swift 代码时必须同时控制文件体积和实现复杂度：
 5. 修改 Swift 后、构建前和提交前都必须运行 `python3 script/check_code_health.py --check --base-ref HEAD`；文件缩短后先运行 `python3 script/check_code_health.py --ratchet-baseline` 锁定新的下限，再执行前述检查；
 6. Agent 只能降低或删除历史基线，未经用户明确批准不得新增例外、提高单文件额度、移除源码根目录或调高 400 行阈值；
 7. 新增 Tests、helper target 或其他 Swift 源码根目录时必须同步纳入扫描；远端历史约束使用 `python3 script/check_code_health.py --check --base-ref <base-ref>` 验证；门禁失败不得提交、推送或发布。
+
+12. Scene 源码目录治理
+
+`MyWallpaperX/Core/SteamWorkshopScene` 只作为 Scene 源码分类根目录，不再直接放置 Swift 文件。新增或拆分文件必须进入以下现有职责目录：
+
+1. `Format`：Project、Document、PKG/TEX、JSON 和 interpretation；
+2. `Runtime`：Host、frame context、runtime model、descriptor 和 diagnostics；
+3. `Properties`：用户属性、binding program、dynamic snapshot 和 live update；
+4. `Resources`：asset/resource index、texture loader、path resolver 和 video source；
+5. `Rendering`：Metal 核心、compositor、layer、camera、geometry 和 utility；
+6. `RenderGraph`：authored effect graph、dependency、render target、offscreen pool 和 ShaderContract；
+7. `Effects`：具体 effect 的 pipeline、runtime plan 和 renderer；
+8. `Text`：文字 descriptor、font、geometry、texture 和 dynamic text；
+9. `Particles`：粒子 definition、parser、simulation、pipeline、texture 和 trail。
+
+同一主类型的 extension 与主文件放在同一目录。不得新增 `Misc`、`Common`、`Helpers` 等兜底目录，也不得为空的未来能力预建占位目录。只有现有九类无法表达已经落地的一组独立职责时，才允许新增一级目录；通常应至少已有多个共同生命周期或依赖边界清晰的文件，而不是单个文件。可预见但尚未落地的 Timeline/Animation、SceneScript/Scripting、system/media/audio provider 和 Puppet/3D/Lighting 继续按开发计划推进，形成真实代码边界后再决定是否新增目录。新增目录须同步更新 Scene 语义手册和 `test_scene_semantics_coverage.py` 的布局门。移动 Scene 源码时必须同步测试源码路径和文档链接，保持 `project.pbxproj` 无无关改动，并运行 Scene 全量测试、代码健康检查和签名构建。

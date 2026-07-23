@@ -14,10 +14,10 @@
 
 | 能力 | 等级 | 当前证据 | 当前边界 / 下一门 |
 |---|---|---|---|
-| loose Scene/project ingest | `L3` | [`SceneProject.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneProject.swift)、[E-INGEST](runtime-evidence-index.md#e-ingest) | 私有 schema 版本和异常字段继续 fail-closed |
-| PKGV index/extraction | `L3` | [`ScenePkgReader.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/ScenePkgReader.swift)、[E-INGEST](runtime-evidence-index.md#e-ingest) | case/symlink/duplicate/压缩边界和 VFS golden |
-| TEX common decode | `L3` | [`SceneTextureLoader.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneTextureLoader.swift)、[E-INGEST](runtime-evidence-index.md#e-ingest) | 全容器/format/mip/color-space 边界 |
-| resource identity and missing diagnostics | `L3` | [`SceneResourceReferenceIndex.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneResourceReferenceIndex.swift)、[E-INGEST](runtime-evidence-index.md#e-ingest) | 统一 VFS、alias/case 规则与依赖版本 |
+| loose Scene/project ingest | `L3` | [`SceneProject.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneProject.swift)、[E-INGEST](runtime-evidence-index.md#e-ingest) | 私有 schema 版本和异常字段继续 fail-closed |
+| PKGV index/extraction | `L3` | [`ScenePkgReader.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePkgReader.swift)、[E-INGEST](runtime-evidence-index.md#e-ingest) | case/symlink/duplicate/压缩边界和 VFS golden |
+| TEX common decode | `L3` | [`SceneTextureLoader.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneTextureLoader.swift)、[E-INGEST](runtime-evidence-index.md#e-ingest) | 全容器/format/mip/color-space 边界 |
+| resource identity and missing diagnostics | `L3` | [`SceneResourceReferenceIndex.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneResourceReferenceIndex.swift)、[E-INGEST](runtime-evidence-index.md#e-ingest) | 统一 VFS、alias/case 规则与依赖版本 |
 | image layer | `L3` | Metal compositor、180/181 固定矩阵结构计数、[E-BASE](runtime-evidence-index.md#e-base) | 通用 material/effect/provider 和 WE pixel golden |
 | solid layer | `L3` | typed solid、1x1 white texture、author color；纯 solid color 已由 B0 snapshot live 消费；[E-BASE](runtime-evidence-index.md#e-base)、[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | non-solid/mixed color、HDR/light |
 | text layer | `L3` | CoreText 静态纹理、79/108 结构门、[E-TEXT](runtime-evidence-index.md#e-text) | 动态值与 Windows typography |

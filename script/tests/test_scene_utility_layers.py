@@ -12,7 +12,7 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-SOURCE = SOURCE_ROOT / "SceneUtilityLayer.swift"
+SOURCE = SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift"
 
 HARNESS_SOURCE = r'''
 import Foundation
@@ -76,8 +76,8 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertEqual(self.result["passthrough"], [True, False, False, False, False])
 
     def test_document_and_descriptor_preserve_generic_dependencies(self) -> None:
-        document = (SOURCE_ROOT / "SceneDocument.swift").read_text(encoding="utf-8")
-        descriptor = (SOURCE_ROOT / "SceneRenderDescriptor.swift").read_text(encoding="utf-8")
+        document = (SOURCE_ROOT / "Format/SceneDocument.swift").read_text(encoding="utf-8")
+        descriptor = (SOURCE_ROOT / "Runtime/SceneRenderDescriptor.swift").read_text(encoding="utf-8")
         self.assertIn('root["dependencies"] as? [Int] ?? []', document)
         self.assertIn("dependencyLayerIDs: object.dependencyLayerIDs", descriptor)
         self.assertIn("if let utilityLayer = object.utilityLayer", descriptor)
