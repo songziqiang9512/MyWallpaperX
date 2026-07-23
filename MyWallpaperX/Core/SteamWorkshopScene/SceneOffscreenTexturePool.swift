@@ -7,18 +7,26 @@ final class SceneOffscreenTexturePool {
         let tertiary: MTLTexture
     }
 
-    struct StandardBlurTargets {
-        let previousFull: MTLTexture
-        let outputFull: MTLTexture
-        let quarterA: MTLTexture
-        let quarterB: MTLTexture
-    }
-
     private let device: MTLDevice
     private let pixelFormat: MTLPixelFormat
+
+    private enum CacheKey: Hashable {
+        case pair(width: Int, height: Int)
+        case graph(SceneAuthoredEffectRenderPlan.EffectKey)
+    }
+
     private enum Allocation {
         case pair(Pair)
-        case standardBlur(StandardBlurTargets)
+        case graph(SceneGraphRenderTargetTable)
+
+        var textureCount: Int {
+            switch self {
+            case .pair:
+                return 3
+            case .graph(let table):
+                return table.residentTextureCount
+            }
+        }
     }
 
     private struct Entry {
@@ -28,21 +36,32 @@ final class SceneOffscreenTexturePool {
     }
 
     private let maxDimension: Int
-    private let byteBudget: Int
-    private var cachedAllocations: [String: Entry] = [:]
-    private var cachedByteCost = 0
+    // This caps cache residency after a transaction commits. Graph replacements
+    // build their candidate first, so transient driver allocations can exceed it.
+    private let residentByteBudget: Int
+    private var cachedAllocations: [CacheKey: Entry] = [:]
     private var accessCounter: UInt64 = 0
+
+    private(set) var residentByteCost = 0
+
+    var residentAllocationCount: Int {
+        cachedAllocations.count
+    }
+
+    var residentTextureCount: Int {
+        cachedAllocations.values.reduce(0) { $0 + $1.allocation.textureCount }
+    }
 
     init(
         device: MTLDevice,
         pixelFormat: MTLPixelFormat = .bgra8Unorm,
         maxDimension: Int = 2048,
-        byteBudget: Int = 96 * 1_024 * 1_024
+        residentByteBudget: Int = 96 * 1_024 * 1_024
     ) {
         self.device = device
         self.pixelFormat = pixelFormat
-        self.maxDimension = maxDimension
-        self.byteBudget = max(byteBudget, 1)
+        self.maxDimension = max(maxDimension, 1)
+        self.residentByteBudget = max(residentByteBudget, 0)
     }
 
     func textures(for sourceTexture: MTLTexture) -> Pair? {
@@ -51,7 +70,7 @@ final class SceneOffscreenTexturePool {
 
     func textures(width requestedWidth: Int, height requestedHeight: Int) -> Pair? {
         let (width, height) = limitedDimensions(width: requestedWidth, height: requestedHeight)
-        let key = "pair:\(width)x\(height)"
+        let key = CacheKey.pair(width: width, height: height)
         accessCounter &+= 1
         if var cached = cachedAllocations[key], case .pair(let pair) = cached.allocation {
             cached.lastAccess = accessCounter
@@ -59,12 +78,16 @@ final class SceneOffscreenTexturePool {
             return pair
         }
 
-        let byteCost = width * height * 4 * 3
+        guard let byteCost = byteCost(width: width, height: height, textureCount: 3),
+              byteCost <= residentByteBudget else {
+            return nil
+        }
         evictUntilAffordable(byteCost)
 
-        guard let primary = makeTexture(width: width, height: height, label: "SceneOffscreenA \(key)"),
-              let secondary = makeTexture(width: width, height: height, label: "SceneOffscreenB \(key)"),
-              let tertiary = makeTexture(width: width, height: height, label: "SceneOffscreenC \(key)") else {
+        let label = "pair:\(width)x\(height)"
+        guard let primary = makeTexture(width: width, height: height, label: "SceneOffscreenA \(label)"),
+              let secondary = makeTexture(width: width, height: height, label: "SceneOffscreenB \(label)"),
+              let tertiary = makeTexture(width: width, height: height, label: "SceneOffscreenC \(label)") else {
             return nil
         }
 
@@ -72,53 +95,74 @@ final class SceneOffscreenTexturePool {
         cachedAllocations[key] = Entry(
             allocation: .pair(pair), byteCost: byteCost, lastAccess: accessCounter
         )
-        cachedByteCost += byteCost
+        residentByteCost += byteCost
         return pair
     }
 
-    func standardBlurTargets(
-        width requestedWidth: Int,
-        height requestedHeight: Int,
-        scale: Int
-    ) -> StandardBlurTargets? {
-        guard scale > 0 else { return nil }
-        let (width, height) = limitedDimensions(width: requestedWidth, height: requestedHeight)
-        let quarterWidth = max(1, width / scale)
-        let quarterHeight = max(1, height / scale)
-        let key = "standard-blur:\(width)x\(height):\(quarterWidth)x\(quarterHeight)"
-        accessCounter &+= 1
-        if var cached = cachedAllocations[key],
-           case .standardBlur(let targets) = cached.allocation {
-            cached.lastAccess = accessCounter
-            cachedAllocations[key] = cached
-            return targets
+    func graphTargets(
+        for executionPlan: SceneAuthoredEffectExecutionPlan,
+        requestedWidth: Int,
+        requestedHeight: Int
+    ) -> SceneGraphRenderTargetTable? {
+        guard pixelFormat == .bgra8Unorm else { return nil }
+        let (width, height) = limitedDimensions(
+            width: requestedWidth,
+            height: requestedHeight
+        )
+        if executionPlan.requiresExactInputExtent,
+           (requestedWidth <= 0 || requestedHeight <= 0
+               || width != requestedWidth || height != requestedHeight) {
+            return nil
+        }
+        guard case .success(let plan) = SceneGraphRenderTargetPlan.make(
+            executionPlan: executionPlan,
+            graph: executionPlan.renderGraph,
+            inputWidth: width,
+            inputHeight: height
+        ), let effect = plan.output.effect else {
+            return nil
         }
 
-        let byteCost = ((width * height * 2) + (quarterWidth * quarterHeight * 2)) * 4
-        guard byteCost <= byteBudget else { return nil }
-        evictUntilAffordable(byteCost)
-        guard let previous = makeTexture(
-            width: width, height: height, label: "SceneStandardBlurPrevious \(key)"
-        ), let output = makeTexture(
-            width: width, height: height, label: "SceneStandardBlurOutput \(key)"
-        ), let quarterA = makeTexture(
-            width: quarterWidth, height: quarterHeight, label: "SceneStandardBlurQuarterA \(key)"
-        ), let quarterB = makeTexture(
-            width: quarterWidth, height: quarterHeight, label: "SceneStandardBlurQuarterB \(key)"
+        let key = CacheKey.graph(effect)
+        let nextAccess = accessCounter &+ 1
+        if var cached = cachedAllocations[key],
+           case .graph(let table) = cached.allocation,
+           table.plan == plan {
+            cached.lastAccess = nextAccess
+            cachedAllocations[key] = cached
+            accessCounter = nextAccess
+            return table
+        }
+
+        guard case .success(let table) = SceneGraphRenderTargetTable.make(
+            plan: plan,
+            device: device,
+            byteBudget: residentByteBudget
+        ), let victims = evictionKeys(
+            incomingByteCost: table.residentByteCost,
+            replacing: key
         ) else {
             return nil
         }
-        let targets = StandardBlurTargets(
-            previousFull: previous,
-            outputFull: output,
-            quarterA: quarterA,
-            quarterB: quarterB
-        )
+
+        for victim in victims {
+            removeCachedAllocation(for: victim)
+        }
+        removeCachedAllocation(for: key)
         cachedAllocations[key] = Entry(
-            allocation: .standardBlur(targets), byteCost: byteCost, lastAccess: accessCounter
+            allocation: .graph(table),
+            byteCost: table.residentByteCost,
+            lastAccess: nextAccess
         )
-        cachedByteCost += byteCost
-        return targets
+        residentByteCost += table.residentByteCost
+        accessCounter = nextAccess
+        return table
+    }
+
+    func reset() {
+        cachedAllocations.removeAll()
+        residentByteCost = 0
+        accessCounter = 0
     }
 
     private func limitedDimensions(width requestedWidth: Int, height requestedHeight: Int) -> (Int, Int) {
@@ -134,13 +178,52 @@ final class SceneOffscreenTexturePool {
 
     private func evictUntilAffordable(_ incomingByteCost: Int) {
         while !cachedAllocations.isEmpty,
-              cachedByteCost + incomingByteCost > byteBudget,
+              residentByteCost > residentByteBudget - incomingByteCost,
               let oldest = cachedAllocations.min(by: {
                   $0.value.lastAccess < $1.value.lastAccess
               }) {
-            cachedByteCost -= oldest.value.byteCost
-            cachedAllocations.removeValue(forKey: oldest.key)
+            removeCachedAllocation(for: oldest.key)
         }
+    }
+
+    private func evictionKeys(
+        incomingByteCost: Int,
+        replacing key: CacheKey
+    ) -> [CacheKey]? {
+        guard incomingByteCost <= residentByteBudget else { return nil }
+        let replacedByteCost = cachedAllocations[key]?.byteCost ?? 0
+        let retainedByteCost = residentByteCost - replacedByteCost
+        guard retainedByteCost >= 0 else { return nil }
+        let (initialProjectedCost, overflow) = retainedByteCost.addingReportingOverflow(
+            incomingByteCost
+        )
+        guard !overflow else { return nil }
+        var projectedByteCost = initialProjectedCost
+        if projectedByteCost <= residentByteBudget { return [] }
+
+        var victims: [CacheKey] = []
+        let candidates = cachedAllocations
+            .filter { $0.key != key }
+            .sorted { $0.value.lastAccess < $1.value.lastAccess }
+        for candidate in candidates where projectedByteCost > residentByteBudget {
+            victims.append(candidate.key)
+            projectedByteCost -= candidate.value.byteCost
+        }
+        return projectedByteCost <= residentByteBudget ? victims : nil
+    }
+
+    private func removeCachedAllocation(for key: CacheKey) {
+        guard let removed = cachedAllocations.removeValue(forKey: key) else { return }
+        residentByteCost -= removed.byteCost
+    }
+
+    private func byteCost(width: Int, height: Int, textureCount: Int) -> Int? {
+        let (pixels, pixelOverflow) = width.multipliedReportingOverflow(by: height)
+        guard !pixelOverflow else { return nil }
+        let (bytes, byteOverflow) = pixels.multipliedReportingOverflow(by: 4)
+        guard !byteOverflow else { return nil }
+        let (total, totalOverflow) = bytes.multipliedReportingOverflow(by: textureCount)
+        return totalOverflow ? nil : total
     }
 
     private func makeTexture(width: Int, height: Int, label: String) -> MTLTexture? {

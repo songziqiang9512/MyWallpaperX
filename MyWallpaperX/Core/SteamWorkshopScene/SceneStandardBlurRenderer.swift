@@ -4,34 +4,37 @@ import simd
 enum SceneStandardBlurRenderer {
     static func render(
         plan: SceneStandardBlurPlan,
-        targets: SceneOffscreenTexturePool.StandardBlurTargets,
+        inputTexture: MTLTexture,
+        quarterA: MTLTexture,
+        quarterB: MTLTexture,
+        outputTexture: MTLTexture,
         pipeline: SceneStandardBlurPipeline,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
-        let horizontalStep = plan.horizontalStep / Float(targets.quarterA.width)
-        let verticalStep = plan.verticalStep / Float(targets.quarterA.height)
+        let horizontalStep = plan.horizontalStep / Float(quarterA.width)
+        let verticalStep = plan.verticalStep / Float(quarterA.height)
         guard pipeline.encodeDownsample(
-            source: targets.previousFull,
-            target: targets.quarterA,
+            source: inputTexture,
+            target: quarterA,
             commandBuffer: commandBuffer
         ), pipeline.encodeGaussian(
-            source: targets.quarterA,
-            target: targets.quarterB,
+            source: quarterA,
+            target: quarterB,
             step: SIMD2(horizontalStep, 0),
             commandBuffer: commandBuffer
         ), pipeline.encodeGaussian(
-            source: targets.quarterB,
-            target: targets.quarterA,
+            source: quarterB,
+            target: quarterA,
             step: SIMD2(0, verticalStep),
             commandBuffer: commandBuffer
         ), pipeline.encodeCombine(
-            blurred: targets.quarterA,
-            previous: targets.previousFull,
-            target: targets.outputFull,
+            blurred: quarterA,
+            previous: inputTexture,
+            target: outputTexture,
             commandBuffer: commandBuffer
         ) else {
             return nil
         }
-        return targets.outputFull
+        return outputTexture
     }
 }

@@ -68,6 +68,7 @@ enum SceneAuthoredStandardBlurPlanner {
 
         return SceneAuthoredEffectExecutionPlan(
             layerID: graph.layerID,
+            renderGraph: graph,
             backend: .standardBlur(SceneStandardBlurPlan(
                 horizontalStep: Float(horizontalScale.x),
                 verticalStep: Float(verticalScale.y),

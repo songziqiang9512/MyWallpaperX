@@ -123,38 +123,49 @@ struct SceneImageLayerCompositor {
         if routesOffscreen,
            let pool = request.offscreenTexturePool {
             let renderedTexture: MTLTexture?
-            if let standardBlur = effectPlan.standardBlur {
-                guard let targets = pool.standardBlurTargets(
-                    width: requestedOffscreenWidth,
-                    height: requestedOffscreenHeight,
-                    scale: standardBlur.renderTargetScale
+            if let authoredPlan = request.authoredEffectPlan {
+                guard let targets = pool.graphTargets(
+                    for: authoredPlan,
+                    requestedWidth: requestedOffscreenWidth,
+                    requestedHeight: requestedOffscreenHeight
                 ) else {
                     return false
                 }
                 renderedTexture = mainPass.encodeOffscreen { commandBuffer in
-                    SceneOffscreenEffectRenderer.renderStandardBlur(
-                        sourceTexture: request.texture,
-                        waterMaskTexture: masks.water,
-                        foliageMaskTexture: masks.foliage,
-                        auxMaskTexture: auxMask,
-                        targets: targets,
-                        plan: standardBlur,
-                        sourceUniforms: directUniforms,
-                        pipeline: pipeline,
-                        standardBlurPipeline: standardBlurPipeline,
-                        commandBuffer: commandBuffer
-                    )
+                    switch authoredPlan.backend {
+                    case .preciseGaussian(let blur):
+                        SceneOffscreenEffectRenderer.renderPreciseBlur(
+                            sourceTexture: request.texture,
+                            waterMaskTexture: masks.water,
+                            foliageMaskTexture: masks.foliage,
+                            auxMaskTexture: auxMask,
+                            targets: targets,
+                            plan: blur,
+                            sourceUniforms: directUniforms,
+                            pipeline: pipeline,
+                            gaussianBlurPipeline: gaussianBlurPipeline,
+                            commandBuffer: commandBuffer
+                        )
+                    case .standardBlur(let blur):
+                        SceneOffscreenEffectRenderer.renderStandardBlur(
+                            sourceTexture: request.texture,
+                            waterMaskTexture: masks.water,
+                            foliageMaskTexture: masks.foliage,
+                            auxMaskTexture: auxMask,
+                            targets: targets,
+                            plan: blur,
+                            sourceUniforms: directUniforms,
+                            pipeline: pipeline,
+                            standardBlurPipeline: standardBlurPipeline,
+                            commandBuffer: commandBuffer
+                        )
+                    }
                 }
             } else {
                 guard let textures = pool.textures(
                     width: requestedOffscreenWidth,
                     height: requestedOffscreenHeight
                 ) else {
-                    return false
-                }
-                if request.authoredEffectPlan?.requiresExactInputExtent == true,
-                   (textures.primary.width != requestedOffscreenWidth
-                       || textures.primary.height != requestedOffscreenHeight) {
                     return false
                 }
                 renderedTexture = mainPass.encodeOffscreen { commandBuffer in

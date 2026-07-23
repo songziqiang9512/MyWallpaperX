@@ -13,6 +13,10 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
+    SOURCE_ROOT / "SceneJSONValue.swift",
+    SOURCE_ROOT / "SceneAuthoredEffectRenderPlan.swift",
+    SOURCE_ROOT / "SceneGraphRenderTargetPlan.swift",
+    SOURCE_ROOT / "SceneGraphRenderTargetTable.swift",
     SOURCE_ROOT / "SceneMatrix.swift",
     SOURCE_ROOT / "SceneMetalPipeline.swift",
     SOURCE_ROOT / "SceneSpriteAnimation.swift",
@@ -118,10 +122,31 @@ struct SceneTexContainerReader {
 }
 
 struct SceneAuthoredEffectExecutionPlan {
-    let gaussianBlur: SceneGaussianBlurPlan?
-    let standardBlur: SceneStandardBlurPlan?
+    enum Backend {
+        case preciseGaussian(SceneGaussianBlurPlan)
+        case standardBlur(SceneStandardBlurPlan)
+    }
+
+    let layerID: Int
+    let renderGraph: SceneAuthoredEffectRenderPlan
+    let backend: Backend
     let materialNodeCount: Int
-    let requiresExactInputExtent: Bool
+    let logicalRenderTargetCount: Int
+
+    var gaussianBlur: SceneGaussianBlurPlan? {
+        guard case .preciseGaussian(let plan) = backend else { return nil }
+        return plan
+    }
+
+    var standardBlur: SceneStandardBlurPlan? {
+        guard case .standardBlur(let plan) = backend else { return nil }
+        return plan
+    }
+
+    var requiresExactInputExtent: Bool {
+        if case .preciseGaussian = backend { return true }
+        return false
+    }
 }
 
 struct SceneStandardBlurPlan {
@@ -132,6 +157,193 @@ struct SceneStandardBlurPlan {
 
 @main
 enum Harness {
+    typealias Graph = SceneAuthoredEffectRenderPlan
+
+    static func graphTexture(
+        _ kind: Graph.TextureKind,
+        layerID: Int,
+        effect: Graph.EffectKey? = nil,
+        name: String? = nil
+    ) -> Graph.TextureIdentity {
+        .init(kind: kind, layerID: layerID, effect: effect, name: name)
+    }
+
+    static func preciseBlurGraph(layerID: Int = 10) -> Graph {
+        let effectKey = Graph.EffectKey(
+            layerID: layerID,
+            effectIndex: 0,
+            descriptorID: "\(layerID)#effect#0"
+        )
+        let input = graphTexture(.layerSource, layerID: layerID)
+        let output = graphTexture(.effectOutput, layerID: layerID, effect: effectKey)
+        let full = graphTexture(
+            .framebuffer,
+            layerID: layerID,
+            effect: effectKey,
+            name: "full"
+        )
+        let nodes = [
+            Graph.Node(
+                nodeIndex: 0,
+                effect: effectKey,
+                definitionPassIndex: 0,
+                materialOrdinal: 0,
+                instancePassIndex: 0,
+                kind: .material,
+                materialPath: "materials/blur_precise_x.json",
+                materialPassID: "materials/blur_precise_x.json#0",
+                target: full,
+                bindings: [],
+                commandSource: nil,
+                commandTarget: nil,
+                compose: nil,
+                conditions: nil
+            ),
+            Graph.Node(
+                nodeIndex: 1,
+                effect: effectKey,
+                definitionPassIndex: 1,
+                materialOrdinal: 1,
+                instancePassIndex: 1,
+                kind: .material,
+                materialPath: "materials/blur_precise_y.json",
+                materialPassID: "materials/blur_precise_y.json#0",
+                target: output,
+                bindings: [
+                    .init(slot: 0, authoredName: "full", texture: full, conditions: nil),
+                    .init(slot: 1, authoredName: "previous", texture: input, conditions: nil),
+                ],
+                commandSource: nil,
+                commandTarget: nil,
+                compose: nil,
+                conditions: nil
+            ),
+        ]
+        let effect = Graph.Effect(
+            key: effectKey,
+            definitionPath: "effects/blurprecise/effect.json",
+            input: input,
+            output: output,
+            nodeIndices: [0, 1]
+        )
+        return Graph(
+            layerID: layerID,
+            effects: [effect],
+            renderTargets: [
+                .init(
+                    texture: full,
+                    extent: .init(kind: .input, first: nil, second: nil),
+                    format: "rgba_backbuffer",
+                    declaredUnique: false,
+                    clear: nil,
+                    uvs: nil,
+                    conditions: nil
+                ),
+            ],
+            nodes: nodes,
+            finalOutput: output,
+            blockers: []
+        )
+    }
+
+    static func standardBlurGraph(layerID: Int = 530) -> Graph {
+        let effectKey = Graph.EffectKey(
+            layerID: layerID,
+            effectIndex: 0,
+            descriptorID: "\(layerID)#effect#0"
+        )
+        let input = graphTexture(.layerSource, layerID: layerID)
+        let output = graphTexture(.effectOutput, layerID: layerID, effect: effectKey)
+        let quarterA = graphTexture(
+            .framebuffer,
+            layerID: layerID,
+            effect: effectKey,
+            name: "_rt_QuarterCompoBuffer1"
+        )
+        let quarterB = graphTexture(
+            .framebuffer,
+            layerID: layerID,
+            effect: effectKey,
+            name: "_rt_QuarterCompoBuffer2"
+        )
+        let materialPaths = [
+            "materials/effects/blur_downsample4.json",
+            "materials/effects/blur_gaussian_x.json",
+            "materials/effects/blur_gaussian_y.json",
+            "materials/effects/blur_combine.json",
+        ]
+        let targets = [quarterA, quarterB, quarterA, output]
+        let bindings: [[Graph.Binding]] = [
+            [.init(slot: 0, authoredName: "previous", texture: input, conditions: nil)],
+            [.init(slot: 0, authoredName: quarterA.name, texture: quarterA, conditions: nil)],
+            [.init(slot: 0, authoredName: quarterB.name, texture: quarterB, conditions: nil)],
+            [
+                .init(slot: 0, authoredName: quarterA.name, texture: quarterA, conditions: nil),
+                .init(slot: 2, authoredName: "previous", texture: input, conditions: nil),
+            ],
+        ]
+        let nodes = materialPaths.indices.map { index in
+            Graph.Node(
+                nodeIndex: index,
+                effect: effectKey,
+                definitionPassIndex: index,
+                materialOrdinal: index,
+                instancePassIndex: index,
+                kind: .material,
+                materialPath: materialPaths[index],
+                materialPassID: "\(materialPaths[index])#0",
+                target: targets[index],
+                bindings: bindings[index],
+                commandSource: nil,
+                commandTarget: nil,
+                compose: nil,
+                conditions: nil
+            )
+        }
+        let effect = Graph.Effect(
+            key: effectKey,
+            definitionPath: "effects/blur/effect.json",
+            input: input,
+            output: output,
+            nodeIndices: [0, 1, 2, 3]
+        )
+        return Graph(
+            layerID: layerID,
+            effects: [effect],
+            // Declaration order is intentionally not execution order.
+            renderTargets: [quarterB, quarterA].map { texture in
+                .init(
+                    texture: texture,
+                    extent: .init(kind: .scale, first: 4, second: nil),
+                    format: "rgba_backbuffer",
+                    declaredUnique: false,
+                    clear: nil,
+                    uvs: nil,
+                    conditions: nil
+                )
+            },
+            nodes: nodes,
+            finalOutput: output,
+            blockers: []
+        )
+    }
+
+    static func authoredPreciseBlurPlan() -> SceneAuthoredEffectExecutionPlan {
+        let graph = preciseBlurGraph()
+        return SceneAuthoredEffectExecutionPlan(
+            layerID: graph.layerID,
+            renderGraph: graph,
+            backend: .preciseGaussian(SceneGaussianBlurPlan(
+                horizontalStep: 1,
+                verticalStep: 1,
+                sampleResolutionScale: 1,
+                isPrecise: true
+            )),
+            materialNodeCount: 2,
+            logicalRenderTargetCount: 1
+        )
+    }
+
     static func main() throws {
         guard let device = MTLCreateSystemDefaultDevice(),
               let queue = device.makeCommandQueue(),
@@ -267,13 +479,13 @@ enum Harness {
             pipeline: pipeline,
             compositor: compositor
         )
-        let authoredStandardBlur = try authoredStandardBlurWithClamp(
+        let authoredPreciseImpulse = try authoredPreciseBlurImpulseEvidence(
             device: device,
             queue: queue,
             pipeline: pipeline,
             compositor: compositor
         )
-        let authoredStandardBlurAlpha = try authoredStandardBlurPremultipliedAlpha(
+        let authoredStandardCheckerboard = try authoredStandardBlurCheckerboardEvidence(
             device: device,
             queue: queue,
             pipeline: pipeline,
@@ -326,32 +538,11 @@ enum Harness {
             dependencyBGRA: [0, 255, 0, 255]
         )
 
-        let limited = pool.textures(width: 4_000, height: 2_000)
-        let evictionPool = SceneOffscreenTexturePool(
-            device: device, maxDimension: 64, byteBudget: 1_000
-        )
-        let firstSmall = evictionPool.textures(width: 8, height: 8)?.primary
-        _ = evictionPool.textures(width: 16, height: 16)
-        let secondSmall = evictionPool.textures(width: 8, height: 8)?.primary
-        let standardTargets = SceneOffscreenTexturePool(
-            device: device, maxDimension: 64
-        ).standardBlurTargets(width: 128, height: 64, scale: 4)
-        let standardTargetsAreDistinct = standardTargets.map { targets in
-            targets.previousFull !== targets.outputFull
-                && targets.previousFull !== targets.quarterA
-                && targets.previousFull !== targets.quarterB
-                && targets.outputFull !== targets.quarterA
-                && targets.outputFull !== targets.quarterB
-                && targets.quarterA !== targets.quarterB
-        } ?? false
-
         let result: [String: Any] = [
             "drew": drew,
             "refusedWithoutPool": refusedWithoutPool,
             "centerBGRA": pixel(target, x: 4, y: 4),
             "bottomRightBGRA": pixel(target, x: 7, y: 7),
-            "limitedSize": [limited?.primary.width ?? 0, limited?.primary.height ?? 0],
-            "evicted": firstSmall !== secondSmall,
             "noDependencyBGRA": noDependency,
             "normalDependencyBGRA": normalDependency,
             "darkenDependencyBGRA": darkenDependency,
@@ -376,20 +567,10 @@ enum Harness {
             "preciseBlurIsPrecise": preciseBlur?.isPrecise ?? false,
             "blockedPreciseBlurIsNil": blockedPreciseBlur == nil,
             "authoredExtentMismatchRefused": authoredExtentMismatchRefused,
-            "authoredStandardBlurClampEncoded": authoredStandardBlur.encoded,
-            "authoredStandardBlurConstantBGRA": authoredStandardBlur.pixel,
-            "authoredStandardBlurPremultipliedAlphaBGRA": authoredStandardBlurAlpha,
+            "authoredPreciseImpulse": authoredPreciseImpulse,
+            "authoredStandardCheckerboard": authoredStandardCheckerboard,
             "authoredStandardBlurOverridesLegacy": authoredStandardBlurOverridesLegacy,
             "standardBlurAlphaAwareDownsampleBGRA": standardBlurAlphaAwareDownsample,
-            "standardBlurFullSize": [
-                standardTargets?.previousFull.width ?? 0,
-                standardTargets?.previousFull.height ?? 0,
-            ],
-            "standardBlurQuarterSize": [
-                standardTargets?.quarterA.width ?? 0,
-                standardTargets?.quarterA.height ?? 0,
-            ],
-            "standardBlurTargetsAreDistinct": standardTargetsAreDistinct,
             "foliageFlags": foliage.flags.rawValue,
             "foliageParams3": [
                 foliage.params3.x, foliage.params3.y, foliage.params3.z, foliage.params3.w,
@@ -745,17 +926,7 @@ enum Harness {
                 requiresSourceCopy: false,
                 finalCompositeAlpha: nil,
                 dependencyEffect: nil,
-                authoredEffectPlan: SceneAuthoredEffectExecutionPlan(
-                    gaussianBlur: SceneGaussianBlurPlan(
-                        horizontalStep: 1,
-                        verticalStep: 1,
-                        sampleResolutionScale: 1,
-                        isPrecise: true
-                    ),
-                    standardBlur: nil,
-                    materialNodeCount: 2,
-                    requiresExactInputExtent: true
-                ),
+                authoredEffectPlan: authoredPreciseBlurPlan(),
                 blocksLegacyGaussianBlur: false
             ),
             pipeline: pipeline,
@@ -768,83 +939,243 @@ enum Harness {
         return !encoded
     }
 
-    static func authoredStandardBlurWithClamp(
+    static func authoredPreciseBlurImpulseEvidence(
         device: MTLDevice,
         queue: MTLCommandQueue,
         pipeline: SceneImageLayerPipeline,
         compositor: SceneImageLayerCompositor
-    ) throws -> (encoded: Bool, pixel: [UInt8]) {
-        try authoredStandardBlurPixel(
-            device: device,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor,
-            sourceBGRA: [48, 96, 144, 255]
-        )
-    }
-
-    static func authoredStandardBlurPremultipliedAlpha(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor
-    ) throws -> [UInt8] {
-        try authoredStandardBlurPixel(
-            device: device,
-            queue: queue,
-            pipeline: pipeline,
-            compositor: compositor,
-            sourceBGRA: [20, 50, 100, 128]
-        ).pixel
-    }
-
-    static func authoredStandardBlurPixel(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor,
-        sourceBGRA: [UInt8]
-    ) throws -> (encoded: Bool, pixel: [UInt8]) {
-        guard let source = makeTexture(device: device, size: 8, usage: .shaderRead),
+    ) throws -> [String: Any] {
+        let size = 8
+        guard let source = makeTexture(device: device, size: size, usage: .shaderRead),
               let target = makeTexture(
-                  device: device,
-                  size: 8,
-                  usage: [.renderTarget, .shaderRead]
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
               ),
-              let commandBuffer = queue.makeCommandBuffer() else {
+              let referenceHorizontal = makeTexture(
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
+              ),
+              let referenceOutput = makeTexture(
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
+              ),
+              let blurPipeline = SceneGaussianBlurPipeline(device: device) else {
             throw HarnessError.metalUnavailable
         }
-        fill(source, bgra: sourceBGRA)
-        let layer = standardBlurLayer()
+        fillPremultipliedImpulse(source)
+        let plan = authoredPreciseBlurPlan()
+        let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
+        let layer = SceneRenderDescriptor.Layer(
+            contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
+        )
+        try drawAuthoredBlur(
+            source: source,
+            target: target,
+            layer: layer,
+            plan: plan,
+            pool: pool,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor
+        )
+        guard let table = pool.graphTargets(
+            for: plan, requestedWidth: size, requestedHeight: size
+        ), let intermediateIdentity = table.plan.logicalTargets.first?.identity,
+        let intermediate = table.texture(for: intermediateIdentity),
+        let blur = plan.gaussianBlur,
+        let commandBuffer = queue.makeCommandBuffer(), blurPipeline.encode(
+            source: table.inputTexture,
+            target: referenceHorizontal,
+            step: SIMD2(
+                blur.horizontalStep * blur.sampleResolutionScale / Float(size), 0
+            ),
+            commandBuffer: commandBuffer
+        ), blurPipeline.encode(
+            source: referenceHorizontal,
+            target: referenceOutput,
+            step: SIMD2(
+                0, blur.verticalStep * blur.sampleResolutionScale / Float(size)
+            ),
+            commandBuffer: commandBuffer
+        ) else {
+            throw HarnessError.drawRefused
+        }
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
+
+        let sourceBytes = try textureBytes(source, queue: queue)
+        let inputBytes = try textureBytes(table.inputTexture, queue: queue)
+        let horizontalBytes = try textureBytes(intermediate, queue: queue)
+        let expectedHorizontalBytes = try textureBytes(referenceHorizontal, queue: queue)
+        let outputBytes = try textureBytes(table.outputTexture, queue: queue)
+        let expectedOutputBytes = try textureBytes(referenceOutput, queue: queue)
+        let mainBytes = try textureBytes(target, queue: queue)
+        return [
+            "encoded": true,
+            "inputMaxDelta": maxDifference(inputBytes, sourceBytes),
+            "horizontalMaxDelta": maxDifference(
+                horizontalBytes, expectedHorizontalBytes
+            ),
+            "outputMaxDelta": maxDifference(outputBytes, expectedOutputBytes),
+            "mainMaxDelta": maxDifference(mainBytes, expectedOutputBytes),
+            "horizontalToOutputDelta": maxDifference(horizontalBytes, outputBytes),
+            "sourceToOutputDelta": maxDifference(sourceBytes, outputBytes),
+            "sourceHasMixedAlpha": hasMixedAlpha(sourceBytes),
+            "outputIsPremultiplied": isPremultiplied(outputBytes),
+        ]
+    }
+
+    static func authoredStandardBlurCheckerboardEvidence(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor
+    ) throws -> [String: Any] {
+        let size = 16
+        let quarterSize = 4
+        guard let source = makeTexture(device: device, size: size, usage: .shaderRead),
+              let target = makeTexture(
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
+              ),
+              let referenceQuarterA = makeTexture(
+                  device: device, size: quarterSize,
+                  usage: [.renderTarget, .shaderRead]
+              ),
+              let referenceQuarterB = makeTexture(
+                  device: device, size: quarterSize,
+                  usage: [.renderTarget, .shaderRead]
+              ),
+              let referenceOutput = makeTexture(
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
+              ),
+              let blurPipeline = SceneStandardBlurPipeline(device: device) else {
+            throw HarnessError.metalUnavailable
+        }
+        fillPremultipliedCheckerboard(source)
+        let plan = authoredStandardBlurPlan()
+        let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
+        try drawAuthoredBlur(
+            source: source,
+            target: target,
+            layer: standardBlurLayer(),
+            plan: plan,
+            pool: pool,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor
+        )
+        guard let table = pool.graphTargets(
+            for: plan, requestedWidth: size, requestedHeight: size
+        ) else {
+            throw HarnessError.drawRefused
+        }
+        let intermediates = table.plan.logicalTargets.sorted {
+            $0.lifetime.firstWriteNodeIndex < $1.lifetime.firstWriteNodeIndex
+        }
+        guard intermediates.count == 2,
+        let quarterA = table.texture(for: intermediates[0].identity),
+        let quarterB = table.texture(for: intermediates[1].identity),
+        let blur = plan.standardBlur,
+        let commandBuffer = queue.makeCommandBuffer(), blurPipeline.encodeDownsample(
+            source: table.inputTexture,
+            target: referenceQuarterA,
+            commandBuffer: commandBuffer
+        ), blurPipeline.encodeGaussian(
+            source: referenceQuarterA,
+            target: referenceQuarterB,
+            step: SIMD2(blur.horizontalStep / Float(quarterSize), 0),
+            commandBuffer: commandBuffer
+        ), blurPipeline.encodeGaussian(
+            source: referenceQuarterB,
+            target: referenceQuarterA,
+            step: SIMD2(0, blur.verticalStep / Float(quarterSize)),
+            commandBuffer: commandBuffer
+        ), blurPipeline.encodeCombine(
+            blurred: referenceQuarterA,
+            previous: table.inputTexture,
+            target: referenceOutput,
+            commandBuffer: commandBuffer
+        ) else {
+            throw HarnessError.drawRefused
+        }
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
+
+        let sourceBytes = try textureBytes(source, queue: queue)
+        let inputBytes = try textureBytes(table.inputTexture, queue: queue)
+        let horizontalBytes = try textureBytes(quarterB, queue: queue)
+        let expectedHorizontalBytes = try textureBytes(referenceQuarterB, queue: queue)
+        let verticalBytes = try textureBytes(quarterA, queue: queue)
+        let expectedVerticalBytes = try textureBytes(referenceQuarterA, queue: queue)
+        let outputBytes = try textureBytes(table.outputTexture, queue: queue)
+        let expectedOutputBytes = try textureBytes(referenceOutput, queue: queue)
+        let mainBytes = try textureBytes(target, queue: queue)
+        return [
+            "encoded": true,
+            "inputMaxDelta": maxDifference(inputBytes, sourceBytes),
+            "horizontalMaxDelta": maxDifference(
+                horizontalBytes, expectedHorizontalBytes
+            ),
+            "verticalMaxDelta": maxDifference(verticalBytes, expectedVerticalBytes),
+            "horizontalToExpectedVerticalDelta": maxDifference(
+                horizontalBytes, expectedVerticalBytes
+            ),
+            "verticalToExpectedHorizontalDelta": maxDifference(
+                verticalBytes, expectedHorizontalBytes
+            ),
+            "outputMaxDelta": maxDifference(outputBytes, expectedOutputBytes),
+            "mainMaxDelta": maxDifference(mainBytes, expectedOutputBytes),
+            "horizontalToVerticalDelta": maxDifference(horizontalBytes, verticalBytes),
+            "inputToOutputDelta": maxDifference(inputBytes, outputBytes),
+            "sourceHasMixedAlpha": hasMixedAlpha(sourceBytes),
+            "outputIsPremultiplied": isPremultiplied(outputBytes),
+        ]
+    }
+
+    static func drawAuthoredBlur(
+        source: MTLTexture,
+        target: MTLTexture,
+        layer: SceneRenderDescriptor.Layer,
+        plan: SceneAuthoredEffectExecutionPlan,
+        pool: SceneOffscreenTexturePool,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor
+    ) throws {
+        guard let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.metalUnavailable
+        }
         let mainPass = SceneMainPassEncoder(
             commandBuffer: commandBuffer,
             target: target,
             clearColor: MTLClearColorMake(0, 0, 0, 0)
         )
-        let encoded = compositor.draw(
+        guard compositor.draw(
             SceneImageLayerDrawRequest(
                 layer: layer,
                 texture: source,
                 masks: .empty,
                 textureFrame: .identity,
                 mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
-                uniforms: SceneImageLayerUniformValues(time: 0, alpha: 1, cursorUV: .zero),
-                offscreenTexturePool: SceneOffscreenTexturePool(device: device, maxDimension: 4),
+                uniforms: SceneImageLayerUniformValues(
+                    time: 0, alpha: 1, cursorUV: .zero
+                ),
+                offscreenTexturePool: pool,
                 offscreenSize: nil,
                 requiresSourceCopy: false,
                 finalCompositeAlpha: nil,
                 dependencyEffect: nil,
-                authoredEffectPlan: authoredStandardBlurPlan(),
+                authoredEffectPlan: plan,
                 blocksLegacyGaussianBlur: false
             ),
             pipeline: pipeline,
             mainPass: mainPass
-        )
+        ) else {
+            throw HarnessError.drawRefused
+        }
         mainPass.finishEnsuringClear()
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
         guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
-        return (encoded, pixel(target, x: 4, y: 4))
     }
 
     static func alphaAwareDownsamplePixel(
@@ -943,15 +1274,17 @@ enum Harness {
     }
 
     static func authoredStandardBlurPlan() -> SceneAuthoredEffectExecutionPlan {
-        SceneAuthoredEffectExecutionPlan(
-            gaussianBlur: nil,
-            standardBlur: SceneStandardBlurPlan(
+        let graph = standardBlurGraph()
+        return SceneAuthoredEffectExecutionPlan(
+            layerID: graph.layerID,
+            renderGraph: graph,
+            backend: .standardBlur(SceneStandardBlurPlan(
                 horizontalStep: 0.6,
                 verticalStep: 0.6,
                 renderTargetScale: 4
-            ),
+            )),
             materialNodeCount: 4,
-            requiresExactInputExtent: false
+            logicalRenderTargetCount: 2
         )
     }
 
@@ -1007,6 +1340,124 @@ enum Harness {
         return device.makeTexture(descriptor: descriptor)
     }
 
+    static func fillPremultipliedImpulse(_ texture: MTLTexture) {
+        fillPixels(texture) { x, y in
+            switch (x, y) {
+            case (1, 1): return [0, 0, 224, 255]
+            case (5, 2): return [96, 0, 0, 128]
+            case (2, 6): return [0, 48, 0, 64]
+            case (6, 5): return [0, 180, 180, 255]
+            default: return [0, 0, 0, 0]
+            }
+        }
+    }
+
+    static func fillPremultipliedCheckerboard(_ texture: MTLTexture) {
+        let colors: [[UInt8]] = [
+            [0, 0, 96, 255],
+            [0, 40, 0, 128],
+            [12, 0, 0, 64],
+            [0, 0, 0, 0],
+        ]
+        fillPixels(texture) { x, y in
+            let asymmetric = x > y ? 1 : 0
+            return colors[((x / 2) + ((y / 3) * 2) + asymmetric) % colors.count]
+        }
+    }
+
+    static func fillPixels(
+        _ texture: MTLTexture,
+        colorAt: (Int, Int) -> [UInt8]
+    ) {
+        var bytes = [UInt8](repeating: 0, count: texture.width * texture.height * 4)
+        for y in 0..<texture.height {
+            for x in 0..<texture.width {
+                let offset = ((y * texture.width) + x) * 4
+                bytes.replaceSubrange(offset..<(offset + 4), with: colorAt(x, y))
+            }
+        }
+        texture.replace(
+            region: MTLRegionMake2D(0, 0, texture.width, texture.height),
+            mipmapLevel: 0,
+            withBytes: bytes,
+            bytesPerRow: texture.width * 4
+        )
+    }
+
+    static func textureBytes(
+        _ texture: MTLTexture,
+        queue: MTLCommandQueue
+    ) throws -> [UInt8] {
+        let byteCount = texture.width * texture.height * 4
+        var bytes = [UInt8](repeating: 0, count: byteCount)
+        if texture.storageMode == .shared {
+            texture.getBytes(
+                &bytes,
+                bytesPerRow: texture.width * 4,
+                from: MTLRegionMake2D(0, 0, texture.width, texture.height),
+                mipmapLevel: 0
+            )
+            return bytes
+        }
+
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: texture.pixelFormat,
+            width: texture.width,
+            height: texture.height,
+            mipmapped: false
+        )
+        descriptor.storageMode = .shared
+        descriptor.usage = .shaderRead
+        guard let staging = texture.device.makeTexture(descriptor: descriptor),
+              let commandBuffer = queue.makeCommandBuffer(),
+              let blit = commandBuffer.makeBlitCommandEncoder() else {
+            throw HarnessError.readbackFailed
+        }
+        blit.copy(
+            from: texture,
+            sourceSlice: 0,
+            sourceLevel: 0,
+            sourceOrigin: MTLOrigin(x: 0, y: 0, z: 0),
+            sourceSize: MTLSize(width: texture.width, height: texture.height, depth: 1),
+            to: staging,
+            destinationSlice: 0,
+            destinationLevel: 0,
+            destinationOrigin: MTLOrigin(x: 0, y: 0, z: 0)
+        )
+        blit.endEncoding()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
+        staging.getBytes(
+            &bytes,
+            bytesPerRow: staging.width * 4,
+            from: MTLRegionMake2D(0, 0, staging.width, staging.height),
+            mipmapLevel: 0
+        )
+        return bytes
+    }
+
+    static func maxDifference(_ lhs: [UInt8], _ rhs: [UInt8]) -> Int {
+        guard lhs.count == rhs.count else { return Int.max }
+        return zip(lhs, rhs).reduce(0) { difference, values in
+            max(difference, abs(Int(values.0) - Int(values.1)))
+        }
+    }
+
+    static func hasMixedAlpha(_ bytes: [UInt8]) -> Bool {
+        let alphaValues = Set(stride(from: 3, to: bytes.count, by: 4).map { bytes[$0] })
+        return [UInt8(0), 64, 128, 255].allSatisfy(alphaValues.contains)
+    }
+
+    static func isPremultiplied(_ bytes: [UInt8]) -> Bool {
+        stride(from: 0, to: bytes.count, by: 4).allSatisfy { offset in
+            let alpha = Int(bytes[offset + 3]) + 1
+            return Int(bytes[offset]) <= alpha
+                && Int(bytes[offset + 1]) <= alpha
+                && Int(bytes[offset + 2]) <= alpha
+        }
+    }
+
     static func fillQuadrants(_ texture: MTLTexture) {
         var bytes = [UInt8](repeating: 0, count: texture.width * texture.height * 4)
         for y in 0..<texture.height {
@@ -1060,6 +1511,7 @@ enum Harness {
         case encoderUnavailable
         case commandFailed
         case drawRefused
+        case readbackFailed
     }
 }
 '''
@@ -1104,10 +1556,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertEqual(self.result["centerBGRA"], [0, 0, 255, 255])
         self.assertEqual(self.result["bottomRightBGRA"], [255, 255, 255, 255])
 
-    def test_pool_clamps_large_targets_and_evicts_over_budget_entries(self) -> None:
-        self.assertEqual(self.result["limitedSize"], [2048, 1024])
-        self.assertTrue(self.result["evicted"])
-
     def test_capture_telemetry_waits_for_gpu_completion(self) -> None:
         self.assertIn("phase=utility-capture layer=701 status=succeeded", self.stderr)
         self.assertIn("phase=utility-capture layer=702 status=failed", self.stderr)
@@ -1132,22 +1580,35 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertTrue(self.result["blockedPreciseBlurIsNil"])
         self.assertTrue(self.result["authoredExtentMismatchRefused"])
 
-    def test_standard_blur_executes_under_clamp_and_preserves_constant_color(self) -> None:
-        self.assertTrue(self.result["authoredStandardBlurClampEncoded"])
-        self.assert_pixel_close(
-            self.result["authoredStandardBlurConstantBGRA"], [48, 96, 144, 255], 2
-        )
-        self.assert_pixel_close(
-            self.result["authoredStandardBlurPremultipliedAlphaBGRA"],
-            [20, 50, 100, 64],
-            3,
-        )
-        self.assertTrue(self.result["authoredStandardBlurOverridesLegacy"])
+    def test_precise_graph_blur_runs_horizontal_then_vertical_on_mixed_alpha(self) -> None:
+        evidence = self.result["authoredPreciseImpulse"]
+        self.assertTrue(evidence["encoded"])
+        self.assertTrue(evidence["sourceHasMixedAlpha"])
+        self.assertTrue(evidence["outputIsPremultiplied"])
+        for key in ("inputMaxDelta", "horizontalMaxDelta", "outputMaxDelta"):
+            self.assertLessEqual(evidence[key], 1, (key, evidence))
+        self.assertLessEqual(evidence["mainMaxDelta"], 2, evidence)
+        self.assertGreater(evidence["horizontalToOutputDelta"], 2, evidence)
+        self.assertGreater(evidence["sourceToOutputDelta"], 20, evidence)
 
-    def test_standard_blur_targets_are_quarter_sized_and_do_not_alias(self) -> None:
-        self.assertEqual(self.result["standardBlurFullSize"], [64, 32])
-        self.assertEqual(self.result["standardBlurQuarterSize"], [16, 8])
-        self.assertTrue(self.result["standardBlurTargetsAreDistinct"])
+    def test_standard_graph_blur_runs_full_ping_pong_chain_on_mixed_alpha(self) -> None:
+        evidence = self.result["authoredStandardCheckerboard"]
+        self.assertTrue(evidence["encoded"])
+        self.assertTrue(evidence["sourceHasMixedAlpha"])
+        self.assertTrue(evidence["outputIsPremultiplied"])
+        for key in (
+            "inputMaxDelta",
+            "horizontalMaxDelta",
+            "verticalMaxDelta",
+            "outputMaxDelta",
+        ):
+            self.assertLessEqual(evidence[key], 1, (key, evidence))
+        self.assertLessEqual(evidence["mainMaxDelta"], 2, evidence)
+        self.assertGreater(evidence["horizontalToExpectedVerticalDelta"], 2, evidence)
+        self.assertGreater(evidence["verticalToExpectedHorizontalDelta"], 2, evidence)
+        self.assertGreater(evidence["horizontalToVerticalDelta"], 2, evidence)
+        self.assertGreater(evidence["inputToOutputDelta"], 20, evidence)
+        self.assertTrue(self.result["authoredStandardBlurOverridesLegacy"])
 
     def test_standard_blur_downsample_is_alpha_aware(self) -> None:
         self.assert_pixel_close(

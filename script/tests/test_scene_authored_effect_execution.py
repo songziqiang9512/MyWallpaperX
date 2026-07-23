@@ -18,6 +18,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneAuthoredMaterialResolver.swift",
     SOURCE_ROOT / "SceneAuthoredEffectExecutionPlan.swift",
     SOURCE_ROOT / "SceneAuthoredStandardBlurPlanner.swift",
+    SOURCE_ROOT / "SceneGraphRenderTargetPlan.swift",
 ]
 
 
@@ -476,6 +477,18 @@ enum Harness {
         )
         let visiblePlan = catalog.plansByLayerID[10]!
         let preciseBlur = visiblePlan.gaussianBlur!
+        let preciseRenderTargetPlan: SceneGraphRenderTargetPlan = {
+            switch SceneGraphRenderTargetPlan.make(
+                executionPlan: visiblePlan,
+                graph: visiblePlan.renderGraph,
+                inputWidth: 1279,
+                inputHeight: 719
+            ) {
+            case .success(let plan): return plan
+            case .failure(let failure):
+                fatalError("precise render target plan failed: \(failure.rawValue)")
+            }
+        }()
         let preciseBackendMatched: Bool = {
             if case .preciseGaussian = visiblePlan.backend { return true }
             return false
@@ -509,6 +522,18 @@ enum Harness {
             graph: standardGraph, descriptor: standardDescriptor
         )!
         let standardBlur = standardPlan.standardBlur!
+        let standardRenderTargetPlan: SceneGraphRenderTargetPlan = {
+            switch SceneGraphRenderTargetPlan.make(
+                executionPlan: standardPlan,
+                graph: standardPlan.renderGraph,
+                inputWidth: 1920,
+                inputHeight: 1080
+            ) {
+            case .success(let plan): return plan
+            case .failure(let failure):
+                fatalError("standard render target plan failed: \(failure.rawValue)")
+            }
+        }()
         let standardBackendMatched: Bool = {
             if case .standardBlur = standardPlan.backend { return true }
             return false
@@ -549,6 +574,16 @@ enum Harness {
             "scale": [preciseBlur.horizontalStep, preciseBlur.verticalStep],
             "nodes": visiblePlan.materialNodeCount,
             "targets": visiblePlan.logicalRenderTargetCount,
+            "preciseGraphTargetCount": preciseRenderTargetPlan.logicalTargets.count,
+            "preciseGraphTargetExtents": preciseRenderTargetPlan.logicalTargets.map {
+                [$0.extent.width, $0.extent.height]
+            },
+            "preciseGraphIdentityMatched":
+                preciseRenderTargetPlan.layerID == visiblePlan.renderGraph.layerID
+                && preciseRenderTargetPlan.input == visiblePlan.renderGraph.effects[0].input
+                && preciseRenderTargetPlan.output == visiblePlan.renderGraph.finalOutput
+                && preciseRenderTargetPlan.logicalTargets.map(\.identity)
+                    == visiblePlan.renderGraph.renderTargets.map(\.texture),
             "preciseBackendMatched": preciseBackendMatched
                 && visiblePlan.standardBlur == nil
                 && visiblePlan.requiresExactInputExtent,
@@ -571,6 +606,16 @@ enum Harness {
             "standardRTScale": standardBlur.renderTargetScale,
             "standardNodes": standardPlan.materialNodeCount,
             "standardTargets": standardPlan.logicalRenderTargetCount,
+            "standardGraphTargetCount": standardRenderTargetPlan.logicalTargets.count,
+            "standardGraphTargetExtents": standardRenderTargetPlan.logicalTargets.map {
+                [$0.extent.width, $0.extent.height]
+            },
+            "standardGraphIdentityMatched":
+                standardRenderTargetPlan.layerID == standardPlan.renderGraph.layerID
+                && standardRenderTargetPlan.input == standardPlan.renderGraph.effects[0].input
+                && standardRenderTargetPlan.output == standardPlan.renderGraph.finalOutput
+                && standardRenderTargetPlan.logicalTargets.map(\.identity)
+                    == standardPlan.renderGraph.renderTargets.map(\.texture),
             "standardBackendMatched": standardBackendMatched
                 && standardPlan.gaussianBlur == nil
                 && !standardPlan.requiresExactInputExtent,
@@ -635,6 +680,9 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertEqual(self.result["targets"], 1)
         self.assertAlmostEqual(self.result["scale"][0], 1.28, places=5)
         self.assertAlmostEqual(self.result["scale"][1], 1.28, places=5)
+        self.assertEqual(self.result["preciseGraphTargetCount"], 1)
+        self.assertEqual(self.result["preciseGraphTargetExtents"], [[1279, 719]])
+        self.assertTrue(self.result["preciseGraphIdentityMatched"])
         self.assertTrue(self.result["preciseBackendMatched"])
 
     def test_default_standard_blur_graph_is_planned(self) -> None:
@@ -645,6 +693,12 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertEqual(self.result["standardRTScale"], 4)
         self.assertAlmostEqual(self.result["standardScale"][0], 0.6, places=5)
         self.assertAlmostEqual(self.result["standardScale"][1], 0.6, places=5)
+        self.assertEqual(self.result["standardGraphTargetCount"], 2)
+        self.assertEqual(
+            self.result["standardGraphTargetExtents"],
+            [[480, 270], [480, 270]],
+        )
+        self.assertTrue(self.result["standardGraphIdentityMatched"])
         self.assertTrue(self.result["standardBackendMatched"])
 
     def test_texture_precedence_preserves_slots(self) -> None:

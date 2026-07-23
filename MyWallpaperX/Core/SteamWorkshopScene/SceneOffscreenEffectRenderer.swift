@@ -137,24 +137,77 @@ enum SceneOffscreenEffectRenderer {
         return offscreenPair.secondary
     }
 
+    static func renderPreciseBlur(
+        sourceTexture: MTLTexture,
+        waterMaskTexture: MTLTexture?,
+        foliageMaskTexture: MTLTexture?,
+        auxMaskTexture: MTLTexture?,
+        targets: SceneGraphRenderTargetTable,
+        plan: SceneGaussianBlurPlan,
+        sourceUniforms: SceneLayerFragmentUniforms,
+        pipeline: SceneImageLayerPipeline,
+        gaussianBlurPipeline: SceneGaussianBlurPipeline,
+        commandBuffer: MTLCommandBuffer
+    ) -> MTLTexture? {
+        guard targets.plan.logicalTargets.count == 1,
+              let intermediate = targets.texture(
+                  for: targets.plan.logicalTargets[0].identity
+              ), captureSource(
+                  sourceTexture: sourceTexture,
+                  waterMaskTexture: waterMaskTexture,
+                  foliageMaskTexture: foliageMaskTexture,
+                  auxMaskTexture: auxMaskTexture,
+                  target: targets.inputTexture,
+                  sourceUniforms: sourceUniforms,
+                  pipeline: pipeline,
+                  commandBuffer: commandBuffer
+              ) else {
+            return nil
+        }
+        let horizontalStep = plan.horizontalStep
+            * plan.sampleResolutionScale / Float(targets.inputTexture.width)
+        let verticalStep = plan.verticalStep
+            * plan.sampleResolutionScale / Float(targets.inputTexture.height)
+        guard gaussianBlurPipeline.encode(
+            source: targets.inputTexture,
+            target: intermediate,
+            step: SIMD2(horizontalStep, 0),
+            commandBuffer: commandBuffer
+        ), gaussianBlurPipeline.encode(
+            source: intermediate,
+            target: targets.outputTexture,
+            step: SIMD2(0, verticalStep),
+            commandBuffer: commandBuffer
+        ) else {
+            return nil
+        }
+        return targets.outputTexture
+    }
+
     static func renderStandardBlur(
         sourceTexture: MTLTexture,
         waterMaskTexture: MTLTexture?,
         foliageMaskTexture: MTLTexture?,
         auxMaskTexture: MTLTexture?,
-        targets: SceneOffscreenTexturePool.StandardBlurTargets,
+        targets: SceneGraphRenderTargetTable,
         plan: SceneStandardBlurPlan,
         sourceUniforms: SceneLayerFragmentUniforms,
         pipeline: SceneImageLayerPipeline,
         standardBlurPipeline: SceneStandardBlurPipeline,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
-        guard captureSource(
+        let intermediates = targets.plan.logicalTargets.sorted {
+            $0.lifetime.firstWriteNodeIndex < $1.lifetime.firstWriteNodeIndex
+        }
+        guard intermediates.count == 2,
+              let quarterA = targets.texture(for: intermediates[0].identity),
+              let quarterB = targets.texture(for: intermediates[1].identity),
+              captureSource(
             sourceTexture: sourceTexture,
             waterMaskTexture: waterMaskTexture,
             foliageMaskTexture: foliageMaskTexture,
             auxMaskTexture: auxMaskTexture,
-            target: targets.previousFull,
+            target: targets.inputTexture,
             sourceUniforms: sourceUniforms,
             pipeline: pipeline,
             commandBuffer: commandBuffer
@@ -163,7 +216,10 @@ enum SceneOffscreenEffectRenderer {
         }
         return SceneStandardBlurRenderer.render(
             plan: plan,
-            targets: targets,
+            inputTexture: targets.inputTexture,
+            quarterA: quarterA,
+            quarterB: quarterB,
+            outputTexture: targets.outputTexture,
             pipeline: standardBlurPipeline,
             commandBuffer: commandBuffer
         )

@@ -7,6 +7,7 @@ nonisolated struct SceneAuthoredEffectExecutionPlan {
     }
 
     let layerID: Int
+    let renderGraph: SceneAuthoredEffectRenderPlan
     let backend: Backend
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
@@ -159,6 +160,7 @@ enum SceneAuthoredEffectExecutionPlanner {
 
         return SceneAuthoredEffectExecutionPlan(
             layerID: graph.layerID,
+            renderGraph: graph,
             backend: .preciseGaussian(SceneGaussianBlurPlan(
                 horizontalStep: horizontalScale,
                 verticalStep: verticalScale,
