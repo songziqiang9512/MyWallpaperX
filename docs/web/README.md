@@ -26,14 +26,13 @@
 
 - [web-compatibility-execution-plan-2026-04-13.md](web-compatibility-execution-plan-2026-04-13.md)
 - [web-native-input-host-plan-2026-04-14.md](web-native-input-host-plan-2026-04-14.md)
-- [archive/](archive/)：2026-05-31 的 Web 运行时对齐补充方案和可行性评审。
 
 ## 3. 进度 / Handoff / 历史执行记录
 
 这些文档记录阶段性进展、样本状态和专项 handoff。它们可作为事实补充，但不应反向覆盖长期规范：
 
 - [web-official-alignment-progress-2026-04-14.md](web-official-alignment-progress-2026-04-14.md)
-- [regression/](regression/)：Web 样本回归、专项 handoff 和 2026-06-19 调试总结。
+- [regression/](regression/)：当前保留的作者源码与 Steam CDN 代表样本基线；旧调试流水和 handoff 已由现役路线图与 Git 历史取代。
 - [../agents/web-development-expert-agent/web-handoff-2026-04-16.md](../agents/web-development-expert-agent/web-handoff-2026-04-16.md)
 
 ## 4. 角色入口

@@ -31,7 +31,6 @@ SAMPLE_ASSESSMENT_PATH = (
     REPOSITORY_ROOT / "docs/scene/scene-sample-assessment-2026-07-22.md"
 )
 COMPATIBILITY_PATH = REPOSITORY_ROOT / "docs/scene/wallpaper_engine_scene_compatibility.md"
-RUNTIME_DESIGN_PATH = REPOSITORY_ROOT / "docs/scene/scene-runtime-design-2026-05-15.md"
 EFFECTS_REFERENCE_PATH = SEMANTICS_ROOT / "effects-reference.md"
 RUNTIME_SYSTEMS_REFERENCE_PATH = SEMANTICS_ROOT / "runtime-systems-reference.md"
 SCENESCRIPT_COVERAGE_PATH = SEMANTICS_ROOT / "scenescript-api-coverage.md"
@@ -347,7 +346,6 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             ROADMAP_PATH,
             SAMPLE_ASSESSMENT_PATH,
             COMPATIBILITY_PATH,
-            RUNTIME_DESIGN_PATH,
             EFFECTS_REFERENCE_PATH,
             RUNTIME_SYSTEMS_REFERENCE_PATH,
             SCENESCRIPT_COVERAGE_PATH,

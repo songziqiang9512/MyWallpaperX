@@ -1,12 +1,8 @@
 # Web + Scene 双链路交叉分析与协同实施策略（2026-05-31）
 
-> 本文档基于对两份优化计划的独立多 agent 评审，提取共同模式、共享组件、协调实施路线。
+> 本文档保留 2026-05-31 的 Web / Scene 交叉架构分析；原始阶段计划与评审已由后续实现和 Git 历史取代。
 >
-> 关联文件：
-> - `web-wallpaper-engine-runtime-alignment-optimization-plan-2026-05-31.md`（Web 计划）
-> - `web-wallpaper-engine-runtime-alignment-optimization-plan-feasibility-review-2026-05-31.md`（Web 评审）
-> - `scene-wallpaper-engine-runtime-alignment-optimization-plan-2026-05-31.md`（Scene 计划）
-> - `scene-wallpaper-engine-runtime-alignment-optimization-plan-feasibility-review-2026-05-31.md`（Scene 评审）
+> 当前事实与实施顺序统一查 [Web / Scene 当前状态路线图](../reviews/web-scene-current-state-roadmap-2026-07-19.md)、[Scene 能力台账](../scene/semantics/coverage-ledger.md) 和 [Scene 开发计划](../scene/scene-capability-development-plan-2026-07-22.md)。
 
 ---
 

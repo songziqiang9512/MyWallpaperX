@@ -32,8 +32,8 @@ Scene 已建立独立模块、PKGV 读取、受控缓存、typed interpretation�
 
 1. 当前 Web/Scene 源码与模块调用路径。
 2. [Web 壁纸运行能力评测标准](../web/web-wallpaper-benchmark-standard.md)。
-3. [Web 样本 handoff](../web/regression/WEB_SAMPLE_HANDOFF_2026-06-19.md) 中尚未关闭的问题。
-4. [Scene Runtime 技术设计](../scene/scene-runtime-design-2026-05-15.md) 保留的历史架构边界及其现役状态指针。
+3. [Web 外部代表样本基线](../web/regression/WEB_EXTERNAL_SAMPLE_BASELINE_2026-07-20.md) 与 [Steam 代表样本基线](../web/regression/WEB_STEAM_REPRESENTATIVE_BASELINE_2026-07-20.md)。
+4. [Scene 能力台账](../scene/semantics/coverage-ledger.md)、[能力依赖图](../scene/semantics/capability-dependency-map.md) 与 [运行证据索引](../scene/semantics/runtime-evidence-index.md)。
 5. 2026-07-20 对当前 Debug App 的 10 项固定矩阵、5 项作者源码外部矩阵、3 项 Steam CDN 代表矩阵、34 项全量扫描和三段生命周期隔离运行结果。
 6. [Web 外部代表样本基线](../web/regression/WEB_EXTERNAL_SAMPLE_BASELINE_2026-07-20.md) 中的来源、revision、能力覆盖和证据边界。
 7. [Web Steam 代表样本基线](../web/regression/WEB_STEAM_REPRESENTATIVE_BASELINE_2026-07-20.md) 中的 Steam CDN 快照、响应式/多视口/联网能力和证据边界。
