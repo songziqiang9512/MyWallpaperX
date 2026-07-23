@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`36bfef0`
+> 实现基线：`136d35c`
 
 本文把 45 个官方用户 Effect 逐项映射到 MyWallpaperX 当前执行级别和公共依赖。作者语义、输入槽和 pass/RT 结构见 [Effects 语义全集](effects-reference.md)，Graph/Shader 原子能力见 [Render Graph 与 Shader 覆盖表](render-graph-shader-coverage.md)，依赖 ID 见 [公共能力依赖图](capability-dependency-map.md)。
 
@@ -94,7 +94,7 @@
 |---|---|---|---|---|---|
 | Edge Detection / `edgedetection` | `L1` | `IR-only` | [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | Sobel texel size、threshold/color/blend、mask if authored |
 | God Rays / `godrays` | `L2` | `graph-only`：多 pass route，无 visual executor | [D5](capability-dependency-map.md#d5) [D6](capability-dependency-map.md#d6) [D7](capability-dependency-map.md#d7) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | 5 pass、half RT、full-frame alias、COPYBG/mask/noise |
-| Local Contrast / `localcontrast` | `L2` | `graph-only`：多 pass identity，无 visual executor | [D5](capability-dependency-map.md#d5) [D6](capability-dependency-map.md#d6) [D7](capability-dependency-map.md#d7) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | 4 pass、quarter RT、source/blur/mask/combine |
+| Local Contrast / `localcontrast` | `L3` | `strict-graph-profile`：只执行 stock 单 effect、KERNEL0/GREYSCALE0/MASK0、Gaussian `scale=(1,1)` 的 4-pass/2-quarter-RGBA 图；exact graph/material/shader fingerprint 失败即关闭 | [D5](capability-dependency-map.md#d5) [D6](capability-dependency-map.md#d6) [D7](capability-dependency-map.md#d7) | [E-EFFECT-LOCAL-CONTRAST](runtime-evidence-index.md#e-effect-local-contrast) | mask/greyscale、非默认 kernel/Gaussian scale、mixed chain、generic shader 与 Windows golden |
 | Shine / `shine` | `L2` | `graph-only`：多 pass identity，无 visual executor | [D2](capability-dependency-map.md#d2) [D5](capability-dependency-map.md#d5) [D6](capability-dependency-map.md#d6) [D7](capability-dependency-map.md#d7) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | 5 pass、half RT、threshold/noise/kernel/edge/COPYBG |
 
 ## 8. 非 45 项边界与汇总
@@ -105,7 +105,7 @@
 | Workshop `gradient_color` | `L3` | 项目样本中的严格单 pass profile；不是官方 Blend Gradient |
 | Workshop layer Bloom approximation | `L3` | 受限 threshold/blur/composite；不是官方 Scene-level Bloom/HDR，也不是 45 个 Effect 专页之一 |
 
-45 项汇总：`L1=28`、`L2=6`、`L3=11`、`L4=0`。这个统计只反映当前表中最小可声明级别，不是样本命中率、视觉相似度或已知语义比例。
+45 项汇总：`L1=28`、`L2=5`、`L3=12`、`L4=0`。这个统计只反映当前表中最小可声明级别，不是样本命中率、视觉相似度或已知语义比例。
 
 ## 9. 开发顺序
 

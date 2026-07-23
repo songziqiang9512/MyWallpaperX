@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-23
 >
-> Scene 实现基线：`228cdde`
+> Scene 实现基线：`136d35c`
 >
-> 视觉运行基线：`.codex/scene-shader-contract-final13-v2-20260723/report.json`
+> 视觉运行基线：`.codex/scene-local-contrast-final13-20260723/report.json`
 >
-> 最新运行门：ShaderContract 正式 13 样本 13/13，共 173 contracts、286 stages、0 diagnostics；graph-target 正向/负向定向报告各 3/3，strict Blur 六个既有 GPU layer 全部成功、0 failed，history/condition/function 继续 fail closed。`rgba8888` format foundation 不新增可见 layer；当前 Scene 全量测试共运行 225 项、224 项通过、1 项跳过，最新签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：strict Local Contrast 定向矩阵 2/2、正式矩阵 13/13；`2902406982` 的 layers `167/177` 执行 stock 4-pass profile，连同既有 Blur layer `530` 均 GPU succeeded，动态 `brcontraststrength` 更新保持同一 surface/window；`2938612768` mixed chains 保持 0 个 Local Contrast 执行计划。当前 Scene 全量测试共 239 项、238 项通过、1 项跳过，最新签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -50,9 +50,9 @@
 | Utility composition | `L3` | typed composition/project/fullscreen、受限 current prefix 与 `_a` named target | nested/effectful/child、`_b` 数据流、RGB 语义 | B2/B3 |
 | 画布/cover/背景 | `L3` | cover 投影和作者声明视差门，未覆盖区域不再暴露灰底 | 多比例、多屏和 Windows 像素基准 | B5 |
 | Frame Context | `L3` | host 单一 60 Hz driver；shader/video/particle/parallax 同帧 timing | pause/resume、delta clamp、fixed step、目标 FPS、离线 adapter | B0 |
-| Dynamic target/value 与 property binding program | `L3` | 六类 value、主要 target、固定优先级；v19 继承 v18 持久化的 definitions/instructions/effective values，alpha/color 可编译，mixed/invalid key 标记重建 | 当前 live consumer 为 layer alpha 与 solid-only color；新 target 必须同时注册 compiler target 与 consumer | **B0/B4** |
+| Dynamic target/value 与 property binding program | `L3` | 六类 value、主要 target、固定优先级；v20 继承既有 definitions/instructions/effective values，并增加 strict Local Contrast strength scalar target；mixed/invalid key 标记重建 | 当前 live consumer 为 layer alpha、solid-only color 与已通过 strict execution catalog 的 Local Contrast strength；其他 effect constant 仍重建 | **B0/B4** |
 | Per-surface dynamic snapshot | `L3` | host 共享 property 输入，每个 surface 独立 evaluation transaction、snapshot 与 generation；相同 payload 不增 generation | pointer/size/provider/Timeline/SceneScript 等 local producer 接入后继续扩充隔离门 | **B0/B4** |
-| Atomic live property state/routing | `L3` | layer alpha 与纯 solid color 先原子求值并直接供 renderer 消费；失败、mixed、unsupported 或无 consumer 时保留整场重建 fallback | 扩展 target 前必须补类型、eligibility、consumer、fallback 和 identity 门 | **B0/B4** |
+| Atomic live property state/routing | `L3` | layer alpha、纯 solid color 与 strict Local Contrast strength 先原子求值并直接供 renderer 消费；失败、mixed、unsupported 或无 consumer 时保留整场重建 fallback | 扩展 target 前必须补类型、eligibility、consumer、fallback 和 identity 门 | **B0/B4** |
 | Timeline runtime | `L0` | 没有 Timeline target/keyframe/mode/tangent/event IR | 保真 IR、确定性 evaluator、target 写回 | **B4** |
 | SceneScript presence | `L1` | 只保留对象是否含 inline `script` 的布尔值 | source path/inline source 与绑定 IR | **B0/B4** |
 | SceneScript source/VM/API | `L0` | 源码和绑定目标会丢失；无执行器 | source IR、安全 ECMAScript、生命周期、API/events、预算隔离 | **B4** |
@@ -66,14 +66,14 @@
 | Particle runtime | `L3` | 作者 sprite、常见组件、Sprite Trail、9 个精确 built-in key；正式可见层 `14/27` | 逐项状态见粒子专项表 | **B4** |
 | Text/Font runtime | `L3` | CoreText 静态栅格和部分 font/pointsize/padding/scale；结构门 `79/108` | 动态 text、Windows baseline/fallback、outline/shadow/effect | B4/B5 |
 | Camera Parallax | `L3` | 仅作者开启且非零 depth 时启用，含层级传播/阻断 | WE 数值 golden、camera shake/zoom、3D camera | B5 |
-| User Properties | `L3` | 独立窗口、条件、持久化、PNG/JPEG `sceneTexture`；layer alpha 与纯 solid color 已无重建 live 更新 | 53 unsupported bindings、48 条归属 mixed key 的 color 指令、Texture Variants、shortcut、跨重启 UI 门 | **B0/B1** |
+| User Properties | `L3` | 独立窗口、条件、持久化、PNG/JPEG `sceneTexture`；layer alpha、纯 solid color 与 strict Local Contrast strength 已无重建 live 更新 | unsupported/mixed bindings、Texture Variants、shortcut、跨重启 UI 门；精确 census 见 runtime-input 专项表 | **B0/B1** |
 | Typed texture provider | `L3` | layer/named/property identity、status/fallback；静态 resource generation 与 named frame epoch 已分离 | 显式 dynamic generation、metadata、cancel、system/media/video/variant、通用 material、nested/effectful/child | **B1** |
 | EffectDefinition/Material IR | `L2` | definition/pass/RT/material/slot hole/combo/constant 可保留并建图；ShaderContract 保存 source identity | 完整 schema、typed shader defaults、condition/function | B2 |
-| Bounded effect executors | `L3` | 两个严格 Blur 图和若干受限手写/单 pass executor | 45 类逐项 executor、variant、mask、visual golden | B3/B4 |
+| Bounded effect executors | `L3` | 两个严格 Blur 图、strict stock Local Contrast 与若干受限手写/单 pass executor | 其余 45 类、variant、mask、mixed effect chain 与 visual golden | B3/B4 |
 | Current-frame capture | `L3` | bounded utility prefix capture 可执行 | 通用 capture/extent/format/mask | B2/B3 |
 | Named primary target | `L3` | bounded `_a` producer/consumer 可执行 | 通用 authored identity 和依赖环检测 | B2 |
 | Named secondary identity | `L2` | registry 区分完整 variant；无 `_b` producer/consumer flow | secondary 数据流、copy/swap/history | B2 |
-| Generic FBO command graph | `L2` | target/bind/compose/copy/swap/condition/function 可保留或 blocker；effect-scoped target/lifetime table 已由 precise/standard strict Blur 消费，并能保真分配 BGRA backbuffer 与 RGBA8888 FBO，具备 cache/resize/format/reset 门 | strict Blur 子集为 `L3`，RGBA8888 仅是未消费的资源基础；仍需 generic scheduler、copy/swap/compose/history 与完整生命周期 | B2 |
+| Generic FBO command graph | `L2` | target/bind/compose/copy/swap/condition/function 可保留或 blocker；effect-scoped target/lifetime table 已由 strict Blur 与 stock Local Contrast 消费，BGRA backbuffer/RGBA8888 FBO、cache/resize/format/reset 均有门 | 已消费的 strict profile 为 `L3`，但通用 graph 仍需 scheduler、copy/swap/compose/history 与完整生命周期 | B2 |
 | History RT | `L0` | 无跨帧通用 ping-pong/history 生命周期 | read-before-write、reset、resize/switch/stop、确定性门 | B2 |
 | Authored shader path/source identity | `L1` | material path 与 ShaderContract stage/source/raw hash/canonical identity 已安全保存 | 尚无 include expansion、translation、compile 或 executor | B2 |
 | Shader source/include/annotation/declaration contract | `L1` | 完整 source、include reference、annotation raw/structured value、uniform/attribute/varying declaration 已 loss-preserving 保存并诊断 | typed default/combo consumer、include expansion、macro/permutation preprocessor、stage link/translation/compile | B2 |
@@ -90,7 +90,7 @@
 
 ## 4. 官方 Effect 覆盖摘要
 
-45 项的作者条件、执行通道、公共依赖、当前证据和下一验收门统一维护在 [官方 Effect 执行覆盖表](effect-execution-coverage.md)。汇总为 `L1=28`、`L2=6`、`L3=11`、`L4=0`；所有 `L3` 都是表内明确限定的 profile，不是 WE parity。内部 `_empty`、Workshop `gradient_color` 和 layer Bloom 另列，不能替代任何官方 Effect。
+45 项的作者条件、执行通道、公共依赖、当前证据和下一验收门统一维护在 [官方 Effect 执行覆盖表](effect-execution-coverage.md)。汇总为 `L1=28`、`L2=5`、`L3=12`、`L4=0`；所有 `L3` 都是表内明确限定的 profile，不是 WE parity。内部 `_empty`、Workshop `gradient_color` 和 layer Bloom 另列，不能替代任何官方 Effect。
 
 ## 5. Particle 子系统覆盖
 
@@ -157,13 +157,13 @@
 
 ### 6.2 User Properties
 
-完整控件和 target 计数见 [运行输入与属性覆盖表](runtime-input-property-coverage.md)。当前 21 样本为 424 definitions、952 bindings、195 条 conditional bindings。layer alpha 73 条已编译并由当前 image/solid/text consumer live 执行；layer color 73 条全部指向 solid，其中 25 条属于纯 color key 可 live，`3122339805:basecolor` 的 48 条因同键还含未支持目标继续重建；剩余 53 条 unsupported bindings 为 script properties 43、particle override 6、Scene Bloom 2、scale 1、volume 1。
+完整控件和 target 计数见 [运行输入与属性覆盖表](runtime-input-property-coverage.md)。当前 21 样本为 424 definitions、952 bindings、195 条 conditional bindings。layer alpha 73 条已编译并由当前 image/solid/text consumer live 执行；layer color 73 条全部指向 solid，其中 25 条属于纯 color key 可 live，`3122339805:basecolor` 的 48 条因同键还含未支持目标继续重建；exact Local Contrast visibility 2 条可操作，strength 1 条已编译并由 strict consumer live 执行。剩余 53 条 unsupported bindings 仍为 script properties 43、particle override 6、Scene Bloom 2、scale 1、volume 1。
 
 | 类型/行为 | 当前级别 | 当前边界或升级门 |
 |---|---|---|
-| Catalog/bindings | `L3` | 21 样本 census、format 18 binding program 与受控 fallback；53 bindings unsupported，25 color instructions live、48 mixed-rebuild |
+| Catalog/bindings | `L3` | 21 样本 census、format 20 binding program 与受控 fallback；53 bindings unsupported，25 color instructions 与 1 条 exact Local Contrast strength live、48 mixed-rebuild |
 | `color` | `L3` | UI/持久化/solid-only live consumer；补颜色空间、non-solid 与全部 target |
-| `slider` | `L3` | min/max/default/step/fraction/precision UI；layer alpha 已 live，其他 target 依 consumer 决定重建 |
+| `slider` | `L3` | min/max/default/step/fraction/precision UI；layer alpha 与 exact Local Contrast strength 已 live，其他 target 依 consumer 决定重建 |
 | `bool` | `L3` | 条件/部分 target；不得按名称自动启用 effect |
 | `combo` | `L3` | option value/条件；补全部 authored target |
 | `textinput` | `L3` | 可编辑/持久化；动态 text 仍以重建应用 |
@@ -230,15 +230,15 @@
 
 | 覆盖批次 | 开发计划映射 | 目标 | 完成判据 |
 |---|---|---|---|
-| **B0 Contract/Runtime Kernel** | `S3 第 1-4 项` | live-property 子阶段已闭合：v19 继承 v18 binding program、per-surface transaction、atomic state、alpha/solid-color consumer 与 rebuild fallback；clock/lifecycle 其余合同继续单列 | 新 live target 必须同时具备 compiler definition/instruction、真实 consumer、原子失败与不换 surface/window 的运行门；pause/fixed-time 等按后续 B0 kernel 切片推进 |
+| **B0 Contract/Runtime Kernel** | `S3 第 1-4 项` | live-property 子阶段已闭合：v20 binding program、per-surface transaction、atomic state、alpha/solid-color/strict Local Contrast strength consumer 与 rebuild fallback；clock/lifecycle 其余合同继续单列 | 新 live target 必须同时具备 compiler definition/instruction、真实 consumer、原子失败与不换 surface/window 的运行门；pause/fixed-time 等按后续 B0 kernel 切片推进 |
 | **B1 Provider Core** | `S2 第 5 项 + S3` | 双代已完成；继续 identity/status/显式 generation/cancel/fallback、Texture Variants、video/system/media core、material candidate selection | 每种 provider 有 ready/pending/unavailable、metadata、fallback 和 teardown；不含 nested graph source |
-| **B2 Graph Resource Runtime** | `S2 第 1-5 项` | strict Blur target table consumer、cache/resize/reset、D7 ShaderContract IR v1 与 `rgba8888` target format 已完成；下一步 strict Local Contrast，再补 generic scheduler、copy/swap/compose/history、typed shader defaults/built-ins/state | read/write、RT lifecycle、slot/combo/state 和 resize/switch/stop 门 |
+| **B2 Graph Resource Runtime** | `S2 第 1-5 项` | strict Blur 与 stock Local Contrast 已消费 target table；cache/resize/reset、D7 ShaderContract IR v1、BGRA/RGBA format 与 exact shader fingerprint gate 已完成；下一步 generic scheduler、copy/swap/compose/history、typed shader defaults/built-ins/state | read/write、RT lifecycle、slot/combo/state 和 resize/switch/stop 门 |
 | **B3 Provider-Graph Integration** | `S2 第 5-6 项` | nested/effectful/scene-background source、通用 material consumer、45 Effect 严格 profile family | B1+B2 均完成后接入；不得新增 effect-name 视觉旁路 |
 | **B4 Feature Breadth** | `S3-S4` | Timeline、SceneScript core、动态 text、cursor/audio/media、按依赖排序的 particle breadth | 每族正向、默认关闭、unsupported、determinism 和 lifecycle 门 |
 | **B5 Fidelity** | `S2-S4` 广度完成后 | 字体、视差、粒子、常用 Effect 与 WE Windows golden 对齐 | 固定输入逐像素/数值阈值、性能预算、长稳和多屏门 |
 | **Advanced** | `S5` | Puppet、2D light/HDR、3D、arbitrary custom shader、RGB、offline bake | 每个系统有完整 IR/runtime/lifecycle/product gate 后再升级 |
 
-研究可以并行，产品执行不能倒置：B0 live-property 底座已合龙，下一主线进入 B1/B2 core，再到 B3 -> B4 -> B5。B1 的 Provider Core 与 B2 的 Graph Resource Runtime 可并行，但 nested/effectful provider、scene background 和通用 material consumer 必须等二者在 B3 汇合；Particle world/control-point/Layer Image/child/collision/rope/audio 也按各自依赖门进入 B4。任何新属性只有在 binding compiler 和真实 renderer/runtime consumer 同时注册后才允许 live，否则必须继续整场重建。样本 ID 只出现在测试门和证据里，不能进入产品分派逻辑。
+研究可以并行，产品执行不能倒置：B0 live-property 底座已合龙，下一主线先建立 B2 generic scheduler，并行推进 B1 Provider Core，再到 B3 -> B4 -> B5。nested/effectful provider、scene background 和通用 material consumer 必须等 B1/B2 在 B3 汇合；Particle world/control-point/Layer Image/child/collision/rope/audio 也按各自依赖门进入 B4。任何新属性只有在 binding compiler 和真实 renderer/runtime consumer 同时注册后才允许 live，否则必须继续整场重建。样本 ID 只出现在测试门和证据里，不能进入产品分派逻辑。
 
 ## 9. 更新规则
 

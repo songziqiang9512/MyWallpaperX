@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`c86491e`
+> 实现基线：`136d35c`
 
 本表把 Frame Context、动态目标、Timeline、用户属性、文字、光标、音频、媒体和纹理 provider 放在同一执行合同下。官方语义摘要见 [`runtime-systems-reference.md`](runtime-systems-reference.md)，等级口径见 [`coverage-ledger.md`](coverage-ledger.md)。
 
@@ -36,19 +36,19 @@ HostFrameInputs(time, properties, audio, media)
 | 同帧 host/scene/wall time | `L3` | [`SceneFrameContext.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneFrameContext.swift)、[E-FRAME](runtime-evidence-index.md#e-frame) | 未排除暂停时间，未标 discontinuity |
 | shader/video/particle/parallax 共用 timing | `L3` | [`SceneMetalView.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneMetalView.swift)、[E-FRAME](runtime-evidence-index.md#e-frame) | 补 pause、delta clamp、fixed step |
 | typed value 六类 | `L2` | `bool/scalar/vector2/vector3/vector4/string`；[`SceneDynamicSnapshot.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDynamicSnapshot.swift) | texture/provider 不属于普通值；新增类型仍需 wire/type/finite 门 |
-| typed target 族 | `L2` | scene/camera/layer/effect/text/particle/script instance 已定义；layer alpha/color 进入 compiler | effect 等尚未持久化稳定 authored identity，不得直接开放 live |
+| typed target 族 | `L2` | scene/camera/layer/effect/text/particle/script instance 已定义；layer alpha/color 与 exact stock Local Contrast strength 进入 compiler | 其他 effect target 尚无严格 execution identity，不得直接开放 live |
 | 固定 source priority | `L2` | authored -> property -> Timeline -> SceneScript；property producer 已执行 | Timeline/SceneScript 尚无 producer，接入后必须复用同一 resolver |
-| property binding program persistence | `L3` | format 18 持久化 definitions、instructions、rebuild-required keys 与 effective values；严格 decode/validation | 当前只证明 alpha/color 编译，不能替代真实 consumer |
+| property binding program persistence | `L3` | format 20 持久化 definitions、instructions、rebuild-required keys 与 effective values；严格 decode/validation | 当前只证明 alpha/color 与 exact Local Contrast strength 编译，不能替代其他真实 consumer |
 | host-shared / surface-local scope | `L3` | property 输入由 host 捕获，每个 surface 有独立 transaction/snapshot/generation；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | pointer/matrix/provider/script 接入后继续补双屏隔离门 |
-| target invalidation domain | `L2` | layer alpha 为 value-only；mixed/invalid/unsupported key 标记 rebuild | geometry/text/topology/provider/simulation target 逐项集中登记 |
+| target invalidation domain | `L2` | layer alpha、solid color 与 strict Local Contrast strength 为 value-only；mixed/invalid/unsupported key 标记 rebuild | geometry/text/topology/provider/simulation target 逐项集中登记 |
 | per-surface evaluation transaction | `L3` | property evaluation、validation 与 atomic commit 已闭环；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | event/Timeline/SceneScript mutation 尚未接入 |
 | changed-target generation | `L3` | 每 surface 持有 generation，相同 payload 不增加；跨 surface 不共享 owner | local input/script/provider 接入后继续验证独立 diff |
-| live consumer | `L3` | image/solid/text 与 `shouldCapture` utility 的 layer alpha、solid-only color 读取 snapshot；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | particle/container/non-solid color/mixed/unsupported/no-consumer 均整场重建 |
+| live consumer | `L3` | image/solid/text 与 `shouldCapture` utility 的 layer alpha、solid-only color、strict execution catalog 中 Local Contrast pass 3 `strength` 读取 snapshot；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | particle/container/non-solid color、其他 effect constant、mixed/unsupported/no-consumer 均整场重建 |
 | Scene pause/resume | `L0` | 播放控制未控制 Scene clock | pause 冻结 scene time；resume 不补长帧 |
 | delta clamp / dropped-time | `L0` | `frameTime` 只做单调差值 | 同时保留 raw delta 和 simulation delta |
 | offline fixed-time adapter | `L0` | Debug PNG readback 不是离线 adapter | 注入 frame index/time/seed/provider replay |
 
-B0 live-property 子阶段已从空 snapshot 脚手架合龙到真实 producer/consumer：binding program 以 format 18 持久化，host 对每个 surface 独立求值，属性更新原子提交，支持的 layer alpha 与纯 solid color 不再触发整场重建。这个结论不扩张到 non-solid/mixed color、particle、container、Timeline 或 SceneScript；其中任一 target 缺少 compiler mapping 或真实 consumer 时必须继续走 `requestSceneRender` fallback。
+B0 live-property 子阶段已从空 snapshot 脚手架合龙到真实 producer/consumer：binding program 以 format 20 持久化，host 对每个 surface 独立求值，属性更新原子提交，支持的 layer alpha、纯 solid color 与 exact stock Local Contrast strength 不再触发整场重建。这个结论不扩张到 non-solid/mixed color、particle、container、其他 effect constant、Timeline 或 SceneScript；其中任一 target 缺少 compiler mapping 或真实 consumer 时必须继续走 `requestSceneRender` fallback。
 
 ## 3. Scene 与 Camera 输入
 
@@ -165,10 +165,10 @@ User Property 是 wallpaper 级 key/value，不属于某个单独 layer。一个
 | 官方类型/行为 | 等级 | 当前能力 | 缺口 |
 |---|---|---|---|
 | wallpaper-level property key/catalog | `L3` | 定义、默认值、override、排序和持久化已存在；[E-PROPERTY](runtime-evidence-index.md#e-property) | 稳定 wire schema 与跨版本 migration |
-| one key -> multiple authored targets | `L3` | binding program 保留 fan-out；layer alpha 多 target 原子提交，混合 target 整 key 重建 | 其他 target 逐项补真实 consumer 与 failure isolation |
+| one key -> multiple authored targets | `L3` | binding program 保留 fan-out；layer alpha 多 target 原子提交，strict catalog target 可加入同一原子 transaction，混合 target 整 key 重建 | 其他 target 逐项补真实 consumer 与 failure isolation |
 | linear Group boundary | `L3` | [`SteamWorkshopSceneService+SceneProperties.swift`](../../../MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+SceneProperties.swift) 按下一个 Group 截止 | 大型表单和空 group UI 门 |
 | `key.value == bool/comboValue` condition | `L3` | 复用受控 condition evaluator；隐藏不删除值；[E-PROPERTY](runtime-evidence-index.md#e-property) | 只承诺已测 equality 子集，不扩张成任意表达式 |
-| default / override / reset | `L3` | authored fallback 与 wallpaper-scoped override/reset；纯 layer alpha 可 live，texture bookmark 或非 live key 重建；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | 跨重启 UI 自动门 |
+| default / override / reset | `L3` | authored fallback 与 wallpaper-scoped override/reset；layer alpha、纯 solid color 与 strict Local Contrast strength 可 live，texture bookmark 或非 live key 重建；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | 跨重启 UI 自动门 |
 | first/change-only `applyUserProperties` | `L0` | 无 SceneScript event | 首次发送全量，后续 payload 只含变化 key，顺序确定 |
 
 <a id="op-user-color"></a>
@@ -188,7 +188,7 @@ User Property 是 wallpaper 级 key/value，不属于某个单独 layer。一个
 | 官方类型/行为 | 等级 | 当前能力 | 缺口 |
 |---|---|---|---|
 | default/min/max/fraction/precision UI | `L3` | min/max/step/fraction/precision、UI 和持久化；[E-PROPERTY](runtime-evidence-index.md#e-property) | authored range/step validation 与 live value |
-| numeric target update | `L2` | layer alpha slider 已 typed/clamp/live；其余 numeric target 仍重建 | 每个 target 分别补 compiler semantic 与 consumer 后才能升级 |
+| numeric target update | `L2` | layer alpha slider 与 exact `brcontraststrength` 已 typed/clamp/live；其余 numeric target 仍重建 | 每个 target 分别补 compiler semantic 与 consumer 后才能升级 |
 
 <a id="op-user-checkbox"></a>
 ### 5.4 [Checkbox](https://docs.wallpaperengine.io/en/scene/userproperties/checkbox.html)
@@ -265,10 +265,10 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 | camera binding family | 5 | 字段名可识别；整族没有统一 executor | `L1` | typed compiler 分出可执行与 unsupported |
 | camera parallax actionable subset | 3 | 当前白名单经重建生效；[E-PROPERTY](runtime-evidence-index.md#e-property) | `L3` | live camera target 和无重建门 |
 | camera shake subset | 2 | 可识别但 renderer 不消费 | `L1` | shake state/evaluator 和 author-off |
-| effect visibility family | 129 | target path 可识别，只有 20 条白名单 actionable | `L1` | authored effect ID 和完整 compiler |
-| effect visibility actionable subset | 20 | 当前白名单经重建生效；[E-PROPERTY](runtime-evidence-index.md#e-property) | `L3` | topology invalidation 和完整条件门 |
-| shader constant family | 122 | target path/value 可保留，只有 19 条白名单 actionable | `L1` | typed uniform/pass identity 和完整 compiler |
-| shader constant actionable subset | 19 | 当前白名单经重建进入受限 executor；[E-PROPERTY](runtime-evidence-index.md#e-property) | `L3` | generic executor 与 live uniform |
+| effect visibility family | 129 | target path 可识别；原 20 条白名单加 2 条 exact stock Local Contrast visibility target 可操作 | `L1` | authored effect ID 和完整 compiler |
+| effect visibility actionable subset | 22 | 20 条旧白名单经重建生效；`2902406982` layers `167/177` 的 Local Contrast visibility 始终保留在面板，关闭后仍可重开；[E-PROPERTY](runtime-evidence-index.md#e-property) | `L3` | topology invalidation 和完整条件门 |
+| shader constant family | 122 | target path/value 可保留；原 19 条白名单加 1 条 exact strict-catalog Local Contrast strength 可操作 | `L1` | typed uniform/pass identity 和完整 compiler |
+| shader constant actionable subset | 20 | 19 条旧白名单经重建进入受限 executor；`2902406982` layer `177` 的 `brcontraststrength` live 消费 snapshot；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | `L3` | generic executor 与通用 live uniform |
 | layer alpha | 73 | 编译为 `.layer(.alpha)`；image/solid/text 读取 per-surface snapshot，当前 census 没有 particle/utility alpha binding；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | `L3` | 扩展到新 layer kind 前先补对应 consumer；mixed/no-consumer 继续重建 |
 | layer color | 73 | 全部目标为 solid；25 条纯 color key 由 snapshot/tint live 消费并在属性面板开放，48 条 `basecolor` 因同键含未支持目标整场重建；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | `L3` | 补颜色空间/premultiply golden；non-solid/mixed target 继续 fail closed |
 | script instance properties | 43 | 路径存在；不保存源码/绑定程序 | `L1` | 编译 `.scriptInstanceProperty`，等待 VM consumer |
@@ -279,7 +279,7 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 | sound volume target identity | 1 | `.layer(.volume)` 已定义，binding 未分类 | `L1` | binding compiler 和 sound owner identity |
 | sound volume runtime | 1 | 无 sound IR/player | `L0` | playback/lifecycle 后再开放 |
 
-当前 53 个 unsupported bindings 的构成为 script properties 43、particle override 6、Scene Bloom 2、scale 1、volume 1。alpha 73 与 color 73 均已进入 binding program；alpha 和 25 条纯 solid color 指令已有真实 consumer 并可 live。旧 resolver/rebuild 继续覆盖 `basecolor` 的 48 条 mixed 指令、non-solid color、unsupported 和无活动 consumer 的 key，不能因 compiler 已识别 target 就删除。
+当前 53 个 unsupported bindings 的构成为 script properties 43、particle override 6、Scene Bloom 2、scale 1、volume 1。alpha 73、color 73 与 exact Local Contrast strength 1 条均已进入 binding program；alpha、25 条纯 solid color 指令和 `2902406982` layer `177` 的 strength 有真实 consumer 并可 live。21 样本只观察到这一条 exact strength binding；两条 Local Contrast visibility binding 指向 layers `167/177`。旧 resolver/rebuild 继续覆盖 `basecolor` 的 48 条 mixed 指令、non-solid color、其他 shader constant、unsupported 和无活动 consumer 的 key，不能因 compiler 已识别 target 就删除。
 
 ## 7. Text
 
@@ -363,9 +363,9 @@ Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选
 
 ## 10. 下一实现顺序
 
-1. **B0 live-property 已完成**：format 18 binding program、per-surface transaction、atomic state、Host/Service/UI 路由和 layer alpha consumer 均已闭环；两个隔离真实样本证明更新不替换 surface/window。
+1. **B0 live-property 已完成并由 `136d35c` 扩展**：format 20 binding program、per-surface transaction、atomic state、Host/Service/UI 路由，以及 layer alpha、solid color、strict Local Contrast strength consumer 均已闭环；隔离真实样本证明更新不替换 surface/window。
 2. 新增任何 live target 时，必须在同一能力切片中补稳定 identity/value semantic、compiler definition/instruction、真实 renderer/runtime consumer、原子失败、fallback 与 identity 运行门；缺一项就保留整场重建。
-3. 下一主线按 [公共能力依赖图](capability-dependency-map.md) 进入 B1 Provider Core 与 B2 Graph Resource Runtime；color 不因已编译而抢在颜色空间/premultiply/material consumer 前开放。
+3. 下一主线按 [公共能力依赖图](capability-dependency-map.md) 先推进 B2 generic scheduler，并行补 B1 Provider Core；color 或其他 shader constant 不因已编译而抢在真实 consumer/语义门前开放。
 4. visibility 只有在 render/dependency/text/particle topology invalidation 一起处理后才能取消整场重建；dynamic text 需要 per-layer texture generation 和 stale cancellation。
 5. Timeline 完整保存后接 evaluator；SceneScript 只有在 source/binding IR 和沙箱成立后接入同一 target 层。
 6. audio/media provider 必须有作者未启用反例、失败 fallback、generation/cancel 和 stop teardown。

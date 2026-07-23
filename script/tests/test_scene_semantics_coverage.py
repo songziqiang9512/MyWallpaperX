@@ -276,7 +276,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         self.assertEqual(len(set(asset_ids)), 45, "Effect asset IDs must be unique")
         self.assertEqual(
             {level: levels[level] for level in ("L0", "L1", "L2", "L3", "L4")},
-            {"L0": 0, "L1": 28, "L2": 6, "L3": 11, "L4": 0},
+            {"L0": 0, "L1": 28, "L2": 5, "L3": 12, "L4": 0},
         )
 
     def test_generic_graph_primitives_remain_l2(self) -> None:

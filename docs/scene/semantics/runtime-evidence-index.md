@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`228cdde`
+> 实现基线：`136d35c`
 
 本页给覆盖表中的 `L3` 子集提供可追溯证据包。每个证据包至少包含代码、自动测试和真实运行或 GPU 证据；缺少任一项的能力只能标 `L0-L2`，或在专项表中明确写 `gate incomplete`。`.codex` 报告是本机隔离运行产物，不提交 Git；报告路径、App 身份和摘要写入现役文档，避免将其误当源码 fixture。
 
@@ -12,13 +12,13 @@
 
 | 项目 | 当前证据 |
 |---|---|
-| 视觉矩阵 | 正式 13 样本 `.codex/scene-shader-contract-final13-v2-20260723/report.json` 为 13/13；最新 graph-target 正向/负向报告各 3/3，见 E-EFFECT-RT；均不证明 WE parity |
-| 最新合同门 | Scene tests 225 total / 224 pass / 1 skip |
+| 视觉矩阵 | strict Local Contrast 定向矩阵 `.codex/scene-local-contrast-targeted-20260723/report.json` 为 2/2；正式矩阵 `.codex/scene-local-contrast-final13-20260723/report.json` 为 13/13；均不证明 WE parity |
+| 最新合同门 | Scene tests 239 total / 238 pass / 1 skip |
 | ShaderContract | 173 contracts = 143 authored + 30 host built-in；286 stages、0 diagnostics；source/IR include 155、annotation 1523、declaration 2660，见 E-SHADER-CONTRACT |
-| Live property | alpha 两项与 solid color 两项均 accepted、surface/window identity 不变；报告见 E-LIVE-PROPERTY |
+| Live property | alpha 两项、solid color 两项与 strict Local Contrast strength 均 accepted、surface/window identity 不变；报告见 E-LIVE-PROPERTY |
 | Provider 双代 | `2938612768` static image blend 5/5；`2902406982` named capture 6/6、binding 7/7；报告见 E-PROVIDER |
-| 签名 App | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `6fc75d86b05d665138f8d7080cdf7e149522a10e` |
-| executable SHA-256 | `d237711dbd6f92628303431db10c5ecf8b8fdf0088789e1118b98048d518410d` |
+| 签名 App | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `f1fb8e1a4f65f64e869d82c064f4f31f9f5faae5`；正式矩阵运行前后签名均验证 |
+| executable SHA-256 | `54b2b8e56c4ed7deda640caddfbd379c366a54335cf1253291956f3d24a608fe` |
 | 样本边界 | 真实 Workshop root 只读；报告均来自隔离 sample root 与临时 HOME |
 
 ## 2. 证据包
@@ -59,13 +59,13 @@
 - 运行门：`.codex/scene-property-text-day-gate-pass-20260722/report.json`、`.codex/scene-user-texture-final13-r2-20260723/report.json`；layer alpha/solid color 的 live 子集见下一证据包，其余 target 仍按 consumer 能力回退整场重建。
 
 <a id="e-live-property"></a>
-### E-LIVE-PROPERTY: B0 binding program 与 alpha/solid-color live consumer
+### E-LIVE-PROPERTY: B0 binding program 与已注册 live consumers
 
 - 代码：[ScenePropertyBindingProgram.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/ScenePropertyBindingProgram.swift)、[ScenePropertyLiveUpdateState.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/ScenePropertyLiveUpdateState.swift)、[SceneSurfaceEvaluationTransaction.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneSurfaceEvaluationTransaction.swift)、[SceneDynamicLayerValues.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDynamicLayerValues.swift)、[SceneDesktopWallpaperHost.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDesktopWallpaperHost.swift)
 - 自动门：[test_scene_property_binding_program.py](../../../script/tests/test_scene_property_binding_program.py)、[test_scene_interpretation_file.py](../../../script/tests/test_scene_interpretation_file.py)、[test_scene_surface_evaluation_transaction.py](../../../script/tests/test_scene_surface_evaluation_transaction.py)、[test_scene_property_live_update_state.py](../../../script/tests/test_scene_property_live_update_state.py)、[test_scene_dynamic_layer_values.py](../../../script/tests/test_scene_dynamic_layer_values.py)、[test_scene_property_live_routing.py](../../../script/tests/test_scene_property_live_routing.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)
-- 运行门：alpha 的 `2902406982:newproperty11` 与 `2938612768:newproperty17` 分别见 `.codex/scene-b0-live-alpha-20260723-0941/report.json`、`.codex/scene-b0-live-alpha-293-20260723-0941/report.json`；solid color 的 `3122339805:accentcolourdefault800080` 与 `2902406982:newproperty33` 分别见 `.codex/scene-live-solid-color-312-accent-20260723-1011/report.json`、`.codex/scene-live-solid-color-290-20260723-1013/report.json`。四项均 `accepted=true` 且 surface/window identity 不变，GPU framebuffer 同时证明 tint 只作用于 solid。
+- 运行门：alpha 的 `2902406982:newproperty11` 与 `2938612768:newproperty17` 分别见 `.codex/scene-b0-live-alpha-20260723-0941/report.json`、`.codex/scene-b0-live-alpha-293-20260723-0941/report.json`；solid color 的 `3122339805:accentcolourdefault800080` 与 `2902406982:newproperty33` 分别见 `.codex/scene-live-solid-color-312-accent-20260723-1011/report.json`、`.codex/scene-live-solid-color-290-20260723-1013/report.json`；strict Local Contrast 的 `2902406982:brcontraststrength=3.0` 见 `.codex/scene-local-contrast-targeted-20260723/report.json` 与正式 13 样本报告。各项均 `accepted=true` 且 surface/window identity 不变；Local Contrast 更新后画面 changed ratio 为 `0.7587968`。
 - 负向门：`.codex/scene-live-solid-color-312-20260723-1006/report.json` 中 `basecolor` 被拒绝，因为同键除 48 条 solid color 指令外还有未支持目标；状态没有部分提交。
-- 边界：只证明 image/solid/text 与 `shouldCapture` utility 的 layer alpha，以及纯 solid layer color。particle、container、non-solid color、mixed、unsupported 或无活动 consumer 的 key 必须返回整场重建；program 可编译本身不构成 live 证据。
+- 边界：只证明 image/solid/text 与 `shouldCapture` utility 的 layer alpha、纯 solid layer color，以及 strict execution catalog 中 stock Local Contrast pass 3 `strength`。Local Contrast 的真实样本证据是“更新被接受 + 同 surface/window + 画面变化”，结合 snapshot 与 GPU 像素单测证明消费路径；当前遥测没有直接记录 `3.0` uniform 上传。particle、container、non-solid color、其他 effect constant、mixed、unsupported 或无活动 consumer 的 key 必须返回整场重建；program 可编译本身不构成 live 证据。
 
 <a id="e-text"></a>
 ### E-TEXT: 静态文字
@@ -126,13 +126,22 @@
 - 自动门：[test_scene_authored_effect_execution.py](../../../script/tests/test_scene_authored_effect_execution.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)、[test_scene_offscreen_texture_pool.py](../../../script/tests/test_scene_offscreen_texture_pool.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)
 - 运行门：`.codex/scene-graph-target-positive-final-20260723/report.json` 为 3/3，6 个 graph layer GPU succeeded、0 failed；`.codex/scene-graph-target-negative-final-20260723/report.json` 为 3/3，unsupported graph 未误执行。旧 formal13 报告仍是历史全矩阵证据。
 
+<a id="e-effect-local-contrast"></a>
+### E-EFFECT-LOCAL-CONTRAST: strict stock Local Contrast graph profile
+
+- 实现提交：`136d35c`。代码：[SceneAuthoredLocalContrastPlanner.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneAuthoredLocalContrastPlanner.swift)、[SceneLocalContrastPipeline.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneLocalContrastPipeline.swift)、[SceneLocalContrastRenderer.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneLocalContrastRenderer.swift)、[SceneAuthoredEffectExecutionPlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneAuthoredEffectExecutionPlan.swift)。
+- 自动门：[test_scene_local_contrast_planner.py](../../../script/tests/test_scene_local_contrast_planner.py)、[test_scene_local_contrast_rendering.py](../../../script/tests/test_scene_local_contrast_rendering.py)、[test_scene_property_binding_program.py](../../../script/tests/test_scene_property_binding_program.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)。固定 stage golden 覆盖 alpha-weighted 4-tap downsample、13-tap X/Y Gaussian、BGRA source/output、RGBA quarter targets、original alpha 与 strength `0/0.32/1`。
+- 运行门：定向报告 `.codex/scene-local-contrast-targeted-20260723/report.json` 为 2/2；正式报告 `.codex/scene-local-contrast-final13-20260723/report.json` 为 13/13。`2902406982` layers `167/177` 执行 Local Contrast，graph succeeded 为 `[167,177,530]`、failed 为空、Local Contrast count 为 2；`2938612768` 的可见 4/5-effect mixed chains 保持 count 0，既有 image blend 5/5。两样本退出均为 `surface 1 -> 0`。
+- profile 边界：只接受 exact stock 单 effect、4 material pass、两个 FBO `scale=4` non-unique `rgba8888` RT、KERNEL0/GREYSCALE0/MASK0、Gaussian `scale=(1,1)`（含官方缺省）和三份 exact authored shader contract fingerprint。mask、greyscale、KERNEL1/2、非默认 Gaussian scale、mixed chain、未知/变更 shader、condition/function 均 fail closed；fingerprint 只用于准入，authored source 不被编译或执行，也没有 generic shader translation。
+- parity 边界：Metal backend 采用 stock shader 的非 `HLSL_SM30` 采样语义，没有该分支的 `0.75 / resolution` 偏移；没有 Windows golden，因此状态为 `L3 executed-degraded`，不能宣称跨后端逐像素一致。
+
 <a id="e-effect-rt"></a>
 ### E-EFFECT-RT: effect-instance render-target foundation and strict consumer
 
 - 代码：[SceneGraphRenderTargetPlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneGraphRenderTargetPlan.swift)、[SceneGraphRenderTargetTable.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneGraphRenderTargetTable.swift)、[SceneOffscreenTexturePool.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneOffscreenTexturePool.swift)、[SceneImageLayerCompositor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneImageLayerCompositor.swift)
-- 自动门：[test_scene_graph_render_target_plan.py](../../../script/tests/test_scene_graph_render_target_plan.py)、[test_scene_graph_render_target_table.py](../../../script/tests/test_scene_graph_render_target_table.py)、[test_scene_offscreen_texture_pool.py](../../../script/tests/test_scene_offscreen_texture_pool.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)；覆盖 identity/extent/lifetime、history-required、预算/别名、cache/LRU/resize/format/reset 和 precise/standard staged GPU pixels。`228cdde` 另锁定 `rgba8888 -> .rgba8Unorm`、backbuffer/input/output BGRA、4 B/px 预算和同 effect 格式变化的原子 cache 替换。
-- 运行门：`.codex/scene-graph-target-positive-final-20260723/report.json` 与 `.codex/scene-graph-target-negative-final-20260723/report.json`，签名身份在运行前后均验证；正负各 3/3。
-- 边界：resident budget 只限制 cache transaction 提交后的驻留记账，候选创建时瞬时驱动分配可更高。真实样本报告不输出 `historyRequired` 原因；该分类由 plan 单元门证明，运行门只证明相关图未误执行。RGBA8888 当前只有资源分配合同，没有 Local Contrast pipeline 或新增可见 layer；history、copy、swap、compose、condition/function 和 generic scheduler 均未执行。
+- 自动门：[test_scene_graph_render_target_plan.py](../../../script/tests/test_scene_graph_render_target_plan.py)、[test_scene_graph_render_target_table.py](../../../script/tests/test_scene_graph_render_target_table.py)、[test_scene_offscreen_texture_pool.py](../../../script/tests/test_scene_offscreen_texture_pool.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)；覆盖 identity/extent/lifetime、history-required、预算/别名、cache/LRU/resize/format/reset，以及 precise/standard/Local Contrast staged GPU pixels。
+- 运行门：旧 graph-target 正向/负向报告各 3/3；最新 Local Contrast 定向 2/2 与正式 13/13 报告继续验证签名、RGBA quarter target consumer 和失败关闭。
+- 边界：resident budget 只限制 cache transaction 提交后的驻留记账，候选创建时瞬时驱动分配可更高。真实样本报告不输出 `historyRequired` 原因；该分类由 plan 单元门证明。RGBA8888 已由 stock Local Contrast strict profile 消费，但这不升级其他 RGBA graph；history、copy、swap、compose、condition/function 和 generic scheduler 均未执行。
 
 <a id="e-video"></a>
 ### E-VIDEO: 内嵌 MP4 image-layer 子集
