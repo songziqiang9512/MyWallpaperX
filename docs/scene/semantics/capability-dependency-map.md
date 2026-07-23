@@ -2,7 +2,7 @@
 
 > 状态：现役架构入口
 >
-> 最近核对：2026-07-23
+> 最近核对：2026-07-24
 >
 > 本页只维护依赖与完成门；精确当前提交、报告和测试总数统一见 [总覆盖台账](coverage-ledger.md) 与 [运行证据索引](runtime-evidence-index.md)。
 >
@@ -110,7 +110,7 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| ordered nodes、target/bind/compose/copy/swap | IR `L2`；5 类 strict backend 已按作者顺序消费 target table，`3724289844:20` 的 `Blur Precise -> Shadow` 是首条真实 chain；同帧 copy/swap 已有严格 plan/runtime 门，但尚未与 material node 交错执行 | material-command interleave、compose/history/condition/function 与通用 hazard |
+| ordered nodes、target/bind/compose/copy/swap | 通用 IR/runtime `L2`；5 类 strict backend 已按作者顺序消费 target table，`3724289844:20` 的 `Blur Precise -> Shadow` 是首条真实 chain；Precise Blur 的 `material -> copy/swap -> material` 两种白名单拓扑可按 authored nodeIndex 交错执行并达到受限 `L3` | 真实 history consumer、compose/condition/function、跨帧 logical swap 与通用 hazard |
 | extent/format/clear/UV/unique | strict Blur 的 input/BGRA 与 stock Local Contrast 的 scale=4/RGBA target 子集为 `L3`；generic table 的其他形态仍为 `L2` | 其余 format-to-Metal、mapped size、sampler、load/store 和跨帧 reset |
 | history/ping-pong | `L0` | first frame、resize、seek、switch、stop 和 memory budget |
 
@@ -183,7 +183,7 @@ F0 完成后才开始下一轮代码。F1/F2 优先级由公共依赖决定，�
 
 ## 6. 下次会话的决策顺序
 
-1. B0 live-property、direct dynamic text、B2 target-table、5 类 strict backend、ordered strict chain 与同帧 copy/swap command foundation 已合龙。下一步按 D6 推进 persistent/history、material-command interleave 与 compose；D5 把文本 provider 的 generation/cancel/fallback 推广到 system/media/video。`route-only` 只是布局诊断，不能决定优先级。
+1. B0 live-property、direct dynamic text、B2 target-table、5 类 strict backend、ordered strict chain、同帧 copy/swap command foundation、受限 history seed 与 Precise Blur material-command interleave 已合龙。下一步按 D6 推进真实 persistent/history consumer 与 compose；D5 把文本 provider 的 generation/cancel/fallback 推广到 system/media/video。`route-only` 只是布局诊断，不能决定优先级。
 2. 打开对应专项表，确认作者启用、输入、当前等级、未知项、依赖和验收门。
 3. 查 [运行证据索引](runtime-evidence-index.md)，确认现有正反例，不重复制造无信息矩阵。
 4. 只实现一个可独立验证的公共合同；涉及 live property 时，compiler target、真实 consumer、fallback 和 surface/window identity 必须同批验收，目标样本和相关样本通过后单独提交。

@@ -400,14 +400,14 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         for path in current_state_documents:
             text = document_text[path]
             self.assertIn(
-                "`dcedc2e`",
+                "`ebf44a9`",
                 text,
                 f"Current Scene entrypoint is missing the full-baseline implementation: {path}",
             )
 
         report_paths = (
-            ".codex/scene-history-full26-final-20260723-2332/results-pass/report.json",
-            ".codex/scene-final13-after-full26-20260723/report.json",
+            ".codex/scene-command-interleave-20260724-003051/full26-results-pass2/report.json",
+            ".codex/scene-command-interleave-20260724-003051/final13-results-pass/report.json",
         )
         for path in current_state_documents:
             for report_path in report_paths:
@@ -423,12 +423,17 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         self.assertIn("### E-EFFECT-WORKSHOP-SHADOW:", evidence)
         self.assertIn("### E-EFFECT-CHAIN: ordered strict effect-chain scheduler", evidence)
         self.assertIn("### E-GRAPH-COMMAND: same-frame copy/swap foundation", evidence)
-        self.assertIn("Scene tests 279 total / 277 pass / 2 skip", evidence)
+        self.assertIn(
+            "### E-GRAPH-INTERLEAVE: bounded material-command scheduling",
+            evidence,
+        )
+        self.assertIn("Scene tests 282 total / 280 pass / 2 skip", evidence)
         self.assertIn(
             "ordered strict effect-chain",
             document_text[DEPENDENCY_MAP_PATH],
         )
         self.assertIn("同帧 copy/swap", document_text[DEPENDENCY_MAP_PATH])
+        self.assertIn("material-command interleave", document_text[DEPENDENCY_MAP_PATH])
         self.assertIn("persistent/history", document_text[DEPENDENCY_MAP_PATH])
 
         current_status = "\n".join(document_text.values())

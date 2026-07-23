@@ -857,7 +857,7 @@ Wallpaper Engine 的 Scene 壁纸本质上是一个实时渲染场景系统，�
 
 1. **已完成 live-value 公共底座的产品子集**：binding program、同帧 per-surface snapshot、原子 transaction，以及 alpha/solid color/Local Contrast strength/Opacity/direct dynamic text consumer；Timeline/SceneScript 和 cursor/audio/media 输入仍按同一 target 合同扩展；
 2. **首条真实 strict chain 已完成**：`3724289844:20` 的 exact Workshop single-pass Shadow 已把 `Blur Precise -> Shadow` 接入 ordered scheduler；该 profile 只按完整合同准入并记为 exact Workshop `L3 executed-degraded`，不代表官方 45 项 Effect 表的通用 Shadow 或 generic shader；`common_blending` mode 0 无官方像素 oracle，因此没有 WE pixel-equivalence 结论；
-3. **继续贯通 Graph Resource Runtime 与 Provider Core**：同帧 copy/swap 已有严格 command foundation；下一步补 persistent/history、material-command interleave、compose，再把 generation/stale cancellation 推广到 system/media/Texture Variants、通用 material 与更多 effect backend；
+3. **继续贯通 Graph Resource Runtime 与 Provider Core**：同帧 copy/swap、受限 history seed 与 Precise Blur 两种 material-command interleave 已有严格合同；下一步补真实 persistent/history consumer、compose，再把 generation/stale cancellation 推广到 system/media/Texture Variants、通用 material 与更多 effect backend；
 4. **再集中校准视觉精度**：字体、视差、粒子、Bloom/HDR、water/lighting 与 Windows WE golden；
 5. **后置高成本长尾**：Puppet Warp、3D、任意自定义 shader、RGB 与高级物理。
 

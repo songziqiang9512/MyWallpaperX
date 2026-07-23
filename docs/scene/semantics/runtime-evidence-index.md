@@ -2,9 +2,9 @@
 
 > 状态：现役证据入口
 >
-> 最近核对：2026-07-23
+> 最近核对：2026-07-24
 >
-> 实现基线：`dcedc2e`
+> 实现基线：`ebf44a9`
 
 本页给覆盖表中的 `L3` 子集提供可追溯证据包。每个证据包至少包含代码、自动测试和真实运行或 GPU 证据；缺少任一项的能力只能标 `L0-L2`，或在专项表中明确写 `gate incomplete`。`.codex` 报告是本机隔离运行产物，不提交 Git；报告路径、App 身份和摘要写入现役文档，避免将其误当源码 fixture。
 
@@ -12,14 +12,14 @@
 
 | 项目 | 当前证据 |
 |---|---|
-| 当前完整快照门 | `.codex/scene-history-full26-final-20260723-2332/results-pass/report.json` 为 26/26；报告 SHA-256 `a88980de2a190e07078d07c8c9a4f34386c127595340e081a23f88feb67180db`，仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` SHA-256 `361fa152da8f01a5c982d95af66113f1e5606258d804c5d5b3304a6c806cd749` |
-| 固定回归门 | 同一签名 App 的 `.codex/scene-final13-after-full26-20260723/report.json` 为 13/13；报告 SHA-256 `d143155958f7a34e4dac0f5e6f99a210e6d59cc6a1ff0bbd90eadff9d1dd7257`，矩阵 SHA-256 `fbb252a64018cf785e20b2200db5966a300e9351a994b4a36f1fe9565c5b354c` |
-| 最新合同门 | Scene tests 279 total / 277 pass / 2 skip |
+| 当前完整快照门 | `.codex/scene-command-interleave-20260724-003051/full26-results-pass2/report.json` 为 26/26；报告 SHA-256 `27e6561c4b4ffd28adef4bacb95e3d94c1649bf5121ac7b0bdafe9019282c327`，仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` SHA-256 `361fa152da8f01a5c982d95af66113f1e5606258d804c5d5b3304a6c806cd749` |
+| 固定回归门 | 同一签名 App 的 `.codex/scene-command-interleave-20260724-003051/final13-results-pass/report.json` 为 13/13；报告 SHA-256 `3e3d2d13c25f21b0d63fb78be8ddd82a23f0aaba997bc03d54e09d505e5dc72c`，矩阵 SHA-256 `fbb252a64018cf785e20b2200db5966a300e9351a994b4a36f1fe9565c5b354c` |
+| 最新合同门 | Scene tests 282 total / 280 pass / 2 skip |
 | ShaderContract | 173 contracts = 143 authored + 30 host built-in；286 stages、0 diagnostics；source/IR include 155、annotation 1523、declaration 2660，见 E-SHADER-CONTRACT |
 | Live property | layer alpha、solid color、strict Local Contrast/Opacity 与 direct text content/point-size/color 均 accepted、surface/window identity 不变；报告见 E-LIVE-PROPERTY / E-DYNAMIC-TEXT |
 | Provider 双代 | `2938612768` static image blend 5/5；`2902406982` named capture 6/6、binding 7/7；报告见 E-PROVIDER |
-| 签名 App | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `557e57e3c6f55ee73a147787f84251e099092256`；最终 26 样本门运行前后签名均验证 |
-| executable SHA-256 | `337327019eff96866a2bb493ff1cf379dfaee14f849a4fb6dcf0e7b4b3415193` |
+| 签名 App | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `9dbff1cfcdff7bba12d0c8b69d5f58722a938337`，executable SHA-256 `8ccf1804bf11c3f0933abf9f55dc94295b2fc618378e19efb53cf72d2bf87e31`；最终 26 样本门运行前后签名均验证 |
+| executable SHA-256 | `8ccf1804bf11c3f0933abf9f55dc94295b2fc618378e19efb53cf72d2bf87e31` |
 | 样本边界 | 真实 Workshop root 只读；报告均来自隔离 sample root 与临时 HOME |
 
 当前真实目录完整快照门加载 image `330/330`、text `212/212`、solid `126/126`，particle 为 `47/68`；named target capture `8/8`、binding `9/9`，仍有 13 个 named-target gap、67 个 route-only effect、19 个 legacy blocked layer、9 个缺失资源和 38 个 graph blocker。其 strict graph 为 24 stage、0 failed，没有 multi-effect chain 或 Workshop Shadow。此前固定 13 样本门仍单独保护 14 stage、1 条真实 chain、Workshop Shadow 1、Opacity 4、0 failed；两门互补，均不证明完整兼容或 WE parity。
@@ -170,7 +170,7 @@
 - 自动门：[test_scene_authored_effect_chain_planner.py](../../../script/tests/test_scene_authored_effect_chain_planner.py)、[test_scene_offscreen_texture_pool.py](../../../script/tests/test_scene_offscreen_texture_pool.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)、[test_scene_workshop_shadow_planner.py](../../../script/tests/test_scene_workshop_shadow_planner.py)、[test_scene_workshop_shadow_rendering.py](../../../script/tests/test_scene_workshop_shadow_rendering.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)。planner/pool 门覆盖 identity、连续输入、Shadow prior-effect role 与整链预算/LRU 原子回滚；synthetic precise -> precise GPU 门覆盖实际 stage texture transfer、末段合成和失败不泄漏，独立 Shadow GPU 门覆盖该 backend 的像素公式。
 - 集成门：代码路径把真实 `3724289844:20` 的 `Blur Precise -> Shadow` 放进同一 command buffer，首段只应用一次 layer masks/UV/alpha，后段使用 neutral uniforms/empty masks；定向矩阵记录两 stage 全部成功、画面非黑且发生变化。当前没有这条真实 compositor 链的逐 stage 像素 readback，因此整链像素原子性仍由 synthetic GPU 门约束，不把真实矩阵写成 Windows golden。
 - 运行门：`.codex/scene-opacity-final13-20260723-1730/report.json` 为 13/13；当前共 1 条真实 multi-effect strict chain、14 个 strict stage、Opacity 4、Workshop Shadow 1，graph failures 为空。`3724289844` 为 chains 1/stages 4、succeeded `[20,28,36]`、blocked/failed 为空；`2938612768` 为 chains/stages 0，证明 unsupported mixed chains 没有被部分执行。
-- 边界：只调度五个 strict material-only backends；新建的同帧 copy/swap runtime 尚未与这条 scheduler 交错执行，也不执行 compose/history/condition/function，不预处理、翻译或编译 authored shader。stock Opacity `MASK=0` direct alpha 已接入 per-surface snapshot；MASK1、SceneScript、Workshop variants、未知 hash/combo 与 unsupported 后续 stage 继续整链失败关闭。
+- 边界：只调度五个 strict backends；Precise Blur 可在两个 material node 之间执行一个 copy 或 swap，其他 backend/topology 继续失败关闭。它不执行 compose/condition/function、跨帧 logical swap 或真实 history consumer，也不预处理、翻译或编译 authored shader。stock Opacity `MASK=0` direct alpha 已接入 per-surface snapshot；MASK1、SceneScript、Workshop variants、未知 hash/combo 与 unsupported 后续 stage 继续整链失败关闭。
 
 <a id="e-effect-rt"></a>
 ### E-EFFECT-RT: effect-instance render-target foundation and strict consumer
@@ -178,7 +178,7 @@
 - 代码：[SceneGraphRenderTargetPlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneGraphRenderTargetPlan.swift)、[SceneGraphRenderTargetTable.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneGraphRenderTargetTable.swift)、[SceneOffscreenTexturePool.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneOffscreenTexturePool.swift)、[SceneImageLayerCompositor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneImageLayerCompositor.swift)
 - 自动门：[test_scene_graph_render_target_plan.py](../../../script/tests/test_scene_graph_render_target_plan.py)、[test_scene_graph_render_target_table.py](../../../script/tests/test_scene_graph_render_target_table.py)、[test_scene_authored_effect_chain_planner.py](../../../script/tests/test_scene_authored_effect_chain_planner.py)、[test_scene_offscreen_texture_pool.py](../../../script/tests/test_scene_offscreen_texture_pool.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)；覆盖 identity/extent/lifetime、history-required、预算/别名、cache/LRU/resize/format/reset、整链 allocation transaction，以及 precise/standard/Local Contrast staged GPU pixels。
 - 运行门：旧 graph-target 正向/负向报告各 3/3；最新 `.codex/scene-opacity-final13-20260723-1730/report.json` 为 13/13，继续验证签名、BGRA/RGBA target consumer、零 authored FBO Shadow/Opacity、真实整链 exact count 与失败关闭。
-- 边界：resident budget 只限制 cache transaction 提交后的驻留记账，候选创建时瞬时驱动分配可更高。真实样本报告不输出 `historyRequired` 原因；该分类由 plan 单元门证明。RGBA8888 已由 stock Local Contrast strict profile 消费；Workshop Shadow 只复用 synthetic BGRA input/output，不升级其他 authored target。history、compose、condition/function 和 material-command scheduler 均未执行。
+- 边界：resident budget 只限制 cache transaction 提交后的驻留记账，候选创建时瞬时驱动分配可更高。真实样本报告不输出 `historyRequired` 原因；该分类由 plan 单元门证明。RGBA8888 已由 stock Local Contrast strict profile 消费；Workshop Shadow 只复用 synthetic BGRA input/output，不升级其他 authored target。只有 Precise Blur 两种白名单 material-command 拓扑进入 scheduler；真实 history consumer、compose、condition/function 仍未执行。
 
 <a id="e-graph-command"></a>
 ### E-GRAPH-COMMAND: same-frame copy/swap foundation
@@ -194,7 +194,15 @@
 - 实现提交：`dcedc2e`。代码：[SceneGraphRenderTargetPlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneGraphRenderTargetPlan.swift)、[SceneGraphRenderTargetTable.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneGraphRenderTargetTable.swift)、[SceneAuthoredEffectChainRenderer.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectChainRenderer.swift)、[SceneImageLayerCompositor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneImageLayerCompositor.swift)。
 - 自动门：[test_scene_graph_render_target_plan.py](../../../script/tests/test_scene_graph_render_target_plan.py)、[test_scene_graph_render_target_table.py](../../../script/tests/test_scene_graph_render_target_table.py)。非 unique FBO 的读前写仍返回 `historyRequired`；显式 `unique:true` FBO 才能通过，并在 lifetime 记录 `requiresHistorySeed`。真实 Metal table 门验证首次 history seed 经过 render-pass clear 后 readback 为全零；clear 只有在 command buffer 完成后才标记已初始化，GPU 失败可重试。
 - 真实隔离门：最终签名 Debug App 使用当前真实 Workshop `Scene` 目录的 26 个副本，在隔离 sample root/HOME 下运行 `.codex/scene-history-full26-final-20260723-2332/results-pass/report.json`，26/26 通过、sample root residue 0、strict stage 24、failed 0。样本没有合法的正向 history consumer，因此该门只证明新 table 生命周期没有回归，不把真实 Motion Blur/Fluid stage 计为执行。
-- 边界：pool 的现有 effect/plan cache 负责跨帧表复用，reset/resize/switch 会丢弃并重建 table；当前不保存跨帧 logical swap 映射，不实现 seek/pause/fixed-step history、真实 material-command interleave、compose、condition/function 或通用 authored shader。能力等级为 `L2 wired/routed`，不是 `L3 executed-degraded`。
+- 边界：pool 的现有 effect/plan cache 负责跨帧表复用，reset/resize/switch 会丢弃并重建 table；当前不保存跨帧 logical swap 映射，不实现 seek/pause/fixed-step history、真实 history consumer、compose、condition/function 或通用 authored shader。Precise Blur 的同帧 interleave 不改变本项 `L2 wired/routed` 等级。
+
+<a id="e-graph-interleave"></a>
+### E-GRAPH-INTERLEAVE: bounded material-command scheduling
+
+- 实现提交：`ebf44a9`。代码：[SceneGraphNodeScheduler.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneGraphNodeScheduler.swift)、[SceneAuthoredPreciseBlurPlanner+Topology.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredPreciseBlurPlanner+Topology.swift)、[SceneOffscreenEffectRenderer.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Effects/SceneOffscreenEffectRenderer.swift)。
+- 自动门：[test_scene_authored_effect_execution.py](../../../script/tests/test_scene_authored_effect_execution.py)、[test_scene_graph_render_target_table.py](../../../script/tests/test_scene_graph_render_target_table.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)、[test_scene_authored_effect_chain_planner.py](../../../script/tests/test_scene_authored_effect_chain_planner.py)。定向 graph/runtime/Metal/semantics 共 72/72；GPU 门锁定 pure material、copy interleave 和 swap interleave 输出差异在阈值内、非空且保持 premultiplied alpha。
+- 真实隔离门：当前真实目录 26 个副本的 `.codex/scene-command-interleave-20260724-003051/full26-results-pass2/report.json` 为 26/26、residue 0、strict stage 24、failed 0；固定 `.codex/scene-command-interleave-20260724-003051/final13-results-pass/report.json` 为 13/13、residue 0、stage 14、chain 1、failed 0。`3723344874` 仍为 stage/chain 0，`unsupportedFunctions:1` 与 `unsupportedCondition:4` 继续阻断。
+- 边界：Precise Blur 只接受 `material0 -> copy -> material1` 或 `material0 -> swap -> material1`。copy 要求两个 descriptor 匹配的非 unique BGRA target；swap 要求 destination `unique:true`。当前真实 Workshop 集合没有合法正向 interleave 样本，因此 `L3 executed-degraded` 来自 synthetic GPU 正反门；generic FBO command graph、跨帧 mapping/history、Motion Blur、Fluid、compose、condition/function 与 authored shader 仍未执行。
 
 <a id="e-video"></a>
 ### E-VIDEO: 内嵌 MP4 image-layer 子集

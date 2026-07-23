@@ -368,6 +368,6 @@ Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选
 1. **B0 live-property 与首个 generation consumer 已完成**：format 22 binding program、per-surface transaction、atomic state，以及 layer alpha、solid color、direct text、Local Contrast/Opacity consumer 均已闭环；隔离真实样本证明 live 更新不替换 surface/window。
 2. 新增任何 live target 时，必须在同一能力切片中补稳定 identity/value semantic、compiler definition/instruction、真实 renderer/runtime consumer、原子失败、fallback 与 identity 运行门；缺一项就保留整场重建。
 3. B2 ordered strict scheduler、exact Workshop Shadow 与 stock Opacity `MASK=0` 已完成。`2902406982:[365,372,647,664]` 是 direct-binding live 正门；`2938612768:[165,454,626,629,924]` 是 SceneScript fail-closed 负门。optional mask、未知 fingerprint 或缺 consumer 的部分 live 继续拒绝。
-4. B2 同帧 copy/swap foundation 已完成，下一步推进 persistent/history、material-command interleave 与 compose；B1 把 dynamic text 已验证的 generation/stale-cancellation/last-ready 合同推广到 system/media/video provider。visibility 仍需 topology invalidation 后才能取消整场重建。
+4. B2 同帧 copy/swap foundation、受限 history seed 与 Precise Blur 两种 material-command interleave 已完成，下一步推进真实 persistent/history consumer 与 compose；B1 把 dynamic text 已验证的 generation/stale-cancellation/last-ready 合同推广到 system/media/video provider。visibility 仍需 topology invalidation 后才能取消整场重建。
 5. Timeline 完整保存后接 evaluator；SceneScript 只有在 source/binding IR 和沙箱成立后接入同一 target 层。
 6. audio/media provider 必须有作者未启用反例、失败 fallback、generation/cancel 和 stop teardown。
