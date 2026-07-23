@@ -180,6 +180,8 @@ enum Harness {
                 "lastWrite": target.lifetime.lastWriteNodeIndex,
                 "firstRead": target.lifetime.firstReadNodeIndex ?? -1,
                 "lastRead": target.lifetime.lastReadNodeIndex ?? -1,
+                "persistent": target.lifetime.requiresHistorySeed,
+                "historySeed": target.lifetime.requiresHistorySeed,
             ]
         }
     }
@@ -310,6 +312,29 @@ enum Harness {
             input: input,
             output: output
         )
+        let persistentHistory = graph(
+            targets: [
+                target(q1, extent: scaleFour, unique: true),
+                target(q2, extent: scaleFour, unique: true),
+            ],
+            nodes: history.nodes,
+            key: key,
+            input: input,
+            output: output
+        )
+        let persistentHistoryResult = SceneGraphRenderTargetPlan.make(
+            executionPlan: .init(
+                layerID: 10,
+                materialNodeCount: 3,
+                logicalRenderTargetCount: 2
+            ),
+            graph: persistentHistory,
+            inputWidth: 1920,
+            inputHeight: 1080
+        )
+        guard case .success(let persistentHistoryPlan) = persistentHistoryResult else {
+            fatalError("persistent history fixture rejected")
+        }
         let duplicate = graph(
             targets: [target(q1, extent: scaleFour), target(q1, extent: scaleFour)],
             nodes: standard.nodes,
@@ -369,6 +394,7 @@ enum Harness {
             ],
             "preciseTargets": targetSummary(precisePlan),
             "commandTargets": targetSummary(commandsPlan),
+            "persistentHistoryTargets": targetSummary(persistentHistoryPlan),
             "commands": commandsPlan.commands.map {
                 [
                     "node": $0.nodeIndex,
@@ -447,6 +473,8 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
                     "lastWrite": 2,
                     "firstRead": 1,
                     "lastRead": 3,
+                    "persistent": False,
+                    "historySeed": False,
                 },
                 {
                     "name": "q2",
@@ -456,6 +484,8 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
                     "lastWrite": 1,
                     "firstRead": 2,
                     "lastRead": 2,
+                    "persistent": False,
+                    "historySeed": False,
                 },
             ],
         )
@@ -473,6 +503,8 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
                     "lastWrite": 0,
                     "firstRead": 1,
                     "lastRead": 1,
+                    "persistent": False,
+                    "historySeed": False,
                 }
             ],
         )
@@ -486,6 +518,35 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
     def test_read_before_first_write_requires_history(self) -> None:
         self.assertEqual(self.result["historyFailure"], "historyRequired")
         self.assertEqual(self.result["commandBeforeWriteFailure"], "historyRequired")
+
+    def test_unique_read_before_write_is_a_seeded_persistent_target(self) -> None:
+        self.assertEqual(
+            self.result["persistentHistoryTargets"],
+            [
+                {
+                    "name": "q1",
+                    "size": [480, 270],
+                    "format": "rgbaBackbuffer",
+                    "firstWrite": 0,
+                    "lastWrite": 0,
+                    "firstRead": 1,
+                    "lastRead": 1,
+                    "persistent": False,
+                    "historySeed": False,
+                },
+                {
+                    "name": "q2",
+                    "size": [480, 270],
+                    "format": "rgbaBackbuffer",
+                    "firstWrite": 1,
+                    "lastWrite": 1,
+                    "firstRead": 0,
+                    "lastRead": 2,
+                    "persistent": True,
+                    "historySeed": True,
+                },
+            ],
+        )
 
     def test_copy_and_swap_extend_target_lifetimes_in_authored_order(self) -> None:
         self.assertEqual(
@@ -506,6 +567,8 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
                     "lastWrite": 3,
                     "firstRead": 2,
                     "lastRead": 4,
+                    "persistent": False,
+                    "historySeed": False,
                 },
                 {
                     "name": "q2",
@@ -515,6 +578,8 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
                     "lastWrite": 3,
                     "firstRead": 3,
                     "lastRead": 3,
+                    "persistent": False,
+                    "historySeed": False,
                 },
             ],
         )
@@ -528,7 +593,7 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
         self.assertEqual(self.result["incompleteFailure"], "incompleteIdentity")
 
     def test_unsupported_descriptor_and_execution_mismatch_fail_closed(self) -> None:
-        self.assertEqual(self.result["uniqueFailure"], "unsupportedTargetDescriptor")
+        self.assertEqual(self.result["uniqueFailure"], "success")
         self.assertEqual(
             self.result["unsupportedFormatFailure"], "unsupportedTargetDescriptor"
         )

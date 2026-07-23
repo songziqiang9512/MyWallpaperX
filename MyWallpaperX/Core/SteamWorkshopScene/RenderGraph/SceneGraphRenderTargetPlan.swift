@@ -18,6 +18,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         let lastWriteNodeIndex: Int
         let firstReadNodeIndex: Int?
         let lastReadNodeIndex: Int?
+        var requiresHistorySeed = false
     }
 
     struct LogicalTarget: Equatable {
@@ -128,6 +129,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         var lastReads: [Graph.TextureIdentity: Int] = [:]
         var firstWrites: [Graph.TextureIdentity: Int] = [:]
         var lastWrites: [Graph.TextureIdentity: Int] = [:]
+        var historySeedTargets = Set<Graph.TextureIdentity>()
         var outputWriteCount = 0
         var previousNodeIndex: Int?
         var commands: [Command] = []
@@ -159,7 +161,14 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
                         guard declarations[binding.texture] != nil else {
                             return .failure(.invalidAccess)
                         }
-                        guard firstWrites[binding.texture] != nil else {
+                        if firstWrites[binding.texture] == nil {
+                            guard declarations[binding.texture]?.declaredUnique == true else {
+                                return .failure(.historyRequired)
+                            }
+                            historySeedTargets.insert(binding.texture)
+                        }
+                        guard declarations[binding.texture]?.declaredUnique == true
+                            || firstWrites[binding.texture] != nil else {
                             return .failure(.historyRequired)
                         }
                         firstReads[binding.texture] =
@@ -214,7 +223,14 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
                 ), sourceDescriptor == targetDescriptor else {
                     return .failure(.unsupportedTargetDescriptor)
                 }
-                guard firstWrites[source] != nil else {
+                if firstWrites[source] == nil {
+                    guard declarations[source]?.declaredUnique == true else {
+                        return .failure(.historyRequired)
+                    }
+                    historySeedTargets.insert(source)
+                }
+                guard declarations[source]?.declaredUnique == true
+                    || firstWrites[source] != nil else {
                     return .failure(.historyRequired)
                 }
                 firstReads[source] = firstReads[source] ?? node.nodeIndex
@@ -222,7 +238,14 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
 
                 let commandKind: CommandKind
                 if node.kind == .swap {
-                    guard firstWrites[target] != nil else {
+                    if firstWrites[target] == nil {
+                        guard declarations[target]?.declaredUnique == true else {
+                            return .failure(.historyRequired)
+                        }
+                        historySeedTargets.insert(target)
+                    }
+                    guard declarations[target]?.declaredUnique == true
+                        || firstWrites[target] != nil else {
                         return .failure(.historyRequired)
                     }
                     firstReads[target] = firstReads[target] ?? node.nodeIndex
@@ -261,16 +284,18 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             ) else {
                 return .failure(.unsupportedTargetDescriptor)
             }
-            targets.append(LogicalTarget(
+            var lifetime = Lifetime(
+                firstWriteNodeIndex: firstWrite,
+                lastWriteNodeIndex: lastWrite,
+                firstReadNodeIndex: firstReads[target.texture],
+                lastReadNodeIndex: lastReads[target.texture]
+            )
+            lifetime.requiresHistorySeed = historySeedTargets.contains(target.texture)
+            targets.append(.init(
                 identity: target.texture,
                 extent: descriptor.extent,
                 format: descriptor.format,
-                lifetime: Lifetime(
-                    firstWriteNodeIndex: firstWrite,
-                    lastWriteNodeIndex: lastWrite,
-                    firstReadNodeIndex: firstReads[target.texture],
-                    lastReadNodeIndex: lastReads[target.texture]
-                )
+                lifetime: lifetime
             ))
         }
 
@@ -300,7 +325,6 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             inputWidth: inputWidth,
             inputHeight: inputHeight
         ), let format = textureFormat(target.format),
-              !target.declaredUnique,
               target.clear == nil,
               target.uvs == nil,
               target.conditions == nil else {

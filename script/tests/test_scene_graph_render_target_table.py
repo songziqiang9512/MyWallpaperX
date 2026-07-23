@@ -55,18 +55,21 @@ enum Harness {
         firstWrite: Int,
         lastWrite: Int,
         firstRead: Int?,
-        lastRead: Int?
+        lastRead: Int?,
+        historySeed: Bool = false
     ) -> TargetPlan.LogicalTarget {
-        .init(
+        var lifetime = TargetPlan.Lifetime(
+            firstWriteNodeIndex: firstWrite,
+            lastWriteNodeIndex: lastWrite,
+            firstReadNodeIndex: firstRead,
+            lastReadNodeIndex: lastRead
+        )
+        lifetime.requiresHistorySeed = historySeed
+        return TargetPlan.LogicalTarget(
             identity: identity,
             extent: .init(width: width, height: height),
             format: format,
-            lifetime: .init(
-                firstWriteNodeIndex: firstWrite,
-                lastWriteNodeIndex: lastWrite,
-                firstReadNodeIndex: firstRead,
-                lastReadNodeIndex: lastRead
-            )
+            lifetime: lifetime
         )
     }
 
@@ -114,6 +117,19 @@ enum Harness {
                 ),
             ]
         )
+        let historyPlan = TargetPlan(
+            layerID: 10,
+            input: input,
+            output: output,
+            inputExtent: .init(width: 2, height: 2),
+            logicalTargets: [
+                logicalTarget(
+                    quarterA, width: 2, height: 2,
+                    firstWrite: 1, lastWrite: 1, firstRead: 0, lastRead: 1,
+                    historySeed: true
+                )
+            ]
+        )
 
         let exactBudget = 520
         guard case .success(let table) = TargetTable.make(
@@ -128,6 +144,38 @@ enum Harness {
         let quarterBTexture = table.texture(for: quarterB) else {
             fatalError("valid table allocation failed")
         }
+        guard case .success(let historyTable) = TargetTable.make(
+            plan: historyPlan,
+            device: device,
+            byteBudget: 64
+        ), let historyTexture = historyTable.texture(for: quarterA),
+        let historyQueue = device.makeCommandQueue(),
+        let historyReadback = device.makeBuffer(length: 16, options: .storageModeShared),
+        let historyCommandBuffer = historyQueue.makeCommandBuffer(),
+        historyTable.encodeInitialHistoryClear(commandBuffer: historyCommandBuffer),
+        let historyReadbackEncoder = historyCommandBuffer.makeBlitCommandEncoder() else {
+            fatalError("history initialization setup failed")
+        }
+        historyReadbackEncoder.copy(
+            from: historyTexture,
+            sourceSlice: 0,
+            sourceLevel: 0,
+            sourceOrigin: .init(x: 0, y: 0, z: 0),
+            sourceSize: .init(width: 2, height: 2, depth: 1),
+            to: historyReadback,
+            destinationOffset: 0,
+            destinationBytesPerRow: 8,
+            destinationBytesPerImage: 16
+        )
+        historyReadbackEncoder.endEncoding()
+        historyCommandBuffer.commit()
+        historyCommandBuffer.waitUntilCompleted()
+        let historyBytes = [UInt8](
+            UnsafeBufferPointer(
+                start: historyReadback.contents().assumingMemoryBound(to: UInt8.self),
+                count: 16
+            )
+        )
 
         let textures = [
             table.inputTexture,
@@ -364,6 +412,9 @@ enum Harness {
                 && table.outputTexture.pixelFormat == .bgra8Unorm,
             "framebufferFormats": quarterATexture.pixelFormat == .rgba8Unorm
                 && quarterBTexture.pixelFormat == .rgba8Unorm,
+            "historyClearBytesZero": historyBytes.allSatisfy { $0 == 0 },
+            "historyTargetPersistent":
+                historyTable.plan.logicalTargets[0].lifetime.requiresHistorySeed,
             "textureContract": textures.allSatisfy {
                 $0.storageMode == .private
                     && $0.usage.contains(.renderTarget)
@@ -459,6 +510,8 @@ class SceneGraphRenderTargetTableTests(unittest.TestCase):
         self.assertTrue(self.result["inputOutputFormat"])
         self.assertTrue(self.result["framebufferFormats"])
         self.assertTrue(self.result["textureContract"])
+        self.assertTrue(self.result["historyClearBytesZero"])
+        self.assertTrue(self.result["historyTargetPersistent"])
 
     def test_copy_blits_bytes_and_swap_exchanges_logical_bindings(self) -> None:
         self.assertTrue(self.result["copyBytesMatch"])

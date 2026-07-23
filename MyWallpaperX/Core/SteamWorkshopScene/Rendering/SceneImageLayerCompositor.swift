@@ -173,6 +173,9 @@ struct SceneImageLayerCompositor {
                     return false
                 }
                 renderedTexture = mainPass.encodeOffscreen { commandBuffer -> MTLTexture? in
+                    guard targets.encodeInitialHistoryClear(commandBuffer: commandBuffer) else {
+                        return nil
+                    }
                     switch authoredPlan.backend {
                     case .preciseGaussian(let blur):
                         return SceneOffscreenEffectRenderer.renderPreciseBlur(

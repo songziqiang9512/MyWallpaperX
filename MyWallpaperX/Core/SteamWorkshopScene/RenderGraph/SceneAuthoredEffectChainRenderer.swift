@@ -18,7 +18,10 @@ enum SceneAuthoredEffectChainRenderer {
     ) -> MTLTexture? {
         guard !chain.stages.isEmpty,
               chain.stages.count == targets.count,
-              validTopology(chain: chain, targets: targets) else {
+              validTopology(chain: chain, targets: targets),
+              targets.allSatisfy({
+                  $0.encodeInitialHistoryClear(commandBuffer: commandBuffer)
+              }) else {
             return nil
         }
 

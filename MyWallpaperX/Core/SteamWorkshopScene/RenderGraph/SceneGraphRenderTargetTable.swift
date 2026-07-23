@@ -19,6 +19,12 @@ struct SceneGraphRenderTargetTable {
     let residentByteCost: Int
 
     private let texturesByIdentity: [Graph.TextureIdentity: MTLTexture]
+    private let historyState: HistoryState
+
+    private final class HistoryState {
+        var needsInitialClear = true
+        var clearInFlight = false
+    }
 
     var residentTextureCount: Int {
         texturesByIdentity.count
@@ -30,6 +36,33 @@ struct SceneGraphRenderTargetTable {
 
     func makeCommandRuntime() -> SceneGraphCommandRuntime? {
         SceneGraphCommandRuntime(plan: plan, texturesByIdentity: texturesByIdentity)
+    }
+
+    func encodeInitialHistoryClear(commandBuffer: MTLCommandBuffer) -> Bool {
+        let targets = plan.logicalTargets.filter(\.lifetime.requiresHistorySeed)
+        guard !targets.isEmpty else { return true }
+        guard historyState.needsInitialClear, !historyState.clearInFlight else { return true }
+
+        for target in targets {
+            guard let texture = texturesByIdentity[target.identity] else { return false }
+            let descriptor = MTLRenderPassDescriptor()
+            descriptor.colorAttachments[0].texture = texture
+            descriptor.colorAttachments[0].loadAction = .clear
+            descriptor.colorAttachments[0].storeAction = .store
+            descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+            guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor) else {
+                return false
+            }
+            encoder.endEncoding()
+        }
+        historyState.clearInFlight = true
+        commandBuffer.addCompletedHandler { [historyState] buffer in
+            historyState.clearInFlight = false
+            if buffer.status == .completed {
+                historyState.needsInitialClear = false
+            }
+        }
+        return true
     }
 
     static func make(
@@ -83,7 +116,8 @@ struct SceneGraphRenderTargetTable {
             inputTexture: inputTexture,
             outputTexture: outputTexture,
             residentByteCost: totalByteCost,
-            texturesByIdentity: textures
+            texturesByIdentity: textures,
+            historyState: HistoryState()
         ))
     }
 
