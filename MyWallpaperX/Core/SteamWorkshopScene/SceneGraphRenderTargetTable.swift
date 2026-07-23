@@ -93,8 +93,12 @@ struct SceneGraphRenderTargetTable {
     private static func specifications(
         for plan: SceneGraphRenderTargetPlan
     ) -> [Specification]? {
-        guard validInput(plan.input, layerID: plan.layerID),
-              let effect = plan.output.effect,
+        guard let effect = plan.output.effect,
+              SceneAuthoredEffectInputValidator.accepts(
+                plan.input,
+                layerID: plan.layerID,
+                role: plan.inputRole
+              ),
               validOutput(plan.output, effect: effect, layerID: plan.layerID),
               validExtent(plan.inputExtent) else {
             return nil
@@ -187,13 +191,6 @@ struct SceneGraphRenderTargetTable {
         _ extent: SceneGraphRenderTargetPlan.PixelExtent
     ) -> Bool {
         extent.width > 0 && extent.height > 0
-    }
-
-    private static func validInput(_ identity: Graph.TextureIdentity, layerID: Int) -> Bool {
-        identity.kind == .layerSource
-            && identity.layerID == layerID
-            && identity.effect == nil
-            && identity.name == nil
     }
 
     private static func validOutput(

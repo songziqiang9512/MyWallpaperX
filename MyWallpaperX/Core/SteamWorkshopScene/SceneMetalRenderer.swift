@@ -76,6 +76,10 @@ struct SceneMetalRenderer {
         authoredEffectCatalog.plansByLayerID[layerID]
     }
 
+    func authoredEffectChain(for layerID: Int) -> SceneAuthoredEffectExecutionChain? {
+        authoredEffectCatalog.chainsByLayerID[layerID]
+    }
+
     func blocksLegacyGaussianBlur(for layerID: Int) -> Bool {
         authoredEffectCatalog.legacyGaussianBlurBlockedLayerIDs.contains(layerID)
     }
@@ -183,7 +187,8 @@ struct SceneMetalRenderer {
                     for: layer.id,
                     textureRegistry: textureRegistry
                 )
-                let authoredEffectPlan = authoredEffectPlan(for: layer.id)
+                let authoredEffectChain = authoredEffectChain(for: layer.id)
+                let authoredEffectPlan = authoredEffectChain?.singleStage
                 if dependencyRuntime.requiresEffect(for: layer.id), dependencyEffect == nil {
                     dependencyRuntime.recordBindingFailure(for: layer.id)
                     continue
@@ -236,12 +241,11 @@ struct SceneMetalRenderer {
                     dependencyEffect: dependencyEffect,
                     authoredEffectPlan: authoredEffectPlan,
                     blocksLegacyGaussianBlur: blocksLegacyGaussianBlur(for: layer.id),
-                    localContrastStrength: authoredEffectPlan?.localContrastStrength(
-                        in: frameContext.dynamicValues
-                    )
+                    authoredEffectChain: authoredEffectChain,
+                    dynamicValues: frameContext.dynamicValues
                 )
                 let encoded = imageCompositor.draw(request, pipeline: imagePipeline, mainPass: mainPass)
-                if authoredEffectPlan != nil {
+                if authoredEffectChain != nil {
                     authoredEffectTelemetry.record(layerID: layer.id, encoded: encoded, on: commandBuffer)
                 }
                 dependencyRuntime.recordBindingIfRequired(
@@ -257,7 +261,7 @@ struct SceneMetalRenderer {
                     parallaxMouseNormalized: parallaxMouseNormalized,
                     configuration: parallaxConfiguration
                 )
-                let authoredEffectPlan = authoredEffectPlan(for: layer.id)
+                let authoredEffectChain = authoredEffectChain(for: layer.id)
                 let layerAlpha = SceneDynamicLayerValues.alpha(
                     layerID: layer.id, authoredValue: layer.alpha,
                     snapshot: frameContext.dynamicValues
@@ -267,13 +271,14 @@ struct SceneMetalRenderer {
                     layerMVP: cameraFrame.orthographicViewProjection * model,
                     viewportSize: viewportSize, time: time,
                     finalCompositeAlpha: layerAlpha,
-                    authoredEffectPlan: authoredEffectPlan,
+                    authoredEffectChain: authoredEffectChain,
+                    dynamicValues: frameContext.dynamicValues,
                     blocksLegacyGaussianBlur: blocksLegacyGaussianBlur(for: layer.id),
                     pipeline: imagePipeline, compositor: imageCompositor,
                     offscreenTexturePool: offscreenTexturePool, mainPass: mainPass
                 )
                 utilityCaptureTelemetry.record(layerID: layer.id, encoded: captured, on: commandBuffer)
-                if authoredEffectPlan != nil {
+                if authoredEffectChain != nil {
                     authoredEffectTelemetry.record(layerID: layer.id, encoded: captured, on: commandBuffer)
                 }
             case "particle":

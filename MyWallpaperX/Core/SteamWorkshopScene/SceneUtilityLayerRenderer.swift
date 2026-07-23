@@ -11,7 +11,8 @@ enum SceneUtilityLayerRenderer {
         viewportSize: CGSize,
         time: Float,
         finalCompositeAlpha: Float,
-        authoredEffectPlan: SceneAuthoredEffectExecutionPlan?,
+        authoredEffectChain: SceneAuthoredEffectExecutionChain?,
+        dynamicValues: SceneDynamicSnapshot,
         blocksLegacyGaussianBlur: Bool,
         pipeline: SceneImageLayerPipeline,
         compositor: SceneImageLayerCompositor,
@@ -44,8 +45,10 @@ enum SceneUtilityLayerRenderer {
                     requiresSourceCopy: true,
                     finalCompositeAlpha: finalCompositeAlpha,
                     dependencyEffect: nil,
-                    authoredEffectPlan: authoredEffectPlan,
-                    blocksLegacyGaussianBlur: blocksLegacyGaussianBlur
+                    authoredEffectPlan: authoredEffectChain?.singleStage,
+                    blocksLegacyGaussianBlur: blocksLegacyGaussianBlur,
+                    authoredEffectChain: authoredEffectChain,
+                    dynamicValues: dynamicValues
                 ),
                 pipeline: pipeline,
                 mainPass: mainPass

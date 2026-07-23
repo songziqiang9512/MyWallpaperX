@@ -42,6 +42,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneEffectRuntimeSupport.swift",
     SOURCE_ROOT / "SceneEffectRuntimePlan.swift",
     SOURCE_ROOT / "SceneOffscreenEffectRenderer.swift",
+    SOURCE_ROOT / "SceneAuthoredEffectChainRenderer.swift",
     SOURCE_ROOT / "SceneImageLayerCompositor.swift",
     SOURCE_ROOT / "SceneGPUCompletionTelemetry.swift",
 ]
@@ -135,6 +136,23 @@ struct SceneAuthoredEffectExecutionPlan {
     let backend: Backend
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
+    let inputRole: SceneAuthoredEffectInputRole
+
+    init(
+        layerID: Int,
+        renderGraph: SceneAuthoredEffectRenderPlan,
+        backend: Backend,
+        materialNodeCount: Int,
+        logicalRenderTargetCount: Int,
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) {
+        self.layerID = layerID
+        self.renderGraph = renderGraph
+        self.backend = backend
+        self.materialNodeCount = materialNodeCount
+        self.logicalRenderTargetCount = logicalRenderTargetCount
+        self.inputRole = inputRole
+    }
 
     var gaussianBlur: SceneGaussianBlurPlan? {
         guard case .preciseGaussian(let plan) = backend else { return nil }
@@ -154,6 +172,31 @@ struct SceneAuthoredEffectExecutionPlan {
     var requiresExactInputExtent: Bool {
         if case .preciseGaussian = backend { return true }
         return false
+    }
+
+    func localContrastStrength(in snapshot: SceneDynamicSnapshot) -> Float? {
+        guard let localContrast else { return nil }
+        let effectIndex = renderGraph.effects.first?.key.effectIndex ?? -1
+        return snapshot.strengthsByEffectIndex[effectIndex]
+            ?? localContrast.staticOrFallbackStrength
+    }
+}
+
+struct SceneAuthoredEffectExecutionChain {
+    let layerID: Int
+    let renderGraph: SceneAuthoredEffectRenderPlan
+    let stages: [SceneAuthoredEffectExecutionPlan]
+
+    var singleStage: SceneAuthoredEffectExecutionPlan? {
+        stages.count == 1 ? stages[0] : nil
+    }
+}
+
+struct SceneDynamicSnapshot {
+    let strengthsByEffectIndex: [Int: Float]
+
+    static func empty(frameIndex: UInt64, generation: UInt64 = 0) -> Self {
+        Self(strengthsByEffectIndex: [:])
     }
 }
 
@@ -261,13 +304,17 @@ enum Harness {
         )
     }
 
-    static func standardBlurGraph(layerID: Int = 530) -> Graph {
+    static func standardBlurGraph(
+        layerID: Int = 530,
+        effectIndex: Int = 0,
+        input priorOutput: Graph.TextureIdentity? = nil
+    ) -> Graph {
         let effectKey = Graph.EffectKey(
             layerID: layerID,
-            effectIndex: 0,
-            descriptorID: "\(layerID)#effect#0"
+            effectIndex: effectIndex,
+            descriptorID: "\(layerID)#effect#\(effectIndex)"
         )
-        let input = graphTexture(.layerSource, layerID: layerID)
+        let input = priorOutput ?? graphTexture(.layerSource, layerID: layerID)
         let output = graphTexture(.effectOutput, layerID: layerID, effect: effectKey)
         let quarterA = graphTexture(
             .framebuffer,
@@ -299,7 +346,7 @@ enum Harness {
         ]
         let nodes = materialPaths.indices.map { index in
             Graph.Node(
-                nodeIndex: index,
+                nodeIndex: (effectIndex * materialPaths.count) + index,
                 effect: effectKey,
                 definitionPassIndex: index,
                 materialOrdinal: index,
@@ -320,7 +367,7 @@ enum Harness {
             definitionPath: "effects/blur/effect.json",
             input: input,
             output: output,
-            nodeIndices: [0, 1, 2, 3]
+            nodeIndices: materialPaths.indices.map { (effectIndex * materialPaths.count) + $0 }
         )
         return Graph(
             layerID: layerID,
@@ -506,6 +553,18 @@ enum Harness {
             pipeline: pipeline,
             compositor: compositor
         )
+        let authoredTwoStageChain = try authoredTwoStageChainEvidence(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor
+        )
+        let authoredFailedChain = try authoredFailedChainEvidence(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor
+        )
         let authoredStandardBlurOverridesLegacy = standardBlurOverridesLegacy()
         let standardBlurAlphaAwareDownsample = try alphaAwareDownsamplePixel(
             device: device,
@@ -584,6 +643,8 @@ enum Harness {
             "authoredExtentMismatchRefused": authoredExtentMismatchRefused,
             "authoredPreciseImpulse": authoredPreciseImpulse,
             "authoredStandardCheckerboard": authoredStandardCheckerboard,
+            "authoredTwoStageChain": authoredTwoStageChain,
+            "authoredFailedChain": authoredFailedChain,
             "authoredStandardBlurOverridesLegacy": authoredStandardBlurOverridesLegacy,
             "standardBlurAlphaAwareDownsampleBGRA": standardBlurAlphaAwareDownsample,
             "foliageFlags": foliage.flags.rawValue,
@@ -1146,6 +1207,138 @@ enum Harness {
         ]
     }
 
+    static func authoredTwoStageChainEvidence(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor
+    ) throws -> [String: Any] {
+        let size = 16
+        guard let source = makeTexture(device: device, size: size, usage: .shaderRead),
+              let target = makeTexture(
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
+              ), let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.metalUnavailable
+        }
+        fillPremultipliedCheckerboard(source)
+        let chain = authoredTwoStageBlurChain()
+        let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
+        let mainPass = SceneMainPassEncoder(
+            commandBuffer: commandBuffer,
+            target: target,
+            clearColor: MTLClearColorMake(0, 0, 0, 0)
+        )
+        guard compositor.draw(
+            SceneImageLayerDrawRequest(
+                layer: standardBlurLayer(),
+                texture: source,
+                masks: .empty,
+                textureFrame: .identity,
+                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+                uniforms: SceneImageLayerUniformValues(
+                    time: 3, alpha: 0.5, cursorUV: SIMD2(0.25, 0.75)
+                ),
+                offscreenTexturePool: pool,
+                offscreenSize: nil,
+                requiresSourceCopy: false,
+                finalCompositeAlpha: nil,
+                dependencyEffect: nil,
+                authoredEffectPlan: nil,
+                blocksLegacyGaussianBlur: false,
+                authoredEffectChain: chain,
+                dynamicValues: .empty(frameIndex: 17)
+            ),
+            pipeline: pipeline,
+            mainPass: mainPass
+        ) else {
+            throw HarnessError.drawRefused
+        }
+        mainPass.finishEnsuringClear()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed,
+              let tables = pool.graphTargets(
+                for: chain, requestedWidth: size, requestedHeight: size
+              ), tables.count == 2 else {
+            throw HarnessError.commandFailed
+        }
+
+        let sourceBytes = try textureBytes(source, queue: queue)
+        let firstInput = try textureBytes(tables[0].inputTexture, queue: queue)
+        let firstOutput = try textureBytes(tables[0].outputTexture, queue: queue)
+        let secondInput = try textureBytes(tables[1].inputTexture, queue: queue)
+        let secondOutput = try textureBytes(tables[1].outputTexture, queue: queue)
+        let mainOutput = try textureBytes(target, queue: queue)
+        return [
+            "encoded": true,
+            "sourceToFirstInputDelta": maxDifference(sourceBytes, firstInput),
+            "firstOutputToSecondInputDelta": maxDifference(firstOutput, secondInput),
+            "firstToSecondOutputDelta": maxDifference(firstOutput, secondOutput),
+            "secondOutputToMainDelta": maxDifference(secondOutput, mainOutput),
+        ]
+    }
+
+    static func authoredFailedChainEvidence(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor
+    ) throws -> [String: Any] {
+        let size = 16
+        guard let source = makeTexture(device: device, size: size, usage: .shaderRead),
+              let target = makeTexture(
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
+              ), let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.metalUnavailable
+        }
+        fillPremultipliedCheckerboard(source)
+        let chain = authoredFailingSecondStageChain()
+        let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
+        let mainPass = SceneMainPassEncoder(
+            commandBuffer: commandBuffer,
+            target: target,
+            clearColor: MTLClearColorMake(0, 0, 0, 0)
+        )
+        let encoded = compositor.draw(
+            SceneImageLayerDrawRequest(
+                layer: standardBlurLayer(),
+                texture: source,
+                masks: .empty,
+                textureFrame: .identity,
+                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+                uniforms: SceneImageLayerUniformValues(
+                    time: 0, alpha: 1, cursorUV: .zero
+                ),
+                offscreenTexturePool: pool,
+                offscreenSize: nil,
+                requiresSourceCopy: false,
+                finalCompositeAlpha: nil,
+                dependencyEffect: nil,
+                authoredEffectPlan: nil,
+                blocksLegacyGaussianBlur: false,
+                authoredEffectChain: chain,
+                dynamicValues: .empty(frameIndex: 18)
+            ),
+            pipeline: pipeline,
+            mainPass: mainPass
+        )
+        mainPass.finishEnsuringClear()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed,
+              let tables = pool.graphTargets(
+                for: chain, requestedWidth: size, requestedHeight: size
+              ), tables.count == 2 else {
+            throw HarnessError.commandFailed
+        }
+        let firstOutput = try textureBytes(tables[0].outputTexture, queue: queue)
+        return [
+            "encoded": encoded,
+            "mainPixel": pixel(target, x: size / 2, y: size / 2),
+            "firstStageProducedPixels": firstOutput.contains(where: { $0 != 0 }),
+        ]
+    }
+
     static func drawAuthoredBlur(
         source: MTLTexture,
         target: MTLTexture,
@@ -1288,8 +1481,16 @@ enum Harness {
         )
     }
 
-    static func authoredStandardBlurPlan() -> SceneAuthoredEffectExecutionPlan {
-        let graph = standardBlurGraph()
+    static func authoredStandardBlurPlan(
+        layerID: Int = 530,
+        effectIndex: Int = 0,
+        input: Graph.TextureIdentity? = nil
+    ) -> SceneAuthoredEffectExecutionPlan {
+        let graph = standardBlurGraph(
+            layerID: layerID,
+            effectIndex: effectIndex,
+            input: input
+        )
         return SceneAuthoredEffectExecutionPlan(
             layerID: graph.layerID,
             renderGraph: graph,
@@ -1299,7 +1500,57 @@ enum Harness {
                 renderTargetScale: 4
             )),
             materialNodeCount: 4,
-            logicalRenderTargetCount: 2
+            logicalRenderTargetCount: 2,
+            inputRole: input == nil ? .layerSource : .priorEffectOutput
+        )
+    }
+
+    static func authoredTwoStageBlurChain() -> SceneAuthoredEffectExecutionChain {
+        let layerID = 840
+        let first = authoredStandardBlurPlan(layerID: layerID)
+        let second = authoredStandardBlurPlan(
+            layerID: layerID,
+            effectIndex: 1,
+            input: first.renderGraph.finalOutput
+        )
+        let graph = Graph(
+            layerID: layerID,
+            effects: first.renderGraph.effects + second.renderGraph.effects,
+            renderTargets: first.renderGraph.renderTargets + second.renderGraph.renderTargets,
+            nodes: first.renderGraph.nodes + second.renderGraph.nodes,
+            finalOutput: second.renderGraph.finalOutput,
+            blockers: []
+        )
+        return SceneAuthoredEffectExecutionChain(
+            layerID: layerID,
+            renderGraph: graph,
+            stages: [first, second]
+        )
+    }
+
+    static func authoredFailingSecondStageChain() -> SceneAuthoredEffectExecutionChain {
+        let valid = authoredTwoStageBlurChain()
+        let first = valid.stages[0]
+        let second = valid.stages[1]
+        let duplicateTarget = second.renderGraph.renderTargets[0].texture
+        let invalidContrast = SceneLocalContrastPlan(
+            firstQuarterTarget: duplicateTarget,
+            secondQuarterTarget: duplicateTarget,
+            renderGraph: second.renderGraph,
+            staticOrFallbackStrength: 1
+        )
+        let failingSecond = SceneAuthoredEffectExecutionPlan(
+            layerID: second.layerID,
+            renderGraph: second.renderGraph,
+            backend: .localContrast(invalidContrast),
+            materialNodeCount: second.materialNodeCount,
+            logicalRenderTargetCount: second.logicalRenderTargetCount,
+            inputRole: second.inputRole
+        )
+        return SceneAuthoredEffectExecutionChain(
+            layerID: valid.layerID,
+            renderGraph: valid.renderGraph,
+            stages: [first, failingSecond]
         )
     }
 
@@ -1624,6 +1875,28 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertGreater(evidence["horizontalToVerticalDelta"], 2, evidence)
         self.assertGreater(evidence["inputToOutputDelta"], 20, evidence)
         self.assertTrue(self.result["authoredStandardBlurOverridesLegacy"])
+
+    def test_authored_effect_chain_runs_in_order_without_reapplying_layer_alpha(self) -> None:
+        evidence = self.result["authoredTwoStageChain"]
+        self.assertTrue(evidence["encoded"])
+        self.assertGreater(evidence["sourceToFirstInputDelta"], 20, evidence)
+        self.assertLessEqual(evidence["firstOutputToSecondInputDelta"], 1, evidence)
+        self.assertGreater(evidence["firstToSecondOutputDelta"], 1, evidence)
+        self.assertLessEqual(evidence["secondOutputToMainDelta"], 2, evidence)
+
+    def test_chain_renderer_resolves_live_values_per_stage_and_neutralizes_recapture(self) -> None:
+        source = (SOURCE_ROOT / "SceneAuthoredEffectChainRenderer.swift").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("masks: isFirstStage ? masks : .empty", source)
+        self.assertIn("sourceUniforms: isFirstStage ? sourceUniforms : .neutral()", source)
+        self.assertIn("stage.localContrastStrength(in: dynamicValues)", source)
+
+    def test_failed_later_stage_never_composites_an_earlier_stage(self) -> None:
+        evidence = self.result["authoredFailedChain"]
+        self.assertFalse(evidence["encoded"])
+        self.assertTrue(evidence["firstStageProducedPixels"])
+        self.assertEqual(evidence["mainPixel"], [0, 0, 0, 0])
 
     def test_standard_blur_downsample_is_alpha_aware(self) -> None:
         self.assert_pixel_close(

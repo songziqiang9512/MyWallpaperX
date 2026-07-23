@@ -12,6 +12,23 @@ nonisolated struct SceneAuthoredEffectExecutionPlan {
     let backend: Backend
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
+    let inputRole: SceneAuthoredEffectInputRole
+
+    init(
+        layerID: Int,
+        renderGraph: SceneAuthoredEffectRenderPlan,
+        backend: Backend,
+        materialNodeCount: Int,
+        logicalRenderTargetCount: Int,
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) {
+        self.layerID = layerID
+        self.renderGraph = renderGraph
+        self.backend = backend
+        self.materialNodeCount = materialNodeCount
+        self.logicalRenderTargetCount = logicalRenderTargetCount
+        self.inputRole = inputRole
+    }
 
     var gaussianBlur: SceneGaussianBlurPlan? {
         guard case .preciseGaussian(let plan) = backend else { return nil }
@@ -43,9 +60,13 @@ nonisolated struct SceneAuthoredEffectExecutionPlan {
 }
 
 nonisolated struct SceneAuthoredEffectExecutionCatalog {
-    let plansByLayerID: [Int: SceneAuthoredEffectExecutionPlan]
+    let chainsByLayerID: [Int: SceneAuthoredEffectExecutionChain]
     let hiddenEligibleLayerIDs: [Int]
     let legacyGaussianBlurBlockedLayerIDs: Set<Int>
+
+    var plansByLayerID: [Int: SceneAuthoredEffectExecutionPlan] {
+        chainsByLayerID.compactMapValues(\.singleStage)
+    }
 
     init(
         descriptor: SceneRenderDescriptor,
@@ -54,33 +75,17 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
     ) {
         let visible = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let grouped = Dictionary(grouping: authoredPlans, by: \.layerID)
-        var eligible: [Int: SceneAuthoredEffectExecutionPlan] = [:]
+        var eligible: [Int: SceneAuthoredEffectExecutionChain] = [:]
         for (layerID, candidates) in grouped where candidates.count == 1 {
             let graph = candidates[0]
-            let localContrast = SceneAuthoredLocalContrastPlanner.plan(
+            guard let chain = SceneAuthoredEffectChainPlanner.plan(
                 graph: graph,
                 descriptor: descriptor,
                 shaderContracts: shaderContracts
-            )
-            let plan = SceneAuthoredEffectExecutionPlanner.plan(
-                graph: graph,
-                descriptor: descriptor
-            ) ?? SceneAuthoredStandardBlurPlanner.plan(
-                graph: graph,
-                descriptor: descriptor
-            ) ?? localContrast.map {
-                SceneAuthoredEffectExecutionPlan(
-                    layerID: graph.layerID,
-                    renderGraph: graph,
-                    backend: .localContrast($0),
-                    materialNodeCount: 4,
-                    logicalRenderTargetCount: 2
-                )
-            }
-            guard let plan else { continue }
-            eligible[layerID] = plan
+            ) else { continue }
+            eligible[layerID] = chain
         }
-        plansByLayerID = eligible.filter { visible.contains($0.key) }
+        chainsByLayerID = eligible.filter { visible.contains($0.key) }
         hiddenEligibleLayerIDs = eligible.keys.filter { !visible.contains($0) }.sorted()
         let preciseBlurCandidateLayers = Set(authoredPlans.compactMap { graph in
             SceneAuthoredEffectExecutionPlanner.containsAuthoredPreciseBlurCandidate(
@@ -95,25 +100,27 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
         legacyGaussianBlurBlockedLayerIDs = preciseBlurCandidateLayers
             .union(standardBlurCandidateLayers)
             .intersection(visible)
-            .subtracting(plansByLayerID.keys)
+            .subtracting(chainsByLayerID.keys)
     }
 
     var reportLines: [String] {
         [
-            "authoredEffectGraphPlannedCount: \(plansByLayerID.count)",
-            "authoredEffectGraphMaterialNodeCount: \(plansByLayerID.values.reduce(0) { $0 + $1.materialNodeCount })",
-            "authoredEffectGraphLogicalRTCount: \(plansByLayerID.values.reduce(0) { $0 + $1.logicalRenderTargetCount })",
-            "authoredEffectGraphSupportLevel: \(plansByLayerID.isEmpty ? "none" : "executed-degraded")",
+            "authoredEffectGraphPlannedCount: \(chainsByLayerID.count)",
+            "authoredEffectGraphMaterialNodeCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.materialNodeCount })",
+            "authoredEffectGraphLogicalRTCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.logicalRenderTargetCount })",
+            "authoredEffectGraphSupportLevel: \(chainsByLayerID.isEmpty ? "none" : "executed-degraded")",
             "authoredEffectGraphHiddenEligibleCount: \(hiddenEligibleLayerIDs.count)",
             "authoredEffectGraphHiddenEligibleLayerIDs: \(hiddenEligibleLayerIDs.map(String.init).joined(separator: ","))",
             "authoredEffectGraphLegacyBlurBlockedCount: \(legacyGaussianBlurBlockedLayerIDs.count)",
             "authoredEffectGraphLegacyBlurBlockedLayerIDs: \(legacyGaussianBlurBlockedLayerIDs.sorted().map(String.init).joined(separator: ","))",
-            "authoredEffectGraphLocalContrastCount: \(plansByLayerID.values.filter { $0.localContrast != nil }.count)",
+            "authoredEffectGraphChainCount: \(chainsByLayerID.values.filter { $0.stages.count > 1 }.count)",
+            "authoredEffectGraphStageCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.stages.count })",
+            "authoredEffectGraphLocalContrastCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.localContrastCount })",
         ]
     }
 
     var liveConsumerTargets: Set<SceneDynamicTarget> {
-        Set(plansByLayerID.values.compactMap(\.liveConsumerTarget))
+        Set(chainsByLayerID.values.flatMap(\.liveConsumerTargets))
     }
 }
 
@@ -122,7 +129,8 @@ enum SceneAuthoredEffectExecutionPlanner {
 
     nonisolated static func plan(
         graph: Graph,
-        descriptor: SceneRenderDescriptor
+        descriptor: SceneRenderDescriptor,
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneAuthoredEffectExecutionPlan? {
         guard graph.blockers.isEmpty,
               graph.effects.count == 1,
@@ -137,7 +145,9 @@ enum SceneAuthoredEffectExecutionPlanner {
         let verticalNode = graph.nodes[1]
         let target = graph.renderTargets[0]
         guard effect.nodeIndices == [horizontalNode.nodeIndex, verticalNode.nodeIndex],
-              effect.input == layerSource(layerID: graph.layerID),
+              SceneAuthoredEffectInputValidator.accepts(
+                effect.input, layerID: graph.layerID, role: inputRole
+              ),
               effect.output == effectOutput(effect.key),
               graph.finalOutput == effect.output,
               target.texture.kind == .framebuffer,
@@ -203,7 +213,8 @@ enum SceneAuthoredEffectExecutionPlanner {
                 isPrecise: true
             )),
             materialNodeCount: 2,
-            logicalRenderTargetCount: 1
+            logicalRenderTargetCount: 1,
+            inputRole: inputRole
         )
     }
 

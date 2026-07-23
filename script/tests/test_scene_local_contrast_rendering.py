@@ -31,6 +31,7 @@ struct SceneAuthoredEffectExecutionPlan {
     let layerID: Int
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
+    let inputRole: SceneAuthoredEffectInputRole
 }
 
 @main

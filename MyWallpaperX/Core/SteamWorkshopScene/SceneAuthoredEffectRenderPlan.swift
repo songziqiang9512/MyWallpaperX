@@ -127,3 +127,42 @@ nonisolated struct SceneAuthoredEffectRenderPlan: Codable {
         blockers.isEmpty
     }
 }
+
+nonisolated enum SceneAuthoredEffectInputRole: Equatable {
+    case layerSource
+    case priorEffectOutput
+}
+
+enum SceneAuthoredEffectInputValidator {
+    typealias Graph = SceneAuthoredEffectRenderPlan
+
+    nonisolated static func role(
+        for input: Graph.TextureIdentity,
+        layerID: Int
+    ) -> SceneAuthoredEffectInputRole? {
+        if input == layerSource(layerID: layerID) {
+            return .layerSource
+        }
+        guard input.kind == .effectOutput,
+              input.layerID == layerID,
+              input.effect?.layerID == layerID,
+              (input.effect?.effectIndex ?? -1) >= 0,
+              input.effect?.descriptorID.isEmpty == false,
+              input.name == nil else {
+            return nil
+        }
+        return .priorEffectOutput
+    }
+
+    nonisolated static func accepts(
+        _ input: Graph.TextureIdentity,
+        layerID: Int,
+        role: SceneAuthoredEffectInputRole
+    ) -> Bool {
+        self.role(for: input, layerID: layerID) == role
+    }
+
+    nonisolated static func layerSource(layerID: Int) -> Graph.TextureIdentity {
+        .init(kind: .layerSource, layerID: layerID, effect: nil, name: nil)
+    }
+}

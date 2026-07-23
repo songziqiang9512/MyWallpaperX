@@ -26,7 +26,8 @@ extension SceneMetalRenderer {
     }
 
     func offscreenPassCount(for layer: SceneRenderDescriptor.Layer) -> Int {
-        SceneEffectRuntimePlanner.offscreenPassCount(for: layer)
+        authoredEffectChain(for: layer.id)?.materialNodeCount
+            ?? SceneEffectRuntimePlanner.offscreenPassCount(for: layer)
     }
 
     func effectRuntimeSummary(
@@ -36,7 +37,11 @@ extension SceneMetalRenderer {
         hasWaterMask: Bool = false,
         hasFoliageMask: Bool = false
     ) -> String? {
-        SceneEffectRuntimePlanner.runtimeSummary(
+        if let chain = authoredEffectChain(for: layer.id), chain.stages.count > 1 {
+            return "effect runtime authored-chain; \(chain.stages.count) stage(s); "
+                + "\(chain.materialNodeCount) material pass(es)"
+        }
+        return SceneEffectRuntimePlanner.runtimeSummary(
             for: layer,
             hasWaterRippleNormal: hasWaterRippleNormal,
             hasOpacityMask: hasOpacityMask,

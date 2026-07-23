@@ -100,6 +100,14 @@ AUTHORED_EFFECT_GRAPH_LOCAL_CONTRAST_COUNT_RE = re.compile(
     r"^authoredEffectGraphLocalContrastCount: (?P<count>\d+)$",
     re.MULTILINE,
 )
+AUTHORED_EFFECT_GRAPH_CHAIN_COUNT_RE = re.compile(
+    r"^authoredEffectGraphChainCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
+AUTHORED_EFFECT_GRAPH_STAGE_COUNT_RE = re.compile(
+    r"^authoredEffectGraphStageCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
 NAMED_TARGET_CAPTURE_EXECUTION_RE = re.compile(
     r"phase=named-target-capture layer=(?P<id>\d+) status=(?P<status>succeeded|failed)"
 )
@@ -734,6 +742,15 @@ def authored_effect_graph_local_contrast_count(preview_text: str) -> int | None:
     return int(match.group("count")) if match is not None else None
 
 
+def authored_effect_graph_chain_metrics(preview_text: str) -> dict[str, int | None]:
+    chain_match = AUTHORED_EFFECT_GRAPH_CHAIN_COUNT_RE.search(preview_text)
+    stage_match = AUTHORED_EFFECT_GRAPH_STAGE_COUNT_RE.search(preview_text)
+    return {
+        "chain_count": int(chain_match.group("count")) if chain_match else None,
+        "stage_count": int(stage_match.group("count")) if stage_match else None,
+    }
+
+
 def named_target_capture_execution_metrics(log_text: str) -> dict[str, Any]:
     return capture_execution_metrics(log_text, NAMED_TARGET_CAPTURE_EXECUTION_RE)
 
@@ -801,6 +818,7 @@ def authored_effect_graph_failures(
     metrics: dict[str, Any],
     legacy_blur_blocked_layer_ids: list[int],
     local_contrast_count: int | None,
+    chain_metrics: dict[str, int | None] | None = None,
 ) -> list[str]:
     failures = [
         f"authored effect graph layer {layer_id} failed"
@@ -823,6 +841,13 @@ def authored_effect_graph_failures(
     if expected_local_contrast is not None:
         if local_contrast_count != int(expected_local_contrast):
             failures.append("authored effect graph Local Contrast count mismatch")
+    chain_metrics = chain_metrics or {"chain_count": None, "stage_count": None}
+    for sample_key, metric_key, label in (
+        ("expected_authored_effect_graph_chain_count", "chain_count", "chain count"),
+        ("expected_authored_effect_graph_stage_count", "stage_count", "stage count"),
+    ):
+        if sample_key in sample and chain_metrics[metric_key] != int(sample[sample_key]):
+            failures.append(f"authored effect graph {label} mismatch")
     return failures
 
 
@@ -1066,6 +1091,7 @@ def run_sample(
     authored_effect_graph_local_contrast = authored_effect_graph_local_contrast_count(
         preview_text
     )
+    authored_effect_graph_chain = authored_effect_graph_chain_metrics(preview_text)
     named_target_capture_execution = named_target_capture_execution_metrics(log_text)
     named_target_binding_execution = named_target_binding_execution_metrics(log_text)
     image_blend_runtime = image_blend_runtime_metrics(preview_text, log_text)
@@ -1148,6 +1174,7 @@ def run_sample(
         authored_effect_graph_execution,
         authored_effect_graph_legacy_blur_blocked,
         authored_effect_graph_local_contrast,
+        authored_effect_graph_chain,
     ))
     succeeded_capture_ids = set(utility_capture_execution["succeeded_layer_ids"])
     if len(succeeded_capture_ids) < utility_runtime["capture_planned"]:
@@ -1382,6 +1409,8 @@ def run_sample(
             "authored_effect_graph_failed_layer_ids": authored_effect_graph_execution["failed_layer_ids"],
             "authored_effect_graph_legacy_blur_blocked_layer_ids": authored_effect_graph_legacy_blur_blocked,
             "authored_effect_graph_local_contrast_count": authored_effect_graph_local_contrast,
+            "authored_effect_graph_chain_count": authored_effect_graph_chain["chain_count"],
+            "authored_effect_graph_stage_count": authored_effect_graph_chain["stage_count"],
             "named_target_capture_succeeded_layer_ids": named_target_capture_execution["succeeded_layer_ids"],
             "named_target_capture_failed_layer_ids": named_target_capture_execution["failed_layer_ids"],
             "named_target_binding_succeeded_layer_ids": named_target_binding_execution["succeeded_layer_ids"],

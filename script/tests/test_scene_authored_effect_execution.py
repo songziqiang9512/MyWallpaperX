@@ -19,6 +19,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "SceneAuthoredMaterialResolver.swift",
     SOURCE_ROOT / "SceneAuthoredLocalContrastPlanner.swift",
+    SOURCE_ROOT / "SceneAuthoredEffectExecutionChain.swift",
     SOURCE_ROOT / "SceneAuthoredEffectExecutionPlan.swift",
     SOURCE_ROOT / "SceneAuthoredStandardBlurPlanner.swift",
     SOURCE_ROOT / "SceneGraphRenderTargetPlan.swift",

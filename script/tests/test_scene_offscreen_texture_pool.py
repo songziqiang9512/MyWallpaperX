@@ -31,6 +31,12 @@ struct SceneAuthoredEffectExecutionPlan {
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
     let requiresExactInputExtent: Bool
+    let inputRole: SceneAuthoredEffectInputRole
+}
+
+struct SceneAuthoredEffectExecutionChain {
+    let layerID: Int
+    let stages: [SceneAuthoredEffectExecutionPlan]
 }
 
 @main
@@ -91,14 +97,15 @@ enum Harness {
         effectIndex: Int,
         layerID: Int = 10,
         precise: Bool = false,
-        framebufferFormat: String = "rgba_backbuffer"
+        framebufferFormat: String = "rgba_backbuffer",
+        input authoredInput: Graph.TextureIdentity? = nil
     ) -> Fixture {
         let key = Graph.EffectKey(
             layerID: layerID,
             effectIndex: effectIndex,
             descriptorID: "\(layerID)#effect#\(effectIndex)"
         )
-        let input = texture(.layerSource, layerID: layerID)
+        let input = authoredInput ?? texture(.layerSource, layerID: layerID)
         let output = texture(.effectOutput, layerID: layerID, effect: key)
         let targets: [Graph.RenderTarget]
         let nodes: [Graph.Node]
@@ -180,7 +187,10 @@ enum Harness {
                 renderGraph: graph,
                 materialNodeCount: nodes.count,
                 logicalRenderTargetCount: targets.count,
-                requiresExactInputExtent: precise
+                requiresExactInputExtent: precise,
+                inputRole: input.kind == .layerSource
+                    ? .layerSource
+                    : .priorEffectOutput
             ),
             framebufferIdentities: identities
         )
@@ -323,6 +333,112 @@ enum Harness {
             fatalError("format replacement fixture failed")
         }
 
+        let chainPool = SceneOffscreenTexturePool(
+            device: device,
+            maxDimension: 64,
+            residentByteBudget: 1_200
+        )
+        let chainFirst = fixture(effectIndex: 10)
+        let chainSecond = fixture(
+            effectIndex: 11,
+            input: chainFirst.execution.renderGraph.finalOutput
+        )
+        let chain = SceneAuthoredEffectExecutionChain(
+            layerID: 10,
+            stages: [chainFirst.execution, chainSecond.execution]
+        )
+        guard let chainTables = chainPool.graphTargets(
+            for: chain, requestedWidth: 8, requestedHeight: 8
+        ), let chainHit = chainPool.graphTargets(
+            for: chain, requestedWidth: 8, requestedHeight: 8
+        ), chainTables.count == 2, chainHit.count == 2 else {
+            fatalError("ordered chain allocation failed")
+        }
+
+        let rollbackPool = SceneOffscreenTexturePool(
+            device: device,
+            maxDimension: 64,
+            residentByteBudget: 1_200
+        )
+        let rollbackFirst = fixture(effectIndex: 20)
+        let rollbackSecond = fixture(
+            effectIndex: 21,
+            input: rollbackFirst.execution.renderGraph.finalOutput
+        )
+        guard let rollbackOriginal = rollbackPool.graphTargets(
+            for: rollbackFirst.execution, requestedWidth: 8, requestedHeight: 8
+        ) else {
+            fatalError("transaction rollback fixture allocation failed")
+        }
+        let oversizedChain = SceneAuthoredEffectExecutionChain(
+            layerID: 10,
+            stages: [rollbackFirst.execution, rollbackSecond.execution]
+        )
+        let oversizedChainRejected = rollbackPool.graphTargets(
+            for: oversizedChain, requestedWidth: 16, requestedHeight: 8
+        ) == nil
+        let rollbackAllocationCount = rollbackPool.residentAllocationCount
+        let rollbackTextureCount = rollbackPool.residentTextureCount
+        let rollbackBytes = rollbackPool.residentByteCost
+        guard let rollbackOriginalAgain = rollbackPool.graphTargets(
+            for: rollbackFirst.execution, requestedWidth: 8, requestedHeight: 8
+        ) else {
+            fatalError("failed chain removed resident graph allocation")
+        }
+
+        let accessRollbackPool = SceneOffscreenTexturePool(
+            device: device,
+            maxDimension: 64,
+            residentByteBudget: 1_200
+        )
+        let accessFirst = fixture(effectIndex: 30)
+        let accessSecond = fixture(effectIndex: 31)
+        let accessThird = fixture(effectIndex: 32)
+        let wrongOrderStage = fixture(effectIndex: 33)
+        let accessChainSecond = fixture(
+            effectIndex: 34,
+            input: accessFirst.execution.renderGraph.finalOutput
+        )
+        let accessChainThird = fixture(
+            effectIndex: 35,
+            input: accessChainSecond.execution.renderGraph.finalOutput
+        )
+        guard let accessFirstTable = accessRollbackPool.graphTargets(
+            for: accessFirst.execution, requestedWidth: 8, requestedHeight: 8
+        ), accessRollbackPool.graphTargets(
+            for: accessSecond.execution, requestedWidth: 8, requestedHeight: 8
+        ) != nil else {
+            fatalError("access rollback fixture allocation failed")
+        }
+        let wrongOrderChain = SceneAuthoredEffectExecutionChain(
+            layerID: 10,
+            stages: [accessFirst.execution, wrongOrderStage.execution]
+        )
+        let wrongOrderRejected = accessRollbackPool.graphTargets(
+            for: wrongOrderChain, requestedWidth: 8, requestedHeight: 8
+        ) == nil
+        let overBudgetAccessChain = SceneAuthoredEffectExecutionChain(
+            layerID: 10,
+            stages: [
+                accessFirst.execution,
+                accessChainSecond.execution,
+                accessChainThird.execution,
+            ]
+        )
+        let overBudgetAccessRejected = accessRollbackPool.graphTargets(
+            for: overBudgetAccessChain, requestedWidth: 8, requestedHeight: 8
+        ) == nil
+        let accessFailureAllocationCount = accessRollbackPool.residentAllocationCount
+        let accessFailureTextureCount = accessRollbackPool.residentTextureCount
+        let accessFailureBytes = accessRollbackPool.residentByteCost
+        guard accessRollbackPool.graphTargets(
+            for: accessThird.execution, requestedWidth: 8, requestedHeight: 8
+        ) != nil, let accessFirstAfterEviction = accessRollbackPool.graphTargets(
+            for: accessFirst.execution, requestedWidth: 8, requestedHeight: 8
+        ) else {
+            fatalError("access rollback LRU fixture failed")
+        }
+
         let result: [String: Any] = [
             "metalUnavailable": false,
             "stableReuse": firstTable.inputTexture === firstHit.inputTexture
@@ -369,6 +485,26 @@ enum Harness {
             "formatChangeAllocationCount": formatPool.residentAllocationCount,
             "formatChangeTextureCount": formatPool.residentTextureCount,
             "formatChangeBytes": formatPool.residentByteCost,
+            "chainOrder": chainTables.compactMap { $0.plan.output.effect?.effectIndex },
+            "chainStableReuse": zip(chainTables, chainHit).allSatisfy {
+                $0.inputTexture === $1.inputTexture && $0.outputTexture === $1.outputTexture
+            },
+            "chainAllocationCount": chainPool.residentAllocationCount,
+            "chainTextureCount": chainPool.residentTextureCount,
+            "chainBytes": chainPool.residentByteCost,
+            "oversizedChainRejected": oversizedChainRejected,
+            "rollbackPreservedIdentity": rollbackOriginal.inputTexture
+                === rollbackOriginalAgain.inputTexture,
+            "rollbackAllocationCount": rollbackAllocationCount,
+            "rollbackTextureCount": rollbackTextureCount,
+            "rollbackBytes": rollbackBytes,
+            "wrongOrderRejected": wrongOrderRejected,
+            "overBudgetAccessRejected": overBudgetAccessRejected,
+            "accessFailureAllocationCount": accessFailureAllocationCount,
+            "accessFailureTextureCount": accessFailureTextureCount,
+            "accessFailureBytes": accessFailureBytes,
+            "failedChainDidNotRefreshLRU": accessFirstTable.inputTexture
+                !== accessFirstAfterEviction.inputTexture,
         ]
         resizePool.reset()
         var finalResult = result
@@ -448,6 +584,28 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         self.assertEqual(self.result["formatChangeAllocationCount"], 1)
         self.assertEqual(self.result["formatChangeTextureCount"], 4)
         self.assertEqual(self.result["formatChangeBytes"], 544)
+
+    def test_chain_returns_one_stable_table_per_ordered_stage(self) -> None:
+        self.assertEqual(self.result["chainOrder"], [10, 11])
+        self.assertTrue(self.result["chainStableReuse"])
+        self.assertEqual(self.result["chainAllocationCount"], 2)
+        self.assertEqual(self.result["chainTextureCount"], 8)
+        self.assertEqual(self.result["chainBytes"], 1_088)
+
+    def test_chain_budget_failure_preserves_all_resident_state(self) -> None:
+        self.assertTrue(self.result["oversizedChainRejected"])
+        self.assertTrue(self.result["rollbackPreservedIdentity"])
+        self.assertEqual(self.result["rollbackAllocationCount"], 1)
+        self.assertEqual(self.result["rollbackTextureCount"], 4)
+        self.assertEqual(self.result["rollbackBytes"], 544)
+
+    def test_rejected_chains_do_not_refresh_partial_hit_lru_state(self) -> None:
+        self.assertTrue(self.result["wrongOrderRejected"])
+        self.assertTrue(self.result["overBudgetAccessRejected"])
+        self.assertEqual(self.result["accessFailureAllocationCount"], 2)
+        self.assertEqual(self.result["accessFailureTextureCount"], 8)
+        self.assertEqual(self.result["accessFailureBytes"], 1_088)
+        self.assertTrue(self.result["failedChainDidNotRefreshLRU"])
 
     def test_resident_budget_failure_preserves_existing_cache_accounting(self) -> None:
         self.assertTrue(self.result["residentBudgetResizeRejected"])

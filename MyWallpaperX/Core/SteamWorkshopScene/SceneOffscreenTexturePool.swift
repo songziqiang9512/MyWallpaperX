@@ -104,59 +104,135 @@ final class SceneOffscreenTexturePool {
         requestedWidth: Int,
         requestedHeight: Int
     ) -> SceneGraphRenderTargetTable? {
+        graphTargetTransaction(
+            stages: [executionPlan],
+            layerID: executionPlan.layerID,
+            validatesChainOrder: false,
+            requestedWidth: requestedWidth,
+            requestedHeight: requestedHeight
+        )?.first
+    }
+
+    func graphTargets(
+        for chain: SceneAuthoredEffectExecutionChain,
+        requestedWidth: Int,
+        requestedHeight: Int
+    ) -> [SceneGraphRenderTargetTable]? {
+        graphTargetTransaction(
+            stages: chain.stages,
+            layerID: chain.layerID,
+            validatesChainOrder: true,
+            requestedWidth: requestedWidth,
+            requestedHeight: requestedHeight
+        )
+    }
+
+    private func graphTargetTransaction(
+        stages: [SceneAuthoredEffectExecutionPlan],
+        layerID: Int,
+        validatesChainOrder: Bool,
+        requestedWidth: Int,
+        requestedHeight: Int
+    ) -> [SceneGraphRenderTargetTable]? {
         guard pixelFormat == .bgra8Unorm else { return nil }
+        guard !stages.isEmpty, stages.allSatisfy({ $0.layerID == layerID }) else {
+            return nil
+        }
         let (width, height) = limitedDimensions(
             width: requestedWidth,
             height: requestedHeight
         )
-        if executionPlan.requiresExactInputExtent,
+        if stages.contains(where: \.requiresExactInputExtent),
            (requestedWidth <= 0 || requestedHeight <= 0
                || width != requestedWidth || height != requestedHeight) {
             return nil
         }
-        guard case .success(let plan) = SceneGraphRenderTargetPlan.make(
-            executionPlan: executionPlan,
-            graph: executionPlan.renderGraph,
-            inputWidth: width,
-            inputHeight: height
-        ), let effect = plan.output.effect else {
-            return nil
+
+        var plans: [SceneGraphRenderTargetPlan] = []
+        plans.reserveCapacity(stages.count)
+        var priorOutput: SceneAuthoredEffectRenderPlan.TextureIdentity?
+        for stage in stages {
+            guard case .success(let plan) = SceneGraphRenderTargetPlan.make(
+                executionPlan: stage,
+                graph: stage.renderGraph,
+                inputWidth: width,
+                inputHeight: height
+            ) else { return nil }
+            if validatesChainOrder {
+                if let priorOutput {
+                    guard plan.inputRole == .priorEffectOutput,
+                          plan.input == priorOutput else { return nil }
+                } else {
+                    guard plan.inputRole == .layerSource else { return nil }
+                }
+            }
+            plans.append(plan)
+            priorOutput = plan.output
         }
 
-        let key = CacheKey.graph(effect)
-        let nextAccess = accessCounter &+ 1
-        if var cached = cachedAllocations[key],
-           case .graph(let table) = cached.allocation,
-           table.plan == plan {
-            cached.lastAccess = nextAccess
-            cachedAllocations[key] = cached
-            accessCounter = nextAccess
-            return table
+        var keys: [CacheKey] = []
+        var tables: [SceneGraphRenderTargetTable] = []
+        var uniqueKeys = Set<CacheKey>()
+        keys.reserveCapacity(plans.count)
+        tables.reserveCapacity(plans.count)
+        for plan in plans {
+            guard let effect = plan.output.effect else { return nil }
+            let key = CacheKey.graph(effect)
+            guard uniqueKeys.insert(key).inserted else { return nil }
+            keys.append(key)
+            if let cached = cachedAllocations[key],
+               case .graph(let table) = cached.allocation,
+               table.plan == plan {
+                tables.append(table)
+                continue
+            }
+            guard case .success(let table) = SceneGraphRenderTargetTable.make(
+                plan: plan,
+                device: device,
+                byteBudget: residentByteBudget
+            ) else { return nil }
+            tables.append(table)
         }
 
-        guard case .success(let table) = SceneGraphRenderTargetTable.make(
-            plan: plan,
-            device: device,
-            byteBudget: residentByteBudget
-        ), let victims = evictionKeys(
-            incomingByteCost: table.residentByteCost,
-            replacing: key
-        ) else {
-            return nil
+        var incomingByteCost = 0
+        for table in tables {
+            let (nextCost, overflow) = incomingByteCost.addingReportingOverflow(
+                table.residentByteCost
+            )
+            guard !overflow else { return nil }
+            incomingByteCost = nextCost
+        }
+        guard let victims = evictionKeys(
+            incomingByteCost: incomingByteCost,
+            replacing: uniqueKeys
+        ) else { return nil }
+
+        var nextAccess = accessCounter
+        let entries = tables.map { table -> Entry in
+            nextAccess &+= 1
+            return Entry(
+                allocation: .graph(table),
+                byteCost: table.residentByteCost,
+                lastAccess: nextAccess
+            )
         }
 
+        var nextAllocations = cachedAllocations
         for victim in victims {
-            removeCachedAllocation(for: victim)
+            nextAllocations.removeValue(forKey: victim)
         }
-        removeCachedAllocation(for: key)
-        cachedAllocations[key] = Entry(
-            allocation: .graph(table),
-            byteCost: table.residentByteCost,
-            lastAccess: nextAccess
-        )
-        residentByteCost += table.residentByteCost
+        for key in keys {
+            nextAllocations.removeValue(forKey: key)
+        }
+        for (key, entry) in zip(keys, entries) {
+            nextAllocations[key] = entry
+        }
+        let nextResidentByteCost = nextAllocations.values.reduce(0) { $0 + $1.byteCost }
+        guard nextResidentByteCost <= residentByteBudget else { return nil }
+        cachedAllocations = nextAllocations
+        residentByteCost = nextResidentByteCost
         accessCounter = nextAccess
-        return table
+        return tables
     }
 
     func reset() {
@@ -188,10 +264,17 @@ final class SceneOffscreenTexturePool {
 
     private func evictionKeys(
         incomingByteCost: Int,
-        replacing key: CacheKey
+        replacing keys: Set<CacheKey>
     ) -> [CacheKey]? {
         guard incomingByteCost <= residentByteBudget else { return nil }
-        let replacedByteCost = cachedAllocations[key]?.byteCost ?? 0
+        var replacedByteCost = 0
+        for key in keys {
+            let (nextCost, overflow) = replacedByteCost.addingReportingOverflow(
+                cachedAllocations[key]?.byteCost ?? 0
+            )
+            guard !overflow else { return nil }
+            replacedByteCost = nextCost
+        }
         let retainedByteCost = residentByteCost - replacedByteCost
         guard retainedByteCost >= 0 else { return nil }
         let (initialProjectedCost, overflow) = retainedByteCost.addingReportingOverflow(
@@ -203,7 +286,7 @@ final class SceneOffscreenTexturePool {
 
         var victims: [CacheKey] = []
         let candidates = cachedAllocations
-            .filter { $0.key != key }
+            .filter { !keys.contains($0.key) }
             .sorted { $0.value.lastAccess < $1.value.lastAccess }
         for candidate in candidates where projectedByteCost > residentByteBudget {
             victims.append(candidate.key)

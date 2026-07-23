@@ -43,8 +43,25 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
     let layerID: Int
     let input: Graph.TextureIdentity
     let output: Graph.TextureIdentity
+    let inputRole: SceneAuthoredEffectInputRole
     let inputExtent: PixelExtent
     let logicalTargets: [LogicalTarget]
+
+    init(
+        layerID: Int,
+        input: Graph.TextureIdentity,
+        output: Graph.TextureIdentity,
+        inputRole: SceneAuthoredEffectInputRole = .layerSource,
+        inputExtent: PixelExtent,
+        logicalTargets: [LogicalTarget]
+    ) {
+        self.layerID = layerID
+        self.input = input
+        self.output = output
+        self.inputRole = inputRole
+        self.inputExtent = inputExtent
+        self.logicalTargets = logicalTargets
+    }
 
     static func make(
         executionPlan: SceneAuthoredEffectExecutionPlan,
@@ -67,9 +84,15 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             return .failure(.executionMismatch)
         }
         guard validEffectKey(effect.key, layerID: graph.layerID),
-              validInput(effect.input, layerID: graph.layerID),
+              let inputRole = SceneAuthoredEffectInputValidator.role(
+                for: effect.input,
+                layerID: graph.layerID
+              ),
               validOutput(effect.output, effect: effect.key, layerID: graph.layerID) else {
             return .failure(.incompleteIdentity)
+        }
+        guard inputRole == executionPlan.inputRole else {
+            return .failure(.executionMismatch)
         }
 
         var declarations: [Graph.TextureIdentity: Graph.RenderTarget] = [:]
@@ -120,11 +143,11 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
                     }
                     firstReads[binding.texture] = firstReads[binding.texture] ?? node.nodeIndex
                     lastReads[binding.texture] = node.nodeIndex
-                case .layerSource:
+                case .layerSource, .effectOutput:
                     guard binding.texture == effect.input else {
                         return .failure(.invalidAccess)
                     }
-                case .effectOutput, .unresolved:
+                case .unresolved:
                     return .failure(.invalidAccess)
                 }
             }
@@ -178,6 +201,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             layerID: graph.layerID,
             input: effect.input,
             output: effect.output,
+            inputRole: inputRole,
             inputExtent: PixelExtent(width: inputWidth, height: inputHeight),
             logicalTargets: targets
         ))
@@ -221,13 +245,6 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
 
     private static func validEffectKey(_ key: Graph.EffectKey, layerID: Int) -> Bool {
         key.layerID == layerID && key.effectIndex >= 0 && !key.descriptorID.isEmpty
-    }
-
-    private static func validInput(_ identity: Graph.TextureIdentity, layerID: Int) -> Bool {
-        identity.kind == .layerSource
-            && identity.layerID == layerID
-            && identity.effect == nil
-            && identity.name == nil
     }
 
     private static func validOutput(

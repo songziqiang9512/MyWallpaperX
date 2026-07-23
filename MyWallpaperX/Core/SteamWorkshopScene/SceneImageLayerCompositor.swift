@@ -48,6 +48,8 @@ struct SceneImageLayerDrawRequest {
     let dependencyEffect: SceneDependencyEffectInput?
     let authoredEffectPlan: SceneAuthoredEffectExecutionPlan?
     let blocksLegacyGaussianBlur: Bool
+    var authoredEffectChain: SceneAuthoredEffectExecutionChain? = nil
+    var dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0)
     var localContrastStrength: Float? = nil
 }
 
@@ -93,6 +95,8 @@ struct SceneImageLayerCompositor {
         }
         let masks = request.masks
         let auxMask = masks.iris ?? masks.opacity
+        let runtimeAuthoredPlan = request.authoredEffectPlan
+            ?? request.authoredEffectChain?.singleStage
         let effectPlan = SceneEffectRuntimePlanner.plan(
             for: request.layer,
             hasIrisMask: masks.iris != nil,
@@ -100,11 +104,13 @@ struct SceneImageLayerCompositor {
             hasWaterMask: masks.water != nil,
             hasFoliageMask: masks.foliage != nil,
             hasWaterRippleNormal: masks.waterRippleNormal != nil,
-            authoredEffectPlan: request.authoredEffectPlan,
+            authoredEffectPlan: runtimeAuthoredPlan,
             blocksLegacyGaussianBlur: request.blocksLegacyGaussianBlur
         )
         guard effectPlan.skipsUnsupportedComposite == false else { return false }
-        let routesOffscreen = effectPlan.offscreenPassCount > 0 || request.requiresSourceCopy
+        let routesOffscreen = effectPlan.offscreenPassCount > 0
+            || request.requiresSourceCopy
+            || request.authoredEffectChain != nil
         let requestedOffscreenWidth = max(
             1,
             Int((request.offscreenSize?.width ?? CGFloat(request.texture.width)).rounded(.up))
@@ -127,7 +133,30 @@ struct SceneImageLayerCompositor {
         if routesOffscreen,
            let pool = request.offscreenTexturePool {
             let renderedTexture: MTLTexture?
-            if let authoredPlan = request.authoredEffectPlan {
+            if let authoredChain = request.authoredEffectChain {
+                guard let targets = pool.graphTargets(
+                    for: authoredChain,
+                    requestedWidth: requestedOffscreenWidth,
+                    requestedHeight: requestedOffscreenHeight
+                ) else {
+                    return false
+                }
+                renderedTexture = mainPass.encodeOffscreen { commandBuffer in
+                    SceneAuthoredEffectChainRenderer.render(
+                        sourceTexture: request.texture,
+                        masks: masks,
+                        targets: targets,
+                        chain: authoredChain,
+                        dynamicValues: request.dynamicValues,
+                        sourceUniforms: directUniforms,
+                        pipeline: pipeline,
+                        gaussianBlurPipeline: gaussianBlurPipeline,
+                        standardBlurPipeline: standardBlurPipeline,
+                        localContrastPipeline: localContrastPipeline,
+                        commandBuffer: commandBuffer
+                    )
+                }
+            } else if let authoredPlan = request.authoredEffectPlan {
                 guard let targets = pool.graphTargets(
                     for: authoredPlan,
                     requestedWidth: requestedOffscreenWidth,
@@ -213,7 +242,11 @@ struct SceneImageLayerCompositor {
                 }
             }
             guard let finalTexture = renderedTexture ?? (
-                request.requiresSourceCopy || request.authoredEffectPlan != nil ? nil : request.texture
+                request.requiresSourceCopy
+                    || request.authoredEffectPlan != nil
+                    || request.authoredEffectChain != nil
+                    ? nil
+                    : request.texture
             ) else {
                 return false
             }
@@ -233,6 +266,7 @@ struct SceneImageLayerCompositor {
         }
         if request.requiresSourceCopy
             || request.authoredEffectPlan != nil
+            || request.authoredEffectChain != nil
             || (routesOffscreen && request.dependencyEffect != nil) {
             return false
         }

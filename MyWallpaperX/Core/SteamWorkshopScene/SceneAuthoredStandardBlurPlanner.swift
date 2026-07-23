@@ -11,7 +11,8 @@ enum SceneAuthoredStandardBlurPlanner {
 
     nonisolated static func plan(
         graph: Graph,
-        descriptor: SceneRenderDescriptor
+        descriptor: SceneRenderDescriptor,
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneAuthoredEffectExecutionPlan? {
         guard graph.blockers.isEmpty,
               graph.effects.count == 1,
@@ -26,7 +27,9 @@ enum SceneAuthoredStandardBlurPlanner {
         let nodes = graph.nodes
         guard isStandardBlurDefinition(effect.definitionPath),
               effect.nodeIndices == nodes.map(\.nodeIndex),
-              effect.input == layerSource(layerID: graph.layerID),
+              SceneAuthoredEffectInputValidator.accepts(
+                effect.input, layerID: graph.layerID, role: inputRole
+              ),
               effect.output == effectOutput(effect.key),
               graph.finalOutput == effect.output,
               nodes.indices.allSatisfy({ validNode(nodes[$0], ordinal: $0, effect: effect.key) }),
@@ -75,7 +78,8 @@ enum SceneAuthoredStandardBlurPlanner {
                 renderTargetScale: 4
             )),
             materialNodeCount: 4,
-            logicalRenderTargetCount: 2
+            logicalRenderTargetCount: 2,
+            inputRole: inputRole
         )
     }
 

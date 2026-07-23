@@ -26,6 +26,19 @@ struct SceneAuthoredEffectExecutionPlan {
     let layerID: Int
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
+    let inputRole: SceneAuthoredEffectInputRole
+
+    init(
+        layerID: Int,
+        materialNodeCount: Int,
+        logicalRenderTargetCount: Int,
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) {
+        self.layerID = layerID
+        self.materialNodeCount = materialNodeCount
+        self.logicalRenderTargetCount = logicalRenderTargetCount
+        self.inputRole = inputRole
+    }
 }
 
 @main
@@ -110,13 +123,15 @@ enum Harness {
 
     static func failure(
         _ graph: Graph,
-        materialNodeCount: Int? = nil
+        materialNodeCount: Int? = nil,
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> String {
         let result = SceneGraphRenderTargetPlan.make(
             executionPlan: .init(
                 layerID: graph.layerID,
                 materialNodeCount: materialNodeCount ?? graph.nodes.count,
-                logicalRenderTargetCount: graph.renderTargets.count
+                logicalRenderTargetCount: graph.renderTargets.count,
+                inputRole: inputRole
             ),
             graph: graph,
             inputWidth: 1920,
@@ -258,6 +273,19 @@ enum Harness {
             input: input,
             output: output
         )
+        let priorKey = Graph.EffectKey(
+            layerID: 10,
+            effectIndex: 0,
+            descriptorID: "10#effect#0"
+        )
+        let priorOutput = texture(.effectOutput, key: priorKey)
+        let roleMismatch = graph(
+            targets: standard.renderTargets,
+            nodes: standard.nodes,
+            key: key,
+            input: priorOutput,
+            output: output
+        )
 
         let result: [String: Any] = [
             "standardInput": standardPlan.input.kind.rawValue,
@@ -277,6 +305,7 @@ enum Harness {
             "uniqueFailure": failure(unique),
             "unsupportedFormatFailure": failure(unsupportedFormat),
             "countMismatchFailure": failure(standard, materialNodeCount: 3),
+            "roleMismatchFailure": failure(roleMismatch),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -383,6 +412,7 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
             self.result["unsupportedFormatFailure"], "unsupportedTargetDescriptor"
         )
         self.assertEqual(self.result["countMismatchFailure"], "executionMismatch")
+        self.assertEqual(self.result["roleMismatchFailure"], "executionMismatch")
 
 
 if __name__ == "__main__":

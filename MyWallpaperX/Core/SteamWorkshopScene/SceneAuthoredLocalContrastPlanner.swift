@@ -59,7 +59,8 @@ enum SceneAuthoredLocalContrastPlanner {
     nonisolated static func plan(
         graph: Graph,
         descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract]
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneLocalContrastPlan? {
         guard graph.blockers.isEmpty,
               graph.effects.count == 1,
@@ -75,7 +76,9 @@ enum SceneAuthoredLocalContrastPlanner {
         let effect = graph.effects[0]
         guard normalized(effect.definitionPath) == "effects/localcontrast/effect.json",
               effect.nodeIndices == graph.nodes.map(\.nodeIndex),
-              effect.input == layerSource(layerID: graph.layerID),
+              SceneAuthoredEffectInputValidator.accepts(
+                effect.input, layerID: graph.layerID, role: inputRole
+              ),
               effect.output == effectOutput(effect.key),
               graph.finalOutput == effect.output,
               let firstTarget = target(named: "_rt_quartercompobuffer1", graph: graph),
@@ -113,6 +116,7 @@ enum SceneAuthoredLocalContrastPlanner {
             guard validNode(
                 node,
                 ordinal: ordinal,
+                nodeIndex: effect.nodeIndices[ordinal],
                 effect: effect.key,
                 target: expectedTargets[ordinal],
                 bindings: expectedBindings[ordinal],
@@ -166,12 +170,13 @@ enum SceneAuthoredLocalContrastPlanner {
     private nonisolated static func validNode(
         _ node: Graph.Node,
         ordinal: Int,
+        nodeIndex: Int,
         effect: Graph.EffectKey,
         target: Graph.TextureIdentity,
         bindings: [(Int, String, Graph.TextureIdentity)],
         materialPath: String
     ) -> Bool {
-        guard node.nodeIndex == ordinal,
+        guard node.nodeIndex == nodeIndex,
               node.effect == effect,
               node.definitionPassIndex == ordinal,
               node.materialOrdinal == ordinal,

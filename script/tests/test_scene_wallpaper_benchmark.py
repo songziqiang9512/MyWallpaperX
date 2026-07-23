@@ -205,6 +205,24 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             samples["2938612768"]["expected_authored_effect_graph_local_contrast_count"],
             0,
         )
+        expected_chain_metrics = {
+            "3723257973": (0, 0),
+            "3723344874": (0, 0),
+            "3724289844": (0, 2),
+            "3750813609": (0, 0),
+            "2902406982": (0, 3),
+            "3765760121": (0, 3),
+            "2938612768": (0, 0),
+        }
+        for sample_id, (chain_count, stage_count) in expected_chain_metrics.items():
+            self.assertEqual(
+                samples[sample_id]["expected_authored_effect_graph_chain_count"],
+                chain_count,
+            )
+            self.assertEqual(
+                samples[sample_id]["expected_authored_effect_graph_stage_count"],
+                stage_count,
+            )
 
     def test_entry_basename_package_is_preferred_and_copied(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-copy-variant-") as directory:
@@ -896,6 +914,41 @@ utility layer 763: skippedHidden kind=composition
                 {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 count,
+            ),
+        )
+
+    def test_authored_effect_chain_counts_are_exact_gates(self) -> None:
+        preview = (
+            "authoredEffectGraphChainCount: 1\n"
+            "authoredEffectGraphStageCount: 4\n"
+        )
+        metrics = benchmark.authored_effect_graph_chain_metrics(preview)
+        self.assertEqual(metrics, {"chain_count": 1, "stage_count": 4})
+        self.assertEqual(
+            benchmark.authored_effect_graph_failures(
+                {
+                    "expected_authored_effect_graph_chain_count": 1,
+                    "expected_authored_effect_graph_stage_count": 4,
+                },
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                metrics,
+            ),
+            [],
+        )
+        self.assertEqual(
+            benchmark.authored_effect_graph_chain_metrics(""),
+            {"chain_count": None, "stage_count": None},
+        )
+        self.assertIn(
+            "authored effect graph chain count mismatch",
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_chain_count": 0},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                metrics,
             ),
         )
 
