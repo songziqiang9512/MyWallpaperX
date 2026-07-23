@@ -84,6 +84,7 @@ nonisolated struct SceneDependencyRenderPlan {
         })
         self.requiredEffectConsumerLayerIDs = Set(descriptor.layers.compactMap { layer in
             guard visibleLayerIDs.contains(layer.id),
+                  case nil = layer.utilityLayer,
                   references.contains(where: { $0.consumerLayerID == layer.id }),
                   layer.effects.contains(where: {
                       $0.visible != false
@@ -191,7 +192,8 @@ nonisolated struct SceneDependencyRenderPlan {
         issues: inout [Issue]
     ) -> Binding? {
         let visibleEffects = layer.effects.filter { $0.visible != false }
-        guard let effect = supportedClippingEffect(in: visibleEffects),
+        guard case nil = layer.utilityLayer,
+              let effect = supportedClippingEffect(in: visibleEffects),
               effect.passes.count == 1,
               let pass = effect.passes.first,
               references.count == 1,

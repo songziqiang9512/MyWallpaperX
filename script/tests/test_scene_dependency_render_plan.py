@@ -107,18 +107,28 @@ enum Harness {
         let supportedGradientConsumer = gradientConsumer(12, provider: 1)
         let reversedGradientConsumer = gradientConsumer(13, provider: 1, reversed: true)
         let invalidGradientConsumer = gradientConsumer(14, provider: 1, axis: 2)
+        let utilityConsumer = SceneRenderDescriptor.Layer(
+            id: 15,
+            contentKind: "composition",
+            utilityLayer: .init(kind: .composition),
+            dependencyLayerIDs: [1],
+            childLayerIDs: [],
+            visible: true,
+            effects: [effect(id: 15, provider: 1)]
+        )
         let descriptor = SceneRenderDescriptor(
             layers: [
                 provider, visibleConsumer, hiddenConsumer,
                 cycleA, cycleB, forwardConsumer, forwardProvider, partialConsumer,
                 neutralOpacityConsumer, nonNeutralOpacityConsumer, unsupportedBlendConsumer,
                 supportedGradientConsumer, reversedGradientConsumer, invalidGradientConsumer,
+                utilityConsumer,
             ],
-            renderOrderLayerIDs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+            renderOrderLayerIDs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
         )
         let plan = SceneDependencyRenderPlan(
             descriptor: descriptor,
-            visibleLayerIDs: [1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+            visibleLayerIDs: [1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
         )
         let matrixProviders = (10...15).map { layer($0, kind: .composition) }
         let matrixProviderIDs = [10, 10, 10, 11, 12, 13, 14, 15]
@@ -296,8 +306,11 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         self.assertTrue(self.result["invalidReference"])
 
     def test_only_visible_backward_clipping_consumer_is_executable(self) -> None:
-        self.assertEqual(self.result["referenceCount"], 10)
-        self.assertEqual(self.result["namedConsumers"], [2, 6, 8, 9, 10, 11, 12, 13, 14])
+        self.assertEqual(self.result["referenceCount"], 11)
+        self.assertEqual(
+            self.result["namedConsumers"],
+            [2, 6, 8, 9, 10, 11, 12, 13, 14, 15],
+        )
         self.assertEqual(self.result["requiredEffectConsumers"], [2, 6, 8, 9, 10, 12, 13, 14])
         self.assertEqual(self.result["bindingConsumers"], [2, 9, 12])
         self.assertEqual(self.result["requiredProviders"], [1])
@@ -310,6 +323,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         self.assertIn("10:unsupportedConsumer:-1", self.result["issues"])
         self.assertIn("13:unsupportedConsumer:-1", self.result["issues"])
         self.assertIn("14:unsupportedConsumer:-1", self.result["issues"])
+        self.assertIn("15:unsupportedConsumer:-1", self.result["issues"])
 
     def test_matrix_shape_keeps_hidden_consumer_out_of_runtime_liveness(self) -> None:
         self.assertEqual(self.result["matrixBindingCount"], 7)
