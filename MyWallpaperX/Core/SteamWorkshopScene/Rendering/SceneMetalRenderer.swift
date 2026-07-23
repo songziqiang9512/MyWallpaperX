@@ -110,12 +110,7 @@ struct SceneMetalRenderer {
         imageTextures: [Int: MTLTexture],
         userPropertyTextures: [String: MTLTexture] = [:],
         spriteAnimations: [Int: SceneSpriteAnimation],
-        irisMaskTextures: [Int: MTLTexture],
-        opacityMaskTextures: [Int: MTLTexture],
-        waterMaskTextures: [Int: MTLTexture],
-        foliageMaskTextures: [Int: MTLTexture],
-        foliageMaskUVScales: [Int: SIMD2<Float>],
-        waterRippleNormalTextures: [Int: MTLTexture],
+        effectTextures: SceneLayerEffectTextureStore,
         imagePipeline: SceneImageLayerPipeline?,
         particleBatches: [SceneParticleDrawBatch],
         particlePipeline: SceneParticleMetalPipeline?,
@@ -212,13 +207,14 @@ struct SceneMetalRenderer {
                     layer: layer,
                     texture: preparedTexture,
                     masks: SceneImageLayerMasks(
-                        iris: irisMaskTextures[layer.id],
-                        opacity: opacityMaskTextures[layer.id],
-                        water: waterMaskTextures[layer.id],
-                        foliage: foliageMaskTextures[layer.id],
-                        foliageUVScale: foliageMaskUVScales[layer.id]
+                        iris: effectTextures.irisMasks[layer.id],
+                        opacity: effectTextures.opacityMasks[layer.id],
+                        water: effectTextures.waterMasks[layer.id],
+                        foliage: effectTextures.foliageMasks[layer.id],
+                        foliageUVScale: effectTextures.foliageUVScales[layer.id]
                             ?? SIMD2(repeating: 1),
-                        waterRippleNormal: waterRippleNormalTextures[layer.id]
+                        waterRippleNormal: effectTextures.waterRippleNormals[layer.id],
+                        shakeEffects: effectTextures.shakeEffects
                     ),
                     textureFrame: spriteAnimations[layer.id]?.transform(at: time) ?? .identity,
                     mvp: cameraFrame.orthographicViewProjection * model,

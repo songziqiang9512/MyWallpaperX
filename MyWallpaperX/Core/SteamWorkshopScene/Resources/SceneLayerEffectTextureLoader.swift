@@ -1,6 +1,25 @@
 import Metal
 import simd
 
+struct SceneShakeEffectTextures {
+    let flow: MTLTexture?
+    let phase: MTLTexture?
+    let flowUVScale: SIMD2<Float>
+    let flowPath: String
+    let phasePath: String?
+
+    func matches(_ plan: SceneShakeExecutionPlan) -> Bool {
+        flow != nil
+            && normalized(flowPath) == normalized(plan.flowTexturePath)
+            && normalized(phasePath) == normalized(plan.phaseTexturePath)
+            && (plan.phaseTexturePath == nil || phase != nil)
+    }
+
+    private func normalized(_ path: String?) -> String? {
+        path?.replacingOccurrences(of: "\\", with: "/").lowercased()
+    }
+}
+
 struct SceneLayerEffectTextures {
     let irisMask: MTLTexture?
     let opacityMask: MTLTexture?
@@ -8,6 +27,7 @@ struct SceneLayerEffectTextures {
     let foliageMask: MTLTexture?
     let foliageUVScale: SIMD2<Float>
     let waterRippleNormal: MTLTexture?
+    let shakeEffects: [String: SceneShakeEffectTextures]
     let message: String
 }
 
@@ -18,6 +38,7 @@ struct SceneLayerEffectTextureStore {
     var foliageMasks: [Int: MTLTexture] = [:]
     var foliageUVScales: [Int: SIMD2<Float>] = [:]
     var waterRippleNormals: [Int: MTLTexture] = [:]
+    var shakeEffects: [String: SceneShakeEffectTextures] = [:]
 
     mutating func merge(layerID: Int, textures: SceneLayerEffectTextures) {
         irisMasks[layerID] = textures.irisMask
@@ -26,6 +47,7 @@ struct SceneLayerEffectTextureStore {
         foliageMasks[layerID] = textures.foliageMask
         foliageUVScales[layerID] = textures.foliageUVScale
         waterRippleNormals[layerID] = textures.waterRippleNormal
+        shakeEffects.merge(textures.shakeEffects) { _, incoming in incoming }
     }
 }
 
@@ -34,7 +56,8 @@ enum SceneLayerEffectTextureLoader {
         for layer: SceneRenderDescriptor.Layer,
         resolver: SceneTexturePathResolver,
         loader: SceneTextureLoader,
-        device: MTLDevice
+        device: MTLDevice,
+        shakeEffectIDs: Set<String> = []
     ) -> SceneLayerEffectTextures {
         let iris = loadTexture(
             url: resolveFirstTexture(for: layer, effectFragment: "iris", resolver: resolver),
@@ -80,6 +103,13 @@ enum SceneLayerEffectTextureLoader {
             loader: loader,
             device: device
         )
+        let shake = loadShakeEffects(
+            for: layer,
+            effectIDs: shakeEffectIDs,
+            resolver: resolver,
+            loader: loader,
+            device: device
+        )
         let foliageUVScale = mappedUVScale(for: foliageURL)
         let foliageScaleMessage = foliage.texture == nil || foliageUVScale == SIMD2(repeating: 1)
             ? ""
@@ -95,11 +125,66 @@ enum SceneLayerEffectTextureLoader {
             foliageMask: foliage.texture,
             foliageUVScale: foliageUVScale,
             waterRippleNormal: normal.texture,
+            shakeEffects: shake.textures,
             message: [
                 iris.message, opacity.message, water.message, foliage.message,
-                foliageScaleMessage, normal.message,
+                foliageScaleMessage, normal.message, shake.message,
             ].joined()
         )
+    }
+
+    private static func loadShakeEffects(
+        for layer: SceneRenderDescriptor.Layer,
+        effectIDs: Set<String>,
+        resolver: SceneTexturePathResolver,
+        loader: SceneTextureLoader,
+        device: MTLDevice
+    ) -> (textures: [String: SceneShakeEffectTextures], message: String) {
+        var textures: [String: SceneShakeEffectTextures] = [:]
+        var messages: [String] = []
+        for effect in layer.effects where effectIDs.contains(effect.id) {
+            guard effect.file.replacingOccurrences(of: "\\", with: "/").lowercased()
+                    == "effects/shake/effect.json",
+                  effect.passes.count == 1,
+                  let pass = effect.passes.first,
+                  pass.textureSlots.count == 3,
+                  let flowPath = pass.textureSlots[1] else {
+                continue
+            }
+            let phasePath = pass.textureSlots[2]
+            let flowURL = resolver.resolveTextureFile(named: flowPath)
+            let phaseURL = phasePath.flatMap(resolver.resolveTextureFile(named:))
+            let flow = loadTexture(
+                url: flowURL,
+                label: "shake flow",
+                loader: loader,
+                device: device
+            )
+            let phase = loadTexture(
+                url: phaseURL,
+                label: "shake phase",
+                loader: loader,
+                device: device
+            )
+            textures[effect.id] = SceneShakeEffectTextures(
+                flow: flow.texture,
+                phase: phase.texture,
+                flowUVScale: mappedUVScale(for: flowURL),
+                flowPath: flowPath,
+                phasePath: phasePath
+            )
+            messages.append(flowURL == nil
+                ? "; shake flow missing \(flowPath)"
+                : flow.message)
+            if let phasePath {
+                messages.append(phaseURL == nil
+                    ? "; shake phase missing \(phasePath)"
+                    : phase.message)
+            } else {
+                messages.append("; shake phase authored-white fallback")
+            }
+        }
+        return (textures, messages.joined())
     }
 
     private static func resolveFirstTexture(

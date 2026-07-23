@@ -1,64 +1,13 @@
 import Metal
 import simd
 
-struct SceneImageLayerMasks {
-    let iris: MTLTexture?
-    let opacity: MTLTexture?
-    let water: MTLTexture?
-    let foliage: MTLTexture?
-    let foliageUVScale: SIMD2<Float>
-    let waterRippleNormal: MTLTexture?
-}
-
-struct SceneImageLayerUniformValues {
-    let time: Float
-    let alpha: Float
-    let cursorUV: SIMD2<Float>
-    let tint: SIMD3<Float>
-
-    init(
-        time: Float,
-        alpha: Float,
-        cursorUV: SIMD2<Float>,
-        tint: SIMD3<Float> = SIMD3(repeating: 1)
-    ) {
-        self.time = time
-        self.alpha = alpha
-        self.cursorUV = cursorUV
-        self.tint = tint
-    }
-}
-
-struct SceneDependencyEffectInput {
-    let texture: MTLTexture
-    let blendMode: Int
-}
-
-struct SceneImageLayerDrawRequest {
-    let layer: SceneRenderDescriptor.Layer
-    let texture: MTLTexture
-    let masks: SceneImageLayerMasks
-    let textureFrame: SceneTextureUVTransform
-    let mvp: simd_float4x4
-    let uniforms: SceneImageLayerUniformValues
-    let offscreenTexturePool: SceneOffscreenTexturePool?
-    let offscreenSize: CGSize?
-    let requiresSourceCopy: Bool
-    let finalCompositeAlpha: Float?
-    let dependencyEffect: SceneDependencyEffectInput?
-    let authoredEffectPlan: SceneAuthoredEffectExecutionPlan?
-    let blocksLegacyGaussianBlur: Bool
-    var authoredEffectChain: SceneAuthoredEffectExecutionChain? = nil
-    var dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0)
-    var localContrastStrength: Float? = nil
-}
-
 struct SceneImageLayerCompositor {
     private let gaussianBlurPipeline: SceneGaussianBlurPipeline
     private let standardBlurPipeline: SceneStandardBlurPipeline
     private let localContrastPipeline: SceneLocalContrastPipeline
     private let opacityPipeline: SceneOpacityPipeline
     private let workshopShadowPipeline: SceneWorkshopShadowPipeline
+    private let shakePipeline: SceneShakePipeline
     private let bloomPipeline: SceneBloomPipeline
     private let gradientColorPipeline: SceneGradientColorPipeline
     private let waterRipplePipeline: SceneWaterRipplePipeline
@@ -71,6 +20,7 @@ struct SceneImageLayerCompositor {
               let localContrastPipeline = SceneLocalContrastPipeline(device: device),
               let opacityPipeline = SceneOpacityPipeline(device: device),
               let workshopShadowPipeline = SceneWorkshopShadowPipeline(device: device),
+              let shakePipeline = SceneShakePipeline(device: device),
               let bloomPipeline = SceneBloomPipeline(device: device),
               let gradientColorPipeline = SceneGradientColorPipeline(device: device),
               let waterRipplePipeline = SceneWaterRipplePipeline(device: device),
@@ -83,6 +33,7 @@ struct SceneImageLayerCompositor {
         self.localContrastPipeline = localContrastPipeline
         self.opacityPipeline = opacityPipeline
         self.workshopShadowPipeline = workshopShadowPipeline
+        self.shakePipeline = shakePipeline
         self.bloomPipeline = bloomPipeline
         self.gradientColorPipeline = gradientColorPipeline
         self.waterRipplePipeline = waterRipplePipeline
@@ -161,6 +112,7 @@ struct SceneImageLayerCompositor {
                         localContrastPipeline: localContrastPipeline,
                         opacityPipeline: opacityPipeline,
                         workshopShadowPipeline: workshopShadowPipeline,
+                        shakePipeline: shakePipeline,
                         commandBuffer: commandBuffer
                     )
                 }
@@ -251,6 +203,30 @@ struct SceneImageLayerCompositor {
                             sourceUniforms: directUniforms,
                             pipeline: pipeline,
                             workshopShadowPipeline: workshopShadowPipeline,
+                            commandBuffer: commandBuffer
+                        )
+                    case .shake(let shake):
+                        guard let resources = masks.shakeEffects[shake.effectKey.descriptorID],
+                              targets.plan.logicalTargets.isEmpty,
+                              SceneOffscreenEffectRenderer.captureSource(
+                                  sourceTexture: request.texture,
+                                  waterMaskTexture: masks.water,
+                                  foliageMaskTexture: masks.foliage,
+                                  auxMaskTexture: auxMask,
+                                  target: targets.inputTexture,
+                                  sourceUniforms: directUniforms,
+                                  pipeline: pipeline,
+                                  commandBuffer: commandBuffer
+                              ) else {
+                            return nil
+                        }
+                        return SceneShakeRenderer.render(
+                            plan: shake,
+                            resources: resources,
+                            time: directUniforms.time,
+                            inputTexture: targets.inputTexture,
+                            outputTexture: targets.outputTexture,
+                            pipeline: shakePipeline,
                             commandBuffer: commandBuffer
                         )
                     }
@@ -386,15 +362,4 @@ struct SceneImageLayerCompositor {
             textureFrame1: textureFrame.uniform1
         )
     }
-}
-
-extension SceneImageLayerMasks {
-    static let empty = SceneImageLayerMasks(
-        iris: nil,
-        opacity: nil,
-        water: nil,
-        foliage: nil,
-        foliageUVScale: SIMD2(repeating: 1),
-        waterRippleNormal: nil
-    )
 }

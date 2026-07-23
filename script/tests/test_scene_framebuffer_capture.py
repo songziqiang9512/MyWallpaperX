@@ -49,6 +49,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneEffectRuntimePlan.swift",
     SOURCE_ROOT / "Effects/SceneOffscreenEffectRenderer.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift",
+    SOURCE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift",
     SOURCE_ROOT / "Runtime/SceneGPUCompletionTelemetry.swift",
 ]
@@ -159,6 +160,7 @@ struct SceneAuthoredEffectExecutionPlan {
         case localContrast(SceneLocalContrastPlan)
         case opacity(SceneOpacityExecutionPlan)
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
+        case shake(SceneShakeExecutionPlan)
     }
 
     let layerID: Int
@@ -238,6 +240,30 @@ struct SceneAuthoredEffectExecutionPlan {
                 && bindings.first?.texture == effectInput
         }
         return bindings.isEmpty
+    }
+}
+
+struct SceneShakeExecutionPlan {
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+}
+
+struct SceneShakeEffectTextures {}
+
+struct SceneShakePipeline {
+    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
+}
+
+enum SceneShakeRenderer {
+    static func render(
+        plan: SceneShakeExecutionPlan,
+        resources: SceneShakeEffectTextures,
+        time: Float,
+        inputTexture: MTLTexture,
+        outputTexture: MTLTexture,
+        pipeline: SceneShakePipeline,
+        commandBuffer: MTLCommandBuffer
+    ) -> MTLTexture? {
+        nil
     }
 }
 
@@ -2287,7 +2313,7 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         source = (SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift").read_text(
             encoding="utf-8"
         )
-        self.assertIn("masks: isFirstStage ? masks : .empty", source)
+        self.assertIn("masks: isFirstStage ? masks : masks.shakeOnly", source)
         self.assertIn("sourceUniforms: isFirstStage ? sourceUniforms : .neutral()", source)
         self.assertIn("stage.localContrastStrength(in: dynamicValues)", source)
         self.assertIn("stage.opacityAlpha(in: dynamicValues)", source)

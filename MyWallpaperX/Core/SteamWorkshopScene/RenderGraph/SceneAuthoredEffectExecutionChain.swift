@@ -29,6 +29,10 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         stages.filter { $0.workshopShadow != nil }.count
     }
 
+    var shakeCount: Int {
+        stages.filter { $0.shake != nil }.count
+    }
+
     var liveConsumerTargets: Set<SceneDynamicTarget> {
         Set(stages.compactMap(\.liveConsumerTarget))
     }
@@ -84,6 +88,12 @@ enum SceneAuthoredEffectChainPlanner {
                 descriptor: descriptor,
                 inputRole: inputRole
             )
+            let shake = SceneAuthoredShakePlanner.plan(
+                graph: stageGraph,
+                descriptor: descriptor,
+                shaderContracts: shaderContracts,
+                inputRole: inputRole
+            )
             let stage: SceneAuthoredEffectExecutionPlan?
             if let preciseBlur {
                 stage = preciseBlur
@@ -112,6 +122,15 @@ enum SceneAuthoredEffectChainPlanner {
                     layerID: graph.layerID,
                     renderGraph: stageGraph,
                     backend: .workshopShadow(workshopShadow),
+                    materialNodeCount: 1,
+                    logicalRenderTargetCount: 0,
+                    inputRole: inputRole
+                )
+            } else if let shake {
+                stage = SceneAuthoredEffectExecutionPlan(
+                    layerID: graph.layerID,
+                    renderGraph: stageGraph,
+                    backend: .shake(shake),
                     materialNodeCount: 1,
                     logicalRenderTargetCount: 0,
                     inputRole: inputRole

@@ -298,6 +298,7 @@
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
       "expected_authored_effect_graph_workshop_shadow_count": 0,
+      "expected_authored_effect_graph_shake_count": 0,
       "expected_authored_effect_graph_chain_count": 0,
       "expected_authored_effect_graph_stage_count": 0,
       "expected_route_only_effect_count": 7
@@ -398,6 +399,7 @@
         "image_layers",
         "text_layers",
         "particle_layers",
+        "strict_effect_runtime",
         "route_only_effects"
       ],
       "project_sha256": "17d531c1c8744405d3ca723cf9f0b0482604c42cf1e8f2e4567a511ea2a91fc3",
@@ -457,6 +459,8 @@
       "expected_particle_skipped_hidden": 0,
       "required_particle_loaded_layer_ids": [],
       "expected_camera_parallax": true,
+      "requires_motion": true,
+      "minimum_changed_ratio": 0.005,
       "expected_utility_candidates": 0,
       "expected_utility_capture_planned": 0,
       "expected_utility_dependency_edges": 0,
@@ -469,19 +473,20 @@
       "required_named_target_binding_succeeded_layer_ids": [],
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [
+      "expected_authored_effect_graph_succeeded_layer_ids": [
         41,
         64,
         115
       ],
+      "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
       "expected_authored_effect_graph_workshop_shadow_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 4
+      "expected_authored_effect_graph_shake_count": 3,
+      "expected_authored_effect_graph_chain_count": 3,
+      "expected_authored_effect_graph_stage_count": 6,
+      "expected_route_only_effect_count": 1
     },
     {
       "id": "2902406982",

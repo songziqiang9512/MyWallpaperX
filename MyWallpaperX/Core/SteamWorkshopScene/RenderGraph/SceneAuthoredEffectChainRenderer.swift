@@ -14,6 +14,7 @@ enum SceneAuthoredEffectChainRenderer {
         localContrastPipeline: SceneLocalContrastPipeline,
         opacityPipeline: SceneOpacityPipeline,
         workshopShadowPipeline: SceneWorkshopShadowPipeline,
+        shakePipeline: SceneShakePipeline,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         guard !chain.stages.isEmpty,
@@ -32,7 +33,7 @@ enum SceneAuthoredEffectChainRenderer {
             guard let output = renderStage(
                 stage,
                 sourceTexture: currentSource,
-                masks: isFirstStage ? masks : .empty,
+                masks: isFirstStage ? masks : masks.shakeOnly,
                 targets: targets[index],
                 dynamicValues: dynamicValues,
                 sourceUniforms: isFirstStage ? sourceUniforms : .neutral(),
@@ -42,6 +43,8 @@ enum SceneAuthoredEffectChainRenderer {
                 localContrastPipeline: localContrastPipeline,
                 opacityPipeline: opacityPipeline,
                 workshopShadowPipeline: workshopShadowPipeline,
+                shakePipeline: shakePipeline,
+                time: sourceUniforms.time,
                 commandBuffer: commandBuffer
             ) else {
                 return nil
@@ -64,6 +67,8 @@ enum SceneAuthoredEffectChainRenderer {
         localContrastPipeline: SceneLocalContrastPipeline,
         opacityPipeline: SceneOpacityPipeline,
         workshopShadowPipeline: SceneWorkshopShadowPipeline,
+        shakePipeline: SceneShakePipeline,
+        time: Float,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         let auxMask = masks.iris ?? masks.opacity
@@ -144,6 +149,30 @@ enum SceneAuthoredEffectChainRenderer {
                 sourceUniforms: sourceUniforms,
                 pipeline: pipeline,
                 workshopShadowPipeline: workshopShadowPipeline,
+                commandBuffer: commandBuffer
+            )
+        case .shake(let shake):
+            guard let resources = masks.shakeEffects[shake.effectKey.descriptorID],
+                  targets.plan.logicalTargets.isEmpty,
+                  SceneOffscreenEffectRenderer.captureSource(
+                      sourceTexture: sourceTexture,
+                      waterMaskTexture: masks.water,
+                      foliageMaskTexture: masks.foliage,
+                      auxMaskTexture: auxMask,
+                      target: targets.inputTexture,
+                      sourceUniforms: sourceUniforms,
+                      pipeline: pipeline,
+                      commandBuffer: commandBuffer
+                  ) else {
+                return nil
+            }
+            return SceneShakeRenderer.render(
+                plan: shake,
+                resources: resources,
+                time: time,
+                inputTexture: targets.inputTexture,
+                outputTexture: targets.outputTexture,
+                pipeline: shakePipeline,
                 commandBuffer: commandBuffer
             )
         }

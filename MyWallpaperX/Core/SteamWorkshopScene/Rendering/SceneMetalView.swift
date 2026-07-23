@@ -198,6 +198,11 @@ class SceneMetalView: NSView {
         for layer in imageLayers {
             let name = layer.name ?? "(unnamed)"
             let placementSummary = renderer.debugPlacementSummary(for: layer)
+            let shakeEffectIDs = Set(
+                renderer.authoredEffectChain(for: layer.id)?.stages.compactMap {
+                    $0.shake?.effectKey.descriptorID
+                } ?? []
+            )
             if layer.contentKind == "solid" {
                 guard let texture = solidLayerTexture else {
                     report.append("layer \(layer.id) \"\(name)\": procedural solid texture unavailable; \(placementSummary)")
@@ -205,7 +210,8 @@ class SceneMetalView: NSView {
                 }
                 loaded[layer.id] = texture
                 let effectTextures = SceneLayerEffectTextureLoader.load(
-                    for: layer, resolver: resolver, loader: loader, device: metalDevice
+                    for: layer, resolver: resolver, loader: loader, device: metalDevice,
+                    shakeEffectIDs: shakeEffectIDs
                 )
                 loadedEffectTextures.merge(layerID: layer.id, textures: effectTextures)
                 let color = SIMD3(layer.colorRGB ?? [], fill: 1)
@@ -260,7 +266,8 @@ class SceneMetalView: NSView {
                     for: layer,
                     resolver: resolver,
                     loader: loader,
-                    device: metalDevice
+                    device: metalDevice,
+                    shakeEffectIDs: shakeEffectIDs
                 )
                 loadedEffectTextures.merge(layerID: layer.id, textures: effectTextures)
                 message += effectTextures.message
@@ -366,12 +373,7 @@ class SceneMetalView: NSView {
             imageTextures: currentImageTextures,
             userPropertyTextures: userPropertyTextureLoad.textures,
             spriteAnimations: spriteAnimations,
-            irisMaskTextures: effectTextures.irisMasks,
-            opacityMaskTextures: effectTextures.opacityMasks,
-            waterMaskTextures: effectTextures.waterMasks,
-            foliageMaskTextures: effectTextures.foliageMasks,
-            foliageMaskUVScales: effectTextures.foliageUVScales,
-            waterRippleNormalTextures: effectTextures.waterRippleNormals,
+            effectTextures: effectTextures,
             imagePipeline: imagePipeline,
             particleBatches: particleBatches,
             particlePipeline: particlePlayback?.pipeline,

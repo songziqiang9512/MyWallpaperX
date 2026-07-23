@@ -63,6 +63,27 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             samples["2974757317"]["expected_utility_named_target_gaps"],
             3,
         )
+        positive_shake = samples["2802243144"]
+        self.assertEqual(
+            positive_shake["expected_authored_effect_graph_succeeded_layer_ids"],
+            [41, 64, 115],
+        )
+        self.assertEqual(
+            positive_shake["expected_authored_effect_graph_legacy_blur_blocked_layer_ids"],
+            [],
+        )
+        self.assertEqual(positive_shake["expected_authored_effect_graph_shake_count"], 3)
+        self.assertEqual(positive_shake["expected_authored_effect_graph_chain_count"], 3)
+        self.assertEqual(positive_shake["expected_authored_effect_graph_stage_count"], 6)
+        self.assertEqual(positive_shake["expected_route_only_effect_count"], 1)
+        self.assertTrue(positive_shake["requires_motion"])
+        self.assertGreater(positive_shake["minimum_changed_ratio"], 0)
+        negative_shake = samples["2134765860"]
+        self.assertEqual(negative_shake["expected_authored_effect_graph_shake_count"], 0)
+        self.assertEqual(
+            negative_shake["expected_authored_effect_graph_succeeded_layer_ids"],
+            [],
+        )
 
     def test_load_matrix_accepts_version_one_samples(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-matrix-") as directory:
@@ -1052,6 +1073,32 @@ utility layer 763: skippedHidden kind=composition
                 workshop_shadow_count=count,
             ),
         )
+
+    def test_authored_shake_count_is_an_exact_gate(self) -> None:
+        preview = "authoredEffectGraphShakeCount: 3\n"
+        count = benchmark.authored_effect_graph_shake_count(preview)
+        self.assertEqual(count, 3)
+        self.assertEqual(
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_shake_count": 3},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                shake_count=count,
+            ),
+            [],
+        )
+        self.assertIn(
+            "authored effect graph Shake count mismatch",
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_shake_count": 0},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                shake_count=count,
+            ),
+        )
+        self.assertIsNone(benchmark.authored_effect_graph_shake_count(""))
 
     def test_authored_opacity_and_route_only_counts_are_exact_gates(self) -> None:
         preview = (

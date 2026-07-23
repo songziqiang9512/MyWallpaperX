@@ -21,6 +21,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredLocalContrastPlanner.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionChain.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredPreciseBlurPlanner+Topology.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredStandardBlurPlanner.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
@@ -90,6 +91,19 @@ enum SceneAuthoredWorkshopShadowPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneWorkshopShadowExecutionPlan? {
+        nil
+    }
+}
+
+struct SceneShakeExecutionPlan {}
+
+enum SceneAuthoredShakePlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneShakeExecutionPlan? {
         nil
     }
 }
