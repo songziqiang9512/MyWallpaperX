@@ -184,7 +184,7 @@ Motion Blur 等定义含显式 copy，用来复制 source 像素到 target；省
 
 资源注册表应以 `wallpaper + screen + object + effect instance + RT name` 作为身份基础。是否跨帧保留必须由 read-before-write、copy/swap、function/reset 和生命周期数据流判定，不能只看 `unique`。最终判为 persistent 的资源在 resize、壁纸切换、seek、停止和设备丢失时必须清理或重建。
 
-MyWallpaperX v22 继承逐帧 registry、binding program 与 ShaderContract，并加入 direct text content/point-size/color target。effect target table 已被五个 strict backend 消费；`1762743` 另以 per-layer signature/generation 更新文本纹理，不把 dynamic text 塞进 effect graph。pool 仍只在全部 strict stage 成功后提交最终输出。其他 RGBA graph、history、跨帧 persistent、system/media/video/Texture Variants、通用 material consumer 和 copy/swap 生命周期仍未实现。
+MyWallpaperX v22 继承逐帧 registry、binding program 与 ShaderContract，并加入 direct text content/point-size/color target。effect target table 已被五个 strict backend 消费；dynamic text 以 per-layer signature/generation 更新纹理，不塞进 effect graph。同帧 copy/swap 已有独立 plan/runtime，严格要求已写入、descriptor 匹配和无物理 alias；它尚未与 material scheduler 交错。其他 RGBA graph、history/跨帧 persistent、compose、system/media/video/Texture Variants 与通用 material consumer 仍未实现。
 
 ## 7. Material definition
 
@@ -299,7 +299,7 @@ present or read back
 | 层级 | 当前状态 | 下一合同 |
 |---|---|---|
 | Scene/object IR | format 22 继承 ShaderContract/provider/authored graph/Opacity，并增加 direct text content/point-size/color binding contract | 保持 raw/typed 双层合同，不把未知字段静默解释为支持 |
-| dependency | graph 已结构化区分固定 `previous`、effect-scoped RT 和 copy/swap；五个 strict backend 与 ordered chain 已消费 effect target table，并闭合整链 identity/continuity、allocation/cache/LRU 事务、末段合成与 reset；bounded frame registry 按另一命名空间处理 named target、property-authored fallback 和受限 PNG/JPEG property source | 并行补显式 dynamic generation、system/media/video/variant/effectful/nested source；copy/swap/compose/history 仍按独立合同接入 |
+| dependency | graph 已结构化区分固定 `previous`、effect-scoped RT 和 copy/swap；五个 strict backend 与 ordered chain 已消费 effect target table，并闭合整链 identity/continuity、allocation/cache/LRU 事务、末段合成与 reset；同帧 copy/swap 已有严格 command foundation；bounded frame registry 按另一命名空间处理 named target、property-authored fallback 和受限 PNG/JPEG property source | 并行补 system/media/video/variant/effectful/nested source；接入 material-command interleave、compose 与 persistent/history |
 | material/shader | sparse-slot candidate resolver、ShaderContract v1、strict 2-pass precise、stock standard Blur 4-pass、stock Local Contrast 4-pass、exact Workshop Shadow 与 exact stock Opacity single-pass 共 5 类 backend 已落地；运行时整体仍以手写 MSL 近似为主 | 补 typed shader defaults、preprocessor/translation/compile、通用 provider consumer、nested target 和更多 pass。现有 strict backend 不代表 official generic shader 或 Windows pixel parity |
 | local deformation | Foliage/Water/Shake 等有不同程度近似 | 以 [Effects 全集](effects-reference.md) 的输入、空间和 mask 合同替换 |
 | live values | format 22 binding program；layer alpha、solid color、direct text、Local Contrast/Opacity consumer 已执行；hidden/no-consumer text 与其他 target 仍重建，Timeline/SceneScript 未接入 | 下一 target 继续同批接 compiler、consumer、fallback 与 identity 门 |

@@ -4,9 +4,9 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`1762743`
+> 本页的 direct dynamic text 实现基线为 `1762743`；精确全局当前状态见 [总覆盖台账](coverage-ledger.md)。
 >
-> 当前正式门：`.codex/scene-dynamic-text-final13-20260723-1915/report.json`（13/13、interpretation v22、strict graph 14 stage/1 chain/0 failed；相关测试 273 total / 271 passed / 2 skipped）。direct text 定向门：`.codex/scene-dynamic-text-targeted-213-final-20260723-1907/report.json`。
+> 本专项的 direct text 定向门：`.codex/scene-dynamic-text-targeted-213-final-20260723-1907/report.json`；全局正式门统一见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把 Frame Context、动态目标、Timeline、用户属性、文字、光标、音频、媒体和纹理 provider 放在同一执行合同下。官方语义摘要见 [`runtime-systems-reference.md`](runtime-systems-reference.md)，等级口径见 [`coverage-ledger.md`](coverage-ledger.md)。
 
@@ -368,6 +368,6 @@ Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选
 1. **B0 live-property 与首个 generation consumer 已完成**：format 22 binding program、per-surface transaction、atomic state，以及 layer alpha、solid color、direct text、Local Contrast/Opacity consumer 均已闭环；隔离真实样本证明 live 更新不替换 surface/window。
 2. 新增任何 live target 时，必须在同一能力切片中补稳定 identity/value semantic、compiler definition/instruction、真实 renderer/runtime consumer、原子失败、fallback 与 identity 运行门；缺一项就保留整场重建。
 3. B2 ordered strict scheduler、exact Workshop Shadow 与 stock Opacity `MASK=0` 已完成。`2902406982:[365,372,647,664]` 是 direct-binding live 正门；`2938612768:[165,454,626,629,924]` 是 SceneScript fail-closed 负门。optional mask、未知 fingerprint 或缺 consumer 的部分 live 继续拒绝。
-4. 下一步推进 B2 copy/swap/compose/history；B1 把 dynamic text 已验证的 generation/stale-cancellation/last-ready 合同推广到 system/media/video provider。visibility 仍需 topology invalidation 后才能取消整场重建。
+4. B2 同帧 copy/swap foundation 已完成，下一步推进 persistent/history、material-command interleave 与 compose；B1 把 dynamic text 已验证的 generation/stale-cancellation/last-ready 合同推广到 system/media/video provider。visibility 仍需 topology invalidation 后才能取消整场重建。
 5. Timeline 完整保存后接 evaluator；SceneScript 只有在 source/binding IR 和沙箱成立后接入同一 target 层。
 6. audio/media provider 必须有作者未启用反例、失败 fallback、generation/cancel 和 stop teardown。

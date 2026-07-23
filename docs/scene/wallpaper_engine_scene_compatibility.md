@@ -570,7 +570,7 @@ https://docs.wallpaperengine.io/en/scene/rgb/introduction.html
 
 本节是通用第三方播放器的能力依赖建议，不是对 Workshop 覆盖率的官方统计，也不直接代表 MyWallpaperX 当前优先级。“绝大多数”“热门”等覆盖结论必须由项目自己的隔离样本矩阵支持。
 
-对 MyWallpaperX 当前阶段，实现基线 `b8842d8` 已落地 bounded named-target capture/binding、precise Blur、standard Blur、stock Local Contrast、exact Workshop Shadow、exact stock Opacity 五个 strict backend、ordered strict effect-chain、typed frame registry/property authored-fallback、授权 PNG/JPEG `sceneTexture` 的受限静态 consumer、统一 Frame Context 第一阶段和首批 9 个 built-in 粒子纹理。B0 binding program、per-surface transaction/snapshot 与 layer alpha、纯 solid color、Local Contrast strength、stock Opacity direct alpha consumer 已完成。最新正式门 `.codex/scene-opacity-final13-20260723-1730/report.json` 为 13/13；五个 strict backend 合计 stages 14、chains 1、Opacity 4、Workshop Shadow 1、failed 0、legacy blocked 2、route-only 30。290 的 Opacity layers `[365,372,647,664]` 是正门，293 的 SceneScript candidates `[165,454,626,629,924]` 保持 Opacity/stages 0。Scene 测试 269 项中 267 通过、2 跳过；签名 CDHash `6e70e547f61dcc6821009a4ebbd97af156fb5916`，executable SHA-256 `0cbaff3bd989e5cb9f8807236fd270feec19ca1f18548c122ca3ccb74033774a`。下一阶段继续闭合 Provider Core、动态文字、copy/swap/compose/history、通用 material/shader 和 effect breadth，最后集中做 Windows golden 精度校准；route-only 只作布局诊断，不作为剩余 capability 总数。能力等级与执行顺序分别以 [覆盖台账](semantics/coverage-ledger.md) 和 [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md) 为准。
+MyWallpaperX 的精确当前提交、运行矩阵、测试总数和签名身份不在这份能力地图重复维护，统一查 [覆盖台账](semantics/coverage-ledger.md)、[运行证据索引](semantics/runtime-evidence-index.md) 和 [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md)。本节以下优先级只描述公共依赖顺序，不把 route-only 或旧样本计数当成剩余能力总数。
 
 ### P0：基础播放可见
 
@@ -855,9 +855,9 @@ Wallpaper Engine 的 Scene 壁纸本质上是一个实时渲染场景系统，�
 
 对 MyWallpaperX 当前阶段，兼容优先级应按主构图影响和真实样本命中推进：
 
-1. **已完成 live-value 公共底座的产品子集**：binding program、同帧 per-surface snapshot、原子 transaction，以及 alpha/solid color/Local Contrast strength consumer；Timeline/SceneScript、动态文字和 cursor/audio/media 输入仍按同一 target 合同扩展；
+1. **已完成 live-value 公共底座的产品子集**：binding program、同帧 per-surface snapshot、原子 transaction，以及 alpha/solid color/Local Contrast strength/Opacity/direct dynamic text consumer；Timeline/SceneScript 和 cursor/audio/media 输入仍按同一 target 合同扩展；
 2. **首条真实 strict chain 已完成**：`3724289844:20` 的 exact Workshop single-pass Shadow 已把 `Blur Precise -> Shadow` 接入 ordered scheduler；该 profile 只按完整合同准入并记为 exact Workshop `L3 executed-degraded`，不代表官方 45 项 Effect 表的通用 Shadow 或 generic shader；`common_blending` mode 0 无官方像素 oracle，因此没有 WE pixel-equivalence 结论；
-3. **继续贯通 Provider Core 与 feature breadth**：stock Opacity `MASK=0` direct alpha 已进入 binding program/per-surface snapshot/GPU；下一步补动态 provider generation/stale cancellation 和高命中 consumer，再扩 system/media/Texture Variants、通用 material、copy/swap/compose/history 与更多 effect backend；
+3. **继续贯通 Graph Resource Runtime 与 Provider Core**：同帧 copy/swap 已有严格 command foundation；下一步补 persistent/history、material-command interleave、compose，再把 generation/stale cancellation 推广到 system/media/Texture Variants、通用 material 与更多 effect backend；
 4. **再集中校准视觉精度**：字体、视差、粒子、Bloom/HDR、water/lighting 与 Windows WE golden；
 5. **后置高成本长尾**：Puppet Warp、3D、任意自定义 shader、RGB 与高级物理。
 

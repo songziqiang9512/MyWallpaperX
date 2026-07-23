@@ -361,37 +361,24 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
 
         current_state_documents = (
             LEDGER_PATH,
-            DEPENDENCY_MAP_PATH,
             RUNTIME_EVIDENCE_PATH,
-            RUNTIME_INPUT_COVERAGE_PATH,
-            SCENE_FORMAT_PATH,
             DEVELOPMENT_PLAN_PATH,
             ROADMAP_PATH,
-            SAMPLE_ASSESSMENT_PATH,
-            RUNTIME_SYSTEMS_REFERENCE_PATH,
         )
         for path in current_state_documents:
             text = document_text[path]
             self.assertIn(
-                "`1762743`",
+                "`f1c6a10`",
                 text,
-                f"Current Scene document is missing the dynamic-text baseline: {path}",
+                f"Current Scene entrypoint is missing the graph-command baseline: {path}",
             )
 
-        report_path = ".codex/scene-dynamic-text-final13-20260723-1915/report.json"
-        for path in (
-            LEDGER_PATH,
-            DEPENDENCY_MAP_PATH,
-            RUNTIME_EVIDENCE_PATH,
-            RUNTIME_INPUT_COVERAGE_PATH,
-            DEVELOPMENT_PLAN_PATH,
-            ROADMAP_PATH,
-            SAMPLE_ASSESSMENT_PATH,
-        ):
+        report_path = ".codex/scene-copy-swap-final13-20260723-1955/report.json"
+        for path in current_state_documents:
             self.assertIn(
                 report_path,
                 document_text[path],
-                f"Current Scene document is missing the final dynamic-text report: {path}",
+                f"Current Scene entrypoint is missing the final graph-command report: {path}",
             )
 
         evidence = document_text[RUNTIME_EVIDENCE_PATH]
@@ -399,18 +386,14 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         self.assertIn("### E-EFFECT-OPACITY:", evidence)
         self.assertIn("### E-EFFECT-WORKSHOP-SHADOW:", evidence)
         self.assertIn("### E-EFFECT-CHAIN: ordered strict effect-chain scheduler", evidence)
-        self.assertIn("Scene tests 273 total / 271 pass / 2 skip", evidence)
+        self.assertIn("### E-GRAPH-COMMAND: same-frame copy/swap foundation", evidence)
+        self.assertIn("Scene tests 275 total / 273 pass / 2 skip", evidence)
         self.assertIn(
             "ordered strict effect-chain",
             document_text[DEPENDENCY_MAP_PATH],
         )
-        for path in current_state_documents:
-            text = document_text[path]
-            self.assertIn(
-                "dynamic text",
-                text,
-                f"Current Scene document is missing the dynamic-text state: {path}",
-            )
+        self.assertIn("同帧 copy/swap", document_text[DEPENDENCY_MAP_PATH])
+        self.assertIn("persistent/history", document_text[DEPENDENCY_MAP_PATH])
 
         current_status = "\n".join(document_text.values())
         for fact in (

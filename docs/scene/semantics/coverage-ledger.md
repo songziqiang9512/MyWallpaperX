@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-23
 >
-> Scene 实现基线：`1762743`
+> Scene 实现基线：`f1c6a10`
 >
-> 视觉运行基线：`.codex/scene-dynamic-text-final13-20260723-1915/report.json`
+> 视觉运行基线：`.codex/scene-copy-swap-final13-20260723-1955/report.json`
 >
-> 最新运行门：dynamic text 正式矩阵 13/13；五个 strict backend 指标保持 14 stage、1 real chain、0 failed。`2134765860` 的 `customtext/textcolor/textsize` 是 direct dynamic text 正门；SceneScript/time/media 仍 fail closed。当前 Scene 全量测试共 273 项、271 项通过、2 项跳过，最新签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：copy/swap 正式矩阵 13/13；五个 strict backend 指标保持 14 stage、1 real chain、0 failed。`3723344874` 观察到 copy 1/swap 2，但仍因 function/condition 保持 0 stage/0 chain。当前 Scene 全量测试共 275 项、273 项通过、2 项跳过，最新签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -73,7 +73,7 @@
 | Current-frame capture | `L3` | bounded utility prefix capture 可执行 | 通用 capture/extent/format/mask | B2/B3 |
 | Named primary target | `L3` | bounded `_a` producer/consumer 可执行 | 通用 authored identity 和依赖环检测 | B2 |
 | Named secondary identity | `L2` | registry 区分完整 variant；无 `_b` producer/consumer flow | secondary 数据流、copy/swap/history | B2 |
-| Generic FBO command graph | `L2` | target/bind/compose/copy/swap/condition/function 可保留或 blocker；effect-scoped target/lifetime table 已由五个 strict backend 与 ordered strict chain 消费，整链 allocation/cache/LRU 事务有门 | strict material-only chain 子集为 `L3`；通用 graph 仍需 copy/swap/compose/history/condition/function、typed state 和完整生命周期 | B2 |
+| Generic FBO command graph | `L2` | target/bind/compose/copy/swap/condition/function 可保留或 blocker；effect-scoped target/lifetime table 已由五个 strict backend 与 ordered strict chain 消费；同帧 copy/swap 已有严格 plan/runtime 门 | strict material-only chain 子集为 `L3`；通用 graph 仍需 material-command interleave、compose/history/condition/function、typed state 和完整生命周期 | B2 |
 | History RT | `L0` | 无跨帧通用 ping-pong/history 生命周期 | read-before-write、reset、resize/switch/stop、确定性门 | B2 |
 | Authored shader path/source identity | `L1` | material path 与 ShaderContract stage/source/raw hash/canonical identity 已安全保存 | 尚无 include expansion、translation、compile 或 executor | B2 |
 | Shader source/include/annotation/declaration contract | `L1` | 完整 source、include reference、annotation raw/structured value、uniform/attribute/varying declaration 已 loss-preserving 保存并诊断 | typed default/combo consumer、include expansion、macro/permutation preprocessor、stage link/translation/compile | B2 |
@@ -232,13 +232,13 @@
 |---|---|---|---|
 | **B0 Contract/Runtime Kernel** | `S3 第 1-4 项` | v22 binding program、per-surface transaction、atomic state、alpha/solid-color/direct-text/strict Local Contrast/Opacity consumer 与 rebuild fallback 已闭合 | 新 live target 继续要求 compiler、consumer、原子失败与不换 surface/window；pause/fixed-time 单列 |
 | **B1 Provider Core** | `S2 第 5 项 + S3` | dynamic text 已完成 per-layer generation、stale cancellation、last-ready fallback；frame registry 双代已完成 | 把 status/metadata/cancel/teardown 推广到 Texture Variants、video/system/media 与 material candidate；不含 nested graph source |
-| **B2 Graph Resource Runtime** | `S2 第 1-5 项` | strict Blur、stock Local Contrast、exact Workshop `shadow_____________`、exact stock Opacity 与 ordered strict effect-chain 已消费 target table；cache/resize/reset、整链原子 allocation、D7 ShaderContract IR v1、BGRA/RGBA format 与 exact shader fingerprint gate 已完成；下一步 copy/swap/compose/history、typed shader defaults/built-ins/state | read/write、RT lifecycle、slot/combo/state 和 resize/switch/stop 门 |
+| **B2 Graph Resource Runtime** | `S2 第 1-5 项` | strict Blur、stock Local Contrast、exact Workshop `shadow_____________`、exact stock Opacity 与 ordered strict effect-chain 已消费 target table；cache/resize/reset、整链原子 allocation、D7 ShaderContract IR v1、BGRA/RGBA format、exact shader fingerprint 与同帧 copy/swap command foundation 已完成；下一步 persistent/history、material-command interleave、compose 与 typed shader defaults/built-ins/state | read/write、RT lifecycle、slot/combo/state 和 resize/switch/stop 门 |
 | **B3 Provider-Graph Integration** | `S2 第 5-6 项` | nested/effectful/scene-background source、通用 material consumer、45 Effect 严格 profile family | B1+B2 均完成后接入；不得新增 effect-name 视觉旁路 |
 | **B4 Feature Breadth** | `S3-S4` | direct dynamic text 已完成首个子集；Timeline、SceneScript core、system/media text、cursor/audio/media、按依赖排序的 particle breadth仍待推进 | 每族正向、默认关闭、unsupported、determinism 和 lifecycle 门 |
 | **B5 Fidelity** | `S2-S4` 广度完成后 | 字体、视差、粒子、常用 Effect 与 WE Windows golden 对齐 | 固定输入逐像素/数值阈值、性能预算、长稳和多屏门 |
 | **Advanced** | `S5` | Puppet、2D light/HDR、3D、arbitrary custom shader、RGB、offline bake | 每个系统有完整 IR/runtime/lifecycle/product gate 后再升级 |
 
-研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、B2 ordered strict chain、Workshop Shadow 与 stock Opacity 已合龙。下一主线推进 copy/swap/compose/history；B1 把文本验证过的 lifecycle 推广到 system/media/video，再到 B3 -> B4 -> B5。route-only 只作布局诊断。
+研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、B2 ordered strict chain、Workshop Shadow、stock Opacity 与同帧 copy/swap command foundation 已合龙。下一主线推进 persistent/history、material-command interleave 与 compose；B1 把文本验证过的 lifecycle 推广到 system/media/video，再到 B3 -> B4 -> B5。route-only 只作布局诊断。
 
 ## 9. 更新规则
 

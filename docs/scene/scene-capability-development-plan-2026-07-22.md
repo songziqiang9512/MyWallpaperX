@@ -2,7 +2,7 @@
 
 > 建立日期：2026-07-22
 >
-> 最近更新：2026-07-23（当前实现基线 `1762743`；interpretation v22；direct text content/point-size/color 已通过 per-surface snapshot、异步 generation/stale cancellation 与真实样本门；B2 五个 strict backend 与 ordered strict effect-chain scheduler 已执行；下一步推进 copy/swap/compose/history，并把文本 provider 的 lifecycle 合同推广到 system/media/video）
+> 最近更新：2026-07-23（当前实现基线 `f1c6a10`；interpretation v22；B0 direct dynamic text 与 B2 同帧 copy/swap command foundation 已通过合同门；五个 strict backend 与 ordered strict effect-chain 仍是当前 GPU 执行子集；下一步推进 persistent/history 生命周期、material-command interleave、compose，并把文本 provider 的 lifecycle 合同推广到 system/media/video）
 >
 > 作用：定义 MyWallpaperX Scene runtime 从当前可审计子集向 Wallpaper Engine 常用能力逼近的实施顺序、样本门和验收标准。作者/执行语义先查 [`semantics/README.md`](semantics/README.md)；当前能力结论仍以 [`../reviews/web-scene-current-state-roadmap-2026-07-19.md`](../reviews/web-scene-current-state-roadmap-2026-07-19.md) 与最新运行证据为准；历史 memo 不反向覆盖本计划。
 
@@ -55,12 +55,12 @@
 - effect-chain target allocation 先在候选态完成所有 stage plan/table、预算与 LRU victims，再一次提交 cache/resident bytes/access counter；失败不刷新部分命中的 LRU，也不留下半条链。singleton strict plan 复用同一事务，旧直接测试入口保留；
 - `8474ace` 完成 D7 ShaderContract IR v1：完整 UTF-8 source、raw SHA-256、stage path/kind、include、JSON annotation、uniform/attribute/varying declaration、diagnostic 和 canonical SHA 进入 v19；绝对/穿越路径、shader root/stage/include symlink escape、无效 UTF-8、缺失 stage、畸形 annotation 和重复 identity 均 fail closed。generic D7 仍只达到 L1 识别/保留；`136d35c` 仅把 exact Local Contrast 的 identity/canonical/stage/raw source hashes 用作 strict 准入门，实际执行项目自有 Metal pipeline，不预处理、翻译、编译或执行 authored shader source；
 - `228cdde` 完成 Local Contrast 的资源格式前置：graph plan/table 新增 `rgba8888 -> .rgba8Unorm`，input/output 与 `rgba_backbuffer` 保持 `.bgra8Unorm`；两种格式均按 4 B/px 计费，格式变化原子替换 cache，未知格式继续 fail closed。该提交当时尚无执行层，随后 `136d35c` 已让 exact stock Local Contrast 消费该格式；
-- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；`1762743` 的最新正式矩阵 `.codex/scene-dynamic-text-final13-20260723-1915/report.json` 为 **13/13**，矩阵 SHA-256 为 `fbb252a64018cf785e20b2200db5966a300e9351a994b4a36f1fe9565c5b354c`。五个 strict backend 仍合计 stage 14、完整真实 chain 1、Opacity 4、Workshop Shadow 1、GPU failed 0、legacy blocked 2、route-only 30。动态文字定向门 `.codex/scene-dynamic-text-targeted-213-final-20260723-1907/report.json` 令 `2134765860` 先以 `text=2` 启用作者 Custom 模式，再 live 更新 `customtext/textcolor/textsize`；surface/window identity 不变，changed ratio `0.003541478640192539`。全量 Scene 共 **273 项，其中 271 项通过、2 项跳过**。签名 App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `25f1e84ab81ee23d270ea1e436de0e47ccd34489`、可执行文件 SHA-256 `85634666c237a9026ac89b04bc33815963f24fd77b339c1520f6cb20ae29f5d6`，运行前后签名均验证。
+- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；`f1c6a10` 的最新正式矩阵 `.codex/scene-copy-swap-final13-20260723-1955/report.json` 为 **13/13**，报告 SHA-256 为 `1399d3ea4a4c00bb5529dc6db7b0fd80e810003c945e04d6a26200944f18fe74`，矩阵 SHA-256 为 `fbb252a64018cf785e20b2200db5966a300e9351a994b4a36f1fe9565c5b354c`。五个 strict backend 仍合计 stage 14、完整真实 chain 1、Opacity 4、Workshop Shadow 1、GPU failed 0、legacy blocked 2、route-only 30；copy definition 1、swap definition 2、graph swap node 2。定向 `3723344874` 仍为 0 stage/0 chain，并保留 1 个 function 与 4 个 condition blocker。全量 Scene 共 **275 项，其中 273 项通过、2 项跳过**。签名 App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `c0940f2da38e653e338d829663ad3a0596c73b50`、可执行文件 SHA-256 `fe940c3d6706655d0a07556ef7570ab581c9ee000c5ec62344bd0df92c6d9827`，运行前后签名均验证。
 
 ### 仅解析/诊断或部分实现
 
-- authored graph 只有 precise Blur、stock Blur、exact stock Local Contrast、exact Workshop Shadow 和 exact stock Opacity 五个 strict backend 进入 renderer；当前真实 13 样本只有 `3724289844:20` 一条正向 multi-effect chain。named target、静态 image blend 和其余手写 effect 仍是受限执行器，child/nested target、effectful/media provider、copy/swap/compose/history/condition/function 和通用 mask/material/shader 尚未实现；
-- typed frame texture registry、resource/frame 双代、authored fallback 和 PNG/JPEG property file/bookmark/decode 已进入 runtime；dynamic text 已提供 per-layer generation、串行异步栅格化、stale cancellation 和 last-ready fallback。通用 provider metadata/status/cancel、`$mediaThumbnail`、Texture Variants、video frame、通用 material property consumer、effectful/nested provider 与 history/copy/swap 尚未接入；
+- authored graph 只有 precise Blur、stock Blur、exact stock Local Contrast、exact Workshop Shadow 和 exact stock Opacity 五个 strict backend 进入 renderer；当前真实 13 样本只有 `3724289844:20` 一条正向 multi-effect chain。同帧 copy/swap 只完成独立 plan/runtime foundation，尚未接进 material-command scheduler；named target、静态 image blend 和其余手写 effect 仍是受限执行器，child/nested target、effectful/media provider、compose/history/condition/function 和通用 mask/material/shader 尚未实现；
+- typed frame texture registry、resource/frame 双代、authored fallback 和 PNG/JPEG property file/bookmark/decode 已进入 runtime；dynamic text 已提供 per-layer generation、串行异步栅格化、stale cancellation 和 last-ready fallback。通用 provider metadata/status/cancel、`$mediaThumbnail`、Texture Variants、video frame、通用 material property consumer、effectful/nested provider 与 persistent/history 生命周期尚未接入；
 - Timeline 没有正式 target/keyframe/mode/tangent/event IR；部分粒子动态 wrapper 只保留 presence/诊断，不能记为 Timeline 数据模型；
 - SceneScript 只发现 `.js` 资源和 inline `script` presence；inline/source 内容、owner/property binding 和返回类型会丢失，也没有 ECMAScript runtime、`init/update`、事件、globals、Date/Math live value 或属性写回；
 - 用户属性 parser 已把官方 `texture` 与样本 raw `scenetexture` 归一为内部 texture-provider 类型并保留原始 runtime type；PNG/JPEG 文件选择/授权/加载已闭合首个静态 consumer 子集，layer alpha、纯 solid layer color、direct text content/point-size/color、exact stock Local Contrast strength 与 stock Opacity alpha 已无重建 live；Texture Variants、media/video texture、transform、non-solid/mixed color、其他 effect constant、particle/audio/puppet target 和 SceneScript `applyUserProperties` 仍未闭环；
@@ -117,7 +117,7 @@
 2. **Authored graph planner（已完成结构阶段）**：v16 区分 effect input `previous`、effect-scoped RT、material/command ordinal、copy/swap 和 blocker，并用 canonical SHA 锁定逐样本图身份。当前 5 个 condition/function blocker 均 fail closed。
 3. **S2.3a precise-blur graph backend（已完成受限阶段）**：统一 resolver 与严格 topology/state/resource gate 驱动 5 个可见层进入固定近似 Gaussian；不满足合同的 layer 20 不再回退旧文件名模糊，隐藏层不执行，RT 被预算缩放时拒绝。
 4. **S2.3b standard Blur graph backend（默认 profile 已完成）**：以 `2902406982` layer `530` 的真实 4-node、2 个 quarter RT 图为门，完成 alpha-aware downsample -> 13-tap horizontal/vertical Gaussian -> default previous combine；不支持的 KERNEL1/2、COMPOSITE1-3、MASK、BLURALPHA0 与混合图继续 fail closed，不回退 legacy coarse blur。
-5. **Provider Core 与 Graph Resource Runtime 分开闭合**：typed frame registry、resource/frame 双代、逐 slot 候选、authored fallback、PNG/JPEG `sceneTexture` 第一切片、effect target table、ShaderContract IR v1、`rgba8888` target format、五个 strict backend、ordered strict effect-chain scheduler 与首条真实 `Blur Precise -> Shadow` chain 已完成。dynamic text 已成为首个 per-layer generation/stale-cancellation/last-ready consumer；B1 下一步把相同 lifecycle 推广到 Texture Variants、video/system/media，B2 转入 copy/swap/compose/history 与 typed shader defaults/built-ins/state。`2938612768` 可见 mixed chains 继续作为整链 fail-closed 负向门；route-only 不作为完整 gap census。
+5. **Provider Core 与 Graph Resource Runtime 分开闭合**：typed frame registry、resource/frame 双代、逐 slot 候选、authored fallback、PNG/JPEG `sceneTexture` 第一切片、effect target table、ShaderContract IR v1、`rgba8888` target format、五个 strict backend、ordered strict effect-chain scheduler、首条真实 `Blur Precise -> Shadow` chain 与同帧 copy/swap command foundation 已完成。dynamic text 已成为首个 per-layer generation/stale-cancellation/last-ready consumer；B1 下一步把相同 lifecycle 推广到 Texture Variants、video/system/media，B2 转入 persistent/history、material-command interleave、compose 与 typed shader defaults/built-ins/state。`2938612768` 可见 mixed chains 继续作为整链 fail-closed 负向门；route-only 不作为完整 gap census。
 6. **高命中 Effect 批次有硬前置**：Shake/Swing/Foliage、Water、Depth Parallax、Blend/Opacity、God Rays/Shine/Motion Blur 继续是候选，但只能通过新增共享 graph/shader/provider/space primitive 或注册完整匹配且 fail-closed 的 strict profile实现。不得继续扩大 effect-name/path-substring 手写近似；逐项门见 [Effect 执行覆盖表](semantics/effect-execution-coverage.md)。
 7. **视觉门**：先定向复核 `2902406982`、`2938612768`、`3750813609`，再重跑 21 样本 cover 对比；验收同时要求主构图、局部运动区域、字体/alpha 和关键粒子接近封面或 Windows 官方运行证据。
 
@@ -130,7 +130,7 @@
 5. Timeline 先完整保留 keyframe/mode/tangent/event 数据，再接 Loop/Mirror/Single 与线性/Bézier；SceneScript 先保存 source/binding IR，再接 sandbox VM、lifecycle、typed write 和 budget，不能从嵌入 VM 直接跳到 renderer setter。
 6. 动态 text、cursor/audio/media 输入与 transform/effect/particle target 按各自 provider、space、event 和 generation 前置接入，不再作为一组无依赖的“同时打通”任务。
 
-下一主线不再回头扩属性旁路：direct text 三类 target 与 B1 generation/stale cancellation 已由 `1762743` 完成首个闭环。下一切片推进 B2 copy/swap/compose/history；B1 同时只做 provider status/metadata/cancel 的共享化，不为 system/media/video 建旁路。以后所有属性能力继续要求 compiler target、活动 consumer、per-surface snapshot、原子失败/fallback 和 surface/window identity 同批验收。
+下一主线不再回头扩属性旁路：direct text 三类 target 与 B1 generation/stale cancellation 已由 `1762743` 完成首个闭环，同帧 copy/swap command foundation 已由 `f1c6a10` 完成。下一切片推进 B2 persistent/history 生命周期、material-command interleave 与 compose；B1 同时只做 provider status/metadata/cancel 的共享化，不为 system/media/video 建旁路。以后所有属性能力继续要求 compiler target、活动 consumer、per-surface snapshot、原子失败/fallback 和 surface/window identity 同批验收。
 
 ### S4：按公共依赖扩展粒子图谱（分层推进）
 
@@ -284,6 +284,13 @@
 - `SceneDynamicTextTextureStore` 按 layer signature 去重，在串行后台队列重栅格化；per-layer generation 拒绝 A->B->C 中迟到的 B，失败保留 authored/last-ready texture，空字符串生成透明纹理，stop/deinit 不保留可提交状态。`SceneMetalView` 每帧只合并 ready texture，不替换 surface/window。
 - 定向报告 `.codex/scene-dynamic-text-targeted-213-final-20260723-1907/report.json` 在隔离 `2134765860` 先用 `text=2` 启用作者 Custom 模式，再同时 live 更新 `customtext/textcolor/textsize`：accepted=true、surface `1 -> 1`、window `[94398] -> [94398]`、changed ratio `0.003541478640192539`、text `6/6`。正式 `.codex/scene-dynamic-text-final13-20260723-1915/report.json` 为 **13/13**，矩阵 SHA-256 `fbb252a64018cf785e20b2200db5966a300e9351a994b4a36f1fe9565c5b354c`，原 strict graph 指标保持 14 stage/1 chain/0 failed，sample root residue 为 0。
 - 全量 Scene **273 项、271 项通过、2 项跳过**；签名身份为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `25f1e84ab81ee23d270ea1e436de0e47ccd34489`、executable SHA-256 `85634666c237a9026ac89b04bc33815963f24fd77b339c1520f6cb20ae29f5d6`。这不等于 SceneScript clock/date/media 已执行，也不证明 Windows 字体/布局像素一致。
+
+### 已完成：S2.4m 同帧 copy/swap command foundation
+
+- `f1c6a10` 让 `SceneGraphRenderTargetPlan` 按作者 node 顺序编译 `copy/swap`，以声明过且已写入的 logical RT 为前提，拒绝未声明、读前写、尺寸/格式不一致、condition/compose、同物理纹理 alias 和未知 command。command 不消耗 material ordinal。
+- `SceneGraphCommandRuntime` 在同一 Metal command buffer 中以 blit copy 完整纹理，并通过交换 logical identity 到 texture 的映射实现 swap；测试直接验证 copy 后字节一致和 swap 后映射交换。这是资源命令基础，不是通用 material-command scheduler。
+- 隔离定向门 `.codex/scene-copy-swap-targeted-372-20260723-1945/results-pass/report.json` 为 1/1；`3723344874` 观察到 copy definition 1、swap definition 2、graph swap node 2，但仍因 function/condition blocker 保持 stage/chain 0。正式 `.codex/scene-copy-swap-final13-20260723-1955/report.json` 为 13/13，原 strict graph 指标不变，sample root residue 0。
+- 全量 Scene **275 项、273 项通过、2 项跳过**；签名身份为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `c0940f2da38e653e338d829663ad3a0596c73b50`、executable SHA-256 `fe940c3d6706655d0a07556ef7570ab581c9ee000c5ec62344bd0df92c6d9827`。尚未实现 history/persistent reset、compose、condition/function 或真实 Fluid/Motion Blur GPU stage。
 
 ## 5. 样本规范
 

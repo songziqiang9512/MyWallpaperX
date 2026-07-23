@@ -391,7 +391,7 @@ Realtime Adapter              Offline Adapter
 |---|---|---|
 | Particle | 作者 2D sprite、部分 emitter/initializer/operator、9 个精确 built-in key 的程序纹理、Sprite Trail 子集；正式可见层 14/27 | 程序纹理等于官方资产，或 child/rope/world-space/control point/collision/audio/全部 preset 完整 |
 | Text | CoreText 静态纹理、部分 font/pointsize/padding/scale | 动态时间、完整 alignment/effects/SceneScript |
-| Effect graph | v21 继承 EffectDefinition/authored graph/provider metadata，并保存 ShaderContract 与 binding program；precise Blur、standard Blur、stock Local Contrast、exact Workshop Shadow、exact stock Opacity 共 5 类 strict backend 及 ordered chain 已执行 | 通用 material/pass、copy/swap/compose/history、authored shader 语义等价或官方 Shadow/lighting；最新门见 `.codex/scene-opacity-final13-20260723-1730/report.json` |
+| Effect graph | v22 继承 EffectDefinition/authored graph/provider metadata，并保存 ShaderContract 与 binding program；5 类 strict backend 及 ordered chain 已执行，同帧 copy/swap 已有独立严格 command foundation | material-command interleave、compose/history、通用 material/pass、authored shader 语义等价或官方 Shadow/lighting；精确当前门见 [运行证据索引](runtime-evidence-index.md) |
 | Frame Context | 宿主单一 60 Hz driver；所有屏幕共享 frame index/host/scene/wall time；shader、video、particle、parallax 已迁移 | pause/resume、delta clamp、固定 timestep、离线实时等价已闭环 |
 | Dynamic target snapshot | 六类 typed value、主要 target 族、固定优先级、v21 binding program、per-surface evaluation transaction/snapshot/generation；layer alpha、纯 solid color、exact Local Contrast strength 与 stock Opacity direct alpha 有真实 producer/consumer | Timeline、SceneScript、dynamic text、particle 与其他 effect constant 仍未 live；293 的 SceneScript opacity 明确 fail closed |
 | Timeline | 数据识别不足或空壳 | 任意动画模式可用 |

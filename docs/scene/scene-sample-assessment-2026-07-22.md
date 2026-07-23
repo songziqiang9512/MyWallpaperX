@@ -13,7 +13,7 @@
 - P2（主体可用，仍有明确的次级效果差距）：4 个；
 - P3（仅小幅视觉偏差）：0 个。
 
-首轮评估确认的方向仍成立：优先建设通用 runtime，而不是增加按样本命中的 effect 分支。当前实现基线 `1762743`、interpretation v22 已包含 authored graph、typed texture registry/property fallback、ShaderContract、B0 binding program/per-surface snapshot，以及 direct text content/point-size/color 的异步 per-layer generation/stale cancellation。五个 strict backend、ordered strict chain、file-backed `sceneTexture`、Frame Context、受限 dependency/effect/particle executor 和 9 个 built-in 粒子纹理已落地。Timeline、SceneScript、system/media text producer、Texture Variants、通用/effectful/nested provider、copy/swap/compose/history、其余 effect 和高级粒子仍是主要缺口。
+首轮评估确认的方向仍成立：优先建设通用 runtime，而不是增加按样本命中的 effect 分支。当前增量已包含 authored graph、typed texture registry/property fallback、ShaderContract、B0 binding program/per-surface snapshot、direct dynamic text、五个 strict backend、ordered strict chain 与同帧 copy/swap command foundation。Timeline、SceneScript、system/media text producer、Texture Variants、通用/effectful/nested provider、persistent/history、material-command interleave、compose、其余 effect 和高级粒子仍是主要缺口。精确当前基线只在 [总覆盖台账](semantics/coverage-ledger.md) 维护。
 
 ## 范围与证据
 
@@ -22,7 +22,7 @@
 - `3766415113` 使用 `gifscene.json` / `gifscene.pkg`，以包含 entry、sequence 和单图 UV 修正的 [gifscene 最终报告](../../.codex/scene-gifscene-sprite-gate-20260722/report.json) 为准。
 - `3738202317` 在 20 样本旧报告中因 `.tex format 6` 显示灰底；该结果已经被 [BC2/DXT3 修复后报告](../../.codex/scene-bc2-format6-final-20260722/report.json) 覆盖，当前为 1/1 纹理加载成功。
 - “作者预期”来自包内 scene 描述、`project.json` 属性和样本自带 preview。preview 不是逐帧金标准，最终仍需在相同分辨率、相同属性默认值下与 Wallpaper Engine 录屏做差异验收。
-- 首轮 21 样本报告保留为修复前视觉基线。当前正式运行门为 `.codex/scene-dynamic-text-final13-20260723-1915/report.json`，13/13 PASS，interpretation format 22；strict graph 指标保持 14 stage、1 chain、Opacity 4、Workshop Shadow 1、failed 0、blocked 2、route-only 30。定向 `.codex/scene-dynamic-text-targeted-213-final-20260723-1907/report.json` 证明 `2134765860` 的 `customtext/textcolor/textsize` 在作者 Custom 模式下 live accepted，surface/window 不变。Scene 测试为 273 项中 271 通过、2 跳过；签名 CDHash `25f1e84ab81ee23d270ea1e436de0e47ccd34489`，executable SHA-256 `85634666c237a9026ac89b04bc33815963f24fd77b339c1520f6cb20ae29f5d6`。
+- 首轮 21 样本报告保留为修复前视觉基线；现役提交、正式矩阵、签名与测试总数统一查 [运行证据索引](semantics/runtime-evidence-index.md)，本历史评估不再复制易过期的全局状态。
 
 表中 `I/P/T` 分别表示 image / particle / text 图层声明数量；`prop` 不含每个项目都有的 `schemecolor`。纹理加载率只统计当前 renderer 识别为 image candidate 的图层，不应直接当成视觉完成度。
 
@@ -101,7 +101,7 @@ Camera Parallax 的当前负向合同已经补齐：包括 composition 在内，
 1. P0 通用根因已关闭基础 layer/resource、290/293 命中的受限 dependency 子集，并完成 EffectDefinition/authored graph、五个 strict backend、ordered strict effect-chain、首条真实 chain、typed registry/property fallback、file-backed `sceneTexture`、统一 Frame Context 第一阶段和首批 built-in 粒子纹理。
 2. B0 binding program、per-surface transaction/snapshot 与 layer alpha、纯 solid color、exact Local Contrast strength consumer 已完成，不再列为当前待启动项。
 3. `3724289844:20` exact Workshop Shadow、首条真实 `Blur Precise -> Shadow` 正门和 stock Opacity `MASK=0` live alpha 已完成；下一项从结构化样本 census 与属性命中率选择，不以 route-only 单一计数代替能力缺口。
-4. B1 并行补 Provider Core 的 dynamic generation/metadata/cancellation，再扩 Texture Variants、video/system/media、通用 material、effectful/nested/child source；B2 后续接 copy/swap/compose/history。
+4. B1 并行补 Provider Core 的 metadata/cancellation，再扩 Texture Variants、video/system/media、通用 material、effectful/nested/child source；B2 后续接 persistent/history、material-command interleave 与 compose。
 5. 静态 text geometry/font 已通过现有门，但动态时间/日期/媒体、Windows 字号/baseline、完整效果与 100 层最终性能门仍留到共享动态链和 B4 fidelity 阶段统一处理。
 
 每一步都应同时保留两类门：一类证明声明的能力确实出现，另一类证明未声明或默认关闭的效果不会被全局套用。所有样本仍从真实 Workshop 复制到隔离 root，并使用临时 HOME 运行；流程 PASS、非黑截图和加载率只能作为底线，不能替代与作者 preview/Wallpaper Engine 的视觉对照。

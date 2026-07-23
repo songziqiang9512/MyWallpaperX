@@ -2,19 +2,26 @@
 
 这个目录按用途分组，避免继续把当前规范、历史计划和排障记录混在顶层。
 
-## 当前优先看
+## 当前事实入口
 
-- [architecture/framework-architecture-memo.md](architecture/framework-architecture-memo.md)：截至 2026-05-05 的框架结构、公共协议和模块边界基线；使用前需与当前代码核对。
 - [reviews/web-scene-current-state-roadmap-2026-07-19.md](reviews/web-scene-current-state-roadmap-2026-07-19.md)：Web / Scene 当前能力、验证结果、闭环边界和后续路线。
 - [scene/semantics/coverage-ledger.md](scene/semantics/coverage-ledger.md)：Scene 当前系统级摘要；新会话从这里定位系统，再进入专项能力表。
+- [scene/semantics/runtime-evidence-index.md](scene/semantics/runtime-evidence-index.md)：Scene 当前提交、正式运行门、签名身份与能力证据包。
+- [scene/scene-capability-development-plan-2026-07-22.md](scene/scene-capability-development-plan-2026-07-22.md)：Scene 现役实施顺序、样本规范和测试门。
+- [web/README.md](web/README.md)：Web 壁纸当前专题入口。
+- [release/release-signing.md](release/release-signing.md)：发布签名与 notarization 流程。
+
+## Scene 语义参考
+
+- [scene/semantics/README.md](scene/semantics/README.md)：现役语义手册索引；按系统进入专项能力表。
 - [scene/semantics/official-page-map.md](scene/semantics/official-page-map.md)：179 个官方 Scene 页面逐页映射到唯一合同 anchor、分类和产品决策；这是资料完整性门。
 - [scene/semantics/capability-dependency-map.md](scene/semantics/capability-dependency-map.md)：公共依赖层与实施波次；用于避免属性、脚本、粒子、Provider 和 Render Graph 相互绕开或重复实现。
-- [scene/scene-capability-development-plan-2026-07-22.md](scene/scene-capability-development-plan-2026-07-22.md)：Scene 对齐 Wallpaper Engine 常用播放能力的现役实施顺序、样本规范和测试门。
-- [scene/semantics/README.md](scene/semantics/README.md)：Wallpaper Engine Scene 的现役语义手册入口，包含官方逐页表、专项能力表、依赖图和证据索引。
-- [architecture/project-working-memory.md](architecture/project-working-memory.md)：截至 2026-05-17 的 AppKit / Steam 协作快照；使用前需与当前代码核对。
-- [web/README.md](web/README.md)：Web 壁纸专题入口。
-- [agents/README.md](agents/README.md)：多 Agent 协作与角色入口。
-- [release/release-signing.md](release/release-signing.md)：发布签名与 notarization 流程。
+
+## 历史与协作参考
+
+- [architecture/framework-architecture-memo.md](architecture/framework-architecture-memo.md) 与 [architecture/project-working-memory.md](architecture/project-working-memory.md) 分别是 2026-05-05、2026-05-17 快照；只用于追溯，必须与当前代码核对。
+- [agents/README.md](agents/README.md)：多 Agent 角色资料；实际工作规则以仓库根目录 `AGENTS.md` 为准。
+- `archive/`、`regression/` 和普通 `reviews/` 文件默认是历史证据；只有上面明确列出的路线图仍是当前事实入口。
 
 ## 目录分类
 
@@ -28,7 +35,7 @@
 
 ## 使用规则
 
-- 判断框架结构时先看 `architecture/` 并与当前代码核对；判断 Web / Scene 能力和闭环状态时看对应专题入口与现役状态文档。
+- 判断框架结构时以代码和 `AGENTS.md` 为准，`architecture/` 旧 memo 只作线索；判断 Web / Scene 能力和闭环状态时看上面的当前事实入口。
 - `archive/`、`regression/`、`reviews/` 下的文件主要用于查历史原因和证据，不反向覆盖当前规范；其中 `reviews/web-scene-current-state-roadmap-2026-07-19.md` 是 Web / Scene 的现役状态入口。
 - 新增长期规范时放入对应专题目录；新增一次性排障记录时放入专题下的 `regression/` 或 `archive/`。
 - 脚本统一放在仓库根目录的 `script/`，不要再新增 `scripts/`。
