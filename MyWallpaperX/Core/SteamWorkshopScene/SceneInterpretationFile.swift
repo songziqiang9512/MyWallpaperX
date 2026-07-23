@@ -16,8 +16,8 @@ struct SceneInterpretationFile: Codable {
 }
 
 struct SceneInterpretationFileWriter {
-    // Format 21 adds the strict stock Opacity alpha live binding contract.
-    static let currentFormatVersion = 21
+    // Format 22 adds direct dynamic text content, point-size, and color bindings.
+    static let currentFormatVersion = 22
 
     func make(
         renderDescriptor: SceneRenderDescriptor,

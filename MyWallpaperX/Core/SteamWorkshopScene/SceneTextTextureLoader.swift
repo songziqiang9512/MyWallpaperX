@@ -30,7 +30,11 @@ enum SceneTextTextureLoader {
         var textures: [Int: MTLTexture] = [:]
         var messages: [String] = []
         for layer in candidates {
-            guard let rendered = makeTexture(for: layer, cacheDirectory: cacheDirectory, device: device) else {
+            guard let rendered = makeRenderedTexture(
+                for: layer,
+                cacheDirectory: cacheDirectory,
+                device: device
+            ) else {
                 messages.append("text layer \(layer.id) \"\(layer.name ?? "(unnamed)")\": render failed")
                 continue
             }
@@ -48,12 +52,34 @@ enum SceneTextTextureLoader {
         return SceneTextTextureLoadResult(textures: textures, messages: messages)
     }
 
-    private static func makeTexture(
+    static func makeTexture(
         for layer: SceneRenderDescriptor.Layer,
+        content: String,
+        pointSize: Float,
+        colorRGB: [Float],
+        cacheDirectory: URL,
+        device: MTLDevice
+    ) -> MTLTexture? {
+        makeRenderedTexture(
+            for: layer,
+            content: content,
+            pointSize: pointSize,
+            colorRGB: colorRGB,
+            cacheDirectory: cacheDirectory,
+            device: device
+        )?.texture
+    }
+
+    private static func makeRenderedTexture(
+        for layer: SceneRenderDescriptor.Layer,
+        content: String? = nil,
+        pointSize: Float? = nil,
+        colorRGB: [Float]? = nil,
         cacheDirectory: URL,
         device: MTLDevice
     ) -> RenderedTexture? {
-        guard let text = layer.text, !text.isEmpty, let style = layer.textStyle else { return nil }
+        guard let text = content ?? layer.text, let authoredStyle = layer.textStyle else { return nil }
+        let style = authoredStyle.replacing(pointSize: pointSize, colorRGB: colorRGB)
         guard let layout = SceneTextGeometry.rasterLayout(
             renderSize: layer.renderSizeWH,
             padding: style.padding,

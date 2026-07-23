@@ -171,6 +171,8 @@ nonisolated struct ScenePropertyBindingDiagnostic: Codable, Equatable {
         switch target {
         case let .layer(layerID, field):
             return "layer:\(layerID):\(field.rawValue)"
+        case let .text(layerID, field):
+            return "layer:\(layerID):text:\(field.rawValue)"
         default:
             return String(describing: target)
         }
@@ -265,6 +267,6 @@ extension ScenePropertyBindingCompiler {
         _ target: SceneUserPropertyBindingTarget
     ) -> String {
         if case let .unsupported(reason) = target { return reason }
-        return "当前 binding program 仅支持 layer alpha/color、strict Local Contrast strength 与 stock Opacity alpha。"
+        return "当前 binding program 仅支持 layer alpha/color、direct text、strict Local Contrast strength 与 stock Opacity alpha。"
     }
 }

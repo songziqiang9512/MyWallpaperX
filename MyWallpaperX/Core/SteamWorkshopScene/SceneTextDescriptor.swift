@@ -27,6 +27,24 @@ struct SceneTextDescriptor: Codable {
         )
     }
 
+    nonisolated func replacing(
+        pointSize: Float? = nil,
+        colorRGB: [Float]? = nil
+    ) -> SceneTextDescriptor {
+        SceneTextDescriptor(
+            fontPath: fontPath,
+            pointSize: max(1, pointSize ?? self.pointSize),
+            colorRGB: Self.paddedColor(colorRGB ?? self.colorRGB, fill: 1),
+            brightness: brightness,
+            horizontalAlignment: horizontalAlignment,
+            verticalAlignment: verticalAlignment,
+            padding: padding,
+            opaqueBackground: opaqueBackground,
+            backgroundColorRGB: backgroundColorRGB,
+            backgroundBrightness: backgroundBrightness
+        )
+    }
+
     nonisolated private static func unwrapped(_ value: Any?) -> Any? {
         if let keyed = value as? [String: Any] {
             return keyed["value"]

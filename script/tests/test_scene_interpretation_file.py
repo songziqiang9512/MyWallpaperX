@@ -23,6 +23,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "SceneUserPropertyBindings.swift",
     SCENE_ROOT / "SceneDynamicSnapshot.swift",
     SCENE_ROOT / "ScenePropertyBindingProgram.swift",
+    SCENE_ROOT / "ScenePropertyBindingCompiler+TargetMapping.swift",
     SCENE_ROOT / "ScenePropertyBindingProgramValidator.swift",
     SCENE_ROOT / "SceneJSONValue.swift",
     SHADER_CONTRACT_SOURCE,
@@ -188,8 +189,8 @@ class SceneInterpretationFileTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
 
-    def test_v21_round_trips_program_values_and_shader_contracts(self) -> None:
-        self.assertEqual(self.result["formatVersion"], 21)
+    def test_v22_round_trips_program_values_and_shader_contracts(self) -> None:
+        self.assertEqual(self.result["formatVersion"], 22)
         self.assertEqual(self.result["sourceEntryPath"], "scene.json")
         self.assertEqual(self.result["authoredPlanCount"], 1)
         self.assertTrue(self.result["programRoundTrip"])

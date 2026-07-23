@@ -186,7 +186,8 @@ class SceneFrameContextTests(unittest.TestCase):
             "into: authoredEffectCatalog.liveConsumerTargets",
             derivation,
         )
-        self.assertIn('case "image", "text":', derivation)
+        self.assertIn('case "image":', derivation)
+        self.assertIn('case "text":', derivation)
         self.assertIn('case "solid":', derivation)
         self.assertIn(
             'case "composition", "project", "fullscreen":', derivation
@@ -197,14 +198,19 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn(
             "targets.insert(.layer(layerID: layer.id, field: .alpha))", derivation
         )
-        self.assertEqual(derivation.count("field: .color"), 1)
-        color_position = derivation.index("field: .color")
+        solid_color = ".layer(layerID: layer.id, field: .color)"
+        self.assertEqual(derivation.count(solid_color), 1)
+        color_position = derivation.index(solid_color)
         self.assertGreater(color_position, derivation.index('case "solid":'))
         self.assertLess(
             color_position,
             derivation.index('case "composition", "project", "fullscreen":'),
         )
         self.assertNotIn('case "particle"', derivation)
+        self.assertIn("visibleLayerIDs.contains(layer.id)", derivation)
+        self.assertIn(".text(layerID: layer.id, field: .content)", derivation)
+        self.assertIn(".text(layerID: layer.id, field: .pointSize)", derivation)
+        self.assertIn(".text(layerID: layer.id, field: .color)", derivation)
 
     def test_live_property_apis_update_state_without_rebuilding_surfaces(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")

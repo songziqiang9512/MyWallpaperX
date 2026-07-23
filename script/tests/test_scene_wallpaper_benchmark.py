@@ -74,7 +74,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(set(samples), set(expected))
         for sample_id, (solid_count, authored_color_count, effective_count) in expected.items():
             sample = samples[sample_id]
-            self.assertEqual(sample["expected_interpretation_format"], 21)
+            self.assertEqual(sample["expected_interpretation_format"], 22)
             self.assertEqual(sample["expected_solid_layer_count"], solid_count)
             self.assertEqual(
                 sample["expected_authored_solid_color_layer_count"],
@@ -93,7 +93,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         for sample in matrix["samples"]:
             authored = sample["expected_shader_contract_authored_count"]
             builtin = sample["expected_shader_contract_builtin_count"]
-            self.assertEqual(sample["expected_interpretation_format"], 21)
+            self.assertEqual(sample["expected_interpretation_format"], 22)
             self.assertEqual(sample["expected_shader_contract_count"], authored + builtin)
             self.assertEqual(sample["expected_shader_contract_stage_count"], authored * 2)
             self.assertEqual(sample["expected_shader_contract_diagnostic_count"], 0)

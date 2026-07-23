@@ -17,6 +17,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneUserPropertyBindings.swift",
     SOURCE_ROOT / "SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "ScenePropertyBindingProgram.swift",
+    SOURCE_ROOT / "ScenePropertyBindingCompiler+TargetMapping.swift",
     SOURCE_ROOT / "ScenePropertyBindingProgramValidator.swift",
     SOURCE_ROOT / "ScenePropertyLiveUpdateState.swift",
 ]

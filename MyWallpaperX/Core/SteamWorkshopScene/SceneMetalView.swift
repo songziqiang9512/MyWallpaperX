@@ -5,8 +5,8 @@ import QuartzCore
 // Layer-hosting NSView that drives SceneMetalRenderer through a CAMetalLayer.
 class SceneMetalView: NSView {
     private let metalDevice: MTLDevice
-    private let renderer: SceneMetalRenderer
-    private let metalLayer: CAMetalLayer
+    let renderer: SceneMetalRenderer
+    let metalLayer: CAMetalLayer
     private let solidLayerTexture: MTLTexture?
     private let userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
     private var imageTextures: [Int: MTLTexture] = [:]
@@ -15,12 +15,13 @@ class SceneMetalView: NSView {
     private var effectTextures = SceneLayerEffectTextureStore()
     private var imagePipeline: SceneImageLayerPipeline?
     private var particlePlayback: SceneParticlePlaybackState?
+    private var dynamicTextTextures: SceneDynamicTextTextureStore?
     private let offscreenTexturePool: SceneOffscreenTexturePool
     // Mouse position normalized to view bounds: x and y in [-1, +1] with
     // (0,0) at the view's center, +Y up. Defaults to (0,0) when the cursor
     // is outside the view. Drives authored layer parallax + cursorripple UV.
-    private var mouseNormalized: SIMD2<Float> = .zero
-    private var previousMouseNormalized: SIMD2<Float> = .zero
+    var mouseNormalized: SIMD2<Float> = .zero
+    var previousMouseNormalized: SIMD2<Float> = .zero
     private var parallaxPointerSmoother: SceneParallaxPointerSmoother
     private var trackingArea: NSTrackingArea?
 #if DEBUG
@@ -300,6 +301,12 @@ class SceneMetalView: NSView {
             effectSummary: { [renderer] in renderer.effectRuntimeSummary(for: $0) }
         )
         imageTextures.merge(textLoad.textures) { _, incoming in incoming }
+        dynamicTextTextures = SceneDynamicTextTextureStore(
+            descriptor: renderer.renderDescriptor,
+            cacheDirectory: cacheDirectory,
+            device: metalDevice,
+            initialTextures: textLoad.textures
+        )
         report.append(contentsOf: textLoad.messages)
         videoTextureSources = loadedVideoSources
         effectTextures = loadedEffectTextures
@@ -340,7 +347,11 @@ class SceneMetalView: NSView {
         )
         previousMouseNormalized = mouseNormalized
         let particleBatches = particlePlayback?.advance(by: timing.frameTime) ?? []
+        dynamicTextTextures?.update(from: dynamicValues)
         var currentImageTextures = imageTextures
+        if let textTextures = dynamicTextTextures?.textures() {
+            currentImageTextures.merge(textTextures) { _, incoming in incoming }
+        }
         for (layerID, videoSource) in videoTextureSources {
             if let texture = videoSource.currentTexture(forHostTime: timing.hostTime) {
                 currentImageTextures[layerID] = texture
@@ -368,27 +379,6 @@ class SceneMetalView: NSView {
             frameContext: frameContext,
             encodeFrameReadback: frameReadback,
             to: drawable
-        )
-    }
-
-    private func makeFrameContext(
-        timing: SceneFrameTiming,
-        dynamicValues: SceneDynamicSnapshot,
-        parallax: SIMD2<Float>
-    ) -> SceneFrameContext {
-        let screenSize = metalLayer.drawableSize
-        let camera = renderer.renderDescriptor.camera
-        return SceneFrameContext(
-            timing: timing,
-            dynamicValues: dynamicValues,
-            canvasSize: CGSize(
-                width: CGFloat(camera.orthoWidth ?? Float(screenSize.width)),
-                height: CGFloat(camera.orthoHeight ?? Float(screenSize.height))
-            ),
-            screenSize: screenSize,
-            pointerCurrent: mouseNormalized,
-            pointerPrevious: previousMouseNormalized,
-            cameraParallaxPosition: parallax
         )
     }
 

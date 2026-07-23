@@ -100,7 +100,9 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
             return number.isFinite ? .success(.scalar(number)) : .failure(.nonFinite)
         case let (.vector3, .string(string)):
             return parseColor(string)
-        case (.scalar, _), (.vector3, _):
+        case let (.string, .string(string)):
+            return .success(.string(string))
+        case (.scalar, _), (.vector3, _), (.string, _):
             return .failure(.typeMismatch)
         default:
             return .failure(.unsupportedType)
@@ -314,53 +316,6 @@ nonisolated struct ScenePropertyBindingCompiler {
             diagnostics: diagnostics
         )
     }
-    private nonisolated static func map(
-        _ target: SceneUserPropertyBindingTarget
-    ) -> (
-        target: SceneDynamicTarget,
-        valueType: SceneDynamicValueType,
-        propertyKind: SceneUserPropertyKind
-    )? {
-        switch target {
-        case let .layerAlpha(layerID):
-            (.layer(layerID: layerID, field: .alpha), .scalar, .slider)
-        case let .layerColor(layerID):
-            (.layer(layerID: layerID, field: .color), .vector3, .color)
-        case let .shaderValue(layerID, effectIndex, passIndex, name, effectPath)
-            where effectPath?.replacingOccurrences(of: "\\", with: "/").lowercased()
-                == "effects/localcontrast/effect.json"
-                && passIndex == 3
-                && name.lowercased() == "strength":
-            (
-                .effectConstant(
-                    layerID: layerID,
-                    effectIndex: effectIndex,
-                    passIndex: passIndex,
-                    name: "strength"
-                ),
-                .scalar,
-                .slider
-            )
-        case let .shaderValue(layerID, effectIndex, passIndex, name, effectPath)
-            where effectPath?.replacingOccurrences(of: "\\", with: "/").lowercased()
-                == "effects/opacity/effect.json"
-                && passIndex == 0
-                && name.lowercased() == "alpha":
-            (
-                .effectConstant(
-                    layerID: layerID,
-                    effectIndex: effectIndex,
-                    passIndex: passIndex,
-                    name: "alpha"
-                ),
-                .scalar,
-                .slider
-            )
-        default:
-            nil
-        }
-    }
-
     private nonisolated static func bindingOrder(
         _ lhs: SceneUserPropertyBinding,
         _ rhs: SceneUserPropertyBinding
