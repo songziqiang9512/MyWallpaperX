@@ -1,0 +1,431 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+PROGRAM_SOURCE = SOURCE_ROOT / "ScenePropertyBindingProgram.swift"
+SWIFT_SOURCES = [
+    SOURCE_ROOT / "SceneUserProperty.swift",
+    SOURCE_ROOT / "SceneUserPropertyBindings.swift",
+    SOURCE_ROOT / "SceneDynamicSnapshot.swift",
+    PROGRAM_SOURCE,
+    SOURCE_ROOT / "ScenePropertyBindingProgramValidator.swift",
+]
+
+HARNESS = r'''
+import Foundation
+
+@main
+enum Harness {
+    static func main() throws {
+        let alpha = binding("opacity", .number(0.25), 20, .layerAlpha(layerID: 20))
+        let color = binding("tint", .string("0.1 0.2 0.3"), 10, .layerColor(layerID: 10))
+        let catalog = SceneUserPropertyCatalog(definitions: [
+            property("opacity", .slider, .number(0.5)),
+            property("tint", .color, .string("1 1 1")),
+        ])
+        let compiler = ScenePropertyBindingCompiler()
+        let report = SceneUserPropertyBindingReport(bindings: [alpha, color], diagnostics: [])
+        let compilation = compiler.compile(report: report, catalog: catalog)
+        let reversed = compiler.compile(
+            report: .init(bindings: [color, alpha], diagnostics: []),
+            catalog: .init(definitions: catalog.definitions.reversed())
+        )
+        let decoded = try JSONDecoder().decode(
+            ScenePropertyBindingCompilation.self,
+            from: JSONEncoder().encode(compilation)
+        )
+
+        let authored = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 1,
+            generation: 1,
+            definitions: compilation.program.definitions
+        ).snapshot
+        let userEvaluation = compilation.program.evaluate(effectiveValues: [
+            "opacity": .number(0.75),
+            "tint": .string("0.8\t0.7\n0.6"),
+        ])
+        let user = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 2,
+            generation: 2,
+            definitions: compilation.program.definitions,
+            userValues: userEvaluation.userValues
+        ).snapshot
+
+        let alphaTarget = SceneDynamicTarget.layer(layerID: 20, field: .alpha)
+        let colorTarget = SceneDynamicTarget.layer(layerID: 10, field: .color)
+        let badEvaluation = compilation.program.evaluate(effectiveValues: [
+            "opacity": .string("0.9"),
+            "tint": .string("1 2"),
+        ])
+        let nonFiniteEvaluation = compilation.program.evaluate(effectiveValues: [
+            "opacity": .number(.nan),
+            "tint": .string("1 NaN 3"),
+        ])
+        let badSnapshot = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 3,
+            generation: 3,
+            definitions: compilation.program.definitions,
+            userValues: badEvaluation.userValues
+        ).snapshot
+
+        let invalidAuthored = compiler.compile(
+            report: .init(bindings: [
+                binding("wrongAlpha", .string("0.5"), 30, .layerAlpha(layerID: 30)),
+                binding("shortColor", .string("1 2"), 31, .layerColor(layerID: 31)),
+                binding("nanColor", .string("1 NaN 3"), 32, .layerColor(layerID: 32)),
+            ], diagnostics: []),
+            catalog: .init(definitions: [
+                property("wrongAlpha", .slider, .number(1)),
+                property("shortColor", .color, .string("1 1 1")),
+                property("nanColor", .color, .string("1 1 1")),
+            ])
+        )
+        let invalidCatalog = compiler.compile(
+            report: .init(bindings: [
+                binding("alphaBool", .number(0.5), 33, .layerAlpha(layerID: 33)),
+                binding("colorText", .string("1 1 1"), 34, .layerColor(layerID: 34)),
+                binding("alphaString", .number(0.5), 35, .layerAlpha(layerID: 35)),
+                binding("shortDefault", .string("1 1 1"), 36, .layerColor(layerID: 36)),
+                binding("nanDefault", .number(0.5), 37, .layerAlpha(layerID: 37)),
+                binding("missingDefault", .number(0.5), 38, .layerAlpha(layerID: 38)),
+            ], diagnostics: []),
+            catalog: .init(definitions: [
+                property("alphaBool", .bool, .number(1)),
+                property("colorText", .text, .string("1 1 1")),
+                property("alphaString", .slider, .string("1")),
+                property("shortDefault", .color, .string("1 2")),
+                property("nanDefault", .slider, .number(.nan)),
+                property("missingDefault", .slider, nil),
+            ])
+        )
+        let conditional = compiler.compile(
+            report: .init(bindings: [binding(
+                "opacity",
+                .number(0.2),
+                40,
+                .layerAlpha(layerID: 40),
+                condition: .bool(true)
+            )], diagnostics: []),
+            catalog: catalog
+        )
+        let duplicate = compiler.compile(
+            report: .init(bindings: [
+                binding("opacity", .number(0.2), 50, .layerAlpha(layerID: 50), pathSuffix: "a"),
+                binding("opacity2", .number(0.4), 50, .layerAlpha(layerID: 50), pathSuffix: "b"),
+            ], diagnostics: []),
+            catalog: .init(definitions: [
+                property("opacity", .slider, .number(1)),
+                property("opacity2", .slider, .number(1)),
+            ])
+        )
+        let rejected = compiler.compile(
+            report: .init(bindings: [
+                binding("missing", .number(0.5), 60, .layerAlpha(layerID: 60)),
+                binding("opacity", .number(1), 61, .layerVisibility(layerID: 61)),
+            ], diagnostics: [
+                .init(
+                    kind: .malformedUserReference,
+                    path: path(62),
+                    propertyKey: nil,
+                    message: "bad reference"
+                )
+            ]),
+            catalog: catalog
+        )
+        let mixed = SceneUserPropertyBindingReport(
+            bindings: [alpha, color, conditionalInput(), missingInput(), unsupportedInput()],
+            diagnostics: []
+        )
+        let mixedReverse = SceneUserPropertyBindingReport(
+            bindings: mixed.bindings.reversed(),
+            diagnostics: []
+        )
+        let deterministicForward = compiler.compile(report: mixed, catalog: catalog)
+        let deterministicReverse = compiler.compile(report: mixedReverse, catalog: catalog)
+        let mixedKey = compiler.compile(
+            report: .init(bindings: [
+                binding("opacity", .number(0.25), 80, .layerAlpha(layerID: 80)),
+                binding("opacity", .number(1), 81, .layerVisibility(layerID: 81)),
+            ], diagnostics: []),
+            catalog: catalog
+        )
+        let mixedKeyDecoded = try JSONDecoder().decode(
+            ScenePropertyBindingProgram.self,
+            from: JSONEncoder().encode(mixedKey.program)
+        )
+
+        let alphaDefinition = compilation.program.definitions.first { $0.target == alphaTarget }!
+        let alphaInstruction = compilation.program.instructions.first { $0.target == alphaTarget }!
+        let duplicateDefinitionProgram = ScenePropertyBindingProgram(
+            definitions: [alphaDefinition, alphaDefinition],
+            instructions: [alphaInstruction]
+        )
+        let duplicateInstructionProgram = ScenePropertyBindingProgram(
+            definitions: [alphaDefinition],
+            instructions: [alphaInstruction, alphaInstruction]
+        )
+        let missingDefinitionProgram = ScenePropertyBindingProgram(
+            definitions: [],
+            instructions: [alphaInstruction]
+        )
+        let mismatchedInstruction = ScenePropertyBindingInstruction(
+            propertyKey: alphaInstruction.propertyKey,
+            path: alphaInstruction.path,
+            target: alphaInstruction.target,
+            valueType: .vector3
+        )
+        let mismatchedProgram = ScenePropertyBindingProgram(
+            definitions: [alphaDefinition],
+            instructions: [mismatchedInstruction]
+        )
+        let invalidPrograms = [
+            duplicateDefinitionProgram,
+            duplicateInstructionProgram,
+            missingDefinitionProgram,
+            mismatchedProgram,
+        ]
+        let validator = ScenePropertyBindingProgramValidator()
+        let structureCodes = invalidPrograms.map { codes(validator.validate($0).diagnostics) }
+        let structureInstructionCounts = invalidPrograms.map { validator.validate($0).instructions.count }
+        let structureDecodeRejected = invalidPrograms.map(decodeFails)
+        let mismatchedEvaluation = mismatchedProgram.evaluate(effectiveValues: ["opacity": .number(1)])
+
+        let payload: [String: Any] = [
+            "roundTrip": decoded == compilation,
+            "deterministic": compilation == reversed,
+            "mixedDeterministic": deterministicForward == deterministicReverse,
+            "definitionCount": compilation.program.definitions.count,
+            "instructionKeys": compilation.program.instructions.map(\.propertyKey),
+            "authoredAlpha": resolved(authored[alphaTarget]),
+            "authoredColor": resolved(authored[colorTarget]),
+            "userAlpha": resolved(user[alphaTarget]),
+            "userColor": resolved(user[colorTarget]),
+            "badAlpha": resolved(badSnapshot[alphaTarget]),
+            "badColor": resolved(badSnapshot[colorTarget]),
+            "badCodes": codes(badEvaluation.diagnostics),
+            "nonFiniteCodes": codes(nonFiniteEvaluation.diagnostics),
+            "invalidAuthoredCount": invalidAuthored.program.instructions.count,
+            "invalidAuthoredCodes": codes(invalidAuthored.diagnostics),
+            "invalidCatalogCount": invalidCatalog.program.instructions.count,
+            "invalidCatalogCodes": codes(invalidCatalog.diagnostics),
+            "conditionalCount": conditional.program.instructions.count,
+            "conditionalCodes": codes(conditional.diagnostics),
+            "duplicateCount": duplicate.program.instructions.count,
+            "duplicateCodes": codes(duplicate.diagnostics),
+            "rejectedCount": rejected.program.instructions.count,
+            "rejectedCodes": codes(rejected.diagnostics),
+            "mixedKeyCount": mixedKey.program.instructions.count,
+            "mixedKeyRebuild": mixedKey.program.rebuildRequiredPropertyKeys,
+            "mixedKeyRoundTrip": mixedKeyDecoded == mixedKey.program,
+            "structureCodes": structureCodes,
+            "structureInstructionCounts": structureInstructionCounts,
+            "structureDecodeRejected": structureDecodeRejected,
+            "mismatchedEvaluationCount": mismatchedEvaluation.userValues.count,
+            "mismatchedEvaluationCodes": codes(mismatchedEvaluation.diagnostics),
+        ]
+        let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+        print(String(decoding: data, as: UTF8.self))
+    }
+
+    static func binding(
+        _ key: String,
+        _ fallback: SceneUserPropertyValue?,
+        _ layerID: Int,
+        _ target: SceneUserPropertyBindingTarget,
+        condition: SceneUserPropertyValue? = nil,
+        pathSuffix: String = "value"
+    ) -> SceneUserPropertyBinding {
+        .init(
+            reference: .init(key: key, condition: condition),
+            fallbackValue: fallback,
+            path: .init(components: [
+                .key("objects"), .index(layerID), .key(pathSuffix),
+            ]),
+            target: target
+        )
+    }
+
+    static func property(
+        _ key: String,
+        _ kind: SceneUserPropertyKind,
+        _ value: SceneUserPropertyValue?
+    ) -> SceneUserPropertyDefinition {
+        .init(
+            key: key,
+            title: key,
+            kind: kind,
+            runtimeType: kind.rawValue,
+            order: 0,
+            index: nil,
+            minimumValue: nil,
+            maximumValue: nil,
+            stepValue: nil,
+            allowsFractionalValues: true,
+            fractionalPrecision: nil,
+            displayCondition: nil,
+            defaultValue: value,
+            options: []
+        )
+    }
+
+    static func conditionalInput() -> SceneUserPropertyBinding {
+        binding("opacity", .number(1), 70, .layerAlpha(layerID: 70), condition: .bool(true))
+    }
+
+    static func missingInput() -> SceneUserPropertyBinding {
+        binding("absent", .number(1), 71, .layerAlpha(layerID: 71))
+    }
+
+    static func unsupportedInput() -> SceneUserPropertyBinding {
+        binding("opacity", .number(1), 72, .layerVisibility(layerID: 72))
+    }
+
+    static func path(_ layerID: Int) -> SceneUserPropertyPath {
+        .init(components: [.key("objects"), .index(layerID), .key("value")])
+    }
+
+    static func codes(_ diagnostics: [ScenePropertyBindingDiagnostic]) -> [String] {
+        diagnostics.map { $0.code.rawValue }
+    }
+
+    static func decodeFails(_ program: ScenePropertyBindingProgram) -> Bool {
+        do {
+            let data = try JSONEncoder().encode(program)
+            _ = try JSONDecoder().decode(ScenePropertyBindingProgram.self, from: data)
+            return false
+        } catch {
+            return true
+        }
+    }
+
+    static func resolved(_ value: SceneDynamicResolvedValue?) -> [String] {
+        guard let value else { return [] }
+        return [String(describing: value.value), value.source.rawValue]
+    }
+}
+'''
+
+
+class ScenePropertyBindingProgramTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        if shutil.which("swiftc") is None:
+            raise unittest.SkipTest("swiftc is unavailable")
+        cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-scene-binding-program-")
+        directory = Path(cls.temporary_directory.name)
+        harness = directory / "Harness.swift"
+        harness.write_text(HARNESS, encoding="utf-8")
+        binary = directory / "scene-property-binding-program"
+        compilation = subprocess.run(
+            ["swiftc", *(str(path) for path in SWIFT_SOURCES), str(harness), "-o", str(binary)],
+            capture_output=True,
+            text=True,
+        )
+        if compilation.returncode != 0:
+            raise RuntimeError(compilation.stderr)
+        completed = subprocess.run([str(binary)], check=True, capture_output=True, text=True)
+        cls.result = json.loads(completed.stdout)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temporary_directory.cleanup()
+
+    def test_program_is_codable_and_deterministic(self) -> None:
+        self.assertTrue(self.result["roundTrip"])
+        self.assertTrue(self.result["deterministic"])
+        self.assertTrue(self.result["mixedDeterministic"])
+        self.assertEqual(self.result["definitionCount"], 2)
+        self.assertEqual(self.result["instructionKeys"], ["tint", "opacity"])
+
+    def test_authored_and_user_values_are_typed(self) -> None:
+        self.assertEqual(self.result["authoredAlpha"], ["scalar(0.25)", "authored"])
+        self.assertEqual(
+            self.result["authoredColor"],
+            ["vector3(0.1, 0.2, 0.3)", "authored"],
+        )
+        self.assertEqual(self.result["userAlpha"], ["scalar(0.75)", "userProperty"])
+        self.assertEqual(
+            self.result["userColor"],
+            ["vector3(0.8, 0.7, 0.6)", "userProperty"],
+        )
+
+    def test_bad_runtime_values_keep_authored_values(self) -> None:
+        self.assertEqual(self.result["badAlpha"], self.result["authoredAlpha"])
+        self.assertEqual(self.result["badColor"], self.result["authoredColor"])
+        self.assertEqual(
+            self.result["badCodes"],
+            ["invalidRuntimeValue", "runtimeTypeMismatch"],
+        )
+        self.assertEqual(
+            self.result["nonFiniteCodes"],
+            ["nonFiniteRuntimeValue", "nonFiniteRuntimeValue"],
+        )
+
+    def test_invalid_authored_values_fail_closed(self) -> None:
+        self.assertEqual(self.result["invalidAuthoredCount"], 0)
+        self.assertEqual(
+            self.result["invalidAuthoredCodes"],
+            ["authoredTypeMismatch", "invalidAuthoredValue", "nonFiniteAuthoredValue"],
+        )
+
+    def test_catalog_kind_and_default_values_are_validated(self) -> None:
+        self.assertEqual(self.result["invalidCatalogCount"], 0)
+        self.assertEqual(
+            self.result["invalidCatalogCodes"],
+            [
+                "propertyKindMismatch",
+                "propertyKindMismatch",
+                "propertyDefaultTypeMismatch",
+                "invalidPropertyDefaultValue",
+                "nonFinitePropertyDefaultValue",
+                "missingPropertyDefault",
+            ],
+        )
+
+    def test_conditional_and_duplicate_targets_fail_closed(self) -> None:
+        self.assertEqual(self.result["conditionalCount"], 0)
+        self.assertEqual(self.result["conditionalCodes"], ["conditionalBinding"])
+        self.assertEqual(self.result["duplicateCount"], 0)
+        self.assertEqual(self.result["duplicateCodes"], ["duplicateTarget"])
+
+    def test_missing_invalid_and_unsupported_inputs_are_diagnostic(self) -> None:
+        self.assertEqual(self.result["rejectedCount"], 0)
+        self.assertEqual(
+            self.result["rejectedCodes"],
+            ["unsupportedTarget", "malformedInputBinding", "missingPropertyDefinition"],
+        )
+        self.assertNotIn("SceneUserPropertyResolver", PROGRAM_SOURCE.read_text(encoding="utf-8"))
+
+    def test_mixed_property_key_retains_rebuild_requirement(self) -> None:
+        self.assertEqual(self.result["mixedKeyCount"], 1)
+        self.assertEqual(self.result["mixedKeyRebuild"], ["opacity"])
+        self.assertTrue(self.result["mixedKeyRoundTrip"])
+
+    def test_cached_program_structure_is_validated_fail_closed(self) -> None:
+        self.assertEqual(
+            self.result["structureCodes"],
+            [
+                ["duplicateProgramDefinition"],
+                ["duplicateProgramInstruction"],
+                ["missingProgramDefinition"],
+                ["programTypeMismatch"],
+            ],
+        )
+        self.assertEqual(self.result["structureInstructionCounts"], [0, 0, 0, 0])
+        self.assertEqual(self.result["structureDecodeRejected"], [True, True, True, True])
+        self.assertEqual(self.result["mismatchedEvaluationCount"], 0)
+        self.assertEqual(self.result["mismatchedEvaluationCodes"], ["programTypeMismatch"])
+
+
+if __name__ == "__main__":
+    unittest.main()
