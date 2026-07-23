@@ -20,6 +20,19 @@ DEBUG_RUNNER_SOURCE = (
 import scene_wallpaper_benchmark as benchmark
 
 
+def shader_stage(identity: str, kind: str, source: str) -> dict[str, object]:
+    suffix = "vert" if kind == "vertex" else "frag"
+    return {
+        "kind": kind,
+        "relativePath": f"shaders/{identity}.{suffix}",
+        "source": source,
+        "rawSHA256": hashlib.sha256(source.encode("utf-8")).hexdigest(),
+        "includes": [],
+        "annotations": [],
+        "declarations": [],
+    }
+
+
 class SceneWallpaperBenchmarkTests(unittest.TestCase):
     def test_load_matrix_accepts_version_one_samples(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-matrix-") as directory:
@@ -61,7 +74,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(set(samples), set(expected))
         for sample_id, (solid_count, authored_color_count, effective_count) in expected.items():
             sample = samples[sample_id]
-            self.assertEqual(sample["expected_interpretation_format"], 18)
+            self.assertEqual(sample["expected_interpretation_format"], 19)
             self.assertEqual(sample["expected_solid_layer_count"], solid_count)
             self.assertEqual(
                 sample["expected_authored_solid_color_layer_count"],
@@ -73,6 +86,21 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                     sample["expected_effective_visible_solid_layer_count"],
                     effective_count,
                 )
+
+    def test_default_matrix_pins_shader_contracts(self) -> None:
+        matrix = benchmark.load_matrix(SCRIPT_DIR / "scene_wallpaper_sample_matrix.json")
+        self.assertEqual(len(matrix["samples"]), 13)
+        for sample in matrix["samples"]:
+            authored = sample["expected_shader_contract_authored_count"]
+            builtin = sample["expected_shader_contract_builtin_count"]
+            self.assertEqual(sample["expected_interpretation_format"], 19)
+            self.assertEqual(sample["expected_shader_contract_count"], authored + builtin)
+            self.assertEqual(sample["expected_shader_contract_stage_count"], authored * 2)
+            self.assertEqual(sample["expected_shader_contract_diagnostic_count"], 0)
+            self.assertRegex(
+                sample["expected_shader_contract_aggregate_sha256"],
+                r"^[0-9a-f]{64}$",
+            )
 
     def test_copy_sample_requires_project_and_package(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-copy-") as directory:
@@ -249,6 +277,36 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
     def test_interpretation_metrics_preserve_slots_and_combos(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-interpretation-") as directory:
             path = Path(directory) / ".mywallpaperx-scene-interpretation.json"
+            shader_contracts = [{
+                "identity": "effects/zeta",
+                "sourceKind": "authoredSource",
+                "stages": [
+                    shader_stage("effects/zeta", "vertex", "zeta vertex"),
+                    shader_stage("effects/zeta", "fragment", "zeta fragment"),
+                ],
+                "diagnostics": [],
+                "canonicalSHA256": "b" * 64,
+            }, {
+                "identity": "genericimage4",
+                "sourceKind": "hostBuiltin",
+                "stages": [],
+                "diagnostics": [],
+                "canonicalSHA256": "c" * 64,
+            }, {
+                "identity": "effects/alpha",
+                "sourceKind": "authoredSource",
+                "stages": [
+                    shader_stage("effects/alpha", "vertex", "alpha vertex"),
+                    shader_stage("effects/alpha", "fragment", "alpha fragment"),
+                ],
+                "diagnostics": [{
+                    "code": "malformedAnnotation",
+                    "message": "bad annotation",
+                    "relativePath": "shaders/effects/alpha.frag",
+                    "line": 2,
+                }],
+                "canonicalSHA256": "a" * 64,
+            }]
             effect_graphs = [{
                 "effects": [{"key": "one"}, {"key": "two"}],
                 "renderTargets": [{"name": "one"}, {"name": "two"}],
@@ -266,7 +324,8 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             }]
             path.write_text(
                 json.dumps({
-                    "formatVersion": 7,
+                    "formatVersion": 19,
+                    "shaderContracts": shader_contracts,
                     "authoredEffectRenderPlans": effect_graphs,
                     "renderDescriptor": {
                         "materialPasses": [{
@@ -320,7 +379,16 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 encoding="utf-8",
             )
             metrics = benchmark.interpretation_metrics(path)
-            self.assertEqual(metrics["format_version"], 7)
+            self.assertEqual(metrics["format_version"], 19)
+            self.assertEqual(metrics["shader_contract_count"], 3)
+            self.assertEqual(metrics["shader_contract_authored_count"], 2)
+            self.assertEqual(metrics["shader_contract_builtin_count"], 1)
+            self.assertEqual(metrics["shader_contract_stage_count"], 4)
+            self.assertEqual(metrics["shader_contract_diagnostic_count"], 1)
+            self.assertEqual(
+                metrics["shader_contract_aggregate_sha256"],
+                "33c1609a3d79a75fef6e568b233d01a0b94ab6233d6137cc828418dfa74a9f4c",
+            )
             self.assertEqual(metrics["effect_texture_slot_count"], 2)
             self.assertEqual(metrics["effect_texture_slot_hole_count"], 1)
             self.assertEqual(metrics["effect_combo_entry_count"], 1)
@@ -383,7 +451,8 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="mwx-scene-interpretation-") as directory:
             path = Path(directory) / ".mywallpaperx-scene-interpretation.json"
             path.write_text(json.dumps({
-                "formatVersion": 7,
+                "formatVersion": 19,
+                "shaderContracts": [],
                 "renderDescriptor": {
                     "layers": [{"effects": [{"passes": [{"textureSlots": "bad", "combos": {}}]}]}],
                     "materialPasses": [],
@@ -392,6 +461,85 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             metrics = benchmark.interpretation_metrics(path)
             self.assertIsNone(metrics["format_version"])
             self.assertIn("invalid shape", metrics["error"])
+
+    def test_shader_contract_aggregate_is_independent_of_contract_order(self) -> None:
+        contracts = [{
+            "identity": "effects/zeta",
+            "sourceKind": "authoredSource",
+            "stages": [
+                shader_stage("effects/zeta", "vertex", "zeta vertex"),
+                shader_stage("effects/zeta", "fragment", "zeta fragment"),
+            ],
+            "diagnostics": [],
+            "canonicalSHA256": "b" * 64,
+        }, {
+            "identity": "genericimage4",
+            "sourceKind": "hostBuiltin",
+            "stages": [],
+            "diagnostics": [],
+            "canonicalSHA256": "c" * 64,
+        }]
+        forward = benchmark.shader_contract_metrics(contracts)
+        reverse = benchmark.shader_contract_metrics(list(reversed(contracts)))
+        self.assertEqual(
+            forward["shader_contract_aggregate_sha256"],
+            reverse["shader_contract_aggregate_sha256"],
+        )
+
+    def test_interpretation_metrics_reject_missing_or_malformed_shader_contracts(self) -> None:
+        valid_contract = {
+            "identity": "effects/example",
+            "sourceKind": "authoredSource",
+            "stages": [
+                shader_stage("effects/example", "vertex", "example vertex"),
+                shader_stage("effects/example", "fragment", "example fragment"),
+            ],
+            "diagnostics": [],
+            "canonicalSHA256": "a" * 64,
+        }
+        malformed_contract_sets = {
+            "missing": None,
+            "not-an-array": {},
+            "non-object-contract": ["bad"],
+            "missing-identity": [{
+                key: value for key, value in valid_contract.items() if key != "identity"
+            }],
+            "unknown-source-kind": [{**valid_contract, "sourceKind": "generated"}],
+            "stages-not-an-array": [{**valid_contract, "stages": {}}],
+            "stage-not-an-object": [{**valid_contract, "stages": ["bad"]}],
+            "stage-missing-fields": [{**valid_contract, "stages": [{}]}],
+            "stage-hash-mismatch": [{
+                **valid_contract,
+                "stages": [{**valid_contract["stages"][0], "source": "changed"}],
+            }],
+            "diagnostics-not-an-array": [{**valid_contract, "diagnostics": {}}],
+            "diagnostic-not-an-object": [{**valid_contract, "diagnostics": ["bad"]}],
+            "diagnostic-missing-fields": [{**valid_contract, "diagnostics": [{}]}],
+            "empty-canonical-sha": [{**valid_contract, "canonicalSHA256": ""}],
+            "malformed-canonical-sha": [{**valid_contract, "canonicalSHA256": "A" * 64}],
+            "duplicate-identity": [valid_contract, valid_contract],
+            "builtin-with-stage": [{
+                **valid_contract,
+                "identity": "genericimage2",
+                "sourceKind": "hostBuiltin",
+                "stages": [shader_stage("genericimage2", "vertex", "bad")],
+            }],
+        }
+        with tempfile.TemporaryDirectory(prefix="mwx-scene-interpretation-") as directory:
+            path = Path(directory) / ".mywallpaperx-scene-interpretation.json"
+            for case, contracts in malformed_contract_sets.items():
+                with self.subTest(case=case):
+                    payload = {
+                        "formatVersion": 19,
+                        "renderDescriptor": {"layers": [], "materialPasses": []},
+                    }
+                    if case != "missing":
+                        payload["shaderContracts"] = contracts
+                    path.write_text(json.dumps(payload), encoding="utf-8")
+                    metrics = benchmark.interpretation_metrics(path)
+                    self.assertIsNone(metrics["format_version"])
+                    self.assertIsNone(metrics["shader_contract_aggregate_sha256"])
+                    self.assertTrue(metrics["error"])
 
     def test_runtime_log_patterns_capture_ready_and_release(self) -> None:
         ready = benchmark.READY_RE.search(

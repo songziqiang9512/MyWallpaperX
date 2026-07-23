@@ -162,6 +162,7 @@ struct SceneDiagnosticsBuilder {
         let interpretationFileResult = Self.writeInterpretationFileIfPossible(
             project: project,
             sceneDocument: sceneDocument,
+            assetCatalog: assetCatalog,
             renderDescriptor: renderDescriptor,
             propertyOverrides: propertyOverrides,
             outputDirectory: packageReport?.outputURL
@@ -193,11 +194,12 @@ struct SceneDiagnosticsBuilder {
     private static func writeInterpretationFileIfPossible(
         project: SceneProject?,
         sceneDocument: SceneDocument?,
+        assetCatalog: SceneAssetCatalog?,
         renderDescriptor: SceneRenderDescriptor?,
         propertyOverrides: [String: SceneUserPropertyValue],
         outputDirectory: URL?
     ) -> (url: URL?, error: String?) {
-        guard let project, let sceneDocument, let renderDescriptor else {
+        guard let project, let sceneDocument, let assetCatalog, let renderDescriptor else {
             return (nil, nil)
         }
         guard let outputDirectory else {
@@ -214,6 +216,7 @@ struct SceneDiagnosticsBuilder {
                 effectivePropertyValues: project.userProperties.effectiveValues(
                     overrides: propertyOverrides
                 ),
+                shaderContracts: assetCatalog.shaderContracts,
                 outputDirectory: outputDirectory
             )
             let file = try SceneInterpretationFileReader().read(from: url)

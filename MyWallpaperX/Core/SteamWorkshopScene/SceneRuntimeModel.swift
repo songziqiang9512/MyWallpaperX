@@ -71,6 +71,7 @@ struct SceneRuntimeModelBuilder {
             project: project,
             sceneDocument: sceneDocument,
             propertyOverrides: propertyOverrides,
+            shaderContracts: assetCatalog.shaderContracts,
             diagnostics: diagnostics
         )
 
@@ -92,6 +93,7 @@ struct SceneRuntimeModelBuilder {
         project: SceneProject,
         sceneDocument: SceneDocument,
         propertyOverrides: [String: SceneUserPropertyValue],
+        shaderContracts: [SceneShaderContract],
         diagnostics: SceneDiagnosticsReport
     ) throws -> SceneInterpretationFile {
         if let interpretationFileURL = diagnostics.interpretationFileURL {
@@ -114,7 +116,8 @@ struct SceneRuntimeModelBuilder {
             propertyBindingProgram: compilation.program,
             effectivePropertyValues: project.userProperties.effectiveValues(
                 overrides: propertyOverrides
-            )
+            ),
+            shaderContracts: shaderContracts
         )
     }
 }

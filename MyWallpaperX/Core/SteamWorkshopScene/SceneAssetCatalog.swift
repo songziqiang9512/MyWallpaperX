@@ -37,6 +37,7 @@ struct SceneAssetCatalog {
     let materials: [MaterialAsset]
     let effectDefinitions: [SceneEffectDefinition]
     let effectDefinitionDiagnostics: [SceneEffectDefinitionDiagnostic]
+    let shaderContracts: [SceneShaderContract]
 
     nonisolated var materialPassCount: Int {
         materials.reduce(0) { $0 + $1.passes.count }
@@ -54,7 +55,7 @@ struct SceneAssetCatalog {
         })
     }
 
-    nonisolated private static func uniqueSorted(_ values: [String]) -> [String] {
+    nonisolated fileprivate static func uniqueSorted(_ values: [String]) -> [String] {
         Array(Set(values)).sorted {
             $0.localizedStandardCompare($1) == .orderedAscending
         }
@@ -74,13 +75,21 @@ struct SceneAssetCatalogLoader {
         }
         let effectResources = resourceIndex.resources.filter { $0.kind == .effectDefinition }
         let effectResults = effectResources.map(loadEffectDefinition)
+        let materials = materialResources.compactMap(loadMaterial)
+        let shaderReferences = SceneAssetCatalog.uniqueSorted(materials.flatMap { material in
+            material.passes.compactMap(\.shader)
+        })
 
         return SceneAssetCatalog(
             rootURL: rootURL,
             models: modelResources.compactMap(loadModel),
-            materials: materialResources.compactMap(loadMaterial),
+            materials: materials,
             effectDefinitions: effectResults.compactMap(\.definition),
-            effectDefinitionDiagnostics: effectResults.compactMap(\.diagnostic)
+            effectDefinitionDiagnostics: effectResults.compactMap(\.diagnostic),
+            shaderContracts: SceneShaderContractLoader().load(
+                shaderReferences: shaderReferences,
+                rootURL: rootURL
+            )
         )
     }
 

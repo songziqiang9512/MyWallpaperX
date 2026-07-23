@@ -12,16 +12,18 @@ struct SceneInterpretationFile: Codable {
     let authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan]
     let propertyBindingProgram: ScenePropertyBindingProgram
     let effectivePropertyValues: [String: SceneUserPropertyValue]
+    let shaderContracts: [SceneShaderContract]
 }
 
 struct SceneInterpretationFileWriter {
-    // Format 18 persists the live property program separately from resolved renderer state.
-    static let currentFormatVersion = 18
+    // Format 19 persists shader contracts alongside renderer and live-property state.
+    static let currentFormatVersion = 19
 
     func make(
         renderDescriptor: SceneRenderDescriptor,
         propertyBindingProgram: ScenePropertyBindingProgram,
         effectivePropertyValues: [String: SceneUserPropertyValue],
+        shaderContracts: [SceneShaderContract],
         generatedAt: Date = Date()
     ) -> SceneInterpretationFile {
         SceneInterpretationFile(
@@ -33,7 +35,8 @@ struct SceneInterpretationFileWriter {
                 for: renderDescriptor
             ),
             propertyBindingProgram: propertyBindingProgram,
-            effectivePropertyValues: effectivePropertyValues
+            effectivePropertyValues: effectivePropertyValues,
+            shaderContracts: shaderContracts
         )
     }
 
@@ -41,12 +44,14 @@ struct SceneInterpretationFileWriter {
         renderDescriptor: SceneRenderDescriptor,
         propertyBindingProgram: ScenePropertyBindingProgram,
         effectivePropertyValues: [String: SceneUserPropertyValue],
+        shaderContracts: [SceneShaderContract],
         outputDirectory: URL
     ) throws -> URL {
         let file = make(
             renderDescriptor: renderDescriptor,
             propertyBindingProgram: propertyBindingProgram,
-            effectivePropertyValues: effectivePropertyValues
+            effectivePropertyValues: effectivePropertyValues,
+            shaderContracts: shaderContracts
         )
         let outputURL = outputDirectory.appendingPathComponent(SceneInterpretationFile.fileName)
         let encoder = JSONEncoder()

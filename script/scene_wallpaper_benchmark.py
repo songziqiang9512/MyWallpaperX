@@ -181,6 +181,137 @@ def pass_metadata_metrics(passes: list[Any]) -> tuple[int, int, int]:
     return slot_count, slot_holes, combo_count
 
 
+def shader_contract_metrics(contracts: Any) -> dict[str, Any]:
+    if not isinstance(contracts, list):
+        raise ValueError("Scene interpretation shaderContracts has an invalid shape")
+
+    authored_count = 0
+    builtin_count = 0
+    stage_count = 0
+    diagnostic_count = 0
+    aggregate_entries: list[list[str]] = []
+    identities: set[str] = set()
+    for contract in contracts:
+        if not isinstance(contract, dict):
+            raise ValueError("Scene interpretation shader contract is not an object")
+        identity = contract.get("identity")
+        source_kind = contract.get("sourceKind")
+        stages = contract.get("stages")
+        diagnostics = contract.get("diagnostics")
+        canonical_sha256 = contract.get("canonicalSHA256")
+        if not isinstance(identity, str) or not identity:
+            raise ValueError("Scene interpretation shader contract identity has an invalid shape")
+        if identity in identities:
+            raise ValueError("Scene interpretation shader contract identity is duplicated")
+        identities.add(identity)
+        if source_kind not in {"authoredSource", "hostBuiltin"}:
+            raise ValueError("Scene interpretation shader contract sourceKind has an invalid shape")
+        if not isinstance(stages, list):
+            raise ValueError("Scene interpretation shader contract stages has an invalid shape")
+        if not isinstance(diagnostics, list):
+            raise ValueError("Scene interpretation shader contract diagnostics has an invalid shape")
+        if not isinstance(canonical_sha256, str) or re.fullmatch(
+            r"[0-9a-f]{64}", canonical_sha256
+        ) is None:
+            raise ValueError(
+                "Scene interpretation shader contract canonicalSHA256 has an invalid shape"
+            )
+
+        stage_kinds: set[str] = set()
+        for stage in stages:
+            if not isinstance(stage, dict):
+                raise ValueError("Scene interpretation shader contract stage is not an object")
+            kind = stage.get("kind")
+            relative_path = stage.get("relativePath")
+            source = stage.get("source")
+            raw_sha256 = stage.get("rawSHA256")
+            if kind not in {"vertex", "fragment"} or kind in stage_kinds:
+                raise ValueError("Scene interpretation shader contract stage kind is invalid")
+            stage_kinds.add(kind)
+            if relative_path != f"shaders/{identity}.{'vert' if kind == 'vertex' else 'frag'}":
+                raise ValueError("Scene interpretation shader contract stage path is invalid")
+            if not isinstance(source, str) or not isinstance(raw_sha256, str):
+                raise ValueError("Scene interpretation shader contract stage source is invalid")
+            if raw_sha256 != hashlib.sha256(source.encode("utf-8")).hexdigest():
+                raise ValueError("Scene interpretation shader contract stage rawSHA256 mismatch")
+
+            for field in ("includes", "annotations", "declarations"):
+                if not isinstance(stage.get(field), list):
+                    raise ValueError(
+                        f"Scene interpretation shader contract stage {field} is invalid"
+                    )
+            for include in stage["includes"]:
+                if not isinstance(include, dict) or not isinstance(include.get("relativePath"), str):
+                    raise ValueError("Scene interpretation shader contract include is invalid")
+                if not isinstance(include.get("raw"), str) or type(include.get("line")) is not int:
+                    raise ValueError("Scene interpretation shader contract include is invalid")
+            for annotation in stage["annotations"]:
+                marker = annotation.get("marker") if isinstance(annotation, dict) else None
+                if not isinstance(annotation, dict) or "value" not in annotation:
+                    raise ValueError("Scene interpretation shader contract annotation is invalid")
+                if marker is not None and not isinstance(marker, str):
+                    raise ValueError("Scene interpretation shader contract annotation is invalid")
+                if not isinstance(annotation.get("raw"), str) or type(annotation.get("line")) is not int:
+                    raise ValueError("Scene interpretation shader contract annotation is invalid")
+            for declaration in stage["declarations"]:
+                if not isinstance(declaration, dict) or declaration.get("kind") not in {
+                    "uniform", "attribute", "varying"
+                }:
+                    raise ValueError("Scene interpretation shader contract declaration is invalid")
+                if not all(isinstance(declaration.get(field), str) for field in ("type", "name", "raw")):
+                    raise ValueError("Scene interpretation shader contract declaration is invalid")
+                if type(declaration.get("line")) is not int:
+                    raise ValueError("Scene interpretation shader contract declaration is invalid")
+                if declaration.get("arraySuffix") is not None and not isinstance(
+                    declaration.get("arraySuffix"), str
+                ):
+                    raise ValueError("Scene interpretation shader contract declaration is invalid")
+                if declaration.get("arraySize") is not None and type(
+                    declaration.get("arraySize")
+                ) is not int:
+                    raise ValueError("Scene interpretation shader contract declaration is invalid")
+
+        diagnostic_codes = {
+            "duplicateIdentity", "invalidReference", "pathEscape", "symlinkEscape",
+            "missingVertexStage", "missingFragmentStage", "unreadableSource", "invalidUTF8",
+            "malformedAnnotation",
+        }
+        for diagnostic in diagnostics:
+            if not isinstance(diagnostic, dict) or diagnostic.get("code") not in diagnostic_codes:
+                raise ValueError("Scene interpretation shader contract diagnostic is invalid")
+            if not isinstance(diagnostic.get("message"), str):
+                raise ValueError("Scene interpretation shader contract diagnostic is invalid")
+            if diagnostic.get("relativePath") is not None and not isinstance(
+                diagnostic.get("relativePath"), str
+            ):
+                raise ValueError("Scene interpretation shader contract diagnostic is invalid")
+            if diagnostic.get("line") is not None and type(diagnostic.get("line")) is not int:
+                raise ValueError("Scene interpretation shader contract diagnostic is invalid")
+        if source_kind == "hostBuiltin" and (stages or diagnostics):
+            raise ValueError("Scene interpretation host builtin shader contract is invalid")
+
+        authored_count += source_kind == "authoredSource"
+        builtin_count += source_kind == "hostBuiltin"
+        stage_count += len(stages)
+        diagnostic_count += len(diagnostics)
+        aggregate_entries.append([identity, canonical_sha256])
+
+    # UTF-8 JSON over sorted [identity, canonicalSHA256] pairs is the stable wire encoding.
+    aggregate_sha256 = hashlib.sha256(json.dumps(
+        sorted(aggregate_entries),
+        ensure_ascii=True,
+        separators=(",", ":"),
+    ).encode("utf-8")).hexdigest()
+    return {
+        "shader_contract_count": len(contracts),
+        "shader_contract_authored_count": authored_count,
+        "shader_contract_builtin_count": builtin_count,
+        "shader_contract_stage_count": stage_count,
+        "shader_contract_diagnostic_count": diagnostic_count,
+        "shader_contract_aggregate_sha256": aggregate_sha256,
+    }
+
+
 def layer_graph_metrics(layers: list[dict[str, Any]]) -> dict[str, Any]:
     layers_by_id = {layer["id"]: layer for layer in layers if type(layer.get("id")) is int}
 
@@ -237,6 +368,7 @@ def layer_graph_metrics(layers: list[dict[str, Any]]) -> dict[str, Any]:
 def interpretation_metrics(path: Path) -> dict[str, Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
+        shader_contracts = shader_contract_metrics(payload["shaderContracts"])
         descriptor = payload["renderDescriptor"]
         layers = descriptor.get("layers", [])
         effect_passes = [
@@ -317,6 +449,7 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
         material_slot_count, material_slot_holes, material_combo_count = pass_metadata_metrics(material_passes)
         return {
             "format_version": int(payload["formatVersion"]),
+            **shader_contracts,
             "effect_texture_slot_count": effect_slot_count,
             "effect_texture_slot_hole_count": effect_slot_holes,
             "effect_combo_entry_count": effect_combo_count,
@@ -400,6 +533,12 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
     except (AttributeError, KeyError, TypeError, ValueError, json.JSONDecodeError, OSError) as error:
         return {
             "format_version": None,
+            "shader_contract_count": 0,
+            "shader_contract_authored_count": 0,
+            "shader_contract_builtin_count": 0,
+            "shader_contract_stage_count": 0,
+            "shader_contract_diagnostic_count": 0,
+            "shader_contract_aggregate_sha256": None,
             "effect_texture_slot_count": 0,
             "effect_texture_slot_hole_count": 0,
             "effect_combo_entry_count": 0,
@@ -1045,6 +1184,11 @@ def run_sample(
         failures.append("Scene interpretation evidence missing or invalid")
     interpretation_expectations = {
         "expected_interpretation_format": "format_version",
+        "expected_shader_contract_count": "shader_contract_count",
+        "expected_shader_contract_authored_count": "shader_contract_authored_count",
+        "expected_shader_contract_builtin_count": "shader_contract_builtin_count",
+        "expected_shader_contract_stage_count": "shader_contract_stage_count",
+        "expected_shader_contract_diagnostic_count": "shader_contract_diagnostic_count",
         "expected_effect_texture_slot_count": "effect_texture_slot_count",
         "expected_effect_texture_slot_hole_count": "effect_texture_slot_hole_count",
         "expected_effect_combo_entry_count": "effect_combo_entry_count",
@@ -1090,6 +1234,15 @@ def run_sample(
     if expected_effect_graph_sha256 is not None:
         if interpretation["effect_graph_sha256"] != expected_effect_graph_sha256:
             failures.append("Scene interpretation effect graph sha256 mismatch")
+    expected_shader_contract_aggregate_sha256 = sample.get(
+        "expected_shader_contract_aggregate_sha256"
+    )
+    if expected_shader_contract_aggregate_sha256 is not None:
+        if (
+            interpretation["shader_contract_aggregate_sha256"]
+            != expected_shader_contract_aggregate_sha256
+        ):
+            failures.append("Scene interpretation shader contract aggregate sha256 mismatch")
     expected_text_value = sample.get("expected_text_value")
     if expected_text_value is not None and expected_text_value not in interpretation["text_values"]:
         failures.append("Scene interpretation text property mismatch")
