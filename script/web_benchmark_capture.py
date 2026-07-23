@@ -243,6 +243,33 @@ def _decode_png_rows(path: Path) -> tuple[int, int, int, int, list[bytes]] | Non
     return width, height, channels, color_channels, rows
 
 
+def png_rgb_pixels(path: Path) -> tuple[int, int, list[bytes]] | None:
+    decoded = _decode_png_rows(path)
+    if decoded is None:
+        return None
+    width, height, channels, color_channels, rows = decoded
+    rgb_rows: list[bytes] = []
+    for row in rows:
+        rgb = bytearray(width * 3)
+        for x in range(width):
+            source = x * channels
+            destination = x * 3
+            if color_channels == 1:
+                red = green = blue = row[source]
+            else:
+                red, green, blue = row[source : source + 3]
+            alpha = row[source + color_channels] if channels > color_channels else 255
+            rgb[destination : destination + 3] = bytes(
+                (
+                    red * alpha // 255,
+                    green * alpha // 255,
+                    blue * alpha // 255,
+                )
+            )
+        rgb_rows.append(bytes(rgb))
+    return width, height, rgb_rows
+
+
 def png_has_non_black_pixel(path: Path, threshold: int = 2) -> bool:
     decoded = _decode_png_rows(path)
     if decoded is None:

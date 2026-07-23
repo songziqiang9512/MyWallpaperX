@@ -23,6 +23,10 @@ from web_benchmark_capture import (
     stage_signed_app,
     verify_staged_app,
 )
+from scene_preview_visual_evidence import (
+    collect_preview_visual_evidence,
+    summarize_preview_visual_evidence,
+)
 
 
 READY_RE = re.compile(
@@ -1194,6 +1198,11 @@ def run_sample(
         "after": png_flat_border_ratio(after_snapshot),
     }
     motion = png_motion_metrics(ready_snapshot, after_snapshot)
+    preview_visual = collect_preview_visual_evidence(
+        runtime_sample,
+        after_snapshot,
+        result_dir,
+    )
     interpretation_path = (
         Path(interpretation_match.group("path").strip())
         if interpretation_match is not None
@@ -1485,6 +1494,7 @@ def run_sample(
             "after_non_black": after_non_black,
             "flat_border_ratio": flat_border_ratio,
             "motion": motion,
+            "preview_visual": preview_visual,
         },
         "runtime": {
             "layers": int(ready_match.group("layers")) if ready_match else None,
@@ -1619,6 +1629,7 @@ def main() -> int:
             "passed": passed,
             "sample_count": len(results),
             "passed_count": sum(result["passed"] for result in results),
+            "preview_visual": summarize_preview_visual_evidence(results),
         },
         "samples": results,
     }
