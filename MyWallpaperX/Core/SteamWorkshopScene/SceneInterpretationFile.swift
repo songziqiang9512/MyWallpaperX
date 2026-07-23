@@ -16,8 +16,8 @@ struct SceneInterpretationFile: Codable {
 }
 
 struct SceneInterpretationFileWriter {
-    // Format 19 persists shader contracts alongside renderer and live-property state.
-    static let currentFormatVersion = 19
+    // Format 20 adds the strict Local Contrast strength live binding contract.
+    static let currentFormatVersion = 20
 
     func make(
         renderDescriptor: SceneRenderDescriptor,

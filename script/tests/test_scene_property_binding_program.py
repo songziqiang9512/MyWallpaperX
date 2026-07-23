@@ -163,6 +163,122 @@ enum Harness {
             ScenePropertyBindingProgram.self,
             from: JSONEncoder().encode(mixedKey.program)
         )
+        let localContrastTarget = SceneDynamicTarget.effectConstant(
+            layerID: 90,
+            effectIndex: 1,
+            passIndex: 3,
+            name: "strength"
+        )
+        let localContrast = compiler.compile(
+            report: .init(bindings: [binding(
+                "contrastStrength",
+                .number(0.32),
+                90,
+                localContrastBindingTarget(layerID: 90, effectIndex: 1)
+            )], diagnostics: []),
+            catalog: .init(definitions: [
+                property("contrastStrength", .slider, .number(0.5)),
+            ])
+        )
+        let localContrastDecoded = try JSONDecoder().decode(
+            ScenePropertyBindingProgram.self,
+            from: JSONEncoder().encode(localContrast.program)
+        )
+        let localContrastAuthored = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 4,
+            generation: 4,
+            definitions: localContrast.program.definitions
+        ).snapshot
+        let localContrastEvaluation = localContrast.program.evaluate(effectiveValues: [
+            "contrastStrength": .number(0.75),
+        ])
+        let localContrastUser = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 5,
+            generation: 5,
+            definitions: localContrast.program.definitions,
+            userValues: localContrastEvaluation.userValues
+        ).snapshot
+        let unsupportedShaderTargets = compiler.compile(
+            report: .init(bindings: [
+                binding("wrongPath", .number(0.2), 91, .shaderValue(
+                    layerID: 91,
+                    effectIndex: 0,
+                    passIndex: 3,
+                    name: "strength",
+                    effectPath: "effects/other/effect.json"
+                )),
+                binding("wrongPass", .number(0.2), 92, .shaderValue(
+                    layerID: 92,
+                    effectIndex: 0,
+                    passIndex: 2,
+                    name: "strength",
+                    effectPath: "effects/localcontrast/effect.json"
+                )),
+                binding("wrongName", .number(0.2), 93, .shaderValue(
+                    layerID: 93,
+                    effectIndex: 0,
+                    passIndex: 3,
+                    name: "amount",
+                    effectPath: "effects/localcontrast/effect.json"
+                )),
+                binding("missingPath", .number(0.2), 94, .shaderValue(
+                    layerID: 94,
+                    effectIndex: 0,
+                    passIndex: 3,
+                    name: "strength",
+                    effectPath: nil
+                )),
+            ], diagnostics: []),
+            catalog: .init(definitions: [
+                property("wrongPath", .slider, .number(0.5)),
+                property("wrongPass", .slider, .number(0.5)),
+                property("wrongName", .slider, .number(0.5)),
+                property("missingPath", .slider, .number(0.5)),
+            ])
+        )
+        let conditionalLocalContrast = compiler.compile(
+            report: .init(bindings: [binding(
+                "conditionalStrength",
+                .number(0.2),
+                95,
+                localContrastBindingTarget(layerID: 95, effectIndex: 0),
+                condition: .bool(true)
+            )], diagnostics: []),
+            catalog: .init(definitions: [
+                property("conditionalStrength", .slider, .number(0.5)),
+            ])
+        )
+        let invalidLocalContrast = compiler.compile(
+            report: .init(bindings: [binding(
+                "invalidStrength",
+                .string("0.2"),
+                96,
+                localContrastBindingTarget(layerID: 96, effectIndex: 0)
+            )], diagnostics: []),
+            catalog: .init(definitions: [
+                property("invalidStrength", .slider, .number(0.5)),
+            ])
+        )
+        let mixedLocalContrast = compiler.compile(
+            report: .init(bindings: [
+                binding(
+                    "mixedStrength",
+                    .number(0.2),
+                    97,
+                    localContrastBindingTarget(layerID: 97, effectIndex: 0)
+                ),
+                binding("mixedStrength", .number(0.4), 98, .shaderValue(
+                    layerID: 98,
+                    effectIndex: 0,
+                    passIndex: 3,
+                    name: "strength",
+                    effectPath: "effects/other/effect.json"
+                )),
+            ], diagnostics: []),
+            catalog: .init(definitions: [
+                property("mixedStrength", .slider, .number(0.5)),
+            ])
+        )
 
         let alphaDefinition = compilation.program.definitions.first { $0.target == alphaTarget }!
         let alphaInstruction = compilation.program.instructions.first { $0.target == alphaTarget }!
@@ -227,6 +343,26 @@ enum Harness {
             "mixedKeyCount": mixedKey.program.instructions.count,
             "mixedKeyRebuild": mixedKey.program.rebuildRequiredPropertyKeys,
             "mixedKeyRoundTrip": mixedKeyDecoded == mixedKey.program,
+            "localContrastCount": localContrast.program.instructions.count,
+            "localContrastTarget": localContrast.program.instructions.first?.target == localContrastTarget,
+            "localContrastRoundTrip": localContrastDecoded == localContrast.program,
+            "localContrastCodes": codes(localContrast.diagnostics),
+            "localContrastRebuild": localContrast.program.rebuildRequiredPropertyKeys,
+            "localContrastAuthored": resolved(localContrastAuthored[localContrastTarget]),
+            "localContrastUser": resolved(localContrastUser[localContrastTarget]),
+            "localContrastRuntimeCodes": codes(localContrastEvaluation.diagnostics),
+            "unsupportedShaderCount": unsupportedShaderTargets.program.instructions.count,
+            "unsupportedShaderCodes": codes(unsupportedShaderTargets.diagnostics),
+            "unsupportedShaderRebuild": unsupportedShaderTargets.program.rebuildRequiredPropertyKeys,
+            "conditionalLocalContrastCount": conditionalLocalContrast.program.instructions.count,
+            "conditionalLocalContrastCodes": codes(conditionalLocalContrast.diagnostics),
+            "conditionalLocalContrastRebuild": conditionalLocalContrast.program.rebuildRequiredPropertyKeys,
+            "invalidLocalContrastCount": invalidLocalContrast.program.instructions.count,
+            "invalidLocalContrastCodes": codes(invalidLocalContrast.diagnostics),
+            "invalidLocalContrastRebuild": invalidLocalContrast.program.rebuildRequiredPropertyKeys,
+            "mixedLocalContrastCount": mixedLocalContrast.program.instructions.count,
+            "mixedLocalContrastCodes": codes(mixedLocalContrast.diagnostics),
+            "mixedLocalContrastRebuild": mixedLocalContrast.program.rebuildRequiredPropertyKeys,
             "structureCodes": structureCodes,
             "structureInstructionCounts": structureInstructionCounts,
             "structureDecodeRejected": structureDecodeRejected,
@@ -288,6 +424,19 @@ enum Harness {
 
     static func unsupportedInput() -> SceneUserPropertyBinding {
         binding("opacity", .number(1), 72, .layerVisibility(layerID: 72))
+    }
+
+    static func localContrastBindingTarget(
+        layerID: Int,
+        effectIndex: Int
+    ) -> SceneUserPropertyBindingTarget {
+        .shaderValue(
+            layerID: layerID,
+            effectIndex: effectIndex,
+            passIndex: 3,
+            name: "strength",
+            effectPath: "effects/localcontrast/effect.json"
+        )
     }
 
     static func path(_ layerID: Int) -> SceneUserPropertyPath {
@@ -410,6 +559,64 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
         self.assertEqual(self.result["mixedKeyCount"], 1)
         self.assertEqual(self.result["mixedKeyRebuild"], ["opacity"])
         self.assertTrue(self.result["mixedKeyRoundTrip"])
+
+    def test_direct_local_contrast_strength_compiles_as_scalar_target(self) -> None:
+        self.assertEqual(self.result["localContrastCount"], 1)
+        self.assertTrue(self.result["localContrastTarget"])
+        self.assertTrue(self.result["localContrastRoundTrip"])
+        self.assertEqual(self.result["localContrastCodes"], [])
+        self.assertEqual(self.result["localContrastRebuild"], [])
+        self.assertEqual(
+            self.result["localContrastAuthored"],
+            ["scalar(0.32)", "authored"],
+        )
+        self.assertEqual(
+            self.result["localContrastUser"],
+            ["scalar(0.75)", "userProperty"],
+        )
+        self.assertEqual(self.result["localContrastRuntimeCodes"], [])
+
+    def test_other_shader_value_targets_remain_unsupported_and_rebuild(self) -> None:
+        self.assertEqual(self.result["unsupportedShaderCount"], 0)
+        self.assertEqual(
+            self.result["unsupportedShaderCodes"],
+            ["unsupportedTarget"] * 4,
+        )
+        self.assertEqual(
+            self.result["unsupportedShaderRebuild"],
+            ["missingPath", "wrongName", "wrongPass", "wrongPath"],
+        )
+
+    def test_invalid_local_contrast_bindings_fail_closed_and_rebuild(self) -> None:
+        self.assertEqual(self.result["conditionalLocalContrastCount"], 0)
+        self.assertEqual(
+            self.result["conditionalLocalContrastCodes"],
+            ["conditionalBinding"],
+        )
+        self.assertEqual(
+            self.result["conditionalLocalContrastRebuild"],
+            ["conditionalStrength"],
+        )
+        self.assertEqual(self.result["invalidLocalContrastCount"], 0)
+        self.assertEqual(
+            self.result["invalidLocalContrastCodes"],
+            ["authoredTypeMismatch"],
+        )
+        self.assertEqual(
+            self.result["invalidLocalContrastRebuild"],
+            ["invalidStrength"],
+        )
+
+    def test_mixed_supported_and_unsupported_shader_bindings_keep_rebuild(self) -> None:
+        self.assertEqual(self.result["mixedLocalContrastCount"], 1)
+        self.assertEqual(
+            self.result["mixedLocalContrastCodes"],
+            ["unsupportedTarget"],
+        )
+        self.assertEqual(
+            self.result["mixedLocalContrastRebuild"],
+            ["mixedStrength"],
+        )
 
     def test_cached_program_structure_is_validated_fail_closed(self) -> None:
         self.assertEqual(

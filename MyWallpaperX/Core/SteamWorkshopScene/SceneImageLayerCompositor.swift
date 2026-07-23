@@ -48,11 +48,13 @@ struct SceneImageLayerDrawRequest {
     let dependencyEffect: SceneDependencyEffectInput?
     let authoredEffectPlan: SceneAuthoredEffectExecutionPlan?
     let blocksLegacyGaussianBlur: Bool
+    var localContrastStrength: Float? = nil
 }
 
 struct SceneImageLayerCompositor {
     private let gaussianBlurPipeline: SceneGaussianBlurPipeline
     private let standardBlurPipeline: SceneStandardBlurPipeline
+    private let localContrastPipeline: SceneLocalContrastPipeline
     private let bloomPipeline: SceneBloomPipeline
     private let gradientColorPipeline: SceneGradientColorPipeline
     private let waterRipplePipeline: SceneWaterRipplePipeline
@@ -62,6 +64,7 @@ struct SceneImageLayerCompositor {
     init?(device: MTLDevice) {
         guard let gaussianBlurPipeline = SceneGaussianBlurPipeline(device: device),
               let standardBlurPipeline = SceneStandardBlurPipeline(device: device),
+              let localContrastPipeline = SceneLocalContrastPipeline(device: device),
               let bloomPipeline = SceneBloomPipeline(device: device),
               let gradientColorPipeline = SceneGradientColorPipeline(device: device),
               let waterRipplePipeline = SceneWaterRipplePipeline(device: device),
@@ -71,6 +74,7 @@ struct SceneImageLayerCompositor {
         }
         self.gaussianBlurPipeline = gaussianBlurPipeline
         self.standardBlurPipeline = standardBlurPipeline
+        self.localContrastPipeline = localContrastPipeline
         self.bloomPipeline = bloomPipeline
         self.gradientColorPipeline = gradientColorPipeline
         self.waterRipplePipeline = waterRipplePipeline
@@ -157,6 +161,21 @@ struct SceneImageLayerCompositor {
                             sourceUniforms: directUniforms,
                             pipeline: pipeline,
                             standardBlurPipeline: standardBlurPipeline,
+                            commandBuffer: commandBuffer
+                        )
+                    case .localContrast(let contrast):
+                        SceneOffscreenEffectRenderer.renderLocalContrast(
+                            sourceTexture: request.texture,
+                            waterMaskTexture: masks.water,
+                            foliageMaskTexture: masks.foliage,
+                            auxMaskTexture: auxMask,
+                            targets: targets,
+                            plan: contrast,
+                            strength: request.localContrastStrength
+                                ?? contrast.staticOrFallbackStrength,
+                            sourceUniforms: directUniforms,
+                            pipeline: pipeline,
+                            localContrastPipeline: localContrastPipeline,
                             commandBuffer: commandBuffer
                         )
                     }

@@ -98,11 +98,17 @@ extension SteamWorkshopService {
               let renderDescriptor = report.renderDescriptor else {
             return nil
         }
+        let authoredEffectCatalog = SceneAuthoredEffectExecutionCatalog(
+            descriptor: renderDescriptor,
+            authoredPlans: SceneAuthoredEffectRenderPlanner.plans(for: renderDescriptor),
+            shaderContracts: report.assetCatalog?.shaderContracts ?? []
+        )
         var actionableKeys = Set(
             document.userPropertyResolution.bindingReport.bindings.compactMap { binding in
                 supportsScenePropertyTarget(
                     binding.target,
-                    in: renderDescriptor
+                    in: renderDescriptor,
+                    authoredEffectCatalog: authoredEffectCatalog
                 ) ? binding.reference.key : nil
             }
         )
@@ -219,7 +225,8 @@ extension SteamWorkshopService {
 
     private func supportsScenePropertyTarget(
         _ target: SceneUserPropertyBindingTarget,
-        in renderDescriptor: SceneRenderDescriptor
+        in renderDescriptor: SceneRenderDescriptor,
+        authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
     ) -> Bool {
         switch target {
         case .layerVisibility, .layerAlpha, .text:
@@ -235,12 +242,28 @@ extension SteamWorkshopService {
                 "cameraparallaxmouseinfluence"
             ].contains(field.localizedLowercase)
         case let .effectVisibility(_, _, effectPath):
+            if Self.isStrictLocalContrastPath(effectPath) {
+                return true
+            }
             return Self.supportsSceneEffectProperty(path: effectPath, valueName: nil)
-        case let .shaderValue(_, _, _, name, effectPath):
+        case let .shaderValue(layerID, effectIndex, passIndex, name, effectPath):
+            if Self.isStrictLocalContrastPath(effectPath) {
+                return authoredEffectCatalog.liveConsumerTargets.contains(.effectConstant(
+                    layerID: layerID,
+                    effectIndex: effectIndex,
+                    passIndex: passIndex,
+                    name: name
+                ))
+            }
             return Self.supportsSceneEffectProperty(path: effectPath, valueName: name)
         case .unsupported:
             return false
         }
+    }
+
+    private static func isStrictLocalContrastPath(_ path: String?) -> Bool {
+        path?.replacingOccurrences(of: "\\", with: "/").lowercased()
+            == "effects/localcontrast/effect.json"
     }
 
     private static func supportsSceneEffectProperty(path: String?, valueName: String?) -> Bool {

@@ -85,14 +85,14 @@ enum Harness {
         let raw = try JSONSerialization.jsonObject(with: rawData) as! [String: Any]
 
         var legacy = raw
-        legacy["formatVersion"] = 18
+        legacy["formatVersion"] = 19
         let legacyURL = outputDirectory.appendingPathComponent("legacy.json")
         try JSONSerialization.data(withJSONObject: legacy).write(to: legacyURL)
         let legacyRejected: Bool
         do {
             _ = try SceneInterpretationFileReader().read(from: legacyURL)
             legacyRejected = false
-        } catch SceneInterpretationFileError.unsupportedFormatVersion(18) {
+        } catch SceneInterpretationFileError.unsupportedFormatVersion(19) {
             legacyRejected = true
         }
 
@@ -166,12 +166,12 @@ class SceneInterpretationFileTests(unittest.TestCase):
         if shutil.which("swiftc") is None:
             raise unittest.SkipTest("swiftc is unavailable")
         cls.temporary_directory = tempfile.TemporaryDirectory(
-            prefix="mwx-scene-interpretation-v19-"
+            prefix="mwx-scene-interpretation-v20-"
         )
         directory = Path(cls.temporary_directory.name)
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS, encoding="utf-8")
-        binary = directory / "scene-interpretation-v19"
+        binary = directory / "scene-interpretation-v20"
         compilation = subprocess.run(
             ["swiftc", *map(str, SWIFT_SOURCES), str(harness), "-o", str(binary)],
             capture_output=True,
@@ -188,8 +188,8 @@ class SceneInterpretationFileTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
 
-    def test_v19_round_trips_program_values_and_shader_contracts(self) -> None:
-        self.assertEqual(self.result["formatVersion"], 19)
+    def test_v20_round_trips_program_values_and_shader_contracts(self) -> None:
+        self.assertEqual(self.result["formatVersion"], 20)
         self.assertEqual(self.result["sourceEntryPath"], "scene.json")
         self.assertEqual(self.result["authoredPlanCount"], 1)
         self.assertTrue(self.result["programRoundTrip"])

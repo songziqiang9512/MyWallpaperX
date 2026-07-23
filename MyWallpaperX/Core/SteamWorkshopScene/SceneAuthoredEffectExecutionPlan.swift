@@ -4,6 +4,7 @@ nonisolated struct SceneAuthoredEffectExecutionPlan {
     enum Backend {
         case preciseGaussian(SceneGaussianBlurPlan)
         case standardBlur(SceneStandardBlurPlan)
+        case localContrast(SceneLocalContrastPlan)
     }
 
     let layerID: Int
@@ -22,6 +23,19 @@ nonisolated struct SceneAuthoredEffectExecutionPlan {
         return plan
     }
 
+    var localContrast: SceneLocalContrastPlan? {
+        guard case .localContrast(let plan) = backend else { return nil }
+        return plan
+    }
+
+    var liveConsumerTarget: SceneDynamicTarget? {
+        localContrast?.liveStrengthTarget
+    }
+
+    func localContrastStrength(in snapshot: SceneDynamicSnapshot) -> Float? {
+        localContrast?.resolvedStrength(in: snapshot)
+    }
+
     var requiresExactInputExtent: Bool {
         if case .preciseGaussian = backend { return true }
         return false
@@ -35,19 +49,35 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
 
     init(
         descriptor: SceneRenderDescriptor,
-        authoredPlans: [SceneAuthoredEffectRenderPlan]
+        authoredPlans: [SceneAuthoredEffectRenderPlan],
+        shaderContracts: [SceneShaderContract] = []
     ) {
         let visible = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let grouped = Dictionary(grouping: authoredPlans, by: \.layerID)
         var eligible: [Int: SceneAuthoredEffectExecutionPlan] = [:]
         for (layerID, candidates) in grouped where candidates.count == 1 {
             let graph = candidates[0]
-            guard let plan = SceneAuthoredEffectExecutionPlanner.plan(
+            let localContrast = SceneAuthoredLocalContrastPlanner.plan(
+                graph: graph,
+                descriptor: descriptor,
+                shaderContracts: shaderContracts
+            )
+            let plan = SceneAuthoredEffectExecutionPlanner.plan(
                 graph: graph,
                 descriptor: descriptor
-            ) ?? SceneAuthoredStandardBlurPlanner.plan(graph: graph, descriptor: descriptor) else {
-                continue
+            ) ?? SceneAuthoredStandardBlurPlanner.plan(
+                graph: graph,
+                descriptor: descriptor
+            ) ?? localContrast.map {
+                SceneAuthoredEffectExecutionPlan(
+                    layerID: graph.layerID,
+                    renderGraph: graph,
+                    backend: .localContrast($0),
+                    materialNodeCount: 4,
+                    logicalRenderTargetCount: 2
+                )
             }
+            guard let plan else { continue }
             eligible[layerID] = plan
         }
         plansByLayerID = eligible.filter { visible.contains($0.key) }
@@ -78,7 +108,12 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
             "authoredEffectGraphHiddenEligibleLayerIDs: \(hiddenEligibleLayerIDs.map(String.init).joined(separator: ","))",
             "authoredEffectGraphLegacyBlurBlockedCount: \(legacyGaussianBlurBlockedLayerIDs.count)",
             "authoredEffectGraphLegacyBlurBlockedLayerIDs: \(legacyGaussianBlurBlockedLayerIDs.sorted().map(String.init).joined(separator: ","))",
+            "authoredEffectGraphLocalContrastCount: \(plansByLayerID.values.filter { $0.localContrast != nil }.count)",
         ]
+    }
+
+    var liveConsumerTargets: Set<SceneDynamicTarget> {
+        Set(plansByLayerID.values.compactMap(\.liveConsumerTarget))
     }
 }
 

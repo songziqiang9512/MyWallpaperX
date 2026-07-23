@@ -74,7 +74,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(set(samples), set(expected))
         for sample_id, (solid_count, authored_color_count, effective_count) in expected.items():
             sample = samples[sample_id]
-            self.assertEqual(sample["expected_interpretation_format"], 19)
+            self.assertEqual(sample["expected_interpretation_format"], 20)
             self.assertEqual(sample["expected_solid_layer_count"], solid_count)
             self.assertEqual(
                 sample["expected_authored_solid_color_layer_count"],
@@ -93,7 +93,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         for sample in matrix["samples"]:
             authored = sample["expected_shader_contract_authored_count"]
             builtin = sample["expected_shader_contract_builtin_count"]
-            self.assertEqual(sample["expected_interpretation_format"], 19)
+            self.assertEqual(sample["expected_interpretation_format"], 20)
             self.assertEqual(sample["expected_shader_contract_count"], authored + builtin)
             self.assertEqual(sample["expected_shader_contract_stage_count"], authored * 2)
             self.assertEqual(sample["expected_shader_contract_diagnostic_count"], 0)
@@ -183,6 +183,27 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(
             samples["3723257973"]["expected_authored_effect_graph_succeeded_layer_ids"],
             [],
+        )
+        self.assertEqual(
+            samples["2902406982"]["expected_authored_effect_graph_succeeded_layer_ids"],
+            [167, 177, 530],
+        )
+        self.assertEqual(
+            samples["2902406982"]["expected_authored_effect_graph_local_contrast_count"],
+            2,
+        )
+        self.assertEqual(
+            samples["2902406982"]["live_property_overrides"],
+            {"brcontraststrength": 3.0},
+        )
+        self.assertGreater(samples["2902406982"]["minimum_live_changed_ratio"], 0)
+        self.assertEqual(
+            samples["2938612768"]["expected_authored_effect_graph_succeeded_layer_ids"],
+            [],
+        )
+        self.assertEqual(
+            samples["2938612768"]["expected_authored_effect_graph_local_contrast_count"],
+            0,
         )
 
     def test_entry_basename_package_is_preferred_and_copied(self) -> None:
@@ -324,7 +345,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             }]
             path.write_text(
                 json.dumps({
-                    "formatVersion": 19,
+                    "formatVersion": 20,
                     "shaderContracts": shader_contracts,
                     "authoredEffectRenderPlans": effect_graphs,
                     "renderDescriptor": {
@@ -379,7 +400,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 encoding="utf-8",
             )
             metrics = benchmark.interpretation_metrics(path)
-            self.assertEqual(metrics["format_version"], 19)
+            self.assertEqual(metrics["format_version"], 20)
             self.assertEqual(metrics["shader_contract_count"], 3)
             self.assertEqual(metrics["shader_contract_authored_count"], 2)
             self.assertEqual(metrics["shader_contract_builtin_count"], 1)
@@ -451,7 +472,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="mwx-scene-interpretation-") as directory:
             path = Path(directory) / ".mywallpaperx-scene-interpretation.json"
             path.write_text(json.dumps({
-                "formatVersion": 19,
+                "formatVersion": 20,
                 "shaderContracts": [],
                 "renderDescriptor": {
                     "layers": [{"effects": [{"passes": [{"textureSlots": "bad", "combos": {}}]}]}],
@@ -530,7 +551,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             for case, contracts in malformed_contract_sets.items():
                 with self.subTest(case=case):
                     payload = {
-                        "formatVersion": 19,
+                        "formatVersion": 20,
                         "renderDescriptor": {"layers": [], "materialPasses": []},
                     }
                     if case != "missing":
@@ -631,6 +652,21 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertIn(
             "live property update evidence missing",
             benchmark.live_property_update_failures(requested, None),
+        )
+
+    def test_live_property_output_requires_a_visible_post_update_change(self) -> None:
+        sample = {"minimum_live_changed_ratio": 0.01}
+        self.assertEqual(
+            benchmark.live_property_output_failures(sample, {"changed_ratio": 0.02}),
+            [],
+        )
+        self.assertEqual(
+            benchmark.live_property_output_failures(sample, {"changed_ratio": 0.001}),
+            ["live property output evidence below minimum"],
+        )
+        self.assertEqual(
+            benchmark.live_property_output_failures(sample, None),
+            ["live property output evidence below minimum"],
         )
 
     def test_debug_runner_updates_the_existing_host_record(self) -> None:
@@ -803,6 +839,7 @@ utility layer 763: skippedHidden kind=composition
                 {"expected_authored_effect_graph_succeeded_layer_ids": [68, 76]},
                 metrics,
                 [],
+                None,
             ),
             [],
         )
@@ -812,6 +849,7 @@ utility layer 763: skippedHidden kind=composition
                 {"expected_authored_effect_graph_succeeded_layer_ids": [68]},
                 metrics,
                 [],
+                None,
             ),
         )
 
@@ -824,6 +862,7 @@ utility layer 763: skippedHidden kind=composition
                 {"expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [20, 36]},
                 {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 blocked,
+                None,
             ),
             [],
         )
@@ -833,6 +872,30 @@ utility layer 763: skippedHidden kind=composition
                 {"expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [20]},
                 {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 blocked,
+                None,
+            ),
+        )
+
+    def test_authored_local_contrast_count_is_an_exact_gate(self) -> None:
+        preview = "authoredEffectGraphLocalContrastCount: 2\n"
+        count = benchmark.authored_effect_graph_local_contrast_count(preview)
+        self.assertEqual(count, 2)
+        self.assertEqual(
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_local_contrast_count": 2},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                count,
+            ),
+            [],
+        )
+        self.assertIn(
+            "authored effect graph Local Contrast count mismatch",
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_local_contrast_count": 0},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                count,
             ),
         )
 

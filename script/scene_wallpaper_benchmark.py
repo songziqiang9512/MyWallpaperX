@@ -96,6 +96,10 @@ AUTHORED_EFFECT_GRAPH_LEGACY_BLUR_BLOCKED_RE = re.compile(
     r"^authoredEffectGraphLegacyBlurBlockedLayerIDs: ?(?P<ids>[\d,]*)$",
     re.MULTILINE,
 )
+AUTHORED_EFFECT_GRAPH_LOCAL_CONTRAST_COUNT_RE = re.compile(
+    r"^authoredEffectGraphLocalContrastCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
 NAMED_TARGET_CAPTURE_EXECUTION_RE = re.compile(
     r"phase=named-target-capture layer=(?P<id>\d+) status=(?P<status>succeeded|failed)"
 )
@@ -725,6 +729,11 @@ def authored_effect_graph_legacy_blur_blocked_layer_ids(preview_text: str) -> li
     return sorted({int(value) for value in match.group("ids").split(",")})
 
 
+def authored_effect_graph_local_contrast_count(preview_text: str) -> int | None:
+    match = AUTHORED_EFFECT_GRAPH_LOCAL_CONTRAST_COUNT_RE.search(preview_text)
+    return int(match.group("count")) if match is not None else None
+
+
 def named_target_capture_execution_metrics(log_text: str) -> dict[str, Any]:
     return capture_execution_metrics(log_text, NAMED_TARGET_CAPTURE_EXECUTION_RE)
 
@@ -791,6 +800,7 @@ def authored_effect_graph_failures(
     sample: dict[str, Any],
     metrics: dict[str, Any],
     legacy_blur_blocked_layer_ids: list[int],
+    local_contrast_count: int | None,
 ) -> list[str]:
     failures = [
         f"authored effect graph layer {layer_id} failed"
@@ -809,6 +819,10 @@ def authored_effect_graph_failures(
     if expected_blocked is not None:
         if set(legacy_blur_blocked_layer_ids) != set(expected_blocked):
             failures.append("authored effect graph legacy blur blocked layer IDs mismatch")
+    expected_local_contrast = sample.get("expected_authored_effect_graph_local_contrast_count")
+    if expected_local_contrast is not None:
+        if local_contrast_count != int(expected_local_contrast):
+            failures.append("authored effect graph Local Contrast count mismatch")
     return failures
 
 
@@ -947,6 +961,18 @@ def live_property_update_failures(
     return failures
 
 
+def live_property_output_failures(
+    sample: dict[str, Any],
+    motion: dict[str, Any] | None,
+) -> list[str]:
+    minimum = sample.get("minimum_live_changed_ratio")
+    if minimum is None:
+        return []
+    if motion is None or motion["changed_ratio"] < float(minimum):
+        return ["live property output evidence below minimum"]
+    return []
+
+
 def run_sample(
     runtime_binary: Path,
     sample_root: Path,
@@ -1037,6 +1063,9 @@ def run_sample(
     authored_effect_graph_legacy_blur_blocked = (
         authored_effect_graph_legacy_blur_blocked_layer_ids(preview_text)
     )
+    authored_effect_graph_local_contrast = authored_effect_graph_local_contrast_count(
+        preview_text
+    )
     named_target_capture_execution = named_target_capture_execution_metrics(log_text)
     named_target_binding_execution = named_target_binding_execution_metrics(log_text)
     image_blend_runtime = image_blend_runtime_metrics(preview_text, log_text)
@@ -1118,6 +1147,7 @@ def run_sample(
         sample,
         authored_effect_graph_execution,
         authored_effect_graph_legacy_blur_blocked,
+        authored_effect_graph_local_contrast,
     ))
     succeeded_capture_ids = set(utility_capture_execution["succeeded_layer_ids"])
     if len(succeeded_capture_ids) < utility_runtime["capture_planned"]:
@@ -1283,6 +1313,7 @@ def run_sample(
         minimum_changed_ratio = float(sample.get("minimum_changed_ratio", 0))
         if motion is None or motion["changed_ratio"] < minimum_changed_ratio:
             failures.append("animated output evidence below minimum")
+    failures.extend(live_property_output_failures(sample, motion))
     maximum_changed_ratio = sample.get("maximum_changed_ratio")
     if maximum_changed_ratio is not None:
         if motion is None or motion["changed_ratio"] > float(maximum_changed_ratio):
@@ -1350,6 +1381,7 @@ def run_sample(
             "authored_effect_graph_succeeded_layer_ids": authored_effect_graph_execution["succeeded_layer_ids"],
             "authored_effect_graph_failed_layer_ids": authored_effect_graph_execution["failed_layer_ids"],
             "authored_effect_graph_legacy_blur_blocked_layer_ids": authored_effect_graph_legacy_blur_blocked,
+            "authored_effect_graph_local_contrast_count": authored_effect_graph_local_contrast,
             "named_target_capture_succeeded_layer_ids": named_target_capture_execution["succeeded_layer_ids"],
             "named_target_capture_failed_layer_ids": named_target_capture_execution["failed_layer_ids"],
             "named_target_binding_succeeded_layer_ids": named_target_binding_execution["succeeded_layer_ids"],

@@ -25,6 +25,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneGaussianBlurPipeline.swift",
     SOURCE_ROOT / "SceneStandardBlurPipeline.swift",
     SOURCE_ROOT / "SceneStandardBlurRenderer.swift",
+    SOURCE_ROOT / "SceneLocalContrastPipeline.swift",
+    SOURCE_ROOT / "SceneLocalContrastRenderer.swift",
     SOURCE_ROOT / "SceneImageBlendPipeline.swift",
     SOURCE_ROOT / "SceneGradientColorPipeline.swift",
     SOURCE_ROOT / "SceneBloomPipeline.swift",
@@ -125,6 +127,7 @@ struct SceneAuthoredEffectExecutionPlan {
     enum Backend {
         case preciseGaussian(SceneGaussianBlurPlan)
         case standardBlur(SceneStandardBlurPlan)
+        case localContrast(SceneLocalContrastPlan)
     }
 
     let layerID: Int
@@ -143,6 +146,11 @@ struct SceneAuthoredEffectExecutionPlan {
         return plan
     }
 
+    var localContrast: SceneLocalContrastPlan? {
+        guard case .localContrast(let plan) = backend else { return nil }
+        return plan
+    }
+
     var requiresExactInputExtent: Bool {
         if case .preciseGaussian = backend { return true }
         return false
@@ -153,6 +161,13 @@ struct SceneStandardBlurPlan {
     let horizontalStep: Float
     let verticalStep: Float
     let renderTargetScale: Int
+}
+
+struct SceneLocalContrastPlan {
+    let firstQuarterTarget: SceneAuthoredEffectRenderPlan.TextureIdentity
+    let secondQuarterTarget: SceneAuthoredEffectRenderPlan.TextureIdentity
+    let renderGraph: SceneAuthoredEffectRenderPlan
+    let staticOrFallbackStrength: Float
 }
 
 @main

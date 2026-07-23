@@ -20,7 +20,7 @@ struct SceneMetalRenderer {
     private let authoredEffectTelemetry = SceneGPUCompletionTelemetry(phase: "authored-effect-graph")
     init?(
         renderDescriptor: SceneRenderDescriptor,
-        authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan] = []
+        authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
     ) {
         guard let device = MTLCreateSystemDefaultDevice(),
               let commandQueue = device.makeCommandQueue(),
@@ -33,10 +33,7 @@ struct SceneMetalRenderer {
         self.imageCompositor = imageCompositor
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: renderDescriptor)
         self.visibleLayerIDs = visibleLayerIDs
-        self.authoredEffectCatalog = SceneAuthoredEffectExecutionCatalog(
-            descriptor: renderDescriptor,
-            authoredPlans: authoredEffectRenderPlans
-        )
+        self.authoredEffectCatalog = authoredEffectCatalog
         self.dependencyRuntime = SceneDependencyFrameRuntime(
             descriptor: renderDescriptor,
             visibleLayerIDs: visibleLayerIDs,
@@ -238,7 +235,10 @@ struct SceneMetalRenderer {
                     finalCompositeAlpha: nil,
                     dependencyEffect: dependencyEffect,
                     authoredEffectPlan: authoredEffectPlan,
-                    blocksLegacyGaussianBlur: blocksLegacyGaussianBlur(for: layer.id)
+                    blocksLegacyGaussianBlur: blocksLegacyGaussianBlur(for: layer.id),
+                    localContrastStrength: authoredEffectPlan?.localContrastStrength(
+                        in: frameContext.dynamicValues
+                    )
                 )
                 let encoded = imageCompositor.draw(request, pipeline: imagePipeline, mainPass: mainPass)
                 if authoredEffectPlan != nil {

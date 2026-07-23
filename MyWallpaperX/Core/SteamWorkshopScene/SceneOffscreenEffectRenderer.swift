@@ -225,6 +225,41 @@ enum SceneOffscreenEffectRenderer {
         )
     }
 
+    static func renderLocalContrast(
+        sourceTexture: MTLTexture,
+        waterMaskTexture: MTLTexture?,
+        foliageMaskTexture: MTLTexture?,
+        auxMaskTexture: MTLTexture?,
+        targets: SceneGraphRenderTargetTable,
+        plan: SceneLocalContrastPlan,
+        strength: Float,
+        sourceUniforms: SceneLayerFragmentUniforms,
+        pipeline: SceneImageLayerPipeline,
+        localContrastPipeline: SceneLocalContrastPipeline,
+        commandBuffer: MTLCommandBuffer
+    ) -> MTLTexture? {
+        guard captureSource(
+            sourceTexture: sourceTexture,
+            waterMaskTexture: waterMaskTexture,
+            foliageMaskTexture: foliageMaskTexture,
+            auxMaskTexture: auxMaskTexture,
+            target: targets.inputTexture,
+            sourceUniforms: sourceUniforms,
+            pipeline: pipeline,
+            commandBuffer: commandBuffer
+        ) else {
+            return nil
+        }
+        return SceneLocalContrastRenderer.render(
+            targets: targets,
+            quarterAIdentity: plan.firstQuarterTarget,
+            quarterBIdentity: plan.secondQuarterTarget,
+            strength: strength,
+            pipeline: localContrastPipeline,
+            commandBuffer: commandBuffer
+        )
+    }
+
     private static func renderBloom(
         plan: SceneBloomPlan,
         textures: SceneOffscreenTexturePool.Pair,

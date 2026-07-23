@@ -168,6 +168,8 @@ class SceneFrameContextTests(unittest.TestCase):
         coordinator = COORDINATOR_SOURCE.read_text(encoding="utf-8")
         debug_runner = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
         self.assertIn("interpretationFile: SceneInterpretationFile", host)
+        self.assertIn("let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog", host)
+        self.assertIn("shaderContracts: interpretationFile.shaderContracts", host)
         self.assertIn(
             "program: interpretationFile.propertyBindingProgram", host
         )
@@ -180,6 +182,10 @@ class SceneFrameContextTests(unittest.TestCase):
         start = host.index("private static func activeLiveConsumerTargets(")
         end = host.index("private func startFrameDriver()", start)
         derivation = host[start:end]
+        self.assertIn(
+            "into: authoredEffectCatalog.liveConsumerTargets",
+            derivation,
+        )
         self.assertIn('case "image", "text":', derivation)
         self.assertIn('case "solid":', derivation)
         self.assertIn(

@@ -29,13 +29,13 @@ class SceneMetalView: NSView {
 
     init?(
         renderDescriptor: SceneRenderDescriptor,
-        authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan],
+        authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog,
         userPropertyTextureURLs: [String: URL] = [:],
         frame: NSRect
     ) {
         guard let renderer = SceneMetalRenderer(
             renderDescriptor: renderDescriptor,
-            authoredEffectRenderPlans: authoredEffectRenderPlans
+            authoredEffectCatalog: authoredEffectCatalog
         ) else { return nil }
         self.metalDevice = renderer.device
         self.renderer = renderer

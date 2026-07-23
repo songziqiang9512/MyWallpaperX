@@ -141,6 +141,9 @@ enum SceneEffectRuntimePlanner {
             authoredEffectPlan: authoredEffectPlan,
             blocksLegacyGaussianBlur: blocksLegacyGaussianBlur
         )
+        if authoredEffectPlan?.localContrast != nil {
+            return "\(foliage)effect runtime local-contrast-authored; \(passCount) declared pass(es)"
+        }
         if authoredEffectPlan?.standardBlur != nil {
             return "\(foliage)effect runtime standard-blur-authored; \(passCount) declared pass(es)"
         }

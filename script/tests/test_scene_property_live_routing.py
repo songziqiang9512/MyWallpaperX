@@ -106,7 +106,8 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         support = method_body(self.service, "private func supportsScenePropertyTarget(")
         self.assertIn(
             "supportsScenePropertyTarget(\n                    binding.target,\n"
-            "                    in: renderDescriptor\n                )",
+            "                    in: renderDescriptor,\n"
+            "                    authoredEffectCatalog: authoredEffectCatalog\n                )",
             context,
         )
         self.assertIn("case let .layerColor(layerID):", support)
@@ -114,6 +115,21 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         self.assertNotIn('$0.contentKind == "image"', support)
         self.assertNotIn('$0.contentKind == "text"', support)
         self.assertNotIn('$0.contentKind == "particle"', support)
+
+    def test_local_contrast_controls_require_the_strict_execution_catalog(self) -> None:
+        context = method_body(self.service, "func scenePropertyContext(")
+        support = method_body(self.service, "private func supportsScenePropertyTarget(")
+        self.assertIn("SceneAuthoredEffectExecutionCatalog(", context)
+        self.assertIn("shaderContracts: report.assetCatalog?.shaderContracts ?? []", context)
+        self.assertIn("case let .effectVisibility(_, _, effectPath):", support)
+        self.assertIn("case let .shaderValue(layerID, effectIndex, passIndex, name, effectPath):", support)
+        self.assertEqual(support.count("Self.isStrictLocalContrastPath(effectPath)"), 2)
+        self.assertIn(
+            "if Self.isStrictLocalContrastPath(effectPath) {\n                return true",
+            support,
+        )
+        self.assertIn("authoredEffectCatalog.liveConsumerTargets.contains(.effectConstant(", support)
+        self.assertNotIn('(\"localcontrast\", [\"strength\"])', self.service)
 
 
 if __name__ == "__main__":

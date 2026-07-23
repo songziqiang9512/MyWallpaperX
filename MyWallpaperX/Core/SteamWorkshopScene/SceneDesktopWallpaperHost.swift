@@ -31,6 +31,7 @@ final class SceneDesktopWallpaperHost {
 
     private struct LaunchContext {
         let interpretationFile: SceneInterpretationFile
+        let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
         var liveState: ScenePropertyLiveUpdateState
         let userPropertyTextureURLs: [String: URL]
         let cacheDirectory: URL
@@ -62,13 +63,20 @@ final class SceneDesktopWallpaperHost {
         logURL: URL?,
         recordID: String? = nil
     ) -> Bool {
+        let authoredEffectCatalog = SceneAuthoredEffectExecutionCatalog(
+            descriptor: interpretationFile.renderDescriptor,
+            authoredPlans: interpretationFile.authoredEffectRenderPlans,
+            shaderContracts: interpretationFile.shaderContracts
+        )
         launchContext = LaunchContext(
             interpretationFile: interpretationFile,
+            authoredEffectCatalog: authoredEffectCatalog,
             liveState: ScenePropertyLiveUpdateState(
                 program: interpretationFile.propertyBindingProgram,
                 effectiveValues: interpretationFile.effectivePropertyValues,
                 activeConsumerTargets: Self.activeLiveConsumerTargets(
-                    in: interpretationFile.renderDescriptor
+                    in: interpretationFile.renderDescriptor,
+                    authoredEffectCatalog: authoredEffectCatalog
                 )
             ),
             userPropertyTextureURLs: userPropertyTextureURLs,
@@ -215,7 +223,7 @@ final class SceneDesktopWallpaperHost {
             let frame = screen.frame
             guard let metalView = SceneMetalView(
                 renderDescriptor: launchContext.interpretationFile.renderDescriptor,
-                authoredEffectRenderPlans: launchContext.interpretationFile.authoredEffectRenderPlans,
+                authoredEffectCatalog: launchContext.authoredEffectCatalog,
                 userPropertyTextureURLs: launchContext.userPropertyTextureURLs,
                 frame: frame
             ) else {
@@ -309,10 +317,13 @@ final class SceneDesktopWallpaperHost {
     }
 
     private static func activeLiveConsumerTargets(
-        in descriptor: SceneRenderDescriptor
+        in descriptor: SceneRenderDescriptor,
+        authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
     ) -> Set<SceneDynamicTarget> {
         let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(in: descriptor)
-        return descriptor.layers.reduce(into: Set<SceneDynamicTarget>()) { targets, layer in
+        return descriptor.layers.reduce(
+            into: authoredEffectCatalog.liveConsumerTargets
+        ) { targets, layer in
             switch layer.contentKind {
             case "image", "text":
                 targets.insert(.layer(layerID: layer.id, field: .alpha))
