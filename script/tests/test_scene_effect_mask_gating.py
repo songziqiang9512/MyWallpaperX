@@ -44,6 +44,9 @@ enum Harness {
         )
         let plainFoliage = effect("effects/foliagesway/effect.json")
         let maskedWater = effect("effects/waterwaves/effect.json", maskCombo: 1)
+        let plainWater = effect("effects/waterwaves/effect.json")
+        let hiddenTint = effect("effects/tint/effect.json", visible: false)
+        let visibleTint = effect("effects/tint/effect.json")
         let chromatic = effect("effects/chromaticaberration/effect.json")
         let workshopChromatic = effect("effects/workshop/2423877731/chromatic_aberration/effect.json")
         let cursorRipple = effect("effects/cursorripple/effect.json")
@@ -58,6 +61,18 @@ enum Harness {
             ) ?? "none",
             "loadedWaterSummary": SceneInlineEffectRuntime.summary(
                 for: .init(effects: [maskedWater]), hasWaterMask: true
+            ) ?? "none",
+            "orderedWaterChain": raw(
+                [visibleTint, plainWater], water: false, foliage: false
+            ),
+            "multipleWaterDeclarations": raw(
+                [plainWater, plainWater], water: false, foliage: false
+            ),
+            "hiddenCompanionWater": raw(
+                [hiddenTint, plainWater], water: false, foliage: false
+            ),
+            "orderedWaterSummary": SceneInlineEffectRuntime.summary(
+                for: .init(effects: [visibleTint, plainWater]), hasWaterMask: false
             ) ?? "none",
             "depthMaskPath": SceneEffectMaskSemantics.maskPath(in: maskedFoliage.passes[0]) ?? "none",
             "comboDeclaresMask": SceneEffectMaskSemantics.declaresMask(in: maskedWater),
@@ -75,13 +90,14 @@ enum Harness {
     static func effect(
         _ file: String,
         slot1: String? = nil,
-        maskCombo: Int? = nil
+        maskCombo: Int? = nil,
+        visible: Bool = true
     ) -> SceneRenderDescriptor.EffectDescriptor {
         let textureSlots: [String?] = slot1.map { [nil, $0, nil] } ?? []
         let combos: [String: Int] = maskCombo.map { ["mask": $0] } ?? [:]
         return .init(
             file: file,
-            visible: true,
+            visible: visible,
             passes: [.init(
                 texturePaths: textureSlots.compactMap { $0 },
                 textureSlots: textureSlots,
@@ -154,6 +170,12 @@ class SceneEffectMaskGatingTests(unittest.TestCase):
         self.assertFalse(self.result["utilityMaskedFoliage"])
         self.assertTrue(self.result["utilityPlainFoliage"])
         self.assertFalse(self.result["utilityCursorRipple"])
+
+    def test_water_waves_inline_fallback_requires_a_single_visible_effect(self) -> None:
+        self.assertEqual(self.result["orderedWaterChain"], 0)
+        self.assertEqual(self.result["multipleWaterDeclarations"], 0)
+        self.assertNotEqual(self.result["hiddenCompanionWater"], 0)
+        self.assertEqual(self.result["orderedWaterSummary"], "none")
 
 
 if __name__ == "__main__":

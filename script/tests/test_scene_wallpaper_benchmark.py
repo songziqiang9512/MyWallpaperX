@@ -414,6 +414,22 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             [165, 454, 626, 629, 924],
         )
         self.assertEqual(samples["2938612768"]["expected_route_only_effect_count"], 18)
+        expected_legacy_water_waves_counts = {
+            "3722933264": 4,
+            "3723344874": 2,
+            "3724553795": 0,
+            "2902406982": 0,
+            "2938612768": 0,
+        }
+        for sample_id, count in expected_legacy_water_waves_counts.items():
+            self.assertEqual(
+                samples[sample_id]["minimum_legacy_waterwaves_runtime_count"],
+                count,
+            )
+            self.assertEqual(
+                samples[sample_id]["maximum_legacy_waterwaves_runtime_count"],
+                count,
+            )
         expected_chain_metrics = {
             "3723257973": (0, 0),
             "3723344874": (0, 0),

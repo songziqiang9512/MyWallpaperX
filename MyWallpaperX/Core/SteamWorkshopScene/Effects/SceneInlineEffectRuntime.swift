@@ -8,13 +8,15 @@ enum SceneInlineEffectRuntime {
         hasFoliageMask: Bool
     ) -> SceneEffectFlags {
         var flags: SceneEffectFlags = []
+        if legacyWaterWavesEffect(for: layer, hasWaterMask: hasWaterMask) != nil {
+            flags.insert(.waterwaves)
+        }
         for effect in layer.effects where effect.visible != false {
             let path = effect.file.localizedLowercase
             if path.contains("foliagesway") && canRunMaskedEffect(effect, maskAvailable: hasFoliageMask) {
                 flags.insert(.foliagesway)
             }
-            if path.contains("waterwaves")
-                || (path.contains("waterripple") && !usesNormalWaterRipple),
+            if path.contains("waterripple") && !usesNormalWaterRipple,
                canRunMaskedEffect(effect, maskAvailable: hasWaterMask) {
                 flags.insert(.waterwaves)
             }
@@ -39,12 +41,23 @@ enum SceneInlineEffectRuntime {
         for layer: SceneRenderDescriptor.Layer,
         hasWaterMask: Bool
     ) -> String? {
-        let count = layer.effects.filter {
-            $0.visible != false
-                && $0.file.localizedLowercase.contains("waterwaves")
-                && canRunMaskedEffect($0, maskAvailable: hasWaterMask)
-        }.count
-        guard count > 0 else { return nil }
-        return "effect runtime waterwaves-legacy; \(count) visible declaration(s)"
+        guard legacyWaterWavesEffect(for: layer, hasWaterMask: hasWaterMask) != nil else {
+            return nil
+        }
+        return "effect runtime waterwaves-legacy; 1 visible declaration(s)"
+    }
+
+    private static func legacyWaterWavesEffect(
+        for layer: SceneRenderDescriptor.Layer,
+        hasWaterMask: Bool
+    ) -> SceneRenderDescriptor.EffectDescriptor? {
+        let visibleEffects = layer.effects.filter { $0.visible != false }
+        guard visibleEffects.count == 1,
+              let effect = visibleEffects.first,
+              effect.file.localizedLowercase.contains("waterwaves"),
+              canRunMaskedEffect(effect, maskAvailable: hasWaterMask) else {
+            return nil
+        }
+        return effect
     }
 }
