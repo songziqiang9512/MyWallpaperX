@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-23
 >
-> Scene 实现基线：`36bfef0`
+> Scene 实现基线：`dbf2c82`
 >
 > 视觉运行基线：`.codex/scene-particle-builtins-final13-r2-20260723/report.json`
 >
-> 最新合同门：Scene 测试 154 项，153 项通过、1 项跳过（其中 9 项为语义文档治理门）；签名 Debug App `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `7b27f7f5d678a333f5db77d19936482a098404e8`，executable SHA-256 `150348cb9dc9acebf5f8633ad2a64cc665fe4061832c75cbcb76701a71386687`
+> 最新 B0 运行门：隔离样本 `2902406982:newproperty11` 与 `2938612768:newproperty17` 的 layer alpha 更新均被 live runtime 接受，更新前后各保持 1 个 surface 且窗口 identity 不变；报告见 `.codex/scene-b0-live-alpha-20260723-0941/report.json` 与 `.codex/scene-b0-live-alpha-293-20260723-0941/report.json`。当前 Scene 全量测试共运行 194 项、193 项通过、1 项跳过；签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -50,9 +50,9 @@
 | Utility composition | `L3` | typed composition/project/fullscreen、受限 current prefix 与 `_a` named target | nested/effectful/child、`_b` 数据流、RGB 语义 | B2/B3 |
 | 画布/cover/背景 | `L3` | cover 投影和作者声明视差门，未覆盖区域不再暴露灰底 | 多比例、多屏和 Windows 像素基准 | B5 |
 | Frame Context | `L3` | host 单一 60 Hz driver；shader/video/particle/parallax 同帧 timing | pause/resume、delta clamp、fixed step、目标 FPS、离线 adapter | B0 |
-| Dynamic target/value contract | `L2` | 六类 value、scene/camera/layer/effect/text/particle/script target、固定优先级 | target program、稳定 wire schema 和真实 producer | **B0** |
-| Provisional shared empty snapshot | `L2` | Host 每帧广播同一份空 snapshot；因无 producer/consumer 暂时无跨屏污染 | 不得作为最终 per-surface evaluation scope | **B0** |
-| Host-shared / surface-local evaluation scope | `L0` | 无两阶段 input/evaluation transaction | 每屏 pointer/size/script/result/generation 隔离 | **B0** |
+| Dynamic target/value 与 property binding program | `L3` | 六类 value、主要 target、固定优先级；format 18 持久化 definitions/instructions/effective values，alpha/color 可编译，mixed/invalid key 标记重建 | 当前真实 live consumer 仅 layer alpha；新 target 必须同时注册 compiler target 与 consumer | **B0/B4** |
+| Per-surface dynamic snapshot | `L3` | host 共享 property 输入，每个 surface 独立 evaluation transaction、snapshot 与 generation；相同 payload 不增 generation | pointer/size/provider/Timeline/SceneScript 等 local producer 接入后继续扩充隔离门 | **B0/B4** |
+| Atomic live property state/routing | `L3` | layer alpha 变更先原子求值并直接供 renderer 消费；失败、mixed、unsupported 或无 consumer 时保留整场重建 fallback | 扩展 target 前必须补类型、eligibility、consumer、fallback 和 identity 门 | **B0/B4** |
 | Timeline runtime | `L0` | 没有 Timeline target/keyframe/mode/tangent/event IR | 保真 IR、确定性 evaluator、target 写回 | **B4** |
 | SceneScript presence | `L1` | 只保留对象是否含 inline `script` 的布尔值 | source path/inline source 与绑定 IR | **B0/B4** |
 | SceneScript source/VM/API | `L0` | 源码和绑定目标会丢失；无执行器 | source IR、安全 ECMAScript、生命周期、API/events、预算隔离 | **B4** |
@@ -66,7 +66,7 @@
 | Particle runtime | `L3` | 作者 sprite、常见组件、Sprite Trail、9 个精确 built-in key；正式可见层 `14/27` | 逐项状态见粒子专项表 | **B4** |
 | Text/Font runtime | `L3` | CoreText 静态栅格和部分 font/pointsize/padding/scale；结构门 `79/108` | 动态 text、Windows baseline/fallback、outline/shadow/effect | B4/B5 |
 | Camera Parallax | `L3` | 仅作者开启且非零 depth 时启用，含层级传播/阻断 | WE 数值 golden、camera shake/zoom、3D camera | B5 |
-| User Properties | `L3` | 独立窗口、条件、持久化、部分 target、PNG/JPEG `sceneTexture` | 199 unsupported、Texture Variants、live update、shortcut、跨重启 UI 门 | **B0/B1** |
+| User Properties | `L3` | 独立窗口、条件、持久化、PNG/JPEG `sceneTexture`；layer alpha 已无重建 live 更新 | 53 unsupported bindings、73 个 color compiler-only bindings、Texture Variants、shortcut、跨重启 UI 门 | **B0/B1** |
 | Typed texture provider | `L3` | layer/named/property identity、status/generation、authored fallback | system/media/video/variant、通用 material、nested/effectful/child | **B1** |
 | EffectDefinition/Material IR | `L2` | definition/pass/RT/material/slot hole/combo/constant 可保留并建图 | 完整 schema、shader content、condition/function | B2 |
 | Bounded effect executors | `L3` | 两个严格 Blur 图和若干受限手写/单 pass executor | 45 类逐项 executor、variant、mask、visual golden | B3/B4 |
@@ -157,20 +157,20 @@
 
 ### 6.2 User Properties
 
-完整控件和 target 计数见 [运行输入与属性覆盖表](runtime-input-property-coverage.md)。当前 21 样本为 424 definitions、952 bindings、195 条 conditional bindings；199 个 unsupported targets 的构成是 layer alpha 73、layer color 73、script properties 43、particle override 6、Scene Bloom 2、scale 1、volume 1。
+完整控件和 target 计数见 [运行输入与属性覆盖表](runtime-input-property-coverage.md)。当前 21 样本为 424 definitions、952 bindings、195 条 conditional bindings。layer alpha 73 条已编译并由当前 image/solid/text consumer live 执行；layer color 73 条已编译但因没有真实 consumer 仍走重建 fallback；剩余 53 条 unsupported bindings 为 script properties 43、particle override 6、Scene Bloom 2、scale 1、volume 1。
 
 | 类型/行为 | 当前级别 | 当前边界或升级门 |
 |---|---|---|
-| Catalog/bindings | `L3` | 21 样本 census 和受控 resolver；199 targets unsupported |
+| Catalog/bindings | `L3` | 21 样本 census、format 18 binding program 与受控 fallback；53 bindings unsupported，73 color bindings compiler-only |
 | `color` | `L3` | UI/持久化/部分 target；补颜色空间和全部 target |
-| `slider` | `L3` | min/max/default/step/fraction/precision UI 和部分 target；补 live snapshot |
+| `slider` | `L3` | min/max/default/step/fraction/precision UI；layer alpha 已 live，其他 target 依 consumer 决定重建 |
 | `bool` | `L3` | 条件/部分 target；不得按名称自动启用 effect |
 | `combo` | `L3` | option value/条件；补全部 authored target |
 | `textinput` | `L3` | 可编辑/持久化；动态 text 仍以重建应用 |
 | `texture`/`scenetexture` | `L3` | PNG/JPEG picker/bookmark/static consumer 极窄子集；补 video/variant/general material |
 | `usershortcut` | `L0` | parser 当前归为 unsupported；需 macOS 授权和安全降级 |
 | group/order/condition | `L3` | 独立窗口已支持；补嵌套/全条件和负向门 |
-| reset/default/override | `L3` | 已有 authored fallback；补 live generation 和跨重启 UI 门 |
+| reset/default/override | `L3` | layer alpha reset/override 可原子 live 提交；texture bookmark 或非 live key 仍重建；补跨重启 UI 门 |
 | Texture Variants | `L0` | 补 schema、checkbox/combo 选择和 provider identity；脚本不得切换 |
 | property update event | `L0` | typed snapshot 后再派发给 SceneScript |
 
@@ -230,7 +230,7 @@
 
 | 覆盖批次 | 开发计划映射 | 目标 | 完成判据 |
 |---|---|---|---|
-| **B0 Contract/Runtime Kernel** | `S3 第 1-2 项` | VFS/identity、host/surface scope、clock/lifecycle、target contract、event/mutation transaction、space/texture metadata | 双屏 shared/local 不串用；fixed-time、pause、generation/invalidation 与 stop 可测 |
+| **B0 Contract/Runtime Kernel** | `S3 第 1-4 项` | live-property 子阶段已闭合：format 18 binding program、per-surface transaction、atomic state、alpha consumer 与 rebuild fallback；clock/lifecycle 其余合同继续单列 | 新 live target 必须同时具备 compiler definition/instruction、真实 consumer、原子失败与不换 surface/window 的运行门；pause/fixed-time 等按后续 B0 kernel 切片推进 |
 | **B1 Provider Core** | `S2 第 5 项 + S3` | identity/status/generation/cancel/fallback、Texture Variants、video/system/media core、material candidate selection | 每种 provider 有 ready/pending/unavailable、metadata、fallback 和 teardown；不含 nested graph source |
 | **B2 Graph Resource Runtime** | `S2 第 1-5 项` | target table、scheduler、copy/swap/compose/history、stock ShaderContract/built-ins/state | read/write、RT lifecycle、slot/combo/state 和 resize/switch/stop 门 |
 | **B3 Provider-Graph Integration** | `S2 第 5-6 项` | nested/effectful/scene-background source、通用 material consumer、45 Effect 严格 profile family | B1+B2 均完成后接入；不得新增 effect-name 视觉旁路 |
@@ -238,7 +238,7 @@
 | **B5 Fidelity** | `S2-S4` 广度完成后 | 字体、视差、粒子、常用 Effect 与 WE Windows golden 对齐 | 固定输入逐像素/数值阈值、性能预算、长稳和多屏门 |
 | **Advanced** | `S5` | Puppet、2D light/HDR、3D、arbitrary custom shader、RGB、offline bake | 每个系统有完整 IR/runtime/lifecycle/product gate 后再升级 |
 
-研究可以并行，产品执行不能倒置：B0 -> B1/B2 core -> B3 -> B4 -> B5。B1 的 Provider Core 与 B2 的 Graph Resource Runtime 可并行，但 nested/effectful provider、scene background 和通用 material consumer 必须等二者在 B3 汇合；Particle world/control-point/Layer Image/child/collision/rope/audio 也按各自依赖门进入 B4。样本 ID 只出现在测试门和证据里，不能进入产品分派逻辑。
+研究可以并行，产品执行不能倒置：B0 live-property 底座已合龙，下一主线进入 B1/B2 core，再到 B3 -> B4 -> B5。B1 的 Provider Core 与 B2 的 Graph Resource Runtime 可并行，但 nested/effectful provider、scene background 和通用 material consumer 必须等二者在 B3 汇合；Particle world/control-point/Layer Image/child/collision/rope/audio 也按各自依赖门进入 B4。任何新属性只有在 binding compiler 和真实 renderer/runtime consumer 同时注册后才允许 live，否则必须继续整场重建。样本 ID 只出现在测试门和证据里，不能进入产品分派逻辑。
 
 ## 9. 更新规则
 

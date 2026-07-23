@@ -40,7 +40,7 @@ D3 + D4 + D5 + D6 + D7 + D8
 |---|---|---|
 | project/scene/PKG/TEX/resource ingest | 常见子集 `L3` | version、case、duplicate、symlink、损坏和 VFS golden |
 | object/content/effect/material/particle/script source preservation | 混合 `L0-L3` | raw + typed round-trip；未知字段可诊断，不静默丢失 |
-| cache wire schema | interpretation v17 | 每次 schema 变化显式 bump、旧缓存拒绝或迁移 |
+| cache wire schema | interpretation v18；持久化 binding program 与 effective property values | 每次 schema 变化显式 bump、旧缓存拒绝或迁移 |
 
 <a id="d1"></a>
 ### D1 Stable identity and dependency graph
@@ -57,7 +57,7 @@ D3 + D4 + D5 + D6 + D7 + D8
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
 | host/frame/scene/wall time | `L3` 子集 | pause/resume、delta clamp、dropped time、目标 FPS |
-| host-shared vs surface-local scope | 当前只有共享空 snapshot 脚手架 | shared time/property/audio/media 与 local viewport/pointer/matrix/provider 明确分层 |
+| host-shared vs surface-local scope | property 输入 host-shared；每个 surface 独立 transaction/snapshot/generation，B0 live alpha 已有运行门 | pointer/matrix/provider/script 接入时继续证明 local state 不串屏 |
 | fixed simulation step and seed policy | particle 子集 | effect/particle/script/offline 共用 discontinuity 和 seed 合同 |
 | resize/switch/stop teardown | surface 子集 `L3` | VM、provider、RT、timer、media、GPU 资源全部归零或稳定复用 |
 
@@ -66,12 +66,12 @@ D3 + D4 + D5 + D6 + D7 + D8
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| value types and target definitions | 内存合同 `L2` | 稳定 wire schema、type/finite/default validation |
-| source priority | `authored -> property -> Timeline -> SceneScript` 已定义 | 所有 producer 共用同一 resolver，不在 renderer 内重复求值 |
-| binding program | `L0` | property/Timeline/SceneScript 编译成同一 target program |
-| target scope and invalidation domain | `L0` | 每个 target 集中定义 shared/local scope 与 value/geometry/text/topology/provider/simulation invalidation |
-| evaluation transaction | `L0` | input capture -> base evaluation -> events/scripts -> mutation validation -> atomic commit |
-| immutable snapshot and generation | 共享空 snapshot 脚手架 `L2` | 每 surface 最终 snapshot；相同值不增 generation；跨屏 generation 不串用 |
+| value types and target definitions | 六类 value 与主要 target 已进入 format 18 wire schema | 新类型继续执行 type/finite/default validation，纹理仍走 provider |
+| source priority | `authored -> property -> Timeline -> SceneScript` 已定义；property producer 已执行 | Timeline/SceneScript 接入同一 resolver，不在 renderer 内重复求值 |
+| binding program | alpha/color property 编译、验证和持久化已完成；mixed/invalid key 标记 rebuild | 新 live target 同时增加 compiler mapping、稳定 target identity 和真实 consumer |
+| target scope and invalidation domain | alpha 为 value-only live；mixed/unsupported/no-consumer 统一 rebuild | geometry/text/topology/provider/simulation target 逐类登记失效域 |
+| evaluation transaction | property base evaluation、validation、atomic commit 已按 surface 执行 | events/Timeline/SceneScript mutation 依固定顺序接入同一 transaction |
+| immutable snapshot and generation | 每 surface 独立 snapshot/generation；相同 payload 不增 generation | 双屏 local input、script/provider 加入后继续验证不串用 |
 
 目标运行形态必须是：
 
@@ -82,7 +82,7 @@ HostFrameInputs(time, properties, audio, media)
   -> SurfaceDynamicSnapshot
 ```
 
-当前 `36bfef0` 把同一份空 snapshot 广播给所有 surface，只能作为尚无 producer/consumer 的脚手架。接入真实属性、Timeline 或 SceneScript producer 前必须完成上述作用域拆分；不能让每屏脚本、pointer、resolution 或 generation 共用一份最终求值结果。
+B0 live-property 合龙由 `00c5e9c`、`311e83d`、`4da9492`、`c3d60aa`、`29cf34b`、`3b4f4f4`、`cb2482a` 与 `dbf2c82` 依次完成。当前只允许 image/solid/text 以及 `shouldCapture` utility 的 layer alpha 使用 live 路径；particle、container、color、mixed、unsupported 或没有活动 consumer 的 key 一律返回整场重建。以后新增能力必须同时注册 compiler target 和真实 consumer，并保留原子失败与 fallback 门，不能只因为 program 能编译就宣称 live。
 
 <a id="d4"></a>
 ### D4 Input snapshots and event queues
@@ -181,8 +181,8 @@ F0 完成后才开始下一轮代码。F1/F2 优先级由公共依赖决定，�
 
 ## 6. 下次会话的决策顺序
 
-1. 从 [总覆盖台账](coverage-ledger.md) 选择未完成且影响面最大的最低 D 层。
+1. B0 live-property 底座已合龙；从 [总覆盖台账](coverage-ledger.md) 在 B1 Provider Core 与 B2 Graph Resource Runtime 中选择影响面最大的最低 D 层，clock pause/fixed-time 等剩余 kernel 合同仍按独立切片推进。
 2. 打开对应专项表，确认作者启用、输入、当前等级、未知项、依赖和验收门。
 3. 查 [运行证据索引](runtime-evidence-index.md)，确认现有正反例，不重复制造无信息矩阵。
-4. 只实现一个可独立验证的公共合同；目标样本和相关样本通过后单独提交。
+4. 只实现一个可独立验证的公共合同；涉及 live property 时，compiler target、真实 consumer、fallback 和 surface/window identity 必须同批验收，目标样本和相关样本通过后单独提交。
 5. 更新专项表、总台账、现役计划和证据索引，再进入下一项。

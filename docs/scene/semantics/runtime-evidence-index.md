@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`36bfef0`
+> 实现基线：`dbf2c82`
 
 本页给覆盖表中的 `L3` 子集提供可追溯证据包。每个证据包至少包含代码、自动测试和真实运行或 GPU 证据；缺少任一项的能力只能标 `L0-L2`，或在专项表中明确写 `gate incomplete`。`.codex` 报告是本机隔离运行产物，不提交 Git；报告路径、App 身份和摘要写入现役文档，避免将其误当源码 fixture。
 
@@ -13,9 +13,10 @@
 | 项目 | 当前证据 |
 |---|---|
 | 视觉矩阵 | `.codex/scene-particle-builtins-final13-r2-20260723/report.json`，13/13；只证明固定门内非黑、计数、GPU completion 和 teardown，不证明 WE parity |
-| 最新合同门 | Scene tests 154 total / 153 pass / 1 skip；其中实现合同 145 项，新增语义文档治理门 9 项 |
-| 签名 App | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `7b27f7f5d678a333f5db77d19936482a098404e8` |
-| executable SHA-256 | `150348cb9dc9acebf5f8633ad2a64cc665fe4061832c75cbcb76701a71386687` |
+| 最新合同门 | Scene tests 194 total / 193 pass / 1 skip |
+| B0 live property | `.codex/scene-b0-live-alpha-20260723-0941/report.json` 与 `.codex/scene-b0-live-alpha-293-20260723-0941/report.json`，两项均 accepted，surface/window identity 不变 |
+| 签名 App（B0 定向门） | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `890abe09c9354c0eea6b3e11f6987b06fed2d485` |
+| executable SHA-256（B0 定向门） | `0a8f20b610fe5638aa053c22ff2c5bbffb1561ad0e2605ed4f29fe63fc6fcdce` |
 | 样本边界 | 真实 Workshop root 只读；报告均来自隔离 sample root 与临时 HOME |
 
 ## 2. 证据包
@@ -53,7 +54,15 @@
 
 - 代码：[SceneUserProperty.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneUserProperty.swift)、[SceneUserPropertyBindings.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneUserPropertyBindings.swift)、[SceneUserPropertyResolver.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneUserPropertyResolver.swift)
 - 自动门：[test_scene_user_properties.py](../../../script/tests/test_scene_user_properties.py)、[test_scene_user_property_textures.py](../../../script/tests/test_scene_user_property_textures.py)
-- 运行门：`.codex/scene-property-text-day-gate-pass-20260722/report.json`、`.codex/scene-user-texture-final13-r2-20260723/report.json`；当前大部分 target 仍通过 180 ms 重建生效。
+- 运行门：`.codex/scene-property-text-day-gate-pass-20260722/report.json`、`.codex/scene-user-texture-final13-r2-20260723/report.json`；layer alpha 的 live 子集见下一证据包，其余 target 仍按 consumer 能力回退整场重建。
+
+<a id="e-live-property"></a>
+### E-LIVE-PROPERTY: B0 binding program 与 layer alpha live consumer
+
+- 代码：[ScenePropertyBindingProgram.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/ScenePropertyBindingProgram.swift)、[ScenePropertyLiveUpdateState.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/ScenePropertyLiveUpdateState.swift)、[SceneSurfaceEvaluationTransaction.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneSurfaceEvaluationTransaction.swift)、[SceneDynamicLayerValues.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDynamicLayerValues.swift)、[SceneDesktopWallpaperHost.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDesktopWallpaperHost.swift)
+- 自动门：[test_scene_property_binding_program.py](../../../script/tests/test_scene_property_binding_program.py)、[test_scene_interpretation_file.py](../../../script/tests/test_scene_interpretation_file.py)、[test_scene_surface_evaluation_transaction.py](../../../script/tests/test_scene_surface_evaluation_transaction.py)、[test_scene_property_live_update_state.py](../../../script/tests/test_scene_property_live_update_state.py)、[test_scene_dynamic_layer_values.py](../../../script/tests/test_scene_dynamic_layer_values.py)、[test_scene_property_live_routing.py](../../../script/tests/test_scene_property_live_routing.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)
+- 运行门：隔离 `2902406982:newproperty11` 与 `2938612768:newproperty17` 均 `accepted=true`；更新前后各为 1 个 surface 且 window ID 不变，293 的 ready/after changed ratio 为 `0.6397`。报告分别为 `.codex/scene-b0-live-alpha-20260723-0941/report.json` 与 `.codex/scene-b0-live-alpha-293-20260723-0941/report.json`。
+- 边界：只证明 image/solid/text 与 `shouldCapture` utility 的 layer alpha。particle、container、color、mixed、unsupported 或无活动 consumer 的 key 必须返回整场重建；program 可编译本身不构成 live 证据。
 
 <a id="e-text"></a>
 ### E-TEXT: 静态文字

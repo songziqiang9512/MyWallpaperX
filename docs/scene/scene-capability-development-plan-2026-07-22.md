@@ -2,7 +2,7 @@
 
 > 建立日期：2026-07-22
 >
-> 最近更新：2026-07-23（官方能力专项表、typed dynamic snapshot 与 coverage-first 路线）
+> 最近更新：2026-07-23（B0 live-property 合龙，下一主线转入 B1/B2 core）
 >
 > 作用：定义 MyWallpaperX Scene runtime 从当前可审计子集向 Wallpaper Engine 常用能力逼近的实施顺序、样本门和验收标准。作者/执行语义先查 [`semantics/README.md`](semantics/README.md)；当前能力结论仍以 [`../reviews/web-scene-current-state-roadmap-2026-07-19.md`](../reviews/web-scene-current-state-roadmap-2026-07-19.md) 与最新运行证据为准；历史 memo 不反向覆盖本计划。
 
@@ -31,11 +31,12 @@
 
 ### 已真实进入运行链
 
-- `project.json` / entry 同名 `gifscene.json` 识别、PKGV 索引、受控缓存解包、路径校验和 interpretation format 17；v17 在 v16 authored graph 语义上增加 provider/resource metadata，不改变既有 graph identity；
+- `project.json` / entry 同名 `gifscene.json` 识别、PKGV 索引、受控缓存解包、路径校验和 interpretation format 18；v18 在 v17 provider/resource metadata 与 v16 authored graph 上持久化 property binding program 和 effective values，不改变既有 graph identity；
 - PNG/JPEG、raw RGBA/RG/R8、BC1/BC2/BC3/BC5、LZ4、MP4 payload 和 TEX sprite sequence；
 - Metal image/solid/text/particle 合成、父子 transform、有效可见性、source order、alpha、正交/透视粒子相机和桌面多屏宿主；
 - 宿主级单一 60 Hz frame driver 与 `SceneFrameTiming` / `SceneFrameContext` 第一阶段：所有屏幕共享一次采样的 frame index、host time、scene time、frame delta 和 wall date；shader、视频帧、粒子 simulation 与 parallax smoothing 已迁移，屏幕尺寸和 pointer 仍按 surface 独立保存；
-- typed dynamic runtime 第一阶段：`SceneDynamicValue` 已覆盖 bool/scalar/vector2/vector3/vector4/string，target 已覆盖 scene/camera/layer/effect/text/particle/script instance，resolver 固定按 `authored -> userProperty -> Timeline -> SceneScript` 覆盖并拒绝重复、错类型和非有限值；Host 每帧向所有 surface 广播同一份空 immutable snapshot。当前没有 binding program、真实 producer、generation diff 或 renderer/text/particle consumer，因此画面行为未改变；
+- B0 live-property runtime 已合龙：`SceneDynamicValue` 覆盖 bool/scalar/vector2/vector3/vector4/string，target 覆盖 scene/camera/layer/effect/text/particle/script instance，resolver 固定按 `authored -> userProperty -> Timeline -> SceneScript` 覆盖并拒绝重复、错类型和非有限值；format 18 持久化 binding definitions/instructions/rebuild keys/effective values，Host 为每个 surface 独立求值和持有 generation，属性更新经原子 live state 路由到 renderer；
+- 当前 live consumer 严格限定为 image/solid/text 和 `shouldCapture` utility 的 layer alpha。particle、container、color、mixed、unsupported 或无活动 consumer 的 key 返回整场 `requestSceneRender`；以后任何新 target 都必须同时注册 compiler mapping 与真实 consumer，不能只完成分类就宣称 live；
 - cover 投影；Camera Parallax 服从 Scene options、显式逐层 depth、传播和属性 override；包括 composition 在内，缺失或零 depth 不产生逐层位移；
 - legacy coarse blur 仍只服务尚未迁移的受限路径，采用全尺寸 RT + 4 倍 texel step 近似；v16 graph 已分别把 precise Blur 严格选路到固定两遍近似 kernel，并把 stock standard Blur 的默认 profile 选路到真实 4-pass、2 个 quarter RT、alpha-aware downsample、13-tap Gaussian 与默认 combine。标准 Bloom、normal-map waterripple、perspective+opacity、mode 9 additive，以及 water/cursor/chromatic/iris 等仍是明确标注的受限实现；
 - 单个 built-in UV Foliage Sway 已读取作者 strength/speed/phase/power/noise/ratio/direction 和 mask 映射；多 foliage 栈与 vertex/workshop 变体不会误套该近似实现；
@@ -49,7 +50,7 @@
 - v15 已保真保存 EffectDefinition/FBO/ordered pass/bind/compose/command/condition/function/unknown fields，并按 material-pass ordinal 关联实例 pass；copy/swap command 不消耗 material ordinal；
 - v16 已按作者 source/effect/pass order 编译 CPU authored graph，保留固定 effect input `previous`、effect-instance RT identity、raw `unique`、copy/swap、blocker 和逐样本 canonical SHA；v17 descriptor/cache 在此基础上保留 material usertexture、property key 与运行时 provider 引用；combo/constant 仍由实例覆盖 material；
 - renderer 已消费两个严格注册的 Blur 子图：precise 仅接受单 effect、两 material node、一个 input-extent `rgba_backbuffer` RT；standard 默认 profile 仅接受单 effect、四个有序 material node、两个 scale=4 的非 unique `rgba_backbuffer` RT，以及已核验的 shader/state/combo/binding/default constant。两者均为 `executed-degraded`，不是任意 authored shader 或 WE 像素等价；
-- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；更新粒子 layer 合同后的最新正式视觉矩阵 **13/13 通过**。结构基线仍为 **106 definitions / 182 passes / 179 material passes / 50 FBO** 与 **197 layer plans / 300 effects / 411 nodes / 76 RT**；graph GPU 成功层仍为 `2902406982:[530]`、`3724289844:[28,36]`、`3765760121:[68,76,82]`，失败为 0。正式矩阵可见粒子运行层为 **14/27**；`3750813609` 为 **7/9**。视觉报告仍是 `.codex/scene-particle-builtins-final13-r2-20260723/report.json`。`36bfef0` 只增加空 dynamic snapshot 合同，没有视觉 consumer，因此没有伪造一轮重复样本矩阵；实现合同保持 **145 项、144 项通过、1 项跳过**，加入 9 项官方资料/能力表治理门后的当前全量为 **154 项、153 项通过、1 项跳过**。签名 App `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `7b27f7f5d678a333f5db77d19936482a098404e8`、可执行文件 SHA-256 `150348cb9dc9acebf5f8633ad2a64cc665fe4061832c75cbcb76701a71386687`。
+- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；更新粒子 layer 合同后的最新正式视觉矩阵 **13/13 通过**。结构基线仍为 **106 definitions / 182 passes / 179 material passes / 50 FBO** 与 **197 layer plans / 300 effects / 411 nodes / 76 RT**；graph GPU 成功层仍为 `2902406982:[530]`、`3724289844:[28,36]`、`3765760121:[68,76,82]`，失败为 0。正式矩阵可见粒子运行层为 **14/27**；`3750813609` 为 **7/9**。视觉报告仍是 `.codex/scene-particle-builtins-final13-r2-20260723/report.json`。B0 新增两项隔离 live identity 门：`2902406982:newproperty11` 与 `2938612768:newproperty17` 均被接受，更新前后各保持 1 个 surface 和同一 window ID；报告为 `.codex/scene-b0-live-alpha-20260723-0941/report.json`、`.codex/scene-b0-live-alpha-293-20260723-0941/report.json`。当前 Scene 全量测试共运行 **194 项、193 项通过、1 项跳过**；签名 App `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `890abe09c9354c0eea6b3e11f6987b06fed2d485`、可执行文件 SHA-256 `0a8f20b610fe5638aa053c22ff2c5bbffb1561ad0e2605ed4f29fe63fc6fcdce`。
 
 ### 仅解析/诊断或部分实现
 
@@ -57,12 +58,12 @@
 - 首个 typed frame texture registry、authored fallback 和 PNG/JPEG property file/bookmark/decode 已进入 runtime，但只服务当前严格静态 image-blend consumer；`$mediaThumbnail`、Texture Variants、video frame、通用 material property consumer、effectful/nested provider 与 history/copy/swap 尚未接入；resolver 也没有 shader annotation/default 解析或任意 shader/pass executor；
 - Timeline 没有正式 target/keyframe/mode/tangent/event IR；部分粒子动态 wrapper 只保留 presence/诊断，不能记为 Timeline 数据模型；
 - SceneScript 只发现 `.js` 资源和 inline `script` presence；inline/source 内容、owner/property binding 和返回类型会丢失，也没有 ECMAScript runtime、`init/update`、事件、globals、Date/Math live value 或属性写回；
-- 用户属性 parser 已把官方 `texture` 与样本 raw `scenetexture` 归一为内部 texture-provider 类型并保留原始 runtime type；PNG/JPEG 文件选择/授权/加载已闭合首个静态 consumer 子集，Texture Variants、media/video texture、transform、动态 alpha、particle/audio/puppet target 和 `applyUserProperties` 仍未闭环；
+- 用户属性 parser 已把官方 `texture` 与样本 raw `scenetexture` 归一为内部 texture-provider 类型并保留原始 runtime type；PNG/JPEG 文件选择/授权/加载已闭合首个静态 consumer 子集，layer alpha 已无重建 live；Texture Variants、media/video texture、transform、color、particle/audio/puppet target 和 SceneScript `applyUserProperties` 仍未闭环；
 - child particle graph 可遍历但不实例化；除上述 9 个精确 key 外的 built-in particle、rope/rope trail、world-space、control point、collision、音频和动态 override 未实现；Sprite Trail 当前只覆盖 2D sprite velocity-aligned stretch 子集；
 - particle exponent 已进入解析模型，但 simulation 尚未消费，不能记为已支持；
 - 多 foliage 栈、vertex sway 与 workshop 自定义 sway 未实现；它们当前保持静态或进入明确诊断，不用单层 UV 近似替代；
 - Scene 音频/媒体未接现有系统服务；动态时间/日期/媒体 text、puppet/mesh/3D/lighting、自定义 shader 均未实现；
-- Frame Context 尚缺 pause/resume、长帧 delta clamp/dropped-time、fixed timestep、audio/media/property producer、changed-target generation 和离线 adapter；fullscreen/battery、目标 FPS、CPU/GPU/显存预算和 soak 也未闭环。
+- Frame Context 尚缺 pause/resume、长帧 delta clamp/dropped-time、fixed timestep、audio/media producer 和离线 adapter；property producer 与 per-surface changed-payload generation 已进入 B0，pointer/script/provider 的 local generation 隔离仍待对应 runtime 接入；fullscreen/battery、目标 FPS、CPU/GPU/显存预算和 soak 也未闭环。
 
 13 样本 PASS 不能解释成 Wallpaper Engine 视觉兼容率：正式矩阵只证明当前声明的解析、GPU 完成、非黑画面、能力计数和释放门通过。`2902406982` 的 named target 主缺口与 `2938612768` 的首个静态背景依赖已经关闭，但两者仍有字体、时序、媒体、后续 effect 和粒子差异；`3750813609` 已出现雾、叶片与光束等新增粒子，但仍缺动态时钟、完整 Clouds/Blur、child、world-space 雨滴溅射、control point/turbulence 和最终合成精度。21 样本首轮分级仍只是历史截图基线，必须在下一轮统一视觉重跑后才能重新分级。
 
@@ -115,14 +116,16 @@
 6. **高命中 Effect 批次有硬前置**：Shake/Swing/Foliage、Water、Depth Parallax、Blend/Opacity、God Rays/Shine/Motion Blur 继续是候选，但只能通过新增共享 graph/shader/provider/space primitive 或注册完整匹配且 fail-closed 的 strict profile实现。不得继续扩大 effect-name/path-substring 手写近似；逐项门见 [Effect 执行覆盖表](semantics/effect-execution-coverage.md)。
 7. **视觉门**：先定向复核 `2902406982`、`2938612768`、`3750813609`，再重跑 21 样本 cover 对比；验收同时要求主构图、局部运动区域、字体/alpha 和关键粒子接近封面或 Windows 官方运行证据。
 
-### S3：Runtime Kernel 与统一 live-value（当前 P0）
+### S3：Runtime Kernel 与统一 live-value（B0 property 主链已闭环）
 
 1. **Frame Context 第一阶段已完成**：宿主统一 frame driver 与时间采样，现有 shader/video/particle/parallax 消费同一帧；下一步补 pause/resume、raw/simulation delta、discontinuity、fixed-time test adapter 和目标 FPS。
-2. **Typed target/snapshot 第一阶段已完成但作用域未闭合**：六类值、主要 target、固定优先级、fail-closed resolver 和共享空 snapshot 脚手架已落地。真实 producer 前必须拆为 `HostFrameInputs -> SurfaceFrameContext -> Surface EvaluationTransaction -> SurfaceDynamicSnapshot`，双屏共享时间但 pointer/size/script/result/generation 不串屏。
-3. **TargetContract 与 binding program**：集中定义 stable authored identity、shared/local scope、value semantic 和 invalidation domain，再编译/持久化现有 property bindings；首批补 layer alpha/color 分类，同时保留未迁移 target 的旧 resolver + rebuild fallback。仅完成分类/持久化不能宣称 live consumer 已闭环。
-4. **EvaluationTransaction**：固定 input capture、property/Timeline base、event dispatch、SceneScript stable order、mutation validation、atomic commit、generation/invalidation、simulation/render 顺序。
+2. **B0 per-surface snapshot 已完成**：`HostFrameInputs -> SurfaceFrameContext -> Surface EvaluationTransaction -> SurfaceDynamicSnapshot` 已用于 property producer；双屏共享时间/属性输入，但最终 snapshot 和 generation 按 surface 隔离。
+3. **B0 TargetContract 与 binding program 已完成首个产品闭环**：format 18 编译并持久化 alpha/color definitions/instructions，mixed/invalid/unsupported key 保留 rebuild fallback；alpha 已有真实 consumer，color 只编译不 live。
+4. **B0 原子 live routing 已完成**：Host/Service/属性窗口更新与 reset 先尝试 atomic live state；image/solid/text 和 `shouldCapture` utility 的 alpha 成功时不重建，particle/container/color/mixed/unsupported/no-consumer 失败时才调度整场重建。事件、Timeline 和 SceneScript 以后按既定 transaction 顺序接入。
 5. Timeline 先完整保留 keyframe/mode/tangent/event 数据，再接 Loop/Mirror/Single 与线性/Bézier；SceneScript 先保存 source/binding IR，再接 sandbox VM、lifecycle、typed write 和 budget，不能从嵌入 VM 直接跳到 renderer setter。
 6. 动态 text、cursor/audio/media 输入与 transform/effect/particle target 按各自 provider、space、event 和 generation 前置接入，不再作为一组无依赖的“同时打通”任务。
+
+下一主线不再回头扩一套属性旁路：按 [公共能力依赖图](semantics/capability-dependency-map.md) 推进 B1 Provider Core 与 B2 Graph Resource Runtime。任何新属性能力只有在 compiler target、真实 consumer、原子失败/fallback 和 surface/window identity 运行门同时成立时才允许 live；否则继续整场重建。
 
 ### S4：按公共依赖扩展粒子图谱（分层推进）
 
