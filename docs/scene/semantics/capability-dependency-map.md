@@ -108,8 +108,8 @@ B0 live-property 合龙由 `00c5e9c` 到 `dbf2c82` 的主链与 `95e0d58` 的 so
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| ordered nodes、target/bind/compose/copy/swap | IR `L2`；material-only target lifetime plan 已落地 | generic scheduler、hazard validation、command execution |
-| extent/format/clear/UV/unique | strict Blur 子集；input/scale + rgba_backbuffer 原子 table 基础已落地但未接 consumer | strict Blur 迁移、format-to-Metal、mapped size、sampler、load/store/reset |
+| ordered nodes、target/bind/compose/copy/swap | IR `L2`；material-only target lifetime plan 已落地，strict Blur 已消费 table | generic scheduler、hazard validation、command execution |
+| extent/format/clear/UV/unique | strict Blur 的 input/scale + rgba_backbuffer table/cache/resize/reset 子集为 `L3`；generic 仍为 `L2` | format-to-Metal、mapped size、sampler、load/store 和跨帧 reset |
 | history/ping-pong | `L0` | first frame、resize、seek、switch、stop 和 memory budget |
 
 <a id="d7"></a>
@@ -181,7 +181,7 @@ F0 完成后才开始下一轮代码。F1/F2 优先级由公共依赖决定，�
 
 ## 6. 下次会话的决策顺序
 
-1. B0 live-property 底座已合龙；从 [总覆盖台账](coverage-ledger.md) 在 B1 Provider Core 与 B2 Graph Resource Runtime 中选择影响面最大的最低 D 层，clock pause/fixed-time 等剩余 kernel 合同仍按独立切片推进。
+1. B0 live-property 与 B2 strict Blur target-table 子集已合龙；当前下一切片是 D7 ShaderContract IR v1，先安全保留 source/include/annotation/stage declaration 与 canonical identity，不接外部编译器或新增 GPU 旁路。之后再从 B1 Provider Core 与 B2 generic scheduler 中选择最低依赖切片。
 2. 打开对应专项表，确认作者启用、输入、当前等级、未知项、依赖和验收门。
 3. 查 [运行证据索引](runtime-evidence-index.md)，确认现有正反例，不重复制造无信息矩阵。
 4. 只实现一个可独立验证的公共合同；涉及 live property 时，compiler target、真实 consumer、fallback 和 surface/window identity 必须同批验收，目标样本和相关样本通过后单独提交。

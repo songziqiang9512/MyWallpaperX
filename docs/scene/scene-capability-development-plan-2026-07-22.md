@@ -2,7 +2,7 @@
 
 > 建立日期：2026-07-22
 >
-> 最近更新：2026-07-23（B0 live 闭环；B1 双代完成；B2 target plan/table 基础完成，下一步迁移 strict Blur）
+> 最近更新：2026-07-23（B0 live 闭环；B1 双代完成；B2 strict Blur 已迁入 target table，下一步 D7 ShaderContract IR）
 >
 > 作用：定义 MyWallpaperX Scene runtime 从当前可审计子集向 Wallpaper Engine 常用能力逼近的实施顺序、样本门和验收标准。作者/执行语义先查 [`semantics/README.md`](semantics/README.md)；当前能力结论仍以 [`../reviews/web-scene-current-state-roadmap-2026-07-19.md`](../reviews/web-scene-current-state-roadmap-2026-07-19.md) 与最新运行证据为准；历史 memo 不反向覆盖本计划。
 
@@ -50,7 +50,7 @@
 - v15 已保真保存 EffectDefinition/FBO/ordered pass/bind/compose/command/condition/function/unknown fields，并按 material-pass ordinal 关联实例 pass；copy/swap command 不消耗 material ordinal；
 - v16 已按作者 source/effect/pass order 编译 CPU authored graph，保留固定 effect input `previous`、effect-instance RT identity、raw `unique`、copy/swap、blocker 和逐样本 canonical SHA；v17 descriptor/cache 在此基础上保留 material usertexture、property key 与运行时 provider 引用；combo/constant 仍由实例覆盖 material；
 - renderer 已消费两个严格注册的 Blur 子图：precise 仅接受单 effect、两 material node、一个 input-extent `rgba_backbuffer` RT；standard 默认 profile 仅接受单 effect、四个有序 material node、两个 scale=4 的非 unique `rgba_backbuffer` RT，以及已核验的 shader/state/combo/binding/default constant。两者均为 `executed-degraded`，不是任意 authored shader 或 WE 像素等价；
-- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；最新正式视觉矩阵 `.codex/scene-live-solid-color-final13-20260723-1015/report.json` 为 **13/13 通过**。结构基线仍为 **106 definitions / 182 passes / 179 material passes / 50 FBO** 与 **197 layer plans / 300 effects / 411 nodes / 76 RT**；graph GPU 成功层仍为 `2902406982:[530]`、`3724289844:[28,36]`、`3765760121:[68,76,82]`，失败为 0。正式矩阵可见粒子运行层为 **14/27**；`3750813609` 为 **7/9**。alpha/color live 门保持通过；provider 双代定向报告 `.codex/scene-provider-generation-293-20260723-1035/report.json` 与 `.codex/scene-provider-generation-290-20260723-1036/report.json` 分别保持 image blend 5/5，以及 named capture 6/6、binding 7/7。`38e238d` 的 target plan/table 尚未接入真实运行链，新增证据仅为全量 Scene **211 项、210 项通过、1 项跳过**及 unsigned Debug build；最近签名 App 仍是 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `570cff17bbcdb1095a773fb4ead5921035b6cbf8`、可执行文件 SHA-256 `c90c616b5bdb93ebb6e7e40576a9c3dbe3de2b4d832fe12cdb17b9e119be6cc0`。
+- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；最新正式 13 样本视觉矩阵 `.codex/scene-live-solid-color-final13-20260723-1015/report.json` 仍为 **13/13 通过**。`73f415b` 后的 graph-target 正向/负向定向报告分别为 `.codex/scene-graph-target-positive-final-20260723/report.json` 与 `.codex/scene-graph-target-negative-final-20260723/report.json`，均 **3/3**；GPU 成功层保持 `2902406982:[530]`、`3724289844:[28,36]`、`3765760121:[68,76,82]`，失败为 0，history/condition/function 样本未误执行。全量 Scene **218 项、217 项通过、1 项跳过**。签名 App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `944054ba89d01c67be2901b971091729a4b8dcf1`、可执行文件 SHA-256 `d5b0f5101656a921530c8acca5abf2e35748a5726cb3492f9767c6c6adf38be2`。
 
 ### 仅解析/诊断或部分实现
 
@@ -219,7 +219,14 @@
 - `38e238d` 新增 `SceneGraphRenderTargetPlan`：从已获 strict execution 资格的单 effect/material 图解析完整 input/output/FBO identity、input/scale 像素尺寸与 first/last read/write lifetime；首写前读取明确返回 `historyRequired`。
 - `SceneGraphRenderTargetTable` 在任何 Metal allocation 前完成 checked byte cost 和预算门，随后只在整组纹理全部创建且互不别名时返回；input/output 与 authored FBO 均按完整 effect-scoped identity 解析。
 - Plan/Table 专项 10/10、全量 Scene 211 项中 210 项通过、1 项跳过，unsigned Debug App 构建通过。该提交尚未接入 pool/compositor，不改变现有 Blur 输出，也不构成通用 graph executor。
-- 下一步只迁移现有 precise/standard strict Blur；同 effect/size 复用、effect 隔离、resize/reset/stop 和预算原子失败由 pool 集成门闭合。history、copy、swap、compose、condition/function 继续 fail closed。
+- 该基础随后由 `73f415b` 接入 strict Blur；本条保留为历史基础证据。history、copy、swap、compose、condition/function 继续 fail closed。
+
+### 已完成：S2.4e strict Blur graph-target consumer
+
+- `73f415b` 让 precise/standard strict Blur 都从 execution plan 携带原始 authored graph，并统一消费 `SceneGraphRenderTargetTable` 的 input/output/FBO identity；旧 `StandardBlurTargets` 路径已移除。
+- pool 按完整 effect identity 缓存同 plan/extent 的表；跨 effect 不共享，同 effect resize 先完整创建候选再提交替换，失败保留旧 cache 与驻留记账。96 MiB 是提交后的 resident cache budget，不是瞬时 VRAM 硬上限。
+- 非均匀 mixed-alpha GPU harness 逐阶段验证 precise 两遍与 standard downsample/横纵 ping-pong/combine；pool 专项覆盖稳定复用、隔离、LRU、resize、失败原子性、clamp、reset 与 legacy Pair 预算。
+- 全量 Scene 218 项中 217 项通过、1 项跳过；正向与负向隔离矩阵各 3/3。strict Blur 仍为 `executed-degraded`，没有新增 profile 或可见成功层；generic scheduler、ShaderContract、history/copy/swap/compose/condition/function 尚未完成。
 
 ## 5. 样本规范
 
