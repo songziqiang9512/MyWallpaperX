@@ -347,7 +347,7 @@ Scene 与 Web 音频合同不同：
 - color/alpha/format；
 - consumer slots。
 
-当前 v17 已实现 frame-scoped typed identity、ready/pending/unavailable、generation、完整 named-target variant，以及 property provider 缺失时按有序候选回退 authored layer；下一帧未重新发布的 named target 会清空。文件型第一切片还会把按 wallpaper/property 保存的 PNG/JPEG bookmark 在同步 security scope 内解码为每屏设备的 `MTLTexture`，并由 `SceneMetalView` 发布到 registry；只为当前严格静态 image-blend consumer 暴露控件。它不证明 `$mediaThumbnail`、Texture Variants、视频帧、通用 material consumer、动态 alpha 或 SceneScript 已经可用。
+当前 v18 已实现 typed identity、ready/pending/unavailable、完整 named-target variant，以及 property provider 缺失时按有序候选回退 authored layer。registry 已把两类代数分开：连续帧同 identity、同纹理对象的 layer/property/system publication 复用 resource generation，替换或缺席后重现时换代；named target 因内容会在当帧重写，使用 frame epoch 且下一帧未重新发布即清空。文件型第一切片把按 wallpaper/property 保存的 PNG/JPEG bookmark 在同步 security scope 内解码为每屏设备的 `MTLTexture`，并由 `SceneMetalView` 发布到 registry；只为当前严格静态 image-blend consumer 暴露控件。它不证明 `$mediaThumbnail`、Texture Variants、显式视频帧 generation、通用 material consumer 或 SceneScript 已经可用。
 
 ## 8. Puppet、3D 和 Lighting
 

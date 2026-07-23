@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`95e0d58`
+> 实现基线：`c86491e`
 
 本页给覆盖表中的 `L3` 子集提供可追溯证据包。每个证据包至少包含代码、自动测试和真实运行或 GPU 证据；缺少任一项的能力只能标 `L0-L2`，或在专项表中明确写 `gate incomplete`。`.codex` 报告是本机隔离运行产物，不提交 Git；报告路径、App 身份和摘要写入现役文档，避免将其误当源码 fixture。
 
@@ -13,10 +13,11 @@
 | 项目 | 当前证据 |
 |---|---|
 | 视觉矩阵 | `.codex/scene-live-solid-color-final13-20260723-1015/report.json`，13/13；只证明固定门内非黑、计数、GPU completion 和 teardown，不证明 WE parity |
-| 最新合同门 | Scene tests 200 total / 199 pass / 1 skip |
+| 最新合同门 | Scene tests 201 total / 200 pass / 1 skip |
 | Live property | alpha 两项与 solid color 两项均 accepted、surface/window identity 不变；报告见 E-LIVE-PROPERTY |
-| 签名 App | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `35ef1944b5de797f377f409a29c4005d1b4aaafc` |
-| executable SHA-256 | `612315e9eb6ff5bc15c43c03c97f4e90c05c0682f9b9272b01875d79d54facc0` |
+| Provider 双代 | `2938612768` static image blend 5/5；`2902406982` named capture 6/6、binding 7/7；报告见 E-PROVIDER |
+| 签名 App | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `570cff17bbcdb1095a773fb4ead5921035b6cbf8` |
+| executable SHA-256 | `c90c616b5bdb93ebb6e7e40576a9c3dbe3de2b4d832fe12cdb17b9e119be6cc0` |
 | 样本边界 | 真实 Workshop root 只读；报告均来自隔离 sample root 与临时 HOME |
 
 ## 2. 证据包
@@ -82,9 +83,10 @@
 <a id="e-provider"></a>
 ### E-PROVIDER: Texture provider、named target 与静态 dependency blend
 
-- 代码：[SceneFrameTextureRegistry.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneFrameTextureRegistry.swift)、[SceneDependencyRenderPlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDependencyRenderPlan.swift)、[SceneImageBlendPipeline.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneImageBlendPipeline.swift)
+- 代码：[SceneFrameTextureRegistry.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneFrameTextureRegistry.swift)、[SceneDependencyRenderPlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDependencyRenderPlan.swift)、[SceneImageBlendRuntime.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneImageBlendRuntime.swift)、[SceneImageBlendPipeline.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneImageBlendPipeline.swift)
 - 自动门：[test_scene_frame_texture_registry.py](../../../script/tests/test_scene_frame_texture_registry.py)、[test_scene_dependency_render_plan.py](../../../script/tests/test_scene_dependency_render_plan.py)、[test_scene_image_blend_plan.py](../../../script/tests/test_scene_image_blend_plan.py)、[test_scene_user_property_textures.py](../../../script/tests/test_scene_user_property_textures.py)
-- 运行门：`.codex/scene-texture-fallback-293-v3-20260723/report.json`、`.codex/scene-texture-fallback-290-20260723/report.json`、`.codex/scene-user-texture-final13-r2-20260723/report.json`。
+- 运行门：fallback/file 证据为 `.codex/scene-texture-fallback-293-v3-20260723/report.json`、`.codex/scene-user-texture-final13-r2-20260723/report.json`；双代修复后的定向证据为 `.codex/scene-provider-generation-293-20260723-1035/report.json` 与 `.codex/scene-provider-generation-290-20260723-1036/report.json`。
+- 边界：连续帧同 identity、同 `MTLTexture` 的 layer/property/system publication 保持 resource generation；替换或缺席后重现会换代。named target 是当帧重写资源，继续使用 frame epoch。system/media/video 的显式内容 generation、metadata、异步取消和通用 consumer 尚未完成。
 
 <a id="e-utility"></a>
 ### E-UTILITY: Utility capture 与 named primary target

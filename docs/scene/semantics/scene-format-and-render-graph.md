@@ -288,11 +288,11 @@ present or read back
 
 | 层级 | 当前状态 | 下一合同 |
 |---|---|---|
-| Scene/object IR | format 17 继承 v16 的实例、EffectDefinition/FBO/pass/bind/command 与 authored graph/canonical SHA，并增加 material usertexture、property key 和 runtime provider metadata | 保持 raw/typed 双层合同，不把未知字段静默解释为支持 |
-| dependency | graph 已结构化区分固定 `previous`、effect-scoped RT 和 copy/swap；bounded frame registry 已按 identity/status/generation 处理 named target、property-authored fallback 与受限 PNG/JPEG property source，其他 clipping/static provider 仍由旧执行器执行 | 接 system/media/video/variant/effectful/nested source，并补 compose/history 数据流判定，再扩通用 GPU executor |
+| Scene/object IR | format 18 继承 v17 provider metadata 与 v16 authored graph/canonical SHA，并增加 property binding program/effective values | 保持 raw/typed 双层合同，不把未知字段静默解释为支持 |
+| dependency | graph 已结构化区分固定 `previous`、effect-scoped RT 和 copy/swap；bounded frame registry 已按 identity/status 与 resource/frame 双代处理 named target、property-authored fallback 和受限 PNG/JPEG property source | 接显式 dynamic generation、system/media/video/variant/effectful/nested source，并补 compose/history 数据流判定，再扩通用 GPU executor |
 | material/shader | sparse-slot candidate resolver、strict 2-pass precise 与 stock standard Blur default-profile 4-pass backend 已落地；运行时整体仍以手写 MSL 近似为主 | 补 shader defaults、通用 provider consumer、nested target 和更多 pass；非默认 standard 变体按独立证据扩展 |
 | local deformation | Foliage/Water/Shake 等有不同程度近似 | 以 [Effects 全集](effects-reference.md) 的输入、空间和 mask 合同替换 |
-| live values | 属性覆盖部分 target；统一 Frame Context 第一阶段已由 shader/video/particle/parallax 消费，属性变化仍重建 Scene；Timeline/SceneScript 未接入 | 建 typed target snapshot、优先级和无重建更新，再接 Timeline/SceneScript/audio/media |
+| live values | format 18 binding program、per-surface snapshot 与原子 state 已由 layer alpha/solid color consumer 执行；其他 target 仍重建，Timeline/SceneScript 未接入 | 新 target 同批补 compiler/consumer/fallback/identity 门，再接 Timeline/SceneScript/audio/media |
 
 ## 12. 验收要求
 

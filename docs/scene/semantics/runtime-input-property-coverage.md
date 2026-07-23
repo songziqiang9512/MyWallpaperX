@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`95e0d58`
+> 实现基线：`c86491e`
 
 本表把 Frame Context、动态目标、Timeline、用户属性、文字、光标、音频、媒体和纹理 provider 放在同一执行合同下。官方语义摘要见 [`runtime-systems-reference.md`](runtime-systems-reference.md)，等级口径见 [`coverage-ledger.md`](coverage-ledger.md)。
 
@@ -350,7 +350,7 @@ Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选
 
 | provider 能力 | 等级 | 当前能力 | 下一门 |
 |---|---|---|---|
-| layer/named/property identity/status/generation | `L3` | 受限 provider 有 ready/pending/unavailable 与 generation；[E-PROVIDER](runtime-evidence-index.md#e-provider) | 通用 producer/consumer 生命周期 |
+| layer/named/property identity/status/generation | `L3` | 受限 provider 有 ready/pending/unavailable；静态 resource generation 与 named frame epoch 分离；[E-PROVIDER](runtime-evidence-index.md#e-provider) | 显式 dynamic generation、metadata 与通用 producer/consumer 生命周期 |
 | authored fallback chain | `L3` | 受限 static image blend；[E-PROVIDER](runtime-evidence-index.md#e-provider) | 推广至 material/effect/nested consumer |
 | property PNG/JPEG | `L3` | bookmark/security scope/decode/per-screen upload；[E-PROVIDER](runtime-evidence-index.md#e-provider) | cancellation、更多格式、通用 material |
 | embedded MP4 image layer | `L3` | TEX payload 播放并消费共享 host time；[E-VIDEO](runtime-evidence-index.md#e-video) | pause/seek/loop/switch 精确合同 |

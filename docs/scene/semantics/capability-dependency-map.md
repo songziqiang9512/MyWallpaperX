@@ -99,7 +99,7 @@ B0 live-property 合龙由 `00c5e9c` 到 `dbf2c82` 的主链与 `95e0d58` 的 so
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| provider identity/status/generation/fallback | layer/named/property 子集 `L3` | video/system/media/variant、nested/effectful/child producer |
+| provider identity/status/generation/fallback | layer/named/property 子集 `L3`；静态 resource generation 与 named frame epoch 已分离 | 显式 dynamic generation、metadata、video/system/media/variant、nested/effectful/child producer |
 | candidate selection | 受限 static image blend | 通用 material slots 0...7；pending/unavailable 不截断 authored fallback |
 | upload/cancel/teardown | PNG/JPEG property 子集 | video frame、thumbnail、device rebuild、stale generation 和 budget |
 

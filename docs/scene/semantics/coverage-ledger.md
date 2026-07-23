@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-23
 >
-> Scene 实现基线：`95e0d58`
+> Scene 实现基线：`c86491e`
 >
 > 视觉运行基线：`.codex/scene-live-solid-color-final13-20260723-1015/report.json`
 >
-> 最新 live 运行门：alpha 的 `2902406982:newproperty11`、`2938612768:newproperty17` 与 solid color 的 `3122339805:accentcolourdefault800080`、`2902406982:newproperty33` 均被接受并保持 surface/window identity；`3122339805:basecolor` 的 mixed binding 被原子拒绝。当前 Scene 全量测试共运行 200 项、199 项通过、1 项跳过；签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：alpha/solid color live 正反例保持通过；provider 双代门中 `2938612768` static image blend 5/5、`2902406982` named capture 6/6 与 binding 7/7。当前 Scene 全量测试共运行 201 项、200 项通过、1 项跳过；签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -67,7 +67,7 @@
 | Text/Font runtime | `L3` | CoreText 静态栅格和部分 font/pointsize/padding/scale；结构门 `79/108` | 动态 text、Windows baseline/fallback、outline/shadow/effect | B4/B5 |
 | Camera Parallax | `L3` | 仅作者开启且非零 depth 时启用，含层级传播/阻断 | WE 数值 golden、camera shake/zoom、3D camera | B5 |
 | User Properties | `L3` | 独立窗口、条件、持久化、PNG/JPEG `sceneTexture`；layer alpha 与纯 solid color 已无重建 live 更新 | 53 unsupported bindings、48 条归属 mixed key 的 color 指令、Texture Variants、shortcut、跨重启 UI 门 | **B0/B1** |
-| Typed texture provider | `L3` | layer/named/property identity、status/generation、authored fallback | system/media/video/variant、通用 material、nested/effectful/child | **B1** |
+| Typed texture provider | `L3` | layer/named/property identity、status/fallback；静态 resource generation 与 named frame epoch 已分离 | 显式 dynamic generation、metadata、cancel、system/media/video/variant、通用 material、nested/effectful/child | **B1** |
 | EffectDefinition/Material IR | `L2` | definition/pass/RT/material/slot hole/combo/constant 可保留并建图 | 完整 schema、shader content、condition/function | B2 |
 | Bounded effect executors | `L3` | 两个严格 Blur 图和若干受限手写/单 pass executor | 45 类逐项 executor、variant、mask、visual golden | B3/B4 |
 | Current-frame capture | `L3` | bounded utility prefix capture 可执行 | 通用 capture/extent/format/mask | B2/B3 |
@@ -231,7 +231,7 @@
 | 覆盖批次 | 开发计划映射 | 目标 | 完成判据 |
 |---|---|---|---|
 | **B0 Contract/Runtime Kernel** | `S3 第 1-4 项` | live-property 子阶段已闭合：format 18 binding program、per-surface transaction、atomic state、alpha/solid-color consumer 与 rebuild fallback；clock/lifecycle 其余合同继续单列 | 新 live target 必须同时具备 compiler definition/instruction、真实 consumer、原子失败与不换 surface/window 的运行门；pause/fixed-time 等按后续 B0 kernel 切片推进 |
-| **B1 Provider Core** | `S2 第 5 项 + S3` | identity/status/generation/cancel/fallback、Texture Variants、video/system/media core、material candidate selection | 每种 provider 有 ready/pending/unavailable、metadata、fallback 和 teardown；不含 nested graph source |
+| **B1 Provider Core** | `S2 第 5 项 + S3` | 双代已完成；继续 identity/status/显式 generation/cancel/fallback、Texture Variants、video/system/media core、material candidate selection | 每种 provider 有 ready/pending/unavailable、metadata、fallback 和 teardown；不含 nested graph source |
 | **B2 Graph Resource Runtime** | `S2 第 1-5 项` | target table、scheduler、copy/swap/compose/history、stock ShaderContract/built-ins/state | read/write、RT lifecycle、slot/combo/state 和 resize/switch/stop 门 |
 | **B3 Provider-Graph Integration** | `S2 第 5-6 项` | nested/effectful/scene-background source、通用 material consumer、45 Effect 严格 profile family | B1+B2 均完成后接入；不得新增 effect-name 视觉旁路 |
 | **B4 Feature Breadth** | `S3-S4` | Timeline、SceneScript core、动态 text、cursor/audio/media、按依赖排序的 particle breadth | 每族正向、默认关闭、unsupported、determinism 和 lifecycle 门 |
