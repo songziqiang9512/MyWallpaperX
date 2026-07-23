@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`8474ace`
+> 实现基线：`228cdde`
 
 本页给覆盖表中的 `L3` 子集提供可追溯证据包。每个证据包至少包含代码、自动测试和真实运行或 GPU 证据；缺少任一项的能力只能标 `L0-L2`，或在专项表中明确写 `gate incomplete`。`.codex` 报告是本机隔离运行产物，不提交 Git；报告路径、App 身份和摘要写入现役文档，避免将其误当源码 fixture。
 
@@ -13,12 +13,12 @@
 | 项目 | 当前证据 |
 |---|---|
 | 视觉矩阵 | 正式 13 样本 `.codex/scene-shader-contract-final13-v2-20260723/report.json` 为 13/13；最新 graph-target 正向/负向报告各 3/3，见 E-EFFECT-RT；均不证明 WE parity |
-| 最新合同门 | Scene tests 223 total / 222 pass / 1 skip |
+| 最新合同门 | Scene tests 225 total / 224 pass / 1 skip |
 | ShaderContract | 173 contracts = 143 authored + 30 host built-in；286 stages、0 diagnostics；source/IR include 155、annotation 1523、declaration 2660，见 E-SHADER-CONTRACT |
 | Live property | alpha 两项与 solid color 两项均 accepted、surface/window identity 不变；报告见 E-LIVE-PROPERTY |
 | Provider 双代 | `2938612768` static image blend 5/5；`2902406982` named capture 6/6、binding 7/7；报告见 E-PROVIDER |
-| 签名 App | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `033bc40a5ee8dbf0d6bd0e478e9a8c5a875b90b4` |
-| executable SHA-256 | `2b6a8d6ee9863de41fd91792f682c2ff0c49ecf1dd15a9909d3d6e924f76bab8` |
+| 签名 App | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `6fc75d86b05d665138f8d7080cdf7e149522a10e` |
+| executable SHA-256 | `d237711dbd6f92628303431db10c5ecf8b8fdf0088789e1118b98048d518410d` |
 | 样本边界 | 真实 Workshop root 只读；报告均来自隔离 sample root 与临时 HOME |
 
 ## 2. 证据包
@@ -130,9 +130,9 @@
 ### E-EFFECT-RT: effect-instance render-target foundation and strict consumer
 
 - 代码：[SceneGraphRenderTargetPlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneGraphRenderTargetPlan.swift)、[SceneGraphRenderTargetTable.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneGraphRenderTargetTable.swift)、[SceneOffscreenTexturePool.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneOffscreenTexturePool.swift)、[SceneImageLayerCompositor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneImageLayerCompositor.swift)
-- 自动门：[test_scene_graph_render_target_plan.py](../../../script/tests/test_scene_graph_render_target_plan.py)、[test_scene_graph_render_target_table.py](../../../script/tests/test_scene_graph_render_target_table.py)、[test_scene_offscreen_texture_pool.py](../../../script/tests/test_scene_offscreen_texture_pool.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)；覆盖 identity/extent/lifetime、history-required、预算/别名、cache/LRU/resize/reset 和 precise/standard staged GPU pixels。
+- 自动门：[test_scene_graph_render_target_plan.py](../../../script/tests/test_scene_graph_render_target_plan.py)、[test_scene_graph_render_target_table.py](../../../script/tests/test_scene_graph_render_target_table.py)、[test_scene_offscreen_texture_pool.py](../../../script/tests/test_scene_offscreen_texture_pool.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)；覆盖 identity/extent/lifetime、history-required、预算/别名、cache/LRU/resize/format/reset 和 precise/standard staged GPU pixels。`228cdde` 另锁定 `rgba8888 -> .rgba8Unorm`、backbuffer/input/output BGRA、4 B/px 预算和同 effect 格式变化的原子 cache 替换。
 - 运行门：`.codex/scene-graph-target-positive-final-20260723/report.json` 与 `.codex/scene-graph-target-negative-final-20260723/report.json`，签名身份在运行前后均验证；正负各 3/3。
-- 边界：resident budget 只限制 cache transaction 提交后的驻留记账，候选创建时瞬时驱动分配可更高。真实样本报告不输出 `historyRequired` 原因；该分类由 plan 单元门证明，运行门只证明相关图未误执行。history、copy、swap、compose、condition/function 和 generic scheduler 均未执行。
+- 边界：resident budget 只限制 cache transaction 提交后的驻留记账，候选创建时瞬时驱动分配可更高。真实样本报告不输出 `historyRequired` 原因；该分类由 plan 单元门证明，运行门只证明相关图未误执行。RGBA8888 当前只有资源分配合同，没有 Local Contrast pipeline 或新增可见 layer；history、copy、swap、compose、condition/function 和 generic scheduler 均未执行。
 
 <a id="e-video"></a>
 ### E-VIDEO: 内嵌 MP4 image-layer 子集

@@ -2,7 +2,7 @@
 
 > 建立日期：2026-07-22
 >
-> 最近更新：2026-07-23（B0 live 闭环；B1 双代完成；B2 strict Blur target table 与 D7 ShaderContract IR v1 已完成；下一步 strict Local Contrast）
+> 最近更新：2026-07-23（B0 live 闭环；B1 双代完成；B2 strict Blur target table、D7 ShaderContract IR v1 与 `rgba8888` target format 已完成；下一步 strict Local Contrast）
 >
 > 作用：定义 MyWallpaperX Scene runtime 从当前可审计子集向 Wallpaper Engine 常用能力逼近的实施顺序、样本门和验收标准。作者/执行语义先查 [`semantics/README.md`](semantics/README.md)；当前能力结论仍以 [`../reviews/web-scene-current-state-roadmap-2026-07-19.md`](../reviews/web-scene-current-state-roadmap-2026-07-19.md) 与最新运行证据为准；历史 memo 不反向覆盖本计划。
 
@@ -51,7 +51,8 @@
 - v16 已按作者 source/effect/pass order 编译 CPU authored graph，保留固定 effect input `previous`、effect-instance RT identity、raw `unique`、copy/swap、blocker 和逐样本 canonical SHA；v17 descriptor/cache 在此基础上保留 material usertexture、property key 与运行时 provider 引用；combo/constant 仍由实例覆盖 material；
 - renderer 已消费两个严格注册的 Blur 子图：precise 仅接受单 effect、两 material node、一个 input-extent `rgba_backbuffer` RT；standard 默认 profile 仅接受单 effect、四个有序 material node、两个 scale=4 的非 unique `rgba_backbuffer` RT，以及已核验的 shader/state/combo/binding/default constant。两者均为 `executed-degraded`，不是任意 authored shader 或 WE 像素等价；
 - `8474ace` 完成 D7 ShaderContract IR v1：完整 UTF-8 source、raw SHA-256、stage path/kind、include、JSON annotation、uniform/attribute/varying declaration、diagnostic 和 canonical SHA 进入 v19；绝对/穿越路径、shader root/stage/include symlink escape、无效 UTF-8、缺失 stage、畸形 annotation 和重复 identity 均 fail closed。它只达到 L1 识别/保留，不执行预处理、include expansion、translation、compile、uniform upload 或任意 GPU shader；
-- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；最新正式 13 样本矩阵 `.codex/scene-shader-contract-final13-v2-20260723/report.json` 为 **13/13 通过**，共 173 contracts（143 authored + 30 host built-in）、286 stages、0 diagnostics；原始 source 与 IR 的 include/annotation/declaration 数均为 `155/1523/2660`。`73f415b` 后的 graph-target 正向/负向定向报告分别为 `.codex/scene-graph-target-positive-final-20260723/report.json` 与 `.codex/scene-graph-target-negative-final-20260723/report.json`，均 **3/3**；GPU 成功层保持 `2902406982:[530]`、`3724289844:[28,36]`、`3765760121:[68,76,82]`，失败为 0，history/condition/function 样本未误执行。全量 Scene **223 项、222 项通过、1 项跳过**。签名 App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `033bc40a5ee8dbf0d6bd0e478e9a8c5a875b90b4`、可执行文件 SHA-256 `2b6a8d6ee9863de41fd91792f682c2ff0c49ecf1dd15a9909d3d6e924f76bab8`。
+- `228cdde` 完成 Local Contrast 的资源格式前置：graph plan/table 只新增 `rgba8888 -> .rgba8Unorm`，input/output 与 `rgba_backbuffer` 保持 `.bgra8Unorm`；两种格式均按 4 B/px 计费，格式变化原子替换 cache，未知格式继续 fail closed。本条不新增 strict profile 或可见执行层；
+- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；最新正式 13 样本矩阵 `.codex/scene-shader-contract-final13-v2-20260723/report.json` 为 **13/13 通过**，共 173 contracts（143 authored + 30 host built-in）、286 stages、0 diagnostics；原始 source 与 IR 的 include/annotation/declaration 数均为 `155/1523/2660`。`73f415b` 后的 graph-target 正向/负向定向报告分别为 `.codex/scene-graph-target-positive-final-20260723/report.json` 与 `.codex/scene-graph-target-negative-final-20260723/report.json`，均 **3/3**；GPU 成功层保持 `2902406982:[530]`、`3724289844:[28,36]`、`3765760121:[68,76,82]`，失败为 0，history/condition/function 样本未误执行。全量 Scene **225 项、224 项通过、1 项跳过**。签名 App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `6fc75d86b05d665138f8d7080cdf7e149522a10e`、可执行文件 SHA-256 `d237711dbd6f92628303431db10c5ecf8b8fdf0088789e1118b98048d518410d`。
 
 ### 仅解析/诊断或部分实现
 
@@ -113,7 +114,7 @@
 2. **Authored graph planner（已完成结构阶段）**：v16 区分 effect input `previous`、effect-scoped RT、material/command ordinal、copy/swap 和 blocker，并用 canonical SHA 锁定逐样本图身份。当前 5 个 condition/function blocker 均 fail closed。
 3. **S2.3a precise-blur graph backend（已完成受限阶段）**：统一 resolver 与严格 topology/state/resource gate 驱动 5 个可见层进入固定近似 Gaussian；不满足合同的 layer 20 不再回退旧文件名模糊，隐藏层不执行，RT 被预算缩放时拒绝。
 4. **S2.3b standard Blur graph backend（默认 profile 已完成）**：以 `2902406982` layer `530` 的真实 4-node、2 个 quarter RT 图为门，完成 alpha-aware downsample -> 13-tap horizontal/vertical Gaussian -> default previous combine；不支持的 KERNEL1/2、COMPOSITE1-3、MASK、BLURALPHA0 与混合图继续 fail closed，不回退 legacy coarse blur。
-5. **Provider Core 与 Graph Resource Runtime 分开闭合**：typed frame registry、resource/frame 双代、provider status、逐 slot 候选、authored fallback、PNG/JPEG `sceneTexture` 第一切片、effect target table 和 ShaderContract IR v1 已完成。当前先用 `2902406982` layers `167/177` 闭合 stock Local Contrast 的严格默认单效果 profile；`2938612768` 已核验的可见 layers `239/657/775/875` 均处于 4/5-effect mixed chain，继续作为负向门。随后 Provider Core 补显式 dynamic generation、metadata/cancellation、Texture Variants、video/system/media identity/lifecycle；Graph 侧补 generic scheduler、copy/swap/compose/history、typed shader defaults/built-ins/state。nested/effectful/scene-background provider 与通用 material consumer 必须等两边在 integration 层汇合，不能互相形成前置环。
+5. **Provider Core 与 Graph Resource Runtime 分开闭合**：typed frame registry、resource/frame 双代、provider status、逐 slot 候选、authored fallback、PNG/JPEG `sceneTexture` 第一切片、effect target table、ShaderContract IR v1 和 `rgba8888` target format 已完成。当前先用 `2902406982` layers `167/177` 闭合 stock Local Contrast 的严格默认单效果 profile；`2938612768` 已核验的可见 layers `239/657/775/875` 均处于 4/5-effect mixed chain，继续作为负向门。随后 Provider Core 补显式 dynamic generation、metadata/cancellation、Texture Variants、video/system/media identity/lifecycle；Graph 侧补 generic scheduler、copy/swap/compose/history、typed shader defaults/built-ins/state。nested/effectful/scene-background provider 与通用 material consumer 必须等两边在 integration 层汇合，不能互相形成前置环。
 6. **高命中 Effect 批次有硬前置**：Shake/Swing/Foliage、Water、Depth Parallax、Blend/Opacity、God Rays/Shine/Motion Blur 继续是候选，但只能通过新增共享 graph/shader/provider/space primitive 或注册完整匹配且 fail-closed 的 strict profile实现。不得继续扩大 effect-name/path-substring 手写近似；逐项门见 [Effect 执行覆盖表](semantics/effect-execution-coverage.md)。
 7. **视觉门**：先定向复核 `2902406982`、`2938612768`、`3750813609`，再重跑 21 样本 cover 对比；验收同时要求主构图、局部运动区域、字体/alpha 和关键粒子接近封面或 Windows 官方运行证据。
 
@@ -235,6 +236,13 @@
 - loader 对绝对路径、`..`、shader root/stage/include symlink escape、无效 UTF-8、缺失/不可读 stage、畸形 annotation 和重复 identity fail closed。benchmark 同时核对 wire 必填字段、source/raw hash、stage kind/path、nested arrays、diagnostic schema、host built-in 空 stage 与 canonical SHA，避免结构残缺的假绿。
 - 正式 `.codex/scene-shader-contract-final13-v2-20260723/report.json` 为 **13/13**：173 contracts（143 authored + 30 host built-in）、286 stages、0 diagnostics；source 与 IR 的 include/annotation/declaration 数完全一致，为 `155/1523/2660`。全量 Scene **223 项、222 项通过、1 项跳过**；签名身份为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `033bc40a5ee8dbf0d6bd0e478e9a8c5a875b90b4`、executable SHA-256 `2b6a8d6ee9863de41fd91792f682c2ff0c49ecf1dd15a9909d3d6e924f76bab8`。
 - 当前只完成 L1 source contract，不进行 include expansion、macro/permutation preprocessing、translation、stage link、compile、uniform upload 或 authored shader GPU execution，D7 整体仍未闭合。下一切片以 source contract identity 约束 stock Local Contrast 默认单效果 profile：`2902406982` layers `167/177` 为正向，`2938612768` 的 mixed-effect instances 保持 fail closed。
+
+### 已完成：S2.4g `rgba8888` graph-target format
+
+- `228cdde` 将 `SceneGraphRenderTargetPlan.TextureFormat` 扩到精确的 `rgba_backbuffer` 与 `rgba8888` 两项；table 分别分配 `.bgra8Unorm` 与 `.rgba8Unorm`，synthetic input/output 始终保持 BGRA。没有顺带开放 parser 已识别但尚无执行合同的 R/RG/float formats。
+- 两种现有格式都是 4 B/px，继续走 checked resident budget；完整 plan equality 包含 format，因此同 effect/extent 的格式变化会先创建候选再原子替换，失败仍保留旧 cache。旧 backbuffer framebuffer、RGBA framebuffer、storage/usage、预算、别名、LRU、resize/reset 均有直接门。
+- plan/table/pool 与 authored Blur/Metal framebuffer 相关 38 项通过；全量 Scene **225 项、224 项通过、1 项跳过**，代码健康和签名构建通过。签名身份为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `6fc75d86b05d665138f8d7080cdf7e149522a10e`、executable SHA-256 `d237711dbd6f92628303431db10c5ecf8b8fdf0088789e1118b98048d518410d`。
+- 本阶段只提供 Local Contrast 所需的 quarter RGBA RT，不包含 pipeline、combine/alpha 算法、planner 或新 GPU layer；因此没有重跑无信息视觉矩阵。下一步仍是 `2902406982` layers `167/177` 的 strict profile，`2938612768` 已核验 mixed chains 继续失败关闭。
 
 ## 5. 样本规范
 

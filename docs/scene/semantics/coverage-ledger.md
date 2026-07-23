@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-23
 >
-> Scene 实现基线：`8474ace`
+> Scene 实现基线：`228cdde`
 >
 > 视觉运行基线：`.codex/scene-shader-contract-final13-v2-20260723/report.json`
 >
-> 最新运行门：ShaderContract 正式 13 样本 13/13，共 173 contracts、286 stages、0 diagnostics；graph-target 正向/负向定向报告各 3/3，strict Blur 六个既有 GPU layer 全部成功、0 failed，history/condition/function 继续 fail closed。当前 Scene 全量测试共运行 223 项、222 项通过、1 项跳过，最新签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：ShaderContract 正式 13 样本 13/13，共 173 contracts、286 stages、0 diagnostics；graph-target 正向/负向定向报告各 3/3，strict Blur 六个既有 GPU layer 全部成功、0 failed，history/condition/function 继续 fail closed。`rgba8888` format foundation 不新增可见 layer；当前 Scene 全量测试共运行 225 项、224 项通过、1 项跳过，最新签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -73,7 +73,7 @@
 | Current-frame capture | `L3` | bounded utility prefix capture 可执行 | 通用 capture/extent/format/mask | B2/B3 |
 | Named primary target | `L3` | bounded `_a` producer/consumer 可执行 | 通用 authored identity 和依赖环检测 | B2 |
 | Named secondary identity | `L2` | registry 区分完整 variant；无 `_b` producer/consumer flow | secondary 数据流、copy/swap/history | B2 |
-| Generic FBO command graph | `L2` | target/bind/compose/copy/swap/condition/function 可保留或 blocker；effect-scoped target/lifetime table 已由 precise/standard strict Blur 消费，具备 cache/resize/reset 门 | strict Blur 子集为 `L3`，不能外推；仍需 generic scheduler、copy/swap/compose/history 与完整生命周期 | B2 |
+| Generic FBO command graph | `L2` | target/bind/compose/copy/swap/condition/function 可保留或 blocker；effect-scoped target/lifetime table 已由 precise/standard strict Blur 消费，并能保真分配 BGRA backbuffer 与 RGBA8888 FBO，具备 cache/resize/format/reset 门 | strict Blur 子集为 `L3`，RGBA8888 仅是未消费的资源基础；仍需 generic scheduler、copy/swap/compose/history 与完整生命周期 | B2 |
 | History RT | `L0` | 无跨帧通用 ping-pong/history 生命周期 | read-before-write、reset、resize/switch/stop、确定性门 | B2 |
 | Authored shader path/source identity | `L1` | material path 与 ShaderContract stage/source/raw hash/canonical identity 已安全保存 | 尚无 include expansion、translation、compile 或 executor | B2 |
 | Shader source/include/annotation/declaration contract | `L1` | 完整 source、include reference、annotation raw/structured value、uniform/attribute/varying declaration 已 loss-preserving 保存并诊断 | typed default/combo consumer、include expansion、macro/permutation preprocessor、stage link/translation/compile | B2 |
@@ -232,7 +232,7 @@
 |---|---|---|---|
 | **B0 Contract/Runtime Kernel** | `S3 第 1-4 项` | live-property 子阶段已闭合：v19 继承 v18 binding program、per-surface transaction、atomic state、alpha/solid-color consumer 与 rebuild fallback；clock/lifecycle 其余合同继续单列 | 新 live target 必须同时具备 compiler definition/instruction、真实 consumer、原子失败与不换 surface/window 的运行门；pause/fixed-time 等按后续 B0 kernel 切片推进 |
 | **B1 Provider Core** | `S2 第 5 项 + S3` | 双代已完成；继续 identity/status/显式 generation/cancel/fallback、Texture Variants、video/system/media core、material candidate selection | 每种 provider 有 ready/pending/unavailable、metadata、fallback 和 teardown；不含 nested graph source |
-| **B2 Graph Resource Runtime** | `S2 第 1-5 项` | strict Blur target table consumer、cache/resize/reset 与 D7 ShaderContract IR v1 已完成；下一步 strict Local Contrast，再补 generic scheduler、copy/swap/compose/history、typed shader defaults/built-ins/state | read/write、RT lifecycle、slot/combo/state 和 resize/switch/stop 门 |
+| **B2 Graph Resource Runtime** | `S2 第 1-5 项` | strict Blur target table consumer、cache/resize/reset、D7 ShaderContract IR v1 与 `rgba8888` target format 已完成；下一步 strict Local Contrast，再补 generic scheduler、copy/swap/compose/history、typed shader defaults/built-ins/state | read/write、RT lifecycle、slot/combo/state 和 resize/switch/stop 门 |
 | **B3 Provider-Graph Integration** | `S2 第 5-6 项` | nested/effectful/scene-background source、通用 material consumer、45 Effect 严格 profile family | B1+B2 均完成后接入；不得新增 effect-name 视觉旁路 |
 | **B4 Feature Breadth** | `S3-S4` | Timeline、SceneScript core、动态 text、cursor/audio/media、按依赖排序的 particle breadth | 每族正向、默认关闭、unsupported、determinism 和 lifecycle 门 |
 | **B5 Fidelity** | `S2-S4` 广度完成后 | 字体、视差、粒子、常用 Effect 与 WE Windows golden 对齐 | 固定输入逐像素/数值阈值、性能预算、长稳和多屏门 |

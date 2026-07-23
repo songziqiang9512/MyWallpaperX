@@ -109,7 +109,7 @@ B0 live-property 合龙由 `00c5e9c` 到 `dbf2c82` 的主链与 `95e0d58` 的 so
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
 | ordered nodes、target/bind/compose/copy/swap | IR `L2`；material-only target lifetime plan 已落地，strict Blur 已消费 table | generic scheduler、hazard validation、command execution |
-| extent/format/clear/UV/unique | strict Blur 的 input/scale + rgba_backbuffer table/cache/resize/reset 子集为 `L3`；generic 仍为 `L2` | format-to-Metal、mapped size、sampler、load/store 和跨帧 reset |
+| extent/format/clear/UV/unique | strict Blur 的 input/scale + rgba_backbuffer table/cache/resize/reset 子集为 `L3`；`228cdde` 已让 generic table 以 `L2` 保真分配 `rgba8888 -> rgba8Unorm`，但尚无对应 executor | 其余 format-to-Metal、mapped size、sampler、load/store 和跨帧 reset |
 | history/ping-pong | `L0` | first frame、resize、seek、switch、stop 和 memory budget |
 
 <a id="d7"></a>
@@ -181,7 +181,7 @@ F0 完成后才开始下一轮代码。F1/F2 优先级由公共依赖决定，�
 
 ## 6. 下次会话的决策顺序
 
-1. B0 live-property、B2 strict Blur target-table 子集与 D7 ShaderContract IR v1 已合龙；当前下一切片是 stock Local Contrast 的严格默认单效果 profile，以 `2902406982` layers `167/177` 为正向门，`2938612768` 的 mixed-effect instances 为 fail-closed 负向门。随后从 B1 Provider Core 与 B2 generic scheduler 中选择最低依赖切片；ShaderContract 的 preprocessor/translation/compile/executor 仍按 D7 后续门推进。
+1. B0 live-property、B2 strict Blur target-table 子集、D7 ShaderContract IR v1 与 `rgba8888` target format 已合龙；当前下一切片是 stock Local Contrast 的严格默认单效果 profile，以 `2902406982` layers `167/177` 为正向门，`2938612768` 已核验的可见 mixed-effect instances 为 fail-closed 负向门。随后从 B1 Provider Core 与 B2 generic scheduler 中选择最低依赖切片；ShaderContract 的 preprocessor/translation/compile/executor 仍按 D7 后续门推进。
 2. 打开对应专项表，确认作者启用、输入、当前等级、未知项、依赖和验收门。
 3. 查 [运行证据索引](runtime-evidence-index.md)，确认现有正反例，不重复制造无信息矩阵。
 4. 只实现一个可独立验证的公共合同；涉及 live property 时，compiler target、真实 consumer、fallback 和 surface/window identity 必须同批验收，目标样本和相关样本通过后单独提交。
