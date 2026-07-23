@@ -270,8 +270,8 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 | effect visibility actionable subset | 20 | 当前白名单经重建生效；[E-PROPERTY](runtime-evidence-index.md#e-property) | `L3` | topology invalidation 和完整条件门 |
 | shader constant family | 122 | target path/value 可保留，只有 19 条白名单 actionable | `L1` | typed uniform/pass identity 和完整 compiler |
 | shader constant actionable subset | 19 | 当前白名单经重建进入受限 executor；[E-PROPERTY](runtime-evidence-index.md#e-property) | `L3` | generic executor 与 live uniform |
-| layer alpha | 73 | 旧 resolver 可改 wrapper；binding target 仍记 unsupported | `L1` | 映射 `.layer(.alpha)`；先保留 rebuild fallback |
-| layer color | 73 | 旧 resolver 可改 wrapper；binding target 仍记 unsupported | `L1` | 映射 `.layer(.color)`；颜色类型验证 |
+| layer alpha | 73 | 已分类为 typed `layerAlpha` target 并进入属性面板；旧 resolver/rebuild 继续执行 | `L2` | 编译为 `.layer(.alpha)`，接 per-surface snapshot 与无重建 renderer consumer |
+| layer color | 73 | 已分类为 typed `layerColor` target；普通 image renderer 尚不消费，属性面板继续隐藏 | `L2` | 补颜色类型验证及适用 content kind，并与 `.layer(.color)` renderer consumer 同时开放 |
 | script instance properties | 43 | 路径存在；不保存源码/绑定程序 | `L1` | 编译 `.scriptInstanceProperty`，等待 VM consumer |
 | particle instance override | 6 | authored 静态 override 可消费；动态 binding 未分类 | `L1` | alpha/count/size/speed/color typed target |
 | Scene bloom/threshold target identity | 2 | `.scene(.bloomEnabled/.bloomThreshold)` 已定义，binding 尚未分类 | `L1` | 稳定 authored path、type 与 scope |
@@ -280,7 +280,7 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 | sound volume target identity | 1 | `.layer(.volume)` 已定义，binding 未分类 | `L1` | binding compiler 和 sound owner identity |
 | sound volume runtime | 1 | 无 sound IR/player | `L0` | playback/lifecycle 后再开放 |
 
-199 个当前 unsupported bindings 的构成为 alpha 73、color 73、script properties 43、particle override 6、Scene Bloom 2、scale 1、volume 1。先补 alpha/color 分类可把该计数降到 53，但仍不能直接删除旧文档 resolver：未迁移 target 依赖它应用 authored/default/override。
+当前 53 个 unsupported bindings 的构成为 script properties 43、particle override 6、Scene Bloom 2、scale 1、volume 1。alpha 73 与 color 73 已有 typed 分类；alpha 仍由旧文档 resolver/rebuild 执行并可在面板调节，color 因普通 image consumer 未闭合而继续隐藏。在 per-surface snapshot consumer 闭合前不能删除旧 resolver。
 
 ## 7. Text
 

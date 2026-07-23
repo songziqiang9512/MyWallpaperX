@@ -195,8 +195,10 @@ extension SteamWorkshopService {
 
     private func supportsScenePropertyTarget(_ target: SceneUserPropertyBindingTarget) -> Bool {
         switch target {
-        case .layerVisibility, .text:
+        case .layerVisibility, .layerAlpha, .text:
             return true
+        case .layerColor:
+            return false
         case let .camera(field):
             return [
                 "cameraparallax",

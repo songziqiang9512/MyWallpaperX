@@ -26,6 +26,8 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
     }
 
     case layerVisibility(layerID: Int)
+    case layerAlpha(layerID: Int)
+    case layerColor(layerID: Int)
     case effectVisibility(layerID: Int, effectIndex: Int, effectPath: String?)
     case camera(field: String)
     case text(layerID: Int, field: TextField)
@@ -44,7 +46,7 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
             return true
         case let .camera(field):
             return field == "cameraparallax" || field == "camerashake"
-        case .text, .shaderValue, .unsupported:
+        case .layerAlpha, .layerColor, .text, .shaderValue, .unsupported:
             return false
         }
     }
@@ -166,6 +168,14 @@ nonisolated struct SceneUserPropertyBindingParser {
         }
         if components.count == 3, Self.key(components[2]) == "visible" {
             return .layerVisibility(layerID: layerID)
+        }
+        if components.count == 3, Self.key(components[2]) == "alpha" {
+            return .layerAlpha(layerID: layerID)
+        }
+        if components.count == 3,
+           Self.key(components[2]) == "color",
+           object["text"] == nil {
+            return .layerColor(layerID: layerID)
         }
         if components.count == 5,
            Self.key(components[2]) == "effects",

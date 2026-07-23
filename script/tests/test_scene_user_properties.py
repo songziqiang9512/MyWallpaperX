@@ -123,7 +123,7 @@ enum Harness {
             "color": wrapperValue(object, key: "color"),
             "effectVisible": wrapperValue(effect, key: "visible"),
             "shaderStrength": wrapperValue(shaderValues, key: "strength"),
-            "unsupportedDirect": wrapperValue(object, key: "alpha"),
+            "layerAlpha": wrapperValue(object, key: "alpha"),
             "unsupportedNestedDirect": wrapperValue(object["scriptproperties"], key: "label"),
             "missingFallback": wrapperValue(object, key: "opacity"),
             "unsupportedConditionalFallback": wrapperValue(object, key: "brightness")
@@ -202,6 +202,8 @@ enum Harness {
     private static func targetName(_ target: SceneUserPropertyBindingTarget) -> String {
         switch target {
         case .layerVisibility: "layerVisibility"
+        case .layerAlpha: "layerAlpha"
+        case .layerColor: "layerColor"
         case .effectVisibility: "effectVisibility"
         case .camera: "camera"
         case .text: "text"
@@ -318,7 +320,7 @@ class SceneUserPropertyTests(unittest.TestCase):
         self.assertTrue(result["unknownOverrideIgnored"])
         self.assertEqual(result["bindingCount"], 11)
         self.assertEqual(result["conditionalBindingCount"], 2)
-        self.assertEqual(result["unsupportedBindingCount"], 4)
+        self.assertEqual(result["unsupportedBindingCount"], 3)
         self.assertEqual(result["resolvedBindingCount"], 9)
         self.assertEqual(result["cameraParallax"], True)
         self.assertEqual(result["layerVisible"], True)
@@ -327,7 +329,7 @@ class SceneUserPropertyTests(unittest.TestCase):
         self.assertEqual(result["color"], "0.2 0.4 0.6")
         self.assertEqual(result["effectVisible"], True)
         self.assertEqual(result["shaderStrength"], 42)
-        self.assertEqual(result["unsupportedDirect"], 42)
+        self.assertEqual(result["layerAlpha"], 42)
         self.assertEqual(result["unsupportedNestedDirect"], "Hello")
         self.assertEqual(result["missingFallback"], 0.25)
         self.assertEqual(result["unsupportedConditionalFallback"], 0.2)
@@ -337,7 +339,7 @@ class SceneUserPropertyTests(unittest.TestCase):
                 "malformedUserReference": 1,
                 "missingEffectiveValue": 1,
                 "unsupportedConditionalTarget": 1,
-                "unsupportedTarget": 4,
+                "unsupportedTarget": 3,
             },
         )
 
@@ -369,17 +371,19 @@ class SceneUserPropertyTests(unittest.TestCase):
             {
                 "camera": 5,
                 "effectVisibility": 129,
+                "layerAlpha": 73,
+                "layerColor": 73,
                 "layerVisibility": 230,
                 "shaderValue": 122,
                 "text": 267,
-                "unsupported": 199,
+                "unsupported": 53,
             },
         )
         self.assertEqual(
             result["conditionalTargetCounts"],
             {"effectVisibility": 86, "layerVisibility": 109},
         )
-        self.assertEqual(result["diagnosticCounts"], {"unsupportedTarget": 199})
+        self.assertEqual(result["diagnosticCounts"], {"unsupportedTarget": 53})
 
 
 if __name__ == "__main__":
