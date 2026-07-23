@@ -11,7 +11,7 @@ nonisolated final class SceneDebugFrameCapture {
     private let isEnabled = ProcessInfo.processInfo.arguments.contains(
         "--mwx-debug-scene-evidence-dir"
     )
-    private var pendingRequest: Request?
+    private var pendingRequests: [Request] = []
 
     func configure(_ layer: CAMetalLayer) {
         if isEnabled {
@@ -21,12 +21,12 @@ nonisolated final class SceneDebugFrameCapture {
 
     func request(reason: String, outputDirectory: URL) {
         guard isEnabled else { return }
-        pendingRequest = Request(reason: reason, outputDirectory: outputDirectory)
+        pendingRequests.append(Request(reason: reason, outputDirectory: outputDirectory))
     }
 
     func encodeIfRequested(texture: MTLTexture, commandBuffer: MTLCommandBuffer) {
-        guard let request = pendingRequest else { return }
-        pendingRequest = nil
+        guard !pendingRequests.isEmpty else { return }
+        let request = pendingRequests.removeFirst()
 
         let width = texture.width
         let height = texture.height
