@@ -4,7 +4,7 @@
 >
 > 范围：Effect definition、material、render graph、FBO 与 Wallpaper Engine shader 合同。
 >
-> 结论：当前 graph 已有较完整的保真 IR，ShaderContract v1 已安全保留 authored source/include/annotation/declaration；Blur Precise、stock Blur、stock Local Contrast、exact Workshop `shadow_____________` 与 exact stock Opacity 有严格、失败关闭的 Metal 执行器。`b541867` 建立 ordered strict scheduler，`809b75e` 取得真实 `Blur Precise -> Shadow` 正门，`b8842d8` 再让 stock Opacity direct alpha 从 per-surface snapshot 进入 GPU。当前仍没有 preprocessor/translation/compile、通用 authored command-graph executor 或通用 shader executor。因此本页没有任何 `L4` 项。
+> 结论：当前 graph 已有较完整的保真 IR，ShaderContract v1 已安全保留 authored source/include/annotation/declaration；Blur Precise、stock Blur、stock Local Contrast、exact Workshop `shadow_____________` 与 exact stock Opacity 有严格、失败关闭的 Metal 执行器。`b541867` 建立 ordered strict scheduler，`809b75e` 取得真实 `Blur Precise -> Shadow` 正门，`b8842d8` 让 stock Opacity direct alpha 从 per-surface snapshot 进入 GPU，`f1c6a10` 建立同帧 copy/swap foundation。当前实现基线 `8f144da` 仍没有 preprocessor/translation/compile、通用 authored command-graph executor 或通用 shader executor。因此本页没有任何 `L4` 项；最新两层运行门见 [运行证据索引](runtime-evidence-index.md)。
 
 ## 1. 证据与使用方式
 
@@ -28,7 +28,7 @@
 
 每行只能有一个等级。**通用 primitive 取全部已知 authored 形态的共同最低状态**：某个 strict profile 能执行，只能在该 profile 自己的行和 [Effect 执行覆盖表](effect-execution-coverage.md) 记 `L3`，不能反向把通用 definition、pass、FBO、slot、combo、uniform 或 render state 抬到 `L3`。辅助设施存在也不能把官方语义抬级。
 
-当前代码基线为 `b8842d8`，interpretation wire schema 为 v21；v21 在既有 ShaderContract/binding program 基础上增加 exact stock Opacity 候选和执行合同。Opacity direct alpha 与 Local Contrast strength 可 live 消费 per-surface snapshot；SceneScript alpha、Shadow 常量与其他 shader uniform 仍未通用 live。该版本号只说明缓存与运行时能交换已验证数据，不代表 generic shader uniform 已完成。
+当前代码基线为 `8f144da`，interpretation wire schema 为 v22；v22 在既有 ShaderContract/binding program 和 exact stock Opacity 合同基础上保存 direct text content/point-size/color binding program。Opacity direct alpha、Local Contrast strength 与受限动态文本可 live 消费 per-surface snapshot；SceneScript alpha、Shadow 常量与其他 shader uniform 仍未通用 live。该版本号只说明缓存与运行时能交换已验证数据，不代表 generic shader uniform 已完成。
 
 ## 2. 三条实现通道
 

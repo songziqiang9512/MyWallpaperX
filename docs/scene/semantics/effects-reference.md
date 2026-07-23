@@ -4,7 +4,7 @@
 >
 > 覆盖：官方 sitemap 中 45 个用户可见 Scene effect 页面，以及 1 个 asset 内部 `_empty` 占位。
 >
-> 实现基线：`b8842d8`；当前正式门：`.codex/scene-opacity-final13-20260723-1730/report.json`（13/13、5 类 strict backend、14 stage、1 条真实 chain、Opacity 4、Workshop Shadow 1、failed 0、blocked 2、route-only 30；相关测试 269 total / 267 passed / 2 skipped）。
+> 实现基线：`8f144da`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。
 >
 > 用法：先按 effect ID 查作者启用、输入、pass/RT，再决定 parser、renderer 和测试，不按名称直接套一个视觉近似。
 
@@ -150,4 +150,4 @@ knownDeviation
 
 `supportLevel` 至少区分：`recognized`、`graph-built`、`executed-degraded`、`semantics-verified`，不能把“识别名称”统计成效果已支持。
 
-当前 MyWallpaperX v21 继承 EffectDefinition、authored graph/canonical SHA、provider metadata、property binding program 和 loss-preserving ShaderContract；仍有 5 个 fluid condition/function blocker。严格匹配的 2-pass precise Blur、4-pass stock standard Blur、4-pass stock Local Contrast、exact Workshop single-pass Shadow 与 exact stock single-pass Opacity 共 5 类 backend 已进入 GPU。Local Contrast 与 Opacity 均核对 exact graph/material/shader fingerprint，合法 live 值从 per-surface snapshot 消费；fingerprint 只用于准入，实际仍执行项目内手写 MSL。最新报告为 13/13、14 stage、1 real chain、Opacity 4、Workshop Shadow 1、failed 0、blocked 2、route-only 30。这些子集仍只能记为 `executed-degraded`。Opacity 正门是 `2902406982:[365,372,647,664]`；`2938612768:[165,454,626,629,924]` 使用 SceneScript 值，必须继续 fail closed，不能写成正向覆盖目标。MASK1、Workshop variants、generic shader 与 Windows pixel parity 均未完成。
+当前 MyWallpaperX v22 继承 EffectDefinition、authored graph/canonical SHA、provider metadata、property binding program 和 loss-preserving ShaderContract；严格匹配的 2-pass precise Blur、4-pass stock standard Blur、4-pass stock Local Contrast、exact Workshop single-pass Shadow 与 exact stock single-pass Opacity 共 5 类 backend 已进入 GPU。Local Contrast 与 Opacity 均核对 exact graph/material/shader fingerprint，合法 live 值从 per-surface snapshot 消费；fingerprint 只用于准入，实际仍执行项目内手写 MSL。当前 26 样本门为 24 stage、0 failed，但没有真实 chain/Workshop Shadow；固定 13 样本门继续保护 14 stage、1 real chain、Opacity 4、Workshop Shadow 1、failed 0。这些子集仍只能记为 `executed-degraded`。Opacity 正门是 `2902406982:[365,372,647,664]`；`2938612768:[165,454,626,629,924]` 使用 SceneScript 值，必须继续 fail closed，不能写成正向覆盖目标。MASK1、Workshop variants、generic shader 与 Windows pixel parity 均未完成。

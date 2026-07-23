@@ -2,7 +2,7 @@
 
 > 建立日期：2026-07-22
 >
-> 最近更新：2026-07-23（当前实现基线 `f1c6a10`；interpretation v22；B0 direct dynamic text 与 B2 同帧 copy/swap command foundation 已通过合同门；五个 strict backend 与 ordered strict effect-chain 仍是当前 GPU 执行子集；下一步推进 persistent/history 生命周期、material-command interleave、compose，并把文本 provider 的 lifecycle 合同推广到 system/media/video）
+> 最近更新：2026-07-23（当前实现基线 `8f144da`；interpretation v22；B0 direct dynamic text 与 B2 同帧 copy/swap command foundation 已通过合同门；五个 strict backend 与 ordered strict effect-chain 仍是当前 GPU 执行子集；下一步推进 persistent/history 生命周期、material-command interleave、compose，并把文本 provider 的 lifecycle 合同推广到 system/media/video）
 >
 > 作用：定义 MyWallpaperX Scene runtime 从当前可审计子集向 Wallpaper Engine 常用能力逼近的实施顺序、样本门和验收标准。作者/执行语义先查 [`semantics/README.md`](semantics/README.md)；当前能力结论仍以 [`../reviews/web-scene-current-state-roadmap-2026-07-19.md`](../reviews/web-scene-current-state-roadmap-2026-07-19.md) 与最新运行证据为准；历史 memo 不反向覆盖本计划。
 
@@ -55,7 +55,7 @@
 - effect-chain target allocation 先在候选态完成所有 stage plan/table、预算与 LRU victims，再一次提交 cache/resident bytes/access counter；失败不刷新部分命中的 LRU，也不留下半条链。singleton strict plan 复用同一事务，旧直接测试入口保留；
 - `8474ace` 完成 D7 ShaderContract IR v1：完整 UTF-8 source、raw SHA-256、stage path/kind、include、JSON annotation、uniform/attribute/varying declaration、diagnostic 和 canonical SHA 进入 v19；绝对/穿越路径、shader root/stage/include symlink escape、无效 UTF-8、缺失 stage、畸形 annotation 和重复 identity 均 fail closed。generic D7 仍只达到 L1 识别/保留；`136d35c` 仅把 exact Local Contrast 的 identity/canonical/stage/raw source hashes 用作 strict 准入门，实际执行项目自有 Metal pipeline，不预处理、翻译、编译或执行 authored shader source；
 - `228cdde` 完成 Local Contrast 的资源格式前置：graph plan/table 新增 `rgba8888 -> .rgba8Unorm`，input/output 与 `rgba_backbuffer` 保持 `.bgra8Unorm`；两种格式均按 4 B/px 计费，格式变化原子替换 cache，未知格式继续 fail closed。该提交当时尚无执行层，随后 `136d35c` 已让 exact stock Local Contrast 消费该格式；
-- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；`f1c6a10` 的最新正式矩阵 `.codex/scene-copy-swap-final13-20260723-1955/report.json` 为 **13/13**，报告 SHA-256 为 `1399d3ea4a4c00bb5529dc6db7b0fd80e810003c945e04d6a26200944f18fe74`，矩阵 SHA-256 为 `fbb252a64018cf785e20b2200db5966a300e9351a994b4a36f1fe9565c5b354c`。五个 strict backend 仍合计 stage 14、完整真实 chain 1、Opacity 4、Workshop Shadow 1、GPU failed 0、legacy blocked 2、route-only 30；copy definition 1、swap definition 2、graph swap node 2。定向 `3723344874` 仍为 0 stage/0 chain，并保留 1 个 function 与 4 个 condition blocker。全量 Scene 共 **276 项，其中 274 项通过、2 项跳过**。签名 App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `c0940f2da38e653e338d829663ad3a0596c73b50`、可执行文件 SHA-256 `fe940c3d6706655d0a07556ef7570ab581c9ee000c5ec62344bd0df92c6d9827`，运行前后签名均验证。
+- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；当前完整快照门 `.codex/scene-full26-final-20260723/report.json` 为 **26/26**，仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` SHA-256 为 `361fa152da8f01a5c982d95af66113f1e5606258d804c5d5b3304a6c806cd749`。同一签名 App 随后跑固定回归门 `.codex/scene-final13-after-full26-20260723/report.json`，结果 **13/13**、矩阵 SHA-256 `fbb252a64018cf785e20b2200db5966a300e9351a994b4a36f1fe9565c5b354c`。两门合计 33 个唯一样本快照：当前 26 门为 strict stage 24、failed 0、chain 0、Workshop Shadow 0，固定 13 门继续保护 stage 14、真实 chain 1、Opacity 4、Workshop Shadow 1、failed 0。全量 Scene 共 **278 项，其中 276 项通过、2 项跳过**。签名 App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `c1b3fb9bcfa6bf1af21f8e546f583f083784424e`、可执行文件 SHA-256 `d584d8f2bd821a97978490cc122876db98f3416b43e031b2d156ce7325c9fe52`，运行前后签名均验证。完整聚合缺口见 [运行证据索引](semantics/runtime-evidence-index.md)。
 
 ### 仅解析/诊断或部分实现
 
@@ -70,7 +70,7 @@
 - Scene 音频/媒体未接现有系统服务；SceneScript/系统时间/日期/媒体驱动的 text、puppet/mesh/3D/lighting、自定义 shader 均未实现；
 - Frame Context 尚缺 pause/resume、长帧 delta clamp/dropped-time、fixed timestep、audio/media producer 和离线 adapter；property producer 与 per-surface changed-payload generation 已进入 B0，pointer/script/provider 的 local generation 隔离仍待对应 runtime 接入；fullscreen/battery、目标 FPS、CPU/GPU/显存预算和 soak 也未闭环。
 
-13 样本 PASS 不能解释成 Wallpaper Engine 视觉兼容率：正式矩阵只证明当前声明的解析、GPU 完成、非黑画面、能力计数和释放门通过。`2902406982` 的 named target 主缺口与 `2938612768` 的首个静态背景依赖已经关闭，但两者仍有字体、时序、媒体、后续 effect 和粒子差异；`3750813609` 已出现雾、叶片与光束等新增粒子，但仍缺动态时钟、完整 Clouds/Blur、child、world-space 雨滴溅射、control point/turbulence 和最终合成精度。21 样本首轮分级仍只是历史截图基线，必须在下一轮统一视觉重跑后才能重新分级。
+26 样本当前完整快照门和 13 样本固定回归门 PASS 都不能解释成 Wallpaper Engine 视觉兼容率：它们只证明各自矩阵声明的解析、GPU 完成、非黑画面、能力计数和释放门通过。`2902406982` 的 named target 主缺口与 `2938612768` 的首个静态背景依赖已经关闭，但两者仍有字体、时序、媒体、后续 effect 和粒子差异；`3750813609` 已出现雾、叶片与光束等新增粒子，但仍缺动态时钟、完整 Clouds/Blur、child、world-space 雨滴溅射、control point/turbulence 和最终合成精度。21 样本首轮分级仍只是历史截图基线，必须在下一轮统一视觉对照后才能重新分级。
 
 ## 3. 官方资料核验后的契约边界
 
@@ -119,7 +119,7 @@
 4. **S2.3b standard Blur graph backend（默认 profile 已完成）**：以 `2902406982` layer `530` 的真实 4-node、2 个 quarter RT 图为门，完成 alpha-aware downsample -> 13-tap horizontal/vertical Gaussian -> default previous combine；不支持的 KERNEL1/2、COMPOSITE1-3、MASK、BLURALPHA0 与混合图继续 fail closed，不回退 legacy coarse blur。
 5. **Provider Core 与 Graph Resource Runtime 分开闭合**：typed frame registry、resource/frame 双代、逐 slot 候选、authored fallback、PNG/JPEG `sceneTexture` 第一切片、effect target table、ShaderContract IR v1、`rgba8888` target format、五个 strict backend、ordered strict effect-chain scheduler、首条真实 `Blur Precise -> Shadow` chain 与同帧 copy/swap command foundation 已完成。dynamic text 已成为首个 per-layer generation/stale-cancellation/last-ready consumer；B1 下一步把相同 lifecycle 推广到 Texture Variants、video/system/media，B2 转入 persistent/history、material-command interleave、compose 与 typed shader defaults/built-ins/state。`2938612768` 可见 mixed chains 继续作为整链 fail-closed 负向门；route-only 不作为完整 gap census。
 6. **高命中 Effect 批次有硬前置**：Shake/Swing/Foliage、Water、Depth Parallax、Blend/Opacity、God Rays/Shine/Motion Blur 继续是候选，但只能通过新增共享 graph/shader/provider/space primitive 或注册完整匹配且 fail-closed 的 strict profile实现。不得继续扩大 effect-name/path-substring 手写近似；逐项门见 [Effect 执行覆盖表](semantics/effect-execution-coverage.md)。
-7. **视觉门**：先定向复核 `2902406982`、`2938612768`、`3750813609`，再重跑 21 样本 cover 对比；验收同时要求主构图、局部运动区域、字体/alpha 和关键粒子接近封面或 Windows 官方运行证据。
+7. **视觉门**：先定向复核 `2902406982`、`2938612768`、`3750813609`；真实样本增加、完整矩阵合同变化或里程碑收口时，再重建隔离副本并重跑当前完整快照门。验收同时要求主构图、局部运动区域、字体/alpha 和关键粒子接近封面或 Windows 官方运行证据。
 
 ### S3：Runtime Kernel 与统一 live-value（B0 property 主链已闭环）
 

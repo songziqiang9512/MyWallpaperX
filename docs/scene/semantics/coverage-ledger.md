@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-23
 >
-> Scene 实现基线：`f1c6a10`
+> Scene 实现基线：`8f144da`
 >
-> 视觉运行基线：`.codex/scene-copy-swap-final13-20260723-1955/report.json`
+> 当前完整快照门：`.codex/scene-full26-final-20260723/report.json`；固定回归门：`.codex/scene-final13-after-full26-20260723/report.json`
 >
-> 最新运行门：copy/swap 正式矩阵 13/13；五个 strict backend 指标保持 14 stage、1 real chain、0 failed。`3723344874` 观察到 copy 1/swap 2，但仍因 function/condition 保持 0 stage/0 chain。当前 Scene 全量测试共 276 项、274 项通过、2 项跳过，最新签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：当前 26 样本完整快照 26/26，同一签名 App 的固定 13 样本回归门 13/13，合计 33 个唯一样本快照。当前 Scene 全量测试共 278 项、276 项通过、2 项跳过；聚合缺口和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -22,7 +22,7 @@
 | `L3 executed-degraded` | 有受限执行器和正反测试，仍有明确语义或视觉偏差 | 可用子集，必须同时写明边界 |
 | `L4 semantics-verified` | 作者启用、输入、顺序、生命周期和视觉/数值门均与 WE 基准核验 | 该合同可宣称语义兼容 |
 
-系统等级取 schema 保留、作者启用、运行消费、生命周期和语义/视觉门中的最低值，不做平均。某一子集达到 `L3` 不会把同名系统整体升级；`13/13` 只代表当前固定矩阵通过运行门，不是样本兼容率或 WE 还原率。
+系统等级取 schema 保留、作者启用、运行消费、生命周期和语义/视觉门中的最低值，不做平均。某一子集达到 `L3` 不会把同名系统整体升级；`26/26` 当前完整快照门和 `13/13` 固定回归门都只代表各自矩阵通过运行门，不是样本兼容率或 WE 还原率。
 
 当前没有任何完整系统达到 `L4`。官方公开的作者能力已经建立完整索引，但 Wallpaper Engine 没有公开完整稳定的私有 Scene/PKG/TEX 序列化规范，也没有公开 Windows 渲染器实现；未知字段仍须用合法样本、官方 assets 或 Windows golden 继续核验。
 
@@ -157,11 +157,11 @@
 
 ### 6.2 User Properties
 
-完整控件和 target 计数见 [运行输入与属性覆盖表](runtime-input-property-coverage.md)。当前 21 样本为 424 definitions、952 bindings、195 条 conditional bindings。layer alpha 73 条已编译并由当前 image/solid/text consumer live 执行；layer color 73 条全部指向 solid，其中 25 条属于纯 color key 可 live，`3122339805:basecolor` 的 48 条因同键还含未支持目标继续重建；exact Local Contrast strength 1 条与 `2902406982` 的 stock Opacity direct binding 已由 strict consumer live 执行。SceneScript Opacity candidates 继续计入 unsupported/fail-closed，不冒充 direct binding。
+完整控件和 target 计数见 [运行输入与属性覆盖表](runtime-input-property-coverage.md)。2026-07-22 的 21 样本 census 为 424 definitions、952 bindings、195 条 conditional bindings；本轮 26 样本完整运行门没有重做这项专项 census，因此不把旧计数冒充当前全集。layer alpha 73 条已编译并由当前 image/solid/text consumer live 执行；layer color 73 条全部指向 solid，其中 25 条属于纯 color key 可 live，`3122339805:basecolor` 的 48 条因同键还含未支持目标继续重建；exact Local Contrast strength 1 条与 `2902406982` 的 stock Opacity direct binding 已由 strict consumer live 执行。SceneScript Opacity candidates 继续计入 unsupported/fail-closed，不冒充 direct binding。
 
 | 类型/行为 | 当前级别 | 当前边界或升级门 |
 |---|---|---|
-| Catalog/bindings | `L3` | 21 样本 census、format 22 binding program 与受控 fallback；direct text content/point-size/color、Local Contrast/Opacity live，mixed/hidden/no-consumer/SceneScript fail closed |
+| Catalog/bindings | `L3` | 2026-07-22 的 21 样本专项 census、format 22 binding program 与受控 fallback；direct text content/point-size/color、Local Contrast/Opacity live，mixed/hidden/no-consumer/SceneScript fail closed |
 | `color` | `L3` | UI/持久化/solid-only live consumer；补颜色空间、non-solid 与全部 target |
 | `slider` | `L3` | min/max/default/step/fraction/precision UI；layer alpha、exact Local Contrast strength 与 exact stock Opacity alpha 已 live，其他 target 依 consumer 决定重建 |
 | `bool` | `L3` | 条件/部分 target；不得按名称自动启用 effect |

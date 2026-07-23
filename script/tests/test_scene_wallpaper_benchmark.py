@@ -16,6 +16,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 DEBUG_RUNNER_SOURCE = (
     SCRIPT_DIR.parent / "MyWallpaperX/App/DebugScenePlaybackRunner.swift"
 )
+FULL_SAMPLE_MATRIX_PATH = SCRIPT_DIR / "scene_wallpaper_full_sample_matrix.json"
 
 import scene_wallpaper_benchmark as benchmark
 
@@ -34,6 +35,35 @@ def shader_stage(identity: str, kind: str, source: str) -> dict[str, object]:
 
 
 class SceneWallpaperBenchmarkTests(unittest.TestCase):
+    def test_full_sample_matrix_pins_the_current_26_sample_snapshot(self) -> None:
+        matrix = benchmark.load_matrix(FULL_SAMPLE_MATRIX_PATH)
+        samples = {sample["id"]: sample for sample in matrix["samples"]}
+        self.assertEqual(matrix["name"], "scene-current-full-baseline-2026-07-23")
+        self.assertEqual(len(samples), 26)
+        self.assertTrue({
+            "1937925563",
+            "2067939514",
+            "2974757317",
+            "3747492842",
+            "3768903841",
+        }.issubset(samples))
+        for sample in samples.values():
+            self.assertEqual(sample["expected_interpretation_format"], 22)
+            self.assertRegex(sample["project_sha256"], r"^[0-9a-f]{64}$")
+            self.assertRegex(sample["package_sha256"], r"^[0-9a-f]{64}$")
+            self.assertRegex(
+                sample["expected_effect_graph_sha256"],
+                r"^[0-9a-f]{64}$",
+            )
+        self.assertEqual(
+            samples["2974757317"]["expected_utility_named_binding_planned"],
+            0,
+        )
+        self.assertEqual(
+            samples["2974757317"]["expected_utility_named_target_gaps"],
+            3,
+        )
+
     def test_load_matrix_accepts_version_one_samples(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-matrix-") as directory:
             path = Path(directory) / "matrix.json"

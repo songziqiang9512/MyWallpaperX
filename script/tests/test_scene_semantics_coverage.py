@@ -400,18 +400,22 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         for path in current_state_documents:
             text = document_text[path]
             self.assertIn(
-                "`f1c6a10`",
+                "`8f144da`",
                 text,
-                f"Current Scene entrypoint is missing the graph-command baseline: {path}",
+                f"Current Scene entrypoint is missing the full-baseline implementation: {path}",
             )
 
-        report_path = ".codex/scene-copy-swap-final13-20260723-1955/report.json"
+        report_paths = (
+            ".codex/scene-full26-final-20260723/report.json",
+            ".codex/scene-final13-after-full26-20260723/report.json",
+        )
         for path in current_state_documents:
-            self.assertIn(
-                report_path,
-                document_text[path],
-                f"Current Scene entrypoint is missing the final graph-command report: {path}",
-            )
+            for report_path in report_paths:
+                self.assertIn(
+                    report_path,
+                    document_text[path],
+                    f"Current Scene entrypoint is missing a current runtime gate: {path}",
+                )
 
         evidence = document_text[RUNTIME_EVIDENCE_PATH]
         self.assertIn("### E-DYNAMIC-TEXT:", evidence)
@@ -419,7 +423,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         self.assertIn("### E-EFFECT-WORKSHOP-SHADOW:", evidence)
         self.assertIn("### E-EFFECT-CHAIN: ordered strict effect-chain scheduler", evidence)
         self.assertIn("### E-GRAPH-COMMAND: same-frame copy/swap foundation", evidence)
-        self.assertIn("Scene tests 276 total / 274 pass / 2 skip", evidence)
+        self.assertIn("Scene tests 278 total / 276 pass / 2 skip", evidence)
         self.assertIn(
             "ordered strict effect-chain",
             document_text[DEPENDENCY_MAP_PATH],
@@ -431,8 +435,9 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         for fact in (
             "interpretation v22",
             "五个 strict backend",
-            "14 stage",
-            "route-only 30",
+            "24 stage",
+            "67 个 route-only effect",
+            "particle 为 `47/68`",
             "customtext/textcolor/textsize",
             "stale cancellation",
             "SceneScript/time/media",

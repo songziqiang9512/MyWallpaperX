@@ -4,9 +4,9 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`b8842d8`
+> 实现基线：`8f144da`
 >
-> 当前正式门：`.codex/scene-opacity-final13-20260723-1730/report.json`（13/13、5 类 strict backend、14 stage、1 条真实 chain、Opacity 4、Workshop Shadow 1、failed 0、blocked 2、route-only 30；相关测试 269 total / 267 passed / 2 skipped）。exact stock Opacity direct alpha 已闭环；本表高级对象仍按各自前置单独升级。
+> 当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。exact stock Opacity direct alpha 已闭环；本表高级对象仍按各自前置单独升级。
 
 本表覆盖基础对象之外容易被笼统描述掩盖的能力：utility composition、sound、Puppet Warp、3D model、lighting/HDR、性能策略、RGB 和离线烘焙。等级口径见 [`coverage-ledger.md`](coverage-ledger.md)，逐页官方归属见 [`official-page-map.md`](official-page-map.md)，16 组导航见 [`official-page-crosswalk.md`](official-page-crosswalk.md)。
 

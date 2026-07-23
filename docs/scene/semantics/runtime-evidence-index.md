@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`f1c6a10`
+> 实现基线：`8f144da`
 
 本页给覆盖表中的 `L3` 子集提供可追溯证据包。每个证据包至少包含代码、自动测试和真实运行或 GPU 证据；缺少任一项的能力只能标 `L0-L2`，或在专项表中明确写 `gate incomplete`。`.codex` 报告是本机隔离运行产物，不提交 Git；报告路径、App 身份和摘要写入现役文档，避免将其误当源码 fixture。
 
@@ -12,14 +12,17 @@
 
 | 项目 | 当前证据 |
 |---|---|
-| 视觉矩阵 | copy/swap 正式矩阵 `.codex/scene-copy-swap-final13-20260723-1955/report.json` 为 13/13；strict graph 仍为 14 stage、1 real chain、failed 0，均不证明 WE parity |
-| 最新合同门 | Scene tests 276 total / 274 pass / 2 skip |
+| 当前完整快照门 | `.codex/scene-full26-final-20260723/report.json` 为 26/26；报告 SHA-256 `05e0a6eb6ff5e67f4803cc2b1df3196f9276c5dffc86f36e33dda72034934713`，仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` SHA-256 `361fa152da8f01a5c982d95af66113f1e5606258d804c5d5b3304a6c806cd749` |
+| 固定回归门 | 同一签名 App 的 `.codex/scene-final13-after-full26-20260723/report.json` 为 13/13；报告 SHA-256 `d143155958f7a34e4dac0f5e6f99a210e6d59cc6a1ff0bbd90eadff9d1dd7257`，矩阵 SHA-256 `fbb252a64018cf785e20b2200db5966a300e9351a994b4a36f1fe9565c5b354c` |
+| 最新合同门 | Scene tests 278 total / 276 pass / 2 skip |
 | ShaderContract | 173 contracts = 143 authored + 30 host built-in；286 stages、0 diagnostics；source/IR include 155、annotation 1523、declaration 2660，见 E-SHADER-CONTRACT |
 | Live property | layer alpha、solid color、strict Local Contrast/Opacity 与 direct text content/point-size/color 均 accepted、surface/window identity 不变；报告见 E-LIVE-PROPERTY / E-DYNAMIC-TEXT |
 | Provider 双代 | `2938612768` static image blend 5/5；`2902406982` named capture 6/6、binding 7/7；报告见 E-PROVIDER |
-| 签名 App | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `c0940f2da38e653e338d829663ad3a0596c73b50`；正式矩阵运行前后签名均验证 |
-| executable SHA-256 | `fe940c3d6706655d0a07556ef7570ab581c9ee000c5ec62344bd0df92c6d9827` |
+| 签名 App | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `c1b3fb9bcfa6bf1af21f8e546f583f083784424e`；两层矩阵运行前后签名均验证 |
+| executable SHA-256 | `d584d8f2bd821a97978490cc122876db98f3416b43e031b2d156ce7325c9fe52` |
 | 样本边界 | 真实 Workshop root 只读；报告均来自隔离 sample root 与临时 HOME |
+
+26 样本当前完整快照与 13 样本固定回归门合计覆盖 33 个唯一样本快照。当前完整门加载 image `330/330`、text `212/212`、solid `126/126`，particle 为 `47/68`；named target capture `8/8`、binding `9/9`，仍有 13 个 named-target gap、67 个 route-only effect、19 个 legacy blocked layer、9 个缺失资源和 38 个 graph blocker。其 strict graph 为 24 stage、0 failed，但没有 multi-effect chain 或 Workshop Shadow；固定门继续单独保护 14 stage、1 条真实 chain、Workshop Shadow 1、Opacity 4、0 failed。两门互补，均不证明完整兼容或 WE parity。
 
 ## 2. 证据包
 

@@ -187,10 +187,10 @@ https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/<Name>.htm
 
 当前样本事实入口：
 
-- [21 个用户样本评估](../scene-sample-assessment-2026-07-22.md)
+- [21 个用户样本首轮评估（历史截图基线）](../scene-sample-assessment-2026-07-22.md)
 - [Scene 开发计划](../scene-capability-development-plan-2026-07-22.md)
 - v16 结构基线：`.codex/scene-effect-graph-canonical-final-20260723/report.json`（canonical graph 身份，不等于 GPU 执行）
-- 最新正式 13 样本运行门：`.codex/scene-opacity-final13-20260723-1730/report.json`（实现基线 `b8842d8`、format 21、13/13；五个 strict backend 合计 14 stage、真实 multi-effect strict chain 1、Opacity 4、Workshop Shadow 1、GPU failed 0、legacy blocked 2、route-only 30；`2902406982` Opacity layers `[365,372,647,664]`，`2938612768` SceneScript candidates `[165,454,626,629,924]` 保持 Opacity/stages 0；签名 App `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `6e70e547f61dcc6821009a4ebbd97af156fb5916`、可执行文件 SHA-256 `0cbaff3bd989e5cb9f8807236fd270feec19ca1f18548c122ca3ccb74033774a`）。定向正/负门分别为 `.codex/scene-opacity-targeted-290-final-20260723-1722/report.json` 与 `.codex/scene-opacity-failclosed-293-final-20260723-1725/report.json`；Scene tests 为 269 total / 267 pass / 2 skip。完整边界见 [运行证据索引](runtime-evidence-index.md)。
+- 当前完整快照门：仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` 固定真实目录 26 个样本，`.codex/scene-full26-final-20260723/report.json` 为 26/26。同一签名 App 的固定回归门 `.codex/scene-final13-after-full26-20260723/report.json` 为 13/13；两门合计 33 个唯一样本快照。当前实现基线、报告/矩阵哈希、App 身份、聚合缺口与测试数统一见 [运行证据索引](runtime-evidence-index.md)。
 - ordered scheduler 的 Shadow 前阶段证据：`.codex/scene-effect-chain-gated-final13-20260723/report.json`（基线 `b541867`、8 stage、0 real chain、legacy blocked 3）。该报告只说明当时 all-or-nothing chain 负门，不能反向覆盖上述 current Shadow 正门。
 - `.codex/scene-user-texture-final13-r2-20260723/report.json` 降为 format 17 file-property 阶段证据，不能反向覆盖上述当前矩阵或 App 身份。
 - file-backed property 定向门：`.codex/scene-user-texture-293-20260723-r1/`（隔离 `2938612768` 向 `newproperty25/26` 注入 200×200 PNG；两张纹理加载、image 44/44、static image blend 5/5，截图变化证明进入 renderer；不证明 system media、动态 current/previous thumbnail 或 WE 像素 parity）

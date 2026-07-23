@@ -16,6 +16,8 @@ Scene 兼容的核心不是不断增加“看起来差不多”的效果分支�
 4. Timeline、SceneScript、用户属性、鼠标、音频和媒体只更新作者绑定的目标；
 5. 不支持的语义应显式降级，不能用整层位移、全局水波或静态占位冒充支持。
 
+运行证据使用两层矩阵：`script/scene_wallpaper_sample_matrix.json` 是固定回归门，`script/scene_wallpaper_full_sample_matrix.json` 是当前真实 Scene 目录的完整快照门。日常改动按影响面跑定向或固定门；样本增加、完整矩阵合同变化或里程碑收口时重跑完整快照门。现役结果和聚合缺口只在 [运行证据索引](runtime-evidence-index.md) 维护，专项表只链接该入口，避免重复数字随代码演进失真。
+
 这直接解释了此前的主要错误：
 
 - 头发、山体整块晃动：把局部 UV/flow/mask 变形错做成 layer transform；
