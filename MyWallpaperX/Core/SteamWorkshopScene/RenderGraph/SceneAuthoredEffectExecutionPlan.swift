@@ -15,6 +15,7 @@ nonisolated struct SceneAuthoredEffectExecutionPlan {
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
     let inputRole: SceneAuthoredEffectInputRole
+    let usesLegacyComposeNormalization: Bool
 
     init(
         layerID: Int,
@@ -22,7 +23,8 @@ nonisolated struct SceneAuthoredEffectExecutionPlan {
         backend: Backend,
         materialNodeCount: Int,
         logicalRenderTargetCount: Int,
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
+        inputRole: SceneAuthoredEffectInputRole = .layerSource,
+        usesLegacyComposeNormalization: Bool = false
     ) {
         self.layerID = layerID
         self.renderGraph = renderGraph
@@ -30,6 +32,7 @@ nonisolated struct SceneAuthoredEffectExecutionPlan {
         self.materialNodeCount = materialNodeCount
         self.logicalRenderTargetCount = logicalRenderTargetCount
         self.inputRole = inputRole
+        self.usesLegacyComposeNormalization = usesLegacyComposeNormalization
     }
 
     var gaussianBlur: SceneGaussianBlurPlan? {
@@ -70,7 +73,7 @@ nonisolated struct SceneAuthoredEffectExecutionPlan {
     }
 
     var requiresExactInputExtent: Bool {
-        if case .preciseGaussian = backend { return true }
+        if case .preciseGaussian = backend { return !usesLegacyComposeNormalization }
         return false
     }
 }
@@ -168,6 +171,13 @@ enum SceneAuthoredEffectExecutionPlanner {
         let targetGroups = Dictionary(grouping: graph.renderTargets, by: \.texture)
         guard targetGroups.values.allSatisfy({ $0.count == 1 }) else { return nil }
         let targetsByIdentity = targetGroups.compactMapValues(\.first)
+        guard let usesLegacyComposeNormalization = preciseBlurBindingProfile(
+            horizontalNode: horizontalNode,
+            verticalNode: verticalNode,
+            effect: effect
+        ) else {
+            return nil
+        }
         guard let horizontalTarget = horizontalNode.target,
               let verticalInput = binding(verticalNode.bindings, slot: 0)?.texture,
               effect.nodeIndices == graph.nodes.map(\.nodeIndex),
@@ -181,10 +191,7 @@ enum SceneAuthoredEffectExecutionPlanner {
               }),
               validNode(horizontalNode, ordinal: 0, effect: effect.key),
               validNode(verticalNode, ordinal: 1, effect: effect.key),
-              verticalNode.target == effect.output,
-              horizontalNode.bindings.isEmpty,
-              verticalNode.bindings.count == 2,
-              binding(verticalNode.bindings, slot: 1)?.texture == effect.input else {
+              verticalNode.target == effect.output else {
             return nil
         }
         if let commandNode = commandNodes.first {
@@ -234,12 +241,23 @@ enum SceneAuthoredEffectExecutionPlanner {
                 == normalizedShaderPath(verticalMaterial.shaderPath),
               supportedState(horizontalMaterial.renderState),
               supportedState(verticalMaterial.renderState),
-              supportedCombos(horizontalMaterial.combos, vertical: false),
-              supportedCombos(verticalMaterial.combos, vertical: true),
-              horizontalMaterial.textureSlots.allSatisfy({ $0 == nil }),
-              graphSlot(verticalMaterial.textureSlots[0]) == verticalInput,
-              graphSlot(verticalMaterial.textureSlots[1]) == effect.input,
-              verticalMaterial.textureSlots.dropFirst(2).allSatisfy({ $0 == nil }),
+              supportedCombos(
+                  horizontalMaterial.combos,
+                  vertical: false,
+                  legacyCompose: usesLegacyComposeNormalization
+              ),
+              supportedCombos(
+                  verticalMaterial.combos,
+                  vertical: true,
+                  legacyCompose: usesLegacyComposeNormalization
+              ),
+              validMaterialSlots(
+                  horizontal: horizontalMaterial,
+                  vertical: verticalMaterial,
+                  effectInput: effect.input,
+                  intermediate: verticalInput,
+                  legacyCompose: usesLegacyComposeNormalization
+              ),
               horizontalMaterial.constants.keys.allSatisfy({ $0.lowercased() == "scale" }),
               verticalMaterial.constants.keys.allSatisfy({ $0.lowercased() == "scale" }),
               let horizontalScale = scale(horizontalMaterial.constants, component: 0),
@@ -258,7 +276,8 @@ enum SceneAuthoredEffectExecutionPlanner {
             )),
             materialNodeCount: 2,
             logicalRenderTargetCount: graph.renderTargets.count,
-            inputRole: inputRole
+            inputRole: inputRole,
+            usesLegacyComposeNormalization: usesLegacyComposeNormalization
         )
     }
 
@@ -321,7 +340,8 @@ enum SceneAuthoredEffectExecutionPlanner {
 
     private nonisolated static func supportedCombos(
         _ combos: [String: Int],
-        vertical: Bool
+        vertical: Bool,
+        legacyCompose: Bool
     ) -> Bool {
         var normalized: [String: Int] = [:]
         for (key, value) in combos {
@@ -329,9 +349,13 @@ enum SceneAuthoredEffectExecutionPlanner {
                 return false
             }
         }
-        guard normalized.keys.allSatisfy({ ["ENABLEMASK", "VERTICAL"].contains($0) }),
+        guard normalized.keys.allSatisfy({
+                  ["ENABLEMASK", "KERNEL", "VERTICAL"].contains($0)
+              }),
               normalized["VERTICAL", default: 0] == (vertical ? 1 : 0),
-              normalized["ENABLEMASK", default: 0] == (vertical ? 1 : 0),
+              normalized["ENABLEMASK", default: 0]
+                == (vertical && !legacyCompose ? 1 : 0),
+              normalized["KERNEL", default: 0] == 0,
               normalized["MASK", default: 0] == 0 else {
             return false
         }
@@ -355,21 +379,6 @@ enum SceneAuthoredEffectExecutionPlanner {
         }
         let raw = components[component]
         return Float(raw)
-    }
-
-    private nonisolated static func binding(
-        _ bindings: [Graph.Binding],
-        slot: Int
-    ) -> Graph.Binding? {
-        let matches = bindings.filter { $0.slot == slot }
-        return matches.count == 1 ? matches[0] : nil
-    }
-
-    private nonisolated static func graphSlot(
-        _ slot: SceneResolvedMaterialNode.TextureSlot?
-    ) -> Graph.TextureIdentity? {
-        guard let slot, case .graph(let texture) = slot.source else { return nil }
-        return texture
     }
 
     private nonisolated static func layerSource(layerID: Int) -> Graph.TextureIdentity {

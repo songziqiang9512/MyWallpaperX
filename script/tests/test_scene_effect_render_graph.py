@@ -86,6 +86,14 @@ COMPOSE = {
     "fbos": [],
 }
 
+LEGACY_COMPOSE = {
+    "passes": [
+        {"material": "materials/legacy-compose-x.json", "compose": True},
+        {"material": "materials/legacy-compose-y.json"},
+    ],
+    "fbos": [],
+}
+
 MALFORMED = {
     "passes": [
         {
@@ -169,7 +177,7 @@ enum Harness {
 
     static func main() throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
-        let names = ["blur", "motion", "fluid", "compose", "malformed"]
+        let names = ["blur", "motion", "legacy-compose", "fluid", "compose", "malformed"]
         let definitions = try names.map { name in
             try SceneEffectDefinitionLoader().load(
                 from: root.appendingPathComponent("\(name).json"),
@@ -191,6 +199,9 @@ enum Harness {
             .init(id: 20, effects: [effect("motion-a", "effects/motion/effect.json", passCount: 2)]),
             .init(id: 30, effects: [effect("fluid-a", "effects/fluid/effect.json", passCount: 18)]),
             .init(id: 40, effects: [effect("compose-a", "effects/compose/effect.json", passCount: 1)]),
+            .init(id: 45, effects: [
+                effect("legacy-compose-a", "effects/legacy-compose/effect.json", passCount: 2),
+            ]),
             .init(id: 50, effects: [
                 effect("blur-first", "effects/blur/effect.json", passCount: 4),
                 effect("blur-second", "effects/blur/effect.json", passCount: 4),
@@ -207,6 +218,7 @@ enum Harness {
         let motion = byLayer[20]!
         let fluid = byLayer[30]!
         let compose = byLayer[40]!
+        let legacyCompose = byLayer[45]!
         let scoped = byLayer[50]!
         let malformed = byLayer[60]!
         let motionTargets = Dictionary(uniqueKeysWithValues: motion.renderTargets.map {
@@ -245,6 +257,19 @@ enum Harness {
                         + node.bindings.map { $0.texture.kind.rawValue }
                 }
             )).sorted(),
+            "legacyComposeStructural": legacyCompose.isStructurallyResolved,
+            "legacyComposeBlockers": legacyCompose.blockers.map { $0.reason.rawValue },
+            "legacyComposeTargets": legacyCompose.nodes.map { textureKey($0.target) },
+            "legacyComposeBindings": legacyCompose.nodes.map { node in
+                node.bindings.map { "\(String(describing: $0.slot))=\(textureKey($0.texture))" }
+            },
+            "legacyComposeTargetCount": legacyCompose.renderTargets.count,
+            "legacyComposeTargetExtent": legacyCompose.renderTargets.map {
+                [$0.extent.kind.rawValue, String($0.extent.first ?? -1)]
+            },
+            "legacyComposeRawValuesCleared": legacyCompose.nodes.allSatisfy {
+                $0.compose == nil
+            },
             "scopedQ1": scoped.renderTargets
                 .filter { $0.texture.name == "q1" }
                 .map { textureKey($0.texture) },
@@ -272,6 +297,7 @@ class SceneEffectRenderGraphTests(unittest.TestCase):
             "motion": MOTION,
             "fluid": FLUID,
             "compose": COMPOSE,
+            "legacy-compose": LEGACY_COMPOSE,
             "malformed": MALFORMED,
         }.items():
             (root / f"{name}.json").write_text(json.dumps(fixture), encoding="utf-8")
@@ -330,6 +356,24 @@ class SceneEffectRenderGraphTests(unittest.TestCase):
     def test_compose_true_fails_closed_without_scene_texture_guess(self) -> None:
         self.assertIn("unsupportedCompose", self.result["composeBlockers"])
         self.assertNotIn("sceneCompose", self.result["composeTextureKinds"])
+
+    def test_legacy_two_pass_compose_expands_to_explicit_intermediate(self) -> None:
+        self.assertTrue(self.result["legacyComposeStructural"])
+        self.assertEqual(self.result["legacyComposeBlockers"], [])
+        self.assertEqual(self.result["legacyComposeTargetCount"], 1)
+        self.assertEqual(self.result["legacyComposeTargetExtent"], [["scale", "1.0"]])
+        self.assertEqual(
+            self.result["legacyComposeTargets"],
+            ["framebuffer:45:0:_rt_FullCompoBuffer1", "effectOutput:45:0:-"],
+        )
+        self.assertEqual(
+            self.result["legacyComposeBindings"],
+            [
+                ["Optional(0)=layerSource:45:-:-"],
+                ["Optional(0)=framebuffer:45:0:_rt_FullCompoBuffer1"],
+            ],
+        )
+        self.assertTrue(self.result["legacyComposeRawValuesCleared"])
 
     def test_framebuffer_identity_is_effect_scoped_and_chain_ordered(self) -> None:
         self.assertEqual(

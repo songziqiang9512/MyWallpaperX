@@ -164,9 +164,9 @@ enum SceneOffscreenEffectRenderer {
             return nil
         }
         let horizontalStep = plan.horizontalStep
-            * plan.sampleResolutionScale / Float(targets.inputTexture.width)
+            * plan.sampleResolutionScale / Float(sourceTexture.width)
         let verticalStep = plan.verticalStep
-            * plan.sampleResolutionScale / Float(targets.inputTexture.height)
+            * plan.sampleResolutionScale / Float(sourceTexture.height)
         let result = SceneGraphNodeScheduler.encode(
             graph: executionPlan.renderGraph,
             targets: targets,
@@ -178,7 +178,7 @@ enum SceneOffscreenEffectRenderer {
             }
             switch node.materialOrdinal {
             case 0:
-                guard node.bindings.isEmpty,
+                guard executionPlan.acceptsPreciseBlurHorizontalBindings(node.bindings, effectInput: effect.input),
                       let input = textures.texture(for: effect.input) else {
                     return false
                 }

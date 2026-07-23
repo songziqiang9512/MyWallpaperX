@@ -171,7 +171,8 @@ enum Harness {
         scaleComponents: [Double]? = nil,
         valueKind: String = "vector",
         userBinding: String? = nil,
-        duplicateScaleKey: Bool = false
+        duplicateScaleKey: Bool = false,
+        legacyCompose: Bool = false
     ) -> SceneRenderDescriptor.EffectDescriptor {
         var scaleValues = [
             "scale": SceneDocument.ShaderValue(
@@ -193,7 +194,9 @@ enum Harness {
                 ),
                 .init(
                     passIndex: 1, textureSlots: [], userTextureInputs: [],
-                    combos: ["VERTICAL": 1, "ENABLEMASK": 1],
+                    combos: legacyCompose
+                        ? ["VERTICAL": 1]
+                        : ["VERTICAL": 1, "ENABLEMASK": 1],
                     constantShaderValues: scaleValues
                 ),
             ]
@@ -241,7 +244,8 @@ enum Harness {
         blockers: [Graph.Blocker] = [],
         extraEffect: Bool = false,
         unique: Bool = false,
-        maskCombo: Bool = false
+        maskCombo: Bool = false,
+        legacyCompose: Bool = false
     ) -> Graph {
         let key = Graph.EffectKey(
             layerID: layerID, effectIndex: 0, descriptorID: "\(layerID)#effect#1"
@@ -249,21 +253,30 @@ enum Harness {
         let source = texture(.layerSource, layerID: layerID)
         let output = texture(.effectOutput, layerID: layerID, effect: key)
         let rt = texture(.framebuffer, layerID: layerID, effect: key, name: "full")
+        let verticalBindings: [Graph.Binding] = [
+            .init(slot: 0, authoredName: "full", texture: rt, conditions: nil),
+        ] + (!legacyCompose ? [
+            .init(
+                slot: maskCombo ? 2 : 1, authoredName: "previous",
+                texture: source, conditions: nil
+            ),
+        ] : [])
         let nodes = [
             Graph.Node(
                 nodeIndex: 0, effect: key, definitionPassIndex: 0, materialOrdinal: 0,
                 instancePassIndex: 0, kind: .material, materialPath: "materials/x.json",
-                materialPassID: "materials/x.json#0", target: rt, bindings: [],
+                materialPassID: "materials/x.json#0", target: rt,
+                bindings: legacyCompose
+                    ? [.init(slot: 0, authoredName: "previous", texture: source, conditions: nil)]
+                    : [],
                 commandSource: nil, commandTarget: nil, compose: nil, conditions: nil
             ),
             Graph.Node(
                 nodeIndex: 1, effect: key, definitionPassIndex: 1, materialOrdinal: 1,
                 instancePassIndex: 1, kind: .material, materialPath: "materials/y.json",
                 materialPassID: "materials/y.json#0", target: output,
-                bindings: [
-                    .init(slot: 0, authoredName: "full", texture: rt, conditions: nil),
-                    .init(slot: maskCombo ? 2 : 1, authoredName: "previous", texture: source, conditions: nil),
-                ], commandSource: nil, commandTarget: nil, compose: nil, conditions: nil
+                bindings: verticalBindings, commandSource: nil, commandTarget: nil,
+                compose: nil, conditions: nil
             ),
         ]
         let effect = Graph.Effect(
@@ -275,7 +288,10 @@ enum Harness {
             effects: extraEffect ? [effect, effect] : [effect],
             renderTargets: [
                 .init(
-                    texture: rt, extent: .init(kind: .input, first: nil, second: nil),
+                    texture: rt,
+                    extent: legacyCompose
+                        ? .init(kind: .scale, first: 1, second: nil)
+                        : .init(kind: .input, first: nil, second: nil),
                     format: "rgba_backbuffer", declaredUnique: unique, clear: nil,
                     uvs: nil, conditions: nil
                 ),
@@ -678,6 +694,42 @@ enum Harness {
             ) else { return nil }
             return plan
         }
+        let legacyComposeDescriptor = SceneRenderDescriptor(
+            layers: [
+                .init(
+                    id: 10, parentID: nil, visible: true, contentKind: "text",
+                    effects: [
+                        instanceEffect(
+                            layerID: 10, scale: 1.28, legacyCompose: true
+                        ),
+                    ]
+                ),
+            ],
+            materialPasses: materials(verticalCombos: ["VERTICAL": 1])
+        )
+        let legacyComposePlan = SceneAuthoredEffectExecutionPlanner.plan(
+            graph: graph(layerID: 10, legacyCompose: true),
+            descriptor: legacyComposeDescriptor
+        )
+        let legacyComposeTargetPlan = legacyComposePlan.flatMap {
+            executionPlan -> SceneGraphRenderTargetPlan? in
+            guard case .success(let plan) = SceneGraphRenderTargetPlan.make(
+                executionPlan: executionPlan,
+                graph: executionPlan.renderGraph,
+                inputWidth: 1920,
+                inputHeight: 1080
+            ) else { return nil }
+            return plan
+        }
+        let legacyKernelRejected = SceneAuthoredEffectExecutionPlanner.plan(
+            graph: graph(layerID: 10, legacyCompose: true),
+            descriptor: SceneRenderDescriptor(
+                layers: legacyComposeDescriptor.layers,
+                materialPasses: materials(
+                    verticalCombos: ["VERTICAL": 1, "KERNEL": 2]
+                )
+            )
+        ) == nil
         let standardBadStateDescriptor = standardBlurDescriptor(
             materials: standardBlurMaterials(blending: "additive")
         )
@@ -729,6 +781,10 @@ enum Harness {
             "swapInterleavedPlanned": swapPlan?.logicalRenderTargetCount == 2
                 && swapTargetPlan?.commands.map(\.nodeIndex) == [1]
                 && swapTargetPlan?.logicalTargets.filter(\.lifetime.requiresHistorySeed).count == 1,
+            "legacyComposePlanned": legacyComposePlan?.usesLegacyComposeNormalization == true
+                && legacyComposeTargetPlan?.logicalTargets.map(\.extent)
+                    == [.init(width: 1920, height: 1080)],
+            "legacyKernelRejected": legacyKernelRejected,
             "lateCommandRejected": SceneAuthoredEffectExecutionPlanner.plan(
                 graph: interleavedGraph(commandKind: .copy, commandAfterVertical: true),
                 descriptor: descriptor
@@ -843,6 +899,10 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertTrue(self.result["swapInterleavedPlanned"])
         self.assertTrue(self.result["lateCommandRejected"])
         self.assertTrue(self.result["composedCommandRejected"])
+
+    def test_precise_blur_accepts_exact_legacy_compose_profile(self) -> None:
+        self.assertTrue(self.result["legacyComposePlanned"])
+        self.assertTrue(self.result["legacyKernelRejected"])
 
     def test_default_standard_blur_graph_is_planned(self) -> None:
         self.assertEqual(self.result["standardPlanned"], [530])
