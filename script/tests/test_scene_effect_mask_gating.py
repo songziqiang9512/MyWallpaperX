@@ -62,6 +62,14 @@ enum Harness {
             "loadedWaterSummary": SceneInlineEffectRuntime.summary(
                 for: .init(effects: [maskedWater]), hasWaterMask: true
             ) ?? "none",
+            "strictWaterFlags": raw(
+                [maskedWater], water: true, foliage: false, handlesWaterWaves: true
+            ),
+            "strictWaterSummary": SceneInlineEffectRuntime.summary(
+                for: .init(effects: [maskedWater]),
+                hasWaterMask: true,
+                handlesWaterWaves: true
+            ) ?? "none",
             "orderedWaterChain": raw(
                 [visibleTint, plainWater], water: false, foliage: false
             ),
@@ -109,13 +117,15 @@ enum Harness {
     static func raw(
         _ effects: [SceneRenderDescriptor.EffectDescriptor],
         water: Bool,
-        foliage: Bool
+        foliage: Bool,
+        handlesWaterWaves: Bool = false
     ) -> UInt32 {
         SceneInlineEffectRuntime.flags(
             for: .init(effects: effects),
             usesNormalWaterRipple: false,
             hasWaterMask: water,
-            hasFoliageMask: foliage
+            hasFoliageMask: foliage,
+            handlesWaterWaves: handlesWaterWaves
         ).rawValue
     }
 }
@@ -159,6 +169,8 @@ class SceneEffectMaskGatingTests(unittest.TestCase):
         self.assertNotEqual(self.result["loadedWaterMask"], 0)
         self.assertEqual(self.result["missingWaterSummary"], "none")
         self.assertIn("waterwaves-legacy", self.result["loadedWaterSummary"])
+        self.assertEqual(self.result["strictWaterFlags"], 0)
+        self.assertEqual(self.result["strictWaterSummary"], "none")
         self.assertEqual(self.result["depthMaskPath"], "ChatGPT Image 4x upscale_depth")
         self.assertTrue(self.result["comboDeclaresMask"])
 

@@ -15,6 +15,7 @@ enum SceneAuthoredEffectChainRenderer {
         opacityPipeline: SceneOpacityPipeline,
         workshopShadowPipeline: SceneWorkshopShadowPipeline,
         shakePipeline: SceneShakePipeline,
+        waterWavesPipeline: SceneWaterWavesPipeline,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         guard !chain.stages.isEmpty,
@@ -33,7 +34,7 @@ enum SceneAuthoredEffectChainRenderer {
             guard let output = renderStage(
                 stage,
                 sourceTexture: currentSource,
-                masks: isFirstStage ? masks : masks.shakeOnly,
+                masks: isFirstStage ? masks : masks.authoredEffectResourcesOnly,
                 targets: targets[index],
                 dynamicValues: dynamicValues,
                 sourceUniforms: isFirstStage ? sourceUniforms : .neutral(),
@@ -44,6 +45,7 @@ enum SceneAuthoredEffectChainRenderer {
                 opacityPipeline: opacityPipeline,
                 workshopShadowPipeline: workshopShadowPipeline,
                 shakePipeline: shakePipeline,
+                waterWavesPipeline: waterWavesPipeline,
                 time: sourceUniforms.time,
                 commandBuffer: commandBuffer
             ) else {
@@ -68,6 +70,7 @@ enum SceneAuthoredEffectChainRenderer {
         opacityPipeline: SceneOpacityPipeline,
         workshopShadowPipeline: SceneWorkshopShadowPipeline,
         shakePipeline: SceneShakePipeline,
+        waterWavesPipeline: SceneWaterWavesPipeline,
         time: Float,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
@@ -173,6 +176,32 @@ enum SceneAuthoredEffectChainRenderer {
                 inputTexture: targets.inputTexture,
                 outputTexture: targets.outputTexture,
                 pipeline: shakePipeline,
+                commandBuffer: commandBuffer
+            )
+        case .waterWaves(let waterWaves):
+            guard let resources = masks.waterWavesEffects[
+                waterWaves.effectKey.descriptorID
+            ],
+            targets.plan.logicalTargets.isEmpty,
+            SceneOffscreenEffectRenderer.captureSource(
+                sourceTexture: sourceTexture,
+                waterMaskTexture: nil,
+                foliageMaskTexture: masks.foliage,
+                auxMaskTexture: auxMask,
+                target: targets.inputTexture,
+                sourceUniforms: sourceUniforms,
+                pipeline: pipeline,
+                commandBuffer: commandBuffer
+            ) else {
+                return nil
+            }
+            return SceneWaterWavesRenderer.render(
+                plan: waterWaves,
+                resources: resources,
+                time: time,
+                inputTexture: targets.inputTexture,
+                outputTexture: targets.outputTexture,
+                pipeline: waterWavesPipeline,
                 commandBuffer: commandBuffer
             )
         }

@@ -198,11 +198,13 @@ class SceneMetalView: NSView {
         for layer in imageLayers {
             let name = layer.name ?? "(unnamed)"
             let placementSummary = renderer.debugPlacementSummary(for: layer)
-            let shakeEffectIDs = Set(
-                renderer.authoredEffectChain(for: layer.id)?.stages.compactMap {
-                    $0.shake?.effectKey.descriptorID
-                } ?? []
-            )
+            let authoredStages = renderer.authoredEffectChain(for: layer.id)?.stages ?? []
+            let shakeEffectIDs = Set(authoredStages.compactMap {
+                $0.shake?.effectKey.descriptorID
+            })
+            let waterWavesEffectIDs = Set(authoredStages.compactMap {
+                $0.waterWaves?.effectKey.descriptorID
+            })
             if layer.contentKind == "solid" {
                 guard let texture = solidLayerTexture else {
                     report.append("layer \(layer.id) \"\(name)\": procedural solid texture unavailable; \(placementSummary)")
@@ -211,7 +213,8 @@ class SceneMetalView: NSView {
                 loaded[layer.id] = texture
                 let effectTextures = SceneLayerEffectTextureLoader.load(
                     for: layer, resolver: resolver, loader: loader, device: metalDevice,
-                    shakeEffectIDs: shakeEffectIDs
+                    shakeEffectIDs: shakeEffectIDs,
+                    waterWavesEffectIDs: waterWavesEffectIDs
                 )
                 loadedEffectTextures.merge(layerID: layer.id, textures: effectTextures)
                 let color = SIMD3(layer.colorRGB ?? [], fill: 1)
@@ -267,7 +270,8 @@ class SceneMetalView: NSView {
                     resolver: resolver,
                     loader: loader,
                     device: metalDevice,
-                    shakeEffectIDs: shakeEffectIDs
+                    shakeEffectIDs: shakeEffectIDs,
+                    waterWavesEffectIDs: waterWavesEffectIDs
                 )
                 loadedEffectTextures.merge(layerID: layer.id, textures: effectTextures)
                 message += effectTextures.message
@@ -280,7 +284,11 @@ class SceneMetalView: NSView {
                 ) {
                     message += "; \(effectSummary)"
                 }
-                if let inlineSummary = SceneInlineEffectRuntime.summary(for: layer, hasWaterMask: effectTextures.waterMask != nil) {
+                if let inlineSummary = SceneInlineEffectRuntime.summary(
+                    for: layer,
+                    hasWaterMask: effectTextures.waterMask != nil,
+                    handlesWaterWaves: waterWavesEffectIDs.isEmpty == false
+                ) {
                     message += "; \(inlineSummary)"
                 }
                 message += "; \(placementSummary)"

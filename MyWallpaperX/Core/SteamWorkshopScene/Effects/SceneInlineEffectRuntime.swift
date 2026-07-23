@@ -5,10 +5,12 @@ enum SceneInlineEffectRuntime {
         for layer: SceneRenderDescriptor.Layer,
         usesNormalWaterRipple: Bool,
         hasWaterMask: Bool,
-        hasFoliageMask: Bool
+        hasFoliageMask: Bool,
+        handlesWaterWaves: Bool = false
     ) -> SceneEffectFlags {
         var flags: SceneEffectFlags = []
-        if legacyWaterWavesEffect(for: layer, hasWaterMask: hasWaterMask) != nil {
+        if !handlesWaterWaves,
+           legacyWaterWavesEffect(for: layer, hasWaterMask: hasWaterMask) != nil {
             flags.insert(.waterwaves)
         }
         for effect in layer.effects where effect.visible != false {
@@ -39,8 +41,10 @@ enum SceneInlineEffectRuntime {
 
     static func summary(
         for layer: SceneRenderDescriptor.Layer,
-        hasWaterMask: Bool
+        hasWaterMask: Bool,
+        handlesWaterWaves: Bool = false
     ) -> String? {
+        guard !handlesWaterWaves else { return nil }
         guard legacyWaterWavesEffect(for: layer, hasWaterMask: hasWaterMask) != nil else {
             return nil
         }

@@ -57,7 +57,8 @@ enum SceneEffectRuntimePlanner {
                 hasOpacityMask: hasOpacityMask && perspectiveOpacity == nil,
                 hasWaterMask: hasWaterMask,
                 hasFoliageMask: hasFoliageMask,
-                usesNormalWaterRipple: waterRippleNormal != nil
+                usesNormalWaterRipple: waterRippleNormal != nil,
+                handlesWaterWaves: authoredEffectPlan?.waterWaves != nil
             ),
             gaussianBlur: selectedGaussianBlur(
                 for: layer,
@@ -129,7 +130,7 @@ enum SceneEffectRuntimePlanner {
         if legacyRipple.isEmpty == false {
             return "\(legacyRipple)inline approximation"
         }
-        let passCount = offscreenPassCount(for: layer)
+        let passCount = authoredEffectPlan?.materialNodeCount ?? offscreenPassCount(for: layer)
         if SceneGradientColorRuntimePlanner.plan(for: layer) != nil {
             return "\(foliage)effect runtime gradient-color; \(passCount) declared pass(es)"
         }
@@ -144,8 +145,9 @@ enum SceneEffectRuntimePlanner {
         if authoredEffectPlan?.localContrast != nil {
             return "\(foliage)effect runtime local-contrast-authored; \(passCount) declared pass(es)"
         }
-        if authoredEffectPlan?.opacity != nil {
-            return "\(foliage)effect runtime opacity-authored; \(passCount) declared pass(es)"
+        if authoredEffectPlan?.opacity != nil || authoredEffectPlan?.waterWaves != nil {
+            let name = authoredEffectPlan?.opacity != nil ? "opacity" : "waterwaves"
+            return "\(foliage)effect runtime \(name)-authored; \(passCount) declared pass(es)"
         }
         if authoredEffectPlan?.standardBlur != nil {
             return "\(foliage)effect runtime standard-blur-authored; \(passCount) declared pass(es)"
@@ -260,13 +262,15 @@ enum SceneEffectRuntimePlanner {
         hasOpacityMask: Bool,
         hasWaterMask: Bool,
         hasFoliageMask: Bool,
-        usesNormalWaterRipple: Bool
+        usesNormalWaterRipple: Bool,
+        handlesWaterWaves: Bool
     ) -> SceneLayerEffectInputs {
         var flags = SceneInlineEffectRuntime.flags(
             for: layer,
             usesNormalWaterRipple: usesNormalWaterRipple,
             hasWaterMask: hasWaterMask,
-            hasFoliageMask: hasFoliageMask
+            hasFoliageMask: hasFoliageMask,
+            handlesWaterWaves: handlesWaterWaves
         )
         var params0 = SIMD4<Float>(0, 0, 0, 0)
         var params1 = SIMD4<Float>(0, 0, 0, 0)

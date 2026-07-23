@@ -8,6 +8,7 @@ extension SceneAuthoredEffectExecutionPlan {
         case opacity(SceneOpacityExecutionPlan)
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
         case shake(SceneShakeExecutionPlan)
+        case waterWaves(SceneWaterWavesExecutionPlan)
     }
 
     var gaussianBlur: SceneGaussianBlurPlan? {
@@ -37,6 +38,11 @@ extension SceneAuthoredEffectExecutionPlan {
 
     var shake: SceneShakeExecutionPlan? {
         guard case .shake(let plan) = backend else { return nil }
+        return plan
+    }
+
+    var waterWaves: SceneWaterWavesExecutionPlan? {
+        guard case .waterWaves(let plan) = backend else { return nil }
         return plan
     }
 

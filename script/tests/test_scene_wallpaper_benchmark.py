@@ -415,8 +415,8 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(samples["2938612768"]["expected_route_only_effect_count"], 18)
         expected_legacy_water_waves_counts = {
-            "3722933264": 4,
-            "3723344874": 2,
+            "3722933264": 0,
+            "3723344874": 0,
             "3724553795": 0,
             "2902406982": 0,
             "2938612768": 0,
@@ -431,8 +431,9 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 count,
             )
         expected_chain_metrics = {
+            "3722933264": (0, 4),
             "3723257973": (0, 0),
-            "3723344874": (0, 0),
+            "3723344874": (0, 2),
             "3724289844": (1, 4),
             "3750813609": (0, 0),
             "2902406982": (0, 7),
@@ -449,11 +450,19 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 stage_count,
             )
         self.assertEqual(
+            samples["3722933264"]["expected_authored_effect_graph_water_waves_count"],
+            4,
+        )
+        self.assertEqual(
+            samples["3723344874"]["expected_authored_effect_graph_water_waves_count"],
+            2,
+        )
+        self.assertEqual(
             sum(
                 sample.get("expected_authored_effect_graph_stage_count", 0)
                 for sample in samples.values()
             ),
-            14,
+            20,
         )
         self.assertEqual(
             sum(
@@ -1235,6 +1244,32 @@ utility layer 763: skippedHidden kind=composition
             ),
         )
         self.assertIsNone(benchmark.authored_effect_graph_shake_count(""))
+
+    def test_authored_water_waves_count_is_an_exact_gate(self) -> None:
+        preview = "authoredEffectGraphWaterWavesCount: 4\n"
+        count = benchmark.authored_effect_graph_water_waves_count(preview)
+        self.assertEqual(count, 4)
+        self.assertEqual(
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_water_waves_count": 4},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                water_waves_count=count,
+            ),
+            [],
+        )
+        self.assertIn(
+            "authored effect graph Water Waves count mismatch",
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_water_waves_count": 0},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                water_waves_count=count,
+            ),
+        )
+        self.assertIsNone(benchmark.authored_effect_graph_water_waves_count(""))
 
     def test_authored_opacity_and_route_only_counts_are_exact_gates(self) -> None:
         preview = (

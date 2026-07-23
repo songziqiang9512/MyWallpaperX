@@ -214,7 +214,8 @@ struct SceneMetalRenderer {
                         foliageUVScale: effectTextures.foliageUVScales[layer.id]
                             ?? SIMD2(repeating: 1),
                         waterRippleNormal: effectTextures.waterRippleNormals[layer.id],
-                        shakeEffects: effectTextures.shakeEffects
+                        shakeEffects: effectTextures.shakeEffects,
+                        waterWavesEffects: effectTextures.waterWavesEffects
                     ),
                     textureFrame: spriteAnimations[layer.id]?.transform(at: time) ?? .identity,
                     mvp: cameraFrame.orthographicViewProjection * model,

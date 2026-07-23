@@ -8,6 +8,7 @@ struct SceneImageLayerCompositor {
     private let opacityPipeline: SceneOpacityPipeline
     private let workshopShadowPipeline: SceneWorkshopShadowPipeline
     private let shakePipeline: SceneShakePipeline
+    private let waterWavesPipeline: SceneWaterWavesPipeline
     private let bloomPipeline: SceneBloomPipeline
     private let gradientColorPipeline: SceneGradientColorPipeline
     private let waterRipplePipeline: SceneWaterRipplePipeline
@@ -21,6 +22,7 @@ struct SceneImageLayerCompositor {
               let opacityPipeline = SceneOpacityPipeline(device: device),
               let workshopShadowPipeline = SceneWorkshopShadowPipeline(device: device),
               let shakePipeline = SceneShakePipeline(device: device),
+              let waterWavesPipeline = SceneWaterWavesPipeline(device: device),
               let bloomPipeline = SceneBloomPipeline(device: device),
               let gradientColorPipeline = SceneGradientColorPipeline(device: device),
               let waterRipplePipeline = SceneWaterRipplePipeline(device: device),
@@ -34,6 +36,7 @@ struct SceneImageLayerCompositor {
         self.opacityPipeline = opacityPipeline
         self.workshopShadowPipeline = workshopShadowPipeline
         self.shakePipeline = shakePipeline
+        self.waterWavesPipeline = waterWavesPipeline
         self.bloomPipeline = bloomPipeline
         self.gradientColorPipeline = gradientColorPipeline
         self.waterRipplePipeline = waterRipplePipeline
@@ -113,6 +116,7 @@ struct SceneImageLayerCompositor {
                         opacityPipeline: opacityPipeline,
                         workshopShadowPipeline: workshopShadowPipeline,
                         shakePipeline: shakePipeline,
+                        waterWavesPipeline: waterWavesPipeline,
                         commandBuffer: commandBuffer
                     )
                 }
@@ -227,6 +231,32 @@ struct SceneImageLayerCompositor {
                             inputTexture: targets.inputTexture,
                             outputTexture: targets.outputTexture,
                             pipeline: shakePipeline,
+                            commandBuffer: commandBuffer
+                        )
+                    case .waterWaves(let waterWaves):
+                        guard let resources = masks.waterWavesEffects[
+                            waterWaves.effectKey.descriptorID
+                        ],
+                        targets.plan.logicalTargets.isEmpty,
+                        SceneOffscreenEffectRenderer.captureSource(
+                            sourceTexture: request.texture,
+                            waterMaskTexture: nil,
+                            foliageMaskTexture: masks.foliage,
+                            auxMaskTexture: auxMask,
+                            target: targets.inputTexture,
+                            sourceUniforms: directUniforms,
+                            pipeline: pipeline,
+                            commandBuffer: commandBuffer
+                        ) else {
+                            return nil
+                        }
+                        return SceneWaterWavesRenderer.render(
+                            plan: waterWaves,
+                            resources: resources,
+                            time: directUniforms.time,
+                            inputTexture: targets.inputTexture,
+                            outputTexture: targets.outputTexture,
+                            pipeline: waterWavesPipeline,
                             commandBuffer: commandBuffer
                         )
                     }
