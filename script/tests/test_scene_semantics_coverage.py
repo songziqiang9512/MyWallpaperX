@@ -404,10 +404,15 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                 text,
                 f"Current Scene entrypoint is missing the full-baseline implementation: {path}",
             )
+            self.assertIn(
+                "`3194ac5`",
+                text,
+                f"Current Scene entrypoint is missing the preview evidence baseline: {path}",
+            )
 
         report_paths = (
             ".codex/scene-shake-20260724/full26-final/report.json",
-            ".codex/scene-shake-20260724/fixed13-final/report.json",
+            ".codex/scene-preview-visual-20260724/fixed13-final/report.json",
         )
         for path in current_state_documents:
             for report_path in report_paths:
@@ -418,6 +423,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                 )
 
         evidence = document_text[RUNTIME_EVIDENCE_PATH]
+        self.assertIn("### E-PREVIEW-VISUAL: Steam preview 方向性视觉证据", evidence)
         self.assertIn("### E-DYNAMIC-TEXT:", evidence)
         self.assertIn("### E-EFFECT-OPACITY:", evidence)
         self.assertIn("### E-EFFECT-SHAKE:", evidence)
@@ -432,7 +438,10 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             "### E-GRAPH-LEGACY-COMPOSE: exact Blur Precise legacy two-pass normalization",
             evidence,
         )
-        self.assertIn("Scene tests 292 total / 289 pass / 3 skip", evidence)
+        self.assertIn("Scene tests 297 total / 294 pass / 3 skip", evidence)
+        self.assertIn("comparison_scope=same-sample-change-only", evidence)
+        self.assertIn("cross_sample_ranking=false", evidence)
+        self.assertIn("absolute_threshold=null", evidence)
         self.assertIn("strict graph 为 30 stage", evidence)
         self.assertIn("generic `compose` 整体仍为 `L2`", evidence)
         self.assertIn(

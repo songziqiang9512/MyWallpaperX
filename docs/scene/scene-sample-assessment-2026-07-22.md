@@ -21,7 +21,7 @@
 - 20 个 `scene.json` 样本的运行结果：[report.json](../../.codex/scene-visible-effect-full20-20260722/report.json)；人工总览：[contact-sheet.png](../../.codex/scene-visible-effect-full20-20260722/contact-sheet.png)。报告为 20/20 PASS，运行 App 为 `2.0.8 (268)`，签名 Team 为 `H9QWU9XN8R`。
 - `3766415113` 使用 `gifscene.json` / `gifscene.pkg`，以包含 entry、sequence 和单图 UV 修正的 [gifscene 最终报告](../../.codex/scene-gifscene-sprite-gate-20260722/report.json) 为准。
 - `3738202317` 在 20 样本旧报告中因 `.tex format 6` 显示灰底；该结果已经被 [BC2/DXT3 修复后报告](../../.codex/scene-bc2-format6-final-20260722/report.json) 覆盖，当前为 1/1 纹理加载成功。
-- “作者预期”来自包内 scene 描述、`project.json` 属性和样本自带 preview。preview 不是逐帧金标准，最终仍需在相同分辨率、相同属性默认值下与 Wallpaper Engine 录屏做差异验收。
+- “作者预期”来自包内 scene 描述、`project.json` 属性和样本自带 preview。`3194ac5` 已把 preview reference、中心裁切运行截图、分项指标和并排图接入固定门；preview 仍不是逐帧金标准，最终仍需在相同分辨率、相同属性默认值下与 Wallpaper Engine 录屏做差异验收。
 - 首轮 21 样本报告保留为修复前视觉基线；现役提交、正式矩阵、签名与测试总数统一查 [运行证据索引](semantics/runtime-evidence-index.md)，本历史评估不再复制易过期的全局状态。
 
 表中 `I/P/T` 分别表示 image / particle / text 图层声明数量；`prop` 不含每个项目都有的 `schemecolor`。纹理加载率只统计当前 renderer 识别为 image candidate 的图层，不应直接当成视觉完成度。
@@ -35,7 +35,7 @@
 | Utility / Composition | typed composition/project/fullscreen；framebuffer 前缀捕获；局部/full-frame geometry；受限纹理池；mask/partial effect fail-closed；290 的 project 410 / composition 530 与 6 个 named provider / 7 个 consumer 已完成 GPU capture/binding；registry 按 identity/status/generation 选择首个 ready 候选；293 的 providers 141/1340、consumers 299/322 与隐藏 image providers 到 layers 239/657/775/875/1509 的静态 blend 已进入 GPU runtime；受限 property file provider 已接入 | system/media/video/Texture Variants、effectful provider、nested/child target、utility mask、动态 blendgradient 与任意 material/shader pass；不能把受限 named-target/static image 子集写成完整 dependency graph |
 | Particle | 包内 texture、sprite sheet、9 个精确 built-in key、continuous/burst schedule、常见 initializer/operator、additive/translucent、Sprite Trail、静态 override、fixed-step/seed/budget 子集；正式门 14/27，`3750813609` 为 7/9 | 21 样本仍有 22 个 built-in texture unavailable；atlas/multi-texture、child runtime、rope/rope trail、world-space、动态 control point/override、collision、音频与属性 operator |
 | Text | 当前以 authored `pointsize * 4` 近似官方 300 DPI point raster，处理 vector padding、包内字体、系统字体别名和确定性 fallback 诊断；`3766387484` 3/3、`3122339805` 80/81、`2134765860` 4/6 candidate | 精确 DPI/scene-unit 校准、SceneScript、真实时钟/日期/媒体值、完整对齐/描边/阴影/effect 语义 |
-| 自动门 | 当前 26 样本完整快照与固定 13 样本回归门，interpretation format 22，签名 App、Metal 双帧；六个 strict backend、ordered chain、B0 property、dynamic text generation、provider/file override 与粒子合同；292 项 Scene 测试为 289 通过、3 跳过；无 timeout、stop 后 surface=0 | 当前 26 门为 3 条 Blur/Shake chain、16 个 legacy blocked layer、64 个 route-only；固定门另保留 1 条 Blur/Shadow chain、2 个 blocked、30 个 route-only；没有 Windows WE 同配置录屏差异门 |
+| 自动门 | 当前 26 样本完整快照与固定 13 样本回归门，interpretation format 22，签名 App、Metal 双帧；六个 strict backend、ordered chain、B0 property、dynamic text generation、provider/file override 与粒子合同；固定门 13/13 均有非阻断 preview 并排图；297 项 Scene 测试为 294 通过、3 跳过；无 timeout、stop 后 surface=0 | 当前 26 门为 3 条 Blur/Shake chain、16 个 legacy blocked layer、64 个 route-only；固定门另保留 1 条 Blur/Shadow chain、2 个 blocked、30 个 route-only；preview 不设绝对阈值且不能跨样本排名，仍没有 Windows WE 同配置录屏差异门 |
 
 ## 横向能力判断
 
@@ -101,7 +101,7 @@ Camera Parallax 的当前负向合同已经补齐：包括 composition 在内，
 
 1. P0 通用根因已关闭基础 layer/resource、290/293 命中的受限 dependency 子集，并完成 EffectDefinition/authored graph、六个 strict backend、ordered strict effect-chain、Blur/Shadow 与 Blur/Shake 真实 chain、typed registry/property fallback、file-backed `sceneTexture`、统一 Frame Context 第一阶段和首批 built-in 粒子纹理。
 2. B0 binding program、per-surface transaction/snapshot 与 layer alpha、纯 solid color、exact Local Contrast strength consumer 已完成，不再列为当前待启动项。
-3. `3724289844:20` exact Workshop Shadow、stock Opacity `MASK=0` live alpha 与 `2802243144` exact stock Shake 已完成；下一项从结构化样本 census、完整链解锁和封面方向性视觉门选择，不以 route-only 单一计数代替能力缺口。封面只检查固定画布上的主构图、主体位置、色调/亮度和明显效果范围，不验证动态时序或像素等价。
+3. `3724289844:20` exact Workshop Shadow、stock Opacity `MASK=0` live alpha 与 `2802243144` exact stock Shake 已完成；封面方向性视觉门也已作为非阻断证据落地。六样本人工复核中，拼图直接暴露 `2902406982` 的错乱构图、`2938612768` 的过度水波形变和 `3750813609` 的字体/颜色差异；`3742133044` 又证明不同 preview 裁切会让完整画面取得较低数值。因此下一项按结构化样本 census、完整链解锁、同一样本拼图/分项变化和实现成本选择，不以 route-only 或跨样本分数代替能力缺口。
 4. B1 并行补 Provider Core 的 metadata/cancellation，再扩 Texture Variants、video/system/media、通用 material、effectful/nested/child source；B2 后续接 persistent/history、material-command interleave 与 compose。
 5. 静态 text geometry/font 已通过现有门，但动态时间/日期/媒体、Windows 字号/baseline、完整效果与 100 层最终性能门仍留到共享动态链和 B4 fidelity 阶段统一处理。
 

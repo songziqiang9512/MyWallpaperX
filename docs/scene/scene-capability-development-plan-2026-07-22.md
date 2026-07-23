@@ -2,7 +2,7 @@
 
 > 建立日期：2026-07-22
 >
-> 最近更新：2026-07-24（当前实现基线 `e505a9e`；interpretation v22；B0 direct dynamic text、B2 同帧 copy/swap/受限 history、Precise Blur interleave/legacy compose 与 exact stock Shake 已通过合同门；六个 strict backend 是当前 GPU 执行子集。未修改 26 样本 strict stage 为 30、chain 为 3、legacy blocked layer 为 16；后续按完整链解锁与封面方向性视觉门推进）
+> 最近更新：2026-07-24（当前实现基线 `3194ac5`；interpretation v22；B0 direct dynamic text、B2 同帧 copy/swap/受限 history、Precise Blur interleave/legacy compose 与 exact stock Shake 已通过合同门；六个 strict backend 是当前 GPU 执行子集。未修改 26 样本 strict stage 为 30、chain 为 3、legacy blocked layer 为 16；preview 方向性证据已进入固定门，后续按完整链解锁与同一样本并排图变化推进）
 >
 > 作用：定义 MyWallpaperX Scene runtime 从当前可审计子集向 Wallpaper Engine 常用能力逼近的实施顺序、样本门和验收标准。作者/执行语义先查 [`semantics/README.md`](semantics/README.md)；当前能力结论仍以 [`../reviews/web-scene-current-state-roadmap-2026-07-19.md`](../reviews/web-scene-current-state-roadmap-2026-07-19.md) 与最新运行证据为准；历史 memo 不反向覆盖本计划。
 
@@ -55,7 +55,7 @@
 - effect-chain target allocation 先在候选态完成所有 stage plan/table、预算与 LRU victims，再一次提交 cache/resident bytes/access counter；失败不刷新部分命中的 LRU，也不留下半条链。singleton strict plan 复用同一事务，旧直接测试入口保留；
 - `8474ace` 完成 D7 ShaderContract IR v1：完整 UTF-8 source、raw SHA-256、stage path/kind、include、JSON annotation、uniform/attribute/varying declaration、diagnostic 和 canonical SHA 进入 v19；绝对/穿越路径、shader root/stage/include symlink escape、无效 UTF-8、缺失 stage、畸形 annotation 和重复 identity 均 fail closed。generic D7 仍只达到 L1 识别/保留；`136d35c` 仅把 exact Local Contrast 的 identity/canonical/stage/raw source hashes 用作 strict 准入门，实际执行项目自有 Metal pipeline，不预处理、翻译、编译或执行 authored shader source；
 - `228cdde` 完成 Local Contrast 的资源格式前置：graph plan/table 新增 `rgba8888 -> .rgba8Unorm`，input/output 与 `rgba_backbuffer` 保持 `.bgra8Unorm`；两种格式均按 4 B/px 计费，格式变化原子替换 cache，未知格式继续 fail closed。该提交当时尚无执行层，随后 `136d35c` 已让 exact stock Local Contrast 消费该格式；
-- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；当前完整快照门 `.codex/scene-shake-20260724/full26-final/report.json` 为 **26/26**，报告 SHA-256 `112f3d50a63f2dd20002ca2c2f1d177fc86abaf82510f5dd85c7e5b8c0822f65`，仓库矩阵 SHA-256 为 `9a44707e9c84069ce3dc5ffa8c93c001c5fc54cf4b02eba89e53a3daeb8cfb75`。同一签名 App 的固定回归门 `.codex/scene-shake-20260724/fixed13-final/report.json` 为 **13/13**，报告 SHA-256 `fe389f155ef7147e5246b65fe19a953fe64492753e32932b3569d41064149bbe`，矩阵 SHA-256 `fbb252a64018cf785e20b2200db5966a300e9351a994b4a36f1fe9565c5b354c`。当前 26 门为 strict stage 30、failed 0、chain 3、Shake 3、legacy blocked 16、route-only 64；固定 13 门继续保护 stage 14、真实 chain 1、Opacity 4、Workshop Shadow 1、failed 0。全量 Scene 共 **292 项，其中 289 项通过、3 项跳过**。签名 App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `0d7efcabf4b99a101a3341e64fb10d80ef8a4020`、可执行文件 SHA-256 `7cdb04292a891e7787d0fa489c8fbeb5337332e436bc0ea2de1b9827a135cbca`，运行前后签名均验证。完整聚合缺口见 [运行证据索引](semantics/runtime-evidence-index.md)。
+- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；当前完整快照门 `.codex/scene-shake-20260724/full26-final/report.json` 为 **26/26**，报告 SHA-256 `112f3d50a63f2dd20002ca2c2f1d177fc86abaf82510f5dd85c7e5b8c0822f65`，仓库矩阵 SHA-256 为 `9a44707e9c84069ce3dc5ffa8c93c001c5fc54cf4b02eba89e53a3daeb8cfb75`。同一签名 App 的固定回归门 `.codex/scene-preview-visual-20260724/fixed13-final/report.json` 为 **13/13**，报告 SHA-256 `9ccfb3a8c760ebb8f868d489471e78ddc83a862e59e41105566130a9f38fbf62`，矩阵 SHA-256 `fbb252a64018cf785e20b2200db5966a300e9351a994b4a36f1fe9565c5b354c`。当前 26 门为 strict stage 30、failed 0、chain 3、Shake 3、legacy blocked 16、route-only 64；固定 13 门继续保护 stage 14、真实 chain 1、Opacity 4、Workshop Shadow 1、failed 0，并为 13/13 样本生成非阻断 preview 并排图。全量 Scene 共 **297 项，其中 294 项通过、3 项跳过**。签名 App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `0d7efcabf4b99a101a3341e64fb10d80ef8a4020`、可执行文件 SHA-256 `7cdb04292a891e7787d0fa489c8fbeb5337332e436bc0ea2de1b9827a135cbca`，运行前后签名均验证。完整聚合缺口见 [运行证据索引](semantics/runtime-evidence-index.md)。
 
 ### 仅解析/诊断或部分实现
 
@@ -119,7 +119,7 @@
 4. **S2.3b standard Blur graph backend（默认 profile 已完成）**：以 `2902406982` layer `530` 的真实 4-node、2 个 quarter RT 图为门，完成 alpha-aware downsample -> 13-tap horizontal/vertical Gaussian -> default previous combine；不支持的 KERNEL1/2、COMPOSITE1-3、MASK、BLURALPHA0 与混合图继续 fail closed，不回退 legacy coarse blur。
 5. **Provider Core 与 Graph Resource Runtime 分开闭合**：typed frame registry、resource/frame 双代、逐 slot 候选、authored fallback、PNG/JPEG `sceneTexture` 第一切片、effect target table、ShaderContract IR v1、`rgba8888` target format、六个 strict backend、ordered strict effect-chain scheduler、真实 Blur/Shadow 与 Blur/Shake chain、同帧 copy/swap command foundation、受限 history seed/clear、Precise Blur 两种 material-command interleave 与 exact legacy compose 归一化已完成。dynamic text 已成为首个 per-layer generation/stale-cancellation/last-ready consumer；generic compose、真实 history consumer 与 typed shader defaults/built-ins/state 仍未完成。`2134765860` dynamic Shake 与 `2938612768` mixed chains 是整链 fail-closed 负向门；route-only 不作为完整 gap census。
 6. **高命中 Effect 批次有硬前置**：Swing/Foliage、Water、Depth Parallax、Blend/Opacity、God Rays/Shine/Motion Blur 继续是候选；Shake 只完成 exact 静态 stock profile。候选只能通过新增共享 graph/shader/provider/space primitive或注册完整匹配且 fail-closed 的 strict profile 实现。不得继续扩大 effect-name/path-substring 手写近似；逐项门见 [Effect 执行覆盖表](semantics/effect-execution-coverage.md)。
-7. **视觉门**：先固定 `2802243144`、`2902406982`、`2938612768`、`3750813609` 等 5-6 个关键样本，在封面自身比例的固定测试画布上比较主构图、主体位置、色调/亮度和明显效果范围；封面不能验证动画速度、Shake 相位、粒子轨迹、音频响应或像素等价。真实样本增加、完整矩阵合同变化或里程碑收口时，再重建隔离副本并重跑当前完整快照门。
+7. **视觉门（非阻断第一阶段已完成）**：`3194ac5` 已为固定 13 样本生成 preview reference、按封面比例中心裁切的运行截图、分项指标与并排图；六样本校准报告 `.codex/scene-preview-visual-20260724/calibration6-final/report.json` 为 6/6。人工复核证明综合分数和跨样本排名不可靠，因此当前只允许同一样本跨提交比较并保留人工拼图门，不设绝对阈值。封面不能验证动画速度、Shake 相位、粒子轨迹、音频响应或像素等价。真实样本增加、完整矩阵合同变化或里程碑收口时，再重建隔离副本并重跑当前完整快照门。
 
 ### S3：Runtime Kernel 与统一 live-value（B0 property 主链已闭环）
 
@@ -130,7 +130,7 @@
 5. Timeline 先完整保留 keyframe/mode/tangent/event 数据，再接 Loop/Mirror/Single 与线性/Bézier；SceneScript 先保存 source/binding IR，再接 sandbox VM、lifecycle、typed write 和 budget，不能从嵌入 VM 直接跳到 renderer setter。
 6. 动态 text、cursor/audio/media 输入与 transform/effect/particle target 按各自 provider、space、event 和 generation 前置接入，不再作为一组无依赖的“同时打通”任务。
 
-direct text 三类 target 与 B1 generation/stale cancellation 已由 `1762743` 完成首个闭环，同帧 copy/swap command foundation 已由 `f1c6a10` 完成，`dcedc2e` 已完成显式 unique FBO 的受限 history seed/clear，`ebf44a9` 已完成 Precise Blur 两种 material-command interleave，`4f13daf` 已完成 exact legacy compose 归一化，`e505a9e` 已用 exact stock Shake 让未修改样本新增 6 stage、3 条 chain。下一切片继续按未修改样本新增 stage、解除完整 effect chain、封面方向性画面改善和实现成本四项重排 history、SceneScript、effect backend、shader 与 provider 路线。以后所有属性能力继续要求 compiler target、活动 consumer、per-surface snapshot、原子失败/fallback 和 surface/window identity 同批验收。
+direct text 三类 target 与 B1 generation/stale cancellation 已由 `1762743` 完成首个闭环，同帧 copy/swap command foundation 已由 `f1c6a10` 完成，`dcedc2e` 已完成显式 unique FBO 的受限 history seed/clear，`ebf44a9` 已完成 Precise Blur 两种 material-command interleave，`4f13daf` 已完成 exact legacy compose 归一化，`e505a9e` 已用 exact stock Shake 让未修改样本新增 6 stage、3 条 chain，`3194ac5` 已建立非阻断 preview 并排图和同样本分项证据。下一切片继续按未修改样本新增 stage、解除完整 effect chain、同一样本拼图/分项改善和实现成本四项重排 history、SceneScript、effect backend、shader 与 provider 路线。以后所有属性能力继续要求 compiler target、活动 consumer、per-surface snapshot、原子失败/fallback 和 surface/window identity 同批验收。
 
 ### S4：按公共依赖扩展粒子图谱（分层推进）
 
@@ -319,8 +319,8 @@ direct text 三类 target 与 B1 generation/stale cancellation 已由 `1762743` 
 
 - `e505a9e` 新增 exact stock Shake planner/pipeline/renderer，只接受精确 definition/material/raw shader fingerprint、单 material stage、`MASK=0/AUDIOPROCESSING=0/NOISETEXTURE=0`、RG8 flow 与 R8 phase 或 authored white fallback；scene time 沿 ordered chain 传入 GPU。动态 speed/audio/noise/direction、MASK1、未知 combo/state/fingerprint 和 unsupported sibling 继续整链失败关闭。
 - 定向 `.codex/scene-shake-20260724/targeted-contract-final/report.json` 为 **2/2**。未修改 `2802243144` 的 layers `[41,64,115]` succeeded、failed `[]`、Shake 3、chains 3、stages 6，覆盖 `Blur Precise -> Shake` 与 `Shake -> Blur Precise` 两种作者顺序；warm-run changed ratio 稳定在约 `0.00977...0.01031`。`2134765860` 的动态 audio/speed variant 保持 Shake/stage 0。
-- 当前完整门 `.codex/scene-shake-20260724/full26-final/report.json` 为 **26/26**：stage 30、chain 3、Shake 3、failed 0、legacy blocked 16、route-only 64；固定 `.codex/scene-shake-20260724/fixed13-final/report.json` 为 **13/13**：stage 14、chain 1、Opacity 4、Workshop Shadow 1、failed 0。两门不能互相替代。
-- Scene 全量测试 **292 项、289 项通过、3 项跳过**；两个 cross-device 测试因没有第二块 Metal GPU 跳过，既有 particle runtime 测试因旧 `.codex` fixture 不存在跳过。签名 App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `0d7efcabf4b99a101a3341e64fb10d80ef8a4020`、executable SHA-256 `7cdb04292a891e7787d0fa489c8fbeb5337332e436bc0ea2de1b9827a135cbca`。
+- 当前完整门 `.codex/scene-shake-20260724/full26-final/report.json` 为 **26/26**：stage 30、chain 3、Shake 3、failed 0、legacy blocked 16、route-only 64；固定 `.codex/scene-preview-visual-20260724/fixed13-final/report.json` 为 **13/13**：stage 14、chain 1、Opacity 4、Workshop Shadow 1、failed 0，并生成 13/13 preview 并排图。两门不能互相替代。
+- Scene 全量测试 **297 项、294 项通过、3 项跳过**；两个 cross-device 测试因没有第二块 Metal GPU 跳过，既有 particle runtime 测试因旧 `.codex` fixture 不存在跳过。签名 App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `0d7efcabf4b99a101a3341e64fb10d80ef8a4020`、executable SHA-256 `7cdb04292a891e7787d0fa489c8fbeb5337332e436bc0ea2de1b9827a135cbca`。
 - 这是最近批次首次让未修改真实样本的 strict stage、chain、blocked 和动态像素同时改善，证明“按完整链缺失 backend 选项”比只减少 graph blocker 更接近可见收益。封面可作为固定画布上的主构图/色调/明显效果范围参考，但不替代 Windows WE 动态或像素 golden。
 
 ## 5. 样本规范
@@ -356,7 +356,7 @@ direct text 三类 target 与 B1 generation/stale cancellation 已由 `1762743` 
 ### GPU/集成层
 
 - 小尺寸离屏纹理输入，验证输出像素、alpha 和 mask；
-- 5-6 个关键样本使用封面自身比例的固定画布生成并排图，检查主构图、主体位置、色调/亮度和明显效果范围；不把封面当动态时序或像素 golden；
+- 5-6 个关键样本使用封面自身比例的固定画布生成并排图，检查主构图、主体位置、色调/亮度和明显效果范围；当前已落地为非阻断门，只做同样本前后比较，不把封面当动态时序或像素 golden；
 - authored graph exact-ID GPU completion、RT extent 不被预算静默缩放，以及 rejected graph 不执行旧 effect heuristic；
 - Debug runner 启动真实 Scene，确认解释文件和纹理加载；
 - 截取 ready 与 after-interaction 两帧，验证非黑、运动和窗口归属；

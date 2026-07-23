@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-24
 >
-> 实现基线：`e505a9e`
+> 实现基线：`3194ac5`
 
 本页给覆盖表中的 `L3` 子集提供可追溯证据包。每个证据包至少包含代码、自动测试和真实运行或 GPU 证据；缺少任一项的能力只能标 `L0-L2`，或在专项表中明确写 `gate incomplete`。`.codex` 报告是本机隔离运行产物，不提交 Git；报告路径、App 身份和摘要写入现役文档，避免将其误当源码 fixture。
 
@@ -13,16 +13,17 @@
 | 项目 | 当前证据 |
 |---|---|
 | 当前完整快照门 | `.codex/scene-shake-20260724/full26-final/report.json` 为 26/26；报告 SHA-256 `112f3d50a63f2dd20002ca2c2f1d177fc86abaf82510f5dd85c7e5b8c0822f65`，仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` SHA-256 `9a44707e9c84069ce3dc5ffa8c93c001c5fc54cf4b02eba89e53a3daeb8cfb75` |
-| 固定回归门 | 同一签名 App 的 `.codex/scene-shake-20260724/fixed13-final/report.json` 为 13/13；报告 SHA-256 `fe389f155ef7147e5246b65fe19a953fe64492753e32932b3569d41064149bbe`，矩阵 SHA-256 `fbb252a64018cf785e20b2200db5966a300e9351a994b4a36f1fe9565c5b354c` |
-| 最新合同门 | Scene tests 292 total / 289 pass / 3 skip |
+| 固定回归门 | 同一签名 App 的 `.codex/scene-preview-visual-20260724/fixed13-final/report.json` 为 13/13；报告 SHA-256 `9ccfb3a8c760ebb8f868d489471e78ddc83a862e59e41105566130a9f38fbf62`，矩阵 SHA-256 `fbb252a64018cf785e20b2200db5966a300e9351a994b4a36f1fe9565c5b354c` |
+| 最新合同门 | Scene tests 297 total / 294 pass / 3 skip |
 | ShaderContract | 173 contracts = 143 authored + 30 host built-in；286 stages、0 diagnostics；source/IR include 155、annotation 1523、declaration 2660，见 E-SHADER-CONTRACT |
 | Live property | layer alpha、solid color、strict Local Contrast/Opacity 与 direct text content/point-size/color 均 accepted、surface/window identity 不变；报告见 E-LIVE-PROPERTY / E-DYNAMIC-TEXT |
 | Provider 双代 | `2938612768` static image blend 5/5；`2902406982` named capture 6/6、binding 7/7；报告见 E-PROVIDER |
+| 封面方向性证据 | 固定门 13/13 均生成 preview reference 与中心裁切并排图；9 个 GIF 取首帧、4 个 JPG 取静帧。六样本人工校准报告见 E-PREVIEW-VISUAL |
 | 签名 App | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `0d7efcabf4b99a101a3341e64fb10d80ef8a4020`，executable SHA-256 `7cdb04292a891e7787d0fa489c8fbeb5337332e436bc0ea2de1b9827a135cbca`；最终 26 样本门运行前后签名均验证 |
 | executable SHA-256 | `7cdb04292a891e7787d0fa489c8fbeb5337332e436bc0ea2de1b9827a135cbca` |
 | 样本边界 | 真实 Workshop root 只读；报告均来自隔离 sample root 与临时 HOME |
 
-当前真实目录完整快照门加载 image `330/330`、text `212/212`、solid `126/126`，particle 为 `47/68`；named target capture `8/8`、binding `9/9`，仍有 13 个 named-target gap、64 个 route-only effect、16 个 legacy blocked layer 和 9 个缺失资源，graph target 为 153、graph blocker 为 0。strict graph 为 30 stage、3 条 multi-effect chain、Shake 3、0 failed；未修改 `2802243144` 的 layers `[41,64,115]` 首次进入完整 strict chain。固定 13 样本门仍单独保护 14 stage、1 条真实 chain、Workshop Shadow 1、Opacity 4、0 failed；两门互补，均不证明完整兼容或 WE parity。
+当前真实目录完整快照门加载 image `330/330`、text `212/212`、solid `126/126`，particle 为 `47/68`；named target capture `8/8`、binding `9/9`，仍有 13 个 named-target gap、64 个 route-only effect、16 个 legacy blocked layer 和 9 个缺失资源，graph target 为 153、graph blocker 为 0。strict graph 为 30 stage、3 条 multi-effect chain、Shake 3、0 failed；未修改 `2802243144` 的 layers `[41,64,115]` 首次进入完整 strict chain。固定 13 样本门仍单独保护 14 stage、1 条真实 chain、Workshop Shadow 1、Opacity 4、0 failed，并新增非阻断封面方向证据；两门互补，均不证明完整兼容或 WE parity。
 
 ## 2. 证据包
 
@@ -39,6 +40,15 @@
 - 代码：[SceneRenderDescriptor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneRenderDescriptor.swift)、[SceneMetalRenderer.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalRenderer.swift)、[SceneImageLayerCompositor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneImageLayerCompositor.swift)
 - 自动门：[test_scene_solid_layers.py](../../../script/tests/test_scene_solid_layers.py)、[test_scene_capture_geometry.py](../../../script/tests/test_scene_capture_geometry.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)
 - 运行门：正式矩阵的 layer/image/solid/text/particle 计数、cover projection、非黑截图和 GPU completion。
+
+<a id="e-preview-visual"></a>
+### E-PREVIEW-VISUAL: Steam preview 方向性视觉证据
+
+- 实现提交：`3194ac5`。代码：[scene_preview_visual_evidence.py](../../../script/scene_preview_visual_evidence.py)、[scene_wallpaper_benchmark.py](../../../script/scene_wallpaper_benchmark.py)、[web_benchmark_capture.py](../../../script/web_benchmark_capture.py)。
+- 自动门：[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py) 新增 5 项，覆盖 preview 路径逃逸拒绝、按参考比例中心裁切、分项指标、拼图生成、缺失 preview 非阻断和汇总合同；聚焦 benchmark/capture 测试 43/43，宿主 GPU Scene 全量 297/294/3。
+- 固定运行门：`.codex/scene-preview-visual-20260724/fixed13-final/report.json` 为 13/13，13 个样本视觉证据全部 available，9 个 GIF 使用 `first-frame-via-sips`，4 个 JPG 使用静帧；报告 SHA-256 `9ccfb3a8c760ebb8f868d489471e78ddc83a862e59e41105566130a9f38fbf62`。签名 App 身份与当前完整快照门一致，运行前后均验证。
+- 人工校准门：`.codex/scene-preview-visual-20260724/calibration6-final/report.json` 为 6/6，报告 SHA-256 `3f9f9f08d641a6f27b2e43bdb9a11380c54dd55423a047e31952b61ce31830f2`。并排图直接暴露 `2902406982` 的构图错乱、`2938612768` 的过度水波形变和 `3750813609` 的字体/颜色差异；`3742133044` 画面完整但因作者 preview 采用不同近景裁切取得较低分项值，证明数值不能跨样本排序。
+- 合同边界：benchmark 不改变播放 viewport 或 cover 投影，只把运行截图中心裁到 preview 比例。报告明确 `gating=false`、`comparison_scope=same-sample-change-only`、`cross_sample_ranking=false`、`absolute_threshold=null`；分项色彩、亮度、直方图和显著性中心仅用于同一样本跨提交对照，拼图仍需人工复核。Steam preview 不能验证动画速度、Shake 相位、粒子轨迹、音频响应、字体像素或 WE parity，缺失/解码失败只记 `unavailable`，不改变样本 PASS。
 
 <a id="e-frame"></a>
 ### E-FRAME: Frame Context
@@ -177,7 +187,7 @@
 - 实现提交：scheduler `b541867`，首条真实链 backend `809b75e`。代码：[SceneAuthoredEffectExecutionChain.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectExecutionChain.swift)、[SceneAuthoredEffectChainRenderer.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectChainRenderer.swift)、[SceneOffscreenTexturePool.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneOffscreenTexturePool.swift)、[SceneImageLayerCompositor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneImageLayerCompositor.swift)。
 - 自动门：[test_scene_authored_effect_chain_planner.py](../../../script/tests/test_scene_authored_effect_chain_planner.py)、[test_scene_offscreen_texture_pool.py](../../../script/tests/test_scene_offscreen_texture_pool.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)、[test_scene_workshop_shadow_planner.py](../../../script/tests/test_scene_workshop_shadow_planner.py)、[test_scene_workshop_shadow_rendering.py](../../../script/tests/test_scene_workshop_shadow_rendering.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)。planner/pool 门覆盖 identity、连续输入、Shadow prior-effect role 与整链预算/LRU 原子回滚；synthetic precise -> precise GPU 门覆盖实际 stage texture transfer、末段合成和失败不泄漏，独立 Shadow GPU 门覆盖该 backend 的像素公式。
 - 集成门：代码路径把真实 `3724289844:20` 的 `Blur Precise -> Shadow` 放进同一 command buffer，首段只应用一次 layer masks/UV/alpha，后段使用 neutral uniforms/empty masks；定向矩阵记录两 stage 全部成功、画面非黑且发生变化。当前没有这条真实 compositor 链的逐 stage 像素 readback，因此整链像素原子性仍由 synthetic GPU 门约束，不把真实矩阵写成 Windows golden。
-- 运行门：`.codex/scene-shake-20260724/full26-final/report.json` 与 `.codex/scene-shake-20260724/fixed13-final/report.json` 分别为 26/26、13/13。当前完整门共 3 条真实 multi-effect strict chain、30 个 strict stage、Shake 3，固定门保护 1 条 chain、14 stage、Opacity 4、Workshop Shadow 1；graph failures 均为空。`2802243144` 为 chains 3/stages 6、succeeded `[41,64,115]`，`3724289844` 为 chains 1/stages 4、succeeded `[20,28,36]`；`2938612768` 为 chains/stages 0，证明 unsupported mixed chains 没有被部分执行。
+- 运行门：`.codex/scene-shake-20260724/full26-final/report.json` 与 `.codex/scene-preview-visual-20260724/fixed13-final/report.json` 分别为 26/26、13/13。当前完整门共 3 条真实 multi-effect strict chain、30 个 strict stage、Shake 3，固定门保护 1 条 chain、14 stage、Opacity 4、Workshop Shadow 1；graph failures 均为空。`2802243144` 为 chains 3/stages 6、succeeded `[41,64,115]`，`3724289844` 为 chains 1/stages 4、succeeded `[20,28,36]`；`2938612768` 为 chains/stages 0，证明 unsupported mixed chains 没有被部分执行。
 - 边界：只调度六个 strict backends；Precise Blur 可在两个 material node 之间执行一个 copy 或 swap，Shake 可位于 Precise Blur 前后，其他 backend/topology 继续失败关闭。它不执行 generic compose/condition/function、跨帧 logical swap 或真实 history consumer，也不预处理、翻译或编译 authored shader。stock Opacity `MASK=0` direct alpha 已接入 per-surface snapshot；MASK1、SceneScript、动态 Shake variants、未知 hash/combo 与 unsupported 后续 stage 继续整链失败关闭。
 
 <a id="e-effect-rt"></a>
