@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`dbf2c82`
+> 实现基线：`95e0d58`
 
 本表把 Frame Context、动态目标、Timeline、用户属性、文字、光标、音频、媒体和纹理 provider 放在同一执行合同下。官方语义摘要见 [`runtime-systems-reference.md`](runtime-systems-reference.md)，等级口径见 [`coverage-ledger.md`](coverage-ledger.md)。
 
@@ -43,12 +43,12 @@ HostFrameInputs(time, properties, audio, media)
 | target invalidation domain | `L2` | layer alpha 为 value-only；mixed/invalid/unsupported key 标记 rebuild | geometry/text/topology/provider/simulation target 逐项集中登记 |
 | per-surface evaluation transaction | `L3` | property evaluation、validation 与 atomic commit 已闭环；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | event/Timeline/SceneScript mutation 尚未接入 |
 | changed-target generation | `L3` | 每 surface 持有 generation，相同 payload 不增加；跨 surface 不共享 owner | local input/script/provider 接入后继续验证独立 diff |
-| live consumer | `L3` | image/solid/text 与 `shouldCapture` utility 的 layer alpha 读取 snapshot；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | particle/container/color/mixed/unsupported/no-consumer 均整场重建 |
+| live consumer | `L3` | image/solid/text 与 `shouldCapture` utility 的 layer alpha、solid-only color 读取 snapshot；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | particle/container/non-solid color/mixed/unsupported/no-consumer 均整场重建 |
 | Scene pause/resume | `L0` | 播放控制未控制 Scene clock | pause 冻结 scene time；resume 不补长帧 |
 | delta clamp / dropped-time | `L0` | `frameTime` 只做单调差值 | 同时保留 raw delta 和 simulation delta |
 | offline fixed-time adapter | `L0` | Debug PNG readback 不是离线 adapter | 注入 frame index/time/seed/provider replay |
 
-B0 live-property 子阶段已从空 snapshot 脚手架合龙到真实 producer/consumer：binding program 以 format 18 持久化，host 对每个 surface 独立求值，属性更新原子提交，支持的 layer alpha 不再触发整场重建。这个结论不扩张到 color、particle、container、Timeline 或 SceneScript；其中任一 target 缺少 compiler mapping 或真实 consumer 时必须继续走 `requestSceneRender` fallback。
+B0 live-property 子阶段已从空 snapshot 脚手架合龙到真实 producer/consumer：binding program 以 format 18 持久化，host 对每个 surface 独立求值，属性更新原子提交，支持的 layer alpha 与纯 solid color 不再触发整场重建。这个结论不扩张到 non-solid/mixed color、particle、container、Timeline 或 SceneScript；其中任一 target 缺少 compiler mapping 或真实 consumer 时必须继续走 `requestSceneRender` fallback。
 
 ## 3. Scene 与 Camera 输入
 
@@ -270,7 +270,7 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 | shader constant family | 122 | target path/value 可保留，只有 19 条白名单 actionable | `L1` | typed uniform/pass identity 和完整 compiler |
 | shader constant actionable subset | 19 | 当前白名单经重建进入受限 executor；[E-PROPERTY](runtime-evidence-index.md#e-property) | `L3` | generic executor 与 live uniform |
 | layer alpha | 73 | 编译为 `.layer(.alpha)`；image/solid/text 读取 per-surface snapshot，当前 census 没有 particle/utility alpha binding；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | `L3` | 扩展到新 layer kind 前先补对应 consumer；mixed/no-consumer 继续重建 |
-| layer color | 73 | 严格三分量 color 已编译为 `.layer(.color)`，但没有 renderer consumer；属性面板继续隐藏，更新整场重建 | `L2` | 补适用 content kind、颜色空间、premultiply 与真实 consumer 后才允许 live |
+| layer color | 73 | 全部目标为 solid；25 条纯 color key 由 snapshot/tint live 消费并在属性面板开放，48 条 `basecolor` 因同键含未支持目标整场重建；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | `L3` | 补颜色空间/premultiply golden；non-solid/mixed target 继续 fail closed |
 | script instance properties | 43 | 路径存在；不保存源码/绑定程序 | `L1` | 编译 `.scriptInstanceProperty`，等待 VM consumer |
 | particle instance override | 6 | authored 静态 override 可消费；动态 binding 未分类 | `L1` | alpha/count/size/speed/color typed target |
 | Scene bloom/threshold target identity | 2 | `.scene(.bloomEnabled/.bloomThreshold)` 已定义，binding 尚未分类 | `L1` | 稳定 authored path、type 与 scope |
@@ -279,7 +279,7 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 | sound volume target identity | 1 | `.layer(.volume)` 已定义，binding 未分类 | `L1` | binding compiler 和 sound owner identity |
 | sound volume runtime | 1 | 无 sound IR/player | `L0` | playback/lifecycle 后再开放 |
 
-当前 53 个 unsupported bindings 的构成为 script properties 43、particle override 6、Scene Bloom 2、scale 1、volume 1。alpha 73 与 color 73 均已进入 binding program；alpha 已有真实 consumer 并可 live，color 仍因 consumer 未闭合而隐藏并重建。旧 resolver/rebuild 继续覆盖 color、mixed、unsupported 和无活动 consumer 的 key，不能因 compiler 已识别 target 就删除。
+当前 53 个 unsupported bindings 的构成为 script properties 43、particle override 6、Scene Bloom 2、scale 1、volume 1。alpha 73 与 color 73 均已进入 binding program；alpha 和 25 条纯 solid color 指令已有真实 consumer 并可 live。旧 resolver/rebuild 继续覆盖 `basecolor` 的 48 条 mixed 指令、non-solid color、unsupported 和无活动 consumer 的 key，不能因 compiler 已识别 target 就删除。
 
 ## 7. Text
 

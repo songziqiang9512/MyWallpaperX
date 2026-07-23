@@ -2,7 +2,7 @@
 
 > 建立日期：2026-07-22
 >
-> 最近更新：2026-07-23（B0 live-property 合龙，下一主线转入 B1/B2 core）
+> 最近更新：2026-07-23（B0 alpha 与 solid color live 闭环，下一主线转入 B1/B2 core）
 >
 > 作用：定义 MyWallpaperX Scene runtime 从当前可审计子集向 Wallpaper Engine 常用能力逼近的实施顺序、样本门和验收标准。作者/执行语义先查 [`semantics/README.md`](semantics/README.md)；当前能力结论仍以 [`../reviews/web-scene-current-state-roadmap-2026-07-19.md`](../reviews/web-scene-current-state-roadmap-2026-07-19.md) 与最新运行证据为准；历史 memo 不反向覆盖本计划。
 
@@ -36,7 +36,7 @@
 - Metal image/solid/text/particle 合成、父子 transform、有效可见性、source order、alpha、正交/透视粒子相机和桌面多屏宿主；
 - 宿主级单一 60 Hz frame driver 与 `SceneFrameTiming` / `SceneFrameContext` 第一阶段：所有屏幕共享一次采样的 frame index、host time、scene time、frame delta 和 wall date；shader、视频帧、粒子 simulation 与 parallax smoothing 已迁移，屏幕尺寸和 pointer 仍按 surface 独立保存；
 - B0 live-property runtime 已合龙：`SceneDynamicValue` 覆盖 bool/scalar/vector2/vector3/vector4/string，target 覆盖 scene/camera/layer/effect/text/particle/script instance，resolver 固定按 `authored -> userProperty -> Timeline -> SceneScript` 覆盖并拒绝重复、错类型和非有限值；format 18 持久化 binding definitions/instructions/rebuild keys/effective values，Host 为每个 surface 独立求值和持有 generation，属性更新经原子 live state 路由到 renderer；
-- 当前 live consumer 严格限定为 image/solid/text 和 `shouldCapture` utility 的 layer alpha。particle、container、color、mixed、unsupported 或无活动 consumer 的 key 返回整场 `requestSceneRender`；以后任何新 target 都必须同时注册 compiler mapping 与真实 consumer，不能只完成分类就宣称 live；
+- 当前 live consumer 严格限定为 image/solid/text 和 `shouldCapture` utility 的 layer alpha，以及 solid layer color。普通 image/text 不乘动态 tint；particle、container、non-solid color、mixed、unsupported 或无活动 consumer 的 key 返回整场 `requestSceneRender`；以后任何新 target 都必须同时注册 compiler mapping 与真实 consumer，不能只完成分类就宣称 live；
 - cover 投影；Camera Parallax 服从 Scene options、显式逐层 depth、传播和属性 override；包括 composition 在内，缺失或零 depth 不产生逐层位移；
 - legacy coarse blur 仍只服务尚未迁移的受限路径，采用全尺寸 RT + 4 倍 texel step 近似；v16 graph 已分别把 precise Blur 严格选路到固定两遍近似 kernel，并把 stock standard Blur 的默认 profile 选路到真实 4-pass、2 个 quarter RT、alpha-aware downsample、13-tap Gaussian 与默认 combine。标准 Bloom、normal-map waterripple、perspective+opacity、mode 9 additive，以及 water/cursor/chromatic/iris 等仍是明确标注的受限实现；
 - 单个 built-in UV Foliage Sway 已读取作者 strength/speed/phase/power/noise/ratio/direction 和 mask 映射；多 foliage 栈与 vertex/workshop 变体不会误套该近似实现；
@@ -50,7 +50,7 @@
 - v15 已保真保存 EffectDefinition/FBO/ordered pass/bind/compose/command/condition/function/unknown fields，并按 material-pass ordinal 关联实例 pass；copy/swap command 不消耗 material ordinal；
 - v16 已按作者 source/effect/pass order 编译 CPU authored graph，保留固定 effect input `previous`、effect-instance RT identity、raw `unique`、copy/swap、blocker 和逐样本 canonical SHA；v17 descriptor/cache 在此基础上保留 material usertexture、property key 与运行时 provider 引用；combo/constant 仍由实例覆盖 material；
 - renderer 已消费两个严格注册的 Blur 子图：precise 仅接受单 effect、两 material node、一个 input-extent `rgba_backbuffer` RT；standard 默认 profile 仅接受单 effect、四个有序 material node、两个 scale=4 的非 unique `rgba_backbuffer` RT，以及已核验的 shader/state/combo/binding/default constant。两者均为 `executed-degraded`，不是任意 authored shader 或 WE 像素等价；
-- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；更新粒子 layer 合同后的最新正式视觉矩阵 **13/13 通过**。结构基线仍为 **106 definitions / 182 passes / 179 material passes / 50 FBO** 与 **197 layer plans / 300 effects / 411 nodes / 76 RT**；graph GPU 成功层仍为 `2902406982:[530]`、`3724289844:[28,36]`、`3765760121:[68,76,82]`，失败为 0。正式矩阵可见粒子运行层为 **14/27**；`3750813609` 为 **7/9**。视觉报告仍是 `.codex/scene-particle-builtins-final13-r2-20260723/report.json`。B0 新增两项隔离 live identity 门：`2902406982:newproperty11` 与 `2938612768:newproperty17` 均被接受，更新前后各保持 1 个 surface 和同一 window ID；报告为 `.codex/scene-b0-live-alpha-20260723-0941/report.json`、`.codex/scene-b0-live-alpha-293-20260723-0941/report.json`。当前 Scene 全量测试共运行 **194 项、193 项通过、1 项跳过**；签名 App `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `890abe09c9354c0eea6b3e11f6987b06fed2d485`、可执行文件 SHA-256 `0a8f20b610fe5638aa053c22ff2c5bbffb1561ad0e2605ed4f29fe63fc6fcdce`。
+- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；最新正式视觉矩阵 `.codex/scene-live-solid-color-final13-20260723-1015/report.json` 为 **13/13 通过**。结构基线仍为 **106 definitions / 182 passes / 179 material passes / 50 FBO** 与 **197 layer plans / 300 effects / 411 nodes / 76 RT**；graph GPU 成功层仍为 `2902406982:[530]`、`3724289844:[28,36]`、`3765760121:[68,76,82]`，失败为 0。正式矩阵可见粒子运行层为 **14/27**；`3750813609` 为 **7/9**。alpha 的两个 identity 门与 color 的 `3122339805:accentcolourdefault800080`、`2902406982:newproperty33` 均被 live 接受并保持 surface/window identity；color 报告为 `.codex/scene-live-solid-color-312-accent-20260723-1011/report.json`、`.codex/scene-live-solid-color-290-20260723-1013/report.json`。当前 Scene 全量测试共运行 **200 项、199 项通过、1 项跳过**；签名 App `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `35ef1944b5de797f377f409a29c4005d1b4aaafc`、可执行文件 SHA-256 `612315e9eb6ff5bc15c43c03c97f4e90c05c0682f9b9272b01875d79d54facc0`。
 
 ### 仅解析/诊断或部分实现
 
@@ -58,7 +58,7 @@
 - 首个 typed frame texture registry、authored fallback 和 PNG/JPEG property file/bookmark/decode 已进入 runtime，但只服务当前严格静态 image-blend consumer；`$mediaThumbnail`、Texture Variants、video frame、通用 material property consumer、effectful/nested provider 与 history/copy/swap 尚未接入；resolver 也没有 shader annotation/default 解析或任意 shader/pass executor；
 - Timeline 没有正式 target/keyframe/mode/tangent/event IR；部分粒子动态 wrapper 只保留 presence/诊断，不能记为 Timeline 数据模型；
 - SceneScript 只发现 `.js` 资源和 inline `script` presence；inline/source 内容、owner/property binding 和返回类型会丢失，也没有 ECMAScript runtime、`init/update`、事件、globals、Date/Math live value 或属性写回；
-- 用户属性 parser 已把官方 `texture` 与样本 raw `scenetexture` 归一为内部 texture-provider 类型并保留原始 runtime type；PNG/JPEG 文件选择/授权/加载已闭合首个静态 consumer 子集，layer alpha 已无重建 live；Texture Variants、media/video texture、transform、color、particle/audio/puppet target 和 SceneScript `applyUserProperties` 仍未闭环；
+- 用户属性 parser 已把官方 `texture` 与样本 raw `scenetexture` 归一为内部 texture-provider 类型并保留原始 runtime type；PNG/JPEG 文件选择/授权/加载已闭合首个静态 consumer 子集，layer alpha 与纯 solid layer color 已无重建 live；Texture Variants、media/video texture、transform、non-solid/mixed color、particle/audio/puppet target 和 SceneScript `applyUserProperties` 仍未闭环；
 - child particle graph 可遍历但不实例化；除上述 9 个精确 key 外的 built-in particle、rope/rope trail、world-space、control point、collision、音频和动态 override 未实现；Sprite Trail 当前只覆盖 2D sprite velocity-aligned stretch 子集；
 - particle exponent 已进入解析模型，但 simulation 尚未消费，不能记为已支持；
 - 多 foliage 栈、vertex sway 与 workshop 自定义 sway 未实现；它们当前保持静态或进入明确诊断，不用单层 UV 近似替代；
@@ -120,8 +120,8 @@
 
 1. **Frame Context 第一阶段已完成**：宿主统一 frame driver 与时间采样，现有 shader/video/particle/parallax 消费同一帧；下一步补 pause/resume、raw/simulation delta、discontinuity、fixed-time test adapter 和目标 FPS。
 2. **B0 per-surface snapshot 已完成**：`HostFrameInputs -> SurfaceFrameContext -> Surface EvaluationTransaction -> SurfaceDynamicSnapshot` 已用于 property producer；双屏共享时间/属性输入，但最终 snapshot 和 generation 按 surface 隔离。
-3. **B0 TargetContract 与 binding program 已完成首个产品闭环**：format 18 编译并持久化 alpha/color definitions/instructions，mixed/invalid/unsupported key 保留 rebuild fallback；alpha 已有真实 consumer，color 只编译不 live。
-4. **B0 原子 live routing 已完成**：Host/Service/属性窗口更新与 reset 先尝试 atomic live state；image/solid/text 和 `shouldCapture` utility 的 alpha 成功时不重建，particle/container/color/mixed/unsupported/no-consumer 失败时才调度整场重建。事件、Timeline 和 SceneScript 以后按既定 transaction 顺序接入。
+3. **B0 TargetContract 与 binding program 已完成首个产品闭环**：format 18 编译并持久化 alpha/color definitions/instructions，mixed/invalid/unsupported key 保留 rebuild fallback；alpha 与 solid-only color 已有真实 consumer。
+4. **B0 原子 live routing 已完成**：Host/Service/属性窗口更新与 reset 先尝试 atomic live state；image/solid/text 和 `shouldCapture` utility 的 alpha、纯 solid color 成功时不重建，particle/container/non-solid color/mixed/unsupported/no-consumer 失败时才调度整场重建。事件、Timeline 和 SceneScript 以后按既定 transaction 顺序接入。
 5. Timeline 先完整保留 keyframe/mode/tangent/event 数据，再接 Loop/Mirror/Single 与线性/Bézier；SceneScript 先保存 source/binding IR，再接 sandbox VM、lifecycle、typed write 和 budget，不能从嵌入 VM 直接跳到 renderer setter。
 6. 动态 text、cursor/audio/media 输入与 transform/effect/particle target 按各自 provider、space、event 和 generation 前置接入，不再作为一组无依赖的“同时打通”任务。
 
@@ -145,6 +145,7 @@
 
 - 固定 built-in 路径和 model JSON `solidlayer:true` 实例统一进入 typed `solid`；缺失作者 color 在 descriptor 中保留 `nil`，渲染时才回退白色。
 - 共享 1×1 白纹理随 `SceneMetalView` 创建一次；color/alpha/effect/mask/blend 继续走现有 compositor，没有伪纹理、样本 ID 或普通 image/text 全局乘色分支。
+- `95e0d58` 将 solid color 接入统一 live snapshot；73 条 color 指令中 25 条属于纯 solid key 可 live，`3122339805:basecolor` 的 48 条因同键还含未支持目标继续整场重建。GPU 门证明相同 tint 对 solid 生效、对普通 image 无效。
 - 定向 `3122339805 / 3750813609 / 3765760121` 为 **3/3**；正式 11 样本为 **11/11**，solid `34/34`，image/solid `106/113`。`3122339805` 为 `90/90`，中性灰底像素由 45.96% 降至 0.33%。
 - 历史验收由上述计数和提交 `c8c463b` 保留；重复的阶段性 runtime 副本可回收。
 

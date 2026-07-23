@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`dbf2c82`
+> 实现基线：`95e0d58`
 
 本页给覆盖表中的 `L3` 子集提供可追溯证据包。每个证据包至少包含代码、自动测试和真实运行或 GPU 证据；缺少任一项的能力只能标 `L0-L2`，或在专项表中明确写 `gate incomplete`。`.codex` 报告是本机隔离运行产物，不提交 Git；报告路径、App 身份和摘要写入现役文档，避免将其误当源码 fixture。
 
@@ -12,11 +12,11 @@
 
 | 项目 | 当前证据 |
 |---|---|
-| 视觉矩阵 | `.codex/scene-particle-builtins-final13-r2-20260723/report.json`，13/13；只证明固定门内非黑、计数、GPU completion 和 teardown，不证明 WE parity |
-| 最新合同门 | Scene tests 194 total / 193 pass / 1 skip |
-| B0 live property | `.codex/scene-b0-live-alpha-20260723-0941/report.json` 与 `.codex/scene-b0-live-alpha-293-20260723-0941/report.json`，两项均 accepted，surface/window identity 不变 |
-| 签名 App（B0 定向门） | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `890abe09c9354c0eea6b3e11f6987b06fed2d485` |
-| executable SHA-256（B0 定向门） | `0a8f20b610fe5638aa053c22ff2c5bbffb1561ad0e2605ed4f29fe63fc6fcdce` |
+| 视觉矩阵 | `.codex/scene-live-solid-color-final13-20260723-1015/report.json`，13/13；只证明固定门内非黑、计数、GPU completion 和 teardown，不证明 WE parity |
+| 最新合同门 | Scene tests 200 total / 199 pass / 1 skip |
+| Live property | alpha 两项与 solid color 两项均 accepted、surface/window identity 不变；报告见 E-LIVE-PROPERTY |
+| 签名 App | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `35ef1944b5de797f377f409a29c4005d1b4aaafc` |
+| executable SHA-256 | `612315e9eb6ff5bc15c43c03c97f4e90c05c0682f9b9272b01875d79d54facc0` |
 | 样本边界 | 真实 Workshop root 只读；报告均来自隔离 sample root 与临时 HOME |
 
 ## 2. 证据包
@@ -54,15 +54,16 @@
 
 - 代码：[SceneUserProperty.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneUserProperty.swift)、[SceneUserPropertyBindings.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneUserPropertyBindings.swift)、[SceneUserPropertyResolver.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneUserPropertyResolver.swift)
 - 自动门：[test_scene_user_properties.py](../../../script/tests/test_scene_user_properties.py)、[test_scene_user_property_textures.py](../../../script/tests/test_scene_user_property_textures.py)
-- 运行门：`.codex/scene-property-text-day-gate-pass-20260722/report.json`、`.codex/scene-user-texture-final13-r2-20260723/report.json`；layer alpha 的 live 子集见下一证据包，其余 target 仍按 consumer 能力回退整场重建。
+- 运行门：`.codex/scene-property-text-day-gate-pass-20260722/report.json`、`.codex/scene-user-texture-final13-r2-20260723/report.json`；layer alpha/solid color 的 live 子集见下一证据包，其余 target 仍按 consumer 能力回退整场重建。
 
 <a id="e-live-property"></a>
-### E-LIVE-PROPERTY: B0 binding program 与 layer alpha live consumer
+### E-LIVE-PROPERTY: B0 binding program 与 alpha/solid-color live consumer
 
 - 代码：[ScenePropertyBindingProgram.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/ScenePropertyBindingProgram.swift)、[ScenePropertyLiveUpdateState.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/ScenePropertyLiveUpdateState.swift)、[SceneSurfaceEvaluationTransaction.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneSurfaceEvaluationTransaction.swift)、[SceneDynamicLayerValues.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDynamicLayerValues.swift)、[SceneDesktopWallpaperHost.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDesktopWallpaperHost.swift)
-- 自动门：[test_scene_property_binding_program.py](../../../script/tests/test_scene_property_binding_program.py)、[test_scene_interpretation_file.py](../../../script/tests/test_scene_interpretation_file.py)、[test_scene_surface_evaluation_transaction.py](../../../script/tests/test_scene_surface_evaluation_transaction.py)、[test_scene_property_live_update_state.py](../../../script/tests/test_scene_property_live_update_state.py)、[test_scene_dynamic_layer_values.py](../../../script/tests/test_scene_dynamic_layer_values.py)、[test_scene_property_live_routing.py](../../../script/tests/test_scene_property_live_routing.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)
-- 运行门：隔离 `2902406982:newproperty11` 与 `2938612768:newproperty17` 均 `accepted=true`；更新前后各为 1 个 surface 且 window ID 不变，293 的 ready/after changed ratio 为 `0.6397`。报告分别为 `.codex/scene-b0-live-alpha-20260723-0941/report.json` 与 `.codex/scene-b0-live-alpha-293-20260723-0941/report.json`。
-- 边界：只证明 image/solid/text 与 `shouldCapture` utility 的 layer alpha。particle、container、color、mixed、unsupported 或无活动 consumer 的 key 必须返回整场重建；program 可编译本身不构成 live 证据。
+- 自动门：[test_scene_property_binding_program.py](../../../script/tests/test_scene_property_binding_program.py)、[test_scene_interpretation_file.py](../../../script/tests/test_scene_interpretation_file.py)、[test_scene_surface_evaluation_transaction.py](../../../script/tests/test_scene_surface_evaluation_transaction.py)、[test_scene_property_live_update_state.py](../../../script/tests/test_scene_property_live_update_state.py)、[test_scene_dynamic_layer_values.py](../../../script/tests/test_scene_dynamic_layer_values.py)、[test_scene_property_live_routing.py](../../../script/tests/test_scene_property_live_routing.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)
+- 运行门：alpha 的 `2902406982:newproperty11` 与 `2938612768:newproperty17` 分别见 `.codex/scene-b0-live-alpha-20260723-0941/report.json`、`.codex/scene-b0-live-alpha-293-20260723-0941/report.json`；solid color 的 `3122339805:accentcolourdefault800080` 与 `2902406982:newproperty33` 分别见 `.codex/scene-live-solid-color-312-accent-20260723-1011/report.json`、`.codex/scene-live-solid-color-290-20260723-1013/report.json`。四项均 `accepted=true` 且 surface/window identity 不变，GPU framebuffer 同时证明 tint 只作用于 solid。
+- 负向门：`.codex/scene-live-solid-color-312-20260723-1006/report.json` 中 `basecolor` 被拒绝，因为同键除 48 条 solid color 指令外还有未支持目标；状态没有部分提交。
+- 边界：只证明 image/solid/text 与 `shouldCapture` utility 的 layer alpha，以及纯 solid layer color。particle、container、non-solid color、mixed、unsupported 或无活动 consumer 的 key 必须返回整场重建；program 可编译本身不构成 live 证据。
 
 <a id="e-text"></a>
 ### E-TEXT: 静态文字

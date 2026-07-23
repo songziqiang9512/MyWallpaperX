@@ -57,7 +57,7 @@ D3 + D4 + D5 + D6 + D7 + D8
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
 | host/frame/scene/wall time | `L3` 子集 | pause/resume、delta clamp、dropped time、目标 FPS |
-| host-shared vs surface-local scope | property 输入 host-shared；每个 surface 独立 transaction/snapshot/generation，B0 live alpha 已有运行门 | pointer/matrix/provider/script 接入时继续证明 local state 不串屏 |
+| host-shared vs surface-local scope | property 输入 host-shared；每个 surface 独立 transaction/snapshot/generation，B0 live alpha/solid color 已有运行门 | pointer/matrix/provider/script 接入时继续证明 local state 不串屏 |
 | fixed simulation step and seed policy | particle 子集 | effect/particle/script/offline 共用 discontinuity 和 seed 合同 |
 | resize/switch/stop teardown | surface 子集 `L3` | VM、provider、RT、timer、media、GPU 资源全部归零或稳定复用 |
 
@@ -69,7 +69,7 @@ D3 + D4 + D5 + D6 + D7 + D8
 | value types and target definitions | 六类 value 与主要 target 已进入 format 18 wire schema | 新类型继续执行 type/finite/default validation，纹理仍走 provider |
 | source priority | `authored -> property -> Timeline -> SceneScript` 已定义；property producer 已执行 | Timeline/SceneScript 接入同一 resolver，不在 renderer 内重复求值 |
 | binding program | alpha/color property 编译、验证和持久化已完成；mixed/invalid key 标记 rebuild | 新 live target 同时增加 compiler mapping、稳定 target identity 和真实 consumer |
-| target scope and invalidation domain | alpha 为 value-only live；mixed/unsupported/no-consumer 统一 rebuild | geometry/text/topology/provider/simulation target 逐类登记失效域 |
+| target scope and invalidation domain | alpha 与 solid color 为 value-only live；mixed/unsupported/no-consumer 统一 rebuild | geometry/text/topology/provider/simulation target 逐类登记失效域 |
 | evaluation transaction | property base evaluation、validation、atomic commit 已按 surface 执行 | events/Timeline/SceneScript mutation 依固定顺序接入同一 transaction |
 | immutable snapshot and generation | 每 surface 独立 snapshot/generation；相同 payload 不增 generation | 双屏 local input、script/provider 加入后继续验证不串用 |
 
@@ -82,7 +82,7 @@ HostFrameInputs(time, properties, audio, media)
   -> SurfaceDynamicSnapshot
 ```
 
-B0 live-property 合龙由 `00c5e9c`、`311e83d`、`4da9492`、`c3d60aa`、`29cf34b`、`3b4f4f4`、`cb2482a` 与 `dbf2c82` 依次完成。当前只允许 image/solid/text 以及 `shouldCapture` utility 的 layer alpha 使用 live 路径；particle、container、color、mixed、unsupported 或没有活动 consumer 的 key 一律返回整场重建。以后新增能力必须同时注册 compiler target 和真实 consumer，并保留原子失败与 fallback 门，不能只因为 program 能编译就宣称 live。
+B0 live-property 合龙由 `00c5e9c` 到 `dbf2c82` 的主链与 `95e0d58` 的 solid color consumer 完成。当前允许 image/solid/text 以及 `shouldCapture` utility 的 layer alpha、纯 solid layer color 使用 live 路径；particle、container、non-solid color、mixed、unsupported 或没有活动 consumer 的 key 一律返回整场重建。`3122339805:basecolor` 已用真实负向门证明 mixed key 不会部分 live。以后新增能力必须同时注册 compiler target 和真实 consumer，并保留原子失败与 fallback 门，不能只因为 program 能编译就宣称 live。
 
 <a id="d4"></a>
 ### D4 Input snapshots and event queues
