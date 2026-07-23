@@ -4,9 +4,9 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`809b75e`
+> 实现基线：`b8842d8`
 >
-> 当前正式门：`.codex/scene-workshop-shadow-final13-20260723-1540/report.json`（13/13、4 类 strict backend、10 stage、1 条真实 chain、Workshop Shadow 1、failed 0、blocked 2、route-only 34；相关测试 258 collected / 257 passed / 1 skipped）。
+> 当前正式门：`.codex/scene-opacity-final13-20260723-1730/report.json`（13/13、5 类 strict backend、14 stage、1 条真实 chain、Opacity 4、Workshop Shadow 1、failed 0、blocked 2、route-only 30；相关测试 269 total / 267 passed / 2 skipped）。
 
 本表把 Frame Context、动态目标、Timeline、用户属性、文字、光标、音频、媒体和纹理 provider 放在同一执行合同下。官方语义摘要见 [`runtime-systems-reference.md`](runtime-systems-reference.md)，等级口径见 [`coverage-ledger.md`](coverage-ledger.md)。
 
@@ -38,19 +38,19 @@ HostFrameInputs(time, properties, audio, media)
 | 同帧 host/scene/wall time | `L3` | [`SceneFrameContext.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneFrameContext.swift)、[E-FRAME](runtime-evidence-index.md#e-frame) | 未排除暂停时间，未标 discontinuity |
 | shader/video/particle/parallax 共用 timing | `L3` | [`SceneMetalView.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneMetalView.swift)、[E-FRAME](runtime-evidence-index.md#e-frame) | 补 pause、delta clamp、fixed step |
 | typed value 六类 | `L2` | `bool/scalar/vector2/vector3/vector4/string`；[`SceneDynamicSnapshot.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDynamicSnapshot.swift) | texture/provider 不属于普通值；新增类型仍需 wire/type/finite 门 |
-| typed target 族 | `L2` | scene/camera/layer/effect/text/particle/script instance 已定义；layer alpha/color 与 exact stock Local Contrast strength 进入 compiler | 下一切片为 exact stock Opacity `alpha` 注册稳定 effect-constant identity；其他 effect target 不得直接开放 live |
+| typed target 族 | `L2` | scene/camera/layer/effect/text/particle/script instance 已定义；layer alpha/color、exact stock Local Contrast strength 与 exact stock Opacity alpha 进入 compiler | 其他 effect target 不得直接开放 live；SceneScript 值必须与 direct binding 分开 |
 | 固定 source priority | `L2` | authored -> property -> Timeline -> SceneScript；property producer 已执行 | Timeline/SceneScript 尚无 producer，接入后必须复用同一 resolver |
-| property binding program persistence | `L3` | format 20 持久化 definitions、instructions、rebuild-required keys 与 effective values；严格 decode/validation | 当前只证明 layer alpha/solid color 与 exact Local Contrast strength 编译；stock Opacity 必须在同批加入 mapping 与真实 consumer |
+| property binding program persistence | `L3` | format 21 持久化 definitions、instructions、rebuild-required keys 与 effective values；严格 decode/validation | 当前证明 layer alpha/solid color、exact Local Contrast strength 与 stock Opacity direct alpha 编译并有真实 consumer |
 | host-shared / surface-local scope | `L3` | property 输入由 host 捕获，每个 surface 有独立 transaction/snapshot/generation；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | pointer/matrix/provider/script 接入后继续补双屏隔离门 |
-| target invalidation domain | `L2` | layer alpha、solid color 与 strict Local Contrast strength 为 value-only；mixed/invalid/unsupported key 标记 rebuild | geometry/text/topology/provider/simulation target 逐项集中登记 |
+| target invalidation domain | `L2` | layer alpha、solid color、strict Local Contrast strength 与 stock Opacity direct alpha 为 value-only；mixed/invalid/SceneScript/unsupported key 标记 rebuild | geometry/text/topology/provider/simulation target 逐项集中登记 |
 | per-surface evaluation transaction | `L3` | property evaluation、validation 与 atomic commit 已闭环；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | event/Timeline/SceneScript mutation 尚未接入 |
 | changed-target generation | `L3` | 每 surface 持有 generation，相同 payload 不增加；跨 surface 不共享 owner | local input/script/provider 接入后继续验证独立 diff |
-| live consumer | `L3` | image/solid/text 与 `shouldCapture` utility 的 layer alpha、solid-only color、strict execution catalog 中 Local Contrast pass 3 `strength` 读取 snapshot；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | 下一切片接 stock Opacity `alpha`；particle/container/non-solid color、其他 effect constant、mixed/unsupported/no-consumer 仍整场重建 |
+| live consumer | `L3` | image/solid/text 与 `shouldCapture` utility 的 layer alpha、solid-only color、strict Local Contrast `strength` 和 exact stock Opacity `alpha` 读取 snapshot；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property)、[E-EFFECT-OPACITY](runtime-evidence-index.md#e-effect-opacity) | particle/container/non-solid color、SceneScript/其他 effect constant、mixed/unsupported/no-consumer 仍整场重建 |
 | Scene pause/resume | `L0` | 播放控制未控制 Scene clock | pause 冻结 scene time；resume 不补长帧 |
 | delta clamp / dropped-time | `L0` | `frameTime` 只做单调差值 | 同时保留 raw delta 和 simulation delta |
 | offline fixed-time adapter | `L0` | Debug PNG readback 不是离线 adapter | 注入 frame index/time/seed/provider replay |
 
-B0 live-property 子阶段已从空 snapshot 脚手架合龙到真实 producer/consumer：binding program 以 format 20 持久化，host 对每个 surface 独立求值，属性更新原子提交，支持的 layer alpha、纯 solid color 与 exact stock Local Contrast strength 不再触发整场重建。这个结论不扩张到 non-solid/mixed color、particle、container、其他 effect constant、Timeline 或 SceneScript；其中任一 target 缺少 compiler mapping 或真实 consumer 时必须继续走 `requestSceneRender` fallback。
+B0 live-property 子阶段已从空 snapshot 脚手架合龙到真实 producer/consumer：binding program 以 format 21 持久化，host 对每个 surface 独立求值，属性更新原子提交，支持的 layer alpha、纯 solid color、exact stock Local Contrast strength 与 exact stock Opacity direct alpha 不再触发整场重建。这个结论不扩张到 non-solid/mixed color、particle、container、其他 effect constant、Timeline 或 SceneScript；其中任一 target 缺少 compiler mapping 或真实 consumer 时必须继续走 `requestSceneRender` fallback。
 
 ## 3. Scene 与 Camera 输入
 
@@ -170,7 +170,7 @@ User Property 是 wallpaper 级 key/value，不属于某个单独 layer。一个
 | one key -> multiple authored targets | `L3` | binding program 保留 fan-out；layer alpha 多 target 原子提交，strict catalog target 可加入同一原子 transaction，混合 target 整 key 重建 | 其他 target 逐项补真实 consumer 与 failure isolation |
 | linear Group boundary | `L3` | [`SteamWorkshopSceneService+SceneProperties.swift`](../../../MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+SceneProperties.swift) 按下一个 Group 截止 | 大型表单和空 group UI 门 |
 | `key.value == bool/comboValue` condition | `L3` | 复用受控 condition evaluator；隐藏不删除值；[E-PROPERTY](runtime-evidence-index.md#e-property) | 只承诺已测 equality 子集，不扩张成任意表达式 |
-| default / override / reset | `L3` | authored fallback 与 wallpaper-scoped override/reset；layer alpha、纯 solid color 与 strict Local Contrast strength 可 live，texture bookmark 或非 live key 重建；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | 跨重启 UI 自动门 |
+| default / override / reset | `L3` | authored fallback 与 wallpaper-scoped override/reset；layer alpha、纯 solid color、strict Local Contrast strength 与 stock Opacity direct alpha 可 live，texture bookmark 或非 live key 重建；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | 跨重启 UI 自动门 |
 | first/change-only `applyUserProperties` | `L0` | 无 SceneScript event | 首次发送全量，后续 payload 只含变化 key，顺序确定 |
 
 <a id="op-user-color"></a>
@@ -269,8 +269,8 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 | camera shake subset | 2 | 可识别但 renderer 不消费 | `L1` | shake state/evaluator 和 author-off |
 | effect visibility family | 129 | target path 可识别；原 20 条白名单加 2 条 exact stock Local Contrast visibility target 可操作 | `L1` | authored effect ID 和完整 compiler |
 | effect visibility actionable subset | 22 | 20 条旧白名单经重建生效；`2902406982` layers `167/177` 的 Local Contrast visibility 始终保留在面板，关闭后仍可重开；[E-PROPERTY](runtime-evidence-index.md#e-property) | `L3` | topology invalidation 和完整条件门 |
-| shader constant family | 122 | target path/value 可保留；原 19 条白名单加 1 条 exact strict-catalog Local Contrast strength 可操作 | `L1` | typed uniform/pass identity 和完整 compiler |
-| shader constant actionable subset | 20 | 19 条旧白名单经重建进入受限 executor；`2902406982` layer `177` 的 `brcontraststrength` live 消费 snapshot；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | `L3` | generic executor 与通用 live uniform |
+| shader constant family | 122 | UserPropertyBindings census 保留 target path/value；原 19 条白名单加 1 条 exact Local Contrast strength 可操作；v21 strict compiler 另识别 4 条 stock Opacity direct-alpha target | `L1` | typed uniform/pass identity 和完整 compiler |
+| shader constant actionable subset | 20 + 4 strict | census 的 19 条旧白名单经重建进入受限 executor，Local Contrast strength 与 `2902406982:[365,372,647,664]` stock Opacity alpha live 消费 snapshot；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | `L3` | generic executor、SceneScript 与通用 live uniform |
 | layer alpha | 73 | 编译为 `.layer(.alpha)`；image/solid/text 读取 per-surface snapshot，当前 census 没有 particle/utility alpha binding；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | `L3` | 扩展到新 layer kind 前先补对应 consumer；mixed/no-consumer 继续重建 |
 | layer color | 73 | 全部目标为 solid；25 条纯 color key 由 snapshot/tint live 消费并在属性面板开放，48 条 `basecolor` 因同键含未支持目标整场重建；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | `L3` | 补颜色空间/premultiply golden；non-solid/mixed target 继续 fail closed |
 | script instance properties | 43 | 路径存在；不保存源码/绑定程序 | `L1` | 编译 `.scriptInstanceProperty`，等待 VM consumer |
@@ -281,7 +281,7 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 | sound volume target identity | 1 | `.layer(.volume)` 已定义，binding 未分类 | `L1` | binding compiler 和 sound owner identity |
 | sound volume runtime | 1 | 无 sound IR/player | `L0` | playback/lifecycle 后再开放 |
 
-当前 53 个 unsupported bindings 的构成为 script properties 43、particle override 6、Scene Bloom 2、scale 1、volume 1。alpha 73、color 73 与 exact Local Contrast strength 1 条均已进入 binding program；alpha、25 条纯 solid color 指令和 `2902406982` layer `177` 的 strength 有真实 consumer 并可 live。21 样本只观察到这一条 exact strength binding；两条 Local Contrast visibility binding 指向 layers `167/177`。旧 resolver/rebuild 继续覆盖 `basecolor` 的 48 条 mixed 指令、non-solid color、其他 shader constant、unsupported 和无活动 consumer 的 key，不能因 compiler 已识别 target 就删除。
+当前 UserPropertyBindings census 的 53 个 unsupported bindings 仍由 script properties 43、particle override 6、Scene Bloom 2、scale 1、volume 1 构成。alpha 73、color 73 与 exact Local Contrast strength 1 条进入既有 binding program；v21 strict compiler 另为 `2902406982:newproperty50` 生成四条 stock Opacity target 指令 `[365,372,647,664]` 并由 GPU consumer live 执行。该增量不重写历史 census 分类；`2938612768` 的五个 Opacity candidates 使用 SceneScript 值，继续 fail closed。旧 resolver/rebuild 仍覆盖 `basecolor` 的 48 条 mixed 指令、non-solid color、其他 shader constant、unsupported 和无活动 consumer 的 key，不能因 compiler 已识别 target 就删除。
 
 ## 7. Text
 
@@ -365,9 +365,9 @@ Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选
 
 ## 10. 下一实现顺序
 
-1. **B0 live-property 已完成并由 ordered strict chain 继续消费**：format 20 binding program、per-surface transaction、atomic state、Host/Service/UI 路由，以及 layer alpha、solid color、strict Local Contrast strength consumer 均已闭环；ordered strict chain 中每个 Local Contrast stage 都从同一 per-surface frame snapshot 独立取值，整链失败不提交部分画面。`809b75e` 的 Workshop Shadow 只增加静态 exact backend，没有新增 live target。隔离真实样本已证明现有 live 更新不替换 surface/window。
+1. **B0 live-property 已完成并由 ordered strict chain 继续消费**：format 21 binding program、per-surface transaction、atomic state、Host/Service/UI 路由，以及 layer alpha、solid color、strict Local Contrast strength、stock Opacity alpha consumer 均已闭环；各 strict stage 从同一 per-surface frame snapshot 独立取值，整链失败不提交部分画面。隔离真实样本已证明现有 live 更新不替换 surface/window。
 2. 新增任何 live target 时，必须在同一能力切片中补稳定 identity/value semantic、compiler definition/instruction、真实 renderer/runtime consumer、原子失败、fallback 与 identity 运行门；缺一项就保留整场重建。
-3. B2 ordered strict scheduler 与 `3724289844:20` exact Workshop Shadow 已完成，正式门取得首条真实 `Blur Precise -> Shadow` chain。下一切片实现 stock Opacity `MASK=0` strict profile，并在同批复用现有 binding program/per-surface snapshot 接入 live `alpha`：覆盖 `2902406982` 的 `365/372/647/664` 与 `2938612768` 的 `165/454/626/629/924`；不接受 optional mask、未知 fingerprint 或缺 consumer 的部分 live。
+3. B2 ordered strict scheduler、exact Workshop Shadow 与 stock Opacity `MASK=0` 已完成。`2902406982:[365,372,647,664]` 是 direct-binding live 正门；`2938612768:[165,454,626,629,924]` 是 SceneScript fail-closed 负门。optional mask、未知 fingerprint 或缺 consumer 的部分 live 继续拒绝。
 4. visibility 只有在 render/dependency/text/particle topology invalidation 一起处理后才能取消整场重建；dynamic text 需要 per-layer texture generation 和 stale cancellation。
 5. Timeline 完整保存后接 evaluator；SceneScript 只有在 source/binding IR 和沙箱成立后接入同一 target 层。
 6. audio/media provider 必须有作者未启用反例、失败 fallback、generation/cancel 和 stop teardown。

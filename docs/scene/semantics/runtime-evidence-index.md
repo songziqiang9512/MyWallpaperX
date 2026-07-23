@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`809b75e`
+> 实现基线：`b8842d8`
 
 本页给覆盖表中的 `L3` 子集提供可追溯证据包。每个证据包至少包含代码、自动测试和真实运行或 GPU 证据；缺少任一项的能力只能标 `L0-L2`，或在专项表中明确写 `gate incomplete`。`.codex` 报告是本机隔离运行产物，不提交 Git；报告路径、App 身份和摘要写入现役文档，避免将其误当源码 fixture。
 
@@ -12,13 +12,13 @@
 
 | 项目 | 当前证据 |
 |---|---|
-| 视觉矩阵 | exact Workshop Shadow 正式矩阵 `.codex/scene-workshop-shadow-final13-20260723-1540/report.json` 为 13/13；四个 strict backend 合计 10 stage、1 real chain、Workshop Shadow 1、failed 0、legacy blocked 2、route-only 34，均不证明 WE parity |
-| 最新合同门 | Scene tests 258 total / 257 pass / 1 skip |
+| 视觉矩阵 | exact stock Opacity 正式矩阵 `.codex/scene-opacity-final13-20260723-1730/report.json` 为 13/13；五个 strict backend 合计 14 stage、1 real chain、Opacity 4、Workshop Shadow 1、failed 0、legacy blocked 2、route-only 30，均不证明 WE parity |
+| 最新合同门 | Scene tests 269 total / 267 pass / 2 skip |
 | ShaderContract | 173 contracts = 143 authored + 30 host built-in；286 stages、0 diagnostics；source/IR include 155、annotation 1523、declaration 2660，见 E-SHADER-CONTRACT |
-| Live property | alpha 两项、solid color 两项与 strict Local Contrast strength 均 accepted、surface/window identity 不变；报告见 E-LIVE-PROPERTY |
+| Live property | layer alpha 两项、solid color 两项、strict Local Contrast strength 与 stock Opacity alpha 均 accepted、surface/window identity 不变；报告见 E-LIVE-PROPERTY / E-EFFECT-OPACITY |
 | Provider 双代 | `2938612768` static image blend 5/5；`2902406982` named capture 6/6、binding 7/7；报告见 E-PROVIDER |
-| 签名 App | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `e4c25d85cb1b878019ec6a7b9e334fd6caaef098`；正式矩阵运行前后签名均验证 |
-| executable SHA-256 | `bd02f455de2e5e11cbc365dabee5063afa4c32ab28d959abcd8c8bb77746a8c0` |
+| 签名 App | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `6e70e547f61dcc6821009a4ebbd97af156fb5916`；正式矩阵运行前后签名均验证 |
+| executable SHA-256 | `0cbaff3bd989e5cb9f8807236fd270feec19ca1f18548c122ca3ccb74033774a` |
 | 样本边界 | 真实 Workshop root 只读；报告均来自隔离 sample root 与临时 HOME |
 
 ## 2. 证据包
@@ -63,9 +63,9 @@
 
 - 代码：[ScenePropertyBindingProgram.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/ScenePropertyBindingProgram.swift)、[ScenePropertyLiveUpdateState.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/ScenePropertyLiveUpdateState.swift)、[SceneSurfaceEvaluationTransaction.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneSurfaceEvaluationTransaction.swift)、[SceneDynamicLayerValues.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDynamicLayerValues.swift)、[SceneDesktopWallpaperHost.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneDesktopWallpaperHost.swift)
 - 自动门：[test_scene_property_binding_program.py](../../../script/tests/test_scene_property_binding_program.py)、[test_scene_interpretation_file.py](../../../script/tests/test_scene_interpretation_file.py)、[test_scene_surface_evaluation_transaction.py](../../../script/tests/test_scene_surface_evaluation_transaction.py)、[test_scene_property_live_update_state.py](../../../script/tests/test_scene_property_live_update_state.py)、[test_scene_dynamic_layer_values.py](../../../script/tests/test_scene_dynamic_layer_values.py)、[test_scene_property_live_routing.py](../../../script/tests/test_scene_property_live_routing.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)
-- 运行门：alpha 的 `2902406982:newproperty11` 与 `2938612768:newproperty17` 分别见 `.codex/scene-b0-live-alpha-20260723-0941/report.json`、`.codex/scene-b0-live-alpha-293-20260723-0941/report.json`；solid color 的 `3122339805:accentcolourdefault800080` 与 `2902406982:newproperty33` 分别见 `.codex/scene-live-solid-color-312-accent-20260723-1011/report.json`、`.codex/scene-live-solid-color-290-20260723-1013/report.json`；strict Local Contrast 的 `2902406982:brcontraststrength=3.0` 见 `.codex/scene-local-contrast-targeted-20260723/report.json` 与正式 13 样本报告。各项均 `accepted=true` 且 surface/window identity 不变；Local Contrast 更新后画面 changed ratio 为 `0.7587968`。
+- 运行门：alpha 的 `2902406982:newproperty11` 与 `2938612768:newproperty17` 分别见 `.codex/scene-b0-live-alpha-20260723-0941/report.json`、`.codex/scene-b0-live-alpha-293-20260723-0941/report.json`；solid color 的 `3122339805:accentcolourdefault800080` 与 `2902406982:newproperty33` 分别见 `.codex/scene-live-solid-color-312-accent-20260723-1011/report.json`、`.codex/scene-live-solid-color-290-20260723-1013/report.json`；strict Local Contrast 的 `2902406982:brcontraststrength=3.0` 见 `.codex/scene-local-contrast-targeted-20260723/report.json`；strict Opacity 的 `2902406982:newproperty50=0.2` 见 `.codex/scene-opacity-targeted-290-final-20260723-1722/report.json`。各项均 `accepted=true` 且 surface/window identity 不变。
 - 负向门：`.codex/scene-live-solid-color-312-20260723-1006/report.json` 中 `basecolor` 被拒绝，因为同键除 48 条 solid color 指令外还有未支持目标；状态没有部分提交。
-- 边界：只证明 image/solid/text 与 `shouldCapture` utility 的 layer alpha、纯 solid layer color，以及 strict execution catalog 中 stock Local Contrast pass 3 `strength`。ordered strict chain 中每个 Local Contrast stage 从同一 per-surface frame snapshot 单独解析 strength，链失败不会提交部分画面；这不扩展可 live 的 target 集合。Local Contrast 的真实样本证据是“更新被接受 + 同 surface/window + 画面变化”，结合 snapshot 与 GPU 像素单测证明消费路径；当前遥测没有直接记录 `3.0` uniform 上传。particle、container、non-solid color、其他 effect constant、unsupported mixed chain 或无活动 consumer 的 key 必须返回整场重建；program 可编译本身不构成 live 证据。
+- 边界：只证明 image/solid/text 与 `shouldCapture` utility 的 layer alpha、纯 solid layer color，以及 strict catalog 中 Local Contrast `strength` 和 stock Opacity `alpha`。每个 strict stage 从同一 per-surface snapshot 单独解析值，链失败不会提交部分画面；SceneScript、particle、container、non-solid color、其他 effect constant、unsupported mixed chain 或无活动 consumer 的 key 必须返回整场重建。program 可编译本身不构成 live 证据。
 
 <a id="e-text"></a>
 ### E-TEXT: 静态文字
@@ -144,21 +144,29 @@
 - target/FBO 边界：该 definition 没有 authored FBO；executor 复用 `SceneGraphRenderTargetTable` 的 synthetic full-size input/output texture，并在 ordered chain 中把 precise Blur 输出作为 Shadow 输入。这只证明零-FBO strict profile 与既有 table/transaction 能协作，不升级 authored extent/format/clear/history。
 - parity/产品边界：执行器运行仓内手写 MSL，不预处理、翻译或编译 authored shader。它是 Workshop `3488490208/shadow_____________` 的 exact profile，不是官方 45 项 Effect、generic Shadow 或 lighting shadow；`BLENDMODE=0` 没有合法官方 Windows 像素 oracle，因此仍是 `L3 executed-degraded`，不等于 WE 像素等价。当前 GPU 单测使用整数 X offset，尚未像素锁定样本实际 `(2,-2)` 的亚像素插值/Y 方向，也没有 Blur -> Shadow compositor 像素 golden；定向真实样本矩阵是当前集成门。Shadow 常量保持静态，没有新增 live target。
 
+<a id="e-effect-opacity"></a>
+### E-EFFECT-OPACITY: exact stock `MASK=0` Opacity profile
+
+- 实现提交：`b8842d8`。代码：[SceneAuthoredOpacityPlanner.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneAuthoredOpacityPlanner.swift)、[SceneOpacityPipeline.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneOpacityPipeline.swift)、[SceneOpacityRenderer.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneOpacityRenderer.swift)。
+- 自动门：[test_scene_opacity_planner.py](../../../script/tests/test_scene_opacity_planner.py)、[test_scene_opacity_rendering.py](../../../script/tests/test_scene_opacity_rendering.py)、[test_scene_property_binding_program.py](../../../script/tests/test_scene_property_binding_program.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)。planner 锁定 stock definition/material raw SHA、vertex/fragment ShaderContract fingerprint、单 material stage、`MASK=0`、零额外资源/命令/condition 和有限静态或 direct-binding alpha；snapshot -> ordered chain -> GPU 像素门锁定预乘 RGBA 同比缩放。
+- 正向运行门：`.codex/scene-opacity-targeted-290-final-20260723-1722/report.json` 中 `2902406982:[365,372,647,664]` 精确执行，`newproperty50=0.2` accepted 且 surface/window identity 不变。负向 `.codex/scene-opacity-failclosed-293-final-20260723-1725/report.json` 中 candidates `[165,454,626,629,924]` 因 SceneScript 保持 Opacity/stages 0。正式 `.codex/scene-opacity-final13-20260723-1730/report.json` 为 13/13，矩阵 SHA-256 `47d01b05a60368cddc679393fb5dd11d562cd4b69cc9d4bd1f559c179fff4e23`，合计 14 stage、Opacity 4、failed 0、legacy blocked 2、route-only 30。
+- 边界：只证明 exact stock `MASK=0`；MASK1、SceneScript 计算值、Workshop variants、额外纹理/命令/condition、未知 hash/combo/state 和 unsupported mixed chain 均失败关闭。手写 Metal backend 没有 Windows pixel golden，不等于 generic authored shader 或 WE parity。
+
 <a id="e-effect-chain"></a>
 ### E-EFFECT-CHAIN: ordered strict effect-chain scheduler
 
 - 实现提交：scheduler `b541867`，首条真实链 backend `809b75e`。代码：[SceneAuthoredEffectExecutionChain.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneAuthoredEffectExecutionChain.swift)、[SceneAuthoredEffectChainRenderer.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneAuthoredEffectChainRenderer.swift)、[SceneOffscreenTexturePool.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneOffscreenTexturePool.swift)、[SceneImageLayerCompositor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneImageLayerCompositor.swift)。
 - 自动门：[test_scene_authored_effect_chain_planner.py](../../../script/tests/test_scene_authored_effect_chain_planner.py)、[test_scene_offscreen_texture_pool.py](../../../script/tests/test_scene_offscreen_texture_pool.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)、[test_scene_workshop_shadow_planner.py](../../../script/tests/test_scene_workshop_shadow_planner.py)、[test_scene_workshop_shadow_rendering.py](../../../script/tests/test_scene_workshop_shadow_rendering.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)。planner/pool 门覆盖 identity、连续输入、Shadow prior-effect role 与整链预算/LRU 原子回滚；synthetic precise -> precise GPU 门覆盖实际 stage texture transfer、末段合成和失败不泄漏，独立 Shadow GPU 门覆盖该 backend 的像素公式。
 - 集成门：代码路径把真实 `3724289844:20` 的 `Blur Precise -> Shadow` 放进同一 command buffer，首段只应用一次 layer masks/UV/alpha，后段使用 neutral uniforms/empty masks；定向矩阵记录两 stage 全部成功、画面非黑且发生变化。当前没有这条真实 compositor 链的逐 stage 像素 readback，因此整链像素原子性仍由 synthetic GPU 门约束，不把真实矩阵写成 Windows golden。
-- 运行门：`.codex/scene-workshop-shadow-final13-20260723-1540/report.json` 为 13/13；当前共 1 条真实 multi-effect strict chain、10 个 strict stage、Workshop Shadow 1，graph failures 为空。`3724289844` 为 chains 1/stages 4、succeeded `[20,28,36]`、blocked/failed 为空；`2938612768` 为 chains/stages 0，证明 unsupported mixed chains 没有被部分执行。
-- 边界：只调度四个 strict material-only backends，不执行 copy/swap/compose/history/condition/function，也不预处理、翻译或编译 authored shader。下一门是 stock Opacity `MASK=0` strict profile，并让 alpha 经既有 binding program/per-surface snapshot live 消费；MASK1、Workshop variants、未知 hash/combo 与 unsupported 后续 stage 继续整链失败关闭。
+- 运行门：`.codex/scene-opacity-final13-20260723-1730/report.json` 为 13/13；当前共 1 条真实 multi-effect strict chain、14 个 strict stage、Opacity 4、Workshop Shadow 1，graph failures 为空。`3724289844` 为 chains 1/stages 4、succeeded `[20,28,36]`、blocked/failed 为空；`2938612768` 为 chains/stages 0，证明 unsupported mixed chains 没有被部分执行。
+- 边界：只调度五个 strict material-only backends，不执行 copy/swap/compose/history/condition/function，也不预处理、翻译或编译 authored shader。stock Opacity `MASK=0` direct alpha 已接入 per-surface snapshot；MASK1、SceneScript、Workshop variants、未知 hash/combo 与 unsupported 后续 stage 继续整链失败关闭。
 
 <a id="e-effect-rt"></a>
 ### E-EFFECT-RT: effect-instance render-target foundation and strict consumer
 
 - 代码：[SceneGraphRenderTargetPlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneGraphRenderTargetPlan.swift)、[SceneGraphRenderTargetTable.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneGraphRenderTargetTable.swift)、[SceneOffscreenTexturePool.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneOffscreenTexturePool.swift)、[SceneImageLayerCompositor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneImageLayerCompositor.swift)
 - 自动门：[test_scene_graph_render_target_plan.py](../../../script/tests/test_scene_graph_render_target_plan.py)、[test_scene_graph_render_target_table.py](../../../script/tests/test_scene_graph_render_target_table.py)、[test_scene_authored_effect_chain_planner.py](../../../script/tests/test_scene_authored_effect_chain_planner.py)、[test_scene_offscreen_texture_pool.py](../../../script/tests/test_scene_offscreen_texture_pool.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)；覆盖 identity/extent/lifetime、history-required、预算/别名、cache/LRU/resize/format/reset、整链 allocation transaction，以及 precise/standard/Local Contrast staged GPU pixels。
-- 运行门：旧 graph-target 正向/负向报告各 3/3；最新 `.codex/scene-workshop-shadow-final13-20260723-1540/report.json` 为 13/13，继续验证签名、BGRA/RGBA target consumer、零 authored FBO Shadow、真实整链 exact count 与失败关闭。
+- 运行门：旧 graph-target 正向/负向报告各 3/3；最新 `.codex/scene-opacity-final13-20260723-1730/report.json` 为 13/13，继续验证签名、BGRA/RGBA target consumer、零 authored FBO Shadow/Opacity、真实整链 exact count 与失败关闭。
 - 边界：resident budget 只限制 cache transaction 提交后的驻留记账，候选创建时瞬时驱动分配可更高。真实样本报告不输出 `historyRequired` 原因；该分类由 plan 单元门证明。RGBA8888 已由 stock Local Contrast strict profile 消费；Workshop Shadow 只复用 synthetic BGRA input/output，不升级其他 authored target。history、copy、swap、compose、condition/function 和 generic command scheduler 均未执行。
 
 <a id="e-video"></a>

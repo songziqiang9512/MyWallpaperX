@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-23
 >
-> Scene 实现基线：`809b75e`
+> Scene 实现基线：`b8842d8`
 >
-> 视觉运行基线：`.codex/scene-workshop-shadow-final13-20260723-1540/report.json`
+> 视觉运行基线：`.codex/scene-opacity-final13-20260723-1730/report.json`
 >
-> 最新运行门：exact Workshop Shadow 正式矩阵 13/13；四个 strict backend 合计 10 个 stage、1 条真实 multi-effect strict chain、Workshop Shadow 1、GPU failed 0、legacy blocked 2、route-only 34。`3724289844:20` 的 `Blur Precise -> Shadow` 已成为真实正门，其他 unsupported mixed chains 仍整链失败关闭；当前 Scene 全量测试共 258 项、257 项通过、1 项跳过，最新签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：exact stock Opacity 正式矩阵 13/13；五个 strict backend 合计 14 个 stage、1 条真实 multi-effect strict chain、Opacity 4、Workshop Shadow 1、GPU failed 0、legacy blocked 2、route-only 30。`2902406982:[365,372,647,664]` 是 direct-binding 正门，`2938612768:[165,454,626,629,924]` 是 SceneScript fail-closed 负门；当前 Scene 全量测试共 269 项、267 项通过、2 项跳过，最新签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -50,9 +50,9 @@
 | Utility composition | `L3` | typed composition/project/fullscreen、受限 current prefix 与 `_a` named target | nested/effectful/child、`_b` 数据流、RGB 语义 | B2/B3 |
 | 画布/cover/背景 | `L3` | cover 投影和作者声明视差门，未覆盖区域不再暴露灰底 | 多比例、多屏和 Windows 像素基准 | B5 |
 | Frame Context | `L3` | host 单一 60 Hz driver；shader/video/particle/parallax 同帧 timing | pause/resume、delta clamp、fixed step、目标 FPS、离线 adapter | B0 |
-| Dynamic target/value 与 property binding program | `L3` | 六类 value、主要 target、固定优先级；v20 继承既有 definitions/instructions/effective values，并增加 strict Local Contrast strength scalar target；mixed/invalid key 标记重建 | 当前 live consumer 为 layer alpha、solid-only color 与已通过 strict execution catalog 的 Local Contrast strength；其他 effect constant 仍重建 | **B0/B4** |
+| Dynamic target/value 与 property binding program | `L3` | 六类 value、主要 target、固定优先级；v21 保存 layer alpha/color、strict Local Contrast strength 与 exact stock Opacity alpha definitions/instructions/effective values；mixed/invalid/SceneScript key 标记重建 | 当前 live consumer 为 layer alpha、solid-only color、Local Contrast strength 与 stock Opacity alpha；其他 effect constant 仍重建 | **B0/B4** |
 | Per-surface dynamic snapshot | `L3` | host 共享 property 输入，每个 surface 独立 evaluation transaction、snapshot 与 generation；相同 payload 不增 generation | pointer/size/provider/Timeline/SceneScript 等 local producer 接入后继续扩充隔离门 | **B0/B4** |
-| Atomic live property state/routing | `L3` | layer alpha、纯 solid color 与 strict Local Contrast strength 先原子求值并直接供 renderer 消费；失败、mixed、unsupported 或无 consumer 时保留整场重建 fallback | 扩展 target 前必须补类型、eligibility、consumer、fallback 和 identity 门 | **B0/B4** |
+| Atomic live property state/routing | `L3` | layer alpha、纯 solid color、strict Local Contrast strength 与 stock Opacity alpha 先原子求值并直接供 renderer 消费；失败、mixed、SceneScript、unsupported 或无 consumer 时保留整场重建 fallback | 扩展 target 前必须补类型、eligibility、consumer、fallback 和 identity 门 | **B0/B4** |
 | Timeline runtime | `L0` | 没有 Timeline target/keyframe/mode/tangent/event IR | 保真 IR、确定性 evaluator、target 写回 | **B4** |
 | SceneScript presence | `L1` | 只保留对象是否含 inline `script` 的布尔值 | source path/inline source 与绑定 IR | **B0/B4** |
 | SceneScript source/VM/API | `L0` | 源码和绑定目标会丢失；无执行器 | source IR、安全 ECMAScript、生命周期、API/events、预算隔离 | **B4** |
@@ -66,14 +66,14 @@
 | Particle runtime | `L3` | 作者 sprite、常见组件、Sprite Trail、9 个精确 built-in key；正式可见层 `14/27` | 逐项状态见粒子专项表 | **B4** |
 | Text/Font runtime | `L3` | CoreText 静态栅格和部分 font/pointsize/padding/scale；结构门 `79/108` | 动态 text、Windows baseline/fallback、outline/shadow/effect | B4/B5 |
 | Camera Parallax | `L3` | 仅作者开启且非零 depth 时启用，含层级传播/阻断 | WE 数值 golden、camera shake/zoom、3D camera | B5 |
-| User Properties | `L3` | 独立窗口、条件、持久化、PNG/JPEG `sceneTexture`；layer alpha、纯 solid color 与 strict Local Contrast strength 已无重建 live 更新 | unsupported/mixed bindings、Texture Variants、shortcut、跨重启 UI 门；精确 census 见 runtime-input 专项表 | **B0/B1** |
+| User Properties | `L3` | 独立窗口、条件、持久化、PNG/JPEG `sceneTexture`；layer alpha、纯 solid color、strict Local Contrast strength 与 stock Opacity alpha 已无重建 live 更新 | unsupported/mixed/SceneScript bindings、Texture Variants、shortcut、跨重启 UI 门；精确 census 见 runtime-input 专项表 | **B0/B1** |
 | Typed texture provider | `L3` | layer/named/property identity、status/fallback；静态 resource generation 与 named frame epoch 已分离 | 显式 dynamic generation、metadata、cancel、system/media/video/variant、通用 material、nested/effectful/child | **B1** |
 | EffectDefinition/Material IR | `L2` | definition/pass/RT/material/slot hole/combo/constant 可保留并建图；ShaderContract 保存 source identity | 完整 schema、typed shader defaults、condition/function | B2 |
-| Bounded effect executors | `L3` | 两个严格 Blur 图、strict stock Local Contrast、三者的 ordered strict chain 与若干受限手写/单 pass executor | 其余 45 类、variant、mask、unsupported mixed chain 与 visual golden | B3/B4 |
+| Bounded effect executors | `L3` | 两个严格 Blur 图、strict stock Local Contrast、exact Workshop Shadow、exact stock Opacity、五者的 ordered strict chain 与若干受限手写 executor | 其余 45 类、variant、mask、SceneScript/unsupported mixed chain 与 visual golden | B3/B4 |
 | Current-frame capture | `L3` | bounded utility prefix capture 可执行 | 通用 capture/extent/format/mask | B2/B3 |
 | Named primary target | `L3` | bounded `_a` producer/consumer 可执行 | 通用 authored identity 和依赖环检测 | B2 |
 | Named secondary identity | `L2` | registry 区分完整 variant；无 `_b` producer/consumer flow | secondary 数据流、copy/swap/history | B2 |
-| Generic FBO command graph | `L2` | target/bind/compose/copy/swap/condition/function 可保留或 blocker；effect-scoped target/lifetime table 已由 strict Blur、stock Local Contrast 与 ordered strict chain 消费，整链 allocation/cache/LRU 事务有门 | strict material-only chain 子集为 `L3`；通用 graph 仍需 copy/swap/compose/history/condition/function、typed state 和完整生命周期 | B2 |
+| Generic FBO command graph | `L2` | target/bind/compose/copy/swap/condition/function 可保留或 blocker；effect-scoped target/lifetime table 已由五个 strict backend 与 ordered strict chain 消费，整链 allocation/cache/LRU 事务有门 | strict material-only chain 子集为 `L3`；通用 graph 仍需 copy/swap/compose/history/condition/function、typed state 和完整生命周期 | B2 |
 | History RT | `L0` | 无跨帧通用 ping-pong/history 生命周期 | read-before-write、reset、resize/switch/stop、确定性门 | B2 |
 | Authored shader path/source identity | `L1` | material path 与 ShaderContract stage/source/raw hash/canonical identity 已安全保存 | 尚无 include expansion、translation、compile 或 executor | B2 |
 | Shader source/include/annotation/declaration contract | `L1` | 完整 source、include reference、annotation raw/structured value、uniform/attribute/varying declaration 已 loss-preserving 保存并诊断 | typed default/combo consumer、include expansion、macro/permutation preprocessor、stage link/translation/compile | B2 |
@@ -157,13 +157,13 @@
 
 ### 6.2 User Properties
 
-完整控件和 target 计数见 [运行输入与属性覆盖表](runtime-input-property-coverage.md)。当前 21 样本为 424 definitions、952 bindings、195 条 conditional bindings。layer alpha 73 条已编译并由当前 image/solid/text consumer live 执行；layer color 73 条全部指向 solid，其中 25 条属于纯 color key 可 live，`3122339805:basecolor` 的 48 条因同键还含未支持目标继续重建；exact Local Contrast visibility 2 条可操作，strength 1 条已编译并由 strict consumer live 执行。剩余 53 条 unsupported bindings 仍为 script properties 43、particle override 6、Scene Bloom 2、scale 1、volume 1。
+完整控件和 target 计数见 [运行输入与属性覆盖表](runtime-input-property-coverage.md)。当前 21 样本为 424 definitions、952 bindings、195 条 conditional bindings。layer alpha 73 条已编译并由当前 image/solid/text consumer live 执行；layer color 73 条全部指向 solid，其中 25 条属于纯 color key 可 live，`3122339805:basecolor` 的 48 条因同键还含未支持目标继续重建；exact Local Contrast strength 1 条与 `2902406982` 的 stock Opacity direct binding 已由 strict consumer live 执行。SceneScript Opacity candidates 继续计入 unsupported/fail-closed，不冒充 direct binding。
 
 | 类型/行为 | 当前级别 | 当前边界或升级门 |
 |---|---|---|
-| Catalog/bindings | `L3` | 21 样本 census、format 20 binding program 与受控 fallback；53 bindings unsupported，25 color instructions 与 1 条 exact Local Contrast strength live、48 mixed-rebuild |
+| Catalog/bindings | `L3` | 21 样本 census、format 21 binding program 与受控 fallback；25 color instructions、1 条 exact Local Contrast strength 与 stock Opacity direct binding live，48 mixed-rebuild；SceneScript opacity fail closed |
 | `color` | `L3` | UI/持久化/solid-only live consumer；补颜色空间、non-solid 与全部 target |
-| `slider` | `L3` | min/max/default/step/fraction/precision UI；layer alpha 与 exact Local Contrast strength 已 live，其他 target 依 consumer 决定重建 |
+| `slider` | `L3` | min/max/default/step/fraction/precision UI；layer alpha、exact Local Contrast strength 与 exact stock Opacity alpha 已 live，其他 target 依 consumer 决定重建 |
 | `bool` | `L3` | 条件/部分 target；不得按名称自动启用 effect |
 | `combo` | `L3` | option value/条件；补全部 authored target |
 | `textinput` | `L3` | 可编辑/持久化；动态 text 仍以重建应用 |
@@ -230,15 +230,15 @@
 
 | 覆盖批次 | 开发计划映射 | 目标 | 完成判据 |
 |---|---|---|---|
-| **B0 Contract/Runtime Kernel** | `S3 第 1-4 项` | live-property 子阶段已闭合：v20 binding program、per-surface transaction、atomic state、alpha/solid-color/strict Local Contrast strength consumer 与 rebuild fallback；clock/lifecycle 其余合同继续单列 | 新 live target 必须同时具备 compiler definition/instruction、真实 consumer、原子失败与不换 surface/window 的运行门；pause/fixed-time 等按后续 B0 kernel 切片推进 |
+| **B0 Contract/Runtime Kernel** | `S3 第 1-4 项` | live-property 子阶段已闭合：v21 binding program、per-surface transaction、atomic state、alpha/solid-color/strict Local Contrast strength/stock Opacity alpha consumer 与 rebuild fallback；clock/lifecycle 其余合同继续单列 | 新 live target 必须同时具备 compiler definition/instruction、真实 consumer、原子失败与不换 surface/window 的运行门；pause/fixed-time 等按后续 B0 kernel 切片推进 |
 | **B1 Provider Core** | `S2 第 5 项 + S3` | 双代已完成；继续 identity/status/显式 generation/cancel/fallback、Texture Variants、video/system/media core、material candidate selection | 每种 provider 有 ready/pending/unavailable、metadata、fallback 和 teardown；不含 nested graph source |
-| **B2 Graph Resource Runtime** | `S2 第 1-5 项` | strict Blur、stock Local Contrast、exact Workshop `shadow_____________` 与 ordered strict effect-chain 已消费 target table；cache/resize/reset、整链原子 allocation、D7 ShaderContract IR v1、BGRA/RGBA format 与 exact shader fingerprint gate 已完成；下一步 stock Opacity `MASK=0` strict profile 与 binding program/per-surface snapshot live alpha，再接 copy/swap/compose/history、typed shader defaults/built-ins/state | read/write、RT lifecycle、slot/combo/state 和 resize/switch/stop 门 |
+| **B2 Graph Resource Runtime** | `S2 第 1-5 项` | strict Blur、stock Local Contrast、exact Workshop `shadow_____________`、exact stock Opacity 与 ordered strict effect-chain 已消费 target table；cache/resize/reset、整链原子 allocation、D7 ShaderContract IR v1、BGRA/RGBA format 与 exact shader fingerprint gate 已完成；下一步 copy/swap/compose/history、typed shader defaults/built-ins/state | read/write、RT lifecycle、slot/combo/state 和 resize/switch/stop 门 |
 | **B3 Provider-Graph Integration** | `S2 第 5-6 项` | nested/effectful/scene-background source、通用 material consumer、45 Effect 严格 profile family | B1+B2 均完成后接入；不得新增 effect-name 视觉旁路 |
 | **B4 Feature Breadth** | `S3-S4` | Timeline、SceneScript core、动态 text、cursor/audio/media、按依赖排序的 particle breadth | 每族正向、默认关闭、unsupported、determinism 和 lifecycle 门 |
 | **B5 Fidelity** | `S2-S4` 广度完成后 | 字体、视差、粒子、常用 Effect 与 WE Windows golden 对齐 | 固定输入逐像素/数值阈值、性能预算、长稳和多屏门 |
 | **Advanced** | `S5` | Puppet、2D light/HDR、3D、arbitrary custom shader、RGB、offline bake | 每个系统有完整 IR/runtime/lifecycle/product gate 后再升级 |
 
-研究可以并行，产品执行不能倒置：B0 live-property 底座、B2 ordered strict effect-chain skeleton 与 exact Workshop `shadow_____________` profile 已合龙，`3724289844:20` 已取得首条真实 `Blur Precise -> Shadow` 正门。该 profile 只按完整 definition/material/ShaderContract fingerprint 准入，不是官方 45 项 Effect、generic Shadow 或 authored shader 执行；其 `BLENDMODE=0` 也没有官方 Windows 像素 oracle。下一主线实现 stock Opacity `MASK=0` strict profile，并让 `alpha` 同批进入既有 binding program、per-surface snapshot 和真实 GPU consumer；unsupported target 继续整场重建。B1 Provider Core 同时推进，再到 B3 -> B4 -> B5。nested/effectful provider、scene background 和通用 material consumer 必须等 B1/B2 在 B3 汇合。
+研究可以并行，产品执行不能倒置：B0 live-property 底座、B2 ordered strict effect-chain skeleton、exact Workshop `shadow_____________` 与 stock Opacity `MASK=0` profile 已合龙。290 的四层 direct alpha 是正门；293 的五层 SceneScript alpha 是负门，不得误写为覆盖目标。下一主线按 21 样本结构化 census 推进高命中动态文字/Provider Core，并继续准备 copy/swap/compose/history，再到 B3 -> B4 -> B5。route-only 只作布局诊断，不是剩余 capability 总数。
 
 ## 9. 更新规则
 

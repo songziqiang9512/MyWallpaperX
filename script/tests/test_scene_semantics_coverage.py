@@ -334,7 +334,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             "Strict profiles and scheduler must not promote generic graph/shader primitives",
         )
 
-    def test_current_workshop_shadow_state_is_linked_across_active_documents(self) -> None:
+    def test_current_stock_opacity_state_is_linked_across_active_documents(self) -> None:
         implementation_documents = (
             LEDGER_PATH,
             EFFECT_COVERAGE_PATH,
@@ -361,12 +361,12 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
 
         for path, text in document_text.items():
             self.assertIn(
-                "`809b75e`",
+                "`b8842d8`",
                 text,
-                f"Current Scene document is missing the Workshop Shadow baseline: {path}",
+                f"Current Scene document is missing the stock Opacity baseline: {path}",
             )
 
-        report_path = ".codex/scene-workshop-shadow-final13-20260723-1540/report.json"
+        report_path = ".codex/scene-opacity-final13-20260723-1730/report.json"
         for path in (
             LEDGER_PATH,
             EFFECT_COVERAGE_PATH,
@@ -387,23 +387,36 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             self.assertIn(
                 report_path,
                 document_text[path],
-                f"Current Scene document is missing the final Workshop Shadow report: {path}",
+                f"Current Scene document is missing the final stock Opacity report: {path}",
             )
 
         evidence = document_text[RUNTIME_EVIDENCE_PATH]
+        self.assertIn("### E-EFFECT-OPACITY:", evidence)
         self.assertIn("### E-EFFECT-WORKSHOP-SHADOW:", evidence)
         self.assertIn("### E-EFFECT-CHAIN: ordered strict effect-chain scheduler", evidence)
-        self.assertIn("Scene tests 258 total / 257 pass / 1 skip", evidence)
+        self.assertIn("Scene tests 269 total / 267 pass / 2 skip", evidence)
         self.assertIn(
             "ordered strict effect-chain",
             document_text[DEPENDENCY_MAP_PATH],
         )
         for path, text in document_text.items():
             self.assertIn(
-                "stock Opacity",
+                "Opacity",
                 text,
-                f"Current Scene document is missing the next strict-profile gate: {path}",
+                f"Current Scene document is missing the stock Opacity state: {path}",
             )
+
+        current_status = "\n".join(document_text.values())
+        for fact in (
+            "interpretation v21",
+            "五个 strict backend",
+            "14 stage",
+            "route-only 30",
+            "[365,372,647,664]",
+            "[165,454,626,629,924]",
+            "SceneScript fail-closed",
+        ):
+            self.assertIn(fact, current_status, f"Missing current Opacity fact: {fact}")
 
         for path in (
             DEVELOPMENT_PLAN_PATH,
@@ -427,6 +440,11 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             "下一主切片是 `3724289844",
             "当前先实现 `3724289844",
             "当前目标是取得首条真实 strict chain",
+            "下一切片实现 stock Opacity",
+            "下一步实现 stock Opacity",
+            "下一主线为 exact stock Opacity",
+            "下一门为 stock Opacity",
+            "按 route-only 组成",
         )
         for path, text in document_text.items():
             for stale_route in stale_current_routes:

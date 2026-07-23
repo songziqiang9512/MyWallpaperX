@@ -6,13 +6,13 @@
 >
 > 资料入口：[资料来源与证据索引](source-index.md)、[官方页面全目录](official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[总覆盖台账](coverage-ledger.md)。
 >
-> Scene 实现基线：`809b75e`；当前正式门：`.codex/scene-workshop-shadow-final13-20260723-1540/report.json`（13/13、4 类 strict backend、10 stage、1 条真实 chain、Workshop Shadow 1、failed 0、blocked 2、route-only 34；相关测试 258 collected / 257 passed / 1 skipped）。
+> Scene 实现基线：`b8842d8`；当前正式门：`.codex/scene-opacity-final13-20260723-1730/report.json`（13/13、5 类 strict backend、14 stage、1 条真实 chain、Opacity 4、Workshop Shadow 1、failed 0、blocked 2、route-only 30；相关测试 269 total / 267 passed / 2 skipped）。
 
 ## 1. 当前结论与评级口径
 
 SceneScript 当前仍是 **L0 runtime**。项目只能发现独立 `.js` 文件和 inline `script` 的存在；inline 内容进入 `SceneDocument` 时被压缩为 `hasInlineScript: Bool`，粒子动态 wrapper 也只保留 `hasScript: Bool`。目前没有可执行源码 IR、property-script 绑定 IR、ECMAScript VM、host object bridge、事件队列、timer scheduler 或脚本输出消费者。
 
-`SceneDynamicSnapshot` 已预留 `.sceneScript` 优先级和 `scriptInstanceProperty` target；v20 也已把 host-shared inputs、per-surface evaluation/final snapshot、binding program、transaction 与 generation 用在 layer alpha、纯 solid color 和 exact Local Contrast strength。ordered strict chain 会消费同一 surface snapshot；`809b75e` 的 exact Workshop Shadow 只增加静态 backend，没有新增 live target。项目仍没有 SceneScript source IR、producer、VM、API bridge、instance state 或输出 consumer，因此这些都不是 SceneScript 执行证据。粗粒度总表中的 “Script presence L1” 只表示发现能力，本表对每一项 **API 行为** 均给单值 `L0`；下一 graph 切片是 exact stock Opacity `MASK=0` + live `alpha`，同样不改变本页 `L0` 结论。
+`SceneDynamicSnapshot` 已预留 `.sceneScript` 优先级和 `scriptInstanceProperty` target；v21 已把 host-shared inputs、per-surface evaluation/final snapshot、binding program、transaction 与 generation 用在 layer alpha、纯 solid color、exact Local Contrast strength 和 exact stock Opacity direct alpha。项目仍没有 SceneScript source IR、producer、VM、API bridge、instance state 或输出 consumer，因此这些都不是 SceneScript 执行证据。`2938612768:[165,454,626,629,924]` 的 Opacity 值来自 SceneScript，当前 strict planner 必须拒绝；只有 `2902406982:[365,372,647,664]` 的 direct binding 是正门。粗粒度总表中的 “Script presence L1” 只表示发现能力，本表对每一项 **API 行为** 均给单值 `L0`。
 
 等级沿用总覆盖台账：
 

@@ -4,9 +4,9 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`809b75e`
+> 实现基线：`b8842d8`
 >
-> 当前正式门：`.codex/scene-workshop-shadow-final13-20260723-1540/report.json`（13/13、4 类 strict backend、10 stage、1 条真实 chain、Workshop Shadow 1、failed 0、blocked 2、route-only 34；相关测试 258 collected / 257 passed / 1 skipped）。下一主线为 exact stock Opacity `MASK=0` strict profile + binding program/per-surface snapshot live `alpha`；本表高级对象仍按各自前置单独升级。
+> 当前正式门：`.codex/scene-opacity-final13-20260723-1730/report.json`（13/13、5 类 strict backend、14 stage、1 条真实 chain、Opacity 4、Workshop Shadow 1、failed 0、blocked 2、route-only 30；相关测试 269 total / 267 passed / 2 skipped）。exact stock Opacity direct alpha 已闭环；本表高级对象仍按各自前置单独升级。
 
 本表覆盖基础对象之外容易被笼统描述掩盖的能力：utility composition、sound、Puppet Warp、3D model、lighting/HDR、性能策略、RGB 和离线烘焙。等级口径见 [`coverage-ledger.md`](coverage-ledger.md)，逐页官方归属见 [`official-page-map.md`](official-page-map.md)，16 组导航见 [`official-page-crosswalk.md`](official-page-crosswalk.md)。
 
@@ -178,7 +178,7 @@ WaifuX 的可借鉴点是实时和 bake 共用核心，不是复制其实现。B
 
 ## 11. 开发顺序
 
-1. B0 live target program 与三类真实 consumer 已完成；`809b75e` 已闭合 `3724289844:20` exact Workshop Shadow，但没有新增 live target，也不升级 lighting。下一切片以 stock Opacity `MASK=0` strict profile 接入第四类 effect-constant consumer `alpha`；Timeline/SceneScript source IR 和其他 target 继续复用同一 per-surface transaction/snapshot。
+1. B0 live target program 与四类真实 consumer 已完成；`b8842d8` 已接入 stock Opacity direct alpha，但不升级 SceneScript、lighting 或高级对象。Timeline/SceneScript source IR 和其他 target 继续复用同一 per-surface transaction/snapshot。
 2. 随后闭合 2D copy/swap/compose/history、particle 和高命中 effect，使 Scene Lite 先可用。
 3. 再做 Puppet 的 mesh/bone/animation 最小闭环，然后 lighting/HDR；每项必须沿现有 author-enable 和 fail-closed 规则。
 4. 3D、自定义 shader、RGB 和 offline encoder 后置，但基础时钟、target、provider 和 graph 不能封死这些输入。
