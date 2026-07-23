@@ -182,7 +182,7 @@ Motion Blur 等定义含显式 copy，用来复制 source 像素到 target；省
 
 资源注册表应以 `wallpaper + screen + object + effect instance + RT name` 作为身份基础。是否跨帧保留必须由 read-before-write、copy/swap、function/reset 和生命周期数据流判定，不能只看 `unique`。最终判为 persistent 的资源在 resize、壁纸切换、seek、停止和设备丢失时必须清理或重建。
 
-MyWallpaperX v18 继承了 v17 的逐帧 registry：实例随当前 renderer/screen 隔离，帧内 identity 区分 layer source、完整 named layer target（包含 variant）、user property 与 system key；entry 记录 ready/pending/unavailable，并已把静态 resource generation 与 named frame epoch 分离。resolver 按作者候选顺序选首个 ready provider，下一帧未发布的 named target 不会残留，A/B variant 也不会串用。当前另有一个受限 file-backed property source：授权 PNG/JPEG 可供严格静态 image-blend consumer 使用，并在缺失或失败时回退作者资源；它还不是通用 file source。`73f415b` 已让 precise/standard strict Blur 消费独立于 named registry 的 effect-instance logical target/lifetime table；pool 以完整 effect identity、plan 与 extent 缓存，跨 effect 隔离，resize 候选失败时保留旧 cache。history、跨帧 persistent、system/media/video/Texture Variants、通用 material consumer 和 copy/swap 生命周期仍未实现。
+MyWallpaperX v19 继承了 v17 的逐帧 registry 和 v18 binding program：实例随当前 renderer/screen 隔离，帧内 identity 区分 layer source、完整 named layer target（包含 variant）、user property 与 system key；entry 记录 ready/pending/unavailable，并已把静态 resource generation 与 named frame epoch 分离。resolver 按作者候选顺序选首个 ready provider，下一帧未发布的 named target 不会残留，A/B variant 也不会串用。当前另有一个受限 file-backed property source：授权 PNG/JPEG 可供严格静态 image-blend consumer 使用，并在缺失或失败时回退作者资源；它还不是通用 file source。`73f415b` 已让 precise/standard strict Blur 消费独立于 named registry 的 effect-instance logical target/lifetime table；pool 以完整 effect identity、plan 与 extent 缓存，跨 effect 隔离，resize 候选失败时保留旧 cache。history、跨帧 persistent、system/media/video/Texture Variants、通用 material consumer 和 copy/swap 生命周期仍未实现。
 
 ## 7. Material definition
 
@@ -213,7 +213,7 @@ MaterialPass
 
 `Almamu/linux-wallpaperengine` 采用“shader default -> material -> effect override -> explicit bind”的优先级，这是一条有用的 D 级佐证，但仍需用合法官方 assets/真实样本逐类验证后才能固化为 MyWallpaperX 合同。
 
-MyWallpaperX 当前 material resolver 为每个 sparse slot 按低到高优先级保留候选，现有顺序是 material asset -> material usertexture -> instance asset -> instance usertexture -> explicit graph bind；现有 strict graph backend 取末项作为最高优先级 source。frame registry 使用的是另一份显式“首选 -> fallback”selection，并选择其中首个 ready provider；目前尚无通用 material candidate -> frame selection 桥。这是由现有 v17 数据模型和样本验证的 E 级实现事实，不是官方公开的通用优先级；shader annotation/default 尚未进入 resolver，扩 backend 前仍需补齐。
+MyWallpaperX 当前 material resolver 为每个 sparse slot 按低到高优先级保留候选，现有顺序是 material asset -> material usertexture -> instance asset -> instance usertexture -> explicit graph bind；现有 strict graph backend 取末项作为最高优先级 source。frame registry 使用的是另一份显式“首选 -> fallback”selection，并选择其中首个 ready provider；目前尚无通用 material candidate -> frame selection 桥。这是由现有 v17 数据模型和样本验证的 E 级实现事实，不是官方公开的通用优先级。v19 ShaderContract 已保留 annotation/default raw/structured value，但 typed schema 与 resolver consumer 尚未实现，扩 generic backend 前仍需补齐。
 
 ### 7.2 Render state
 
@@ -230,6 +230,8 @@ blend、depth 和 cull 属于 material/pass 语义。未知 blend mode 不能无
 - include headers 与 blending helpers；
 - vertex attributes、varyings 和 fragment output；
 - 每帧 built-in uniforms。
+
+`8474ace` 已将这条链路的第一层合同写入 interpretation v19：对 authored vertex/fragment stage 保存完整 UTF-8 source、raw SHA-256、相对路径、include reference/line、annotation raw/structured value/marker/line、uniform/attribute/varying declaration、diagnostic 与 canonical SHA；精确 host built-in identity 使用无 stage 合同。路径穿越、shader root/stage/include symlink escape、无效 UTF-8、缺失 stage、畸形 annotation 和重复 identity 均 fail closed。该实现是 line-based、loss-preserving 的 L1 source contract，不是完整 AST，也没有 include expansion、macro/permutation preprocessing、translation、stage link、compile、typed default consumption、uniform upload 或 GPU execution。
 
 ### 8.1 关键 built-in uniforms
 
@@ -288,11 +290,11 @@ present or read back
 
 | 层级 | 当前状态 | 下一合同 |
 |---|---|---|
-| Scene/object IR | format 18 继承 v17 provider metadata 与 v16 authored graph/canonical SHA，并增加 property binding program/effective values | 保持 raw/typed 双层合同，不把未知字段静默解释为支持 |
-| dependency | graph 已结构化区分固定 `previous`、effect-scoped RT 和 copy/swap；strict Blur 已消费 effect target table，并闭合 effect/plan/extent cache、跨 effect 隔离、resize 原子替换与 reset；bounded frame registry 按另一命名空间处理 named target、property-authored fallback 和受限 PNG/JPEG property source | 先建立 ShaderContract IR，再接显式 dynamic generation、system/media/video/variant/effectful/nested source及 generic compose/history scheduler |
-| material/shader | sparse-slot candidate resolver、strict 2-pass precise 与 stock standard Blur default-profile 4-pass backend 已落地；运行时整体仍以手写 MSL 近似为主 | 补 shader defaults、通用 provider consumer、nested target 和更多 pass；非默认 standard 变体按独立证据扩展 |
+| Scene/object IR | format 19 继承 v18 binding program/effective values、v17 provider metadata 与 v16 authored graph/canonical SHA，并增加 ShaderContract | 保持 raw/typed 双层合同，不把未知字段静默解释为支持 |
+| dependency | graph 已结构化区分固定 `previous`、effect-scoped RT 和 copy/swap；strict Blur 已消费 effect target table，并闭合 effect/plan/extent cache、跨 effect 隔离、resize 原子替换与 reset；bounded frame registry 按另一命名空间处理 named target、property-authored fallback 和受限 PNG/JPEG property source | ShaderContract v1 已完成；下一步 strict Local Contrast，再接显式 dynamic generation、system/media/video/variant/effectful/nested source及 generic compose/history scheduler |
+| material/shader | sparse-slot candidate resolver、ShaderContract v1、strict 2-pass precise 与 stock standard Blur default-profile 4-pass backend已落地；运行时整体仍以手写 MSL 近似为主 | 补 typed shader defaults、preprocessor/translation/compile、通用 provider consumer、nested target 和更多 pass；非默认变体按独立证据扩展 |
 | local deformation | Foliage/Water/Shake 等有不同程度近似 | 以 [Effects 全集](effects-reference.md) 的输入、空间和 mask 合同替换 |
-| live values | format 18 binding program、per-surface snapshot 与原子 state 已由 layer alpha/solid color consumer 执行；其他 target 仍重建，Timeline/SceneScript 未接入 | 新 target 同批补 compiler/consumer/fallback/identity 门，再接 Timeline/SceneScript/audio/media |
+| live values | format 19 继承 v18 binding program；per-surface snapshot 与原子 state 已由 layer alpha/solid color consumer 执行，其他 target 仍重建，Timeline/SceneScript 未接入 | 新 target 同批补 compiler/consumer/fallback/identity 门，再接 Timeline/SceneScript/audio/media |
 
 ## 12. 验收要求
 
@@ -307,3 +309,4 @@ present or read back
 7. 未声明/默认关闭 effect 不创建 pipeline 或 RT；
 8. unsupported pass 保持可诊断 passthrough，不改变后续 effect 顺序；
 9. 同一输入、时间、随机种子下，实时捕获和离线 readback 结果一致。
+10. Shader source/raw hash/canonical identity 稳定；路径逃逸、无效 UTF-8、畸形 annotation、缺 stage 和重复 identity 明确失败，且 source contract 不被误报为 compiled/executed。

@@ -40,7 +40,7 @@ D3 + D4 + D5 + D6 + D7 + D8
 |---|---|---|
 | project/scene/PKG/TEX/resource ingest | 常见子集 `L3` | version、case、duplicate、symlink、损坏和 VFS golden |
 | object/content/effect/material/particle/script source preservation | 混合 `L0-L3` | raw + typed round-trip；未知字段可诊断，不静默丢失 |
-| cache wire schema | interpretation v18；持久化 binding program 与 effective property values | 每次 schema 变化显式 bump、旧缓存拒绝或迁移 |
+| cache wire schema | interpretation v19；继承 v18 binding program/effective values，并持久化 ShaderContract | 每次 schema 变化显式 bump、旧缓存拒绝或迁移 |
 
 <a id="d1"></a>
 ### D1 Stable identity and dependency graph
@@ -66,7 +66,7 @@ D3 + D4 + D5 + D6 + D7 + D8
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| value types and target definitions | 六类 value 与主要 target 已进入 format 18 wire schema | 新类型继续执行 type/finite/default validation，纹理仍走 provider |
+| value types and target definitions | 六类 value 与主要 target由 v19 继承 v18 wire schema | 新类型继续执行 type/finite/default validation，纹理仍走 provider |
 | source priority | `authored -> property -> Timeline -> SceneScript` 已定义；property producer 已执行 | Timeline/SceneScript 接入同一 resolver，不在 renderer 内重复求值 |
 | binding program | alpha/color property 编译、验证和持久化已完成；mixed/invalid key 标记 rebuild | 新 live target 同时增加 compiler mapping、稳定 target identity 和真实 consumer |
 | target scope and invalidation domain | alpha 与 solid color 为 value-only live；mixed/unsupported/no-consumer 统一 rebuild | geometry/text/topology/provider/simulation target 逐类登记失效域 |
@@ -118,7 +118,7 @@ B0 live-property 合龙由 `00c5e9c` 到 `dbf2c82` 的主链与 `95e0d58` 的 so
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
 | material pass/slot hole/combo/constant/render state | IR `L2`、Blur profile 子集 `L3` | annotation defaults、variant key、typed uniform layout |
-| shader source/include/preprocessor/stage I/O | path identity `L1`，contract `L0` | safe source loader、AST/translation or explicit profile registry |
+| shader source/include/annotation/declaration | `8474ace` 已以 ShaderContract v1 达到 `L1`：安全保存完整 source/raw hash、stage、include reference、annotation、uniform/attribute/varying declaration、diagnostic 与 canonical identity | typed annotation/default schema、include expansion、macro/permutation preprocessor、stage link/translation/compile 与 executor |
 | built-in uniforms | time/pointer/matrix 子集 | per-slot resolution、audio、effect/local matrices、color/alpha contract |
 
 <a id="d8"></a>
@@ -181,7 +181,7 @@ F0 完成后才开始下一轮代码。F1/F2 优先级由公共依赖决定，�
 
 ## 6. 下次会话的决策顺序
 
-1. B0 live-property 与 B2 strict Blur target-table 子集已合龙；当前下一切片是 D7 ShaderContract IR v1，先安全保留 source/include/annotation/stage declaration 与 canonical identity，不接外部编译器或新增 GPU 旁路。之后再从 B1 Provider Core 与 B2 generic scheduler 中选择最低依赖切片。
+1. B0 live-property、B2 strict Blur target-table 子集与 D7 ShaderContract IR v1 已合龙；当前下一切片是 stock Local Contrast 的严格默认单效果 profile，以 `2902406982` layers `167/177` 为正向门，`2938612768` 的 mixed-effect instances 为 fail-closed 负向门。随后从 B1 Provider Core 与 B2 generic scheduler 中选择最低依赖切片；ShaderContract 的 preprocessor/translation/compile/executor 仍按 D7 后续门推进。
 2. 打开对应专项表，确认作者启用、输入、当前等级、未知项、依赖和验收门。
 3. 查 [运行证据索引](runtime-evidence-index.md)，确认现有正反例，不重复制造无信息矩阵。
 4. 只实现一个可独立验证的公共合同；涉及 live property 时，compiler target、真实 consumer、fallback 和 surface/window identity 必须同批验收，目标样本和相关样本通过后单独提交。

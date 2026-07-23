@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-23
 >
-> Scene 实现基线：`73f415b`
+> Scene 实现基线：`8474ace`
 >
-> 视觉运行基线：`.codex/scene-live-solid-color-final13-20260723-1015/report.json`
+> 视觉运行基线：`.codex/scene-shader-contract-final13-v2-20260723/report.json`
 >
-> 最新运行门：graph-target 正向/负向定向报告各 3/3；strict Blur 六个既有 GPU layer 全部成功、0 failed，history/condition/function 继续 fail closed。当前 Scene 全量测试共运行 218 项、217 项通过、1 项跳过，最新签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：ShaderContract 正式 13 样本 13/13，共 173 contracts、286 stages、0 diagnostics；graph-target 正向/负向定向报告各 3/3，strict Blur 六个既有 GPU layer 全部成功、0 failed，history/condition/function 继续 fail closed。当前 Scene 全量测试共运行 223 项、222 项通过、1 项跳过，最新签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -50,7 +50,7 @@
 | Utility composition | `L3` | typed composition/project/fullscreen、受限 current prefix 与 `_a` named target | nested/effectful/child、`_b` 数据流、RGB 语义 | B2/B3 |
 | 画布/cover/背景 | `L3` | cover 投影和作者声明视差门，未覆盖区域不再暴露灰底 | 多比例、多屏和 Windows 像素基准 | B5 |
 | Frame Context | `L3` | host 单一 60 Hz driver；shader/video/particle/parallax 同帧 timing | pause/resume、delta clamp、fixed step、目标 FPS、离线 adapter | B0 |
-| Dynamic target/value 与 property binding program | `L3` | 六类 value、主要 target、固定优先级；format 18 持久化 definitions/instructions/effective values，alpha/color 可编译，mixed/invalid key 标记重建 | 当前 live consumer 为 layer alpha 与 solid-only color；新 target 必须同时注册 compiler target 与 consumer | **B0/B4** |
+| Dynamic target/value 与 property binding program | `L3` | 六类 value、主要 target、固定优先级；v19 继承 v18 持久化的 definitions/instructions/effective values，alpha/color 可编译，mixed/invalid key 标记重建 | 当前 live consumer 为 layer alpha 与 solid-only color；新 target 必须同时注册 compiler target 与 consumer | **B0/B4** |
 | Per-surface dynamic snapshot | `L3` | host 共享 property 输入，每个 surface 独立 evaluation transaction、snapshot 与 generation；相同 payload 不增 generation | pointer/size/provider/Timeline/SceneScript 等 local producer 接入后继续扩充隔离门 | **B0/B4** |
 | Atomic live property state/routing | `L3` | layer alpha 与纯 solid color 先原子求值并直接供 renderer 消费；失败、mixed、unsupported 或无 consumer 时保留整场重建 fallback | 扩展 target 前必须补类型、eligibility、consumer、fallback 和 identity 门 | **B0/B4** |
 | Timeline runtime | `L0` | 没有 Timeline target/keyframe/mode/tangent/event IR | 保真 IR、确定性 evaluator、target 写回 | **B4** |
@@ -68,15 +68,15 @@
 | Camera Parallax | `L3` | 仅作者开启且非零 depth 时启用，含层级传播/阻断 | WE 数值 golden、camera shake/zoom、3D camera | B5 |
 | User Properties | `L3` | 独立窗口、条件、持久化、PNG/JPEG `sceneTexture`；layer alpha 与纯 solid color 已无重建 live 更新 | 53 unsupported bindings、48 条归属 mixed key 的 color 指令、Texture Variants、shortcut、跨重启 UI 门 | **B0/B1** |
 | Typed texture provider | `L3` | layer/named/property identity、status/fallback；静态 resource generation 与 named frame epoch 已分离 | 显式 dynamic generation、metadata、cancel、system/media/video/variant、通用 material、nested/effectful/child | **B1** |
-| EffectDefinition/Material IR | `L2` | definition/pass/RT/material/slot hole/combo/constant 可保留并建图 | 完整 schema、shader content、condition/function | B2 |
+| EffectDefinition/Material IR | `L2` | definition/pass/RT/material/slot hole/combo/constant 可保留并建图；ShaderContract 保存 source identity | 完整 schema、typed shader defaults、condition/function | B2 |
 | Bounded effect executors | `L3` | 两个严格 Blur 图和若干受限手写/单 pass executor | 45 类逐项 executor、variant、mask、visual golden | B3/B4 |
 | Current-frame capture | `L3` | bounded utility prefix capture 可执行 | 通用 capture/extent/format/mask | B2/B3 |
 | Named primary target | `L3` | bounded `_a` producer/consumer 可执行 | 通用 authored identity 和依赖环检测 | B2 |
 | Named secondary identity | `L2` | registry 区分完整 variant；无 `_b` producer/consumer flow | secondary 数据流、copy/swap/history | B2 |
 | Generic FBO command graph | `L2` | target/bind/compose/copy/swap/condition/function 可保留或 blocker；effect-scoped target/lifetime table 已由 precise/standard strict Blur 消费，具备 cache/resize/reset 门 | strict Blur 子集为 `L3`，不能外推；仍需 generic scheduler、copy/swap/compose/history 与完整生命周期 | B2 |
 | History RT | `L0` | 无跨帧通用 ping-pong/history 生命周期 | read-before-write、reset、resize/switch/stop、确定性门 | B2 |
-| Authored shader path identity | `L1` | material 保存 shader path，resource index 可发现 source/blob | 不读取 source AST，不构成 ShaderContract | B2 |
-| Shader source/annotation/preprocessor contract | `L0` | 无 source loader、annotation AST、include 或 macro frontend | stock profile 的受控合同先行 | B2 |
+| Authored shader path/source identity | `L1` | material path 与 ShaderContract stage/source/raw hash/canonical identity 已安全保存 | 尚无 include expansion、translation、compile 或 executor | B2 |
+| Shader source/include/annotation/declaration contract | `L1` | 完整 source、include reference、annotation raw/structured value、uniform/attribute/varying declaration 已 loss-preserving 保存并诊断 | typed default/combo consumer、include expansion、macro/permutation preprocessor、stage link/translation/compile | B2 |
 | Arbitrary custom shader execution | `L0` | 自有受限 Metal shader 不等于作者 shader | 通用受控翻译/映射、安全与产品门 | P3 |
 | Puppet asset identity | `L1` | 可发现部分 model/material/puppet 资源 | mesh/bone/weight/animation schema | P2 |
 | Puppet runtime | `L0` | 无 mesh/bone/physics executor | animation、constraint/IK、spring/rope/wind/events | P2 |
@@ -219,8 +219,8 @@
 | 3D model/node/material | `L0` | asset loader、scene graph、camera、PBR material |
 | Skeleton/attachment/animation | `L0` | animation evaluator、skin/attachment 生命周期 |
 | 3D physics | `L0` | fixed timestep、collision、determinism |
-| Custom shader reference/path identity | `L1` | material path/source/blob 可发现；没有 source AST |
-| ShaderContract/source AST | `L0` | 需 source/include/annotation/preprocessor/stage I/O schema |
+| Custom shader reference/path/source identity | `L1` | material path 与 authored stage source/raw hash/canonical identity 已保存；不代表执行 |
+| ShaderContract/source contract | `L1` | source/include/annotation/declaration/stage 已保留；仍需 typed AST、preprocessor、translation/compile 与 executor |
 | Custom shader execution | `L0` | 需受控编译/映射、uniform/slot/render-state 与安全产品合同 |
 | RGB device | `L0` | macOS 产品策略、授权、设备 adapter |
 | Debug PNG readback | `L2` | 可生成 benchmark 截图证据；不得标成 offline bake |
@@ -230,9 +230,9 @@
 
 | 覆盖批次 | 开发计划映射 | 目标 | 完成判据 |
 |---|---|---|---|
-| **B0 Contract/Runtime Kernel** | `S3 第 1-4 项` | live-property 子阶段已闭合：format 18 binding program、per-surface transaction、atomic state、alpha/solid-color consumer 与 rebuild fallback；clock/lifecycle 其余合同继续单列 | 新 live target 必须同时具备 compiler definition/instruction、真实 consumer、原子失败与不换 surface/window 的运行门；pause/fixed-time 等按后续 B0 kernel 切片推进 |
+| **B0 Contract/Runtime Kernel** | `S3 第 1-4 项` | live-property 子阶段已闭合：v19 继承 v18 binding program、per-surface transaction、atomic state、alpha/solid-color consumer 与 rebuild fallback；clock/lifecycle 其余合同继续单列 | 新 live target 必须同时具备 compiler definition/instruction、真实 consumer、原子失败与不换 surface/window 的运行门；pause/fixed-time 等按后续 B0 kernel 切片推进 |
 | **B1 Provider Core** | `S2 第 5 项 + S3` | 双代已完成；继续 identity/status/显式 generation/cancel/fallback、Texture Variants、video/system/media core、material candidate selection | 每种 provider 有 ready/pending/unavailable、metadata、fallback 和 teardown；不含 nested graph source |
-| **B2 Graph Resource Runtime** | `S2 第 1-5 项` | strict Blur target table consumer、cache/resize/reset 已完成；下一步先建立 D7 ShaderContract IR，再补 scheduler、copy/swap/compose/history、stock built-ins/state | read/write、RT lifecycle、slot/combo/state 和 resize/switch/stop 门 |
+| **B2 Graph Resource Runtime** | `S2 第 1-5 项` | strict Blur target table consumer、cache/resize/reset 与 D7 ShaderContract IR v1 已完成；下一步 strict Local Contrast，再补 generic scheduler、copy/swap/compose/history、typed shader defaults/built-ins/state | read/write、RT lifecycle、slot/combo/state 和 resize/switch/stop 门 |
 | **B3 Provider-Graph Integration** | `S2 第 5-6 项` | nested/effectful/scene-background source、通用 material consumer、45 Effect 严格 profile family | B1+B2 均完成后接入；不得新增 effect-name 视觉旁路 |
 | **B4 Feature Breadth** | `S3-S4` | Timeline、SceneScript core、动态 text、cursor/audio/media、按依赖排序的 particle breadth | 每族正向、默认关闭、unsupported、determinism 和 lifecycle 门 |
 | **B5 Fidelity** | `S2-S4` 广度完成后 | 字体、视差、粒子、常用 Effect 与 WE Windows golden 对齐 | 固定输入逐像素/数值阈值、性能预算、长稳和多屏门 |

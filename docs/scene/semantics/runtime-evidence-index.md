@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`73f415b`
+> 实现基线：`8474ace`
 
 本页给覆盖表中的 `L3` 子集提供可追溯证据包。每个证据包至少包含代码、自动测试和真实运行或 GPU 证据；缺少任一项的能力只能标 `L0-L2`，或在专项表中明确写 `gate incomplete`。`.codex` 报告是本机隔离运行产物，不提交 Git；报告路径、App 身份和摘要写入现役文档，避免将其误当源码 fixture。
 
@@ -12,12 +12,13 @@
 
 | 项目 | 当前证据 |
 |---|---|
-| 视觉矩阵 | 正式 13 样本 `.codex/scene-live-solid-color-final13-20260723-1015/report.json` 为 13/13；最新 graph-target 正向/负向报告各 3/3，见 E-EFFECT-RT；均不证明 WE parity |
-| 最新合同门 | Scene tests 218 total / 217 pass / 1 skip |
+| 视觉矩阵 | 正式 13 样本 `.codex/scene-shader-contract-final13-v2-20260723/report.json` 为 13/13；最新 graph-target 正向/负向报告各 3/3，见 E-EFFECT-RT；均不证明 WE parity |
+| 最新合同门 | Scene tests 223 total / 222 pass / 1 skip |
+| ShaderContract | 173 contracts = 143 authored + 30 host built-in；286 stages、0 diagnostics；source/IR include 155、annotation 1523、declaration 2660，见 E-SHADER-CONTRACT |
 | Live property | alpha 两项与 solid color 两项均 accepted、surface/window identity 不变；报告见 E-LIVE-PROPERTY |
 | Provider 双代 | `2938612768` static image blend 5/5；`2902406982` named capture 6/6、binding 7/7；报告见 E-PROVIDER |
-| 签名 App | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `944054ba89d01c67be2901b971091729a4b8dcf1` |
-| executable SHA-256 | `d5b0f5101656a921530c8acca5abf2e35748a5726cb3492f9767c6c6adf38be2` |
+| 签名 App | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `033bc40a5ee8dbf0d6bd0e478e9a8c5a875b90b4` |
+| executable SHA-256 | `2b6a8d6ee9863de41fd91792f682c2ff0c49ecf1dd15a9909d3d6e924f76bab8` |
 | 样本边界 | 真实 Workshop root 只读；报告均来自隔离 sample root 与临时 HOME |
 
 ## 2. 证据包
@@ -101,6 +102,15 @@
 - 代码：[SceneEffectDefinition.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneEffectDefinition.swift)、[SceneAuthoredEffectRenderPlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneAuthoredEffectRenderPlan.swift)、[SceneAuthoredEffectRenderPlanner.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneAuthoredEffectRenderPlanner.swift)
 - 自动门：[test_scene_effect_definition.py](../../../script/tests/test_scene_effect_definition.py)、[test_scene_effect_render_graph.py](../../../script/tests/test_scene_effect_render_graph.py)、[test_scene_authored_effect_execution.py](../../../script/tests/test_scene_authored_effect_execution.py)
 - 运行门：`.codex/scene-effect-ir-formal13-final-20260723/report.json` 与 `.codex/scene-effect-graph-canonical-final-20260723/report.json`；只证明结构和 canonical identity，不证明 GPU execution。
+
+<a id="e-shader-contract"></a>
+### E-SHADER-CONTRACT: Shader source contract IR v1
+
+- 代码：[SceneShaderContract.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneShaderContract.swift)、[SceneShaderContractLoader.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneShaderContractLoader.swift)、[SceneAssetCatalog.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneAssetCatalog.swift)、[SceneInterpretationFile.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneInterpretationFile.swift)
+- 自动门：[test_scene_shader_contract.py](../../../script/tests/test_scene_shader_contract.py)、[test_scene_interpretation_file.py](../../../script/tests/test_scene_interpretation_file.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)。loader 门覆盖 absolute/`..`/root-stage-include symlink escape、invalid UTF-8、missing/unreadable stage、malformed annotation 和 duplicate identity；benchmark 门覆盖 wire 必填字段、source/raw hash、stage kind/path/nested arrays、diagnostic schema、host built-in 空 stage 与 canonical SHA。
+- 运行门：`.codex/scene-shader-contract-final13-v2-20260723/report.json` 为 13/13；173 contracts（143 authored + 30 host built-in）、286 stages、0 diagnostics。独立 source/IR 复核中 include、annotation、declaration 数完全一致，分别为 `155/1523/2660`。
+- 构建门：Scene tests 223 total / 222 pass / 1 skip；签名 App `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `033bc40a5ee8dbf0d6bd0e478e9a8c5a875b90b4`，executable SHA-256 `2b6a8d6ee9863de41fd91792f682c2ff0c49ecf1dd15a9909d3d6e924f76bab8`。
+- 边界：本证据只把 source/include/annotation/declaration 升为 L1 recognized/preserved；没有 include expansion、macro/permutation preprocessing、translation、stage link、compile、typed uniform/default consumption、uniform upload 或 authored shader GPU execution。
 
 <a id="e-effect-inline"></a>
 ### E-EFFECT-INLINE: 受限手写 Effect profiles
