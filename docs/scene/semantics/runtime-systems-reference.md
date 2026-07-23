@@ -6,26 +6,29 @@
 
 ## 1. 统一 Frame Context
 
-所有动态能力应消费同一帧快照，避免每个 effect/particle/script 自己读系统时间和输入：
+所有动态能力应消费同一 host frame 的输入，但最终求值结果必须按 surface 隔离，避免每个 effect/particle/script 自己读系统时间，也避免不同屏幕共用 pointer、resolution 或脚本状态：
 
 ```text
-SceneFrameContext
-  frameIndex
-  runtime / daytime / frameTime
-  canvasSize / screenSize / texelSize
-  pointerCurrent / pointerPrevious / buttons
-  cameraParallaxPosition
+HostFrameInputs
+  frameIndex / runtime / daytime / frameTime
   audio16 / audio32 / audio64 (left/right/average)
   mediaSnapshot / thumbnail generation
-  userPropertyGeneration
-  deterministicRandomSeed
+  userPropertyGeneration / deterministicRandomSeed
+    -> SurfaceFrameContext
+       canvasSize / screenSize / texelSize
+       pointerCurrent / pointerPrevious / buttons
+       cameraParallaxPosition / matrices / surface providers
+         -> Surface EvaluationTransaction
+         -> immutable SurfaceDynamicSnapshot
 ```
 
 实时播放使用 display timing 和真实 provider；离线烘焙使用固定 timestep、可重放 provider 与固定 seed。二者必须走同一 simulation/update/render 入口。
 
 MyWallpaperX 当前已落地第一阶段 `SceneFrameTiming` / `SceneFrameContext`：桌面宿主每帧只采样一次 monotonic host time 与 wall date，并把相同的 frame index、scene time 和 frame delta 广播给所有屏幕；shader time、视频 host time、粒子推进和相机视差平滑已消费该快照。各屏仍保留自己的 viewport、pointer 和 particle simulation。
 
-这只是统一输入底座，不等于完整时钟合同。pause/resume、长帧 delta clamp、dropped-time 诊断、固定 timestep、buttons、audio/media/property generation、deterministic seed 和离线 adapter 尚未接入；Timeline、SceneScript 与动态文字也还没有消费该上下文。
+`36bfef0` 又建立了六类 `SceneDynamicValue`、scene/camera/layer/effect/text/particle/script target、`authored -> userProperty -> Timeline -> SceneScript` 固定覆盖顺序和不可变 `SceneDynamicSnapshot`。Host 当前只在每帧生成一份空 snapshot 并放入所有 surface 的 Frame Context；没有 binding program、真实 producer 或 renderer consumer，因此这一步只能记 `L2 wired`。这份共享空 snapshot 是临时脚手架：接真实 producer 前必须拆成 host-shared input 与 per-surface evaluation/final snapshot，不能据此宣称属性、Timeline 或脚本已经热更新。
+
+这只是统一输入底座，不等于完整时钟合同。pause/resume、长帧 delta clamp、dropped-time 诊断、固定 timestep、buttons、audio/media/property producer、changed-target generation、deterministic seed 和离线 adapter 尚未接入；renderer、Timeline、SceneScript 与动态文字也还没有消费动态值快照。
 
 ## 2. Particle System
 
@@ -388,6 +391,7 @@ Realtime Adapter              Offline Adapter
 | Text | CoreText 静态纹理、部分 font/pointsize/padding/scale | 动态时间、完整 alignment/effects/SceneScript |
 | Effect graph | v17 继承 v16 EffectDefinition/authored graph，并增加 provider metadata；strict precise 子集有 5 个 layer、standard Blur 默认 profile 有 1 个 layer 的 degraded GPU 执行；非默认 standard 图明确 blocked | 通用 material/pass 已执行、authored shader 语义等价或达到 WE 像素一致 |
 | Frame Context | 宿主单一 60 Hz driver；所有屏幕共享 frame index/host/scene/wall time；shader、video、particle、parallax 已迁移 | pause/resume、delta clamp、固定 timestep、离线实时等价已闭环 |
+| Dynamic target snapshot | 六类 typed value、主要 target 族、固定优先级和共享空 snapshot 脚手架 | host/surface scope、binding program、evaluation transaction、真实 producer、generation 或 consumer 已完成 |
 | Timeline | 数据识别不足或空壳 | 任意动画模式可用 |
 | SceneScript | 只检测 script | ECMAScript/runtime/API 可用 |
 | User Properties | 独立窗口、条件、默认/override、部分 target 与持久化；`texture`/`scenetexture` 内部归一；受限静态 consumer 可选择 PNG/JPEG | 403 个样本属性全部可调、所有 texture target/variant/live value 已闭环 |
@@ -396,11 +400,11 @@ Realtime Adapter              Offline Adapter
 
 ## 11. 实施顺序
 
-1. 继续扩充已经落地第一阶段的 Frame Context，并建立 typed dynamic target / value snapshot；
-2. 以可运行基线为目标横向接通 Timeline、SceneScript core、动态 text、cursor/audio/media 输入，不先在单项视觉细节上反复打磨；
-3. 同批补齐高命中 built-in particle、Texture Variants、system/media/video provider 与通用 material consumer；
-4. 让上述 live/provider 能力进入 authored graph，再闭合 copy/swap/compose/history 和更多 shader/material/pass backend；
-5. 用固定、扩展和新下载样本矩阵集中暴露语义冲突，再按共享根因纵向校准 effect、text、particle 和动态值精度；
-6. 最后扩 Puppet/3D/Lighting、离线固定步进与编码产品层。
+1. 先完成 [公共能力依赖图](capability-dependency-map.md) 的 D1-D4：稳定 identity、target scope/invalidation、host/surface frame model、evaluation transaction 和 fixed-time test adapter；
+2. 编译并持久化 property binding program，先补 alpha/color 分类；未迁移 target 继续使用旧 resolver + rebuild fallback，不提前宣称 live；
+3. 独立闭合 Provider Core，再闭合 Graph Resource Runtime；nested/effectful provider 和通用 material consumer 放在二者集成层，不能互相形成前置环；
+4. Timeline、SceneScript core、动态 text、cursor/audio/media 与 particle 动态能力按 D10 的真实依赖接入，不作为无前置的同批任务；
+5. Effect 只按共享 primitive 或严格 graph profile 扩展，不继续新增 effect-name 近似；Particle 按 target/space -> provider/material -> fixed step/event -> child/collision/rope/audio 顺序推进；
+6. 广度闭合后用固定、扩展和新下载样本矩阵暴露冲突，再用 Windows golden 校准 effect、text、particle 和动态值精度；最后扩 Puppet/3D/Lighting 与离线编码产品层。
 
 每一步都同时需要正向样本和默认关闭/未声明反例。

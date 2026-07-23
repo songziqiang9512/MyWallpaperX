@@ -41,7 +41,7 @@
 | `assets` | 2 | asset creation/sharing |
 | `rgb` | 1 | RGB composition |
 
-另有 Scene 根 `overview.html` 1 页，合计 179 个 `/en/scene/` 页面。完整可点击清单见 [官方页面全目录](official-page-catalog.md)；`lib.sceneScript.d.ts` 不计入 sitemap 的 Scene 页面数。
+另有 Scene 根 `overview.html` 1 页，合计 179 个 `/en/scene/` 页面。完整可点击清单见 [官方页面全目录](official-page-catalog.md)，逐页分类与本地合同见 [官方页面逐页表](official-page-map.md)；`lib.sceneScript.d.ts` 不计入 sitemap 的 Scene 页面数。
 
 ### 1.2 Effects
 

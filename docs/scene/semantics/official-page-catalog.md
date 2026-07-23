@@ -8,7 +8,7 @@
 
 对应官方文档源码 revision：[`b26412295cbfd0ee5cdceff67e2c95069527aa1b`](https://github.com/Wallpaper-Engine-Team/wallpaper-engine-docs/commit/b26412295cbfd0ee5cdceff67e2c95069527aa1b)。
 
-本页只承担“无遗漏入口”职责。稳定语义摘要查 [手册入口](README.md)，45 个 effect 的执行合同查 [Effects 语义全集](effects-reference.md)，证据等级和非公开边界查 [资料来源与证据索引](source-index.md)。
+本页只承担“无遗漏入口”职责。179 页的逐 URL 分类和唯一合同 anchor 查 [官方页面逐页表](official-page-map.md)，16 组导航查 [分组映射](official-page-crosswalk.md)，稳定语义摘要查 [手册入口](README.md)，45 个 effect 的执行合同查 [Effects 语义全集](effects-reference.md) 与 [执行覆盖表](effect-execution-coverage.md)，证据等级和非公开边界查 [资料来源与证据索引](source-index.md)。
 
 ## 1. Overview 与入门（6）
 

@@ -27,12 +27,22 @@ Scene 兼容的核心不是不断增加“看起来差不多”的效果分支�
 
 | 问题 | 先看 |
 |---|---|
-| 官方能力是否已收集、MyWallpaperX 当前做到哪一级、下一道公共门是什么 | [官方语义与实现覆盖台账](coverage-ledger.md) |
+| 当前系统大盘、主要缺口和下一批次是什么 | [官方语义与实现覆盖台账](coverage-ledger.md) |
+| 179 个官方页面逐页落到哪个稳定合同 anchor、哪些只属于编辑器或平台决策 | [官方页面逐页表](official-page-map.md) |
+| 16 个官方目录组如何路由到专项能力表 | [官方页面分组映射](official-page-crosswalk.md) |
+| 公共能力先后依赖、哪些系统必须共用底座 | [能力依赖图](capability-dependency-map.md) |
 | `project.json`、`scene.json`、对象、动态值和资源如何组成场景 | [场景格式与 Render Graph](scene-format-and-render-graph.md) |
-| effect 为什么启用、纹理槽是什么、多 pass 如何执行 | [内置 Effects 语义全集](effects-reference.md) |
-| 粒子、文字、Timeline、SceneScript、属性、音频和媒体如何工作 | [运行时系统语义](runtime-systems-reference.md) |
+| effect 为什么启用、45 类效果各自是什么 | [内置 Effects 语义全集](effects-reference.md) |
+| 45 类官方 effect 当前分别走哪条执行通道、证据和下一门 | [Effect 执行覆盖表](effect-execution-coverage.md) |
+| EffectDefinition、Material、FBO、Shader 的 IR 与 executor 分别做到哪里 | [Render Graph 与 Shader 覆盖表](render-graph-shader-coverage.md) |
+| 粒子每个 General/Emitter/Initializer/Operator/Renderer/Child 项做到哪里 | [粒子组件覆盖表](particle-component-coverage.md) |
+| Frame Context、Timeline、属性 target、文字、cursor/audio/media/provider 做到哪里 | [运行输入与属性覆盖表](runtime-input-property-coverage.md) |
+| SceneScript v2.8 每个生命周期、事件、handle 和 global 做到哪里 | [SceneScript API 覆盖表](scenescript-api-coverage.md) |
+| Utility、Puppet、3D、Lighting、性能、RGB 和离线做到哪里 | [高级对象覆盖表](advanced-object-coverage.md) |
+| 各运行系统的官方语义和正确执行顺序是什么 | [运行时系统语义](runtime-systems-reference.md) |
 | 官方站当前有哪些 Scene 页面、某个 API 专页在哪里 | [官方页面全目录](official-page-catalog.md) |
 | 某条结论来自官方、样本还是第三方实现 | [资料来源与证据索引](source-index.md) |
+| 某条 `L3` 到底由哪些代码、自动测试和运行/GPU 结果支撑 | [运行证据索引](runtime-evidence-index.md) |
 | 已选批次的详细实施顺序、样本和测试门 | [Scene 播放能力开发计划](../scene-capability-development-plan-2026-07-22.md) |
 | Wallpaper Engine 的上层能力地图 | [Scene 兼容能力综述](../wallpaper_engine_scene_compatibility.md) |
 
@@ -119,7 +129,9 @@ scene.json / scene.pkg / assets
 ## 7. 维护约定
 
 - 本目录记录稳定语义和实现合同，不记录单次调试流水账。
-- 当前支持等级和缺口以 [覆盖台账](coverage-ledger.md) 为唯一能力表；实施细节和最新证据同步到 `scene-capability-development-plan-2026-07-22.md` 与现役状态文档。
+- [覆盖台账](coverage-ledger.md) 只做系统摘要；Effect、粒子、SceneScript、Graph/Shader、运行输入/属性和高级对象的专项能力表分别是其逐项等级事实来源。
+- 实现前必须先查 [能力依赖图](capability-dependency-map.md)，再进入对应专项表查看作者条件、代码、测试、运行证据和下一门；不能从同系统某个 `L3` 子集推断整套能力。
+- 资料入口完整性以 [179 页逐页表](official-page-map.md) 与自动门禁为准；16 组分组统计不能替代逐页映射。
 - 新发现的字段先标证据等级和样本来源，再判断是否进入实现。
 - 官方文档或 `lib.sceneScript.d.ts` 版本变化时，更新 [资料来源与证据索引](source-index.md) 的核验日期和差异。
 - 第三方播放器与官方资料冲突时，记录其偏差，不修正文档去迎合第三方行为。

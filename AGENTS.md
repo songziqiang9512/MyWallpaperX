@@ -9,7 +9,7 @@ Agents 开发与问题修复流程规范
 
 Web / Scene 当前能力、验证结果和剩余缺口以 `docs/reviews/web-scene-current-state-roadmap-2026-07-19.md` 为状态入口；历史 review、handoff 和 regression 记录不能反向覆盖当前代码与最新运行证据。
 
-继续 Scene 开发前，先查 `docs/scene/semantics/coverage-ledger.md` 的逐项支持等级和公共依赖，再按 `docs/scene/scene-capability-development-plan-2026-07-22.md` 选择当前批次；不得把 `recognized`、`wired`、`executed-degraded` 或固定样本运行门写成完整兼容。
+继续 Scene 开发前，先查 `docs/scene/semantics/coverage-ledger.md` 的系统摘要，再按 `docs/scene/semantics/capability-dependency-map.md` 确认公共依赖，进入该行链接的 Effect、粒子、SceneScript、Graph/Shader、运行输入/属性或高级对象专项能力表核对代码、测试和运行证据，最后按 `docs/scene/scene-capability-development-plan-2026-07-22.md` 选择当前批次。专项能力表是逐项等级的事实来源；`docs/scene/semantics/official-page-map.md` 是 179 个官方页面的逐页归属门。不得把 `recognized`、`wired`、`executed-degraded`、固定 strict profile 或固定样本运行门写成完整兼容。
 
 2. 修复前分析
 

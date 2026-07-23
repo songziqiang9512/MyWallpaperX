@@ -6,9 +6,11 @@
 
 - [architecture/framework-architecture-memo.md](architecture/framework-architecture-memo.md)：截至 2026-05-05 的框架结构、公共协议和模块边界基线；使用前需与当前代码核对。
 - [reviews/web-scene-current-state-roadmap-2026-07-19.md](reviews/web-scene-current-state-roadmap-2026-07-19.md)：Web / Scene 当前能力、验证结果、闭环边界和后续路线。
-- [scene/semantics/coverage-ledger.md](scene/semantics/coverage-ledger.md)：Scene 官方能力全集到当前代码的逐项支持等级、证据、缺口和 coverage-first 批次；新会话先从这里选公共依赖。
+- [scene/semantics/coverage-ledger.md](scene/semantics/coverage-ledger.md)：Scene 当前系统级摘要；新会话从这里定位系统，再进入专项能力表。
+- [scene/semantics/official-page-map.md](scene/semantics/official-page-map.md)：179 个官方 Scene 页面逐页映射到唯一合同 anchor、分类和产品决策；这是资料完整性门。
+- [scene/semantics/capability-dependency-map.md](scene/semantics/capability-dependency-map.md)：公共依赖层与实施波次；用于避免属性、脚本、粒子、Provider 和 Render Graph 相互绕开或重复实现。
 - [scene/scene-capability-development-plan-2026-07-22.md](scene/scene-capability-development-plan-2026-07-22.md)：Scene 对齐 Wallpaper Engine 常用播放能力的现役实施顺序、样本规范和测试门。
-- [scene/semantics/README.md](scene/semantics/README.md)：Wallpaper Engine Scene 的现役语义手册入口，包含 Render Graph、45 个官方 effect、粒子/文字/脚本合同和证据索引。
+- [scene/semantics/README.md](scene/semantics/README.md)：Wallpaper Engine Scene 的现役语义手册入口，包含官方逐页表、专项能力表、依赖图和证据索引。
 - [architecture/project-working-memory.md](architecture/project-working-memory.md)：截至 2026-05-17 的 AppKit / Steam 协作快照；使用前需与当前代码核对。
 - [web/README.md](web/README.md)：Web 壁纸专题入口。
 - [agents/README.md](agents/README.md)：多 Agent 协作与角色入口。
