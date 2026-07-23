@@ -49,8 +49,15 @@ final class SceneFrameTextureRegistry {
         let generation: UInt64
     }
 
+    private struct PersistentEntry {
+        let texture: MTLTexture
+        let generation: UInt64
+    }
+
     private var entries: [SceneFrameTextureIdentity: Entry] = [:]
-    private(set) var generation: UInt64 = 0
+    private var persistentEntries: [SceneFrameTextureIdentity: PersistentEntry] = [:]
+    private var resourceGeneration: UInt64 = 0
+    private(set) var frameEpoch: UInt64 = 0
 
     @discardableResult
     func beginFrame(
@@ -58,25 +65,39 @@ final class SceneFrameTextureRegistry {
         userPropertyTextures: [String: MTLTexture] = [:],
         systemTextures: [String: MTLTexture] = [:]
     ) -> UInt64 {
-        generation &+= 1
+        frameEpoch &+= 1
         entries.removeAll(keepingCapacity: true)
+        let previousPersistentEntries = persistentEntries
+        persistentEntries.removeAll(keepingCapacity: true)
         layerSources.forEach { layerID, texture in
-            set(.ready(texture), for: .layerSource(layerID))
+            publishPersistent(
+                texture,
+                for: .layerSource(layerID),
+                previousEntries: previousPersistentEntries
+            )
         }
         userPropertyTextures.forEach { key, texture in
-            set(.ready(texture), for: .userProperty(key))
+            publishPersistent(
+                texture,
+                for: .userProperty(key),
+                previousEntries: previousPersistentEntries
+            )
         }
         systemTextures.forEach { name, texture in
-            set(.ready(texture), for: .system(name))
+            publishPersistent(
+                texture,
+                for: .system(name),
+                previousEntries: previousPersistentEntries
+            )
         }
-        return generation
+        return frameEpoch
     }
 
     func set(
         _ status: ProviderStatus,
         for identity: SceneFrameTextureIdentity
     ) {
-        entries[identity] = Entry(status: status, generation: generation)
+        entries[identity] = Entry(status: status, generation: frameEpoch)
     }
 
     func texture(for identity: SceneFrameTextureIdentity) -> MTLTexture? {
@@ -96,5 +117,24 @@ final class SceneFrameTextureRegistry {
             )
         }
         return nil
+    }
+
+    private func publishPersistent(
+        _ texture: MTLTexture,
+        for identity: SceneFrameTextureIdentity,
+        previousEntries: [SceneFrameTextureIdentity: PersistentEntry]
+    ) {
+        let generation: UInt64
+        if let previous = previousEntries[identity], previous.texture === texture {
+            generation = previous.generation
+        } else {
+            resourceGeneration &+= 1
+            generation = resourceGeneration
+        }
+        persistentEntries[identity] = PersistentEntry(
+            texture: texture,
+            generation: generation
+        )
+        entries[identity] = Entry(status: .ready(texture), generation: generation)
     }
 }

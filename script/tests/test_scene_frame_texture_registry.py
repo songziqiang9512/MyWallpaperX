@@ -40,29 +40,89 @@ enum Harness {
 
         let registry = SceneFrameTextureRegistry()
         let fallbackTexture = texture()
+        let replacementFallbackTexture = texture()
         let propertyTexture = texture()
+        let replacementPropertyTexture = texture()
+        let systemTexture = texture()
+        let replacementSystemTexture = texture()
         let namedTexture = texture()
-        let property = SceneFrameTextureIdentity.userProperty("cover")
-        let selection = SceneFrameTextureSelection(candidates: [property, .layerSource(7)])
-        let firstGeneration = registry.beginFrame(layerSources: [7: fallbackTexture])
+        let optionalProperty = SceneFrameTextureIdentity.userProperty("cover")
+        let persistentProperty = SceneFrameTextureIdentity.userProperty("persistent-cover")
+        let system = SceneFrameTextureIdentity.system("$mediaThumbnail")
+        let fallback = SceneFrameTextureIdentity.layerSource(7)
+        let selection = SceneFrameTextureSelection(candidates: [optionalProperty, fallback])
+        let firstEpoch = registry.beginFrame(
+            layerSources: [7: fallbackTexture],
+            userPropertyTextures: ["persistent-cover": propertyTexture],
+            systemTextures: ["$mediaThumbnail": systemTexture]
+        )
+        let firstFallback = registry.resolve(SceneFrameTextureSelection(candidates: [fallback]))!
+        let firstProperty = registry.resolve(SceneFrameTextureSelection(candidates: [persistentProperty]))!
+        let firstSystem = registry.resolve(SceneFrameTextureSelection(candidates: [system]))!
         let absent = registry.resolve(selection)
-        registry.set(.pending, for: property)
+        registry.set(.pending, for: optionalProperty)
         let pending = registry.resolve(selection)
-        registry.set(.unavailable, for: property)
+        registry.set(.unavailable, for: optionalProperty)
         let unavailable = registry.resolve(selection)
-        registry.set(.ready(propertyTexture), for: property)
+        registry.set(.ready(propertyTexture), for: optionalProperty)
         let ready = registry.resolve(selection)
 
         let primary = SceneNamedTextureReference(providerLayerID: 42, variant: .primary)
         let secondary = SceneNamedTextureReference(providerLayerID: 42, variant: .secondary)
-        registry.set(.ready(namedTexture), for: .namedLayerTarget(primary))
-        let primaryReady = registry.texture(for: .namedLayerTarget(primary)) === namedTexture
-        let secondaryIsolated = registry.texture(for: .namedLayerTarget(secondary)) == nil
-        let secondGeneration = registry.beginFrame(layerSources: [7: fallbackTexture])
-        let namedCleared = registry.texture(for: .namedLayerTarget(primary)) == nil
+        let named = SceneFrameTextureIdentity.namedLayerTarget(primary)
+        registry.set(.ready(namedTexture), for: named)
+        let firstNamed = registry.resolve(SceneFrameTextureSelection(candidates: [named]))!
+        let primaryReady = registry.texture(for: named) === namedTexture
+        let secondaryIsolated = registry.texture(
+            for: .namedLayerTarget(secondary)
+        ) == nil
+
+        let secondEpoch = registry.beginFrame(
+            layerSources: [7: fallbackTexture],
+            userPropertyTextures: ["persistent-cover": propertyTexture],
+            systemTextures: ["$mediaThumbnail": systemTexture]
+        )
+        let secondFallback = registry.resolve(SceneFrameTextureSelection(candidates: [fallback]))!
+        let secondProperty = registry.resolve(SceneFrameTextureSelection(candidates: [persistentProperty]))!
+        let secondSystem = registry.resolve(SceneFrameTextureSelection(candidates: [system]))!
+        let namedCleared = registry.texture(for: named) == nil
+        registry.set(.ready(namedTexture), for: named)
+        let secondNamed = registry.resolve(SceneFrameTextureSelection(candidates: [named]))!
+
+        registry.beginFrame(
+            layerSources: [7: replacementFallbackTexture],
+            userPropertyTextures: ["persistent-cover": replacementPropertyTexture],
+            systemTextures: ["$mediaThumbnail": replacementSystemTexture]
+        )
+        let replacedFallback = registry.resolve(SceneFrameTextureSelection(candidates: [fallback]))!
+        let replacedProperty = registry.resolve(SceneFrameTextureSelection(candidates: [persistentProperty]))!
+        let replacedSystem = registry.resolve(SceneFrameTextureSelection(candidates: [system]))!
+
+        registry.beginFrame(layerSources: [:])
+        let persistentEntriesCleared = registry.texture(for: fallback) == nil
+            && registry.texture(for: persistentProperty) == nil
+            && registry.texture(for: system) == nil
+
+        registry.beginFrame(
+            layerSources: [7: fallbackTexture],
+            userPropertyTextures: ["persistent-cover": propertyTexture],
+            systemTextures: ["$mediaThumbnail": systemTexture]
+        )
+        let restoredFallback = registry.resolve(SceneFrameTextureSelection(candidates: [fallback]))!
+        let restoredProperty = registry.resolve(SceneFrameTextureSelection(candidates: [persistentProperty]))!
+        let restoredSystem = registry.resolve(SceneFrameTextureSelection(candidates: [system]))!
 
         let result: [String: Any] = [
-            "generationAdvanced": secondGeneration == firstGeneration + 1,
+            "frameEpochAdvanced": secondEpoch == firstEpoch + 1,
+            "persistentGenerationsStable": secondFallback.generation == firstFallback.generation
+                && secondProperty.generation == firstProperty.generation
+                && secondSystem.generation == firstSystem.generation,
+            "replacementGenerationsAdvanced": replacedFallback.generation > secondFallback.generation
+                && replacedProperty.generation > secondProperty.generation
+                && replacedSystem.generation > secondSystem.generation,
+            "restoredGenerationsAdvanced": restoredFallback.generation > replacedFallback.generation
+                && restoredProperty.generation > replacedProperty.generation
+                && restoredSystem.generation > replacedSystem.generation,
             "absentFallback": absent?.usedFallback == true && absent?.texture === fallbackTexture,
             "pendingFallback": pending?.usedFallback == true && pending?.texture === fallbackTexture,
             "unavailableFallback": unavailable?.usedFallback == true
@@ -71,6 +131,8 @@ enum Harness {
             "primaryReady": primaryReady,
             "secondaryIsolated": secondaryIsolated,
             "namedCleared": namedCleared,
+            "namedGenerationAdvanced": secondNamed.generation == firstNamed.generation + 1,
+            "persistentEntriesCleared": persistentEntriesCleared,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -120,10 +182,20 @@ class SceneFrameTextureRegistryTests(unittest.TestCase):
 
     def test_named_target_identity_and_frame_lifetime_are_preserved(self) -> None:
         for key in (
-            "generationAdvanced",
+            "frameEpochAdvanced",
             "primaryReady",
             "secondaryIsolated",
             "namedCleared",
+            "namedGenerationAdvanced",
+        ):
+            self.assertTrue(self.result[key], key)
+
+    def test_persistent_resource_generations_change_only_with_publication(self) -> None:
+        for key in (
+            "persistentGenerationsStable",
+            "replacementGenerationsAdvanced",
+            "restoredGenerationsAdvanced",
+            "persistentEntriesCleared",
         ):
             self.assertTrue(self.result[key], key)
 
