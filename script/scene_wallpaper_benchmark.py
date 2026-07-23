@@ -100,6 +100,10 @@ AUTHORED_EFFECT_GRAPH_LOCAL_CONTRAST_COUNT_RE = re.compile(
     r"^authoredEffectGraphLocalContrastCount: (?P<count>\d+)$",
     re.MULTILINE,
 )
+AUTHORED_EFFECT_GRAPH_WORKSHOP_SHADOW_COUNT_RE = re.compile(
+    r"^authoredEffectGraphWorkshopShadowCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
 AUTHORED_EFFECT_GRAPH_CHAIN_COUNT_RE = re.compile(
     r"^authoredEffectGraphChainCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -742,6 +746,11 @@ def authored_effect_graph_local_contrast_count(preview_text: str) -> int | None:
     return int(match.group("count")) if match is not None else None
 
 
+def authored_effect_graph_workshop_shadow_count(preview_text: str) -> int | None:
+    match = AUTHORED_EFFECT_GRAPH_WORKSHOP_SHADOW_COUNT_RE.search(preview_text)
+    return int(match.group("count")) if match is not None else None
+
+
 def authored_effect_graph_chain_metrics(preview_text: str) -> dict[str, int | None]:
     chain_match = AUTHORED_EFFECT_GRAPH_CHAIN_COUNT_RE.search(preview_text)
     stage_match = AUTHORED_EFFECT_GRAPH_STAGE_COUNT_RE.search(preview_text)
@@ -819,6 +828,7 @@ def authored_effect_graph_failures(
     legacy_blur_blocked_layer_ids: list[int],
     local_contrast_count: int | None,
     chain_metrics: dict[str, int | None] | None = None,
+    workshop_shadow_count: int | None = None,
 ) -> list[str]:
     failures = [
         f"authored effect graph layer {layer_id} failed"
@@ -841,6 +851,12 @@ def authored_effect_graph_failures(
     if expected_local_contrast is not None:
         if local_contrast_count != int(expected_local_contrast):
             failures.append("authored effect graph Local Contrast count mismatch")
+    expected_workshop_shadow = sample.get(
+        "expected_authored_effect_graph_workshop_shadow_count"
+    )
+    if expected_workshop_shadow is not None:
+        if workshop_shadow_count != int(expected_workshop_shadow):
+            failures.append("authored effect graph Workshop Shadow count mismatch")
     chain_metrics = chain_metrics or {"chain_count": None, "stage_count": None}
     for sample_key, metric_key, label in (
         ("expected_authored_effect_graph_chain_count", "chain_count", "chain count"),
@@ -1091,6 +1107,9 @@ def run_sample(
     authored_effect_graph_local_contrast = authored_effect_graph_local_contrast_count(
         preview_text
     )
+    authored_effect_graph_workshop_shadow = authored_effect_graph_workshop_shadow_count(
+        preview_text
+    )
     authored_effect_graph_chain = authored_effect_graph_chain_metrics(preview_text)
     named_target_capture_execution = named_target_capture_execution_metrics(log_text)
     named_target_binding_execution = named_target_binding_execution_metrics(log_text)
@@ -1175,6 +1194,7 @@ def run_sample(
         authored_effect_graph_legacy_blur_blocked,
         authored_effect_graph_local_contrast,
         authored_effect_graph_chain,
+        authored_effect_graph_workshop_shadow,
     ))
     succeeded_capture_ids = set(utility_capture_execution["succeeded_layer_ids"])
     if len(succeeded_capture_ids) < utility_runtime["capture_planned"]:
@@ -1409,6 +1429,7 @@ def run_sample(
             "authored_effect_graph_failed_layer_ids": authored_effect_graph_execution["failed_layer_ids"],
             "authored_effect_graph_legacy_blur_blocked_layer_ids": authored_effect_graph_legacy_blur_blocked,
             "authored_effect_graph_local_contrast_count": authored_effect_graph_local_contrast,
+            "authored_effect_graph_workshop_shadow_count": authored_effect_graph_workshop_shadow,
             "authored_effect_graph_chain_count": authored_effect_graph_chain["chain_count"],
             "authored_effect_graph_stage_count": authored_effect_graph_chain["stage_count"],
             "named_target_capture_succeeded_layer_ids": named_target_capture_execution["succeeded_layer_ids"],

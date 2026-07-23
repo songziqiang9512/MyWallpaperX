@@ -27,6 +27,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneStandardBlurRenderer.swift",
     SOURCE_ROOT / "SceneLocalContrastPipeline.swift",
     SOURCE_ROOT / "SceneLocalContrastRenderer.swift",
+    SOURCE_ROOT / "SceneWorkshopShadowPipeline.swift",
+    SOURCE_ROOT / "SceneWorkshopShadowRenderer.swift",
     SOURCE_ROOT / "SceneImageBlendPipeline.swift",
     SOURCE_ROOT / "SceneGradientColorPipeline.swift",
     SOURCE_ROOT / "SceneBloomPipeline.swift",
@@ -124,11 +126,19 @@ struct SceneTexContainerReader {
     }
 }
 
+struct SceneWorkshopShadowExecutionPlan: Equatable, Sendable {
+    let alpha: Float
+    let color: SIMD3<Float>
+    let drawBorder: Float
+    let offset: SIMD2<Float>
+}
+
 struct SceneAuthoredEffectExecutionPlan {
     enum Backend {
         case preciseGaussian(SceneGaussianBlurPlan)
         case standardBlur(SceneStandardBlurPlan)
         case localContrast(SceneLocalContrastPlan)
+        case workshopShadow(SceneWorkshopShadowExecutionPlan)
     }
 
     let layerID: Int
@@ -166,6 +176,11 @@ struct SceneAuthoredEffectExecutionPlan {
 
     var localContrast: SceneLocalContrastPlan? {
         guard case .localContrast(let plan) = backend else { return nil }
+        return plan
+    }
+
+    var workshopShadow: SceneWorkshopShadowExecutionPlan? {
+        guard case .workshopShadow(let plan) = backend else { return nil }
         return plan
     }
 

@@ -12,6 +12,7 @@ enum SceneAuthoredEffectChainRenderer {
         gaussianBlurPipeline: SceneGaussianBlurPipeline,
         standardBlurPipeline: SceneStandardBlurPipeline,
         localContrastPipeline: SceneLocalContrastPipeline,
+        workshopShadowPipeline: SceneWorkshopShadowPipeline,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         guard !chain.stages.isEmpty,
@@ -35,6 +36,7 @@ enum SceneAuthoredEffectChainRenderer {
                 gaussianBlurPipeline: gaussianBlurPipeline,
                 standardBlurPipeline: standardBlurPipeline,
                 localContrastPipeline: localContrastPipeline,
+                workshopShadowPipeline: workshopShadowPipeline,
                 commandBuffer: commandBuffer
             ) else {
                 return nil
@@ -55,6 +57,7 @@ enum SceneAuthoredEffectChainRenderer {
         gaussianBlurPipeline: SceneGaussianBlurPipeline,
         standardBlurPipeline: SceneStandardBlurPipeline,
         localContrastPipeline: SceneLocalContrastPipeline,
+        workshopShadowPipeline: SceneWorkshopShadowPipeline,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         let auxMask = masks.iris ?? masks.opacity
@@ -100,6 +103,19 @@ enum SceneAuthoredEffectChainRenderer {
                 sourceUniforms: sourceUniforms,
                 pipeline: pipeline,
                 localContrastPipeline: localContrastPipeline,
+                commandBuffer: commandBuffer
+            )
+        case .workshopShadow(let shadow):
+            return SceneOffscreenEffectRenderer.renderWorkshopShadow(
+                sourceTexture: sourceTexture,
+                waterMaskTexture: masks.water,
+                foliageMaskTexture: masks.foliage,
+                auxMaskTexture: auxMask,
+                targets: targets,
+                plan: shadow,
+                sourceUniforms: sourceUniforms,
+                pipeline: pipeline,
+                workshopShadowPipeline: workshopShadowPipeline,
                 commandBuffer: commandBuffer
             )
         }

@@ -260,6 +260,40 @@ enum SceneOffscreenEffectRenderer {
         )
     }
 
+    static func renderWorkshopShadow(
+        sourceTexture: MTLTexture,
+        waterMaskTexture: MTLTexture?,
+        foliageMaskTexture: MTLTexture?,
+        auxMaskTexture: MTLTexture?,
+        targets: SceneGraphRenderTargetTable,
+        plan: SceneWorkshopShadowExecutionPlan,
+        sourceUniforms: SceneLayerFragmentUniforms,
+        pipeline: SceneImageLayerPipeline,
+        workshopShadowPipeline: SceneWorkshopShadowPipeline,
+        commandBuffer: MTLCommandBuffer
+    ) -> MTLTexture? {
+        guard targets.plan.logicalTargets.isEmpty,
+              captureSource(
+                  sourceTexture: sourceTexture,
+                  waterMaskTexture: waterMaskTexture,
+                  foliageMaskTexture: foliageMaskTexture,
+                  auxMaskTexture: auxMaskTexture,
+                  target: targets.inputTexture,
+                  sourceUniforms: sourceUniforms,
+                  pipeline: pipeline,
+                  commandBuffer: commandBuffer
+              ) else {
+            return nil
+        }
+        return SceneWorkshopShadowRenderer.render(
+            plan: plan,
+            inputTexture: targets.inputTexture,
+            outputTexture: targets.outputTexture,
+            pipeline: workshopShadowPipeline,
+            commandBuffer: commandBuffer
+        )
+    }
+
     private static func renderBloom(
         plan: SceneBloomPlan,
         textures: SceneOffscreenTexturePool.Pair,

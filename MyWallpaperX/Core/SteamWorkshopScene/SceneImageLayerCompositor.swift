@@ -57,6 +57,7 @@ struct SceneImageLayerCompositor {
     private let gaussianBlurPipeline: SceneGaussianBlurPipeline
     private let standardBlurPipeline: SceneStandardBlurPipeline
     private let localContrastPipeline: SceneLocalContrastPipeline
+    private let workshopShadowPipeline: SceneWorkshopShadowPipeline
     private let bloomPipeline: SceneBloomPipeline
     private let gradientColorPipeline: SceneGradientColorPipeline
     private let waterRipplePipeline: SceneWaterRipplePipeline
@@ -67,6 +68,7 @@ struct SceneImageLayerCompositor {
         guard let gaussianBlurPipeline = SceneGaussianBlurPipeline(device: device),
               let standardBlurPipeline = SceneStandardBlurPipeline(device: device),
               let localContrastPipeline = SceneLocalContrastPipeline(device: device),
+              let workshopShadowPipeline = SceneWorkshopShadowPipeline(device: device),
               let bloomPipeline = SceneBloomPipeline(device: device),
               let gradientColorPipeline = SceneGradientColorPipeline(device: device),
               let waterRipplePipeline = SceneWaterRipplePipeline(device: device),
@@ -77,6 +79,7 @@ struct SceneImageLayerCompositor {
         self.gaussianBlurPipeline = gaussianBlurPipeline
         self.standardBlurPipeline = standardBlurPipeline
         self.localContrastPipeline = localContrastPipeline
+        self.workshopShadowPipeline = workshopShadowPipeline
         self.bloomPipeline = bloomPipeline
         self.gradientColorPipeline = gradientColorPipeline
         self.waterRipplePipeline = waterRipplePipeline
@@ -153,6 +156,7 @@ struct SceneImageLayerCompositor {
                         gaussianBlurPipeline: gaussianBlurPipeline,
                         standardBlurPipeline: standardBlurPipeline,
                         localContrastPipeline: localContrastPipeline,
+                        workshopShadowPipeline: workshopShadowPipeline,
                         commandBuffer: commandBuffer
                     )
                 }
@@ -205,6 +209,19 @@ struct SceneImageLayerCompositor {
                             sourceUniforms: directUniforms,
                             pipeline: pipeline,
                             localContrastPipeline: localContrastPipeline,
+                            commandBuffer: commandBuffer
+                        )
+                    case .workshopShadow(let shadow):
+                        SceneOffscreenEffectRenderer.renderWorkshopShadow(
+                            sourceTexture: request.texture,
+                            waterMaskTexture: masks.water,
+                            foliageMaskTexture: masks.foliage,
+                            auxMaskTexture: auxMask,
+                            targets: targets,
+                            plan: shadow,
+                            sourceUniforms: directUniforms,
+                            pipeline: pipeline,
+                            workshopShadowPipeline: workshopShadowPipeline,
                             commandBuffer: commandBuffer
                         )
                     }

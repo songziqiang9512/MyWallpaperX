@@ -21,6 +21,10 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         stages.filter { $0.localContrast != nil }.count
     }
 
+    var workshopShadowCount: Int {
+        stages.filter { $0.workshopShadow != nil }.count
+    }
+
     var liveConsumerTargets: Set<SceneDynamicTarget> {
         Set(stages.compactMap(\.liveConsumerTarget))
     }
@@ -54,6 +58,12 @@ enum SceneAuthoredEffectChainPlanner {
                 shaderContracts: shaderContracts,
                 inputRole: inputRole
             )
+            let workshopShadow = SceneAuthoredWorkshopShadowPlanner.plan(
+                graph: stageGraph,
+                descriptor: descriptor,
+                shaderContracts: shaderContracts,
+                inputRole: inputRole
+            )
             let stage = SceneAuthoredEffectExecutionPlanner.plan(
                 graph: stageGraph,
                 descriptor: descriptor,
@@ -69,6 +79,15 @@ enum SceneAuthoredEffectChainPlanner {
                     backend: .localContrast($0),
                     materialNodeCount: 4,
                     logicalRenderTargetCount: 2,
+                    inputRole: inputRole
+                )
+            } ?? workshopShadow.map {
+                SceneAuthoredEffectExecutionPlan(
+                    layerID: graph.layerID,
+                    renderGraph: stageGraph,
+                    backend: .workshopShadow($0),
+                    materialNodeCount: 1,
+                    logicalRenderTargetCount: 0,
                     inputRole: inputRole
                 )
             }

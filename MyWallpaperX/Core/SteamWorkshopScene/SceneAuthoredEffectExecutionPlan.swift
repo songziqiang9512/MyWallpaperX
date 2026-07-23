@@ -5,6 +5,7 @@ nonisolated struct SceneAuthoredEffectExecutionPlan {
         case preciseGaussian(SceneGaussianBlurPlan)
         case standardBlur(SceneStandardBlurPlan)
         case localContrast(SceneLocalContrastPlan)
+        case workshopShadow(SceneWorkshopShadowExecutionPlan)
     }
 
     let layerID: Int
@@ -42,6 +43,11 @@ nonisolated struct SceneAuthoredEffectExecutionPlan {
 
     var localContrast: SceneLocalContrastPlan? {
         guard case .localContrast(let plan) = backend else { return nil }
+        return plan
+    }
+
+    var workshopShadow: SceneWorkshopShadowExecutionPlan? {
+        guard case .workshopShadow(let plan) = backend else { return nil }
         return plan
     }
 
@@ -116,6 +122,7 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
             "authoredEffectGraphChainCount: \(chainsByLayerID.values.filter { $0.stages.count > 1 }.count)",
             "authoredEffectGraphStageCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.stages.count })",
             "authoredEffectGraphLocalContrastCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.localContrastCount })",
+            "authoredEffectGraphWorkshopShadowCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.workshopShadowCount })",
         ]
     }
 

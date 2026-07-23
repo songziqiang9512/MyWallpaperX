@@ -58,6 +58,24 @@ struct SceneGaussianBlurPlan {
     let isPrecise: Bool
 }
 
+struct SceneWorkshopShadowExecutionPlan: Equatable, Sendable {
+    let alpha: Float
+    let color: SIMD3<Float>
+    let drawBorder: Float
+    let offset: SIMD2<Float>
+}
+
+enum SceneAuthoredWorkshopShadowPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneWorkshopShadowExecutionPlan? {
+        nil
+    }
+}
+
 struct SceneRenderDescriptor {
     struct EffectDescriptor {
         struct PassDescriptor {

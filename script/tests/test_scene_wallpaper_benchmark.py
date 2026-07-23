@@ -174,11 +174,15 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(
             samples["3724289844"]["expected_authored_effect_graph_succeeded_layer_ids"],
-            [28, 36],
+            [20, 28, 36],
         )
         self.assertEqual(
             samples["3724289844"]["expected_authored_effect_graph_legacy_blur_blocked_layer_ids"],
-            [20],
+            [],
+        )
+        self.assertEqual(
+            samples["3724289844"]["expected_authored_effect_graph_workshop_shadow_count"],
+            1,
         )
         self.assertEqual(
             samples["3723257973"]["expected_authored_effect_graph_succeeded_layer_ids"],
@@ -208,7 +212,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         expected_chain_metrics = {
             "3723257973": (0, 0),
             "3723344874": (0, 0),
-            "3724289844": (0, 2),
+            "3724289844": (1, 4),
             "3750813609": (0, 0),
             "2902406982": (0, 3),
             "3765760121": (0, 3),
@@ -914,6 +918,31 @@ utility layer 763: skippedHidden kind=composition
                 {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 count,
+            ),
+        )
+
+    def test_authored_workshop_shadow_count_is_an_exact_gate(self) -> None:
+        preview = "authoredEffectGraphWorkshopShadowCount: 1\n"
+        count = benchmark.authored_effect_graph_workshop_shadow_count(preview)
+        self.assertEqual(count, 1)
+        self.assertEqual(
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_workshop_shadow_count": 1},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                workshop_shadow_count=count,
+            ),
+            [],
+        )
+        self.assertIn(
+            "authored effect graph Workshop Shadow count mismatch",
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_workshop_shadow_count": 0},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                workshop_shadow_count=count,
             ),
         )
 
