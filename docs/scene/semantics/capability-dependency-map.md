@@ -108,8 +108,8 @@ B0 live-property 合龙由 `00c5e9c` 到 `dbf2c82` 的主链与 `95e0d58` 的 so
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| ordered nodes、target/bind/compose/copy/swap | IR `L2` | generic scheduler、hazard validation、command execution |
-| extent/format/clear/UV/unique | strict Blur 子集 | format-to-Metal、mapped size、sampler、load/store/reset |
+| ordered nodes、target/bind/compose/copy/swap | IR `L2`；material-only target lifetime plan 已落地 | generic scheduler、hazard validation、command execution |
+| extent/format/clear/UV/unique | strict Blur 子集；input/scale + rgba_backbuffer 原子 table 基础已落地但未接 consumer | strict Blur 迁移、format-to-Metal、mapped size、sampler、load/store/reset |
 | history/ping-pong | `L0` | first frame、resize、seek、switch、stop 和 memory budget |
 
 <a id="d7"></a>

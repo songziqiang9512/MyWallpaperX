@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-23
 >
-> 实现基线：`c86491e`
+> 实现基线：`38e238d`
 
 本页给覆盖表中的 `L3` 子集提供可追溯证据包。每个证据包至少包含代码、自动测试和真实运行或 GPU 证据；缺少任一项的能力只能标 `L0-L2`，或在专项表中明确写 `gate incomplete`。`.codex` 报告是本机隔离运行产物，不提交 Git；报告路径、App 身份和摘要写入现役文档，避免将其误当源码 fixture。
 
@@ -13,7 +13,7 @@
 | 项目 | 当前证据 |
 |---|---|
 | 视觉矩阵 | `.codex/scene-live-solid-color-final13-20260723-1015/report.json`，13/13；只证明固定门内非黑、计数、GPU completion 和 teardown，不证明 WE parity |
-| 最新合同门 | Scene tests 201 total / 200 pass / 1 skip |
+| 最新合同门 | Scene tests 211 total / 210 pass / 1 skip |
 | Live property | alpha 两项与 solid color 两项均 accepted、surface/window identity 不变；报告见 E-LIVE-PROPERTY |
 | Provider 双代 | `2938612768` static image blend 5/5；`2902406982` named capture 6/6、binding 7/7；报告见 E-PROVIDER |
 | 签名 App | `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `570cff17bbcdb1095a773fb4ead5921035b6cbf8` |
@@ -115,6 +115,13 @@
 - 代码：[SceneAuthoredEffectExecutionPlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneAuthoredEffectExecutionPlan.swift)、[SceneAuthoredStandardBlurPlanner.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneAuthoredStandardBlurPlanner.swift)、[SceneStandardBlurRenderer.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneStandardBlurRenderer.swift)
 - 自动门：[test_scene_authored_effect_execution.py](../../../script/tests/test_scene_authored_effect_execution.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)
 - 运行门：`.codex/scene-authored-precise-final13-20260723/report.json`、`.codex/scene-standard-blur-alpha-final13-20260723/report.json` 和相应 negative reports；6 个 graph layer GPU succeeded，0 failed，3 个 legacy fallback 被阻断。
+
+<a id="e-effect-rt"></a>
+### E-EFFECT-RT: effect-instance render-target foundation
+
+- 代码：[SceneGraphRenderTargetPlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneGraphRenderTargetPlan.swift)、[SceneGraphRenderTargetTable.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/SceneGraphRenderTargetTable.swift)
+- 自动门：[test_scene_graph_render_target_plan.py](../../../script/tests/test_scene_graph_render_target_plan.py)、[test_scene_graph_render_target_table.py](../../../script/tests/test_scene_graph_render_target_table.py)；覆盖 identity/extent/lifetime、history-required、重复/残缺身份、checked byte budget、原子整组 allocation 与去别名。
+- 边界：`38e238d` 只建立 CPU plan 与不可变 GPU allocation table，尚无 pool/compositor consumer，也没有新的真实样本运行证据。strict Blur 仍引用上一证据包的旧 backend；history、copy、swap、compose 和 generic scheduler 均未执行。
 
 <a id="e-video"></a>
 ### E-VIDEO: 内嵌 MP4 image-layer 子集
