@@ -12,6 +12,7 @@ enum SceneAuthoredEffectChainRenderer {
         gaussianBlurPipeline: SceneGaussianBlurPipeline,
         standardBlurPipeline: SceneStandardBlurPipeline,
         localContrastPipeline: SceneLocalContrastPipeline,
+        opacityPipeline: SceneOpacityPipeline,
         workshopShadowPipeline: SceneWorkshopShadowPipeline,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
@@ -36,6 +37,7 @@ enum SceneAuthoredEffectChainRenderer {
                 gaussianBlurPipeline: gaussianBlurPipeline,
                 standardBlurPipeline: standardBlurPipeline,
                 localContrastPipeline: localContrastPipeline,
+                opacityPipeline: opacityPipeline,
                 workshopShadowPipeline: workshopShadowPipeline,
                 commandBuffer: commandBuffer
             ) else {
@@ -57,6 +59,7 @@ enum SceneAuthoredEffectChainRenderer {
         gaussianBlurPipeline: SceneGaussianBlurPipeline,
         standardBlurPipeline: SceneStandardBlurPipeline,
         localContrastPipeline: SceneLocalContrastPipeline,
+        opacityPipeline: SceneOpacityPipeline,
         workshopShadowPipeline: SceneWorkshopShadowPipeline,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
@@ -103,6 +106,28 @@ enum SceneAuthoredEffectChainRenderer {
                 sourceUniforms: sourceUniforms,
                 pipeline: pipeline,
                 localContrastPipeline: localContrastPipeline,
+                commandBuffer: commandBuffer
+            )
+        case .opacity:
+            guard let alpha = stage.opacityAlpha(in: dynamicValues),
+                  targets.plan.logicalTargets.isEmpty,
+                  SceneOffscreenEffectRenderer.captureSource(
+                      sourceTexture: sourceTexture,
+                      waterMaskTexture: masks.water,
+                      foliageMaskTexture: masks.foliage,
+                      auxMaskTexture: auxMask,
+                      target: targets.inputTexture,
+                      sourceUniforms: sourceUniforms,
+                      pipeline: pipeline,
+                      commandBuffer: commandBuffer
+                  ) else {
+                return nil
+            }
+            return SceneOpacityRenderer.render(
+                alpha: alpha,
+                inputTexture: targets.inputTexture,
+                outputTexture: targets.outputTexture,
+                pipeline: opacityPipeline,
                 commandBuffer: commandBuffer
             )
         case .workshopShadow(let shadow):

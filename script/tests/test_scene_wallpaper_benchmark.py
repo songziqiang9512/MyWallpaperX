@@ -74,7 +74,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(set(samples), set(expected))
         for sample_id, (solid_count, authored_color_count, effective_count) in expected.items():
             sample = samples[sample_id]
-            self.assertEqual(sample["expected_interpretation_format"], 20)
+            self.assertEqual(sample["expected_interpretation_format"], 21)
             self.assertEqual(sample["expected_solid_layer_count"], solid_count)
             self.assertEqual(
                 sample["expected_authored_solid_color_layer_count"],
@@ -93,7 +93,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         for sample in matrix["samples"]:
             authored = sample["expected_shader_contract_authored_count"]
             builtin = sample["expected_shader_contract_builtin_count"]
-            self.assertEqual(sample["expected_interpretation_format"], 20)
+            self.assertEqual(sample["expected_interpretation_format"], 21)
             self.assertEqual(sample["expected_shader_contract_count"], authored + builtin)
             self.assertEqual(sample["expected_shader_contract_stage_count"], authored * 2)
             self.assertEqual(sample["expected_shader_contract_diagnostic_count"], 0)
@@ -190,15 +190,34 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(
             samples["2902406982"]["expected_authored_effect_graph_succeeded_layer_ids"],
-            [167, 177, 530],
+            [167, 177, 365, 372, 530, 647, 664],
         )
         self.assertEqual(
             samples["2902406982"]["expected_authored_effect_graph_local_contrast_count"],
             2,
         )
         self.assertEqual(
+            samples["2902406982"]["expected_authored_effect_graph_opacity_count"],
+            4,
+        )
+        self.assertEqual(
+            samples["2902406982"]["expected_authored_effect_graph_opacity_layer_ids"],
+            [365, 372, 647, 664],
+        )
+        self.assertEqual(
+            samples["2902406982"][
+                "expected_stock_opacity_single_effect_candidate_layer_ids"
+            ],
+            [365, 372, 647, 664],
+        )
+        self.assertEqual(samples["2902406982"]["expected_route_only_effect_count"], 3)
+        self.assertEqual(
+            samples["2902406982"]["minimum_authored_opacity_runtime_count"],
+            4,
+        )
+        self.assertEqual(
             samples["2902406982"]["live_property_overrides"],
-            {"brcontraststrength": 3.0},
+            {"brcontraststrength": 3.0, "newproperty50": 0.2},
         )
         self.assertGreater(samples["2902406982"]["minimum_live_changed_ratio"], 0)
         self.assertEqual(
@@ -209,12 +228,27 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             samples["2938612768"]["expected_authored_effect_graph_local_contrast_count"],
             0,
         )
+        self.assertEqual(
+            samples["2938612768"]["expected_authored_effect_graph_opacity_count"],
+            0,
+        )
+        self.assertEqual(
+            samples["2938612768"]["expected_authored_effect_graph_opacity_layer_ids"],
+            [],
+        )
+        self.assertEqual(
+            samples["2938612768"][
+                "expected_stock_opacity_single_effect_candidate_layer_ids"
+            ],
+            [165, 454, 626, 629, 924],
+        )
+        self.assertEqual(samples["2938612768"]["expected_route_only_effect_count"], 18)
         expected_chain_metrics = {
             "3723257973": (0, 0),
             "3723344874": (0, 0),
             "3724289844": (1, 4),
             "3750813609": (0, 0),
-            "2902406982": (0, 3),
+            "2902406982": (0, 7),
             "3765760121": (0, 3),
             "2938612768": (0, 0),
         }
@@ -227,6 +261,41 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 samples[sample_id]["expected_authored_effect_graph_stage_count"],
                 stage_count,
             )
+        self.assertEqual(
+            sum(
+                sample.get("expected_authored_effect_graph_stage_count", 0)
+                for sample in samples.values()
+            ),
+            14,
+        )
+        self.assertEqual(
+            sum(
+                sample.get("expected_authored_effect_graph_chain_count", 0)
+                for sample in samples.values()
+            ),
+            1,
+        )
+        self.assertEqual(
+            sum(sample["expected_route_only_effect_count"] for sample in samples.values()),
+            30,
+        )
+        self.assertEqual(
+            sum(
+                sample.get("expected_authored_effect_graph_opacity_count", 0)
+                for sample in samples.values()
+            ),
+            4,
+        )
+        self.assertEqual(
+            sum(
+                len(sample.get(
+                    "expected_authored_effect_graph_legacy_blur_blocked_layer_ids",
+                    [],
+                ))
+                for sample in samples.values()
+            ),
+            2,
+        )
 
     def test_entry_basename_package_is_preferred_and_copied(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-copy-variant-") as directory:
@@ -360,7 +429,11 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 ],
                 "blockers": [{"reason": "unsupportedCondition"}],
             }, {
-                "effects": [{"key": "three"}],
+                "layerID": 9,
+                "effects": [{
+                    "key": "three",
+                    "definitionPath": "Effects\\Opacity\\Effect.json",
+                }],
                 "renderTargets": [],
                 "nodes": [{"kind": "material"}],
                 "blockers": [],
@@ -475,6 +548,10 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             self.assertEqual(metrics["max_hierarchy_depth"], 1)
             self.assertEqual(metrics["effective_visible_layer_count"], 2)
             self.assertEqual(metrics["effective_visible_layer_ids"], [8, 9])
+            self.assertEqual(
+                metrics["stock_opacity_single_effect_candidate_layer_ids"],
+                [9],
+            )
             self.assertEqual(metrics["solid_layer_count"], 3)
             self.assertEqual(metrics["solid_layer_ids"], [7, 8, 9])
             self.assertEqual(metrics["authored_solid_color_layer_count"], 1)
@@ -945,6 +1022,59 @@ utility layer 763: skippedHidden kind=composition
                 workshop_shadow_count=count,
             ),
         )
+
+    def test_authored_opacity_and_route_only_counts_are_exact_gates(self) -> None:
+        preview = (
+            "authoredEffectGraphOpacityCount: 4\n"
+            "layer 365: effect runtime opacity-authored; 1 declared pass(es)\n"
+            "layer 372: effect runtime opacity-authored; 1 declared pass(es)\n"
+            "layer 647: effect runtime opacity-authored; 1 declared pass(es)\n"
+            "layer 664: effect runtime opacity-authored; 1 declared pass(es)\n"
+            "layer 702: offscreen route-only\n"
+            "layer 159: offscreen route-only\n"
+            "layer 462: offscreen route-only\n"
+        )
+        opacity_count = benchmark.authored_effect_graph_opacity_count(preview)
+        opacity_layers = benchmark.authored_effect_graph_opacity_layer_ids(preview)
+        route_only_count = preview.count("offscreen route-only")
+        self.assertEqual(opacity_count, 4)
+        self.assertEqual(opacity_layers, [365, 372, 647, 664])
+        self.assertEqual(route_only_count, 3)
+        self.assertEqual(
+            benchmark.authored_effect_graph_failures(
+                {
+                    "expected_authored_effect_graph_opacity_count": 4,
+                    "expected_authored_effect_graph_opacity_layer_ids":
+                        [365, 372, 647, 664],
+                    "expected_route_only_effect_count": 3,
+                },
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                opacity_count=opacity_count,
+                route_only_effect_count=route_only_count,
+                opacity_layer_ids=opacity_layers,
+            ),
+            [],
+        )
+        failures = benchmark.authored_effect_graph_failures(
+            {
+                "expected_authored_effect_graph_opacity_count": 0,
+                "expected_authored_effect_graph_opacity_layer_ids": [],
+                "expected_route_only_effect_count": 18,
+            },
+            {"succeeded_layer_ids": [], "failed_layer_ids": []},
+            [],
+            None,
+            opacity_count=opacity_count,
+            route_only_effect_count=route_only_count,
+            opacity_layer_ids=opacity_layers,
+        )
+        self.assertIn("authored effect graph Opacity count mismatch", failures)
+        self.assertIn("authored effect graph Opacity layer IDs mismatch", failures)
+        self.assertIn("offscreen route-only effect count mismatch", failures)
+        self.assertIsNone(benchmark.authored_effect_graph_opacity_count(""))
+        self.assertEqual(benchmark.authored_effect_graph_opacity_layer_ids(""), [])
 
     def test_authored_effect_chain_counts_are_exact_gates(self) -> None:
         preview = (

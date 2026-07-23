@@ -65,6 +65,23 @@ struct SceneWorkshopShadowExecutionPlan: Equatable, Sendable {
     let offset: SIMD2<Float>
 }
 
+struct SceneOpacityExecutionPlan: Sendable {
+    var liveAlphaTarget: SceneDynamicTarget? { nil }
+
+    func resolvedAlpha(in snapshot: SceneDynamicSnapshot) -> Float { 1 }
+}
+
+enum SceneAuthoredOpacityPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneOpacityExecutionPlan? {
+        nil
+    }
+}
+
 enum SceneAuthoredWorkshopShadowPlanner {
     static func plan(
         graph: SceneAuthoredEffectRenderPlan,

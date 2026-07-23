@@ -16,8 +16,8 @@ struct SceneInterpretationFile: Codable {
 }
 
 struct SceneInterpretationFileWriter {
-    // Format 20 adds the strict Local Contrast strength live binding contract.
-    static let currentFormatVersion = 20
+    // Format 21 adds the strict stock Opacity alpha live binding contract.
+    static let currentFormatVersion = 21
 
     func make(
         renderDescriptor: SceneRenderDescriptor,

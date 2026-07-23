@@ -186,6 +186,7 @@ struct SceneAssetCatalog {
         }
 
         let relativePath: String
+        let rawSHA256: String
         let passes: [Pass]
     }
 

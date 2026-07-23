@@ -5,6 +5,7 @@ nonisolated struct SceneAuthoredEffectExecutionPlan {
         case preciseGaussian(SceneGaussianBlurPlan)
         case standardBlur(SceneStandardBlurPlan)
         case localContrast(SceneLocalContrastPlan)
+        case opacity(SceneOpacityExecutionPlan)
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
     }
 
@@ -46,17 +47,26 @@ nonisolated struct SceneAuthoredEffectExecutionPlan {
         return plan
     }
 
+    var opacity: SceneOpacityExecutionPlan? {
+        guard case .opacity(let plan) = backend else { return nil }
+        return plan
+    }
+
     var workshopShadow: SceneWorkshopShadowExecutionPlan? {
         guard case .workshopShadow(let plan) = backend else { return nil }
         return plan
     }
 
     var liveConsumerTarget: SceneDynamicTarget? {
-        localContrast?.liveStrengthTarget
+        localContrast?.liveStrengthTarget ?? opacity?.liveAlphaTarget
     }
 
     func localContrastStrength(in snapshot: SceneDynamicSnapshot) -> Float? {
         localContrast?.resolvedStrength(in: snapshot)
+    }
+
+    func opacityAlpha(in snapshot: SceneDynamicSnapshot) -> Float? {
+        opacity?.resolvedAlpha(in: snapshot)
     }
 
     var requiresExactInputExtent: Bool {
@@ -122,6 +132,7 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
             "authoredEffectGraphChainCount: \(chainsByLayerID.values.filter { $0.stages.count > 1 }.count)",
             "authoredEffectGraphStageCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.stages.count })",
             "authoredEffectGraphLocalContrastCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.localContrastCount })",
+            "authoredEffectGraphOpacityCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.opacityCount })",
             "authoredEffectGraphWorkshopShadowCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.workshopShadowCount })",
         ]
     }

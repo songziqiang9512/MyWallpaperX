@@ -144,6 +144,9 @@ enum SceneEffectRuntimePlanner {
         if authoredEffectPlan?.localContrast != nil {
             return "\(foliage)effect runtime local-contrast-authored; \(passCount) declared pass(es)"
         }
+        if authoredEffectPlan?.opacity != nil {
+            return "\(foliage)effect runtime opacity-authored; \(passCount) declared pass(es)"
+        }
         if authoredEffectPlan?.standardBlur != nil {
             return "\(foliage)effect runtime standard-blur-authored; \(passCount) declared pass(es)"
         }

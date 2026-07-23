@@ -103,6 +103,7 @@ struct SceneRenderDescriptor: Codable {
     struct MaterialPassDescriptor: Identifiable, Codable {
         let id: String
         let materialPath: String
+        let materialRawSHA256: String
         let passIndex: Int
         let shaderPath: String?
         let texturePaths: [String]
@@ -251,6 +252,7 @@ struct SceneRenderDescriptorBuilder {
                 SceneRenderDescriptor.MaterialPassDescriptor(
                     id: "\(material.relativePath)#\(index)",
                     materialPath: material.relativePath,
+                    materialRawSHA256: material.rawSHA256,
                     passIndex: index,
                     shaderPath: pass.shader,
                     texturePaths: pass.textures,

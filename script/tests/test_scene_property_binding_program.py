@@ -198,6 +198,70 @@ enum Harness {
             definitions: localContrast.program.definitions,
             userValues: localContrastEvaluation.userValues
         ).snapshot
+        let opacityTargets = [365, 372, 647, 664].map {
+            SceneDynamicTarget.effectConstant(
+                layerID: $0,
+                effectIndex: 0,
+                passIndex: 0,
+                name: "alpha"
+            )
+        }
+        let opacity = compiler.compile(
+            report: .init(bindings: [365, 372, 647, 664].map {
+                binding(
+                    "newproperty50",
+                    .number(1),
+                    $0,
+                    opacityBindingTarget(
+                        layerID: $0,
+                        effectIndex: 0,
+                        usesNormalizedVariant: $0 == 365
+                    )
+                )
+            }, diagnostics: []),
+            catalog: .init(definitions: [
+                property("newproperty50", .slider, .number(1)),
+            ])
+        )
+        let opacityDecoded = try JSONDecoder().decode(
+            ScenePropertyBindingProgram.self,
+            from: JSONEncoder().encode(opacity.program)
+        )
+        let opacityAuthored = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 6,
+            generation: 6,
+            definitions: opacity.program.definitions
+        ).snapshot
+        let opacityEvaluation = opacity.program.evaluate(effectiveValues: [
+            "newproperty50": .number(0.2),
+        ])
+        let opacityUser = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 7,
+            generation: 7,
+            definitions: opacity.program.definitions,
+            userValues: opacityEvaluation.userValues
+        ).snapshot
+        let unsupportedOpacityTargets = compiler.compile(
+            report: .init(bindings: [
+                binding("opacityWrongPath", .number(1), 101, .shaderValue(
+                    layerID: 101, effectIndex: 0, passIndex: 0, name: "alpha",
+                    effectPath: "effects/workshop/opacity/effect.json"
+                )),
+                binding("opacityWrongPass", .number(1), 102, .shaderValue(
+                    layerID: 102, effectIndex: 0, passIndex: 1, name: "alpha",
+                    effectPath: "effects/opacity/effect.json"
+                )),
+                binding("opacityWrongName", .number(1), 103, .shaderValue(
+                    layerID: 103, effectIndex: 0, passIndex: 0, name: "amount",
+                    effectPath: "effects/opacity/effect.json"
+                )),
+            ], diagnostics: []),
+            catalog: .init(definitions: [
+                property("opacityWrongPath", .slider, .number(1)),
+                property("opacityWrongPass", .slider, .number(1)),
+                property("opacityWrongName", .slider, .number(1)),
+            ])
+        )
         let unsupportedShaderTargets = compiler.compile(
             report: .init(bindings: [
                 binding("wrongPath", .number(0.2), 91, .shaderValue(
@@ -351,6 +415,17 @@ enum Harness {
             "localContrastAuthored": resolved(localContrastAuthored[localContrastTarget]),
             "localContrastUser": resolved(localContrastUser[localContrastTarget]),
             "localContrastRuntimeCodes": codes(localContrastEvaluation.diagnostics),
+            "opacityCount": opacity.program.instructions.count,
+            "opacityTargets": opacity.program.instructions.map(\.target) == opacityTargets,
+            "opacityRoundTrip": opacityDecoded == opacity.program,
+            "opacityCodes": codes(opacity.diagnostics),
+            "opacityRebuild": opacity.program.rebuildRequiredPropertyKeys,
+            "opacityAuthored": opacityTargets.map { resolved(opacityAuthored[$0]) },
+            "opacityUser": opacityTargets.map { resolved(opacityUser[$0]) },
+            "opacityRuntimeCodes": codes(opacityEvaluation.diagnostics),
+            "unsupportedOpacityCount": unsupportedOpacityTargets.program.instructions.count,
+            "unsupportedOpacityCodes": codes(unsupportedOpacityTargets.diagnostics),
+            "unsupportedOpacityRebuild": unsupportedOpacityTargets.program.rebuildRequiredPropertyKeys,
             "unsupportedShaderCount": unsupportedShaderTargets.program.instructions.count,
             "unsupportedShaderCodes": codes(unsupportedShaderTargets.diagnostics),
             "unsupportedShaderRebuild": unsupportedShaderTargets.program.rebuildRequiredPropertyKeys,
@@ -436,6 +511,22 @@ enum Harness {
             passIndex: 3,
             name: "strength",
             effectPath: "effects/localcontrast/effect.json"
+        )
+    }
+
+    static func opacityBindingTarget(
+        layerID: Int,
+        effectIndex: Int,
+        usesNormalizedVariant: Bool = false
+    ) -> SceneUserPropertyBindingTarget {
+        .shaderValue(
+            layerID: layerID,
+            effectIndex: effectIndex,
+            passIndex: 0,
+            name: usesNormalizedVariant ? "Alpha" : "alpha",
+            effectPath: usesNormalizedVariant
+                ? "Effects\\Opacity\\Effect.json"
+                : "effects/opacity/effect.json"
         )
     }
 
@@ -575,6 +666,33 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
             ["scalar(0.75)", "userProperty"],
         )
         self.assertEqual(self.result["localContrastRuntimeCodes"], [])
+
+    def test_direct_opacity_alpha_compiles_four_live_scalar_targets(self) -> None:
+        self.assertEqual(self.result["opacityCount"], 4)
+        self.assertTrue(self.result["opacityTargets"])
+        self.assertTrue(self.result["opacityRoundTrip"])
+        self.assertEqual(self.result["opacityCodes"], [])
+        self.assertEqual(self.result["opacityRebuild"], [])
+        self.assertEqual(
+            self.result["opacityAuthored"],
+            [["scalar(1.0)", "authored"]] * 4,
+        )
+        self.assertEqual(
+            self.result["opacityUser"],
+            [["scalar(0.2)", "userProperty"]] * 4,
+        )
+        self.assertEqual(self.result["opacityRuntimeCodes"], [])
+
+    def test_other_opacity_targets_remain_unsupported_and_rebuild(self) -> None:
+        self.assertEqual(self.result["unsupportedOpacityCount"], 0)
+        self.assertEqual(
+            self.result["unsupportedOpacityCodes"],
+            ["unsupportedTarget"] * 3,
+        )
+        self.assertEqual(
+            self.result["unsupportedOpacityRebuild"],
+            ["opacityWrongName", "opacityWrongPass", "opacityWrongPath"],
+        )
 
     def test_other_shader_value_targets_remain_unsupported_and_rebuild(self) -> None:
         self.assertEqual(self.result["unsupportedShaderCount"], 0)

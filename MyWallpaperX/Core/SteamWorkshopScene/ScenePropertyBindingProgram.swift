@@ -327,15 +327,31 @@ nonisolated struct ScenePropertyBindingCompiler {
         case let .layerColor(layerID):
             (.layer(layerID: layerID, field: .color), .vector3, .color)
         case let .shaderValue(layerID, effectIndex, passIndex, name, effectPath)
-            where effectPath == "effects/localcontrast/effect.json"
+            where effectPath?.replacingOccurrences(of: "\\", with: "/").lowercased()
+                == "effects/localcontrast/effect.json"
                 && passIndex == 3
-                && name == "strength":
+                && name.lowercased() == "strength":
             (
                 .effectConstant(
                     layerID: layerID,
                     effectIndex: effectIndex,
                     passIndex: passIndex,
-                    name: name
+                    name: "strength"
+                ),
+                .scalar,
+                .slider
+            )
+        case let .shaderValue(layerID, effectIndex, passIndex, name, effectPath)
+            where effectPath?.replacingOccurrences(of: "\\", with: "/").lowercased()
+                == "effects/opacity/effect.json"
+                && passIndex == 0
+                && name.lowercased() == "alpha":
+            (
+                .effectConstant(
+                    layerID: layerID,
+                    effectIndex: effectIndex,
+                    passIndex: passIndex,
+                    name: "alpha"
                 ),
                 .scalar,
                 .slider

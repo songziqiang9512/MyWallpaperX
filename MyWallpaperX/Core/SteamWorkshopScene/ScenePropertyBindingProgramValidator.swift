@@ -265,6 +265,6 @@ extension ScenePropertyBindingCompiler {
         _ target: SceneUserPropertyBindingTarget
     ) -> String {
         if case let .unsupported(reason) = target { return reason }
-        return "当前 binding program 仅支持 layer alpha/color 与 strict Local Contrast strength。"
+        return "当前 binding program 仅支持 layer alpha/color、strict Local Contrast strength 与 stock Opacity alpha。"
     }
 }

@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 struct SceneAssetCatalog {
@@ -27,6 +28,7 @@ struct SceneAssetCatalog {
         }
 
         let relativePath: String
+        let rawSHA256: String
         let passes: [Pass]
 
         var id: String { relativePath }
@@ -138,7 +140,10 @@ struct SceneAssetCatalogLoader {
     }
 
     nonisolated private func loadMaterial(_ resource: SceneResourceIndex.Resource) -> SceneAssetCatalog.MaterialAsset? {
-        guard let root = loadJSON(resource.url) else { return nil }
+        guard let data = try? Data(contentsOf: resource.url),
+              let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            return nil
+        }
         let rawPasses = root["passes"] as? [[String: Any]] ?? []
         let passes = rawPasses.map { pass in
             SceneAssetCatalog.MaterialAsset.Pass(
@@ -156,6 +161,9 @@ struct SceneAssetCatalogLoader {
         }
         return SceneAssetCatalog.MaterialAsset(
             relativePath: resource.relativePath,
+            rawSHA256: SHA256.hash(data: data)
+                .map { String(format: "%02x", $0) }
+                .joined(),
             passes: passes
         )
     }

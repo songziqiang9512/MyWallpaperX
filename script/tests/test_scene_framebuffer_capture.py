@@ -27,6 +27,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneStandardBlurRenderer.swift",
     SOURCE_ROOT / "SceneLocalContrastPipeline.swift",
     SOURCE_ROOT / "SceneLocalContrastRenderer.swift",
+    SOURCE_ROOT / "SceneOpacityPipeline.swift",
+    SOURCE_ROOT / "SceneOpacityRenderer.swift",
     SOURCE_ROOT / "SceneWorkshopShadowPipeline.swift",
     SOURCE_ROOT / "SceneWorkshopShadowRenderer.swift",
     SOURCE_ROOT / "SceneImageBlendPipeline.swift",
@@ -133,11 +135,27 @@ struct SceneWorkshopShadowExecutionPlan: Equatable, Sendable {
     let offset: SIMD2<Float>
 }
 
+struct SceneOpacityExecutionPlan: Equatable, Sendable {
+    let staticOrFallbackAlpha: Float
+    let liveEffectIndex: Int?
+
+    init(staticOrFallbackAlpha: Float, liveEffectIndex: Int? = nil) {
+        self.staticOrFallbackAlpha = staticOrFallbackAlpha
+        self.liveEffectIndex = liveEffectIndex
+    }
+
+    func resolvedAlpha(in snapshot: SceneDynamicSnapshot) -> Float {
+        liveEffectIndex.flatMap { snapshot.opacitiesByEffectIndex[$0] }
+            ?? staticOrFallbackAlpha
+    }
+}
+
 struct SceneAuthoredEffectExecutionPlan {
     enum Backend {
         case preciseGaussian(SceneGaussianBlurPlan)
         case standardBlur(SceneStandardBlurPlan)
         case localContrast(SceneLocalContrastPlan)
+        case opacity(SceneOpacityExecutionPlan)
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
     }
 
@@ -179,6 +197,11 @@ struct SceneAuthoredEffectExecutionPlan {
         return plan
     }
 
+    var opacity: SceneOpacityExecutionPlan? {
+        guard case .opacity(let plan) = backend else { return nil }
+        return plan
+    }
+
     var workshopShadow: SceneWorkshopShadowExecutionPlan? {
         guard case .workshopShadow(let plan) = backend else { return nil }
         return plan
@@ -195,6 +218,10 @@ struct SceneAuthoredEffectExecutionPlan {
         return snapshot.strengthsByEffectIndex[effectIndex]
             ?? localContrast.staticOrFallbackStrength
     }
+
+    func opacityAlpha(in snapshot: SceneDynamicSnapshot) -> Float? {
+        opacity?.resolvedAlpha(in: snapshot)
+    }
 }
 
 struct SceneAuthoredEffectExecutionChain {
@@ -209,9 +236,10 @@ struct SceneAuthoredEffectExecutionChain {
 
 struct SceneDynamicSnapshot {
     let strengthsByEffectIndex: [Int: Float]
+    let opacitiesByEffectIndex: [Int: Float]
 
     static func empty(frameIndex: UInt64, generation: UInt64 = 0) -> Self {
-        Self(strengthsByEffectIndex: [:])
+        Self(strengthsByEffectIndex: [:], opacitiesByEffectIndex: [:])
     }
 }
 
@@ -574,6 +602,12 @@ enum Harness {
             pipeline: pipeline,
             compositor: compositor
         )
+        let authoredOpacityLivePixels = try authoredOpacityLivePixels(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor
+        )
         let authoredFailedChain = try authoredFailedChainEvidence(
             device: device,
             queue: queue,
@@ -659,6 +693,7 @@ enum Harness {
             "authoredPreciseImpulse": authoredPreciseImpulse,
             "authoredStandardCheckerboard": authoredStandardCheckerboard,
             "authoredTwoStageChain": authoredTwoStageChain,
+            "authoredOpacityLivePixels": authoredOpacityLivePixels,
             "authoredFailedChain": authoredFailedChain,
             "authoredStandardBlurOverridesLegacy": authoredStandardBlurOverridesLegacy,
             "standardBlurAlphaAwareDownsampleBGRA": standardBlurAlphaAwareDownsample,
@@ -1293,6 +1328,68 @@ enum Harness {
         ]
     }
 
+    static func authoredOpacityLivePixels(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor
+    ) throws -> [[UInt8]] {
+        try [Float?.none, Float(0.2)].map { liveAlpha in
+            guard let source = makeTexture(device: device, size: 1, usage: .shaderRead),
+                  let target = makeTexture(
+                      device: device, size: 1, usage: [.renderTarget, .shaderRead]
+                  ), let commandBuffer = queue.makeCommandBuffer() else {
+                throw HarnessError.metalUnavailable
+            }
+            fill(source, bgra: [40, 80, 160, 200])
+            let mainPass = SceneMainPassEncoder(
+                commandBuffer: commandBuffer,
+                target: target,
+                clearColor: MTLClearColorMake(0, 0, 0, 0)
+            )
+            let snapshot = SceneDynamicSnapshot(
+                strengthsByEffectIndex: [:],
+                opacitiesByEffectIndex: liveAlpha.map { [0: $0] } ?? [:]
+            )
+            guard compositor.draw(
+                SceneImageLayerDrawRequest(
+                    layer: SceneRenderDescriptor.Layer(
+                        contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
+                    ),
+                    texture: source,
+                    masks: .empty,
+                    textureFrame: .identity,
+                    mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+                    uniforms: SceneImageLayerUniformValues(
+                        time: 0, alpha: 1, cursorUV: .zero
+                    ),
+                    offscreenTexturePool: SceneOffscreenTexturePool(
+                        device: device, maxDimension: 1
+                    ),
+                    offscreenSize: nil,
+                    requiresSourceCopy: false,
+                    finalCompositeAlpha: nil,
+                    dependencyEffect: nil,
+                    authoredEffectPlan: nil,
+                    blocksLegacyGaussianBlur: false,
+                    authoredEffectChain: authoredOpacityChain(),
+                    dynamicValues: snapshot
+                ),
+                pipeline: pipeline,
+                mainPass: mainPass
+            ) else {
+                throw HarnessError.drawRefused
+            }
+            mainPass.finishEnsuringClear()
+            commandBuffer.commit()
+            commandBuffer.waitUntilCompleted()
+            guard commandBuffer.status == .completed else {
+                throw HarnessError.commandFailed
+            }
+            return pixel(target, x: 0, y: 0)
+        }
+    }
+
     static func authoredFailedChainEvidence(
         device: MTLDevice,
         queue: MTLCommandQueue,
@@ -1540,6 +1637,63 @@ enum Harness {
             layerID: layerID,
             renderGraph: graph,
             stages: [first, second]
+        )
+    }
+
+    static func authoredOpacityChain() -> SceneAuthoredEffectExecutionChain {
+        let layerID = 850
+        let effectKey = Graph.EffectKey(
+            layerID: layerID,
+            effectIndex: 0,
+            descriptorID: "\(layerID)#effect#0"
+        )
+        let input = graphTexture(.layerSource, layerID: layerID)
+        let output = graphTexture(.effectOutput, layerID: layerID, effect: effectKey)
+        let node = Graph.Node(
+            nodeIndex: 0,
+            effect: effectKey,
+            definitionPassIndex: 0,
+            materialOrdinal: 0,
+            instancePassIndex: 0,
+            kind: .material,
+            materialPath: "materials/effects/opacity.json",
+            materialPassID: "materials/effects/opacity.json#0",
+            target: output,
+            bindings: [],
+            commandSource: nil,
+            commandTarget: nil,
+            compose: nil,
+            conditions: nil
+        )
+        let effect = Graph.Effect(
+            key: effectKey,
+            definitionPath: "effects/opacity/effect.json",
+            input: input,
+            output: output,
+            nodeIndices: [0]
+        )
+        let graph = Graph(
+            layerID: layerID,
+            effects: [effect],
+            renderTargets: [],
+            nodes: [node],
+            finalOutput: output,
+            blockers: []
+        )
+        let stage = SceneAuthoredEffectExecutionPlan(
+            layerID: layerID,
+            renderGraph: graph,
+            backend: .opacity(SceneOpacityExecutionPlan(
+                staticOrFallbackAlpha: 1,
+                liveEffectIndex: 0
+            )),
+            materialNodeCount: 1,
+            logicalRenderTargetCount: 0
+        )
+        return SceneAuthoredEffectExecutionChain(
+            layerID: layerID,
+            renderGraph: graph,
+            stages: [stage]
         )
     }
 
@@ -1906,6 +2060,12 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertIn("masks: isFirstStage ? masks : .empty", source)
         self.assertIn("sourceUniforms: isFirstStage ? sourceUniforms : .neutral()", source)
         self.assertIn("stage.localContrastStrength(in: dynamicValues)", source)
+        self.assertIn("stage.opacityAlpha(in: dynamicValues)", source)
+
+    def test_opacity_chain_consumes_live_snapshot_on_gpu(self) -> None:
+        authored, live = self.result["authoredOpacityLivePixels"]
+        self.assertLessEqual(max(abs(a - b) for a, b in zip(authored, [40, 80, 160, 200])), 1)
+        self.assertLessEqual(max(abs(a - b) for a, b in zip(live, [8, 16, 32, 40])), 1)
 
     def test_failed_later_stage_never_composites_an_earlier_stage(self) -> None:
         evidence = self.result["authoredFailedChain"]

@@ -21,6 +21,10 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         stages.filter { $0.localContrast != nil }.count
     }
 
+    var opacityCount: Int {
+        stages.filter { $0.opacity != nil }.count
+    }
+
     var workshopShadowCount: Int {
         stages.filter { $0.workshopShadow != nil }.count
     }
@@ -58,38 +62,62 @@ enum SceneAuthoredEffectChainPlanner {
                 shaderContracts: shaderContracts,
                 inputRole: inputRole
             )
+            let opacity = SceneAuthoredOpacityPlanner.plan(
+                graph: stageGraph,
+                descriptor: descriptor,
+                shaderContracts: shaderContracts,
+                inputRole: inputRole
+            )
             let workshopShadow = SceneAuthoredWorkshopShadowPlanner.plan(
                 graph: stageGraph,
                 descriptor: descriptor,
                 shaderContracts: shaderContracts,
                 inputRole: inputRole
             )
-            let stage = SceneAuthoredEffectExecutionPlanner.plan(
+            let preciseBlur = SceneAuthoredEffectExecutionPlanner.plan(
                 graph: stageGraph,
                 descriptor: descriptor,
                 inputRole: inputRole
-            ) ?? SceneAuthoredStandardBlurPlanner.plan(
+            )
+            let standardBlur = SceneAuthoredStandardBlurPlanner.plan(
                 graph: stageGraph,
                 descriptor: descriptor,
                 inputRole: inputRole
-            ) ?? localContrast.map {
-                SceneAuthoredEffectExecutionPlan(
+            )
+            let stage: SceneAuthoredEffectExecutionPlan?
+            if let preciseBlur {
+                stage = preciseBlur
+            } else if let standardBlur {
+                stage = standardBlur
+            } else if let localContrast {
+                stage = SceneAuthoredEffectExecutionPlan(
                     layerID: graph.layerID,
                     renderGraph: stageGraph,
-                    backend: .localContrast($0),
+                    backend: .localContrast(localContrast),
                     materialNodeCount: 4,
                     logicalRenderTargetCount: 2,
                     inputRole: inputRole
                 )
-            } ?? workshopShadow.map {
-                SceneAuthoredEffectExecutionPlan(
+            } else if let opacity {
+                stage = SceneAuthoredEffectExecutionPlan(
                     layerID: graph.layerID,
                     renderGraph: stageGraph,
-                    backend: .workshopShadow($0),
+                    backend: .opacity(opacity),
                     materialNodeCount: 1,
                     logicalRenderTargetCount: 0,
                     inputRole: inputRole
                 )
+            } else if let workshopShadow {
+                stage = SceneAuthoredEffectExecutionPlan(
+                    layerID: graph.layerID,
+                    renderGraph: stageGraph,
+                    backend: .workshopShadow(workshopShadow),
+                    materialNodeCount: 1,
+                    logicalRenderTargetCount: 0,
+                    inputRole: inputRole
+                )
+            } else {
+                stage = nil
             }
             guard let stage else { return nil }
             stages.append(stage)

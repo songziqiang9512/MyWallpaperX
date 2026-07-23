@@ -342,7 +342,7 @@ enum SceneOffscreenEffectRenderer {
         return commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
     }
 
-    private static func captureSource(
+    static func captureSource(
         sourceTexture: MTLTexture,
         waterMaskTexture: MTLTexture?,
         foliageMaskTexture: MTLTexture?,

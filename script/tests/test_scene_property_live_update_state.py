@@ -162,6 +162,25 @@ enum Harness {
         let mixedRejected = !mixedState.apply(.number(0.7), forPropertyKey: "mixed")
         let mixedWasAtomic = unchanged(mixedState, from: beforeMixed)
 
+        let partialConsumerProgram = program(bindings: [
+            ("sharedOpacity", alphaOne, .scalar, .scalar(1)),
+            ("sharedOpacity", alphaTwo, .scalar, .scalar(1)),
+        ])
+        var partialConsumerState = ScenePropertyLiveUpdateState(
+            program: partialConsumerProgram,
+            effectiveValues: ["sharedOpacity": .number(1)],
+            activeConsumerTargets: [alphaOne]
+        )
+        let beforePartialConsumer = partialConsumerState
+        let partialConsumerRejected = !partialConsumerState.apply(
+            .number(0.2),
+            forPropertyKey: "sharedOpacity"
+        )
+        let partialConsumerWasAtomic = unchanged(
+            partialConsumerState,
+            from: beforePartialConsumer
+        )
+
         let payload: [String: Bool] = [
             "initialEvaluatedAllTargets": initialEvaluatedAllTargets,
             "singleAccepted": singleAccepted,
@@ -192,6 +211,8 @@ enum Harness {
             "rebuildWasAtomic": rebuildWasAtomic,
             "mixedRejected": mixedRejected,
             "mixedWasAtomic": mixedWasAtomic,
+            "partialConsumerRejected": partialConsumerRejected,
+            "partialConsumerWasAtomic": partialConsumerWasAtomic,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -308,6 +329,10 @@ class ScenePropertyLiveUpdateStateTests(unittest.TestCase):
         self.assertTrue(self.result["rebuildWasAtomic"])
         self.assertTrue(self.result["mixedRejected"])
         self.assertTrue(self.result["mixedWasAtomic"])
+
+    def test_shared_key_requires_every_consumer_to_be_active(self) -> None:
+        self.assertTrue(self.result["partialConsumerRejected"])
+        self.assertTrue(self.result["partialConsumerWasAtomic"])
 
 
 if __name__ == "__main__":

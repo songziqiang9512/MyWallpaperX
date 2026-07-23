@@ -57,6 +57,7 @@ struct SceneImageLayerCompositor {
     private let gaussianBlurPipeline: SceneGaussianBlurPipeline
     private let standardBlurPipeline: SceneStandardBlurPipeline
     private let localContrastPipeline: SceneLocalContrastPipeline
+    private let opacityPipeline: SceneOpacityPipeline
     private let workshopShadowPipeline: SceneWorkshopShadowPipeline
     private let bloomPipeline: SceneBloomPipeline
     private let gradientColorPipeline: SceneGradientColorPipeline
@@ -68,6 +69,7 @@ struct SceneImageLayerCompositor {
         guard let gaussianBlurPipeline = SceneGaussianBlurPipeline(device: device),
               let standardBlurPipeline = SceneStandardBlurPipeline(device: device),
               let localContrastPipeline = SceneLocalContrastPipeline(device: device),
+              let opacityPipeline = SceneOpacityPipeline(device: device),
               let workshopShadowPipeline = SceneWorkshopShadowPipeline(device: device),
               let bloomPipeline = SceneBloomPipeline(device: device),
               let gradientColorPipeline = SceneGradientColorPipeline(device: device),
@@ -79,6 +81,7 @@ struct SceneImageLayerCompositor {
         self.gaussianBlurPipeline = gaussianBlurPipeline
         self.standardBlurPipeline = standardBlurPipeline
         self.localContrastPipeline = localContrastPipeline
+        self.opacityPipeline = opacityPipeline
         self.workshopShadowPipeline = workshopShadowPipeline
         self.bloomPipeline = bloomPipeline
         self.gradientColorPipeline = gradientColorPipeline
@@ -156,6 +159,7 @@ struct SceneImageLayerCompositor {
                         gaussianBlurPipeline: gaussianBlurPipeline,
                         standardBlurPipeline: standardBlurPipeline,
                         localContrastPipeline: localContrastPipeline,
+                        opacityPipeline: opacityPipeline,
                         workshopShadowPipeline: workshopShadowPipeline,
                         commandBuffer: commandBuffer
                     )
@@ -168,10 +172,10 @@ struct SceneImageLayerCompositor {
                 ) else {
                     return false
                 }
-                renderedTexture = mainPass.encodeOffscreen { commandBuffer in
+                renderedTexture = mainPass.encodeOffscreen { commandBuffer -> MTLTexture? in
                     switch authoredPlan.backend {
                     case .preciseGaussian(let blur):
-                        SceneOffscreenEffectRenderer.renderPreciseBlur(
+                        return SceneOffscreenEffectRenderer.renderPreciseBlur(
                             sourceTexture: request.texture,
                             waterMaskTexture: masks.water,
                             foliageMaskTexture: masks.foliage,
@@ -184,7 +188,7 @@ struct SceneImageLayerCompositor {
                             commandBuffer: commandBuffer
                         )
                     case .standardBlur(let blur):
-                        SceneOffscreenEffectRenderer.renderStandardBlur(
+                        return SceneOffscreenEffectRenderer.renderStandardBlur(
                             sourceTexture: request.texture,
                             waterMaskTexture: masks.water,
                             foliageMaskTexture: masks.foliage,
@@ -197,7 +201,7 @@ struct SceneImageLayerCompositor {
                             commandBuffer: commandBuffer
                         )
                     case .localContrast(let contrast):
-                        SceneOffscreenEffectRenderer.renderLocalContrast(
+                        return SceneOffscreenEffectRenderer.renderLocalContrast(
                             sourceTexture: request.texture,
                             waterMaskTexture: masks.water,
                             foliageMaskTexture: masks.foliage,
@@ -211,8 +215,30 @@ struct SceneImageLayerCompositor {
                             localContrastPipeline: localContrastPipeline,
                             commandBuffer: commandBuffer
                         )
+                    case .opacity(let opacity):
+                        let alpha = opacity.resolvedAlpha(in: request.dynamicValues)
+                        guard targets.plan.logicalTargets.isEmpty,
+                              SceneOffscreenEffectRenderer.captureSource(
+                                  sourceTexture: request.texture,
+                                  waterMaskTexture: masks.water,
+                                  foliageMaskTexture: masks.foliage,
+                                  auxMaskTexture: auxMask,
+                                  target: targets.inputTexture,
+                                  sourceUniforms: directUniforms,
+                                  pipeline: pipeline,
+                                  commandBuffer: commandBuffer
+                              ) else {
+                            return nil
+                        }
+                        return SceneOpacityRenderer.render(
+                            alpha: alpha,
+                            inputTexture: targets.inputTexture,
+                            outputTexture: targets.outputTexture,
+                            pipeline: opacityPipeline,
+                            commandBuffer: commandBuffer
+                        )
                     case .workshopShadow(let shadow):
-                        SceneOffscreenEffectRenderer.renderWorkshopShadow(
+                        return SceneOffscreenEffectRenderer.renderWorkshopShadow(
                             sourceTexture: request.texture,
                             waterMaskTexture: masks.water,
                             foliageMaskTexture: masks.foliage,

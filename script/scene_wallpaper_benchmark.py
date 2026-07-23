@@ -100,6 +100,16 @@ AUTHORED_EFFECT_GRAPH_LOCAL_CONTRAST_COUNT_RE = re.compile(
     r"^authoredEffectGraphLocalContrastCount: (?P<count>\d+)$",
     re.MULTILINE,
 )
+AUTHORED_EFFECT_GRAPH_OPACITY_COUNT_RE = re.compile(
+    r"^authoredEffectGraphOpacityCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
+AUTHORED_EFFECT_GRAPH_OPACITY_LAYER_RE = re.compile(
+    r"^(?:(?:image|text|solid) )?layer (?P<id>\d+)\b[^\n]*?"
+    r"(?:effect runtime foliagesway-uv; )?"
+    r"effect runtime opacity-authored;",
+    re.MULTILINE,
+)
 AUTHORED_EFFECT_GRAPH_WORKSHOP_SHADOW_COUNT_RE = re.compile(
     r"^authoredEffectGraphWorkshopShadowCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -447,6 +457,15 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
             layer["id"] for layer in solid_layers if type(layer.get("id")) is int
         ]
         effective_visible_ids = set(graph["effective_visible_layer_ids"])
+        stock_opacity_single_effect_candidate_layer_ids = sorted({
+            graph_plan["layerID"]
+            for graph_plan in effect_graphs
+            if type(graph_plan.get("layerID")) is int
+            and graph_plan["layerID"] in effective_visible_ids
+            and len(graph_plan.get("effects", [])) == 1
+            and str(graph_plan["effects"][0].get("definitionPath", ""))
+                .replace("\\", "/").lower() == "effects/opacity/effect.json"
+        })
         effective_visible_solid_layer_ids = [
             layer_id for layer_id in solid_layer_ids if layer_id in effective_visible_ids
         ]
@@ -508,6 +527,8 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
                 not graph_plan.get("blockers", []) for graph_plan in effect_graphs
             ),
             "effect_graph_sha256": effect_graph_sha256,
+            "stock_opacity_single_effect_candidate_layer_ids":
+                stock_opacity_single_effect_candidate_layer_ids,
             "visible_layer_count": sum(layer.get("visible") is not False for layer in layers),
             "visible_layer_ids": [layer.get("id") for layer in layers if layer.get("visible") is not False],
             **graph,
@@ -579,6 +600,7 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
             "effect_graph_blocker_reasons": {},
             "effect_graph_unblocked_layer_count": 0,
             "effect_graph_sha256": None,
+            "stock_opacity_single_effect_candidate_layer_ids": [],
             "visible_layer_count": 0,
             "visible_layer_ids": [],
             "root_layer_count": 0,
@@ -746,6 +768,18 @@ def authored_effect_graph_local_contrast_count(preview_text: str) -> int | None:
     return int(match.group("count")) if match is not None else None
 
 
+def authored_effect_graph_opacity_count(preview_text: str) -> int | None:
+    match = AUTHORED_EFFECT_GRAPH_OPACITY_COUNT_RE.search(preview_text)
+    return int(match.group("count")) if match is not None else None
+
+
+def authored_effect_graph_opacity_layer_ids(preview_text: str) -> list[int]:
+    return sorted({
+        int(match.group("id"))
+        for match in AUTHORED_EFFECT_GRAPH_OPACITY_LAYER_RE.finditer(preview_text)
+    })
+
+
 def authored_effect_graph_workshop_shadow_count(preview_text: str) -> int | None:
     match = AUTHORED_EFFECT_GRAPH_WORKSHOP_SHADOW_COUNT_RE.search(preview_text)
     return int(match.group("count")) if match is not None else None
@@ -829,6 +863,9 @@ def authored_effect_graph_failures(
     local_contrast_count: int | None,
     chain_metrics: dict[str, int | None] | None = None,
     workshop_shadow_count: int | None = None,
+    opacity_count: int | None = None,
+    route_only_effect_count: int | None = None,
+    opacity_layer_ids: list[int] | None = None,
 ) -> list[str]:
     failures = [
         f"authored effect graph layer {layer_id} failed"
@@ -851,12 +888,24 @@ def authored_effect_graph_failures(
     if expected_local_contrast is not None:
         if local_contrast_count != int(expected_local_contrast):
             failures.append("authored effect graph Local Contrast count mismatch")
+    expected_opacity = sample.get("expected_authored_effect_graph_opacity_count")
+    if expected_opacity is not None:
+        if opacity_count != int(expected_opacity):
+            failures.append("authored effect graph Opacity count mismatch")
+    expected_opacity_layers = sample.get("expected_authored_effect_graph_opacity_layer_ids")
+    if expected_opacity_layers is not None:
+        if (opacity_layer_ids or []) != sorted(expected_opacity_layers):
+            failures.append("authored effect graph Opacity layer IDs mismatch")
     expected_workshop_shadow = sample.get(
         "expected_authored_effect_graph_workshop_shadow_count"
     )
     if expected_workshop_shadow is not None:
         if workshop_shadow_count != int(expected_workshop_shadow):
             failures.append("authored effect graph Workshop Shadow count mismatch")
+    expected_route_only = sample.get("expected_route_only_effect_count")
+    if expected_route_only is not None:
+        if route_only_effect_count != int(expected_route_only):
+            failures.append("offscreen route-only effect count mismatch")
     chain_metrics = chain_metrics or {"chain_count": None, "stage_count": None}
     for sample_key, metric_key, label in (
         ("expected_authored_effect_graph_chain_count", "chain_count", "chain count"),
@@ -1107,10 +1156,15 @@ def run_sample(
     authored_effect_graph_local_contrast = authored_effect_graph_local_contrast_count(
         preview_text
     )
+    authored_effect_graph_opacity = authored_effect_graph_opacity_count(preview_text)
+    authored_effect_graph_opacity_layers = authored_effect_graph_opacity_layer_ids(
+        preview_text
+    )
     authored_effect_graph_workshop_shadow = authored_effect_graph_workshop_shadow_count(
         preview_text
     )
     authored_effect_graph_chain = authored_effect_graph_chain_metrics(preview_text)
+    route_only_effect_count = preview_text.count("offscreen route-only")
     named_target_capture_execution = named_target_capture_execution_metrics(log_text)
     named_target_binding_execution = named_target_binding_execution_metrics(log_text)
     image_blend_runtime = image_blend_runtime_metrics(preview_text, log_text)
@@ -1194,7 +1248,10 @@ def run_sample(
         authored_effect_graph_legacy_blur_blocked,
         authored_effect_graph_local_contrast,
         authored_effect_graph_chain,
-        authored_effect_graph_workshop_shadow,
+        workshop_shadow_count=authored_effect_graph_workshop_shadow,
+        opacity_count=authored_effect_graph_opacity,
+        route_only_effect_count=route_only_effect_count,
+        opacity_layer_ids=authored_effect_graph_opacity_layers,
     ))
     succeeded_capture_ids = set(utility_capture_execution["succeeded_layer_ids"])
     if len(succeeded_capture_ids) < utility_runtime["capture_planned"]:
@@ -1221,6 +1278,11 @@ def run_sample(
     precise_blur_runtime_count = preview_text.count("effect runtime gaussian-blur-precise;")
     if precise_blur_runtime_count < int(sample.get("minimum_precise_blur_runtime_count", 0)):
         failures.append("precise gaussian blur runtime count below minimum")
+    authored_opacity_runtime_count = preview_text.count("effect runtime opacity-authored;")
+    if authored_opacity_runtime_count < int(
+        sample.get("minimum_authored_opacity_runtime_count", 0)
+    ):
+        failures.append("authored opacity runtime count below minimum")
     skipped_composite_count = preview_text.count("unsupported composite skipped;")
     if skipped_composite_count < int(sample.get("minimum_skipped_composite_count", 0)):
         failures.append("unsupported composite fallback count below minimum")
@@ -1311,6 +1373,15 @@ def run_sample(
     if expected_effect_graph_sha256 is not None:
         if interpretation["effect_graph_sha256"] != expected_effect_graph_sha256:
             failures.append("Scene interpretation effect graph sha256 mismatch")
+    expected_opacity_candidates = sample.get(
+        "expected_stock_opacity_single_effect_candidate_layer_ids"
+    )
+    if expected_opacity_candidates is not None:
+        if (
+            interpretation["stock_opacity_single_effect_candidate_layer_ids"]
+            != sorted(expected_opacity_candidates)
+        ):
+            failures.append("Scene interpretation stock Opacity candidate IDs mismatch")
     expected_shader_contract_aggregate_sha256 = sample.get(
         "expected_shader_contract_aggregate_sha256"
     )
@@ -1429,6 +1500,8 @@ def run_sample(
             "authored_effect_graph_failed_layer_ids": authored_effect_graph_execution["failed_layer_ids"],
             "authored_effect_graph_legacy_blur_blocked_layer_ids": authored_effect_graph_legacy_blur_blocked,
             "authored_effect_graph_local_contrast_count": authored_effect_graph_local_contrast,
+            "authored_effect_graph_opacity_count": authored_effect_graph_opacity,
+            "authored_effect_graph_opacity_layer_ids": authored_effect_graph_opacity_layers,
             "authored_effect_graph_workshop_shadow_count": authored_effect_graph_workshop_shadow,
             "authored_effect_graph_chain_count": authored_effect_graph_chain["chain_count"],
             "authored_effect_graph_stage_count": authored_effect_graph_chain["stage_count"],
@@ -1468,7 +1541,7 @@ def run_sample(
             "sprite_animation_count": sprite_animation_count,
             "color_blend_mode_9_count": color_blend_mode_9_count,
             "bloom_runtime_count": bloom_runtime_count,
-            "route_only_effect_count": preview_text.count("offscreen route-only"),
+            "route_only_effect_count": route_only_effect_count,
             "interpretation": interpretation,
         },
     }
@@ -1491,7 +1564,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     output_dir = require_fresh_output_dir(args.output_dir.expanduser().resolve())
-    matrix = load_matrix(args.matrix.expanduser().resolve())
+    matrix_path = args.matrix.expanduser().resolve()
+    matrix = load_matrix(matrix_path)
     try:
         runtime_binary, app_identity = stage_signed_app(args.app, output_dir)
     except AppIdentityError as error:
@@ -1519,6 +1593,8 @@ def main() -> int:
     report = {
         "schema_version": 1,
         "matrix": matrix["name"],
+        "matrix_path": str(matrix_path),
+        "matrix_sha256": sha256(matrix_path),
         "command": sys.argv,
         "app_identity": app_identity,
         "sample_root": str(args.sample_root.expanduser().resolve()),
