@@ -43,12 +43,13 @@ enum Harness {
     static func target(
         _ identity: Graph.TextureIdentity,
         extent: Graph.TargetExtent,
+        format: String = "rgba_backbuffer",
         unique: Bool = false
     ) -> Graph.RenderTarget {
         .init(
             texture: identity,
             extent: extent,
-            format: "rgba_backbuffer",
+            format: format,
             declaredUnique: unique,
             clear: nil,
             uvs: nil,
@@ -173,6 +174,25 @@ enum Harness {
         guard case .success(let standardPlan) = standardResult else {
             fatalError("standard fixture rejected")
         }
+        let rgba8888 = graph(
+            targets: [
+                target(q1, extent: scaleFour, format: "rgba8888"),
+                target(q2, extent: scaleFour, format: "rgba8888"),
+            ],
+            nodes: standard.nodes,
+            key: key,
+            input: input,
+            output: output
+        )
+        let rgba8888Result = SceneGraphRenderTargetPlan.make(
+            executionPlan: .init(layerID: 10, materialNodeCount: 4, logicalRenderTargetCount: 2),
+            graph: rgba8888,
+            inputWidth: 1920,
+            inputHeight: 1080
+        )
+        guard case .success(let rgba8888Plan) = rgba8888Result else {
+            fatalError("rgba8888 fixture rejected")
+        }
 
         let full = texture(.framebuffer, key: key, name: "full")
         let precise = graph(
@@ -231,6 +251,13 @@ enum Harness {
             input: input,
             output: output
         )
+        let unsupportedFormat = graph(
+            targets: [target(full, extent: inputExtent, format: "r8")],
+            nodes: precise.nodes,
+            key: key,
+            input: input,
+            output: output
+        )
 
         let result: [String: Any] = [
             "standardInput": standardPlan.input.kind.rawValue,
@@ -239,6 +266,7 @@ enum Harness {
                 standardPlan.inputExtent.width, standardPlan.inputExtent.height,
             ],
             "standardTargets": targetSummary(standardPlan),
+            "rgba8888Targets": targetSummary(rgba8888Plan),
             "preciseInputExtent": [
                 precisePlan.inputExtent.width, precisePlan.inputExtent.height,
             ],
@@ -247,6 +275,7 @@ enum Harness {
             "duplicateFailure": failure(duplicate),
             "incompleteFailure": failure(incomplete),
             "uniqueFailure": failure(unique),
+            "unsupportedFormatFailure": failure(unsupportedFormat),
             "countMismatchFailure": failure(standard, materialNodeCount: 3),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -335,6 +364,12 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
             ],
         )
 
+    def test_rgba8888_targets_preserve_authored_format(self) -> None:
+        self.assertEqual(
+            [target["format"] for target in self.result["rgba8888Targets"]],
+            ["rgba8888", "rgba8888"],
+        )
+
     def test_read_before_first_write_requires_history(self) -> None:
         self.assertEqual(self.result["historyFailure"], "historyRequired")
 
@@ -344,6 +379,9 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
 
     def test_unsupported_descriptor_and_execution_mismatch_fail_closed(self) -> None:
         self.assertEqual(self.result["uniqueFailure"], "unsupportedTargetDescriptor")
+        self.assertEqual(
+            self.result["unsupportedFormatFailure"], "unsupportedTargetDescriptor"
+        )
         self.assertEqual(self.result["countMismatchFailure"], "executionMismatch")
 
 

@@ -49,6 +49,7 @@ enum Harness {
         _ identity: Graph.TextureIdentity,
         width: Int,
         height: Int,
+        format: TargetPlan.TextureFormat = .rgbaBackbuffer,
         firstWrite: Int,
         lastWrite: Int,
         firstRead: Int?,
@@ -57,7 +58,7 @@ enum Harness {
         .init(
             identity: identity,
             extent: .init(width: width, height: height),
-            format: .rgbaBackbuffer,
+            format: format,
             lifetime: .init(
                 firstWriteNodeIndex: firstWrite,
                 lastWriteNodeIndex: lastWrite,
@@ -101,10 +102,12 @@ enum Harness {
             logicalTargets: [
                 logicalTarget(
                     quarterA, width: 2, height: 1,
+                    format: .rgba8888,
                     firstWrite: 0, lastWrite: 2, firstRead: 1, lastRead: 3
                 ),
                 logicalTarget(
                     quarterB, width: 2, height: 1,
+                    format: .rgba8888,
                     firstWrite: 1, lastWrite: 1, firstRead: 2, lastRead: 2
                 ),
             ]
@@ -206,9 +209,12 @@ enum Harness {
             "unknownIdentityIsNil": table.texture(for: unknown) == nil,
             "allResourcesDistinct": objectIDs.count == textures.count,
             "separateAllocationsDistinct": objectIDs.isDisjoint(with: secondObjectIDs),
+            "inputOutputFormat": table.inputTexture.pixelFormat == .bgra8Unorm
+                && table.outputTexture.pixelFormat == .bgra8Unorm,
+            "framebufferFormats": quarterATexture.pixelFormat == .rgba8Unorm
+                && quarterBTexture.pixelFormat == .rgba8Unorm,
             "textureContract": textures.allSatisfy {
-                $0.pixelFormat == .bgra8Unorm
-                    && $0.storageMode == .private
+                $0.storageMode == .private
                     && $0.usage.contains(.renderTarget)
                     && $0.usage.contains(.shaderRead)
             },
@@ -292,6 +298,8 @@ class SceneGraphRenderTargetTableTests(unittest.TestCase):
 
     def test_reports_exact_resident_cost_and_texture_contract(self) -> None:
         self.assertEqual(self.result["residentBytes"], 520)
+        self.assertTrue(self.result["inputOutputFormat"])
+        self.assertTrue(self.result["framebufferFormats"])
         self.assertTrue(self.result["textureContract"])
 
     def test_refuses_the_whole_allocation_before_exceeding_budget(self) -> None:

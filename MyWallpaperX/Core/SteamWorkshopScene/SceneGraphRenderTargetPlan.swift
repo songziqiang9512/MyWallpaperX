@@ -5,6 +5,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
 
     enum TextureFormat: String {
         case rgbaBackbuffer
+        case rgba8888
     }
 
     struct PixelExtent: Equatable {
@@ -153,7 +154,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
                 target.extent,
                 inputWidth: inputWidth,
                 inputHeight: inputHeight
-            ), target.format?.lowercased() == "rgba_backbuffer",
+            ), let format = textureFormat(target.format),
             !target.declaredUnique,
             target.clear == nil,
             target.uvs == nil,
@@ -163,7 +164,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             targets.append(LogicalTarget(
                 identity: target.texture,
                 extent: extent,
-                format: .rgbaBackbuffer,
+                format: format,
                 lifetime: Lifetime(
                     firstWriteNodeIndex: firstWrite,
                     lastWriteNodeIndex: lastWrite,
@@ -203,6 +204,17 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
                 height: max(1, Int((Double(inputHeight) / scale).rounded(.down)))
             )
         case .fit, .absolute, .unsupported:
+            return nil
+        }
+    }
+
+    private static func textureFormat(_ authored: String?) -> TextureFormat? {
+        switch authored?.lowercased() {
+        case "rgba_backbuffer":
+            return .rgbaBackbuffer
+        case "rgba8888":
+            return .rgba8888
+        default:
             return nil
         }
     }

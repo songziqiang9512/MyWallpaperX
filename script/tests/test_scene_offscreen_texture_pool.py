@@ -90,7 +90,8 @@ enum Harness {
     static func fixture(
         effectIndex: Int,
         layerID: Int = 10,
-        precise: Bool = false
+        precise: Bool = false,
+        framebufferFormat: String = "rgba_backbuffer"
     ) -> Fixture {
         let key = Graph.EffectKey(
             layerID: layerID,
@@ -137,7 +138,7 @@ enum Harness {
                 .init(
                     texture: $0,
                     extent: scaled,
-                    format: "rgba_backbuffer",
+                    format: framebufferFormat,
                     declaredUnique: false,
                     clear: nil,
                     uvs: nil,
@@ -302,6 +303,26 @@ enum Harness {
             fatalError("legacy LRU allocation failed")
         }
 
+        let formatPool = SceneOffscreenTexturePool(
+            device: device,
+            maxDimension: 64,
+            residentByteBudget: 8_000
+        )
+        let rgbaFixture = fixture(effectIndex: 0, framebufferFormat: "rgba8888")
+        guard let bgraTable = formatPool.graphTargets(
+            for: first.execution, requestedWidth: 8, requestedHeight: 8
+        ), let rgbaTable = formatPool.graphTargets(
+            for: rgbaFixture.execution, requestedWidth: 8, requestedHeight: 8
+        ), let rgbaHit = formatPool.graphTargets(
+            for: rgbaFixture.execution, requestedWidth: 8, requestedHeight: 8
+        ), let rgbaFramebuffer = rgbaTable.texture(
+            for: rgbaFixture.framebufferIdentities[0]
+        ), let bgraFramebuffer = bgraTable.texture(
+            for: first.framebufferIdentities[0]
+        ) else {
+            fatalError("format replacement fixture failed")
+        }
+
         let result: [String: Any] = [
             "metalUnavailable": false,
             "stableReuse": firstTable.inputTexture === firstHit.inputTexture
@@ -339,6 +360,15 @@ enum Harness {
             ],
             "legacyEvictedAffordable": legacyFirstSmall.primary
                 !== legacyRecreatedSmall.primary,
+            "formatChangeReplaced": bgraTable.inputTexture !== rgbaTable.inputTexture,
+            "formatChangeStable": rgbaTable.inputTexture === rgbaHit.inputTexture,
+            "formatChangeInputOutputBGRA": rgbaTable.inputTexture.pixelFormat == .bgra8Unorm
+                && rgbaTable.outputTexture.pixelFormat == .bgra8Unorm,
+            "backbufferFramebufferBGRA": bgraFramebuffer.pixelFormat == .bgra8Unorm,
+            "formatChangeFramebufferRGBA": rgbaFramebuffer.pixelFormat == .rgba8Unorm,
+            "formatChangeAllocationCount": formatPool.residentAllocationCount,
+            "formatChangeTextureCount": formatPool.residentTextureCount,
+            "formatChangeBytes": formatPool.residentByteCost,
         ]
         resizePool.reset()
         var finalResult = result
@@ -408,6 +438,16 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         self.assertEqual(self.result["resizeAllocationCount"], 1)
         self.assertEqual(self.result["resizeTextureCount"], 4)
         self.assertEqual(self.result["resizeBytes"], 1_088)
+
+    def test_format_change_atomically_replaces_one_effect_table(self) -> None:
+        self.assertTrue(self.result["formatChangeReplaced"])
+        self.assertTrue(self.result["formatChangeStable"])
+        self.assertTrue(self.result["formatChangeInputOutputBGRA"])
+        self.assertTrue(self.result["backbufferFramebufferBGRA"])
+        self.assertTrue(self.result["formatChangeFramebufferRGBA"])
+        self.assertEqual(self.result["formatChangeAllocationCount"], 1)
+        self.assertEqual(self.result["formatChangeTextureCount"], 4)
+        self.assertEqual(self.result["formatChangeBytes"], 544)
 
     def test_resident_budget_failure_preserves_existing_cache_accounting(self) -> None:
         self.assertTrue(self.result["residentBudgetResizeRejected"])

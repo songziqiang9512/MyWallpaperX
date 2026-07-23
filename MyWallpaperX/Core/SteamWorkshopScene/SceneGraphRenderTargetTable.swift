@@ -40,7 +40,7 @@ struct SceneGraphRenderTargetTable {
 
         var totalByteCost = 0
         for specification in specifications {
-            guard let byteCost = byteCost(for: specification.extent) else {
+            guard let byteCost = byteCost(for: specification) else {
                 return .failure(.byteCostOverflow)
             }
             let (nextTotal, overflow) = totalByteCost.addingReportingOverflow(byteCost)
@@ -86,6 +86,7 @@ struct SceneGraphRenderTargetTable {
     private struct Specification {
         let identity: Graph.TextureIdentity
         let extent: SceneGraphRenderTargetPlan.PixelExtent
+        let format: SceneGraphRenderTargetPlan.TextureFormat
         let role: String
     }
 
@@ -102,24 +103,26 @@ struct SceneGraphRenderTargetTable {
         var specifications = [Specification(
             identity: plan.input,
             extent: plan.inputExtent,
+            format: .rgbaBackbuffer,
             role: "input"
         )]
         specifications.reserveCapacity(plan.logicalTargets.count + 2)
         for target in plan.logicalTargets {
-            guard target.format == .rgbaBackbuffer,
-                  validTarget(target.identity, effect: effect, layerID: plan.layerID),
+            guard validTarget(target.identity, effect: effect, layerID: plan.layerID),
                   validExtent(target.extent) else {
                 return nil
             }
             specifications.append(Specification(
                 identity: target.identity,
                 extent: target.extent,
+                format: target.format,
                 role: "framebuffer"
             ))
         }
         specifications.append(Specification(
             identity: plan.output,
             extent: plan.inputExtent,
+            format: .rgbaBackbuffer,
             role: "output"
         ))
 
@@ -128,15 +131,24 @@ struct SceneGraphRenderTargetTable {
         return specifications
     }
 
-    private static func byteCost(
-        for extent: SceneGraphRenderTargetPlan.PixelExtent
-    ) -> Int? {
-        let (pixelCount, pixelOverflow) = extent.width.multipliedReportingOverflow(
-            by: extent.height
+    private static func byteCost(for specification: Specification) -> Int? {
+        let (pixelCount, pixelOverflow) = specification.extent.width.multipliedReportingOverflow(
+            by: specification.extent.height
         )
         guard !pixelOverflow else { return nil }
-        let (byteCost, byteOverflow) = pixelCount.multipliedReportingOverflow(by: 4)
+        let (byteCost, byteOverflow) = pixelCount.multipliedReportingOverflow(
+            by: bytesPerPixel(for: specification.format)
+        )
         return byteOverflow ? nil : byteCost
+    }
+
+    private static func bytesPerPixel(
+        for format: SceneGraphRenderTargetPlan.TextureFormat
+    ) -> Int {
+        switch format {
+        case .rgbaBackbuffer, .rgba8888:
+            return 4
+        }
     }
 
     private static func makeTexture(
@@ -146,7 +158,7 @@ struct SceneGraphRenderTargetTable {
         effect: Graph.EffectKey?
     ) -> MTLTexture? {
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .bgra8Unorm,
+            pixelFormat: pixelFormat(for: specification.format),
             width: specification.extent.width,
             height: specification.extent.height,
             mipmapped: false
@@ -156,8 +168,19 @@ struct SceneGraphRenderTargetTable {
         let texture = device.makeTexture(descriptor: descriptor)
         let effectIndex = effect?.effectIndex ?? -1
         let name = specification.identity.name ?? specification.role
-        texture?.label = "SceneGraphRT layer=\(layerID) effect=\(effectIndex) \(name)"
+        texture?.label = "SceneGraphRT layer=\(layerID) effect=\(effectIndex) \(name) \(specification.format.rawValue)"
         return texture
+    }
+
+    private static func pixelFormat(
+        for format: SceneGraphRenderTargetPlan.TextureFormat
+    ) -> MTLPixelFormat {
+        switch format {
+        case .rgbaBackbuffer:
+            return .bgra8Unorm
+        case .rgba8888:
+            return .rgba8Unorm
+        }
     }
 
     private static func validExtent(
