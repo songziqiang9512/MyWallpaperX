@@ -2,9 +2,9 @@
 
 > 状态：现役专项能力表
 >
-> 最近核对：2026-07-23
+> 最近核对：2026-07-24
 >
-> 实现基线：`8f144da`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。
+> 实现基线：`4f13daf`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。
 
 本文把 45 个官方用户 Effect 逐项映射到 MyWallpaperX 当前执行级别和公共依赖。作者语义、输入槽和 pass/RT 结构见 [Effects 语义全集](effects-reference.md)，Graph/Shader 原子能力见 [Render Graph 与 Shader 覆盖表](render-graph-shader-coverage.md)，依赖 ID 见 [公共能力依赖图](capability-dependency-map.md)。
 
@@ -44,7 +44,7 @@
 | Effect / asset ID | 等级 | 当前执行通道与边界 | 公共依赖 | 当前证据 | 下一验收门 |
 |---|---|---|---|---|---|
 | Blur / `blur` | `L3` | `strict-graph-profile`：stock default 4 pass / 2 quarter RT | [D5](capability-dependency-map.md#d5) [D6](capability-dependency-map.md#d6) [D7](capability-dependency-map.md#d7) | [E-EFFECT-BLUR](runtime-evidence-index.md#e-effect-blur) | kernel/composite/blend/alpha/mask variants、rounding/color-space parity |
-| Blur Precise / `blurprecise` | `L3` | `strict-graph-profile`：2 pass / 1 full RT，固定近似 kernel | [D5](capability-dependency-map.md#d5) [D6](capability-dependency-map.md#d6) [D7](capability-dependency-map.md#d7) | [E-EFFECT-BLUR](runtime-evidence-index.md#e-effect-blur) | authored shader、mask/variant、sampler 和像素等价 |
+| Blur Precise / `blurprecise` | `L3` | `strict-graph-profile`：显式 2 pass / 1 full RT，或 exact `KERNEL=0` legacy `compose:true` 两遍语法归一化；均使用固定近似 kernel | [D5](capability-dependency-map.md#d5) [D6](capability-dependency-map.md#d6) [D7](capability-dependency-map.md#d7) | [E-EFFECT-BLUR](runtime-evidence-index.md#e-effect-blur) [E-GRAPH-LEGACY-COMPOSE](runtime-evidence-index.md#e-graph-legacy-compose) | authored shader、mask/variant、generic compose/scene background、sampler 和像素等价 |
 | Motion Blur / `motionblur` | `L2` | `graph-only`：material-copy-material 可建图；无跨帧 history | [D2](capability-dependency-map.md#d2) [D6](capability-dependency-map.md#d6) [D7](capability-dependency-map.md#d7) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | history copy/ping-pong、first frame、resize/switch/seek/stop |
 | Radial Blur / `blurradial` | `L1` | `IR-only` | [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | local center、direction、aspect、mask profile |
 
@@ -108,7 +108,7 @@
 
 45 项汇总：`L1=28`、`L2=5`、`L3=12`、`L4=0`。这个统计只反映当前表中最小可声明级别，不是样本命中率、视觉相似度或已知语义比例。
 
-`b541867` 只增加 strict profile 之间的有序、全有或全无调度，没有改变 45 项数量或等级；其阶段报告 `.codex/scene-effect-chain-gated-final13-20260723/report.json` 的 8 stage、0 real chain 是 Shadow 前的历史负门。`809b75e` 的 exact Workshop Shadow 不改变 45 项统计；`b8842d8` 将既有 `L3` Opacity 的 exact stock `MASK=0` 子集接入 strict graph 和 live snapshot，也不改变等级统计。最新 `.codex/scene-opacity-final13-20260723-1730/report.json` 为 13/13、14 stage、1 条真实 multi-effect chain、Opacity 4、Workshop Shadow 1、GPU failed 0、legacy blocked 2、route-only 30。
+`b541867` 只增加 strict profile 之间的有序、全有或全无调度，没有改变 45 项数量或等级；其阶段报告 `.codex/scene-effect-chain-gated-final13-20260723/report.json` 的 8 stage、0 real chain 是 Shadow 前的历史负门。`809b75e` 的 exact Workshop Shadow、`b8842d8` 的 stock Opacity `MASK=0` 与 `4f13daf` 的 exact legacy Blur Precise compose 都只扩充既有 `L3` 行的受限 profile，不改变 45 项统计。当前完整门仍是 24 stage、19 个 legacy blocked layer；固定门仍保护 14 stage、1 条真实 multi-effect chain、Opacity 4、Workshop Shadow 1。最新路径与边界统一见 [运行证据索引](runtime-evidence-index.md)。
 
 ## 9. 开发顺序
 

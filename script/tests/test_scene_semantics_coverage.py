@@ -400,14 +400,14 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         for path in current_state_documents:
             text = document_text[path]
             self.assertIn(
-                "`ebf44a9`",
+                "`4f13daf`",
                 text,
                 f"Current Scene entrypoint is missing the full-baseline implementation: {path}",
             )
 
         report_paths = (
-            ".codex/scene-command-interleave-20260724-003051/full26-results-pass2/report.json",
-            ".codex/scene-command-interleave-20260724-003051/final13-results-pass/report.json",
+            ".codex/scene-legacy-compose-20260724/full26-results-pass3/report.json",
+            ".codex/scene-legacy-compose-20260724/final13-results/report.json",
         )
         for path in current_state_documents:
             for report_path in report_paths:
@@ -427,7 +427,13 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             "### E-GRAPH-INTERLEAVE: bounded material-command scheduling",
             evidence,
         )
-        self.assertIn("Scene tests 282 total / 280 pass / 2 skip", evidence)
+        self.assertIn(
+            "### E-GRAPH-LEGACY-COMPOSE: exact Blur Precise legacy two-pass normalization",
+            evidence,
+        )
+        self.assertIn("Scene tests 286 total / 284 pass / 2 skip", evidence)
+        self.assertIn("strict graph 仍是 24 stage", evidence)
+        self.assertIn("generic `compose` 整体仍为 `L2`", evidence)
         self.assertIn(
             "ordered strict effect-chain",
             document_text[DEPENDENCY_MAP_PATH],
@@ -478,6 +484,8 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             "下一主线推进 dynamic text",
             "下一步推进 dynamic text",
             "下一切片推进 dynamic text",
+            "下一主线推进真实 history consumer 与 compose",
+            "下一切片推进真实 history consumer 与 compose",
             "按 route-only 组成",
         )
         for path, text in document_text.items():
