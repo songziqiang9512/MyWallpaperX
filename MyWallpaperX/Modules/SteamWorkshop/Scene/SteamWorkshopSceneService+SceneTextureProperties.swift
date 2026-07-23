@@ -83,11 +83,15 @@ extension SteamWorkshopService {
         perform(urls)
     }
 
-    func clearSceneTexturePropertyBookmarks(for record: SteamWorkshopDownloadRecord) {
+    @discardableResult
+    func clearSceneTexturePropertyBookmarks(for record: SteamWorkshopDownloadRecord) -> Bool {
         let prefix = SceneTexturePropertyStore.bookmarkPrefix + record.id + "."
+        var removedBookmark = false
         for key in defaults.dictionaryRepresentation().keys where key.hasPrefix(prefix) {
             defaults.removeObject(forKey: key)
+            removedBookmark = true
         }
+        return removedBookmark
     }
 
     private func sceneTexturePropertyBookmarkKey(

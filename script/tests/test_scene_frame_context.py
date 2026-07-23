@@ -169,10 +169,51 @@ class SceneFrameContextTests(unittest.TestCase):
         debug_runner = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
         self.assertIn("interpretationFile: SceneInterpretationFile", host)
         self.assertIn(
-            "interpretationFile.propertyBindingProgram.evaluate", host
+            "program: interpretationFile.propertyBindingProgram", host
         )
+        self.assertIn("effectiveValues: interpretationFile.effectivePropertyValues", host)
         self.assertIn("interpretationFile: file", coordinator)
         self.assertIn("interpretationFile: model.interpretationFile", debug_runner)
+
+    def test_host_derives_only_renderer_backed_alpha_consumers(self) -> None:
+        host = HOST_SOURCE.read_text(encoding="utf-8")
+        start = host.index("private static func activeAlphaConsumerTargets(")
+        end = host.index("private func startFrameDriver()", start)
+        derivation = host[start:end]
+        self.assertIn('case "image", "solid", "text":', derivation)
+        self.assertIn(
+            'case "composition", "project", "fullscreen":', derivation
+        )
+        self.assertIn(
+            "utilityPlans[layer.id]?.shouldCapture == true", derivation
+        )
+        self.assertIn(
+            "return .layer(layerID: layer.id, field: .alpha)", derivation
+        )
+        self.assertNotIn(".color", derivation)
+        self.assertNotIn('case "particle"', derivation)
+
+    def test_live_property_apis_update_state_without_rebuilding_surfaces(self) -> None:
+        host = HOST_SOURCE.read_text(encoding="utf-8")
+        single_start = host.index("func applyUserPropertyValue(")
+        bulk_start = host.index("func applyUserPropertyValues(", single_start)
+        stop_start = host.index("func stop()", bulk_start)
+        single = host[single_start:bulk_start]
+        bulk = host[bulk_start:stop_start]
+        self.assertIn("applyUserPropertyValues(", single)
+        self.assertIn("guard var context = launchContext", bulk)
+        self.assertIn("context.recordID == recordID", bulk)
+        self.assertIn("context.liveState.apply(", bulk)
+        self.assertIn("launchContext = context", bulk)
+        self.assertNotIn("rebuildSurfaces", single + bulk)
+        self.assertNotIn("teardownSurfaces", single + bulk)
+
+    def test_each_frame_reads_the_latest_live_state_values(self) -> None:
+        host = HOST_SOURCE.read_text(encoding="utf-8")
+        render_start = host.index("private func renderFrame()")
+        render = host[render_start:]
+        self.assertIn("userValues: launchContext.liveState.userValues", render)
+        self.assertNotIn("userDynamicValues", host)
 
 
 if __name__ == "__main__":

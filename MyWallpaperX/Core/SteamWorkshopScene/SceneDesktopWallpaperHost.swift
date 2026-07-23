@@ -31,7 +31,7 @@ final class SceneDesktopWallpaperHost {
 
     private struct LaunchContext {
         let interpretationFile: SceneInterpretationFile
-        let userDynamicValues: [SceneDynamicTarget: SceneDynamicValue]
+        var liveState: ScenePropertyLiveUpdateState
         let userPropertyTextureURLs: [String: URL]
         let cacheDirectory: URL
         let logURL: URL?
@@ -62,18 +62,52 @@ final class SceneDesktopWallpaperHost {
         logURL: URL?,
         recordID: String? = nil
     ) -> Bool {
-        let evaluation = interpretationFile.propertyBindingProgram.evaluate(
-            effectiveValues: interpretationFile.effectivePropertyValues
-        )
         launchContext = LaunchContext(
             interpretationFile: interpretationFile,
-            userDynamicValues: evaluation.userValues,
+            liveState: ScenePropertyLiveUpdateState(
+                program: interpretationFile.propertyBindingProgram,
+                effectiveValues: interpretationFile.effectivePropertyValues,
+                activeConsumerTargets: Self.activeAlphaConsumerTargets(
+                    in: interpretationFile.renderDescriptor
+                )
+            ),
             userPropertyTextureURLs: userPropertyTextureURLs,
             cacheDirectory: cacheDirectory,
             logURL: logURL,
             recordID: recordID
         )
         return rebuildSurfaces(resetClock: true)
+    }
+
+    @discardableResult
+    func applyUserPropertyValue(
+        _ value: SceneUserPropertyValue,
+        forPropertyKey propertyKey: String,
+        recordID: String?
+    ) -> Bool {
+        applyUserPropertyValues(
+            [propertyKey: value],
+            changedPropertyKeys: [propertyKey],
+            recordID: recordID
+        )
+    }
+
+    @discardableResult
+    func applyUserPropertyValues(
+        _ replacements: [String: SceneUserPropertyValue],
+        changedPropertyKeys: Set<String>,
+        recordID: String?
+    ) -> Bool {
+        guard var context = launchContext,
+              context.recordID == recordID,
+              context.liveState.apply(
+                  replacements: replacements,
+                  changedPropertyKeys: changedPropertyKeys
+              ) else {
+            return false
+        }
+        launchContext = context
+        return true
     }
 
     func stop() {
@@ -274,6 +308,25 @@ final class SceneDesktopWallpaperHost {
 #endif
     }
 
+    private static func activeAlphaConsumerTargets(
+        in descriptor: SceneRenderDescriptor
+    ) -> Set<SceneDynamicTarget> {
+        let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(in: descriptor)
+        return Set(descriptor.layers.compactMap { layer in
+            let isActive: Bool
+            switch layer.contentKind {
+            case "image", "solid", "text":
+                isActive = true
+            case "composition", "project", "fullscreen":
+                isActive = utilityPlans[layer.id]?.shouldCapture == true
+            default:
+                isActive = false
+            }
+            guard isActive else { return nil }
+            return .layer(layerID: layer.id, field: .alpha)
+        })
+    }
+
     private func startFrameDriver() {
         frameTimer?.invalidate()
         let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
@@ -296,7 +349,7 @@ final class SceneDesktopWallpaperHost {
             let dynamicValues = surface.evaluationTransaction.evaluate(
                 frameIndex: timing.frameIndex,
                 definitions: definitions,
-                userValues: launchContext.userDynamicValues
+                userValues: launchContext.liveState.userValues
             ).snapshot
             surface.metalView.renderFrame(timing: timing, dynamicValues: dynamicValues)
         }

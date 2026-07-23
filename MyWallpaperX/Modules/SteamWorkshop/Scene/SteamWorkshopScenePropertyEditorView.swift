@@ -33,7 +33,10 @@ struct SteamWorkshopScenePropertyEditorView: View {
                 Spacer(minLength: 0)
                 Button("恢复默认", systemImage: "arrow.counterclockwise") {
                     values = context.catalog.defaultValues
-                    service.resetScenePropertyValues(for: record)
+                    service.resetScenePropertyValues(
+                        for: record,
+                        defaultValues: context.catalog.defaultValues
+                    )
                 }
                 .help("恢复这个 Scene 壁纸的默认属性")
             }
@@ -162,10 +165,7 @@ struct SteamWorkshopScenePropertyEditorView: View {
                 value: sliderBinding(for: definition, range: range),
                 in: range,
                 step: step
-            ) { isEditing in
-                guard !isEditing, let value = values[definition.key] else { return }
-                service.updateScenePropertyValue(value, definition: definition, record: record)
-            }
+            )
         }
     }
 
@@ -204,7 +204,7 @@ struct SteamWorkshopScenePropertyEditorView: View {
                     ?? range.lowerBound
                 return min(max(value, range.lowerBound), range.upperBound)
             },
-            set: { values[definition.key] = .number($0) }
+            set: { commit(.number($0), definition: definition) }
         )
     }
 

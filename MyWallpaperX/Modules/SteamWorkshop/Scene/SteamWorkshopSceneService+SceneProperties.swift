@@ -160,13 +160,33 @@ extension SteamWorkshopService {
         }
         saveScenePropertyOverrides(overrides, for: record)
         objectWillChange.send()
-        scheduleActiveScenePropertyRender(for: record)
+        if !SceneDesktopWallpaperHost.shared.applyUserPropertyValue(
+            value,
+            forPropertyKey: definition.key,
+            recordID: record.id
+        ) {
+            scheduleActiveScenePropertyRender(for: record)
+        }
     }
 
-    func resetScenePropertyValues(for record: SteamWorkshopDownloadRecord) {
-        clearSceneTexturePropertyBookmarks(for: record)
+    func resetScenePropertyValues(
+        for record: SteamWorkshopDownloadRecord,
+        defaultValues: [String: SceneUserPropertyValue]
+    ) {
+        let overrides = scenePropertyOverrides(for: record)
+        let changedPropertyKeys = Set(overrides.keys)
+        let removedTextureBookmarks = clearSceneTexturePropertyBookmarks(for: record)
         saveScenePropertyOverrides([:], for: record)
         objectWillChange.send()
+        guard removedTextureBookmarks || !changedPropertyKeys.isEmpty else { return }
+        if !removedTextureBookmarks,
+           SceneDesktopWallpaperHost.shared.applyUserPropertyValues(
+               defaultValues,
+               changedPropertyKeys: changedPropertyKeys,
+               recordID: record.id
+           ) {
+            return
+        }
         scheduleActiveScenePropertyRender(for: record)
     }
 
@@ -184,11 +204,12 @@ extension SteamWorkshopService {
     }
 
     private func scheduleActiveScenePropertyRender(for record: SteamWorkshopDownloadRecord) {
-        scenePropertyRenderTask?.cancel()
         guard SceneDesktopWallpaperHost.shared.activeRecordID == record.id else { return }
+        scenePropertyRenderTask?.cancel()
         scenePropertyRenderTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 180_000_000)
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled,
+                  SceneDesktopWallpaperHost.shared.activeRecordID == record.id else { return }
             self?.requestSceneRender(record)
         }
     }
