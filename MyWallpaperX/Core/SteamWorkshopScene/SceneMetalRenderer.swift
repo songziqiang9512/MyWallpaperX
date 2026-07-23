@@ -197,6 +197,10 @@ struct SceneMetalRenderer {
                     textureRegistry: textureRegistry,
                     mainPass: mainPass
                 )
+                let layerAlpha = SceneDynamicLayerValues.alpha(
+                    layerID: layer.id, authoredValue: layer.alpha,
+                    snapshot: frameContext.dynamicValues
+                )
                 let model = imageModelMatrix(
                     for: layer,
                     parallaxMouseNormalized: parallaxMouseNormalized,
@@ -218,7 +222,7 @@ struct SceneMetalRenderer {
                     mvp: cameraFrame.orthographicViewProjection * model,
                     uniforms: SceneImageLayerUniformValues(
                         time: time,
-                        alpha: Float(layer.alpha ?? 1),
+                        alpha: layerAlpha,
                         cursorUV: SceneLayerCursorGeometry.layerUV(
                             for: layer,
                             cursorWorld: cursorWorld
@@ -250,10 +254,15 @@ struct SceneMetalRenderer {
                     configuration: parallaxConfiguration
                 )
                 let authoredEffectPlan = authoredEffectPlan(for: layer.id)
+                let layerAlpha = SceneDynamicLayerValues.alpha(
+                    layerID: layer.id, authoredValue: layer.alpha,
+                    snapshot: frameContext.dynamicValues
+                )
                 let captured = SceneUtilityLayerRenderer.draw(
                     layer: layer, plan: plan,
                     layerMVP: cameraFrame.orthographicViewProjection * model,
                     viewportSize: viewportSize, time: time,
+                    finalCompositeAlpha: layerAlpha,
                     authoredEffectPlan: authoredEffectPlan,
                     blocksLegacyGaussianBlur: blocksLegacyGaussianBlur(for: layer.id),
                     pipeline: imagePipeline, compositor: imageCompositor,

@@ -10,6 +10,7 @@ enum SceneUtilityLayerRenderer {
         layerMVP: simd_float4x4,
         viewportSize: CGSize,
         time: Float,
+        finalCompositeAlpha: Float,
         authoredEffectPlan: SceneAuthoredEffectExecutionPlan?,
         blocksLegacyGaussianBlur: Bool,
         pipeline: SceneImageLayerPipeline,
@@ -41,7 +42,7 @@ enum SceneUtilityLayerRenderer {
                     offscreenTexturePool: offscreenTexturePool,
                     offscreenSize: geometry.pixelSize,
                     requiresSourceCopy: true,
-                    finalCompositeAlpha: Float(layer.alpha ?? 1),
+                    finalCompositeAlpha: finalCompositeAlpha,
                     dependencyEffect: nil,
                     authoredEffectPlan: authoredEffectPlan,
                     blocksLegacyGaussianBlur: blocksLegacyGaussianBlur
