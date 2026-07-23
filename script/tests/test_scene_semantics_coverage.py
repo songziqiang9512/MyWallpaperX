@@ -400,13 +400,13 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         for path in current_state_documents:
             text = document_text[path]
             self.assertIn(
-                "`8f144da`",
+                "`dcedc2e`",
                 text,
                 f"Current Scene entrypoint is missing the full-baseline implementation: {path}",
             )
 
         report_paths = (
-            ".codex/scene-full26-final-20260723/report.json",
+            ".codex/scene-history-full26-final-20260723-2332/results-pass/report.json",
             ".codex/scene-final13-after-full26-20260723/report.json",
         )
         for path in current_state_documents:
@@ -423,7 +423,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         self.assertIn("### E-EFFECT-WORKSHOP-SHADOW:", evidence)
         self.assertIn("### E-EFFECT-CHAIN: ordered strict effect-chain scheduler", evidence)
         self.assertIn("### E-GRAPH-COMMAND: same-frame copy/swap foundation", evidence)
-        self.assertIn("Scene tests 278 total / 276 pass / 2 skip", evidence)
+        self.assertIn("Scene tests 279 total / 277 pass / 2 skip", evidence)
         self.assertIn(
             "ordered strict effect-chain",
             document_text[DEPENDENCY_MAP_PATH],

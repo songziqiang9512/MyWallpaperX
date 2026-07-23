@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-23
 >
-> Scene 实现基线：`8f144da`
+> Scene 实现基线：`dcedc2e`
 >
-> 当前完整快照门：`.codex/scene-full26-final-20260723/report.json`；固定回归门：`.codex/scene-final13-after-full26-20260723/report.json`
+> 当前完整快照门：`.codex/scene-history-full26-final-20260723-2332/results-pass/report.json`；固定回归门：`.codex/scene-final13-after-full26-20260723/report.json`
 >
-> 最新运行门：当前 26 样本完整快照 26/26，同一签名 App 的固定 13 样本回归门 13/13，合计 33 个唯一样本快照。当前 Scene 全量测试共 278 项、276 项通过、2 项跳过；聚合缺口和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：最终构建的当前真实目录 26 样本完整快照 26/26；此前固定 13 样本门仍单独保留为历史回归证据，不能互相替代。当前 Scene 全量测试共 279 项、277 项通过、2 项跳过；聚合缺口和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -73,8 +73,8 @@
 | Current-frame capture | `L3` | bounded utility prefix capture 可执行 | 通用 capture/extent/format/mask | B2/B3 |
 | Named primary target | `L3` | bounded `_a` producer/consumer 可执行 | 通用 authored identity 和依赖环检测 | B2 |
 | Named secondary identity | `L2` | registry 区分完整 variant；无 `_b` producer/consumer flow | secondary 数据流、copy/swap/history | B2 |
-| Generic FBO command graph | `L2` | target/bind/compose/copy/swap/condition/function 可保留或 blocker；effect-scoped target/lifetime table 已由五个 strict backend 与 ordered strict chain 消费；同帧 copy/swap 已有严格 plan/runtime 门 | strict material-only chain 子集为 `L3`；通用 graph 仍需 material-command interleave、compose/history/condition/function、typed state 和完整生命周期 | B2 |
-| History RT | `L0` | 无跨帧通用 ping-pong/history 生命周期 | read-before-write、reset、resize/switch/stop、确定性门 | B2 |
+| Generic FBO command graph | `L2` | target/bind/compose/copy/swap/condition/function 可保留或 blocker；effect-scoped target/lifetime table 已由五个 strict backend 与 ordered strict chain 消费；同帧 copy/swap 已有严格 plan/runtime 门；显式 unique FBO 的 history seed 已进入 table 初始化 | strict material-only chain 子集为 `L3`；通用 graph 仍需 material-command interleave、compose/condition/function、typed state、跨帧 logical swap 和完整生命周期 | B2 |
+| History RT | `L2` | `unique:true` framebuffer 可通过读前写 hazard，plan 记录 history seed；缓存 table 首次消费时对 seed texture 做一次 GPU clear，pool 复用与 reset/resize 生命周期继续成立 | 真实 history consumer、跨帧 ping-pong/logical swap、seek/pause/resize/switch/stop 确定性和真实样本正向 GPU 门 | B2 |
 | Authored shader path/source identity | `L1` | material path 与 ShaderContract stage/source/raw hash/canonical identity 已安全保存 | 尚无 include expansion、translation、compile 或 executor | B2 |
 | Shader source/include/annotation/declaration contract | `L1` | 完整 source、include reference、annotation raw/structured value、uniform/attribute/varying declaration 已 loss-preserving 保存并诊断 | typed default/combo consumer、include expansion、macro/permutation preprocessor、stage link/translation/compile | B2 |
 | Arbitrary custom shader execution | `L0` | 自有受限 Metal shader 不等于作者 shader | 通用受控翻译/映射、安全与产品门 | P3 |
@@ -232,13 +232,13 @@
 |---|---|---|---|
 | **B0 Contract/Runtime Kernel** | `S3 第 1-4 项` | v22 binding program、per-surface transaction、atomic state、alpha/solid-color/direct-text/strict Local Contrast/Opacity consumer 与 rebuild fallback 已闭合 | 新 live target 继续要求 compiler、consumer、原子失败与不换 surface/window；pause/fixed-time 单列 |
 | **B1 Provider Core** | `S2 第 5 项 + S3` | dynamic text 已完成 per-layer generation、stale cancellation、last-ready fallback；frame registry 双代已完成 | 把 status/metadata/cancel/teardown 推广到 Texture Variants、video/system/media 与 material candidate；不含 nested graph source |
-| **B2 Graph Resource Runtime** | `S2 第 1-5 项` | strict Blur、stock Local Contrast、exact Workshop `shadow_____________`、exact stock Opacity 与 ordered strict effect-chain 已消费 target table；cache/resize/reset、整链原子 allocation、D7 ShaderContract IR v1、BGRA/RGBA format、exact shader fingerprint 与同帧 copy/swap command foundation 已完成；下一步 persistent/history、material-command interleave、compose 与 typed shader defaults/built-ins/state | read/write、RT lifecycle、slot/combo/state 和 resize/switch/stop 门 |
+| **B2 Graph Resource Runtime** | `S2 第 1-5 项` | strict Blur、stock Local Contrast、exact Workshop `shadow_____________`、exact stock Opacity 与 ordered strict effect-chain 已消费 target table；cache/resize/reset、整链原子 allocation、D7 ShaderContract IR v1、BGRA/RGBA format、exact shader fingerprint、同帧 copy/swap foundation 与受限 history seed/clear 已完成；下一步 material-command interleave、真实 history consumer、compose 与 typed shader defaults/built-ins/state | read/write、RT lifecycle、slot/combo/state 和 resize/switch/stop 门 |
 | **B3 Provider-Graph Integration** | `S2 第 5-6 项` | nested/effectful/scene-background source、通用 material consumer、45 Effect 严格 profile family | B1+B2 均完成后接入；不得新增 effect-name 视觉旁路 |
 | **B4 Feature Breadth** | `S3-S4` | direct dynamic text 已完成首个子集；Timeline、SceneScript core、system/media text、cursor/audio/media、按依赖排序的 particle breadth仍待推进 | 每族正向、默认关闭、unsupported、determinism 和 lifecycle 门 |
 | **B5 Fidelity** | `S2-S4` 广度完成后 | 字体、视差、粒子、常用 Effect 与 WE Windows golden 对齐 | 固定输入逐像素/数值阈值、性能预算、长稳和多屏门 |
 | **Advanced** | `S5` | Puppet、2D light/HDR、3D、arbitrary custom shader、RGB、offline bake | 每个系统有完整 IR/runtime/lifecycle/product gate 后再升级 |
 
-研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、B2 ordered strict chain、Workshop Shadow、stock Opacity 与同帧 copy/swap command foundation 已合龙。下一主线推进 persistent/history、material-command interleave 与 compose；B1 把文本验证过的 lifecycle 推广到 system/media/video，再到 B3 -> B4 -> B5。route-only 只作布局诊断。
+研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、B2 ordered strict chain、Workshop Shadow、stock Opacity、同帧 copy/swap foundation 与受限 history seed/clear 已合龙。下一主线推进 material-command interleave、真实 history consumer 与 compose；B1 把文本验证过的 lifecycle 推广到 system/media/video，再到 B3 -> B4 -> B5。route-only 只作布局诊断。
 
 ## 9. 更新规则
 
