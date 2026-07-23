@@ -465,7 +465,7 @@ enum MainWindowCoordinator {
             let userTextureURLs = notification.userInfo?["userPropertyTextureURLs"] as? [String: URL] ?? [:]
             guard let file = try? SceneInterpretationFileReader().read(from: interpretationFileURL) else { return }
             guard SceneDesktopWallpaperHost.shared.launch(
-                renderDescriptor: file.renderDescriptor, authoredEffectRenderPlans: file.authoredEffectRenderPlans,
+                interpretationFile: file,
                 userPropertyTextureURLs: userTextureURLs,
                 cacheDirectory: cacheDirectory,
                 logURL: previewLogURL,

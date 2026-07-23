@@ -16,6 +16,8 @@ DYNAMIC_SOURCE = (
 )
 HOST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/SceneDesktopWallpaperHost.swift"
 VIEW_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/SceneMetalView.swift"
+COORDINATOR_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/MainWindowCoordinator.swift"
+DEBUG_RUNNER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner.swift"
 
 HARNESS = r'''
 import Foundation
@@ -134,18 +136,24 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertEqual(self.result["context"]["canvas"], [1920, 1080])
         self.assertEqual(self.result["context"]["screen"], [3024, 1964])
 
-    def test_host_owns_the_only_scene_frame_timer(self) -> None:
+    def test_host_owns_the_only_scene_frame_timer_and_per_surface_snapshots(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")
         view = VIEW_SOURCE.read_text(encoding="utf-8")
         self.assertIn("private var frameTimer: Timer?", host)
-        self.assertIn("let timing = sceneClock.advance", host)
-        snapshot_creation = (
-            "let dynamicValues = SceneDynamicSnapshot.empty(frameIndex: timing.frameIndex)"
+        self.assertIn("private final class Surface", host)
+        self.assertIn(
+            "var evaluationTransaction = SceneSurfaceEvaluationTransaction()", host
         )
-        self.assertIn(snapshot_creation, host)
-        snapshot_position = host.index(snapshot_creation)
-        broadcast_position = host.index("for surface in surfaces.values", snapshot_position)
-        self.assertLess(snapshot_position, broadcast_position)
+        self.assertIn("let timing = sceneClock.advance", host)
+        render_position = host.index("private func renderFrame()")
+        broadcast_position = host.index("for surface in surfaces.values", render_position)
+        snapshot_position = host.index(
+            "surface.evaluationTransaction.evaluate", broadcast_position
+        )
+        self.assertLess(broadcast_position, snapshot_position)
+        self.assertNotIn(
+            "SceneDynamicSnapshot.empty(frameIndex: timing.frameIndex)", host
+        )
         self.assertIn(
             "surface.metalView.renderFrame(timing: timing, dynamicValues: dynamicValues)",
             host,
@@ -154,6 +162,17 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("dynamicValues: dynamicValues", view)
         self.assertNotIn("displayTimer", view)
         self.assertNotIn("renderStartTime", view)
+
+    def test_launch_callers_forward_the_complete_interpretation_file(self) -> None:
+        host = HOST_SOURCE.read_text(encoding="utf-8")
+        coordinator = COORDINATOR_SOURCE.read_text(encoding="utf-8")
+        debug_runner = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("interpretationFile: SceneInterpretationFile", host)
+        self.assertIn(
+            "interpretationFile.propertyBindingProgram.evaluate", host
+        )
+        self.assertIn("interpretationFile: file", coordinator)
+        self.assertIn("interpretationFile: model.interpretationFile", debug_runner)
 
 
 if __name__ == "__main__":

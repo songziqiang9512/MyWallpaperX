@@ -18,15 +18,20 @@ final class SceneDesktopWallpaperHost {
         override var canBecomeMain: Bool { SceneDesktopWallpaperHost.usesDebugEvidenceWindow }
     }
 
-    private struct Surface {
-        let screenID: CGDirectDisplayID
+    private final class Surface {
         let window: NSWindow
         let metalView: SceneMetalView
+        var evaluationTransaction = SceneSurfaceEvaluationTransaction()
+
+        init(window: NSWindow, metalView: SceneMetalView) {
+            self.window = window
+            self.metalView = metalView
+        }
     }
 
     private struct LaunchContext {
-        let renderDescriptor: SceneRenderDescriptor
-        let authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan]
+        let interpretationFile: SceneInterpretationFile
+        let userDynamicValues: [SceneDynamicTarget: SceneDynamicValue]
         let userPropertyTextureURLs: [String: URL]
         let cacheDirectory: URL
         let logURL: URL?
@@ -51,16 +56,18 @@ final class SceneDesktopWallpaperHost {
 
     @discardableResult
     func launch(
-        renderDescriptor: SceneRenderDescriptor,
-        authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan],
+        interpretationFile: SceneInterpretationFile,
         userPropertyTextureURLs: [String: URL] = [:],
         cacheDirectory: URL,
         logURL: URL?,
         recordID: String? = nil
     ) -> Bool {
+        let evaluation = interpretationFile.propertyBindingProgram.evaluate(
+            effectiveValues: interpretationFile.effectivePropertyValues
+        )
         launchContext = LaunchContext(
-            renderDescriptor: renderDescriptor,
-            authoredEffectRenderPlans: authoredEffectRenderPlans,
+            interpretationFile: interpretationFile,
+            userDynamicValues: evaluation.userValues,
             userPropertyTextureURLs: userPropertyTextureURLs,
             cacheDirectory: cacheDirectory,
             logURL: logURL,
@@ -173,8 +180,8 @@ final class SceneDesktopWallpaperHost {
             guard let screenID = Self.screenID(for: screen) else { continue }
             let frame = screen.frame
             guard let metalView = SceneMetalView(
-                renderDescriptor: launchContext.renderDescriptor,
-                authoredEffectRenderPlans: launchContext.authoredEffectRenderPlans,
+                renderDescriptor: launchContext.interpretationFile.renderDescriptor,
+                authoredEffectRenderPlans: launchContext.interpretationFile.authoredEffectRenderPlans,
                 userPropertyTextureURLs: launchContext.userPropertyTextureURLs,
                 frame: frame
             ) else {
@@ -210,7 +217,6 @@ final class SceneDesktopWallpaperHost {
                 window.orderFrontRegardless()
             }
             surfaces[screenID] = Surface(
-                screenID: screenID,
                 window: window,
                 metalView: metalView
             )
@@ -279,13 +285,19 @@ final class SceneDesktopWallpaperHost {
     }
 
     private func renderFrame() {
+        guard let launchContext else { return }
         updateMouseLocations()
         let timing = sceneClock.advance(
             hostTime: CACurrentMediaTime(),
             wallDate: Date()
         )
-        let dynamicValues = SceneDynamicSnapshot.empty(frameIndex: timing.frameIndex)
+        let definitions = launchContext.interpretationFile.propertyBindingProgram.definitions
         for surface in surfaces.values {
+            let dynamicValues = surface.evaluationTransaction.evaluate(
+                frameIndex: timing.frameIndex,
+                definitions: definitions,
+                userValues: launchContext.userDynamicValues
+            ).snapshot
             surface.metalView.renderFrame(timing: timing, dynamicValues: dynamicValues)
         }
     }
