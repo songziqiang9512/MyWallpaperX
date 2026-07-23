@@ -246,6 +246,14 @@ enum Harness {
             device: device, queue: queue, pipeline: pipeline, compositor: compositor,
             blendMode: 5, alpha: 0.5
         )
+        let solidTint = try layerTintPixel(
+            device: device, queue: queue, pipeline: pipeline, compositor: compositor,
+            contentKind: "solid"
+        )
+        let imageTint = try layerTintPixel(
+            device: device, queue: queue, pipeline: pipeline, compositor: compositor,
+            contentKind: "image"
+        )
         let coarseBlur = blurPlan(path: "effects/blur/effect.json", scale: 0.6)
         let preciseBlur = blurPlan(path: "effects/blurprecise/effect.json", scale: 0.45)
         let blockedPreciseBlur = blurPlan(
@@ -348,6 +356,8 @@ enum Harness {
             "normalDependencyBGRA": normalDependency,
             "darkenDependencyBGRA": darkenDependency,
             "darkenHalfAlphaBGRA": darkenHalfAlpha,
+            "solidTintBGRA": solidTint,
+            "imageTintBGRA": imageTint,
             "fragmentUniformSize": MemoryLayout<SceneLayerFragmentUniforms>.size,
             "dependencyBlendModeOffset": MemoryLayout<SceneLayerFragmentUniforms>.offset(
                 of: \SceneLayerFragmentUniforms.dependencyBlendMode
@@ -455,6 +465,60 @@ enum Harness {
         commandBuffer.waitUntilCompleted()
         guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
         return pixel(target, x: 4, y: 4)
+    }
+
+    static func layerTintPixel(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor,
+        contentKind: String
+    ) throws -> [UInt8] {
+        guard let source = makeTexture(device: device, size: 1, usage: .shaderRead),
+              let target = makeTexture(
+                  device: device, size: 1, usage: [.renderTarget, .shaderRead]
+              ),
+              let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.metalUnavailable
+        }
+        fill(source, bgra: [255, 255, 255, 255])
+        let mainPass = SceneMainPassEncoder(
+            commandBuffer: commandBuffer,
+            target: target,
+            clearColor: MTLClearColorMake(0, 0, 0, 0)
+        )
+        let drew = compositor.draw(
+            SceneImageLayerDrawRequest(
+                layer: SceneRenderDescriptor.Layer(
+                    contentKind: contentKind, colorRGB: nil, colorBlendMode: nil, effects: []
+                ),
+                texture: source,
+                masks: .empty,
+                textureFrame: .identity,
+                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+                uniforms: SceneImageLayerUniformValues(
+                    time: 0,
+                    alpha: 1,
+                    cursorUV: .zero,
+                    tint: SIMD3<Float>(0.25, 0.5, 0.75)
+                ),
+                offscreenTexturePool: nil,
+                offscreenSize: nil,
+                requiresSourceCopy: false,
+                finalCompositeAlpha: nil,
+                dependencyEffect: nil,
+                authoredEffectPlan: nil,
+                blocksLegacyGaussianBlur: false
+            ),
+            pipeline: pipeline,
+            mainPass: mainPass
+        )
+        guard drew else { throw HarnessError.drawRefused }
+        mainPass.finishEnsuringClear()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
+        return pixel(target, x: 0, y: 0)
     }
 
     static func imageBlendPixel(
@@ -1053,6 +1117,10 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assert_pixel_close(self.result["normalDependencyBGRA"], [112, 48, 96, 128])
         self.assert_pixel_close(self.result["darkenDependencyBGRA"], [32, 32, 64, 128])
         self.assert_pixel_close(self.result["darkenHalfAlphaBGRA"], [16, 16, 32, 64])
+
+    def test_layer_tint_is_applied_only_to_solid_content_on_gpu(self) -> None:
+        self.assert_pixel_close(self.result["solidTintBGRA"], [191, 128, 64, 255])
+        self.assert_pixel_close(self.result["imageTintBGRA"], [255, 255, 255, 255])
 
     def test_blur_scales_remain_authored_pixels_until_target_normalization(self) -> None:
         for actual, expected in zip(self.result["coarseBlur"], [0.6, 0.6, 4]):

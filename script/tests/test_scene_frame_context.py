@@ -175,12 +175,13 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("interpretationFile: file", coordinator)
         self.assertIn("interpretationFile: model.interpretationFile", debug_runner)
 
-    def test_host_derives_only_renderer_backed_alpha_consumers(self) -> None:
+    def test_host_derives_only_renderer_backed_live_consumers(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")
-        start = host.index("private static func activeAlphaConsumerTargets(")
+        start = host.index("private static func activeLiveConsumerTargets(")
         end = host.index("private func startFrameDriver()", start)
         derivation = host[start:end]
-        self.assertIn('case "image", "solid", "text":', derivation)
+        self.assertIn('case "image", "text":', derivation)
+        self.assertIn('case "solid":', derivation)
         self.assertIn(
             'case "composition", "project", "fullscreen":', derivation
         )
@@ -188,9 +189,15 @@ class SceneFrameContextTests(unittest.TestCase):
             "utilityPlans[layer.id]?.shouldCapture == true", derivation
         )
         self.assertIn(
-            "return .layer(layerID: layer.id, field: .alpha)", derivation
+            "targets.insert(.layer(layerID: layer.id, field: .alpha))", derivation
         )
-        self.assertNotIn(".color", derivation)
+        self.assertEqual(derivation.count("field: .color"), 1)
+        color_position = derivation.index("field: .color")
+        self.assertGreater(color_position, derivation.index('case "solid":'))
+        self.assertLess(
+            color_position,
+            derivation.index('case "composition", "project", "fullscreen":'),
+        )
         self.assertNotIn('case "particle"', derivation)
 
     def test_live_property_apis_update_state_without_rebuilding_surfaces(self) -> None:

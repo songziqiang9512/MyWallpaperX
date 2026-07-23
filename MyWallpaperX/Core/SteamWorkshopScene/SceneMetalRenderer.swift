@@ -226,6 +226,10 @@ struct SceneMetalRenderer {
                         cursorUV: SceneLayerCursorGeometry.layerUV(
                             for: layer,
                             cursorWorld: cursorWorld
+                        ),
+                        tint: SceneDynamicLayerValues.color(
+                            layerID: layer.id, authoredValue: layer.colorRGB,
+                            snapshot: frameContext.dynamicValues
                         )
                     ),
                     offscreenTexturePool: offscreenTexturePool,

@@ -101,6 +101,20 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         self.assertNotIn("isEditing", row)
         self.assertNotIn("updateScenePropertyValue", row)
 
+    def test_layer_color_is_actionable_only_for_solid_layers(self) -> None:
+        context = method_body(self.service, "func scenePropertyContext(")
+        support = method_body(self.service, "private func supportsScenePropertyTarget(")
+        self.assertIn(
+            "supportsScenePropertyTarget(\n                    binding.target,\n"
+            "                    in: renderDescriptor\n                )",
+            context,
+        )
+        self.assertIn("case let .layerColor(layerID):", support)
+        self.assertIn('$0.id == layerID && $0.contentKind == "solid"', support)
+        self.assertNotIn('$0.contentKind == "image"', support)
+        self.assertNotIn('$0.contentKind == "text"', support)
+        self.assertNotIn('$0.contentKind == "particle"', support)
+
 
 if __name__ == "__main__":
     unittest.main()

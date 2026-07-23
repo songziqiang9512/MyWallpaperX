@@ -14,6 +14,19 @@ struct SceneImageLayerUniformValues {
     let time: Float
     let alpha: Float
     let cursorUV: SIMD2<Float>
+    let tint: SIMD3<Float>
+
+    init(
+        time: Float,
+        alpha: Float,
+        cursorUV: SIMD2<Float>,
+        tint: SIMD3<Float> = SIMD3(repeating: 1)
+    ) {
+        self.time = time
+        self.alpha = alpha
+        self.cursorUV = cursorUV
+        self.tint = tint
+    }
 }
 
 struct SceneDependencyEffectInput {
@@ -102,7 +115,7 @@ struct SceneImageLayerCompositor {
             effectInputs: effectPlan.inputs,
             textureFrame: request.textureFrame,
             tint: request.layer.contentKind == "solid"
-                ? SIMD3(request.layer.colorRGB ?? [], fill: 1)
+                ? request.uniforms.tint
                 : SIMD3(repeating: 1),
             foliageMaskUVScale: masks.foliageUVScale,
             dependencyBlendMode: routesOffscreen ? nil : request.dependencyEffect?.blendMode

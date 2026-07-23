@@ -49,7 +49,7 @@ enum Harness {
         var state = ScenePropertyLiveUpdateState(
             program: liveProgram,
             effectiveValues: initialValues,
-            activeConsumerTargets: alphaTargets
+            activeConsumerTargets: alphaTargets.union([color])
         )
 
         let initialEvaluatedAllTargets = scalar(state, alphaOne) == 0.5
@@ -72,6 +72,20 @@ enum Harness {
         let beforeNonFinite = state
         let nonFiniteRejected = !state.apply(.number(.nan), forPropertyKey: "opacity")
         let nonFiniteWasAtomic = unchanged(state, from: beforeNonFinite)
+
+        let colorAccepted = state.apply(.string("0.8 0.7 0.6"), forPropertyKey: "tint")
+        let colorUpdated = vector(state, color) == [0.8, 0.7, 0.6]
+
+        let beforeInvalidColor = state
+        let invalidColorRejected = !state.apply(.string("0.2 0.4"), forPropertyKey: "tint")
+        let invalidColorWasAtomic = unchanged(state, from: beforeInvalidColor)
+
+        let beforeNonFiniteColor = state
+        let nonFiniteColorRejected = !state.apply(
+            .string("0.2 NaN 0.4"),
+            forPropertyKey: "tint"
+        )
+        let nonFiniteColorWasAtomic = unchanged(state, from: beforeNonFiniteColor)
 
         let bulkAccepted = state.apply(
             replacements: [
@@ -106,7 +120,7 @@ enum Harness {
         )
         let resetAppliedOnlyChangedKeys = scalar(state, alphaOne) == 0.5
             && scalar(state, alphaThree) == 0.6
-            && vector(state, color) == [0.1, 0.2, 0.3]
+            && vector(state, color) == [0.8, 0.7, 0.6]
 
         let beforeMissingResetDefault = state
         let missingResetDefaultRejected = !state.apply(
@@ -138,11 +152,11 @@ enum Harness {
         let mixedProgram = program(bindings: [
             ("mixed", alphaOne, .scalar, .scalar(0.1)),
             ("mixed", color, .vector3, .vector3(1, 1, 1)),
-        ])
+        ], rebuildRequiredKeys: ["mixed"])
         var mixedState = ScenePropertyLiveUpdateState(
             program: mixedProgram,
             effectiveValues: ["mixed": .number(0.5)],
-            activeConsumerTargets: [alphaOne]
+            activeConsumerTargets: [alphaOne, color]
         )
         let beforeMixed = mixedState
         let mixedRejected = !mixedState.apply(.number(0.7), forPropertyKey: "mixed")
@@ -158,6 +172,12 @@ enum Harness {
             "badTypeWasAtomic": badTypeWasAtomic,
             "nonFiniteRejected": nonFiniteRejected,
             "nonFiniteWasAtomic": nonFiniteWasAtomic,
+            "colorAccepted": colorAccepted,
+            "colorUpdated": colorUpdated,
+            "invalidColorRejected": invalidColorRejected,
+            "invalidColorWasAtomic": invalidColorWasAtomic,
+            "nonFiniteColorRejected": nonFiniteColorRejected,
+            "nonFiniteColorWasAtomic": nonFiniteColorWasAtomic,
             "bulkAccepted": bulkAccepted,
             "bulkUpdatedAtomically": bulkUpdatedAtomically,
             "badBulkRejected": badBulkRejected,
@@ -261,6 +281,14 @@ class ScenePropertyLiveUpdateStateTests(unittest.TestCase):
         self.assertTrue(self.result["nonFiniteRejected"])
         self.assertTrue(self.result["nonFiniteWasAtomic"])
 
+    def test_active_color_target_accepts_only_finite_vector3_strings(self) -> None:
+        self.assertTrue(self.result["colorAccepted"])
+        self.assertTrue(self.result["colorUpdated"])
+        self.assertTrue(self.result["invalidColorRejected"])
+        self.assertTrue(self.result["invalidColorWasAtomic"])
+        self.assertTrue(self.result["nonFiniteColorRejected"])
+        self.assertTrue(self.result["nonFiniteColorWasAtomic"])
+
     def test_bulk_updates_and_reset_only_change_requested_keys(self) -> None:
         self.assertTrue(self.result["bulkAccepted"])
         self.assertTrue(self.result["bulkUpdatedAtomically"])
@@ -275,7 +303,7 @@ class ScenePropertyLiveUpdateStateTests(unittest.TestCase):
         self.assertTrue(self.result["missingResetDefaultRejected"])
         self.assertTrue(self.result["missingResetDefaultWasAtomic"])
 
-    def test_rebuild_required_and_inactive_mixed_targets_are_rejected(self) -> None:
+    def test_rebuild_required_keys_are_rejected_with_all_consumers_active(self) -> None:
         self.assertTrue(self.result["rebuildRejected"])
         self.assertTrue(self.result["rebuildWasAtomic"])
         self.assertTrue(self.result["mixedRejected"])

@@ -67,7 +67,7 @@ final class SceneDesktopWallpaperHost {
             liveState: ScenePropertyLiveUpdateState(
                 program: interpretationFile.propertyBindingProgram,
                 effectiveValues: interpretationFile.effectivePropertyValues,
-                activeConsumerTargets: Self.activeAlphaConsumerTargets(
+                activeConsumerTargets: Self.activeLiveConsumerTargets(
                     in: interpretationFile.renderDescriptor
                 )
             ),
@@ -308,23 +308,25 @@ final class SceneDesktopWallpaperHost {
 #endif
     }
 
-    private static func activeAlphaConsumerTargets(
+    private static func activeLiveConsumerTargets(
         in descriptor: SceneRenderDescriptor
     ) -> Set<SceneDynamicTarget> {
         let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(in: descriptor)
-        return Set(descriptor.layers.compactMap { layer in
-            let isActive: Bool
+        return descriptor.layers.reduce(into: Set<SceneDynamicTarget>()) { targets, layer in
             switch layer.contentKind {
-            case "image", "solid", "text":
-                isActive = true
+            case "image", "text":
+                targets.insert(.layer(layerID: layer.id, field: .alpha))
+            case "solid":
+                targets.insert(.layer(layerID: layer.id, field: .alpha))
+                targets.insert(.layer(layerID: layer.id, field: .color))
             case "composition", "project", "fullscreen":
-                isActive = utilityPlans[layer.id]?.shouldCapture == true
+                if utilityPlans[layer.id]?.shouldCapture == true {
+                    targets.insert(.layer(layerID: layer.id, field: .alpha))
+                }
             default:
-                isActive = false
+                break
             }
-            guard isActive else { return nil }
-            return .layer(layerID: layer.id, field: .alpha)
-        })
+        }
     }
 
     private func startFrameDriver() {

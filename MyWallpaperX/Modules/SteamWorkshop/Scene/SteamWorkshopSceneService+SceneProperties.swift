@@ -100,7 +100,10 @@ extension SteamWorkshopService {
         }
         var actionableKeys = Set(
             document.userPropertyResolution.bindingReport.bindings.compactMap { binding in
-                supportsScenePropertyTarget(binding.target) ? binding.reference.key : nil
+                supportsScenePropertyTarget(
+                    binding.target,
+                    in: renderDescriptor
+                ) ? binding.reference.key : nil
             }
         )
         let blendPlan = SceneImageBlendRenderPlan(
@@ -214,12 +217,17 @@ extension SteamWorkshopService {
         }
     }
 
-    private func supportsScenePropertyTarget(_ target: SceneUserPropertyBindingTarget) -> Bool {
+    private func supportsScenePropertyTarget(
+        _ target: SceneUserPropertyBindingTarget,
+        in renderDescriptor: SceneRenderDescriptor
+    ) -> Bool {
         switch target {
         case .layerVisibility, .layerAlpha, .text:
             return true
-        case .layerColor:
-            return false
+        case let .layerColor(layerID):
+            return renderDescriptor.layers.contains {
+                $0.id == layerID && $0.contentKind == "solid"
+            }
         case let .camera(field):
             return [
                 "cameraparallax",

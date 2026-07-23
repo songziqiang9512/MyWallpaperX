@@ -405,7 +405,7 @@ class SceneSolidLayerTests(unittest.TestCase):
             compositor,
             re.compile(
                 r'tint\s*:\s*request\.layer\.contentKind\s*==\s*"solid"'
-                r"[\s\S]{0,200}request\.layer\.colorRGB"
+                r"[\s\S]{0,200}request\.uniforms\.tint"
             ),
         )
         self.assertRegex(
