@@ -110,7 +110,7 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| ordered nodes、target/bind/compose/copy/swap | 通用 IR/runtime `L2`；6 类 strict backend 已按作者顺序消费 target table，`3724289844:20` 的 `Blur Precise -> Shadow` 与 `2802243144:[41,64,115]` 的 Blur/Shake 是真实 chain；Precise Blur 的 `material -> copy/swap -> material` 两种白名单拓扑可按 authored nodeIndex 交错执行并达到受限 `L3` | 真实 history consumer、compose/condition/function、跨帧 logical swap 与通用 hazard |
+| ordered nodes、target/bind/compose/copy/swap | 通用 IR/runtime `L2`；8 类 strict backend 已按作者顺序消费 target table，真实 chain 覆盖 `Blur Precise -> Shadow`、Blur/Shake 双向顺序、重复 Water Waves 与 `Water Flow -> Opacity`；Precise Blur 的 `material -> copy/swap -> material` 两种白名单拓扑可按 authored nodeIndex 交错执行并达到受限 `L3` | 真实 history consumer、compose/condition/function、跨帧 logical swap 与通用 hazard |
 | extent/format/clear/UV/unique | strict Blur 的 input/BGRA 与 stock Local Contrast 的 scale=4/RGBA target 子集为 `L3`；generic table 的其他形态仍为 `L2` | 其余 format-to-Metal、mapped size、sampler、load/store 和跨帧 reset |
 | history/ping-pong | `L0` | first frame、resize、seek、switch、stop 和 memory budget |
 
@@ -119,7 +119,7 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| material pass/slot hole/combo/constant/render state | IR `L2`；Blur、stock Local Contrast、exact Workshop Shadow、exact stock Opacity 与 exact stock Shake profile 子集 `L3`，后三类 exact stock/Workshop profile 用完整 authored fingerprint 约束 | annotation defaults、variant key、typed uniform layout 与通用 executor 仍未完成 |
+| material pass/slot hole/combo/constant/render state | IR `L2`；Blur、stock Local Contrast、exact Workshop Shadow、exact stock Opacity、Shake、Water Waves 与 Water Flow profile 子集 `L3`，exact stock/Workshop profile 用完整 authored fingerprint 约束 | annotation defaults、variant key、typed uniform layout 与通用 executor 仍未完成 |
 | shader source/include/annotation/declaration | `8474ace` 已以 ShaderContract v1 达到 `L1`：安全保存完整 source/raw hash、stage、include reference、annotation、uniform/attribute/varying declaration、diagnostic 与 canonical identity；Local Contrast 只把 exact identity/fingerprint 用作 strict admission gate，仍调用手写 MSL | typed annotation/default schema、include expansion、macro/permutation preprocessor、stage link/translation/compile 与 executor |
 | built-in uniforms | time/pointer/matrix 子集 | per-slot resolution、audio、effect/local matrices、color/alpha contract |
 
@@ -137,7 +137,7 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 <a id="d9"></a>
 ### D9 Generic 2D execution layer
 
-这一层只消费 `D0-D8` 的统一合同：base layer compositor、generic material/pass executor、effect profile registry、particle geometry/material、text texture generation。`b541867` 已完成有界的 ordered strict effect-chain 调度，`809b75e` 以 exact Workshop Shadow backend 闭合首条真实 `Blur Precise -> Shadow` chain，`e505a9e` 再以 exact stock Shake 闭合 `2802243144` 三条 Blur/Shake chain；它们都只连接 catalog 中每个 stage 均有严格 backend 的链，不能替代 generic material/pass executor，也不能升级官方 Shadow/lighting 或动态 Shake variants。若某项需要在 renderer 内重新解析 JSON、猜 effect 名称、重新决定属性优先级或自行保存 history，说明底座仍有缺口，应回到对应 D 层修复。
+这一层只消费 `D0-D8` 的统一合同：base layer compositor、generic material/pass executor、effect profile registry、particle geometry/material、text texture generation。`b541867` 已完成有界的 ordered strict effect-chain 调度，`809b75e`、`e505a9e`、`31ae557` 与 `94aebc5` 分别闭合 Blur/Shadow、Blur/Shake、重复 Water Waves 与 `Water Flow -> Opacity` 真实 chain；它们都只连接 catalog 中每个 stage 均有严格 backend 的链，不能替代 generic material/pass executor，也不能升级官方 Shadow/lighting 或动态 effect variants。若某项需要在 renderer 内重新解析 JSON、猜 effect 名称、重新决定属性优先级或自行保存 history，说明底座仍有缺口，应回到对应 D 层修复。
 
 <a id="d10"></a>
 ### D10 System runtimes
@@ -183,7 +183,7 @@ F0 完成后才开始下一轮代码。F1/F2 优先级由公共依赖决定，�
 
 ## 6. 下次会话的决策顺序
 
-1. B0 live-property、direct dynamic text、B2 target-table、5 类 strict backend、ordered strict chain、同帧 copy/swap command foundation、受限 history seed 与 Precise Blur material-command interleave 已合龙。下一步按 D6 推进真实 persistent/history consumer 与 compose；D5 把文本 provider 的 generation/cancel/fallback 推广到 system/media/video。`route-only` 只是布局诊断，不能决定优先级。
+1. B0 live-property、direct dynamic text、B2 target-table、8 类 strict backend、ordered strict chain、同帧 copy/swap command foundation、受限 history seed 与 Precise Blur material-command interleave 已合龙。下一步先提取共享 material pass executor，统一 texture slot、render state、target 和 pass lifecycle，再建立 stock shader registry 与 preprocessing IR；随后按真实样本视觉收益接入 time/audio/mouse/particle consumer。`route-only` 只是布局诊断，不能决定优先级。
 2. 打开对应专项表，确认作者启用、输入、当前等级、未知项、依赖和验收门。
 3. 查 [运行证据索引](runtime-evidence-index.md)，确认现有正反例，不重复制造无信息矩阵。
 4. 只实现一个可独立验证的公共合同；涉及 live property 时，compiler target、真实 consumer、fallback 和 surface/window identity 必须同批验收，目标样本和相关样本通过后单独提交。

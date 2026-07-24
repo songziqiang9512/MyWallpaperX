@@ -330,7 +330,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         self.assertEqual(len(set(asset_ids)), 45, "Effect asset IDs must be unique")
         self.assertEqual(
             {level: levels[level] for level in ("L0", "L1", "L2", "L3", "L4")},
-            {"L0": 0, "L1": 27, "L2": 5, "L3": 13, "L4": 0},
+            {"L0": 0, "L1": 26, "L2": 5, "L3": 14, "L4": 0},
         )
 
     def test_generic_graph_primitives_remain_l2(self) -> None:
@@ -400,10 +400,18 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         for path in current_state_documents:
             text = document_text[path]
             self.assertIn(
-                "`e505a9e`",
+                "`94aebc5`",
                 text,
                 f"Current Scene entrypoint is missing the full-baseline implementation: {path}",
             )
+
+        preview_evidence_documents = (
+            RUNTIME_EVIDENCE_PATH,
+            DEVELOPMENT_PLAN_PATH,
+            ROADMAP_PATH,
+        )
+        for path in preview_evidence_documents:
+            text = document_text[path]
             self.assertIn(
                 "`3194ac5`",
                 text,
@@ -411,8 +419,8 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             )
 
         report_paths = (
-            ".codex/scene-shake-20260724/full26-final/report.json",
-            ".codex/scene-waterwaves-ordered-chain-fixed13-final-20260724/report.json",
+            ".codex/scene-waterflow-20260724/full26-final/report.json",
+            ".codex/scene-waterflow-20260724/fixed13-final/report.json",
         )
         for path in current_state_documents:
             for report_path in report_paths:
@@ -438,12 +446,12 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             "### E-GRAPH-LEGACY-COMPOSE: exact Blur Precise legacy two-pass normalization",
             evidence,
         )
-        self.assertIn("当前提交相关测试 40/40", evidence)
-        self.assertIn("297 total / 294 pass / 3 skip", evidence)
+        self.assertIn("完整 Scene suite 301/301、3 skip", evidence)
+        self.assertIn("Water Flow 2、Water Waves 4、Shake 3", evidence)
         self.assertIn("comparison_scope=same-sample-change-only", evidence)
         self.assertIn("cross_sample_ranking=false", evidence)
         self.assertIn("absolute_threshold=null", evidence)
-        self.assertIn("strict graph 为 30 stage", evidence)
+        self.assertIn("strict graph 为 38 stage", evidence)
         self.assertIn("generic `compose` 整体仍为 `L2`", evidence)
         self.assertIn(
             "ordered strict effect-chain",
@@ -451,14 +459,14 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         )
         self.assertIn("同帧 copy/swap", document_text[DEPENDENCY_MAP_PATH])
         self.assertIn("material-command interleave", document_text[DEPENDENCY_MAP_PATH])
-        self.assertIn("persistent/history", document_text[DEPENDENCY_MAP_PATH])
+        self.assertIn("共享 material pass executor", document_text[DEPENDENCY_MAP_PATH])
 
         current_status = "\n".join(document_text.values())
         for fact in (
             "interpretation v22",
-            "六个 strict backend",
-            "30 stage",
-            "64 个 route-only effect",
+            "八个 strict backend",
+            "38 stage",
+            "63 个 route-only effect",
             "particle 为 `47/68`",
             "customtext/textcolor/textsize",
             "stale cancellation",
