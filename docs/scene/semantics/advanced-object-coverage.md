@@ -52,6 +52,62 @@ Utility composition 已是极窄的 `L3` 子集，不再写成完全缺失；但
 
 本节逐页记录官方公开的作者行为和播放器必须消费的导出结果。Geometry 自动生成、权重绘制、Character Sheet 制作等属于编辑器工作流；MyWallpaperX 不需要复刻这些工具，但必须在未来 Puppet IR 中保留其导出的 mesh、bone、weight、depth order、channel、constraint 和 animation 数据。官方页面没有公开 mesh/weight 序列化、deformation、IK、constraint、clipping 或 animation mixing 的数值算法，均保持 `algorithm unknown`，不能凭视觉近似写成已验证合同。
 
+### 3.0 Puppet 动画执行原则（官方合同，2026-07-25 补充）
+
+Puppet Warp 的核心是**骨骼驱动的网格变形**，官方明确了动画操作的基本约束，这些规则决定了 MDLA IR 设计和 evaluator 实现。
+
+#### 核心动画约束
+
+**只旋转骨骼角度（rotation），不移动（translation）或缩放（scale）**
+
+- Puppet animation 通过改变骨骼的**角度**来驱动角色动作
+- 骨骼的位置（origin）和缩放在 bind pose 中定义，动画时保持不变
+- 正确的动画方式：旋转关节让肢体摆动
+- 错误的动画方式：直接平移手臂末端到目标位置（会破坏层级关系）
+
+**骨骼层级结构**：
+
+1. **Root bones（根骨骼）**
+   - 作为锚点或质心
+   - 通常是脚部或角色中心
+   - 几乎不移动，其他骨骼相对它们运动
+
+2. **Connected bones（连接骨骼）**
+   - 形成父子层级链
+   - 新骨骼连接到已选骨骼
+   - 子骨骼继承父骨骼的变换
+
+**权重映射（Weight Painting）**：
+
+- 骨骼通过**颜色编码区域**影响网格点的变形
+- 权重决定每个顶点受哪些骨骼影响及影响程度
+- 网格变形 = 所有骨骼影响的加权和
+
+**Timeline 集成**：
+
+- Puppet 动画由 Timeline 驱动，支持 Loop/Mirror/Single 模式
+- Timeline 关键帧记录骨骼角度
+- 帧间插值由 Timeline 模式决定（默认 Bézier）
+
+#### 实施约束（MDLA 动画设计）
+
+当前 MDLA IR 尚未实现（`L0`），下一批次实施时必须遵守：
+
+1. **MDLA keyframe schema**：只保存骨骼 rotation，不保存 translation/scale
+2. **Evaluator 设计**：按骨骼层级顺序，从 root 向叶节点传播旋转变换
+3. **与 bind pose 的关系**：
+   - Bind pose 定义初始骨骼位置和 mesh UV 图集
+   - Animation 只修改骨骼角度
+   - 最终顶点位置 = bind pose position + 加权骨骼旋转
+4. **Animation mixing**：官方未公开多动画层的 blend 算法，首个闭环只做单动画层
+5. **与 SceneScript 的交互**：Timeline 先求值 → SceneScript 可覆盖骨骼角度
+
+#### 与其他系统的边界
+
+- **Attachment（MDAT）**：静态 bind 矩阵定义挂点位置，动画驱动的 attachment 跟随需要 MDLA 播放器
+- **Physics/Constraints**：Spring/Rigid/IK 会修改骨骼角度，与 animation 合并（算法未公开）
+- **Blend Shapes**：morph target 与骨骼变形是独立系统，执行顺序未公开
+
 | 官方页面 | 分类 | 官方合同与分类边界 | 当前等级 / 最小升级门 |
 |---|---|---|---|
 | <a id="op-puppet-introduction"></a>[Introduction](https://docs.wallpaperengine.io/en/scene/puppet-warp/introduction.html) | `runtime-required` + `editor-export` | 播放器消费透明 source、deformable geometry、bone/root hierarchy、weights、一个或多个 Timeline animation；image effect 只能作用在作者配置的 mesh/padding 范围。自动切图、建 mesh、画权重是 editor-only。 | `L3` bind pose（`executed-degraded`，`8bac86e`）：MDLV mesh block 在加载时把图集重组为 bind-pose 纹理，effect/mask 作用在重组结果上；deformation、bone/weight 消费、Loop/Mirror/Single 仍 `L0`。 |
@@ -104,6 +160,70 @@ Puppet runtime 必须把 authored pose、animations/mixing/rules、constraints/I
 | <a id="op-model-simulation"></a>[Simulation](https://docs.wallpaperengine.io/en/scene/models/simulation.html) | `runtime-required` + `research-boundary` | model bone 可用 presets 或 advanced constraints；示例 Bouncy Position 让 bone 跟随 animation motion 后回到 initial position，官方确认 simulation 与 animation 混合。solver、step、sleep 和混合顺序细节未公开。 | `L0`：无 3D solver；需 typed constraints、animation interaction、fixed/variable step、pause/reset、collision/sleep 和 deterministic fixture。 |
 
 ## 5. Lighting 官方页面覆盖（2）与 HDR 边界
+
+### 5.0 Lighting 系统硬限制（官方合同，2026-07-25 补充）
+
+Wallpaper Engine 的 2D lighting 系统有明确的**性能约束和使用限制**，这些是产品级硬约束，实施时必须遵守，不能按"尽量支持"设计。
+
+#### 硬限制（官方明确）
+
+1. **最多 4 个光源/场景**
+   - 官方文档明确："for performance reasons, you can only use a **maximum of four light sources per wallpaper**"
+   - 超过 4 个光源时必须拒绝或降级，不能静默忽略
+   - 这是 GPU 性能约束，不是任意可配置的值
+
+2. **优先使用环境光（Ambient Lighting）**
+   - 官方建议："Instead of adding many individual lights, try using **ambient lighting** in the scene options"
+   - 环境光对性能影响小于点光源
+   - 多光源场景应先尝试用环境光 + 少量点光源
+
+3. **非必要不启用 lighting/reflections**
+   - 官方警告："try to **not enable both** if you do not really need them to keep the performance impact as low as possible"
+   - Lighting 和 Reflections 可以共存，但会显著增加 GPU 负载
+   - 默认应关闭，只在作者明确启用时执行
+
+4. **仅适用于显式启用的 image layers**
+   - 光照效果**不自动应用**到所有层
+   - 每个 image layer 必须显式启用 `Lighting` 或 `Reflection` 选项
+   - 未启用的层不参与光照计算
+
+#### 材质系统要求
+
+**Normal Map（必需）**：
+- 光照系统依赖 normal map 模拟 3D 表面
+- 官方提供 normal map 生成工具（从 image layer 生成）
+- 没有 normal map 的层无法正确响应光照
+
+**材质贴图（可选）**：
+- **Metallic map**：金属度
+- **Roughness map**：粗糙度（0-255，不建议极值）
+- **Reflection map**：反射强度
+- 可手绘或用滑块控制（留空时）
+
+#### 场景配置
+
+- **Ambient lighting**：场景级环境光设置
+- **Background color**：影响渲染，建议黑色 `#000000`
+- 两者都在 scene options 中配置，不是 per-layer
+
+#### 实施约束
+
+当前 2D lighting 为 `L0`，下一批次实施时必须：
+
+1. **硬编码 4 光源上限**：超过时拒绝或明确降级，记录诊断
+2. **Author enable gate**：只处理显式启用 lighting 的 image layers
+3. **Normal map 前置检查**：缺失 normal map 时 fail closed
+4. **与 ambient 的正确合成**：环境光 + 点光源，不是二选一
+5. **性能预算**：lighting 开启时必须记录 GPU 成本，纳入性能门
+
+#### 与其他系统的边界
+
+- **2D lighting** ≠ **3D lighting**（不同 pipeline）
+- **2D lighting** ≠ **Official Scene Bloom/HDR**（独立后处理）
+- **2D lighting** ≠ **Workshop layer Bloom approximation**（当前 `L3` 受限实现）
+- **2D lighting** ≠ **Workshop image-effect Shadow**（当前 exact profile）
+
+不得用现有 layer Bloom、Workshop Shadow 或通用 compositor 冒充 2D lighting。
 
 | 官方页面 | 分类 | 官方合同与分类边界 | 当前等级 / 最小升级门 |
 |---|---|---|---|

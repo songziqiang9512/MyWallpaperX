@@ -35,7 +35,111 @@ SceneScript 当前仍是 **L0 runtime**。项目只能发现独立 `.js` 文件�
 | `F` | [`SceneFrameContext.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneFrameContext.swift)、[`SceneDesktopWallpaperHost.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift)、[`test_scene_frame_context.py`](../../../script/tests/test_scene_frame_context.py) | 同帧时间、host-shared inputs 与 per-surface evaluation/snapshot 基础设施 | SceneScript producer、脚本实例、事件、Date/timer、输出提交 |
 | `N` | 全仓 `SceneScript`/VM/API 搜索及现有 Scene 测试 | 没有 VM、handle bridge 或任一官方 API 执行测试 | 不能把其他 Swift renderer 的同名能力算成脚本 API |
 
-## 2. Property-bound 核心合同
+## 2. 执行模型与求值顺序（官方合同，2026-07-25 补充）
+
+SceneScript 不是孤立的脚本引擎，而是与 Timeline、用户属性和作者默认值共同组成的**声明式属性绑定系统**。官方明确的求值顺序和覆盖规则决定了 VM 设计、事件队列和 snapshot 合同。
+
+### 2.1 求值优先级（从低到高）
+
+```
+authored default → userProperty → Timeline → SceneScript
+```
+
+- **authored default**：场景文件中的初始值
+- **userProperty**：用户在属性面板设置的覆盖值
+- **Timeline**：时间轴动画当前帧的计算值
+- **SceneScript**：脚本 `init/update` 返回值或直接 setter
+
+**核心规则**：
+1. Timeline **先于** SceneScript 求值
+2. SceneScript 可以覆盖 Timeline 的结果
+3. 同一帧内，上述四级值按优先级合并为单一 immutable snapshot
+4. 缺少某一级时跳过，不影响其他级
+
+**实施约束**：
+- 当前 `SceneDynamicSnapshot` 已预留 `.sceneScript` 优先级槽位（v22）
+- Timeline 和 SceneScript 均为 `L0`，实施时必须遵守上述顺序
+- 不得让 SceneScript 提前执行后被 Timeline 覆盖
+- 不得让用户属性在脚本后才生效
+
+### 2.2 生命周期钩子
+
+| 钩子 | 调用时机 | 返回值语义 | 当前等级 |
+|---|---|---|---|
+| `init(value)` | owner 创建后调用**一次** | 返回绑定 property 的初值 | `L0` |
+| `update(value)` | **每个渲染帧**调用 | 返回当前帧的 property 值；动画应乘 `engine.frametime` | `L0` |
+| `destroy()` | owner 销毁前调用 | 无返回值，用于清理 | `L0` |
+
+**执行时序**（每帧）：
+```
+1. Timeline evaluator 计算当前帧所有动画值
+2. SceneScript `update(value)` 接收 Timeline 结果作为入参
+3. SceneScript 可返回新值覆盖，或不返回则保持入参值
+4. 最终值写入 per-surface immutable snapshot
+5. Renderer 消费 snapshot
+```
+
+### 2.3 六大全局对象
+
+每个 SceneScript 实例运行在受控 ECMAScript 环境中，可访问以下全局对象：
+
+| 全局对象 | 接口 | 用途 |
+|---|---|---|
+| `engine` | `IEngine` | 应用级功能：时间、分辨率、用户属性、音频注册、资源注册 |
+| `input` | `IInput` | 光标位置和按键状态 |
+| `thisScene` | `IScene` | 当前场景：查找/创建/销毁 layer、camera 控制 |
+| `thisLayer` | `ILayer` | 脚本所属 layer 的句柄 |
+| `thisObject` | `IThisPropertyObject` | 脚本 owner 对象（类型由绑定 property 决定） |
+| `console` | `IConsole` | 调试日志：`log(...)`、`error(...)` |
+| `shared` | `Shared` | 同场景脚本间的共享数据对象 |
+
+**安全边界**：
+- 无 DOM/Web/Node.js/shell/任意文件系统访问
+- 无网络请求能力
+- `Date` 和 `Math.random()` 必须由 host 控制以保证确定性
+- 每实例/每帧必须有时间、指令、内存预算
+
+### 2.4 事件系统
+
+SceneScript 采用**事件驱动模型**，而非轮询。支持 10+ 事件类型：
+
+**生命周期事件**：`init`、`update`、`destroy`
+
+**用户交互事件**：
+- `resizeScreen(size)` — 分辨率变化
+- `applyUserProperties(changed)` — 属性变化（首次全量，后续增量）
+- `applyGeneralSettings(changed)` — 应用设置变化
+
+**光标事件**：
+- `cursorEnter/cursorLeave/cursorMove` — 进入/离开/移动
+- `cursorDown/cursorUp/cursorClick` — 按下/释放/点击
+
+**媒体事件**：
+- `mediaStatusChanged/mediaPlaybackChanged/mediaPropertiesChanged`
+- `mediaThumbnailChanged/mediaTimelineChanged`
+
+**动画事件**：
+- `animationEvent(name, frame)` — Timeline/puppet 指定帧触发
+
+**实施要求**：
+- 事件按 generation 排队，旧事件不得覆盖新状态
+- 事件回调中的异常必须隔离，不能终止 renderer
+- `applyUserProperties` 首次调用传全部键，后续只传变化键（需 `hasOwnProperty` 检查）
+
+### 2.5 实施前置依赖
+
+SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正确顺序：
+
+1. **Source/Binding IR**：保真保存 inline/file source、owner、property target、value type
+2. **受控 VM core**：严格 global allowlist、module loader、预算、异常隔离
+3. **Lifecycle core**：`init/update/destroy`，每屏实例，与 `SceneFrameContext` 同帧
+4. **Per-surface evaluation**：host 先捕获共享 time/property，surface 加入 viewport/pointer；脚本返回进入 mutation buffer，校验后原子提交 snapshot
+5. **基础 handles**：`thisLayer/thisScene` lookup、transform/visibility/text、engine timing
+6. **事件输入**：user/cursor 事件，再接 audio/media generation snapshot
+7. **广度 API**：effect/material、particle、animation、storage/timers、dynamic layer
+8. **高级 API**：Puppet/model/physics 只能在对应 renderer 已有 runtime 后开放
+
+## 3. Property-bound 核心合同
 
 | API/合同 | 官方含义 | 等级 | 当前代码/测试证据 | 缺口与升级验收门 |
 |---|---|---:|---|---|
