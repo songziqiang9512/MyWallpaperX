@@ -6,7 +6,7 @@
 >
 > 口径来源：[官方页面目录](official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[资料来源与证据索引](source-index.md)
 > 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，但还不是通用 Particle System；尤其没有 Layer Image、Children/Event、Collision、动态 Control Point、World Space、Rope、Audio Response 和完整 Particle Material。
-> Scene 实现基线：`3baf1fc`（前置安全整数提交 `10401d7`）；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。完整 26 样本门的 particle 为 `52/68`，固定 13 样本门为 `15/27`，仍不是通用 Particle System。
+> Scene 实现基线：`c06b0fb`（前置安全整数提交 `10401d7`）；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。完整 45 样本门的 particle 为 `84/131`，固定 13 样本门为 `15/27`，仍不是通用 Particle System。
 
 本文把官方 Particle 的 General、Emitter、Initializer、Operator、Renderer、Control Point、Children、instance override 与 material 逐项映射到当前实现。它是 [总覆盖台账](coverage-ledger.md) 中 Particle 行的展开表；总表与本文冲突时，以本文更细粒度、更新的代码证据为准。
 
@@ -263,8 +263,8 @@
 | M14 Depth test/write/cull | perspective/world 粒子可需要 depth 和 cull render state。 | `L0` | [AST] [GPU] | Particle material adapter 只携带 blending。 | typed render state + depth attachment 正反门。 |
 | M15 Material combos/constants | combo/constant 选择 shader variant 和参数。 | `L0` | [AST] [GPU] | Particle adapter 丢弃 combos/constants。 | 保真 IR、variant key 和参数 buffer fixture。 |
 | M16 File-backed TEX/PNG/JPEG | 合法本地 particle texture 可解码并上传 GPU。 | `L3` | [AST] [RUN] [T-AST] [T-RUN] | 格式集合受 SceneTextureLoader 限制；无跨格式视觉 parity。 | TEX variants、color space、损坏资源负向门。 |
-| M17 Built-in texture identity | `particle/...` key 指向 Wallpaper Engine 内置粒子资产。 | `L1` | [TEX] [AST] [T-AST] | 任意 key 可识别为 built-in reference，但只支持十个精确枚举。 | 建立合法官方 assets 来源与版本化 key registry。 |
-| M18 Ten generated built-ins | 当前十个高命中 key 可生成确定性替代纹理。 | `L3` | [TEX] [BUILTIN] [T-TEX] [T-RUN] | 程序图形不是官方资产；`particle/chromaticdot` 依据样本自带 preview 采用白色软点，只保证受控 shape family 和安全 alpha。 | 每个 key 先以样本自带 preview 验证明显外观，再与合法 Windows WE 输出做尺寸/通道/pixel 差异门。 |
+| M17 Built-in texture identity | `particle/...` key 指向 Wallpaper Engine 内置粒子资产。 | `L1` | [TEX] [AST] [T-AST] | 任意 key 可识别为 built-in reference，但只支持十一个精确枚举。 | 建立合法官方 assets 来源与版本化 key registry。 |
+| M18 Eleven generated built-ins | 当前十一个高命中 key 可生成确定性替代纹理。 | `L3` | [TEX] [BUILTIN] [T-TEX] [T-RUN] | 程序图形不是官方资产；`chromaticdot` 依据样本 preview 采用白色软点，`halo_4` 只近似小型发光弹头；均只保证受控 shape family 和安全 alpha。 | 每个 key 先以样本自带 preview 验证明显外观，再与合法 Windows WE 输出做尺寸/通道/pixel 差异门。 |
 | M19 Missing built-in fail-closed | 未支持 built-in 应报告 unavailable，不能静默用任意白块。 | `L3` | [AST] [RUN] [T-AST] [T-RUN] | 诊断明确且层不可用；尚无用户可见降级说明。 | 诊断聚合和 fallback policy 产品门。 |
 | M20 Sprite atlas metadata | TEX frame origin/axes/duration 选择 atlas 子区域。 | `L3` | [RUN] [GPU] [T-GPU] | 仅当前 SpriteAnimation 结构；无多 texture sequence。 | rotated/trimmed/variable duration atlas pixel 门。 |
 | M21 Premultiplied alpha contract | CPU 颜色、纹理和 blend factor 必须使用一致 alpha 合同。 | `L3` | [BUILTIN] [GPU] [T-TEX] [T-GPU] | 生成纹理有 premultiply 门；外部 TEX/PNG 和 WE blend 未全链核验。 | file/built-in 双来源的重叠 pixel golden。 |

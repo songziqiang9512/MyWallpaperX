@@ -400,7 +400,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         for path in current_state_documents:
             text = document_text[path]
             self.assertIn(
-                "`3baf1fc`",
+                "`c06b0fb`",
                 text,
                 f"Current Scene entrypoint is missing the full-baseline implementation: {path}",
             )
@@ -419,8 +419,8 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             )
 
         report_paths = (
-            ".codex/scene-xray-final-20260724/full26-duration7/report.json",
-            ".codex/scene-xray-final-20260724/fixed13-duration7-final/report.json",
+            ".codex/scene-full45-halo4-final-20260724/report.json",
+            ".codex/scene-halo4-fixed13-20260724/report.json",
         )
         for path in current_state_documents:
             for report_path in report_paths:
@@ -448,11 +448,11 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             evidence,
         )
         self.assertIn("完整 Scene suite 318 项：315 通过、3 跳过", evidence)
-        self.assertIn("Water Flow 7、Water Waves 10、Shake 21", evidence)
+        self.assertIn("Water Flow 10、Water Waves 11、Shake 24", evidence)
         self.assertIn("comparison_scope=same-sample-change-only", evidence)
         self.assertIn("cross_sample_ranking=false", evidence)
         self.assertIn("absolute_threshold=null", evidence)
-        self.assertIn("strict graph 为 73 stage", evidence)
+        self.assertIn("strict graph 为 91 stage", evidence)
         self.assertIn("generic `compose` 整体仍为 `L2`", evidence)
         self.assertIn(
             "ordered strict effect-chain",
@@ -466,9 +466,9 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         for fact in (
             "interpretation v22",
             "十一类 strict backend",
-            "73 stage",
-            "66 个 route-only effect",
-            "particle 为 `52/68`",
+            "91 stage",
+            "113 个 route-only effect",
+            "particle 为 `84/131`",
             "customtext/textcolor/textsize",
             "stale cancellation",
             "SceneScript/time/media",

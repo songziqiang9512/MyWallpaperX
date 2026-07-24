@@ -108,7 +108,7 @@
 
 45 项汇总：`L1=25`、`L2=5`、`L3=15`、`L4=0`。这个统计只反映当前表中最小可声明级别，不是样本命中率、视觉相似度或已知语义比例。
 
-`b541867` 只增加 strict profile 之间的有序、全有或全无调度，没有改变 45 项数量或等级；其阶段报告 `.codex/scene-effect-chain-gated-final13-20260723/report.json` 的 8 stage、0 real chain 是 Shadow 前的历史负门。`809b75e` 的 exact Workshop Shadow、`b8842d8` 的 stock Opacity `MASK=0` 与 `4f13daf` 的 exact legacy Blur Precise compose 都只扩充既有 `L3` 行的受限 profile。`e505a9e`、`31ae557` 与 `94aebc5` 分别让 exact stock Shake、Water Waves 与 Water Flow 进入 ordered scheduler；`3baf1fc` 又加入 exact Foliage Sway、Water Ripple 与 pointer-driven X-Ray，并修正 X-Ray 组合区域捕获。当前完整门为 73 stage、12 条 chain、Water Flow 7、Water Waves 10、Shake 21、0 failed；固定门保护 24 stage、2 条真实 chain、Water Flow 1、Water Waves 6、Shake 1、Opacity 4、Workshop Shadow 1、0 failed。最新路径与边界统一见 [运行证据索引](runtime-evidence-index.md)。
+`b541867` 只增加 strict profile 之间的有序、全有或全无调度，没有改变 45 项数量或等级；其阶段报告 `.codex/scene-effect-chain-gated-final13-20260723/report.json` 的 8 stage、0 real chain 是 Shadow 前的历史负门。`809b75e` 的 exact Workshop Shadow、`b8842d8` 的 stock Opacity `MASK=0` 与 `4f13daf` 的 exact legacy Blur Precise compose 都只扩充既有 `L3` 行的受限 profile。`e505a9e`、`31ae557` 与 `94aebc5` 分别让 exact stock Shake、Water Waves 与 Water Flow 进入 ordered scheduler；`3baf1fc` 又加入 exact Foliage Sway、Water Ripple 与 pointer-driven X-Ray，并修正 X-Ray 组合区域捕获。当前完整门为 91 stage、15 条 chain、Water Flow 10、Water Waves 11、Shake 24、0 failed；固定门保护 24 stage、2 条真实 chain、Water Flow 1、Water Waves 6、Shake 1、Opacity 4、Workshop Shadow 1、0 failed。最新路径与边界统一见 [运行证据索引](runtime-evidence-index.md)。
 
 ## 9. 开发顺序
 

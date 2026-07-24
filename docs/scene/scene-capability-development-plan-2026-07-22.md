@@ -2,7 +2,7 @@
 
 > 建立日期：2026-07-22
 >
-> 最近更新：2026-07-24（实现基线 `3baf1fc`；interpretation v22；十一类 strict backend 是当前 GPU 执行子集；pointer-driven X-Ray、exact Foliage Sway / Water Ripple 已进入真实链。当前固定 13 样本门 13/13、particle 15/27；完整 26 样本快照 26/26、particle 52/68）
+> 最近更新：2026-07-24（实现基线 `c06b0fb`；interpretation v22；十一类 strict backend 是当前 GPU 执行子集；pointer-driven X-Ray、exact Foliage Sway / Water Ripple 与第十一个 generated particle key `halo_4` 已进入真实链。当前固定 13 样本门 13/13、particle 15/27；完整 45 样本快照 45/45、particle 84/131）
 >
 > 作用：定义 MyWallpaperX Scene runtime 从当前可审计子集向 Wallpaper Engine 常用能力逼近的实施顺序、样本门和验收标准。作者/执行语义先查 [`semantics/README.md`](semantics/README.md)；当前能力结论仍以 [`../reviews/web-scene-current-state-roadmap-2026-07-19.md`](../reviews/web-scene-current-state-roadmap-2026-07-19.md) 与最新运行证据为准；历史 memo 不反向覆盖本计划。
 
@@ -42,7 +42,7 @@
 - exact stock UV Foliage Sway 与 Water Ripple 已读取作者 mask、资源和常量并可进入 ordered chain；旧单个 built-in UV Foliage Sway / normal-map Ripple inline 子集仍保留。Vertex/workshop sway、Ripple variant/specular/Perspective 和动态 SceneScript 值不会误套 exact profile；
 - pointer 由桌面宿主以每 surface 状态送入 renderer，X-Ray 使用 layer-local pointer、组合区域 source capture、authored blend/halo/opacity texture 与受限 live target。`2998757800`、`3747492842`、`3757555836` 已由用户在真实桌面壁纸路径确认鼠标遮罩正常；`3747492842` 仅执行 X-Ray 受限前缀，后续 unsupported effect 明确省略；
 - text 以 authored `pointsize * 4` 近似 300 DPI point raster、处理 vector padding、包内字体、系统字体别名和缺失字体诊断；direct user property 的 content/point-size/color 已按变化 layer 异步重栅格化，`* 4` 仍是样本验证近似，不是完整官方换算合同；
-- 作者包内 2D sprite 粒子的 definition/resource graph、sphere/box、rate/burst/prewarm、常见 initializer/operator、sequence/random frame、additive/translucent、朝向、静态 override、CPU simulation 与 Metal instancing；现对 `particle/drop`、`particle/chromaticdot`、`fog1`、`leaves7/8`、`light_shafts_6`、`lightning3`、`halo/halo_2`、`ripple_single` 十个精确 key 提供项目自行生成的确定性预乘纹理，并支持按速度方向和作者 length/min/max stretch 绘制 Sprite Trail；这些程序纹理是 `executed-degraded`，不是官方纹理副本或像素等价实现；
+- 作者包内 2D sprite 粒子的 definition/resource graph、sphere/box、rate/burst/prewarm、常见 initializer/operator、sequence/random frame、additive/translucent、朝向、静态 override、CPU simulation 与 Metal instancing；现对 `particle/drop`、`particle/chromaticdot`、`fog1`、`leaves7/8`、`light_shafts_6`、`lightning3`、`halo/halo_2/halo_4`、`ripple_single` 十一个精确 key 提供项目自行生成的确定性预乘纹理，并支持按速度方向和作者 length/min/max stretch 绘制 Sprite Trail；这些程序纹理是 `executed-degraded`，不是官方纹理副本或像素等价实现；
 - 用户属性定义、group/display condition/options、默认值/override、visibility/text/camera 与部分 effect target、按壁纸持久化、活动 Scene 受控重建和独立属性窗口；
 - 当前实际执行的 `sceneTexture` key 支持 PNG/JPEG picker、按 wallpaper/property bookmark、同步 security-scope 解码、逐屏 Metal 上传、恢复作者默认和失败回退；隐藏但可通过其他属性显示的受支持 consumer 也会进入能力发现，播放时仍只执行当帧可见层；
 - typed `composition/project/fullscreen` 与 generic dependency layer ID；对满足严格边界的 utility layer 执行当前 framebuffer 前缀捕获，并支持 `_rt_imageLayerComposite_<id>_a` named target 的有预算发布与 clipping consumer 绑定。`2902406982` 的 6 个 provider / 7 个 consumer binding 已闭合，原白色三角缺口不再由缺失 named target 产生；
@@ -56,22 +56,22 @@
 - effect-chain target allocation 先在候选态完成所有 stage plan/table、预算与 LRU victims，再一次提交 cache/resident bytes/access counter；失败不刷新部分命中的 LRU，也不留下半条链。默认 96 MiB pool 保证最多 6 个 2048x2048 BGRA texture unit；更长链在规划阶段整链拒绝。singleton strict plan 复用同一事务，旧直接测试入口保留；
 - `8474ace` 完成 D7 ShaderContract IR v1：完整 UTF-8 source、raw SHA-256、stage path/kind、include、JSON annotation、uniform/attribute/varying declaration、diagnostic 和 canonical SHA 进入 v19；绝对/穿越路径、shader root/stage/include symlink escape、无效 UTF-8、缺失 stage、畸形 annotation 和重复 identity 均 fail closed。generic D7 仍只达到 L1 识别/保留；`136d35c` 仅把 exact Local Contrast 的 identity/canonical/stage/raw source hashes 用作 strict 准入门，实际执行项目自有 Metal pipeline，不预处理、翻译、编译或执行 authored shader source；
 - `228cdde` 完成 Local Contrast 的资源格式前置：graph plan/table 新增 `rgba8888 -> .rgba8Unorm`，input/output 与 `rgba_backbuffer` 保持 `.bgra8Unorm`；两种格式均按 4 B/px 计费，格式变化原子替换 cache，未知格式继续 fail closed。该提交当时尚无执行层，随后 `136d35c` 已让 exact stock Local Contrast 消费该格式；
-- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；当前完整快照门 `.codex/scene-xray-final-20260724/full26-duration7/report.json` 为 **26/26**、particle **52/68**，报告/矩阵 SHA-256 为 `7580bd3caed56e2094d996a256845092e7a620312c81aa6ed3c4e801f195f996` / `0c506680eb13df24df2127fe51514255ea8ad7a9df97c130427902c9a734b99a`；固定回归门 `.codex/scene-xray-final-20260724/fixed13-duration7-final/report.json` 为 **13/13**、particle **15/27**，报告/矩阵 SHA-256 为 `5257c347be8c5eb2a2a96569aa8498e5cb15de66d5146edf2a5f99f8bba62efb` / `2624b6ce15b2e707962d960b633419ae3635a2745219621f708239687893e3ae`。26 门为 strict stage 73、failed 0、chain 12、Water Flow 7、Water Waves 10、Shake 21、legacy blocked 16、route-only 66；固定 13 门保护 stage 24、chain 2、Water Flow 1、Water Waves 6、Shake 1、Opacity 4、Workshop Shadow 1、failed 0。完整 Scene suite 为 **318 项：315 通过、3 跳过**。当前 App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `9951f4c741e3484894be717b68019f55f10a800f`、可执行文件 SHA-256 `61bfdfb5c9215ea5ceaab8bfa6d995be38f0ce2e5fc8629d0299326295e3832c`，benchmark staged App 运行前后签名均验证。完整聚合缺口见 [运行证据索引](semantics/runtime-evidence-index.md)。
+- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；当前完整快照门 `.codex/scene-full45-halo4-final-20260724/report.json` 为 **45/45**、particle **84/131**，报告/矩阵 SHA-256 为 `699c41c5650ff95e003d4009016d417a7bb3e106091de3766f7c8150c10f9b88` / `5251aaeb237d0f27f7e568066eaaa87aaf0b2cd5f290420563ea550caece28e2`；固定回归门 `.codex/scene-halo4-fixed13-20260724/report.json` 为 **13/13**、particle **15/27**，报告/矩阵 SHA-256 为 `419a6f355a37c7350f3ae3ff182c37b63010bdc1df074a9add0365d315fb4dd6` / `2624b6ce15b2e707962d960b633419ae3635a2745219621f708239687893e3ae`。45 门为 strict stage 91、failed 0、chain 15、Water Flow 10、Water Waves 11、Shake 24、legacy blocked 22、route-only 113；固定 13 门保护 stage 24、chain 2、Water Flow 1、Water Waves 6、Shake 1、Opacity 4、Workshop Shadow 1、failed 0。完整 Scene suite 为 **318 项：315 通过、3 跳过**。当前 App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `74e844dbcfc942ea5b28e4467e8c7d6f6684da06`、可执行文件 SHA-256 `12d13ebd57102fa0ce8f9f3a8a95fe7672d3f9e514da7cf6e702e3c707263ab9`，benchmark staged App 运行前后签名均验证。完整聚合缺口见 [运行证据索引](semantics/runtime-evidence-index.md)。
 
 ### 仅解析/诊断或部分实现
 
-- authored graph 只有上述十一类 strict backend 进入 renderer；当前完整 26 门包含 Blur/Shake、Foliage/Water Ripple、Water Flow/Opacity、重复 Water Waves 与 X-Ray chain，固定 13 门继续保护 Blur/Shadow 等链。同帧 copy/swap 已进入 Precise Blur 两种完整白名单 material-command topology，exact legacy Blur Precise compose 可归一到同一 executor，显式 `unique:true` FBO 已进入受限 history seed/clear 路径；named target、静态 image blend 和其余手写 effect 仍是受限执行器，dynamic variants、child/nested target、effectful/media provider、真实 history consumer、generic compose/scene-background、history 的跨帧语义、condition/function、其他 topology 和通用 material/shader 尚未实现；
+- authored graph 只有上述十一类 strict backend 进入 renderer；当前完整 45 门包含 Blur/Shake、Foliage/Water Ripple、Water Flow/Opacity、重复 Water Waves 与 X-Ray chain，固定 13 门继续保护 Blur/Shadow 等链。同帧 copy/swap 已进入 Precise Blur 两种完整白名单 material-command topology，exact legacy Blur Precise compose 可归一到同一 executor，显式 `unique:true` FBO 已进入受限 history seed/clear 路径；named target、静态 image blend 和其余手写 effect 仍是受限执行器，dynamic variants、child/nested target、effectful/media provider、真实 history consumer、generic compose/scene-background、history 的跨帧语义、condition/function、其他 topology 和通用 material/shader 尚未实现；
 - typed frame texture registry、resource/frame 双代、authored fallback 和 PNG/JPEG property file/bookmark/decode 已进入 runtime；dynamic text 已提供 per-layer generation、串行异步栅格化、stale cancellation 和 last-ready fallback。通用 provider metadata/status/cancel、`$mediaThumbnail`、Texture Variants、video frame、通用 material property consumer、effectful/nested provider 与真实 persistent/history consumer 尚未接入；当前 history 只记录显式 unique target 的 seed 状态并在首次消费时清零；
 - Timeline 没有正式 target/keyframe/mode/tangent/event IR；部分粒子动态 wrapper 只保留 presence/诊断，不能记为 Timeline 数据模型；
 - SceneScript 只发现 `.js` 资源和 inline `script` presence；inline/source 内容、owner/property binding 和返回类型会丢失，也没有 ECMAScript runtime、`init/update`、事件、globals、Date/Math live value 或属性写回；
 - 用户属性 parser 已把官方 `texture` 与样本 raw `scenetexture` 归一为内部 texture-provider 类型并保留原始 runtime type；PNG/JPEG 文件选择/授权/加载已闭合首个静态 consumer 子集，layer alpha、纯 solid layer color、direct text content/point-size/color、exact stock Local Contrast strength 与 stock Opacity alpha 已无重建 live；Texture Variants、media/video texture、transform、non-solid/mixed color、其他 effect constant、particle/audio/puppet target 和 SceneScript `applyUserProperties` 仍未闭环；
-- child particle graph 可遍历但不实例化；除上述 10 个精确 key 外的 built-in particle、rope/rope trail、world-space、control point、collision、音频和动态 override 未实现；Sprite Trail 当前只覆盖 2D sprite velocity-aligned stretch 子集；
+- child particle graph 可遍历但不实例化；除上述 11 个精确 key 外的 built-in particle、rope/rope trail、world-space、control point、collision、音频和动态 override 未实现；Sprite Trail 当前只覆盖 2D sprite velocity-aligned stretch 子集；
 - particle exponent 已进入解析模型，但 simulation 尚未消费，不能记为已支持；
 - 多 foliage 栈、vertex sway 与 workshop 自定义 sway 未实现；它们当前保持静态或进入明确诊断，不用单层 UV 近似替代；
 - Scene 音频/媒体未接现有系统服务；SceneScript/系统时间/日期/媒体驱动的 text、puppet/mesh/3D/lighting、自定义 shader 均未实现；
 - Frame Context 尚缺 pause/resume、长帧 delta clamp/dropped-time、fixed timestep、audio/media producer 和离线 adapter；property producer 与 per-surface changed-payload generation 已进入 B0，pointer/script/provider 的 local generation 隔离仍待对应 runtime 接入；fullscreen/battery、目标 FPS、CPU/GPU/显存预算和 soak 也未闭环。
 
-26 样本当前完整快照门和 13 样本固定回归门 PASS 都不能解释成 Wallpaper Engine 视觉兼容率：它们只证明各自矩阵声明的解析、GPU 完成、非黑画面、能力计数和释放门通过。`2902406982` 的 named target 主缺口与 `2938612768` 的首个静态背景依赖已经关闭，但两者仍有字体、时序、媒体、后续 effect 和粒子差异；`3750813609` 已出现雾、叶片与光束等新增粒子，但仍缺动态时钟、完整 Clouds/Blur、child、world-space 雨滴溅射、control point/turbulence 和最终合成精度。21 样本首轮分级仍只是历史截图基线，必须在下一轮统一视觉对照后才能重新分级。
+45 样本当前完整快照门和 13 样本固定回归门 PASS 都不能解释成 Wallpaper Engine 视觉兼容率：它们只证明各自矩阵声明的解析、GPU 完成、非黑画面、能力计数和释放门通过。`2902406982` 的 named target 主缺口与 `2938612768` 的首个静态背景依赖已经关闭，但两者仍有字体、时序、媒体、后续 effect 和粒子差异；`2131872317` 的烟花弹头已加载但 eventdeath child 爆炸仍未执行；`3750813609` 已出现雾、叶片与光束等新增粒子，但仍缺动态时钟、完整 Clouds/Blur、child、world-space 雨滴溅射、control point/turbulence 和最终合成精度。21 样本首轮分级仍只是历史截图基线，必须在下一轮统一视觉对照后才能重新分级。
 
 ## 3. 官方资料核验后的契约边界
 
@@ -131,11 +131,11 @@
 5. Timeline 先完整保留 keyframe/mode/tangent/event 数据，再接 Loop/Mirror/Single 与线性/Bézier；SceneScript 先保存 source/binding IR，再接 sandbox VM、lifecycle、typed write 和 budget，不能从嵌入 VM 直接跳到 renderer setter。
 6. 动态 text、cursor/audio/media 输入与 transform/effect/particle target 按各自 provider、space、event 和 generation 前置接入，不再作为一组无依赖的“同时打通”任务。
 
-direct text 三类 target 与 B1 generation/stale cancellation 已由 `1762743` 完成首个闭环，同帧 copy/swap、受限 history、Precise Blur interleave、exact legacy compose 与 exact stock Shake 已分别由 `f1c6a10`、`dcedc2e`、`ebf44a9`、`4f13daf`、`e505a9e` 完成；`31ae557`/`94aebc5` 把 exact stock Water Waves/Water Flow 纳入 ordered chain，`3baf1fc` 又加入 pointer-driven X-Ray、exact Foliage Sway / Water Ripple 与组合区域捕获，当前完整门增至 73 stage/12 chain。下一批已明确留到下次：先对新增 `3769688830` 的公共 blend/composition 语义和 `3769364482` 的 Fire effect 做隔离分析，再处理 `2998757800` 多余白色粒子，最后独立修正全局比例/裁切。视觉判断先以样本自带 preview 约束构图、色调和明显效果，WaifuX SceneBake 只作辅助动态参考，最终仍需合法 Windows WE 输出。
+direct text 三类 target 与 B1 generation/stale cancellation 已由 `1762743` 完成首个闭环，同帧 copy/swap、受限 history、Precise Blur interleave、exact legacy compose 与 exact stock Shake 已分别由 `f1c6a10`、`dcedc2e`、`ebf44a9`、`4f13daf`、`e505a9e` 完成；`31ae557`/`94aebc5` 把 exact stock Water Waves/Water Flow 纳入 ordered chain，`3baf1fc` 又加入 pointer-driven X-Ray、exact Foliage Sway / Water Ripple 与组合区域捕获。`c06b0fb` 新增紧凑 `particle/halo_4`，当前完整门增至 91 stage/15 chain、particle 84/131，但烟花炸开所需 child/event death 仍未执行。下一批先处理 `3769688830` 暴露的公共 blend/composition，再进入粒子 child/event death；`3769364482` 的 Fire effect、299 多余粒子与全局比例/裁切按隔离样本收益随后推进。视觉判断先以样本自带 preview 约束构图、色调和明显效果，WaifuX SceneBake 只作辅助动态参考，最终仍需合法 Windows WE 输出。
 
 ### S4：按公共依赖扩展粒子图谱（分层推进）
 
-- 第一批高命中程序化 built-in texture 与 `particle/chromaticdot` 白色雪粒子已完成，固定门可见粒子运行层由 **6/27** 提升至 **15/27**，完整门为 **52/68**；剩余静态遮罩与 sprite-atlas/multi-texture 必须先复用 Provider Core 与 material contract，不用通用圆点冒充；
+- 第一批高命中程序化 built-in texture、`particle/chromaticdot` 白色雪粒子与紧致 `particle/halo_4` 弹头已完成；固定门可见粒子为 **15/27**，当前完整 45 门为 **84/131**。`halo_4` 只解锁根系统，烟花爆炸仍依赖 eventdeath child、burst、Sprite Trail、`particle/star` 与冲击材质；剩余静态遮罩与 sprite-atlas/multi-texture 必须先复用 Provider Core 与 material contract，不用通用圆点冒充；
 - dynamic override/control point 等 TargetContract + binding program + local/world space；Layer Image 等 provider generation + dynamic text；world-space 等完整 parent/world/camera matrix；
 - child/collision 等 fixed step + deterministic event queue + owner/budget；rope/rope trail 等独立 geometry/material renderer；audio response 等 injectable audio snapshot。上述前置未完成时只补 IR/fixture，不提前接产品执行；
 - 不把程序化 built-in texture 或 Sprite Trail 子集推断为官方纹理等价、全部雨、绳索、child graph 或粒子系统兼容。
@@ -330,7 +330,14 @@ direct text 三类 target 与 B1 generation/stale cancellation 已由 `1762743` 
 - `Color Random` 不再独立随机 RGB 通道，而是用一个随机系数在作者给定的两个颜色间插值。`3750342273` 的样本 preview 是白色雪花；WaifuX 彩色柔光点与 preview 冲突，因此只保留为反例，不作为目标。并排视觉证据位于 `.codex/scene-chromaticdot-20260724/targeted4-final/results/3750342273/preview-comparison.png`。
 - 定向 4 样本门为 **4/4**，新增 `2802243144:[20,25]`、`2938612768:[173]`、`3747492842:[269]`、`3750342273:[52]` 五个可见层；固定门为 **13/13**、particle **15/27**，完整门为 **26/26**、particle **52/68**。两层报告和矩阵哈希见运行证据索引。
 - 完整 Scene suite **302 项：299 通过、3 跳过**；代码健康与签名 Debug build 通过。签名 App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `4d78ee2b61532fe6a7d3872e80707e8d9e074ecf`、executable SHA-256 `162b260a61600543f2212f6dd8ad11d92a7f860806e18ea56b4984c9abd9cadc`。
-- 本批没有改变画面比例，也不宣称官方纹理、粒子密度/尺寸、色彩空间或随机分布 parity。下一视觉纹理批次按封面与动态辅助证据优先 `halo_4`，再评估 `halo_6`，不再只按缺失次数排序。
+- 本批没有改变画面比例，也不宣称官方纹理、粒子密度/尺寸、色彩空间或随机分布 parity。后续 `halo_4` 已由 `c06b0fb` 完成受控弹头近似；下一粒子批次按官方 Children 语义为 `2131872317` / `3768903841` 建立 deterministic `eventdeath` 最小闭环，再独立评估 `halo_6`，不只按缺失次数排序。
+
+### 已完成：S4.2 `particle/halo_4` 紧致弹头与 45 样本快照扩展
+
+- `c06b0fb` 新增精确 key `particle/halo_4` 和确定性 64x64 premultiplied 小核心/短软光。首轮宽光晕在 `2131872317` 产生大色块，未提交；最终 7 秒帧收敛为小型上升光点，仍只记为 `executed-degraded`。
+- 定向门为 **3/3**：`2131872317` 从 `2/9` 提升到 `5/9`，`2419444134` 从 `3/4` 提升到 `4/4`，`3768903841` 保持 `5/5`。21 样本 asset census 的 `builtInTextureUnavailable` 从 17 降至 15；固定门仍为 **13/13**、particle **15/27**。
+- 新增样本使真实目录达到 46 个数字目录；`3770500543` 缺 package，未进入运行矩阵。其余 45 个隔离副本的正式门为 **45/45**、particle **84/131**，source manifest 在复制和运行后复核 source/isolated changes 均为空。
+- 样本封面里的爆炸不是 `halo_4` 单纹理效果。作者根定义在 `eventdeath` 触发 flare/hit/stars/distort children；当前没有 child runtime，因而本批不宣称 `3768903841` 或 `2131872317` 烟花完成。
 
 ### 已完成：S2.4r pointer-driven X-Ray 与 exact Foliage/Water Ripple chain
 

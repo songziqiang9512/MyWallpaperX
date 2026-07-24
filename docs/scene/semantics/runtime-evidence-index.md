@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-24
 >
-> 实现基线：`3baf1fc`
+> 实现基线：`c06b0fb`
 
 本页给覆盖表中的 `L3` 子集提供可追溯证据包。每个证据包至少包含代码、自动测试和真实运行或 GPU 证据；缺少任一项的能力只能标 `L0-L2`，或在专项表中明确写 `gate incomplete`。`.codex` 报告是本机隔离运行产物，不提交 Git；报告路径、App 身份和摘要写入现役文档，避免将其误当源码 fixture。
 
@@ -12,18 +12,18 @@
 
 | 项目 | 当前证据 |
 |---|---|
-| 当前完整快照门 | `.codex/scene-xray-final-20260724/full26-duration7/report.json` 为 26/26；报告 SHA-256 `7580bd3caed56e2094d996a256845092e7a620312c81aa6ed3c4e801f195f996`，仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` SHA-256 `0c506680eb13df24df2127fe51514255ea8ad7a9df97c130427902c9a734b99a` |
-| 固定回归门 | 同一签名 App 的 `.codex/scene-xray-final-20260724/fixed13-duration7-final/report.json` 为 13/13；报告 SHA-256 `5257c347be8c5eb2a2a96569aa8498e5cb15de66d5146edf2a5f99f8bba62efb`，矩阵 SHA-256 `2624b6ce15b2e707962d960b633419ae3635a2745219621f708239687893e3ae` |
+| 当前完整快照门 | `.codex/scene-full45-halo4-final-20260724/report.json` 为 45/45；报告 SHA-256 `699c41c5650ff95e003d4009016d417a7bb3e106091de3766f7c8150c10f9b88`，仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` SHA-256 `5251aaeb237d0f27f7e568066eaaa87aaf0b2cd5f290420563ea550caece28e2` |
+| 固定回归门 | 同一签名 App 的 `.codex/scene-halo4-fixed13-20260724/report.json` 为 13/13；报告 SHA-256 `419a6f355a37c7350f3ae3ff182c37b63010bdc1df074a9add0365d315fb4dd6`，矩阵 SHA-256 `2624b6ce15b2e707962d960b633419ae3635a2745219621f708239687893e3ae` |
 | 最新合同门 | 完整 Scene suite 318 项：315 通过、3 跳过；代码健康 427 Swift files、44 locked legacy files、400-line limit |
 | ShaderContract | 173 contracts = 143 authored + 30 host built-in；286 stages、0 diagnostics；source/IR include 155、annotation 1523、declaration 2660，见 E-SHADER-CONTRACT |
 | Live property | layer alpha、solid color、strict Local Contrast/Opacity 与 direct text content/point-size/color 均由 per-surface snapshot 消费，accepted 且 surface/window identity 不变；报告见 E-LIVE-PROPERTY / E-DYNAMIC-TEXT |
 | Provider 双代 | `2938612768` static image blend 5/5；`2902406982` named capture 6/6、binding 7/7；报告见 E-PROVIDER |
 | 方向性视觉证据 | 样本自带 preview GIF 是当前第一视觉依据；固定门 13/13 均生成 preview reference 与中心裁切并排图，六样本人工校准见 E-PREVIEW-VISUAL。WaifuX SceneBake MP4 只作辅助动态参考，出现冲突时不能覆盖样本 preview；两者均非 Windows WE golden |
-| 签名 App | 当前两层门均为 `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `9951f4c741e3484894be717b68019f55f10a800f`，executable SHA-256 `61bfdfb5c9215ea5ceaab8bfa6d995be38f0ce2e5fc8629d0299326295e3832c`；benchmark staged App 运行前后签名均验证 |
-| executable SHA-256 | `61bfdfb5c9215ea5ceaab8bfa6d995be38f0ce2e5fc8629d0299326295e3832c` |
+| 签名 App | 当前两层门均为 `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `74e844dbcfc942ea5b28e4467e8c7d6f6684da06`，executable SHA-256 `12d13ebd57102fa0ce8f9f3a8a95fe7672d3f9e514da7cf6e702e3c707263ab9`；benchmark staged App 运行前后签名均验证 |
+| executable SHA-256 | `12d13ebd57102fa0ce8f9f3a8a95fe7672d3f9e514da7cf6e702e3c707263ab9` |
 | 样本边界 | 真实 Workshop root 只读；报告均来自隔离 sample root 与临时 HOME |
 
-当前真实目录完整快照门加载 image `330/330`、text `212/212`、solid `126/126`，particle 为 `52/68`；named target capture `8/8`、binding `9/9`，仍有 13 个 named-target gap、66 个 route-only effect、16 个 legacy blocked layer，graph target 为 153、graph blocker 为 0。strict graph 为 73 stage、12 条 multi-effect chain、Water Flow 7、Water Waves 10、Shake 21、44 个 succeeded layer、0 failed；utility capture 成功 3 层。固定 13 样本门单独保护 particle `15/27`、24 stage、2 条 chain、Water Flow 1、Water Waves 6、Shake 1、Workshop Shadow 1、Opacity 4、22 个 succeeded layer、0 failed；两门互补，均不证明完整兼容或 WE parity。
+当前真实目录有 46 个数字目录；其中 `3770500543` 缺少 package，source manifest 明确跳过，45 个可运行副本在隔离 root/HOME 下完成正式快照。完整门加载 image `449/451`、text `244/244`、solid `140/140`，particle 为 `84/131`；named target capture `8/8`、binding `9/9`，仍有 13 个 named-target gap、113 个 route-only effect、22 个 legacy blocked layer，graph target 为 204、graph blocker 为 0。strict graph 为 91 stage、15 条 multi-effect chain、Water Flow 10、Water Waves 11、Shake 24、57 个 succeeded layer、0 failed；utility capture 成功 3 层。固定 13 样本门单独保护 particle `15/27`、24 stage、2 条 chain、Water Flow 1、Water Waves 6、Shake 1、Workshop Shadow 1、Opacity 4、22 个 succeeded layer、0 failed；两门互补，均不证明完整兼容或 WE parity。
 
 ## 2. 证据包
 
@@ -100,8 +100,8 @@
 
 - 代码：[SceneParticleRuntime.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleRuntime.swift)、[SceneParticleSimulator.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleSimulator.swift)、[SceneParticleTextureSource.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleTextureSource.swift)、[SceneParticleBuiltInTextureRegistry.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleBuiltInTextureRegistry.swift)、[SceneParticleMetalPipeline.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleMetalPipeline.swift)
 - 自动门：[test_scene_particle_definitions.py](../../../script/tests/test_scene_particle_definitions.py)、[test_scene_particle_simulator.py](../../../script/tests/test_scene_particle_simulator.py)、[test_scene_particle_assets.py](../../../script/tests/test_scene_particle_assets.py)、[test_scene_particle_builtin_textures.py](../../../script/tests/test_scene_particle_builtin_textures.py)、[test_scene_particle_rendering.py](../../../script/tests/test_scene_particle_rendering.py)、[test_scene_particle_runtime.py](../../../script/tests/test_scene_particle_runtime.py)
-- 运行门：定向 `.codex/scene-chromaticdot-20260724/targeted4-final/report.json` 为 4/4；完整门 particle `52/68`，固定门 `15/27`。新增可见层为 `2802243144:[20,25]`、`2938612768:[173]`、`3747492842:[269]`、`3750342273:[52]`，21 样本 asset census 的 `builtInTextureUnavailable` 从 22 降至 17。
-- 视觉门：`3750342273` 的样本 preview 与当前输出均为白色雪粒子，并排图 `.codex/scene-chromaticdot-20260724/targeted4-final/results/3750342273/preview-comparison.png` SHA-256 `7b611b1d475ef2f6936ee9135d0c3767244a7276e6628b5818fc38cd32099279`。WaifuX 彩色点帧与样本 preview 冲突，因此没有作为目标；`Color Random` 改为在两个作者颜色间使用单一随机系数插值。程序纹理和颜色分布仍无 Windows WE pixel golden。
+- 运行门：`particle/chromaticdot` 阶段的定向门为 4/4；`particle/halo_4` 阶段的 `.codex/scene-halo4-targeted-compact-20260724/report.json` 为 3/3，`2131872317` 从 `2/9` 提升到 `5/9`、`2419444134` 从 `3/4` 提升到 `4/4`。正式完整门 particle 为 `84/131`，固定门为 `15/27`；21 样本 asset census 的 `builtInTextureUnavailable` 已从 22 经 chromaticdot 的 17 降至 15。
+- 视觉门：`halo_4` 首轮宽光晕使 `2131872317` 出现大色块，未提交；最终 64x64 纹理采用小核心/短软光，7 秒帧只显示上升弹头小光点。样本封面中的烟花爆炸由 `eventdeath` child definitions、burst、Sprite Trail、`particle/star` 和冲击材质共同生成，当前仍诊断 `childSystemsUnsupported`，因此不能把弹头加载写成烟花完成。`3750342273` 的白色雪粒子与样本 preview 一致；程序纹理和颜色分布仍无 Windows WE pixel golden。
 
 <a id="e-provider"></a>
 ### E-PROVIDER: Texture provider、named target 与静态 dependency blend
@@ -210,7 +210,7 @@
 - 实现提交：scheduler `b541867`，首条真实链 backend `809b75e`，Water Waves/Water Flow 扩展为 `31ae557`/`94aebc5`。代码：[SceneAuthoredEffectExecutionChain.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectExecutionChain.swift)、[SceneAuthoredEffectChainRenderer.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectChainRenderer.swift)、[SceneOffscreenTexturePool.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneOffscreenTexturePool.swift)、[SceneImageLayerCompositor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneImageLayerCompositor.swift)。
 - 自动门：[test_scene_authored_effect_chain_planner.py](../../../script/tests/test_scene_authored_effect_chain_planner.py)、[test_scene_offscreen_texture_pool.py](../../../script/tests/test_scene_offscreen_texture_pool.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)、[test_scene_workshop_shadow_planner.py](../../../script/tests/test_scene_workshop_shadow_planner.py)、[test_scene_workshop_shadow_rendering.py](../../../script/tests/test_scene_workshop_shadow_rendering.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)。planner/pool 门覆盖 identity、连续输入、Shadow prior-effect role、Water resource 仅跨 stage 保留，以及整链预算/LRU 原子回滚；synthetic precise -> precise GPU 门覆盖实际 stage texture transfer、末段合成和失败不泄漏，独立 Shadow GPU 门覆盖该 backend 的像素公式。
 - 集成门：首段只应用一次 layer masks/UV/alpha，后段使用 neutral uniforms 并仅保留 strict effect 自有资源。真实 `3724289844:20` 的 `Blur Precise -> Shadow`、`3028090166:86` 的 `Water Flow -> Opacity` 以及 `3768903841` 的重复 Water Waves 均在同一 ordered scheduler 执行；当前没有这些真实 compositor 链的逐 stage 像素 readback，因此整链像素原子性仍由 synthetic GPU 门约束，不把真实矩阵写成 Windows golden。
-- 运行门：当前完整快照与固定门分别为 26/26、13/13。完整门共 12 条真实 multi-effect strict chain、73 个 strict stage、Water Flow 7、Water Waves 10、Shake 21；固定门保护 2 条 chain、24 stage、Water Flow 1、Water Waves 6、Shake 1、Opacity 4、Workshop Shadow 1；graph failures 均为空。
+- 运行门：当前完整快照与固定门分别为 45/45、13/13。完整门共 15 条真实 multi-effect strict chain、91 个 strict stage、Water Flow 10、Water Waves 11、Shake 24；固定门保护 2 条 chain、24 stage、Water Flow 1、Water Waves 6、Shake 1、Opacity 4、Workshop Shadow 1；graph failures 均为空。
 - 边界：只调度十一类 strict backend；默认 96 MiB pool 只保证六个 2048x2048 BGRA texture unit，超预算链在规划阶段整链拒绝。Precise Blur 可在两个 material node 之间执行一个 copy 或 swap，Shake/Foliage Sway/Water Ripple/Water Flow/Water Waves/X-Ray 只在精确 profile 和连续输入成立时参与链；X-Ray 受限前缀会明确省略后续 unsupported effect。generic compose/condition/function、跨帧 logical swap、真实 history consumer、authored shader preprocessing/translation/compile、未支持 mask/variant、SceneScript 和动态 profile 继续失败关闭。
 
 <a id="e-effect-rt"></a>

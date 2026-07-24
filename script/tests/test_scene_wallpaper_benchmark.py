@@ -155,18 +155,21 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             },
         )
 
-    def test_full_sample_matrix_pins_the_current_26_sample_snapshot(self) -> None:
+    def test_full_sample_matrix_pins_the_current_45_sample_snapshot(self) -> None:
         matrix = benchmark.load_matrix(FULL_SAMPLE_MATRIX_PATH)
         samples = {sample["id"]: sample for sample in matrix["samples"]}
-        self.assertEqual(matrix["name"], "scene-current-full-baseline-2026-07-23")
-        self.assertEqual(len(samples), 26)
+        self.assertEqual(matrix["name"], "scene-current-full-baseline-2026-07-24")
+        self.assertEqual(len(samples), 45)
         self.assertTrue({
+            "1553008362",
             "1937925563",
             "2067939514",
             "2974757317",
             "3747492842",
             "3768903841",
+            "3770462923",
         }.issubset(samples))
+        self.assertNotIn("3770500543", samples)
         for sample in samples.values():
             self.assertEqual(sample["expected_interpretation_format"], 22)
             self.assertRegex(sample["project_sha256"], r"^[0-9a-f]{64}$")
