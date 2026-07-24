@@ -4,6 +4,8 @@
 审查方式：只读  
 审查目录：`/Users/songziqiang/Documents/Development/MyWallpaperX/Reference Project`
 
+> 使用边界：本文是研究记录，不是现役能力状态入口；与 [全量参考项目审查](scene-reference-project-audit-2026-07-24.md) 为同日互补记录（本文聚焦 effect/runtime 专题）。已转化为可执行合同的条目以现役文档为准：puppet MDLV mesh block 与 BC/TEX 二进制合同见 [场景格式与 Render Graph 第 11 节](../scene/semantics/scene-format-and-render-graph.md)，X-Ray/Water 系 strict profile 边界见 [Effect 执行覆盖表](../scene/semantics/effect-execution-coverage.md)。本文其余线索在进入实现前仍须按语义手册的证据等级交叉验证。
+
 ## 1. 文档定位
 
 本文整理本次参考项目审查中，对 MyWallpaperX Scene 自研渲染器最有价值的资料，重点覆盖：

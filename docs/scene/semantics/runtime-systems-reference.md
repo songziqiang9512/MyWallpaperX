@@ -389,7 +389,7 @@ Realtime Adapter              Offline Adapter
 
 | 系统 | 当前实现状态 | 不能据此宣称 |
 |---|---|---|
-| Particle | 作者 2D sprite、部分 emitter/initializer/operator、10 个精确 built-in key 的程序纹理、Sprite Trail 子集；固定门 15/27、完整门 52/68 | 程序纹理等于官方资产，或 child/rope/world-space/control point/collision/audio/全部 preset 完整 |
+| Particle | 作者 2D sprite、部分 emitter/initializer/operator、11 个精确 built-in key 的程序纹理、Sprite Trail 子集；固定门 13/27、完整门 79/131 | 程序纹理等于官方资产，或 child/rope/world-space/control point/collision/audio/全部 preset 完整 |
 | Text | CoreText 静态纹理、direct property 动态重栅格、部分 font/pointsize/padding/scale | 动态时间、system/media、完整 alignment/effects/SceneScript |
 | Effect graph | v22 继承 EffectDefinition/authored graph/provider metadata，并保存 ShaderContract 与 binding program；十一类 strict backend 及 ordered chain 已执行，同帧 copy/swap、Precise Blur material-command interleave/legacy compose、Shake/Foliage/Water/X-Ray 均有严格门 | dynamic effect、generic compose/history、通用 material/pass、authored shader 语义等价或官方 Shadow/lighting；精确当前门见 [运行证据索引](runtime-evidence-index.md) |
 | Frame Context | 宿主单一 60 Hz driver；所有屏幕共享 frame index/host/scene/wall time；shader、video、particle、parallax 已迁移 | pause/resume、delta clamp、固定 timestep、离线实时等价已闭环 |

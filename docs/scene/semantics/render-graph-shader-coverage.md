@@ -174,15 +174,14 @@
 3. **Ordered strict effect-chain（已完成）**：完整支持的 material-only stage 已按作者顺序消费 target/bind/read/write，同 command buffer、整链 allocation/LRU 和末段合成有原子失败门；synthetic 与真实 Workshop chain 均有正向门，unsupported mixed chain 仍整体关闭。
 4. **Exact Workshop Shadow（已完成）**：`3724289844:20` 的 `Blur Precise -> Shadow` 已成为首条真实 strict chain。该 backend 只接受完整 definition/material/ShaderContract、normal/no-mask/default-blend/静态常量合同；它不是官方 45 项 Effect、generic Shadow 或 authored shader，且 mode 0 无官方 Windows 像素 oracle。
 5. **Stock Opacity `MASK=0` + live alpha（已完成）**：exact single-pass profile 已让 alpha 经既有 binding program/per-surface snapshot 被 GPU 消费；同批覆盖 premultiplied RGBA、ordered chain、invalid/mixed rebuild、same surface/window 与 unsupported stage 原子失败。
-6. **Provider Core（候选线）**：为最终 texture candidate 建显式 dynamic generation、metadata 与 cancellation，使 slot readiness、physical/mapped metadata 和 graph invalidation 共用同一代际合同。
-7. **Built-in 与 render-state binder**：从同一 frame snapshot 提供 time/pointer/audio/matrix/resolution，按最终 texture candidate 更新 slot metadata，并将已验证 state 映射到 Metal pipeline descriptor。
-8. **Generic shader execution**：以 strict backend 为对照，接入可审计、可缓存、可诊断的 shader translation/compilation 路线；只有不依赖固定 effect/shader path 且通过正负、生命周期和像素矩阵后，相关行才可升 `L4`。
-9. **按效果扩面**：Motion Blur、Refraction、Fluid、SceneScript 与更多常见 backend 都是候选，但当前暂停指定下一项。先按原始样本新增 strict stage、完整链解锁、Windows WE 对照改善和实现成本复盘；不得用显示名或视觉近似绕开 authored contract。
+6. **Strict backend consolidation（结构批次，判据已定）**：十一类 strict backend 每类都自带 source capture、uniform 组装、target 绑定与合成提交四段近似重复的调度代码。判据：下一个新增 strict profile（MDAT/MDLA/child particle 批次之后的任何 effect backend）若仍需复制这四段，先提取共享 material pass executor 与 stock shader registry 再接新 profile；提取以现有十一类的行为完全不变为验收（同报告/矩阵指标、同像素门），不顺带扩大任何 profile 的准入。
+7. **Provider Core（候选线）**：为最终 texture candidate 建显式 dynamic generation、metadata 与 cancellation，使 slot readiness、physical/mapped metadata 和 graph invalidation 共用同一代际合同。
+8. **Built-in 与 render-state binder**：从同一 frame snapshot 提供 time/pointer/audio/matrix/resolution，按最终 texture candidate 更新 slot metadata，并将已验证 state 映射到 Metal pipeline descriptor。
+9. **Generic shader execution**：以 strict backend 为对照，接入可审计、可缓存、可诊断的 shader translation/compilation 路线；只有不依赖固定 effect/shader path 且通过正负、生命周期和像素矩阵后，相关行才可升 `L4`。
+10. **按效果扩面**：Motion Blur、Refraction、Fluid、SceneScript 与更多常见 backend 都是候选，但当前暂停指定下一项。先按原始样本新增 strict stage、完整链解锁、Windows WE 对照改善和实现成本复盘；不得用显示名或视觉近似绕开 authored contract。
 
 ## 7. 本轮验证
 
-当前 Scene 全量测试共 **318 项：315 通过、3 项跳过**；framebuffer GPU harness 20/20、语义覆盖 11/11。除既有 ShaderContract、graph-target、ordered chain 和 copy/swap interleave 门外，Water Waves/Water Flow planner、phase fallback、budget 与 benchmark exact count 已进入合同；generic compose、Refraction、scene-background capture、dynamic variants、非 `KERNEL=0` 和 unsupported mixed shape 均保持失败关闭。当前测试仍不是 Windows WE 像素 golden。
+当前 Scene 全量测试共 **415 项：412 通过、3 项跳过**；语义覆盖 11/11。除既有 ShaderContract、graph-target、ordered chain 和 copy/swap interleave 门外，Water Waves/Water Flow planner、phase fallback、budget、benchmark exact count、puppet mesh reader 与 BC 解码像素门已进入合同；generic compose、Refraction、scene-background capture、dynamic variants、非 `KERNEL=0` 和 unsupported mixed shape 均保持失败关闭。当前测试仍不是 Windows WE 像素 golden。
 
-当前完整隔离矩阵 `.codex/scene-full45-halo4-final-20260724/report.json` 为 **45/45**：strict stage 91、chain 15、Water Flow 10、Water Waves 11、Shake 24、failed 0、legacy blocked 22、route-only 113、graph target 204、blocker 0；固定 `.codex/scene-halo4-fixed13-20260724/report.json` 为 **13/13**，继续保护 24 stage、2 条 chain、Water Flow 1、Water Waves 6、Shake 1、Opacity 4、Workshop Shadow 1、failed 0。完整边界见 [E-EFFECT-WATER-MOTION](runtime-evidence-index.md#e-effect-water-motion) 与 [E-EFFECT-XRAY](runtime-evidence-index.md#e-effect-xray)。
-
-当前签名 App 身份为 version `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `74e844dbcfc942ea5b28e4467e8c7d6f6684da06`，可执行文件 SHA-256 `12d13ebd57102fa0ce8f9f3a8a95fe7672d3f9e514da7cf6e702e3c707263ab9`。这些证据只把十一类 strict backend 的 ordered all-supported chain、Precise Blur interleave 和 exact legacy compose 记为受限 `L3`。不得据此升级 unsupported mixed graph、generic graph primitive、generic compose、SceneScript、官方 Shadow 或 authored shader execution。
+当前两层运行门、strict 聚合计数、报告/矩阵 SHA 与签名 App 身份统一见 [运行证据索引](runtime-evidence-index.md)，本页不再复制维护。这些证据只把十一类 strict backend 的 ordered all-supported chain、Precise Blur interleave、exact legacy compose 与 puppet bind-pose 重组记为受限 `L3`。不得据此升级 unsupported mixed graph、generic graph primitive、generic compose、SceneScript、官方 Shadow 或 authored shader execution。

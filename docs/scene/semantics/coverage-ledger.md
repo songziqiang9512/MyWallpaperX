@@ -63,7 +63,7 @@
 | Audio frame input | `L0` | Scene 不消费频谱 | 16/32/64 双声道 snapshot、注册和设备生命周期 | B0/B4 |
 | 内嵌视频纹理 | `L3` | TEX 内嵌 MP4 image-layer 播放，消费共享 host time | seek/pause/switch/loop 精确合同及更多容器 | B1 |
 | 系统媒体 identity | `L1` | `$mediaThumbnail` typed 引用存在 | producer/consumer、事件、缩略图 generation | B1/B4 |
-| Particle runtime | `L3` | 作者 sprite、常见组件、Sprite Trail、10 个精确 built-in key；固定门 `15/27`、完整门 `52/68` | 逐项状态见粒子专项表 | **B4** |
+| Particle runtime | `L3` | 作者 sprite、常见组件、Sprite Trail、11 个精确 built-in key；固定门 `13/27`、完整门 `79/131` | 逐项状态见粒子专项表 | **B4** |
 | Text/Font runtime | `L3` | CoreText 静态栅格、direct property 动态重栅格和部分 font/pointsize/padding/scale；结构门 `79/108` | time/SceneScript/system/media text、Windows baseline/fallback、outline/shadow/effect | B4/B5 |
 | Camera Parallax | `L3` | 仅作者开启且非零 depth 时启用，含层级传播/阻断 | WE 数值 golden、camera shake/zoom、3D camera | B5 |
 | User Properties | `L3` | 独立窗口、条件、持久化、PNG/JPEG `sceneTexture`；layer alpha、纯 solid color、direct text、strict Local Contrast/Opacity 与受限 X-Ray target 已无重建 live 更新 | unsupported/mixed/SceneScript bindings、Texture Variants、shortcut、跨重启 UI 门；精确 census 见 runtime-input 专项表 | **B0/B1** |
@@ -133,7 +133,7 @@
 | Fixed step/seed/maxcount | `L3` | fixed simulation step、deterministic seed、maxcount 有运行门 | pause/discontinuity 与 WE 数值 golden |
 | Delta clamp/prewarm cap | `L2` | 代码有上限分支，缺定向预算断言 | 长帧和高 prewarm 压力门 |
 
-当前固定矩阵可见粒子为 `15/27`，完整矩阵为 `52/68`；`3750813609` 是 `7/9`，另外两层因 world-space 不支持而保持 fail closed。这些数字只度量对应矩阵实际加载的 layer，不代表粒子组件覆盖率。
+当前固定矩阵可见粒子为 `13/27`，完整矩阵为 `79/131`（REFRACT 材质层 fail closed 不计入）；`3750813609` 是 `7/9`，另外两层因 world-space 不支持而保持 fail closed。这些数字只度量对应矩阵实际加载的 layer，不代表粒子组件覆盖率。
 
 ## 6. 动态运行系统覆盖
 

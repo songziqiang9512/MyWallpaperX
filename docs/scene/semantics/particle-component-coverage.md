@@ -292,6 +292,6 @@
 
 - 本台账共覆盖 `171` 个粒子能力项：General 18、Emitter 17、Initializer 18、Operator 29、Renderer 14、Control Point 12、Children 12、Instance Override 16、Material 22、执行/生命周期 13。
 - 等级分布为 `L0 30 / L1 57 / L2 23 / L3 61 / L4 0`。`L3` 主要集中在 Sphere/Box、常见随机 initializer、基础 movement/change/oscillation、Sprite/Sprite Trail、已测试的静态 override、首纹理和两种 blend。
-- 当前固定矩阵的“可见粒子 15/27”、完整矩阵的“52/68”与 `3750813609` 的“7/9”只是样本运行门，不是上述 171 项的兼容率；world-space fail-closed 也不能计为可播放。
+- 当前固定矩阵的“可见粒子 13/27”、完整矩阵的“79/131”与 `3750813609` 的“7/9”只是样本运行门，不是上述 171 项的兼容率；world-space fail-closed 也不能计为可播放。
 - 开发批次应优先消除公共断点：复用现有 per-surface typed snapshot 接入动态 Control Point 与 author allow gates，再补 Layer Image、Children/Event、Collision 和 Rope，最后扩展 audio/material/lighting。逐样本 hardcode、把 unsupported 静默回退成 Sprite/translucent、或把程序纹理称为官方资产，都不允许升级等级。
 - 任一条目升级时，必须同时更新本表的等级、边界、证据路径和下一验收门；只有跑过对应正向、负向、生命周期测试后才能从 `L2` 升到 `L3`。
