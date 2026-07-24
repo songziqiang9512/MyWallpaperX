@@ -110,7 +110,7 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| ordered nodes、target/bind/compose/copy/swap | 通用 IR/runtime `L2`；8 类 strict backend 已按作者顺序消费 target table，真实 chain 覆盖 `Blur Precise -> Shadow`、Blur/Shake 双向顺序、重复 Water Waves 与 `Water Flow -> Opacity`；Precise Blur 的 `material -> copy/swap -> material` 两种白名单拓扑可按 authored nodeIndex 交错执行并达到受限 `L3` | 真实 history consumer、compose/condition/function、跨帧 logical swap 与通用 hazard |
+| ordered nodes、target/bind/compose/copy/swap | 通用 IR/runtime `L2`；十一类 strict backend 已按作者顺序消费 target table，真实 chain 覆盖 `Blur Precise -> Shadow`、Blur/Shake 双向顺序、Foliage Sway/Water Ripple、重复 Water Waves、`Water Flow -> Opacity` 与 X-Ray 受限前缀；Precise Blur 的 `material -> copy/swap -> material` 两种白名单拓扑可按 authored nodeIndex 交错执行并达到受限 `L3` | 真实 history consumer、compose/condition/function、跨帧 logical swap 与通用 hazard |
 | extent/format/clear/UV/unique | strict Blur 的 input/BGRA 与 stock Local Contrast 的 scale=4/RGBA target 子集为 `L3`；generic table 的其他形态仍为 `L2` | 其余 format-to-Metal、mapped size、sampler、load/store 和跨帧 reset |
 | history/ping-pong | `L0` | first frame、resize、seek、switch、stop 和 memory budget |
 
@@ -183,7 +183,7 @@ F0 完成后才开始下一轮代码。F1/F2 优先级由公共依赖决定，�
 
 ## 6. 下次会话的决策顺序
 
-1. B0 live-property、direct dynamic text、B2 target-table、8 类 strict backend、ordered strict chain、同帧 copy/swap command foundation、受限 history seed 与 Precise Blur material-command interleave 已合龙。下一步先提取共享 material pass executor，统一 texture slot、render state、target 和 pass lifecycle，再建立 stock shader registry 与 preprocessing IR；随后按真实样本视觉收益接入 time/audio/mouse/particle consumer。`route-only` 只是布局诊断，不能决定优先级。
+1. B0 live-property、direct dynamic text、B2 target-table、十一类 strict backend、ordered strict chain、同帧 copy/swap command foundation、受限 history seed、Precise Blur material-command interleave 与 pointer-driven X-Ray 已合龙。下一批先验证 `3769688830` 暴露的公共 blend/composition，再处理 `3769364482` 的 Fire effect、`2998757800` 多余粒子和全局比例/裁切；是否提取共享 material pass executor，以这些真实 topology 的共同需求为准。`route-only` 只是布局诊断，不能决定优先级。
 2. 打开对应专项表，确认作者启用、输入、当前等级、未知项、依赖和验收门。
 3. 查 [运行证据索引](runtime-evidence-index.md)，确认现有正反例，不重复制造无信息矩阵。
 4. 只实现一个可独立验证的公共合同；涉及 live property 时，compiler target、真实 consumer、fallback 和 surface/window identity 必须同批验收，目标样本和相关样本通过后单独提交。

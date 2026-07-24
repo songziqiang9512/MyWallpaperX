@@ -6,7 +6,7 @@
 >
 > 口径来源：[官方页面目录](official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[资料来源与证据索引](source-index.md)
 > 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，但还不是通用 Particle System；尤其没有 Layer Image、Children/Event、Collision、动态 Control Point、World Space、Rope、Audio Response 和完整 Particle Material。
-> Scene 实现基线：当前 HEAD（前置安全整数提交 `10401d7`）；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。完整 26 样本门的 particle 为 `52/68`，固定 13 样本门为 `15/27`，仍不是通用 Particle System。
+> Scene 实现基线：`3baf1fc`（前置安全整数提交 `10401d7`）；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。完整 26 样本门的 particle 为 `52/68`，固定 13 样本门为 `15/27`，仍不是通用 Particle System。
 
 本文把官方 Particle 的 General、Emitter、Initializer、Operator、Renderer、Control Point、Children、instance override 与 material 逐项映射到当前实现。它是 [总覆盖台账](coverage-ledger.md) 中 Particle 行的展开表；总表与本文冲突时，以本文更细粒度、更新的代码证据为准。
 

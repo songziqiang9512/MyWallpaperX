@@ -2,9 +2,9 @@
 
 > 状态：现役专项表
 >
-> 最近核对：2026-07-23
+> 最近核对：2026-07-24
 >
-> 实现基线：`8f144da`
+> 实现基线：`3baf1fc`
 >
 > 当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。exact stock Opacity direct alpha 已闭环；本表高级对象仍按各自前置单独升级。
 
@@ -20,8 +20,8 @@
 | resource identity and missing diagnostics | `L3` | [`SceneResourceReferenceIndex.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneResourceReferenceIndex.swift)、[E-INGEST](runtime-evidence-index.md#e-ingest) | 统一 VFS、alias/case 规则与依赖版本 |
 | image layer | `L3` | Metal compositor、180/181 固定矩阵结构计数、[E-BASE](runtime-evidence-index.md#e-base) | 通用 material/effect/provider 和 WE pixel golden |
 | solid layer | `L3` | typed solid、1x1 white texture、author color；纯 solid color 已由 B0 snapshot live 消费；[E-BASE](runtime-evidence-index.md#e-base)、[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | non-solid/mixed color、HDR/light |
-| text layer | `L3` | CoreText 静态纹理、79/108 结构门、[E-TEXT](runtime-evidence-index.md#e-text) | 动态值与 Windows typography |
-| particle layer | `L3` | 14/27 可见层进入受限 runtime、[E-PARTICLE](runtime-evidence-index.md#e-particle) | 逐组件状态见 [粒子表](particle-component-coverage.md) |
+| text layer | `L3` | CoreText 静态纹理、direct property 动态重栅格、79/108 结构门、[E-TEXT](runtime-evidence-index.md#e-text) | time/SceneScript/system/media 值与 Windows typography |
+| particle layer | `L3` | 固定门 15/27、完整门 52/68 可见层进入受限 runtime；[E-PARTICLE](runtime-evidence-index.md#e-particle) | 逐组件状态见 [粒子表](particle-component-coverage.md) |
 | container/parent hierarchy | `L3` | source order、parent transform/visibility/parallax propagation、[E-BASE](runtime-evidence-index.md#e-base) | composition、动态 reparent、复杂 component |
 | sound layer | `L0` | 无 sound content IR/player | asset/stream、volume、loop、pause/stop、property/script target |
 | Puppet layer | `L0` | 仅可能发现相关资源路径 | mesh/bone/runtime 与独立 content kind |
@@ -178,8 +178,8 @@ WaifuX 的可借鉴点是实时和 bake 共用核心，不是复制其实现。B
 
 ## 11. 开发顺序
 
-1. B0 live target program 与四类真实 consumer 已完成；`b8842d8` 已接入 stock Opacity direct alpha，但不升级 SceneScript、lighting 或高级对象。Timeline/SceneScript source IR 和其他 target 继续复用同一 per-surface transaction/snapshot。
-2. 随后闭合 2D copy/swap/compose/history、particle 和高命中 effect，使 Scene Lite 先可用。
+1. B0 live target program 已覆盖 layer alpha、纯 solid color、direct text、strict Local Contrast/Opacity 与受限 X-Ray target；这些 consumer 不升级 SceneScript、lighting 或高级对象。Timeline/SceneScript source IR 和其他 target 继续复用同一 per-surface transaction/snapshot。
+2. 下一批先闭合新增样本暴露的公共 blend/composition 与 Fire effect，再处理多余粒子和全局比例/裁切；generic compose、真实 history consumer 和高命中 effect 继续按共同依赖推进。
 3. 再做 Puppet 的 mesh/bone/animation 最小闭环，然后 lighting/HDR；每项必须沿现有 author-enable 和 fail-closed 规则。
 4. 3D、自定义 shader、RGB 和 offline encoder 后置，但基础时钟、target、provider 和 graph 不能封死这些输入。
 5. 每个系统从 `L0` 升级时同时增加结构、执行、author-off、失败、teardown 和性能门，不能只新增 parser 字段。

@@ -6,13 +6,13 @@
 >
 > 资料入口：[资料来源与证据索引](source-index.md)、[官方页面全目录](official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[总覆盖台账](coverage-ledger.md)。
 >
-> Scene 实现基线：`8f144da`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。
+> Scene 实现基线：`3baf1fc`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。
 
 ## 1. 当前结论与评级口径
 
 SceneScript 当前仍是 **L0 runtime**。项目只能发现独立 `.js` 文件和 inline `script` 的存在；inline 内容进入 `SceneDocument` 时被压缩为 `hasInlineScript: Bool`，粒子动态 wrapper 也只保留 `hasScript: Bool`。目前没有可执行源码 IR、property-script 绑定 IR、ECMAScript VM、host object bridge、事件队列、timer scheduler 或脚本输出消费者。
 
-`SceneDynamicSnapshot` 已预留 `.sceneScript` 优先级和 `scriptInstanceProperty` target；v21 已把 host-shared inputs、per-surface evaluation/final snapshot、binding program、transaction 与 generation 用在 layer alpha、纯 solid color、exact Local Contrast strength 和 exact stock Opacity direct alpha。项目仍没有 SceneScript source IR、producer、VM、API bridge、instance state 或输出 consumer，因此这些都不是 SceneScript 执行证据。`2938612768:[165,454,626,629,924]` 的 Opacity 值来自 SceneScript，当前 strict planner 必须拒绝；只有 `2902406982:[365,372,647,664]` 的 direct binding 是正门。粗粒度总表中的 “Script presence L1” 只表示发现能力，本表对每一项 **API 行为** 均给单值 `L0`。
+`SceneDynamicSnapshot` 已预留 `.sceneScript` 优先级和 `scriptInstanceProperty` target；v22 已把 host-shared inputs、per-surface evaluation/final snapshot、binding program、transaction 与 generation 用在 layer alpha、纯 solid color、direct text、exact Local Contrast/Opacity 和受限 X-Ray target。项目仍没有 SceneScript source IR、producer、VM、API bridge、instance state 或输出 consumer，因此这些都不是 SceneScript 执行证据。`2938612768:[165,454,626,629,924]` 的 Opacity 值来自 SceneScript，当前 strict planner 必须拒绝；只有 `2902406982:[365,372,647,664]` 的 direct binding 是正门。粗粒度总表中的 “Script presence L1” 只表示发现能力，本表对每一项 **API 行为** 均给单值 `L0`。
 
 等级沿用总覆盖台账：
 

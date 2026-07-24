@@ -4,7 +4,7 @@
 >
 > 官方合同优先参考 Designer 文档与 `lib.sceneScript.d.ts` v2.8；raw JSON 字段来自真实样本观察，需按证据等级使用。
 >
-> 实现基线：`8f144da`；当前 26 样本完整快照门与固定 13 样本回归门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。
+> 实现基线：`3baf1fc`；当前 26 样本完整快照门与固定 13 样本回归门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。
 
 ## 1. 统一 Frame Context
 
@@ -390,23 +390,23 @@ Realtime Adapter              Offline Adapter
 | 系统 | 当前实现状态 | 不能据此宣称 |
 |---|---|---|
 | Particle | 作者 2D sprite、部分 emitter/initializer/operator、10 个精确 built-in key 的程序纹理、Sprite Trail 子集；固定门 15/27、完整门 52/68 | 程序纹理等于官方资产，或 child/rope/world-space/control point/collision/audio/全部 preset 完整 |
-| Text | CoreText 静态纹理、部分 font/pointsize/padding/scale | 动态时间、完整 alignment/effects/SceneScript |
-| Effect graph | v22 继承 EffectDefinition/authored graph/provider metadata，并保存 ShaderContract 与 binding program；8 类 strict backend 及 ordered chain 已执行，同帧 copy/swap、Precise Blur material-command interleave/legacy compose、exact stock Shake、重复 Water Waves 与 `Water Flow -> Opacity` 均有严格门 | dynamic effect、generic compose/history、通用 material/pass、authored shader 语义等价或官方 Shadow/lighting；精确当前门见 [运行证据索引](runtime-evidence-index.md) |
+| Text | CoreText 静态纹理、direct property 动态重栅格、部分 font/pointsize/padding/scale | 动态时间、system/media、完整 alignment/effects/SceneScript |
+| Effect graph | v22 继承 EffectDefinition/authored graph/provider metadata，并保存 ShaderContract 与 binding program；十一类 strict backend 及 ordered chain 已执行，同帧 copy/swap、Precise Blur material-command interleave/legacy compose、Shake/Foliage/Water/X-Ray 均有严格门 | dynamic effect、generic compose/history、通用 material/pass、authored shader 语义等价或官方 Shadow/lighting；精确当前门见 [运行证据索引](runtime-evidence-index.md) |
 | Frame Context | 宿主单一 60 Hz driver；所有屏幕共享 frame index/host/scene/wall time；shader、video、particle、parallax 已迁移 | pause/resume、delta clamp、固定 timestep、离线实时等价已闭环 |
-| Dynamic target snapshot | 六类 typed value、主要 target 族、固定优先级、v21 binding program、per-surface evaluation transaction/snapshot/generation；layer alpha、纯 solid color、exact Local Contrast strength 与 stock Opacity direct alpha 有真实 producer/consumer | Timeline、SceneScript、dynamic text、particle 与其他 effect constant 仍未 live；293 的 SceneScript opacity 明确 fail closed |
+| Dynamic target snapshot | 六类 typed value、主要 target 族、固定优先级、v22 binding program、per-surface evaluation transaction/snapshot/generation；layer alpha、纯 solid color、direct text、exact Local Contrast/Opacity 与受限 X-Ray target 有真实 producer/consumer | Timeline、SceneScript、particle 与其他 effect constant 仍未 live；293 的 SceneScript opacity 明确 fail closed |
 | Timeline | 数据识别不足或空壳 | 任意动画模式可用 |
 | SceneScript | 只检测 script | ECMAScript/runtime/API 可用 |
-| User Properties | 独立窗口、条件、默认/override、部分 target 与持久化；`texture`/`scenetexture` 内部归一；受限静态 consumer 可选择 PNG/JPEG；四类 B0 target 可无重建更新 | 全部样本属性可调、所有 texture target/variant/live value 已闭环 |
+| User Properties | 独立窗口、条件、默认/override、部分 target 与持久化；`texture`/`scenetexture` 内部归一；受限静态 consumer 可选择 PNG/JPEG；已注册 B0/direct text/X-Ray target 可无重建更新 | 全部样本属性可调、所有 texture target/variant/live value 已闭环 |
 | Texture Provider | frame identity/status/generation、named variant 隔离、property absent -> authored fallback、受限 file-backed property source | system media、Texture Variants、视频、通用 material 与 effectful/nested provider 已闭环 |
 | Audio/Media | Web 侧已有服务，但 Scene consumer 未闭合 | Scene 音频/媒体可用 |
 
 ## 11. 实施顺序
 
-1. D1-D4 的 B0 property 子集已完成：稳定 target、v21 binding program、per-surface evaluation transaction/snapshot、原子 generation 与四类真实 consumer；未迁移 target 继续使用 rebuild fallback。
-2. D6 ordered strict effect-chain 与 `3724289844:20` exact Workshop single-pass Shadow 已完成，并取得首条真实 `Blur Precise -> Shadow` 正门；该 profile 不升级官方 Shadow/lighting/generic shader，`common_blending` mode 0 仍无官方 oracle。
+1. D1-D4 的 property 子集已完成：稳定 target、v22 binding program、per-surface evaluation transaction/snapshot、原子 generation，以及 B0/direct text/X-Ray 真实 consumer；未迁移 target 继续使用 rebuild fallback。
+2. D6 ordered strict effect-chain 与十一类 exact backend 已完成受限执行，包含 `Blur Precise -> Shadow`、Water chain 和 pointer-driven X-Ray 正门；这些 profile 不升级通用 graph、官方 Shadow/lighting 或 authored shader。
 3. Provider Core 并行补 dynamic generation、metadata/cancellation；nested/effectful provider 和通用 material consumer 放在 B1/B2 集成层，不能互相形成前置环。
-4. Timeline、SceneScript core、动态 text、cursor/audio/media 与 particle 动态能力按 D10 的真实依赖接入，不作为无前置的同批任务。
-5. exact stock Opacity `MASK=0` 与 direct-binding alpha 已完成；290 四层是正门，293 五层因 SceneScript 是负门。之后仍只按共享 primitive 或完整合同严格 profile 扩展，不新增 effect-name 近似；动态文字/Provider Core 和 Particle 按 target/space -> provider/material -> generation/fixed step/event -> child/collision/rope/audio 顺序推进。
+4. Direct dynamic text 与 X-Ray pointer 已完成首个子集；Timeline、SceneScript core、audio/media 与剩余 particle 动态能力继续按 D10 的真实依赖接入。
+5. exact stock Opacity `MASK=0` 与 direct-binding alpha 已完成；290 四层是正门，293 五层因 SceneScript 是负门。下一批按 `3769688830` 公共 blend/composition、`3769364482` Fire effect、299 多余粒子和全局比例/裁切推进；仍只按共享 primitive 或完整合同严格 profile 扩展，不新增 effect-name 近似。
 6. 广度闭合后用固定、扩展和新下载样本矩阵暴露冲突，再用 Windows golden 校准 effect、text、particle 和动态值精度；最后扩 Puppet/3D/Lighting 与离线编码产品层。
 
 每一步都同时需要正向样本和默认关闭/未声明反例。

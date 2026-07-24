@@ -64,9 +64,9 @@
 | 内嵌视频纹理 | `L3` | TEX 内嵌 MP4 image-layer 播放，消费共享 host time | seek/pause/switch/loop 精确合同及更多容器 | B1 |
 | 系统媒体 identity | `L1` | `$mediaThumbnail` typed 引用存在 | producer/consumer、事件、缩略图 generation | B1/B4 |
 | Particle runtime | `L3` | 作者 sprite、常见组件、Sprite Trail、10 个精确 built-in key；固定门 `15/27`、完整门 `52/68` | 逐项状态见粒子专项表 | **B4** |
-| Text/Font runtime | `L3` | CoreText 静态栅格和部分 font/pointsize/padding/scale；结构门 `79/108` | 动态 text、Windows baseline/fallback、outline/shadow/effect | B4/B5 |
+| Text/Font runtime | `L3` | CoreText 静态栅格、direct property 动态重栅格和部分 font/pointsize/padding/scale；结构门 `79/108` | time/SceneScript/system/media text、Windows baseline/fallback、outline/shadow/effect | B4/B5 |
 | Camera Parallax | `L3` | 仅作者开启且非零 depth 时启用，含层级传播/阻断 | WE 数值 golden、camera shake/zoom、3D camera | B5 |
-| User Properties | `L3` | 独立窗口、条件、持久化、PNG/JPEG `sceneTexture`；layer alpha、纯 solid color、strict Local Contrast strength 与 stock Opacity alpha 已无重建 live 更新 | unsupported/mixed/SceneScript bindings、Texture Variants、shortcut、跨重启 UI 门；精确 census 见 runtime-input 专项表 | **B0/B1** |
+| User Properties | `L3` | 独立窗口、条件、持久化、PNG/JPEG `sceneTexture`；layer alpha、纯 solid color、direct text、strict Local Contrast/Opacity 与受限 X-Ray target 已无重建 live 更新 | unsupported/mixed/SceneScript bindings、Texture Variants、shortcut、跨重启 UI 门；精确 census 见 runtime-input 专项表 | **B0/B1** |
 | Typed texture provider | `L3` | layer/named/property identity、status/fallback；静态 resource generation 与 named frame epoch 已分离 | 显式 dynamic generation、metadata、cancel、system/media/video/variant、通用 material、nested/effectful/child | **B1** |
 | EffectDefinition/Material IR | `L2` | definition/pass/RT/material/slot hole/combo/constant 可保留并建图；ShaderContract 保存 source identity | 完整 schema、typed shader defaults、condition/function | B2 |
 | Bounded effect executors | `L3` | 两个严格 Blur 图、strict stock Local Contrast、exact Workshop Shadow、exact stock Opacity、Shake、Water Waves、Water Flow、Foliage Sway、Water Ripple 与 X-Ray 十一类 backend 的 ordered strict chain 与若干受限手写 executor | 其余官方 Effect、variant、unsupported mask/SceneScript/mixed chain 与 visual golden | B3/B4 |
@@ -166,7 +166,7 @@
 | `slider` | `L3` | min/max/default/step/fraction/precision UI；layer alpha、exact Local Contrast strength 与 exact stock Opacity alpha 已 live，其他 target 依 consumer 决定重建 |
 | `bool` | `L3` | 条件/部分 target；不得按名称自动启用 effect |
 | `combo` | `L3` | option value/条件；补全部 authored target |
-| `textinput` | `L3` | 可编辑/持久化；动态 text 仍以重建应用 |
+| `textinput` | `L3` | 可编辑/持久化；有效可见 direct text consumer 可无重建更新，其他 target 仍重建 |
 | `texture`/`scenetexture` | `L3` | PNG/JPEG picker/bookmark/static consumer 极窄子集；补 video/variant/general material |
 | `usershortcut` | `L0` | parser 当前归为 unsupported；需 macOS 授权和安全降级 |
 | group/order/condition | `L3` | 独立窗口已支持；补嵌套/全条件和负向门 |

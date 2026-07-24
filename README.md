@@ -68,7 +68,7 @@ MyWallpaperX 深度利用 macOS 原生能力，围绕**素材管理 → 资源�
 | **系统音频频谱** | 🚧 | 已验证真实音源相关性、Wallpaper Engine 64+64 双声道布局和兼容幅度响应；设备切换、系统静音和睡眠恢复仍待发布验收 |
 | **菜单栏控制** | ✅ | 状态栏入口，GPU 占用实时显示，快速访问播放控制与模块切换 |
 
-> **Scene 壁纸说明**：当前 13 个固定隔离样本通过签名 App 运行门，正式可见粒子为 14/27；这只证明受限子集可运行，不代表 Wallpaper Engine 视觉等价。45 类官方 Effect 和各运行系统的当前等级、证据与缺口见 [Scene 官方语义与实现覆盖台账](docs/scene/semantics/coverage-ledger.md)。
+> **Scene 壁纸说明**：当前 13 个固定隔离样本通过签名 App 运行门，正式可见粒子为 15/27；这只证明受限子集可运行，不代表 Wallpaper Engine 视觉等价。45 类官方 Effect 和各运行系统的当前等级、证据与缺口见 [Scene 官方语义与实现覆盖台账](docs/scene/semantics/coverage-ledger.md)。
 
 > Web / Scene 的当前验证数据、明确边界和后续路线见 [现状评估与演进路线](docs/reviews/web-scene-current-state-roadmap-2026-07-19.md)。
 
