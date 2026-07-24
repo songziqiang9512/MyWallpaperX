@@ -70,7 +70,7 @@ final class SceneParticleBuiltInTextureRegistry {
         switch builtInTexture {
         case .drop:
             32
-        case .chromaticDot, .leaves7, .leaves8, .halo, .halo2, .rippleSingle:
+        case .chromaticDot, .leaves7, .leaves8, .halo, .halo2, .halo4, .rippleSingle:
             64
         case .fog1, .lightShafts6, .lightning3:
             128
@@ -114,6 +114,11 @@ final class SceneParticleBuiltInTextureRegistry {
             let core = 0.55 * pow(smooth(1 - radius), 1.4)
             let shoulder = 0.35 * smooth(1 - abs(radius - 0.42) / 0.42)
             return clamp(core + shoulder)
+        case .halo4:
+            let radius = sqrt(x * x + y * y)
+            let core = pow(smooth(1 - radius / 0.055), 0.75)
+            let glow = 0.38 * pow(smooth(1 - radius / 0.14), 2.2)
+            return clamp(core + glow)
         case .rippleSingle:
             let radius = sqrt(x * x + pow(y / 0.56, 2))
             return pow(smooth(1 - abs(radius - 0.66) / 0.13), 1.6)

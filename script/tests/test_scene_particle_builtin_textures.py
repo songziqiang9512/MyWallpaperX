@@ -26,7 +26,7 @@ enum Harness {
     static func main() throws {
         let keys: [SceneParticleBuiltInTexture] = [
             .chromaticDot, .drop, .fog1, .leaves7, .leaves8, .lightShafts6,
-            .lightning3, .halo, .halo2, .rippleSingle,
+            .lightning3, .halo, .halo2, .halo4, .rippleSingle,
         ]
         let sources: [String: Bool] = [
             "chromatic": SceneParticleTextureSource(
@@ -43,6 +43,7 @@ enum Harness {
             "lightning": SceneParticleTextureSource(reference: "particle/lightning/lightning3") == .builtIn(.lightning3),
             "halo": SceneParticleTextureSource(reference: "particle/halo") == .builtIn(.halo),
             "halo2": SceneParticleTextureSource(reference: "particle/halo_2") == .builtIn(.halo2),
+            "halo4": SceneParticleTextureSource(reference: "particle/halo_4") == .builtIn(.halo4),
             "ripple": SceneParticleTextureSource(reference: "particle/water/ripple_single") == .builtIn(.rippleSingle),
             "unknownBuiltInFails": SceneParticleTextureSource(reference: "particle/not-supported") == nil,
             "emptyFails": SceneParticleTextureSource(reference: "  ") == nil,
@@ -209,7 +210,7 @@ class SceneParticleBuiltInTextureTests(unittest.TestCase):
         self.assertTrue(self.result["metalAvailable"])
         self.assertTrue(self.result["created"])
         textures = self.result["textures"]
-        self.assertEqual(len(textures), 10)
+        self.assertEqual(len(textures), 11)
         for name, summary in textures.items():
             with self.subTest(name=name):
                 self.assertTrue(summary["cached"])
@@ -232,15 +233,21 @@ class SceneParticleBuiltInTextureTests(unittest.TestCase):
             "particle/lightning/lightning3": 128,
             "particle/halo": 64,
             "particle/halo_2": 64,
+            "particle/halo_4": 64,
             "particle/water/ripple_single": 64,
         }
         for name, size in expected_sizes.items():
             self.assertEqual((textures[name]["width"], textures[name]["height"]), (size, size))
-        self.assertEqual(len({value["checksum"] for value in textures.values()}), 10)
+        self.assertEqual(len({value["checksum"] for value in textures.values()}), 11)
         chromatic = textures["particle/chromaticdot"]
         self.assertEqual(chromatic["nonGrayPixelCount"], 0)
         self.assertGreaterEqual(chromatic["centerAlpha"], 250)
         self.assertGreaterEqual(textures["particle/drop"]["centerAlpha"], 250)
+        halo4 = textures["particle/halo_4"]
+        self.assertGreaterEqual(halo4["centerAlpha"], 250)
+        self.assertGreater(halo4["highAlphaCount"], 0)
+        self.assertLess(halo4["highAlphaCount"], 64 * 64 // 4)
+        self.assertLess(halo4["nonzeroAlphaCount"], 64 * 64 // 16)
         self.assertLessEqual(textures["particle/water/ripple_single"]["centerAlpha"], 2)
         shaft = textures["particle/light/light_shafts_6"]
         self.assertGreater(shaft["lowerWidth"], shaft["upperWidth"])
