@@ -13,7 +13,7 @@
 - P2（主体可用，仍有明确的次级效果差距）：4 个；
 - P3（仅小幅视觉偏差）：0 个。
 
-首轮评估确认的方向仍成立：优先建设通用 runtime，而不是增加按样本命中的 effect 分支。截至 Shake/preview 批次的历史增量已包含 authored graph、typed texture registry/property fallback、ShaderContract、B0 binding program/per-surface snapshot、direct dynamic text、六个 strict backend、ordered strict chain、同帧 copy/swap、受限 history、Precise Blur interleave/legacy compose 与 exact stock Shake；后续能力不在本历史页逐批追记。Timeline、SceneScript、system/media text producer、Texture Variants、通用/effectful/nested provider、真实 persistent/history、generic compose、其余 effect 和高级粒子仍是主要缺口。精确当前基线只在 [总覆盖台账](semantics/coverage-ledger.md) 维护。
+首轮评估确认的方向仍成立：优先建设通用 runtime，而不是增加按样本命中的 effect 分支。截至 `3baf1fc`，当前增量已包含 authored graph、typed texture registry/property fallback、ShaderContract、B0 binding program/per-surface snapshot、direct dynamic text、十一类 strict backend、ordered strict chain、同帧 copy/swap、受限 history、Precise Blur interleave/legacy compose，以及 exact Shake/Foliage Sway/Water Ripple/Water Waves/Water Flow/X-Ray。Timeline、SceneScript、system/media text producer、Texture Variants、通用/effectful/nested provider、真实 persistent/history、generic compose、其余 effect 和高级粒子仍是主要缺口。精确当前基线只在 [总覆盖台账](semantics/coverage-ledger.md) 维护。
 
 ## 范围与证据
 
@@ -26,6 +26,19 @@
 
 表中 `I/P/T` 分别表示 image / particle / text 图层声明数量；`prop` 不含每个项目都有的 `schemecolor`。纹理加载率只统计当前 renderer 识别为 image candidate 的图层，不应直接当成视觉完成度。
 
+## 2026-07-24 用户实机观察目标
+
+以下是用户使用其他播放器观察后补充的正确表现，用于约束下一轮能力定位和肉眼验收。它们的证据级别是“用户实机观察”：优先级高于与之冲突的 WaifuX 烘焙帧，但仍须结合样本自带 preview、作者数据和合法 Windows WE 输出核验；实现前必须定位公共 authored 语义，不得按样本 ID 硬编码。
+
+- `1937925563` 下半部分应有水波纹；`3738202317` 应有动态水波和眼睛闪动发亮；`3742133044` 背景部分区域应动态滚动；`3757555836` 水波应持续动态；`3767343314` 下半部分应有水波纹。
+- `2938612768`、`2974757317` 的默认背景应有扭曲，并有整屏向下流动的数字效果。
+- `3028090166` 的云层应滚动，龙头和龙须应飘动；`3765760121` 的人物头发应有轻微动效；`3766387484` 应有随时间变化的丁达尔光；`3768903841` 应有烟花。
+- `3747492842` 左侧视频层应以类似滤色/亮色的方式叠加，而不是普通不透明视频覆盖。
+- `3750813609` 的时钟应为半透明白色，文字内部有动态云层变化；当前大量样本仍有文字显示错误，时钟固定为 `12:34:56` 只是静态占位，不是完成状态。
+- `2998757800`、`3747492842`、`3757555836` 在鼠标移到人物主体时，应通过鼠标遮罩显示下层画面；三者已由用户在真实桌面壁纸路径手动确认正常。
+- `3290491250` 的背景不正确且类似文字的图层显示不全；`3743305891` 下半部居中的文字图像不全；`3767343314` 当前画面错误偏左，正确构图应居中；`3768229922` 当前卡在首屏/载入界面，尚未进入正式画面。
+- 非 16:9 屏幕上的 cover 裁切仍是已知观感问题。用户已撤回“保持比例策略不变”的决定；该问题留作后续独立公共修复，不与 X-Ray、blend 或 Fire effect 批次混合。
+
 ## 当前增量覆盖
 
 | 能力 | 当前已验证 | 仍未覆盖 |
@@ -35,7 +48,7 @@
 | Utility / Composition | typed composition/project/fullscreen；framebuffer 前缀捕获；局部/full-frame geometry；受限纹理池；mask/partial effect fail-closed；290 的 project 410 / composition 530 与 6 个 named provider / 7 个 consumer 已完成 GPU capture/binding；registry 按 identity/status/generation 选择首个 ready 候选；293 的 providers 141/1340、consumers 299/322 与隐藏 image providers 到 layers 239/657/775/875/1509 的静态 blend 已进入 GPU runtime；受限 property file provider 已接入 | system/media/video/Texture Variants、effectful provider、nested/child target、utility mask、动态 blendgradient 与任意 material/shader pass；不能把受限 named-target/static image 子集写成完整 dependency graph |
 | Particle | 包内 texture、sprite sheet、10 个精确 built-in key、continuous/burst schedule、常见 initializer/operator、additive/translucent、Sprite Trail、静态 override、fixed-step/seed/budget 子集；固定门 15/27、完整门 52/68，`3750813609` 为 7/9 | 21 样本仍有 17 个 built-in texture unavailable；atlas/multi-texture、child runtime、rope/rope trail、world-space、动态 control point/override、collision、音频与属性 operator |
 | Text | 当前以 authored `pointsize * 4` 近似官方 300 DPI point raster，处理 vector padding、包内字体、系统字体别名和确定性 fallback 诊断；`3766387484` 3/3、`3122339805` 80/81、`2134765860` 4/6 candidate | 精确 DPI/scene-unit 校准、SceneScript、真实时钟/日期/媒体值、完整对齐/描边/阴影/effect 语义 |
-| 自动门（当前增量） | 26 样本完整快照与固定 13 样本回归门，interpretation format 22，签名 App、Metal 双帧；strict backend/ordered chain、B0 property、dynamic text generation、provider/file override 与粒子合同；固定门 13/13 均有非阻断 preview 并排图；302 项 Scene 测试为 299 通过、3 跳过；无 timeout、stop 后 surface=0 | 当前 26 门仍有 16 个 legacy blocked layer、63 个 route-only；固定门另有 2 个 blocked、30 个 route-only；preview 不设绝对阈值且不能跨样本排名，仍没有 Windows WE 同配置录屏差异门 |
+| 自动门（当前增量） | 26 样本完整快照与固定 13 样本回归门，interpretation format 22，签名 App、Metal 双帧；十一类 strict backend/ordered chain、B0 property、dynamic text generation、provider/file override 与粒子合同；固定门 13/13 均有非阻断 preview 并排图；318 项 Scene 测试为 315 通过、3 跳过；无 timeout、stop 后 surface=0 | 当前 26 门仍有 16 个 legacy blocked layer、66 个 route-only；固定门另有 2 个 blocked、32 个 route-only；preview 不设绝对阈值且不能跨样本排名，仍没有 Windows WE 同配置录屏差异门 |
 
 ## 横向能力判断
 
@@ -68,7 +81,7 @@ Camera Parallax 的当前负向合同已经补齐：包括 composition 在内，
 - `2938612768`：当前 image 44/44、text 8/24、particle 1/1，`particle/chromaticdot` layer `173` 已加载；wrapped alpha、named providers/consumers 和 static image blend 5 层均成功，中央播放器与静态封面已出现。Opacity candidates `[165,454,626,629,924]` 使用 SceneScript 值，当前保持 Opacity/stages 0，不能误写成 direct-binding 正例。属性纹理未绑定时仍回退作者资源；系统媒体封面/标题/时间仍无 producer。另有 1 个 named-target gap、18 个 route-only 诊断，waterwaves 近似、blendgradient 和音频仍未闭环，当前整体画面仍明显失真。
 - `3750342273`：`particle/chromaticdot` layer `52` 已加载。样本自带 preview 显示的是白色雪粒子，当前输出也保持白色；WaifuX 烘焙帧中的彩色柔光点与 preview 冲突，因此没有作为目标。定向 4 样本门为 4/4；程序软点、粒子密度/尺寸和 `Color Random` 插值仍没有 Windows WE pixel golden。
 - `3750813609`：当前 image 2/2、text 1/1、particle 7/9；layers `121/200/90/504/511/516/498` 已加载，其中新增 fog/leaves/light shafts/lightning/halo 是确定性程序近似，不是官方纹理。layers `523/530` 因 world-space 保持 fail closed，121/504/511 仍有 child 诊断。layer `358` 的非默认 Blur+Clouds 图继续 blocked；动态时间脚本、Clouds 和完整文字效果未实现，时钟仍是过大的黑色静态 `12:34`。
-- `2998757800`：定向粒子门为 image 5/5、particle 7/15；6 个 `rainperspective` built-in 雨层 172/181/187/193/199/205 与原有作者层 287181 同时绘制，雨幕已覆盖作者声明的多个深度层。其余 8 个粒子层、6 个雨层的动态 `instanceoverride`、天气/触摸、puppet 与完整 foliage/waterripple/xray 语义仍缺失；当前主图和雨可用，不代表交互与天气壁纸已经复刻。
+- `2998757800`：当前 image 5/5、particle 8/15，strict graph succeeded `[23,50,55,85]`、18 stage / 4 chain / 0 failed，exact Foliage Sway / Water Ripple / X-Ray 已进入运行链；鼠标遮罩由用户在真实桌面路径确认正常。6 个 `rainperspective` 雨层及作者粒子继续绘制，但右下角新增白色光点与用户观察不符，需下次单独定位粒子 author visibility/texture/runtime 根因；天气、动态 `instanceoverride`、touch 状态和 puppet 仍未实现。
 
 ## 首轮逐样本评估（历史基线）
 
@@ -81,7 +94,7 @@ Camera Parallax 的当前负向合同已经补齐：包括 composition 在内，
 | `2802243144` 冰公主 | `scene.json`；12 层，I5/P2/T4，effect 8，prop 13；雪、时钟日期、precise blur；parallax 0.1 与 camera shake 受属性控制 | 首轮主图完整但定时双帧无运动；当前 exact stock Shake 已使 layers 41/64/115 形成 3 条 Blur/Shake chain，雪粒子 `[20,25]` 为 2/2 | 系统时间/日期和 dynamic Shake/audio/noise/direction 仍缺；当前不是 WE 时序/像素 parity | P1 | 默认属性值决定视差和 shake，不得强开；鼠标注入时视差幅度受 0.1 限制；雪粒子、时间/日期和位置滑杆均可单独验证 |
 | `2902406982` 麻匪 月半与鬼哭 | `scene.json`；140 层，I41/P1/T97，effect 115，prop 172；大量 mask/composite、动态文字、音频 bars、可换背景；parallax 0.5；两处 waterwaves 默认关 | image 21/41、text 44/57；画面被大块白色三角形遮挡，主体布局与 preview 明显不同；双帧无运动 | 组合层/内建 solid/mask 语义、13 个文字 candidate、SceneScript、属性和音频链均不完整 | P0 | 首帧不得出现无依据白块；默认 waterwaves 必须保持关闭；172 项属性按 order/group/condition 生成；背景、文字、颜色和音频条的代表性绑定可切换并持久化 |
 | `2938612768` 麻匪 音频识别 Media Player | `scene.json`；85 层，I51/P5/T29，effect 73，prop 78；媒体播放器、scene texture、audio bars、depth parallax/waterwaves；parallax 0.5 | image 33/51、text 8/24；大面积灰底，播放器只剩局部白色组件，和 preview 的彩色完整布局不一致；双帧无运动 | 18 个 image candidate、16 个 text candidate、组合/solid、动态媒体信息、scene texture、粒子和音频响应缺失 | P0 | 无灰底裸露且主播放器构图闭合；默认属性可复现作者首帧；受控曲目元数据、封面和频谱能更新；视差只按作者幅度生效 |
-| `2998757800` 碧蓝航线-利托里奥 | `scene.json`；22 层，I5/P15/T1，effect 22，prop 2；touch/weather、foliage、waterripple、puppet；parallax 关 | 主图完整，image 5/5、text 1/1；双帧变化约 16.2% | 15 个粒子、天气状态、触摸交互和 puppet 语义未实现；当前运动不能证明这些能力存在 | P1 | 默认无相机视差；两个属性只控制作者绑定内容；pointer 注入产生局部触摸响应；天气/粒子切换可见且停止后清理；主图不被全局水波扭曲 |
+| `2998757800` 碧蓝航线-利托里奥 | `scene.json`；22 层，I5/P15/T1，effect 22，prop 2；touch/weather、foliage、waterripple、puppet；parallax 关 | image 5/5、text 1/1、particle 8/15；Foliage/Water Ripple/X-Ray 为 18 stage / 4 chain，鼠标遮罩已实机确认 | 右下角多余白色粒子、天气/动态 override、touch 状态和 puppet 仍未闭环；没有 WE pixel golden | P1 | 默认无相机视差；鼠标遮罩保持局部且下层构图正确；移除无作者依据白点；天气/粒子切换可见且停止后清理；主图不被全局水波扭曲 |
 | `3028090166` WLOP Tian Nan2 | `scene.json`；12 层，I9/P2/T1，effect 20，prop 1；waterflow/waterripple/waterwaves、godrays、foliage、puppet；parallax 关 | 主图完整，image 8/9；有约 5.7% 双帧变化，默认隐藏文字未绘制 | 一处 built-in/后处理层缺失；水链多为近似或 route-only；粒子、godrays 和 puppet 不完整 | P1 | 默认无视差；隐藏文字保持隐藏；水面局部 mask、waterflow、ripple 分别与 WE 对照；2 个粒子和 godrays 可单独启停且无全屏误作用 |
 | `3122339805` Pixels | `scene.json`；190 层，I90/P0/T100，effect 17，prop 38；桌面窗口、世界时钟、倒计时、自定义图片、audio bars；parallax 关 | image 6/90、text 80/82；灰底上只有两个大图块和散落文字，窗口布局严重断裂 | 84 个 image candidate 多为 built-in/solid/组合资源；动态文字仍是 `00`/默认值；属性、自定义图片和音频未绑定 | P0 | 主要窗口边框、层级和遮罩完整，不出现灰底散件；100 text layer 压力下字号/对齐稳定；世界时钟、倒计时、自定义图片和三组 scene texture 可操作并持久化 |
 | `3290491250` frieren | `scene.json`；5 层，I3/P1/T1，effect 3，prop 0；星点粒子、动态 Day 文本、precise blur；parallax 关 | image 2/3、text 1/1；人物可见但背景为灰色，preview 中的 `MONDAY` 与星点构图未还原；双帧无运动 | built-in solid/文字组合和粒子缺失；动态星期脚本不执行 | P1 | 默认无视差；背景、人物、星期文字和星点形成完整构图；星期随系统日期更新；粒子有稳定数量上限并能释放 |
@@ -90,7 +103,7 @@ Camera Parallax 的当前负向合同已经补齐：包括 composition 在内，
 | `3743305891` 战双 | `scene.json`；8 层，I3/P1/T3，effect 4，prop 0；child particle、rope trail、动态日期/时间、audio；parallax 关 | 主图和纹理完整，image 3/3、text 3/3；双帧变化约 63.4%，但作者 preview 的日期与音频条布局未可靠还原 | SceneScript、字体布局、child/rope particle graph 和音频响应缺失 | P1 | 默认无视差；日期时间值、字号、基线和位置与 WE 对齐；受控音频驱动 bars；child 粒子和 rope trail 有确定性截图与生命周期门 |
 | `3750342273` Night snowy mountains | `scene.json`；8 层，I2/P1/T4，effect 6，prop 0；waterflow、shake、时钟日期、粒子；parallax 0.14 | 主图完整，image 2/2、text 4/4、particle 1/1；当前粒子按 preview 显示为白色雪点 | 动态文字和字体 fallback/scale 错误；粒子密度/尺寸、水流及相机行为仍无 Windows WE parity | P1 | 鼠标注入验证 0.14 视差；时钟日期在相同分辨率下与 preview 的占位和字号一致；粒子/水流只按声明运行，不附加额外 ripple |
 | `3750813609` Asian Temple in the Mountains | `scene.json`；13 层，I2/P9/T1，effect 5，prop 2；200pt 时钟、雨/云/叶粒子、depth parallax；parallax 0.1 | image 1/2、text 1/1；背景可用，但时钟发生多重叠影且尺寸远小于 preview；双帧变化约 33.3% | 9 个粒子系统和一处 image 缺失；文字度量/绘制刷新错误；属性开关未连接 | P1 | 200pt 时钟单次清晰绘制、无残影；12/24 小时切换正确；雨、叶、云分别可见；0.1 视差不与粒子漂移混淆 |
-| `3757555836` 名将杀 兰汤春酽_赵姬 | `scene.json`；9 层，I2/P7/T0，effect 9，prop 2；waterflow/waterripple、xray、7 粒子；parallax 关 | 主图完整，image 2/2；仅约 3.1% 双帧变化 | 7 个粒子系统缺失；水流/ripple/xray 仍是部分近似；属性滑杆没有绑定 | P1 | 默认无视差；粒子分层、blend 和遮挡与 WE 对照；滑杆只改变绑定参数；水效果不得越过作者 mask 或改变未声明区域 |
+| `3757555836` 名将杀 兰汤春酽_赵姬 | `scene.json`；9 层，I2/P7/T0，effect 9，prop 2；waterflow/waterripple、xray、7 粒子；parallax 关 | image 2/2、particle 6/7；strict graph layer `69` 为 5 stage / 1 chain，鼠标遮罩已实机确认 | 仍缺 1 个粒子、完整水流/ripple 与 Windows X-Ray 像素/交互 golden；当前只是受限 exact profile | P1 | 默认无视差；粒子分层、blend 和遮挡与 WE 对照；滑杆只改变绑定参数；水效果不得越过作者 mask 或改变未声明区域 |
 | `3765760121` 4K 三色堇与她 | `scene.json`；13 层，I6/P1/T6，effect 12，prop 8；clock/date、audio bars、组合层、glitter；parallax 关；particle 默认关 | 主图完整但 image 3/6；text 3/3 可绘制；precise graph layers 68/76/82 GPU succeeded，隐藏 190/196/202 未执行 | 动态时钟/日期、audio bar、glitter、组合和完整字体效果仍不完整 | P1 | 默认无视差且 particle 保持关闭；用户显式开启后才创建粒子；时钟日期值、字体、位置正确；combo/bool/slider 的 8 项属性均有可见绑定 |
 | `3766387484` ARKNIGHTS ENDFIELD ARCANE CHEN XIANGYU | `scene.json`；7 层，I1/P1/T3，effect 13，prop 14；叶片、眼睛、光线、waterflow、depth parallax；parallax 0.06 与 shake 受属性控制 | 主图完整，image 1/1、text 3/3；文字缩得很小并堆在人物中央；双帧变化约 10.2% | point size 与非均匀 layer scale 组合错误；粒子、眼睛、光线和 14 项属性绑定缺失 | P1 | 默认值精确决定 parallax/shake；三层文字的字号、缩放、对齐和层级与 preview 对齐；叶片、眼睛、光线可分别开关，不互相代替 |
 | `3766415113` The last pour | `gifscene.json` + `gifscene.pkg`；1 层，I1/P0/T0，effect 0，prop 0；320x200 authored scene；parallax 关 | 入口和纹理 1/1 已加载，但 3200x1600 纹理被重复平铺成网格，画面不可用；上下黑边存在 | sampler/UV 与 10 倍纹理尺寸语义错误。作者 layer scale 约 `1.00471 x 0.86814`，上下黑边是作者构图，不应靠强制 cover 消除 | P0 | 最终只出现一幅完整瓶子画面，不重复采样；保留作者缩放产生的上下黑边；默认无视差、无水波；用边缘采样和重复图案检测锁定回归 |

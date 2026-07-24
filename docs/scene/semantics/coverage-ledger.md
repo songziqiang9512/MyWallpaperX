@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-24
 >
-> Scene 实现基线：当前 HEAD（前置安全整数提交 `10401d7`）
+> Scene 实现基线：`3baf1fc`
 >
-> 当前完整快照门：`.codex/scene-chromaticdot-20260724/full26-final/report.json`；固定回归门：`.codex/scene-chromaticdot-20260724/fixed13-final/report.json`
+> 当前完整快照门：`.codex/scene-xray-final-20260724/full26-duration7/report.json`；固定回归门：`.codex/scene-xray-final-20260724/fixed13-duration7-final/report.json`
 >
-> 最新运行门：真实目录 26 样本完整快照 26/26、particle 52/68；固定 13 样本门 13/13、particle 15/27，仍单独保留且不能互相替代。完整 Scene suite 302 项：299 通过、3 项跳过；语义覆盖 11/11。聚合缺口、视觉证据边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：真实目录 26 样本完整快照 26/26、particle 52/68；固定 13 样本门 13/13、particle 15/27，仍单独保留且不能互相替代。完整 Scene suite 318 项：315 通过、3 项跳过；语义覆盖 11/11。聚合缺口、视觉证据边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -69,11 +69,11 @@
 | User Properties | `L3` | 独立窗口、条件、持久化、PNG/JPEG `sceneTexture`；layer alpha、纯 solid color、strict Local Contrast strength 与 stock Opacity alpha 已无重建 live 更新 | unsupported/mixed/SceneScript bindings、Texture Variants、shortcut、跨重启 UI 门；精确 census 见 runtime-input 专项表 | **B0/B1** |
 | Typed texture provider | `L3` | layer/named/property identity、status/fallback；静态 resource generation 与 named frame epoch 已分离 | 显式 dynamic generation、metadata、cancel、system/media/video/variant、通用 material、nested/effectful/child | **B1** |
 | EffectDefinition/Material IR | `L2` | definition/pass/RT/material/slot hole/combo/constant 可保留并建图；ShaderContract 保存 source identity | 完整 schema、typed shader defaults、condition/function | B2 |
-| Bounded effect executors | `L3` | 两个严格 Blur 图、strict stock Local Contrast、exact Workshop Shadow、exact stock Opacity、Shake、Water Waves 与 Water Flow 八类 backend 的 ordered strict chain 与若干受限手写 executor | 其余官方 Effect、variant、mask、SceneScript/unsupported mixed chain 与 visual golden | B3/B4 |
+| Bounded effect executors | `L3` | 两个严格 Blur 图、strict stock Local Contrast、exact Workshop Shadow、exact stock Opacity、Shake、Water Waves、Water Flow、Foliage Sway、Water Ripple 与 X-Ray 十一类 backend 的 ordered strict chain 与若干受限手写 executor | 其余官方 Effect、variant、unsupported mask/SceneScript/mixed chain 与 visual golden | B3/B4 |
 | Current-frame capture | `L3` | bounded utility prefix capture 可执行 | 通用 capture/extent/format/mask | B2/B3 |
 | Named primary target | `L3` | bounded `_a` producer/consumer 可执行 | 通用 authored identity 和依赖环检测 | B2 |
 | Named secondary identity | `L2` | registry 区分完整 variant；无 `_b` producer/consumer flow | secondary 数据流、copy/swap/history | B2 |
-| Generic FBO command graph | `L2` | target/bind/compose/copy/swap/condition/function 可保留或 blocker；effect-scoped target/lifetime table 已由八个 strict backend 与 ordered strict chain 消费；同帧 copy/swap 已有严格 plan/runtime 门；显式 unique FBO 的 history seed 已进入 table 初始化；Precise Blur 的 `material -> copy/swap -> material` 白名单拓扑可按 authored nodeIndex 交错执行；exact legacy Blur Precise `compose:true` 两遍语法可归一为单个 full-size 中间 target；exact Shake、重复 Water Waves 与 `Water Flow -> Opacity` 均可按作者顺序执行 | Precise Blur 两种严格 interleave、exact legacy compose、exact stock Shake、Water Waves 与 Water Flow profile 为受限 `L3`；generic compose、Refraction scene-background capture、真实 history consumer、condition/function、typed state、跨帧 logical swap 和完整生命周期仍缺失 | B2 |
+| Generic FBO command graph | `L2` | target/bind/compose/copy/swap/condition/function 可保留或 blocker；effect-scoped target/lifetime table 已由十一类 strict backend 与 ordered strict chain 消费；同帧 copy/swap 已有严格 plan/runtime 门；显式 unique FBO 的 history seed 已进入 table 初始化；Precise Blur 的 `material -> copy/swap -> material` 白名单拓扑可按 authored nodeIndex 交错执行；exact legacy Blur Precise `compose:true` 两遍语法可归一为单个 full-size 中间 target；exact Shake、Foliage Sway、Water Ripple、重复 Water Waves、`Water Flow -> Opacity` 与 X-Ray 受限前缀均可按作者顺序执行 | 上述 exact profile 为受限 `L3`；generic compose、Refraction scene-background capture、真实 history consumer、condition/function、typed state、跨帧 logical swap 和完整生命周期仍缺失 | B2 |
 | History RT | `L2` | `unique:true` framebuffer 可通过读前写 hazard，plan 记录 history seed；缓存 table 首次消费时对 seed texture 做一次 GPU clear，pool 复用与 reset/resize 生命周期继续成立 | 真实 history consumer、跨帧 ping-pong/logical swap、seek/pause/resize/switch/stop 确定性和真实样本正向 GPU 门 | B2 |
 | Authored shader path/source identity | `L1` | material path 与 ShaderContract stage/source/raw hash/canonical identity 已安全保存 | 尚无 include expansion、translation、compile 或 executor | B2 |
 | Shader source/include/annotation/declaration contract | `L1` | 完整 source、include reference、annotation raw/structured value、uniform/attribute/varying declaration 已 loss-preserving 保存并诊断 | typed default/combo consumer、include expansion、macro/permutation preprocessor、stage link/translation/compile | B2 |
@@ -90,7 +90,7 @@
 
 ## 4. 官方 Effect 覆盖摘要
 
-45 项的作者条件、执行通道、公共依赖、当前证据和下一验收门统一维护在 [官方 Effect 执行覆盖表](effect-execution-coverage.md)。汇总为 `L1=26`、`L2=5`、`L3=14`、`L4=0`；所有 `L3` 都是表内明确限定的 profile，不是 WE parity。内部 `_empty`、Workshop `gradient_color` 和 layer Bloom 另列，不能替代任何官方 Effect。
+45 项的作者条件、执行通道、公共依赖、当前证据和下一验收门统一维护在 [官方 Effect 执行覆盖表](effect-execution-coverage.md)。汇总为 `L1=25`、`L2=5`、`L3=15`、`L4=0`；所有 `L3` 都是表内明确限定的 profile，不是 WE parity。内部 `_empty`、Workshop `gradient_color` 和 layer Bloom 另列，不能替代任何官方 Effect。
 
 ## 5. Particle 子系统覆盖
 
@@ -118,7 +118,7 @@
 | Dynamic control-point execution | `L0` | 无 object/cursor/script runtime | 坐标转换与每帧更新 |
 | Child asset graph | `L2` | 可递归发现，已有 missing/cycle guard | runtime child identity、ownership 和 depth/total budget |
 | Child execution/events | `L0` | runtime 报 `childSystemsUnsupported` | spawn/death/collision 生命周期 |
-| Built-in textures | `L3` | 9 个精确 key；程序图形只保证确定性，不等于官方资产 | 剩余高频 key、atlas metadata、多纹理 material |
+| Built-in textures | `L3` | 10 个精确 key；程序图形只保证确定性，不等于官方资产 | 剩余高频 key、atlas metadata、多纹理 material |
 | World-space declaration | `L1` | 明确 `worldSpaceUnsupported` | 不能冒充执行 |
 | World-space execution | `L0` | 无 camera/parent transform runtime | 多屏和 parent 语义 |
 | Collision declaration | `L1` | 可诊断但无 solver | shape/depth/response/event IR |
@@ -238,7 +238,7 @@
 | **B5 Fidelity** | `S2-S4` 广度完成后 | 字体、视差、粒子、常用 Effect 与 WE Windows golden 对齐 | 固定输入逐像素/数值阈值、性能预算、长稳和多屏门 |
 | **Advanced** | `S5` | Puppet、2D light/HDR、3D、arbitrary custom shader、RGB、offline bake | 每个系统有完整 IR/runtime/lifecycle/product gate 后再升级 |
 
-研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、B2 ordered strict chain、Workshop Shadow、stock Opacity、exact stock Shake、exact stock Water Waves/Water Flow、同帧 copy/swap foundation、受限 history seed/clear、Precise Blur 两种 material-command interleave 与 exact legacy compose 归一化已合龙。`31ae557`/`94aebc5` 已把精确 Water Waves/Water Flow profile 放入 ordered strict scheduler；非 exact Water Waves 的 legacy inline 仍只在 owner layer 唯一可见 Effect 时准入，mixed/repeated unsupported declarations fail closed。当前完整门为 38 stage/5 chain/0 failed，固定门为 20 stage/1 chain/0 failed；超出默认 96 MiB 纹理预算的长链在规划阶段拒绝。后续从逐 effect 重复实现转向共享 material pass executor、texture/state/target 生命周期和 shader preprocessing IR；样本自带 preview 是当前第一视觉依据，WaifuX MP4 只作辅助动态参考，均不能替代 Windows WE 动态/像素 golden。
+研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、B2 ordered strict chain、Workshop Shadow、stock Opacity、exact stock Shake/Foliage Sway/Water Ripple/Water Waves/Water Flow/X-Ray、同帧 copy/swap foundation、受限 history seed/clear、Precise Blur 两种 material-command interleave 与 exact legacy compose 归一化已合龙。非 exact Water Waves/Foliage Sway/Water Ripple 的 legacy inline 仍受原有唯一 Effect 或单 profile 边界约束，mixed/repeated unsupported declarations fail closed；X-Ray 受限前缀明确省略后续 unsupported effect。当前完整门为 73 stage/12 chain/0 failed，固定门为 24 stage/2 chain/0 failed；超出默认 96 MiB 纹理预算的长链在规划阶段拒绝。下次先处理新增样本暴露的公共 blend/composition 与 Fire effect，再处理粒子和比例/裁切；样本自带 preview 是当前第一视觉依据，WaifuX MP4 只作辅助动态参考，均不能替代 Windows WE 动态/像素 golden。
 
 ## 9. 更新规则
 

@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-24
 >
-> 实现基线：`94aebc5`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。
+> 实现基线：`3baf1fc`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。
 
 本文把 45 个官方用户 Effect 逐项映射到 MyWallpaperX 当前执行级别和公共依赖。作者语义、输入槽和 pass/RT 结构见 [Effects 语义全集](effects-reference.md)，Graph/Shader 原子能力见 [Render Graph 与 Shader 覆盖表](render-graph-shader-coverage.md)，依赖 ID 见 [公共能力依赖图](capability-dependency-map.md)。
 
@@ -26,7 +26,7 @@
 
 | Effect / asset ID | 等级 | 当前执行通道与边界 | 公共依赖 | 当前证据 | 下一验收门 |
 |---|---|---|---|---|---|
-| Foliage Sway / `foliagesway` | `L3` | `inline-profile`：单一 built-in UV 模式，服从 mask 与作者参数 | [D2](capability-dependency-map.md#d2) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-INLINE](runtime-evidence-index.md#e-effect-inline) | Vertex、noise/weights/bounds、multi-stack、Windows golden |
+| Foliage Sway / `foliagesway` | `L3` | `strict-graph-profile`：exact stock 单 pass UV profile，完整匹配 definition/material/shader、mask、作者常量和 render state，可进入 ordered chain；旧单一 built-in UV inline 子集仍只服务非 exact 声明 | [D2](capability-dependency-map.md#d2) [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-WATER-MOTION](runtime-evidence-index.md#e-effect-water-motion) [E-EFFECT-INLINE](runtime-evidence-index.md#e-effect-inline) [E-EFFECT-CHAIN](runtime-evidence-index.md#e-effect-chain) | Vertex、Workshop variants、动态 SceneScript 值、Windows golden |
 | Iris Movement / `iris` | `L3` | `inline-profile`：有 mask 时局部缩放/扰动近似 | [D2](capability-dependency-map.md#d2) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-INLINE](runtime-evidence-index.md#e-effect-inline) | background variant、完整 scale/noise/smoothness 与像素门 |
 | Pulse / `pulse` | `L1` | `IR-only` | [D2](capability-dependency-map.md#d2) [D4](capability-dependency-map.md#d4) [D7](capability-dependency-map.md#d7) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | time/audio 两驱动、mask/color/alpha/blend profile |
 | Cloud Motion / `cloudmotion` | `L1` | `IR-only` | [D2](capability-dependency-map.md#d2) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | Perlin、mapped resolution、mask、repeat profile |
@@ -36,7 +36,7 @@
 | Swing / `swing` | `L1` | `IR-only` | [D2](capability-dependency-map.md#d2) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | p0/p1 hinge、feather、mask/noise、局部形变门 |
 | Twirl / `twirl` | `L1` | `IR-only` | [D2](capability-dependency-map.md#d2) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | center/size/feather/ellipse/inner/repeat/mask profile |
 | Water Flow / `waterflow` | `L3` | `strict-graph-profile`：exact stock 单 pass definition/material/shader fingerprint，消费 flow + phase；只对精确缺失的 `particle/normal_ring_smooth` 生成项目自有 phase 纹理，可按作者顺序进入 Water Flow -> Opacity chain | [D2](capability-dependency-map.md#d2) [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-WATER-MOTION](runtime-evidence-index.md#e-effect-water-motion) [E-EFFECT-CHAIN](runtime-evidence-index.md#e-effect-chain) | 官方 phase 资产/数值、动态 property/SceneScript、mask/variant、sampler 与 Windows golden |
-| Water Ripple / `waterripple` | `L3` | `inline-profile`：无 mask normal-map 子集；另有 legacy 单 pass 近似 | [D2](capability-dependency-map.md#d2) [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-INLINE](runtime-evidence-index.md#e-effect-inline) | optional mask、双 normal、specular、Perspective、Windows golden |
+| Water Ripple / `waterripple` | `L3` | `strict-graph-profile`：exact stock 单 pass profile，消费 authored mask + normal 并保持 animation/ratio/strength/scale/scroll 常量，可进入 ordered chain；旧 normal-map/legacy inline 子集仍只服务非 exact 声明 | [D2](capability-dependency-map.md#d2) [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-WATER-MOTION](runtime-evidence-index.md#e-effect-water-motion) [E-EFFECT-INLINE](runtime-evidence-index.md#e-effect-inline) [E-EFFECT-CHAIN](runtime-evidence-index.md#e-effect-chain) | variant、双 normal/specular、Perspective、动态 SceneScript 值、Windows golden |
 | Water Waves / `waterwaves` | `L3` | `strict-graph-profile`：exact stock 单 pass definition/material/shader fingerprint，消费 authored mask 并保持 direction/speed/scale/exponent/strength；可重复并按作者顺序进入 strict chain。非 exact profile 仅保留旧的唯一可见 Effect inline 子集，mixed/repeated unsupported 声明继续 fail closed | [D2](capability-dependency-map.md#d2) [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-WATER-MOTION](runtime-evidence-index.md#e-effect-water-motion) [E-EFFECT-INLINE](runtime-evidence-index.md#e-effect-inline) [E-EFFECT-CHAIN](runtime-evidence-index.md#e-effect-chain) | authored shader execution、Perspective/variant、mask 边缘、sampler 与 Windows golden |
 
 ## 3. Blur
@@ -55,7 +55,7 @@
 | Cursor Ripple / `cursorripple` | `L3` | `inline-profile`：pointer + optional mask 的无 history 环形近似 | [D2](capability-dependency-map.md#d2) [D4](capability-dependency-map.md#d4) [D6](capability-dependency-map.md#d6) [D8](capability-dependency-map.md#d8) | [E-EFFECT-INLINE](runtime-evidence-index.md#e-effect-inline) | 3 pass / 2 fit RT 波场、collision、reset lifecycle |
 | Advanced Fluid / `fluidsimulation` | `L2` | `graph-only`：约 20 nodes / swap 可保留；condition/function blocker | [D2](capability-dependency-map.md#d2) [D4](capability-dependency-map.md#d4) [D6](capability-dependency-map.md#d6) [D7](capability-dependency-map.md#d7) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | 9 RT / 8 history、float formats、condition/function、emitters |
 | Depth Parallax / `depthparallax` | `L1` | `IR-only`；与 Camera Parallax 保持分离 | [D4](capability-dependency-map.md#d4) [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | required depth、local pointer、basic/24/64 quality、mask |
-| X-Ray / `xray` | `L1` | `IR-only` | [D4](capability-dependency-map.md#d4) [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | local cursor、source/blend、halo/sprite、mask/aspect |
+| X-Ray / `xray` | `L3` | `strict-graph-profile`：exact stock 单 pass profile，以 layer-local pointer、组合区域前缀捕获、authored blend/halo/opacity texture 和受限 live property 执行；当 X-Ray 后接 unsupported Effect 时只允许显式受限前缀，后段保持省略且有诊断 | [D4](capability-dependency-map.md#d4) [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-XRAY](runtime-evidence-index.md#e-effect-xray) [E-EFFECT-CHAIN](runtime-evidence-index.md#e-effect-chain) | 通用 mixed chain、完整 sprite/aspect/sampler、Windows pointer/像素 golden |
 
 ## 5. Colorization and overlays
 
@@ -106,9 +106,9 @@
 | Workshop layer Bloom approximation | `L3` | 受限 threshold/blur/composite；不是官方 Scene-level Bloom/HDR，也不是 45 个 Effect 专页之一 |
 | Workshop `3488490208/shadow_____________` | `L3` | exact single-pass strict profile；只接受完整 definition/material/ShaderContract fingerprint、`MASK=0`、`BLENDMODE=0`、normal/nocull/depth disabled 与静态常量。不是官方 45 项 Effect、generic Shadow 或 authored shader；mode 0 尚无官方 Windows 像素 oracle |
 
-45 项汇总：`L1=26`、`L2=5`、`L3=14`、`L4=0`。这个统计只反映当前表中最小可声明级别，不是样本命中率、视觉相似度或已知语义比例。
+45 项汇总：`L1=25`、`L2=5`、`L3=15`、`L4=0`。这个统计只反映当前表中最小可声明级别，不是样本命中率、视觉相似度或已知语义比例。
 
-`b541867` 只增加 strict profile 之间的有序、全有或全无调度，没有改变 45 项数量或等级；其阶段报告 `.codex/scene-effect-chain-gated-final13-20260723/report.json` 的 8 stage、0 real chain 是 Shadow 前的历史负门。`809b75e` 的 exact Workshop Shadow、`b8842d8` 的 stock Opacity `MASK=0` 与 `4f13daf` 的 exact legacy Blur Precise compose 都只扩充既有 `L3` 行的受限 profile。`e505a9e`、`31ae557` 与 `94aebc5` 分别让 exact stock Shake、Water Waves 与 Water Flow 进入 ordered scheduler。当前完整门为 38 stage、5 条 chain、Water Flow 2、Water Waves 4、Shake 3、0 failed；固定门保护 20 stage、1 条真实 chain、Water Waves 6、Opacity 4、Workshop Shadow 1、0 failed。最新路径与边界统一见 [运行证据索引](runtime-evidence-index.md)。
+`b541867` 只增加 strict profile 之间的有序、全有或全无调度，没有改变 45 项数量或等级；其阶段报告 `.codex/scene-effect-chain-gated-final13-20260723/report.json` 的 8 stage、0 real chain 是 Shadow 前的历史负门。`809b75e` 的 exact Workshop Shadow、`b8842d8` 的 stock Opacity `MASK=0` 与 `4f13daf` 的 exact legacy Blur Precise compose 都只扩充既有 `L3` 行的受限 profile。`e505a9e`、`31ae557` 与 `94aebc5` 分别让 exact stock Shake、Water Waves 与 Water Flow 进入 ordered scheduler；`3baf1fc` 又加入 exact Foliage Sway、Water Ripple 与 pointer-driven X-Ray，并修正 X-Ray 组合区域捕获。当前完整门为 73 stage、12 条 chain、Water Flow 7、Water Waves 10、Shake 21、0 failed；固定门保护 24 stage、2 条真实 chain、Water Flow 1、Water Waves 6、Shake 1、Opacity 4、Workshop Shadow 1、0 failed。最新路径与边界统一见 [运行证据索引](runtime-evidence-index.md)。
 
 ## 9. 开发顺序
 

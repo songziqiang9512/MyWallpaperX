@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-24
 >
-> 实现基线：当前 HEAD（前置安全整数提交 `10401d7`）
+> 实现基线：`3baf1fc`
 
 本页给覆盖表中的 `L3` 子集提供可追溯证据包。每个证据包至少包含代码、自动测试和真实运行或 GPU 证据；缺少任一项的能力只能标 `L0-L2`，或在专项表中明确写 `gate incomplete`。`.codex` 报告是本机隔离运行产物，不提交 Git；报告路径、App 身份和摘要写入现役文档，避免将其误当源码 fixture。
 
@@ -12,18 +12,18 @@
 
 | 项目 | 当前证据 |
 |---|---|
-| 当前完整快照门 | `.codex/scene-chromaticdot-20260724/full26-final/report.json` 为 26/26；报告 SHA-256 `0173acf32a86c313e1606be0920bfd612919ab4df5f63e712fbf890c41cda31f`，仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` SHA-256 `148b31c417734fa3060ede4281c4ae28cc82d0ce044d6ffbc233d4671275d8e6` |
-| 固定回归门 | 同一签名 App 的 `.codex/scene-chromaticdot-20260724/fixed13-final/report.json` 为 13/13；报告 SHA-256 `7a288033141e6137413b9716df8cf2ae60c48f984fb51bdcca1c8f825322ae00`，矩阵 SHA-256 `eca9dbb67a828f956d47fe805cbdaf5be9f414ca43136f17c15738bd51bfb3be` |
-| 最新合同门 | 完整 Scene suite 302 项：299 通过、3 跳过；代码健康 411 Swift files、44 locked legacy files、400-line limit |
+| 当前完整快照门 | `.codex/scene-xray-final-20260724/full26-duration7/report.json` 为 26/26；报告 SHA-256 `7580bd3caed56e2094d996a256845092e7a620312c81aa6ed3c4e801f195f996`，仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` SHA-256 `0c506680eb13df24df2127fe51514255ea8ad7a9df97c130427902c9a734b99a` |
+| 固定回归门 | 同一签名 App 的 `.codex/scene-xray-final-20260724/fixed13-duration7-final/report.json` 为 13/13；报告 SHA-256 `5257c347be8c5eb2a2a96569aa8498e5cb15de66d5146edf2a5f99f8bba62efb`，矩阵 SHA-256 `2624b6ce15b2e707962d960b633419ae3635a2745219621f708239687893e3ae` |
+| 最新合同门 | 完整 Scene suite 318 项：315 通过、3 跳过；代码健康 427 Swift files、44 locked legacy files、400-line limit |
 | ShaderContract | 173 contracts = 143 authored + 30 host built-in；286 stages、0 diagnostics；source/IR include 155、annotation 1523、declaration 2660，见 E-SHADER-CONTRACT |
 | Live property | layer alpha、solid color、strict Local Contrast/Opacity 与 direct text content/point-size/color 均由 per-surface snapshot 消费，accepted 且 surface/window identity 不变；报告见 E-LIVE-PROPERTY / E-DYNAMIC-TEXT |
 | Provider 双代 | `2938612768` static image blend 5/5；`2902406982` named capture 6/6、binding 7/7；报告见 E-PROVIDER |
 | 方向性视觉证据 | 样本自带 preview GIF 是当前第一视觉依据；固定门 13/13 均生成 preview reference 与中心裁切并排图，六样本人工校准见 E-PREVIEW-VISUAL。WaifuX SceneBake MP4 只作辅助动态参考，出现冲突时不能覆盖样本 preview；两者均非 Windows WE golden |
-| 签名 App | 当前两层门均为 `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `4d78ee2b61532fe6a7d3872e80707e8d9e074ecf`，executable SHA-256 `162b260a61600543f2212f6dd8ad11d92a7f860806e18ea56b4984c9abd9cadc`；benchmark staged App 运行前后签名均验证 |
-| executable SHA-256 | `162b260a61600543f2212f6dd8ad11d92a7f860806e18ea56b4984c9abd9cadc` |
+| 签名 App | 当前两层门均为 `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `9951f4c741e3484894be717b68019f55f10a800f`，executable SHA-256 `61bfdfb5c9215ea5ceaab8bfa6d995be38f0ce2e5fc8629d0299326295e3832c`；benchmark staged App 运行前后签名均验证 |
+| executable SHA-256 | `61bfdfb5c9215ea5ceaab8bfa6d995be38f0ce2e5fc8629d0299326295e3832c` |
 | 样本边界 | 真实 Workshop root 只读；报告均来自隔离 sample root 与临时 HOME |
 
-当前真实目录完整快照门加载 image `330/330`、text `212/212`、solid `126/126`，particle 为 `52/68`；named target capture `8/8`、binding `9/9`，仍有 13 个 named-target gap、63 个 route-only effect、16 个 legacy blocked layer 和 9 个缺失资源，graph target 为 153、graph blocker 为 0。strict graph 为 38 stage、5 条 multi-effect chain、Water Flow 2、Water Waves 4、Shake 3、0 failed。固定 13 样本门单独保护 particle `15/27`、20 stage、1 条 Blur/Shadow chain、Water Waves 6、Workshop Shadow 1、Opacity 4、0 failed；两门互补，均不证明完整兼容或 WE parity。
+当前真实目录完整快照门加载 image `330/330`、text `212/212`、solid `126/126`，particle 为 `52/68`；named target capture `8/8`、binding `9/9`，仍有 13 个 named-target gap、66 个 route-only effect、16 个 legacy blocked layer，graph target 为 153、graph blocker 为 0。strict graph 为 73 stage、12 条 multi-effect chain、Water Flow 7、Water Waves 10、Shake 21、44 个 succeeded layer、0 failed；utility capture 成功 3 层。固定 13 样本门单独保护 particle `15/27`、24 stage、2 条 chain、Water Flow 1、Water Waves 6、Shake 1、Workshop Shadow 1、Opacity 4、22 个 succeeded layer、0 failed；两门互补，均不证明完整兼容或 WE parity。
 
 ## 2. 证据包
 
@@ -145,14 +145,23 @@
 - 总边界：当前只是 Foliage/Iris/Water/Cursor/Chromatic/Perspective-Opacity 等表内子集，不执行 authored shader；Steam preview 指标没有可靠反映 293 的几何改善，人工 montage 仍是本次视觉判定依据。
 
 <a id="e-effect-water-motion"></a>
-### E-EFFECT-WATER-MOTION: exact stock Water Waves / Water Flow profiles
+### E-EFFECT-WATER-MOTION: exact stock Foliage Sway / Water Ripple / Water Waves / Water Flow profiles
 
-- 实现提交：Water Waves `31ae557`，Water Flow `94aebc5`。代码：[SceneAuthoredWaterWavesPlanner.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredWaterWavesPlanner.swift)、[SceneWaterWavesPipeline.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Effects/SceneWaterWavesPipeline.swift)、[SceneAuthoredWaterFlowPlanner.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredWaterFlowPlanner.swift)、[SceneWaterFlowPipeline.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Effects/SceneWaterFlowPipeline.swift)、[SceneWaterFlowBuiltInPhaseTexture.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneWaterFlowBuiltInPhaseTexture.swift)。
-- 自动门：[test_scene_authored_effect_chain_planner.py](../../../script/tests/test_scene_authored_effect_chain_planner.py)、[test_scene_authored_effect_execution.py](../../../script/tests/test_scene_authored_effect_execution.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)、[test_scene_opacity_planner.py](../../../script/tests/test_scene_opacity_planner.py)、[test_scene_waterflow_builtin_phase.py](../../../script/tests/test_scene_waterflow_builtin_phase.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)。当前完整 Scene suite 为 301/301、3 skipped；代码健康为 411 Swift files、44 locked legacy files、400-line limit。
+- 实现提交：Water Waves `31ae557`，Water Flow `94aebc5`，Foliage Sway / Water Ripple strict profile `3baf1fc`。代码：[SceneAuthoredWaterWavesPlanner.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredWaterWavesPlanner.swift)、[SceneAuthoredWaterFlowPlanner.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredWaterFlowPlanner.swift)、[SceneAuthoredFoliageSwayPlanner.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredFoliageSwayPlanner.swift)、[SceneAuthoredWaterRipplePlanner.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredWaterRipplePlanner.swift)、[SceneFoliageSwayRenderer.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Effects/SceneFoliageSwayRenderer.swift)、[SceneWaterRipplePipeline.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Effects/SceneWaterRipplePipeline.swift)。
+- 自动门：[test_scene_authored_effect_chain_planner.py](../../../script/tests/test_scene_authored_effect_chain_planner.py)、[test_scene_authored_effect_execution.py](../../../script/tests/test_scene_authored_effect_execution.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)、[test_scene_opacity_planner.py](../../../script/tests/test_scene_opacity_planner.py)、[test_scene_waterflow_builtin_phase.py](../../../script/tests/test_scene_waterflow_builtin_phase.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)。当前完整 Scene suite 为 318 项：315 通过、3 skipped；代码健康为 427 Swift files、44 locked legacy files、400-line limit。
 - 运行门：`.codex/scene-waterflow-20260724/full26-final/report.json` 与 `.codex/scene-waterflow-20260724/fixed13-final/report.json` 分别为 26/26、13/13，报告 SHA-256 分别为 `7753412293b17b71a1db966910ed3e2dbbcc4b7fd66d342d5d316f8731f16cf6`、`7488830cc5df8b2012cee10893b162427e64104075ac3045e32f827e6f8ceb74`，矩阵 SHA-256 分别为 `5bc2300aca22a32d31b64d9d19c2d6619a841eeaba672aae5a3e05768143f2e2`、`8e0dd0aa296be3130ea5f9313194c71d76885165dc24938af415ce6eecf25ce5`。签名 App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `a37d51608519fed9d5ae86307654f9aba590357c`、executable SHA-256 `f6ae1d08a294e0e19221537b5864d23157032f3ebd763dbc94dc9db49624ffe4`，staged App 运行前后签名均验证。
 - 关键样本：`3028090166` 为 succeeded `[86,129]`、Water Flow 2、Opacity 1、chains 1、stages 3；`3768903841` 为 succeeded `[33,37,41,181,188,202,211,220,232]`、Water Waves 4、chains 1、stages 10；`3768229922` 的六段 Water Waves 链需要 12 个全尺寸 texture unit，超过默认 96 MiB 池保证的 6 unit，规划阶段保持 stages 0 而非运行时分配失败；graph failed layer 均为空。
 - profile 边界：两者都只接受 exact stock definition/material/raw shader fingerprint、单 material stage、精确 slot/constant/render-state 合同，并执行项目内 MSL，不编译 authored shader。Water Flow 缺失 phase 时只为精确 `particle/normal_ring_smooth` 生成 64x64 R8 项目自有径向纹理；其他缺失路径继续失败关闭。`MASK=0` Opacity 可接受 dormant `[nil, mask]` authored slot，但不会读取该 mask。
-- 视觉边界：`3028090166` 与 WaifuX SceneBake MP4 的同时间帧 SSIM 约为 `0.798/0.786`，构图和主体位置大致一致，云层、龙身和水面扰动的相位/强度仍有差异。该 MP4 和 Steam preview 都只是方向性参考，不是 Windows Wallpaper Engine pixel golden；Water Waves/Water Flow 仍为 `L3 executed-degraded`。
+- 视觉边界：`3028090166` 与 WaifuX SceneBake MP4 的同时间帧 SSIM 约为 `0.798/0.786`，构图和主体位置大致一致，云层、龙身和水面扰动的相位/强度仍有差异。该 MP4 和 Steam preview 都只是方向性参考，不是 Windows Wallpaper Engine pixel golden；四类 profile 均为 `L3 executed-degraded`。
+
+<a id="e-effect-xray"></a>
+### E-EFFECT-XRAY: pointer-driven exact stock X-Ray profile
+
+- 实现提交：`3baf1fc`。代码：[SceneAuthoredXRayPlanner.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredXRayPlanner.swift)、[SceneXRayRuntimePlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Effects/SceneXRayRuntimePlan.swift)、[SceneXRayPipeline.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Effects/SceneXRayPipeline.swift)、[SceneXRayEffectTextureLoader.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneXRayEffectTextureLoader.swift)、[SceneMetalView+Pointer.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView+Pointer.swift)。
+- 自动门：[test_scene_xray_planner.py](../../../script/tests/test_scene_xray_planner.py)、[test_scene_layer_cursor_geometry.py](../../../script/tests/test_scene_layer_cursor_geometry.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)、[test_scene_property_binding_program.py](../../../script/tests/test_scene_property_binding_program.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)。覆盖 exact fingerprint、layer-local pointer、组合区域 source UV、blend/halo/opacity texture、property live target、pointer outside/资源缺失失败关闭及受限前缀。
+- 运行门：`.codex/scene-xray-composition-20260724/results-pass3/report.json` 为 3/3；用户在真实桌面壁纸路径手动确认 `2998757800`、`3747492842`、`3757555836` 三个鼠标遮罩均正常。当前完整/固定两层正式门见本页顶部。
+- 关键修复：X-Ray 不再直接把整屏 framebuffer 当作 layer source，而是先按组合区域和原 `sourceUV/sourceUniforms` 捕获到 chain input，再以局部 pointer 执行。`3747492842` 因此不再把 authored 3840x2160 下层图错投到屏幕坐标；TEXB0004 metadata 读取也让 400x400 halo 使用作者映射尺寸。
+- 边界：`3747492842` 只执行 X-Ray 受限前缀，后续 Film Grain/Bloom/Iris 等 unsupported effect 明确省略并保留诊断；没有 Windows pointer/像素 golden，不能宣称通用 mixed chain、完整 sampler/aspect 或 WE parity。
 
 <a id="e-effect-blur"></a>
 ### E-EFFECT-BLUR: strict Blur graph profiles
@@ -201,8 +210,8 @@
 - 实现提交：scheduler `b541867`，首条真实链 backend `809b75e`，Water Waves/Water Flow 扩展为 `31ae557`/`94aebc5`。代码：[SceneAuthoredEffectExecutionChain.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectExecutionChain.swift)、[SceneAuthoredEffectChainRenderer.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectChainRenderer.swift)、[SceneOffscreenTexturePool.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneOffscreenTexturePool.swift)、[SceneImageLayerCompositor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneImageLayerCompositor.swift)。
 - 自动门：[test_scene_authored_effect_chain_planner.py](../../../script/tests/test_scene_authored_effect_chain_planner.py)、[test_scene_offscreen_texture_pool.py](../../../script/tests/test_scene_offscreen_texture_pool.py)、[test_scene_framebuffer_capture.py](../../../script/tests/test_scene_framebuffer_capture.py)、[test_scene_workshop_shadow_planner.py](../../../script/tests/test_scene_workshop_shadow_planner.py)、[test_scene_workshop_shadow_rendering.py](../../../script/tests/test_scene_workshop_shadow_rendering.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)。planner/pool 门覆盖 identity、连续输入、Shadow prior-effect role、Water resource 仅跨 stage 保留，以及整链预算/LRU 原子回滚；synthetic precise -> precise GPU 门覆盖实际 stage texture transfer、末段合成和失败不泄漏，独立 Shadow GPU 门覆盖该 backend 的像素公式。
 - 集成门：首段只应用一次 layer masks/UV/alpha，后段使用 neutral uniforms 并仅保留 strict effect 自有资源。真实 `3724289844:20` 的 `Blur Precise -> Shadow`、`3028090166:86` 的 `Water Flow -> Opacity` 以及 `3768903841` 的重复 Water Waves 均在同一 ordered scheduler 执行；当前没有这些真实 compositor 链的逐 stage 像素 readback，因此整链像素原子性仍由 synthetic GPU 门约束，不把真实矩阵写成 Windows golden。
-- 运行门：当前完整快照与固定门分别为 26/26、13/13。完整门共 5 条真实 multi-effect strict chain、38 个 strict stage、Water Flow 2、Water Waves 4、Shake 3；固定门保护 1 条 chain、20 stage、Water Waves 6、Opacity 4、Workshop Shadow 1；graph failures 均为空。
-- 边界：只调度八个 strict backends；默认 96 MiB pool 只保证六个 2048x2048 BGRA texture unit，超预算链在规划阶段整链拒绝。Precise Blur 可在两个 material node 之间执行一个 copy 或 swap，Shake/Water Flow/Water Waves 只在精确 profile 和连续输入成立时参与链；generic compose/condition/function、跨帧 logical swap、真实 history consumer、authored shader preprocessing/translation/compile、MASK1、SceneScript 和动态 Shake variants 继续失败关闭。
+- 运行门：当前完整快照与固定门分别为 26/26、13/13。完整门共 12 条真实 multi-effect strict chain、73 个 strict stage、Water Flow 7、Water Waves 10、Shake 21；固定门保护 2 条 chain、24 stage、Water Flow 1、Water Waves 6、Shake 1、Opacity 4、Workshop Shadow 1；graph failures 均为空。
+- 边界：只调度十一类 strict backend；默认 96 MiB pool 只保证六个 2048x2048 BGRA texture unit，超预算链在规划阶段整链拒绝。Precise Blur 可在两个 material node 之间执行一个 copy 或 swap，Shake/Foliage Sway/Water Ripple/Water Flow/Water Waves/X-Ray 只在精确 profile 和连续输入成立时参与链；X-Ray 受限前缀会明确省略后续 unsupported effect。generic compose/condition/function、跨帧 logical swap、真实 history consumer、authored shader preprocessing/translation/compile、未支持 mask/variant、SceneScript 和动态 profile 继续失败关闭。
 
 <a id="e-effect-rt"></a>
 ### E-EFFECT-RT: effect-instance render-target foundation and strict consumer

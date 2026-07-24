@@ -330,7 +330,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         self.assertEqual(len(set(asset_ids)), 45, "Effect asset IDs must be unique")
         self.assertEqual(
             {level: levels[level] for level in ("L0", "L1", "L2", "L3", "L4")},
-            {"L0": 0, "L1": 26, "L2": 5, "L3": 14, "L4": 0},
+            {"L0": 0, "L1": 25, "L2": 5, "L3": 15, "L4": 0},
         )
 
     def test_generic_graph_primitives_remain_l2(self) -> None:
@@ -400,7 +400,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         for path in current_state_documents:
             text = document_text[path]
             self.assertIn(
-                "`94aebc5`",
+                "`3baf1fc`",
                 text,
                 f"Current Scene entrypoint is missing the full-baseline implementation: {path}",
             )
@@ -419,8 +419,8 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             )
 
         report_paths = (
-            ".codex/scene-chromaticdot-20260724/full26-final/report.json",
-            ".codex/scene-chromaticdot-20260724/fixed13-final/report.json",
+            ".codex/scene-xray-final-20260724/full26-duration7/report.json",
+            ".codex/scene-xray-final-20260724/fixed13-duration7-final/report.json",
         )
         for path in current_state_documents:
             for report_path in report_paths:
@@ -435,6 +435,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         self.assertIn("### E-DYNAMIC-TEXT:", evidence)
         self.assertIn("### E-EFFECT-OPACITY:", evidence)
         self.assertIn("### E-EFFECT-SHAKE:", evidence)
+        self.assertIn("### E-EFFECT-XRAY:", evidence)
         self.assertIn("### E-EFFECT-WORKSHOP-SHADOW:", evidence)
         self.assertIn("### E-EFFECT-CHAIN: ordered strict effect-chain scheduler", evidence)
         self.assertIn("### E-GRAPH-COMMAND: same-frame copy/swap foundation", evidence)
@@ -446,12 +447,12 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             "### E-GRAPH-LEGACY-COMPOSE: exact Blur Precise legacy two-pass normalization",
             evidence,
         )
-        self.assertIn("完整 Scene suite 302 项：299 通过、3 跳过", evidence)
-        self.assertIn("Water Flow 2、Water Waves 4、Shake 3", evidence)
+        self.assertIn("完整 Scene suite 318 项：315 通过、3 跳过", evidence)
+        self.assertIn("Water Flow 7、Water Waves 10、Shake 21", evidence)
         self.assertIn("comparison_scope=same-sample-change-only", evidence)
         self.assertIn("cross_sample_ranking=false", evidence)
         self.assertIn("absolute_threshold=null", evidence)
-        self.assertIn("strict graph 为 38 stage", evidence)
+        self.assertIn("strict graph 为 73 stage", evidence)
         self.assertIn("generic `compose` 整体仍为 `L2`", evidence)
         self.assertIn(
             "ordered strict effect-chain",
@@ -464,9 +465,9 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         current_status = "\n".join(document_text.values())
         for fact in (
             "interpretation v22",
-            "八个 strict backend",
-            "38 stage",
-            "63 个 route-only effect",
+            "十一类 strict backend",
+            "73 stage",
+            "66 个 route-only effect",
             "particle 为 `52/68`",
             "customtext/textcolor/textsize",
             "stale cancellation",
