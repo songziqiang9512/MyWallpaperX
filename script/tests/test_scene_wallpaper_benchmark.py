@@ -1245,6 +1245,32 @@ utility layer 763: skippedHidden kind=composition
         )
         self.assertIsNone(benchmark.authored_effect_graph_shake_count(""))
 
+    def test_authored_water_flow_count_is_an_exact_gate(self) -> None:
+        preview = "authoredEffectGraphWaterFlowCount: 2\n"
+        count = benchmark.authored_effect_graph_water_flow_count(preview)
+        self.assertEqual(count, 2)
+        self.assertEqual(
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_water_flow_count": 2},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                water_flow_count=count,
+            ),
+            [],
+        )
+        self.assertIn(
+            "authored effect graph Water Flow count mismatch",
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_water_flow_count": 0},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                water_flow_count=count,
+            ),
+        )
+        self.assertIsNone(benchmark.authored_effect_graph_water_flow_count(""))
+
     def test_authored_water_waves_count_is_an_exact_gate(self) -> None:
         preview = "authoredEffectGraphWaterWavesCount: 4\n"
         count = benchmark.authored_effect_graph_water_waves_count(preview)

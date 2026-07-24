@@ -215,6 +215,7 @@ struct SceneMetalRenderer {
                             ?? SIMD2(repeating: 1),
                         waterRippleNormal: effectTextures.waterRippleNormals[layer.id],
                         shakeEffects: effectTextures.shakeEffects,
+                        waterFlowEffects: effectTextures.waterFlowEffects,
                         waterWavesEffects: effectTextures.waterWavesEffects
                     ),
                     textureFrame: spriteAnimations[layer.id]?.transform(at: time) ?? .identity,

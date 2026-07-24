@@ -161,6 +161,8 @@ struct SceneAuthoredEffectExecutionPlan {
         case opacity(SceneOpacityExecutionPlan)
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
         case shake(SceneShakeExecutionPlan)
+        case waterFlow(SceneWaterFlowExecutionPlan)
+        case waterWaves(SceneWaterWavesExecutionPlan)
     }
 
     let layerID: Int
@@ -214,6 +216,11 @@ struct SceneAuthoredEffectExecutionPlan {
         return plan
     }
 
+    var waterWaves: SceneWaterWavesExecutionPlan? {
+        guard case .waterWaves(let plan) = backend else { return nil }
+        return plan
+    }
+
     var requiresExactInputExtent: Bool {
         if case .preciseGaussian = backend { return !usesLegacyComposeNormalization }
         return false
@@ -261,6 +268,58 @@ enum SceneShakeRenderer {
         inputTexture: MTLTexture,
         outputTexture: MTLTexture,
         pipeline: SceneShakePipeline,
+        commandBuffer: MTLCommandBuffer
+    ) -> MTLTexture? {
+        nil
+    }
+}
+
+struct SceneWaterFlowExecutionPlan {
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+}
+
+struct SceneWaterFlowEffectTextures {}
+
+struct SceneWaterFlowPipeline {
+    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
+}
+
+enum SceneWaterFlowRenderer {
+    static func renderCaptured(
+        plan: SceneWaterFlowExecutionPlan,
+        sourceTexture: MTLTexture,
+        masks: SceneImageLayerMasks,
+        targets: SceneGraphRenderTargetTable,
+        sourceUniforms: SceneLayerFragmentUniforms,
+        sourcePipeline: SceneImageLayerPipeline,
+        waterFlowPipeline: SceneWaterFlowPipeline,
+        time: Float,
+        commandBuffer: MTLCommandBuffer
+    ) -> MTLTexture? {
+        nil
+    }
+}
+
+struct SceneWaterWavesExecutionPlan {
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+}
+
+struct SceneWaterWavesEffectTextures {}
+
+struct SceneWaterWavesPipeline {
+    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
+}
+
+enum SceneWaterWavesRenderer {
+    static func renderCaptured(
+        plan: SceneWaterWavesExecutionPlan,
+        sourceTexture: MTLTexture,
+        masks: SceneImageLayerMasks,
+        targets: SceneGraphRenderTargetTable,
+        sourceUniforms: SceneLayerFragmentUniforms,
+        sourcePipeline: SceneImageLayerPipeline,
+        waterWavesPipeline: SceneWaterWavesPipeline,
+        time: Float,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         nil
@@ -2313,7 +2372,10 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         source = (SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift").read_text(
             encoding="utf-8"
         )
-        self.assertIn("masks: isFirstStage ? masks : masks.shakeOnly", source)
+        self.assertIn(
+            "masks: isFirstStage ? masks : masks.authoredEffectResourcesOnly",
+            source,
+        )
         self.assertIn("sourceUniforms: isFirstStage ? sourceUniforms : .neutral()", source)
         self.assertIn("stage.localContrastStrength(in: dynamicValues)", source)
         self.assertIn("stage.opacityAlpha(in: dynamicValues)", source)

@@ -1,46 +1,25 @@
 import CryptoKit
 import Foundation
 
-nonisolated struct SceneOpacityExecutionPlan {
-    nonisolated struct DirectAlphaBinding: Equatable, Sendable {
-        let propertyKey: String
-        let layerID: Int
-        let effectIndex: Int
-        let passIndex: Int
-        let constantName: String
-
-        nonisolated var dynamicTarget: SceneDynamicTarget {
-            .effectConstant(
-                layerID: layerID,
-                effectIndex: effectIndex,
-                passIndex: passIndex,
-                name: constantName
-            )
-        }
-    }
-
+nonisolated struct SceneWaterFlowExecutionPlan {
     let layerID: Int
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
     let renderGraph: SceneAuthoredEffectRenderPlan
-    let staticOrFallbackAlpha: Float
-    let directAlphaBinding: DirectAlphaBinding?
-
-    nonisolated var liveAlphaTarget: SceneDynamicTarget? {
-        directAlphaBinding?.dynamicTarget
-    }
-
-    nonisolated func resolvedAlpha(in snapshot: SceneDynamicSnapshot) -> Float {
-        guard let target = liveAlphaTarget,
-              case .scalar(let rawValue) = snapshot[target]?.value else {
-            return staticOrFallbackAlpha
-        }
-        let value = Float(rawValue)
-        return value.isFinite && (0...1).contains(value) ? value : staticOrFallbackAlpha
-    }
+    let speed: Float
+    let strength: Float
+    let phaseScale: Float
+    let flowTexturePath: String
+    let phaseTexturePath: String
 }
 
-enum SceneAuthoredOpacityPlanner {
+enum SceneAuthoredWaterFlowPlanner {
     typealias Graph = SceneAuthoredEffectRenderPlan
+
+    private struct Parameters {
+        let speed: Float
+        let strength: Float
+        let phaseScale: Float
+    }
 
     private nonisolated struct CanonicalShaderPayload: Encodable {
         let identity: String
@@ -54,14 +33,14 @@ enum SceneAuthoredOpacityPlanner {
         descriptor: SceneRenderDescriptor,
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneOpacityExecutionPlan? {
+    ) -> SceneWaterFlowExecutionPlan? {
         guard graph.blockers.isEmpty,
               graph.effects.count == 1,
               graph.nodes.count == 1,
               graph.renderTargets.isEmpty,
               descriptor.layers.filter({ $0.id == graph.layerID }).count == 1,
               let layer = descriptor.layers.first(where: { $0.id == graph.layerID }),
-              ["image", "solid", "text"].contains(layer.contentKind) else {
+              layer.contentKind == "image" else {
             return nil
         }
 
@@ -72,31 +51,39 @@ enum SceneAuthoredOpacityPlanner {
               shaderContractMatches(shaderContracts),
               effect.nodeIndices == [node.nodeIndex],
               SceneAuthoredEffectInputValidator.accepts(
-                effect.input,
-                layerID: graph.layerID,
-                role: inputRole
+                  effect.input,
+                  layerID: graph.layerID,
+                  role: inputRole
               ),
               effect.output == effectOutput(effect.key),
               graph.finalOutput == effect.output,
               validNode(node, effect: effect),
               validMaterialDescriptor(in: descriptor),
-              validInstance(effect: effect, layer: layer),
+              let instance = instancePass(effect: effect, layer: layer),
+              let textures = texturePaths(from: instance),
+              let parameters = parameters(from: instance.constantShaderValues),
               let resolved = SceneAuthoredMaterialResolver.resolve(
-                node: node,
-                graph: graph,
-                descriptor: descriptor
+                  node: node,
+                  graph: graph,
+                  descriptor: descriptor
               ).node,
-              validResolvedMaterial(resolved),
-              let alpha = alpha(from: resolved.constants, effect: effect.key) else {
+              validResolvedMaterial(
+                  resolved,
+                  textures: textures,
+                  parameters: parameters
+              ) else {
             return nil
         }
 
-        return SceneOpacityExecutionPlan(
+        return SceneWaterFlowExecutionPlan(
             layerID: graph.layerID,
             effectKey: effect.key,
             renderGraph: graph,
-            staticOrFallbackAlpha: alpha.value,
-            directAlphaBinding: alpha.binding
+            speed: parameters.speed,
+            strength: parameters.strength,
+            phaseScale: parameters.phaseScale,
+            flowTexturePath: textures.flow,
+            phaseTexturePath: textures.phase
         )
     }
 
@@ -113,10 +100,10 @@ enum SceneAuthoredOpacityPlanner {
         }
         guard matches.count == 1, let definition = matches.first,
               definition.version == 1,
-              definition.replacementKey == "opacity",
-              definition.name == "ui_editor_effect_opacity_title",
-              definition.description == "ui_editor_effect_opacity_description",
-              definition.group == "colorize",
+              definition.replacementKey == "waterflow",
+              definition.name == "ui_editor_effect_water_flow_title",
+              definition.description == "ui_editor_effect_water_flow_description",
+              definition.group == "animate",
               definition.performance == nil,
               definition.previewPath == "preview/project.json",
               definition.editable == nil,
@@ -171,10 +158,10 @@ enum SceneAuthoredOpacityPlanner {
             && material.materialRawSHA256 == materialSHA256
             && material.passIndex == 0
             && normalized(material.shaderPath ?? "") == shaderIdentity
-            && material.texturePaths.isEmpty
-            && material.textureSlots.isEmpty
+            && material.texturePaths == [phaseTexturePath]
+            && material.textureSlots == [nil, nil, phaseTexturePath]
             && material.userTextureInputs.isEmpty
-            && validCombos(material.combos)
+            && material.combos.isEmpty
             && material.constantShaderValues.isEmpty
             && material.blending?.lowercased() == "normal"
             && material.depthTest?.lowercased() == "disabled"
@@ -182,122 +169,110 @@ enum SceneAuthoredOpacityPlanner {
             && material.cullMode?.lowercased() == "nocull"
     }
 
-    private nonisolated static func validInstance(
+    private nonisolated static func instancePass(
         effect: Graph.Effect,
         layer: SceneRenderDescriptor.Layer
-    ) -> Bool {
-        guard layer.effects.indices.contains(effect.key.effectIndex) else { return false }
+    ) -> SceneRenderDescriptor.EffectDescriptor.PassDescriptor? {
+        guard layer.effects.indices.contains(effect.key.effectIndex) else { return nil }
         let descriptor = layer.effects[effect.key.effectIndex]
         guard descriptor.id == effect.key.descriptorID,
               normalized(descriptor.file) == definitionPath,
               descriptor.visible != false,
               descriptor.passes.count == 1,
-              let pass = descriptor.passes.first else {
-            return false
+              let pass = descriptor.passes.first,
+              pass.passIndex == 0,
+              pass.userTextureInputs.isEmpty,
+              pass.combos.isEmpty else {
+            return nil
         }
-        return pass.passIndex == 0
-            && validInactiveMaskTexture(
-                paths: pass.texturePaths,
-                slots: pass.textureSlots
-            )
-            && pass.userTextureInputs.isEmpty
-            && validCombos(pass.combos)
+        return pass
+    }
+
+    private nonisolated static func texturePaths(
+        from pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor
+    ) -> (flow: String, phase: String)? {
+        guard pass.textureSlots.count == 3,
+              pass.textureSlots[0] == nil,
+              let flow = pass.textureSlots[1],
+              let phase = pass.textureSlots[2],
+              !flow.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !phase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              pass.texturePaths == [flow, phase] else {
+            return nil
+        }
+        return (flow, phase)
     }
 
     private nonisolated static func validResolvedMaterial(
-        _ material: SceneResolvedMaterialNode
+        _ material: SceneResolvedMaterialNode,
+        textures: (flow: String, phase: String),
+        parameters: Parameters
     ) -> Bool {
-        normalized(material.shaderPath) == shaderIdentity
-            && validResolvedTextureSlots(material.textureSlots)
-            && validCombos(material.combos)
-            && material.renderState.blending?.lowercased() == "normal"
+        guard normalized(material.shaderPath) == shaderIdentity,
+              material.textureSlots.count == 8,
+              assetPath(material.textureSlots[1], provenance: .instance) == textures.flow,
+              assetPath(material.textureSlots[2], provenance: .instance) == textures.phase,
+              material.textureSlots.enumerated().allSatisfy({
+                  $0.offset == 1 || $0.offset == 2 || $0.element == nil
+              }),
+              material.combos.isEmpty,
+              let resolvedParameters = self.parameters(from: material.constants),
+              resolvedParameters.speed == parameters.speed,
+              resolvedParameters.strength == parameters.strength,
+              resolvedParameters.phaseScale == parameters.phaseScale else {
+            return false
+        }
+        return material.renderState.blending?.lowercased() == "normal"
             && material.renderState.depthTest?.lowercased() == "disabled"
             && material.renderState.depthWrite?.lowercased() == "disabled"
             && material.renderState.cullMode?.lowercased() == "nocull"
     }
 
-    private nonisolated static func validInactiveMaskTexture(
-        paths: [String],
-        slots: [String?]
-    ) -> Bool {
-        if paths.isEmpty && slots.isEmpty {
-            return true
+    private nonisolated static func assetPath(
+        _ slot: SceneResolvedMaterialNode.TextureSlot?,
+        provenance: SceneResolvedMaterialNode.TextureProvenance
+    ) -> String? {
+        guard let slot, slot.provenance == provenance,
+              case .asset(let path) = slot.source else {
+            return nil
         }
-        guard slots.count == 2,
-              slots[0] == nil,
-              let maskPath = slots[1],
-              !maskPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return false
-        }
-        return paths == [maskPath]
+        return path
     }
 
-    private nonisolated static func validResolvedTextureSlots(
-        _ slots: [SceneResolvedMaterialNode.TextureSlot?]
-    ) -> Bool {
-        if slots.allSatisfy({ $0 == nil }) {
-            return true
-        }
-        guard slots.count > 1,
-              slots[0] == nil,
-              let mask = slots[1],
-              mask.provenance == .instance,
-              case .asset(let path) = mask.source,
-              !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return false
-        }
-        return slots.enumerated().allSatisfy { index, slot in
-            index == 1 || slot == nil
-        }
-    }
-
-    private nonisolated static func validCombos(_ authored: [String: Int]) -> Bool {
-        var normalizedValues: [String: Int] = [:]
+    private nonisolated static func parameters(
+        from authored: [String: SceneDocument.ShaderValue]
+    ) -> Parameters? {
+        var values: [String: SceneDocument.ShaderValue] = [:]
         for (key, value) in authored {
-            guard normalizedValues.updateValue(value, forKey: key.uppercased()) == nil else {
-                return false
+            guard values.updateValue(value, forKey: key.lowercased()) == nil else {
+                return nil
             }
         }
-        return normalizedValues.keys.allSatisfy { $0 == "MASK" }
-            && normalizedValues["MASK", default: 0] == 0
+        guard Set(values.keys) == Set(["speed", "strength", "phasescale"]),
+              let speed = scalar(values["speed"], range: 0.01...2),
+              let strength = scalar(values["strength"], range: 0.01...2),
+              let phaseScale = scalar(values["phasescale"], range: 0.01...10) else {
+            return nil
+        }
+        return Parameters(speed: speed, strength: strength, phaseScale: phaseScale)
     }
 
-    private nonisolated static func alpha(
-        from constants: [String: SceneDocument.ShaderValue],
-        effect: Graph.EffectKey
-    ) -> (value: Float, binding: SceneOpacityExecutionPlan.DirectAlphaBinding?)? {
-        guard constants.count == 1,
-              let entry = constants.first,
-              entry.key.lowercased() == "alpha",
-              let components = entry.value.components,
+    private nonisolated static func scalar(
+        _ value: SceneDocument.ShaderValue?,
+        range: ClosedRange<Double>
+    ) -> Float? {
+        guard let value,
+              value.userBinding == nil,
+              value.valueKind.lowercased() == "number",
+              let components = value.components,
               components.count == 1,
               let component = components.first,
               component.isFinite,
-              (0...1).contains(component) else {
+              range.contains(component) else {
             return nil
         }
-
-        let floatValue = Float(component)
-        guard floatValue.isFinite else { return nil }
-        let binding: SceneOpacityExecutionPlan.DirectAlphaBinding?
-        if let propertyKey = entry.value.userBinding?
-            .trimmingCharacters(in: .whitespacesAndNewlines) {
-            guard !propertyKey.isEmpty,
-                  entry.value.valueKind.lowercased() == "binding" else {
-                return nil
-            }
-            binding = .init(
-                propertyKey: propertyKey,
-                layerID: effect.layerID,
-                effectIndex: effect.effectIndex,
-                passIndex: 0,
-                constantName: "alpha"
-            )
-        } else {
-            guard entry.value.valueKind.lowercased() == "number" else { return nil }
-            binding = nil
-        }
-        return (floatValue, binding)
+        let result = Float(component)
+        return result.isFinite ? result : nil
     }
 
     private nonisolated static func shaderContractMatches(
@@ -351,23 +326,26 @@ enum SceneAuthoredOpacityPlanner {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
-    private nonisolated static let definitionPath = "effects/opacity/effect.json"
-    private nonisolated static let materialPath = "materials/effects/opacity.json"
-    private nonisolated static let materialSHA256 =
-        "f32a0ee2080b2c79ee395e950ea072e28778d279c5d62e1cc76adbcd2d733747"
+    private nonisolated static let definitionPath = "effects/waterflow/effect.json"
+    private nonisolated static let materialPath = "materials/effects/waterflow.json"
     private nonisolated static let materialPassID = "\(materialPath)#0"
-    private nonisolated static let shaderIdentity = "effects/opacity"
+    private nonisolated static let materialSHA256 =
+        "984bbaf1fdab98cb1b4169ff239a3ddbdeef83cfa0d71c286e8ea6435292066f"
+    private nonisolated static let shaderIdentity = "effects/waterflow"
+    private nonisolated static let phaseTexturePath = "effects/waterflowphase"
     private nonisolated static let dependencies = [
         materialPath,
-        "shaders/effects/opacity.frag",
-        "shaders/effects/opacity.vert",
+        "materials/effects/waterflowphase.png",
+        "materials/effects/waterflowphase.tex-json",
+        "shaders/effects/waterflow.frag",
+        "shaders/effects/waterflow.vert",
     ]
     private nonisolated static let shaderCanonicalSHA256 =
-        "89d4ee2fed510c7a81a1d1e8d0d0a353798b607fbe3d637c836fb47efb0c1cd2"
-    private nonisolated static let vertexPath = "shaders/effects/opacity.vert"
+        "63ef341dd11eb804ecc05196ff86e5802b950cec8d3dcf29b4bc20872595c2e3"
+    private nonisolated static let vertexPath = "shaders/effects/waterflow.vert"
     private nonisolated static let vertexSHA256 =
         "45803f340c80659ca4726cdea107eb017e7638a64a1b9ff7d30093d1938a738e"
-    private nonisolated static let fragmentPath = "shaders/effects/opacity.frag"
+    private nonisolated static let fragmentPath = "shaders/effects/waterflow.frag"
     private nonisolated static let fragmentSHA256 =
-        "418d565af5509983802c17d1ed901b24b02a6aa8183396cc511ff5f5eefbeb47"
+        "20928cfc8b69497820cd70dc98d18f32398ba473707e1c72363670707af6dc7f"
 }

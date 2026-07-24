@@ -202,6 +202,7 @@ class SceneMetalView: NSView {
             let shakeEffectIDs = Set(authoredStages.compactMap {
                 $0.shake?.effectKey.descriptorID
             })
+            let waterFlowEffectIDs = Set(authoredStages.compactMap { $0.waterFlow?.effectKey.descriptorID })
             let waterWavesEffectIDs = Set(authoredStages.compactMap {
                 $0.waterWaves?.effectKey.descriptorID
             })
@@ -213,7 +214,7 @@ class SceneMetalView: NSView {
                 loaded[layer.id] = texture
                 let effectTextures = SceneLayerEffectTextureLoader.load(
                     for: layer, resolver: resolver, loader: loader, device: metalDevice,
-                    shakeEffectIDs: shakeEffectIDs,
+                    shakeEffectIDs: shakeEffectIDs, waterFlowEffectIDs: waterFlowEffectIDs,
                     waterWavesEffectIDs: waterWavesEffectIDs
                 )
                 loadedEffectTextures.merge(layerID: layer.id, textures: effectTextures)
@@ -270,7 +271,7 @@ class SceneMetalView: NSView {
                     resolver: resolver,
                     loader: loader,
                     device: metalDevice,
-                    shakeEffectIDs: shakeEffectIDs,
+                    shakeEffectIDs: shakeEffectIDs, waterFlowEffectIDs: waterFlowEffectIDs,
                     waterWavesEffectIDs: waterWavesEffectIDs
                 )
                 loadedEffectTextures.merge(layerID: layer.id, textures: effectTextures)

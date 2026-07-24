@@ -125,6 +125,7 @@ enum Harness {
         var extraInstanceConstant = false
         var instanceCombos: [String: Int] = [:]
         var instanceTexture = false
+        var inactiveMaskTexture = false
         var instanceUserTexture = false
         var materialCombos: [String: Int] = [:]
         var materialTexture = false
@@ -238,8 +239,12 @@ enum Harness {
     ) -> SceneRenderDescriptor {
         let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
             passIndex: 0,
-            texturePaths: options.instanceTexture ? ["asset.png"] : [],
-            textureSlots: options.instanceTexture ? ["asset.png"] : [],
+            texturePaths: options.inactiveMaskTexture
+                ? ["mask.png"]
+                : options.instanceTexture ? ["asset.png"] : [],
+            textureSlots: options.inactiveMaskTexture
+                ? [nil, "mask.png"]
+                : options.instanceTexture ? ["asset.png"] : [],
             userTextureInputs: options.instanceUserTexture
                 ? [.init(name: "mask")]
                 : [],
@@ -484,6 +489,7 @@ enum Harness {
         var maskOne = Options(); maskOne.instanceCombos = ["MASK": 1]
         var unknownCombo = Options(); unknownCombo.materialCombos = ["OTHER": 0]
         var instanceTexture = Options(); instanceTexture.instanceTexture = true
+        var inactiveMaskTexture = Options(); inactiveMaskTexture.inactiveMaskTexture = true
         var instanceUserTexture = Options(); instanceUserTexture.instanceUserTexture = true
         var materialTexture = Options(); materialTexture.materialTexture = true
         var materialUserTexture = Options(); materialUserTexture.materialUserTexture = true
@@ -542,6 +548,10 @@ enum Harness {
                 .allSatisfy { !accepted(descriptorOptions: $0, contracts: contracts) },
             "maskDefaultsAccepted": accepted(descriptorOptions: instanceMask, contracts: contracts)
                 && accepted(descriptorOptions: materialMask, contracts: contracts),
+            "inactiveMaskTextureAccepted": accepted(
+                descriptorOptions: inactiveMaskTexture,
+                contracts: contracts
+            ),
             "comboRejected": !accepted(descriptorOptions: maskOne, contracts: contracts)
                 && !accepted(descriptorOptions: unknownCombo, contracts: contracts),
             "textureRejected": [instanceTexture, instanceUserTexture, materialTexture,

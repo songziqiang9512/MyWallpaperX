@@ -8,6 +8,7 @@ extension SceneAuthoredEffectExecutionPlan {
         case opacity(SceneOpacityExecutionPlan)
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
         case shake(SceneShakeExecutionPlan)
+        case waterFlow(SceneWaterFlowExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
     }
 
@@ -21,32 +22,37 @@ extension SceneAuthoredEffectExecutionPlan {
         return plan
     }
 
-    var localContrast: SceneLocalContrastPlan? {
+    nonisolated var localContrast: SceneLocalContrastPlan? {
         guard case .localContrast(let plan) = backend else { return nil }
         return plan
     }
 
-    var opacity: SceneOpacityExecutionPlan? {
+    nonisolated var opacity: SceneOpacityExecutionPlan? {
         guard case .opacity(let plan) = backend else { return nil }
         return plan
     }
 
-    var workshopShadow: SceneWorkshopShadowExecutionPlan? {
+    nonisolated var workshopShadow: SceneWorkshopShadowExecutionPlan? {
         guard case .workshopShadow(let plan) = backend else { return nil }
         return plan
     }
 
-    var shake: SceneShakeExecutionPlan? {
+    nonisolated var shake: SceneShakeExecutionPlan? {
         guard case .shake(let plan) = backend else { return nil }
         return plan
     }
 
-    var waterWaves: SceneWaterWavesExecutionPlan? {
+    nonisolated var waterFlow: SceneWaterFlowExecutionPlan? {
+        guard case .waterFlow(let plan) = backend else { return nil }
+        return plan
+    }
+
+    nonisolated var waterWaves: SceneWaterWavesExecutionPlan? {
         guard case .waterWaves(let plan) = backend else { return nil }
         return plan
     }
 
-    var liveConsumerTarget: SceneDynamicTarget? {
+    nonisolated var liveConsumerTarget: SceneDynamicTarget? {
         localContrast?.liveStrengthTarget ?? opacity?.liveAlphaTarget
     }
 

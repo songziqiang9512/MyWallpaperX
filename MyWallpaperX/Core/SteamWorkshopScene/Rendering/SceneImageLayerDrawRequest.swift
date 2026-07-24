@@ -9,6 +9,7 @@ struct SceneImageLayerMasks {
     let foliageUVScale: SIMD2<Float>
     let waterRippleNormal: MTLTexture?
     let shakeEffects: [String: SceneShakeEffectTextures]
+    let waterFlowEffects: [String: SceneWaterFlowEffectTextures]
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
 
     var authoredEffectResourcesOnly: SceneImageLayerMasks {
@@ -20,6 +21,7 @@ struct SceneImageLayerMasks {
             foliageUVScale: SIMD2(repeating: 1),
             waterRippleNormal: nil,
             shakeEffects: shakeEffects,
+            waterFlowEffects: waterFlowEffects,
             waterWavesEffects: waterWavesEffects
         )
     }
@@ -32,6 +34,7 @@ struct SceneImageLayerMasks {
         foliageUVScale: SIMD2(repeating: 1),
         waterRippleNormal: nil,
         shakeEffects: [:],
+        waterFlowEffects: [:],
         waterWavesEffects: [:]
     )
 }

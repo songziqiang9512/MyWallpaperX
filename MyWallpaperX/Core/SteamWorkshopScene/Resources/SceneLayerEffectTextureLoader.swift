@@ -42,6 +42,7 @@ struct SceneLayerEffectTextures {
     let foliageUVScale: SIMD2<Float>
     let waterRippleNormal: MTLTexture?
     let shakeEffects: [String: SceneShakeEffectTextures]
+    let waterFlowEffects: [String: SceneWaterFlowEffectTextures]
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
     let message: String
 }
@@ -54,6 +55,7 @@ struct SceneLayerEffectTextureStore {
     var foliageUVScales: [Int: SIMD2<Float>] = [:]
     var waterRippleNormals: [Int: MTLTexture] = [:]
     var shakeEffects: [String: SceneShakeEffectTextures] = [:]
+    var waterFlowEffects: [String: SceneWaterFlowEffectTextures] = [:]
     var waterWavesEffects: [String: SceneWaterWavesEffectTextures] = [:]
 
     mutating func merge(layerID: Int, textures: SceneLayerEffectTextures) {
@@ -64,6 +66,7 @@ struct SceneLayerEffectTextureStore {
         foliageUVScales[layerID] = textures.foliageUVScale
         waterRippleNormals[layerID] = textures.waterRippleNormal
         shakeEffects.merge(textures.shakeEffects) { _, incoming in incoming }
+        waterFlowEffects.merge(textures.waterFlowEffects) { _, incoming in incoming }
         waterWavesEffects.merge(textures.waterWavesEffects) { _, incoming in incoming }
     }
 }
@@ -75,6 +78,7 @@ enum SceneLayerEffectTextureLoader {
         loader: SceneTextureLoader,
         device: MTLDevice,
         shakeEffectIDs: Set<String> = [],
+        waterFlowEffectIDs: Set<String> = [],
         waterWavesEffectIDs: Set<String> = []
     ) -> SceneLayerEffectTextures {
         let iris = loadTexture(
@@ -131,6 +135,13 @@ enum SceneLayerEffectTextureLoader {
             loader: loader,
             device: device
         )
+        let waterFlow = SceneWaterFlowEffectTextureLoader.load(
+            for: layer,
+            effectIDs: waterFlowEffectIDs,
+            resolver: resolver,
+            loader: loader,
+            device: device
+        )
         let waterWaves = loadWaterWavesEffects(
             for: layer,
             effectIDs: waterWavesEffectIDs,
@@ -154,10 +165,12 @@ enum SceneLayerEffectTextureLoader {
             foliageUVScale: foliageUVScale,
             waterRippleNormal: normal.texture,
             shakeEffects: shake.textures,
+            waterFlowEffects: waterFlow.textures,
             waterWavesEffects: waterWaves.textures,
             message: [
                 iris.message, opacity.message, water.message, foliage.message,
-                foliageScaleMessage, normal.message, shake.message, waterWaves.message,
+                foliageScaleMessage, normal.message, shake.message,
+                waterFlow.message, waterWaves.message,
             ].joined()
         )
     }
@@ -301,7 +314,7 @@ enum SceneLayerEffectTextureLoader {
         return nil
     }
 
-    private static func loadTexture(
+    static func loadTexture(
         url: URL?,
         label: String,
         loader: SceneTextureLoader,
@@ -326,7 +339,7 @@ enum SceneLayerEffectTextureLoader {
         }
     }
 
-    private static func mappedUVScale(for url: URL?) -> SIMD2<Float> {
+    static func mappedUVScale(for url: URL?) -> SIMD2<Float> {
         guard let url, url.pathExtension.localizedLowercase == "tex",
               let data = try? Data(contentsOf: url),
               let container = try? SceneTexContainerReader().read(data: data) else {

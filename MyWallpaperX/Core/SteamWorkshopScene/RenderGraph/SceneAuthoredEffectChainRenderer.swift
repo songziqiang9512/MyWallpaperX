@@ -15,6 +15,7 @@ enum SceneAuthoredEffectChainRenderer {
         opacityPipeline: SceneOpacityPipeline,
         workshopShadowPipeline: SceneWorkshopShadowPipeline,
         shakePipeline: SceneShakePipeline,
+        waterFlowPipeline: SceneWaterFlowPipeline,
         waterWavesPipeline: SceneWaterWavesPipeline,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
@@ -45,6 +46,7 @@ enum SceneAuthoredEffectChainRenderer {
                 opacityPipeline: opacityPipeline,
                 workshopShadowPipeline: workshopShadowPipeline,
                 shakePipeline: shakePipeline,
+                waterFlowPipeline: waterFlowPipeline,
                 waterWavesPipeline: waterWavesPipeline,
                 time: sourceUniforms.time,
                 commandBuffer: commandBuffer
@@ -70,6 +72,7 @@ enum SceneAuthoredEffectChainRenderer {
         opacityPipeline: SceneOpacityPipeline,
         workshopShadowPipeline: SceneWorkshopShadowPipeline,
         shakePipeline: SceneShakePipeline,
+        waterFlowPipeline: SceneWaterFlowPipeline,
         waterWavesPipeline: SceneWaterWavesPipeline,
         time: Float,
         commandBuffer: MTLCommandBuffer
@@ -178,30 +181,28 @@ enum SceneAuthoredEffectChainRenderer {
                 pipeline: shakePipeline,
                 commandBuffer: commandBuffer
             )
-        case .waterWaves(let waterWaves):
-            guard let resources = masks.waterWavesEffects[
-                waterWaves.effectKey.descriptorID
-            ],
-            targets.plan.logicalTargets.isEmpty,
-            SceneOffscreenEffectRenderer.captureSource(
+        case .waterFlow(let waterFlow):
+            return SceneWaterFlowRenderer.renderCaptured(
+                plan: waterFlow,
                 sourceTexture: sourceTexture,
-                waterMaskTexture: nil,
-                foliageMaskTexture: masks.foliage,
-                auxMaskTexture: auxMask,
-                target: targets.inputTexture,
+                masks: masks,
+                targets: targets,
                 sourceUniforms: sourceUniforms,
-                pipeline: pipeline,
-                commandBuffer: commandBuffer
-            ) else {
-                return nil
-            }
-            return SceneWaterWavesRenderer.render(
-                plan: waterWaves,
-                resources: resources,
+                sourcePipeline: pipeline,
+                waterFlowPipeline: waterFlowPipeline,
                 time: time,
-                inputTexture: targets.inputTexture,
-                outputTexture: targets.outputTexture,
-                pipeline: waterWavesPipeline,
+                commandBuffer: commandBuffer
+            )
+        case .waterWaves(let waterWaves):
+            return SceneWaterWavesRenderer.renderCaptured(
+                plan: waterWaves,
+                sourceTexture: sourceTexture,
+                masks: masks,
+                targets: targets,
+                sourceUniforms: sourceUniforms,
+                sourcePipeline: pipeline,
+                waterWavesPipeline: waterWavesPipeline,
+                time: time,
                 commandBuffer: commandBuffer
             )
         }

@@ -1,22 +1,22 @@
 import Metal
 
-enum SceneWaterWavesRenderer {
+enum SceneWaterFlowRenderer {
     static func renderCaptured(
-        plan: SceneWaterWavesExecutionPlan,
+        plan: SceneWaterFlowExecutionPlan,
         sourceTexture: MTLTexture,
         masks: SceneImageLayerMasks,
         targets: SceneGraphRenderTargetTable,
         sourceUniforms: SceneLayerFragmentUniforms,
         sourcePipeline: SceneImageLayerPipeline,
-        waterWavesPipeline: SceneWaterWavesPipeline,
+        waterFlowPipeline: SceneWaterFlowPipeline,
         time: Float,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
-        guard let resources = masks.waterWavesEffects[plan.effectKey.descriptorID],
+        guard let resources = masks.waterFlowEffects[plan.effectKey.descriptorID],
               targets.plan.logicalTargets.isEmpty,
               SceneOffscreenEffectRenderer.captureSource(
                   sourceTexture: sourceTexture,
-                  waterMaskTexture: nil,
+                  waterMaskTexture: masks.water,
                   foliageMaskTexture: masks.foliage,
                   auxMaskTexture: masks.iris ?? masks.opacity,
                   target: targets.inputTexture,
@@ -32,29 +32,31 @@ enum SceneWaterWavesRenderer {
             time: time,
             inputTexture: targets.inputTexture,
             outputTexture: targets.outputTexture,
-            pipeline: waterWavesPipeline,
+            pipeline: waterFlowPipeline,
             commandBuffer: commandBuffer
         )
     }
 
     static func render(
-        plan: SceneWaterWavesExecutionPlan,
-        resources: SceneWaterWavesEffectTextures,
+        plan: SceneWaterFlowExecutionPlan,
+        resources: SceneWaterFlowEffectTextures,
         time: Float,
         inputTexture: MTLTexture,
         outputTexture: MTLTexture,
-        pipeline: SceneWaterWavesPipeline,
+        pipeline: SceneWaterFlowPipeline,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         guard resources.matches(plan),
-              let mask = resources.mask,
+              let flowTexture = resources.flow,
+              let phaseTexture = resources.phase,
               pipeline.encode(
                   source: inputTexture,
-                  mask: mask,
+                  flowTexture: flowTexture,
+                  phaseTexture: phaseTexture,
                   target: outputTexture,
                   plan: plan,
                   time: time,
-                  maskUVScale: resources.maskUVScale,
+                  maskUVScale: resources.flowUVScale,
                   commandBuffer: commandBuffer
               ) else {
             return nil

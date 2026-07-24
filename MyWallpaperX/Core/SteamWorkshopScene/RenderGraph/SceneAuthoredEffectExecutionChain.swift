@@ -33,6 +33,10 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         stages.filter { $0.shake != nil }.count
     }
 
+    var waterFlowCount: Int {
+        stages.filter { $0.waterFlow != nil }.count
+    }
+
     var waterWavesCount: Int {
         stages.filter { $0.waterWaves != nil }.count
     }
@@ -98,6 +102,12 @@ enum SceneAuthoredEffectChainPlanner {
                 shaderContracts: shaderContracts,
                 inputRole: inputRole
             )
+            let waterFlow = SceneAuthoredWaterFlowPlanner.plan(
+                graph: stageGraph,
+                descriptor: descriptor,
+                shaderContracts: shaderContracts,
+                inputRole: inputRole
+            )
             let waterWaves = SceneAuthoredWaterWavesPlanner.plan(
                 graph: stageGraph,
                 descriptor: descriptor,
@@ -145,6 +155,15 @@ enum SceneAuthoredEffectChainPlanner {
                     logicalRenderTargetCount: 0,
                     inputRole: inputRole
                 )
+            } else if let waterFlow {
+                stage = SceneAuthoredEffectExecutionPlan(
+                    layerID: graph.layerID,
+                    renderGraph: stageGraph,
+                    backend: .waterFlow(waterFlow),
+                    materialNodeCount: 1,
+                    logicalRenderTargetCount: 0,
+                    inputRole: inputRole
+                )
             } else if let waterWaves {
                 stage = SceneAuthoredEffectExecutionPlan(
                     layerID: graph.layerID,
@@ -160,12 +179,28 @@ enum SceneAuthoredEffectChainPlanner {
             guard let stage else { return nil }
             stages.append(stage)
         }
+        guard fitsDefaultTextureBudget(stages) else { return nil }
 
         return SceneAuthoredEffectExecutionChain(
             layerID: graph.layerID,
             renderGraph: graph,
             stages: stages
         )
+    }
+
+    nonisolated static func fitsDefaultTextureBudget(
+        _ stages: [SceneAuthoredEffectExecutionPlan]
+    ) -> Bool {
+        var textureUnits = 0
+        for stage in stages {
+            let (stageUnits, stageOverflow) = stage.logicalRenderTargetCount
+                .addingReportingOverflow(2)
+            guard !stageOverflow else { return false }
+            let (nextUnits, totalOverflow) = textureUnits.addingReportingOverflow(stageUnits)
+            guard !totalOverflow, nextUnits <= maximumResidentTextureUnits else { return false }
+            textureUnits = nextUnits
+        }
+        return !stages.isEmpty
     }
 
     private nonisolated static func validOuterChain(_ graph: Graph) -> Bool {
@@ -237,4 +272,7 @@ enum SceneAuthoredEffectChainPlanner {
             && output.effect == effect
             && output.name == nil
     }
+
+    // The default 96 MiB pool guarantees six 2048x2048 BGRA textures.
+    private nonisolated static let maximumResidentTextureUnits = 6
 }

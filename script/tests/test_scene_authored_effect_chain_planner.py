@@ -107,6 +107,19 @@ enum SceneAuthoredShakePlanner {
     }
 }
 
+struct SceneWaterFlowExecutionPlan {}
+
+enum SceneAuthoredWaterFlowPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneWaterFlowExecutionPlan? {
+        nil
+    }
+}
+
 struct SceneWaterWavesExecutionPlan {}
 
 enum SceneAuthoredWaterWavesPlanner {
@@ -515,6 +528,12 @@ enum Harness {
                 "localContrastCount": chain.localContrastCount,
                 "liveTargetCount": chain.liveConsumerTargets.count,
                 "bothPrecise": chain.stages.allSatisfy { $0.gaussianBlur != nil },
+                "fitsDefaultTextureBudget":
+                    SceneAuthoredEffectChainPlanner.fitsDefaultTextureBudget(chain.stages),
+                "oversizedChainRejected":
+                    !SceneAuthoredEffectChainPlanner.fitsDefaultTextureBudget(
+                        chain.stages + [chain.stages[0]]
+                    ),
             ],
             "catalog": [
                 "chainLayers": catalog.chainsByLayerID.keys.sorted(),
@@ -615,6 +634,8 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         self.assertEqual(success["logicalTargetCount"], 2)
         self.assertEqual(success["localContrastCount"], 0)
         self.assertEqual(success["liveTargetCount"], 0)
+        self.assertTrue(success["fitsDefaultTextureBudget"])
+        self.assertTrue(success["oversizedChainRejected"])
 
     def test_catalog_reports_chain_counts_without_exposing_single_stage_plan(self) -> None:
         catalog = self.result["catalog"]

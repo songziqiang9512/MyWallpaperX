@@ -122,6 +122,10 @@ AUTHORED_EFFECT_GRAPH_SHAKE_COUNT_RE = re.compile(
     r"^authoredEffectGraphShakeCount: (?P<count>\d+)$",
     re.MULTILINE,
 )
+AUTHORED_EFFECT_GRAPH_WATER_FLOW_COUNT_RE = re.compile(
+    r"^authoredEffectGraphWaterFlowCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
 AUTHORED_EFFECT_GRAPH_WATER_WAVES_COUNT_RE = re.compile(
     r"^authoredEffectGraphWaterWavesCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -802,6 +806,11 @@ def authored_effect_graph_shake_count(preview_text: str) -> int | None:
     return int(match.group("count")) if match is not None else None
 
 
+def authored_effect_graph_water_flow_count(preview_text: str) -> int | None:
+    match = AUTHORED_EFFECT_GRAPH_WATER_FLOW_COUNT_RE.search(preview_text)
+    return int(match.group("count")) if match is not None else None
+
+
 def authored_effect_graph_water_waves_count(preview_text: str) -> int | None:
     match = AUTHORED_EFFECT_GRAPH_WATER_WAVES_COUNT_RE.search(preview_text)
     return int(match.group("count")) if match is not None else None
@@ -886,6 +895,7 @@ def authored_effect_graph_failures(
     chain_metrics: dict[str, int | None] | None = None,
     workshop_shadow_count: int | None = None,
     shake_count: int | None = None,
+    water_flow_count: int | None = None,
     water_waves_count: int | None = None,
     opacity_count: int | None = None,
     route_only_effect_count: int | None = None,
@@ -930,6 +940,10 @@ def authored_effect_graph_failures(
     if expected_shake is not None:
         if shake_count != int(expected_shake):
             failures.append("authored effect graph Shake count mismatch")
+    expected_water_flow = sample.get("expected_authored_effect_graph_water_flow_count")
+    if expected_water_flow is not None:
+        if water_flow_count != int(expected_water_flow):
+            failures.append("authored effect graph Water Flow count mismatch")
     expected_water_waves = sample.get("expected_authored_effect_graph_water_waves_count")
     if expected_water_waves is not None:
         if water_waves_count != int(expected_water_waves):
@@ -1196,6 +1210,7 @@ def run_sample(
         preview_text
     )
     authored_effect_graph_shake = authored_effect_graph_shake_count(preview_text)
+    authored_effect_graph_water_flow = authored_effect_graph_water_flow_count(preview_text)
     authored_effect_graph_water_waves = authored_effect_graph_water_waves_count(preview_text)
     authored_effect_graph_chain = authored_effect_graph_chain_metrics(preview_text)
     route_only_effect_count = preview_text.count("offscreen route-only")
@@ -1289,6 +1304,7 @@ def run_sample(
         authored_effect_graph_chain,
         workshop_shadow_count=authored_effect_graph_workshop_shadow,
         shake_count=authored_effect_graph_shake,
+        water_flow_count=authored_effect_graph_water_flow,
         water_waves_count=authored_effect_graph_water_waves,
         opacity_count=authored_effect_graph_opacity,
         route_only_effect_count=route_only_effect_count,
@@ -1546,6 +1562,7 @@ def run_sample(
             "authored_effect_graph_opacity_layer_ids": authored_effect_graph_opacity_layers,
             "authored_effect_graph_workshop_shadow_count": authored_effect_graph_workshop_shadow,
             "authored_effect_graph_shake_count": authored_effect_graph_shake,
+            "authored_effect_graph_water_flow_count": authored_effect_graph_water_flow,
             "authored_effect_graph_water_waves_count": authored_effect_graph_water_waves,
             "authored_effect_graph_chain_count": authored_effect_graph_chain["chain_count"],
             "authored_effect_graph_stage_count": authored_effect_graph_chain["stage_count"],
