@@ -58,6 +58,7 @@ final class SceneParticleRuntime {
         let layerAlpha: Float
         let instanceBuffer = SceneParticleMetalInstanceBuffer()
         var simulator: SceneParticleSimulator
+        var childRuntime: SceneParticleChildRuntime?
     }
 
     private let device: MTLDevice
@@ -130,9 +131,6 @@ final class SceneParticleRuntime {
                 addDiagnostic(kind: .worldSpaceUnsupported, layerID: layer.id, path: path)
                 continue
             }
-            if !asset.definition.children.isEmpty {
-                addDiagnostic(kind: .childSystemsUnsupported, layerID: layer.id, path: path)
-            }
             guard let textureSource = asset.textureSource else { continue }
             let texture: MTLTexture
             let spriteAnimation: SceneSpriteAnimation?
@@ -169,7 +167,29 @@ final class SceneParticleRuntime {
                 instanceOverride: layer.particleInstanceOverride,
                 seed: UInt64(bitPattern: Int64(layer.id))
             )
-            appendSimulationDiagnostics(simulator.diagnostics, layerID: layer.id, path: path)
+            let childRuntime = SceneParticleChildRuntime(
+                layerID: layer.id,
+                rootAsset: asset,
+                graph: graph,
+                layerAlpha: Float(min(max(layer.alpha ?? 1, 0), 1)),
+                textureLoader: textureLoader,
+                builtInTextureRegistry: builtInTextureRegistry,
+                device: device
+            )
+            for detail in childRuntime.unsupportedDetails {
+                addDiagnostic(
+                    kind: .childSystemsUnsupported,
+                    layerID: layer.id,
+                    path: path,
+                    detail: detail
+                )
+            }
+            appendSimulationDiagnostics(
+                simulator.diagnostics,
+                layerID: layer.id,
+                path: path,
+                handlesAllChildren: childRuntime.handlesAllChildren
+            )
             layers.append(LayerRuntime(
                 layerID: layer.id,
                 particlePath: path,
@@ -184,7 +204,8 @@ final class SceneParticleRuntime {
                 },
                 usesPerspective: asset.definition.flags.usesPerspective,
                 layerAlpha: Float(min(max(layer.alpha ?? 1, 0), 1)),
-                simulator: simulator
+                simulator: simulator,
+                childRuntime: childRuntime.hasTemplates ? childRuntime : nil
             ))
         }
     }
@@ -194,6 +215,18 @@ final class SceneParticleRuntime {
         var batches: [SceneParticleDrawBatch] = []
         for index in layers.indices {
             layers[index].simulator.advance(by: frameDelta)
+            let births = layers[index].simulator.consumeBirthEvents()
+            if let childRuntime = layers[index].childRuntime {
+                let result = childRuntime.advance(by: frameDelta, spawnEvents: births)
+                batches.append(contentsOf: result.batches)
+                for path in result.bufferFailurePaths {
+                    addDiagnostic(
+                        kind: .instanceBufferAllocationFailed,
+                        layerID: layers[index].layerID,
+                        path: path
+                    )
+                }
+            }
             let instances = makeGPUInstances(for: layers[index])
             guard layers[index].instanceBuffer.update(device: device, instances: instances) else {
                 addDiagnostic(
@@ -220,7 +253,7 @@ final class SceneParticleRuntime {
 
     private func makeGPUInstances(for layer: LayerRuntime) -> [SceneParticleGPUInstance] {
         layer.simulator.particles.map { particle in
-            let frames = spriteFrames(
+            let frames = Self.spriteFrames(
                 animation: layer.spriteAnimation,
                 definition: layer.definition,
                 particleID: particle.id,
@@ -242,95 +275,7 @@ final class SceneParticleRuntime {
         }
     }
 
-    private func spriteFrames(
-        animation: SceneSpriteAnimation?,
-        definition: SceneParticleDefinition,
-        particleID: UInt64,
-        age: Float,
-        lifetime: Float
-    ) -> (current: SceneParticleFrameTransform, next: SceneParticleFrameTransform?, mix: Float) {
-        guard let animation,
-              let selection = SceneParticleSpriteFrameSelector.select(
-                mode: SceneParticleSpriteAnimationMode(authoredValue: definition.animationMode),
-                frameDurations: animation.frames.map(\.duration),
-                age: age,
-                lifetime: lifetime,
-                sequenceMultiplier: Float(definition.sequenceMultiplier ?? 1),
-                particleID: particleID,
-                blendsFrames: !definition.flags.disablesFrameBlending
-              ) else {
-            return (.identity, nil, 0)
-        }
-        return (
-            Self.frameTransform(animation.frames[selection.currentIndex]),
-            Self.frameTransform(animation.frames[selection.nextIndex]),
-            selection.mix
-        )
-    }
-
-    private func supportedRenderer(
-        in definition: SceneParticleDefinition,
-        layerID: Int,
-        path: String
-    ) -> (renderer: SceneParticleRenderer, trail: SceneParticleTrailRenderPlan?)? {
-        var supported: (SceneParticleRenderer, SceneParticleTrailRenderPlan?)?
-        var sawSpriteRenderer = false
-        for renderer in definition.renderers {
-            switch renderer.kind {
-            case .sprite:
-                sawSpriteRenderer = true
-                if supported == nil { supported = (renderer, nil) }
-            case .spriteTrail:
-                sawSpriteRenderer = true
-                if let trail = SceneParticleTrailRenderPlan(
-                    length: renderer.length,
-                    minimumLength: renderer.minimumLength,
-                    maximumLength: renderer.maximumLength
-                ) {
-                    if supported == nil { supported = (renderer, trail) }
-                } else {
-                    addDiagnostic(
-                        kind: .trailRendererUnsupported,
-                        layerID: layerID,
-                        path: path,
-                        detail: "spritetrail:invalidLength"
-                    )
-                }
-            case .rope:
-                addDiagnostic(kind: .ropeRendererUnsupported, layerID: layerID, path: path, detail: "rope")
-            case .ropeTrail:
-                addDiagnostic(kind: .trailRendererUnsupported, layerID: layerID, path: path, detail: "ropetrail")
-            case let .unsupported(name):
-                addDiagnostic(kind: .missingSpriteRenderer, layerID: layerID, path: path, detail: name)
-            }
-        }
-        if supported == nil && !sawSpriteRenderer {
-            addDiagnostic(kind: .missingSpriteRenderer, layerID: layerID, path: path)
-        }
-        return supported
-    }
-
-    private func appendSimulationDiagnostics(
-        _ values: [SceneParticleSimulationDiagnostic],
-        layerID: Int,
-        path: String
-    ) {
-        for value in values {
-            switch value.kind {
-            case .trailRendererIgnored:
-                addDiagnostic(kind: .trailRendererUnsupported, layerID: layerID, path: path, detail: value.componentName)
-            case .unsupportedRenderer:
-                addDiagnostic(kind: .ropeRendererUnsupported, layerID: layerID, path: path, detail: value.componentName)
-            case .childSystemsIgnored:
-                addDiagnostic(kind: .childSystemsUnsupported, layerID: layerID, path: path, detail: value.componentName)
-            default:
-                let detail = [value.kind.rawValue, value.componentName].compactMap { $0 }.joined(separator: ":")
-                addDiagnostic(kind: .simulationLimitation, layerID: layerID, path: path, detail: detail)
-            }
-        }
-    }
-
-    private func addDiagnostic(
+    func addDiagnostic(
         kind: SceneParticleRuntimeDiagnosticKind,
         layerID: Int?,
         path: String,
@@ -345,39 +290,6 @@ final class SceneParticleRuntime {
         if !diagnostics.contains(value) { diagnostics.append(value) }
     }
 
-    private static func orderedLayers(in descriptor: SceneRenderDescriptor) -> [SceneRenderDescriptor.Layer] {
-        let byID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
-        var seen: Set<Int> = []
-        let ordered = descriptor.renderOrderLayerIDs.compactMap { id -> SceneRenderDescriptor.Layer? in
-            guard seen.insert(id).inserted else { return nil }
-            return byID[id]
-        }
-        return ordered + descriptor.layers.filter { seen.insert($0.id).inserted }
-    }
-
-    private static func runtimeKind(
-        _ value: SceneParticleAssetDiagnostic.Kind
-    ) -> SceneParticleRuntimeDiagnosticKind {
-        SceneParticleRuntimeDiagnosticKind(rawValue: value.rawValue) ?? .missingDefinition
-    }
-
-    private static func frameTransform(
-        _ frame: SceneTexContainer.SpriteFrame
-    ) -> SceneParticleFrameTransform {
-        SceneParticleFrameTransform(origin: frame.origin, xAxis: frame.xAxis, yAxis: frame.yAxis)
-    }
-
-    private static func textureFailureDescription(_ outcome: SceneTextureLoadOutcome) -> String {
-        switch outcome {
-        case .loaded: "loaded"
-        case let .unsupportedFormat(value): "unsupportedFormat:\(value)"
-        case let .unsupportedTexFormat(value): "unsupportedTexFormat:\(value)"
-        case .texNoEmbeddedImage: "texNoEmbeddedImage"
-        case .texContainsVideoPayload: "texContainsVideoPayload"
-        case let .decodeFailed(value): "decodeFailed:\(value)"
-        case let .textureAllocationFailed(width, height): "textureAllocationFailed:\(width)x\(height)"
-        }
-    }
 }
 
 private extension SIMD3 where Scalar == Double {

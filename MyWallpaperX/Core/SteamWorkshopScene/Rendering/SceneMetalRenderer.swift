@@ -153,9 +153,7 @@ struct SceneMetalRenderer {
             cameraEyeOffset: SIMD2(camera.eye, fill: 0)
         )
         let orderedLayers = renderDescriptor.renderOrderLayerIDs.compactMap { layersByID[$0] }
-        let particleBatchesByID = Dictionary(
-            uniqueKeysWithValues: particleBatches.map { ($0.layerID, $0) }
-        )
+        let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)
         let mainPass = SceneMainPassEncoder(
             commandBuffer: commandBuffer,
             target: drawable.texture,
@@ -285,28 +283,30 @@ struct SceneMetalRenderer {
                 break
             case "particle":
                 guard let particlePipeline,
-                      let batch = particleBatchesByID[layer.id],
+                      let layerBatches = particleBatchesByID[layer.id],
                       let encoder = mainPass.encoder() else { continue }
                 let model = particleModelMatrix(
                     for: layer,
                     parallaxMouseNormalized: parallaxMouseNormalized,
                     configuration: parallaxConfiguration
                 )
-                let basis = particleBasis(for: batch, layerModel: model, cameraFrame: cameraFrame)
-                particlePipeline.draw(
-                    texture: batch.texture,
-                    instances: batch.instanceBuffer,
-                    uniforms: SceneParticleLayerUniforms(
-                        viewProjection: cameraFrame.viewProjection(
-                            usesPerspective: batch.usesPerspective
+                for batch in layerBatches {
+                    let basis = particleBasis(for: batch, layerModel: model, cameraFrame: cameraFrame)
+                    particlePipeline.draw(
+                        texture: batch.texture,
+                        instances: batch.instanceBuffer,
+                        uniforms: SceneParticleLayerUniforms(
+                            viewProjection: cameraFrame.viewProjection(
+                                usesPerspective: batch.usesPerspective
+                            ),
+                            layerModel: model,
+                            basis: basis
                         ),
-                        layerModel: model,
-                        basis: basis
-                    ),
-                    blendMode: batch.blendMode,
-                    encoder: encoder
-                )
-                batch.instanceBuffer.markSubmitted(on: commandBuffer)
+                        blendMode: batch.blendMode,
+                        encoder: encoder
+                    )
+                    batch.instanceBuffer.markSubmitted(on: commandBuffer)
+                }
             default:
                 continue
             }

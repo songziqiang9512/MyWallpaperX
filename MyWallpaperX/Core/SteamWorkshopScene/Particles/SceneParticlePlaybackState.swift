@@ -30,7 +30,7 @@ final class SceneParticlePlaybackState {
         let particleLayers = descriptor.layers.filter { $0.contentKind == "particle" }
         let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let visibleLayers = particleLayers.filter { visibleIDs.contains($0.id) }
-        let batchesByID = Dictionary(uniqueKeysWithValues: batches.map { ($0.layerID, $0) })
+        let batchesByID = Dictionary(grouping: batches, by: \.layerID)
         var lines = [
             "particle authored: \(particleLayers.count)",
             "particle visible: \(visibleLayers.count)"
@@ -42,7 +42,7 @@ final class SceneParticlePlaybackState {
                 lines.append("particle layer \(layer.id) \"\(name)\": skipped hidden")
                 continue
             }
-            guard let batch = batchesByID[layer.id] else {
+            guard let batch = batchesByID[layer.id]?.first else {
                 lines.append("particle layer \(layer.id) \"\(name)\": unavailable")
                 continue
             }

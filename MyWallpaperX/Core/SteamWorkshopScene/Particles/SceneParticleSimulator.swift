@@ -11,6 +11,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
     let maximumParticleCount: Int
     let diagnostics: [SceneParticleSimulationDiagnostic]
     private(set) var particles: [SceneParticleState] = []
+    private(set) var birthEvents: [SceneParticleState] = []
     private(set) var simulationTime = 0.0
 
     private let definition: SceneParticleDefinition
@@ -34,6 +35,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
         emitters = Array(repeating: EmitterState(), count: definition.emitters.count)
         random = SceneParticleRandomGenerator(state: seed)
         warmUp(duration: max(0, definition.startTime ?? 0))
+        birthEvents.removeAll(keepingCapacity: true)
     }
 
     nonisolated mutating func advance(by duration: Double) {
@@ -44,6 +46,11 @@ nonisolated struct SceneParticleSimulator: Sendable {
             accumulator -= fixedTimeStep
         }
         if accumulator < 0 { accumulator = 0 }
+    }
+
+    nonisolated mutating func consumeBirthEvents() -> [SceneParticleState] {
+        defer { birthEvents.removeAll(keepingCapacity: true) }
+        return birthEvents
     }
 
     private nonisolated mutating func warmUp(duration: Double) {
@@ -83,7 +90,12 @@ nonisolated struct SceneParticleSimulator: Sendable {
             if emitter.limitsToOnePerFrame { count = min(count, 1) }
         }
         count = min(count, maximumParticleCount - particles.count)
-        for _ in 0..<count { if let particle = makeParticle(emitter) { particles.append(particle) } }
+        for _ in 0..<count {
+            if let particle = makeParticle(emitter) {
+                particles.append(particle)
+                birthEvents.append(particle)
+            }
+        }
     }
 
     private nonisolated mutating func makeParticle(

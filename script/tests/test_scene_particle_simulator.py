@@ -43,6 +43,8 @@ enum Harness {
         partitioned.advance(by: 0.2)
         partitioned.advance(by: 0.3)
         different.advance(by: 0.5)
+        let birthEvents = first.consumeBirthEvents()
+        let partitionedBirthEvents = partitioned.consumeBirthEvents()
 
         var capped = simulator(maximumCountJSON, seed: 1, step: 0.1)
         capped.advance(by: 0.1)
@@ -90,9 +92,13 @@ enum Harness {
         return [
             "deterministic": first.particles == partitioned.particles,
             "differentSeed": first.particles != different.particles,
+            "birthEventIDs": birthEvents.map(\.id),
+            "birthEventsDeterministic": birthEvents == partitionedBirthEvents,
+            "birthEventsDrain": first.consumeBirthEvents().isEmpty,
             "maxCount": capped.particles.count,
             "prewarmCount": prewarmed.particles.count,
             "prewarmTime": prewarmed.simulationTime,
+            "prewarmBirthEvents": prewarmed.birthEvents.count,
             "durationCount": burst.particles.count,
             "sphereMinimumRadius": sphereRadii.min() ?? -1,
             "sphereMaximumRadius": sphereRadii.max() ?? -1,
@@ -358,6 +364,12 @@ class SceneParticleSimulatorTests(unittest.TestCase):
     def test_fixed_step_and_seed_are_deterministic(self) -> None:
         self.assertTrue(self.results["deterministic"])
         self.assertTrue(self.results["differentSeed"])
+
+    def test_birth_events_are_ordered_deterministic_and_drained(self) -> None:
+        self.assertEqual(self.results["birthEventIDs"], [0, 1, 2, 3, 4])
+        self.assertTrue(self.results["birthEventsDeterministic"])
+        self.assertTrue(self.results["birthEventsDrain"])
+        self.assertEqual(self.results["prewarmBirthEvents"], 0)
 
     def test_maximum_count_and_start_time_prewarm(self) -> None:
         self.assertEqual(self.results["maxCount"], 3)

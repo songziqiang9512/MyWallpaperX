@@ -17,6 +17,11 @@ REAL_SAMPLE_CACHE = (
     / ".codex/scene-particle-contract-20260722/runtime-homes/3742133044"
     / "Library/Caches/MyWallpaperX/SteamWorkshopScene/72cdb5be4865b335"
 )
+EVENTSPAWN_SAMPLE_CACHE = (
+    REPOSITORY_ROOT
+    / ".codex/scene-halo4-targeted-compact-20260724/runtime-homes/3768903841"
+    / "Library/Caches/MyWallpaperX/SteamWorkshopScene/964b264a636e9e02"
+)
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneResourceIndex.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
@@ -35,7 +40,9 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneTextureLoader.swift",
     SOURCE_ROOT / "Rendering/SceneSpriteAnimation.swift",
     SOURCE_ROOT / "Rendering/SceneLayerVisibility.swift",
+    SOURCE_ROOT / "Particles/SceneParticleChildRuntime.swift",
     SOURCE_ROOT / "Particles/SceneParticleRuntime.swift",
+    SOURCE_ROOT / "Particles/SceneParticleRuntime+Support.swift",
     SOURCE_ROOT / "Particles/SceneParticlePlaybackState.swift",
 ]
 
@@ -115,6 +122,9 @@ enum Harness {
         case "real":
             guard CommandLine.arguments.count == 3 else { throw HarnessError.missingPath }
             try printJSON(realSample(cachePath: CommandLine.arguments[2]))
+        case "eventspawn-real":
+            guard CommandLine.arguments.count == 3 else { throw HarnessError.missingPath }
+            try printJSON(realEventSpawnSample(cachePath: CommandLine.arguments[2]))
         case "synthetic":
             try printJSON(synthetic())
         default:
@@ -175,6 +185,31 @@ enum Harness {
         ]
     }
 
+    private static func realEventSpawnSample(cachePath: String) throws -> [String: Any] {
+        let cache = URL(fileURLWithPath: cachePath, isDirectory: true)
+        let interpretation = try JSONDecoder().decode(
+            Interpretation.self,
+            from: Data(contentsOf: cache.appendingPathComponent(".mywallpaperx-scene-interpretation.json"))
+        )
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let runtime = SceneParticleRuntime(
+            descriptor: interpretation.renderDescriptor,
+            cacheDirectory: cache,
+            device: device
+        )
+        _ = runtime.advance(by: 0.5)
+        let batches = runtime.advance(by: 1.0 / 60.0)
+        let childPath = "particles/workshop/2562725207/presets/shootingstarglow.json"
+        return [
+            "activeLayerIDs": runtime.activeLayerIDs,
+            "childInstanceCount": batches.first { $0.particlePath == childPath }?.instances.count ?? 0,
+            "childTextureWidth": batches.first { $0.particlePath == childPath }?.texture.width ?? 0,
+            "layer264ChildUnsupported": runtime.diagnostics.contains {
+                $0.layerID == 264 && $0.kind == .childSystemsUnsupported
+            },
+        ]
+    }
+
     private static func synthetic() throws -> [String: Any] {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("mwx-particle-runtime-\(UUID().uuidString)", isDirectory: true)
@@ -192,9 +227,18 @@ enum Harness {
         )
         try writeParticle(
             "particles/child-root.json", material: "materials/shared.json",
-            children: [["name": "particles/child.json"]], under: directory
+            children: [[
+                "name": "particles/child.json", "type": "eventspawn", "maxcount": 500,
+            ]], under: directory
         )
-        try writeParticle("particles/child.json", material: "materials/shared.json", under: directory)
+        try writeParticle(
+            "particles/child.json", material: "materials/shared.json",
+            rate: 0, instantaneous: 1, under: directory
+        )
+        try writeParticle(
+            "particles/unsupported-child-root.json", material: "materials/shared.json",
+            children: [["name": "particles/child.json", "type": "static"]], under: directory
+        )
         try writeParticle("particles/drop.json", material: "materials/drop.json", under: directory)
         try writeParticle("particles/halo.json", material: "materials/halo.json", under: directory)
         try writeParticle("particles/unknown.json", material: "materials/unknown.json", under: directory)
@@ -209,8 +253,9 @@ enum Harness {
                 layer(6, "particles/drop.json"),
                 layer(7, "particles/halo.json"),
                 layer(8, "particles/unknown.json"),
+                layer(9, "particles/unsupported-child-root.json"),
             ],
-            renderOrderLayerIDs: [1, 2, 3, 4, 5, 6, 7, 8],
+            renderOrderLayerIDs: [1, 2, 3, 4, 5, 6, 7, 8, 9],
             materialPasses: [
                 .init(
                     materialPath: "materials/no-texture.json",
@@ -240,14 +285,18 @@ enum Harness {
             cacheDirectory: directory,
             device: device
         )
+        _ = runtime.advance(by: 0.25)
         let batches = runtime.advance(by: 0.25)
         return [
             "activeLayerIDs": runtime.activeLayerIDs,
             "batchLayerIDs": batches.map(\.layerID),
             "activeParticleCount": batches.first?.instances.count ?? 0,
-            "batchTextureSizes": Dictionary(uniqueKeysWithValues: batches.map {
-                (String($0.layerID), [$0.texture.width, $0.texture.height])
-            }),
+            "childInstanceCount": batches.first {
+                $0.particlePath == "particles/child.json"
+            }?.instances.count ?? 0,
+            "batchTextureSizes": batches.reduce(into: [String: [Int]]()) {
+                $0[String($1.layerID)] = [$1.texture.width, $1.texture.height]
+            },
             "trailStretch": batches.first(where: { $0.layerID == 3 })?
                 .instances.first?.velocityAndTrail.w ?? -1,
             "trailVelocity": batches.first(where: { $0.layerID == 3 })?
@@ -288,6 +337,8 @@ enum Harness {
         rendererMinimumLength: Double? = nil,
         rendererMaximumLength: Double? = nil,
         velocityX: Double? = nil,
+        rate: Double = 60,
+        instantaneous: Int? = nil,
         children: [[String: Any]] = [],
         under root: URL
     ) throws {
@@ -306,11 +357,15 @@ enum Harness {
         if let rendererLength { rendererDefinition["length"] = rendererLength }
         if let rendererMinimumLength { rendererDefinition["minlength"] = rendererMinimumLength }
         if let rendererMaximumLength { rendererDefinition["maxlength"] = rendererMaximumLength }
+        var emitter: [String: Any] = [
+            "name": "sphererandom", "rate": rate, "distancemin": 0, "distancemax": 0,
+        ]
+        if let instantaneous { emitter["instantaneous"] = instantaneous }
         try writeJSON([
             "material": material,
             "maxcount": 100,
             "flags": flags,
-            "emitter": [["name": "sphererandom", "rate": 60, "distancemin": 0, "distancemax": 0]],
+            "emitter": [emitter],
             "initializer": initializers,
             "renderer": [rendererDefinition],
             "children": children,
@@ -422,9 +477,10 @@ class SceneParticleRuntimeTests(unittest.TestCase):
 
     def test_synthetic_rejects_unsupported_roots_and_keeps_diagnostics(self) -> None:
         result = self.run_harness("synthetic")
-        self.assertEqual(result["activeLayerIDs"], [3, 4, 6, 7])
-        self.assertEqual(result["batchLayerIDs"], [3, 4, 6, 7])
+        self.assertEqual(result["activeLayerIDs"], [3, 4, 6, 7, 9])
+        self.assertEqual(result["batchLayerIDs"], [3, 4, 4, 6, 7, 9])
         self.assertGreater(result["activeParticleCount"], 0)
+        self.assertGreater(result["childInstanceCount"], 0)
         self.assertEqual(result["batchTextureSizes"]["6"], [32, 32])
         self.assertEqual(result["batchTextureSizes"]["7"], [64, 64])
         self.assertAlmostEqual(result["trailStretch"], 5)
@@ -438,6 +494,15 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertNotIn("missingSpriteRenderer", kinds)
         self.assertIn("childSystemsUnsupported", kinds)
         self.assertIn("builtInTextureUnavailable", kinds)
+
+    def test_real_3768903841_executes_strict_eventspawn_child(self) -> None:
+        if not (EVENTSPAWN_SAMPLE_CACHE / ".mywallpaperx-scene-interpretation.json").is_file():
+            self.skipTest("isolated 3768903841 cache is unavailable")
+        result = self.run_harness("eventspawn-real", str(EVENTSPAWN_SAMPLE_CACHE))
+        self.assertIn(264, result["activeLayerIDs"])
+        self.assertGreater(result["childInstanceCount"], 0)
+        self.assertEqual(result["childTextureWidth"], 64)
+        self.assertFalse(result["layer264ChildUnsupported"])
 
 
 if __name__ == "__main__":
