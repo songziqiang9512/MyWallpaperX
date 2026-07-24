@@ -169,6 +169,7 @@ struct SceneAssetCatalog {
         let materialPath: String?
         let cropOffsetXY: [Float]?
         let isSolidLayer: Bool
+        let puppetPath: String?
     }
 
     struct MaterialAsset {

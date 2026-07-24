@@ -73,8 +73,13 @@ enum Harness {
             "material": "materials/particle/drop-texture.json",
             "emitter": [["name": "sphereRandom"]]
         ], relativePath: "particles/drop-texture.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/refract.json",
+            "emitter": [["name": "sphereRandom"]]
+        ], relativePath: "particles/refract.json", under: directory)
         try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/root.tex", under: directory)
         try write(Data([0x89, 0x50, 0x4e, 0x47]), relativePath: "materials/particle/child.png", under: directory)
+        try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/refract-blank.tex", under: directory)
 
         let passes = [
             SceneParticleMaterialPass(
@@ -106,6 +111,13 @@ enum Harness {
                 shaderPath: "shaders/genericparticle.json",
                 texturePaths: ["particle/drop"],
                 blending: nil
+            ),
+            SceneParticleMaterialPass(
+                materialPath: "materials/particle/refract.json",
+                shaderPath: "shaders/genericparticle.json",
+                texturePaths: ["particle/refract-blank"],
+                blending: "translucent",
+                combos: ["REFRACT": 1]
             )
         ]
         let graph = SceneParticleAssetGraphLoader().load(
@@ -115,6 +127,7 @@ enum Harness {
                 "particles/missing-texture.json",
                 "particles/builtin-texture.json",
                 "particles/drop-texture.json",
+                "particles/refract.json",
                 "particles/missing-definition.json"
             ],
             materialPasses: passes,
@@ -124,6 +137,7 @@ enum Harness {
         let child = graph.assetsByPath["particles/child.json"]
         let halo = graph.assetsByPath["particles/builtin-texture.json"]
         let drop = graph.assetsByPath["particles/drop-texture.json"]
+        let refract = graph.assetsByPath["particles/refract.json"]
         try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/drop.tex", under: directory)
         let localDropGraph = SceneParticleAssetGraphLoader().load(
             rootPaths: ["particles/drop-texture.json"],
@@ -150,6 +164,7 @@ enum Harness {
             "haloTextureSource": sourceKind(halo?.textureSource),
             "dropTextureSource": sourceKind(drop?.textureSource),
             "localDropTextureSource": sourceKind(localDrop?.textureSource),
+            "refractHasTextureSource": refract?.textureSource != nil,
             "diagnostics": diagnostics
         ]
     }
@@ -439,7 +454,7 @@ class SceneParticleAssetTests(unittest.TestCase):
 
     def test_synthetic_asset_graph(self) -> None:
         result = self.run_harness("synthetic")
-        self.assertEqual(result["assetCount"], 6)
+        self.assertEqual(result["assetCount"], 7)
         self.assertEqual(
             result["rootPaths"],
             [
@@ -448,6 +463,7 @@ class SceneParticleAssetTests(unittest.TestCase):
                 "particles/missing-texture.json",
                 "particles/builtin-texture.json",
                 "particles/drop-texture.json",
+                "particles/refract.json",
                 "particles/missing-definition.json",
             ],
         )
@@ -461,6 +477,7 @@ class SceneParticleAssetTests(unittest.TestCase):
         self.assertEqual(result["haloTextureSource"], "particle/halo")
         self.assertEqual(result["dropTextureSource"], "particle/drop")
         self.assertEqual(result["localDropTextureSource"], "file")
+        self.assertFalse(result["refractHasTextureSource"])
         self.assertEqual(
             result["diagnostics"],
             {
@@ -469,6 +486,7 @@ class SceneParticleAssetTests(unittest.TestCase):
                 "missingMaterial": 1,
                 "missingTextureFile": 1,
                 "missingTextureReference": 1,
+                "refractionUnsupported": 1,
             },
         )
 

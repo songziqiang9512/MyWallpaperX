@@ -11,6 +11,7 @@ enum SceneParticleRuntimeDiagnosticKind: String, Codable, Sendable {
     case missingTextureFile
     case builtInTextureUnavailable
     case unsupportedBlendMode
+    case refractionUnsupported
     case missingSpriteRenderer
     case worldSpaceUnsupported
     case trailRendererUnsupported
@@ -82,7 +83,8 @@ final class SceneParticleRuntime {
                 materialPath: $0.materialPath,
                 shaderPath: $0.shaderPath,
                 texturePaths: $0.texturePaths,
-                blending: $0.blending
+                blending: $0.blending,
+                combos: $0.combos
             )
         }
         let graph = SceneParticleAssetGraphLoader().load(

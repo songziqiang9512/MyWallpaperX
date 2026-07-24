@@ -17,7 +17,7 @@ struct SceneInterpretationFile: Codable {
 
 struct SceneInterpretationFileWriter {
     // Format 22 adds direct dynamic text content, point-size, and color bindings.
-    static let currentFormatVersion = 22
+    static let currentFormatVersion = 23
 
     func make(
         renderDescriptor: SceneRenderDescriptor,

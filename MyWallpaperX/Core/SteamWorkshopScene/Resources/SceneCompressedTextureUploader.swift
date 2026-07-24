@@ -2,13 +2,6 @@ import Foundation
 import Metal
 
 struct SceneCompressedTextureUploader {
-    private struct UploadPayload {
-        let width: Int
-        let height: Int
-        let bytesPerRow: Int
-        let data: Data
-    }
-
     static func upload(
         container: SceneTexContainer,
         pixelFormat: MTLPixelFormat,
@@ -17,108 +10,128 @@ struct SceneCompressedTextureUploader {
         guard let firstMip = container.mips.first else {
             return .decodeFailed("TEX container has no mip data")
         }
-        if container.format == 6, device.supportsBCTextureCompression == false {
-            return .decodeFailed("BC2/DXT3 upload requires Metal BC texture compression support")
-        }
-        guard let bytesPerBlock = bytesPerBlock(for: pixelFormat) else {
-            return .decodeFailed("unsupported Metal BC pixel format: \(pixelFormat.rawValue)")
-        }
-
-        let sourceBlocksWide = max(1, (firstMip.width + 3) / 4)
-        let sourceBlocksHigh = max(1, (firstMip.height + 3) / 4)
-        let sourceBytesPerRow = sourceBlocksWide * bytesPerBlock
-        let storedByteCount = sourceBytesPerRow * sourceBlocksHigh
-        guard firstMip.data.count == storedByteCount else {
-            return .decodeFailed("BC mip data size mismatch: \(firstMip.data.count) != \(storedByteCount)")
-        }
-
-        let payload: UploadPayload
-        if container.format == 6 {
-            guard let cropped = croppedBC2Payload(
+        // BC1/BC2/BC3 are color sources with straight alpha. The compositor
+        // blends premultiplied source-over, so decode on CPU, premultiply,
+        // and crop the padded block grid to the authored image size — the
+        // same contract the raw format-0 path follows. Direct upload would
+        // let transparent texels bloom their (usually white) RGB into the
+        // frame as opaque-looking mattes.
+        if let bcFormat = SceneBCTextureDecoder.Format(texFormat: container.format) {
+            return uploadDecodedColor(
                 container: container,
                 mip: firstMip,
-                bytesPerBlock: bytesPerBlock,
-                sourceBlocksWide: sourceBlocksWide,
-                sourceBlocksHigh: sourceBlocksHigh
-            ) else {
-                return .decodeFailed("BC2 image dimensions exceed the stored mip layout")
-            }
-            payload = cropped
-        } else {
-            payload = UploadPayload(
-                width: firstMip.width,
-                height: firstMip.height,
-                bytesPerRow: sourceBytesPerRow,
-                data: firstMip.data
+                format: bcFormat,
+                device: device
             )
+        }
+        return uploadDirect(
+            container: container,
+            mip: firstMip,
+            pixelFormat: pixelFormat,
+            device: device
+        )
+    }
+
+    private static func uploadDecodedColor(
+        container: SceneTexContainer,
+        mip: SceneTexContainer.Mip,
+        format: SceneBCTextureDecoder.Format,
+        device: MTLDevice
+    ) -> SceneTextureLoadOutcome {
+        guard let decoded = SceneBCTextureDecoder.decode(
+            blockData: mip.data,
+            storedWidth: mip.width,
+            storedHeight: mip.height,
+            imageWidth: container.imageWidth,
+            imageHeight: container.imageHeight,
+            format: format
+        ) else {
+            return .decodeFailed("BC mip data does not match its stored block layout")
         }
 
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: pixelFormat,
-            width: payload.width,
-            height: payload.height,
+            pixelFormat: .rgba8Unorm,
+            width: decoded.width,
+            height: decoded.height,
             mipmapped: false
         )
         descriptor.usage = .shaderRead
         descriptor.storageMode = .shared
         guard let texture = device.makeTexture(descriptor: descriptor) else {
-            return .textureAllocationFailed(width: payload.width, height: payload.height)
+            return .textureAllocationFailed(width: decoded.width, height: decoded.height)
         }
 
-        payload.data.withUnsafeBytes { rawBuffer in
+        let premultiplied = premultiplyStraightAlphaRGBA(decoded.rgba)
+        premultiplied.withUnsafeBytes { rawBuffer in
             texture.replace(
-                region: MTLRegionMake2D(0, 0, payload.width, payload.height),
+                region: MTLRegionMake2D(0, 0, decoded.width, decoded.height),
                 mipmapLevel: 0,
                 withBytes: rawBuffer.baseAddress!,
-                bytesPerRow: payload.bytesPerRow
+                bytesPerRow: decoded.width * 4
             )
         }
         return .loaded(texture)
     }
 
-    private static func croppedBC2Payload(
+    // Non-color payloads (BC5 normal maps) keep their native block upload.
+    private static func uploadDirect(
         container: SceneTexContainer,
         mip: SceneTexContainer.Mip,
-        bytesPerBlock: Int,
-        sourceBlocksWide: Int,
-        sourceBlocksHigh: Int
-    ) -> UploadPayload? {
-        let width = container.imageWidth
-        let height = container.imageHeight
-        guard width > 0, height > 0, width <= mip.width, height <= mip.height else {
-            return nil
+        pixelFormat: MTLPixelFormat,
+        device: MTLDevice
+    ) -> SceneTextureLoadOutcome {
+        guard let bytesPerBlock = bytesPerBlock(for: pixelFormat) else {
+            return .decodeFailed("unsupported Metal BC pixel format: \(pixelFormat.rawValue)")
+        }
+        if device.supportsBCTextureCompression == false {
+            return .decodeFailed("BC upload requires Metal BC texture compression support")
         }
 
-        let targetBlocksWide = max(1, (width + 3) / 4)
-        let targetBlocksHigh = max(1, (height + 3) / 4)
-        guard targetBlocksWide <= sourceBlocksWide,
-              targetBlocksHigh <= sourceBlocksHigh else {
-            return nil
-        }
-
+        let sourceBlocksWide = max(1, (mip.width + 3) / 4)
+        let sourceBlocksHigh = max(1, (mip.height + 3) / 4)
         let sourceBytesPerRow = sourceBlocksWide * bytesPerBlock
-        let targetBytesPerRow = targetBlocksWide * bytesPerBlock
-        if targetBlocksWide == sourceBlocksWide, targetBlocksHigh == sourceBlocksHigh {
-            return UploadPayload(
-                width: width,
-                height: height,
-                bytesPerRow: targetBytesPerRow,
-                data: mip.data
+        let storedByteCount = sourceBytesPerRow * sourceBlocksHigh
+        guard mip.data.count == storedByteCount else {
+            return .decodeFailed("BC mip data size mismatch: \(mip.data.count) != \(storedByteCount)")
+        }
+
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: pixelFormat,
+            width: mip.width,
+            height: mip.height,
+            mipmapped: false
+        )
+        descriptor.usage = .shaderRead
+        descriptor.storageMode = .shared
+        guard let texture = device.makeTexture(descriptor: descriptor) else {
+            return .textureAllocationFailed(width: mip.width, height: mip.height)
+        }
+
+        mip.data.withUnsafeBytes { rawBuffer in
+            texture.replace(
+                region: MTLRegionMake2D(0, 0, mip.width, mip.height),
+                mipmapLevel: 0,
+                withBytes: rawBuffer.baseAddress!,
+                bytesPerRow: sourceBytesPerRow
             )
         }
+        return .loaded(texture)
+    }
 
-        var cropped = Data()
-        cropped.reserveCapacity(targetBytesPerRow * targetBlocksHigh)
-        for row in 0..<targetBlocksHigh {
-            let start = row * sourceBytesPerRow
-            cropped.append(contentsOf: mip.data[start..<(start + targetBytesPerRow)])
+    private static func premultiplyStraightAlphaRGBA(_ data: Data) -> Data {
+        var output = data
+        let pixelCount = output.count / 4
+        output.withUnsafeMutableBytes { rawBuffer in
+            guard let bytes = rawBuffer.bindMemory(to: UInt8.self).baseAddress else { return }
+            for index in 0..<pixelCount {
+                let pixel = bytes.advanced(by: index * 4)
+                let alpha = UInt16(pixel[3])
+                pixel[0] = UInt8((UInt16(pixel[0]) * alpha + 127) / 255)
+                pixel[1] = UInt8((UInt16(pixel[1]) * alpha + 127) / 255)
+                pixel[2] = UInt8((UInt16(pixel[2]) * alpha + 127) / 255)
+            }
         }
-        return UploadPayload(
-            width: width,
-            height: height,
-            bytesPerRow: targetBytesPerRow,
-            data: cropped
-        )
+        return output
     }
 
     private static func bytesPerBlock(for pixelFormat: MTLPixelFormat) -> Int? {

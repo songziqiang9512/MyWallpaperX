@@ -16,6 +16,7 @@ HOST_SOURCE = SOURCE_ROOT / "Runtime/SceneDesktopWallpaperHost.swift"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneTexDataReader.swift",
     SOURCE_ROOT / "Format/SceneTexContainer.swift",
+    SOURCE_ROOT / "Format/SceneBCTextureDecoder.swift",
     SOURCE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
     SOURCE_ROOT / "Resources/SceneTextureLoader.swift",
     SOURCE_ROOT / "Properties/SceneUserPropertyTextureLoader.swift",

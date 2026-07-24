@@ -41,6 +41,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleMetalPipeline.swift",
     SOURCE_ROOT / "Format/SceneTexDataReader.swift",
     SOURCE_ROOT / "Format/SceneTexContainer.swift",
+    SOURCE_ROOT / "Format/SceneBCTextureDecoder.swift",
     SOURCE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
     SOURCE_ROOT / "Resources/SceneTextureLoader.swift",
     SOURCE_ROOT / "Rendering/SceneSpriteAnimation.swift",
@@ -76,6 +77,7 @@ struct SceneRenderDescriptor: Codable {
         let shaderPath: String?
         let texturePaths: [String]
         let blending: String?
+        var combos: [String: Int] = [:]
     }
 
     let layers: [Layer]

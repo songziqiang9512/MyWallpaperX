@@ -10,6 +10,21 @@ nonisolated struct SceneParticleMaterialPass: Equatable, Sendable {
     let shaderPath: String?
     let texturePaths: [String]
     let blending: String?
+    let combos: [String: Int]
+
+    init(
+        materialPath: String,
+        shaderPath: String?,
+        texturePaths: [String],
+        blending: String?,
+        combos: [String: Int] = [:]
+    ) {
+        self.materialPath = materialPath
+        self.shaderPath = shaderPath
+        self.texturePaths = texturePaths
+        self.blending = blending
+        self.combos = combos
+    }
 }
 
 nonisolated struct SceneParticleAsset: Sendable {
@@ -39,6 +54,7 @@ nonisolated struct SceneParticleAssetDiagnostic: Codable, Equatable, Hashable, S
         case missingTextureFile
         case builtInTextureUnavailable
         case unsupportedBlendMode
+        case refractionUnsupported
     }
 
     let kind: Kind
@@ -103,7 +119,7 @@ nonisolated struct SceneParticleAssetGraphLoader {
             if textureName == nil {
                 diagnose(.missingTextureReference, path, materialPath)
             }
-            let textureSource = textureName.flatMap {
+            var textureSource = textureName.flatMap {
                 Self.resolveTextureSource(named: $0, filesByPath: filesByPath)
             }
             if let textureName, textureSource == nil {
@@ -112,6 +128,14 @@ nonisolated struct SceneParticleAssetGraphLoader {
                     path,
                     textureName
                 )
+            }
+            // Refraction particles carry a blank color texture and rely on a
+            // normal-map distortion of the backdrop; sampling the blank as a
+            // color source paints solid white sprites. Fail closed until a
+            // real refraction pass exists.
+            if let refract = materialPass?.combos["REFRACT"], refract != 0 {
+                diagnose(.refractionUnsupported, path, "REFRACT=\(refract)")
+                textureSource = nil
             }
 
             let blendMode: SceneParticleMaterialBlendMode

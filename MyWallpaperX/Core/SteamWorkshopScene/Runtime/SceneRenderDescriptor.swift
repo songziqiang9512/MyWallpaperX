@@ -73,6 +73,9 @@ struct SceneRenderDescriptor: Codable {
         let parallaxDepthXY: [Float]?
         let disablesParallaxPropagation: Bool
         let modelCropOffsetXY: [Float]?
+        // Puppet `.mdl` path when the model declares one. The runtime rebuilds
+        // the bind pose from this mesh; warp animation stays unimplemented.
+        let puppetMeshPath: String?
         let text: String?
         let textStyle: SceneTextDescriptor?
         let hasInlineScript: Bool
@@ -151,6 +154,9 @@ struct SceneRenderDescriptorBuilder {
         let modelCropOffsetsByPath = Dictionary(
             uniqueKeysWithValues: assetCatalog.models.map { ($0.relativePath, $0.cropOffsetXY) }
         )
+        let puppetMeshPathsByModelPath = Dictionary(
+            uniqueKeysWithValues: assetCatalog.models.map { ($0.relativePath, $0.puppetPath) }
+        )
         let solidModelPaths = Set(
             assetCatalog.models.filter(\.isSolidLayer).map { $0.relativePath.localizedLowercase }
         )
@@ -193,6 +199,7 @@ struct SceneRenderDescriptorBuilder {
                     parallaxDepthXY: padVector(parseVector(object.parallaxDepth), length: 2, fill: 0),
                     disablesParallaxPropagation: object.disablesParallaxPropagation,
                     modelCropOffsetXY: object.imagePath.flatMap { modelCropOffsetsByPath[$0] } ?? nil,
+                    puppetMeshPath: object.imagePath.flatMap { puppetMeshPathsByModelPath[$0] } ?? nil,
                     text: object.text,
                     textStyle: object.textStyle,
                     hasInlineScript: object.hasInlineScript,

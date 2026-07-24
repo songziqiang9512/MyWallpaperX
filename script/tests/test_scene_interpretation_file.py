@@ -189,8 +189,8 @@ class SceneInterpretationFileTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
 
-    def test_v22_round_trips_program_values_and_shader_contracts(self) -> None:
-        self.assertEqual(self.result["formatVersion"], 22)
+    def test_v23_round_trips_program_values_and_shader_contracts(self) -> None:
+        self.assertEqual(self.result["formatVersion"], 23)
         self.assertEqual(self.result["sourceEntryPath"], "scene.json")
         self.assertEqual(self.result["authoredPlanCount"], 1)
         self.assertTrue(self.result["programRoundTrip"])

@@ -127,6 +127,7 @@ class SceneMetalView: NSView {
         var loadedSpriteAnimations: [Int: SceneSpriteAnimation] = [:]
         var loadedVideoSources: [Int: SceneVideoTextureSource] = [:]
         var loadedEffectTextures = SceneLayerEffectTextureStore()
+        var puppetRecomposeBytes = 0
         report.append("Scene preview texture load report")
         report.append("camera: projection=cover parallax=\(renderer.renderDescriptor.camera.parallaxEnabled) amount=\(renderer.renderDescriptor.camera.parallaxAmount) delay=\(renderer.renderDescriptor.camera.parallaxDelay) mouseInfluence=\(renderer.renderDescriptor.camera.parallaxMouseInfluence)")
         report.append("cacheDirectory: \(cacheDirectory.path)")
@@ -202,8 +203,28 @@ class SceneMetalView: NSView {
             }
             switch loader.load(from: url, device: metalDevice) {
             case .loaded(let texture):
-                loaded[layer.id] = texture
+                var effectiveTexture = texture
+                var puppetMessage = ""
+                if let imagePipeline,
+                   let puppetOutcome = ScenePuppetLayerLoad.recomposedTexture(
+                       for: layer,
+                       atlasTexture: texture,
+                       cacheDirectory: cacheDirectory,
+                       remainingByteBudget: ScenePuppetMeshRecomposer.recomposeByteBudget
+                           - puppetRecomposeBytes,
+                       device: metalDevice,
+                       commandQueue: renderer.commandQueue,
+                       pipeline: imagePipeline
+                   ) {
+                    if let recomposedTexture = puppetOutcome.texture {
+                        effectiveTexture = recomposedTexture
+                        puppetRecomposeBytes += puppetOutcome.byteCost
+                    }
+                    puppetMessage = "; \(puppetOutcome.message)"
+                }
+                loaded[layer.id] = effectiveTexture
                 var message = "layer \(layer.id) \"\(name)\": OK \(url.lastPathComponent) → \(texture.width)×\(texture.height) [\(relativePath(for: url, cacheDirectory: cacheDirectory))]"
+                message += puppetMessage
                 if let animation = SceneSpriteAnimation.load(from: url) {
                     loadedSpriteAnimations[layer.id] = animation
                     message += String(
