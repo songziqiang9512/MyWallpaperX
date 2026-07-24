@@ -42,7 +42,7 @@ D3 + D4 + D5 + D6 + D7 + D8
 |---|---|---|
 | project/scene/PKG/TEX/resource ingest | 常见子集 `L3` | version、case、duplicate、symlink、损坏和 VFS golden |
 | object/content/effect/material/particle/script source preservation | 混合 `L0-L3` | raw + typed round-trip；未知字段可诊断，不静默丢失 |
-| derived renderer input | interpretation v22；继承 ShaderContract/Opacity，并增加 direct text content/point-size/color binding 合同；当前每次解包都会重建，JSON 仍被同进程播放链写入后立即读回，不构成可复用缓存 | 保留 typed interpretation；播放改为内存对象直传，JSON 降为可选诊断证据。若以后恢复复用，必须增加 package/source/compiler identity，而不只校验 version/entry |
+| derived renderer input | interpretation v23；继承 ShaderContract/Opacity 与 direct text binding 合同，并增加 layer `puppetMeshPath`；当前每次解包都会重建，JSON 仍被同进程播放链写入后立即读回，不构成可复用缓存 | 保留 typed interpretation；播放改为内存对象直传，JSON 降为可选诊断证据。若以后恢复复用，必须增加 package/source/compiler identity，而不只校验 version/entry |
 
 <a id="d1"></a>
 ### D1 Stable identity and dependency graph

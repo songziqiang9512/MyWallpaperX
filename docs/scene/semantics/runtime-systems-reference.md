@@ -4,7 +4,7 @@
 >
 > 官方合同优先参考 Designer 文档与 `lib.sceneScript.d.ts` v2.8；raw JSON 字段来自真实样本观察，需按证据等级使用。
 >
-> 实现基线：`c06b0fb`；当前 45 样本完整快照门与固定 13 样本回归门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。
+> 实现基线：`8bac86e`；当前 45 样本完整快照门与固定 13 样本回归门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。
 
 ## 1. 统一 Frame Context
 
@@ -353,9 +353,9 @@ Scene 与 Web 音频合同不同：
 
 ## 8. Puppet、3D 和 Lighting
 
-这些能力不属于当前 P0，但格式和时钟设计不能提前封死：
+Puppet 已有第一个受限执行子集：MDLV mesh block 在加载时把图集重组为 bind-pose 纹理（`8bac86e`，`executed-degraded`），下游 mask/effect/blend 无感消费；MDLS 骨骼、MDLA 动画、MDAT attachment 只解析边界不消费。其余能力不属于当前 P0，但格式和时钟设计不能提前封死：
 
-- Puppet：mesh、bone hierarchy/weights、animation、spring/rigid/rope/wind、animation events；
+- Puppet：bone hierarchy/weights、animation、spring/rigid/rope/wind、animation events、attachment-relative child 定位；
 - 3D：model/node/material、skeletal animation、attachments、camera、physics；
 - Lighting：2D PBR maps、point/spot/tube/directional light、shadow、reflection、volumetric；
 - 与 2D layer/effect/particle/text 使用同一 scene order、camera、provider 和 post process。

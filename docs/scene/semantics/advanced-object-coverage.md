@@ -2,9 +2,9 @@
 
 > 状态：现役专项表
 >
-> 最近核对：2026-07-24
+> 最近核对：2026-07-25
 >
-> 实现基线：`3baf1fc`
+> 实现基线：`8bac86e`
 >
 > 当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。exact stock Opacity direct alpha 已闭环；本表高级对象仍按各自前置单独升级。
 
@@ -24,7 +24,7 @@
 | particle layer | `L3` | 固定门 15/27、完整门 52/68 可见层进入受限 runtime；[E-PARTICLE](runtime-evidence-index.md#e-particle) | 逐组件状态见 [粒子表](particle-component-coverage.md) |
 | container/parent hierarchy | `L3` | source order、parent transform/visibility/parallax propagation、[E-BASE](runtime-evidence-index.md#e-base) | composition、动态 reparent、复杂 component |
 | sound layer | `L0` | 无 sound content IR/player | asset/stream、volume、loop、pause/stop、property/script target |
-| Puppet layer | `L0` | 仅可能发现相关资源路径 | mesh/bone/runtime 与独立 content kind |
+| Puppet layer | `L3` bind pose（`executed-degraded`） | MDLV mesh block 解析 + 加载时图集重组为 bind-pose 纹理（`8bac86e`）；[E-PUPPET-BC](runtime-evidence-index.md#e-puppet-bc) | warp 动画、骨骼播放、attachment 定位、独立 content kind |
 | 3D model layer | `L0` | model/material link 不等于 3D runtime | loader/scene graph/camera/PBR/animation |
 | light object | `L0` | 无 light IR | 类型、坐标、排序、shadow 和 lifecycle |
 

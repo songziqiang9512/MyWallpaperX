@@ -2,9 +2,9 @@
 
 > 状态：现役证据入口
 >
-> 最近核对：2026-07-24
+> 最近核对：2026-07-25
 >
-> 实现基线：`c06b0fb`
+> 实现基线：`dd85dcf`
 
 本页给覆盖表中的 `L3` 子集提供可追溯证据包。每个证据包至少包含代码、自动测试和真实运行或 GPU 证据；缺少任一项的能力只能标 `L0-L2`，或在专项表中明确写 `gate incomplete`。`.codex` 报告是本机隔离运行产物，不提交 Git；报告路径、App 身份和摘要写入现役文档，避免将其误当源码 fixture。
 
@@ -12,18 +12,19 @@
 
 | 项目 | 当前证据 |
 |---|---|
-| 当前完整快照门 | `.codex/scene-full45-halo4-final-20260724/report.json` 为 45/45；报告 SHA-256 `699c41c5650ff95e003d4009016d417a7bb3e106091de3766f7c8150c10f9b88`，仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` SHA-256 `5251aaeb237d0f27f7e568066eaaa87aaf0b2cd5f290420563ea550caece28e2` |
-| 固定回归门 | 同一签名 App 的 `.codex/scene-halo4-fixed13-20260724/report.json` 为 13/13；报告 SHA-256 `419a6f355a37c7350f3ae3ff182c37b63010bdc1df074a9add0365d315fb4dd6`，矩阵 SHA-256 `2624b6ce15b2e707962d960b633419ae3635a2745219621f708239687893e3ae` |
-| 最新合同门 | 完整 Scene suite 318 项：315 通过、3 跳过；代码健康 427 Swift files、44 locked legacy files、400-line limit |
+| 当前完整快照门 | `.codex/scene-puppet-full45-20260725/results-v2/report.json` 为 45/45；报告 SHA-256 `18206614218b51e34cbf9f7f11e6ac395542329c4d43bdcafc69747a7de0328b`，仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` SHA-256 `02d04479329b597b214342aa1a440d929d2e86aa5037df58c6a6488ae186595b` |
+| 固定回归门 | 同一签名 App 的 `.codex/scene-puppet-fixed13-20260725/final-v2/report.json` 为 13/13；报告 SHA-256 `9de444ea578870d620e0d01902e50ca7110b6ecc9974fe16f564a9d41e45bc7e`，矩阵 SHA-256 `cd178b01bd6c34e1602b57068b2c3f9093b4e43e7f09dc77ce293c6cbe7469e6` |
+| 最新合同门 | 完整 Scene suite 415 项：412 通过、3 跳过；代码健康 433 Swift files、44 locked legacy files、400-line limit |
 | ShaderContract | 173 contracts = 143 authored + 30 host built-in；286 stages、0 diagnostics；source/IR include 155、annotation 1523、declaration 2660，见 E-SHADER-CONTRACT |
 | Live property | layer alpha、solid color、strict Local Contrast/Opacity 与 direct text content/point-size/color 均由 per-surface snapshot 消费，accepted 且 surface/window identity 不变；报告见 E-LIVE-PROPERTY / E-DYNAMIC-TEXT |
 | Provider 双代 | `2938612768` static image blend 5/5；`2902406982` named capture 6/6、binding 7/7；报告见 E-PROVIDER |
-| 方向性视觉证据 | 样本自带 preview GIF 是当前第一视觉依据；固定门 13/13 均生成 preview reference 与中心裁切并排图，六样本人工校准见 E-PREVIEW-VISUAL。WaifuX SceneBake MP4 只作辅助动态参考，出现冲突时不能覆盖样本 preview；两者均非 Windows WE golden |
-| 签名 App | 当前两层门均为 `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `74e844dbcfc942ea5b28e4467e8c7d6f6684da06`，executable SHA-256 `12d13ebd57102fa0ce8f9f3a8a95fe7672d3f9e514da7cf6e702e3c707263ab9`；benchmark staged App 运行前后签名均验证 |
-| executable SHA-256 | `12d13ebd57102fa0ce8f9f3a8a95fe7672d3f9e514da7cf6e702e3c707263ab9` |
+| Puppet/BC 合成正确性 | `3769688830` 定向门 7 个 puppet mesh 全部重组、BC matte 与 REFRACT 白块消除；见 E-PUPPET-BC |
+| 方向性视觉证据 | 样本自带 preview GIF 是当前第一视觉依据；固定门均生成 preview reference 与中心裁切并排图，六样本人工校准见 E-PREVIEW-VISUAL。WaifuX SceneBake MP4 只作辅助动态参考，出现冲突时不能覆盖样本 preview；两者均非 Windows WE golden |
+| 签名 App | 当前两层门均为 `2.0.8 (268)`，Team `H9QWU9XN8R`，CDHash `50db8b27546c3d6c2a1adff4a45991f61a94c7cf`，executable SHA-256 `973f43b1ef58267c5678a1e6478c38a0cefd5d893b0267243b7a430a01dfcc7d`；benchmark staged App 运行前后签名均验证 |
+| executable SHA-256 | `973f43b1ef58267c5678a1e6478c38a0cefd5d893b0267243b7a430a01dfcc7d` |
 | 样本边界 | 真实 Workshop root 只读；报告均来自隔离 sample root 与临时 HOME |
 
-当前真实目录有 46 个数字目录；其中 `3770500543` 缺少 package，source manifest 明确跳过，45 个可运行副本在隔离 root/HOME 下完成正式快照。完整门加载 image `449/451`、text `244/244`、solid `140/140`，particle 为 `84/131`；named target capture `8/8`、binding `9/9`，仍有 13 个 named-target gap、113 个 route-only effect、22 个 legacy blocked layer，graph target 为 204、graph blocker 为 0。strict graph 为 91 stage、15 条 multi-effect chain、Water Flow 10、Water Waves 11、Shake 24、57 个 succeeded layer、0 failed；utility capture 成功 3 层。固定 13 样本门单独保护 particle `15/27`、24 stage、2 条 chain、Water Flow 1、Water Waves 6、Shake 1、Workshop Shadow 1、Opacity 4、22 个 succeeded layer、0 failed；两门互补，均不证明完整兼容或 WE parity。
+当前真实目录有 46 个数字目录；其中 `3770500543` 缺少 package，source manifest 明确跳过，45 个可运行副本在隔离 root/HOME 下完成正式快照。完整门加载 image `449/451`、text `244/244`、solid `140/140`，particle 为 `79/131`（`8bac86e` 的 REFRACT fail-closed 新口径，五个折射雨/玻璃/星层不再计入）；strict graph 为 91 stage、15 条 multi-effect chain、Water Flow 10、Water Waves 11、Shake 24、Opacity 8、Local Contrast 2、0 failed、113 个 route-only effect。固定 13 样本门单独保护 particle `13/27`、24 stage、2 条 chain、Water Flow 1、Water Waves 6、Shake 1、Workshop Shadow 1、Opacity 4、Local Contrast 2、0 failed；两门互补，均不证明完整兼容或 WE parity。
 
 ## 2. 证据包
 
@@ -100,8 +101,16 @@
 
 - 代码：[SceneParticleRuntime.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleRuntime.swift)、[SceneParticleSimulator.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleSimulator.swift)、[SceneParticleTextureSource.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleTextureSource.swift)、[SceneParticleBuiltInTextureRegistry.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleBuiltInTextureRegistry.swift)、[SceneParticleMetalPipeline.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleMetalPipeline.swift)
 - 自动门：[test_scene_particle_definitions.py](../../../script/tests/test_scene_particle_definitions.py)、[test_scene_particle_simulator.py](../../../script/tests/test_scene_particle_simulator.py)、[test_scene_particle_assets.py](../../../script/tests/test_scene_particle_assets.py)、[test_scene_particle_builtin_textures.py](../../../script/tests/test_scene_particle_builtin_textures.py)、[test_scene_particle_rendering.py](../../../script/tests/test_scene_particle_rendering.py)、[test_scene_particle_runtime.py](../../../script/tests/test_scene_particle_runtime.py)
-- 运行门：`particle/chromaticdot` 阶段的定向门为 4/4；`particle/halo_4` 阶段的 `.codex/scene-halo4-targeted-compact-20260724/report.json` 为 3/3，`2131872317` 从 `2/9` 提升到 `5/9`、`2419444134` 从 `3/4` 提升到 `4/4`。正式完整门 particle 为 `84/131`，固定门为 `15/27`；21 样本 asset census 的 `builtInTextureUnavailable` 已从 22 经 chromaticdot 的 17 降至 15。
+- 运行门：`particle/chromaticdot` 阶段的定向门为 4/4；`particle/halo_4` 阶段的 `.codex/scene-halo4-targeted-compact-20260724/report.json` 为 3/3，`2131872317` 从 `2/9` 提升到 `5/9`、`2419444134` 从 `3/4` 提升到 `4/4`。`8bac86e` 起 REFRACT 材质层 fail closed，固定门 particle 为 `13/27`（两个折射雨层不再画白块也不再计入 loaded）；21 样本 asset census 的 `builtInTextureUnavailable` 已从 22 经 chromaticdot 的 17 降至 15。
 - 视觉门：`halo_4` 首轮宽光晕使 `2131872317` 出现大色块，未提交；最终 64x64 纹理采用小核心/短软光，7 秒帧只显示上升弹头小光点。样本封面中的烟花爆炸由 `eventdeath` child definitions、burst、Sprite Trail、`particle/star` 和冲击材质共同生成，当前仍诊断 `childSystemsUnsupported`，因此不能把弹头加载写成烟花完成。`3750342273` 的白色雪粒子与样本 preview 一致；程序纹理和颜色分布仍无 Windows WE pixel golden。
+
+<a id="e-puppet-bc"></a>
+### E-PUPPET-BC: Puppet bind-pose mesh、BC premultiplied 解码与 REFRACT fail-closed
+
+- 实现提交：`8bac86e`。代码：[SceneMdlPuppetMeshReader.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetMeshReader.swift)、[ScenePuppetMeshRecomposer.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/ScenePuppetMeshRecomposer.swift)、[ScenePuppetLayerLoad.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/ScenePuppetLayerLoad.swift)、[SceneBCTextureDecoder.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneBCTextureDecoder.swift)、[SceneCompressedTextureUploader.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneCompressedTextureUploader.swift)、[SceneParticleAssetGraph.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleAssetGraph.swift)
+- 自动门：[test_scene_puppet_mesh.py](../../../script/tests/test_scene_puppet_mesh.py)（8 项：stride 80/84、UV 尾部提取、MDLV0021、magic/块缺失/索引不满射/非有限数据/MDLS 界外全部 fail closed）、[test_scene_bc_texture_decoder.py](../../../script/tests/test_scene_bc_texture_decoder.py)（7 项：BC1 四色/punch-through、BC3 两种 alpha ramp、BC2 显式 alpha、padded 裁剪、尺寸不匹配拒绝）、[test_scene_particle_assets.py](../../../script/tests/test_scene_particle_assets.py)（REFRACT 层置 nil + `refractionUnsupported` 诊断）
+- 定向运行门：`.codex/scene-ahri-puppet-20260725/final/report.json` PASS，报告 SHA-256 `fecc135d11a5e7f7c27ef1d381714f162adc4908262beacd6e793b7553f11918`；`3769688830` 的 7 个 puppet 层（含 stride 84 skinned base）全部 `puppet bind-pose mesh OK`，Ahri 主体构图与样本 preview/SceneBake 方向一致；leg 层 BC3 白色 matte 与 REFRACT 白方块雨消失。
+- 边界：bind pose 为 `executed-degraded`，MDLS/MDLA/MDAT 不消费；attachment 挂点子层（ahriarm/ahriorb/droplets）仍按父层中心定位，有已记录的可见偏差；REFRACT 材质在真实 refraction pass 之前整层 fail closed；BC 解码性能门为未优化 Debug 构建 4K BC1 约 0.3 s（行级并发）。基线 `3750813609` 的 0.62 changed ratio 被证实是 straight-alpha 雨滴白 matte 闪烁的产物，修复后真实动态约 0.02，矩阵阈值已按新口径修正。
 
 <a id="e-provider"></a>
 ### E-PROVIDER: Texture provider、named target 与静态 dependency blend

@@ -203,6 +203,8 @@ https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/<Name>.htm
 
 ## 3. 开源播放器对照
 
+本地参考项目的两份只读审查记录（研究记录，不是现役能力状态）：[全量参考项目审查](../../reviews/scene-reference-project-audit-2026-07-24.md)（HEAD `31ae557` 时）与 [effect/runtime 专题审查](../../reviews/scene-reference-audit-effects-runtime-2026-07-24.md)（有序 effect 链、X-Ray、water、时间/文字、视频纹理主题）。Puppet MDLV mesh block 与 BC 解码的可执行合同已收敛到 [场景格式与 Render Graph](scene-format-and-render-graph.md) 第 11 节，审查记录不再是这两项的事实来源。
+
 ### 3.1 `Almamu/linux-wallpaperengine`
 
 - 仓库：https://github.com/Almamu/linux-wallpaperengine

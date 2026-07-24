@@ -13,7 +13,7 @@
 - P2（主体可用，仍有明确的次级效果差距）：4 个；
 - P3（仅小幅视觉偏差）：0 个。
 
-首轮评估确认的方向仍成立：优先建设通用 runtime，而不是增加按样本命中的 effect 分支。截至 `c06b0fb`，当前增量已包含 authored graph、typed texture registry/property fallback、ShaderContract、B0 binding program/per-surface snapshot、direct dynamic text、十一类 strict backend、ordered strict chain、同帧 copy/swap、受限 history、Precise Blur interleave/legacy compose、exact Shake/Foliage Sway/Water Ripple/Water Waves/Water Flow/X-Ray，以及 11 个精确登记的 built-in 粒子纹理。Timeline、SceneScript、system/media text producer、Texture Variants、通用/effectful/nested provider、真实 persistent/history、generic compose、其余 effect 和粒子 child/event 生命周期仍是主要缺口。精确当前基线只在 [总覆盖台账](semantics/coverage-ledger.md) 维护。
+首轮评估确认的方向仍成立：优先建设通用 runtime，而不是增加按样本命中的 effect 分支。截至 `8bac86e`，当前增量已包含 authored graph、typed texture registry/property fallback、ShaderContract、B0 binding program/per-surface snapshot、direct dynamic text、十一类 strict backend、ordered strict chain、同帧 copy/swap、受限 history、Precise Blur interleave/legacy compose、exact Shake/Foliage Sway/Water Ripple/Water Waves/Water Flow/X-Ray、11 个精确登记的 built-in 粒子纹理、puppet bind-pose mesh 重组、BC1/2/3 premultiplied 解码与 REFRACT 粒子 fail-closed。Timeline、SceneScript、puppet 动画/attachment、system/media text producer、Texture Variants、通用/effectful/nested provider、真实 persistent/history、generic compose、其余 effect 和粒子 child/event 生命周期仍是主要缺口。精确当前基线只在 [总覆盖台账](semantics/coverage-ledger.md) 维护。
 
 ## 范围与证据
 
@@ -48,7 +48,7 @@
 | Utility / Composition | typed composition/project/fullscreen；framebuffer 前缀捕获；局部/full-frame geometry；受限纹理池；mask/partial effect fail-closed；290 的 project 410 / composition 530 与 6 个 named provider / 7 个 consumer 已完成 GPU capture/binding；registry 按 identity/status/generation 选择首个 ready 候选；293 的 providers 141/1340、consumers 299/322 与隐藏 image providers 到 layers 239/657/775/875/1509 的静态 blend 已进入 GPU runtime；受限 property file provider 已接入 | system/media/video/Texture Variants、effectful provider、nested/child target、utility mask、动态 blendgradient 与任意 material/shader pass；不能把受限 named-target/static image 子集写成完整 dependency graph |
 | Particle | 包内 texture、sprite sheet、11 个精确 built-in key、continuous/burst schedule、常见 initializer/operator、additive/translucent、Sprite Trail、静态 override、fixed-step/seed/budget 子集；固定门 15/27、完整 45 门 84/131，`3750813609` 为 7/9 | 21 样本 asset census 仍有 15 个 built-in texture unavailable；atlas/multi-texture、child runtime、rope/rope trail、world-space、动态 control point/override、collision、音频与属性 operator |
 | Text | 当前以 authored `pointsize * 4` 近似官方 300 DPI point raster，处理 vector padding、包内字体、系统字体别名和确定性 fallback 诊断；`3766387484` 3/3、`3122339805` 80/81、`2134765860` 4/6 candidate | 精确 DPI/scene-unit 校准、SceneScript、真实时钟/日期/媒体值、完整对齐/描边/阴影/effect 语义 |
-| 自动门（当前增量） | 45 样本完整快照与固定 13 样本回归门，interpretation format 22，签名 App、Metal 双帧；十一类 strict backend/ordered chain、B0 property、dynamic text generation、provider/file override 与粒子合同；两门分别 45/45、13/13，均有非阻断 preview；318 项 Scene 测试为 315 通过、3 跳过；无 timeout、stop 后 surface=0 | 当前 45 门仍有 22 个 legacy blocked layer、113 个 route-only；固定门另有 2 个 blocked、32 个 route-only；`3770500543` 因缺 package 未进入可运行矩阵；preview 不设绝对阈值且不能跨样本排名，仍没有 Windows WE 同配置录屏差异门 |
+| 自动门（当前增量） | 45 样本完整快照与固定 13 样本回归门，interpretation format 23，签名 App、Metal 双帧；十一类 strict backend/ordered chain、puppet bind-pose、B0 property、dynamic text generation、provider/file override 与粒子合同；415 项 Scene 测试为 412 通过、3 跳过；无 timeout、stop 后 surface=0 | 45 门与固定门数据以 [运行证据索引](semantics/runtime-evidence-index.md) 为准；`3770500543` 因缺 package 未进入可运行矩阵；preview 不设绝对阈值且不能跨样本排名，仍没有 Windows WE 同配置录屏差异门 |
 
 ## 横向能力判断
 

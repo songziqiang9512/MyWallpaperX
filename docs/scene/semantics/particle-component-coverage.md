@@ -6,7 +6,7 @@
 >
 > 口径来源：[官方页面目录](official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[资料来源与证据索引](source-index.md)
 > 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，但还不是通用 Particle System；尤其没有 Layer Image、Children/Event、Collision、动态 Control Point、World Space、Rope、Audio Response 和完整 Particle Material。
-> Scene 实现基线：`c06b0fb`（前置安全整数提交 `10401d7`）；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。完整 45 样本门的 particle 为 `84/131`，固定 13 样本门为 `15/27`，仍不是通用 Particle System。
+> Scene 实现基线：`8bac86e`（REFRACT 材质 fail-closed 与 BC premultiply 修正后，固定 13 样本门 particle 为 `13/27`——两个折射雨层不再计入；完整 45 样本门正在按新口径刷新）；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。仍不是通用 Particle System。
 
 本文把官方 Particle 的 General、Emitter、Initializer、Operator、Renderer、Control Point、Children、instance override 与 material 逐项映射到当前实现。它是 [总覆盖台账](coverage-ledger.md) 中 Particle 行的展开表；总表与本文冲突时，以本文更细粒度、更新的代码证据为准。
 
@@ -255,7 +255,7 @@
 | M06 Normal map | normal texture 参与 lighting/refraction 的表面方向。 | `L1` | [AST] [GPU] | 路径可能留在 texture list，GPU 只绑定 texture(0)。 | normal slot/combo、切线基和 light pixel 门。 |
 | M07 Cutout | 按作者阈值丢弃低 alpha 像素，而不是仅做 translucent blend。 | `L0` | [DEF] [AST] [GPU] | 没有 cutout flag/threshold 或 discard 分支。 | threshold 0/0.5/1 正反 pixel fixture。 |
 | M08 Lighting | 粒子可受 Scene light、normal 与材质参数影响。 | `L0` | [AST] [GPU] | 无 light snapshot、normal/PBR 输入或 lit variant。 | 先接 Scene lighting contract，再做 lit/unlit pixel 门。 |
-| M09 Refraction | 粒子可采样背景并产生折射。 | `L0` | [AST] [GPU] | 无 current framebuffer/background provider。 | background capture、refraction strength 和边界门。 |
+| M09 Refraction | 粒子可采样背景并产生折射。 | `L0` | [AST] [GPU] | 无 current framebuffer/background provider；`REFRACT` combo 的材质自 `8bac86e` 起整层 fail closed（`refractionUnsupported`），不再把 blank 颜色纹理画成白色方块。 | background capture、refraction strength 和边界门。 |
 | M10 Overbright/HDR | 作者可让粒子颜色超过 SDR，并参与 bloom/HDR。 | `L0` | [GPU] [SIM] | brightness 可让 CPU color >1，但当前 target/material 没有正式 HDR contract。 | float target、bloom ordering 与 HDR screenshot 门。 |
 | M11 Additive blend | 粒子颜色加到目标上，常用于光、火花。 | `L3` | [AST] [GPU] [T-AST] [T-GPU] [T-RUN] | 自有 blend factor；未与 WE premultiply/alpha 写入核验。 | 重叠 sprite 和非 1 alpha 的 pixel golden。 |
 | M12 Translucent blend | 粒子按 alpha 与目标混合。 | `L3` | [AST] [GPU] [T-AST] [T-GPU] | 自有 premultiplied 路径；官方边缘像素未知。 | 透明边缘、叠层顺序和颜色空间门。 |

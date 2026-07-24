@@ -2,13 +2,13 @@
 
 > 状态：现役系统汇总；逐项等级以各专项能力表为准
 >
-> 最近核对：2026-07-24
+> 最近核对：2026-07-25
 >
-> Scene 实现基线：`c06b0fb`
+> Scene 实现基线：`dd85dcf`（合成正确性能力提交 `c06b0fb` -> `8bac86e`）
 >
-> 当前完整快照门：`.codex/scene-full45-halo4-final-20260724/report.json`；固定回归门：`.codex/scene-halo4-fixed13-20260724/report.json`
+> 当前完整快照门：`.codex/scene-puppet-full45-20260725/results-v2/report.json`；固定回归门：`.codex/scene-puppet-fixed13-20260725/final-v2/report.json`
 >
-> 最新运行门：真实目录 45 个可运行样本完整快照 45/45、particle 84/131；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 13/13、particle 15/27，仍单独保留且不能互相替代。完整 Scene suite 318 项：315 通过、3 项跳过；语义覆盖 11/11。聚合缺口、视觉证据边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：真实目录 45 个可运行样本完整快照 45/45、particle 79/131；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 13/13、particle 13/27，仍单独保留且不能互相替代。particle 计数按 `8bac86e` 的 REFRACT fail-closed 新口径统计。完整 Scene suite 415 项：412 通过、3 项跳过；语义覆盖 11/11。聚合缺口、视觉证据边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -78,8 +78,8 @@
 | Authored shader path/source identity | `L1` | material path 与 ShaderContract stage/source/raw hash/canonical identity 已安全保存 | 尚无 include expansion、translation、compile 或 executor | B2 |
 | Shader source/include/annotation/declaration contract | `L1` | 完整 source、include reference、annotation raw/structured value、uniform/attribute/varying declaration 已 loss-preserving 保存并诊断 | typed default/combo consumer、include expansion、macro/permutation preprocessor、stage link/translation/compile | B2 |
 | Arbitrary custom shader execution | `L0` | 自有受限 Metal shader 不等于作者 shader | 通用受控翻译/映射、安全与产品门 | P3 |
-| Puppet asset identity | `L1` | 可发现部分 model/material/puppet 资源 | mesh/bone/weight/animation schema | P2 |
-| Puppet runtime | `L0` | 无 mesh/bone/physics executor | animation、constraint/IK、spring/rope/wind/events | P2 |
+| Puppet asset identity | `L2` | MDLV0021/0023 mesh block（stride 80/84、position@0、UV 尾部 8 字节、uint16 三角形、max index==count-1）与 MDAT0001 attachment bind 矩阵布局已由真实资产交叉核验并 fail-closed 解析 | MDLS 骨骼/weights schema、MDLA 动画 schema、超出已验证形状的任何数据 | P2 |
+| Puppet runtime | `L3`（bind pose）/`L0`（动画） | 加载时把 puppet 图集按 mesh 重组为 bind-pose 纹理，下游 mask/effect/blend 无感消费（`8bac86e`，`executed-degraded`）；warp 动画、骨骼播放、attachment 变换、constraint/IK、spring/rope/wind 无 executor | animation 播放、attachment-relative child 定位、physics、events | P2 |
 | 2D lighting/Scene HDR | `L0` | layer Bloom 近似不等于官方 lighting/HDR pipeline | PBR maps、light、shadow/reflection/volumetric、scene post | P2 |
 | 3D model/camera/physics | `L0` | 无 Scene 3D runtime | model/node/material/skeleton/attachment/camera/physics | P3 |
 | RGB device integration | `L0` | 无 Scene RGB provider/output | macOS 策略、授权和 fail-closed | P3 |
@@ -207,8 +207,8 @@
 
 | 能力族 | 当前级别 | 最小可用门 |
 |---|---|---|
-| Puppet asset identity | `L1` | 独立 schema fixture 和完整资源图 |
-| Puppet mesh/bones/weights runtime | `L0` | parse、GPU skinning、层级/遮罩 |
+| Puppet asset identity | `L2` | MDLS/MDLA schema fixture 和完整资源图 |
+| Puppet mesh/bones/weights runtime | `L3` bind pose / `L0` skinning | 动画播放、GPU skinning、层级/遮罩 |
 | Puppet spring/rigid/rope/wind | `L0` | fixed timestep solver、events、确定性 golden |
 | 2D PBR maps | `L0` | normal/roughness/metalness/emissive slot 与 color space |
 | Point/spot/tube/directional light | `L0` | light IR、排序、坐标和至少一条渲染路径 |

@@ -37,7 +37,7 @@
 
 每行只能有一个等级。**通用 primitive 取全部已知 authored 形态的共同最低状态**：某个 strict profile 能执行，只能在该 profile 自己的行和 [Effect 执行覆盖表](effect-execution-coverage.md) 记 `L3`，不能反向把通用 definition、pass、FBO、slot、combo、uniform 或 render state 抬到 `L3`。辅助设施存在也不能把官方语义抬级。
 
-当前代码基线为 `3baf1fc`，interpretation wire schema 为 v22；v22 在既有 ShaderContract/binding program 和 exact stock Opacity 合同基础上保存 direct text content/point-size/color binding program。后续 exact backend 没有增加 wire 字段，execution catalog 在启动时从 authored graph 与 ShaderContract 规划。Opacity direct alpha、Local Contrast strength、受限动态文本与 X-Ray target 可 live 消费 per-surface snapshot；SceneScript alpha、其他动态 effect 参数、Shadow 常量与通用 shader uniform 仍未 live。该版本号只说明当前生成的派生输入能交换已验证数据，不代表可长期复用的缓存或 generic shader uniform 已完成。
+当前代码基线为 `8bac86e`，interpretation wire schema 为 v23；v22 在既有 ShaderContract/binding program 和 exact stock Opacity 合同基础上保存 direct text content/point-size/color binding program，v23 增加 layer `puppetMeshPath`。后续 exact backend 没有增加 wire 字段，execution catalog 在启动时从 authored graph 与 ShaderContract 规划。Opacity direct alpha、Local Contrast strength、受限动态文本与 X-Ray target 可 live 消费 per-surface snapshot；SceneScript alpha、其他动态 effect 参数、Shadow 常量与通用 shader uniform 仍未 live。该版本号只说明当前生成的派生输入能交换已验证数据，不代表可长期复用的缓存或 generic shader uniform 已完成。
 
 ## 2. 三条实现通道
 
