@@ -11,6 +11,9 @@ enum SceneUtilityLayerRenderer {
         viewportSize: CGSize,
         time: Float,
         finalCompositeAlpha: Float,
+        masks: SceneImageLayerMasks,
+        cursorUV: SIMD2<Float>,
+        pointerIsInside: Bool,
         authoredEffectChain: SceneAuthoredEffectExecutionChain?,
         dynamicValues: SceneDynamicSnapshot,
         blocksLegacyGaussianBlur: Bool,
@@ -32,13 +35,14 @@ enum SceneUtilityLayerRenderer {
                 SceneImageLayerDrawRequest(
                     layer: layer,
                     texture: sourceTexture,
-                    masks: .empty,
+                    masks: masks,
                     textureFrame: geometry.sourceUV,
                     mvp: geometry.outputMVP,
                     uniforms: SceneImageLayerUniformValues(
                         time: time,
                         alpha: 1,
-                        cursorUV: .zero
+                        cursorUV: cursorUV,
+                        cursorIsInside: pointerIsInside
                     ),
                     offscreenTexturePool: offscreenTexturePool,
                     offscreenSize: geometry.pixelSize,

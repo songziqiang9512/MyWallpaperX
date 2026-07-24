@@ -1,30 +1,38 @@
-import CoreGraphics
 import simd
 
 enum SceneLayerCursorGeometry {
-    static func worldPosition(
-        camera: SceneRenderDescriptor.CameraDescriptor,
+    static func layerUV(
         mouseNormalized: SIMD2<Float>,
-        viewportSize: CGSize
-    ) -> SIMD2<Float> {
-        let orthoWidth = camera.orthoWidth ?? Float(viewportSize.width)
-        let orthoHeight = camera.orthoHeight ?? Float(viewportSize.height)
-        return SIMD2(
-            orthoWidth * 0.5 + mouseNormalized.x * orthoWidth * 0.5,
-            orthoHeight * 0.5 - mouseNormalized.y * orthoHeight * 0.5
-        )
+        modelViewProjection: simd_float4x4
+    ) -> SIMD2<Float>? {
+        let determinant = simd_determinant(modelViewProjection)
+        guard determinant.isFinite, abs(determinant) > 1e-8 else { return nil }
+        let inverse = simd_inverse(modelViewProjection)
+        guard let near = localPoint(
+            SIMD4(mouseNormalized.x, mouseNormalized.y, 0, 1),
+            inverse: inverse
+        ), let far = localPoint(
+            SIMD4(mouseNormalized.x, mouseNormalized.y, 1, 1),
+            inverse: inverse
+        ) else {
+            return nil
+        }
+        let direction = far - near
+        guard direction.z.isFinite, abs(direction.z) > 1e-8 else { return nil }
+        let distance = -near.z / direction.z
+        guard distance.isFinite else { return nil }
+        let local = near + direction * distance
+        let uv = SIMD2(local.x + 0.5, 0.5 - local.y)
+        return uv.x.isFinite && uv.y.isFinite ? uv : nil
     }
 
-    static func layerUV(
-        for layer: SceneRenderDescriptor.Layer,
-        cursorWorld: SIMD2<Float>
-    ) -> SIMD2<Float> {
-        let origin = SIMD3<Float>(layer.originXYZ ?? [], fill: 0)
-        let size = SIMD2<Float>(layer.renderSizeWH ?? [], fill: 0)
-        guard size.x > 0, size.y > 0 else { return .zero }
-        return SIMD2(
-            (cursorWorld.x - (origin.x - size.x / 2)) / size.x,
-            (cursorWorld.y - (origin.y - size.y / 2)) / size.y
-        )
+    private static func localPoint(
+        _ point: SIMD4<Float>,
+        inverse: simd_float4x4
+    ) -> SIMD3<Float>? {
+        let projected = inverse * point
+        guard projected.w.isFinite, abs(projected.w) > 1e-8 else { return nil }
+        let local = SIMD3(projected.x, projected.y, projected.z) / projected.w
+        return local.x.isFinite && local.y.isFinite && local.z.isFinite ? local : nil
     }
 }

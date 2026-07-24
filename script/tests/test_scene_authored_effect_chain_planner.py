@@ -20,6 +20,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredLocalContrastPlanner.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionChain.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectXRayPrefix.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredPreciseBlurPlanner+Topology.swift",
@@ -129,6 +130,47 @@ enum SceneAuthoredWaterWavesPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneWaterWavesExecutionPlan? {
+        nil
+    }
+}
+
+struct SceneFoliageSwayExecutionPlan {}
+
+enum SceneAuthoredFoliageSwayPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneFoliageSwayExecutionPlan? {
+        nil
+    }
+}
+
+struct SceneWaterRippleExecutionPlan {}
+
+enum SceneAuthoredWaterRipplePlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneWaterRippleExecutionPlan? {
+        nil
+    }
+}
+
+struct SceneXRayExecutionPlan {
+    var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
+}
+
+enum SceneAuthoredXRayPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneXRayExecutionPlan? {
         nil
     }
 }

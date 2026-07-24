@@ -41,8 +41,20 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         stages.filter { $0.waterWaves != nil }.count
     }
 
+    var foliageSwayCount: Int {
+        stages.filter { $0.foliageSway != nil }.count
+    }
+
+    var waterRippleCount: Int {
+        stages.filter { $0.waterRipple != nil }.count
+    }
+
+    var xRayCount: Int {
+        stages.filter { $0.xRay != nil }.count
+    }
+
     var liveConsumerTargets: Set<SceneDynamicTarget> {
-        Set(stages.compactMap(\.liveConsumerTarget))
+        Set(stages.flatMap(\.liveConsumerTargets))
     }
 }
 
@@ -58,13 +70,24 @@ enum SceneAuthoredEffectChainPlanner {
               !graph.effects.isEmpty,
               descriptor.layers.filter({ $0.id == graph.layerID }).count == 1,
               validOuterChain(graph) else {
+#if DEBUG
+            print("MWX authored effect chain rejected layer=\(graph.layerID) reason=outer-chain")
+#endif
             return nil
         }
 
         var stages: [SceneAuthoredEffectExecutionPlan] = []
         stages.reserveCapacity(graph.effects.count)
         for (ordinal, effect) in graph.effects.enumerated() {
-            guard let stageGraph = stageGraph(effect: effect, in: graph) else { return nil }
+            guard let stageGraph = stageGraph(effect: effect, in: graph) else {
+#if DEBUG
+                print(
+                    "MWX authored effect chain rejected layer=\(graph.layerID) "
+                        + "effect=\(effect.definitionPath) index=\(ordinal) reason=stage-graph"
+                )
+#endif
+                return nil
+            }
             let inputRole: SceneAuthoredEffectInputRole = ordinal == 0
                 ? .layerSource
                 : .priorEffectOutput
@@ -109,6 +132,24 @@ enum SceneAuthoredEffectChainPlanner {
                 inputRole: inputRole
             )
             let waterWaves = SceneAuthoredWaterWavesPlanner.plan(
+                graph: stageGraph,
+                descriptor: descriptor,
+                shaderContracts: shaderContracts,
+                inputRole: inputRole
+            )
+            let foliageSway = SceneAuthoredFoliageSwayPlanner.plan(
+                graph: stageGraph,
+                descriptor: descriptor,
+                shaderContracts: shaderContracts,
+                inputRole: inputRole
+            )
+            let waterRipple = SceneAuthoredWaterRipplePlanner.plan(
+                graph: stageGraph,
+                descriptor: descriptor,
+                shaderContracts: shaderContracts,
+                inputRole: inputRole
+            )
+            let xRay = SceneAuthoredXRayPlanner.plan(
                 graph: stageGraph,
                 descriptor: descriptor,
                 shaderContracts: shaderContracts,
@@ -173,13 +214,61 @@ enum SceneAuthoredEffectChainPlanner {
                     logicalRenderTargetCount: 0,
                     inputRole: inputRole
                 )
+            } else if let foliageSway {
+                stage = SceneAuthoredEffectExecutionPlan(
+                    layerID: graph.layerID,
+                    renderGraph: stageGraph,
+                    backend: .foliageSway(foliageSway),
+                    materialNodeCount: 1,
+                    logicalRenderTargetCount: 0,
+                    inputRole: inputRole
+                )
+            } else if let waterRipple {
+                stage = SceneAuthoredEffectExecutionPlan(
+                    layerID: graph.layerID,
+                    renderGraph: stageGraph,
+                    backend: .waterRipple(waterRipple),
+                    materialNodeCount: 1,
+                    logicalRenderTargetCount: 0,
+                    inputRole: inputRole
+                )
+            } else if let xRay {
+                stage = SceneAuthoredEffectExecutionPlan(
+                    layerID: graph.layerID,
+                    renderGraph: stageGraph,
+                    backend: .xRay(xRay),
+                    materialNodeCount: 1,
+                    logicalRenderTargetCount: 0,
+                    inputRole: inputRole
+                )
             } else {
                 stage = nil
             }
-            guard let stage else { return nil }
+            guard let stage else {
+                if let prefix = xRayPrefix(
+                    plannedStages: stages,
+                    unsupportedOrdinal: ordinal,
+                    graph: graph,
+                    descriptor: descriptor
+                ) {
+                    return prefix
+                }
+#if DEBUG
+                print(
+                    "MWX authored effect chain rejected layer=\(graph.layerID) "
+                        + "effect=\(effect.definitionPath) index=\(ordinal) reason=unsupported-stage"
+                )
+#endif
+                return nil
+            }
             stages.append(stage)
         }
-        guard fitsDefaultTextureBudget(stages) else { return nil }
+        guard fitsDefaultTextureBudget(stages) else {
+#if DEBUG
+            print("MWX authored effect chain rejected layer=\(graph.layerID) reason=texture-budget")
+#endif
+            return nil
+        }
 
         return SceneAuthoredEffectExecutionChain(
             layerID: graph.layerID,
@@ -191,6 +280,9 @@ enum SceneAuthoredEffectChainPlanner {
     nonisolated static func fitsDefaultTextureBudget(
         _ stages: [SceneAuthoredEffectExecutionPlan]
     ) -> Bool {
+        if stages.allSatisfy({ $0.logicalRenderTargetCount == 0 }) {
+            return !stages.isEmpty
+        }
         var textureUnits = 0
         for stage in stages {
             let (stageUnits, stageOverflow) = stage.logicalRenderTargetCount
@@ -237,7 +329,7 @@ enum SceneAuthoredEffectChainPlanner {
         return true
     }
 
-    private nonisolated static func stageGraph(
+    nonisolated static func stageGraph(
         effect: Graph.Effect,
         in graph: Graph
     ) -> Graph? {

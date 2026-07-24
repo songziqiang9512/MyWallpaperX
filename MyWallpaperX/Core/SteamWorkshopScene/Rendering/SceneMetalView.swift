@@ -17,13 +17,9 @@ class SceneMetalView: NSView {
     private var particlePlayback: SceneParticlePlaybackState?
     private var dynamicTextTextures: SceneDynamicTextTextureStore?
     private let offscreenTexturePool: SceneOffscreenTexturePool
-    // Mouse position normalized to view bounds: x and y in [-1, +1] with
-    // (0,0) at the view's center, +Y up. Defaults to (0,0) when the cursor
-    // is outside the view. Drives authored layer parallax + cursorripple UV.
-    var mouseNormalized: SIMD2<Float> = .zero
-    var previousMouseNormalized: SIMD2<Float> = .zero
-    private var parallaxPointerSmoother: SceneParallaxPointerSmoother
-    private var trackingArea: NSTrackingArea?
+    var pointerState = SceneSurfacePointerState()
+    var parallaxPointerSmoother: SceneParallaxPointerSmoother
+    var trackingArea: NSTrackingArea?
 #if DEBUG
     private let debugFrameCapture = SceneDebugFrameCapture()
 #endif
@@ -48,7 +44,9 @@ class SceneMetalView: NSView {
         let layer = CAMetalLayer()
         layer.device = renderer.device
         layer.pixelFormat = .bgra8Unorm
-        layer.framebufferOnly = !renderDescriptor.requiresReadableFramebuffer
+        layer.framebufferOnly = !renderDescriptor.requiresReadableFramebuffer(
+            authoredEffectCatalog: authoredEffectCatalog
+        )
 #if DEBUG
         debugFrameCapture.configure(layer)
 #endif
@@ -93,69 +91,16 @@ class SceneMetalView: NSView {
         updateDrawableSize()
     }
 
-    // MARK: - Mouse tracking
-
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
-        if let existing = trackingArea {
-            removeTrackingArea(existing)
-        }
-        let area = NSTrackingArea(
-            rect: bounds,
-            options: [.activeInActiveApp, .mouseMoved, .mouseEnteredAndExited, .inVisibleRect],
-            owner: self,
-            userInfo: nil
-        )
-        addTrackingArea(area)
-        trackingArea = area
+        configurePointerTracking()
     }
 
-    override func mouseMoved(with event: NSEvent) {
-        updateMouseNormalized(event)
-    }
-
-    override func mouseEntered(with event: NSEvent) {
-        updateMouseNormalized(event)
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        setMouseNormalized(.zero)
-    }
-
-    func updateMouseLocationInScreen(_ screenPoint: CGPoint) {
-        guard let window else {
-            setMouseNormalized(.zero)
-            return
-        }
-        let windowPoint = window.convertPoint(fromScreen: screenPoint)
-        let local = convert(windowPoint, from: nil)
-        guard bounds.contains(local), bounds.width > 0, bounds.height > 0 else {
-            setMouseNormalized(.zero)
-            return
-        }
-        let nx = Float((local.x / bounds.width) * 2 - 1)
-        let ny = Float((local.y / bounds.height) * 2 - 1)
-        setMouseNormalized(SIMD2(
-            max(-1, min(1, nx)),
-            max(-1, min(1, ny))
-        ))
-    }
-
-    private func updateMouseNormalized(_ event: NSEvent) {
-        let local = convert(event.locationInWindow, from: nil)
-        guard bounds.width > 0, bounds.height > 0 else { return }
-        let nx = Float((local.x / bounds.width) * 2 - 1)
-        let ny = Float((local.y / bounds.height) * 2 - 1)
-        setMouseNormalized(SIMD2(
-            max(-1, min(1, nx)),
-            max(-1, min(1, ny))
-        ))
-    }
-
-    private func setMouseNormalized(_ value: SIMD2<Float>) {
-        mouseNormalized = value
-        parallaxPointerSmoother.setTarget(value, timestamp: CACurrentMediaTime())
-    }
+    override func mouseMoved(with event: NSEvent) { handlePointerEvent(event) }
+    override func mouseEntered(with event: NSEvent) { handlePointerEvent(event) }
+    override func mouseExited(with event: NSEvent) { handlePointerExit() }
+    override func mouseDown(with event: NSEvent) { handlePointerEvent(event) }
+    override func mouseUp(with event: NSEvent) { handlePointerEvent(event) }
 
     private func updateDrawableSize() {
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1
@@ -189,7 +134,7 @@ class SceneMetalView: NSView {
         let imageLayers = renderer.renderDescriptor.layers.filter(\.isImageRenderable)
         report.append("imageLayerCount: \(imageLayers.count)")
         report.append("solidLayerCount: \(imageLayers.filter { $0.contentKind == "solid" }.count)")
-        report.append(contentsOf: SceneUtilityLayerRuntimePlanner.reportLines(descriptor: renderer.renderDescriptor))
+        report.append(contentsOf: renderer.utilityRuntimeReportLines())
         report.append(contentsOf: renderer.authoredEffectRuntimeReportLines())
         report.append(contentsOf: SceneImageBlendRenderPlan(
             descriptor: renderer.renderDescriptor,
@@ -215,7 +160,8 @@ class SceneMetalView: NSView {
                 let effectTextures = SceneLayerEffectTextureLoader.load(
                     for: layer, resolver: resolver, loader: loader, device: metalDevice,
                     shakeEffectIDs: shakeEffectIDs, waterFlowEffectIDs: waterFlowEffectIDs,
-                    waterWavesEffectIDs: waterWavesEffectIDs
+                    waterWavesEffectIDs: waterWavesEffectIDs,
+                    userPropertyTextures: userPropertyTextureLoad.textures
                 )
                 loadedEffectTextures.merge(layerID: layer.id, textures: effectTextures)
                 let color = SIMD3(layer.colorRGB ?? [], fill: 1)
@@ -272,7 +218,8 @@ class SceneMetalView: NSView {
                     loader: loader,
                     device: metalDevice,
                     shakeEffectIDs: shakeEffectIDs, waterFlowEffectIDs: waterFlowEffectIDs,
-                    waterWavesEffectIDs: waterWavesEffectIDs
+                    waterWavesEffectIDs: waterWavesEffectIDs,
+                    userPropertyTextures: userPropertyTextureLoad.textures
                 )
                 loadedEffectTextures.merge(layerID: layer.id, textures: effectTextures)
                 message += effectTextures.message
@@ -307,6 +254,24 @@ class SceneMetalView: NSView {
             case .textureAllocationFailed(let w, let h):
                 report.append("layer \(layer.id) \"\(name)\": texture allocation failed at \(w)×\(h); \(placementSummary)")
             }
+        }
+        let utilityXRayLayers = renderer.renderDescriptor.layers.filter { layer in
+            layer.utilityLayer != nil
+                && (renderer.authoredEffectChain(for: layer.id)?.xRayCount ?? 0) > 0
+        }
+        for layer in utilityXRayLayers {
+            let effectTextures = SceneLayerEffectTextureLoader.load(
+                for: layer,
+                resolver: resolver,
+                loader: loader,
+                device: metalDevice,
+                userPropertyTextures: userPropertyTextureLoad.textures
+            )
+            loadedEffectTextures.merge(layerID: layer.id, textures: effectTextures)
+            report.append(
+                "utility layer \(layer.id) \"\(layer.name ?? "(unnamed)")\""
+                    + effectTextures.message
+            )
         }
         imageTextures = loaded
         spriteAnimations = loadedSpriteAnimations
@@ -361,7 +326,7 @@ class SceneMetalView: NSView {
             dynamicValues: dynamicValues,
             parallax: parallaxMouseNormalized
         )
-        previousMouseNormalized = mouseNormalized
+        pointerState.previous = pointerState.current
         let particleBatches = particlePlayback?.advance(by: timing.frameTime) ?? []
         dynamicTextTextures?.update(from: dynamicValues)
         var currentImageTextures = imageTextures

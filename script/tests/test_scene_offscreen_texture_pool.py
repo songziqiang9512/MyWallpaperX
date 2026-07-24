@@ -38,6 +38,10 @@ struct SceneAuthoredEffectExecutionPlan {
 struct SceneAuthoredEffectExecutionChain {
     let layerID: Int
     let stages: [SceneAuthoredEffectExecutionPlan]
+
+    var renderGraph: SceneAuthoredEffectRenderPlan {
+        stages.last!.renderGraph
+    }
 }
 
 @main

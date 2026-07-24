@@ -11,10 +11,18 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneFrameContext.swift"
+POINTER_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneSurfacePointerState.swift"
+)
 DYNAMIC_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneDynamicSnapshot.swift"
 )
 HOST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift"
+LIVE_CONSUMERS_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+LiveConsumers.swift"
+)
 VIEW_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView.swift"
 COORDINATOR_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/MainWindowCoordinator.swift"
 DEBUG_RUNNER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner.swift"
@@ -48,8 +56,12 @@ enum Harness {
             dynamicValues: .empty(frameIndex: second.frameIndex, generation: 4),
             canvasSize: CGSize(width: 1920, height: 1080),
             screenSize: CGSize(width: 3024, height: 1964),
-            pointerCurrent: SIMD2(0.5, -0.25),
-            pointerPrevious: SIMD2(0.25, -0.5),
+            pointer: .init(
+                current: SIMD2(0.5, -0.25),
+                previous: SIMD2(0.25, -0.5),
+                isInside: true,
+                isPrimaryButtonDown: false
+            ),
             cameraParallaxPosition: SIMD2(0.1, 0.2)
         )
         let payload: [String: Any] = [
@@ -95,7 +107,15 @@ class SceneFrameContextTests(unittest.TestCase):
         harness.write_text(HARNESS, encoding="utf-8")
         binary = directory / "scene-frame-context"
         compilation = subprocess.run(
-            ["swiftc", str(DYNAMIC_SOURCE), str(SOURCE), str(harness), "-o", str(binary)],
+            [
+                "swiftc",
+                str(DYNAMIC_SOURCE),
+                str(POINTER_SOURCE),
+                str(SOURCE),
+                str(harness),
+                "-o",
+                str(binary),
+            ],
             capture_output=True,
             text=True,
         )
@@ -178,10 +198,8 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("interpretationFile: model.interpretationFile", debug_runner)
 
     def test_host_derives_only_renderer_backed_live_consumers(self) -> None:
-        host = HOST_SOURCE.read_text(encoding="utf-8")
-        start = host.index("private static func activeLiveConsumerTargets(")
-        end = host.index("private func startFrameDriver()", start)
-        derivation = host[start:end]
+        derivation = LIVE_CONSUMERS_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("static func activeLiveConsumerTargets(", derivation)
         self.assertIn(
             "into: authoredEffectCatalog.liveConsumerTargets",
             derivation,

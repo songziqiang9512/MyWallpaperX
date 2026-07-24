@@ -105,6 +105,7 @@ struct SceneTexContainerReader {
 
     private static let maximumImageCount = 512
     private static let maximumMipCount = 32
+    private static let maximumMipMetadataEntryCount = 32
     private static let maximumMipByteCount = 250_000_000
     private static let maximumSpriteFrameCount = 65_536
 
@@ -142,6 +143,7 @@ struct SceneTexContainerReader {
 
         var freeImageFormat: Int32 = -1
         var isVideoMp4 = false
+        var mipMetadataEntryCount = 0
         let effectiveContainerVersion: SceneTexContainer.ContainerVersion
 
         switch declaredContainerVersion {
@@ -160,9 +162,15 @@ struct SceneTexContainerReader {
             }
             freeImageFormat = data.int32LE(at: offset)
             offset += 4
-            isVideoMp4 = data.uint32LE(at: offset) == 1
+            mipMetadataEntryCount = Int(data.uint32LE(at: offset))
             offset += 4
-            effectiveContainerVersion = isVideoMp4 ? .texb0004 : .texb0003
+            guard mipMetadataEntryCount <= Self.maximumMipMetadataEntryCount else {
+                throw ReadError.invalidMipTable
+            }
+            isVideoMp4 = mipMetadataEntryCount == 1
+            effectiveContainerVersion = mipMetadataEntryCount == 0
+                ? .texb0003
+                : .texb0004
         }
 
         var firstImageMips: [SceneTexContainer.Mip] = []
@@ -182,7 +190,8 @@ struct SceneTexContainerReader {
                 let mip = try readMip(
                     data: data,
                     offset: &offset,
-                    containerVersion: effectiveContainerVersion
+                    containerVersion: effectiveContainerVersion,
+                    metadataEntryCount: mipMetadataEntryCount
                 )
                 if mipIndex == 0 {
                     imageSizes.append(SIMD2(Float(mip.width), Float(mip.height)))
@@ -284,18 +293,21 @@ struct SceneTexContainerReader {
     private func readMip(
         data: Data,
         offset: inout Int,
-        containerVersion: SceneTexContainer.ContainerVersion
+        containerVersion: SceneTexContainer.ContainerVersion,
+        metadataEntryCount: Int
     ) throws -> SceneTexContainer.Mip {
         if containerVersion == .texb0004 {
-            guard offset + 8 <= data.count else {
-                throw ReadError.invalidMipTable
+            for _ in 0..<metadataEntryCount {
+                guard offset + 8 <= data.count else {
+                    throw ReadError.invalidMipTable
+                }
+                offset += 8
+                try data.skipNullTerminatedString(at: &offset)
+                guard offset + 4 <= data.count else {
+                    throw ReadError.invalidMipTable
+                }
+                offset += 4
             }
-            offset += 8
-            try data.skipNullTerminatedString(at: &offset)
-            guard offset + 4 <= data.count else {
-                throw ReadError.invalidMipTable
-            }
-            offset += 4
         }
 
         guard offset + 8 <= data.count else {
@@ -370,30 +382,5 @@ struct SceneTexContainerReader {
             throw ReadError.decompressionFailed(expectedSize: expectedSize, actualSize: actualSize)
         }
         return decoded
-    }
-}
-
-private extension Data {
-    func uint32LE(at offset: Int) -> UInt32 {
-        self.withUnsafeBytes { rawBuffer in
-            rawBuffer.loadUnaligned(fromByteOffset: offset, as: UInt32.self).littleEndian
-        }
-    }
-
-    func int32LE(at offset: Int) -> Int32 {
-        self.withUnsafeBytes { rawBuffer in
-            rawBuffer.loadUnaligned(fromByteOffset: offset, as: Int32.self).littleEndian
-        }
-    }
-
-    func float32LE(at offset: Int) -> Float {
-        Float(bitPattern: uint32LE(at: offset))
-    }
-
-    func skipNullTerminatedString(at offset: inout Int) throws {
-        guard let terminator = self[offset...].firstIndex(of: 0) else {
-            throw SceneTexContainerReader.ReadError.invalidMipTable
-        }
-        offset = terminator + 1
     }
 }

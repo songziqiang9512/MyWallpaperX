@@ -40,6 +40,23 @@ extension ScenePropertyBindingCompiler {
                 passIndex: passIndex,
                 name: "alpha"
             )
+        case let .effectVisibility(layerID, effectIndex, effectPath)
+            where normalized(effectPath) == "effects/xray/effect.json":
+            (
+                .effectVisibility(layerID: layerID, effectIndex: effectIndex),
+                .bool,
+                .bool
+            )
+        case let .shaderValue(layerID, effectIndex, passIndex, name, effectPath)
+            where normalized(effectPath) == "effects/xray/effect.json"
+                && passIndex == 0
+                && (name.lowercased() == "size" || name.lowercased() == "multiply"):
+            effectConstant(
+                layerID: layerID,
+                effectIndex: effectIndex,
+                passIndex: passIndex,
+                name: name.lowercased()
+            )
         default:
             nil
         }

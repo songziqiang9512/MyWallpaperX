@@ -5,24 +5,28 @@ struct SceneImageLayerMasks {
     let iris: MTLTexture?
     let opacity: MTLTexture?
     let water: MTLTexture?
+    let waterUVScale: SIMD2<Float>
     let foliage: MTLTexture?
     let foliageUVScale: SIMD2<Float>
     let waterRippleNormal: MTLTexture?
     let shakeEffects: [String: SceneShakeEffectTextures]
     let waterFlowEffects: [String: SceneWaterFlowEffectTextures]
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
+    let xRay: SceneXRayEffectTextures?
 
     var authoredEffectResourcesOnly: SceneImageLayerMasks {
         SceneImageLayerMasks(
             iris: nil,
             opacity: nil,
-            water: nil,
-            foliage: nil,
-            foliageUVScale: SIMD2(repeating: 1),
-            waterRippleNormal: nil,
+            water: water,
+            waterUVScale: waterUVScale,
+            foliage: foliage,
+            foliageUVScale: foliageUVScale,
+            waterRippleNormal: waterRippleNormal,
             shakeEffects: shakeEffects,
             waterFlowEffects: waterFlowEffects,
-            waterWavesEffects: waterWavesEffects
+            waterWavesEffects: waterWavesEffects,
+            xRay: xRay
         )
     }
 
@@ -30,30 +34,54 @@ struct SceneImageLayerMasks {
         iris: nil,
         opacity: nil,
         water: nil,
+        waterUVScale: SIMD2(repeating: 1),
         foliage: nil,
         foliageUVScale: SIMD2(repeating: 1),
         waterRippleNormal: nil,
         shakeEffects: [:],
         waterFlowEffects: [:],
-        waterWavesEffects: [:]
+        waterWavesEffects: [:],
+        xRay: nil
     )
+
+    static func xRayOnly(_ xRay: SceneXRayEffectTextures?) -> SceneImageLayerMasks {
+        SceneImageLayerMasks(
+            iris: nil,
+            opacity: nil,
+            water: nil,
+            waterUVScale: SIMD2(repeating: 1),
+            foliage: nil,
+            foliageUVScale: SIMD2(repeating: 1),
+            waterRippleNormal: nil,
+            shakeEffects: [:],
+            waterFlowEffects: [:],
+            waterWavesEffects: [:],
+            xRay: xRay
+        )
+    }
 }
 
 struct SceneImageLayerUniformValues {
     let time: Float
     let alpha: Float
     let cursorUV: SIMD2<Float>
+    let cursorIsInside: Bool
+    let primaryButtonIsDown: Bool
     let tint: SIMD3<Float>
 
     init(
         time: Float,
         alpha: Float,
         cursorUV: SIMD2<Float>,
+        cursorIsInside: Bool = true,
+        primaryButtonIsDown: Bool = false,
         tint: SIMD3<Float> = SIMD3(repeating: 1)
     ) {
         self.time = time
         self.alpha = alpha
         self.cursorUV = cursorUV
+        self.cursorIsInside = cursorIsInside
+        self.primaryButtonIsDown = primaryButtonIsDown
         self.tint = tint
     }
 }

@@ -198,16 +198,20 @@ class SceneDynamicLayerValuesTests(unittest.TestCase):
         image_case = renderer.split('case "image", "solid", "text":', 1)[1].split(
             'case "composition", "project", "fullscreen":', 1
         )[0]
-        utility_case, particle_tail = renderer.split(
+        _, particle_tail = renderer.split(
             'case "composition", "project", "fullscreen":', 1
         )[1].split('case "particle":', 1)
+        utility_case = renderer.split("private func renderUtilityPlans(", 1)[1]
         particle_case = particle_tail.split("default:", 1)[0]
         self.assertIn("SceneDynamicLayerValues.alpha(", image_case)
         self.assertIn("SceneDynamicLayerValues.color(", image_case)
         self.assertIn("snapshot: frameContext.dynamicValues", image_case)
         self.assertIn("alpha: layerAlpha", image_case)
         self.assertIn("SceneDynamicLayerValues.alpha(", utility_case)
-        self.assertIn("finalCompositeAlpha: layerAlpha", utility_case)
+        self.assertIn(
+            "finalCompositeAlpha: SceneDynamicLayerValues.alpha(",
+            utility_case,
+        )
         self.assertNotIn("SceneDynamicLayerValues.alpha(", particle_case)
         self.assertNotIn("Float(layer.alpha ?? 1)", renderer)
 

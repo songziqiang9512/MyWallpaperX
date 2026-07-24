@@ -104,7 +104,7 @@ final class SceneOffscreenTexturePool {
         requestedWidth: Int,
         requestedHeight: Int
     ) -> SceneGraphRenderTargetTable? {
-        graphTargetTransaction(
+        return graphTargetTransaction(
             stages: [executionPlan],
             layerID: executionPlan.layerID,
             validatesChainOrder: false,
@@ -118,13 +118,66 @@ final class SceneOffscreenTexturePool {
         requestedWidth: Int,
         requestedHeight: Int
     ) -> [SceneGraphRenderTargetTable]? {
-        graphTargetTransaction(
+        if chain.stages.allSatisfy({ $0.logicalRenderTargetCount == 0 }) {
+            return sharedGraphTargets(
+                for: chain,
+                requestedWidth: requestedWidth,
+                requestedHeight: requestedHeight
+            )
+        }
+        return graphTargetTransaction(
             stages: chain.stages,
             layerID: chain.layerID,
             validatesChainOrder: true,
             requestedWidth: requestedWidth,
             requestedHeight: requestedHeight
         )
+    }
+
+    private func sharedGraphTargets(
+        for chain: SceneAuthoredEffectExecutionChain,
+        requestedWidth: Int,
+        requestedHeight: Int
+    ) -> [SceneGraphRenderTargetTable]? {
+        guard pixelFormat == .bgra8Unorm, !chain.stages.isEmpty else { return nil }
+        let (width, height) = limitedDimensions(
+            width: requestedWidth,
+            height: requestedHeight
+        )
+        guard let pair = textures(width: width, height: height) else { return nil }
+        let inputs = [pair.primary, pair.tertiary, pair.secondary]
+        let outputs = [pair.secondary, pair.primary, pair.tertiary]
+        var priorOutput: SceneAuthoredEffectRenderPlan.TextureIdentity?
+        var tables: [SceneGraphRenderTargetTable] = []
+        tables.reserveCapacity(chain.stages.count)
+        for (index, stage) in chain.stages.enumerated() {
+            guard stage.layerID == chain.layerID,
+                  case .success(let plan) = SceneGraphRenderTargetPlan.make(
+                      executionPlan: stage,
+                      graph: stage.renderGraph,
+                      inputWidth: width,
+                      inputHeight: height
+                  ) else {
+                return nil
+            }
+            if let priorOutput {
+                guard plan.inputRole == .priorEffectOutput,
+                      plan.input == priorOutput else { return nil }
+            } else {
+                guard plan.inputRole == .layerSource else { return nil }
+            }
+            let rotation = index % inputs.count
+            guard case .success(let table) = SceneGraphRenderTargetTable.makeBorrowed(
+                plan: plan,
+                inputTexture: inputs[rotation],
+                outputTexture: outputs[rotation]
+            ) else {
+                return nil
+            }
+            tables.append(table)
+            priorOutput = plan.output
+        }
+        return priorOutput == chain.renderGraph.finalOutput ? tables : nil
     }
 
     private func graphTargetTransaction(

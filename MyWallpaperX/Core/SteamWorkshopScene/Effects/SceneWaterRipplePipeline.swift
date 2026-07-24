@@ -10,6 +10,9 @@ private struct SceneWaterRippleUniforms {
     let direction: Float
     let ratio: Float
     let strength: Float
+    let maskUVScale: SIMD2<Float>
+    let hasMask: UInt32
+    let padding: UInt32 = 0
 }
 
 private let sceneWaterRippleShader = """
@@ -30,6 +33,9 @@ struct WaterRippleUniforms {
     float direction;
     float ratio;
     float strength;
+    float2 maskUVScale;
+    uint hasMask;
+    uint padding;
 };
 
 struct WaterRippleVaryings {
@@ -51,6 +57,7 @@ fragment float4 sceneWaterRippleFrag(
     WaterRippleVaryings in [[stage_in]],
     texture2d<float> source [[texture(0)]],
     texture2d<float> normalMap [[texture(1)]],
+    texture2d<float> maskTexture [[texture(2)]],
     constant WaterRippleUniforms &u [[buffer(0)]]
 ) {
     constexpr sampler sourceSampler(filter::linear, address::clamp_to_edge);
@@ -66,7 +73,16 @@ fragment float4 sceneWaterRippleFrag(
     float3 n2 = normalMap.sample(normalSampler, rippleUV2).xyz * 2.0 - 1.0;
     float3 normal = normalize(float3(n1.xy + n2.xy, n1.z));
     float2 sourceUV = in.uv + normal.xy * u.strength * u.strength;
-    return source.sample(sourceSampler, sourceUV);
+    float4 base = source.sample(sourceSampler, in.uv);
+    float4 distorted = source.sample(sourceSampler, sourceUV);
+    float mask = 1.0;
+    if (u.hasMask != 0u) {
+        mask = maskTexture.sample(
+            sourceSampler,
+            clamp(in.uv * u.maskUVScale, 0.0, 1.0)
+        ).r;
+    }
+    return mix(base, distorted, mask);
 }
 """
 
@@ -99,6 +115,8 @@ struct SceneWaterRipplePipeline {
         target: MTLTexture,
         plan: SceneWaterRippleNormalPlan,
         time: Float,
+        maskTexture: MTLTexture? = nil,
+        maskUVScale: SIMD2<Float> = SIMD2(repeating: 1),
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
         let descriptor = MTLRenderPassDescriptor()
@@ -116,13 +134,16 @@ struct SceneWaterRipplePipeline {
             scrollSpeed: plan.scrollSpeed,
             direction: plan.direction,
             ratio: plan.ratio,
-            strength: plan.strength
+            strength: plan.strength,
+            maskUVScale: maskUVScale,
+            hasMask: maskTexture == nil ? 0 : 1
         )
         encoder.setRenderPipelineState(state)
         encoder.setVertexBytes(&vertexCopy, length: MemoryLayout<SceneQuadVertex>.stride * vertexCopy.count, index: 0)
         encoder.setFragmentBytes(&uniforms, length: MemoryLayout<SceneWaterRippleUniforms>.stride, index: 0)
         encoder.setFragmentTexture(source, index: 0)
         encoder.setFragmentTexture(normalMap, index: 1)
+        encoder.setFragmentTexture(maskTexture ?? normalMap, index: 2)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: vertexCopy.count)
         encoder.endEncoding()
         return true

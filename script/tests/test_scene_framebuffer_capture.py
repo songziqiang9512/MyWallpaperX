@@ -38,6 +38,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneBloomPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWaterRipplePipeline.swift",
     SOURCE_ROOT / "Effects/ScenePerspectiveOpacityPipeline.swift",
+    SOURCE_ROOT / "Effects/SceneXRayPipeline.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectMaskSemantics.swift",
     SOURCE_ROOT / "Effects/SceneFoliageSwayRuntimePlan.swift",
     SOURCE_ROOT / "Effects/SceneGaussianBlurRuntimePlan.swift",
@@ -51,6 +52,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift",
+    SOURCE_ROOT / "Rendering/SceneImageLayerCompositor+Uniforms.swift",
     SOURCE_ROOT / "Runtime/SceneGPUCompletionTelemetry.swift",
 ]
 
@@ -80,6 +82,7 @@ struct SceneDocument {
 struct SceneRenderDescriptor {
     struct EffectDescriptor {
         struct PassDescriptor {
+            let passIndex: Int
             let texturePaths: [String]
             let textureSlots: [String?]
             let userTextureInputs: [Int?]
@@ -87,12 +90,14 @@ struct SceneRenderDescriptor {
             let constantShaderValues: [String: SceneDocument.ShaderValue]
 
             init(
+                passIndex: Int = 0,
                 texturePaths: [String],
                 textureSlots: [String?],
                 userTextureInputs: [Int?] = [],
                 combos: [String: Int],
                 constantShaderValues: [String: SceneDocument.ShaderValue]
             ) {
+                self.passIndex = passIndex
                 self.texturePaths = texturePaths
                 self.textureSlots = textureSlots
                 self.userTextureInputs = userTextureInputs
@@ -163,6 +168,9 @@ struct SceneAuthoredEffectExecutionPlan {
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
+        case foliageSway(SceneFoliageSwayExecutionPlan)
+        case waterRipple(SceneWaterRippleExecutionPlan)
+        case xRay(SceneXRayExecutionPlan)
     }
 
     let layerID: Int
@@ -326,6 +334,27 @@ enum SceneWaterWavesRenderer {
     }
 }
 
+struct SceneFoliageSwayExecutionPlan {}
+
+enum SceneFoliageSwayRenderer {
+    static func render(
+        plan: SceneFoliageSwayExecutionPlan,
+        sourceTexture: MTLTexture,
+        maskTexture: MTLTexture,
+        maskUVScale: SIMD2<Float>,
+        target: MTLTexture,
+        time: Float,
+        sourcePipeline: SceneImageLayerPipeline,
+        commandBuffer: MTLCommandBuffer
+    ) -> MTLTexture? {
+        nil
+    }
+}
+
+struct SceneWaterRippleExecutionPlan {
+    let runtimePlan: SceneWaterRippleNormalPlan
+}
+
 struct SceneAuthoredEffectExecutionChain {
     let layerID: Int
     let renderGraph: SceneAuthoredEffectRenderPlan
@@ -342,6 +371,59 @@ struct SceneDynamicSnapshot {
 
     static func empty(frameIndex: UInt64, generation: UInt64 = 0) -> Self {
         Self(strengthsByEffectIndex: [:], opacitiesByEffectIndex: [:])
+    }
+}
+
+struct SceneXRayEffectTextures {
+    let blend: MTLTexture
+    let halo: MTLTexture?
+    let opacityMask: MTLTexture?
+}
+
+enum SceneXRayRuntimeResolution {
+    case identity
+    case render(SceneXRayRuntimePlan)
+    case unsupported
+}
+
+struct SceneXRayRuntimePlan {
+    let layerID: Int
+    let effectIndex: Int
+    let effectID: String
+    let blendTexturePath: String
+    let opacityMaskPath: String?
+    let size: Float
+    let multiply: Float
+    let blendUVScale: SIMD2<Float>
+    let opacityUVScale: SIMD2<Float>
+}
+
+struct SceneXRayExecutionPlan {
+    let declaration: SceneXRayRuntimePlanner.Declaration
+}
+
+enum SceneXRayRuntimePlanner {
+    struct Declaration {}
+
+    static func resolve(
+        declaration: Declaration,
+        resources: SceneXRayEffectTextures?,
+        snapshot: SceneDynamicSnapshot,
+        pointerIsInside: Bool
+    ) -> SceneXRayRuntimeResolution {
+        guard pointerIsInside else { return .identity }
+        guard resources != nil else { return .unsupported }
+        return .render(SceneXRayRuntimePlan(
+            layerID: 2998757800,
+            effectIndex: 5,
+            effectID: "2998757800#effect#5",
+            blendTexturePath: "materials/xray/blend",
+            opacityMaskPath: "materials/xray/opacity",
+            size: 1,
+            multiply: 1,
+            blendUVScale: SIMD2(repeating: 1),
+            opacityUVScale: SIMD2(repeating: 1)
+        ))
     }
 }
 
@@ -809,6 +891,14 @@ enum Harness {
             mappedWidth: 3840,
             mappedHeight: 2160
         )
+        let decodedMappedScale = SceneTextureMappedUVScale.resolve(
+            physicalWidth: 2048,
+            physicalHeight: 2048,
+            mappedWidth: 1415,
+            mappedHeight: 2047,
+            sampledWidth: 1415,
+            sampledHeight: 2047
+        )
         let imageBlend = try imageBlendPixel(
             device: device,
             queue: queue,
@@ -841,6 +931,12 @@ enum Harness {
             compositor: compositor,
             sourceBGRA: [128, 128, 128, 128],
             dependencyBGRA: [0, 255, 0, 255]
+        )
+        let xRayThreeTextureRoute = try xRayThreeTextureRouteEvidence(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor
         )
 
         let result: [String: Any] = [
@@ -891,12 +987,14 @@ enum Harness {
             ],
             "unsupportedFoliageFlags": unsupportedFoliage.flags.rawValue,
             "mappedMaskScale": [mappedMaskScale.x, mappedMaskScale.y],
+            "decodedMappedScale": [decodedMappedScale.x, decodedMappedScale.y],
             "imageBlendBGRA": imageBlend,
             "halfImageBlendBGRA": halfImageBlend,
             "partialAlphaImageBlendBGRA": partialAlphaImageBlend,
             "gradientTopBGRA": standaloneGradientPixels[0],
             "gradientBottomBGRA": standaloneGradientPixels[1],
             "clippedGradientTopBGRA": clippedGradientPixels[0],
+            "xRayThreeTextureRoute": xRayThreeTextureRoute,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -1733,6 +1831,182 @@ enum Harness {
         ]
     }
 
+    static func xRayThreeTextureRouteEvidence(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor
+    ) throws -> [String: Any] {
+        let size = 16
+        guard let source = makeTexture(device: device, size: size, usage: .shaderRead),
+              let blend = makeTexture(device: device, size: size, usage: .shaderRead),
+              let opacity = makeTexture(device: device, size: size, usage: .shaderRead),
+              let target = makeTexture(
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
+              ),
+              let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.metalUnavailable
+        }
+        fill(source, bgra: [0, 0, 255, 255])
+        fill(blend, bgra: [255, 0, 0, 255])
+        fill(opacity, bgra: [0, 0, 255, 255])
+
+        let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
+        guard let textures = pool.textures(width: size, height: size) else {
+            throw HarnessError.metalUnavailable
+        }
+        let poolTextures = [textures.primary, textures.secondary, textures.tertiary]
+        let resources = [source, blend, opacity]
+        let poolIsPairwiseDistinct = poolTextures.indices.allSatisfy { first in
+            poolTextures.indices.allSatisfy { second in
+                first == second || poolTextures[first] !== poolTextures[second]
+            }
+        }
+        let resourcesDoNotAliasPool = resources.allSatisfy { resource in
+            poolTextures.allSatisfy { resource !== $0 }
+        }
+        let resourcesArePairwiseDistinct = resources.indices.allSatisfy { first in
+            resources.indices.allSatisfy { second in
+                first == second || resources[first] !== resources[second]
+            }
+        }
+        let layer = SceneRenderDescriptor.Layer(
+            contentKind: "image",
+            colorRGB: nil,
+            colorBlendMode: nil,
+            effects: []
+        )
+        let masks = SceneImageLayerMasks(
+            iris: nil,
+            opacity: nil,
+            water: nil,
+            waterUVScale: SIMD2(repeating: 1),
+            foliage: nil,
+            foliageUVScale: SIMD2(repeating: 1),
+            waterRippleNormal: nil,
+            shakeEffects: [:],
+            waterFlowEffects: [:],
+            waterWavesEffects: [:],
+            xRay: SceneXRayEffectTextures(blend: blend, halo: nil, opacityMask: opacity)
+        )
+        let mainPass = SceneMainPassEncoder(
+            commandBuffer: commandBuffer,
+            target: target,
+            clearColor: MTLClearColorMake(0, 0, 0, 0)
+        )
+        let encoded = compositor.draw(
+            SceneImageLayerDrawRequest(
+                layer: layer,
+                texture: source,
+                masks: masks,
+                textureFrame: .identity,
+                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+                uniforms: SceneImageLayerUniformValues(
+                    time: 0,
+                    alpha: 1,
+                    cursorUV: SIMD2(repeating: 0.5),
+                    cursorIsInside: true
+                ),
+                offscreenTexturePool: pool,
+                offscreenSize: nil,
+                requiresSourceCopy: false,
+                finalCompositeAlpha: nil,
+                dependencyEffect: nil,
+                authoredEffectPlan: nil,
+                blocksLegacyGaussianBlur: false,
+                authoredEffectChain: xRayChain(layerID: 2998757800),
+                dynamicValues: .empty(frameIndex: 19)
+            ),
+            pipeline: pipeline,
+            mainPass: mainPass
+        )
+        mainPass.finishEnsuringClear()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else {
+            throw HarnessError.commandFailed
+        }
+
+        let center = size / 2
+        let mainPixel = pixel(target, x: center, y: center)
+        let sourcePixel = pixel(source, x: center, y: center)
+        let blendPixel = pixel(blend, x: center, y: center)
+        let poolPixels = try poolTextures.map { texture -> [UInt8] in
+            let bytes = try textureBytes(texture, queue: queue)
+            let offset = ((center * texture.width) + center) * 4
+            return Array(bytes[offset..<(offset + 4)])
+        }
+        return [
+            "encoded": encoded,
+            "poolIsPairwiseDistinct": poolIsPairwiseDistinct,
+            "resourcesDoNotAliasPool": resourcesDoNotAliasPool,
+            "resourcesArePairwiseDistinct": resourcesArePairwiseDistinct,
+            "mainPixel": mainPixel,
+            "sourcePixel": sourcePixel,
+            "blendPixel": blendPixel,
+            "mainMatchesPoolOutput": poolPixels.contains(mainPixel),
+        ]
+    }
+
+    static func xRayChain(layerID: Int) -> SceneAuthoredEffectExecutionChain {
+        let effectKey = Graph.EffectKey(
+            layerID: layerID,
+            effectIndex: 0,
+            descriptorID: "\(layerID)#effect#0"
+        )
+        let input = graphTexture(.layerSource, layerID: layerID)
+        let output = graphTexture(
+            .effectOutput,
+            layerID: layerID,
+            effect: effectKey
+        )
+        let node = Graph.Node(
+            nodeIndex: 0,
+            effect: effectKey,
+            definitionPassIndex: 0,
+            materialOrdinal: 0,
+            instancePassIndex: 0,
+            kind: .material,
+            materialPath: "materials/effects/xray.json",
+            materialPassID: "materials/effects/xray.json#0",
+            target: output,
+            bindings: [],
+            commandSource: nil,
+            commandTarget: nil,
+            compose: nil,
+            conditions: nil
+        )
+        let effect = Graph.Effect(
+            key: effectKey,
+            definitionPath: "effects/xray/effect.json",
+            input: input,
+            output: output,
+            nodeIndices: [0]
+        )
+        let graph = Graph(
+            layerID: layerID,
+            effects: [effect],
+            renderTargets: [],
+            nodes: [node],
+            finalOutput: output,
+            blockers: []
+        )
+        let stage = SceneAuthoredEffectExecutionPlan(
+            layerID: layerID,
+            renderGraph: graph,
+            backend: .xRay(SceneXRayExecutionPlan(
+                declaration: SceneXRayRuntimePlanner.Declaration()
+            )),
+            materialNodeCount: 1,
+            logicalRenderTargetCount: 0
+        )
+        return SceneAuthoredEffectExecutionChain(
+            layerID: layerID,
+            renderGraph: graph,
+            stages: [stage]
+        )
+    }
+
     static func drawAuthoredBlur(
         source: MTLTexture,
         target: MTLTexture,
@@ -2391,6 +2665,18 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertTrue(evidence["firstStageProducedPixels"])
         self.assertEqual(evidence["mainPixel"], [0, 0, 0, 0])
 
+    def test_xray_shared_three_texture_route_has_no_alias_and_propagates_output(
+        self,
+    ) -> None:
+        evidence = self.result["xRayThreeTextureRoute"]
+        self.assertTrue(evidence["encoded"], evidence)
+        self.assertTrue(evidence["poolIsPairwiseDistinct"], evidence)
+        self.assertTrue(evidence["resourcesDoNotAliasPool"], evidence)
+        self.assertTrue(evidence["resourcesArePairwiseDistinct"], evidence)
+        self.assertTrue(evidence["mainMatchesPoolOutput"], evidence)
+        self.assertNotEqual(evidence["mainPixel"], evidence["sourcePixel"], evidence)
+        self.assert_pixel_close(evidence["mainPixel"], evidence["blendPixel"], 2)
+
     def test_standard_blur_downsample_is_alpha_aware(self) -> None:
         self.assert_pixel_close(
             self.result["standardBlurAlphaAwareDownsampleBGRA"],
@@ -2411,6 +2697,9 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
     def test_foliage_mask_uses_mapped_to_physical_uv_scale(self) -> None:
         self.assertAlmostEqual(self.result["mappedMaskScale"][0], 0.9375, places=6)
         self.assertAlmostEqual(self.result["mappedMaskScale"][1], 0.52734375, places=6)
+
+    def test_decoded_tex_does_not_reapply_removed_physical_padding(self) -> None:
+        self.assertEqual(self.result["decodedMappedScale"], [1, 1])
 
     def test_static_image_blend_writes_provider_color_and_alpha(self) -> None:
         self.assert_pixel_close(self.result["imageBlendBGRA"], [192, 32, 64, 255])

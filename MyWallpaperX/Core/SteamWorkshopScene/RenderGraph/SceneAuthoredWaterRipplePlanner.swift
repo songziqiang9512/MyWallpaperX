@@ -1,25 +1,23 @@
+import CryptoKit
 import Foundation
 
-nonisolated struct SceneWaterFlowExecutionPlan {
+nonisolated struct SceneWaterRippleExecutionPlan {
     let layerID: Int
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
     let renderGraph: SceneAuthoredEffectRenderPlan
-    let speed: Float
-    let strength: Float
-    let phaseScale: Float
-    let phaseFeather: Float?
-    let flowTexturePath: String
-    let phaseTexturePath: String
+    let runtimePlan: SceneWaterRippleNormalPlan
+    let maskTexturePath: String
+    let normalTexturePath: String
 }
 
-enum SceneAuthoredWaterFlowPlanner {
+enum SceneAuthoredWaterRipplePlanner {
     typealias Graph = SceneAuthoredEffectRenderPlan
 
-    private struct Parameters {
-        let speed: Float
-        let strength: Float
-        let phaseScale: Float
-        let phaseFeather: Float?
+    private nonisolated struct CanonicalShaderPayload: Encodable {
+        let identity: String
+        let sourceKind: SceneShaderContract.SourceKind
+        let stages: [SceneShaderContract.Stage]
+        let diagnostics: [SceneShaderContract.Diagnostic]
     }
 
     nonisolated static func plan(
@@ -27,7 +25,7 @@ enum SceneAuthoredWaterFlowPlanner {
         descriptor: SceneRenderDescriptor,
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneWaterFlowExecutionPlan? {
+    ) -> SceneWaterRippleExecutionPlan? {
         guard graph.blockers.isEmpty,
               graph.effects.count == 1,
               graph.nodes.count == 1,
@@ -40,9 +38,9 @@ enum SceneAuthoredWaterFlowPlanner {
 
         let effect = graph.effects[0]
         let node = graph.nodes[0]
-        guard let shaderProfile = SceneWaterFlowShaderProfile.resolve(shaderContracts),
-              normalized(effect.definitionPath) == definitionPath,
+        guard normalized(effect.definitionPath) == definitionPath,
               validDefinition(in: descriptor, path: effect.definitionPath),
+              shaderContractMatches(shaderContracts),
               effect.nodeIndices == [node.nodeIndex],
               SceneAuthoredEffectInputValidator.accepts(
                   effect.input,
@@ -54,40 +52,26 @@ enum SceneAuthoredWaterFlowPlanner {
               validNode(node, effect: effect),
               validMaterialDescriptor(in: descriptor),
               let instance = instancePass(effect: effect, layer: layer),
-              let textures = texturePaths(from: instance),
-              let parameters = parameters(
-                  from: instance.constantShaderValues,
-                  profile: shaderProfile
-              ),
+              let paths = texturePaths(from: instance),
+              let runtimePlan = SceneWaterRippleRuntimePlanner.plan(for: instance),
+              validInstance(instance),
               let resolved = SceneAuthoredMaterialResolver.resolve(
                   node: node,
                   graph: graph,
                   descriptor: descriptor
               ).node,
-              validResolvedMaterial(
-                  resolved,
-                  textures: textures,
-                  parameters: parameters,
-                  profile: shaderProfile
-              ) else {
+              validResolvedMaterial(resolved, paths: paths) else {
             return nil
         }
 
-        return SceneWaterFlowExecutionPlan(
+        return SceneWaterRippleExecutionPlan(
             layerID: graph.layerID,
             effectKey: effect.key,
             renderGraph: graph,
-            speed: parameters.speed,
-            strength: parameters.strength,
-            phaseScale: parameters.phaseScale,
-            phaseFeather: parameters.phaseFeather,
-            flowTexturePath: textures.flow,
-            phaseTexturePath: textures.phase
+            runtimePlan: runtimePlan,
+            maskTexturePath: paths.mask,
+            normalTexturePath: paths.normal
         )
-    }
-
-    nonisolated static func containsCandidate(graph: Graph) -> Bool {
-        graph.effects.contains { normalized($0.definitionPath) == definitionPath }
     }
 
     private nonisolated static func validDefinition(
@@ -99,9 +83,9 @@ enum SceneAuthoredWaterFlowPlanner {
         }
         guard matches.count == 1, let definition = matches.first,
               definition.version == 1,
-              definition.replacementKey == "waterflow",
-              definition.name == "ui_editor_effect_water_flow_title",
-              definition.description == "ui_editor_effect_water_flow_description",
+              definition.replacementKey == "waterripple",
+              definition.name == "ui_editor_effect_water_ripple_title",
+              definition.description == "ui_editor_effect_water_ripple_description",
               definition.group == "animate",
               definition.performance == nil,
               definition.previewPath == "preview/project.json",
@@ -109,7 +93,7 @@ enum SceneAuthoredWaterFlowPlanner {
               definition.framebuffers.isEmpty,
               definition.dependencies.map(normalized) == dependencies,
               definition.functions == nil,
-              definition.gizmos == nil,
+              definition.gizmos == expectedGizmos,
               definition.extraFields.isEmpty,
               definition.unknownFieldPaths.isEmpty,
               definition.passes.count == 1,
@@ -157,8 +141,8 @@ enum SceneAuthoredWaterFlowPlanner {
             && material.materialRawSHA256 == materialSHA256
             && material.passIndex == 0
             && normalized(material.shaderPath ?? "") == shaderIdentity
-            && material.texturePaths == [phaseTexturePath]
-            && material.textureSlots == [nil, nil, phaseTexturePath]
+            && material.texturePaths == [normalTexturePath]
+            && material.textureSlots == [nil, nil, normalTexturePath]
             && material.userTextureInputs.isEmpty
             && material.combos.isEmpty
             && material.constantShaderValues.isEmpty
@@ -180,8 +164,7 @@ enum SceneAuthoredWaterFlowPlanner {
               descriptor.passes.count == 1,
               let pass = descriptor.passes.first,
               pass.passIndex == 0,
-              pass.userTextureInputs.isEmpty,
-              pass.combos.isEmpty else {
+              pass.userTextureInputs.isEmpty else {
             return nil
         }
         return pass
@@ -189,41 +172,51 @@ enum SceneAuthoredWaterFlowPlanner {
 
     private nonisolated static func texturePaths(
         from pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor
-    ) -> (flow: String, phase: String)? {
+    ) -> (mask: String, normal: String)? {
         guard pass.textureSlots.count == 3,
               pass.textureSlots[0] == nil,
-              let flow = pass.textureSlots[1],
-              let phase = pass.textureSlots[2],
-              !flow.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              !phase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              pass.texturePaths == [flow, phase] else {
+              let mask = pass.textureSlots[1],
+              let normal = pass.textureSlots[2],
+              !mask.isEmpty,
+              normalized(normal) == normalTexturePath,
+              pass.texturePaths == [mask, normal] else {
             return nil
         }
-        return (flow, phase)
+        return (mask, normal)
+    }
+
+    private nonisolated static func validInstance(
+        _ pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor
+    ) -> Bool {
+        pass.combos.isEmpty
+            && Set(pass.constantShaderValues.keys.map { $0.lowercased() }) == Set([
+                "animationspeed", "ratio", "ripplestrength", "scale",
+                "scrolldirection", "scrollspeed",
+            ])
+            && pass.constantShaderValues.values.allSatisfy {
+                $0.userBinding == nil
+                    && $0.valueKind.lowercased() == "number"
+                    && $0.components?.count == 1
+                    && $0.components?.first?.isFinite == true
+            }
     }
 
     private nonisolated static func validResolvedMaterial(
         _ material: SceneResolvedMaterialNode,
-        textures: (flow: String, phase: String),
-        parameters: Parameters,
-        profile: SceneWaterFlowShaderProfile
+        paths: (mask: String, normal: String)
     ) -> Bool {
         guard normalized(material.shaderPath) == shaderIdentity,
               material.textureSlots.count == 8,
-              assetPath(material.textureSlots[1], provenance: .instance) == textures.flow,
-              assetPath(material.textureSlots[2], provenance: .instance) == textures.phase,
+              assetPath(material.textureSlots[1], provenance: .instance) == paths.mask,
+              assetPath(material.textureSlots[2], provenance: .instance) == paths.normal,
               material.textureSlots.enumerated().allSatisfy({
-                  $0.offset == 1 || $0.offset == 2 || $0.element == nil
+                  [1, 2].contains($0.offset) || $0.element == nil
               }),
               material.combos.isEmpty,
-              let resolvedParameters = self.parameters(
-                  from: material.constants,
-                  profile: profile
-              ),
-              resolvedParameters.speed == parameters.speed,
-              resolvedParameters.strength == parameters.strength,
-              resolvedParameters.phaseScale == parameters.phaseScale,
-              resolvedParameters.phaseFeather == parameters.phaseFeather else {
+              Set(material.constants.keys.map { $0.lowercased() }) == Set([
+                  "animationspeed", "ratio", "ripplestrength", "scale",
+                  "scrolldirection", "scrollspeed",
+              ]) else {
             return false
         }
         return material.renderState.blending?.lowercased() == "normal"
@@ -243,58 +236,41 @@ enum SceneAuthoredWaterFlowPlanner {
         return path
     }
 
-    private nonisolated static func parameters(
-        from authored: [String: SceneDocument.ShaderValue],
-        profile: SceneWaterFlowShaderProfile
-    ) -> Parameters? {
-        var values: [String: SceneDocument.ShaderValue] = [:]
-        for (key, value) in authored {
-            guard values.updateValue(value, forKey: key.lowercased()) == nil else {
-                return nil
-            }
+    private nonisolated static func shaderContractMatches(
+        _ contracts: [SceneShaderContract]
+    ) -> Bool {
+        let matches = contracts.filter { normalized($0.identity) == shaderIdentity }
+        guard matches.count == 1, let contract = matches.first,
+              contract.sourceKind == .authoredSource,
+              contract.diagnostics.isEmpty,
+              contract.canonicalSHA256 == shaderCanonicalSHA256,
+              canonicalHash(contract) == shaderCanonicalSHA256,
+              contract.stages.count == 2 else {
+            return false
         }
-        let expectedKeys = profile == .phaseFeather
-            ? Set(["speed", "strength", "phasescale", "feather"])
-            : Set(["speed", "strength", "phasescale"])
-        guard Set(values.keys) == expectedKeys,
-              let speed = scalar(values["speed"], range: 0.01...2),
-              let strength = scalar(values["strength"], range: 0.01...2),
-              let phaseScale = scalar(values["phasescale"], range: 0.01...10) else {
-            return nil
+        let expected: [(SceneShaderContract.StageKind, String, String)] = [
+            (.vertex, vertexPath, vertexSHA256),
+            (.fragment, fragmentPath, fragmentSHA256),
+        ]
+        return zip(contract.stages, expected).allSatisfy { stage, fingerprint in
+            stage.kind == fingerprint.0
+                && normalized(stage.relativePath) == fingerprint.1
+                && stage.rawSHA256 == fingerprint.2
+                && sha256(Data(stage.source.utf8)) == fingerprint.2
         }
-        let phaseFeather: Float?
-        if profile == .phaseFeather {
-            guard let feather = scalar(values["feather"], range: 0.1...0.5) else {
-                return nil
-            }
-            phaseFeather = feather
-        } else {
-            phaseFeather = nil
-        }
-        return Parameters(
-            speed: speed,
-            strength: strength,
-            phaseScale: phaseScale,
-            phaseFeather: phaseFeather
-        )
     }
 
-    private nonisolated static func scalar(
-        _ value: SceneDocument.ShaderValue?,
-        range: ClosedRange<Double>
-    ) -> Float? {
-        guard let value,
-              value.userBinding == nil,
-              value.valueKind.lowercased() == "number",
-              let components = value.components,
-              components.count == 1,
-              let component = components.first,
-              component.isFinite,
-              range.contains(component) else {
-            return nil
-        }
-        let result = Float(component)
-        return result.isFinite ? result : nil
+    private nonisolated static func canonicalHash(_ contract: SceneShaderContract) -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        let payload = CanonicalShaderPayload(
+            identity: contract.identity,
+            sourceKind: contract.sourceKind,
+            stages: contract.stages,
+            diagnostics: contract.diagnostics
+        )
+        guard let data = try? encoder.encode(payload) else { return "" }
+        return sha256(data)
     }
 
     private nonisolated static func effectOutput(
@@ -307,18 +283,42 @@ enum SceneAuthoredWaterFlowPlanner {
         value.replacingOccurrences(of: "\\", with: "/").lowercased()
     }
 
-    private nonisolated static let definitionPath = "effects/waterflow/effect.json"
-    private nonisolated static let materialPath = "materials/effects/waterflow.json"
+    private nonisolated static func sha256(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private nonisolated static let definitionPath = "effects/waterripple/effect.json"
+    private nonisolated static let materialPath = "materials/effects/waterripple.json"
     private nonisolated static let materialPassID = "\(materialPath)#0"
     private nonisolated static let materialSHA256 =
-        "984bbaf1fdab98cb1b4169ff239a3ddbdeef83cfa0d71c286e8ea6435292066f"
-    private nonisolated static let shaderIdentity = "effects/waterflow"
-    private nonisolated static let phaseTexturePath = "effects/waterflowphase"
+        "27b3a48c79990eaf1731b5d4871d0138ccc79a108b967b6e9a9e204d5d5e2360"
+    private nonisolated static let shaderIdentity = "effects/waterripple"
+    private nonisolated static let normalTexturePath = "effects/waterripplenormal"
     private nonisolated static let dependencies = [
         materialPath,
-        "materials/effects/waterflowphase.png",
-        "materials/effects/waterflowphase.tex-json",
-        "shaders/effects/waterflow.frag",
-        "shaders/effects/waterflow.vert",
+        "materials/effects/waterripplenormal.png",
+        "materials/effects/waterripplenormal.tex-json",
+        "shaders/effects/waterripple.frag",
+        "shaders/effects/waterripple.vert",
     ]
+    private nonisolated static let shaderCanonicalSHA256 =
+        "cff8420a7f1103b6123906feff9db9f3233039d9cd1d9da2e02352700048c7ce"
+    private nonisolated static let vertexPath = "shaders/effects/waterripple.vert"
+    private nonisolated static let vertexSHA256 =
+        "e1347f6f4dbec03106514592f652e9f63e6a75dc6e6c3cd8c76138c34dc2e7a4"
+    private nonisolated static let fragmentPath = "shaders/effects/waterripple.frag"
+    private nonisolated static let fragmentSHA256 =
+        "21bcc2216765fd09804331dec96b9aa94aa4b15e4b5957c6b001371e1e82e38a"
+    private nonisolated static let expectedGizmos = SceneJSONValue.array([
+        .object([
+            "condition": .object(["PERSPECTIVE": .number(1)]),
+            "type": .string("EffectPerspectiveUV"),
+            "vars": .object([
+                "p0": .string("point0"),
+                "p1": .string("point1"),
+                "p2": .string("point2"),
+                "p3": .string("point3"),
+            ]),
+        ]),
+    ])
 }

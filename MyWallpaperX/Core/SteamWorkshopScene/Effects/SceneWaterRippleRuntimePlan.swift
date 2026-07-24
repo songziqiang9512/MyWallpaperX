@@ -1,6 +1,6 @@
 import Foundation
 
-struct SceneWaterRippleNormalPlan {
+nonisolated struct SceneWaterRippleNormalPlan {
     let animationSpeed: Float
     let scale: Float
     let scrollSpeed: Float
@@ -9,7 +9,7 @@ struct SceneWaterRippleNormalPlan {
     let strength: Float
 }
 
-enum SceneWaterRippleRuntimePlanner {
+nonisolated enum SceneWaterRippleRuntimePlanner {
     static func plan(
         for layer: SceneRenderDescriptor.Layer,
         hasNormalTexture: Bool
@@ -20,6 +20,18 @@ enum SceneWaterRippleRuntimePlanner {
               }), let pass = effect.passes.first,
               pass.textureSlots.indices.contains(2), pass.textureSlots[2] != nil,
               maskIsDisabled(in: pass),
+              combo("SPECULAR", in: pass) != 1,
+              let plan = plan(for: pass) else {
+            return nil
+        }
+        return plan
+    }
+
+    static func plan(
+        for pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor
+    ) -> SceneWaterRippleNormalPlan? {
+        guard pass.passIndex == 0,
+              pass.userTextureInputs.isEmpty,
               combo("SPECULAR", in: pass) != 1 else {
             return nil
         }

@@ -20,6 +20,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
     SOURCE_ROOT / "RenderGraph/SceneShaderContract.swift",
     SOURCE_ROOT / "RenderGraph/SceneShaderContractLoader.swift",
+    SOURCE_ROOT / "RenderGraph/SceneShakeShaderProfile.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredShakePlanner.swift",
 ]
 

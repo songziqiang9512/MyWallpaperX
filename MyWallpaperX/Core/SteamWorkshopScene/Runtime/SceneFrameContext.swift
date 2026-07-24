@@ -14,10 +14,11 @@ nonisolated struct SceneFrameContext: Equatable, Sendable {
     let dynamicValues: SceneDynamicSnapshot
     let canvasSize: CGSize
     let screenSize: CGSize
-    let pointerCurrent: SIMD2<Float>
-    let pointerPrevious: SIMD2<Float>
+    let pointer: SceneSurfacePointerState
     let cameraParallaxPosition: SIMD2<Float>
 
+    nonisolated var pointerCurrent: SIMD2<Float> { pointer.current }
+    nonisolated var pointerPrevious: SIMD2<Float> { pointer.previous }
     nonisolated var frameIndex: UInt64 { timing.frameIndex }
     nonisolated var hostTime: TimeInterval { timing.hostTime }
     nonisolated var sceneTime: TimeInterval { timing.sceneTime }

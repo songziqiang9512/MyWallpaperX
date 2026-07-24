@@ -33,6 +33,7 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
     let chainsByLayerID: [Int: SceneAuthoredEffectExecutionChain]
     let hiddenEligibleLayerIDs: [Int]
     let legacyGaussianBlurBlockedLayerIDs: Set<Int>
+    let xRayPrefixOmittedEffectPathsByLayerID: [Int: [String]]
 
     var plansByLayerID: [Int: SceneAuthoredEffectExecutionPlan] {
         chainsByLayerID.compactMapValues(\.singleStage)
@@ -46,6 +47,7 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
         let visible = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let grouped = Dictionary(grouping: authoredPlans, by: \.layerID)
         var eligible: [Int: SceneAuthoredEffectExecutionChain] = [:]
+        var xRayPrefixes: [Int: [String]] = [:]
         for (layerID, candidates) in grouped where candidates.count == 1 {
             let graph = candidates[0]
             guard let chain = SceneAuthoredEffectChainPlanner.plan(
@@ -54,8 +56,17 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
                 shaderContracts: shaderContracts
             ) else { continue }
             eligible[layerID] = chain
+            if chain.stages.count < graph.effects.count {
+                xRayPrefixes[layerID] = graph.effects
+                    .dropFirst(chain.stages.count)
+                    .map(\.definitionPath)
+            }
         }
-        chainsByLayerID = eligible.filter { visible.contains($0.key) }
+        let visibleEligible = eligible.filter { visible.contains($0.key) }
+        chainsByLayerID = visibleEligible
+        xRayPrefixOmittedEffectPathsByLayerID = xRayPrefixes.filter {
+            visibleEligible[$0.key] != nil
+        }
         hiddenEligibleLayerIDs = eligible.keys.filter { !visible.contains($0) }.sorted()
         let preciseBlurCandidateLayers = Set(authoredPlans.compactMap { graph in
             SceneAuthoredEffectExecutionPlanner.containsAuthoredPreciseBlurCandidate(
@@ -91,6 +102,11 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
             "authoredEffectGraphShakeCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.shakeCount })",
             "authoredEffectGraphWaterFlowCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.waterFlowCount })",
             "authoredEffectGraphWaterWavesCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.waterWavesCount })",
+            "authoredEffectGraphFoliageSwayCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.foliageSwayCount })",
+            "authoredEffectGraphWaterRippleCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.waterRippleCount })",
+            "authoredEffectGraphXRayCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.xRayCount })",
+            "authoredEffectGraphXRayPrefixCount: \(xRayPrefixOmittedEffectPathsByLayerID.count)",
+            "authoredEffectGraphXRayPrefixOmittedEffects: \(xRayPrefixOmittedEffectPathsByLayerID.sorted(by: { $0.key < $1.key }).map { "\($0.key)=\($0.value.joined(separator: ","))" }.joined(separator: ";"))",
         ]
     }
 

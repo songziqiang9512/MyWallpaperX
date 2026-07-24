@@ -17,8 +17,7 @@ extension SceneMetalView {
                 height: CGFloat(camera.orthoHeight ?? Float(screenSize.height))
             ),
             screenSize: screenSize,
-            pointerCurrent: mouseNormalized,
-            pointerPrevious: previousMouseNormalized,
+            pointer: pointerState,
             cameraParallaxPosition: parallax
         )
     }

@@ -60,7 +60,10 @@ enum SceneWaterFlowEffectTextureLoader {
             textures[effect.id] = SceneWaterFlowEffectTextures(
                 flow: flow.texture,
                 phase: phase.texture ?? builtInPhase,
-                flowUVScale: SceneLayerEffectTextureLoader.mappedUVScale(for: flowURL),
+                flowUVScale: SceneLayerEffectTextureLoader.mappedUVScale(
+                    for: flowURL,
+                    texture: flow.texture
+                ),
                 flowPath: flowPath,
                 phasePath: phasePath
             )

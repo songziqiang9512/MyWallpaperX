@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -175,7 +176,29 @@ def load_matrix(path: Path) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if payload.get("schema_version") != 1 or not isinstance(payload.get("samples"), list):
         raise ValueError(f"invalid Scene matrix: {path}")
+    for sample in payload["samples"]:
+        if not isinstance(sample, dict):
+            raise ValueError(f"invalid Scene matrix sample: {path}")
+        hover_pointer_normalized(sample)
     return payload
+
+
+def hover_pointer_normalized(
+    sample: dict[str, Any],
+) -> tuple[float, float] | None:
+    raw = sample.get("hover_pointer_normalized")
+    if raw is None:
+        return None
+    if (
+        not isinstance(raw, list)
+        or len(raw) != 2
+        or any(type(value) not in (int, float) for value in raw)
+    ):
+        raise ValueError("hover_pointer_normalized must contain two numbers")
+    x, y = (float(raw[0]), float(raw[1]))
+    if not math.isfinite(x) or not math.isfinite(y) or not (-1 <= x <= 1 and -1 <= y <= 1):
+        raise ValueError("hover_pointer_normalized must stay within [-1, 1]")
+    return (x, y)
 
 
 def scene_package_path(source: Path) -> Path | None:
@@ -1153,6 +1176,15 @@ def run_sample(
     property_overrides = sample.get("property_overrides")
     live_property_overrides = sample.get("live_property_overrides")
     append_property_arguments(command, property_overrides, live_property_overrides)
+    hover_pointer = hover_pointer_normalized(sample)
+    if hover_pointer is not None:
+        command.extend([
+            "--mwx-debug-scene-hover-pointer-json",
+            json.dumps(
+                {"x": hover_pointer[0], "y": hover_pointer[1]},
+                separators=(",", ":"),
+            ),
+        ])
     environment = os.environ.copy()
     environment["HOME"] = str(runtime_home)
     environment["CFFIXED_USER_HOME"] = str(runtime_home)
@@ -1219,15 +1251,32 @@ def run_sample(
     image_blend_runtime = image_blend_runtime_metrics(preview_text, log_text)
     particle_runtime = particle_runtime_metrics(preview_text)
     camera_match = CAMERA_RE.search(preview_text)
-    ready_snapshot = result_dir / "scene-ready-window.png"
+    initial_reason = "before" if hover_pointer is not None else "ready"
+    ready_snapshot = result_dir / f"scene-{initial_reason}-window.png"
+    hover_snapshot = result_dir / "scene-hover-window.png"
     after_snapshot = result_dir / "scene-after-window.png"
     ready_non_black = png_has_non_black_pixel(ready_snapshot)
+    hover_non_black = (
+        png_has_non_black_pixel(hover_snapshot)
+        if hover_pointer is not None
+        else None
+    )
     after_non_black = png_has_non_black_pixel(after_snapshot)
     flat_border_ratio = {
         "ready": png_flat_border_ratio(ready_snapshot),
         "after": png_flat_border_ratio(after_snapshot),
     }
+    if hover_pointer is not None:
+        flat_border_ratio["hover"] = png_flat_border_ratio(hover_snapshot)
     motion = png_motion_metrics(ready_snapshot, after_snapshot)
+    hover_motion = (
+        {
+            "before_to_hover": png_motion_metrics(ready_snapshot, hover_snapshot),
+            "hover_to_after": png_motion_metrics(hover_snapshot, after_snapshot),
+        }
+        if hover_pointer is not None
+        else None
+    )
     preview_visual = collect_preview_visual_evidence(
         runtime_sample,
         after_snapshot,
@@ -1275,6 +1324,11 @@ def run_sample(
     ))
     if "phase=snapshot-failed" in log_text:
         failures.append("window snapshot failed")
+    if hover_pointer is not None:
+        if log_text.count("phase=pointer-state state=outside") != 2:
+            failures.append("pointer outside transition evidence mismatch")
+        if "phase=pointer-state state=hover" not in log_text:
+            failures.append("pointer hover transition evidence missing")
     if camera_match is None or camera_match.group("projection") != "cover":
         failures.append("camera projection evidence missing")
     expected_parallax = sample.get("expected_camera_parallax")
@@ -1484,6 +1538,17 @@ def run_sample(
         failures.append("bloom runtime count below minimum")
     if not ready_non_black or not after_non_black:
         failures.append("non-black window evidence missing")
+    if hover_pointer is not None:
+        if not hover_non_black:
+            failures.append("hover window evidence missing")
+        minimum_hover_ratio = float(sample.get("minimum_hover_changed_ratio", 0))
+        hover_ratios = [
+            metrics["changed_ratio"]
+            for metrics in (hover_motion or {}).values()
+            if metrics is not None
+        ]
+        if len(hover_ratios) != 2 or min(hover_ratios) <= minimum_hover_ratio:
+            failures.append("hover interaction output evidence below minimum")
     if sample.get("requires_motion"):
         minimum_changed_ratio = float(sample.get("minimum_changed_ratio", 0))
         if motion is None or motion["changed_ratio"] < minimum_changed_ratio:
@@ -1496,7 +1561,11 @@ def run_sample(
     maximum_flat_border_ratio = sample.get("maximum_flat_border_ratio")
     if maximum_flat_border_ratio is not None:
         ratios = [value for value in flat_border_ratio.values() if value is not None]
-        if len(ratios) != 2 or max(ratios) > float(maximum_flat_border_ratio):
+        expected_ratio_count = 3 if hover_pointer is not None else 2
+        if (
+            len(ratios) != expected_ratio_count
+            or max(ratios) > float(maximum_flat_border_ratio)
+        ):
             failures.append("flat border evidence above maximum")
 
     return {
@@ -1521,11 +1590,14 @@ def run_sample(
             "interpretation": str(interpretation_path),
             "sample_root_residue": sample_root_residue,
             "ready_snapshot": str(ready_snapshot),
+            "hover_snapshot": str(hover_snapshot) if hover_pointer is not None else None,
             "after_snapshot": str(after_snapshot),
             "ready_non_black": ready_non_black,
+            "hover_non_black": hover_non_black,
             "after_non_black": after_non_black,
             "flat_border_ratio": flat_border_ratio,
             "motion": motion,
+            "hover_motion": hover_motion,
             "preview_visual": preview_visual,
         },
         "runtime": {
@@ -1533,6 +1605,9 @@ def run_sample(
             "image_layers": int(ready_match.group("images")) if ready_match else None,
             "effects": int(ready_match.group("effects")) if ready_match else None,
             "surfaces": int(ready_match.group("surfaces")) if ready_match else None,
+            "hover_pointer_normalized": (
+                list(hover_pointer) if hover_pointer is not None else None
+            ),
             "live_property_update": live_property_update,
             "loaded_textures": loaded,
             "texture_candidates": total,

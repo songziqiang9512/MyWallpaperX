@@ -1,6 +1,6 @@
 import Foundation
 
-struct SceneFoliageSwayPlan {
+nonisolated struct SceneFoliageSwayPlan {
     let strength: Float
     let speed: Float
     let phase: Float
@@ -10,7 +10,7 @@ struct SceneFoliageSwayPlan {
     let direction: Float
 }
 
-enum SceneFoliageSwayRuntimePlanner {
+nonisolated enum SceneFoliageSwayRuntimePlanner {
     static func plan(
         for layer: SceneRenderDescriptor.Layer,
         hasMask: Bool

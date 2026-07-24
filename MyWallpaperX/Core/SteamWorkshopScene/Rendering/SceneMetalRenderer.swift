@@ -9,10 +9,10 @@ struct SceneMetalRenderer {
     private let imageCompositor: SceneImageLayerCompositor
     private let visibleLayerIDs: Set<Int>
     // Cached transforms propagate parent pivot/orientation without double-scaling child quads.
-    private let worldFramesByLayerID: [Int: simd_float4x4]
-    private let parallaxByLayerID: [Int: SceneLayerParallax.Resolution]
+    let worldFramesByLayerID: [Int: simd_float4x4]
+    let parallaxByLayerID: [Int: SceneLayerParallax.Resolution]
     private let layersByID: [Int: SceneRenderDescriptor.Layer]
-    private let utilityPlansByLayerID: [Int: SceneUtilityLayerRuntimePlan]
+    private let utilityPlansByTriggerLayerID: [Int: [SceneUtilityLayerRuntimePlan]]
     private let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
     private let dependencyRuntime: SceneDependencyFrameRuntime
     private let textureRegistry = SceneFrameTextureRegistry()
@@ -42,7 +42,14 @@ struct SceneMetalRenderer {
 
         let byID = Dictionary(uniqueKeysWithValues: renderDescriptor.layers.map { ($0.id, $0) })
         self.layersByID = byID
-        self.utilityPlansByLayerID = SceneUtilityLayerRuntimePlanner.plans(in: renderDescriptor)
+        let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(
+            in: renderDescriptor,
+            authoredEffectCatalog: authoredEffectCatalog
+        )
+        self.utilityPlansByTriggerLayerID = Dictionary(
+            grouping: utilityPlans.values.filter(\.shouldCapture),
+            by: \.triggerLayerID
+        )
         self.worldFramesByLayerID = SceneLayerWorldFrameResolver.compute(
             layers: renderDescriptor.layers,
             byID: byID,
@@ -70,6 +77,13 @@ struct SceneMetalRenderer {
 
     func authoredEffectRuntimeReportLines() -> [String] {
         authoredEffectCatalog.reportLines
+    }
+
+    func utilityRuntimeReportLines() -> [String] {
+        SceneUtilityLayerRuntimePlanner.reportLines(
+            descriptor: renderDescriptor,
+            authoredEffectCatalog: authoredEffectCatalog
+        )
     }
 
     func authoredEffectPlan(for layerID: Int) -> SceneAuthoredEffectExecutionPlan? {
@@ -123,15 +137,9 @@ struct SceneMetalRenderer {
 
         let viewportSize = frameContext.screenSize
         let time = Float(frameContext.sceneTime)
-        let mouseNormalized = frameContext.pointerCurrent
         let parallaxMouseNormalized = frameContext.cameraParallaxPosition
         let cameraFrame = SceneParticleCameraFrame(
             camera: renderDescriptor.camera,
-            viewportSize: viewportSize
-        )
-        let cursorWorld = SceneLayerCursorGeometry.worldPosition(
-            camera: renderDescriptor.camera,
-            mouseNormalized: mouseNormalized,
             viewportSize: viewportSize
         )
         let camera = renderDescriptor.camera
@@ -159,6 +167,21 @@ struct SceneMetalRenderer {
             userPropertyTextures: userPropertyTextures
         )
         for layer in orderedLayers {
+            defer {
+                renderUtilityPlans(
+                    triggeredBy: layer.id,
+                    effectTextures: effectTextures,
+                    imagePipeline: imagePipeline,
+                    offscreenTexturePool: offscreenTexturePool,
+                    frameContext: frameContext,
+                    cameraFrame: cameraFrame,
+                    parallaxConfiguration: parallaxConfiguration,
+                    viewportSize: viewportSize,
+                    time: time,
+                    mainPass: mainPass,
+                    commandBuffer: commandBuffer
+                )
+            }
             if let imagePipeline, dependencyRuntime.requiresCapture(for: layer.id) {
                 let providerModel = imageModelMatrix(
                     for: layer,
@@ -203,6 +226,11 @@ struct SceneMetalRenderer {
                     parallaxMouseNormalized: parallaxMouseNormalized,
                     configuration: parallaxConfiguration
                 )
+                let mvp = cameraFrame.orthographicViewProjection * model
+                let cursorUV = SceneLayerCursorGeometry.layerUV(
+                    mouseNormalized: frameContext.pointer.current,
+                    modelViewProjection: mvp
+                )
                 let request = SceneImageLayerDrawRequest(
                     layer: layer,
                     texture: preparedTexture,
@@ -210,23 +238,25 @@ struct SceneMetalRenderer {
                         iris: effectTextures.irisMasks[layer.id],
                         opacity: effectTextures.opacityMasks[layer.id],
                         water: effectTextures.waterMasks[layer.id],
+                        waterUVScale: effectTextures.waterUVScales[layer.id]
+                            ?? SIMD2(repeating: 1),
                         foliage: effectTextures.foliageMasks[layer.id],
                         foliageUVScale: effectTextures.foliageUVScales[layer.id]
                             ?? SIMD2(repeating: 1),
                         waterRippleNormal: effectTextures.waterRippleNormals[layer.id],
                         shakeEffects: effectTextures.shakeEffects,
                         waterFlowEffects: effectTextures.waterFlowEffects,
-                        waterWavesEffects: effectTextures.waterWavesEffects
+                        waterWavesEffects: effectTextures.waterWavesEffects,
+                        xRay: effectTextures.xRayEffects[layer.id]
                     ),
                     textureFrame: spriteAnimations[layer.id]?.transform(at: time) ?? .identity,
-                    mvp: cameraFrame.orthographicViewProjection * model,
+                    mvp: mvp,
                     uniforms: SceneImageLayerUniformValues(
                         time: time,
                         alpha: layerAlpha,
-                        cursorUV: SceneLayerCursorGeometry.layerUV(
-                            for: layer,
-                            cursorWorld: cursorWorld
-                        ),
+                        cursorUV: cursorUV ?? .zero,
+                        cursorIsInside: frameContext.pointer.isInside && cursorUV != nil,
+                        primaryButtonIsDown: frameContext.pointer.isPrimaryButtonDown,
                         tint: SceneDynamicLayerValues.color(
                             layerID: layer.id, authoredValue: layer.colorRGB,
                             snapshot: frameContext.dynamicValues
@@ -252,33 +282,7 @@ struct SceneMetalRenderer {
                     on: commandBuffer
                 )
             case "composition", "project", "fullscreen":
-                guard let imagePipeline, let offscreenTexturePool,
-                      let plan = utilityPlansByLayerID[layer.id], plan.shouldCapture else { continue }
-                let model = imageModelMatrix(
-                    for: layer,
-                    parallaxMouseNormalized: parallaxMouseNormalized,
-                    configuration: parallaxConfiguration
-                )
-                let authoredEffectChain = authoredEffectChain(for: layer.id)
-                let layerAlpha = SceneDynamicLayerValues.alpha(
-                    layerID: layer.id, authoredValue: layer.alpha,
-                    snapshot: frameContext.dynamicValues
-                )
-                let captured = SceneUtilityLayerRenderer.draw(
-                    layer: layer, plan: plan,
-                    layerMVP: cameraFrame.orthographicViewProjection * model,
-                    viewportSize: viewportSize, time: time,
-                    finalCompositeAlpha: layerAlpha,
-                    authoredEffectChain: authoredEffectChain,
-                    dynamicValues: frameContext.dynamicValues,
-                    blocksLegacyGaussianBlur: blocksLegacyGaussianBlur(for: layer.id),
-                    pipeline: imagePipeline, compositor: imageCompositor,
-                    offscreenTexturePool: offscreenTexturePool, mainPass: mainPass
-                )
-                utilityCaptureTelemetry.record(layerID: layer.id, encoded: captured, on: commandBuffer)
-                if authoredEffectChain != nil {
-                    authoredEffectTelemetry.record(layerID: layer.id, encoded: captured, on: commandBuffer)
-                }
+                break
             case "particle":
                 guard let particlePipeline,
                       let batch = particleBatchesByID[layer.id],
@@ -314,85 +318,72 @@ struct SceneMetalRenderer {
         commandBuffer.commit()
     }
 
-    // MARK: - Matrix construction
-
-    private func imageModelMatrix(
-        for layer: SceneRenderDescriptor.Layer,
-        parallaxMouseNormalized: SIMD2<Float>,
-        configuration: SceneLayerParallax.Configuration
-    ) -> simd_float4x4 {
-        let size = SIMD2(layer.renderSizeWH ?? [], fill: 0)
-        // Wallpaper Engine world coords are Y-down (origin at the ortho box's
-        // top-left, +Y grows downward). Our quad is Y-up (+0.5 at the visual
-        // top), so negate the Y size to map the quad's +Y vertex to the
-        // smaller world-Y (visually upper) edge of the layer.
-        let sizeScale = SceneMatrix.scale(SIMD3(size.x, -size.y, 1))
-        let world = worldFramesByLayerID[layer.id] ?? SceneMatrix.identity()
-        let parallax = parallaxOffset(
-            for: layer,
-            worldFrame: world,
-            mouseNormalized: parallaxMouseNormalized,
-            configuration: configuration
-        )
-        return SceneMatrix.translation(SIMD3(parallax.x, parallax.y, 0)) * world * sizeScale
-    }
-
-    private func particleModelMatrix(
-        for layer: SceneRenderDescriptor.Layer,
-        parallaxMouseNormalized: SIMD2<Float>,
-        configuration: SceneLayerParallax.Configuration
-    ) -> simd_float4x4 {
-        let world = worldFramesByLayerID[layer.id] ?? SceneMatrix.identity()
-        let parallax = parallaxOffset(
-            for: layer,
-            worldFrame: world,
-            mouseNormalized: parallaxMouseNormalized,
-            configuration: configuration
-        )
-        return SceneParticleCameraFrame.particleLayerModel(
-            worldFrame: world,
-            parallaxOffset: parallax
-        )
-    }
-
-    private func parallaxOffset(
-        for layer: SceneRenderDescriptor.Layer,
-        worldFrame: simd_float4x4,
-        mouseNormalized: SIMD2<Float>,
-        configuration: SceneLayerParallax.Configuration
-    ) -> SIMD2<Float> {
-        SceneLayerParallax.offset(
-            resolution: parallaxByLayerID[layer.id],
-            configuration: configuration,
-            layerPosition: SIMD2(worldFrame.columns.3.x, worldFrame.columns.3.y),
-            mouseNormalized: mouseNormalized
-        )
-    }
-
-    private func particleBasis(
-        for batch: SceneParticleDrawBatch,
-        layerModel: simd_float4x4,
-        cameraFrame: SceneParticleCameraFrame
-    ) -> SceneParticleOrientationBasis {
-        guard batch.orientation == .fixed else {
-            return cameraFrame.basis(for: batch.orientation)
+    private func renderUtilityPlans(
+        triggeredBy layerID: Int,
+        effectTextures: SceneLayerEffectTextureStore,
+        imagePipeline: SceneImageLayerPipeline?,
+        offscreenTexturePool: SceneOffscreenTexturePool?,
+        frameContext: SceneFrameContext,
+        cameraFrame: SceneParticleCameraFrame,
+        parallaxConfiguration: SceneLayerParallax.Configuration,
+        viewportSize: CGSize,
+        time: Float,
+        mainPass: SceneMainPassEncoder,
+        commandBuffer: MTLCommandBuffer
+    ) {
+        guard let plans = utilityPlansByTriggerLayerID[layerID],
+              let imagePipeline,
+              let offscreenTexturePool else {
+            return
         }
-        let rawAxis = batch.orientationAxis ?? SIMD3<Float>(0, 0, 1)
-        let axisLength = simd_length_squared(rawAxis)
-        let normal = axisLength.isFinite && axisLength > 1e-8
-            ? rawAxis / sqrt(axisLength)
-            : SIMD3<Float>(0, 0, 1)
-        let reference = abs(normal.y) < 0.999 ? SIMD3<Float>(0, 1, 0) : SIMD3(1, 0, 0)
-        let localRight = simd_normalize(simd_cross(reference, normal))
-        let localUp = simd_normalize(simd_cross(normal, localRight))
-        let transformedRight = layerModel * SIMD4(localRight.x, localRight.y, localRight.z, 0)
-        let transformedUp = layerModel * SIMD4(localUp.x, localUp.y, localUp.z, 0)
-        let fixedRight = SIMD3(transformedRight.x, transformedRight.y, transformedRight.z)
-        let fixedUp = SIMD3(transformedUp.x, transformedUp.y, transformedUp.z)
-        return cameraFrame.basis(
-            for: batch.orientation,
-            fixedRight: fixedRight,
-            fixedUp: fixedUp
-        )
+        for plan in plans {
+            guard let layer = layersByID[plan.layerID] else { continue }
+            let model = imageModelMatrix(
+                for: layer,
+                parallaxMouseNormalized: frameContext.cameraParallaxPosition,
+                configuration: parallaxConfiguration
+            )
+            let mvp = cameraFrame.orthographicViewProjection * model
+            let cursorUV = SceneLayerCursorGeometry.layerUV(
+                mouseNormalized: frameContext.pointer.current,
+                modelViewProjection: mvp
+            )
+            let authoredEffectChain = authoredEffectChain(for: layer.id)
+            let captured = SceneUtilityLayerRenderer.draw(
+                layer: layer,
+                plan: plan,
+                layerMVP: mvp,
+                viewportSize: viewportSize,
+                time: time,
+                finalCompositeAlpha: SceneDynamicLayerValues.alpha(
+                    layerID: layer.id,
+                    authoredValue: layer.alpha,
+                    snapshot: frameContext.dynamicValues
+                ),
+                masks: .xRayOnly(effectTextures.xRayEffects[layer.id]),
+                cursorUV: cursorUV ?? .zero,
+                pointerIsInside: frameContext.pointer.isInside && cursorUV != nil,
+                authoredEffectChain: authoredEffectChain,
+                dynamicValues: frameContext.dynamicValues,
+                blocksLegacyGaussianBlur: blocksLegacyGaussianBlur(for: layer.id),
+                pipeline: imagePipeline,
+                compositor: imageCompositor,
+                offscreenTexturePool: offscreenTexturePool,
+                mainPass: mainPass
+            )
+            utilityCaptureTelemetry.record(
+                layerID: layer.id,
+                encoded: captured,
+                on: commandBuffer
+            )
+            if authoredEffectChain != nil {
+                authoredEffectTelemetry.record(
+                    layerID: layer.id,
+                    encoded: captured,
+                    on: commandBuffer
+                )
+            }
+        }
     }
+
 }

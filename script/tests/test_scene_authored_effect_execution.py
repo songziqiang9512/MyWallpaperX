@@ -20,12 +20,65 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredLocalContrastPlanner.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionChain.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectXRayPrefix.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredPreciseBlurPlanner+Topology.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredStandardBlurPlanner.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
 ]
+CHAIN_PLANNER_SOURCE = (
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionChain.swift"
+)
+CHAIN_BACKEND_SOURCE = (
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift"
+)
+CHAIN_RENDERER_SOURCE = (
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift"
+)
+COMPOSITOR_SOURCE = SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
+DRAW_REQUEST_SOURCE = SOURCE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift"
+EFFECT_TEXTURE_LOADER_SOURCE = (
+    SOURCE_ROOT / "Resources/SceneLayerEffectTextureLoader.swift"
+)
+
+SAMPLE_STAGE_FIXTURES = {
+    "2998757800": (
+        (0, "shake"),
+        (1, "shake"),
+        (2, "shake"),
+        (3, "shake"),
+        (4, "foliageSway"),
+        (5, "xRay"),
+    ),
+    "3757555836": (
+        (0, "xRay"),
+        (1, "waterFlow"),
+        (2, "waterRipple"),
+        (3, "waterFlow"),
+        (4, "shake"),
+    ),
+}
+
+STAGE_SOURCE_MARKERS = {
+    "shake": ("SceneAuthoredShakePlanner.plan", "case shake", "case .shake"),
+    "foliageSway": (
+        "SceneAuthoredFoliageSwayPlanner.plan",
+        "case foliageSway",
+        "case .foliageSway",
+    ),
+    "xRay": ("SceneAuthoredXRayPlanner.plan", "case xRay", "case .xRay"),
+    "waterFlow": (
+        "SceneAuthoredWaterFlowPlanner.plan",
+        "case waterFlow",
+        "case .waterFlow",
+    ),
+    "waterRipple": (
+        "SceneAuthoredWaterRipplePlanner.plan",
+        "case waterRipple",
+        "case .waterRipple",
+    ),
+}
 
 
 HARNESS = r'''
@@ -104,7 +157,8 @@ enum SceneAuthoredShakePlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneShakeExecutionPlan? {
-        nil
+        graph.effects.first?.definitionPath.lowercased()
+            == "effects/shake/effect.json" ? SceneShakeExecutionPlan() : nil
     }
 }
 
@@ -117,7 +171,8 @@ enum SceneAuthoredWaterFlowPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneWaterFlowExecutionPlan? {
-        nil
+        graph.effects.first?.definitionPath.lowercased()
+            == "effects/waterflow/effect.json" ? SceneWaterFlowExecutionPlan() : nil
     }
 }
 
@@ -131,6 +186,54 @@ enum SceneAuthoredWaterWavesPlanner {
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneWaterWavesExecutionPlan? {
         nil
+    }
+}
+
+struct SceneFoliageSwayExecutionPlan {}
+
+enum SceneAuthoredFoliageSwayPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneFoliageSwayExecutionPlan? {
+        graph.effects.first?.definitionPath.lowercased()
+            == "effects/foliagesway/effect.json"
+            ? SceneFoliageSwayExecutionPlan()
+            : nil
+    }
+}
+
+struct SceneWaterRippleExecutionPlan {}
+
+enum SceneAuthoredWaterRipplePlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneWaterRippleExecutionPlan? {
+        graph.effects.first?.definitionPath.lowercased()
+            == "effects/waterripple/effect.json"
+            ? SceneWaterRippleExecutionPlan()
+            : nil
+    }
+}
+
+struct SceneXRayExecutionPlan {
+    var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
+}
+
+enum SceneAuthoredXRayPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneXRayExecutionPlan? {
+        graph.effects.first?.definitionPath.lowercased()
+            == "effects/xray/effect.json" ? SceneXRayExecutionPlan() : nil
     }
 }
 
@@ -627,6 +730,95 @@ enum Harness {
         }
     }
 
+    static func sampleChain(
+        layerID: Int,
+        stageNames: [String]
+    ) -> (graph: Graph, descriptor: SceneRenderDescriptor) {
+        var priorOutput = texture(.layerSource, layerID: layerID)
+        var effects: [Graph.Effect] = []
+        var nodes: [Graph.Node] = []
+        var descriptors: [SceneRenderDescriptor.EffectDescriptor] = []
+        for (effectIndex, stageName) in stageNames.enumerated() {
+            let key = Graph.EffectKey(
+                layerID: layerID,
+                effectIndex: effectIndex,
+                descriptorID: "\(layerID)#effect#\(effectIndex)"
+            )
+            let output = texture(.effectOutput, layerID: layerID, effect: key)
+            let definitionPath = "effects/\(stageName.lowercased())/effect.json"
+            effects.append(.init(
+                key: key,
+                definitionPath: definitionPath,
+                input: priorOutput,
+                output: output,
+                nodeIndices: [effectIndex]
+            ))
+            nodes.append(.init(
+                nodeIndex: effectIndex,
+                effect: key,
+                definitionPassIndex: 0,
+                materialOrdinal: 0,
+                instancePassIndex: 0,
+                kind: .material,
+                materialPath: "materials/\(stageName.lowercased()).json",
+                materialPassID: "materials/\(stageName.lowercased()).json#0",
+                target: output,
+                bindings: [],
+                commandSource: nil,
+                commandTarget: nil,
+                compose: nil,
+                conditions: nil
+            ))
+            descriptors.append(.init(id: key.descriptorID, visible: true, passes: []))
+            priorOutput = output
+        }
+        return (
+            Graph(
+                layerID: layerID,
+                effects: effects,
+                renderTargets: [],
+                nodes: nodes,
+                finalOutput: priorOutput,
+                blockers: []
+            ),
+            SceneRenderDescriptor(
+                layers: [
+                    .init(
+                        id: layerID,
+                        parentID: nil,
+                        visible: true,
+                        contentKind: "image",
+                        effects: descriptors
+                    ),
+                ],
+                materialPasses: []
+            )
+        )
+    }
+
+    static func stageEvidence(
+        _ chain: SceneAuthoredEffectExecutionChain?
+    ) -> [[Any]] {
+        chain?.stages.map { stage in
+            let effectIndex = stage.renderGraph.effects[0].key.effectIndex
+            let backend: String
+            switch stage.backend {
+            case .preciseGaussian: backend = "preciseGaussian"
+            case .standardBlur: backend = "standardBlur"
+            case .localContrast: backend = "localContrast"
+            case .opacity: backend = "opacity"
+            case .workshopShadow: backend = "workshopShadow"
+            case .shake: backend = "shake"
+            case .waterFlow: backend = "waterFlow"
+            case .waterWaves: backend = "waterWaves"
+            case .foliageSway: backend = "foliageSway"
+            case .waterRipple: backend = "waterRipple"
+            case .xRay: backend = "xRay"
+            }
+            return [effectIndex, backend]
+        } ?? []
+    }
+
     static func main() throws {
         let layers: [SceneRenderDescriptor.Layer] = [
             .init(id: 10, parentID: nil, visible: true, contentKind: "text", effects: [instanceEffect(layerID: 10, scale: 1.28)]),
@@ -796,6 +988,16 @@ enum Harness {
                 descriptor: descriptor, authoredPlans: [graph]
             ).legacyGaussianBlurBlockedLayerIDs.sorted()
         }
+        let sample2998757800 = sampleChain(
+            layerID: 2998757800,
+            stageNames: [
+                "shake", "shake", "shake", "shake", "foliageSway", "xRay",
+            ]
+        )
+        let sample3757555836 = sampleChain(
+            layerID: 3757555836,
+            stageNames: ["xRay", "waterFlow", "waterRipple", "waterFlow", "shake"]
+        )
         let result: [String: Any] = [
             "planned": catalog.plansByLayerID.keys.sorted(),
             "hidden": catalog.hiddenEligibleLayerIDs,
@@ -883,6 +1085,20 @@ enum Harness {
             "standardKernelLegacyBlocked": standardLegacyBlocked(graph: standardGraph, descriptor: standardKernelDescriptor),
             "standardCompositeLegacyBlocked": standardLegacyBlocked(graph: standardGraph, descriptor: standardCompositeDescriptor),
             "standardMixedEffectLegacyBlocked": standardLegacyBlocked(graph: standardBlurGraph(extraMixedEffect: true)),
+            "sample2998757800Stages": stageEvidence(
+                SceneAuthoredEffectChainPlanner.plan(
+                    graph: sample2998757800.graph,
+                    descriptor: sample2998757800.descriptor,
+                    shaderContracts: []
+                )
+            ),
+            "sample3757555836Stages": stageEvidence(
+                SceneAuthoredEffectChainPlanner.plan(
+                    graph: sample3757555836.graph,
+                    descriptor: sample3757555836.descriptor,
+                    shaderContracts: []
+                )
+            ),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -1012,6 +1228,103 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         )
         for key in blocking_keys:
             self.assertEqual(self.result[key], [530], key)
+
+    def assert_ordered_stage_fixture(self, sample_id: str) -> None:
+        planner = CHAIN_PLANNER_SOURCE.read_text(encoding="utf-8")
+        backend = CHAIN_BACKEND_SOURCE.read_text(encoding="utf-8")
+        renderer = CHAIN_RENDERER_SOURCE.read_text(encoding="utf-8")
+        compositor = COMPOSITOR_SOURCE.read_text(encoding="utf-8")
+        fixture = SAMPLE_STAGE_FIXTURES[sample_id]
+
+        self.assertEqual(
+            [effect_index for effect_index, _ in fixture],
+            list(range(len(fixture))),
+            f"{sample_id} fixture must preserve authored effect indexes",
+        )
+        loop = planner.index("for (ordinal, effect) in graph.effects.enumerated()")
+        append = planner.index("stages.append(stage)", loop)
+        returned_chain = planner.index(
+            "return SceneAuthoredEffectExecutionChain(",
+            append,
+        )
+        self.assertLess(loop, append)
+        self.assertLess(append, returned_chain)
+
+        for stage in dict.fromkeys(stage for _, stage in fixture):
+            planner_marker, backend_marker, renderer_marker = STAGE_SOURCE_MARKERS[stage]
+            self.assertIn(
+                planner_marker,
+                planner,
+                f"{sample_id} is missing the {stage} authored planner",
+            )
+            self.assertIn(
+                backend_marker,
+                backend,
+                f"{sample_id} is missing the {stage} backend",
+            )
+            self.assertIn(
+                renderer_marker,
+                renderer,
+                f"{sample_id} is missing the {stage} ordered renderer",
+            )
+
+        self.assertNotIn(
+            "if let xRayPlan",
+            compositor,
+            f"{sample_id} must not append X-Ray after the ordered chain",
+        )
+
+    def test_2998757800_preserves_shake_foliage_then_xray_stage_order(self) -> None:
+        self.assertEqual(
+            SAMPLE_STAGE_FIXTURES["2998757800"],
+            (
+                (0, "shake"),
+                (1, "shake"),
+                (2, "shake"),
+                (3, "shake"),
+                (4, "foliageSway"),
+                (5, "xRay"),
+            ),
+        )
+        self.assertEqual(
+            self.result["sample2998757800Stages"],
+            [list(stage) for stage in SAMPLE_STAGE_FIXTURES["2998757800"]],
+        )
+        self.assert_ordered_stage_fixture("2998757800")
+
+    def test_3757555836_preserves_xray_then_water_and_shake_stage_order(self) -> None:
+        self.assertEqual(
+            SAMPLE_STAGE_FIXTURES["3757555836"],
+            (
+                (0, "xRay"),
+                (1, "waterFlow"),
+                (2, "waterRipple"),
+                (3, "waterFlow"),
+                (4, "shake"),
+            ),
+        )
+        self.assertEqual(
+            self.result["sample3757555836Stages"],
+            [list(stage) for stage in SAMPLE_STAGE_FIXTURES["3757555836"]],
+        )
+        self.assert_ordered_stage_fixture("3757555836")
+
+    def test_later_authored_stages_retain_required_resources(self) -> None:
+        source = DRAW_REQUEST_SOURCE.read_text(encoding="utf-8")
+        start = source.index(
+            "var authoredEffectResourcesOnly: SceneImageLayerMasks"
+        )
+        end = source.index("static let empty", start)
+        resources_only = source[start:end]
+        for resource in ("water", "foliage", "waterRippleNormal", "xRay"):
+            self.assertIn(f"{resource}: {resource}", resources_only)
+            self.assertNotIn(f"{resource}: nil", resources_only)
+
+        loader = EFFECT_TEXTURE_LOADER_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            "pass.textureSlots.count == 2 || pass.textureSlots.count == 3",
+            loader,
+        )
 
 
 if __name__ == "__main__":

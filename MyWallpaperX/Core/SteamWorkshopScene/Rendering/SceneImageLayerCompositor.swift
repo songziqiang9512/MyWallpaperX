@@ -14,6 +14,7 @@ struct SceneImageLayerCompositor {
     private let gradientColorPipeline: SceneGradientColorPipeline
     private let waterRipplePipeline: SceneWaterRipplePipeline
     private let perspectiveOpacityPipeline: ScenePerspectiveOpacityPipeline
+    private let xRayPipeline: SceneXRayPipeline
     private let additivePipeline: SceneImageLayerPipeline
 
     init?(device: MTLDevice) {
@@ -29,6 +30,7 @@ struct SceneImageLayerCompositor {
               let gradientColorPipeline = SceneGradientColorPipeline(device: device),
               let waterRipplePipeline = SceneWaterRipplePipeline(device: device),
               let perspectiveOpacityPipeline = ScenePerspectiveOpacityPipeline(device: device),
+              let xRayPipeline = SceneXRayPipeline(device: device),
               let additivePipeline = SceneImageLayerPipeline(device: device, blendMode: .additive) else {
             return nil
         }
@@ -44,6 +46,7 @@ struct SceneImageLayerCompositor {
         self.gradientColorPipeline = gradientColorPipeline
         self.waterRipplePipeline = waterRipplePipeline
         self.perspectiveOpacityPipeline = perspectiveOpacityPipeline
+        self.xRayPipeline = xRayPipeline
         self.additivePipeline = additivePipeline
     }
 
@@ -70,7 +73,10 @@ struct SceneImageLayerCompositor {
             authoredEffectPlan: runtimeAuthoredPlan,
             blocksLegacyGaussianBlur: request.blocksLegacyGaussianBlur
         )
-        guard effectPlan.skipsUnsupportedComposite == false else { return false }
+        guard request.authoredEffectChain != nil
+            || effectPlan.skipsUnsupportedComposite == false else {
+            return false
+        }
         let routesOffscreen = effectPlan.offscreenPassCount > 0
             || request.requiresSourceCopy
             || request.authoredEffectChain != nil
@@ -83,9 +89,12 @@ struct SceneImageLayerCompositor {
             Int((request.offscreenSize?.height ?? CGFloat(request.texture.height)).rounded(.up))
         )
 
+        let sourceEffectInputs = request.authoredEffectChain == nil
+            ? effectPlan.inputs
+            : .neutral
         let directUniforms = makeFragmentUniforms(
             values: request.uniforms,
-            effectInputs: effectPlan.inputs,
+            effectInputs: sourceEffectInputs,
             textureFrame: request.textureFrame,
             tint: request.layer.contentKind == "solid"
                 ? request.uniforms.tint
@@ -95,7 +104,7 @@ struct SceneImageLayerCompositor {
         )
         if routesOffscreen,
            let pool = request.offscreenTexturePool {
-            let renderedTexture: MTLTexture?
+            var renderedTexture: MTLTexture?
             if let authoredChain = request.authoredEffectChain {
                 guard let targets = pool.graphTargets(
                     for: authoredChain,
@@ -121,6 +130,10 @@ struct SceneImageLayerCompositor {
                         shakePipeline: shakePipeline,
                         waterFlowPipeline: waterFlowPipeline,
                         waterWavesPipeline: waterWavesPipeline,
+                        waterRipplePipeline: waterRipplePipeline,
+                        xRayPipeline: xRayPipeline,
+                        cursorUV: request.uniforms.cursorUV,
+                        pointerIsInside: request.uniforms.cursorIsInside,
                         commandBuffer: commandBuffer
                     )
                 }
@@ -251,6 +264,8 @@ struct SceneImageLayerCompositor {
                             time: directUniforms.time,
                             commandBuffer: commandBuffer
                         )
+                    case .foliageSway, .waterRipple, .xRay:
+                        return nil
                     }
                 }
             } else {
@@ -354,34 +369,4 @@ struct SceneImageLayerCompositor {
         return true
     }
 
-    private func makeFragmentUniforms(
-        values: SceneImageLayerUniformValues,
-        effectInputs: SceneLayerEffectInputs,
-        textureFrame: SceneTextureUVTransform,
-        tint: SIMD3<Float>,
-        foliageMaskUVScale: SIMD2<Float>,
-        dependencyBlendMode: Int?
-    ) -> SceneLayerFragmentUniforms {
-        var flags = effectInputs.flags
-        if dependencyBlendMode != nil {
-            flags.insert(.dependencyBlend)
-        }
-        return SceneLayerFragmentUniforms(
-            time: values.time,
-            alpha: values.alpha,
-            effectFlags: flags.rawValue,
-            dependencyBlendMode: UInt32(dependencyBlendMode ?? 0),
-            cursorUV: values.cursorUV,
-            _pad1: .zero,
-            tint: SIMD4(tint.x, tint.y, tint.z, 1),
-            effectParams0: effectInputs.params0,
-            effectParams1: effectInputs.params1,
-            effectParams2: effectInputs.params2,
-            effectParams3: effectInputs.params3,
-            effectParams4: effectInputs.params4,
-            effectParams5: SIMD4(foliageMaskUVScale.x, foliageMaskUVScale.y, 0, 0),
-            textureFrame0: textureFrame.uniform0,
-            textureFrame1: textureFrame.uniform1
-        )
-    }
 }

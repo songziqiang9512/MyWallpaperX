@@ -86,7 +86,15 @@ enum DebugScenePlaybackRunner {
                 model.diagnostics.interpretationFileURL?.path ?? "-"
             )
             if let evidenceDirectory {
-                scheduleSnapshots(outputDirectory: evidenceDirectory)
+                if let hoverPointer = requestedHoverPointer {
+                    setPointerOutside()
+                    schedulePointerSnapshots(
+                        outputDirectory: evidenceDirectory,
+                        hoverPointer: hoverPointer
+                    )
+                } else {
+                    scheduleSnapshots(outputDirectory: evidenceDirectory)
+                }
             }
             let livePropertyOverrides = requestedLivePropertyOverrides
             if !livePropertyOverrides.isEmpty {
@@ -122,27 +130,71 @@ enum DebugScenePlaybackRunner {
     ) {
         for (reason, delay) in [("ready", 1.0), ("after", 3.0)] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                guard let windowNumber = SceneDesktopWallpaperHost.shared
-                    .debugSnapshot().windowNumbers.first else {
-                    NSLog(
-                        "MWX DEBUG SCENE: phase=snapshot-failed reason=%@ stage=surface-lookup error=unknown",
-                        reason
-                    )
-                    return
-                }
-                let accepted = SceneDesktopWallpaperHost.shared.requestDebugSnapshot(
-                    windowNumber: windowNumber,
-                    reason: reason,
-                    outputDirectory: outputDirectory
-                )
-                if !accepted {
-                    NSLog(
-                        "MWX DEBUG SCENE: phase=snapshot-failed reason=%@ stage=surface-lookup error=unknown",
-                        reason
-                    )
-                }
+                requestSnapshot(reason: reason, outputDirectory: outputDirectory)
             }
         }
+    }
+
+    private static func schedulePointerSnapshots(
+        outputDirectory: URL,
+        hoverPointer: SIMD2<Float>
+    ) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            requestSnapshot(reason: "before", outputDirectory: outputDirectory)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
+            setPointer(hoverPointer)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            requestSnapshot(reason: "hover", outputDirectory: outputDirectory)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) {
+            setPointerOutside()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+            requestSnapshot(reason: "after", outputDirectory: outputDirectory)
+        }
+    }
+
+    private static func requestSnapshot(reason: String, outputDirectory: URL) {
+        guard let windowNumber = SceneDesktopWallpaperHost.shared
+            .debugSnapshot().windowNumbers.first else {
+            NSLog(
+                "MWX DEBUG SCENE: phase=snapshot-failed reason=%@ stage=surface-lookup error=unknown",
+                reason
+            )
+            return
+        }
+        let accepted = SceneDesktopWallpaperHost.shared.requestDebugSnapshot(
+            windowNumber: windowNumber,
+            reason: reason,
+            outputDirectory: outputDirectory
+        )
+        if !accepted {
+            NSLog(
+                "MWX DEBUG SCENE: phase=snapshot-failed reason=%@ stage=surface-lookup error=unknown",
+                reason
+            )
+        }
+    }
+
+    private static func setPointer(_ normalized: SIMD2<Float>) {
+        SceneDesktopWallpaperHost.shared.setDebugPointerOverride(.init(
+            current: normalized,
+            previous: normalized,
+            isInside: true,
+            isPrimaryButtonDown: false
+        ))
+        NSLog(
+            "MWX DEBUG SCENE: phase=pointer-state state=hover x=%.6f y=%.6f",
+            normalized.x,
+            normalized.y
+        )
+    }
+
+    private static func setPointerOutside() {
+        SceneDesktopWallpaperHost.shared.setDebugPointerOverride(.init())
+        NSLog("MWX DEBUG SCENE: phase=pointer-state state=outside")
     }
 
     private static func scheduleLivePropertyUpdate(
@@ -174,6 +226,24 @@ enum DebugScenePlaybackRunner {
             return 10
         }
         return min(max(duration, 5), 60)
+    }
+
+    private static var requestedHoverPointer: SIMD2<Float>? {
+        guard let payload = argumentValue(
+            after: "--mwx-debug-scene-hover-pointer-json"
+        ),
+              let data = payload.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data)
+                as? [String: Any],
+              let x = (object["x"] as? NSNumber)?.doubleValue,
+              let y = (object["y"] as? NSNumber)?.doubleValue,
+              x.isFinite,
+              y.isFinite,
+              (-1...1).contains(x),
+              (-1...1).contains(y) else {
+            return nil
+        }
+        return SIMD2(Float(x), Float(y))
     }
 
     private static func isIsolatedSampleRoot(_ rootURL: URL) -> Bool {

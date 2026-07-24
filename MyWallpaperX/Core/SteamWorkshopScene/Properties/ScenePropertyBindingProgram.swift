@@ -96,13 +96,15 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
         as type: SceneDynamicValueType
     ) -> Result<SceneDynamicValue, ValueError> {
         switch (type, value) {
+        case let (.bool, .bool(value)):
+            return .success(.bool(value))
         case let (.scalar, .number(number)):
             return number.isFinite ? .success(.scalar(number)) : .failure(.nonFinite)
         case let (.vector3, .string(string)):
             return parseColor(string)
         case let (.string, .string(string)):
             return .success(.string(string))
-        case (.scalar, _), (.vector3, _), (.string, _):
+        case (.bool, _), (.scalar, _), (.vector3, _), (.string, _):
             return .failure(.typeMismatch)
         default:
             return .failure(.unsupportedType)

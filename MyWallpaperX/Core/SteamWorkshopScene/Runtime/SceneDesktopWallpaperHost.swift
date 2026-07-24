@@ -44,6 +44,9 @@ final class SceneDesktopWallpaperHost {
     private var observers: [NSObjectProtocol] = []
     private var frameTimer: Timer?
     private var sceneClock = SceneClock(hostTime: CACurrentMediaTime())
+#if DEBUG
+    private var debugPointerOverride: SceneSurfacePointerState?
+#endif
 
     var activeRecordID: String? { launchContext?.recordID }
 
@@ -144,6 +147,11 @@ final class SceneDesktopWallpaperHost {
             outputDirectory: outputDirectory
         )
         return true
+    }
+
+    func setDebugPointerOverride(_ state: SceneSurfacePointerState?) {
+        debugPointerOverride = state
+        updateMouseLocations()
     }
 #endif
 
@@ -287,6 +295,9 @@ final class SceneDesktopWallpaperHost {
         surfaces.removeAll()
         if clearContext {
             launchContext = nil
+#if DEBUG
+            debugPointerOverride = nil
+#endif
         }
     }
 
@@ -314,39 +325,6 @@ final class SceneDesktopWallpaperHost {
 #else
         false
 #endif
-    }
-
-    private static func activeLiveConsumerTargets(
-        in descriptor: SceneRenderDescriptor,
-        authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
-    ) -> Set<SceneDynamicTarget> {
-        let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(in: descriptor)
-        let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
-        return descriptor.layers.reduce(
-            into: authoredEffectCatalog.liveConsumerTargets
-        ) { targets, layer in
-            switch layer.contentKind {
-            case "image":
-                targets.insert(.layer(layerID: layer.id, field: .alpha))
-            case "text":
-                targets.insert(.layer(layerID: layer.id, field: .alpha))
-                guard layer.text != nil,
-                      layer.textStyle != nil,
-                      visibleLayerIDs.contains(layer.id) else { return }
-                targets.insert(.text(layerID: layer.id, field: .content))
-                targets.insert(.text(layerID: layer.id, field: .pointSize))
-                targets.insert(.text(layerID: layer.id, field: .color))
-            case "solid":
-                targets.insert(.layer(layerID: layer.id, field: .alpha))
-                targets.insert(.layer(layerID: layer.id, field: .color))
-            case "composition", "project", "fullscreen":
-                if utilityPlans[layer.id]?.shouldCapture == true {
-                    targets.insert(.layer(layerID: layer.id, field: .alpha))
-                }
-            default:
-                break
-            }
-        }
     }
 
     private func startFrameDriver() {
@@ -378,6 +356,14 @@ final class SceneDesktopWallpaperHost {
     }
 
     private func updateMouseLocations() {
+#if DEBUG
+        if let debugPointerOverride {
+            for surface in surfaces.values {
+                surface.metalView.applyPointerState(debugPointerOverride)
+            }
+            return
+        }
+#endif
         let mouseLocation = NSEvent.mouseLocation
         for surface in surfaces.values {
             surface.metalView.updateMouseLocationInScreen(mouseLocation)

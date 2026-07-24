@@ -17,6 +17,10 @@ enum SceneAuthoredEffectChainRenderer {
         shakePipeline: SceneShakePipeline,
         waterFlowPipeline: SceneWaterFlowPipeline,
         waterWavesPipeline: SceneWaterWavesPipeline,
+        waterRipplePipeline: SceneWaterRipplePipeline,
+        xRayPipeline: SceneXRayPipeline,
+        cursorUV: SIMD2<Float>,
+        pointerIsInside: Bool,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         guard !chain.stages.isEmpty,
@@ -48,6 +52,10 @@ enum SceneAuthoredEffectChainRenderer {
                 shakePipeline: shakePipeline,
                 waterFlowPipeline: waterFlowPipeline,
                 waterWavesPipeline: waterWavesPipeline,
+                waterRipplePipeline: waterRipplePipeline,
+                xRayPipeline: xRayPipeline,
+                cursorUV: cursorUV,
+                pointerIsInside: pointerIsInside,
                 time: sourceUniforms.time,
                 commandBuffer: commandBuffer
             ) else {
@@ -74,6 +82,10 @@ enum SceneAuthoredEffectChainRenderer {
         shakePipeline: SceneShakePipeline,
         waterFlowPipeline: SceneWaterFlowPipeline,
         waterWavesPipeline: SceneWaterWavesPipeline,
+        waterRipplePipeline: SceneWaterRipplePipeline,
+        xRayPipeline: SceneXRayPipeline,
+        cursorUV: SIMD2<Float>,
+        pointerIsInside: Bool,
         time: Float,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
@@ -205,6 +217,76 @@ enum SceneAuthoredEffectChainRenderer {
                 time: time,
                 commandBuffer: commandBuffer
             )
+        case .foliageSway(let foliage):
+            guard targets.plan.logicalTargets.isEmpty,
+                  let mask = masks.foliage else {
+                return nil
+            }
+            return SceneFoliageSwayRenderer.render(
+                plan: foliage,
+                sourceTexture: sourceTexture,
+                maskTexture: mask,
+                maskUVScale: masks.foliageUVScale,
+                target: targets.outputTexture,
+                time: time,
+                sourcePipeline: pipeline,
+                commandBuffer: commandBuffer
+            )
+        case .waterRipple(let ripple):
+            guard targets.plan.logicalTargets.isEmpty,
+                  let mask = masks.water,
+                  let normal = masks.waterRippleNormal,
+                  waterRipplePipeline.encode(
+                      source: sourceTexture,
+                      normalMap: normal,
+                      target: targets.outputTexture,
+                      plan: ripple.runtimePlan,
+                      time: time,
+                      maskTexture: mask,
+                      maskUVScale: masks.waterUVScale,
+                      commandBuffer: commandBuffer
+                  ) else {
+                return nil
+            }
+            return targets.outputTexture
+        case .xRay(let xRay):
+            guard targets.plan.logicalTargets.isEmpty,
+                  SceneOffscreenEffectRenderer.captureSource(
+                      sourceTexture: sourceTexture,
+                      waterMaskTexture: masks.water,
+                      foliageMaskTexture: masks.foliage,
+                      auxMaskTexture: auxMask,
+                      target: targets.inputTexture,
+                      sourceUniforms: sourceUniforms,
+                      pipeline: pipeline,
+                      commandBuffer: commandBuffer
+                  ) else {
+                return nil
+            }
+            switch SceneXRayRuntimePlanner.resolve(
+                declaration: xRay.declaration,
+                resources: masks.xRay,
+                snapshot: dynamicValues,
+                pointerIsInside: pointerIsInside
+            ) {
+            case .identity:
+                return targets.inputTexture
+            case .unsupported:
+                return nil
+            case .render(let runtime):
+                guard let resources = masks.xRay,
+                      xRayPipeline.encode(
+                          source: targets.inputTexture,
+                          resources: resources,
+                          target: targets.outputTexture,
+                          plan: runtime,
+                          cursorUV: cursorUV,
+                          commandBuffer: commandBuffer
+                      ) else {
+                    return nil
+                }
+                return targets.outputTexture
+            }
         }
     }
 

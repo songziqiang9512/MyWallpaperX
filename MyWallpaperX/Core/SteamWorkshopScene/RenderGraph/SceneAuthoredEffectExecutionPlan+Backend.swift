@@ -10,6 +10,9 @@ extension SceneAuthoredEffectExecutionPlan {
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
+        case foliageSway(SceneFoliageSwayExecutionPlan)
+        case waterRipple(SceneWaterRippleExecutionPlan)
+        case xRay(SceneXRayExecutionPlan)
     }
 
     var gaussianBlur: SceneGaussianBlurPlan? {
@@ -52,8 +55,27 @@ extension SceneAuthoredEffectExecutionPlan {
         return plan
     }
 
-    nonisolated var liveConsumerTarget: SceneDynamicTarget? {
-        localContrast?.liveStrengthTarget ?? opacity?.liveAlphaTarget
+    nonisolated var foliageSway: SceneFoliageSwayExecutionPlan? {
+        guard case .foliageSway(let plan) = backend else { return nil }
+        return plan
+    }
+
+    nonisolated var waterRipple: SceneWaterRippleExecutionPlan? {
+        guard case .waterRipple(let plan) = backend else { return nil }
+        return plan
+    }
+
+    nonisolated var xRay: SceneXRayExecutionPlan? {
+        guard case .xRay(let plan) = backend else { return nil }
+        return plan
+    }
+
+    nonisolated var liveConsumerTargets: Set<SceneDynamicTarget> {
+        var targets = Set<SceneDynamicTarget>()
+        if let target = localContrast?.liveStrengthTarget { targets.insert(target) }
+        if let target = opacity?.liveAlphaTarget { targets.insert(target) }
+        if let xRay { targets.formUnion(xRay.liveConsumerTargets) }
+        return targets
     }
 
     func localContrastStrength(in snapshot: SceneDynamicSnapshot) -> Float? {

@@ -4,7 +4,8 @@ import simd
 private struct SceneWaterFlowUniforms {
     var flow: SIMD4<Float>
     var maskUVScale: SIMD2<Float>
-    var padding: SIMD2<Float> = .zero
+    var phaseFeather: Float
+    var padding: Float = 0
 }
 
 private let sceneWaterFlowShaderSource = """
@@ -19,7 +20,8 @@ struct WaterFlowVaryings {
 struct WaterFlowUniforms {
     float4 flow;
     float2 maskUVScale;
-    float2 padding;
+    float phaseFeather;
+    float padding;
 };
 
 vertex WaterFlowVaryings sceneWaterFlowVert(uint vertexID [[vertex_id]]) {
@@ -67,6 +69,18 @@ fragment float4 sceneWaterFlowFrag(
     ));
     float blend = 2.0 * abs(cycles.x - 0.5);
     float blend2 = 2.0 * abs(cycles.z - 0.5);
+    if (uniforms.phaseFeather >= 0.0) {
+        blend = smoothstep(
+            0.5 - uniforms.phaseFeather,
+            0.5 + uniforms.phaseFeather,
+            blend
+        );
+        blend2 = smoothstep(
+            0.5 - uniforms.phaseFeather,
+            0.5 + uniforms.phaseFeather,
+            blend2
+        );
+    }
     cycles -= 0.5;
 
     float4 offset = float4(flowMask.xyxy * strength * 0.1) * cycles.xxyy;
@@ -149,7 +163,8 @@ struct SceneWaterFlowPipeline {
         encoder.setFragmentTexture(phaseTexture, index: 2)
         var uniforms = SceneWaterFlowUniforms(
             flow: SIMD4(time, plan.speed, plan.strength, plan.phaseScale),
-            maskUVScale: maskUVScale
+            maskUVScale: maskUVScale,
+            phaseFeather: plan.phaseFeather ?? -1
         )
         encoder.setFragmentBytes(
             &uniforms,
@@ -178,6 +193,7 @@ struct SceneWaterFlowPipeline {
             && (0.01...2).contains(plan.speed)
             && (0.01...2).contains(plan.strength)
             && (0.01...10).contains(plan.phaseScale)
+            && (plan.phaseFeather.map { (0.1...0.5).contains($0) } ?? true)
             && maskUVScale.x.isFinite
             && maskUVScale.y.isFinite
             && maskUVScale.x > 0

@@ -29,6 +29,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleTrailRenderPlan.swift",
     SOURCE_ROOT / "Particles/SceneParticleRenderSupport.swift",
     SOURCE_ROOT / "Particles/SceneParticleMetalPipeline.swift",
+    SOURCE_ROOT / "Format/SceneTexDataReader.swift",
     SOURCE_ROOT / "Format/SceneTexContainer.swift",
     SOURCE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
     SOURCE_ROOT / "Resources/SceneTextureLoader.swift",

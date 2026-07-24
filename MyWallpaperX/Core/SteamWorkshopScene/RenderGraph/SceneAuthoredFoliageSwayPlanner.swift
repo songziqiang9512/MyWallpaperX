@@ -1,25 +1,22 @@
+import CryptoKit
 import Foundation
 
-nonisolated struct SceneWaterFlowExecutionPlan {
+nonisolated struct SceneFoliageSwayExecutionPlan {
     let layerID: Int
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
     let renderGraph: SceneAuthoredEffectRenderPlan
-    let speed: Float
-    let strength: Float
-    let phaseScale: Float
-    let phaseFeather: Float?
-    let flowTexturePath: String
-    let phaseTexturePath: String
+    let runtimePlan: SceneFoliageSwayPlan
+    let maskTexturePath: String
 }
 
-enum SceneAuthoredWaterFlowPlanner {
+enum SceneAuthoredFoliageSwayPlanner {
     typealias Graph = SceneAuthoredEffectRenderPlan
 
-    private struct Parameters {
-        let speed: Float
-        let strength: Float
-        let phaseScale: Float
-        let phaseFeather: Float?
+    private nonisolated struct CanonicalShaderPayload: Encodable {
+        let identity: String
+        let sourceKind: SceneShaderContract.SourceKind
+        let stages: [SceneShaderContract.Stage]
+        let diagnostics: [SceneShaderContract.Diagnostic]
     }
 
     nonisolated static func plan(
@@ -27,22 +24,26 @@ enum SceneAuthoredWaterFlowPlanner {
         descriptor: SceneRenderDescriptor,
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneWaterFlowExecutionPlan? {
+    ) -> SceneFoliageSwayExecutionPlan? {
         guard graph.blockers.isEmpty,
               graph.effects.count == 1,
               graph.nodes.count == 1,
               graph.renderTargets.isEmpty,
               descriptor.layers.filter({ $0.id == graph.layerID }).count == 1,
               let layer = descriptor.layers.first(where: { $0.id == graph.layerID }),
-              layer.contentKind == "image" else {
+              layer.contentKind == "image",
+              let runtimePlan = SceneFoliageSwayRuntimePlanner.plan(
+                  for: layer,
+                  hasMask: true
+              ) else {
             return nil
         }
 
         let effect = graph.effects[0]
         let node = graph.nodes[0]
-        guard let shaderProfile = SceneWaterFlowShaderProfile.resolve(shaderContracts),
-              normalized(effect.definitionPath) == definitionPath,
+        guard normalized(effect.definitionPath) == definitionPath,
               validDefinition(in: descriptor, path: effect.definitionPath),
+              shaderContractMatches(shaderContracts),
               effect.nodeIndices == [node.nodeIndex],
               SceneAuthoredEffectInputValidator.accepts(
                   effect.input,
@@ -54,40 +55,24 @@ enum SceneAuthoredWaterFlowPlanner {
               validNode(node, effect: effect),
               validMaterialDescriptor(in: descriptor),
               let instance = instancePass(effect: effect, layer: layer),
-              let textures = texturePaths(from: instance),
-              let parameters = parameters(
-                  from: instance.constantShaderValues,
-                  profile: shaderProfile
-              ),
+              let maskPath = SceneEffectMaskSemantics.maskPath(in: instance),
+              validInstance(instance, maskPath: maskPath),
               let resolved = SceneAuthoredMaterialResolver.resolve(
                   node: node,
                   graph: graph,
                   descriptor: descriptor
               ).node,
-              validResolvedMaterial(
-                  resolved,
-                  textures: textures,
-                  parameters: parameters,
-                  profile: shaderProfile
-              ) else {
+              validResolvedMaterial(resolved, maskPath: maskPath) else {
             return nil
         }
 
-        return SceneWaterFlowExecutionPlan(
+        return SceneFoliageSwayExecutionPlan(
             layerID: graph.layerID,
             effectKey: effect.key,
             renderGraph: graph,
-            speed: parameters.speed,
-            strength: parameters.strength,
-            phaseScale: parameters.phaseScale,
-            phaseFeather: parameters.phaseFeather,
-            flowTexturePath: textures.flow,
-            phaseTexturePath: textures.phase
+            runtimePlan: runtimePlan,
+            maskTexturePath: maskPath
         )
-    }
-
-    nonisolated static func containsCandidate(graph: Graph) -> Bool {
-        graph.effects.contains { normalized($0.definitionPath) == definitionPath }
     }
 
     private nonisolated static func validDefinition(
@@ -98,10 +83,10 @@ enum SceneAuthoredWaterFlowPlanner {
             normalized($0.relativePath) == normalized(path)
         }
         guard matches.count == 1, let definition = matches.first,
-              definition.version == 1,
-              definition.replacementKey == "waterflow",
-              definition.name == "ui_editor_effect_water_flow_title",
-              definition.description == "ui_editor_effect_water_flow_description",
+              definition.version == 2,
+              definition.replacementKey == "foliagesway",
+              definition.name == "ui_editor_effect_foliage_sway_title",
+              definition.description == "ui_editor_effect_foliage_sway_description",
               definition.group == "animate",
               definition.performance == nil,
               definition.previewPath == "preview/project.json",
@@ -157,8 +142,8 @@ enum SceneAuthoredWaterFlowPlanner {
             && material.materialRawSHA256 == materialSHA256
             && material.passIndex == 0
             && normalized(material.shaderPath ?? "") == shaderIdentity
-            && material.texturePaths == [phaseTexturePath]
-            && material.textureSlots == [nil, nil, phaseTexturePath]
+            && material.texturePaths.isEmpty
+            && material.textureSlots.isEmpty
             && material.userTextureInputs.isEmpty
             && material.combos.isEmpty
             && material.constantShaderValues.isEmpty
@@ -180,50 +165,44 @@ enum SceneAuthoredWaterFlowPlanner {
               descriptor.passes.count == 1,
               let pass = descriptor.passes.first,
               pass.passIndex == 0,
-              pass.userTextureInputs.isEmpty,
-              pass.combos.isEmpty else {
+              pass.userTextureInputs.isEmpty else {
             return nil
         }
         return pass
     }
 
-    private nonisolated static func texturePaths(
-        from pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor
-    ) -> (flow: String, phase: String)? {
-        guard pass.textureSlots.count == 3,
-              pass.textureSlots[0] == nil,
-              let flow = pass.textureSlots[1],
-              let phase = pass.textureSlots[2],
-              !flow.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              !phase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              pass.texturePaths == [flow, phase] else {
-            return nil
-        }
-        return (flow, phase)
+    private nonisolated static func validInstance(
+        _ pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor,
+        maskPath: String
+    ) -> Bool {
+        pass.textureSlots == [nil, maskPath, nil]
+            && pass.texturePaths == [maskPath]
+            && pass.combos.allSatisfy {
+                $0.key.uppercased() == "MODE" && $0.value == 0
+            }
+            && Set(pass.constantShaderValues.keys.map { $0.lowercased() }) == Set([
+                "phase", "power", "ratio", "scale", "scrolldirection",
+                "speeduv", "strength",
+            ])
     }
 
     private nonisolated static func validResolvedMaterial(
         _ material: SceneResolvedMaterialNode,
-        textures: (flow: String, phase: String),
-        parameters: Parameters,
-        profile: SceneWaterFlowShaderProfile
+        maskPath: String
     ) -> Bool {
         guard normalized(material.shaderPath) == shaderIdentity,
               material.textureSlots.count == 8,
-              assetPath(material.textureSlots[1], provenance: .instance) == textures.flow,
-              assetPath(material.textureSlots[2], provenance: .instance) == textures.phase,
+              assetPath(material.textureSlots[1]) == maskPath,
               material.textureSlots.enumerated().allSatisfy({
-                  $0.offset == 1 || $0.offset == 2 || $0.element == nil
+                  $0.offset == 1 || $0.element == nil
               }),
-              material.combos.isEmpty,
-              let resolvedParameters = self.parameters(
-                  from: material.constants,
-                  profile: profile
-              ),
-              resolvedParameters.speed == parameters.speed,
-              resolvedParameters.strength == parameters.strength,
-              resolvedParameters.phaseScale == parameters.phaseScale,
-              resolvedParameters.phaseFeather == parameters.phaseFeather else {
+              material.combos.allSatisfy({
+                  $0.key.uppercased() == "MODE" && $0.value == 0
+              }),
+              Set(material.constants.keys.map { $0.lowercased() }) == Set([
+                  "phase", "power", "ratio", "scale", "scrolldirection",
+                  "speeduv", "strength",
+              ]) else {
             return false
         }
         return material.renderState.blending?.lowercased() == "normal"
@@ -233,68 +212,50 @@ enum SceneAuthoredWaterFlowPlanner {
     }
 
     private nonisolated static func assetPath(
-        _ slot: SceneResolvedMaterialNode.TextureSlot?,
-        provenance: SceneResolvedMaterialNode.TextureProvenance
+        _ slot: SceneResolvedMaterialNode.TextureSlot?
     ) -> String? {
-        guard let slot, slot.provenance == provenance,
+        guard let slot, slot.provenance == .instance,
               case .asset(let path) = slot.source else {
             return nil
         }
         return path
     }
 
-    private nonisolated static func parameters(
-        from authored: [String: SceneDocument.ShaderValue],
-        profile: SceneWaterFlowShaderProfile
-    ) -> Parameters? {
-        var values: [String: SceneDocument.ShaderValue] = [:]
-        for (key, value) in authored {
-            guard values.updateValue(value, forKey: key.lowercased()) == nil else {
-                return nil
-            }
+    private nonisolated static func shaderContractMatches(
+        _ contracts: [SceneShaderContract]
+    ) -> Bool {
+        let matches = contracts.filter { normalized($0.identity) == shaderIdentity }
+        guard matches.count == 1, let contract = matches.first,
+              contract.sourceKind == .authoredSource,
+              contract.diagnostics.isEmpty,
+              contract.canonicalSHA256 == shaderCanonicalSHA256,
+              canonicalHash(contract) == shaderCanonicalSHA256,
+              contract.stages.count == 2 else {
+            return false
         }
-        let expectedKeys = profile == .phaseFeather
-            ? Set(["speed", "strength", "phasescale", "feather"])
-            : Set(["speed", "strength", "phasescale"])
-        guard Set(values.keys) == expectedKeys,
-              let speed = scalar(values["speed"], range: 0.01...2),
-              let strength = scalar(values["strength"], range: 0.01...2),
-              let phaseScale = scalar(values["phasescale"], range: 0.01...10) else {
-            return nil
+        let expected: [(SceneShaderContract.StageKind, String, String)] = [
+            (.vertex, vertexPath, vertexSHA256),
+            (.fragment, fragmentPath, fragmentSHA256),
+        ]
+        return zip(contract.stages, expected).allSatisfy { stage, fingerprint in
+            stage.kind == fingerprint.0
+                && normalized(stage.relativePath) == fingerprint.1
+                && stage.rawSHA256 == fingerprint.2
+                && sha256(Data(stage.source.utf8)) == fingerprint.2
         }
-        let phaseFeather: Float?
-        if profile == .phaseFeather {
-            guard let feather = scalar(values["feather"], range: 0.1...0.5) else {
-                return nil
-            }
-            phaseFeather = feather
-        } else {
-            phaseFeather = nil
-        }
-        return Parameters(
-            speed: speed,
-            strength: strength,
-            phaseScale: phaseScale,
-            phaseFeather: phaseFeather
-        )
     }
 
-    private nonisolated static func scalar(
-        _ value: SceneDocument.ShaderValue?,
-        range: ClosedRange<Double>
-    ) -> Float? {
-        guard let value,
-              value.userBinding == nil,
-              value.valueKind.lowercased() == "number",
-              let components = value.components,
-              components.count == 1,
-              let component = components.first,
-              component.isFinite,
-              range.contains(component) else {
-            return nil
-        }
-        let result = Float(component)
-        return result.isFinite ? result : nil
+    private nonisolated static func canonicalHash(_ contract: SceneShaderContract) -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        let payload = CanonicalShaderPayload(
+            identity: contract.identity,
+            sourceKind: contract.sourceKind,
+            stages: contract.stages,
+            diagnostics: contract.diagnostics
+        )
+        guard let data = try? encoder.encode(payload) else { return "" }
+        return sha256(data)
     }
 
     private nonisolated static func effectOutput(
@@ -307,18 +268,27 @@ enum SceneAuthoredWaterFlowPlanner {
         value.replacingOccurrences(of: "\\", with: "/").lowercased()
     }
 
-    private nonisolated static let definitionPath = "effects/waterflow/effect.json"
-    private nonisolated static let materialPath = "materials/effects/waterflow.json"
+    private nonisolated static func sha256(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private nonisolated static let definitionPath = "effects/foliagesway/effect.json"
+    private nonisolated static let materialPath = "materials/effects/foliagesway.json"
     private nonisolated static let materialPassID = "\(materialPath)#0"
     private nonisolated static let materialSHA256 =
-        "984bbaf1fdab98cb1b4169ff239a3ddbdeef83cfa0d71c286e8ea6435292066f"
-    private nonisolated static let shaderIdentity = "effects/waterflow"
-    private nonisolated static let phaseTexturePath = "effects/waterflowphase"
+        "95896dcaa058cf8d80b6e0bc1f531a2e533c2da886023a5c22d336224e16e51d"
+    private nonisolated static let shaderIdentity = "effects/foliagesway"
     private nonisolated static let dependencies = [
         materialPath,
-        "materials/effects/waterflowphase.png",
-        "materials/effects/waterflowphase.tex-json",
-        "shaders/effects/waterflow.frag",
-        "shaders/effects/waterflow.vert",
+        "shaders/effects/foliagesway.frag",
+        "shaders/effects/foliagesway.vert",
     ]
+    private nonisolated static let shaderCanonicalSHA256 =
+        "1f5c11c92bb715d86fd0b57f59c4fb5b263596a2bbeb158276336b7cc86544d6"
+    private nonisolated static let vertexPath = "shaders/effects/foliagesway.vert"
+    private nonisolated static let vertexSHA256 =
+        "4ee7daa1e00a02feed697b59950218444c82f9b82cc7418f72fcdee6f4545c49"
+    private nonisolated static let fragmentPath = "shaders/effects/foliagesway.frag"
+    private nonisolated static let fragmentSHA256 =
+        "02954542ab458f828eeb0d9da8201f02bf9c180effecacb81e86402704040f4c"
 }

@@ -11,6 +11,7 @@ struct SceneGraphRenderTargetTable {
         case byteBudgetExceeded
         case textureAllocationFailed
         case textureAllocationAliased
+        case borrowedTextureInvalid
     }
 
     let plan: SceneGraphRenderTargetPlan
@@ -117,6 +118,34 @@ struct SceneGraphRenderTargetTable {
             outputTexture: outputTexture,
             residentByteCost: totalByteCost,
             texturesByIdentity: textures,
+            historyState: HistoryState()
+        ))
+    }
+
+    static func makeBorrowed(
+        plan: SceneGraphRenderTargetPlan,
+        inputTexture: MTLTexture,
+        outputTexture: MTLTexture
+    ) -> Result<Self, Failure> {
+        guard plan.logicalTargets.isEmpty,
+              let specifications = specifications(for: plan),
+              specifications.count == 2,
+              plan.input != plan.output,
+              inputTexture !== outputTexture,
+              validBorrowedTexture(inputTexture, extent: plan.inputExtent),
+              validBorrowedTexture(outputTexture, extent: plan.inputExtent),
+              inputTexture.device.registryID == outputTexture.device.registryID else {
+            return .failure(.borrowedTextureInvalid)
+        }
+        return .success(Self(
+            plan: plan,
+            inputTexture: inputTexture,
+            outputTexture: outputTexture,
+            residentByteCost: 0,
+            texturesByIdentity: [
+                plan.input: inputTexture,
+                plan.output: outputTexture,
+            ],
             historyState: HistoryState()
         ))
     }
@@ -229,6 +258,20 @@ struct SceneGraphRenderTargetTable {
         _ extent: SceneGraphRenderTargetPlan.PixelExtent
     ) -> Bool {
         extent.width > 0 && extent.height > 0
+    }
+
+    private static func validBorrowedTexture(
+        _ texture: MTLTexture,
+        extent: SceneGraphRenderTargetPlan.PixelExtent
+    ) -> Bool {
+        texture.textureType == .type2D
+            && texture.pixelFormat == .bgra8Unorm
+            && texture.width == extent.width
+            && texture.height == extent.height
+            && texture.mipmapLevelCount == 1
+            && texture.sampleCount == 1
+            && texture.usage.contains(.renderTarget)
+            && texture.usage.contains(.shaderRead)
     }
 
     private static func validOutput(

@@ -224,6 +224,34 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 benchmark.load_matrix(path)
 
+    def test_hover_pointer_contract_accepts_only_finite_normalized_pairs(self) -> None:
+        self.assertEqual(
+            benchmark.hover_pointer_normalized(
+                {"hover_pointer_normalized": [0.1, -0.25]}
+            ),
+            (0.1, -0.25),
+        )
+        self.assertIsNone(benchmark.hover_pointer_normalized({}))
+        for value in ([0], [0, 0, 0], [2, 0], [0, float("nan")], ["0", 0]):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    benchmark.hover_pointer_normalized(
+                        {"hover_pointer_normalized": value}
+                    )
+
+    def test_debug_runner_sequences_before_hover_and_after_frames(self) -> None:
+        source = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("--mwx-debug-scene-hover-pointer-json", source)
+        before = source.index('requestSnapshot(reason: "before"')
+        hover_state = source.index("setPointer(hoverPointer)", before)
+        hover = source.index('requestSnapshot(reason: "hover"', hover_state)
+        outside = source.index("setPointerOutside()", hover)
+        after = source.index('requestSnapshot(reason: "after"', outside)
+        self.assertLess(before, hover_state)
+        self.assertLess(hover_state, hover)
+        self.assertLess(hover, outside)
+        self.assertLess(outside, after)
+
     def test_default_matrix_pins_solid_layer_semantics(self) -> None:
         matrix = benchmark.load_matrix(SCRIPT_DIR / "scene_wallpaper_sample_matrix.json")
         samples = {sample["id"]: sample for sample in matrix["samples"]}
@@ -341,7 +369,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         samples = {sample["id"]: sample for sample in matrix["samples"]}
         self.assertEqual(
             samples["3765760121"]["expected_authored_effect_graph_succeeded_layer_ids"],
-            [68, 76, 82],
+            [68, 74, 76, 82],
         )
         self.assertEqual(
             samples["3724289844"]["expected_authored_effect_graph_succeeded_layer_ids"],
@@ -431,13 +459,13 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 count,
             )
         expected_chain_metrics = {
-            "3722933264": (0, 4),
+            "3722933264": (1, 6),
             "3723257973": (0, 0),
-            "3723344874": (0, 2),
+            "3723344874": (0, 3),
             "3724289844": (1, 4),
             "3750813609": (0, 0),
             "2902406982": (0, 7),
-            "3765760121": (0, 3),
+            "3765760121": (0, 4),
             "2938612768": (0, 0),
         }
         for sample_id, (chain_count, stage_count) in expected_chain_metrics.items():
@@ -462,18 +490,18 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 sample.get("expected_authored_effect_graph_stage_count", 0)
                 for sample in samples.values()
             ),
-            20,
+            24,
         )
         self.assertEqual(
             sum(
                 sample.get("expected_authored_effect_graph_chain_count", 0)
                 for sample in samples.values()
             ),
-            1,
+            2,
         )
         self.assertEqual(
             sum(sample["expected_route_only_effect_count"] for sample in samples.values()),
-            30,
+            32,
         )
         self.assertEqual(
             sum(

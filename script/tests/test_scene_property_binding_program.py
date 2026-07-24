@@ -242,6 +242,55 @@ enum Harness {
             definitions: opacity.program.definitions,
             userValues: opacityEvaluation.userValues
         ).snapshot
+        let xRayVisibilityTarget = SceneDynamicTarget.effectVisibility(
+            layerID: 23,
+            effectIndex: 5
+        )
+        let xRaySizeTarget = SceneDynamicTarget.effectConstant(
+            layerID: 69,
+            effectIndex: 0,
+            passIndex: 0,
+            name: "size"
+        )
+        let xRayBindings = compiler.compile(
+            report: .init(bindings: [
+                binding("newproperty2", .bool(true), 23, .effectVisibility(
+                    layerID: 23,
+                    effectIndex: 5,
+                    effectPath: "Effects\\XRay\\Effect.json"
+                )),
+                binding("x", .number(0.2), 69, .shaderValue(
+                    layerID: 69,
+                    effectIndex: 0,
+                    passIndex: 0,
+                    name: "Size",
+                    effectPath: "effects/xray/effect.json"
+                )),
+            ], diagnostics: []),
+            catalog: .init(definitions: [
+                property("newproperty2", .bool, .bool(true)),
+                property("x", .slider, .number(0.2)),
+            ])
+        )
+        let xRayDecoded = try JSONDecoder().decode(
+            ScenePropertyBindingProgram.self,
+            from: JSONEncoder().encode(xRayBindings.program)
+        )
+        let xRayAuthored = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 8,
+            generation: 8,
+            definitions: xRayBindings.program.definitions
+        ).snapshot
+        let xRayEvaluation = xRayBindings.program.evaluate(effectiveValues: [
+            "newproperty2": .bool(false),
+            "x": .number(0.4),
+        ])
+        let xRayUser = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 9,
+            generation: 9,
+            definitions: xRayBindings.program.definitions,
+            userValues: xRayEvaluation.userValues
+        ).snapshot
         let unsupportedOpacityTargets = compiler.compile(
             report: .init(bindings: [
                 binding("opacityWrongPath", .number(1), 101, .shaderValue(
@@ -424,6 +473,17 @@ enum Harness {
             "opacityAuthored": opacityTargets.map { resolved(opacityAuthored[$0]) },
             "opacityUser": opacityTargets.map { resolved(opacityUser[$0]) },
             "opacityRuntimeCodes": codes(opacityEvaluation.diagnostics),
+            "xRayBindingCount": xRayBindings.program.instructions.count,
+            "xRayTargets": Set(xRayBindings.program.instructions.map(\.target))
+                == Set([xRayVisibilityTarget, xRaySizeTarget]),
+            "xRayRoundTrip": xRayDecoded == xRayBindings.program,
+            "xRayCodes": codes(xRayBindings.diagnostics),
+            "xRayRebuild": xRayBindings.program.rebuildRequiredPropertyKeys,
+            "xRayAuthoredVisibility": resolved(xRayAuthored[xRayVisibilityTarget]),
+            "xRayAuthoredSize": resolved(xRayAuthored[xRaySizeTarget]),
+            "xRayUserVisibility": resolved(xRayUser[xRayVisibilityTarget]),
+            "xRayUserSize": resolved(xRayUser[xRaySizeTarget]),
+            "xRayRuntimeCodes": codes(xRayEvaluation.diagnostics),
             "unsupportedOpacityCount": unsupportedOpacityTargets.program.instructions.count,
             "unsupportedOpacityCodes": codes(unsupportedOpacityTargets.diagnostics),
             "unsupportedOpacityRebuild": unsupportedOpacityTargets.program.rebuildRequiredPropertyKeys,
@@ -683,6 +743,30 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
             [["scalar(0.2)", "userProperty"]] * 4,
         )
         self.assertEqual(self.result["opacityRuntimeCodes"], [])
+
+    def test_xray_visibility_bool_and_size_scalar_compile_and_evaluate(self) -> None:
+        self.assertEqual(self.result["xRayBindingCount"], 2)
+        self.assertTrue(self.result["xRayTargets"])
+        self.assertTrue(self.result["xRayRoundTrip"])
+        self.assertEqual(self.result["xRayCodes"], [])
+        self.assertEqual(self.result["xRayRebuild"], [])
+        self.assertEqual(
+            self.result["xRayAuthoredVisibility"],
+            ["bool(true)", "authored"],
+        )
+        self.assertEqual(
+            self.result["xRayAuthoredSize"],
+            ["scalar(0.2)", "authored"],
+        )
+        self.assertEqual(
+            self.result["xRayUserVisibility"],
+            ["bool(false)", "userProperty"],
+        )
+        self.assertEqual(
+            self.result["xRayUserSize"],
+            ["scalar(0.4)", "userProperty"],
+        )
+        self.assertEqual(self.result["xRayRuntimeCodes"], [])
 
     def test_other_opacity_targets_remain_unsupported_and_rebuild(self) -> None:
         self.assertEqual(self.result["unsupportedOpacityCount"], 0)

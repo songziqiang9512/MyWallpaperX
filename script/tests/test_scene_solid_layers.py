@@ -401,6 +401,9 @@ class SceneSolidLayerTests(unittest.TestCase):
         compositor = (SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift").read_text(
             encoding="utf-8"
         )
+        compositor_uniforms = (
+            SOURCE_ROOT / "Rendering/SceneImageLayerCompositor+Uniforms.swift"
+        ).read_text(encoding="utf-8")
         shader = (SOURCE_ROOT / "Rendering/SceneMetalPipeline.swift").read_text(encoding="utf-8")
         self.assertRegex(
             compositor,
@@ -410,7 +413,7 @@ class SceneSolidLayerTests(unittest.TestCase):
             ),
         )
         self.assertRegex(
-            compositor,
+            compositor_uniforms,
             re.compile(r"SceneLayerFragmentUniforms\([\s\S]{0,900}\btint\s*:\s*SIMD4\(tint\.x"),
         )
         self.assertRegex(shader, re.compile(r"\bu\.tint\b"))

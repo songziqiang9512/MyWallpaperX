@@ -38,12 +38,14 @@ struct SceneLayerEffectTextures {
     let irisMask: MTLTexture?
     let opacityMask: MTLTexture?
     let waterMask: MTLTexture?
+    let waterUVScale: SIMD2<Float>
     let foliageMask: MTLTexture?
     let foliageUVScale: SIMD2<Float>
     let waterRippleNormal: MTLTexture?
     let shakeEffects: [String: SceneShakeEffectTextures]
     let waterFlowEffects: [String: SceneWaterFlowEffectTextures]
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
+    let xRay: SceneXRayEffectTextures?
     let message: String
 }
 
@@ -51,23 +53,27 @@ struct SceneLayerEffectTextureStore {
     var irisMasks: [Int: MTLTexture] = [:]
     var opacityMasks: [Int: MTLTexture] = [:]
     var waterMasks: [Int: MTLTexture] = [:]
+    var waterUVScales: [Int: SIMD2<Float>] = [:]
     var foliageMasks: [Int: MTLTexture] = [:]
     var foliageUVScales: [Int: SIMD2<Float>] = [:]
     var waterRippleNormals: [Int: MTLTexture] = [:]
     var shakeEffects: [String: SceneShakeEffectTextures] = [:]
     var waterFlowEffects: [String: SceneWaterFlowEffectTextures] = [:]
     var waterWavesEffects: [String: SceneWaterWavesEffectTextures] = [:]
+    var xRayEffects: [Int: SceneXRayEffectTextures] = [:]
 
     mutating func merge(layerID: Int, textures: SceneLayerEffectTextures) {
         irisMasks[layerID] = textures.irisMask
         opacityMasks[layerID] = textures.opacityMask
         waterMasks[layerID] = textures.waterMask
+        waterUVScales[layerID] = textures.waterUVScale
         foliageMasks[layerID] = textures.foliageMask
         foliageUVScales[layerID] = textures.foliageUVScale
         waterRippleNormals[layerID] = textures.waterRippleNormal
         shakeEffects.merge(textures.shakeEffects) { _, incoming in incoming }
         waterFlowEffects.merge(textures.waterFlowEffects) { _, incoming in incoming }
         waterWavesEffects.merge(textures.waterWavesEffects) { _, incoming in incoming }
+        xRayEffects[layerID] = textures.xRay
     }
 }
 
@@ -79,7 +85,8 @@ enum SceneLayerEffectTextureLoader {
         device: MTLDevice,
         shakeEffectIDs: Set<String> = [],
         waterFlowEffectIDs: Set<String> = [],
-        waterWavesEffectIDs: Set<String> = []
+        waterWavesEffectIDs: Set<String> = [],
+        userPropertyTextures: [String: MTLTexture] = [:]
     ) -> SceneLayerEffectTextures {
         let iris = loadTexture(
             url: resolveFirstTexture(for: layer, effectFragment: "iris", resolver: resolver),
@@ -96,12 +103,13 @@ enum SceneLayerEffectTextureLoader {
         let legacyWaterEffectFragments = waterWavesEffectIDs.isEmpty
             ? ["waterwaves", "waterripple"]
             : ["waterripple"]
+        let waterURL = resolveMaskedTexture(
+            for: layer,
+            effectFragments: legacyWaterEffectFragments,
+            resolver: resolver
+        )
         let water = loadTexture(
-            url: resolveMaskedTexture(
-                for: layer,
-                effectFragments: legacyWaterEffectFragments,
-                resolver: resolver
-            ),
+            url: waterURL,
             label: "water mask",
             loader: loader,
             device: device
@@ -149,7 +157,14 @@ enum SceneLayerEffectTextureLoader {
             loader: loader,
             device: device
         )
-        let foliageUVScale = mappedUVScale(for: foliageURL)
+        let xRay = SceneXRayEffectTextureLoader.load(
+            for: layer,
+            resolver: resolver,
+            loader: loader,
+            device: device,
+            userPropertyTextures: userPropertyTextures
+        )
+        let foliageUVScale = mappedUVScale(for: foliageURL, texture: foliage.texture)
         let foliageScaleMessage = foliage.texture == nil || foliageUVScale == SIMD2(repeating: 1)
             ? ""
             : String(
@@ -161,16 +176,18 @@ enum SceneLayerEffectTextureLoader {
             irisMask: iris.texture,
             opacityMask: opacity.texture,
             waterMask: water.texture,
+            waterUVScale: mappedUVScale(for: waterURL, texture: water.texture),
             foliageMask: foliage.texture,
             foliageUVScale: foliageUVScale,
             waterRippleNormal: normal.texture,
             shakeEffects: shake.textures,
             waterFlowEffects: waterFlow.textures,
             waterWavesEffects: waterWaves.textures,
+            xRay: xRay.textures,
             message: [
                 iris.message, opacity.message, water.message, foliage.message,
                 foliageScaleMessage, normal.message, shake.message,
-                waterFlow.message, waterWaves.message,
+                waterFlow.message, waterWaves.message, xRay.message,
             ].joined()
         )
     }
@@ -201,7 +218,7 @@ enum SceneLayerEffectTextureLoader {
             )
             textures[effect.id] = SceneWaterWavesEffectTextures(
                 mask: loaded.texture,
-                maskUVScale: mappedUVScale(for: maskURL),
+                maskUVScale: mappedUVScale(for: maskURL, texture: loaded.texture),
                 maskPath: maskPath
             )
             messages.append(maskURL == nil
@@ -225,11 +242,14 @@ enum SceneLayerEffectTextureLoader {
                     == "effects/shake/effect.json",
                   effect.passes.count == 1,
                   let pass = effect.passes.first,
-                  pass.textureSlots.count == 3,
+                  pass.textureSlots.count == 2 || pass.textureSlots.count == 3,
+                  pass.textureSlots[0] == nil,
                   let flowPath = pass.textureSlots[1] else {
                 continue
             }
-            let phasePath = pass.textureSlots[2]
+            let phasePath = pass.textureSlots.indices.contains(2)
+                ? pass.textureSlots[2]
+                : nil
             let flowURL = resolver.resolveTextureFile(named: flowPath)
             let phaseURL = phasePath.flatMap(resolver.resolveTextureFile(named:))
             let flow = loadTexture(
@@ -247,7 +267,7 @@ enum SceneLayerEffectTextureLoader {
             textures[effect.id] = SceneShakeEffectTextures(
                 flow: flow.texture,
                 phase: phase.texture,
-                flowUVScale: mappedUVScale(for: flowURL),
+                flowUVScale: mappedUVScale(for: flowURL, texture: flow.texture),
                 flowPath: flowPath,
                 phasePath: phasePath
             )
@@ -339,7 +359,7 @@ enum SceneLayerEffectTextureLoader {
         }
     }
 
-    static func mappedUVScale(for url: URL?) -> SIMD2<Float> {
+    static func mappedUVScale(for url: URL?, texture: MTLTexture?) -> SIMD2<Float> {
         guard let url, url.pathExtension.localizedLowercase == "tex",
               let data = try? Data(contentsOf: url),
               let container = try? SceneTexContainerReader().read(data: data) else {
@@ -349,7 +369,9 @@ enum SceneLayerEffectTextureLoader {
             physicalWidth: container.textureWidth,
             physicalHeight: container.textureHeight,
             mappedWidth: container.imageWidth,
-            mappedHeight: container.imageHeight
+            mappedHeight: container.imageHeight,
+            sampledWidth: texture?.width,
+            sampledHeight: texture?.height
         )
     }
 }
