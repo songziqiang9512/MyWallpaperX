@@ -4,7 +4,7 @@
 >
 > 证据边界：作者行为以官方文档为准；序列化字段主要来自真实 Workshop 样本和开源解析器交叉验证，不是官方稳定 schema。
 >
-> 实现基线：`e505a9e`；当前 26 样本完整快照门与固定 13 样本回归门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。
+> 实现基线：`94aebc5`；当前 26 样本完整快照门与固定 13 样本回归门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。
 
 ## 1. 文件与资源层级
 
@@ -112,7 +112,10 @@ authored base value
 
 ```text
 EffectDefinition
+  version?
   replacementKey?
+  name? / description? / group?
+  performance? / preview? / editable?  // editor metadata, not execution identity
   dependencies[]
   fbos[]
     name
@@ -135,6 +138,8 @@ EffectDefinition
 ```
 
 实例 material pass 只与 definition 中的 material pass 按 ordinal 对齐；copy/swap 等 command 不消耗该 ordinal。v15 按上述合同保真保存定义，v16 在不猜测未知字段的前提下把它编译成 authored graph。
+
+`Almamu/linux-wallpaperengine` 的 `EffectParser.cpp:19-114` 可交叉确认 `name/description/group/preview`、dependencies、ordered passes、material/bind/command/source/target，以及 FBO `name/format/scale/unique` 这一通用子集。它不解析 `compose`、conditions、functions、gizmos、clear、fit、absolute extent 或 UV；这些扩展字段仍来自合法样本/WE-compatible assets 的 B/C 级观察，不能因第三方 parser 缺失而从 IR 删除。该源码树也不附带 stock effect definitions，因此不能校验每个 effect 的具体参数和 pass 数。
 
 ### 5.1 显式启用
 
@@ -184,7 +189,7 @@ Motion Blur 等定义含显式 copy，用来复制 source 像素到 target；省
 
 资源注册表应以 `wallpaper + screen + object + effect instance + RT name` 作为身份基础。是否跨帧保留必须由 read-before-write、copy/swap、function/reset 和生命周期数据流判定，不能只看 `unique`。最终判为 persistent 的资源在 resize、壁纸切换、seek、停止和设备丢失时必须清理或重建。
 
-MyWallpaperX v22 继承逐帧 registry、binding program 与 ShaderContract，并加入 direct text content/point-size/color target。effect target table 已被六个 strict backend 消费；dynamic text 以 per-layer signature/generation 更新纹理，不塞进 effect graph。同帧 copy/swap 已有严格 plan/runtime；统一 node scheduler 可按 authored nodeIndex 在 Precise Blur 的两个 material node 之间执行一个 copy 或 swap，并把更新后的 logical texture mapping 交给后段 encoder；exact stock Shake 可在 Precise Blur 前后消费 previous output、flow/phase texture 与 scene time。其他 graph topology、dynamic Shake、history/跨帧 persistent、compose、system/media/video/Texture Variants 与通用 material consumer 仍未实现。
+MyWallpaperX v22 继承逐帧 registry、binding program 与 ShaderContract，并加入 direct text content/point-size/color target。effect target table 已被八个 strict backend 消费；dynamic text 以 per-layer signature/generation 更新纹理，不塞进 effect graph。同帧 copy/swap 已有严格 plan/runtime；统一 node scheduler 可按 authored nodeIndex 在 Precise Blur 的两个 material node 之间执行一个 copy 或 swap，并把更新后的 logical texture mapping 交给后段 encoder；exact stock Shake、Water Waves 与 Water Flow 可按作者顺序消费 previous output、effect texture 与 scene time。其他 graph topology、dynamic variants、history/跨帧 persistent、compose、system/media/video/Texture Variants 与通用 material consumer 仍未实现。
 
 ## 7. Material definition
 
@@ -220,6 +225,8 @@ MyWallpaperX 当前 material resolver 与 frame registry 仍是两份明确分�
 ### 7.2 Render state
 
 blend、depth 和 cull 属于 material/pass 语义。未知 blend mode 不能无声回退 normal 后仍宣称支持；至少应 passthrough 并记录 `unsupported-render-state`。alpha 的 straight/premultiplied 关系要在纹理解码、effect RT 和最终 composite 三处一致。
+
+`linux-wallpaperengine` 的 parser 在字段缺失或未知时分别回退 `normal`、`nocull`、`disabled`、`disabled`（`MaterialParser.cpp:39-56,73-127`）。这是 D 级兼容实现的 fallback，不是官方默认值证明；尤其其 unknown enum 会记录错误后继续运行，MyWallpaperX 不能照此回退后仍把该 pass 记为语义支持。
 
 ## 8. Shader 语义
 
@@ -299,8 +306,8 @@ present or read back
 | 层级 | 当前状态 | 下一合同 |
 |---|---|---|
 | Scene/object IR | format 22 继承 ShaderContract/provider/authored graph/Opacity，并增加 direct text content/point-size/color binding contract | 保持 raw/typed 双层合同，不把未知字段静默解释为支持 |
-| dependency | graph 已结构化区分固定 `previous`、effect-scoped RT 和 copy/swap；六个 strict backend 与 ordered chain 已消费 effect target table，并闭合整链 identity/continuity、allocation/cache/LRU 事务、末段合成与 reset；Precise Blur 两种白名单 material-command interleave 与 exact stock Shake 前后链已执行；bounded frame registry 按另一命名空间处理 named target、property-authored fallback 和受限 PNG/JPEG property source | 并行补 system/media/video/variant/effectful/nested source；接入真实 persistent/history consumer、compose 与更多经过合同门的 topology |
-| material/shader | sparse-slot candidate resolver、ShaderContract v1、strict 2-pass precise、stock standard Blur 4-pass、stock Local Contrast 4-pass、exact Workshop Shadow、exact stock Opacity 与 exact stock Shake single-pass 共 6 类 backend 已落地；运行时整体仍以手写 MSL 近似为主 | 补 typed shader defaults、preprocessor/translation/compile、通用 provider consumer、nested target 和更多 pass。现有 strict backend 不代表 official generic shader 或 Windows pixel parity |
+| dependency | graph 已结构化区分固定 `previous`、effect-scoped RT 和 copy/swap；八个 strict backend 与 ordered chain 已消费 effect target table，并闭合整链 identity/continuity、allocation/cache/LRU 事务、末段合成与 reset；Precise Blur interleave、Shake 前后、Water Flow/Opacity 和重复 Water Waves 链已执行；bounded frame registry 按另一命名空间处理 named target、property-authored fallback 和受限 PNG/JPEG property source | 提取共享 material pass executor；并行补 system/media/video/variant/effectful/nested source、真实 persistent/history consumer、compose 与更多经过合同门的 topology |
+| material/shader | sparse-slot candidate resolver、ShaderContract v1、strict 2-pass precise、stock standard Blur 4-pass、stock Local Contrast 4-pass、exact Workshop Shadow、exact stock Opacity、Shake、Water Waves 与 Water Flow 共 8 类 backend 已落地；运行时整体仍以手写 MSL 近似为主 | 补 typed shader defaults、preprocessor/translation/compile、通用 provider consumer、nested target 和更多 pass。现有 strict backend 不代表 official generic shader 或 Windows pixel parity |
 | local deformation | exact stock Shake flow-map profile 为受限 `L3`；Foliage/Water 等仍有不同程度近似 | 继续按 [Effects 全集](effects-reference.md) 补 dynamic Shake、输入、空间、mask 与 sampler 合同 |
 | live values | format 22 binding program；layer alpha、solid color、direct text、Local Contrast/Opacity consumer 已执行；hidden/no-consumer text 与其他 target 仍重建，Timeline/SceneScript 未接入 | 下一 target 继续同批接 compiler、consumer、fallback 与 identity 门 |
 

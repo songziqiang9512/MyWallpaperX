@@ -1,6 +1,6 @@
 # Scene 资料来源与证据索引
 
-> 核验日期：2026-07-23
+> 核验日期：2026-07-24
 >
 > 网络核验使用系统代理 `http://127.0.0.1:7897`。
 >
@@ -190,7 +190,7 @@ https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/<Name>.htm
 - [21 个用户样本首轮评估（历史截图基线）](../scene-sample-assessment-2026-07-22.md)
 - [Scene 开发计划](../scene-capability-development-plan-2026-07-22.md)
 - v16 结构基线：`.codex/scene-effect-graph-canonical-final-20260723/report.json`（canonical graph 身份，不等于 GPU 执行）
-- 当前完整快照门：仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` 固定真实目录 26 个样本，`.codex/scene-full26-final-20260723/report.json` 为 26/26。同一签名 App 的固定回归门 `.codex/scene-final13-after-full26-20260723/report.json` 为 13/13；两门合计 33 个唯一样本快照。当前实现基线、报告/矩阵哈希、App 身份、聚合缺口与测试数统一见 [运行证据索引](runtime-evidence-index.md)。
+- 当前完整快照门：仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` 固定真实目录 26 个样本，`.codex/scene-waterflow-20260724/full26-final/report.json` 为 26/26。同一签名 App 的固定回归门 `.codex/scene-waterflow-20260724/fixed13-final/report.json` 为 13/13；两门合计 33 个唯一样本快照。当前实现基线、报告/矩阵哈希、App 身份、聚合缺口与测试数统一见 [运行证据索引](runtime-evidence-index.md)。
 - ordered scheduler 的 Shadow 前阶段证据：`.codex/scene-effect-chain-gated-final13-20260723/report.json`（基线 `b541867`、8 stage、0 real chain、legacy blocked 3）。该报告只说明当时 all-or-nothing chain 负门，不能反向覆盖上述 current Shadow 正门。
 - `.codex/scene-user-texture-final13-r2-20260723/report.json` 降为 format 17 file-property 阶段证据，不能反向覆盖上述当前矩阵或 App 身份。
 - file-backed property 定向门：`.codex/scene-user-texture-293-20260723-r1/`（隔离 `2938612768` 向 `newproperty25/26` 注入 200×200 PNG；两张纹理加载、image 44/44、static image blend 5/5，截图变化证明进入 renderer；不证明 system media、动态 current/previous thumbnail 或 WE 像素 parity）
@@ -209,6 +209,7 @@ https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/<Name>.htm
 - 本轮固定 revision：[`b016d7d1fdcf4e5fd2f9c9fa420a8aaa07fee02d`](https://github.com/Almamu/linux-wallpaperengine/commit/b016d7d1fdcf4e5fd2f9c9fa420a8aaa07fee02d)
 - 许可证：GPL-3.0
 - 定位：OpenGL educational/compatibility project，需要用户合法安装的 Wallpaper Engine assets。
+- 资产边界：该 revision 的源码树不附带 `.json`、`.material`、`.frag` 或 `.vert` stock effect 资产；README `85-118` 也明确要求用户另行安装或指定官方 assets。因此源码只能交叉核对通用 parser/executor 结构，不能独立证明 45 个 stock effect 的逐参数、默认值、pass 数或 shader 算法。
 
 高价值源码入口：
 
@@ -221,17 +222,21 @@ https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/<Name>.htm
 | Scene frame loop | `src/WallpaperEngine/Render/Wallpapers/CScene.cpp` |
 | Image effect graph | `src/WallpaperEngine/Render/Objects/CImage.cpp` |
 | Pass binding/uniforms | `src/WallpaperEngine/Render/Objects/Effects/CPass.cpp` |
-| Shader preprocessing | `src/WallpaperEngine/Render/Shader/ShaderUnit.cpp` |
+| Shader preprocessing | `src/WallpaperEngine/Render/Shaders/ShaderUnit.cpp` |
 | Particle/Text | `src/WallpaperEngine/Render/Objects/CParticle.cpp`、`CText.cpp` |
 
 确认的非官方偏差：
 
-- parser/model 未实现 `compose`；
+- Effect parser 只覆盖 metadata、dependencies、基础 FBO 和 material/bind/command/source/target；未实现 `compose`、condition、function、gizmo 与扩展 FBO 字段；
+- parser 把任何非 `copy` command 都映射为 `swap`（`EffectParser.cpp:67-68`），但 image runtime 又只执行 `copy`（`CImage.cpp:663-683`），不能用它确认 swap 语义；
 - FBO `format/unique` 解析后没有完整执行；
 - blend mode 只覆盖少数枚举；
-- 多个官方 built-in uniforms 未上传；
+- effect visibility 主要在 setup 阶段过滤，代码明确留下逐帧 visibility TODO（`CImage.cpp:643-646,797-799`）；
+- shader 预处理是 string/regex 路径；sampler slot 只提取一位数字、combo 只接受整数，`#require` 只实现返回零 lighting 的 `LightingV1` stub；
+- binder 暴露了一组额外 uniform 名称，但左右声道复用同一 mono spectrum，部分 effect matrix 固定为现有 matrix/identity，且多个官方 built-in uniforms 未上传；
 - parallax 公式会让 depth 0 仍移动，违背官方行为；
-- particle/text/SceneScript 存在大量 TODO 和启发式。
+- Scene camera 最终仍强制 orthographic；所谓 Puppet 只加载静态 mesh，没有 bone/weight/deformation；
+- particle/text/SceneScript 存在大量 TODO 和启发式，仓库也没有覆盖上述 generic contract 的完整 fixture 测试。
 
 因此它只用于理解结构和查踩坑，不能作为 golden runtime。
 
@@ -248,7 +253,7 @@ https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/<Name>.htm
 本轮只读快照：
 
 ```text
-/Users/songziqiang/Documents/Development/WaifuX-main
+Reference Project/WaifuX-main
 ```
 
 确认事实：

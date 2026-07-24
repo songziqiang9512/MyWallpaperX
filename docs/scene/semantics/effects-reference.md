@@ -4,7 +4,7 @@
 >
 > 覆盖：官方 sitemap 中 45 个用户可见 Scene effect 页面，以及 1 个 asset 内部 `_empty` 占位。
 >
-> 实现基线：`e505a9e`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。
+> 实现基线：`94aebc5`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。
 >
 > 用法：先按 effect ID 查作者启用、输入、pass/RT，再决定 parser、renderer 和测试，不按名称直接套一个视觉近似。
 
@@ -15,6 +15,7 @@
 - `previous`、mask/normal/flow/noise 等精确槽位来自 WE-compatible asset 定义观察，证据级别为 C；官方专页确认的作者行为是 A。
 - `1P/4P` 表示 material pass 数；`RT` 是中间 render target；`Hist` 表示跨帧状态；`Compose` 表示需要场景背景。
 - Combo 是 shader compile-time variant。optional texture 只有真实绑定后才能启用对应 combo。
+- 固定 revision `b016d7d1fdcf4e5fd2f9c9fa420a8aaa07fee02d` 的 `Almamu/linux-wallpaperengine` 源码树不附带 stock effect/material/shader assets；它只能作为 Effect/Material/pass/FBO/texture precedence 的 D 级交叉证据，不能复核本表 45 项的逐效果参数、默认值、pass/RT 数或 shader 算法。
 
 官方入口：[Effects Overview](https://docs.wallpaperengine.io/en/scene/effects/overview.html)、[Effects Introduction](https://docs.wallpaperengine.io/en/scene/effects/introduction.html)、[Shader Variables](https://docs.wallpaperengine.io/en/scene/shader/variables.html)。
 
@@ -150,4 +151,4 @@ knownDeviation
 
 `supportLevel` 至少区分：`recognized`、`graph-built`、`executed-degraded`、`semantics-verified`，不能把“识别名称”统计成效果已支持。
 
-当前 MyWallpaperX v22 继承 EffectDefinition、authored graph/canonical SHA、provider metadata、property binding program 和 loss-preserving ShaderContract；严格匹配的 2-pass precise Blur、4-pass stock standard Blur、4-pass stock Local Contrast、exact Workshop single-pass Shadow、exact stock single-pass Opacity 与 exact stock single-pass Shake 共 6 类 backend 已进入 GPU。Local Contrast、Opacity 与 Shake 均核对 exact graph/material/shader fingerprint；前两者的合法 live 值从 per-surface snapshot 消费，Shake 当前只消费静态参数与 scene time。fingerprint 只用于准入，实际仍执行项目内手写 MSL。当前 26 样本门为 30 stage、3 条 Blur/Shake chain、Shake 3、0 failed；固定 13 样本门继续保护 14 stage、1 条 Blur/Shadow chain、Opacity 4、Workshop Shadow 1、failed 0。这些子集仍只能记为 `executed-degraded`。Shake 正门是 `2802243144:[41,64,115]`；`2134765860` 的 dynamic audio/speed variant 必须继续 fail closed。Opacity 正门是 `2902406982:[365,372,647,664]`；`2938612768:[165,454,626,629,924]` 使用 SceneScript 值，同样不能写成正向覆盖目标。MASK1、dynamic Shake variants、Workshop variants、generic shader 与 Windows pixel parity 均未完成。
+当前 MyWallpaperX v22 继承 EffectDefinition、authored graph/canonical SHA、provider metadata、property binding program 和 loss-preserving ShaderContract；严格匹配的 2-pass precise Blur、4-pass stock standard Blur、4-pass stock Local Contrast、exact Workshop single-pass Shadow、exact stock single-pass Opacity、Shake、Water Waves 与 Water Flow 共 8 类 backend 已进入 GPU。Local Contrast、Opacity、Shake、Water Waves 与 Water Flow 均核对 exact graph/material/shader fingerprint；前两者的合法 live 值从 per-surface snapshot 消费，三种动态形变当前只消费受控参数与 scene time。fingerprint 只用于准入，实际仍执行项目内手写 MSL。当前 26 样本门为 38 stage、5 条 chain、Water Flow 2、Water Waves 4、Shake 3、0 failed；固定 13 样本门保护 20 stage、1 条 Blur/Shadow chain、Water Waves 6、Opacity 4、Workshop Shadow 1、failed 0。这些子集仍只能记为 `executed-degraded`。Shake 正门是 `2802243144:[41,64,115]`；`2134765860` 的 dynamic audio/speed variant 必须继续 fail closed。Opacity 正门是 `2902406982:[365,372,647,664]`；`2938612768:[165,454,626,629,924]` 使用 SceneScript 值，同样不能写成正向覆盖目标。MASK1、dynamic variants、Workshop variants、generic shader 与 Windows pixel parity 均未完成。
