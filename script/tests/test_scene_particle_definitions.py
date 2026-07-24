@@ -30,6 +30,8 @@ enum Harness {
         switch CommandLine.arguments[1] {
         case "synthetic":
             try printJSON(syntheticResult())
+        case "integer-safety":
+            try printJSON(integerSafetyResult())
         case "census":
             guard CommandLine.arguments.count == 3 else { throw HarnessError.missingSampleRoot }
             try printJSON(censusResult(rootPath: CommandLine.arguments[2]))
@@ -166,6 +168,27 @@ enum Harness {
             "overrideControlPointAngle": override.controlPointAngles[2]?.value?.vectorValue ?? [],
             "overrideRoundTrip": decodedOverride == override
         ]
+    }
+
+    private static func integerSafetyResult() -> [String: Any] {
+        let values: [String: Any] = [
+            "validNumber": 42.0,
+            "validString": "42",
+            "fraction": 1.5,
+            "huge": 1e300,
+            "boolean": true,
+            "nan": "nan",
+            "infinity": "inf",
+        ]
+        let parser = SceneParticleDefinitionParser()
+        return values.mapValues { value in
+            let definition = parser.parse(root: [
+                "material": "materials/particle/halo.json",
+                "maxcount": value,
+                "emitter": [["name": "sphereRandom"]],
+            ])
+            return definition.maximumCount ?? NSNull()
+        }
     }
 
     private static func censusResult(rootPath: String) throws -> [String: Any] {
@@ -509,6 +532,13 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         self.assertEqual(result["overrideControlPoint"], [100, 200, 0])
         self.assertEqual(result["overrideControlPointAngle"], [0, 0, 1])
         self.assertTrue(result["overrideRoundTrip"])
+
+    def test_integer_fields_fail_closed_without_trapping(self) -> None:
+        result = self.run_harness("integer-safety")
+        self.assertEqual(result["validNumber"], 42)
+        self.assertEqual(result["validString"], 42)
+        for key in ("fraction", "huge", "boolean", "nan", "infinity"):
+            self.assertIsNone(result[key], key)
 
     def test_isolated_21_sample_particle_census(self) -> None:
         if not ISOLATED_SAMPLE_ROOT.is_dir():

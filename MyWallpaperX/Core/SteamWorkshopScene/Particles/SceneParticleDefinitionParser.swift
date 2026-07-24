@@ -333,7 +333,7 @@ nonisolated struct SceneParticleDefinitionParser {
 
     private nonisolated static func integer(_ rawValue: Any?) -> Int? {
         guard let value = number(rawValue), value.isFinite else { return nil }
-        return Int(value)
+        return Int(exactly: value)
     }
 
     private nonisolated static func normalizedPath(_ rawValue: String?) -> String? {
