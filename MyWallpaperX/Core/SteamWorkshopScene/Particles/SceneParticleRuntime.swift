@@ -184,6 +184,14 @@ final class SceneParticleRuntime {
                     detail: detail
                 )
             }
+            for detail in childRuntime.performanceDetails {
+                addDiagnostic(
+                    kind: .simulationLimitation,
+                    layerID: layer.id,
+                    path: path,
+                    detail: detail
+                )
+            }
             appendSimulationDiagnostics(
                 simulator.diagnostics,
                 layerID: layer.id,
@@ -216,8 +224,13 @@ final class SceneParticleRuntime {
         for index in layers.indices {
             layers[index].simulator.advance(by: frameDelta)
             let births = layers[index].simulator.consumeBirthEvents()
+            let deaths = layers[index].simulator.consumeDeathEvents()
             if let childRuntime = layers[index].childRuntime {
-                let result = childRuntime.advance(by: frameDelta, spawnEvents: births)
+                let result = childRuntime.advance(
+                    by: frameDelta,
+                    spawnEvents: births,
+                    deathEvents: deaths
+                )
                 batches.append(contentsOf: result.batches)
                 for path in result.bufferFailurePaths {
                     addDiagnostic(

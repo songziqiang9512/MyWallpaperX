@@ -22,6 +22,11 @@ EVENTSPAWN_SAMPLE_CACHE = (
     / ".codex/scene-halo4-targeted-compact-20260724/runtime-homes/3768903841"
     / "Library/Caches/MyWallpaperX/SteamWorkshopScene/964b264a636e9e02"
 )
+EVENTDEATH_SAMPLE_CACHE = (
+    REPOSITORY_ROOT
+    / ".codex/scene-eventspawn-targeted-final-20260724/runtime-homes/2131872317"
+    / "Library/Caches/MyWallpaperX/SteamWorkshopScene/8ccb6157084ce19f"
+)
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneResourceIndex.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
@@ -52,6 +57,7 @@ import CoreGraphics
 import Foundation
 import ImageIO
 import Metal
+import simd
 
 struct SceneRenderDescriptor: Codable {
     struct Layer: Codable {
@@ -125,6 +131,9 @@ enum Harness {
         case "eventspawn-real":
             guard CommandLine.arguments.count == 3 else { throw HarnessError.missingPath }
             try printJSON(realEventSpawnSample(cachePath: CommandLine.arguments[2]))
+        case "eventdeath-real":
+            guard CommandLine.arguments.count == 3 else { throw HarnessError.missingPath }
+            try printJSON(realEventDeathSample(cachePath: CommandLine.arguments[2]))
         case "synthetic":
             try printJSON(synthetic())
         default:
@@ -207,6 +216,160 @@ enum Harness {
             "layer264ChildUnsupported": runtime.diagnostics.contains {
                 $0.layerID == 264 && $0.kind == .childSystemsUnsupported
             },
+        ]
+    }
+
+    private static func realEventDeathSample(cachePath: String) throws -> [String: Any] {
+        let cache = URL(fileURLWithPath: cachePath, isDirectory: true)
+        let interpretation = try JSONDecoder().decode(
+            Interpretation.self,
+            from: Data(contentsOf: cache.appendingPathComponent(".mywallpaperx-scene-interpretation.json"))
+        )
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let runtime = SceneParticleRuntime(
+            descriptor: interpretation.renderDescriptor,
+            cacheDirectory: cache,
+            device: device
+        )
+        let hitPath = "particles/workshop/2110548715/presets/fireworks1hit.json"
+        var firstHitBatches: [SceneParticleDrawBatch] = []
+        var firstRootInstances: [SceneParticleGPUInstance] = []
+        var firstHitFrame = -1
+        for frame in 0..<(8 * 60) {
+            let batches = runtime.advance(by: 1.0 / 60.0)
+            let hitBatches = batches.filter { $0.particlePath == hitPath }
+            if !hitBatches.isEmpty {
+                firstHitFrame = frame
+                firstHitBatches = hitBatches
+                firstRootInstances = batches.filter {
+                    $0.layerID == 529 && $0.particlePath != hitPath
+                }.flatMap(\.instances)
+                break
+            }
+        }
+        let hitBatches = firstHitBatches
+        let hitInstances = hitBatches.flatMap(\.instances)
+        let pixels = renderEventDeathBatches(hitBatches, device: device)
+        return [
+            "firstHitFrame": firstHitFrame,
+            "hitInstanceCount": hitInstances.count,
+            "hitMaximumAlpha": hitInstances.map(\.rotationAndAlpha.w).max() ?? -1,
+            "hitMaximumSize": hitInstances.map(\.positionAndSize.w).max() ?? -1,
+            "hitMaximumTrailStretch": hitInstances.map(\.velocityAndTrail.w).max() ?? -1,
+            "hitMinimumPosition": vector(hitInstances.map(\.positionAndSize).min {
+                $0.y < $1.y
+            } ?? .zero),
+            "hitMaximumPosition": vector(hitInstances.map(\.positionAndSize).max {
+                $0.y < $1.y
+            } ?? .zero),
+            "rootPositions": firstRootInstances.map { vector($0.positionAndSize) },
+            "renderedPixelCount": pixels["count"] ?? 0,
+            "renderedPixelWidth": pixels["width"] ?? 0,
+            "renderedPixelHeight": pixels["height"] ?? 0,
+            "hitUsesTrail": hitBatches.contains {
+                ($0.instances.first?.velocityAndTrail.w ?? -1) >= 0
+            },
+            "layer529ChildUnsupported": runtime.diagnostics.contains {
+                $0.layerID == 529 && $0.kind == .childSystemsUnsupported
+            },
+            "layer529SimulationDetails": runtime.diagnostics.compactMap {
+                $0.layerID == 529 && $0.kind == .simulationLimitation ? $0.detail : nil
+            },
+        ]
+    }
+
+    private static func renderEventDeathBatches(
+        _ batches: [SceneParticleDrawBatch],
+        device: MTLDevice
+    ) -> [String: Int] {
+        let width = 1280
+        let height = 831
+        guard !batches.isEmpty,
+              let pipeline = SceneParticleMetalPipeline(device: device),
+              let queue = device.makeCommandQueue(),
+              let command = queue.makeCommandBuffer() else { return [:] }
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm,
+            width: width,
+            height: height,
+            mipmapped: false
+        )
+        descriptor.usage = .renderTarget
+        descriptor.storageMode = .shared
+        guard let output = device.makeTexture(descriptor: descriptor) else { return [:] }
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = output
+        pass.colorAttachments[0].loadAction = .clear
+        pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+        pass.colorAttachments[0].storeAction = .store
+        guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return [:] }
+
+        let origin = SIMD2<Float>(1783.794, 2160 - 589.649)
+        let halfExtents = SIMD2<Float>(Float(width) / Float(height) * 1080, 1080)
+        let model = simd_float4x4(columns: (
+            SIMD4(1 / halfExtents.x, 0, 0, 0),
+            SIMD4(0, 1 / halfExtents.y, 0, 0),
+            SIMD4(0, 0, 1, 0),
+            SIMD4(
+                (origin.x - 1920) / halfExtents.x,
+                1 - origin.y / halfExtents.y,
+                0,
+                1
+            )
+        ))
+        let basis = SceneParticleOrientation.screen.basis(
+            cameraRight: SIMD3(1, 0, 0),
+            cameraUp: SIMD3(0, -1, 0),
+            cameraForward: SIMD3(0, 0, -1)
+        )
+        for batch in batches {
+            pipeline.draw(
+                texture: batch.texture,
+                instances: batch.instanceBuffer,
+                uniforms: SceneParticleLayerUniforms(
+                    viewProjection: matrix_identity_float4x4,
+                    layerModel: model,
+                    basis: basis
+                ),
+                blendMode: batch.blendMode,
+                encoder: encoder
+            )
+        }
+        encoder.endEncoding()
+        for batch in batches { batch.instanceBuffer.markSubmitted(on: command) }
+        command.commit()
+        command.waitUntilCompleted()
+        guard command.status == .completed else { return [:] }
+
+        var values = [UInt8](repeating: 0, count: width * height * 4)
+        output.getBytes(
+            &values,
+            bytesPerRow: width * 4,
+            from: MTLRegionMake2D(0, 0, width, height),
+            mipmapLevel: 0
+        )
+        var count = 0
+        var minimumX = width
+        var minimumY = height
+        var maximumX = -1
+        var maximumY = -1
+        for y in 0..<height {
+            for x in 0..<width {
+                let offset = (y * width + x) * 4
+                guard values[offset] > 3 || values[offset + 1] > 3 || values[offset + 2] > 3 else {
+                    continue
+                }
+                count += 1
+                minimumX = min(minimumX, x)
+                minimumY = min(minimumY, y)
+                maximumX = max(maximumX, x)
+                maximumY = max(maximumY, y)
+            }
+        }
+        return [
+            "count": count,
+            "width": maximumX >= minimumX ? maximumX - minimumX + 1 : 0,
+            "height": maximumY >= minimumY ? maximumY - minimumY + 1 : 0,
         ]
     }
 
@@ -398,6 +561,10 @@ enum Harness {
         value?.value?.scalarValue ?? -1
     }
 
+    private static func vector(_ value: SIMD4<Float>) -> [Float] {
+        [value.x, value.y, value.z, value.w]
+    }
+
     private static func printJSON(_ value: [String: Any]) throws {
         let data = try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -503,6 +670,26 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertGreater(result["childInstanceCount"], 0)
         self.assertEqual(result["childTextureWidth"], 64)
         self.assertFalse(result["layer264ChildUnsupported"])
+
+    def test_real_2131872317_executes_eventdeath_firework_burst(self) -> None:
+        if not (EVENTDEATH_SAMPLE_CACHE / ".mywallpaperx-scene-interpretation.json").is_file():
+            self.skipTest("isolated 2131872317 cache is unavailable")
+        result = self.run_harness("eventdeath-real", str(EVENTDEATH_SAMPLE_CACHE))
+        self.assertGreater(result["firstHitFrame"], 0)
+        self.assertEqual(result["hitInstanceCount"], 1_024)
+        self.assertGreater(result["hitMaximumAlpha"], 0)
+        self.assertGreater(result["hitMaximumSize"], 0)
+        self.assertGreater(result["hitMaximumTrailStretch"], 1)
+        self.assertGreater(result["renderedPixelCount"], 1_000)
+        self.assertGreater(result["renderedPixelWidth"], 100)
+        self.assertGreater(result["renderedPixelHeight"], 100)
+        self.assertTrue(result["hitUsesTrail"])
+        self.assertFalse(result["layer529ChildUnsupported"])
+        self.assertIn(
+            "particles/workshop/2110548715/presets/fireworks1hit.json:particleBudget:"
+            "max=20000:instantaneous=8500:effective=1024",
+            result["layer529SimulationDetails"],
+        )
 
 
 if __name__ == "__main__":

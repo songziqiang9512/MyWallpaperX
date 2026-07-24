@@ -48,7 +48,13 @@ enum Harness {
 
         var capped = simulator(maximumCountJSON, seed: 1, step: 0.1)
         capped.advance(by: 0.1)
+        var budgeted = simulator(maximumCountJSON, seed: 1, step: 0.1, particleBudget: 2)
+        budgeted.advance(by: 0.1)
         let prewarmed = simulator(prewarmJSON, seed: 1, step: 0.1)
+
+        var death = simulator(deathJSON, seed: 1, step: 0.1)
+        death.advance(by: 0.2)
+        let deathEvents = death.consumeDeathEvents()
 
         var burst = simulator(durationJSON, seed: 1, step: 0.1)
         burst.advance(by: 0.5)
@@ -96,9 +102,14 @@ enum Harness {
             "birthEventsDeterministic": birthEvents == partitionedBirthEvents,
             "birthEventsDrain": first.consumeBirthEvents().isEmpty,
             "maxCount": capped.particles.count,
+            "budgetCount": budgeted.particles.count,
             "prewarmCount": prewarmed.particles.count,
             "prewarmTime": prewarmed.simulationTime,
             "prewarmBirthEvents": prewarmed.birthEvents.count,
+            "deathEventCount": deathEvents.count,
+            "deathEventPosition": deathEvents.first.map { vector($0.position) } ?? [],
+            "deathEventsDrain": death.consumeDeathEvents().isEmpty,
+            "deathParticles": death.particles.count,
             "durationCount": burst.particles.count,
             "sphereMinimumRadius": sphereRadii.min() ?? -1,
             "sphereMaximumRadius": sphereRadii.max() ?? -1,
@@ -129,11 +140,16 @@ enum Harness {
         _ source: String,
         override: SceneParticleInstanceOverride? = nil,
         seed: UInt64,
-        step: Double
+        step: Double,
+        particleBudget: Int? = nil
     ) -> SceneParticleSimulator {
         let definition = SceneParticleDefinitionParser().parse(root: try! object(source))
         return SceneParticleSimulator(
-            definition: definition, instanceOverride: override, seed: seed, fixedTimeStep: step
+            definition: definition,
+            instanceOverride: override,
+            seed: seed,
+            fixedTimeStep: step,
+            particleBudget: particleBudget
         )
     }
 
@@ -160,6 +176,13 @@ enum Harness {
     {"material":"p.json","maxcount":64,
      "emitter":[{"name":"boxrandom","instantaneous":3,"rate":100,"duration":0.25,"flags":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
      "initializer":[{"name":"lifetimerandom","min":10,"max":10}],"renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let deathJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":0.2,"max":0.2},{"name":"velocityrandom","min":"2 0 0","max":"2 0 0"}],
+     "operator":[{"name":"movement"}],"renderer":[{"name":"sprite"}]}
     """#
 
     private static let boundsJSON = #"""
@@ -371,8 +394,15 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertTrue(self.results["birthEventsDrain"])
         self.assertEqual(self.results["prewarmBirthEvents"], 0)
 
+    def test_death_events_capture_final_state_before_removal(self) -> None:
+        self.assertEqual(self.results["deathEventCount"], 1)
+        self.assertEqual(self.results["deathEventPosition"], [0.4, 0, 0])
+        self.assertTrue(self.results["deathEventsDrain"])
+        self.assertEqual(self.results["deathParticles"], 0)
+
     def test_maximum_count_and_start_time_prewarm(self) -> None:
         self.assertEqual(self.results["maxCount"], 3)
+        self.assertEqual(self.results["budgetCount"], 2)
         self.assertEqual(self.results["prewarmCount"], 10)
         self.assertAlmostEqual(self.results["prewarmTime"], 1.0)
 

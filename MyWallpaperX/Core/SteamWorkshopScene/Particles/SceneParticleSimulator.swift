@@ -12,6 +12,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
     let diagnostics: [SceneParticleSimulationDiagnostic]
     private(set) var particles: [SceneParticleState] = []
     private(set) var birthEvents: [SceneParticleState] = []
+    private(set) var deathEvents: [SceneParticleState] = []
     private(set) var simulationTime = 0.0
 
     private let definition: SceneParticleDefinition
@@ -25,17 +26,20 @@ nonisolated struct SceneParticleSimulator: Sendable {
         definition: SceneParticleDefinition,
         instanceOverride: SceneParticleInstanceOverride? = nil,
         seed: UInt64 = 0,
-        fixedTimeStep: Double = 1.0 / 60.0
+        fixedTimeStep: Double = 1.0 / 60.0,
+        particleBudget: Int? = nil
     ) {
         self.definition = definition
         self.instanceOverride = instanceOverride
         self.fixedTimeStep = fixedTimeStep.isFinite && fixedTimeStep > 0 ? fixedTimeStep : 1.0 / 60.0
-        maximumParticleCount = min(max(definition.maximumCount ?? 1, 0), 20_000)
+        let authoredMaximum = min(max(definition.maximumCount ?? 1, 0), 20_000)
+        maximumParticleCount = min(authoredMaximum, max(particleBudget ?? authoredMaximum, 0))
         diagnostics = SceneParticleSimulationMath.diagnostics(definition, instanceOverride)
         emitters = Array(repeating: EmitterState(), count: definition.emitters.count)
         random = SceneParticleRandomGenerator(state: seed)
         warmUp(duration: max(0, definition.startTime ?? 0))
         birthEvents.removeAll(keepingCapacity: true)
+        deathEvents.removeAll(keepingCapacity: true)
     }
 
     nonisolated mutating func advance(by duration: Double) {
@@ -53,6 +57,11 @@ nonisolated struct SceneParticleSimulator: Sendable {
         return birthEvents
     }
 
+    nonisolated mutating func consumeDeathEvents() -> [SceneParticleState] {
+        defer { deathEvents.removeAll(keepingCapacity: true) }
+        return deathEvents
+    }
+
     private nonisolated mutating func warmUp(duration: Double) {
         guard duration > 0 else { return }
         let count = min(max(Int(ceil(duration / fixedTimeStep)), 1), 240)
@@ -63,6 +72,9 @@ nonisolated struct SceneParticleSimulator: Sendable {
     private nonisolated mutating func step(by duration: Double) {
         for index in definition.emitters.indices { emit(index: index, duration: duration) }
         for index in particles.indices { updateParticle(at: index, duration: duration) }
+        for particle in particles where particle.age + 1e-12 >= particle.lifetime {
+            deathEvents.append(particle)
+        }
         particles.removeAll { $0.age + 1e-12 >= $0.lifetime }
         simulationTime += duration
     }
@@ -206,8 +218,8 @@ nonisolated struct SceneParticleSimulator: Sendable {
         case .alphaFade:
             let fadeIn = max(0, value.fadeInTime ?? 0.5)
             let fadeOut = min(max(value.fadeOutTime ?? 0.5, 0), 1)
-            if life <= fadeIn { particles[index].alpha *= Self.change(life, 0, fadeIn, 0, 1) }
-            if life > fadeOut { particles[index].alpha *= Self.change(life, fadeOut, 1, 1, 0) }
+            if life <= fadeIn { particles[index].alpha *= SceneParticleSimulationMath.changeAmount(life, 0, fadeIn) }
+            if life > fadeOut { particles[index].alpha *= 1 - SceneParticleSimulationMath.changeAmount(life, fadeOut, 1) }
         case .alphaChange:
             particles[index].alpha *= changeFactor(value, life: life, fallback: (1, 0))
         case .sizeChange:
@@ -383,9 +395,4 @@ nonisolated struct SceneParticleSimulator: Sendable {
         return SceneParticleSimulationMath.vector(value?.value, fallback: .zero)
     }
 
-    private nonisolated static func change(
-        _ value: Double, _ start: Double, _ end: Double, _ first: Double, _ second: Double
-    ) -> Double {
-        first + (second - first) * SceneParticleSimulationMath.changeAmount(value, start, end)
-    }
 }

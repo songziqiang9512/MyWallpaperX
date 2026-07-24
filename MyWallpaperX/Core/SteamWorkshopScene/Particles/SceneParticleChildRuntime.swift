@@ -1,8 +1,13 @@
 import Foundation
 import Metal
 
-/// Executes the strict, depth-one eventspawn profile. Unsupported child declarations stay diagnostic.
+/// Executes strict depth-one event-triggered children. Unsupported declarations stay diagnostic.
 final class SceneParticleChildRuntime {
+    private enum Trigger: Equatable {
+        case spawn
+        case death
+    }
+
     struct AdvanceResult {
         let batches: [SceneParticleDrawBatch]
         let bufferFailurePaths: [String]
@@ -12,6 +17,8 @@ final class SceneParticleChildRuntime {
         let index: Int
         let path: String
         let definition: SceneParticleDefinition
+        let trigger: Trigger
+        let trail: SceneParticleTrailRenderPlan?
         let texture: MTLTexture
         let blendMode: SceneParticlePipelineBlendMode
         let spriteAnimation: SceneSpriteAnimation?
@@ -20,6 +27,7 @@ final class SceneParticleChildRuntime {
         let usesPerspective: Bool
         let probability: Double
         let maximumSystemCount: Int
+        let particleBudget: Int
         let instanceBuffer = SceneParticleMetalInstanceBuffer()
     }
 
@@ -30,6 +38,7 @@ final class SceneParticleChildRuntime {
     }
 
     let unsupportedDetails: [String]
+    let performanceDetails: [String]
     let handlesAllChildren: Bool
     var hasTemplates: Bool { !templates.isEmpty }
 
@@ -39,6 +48,9 @@ final class SceneParticleChildRuntime {
     private let templates: [Template]
     private var systems: [System] = []
     private var nextSeed: UInt64 = 0
+
+    // Child systems run on the CPU fallback; cap burst spikes while retaining authored distribution.
+    private static let maximumParticlesPerSystem = 1_024
 
     init(
         layerID: Int,
@@ -54,10 +66,16 @@ final class SceneParticleChildRuntime {
         self.device = device
         var accepted: [Template] = []
         var unsupported: [String] = []
+        var performance: [String] = []
+        var handledChildren = 0
 
         for (index, child) in rootAsset.definition.children.enumerated() {
             let label = child.path ?? "child#\(index)"
-            guard child.type?.lowercased() == "eventspawn" else {
+            let trigger: Trigger
+            switch child.type?.lowercased() {
+            case "eventspawn": trigger = .spawn
+            case "eventdeath": trigger = .death
+            default:
                 unsupported.append("\(label):unsupportedType:\(child.type ?? "missing")")
                 continue
             }
@@ -65,6 +83,15 @@ final class SceneParticleChildRuntime {
                   child.controlPointStartIndex == nil,
                   child.rawFlags == 0 else {
                 unsupported.append("\(label):unsupportedTransformOrControlPoint")
+                continue
+            }
+            let probability = child.probability ?? 1
+            guard probability.isFinite, (0...1).contains(probability) else {
+                unsupported.append("\(label):invalidProbability")
+                continue
+            }
+            if probability == 0 {
+                handledChildren += 1
                 continue
             }
             guard let rawPath = child.path else {
@@ -78,10 +105,8 @@ final class SceneParticleChildRuntime {
             }
             guard asset.definition.children.isEmpty,
                   Self.hasStrictInstantaneousEmitter(asset.definition),
-                  !asset.definition.flags.isWorldSpace,
-                  !asset.definition.renderers.contains(where: \.isWorldSpace),
-                  let renderer = Self.spriteRenderer(in: asset.definition) else {
-                unsupported.append("\(path):outsideStrictEventspawnProfile")
+                  let render = Self.supportedRenderer(in: asset.definition) else {
+                unsupported.append("\(path):outsideStrictEventProfile")
                 continue
             }
             guard let source = asset.textureSource,
@@ -94,40 +119,58 @@ final class SceneParticleChildRuntime {
                 unsupported.append("\(path):textureLoadFailed")
                 continue
             }
-            let probability = child.probability ?? 1
-            guard probability.isFinite, (0...1).contains(probability) else {
-                unsupported.append("\(path):invalidProbability")
-                continue
-            }
-            guard let maximum = child.maximumCount, maximum > 0, maximum <= 512 else {
+            let maximum = child.maximumCount ?? 512
+            guard maximum > 0, maximum <= 512 else {
                 unsupported.append("\(path):invalidSystemLimit")
                 continue
+            }
+            let authoredMaximum = min(max(asset.definition.maximumCount ?? 1, 0), 20_000)
+            let particleBudget = min(authoredMaximum, Self.maximumParticlesPerSystem)
+            if particleBudget < authoredMaximum {
+                let instantaneous = asset.definition.emitters.map { $0.instantaneousCount ?? 0 }.max() ?? 0
+                performance.append(
+                    "\(path):particleBudget:max=\(authoredMaximum):instantaneous=\(instantaneous):effective=\(particleBudget)"
+                )
             }
             accepted.append(Template(
                 index: index,
                 path: path,
                 definition: asset.definition,
+                trigger: trigger,
+                trail: render.trail,
                 texture: loaded.texture,
                 blendMode: asset.blendMode == .additive ? .additive : .translucent,
                 spriteAnimation: loaded.animation,
-                orientation: SceneParticleOrientation(authoredValue: renderer.orientation),
-                orientationAxis: renderer.axis.map {
+                orientation: SceneParticleOrientation(authoredValue: render.renderer.orientation),
+                orientationAxis: render.renderer.axis.map {
                     SceneParticleSimulationMath.vector($0, fallback: SIMD3(0, 0, 1)).childFloatValue
                 },
                 usesPerspective: asset.definition.flags.usesPerspective,
                 probability: probability,
-                maximumSystemCount: maximum
+                maximumSystemCount: maximum,
+                particleBudget: particleBudget
             ))
+            handledChildren += 1
         }
         templates = accepted
         unsupportedDetails = unsupported
-        handlesAllChildren = accepted.count == rootAsset.definition.children.count
+        performanceDetails = performance
+        handlesAllChildren = handledChildren == rootAsset.definition.children.count
     }
 
-    func advance(by frameDelta: TimeInterval, spawnEvents: [SceneParticleState]) -> AdvanceResult {
-        for index in systems.indices { systems[index].simulator.advance(by: frameDelta) }
+    func advance(
+        by frameDelta: TimeInterval,
+        spawnEvents: [SceneParticleState],
+        deathEvents: [SceneParticleState]
+    ) -> AdvanceResult {
+        for index in systems.indices {
+            systems[index].simulator.advance(by: frameDelta)
+            _ = systems[index].simulator.consumeBirthEvents()
+            _ = systems[index].simulator.consumeDeathEvents()
+        }
         systems.removeAll { $0.simulator.simulationTime > 0 && $0.simulator.particles.isEmpty }
-        spawn(from: spawnEvents)
+        spawn(from: spawnEvents, trigger: .spawn)
+        spawn(from: deathEvents, trigger: .death)
 
         var batches: [SceneParticleDrawBatch] = []
         var failures: [String] = []
@@ -153,10 +196,11 @@ final class SceneParticleChildRuntime {
         return AdvanceResult(batches: batches, bufferFailurePaths: failures)
     }
 
-    private func spawn(from events: [SceneParticleState]) {
+    private func spawn(from events: [SceneParticleState], trigger: Trigger) {
         guard !events.isEmpty else { return }
         for event in events {
             for template in templates {
+                guard template.trigger == trigger else { continue }
                 let activeCount = systems.lazy.filter { $0.templateIndex == template.index }.count
                 guard activeCount < template.maximumSystemCount,
                       Self.accepts(event: event, template: template) else { continue }
@@ -168,7 +212,11 @@ final class SceneParticleChildRuntime {
                 systems.append(System(
                     templateIndex: template.index,
                     origin: event.position,
-                    simulator: SceneParticleSimulator(definition: template.definition, seed: seed)
+                    simulator: SceneParticleSimulator(
+                        definition: template.definition,
+                        seed: seed,
+                        particleBudget: template.particleBudget
+                    )
                 ))
             }
         }
@@ -191,6 +239,7 @@ final class SceneParticleChildRuntime {
                     color: particle.color.childFloatValue,
                     alpha: Float(particle.alpha) * layerAlpha,
                     velocity: particle.velocity.childFloatValue,
+                    trailStretch: template.trail?.stretch(for: particle.velocity),
                     currentFrame: frames.current,
                     nextFrame: frames.next,
                     frameMix: frames.mix
@@ -220,11 +269,25 @@ final class SceneParticleChildRuntime {
         }
     }
 
-    private static func spriteRenderer(in definition: SceneParticleDefinition) -> SceneParticleRenderer? {
-        definition.renderers.first {
-            if case .sprite = $0.kind { return true }
-            return false
+    private static func supportedRenderer(
+        in definition: SceneParticleDefinition
+    ) -> (renderer: SceneParticleRenderer, trail: SceneParticleTrailRenderPlan?)? {
+        for renderer in definition.renderers {
+            switch renderer.kind {
+            case .sprite:
+                return (renderer, nil)
+            case .spriteTrail:
+                guard let trail = SceneParticleTrailRenderPlan(
+                    length: renderer.length,
+                    minimumLength: renderer.minimumLength,
+                    maximumLength: renderer.maximumLength
+                ) else { continue }
+                return (renderer, trail)
+            default:
+                continue
+            }
         }
+        return nil
     }
 
     private static func loadTexture(
