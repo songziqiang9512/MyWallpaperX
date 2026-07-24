@@ -419,8 +419,8 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             )
 
         report_paths = (
-            ".codex/scene-waterflow-20260724/full26-final/report.json",
-            ".codex/scene-waterflow-20260724/fixed13-final/report.json",
+            ".codex/scene-chromaticdot-20260724/full26-final/report.json",
+            ".codex/scene-chromaticdot-20260724/fixed13-final/report.json",
         )
         for path in current_state_documents:
             for report_path in report_paths:
@@ -446,7 +446,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             "### E-GRAPH-LEGACY-COMPOSE: exact Blur Precise legacy two-pass normalization",
             evidence,
         )
-        self.assertIn("完整 Scene suite 301/301、3 skip", evidence)
+        self.assertIn("完整 Scene suite 302 项：299 通过、3 跳过", evidence)
         self.assertIn("Water Flow 2、Water Waves 4、Shake 3", evidence)
         self.assertIn("comparison_scope=same-sample-change-only", evidence)
         self.assertIn("cross_sample_ranking=false", evidence)
@@ -467,7 +467,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             "八个 strict backend",
             "38 stage",
             "63 个 route-only effect",
-            "particle 为 `47/68`",
+            "particle 为 `52/68`",
             "customtext/textcolor/textsize",
             "stale cancellation",
             "SceneScript/time/media",

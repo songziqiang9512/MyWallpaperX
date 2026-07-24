@@ -130,7 +130,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
             case .velocity:
                 particle.velocity += randomVector(initializer, defaults: (SIMD3(-32, -32, 0), SIMD3(32, 32, 0)))
             case .color:
-                particle.color = randomVector(
+                particle.color = randomColor(
                     initializer, defaults: (.zero, SIMD3(repeating: 255))
                 ) / 255
             case .alpha:
@@ -299,6 +299,15 @@ nonisolated struct SceneParticleSimulator: Sendable {
         let minimum = SceneParticleSimulationMath.vector(value.minimum, fallback: defaults.0)
         let maximum = SceneParticleSimulationMath.vector(value.maximum, fallback: defaults.1)
         return SIMD3(random.value(minimum.x, maximum.x), random.value(minimum.y, maximum.y), random.value(minimum.z, maximum.z))
+    }
+
+    private nonisolated mutating func randomColor(
+        _ value: SceneParticleInitializer,
+        defaults: (SIMD3<Double>, SIMD3<Double>)
+    ) -> SIMD3<Double> {
+        let minimum = SceneParticleSimulationMath.vector(value.minimum, fallback: defaults.0)
+        let maximum = SceneParticleSimulationMath.vector(value.maximum, fallback: defaults.1)
+        return minimum + (maximum - minimum) * random.unit()
     }
 
     private nonisolated mutating func randomSphereOffset(_ emitter: SceneParticleEmitter) -> SIMD3<Double> {

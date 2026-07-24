@@ -83,6 +83,9 @@ enum Harness {
         var colors = simulator(colorJSON, seed: 1, step: 0.1)
         colors.advance(by: 0.1)
         let randomColor = colors.particles[0].color
+        let colorAmount = (randomColor.x * 255 - 10) / 230
+        let expectedGreen = (40 + 160 * colorAmount) / 255
+        let expectedBlue = (80 + 80 * colorAmount) / 255
 
         return [
             "deterministic": first.particles == partitioned.particles,
@@ -110,7 +113,8 @@ enum Harness {
             "operatorColor": vector(operatorParticle.color),
             "operatorRotation": vector(operatorParticle.rotation),
             "operatorPosition": vector(operatorParticle.position),
-            "independentColorChannels": randomColor.x != randomColor.y && randomColor.y != randomColor.z,
+            "colorUsesSingleInterpolation": abs(randomColor.y - expectedGreen) < 1e-12
+                && abs(randomColor.z - expectedBlue) < 1e-12,
             "diagnostics": diagnosticSimulator.diagnostics.map(\.kind.rawValue).sorted()
         ]
     }
@@ -206,7 +210,7 @@ enum Harness {
     private static let colorJSON = #"""
     {"material":"p.json","maxcount":1,
      "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
-     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"colorrandom","min":"0 0 0","max":"255 255 255"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"colorrandom","min":"10 40 80","max":"240 200 160"}],
      "renderer":[{"name":"sprite"}]}
     """#
 
@@ -388,8 +392,8 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["operatorRotation"], [0, 0, 0.25])
         self.assertLess(self.results["operatorPosition"][0], 0)
 
-    def test_color_initializer_samples_channels_independently(self) -> None:
-        self.assertTrue(self.results["independentColorChannels"])
+    def test_color_initializer_interpolates_between_authored_colors(self) -> None:
+        self.assertTrue(self.results["colorUsesSingleInterpolation"])
 
     def test_unsupported_capabilities_are_reported(self) -> None:
         self.assertEqual(

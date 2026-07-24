@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-24
 >
-> Scene 实现基线：`94aebc5`
+> Scene 实现基线：当前 HEAD（前置安全整数提交 `10401d7`）
 >
-> 当前完整快照门：`.codex/scene-waterflow-20260724/full26-final/report.json`；固定回归门：`.codex/scene-waterflow-20260724/fixed13-final/report.json`
+> 当前完整快照门：`.codex/scene-chromaticdot-20260724/full26-final/report.json`；固定回归门：`.codex/scene-chromaticdot-20260724/fixed13-final/report.json`
 >
-> 最新运行门：当前 `94aebc5` 的真实目录 26 样本完整快照 26/26；固定 13 样本门 13/13，仍单独保留且不能互相替代。完整 Scene suite 301/301、3 项跳过；语义覆盖 11/11。聚合缺口、视觉证据边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：真实目录 26 样本完整快照 26/26、particle 52/68；固定 13 样本门 13/13、particle 15/27，仍单独保留且不能互相替代。完整 Scene suite 302 项：299 通过、3 项跳过；语义覆盖 11/11。聚合缺口、视觉证据边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -63,7 +63,7 @@
 | Audio frame input | `L0` | Scene 不消费频谱 | 16/32/64 双声道 snapshot、注册和设备生命周期 | B0/B4 |
 | 内嵌视频纹理 | `L3` | TEX 内嵌 MP4 image-layer 播放，消费共享 host time | seek/pause/switch/loop 精确合同及更多容器 | B1 |
 | 系统媒体 identity | `L1` | `$mediaThumbnail` typed 引用存在 | producer/consumer、事件、缩略图 generation | B1/B4 |
-| Particle runtime | `L3` | 作者 sprite、常见组件、Sprite Trail、9 个精确 built-in key；正式可见层 `14/27` | 逐项状态见粒子专项表 | **B4** |
+| Particle runtime | `L3` | 作者 sprite、常见组件、Sprite Trail、10 个精确 built-in key；固定门 `15/27`、完整门 `52/68` | 逐项状态见粒子专项表 | **B4** |
 | Text/Font runtime | `L3` | CoreText 静态栅格和部分 font/pointsize/padding/scale；结构门 `79/108` | 动态 text、Windows baseline/fallback、outline/shadow/effect | B4/B5 |
 | Camera Parallax | `L3` | 仅作者开启且非零 depth 时启用，含层级传播/阻断 | WE 数值 golden、camera shake/zoom、3D camera | B5 |
 | User Properties | `L3` | 独立窗口、条件、持久化、PNG/JPEG `sceneTexture`；layer alpha、纯 solid color、strict Local Contrast strength 与 stock Opacity alpha 已无重建 live 更新 | unsupported/mixed/SceneScript bindings、Texture Variants、shortcut、跨重启 UI 门；精确 census 见 runtime-input 专项表 | **B0/B1** |
@@ -133,7 +133,7 @@
 | Fixed step/seed/maxcount | `L3` | fixed simulation step、deterministic seed、maxcount 有运行门 | pause/discontinuity 与 WE 数值 golden |
 | Delta clamp/prewarm cap | `L2` | 代码有上限分支，缺定向预算断言 | 长帧和高 prewarm 压力门 |
 
-当前正式矩阵可见粒子为 `14/27`；`3750813609` 是 `7/9`，另外两层因 world-space 不支持而保持 fail closed。这个数字只度量被固定矩阵实际加载的 layer，不代表粒子组件覆盖率。
+当前固定矩阵可见粒子为 `15/27`，完整矩阵为 `52/68`；`3750813609` 是 `7/9`，另外两层因 world-space 不支持而保持 fail closed。这些数字只度量对应矩阵实际加载的 layer，不代表粒子组件覆盖率。
 
 ## 6. 动态运行系统覆盖
 
@@ -238,7 +238,7 @@
 | **B5 Fidelity** | `S2-S4` 广度完成后 | 字体、视差、粒子、常用 Effect 与 WE Windows golden 对齐 | 固定输入逐像素/数值阈值、性能预算、长稳和多屏门 |
 | **Advanced** | `S5` | Puppet、2D light/HDR、3D、arbitrary custom shader、RGB、offline bake | 每个系统有完整 IR/runtime/lifecycle/product gate 后再升级 |
 
-研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、B2 ordered strict chain、Workshop Shadow、stock Opacity、exact stock Shake、exact stock Water Waves/Water Flow、同帧 copy/swap foundation、受限 history seed/clear、Precise Blur 两种 material-command interleave 与 exact legacy compose 归一化已合龙。`31ae557`/`94aebc5` 已把精确 Water Waves/Water Flow profile 放入 ordered strict scheduler；非 exact Water Waves 的 legacy inline 仍只在 owner layer 唯一可见 Effect 时准入，mixed/repeated unsupported declarations fail closed。当前完整门为 38 stage/5 chain/0 failed，固定门为 20 stage/1 chain/0 failed；超出默认 96 MiB 纹理预算的长链在规划阶段拒绝。后续从逐 effect 重复实现转向共享 material pass executor、texture/state/target 生命周期和 shader preprocessing IR；封面与 WaifuX MP4 仍只作方向性视觉证据，不能替代 Windows WE 动态/像素 golden。
+研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、B2 ordered strict chain、Workshop Shadow、stock Opacity、exact stock Shake、exact stock Water Waves/Water Flow、同帧 copy/swap foundation、受限 history seed/clear、Precise Blur 两种 material-command interleave 与 exact legacy compose 归一化已合龙。`31ae557`/`94aebc5` 已把精确 Water Waves/Water Flow profile 放入 ordered strict scheduler；非 exact Water Waves 的 legacy inline 仍只在 owner layer 唯一可见 Effect 时准入，mixed/repeated unsupported declarations fail closed。当前完整门为 38 stage/5 chain/0 failed，固定门为 20 stage/1 chain/0 failed；超出默认 96 MiB 纹理预算的长链在规划阶段拒绝。后续从逐 effect 重复实现转向共享 material pass executor、texture/state/target 生命周期和 shader preprocessing IR；样本自带 preview 是当前第一视觉依据，WaifuX MP4 只作辅助动态参考，均不能替代 Windows WE 动态/像素 golden。
 
 ## 9. 更新规则
 

@@ -70,7 +70,7 @@ final class SceneParticleBuiltInTextureRegistry {
         switch builtInTexture {
         case .drop:
             32
-        case .leaves7, .leaves8, .halo, .halo2, .rippleSingle:
+        case .chromaticDot, .leaves7, .leaves8, .halo, .halo2, .rippleSingle:
             64
         case .fog1, .lightShafts6, .lightning3:
             128
@@ -83,6 +83,9 @@ final class SceneParticleBuiltInTextureRegistry {
         y: Float
     ) -> Float {
         switch builtInTexture {
+        case .chromaticDot:
+            let radius = hypot(x, y)
+            return pow(smooth(1 - radius), 1.35)
         case .drop:
             let radiusSquared = x * x + y * y
             return smooth(1 - radiusSquared)

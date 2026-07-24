@@ -25,10 +25,13 @@ import Metal
 enum Harness {
     static func main() throws {
         let keys: [SceneParticleBuiltInTexture] = [
-            .drop, .fog1, .leaves7, .leaves8, .lightShafts6,
+            .chromaticDot, .drop, .fog1, .leaves7, .leaves8, .lightShafts6,
             .lightning3, .halo, .halo2, .rippleSingle,
         ]
         let sources: [String: Bool] = [
+            "chromatic": SceneParticleTextureSource(
+                reference: "particle/chromaticdot"
+            ) == .builtIn(.chromaticDot),
             "direct": SceneParticleTextureSource(reference: "particle/drop") == .builtIn(.drop),
             "normalized": SceneParticleTextureSource(
                 reference: "  .\\Materials\\PARTICLE\\DROP  "
@@ -76,6 +79,7 @@ enum Harness {
                 "premultiplied": pixelsArePremultiplied(pixels),
                 "nonzeroAlphaCount": alphaValues.filter { $0 > 0 }.count,
                 "highAlphaCount": alphaValues.filter { $0 >= 220 }.count,
+                "nonGrayPixelCount": nonGrayPixelCount(pixels),
                 "hasSoftPixels": alphaValues.contains { $0 > 0 && $0 < 255 },
                 "centerAlpha": pixel(pixels, width: first.width, x: first.width / 2, y: first.height / 2)[3],
                 "maxAlpha": alphaValues.max() ?? 0,
@@ -118,6 +122,15 @@ enum Harness {
             }
         }
         return true
+    }
+
+    private static func nonGrayPixelCount(_ pixels: [UInt8]) -> Int {
+        stride(from: 0, to: pixels.count, by: 4).filter { offset in
+            let red = pixels[offset]
+            let green = pixels[offset + 1]
+            let blue = pixels[offset + 2]
+            return pixels[offset + 3] > 0 && (red != green || green != blue)
+        }.count
     }
 
     private static func edgeIsTransparent(
@@ -196,7 +209,7 @@ class SceneParticleBuiltInTextureTests(unittest.TestCase):
         self.assertTrue(self.result["metalAvailable"])
         self.assertTrue(self.result["created"])
         textures = self.result["textures"]
-        self.assertEqual(len(textures), 9)
+        self.assertEqual(len(textures), 10)
         for name, summary in textures.items():
             with self.subTest(name=name):
                 self.assertTrue(summary["cached"])
@@ -210,6 +223,7 @@ class SceneParticleBuiltInTextureTests(unittest.TestCase):
     def test_generated_families_have_distinct_shapes(self) -> None:
         textures = self.result["textures"]
         expected_sizes = {
+            "particle/chromaticdot": 64,
             "particle/drop": 32,
             "particle/fog/fog1": 128,
             "particle/nature/leaves7": 64,
@@ -222,7 +236,10 @@ class SceneParticleBuiltInTextureTests(unittest.TestCase):
         }
         for name, size in expected_sizes.items():
             self.assertEqual((textures[name]["width"], textures[name]["height"]), (size, size))
-        self.assertEqual(len({value["checksum"] for value in textures.values()}), 9)
+        self.assertEqual(len({value["checksum"] for value in textures.values()}), 10)
+        chromatic = textures["particle/chromaticdot"]
+        self.assertEqual(chromatic["nonGrayPixelCount"], 0)
+        self.assertGreaterEqual(chromatic["centerAlpha"], 250)
         self.assertGreaterEqual(textures["particle/drop"]["centerAlpha"], 250)
         self.assertLessEqual(textures["particle/water/ripple_single"]["centerAlpha"], 2)
         shaft = textures["particle/light/light_shafts_6"]

@@ -453,11 +453,14 @@
       "expected_solid_candidates": 0,
       "required_solid_loaded_layer_ids": [],
       "expected_particle_candidates": 2,
-      "minimum_particle_loaded": 0,
+      "minimum_particle_loaded": 2,
       "expected_particle_authored": 2,
       "expected_particle_visible": 2,
       "expected_particle_skipped_hidden": 0,
-      "required_particle_loaded_layer_ids": [],
+      "required_particle_loaded_layer_ids": [
+        20,
+        25
+      ],
       "expected_camera_parallax": true,
       "requires_motion": true,
       "minimum_changed_ratio": 0.005,
@@ -778,11 +781,13 @@
         967
       ],
       "expected_particle_candidates": 1,
-      "minimum_particle_loaded": 0,
+      "minimum_particle_loaded": 1,
       "expected_particle_authored": 5,
       "expected_particle_visible": 1,
       "expected_particle_skipped_hidden": 4,
-      "required_particle_loaded_layer_ids": [],
+      "required_particle_loaded_layer_ids": [
+        173
+      ],
       "expected_camera_parallax": true,
       "expected_utility_candidates": 7,
       "expected_utility_capture_planned": 0,
@@ -1796,11 +1801,13 @@
         783
       ],
       "expected_particle_candidates": 1,
-      "minimum_particle_loaded": 0,
+      "minimum_particle_loaded": 1,
       "expected_particle_authored": 1,
       "expected_particle_visible": 1,
       "expected_particle_skipped_hidden": 0,
-      "required_particle_loaded_layer_ids": [],
+      "required_particle_loaded_layer_ids": [
+        269
+      ],
       "expected_camera_parallax": false,
       "expected_utility_candidates": 4,
       "expected_utility_capture_planned": 0,
@@ -1886,11 +1893,13 @@
       "expected_solid_candidates": 0,
       "required_solid_loaded_layer_ids": [],
       "expected_particle_candidates": 1,
-      "minimum_particle_loaded": 0,
+      "minimum_particle_loaded": 1,
       "expected_particle_authored": 1,
       "expected_particle_visible": 1,
       "expected_particle_skipped_hidden": 0,
-      "required_particle_loaded_layer_ids": [],
+      "required_particle_loaded_layer_ids": [
+        52
+      ],
       "expected_camera_parallax": true,
       "expected_utility_candidates": 0,
       "expected_utility_capture_planned": 0,

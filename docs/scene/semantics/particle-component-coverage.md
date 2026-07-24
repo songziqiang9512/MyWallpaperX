@@ -2,11 +2,11 @@
 
 > 状态：现役专题能力表
 >
-> 最近核对：2026-07-23
+> 最近核对：2026-07-24
 >
 > 口径来源：[官方页面目录](official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[资料来源与证据索引](source-index.md)
 > 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，但还不是通用 Particle System；尤其没有 Layer Image、Children/Event、Collision、动态 Control Point、World Space、Rope、Audio Response 和完整 Particle Material。
-> Scene 实现基线：`8f144da`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。完整 26 样本门的 particle 为 `47/68`，仍不是通用 Particle System；Opacity/Workshop Shadow 不改变本表任何粒子等级。
+> Scene 实现基线：当前 HEAD（前置安全整数提交 `10401d7`）；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。完整 26 样本门的 particle 为 `52/68`，固定 13 样本门为 `15/27`，仍不是通用 Particle System。
 
 本文把官方 Particle 的 General、Emitter、Initializer、Operator、Renderer、Control Point、Children、instance override 与 material 逐项映射到当前实现。它是 [总覆盖台账](coverage-ledger.md) 中 Particle 行的展开表；总表与本文冲突时，以本文更细粒度、更新的代码证据为准。
 
@@ -106,7 +106,7 @@
 |---|---|---|---|---|---|
 | I01 Lifetime Random | 从范围为新粒子选择 lifetime。 | `L3` | [DEF] [SIM] [T-SIM] | 自有线性分布；未核验单位、clamp 和 exponent。 | 固定 seed 分布、零/负 lifetime 与 Windows 门。 |
 | I02 Size Random | 从范围为新粒子选择初始 size。 | `L3` | [DEF] [SIM] [T-SIM] | scalar 路径为主，单位与 renderer 像素比例未核验。 | scalar/vector、size 0、透视缩放的画面门。 |
-| I03 Color Random | 各通道从范围选择初始颜色。 | `L3` | [DEF] [SIM] [T-SIM] | 按 0...255 除法；线性/sRGB 合同未知。 | 色彩空间和独立通道 Windows pixel golden。 |
+| I03 Color Random | 用一个随机系数在作者给定的两个颜色之间插值。 | `L3` | [DEF] [SIM] [T-SIM] | RGB 共用同一插值系数并按 0...255 除法；线性/sRGB 合同未知。 | 色彩空间、端点/中间值分布和 Windows pixel golden。 |
 | I04 HSV Color Random | 在 HSV 范围采样后转换为粒子颜色。 | `L1` | [PAR] [SUP] [T-DEF] | 仅保留 unsupported 名称。 | typed HSV ranges、wrap、转换色彩空间测试。 |
 | I05 Color List | 从作者颜色列表按规则选择。 | `L1` | [PAR] [SUP] [T-DEF] | 列表内容没有 typed IR。 | list、weight/index 语义 fixture 和 seed 门。 |
 | I06 Alpha Random | 从范围选择初始 alpha。 | `L3` | [DEF] [SIM] [T-SIM] | 无官方 clamp/precision golden。 | 0、1、越界、override 组合测试。 |
@@ -263,8 +263,8 @@
 | M14 Depth test/write/cull | perspective/world 粒子可需要 depth 和 cull render state。 | `L0` | [AST] [GPU] | Particle material adapter 只携带 blending。 | typed render state + depth attachment 正反门。 |
 | M15 Material combos/constants | combo/constant 选择 shader variant 和参数。 | `L0` | [AST] [GPU] | Particle adapter 丢弃 combos/constants。 | 保真 IR、variant key 和参数 buffer fixture。 |
 | M16 File-backed TEX/PNG/JPEG | 合法本地 particle texture 可解码并上传 GPU。 | `L3` | [AST] [RUN] [T-AST] [T-RUN] | 格式集合受 SceneTextureLoader 限制；无跨格式视觉 parity。 | TEX variants、color space、损坏资源负向门。 |
-| M17 Built-in texture identity | `particle/...` key 指向 Wallpaper Engine 内置粒子资产。 | `L1` | [TEX] [AST] [T-AST] | 任意 key 可识别为 built-in reference，但只支持九个精确枚举。 | 建立合法官方 assets 来源与版本化 key registry。 |
-| M18 Nine generated built-ins | 当前九个高命中 key 可生成确定性替代纹理。 | `L3` | [TEX] [BUILTIN] [T-TEX] [T-RUN] | 程序图形不是官方资产，只保证 shape family 和安全 alpha。 | 每个 key 与合法官方纹理的尺寸/通道/pixel 差异门。 |
+| M17 Built-in texture identity | `particle/...` key 指向 Wallpaper Engine 内置粒子资产。 | `L1` | [TEX] [AST] [T-AST] | 任意 key 可识别为 built-in reference，但只支持十个精确枚举。 | 建立合法官方 assets 来源与版本化 key registry。 |
+| M18 Ten generated built-ins | 当前十个高命中 key 可生成确定性替代纹理。 | `L3` | [TEX] [BUILTIN] [T-TEX] [T-RUN] | 程序图形不是官方资产；`particle/chromaticdot` 依据样本自带 preview 采用白色软点，只保证受控 shape family 和安全 alpha。 | 每个 key 先以样本自带 preview 验证明显外观，再与合法 Windows WE 输出做尺寸/通道/pixel 差异门。 |
 | M19 Missing built-in fail-closed | 未支持 built-in 应报告 unavailable，不能静默用任意白块。 | `L3` | [AST] [RUN] [T-AST] [T-RUN] | 诊断明确且层不可用；尚无用户可见降级说明。 | 诊断聚合和 fallback policy 产品门。 |
 | M20 Sprite atlas metadata | TEX frame origin/axes/duration 选择 atlas 子区域。 | `L3` | [RUN] [GPU] [T-GPU] | 仅当前 SpriteAnimation 结构；无多 texture sequence。 | rotated/trimmed/variable duration atlas pixel 门。 |
 | M21 Premultiplied alpha contract | CPU 颜色、纹理和 blend factor 必须使用一致 alpha 合同。 | `L3` | [BUILTIN] [GPU] [T-TEX] [T-GPU] | 生成纹理有 premultiply 门；外部 TEX/PNG 和 WE blend 未全链核验。 | file/built-in 双来源的重叠 pixel golden。 |
@@ -292,6 +292,6 @@
 
 - 本台账共覆盖 `171` 个粒子能力项：General 18、Emitter 17、Initializer 18、Operator 29、Renderer 14、Control Point 12、Children 12、Instance Override 16、Material 22、执行/生命周期 13。
 - 等级分布为 `L0 30 / L1 57 / L2 23 / L3 61 / L4 0`。`L3` 主要集中在 Sphere/Box、常见随机 initializer、基础 movement/change/oscillation、Sprite/Sprite Trail、已测试的静态 override、首纹理和两种 blend。
-- 当前正式矩阵的“可见粒子 14/27”与 `3750813609` 的“7/9”只是样本运行门，不是上述 171 项的兼容率；world-space fail-closed 也不能计为可播放。
+- 当前固定矩阵的“可见粒子 15/27”、完整矩阵的“52/68”与 `3750813609` 的“7/9”只是样本运行门，不是上述 171 项的兼容率；world-space fail-closed 也不能计为可播放。
 - 开发批次应优先消除公共断点：复用现有 per-surface typed snapshot 接入动态 Control Point 与 author allow gates，再补 Layer Image、Children/Event、Collision 和 Rope，最后扩展 audio/material/lighting。逐样本 hardcode、把 unsupported 静默回退成 Sprite/translucent、或把程序纹理称为官方资产，都不允许升级等级。
 - 任一条目升级时，必须同时更新本表的等级、边界、证据路径和下一验收门；只有跑过对应正向、负向、生命周期测试后才能从 `L2` 升到 `L3`。
