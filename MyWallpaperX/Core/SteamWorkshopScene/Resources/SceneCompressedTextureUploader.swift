@@ -2,6 +2,13 @@ import Foundation
 import Metal
 
 struct SceneCompressedTextureUploader {
+    // CPU decode budget: a decoded RGBA copy of one 4096x4096 mip is 64 MiB.
+    // Larger payloads (observed: 7680x7560 5-frame BC3 firework sheets) and
+    // multi-image sprite containers keep the native block upload — decoding
+    // them would multiply load time and peak memory past what the synchronous
+    // wallpaper load path tolerates.
+    private static let maxDecodedPixelCount = 4096 * 4096
+
     static func upload(
         container: SceneTexContainer,
         pixelFormat: MTLPixelFormat,
@@ -16,7 +23,9 @@ struct SceneCompressedTextureUploader {
         // same contract the raw format-0 path follows. Direct upload would
         // let transparent texels bloom their (usually white) RGB into the
         // frame as opaque-looking mattes.
-        if let bcFormat = SceneBCTextureDecoder.Format(texFormat: container.format) {
+        if let bcFormat = SceneBCTextureDecoder.Format(texFormat: container.format),
+           container.imageCount == 1,
+           firstMip.width * firstMip.height <= maxDecodedPixelCount {
             return uploadDecodedColor(
                 container: container,
                 mip: firstMip,
