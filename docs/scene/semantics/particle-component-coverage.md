@@ -5,8 +5,8 @@
 > 最近核对：2026-07-25
 >
 > 口径来源：[官方页面目录](official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[资料来源与证据索引](source-index.md)
-> 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，并执行严格的 depth-one `eventspawn` / natural-`eventdeath` child；它仍不是通用 Particle System，尤其没有 Layer Image、Static/Event Follow、collision/delete event、动态 Control Point、World Space、Rope、Audio Response 和完整 Particle Material。
-> Scene 实现基线：`a5a951f`；child/event 子集由 `f4173ea`、`7d53c10` 实现，`4e64232` 补齐延迟截图证据入口，`c654571` 增加 `rosepetals`/`beam_1`，`f02f41d` 增加 `particle/fire/fire1`，`a5a951f` 增加 `particle/light/light_shafts_0`。固定 13 样本门 particle 为 `18/27`，完整 45 样本门为 `91/131`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。仍不是通用 Particle System。
+> 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，并执行非音频 Turbulent Velocity Random 与严格的 depth-one `eventspawn` / natural-`eventdeath` child；它仍不是通用 Particle System，尤其没有 Layer Image、Static/Event Follow、collision/delete event、动态 Control Point、World Space、Rope、Audio Response 和完整 Particle Material。
+> Scene 实现基线：`4a17ee6`；child/event 子集由 `f4173ea`、`7d53c10` 实现，`4e64232` 补齐延迟截图证据入口，`c654571` 增加 `rosepetals`/`beam_1`，`f02f41d` 增加 `particle/fire/fire1`，`a5a951f` 增加 `particle/light/light_shafts_0`，`4a17ee6` 执行非音频 turbulent velocity。固定 13 样本门 particle 为 `18/27`，完整 45 样本门为 `91/131`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。仍不是通用 Particle System。
 
 本文把官方 Particle 的 General、Emitter、Initializer、Operator、Renderer、Control Point、Children、instance override 与 material 逐项映射到当前实现。它是 [总覆盖台账](coverage-ledger.md) 中 Particle 行的展开表；总表与本文冲突时，以本文更细粒度、更新的代码证据为准。
 
@@ -113,7 +113,7 @@
 | I06 Alpha Random | 从范围选择初始 alpha。 | `L3` | [DEF] [SIM] [T-SIM] | 无官方 clamp/precision golden。 | 0、1、越界、override 组合测试。 |
 | I07 Velocity Random | 仅设置初始 velocity；位置推进仍需 Movement operator。 | `L3` | [DEF] [SIM] [T-SIM] | 各轴线性随机；exponent 未消费。 | 无 Movement 时静止负向门和分布 golden。 |
 | I08 Inherit Control Point Velocity | 新粒子继承指定 control point 的速度。 | `L1` | [PAR] [SUP] [T-DEF] | 没有 CP previous/current state或 velocity。 | 动态 CP 两帧差分、空间转换和倍率 fixture。 |
-| I09 Turbulent Velocity Random | 使用方向、noise phase/scale/time 和速度范围初始化湍流速度。 | `L1` | [DEF] [PAR] [SUP] [T-DEF] [T-SIM] | 字段进入 typed IR，但 simulator 明确忽略；audio 也忽略。 | 确定性 noise fixture、time/seed/audio 正反门。 |
+| I09 Turbulent Velocity Random | 使用方向、noise phase/scale/time 和速度范围初始化湍流速度。 | `L3` | [DEF] [PAR] [SIM] [SUP] [T-DEF] [T-SIM] | 非音频 profile 使用项目自建确定性 3D gradient noise；`scale=0` 保持 forward，phase/time/seed 和速度范围有数值门。Audio profile 继续 fail closed；无 Windows WE 数值/像素等价证据。 | 合法 Windows WE 固定 seed/phase/time 状态 golden，再接 injectable audio snapshot。 |
 | I10 Rotation Random | 为新粒子选择初始旋转。 | `L2` | [DEF] [SIM] [T-DEF] | 已接入 simulator，但现有测试只证明 component 解析，没有最终 rotation 数值断言。 | screen/upright/fixed 下角度 golden。 |
 | I11 Position Offset Random | 在 emitter 结果上增加随机位置 offset。 | `L1` | [PAR] [SUP] [T-DEF] | 名称可诊断，未保存专用范围或执行。 | typed min/max、作者顺序和空间 fixture。 |
 | I12 Angular Velocity Random | 为新粒子选择初始角速度。 | `L3` | [DEF] [SIM] [T-SIM] | 只有 Angular Movement 才推进；单位未核验。 | 无/有 Angular Movement 的状态 golden。 |
