@@ -400,7 +400,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         for path in current_state_documents:
             text = document_text[path]
             self.assertIn(
-                "`c654571`",
+                "`18d0056`",
                 text,
                 f"Current Scene entrypoint is missing the full-baseline implementation: {path}",
             )
@@ -419,8 +419,8 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             )
 
         report_paths = (
-            ".codex/scene-builtin-textures-full45-20260725/report.json",
-            ".codex/scene-builtin-textures-fixed13-v2-20260725/report.json",
+            ".codex/scene-bc-full45-20260725/report.json",
+            ".codex/scene-bc-fixed13-20260725/report.json",
         )
         for path in current_state_documents:
             for report_path in report_paths:
@@ -453,7 +453,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             "### E-GRAPH-LEGACY-COMPOSE: exact Blur Precise legacy two-pass normalization",
             evidence,
         )
-        self.assertIn("完整 Scene suite 370 项：367 通过、3 跳过", evidence)
+        self.assertIn("完整 Scene suite 372 项：369 通过、3 跳过", evidence)
         self.assertIn("Water Flow 10、Water Waves 11、Shake 24", evidence)
         self.assertIn("comparison_scope=same-sample-change-only", evidence)
         self.assertIn("cross_sample_ranking=false", evidence)

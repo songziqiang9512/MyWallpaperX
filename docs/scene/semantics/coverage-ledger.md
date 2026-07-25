@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-25
 >
-> Scene 实现基线：`c654571`（Puppet bind-pose mesh `8bac86e`，静态 MDAT attachment `49ee89a`，严格单 clip MDLA/LBS 播放 `f1ee79b`；strict particle child/event `f4173ea`/`7d53c10`；13-key built-in particle registry `c654571`）
+> Scene 实现基线：`18d0056`（Puppet bind-pose mesh `8bac86e`，静态 MDAT attachment `49ee89a`，严格单 clip MDLA/LBS 播放 `f1ee79b`；strict particle child/event `f4173ea`/`7d53c10`；13-key built-in particle registry `c654571`；超预算/多 image BC 颜色归一 `18d0056`）
 >
-> 当前完整快照门：`.codex/scene-builtin-textures-full45-20260725/report.json`；固定回归门：`.codex/scene-builtin-textures-fixed13-v2-20260725/report.json`
+> 当前完整快照门：`.codex/scene-bc-full45-20260725/report.json`；固定回归门：`.codex/scene-bc-fixed13-20260725/report.json`
 >
-> 最新运行门：真实目录 45 个可运行样本完整快照 45/45、particle 83/131；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 13/13、particle 18/27，仍单独保留且不能互相替代。particle 计数按 `8bac86e` 的 REFRACT fail-closed 与 `c654571` 的 13-key registry 新口径统计。完整 Scene suite 370 项：367 通过、3 项跳过；语义覆盖 11/11。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：真实目录 45 个可运行样本完整快照 45/45、particle 83/131；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 13/13、particle 18/27，仍单独保留且不能互相替代。particle 计数按 `8bac86e` 的 REFRACT fail-closed 与 `c654571` 的 13-key registry 新口径统计。完整 Scene suite 372 项：369 通过、3 项跳过；语义覆盖 11/11。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -45,7 +45,7 @@
 
 | 系统 | 当前级别 | 当前真实能力 | 主要缺口 / 升级门 | 批次 |
 |---|---|---|---|---|
-| PKG/TEX/资源索引 | `L3` | loose/PKG 查找、常见 TEX、内嵌 MP4、诊断式失败 | case/symlink/duplicate/多格式边界与完整 VFS golden | B0 |
+| PKG/TEX/资源索引 | `L3` | loose/PKG 查找、常见 TEX、内嵌 MP4、诊断式失败；BC1/2/3 单 image 预算内 CPU premultiply，超预算/多 image GPU premultiply；跨 image sprite 当前只裁 authored 首帧作静态 fallback | 完整跨-image sprite animation、旋转 frame、case/symlink/duplicate/多格式边界与完整 VFS golden | B0 |
 | Scene IR 与基础层级 | `L3` | 基础对象、顺序、父子 transform/visibility、受限 Puppet 静态 attachment frame 与 animation layer 声明、常见 image/text/solid/particle | 模型、动态 attachment follow、复杂 object component 和全部动态字段 | B0 |
 | Utility composition | `L3` | typed composition/project/fullscreen、受限 current prefix 与 `_a` named target | nested/effectful/child、`_b` 数据流、RGB 语义 | B2/B3 |
 | 画布/cover/背景 | `L3` | cover 投影和作者声明视差门，未覆盖区域不再暴露灰底 | 多比例、多屏和 Windows 像素基准 | B5 |
@@ -238,7 +238,7 @@
 | **B5 Fidelity** | `S2-S4` 广度完成后 | 字体、视差、粒子、常用 Effect 与 WE Windows golden 对齐 | 固定输入逐像素/数值阈值、性能预算、长稳和多屏门 |
 | **Advanced** | `S5` | Puppet、2D light/HDR、3D、arbitrary custom shader、RGB、offline bake | 每个系统有完整 IR/runtime/lifecycle/product gate 后再升级 |
 
-研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、B2 ordered strict chain、Workshop Shadow、stock Opacity、exact stock Shake/Foliage Sway/Water Ripple/Water Waves/Water Flow/X-Ray、同帧 copy/swap foundation、受限 history seed/clear、Precise Blur 两种 material-command interleave 与 exact legacy compose 归一化已合龙；13 个精确 built-in 粒子纹理与 strict depth-one eventspawn/natural-eventdeath child 已进入公共 runtime。非 exact Water Waves/Foliage Sway/Water Ripple 的 legacy inline 仍受原有唯一 Effect 或单 profile 边界约束，mixed/repeated unsupported declarations fail closed；X-Ray 受限前缀明确省略后续 unsupported effect。当前完整门为 91 stage/15 chain/0 failed，固定门为 24 stage/2 chain/0 failed；超出默认 96 MiB 纹理预算的长链在规划阶段拒绝。下一步处理超预算 BC 合成；Fire effect、299 多余粒子和比例/裁切随后按隔离样本收益推进。样本自带 preview 是当前第一视觉依据，WaifuX MP4 只作辅助动态参考，均不能替代 Windows WE 动态/像素 golden。
+研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、B2 ordered strict chain、Workshop Shadow、stock Opacity、exact stock Shake/Foliage Sway/Water Ripple/Water Waves/Water Flow/X-Ray、同帧 copy/swap foundation、受限 history seed/clear、Precise Blur 两种 material-command interleave 与 exact legacy compose 归一化已合龙；13 个精确 built-in 粒子纹理、strict depth-one eventspawn/natural-eventdeath child，以及超预算/多 image BC1/2/3 的 GPU premultiply 与静态首帧 fallback 已进入公共 runtime。非 exact Water Waves/Foliage Sway/Water Ripple 的 legacy inline 仍受原有唯一 Effect 或单 profile 边界约束，mixed/repeated unsupported declarations fail closed；X-Ray 受限前缀明确省略后续 unsupported effect。当前完整门为 91 stage/15 chain/0 failed，固定门为 24 stage/2 chain/0 failed；超出默认 96 MiB 纹理预算的长链在规划阶段拒绝。下一步处理 `3769364482` 的 Fire effect，随后定位 299 多余粒子和全局比例/裁切。样本自带 preview 是当前第一视觉依据，WaifuX MP4 只作辅助动态参考，均不能替代 Windows WE 动态/像素 golden。
 
 ## 9. 更新规则
 
