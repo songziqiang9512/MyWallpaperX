@@ -307,17 +307,18 @@ present or read back
 
 - **TEX BC 颜色载荷**（`8bac86e`）：TEXI format 4/6/7 分别为 BC3/BC2/BC1。块网格按存储尺寸（4 对齐 padding）持有，作者内容尺寸在 TEXB `imageWidth/imageHeight`。合成管线是 premultiplied source-over，而 BC 块存 straight alpha，因此颜色载荷必须 CPU 解码 -> premultiply -> 裁剪到 image 尺寸后以 `rgba8Unorm` 上传；直通上传会让透明 texel 的 RGB（常为白）泛成不透明 matte，并让 physical/mapped 尺寸错位。BC5（format 5）是法线载荷、不参与颜色合成，保持 GPU 原生直通并保留 mapped UV scale。行级并发解码保证未优化 Debug 构建的 4K 纹理亚秒级加载。
 - **Puppet MDL mesh block**（`8bac86e`）：MDLV0021/0023，marker 9 字节；首个 `MDLS` 偏移为 mesh 搜索上界。块形状为 `u32 vertexBytes` + 顶点 + `u32 indexBytes` + uint16 三角形索引；已核验 stride 80（tail/arm 类）与 84（skinned base 类），position 是块内偏移 0 的 3 个 float（模型中心原点、y 向上），UV 是 stride 尾部 8 字节（v=0 为图集顶部，与项目纹理 UV 约定一致）。判定条件 `max(index) == vertexCount - 1` 对不同 stride 数学互斥，天然唯一。加载时按层声明 size 归一化顶点并一次性重组图集为 bind-pose 纹理。
-- **MDLS / MDLA / MDAT**：骨骼、动画与 attachment 块已定位未消费。MDAT0001 布局为 `u16 id + name\0 + 列主序 4x4 bind 矩阵`（平移在第 12-14 元素）；attachment-relative child 定位与动画播放是下一批合同，未实现前挂点子层按父层中心定位并在文档记录偏差。
+- **MDLS / MDAT 静态 attachment**（`49ee89a`）：受限 reader 只接受已验证的 `MDLV0023 + MDLS0004 + MDAT0001`。MDAT 条目为 `u16 boneIndex + name\0 + 列主序 4x4 attachment-local matrix`；沿 MDLS parent hierarchy 求 bone world 后乘 attachment local，再用 `F * M * F`（`F = diag(1,-1,1,1)`）转为 Scene bind frame。child transform 顺序为 `parentWorld * attachmentSceneBind * childLocal`；非法 bounds/count/parent/bone/name/matrix、parent model 无同名 attachment 或运行时 frame 非 16 个有限 float 均 fail closed 到普通 parent transform并输出诊断。
+- **MDLA 动画**：块已定位未解析；MDLS 目前只为静态 attachment 求 bind hierarchy，不是完整 bone/weight IR。deformation/skinning、animation mixing 和动画 attachment follow 均未执行。
 
 ## 12. 当前 MyWallpaperX 映射
 
 | 层级 | 当前状态 | 下一合同 |
 |---|---|---|
-| Scene/object IR | format 23 继承 v22 的 ShaderContract/provider/authored graph/Opacity 与 direct text binding contract，并增加 layer `puppetMeshPath` | 保持 raw/typed 双层合同，不把未知字段静默解释为支持 |
+| Scene/object IR | format 24 继承 v23 的 `puppetMeshPath` 与 v22 的 ShaderContract/provider/authored graph/Opacity/direct text binding contract，并增加 layer `attachmentName` / `parentAttachmentBindFrame` | 保持 raw/typed 双层合同，不把静态 bind frame 写成动画 attachment 支持 |
 | dependency | graph 已结构化区分固定 `previous`、effect-scoped RT 和 copy/swap；十一类 strict backend 与 ordered chain 已消费 effect target table，并闭合整链 identity/continuity、allocation/cache/LRU 事务、末段合成与 reset；Precise Blur interleave、Shake/Foliage/Water/X-Ray 链已执行；bounded frame registry 按另一命名空间处理 named target、property-authored fallback 和受限 PNG/JPEG property source | 提取共享 material pass executor；并行补 system/media/video/variant/effectful/nested source、真实 persistent/history consumer、compose 与更多经过合同门的 topology |
 | material/shader | sparse-slot candidate resolver、ShaderContract v1、strict precise/standard Blur、stock Local Contrast、exact Workshop Shadow、stock Opacity、Shake、Foliage Sway、Water Ripple、Water Waves、Water Flow 与 X-Ray 共十一类 backend 已落地；运行时整体仍以手写 MSL 近似为主 | 补 typed shader defaults、preprocessor/translation/compile、通用 provider consumer、nested target 和更多 pass。现有 strict backend 不代表 official generic shader 或 Windows pixel parity |
 | local deformation | exact stock Shake flow-map profile 为受限 `L3`；Foliage/Water 等仍有不同程度近似 | 继续按 [Effects 全集](effects-reference.md) 补 dynamic Shake、输入、空间、mask 与 sampler 合同 |
-| live values | format 23 binding program；layer alpha、solid color、direct text、Local Contrast/Opacity consumer 已执行；hidden/no-consumer text 与其他 target 仍重建，Timeline/SceneScript 未接入 | 下一 target 继续同批接 compiler、consumer、fallback 与 identity 门 |
+| live values | format 24 binding program；layer alpha、solid color、direct text、Local Contrast/Opacity consumer 已执行；hidden/no-consumer text 与其他 target 仍重建，Timeline/SceneScript 未接入 | 下一 target 继续同批接 compiler、consumer、fallback 与 identity 门 |
 
 ## 13. 验收要求
 

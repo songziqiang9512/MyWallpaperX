@@ -42,7 +42,7 @@ D3 + D4 + D5 + D6 + D7 + D8
 |---|---|---|
 | project/scene/PKG/TEX/resource ingest | 常见子集 `L3` | version、case、duplicate、symlink、损坏和 VFS golden |
 | object/content/effect/material/particle/script source preservation | 混合 `L0-L3` | raw + typed round-trip；未知字段可诊断，不静默丢失 |
-| derived renderer input | interpretation v23；继承 ShaderContract/Opacity 与 direct text binding 合同，并增加 layer `puppetMeshPath`；当前每次解包都会重建，JSON 仍被同进程播放链写入后立即读回，不构成可复用缓存 | 保留 typed interpretation；播放改为内存对象直传，JSON 降为可选诊断证据。若以后恢复复用，必须增加 package/source/compiler identity，而不只校验 version/entry |
+| derived renderer input | interpretation v24；继承 v23 `puppetMeshPath` 与既有 ShaderContract/Opacity/direct text binding 合同，并增加 layer `attachmentName` / `parentAttachmentBindFrame`；当前每次解包都会重建，JSON 仍被同进程播放链写入后立即读回，不构成可复用缓存 | 保留 typed interpretation；播放改为内存对象直传，JSON 降为可选诊断证据。若以后恢复复用，必须增加 package/source/compiler identity，而不只校验 version/entry |
 
 <a id="d1"></a>
 ### D1 Stable identity and dependency graph
@@ -183,7 +183,7 @@ F0 完成后才开始下一轮代码。F1/F2 优先级由公共依赖决定，�
 
 ## 6. 下次会话的决策顺序
 
-1. B0 live-property、direct dynamic text、B2 target-table、十一类 strict backend、ordered strict chain、同帧 copy/swap command foundation、受限 history seed、Precise Blur material-command interleave、pointer-driven X-Ray 与 `3769688830` 的公共合成批次（puppet bind-pose、BC premultiply、REFRACT fail-closed）已合龙。当前批次优先级以 [开发计划的当前批次优先级](../scene-capability-development-plan-2026-07-22.md) 为准：MDAT attachment 定位、MDLA 动画 IR、粒子 child/eventdeath、超预算 BC 合成；是否提取共享 material pass executor 按 [Render Graph 覆盖表第 6 节](render-graph-shader-coverage.md) 的 consolidation 判据执行。`route-only` 只是布局诊断，不能决定优先级。
+1. B0 live-property、direct dynamic text、B2 target-table、十一类 strict backend、ordered strict chain、同帧 copy/swap command foundation、受限 history seed、Precise Blur material-command interleave、pointer-driven X-Ray 与 `3769688830` 的公共合成批次（puppet bind-pose/静态 attachment、BC premultiply、REFRACT fail-closed）已合龙。当前批次优先级以 [开发计划的当前批次优先级](../scene-capability-development-plan-2026-07-22.md) 为准：MDLA 动画 IR、粒子 child/eventdeath、超预算 BC 合成；是否提取共享 material pass executor 按 [Render Graph 覆盖表第 6 节](render-graph-shader-coverage.md) 的 consolidation 判据执行。`route-only` 只是布局诊断，不能决定优先级。
 2. 打开对应专项表，确认作者启用、输入、当前等级、未知项、依赖和验收门。
 3. 查 [运行证据索引](runtime-evidence-index.md)，确认现有正反例，不重复制造无信息矩阵。
 4. 只实现一个可独立验证的公共合同；涉及 live property 时，compiler target、真实 consumer、fallback 和 surface/window identity 必须同批验收，目标样本和相关样本通过后单独提交。
