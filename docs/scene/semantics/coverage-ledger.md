@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-25
 >
-> Scene 实现基线：`f02f41d`（Puppet bind-pose mesh `8bac86e`，静态 MDAT attachment `49ee89a`，严格单 clip MDLA/LBS 播放 `f1ee79b`；strict particle child/event `f4173ea`/`7d53c10`；14-key built-in particle registry `f02f41d`；超预算/多 image BC 颜色归一 `18d0056`）
+> Scene 实现基线：`a5a951f`（Puppet bind-pose mesh `8bac86e`，静态 MDAT attachment `49ee89a`，严格单 clip MDLA/LBS 播放 `f1ee79b`；strict particle child/event `f4173ea`/`7d53c10`；15-key built-in particle registry `a5a951f`；超预算/多 image BC 颜色归一 `18d0056`）
 >
-> 当前完整快照门：`.codex/scene-fire1-full45-20260725/report.json`；固定回归门：`.codex/scene-fire1-fixed13-20260725/report.json`
+> 当前完整快照门：`.codex/scene-lightshafts0-full45-20260725/report.json`；固定回归门：`.codex/scene-lightshafts0-fixed13-r2-20260725/report.json`
 >
-> 最新运行门：真实目录 45 个可运行样本完整快照 45/45、particle 86/131；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 13/13、particle 18/27，仍单独保留且不能互相替代。particle 计数按 `8bac86e` 的 REFRACT fail-closed 与 `f02f41d` 的 14-key registry 新口径统计。完整 Scene suite 372 项：369 通过、3 项跳过；语义覆盖 11/11。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：真实目录 45 个可运行样本完整快照 45/45、particle 91/131；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 13/13、particle 18/27，仍单独保留且不能互相替代。particle 计数按 `8bac86e` 的 REFRACT fail-closed 与 `a5a951f` 的 15-key registry 新口径统计。完整 Scene suite 372 项：369 通过、3 项跳过；语义覆盖 11/11。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -63,7 +63,7 @@
 | Audio frame input | `L0` | Scene 不消费频谱 | 16/32/64 双声道 snapshot、注册和设备生命周期 | B0/B4 |
 | 内嵌视频纹理 | `L3` | TEX 内嵌 MP4 image-layer 播放，消费共享 host time | seek/pause/switch/loop 精确合同及更多容器 | B1 |
 | 系统媒体 identity | `L1` | `$mediaThumbnail` typed 引用存在 | producer/consumer、事件、缩略图 generation | B1/B4 |
-| Particle runtime | `L3` | 作者 sprite、常见组件、Sprite Trail、14 个精确 built-in key；固定门 `18/27`、完整门 `86/131` | 逐项状态见粒子专项表 | **B4** |
+| Particle runtime | `L3` | 作者 sprite、常见组件、Sprite Trail、15 个精确 built-in key；固定门 `18/27`、完整门 `91/131` | 逐项状态见粒子专项表 | **B4** |
 | Text/Font runtime | `L3` | CoreText 静态栅格、direct property 动态重栅格和部分 font/pointsize/padding/scale；结构门 `79/108` | time/SceneScript/system/media text、Windows baseline/fallback、outline/shadow/effect | B4/B5 |
 | Camera Parallax | `L3` | 仅作者开启且非零 depth 时启用，含层级传播/阻断 | WE 数值 golden、camera shake/zoom、3D camera | B5 |
 | User Properties | `L3` | 独立窗口、条件、持久化、PNG/JPEG `sceneTexture`；layer alpha、纯 solid color、direct text、strict Local Contrast/Opacity 与受限 X-Ray target 已无重建 live 更新 | unsupported/mixed/SceneScript bindings、Texture Variants、shortcut、跨重启 UI 门；精确 census 见 runtime-input 专项表 | **B0/B1** |
@@ -118,7 +118,7 @@
 | Dynamic control-point execution | `L0` | 无 object/cursor/script runtime | 坐标转换与每帧更新 |
 | Child asset graph | `L3` | 可递归发现并为 strict depth-one event child 建立 runtime template；missing/cycle/nested fail closed | runtime cycle lifecycle、depth/total budget |
 | Child execution/events | `L3` | deterministic birth/natural-death queue；`eventspawn` 与 natural-`eventdeath` strict child 独立模拟、绘制、回收 | static/follow、collision/delete、transform/CP inheritance、递归总预算 |
-| Built-in textures | `L3` | 14 个精确 key；`particle/fire/fire1` 为低能量火焰遮罩，程序图形只保证确定性，不等于官方资产 | `rain_drops_sheet` 等剩余高频 key、atlas metadata、多纹理 material |
+| Built-in textures | `L3` | 15 个精确 key；`particle/fire/fire1` 为低能量火焰遮罩，`particle/light/light_shafts_0` 为低能量双光束遮罩；程序图形只保证确定性，不等于官方资产 | `rain_drops_sheet` 等剩余高频 key、atlas metadata、多纹理 material |
 | World-space declaration | `L1` | 明确 `worldSpaceUnsupported` | 不能冒充执行 |
 | World-space execution | `L0` | 无 camera/parent transform runtime | 多屏和 parent 语义 |
 | Collision declaration | `L1` | 可诊断但无 solver | shape/depth/response/event IR |
@@ -133,7 +133,7 @@
 | Fixed step/seed/maxcount | `L3` | fixed simulation step、deterministic seed、maxcount 有运行门 | pause/discontinuity 与 WE 数值 golden |
 | Delta clamp/prewarm cap | `L2` | 代码有上限分支，缺定向预算断言 | 长帧和高 prewarm 压力门 |
 
-当前固定矩阵可见粒子为 `18/27`，完整矩阵为 `86/131`（REFRACT 材质层 fail closed 不计入）；`3769364482` 的 torch 为 `2/2`、`3757555836` 的 candle 为 `1/1`，固定门 `3724289844` 的 Sakura 为 `5/5`，`3750813609` 是 `7/9`，后者另外两层因 world-space 不支持而保持 fail closed。这些数字只度量对应矩阵实际加载的 layer，不代表粒子组件覆盖率。
+当前固定矩阵可见粒子为 `18/27`，完整矩阵为 `91/131`（REFRACT 材质层 fail closed 不计入）；`particle/light/light_shafts_0` 让五个真实层进入受限执行，`3769364482` 的 torch 为 `2/2`、`3757555836` 的 candle 为 `1/1`，固定门 `3724289844` 的 Sakura 为 `5/5`，`3750813609` 是 `7/9`，后者另外两层因 world-space 不支持而保持 fail closed。这些数字只度量对应矩阵实际加载的 layer，不代表粒子组件覆盖率。
 
 ## 6. 动态运行系统覆盖
 
@@ -238,7 +238,7 @@
 | **B5 Fidelity** | `S2-S4` 广度完成后 | 字体、视差、粒子、常用 Effect 与 WE Windows golden 对齐 | 固定输入逐像素/数值阈值、性能预算、长稳和多屏门 |
 | **Advanced** | `S5` | Puppet、2D light/HDR、3D、arbitrary custom shader、RGB、offline bake | 每个系统有完整 IR/runtime/lifecycle/product gate 后再升级 |
 
-研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、B2 ordered strict chain、Workshop Shadow、stock Opacity、exact stock Shake/Foliage Sway/Water Ripple/Water Waves/Water Flow/X-Ray、同帧 copy/swap foundation、受限 history seed/clear、Precise Blur 两种 material-command interleave 与 exact legacy compose 归一化已合龙；14 个精确 built-in 粒子纹理、strict depth-one eventspawn/natural-eventdeath child，以及超预算/多 image BC1/2/3 的 GPU premultiply 与静态首帧 fallback 已进入公共 runtime。非 exact Water Waves/Foliage Sway/Water Ripple 的 legacy inline 仍受原有唯一 Effect 或单 profile 边界约束，mixed/repeated unsupported declarations fail closed；X-Ray 受限前缀明确省略后续 unsupported effect。当前完整门为 91 stage/15 chain/0 failed，固定门为 24 stage/2 chain/0 failed；超出默认 96 MiB 纹理预算的长链在规划阶段拒绝。下一步定位 `2998757800` 的多余/缺失粒子与全局比例/裁切。样本自带 preview 是当前第一视觉依据，WaifuX MP4 只作辅助动态参考，均不能替代 Windows WE 动态/像素 golden。
+研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、B2 ordered strict chain、Workshop Shadow、stock Opacity、exact stock Shake/Foliage Sway/Water Ripple/Water Waves/Water Flow/X-Ray、同帧 copy/swap foundation、受限 history seed/clear、Precise Blur 两种 material-command interleave 与 exact legacy compose 归一化已合龙；15 个精确 built-in 粒子纹理、strict depth-one eventspawn/natural-eventdeath child，以及超预算/多 image BC1/2/3 的 GPU premultiply 与静态首帧 fallback 已进入公共 runtime。非 exact Water Waves/Foliage Sway/Water Ripple 的 legacy inline 仍受原有唯一 Effect 或单 profile 边界约束，mixed/repeated unsupported declarations fail closed；X-Ray 受限前缀明确省略后续 unsupported effect。当前完整门为 91 stage/15 chain/0 failed，固定门为 24 stage/2 chain/0 failed；超出默认 96 MiB 纹理预算的长链在规划阶段拒绝。下一步建立 Flare 所需 turbulent velocity、`eventfollow` 与非瞬时 child emitter 的共享合同；`2998757800` 的右下亮边不随 `fog1` 透明化消失，不提交 fog 调暗或样本 ID 比例特判。样本自带 preview 是当前第一视觉依据，WaifuX MP4 只作辅助动态参考，均不能替代 Windows WE 动态/像素 golden。
 
 ## 9. 更新规则
 
