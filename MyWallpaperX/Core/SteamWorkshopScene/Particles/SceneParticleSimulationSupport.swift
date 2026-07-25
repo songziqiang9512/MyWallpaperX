@@ -84,6 +84,102 @@ nonisolated enum SceneParticleSimulationMath {
         sqrt(value.x * value.x + value.y * value.y + value.z * value.z)
     }
 
+    static func turbulentVelocity(
+        _ value: SceneParticleTurbulentVelocity?,
+        _ position: SIMD3<Double>,
+        _ time: Double,
+        _ random: inout SceneParticleRandomGenerator
+    ) -> SIMD3<Double> {
+        guard let value, (value.audioProcessingMode ?? 0) == 0 else { return .zero }
+        let phase = random.value(value.phaseMinimum ?? 0, value.phaseMaximum ?? 2 * .pi)
+        let noiseTime = phase + (value.offset ?? 0) + time * (value.timeScale ?? 1)
+        // Author positions select a coherent field; scale controls angular spread, not frequency.
+        let point = position * 0.001 + SIMD3(noiseTime, 0, 0)
+        let turnNoise = gradientNoise(point, seed: 0xBF58476D1CE4E5B9)
+        let planeNoise = gradientNoise(
+            point + SIMD3(59.19, 71.41, 89.97), seed: 0x94D049BB133111EB
+        )
+        let forward = vector(value.forward, fallback: SIMD3(0, 1, 0))
+        let right = vector(value.right, fallback: SIMD3(1, 0, 0))
+        let up = vector(value.up, fallback: .zero)
+        let forwardLength = length(forward)
+        let rightLength = length(right)
+        guard forwardLength > 1e-9 || rightLength > 1e-9 else { return .zero }
+        let base = forwardLength > 1e-9 ? forward / forwardLength : right / rightLength
+        let lateralValue = right + up * planeNoise
+        let lateralLength = length(lateralValue)
+        let lateral = lateralLength > 1e-9 ? lateralValue / lateralLength : base
+        let turn = max(value.scale ?? 1, 0) * Double.pi * turnNoise
+        var direction = base * cos(turn) + lateral * sin(turn)
+        var directionLength = length(direction)
+        if !directionLength.isFinite || directionLength <= 1e-9 {
+            direction = base
+            directionLength = length(direction)
+        }
+        guard directionLength.isFinite, directionLength > 1e-9 else { return .zero }
+        let minimumSpeed = max(value.speedMinimum ?? 0, 0)
+        let maximumSpeed = max(value.speedMaximum ?? 100, minimumSpeed)
+        return direction / directionLength * random.value(minimumSpeed, maximumSpeed)
+    }
+
+    private static func gradientNoise(_ point: SIMD3<Double>, seed: UInt64) -> Double {
+        let baseX = Int(floor(point.x))
+        let baseY = Int(floor(point.y))
+        let baseZ = Int(floor(point.z))
+        let local = SIMD3(point.x - Double(baseX), point.y - Double(baseY), point.z - Double(baseZ))
+        let fade = SIMD3(noiseFade(local.x), noiseFade(local.y), noiseFade(local.z))
+        var corners = Array(repeating: 0.0, count: 8)
+        for z in 0...1 {
+            for y in 0...1 {
+                for x in 0...1 {
+                    let offset = SIMD3(local.x - Double(x), local.y - Double(y), local.z - Double(z))
+                    let gradient = noiseGradient(baseX + x, baseY + y, baseZ + z, seed: seed)
+                    corners[x + y * 2 + z * 4] = gradient.x * offset.x
+                        + gradient.y * offset.y + gradient.z * offset.z
+                }
+            }
+        }
+        let lower = noiseLerp(
+            noiseLerp(corners[0], corners[1], fade.x),
+            noiseLerp(corners[2], corners[3], fade.x),
+            fade.y
+        )
+        let upper = noiseLerp(
+            noiseLerp(corners[4], corners[5], fade.x),
+            noiseLerp(corners[6], corners[7], fade.x),
+            fade.y
+        )
+        return noiseLerp(lower, upper, fade.z)
+    }
+
+    private static func noiseGradient(_ x: Int, _ y: Int, _ z: Int, seed: UInt64) -> SIMD3<Double> {
+        var hash = seed
+        hash ^= UInt64(bitPattern: Int64(x)) &* 0x9E3779B185EBCA87
+        hash ^= UInt64(bitPattern: Int64(y)) &* 0xC2B2AE3D27D4EB4F
+        hash ^= UInt64(bitPattern: Int64(z)) &* 0x165667B19E3779F9
+        hash ^= hash >> 29
+        hash &*= 0x9FB21C651E98DF25
+        hash ^= hash >> 32
+        let signs = SIMD3(
+            (hash & 1) == 0 ? 1.0 : -1.0,
+            (hash & 2) == 0 ? 1.0 : -1.0,
+            (hash & 4) == 0 ? 1.0 : -1.0
+        )
+        switch Int((hash >> 3) % 3) {
+        case 0: return SIMD3(signs.x, signs.y, 0)
+        case 1: return SIMD3(signs.x, 0, signs.z)
+        default: return SIMD3(0, signs.y, signs.z)
+        }
+    }
+
+    private static func noiseFade(_ value: Double) -> Double {
+        value * value * value * (value * (value * 6 - 15) + 10)
+    }
+
+    private static func noiseLerp(_ first: Double, _ second: Double, _ amount: Double) -> Double {
+        first + (second - first) * amount
+    }
+
     static func changeAmount(
         _ life: Double,
         _ rawStart: Double?,
@@ -112,8 +208,8 @@ nonisolated enum SceneParticleSimulationMath {
         for initializer in definition.initializers {
             switch initializer.kind {
             case .turbulentVelocity:
-                add(.unsupportedInitializer, "turbulentvelocityrandom")
                 if (initializer.turbulentVelocity?.audioProcessingMode ?? 0) != 0 {
+                    add(.unsupportedInitializer, "turbulentvelocityrandom")
                     add(.audioResponseIgnored, "turbulentvelocityrandom")
                 }
             case let .unsupported(name):

@@ -62,7 +62,7 @@ enum Harness {
             {"id":14,"name":"alphaRandom","min":0.2,"max":0.8},
             {"id":15,"name":"rotationRandom","min":"0 0 0","max":"0 0 6.28"},
             {"id":16,"name":"angularVelocityRandom","min":"0 0 -1","max":"0 0 1"},
-            {"id":17,"name":"turbulentVelocityRandom","forward":"0 1 0","right":"1 0 0","up":"0 0 1","offset":0.5,"phasemax":6.28,"scale":0.2,"speedmin":10,"speedmax":20,"timescale":0.1,"audioprocessingmode":1,"audioamount":2,"audioexponent":0.5,"audiofrequency":"3 13","audioprocessingbounds":"0.2 0.8"},
+            {"id":17,"name":"turbulentVelocityRandom","forward":"0 1 0","right":"1 0 0","up":"0 0 1","offset":0.5,"phasemin":0.25,"phasemax":6.28,"scale":0.2,"speedmin":10,"speedmax":20,"timescale":0.1,"audioprocessingmode":1,"audioamount":2,"audioexponent":0.5,"audiofrequency":"3 13","audioprocessingbounds":"0.2 0.8"},
             {"id":18,"name":"futureInitializer"}
           ],
           "operator":[
@@ -137,6 +137,7 @@ enum Harness {
             "sphereAudioFrequency": definition.emitters[0].audioFrequency?.vectorValue ?? [],
             "sphereAudioBounds": definition.emitters[0].audioProcessingBounds?.vectorValue ?? [],
             "initializerKinds": definition.initializers.map { initializerName($0.kind) },
+            "turbulentPhaseMinimum": definition.initializers[7].turbulentVelocity?.phaseMinimum ?? -1,
             "turbulentTimeScale": definition.initializers[7].turbulentVelocity?.timeScale ?? -1,
             "turbulentAudioMode": definition.initializers[7].turbulentVelocity?.audioProcessingMode ?? -1,
             "turbulentAudioBounds": definition.initializers[7].turbulentVelocity?.audioProcessingBounds?.vectorValue ?? [],
@@ -490,6 +491,7 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         self.assertEqual(result["sphereAudioExponent"], 0.5)
         self.assertEqual(result["sphereAudioFrequency"], [2, 12])
         self.assertEqual(result["sphereAudioBounds"], [0.1, 0.9])
+        self.assertEqual(result["turbulentPhaseMinimum"], 0.25)
         self.assertEqual(len(result["initializerKinds"]), 9)
         self.assertEqual(result["turbulentTimeScale"], 0.1)
         self.assertEqual(result["turbulentAudioMode"], 1)

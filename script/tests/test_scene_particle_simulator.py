@@ -95,6 +95,30 @@ enum Harness {
         let expectedGreen = (40 + 160 * colorAmount) / 255
         let expectedBlue = (80 + 80 * colorAmount) / 255
 
+        var turbulentFirst = simulator(turbulentJSON, seed: 71, step: 0.1)
+        var turbulentRepeat = simulator(turbulentJSON, seed: 71, step: 0.1)
+        var turbulentDifferent = simulator(turbulentJSON, seed: 72, step: 0.1)
+        turbulentFirst.advance(by: 0.1)
+        turbulentRepeat.advance(by: 0.1)
+        turbulentDifferent.advance(by: 0.1)
+        let turbulentVelocity = turbulentFirst.particles[0].velocity
+        let turbulentDefinition = try SceneParticleDefinitionParser().parse(
+            root: object(turbulentJSON)
+        )
+        let turbulentValue = turbulentDefinition.initializers[1].turbulentVelocity
+        var earlyRandom = SceneParticleRandomGenerator(state: 91)
+        var lateRandom = SceneParticleRandomGenerator(state: 91)
+        let earlyVelocity = SceneParticleSimulationMath.turbulentVelocity(
+            turbulentValue, SIMD3(4, 8, 0), 0, &earlyRandom
+        )
+        let lateVelocity = SceneParticleSimulationMath.turbulentVelocity(
+            turbulentValue, SIMD3(4, 8, 0), 2, &lateRandom
+        )
+        var zeroScaleTurbulent = simulator(zeroScaleTurbulentJSON, seed: 71, step: 0.1)
+        zeroScaleTurbulent.advance(by: 0.1)
+        var audioTurbulent = simulator(audioTurbulentJSON, seed: 71, step: 0.1)
+        audioTurbulent.advance(by: 0.1)
+
         return [
             "deterministic": first.particles == partitioned.particles,
             "differentSeed": first.particles != different.particles,
@@ -132,6 +156,15 @@ enum Harness {
             "operatorPosition": vector(operatorParticle.position),
             "colorUsesSingleInterpolation": abs(randomColor.y - expectedGreen) < 1e-12
                 && abs(randomColor.z - expectedBlue) < 1e-12,
+            "turbulentDeterministic": turbulentFirst.particles == turbulentRepeat.particles,
+            "turbulentDifferentSeed": turbulentFirst.particles != turbulentDifferent.particles,
+            "turbulentDifferentTime": earlyVelocity != lateVelocity,
+            "turbulentSpeed": length(turbulentVelocity),
+            "turbulentPlanar": abs(turbulentVelocity.z) < 1e-12,
+            "zeroScaleTurbulentVelocity": vector(zeroScaleTurbulent.particles[0].velocity),
+            "turbulentDiagnostics": turbulentFirst.diagnostics.map(\.kind.rawValue),
+            "audioTurbulentVelocity": vector(audioTurbulent.particles[0].velocity),
+            "audioTurbulentDiagnostics": audioTurbulent.diagnostics.map(\.kind.rawValue).sorted(),
             "diagnostics": diagnosticSimulator.diagnostics.map(\.kind.rawValue).sorted()
         ]
     }
@@ -230,10 +263,31 @@ enum Harness {
     private static let diagnosticJSON = #"""
     {"material":"p.json","maxcount":4,
      "emitter":[{"name":"boxrandom","rate":1,"audioprocessingmode":1}],
-     "initializer":[{"name":"turbulentvelocityrandom"}],
+     "initializer":[{"name":"turbulentvelocityrandom","audioprocessingmode":1}],
      "operator":[{"name":"controlpointattract"},{"name":"turbulence"},{"name":"vortex"}],
      "renderer":[{"name":"spritetrail"}],"controlpoint":[{"id":0,"flags":1}],
      "children":[{"name":"child.json","type":"static"}]}
+    """#
+
+    private static let turbulentJSON = #"""
+    {"material":"p.json","maxcount":2,
+     "emitter":[{"name":"boxrandom","instantaneous":2,"distancemin":"4 8 0","distancemax":"4 8 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2},{"name":"turbulentvelocityrandom","forward":"0 1 0","right":"1 0 0","up":"0 0 0","offset":0.25,"phasemin":0.5,"phasemax":1,"scale":0.2,"speedmin":25,"speedmax":25,"timescale":0.5}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let zeroScaleTurbulentJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2},{"name":"turbulentvelocityrandom","forward":"0 2 0","right":"1 0 0","scale":0,"speedmin":25,"speedmax":25}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let audioTurbulentJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2},{"name":"turbulentvelocityrandom","speedmin":25,"speedmax":25,"audioprocessingmode":1}],
+     "renderer":[{"name":"sprite"}]}
     """#
 
     private static let colorJSON = #"""
@@ -437,10 +491,27 @@ class SceneParticleSimulatorTests(unittest.TestCase):
     def test_color_initializer_interpolates_between_authored_colors(self) -> None:
         self.assertTrue(self.results["colorUsesSingleInterpolation"])
 
+    def test_non_audio_turbulent_velocity_is_deterministic_and_bounded(self) -> None:
+        self.assertTrue(self.results["turbulentDeterministic"])
+        self.assertTrue(self.results["turbulentDifferentSeed"])
+        self.assertTrue(self.results["turbulentDifferentTime"])
+        self.assertAlmostEqual(self.results["turbulentSpeed"], 25)
+        self.assertTrue(self.results["turbulentPlanar"])
+        self.assertEqual(self.results["zeroScaleTurbulentVelocity"], [0, 25, 0])
+        self.assertNotIn("unsupportedInitializer", self.results["turbulentDiagnostics"])
+
+    def test_audio_turbulent_velocity_remains_fail_closed(self) -> None:
+        self.assertEqual(self.results["audioTurbulentVelocity"], [0, 0, 0])
+        self.assertEqual(
+            self.results["audioTurbulentDiagnostics"],
+            ["audioResponseIgnored", "unsupportedInitializer"],
+        )
+
     def test_unsupported_capabilities_are_reported(self) -> None:
         self.assertEqual(
             self.results["diagnostics"],
             [
+                "audioResponseIgnored",
                 "audioResponseIgnored",
                 "childSystemsIgnored",
                 "controlPointForceIgnored",

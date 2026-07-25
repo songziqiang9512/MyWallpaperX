@@ -165,7 +165,9 @@ nonisolated struct SceneParticleSimulator: Sendable {
                 particle.angularVelocity += randomVector(
                     initializer, defaults: (SIMD3(0, 0, -5), SIMD3(0, 0, 5))
                 )
-            case .turbulentVelocity, .unsupported:
+            case .turbulentVelocity:
+                particle.velocity += SceneParticleSimulationMath.turbulentVelocity(initializer.turbulentVelocity, particle.position, simulationTime, &random)
+            case .unsupported:
                 break
             }
         }

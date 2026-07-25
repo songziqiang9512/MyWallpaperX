@@ -70,6 +70,7 @@ nonisolated struct SceneParticleTurbulentVelocity: Equatable, Sendable {
     let right: SceneParticleNumericValue?
     let up: SceneParticleNumericValue?
     let offset: Double?
+    let phaseMinimum: Double?
     let phaseMaximum: Double?
     let scale: Double?
     let speedMinimum: Double?

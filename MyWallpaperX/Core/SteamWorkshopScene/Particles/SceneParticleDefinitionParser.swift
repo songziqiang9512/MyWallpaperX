@@ -144,6 +144,7 @@ nonisolated struct SceneParticleDefinitionParser {
             right: Self.numericValue(root["right"]),
             up: Self.numericValue(root["up"]),
             offset: Self.number(root["offset"]),
+            phaseMinimum: Self.number(root["phasemin"]),
             phaseMaximum: Self.number(root["phasemax"]),
             scale: Self.number(root["scale"]),
             speedMinimum: Self.number(root["speedmin"]),
