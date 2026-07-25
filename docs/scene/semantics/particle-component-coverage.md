@@ -5,8 +5,8 @@
 > 最近核对：2026-07-25
 >
 > 口径来源：[官方页面目录](official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[资料来源与证据索引](source-index.md)
-> 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，并执行非音频 Turbulent Velocity Random 与严格的 depth-one `eventspawn` / natural-`eventdeath` child；它仍不是通用 Particle System，尤其没有 Layer Image、Static/Event Follow、collision/delete event、动态 Control Point、World Space、Rope、Audio Response 和完整 Particle Material。
-> Scene 实现基线：`4a17ee6`；child/event 子集由 `f4173ea`、`7d53c10` 实现，`4e64232` 补齐延迟截图证据入口，`c654571` 增加 `rosepetals`/`beam_1`，`f02f41d` 增加 `particle/fire/fire1`，`a5a951f` 增加 `particle/light/light_shafts_0`，`4a17ee6` 执行非音频 turbulent velocity。固定 13 样本门 particle 为 `18/27`，完整 45 样本门为 `91/131`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。仍不是通用 Particle System。
+> 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，并执行非音频 Turbulent Velocity Random 与严格的 depth-one `eventspawn` / natural-`eventdeath` / `eventfollow` child；它仍不是通用 Particle System，尤其没有 Layer Image、Static child、非瞬时 child emitter、collision/delete event、动态 Control Point、World Space、Rope、Audio Response 和完整 Particle Material。
+> Scene 实现基线：`928acca`；eventspawn/death 子集由 `f4173ea`、`7d53c10` 实现，eventfollow owner 由 `928acca` 实现，`4e64232` 补齐延迟截图证据入口，`c654571` 增加 `rosepetals`/`beam_1`，`f02f41d` 增加 `particle/fire/fire1`，`a5a951f` 增加 `particle/light/light_shafts_0`，`4a17ee6` 执行非音频 turbulent velocity。固定 13 样本门 particle 为 `18/27`，完整 45 样本门为 `91/131`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。仍不是通用 Particle System。
 
 本文把官方 Particle 的 General、Emitter、Initializer、Operator、Renderer、Control Point、Children、instance override 与 material 逐项映射到当前实现。它是 [总覆盖台账](coverage-ledger.md) 中 Particle 行的展开表；总表与本文冲突时，以本文更细粒度、更新的代码证据为准。
 
@@ -209,7 +209,7 @@
 | CH01 Child resource graph | child path 指向另一个 particle definition，资源必须递归可达。 | `L3` | [DEF] [AST] [CHILD] [T-AST] [T-RUN] | 资源图递归发现 definition/material/texture；runtime 只实例化 strict depth-one event child，nested child fail closed。 | depth/总数预算、nested 正反例与 teardown 压力门。 |
 | CH02 Cycle/missing child guard | 递归引用必须有 cycle、missing definition 诊断，不能死循环。 | `L2` | [AST] [CHILD] [T-AST] | runtime 复用有 stable missing/cycle 诊断的资源图，但尚无 runtime-specific cycle ownership/lifecycle 断言。 | cyclic root 的 runtime 构建、零实例与 stop 门。 |
 | CH03 Static child | 在 particle system origin 创建一次 child system。 | `L1` | [DEF] [PAR] [SUP] [T-DEF] | type 字符串保留，runtime 统一 `childSystemsUnsupported`。 | 单次创建、visibility、stop teardown fixture。 |
-| CH04 Event Follow child | parent particle 创建 child，并持续跟随 parent。 | `L1` | [DEF] [PAR] [SUP] [T-DEF] | 无 parent particle handle 或 follow update。 | spawn/follow/death 全生命周期状态门。 |
+| CH04 Event Follow child | parent particle 创建 child，并持续跟随 parent。 | `L3` | [DEF] [PAR] [CHILD] [RUN] [T-DEF] [T-RUN] | 仅 identity transform、无 CP mapping、depth-one、瞬时 Sprite/Sprite Trail child；以 parent particle ID 建 owner，逐帧更新 origin，parent death 即回收。持续 emitter、event transform/CP/value inheritance 和 Windows golden 未完成。 | Flare 持续 child emitter、总预算与合法 Windows 状态门。 |
 | CH05 Event Spawn child | parent 创建时在其位置生成独立 child。 | `L3` | [DEF] [SIM] [CHILD] [RUN] [T-SIM] [T-RUN] | deterministic birth queue 只执行 identity transform、depth-one、instantaneous Sprite/Sprite Trail child；`3768903841` 是真实 eventspawn 正例。 | parent value inheritance、非 identity transform、跨步 order 与 Windows 状态门。 |
 | CH06 Event Death child | parent 正常结束或 delete event 时生成 child。 | `L3` | [DEF] [SIM] [CHILD] [RUN] [GPU] [T-SIM] [T-RUN] | 只执行 natural lifetime death；`2131872317` layer 529/832 可见 burst，collision/delete/stop event 尚未进入队列。 | collision delete、显式 stop/delete、同帧递归限制和 Windows 状态门。 |
 | CH07 Offset/angles/scale | child instance 可相对 event/origin 设置 transform。 | `L1` | [DEF] [PAR] [T-DEF] | 字段保留但不执行。 | parent/local/world transform 数值门。 |
