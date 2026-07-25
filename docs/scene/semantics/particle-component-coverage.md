@@ -5,8 +5,8 @@
 > 最近核对：2026-07-25
 >
 > 口径来源：[官方页面目录](official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[资料来源与证据索引](source-index.md)
-> 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，并执行非音频 Turbulent Velocity Random、严格的 depth-one `eventspawn` / natural-`eventdeath` / `eventfollow` child，以及持续/混合/duration child emitter；它仍不是通用 Particle System，尤其没有 Layer Image、Static child、collision/delete event、动态 Control Point、World Space、Rope、Audio Response 和完整 Particle Material。
-> Scene 实现基线：`9748a8c`；eventspawn/death 子集由 `f4173ea`、`7d53c10` 实现，eventfollow owner 由 `928acca` 实现，持续 child lifecycle/root aggregate budget 由 `2f897bc` 实现，`4e64232` 补齐延迟截图证据入口，`c654571` 增加 `rosepetals`/`beam_1`，`f02f41d` 增加 `particle/fire/fire1`，`a5a951f` 增加 `particle/light/light_shafts_0`，`9748a8c` 增加 `particle/halo_3`、`particle/fog/fog3`、`particle/light/flare_1`，`4a17ee6` 执行非音频 turbulent velocity。固定 13 样本门 particle 为 `18/27`，Flare 定向门为 `9/15`，完整 45 样本门为 `91/131`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。仍不是通用 Particle System。
+> 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，并执行非音频 Turbulent Velocity Random、严格的 depth-one static/default-static/`eventspawn` / natural-`eventdeath` / `eventfollow` child，以及持续/混合/duration child emitter；它仍不是通用 Particle System，尤其没有 Layer Image、non-identity child transform、collision/delete event、动态 Control Point、World Space、Rope、Audio Response 和完整 Particle Material。
+> Scene 实现基线：`899704b`；eventspawn/death 子集由 `f4173ea`、`7d53c10` 实现，eventfollow owner 由 `928acca` 实现，持续 child lifecycle/root aggregate budget 由 `2f897bc` 实现，static/default-static 由 `899704b` 实现，`4e64232` 补齐延迟截图证据入口，`c654571` 增加 `rosepetals`/`beam_1`，`f02f41d` 增加 `particle/fire/fire1`，`a5a951f` 增加 `particle/light/light_shafts_0`，`9748a8c` 增加 `particle/halo_3`、`particle/fog/fog3`、`particle/light/flare_1`，`4a17ee6` 执行非音频 turbulent velocity。固定 13 样本门 particle 为 `18/27`，static child 定向门为 `2/2`，完整 45 样本门为 `91/131`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。仍不是通用 Particle System。
 
 本文把官方 Particle 的 General、Emitter、Initializer、Operator、Renderer、Control Point、Children、instance override 与 material 逐项映射到当前实现。它是 [总覆盖台账](coverage-ledger.md) 中 Particle 行的展开表；总表与本文冲突时，以本文更细粒度、更新的代码证据为准。
 
@@ -209,7 +209,7 @@
 |---|---|---|---|---|---|
 | CH01 Child resource graph | child path 指向另一个 particle definition，资源必须递归可达。 | `L3` | [DEF] [AST] [CHILD] [T-AST] [T-RUN] | 资源图递归发现 definition/material/texture；runtime 只实例化 strict depth-one event child，nested child fail closed。 | depth/总数预算、nested 正反例与 teardown 压力门。 |
 | CH02 Cycle/missing child guard | 递归引用必须有 cycle、missing definition 诊断，不能死循环。 | `L2` | [AST] [CHILD] [T-AST] | runtime 复用有 stable missing/cycle 诊断的资源图，但尚无 runtime-specific cycle ownership/lifecycle 断言。 | cyclic root 的 runtime 构建、零实例与 stop 门。 |
-| CH03 Static child | 在 particle system origin 创建一次 child system。 | `L1` | [DEF] [PAR] [SUP] [T-DEF] | type 字符串保留，runtime 统一 `childSystemsUnsupported`。 | 单次创建、visibility、stop teardown fixture。 |
+| CH03 Static child | 在 particle system origin 创建一次 child system。 | `L3` | [DEF] [PAR] [CHILD] [RUN] [T-DEF] [T-RUN] | 显式 `type=static` 与 legacy 缺失 type 都只在 root origin 创建一次 strict child；限定 identity transform、无 CP mapping、probability=1、depth-one、Sphere/Box + Sprite/Sprite Trail、非音频且纹理可加载。非 identity、非单位 probability、nested/unsupported renderer/缺资源继续 fail closed。 | visibility/stop teardown 压力门，再按 census 处理 transform 与 nested 前置依赖。 |
 | CH04 Event Follow child | parent particle 创建 child，并持续跟随 parent。 | `L3` | [DEF] [PAR] [CHILD] [CHILD-LIFE] [RUN] [T-DEF] [T-RUN] | 仅 identity transform、无 CP mapping、depth-one、Sphere/Box + Sprite/Sprite Trail strict child；以 parent particle ID 建 owner，逐帧更新 origin，parent death 即回收。持续/混合/duration emitter 已执行，event transform/CP/value inheritance 和 Windows golden 未完成。 | event transform/CP/value inheritance、跨层预算与合法 Windows 状态门。 |
 | CH05 Event Spawn child | parent 创建时在其位置生成独立 child。 | `L3` | [DEF] [SIM] [CHILD] [CHILD-LIFE] [RUN] [T-SIM] [T-RUN] | deterministic birth queue 执行 identity transform、depth-one、instantaneous/continuous/mixed Sprite/Sprite Trail child；有限 duration 结束且粒子清空后回收，`3768903841` 是真实 eventspawn 正例。 | parent value inheritance、非 identity transform、跨步 order 与 Windows 状态门。 |
 | CH06 Event Death child | parent 正常结束或 delete event 时生成 child。 | `L3` | [DEF] [SIM] [CHILD] [CHILD-LIFE] [RUN] [GPU] [T-SIM] [T-RUN] | 只执行 natural lifetime death；生成的 strict child 可持续到有限 duration 完成或无限运行，`2131872317` layer 529/832 可见 burst，collision/delete/stop event 尚未进入队列。 | collision delete、显式 stop/delete、同帧递归限制和 Windows 状态门。 |
@@ -293,7 +293,7 @@
 ## 13. 当前统计与使用规则
 
 - 本台账共覆盖 `171` 个粒子能力项：General 18、Emitter 17、Initializer 18、Operator 29、Renderer 14、Control Point 12、Children 12、Instance Override 16、Material 22、执行/生命周期 13。
-- 等级分布为 `L0 30 / L1 57 / L2 23 / L3 61 / L4 0`。`L3` 主要集中在 Sphere/Box、常见随机 initializer、基础 movement/change/oscillation、Sprite/Sprite Trail、已测试的静态 override、首纹理和两种 blend。
+- 等级分布为 `L0 30 / L1 56 / L2 23 / L3 62 / L4 0`。`L3` 主要集中在 Sphere/Box、常见随机 initializer、基础 movement/change/oscillation、Sprite/Sprite Trail、strict static/event child、已测试的静态 override、首纹理和两种 blend。
 - 当前固定矩阵的“可见粒子 18/27”、完整矩阵的“91/131”、`3724289844` 的“5/5”与 `3750813609` 的“7/9”只是样本运行门，不是上述 171 项的兼容率；world-space fail-closed 也不能计为可播放。
 - 开发批次应优先消除公共断点：复用现有 per-surface typed snapshot 接入动态 Control Point 与 author allow gates，再补 Layer Image、剩余 Children/Event、Collision 和 Rope，最后扩展 audio/material/lighting。逐样本 hardcode、把 unsupported 静默回退成 Sprite/translucent、或把程序纹理称为官方资产，都不允许升级等级。
 - 任一条目升级时，必须同时更新本表的等级、边界、证据路径和下一验收门；只有跑过对应正向、负向、生命周期测试后才能从 `L2` 升到 `L3`。

@@ -400,7 +400,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         for path in current_state_documents:
             text = document_text[path]
             self.assertIn(
-                "`9748a8c`",
+                "`899704b`",
                 text,
                 f"Current Scene entrypoint is missing the full-baseline implementation: {path}",
             )
@@ -420,8 +420,8 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
 
         report_paths = (
             ".codex/scene-lightshafts0-full45-20260725/report.json",
-            ".codex/scene-flare-three-builtins-fixed13-20260725/report.json",
-            ".codex/scene-flare-three-builtins-calibrated-20260725/report.json",
+            ".codex/scene-static-child-final-fixed13-20260725/report.json",
+            ".codex/scene-static-child-final-targeted-20260725/report.json",
         )
         for path in current_state_documents:
             for report_path in report_paths:
@@ -438,6 +438,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         self.assertIn("### E-EFFECT-SHAKE:", evidence)
         self.assertIn("### E-EFFECT-XRAY:", evidence)
         self.assertIn("strict depth-one eventspawn/natural-eventdeath child", evidence)
+        self.assertIn("strict static/default-static child", evidence)
         self.assertIn("`4e64232`", evidence)
         self.assertIn(
             ".codex/scene-eventdeath-current-v25-delayed-20260725/report.json",
