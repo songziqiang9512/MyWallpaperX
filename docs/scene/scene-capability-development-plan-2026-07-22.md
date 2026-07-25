@@ -2,7 +2,7 @@
 
 > 建立日期：2026-07-22
 >
-> 最近更新：2026-07-25（实现基线 `f1ee79b`；interpretation v25；十一类 strict effect backend、Puppet bind-pose/静态 MDAT/严格单 clip MDLA CPU LBS，以及 strict depth-one eventspawn/natural-eventdeath particle child 是当前执行子集；`4e64232` 补齐延迟截图证据入口。BC1/2/3 颜色纹理在单帧 16M 像素预算内按 premultiplied 合同解码，REFRACT 粒子材质 fail closed。当前完整 45 样本快照门 45/45、particle 79/131；固定 13 样本门 13/13、particle 13/27）
+> 最近更新：2026-07-25（实现基线 `c654571`；interpretation v25；十一类 strict effect backend、Puppet bind-pose/静态 MDAT/严格单 clip MDLA CPU LBS，以及 strict depth-one eventspawn/natural-eventdeath particle child 是当前执行子集；`rosepetals`/`beam_1` 已进入 13-key 程序化 built-in registry。BC1/2/3 颜色纹理在单帧 16M 像素预算内按 premultiplied 合同解码，REFRACT 粒子材质 fail closed。当前完整 45 样本快照门 45/45、particle 83/131；固定 13 样本门 13/13、particle 18/27）
 >
 > 作用：定义 MyWallpaperX Scene runtime 从当前可审计子集向 Wallpaper Engine 常用能力逼近的实施顺序、样本门和验收标准。作者/执行语义先查 [`semantics/README.md`](semantics/README.md)；当前能力结论仍以 [`../reviews/web-scene-current-state-roadmap-2026-07-19.md`](../reviews/web-scene-current-state-roadmap-2026-07-19.md) 与最新运行证据为准；历史 memo 不反向覆盖本计划。已完成批次的逐项验收记录收敛到第 8 节索引与 [运行证据索引](semantics/runtime-evidence-index.md)，不再在本文正文逐段展开。
 
@@ -42,12 +42,12 @@
 - legacy coarse blur 仍只服务尚未迁移的受限路径；authored graph 已分别把 precise Blur、stock standard Blur、exact Local Contrast、Shake、Water Waves、Water Flow、Foliage Sway、Water Ripple 与 X-Ray 选路到完整 fingerprint 约束的项目自有 MSL backend。非 exact 声明仍只在既有 inline 边界内执行；unsupported mixed/repeated 声明继续 fail closed。标准 Bloom、perspective+opacity、mode 9 additive，以及其他 water/cursor/chromatic/iris 等仍是明确标注的受限实现；
 - pointer 由桌面宿主以每 surface 状态送入 renderer，X-Ray 使用 layer-local pointer、组合区域 source capture、authored blend/halo/opacity texture 与受限 live target。`2998757800`、`3747492842`、`3757555836` 已由用户在真实桌面壁纸路径确认鼠标遮罩正常；
 - text 以 authored `pointsize * 4` 近似 300 DPI point raster、处理 vector padding、包内字体、系统字体别名和缺失字体诊断；direct user property 的 content/point-size/color 已按变化 layer 异步重栅格化；
-- 作者包内 2D sprite 粒子的 definition/resource graph、sphere/box、rate/burst/prewarm、常见 initializer/operator、sequence/random frame、additive/translucent、朝向、静态 override、CPU simulation 与 Metal instancing；现对 `particle/drop`、`particle/chromaticdot`、`fog1`、`leaves7/8`、`light_shafts_6`、`lightning3`、`halo/halo_2/halo_4`、`ripple_single` 十一个精确 key 提供项目自行生成的确定性预乘纹理，并支持按速度方向和作者 length/min/max stretch 绘制 Sprite Trail；child particle 的 eventspawn 触发、trail 渲染与粒子预算已进入受限执行（`f4173ea`、`7d53c10`）；这些程序纹理是 `executed-degraded`，不是官方纹理副本或像素等价实现；
+- 作者包内 2D sprite 粒子的 definition/resource graph、sphere/box、rate/burst/prewarm、常见 initializer/operator、sequence/random frame、additive/translucent、朝向、静态 override、CPU simulation 与 Metal instancing；现对 `particle/drop`、`particle/chromaticdot`、`fog1`、`leaves7/8`、`light_shafts_6`、`lightning3`、`halo/halo_2/halo_4`、`ripple_single`、`rosepetals`、`beam_1` 十三个精确 key 提供项目自行生成的确定性预乘纹理，并支持按速度方向和作者 length/min/max stretch 绘制 Sprite Trail；child particle 的 eventspawn 触发、trail 渲染与粒子预算已进入受限执行（`f4173ea`、`7d53c10`）；这些程序纹理是 `executed-degraded`，不是官方纹理副本或像素等价实现；
 - **REFRACT 粒子材质 fail closed**（`8bac86e`）：折射粒子携带 blank 颜色纹理 + normal map，无法当作颜色 sprite 绘制；此前被画成白色方块（`3769688830`/`3722933264`/`3723230275` 的"雨滴折射"层），现按 `refractionUnsupported` 诊断整层不实例化，直到真实 refraction pass（background capture + normal 折射）存在；
 - 用户属性定义、group/display condition/options、默认值/override、visibility/text/camera 与部分 effect target、按壁纸持久化、活动 Scene 受控重建和独立属性窗口；`sceneTexture` PNG/JPEG picker、按 wallpaper/property bookmark、同步 security-scope 解码、逐屏 Metal 上传、恢复作者默认和失败回退；
 - typed `composition/project/fullscreen` 与 generic dependency layer ID；对满足严格边界的 utility layer 执行当前 framebuffer 前缀捕获，并支持 `_rt_imageLayerComposite_<id>_a` named target 的有预算发布与 clipping consumer 绑定；
 - effect/material pass 的 typed user texture input、typed texture registry（resource generation 与 named frame epoch 双代）、v15 EffectDefinition IR、v16 authored graph planner、v17 provider identity、ShaderContract IR v1、`rgba8888` target format、ordered strict effect-chain scheduler、effect-chain target allocation 事务、同帧 copy/swap command、受限 history seed/clear、Precise Blur material-command interleave 与 exact legacy compose 归一化——逐项边界见第 8 节历史索引与对应 semantics 表；
-- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；当前完整快照门 `.codex/scene-puppet-animation-20260725/full45-v2/report.json` 为 **45/45**、particle **79/131**，报告/矩阵 SHA-256 为 `9227572df6b9f21fa441b713fbd3f3d9bdc80dca53e9e8e1b48792194b94fd1d` / `71c4ba1e9635e8b898237a45563cca8596fdc1704d1198a27441e0aa575a978b`；45 门 strict 为 stage 91、chain 15、Water Flow 10、Water Waves 11、Shake 24、Opacity 8、Local Contrast 2、failed 0、route-only 113，image `449/451`、text `244/244`、solid `140/140`。固定回归门 `.codex/scene-puppet-animation-20260725/fixed13-v3/report.json` 为 **13/13**、particle **13/27**，报告/矩阵 SHA-256 为 `4f77400421b428a3ae4a7ccd54a22acaa39b5a0dae620e864c618c146accc9fd` / `f4bb90c8a8ec36396e90e925e4abf39ffead0ba09cbc9aea8e436d5e46374a02`；固定门保护 strict stage 24、chain 2、Local Contrast 2、Water Flow 1、Water Waves 6、Shake 1、Opacity 4、Workshop Shadow 1、failed 0。两门 App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `8de83c56e043c0e88804a8b6ebf40fb61ad7e6fc`、可执行文件 SHA-256 `f7832a98a950bd10a0b98e975f91cb0199be414ddd04f41dd5ae4e26f55b4a5a`；13/45 个样本均 interpretation v25、退出 surface `1 -> 0`、样本根 residue 0。完整 Scene suite 为 **370 项：367 通过、3 跳过**，代码健康为 441 Swift files。完整聚合缺口见 [运行证据索引](semantics/runtime-evidence-index.md)。
+- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；当前完整快照门 `.codex/scene-builtin-textures-full45-20260725/report.json` 为 **45/45**、particle **83/131**，报告/矩阵 SHA-256 为 `216880abd0221dd00760d8ee11ad66deb14a158333b1247be205c17b87b42393` / `b920cf4ba4945bfd1b59e1d43600c66bbe92973483703ec54427fa2215e6f8c3`；45 门 strict 为 stage 91、chain 15、Water Flow 10、Water Waves 11、Shake 24、Opacity 8、Local Contrast 2、failed 0、route-only 113，image `449/451`、text `244/244`、solid `140/140`。固定回归门 `.codex/scene-builtin-textures-fixed13-v2-20260725/report.json` 为 **13/13**、particle **18/27**，报告/矩阵 SHA-256 为 `5cbf73f60c2c4e4256bea6b4ca7a23cb71a48a51dcb14a336a22cc0d2555c18d` / `479b794d64b48369348b4b8e6583599e5ac70161a4f670102332f5cd1e2d653c`；固定门保护 strict stage 24、chain 2、Local Contrast 2、Water Flow 1、Water Waves 6、Shake 1、Opacity 4、Workshop Shadow 1、failed 0。两门 App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `e098390ca1632da9f91f33cbce761bcff77ae975`、可执行文件 SHA-256 `a144a584e25ce4bbee6f7b701318275a4fab5885666b18f8d0a0df1fa283d7e6`；13/45 个样本均 interpretation v25、退出 surface `1 -> 0`、样本根 residue 0。完整 Scene suite 为 **370 项：367 通过、3 跳过**，代码健康为 441 Swift files。完整聚合缺口见 [运行证据索引](semantics/runtime-evidence-index.md)。
 
 ### 仅解析/诊断或部分实现
 
@@ -56,11 +56,11 @@
 - typed frame texture registry、authored fallback 和 PNG/JPEG property file/bookmark/decode 已进入 runtime；通用 provider metadata/status/cancel、`$mediaThumbnail`、Texture Variants、video frame、通用 material property consumer、effectful/nested provider 与真实 persistent/history consumer 尚未接入；
 - Timeline 没有正式 target/keyframe/mode/tangent/event IR；SceneScript 只发现 `.js` 资源和 inline `script` presence，没有 ECMAScript runtime、`init/update`、事件、globals、Date/Math live value 或属性写回；
 - 用户属性的 Texture Variants、media/video texture、transform、non-solid/mixed color、其他 effect constant、particle/audio/puppet target 和 SceneScript `applyUserProperties` 仍未闭环；
-- 除 11 个精确 key 外的 built-in particle（如 `rosepetals`、`beam_1`、`rain_drops_sheet`）、rope/rope trail、world-space、control point、collision、音频和动态 override 未实现；particle exponent 已解析未消费；
+- 除 13 个精确 key 外的 built-in particle（如 `rain_drops_sheet`）、rope/rope trail、world-space、control point、collision、音频和动态 override 未实现；particle exponent 已解析未消费；
 - 多 foliage 栈、vertex sway 与 workshop 自定义 sway 未实现；Scene 音频/媒体未接现有系统服务；SceneScript/系统时间/日期/媒体驱动的 text、Puppet mixing/advanced deformation、3D/lighting、自定义 shader 均未实现；
 - Frame Context 尚缺 pause/resume、长帧 delta clamp/dropped-time、fixed timestep、audio/media producer 和离线 adapter；fullscreen/battery、目标 FPS、CPU/GPU/显存预算和 soak 也未闭环。
 
-固定 13 样本门 PASS 不能解释成 Wallpaper Engine 视觉兼容率：它只证明矩阵声明的解析、GPU 完成、非黑画面、能力计数和释放门通过。`3769688830` 的主体构图、静态 attachment 与严格单 clip MDLA 已恢复，但 Puppet 插值/mixing/动画 attachment follow、樱花/光束粒子与折射雨仍缺；`2131872317` 的 natural-eventdeath 烟花已在延迟门可见，`3750813609` 的动态时钟、完整 Clouds/Blur、world-space 雨滴溅射等差距不变。
+固定 13 样本门 PASS 不能解释成 Wallpaper Engine 视觉兼容率：它只证明矩阵声明的解析、GPU 完成、非黑画面、能力计数和释放门通过。`3769688830` 的主体构图、静态 attachment、严格单 clip MDLA 与受限樱花/光束粒子已恢复，但 Puppet 插值/mixing/动画 attachment follow、官方粒子纹理像素等价与折射雨仍缺；`2131872317` 的 natural-eventdeath 烟花已在延迟门可见，`3750813609` 的动态时钟、完整 Clouds/Blur、world-space 雨滴溅射等差距不变。
 
 ## 3. 官方资料核验后的契约边界
 
@@ -91,16 +91,17 @@
 - **S0 可重复基线与作者语义门**、**S1 首帧主构图基础闭合**、**S2.1-S2.4 效果图谱与 strict backend 系列**、**S3 B0 live-property 主链**、**S4 第一批程序化粒子纹理**均已完成，逐项能力、提交与边界见第 8 节历史批次索引；
 - **S2（进行中）**：在现有 strict profile 上提取共享 material pass executor、stock shader registry 和 preprocessing IR；generic compose、真实 history consumer 与 typed shader defaults/built-ins/state 仍未完成。高命中 Effect 批次继续只能通过新增共享 graph/shader/provider/space primitive 或注册完整匹配且 fail-closed 的 strict profile 实现，不得扩大 effect-name/path-substring 手写近似；逐项门见 [Effect 执行覆盖表](semantics/effect-execution-coverage.md)；
 - **S3（进行中）**：Frame Context 补 pause/resume、raw/simulation delta、discontinuity、fixed-time test adapter 和目标 FPS；Timeline 先完整保留 keyframe/mode/tangent/event 数据再接播放；SceneScript 先保存 source/binding IR，再接 sandbox VM、lifecycle、typed write 和 budget；
-- **S4（进行中）**：strict depth-one eventspawn/natural-eventdeath 已复用 fixed step + deterministic event queue + child owner/budget 执行；下一步补高频 built-in texture，再扩 static/follow/collision/delete、event transform/inheritance、depth/total budget。rope/rope trail 仍需独立 geometry/material renderer，audio response 仍需 injectable audio snapshot；前置未完成时只补 IR/fixture，不提前接产品执行；
+- **S4（进行中）**：strict depth-one eventspawn/natural-eventdeath 已复用 fixed step + deterministic event queue + child owner/budget 执行，`rosepetals`/`beam_1` 已补入高频 built-in texture；粒子下一步扩 static/follow/collision/delete、event transform/inheritance、depth/total budget。rope/rope trail 仍需独立 geometry/material renderer，audio response 仍需 injectable audio snapshot；前置未完成时只补 IR/fixture，不提前接产品执行；
 - **S5**：音频、角色、高级兼容与发布门。Scene 音频桥按脚本选择提供 16/32/64 left/right/average；stock WE-compatible shader source/annotation/combo/built-in/state contract 属于 S2 Graph 前置，任意 Workshop custom shader 的通用翻译、安全、缓存与分发产品化才属于 S5；每个阶段持续记录加载时间、纹理内存、粒子上限、帧时和降级原因；最终建立固定/扩展/新下载三层矩阵、30 分钟交互、2 小时 soak、系统生命周期和发布 checklist。
 
 ### 当前批次优先级（2026-07-25 起）
 
-`8bac86e`/`dd85dcf` 已关闭 Puppet 图集重组、BC 颜色 premultiply、REFRACT fail-closed；`49ee89a` 关闭静态 MDAT attachment；`ca6d841`/`56f92a2`/`2be2b44`/`f1ee79b` 继续关闭三来源 MDLA IR、full TRS、rig/weights 和严格单 clip fixed-step CPU LBS，并以 interpretation v25、定向正反例、13/45 两门完成验收。按样本收益与公共依赖排序的下一批候选：
+`8bac86e`/`dd85dcf` 已关闭 Puppet 图集重组、BC 颜色 premultiply、REFRACT fail-closed；`49ee89a` 关闭静态 MDAT attachment；`ca6d841`/`56f92a2`/`2be2b44`/`f1ee79b` 关闭三来源 MDLA IR、full TRS、rig/weights 和严格单 clip fixed-step CPU LBS；`c654571` 又以 `rosepetals`/`beam_1` 严格 key、13-key 程序纹理门和真实 13/45 两层矩阵关闭高命中 built-in 批次。按样本收益与公共依赖排序的下一批候选：
 
-1. **高命中 built-in 粒子纹理**：`rosepetals`、`beam_1` 按官方 material/texture 引用和 fail-closed 合同推进；`f4173ea`/`7d53c10` 已关闭 strict depth-one eventspawn/natural-eventdeath 最小闭环，`2131872317` 延迟签名 App 门可见两簇烟花，但 static/follow/collision/delete/nested child 与 Windows golden 仍未完成；
-2. **超预算 BC 容器的正确合成**：多帧/超大 BC 载荷当前保持直通（straight-alpha matte 边界已记录）；候选方案是 GPU compute premultiply 或 fragment 侧 per-texture straight-alpha 标记；
-3. `3769364482` 的 Fire effect、299 多余粒子与全局比例/裁切按隔离样本收益随后推进。
+1. **超预算 BC 容器的正确合成**：多帧/超大 BC 载荷当前保持直通（straight-alpha matte 边界已记录）；候选方案是 GPU compute premultiply 或 fragment 侧 per-texture straight-alpha 标记；
+2. `3769364482` 的 Fire effect、299 多余粒子与全局比例/裁切按隔离样本收益随后推进。
+
+`f4173ea`/`7d53c10` 已关闭 strict depth-one eventspawn/natural-eventdeath 最小闭环，`2131872317` 延迟签名 App 门可见两簇烟花；static/follow/collision/delete/nested child 与 Windows golden 仍未完成，但不再阻塞上述 BC 合成批次。
 
 视觉判断先以样本自带 preview 约束构图、色调和明显效果，WaifuX SceneBake 只作辅助动态参考，最终仍需合法 Windows WE 输出。
 
@@ -183,6 +184,7 @@
 | S2.4q-r Shake/WaterWaves/WaterFlow/Foliage/Ripple/X-Ray | `e505a9e`、`31ae557`、`94aebc5`、`3baf1fc` | 六类 exact stock 动态形变 strict profile 进入 ordered chain；pointer-driven X-Ray 与组合区域捕获 |
 | S4.1-4.2 程序化粒子纹理 | 系列、`c06b0fb` | 11 个精确 built-in key 确定性预乘纹理；Color Random 纠偏；45 样本快照扩展 |
 | S4.3 particle child 触发 | `f4173ea`、`7d53c10`、`4e64232` | strict depth-one eventspawn/natural-eventdeath child、child trail、1,024/system 预算；`3768903841` 真实 eventspawn 缓存门、`2131872317` 第 233 帧离屏 burst 与 4.5 秒签名 App 可见烟花；其余 child 类型保持 fail closed |
+| S4.4 高频 built-in 粒子纹理 | `c654571` | `rosepetals` 64×64 单花瓣与 `beam_1` 128×128 软光束确定性预乘遮罩；完整门新增 4 层至 `83/131`，固定门 `3724289844` 新增 5 层至 `18/27`；默认隐藏层保持不创建，程序图形不等于官方资产 |
 | S2/S4 合成正确性批次 | `8bac86e`、`dd85dcf` | puppet bind-pose mesh 重组（v23）；BC1/2/3 premultiplied 解码与裁剪（单帧 16M 像素预算内，超限/多帧容器保持直通）；REFRACT 粒子 fail closed；45/13 两门按新口径刷新 |
 | Puppet 静态 attachment | `49ee89a` | 受限 MDLS0004 hierarchy + MDAT0001 named bind frame；`parent * attachment * child local` 静态定位；interpretation v24；MDLA/deformation/动画 follow 仍 fail closed；13/45 两门通过 |
 | Puppet MDLA 严格单 clip 播放 | `ca6d841`、`56f92a2`、`2be2b44`、`f1ee79b` | 三来源 MDLA0006/full TRS/MDLS weights；source-FPS 离散 loop + CPU LBS；interpretation v25；mixing/动态 visibility/attachment follow fail closed；13/45 两门通过 |
