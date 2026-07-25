@@ -43,6 +43,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleSimulationSupport.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator.swift",
     SOURCE_ROOT / "Particles/SceneParticleChildLifecycle.swift",
+    SOURCE_ROOT / "Particles/SceneParticleChildTemplateSupport.swift",
     SOURCE_ROOT / "Particles/SceneParticleTrailRenderPlan.swift",
     SOURCE_ROOT / "Particles/SceneParticleRenderSupport.swift",
     SOURCE_ROOT / "Particles/SceneParticleMetalPipeline.swift",
@@ -548,7 +549,12 @@ enum Harness {
         )
         try writeParticle(
             "particles/unsupported-child-root.json", material: "materials/shared.json",
-            children: [["name": "particles/child.json", "type": "static"]], under: directory
+            children: [
+                ["name": "particles/child.json", "type": "static"],
+                ["name": "particles/child.json"],
+                ["name": "particles/child.json", "type": "static", "origin": "1 0 0"],
+                ["name": "particles/child.json", "type": "static", "probability": 0.5],
+            ], under: directory
         )
         try writeParticle("particles/drop.json", material: "materials/drop.json", under: directory)
         try writeParticle("particles/halo.json", material: "materials/halo.json", under: directory)
@@ -605,6 +611,12 @@ enum Harness {
             "childInstanceCount": batches.first {
                 $0.particlePath == "particles/child.json"
             }?.instances.count ?? 0,
+            "staticChildInstanceCount": batches.filter {
+                $0.layerID == 9 && $0.particlePath == "particles/child.json"
+            }.reduce(0) { $0 + $1.instances.count },
+            "staticChildUnsupportedDetails": runtime.diagnostics.compactMap {
+                $0.layerID == 9 && $0.kind == .childSystemsUnsupported ? $0.detail : nil
+            },
             "batchTextureSizes": batches.reduce(into: [String: [Int]]()) {
                 $0[String($1.layerID)] = [$1.texture.width, $1.texture.height]
             },
@@ -801,9 +813,10 @@ class SceneParticleRuntimeTests(unittest.TestCase):
     def test_synthetic_rejects_unsupported_roots_and_keeps_diagnostics(self) -> None:
         result = self.run_harness("synthetic")
         self.assertEqual(result["activeLayerIDs"], [3, 4, 6, 7, 9])
-        self.assertEqual(result["batchLayerIDs"], [3, 4, 4, 6, 7, 9])
+        self.assertEqual(result["batchLayerIDs"], [3, 4, 4, 6, 7, 9, 9, 9])
         self.assertGreater(result["activeParticleCount"], 0)
         self.assertGreater(result["childInstanceCount"], 0)
+        self.assertEqual(result["staticChildInstanceCount"], 2)
         self.assertEqual(result["batchTextureSizes"]["6"], [32, 32])
         self.assertEqual(result["batchTextureSizes"]["7"], [64, 64])
         self.assertAlmostEqual(result["trailStretch"], 5)
@@ -816,6 +829,14 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertNotIn("trailRendererUnsupported", kinds)
         self.assertNotIn("missingSpriteRenderer", kinds)
         self.assertIn("childSystemsUnsupported", kinds)
+        self.assertIn(
+            "particles/child.json:unsupportedTransformOrControlPoint",
+            result["staticChildUnsupportedDetails"],
+        )
+        self.assertIn(
+            "particles/child.json:unsupportedStaticProbability",
+            result["staticChildUnsupportedDetails"],
+        )
         self.assertIn("builtInTextureUnavailable", kinds)
 
     def test_continuous_children_follow_finish_and_obey_aggregate_budget(self) -> None:

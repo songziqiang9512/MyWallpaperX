@@ -1,9 +1,10 @@
 import Foundation
 import Metal
 
-/// Executes strict depth-one event-triggered children. Unsupported declarations stay diagnostic.
+/// Executes strict depth-one children. Unsupported declarations stay diagnostic.
 final class SceneParticleChildRuntime {
     private enum Trigger: Equatable {
+        case staticChild
         case spawn
         case death
         case follow
@@ -78,6 +79,7 @@ final class SceneParticleChildRuntime {
             let label = child.path ?? "child#\(index)"
             let trigger: Trigger
             switch child.type?.lowercased() {
+            case nil, "static": trigger = .staticChild
             case "eventspawn": trigger = .spawn
             case "eventdeath": trigger = .death
             case "eventfollow": trigger = .follow
@@ -85,7 +87,7 @@ final class SceneParticleChildRuntime {
                 unsupported.append("\(label):unsupportedType:\(child.type ?? "missing")")
                 continue
             }
-            guard Self.hasIdentityTransform(child),
+            guard SceneParticleChildTemplateSupport.hasIdentityTransform(child),
                   child.controlPointStartIndex == nil,
                   child.rawFlags == 0 else {
                 unsupported.append("\(label):unsupportedTransformOrControlPoint")
@@ -94,6 +96,10 @@ final class SceneParticleChildRuntime {
             let probability = child.probability ?? 1
             guard probability.isFinite, (0...1).contains(probability) else {
                 unsupported.append("\(label):invalidProbability")
+                continue
+            }
+            guard trigger != .staticChild || probability == 1 else {
+                unsupported.append("\(label):unsupportedStaticProbability")
                 continue
             }
             if probability == 0 {
@@ -111,12 +117,16 @@ final class SceneParticleChildRuntime {
             }
             guard asset.definition.children.isEmpty,
                   SceneParticleChildLifecycle.supportsEmitterProfile(asset.definition),
-                  let render = Self.supportedRenderer(in: asset.definition) else {
-                unsupported.append("\(path):outsideStrictEventProfile")
+                  let render = SceneParticleChildTemplateSupport.supportedRenderer(
+                    in: asset.definition
+                  ) else {
+                let profile = trigger == .staticChild
+                    ? "outsideStrictStaticProfile" : "outsideStrictEventProfile"
+                unsupported.append("\(path):\(profile)")
                 continue
             }
             guard let source = asset.textureSource,
-                  let loaded = Self.loadTexture(
+                  let loaded = SceneParticleChildTemplateSupport.loadTexture(
                     source,
                     textureLoader: textureLoader,
                     builtInTextureRegistry: builtInTextureRegistry,
@@ -160,8 +170,30 @@ final class SceneParticleChildRuntime {
         }
         templates = accepted
         unsupportedDetails = unsupported
-        performanceDetails = performance
         handlesAllChildren = handledChildren == rootAsset.definition.children.count
+        let staticTemplates = accepted.filter { $0.trigger == .staticChild }
+        if staticTemplates.count > Self.maximumChildSystems {
+            performance.append(Self.aggregateBudgetDetail)
+        }
+        systems = Array(staticTemplates.prefix(Self.maximumChildSystems)).enumerated().map {
+            offset, template in
+            System(
+                templateIndex: template.index,
+                parentParticleID: nil,
+                emissionCompletionTime: SceneParticleChildLifecycle.emissionCompletionTime(
+                    template.definition
+                ),
+                origin: .zero,
+                simulator: SceneParticleSimulator(
+                    definition: template.definition,
+                    seed: UInt64(bitPattern: Int64(layerID))
+                        ^ UInt64(template.index &+ 1) &* 0xBF58476D1CE4E5B9
+                        ^ UInt64(offset),
+                    particleBudget: template.particleBudget
+                )
+            )
+        }
+        performanceDetails = performance
     }
 
     func advance(
@@ -338,55 +370,9 @@ final class SceneParticleChildRuntime {
         return random.unit() < template.probability
     }
 
-    private static func hasIdentityTransform(_ child: SceneParticleChild) -> Bool {
-        let origin = SceneParticleSimulationMath.vector(child.origin, fallback: .zero)
-        let angles = SceneParticleSimulationMath.vector(child.angles, fallback: .zero)
-        let scale = SceneParticleSimulationMath.vector(child.scale, fallback: SIMD3(repeating: 1))
-        return origin == .zero && angles == .zero && scale == SIMD3(repeating: 1)
-    }
-
     private static var aggregateBudgetDetail: String {
         "aggregateSystemBudget:systems=\(maximumChildSystems):particleCapacity="
             + "\(maximumChildSystems * maximumParticlesPerSystem)"
-    }
-
-    private static func supportedRenderer(
-        in definition: SceneParticleDefinition
-    ) -> (renderer: SceneParticleRenderer, trail: SceneParticleTrailRenderPlan?)? {
-        for renderer in definition.renderers {
-            switch renderer.kind {
-            case .sprite:
-                return (renderer, nil)
-            case .spriteTrail:
-                guard let trail = SceneParticleTrailRenderPlan(
-                    length: renderer.length,
-                    minimumLength: renderer.minimumLength,
-                    maximumLength: renderer.maximumLength
-                ) else { continue }
-                return (renderer, trail)
-            default:
-                continue
-            }
-        }
-        return nil
-    }
-
-    private static func loadTexture(
-        _ source: SceneParticleTextureSource,
-        textureLoader: SceneTextureLoader,
-        builtInTextureRegistry: SceneParticleBuiltInTextureRegistry,
-        device: MTLDevice
-    ) -> (texture: MTLTexture, animation: SceneSpriteAnimation?)? {
-        switch source {
-        case let .file(url):
-            guard case let .loaded(texture) = textureLoader.load(from: url, device: device) else {
-                return nil
-            }
-            return (texture, SceneSpriteAnimation.load(from: url))
-        case let .builtIn(key):
-            guard let texture = builtInTextureRegistry.texture(for: key) else { return nil }
-            return (texture, nil)
-        }
     }
 }
 
