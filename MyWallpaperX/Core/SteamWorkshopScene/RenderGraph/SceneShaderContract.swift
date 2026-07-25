@@ -96,7 +96,7 @@ nonisolated struct SceneShaderContractSourceParser {
             options: [.caseInsensitive]
         )
         let markerPattern = try? NSRegularExpression(
-            pattern: #"(\[(?:COMBO|COMBO_OFF|OFF_COMBO)\]|\bOFF_COMBO\b)"#,
+            pattern: #"(\[(?:COMBO_DISABLED|COMBO_OFF|COMBO|OFF_COMBO|PASS)\]|\bOFF_COMBO\b)"#,
             options: [.caseInsensitive]
         )
 
@@ -154,6 +154,19 @@ nonisolated struct SceneShaderContractSourceParser {
                     : nil
             }
             guard let jsonText else { continue }
+            // [PASS] declares an additional pass as `<pass> <shader>`, not JSON. Keep the
+            // operand verbatim instead of reporting the stock annotation as malformed.
+            if !jsonText.isEmpty,
+               let marker,
+               marker.caseInsensitiveCompare("[PASS]") == .orderedSame {
+                annotations.append(.init(
+                    marker: marker,
+                    value: .string(jsonText),
+                    raw: raw,
+                    line: lineNumber
+                ))
+                continue
+            }
             guard !jsonText.isEmpty,
                   let jsonData = jsonText.data(using: .utf8),
                   let object = try? JSONSerialization.jsonObject(

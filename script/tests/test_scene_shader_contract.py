@@ -136,6 +136,9 @@ class SceneShaderContractTests(unittest.TestCase):
                 '{ "combo": "COLOR", "meta": { "label": "Tint Value" } }\n'
                 "uniform vec4 u_Tint; // "
                 '{ "material": "tint", "default": [1, 0.5, 0, 1] }\n'
+                "// [COMBO_DISABLED] "
+                '{ "combo": "DOUBLESIDED", "default": 0 }\n'
+                "// [PASS] shadow shadowcasterdemo\n"
                 "//{\n"
                 "// commented shader block, not an annotation\n"
                 "//}\n"
@@ -238,10 +241,14 @@ class SceneShaderContractTests(unittest.TestCase):
         self.assertEqual(vertex["annotations"][0]["value"]["options"], [0, 1])
         self.assertEqual(
             [annotation.get("marker") for annotation in fragment["annotations"]],
-            ["[COMBO_OFF]", "OFF_COMBO", "[OFF_COMBO]", None],
+            ["[COMBO_OFF]", "OFF_COMBO", "[OFF_COMBO]", None, "[COMBO_DISABLED]", "[PASS]"],
         )
         self.assertEqual(fragment["annotations"][2]["value"]["meta"]["label"], "Tint Value")
         self.assertEqual(fragment["annotations"][3]["value"]["default"], [1, 0.5, 0, 1])
+        # Stock assets spell the disabled-combo marker three ways; all three must round-trip
+        # as structured payload, and [PASS] keeps its non-JSON operand verbatim.
+        self.assertEqual(fragment["annotations"][4]["value"]["combo"], "DOUBLESIDED")
+        self.assertEqual(fragment["annotations"][5]["value"], "shadow shadowcasterdemo")
         self.assertEqual(self._diagnostic_codes(good), ["duplicateIdentity"])
 
         self.assertIn("missingFragmentStage", self._diagnostic_codes(by_identity["effects/missing"]))
