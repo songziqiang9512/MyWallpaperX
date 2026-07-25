@@ -26,8 +26,9 @@ enum Harness {
     static func main() throws {
         let keys: [SceneParticleBuiltInTexture] = [
             .beam1, .chromaticDot, .drop, .fire1, .fog1, .fog3,
-            .leaves7, .leaves8, .lightShafts0, .lightShafts6, .lightning3,
+            .leaves7, .leaves8, .snow, .lightShafts0, .lightShafts6, .lightning3,
             .halo, .halo2, .halo3, .halo4, .flare1, .rippleSingle, .rosePetals,
+            .smoke2,
         ]
         let sources: [String: Bool] = [
             "beam": SceneParticleTextureSource(
@@ -47,6 +48,7 @@ enum Harness {
             "fog3": SceneParticleTextureSource(reference: "particle/fog/fog3") == .builtIn(.fog3),
             "leaves7": SceneParticleTextureSource(reference: "particle/nature/leaves7") == .builtIn(.leaves7),
             "leaves8": SceneParticleTextureSource(reference: "particle/nature/leaves8") == .builtIn(.leaves8),
+            "snow": SceneParticleTextureSource(reference: "particle/nature/snow") == .builtIn(.snow),
             "lightShaft0": SceneParticleTextureSource(reference: "particle/light/light_shafts_0") == .builtIn(.lightShafts0),
             "lightShaft6": SceneParticleTextureSource(reference: "particle/light/light_shafts_6") == .builtIn(.lightShafts6),
             "lightning": SceneParticleTextureSource(reference: "particle/lightning/lightning3") == .builtIn(.lightning3),
@@ -59,6 +61,7 @@ enum Harness {
             "rosePetals": SceneParticleTextureSource(
                 reference: "materials/particle/nature/rosepetals"
             ) == .builtIn(.rosePetals),
+            "smoke2": SceneParticleTextureSource(reference: "particle/smoke/smoke2") == .builtIn(.smoke2),
             "unknownBuiltInFails": SceneParticleTextureSource(reference: "particle/not-supported") == nil,
             "emptyFails": SceneParticleTextureSource(reference: "  ") == nil,
             "fileCase": SceneParticleTextureSource.file(
@@ -226,7 +229,7 @@ class SceneParticleBuiltInTextureTests(unittest.TestCase):
         self.assertTrue(self.result["metalAvailable"])
         self.assertTrue(self.result["created"])
         textures = self.result["textures"]
-        self.assertEqual(len(textures), 18)
+        self.assertEqual(len(textures), 20)
         for name, summary in textures.items():
             with self.subTest(name=name):
                 self.assertTrue(summary["cached"])
@@ -248,6 +251,7 @@ class SceneParticleBuiltInTextureTests(unittest.TestCase):
             "particle/fog/fog3": 128,
             "particle/nature/leaves7": 64,
             "particle/nature/leaves8": 64,
+            "particle/nature/snow": 64,
             "particle/light/light_shafts_0": 128,
             "particle/light/light_shafts_6": 128,
             "particle/lightning/lightning3": 128,
@@ -258,10 +262,11 @@ class SceneParticleBuiltInTextureTests(unittest.TestCase):
             "particle/light/flare_1": 64,
             "particle/water/ripple_single": 64,
             "particle/nature/rosepetals": 64,
+            "particle/smoke/smoke2": 128,
         }
         for name, size in expected_sizes.items():
             self.assertEqual((textures[name]["width"], textures[name]["height"]), (size, size))
-        self.assertEqual(len({value["checksum"] for value in textures.values()}), 18)
+        self.assertEqual(len({value["checksum"] for value in textures.values()}), 20)
         chromatic = textures["particle/chromaticdot"]
         self.assertEqual(chromatic["nonGrayPixelCount"], 0)
         self.assertGreaterEqual(chromatic["centerAlpha"], 250)
@@ -306,6 +311,16 @@ class SceneParticleBuiltInTextureTests(unittest.TestCase):
         rose = textures["particle/nature/rosepetals"]
         self.assertGreaterEqual(rose["centerAlpha"], 220)
         self.assertLess(rose["nonzeroAlphaCount"], 64 * 64 // 2)
+        snow = textures["particle/nature/snow"]
+        self.assertGreaterEqual(snow["centerAlpha"], 80)
+        self.assertGreaterEqual(snow["maxAlpha"], 100)
+        self.assertLessEqual(snow["maxAlpha"], 150)
+        self.assertLess(snow["nonzeroAlphaCount"], 64 * 64 // 3)
+        smoke2 = textures["particle/smoke/smoke2"]
+        self.assertGreaterEqual(smoke2["maxAlpha"], 8)
+        self.assertLessEqual(smoke2["maxAlpha"], 14)
+        self.assertGreater(smoke2["nonzeroAlphaCount"], 128 * 128 // 8)
+        self.assertLess(smoke2["nonzeroAlphaCount"], 128 * 128 * 3 // 4)
 
 
 if __name__ == "__main__":

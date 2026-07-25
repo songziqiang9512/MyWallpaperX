@@ -70,10 +70,11 @@ final class SceneParticleBuiltInTextureRegistry {
         switch builtInTexture {
         case .drop:
             32
-        case .chromaticDot, .leaves7, .leaves8, .halo, .halo2, .halo3, .halo4,
-             .flare1, .rippleSingle, .rosePetals:
+        case .chromaticDot, .leaves7, .leaves8, .snow, .halo, .halo2, .halo3,
+             .halo4, .flare1, .rippleSingle, .rosePetals:
             64
-        case .beam1, .fire1, .fog1, .fog3, .lightShafts0, .lightShafts6, .lightning3:
+        case .beam1, .fire1, .fog1, .fog3, .lightShafts0, .lightShafts6, .lightning3,
+             .smoke2:
             128
         }
     }
@@ -107,6 +108,8 @@ final class SceneParticleBuiltInTextureRegistry {
             return leafAlpha(x: x, y: y, rotation: -0.48, bend: 0.16, width: 0.42)
         case .leaves8:
             return leafAlpha(x: x, y: y, rotation: 0.62, bend: -0.13, width: 0.32)
+        case .snow:
+            return snowAlpha(x: x, y: y)
         case .lightShafts0:
             let progress = clamp((y + 1) * 0.5)
             let vertical = smooth(progress * 4) * smooth((1 - progress) * 3)
@@ -151,6 +154,8 @@ final class SceneParticleBuiltInTextureRegistry {
             return pow(smooth(1 - abs(radius - 0.66) / 0.13), 1.6)
         case .rosePetals:
             return rosePetalAlpha(x: x, y: y)
+        case .smoke2:
+            return smokeAlpha(x: x, y: y)
         }
     }
 
@@ -184,6 +189,28 @@ final class SceneParticleBuiltInTextureRegistry {
             * pow(smooth(1 - abs(x) / 0.035), 2)
             * pow(smooth(1 - abs(y) / 0.74), 2.2)
         return clamp(core + horizontal + vertical)
+    }
+
+    private func snowAlpha(x: Float, y: Float) -> Float {
+        let radius = hypot(x, y)
+        guard radius < 0.82 else { return 0 }
+        let angle = atan2(y, x)
+        let armDistance = radius * abs(sin(angle * 3))
+        let arms = smooth(1 - armDistance / 0.055)
+            * smooth((radius - 0.08) * 12)
+            * smooth((0.82 - radius) * 6)
+        let core = pow(smooth(1 - radius / 0.3), 1.6)
+        return 0.52 * clamp(arms + 0.65 * core)
+    }
+
+    private func smokeAlpha(x: Float, y: Float) -> Float {
+        let waveX = x + 0.07 * sin(y * 7.3) + 0.035 * sin(y * 13.1 + 0.4)
+        let waveY = y + 0.06 * sin(x * 6.1 - 0.7)
+        let primary = sqrt(pow(waveX / 0.92, 2) + pow(waveY / 0.72, 2))
+        let secondary = sqrt(pow((waveX - 0.38) / 0.58, 2) + pow((waveY + 0.12) / 0.5, 2))
+        let body = pow(smooth(1 - primary), 0.82)
+        let lobe = 0.45 * pow(smooth(1 - secondary), 1.3)
+        return 0.045 * clamp(body + lobe)
     }
 
     private func rosePetalAlpha(x: Float, y: Float) -> Float {

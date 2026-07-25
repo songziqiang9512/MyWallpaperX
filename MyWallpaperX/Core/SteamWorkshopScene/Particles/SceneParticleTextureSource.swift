@@ -9,6 +9,7 @@ nonisolated enum SceneParticleBuiltInTexture: String, Hashable, Sendable {
     case fog3 = "particle/fog/fog3"
     case leaves7 = "particle/nature/leaves7"
     case leaves8 = "particle/nature/leaves8"
+    case snow = "particle/nature/snow"
     case lightShafts0 = "particle/light/light_shafts_0"
     case lightShafts6 = "particle/light/light_shafts_6"
     case lightning3 = "particle/lightning/lightning3"
@@ -19,6 +20,7 @@ nonisolated enum SceneParticleBuiltInTexture: String, Hashable, Sendable {
     case flare1 = "particle/light/flare_1"
     case rippleSingle = "particle/water/ripple_single"
     case rosePetals = "particle/nature/rosepetals"
+    case smoke2 = "particle/smoke/smoke2"
 }
 
 nonisolated enum SceneParticleTextureSource: Equatable, Sendable {
