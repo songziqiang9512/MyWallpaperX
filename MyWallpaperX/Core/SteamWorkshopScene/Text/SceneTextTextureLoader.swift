@@ -182,13 +182,26 @@ enum SceneTextTextureLoader {
             kCTForegroundColorAttributeName: color(style.colorRGB, brightness: style.brightness),
             kCTParagraphStyleAttributeName: paragraph
         ]
+        // 作者的 Limit width 决定换行宽度，Limit rows / Overflow ellipsis 决定行数与省略号；
+        // 三个开关都关闭时 wrapWidth 就是内容宽、文本原样，排版与之前完全一致。
+        let wrapWidth = SceneTextRowLimit.wrapWidth(
+            contentWidth: contentWidth,
+            style: style,
+            scale: layout.scale
+        )
+        let limited = SceneTextRowLimit.limitedText(
+            text,
+            style: style,
+            attributes: attributes as CFDictionary,
+            wrapWidth: wrapWidth
+        )
         guard let attributed = CFAttributedStringCreate(
             kCFAllocatorDefault,
-            text as CFString,
+            limited as CFString,
             attributes as CFDictionary
         ) else { return }
         let framesetter = CTFramesetterCreateWithAttributedString(attributed)
-        let constraint = CGSize(width: contentWidth, height: contentHeight)
+        let constraint = CGSize(width: wrapWidth, height: contentHeight)
         let measured = CTFramesetterSuggestFrameSizeWithConstraints(
             framesetter,
             CFRange(location: 0, length: 0),
@@ -203,7 +216,14 @@ enum SceneTextTextureLoader {
             contentHeight: contentHeight,
             textHeight: textHeight
         )
-        let path = CGPath(rect: CGRect(x: padding, y: y, width: contentWidth, height: textHeight), transform: nil)
+        // 换行宽度被 Max width 压窄时，窄框按水平对齐落在内容框里，
+        // 否则 center/right 的 layer 会整块左移。
+        let x = padding + horizontalOrigin(
+            alignment: style.horizontalAlignment,
+            contentWidth: contentWidth,
+            textWidth: wrapWidth
+        )
+        let path = CGPath(rect: CGRect(x: x, y: y, width: wrapWidth, height: textHeight), transform: nil)
         let frame = CTFramesetterCreateFrame(framesetter, CFRange(location: 0, length: 0), path, nil)
         context.textMatrix = .identity
         CTFrameDraw(frame, context)
@@ -237,6 +257,18 @@ enum SceneTextTextureLoader {
         case "top": padding + contentHeight - textHeight
         case "bottom": padding
         default: padding + (contentHeight - textHeight) * 0.5
+        }
+    }
+
+    private static func horizontalOrigin(
+        alignment: String,
+        contentWidth: CGFloat,
+        textWidth: CGFloat
+    ) -> CGFloat {
+        switch alignment.localizedLowercase {
+        case "left": 0
+        case "right": contentWidth - textWidth
+        default: (contentWidth - textWidth) * 0.5
         }
     }
 }

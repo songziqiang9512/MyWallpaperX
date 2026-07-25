@@ -291,6 +291,7 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 | package/system font resolution | `L3` | 包内字体与 macOS alias/fallback；[E-TEXT](runtime-evidence-index.md#e-text) | Windows family/weight/CJK/emoji golden |
 | point size | `L3` | authored `pointsize * 300 / 72` 官方 300 DPI 换算；[E-TEXT-POINTSIZE](runtime-evidence-index.md#e-text-pointsize) | Windows 逐像素对照、去掉本地 1024 px 字号夹取 |
 | alignment/baseline/padding | `L2` | 部分字段/geometry 进入链路 | 每种 alignment 正反像素门 |
+| row/width overflow limits | `L3` | `limitrows`/`maxrows`/`limitwidth`/`maxwidth`/`limituseellipsis` 进 IR 并由 CoreText 消费，两个数值只在对应开关打开时生效（语料 393 个关闭态带默认 `maxwidth: 500`，79 个已超宽）；[E-TEXT-LIMITS](runtime-evidence-index.md#e-text-limits) | Windows 逐像素对照省略号回退与断点、按运行时文本重新测量外框 |
 | color/alpha | `L3` | 静态 descriptor 和 direct color generation consumer；[E-DYNAMIC-TEXT](runtime-evidence-index.md#e-dynamic-text) | premultiplied alpha 与 Windows golden |
 | outline/shadow/text effects | `L1` | 可见字段/effect 可能被保留 | 独立 style IR 与执行器 |
 | property-driven dynamic text | `L3` | 只更新变化 layer，重复值不生成，旧 generation/失败结果不覆盖 last-ready；真实 `2134765860` 三字段正门 | 长文本/emoji/多语言布局与多屏压力门 |

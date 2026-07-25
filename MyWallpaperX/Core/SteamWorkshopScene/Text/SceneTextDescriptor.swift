@@ -13,6 +13,15 @@ struct SceneTextDescriptor: Codable {
     // 对应边角上而不是作者画布上，栅格化不消费它（见 SceneLayerScreenAnchor）。
     let screenAnchor: String
     let padding: Float
+    // 官方 ITextLayer 的 Limit rows / Max rows / Limit width / Max width
+    // （编辑器 `ui_editor_properties_limit_rows` 等）。`maxrows`/`maxwidth` 只在对应
+    // 开关打开时生效，`maxwidth` 的单位是像素。`limituseellipsis` 不在 typings 里，
+    // 但编辑器有 `ui_editor_properties_overflow_ellipsis`（Overflow ellipsis）。
+    let limitRows: Bool
+    let maxRows: Int
+    let limitWidth: Bool
+    let maxWidth: Float
+    let useEllipsis: Bool
     let opaqueBackground: Bool
     let backgroundColorRGB: [Float]
     let backgroundBrightness: Float
@@ -27,6 +36,11 @@ struct SceneTextDescriptor: Codable {
             verticalAlignment: string(root["verticalalign"]) ?? "center",
             screenAnchor: string(root["anchor"]) ?? "none",
             padding: max(0, number(root["padding"]) ?? 0),
+            limitRows: bool(root["limitrows"]) ?? false,
+            maxRows: Int(max(1, (number(root["maxrows"]) ?? 1).rounded())),
+            limitWidth: bool(root["limitwidth"]) ?? false,
+            maxWidth: max(0, number(root["maxwidth"]) ?? 0),
+            useEllipsis: bool(root["limituseellipsis"]) ?? false,
             opaqueBackground: bool(root["opaquebackground"]) ?? false,
             backgroundColorRGB: paddedColor(SceneDocumentLoader.floatVector(root["backgroundcolor"]), fill: 0),
             backgroundBrightness: max(0, number(root["backgroundbrightness"]) ?? 1)
@@ -46,6 +60,11 @@ struct SceneTextDescriptor: Codable {
             verticalAlignment: verticalAlignment,
             screenAnchor: screenAnchor,
             padding: padding,
+            limitRows: limitRows,
+            maxRows: maxRows,
+            limitWidth: limitWidth,
+            maxWidth: maxWidth,
+            useEllipsis: useEllipsis,
             opaqueBackground: opaqueBackground,
             backgroundColorRGB: backgroundColorRGB,
             backgroundBrightness: backgroundBrightness

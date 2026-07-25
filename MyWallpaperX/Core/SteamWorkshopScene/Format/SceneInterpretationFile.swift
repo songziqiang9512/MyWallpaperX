@@ -16,8 +16,9 @@ struct SceneInterpretationFile: Codable {
 }
 
 struct SceneInterpretationFileWriter {
-    // Format 28 adds the authored text layer `anchor` (screen anchor).
-    static let currentFormatVersion = 28
+    // Format 29 adds the authored text layer row/width limits
+    // (`limitrows`/`maxrows`/`limitwidth`/`maxwidth`/`limituseellipsis`).
+    static let currentFormatVersion = 29
 
     func make(
         renderDescriptor: SceneRenderDescriptor,
