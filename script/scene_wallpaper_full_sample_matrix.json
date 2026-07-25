@@ -3287,7 +3287,7 @@
       "expected_solid_candidates": 0,
       "required_solid_loaded_layer_ids": [],
       "expected_particle_candidates": 7,
-      "minimum_particle_loaded": 6,
+      "minimum_particle_loaded": 7,
       "expected_particle_authored": 7,
       "expected_particle_visible": 7,
       "expected_particle_skipped_hidden": 0,
@@ -3297,7 +3297,8 @@
         88,
         222,
         91,
-        225
+        225,
+        98
       ],
       "expected_camera_parallax": false,
       "expected_utility_candidates": 0,
@@ -4532,11 +4533,13 @@
       "expected_solid_candidates": 0,
       "required_solid_loaded_layer_ids": [],
       "expected_particle_candidates": 3,
-      "minimum_particle_loaded": 1,
+      "minimum_particle_loaded": 3,
       "expected_particle_authored": 3,
       "expected_particle_visible": 3,
       "expected_particle_skipped_hidden": 0,
       "required_particle_loaded_layer_ids": [
+        446,
+        453,
         99
       ],
       "expected_camera_parallax": false,

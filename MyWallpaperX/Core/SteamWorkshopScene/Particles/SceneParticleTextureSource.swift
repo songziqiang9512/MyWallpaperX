@@ -4,6 +4,7 @@ nonisolated enum SceneParticleBuiltInTexture: String, Hashable, Sendable {
     case chromaticDot = "particle/chromaticdot"
     case beam1 = "particle/beam/beam_1"
     case drop = "particle/drop"
+    case fire1 = "particle/fire/fire1"
     case fog1 = "particle/fog/fog1"
     case leaves7 = "particle/nature/leaves7"
     case leaves8 = "particle/nature/leaves8"

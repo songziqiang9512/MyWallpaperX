@@ -73,7 +73,7 @@ final class SceneParticleBuiltInTextureRegistry {
         case .chromaticDot, .leaves7, .leaves8, .halo, .halo2, .halo4,
              .rippleSingle, .rosePetals:
             64
-        case .beam1, .fog1, .lightShafts6, .lightning3:
+        case .beam1, .fire1, .fog1, .lightShafts6, .lightning3:
             128
         }
     }
@@ -95,6 +95,8 @@ final class SceneParticleBuiltInTextureRegistry {
         case .drop:
             let radiusSquared = x * x + y * y
             return smooth(1 - radiusSquared)
+        case .fire1:
+            return fireAlpha(x: x, y: y)
         case .fog1:
             let wave = 0.08 * sin(x * 7.1) + 0.05 * sin(x * 13.7 + 0.8)
             let radius = sqrt(x * x + pow((y - wave) / 0.48, 2))
@@ -131,6 +133,17 @@ final class SceneParticleBuiltInTextureRegistry {
         case .rosePetals:
             return rosePetalAlpha(x: x, y: y)
         }
+    }
+
+    private func fireAlpha(x: Float, y: Float) -> Float {
+        let progress = (y + 0.38) / 0.76
+        guard progress > 0, progress < 1 else { return 0 }
+        let center = 0.035 * sin(progress * 7.2) + 0.015 * sin(progress * 15)
+        let halfWidth = 0.025 + 0.2 * pow(progress, 0.72)
+        let body = smooth((1 - abs(x - center) / halfWidth) * 3.2)
+        let tipFade = smooth(progress * 10)
+        let baseFade = smooth((1 - progress) * 8)
+        return 0.16 * body * tipFade * baseFade
     }
 
     private func rosePetalAlpha(x: Float, y: Float) -> Float {
