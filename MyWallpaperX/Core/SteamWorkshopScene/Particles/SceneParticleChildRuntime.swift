@@ -12,6 +12,7 @@ final class SceneParticleChildRuntime {
     struct AdvanceResult {
         let batches: [SceneParticleDrawBatch]
         let bufferFailurePaths: [String]
+        let limitationDetails: [String]
     }
 
     private struct Template {
@@ -35,6 +36,7 @@ final class SceneParticleChildRuntime {
     private struct System {
         let templateIndex: Int
         let parentParticleID: UInt64?
+        let emissionCompletionTime: Double?
         var origin: SIMD3<Double>
         var simulator: SceneParticleSimulator
     }
@@ -53,6 +55,7 @@ final class SceneParticleChildRuntime {
 
     // Child systems run on the CPU fallback; cap burst spikes while retaining authored distribution.
     private static let maximumParticlesPerSystem = 1_024
+    private static let maximumChildSystems = 64
 
     init(
         layerID: Int,
@@ -107,7 +110,7 @@ final class SceneParticleChildRuntime {
                 continue
             }
             guard asset.definition.children.isEmpty,
-                  Self.hasStrictInstantaneousEmitter(asset.definition),
+                  SceneParticleChildLifecycle.supportsEmitterProfile(asset.definition),
                   let render = Self.supportedRenderer(in: asset.definition) else {
                 unsupported.append("\(path):outsideStrictEventProfile")
                 continue
@@ -167,6 +170,7 @@ final class SceneParticleChildRuntime {
         deathEvents: [SceneParticleState],
         parentParticles: [SceneParticleState]
     ) -> AdvanceResult {
+        var limitations: Set<String> = []
         let parentsByID: [UInt64: SceneParticleState] = templates.contains { $0.trigger == .follow }
             ? Dictionary(uniqueKeysWithValues: parentParticles.map { ($0.id, $0) })
             : [:]
@@ -186,11 +190,13 @@ final class SceneParticleChildRuntime {
         systems.removeAll {
             $0.parentParticleID == nil
                 && $0.simulator.simulationTime > 0
+                && $0.emissionCompletionTime != nil
+                && $0.simulator.simulationTime + 1e-12 >= ($0.emissionCompletionTime ?? .infinity)
                 && $0.simulator.particles.isEmpty
         }
-        spawn(from: spawnEvents, trigger: .spawn)
-        spawn(from: deathEvents, trigger: .death)
-        reconcileFollowers(parentParticles)
+        spawn(from: spawnEvents, trigger: .spawn, limitations: &limitations)
+        spawn(from: deathEvents, trigger: .death, limitations: &limitations)
+        reconcileFollowers(parentParticles, limitations: &limitations)
 
         var batches: [SceneParticleDrawBatch] = []
         var failures: [String] = []
@@ -213,10 +219,18 @@ final class SceneParticleChildRuntime {
                 usesPerspective: template.usesPerspective
             ))
         }
-        return AdvanceResult(batches: batches, bufferFailurePaths: failures)
+        return AdvanceResult(
+            batches: batches,
+            bufferFailurePaths: failures,
+            limitationDetails: limitations.sorted()
+        )
     }
 
-    private func spawn(from events: [SceneParticleState], trigger: Trigger) {
+    private func spawn(
+        from events: [SceneParticleState],
+        trigger: Trigger,
+        limitations: inout Set<String>
+    ) {
         guard !events.isEmpty else { return }
         for event in events {
             for template in templates {
@@ -224,6 +238,10 @@ final class SceneParticleChildRuntime {
                 let activeCount = systems.lazy.filter { $0.templateIndex == template.index }.count
                 guard activeCount < template.maximumSystemCount,
                       Self.accepts(event: event, template: template) else { continue }
+                guard systems.count < Self.maximumChildSystems else {
+                    limitations.insert(Self.aggregateBudgetDetail)
+                    continue
+                }
                 let seed = UInt64(bitPattern: Int64(layerID))
                     ^ event.id &* 0x9E3779B97F4A7C15
                     ^ UInt64(template.index &+ 1) &* 0xBF58476D1CE4E5B9
@@ -232,6 +250,9 @@ final class SceneParticleChildRuntime {
                 systems.append(System(
                     templateIndex: template.index,
                     parentParticleID: nil,
+                    emissionCompletionTime: SceneParticleChildLifecycle.emissionCompletionTime(
+                        template.definition
+                    ),
                     origin: event.position,
                     simulator: SceneParticleSimulator(
                         definition: template.definition,
@@ -243,7 +264,10 @@ final class SceneParticleChildRuntime {
         }
     }
 
-    private func reconcileFollowers(_ parents: [SceneParticleState]) {
+    private func reconcileFollowers(
+        _ parents: [SceneParticleState],
+        limitations: inout Set<String>
+    ) {
         guard !parents.isEmpty else { return }
         for template in templates where template.trigger == .follow {
             var followedIDs = Set(systems.lazy.compactMap { system in
@@ -253,6 +277,10 @@ final class SceneParticleChildRuntime {
                 guard !followedIDs.contains(parent.id),
                       followedIDs.count < template.maximumSystemCount,
                       Self.accepts(event: parent, template: template) else { continue }
+                guard systems.count < Self.maximumChildSystems else {
+                    limitations.insert(Self.aggregateBudgetDetail)
+                    continue
+                }
                 followedIDs.insert(parent.id)
                 let seed = UInt64(bitPattern: Int64(layerID))
                     ^ parent.id &* 0x9E3779B97F4A7C15
@@ -262,6 +290,9 @@ final class SceneParticleChildRuntime {
                 systems.append(System(
                     templateIndex: template.index,
                     parentParticleID: parent.id,
+                    emissionCompletionTime: SceneParticleChildLifecycle.emissionCompletionTime(
+                        template.definition
+                    ),
                     origin: parent.position,
                     simulator: SceneParticleSimulator(
                         definition: template.definition,
@@ -314,10 +345,9 @@ final class SceneParticleChildRuntime {
         return origin == .zero && angles == .zero && scale == SIMD3(repeating: 1)
     }
 
-    private static func hasStrictInstantaneousEmitter(_ definition: SceneParticleDefinition) -> Bool {
-        !definition.emitters.isEmpty && definition.emitters.allSatisfy {
-            ($0.instantaneousCount ?? 0) > 0 && ($0.rate ?? 0) == 0
-        }
+    private static var aggregateBudgetDetail: String {
+        "aggregateSystemBudget:systems=\(maximumChildSystems):particleCapacity="
+            + "\(maximumChildSystems * maximumParticlesPerSystem)"
     }
 
     private static func supportedRenderer(

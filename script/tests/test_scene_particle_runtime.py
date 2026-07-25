@@ -27,6 +27,12 @@ EVENTDEATH_SAMPLE_CACHE = (
     / ".codex/scene-eventspawn-targeted-final-20260724/runtime-homes/2131872317"
     / "Library/Caches/MyWallpaperX/SteamWorkshopScene/8ccb6157084ce19f"
 )
+FLARE_PARTICLE_CACHE = (
+    REPOSITORY_ROOT
+    / ".codex/scene-turbulent-velocity-final-targeted-20260725/runtime-homes/2998757800"
+    / "Library/Caches/MyWallpaperX/SteamWorkshopScene/302becd241426966"
+    / "particles/workshop/2105295491"
+)
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneResourceIndex.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
@@ -36,6 +42,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleAssetGraph.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulationSupport.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator.swift",
+    SOURCE_ROOT / "Particles/SceneParticleChildLifecycle.swift",
     SOURCE_ROOT / "Particles/SceneParticleTrailRenderPlan.swift",
     SOURCE_ROOT / "Particles/SceneParticleRenderSupport.swift",
     SOURCE_ROOT / "Particles/SceneParticleMetalPipeline.swift",
@@ -138,6 +145,9 @@ enum Harness {
             try printJSON(realEventDeathSample(cachePath: CommandLine.arguments[2]))
         case "eventfollow-synthetic":
             try printJSON(syntheticEventFollow())
+        case "continuous-profile-real":
+            guard CommandLine.arguments.count == 3 else { throw HarnessError.missingPath }
+            try printJSON(realContinuousProfiles(cachePath: CommandLine.arguments[2]))
         case "synthetic":
             try printJSON(synthetic())
         default:
@@ -392,25 +402,50 @@ enum Harness {
         )
         try writeParticle(
             "particles/follow-child.json", material: "materials/shared.json",
-            rate: 0, instantaneous: 1, under: directory
+            rate: 60, under: directory
         )
         try writeParticle(
-            "particles/continuous-root.json", material: "materials/shared.json",
-            rate: 0, instantaneous: 1,
+            "particles/bounded-root.json", material: "materials/shared.json",
+            lifetime: 1.0 / 60.0, rate: 0, instantaneous: 1,
             children: [[
-                "name": "particles/continuous-child.json", "type": "eventfollow",
+                "name": "particles/bounded-child.json", "type": "eventspawn",
             ]], under: directory
         )
         try writeParticle(
-            "particles/continuous-child.json", material: "materials/shared.json", under: directory
+            "particles/bounded-child.json", material: "materials/shared.json",
+            lifetime: 2.0 / 60.0, rate: 60, emitterDuration: 3.0 / 60.0, under: directory
+        )
+        try writeParticle(
+            "particles/budget-root.json", material: "materials/shared.json",
+            rate: 0, instantaneous: 100,
+            children: [[
+                "name": "particles/budget-child.json", "type": "eventspawn",
+            ]], under: directory
+        )
+        try writeParticle(
+            "particles/budget-child.json", material: "materials/shared.json",
+            rate: 60, instantaneous: 1, under: directory
+        )
+        try writeParticle(
+            "particles/audio-root.json", material: "materials/shared.json",
+            rate: 0, instantaneous: 1,
+            children: [[
+                "name": "particles/audio-child.json", "type": "eventspawn",
+            ]], under: directory
+        )
+        try writeParticle(
+            "particles/audio-child.json", material: "materials/shared.json",
+            rate: 60, audioProcessingMode: 1, under: directory
         )
 
         let descriptor = SceneRenderDescriptor(
             layers: [
                 layer(10, "particles/follow-root.json"),
-                layer(11, "particles/continuous-root.json"),
+                layer(11, "particles/bounded-root.json"),
+                layer(12, "particles/budget-root.json"),
+                layer(13, "particles/audio-root.json"),
             ],
-            renderOrderLayerIDs: [10, 11],
+            renderOrderLayerIDs: [10, 11, 12, 13],
             materialPasses: [
                 .init(
                     materialPath: "materials/shared.json",
@@ -426,7 +461,9 @@ enum Harness {
         )
         var childCounts: [Int] = []
         var childPositions: [Float] = []
-        for _ in 0..<5 {
+        var boundedCounts: [Int] = []
+        var budgetCounts: [Int] = []
+        for _ in 0..<6 {
             let batches = runtime.advance(by: 1.0 / 60.0)
             let instances = batches.first {
                 $0.particlePath == "particles/follow-child.json"
@@ -435,16 +472,52 @@ enum Harness {
             if let position = instances.first?.positionAndSize.x {
                 childPositions.append(position)
             }
+            boundedCounts.append(batches.first {
+                $0.particlePath == "particles/bounded-child.json"
+            }?.instances.count ?? 0)
+            budgetCounts.append(batches.first {
+                $0.particlePath == "particles/budget-child.json"
+            }?.instances.count ?? 0)
         }
         return [
             "childCounts": childCounts,
             "childPositions": childPositions,
-            "followUnsupported": runtime.diagnostics.contains {
-                $0.layerID == 10 && $0.kind == .childSystemsUnsupported
+            "boundedCounts": boundedCounts,
+            "budgetCounts": budgetCounts,
+            "childUnsupportedLayers": runtime.diagnostics.compactMap {
+                $0.kind == .childSystemsUnsupported && $0.layerID != 13 ? $0.layerID : nil
             },
-            "continuousFollowDetails": runtime.diagnostics.compactMap {
-                $0.layerID == 11 && $0.kind == .childSystemsUnsupported ? $0.detail : nil
+            "budgetDetails": runtime.diagnostics.compactMap {
+                $0.layerID == 12 && $0.kind == .simulationLimitation ? $0.detail : nil
             },
+            "audioChildDetails": runtime.diagnostics.compactMap {
+                $0.layerID == 13 && $0.kind == .childSystemsUnsupported ? $0.detail : nil
+            },
+        ]
+    }
+
+    private static func realContinuousProfiles(cachePath: String) throws -> [String: Any] {
+        let root = URL(fileURLWithPath: cachePath, isDirectory: true)
+        let parser = SceneParticleDefinitionParser()
+        var supported: [String: Bool] = [:]
+        var completion: [String: String] = [:]
+        var rates: [String: Double] = [:]
+        var instantaneous: [String: Int] = [:]
+        for name in ["Flare_Flame", "Flare_Smoke", "Flare_Sparks"] {
+            let definition = try parser.parse(
+                data: Data(contentsOf: root.appendingPathComponent("\(name).json"))
+            )
+            supported[name] = SceneParticleChildLifecycle.supportsEmitterProfile(definition)
+            completion[name] = SceneParticleChildLifecycle.emissionCompletionTime(definition)
+                .map { String($0) } ?? "infinite"
+            rates[name] = definition.emitters.first?.rate ?? -1
+            instantaneous[name] = definition.emitters.first?.instantaneousCount ?? 0
+        }
+        return [
+            "supported": supported,
+            "completion": completion,
+            "rates": rates,
+            "instantaneous": instantaneous,
         ]
     }
 
@@ -578,6 +651,8 @@ enum Harness {
         lifetime: Double = 10,
         moves: Bool = false,
         rate: Double = 60,
+        emitterDuration: Double? = nil,
+        audioProcessingMode: Int? = nil,
         instantaneous: Int? = nil,
         children: [[String: Any]] = [],
         under root: URL
@@ -600,6 +675,8 @@ enum Harness {
         var emitter: [String: Any] = [
             "name": "sphererandom", "rate": rate, "distancemin": 0, "distancemax": 0,
         ]
+        if let emitterDuration { emitter["duration"] = emitterDuration }
+        if let audioProcessingMode { emitter["audioprocessingmode"] = audioProcessingMode }
         if let instantaneous { emitter["instantaneous"] = instantaneous }
         var definition: [String: Any] = [
             "material": material,
@@ -741,19 +818,34 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertIn("childSystemsUnsupported", kinds)
         self.assertIn("builtInTextureUnavailable", kinds)
 
-    def test_eventfollow_tracks_parent_and_stops_with_parent(self) -> None:
+    def test_continuous_children_follow_finish_and_obey_aggregate_budget(self) -> None:
         result = self.run_harness("eventfollow-synthetic")
-        self.assertEqual(result["childCounts"], [0, 1, 1, 0, 0])
+        self.assertEqual(result["childCounts"], [0, 1, 2, 0, 0, 0])
         self.assertEqual(result["childPositions"], [2, 3])
-        self.assertFalse(result["followUnsupported"])
+        self.assertEqual(result["boundedCounts"], [0, 1, 1, 1, 0, 0])
+        self.assertEqual(result["budgetCounts"], [0, 64, 128, 192, 256, 320])
+        self.assertEqual(result["childUnsupportedLayers"], [])
         self.assertIn(
-            "particles/continuous-child.json:outsideStrictEventProfile",
-            result["continuousFollowDetails"],
+            "aggregateSystemBudget:systems=64:particleCapacity=65536",
+            result["budgetDetails"],
         )
-        self.assertNotIn(
-            "particles/continuous-child.json:unsupportedType:eventfollow",
-            result["continuousFollowDetails"],
+        self.assertIn(
+            "particles/audio-child.json:outsideStrictEventProfile",
+            result["audioChildDetails"],
         )
+
+    def test_real_flare_children_enter_continuous_emitter_profile(self) -> None:
+        if not FLARE_PARTICLE_CACHE.is_dir():
+            self.skipTest("isolated 2998757800 particle cache is unavailable")
+        result = self.run_harness("continuous-profile-real", str(FLARE_PARTICLE_CACHE))
+        self.assertEqual(result["supported"], {
+            "Flare_Flame": True,
+            "Flare_Smoke": True,
+            "Flare_Sparks": True,
+        })
+        self.assertEqual(set(result["completion"].values()), {"infinite"})
+        self.assertEqual(result["rates"]["Flare_Sparks"], 10)
+        self.assertEqual(result["instantaneous"]["Flare_Sparks"], 1)
 
     def test_real_3768903841_executes_strict_eventspawn_child(self) -> None:
         if not (EVENTSPAWN_SAMPLE_CACHE / ".mywallpaperx-scene-interpretation.json").is_file():

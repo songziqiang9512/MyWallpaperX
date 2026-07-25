@@ -242,6 +242,14 @@ final class SceneParticleRuntime {
                         path: path
                     )
                 }
+                for detail in result.limitationDetails {
+                    addDiagnostic(
+                        kind: .simulationLimitation,
+                        layerID: layers[index].layerID,
+                        path: layers[index].particlePath,
+                        detail: detail
+                    )
+                }
             }
             let instances = makeGPUInstances(for: layers[index])
             guard layers[index].instanceBuffer.update(device: device, instances: instances) else {
