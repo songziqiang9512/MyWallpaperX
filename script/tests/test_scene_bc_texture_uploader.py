@@ -1,0 +1,194 @@
+#!/usr/bin/env python3
+
+"""Metal tests for over-budget BC color upload and static sprite fallback."""
+
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+SWIFT_SOURCES = [
+    SCENE_ROOT / "Format/SceneTexDataReader.swift",
+    SCENE_ROOT / "Format/SceneTexContainer.swift",
+    SCENE_ROOT / "Format/SceneBCTextureDecoder.swift",
+    SCENE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
+]
+
+HARNESS = r'''
+import Foundation
+import Metal
+
+enum SceneTextureLoadOutcome {
+    case loaded(MTLTexture)
+    case decodeFailed(String)
+    case textureAllocationFailed(width: Int, height: Int)
+}
+
+@main
+enum Harness {
+    static func main() throws {
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noDevice }
+        let width = 4096
+        let height = 4097
+        let block = [UInt8](
+            [128, 128, 0, 0, 0, 0, 0, 0]
+            + [0x00, 0xF8, 0, 0, 0, 0, 0, 0]
+        )
+        let blockCount = ((width + 3) / 4) * ((height + 3) / 4)
+        var data = Data(count: blockCount * block.count)
+        data.withUnsafeMutableBytes { raw in
+            let bytes = raw.bindMemory(to: UInt8.self)
+            for index in 0 ..< blockCount {
+                for offset in block.indices {
+                    bytes[index * block.count + offset] = block[offset]
+                }
+            }
+        }
+        let mip = SceneTexContainer.Mip(width: width, height: height, data: data)
+        let frame0 = SceneTexContainer.SpriteFrame(
+            imageIndex: 0,
+            duration: 0.035,
+            origin: .zero,
+            xAxis: SIMD2(4.0 / Float(width), 0),
+            yAxis: SIMD2(0, 4.0 / Float(height))
+        )
+        let frame1 = SceneTexContainer.SpriteFrame(
+            imageIndex: 1,
+            duration: 0.035,
+            origin: .zero,
+            xAxis: frame0.xAxis,
+            yAxis: frame0.yAxis
+        )
+        let container = makeContainer(mip: mip, frames: [frame0, frame1])
+        let outcome = SceneCompressedTextureUploader.upload(
+            container: container,
+            pixelFormat: .bc3_rgba,
+            device: device
+        )
+        var result: [String: Any] = [:]
+        if case let .loaded(texture) = outcome {
+            result["loaded"] = true
+            result["width"] = texture.width
+            result["height"] = texture.height
+            result["pixelFormat"] = texture.pixelFormat.rawValue
+            result["firstPixel"] = try readFirstPixel(texture: texture, device: device)
+        } else {
+            result["loaded"] = false
+        }
+
+        let rotated = SceneTexContainer.SpriteFrame(
+            imageIndex: 0,
+            duration: 0.035,
+            origin: .zero,
+            xAxis: SIMD2(0, 4.0 / Float(height)),
+            yAxis: SIMD2(4.0 / Float(width), 0)
+        )
+        let rejected = SceneCompressedTextureUploader.upload(
+            container: makeContainer(mip: mip, frames: [rotated, frame1]),
+            pixelFormat: .bc3_rgba,
+            device: device
+        )
+        if case let .decodeFailed(message) = rejected {
+            result["rotatedFailure"] = message
+        }
+        FileHandle.standardOutput.write(
+            try JSONSerialization.data(withJSONObject: result)
+        )
+    }
+
+    static func makeContainer(
+        mip: SceneTexContainer.Mip,
+        frames: [SceneTexContainer.SpriteFrame]
+    ) -> SceneTexContainer {
+        SceneTexContainer(
+            format: 4,
+            flags: 4,
+            textureWidth: mip.width,
+            textureHeight: mip.height,
+            imageWidth: mip.width,
+            imageHeight: mip.height,
+            imageCount: 2,
+            containerVersion: .texb0002,
+            freeImageFormat: -1,
+            isVideoMp4: false,
+            mips: [mip],
+            spriteFrames: frames
+        )
+    }
+
+    static func readFirstPixel(texture: MTLTexture, device: MTLDevice) throws -> [UInt8] {
+        guard let queue = device.makeCommandQueue(),
+              let commandBuffer = queue.makeCommandBuffer(),
+              let buffer = device.makeBuffer(length: 4) else { throw HarnessError.noDevice }
+        let blit = commandBuffer.makeBlitCommandEncoder()!
+        blit.copy(
+            from: texture,
+            sourceSlice: 0,
+            sourceLevel: 0,
+            sourceOrigin: MTLOrigin(x: 0, y: 0, z: 0),
+            sourceSize: MTLSize(width: 1, height: 1, depth: 1),
+            to: buffer,
+            destinationOffset: 0,
+            destinationBytesPerRow: 4,
+            destinationBytesPerImage: 4
+        )
+        blit.endEncoding()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else { throw HarnessError.gpu }
+        let pointer = buffer.contents().bindMemory(to: UInt8.self, capacity: 4)
+        return Array(UnsafeBufferPointer(start: pointer, count: 4))
+    }
+
+    enum HarnessError: Error { case noDevice, gpu }
+}
+'''
+
+
+class SceneBCTextureUploaderTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        if shutil.which("swiftc") is None:
+            raise unittest.SkipTest("swiftc is unavailable")
+        cls._tmp = tempfile.TemporaryDirectory()
+        tmp = Path(cls._tmp.name)
+        harness = tmp / "harness.swift"
+        harness.write_text(HARNESS)
+        binary = tmp / "harness"
+        compilation = subprocess.run(
+            ["swiftc", *map(str, SWIFT_SOURCES), str(harness), "-o", str(binary)],
+            capture_output=True,
+            text=True,
+        )
+        if compilation.returncode != 0:
+            raise AssertionError(f"harness compilation failed:\n{compilation.stderr}")
+        completed = subprocess.run([str(binary)], capture_output=True, text=True)
+        if completed.returncode != 0:
+            raise AssertionError(f"harness run failed:\n{completed.stderr}")
+        cls.result = json.loads(completed.stdout)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls._tmp.cleanup()
+
+    def test_over_budget_multi_image_bc3_uses_premultiplied_static_first_frame(self) -> None:
+        self.assertTrue(self.result["loaded"])
+        self.assertEqual((self.result["width"], self.result["height"]), (4, 4))
+        red, green, blue, alpha = self.result["firstPixel"]
+        self.assertLessEqual(abs(red - 128), 1)
+        self.assertEqual((green, blue), (0, 0))
+        self.assertLessEqual(abs(alpha - 128), 1)
+
+    def test_rotated_cross_image_first_frame_fails_closed(self) -> None:
+        self.assertIn("static first-frame region", self.result["rotatedFailure"])
+
+
+if __name__ == "__main__":
+    unittest.main()

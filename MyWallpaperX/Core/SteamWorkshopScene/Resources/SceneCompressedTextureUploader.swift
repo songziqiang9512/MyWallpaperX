@@ -1,12 +1,14 @@
 import Foundation
 import Metal
+import MetalPerformanceShaders
 
 struct SceneCompressedTextureUploader {
     // CPU decode budget: a decoded RGBA copy of one 4096x4096 mip is 64 MiB.
-    // Larger payloads (observed: 7680x7560 5-frame BC3 firework sheets) and
-    // multi-image sprite containers keep the native block upload — decoding
-    // them would multiply load time and peak memory past what the synchronous
-    // wallpaper load path tolerates.
+    // Larger payloads and multi-image sprites first keep their compact native
+    // upload, then use the GPU to premultiply into the authored image or a
+    // supported static first-frame region. This avoids a full CPU RGBA copy;
+    // the observed 7680x7560 five-image firework sheet normalizes to its
+    // 1920x1080 first frame instead of retaining a 221 MiB decoded atlas.
     private static let maxDecodedPixelCount = 4096 * 4096
 
     static func upload(
@@ -18,18 +20,25 @@ struct SceneCompressedTextureUploader {
             return .decodeFailed("TEX container has no mip data")
         }
         // BC1/BC2/BC3 are color sources with straight alpha. The compositor
-        // blends premultiplied source-over, so decode on CPU, premultiply,
-        // and crop the padded block grid to the authored image size — the
-        // same contract the raw format-0 path follows. Direct upload would
-        // let transparent texels bloom their (usually white) RGB into the
-        // frame as opaque-looking mattes.
-        if let bcFormat = SceneBCTextureDecoder.Format(texFormat: container.format),
-           container.imageCount == 1,
-           firstMip.width * firstMip.height <= maxDecodedPixelCount {
-            return uploadDecodedColor(
+        // blends premultiplied source-over, so normalize color payloads before
+        // consumers see them. Small single images decode on CPU; larger or
+        // multi-image containers use the GPU path below. Both crop padded
+        // storage to an authored image/frame region. Direct sampling would let
+        // transparent texels bloom their RGB into opaque-looking mattes.
+        if let bcFormat = SceneBCTextureDecoder.Format(texFormat: container.format) {
+            if container.imageCount == 1,
+               firstMip.width * firstMip.height <= maxDecodedPixelCount {
+                return uploadDecodedColor(
+                    container: container,
+                    mip: firstMip,
+                    format: bcFormat,
+                    device: device
+                )
+            }
+            return uploadNormalizedColor(
                 container: container,
                 mip: firstMip,
-                format: bcFormat,
+                pixelFormat: pixelFormat,
                 device: device
             )
         }
@@ -80,6 +89,106 @@ struct SceneCompressedTextureUploader {
             )
         }
         return .loaded(texture)
+    }
+
+    private struct NormalizationRegion {
+        let sourceX: Int
+        let sourceY: Int
+        let width: Int
+        let height: Int
+    }
+
+    private static func uploadNormalizedColor(
+        container: SceneTexContainer,
+        mip: SceneTexContainer.Mip,
+        pixelFormat: MTLPixelFormat,
+        device: MTLDevice
+    ) -> SceneTextureLoadOutcome {
+        let direct = uploadDirect(
+            container: container,
+            mip: mip,
+            pixelFormat: pixelFormat,
+            device: device
+        )
+        guard case let .loaded(source) = direct else { return direct }
+        guard let region = normalizationRegion(container: container, mip: mip) else {
+            return .decodeFailed("multi-image BC sprite has no supported static first-frame region")
+        }
+
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm,
+            width: region.width,
+            height: region.height,
+            mipmapped: false
+        )
+        descriptor.usage = [.shaderRead, .shaderWrite]
+        descriptor.storageMode = .private
+        guard let destination = device.makeTexture(descriptor: descriptor),
+              let commandQueue = device.makeCommandQueue(),
+              let commandBuffer = commandQueue.makeCommandBuffer() else {
+            return .textureAllocationFailed(width: region.width, height: region.height)
+        }
+
+        let conversion = MPSImageConversion(
+            device: device,
+            srcAlpha: .nonPremultiplied,
+            destAlpha: .premultiplied,
+            backgroundColor: nil,
+            conversionInfo: nil
+        )
+        conversion.offset = MPSOffset(x: region.sourceX, y: region.sourceY, z: 0)
+        conversion.clipRect = MTLRegionMake2D(0, 0, region.width, region.height)
+        conversion.encode(
+            commandBuffer: commandBuffer,
+            sourceTexture: source,
+            destinationTexture: destination
+        )
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else {
+            return .decodeFailed("GPU BC premultiply failed: \(commandBuffer.error?.localizedDescription ?? "unknown error")")
+        }
+        return .loaded(destination)
+    }
+
+    private static func normalizationRegion(
+        container: SceneTexContainer,
+        mip: SceneTexContainer.Mip
+    ) -> NormalizationRegion? {
+        let crossesImages = container.spriteFrames.contains { $0.imageIndex != 0 }
+        guard crossesImages else {
+            let width = (1 ... mip.width).contains(container.imageWidth)
+                ? container.imageWidth
+                : mip.width
+            let height = (1 ... mip.height).contains(container.imageHeight)
+                ? container.imageHeight
+                : mip.height
+            return NormalizationRegion(sourceX: 0, sourceY: 0, width: width, height: height)
+        }
+
+        guard let frame = container.spriteFrames.first,
+              frame.imageIndex == 0,
+              abs(frame.xAxis.y) < 0.000_001,
+              abs(frame.yAxis.x) < 0.000_001,
+              frame.xAxis.x > 0,
+              frame.yAxis.y > 0 else {
+            return nil
+        }
+        let sourceX = Int((frame.origin.x * Float(mip.width)).rounded())
+        let sourceY = Int((frame.origin.y * Float(mip.height)).rounded())
+        let width = Int((frame.xAxis.x * Float(mip.width)).rounded())
+        let height = Int((frame.yAxis.y * Float(mip.height)).rounded())
+        guard sourceX >= 0, sourceY >= 0, width > 0, height > 0,
+              sourceX + width <= mip.width,
+              sourceY + height <= mip.height else {
+            return nil
+        }
+        return NormalizationRegion(
+            sourceX: sourceX,
+            sourceY: sourceY,
+            width: width,
+            height: height
+        )
     }
 
     // Non-color payloads (BC5 normal maps) keep their native block upload.
