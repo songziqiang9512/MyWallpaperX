@@ -70,10 +70,10 @@ final class SceneParticleBuiltInTextureRegistry {
         switch builtInTexture {
         case .drop:
             32
-        case .chromaticDot, .leaves7, .leaves8, .halo, .halo2, .halo4,
-             .rippleSingle, .rosePetals:
+        case .chromaticDot, .leaves7, .leaves8, .halo, .halo2, .halo3, .halo4,
+             .flare1, .rippleSingle, .rosePetals:
             64
-        case .beam1, .fire1, .fog1, .lightShafts0, .lightShafts6, .lightning3:
+        case .beam1, .fire1, .fog1, .fog3, .lightShafts0, .lightShafts6, .lightning3:
             128
         }
     }
@@ -101,6 +101,8 @@ final class SceneParticleBuiltInTextureRegistry {
             let wave = 0.08 * sin(x * 7.1) + 0.05 * sin(x * 13.7 + 0.8)
             let radius = sqrt(x * x + pow((y - wave) / 0.48, 2))
             return 0.72 * pow(smooth(1 - radius), 0.72)
+        case .fog3:
+            return fogAlpha(x: x, y: y)
         case .leaves7:
             return leafAlpha(x: x, y: y, rotation: -0.48, bend: 0.16, width: 0.42)
         case .leaves8:
@@ -132,11 +134,18 @@ final class SceneParticleBuiltInTextureRegistry {
             let core = 0.55 * pow(smooth(1 - radius), 1.4)
             let shoulder = 0.35 * smooth(1 - abs(radius - 0.42) / 0.42)
             return clamp(core + shoulder)
+        case .halo3:
+            let radius = sqrt(x * x + y * y)
+            let core = 0.14 * pow(smooth(1 - radius), 1.45)
+            let shoulder = 0.08 * pow(smooth(1 - abs(radius - 0.44) / 0.36), 1.8)
+            return clamp(core + shoulder)
         case .halo4:
             let radius = sqrt(x * x + y * y)
             let core = pow(smooth(1 - radius / 0.055), 0.75)
             let glow = 0.38 * pow(smooth(1 - radius / 0.14), 2.2)
             return clamp(core + glow)
+        case .flare1:
+            return flareAlpha(x: x, y: y)
         case .rippleSingle:
             let radius = sqrt(x * x + pow(y / 0.56, 2))
             return pow(smooth(1 - abs(radius - 0.66) / 0.13), 1.6)
@@ -154,6 +163,27 @@ final class SceneParticleBuiltInTextureRegistry {
         let tipFade = smooth(progress * 10)
         let baseFade = smooth((1 - progress) * 8)
         return 0.16 * body * tipFade * baseFade
+    }
+
+    private func fogAlpha(x: Float, y: Float) -> Float {
+        let wave = 0.07 * sin(x * 5.3 + 0.4) + 0.035 * sin(x * 11.1 - 0.7)
+        let primary = sqrt(pow((x + 0.08) / 0.92, 2) + pow((y - wave) / 0.62, 2))
+        let secondary = sqrt(pow((x - 0.34) / 0.62, 2) + pow((y + 0.11) / 0.48, 2))
+        let body = pow(smooth(1 - primary), 1.1)
+        let lobe = 0.55 * pow(smooth(1 - secondary), 1.5)
+        return 0.008 * clamp(body + lobe)
+    }
+
+    private func flareAlpha(x: Float, y: Float) -> Float {
+        let radius = hypot(x, y)
+        let core = 0.86 * pow(smooth(1 - radius / 0.13), 1.4)
+        let horizontal = 0.18
+            * pow(smooth(1 - abs(y) / 0.045), 2)
+            * pow(smooth(1 - abs(x)), 2.4)
+        let vertical = 0.14
+            * pow(smooth(1 - abs(x) / 0.035), 2)
+            * pow(smooth(1 - abs(y) / 0.74), 2.2)
+        return clamp(core + horizontal + vertical)
     }
 
     private func rosePetalAlpha(x: Float, y: Float) -> Float {

@@ -25,9 +25,9 @@ import Metal
 enum Harness {
     static func main() throws {
         let keys: [SceneParticleBuiltInTexture] = [
-            .beam1, .chromaticDot, .drop, .fire1, .fog1, .leaves7, .leaves8,
-            .lightShafts0, .lightShafts6, .lightning3, .halo, .halo2, .halo4,
-            .rippleSingle, .rosePetals,
+            .beam1, .chromaticDot, .drop, .fire1, .fog1, .fog3,
+            .leaves7, .leaves8, .lightShafts0, .lightShafts6, .lightning3,
+            .halo, .halo2, .halo3, .halo4, .flare1, .rippleSingle, .rosePetals,
         ]
         let sources: [String: Bool] = [
             "beam": SceneParticleTextureSource(
@@ -44,6 +44,7 @@ enum Harness {
                 reference: "  .\\Materials\\PARTICLE\\DROP  "
             ) == .builtIn(.drop),
             "fog": SceneParticleTextureSource(reference: "particle/fog/fog1") == .builtIn(.fog1),
+            "fog3": SceneParticleTextureSource(reference: "particle/fog/fog3") == .builtIn(.fog3),
             "leaves7": SceneParticleTextureSource(reference: "particle/nature/leaves7") == .builtIn(.leaves7),
             "leaves8": SceneParticleTextureSource(reference: "particle/nature/leaves8") == .builtIn(.leaves8),
             "lightShaft0": SceneParticleTextureSource(reference: "particle/light/light_shafts_0") == .builtIn(.lightShafts0),
@@ -51,7 +52,9 @@ enum Harness {
             "lightning": SceneParticleTextureSource(reference: "particle/lightning/lightning3") == .builtIn(.lightning3),
             "halo": SceneParticleTextureSource(reference: "particle/halo") == .builtIn(.halo),
             "halo2": SceneParticleTextureSource(reference: "particle/halo_2") == .builtIn(.halo2),
+            "halo3": SceneParticleTextureSource(reference: "particle/halo_3") == .builtIn(.halo3),
             "halo4": SceneParticleTextureSource(reference: "particle/halo_4") == .builtIn(.halo4),
+            "flare1": SceneParticleTextureSource(reference: "particle/light/flare_1") == .builtIn(.flare1),
             "ripple": SceneParticleTextureSource(reference: "particle/water/ripple_single") == .builtIn(.rippleSingle),
             "rosePetals": SceneParticleTextureSource(
                 reference: "materials/particle/nature/rosepetals"
@@ -223,7 +226,7 @@ class SceneParticleBuiltInTextureTests(unittest.TestCase):
         self.assertTrue(self.result["metalAvailable"])
         self.assertTrue(self.result["created"])
         textures = self.result["textures"]
-        self.assertEqual(len(textures), 15)
+        self.assertEqual(len(textures), 18)
         for name, summary in textures.items():
             with self.subTest(name=name):
                 self.assertTrue(summary["cached"])
@@ -242,6 +245,7 @@ class SceneParticleBuiltInTextureTests(unittest.TestCase):
             "particle/drop": 32,
             "particle/fire/fire1": 128,
             "particle/fog/fog1": 128,
+            "particle/fog/fog3": 128,
             "particle/nature/leaves7": 64,
             "particle/nature/leaves8": 64,
             "particle/light/light_shafts_0": 128,
@@ -249,13 +253,15 @@ class SceneParticleBuiltInTextureTests(unittest.TestCase):
             "particle/lightning/lightning3": 128,
             "particle/halo": 64,
             "particle/halo_2": 64,
+            "particle/halo_3": 64,
             "particle/halo_4": 64,
+            "particle/light/flare_1": 64,
             "particle/water/ripple_single": 64,
             "particle/nature/rosepetals": 64,
         }
         for name, size in expected_sizes.items():
             self.assertEqual((textures[name]["width"], textures[name]["height"]), (size, size))
-        self.assertEqual(len({value["checksum"] for value in textures.values()}), 15)
+        self.assertEqual(len({value["checksum"] for value in textures.values()}), 18)
         chromatic = textures["particle/chromaticdot"]
         self.assertEqual(chromatic["nonGrayPixelCount"], 0)
         self.assertGreaterEqual(chromatic["centerAlpha"], 250)
@@ -270,6 +276,20 @@ class SceneParticleBuiltInTextureTests(unittest.TestCase):
         self.assertGreater(halo4["highAlphaCount"], 0)
         self.assertLess(halo4["highAlphaCount"], 64 * 64 // 4)
         self.assertLess(halo4["nonzeroAlphaCount"], 64 * 64 // 16)
+        halo3 = textures["particle/halo_3"]
+        self.assertGreaterEqual(halo3["centerAlpha"], 30)
+        self.assertLessEqual(halo3["maxAlpha"], 50)
+        self.assertGreater(halo3["nonzeroAlphaCount"], halo4["nonzeroAlphaCount"])
+        fog3 = textures["particle/fog/fog3"]
+        self.assertGreaterEqual(fog3["maxAlpha"], 1)
+        self.assertLessEqual(fog3["maxAlpha"], 3)
+        self.assertGreater(fog3["nonzeroAlphaCount"], 128 * 128 // 10)
+        self.assertLess(fog3["nonzeroAlphaCount"], 128 * 128 * 3 // 4)
+        flare1 = textures["particle/light/flare_1"]
+        self.assertGreaterEqual(flare1["centerAlpha"], 220)
+        self.assertGreater(flare1["highAlphaCount"], 0)
+        self.assertLess(flare1["highAlphaCount"], 64 * 64 // 64)
+        self.assertLess(flare1["nonzeroAlphaCount"], 64 * 64 // 8)
         self.assertLessEqual(textures["particle/water/ripple_single"]["centerAlpha"], 2)
         shaft0 = textures["particle/light/light_shafts_0"]
         self.assertGreater(shaft0["lowerWidth"], shaft0["upperWidth"])
