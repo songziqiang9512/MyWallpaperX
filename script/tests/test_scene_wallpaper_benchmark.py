@@ -207,6 +207,14 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             negative_shake["expected_authored_effect_graph_succeeded_layer_ids"],
             [],
         )
+        self.assertEqual(
+            samples["2470144420"]["required_particle_loaded_layer_ids"],
+            [106],
+        )
+        self.assertEqual(
+            samples["3769688830"]["required_particle_loaded_layer_ids"],
+            [354, 761, 1214, 1427],
+        )
 
     def test_load_matrix_accepts_version_one_samples(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-matrix-") as directory:
@@ -359,6 +367,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         samples = {sample["id"]: sample for sample in matrix["samples"]}
         expected = {
             "3724095562": [22],
+            "3724289844": [259, 262, 265, 268, 255],
             "3750813609": [121, 200, 90, 504, 511, 516, 498],
             "3766387484": [48],
             "2902406982": [262],

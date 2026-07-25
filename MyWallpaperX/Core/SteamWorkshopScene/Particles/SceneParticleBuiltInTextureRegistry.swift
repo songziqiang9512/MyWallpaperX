@@ -70,9 +70,10 @@ final class SceneParticleBuiltInTextureRegistry {
         switch builtInTexture {
         case .drop:
             32
-        case .chromaticDot, .leaves7, .leaves8, .halo, .halo2, .halo4, .rippleSingle:
+        case .chromaticDot, .leaves7, .leaves8, .halo, .halo2, .halo4,
+             .rippleSingle, .rosePetals:
             64
-        case .fog1, .lightShafts6, .lightning3:
+        case .beam1, .fog1, .lightShafts6, .lightning3:
             128
         }
     }
@@ -83,6 +84,11 @@ final class SceneParticleBuiltInTextureRegistry {
         y: Float
     ) -> Float {
         switch builtInTexture {
+        case .beam1:
+            let axial = pow(smooth(1 - abs(x)), 0.65)
+            let core = pow(smooth(1 - abs(y) / 0.16), 1.4)
+            let glow = 0.32 * pow(smooth(1 - abs(y) / 0.34), 2)
+            return axial * clamp(core + glow)
         case .chromaticDot:
             let radius = hypot(x, y)
             return pow(smooth(1 - radius), 1.35)
@@ -122,7 +128,24 @@ final class SceneParticleBuiltInTextureRegistry {
         case .rippleSingle:
             let radius = sqrt(x * x + pow(y / 0.56, 2))
             return pow(smooth(1 - abs(radius - 0.66) / 0.13), 1.6)
+        case .rosePetals:
+            return rosePetalAlpha(x: x, y: y)
         }
+    }
+
+    private func rosePetalAlpha(x: Float, y: Float) -> Float {
+        let rotation: Float = 0.36
+        let cosine = cos(rotation)
+        let sine = sin(rotation)
+        let localX = x * cosine - y * sine
+        let localY = x * sine + y * cosine
+        let axial = (localY + 0.04) / 0.78
+        guard abs(axial) < 1 else { return 0 }
+        let profile = sqrt(max(1 - axial * axial, 0))
+        let halfWidth = 0.54 * profile * (1 - 0.12 * max(axial, 0))
+        let curvedX = localX + 0.1 * (1 - axial * axial)
+        return smooth((1 - abs(curvedX) / max(halfWidth, 0.001)) * 4.5)
+            * smooth((1 - abs(axial)) * 6)
     }
 
     private func leafAlpha(

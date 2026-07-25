@@ -498,7 +498,7 @@ class SceneParticleAssetTests(unittest.TestCase):
         self.assertEqual(result["samplesWithParticles"], 18)
         self.assertEqual(result["reachableAssetCount"], 55)
         self.assertEqual(result["blendCounts"], {"additive": 42, "translucent": 13})
-        self.assertEqual(result["diagnosticCounts"].get("builtInTextureUnavailable", 0), 15)
+        self.assertEqual(result["diagnosticCounts"].get("builtInTextureUnavailable", 0), 13)
         for kind in (
             "missingDefinition",
             "missingMaterial",

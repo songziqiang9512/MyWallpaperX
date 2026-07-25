@@ -25,10 +25,14 @@ import Metal
 enum Harness {
     static func main() throws {
         let keys: [SceneParticleBuiltInTexture] = [
-            .chromaticDot, .drop, .fog1, .leaves7, .leaves8, .lightShafts6,
-            .lightning3, .halo, .halo2, .halo4, .rippleSingle,
+            .beam1, .chromaticDot, .drop, .fog1, .leaves7, .leaves8,
+            .lightShafts6, .lightning3, .halo, .halo2, .halo4,
+            .rippleSingle, .rosePetals,
         ]
         let sources: [String: Bool] = [
+            "beam": SceneParticleTextureSource(
+                reference: "particle/beam/beam_1"
+            ) == .builtIn(.beam1),
             "chromatic": SceneParticleTextureSource(
                 reference: "particle/chromaticdot"
             ) == .builtIn(.chromaticDot),
@@ -45,6 +49,9 @@ enum Harness {
             "halo2": SceneParticleTextureSource(reference: "particle/halo_2") == .builtIn(.halo2),
             "halo4": SceneParticleTextureSource(reference: "particle/halo_4") == .builtIn(.halo4),
             "ripple": SceneParticleTextureSource(reference: "particle/water/ripple_single") == .builtIn(.rippleSingle),
+            "rosePetals": SceneParticleTextureSource(
+                reference: "materials/particle/nature/rosepetals"
+            ) == .builtIn(.rosePetals),
             "unknownBuiltInFails": SceneParticleTextureSource(reference: "particle/not-supported") == nil,
             "emptyFails": SceneParticleTextureSource(reference: "  ") == nil,
             "fileCase": SceneParticleTextureSource.file(
@@ -210,7 +217,7 @@ class SceneParticleBuiltInTextureTests(unittest.TestCase):
         self.assertTrue(self.result["metalAvailable"])
         self.assertTrue(self.result["created"])
         textures = self.result["textures"]
-        self.assertEqual(len(textures), 11)
+        self.assertEqual(len(textures), 13)
         for name, summary in textures.items():
             with self.subTest(name=name):
                 self.assertTrue(summary["cached"])
@@ -224,6 +231,7 @@ class SceneParticleBuiltInTextureTests(unittest.TestCase):
     def test_generated_families_have_distinct_shapes(self) -> None:
         textures = self.result["textures"]
         expected_sizes = {
+            "particle/beam/beam_1": 128,
             "particle/chromaticdot": 64,
             "particle/drop": 32,
             "particle/fog/fog1": 128,
@@ -235,10 +243,11 @@ class SceneParticleBuiltInTextureTests(unittest.TestCase):
             "particle/halo_2": 64,
             "particle/halo_4": 64,
             "particle/water/ripple_single": 64,
+            "particle/nature/rosepetals": 64,
         }
         for name, size in expected_sizes.items():
             self.assertEqual((textures[name]["width"], textures[name]["height"]), (size, size))
-        self.assertEqual(len({value["checksum"] for value in textures.values()}), 11)
+        self.assertEqual(len({value["checksum"] for value in textures.values()}), 13)
         chromatic = textures["particle/chromaticdot"]
         self.assertEqual(chromatic["nonGrayPixelCount"], 0)
         self.assertGreaterEqual(chromatic["centerAlpha"], 250)
@@ -254,6 +263,12 @@ class SceneParticleBuiltInTextureTests(unittest.TestCase):
         lightning = textures["particle/lightning/lightning3"]
         self.assertGreater(lightning["highAlphaCount"], 0)
         self.assertLess(lightning["highAlphaCount"], 128 * 128 // 10)
+        beam = textures["particle/beam/beam_1"]
+        self.assertGreaterEqual(beam["centerAlpha"], 240)
+        self.assertLess(beam["nonzeroAlphaCount"], 128 * 128 // 2)
+        rose = textures["particle/nature/rosepetals"]
+        self.assertGreaterEqual(rose["centerAlpha"], 220)
+        self.assertLess(rose["nonzeroAlphaCount"], 64 * 64 // 2)
 
 
 if __name__ == "__main__":

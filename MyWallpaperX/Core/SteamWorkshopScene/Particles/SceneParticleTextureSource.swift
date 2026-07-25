@@ -2,6 +2,7 @@ import Foundation
 
 nonisolated enum SceneParticleBuiltInTexture: String, Hashable, Sendable {
     case chromaticDot = "particle/chromaticdot"
+    case beam1 = "particle/beam/beam_1"
     case drop = "particle/drop"
     case fog1 = "particle/fog/fog1"
     case leaves7 = "particle/nature/leaves7"
@@ -12,6 +13,7 @@ nonisolated enum SceneParticleBuiltInTexture: String, Hashable, Sendable {
     case halo2 = "particle/halo_2"
     case halo4 = "particle/halo_4"
     case rippleSingle = "particle/water/ripple_single"
+    case rosePetals = "particle/nature/rosepetals"
 }
 
 nonisolated enum SceneParticleTextureSource: Equatable, Sendable {
