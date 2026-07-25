@@ -436,6 +436,12 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         self.assertIn("### E-EFFECT-OPACITY:", evidence)
         self.assertIn("### E-EFFECT-SHAKE:", evidence)
         self.assertIn("### E-EFFECT-XRAY:", evidence)
+        self.assertIn("strict depth-one eventspawn/natural-eventdeath child", evidence)
+        self.assertIn("`4e64232`", evidence)
+        self.assertIn(
+            ".codex/scene-eventdeath-current-v25-delayed-20260725/report.json",
+            evidence,
+        )
         self.assertIn("### E-EFFECT-WORKSHOP-SHADOW:", evidence)
         self.assertIn("### E-EFFECT-CHAIN: ordered strict effect-chain scheduler", evidence)
         self.assertIn("### E-GRAPH-COMMAND: same-frame copy/swap foundation", evidence)
@@ -507,6 +513,8 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             "下一主线推进真实 history consumer 与 compose",
             "下一切片推进真实 history consumer 与 compose",
             "按 route-only 组成",
+            "eventdeath 爆炸仍未执行",
+            "无 event queue 或 typed payload",
         )
         for path, text in document_text.items():
             for stale_route in stale_current_routes:

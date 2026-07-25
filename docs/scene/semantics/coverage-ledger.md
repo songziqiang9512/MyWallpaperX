@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-25
 >
-> Scene 实现基线：`f1ee79b`（Puppet bind-pose mesh `8bac86e`，静态 MDAT attachment `49ee89a`，严格单 clip MDLA/LBS 播放 `f1ee79b`）
+> Scene 实现基线：`f1ee79b`（Puppet bind-pose mesh `8bac86e`，静态 MDAT attachment `49ee89a`，严格单 clip MDLA/LBS 播放 `f1ee79b`；strict particle child/event `f4173ea`/`7d53c10`）
 >
 > 当前完整快照门：`.codex/scene-puppet-animation-20260725/full45-v2/report.json`；固定回归门：`.codex/scene-puppet-animation-20260725/fixed13-v3/report.json`
 >
@@ -116,9 +116,9 @@
 | Static control-point subset | `L2` | static local offset/instance override 有分支；缺最终位置断言 | emitter 位置、空间与 parent golden |
 | Dynamic control-point declaration | `L1` | 可识别或诊断 object/cursor/script 需求 | typed target 和 binding IR |
 | Dynamic control-point execution | `L0` | 无 object/cursor/script runtime | 坐标转换与每帧更新 |
-| Child asset graph | `L2` | 可递归发现，已有 missing/cycle guard | runtime child identity、ownership 和 depth/total budget |
-| Child execution/events | `L0` | runtime 报 `childSystemsUnsupported` | spawn/death/collision 生命周期 |
-| Built-in textures | `L3` | 10 个精确 key；程序图形只保证确定性，不等于官方资产 | 剩余高频 key、atlas metadata、多纹理 material |
+| Child asset graph | `L3` | 可递归发现并为 strict depth-one event child 建立 runtime template；missing/cycle/nested fail closed | runtime cycle lifecycle、depth/total budget |
+| Child execution/events | `L3` | deterministic birth/natural-death queue；`eventspawn` 与 natural-`eventdeath` strict child 独立模拟、绘制、回收 | static/follow、collision/delete、transform/CP inheritance、递归总预算 |
+| Built-in textures | `L3` | 11 个精确 key；程序图形只保证确定性，不等于官方资产 | `rosepetals`、`beam_1` 等高频 key、atlas metadata、多纹理 material |
 | World-space declaration | `L1` | 明确 `worldSpaceUnsupported` | 不能冒充执行 |
 | World-space execution | `L0` | 无 camera/parent transform runtime | 多屏和 parent 语义 |
 | Collision declaration | `L1` | 可诊断但无 solver | shape/depth/response/event IR |
@@ -238,7 +238,7 @@
 | **B5 Fidelity** | `S2-S4` 广度完成后 | 字体、视差、粒子、常用 Effect 与 WE Windows golden 对齐 | 固定输入逐像素/数值阈值、性能预算、长稳和多屏门 |
 | **Advanced** | `S5` | Puppet、2D light/HDR、3D、arbitrary custom shader、RGB、offline bake | 每个系统有完整 IR/runtime/lifecycle/product gate 后再升级 |
 
-研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、B2 ordered strict chain、Workshop Shadow、stock Opacity、exact stock Shake/Foliage Sway/Water Ripple/Water Waves/Water Flow/X-Ray、同帧 copy/swap foundation、受限 history seed/clear、Precise Blur 两种 material-command interleave 与 exact legacy compose 归一化已合龙；11 个精确 built-in 粒子纹理已进入公共 registry。非 exact Water Waves/Foliage Sway/Water Ripple 的 legacy inline 仍受原有唯一 Effect 或单 profile 边界约束，mixed/repeated unsupported declarations fail closed；X-Ray 受限前缀明确省略后续 unsupported effect。当前完整门为 91 stage/15 chain/0 failed，固定门为 24 stage/2 chain/0 failed；超出默认 96 MiB 纹理预算的长链在规划阶段拒绝。下一批先处理新增样本暴露的公共 blend/composition，再进入粒子 child/event death；Fire effect、299 多余粒子和比例/裁切随后按隔离样本收益推进。样本自带 preview 是当前第一视觉依据，WaifuX MP4 只作辅助动态参考，均不能替代 Windows WE 动态/像素 golden。
+研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、B2 ordered strict chain、Workshop Shadow、stock Opacity、exact stock Shake/Foliage Sway/Water Ripple/Water Waves/Water Flow/X-Ray、同帧 copy/swap foundation、受限 history seed/clear、Precise Blur 两种 material-command interleave 与 exact legacy compose 归一化已合龙；11 个精确 built-in 粒子纹理与 strict depth-one eventspawn/natural-eventdeath child 已进入公共 runtime。非 exact Water Waves/Foliage Sway/Water Ripple 的 legacy inline 仍受原有唯一 Effect 或单 profile 边界约束，mixed/repeated unsupported declarations fail closed；X-Ray 受限前缀明确省略后续 unsupported effect。当前完整门为 91 stage/15 chain/0 failed，固定门为 24 stage/2 chain/0 failed；超出默认 96 MiB 纹理预算的长链在规划阶段拒绝。下一步先补 `rosepetals`/`beam_1` 高频 built-in，再处理超预算 BC 合成；Fire effect、299 多余粒子和比例/裁切随后按隔离样本收益推进。样本自带 preview 是当前第一视觉依据，WaifuX MP4 只作辅助动态参考，均不能替代 Windows WE 动态/像素 golden。
 
 ## 9. 更新规则
 

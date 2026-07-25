@@ -2,11 +2,11 @@
 
 > 状态：现役专题能力表
 >
-> 最近核对：2026-07-24
+> 最近核对：2026-07-25
 >
 > 口径来源：[官方页面目录](official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[资料来源与证据索引](source-index.md)
-> 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，但还不是通用 Particle System；尤其没有 Layer Image、Children/Event、Collision、动态 Control Point、World Space、Rope、Audio Response 和完整 Particle Material。
-> Scene 实现基线：`8bac86e`（REFRACT 材质 fail-closed 与 BC premultiply 修正后，固定 13 样本门 particle 为 `13/27`——两个折射雨层不再计入；完整 45 样本门正在按新口径刷新）；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。仍不是通用 Particle System。
+> 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，并执行严格的 depth-one `eventspawn` / natural-`eventdeath` child；它仍不是通用 Particle System，尤其没有 Layer Image、Static/Event Follow、collision/delete event、动态 Control Point、World Space、Rope、Audio Response 和完整 Particle Material。
+> Scene 实现基线：`f1ee79b`；child/event 子集由 `f4173ea`、`7d53c10` 实现，`4e64232` 补齐延迟截图证据入口。固定 13 样本门 particle 为 `13/27`，完整 45 样本门为 `79/131`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。仍不是通用 Particle System。
 
 本文把官方 Particle 的 General、Emitter、Initializer、Operator、Renderer、Control Point、Children、instance override 与 material 逐项映射到当前实现。它是 [总覆盖台账](coverage-ledger.md) 中 Particle 行的展开表；总表与本文冲突时，以本文更细粒度、更新的代码证据为准。
 
@@ -33,6 +33,7 @@
 | SIM | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleSimulator.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleSimulator.swift) |
 | SUP | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleSimulationSupport.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleSimulationSupport.swift) |
 | RUN | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleRuntime.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleRuntime.swift) |
+| CHILD | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleChildRuntime.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleChildRuntime.swift) |
 | AST | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleAssetGraph.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleAssetGraph.swift) |
 | GPU | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleMetalPipeline.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleMetalPipeline.swift) |
 | CAM | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleCameraFrame.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleCameraFrame.swift) |
@@ -119,7 +120,7 @@
 | I13 Position Around Control Point | 围绕指定 CP 放置新粒子。 | `L1` | [PAR] [SUP] [T-DEF] | 没有 typed CP/radius fields。 | CP 0...7、range、local/world 空间 fixture。 |
 | I14 Position Between Control Points | 在两个 CP 之间按规则放置新粒子。 | `L1` | [PAR] [SUP] [T-DEF] | 没有两个 CP identity 和插值字段。 | 端点、随机比例、移动 CP fixture。 |
 | I15 Remap Initial Value | 把一个初值范围映射到另一个粒子属性。 | `L1` | [PAR] [SUP] [T-DEF] | 没有 source/target property typed enum。 | typed particle channel、clamp/extrapolate 数值门。 |
-| I16 Inherit Value From Event | child/event 粒子继承 parent 的 color/size/alpha 等值。 | `L1` | [PAR] [SUP] [T-DEF] | 名称可诊断；没有 event payload 或 child runtime。 | event payload typed fixture，再接 Children spawn/death。 |
+| I16 Inherit Value From Event | child/event 粒子继承 parent 的 color/size/alpha 等值。 | `L1` | [PAR] [SUP] [CHILD] [T-DEF] [T-RUN] | child runtime 收到 typed parent particle state，但 child initializer/operator 尚不消费 color/size/alpha。 | 每种继承 channel 的 typed fixture 与正反数值门。 |
 | I17 Exponent bias | Random min/max 可用 exponent 改变分布密度。 | `L1` | [DEF] [PAR] [SIM] [T-DEF] | `exponent` 被解析但随机函数不消费。 | exponent 0/1/>1 固定 seed 分布门。 |
 | I18 Run once in authored order | 每个 initializer 对新粒子执行一次，顺序可影响最终初值。 | `L2` | [PAR] [SIM] [T-SIM] | 代码按数组运行，但没有重复 initializer 或顺序交换的定向断言。 | 重复 initializer 与交换顺序的状态 golden。 |
 
@@ -153,7 +154,7 @@
 | O22 Bounds Collision | 粒子与包围边界碰撞。 | `L1` | [PAR] [SUP] [T-DEF] | 名称可诊断，没有 bounds solver。 | 四边/六面、角碰撞与固定 dt 门。 |
 | O23 Quad Collision | 粒子与有限 quad 表面碰撞。 | `L1` | [PAR] [SUP] [T-DEF] | 名称可诊断，没有 quad geometry。 | 平面内外、边缘、旋转 quad fixture。 |
 | O24 Model Collision | 粒子与 model/depth geometry 碰撞。 | `L1` | [PAR] [SUP] [T-DEF] | 名称可诊断；没有 model runtime。 | 先完成 model/depth provider，再做 hit/event 门。 |
-| O25 Collision response | Collision 可 bounce、slide、stop、delete，并产生 death event。 | `L0` | [DEF] [PAR] [SIM] | 没有 response enum、collision state 或 event queue。 | 每种 response 的速度/存活状态 fixture。 |
+| O25 Collision response | Collision 可 bounce、slide、stop、delete，并产生 death event。 | `L0` | [DEF] [PAR] [SIM] | 没有 response enum、collision state 或 collision-produced event。 | 每种 response 的速度/存活状态 fixture。 |
 | O26 Blend-in/out windows | 很多 operator 以单粒子 normalized age 的 0...1 窗口混合权重。 | `L2` | [DEF] [SIM] [T-DEF] | 字段和 oscillation 分支存在，但没有窗口运行断言，也不是通用 operator weight。 | 定向窗口测试后提取统一权重并覆盖所有支持 operator。 |
 | O27 Normalized age and order | 每个 operator 读取同一 age/lifetime，并按作者顺序运行。 | `L2` | [SIM] [T-SIM] | normalized age 已接线，但现有组合测试不能证明顺序合同；没有 event/collision 阶段。 | 重复 operator、顺序交换、死亡边界 golden。 |
 | O28 World-space movement flag | Movement 可选择 local/world 空间。 | `L1` | [DEF] [PAR] [SIM] [RUN] | raw flags 保留，但系统 world-space 直接 fail-closed。 | parent transform 移动时 local/world 分离门。 |
@@ -205,18 +206,18 @@
 
 | ID / 能力 | 官方语义摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
 |---|---|---|---|---|---|
-| CH01 Child resource graph | child path 指向另一个 particle definition，资源必须递归可达。 | `L2` | [DEF] [AST] [T-AST] | 能递归发现定义/material/texture，但不创建 child runtime。 | root + child 同时实例化并正确计入生命周期。 |
-| CH02 Cycle/missing child guard | 递归引用必须有 cycle、missing definition 诊断，不能死循环。 | `L2` | [AST] [T-AST] | 资源图有稳定诊断；尚无运行时 child handle。 | runtime graph 构建复用同一 cycle contract。 |
+| CH01 Child resource graph | child path 指向另一个 particle definition，资源必须递归可达。 | `L3` | [DEF] [AST] [CHILD] [T-AST] [T-RUN] | 资源图递归发现 definition/material/texture；runtime 只实例化 strict depth-one event child，nested child fail closed。 | depth/总数预算、nested 正反例与 teardown 压力门。 |
+| CH02 Cycle/missing child guard | 递归引用必须有 cycle、missing definition 诊断，不能死循环。 | `L2` | [AST] [CHILD] [T-AST] | runtime 复用有 stable missing/cycle 诊断的资源图，但尚无 runtime-specific cycle ownership/lifecycle 断言。 | cyclic root 的 runtime 构建、零实例与 stop 门。 |
 | CH03 Static child | 在 particle system origin 创建一次 child system。 | `L1` | [DEF] [PAR] [SUP] [T-DEF] | type 字符串保留，runtime 统一 `childSystemsUnsupported`。 | 单次创建、visibility、stop teardown fixture。 |
 | CH04 Event Follow child | parent particle 创建 child，并持续跟随 parent。 | `L1` | [DEF] [PAR] [SUP] [T-DEF] | 无 parent particle handle 或 follow update。 | spawn/follow/death 全生命周期状态门。 |
-| CH05 Event Spawn child | parent 创建时在其位置生成独立 child。 | `L1` | [DEF] [PAR] [SUP] [T-DEF] | type 字符串保留，无 event queue。 | 同帧 spawn order、seed 和空间继承门。 |
-| CH06 Event Death child | parent 正常结束或 delete event 时生成 child。 | `L1` | [DEF] [PAR] [SUP] [T-DEF] | 无 death/delete event pipeline。 | natural death、collision delete 各一组 fixture。 |
+| CH05 Event Spawn child | parent 创建时在其位置生成独立 child。 | `L3` | [DEF] [SIM] [CHILD] [RUN] [T-SIM] [T-RUN] | deterministic birth queue 只执行 identity transform、depth-one、instantaneous Sprite/Sprite Trail child；`3768903841` 是真实 eventspawn 正例。 | parent value inheritance、非 identity transform、跨步 order 与 Windows 状态门。 |
+| CH06 Event Death child | parent 正常结束或 delete event 时生成 child。 | `L3` | [DEF] [SIM] [CHILD] [RUN] [GPU] [T-SIM] [T-RUN] | 只执行 natural lifetime death；`2131872317` layer 529/832 可见 burst，collision/delete/stop event 尚未进入队列。 | collision delete、显式 stop/delete、同帧递归限制和 Windows 状态门。 |
 | CH07 Offset/angles/scale | child instance 可相对 event/origin 设置 transform。 | `L1` | [DEF] [PAR] [T-DEF] | 字段保留但不执行。 | parent/local/world transform 数值门。 |
-| CH08 Maximum count | child 可限制同时存在的 child instance 数。 | `L1` | [DEF] [PAR] [T-DEF] | 字段保留但不进 runtime budget。 | 0/1/超限和回收后再生成门。 |
-| CH09 Probability | 每次 child event 可按 probability 决定是否创建。 | `L1` | [DEF] [PAR] [T-DEF] | 字段保留但没有 deterministic event RNG。 | 0/1/中间值固定 seed 分布门。 |
+| CH08 Maximum count | child 可限制同时存在的 child instance 数。 | `L2` | [DEF] [PAR] [CHILD] [T-DEF] [T-RUN] | runtime 已按 template 限制 active child system，且拒绝非 1...512；尚无 0/1/回收重生断言。 | 0/1/超限和回收后再生成门。 |
+| CH09 Probability | 每次 child event 可按 probability 决定是否创建。 | `L2` | [DEF] [PAR] [CHILD] [T-DEF] | event ID + template index 的 deterministic RNG 已接线，0 直接跳过；尚无中间概率固定分布测试。 | 0/1/中间值固定 seed 分布门。 |
 | CH10 Set control points | child 可从指定起始索引设置/继承 control points。 | `L1` | [DEF] [PAR] [T-DEF] | 只保留 `controlPointStartIndex`；无 mapping/space runtime。 | parent-child CP mapping 和 raw/transformed 门。 |
 | CH11 Inherit event value | child initializer/operator 可读取 parent event 的 color/size/alpha 等值。 | `L1` | [PAR] [SUP] [T-DEF] | component 名称可诊断；没有 typed event payload。 | typed payload + 每种可继承 channel 的 fixture。 |
-| CH12 Child execution/budget | child 发射、更新、renderer 和清理进入同一帧顺序与预算。 | `L0` | [RUN] [SUP] [T-RUN] | runtime 只记录 unsupported，不创建 child simulator/buffer/texture ownership。 | 深度/总数预算、stop/switch 归零和压力门。 |
+| CH12 Child execution/budget | child 发射、更新、renderer 和清理进入同一帧顺序与预算。 | `L3` | [SIM] [CHILD] [RUN] [GPU] [T-SIM] [T-RUN] | strict child 独立持有 simulator/texture/instance buffer，空系统回收；每 system 最多 1,024 粒子，尚无跨层/递归总预算与 stop/switch 压力门。 | 深度/总数预算、stop/switch 归零和压力门。 |
 
 ## 10. Instance Overrides
 
@@ -275,8 +276,8 @@
 | ID / 能力 | 官方语义摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
 |---|---|---|---|---|---|
 | X01 Emitter → initializer → operator | 每帧先推进 schedule/spawn，再对新粒子初始化，对存活粒子运行 operator。 | `L2` | [SIM] [T-SIM] | 阶段顺序已写入代码，但现有结果测试没有锁定同帧 birth/update 边界；也没有 collision/event/children 阶段。 | 同帧 birth/update 边界与 Windows 状态 golden。 |
-| X02 Collision/death/spawn events | operator 后处理碰撞、死亡、spawn/follow 事件。 | `L0` | [SIM] [SUP] [T-SIM] | 无 event queue 或 typed payload。 | 确定事件排序、同帧递归限制和 fixture。 |
-| X03 Child/control point update | 事件后更新 child systems 和动态 CP。 | `L0` | [SIM] [RUN] [T-RUN] | 两套 runtime 都不存在。 | 明确 parent/child frame ownership 与空间门。 |
+| X02 Collision/death/spawn events | operator 后处理碰撞、死亡、spawn/follow 事件。 | `L3` | [SIM] [CHILD] [T-SIM] [T-RUN] | birth 与 natural-death queue 按 fixed step 收集 typed final state 并 drain；collision、delete、follow event 不存在。 | collision/delete 顺序、同帧递归限制和 fixture。 |
+| X03 Child/control point update | 事件后更新 child systems 和动态 CP。 | `L3` | [SIM] [CHILD] [RUN] [T-RUN] | strict child systems 每帧更新并回收；动态 CP、parent follow、跨空间 mapping 未实现。 | parent/child frame ownership、动态 CP 与空间门。 |
 | X04 Renderer-specific geometry | 最后按 Sprite/Trail/Rope 类型生成不同 geometry。 | `L3` | [RUN] [GPU] [TRAIL] [T-GPU] | 只有 Sprite 和单 quad Sprite Trail；Rope 缺失。 | renderer 多输出和 Rope topology 门。 |
 | X05 Scene render order | 粒子 batch 应遵守 Scene layer render order。 | `L3` | [RUN] [T-RUN] | 初始化时固定排序；live reorder 依赖重建。 | 动态 visibility/order 和 effect 前后关系门。 |
 | X06 GPU instance-buffer lifecycle | 每帧更新实例数据，in-flight buffer 不得被覆盖。 | `L3` | [RUN] [GPU] [T-GPU] | 有 slot completion 门；没有长稳内存预算。 | 10 分钟压力、切换/resize 和峰值预算。 |
@@ -293,5 +294,5 @@
 - 本台账共覆盖 `171` 个粒子能力项：General 18、Emitter 17、Initializer 18、Operator 29、Renderer 14、Control Point 12、Children 12、Instance Override 16、Material 22、执行/生命周期 13。
 - 等级分布为 `L0 30 / L1 57 / L2 23 / L3 61 / L4 0`。`L3` 主要集中在 Sphere/Box、常见随机 initializer、基础 movement/change/oscillation、Sprite/Sprite Trail、已测试的静态 override、首纹理和两种 blend。
 - 当前固定矩阵的“可见粒子 13/27”、完整矩阵的“79/131”与 `3750813609` 的“7/9”只是样本运行门，不是上述 171 项的兼容率；world-space fail-closed 也不能计为可播放。
-- 开发批次应优先消除公共断点：复用现有 per-surface typed snapshot 接入动态 Control Point 与 author allow gates，再补 Layer Image、Children/Event、Collision 和 Rope，最后扩展 audio/material/lighting。逐样本 hardcode、把 unsupported 静默回退成 Sprite/translucent、或把程序纹理称为官方资产，都不允许升级等级。
+- 开发批次应优先消除公共断点：复用现有 per-surface typed snapshot 接入动态 Control Point 与 author allow gates，再补 Layer Image、剩余 Children/Event、Collision 和 Rope，最后扩展 audio/material/lighting。逐样本 hardcode、把 unsupported 静默回退成 Sprite/translucent、或把程序纹理称为官方资产，都不允许升级等级。
 - 任一条目升级时，必须同时更新本表的等级、边界、证据路径和下一验收门；只有跑过对应正向、负向、生命周期测试后才能从 `L2` 升到 `L3`。
