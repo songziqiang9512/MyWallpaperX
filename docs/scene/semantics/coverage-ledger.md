@@ -8,7 +8,7 @@
 >
 > 当前完整快照门：`.codex/scene-static-origin-full45-20260725/report.json`；当前源码固定回归门：`.codex/scene-static-origin-fixed13-20260725/report.json`；static-origin 定向门：`.codex/scene-static-origin-targeted-20260725/report.json`
 >
-> 最新运行门：`678a052` 的真实目录 45 个可运行样本完整快照 45/45、particle 101/131；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 13/13、particle 19/27，static-origin 定向门 1/1、particle 17/19；两类矩阵仍单独保留且不能互相替代。20-key 完整门的 `builtInTextureUnavailable` 诊断从 15-key 历史完整门的 37 次降至 24 次；这只是层级运行诊断，不替代专项 census。完整 Scene suite 377 项：374 通过、3 项跳过；代码健康 443 Swift files、44 个锁定历史文件、400 行上限；语义覆盖 11/11。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：`678a052` 的真实目录 45 个可运行样本完整快照 45/45、particle 101/131；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 13/13、particle 19/27，static-origin 定向门 1/1、particle 17/19；两类矩阵仍单独保留且不能互相替代。20-key 完整门的 `builtInTextureUnavailable` 诊断从 15-key 历史完整门的 37 次降至 24 次；这只是层级运行诊断，不替代专项 census。完整 Scene suite 381 项：378 通过、3 项跳过；代码健康 443 Swift files、44 个锁定历史文件、400 行上限；语义覆盖 11/11。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -68,7 +68,7 @@
 | Camera Parallax | `L3` | 仅作者开启且非零 depth 时启用，含层级传播/阻断 | WE 数值 golden、camera shake/zoom、3D camera | B5 |
 | User Properties | `L3` | 独立窗口、条件、持久化、PNG/JPEG `sceneTexture`；layer alpha、纯 solid color、direct text、strict Local Contrast/Opacity 与受限 X-Ray target 已无重建 live 更新 | unsupported/mixed/SceneScript bindings、Texture Variants、shortcut、跨重启 UI 门；精确 census 见 runtime-input 专项表 | **B0/B1** |
 | Typed texture provider | `L3` | layer/named/property identity、status/fallback；静态 resource generation 与 named frame epoch 已分离 | 显式 dynamic generation、metadata、cancel、system/media/video/variant、通用 material、nested/effectful/child | **B1** |
-| EffectDefinition/Material IR | `L2` | definition/pass/RT/material/slot hole/combo/constant 可保留并建图；ShaderContract 保存 source identity；material render state 已把随包并存的 `depthtest`/`depthtesting`、`depthwrite`/`depthwriting`、`cullmode`/`culling` 两套拼写归一到同一份 IR，规范拼写共存时优先 | 完整 schema、typed shader defaults、condition/function；pass 级 `alphawriting`（随包 60 处）与 `usershadervalues`（随包 36 处）仍未进 IR | B2 |
+| EffectDefinition/Material IR | `L2` | definition/pass/RT/material/slot hole/combo/constant 可保留并建图；ShaderContract 保存 source identity；material render state 已把随包并存的 `depthtest`/`depthtesting`、`depthwrite`/`depthwriting`、`cullmode`/`culling` 两套拼写归一到同一份 IR，规范拼写共存时优先；pass 级 `alphawriting`（随包 60 处，值域 `default`/`enabled`）与 `usershadervalues`（随包 36 处，`{shader 值名: 用户属性名}`，与 `constantshadervalues` key 不重叠）已 loss-preserving 进 IR 并随 interpretation v26 上线 | 完整 schema、typed shader defaults、condition/function；`alphawriting` 尚未驱动 color write mask，`usershadervalues` 尚无 executor 消费也未让 strict backend fail closed | B2 |
 | Bounded effect executors | `L3` | 两个严格 Blur 图、strict stock Local Contrast、exact Workshop Shadow、exact stock Opacity、Shake、Water Waves、Water Flow、Foliage Sway、Water Ripple 与 X-Ray 十一类 backend 的 ordered strict chain 与若干受限手写 executor | 其余官方 Effect、variant、unsupported mask/SceneScript/mixed chain 与 visual golden | B3/B4 |
 | Current-frame capture | `L3` | bounded utility prefix capture 可执行 | 通用 capture/extent/format/mask | B2/B3 |
 | Named primary target | `L3` | bounded `_a` producer/consumer 可执行 | 通用 authored identity 和依赖环检测 | B2 |

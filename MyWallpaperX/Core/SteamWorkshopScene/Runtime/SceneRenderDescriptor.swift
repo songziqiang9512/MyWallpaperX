@@ -260,10 +260,12 @@ struct SceneRenderDescriptorBuilder {
                     userTextureInputs: pass.userTextureInputs,
                     combos: pass.combos,
                     constantShaderValues: pass.constantShaderValues,
+                    userShaderValues: pass.userShaderValues,
                     blending: pass.blending,
                     depthTest: pass.depthTest,
                     depthWrite: pass.depthWrite,
-                    cullMode: pass.cullMode
+                    cullMode: pass.cullMode,
+                    alphaWriting: pass.alphaWriting
                 )
             }
         }

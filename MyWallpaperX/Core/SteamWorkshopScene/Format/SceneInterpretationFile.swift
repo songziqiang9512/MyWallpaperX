@@ -16,8 +16,8 @@ struct SceneInterpretationFile: Codable {
 }
 
 struct SceneInterpretationFileWriter {
-    // Format 25 adds authored Puppet animation layer declarations.
-    static let currentFormatVersion = 25
+    // Format 26 adds material pass `alphawriting` render state and `usershadervalues` bindings.
+    static let currentFormatVersion = 26
 
     func make(
         renderDescriptor: SceneRenderDescriptor,

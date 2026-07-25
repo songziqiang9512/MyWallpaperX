@@ -39,9 +39,13 @@ extension SceneRenderDescriptor {
         let userTextureInputs: [SceneEffectTextureInput?]
         let combos: [String: Int]
         let constantShaderValues: [String: SceneDocument.ShaderValue]
+        /// `usershadervalues` 声明的「shader 值名 -> 用户属性名」绑定，与 `constantShaderValues`
+        /// 并列且 key 不重叠；当前只保存声明，尚无 executor 消费。
+        let userShaderValues: [String: String]
         let blending: String?
         let depthTest: String?
         let depthWrite: String?
         let cullMode: String?
+        let alphaWriting: String?
     }
 }

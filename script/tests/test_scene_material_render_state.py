@@ -56,6 +56,8 @@ private struct PassState: Codable {
     let depthTest: String?
     let depthWrite: String?
     let cullMode: String?
+    let alphaWriting: String?
+    let userShaderValues: [String: String]
 }
 
 @main
@@ -70,7 +72,9 @@ private enum MaterialRenderStateHarness {
                     blending: $0.blending,
                     depthTest: $0.depthTest,
                     depthWrite: $0.depthWrite,
-                    cullMode: $0.cullMode
+                    cullMode: $0.cullMode,
+                    alphaWriting: $0.alphaWriting,
+                    userShaderValues: $0.userShaderValues
                 )
             }
         }
@@ -108,6 +112,16 @@ MATERIALS = {
             "depthwriting": "disabled",
             "cullmode": "normal",
             "culling": "nocull",
+        }]
+    },
+    # alphawriting 与 usershadervalues 只出现在 material 文件，随包各 60/36 处；
+    # usershadervalues 的语义是「shader 值名 -> 用户属性名」，与 constantshadervalues 并列。
+    "bindings": {
+        "passes": [{
+            "blending": "normal",
+            "alphawriting": "enabled",
+            "constantshadervalues": {"roughness": 0.5},
+            "usershadervalues": {"schemecolor": "tint", "bgcolor": "tint2"},
         }]
     },
 }
@@ -169,6 +183,7 @@ class SceneMaterialRenderStateTests(unittest.TestCase):
             "depthTest": "disabled",
             "depthWrite": "disabled",
             "cullMode": "nocull",
+            "userShaderValues": {},
         }])
 
     def test_official_compatibility_spellings_reach_the_same_state_ir(self):
@@ -177,6 +192,7 @@ class SceneMaterialRenderStateTests(unittest.TestCase):
             "depthTest": "disabled",
             "depthWrite": "disabled",
             "cullMode": "nocull",
+            "userShaderValues": {},
         }])
 
     def test_canonical_spelling_wins_when_both_are_present(self):
@@ -184,6 +200,14 @@ class SceneMaterialRenderStateTests(unittest.TestCase):
             "depthTest": "enabled",
             "depthWrite": "enabled",
             "cullMode": "normal",
+            "userShaderValues": {},
+        }])
+
+    def test_alpha_writing_and_user_shader_value_bindings_are_preserved(self):
+        self.assertEqual(self.states["materials/bindings.json"], [{
+            "blending": "normal",
+            "alphaWriting": "enabled",
+            "userShaderValues": {"schemecolor": "tint", "bgcolor": "tint2"},
         }])
 
 

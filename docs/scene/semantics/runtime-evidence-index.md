@@ -15,7 +15,7 @@
 | 当前完整快照门 | `.codex/scene-static-origin-full45-20260725/report.json` 为 45/45、particle `101/131`、strict stage 91、chain 15、failed 0；报告 SHA-256 `8d578f2b8bb39e8f62fb0a64cfc1e0f6fd2018b578752afd3a555d8fb141e6a0`，仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` SHA-256 `b005da924cfefbcd08410d298f8795af67086f62c7df95ca802988fcfabea38e` |
 | 固定回归门 | `678a052` 签名 App 的 `.codex/scene-static-origin-fixed13-20260725/report.json` 为 13/13、particle `19/27`、strict stage 24、chain 2、failed 0；报告 SHA-256 `6537c945963e2005d9354113036602e57357a57ece44769e68aef3291252b07d`，矩阵 SHA-256 `479b794d64b48369348b4b8e6583599e5ac70161a4f670102332f5cd1e2d653c` |
 | Static-origin 定向门 | `.codex/scene-static-origin-targeted-20260725/report.json` 为 1/1、particle `17/19`；报告 SHA-256 `febd6e14feba2bb74251d1f513d89be0baa72084f6ddf8bfdf89f0791b9c3a4f`，定向矩阵 SHA-256 `4f68c1655eec246c6a94093c82a098bbe03a161997b1aec46175d9612e169c9e`；`3088601835:513/534` 的 `snowstormfog` child 由真实缓存门确认执行，preview 未出现 Smoke 洗白 |
-| 最新合同门 | interpretation v25；完整 Scene suite 377 项：374 通过、3 跳过；代码健康 443 Swift files、44 locked legacy files、400-line limit |
+| 最新合同门 | interpretation v26；完整 Scene suite 381 项：378 通过、3 跳过；代码健康 443 Swift files、44 locked legacy files、400-line limit |
 | ShaderContract | 173 contracts = 143 authored + 30 host built-in；286 stages、0 diagnostics；source/IR include 155、annotation 1523、declaration 2660，见 E-SHADER-CONTRACT |
 | Live property | layer alpha、solid color、strict Local Contrast/Opacity 与 direct text content/point-size/color 均由 per-surface snapshot 消费，accepted 且 surface/window identity 不变；报告见 E-LIVE-PROPERTY / E-DYNAMIC-TEXT |
 | Provider 双代 | `2938612768` static image blend 5/5；`2902406982` named capture 6/6、binding 7/7；报告见 E-PROVIDER |

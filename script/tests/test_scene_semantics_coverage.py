@@ -455,7 +455,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             "### E-GRAPH-LEGACY-COMPOSE: exact Blur Precise legacy two-pass normalization",
             evidence,
         )
-        self.assertIn("完整 Scene suite 377 项：374 通过、3 跳过", evidence)
+        self.assertIn("完整 Scene suite 381 项：378 通过、3 跳过", evidence)
         self.assertIn("Water Flow 10、Water Waves 11、Shake 24", evidence)
         self.assertIn("comparison_scope=same-sample-change-only", evidence)
         self.assertIn("cross_sample_ranking=false", evidence)
@@ -472,7 +472,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
 
         current_status = "\n".join(document_text.values())
         for fact in (
-            "interpretation v25",
+            "interpretation v26",
             "十一类 strict backend",
             "91 stage",
             "113 个 route-only effect",

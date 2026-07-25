@@ -207,10 +207,12 @@ struct SceneAssetCatalog {
             let userTextureInputs: [SceneEffectTextureInput?]
             let combos: [String: Int]
             let constantShaderValues: [String: SceneDocument.ShaderValue]
+            let userShaderValues: [String: String]
             let blending: String?
             let depthTest: String?
             let depthWrite: String?
             let cullMode: String?
+            let alphaWriting: String?
         }
 
         let relativePath: String

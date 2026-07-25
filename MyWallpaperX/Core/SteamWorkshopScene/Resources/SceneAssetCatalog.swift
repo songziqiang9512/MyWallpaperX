@@ -22,10 +22,12 @@ struct SceneAssetCatalog {
             let userTextureInputs: [SceneEffectTextureInput?]
             let combos: [String: Int]
             let constantShaderValues: [String: SceneDocument.ShaderValue]
+            let userShaderValues: [String: String]
             let blending: String?
             let depthTest: String?
             let depthWrite: String?
             let cullMode: String?
+            let alphaWriting: String?
         }
 
         let relativePath: String
@@ -168,10 +170,12 @@ struct SceneAssetCatalogLoader {
                 userTextureInputs: userTextureInputs(in: pass),
                 combos: pass["combos"] as? [String: Int] ?? [:],
                 constantShaderValues: materialConstantShaderValues(in: pass),
+                userShaderValues: pass["usershadervalues"] as? [String: String] ?? [:],
                 blending: pass["blending"] as? String,
                 depthTest: renderState(in: pass, "depthtest", "depthtesting"),
                 depthWrite: renderState(in: pass, "depthwrite", "depthwriting"),
-                cullMode: renderState(in: pass, "cullmode", "culling")
+                cullMode: renderState(in: pass, "cullmode", "culling"),
+                alphaWriting: pass["alphawriting"] as? String
             )
         }
         return SceneAssetCatalog.MaterialAsset(
