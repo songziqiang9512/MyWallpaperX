@@ -16,8 +16,8 @@ struct SceneInterpretationFile: Codable {
 }
 
 struct SceneInterpretationFileWriter {
-    // Format 24 adds Puppet child attachment names and resolved bind frames.
-    static let currentFormatVersion = 24
+    // Format 25 adds authored Puppet animation layer declarations.
+    static let currentFormatVersion = 25
 
     func make(
         renderDescriptor: SceneRenderDescriptor,

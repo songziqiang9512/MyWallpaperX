@@ -12,6 +12,7 @@ class SceneMetalView: NSView {
     private var imageTextures: [Int: MTLTexture] = [:]
     private var spriteAnimations: [Int: SceneSpriteAnimation] = [:]
     private var videoTextureSources: [Int: SceneVideoTextureSource] = [:]
+    private var puppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
     private var effectTextures = SceneLayerEffectTextureStore()
     private var imagePipeline: SceneImageLayerPipeline?
     private var particlePlayback: SceneParticlePlaybackState?
@@ -126,6 +127,7 @@ class SceneMetalView: NSView {
         var loaded: [Int: MTLTexture] = [:]
         var loadedSpriteAnimations: [Int: SceneSpriteAnimation] = [:]
         var loadedVideoSources: [Int: SceneVideoTextureSource] = [:]
+        var loadedPuppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
         var loadedEffectTextures = SceneLayerEffectTextureStore()
         var puppetRecomposeBytes = 0
         report.append("Scene preview texture load report")
@@ -220,6 +222,9 @@ class SceneMetalView: NSView {
                         effectiveTexture = recomposedTexture
                         puppetRecomposeBytes += puppetOutcome.byteCost
                     }
+                    if let playback = puppetOutcome.playback {
+                        loadedPuppetPlaybackStates[layer.id] = playback
+                    }
                     puppetMessage = "; \(puppetOutcome.message)"
                 }
                 loaded[layer.id] = effectiveTexture
@@ -311,6 +316,7 @@ class SceneMetalView: NSView {
         )
         report.append(contentsOf: textLoad.messages)
         videoTextureSources = loadedVideoSources
+        puppetPlaybackStates = loadedPuppetPlaybackStates
         effectTextures = loadedEffectTextures
         particlePlayback = SceneParticlePlaybackState(
             descriptor: renderer.renderDescriptor,
@@ -374,6 +380,11 @@ class SceneMetalView: NSView {
             particlePipeline: particlePlayback?.pipeline,
             offscreenTexturePool: offscreenTexturePool,
             frameContext: frameContext,
+            encodeSourceUpdates: { [puppetPlaybackStates] commandBuffer in
+                for playback in puppetPlaybackStates.values {
+                    playback.encode(sceneTime: frameContext.sceneTime, commandBuffer: commandBuffer)
+                }
+            },
             encodeFrameReadback: frameReadback,
             to: drawable
         )

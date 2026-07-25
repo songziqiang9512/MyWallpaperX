@@ -16,6 +16,7 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneDocument.swift",
     SOURCE_ROOT / "Format/SceneDocument+NumericParsing.swift",
+    SOURCE_ROOT / "Format/ScenePuppetAnimationLayer.swift",
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
@@ -90,6 +91,25 @@ SCENE_FIXTURE = {
             "name": "Composition with authored parallax",
             "image": "models/util/composelayer.json",
             "parallaxDepth": "0.25 -0.5",
+        },
+        {
+            "id": 70,
+            "name": "Puppet",
+            "image": "models/puppet.json",
+            "animationlayers": [
+                {
+                    "id": 701,
+                    "animation": 702,
+                    "name": "Idle",
+                    "additive": False,
+                    "blend": 1.0,
+                    "blendin": False,
+                    "blendout": False,
+                    "blendtime": 0.5,
+                    "rate": 1.0,
+                    "visible": {"user": "animate", "value": True},
+                }
+            ],
         },
     ],
 }
@@ -302,6 +322,20 @@ enum Harness {
             "imageRenderable": [10, 20, 30, 40].map {
                 layers[$0]?.isImageRenderable ?? false
             },
+            "puppetAnimationLayers": layers[70]?.puppetAnimationLayers.map {
+                [
+                    "id": $0.id ?? -1,
+                    "animationID": $0.animationID ?? -1,
+                    "additive": $0.additive ?? true,
+                    "blend": $0.blend ?? -1,
+                    "blendIn": $0.blendIn ?? true,
+                    "blendOut": $0.blendOut ?? true,
+                    "blendTime": $0.blendTime ?? -1,
+                    "rate": $0.rate ?? -1,
+                    "visible": $0.visible ?? false,
+                    "visibilityBinding": $0.visibilityBinding ?? "",
+                ] as [String: Any]
+            } ?? [],
             "uniformTint": [uniform.tint.x, uniform.tint.y, uniform.tint.z, uniform.tint.w],
             "textureSize": [solidTexture.width, solidTexture.height],
             "texturePixel": pixel,
@@ -425,6 +459,25 @@ class SceneSolidLayerTests(unittest.TestCase):
             re.compile(r"SceneLayerFragmentUniforms\([\s\S]{0,900}\btint\s*:\s*SIMD4\(tint\.x"),
         )
         self.assertRegex(shader, re.compile(r"\bu\.tint\b"))
+
+    def test_puppet_animation_layer_round_trips_into_descriptor(self) -> None:
+        self.assertEqual(
+            self.result["puppetAnimationLayers"],
+            [
+                {
+                    "id": 701,
+                    "animationID": 702,
+                    "additive": False,
+                    "blend": 1,
+                    "blendIn": False,
+                    "blendOut": False,
+                    "blendTime": 0.5,
+                    "rate": 1,
+                    "visible": True,
+                    "visibilityBinding": "animate",
+                }
+            ],
+        )
 
     def test_one_white_texture_is_reused_for_every_solid_layer(self) -> None:
         self.assertEqual(self.result["textureSize"], [1, 1])

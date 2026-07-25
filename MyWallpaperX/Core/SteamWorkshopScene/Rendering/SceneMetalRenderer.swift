@@ -130,10 +130,12 @@ struct SceneMetalRenderer {
         particlePipeline: SceneParticleMetalPipeline?,
         offscreenTexturePool: SceneOffscreenTexturePool?,
         frameContext: SceneFrameContext,
+        encodeSourceUpdates: ((MTLCommandBuffer) -> Void)? = nil,
         encodeFrameReadback: ((MTLTexture, MTLCommandBuffer) -> Void)? = nil,
         to drawable: CAMetalDrawable
     ) {
         guard let commandBuffer = commandQueue.makeCommandBuffer() else { return }
+        encodeSourceUpdates?(commandBuffer)
 
         let viewportSize = frameContext.screenSize
         let time = Float(frameContext.sceneTime)

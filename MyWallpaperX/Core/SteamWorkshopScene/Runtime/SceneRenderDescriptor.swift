@@ -35,6 +35,7 @@ struct SceneRenderDescriptor: Codable {
         let childLayerIDs: [Int]
         let attachmentName: String?
         let parentAttachmentBindFrame: [Float]?
+        let puppetAnimationLayers: [ScenePuppetAnimationLayer]
         let visible: Bool?
         let alpha: Double?
         let colorRGB: [Float]?
@@ -55,8 +56,7 @@ struct SceneRenderDescriptor: Codable {
         let parallaxDepthXY: [Float]?
         let disablesParallaxPropagation: Bool
         let modelCropOffsetXY: [Float]?
-        // Puppet `.mdl` path and any exact parent attachment bind frame. The
-        // runtime rebuilds the bind pose; warp animation stays unimplemented.
+        // Puppet `.mdl` path plus the authored animation layer declarations.
         let puppetMeshPath: String?
         let text: String?
         let textStyle: SceneTextDescriptor?
@@ -163,6 +163,7 @@ struct SceneRenderDescriptorBuilder {
                         objectsByID: objectsByID,
                         attachmentsByModelPath: puppetAttachmentsByModelPath
                     ),
+                    puppetAnimationLayers: object.puppetAnimationLayers,
                     visible: object.visible,
                     alpha: object.alpha,
                     colorRGB: padVector(object.colorRGB, length: 3, fill: 1),

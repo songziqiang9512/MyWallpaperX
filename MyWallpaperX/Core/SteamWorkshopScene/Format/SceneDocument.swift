@@ -1,8 +1,7 @@
 import Foundation
 
 struct SceneDocument {
-    // Camera node from scene.json. eye/center/up are in world coords; defaults
-    // match Wallpaper Engine's typical layout (look along -Z, Y up).
+    // Camera node from scene.json; defaults look along -Z with Y up.
     struct CameraDescriptor: Codable {
         let eye: [Float]      // [x, y, z], default [0, 0, 0]
         let center: [Float]   // [x, y, z], default [0, 0, -1]
@@ -58,6 +57,7 @@ struct SceneDocument {
         let dependencyLayerIDs: [Int]
         let parentID: Int?
         let attachmentName: String?
+        let puppetAnimationLayers: [ScenePuppetAnimationLayer]
         let visible: Bool?
         let alpha: Double?
         let colorRGB: [Float]?
@@ -206,6 +206,7 @@ struct SceneDocumentLoader {
             dependencyLayerIDs: root["dependencies"] as? [Int] ?? [],
             parentID: root["parent"] as? Int,
             attachmentName: stringValue(root["attachment"]).flatMap { $0.isEmpty ? nil : $0 },
+            puppetAnimationLayers: ScenePuppetAnimationLayer.parse(root["animationlayers"]),
             visible: visibleValue(root["visible"]),
             alpha: doubleValue(root["alpha"]),
             colorRGB: floatVector(root["color"]),
