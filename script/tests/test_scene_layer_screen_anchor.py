@@ -15,6 +15,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SCENE_ROOT / "Rendering/SceneLayerScreenAnchor.swift",
+    SCENE_ROOT / "Rendering/SceneTextLayerPivot.swift",
     SCENE_ROOT / "Rendering/SceneCameraProjection.swift",
     SCENE_ROOT / "Rendering/SceneMatrix.swift",
     SCENE_ROOT / "Rendering/SceneMetalPipeline.swift",
@@ -226,7 +227,8 @@ enum Harness {
         ]
     }
 
-    // 与 SceneMetalRenderer.imageModelMatrix 同一组合：translation(shift) * world * sizeScale，
+    // 与 SceneMetalRenderer.imageModelMatrix 同一组合：
+    // translation(shift) * world * sizeScale * translation(pivot)，
     // world 为 SceneLayerWorldFrameResolver 对 root layer 的 translation * euler * scale。
     static func labelMVP(anchor: String, viewportSize: CGSize) -> simd_float4x4 {
         let half = SceneCameraProjection.coverHalfExtents(
@@ -240,6 +242,8 @@ enum Harness {
         let world = SceneMatrix.translation(SIMD3(341.42999, 193 - 185.129, 0))
             * SceneMatrix.scale(SIMD3(repeating: 0.057))
         let sizeScale = SceneMatrix.scale(SIMD3(780, -291, 1))
+        // label_coins 的作者对齐是 horizontalalign right / verticalalign center。
+        let pivot = SceneTextLayerPivot.unitOffset(horizontal: "right", vertical: "center")
         let viewProjection = SceneCameraProjection.viewProjection(
             camera: camera, viewportSize: viewportSize
         )
@@ -247,6 +251,7 @@ enum Harness {
             * SceneMatrix.translation(SIMD3(shift.x, shift.y, 0))
             * world
             * sizeScale
+            * SceneMatrix.translation(SIMD3(pivot.x, pivot.y, 0))
     }
 
     static func whiteTexture(device: MTLDevice) -> MTLTexture? {
@@ -387,14 +392,14 @@ class SceneLayerScreenAnchorTests(unittest.TestCase):
         # 21:9 裁掉上下 24 个世界单位，作者摆位的 label 整块落在可见矩形之上。
         self.assertEqual(gpu["ultrawide-none"]["count"], 0)
         anchored = gpu["ultrawide-topright"]
-        # 锚定后覆盖像素与作者宽高比完全一致：216 px、x[238,255]、y[0,11]。
+        # 锚定后覆盖像素与作者宽高比完全一致：396 px、x[222,254]、y[0,11]。
         for key in ("count", "minX", "maxX", "minY", "maxY"):
             self.assertEqual(anchored[key], widescreen_plain[key], key)
         self.assertGreater(anchored["minX"], anchored["width"] * 0.8)
         self.assertLess(anchored["maxY"], anchored["height"] * 0.5)
-        # 两种宽高比的 quad 右边都停在最后一列：pivot 仍是几何中心，所以
-        # `horizontalalign: right` 的字形盒仍越过画布右边被裁（见 ledger 的 pivot 缺口）。
-        self.assertEqual(anchored["maxX"], anchored["width"] - 1)
+        # `horizontalalign: right` 的 pivot 让右边缘落在 origin.x=341.42999 对应的
+        # 第 254 列，整块 quad 都在画布内，不再被右界裁掉（见 test_scene_text_layer_pivot）。
+        self.assertEqual(anchored["maxX"], 254)
 
     def test_renderer_folds_screen_anchor_into_the_layer_translation(self) -> None:
         transforms = TRANSFORMS_SOURCE.read_text(encoding="utf-8")
@@ -405,7 +410,7 @@ class SceneLayerScreenAnchorTests(unittest.TestCase):
         ))
         self.assertRegex(transforms, re.compile(
             r"let shift = parallax \+ screenAnchor"
-            r"[\s\S]{0,160}SceneMatrix\.translation\(SIMD3\(shift\.x, shift\.y, 0\)\)"
+            r"[\s\S]{0,400}SceneMatrix\.translation\(SIMD3\(shift\.x, shift\.y, 0\)\)"
         ))
         # 三个 imageModelMatrix 调用点都要喂真实的 cover 半宽高。
         renderer = RENDERER_SOURCE.read_text(encoding="utf-8")

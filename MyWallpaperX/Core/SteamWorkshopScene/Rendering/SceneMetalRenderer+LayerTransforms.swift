@@ -24,7 +24,16 @@ extension SceneMetalRenderer {
             visibleHalfExtents: visibleHalfExtents
         )
         let shift = parallax + screenAnchor
-        return SceneMatrix.translation(SIMD3(shift.x, shift.y, 0)) * world * sizeScale
+        // 作者 text layer 的对齐同时是 quad pivot：origin 落在对齐命名的那条边上，
+        // 放在 sizeScale 之后才能跟着作者 size、layer scale 缩放并留在旋转内部。
+        let pivot = SceneTextLayerPivot.unitOffset(
+            horizontal: layer.textStyle?.horizontalAlignment,
+            vertical: layer.textStyle?.verticalAlignment
+        )
+        return SceneMatrix.translation(SIMD3(shift.x, shift.y, 0))
+            * world
+            * sizeScale
+            * SceneMatrix.translation(SIMD3(pivot.x, pivot.y, 0))
     }
 
     func particleModelMatrix(
