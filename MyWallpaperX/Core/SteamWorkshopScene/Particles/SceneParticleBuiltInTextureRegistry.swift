@@ -73,7 +73,7 @@ final class SceneParticleBuiltInTextureRegistry {
         case .chromaticDot, .leaves7, .leaves8, .halo, .halo2, .halo4,
              .rippleSingle, .rosePetals:
             64
-        case .beam1, .fire1, .fog1, .lightShafts6, .lightning3:
+        case .beam1, .fire1, .fog1, .lightShafts0, .lightShafts6, .lightning3:
             128
         }
     }
@@ -105,6 +105,16 @@ final class SceneParticleBuiltInTextureRegistry {
             return leafAlpha(x: x, y: y, rotation: -0.48, bend: 0.16, width: 0.42)
         case .leaves8:
             return leafAlpha(x: x, y: y, rotation: 0.62, bend: -0.13, width: 0.32)
+        case .lightShafts0:
+            let progress = clamp((y + 1) * 0.5)
+            let vertical = smooth(progress * 4) * smooth((1 - progress) * 3)
+            let primaryCenter = -0.28 + progress * 0.18
+            let primaryWidth = 0.055 + progress * 0.22
+            let secondaryCenter = 0.28 + progress * 0.08
+            let secondaryWidth = 0.035 + progress * 0.14
+            let primary = pow(smooth(1 - abs(x - primaryCenter) / primaryWidth), 1.7)
+            let secondary = pow(smooth(1 - abs(x - secondaryCenter) / secondaryWidth), 1.8)
+            return 0.18 * vertical * clamp(primary + 0.55 * secondary)
         case .lightShafts6:
             let progress = clamp((y + 1) * 0.5)
             let width = 0.08 + progress * 0.52
