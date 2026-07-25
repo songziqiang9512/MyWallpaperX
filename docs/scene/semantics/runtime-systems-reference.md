@@ -194,7 +194,7 @@ Text 不是播放器 UI overlay。真实样本中的 text object 同时具有：
 
 字体文件与系统字体别名必须可诊断。找不到字体时记录 fallback 的具体字体，不能无声替换。
 
-MyWallpaperX 当前的 `pointsize * 4` 是 E 级样本近似，不是官方换算公式。它已经改善部分静态样本，但 300 DPI、scene unit、raster backing scale 和 Retina 输出之间的精确关系仍需官方 Windows 对照；实现和文档都不能把 `* 4` 提升为完整文字语义。
+MyWallpaperX 当前的 `pointsize * 300 / 72` 直接来自官方 typings 对 `ITextLayer.pointsize` 的 300 DPI 说明，并由随包 `dino_run` 两个记分标签的作者 size 逐位复现，见 [E-TEXT-POINTSIZE](runtime-evidence-index.md#e-text-pointsize)。但 scene unit、raster backing scale 和 Retina 输出之间的精确关系仍需官方 Windows 对照，本地还对像素字号做了 1024 的夹取；实现和文档都不能把这一个换算提升为完整文字语义。
 
 ### 3.3 Text 验收
 

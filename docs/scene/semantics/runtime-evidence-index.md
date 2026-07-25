@@ -109,6 +109,15 @@
 - GPU 门：同一自动门用真实 `SceneImageLayerPipeline` 与真实 `SceneCameraProjection.viewProjection` 在 256x144（作者 16:9）离屏纹理上画两个标签。几何中心 pivot 下 `label_coins` 216 px、x`[238,255]`，`label_top` 54 px、x`[247,255]`，两者右边缘都被裁在最后一列且可见宽度不同；作者对齐 pivot 下 `label_coins` 396 px、x`[222,254]`（33 列全可见），`label_top` 102 px、x`[238,254]`（17 列），右边缘齐平在 `origin.x` 对应的第 254 列。竖向 `top` 把 `label_coins` 从 y`[0,11]` 推到 y`[6,17]`（半高 8.2935 世界单位 = 6.19 px），`bottom` 推到 y`[0,5]`。
 - 边界：框仍是作者 `size` 加 `padding` 的固定外框，不按运行时文本重新测量，所以文本比作者内容更长时会被框裁掉（官方会重新测量外框）；`padding` 对称扩框后 pivot 取的是扩后的边，随包全部 `padding: 0`，没有反例可校。`blockalign`（随包 `dino_run` 为 `false`、三个 preset 为 `null`，不在 typings 里）未解析。基线（baseline）本身仍未处理。没有桌面真实运行截图门，也没有 Windows 像素标定；`45/45` 与 `13/13` 运行门是本次改动之前的基线。
 
+<a id="e-text-pointsize"></a>
+### E-TEXT-POINTSIZE: 300 DPI point size 换算
+
+- 代码：[SceneTextGeometry.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextGeometry.swift)、[SceneTextTextureLoader.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextTextureLoader.swift)
+- 作者合同：`ui/dist/monaco/autocomplete/lib.sceneScript.d.ts:1604` 给 `ITextLayer.pointsize` 的注释是 "Size of the font in points for 300 DPI."，因此像素字号 = `pointsize * 300 / 72 = pointsize * 25/6 ≈ 4.16667`；此前实现用的 `round(pointsize * 4)` 比它低 4%。
+- 数值判据：本机只读探针用官方安装的 `assets/fonts/Segment7Standard.otf`（unitsPerEm 1000）在 CoreText 里排 `dino_run` 两个记分标签的同一内容 `"00000"`，该串 advance 恒为像素字号的 2.925 倍。`pointsize 64 -> 266.667 px` 时排版宽正好 780.000、ascent+descent+leading 290.67（取整 291）；`pointsize 32 -> 133.333 px` 时排版宽正好 390.000、ascent+descent+leading 145.33（取整 145）。作者 size 分别是 `780x291` 与 `390x145`，四个数字逐位相符。反解同样落在 25/6：让排版宽等于作者宽所需的像素字号是 266.667 与 133.333，倍率都是 4.1667；`x4.0` 只能给出 748.80 与 374.40。
+- 自动门：[test_scene_text_rendering.py](../../../script/tests/test_scene_text_rendering.py)。锁定 `32 -> 400/3`、`64 -> 800/3`、两者严格 2 倍线性、包裹式 property 值 `42 -> 175`，以及 `0 -> 1`、`300 -> 1024` 两端夹取。
+- 边界：数值判据是本机手动探针，不是仓库内自动门——自动门只校验算术，字体度量没有进 CI；探针只读官方安装目录，未复制任何 payload 进 MyWallpaperX。字号仍夹在 `[1, 1024]` px，作者值 ≥ 245.76 磅起偏离官方换算，这是本地纹理保护不是官方合同（超大外框另由 `SceneTextGeometry.rasterLayout` 整块等比缩小）。作者 size 仍被当固定外框，见 [E-TEXT-PIVOT](#e-text-pivot) 的边界，所以换算准确只保证字号，不保证长内容不被裁。没有 Windows 逐像素对照。
+
 <a id="e-dynamic-text"></a>
 ### E-DYNAMIC-TEXT: direct property 动态文字与 generation lifecycle
 

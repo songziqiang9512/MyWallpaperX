@@ -48,7 +48,7 @@
 | Utility / Composition | typed composition/project/fullscreen；framebuffer 前缀捕获；局部/full-frame geometry；受限纹理池；mask/partial effect fail-closed；290 的 project 410 / composition 530 与 6 个 named provider / 7 个 consumer 已完成 GPU capture/binding；registry 按 identity/status/generation 选择首个 ready 候选；293 的 providers 141/1340、consumers 299/322 与隐藏 image providers 到 layers 239/657/775/875/1509 的静态 blend 已进入 GPU runtime；受限 property file provider 已接入 | system/media/video/Texture Variants、effectful provider、nested/child target、utility mask、动态 blendgradient 与任意 material/shader pass；不能把受限 named-target/static image 子集写成完整 dependency graph |
 | Puppet | MDLV bind-pose 重组、静态 MDAT attachment；MDLV0023/MDLS0004/MDLA0006 的严格单静态可见 loop clip 以 source-FPS 离散 CPU LBS 播放；`3747492842` 六层、`3768229922` 两层、`3769688830` 一层进入 animation | MDLV0016/其他版本、插值、mixing、非 1 rate/blend、动态 visibility/attachment follow、constraints/IK/physics/channels/clipping；无 Windows WE golden |
 | Particle | 包内 texture、sprite sheet、13 个精确 built-in key、continuous/burst schedule、常见 initializer/operator、additive/translucent、Sprite Trail、静态 override、fixed-step/seed/budget，以及 strict depth-one eventspawn/natural-eventdeath child；固定门 18/27、完整 45 门 83/131（REFRACT fail-closed 口径），`3724289844` 为 5/5、`3750813609` 为 7/9 | 21 样本 asset census 仍有 13 个 built-in texture unavailable；atlas/multi-texture、static/follow/nested child、event transform/inheritance、rope/rope trail、world-space、动态 control point/override、collision/delete、音频与属性 operator |
-| Text | 当前以 authored `pointsize * 4` 近似官方 300 DPI point raster，处理 vector padding、包内字体、系统字体别名和确定性 fallback 诊断；`3766387484` 3/3、`3122339805` 80/81、`2134765860` 4/6 candidate | 精确 DPI/scene-unit 校准、SceneScript、真实时钟/日期/媒体值、完整对齐/描边/阴影/effect 语义 |
+| Text | 当前以 authored `pointsize * 300 / 72` 换算官方 300 DPI point raster，处理 vector padding、包内字体、系统字体别名和确定性 fallback 诊断；`3766387484` 3/3、`3122339805` 80/81、`2134765860` 4/6 candidate | Windows 逐像素对照、SceneScript、真实时钟/日期/媒体值、完整对齐/描边/阴影/effect 语义 |
 | 自动门（当前增量） | 45 样本完整快照与固定 13 样本回归门，interpretation format 25，签名 App、Metal 双帧；十一类 strict backend/ordered chain、Puppet bind-pose/静态 attachment/严格 MDLA LBS、B0 property、dynamic text generation、provider/file override 与粒子合同；370 项 Scene 测试为 367 通过、3 跳过；无 timeout、stop 后 surface=0 | 45 门与固定门数据以 [运行证据索引](semantics/runtime-evidence-index.md) 为准；`3770500543` 因缺 package 未进入可运行矩阵；preview 不设绝对阈值且不能跨样本排名，仍没有 Windows WE 同配置录屏差异门 |
 
 ## 横向能力判断
@@ -70,7 +70,7 @@
 
 ### Text 与字体
 
-13/21 个样本共声明 258 个 text layer。当前 CoreText 路径以 `pointsize * 4` 近似官方声明的 300 DPI point raster，并处理 vector padding、包内字体和系统字体别名；`3766387484` 的非均匀 scale 静态几何已明显接近 preview，但该倍率仍需 Windows 官方输出校准。`3750813609` 的 200pt 时钟仍是过大的黑色静态占位，说明字号几何修正并未闭合最终字体、颜色和 effect 语义。未知 SceneScript 不执行，时钟、日期、媒体信息和随机文本仍是静态值，对齐、描边/阴影和 effect pass 也未完整复刻。`3750813609`、`3766387484`、`3122339805` 继续作为大字号、非均匀缩放和 100 层压力三类文字基准。
+13/21 个样本共声明 258 个 text layer。当前 CoreText 路径以 `pointsize * 300 / 72` 换算官方声明的 300 DPI point raster，并处理 vector padding、包内字体和系统字体别名；`3766387484` 的非均匀 scale 静态几何已明显接近 preview，该倍率也已由官方 typings 与随包 `dino_run` 两个记分标签的作者 size 逐位标定，但仍缺 Windows 逐像素对照。`3750813609` 的 200pt 时钟仍是过大的黑色静态占位，说明字号几何修正并未闭合最终字体、颜色和 effect 语义。未知 SceneScript 不执行，时钟、日期、媒体信息和随机文本仍是静态值，对齐、描边/阴影和 effect pass 也未完整复刻。`3750813609`、`3766387484`、`3122339805` 继续作为大字号、非均匀缩放和 100 层压力三类文字基准。
 
 Camera Parallax 的当前负向合同已经补齐：包括 composition 在内，layer 缺失 `parallaxDepth` 或两轴均为零时不产生逐层位移；composition 类型本身不隐含任何视差深度。位移归一化和 delay 曲线仍需 Windows golden 校准。
 

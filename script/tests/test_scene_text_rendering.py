@@ -124,6 +124,7 @@ enum Harness {
 
         let result: [String: Any] = [
             "point32": SceneTextGeometry.pointSizeInPixels(32),
+            "point64": SceneTextGeometry.pointSizeInPixels(64),
             "point300": SceneTextGeometry.pointSizeInPixels(300),
             "pointZero": SceneTextGeometry.pointSizeInPixels(0),
             "expandedSize": SceneTextGeometry.expandedSize(
@@ -215,7 +216,15 @@ class SceneTextRenderingTests(unittest.TestCase):
             cls.temporary_directory.cleanup()
 
     def test_authored_point_size_uses_we_pixel_scale_and_cap(self) -> None:
-        self.assertEqual(self.result["point32"], 128)
+        # lib.sceneScript.d.ts 的 ITextLayer.pointsize 是 300 DPI 下的磅值，
+        # 换算到像素是 300/72 = 25/6。随包 dino_run 用 Segment7Standard.otf 排 "00000"：
+        # pointsize 64 -> 266.667 px 时排版宽正好 780、32 -> 133.333 px 时正好 390，
+        # 与两个记分标签的作者 size 780/390 逐位相符。上限 1_024 是纹理边长保护。
+        self.assertAlmostEqual(self.result["point32"], 400 / 3, places=4)
+        self.assertAlmostEqual(self.result["point64"], 800 / 3, places=4)
+        self.assertAlmostEqual(
+            self.result["point64"] / self.result["point32"], 2, places=6
+        )
         self.assertEqual(self.result["point300"], 1024)
         self.assertEqual(self.result["pointZero"], 1)
 
@@ -224,7 +233,8 @@ class SceneTextRenderingTests(unittest.TestCase):
         self.assertEqual(self.result["wrappedPadding"], 82)
 
     def test_wrapped_property_point_size_keeps_we_pixel_scale(self) -> None:
-        self.assertEqual(self.result["wrappedPointSize"], 168)
+        # 作者值 42 磅 -> 42 * 25/6 = 175 px。
+        self.assertEqual(self.result["wrappedPointSize"], 175)
 
     def test_text_geometry_adds_padding_outside_authored_bounds(self) -> None:
         self.assertEqual(self.result["expandedSize"], [120, 70])

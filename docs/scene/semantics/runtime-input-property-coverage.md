@@ -289,7 +289,7 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 |---|---|---|---|
 | static content raster | `L3` | CoreText 启动时栅格；[E-TEXT](runtime-evidence-index.md#e-text) | dynamic layer texture store |
 | package/system font resolution | `L3` | 包内字体与 macOS alias/fallback；[E-TEXT](runtime-evidence-index.md#e-text) | Windows family/weight/CJK/emoji golden |
-| point size | `L3` | authored `pointsize * 4` 经验近似；[E-TEXT](runtime-evidence-index.md#e-text) | WE/Windows 标定公式 |
+| point size | `L3` | authored `pointsize * 300 / 72` 官方 300 DPI 换算；[E-TEXT-POINTSIZE](runtime-evidence-index.md#e-text-pointsize) | Windows 逐像素对照、去掉本地 1024 px 字号夹取 |
 | alignment/baseline/padding | `L2` | 部分字段/geometry 进入链路 | 每种 alignment 正反像素门 |
 | color/alpha | `L3` | 静态 descriptor 和 direct color generation consumer；[E-DYNAMIC-TEXT](runtime-evidence-index.md#e-dynamic-text) | premultiplied alpha 与 Windows golden |
 | outline/shadow/text effects | `L1` | 可见字段/effect 可能被保留 | 独立 style IR 与执行器 |

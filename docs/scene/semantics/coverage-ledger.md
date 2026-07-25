@@ -181,7 +181,7 @@
 |---|---|---|
 | 静态文字内容 | `L3` | CoreText 可见；结构样本 `79/108` |
 | 字体解析/fallback | `L3` | macOS 字体近似子集；补 Windows family/weight/CJK/emoji golden |
-| point size | `L3` | `pointsize * 4` 为经验近似；需官方/Windows 标定 |
+| point size | `L3` | 官方 `pointsize` 是 300 DPI 磅值（`lib.sceneScript.d.ts` 的 `ITextLayer`："Size of the font in points for 300 DPI"），栅格像素字号取 `pointsize * 300 / 72`，随包 `dino_run` 两个记分标签的作者 size `780x291`/`390x145` 四个数字逐位复现（此前的 `round(pointsize * 4)` 低 4%）。字号仍被夹在 `[1, 1024]` px，作者值 ≥ 245.76 磅起偏离官方换算，这是本地纹理保护不是官方合同；数值判据来自本机只读探针而非仓库内自动门，也无 Windows 逐像素对照，见 [E-TEXT-POINTSIZE](runtime-evidence-index.md#e-text-pointsize) |
 | baseline/alignment | `L2` | 基线（baseline）本身未处理，`blockalign` 未解析；对齐字段的执行边界见下一行 |
 | text alignment pivot（`horizontalalign`/`verticalalign`） | `L3` | 官方取值域 left/center/right × center/top/bottom 全部参与 quad pivot：origin 落在被命名的那条边上，缺省与未知取值退回几何中心；同一组字段继续喂 CoreText 框内排版。离屏 GPU 门下 `dino_run` 231/177 的 `horizontalalign: right` 从"右边缘各自被裁在最后一列"变成"右边缘齐平在 `origin.x` 对应的第 254 列"（216→396 px、54→102 px），三个 `center`/`center` preset 摆位不变。框仍是作者 `size`+`padding` 的固定外框，不按运行时文本重新测量；`padding` 与 pivot 的交互随包全为 `padding: 0`，无反例可校；无 Windows 像素标定，见 [E-TEXT-PIVOT](runtime-evidence-index.md#e-text-pivot) |
 | screen anchor（text layer） | `L3` | 官方 10 个取值全部解析并每帧折进 layer 平移，`none`/缺省/未知取值不偏移；离屏 GPU 门下 21:9 的 `dino_run` 记分标签从 0 覆盖像素回到与 16:9 完全一致的 396 px 右上角；只有 text layer 携带该字段，Windows 像素标定见 [E-TEXT-ANCHOR](runtime-evidence-index.md#e-text-anchor) |

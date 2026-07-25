@@ -10,9 +10,13 @@ nonisolated enum SceneTextGeometry {
         let contentHeight: Float
     }
 
+    // WE 的 `pointsize` 是 300 DPI 下的磅值（lib.sceneScript.d.ts 的 ITextLayer：
+    // "Size of the font in points for 300 DPI"），换算到像素就是 300/72 = 25/6。
+    // 随包 `dino_run` 用同一字体 assets/fonts/Segment7Standard.otf 排同一内容 "00000"：
+    // pointsize 64 -> 266.667 px 时排版宽正好 780、pointsize 32 -> 133.333 px 时正好 390，
+    // 与作者 size 的 780/390 逐位相符；上限 1_024 是纹理边长保护，不是官方合同。
     nonisolated static func pointSizeInPixels(_ authoredPointSize: Float) -> Float {
-        // WE stores text point size at one quarter of the rasterized glyph size.
-        min(max((authoredPointSize * 4).rounded(), 1), 1_024)
+        min(max(authoredPointSize * 300 / 72, 1), 1_024)
     }
 
     nonisolated static func expandedSize(
