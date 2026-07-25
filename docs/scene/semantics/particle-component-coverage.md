@@ -6,7 +6,7 @@
 >
 > 口径来源：[官方页面目录](official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[资料来源与证据索引](source-index.md)
 > 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，并执行非音频 Turbulent Velocity Random、严格的 depth-one static/default-static/`eventspawn` / natural-`eventdeath` / `eventfollow` child，以及持续/混合/duration child emitter；它仍不是通用 Particle System，尤其没有 Layer Image、non-identity child transform、collision/delete event、动态 Control Point、World Space、Rope、Audio Response 和完整 Particle Material。
-> Scene 实现基线：`899704b`；eventspawn/death 子集由 `f4173ea`、`7d53c10` 实现，eventfollow owner 由 `928acca` 实现，持续 child lifecycle/root aggregate budget 由 `2f897bc` 实现，static/default-static 由 `899704b` 实现，`4e64232` 补齐延迟截图证据入口，`c654571` 增加 `rosepetals`/`beam_1`，`f02f41d` 增加 `particle/fire/fire1`，`a5a951f` 增加 `particle/light/light_shafts_0`，`9748a8c` 增加 `particle/halo_3`、`particle/fog/fog3`、`particle/light/flare_1`，`4a17ee6` 执行非音频 turbulent velocity。固定 13 样本门 particle 为 `18/27`，static child 定向门为 `2/2`，完整 45 样本门为 `91/131`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。仍不是通用 Particle System。
+> Scene 实现基线：`8a27089`；eventspawn/death 子集由 `f4173ea`、`7d53c10` 实现，eventfollow owner 由 `928acca` 实现，持续 child lifecycle/root aggregate budget 由 `2f897bc` 实现，static/default-static 由 `899704b` 实现，`4e64232` 补齐延迟截图证据入口，`c654571` 增加 `rosepetals`/`beam_1`，`f02f41d` 增加 `particle/fire/fire1`，`a5a951f` 增加 `particle/light/light_shafts_0`，`9748a8c` 增加 `particle/halo_3`、`particle/fog/fog3`、`particle/light/flare_1`，`8a27089` 增加 `particle/nature/snow` 与 `particle/smoke/smoke2`，`4a17ee6` 执行非音频 turbulent velocity。固定 13 样本门 particle 为 `19/27`，Snow/Smoke 定向门为 `17/19`，完整 45 样本门为 `101/131`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。仍不是通用 Particle System。
 
 本文把官方 Particle 的 General、Emitter、Initializer、Operator、Renderer、Control Point、Children、instance override 与 material 逐项映射到当前实现。它是 [总覆盖台账](coverage-ledger.md) 中 Particle 行的展开表；总表与本文冲突时，以本文更细粒度、更新的代码证据为准。
 
@@ -265,8 +265,8 @@
 | M14 Depth test/write/cull | perspective/world 粒子可需要 depth 和 cull render state。 | `L0` | [AST] [GPU] | Particle material adapter 只携带 blending。 | typed render state + depth attachment 正反门。 |
 | M15 Material combos/constants | combo/constant 选择 shader variant 和参数。 | `L0` | [AST] [GPU] | Particle adapter 丢弃 combos/constants。 | 保真 IR、variant key 和参数 buffer fixture。 |
 | M16 File-backed TEX/PNG/JPEG | 合法本地 particle texture 可解码并上传 GPU。 | `L3` | [AST] [RUN] [T-AST] [T-RUN] | 格式集合受 SceneTextureLoader 限制；无跨格式视觉 parity。 | TEX variants、color space、损坏资源负向门。 |
-| M17 Built-in texture identity | `particle/...` key 指向 Wallpaper Engine 内置粒子资产。 | `L1` | [TEX] [AST] [T-AST] | 任意 key 可识别为 built-in reference，但只支持十八个精确枚举。 | 建立合法官方 assets 来源与版本化 key registry。 |
-| M18 Eighteen generated built-ins | 当前十八个高命中 key 可生成确定性替代纹理。 | `L3` | [TEX] [BUILTIN] [T-TEX] [T-RUN] | 程序图形不是官方资产；`chromaticdot` 是白色软点，`halo_4` 近似小型发光弹头，`rosepetals` 是单花瓣遮罩，`beam_1` 是水平软光束，`particle/fire/fire1` 是低能量火焰遮罩，`particle/light/light_shafts_0` 是低能量双光束遮罩；Flare 新增柔和径向 `halo_3`、峰值约 2/255 的低能量 `fog3` 与紧凑十字 `flare_1`。均只保证受控 shape family 和安全 alpha，不是官方资产或 WE pixel parity。 | 每个 key 先以样本自带 preview 验证明显外观，再与合法 Windows WE 输出做尺寸/通道/pixel 差异门。 |
+| M17 Built-in texture identity | `particle/...` key 指向 Wallpaper Engine 内置粒子资产。 | `L1` | [TEX] [AST] [T-AST] | 任意 key 可识别为 built-in reference，但只支持二十个精确枚举。 | 建立合法官方 assets 来源与版本化 key registry。 |
+| M18 Twenty generated built-ins | 当前二十个高命中 key 可生成确定性替代纹理。 | `L3` | [TEX] [BUILTIN] [T-TEX] [T-RUN] | 程序图形不是官方资产；`chromaticdot` 是白色软点，`halo_4` 近似小型发光弹头，`rosepetals` 是单花瓣遮罩，`beam_1` 是水平软光束，`particle/fire/fire1` 是低能量火焰遮罩，`particle/light/light_shafts_0` 是低能量双光束遮罩；Flare 使用柔和径向 `halo_3`、峰值约 2/255 的低能量 `fog3` 与紧凑十字 `flare_1`；`particle/nature/snow` 是中低能量六向雪花，`particle/smoke/smoke2` 是峰值约 0.045 的低能量扩散烟雾。均只保证受控 shape family 和安全 alpha，不是官方资产或 WE pixel parity。 | 每个 key 先以样本自带 preview 验证明显外观，再与合法 Windows WE 输出做尺寸/通道/pixel 差异门。 |
 | M19 Missing built-in fail-closed | 未支持 built-in 应报告 unavailable，不能静默用任意白块。 | `L3` | [AST] [RUN] [T-AST] [T-RUN] | 诊断明确且层不可用；尚无用户可见降级说明。 | 诊断聚合和 fallback policy 产品门。 |
 | M20 Sprite atlas metadata | TEX frame origin/axes/duration 选择 atlas 子区域。 | `L3` | [RUN] [GPU] [T-GPU] | 仅当前 SpriteAnimation 结构；无多 texture sequence。 | rotated/trimmed/variable duration atlas pixel 门。 |
 | M21 Premultiplied alpha contract | CPU 颜色、纹理和 blend factor 必须使用一致 alpha 合同。 | `L3` | [BUILTIN] [GPU] [T-TEX] [T-GPU] | 生成纹理有 premultiply 门；外部 TEX/PNG 和 WE blend 未全链核验。 | file/built-in 双来源的重叠 pixel golden。 |
@@ -294,6 +294,6 @@
 
 - 本台账共覆盖 `171` 个粒子能力项：General 18、Emitter 17、Initializer 18、Operator 29、Renderer 14、Control Point 12、Children 12、Instance Override 16、Material 22、执行/生命周期 13。
 - 等级分布为 `L0 30 / L1 56 / L2 23 / L3 62 / L4 0`。`L3` 主要集中在 Sphere/Box、常见随机 initializer、基础 movement/change/oscillation、Sprite/Sprite Trail、strict static/event child、已测试的静态 override、首纹理和两种 blend。
-- 当前固定矩阵的“可见粒子 18/27”、完整矩阵的“91/131”、`3724289844` 的“5/5”与 `3750813609` 的“7/9”只是样本运行门，不是上述 171 项的兼容率；world-space fail-closed 也不能计为可播放。
+- 当前固定矩阵的“可见粒子 19/27”、完整矩阵的“101/131”、`3088601835` 的“17/19”、`3724289844` 的“5/5”与 `3750813609` 的“7/9”只是样本运行门，不是上述 171 项的兼容率；world-space 或 static origin fail-closed 也不能计为可播放。
 - 开发批次应优先消除公共断点：复用现有 per-surface typed snapshot 接入动态 Control Point 与 author allow gates，再补 Layer Image、剩余 Children/Event、Collision 和 Rope，最后扩展 audio/material/lighting。逐样本 hardcode、把 unsupported 静默回退成 Sprite/translucent、或把程序纹理称为官方资产，都不允许升级等级。
 - 任一条目升级时，必须同时更新本表的等级、边界、证据路径和下一验收门；只有跑过对应正向、负向、生命周期测试后才能从 `L2` 升到 `L3`。
