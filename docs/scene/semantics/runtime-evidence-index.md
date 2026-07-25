@@ -15,7 +15,7 @@
 | 当前完整快照门 | `.codex/scene-static-origin-full45-20260725/report.json` 为 45/45、particle `101/131`、strict stage 91、chain 15、failed 0；报告 SHA-256 `8d578f2b8bb39e8f62fb0a64cfc1e0f6fd2018b578752afd3a555d8fb141e6a0`，仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` SHA-256 `b005da924cfefbcd08410d298f8795af67086f62c7df95ca802988fcfabea38e` |
 | 固定回归门 | `678a052` 签名 App 的 `.codex/scene-static-origin-fixed13-20260725/report.json` 为 13/13、particle `19/27`、strict stage 24、chain 2、failed 0；报告 SHA-256 `6537c945963e2005d9354113036602e57357a57ece44769e68aef3291252b07d`，矩阵 SHA-256 `479b794d64b48369348b4b8e6583599e5ac70161a4f670102332f5cd1e2d653c` |
 | Static-origin 定向门 | `.codex/scene-static-origin-targeted-20260725/report.json` 为 1/1、particle `17/19`；报告 SHA-256 `febd6e14feba2bb74251d1f513d89be0baa72084f6ddf8bfdf89f0791b9c3a4f`，定向矩阵 SHA-256 `4f68c1655eec246c6a94093c82a098bbe03a161997b1aec46175d9612e169c9e`；`3088601835:513/534` 的 `snowstormfog` child 由真实缓存门确认执行，preview 未出现 Smoke 洗白 |
-| 最新合同门 | interpretation v27；完整 Scene suite 383 项：380 通过、3 跳过；代码健康 444 Swift files、44 locked legacy files、400-line limit |
+| 最新合同门 | interpretation v28；完整 Scene suite 389 项：386 通过、3 跳过；代码健康 445 Swift files、44 locked legacy files、400-line limit |
 | ShaderContract | 173 contracts = 143 authored + 30 host built-in；286 stages、0 diagnostics；source/IR include 155、annotation 1523、declaration 2660，见 E-SHADER-CONTRACT |
 | Live property | layer alpha、solid color、strict Local Contrast/Opacity 与 direct text content/point-size/color 均由 per-surface snapshot 消费，accepted 且 surface/window identity 不变；报告见 E-LIVE-PROPERTY / E-DYNAMIC-TEXT |
 | Provider 双代 | `2938612768` static image blend 5/5；`2902406982` named capture 6/6、binding 7/7；报告见 E-PROVIDER |
@@ -89,6 +89,15 @@
 - 代码：[SceneTextTextureLoader.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextTextureLoader.swift)
 - 自动门：[test_scene_text_rendering.py](../../../script/tests/test_scene_text_rendering.py)、[test_scene_user_properties.py](../../../script/tests/test_scene_user_properties.py)
 - 运行门：`.codex/scene-text-fixed-20260722/report.json` 和正式矩阵的 text loaded/candidate 结构门；没有 Windows 字体/基线 golden。
+
+<a id="e-text-anchor"></a>
+### E-TEXT-ANCHOR: text layer screen anchor
+
+- 代码：[SceneLayerScreenAnchor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneLayerScreenAnchor.swift)、[SceneMetalRenderer+LayerTransforms.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalRenderer+LayerTransforms.swift)、[SceneTextDescriptor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextDescriptor.swift)
+- 作者合同：`lib.sceneScript.d.ts` 的 `ITextLayer.anchor` 给出 none/center/top/topright/right/bottomright/bottom/bottomleft/left/topleft 十个取值，`locale/ui_en-us.json` 的 `ui_editor_properties_screen_anchor` 为 "Screen anchor"；随包只有 5 个 text layer，`dino_run` 的 231/177 为 `topright`，`previewcountdown`/`previewclock`/`preview3dclock` 为 `none`。
+- 自动门：[test_scene_layer_screen_anchor.py](../../../script/tests/test_scene_layer_screen_anchor.py)、[test_scene_text_rendering.py](../../../script/tests/test_scene_text_rendering.py)。锁定十个取值的符号表、大小写不敏感、缺省/未知/退化输入零偏移、`center` 锚点等于相机偏移，以及真实 `coverHalfExtents` 下 16:9/16:10/21:9 的锚定边距恒为作者画布上的 1.57/7.871 世界单位（不锚定时 16:10 的右边距为 `-15.53`、21:9 的上边距为 `-16.28`，即整块移出可见矩形）。
+- GPU 门：同一自动门用真实 `SceneImageLayerPipeline` 与真实 `SceneCameraProjection.viewProjection` 把 `dino_run` 的 `label_coins`（size `780x291`、scale `0.057`、origin `341.42999 185.129`）画进离屏纹理：作者宽高比 16:9 下锚定前后完全相同（216 px、x`[238,255]`、y`[0,11]`）；21:9 下不锚定为 0 覆盖像素，锚定后回到同一组 216 px。
+- 边界：`anchor` 只在 text layer 上存在，CoreText 栅格化不消费它；layer pivot 仍是几何中心，所以 `horizontalalign: right` 的字形盒仍越过画布右边并被 drawable 裁掉（GPU 门里 `maxX` 等于最后一列）。没有桌面真实运行截图门，也没有 Windows 像素标定；`45/45` 与 `13/13` 运行门是本次改动之前的基线，不覆盖 `anchor`。
 
 <a id="e-dynamic-text"></a>
 ### E-DYNAMIC-TEXT: direct property 动态文字与 generation lifecycle

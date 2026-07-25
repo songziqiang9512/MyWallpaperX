@@ -186,7 +186,8 @@ struct SceneMetalRenderer {
                 let providerModel = imageModelMatrix(
                     for: layer,
                     parallaxMouseNormalized: parallaxMouseNormalized,
-                    configuration: parallaxConfiguration
+                    configuration: parallaxConfiguration,
+                    visibleHalfExtents: cameraFrame.coverHalfExtents
                 )
                 _ = dependencyRuntime.captureProviderIfRequired(
                     layer: layer,
@@ -224,7 +225,8 @@ struct SceneMetalRenderer {
                 let model = imageModelMatrix(
                     for: layer,
                     parallaxMouseNormalized: parallaxMouseNormalized,
-                    configuration: parallaxConfiguration
+                    configuration: parallaxConfiguration,
+                    visibleHalfExtents: cameraFrame.coverHalfExtents
                 )
                 let mvp = cameraFrame.orthographicViewProjection * model
                 let cursorUV = SceneLayerCursorGeometry.layerUV(
@@ -343,7 +345,8 @@ struct SceneMetalRenderer {
             let model = imageModelMatrix(
                 for: layer,
                 parallaxMouseNormalized: frameContext.cameraParallaxPosition,
-                configuration: parallaxConfiguration
+                configuration: parallaxConfiguration,
+                visibleHalfExtents: cameraFrame.coverHalfExtents
             )
             let mvp = cameraFrame.orthographicViewProjection * model
             let cursorUV = SceneLayerCursorGeometry.layerUV(

@@ -4,7 +4,8 @@ extension SceneMetalRenderer {
     func imageModelMatrix(
         for layer: SceneRenderDescriptor.Layer,
         parallaxMouseNormalized: SIMD2<Float>,
-        configuration: SceneLayerParallax.Configuration
+        configuration: SceneLayerParallax.Configuration,
+        visibleHalfExtents: SIMD2<Float>
     ) -> simd_float4x4 {
         let size = SIMD2(layer.renderSizeWH ?? [], fill: 0)
         let sizeScale = SceneMatrix.scale(SIMD3(size.x, -size.y, 1))
@@ -15,7 +16,15 @@ extension SceneMetalRenderer {
             mouseNormalized: parallaxMouseNormalized,
             configuration: configuration
         )
-        return SceneMatrix.translation(SIMD3(parallax.x, parallax.y, 0)) * world * sizeScale
+        // 作者 `anchor` 只出现在 text layer 上，所以从 textStyle 取。
+        let screenAnchor = SceneLayerScreenAnchor.offset(
+            anchor: layer.textStyle?.screenAnchor,
+            orthoSize: configuration.orthoSize,
+            cameraEyeOffset: configuration.cameraEyeOffset,
+            visibleHalfExtents: visibleHalfExtents
+        )
+        let shift = parallax + screenAnchor
+        return SceneMatrix.translation(SIMD3(shift.x, shift.y, 0)) * world * sizeScale
     }
 
     func particleModelMatrix(

@@ -8,7 +8,7 @@
 >
 > 当前完整快照门：`.codex/scene-static-origin-full45-20260725/report.json`；当前源码固定回归门：`.codex/scene-static-origin-fixed13-20260725/report.json`；static-origin 定向门：`.codex/scene-static-origin-targeted-20260725/report.json`
 >
-> 最新运行门：`678a052` 的真实目录 45 个可运行样本完整快照 45/45、particle 101/131；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 13/13、particle 19/27，static-origin 定向门 1/1、particle 17/19；两类矩阵仍单独保留且不能互相替代。20-key 完整门的 `builtInTextureUnavailable` 诊断从 15-key 历史完整门的 37 次降至 24 次；这只是层级运行诊断，不替代专项 census。完整 Scene suite 383 项：380 通过、3 项跳过；代码健康 444 Swift files、44 个锁定历史文件、400 行上限；语义覆盖 11/11。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：`678a052` 的真实目录 45 个可运行样本完整快照 45/45、particle 101/131；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 13/13、particle 19/27，static-origin 定向门 1/1、particle 17/19；两类矩阵仍单独保留且不能互相替代。20-key 完整门的 `builtInTextureUnavailable` 诊断从 15-key 历史完整门的 37 次降至 24 次；这只是层级运行诊断，不替代专项 census。完整 Scene suite 389 项：386 通过、3 项跳过；代码健康 445 Swift files、44 个锁定历史文件、400 行上限；语义覆盖 11/11。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -46,7 +46,7 @@
 | 系统 | 当前级别 | 当前真实能力 | 主要缺口 / 升级门 | 批次 |
 |---|---|---|---|---|
 | PKG/TEX/资源索引 | `L3` | loose/PKG 查找、常见 TEX、内嵌 MP4、诊断式失败；BC1/2/3 单 image 预算内 CPU premultiply，超预算/多 image GPU premultiply；跨 image sprite 当前只裁 authored 首帧作静态 fallback | 完整跨-image sprite animation、旋转 frame、case/symlink/duplicate/多格式边界与完整 VFS golden | B0 |
-| Scene IR 与基础层级 | `L3` | 基础对象、顺序、父子 transform/visibility、受限 Puppet 静态 attachment frame 与 animation layer 声明、常见 image/text/solid/particle；作者 `brightness` 随 interpretation v27 进 layer IR，并由 image/solid 通道折进既有 `u.tint` 乘数（随包 292 个 object 中只有 `razer_bedroom` 的 4 个 wave layer 非 1，值为 3.0/4.0），`contentKind == "text"` 的 layer 跳过该乘法，交回 CoreText 栅格化阶段消费同一 key，有 GPU 像素正反门 | 模型、动态 attachment follow、复杂 object component 和全部动态字段；`brightness` 超过 1 的部分只由 render target 精度裁剪，没有 WE 像素标定，也未接 dynamic binding | B0 |
+| Scene IR 与基础层级 | `L3` | 基础对象、顺序、父子 transform/visibility、受限 Puppet 静态 attachment frame 与 animation layer 声明、常见 image/text/solid/particle；作者 `brightness` 随 interpretation v27 进 layer IR，并由 image/solid 通道折进既有 `u.tint` 乘数（随包 292 个 object 中只有 `razer_bedroom` 的 4 个 wave layer 非 1，值为 3.0/4.0），`contentKind == "text"` 的 layer 跳过该乘法，交回 CoreText 栅格化阶段消费同一 key，有 GPU 像素正反门；作者 text layer `anchor`（编辑器 Screen anchor）随 interpretation v28 进 text IR，并与 parallax 折进同一个 layer 平移（随包 5 个 text layer 中 `dino_run` 的 231/177 为 `topright`，其余 3 个为 `none`），有 CPU 几何门与离屏 GPU 覆盖门 | 模型、动态 attachment follow、复杂 object component 和全部动态字段；`brightness` 超过 1 的部分只由 render target 精度裁剪，没有 WE 像素标定，也未接 dynamic binding；`anchor` 的 layer pivot 仍是几何中心，`horizontalalign`/`verticalalign` 未参与 pivot | B0 |
 | Utility composition | `L3` | typed composition/project/fullscreen、受限 current prefix 与 `_a` named target | nested/effectful/child、`_b` 数据流、RGB 语义 | B2/B3 |
 | 画布/cover/背景 | `L3` | cover 投影和作者声明视差门，未覆盖区域不再暴露灰底 | 多比例、多屏和 Windows 像素基准 | B5 |
 | Frame Context | `L3` | host 单一 60 Hz driver；shader/video/particle/parallax 同帧 timing | pause/resume、delta clamp、fixed step、目标 FPS、离线 adapter | B0 |
@@ -182,7 +182,8 @@
 | 静态文字内容 | `L3` | CoreText 可见；结构样本 `79/108` |
 | 字体解析/fallback | `L3` | macOS 字体近似子集；补 Windows family/weight/CJK/emoji golden |
 | point size | `L3` | `pointsize * 4` 为经验近似；需官方/Windows 标定 |
-| baseline/alignment | `L2` | 部分字段/geometry 已接线，执行门不足 |
+| baseline/alignment | `L2` | 部分字段/geometry 已接线，执行门不足；layer pivot 固定为几何中心，`dino_run` 231/177 的 `horizontalalign: right` 仍按居中摆放，GPU 门里 quad 右边停在最后一列即被裁 |
+| screen anchor（text layer） | `L3` | 官方 10 个取值全部解析并每帧折进 layer 平移，`none`/缺省/未知取值不偏移；离屏 GPU 门下 21:9 的 `dino_run` 记分标签从 0 覆盖像素回到与 16:9 完全一致的 216 px 右上角；只有 text layer 携带该字段，pivot 缺口见上一行，Windows 像素标定见 [E-TEXT-ANCHOR](runtime-evidence-index.md#e-text-anchor) |
 | outline/shadow/text effects | `L1` | 字段或 effect 可保留，未形成完整绘制链 |
 | property-driven text | `L2` | 通过 Scene 重建应用；需 per-frame target 和按 layer 纹理 generation |
 | SceneScript clock/text | `L0` | 先有 VM、Date 和 typed text target |

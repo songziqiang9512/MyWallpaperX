@@ -92,6 +92,15 @@ enum Harness {
             "text": "Clock",
             "pointsize": ["value": 42],
         ])
+        let defaultAnchor = SceneTextDescriptor.parse(["text": "Clock"])
+        let authoredAnchor = SceneTextDescriptor.parse([
+            "text": "00000",
+            "anchor": "topright",
+        ])
+        let wrappedAnchor = SceneTextDescriptor.parse([
+            "text": "00000",
+            "anchor": ["value": "bottomleft"],
+        ])
         let alias = SceneTextFontResolver.resolve(
             path: "fonts/systemfont_arial",
             size: 64,
@@ -125,6 +134,9 @@ enum Harness {
             "wrappedPointSize": SceneTextGeometry.pointSizeInPixels(
                 wrappedPointSize.pointSize
             ),
+            "defaultAnchor": defaultAnchor.screenAnchor,
+            "authoredAnchor": authoredAnchor.screenAnchor,
+            "wrappedAnchor": wrappedAnchor.screenAnchor,
             "alias": resolution(alias),
             "embedded": resolution(embedded),
             "missing": resolution(missing),
@@ -216,6 +228,12 @@ class SceneTextRenderingTests(unittest.TestCase):
 
     def test_text_geometry_adds_padding_outside_authored_bounds(self) -> None:
         self.assertEqual(self.result["expandedSize"], [120, 70])
+
+    def test_screen_anchor_defaults_to_none_and_unwraps_property_values(self) -> None:
+        # 随包 5 个 text layer 里 3 个显式写 "none"、2 个写 "topright"，缺省必须等价 none。
+        self.assertEqual(self.result["defaultAnchor"], "none")
+        self.assertEqual(self.result["authoredAnchor"], "topright")
+        self.assertEqual(self.result["wrappedAnchor"], "bottomleft")
 
     def test_system_alias_resolves_without_fallback(self) -> None:
         alias = self.result["alias"]

@@ -16,8 +16,8 @@ struct SceneInterpretationFile: Codable {
 }
 
 struct SceneInterpretationFileWriter {
-    // Format 27 adds the authored layer `brightness` colour multiplier.
-    static let currentFormatVersion = 27
+    // Format 28 adds the authored text layer `anchor` (screen anchor).
+    static let currentFormatVersion = 28
 
     func make(
         renderDescriptor: SceneRenderDescriptor,

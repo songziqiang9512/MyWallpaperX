@@ -190,7 +190,7 @@ class SceneInterpretationFileTests(unittest.TestCase):
         cls.temporary_directory.cleanup()
 
     def test_v25_round_trips_program_values_and_shader_contracts(self) -> None:
-        self.assertEqual(self.result["formatVersion"], 27)
+        self.assertEqual(self.result["formatVersion"], 28)
         self.assertEqual(self.result["sourceEntryPath"], "scene.json")
         self.assertEqual(self.result["authoredPlanCount"], 1)
         self.assertTrue(self.result["programRoundTrip"])

@@ -7,6 +7,11 @@ struct SceneTextDescriptor: Codable {
     let brightness: Float
     let horizontalAlignment: String
     let verticalAlignment: String
+    // `anchor`（编辑器里的 Screen anchor）只在 text layer 上存在，取值见
+    // lib.sceneScript.d.ts 的 ITextLayer：none/center/top/topright/right/
+    // bottomright/bottom/bottomleft/left/topleft。它把 layer 钉在可见屏幕矩形的
+    // 对应边角上而不是作者画布上，栅格化不消费它（见 SceneLayerScreenAnchor）。
+    let screenAnchor: String
     let padding: Float
     let opaqueBackground: Bool
     let backgroundColorRGB: [Float]
@@ -20,6 +25,7 @@ struct SceneTextDescriptor: Codable {
             brightness: max(0, number(root["brightness"]) ?? 1),
             horizontalAlignment: string(root["horizontalalign"]) ?? "center",
             verticalAlignment: string(root["verticalalign"]) ?? "center",
+            screenAnchor: string(root["anchor"]) ?? "none",
             padding: max(0, number(root["padding"]) ?? 0),
             opaqueBackground: bool(root["opaquebackground"]) ?? false,
             backgroundColorRGB: paddedColor(SceneDocumentLoader.floatVector(root["backgroundcolor"]), fill: 0),
@@ -38,6 +44,7 @@ struct SceneTextDescriptor: Codable {
             brightness: brightness,
             horizontalAlignment: horizontalAlignment,
             verticalAlignment: verticalAlignment,
+            screenAnchor: screenAnchor,
             padding: padding,
             opaqueBackground: opaqueBackground,
             backgroundColorRGB: backgroundColorRGB,
