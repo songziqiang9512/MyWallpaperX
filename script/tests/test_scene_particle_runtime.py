@@ -33,6 +33,11 @@ FLARE_PARTICLE_CACHE = (
     / "Library/Caches/MyWallpaperX/SteamWorkshopScene/302becd241426966"
     / "particles/workshop/2105295491"
 )
+STATIC_ORIGIN_SAMPLE_CACHE = (
+    REPOSITORY_ROOT
+    / ".codex/scene-snow-smoke-full45-20260725/runtime-homes/3088601835"
+    / "Library/Caches/MyWallpaperX/SteamWorkshopScene/fdbdffd7b8183bd4"
+)
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneResourceIndex.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
@@ -149,6 +154,9 @@ enum Harness {
         case "continuous-profile-real":
             guard CommandLine.arguments.count == 3 else { throw HarnessError.missingPath }
             try printJSON(realContinuousProfiles(cachePath: CommandLine.arguments[2]))
+        case "static-origin-real":
+            guard CommandLine.arguments.count == 3 else { throw HarnessError.missingPath }
+            try printJSON(realStaticOriginSample(cachePath: CommandLine.arguments[2]))
         case "synthetic":
             try printJSON(synthetic())
         default:
@@ -522,6 +530,33 @@ enum Harness {
         ]
     }
 
+    private static func realStaticOriginSample(cachePath: String) throws -> [String: Any] {
+        let cache = URL(fileURLWithPath: cachePath, isDirectory: true)
+        let interpretation = try JSONDecoder().decode(
+            Interpretation.self,
+            from: Data(contentsOf: cache.appendingPathComponent(".mywallpaperx-scene-interpretation.json"))
+        )
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let runtime = SceneParticleRuntime(
+            descriptor: interpretation.renderDescriptor,
+            cacheDirectory: cache,
+            device: device
+        )
+        let childPath = "particles/presets/snowstormfog.json"
+        let childBatches = runtime.advance(by: 0.5).filter {
+            [513, 534].contains($0.layerID) && $0.particlePath == childPath
+        }
+        return [
+            "childLayerIDs": childBatches.map(\.layerID).sorted(),
+            "childInstanceCounts": childBatches.map(\.instances.count).sorted(),
+            "childTextureWidths": childBatches.map(\.texture.width).sorted(),
+            "unsupportedLayerIDs": runtime.diagnostics.compactMap {
+                [513, 534].contains($0.layerID) && $0.kind == .childSystemsUnsupported
+                    ? $0.layerID : nil
+            }.sorted(),
+        ]
+    }
+
     private static func synthetic() throws -> [String: Any] {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("mwx-particle-runtime-\(UUID().uuidString)", isDirectory: true)
@@ -552,10 +587,24 @@ enum Harness {
             children: [
                 ["name": "particles/child.json", "type": "static"],
                 ["name": "particles/child.json"],
-                ["name": "particles/child.json", "type": "static", "origin": "1 0 0"],
-                ["name": "particles/child.json", "type": "static", "probability": 0.5],
+                ["name": "particles/origin-child.json", "type": "static", "origin": "1 2 3"],
+                ["name": "particles/angles-child.json", "type": "static", "angles": "1 0 0"],
+                ["name": "particles/scale-child.json", "type": "static", "scale": "2 2 2"],
+                ["name": "particles/event-origin-child.json", "type": "eventspawn", "origin": "1 2 3"],
+                ["name": "particles/nan-origin-child.json", "type": "static", "origin": "nan 0 0"],
+                ["name": "particles/probability-child.json", "type": "static", "probability": 0.5],
             ], under: directory
         )
+        for path in [
+            "particles/origin-child.json", "particles/angles-child.json",
+            "particles/scale-child.json", "particles/event-origin-child.json",
+            "particles/nan-origin-child.json", "particles/probability-child.json",
+        ] {
+            try writeParticle(
+                path, material: "materials/shared.json", rate: 0, instantaneous: 1,
+                under: directory
+            )
+        }
         try writeParticle("particles/drop.json", material: "materials/drop.json", under: directory)
         try writeParticle("particles/halo.json", material: "materials/halo.json", under: directory)
         try writeParticle("particles/unknown.json", material: "materials/unknown.json", under: directory)
@@ -612,8 +661,15 @@ enum Harness {
                 $0.particlePath == "particles/child.json"
             }?.instances.count ?? 0,
             "staticChildInstanceCount": batches.filter {
-                $0.layerID == 9 && $0.particlePath == "particles/child.json"
+                $0.layerID == 9 && $0.particlePath != "particles/unsupported-child-root.json"
             }.reduce(0) { $0 + $1.instances.count },
+            "staticChildOrigins": batches.filter {
+                $0.layerID == 9 && $0.particlePath != "particles/unsupported-child-root.json"
+            }.compactMap { batch in
+                batch.instances.first.map {
+                    [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
+                }
+            },
             "staticChildUnsupportedDetails": runtime.diagnostics.compactMap {
                 $0.layerID == 9 && $0.kind == .childSystemsUnsupported ? $0.detail : nil
             },
@@ -813,10 +869,11 @@ class SceneParticleRuntimeTests(unittest.TestCase):
     def test_synthetic_rejects_unsupported_roots_and_keeps_diagnostics(self) -> None:
         result = self.run_harness("synthetic")
         self.assertEqual(result["activeLayerIDs"], [3, 4, 6, 7, 9])
-        self.assertEqual(result["batchLayerIDs"], [3, 4, 4, 6, 7, 9, 9, 9])
+        self.assertEqual(result["batchLayerIDs"], [3, 4, 4, 6, 7, 9, 9, 9, 9])
         self.assertGreater(result["activeParticleCount"], 0)
         self.assertGreater(result["childInstanceCount"], 0)
-        self.assertEqual(result["staticChildInstanceCount"], 2)
+        self.assertEqual(result["staticChildInstanceCount"], 3)
+        self.assertEqual(result["staticChildOrigins"], [[0, 0, 0], [0, 0, 0], [1, 2, 3]])
         self.assertEqual(result["batchTextureSizes"]["6"], [32, 32])
         self.assertEqual(result["batchTextureSizes"]["7"], [64, 64])
         self.assertAlmostEqual(result["trailStretch"], 5)
@@ -829,12 +886,18 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertNotIn("trailRendererUnsupported", kinds)
         self.assertNotIn("missingSpriteRenderer", kinds)
         self.assertIn("childSystemsUnsupported", kinds)
+        for path in [
+            "particles/angles-child.json",
+            "particles/scale-child.json",
+            "particles/event-origin-child.json",
+            "particles/nan-origin-child.json",
+        ]:
+            self.assertIn(
+                f"{path}:unsupportedTransformOrControlPoint",
+                result["staticChildUnsupportedDetails"],
+            )
         self.assertIn(
-            "particles/child.json:unsupportedTransformOrControlPoint",
-            result["staticChildUnsupportedDetails"],
-        )
-        self.assertIn(
-            "particles/child.json:unsupportedStaticProbability",
+            "particles/probability-child.json:unsupportedStaticProbability",
             result["staticChildUnsupportedDetails"],
         )
         self.assertIn("builtInTextureUnavailable", kinds)
@@ -867,6 +930,15 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertEqual(set(result["completion"].values()), {"infinite"})
         self.assertEqual(result["rates"]["Flare_Sparks"], 10)
         self.assertEqual(result["instantaneous"]["Flare_Sparks"], 1)
+
+    def test_real_3088601835_applies_static_snowstorm_fog_origin(self) -> None:
+        if not (STATIC_ORIGIN_SAMPLE_CACHE / ".mywallpaperx-scene-interpretation.json").is_file():
+            self.skipTest("isolated 3088601835 cache is unavailable")
+        result = self.run_harness("static-origin-real", str(STATIC_ORIGIN_SAMPLE_CACHE))
+        self.assertEqual(result["childLayerIDs"], [513, 534])
+        self.assertEqual(result["childInstanceCounts"], [1, 1])
+        self.assertEqual(result["childTextureWidths"], [128, 128])
+        self.assertEqual(result["unsupportedLayerIDs"], [])
 
     def test_real_3768903841_executes_strict_eventspawn_child(self) -> None:
         if not (EVENTSPAWN_SAMPLE_CACHE / ".mywallpaperx-scene-interpretation.json").is_file():

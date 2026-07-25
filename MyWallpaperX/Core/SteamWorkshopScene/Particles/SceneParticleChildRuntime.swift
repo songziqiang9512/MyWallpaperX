@@ -29,6 +29,7 @@ final class SceneParticleChildRuntime {
         let orientationAxis: SIMD3<Float>?
         let usesPerspective: Bool
         let probability: Double
+        let staticOrigin: SIMD3<Double>
         let maximumSystemCount: Int
         let particleBudget: Int
         let instanceBuffer = SceneParticleMetalInstanceBuffer()
@@ -87,7 +88,11 @@ final class SceneParticleChildRuntime {
                 unsupported.append("\(label):unsupportedType:\(child.type ?? "missing")")
                 continue
             }
-            guard SceneParticleChildTemplateSupport.hasIdentityTransform(child),
+            let staticOrigin = trigger == .staticChild
+                ? SceneParticleChildTemplateSupport.staticOriginTranslation(child) : .zero
+            let supportsTransform = trigger == .staticChild
+                ? staticOrigin != nil : SceneParticleChildTemplateSupport.hasIdentityTransform(child)
+            guard supportsTransform,
                   child.controlPointStartIndex == nil,
                   child.rawFlags == 0 else {
                 unsupported.append("\(label):unsupportedTransformOrControlPoint")
@@ -163,6 +168,7 @@ final class SceneParticleChildRuntime {
                 },
                 usesPerspective: asset.definition.flags.usesPerspective,
                 probability: probability,
+                staticOrigin: staticOrigin ?? .zero,
                 maximumSystemCount: maximum,
                 particleBudget: particleBudget
             ))
@@ -183,7 +189,7 @@ final class SceneParticleChildRuntime {
                 emissionCompletionTime: SceneParticleChildLifecycle.emissionCompletionTime(
                     template.definition
                 ),
-                origin: .zero,
+                origin: template.staticOrigin,
                 simulator: SceneParticleSimulator(
                     definition: template.definition,
                     seed: UInt64(bitPattern: Int64(layerID))

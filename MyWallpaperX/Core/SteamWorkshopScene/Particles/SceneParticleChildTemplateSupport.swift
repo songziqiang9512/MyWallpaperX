@@ -2,11 +2,17 @@ import Foundation
 import Metal
 
 enum SceneParticleChildTemplateSupport {
-    static func hasIdentityTransform(_ child: SceneParticleChild) -> Bool {
+    static func staticOriginTranslation(_ child: SceneParticleChild) -> SIMD3<Double>? {
         let origin = SceneParticleSimulationMath.vector(child.origin, fallback: .zero)
         let angles = SceneParticleSimulationMath.vector(child.angles, fallback: .zero)
         let scale = SceneParticleSimulationMath.vector(child.scale, fallback: SIMD3(repeating: 1))
-        return origin == .zero && angles == .zero && scale == SIMD3(repeating: 1)
+        guard origin.x.isFinite, origin.y.isFinite, origin.z.isFinite,
+              angles == .zero, scale == SIMD3(repeating: 1) else { return nil }
+        return origin
+    }
+
+    static func hasIdentityTransform(_ child: SceneParticleChild) -> Bool {
+        staticOriginTranslation(child) == .zero
     }
 
     static func supportedRenderer(
