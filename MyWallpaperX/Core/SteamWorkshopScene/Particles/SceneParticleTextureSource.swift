@@ -17,6 +17,8 @@ nonisolated enum SceneParticleBuiltInTexture: String, Hashable, Sendable {
     case halo2 = "particle/halo_2"
     case halo3 = "particle/halo_3"
     case halo4 = "particle/halo_4"
+    case halo6 = "particle/halo_6"
+    case star = "particle/star"
     case flare1 = "particle/light/flare_1"
     case rippleSingle = "particle/water/ripple_single"
     case rosePetals = "particle/nature/rosepetals"

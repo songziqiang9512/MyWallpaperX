@@ -874,7 +874,8 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertGreater(result["childInstanceCount"], 0)
         self.assertEqual(result["staticChildInstanceCount"], 3)
         self.assertEqual(result["staticChildOrigins"], [[0, 0, 0], [0, 0, 0], [1, 2, 3]])
-        self.assertEqual(result["batchTextureSizes"]["6"], [32, 32])
+        # 内置纹理尺寸已对齐官方 .tex 的 imageWidth/imageHeight，非方形纹理不再按方形近似。
+        self.assertEqual(result["batchTextureSizes"]["6"], [32, 128])
         self.assertEqual(result["batchTextureSizes"]["7"], [64, 64])
         self.assertAlmostEqual(result["trailStretch"], 5)
         self.assertEqual(result["trailVelocity"], [100, 0, 0])
@@ -946,7 +947,7 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         result = self.run_harness("eventspawn-real", str(EVENTSPAWN_SAMPLE_CACHE))
         self.assertIn(264, result["activeLayerIDs"])
         self.assertGreater(result["childInstanceCount"], 0)
-        self.assertEqual(result["childTextureWidth"], 64)
+        self.assertEqual(result["childTextureWidth"], 128)
         self.assertFalse(result["layer264ChildUnsupported"])
 
     def test_real_2131872317_executes_eventdeath_firework_burst(self) -> None:

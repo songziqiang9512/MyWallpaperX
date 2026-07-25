@@ -22,8 +22,8 @@ final class SceneParticleBuiltInTextureRegistry {
         let size = textureSize(for: builtInTexture)
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .rgba8Unorm,
-            width: size,
-            height: size,
+            width: size.width,
+            height: size.height,
             mipmapped: false
         )
         descriptor.usage = .shaderRead
@@ -33,20 +33,23 @@ final class SceneParticleBuiltInTextureRegistry {
         }
         texture.label = "Scene particle generated \(builtInTexture.rawValue)"
 
-        var pixels = [UInt8](repeating: 0, count: size * size * 4)
-        for y in 0..<size {
-            for x in 0..<size {
-                let normalizedX = (Float(x) + 0.5) / Float(size) * 2 - 1
-                let normalizedY = (Float(y) + 0.5) / Float(size) * 2 - 1
-                let alpha = (x == 0 || y == 0 || x == size - 1 || y == size - 1)
+        var pixels = [UInt8](repeating: 0, count: size.width * size.height * 4)
+        for y in 0..<size.height {
+            for x in 0..<size.width {
+                let normalizedX = (Float(x) + 0.5) / Float(size.width) * 2 - 1
+                let normalizedY = (Float(y) + 0.5) / Float(size.height) * 2 - 1
+                let onBorder = x == 0 || y == 0 || x == size.width - 1 || y == size.height - 1
+                let alpha = onBorder
                     ? 0
                     : alpha(
                         for: builtInTexture,
                         x: normalizedX,
                         y: normalizedY
                     )
+                // 粒子混合管线用 sourceRGB = .one，纹理需自带预乘 alpha，
+                // 因此 RGB 与 alpha 同值即预乘后的白色。
                 let component = UInt8((alpha * 255).rounded())
-                let offset = (y * size + x) * 4
+                let offset = (y * size.width + x) * 4
                 pixels[offset] = component
                 pixels[offset + 1] = component
                 pixels[offset + 2] = component
@@ -57,25 +60,33 @@ final class SceneParticleBuiltInTextureRegistry {
         pixels.withUnsafeBytes { bytes in
             guard let address = bytes.baseAddress else { return }
             texture.replace(
-                region: MTLRegionMake2D(0, 0, size, size),
+                region: MTLRegionMake2D(0, 0, size.width, size.height),
                 mipmapLevel: 0,
                 withBytes: address,
-                bytesPerRow: size * 4
+                bytesPerRow: size.width * 4
             )
         }
         return texture
     }
 
-    private func textureSize(for builtInTexture: SceneParticleBuiltInTexture) -> Int {
+    /// 尺寸对齐官方 .tex 的 imageWidth/imageHeight；序列帧图集按单帧方形近似。
+    private func textureSize(
+        for builtInTexture: SceneParticleBuiltInTexture
+    ) -> (width: Int, height: Int) {
         switch builtInTexture {
-        case .drop:
-            32
-        case .chromaticDot, .leaves7, .leaves8, .snow, .halo, .halo2, .halo3,
-             .halo4, .flare1, .rippleSingle, .rosePetals:
-            64
-        case .beam1, .fire1, .fog1, .fog3, .lightShafts0, .lightShafts6, .lightning3,
-             .smoke2:
-            128
+        case .drop, .beam1:
+            return (width: 32, height: 128)
+        case .chromaticDot, .halo, .halo2, .halo3, .star,
+             .leaves7, .leaves8, .snow, .rippleSingle, .rosePetals:
+            return (width: 64, height: 64)
+        case .halo4, .halo6, .fire1, .fog1, .fog3, .lightning3, .smoke2:
+            return (width: 128, height: 128)
+        case .flare1:
+            return (width: 256, height: 256)
+        case .lightShafts6:
+            return (width: 128, height: 512)
+        case .lightShafts0:
+            return (width: 256, height: 512)
         }
     }
 
@@ -86,16 +97,15 @@ final class SceneParticleBuiltInTextureRegistry {
     ) -> Float {
         switch builtInTexture {
         case .beam1:
-            let axial = pow(smooth(1 - abs(x)), 0.65)
-            let core = pow(smooth(1 - abs(y) / 0.16), 1.4)
-            let glow = 0.32 * pow(smooth(1 - abs(y) / 0.34), 2)
-            return axial * clamp(core + glow)
+            // 官方 32x128 是上下对称的椭圆径向光斑：横向铺满全幅、纵向到 ±0.85 收敛，
+            // 峰值落在正中心，并不是沿某一轴的纺锤。
+            let radius = hypot(x / 0.95, y / 1.02)
+            return 0.92 * pow(smooth(1 - radius), 0.9)
         case .chromaticDot:
             let radius = hypot(x, y)
             return pow(smooth(1 - radius), 1.35)
         case .drop:
-            let radiusSquared = x * x + y * y
-            return smooth(1 - radiusSquared)
+            return dropAlpha(x: x, y: y)
         case .fire1:
             return fireAlpha(x: x, y: y)
         case .fog1:
@@ -111,22 +121,14 @@ final class SceneParticleBuiltInTextureRegistry {
         case .snow:
             return snowAlpha(x: x, y: y)
         case .lightShafts0:
-            let progress = clamp((y + 1) * 0.5)
-            let vertical = smooth(progress * 4) * smooth((1 - progress) * 3)
-            let primaryCenter = -0.28 + progress * 0.18
-            let primaryWidth = 0.055 + progress * 0.22
-            let secondaryCenter = 0.28 + progress * 0.08
-            let secondaryWidth = 0.035 + progress * 0.14
-            let primary = pow(smooth(1 - abs(x - primaryCenter) / primaryWidth), 1.7)
-            let secondary = pow(smooth(1 - abs(x - secondaryCenter) / secondaryWidth), 1.8)
-            return 0.18 * vertical * clamp(primary + 0.55 * secondary)
+            // 官方 256x512 是单柱居中（质心恒在 x≈0.055），峰值在 y≈-0.7 后向下渐淡。
+            let envelope = min(
+                smooth((y + 1) / 0.28),
+                pow(smooth((1.1 - y) / 2.2), 1.3)
+            )
+            return 0.92 * envelope * pow(smooth(1 - abs(x - 0.055) / 0.75), 1.6)
         case .lightShafts6:
-            let progress = clamp((y + 1) * 0.5)
-            let width = 0.08 + progress * 0.52
-            let distance = abs(x + 0.18 * y - 0.06)
-            let horizontal = smooth(1 - distance / width)
-            let vertical = smooth(progress) * smooth(1 - abs(y) * 0.82)
-            return 0.72 * horizontal * vertical
+            return lightShafts6Alpha(x: x, y: y)
         case .lightning3:
             return lightningAlpha(x: x, y: y)
         case .halo:
@@ -143,10 +145,16 @@ final class SceneParticleBuiltInTextureRegistry {
             let shoulder = 0.08 * pow(smooth(1 - abs(radius - 0.44) / 0.36), 1.8)
             return clamp(core + shoulder)
         case .halo4:
+            // 官方是极小亮核叠一层覆盖整幅的低幅外晕；旧实现在 r>0.14 归零，
+            // 把占绝大部分面积的外晕整个丢了。
             let radius = sqrt(x * x + y * y)
-            let core = pow(smooth(1 - radius / 0.055), 0.75)
-            let glow = 0.38 * pow(smooth(1 - radius / 0.14), 2.2)
-            return clamp(core + glow)
+            let core = 0.70 * smooth(1 - radius / 0.14)
+            let halo = 0.20 * pow(clamp(1 - radius), 1.5)
+            return clamp(core + halo)
+        case .halo6:
+            return halo6Alpha(x: x, y: y)
+        case .star:
+            return starAlpha(x: x, y: y)
         case .flare1:
             return flareAlpha(x: x, y: y)
         case .rippleSingle:
@@ -157,6 +165,70 @@ final class SceneParticleBuiltInTextureRegistry {
         case .smoke2:
             return smokeAlpha(x: x, y: y)
         }
+    }
+
+    private func dropAlpha(x: Float, y: Float) -> Float {
+        // 官方 32x128 是头部在上、尾迹向下的彗形：峰值在 y≈-0.65 处半宽约 0.72，
+        // 尾迹收敛到 0.5 后等宽淡出，而非首尾对称的泪滴。
+        let axial = (y + 0.62) / 1.52
+        let envelope = min(
+            smooth((y + 1) / 0.32),
+            pow(smooth((0.95 - y) / 1.57), 1.1)
+        )
+        let halfWidth = 0.50 + 0.22 * smooth(1 - abs(axial) / 0.38)
+        return envelope * pow(smooth(1 - abs(x) / halfWidth), 0.55)
+    }
+
+    private func lightShafts6Alpha(x: Float, y: Float) -> Float {
+        // 官方 128x512 是一对竖柱且整幅在 y>0.2 已归零：主柱在 x≈0.34（峰值 y≈-0.6），
+        // 次柱在 x≈-0.33 且幅度更低。
+        let mainEnvelope = min(
+            smooth((y + 1) / 0.28),
+            pow(smooth((0.55 - y) / 1.1), 1.3)
+        )
+        let main = 0.60 * mainEnvelope * pow(smooth(1 - abs(x - 0.344) / 0.70), 2.7)
+        let sideEnvelope = smooth((y + 1) / 0.5) * pow(smooth((0.35 - y) / 0.9), 1.2)
+        let side = 0.35 * sideEnvelope * pow(smooth(1 - abs(x + 0.328) / 0.60), 1.6)
+        return clamp(main + side)
+    }
+
+    private func halo6Alpha(x: Float, y: Float) -> Float {
+        // 与 SceneXRayPipeline 共用同一条实测校准曲线：纯白盘，仅 alpha 随半径衰减。
+        let stops: [(Float, Float)] = [
+            (0.50, 1.000),
+            (0.625, 0.969),
+            (0.750, 0.588),
+            (0.875, 0.114),
+            (1.000, 0.000),
+        ]
+        let radius = hypot(x, y)
+        if radius <= stops[0].0 { return stops[0].1 }
+        for index in 1..<stops.count where radius <= stops[index].0 {
+            let lower = stops[index - 1]
+            let upper = stops[index]
+            let t = (radius - lower.0) / (upper.0 - lower.0)
+            return lower.1 + (upper.1 - lower.1) * smooth(t)
+        }
+        return 0
+    }
+
+    private func starAlpha(x: Float, y: Float) -> Float {
+        // 官方是手绘不规则星芒：主体为一团偏心实心亮斑，外围挂几条低幅碎芒，
+        // 亮向没有周期性，无法用 N 芒星公式表达，只能做形态近似。
+        let deltaX = x + 0.05
+        let deltaY = y + 0.05
+        let radius = hypot(deltaX, deltaY)
+        let core = pow(smooth((0.54 - radius) / 0.52), 0.5)
+        let angle = atan2(deltaY, deltaX)
+        let spikeAngles: [Float] = [0.52, 1.05, 1.83, 2.09, 2.36, 2.88, 3.14]
+        var spikes: Float = 0
+        for base in spikeAngles {
+            var delta = abs(angle - base)
+            if delta > .pi { delta = 2 * .pi - delta }
+            let angular = pow(smooth(1 - delta / 0.30), 2)
+            spikes = max(spikes, 0.45 * angular * pow(smooth(1 - radius / 0.95), 1.4))
+        }
+        return clamp(core + spikes)
     }
 
     private func fireAlpha(x: Float, y: Float) -> Float {
@@ -180,15 +252,12 @@ final class SceneParticleBuiltInTextureRegistry {
     }
 
     private func flareAlpha(x: Float, y: Float) -> Float {
-        let radius = hypot(x, y)
-        let core = 0.86 * pow(smooth(1 - radius / 0.13), 1.4)
-        let horizontal = 0.18
-            * pow(smooth(1 - abs(y) / 0.045), 2)
-            * pow(smooth(1 - abs(x)), 2.4)
-        let vertical = 0.14
-            * pow(smooth(1 - abs(x) / 0.035), 2)
-            * pow(smooth(1 - abs(y) / 0.74), 2.2)
-        return clamp(core + horizontal + vertical)
+        // 官方 256x256 是水平细长光斑：横向按 exp(-9|x|) 衰减并在 |x|≈0.25 后截止，
+        // 纵向是 σ≈0.065 的高斯，并没有等长的十字光芒。
+        let horizontal = exp(-9 * abs(x)) * smooth((0.25 - abs(x)) / 0.25)
+        let normalizedY = y / 0.065
+        let vertical = exp(-normalizedY * normalizedY)
+        return clamp(horizontal * vertical)
     }
 
     private func snowAlpha(x: Float, y: Float) -> Float {

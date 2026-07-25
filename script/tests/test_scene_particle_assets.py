@@ -498,7 +498,8 @@ class SceneParticleAssetTests(unittest.TestCase):
         self.assertEqual(result["samplesWithParticles"], 18)
         self.assertEqual(result["reachableAssetCount"], 55)
         self.assertEqual(result["blendCounts"], {"additive": 42, "translucent": 13})
-        self.assertEqual(result["diagnosticCounts"].get("builtInTextureUnavailable", 0), 6)
+        # 新增 particle/halo_6 与 particle/star 的生成实现后，本样本集的缺口从 6 降到 2。
+        self.assertEqual(result["diagnosticCounts"].get("builtInTextureUnavailable", 0), 2)
         for kind in (
             "missingDefinition",
             "missingMaterial",

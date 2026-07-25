@@ -27,8 +27,8 @@ enum Harness {
         let keys: [SceneParticleBuiltInTexture] = [
             .beam1, .chromaticDot, .drop, .fire1, .fog1, .fog3,
             .leaves7, .leaves8, .snow, .lightShafts0, .lightShafts6, .lightning3,
-            .halo, .halo2, .halo3, .halo4, .flare1, .rippleSingle, .rosePetals,
-            .smoke2,
+            .halo, .halo2, .halo3, .halo4, .halo6, .star, .flare1, .rippleSingle,
+            .rosePetals, .smoke2,
         ]
         let sources: [String: Bool] = [
             "beam": SceneParticleTextureSource(
@@ -56,6 +56,8 @@ enum Harness {
             "halo2": SceneParticleTextureSource(reference: "particle/halo_2") == .builtIn(.halo2),
             "halo3": SceneParticleTextureSource(reference: "particle/halo_3") == .builtIn(.halo3),
             "halo4": SceneParticleTextureSource(reference: "particle/halo_4") == .builtIn(.halo4),
+            "halo6": SceneParticleTextureSource(reference: "particle/halo_6") == .builtIn(.halo6),
+            "star": SceneParticleTextureSource(reference: "particle/star") == .builtIn(.star),
             "flare1": SceneParticleTextureSource(reference: "particle/light/flare_1") == .builtIn(.flare1),
             "ripple": SceneParticleTextureSource(reference: "particle/water/ripple_single") == .builtIn(.rippleSingle),
             "rosePetals": SceneParticleTextureSource(
@@ -229,7 +231,7 @@ class SceneParticleBuiltInTextureTests(unittest.TestCase):
         self.assertTrue(self.result["metalAvailable"])
         self.assertTrue(self.result["created"])
         textures = self.result["textures"]
-        self.assertEqual(len(textures), 20)
+        self.assertEqual(len(textures), 22)
         for name, summary in textures.items():
             with self.subTest(name=name):
                 self.assertTrue(summary["cached"])
@@ -242,72 +244,100 @@ class SceneParticleBuiltInTextureTests(unittest.TestCase):
 
     def test_generated_families_have_distinct_shapes(self) -> None:
         textures = self.result["textures"]
+        # 尺寸对齐官方 .tex 的 imageWidth/imageHeight，非方形纹理不得按方形近似。
         expected_sizes = {
-            "particle/beam/beam_1": 128,
-            "particle/chromaticdot": 64,
-            "particle/drop": 32,
-            "particle/fire/fire1": 128,
-            "particle/fog/fog1": 128,
-            "particle/fog/fog3": 128,
-            "particle/nature/leaves7": 64,
-            "particle/nature/leaves8": 64,
-            "particle/nature/snow": 64,
-            "particle/light/light_shafts_0": 128,
-            "particle/light/light_shafts_6": 128,
-            "particle/lightning/lightning3": 128,
-            "particle/halo": 64,
-            "particle/halo_2": 64,
-            "particle/halo_3": 64,
-            "particle/halo_4": 64,
-            "particle/light/flare_1": 64,
-            "particle/water/ripple_single": 64,
-            "particle/nature/rosepetals": 64,
-            "particle/smoke/smoke2": 128,
+            "particle/beam/beam_1": (32, 128),
+            "particle/chromaticdot": (64, 64),
+            "particle/drop": (32, 128),
+            "particle/fire/fire1": (128, 128),
+            "particle/fog/fog1": (128, 128),
+            "particle/fog/fog3": (128, 128),
+            "particle/nature/leaves7": (64, 64),
+            "particle/nature/leaves8": (64, 64),
+            "particle/nature/snow": (64, 64),
+            "particle/light/light_shafts_0": (256, 512),
+            "particle/light/light_shafts_6": (128, 512),
+            "particle/lightning/lightning3": (128, 128),
+            "particle/halo": (64, 64),
+            "particle/halo_2": (64, 64),
+            "particle/halo_3": (64, 64),
+            "particle/halo_4": (128, 128),
+            "particle/halo_6": (128, 128),
+            "particle/star": (64, 64),
+            "particle/light/flare_1": (256, 256),
+            "particle/water/ripple_single": (64, 64),
+            "particle/nature/rosepetals": (64, 64),
+            "particle/smoke/smoke2": (128, 128),
         }
         for name, size in expected_sizes.items():
-            self.assertEqual((textures[name]["width"], textures[name]["height"]), (size, size))
-        self.assertEqual(len({value["checksum"] for value in textures.values()}), 20)
+            with self.subTest(name=name):
+                self.assertEqual((textures[name]["width"], textures[name]["height"]), size)
+        self.assertEqual(len({value["checksum"] for value in textures.values()}), 22)
         chromatic = textures["particle/chromaticdot"]
         self.assertEqual(chromatic["nonGrayPixelCount"], 0)
         self.assertGreaterEqual(chromatic["centerAlpha"], 250)
-        self.assertGreaterEqual(textures["particle/drop"]["centerAlpha"], 250)
+        # drop 是头部在上的彗形，峰值不在几何中心，只能约束峰值本身。
+        self.assertGreaterEqual(textures["particle/drop"]["maxAlpha"], 250)
+        self.assertGreater(
+            textures["particle/drop"]["middleUpperWidth"],
+            textures["particle/drop"]["lowerWidth"],
+        )
         fire = textures["particle/fire/fire1"]
         self.assertGreater(fire["middleLowerWidth"], fire["middleUpperWidth"])
         self.assertGreaterEqual(fire["maxAlpha"], 30)
         self.assertLessEqual(fire["maxAlpha"], 45)
         self.assertLess(fire["nonzeroAlphaCount"], 128 * 128 // 10)
+        # halo_4 是极小亮核叠一层覆盖整幅的低幅外晕，外晕面积占多数。
         halo4 = textures["particle/halo_4"]
-        self.assertGreaterEqual(halo4["centerAlpha"], 250)
+        self.assertGreaterEqual(halo4["centerAlpha"], 220)
         self.assertGreater(halo4["highAlphaCount"], 0)
-        self.assertLess(halo4["highAlphaCount"], 64 * 64 // 4)
-        self.assertLess(halo4["nonzeroAlphaCount"], 64 * 64 // 16)
+        self.assertLess(halo4["highAlphaCount"], 128 * 128 // 64)
+        self.assertGreater(halo4["nonzeroAlphaCount"], 128 * 128 // 2)
+        # halo_3 是无亮核的暗弱宽晕，靠峰值幅度与 halo_4 区分。
         halo3 = textures["particle/halo_3"]
         self.assertGreaterEqual(halo3["centerAlpha"], 30)
         self.assertLessEqual(halo3["maxAlpha"], 50)
-        self.assertGreater(halo3["nonzeroAlphaCount"], halo4["nonzeroAlphaCount"])
+        self.assertLess(halo3["maxAlpha"], halo4["centerAlpha"])
+        # halo_6 是实心白盘，仅 alpha 随半径衰减，满值区占相当面积。
+        halo6 = textures["particle/halo_6"]
+        self.assertGreaterEqual(halo6["centerAlpha"], 250)
+        self.assertGreater(halo6["highAlphaCount"], 128 * 128 // 4)
         fog3 = textures["particle/fog/fog3"]
         self.assertGreaterEqual(fog3["maxAlpha"], 1)
         self.assertLessEqual(fog3["maxAlpha"], 3)
         self.assertGreater(fog3["nonzeroAlphaCount"], 128 * 128 // 10)
         self.assertLess(fog3["nonzeroAlphaCount"], 128 * 128 * 3 // 4)
+        # flare_1 是水平细长光斑，纵向 σ≈0.065，h/4 与 3h/4 两行都在包络外。
         flare1 = textures["particle/light/flare_1"]
         self.assertGreaterEqual(flare1["centerAlpha"], 220)
         self.assertGreater(flare1["highAlphaCount"], 0)
-        self.assertLess(flare1["highAlphaCount"], 64 * 64 // 64)
-        self.assertLess(flare1["nonzeroAlphaCount"], 64 * 64 // 8)
+        self.assertLess(flare1["highAlphaCount"], 256 * 256 // 64)
+        self.assertLess(flare1["nonzeroAlphaCount"], 256 * 256 // 8)
+        self.assertEqual(flare1["upperWidth"], 0)
+        self.assertEqual(flare1["lowerWidth"], 0)
         self.assertLessEqual(textures["particle/water/ripple_single"]["centerAlpha"], 2)
+        # 两族光柱都是上宽下窄（峰值在 y≈-0.6~-0.7 后向下渐淡），不是下宽上窄。
         shaft0 = textures["particle/light/light_shafts_0"]
-        self.assertGreater(shaft0["lowerWidth"], shaft0["upperWidth"])
-        self.assertGreaterEqual(shaft0["maxAlpha"], 35)
-        self.assertLessEqual(shaft0["maxAlpha"], 50)
+        self.assertGreater(shaft0["upperWidth"], shaft0["lowerWidth"])
+        self.assertGreaterEqual(shaft0["maxAlpha"], 200)
+        self.assertLessEqual(shaft0["maxAlpha"], 240)
         shaft6 = textures["particle/light/light_shafts_6"]
-        self.assertGreater(shaft6["lowerWidth"], shaft6["upperWidth"])
+        self.assertGreater(shaft6["upperWidth"], shaft6["lowerWidth"])
+        self.assertEqual(shaft6["lowerWidth"], 0)
         lightning = textures["particle/lightning/lightning3"]
         self.assertGreater(lightning["highAlphaCount"], 0)
         self.assertLess(lightning["highAlphaCount"], 128 * 128 // 10)
+        # beam_1 是上下对称的椭圆径向光斑，横向铺满全幅而非细线。
         beam = textures["particle/beam/beam_1"]
-        self.assertGreaterEqual(beam["centerAlpha"], 240)
-        self.assertLess(beam["nonzeroAlphaCount"], 128 * 128 // 2)
+        self.assertGreaterEqual(beam["centerAlpha"], 230)
+        self.assertEqual(beam["upperWidth"], beam["lowerWidth"])
+        self.assertGreater(beam["nonzeroAlphaCount"], 32 * 128 // 2)
+        self.assertLess(beam["nonzeroAlphaCount"], 32 * 128)
+        # star 是偏心实心亮斑挂低幅碎芒，星芒向下延伸更远。
+        star = textures["particle/star"]
+        self.assertGreaterEqual(star["centerAlpha"], 240)
+        self.assertGreater(star["middleLowerWidth"], star["middleUpperWidth"])
+        self.assertLess(star["nonzeroAlphaCount"], 64 * 64 // 2)
         rose = textures["particle/nature/rosepetals"]
         self.assertGreaterEqual(rose["centerAlpha"], 220)
         self.assertLess(rose["nonzeroAlphaCount"], 64 * 64 // 2)

@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-25
 >
-> Scene 实现基线：`678a052`（Puppet bind-pose mesh `8bac86e`，静态 MDAT attachment `49ee89a`，严格单 clip MDLA/LBS 播放 `f1ee79b`；strict particle eventspawn/natural-eventdeath `f4173ea`/`7d53c10`、eventfollow `928acca`、持续 child `2f897bc`、static child `899704b` 与有限 static origin `678a052`；20-key built-in particle registry `8a27089`；非音频 turbulent velocity `4a17ee6`；超预算/多 image BC 颜色归一 `18d0056`）
+> Scene 实现基线：`678a052`（Puppet bind-pose mesh `8bac86e`，静态 MDAT attachment `49ee89a`，严格单 clip MDLA/LBS 播放 `f1ee79b`；strict particle eventspawn/natural-eventdeath `f4173ea`/`7d53c10`、eventfollow `928acca`、持续 child `2f897bc`、static child `899704b` 与有限 static origin `678a052`；20-key built-in particle registry `8a27089` 并本次扩到 22-key、按官方 alpha 场重拟合形态与尺寸；非音频 turbulent velocity `4a17ee6`；超预算/多 image BC 颜色归一 `18d0056`）
 >
 > 当前完整快照门：`.codex/scene-static-origin-full45-20260725/report.json`；当前源码固定回归门：`.codex/scene-static-origin-fixed13-20260725/report.json`；static-origin 定向门：`.codex/scene-static-origin-targeted-20260725/report.json`
 >
-> 最新运行门：`678a052` 的真实目录 45 个可运行样本完整快照 45/45、particle 101/131；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 13/13、particle 19/27，static-origin 定向门 1/1、particle 17/19；两类矩阵仍单独保留且不能互相替代。20-key 完整门的 `builtInTextureUnavailable` 诊断从 15-key 历史完整门的 37 次降至 24 次；这只是层级运行诊断，不替代专项 census。完整 Scene suite 411 项：408 通过、3 项跳过；代码健康 447 Swift files、44 个锁定历史文件、400 行上限；语义覆盖 11/11。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：`678a052` 的真实目录 45 个可运行样本完整快照 45/45、particle 101/131；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 13/13、particle 19/27，static-origin 定向门 1/1、particle 17/19；两类矩阵仍单独保留且不能互相替代。20-key 完整门的 `builtInTextureUnavailable` 诊断从 15-key 历史完整门的 37 次降至 24 次；该 45 样本门尚未在 22-key 下重跑，故此处沿用 20-key 数字。22-key 下已实测的是 21 样本 census：`builtInTextureUnavailable` 从 6 次降至 2 次；按 663 包 / 2,362 个 particle definition 的语料统计，slot 0 且非 `REFRACT` 的内置纹理缺口为 3 名 / 78 次（`debris1` 53、`fire2` 17、`hose_4` 8），另有 289 次落在 `REFRACT` fail-closed 路径、补纹理无收益。这些都只是资源可达性诊断，不替代形态保真与专项 census。完整 Scene suite 411 项：408 通过、3 项跳过；代码健康 447 Swift files、44 个锁定历史文件、400 行上限；语义覆盖 11/11。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
