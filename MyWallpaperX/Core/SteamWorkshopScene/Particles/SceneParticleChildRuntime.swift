@@ -6,6 +6,7 @@ final class SceneParticleChildRuntime {
     private enum Trigger: Equatable {
         case spawn
         case death
+        case follow
     }
 
     struct AdvanceResult {
@@ -33,7 +34,8 @@ final class SceneParticleChildRuntime {
 
     private struct System {
         let templateIndex: Int
-        let origin: SIMD3<Double>
+        let parentParticleID: UInt64?
+        var origin: SIMD3<Double>
         var simulator: SceneParticleSimulator
     }
 
@@ -75,6 +77,7 @@ final class SceneParticleChildRuntime {
             switch child.type?.lowercased() {
             case "eventspawn": trigger = .spawn
             case "eventdeath": trigger = .death
+            case "eventfollow": trigger = .follow
             default:
                 unsupported.append("\(label):unsupportedType:\(child.type ?? "missing")")
                 continue
@@ -161,16 +164,33 @@ final class SceneParticleChildRuntime {
     func advance(
         by frameDelta: TimeInterval,
         spawnEvents: [SceneParticleState],
-        deathEvents: [SceneParticleState]
+        deathEvents: [SceneParticleState],
+        parentParticles: [SceneParticleState]
     ) -> AdvanceResult {
+        let parentsByID: [UInt64: SceneParticleState] = templates.contains { $0.trigger == .follow }
+            ? Dictionary(uniqueKeysWithValues: parentParticles.map { ($0.id, $0) })
+            : [:]
+        systems.removeAll { system in
+            guard let parentID = system.parentParticleID else { return false }
+            return parentsByID[parentID] == nil
+        }
         for index in systems.indices {
+            if let parentID = systems[index].parentParticleID,
+               let parent = parentsByID[parentID] {
+                systems[index].origin = parent.position
+            }
             systems[index].simulator.advance(by: frameDelta)
             _ = systems[index].simulator.consumeBirthEvents()
             _ = systems[index].simulator.consumeDeathEvents()
         }
-        systems.removeAll { $0.simulator.simulationTime > 0 && $0.simulator.particles.isEmpty }
+        systems.removeAll {
+            $0.parentParticleID == nil
+                && $0.simulator.simulationTime > 0
+                && $0.simulator.particles.isEmpty
+        }
         spawn(from: spawnEvents, trigger: .spawn)
         spawn(from: deathEvents, trigger: .death)
+        reconcileFollowers(parentParticles)
 
         var batches: [SceneParticleDrawBatch] = []
         var failures: [String] = []
@@ -211,7 +231,38 @@ final class SceneParticleChildRuntime {
                 nextSeed &+= 1
                 systems.append(System(
                     templateIndex: template.index,
+                    parentParticleID: nil,
                     origin: event.position,
+                    simulator: SceneParticleSimulator(
+                        definition: template.definition,
+                        seed: seed,
+                        particleBudget: template.particleBudget
+                    )
+                ))
+            }
+        }
+    }
+
+    private func reconcileFollowers(_ parents: [SceneParticleState]) {
+        guard !parents.isEmpty else { return }
+        for template in templates where template.trigger == .follow {
+            var followedIDs = Set(systems.lazy.compactMap { system in
+                system.templateIndex == template.index ? system.parentParticleID : nil
+            })
+            for parent in parents {
+                guard !followedIDs.contains(parent.id),
+                      followedIDs.count < template.maximumSystemCount,
+                      Self.accepts(event: parent, template: template) else { continue }
+                followedIDs.insert(parent.id)
+                let seed = UInt64(bitPattern: Int64(layerID))
+                    ^ parent.id &* 0x9E3779B97F4A7C15
+                    ^ UInt64(template.index &+ 1) &* 0xBF58476D1CE4E5B9
+                    ^ nextSeed
+                nextSeed &+= 1
+                systems.append(System(
+                    templateIndex: template.index,
+                    parentParticleID: parent.id,
+                    origin: parent.position,
                     simulator: SceneParticleSimulator(
                         definition: template.definition,
                         seed: seed,

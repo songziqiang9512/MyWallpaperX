@@ -231,7 +231,8 @@ final class SceneParticleRuntime {
                 let result = childRuntime.advance(
                     by: frameDelta,
                     spawnEvents: births,
-                    deathEvents: deaths
+                    deathEvents: deaths,
+                    parentParticles: layers[index].simulator.particles
                 )
                 batches.append(contentsOf: result.batches)
                 for path in result.bufferFailurePaths {

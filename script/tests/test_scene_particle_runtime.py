@@ -136,6 +136,8 @@ enum Harness {
         case "eventdeath-real":
             guard CommandLine.arguments.count == 3 else { throw HarnessError.missingPath }
             try printJSON(realEventDeathSample(cachePath: CommandLine.arguments[2]))
+        case "eventfollow-synthetic":
+            try printJSON(syntheticEventFollow())
         case "synthetic":
             try printJSON(synthetic())
         default:
@@ -375,6 +377,77 @@ enum Harness {
         ]
     }
 
+    private static func syntheticEventFollow() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mwx-particle-follow-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        try writeParticle(
+            "particles/follow-root.json", material: "materials/shared.json",
+            velocityX: 60, lifetime: 4.0 / 60.0, moves: true, rate: 0, instantaneous: 1,
+            children: [[
+                "name": "particles/follow-child.json", "type": "eventfollow", "maxcount": 1,
+            ]], under: directory
+        )
+        try writeParticle(
+            "particles/follow-child.json", material: "materials/shared.json",
+            rate: 0, instantaneous: 1, under: directory
+        )
+        try writeParticle(
+            "particles/continuous-root.json", material: "materials/shared.json",
+            rate: 0, instantaneous: 1,
+            children: [[
+                "name": "particles/continuous-child.json", "type": "eventfollow",
+            ]], under: directory
+        )
+        try writeParticle(
+            "particles/continuous-child.json", material: "materials/shared.json", under: directory
+        )
+
+        let descriptor = SceneRenderDescriptor(
+            layers: [
+                layer(10, "particles/follow-root.json"),
+                layer(11, "particles/continuous-root.json"),
+            ],
+            renderOrderLayerIDs: [10, 11],
+            materialPasses: [
+                .init(
+                    materialPath: "materials/shared.json",
+                    shaderPath: "genericparticle", texturePaths: ["shared.png"], blending: "additive"
+                ),
+            ]
+        )
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let runtime = SceneParticleRuntime(
+            descriptor: descriptor,
+            cacheDirectory: directory,
+            device: device
+        )
+        var childCounts: [Int] = []
+        var childPositions: [Float] = []
+        for _ in 0..<5 {
+            let batches = runtime.advance(by: 1.0 / 60.0)
+            let instances = batches.first {
+                $0.particlePath == "particles/follow-child.json"
+            }?.instances ?? []
+            childCounts.append(instances.count)
+            if let position = instances.first?.positionAndSize.x {
+                childPositions.append(position)
+            }
+        }
+        return [
+            "childCounts": childCounts,
+            "childPositions": childPositions,
+            "followUnsupported": runtime.diagnostics.contains {
+                $0.layerID == 10 && $0.kind == .childSystemsUnsupported
+            },
+            "continuousFollowDetails": runtime.diagnostics.compactMap {
+                $0.layerID == 11 && $0.kind == .childSystemsUnsupported ? $0.detail : nil
+            },
+        ]
+    }
+
     private static func synthetic() throws -> [String: Any] {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("mwx-particle-runtime-\(UUID().uuidString)", isDirectory: true)
@@ -502,13 +575,15 @@ enum Harness {
         rendererMinimumLength: Double? = nil,
         rendererMaximumLength: Double? = nil,
         velocityX: Double? = nil,
+        lifetime: Double = 10,
+        moves: Bool = false,
         rate: Double = 60,
         instantaneous: Int? = nil,
         children: [[String: Any]] = [],
         under root: URL
     ) throws {
         var initializers: [[String: Any]] = [
-            ["name": "lifetimerandom", "min": 10, "max": 10],
+            ["name": "lifetimerandom", "min": lifetime, "max": lifetime],
             ["name": "sizerandom", "min": 8, "max": 8],
         ]
         if let velocityX {
@@ -526,7 +601,7 @@ enum Harness {
             "name": "sphererandom", "rate": rate, "distancemin": 0, "distancemax": 0,
         ]
         if let instantaneous { emitter["instantaneous"] = instantaneous }
-        try writeJSON([
+        var definition: [String: Any] = [
             "material": material,
             "maxcount": 100,
             "flags": flags,
@@ -534,7 +609,9 @@ enum Harness {
             "initializer": initializers,
             "renderer": [rendererDefinition],
             "children": children,
-        ], to: root.appendingPathComponent(path))
+        ]
+        if moves { definition["operator"] = [["name": "movement"]] }
+        try writeJSON(definition, to: root.appendingPathComponent(path))
     }
 
     private static func writeJSON(_ value: [String: Any], to url: URL) throws {
@@ -663,6 +740,20 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertNotIn("missingSpriteRenderer", kinds)
         self.assertIn("childSystemsUnsupported", kinds)
         self.assertIn("builtInTextureUnavailable", kinds)
+
+    def test_eventfollow_tracks_parent_and_stops_with_parent(self) -> None:
+        result = self.run_harness("eventfollow-synthetic")
+        self.assertEqual(result["childCounts"], [0, 1, 1, 0, 0])
+        self.assertEqual(result["childPositions"], [2, 3])
+        self.assertFalse(result["followUnsupported"])
+        self.assertIn(
+            "particles/continuous-child.json:outsideStrictEventProfile",
+            result["continuousFollowDetails"],
+        )
+        self.assertNotIn(
+            "particles/continuous-child.json:unsupportedType:eventfollow",
+            result["continuousFollowDetails"],
+        )
 
     def test_real_3768903841_executes_strict_eventspawn_child(self) -> None:
         if not (EVENTSPAWN_SAMPLE_CACHE / ".mywallpaperx-scene-interpretation.json").is_file():
