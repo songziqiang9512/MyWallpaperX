@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Contract tests for SceneMdlPuppetMeshReader.
+"""Contract tests for the restricted Puppet mesh and attachment readers.
 
 Builds synthetic MDLV binaries covering the verified mesh-block shape
 (stride 80 and 84, position at offset 0, UV in the trailing 8 bytes,
@@ -23,7 +23,15 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneMdlPuppetMeshReader.swift",
+    SCENE_ROOT / "Format/SceneMdlPuppetAttachmentReader.swift",
 ]
+REAL_ATTACHMENT_ASSETS = list(
+    (
+        REPOSITORY_ROOT
+        / ".codex/scene-ahri-puppet-20260725/final/runtime-homes/3769688830"
+        / "Library/Caches/MyWallpaperX/SteamWorkshopScene"
+    ).glob("*/models/spiritblossomahribase_puppet.mdl")
+)
 
 HARNESS = r'''
 import Foundation
@@ -49,6 +57,20 @@ enum Harness {
                         Double(vertex.x), Double(vertex.y), Double(vertex.z),
                         Double(vertex.u), Double(vertex.v),
                     ]
+                }
+                do {
+                    entry["attachments"] = try SceneMdlPuppetAttachmentReader.read(
+                        data: data
+                    ).map { attachment in
+                        [
+                            "boneIndex": attachment.boneIndex,
+                            "name": attachment.name,
+                            "modelFrame": attachment.modelBindFrameColumnMajor.map(Double.init),
+                            "sceneFrame": attachment.sceneBindFrameColumnMajor.map(Double.init),
+                        ] as [String: Any]
+                    }
+                } catch let error as SceneMdlPuppetAttachmentReadError {
+                    entry["attachmentError"] = error.description
                 }
             } catch let error as SceneMdlPuppetMeshReadError {
                 entry["ok"] = false
@@ -99,6 +121,43 @@ def build_mdl(
     return body
 
 
+def matrix(tx: float = 0, ty: float = 0) -> list[float]:
+    values = [0.0] * 16
+    values[0] = values[5] = values[10] = values[15] = 1.0
+    values[12] = tx
+    values[13] = ty
+    return values
+
+
+def build_attachment_mdl(
+    attachment_bone: int = 1,
+    duplicate_name: bool = False,
+) -> bytes:
+    body = bytearray(build_mdl(include_mdls=False))
+    mdls = bytearray(b"MDLS0004\x00" + b"\x00" * 4 + struct.pack("<I", 2))
+    for parent, transform in [
+        (-1, matrix(-100, -50)),
+        (0, matrix(20, 30)),
+    ]:
+        mdls += b"\x00"
+        mdls += struct.pack("<IiI16f", 1, parent, 64, *transform)
+        mdls += b"{}\x00"
+    mdat_offset = len(body) + len(mdls)
+    struct.pack_into("<I", mdls, 9, mdat_offset)
+
+    names = ["hand", "hand" if duplicate_name else "orb"]
+    mdat = bytearray(b"MDAT0001\x00" + b"\x00" * 4 + struct.pack("<H", 2))
+    for bone, name, transform in [
+        (attachment_bone, names[0], matrix(5, 7)),
+        (0, names[1], matrix()),
+    ]:
+        mdat += struct.pack("<H", bone)
+        mdat += name.encode() + b"\x00"
+        mdat += struct.pack("<16f", *transform)
+    struct.pack_into("<I", mdat, 9, mdat_offset + len(mdat))
+    return bytes(body + mdls + mdat)
+
+
 class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
     maxDiff = None
 
@@ -138,17 +197,27 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
             # A fake block after the MDLS marker must not be scanned.
             "after-mdls.mdl": b"MDLV0023\x00" + b"\x00" * 8 + b"MDLS"
             + build_mdl()[9:],
+            "attachments.mdl": build_attachment_mdl(),
+            "bad-attachment-bone.mdl": build_attachment_mdl(attachment_bone=9),
+            "duplicate-attachment.mdl": build_attachment_mdl(duplicate_name=True),
         }
         for name, blob in cls.fixtures.items():
             (tmp / name).write_bytes(blob)
+        paths = [str(tmp / name) for name in cls.fixtures]
+        paths += [str(path) for path in REAL_ATTACHMENT_ASSETS]
         completed = subprocess.run(
-            [str(cls.binary), *[str(tmp / name) for name in cls.fixtures]],
+            [str(cls.binary), *paths],
             capture_output=True,
             text=True,
         )
         if completed.returncode != 0:
             raise AssertionError(f"harness run failed:\n{completed.stderr}")
         cls.results = {entry["file"]: entry for entry in json.loads(completed.stdout)}
+        cls.real_result = (
+            cls.results.get("spiritblossomahribase_puppet.mdl")
+            if REAL_ATTACHMENT_ASSETS
+            else None
+        )
 
     @classmethod
     def tearDownClass(cls):
@@ -202,6 +271,40 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
         entry = self.results["after-mdls.mdl"]
         self.assertFalse(entry["ok"])
         self.assertIn("no strict bind-pose mesh block", entry["error"])
+
+    def test_mdls_hierarchy_and_mdat_local_matrix_form_bind_frame(self):
+        attachments = self.results["attachments.mdl"]["attachments"]
+        self.assertEqual([item["name"] for item in attachments], ["hand", "orb"])
+        self.assertEqual(attachments[0]["boneIndex"], 1)
+        self.assertEqual(attachments[0]["modelFrame"][12:15], [-75.0, -13.0, 0.0])
+        self.assertEqual(attachments[0]["sceneFrame"][12:15], [-75.0, 13.0, 0.0])
+        self.assertEqual(attachments[1]["modelFrame"][12:15], [-100.0, -50.0, 0.0])
+        self.assertEqual(attachments[1]["sceneFrame"][12:15], [-100.0, 50.0, 0.0])
+
+    def test_attachment_with_missing_bone_fails_closed(self):
+        entry = self.results["bad-attachment-bone.mdl"]
+        self.assertIn("references missing bone 9", entry["attachmentError"])
+
+    def test_duplicate_attachment_name_fails_closed(self):
+        entry = self.results["duplicate-attachment.mdl"]
+        self.assertIn("duplicate MDAT0001 attachment name", entry["attachmentError"])
+
+    def test_real_ahri_asset_cross_checks_three_attachment_bind_frames(self):
+        if self.real_result is None:
+            self.skipTest("isolated 3769688830 attachment asset is unavailable")
+        attachments = {
+            item["name"]: item for item in self.real_result["attachments"]
+        }
+        self.assertEqual(set(attachments), {"aaaaaaaaa", "orb", "Attachment"})
+        expected = {
+            "aaaaaaaaa": (-807.9761, 223.3849),
+            "orb": (-205.5704, -45.2606),
+            "Attachment": (-39.8856, 300.5312),
+        }
+        for name, (x, y) in expected.items():
+            frame = attachments[name]["sceneFrame"]
+            self.assertAlmostEqual(frame[12], x, places=3)
+            self.assertAlmostEqual(frame[13], y, places=3)
 
 
 if __name__ == "__main__":

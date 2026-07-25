@@ -57,6 +57,7 @@ struct SceneDocument {
         let utilityLayer: SceneUtilityLayer?
         let dependencyLayerIDs: [Int]
         let parentID: Int?
+        let attachmentName: String?
         let visible: Bool?
         let alpha: Double?
         let colorRGB: [Float]?
@@ -204,6 +205,7 @@ struct SceneDocumentLoader {
             utilityLayer: SceneUtilityLayer.parse(imagePath: imagePath, object: root),
             dependencyLayerIDs: root["dependencies"] as? [Int] ?? [],
             parentID: root["parent"] as? Int,
+            attachmentName: stringValue(root["attachment"]).flatMap { $0.isEmpty ? nil : $0 },
             visible: visibleValue(root["visible"]),
             alpha: doubleValue(root["alpha"]),
             colorRGB: floatVector(root["color"]),

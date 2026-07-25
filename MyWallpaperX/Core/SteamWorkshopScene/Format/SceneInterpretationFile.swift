@@ -16,8 +16,8 @@ struct SceneInterpretationFile: Codable {
 }
 
 struct SceneInterpretationFileWriter {
-    // Format 22 adds direct dynamic text content, point-size, and color bindings.
-    static let currentFormatVersion = 23
+    // Format 24 adds Puppet child attachment names and resolved bind frames.
+    static let currentFormatVersion = 24
 
     func make(
         renderDescriptor: SceneRenderDescriptor,

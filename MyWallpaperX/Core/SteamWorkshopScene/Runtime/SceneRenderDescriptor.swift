@@ -21,26 +21,6 @@ struct SceneRenderDescriptor: Codable {
         let parallaxMouseInfluence: Float
     }
 
-    struct EffectDescriptor: Identifiable, Codable {
-        struct PassDescriptor: Identifiable, Codable {
-            let id: Int?
-            let passIndex: Int
-            let texturePaths: [String]
-            let textureSlots: [String?]
-            let userTextureInputs: [SceneEffectTextureInput?]
-            let combos: [String: Int]
-            let constantShaderValues: [String: SceneDocument.ShaderValue]
-            let constantShaderValueKeys: [String]
-        }
-
-        let id: String
-        let effectID: Int?
-        let name: String?
-        let file: String
-        let visible: Bool?
-        let passes: [PassDescriptor]
-    }
-
     struct Layer: Identifiable, Codable {
         let id: Int
         let layerIndex: Int
@@ -53,6 +33,8 @@ struct SceneRenderDescriptor: Codable {
         let dependencyLayerIDs: [Int]
         let parentID: Int?
         let childLayerIDs: [Int]
+        let attachmentName: String?
+        let parentAttachmentBindFrame: [Float]?
         let visible: Bool?
         let alpha: Double?
         let colorRGB: [Float]?
@@ -73,8 +55,8 @@ struct SceneRenderDescriptor: Codable {
         let parallaxDepthXY: [Float]?
         let disablesParallaxPropagation: Bool
         let modelCropOffsetXY: [Float]?
-        // Puppet `.mdl` path when the model declares one. The runtime rebuilds
-        // the bind pose from this mesh; warp animation stays unimplemented.
+        // Puppet `.mdl` path and any exact parent attachment bind frame. The
+        // runtime rebuilds the bind pose; warp animation stays unimplemented.
         let puppetMeshPath: String?
         let text: String?
         let textStyle: SceneTextDescriptor?
@@ -94,30 +76,6 @@ struct SceneRenderDescriptor: Codable {
                 padding: textStyle.padding
             ) ?? sizeWH
         }
-    }
-
-    struct ModelMaterialLink: Identifiable, Codable {
-        let modelPath: String
-        let materialPath: String?
-
-        var id: String { modelPath }
-    }
-
-    struct MaterialPassDescriptor: Identifiable, Codable {
-        let id: String
-        let materialPath: String
-        let materialRawSHA256: String
-        let passIndex: Int
-        let shaderPath: String?
-        let texturePaths: [String]
-        let textureSlots: [String?]
-        let userTextureInputs: [SceneEffectTextureInput?]
-        let combos: [String: Int]
-        let constantShaderValues: [String: SceneDocument.ShaderValue]
-        let blending: String?
-        let depthTest: String?
-        let depthWrite: String?
-        let cullMode: String?
     }
 
     let entryPath: String
@@ -157,6 +115,21 @@ struct SceneRenderDescriptorBuilder {
         let puppetMeshPathsByModelPath = Dictionary(
             uniqueKeysWithValues: assetCatalog.models.map { ($0.relativePath, $0.puppetPath) }
         )
+        let puppetAttachmentsByModelPath = Dictionary(
+            uniqueKeysWithValues: assetCatalog.models.map { model in
+                (
+                    model.relativePath,
+                    Dictionary(
+                        uniqueKeysWithValues: model.puppetAttachments.map {
+                            ($0.name, $0.sceneBindFrameColumnMajor)
+                        }
+                    )
+                )
+            }
+        )
+        let objectsByID = Dictionary(
+            uniqueKeysWithValues: sceneDocument.objects.map { ($0.id, $0) }
+        )
         let solidModelPaths = Set(
             assetCatalog.models.filter(\.isSolidLayer).map { $0.relativePath.localizedLowercase }
         )
@@ -184,6 +157,12 @@ struct SceneRenderDescriptorBuilder {
                     dependencyLayerIDs: object.dependencyLayerIDs,
                     parentID: object.parentID,
                     childLayerIDs: childIDsByParentID[object.id] ?? [],
+                    attachmentName: object.attachmentName,
+                    parentAttachmentBindFrame: attachmentBindFrame(
+                        for: object,
+                        objectsByID: objectsByID,
+                        attachmentsByModelPath: puppetAttachmentsByModelPath
+                    ),
                     visible: object.visible,
                     alpha: object.alpha,
                     colorRGB: padVector(object.colorRGB, length: 3, fill: 1),
@@ -233,6 +212,19 @@ struct SceneRenderDescriptorBuilder {
             },
             firstStageRendererGaps: capabilityProfile.firstStageRendererGaps
         )
+    }
+
+    nonisolated private func attachmentBindFrame(
+        for object: SceneDocument.SceneObject,
+        objectsByID: [Int: SceneDocument.SceneObject],
+        attachmentsByModelPath: [String: [String: [Float]]]
+    ) -> [Float]? {
+        guard let attachmentName = object.attachmentName,
+              let parentID = object.parentID,
+              let modelPath = objectsByID[parentID]?.imagePath else {
+            return nil
+        }
+        return attachmentsByModelPath[modelPath]?[attachmentName]
     }
 
     nonisolated func build(report: SceneDiagnosticsReport) -> SceneRenderDescriptor? {

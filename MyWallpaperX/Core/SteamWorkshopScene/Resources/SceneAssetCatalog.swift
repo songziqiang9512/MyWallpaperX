@@ -9,6 +9,7 @@ struct SceneAssetCatalog {
         let isSolidLayer: Bool
         let cropOffsetXY: [Float]?
         let puppetPath: String?
+        let puppetAttachments: [SceneMdlPuppetAttachment]
 
         var id: String { relativePath }
     }
@@ -68,6 +69,9 @@ struct SceneAssetCatalogLoader {
     nonisolated func load(project: SceneProject, packageReport: ScenePkgExtractionReport?) throws -> SceneAssetCatalog {
         let rootURL = packageReport?.outputURL ?? project.rootURL
         let resourceIndex = SceneResourceIndexBuilder().build(rootURL: rootURL)
+        let resourcesByPath = Dictionary(
+            uniqueKeysWithValues: resourceIndex.resources.map { ($0.relativePath, $0) }
+        )
 
         let modelResources = resourceIndex.resources.filter {
             $0.kind == .model && $0.relativePath.localizedLowercase.hasSuffix(".json")
@@ -84,7 +88,9 @@ struct SceneAssetCatalogLoader {
 
         return SceneAssetCatalog(
             rootURL: rootURL,
-            models: modelResources.compactMap(loadModel),
+            models: modelResources.compactMap {
+                loadModel($0, resourcesByPath: resourcesByPath)
+            },
             materials: materials,
             effectDefinitions: effectResults.compactMap(\.definition),
             effectDefinitionDiagnostics: effectResults.compactMap(\.diagnostic),
@@ -127,15 +133,24 @@ struct SceneAssetCatalogLoader {
         }
     }
 
-    nonisolated private func loadModel(_ resource: SceneResourceIndex.Resource) -> SceneAssetCatalog.ModelAsset? {
+    nonisolated private func loadModel(
+        _ resource: SceneResourceIndex.Resource,
+        resourcesByPath: [String: SceneResourceIndex.Resource]
+    ) -> SceneAssetCatalog.ModelAsset? {
         guard let root = loadJSON(resource.url) else { return nil }
+        let puppetPath = normalizedPath(root["puppet"] as? String)
+        let puppetAttachments = puppetPath
+            .flatMap { resourcesByPath[$0] }
+            .flatMap { try? Data(contentsOf: $0.url) }
+            .flatMap { try? SceneMdlPuppetAttachmentReader.read(data: $0) } ?? []
         return SceneAssetCatalog.ModelAsset(
             relativePath: resource.relativePath,
             materialPath: normalizedPath(root["material"] as? String),
             autosize: root["autosize"] as? Bool,
             isSolidLayer: root["solidlayer"] as? Bool ?? false,
             cropOffsetXY: parsedVector(root["cropoffset"], length: 2),
-            puppetPath: normalizedPath(root["puppet"] as? String)
+            puppetPath: puppetPath,
+            puppetAttachments: puppetAttachments
         )
     }
 

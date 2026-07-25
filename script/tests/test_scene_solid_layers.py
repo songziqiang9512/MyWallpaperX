@@ -21,6 +21,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
     SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift",
     SOURCE_ROOT / "Runtime/SceneRenderDescriptor.swift",
+    SOURCE_ROOT / "Runtime/SceneRenderDescriptor+AuthoredAssets.swift",
     SOURCE_ROOT / "Rendering/SceneMetalPipeline.swift",
     SOURCE_ROOT / "Resources/SceneSolidLayerTexture.swift",
 ]
@@ -163,6 +164,11 @@ struct SceneProject {
     var entryURL: URL { rootURL.appendingPathComponent(entryPath) }
 }
 
+struct SceneMdlPuppetAttachment {
+    let name: String
+    let sceneBindFrameColumnMajor: [Float]
+}
+
 struct SceneAssetCatalog {
     struct ModelAsset {
         let relativePath: String
@@ -170,6 +176,7 @@ struct SceneAssetCatalog {
         let cropOffsetXY: [Float]?
         let isSolidLayer: Bool
         let puppetPath: String?
+        let puppetAttachments: [SceneMdlPuppetAttachment]
     }
 
     struct MaterialAsset {
