@@ -175,6 +175,19 @@ https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/<Name>.htm
 
 本轮只建立能力边界，没有把这些高级模块错误提升为当前 P0。
 
+### 1.11 本机正版客户端随包证据
+
+本机 Wallpaper Engine 2.8.42 / Steam build `23967692` 的结构化随包证据记录在：
+
+- [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md)：stock Effect、Material、TEX/3D LUT、MDL、粒子预览/预设、默认项目和 compiled blob census。
+- [SceneScript 运行时实现层合同](scenescript-runtime-implementation-contract.md)：随包 Vec/Mat、宿主桥、用户属性转换、自定义 script property builder 和官方 JS module 行为。
+- [SceneScript binding target 取证](scenescript-binding-target-forensics.md)：13 处内联脚本 wrapper、owner/target、authored value 与导出 hook 的静态输入合同。
+- [官方默认工程 corpus](official-default-projects-fixture-inventory.md)：19 个随包工程的入口形态，以及 16 个 scene-shaped 工程的对象、相机、Effect、纹理、模型、粒子与 shader cache 输入清单。
+- [Shader source 前置合同与跨后端假设审查](shader-prelude-and-backend-abstraction.md)：随包 source token、format branch 与 uniform census；token 缺席为 A 级，注入者、矩阵/NDC/Metal 映射为 C 级。
+- [zcompat 向后兼容机制取证](zcompat-backward-compatibility-forensics.md)：随包 scene shader 候选与 Web patch record schema；匹配方向、应用时机、失败策略和音频填充行为仍是待运行确认项。
+
+证据范围只包含用户合法安装副本中的 `assets`、官方 default projects/templates 与声明文件；不包含用户项目/config/cache，也不执行或复制 Windows binary/payload。随包资源是当前 build 的 A 级结构证据，但仍不能代替运行时 event order、history lifecycle、shader 数学或 Windows pixel golden。
+
 ## 2. 真实样本证据
 
 真实 Workshop 根：
@@ -296,7 +309,7 @@ Reference Project/WaifuX-main
 2. `previous`、`original`、named RT、full-frame aliases 的全部内部命名和默认 binding precedence；
 3. FBO `unique/fit/uv/conditions` 在所有版本中的精确生命周期；
 4. PKG/TEX/TEXB/MDL/Puppet 的完整版本矩阵；
-5. 内置 shader 数学、`[COMBO_OFF]`、浮点/颜色空间和 DirectX sampling edge behavior；官方公开 `[COMBO]`，但没有给出 stock asset 中 `[COMBO_OFF]` 的合同；
+5. 内置 shader 数学、浮点/颜色空间和 DirectX sampling edge behavior；官方公开 `[COMBO]`，但没有给出 stock asset 中 `[COMBO_OFF]` / `[OFF_COMBO]` / `[COMBO_DISABLED]` 三种拼写与 `[PASS]` 的合同，随包普查见 [Shader source 前置合同审查](shader-prelude-and-backend-abstraction.md) §8；
 6. SceneScript VM 的全部 ECMAScript edge cases、module loader、timer/re-entrancy、event ordering、异常策略和 resource limits；
 7. 粒子每个 component 的随机分布、seed、重复 module order、spawn debt、默认值和精确 integration method；
 8. text renderer 的 300 DPI point 到 scene/raster unit 换算、系统字体 fallback、hinting、layout、ellipsis 与 color-font 行为；

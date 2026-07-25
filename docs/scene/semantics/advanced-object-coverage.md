@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-25
 >
-> 实现基线：`49ee89a`
+> 实现基线见 [运行证据索引](runtime-evidence-index.md)；本表不复制基线 commit，文内 commit 号是各能力的历史落地提交。
 >
 > 当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。exact stock Opacity direct alpha 已闭环；本表高级对象仍按各自前置单独升级。
 

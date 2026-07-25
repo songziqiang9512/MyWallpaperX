@@ -4,9 +4,9 @@
 >
 > 官方基线：`lib.sceneScript.d.ts` **VERSION 2.8**，固定文档 revision `b26412295cbfd0ee5cdceff67e2c95069527aa1b`。
 >
-> 资料入口：[资料来源与证据索引](source-index.md)、[官方页面全目录](official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[总覆盖台账](coverage-ledger.md)。
+> 资料入口：[资料来源与证据索引](source-index.md)、[SceneScript 随包实现合同](scenescript-runtime-implementation-contract.md)、[官方页面全目录](official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[总覆盖台账](coverage-ledger.md)。
 >
-> Scene 实现基线：`3baf1fc`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。
+> Scene 实现基线、当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)；本表不复制基线 commit，文内 commit 号是各能力的历史落地提交。
 
 ## 1. 当前结论与评级口径
 

@@ -4,7 +4,7 @@
 >
 > 覆盖：官方 sitemap 中 45 个用户可见 Scene effect 页面，以及 1 个 asset 内部 `_empty` 占位。
 >
-> 实现基线：`3baf1fc`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。
+> 实现基线、当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)；本表不复制基线 commit，文内 commit 号是各能力的历史落地提交。
 >
 > 用法：先按 effect ID 查作者启用、输入、pass/RT，再决定 parser、renderer 和测试，不按名称直接套一个视觉近似。
 

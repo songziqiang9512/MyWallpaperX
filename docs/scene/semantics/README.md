@@ -42,6 +42,11 @@ Scene 兼容的核心不是不断增加“看起来差不多”的效果分支�
 | SceneScript v2.8 每个生命周期、事件、handle 和 global 做到哪里 | [SceneScript API 覆盖表](scenescript-api-coverage.md) |
 | Utility、Puppet、3D、Lighting、性能、RGB 和离线做到哪里 | [高级对象覆盖表](advanced-object-coverage.md) |
 | 各运行系统的官方语义和正确执行顺序是什么 | [运行时系统语义](runtime-systems-reference.md) |
+| VM 语言等级、宿主桥接协议、Vec/Mat 数值行为、自定义属性 UI 协议 | [SceneScript 运行时实现层合同](scenescript-runtime-implementation-contract.md) |
+| 内联脚本绑定到 JSON 的哪个位置、`authoredValue` 怎么编码、导出哪些 hook | [内联脚本与 binding target 取证](scenescript-binding-target-forensics.md) |
+| 官方 shader source 使用哪些未定义 token、哪些后端结论仍需实验 | [Shader source 前置合同与跨后端假设审查](shader-prelude-and-backend-abstraction.md) |
+| 19 个随包工程各覆盖什么能力、哪些可作为隔离验证候选 | [官方默认工程 corpus](official-default-projects-fixture-inventory.md) |
+| 随包 `zcompat` 有哪些 patch record、哪些 matcher/runtime 语义尚未确认 | [zcompat 向后兼容机制取证](zcompat-backward-compatibility-forensics.md) |
 | 官方站当前有哪些 Scene 页面、某个 API 专页在哪里 | [官方页面全目录](official-page-catalog.md) |
 | 某条结论来自官方、样本还是第三方实现 | [资料来源与证据索引](source-index.md) |
 | 某条 `L3` 到底由哪些代码、自动测试和运行/GPU 结果支撑 | [运行证据索引](runtime-evidence-index.md) |
@@ -78,7 +83,9 @@ Wallpaper Engine 没有公开稳定、完整的 Workshop Scene 序列化规范�
 | `D` | `Almamu/linux-wallpaperengine` 等开源播放器 | 一种可审计解释路径、常见陷阱、字段间关系 | 官方真值；项目中的 TODO、启发式和 bug 不能反向成为规范 |
 | `E` | MyWallpaperX 当前代码、测试和样本矩阵 | 当前真实支持范围、已知降级和回归证据 | Wallpaper Engine parity 或未覆盖样本的正确性 |
 
-冲突时按 `A -> 合法安装的官方 assets -> B -> C -> D -> E` 排查。当前机器没有 Wallpaper Engine Windows 官方安装目录，因此本轮没有把 WaifuX 的资源包提升为“官方 assets”。
+冲突时按 `A -> 合法安装的官方 assets -> B -> C -> D -> E` 排查。本机现有 Wallpaper Engine 2.8.42 正版安装，其随包结构化证据与逐篇取证入口见 [资料来源与证据索引](source-index.md) §1.11；该层优先于 B/C，但仍不能证明运行时事件顺序、shader 数学与 Windows 像素 parity。WaifuX 的资源包**不因此提升**为“官方 assets”，仍留在 `C`。
+
+注意本表的 `A`-`E` 与 [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) 的 `A`/`B`/`C` 是**两套不同的标度**：后者的 `C` 指“根据字段名或常量作出的解释”，不是本表的 WaifuX payload。§1.11 登记的 5 篇随包取证文档使用后者。引用“等级 C”时必须指明出处标度。
 
 ## 4. 开发硬规则
 
@@ -152,6 +159,7 @@ scene.json / scene.pkg / assets
 - [覆盖台账](coverage-ledger.md) 只做系统摘要；Effect、粒子、SceneScript、Graph/Shader、运行输入/属性和高级对象的专项能力表分别是其逐项等级事实来源。
 - 实现前必须先查 [能力依赖图](capability-dependency-map.md)，再进入对应专项表查看作者条件、代码、测试、运行证据和下一门；不能从同系统某个 `L3` 子集推断整套能力。
 - 资料入口完整性以 [179 页逐页表](official-page-map.md) 与自动门禁为准；16 组分组统计不能替代逐页映射。
+- 专项表不写「实现基线：`<commit>`」。基线 commit 与 interpretation schema 版本只在 [覆盖台账](coverage-ledger.md)、[运行证据索引](runtime-evidence-index.md)、[开发计划](../scene-capability-development-plan-2026-07-22.md) 和 roadmap 维护（自动门禁只校验这四份）；专项表里出现的 commit 号一律理解为该能力的历史落地提交，不是当前基线。此前 7 份专项表各自复制基线，最旧的落后 42 个提交。
 - 新发现的字段先标证据等级和样本来源，再判断是否进入实现。
 - 官方文档或 `lib.sceneScript.d.ts` 版本变化时，更新 [资料来源与证据索引](source-index.md) 的核验日期和差异。
 - 第三方播放器与官方资料冲突时，记录其偏差，不修正文档去迎合第三方行为。

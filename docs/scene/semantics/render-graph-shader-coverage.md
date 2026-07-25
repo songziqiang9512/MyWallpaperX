@@ -37,7 +37,11 @@
 
 每行只能有一个等级。**通用 primitive 取全部已知 authored 形态的共同最低状态**：某个 strict profile 能执行，只能在该 profile 自己的行和 [Effect 执行覆盖表](effect-execution-coverage.md) 记 `L3`，不能反向把通用 definition、pass、FBO、slot、combo、uniform 或 render state 抬到 `L3`。辅助设施存在也不能把官方语义抬级。
 
-当前代码基线为 `8bac86e`，interpretation wire schema 为 v23；v22 在既有 ShaderContract/binding program 和 exact stock Opacity 合同基础上保存 direct text content/point-size/color binding program，v23 增加 layer `puppetMeshPath`。后续 exact backend 没有增加 wire 字段，execution catalog 在启动时从 authored graph 与 ShaderContract 规划。Opacity direct alpha、Local Contrast strength、受限动态文本与 X-Ray target 可 live 消费 per-surface snapshot；SceneScript alpha、其他动态 effect 参数、Shadow 常量与通用 shader uniform 仍未 live。该版本号只说明当前生成的派生输入能交换已验证数据，不代表可长期复用的缓存或 generic shader uniform 已完成。
+**本表的 `L4` 与其他覆盖表的 `L4` 不是同一坐标轴。** [覆盖台账](coverage-ledger.md)、[Effect 执行覆盖表](effect-execution-coverage.md)、[粒子组件覆盖表](particle-component-coverage.md)、[SceneScript API 覆盖表](scenescript-api-coverage.md) 的 `L4` 都指「已与 Windows Wallpaper Engine golden 或官方行为核验」，是**验证轴**；本表的 `L4` 指「generic runtime 不靠固定 profile 分派即可执行 authored 合同」，是**实现通用性轴**。因此本表某行达到 `L4` **不等于**该语义已取得像素 parity，反之靠 strict profile 取得 golden 也不会把本表抬到 `L4`。引用等级时必须带上出处表名。
+
+interpretation wire schema 的 graph/shader 侧增量：v22 在既有 ShaderContract/binding program 和 exact stock Opacity 合同基础上保存 direct text content/point-size/color binding program，v23 增加 layer `puppetMeshPath`。此后 v24 增加 Puppet attachment bind frame（`attachmentName`/`boneIndex`/`modelBindFrameColumnMajor`）、v25 增加 `puppetAnimationLayers`（MDLA clip 的 `animationID`/`additive`/`blend*`/`rate`/`visible`/`visibilityBinding`）——**两次都是 Puppet 通道的字段，没有改变 graph/shader 侧的 wire 合同**。execution catalog 仍在启动时从 authored graph 与 ShaderContract 规划。Opacity direct alpha、Local Contrast strength、受限动态文本与 X-Ray target 可 live 消费 per-surface snapshot；SceneScript alpha、其他动态 effect 参数、Shadow 常量与通用 shader uniform 仍未 live。版本号只说明当前生成的派生输入能交换已验证数据，不代表可长期复用的缓存或 generic shader uniform 已完成。
+
+当前基线 commit 与 schema 版本号以 [运行证据索引](runtime-evidence-index.md) 和 [覆盖台账](coverage-ledger.md) 为准；本表不复制，避免随代码演进失真。
 
 ## 2. 三条实现通道
 
