@@ -245,6 +245,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
     def test_debug_runner_sequences_before_hover_and_after_frames(self) -> None:
         source = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
         self.assertIn("--mwx-debug-scene-hover-pointer-json", source)
+        self.assertIn("--mwx-debug-scene-after-snapshot-delay", source)
         before = source.index('requestSnapshot(reason: "before"')
         hover_state = source.index("setPointer(hoverPointer)", before)
         hover = source.index('requestSnapshot(reason: "hover"', hover_state)

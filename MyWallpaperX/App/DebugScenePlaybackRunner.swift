@@ -128,7 +128,7 @@ enum DebugScenePlaybackRunner {
     private static func scheduleSnapshots(
         outputDirectory: URL
     ) {
-        for (reason, delay) in [("ready", 1.0), ("after", 3.0)] {
+        for (reason, delay) in [("ready", 1.0), ("after", requestedAfterSnapshotDelay)] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                 requestSnapshot(reason: reason, outputDirectory: outputDirectory)
             }
@@ -226,6 +226,14 @@ enum DebugScenePlaybackRunner {
             return 10
         }
         return min(max(duration, 5), 60)
+    }
+
+    private static var requestedAfterSnapshotDelay: TimeInterval {
+        guard let raw = argumentValue(after: "--mwx-debug-scene-after-snapshot-delay"),
+              let delay = TimeInterval(raw), delay.isFinite else {
+            return 3
+        }
+        return min(max(delay, 1.1), requestedDuration - 0.5)
     }
 
     private static var requestedHoverPointer: SIMD2<Float>? {

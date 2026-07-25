@@ -1138,6 +1138,7 @@ def run_sample(
     sample: dict[str, Any],
     output_dir: Path,
     duration: float,
+    after_snapshot_delay: float | None,
 ) -> dict[str, Any]:
     sample_id = str(sample["id"])
     source = sample_root / "Scene" / sample_id
@@ -1173,6 +1174,11 @@ def run_sample(
         "--mwx-debug-scene-duration",
         str(duration),
     ]
+    if after_snapshot_delay is not None:
+        command.extend([
+            "--mwx-debug-scene-after-snapshot-delay",
+            str(after_snapshot_delay),
+        ])
     property_overrides = sample.get("property_overrides")
     live_property_overrides = sample.get("live_property_overrides")
     append_property_arguments(command, property_overrides, live_property_overrides)
@@ -1694,11 +1700,28 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--duration", type=float, default=7)
+    parser.add_argument(
+        "--after-snapshot-delay",
+        type=float,
+        help="seconds after launch to capture the non-hover after frame",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    duration = max(args.duration, 5)
+    if args.after_snapshot_delay is not None and (
+        not math.isfinite(args.after_snapshot_delay)
+        or args.after_snapshot_delay <= 1
+        or args.after_snapshot_delay >= duration
+    ):
+        print(
+            "Scene benchmark precondition failed: after snapshot delay must be "
+            "finite, greater than 1, and less than duration",
+            file=sys.stderr,
+        )
+        return 2
     output_dir = require_fresh_output_dir(args.output_dir.expanduser().resolve())
     matrix_path = args.matrix.expanduser().resolve()
     matrix = load_matrix(matrix_path)
@@ -1714,7 +1737,8 @@ def main() -> int:
             sample_root=args.sample_root.expanduser().resolve(),
             sample=sample,
             output_dir=output_dir,
-            duration=max(args.duration, 5),
+            duration=duration,
+            after_snapshot_delay=args.after_snapshot_delay,
         )
         for sample in matrix["samples"]
     ]
