@@ -1,29 +1,5 @@
 import Foundation
 
-struct SceneMdlPuppetAnimation {
-    struct Rotation: Equatable, Sendable {
-        let x: Float
-        let y: Float
-        let z: Float
-    }
-
-    let id: Int
-    let name: String
-    let mode: String
-    let framesPerSecond: Float
-    let frameCount: Int
-    let rotationsByBone: [[Rotation]]
-
-    nonisolated var durationSeconds: Float {
-        Float(frameCount) / framesPerSecond
-    }
-}
-
-struct SceneMdlPuppetAnimationSet {
-    let boneCount: Int
-    let animations: [SceneMdlPuppetAnimation]
-}
-
 enum SceneMdlPuppetAnimationReadError: Error, CustomStringConvertible, Equatable, Sendable {
     case unsupportedMagic(String)
     case skeletonBlockMissing
@@ -76,9 +52,9 @@ enum SceneMdlPuppetAnimationReadError: Error, CustomStringConvertible, Equatable
 
 // Restricted MDLA0006 reader verified against MDLV0023 assets from three
 // independent Workshop samples. Tracks are ordered by MDLS bone index and
-// contain frameCount + 1 full transforms. Puppet Timeline animation only
-// consumes the rotation triplet, so translation and scale are validated but
-// deliberately not retained in this IR.
+// contain frameCount + 1 full transforms. Although the editor guide recommends
+// animating angles, real assets also vary translation and scale; all three
+// components are therefore retained without claiming a mixer or evaluator.
 enum SceneMdlPuppetAnimationReader {
     private static let mdlMagic = "MDLV0023"
     private static let skeletonMarker = Data("MDLS0004\0".utf8)
@@ -233,7 +209,7 @@ enum SceneMdlPuppetAnimationReader {
             guard totalSamples <= maxTotalSamples else {
                 throw SceneMdlPuppetAnimationReadError.invalidAnimationBounds
             }
-            let rotations = try readRotations(
+            let transforms = try readTransforms(
                 data: data,
                 cursor: &cursor,
                 bound: endOffset,
@@ -254,7 +230,7 @@ enum SceneMdlPuppetAnimationReader {
                 mode: mode,
                 framesPerSecond: framesPerSecond,
                 frameCount: frameCount,
-                rotationsByBone: rotations
+                transformsByBone: transforms
             ))
         }
         guard cursor == endOffset else {
@@ -263,16 +239,16 @@ enum SceneMdlPuppetAnimationReader {
         return animations
     }
 
-    private static func readRotations(
+    private static func readTransforms(
         data: Data,
         cursor: inout Int,
         bound: Int,
         animationID: Int,
         boneCount: Int,
         sampleCount: Int
-    ) throws -> [[SceneMdlPuppetAnimation.Rotation]] {
+    ) throws -> [[SceneMdlPuppetAnimation.Transform]] {
         let expectedBytes = sampleCount * transformByteCount
-        var tracks: [[SceneMdlPuppetAnimation.Rotation]] = []
+        var tracks: [[SceneMdlPuppetAnimation.Transform]] = []
         tracks.reserveCapacity(boneCount)
         for boneIndex in 0..<boneCount {
             guard cursor + 8 <= bound,
@@ -285,8 +261,8 @@ enum SceneMdlPuppetAnimationReader {
                 )
             }
             cursor += 8
-            var rotations: [SceneMdlPuppetAnimation.Rotation] = []
-            rotations.reserveCapacity(sampleCount)
+            var transforms: [SceneMdlPuppetAnimation.Transform] = []
+            transforms.reserveCapacity(sampleCount)
             for frameIndex in 0..<sampleCount {
                 let transformOffset = cursor + frameIndex * transformByteCount
                 var values: [Float] = []
@@ -302,10 +278,14 @@ enum SceneMdlPuppetAnimationReader {
                     }
                     values.append(value)
                 }
-                rotations.append(.init(x: values[3], y: values[4], z: values[5]))
+                transforms.append(.init(
+                    translation: SIMD3(values[0], values[1], values[2]),
+                    rotation: SIMD3(values[3], values[4], values[5]),
+                    scale: SIMD3(values[6], values[7], values[8])
+                ))
             }
             cursor += expectedBytes
-            tracks.append(rotations)
+            tracks.append(transforms)
         }
         return tracks
     }

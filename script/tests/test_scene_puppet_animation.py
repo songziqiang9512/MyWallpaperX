@@ -17,6 +17,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCE = SCENE_ROOT / "Format/SceneMdlPuppetAnimationReader.swift"
+SWIFT_MODEL_SOURCE = SCENE_ROOT / "Format/SceneMdlPuppetAnimation.swift"
 REAL_ASSET_ROOT = (
     REPOSITORY_ROOT
     / ".codex/scene-attachment-full45-20260725/results-v1/runtime-homes"
@@ -49,13 +50,23 @@ enum Harness {
                         "fps": Double(animation.framesPerSecond),
                         "frameCount": animation.frameCount,
                         "duration": Double(animation.durationSeconds),
-                        "trackCount": animation.rotationsByBone.count,
-                        "sampleCounts": animation.rotationsByBone.map(\.count),
-                        "firstRotation": animation.rotationsByBone.first?.first.map {
-                            [Double($0.x), Double($0.y), Double($0.z)]
+                        "trackCount": animation.transformsByBone.count,
+                        "sampleCounts": animation.transformsByBone.map(\.count),
+                        "firstTransform": animation.transformsByBone.first?.first.map {
+                            [
+                                Double($0.translation.x), Double($0.translation.y),
+                                Double($0.translation.z), Double($0.rotation.x),
+                                Double($0.rotation.y), Double($0.rotation.z),
+                                Double($0.scale.x), Double($0.scale.y), Double($0.scale.z),
+                            ]
                         } ?? [],
-                        "lastRotation": animation.rotationsByBone.first?.last.map {
-                            [Double($0.x), Double($0.y), Double($0.z)]
+                        "lastTransform": animation.transformsByBone.first?.last.map {
+                            [
+                                Double($0.translation.x), Double($0.translation.y),
+                                Double($0.translation.z), Double($0.rotation.x),
+                                Double($0.rotation.y), Double($0.rotation.z),
+                                Double($0.scale.x), Double($0.scale.y), Double($0.scale.z),
+                            ]
                         } ?? [],
                     ] as [String: Any]
                 }
@@ -178,7 +189,14 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
         harness.write_text(HARNESS)
         cls.binary = tmp / "harness"
         compilation = subprocess.run(
-            ["swiftc", str(SWIFT_SOURCE), str(harness), "-o", str(cls.binary)],
+            [
+                "swiftc",
+                str(SWIFT_MODEL_SOURCE),
+                str(SWIFT_SOURCE),
+                str(harness),
+                "-o",
+                str(cls.binary),
+            ],
             capture_output=True,
             text=True,
         )
@@ -240,15 +258,19 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
     def tearDownClass(cls):
         cls._tmp.cleanup()
 
-    def test_valid_two_animation_fixture_preserves_rotation_only_ir(self):
+    def test_valid_two_animation_fixture_preserves_full_transform_ir(self):
         entry = self.results["valid.mdl"]
         self.assertTrue(entry["ok"], entry)
         self.assertEqual(entry["boneCount"], 2)
         self.assertEqual([item["id"] for item in entry["animations"]], [101, 202])
         self.assertEqual(entry["animations"][0]["sampleCounts"], [3, 3])
         self.assertEqual(entry["animations"][1]["sampleCounts"], [4, 4])
-        self.assertEqual(entry["animations"][0]["firstRotation"], [0, 0, 0])
-        self.assertAlmostEqual(entry["animations"][0]["lastRotation"][0], 0.2, places=6)
+        self.assertEqual(
+            entry["animations"][0]["firstTransform"],
+            [0, 0, 0, 0, 0, 0, 1, 1, 1],
+        )
+        self.assertAlmostEqual(entry["animations"][0]["lastTransform"][1], 4, places=6)
+        self.assertAlmostEqual(entry["animations"][0]["lastTransform"][3], 0.2, places=6)
         self.assertAlmostEqual(entry["animations"][1]["duration"], 0.05, places=6)
 
     def test_absent_block_returns_no_animation_set(self):
