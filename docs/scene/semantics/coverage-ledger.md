@@ -8,7 +8,7 @@
 >
 > 当前完整快照门：`.codex/scene-static-origin-full45-20260725/report.json`；当前源码固定回归门：`.codex/scene-static-origin-fixed13-20260725/report.json`；static-origin 定向门：`.codex/scene-static-origin-targeted-20260725/report.json`
 >
-> 最新运行门：`678a052` 的真实目录 45 个可运行样本完整快照 45/45、particle 101/131；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 13/13、particle 19/27，static-origin 定向门 1/1、particle 17/19；两类矩阵仍单独保留且不能互相替代。20-key 完整门的 `builtInTextureUnavailable` 诊断从 15-key 历史完整门的 37 次降至 24 次；这只是层级运行诊断，不替代专项 census。完整 Scene suite 381 项：378 通过、3 项跳过；代码健康 443 Swift files、44 个锁定历史文件、400 行上限；语义覆盖 11/11。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：`678a052` 的真实目录 45 个可运行样本完整快照 45/45、particle 101/131；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 13/13、particle 19/27，static-origin 定向门 1/1、particle 17/19；两类矩阵仍单独保留且不能互相替代。20-key 完整门的 `builtInTextureUnavailable` 诊断从 15-key 历史完整门的 37 次降至 24 次；这只是层级运行诊断，不替代专项 census。完整 Scene suite 383 项：380 通过、3 项跳过；代码健康 444 Swift files、44 个锁定历史文件、400 行上限；语义覆盖 11/11。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -46,7 +46,7 @@
 | 系统 | 当前级别 | 当前真实能力 | 主要缺口 / 升级门 | 批次 |
 |---|---|---|---|---|
 | PKG/TEX/资源索引 | `L3` | loose/PKG 查找、常见 TEX、内嵌 MP4、诊断式失败；BC1/2/3 单 image 预算内 CPU premultiply，超预算/多 image GPU premultiply；跨 image sprite 当前只裁 authored 首帧作静态 fallback | 完整跨-image sprite animation、旋转 frame、case/symlink/duplicate/多格式边界与完整 VFS golden | B0 |
-| Scene IR 与基础层级 | `L3` | 基础对象、顺序、父子 transform/visibility、受限 Puppet 静态 attachment frame 与 animation layer 声明、常见 image/text/solid/particle | 模型、动态 attachment follow、复杂 object component 和全部动态字段 | B0 |
+| Scene IR 与基础层级 | `L3` | 基础对象、顺序、父子 transform/visibility、受限 Puppet 静态 attachment frame 与 animation layer 声明、常见 image/text/solid/particle；作者 `brightness` 随 interpretation v27 进 layer IR，并由 image/solid 通道折进既有 `u.tint` 乘数（随包 292 个 object 中只有 `razer_bedroom` 的 4 个 wave layer 非 1，值为 3.0/4.0），`contentKind == "text"` 的 layer 跳过该乘法，交回 CoreText 栅格化阶段消费同一 key，有 GPU 像素正反门 | 模型、动态 attachment follow、复杂 object component 和全部动态字段；`brightness` 超过 1 的部分只由 render target 精度裁剪，没有 WE 像素标定，也未接 dynamic binding | B0 |
 | Utility composition | `L3` | typed composition/project/fullscreen、受限 current prefix 与 `_a` named target | nested/effectful/child、`_b` 数据流、RGB 语义 | B2/B3 |
 | 画布/cover/背景 | `L3` | cover 投影和作者声明视差门，未覆盖区域不再暴露灰底 | 多比例、多屏和 Windows 像素基准 | B5 |
 | Frame Context | `L3` | host 单一 60 Hz driver；shader/video/particle/parallax 同帧 timing | pause/resume、delta clamp、fixed step、目标 FPS、离线 adapter | B0 |

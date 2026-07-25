@@ -47,35 +47,6 @@ struct SceneDocument {
         let passes: [Pass]
     }
 
-    struct SceneObject: Identifiable {
-        let id: Int
-        let name: String?
-        let imagePath: String?
-        let particlePath: String?
-        let particleInstanceOverride: SceneParticleInstanceOverride?
-        let utilityLayer: SceneUtilityLayer?
-        let dependencyLayerIDs: [Int]
-        let parentID: Int?
-        let attachmentName: String?
-        let puppetAnimationLayers: [ScenePuppetAnimationLayer]
-        let visible: Bool?
-        let alpha: Double?
-        let colorRGB: [Float]?
-        let colorBlendMode: Int?
-        let origin: String?
-        let size: String?
-        let scale: String?
-        let angles: String?
-        let parallaxDepth: String?
-        let disablesParallaxPropagation: Bool
-        let text: String?
-        let textStyle: SceneTextDescriptor?
-        let hasInlineScript: Bool
-        let effects: [SceneEffect]
-        let effectFiles: [String]
-        let texturePaths: [String]
-    }
-
     let sourceURL: URL
     let version: Int?
     let camera: CameraDescriptor
@@ -211,6 +182,7 @@ struct SceneDocumentLoader {
             alpha: doubleValue(root["alpha"]),
             colorRGB: floatVector(root["color"]),
             colorBlendMode: root["colorBlendMode"] as? Int,
+            brightness: doubleValue(root["brightness"]),
             origin: stringValue(root["origin"]),
             size: stringValue(root["size"]),
             scale: stringValue(root["scale"]),

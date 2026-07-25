@@ -218,7 +218,7 @@ class SceneDynamicLayerValuesTests(unittest.TestCase):
         compositor = COMPOSITOR_SOURCE.read_text(encoding="utf-8")
         self.assertRegex(
             compositor,
-            r'tint:\s*request\.layer\.contentKind\s*==\s*"solid"'
+            r'baseTint[^=]{0,40}=\s*request\.layer\.contentKind\s*==\s*"solid"'
             r"[\s\S]{0,120}\?\s*request\.uniforms\.tint"
             r"[\s\S]{0,120}:\s*SIMD3\(repeating:\s*1\)",
         )

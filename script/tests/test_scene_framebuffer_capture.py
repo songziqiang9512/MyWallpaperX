@@ -115,6 +115,7 @@ struct SceneRenderDescriptor {
         let contentKind: String
         let colorRGB: [Float]?
         let colorBlendMode: Int?
+        var brightness: Double? = nil
         let effects: [EffectDescriptor]
     }
 }
@@ -813,6 +814,14 @@ enum Harness {
             device: device, queue: queue, pipeline: pipeline, compositor: compositor,
             contentKind: "image"
         )
+        let imageBrightness = try layerTintPixel(
+            device: device, queue: queue, pipeline: pipeline, compositor: compositor,
+            contentKind: "image", brightness: 0.5
+        )
+        let textBrightness = try layerTintPixel(
+            device: device, queue: queue, pipeline: pipeline, compositor: compositor,
+            contentKind: "text", brightness: 0.5
+        )
         let coarseBlur = blurPlan(path: "effects/blur/effect.json", scale: 0.6)
         let preciseBlur = blurPlan(path: "effects/blurprecise/effect.json", scale: 0.45)
         let blockedPreciseBlur = blurPlan(
@@ -950,6 +959,8 @@ enum Harness {
             "darkenHalfAlphaBGRA": darkenHalfAlpha,
             "solidTintBGRA": solidTint,
             "imageTintBGRA": imageTint,
+            "imageBrightnessBGRA": imageBrightness,
+            "textBrightnessBGRA": textBrightness,
             "fragmentUniformSize": MemoryLayout<SceneLayerFragmentUniforms>.size,
             "dependencyBlendModeOffset": MemoryLayout<SceneLayerFragmentUniforms>.offset(
                 of: \SceneLayerFragmentUniforms.dependencyBlendMode
@@ -1062,7 +1073,8 @@ enum Harness {
         queue: MTLCommandQueue,
         pipeline: SceneImageLayerPipeline,
         compositor: SceneImageLayerCompositor,
-        contentKind: String
+        contentKind: String,
+        brightness: Double? = nil
     ) throws -> [UInt8] {
         guard let source = makeTexture(device: device, size: 1, usage: .shaderRead),
               let target = makeTexture(
@@ -1080,7 +1092,11 @@ enum Harness {
         let drew = compositor.draw(
             SceneImageLayerDrawRequest(
                 layer: SceneRenderDescriptor.Layer(
-                    contentKind: contentKind, colorRGB: nil, colorBlendMode: nil, effects: []
+                    contentKind: contentKind,
+                    colorRGB: nil,
+                    colorBlendMode: nil,
+                    brightness: brightness,
+                    effects: []
                 ),
                 texture: source,
                 masks: .empty,
@@ -2560,6 +2576,12 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
     def test_layer_tint_is_applied_only_to_solid_content_on_gpu(self) -> None:
         self.assert_pixel_close(self.result["solidTintBGRA"], [191, 128, 64, 255])
         self.assert_pixel_close(self.result["imageTintBGRA"], [255, 255, 255, 255])
+
+    def test_authored_brightness_multiplies_image_layers_but_not_rasterized_text(self) -> None:
+        # 白色源 × brightness 0.5：image 通道必须在 GPU 上真的变暗，alpha 不受影响。
+        self.assert_pixel_close(self.result["imageBrightnessBGRA"], [128, 128, 128, 255])
+        # text 通道的纹理已由 CoreText 乘过同一个 key，compositor 再乘就是二次提亮。
+        self.assert_pixel_close(self.result["textBrightnessBGRA"], [255, 255, 255, 255])
 
     def test_blur_scales_remain_authored_pixels_until_target_normalization(self) -> None:
         for actual, expected in zip(self.result["coarseBlur"], [0.6, 0.6, 4]):

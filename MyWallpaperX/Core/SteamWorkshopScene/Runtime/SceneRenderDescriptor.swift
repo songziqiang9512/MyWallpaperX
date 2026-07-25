@@ -40,6 +40,8 @@ struct SceneRenderDescriptor: Codable {
         let alpha: Double?
         let colorRGB: [Float]?
         let colorBlendMode: Int?
+        // 作者 `brightness` 颜色乘数；text 通道已在 CoreText 栅格化阶段消费同名 key。
+        let brightness: Double?
         let origin: String?
         let size: String?
         let scale: String?
@@ -168,6 +170,7 @@ struct SceneRenderDescriptorBuilder {
                     alpha: object.alpha,
                     colorRGB: padVector(object.colorRGB, length: 3, fill: 1),
                     colorBlendMode: object.colorBlendMode,
+                    brightness: object.brightness,
                     origin: object.origin,
                     size: object.size,
                     scale: object.scale,

@@ -15,6 +15,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneDocument.swift",
+    SOURCE_ROOT / "Format/SceneDocumentObject.swift",
     SOURCE_ROOT / "Format/SceneDocument+NumericParsing.swift",
     SOURCE_ROOT / "Format/ScenePuppetAnimationLayer.swift",
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
@@ -59,6 +60,7 @@ SCENE_FIXTURE = {
             "name": "Regular image",
             "image": "models/user/photo.json",
             "size": "100 100",
+            "brightness": 3.0,
             "effects": [
                 {
                     "file": "effects/blend/effect.json",
@@ -110,6 +112,14 @@ SCENE_FIXTURE = {
                     "visible": {"user": "animate", "value": True},
                 }
             ],
+        },
+        # text 通道在 CoreText 栅格化阶段消费同一个 brightness key，descriptor 仍要保留原始声明。
+        {
+            "id": 80,
+            "name": "Text with brightness",
+            "text": "Hi",
+            "brightness": 4.0,
+            "size": "100 40",
         },
     ],
 }
@@ -313,6 +323,8 @@ enum Harness {
             "descriptorColors": [10, 20, 30].map { layers[$0]?.colorRGB ?? [] },
             "documentAlphas": [10, 20, 30, 40].map { objects[$0]?.alpha ?? -1 },
             "descriptorAlphas": [10, 20, 30, 40].map { layers[$0]?.alpha ?? -1 },
+            "descriptorBrightness": [10, 40, 80].map { layers[$0]?.brightness ?? -1 },
+            "brightnessContentKinds": [40, 80].map { layers[$0]?.contentKind ?? "" },
             "userTextureInputKinds": layers[40]?.effects.first?.passes.first?.userTextureInputs.map {
                 $0?.kind.rawValue ?? "nil"
             } ?? [],
@@ -452,7 +464,7 @@ class SceneSolidLayerTests(unittest.TestCase):
         self.assertRegex(
             compositor,
             re.compile(
-                r'tint\s*:\s*request\.layer\.contentKind\s*==\s*"solid"'
+                r'baseTint[^=]{0,40}=\s*request\.layer\.contentKind\s*==\s*"solid"'
                 r"[\s\S]{0,200}request\.uniforms\.tint"
             ),
         )
@@ -461,6 +473,25 @@ class SceneSolidLayerTests(unittest.TestCase):
             re.compile(r"SceneLayerFragmentUniforms\([\s\S]{0,900}\btint\s*:\s*SIMD4\(tint\.x"),
         )
         self.assertRegex(shader, re.compile(r"\bu\.tint\b"))
+
+    def test_authored_brightness_multiplies_layer_tint_but_not_text(self) -> None:
+        # 官方随包 razer_bedroom 的 wave layer 用 brightness 3.0/4.0 过曝发光；未声明的 layer
+        # 保持 nil（harness 用 -1 表示），text layer 的声明也照原样进 descriptor，但因为
+        # contentKind 为 text，compositor 必须跳过乘法，交给 CoreText 栅格化消费。
+        self.assertEqual(self.result["descriptorBrightness"], [-1, 3, 4])
+        self.assertEqual(self.result["brightnessContentKinds"], ["image", "text"])
+
+        compositor = (SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift").read_text(
+            encoding="utf-8"
+        )
+        self.assertRegex(
+            compositor,
+            re.compile(
+                r'request\.layer\.contentKind == "text"'
+                r"[\s\S]{0,160}request\.layer\.brightness \?\? 1"
+            ),
+        )
+        self.assertRegex(compositor, re.compile(r"tint\s*:\s*baseTint \* brightness"))
 
     def test_puppet_animation_layer_round_trips_into_descriptor(self) -> None:
         self.assertEqual(

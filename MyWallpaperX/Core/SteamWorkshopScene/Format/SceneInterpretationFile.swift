@@ -16,8 +16,8 @@ struct SceneInterpretationFile: Codable {
 }
 
 struct SceneInterpretationFileWriter {
-    // Format 26 adds material pass `alphawriting` render state and `usershadervalues` bindings.
-    static let currentFormatVersion = 26
+    // Format 27 adds the authored layer `brightness` colour multiplier.
+    static let currentFormatVersion = 27
 
     func make(
         renderDescriptor: SceneRenderDescriptor,
