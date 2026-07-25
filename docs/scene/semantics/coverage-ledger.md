@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-25
 >
-> Scene 实现基线：`2f897bc`（Puppet bind-pose mesh `8bac86e`，静态 MDAT attachment `49ee89a`，严格单 clip MDLA/LBS 播放 `f1ee79b`；strict particle eventspawn/natural-eventdeath `f4173ea`/`7d53c10`、eventfollow `928acca` 与持续 child `2f897bc`；15-key built-in particle registry `a5a951f`；非音频 turbulent velocity `4a17ee6`；超预算/多 image BC 颜色归一 `18d0056`）
+> Scene 实现基线：`9748a8c`（Puppet bind-pose mesh `8bac86e`，静态 MDAT attachment `49ee89a`，严格单 clip MDLA/LBS 播放 `f1ee79b`；strict particle eventspawn/natural-eventdeath `f4173ea`/`7d53c10`、eventfollow `928acca` 与持续 child `2f897bc`；18-key built-in particle registry `9748a8c`；非音频 turbulent velocity `4a17ee6`；超预算/多 image BC 颜色归一 `18d0056`）
 >
-> 当前完整快照门：`.codex/scene-lightshafts0-full45-20260725/report.json`；当前源码固定回归门：`.codex/scene-continuous-child-final-fixed13-20260725/report.json`；Flare 定向门：`.codex/scene-continuous-child-final-flare-20260725/report.json`
+> 当前完整快照门：`.codex/scene-lightshafts0-full45-20260725/report.json`；当前源码固定回归门：`.codex/scene-flare-three-builtins-fixed13-20260725/report.json`；Flare 定向门：`.codex/scene-flare-three-builtins-calibrated-20260725/report.json`
 >
-> 最新运行门：`a5a951f` 的真实目录 45 个可运行样本完整快照 45/45、particle 91/131；另有 `3770500543` 缺 package 未进入矩阵。`2f897bc` 的固定 13 样本门 13/13、particle 18/27，Flare 定向门 1/1、particle 8/15；两类矩阵仍单独保留且不能互相替代。particle 计数按 `8bac86e` 的 REFRACT fail-closed 与 `a5a951f` 的 15-key registry 口径统计。完整 Scene suite 376 项：373 通过、3 项跳过；语义覆盖 11/11。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：`a5a951f` 的真实目录 45 个可运行样本完整快照 45/45、particle 91/131；另有 `3770500543` 缺 package 未进入矩阵。`9748a8c` 的固定 13 样本门 13/13、particle 18/27，Flare 定向门 1/1、particle 9/15；两类矩阵仍单独保留且不能互相替代。完整快照保留 `a5a951f` 的 15-key 历史口径，当前固定/定向门使用 18-key registry，21 样本 asset census 的 `builtInTextureUnavailable` 已从 9 降至 6。完整 Scene suite 376 项：373 通过、3 项跳过；语义覆盖 11/11。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -239,7 +239,7 @@
 | **B5 Fidelity** | `S2-S4` 广度完成后 | 字体、视差、粒子、常用 Effect 与 WE Windows golden 对齐 | 固定输入逐像素/数值阈值、性能预算、长稳和多屏门 |
 | **Advanced** | `S5` | Puppet、2D light/HDR、3D、arbitrary custom shader、RGB、offline bake | 每个系统有完整 IR/runtime/lifecycle/product gate 后再升级 |
 
-研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、B2 ordered strict chain、Workshop Shadow、stock Opacity、exact stock Shake/Foliage Sway/Water Ripple/Water Waves/Water Flow/X-Ray、同帧 copy/swap foundation、受限 history seed/clear、Precise Blur 两种 material-command interleave 与 exact legacy compose 归一化已合龙；15 个精确 built-in 粒子纹理、非音频 turbulent velocity、strict depth-one eventspawn/natural-eventdeath/eventfollow child、持续/混合/duration child emitter、root child aggregate budget，以及超预算/多 image BC1/2/3 的 GPU premultiply 与静态首帧 fallback 已进入公共 runtime。非 exact Water Waves/Foliage Sway/Water Ripple 的 legacy inline 仍受原有唯一 Effect 或单 profile 边界约束，mixed/repeated unsupported declarations fail closed；X-Ray 受限前缀明确省略后续 unsupported effect。当前完整门为 91 stage/15 chain/0 failed，固定门为 24 stage/2 chain/0 failed；超出默认 96 MiB 纹理预算的长链在规划阶段拒绝。Flare 下一步补 `particle/halo_3`、`particle/fog/fog3`、`particle/light/flare_1` 三张 built-in 纹理；`2998757800` 的右下亮边不随 `fog1` 透明化消失，不提交 fog 调暗或样本 ID 比例特判。样本自带 preview 是当前第一视觉依据，WaifuX MP4 只作辅助动态参考，均不能替代 Windows WE 动态/像素 golden。
+研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、B2 ordered strict chain、Workshop Shadow、stock Opacity、exact stock Shake/Foliage Sway/Water Ripple/Water Waves/Water Flow/X-Ray、同帧 copy/swap foundation、受限 history seed/clear、Precise Blur 两种 material-command interleave 与 exact legacy compose 归一化已合龙；18 个精确 built-in 粒子纹理、非音频 turbulent velocity、strict depth-one eventspawn/natural-eventdeath/eventfollow child、持续/混合/duration child emitter、root child aggregate budget，以及超预算/多 image BC1/2/3 的 GPU premultiply 与静态首帧 fallback 已进入公共 runtime。非 exact Water Waves/Foliage Sway/Water Ripple 的 legacy inline 仍受原有唯一 Effect 或单 profile 边界约束，mixed/repeated unsupported declarations fail closed；X-Ray 受限前缀明确省略后续 unsupported effect。当前完整门为 91 stage/15 chain/0 failed，固定门为 24 stage/2 chain/0 failed；超出默认 96 MiB 纹理预算的长链在规划阶段拒绝。Flare 的 `particle/halo_3`、`particle/fog/fog3`、`particle/light/flare_1` 已恢复 layer 260；其中 `fog3` 为 continuous smoke 累积校准到约 2/255 峰值的项目自建纹理，不是官方资产或 WE pixel parity。下一代码批先 census static/collision/delete 与 event transform/CP/value inheritance；`2998757800` 的右下亮边不随 `fog1` 透明化消失，不提交 fog 调暗或样本 ID 比例特判。样本自带 preview 是当前第一视觉依据，WaifuX MP4 只作辅助动态参考，均不能替代 Windows WE 动态/像素 golden。
 
 ## 9. 更新规则
 
