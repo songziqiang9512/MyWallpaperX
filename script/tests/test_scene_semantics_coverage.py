@@ -400,7 +400,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         for path in current_state_documents:
             text = document_text[path]
             self.assertIn(
-                "`18d0056`",
+                "`f02f41d`",
                 text,
                 f"Current Scene entrypoint is missing the full-baseline implementation: {path}",
             )
@@ -419,8 +419,8 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             )
 
         report_paths = (
-            ".codex/scene-bc-full45-20260725/report.json",
-            ".codex/scene-bc-fixed13-20260725/report.json",
+            ".codex/scene-fire1-full45-20260725/report.json",
+            ".codex/scene-fire1-fixed13-20260725/report.json",
         )
         for path in current_state_documents:
             for report_path in report_paths:
@@ -474,7 +474,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             "十一类 strict backend",
             "91 stage",
             "113 个 route-only effect",
-            "particle 为 `83/131`",
+            "particle 为 `86/131`",
             "customtext/textcolor/textsize",
             "stale cancellation",
             "SceneScript/time/media",
