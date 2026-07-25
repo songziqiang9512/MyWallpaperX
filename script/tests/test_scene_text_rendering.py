@@ -12,6 +12,7 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+STOCK_FONT_BUNDLE = REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneStockFonts.bundle"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Text/SceneTextDescriptor.swift",
     SOURCE_ROOT / "Text/SceneTextGeometry.swift",
@@ -79,9 +80,9 @@ enum Harness {
         defer { try? FileManager.default.removeItem(at: cacheDirectory) }
         let embeddedURL = fontsDirectory.appendingPathComponent("Embedded.ttf")
         try FileManager.default.copyItem(at: fixtureURL, to: embeddedURL)
-        // 同名 stock 字体在包内存在时必须走包内文件，用来证明解析优先级。
+        // 同名 stock 字体在壁纸包内存在时必须走包内文件，用来证明解析优先级。
         let shadowedStockURL = fontsDirectory
-            .appendingPathComponent("Atami-Regular.otf")
+            .appendingPathComponent("summer85.ttf")
         try FileManager.default.copyItem(at: fixtureURL, to: shadowedStockURL)
 
         let vectorPadding = SceneTextDescriptor.parse([
@@ -145,29 +146,55 @@ enum Harness {
             size: 64,
             cacheDirectory: cacheDirectory
         )
-        // 客户端自带字体：包内没有同名文件，必须报 stock 近似而不是 missingBundledFont。
-        let stockMono = SceneTextFontResolver.resolve(
+        // 客户端自带字体：壁纸包内没有同名文件，许可允许再分发的走 app 包内真实字形，
+        // 其余只能按实测类别近似。
+        let bundledStockMono = SceneTextFontResolver.resolve(
             path: "fonts/Segment7Standard.otf",
             size: 64,
             cacheDirectory: cacheDirectory
         )
-        let stockDisplay = SceneTextFontResolver.resolve(
-            path: "fonts/Alcubierre.otf",
+        let bundledStockRoboto = SceneTextFontResolver.resolve(
+            path: "fonts/RobotoMono-Regular.ttf",
             size: 64,
             cacheDirectory: cacheDirectory
         )
-        let stockSans = SceneTextFontResolver.resolve(
+        let bundledStockSans = SceneTextFontResolver.resolve(
             path: "fonts/NotoSans-Regular.ttf",
             size: 64,
             cacheDirectory: cacheDirectory
         )
-        let stockEmoji = SceneTextFontResolver.resolve(
+        let bundledStockEmoji = SceneTextFontResolver.resolve(
             path: "fonts/TwemojiMozilla.ttf",
             size: 64,
             cacheDirectory: cacheDirectory
         )
-        let shadowedStock = SceneTextFontResolver.resolve(
+        let bundledStockDisplay = SceneTextFontResolver.resolve(
+            path: "fonts/8bitOperatorPlus8-Regular.ttf",
+            size: 64,
+            cacheDirectory: cacheDirectory
+        )
+        let bundledStockBlackout = SceneTextFontResolver.resolve(
+            path: "fonts/Blackout 2 AM.ttf",
+            size: 64,
+            cacheDirectory: cacheDirectory
+        )
+        let substitutedStockDisplay = SceneTextFontResolver.resolve(
             path: "fonts/Atami-Regular.otf",
+            size: 64,
+            cacheDirectory: cacheDirectory
+        )
+        let substitutedStockOutline = SceneTextFontResolver.resolve(
+            path: "fonts/spincycle_3d_ot.otf",
+            size: 64,
+            cacheDirectory: cacheDirectory
+        )
+        let substitutedStockMono = SceneTextFontResolver.resolve(
+            path: "fonts/CursedTimerUlil-Aznm.ttf",
+            size: 64,
+            cacheDirectory: cacheDirectory
+        )
+        let shadowedStock = SceneTextFontResolver.resolve(
+            path: "fonts/summer85.ttf",
             size: 64,
             cacheDirectory: cacheDirectory
         )
@@ -176,6 +203,41 @@ enum Harness {
             size: 64,
             cacheDirectory: cacheDirectory
         )
+
+        // 全部 15 个客户端自带字体都必须拿到真实字体文件。用一个没有任何同名壁纸包文件的
+        // 干净 cache，免得上面的 shadow fixture 让 summer85 走成 embedded。
+        let pristineCache = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mwx-text-stock-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: pristineCache, withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: pristineCache) }
+        var allStock: [String: Any] = [:]
+        for reference in [
+            "fonts/8bitOperatorPlus8-Regular.ttf",
+            "fonts/Alcubierre.otf",
+            "fonts/Atami-Regular.otf",
+            "fonts/Blackout 2 AM.ttf",
+            "fonts/CursedTimerUlil-Aznm.ttf",
+            "fonts/kust.ttf",
+            "fonts/Lazer84.ttf",
+            "fonts/Monofur-PK7og.ttf",
+            "fonts/NotoSans-Regular.ttf",
+            "fonts/opensticks.ttf",
+            "fonts/RobotoMono-Regular.ttf",
+            "fonts/Segment7Standard.otf",
+            "fonts/spincycle_3d_ot.otf",
+            "fonts/summer85.ttf",
+            "fonts/TwemojiMozilla.ttf",
+        ] {
+            allStock[reference] = resolution(
+                SceneTextFontResolver.resolve(
+                    path: reference,
+                    size: 64,
+                    cacheDirectory: pristineCache
+                )
+            )
+        }
 
         let result: [String: Any] = [
             "point32": SceneTextGeometry.pointSizeInPixels(32),
@@ -201,12 +263,18 @@ enum Harness {
             "sansSerifAlias": resolution(sansSerifAlias),
             "segoeAlias": resolution(segoeAlias),
             "unknownAlias": resolution(unknownAlias),
-            "stockMono": resolution(stockMono),
-            "stockDisplay": resolution(stockDisplay),
-            "stockSans": resolution(stockSans),
-            "stockEmoji": resolution(stockEmoji),
+            "bundledStockMono": resolution(bundledStockMono),
+            "bundledStockRoboto": resolution(bundledStockRoboto),
+            "bundledStockSans": resolution(bundledStockSans),
+            "bundledStockEmoji": resolution(bundledStockEmoji),
+            "bundledStockDisplay": resolution(bundledStockDisplay),
+            "bundledStockBlackout": resolution(bundledStockBlackout),
+            "substitutedStockDisplay": resolution(substitutedStockDisplay),
+            "substitutedStockOutline": resolution(substitutedStockOutline),
+            "substitutedStockMono": resolution(substitutedStockMono),
             "shadowedStock": resolution(shadowedStock),
             "traversalStock": resolution(traversalStock),
+            "allStock": allStock,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -271,6 +339,13 @@ class SceneTextRenderingTests(unittest.TestCase):
         )
         if compilation.returncode != 0:
             raise RuntimeError(compilation.stderr)
+        # 命令行可执行文件的 Bundle.main.resourceURL 就是它所在目录，把随包字体放在
+        # binary 旁边即可走生产同一条加载路径，不需要给生产代码开测试专用注入口。
+        if not STOCK_FONT_BUNDLE.is_dir():
+            raise RuntimeError(
+                f"随包 stock 字体缺失：{STOCK_FONT_BUNDLE.relative_to(REPOSITORY_ROOT)}"
+            )
+        shutil.copytree(STOCK_FONT_BUNDLE, directory / STOCK_FONT_BUNDLE.name)
         completed = subprocess.run(
             [str(cls.binary), str(embedded_font)],
             check=True,
@@ -278,6 +353,20 @@ class SceneTextRenderingTests(unittest.TestCase):
             text=True,
         )
         cls.result = json.loads(completed.stdout)
+
+        # 同一个 binary 换到没有字体 bundle 的目录：作者引用必须仍然拿到可用字体，
+        # 并且诊断要说明是包体缺文件，而不是把它和“本来只有类别近似”混成一种。
+        stripped_directory = directory / "without-stock-fonts"
+        stripped_directory.mkdir()
+        stripped_binary = stripped_directory / cls.binary.name
+        shutil.copy2(cls.binary, stripped_binary)
+        stripped = subprocess.run(
+            [str(stripped_binary), str(embedded_font)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        cls.result_without_stock_fonts = json.loads(stripped.stdout)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -380,33 +469,113 @@ class SceneTextRenderingTests(unittest.TestCase):
         self.assertEqual(sans["source"], "systemAlias")
         self.assertIsNone(sans["diagnostic"])
 
-    def test_client_stock_font_reports_approximation_not_missing_package(self) -> None:
-        # 官方 `assets/fonts` 下 15 个客户端自带字体；作者写 `fonts/X` 时官方先找包内、
-        # 再用自带字体。本项目不搬运字体文件，但必须把这种引用与“包坏了”区分开：
-        # 本机语料 244 个去重 text layer 里 41 个属于这一类，此前全部被误报
-        # missingBundledFont 并静默变成 Helvetica。
-        for key, category in (
-            ("stockMono", "mono"),
-            ("stockDisplay", "display"),
-            ("stockSans", "sans"),
-            ("stockEmoji", "emoji"),
+    def test_licensed_client_stock_fonts_render_real_glyphs_from_app_bundle(self) -> None:
+        # 官方 `assets/fonts` 下 15 个客户端自带字体；作者写 `fonts/X` 时官方先找壁纸包内、
+        # 再用客户端自带。其中 8 个的许可允许再分发（OFL/Apache/CC-BY/freeware），随 app
+        # 打进 SceneStockFonts.bundle，必须命中原版字形而不是本机家族近似：PostScript 名
+        # 不能是近似目标（Helvetica/Menlo/Apple Color Emoji）。
+        # `Blackout 2 AM` 的内嵌 copyright 写 All rights reserved，但 The League of
+        # Moveable Type 以 OFL 发布的同名文件与客户端那份 SHA-256 逐字节相同，因此算原版。
+        for key, post_script in (
+            ("bundledStockMono", "Segment7Standard"),
+            ("bundledStockRoboto", "RobotoMono-Regular"),
+            ("bundledStockSans", "NotoSans-Regular"),
+            ("bundledStockEmoji", "TwemojiMozilla"),
+            ("bundledStockDisplay", "8-bitOperatorPlus8-Regular"),
+            ("bundledStockBlackout", "Blackout2AM"),
         ):
             with self.subTest(stock=key):
                 value = self.result[key]
-                self.assertEqual(value["source"], "stockApproximation")
-                self.assertEqual(
-                    value["diagnostic"], f"stockFontApproximated:{category}"
-                )
-                self.assertTrue(value["postScriptName"])
+                self.assertEqual(value["source"], "stockBundled")
+                self.assertIsNone(value["diagnostic"])
+                self.assertEqual(value["postScriptName"], post_script)
                 self.assertEqual(value["fontSize"], 64)
 
-    def test_stock_categories_preserve_measured_glyph_shape(self) -> None:
-        # 类别是对安装目录只读实测出来的：Segment7Standard 是 fixed-pitch，
-        # TwemojiMozilla 带 color glyph 表。近似字体必须保住这两个形态特征，
+    def test_unredistributable_stock_font_uses_licensed_lookalike_not_generic_family(self) -> None:
+        # 另外 7 个字体禁止再分发（Atami 的 EULA 明确写不得重新打包分发），原文件不搬运。
+        # 但作者引用它们时必须拿到外形接近的真实字体，而不是掉到 Helvetica/Menlo 通用家族：
+        # 替代字体是把原版与候选逐个并排渲染 "Hamburg 0123" 比对后选的。
+        # 语料里 Atami 是引用最多的 stock 字体（17 个去重 layer）。
+        for key, post_script, category in (
+            ("substitutedStockDisplay", "Poppins-Medium", "display"),
+            ("substitutedStockOutline", "BungeeShade-Regular", "display"),
+            ("substitutedStockMono", "Segment7Standard", "mono"),
+        ):
+            with self.subTest(stock=key):
+                value = self.result[key]
+                self.assertEqual(value["source"], "stockSubstituted")
+                # 替代不是官方字形，诊断必须一直可见，否则报告会把近似读成等价。
+                self.assertEqual(
+                    value["diagnostic"], f"stockFontSubstituted:{category}"
+                )
+                self.assertEqual(value["postScriptName"], post_script)
+                self.assertEqual(value["fontSize"], 64)
+
+    def test_stock_fonts_preserve_measured_glyph_shape(self) -> None:
+        # 类别是对安装目录只读实测出来的：Segment7Standard/RobotoMono/CursedTimer 是等宽，
+        # TwemojiMozilla 带 color glyph 表，8-bit Operator+ 与 Atami 是比例 display。
+        # 无论走原版还是替代，这些形态特征都必须保住，
         # 否则时钟字体会错位、emoji 会变豆腐块。
-        self.assertTrue(self.result["stockMono"]["monospace"])
-        self.assertTrue(self.result["stockEmoji"]["colorGlyphs"])
-        self.assertFalse(self.result["stockDisplay"]["monospace"])
+        for key in ("bundledStockMono", "bundledStockRoboto", "substitutedStockMono"):
+            with self.subTest(monospace=key):
+                self.assertTrue(self.result[key]["monospace"])
+        self.assertTrue(self.result["bundledStockEmoji"]["colorGlyphs"])
+        for key in ("bundledStockDisplay", "substitutedStockDisplay"):
+            with self.subTest(proportional=key):
+                self.assertFalse(self.result[key]["monospace"])
+
+    def test_every_client_stock_reference_gets_a_real_font_file(self) -> None:
+        # 官方客户端 `assets/fonts` 的 15 个名字一个都不能掉回 Helvetica/Menlo 这类
+        # 通用家族：8 个许可允许再分发的搬原版，7 个禁止再分发的换成外形接近的自由字体。
+        # 这条门禁锁住这个划分，任何一个名字漏配随包文件都会失败。
+        all_stock = self.result["allStock"]
+        self.assertEqual(len(all_stock), 15)
+        for reference, value in sorted(all_stock.items()):
+            with self.subTest(reference=reference):
+                self.assertIn(value["source"], {"stockBundled", "stockSubstituted"})
+                self.assertEqual(value["fontSize"], 64)
+        sources = [value["source"] for value in all_stock.values()]
+        self.assertEqual(sources.count("stockBundled"), 8)
+        self.assertEqual(sources.count("stockSubstituted"), 7)
+
+    def test_stock_font_bundle_ships_a_license_for_every_font(self) -> None:
+        # OFL / Apache 2.0 / CC-BY / monofur 的 freeware 条款都要求随附许可与署名；
+        # 少一份文本，这个 bundle 的再分发本身就失去授权。
+        fonts = sorted(path.name for path in (STOCK_FONT_BUNDLE / "Fonts").iterdir())
+        licenses = sorted(path.name for path in (STOCK_FONT_BUNDLE / "Licenses").iterdir())
+        self.assertEqual(len(fonts), 13)
+        self.assertTrue((STOCK_FONT_BUNDLE / "NOTICE.md").is_file())
+        notice = (STOCK_FONT_BUNDLE / "NOTICE.md").read_text(encoding="utf-8")
+        for name in fonts:
+            with self.subTest(font=name):
+                # 每个字体文件都要在 NOTICE 里有署名条目。
+                self.assertIn(name, notice)
+        for name in licenses:
+            with self.subTest(license=name):
+                self.assertIn(name, notice)
+
+    def test_missing_stock_font_bundle_degrades_without_failing_render(self) -> None:
+        # 15 个 stock 字体都有随包文件，所以类别近似只在 app 包缺失或损坏时才会出现。
+        # 这是运维问题，诊断要与正常命中区分开，同时仍然必须给出可用字体。
+        stripped = self.result_without_stock_fonts
+        for key, category in (
+            ("bundledStockMono", "mono"),
+            ("bundledStockEmoji", "emoji"),
+            ("bundledStockDisplay", "display"),
+            ("substitutedStockDisplay", "display"),
+            ("substitutedStockMono", "mono"),
+        ):
+            with self.subTest(stock=key):
+                value = stripped[key]
+                self.assertEqual(value["source"], "stockApproximation")
+                self.assertEqual(
+                    value["diagnostic"], f"stockFontFileUnavailable:{category}"
+                )
+                self.assertTrue(value["postScriptName"])
+        self.assertTrue(stripped["bundledStockMono"]["monospace"])
+        self.assertTrue(stripped["bundledStockEmoji"]["colorGlyphs"])
+        # 壁纸包自带字体不经过 app 包，缺 bundle 也不能影响它。
+        self.assertEqual(stripped["embedded"]["source"], "embedded")
 
     def test_bundled_font_wins_over_same_named_client_stock_font(self) -> None:
         # 解析顺序必须是别名 -> 包内文件 -> 客户端自带 -> 缺失。
