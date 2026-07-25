@@ -686,7 +686,7 @@ Fluid Simulation 的 20-pass topology 进一步确认：pressure 是 pass 4...12
 | depth test | disabled 384、enabled 13 |
 | depth write | disabled 399、enabled 7 |
 
-同时存在兼容字段 `alphawriting`、`depthtesting`、`depthwriting`、`culling`。typed parser 应在保留原始字段的前提下统一到 state IR，不能只接受当前实现偏好的拼写。
+同时存在兼容字段。在 `assets/` 与 `projects/` 下 1927 个 JSON 的全部层级 `passes` 元素上实测：`alphawriting` 60 处（值域 `default`/`enabled`）、`usershadervalues` 36 处（`{shader 值名: 用户属性名}`，如 `schemecolor: tint`，与 `constantshadervalues` key 不重叠）、`depthtesting` 与 `depthwriting` 各 3 处（值 `disabled`，全部出自 `projects/defaultprojects/ricepod`）、`culling` 1 处（值 `nocull`，出自 `assets/materials/util`）。typed parser 应在保留原始字段的前提下统一到 state IR，不能只接受当前实现偏好的拼写。
 
 随包 utility model/material 给出明确角色位：
 

@@ -169,9 +169,9 @@ struct SceneAssetCatalogLoader {
                 combos: pass["combos"] as? [String: Int] ?? [:],
                 constantShaderValues: materialConstantShaderValues(in: pass),
                 blending: pass["blending"] as? String,
-                depthTest: pass["depthtest"] as? String,
-                depthWrite: pass["depthwrite"] as? String,
-                cullMode: pass["cullmode"] as? String
+                depthTest: renderState(in: pass, "depthtest", "depthtesting"),
+                depthWrite: renderState(in: pass, "depthwrite", "depthwriting"),
+                cullMode: renderState(in: pass, "cullmode", "culling")
             )
         }
         return SceneAssetCatalog.MaterialAsset(
@@ -181,6 +181,16 @@ struct SceneAssetCatalogLoader {
                 .joined(),
             passes: passes
         )
+    }
+
+    /// 随包 material 同时使用规范拼写与历史兼容拼写（`depthtesting`/`depthwriting`/`culling`），
+    /// 两者必须归一到同一份 render state；规范拼写在共存时优先。
+    nonisolated private func renderState(
+        in pass: [String: Any],
+        _ canonicalKey: String,
+        _ compatibilityKey: String
+    ) -> String? {
+        (pass[canonicalKey] as? String) ?? (pass[compatibilityKey] as? String)
     }
 
     nonisolated private func materialConstantShaderValues(in pass: [String: Any]) -> [String: SceneDocument.ShaderValue] {
