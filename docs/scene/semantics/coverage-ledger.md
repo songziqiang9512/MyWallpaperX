@@ -8,7 +8,7 @@
 >
 > 当前完整快照门：`.codex/scene-static-origin-full45-20260725/report.json`；当前源码固定回归门：`.codex/scene-static-origin-fixed13-20260725/report.json`；static-origin 定向门：`.codex/scene-static-origin-targeted-20260725/report.json`
 >
-> 最新运行门：`678a052` 的真实目录 45 个可运行样本完整快照 45/45、particle 101/131；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 13/13、particle 19/27，static-origin 定向门 1/1、particle 17/19；两类矩阵仍单独保留且不能互相替代。20-key 完整门的 `builtInTextureUnavailable` 诊断从 15-key 历史完整门的 37 次降至 24 次；这只是层级运行诊断，不替代专项 census。完整 Scene suite 400 项：397 通过、3 项跳过；代码健康 447 Swift files、44 个锁定历史文件、400 行上限；语义覆盖 11/11。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：`678a052` 的真实目录 45 个可运行样本完整快照 45/45、particle 101/131；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 13/13、particle 19/27，static-origin 定向门 1/1、particle 17/19；两类矩阵仍单独保留且不能互相替代。20-key 完整门的 `builtInTextureUnavailable` 诊断从 15-key 历史完整门的 37 次降至 24 次；这只是层级运行诊断，不替代专项 census。完整 Scene suite 407 项：404 通过、3 项跳过；代码健康 447 Swift files、44 个锁定历史文件、400 行上限；语义覆盖 11/11。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -180,7 +180,7 @@
 | 能力 | 当前级别 | 当前边界或升级门 |
 |---|---|---|
 | 静态文字内容 | `L3` | CoreText 可见；结构样本 `79/108` |
-| 字体解析/fallback | `L3` | macOS 字体近似子集；补 Windows family/weight/CJK/emoji golden |
+| 字体解析/fallback | `L3` | 解析顺序 alias → 包内文件 → 客户端自带（stock）→ 缺失，路径安全判定优先于后三层。官方 `systemfont_*` 别名共 8 个（`arial`/`verdana`/`segoe`/`sansserif`/`consolas`/`comicsans`/`cambria`/`calibri`，只读安装目录内各出现 6~8 次），此前表内只有 4 个：本机语料引用最多的 `systemfont_consolas`（480 次原始引用）走"未知别名"分支落到比例字体 Helvetica，等宽版式错位，现在 Consolas 缺失时退到 Menlo 保住 fixed-pitch。客户端 `assets/fonts` 下 15 个 stock 字体（另有 4 个 license `.txt`）只登记名字与本机只读实测类别，不搬运字体文件；`fonts/X` 的官方语义是先包内、后客户端自带，本机语料 244 个去重 text layer 归属为包内 184、stock 41、alias 19、**未知 0**，其中 41 个 stock 引用此前全部被误报 `missingBundledFont` 并静默变成 Helvetica，现在报 `stockApproximation` + `stockFontApproximated:<category>`。表外别名与"表内但本机缺字体"分别报 `systemAliasUnknown` / `systemAliasUnavailable`，别名表是否补全在诊断里可观察。仍是形态近似而非官方字形：stock 按类别落到 Menlo/Noto Sans/Apple Color Emoji/Helvetica，字面轮廓、advance 与 kerning 都与官方不同，也无 Windows family/weight/CJK/emoji 逐像素对照，见 [E-TEXT-FONTREF](runtime-evidence-index.md#e-text-fontref) |
 | point size | `L3` | 官方 `pointsize` 是 300 DPI 磅值（`lib.sceneScript.d.ts` 的 `ITextLayer`："Size of the font in points for 300 DPI"），栅格像素字号取 `pointsize * 300 / 72`，随包 `dino_run` 两个记分标签的作者 size `780x291`/`390x145` 四个数字逐位复现（此前的 `round(pointsize * 4)` 低 4%）。字号仍被夹在 `[1, 1024]` px，作者值 ≥ 245.76 磅起偏离官方换算，这是本地纹理保护不是官方合同；数值判据来自本机只读探针而非仓库内自动门，也无 Windows 逐像素对照，见 [E-TEXT-POINTSIZE](runtime-evidence-index.md#e-text-pointsize) |
 | baseline/alignment | `L2` | 基线（baseline）本身未处理，`blockalign` 未解析；对齐字段的执行边界见下一行，溢出裁剪见 overflow limits 行 |
 | text alignment pivot（`horizontalalign`/`verticalalign`） | `L3` | 官方取值域 left/center/right × center/top/bottom 全部参与 quad pivot：origin 落在被命名的那条边上，缺省与未知取值退回几何中心；同一组字段继续喂 CoreText 框内排版。离屏 GPU 门下 `dino_run` 231/177 的 `horizontalalign: right` 从"右边缘各自被裁在最后一列"变成"右边缘齐平在 `origin.x` 对应的第 254 列"（216→396 px、54→102 px），三个 `center`/`center` preset 摆位不变。框仍是作者 `size`+`padding` 的固定外框，不按运行时文本重新测量；`padding` 与 pivot 的交互随包全为 `padding: 0`，无反例可校；无 Windows 像素标定，见 [E-TEXT-PIVOT](runtime-evidence-index.md#e-text-pivot) |

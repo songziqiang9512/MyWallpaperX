@@ -288,7 +288,7 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 | 能力 | 等级 | 当前边界 | 下一门 |
 |---|---|---|---|
 | static content raster | `L3` | CoreText 启动时栅格；[E-TEXT](runtime-evidence-index.md#e-text) | dynamic layer texture store |
-| package/system font resolution | `L3` | 包内字体与 macOS alias/fallback；[E-TEXT](runtime-evidence-index.md#e-text) | Windows family/weight/CJK/emoji golden |
+| package/system font resolution | `L3` | 包内字体、8 个官方 `systemfont_*` 别名与 15 个客户端 stock 字体分类（stock 41/alias 19/包内 184/未知 0）；[E-TEXT-FONTREF](runtime-evidence-index.md#e-text-fontref) | stock 与缺失家族仍是形态近似；Windows family/weight/CJK/emoji golden |
 | point size | `L3` | authored `pointsize * 300 / 72` 官方 300 DPI 换算；[E-TEXT-POINTSIZE](runtime-evidence-index.md#e-text-pointsize) | Windows 逐像素对照、去掉本地 1024 px 字号夹取 |
 | alignment/baseline/padding | `L2` | 部分字段/geometry 进入链路 | 每种 alignment 正反像素门 |
 | row/width overflow limits | `L3` | `limitrows`/`maxrows`/`limitwidth`/`maxwidth`/`limituseellipsis` 进 IR 并由 CoreText 消费，两个数值只在对应开关打开时生效（语料 393 个关闭态带默认 `maxwidth: 500`，79 个已超宽）；[E-TEXT-LIMITS](runtime-evidence-index.md#e-text-limits) | Windows 逐像素对照省略号回退与断点、按运行时文本重新测量外框 |

@@ -79,6 +79,10 @@ enum Harness {
         defer { try? FileManager.default.removeItem(at: cacheDirectory) }
         let embeddedURL = fontsDirectory.appendingPathComponent("Embedded.ttf")
         try FileManager.default.copyItem(at: fixtureURL, to: embeddedURL)
+        // 同名 stock 字体在包内存在时必须走包内文件，用来证明解析优先级。
+        let shadowedStockURL = fontsDirectory
+            .appendingPathComponent("Atami-Regular.otf")
+        try FileManager.default.copyItem(at: fixtureURL, to: shadowedStockURL)
 
         let vectorPadding = SceneTextDescriptor.parse([
             "text": "Clock",
@@ -121,6 +125,57 @@ enum Harness {
             size: 64,
             cacheDirectory: cacheDirectory
         )
+        let consolasAlias = SceneTextFontResolver.resolve(
+            path: "systemfont_consolas",
+            size: 64,
+            cacheDirectory: cacheDirectory
+        )
+        let sansSerifAlias = SceneTextFontResolver.resolve(
+            path: "systemfont_sansserif",
+            size: 64,
+            cacheDirectory: cacheDirectory
+        )
+        let segoeAlias = SceneTextFontResolver.resolve(
+            path: "systemfont_segoe",
+            size: 64,
+            cacheDirectory: cacheDirectory
+        )
+        let unknownAlias = SceneTextFontResolver.resolve(
+            path: "systemfont_notarealalias",
+            size: 64,
+            cacheDirectory: cacheDirectory
+        )
+        // 客户端自带字体：包内没有同名文件，必须报 stock 近似而不是 missingBundledFont。
+        let stockMono = SceneTextFontResolver.resolve(
+            path: "fonts/Segment7Standard.otf",
+            size: 64,
+            cacheDirectory: cacheDirectory
+        )
+        let stockDisplay = SceneTextFontResolver.resolve(
+            path: "fonts/Alcubierre.otf",
+            size: 64,
+            cacheDirectory: cacheDirectory
+        )
+        let stockSans = SceneTextFontResolver.resolve(
+            path: "fonts/NotoSans-Regular.ttf",
+            size: 64,
+            cacheDirectory: cacheDirectory
+        )
+        let stockEmoji = SceneTextFontResolver.resolve(
+            path: "fonts/TwemojiMozilla.ttf",
+            size: 64,
+            cacheDirectory: cacheDirectory
+        )
+        let shadowedStock = SceneTextFontResolver.resolve(
+            path: "fonts/Atami-Regular.otf",
+            size: 64,
+            cacheDirectory: cacheDirectory
+        )
+        let traversalStock = SceneTextFontResolver.resolve(
+            path: "../Alcubierre.otf",
+            size: 64,
+            cacheDirectory: cacheDirectory
+        )
 
         let result: [String: Any] = [
             "point32": SceneTextGeometry.pointSizeInPixels(32),
@@ -142,6 +197,16 @@ enum Harness {
             "embedded": resolution(embedded),
             "missing": resolution(missing),
             "cambriaAlias": resolution(cambriaAlias),
+            "consolasAlias": resolution(consolasAlias),
+            "sansSerifAlias": resolution(sansSerifAlias),
+            "segoeAlias": resolution(segoeAlias),
+            "unknownAlias": resolution(unknownAlias),
+            "stockMono": resolution(stockMono),
+            "stockDisplay": resolution(stockDisplay),
+            "stockSans": resolution(stockSans),
+            "stockEmoji": resolution(stockEmoji),
+            "shadowedStock": resolution(shadowedStock),
+            "traversalStock": resolution(traversalStock),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -150,11 +215,15 @@ enum Harness {
     private static func resolution(
         _ value: SceneTextFontResolver.Resolution
     ) -> [String: Any] {
-        [
+        let traits = CTFontGetSymbolicTraits(value.font)
+        return [
             "source": String(describing: value.source),
             "diagnostic": value.diagnostic ?? NSNull(),
             "postScriptName": value.postScriptName,
             "fontSize": CTFontGetSize(value.font),
+            // 形态实测：等宽近似必须真的落在等宽家族上，不能只看名字。
+            "monospace": traits.contains(.traitMonoSpace),
+            "colorGlyphs": traits.contains(.traitColorGlyphs),
         ]
     }
 
@@ -275,6 +344,81 @@ class SceneTextRenderingTests(unittest.TestCase):
             self.assertEqual(cambria["source"], "fallback")
             self.assertEqual(cambria["diagnostic"], "systemAliasUnavailable")
             self.assertIn("TimesNewRoman", cambria["postScriptName"])
+
+    def test_official_alias_table_covers_all_eight_names(self) -> None:
+        # 官方安装目录里只存在 8 个 `systemfont_*`（arial/verdana/segoe/sansserif/
+        # consolas/comicsans/cambria/calibri，各出现 6~8 次）。表内名字即使本机没装对应
+        # 字体，也只能报 systemAliasUnavailable；只有表外名字才是 systemAliasUnknown。
+        # 这样别名表是否补全在诊断里可观察，而不是被 Helvetica 的结果掩盖。
+        for key in ("alias", "cambriaAlias", "consolasAlias", "sansSerifAlias", "segoeAlias"):
+            with self.subTest(alias=key):
+                value = self.result[key]
+                self.assertIn(value["source"], {"systemAlias", "fallback"})
+                self.assertNotEqual(value["diagnostic"], "systemAliasUnknown")
+                self.assertTrue(value["postScriptName"])
+        unknown = self.result["unknownAlias"]
+        self.assertEqual(unknown["source"], "fallback")
+        self.assertEqual(unknown["diagnostic"], "systemAliasUnknown")
+
+    def test_consolas_alias_keeps_monospace_advances(self) -> None:
+        # `systemfont_consolas` 是本机语料里引用最多的别名（480 次原始引用）。
+        # Consolas 在 macOS 缺失，退化到比例字体会让等宽版式错位，
+        # 所以 fallback 必须仍然是等宽家族。
+        consolas = self.result["consolasAlias"]
+        self.assertTrue(consolas["monospace"])
+        if consolas["source"] == "systemAlias":
+            self.assertIsNone(consolas["diagnostic"])
+        else:
+            self.assertEqual(consolas["source"], "fallback")
+            self.assertEqual(consolas["diagnostic"], "systemAliasUnavailable")
+            self.assertNotIn("Helvetica", consolas["postScriptName"])
+
+    def test_generic_sans_serif_alias_is_satisfied_not_degraded(self) -> None:
+        # `systemfont_sansserif` 是通用 sans 请求，macOS 的通用 sans 就是 Helvetica，
+        # 因此属于别名命中，不应报缺失。
+        sans = self.result["sansSerifAlias"]
+        self.assertEqual(sans["source"], "systemAlias")
+        self.assertIsNone(sans["diagnostic"])
+
+    def test_client_stock_font_reports_approximation_not_missing_package(self) -> None:
+        # 官方 `assets/fonts` 下 15 个客户端自带字体；作者写 `fonts/X` 时官方先找包内、
+        # 再用自带字体。本项目不搬运字体文件，但必须把这种引用与“包坏了”区分开：
+        # 本机语料 244 个去重 text layer 里 41 个属于这一类，此前全部被误报
+        # missingBundledFont 并静默变成 Helvetica。
+        for key, category in (
+            ("stockMono", "mono"),
+            ("stockDisplay", "display"),
+            ("stockSans", "sans"),
+            ("stockEmoji", "emoji"),
+        ):
+            with self.subTest(stock=key):
+                value = self.result[key]
+                self.assertEqual(value["source"], "stockApproximation")
+                self.assertEqual(
+                    value["diagnostic"], f"stockFontApproximated:{category}"
+                )
+                self.assertTrue(value["postScriptName"])
+                self.assertEqual(value["fontSize"], 64)
+
+    def test_stock_categories_preserve_measured_glyph_shape(self) -> None:
+        # 类别是对安装目录只读实测出来的：Segment7Standard 是 fixed-pitch，
+        # TwemojiMozilla 带 color glyph 表。近似字体必须保住这两个形态特征，
+        # 否则时钟字体会错位、emoji 会变豆腐块。
+        self.assertTrue(self.result["stockMono"]["monospace"])
+        self.assertTrue(self.result["stockEmoji"]["colorGlyphs"])
+        self.assertFalse(self.result["stockDisplay"]["monospace"])
+
+    def test_bundled_font_wins_over_same_named_client_stock_font(self) -> None:
+        # 解析顺序必须是别名 -> 包内文件 -> 客户端自带 -> 缺失。
+        shadowed = self.result["shadowedStock"]
+        self.assertEqual(shadowed["source"], "embedded")
+        self.assertIsNone(shadowed["diagnostic"])
+
+    def test_stock_name_does_not_bypass_path_traversal_rejection(self) -> None:
+        # stock 识别不能给越界路径开后门：安全判定仍然优先。
+        traversal = self.result["traversalStock"]
+        self.assertEqual(traversal["source"], "fallback")
+        self.assertEqual(traversal["diagnostic"], "unsafeFontPath")
 
 
 if __name__ == "__main__":

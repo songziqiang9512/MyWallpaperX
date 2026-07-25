@@ -194,6 +194,8 @@ Text 不是播放器 UI overlay。真实样本中的 text object 同时具有：
 
 字体文件与系统字体别名必须可诊断。找不到字体时记录 fallback 的具体字体，不能无声替换。
 
+MyWallpaperX 当前按 alias → 包内文件 → 客户端自带（stock）→ 缺失四层解析，路径安全判定优先于后三层。官方 `systemfont_*` 别名共 8 个，缺失家族退到形态最接近的本机家族（`consolas` 必须落回等宽，否则本机语料引用最多的别名会从等宽退化成比例字体）；客户端 `assets/fonts` 的 15 个 stock 字体只登记名字与只读实测类别，不搬运字体文件，命中时报 `stockApproximation` 而不是包缺失。这只是形态近似加可诊断，不是官方字形等价，见 [E-TEXT-FONTREF](runtime-evidence-index.md#e-text-fontref)。
+
 MyWallpaperX 当前的 `pointsize * 300 / 72` 直接来自官方 typings 对 `ITextLayer.pointsize` 的 300 DPI 说明，并由随包 `dino_run` 两个记分标签的作者 size 逐位复现，见 [E-TEXT-POINTSIZE](runtime-evidence-index.md#e-text-pointsize)。但 scene unit、raster backing scale 和 Retina 输出之间的精确关系仍需官方 Windows 对照，本地还对像素字号做了 1024 的夹取；实现和文档都不能把这一个换算提升为完整文字语义。
 
 第 6 条里的 width/line/ellipsis 约束现在按作者开关执行：`limitwidth`/`maxwidth` 压窄换行宽度、`limitrows`/`maxrows` 丢弃多余行、`limituseellipsis` 在末行补省略号并回退到不越界，两个数值在开关关闭时必须完全不生效（本机语料 393 个关闭态 layer 都带着编辑器默认 `maxwidth: 500`，其中 79 个作者宽度已超过 500）。省略号的回退粒度和被裁断点仍未与 Windows 逐像素对照，见 [E-TEXT-LIMITS](runtime-evidence-index.md#e-text-limits)。
