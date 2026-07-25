@@ -182,6 +182,6 @@
 
 ## 7. 本轮验证
 
-当前 Scene 全量测试共 **422 项：419 通过、3 项跳过**；语义覆盖 11/11。除既有 ShaderContract、graph-target、ordered chain 和 copy/swap interleave 门外，Water Waves/Water Flow planner、phase fallback、budget、benchmark exact count、puppet mesh/attachment reader、attachment world-frame composition 与 BC 解码像素门已进入合同；generic compose、Refraction、scene-background capture、dynamic variants、非 `KERNEL=0` 和 unsupported mixed shape 均保持失败关闭。当前测试仍不是 Windows WE 像素 golden。
+当前 Scene 全量测试共 **370 项：367 通过、3 项跳过**；语义覆盖 11/11。除既有 ShaderContract、graph-target、ordered chain 和 copy/swap interleave 门外，Water Waves/Water Flow planner、phase fallback、budget、benchmark exact count、Puppet mesh/attachment/MDLA/skin evaluator 与 BC 解码像素门已进入合同；generic compose、Refraction、scene-background capture、dynamic variants、非 `KERNEL=0` 和 unsupported mixed shape 均保持失败关闭。当前测试仍不是 Windows WE 像素 golden。
 
 当前两层运行门、strict 聚合计数、报告/矩阵 SHA 与签名 App 身份统一见 [运行证据索引](runtime-evidence-index.md)，本页不再复制维护。这些证据只把十一类 strict backend 的 ordered all-supported chain、Precise Blur interleave、exact legacy compose 与 puppet bind-pose 重组记为受限 `L3`。不得据此升级 unsupported mixed graph、generic graph primitive、generic compose、SceneScript、官方 Shadow 或 authored shader execution。

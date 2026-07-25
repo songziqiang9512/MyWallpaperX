@@ -2,7 +2,7 @@
 
 > 建立日期：2026-07-22
 >
-> 最近更新：2026-07-25（实现基线 `49ee89a`；interpretation v24；十一类 strict effect backend + puppet bind-pose mesh/静态 MDAT attachment 是当前 GPU 执行子集；BC1/2/3 颜色纹理在单帧 16M 像素预算内按 premultiplied 合同解码，REFRACT 粒子材质 fail closed。当前完整 45 样本快照门 45/45、particle 79/131；固定 13 样本门 13/13、particle 13/27）
+> 最近更新：2026-07-25（实现基线 `f1ee79b`；interpretation v25；十一类 strict effect backend + Puppet bind-pose/静态 MDAT/严格单 clip MDLA CPU LBS 是当前 GPU 执行子集；BC1/2/3 颜色纹理在单帧 16M 像素预算内按 premultiplied 合同解码，REFRACT 粒子材质 fail closed。当前完整 45 样本快照门 45/45、particle 79/131；固定 13 样本门 13/13、particle 13/27）
 >
 > 作用：定义 MyWallpaperX Scene runtime 从当前可审计子集向 Wallpaper Engine 常用能力逼近的实施顺序、样本门和验收标准。作者/执行语义先查 [`semantics/README.md`](semantics/README.md)；当前能力结论仍以 [`../reviews/web-scene-current-state-roadmap-2026-07-19.md`](../reviews/web-scene-current-state-roadmap-2026-07-19.md) 与最新运行证据为准；历史 memo 不反向覆盖本计划。已完成批次的逐项验收记录收敛到第 8 节索引与 [运行证据索引](semantics/runtime-evidence-index.md)，不再在本文正文逐段展开。
 
@@ -31,9 +31,9 @@
 
 ### 已真实进入运行链
 
-- `project.json` / entry 同名 `gifscene.json` 识别、PKGV 索引、受控缓存解包、路径校验和 interpretation format 24；v24 在 v23 `puppetMeshPath` 与 v22 exact stock Opacity、ShaderContract、provider/resource metadata、authored graph/direct text binding program 合同之上加入 layer `attachmentName` / `parentAttachmentBindFrame`；
+- `project.json` / entry 同名 `gifscene.json` 识别、PKGV 索引、受控缓存解包、路径校验和 interpretation format 25；v25 在 v24 static attachment frame 之上增加 authored Puppet animation layer 声明；
 - PNG/JPEG、raw RGBA/RG/R8、BC1/BC2/BC3/BC5、LZ4、MP4 payload 和 TEX sprite sequence；**BC1/2/3 颜色载荷现在 CPU 解码、按 straight->premultiplied 归一并裁剪 padded 存储到作者 image 尺寸**（`8bac86e`），修复透明区白色 matte 与 physical/mapped 采样错位；BC5 法线载荷保持 GPU 原生直通；行级并发解码保证未优化 Debug 构建 4K 纹理亚秒级加载；
-- **puppet bind-pose mesh 与静态 MDAT attachment**：`8bac86e` 解析 MDLV0021/0023 mesh block并把图集重组为 bind pose 纹理；`49ee89a` 对已验证的 `MDLV0023 + MDLS0004 + MDAT0001` 求 attachment Scene bind frame，并按 `parentWorld * attachmentBind * childLocal` 定位同名挂点 child。`3769688830` 的 7 个 puppet 层重组成功，ahriarm/ahriorb 从错误的父中心位置回到肩部/右上挂点。两项均为 `executed-degraded`；warp/MDLA、deformation/skinning、动画 attachment follow 仍未实现；
+- **Puppet bind-pose、静态 MDAT 与严格单 clip MDLA**：`8bac86e` 重组 MDLV0021/0023 bind pose；`49ee89a` 按 `parentWorld * attachmentBind * childLocal` 定位 MDAT child；`ca6d841`/`56f92a2`/`2be2b44` 保存 MDLA0006 full TRS、MDLS hierarchy 与 80/84-byte vertex weights；`f1ee79b` 以 `T * Rz * Ry * Rx * S`、hierarchical world、`animatedWorld * inverse(bindWorld)` 和 normalized four-weight CPU LBS 播放单个静态可见 loop clip。当前按 source FPS 离散采样；mixing、插值、非 1 rate/blend、动态 visibility、动画 attachment follow、constraint/IK/physics 保持 fail closed；
 - Metal image/solid/text/particle 合成、父子 transform、有效可见性、source order、alpha、正交/透视粒子相机和桌面多屏宿主；
 - 宿主级单一 60 Hz frame driver 与 `SceneFrameTiming` / `SceneFrameContext` 第一阶段：所有屏幕共享一次采样的 frame index、host time、scene time、frame delta 和 wall date；shader、视频帧、粒子 simulation 与 parallax smoothing 已迁移，屏幕尺寸和 pointer 仍按 surface 独立保存；
 - B0 live-property runtime 已合龙：`SceneDynamicValue` 覆盖 bool/scalar/vector2/vector3/vector4/string，target 覆盖 scene/camera/layer/effect/text/particle/script instance，resolver 固定按 `authored -> userProperty -> Timeline -> SceneScript` 覆盖并拒绝重复、错类型和非有限值；binding program 包含 layer alpha/color、direct text content/point-size/color、exact stock Local Contrast pass 3 `strength` 与 exact stock Opacity `alpha` target；Host 为每个 surface 独立求值 per-surface snapshot 并持有 generation，属性更新经原子 live state 路由到 renderer；
@@ -47,17 +47,17 @@
 - 用户属性定义、group/display condition/options、默认值/override、visibility/text/camera 与部分 effect target、按壁纸持久化、活动 Scene 受控重建和独立属性窗口；`sceneTexture` PNG/JPEG picker、按 wallpaper/property bookmark、同步 security-scope 解码、逐屏 Metal 上传、恢复作者默认和失败回退；
 - typed `composition/project/fullscreen` 与 generic dependency layer ID；对满足严格边界的 utility layer 执行当前 framebuffer 前缀捕获，并支持 `_rt_imageLayerComposite_<id>_a` named target 的有预算发布与 clipping consumer 绑定；
 - effect/material pass 的 typed user texture input、typed texture registry（resource generation 与 named frame epoch 双代）、v15 EffectDefinition IR、v16 authored graph planner、v17 provider identity、ShaderContract IR v1、`rgba8888` target format、ordered strict effect-chain scheduler、effect-chain target allocation 事务、同帧 copy/swap command、受限 history seed/clear、Precise Blur material-command interleave 与 exact legacy compose 归一化——逐项边界见第 8 节历史索引与对应 semantics 表；
-- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；当前完整快照门 `.codex/scene-attachment-full45-20260725/results-v1/report.json` 为 **45/45**、particle **79/131**，报告/矩阵 SHA-256 为 `5aee296a65da3b94e5d0a76973691244ba1fe0b9024513d52360ab660fc694c3` / `6a4896006a43bca98153b7ce12e5b52a7ec2be1d0f9011db4e6cd32b50f9a4fe`；45 门 strict 为 stage 91、chain 15、Water Flow 10、Water Waves 11、Shake 24、Opacity 8、Local Contrast 2、failed 0、route-only 113，image `449/451`、text `244/244`、solid `140/140`。固定回归门 `.codex/scene-attachment-fixed13-20260725/results-v1/report.json` 为 **13/13**、particle **13/27**，报告/矩阵 SHA-256 为 `1a1a03b9007ea6448019da2f3e4605dff6ffe9693feb15cf8a8905811f536998` / `4bc281897220b55ed0d0e6a5d57c9625155c4f142738a2a52ddb5d3cb98939b2`；固定门保护 strict stage 24、chain 2、Local Contrast 2、Water Flow 1、Water Waves 6、Shake 1、Opacity 4、Workshop Shadow 1、failed 0。`3769688830` attachment 定向门报告 SHA-256 为 `a1638081c99bd2d23a0484f4676e921e774fdca8d892ab1d30edad54c3f94ee1`。两门签名 App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `65cf71e5a1236091c9363e154ab42fc6bb657aa9`、可执行文件 SHA-256 `1afc01878dcfc6fcbb8ee1e8027e1a908123821653145c4432ede15e9b70e2c0`；13/45 个样本均 interpretation v24、退出 surface `1 -> 0`、样本根 residue 0，聚合计数与上一批一致。完整 Scene suite 为 **422 项：419 通过、3 跳过**。完整聚合缺口见 [运行证据索引](semantics/runtime-evidence-index.md)。
+- 签名 Debug App、隔离 sample root/HOME、Metal ready/after 双帧、语义合同和 stop 后 surface=0；当前完整快照门 `.codex/scene-puppet-animation-20260725/full45-v2/report.json` 为 **45/45**、particle **79/131**，报告/矩阵 SHA-256 为 `9227572df6b9f21fa441b713fbd3f3d9bdc80dca53e9e8e1b48792194b94fd1d` / `71c4ba1e9635e8b898237a45563cca8596fdc1704d1198a27441e0aa575a978b`；45 门 strict 为 stage 91、chain 15、Water Flow 10、Water Waves 11、Shake 24、Opacity 8、Local Contrast 2、failed 0、route-only 113，image `449/451`、text `244/244`、solid `140/140`。固定回归门 `.codex/scene-puppet-animation-20260725/fixed13-v3/report.json` 为 **13/13**、particle **13/27**，报告/矩阵 SHA-256 为 `4f77400421b428a3ae4a7ccd54a22acaa39b5a0dae620e864c618c146accc9fd` / `f4bb90c8a8ec36396e90e925e4abf39ffead0ba09cbc9aea8e436d5e46374a02`；固定门保护 strict stage 24、chain 2、Local Contrast 2、Water Flow 1、Water Waves 6、Shake 1、Opacity 4、Workshop Shadow 1、failed 0。两门 App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `8de83c56e043c0e88804a8b6ebf40fb61ad7e6fc`、可执行文件 SHA-256 `f7832a98a950bd10a0b98e975f91cb0199be414ddd04f41dd5ae4e26f55b4a5a`；13/45 个样本均 interpretation v25、退出 surface `1 -> 0`、样本根 residue 0。完整 Scene suite 为 **370 项：367 通过、3 跳过**，代码健康为 441 Swift files。完整聚合缺口见 [运行证据索引](semantics/runtime-evidence-index.md)。
 
 ### 仅解析/诊断或部分实现
 
 - authored graph 只有十一类 strict backend 进入 renderer；named target、静态 image blend 和其余手写 effect 仍是受限执行器，dynamic variants、child/nested target、effectful/media provider、真实 history consumer、generic compose/scene-background、history 的跨帧语义、condition/function、其他 topology 和通用 material/shader 尚未实现；
-- puppet 已执行 bind-pose mesh 重组与受限静态 MDAT attachment 定位，但 **MDLS 尚无完整 bone/weight IR，MDLA 动画不解析不播放**：挂点 child 只处于 bind frame，不会随骨骼动画跟随；`Water droplets` 虽保留 attachment frame，粒子层本身仍 unavailable；
+- Puppet 已执行 bind-pose、受限静态 MDAT 与严格单 clip MDLA/LBS；挂点 child 仍只处于 bind frame，不随骨骼动画跟随，mixing/插值/constraint/IK/physics/channels/clipping 也未执行；`Water droplets` 虽保留 attachment frame，粒子层本身仍 unavailable；
 - typed frame texture registry、authored fallback 和 PNG/JPEG property file/bookmark/decode 已进入 runtime；通用 provider metadata/status/cancel、`$mediaThumbnail`、Texture Variants、video frame、通用 material property consumer、effectful/nested provider 与真实 persistent/history consumer 尚未接入；
 - Timeline 没有正式 target/keyframe/mode/tangent/event IR；SceneScript 只发现 `.js` 资源和 inline `script` presence，没有 ECMAScript runtime、`init/update`、事件、globals、Date/Math live value 或属性写回；
 - 用户属性的 Texture Variants、media/video texture、transform、non-solid/mixed color、其他 effect constant、particle/audio/puppet target 和 SceneScript `applyUserProperties` 仍未闭环；
 - 除 11 个精确 key 外的 built-in particle（如 `rosepetals`、`beam_1`、`rain_drops_sheet`）、rope/rope trail、world-space、control point、collision、音频和动态 override 未实现；particle exponent 已解析未消费；
-- 多 foliage 栈、vertex sway 与 workshop 自定义 sway 未实现；Scene 音频/媒体未接现有系统服务；SceneScript/系统时间/日期/媒体驱动的 text、puppet 动画、mesh/3D/lighting、自定义 shader 均未实现；
+- 多 foliage 栈、vertex sway 与 workshop 自定义 sway 未实现；Scene 音频/媒体未接现有系统服务；SceneScript/系统时间/日期/媒体驱动的 text、Puppet mixing/advanced deformation、3D/lighting、自定义 shader 均未实现；
 - Frame Context 尚缺 pause/resume、长帧 delta clamp/dropped-time、fixed timestep、audio/media producer 和离线 adapter；fullscreen/battery、目标 FPS、CPU/GPU/显存预算和 soak 也未闭环。
 
 固定 13 样本门 PASS 不能解释成 Wallpaper Engine 视觉兼容率：它只证明矩阵声明的解析、GPU 完成、非黑画面、能力计数和释放门通过。`3769688830` 的主体构图与静态 attachment 已恢复，但 warp/MDLA、动画 attachment follow、樱花/光束粒子与折射雨仍缺；`2131872317` 的烟花 eventdeath child 爆炸、`3750813609` 的动态时钟、完整 Clouds/Blur、world-space 雨滴溅射等差距不变。
@@ -80,7 +80,7 @@
 10. [Particle Renderer](https://docs.wallpaperengine.io/en/scene/particles/component/renderer.html) 定义 Sprite Trail 按粒子速度方向对齐，并按 speed、length 与 min/max stretch 控制长度。当前实现仅复用 2D sprite quad 覆盖该子集，不据此宣称 rope、child 或完整粒子 renderer 兼容。官方 General 把 refraction 列为 renderer variant 之一；REFRACT 材质在真实 refraction pass 存在前必须 fail closed，不能用颜色 sprite 冒充。
 11. [Shader Variables](https://docs.wallpaperengine.io/en/scene/shader/variables.html) 公开 `g_Texture0...7`，但 slot 含义由当前 material/shader annotation 决定；nullable texture slot 不得压缩，也不存在通用的"slot 1 永远是 mask"。
 12. WE-compatible effect definitions 与可审计播放器共同证明 `target`、`bind`、`compose`、`command:copy/swap`、RT scale/format/unique 是执行字段；`unique` 只声明实例唯一性，不能单独推导跨帧 history，history 必须由读前写、copy/swap 和生命周期数据流判定。raw schema 并非官方公开合同，新增执行语义仍要由合法官方 assets 或真实样本交叉验证。
-13. Puppet `.mdl`（MDLV0021/0023）没有官方公开格式。当前 mesh block 合同来源是**第三方播放器解释 + 真实 Workshop 资产交叉验证**，不是官方规则；`49ee89a` 只对已验证的 `MDLV0023 + MDLS0004 + MDAT0001` 解析 bind hierarchy/attachment，并按 `parent * attachment * child local` 执行静态定位。MDAT `u16` 已核验为 MDLS bone index；MDLA、完整 weights/deformation/skinning 与其他版本仍未消费，任何超出已验证形状的数据必须 fail closed。
+13. Puppet `.mdl`（MDLV0021/0023）没有官方公开格式。mesh/MDLS/MDAT/MDLA 合同来源是**第三方播放器解释 + 三来源真实 Workshop 资产交叉验证**，不是官方规则；静态 attachment 只接受已验证的 MDLV0023/MDLS0004/MDAT0001，动画只接受 MDLV0023/MDLS0004/MDLA0006、80/84-byte weights、loop 与 strict single-clip profile。真实 MDLA 会变化 translation/scale，不能按编辑器建议丢弃；任何超出已验证形状的数据必须 fail closed。
 
 ## 4. 实施路线
 
@@ -96,12 +96,11 @@
 
 ### 当前批次优先级（2026-07-25 起）
 
-`8bac86e`/`dd85dcf` 已关闭 puppet 图集重组、BC 颜色 premultiply、REFRACT fail-closed；`49ee89a` 随后关闭 `3769688830` 的静态 MDAT attachment 定位，并以 interpretation v24、定向视觉门、13/45 两门完成验收。按样本收益与公共依赖排序的下一批候选：
+`8bac86e`/`dd85dcf` 已关闭 Puppet 图集重组、BC 颜色 premultiply、REFRACT fail-closed；`49ee89a` 关闭静态 MDAT attachment；`ca6d841`/`56f92a2`/`2be2b44`/`f1ee79b` 继续关闭三来源 MDLA IR、full TRS、rig/weights 和严格单 clip fixed-step CPU LBS，并以 interpretation v25、定向正反例、13/45 两门完成验收。按样本收益与公共依赖排序的下一批候选：
 
-1. **puppet MDLA 动画**：呼吸/尾巴摆动是该类样本的核心动态；先建 IR fixture 再接 fixed-step 播放；
-2. **粒子 child/event death 最小闭环**（`2131872317`/`3768903841` 烟花爆炸）与高命中 built-in 纹理（`rosepetals`、`beam_1`）继续按官方 Children 语义推进；
-3. **超预算 BC 容器的正确合成**：多帧/超大 BC 载荷当前保持直通（straight-alpha matte 边界已记录）；候选方案是 GPU compute premultiply 或 fragment 侧 per-texture straight-alpha 标记；
-4. `3769364482` 的 Fire effect、299 多余粒子与全局比例/裁切按隔离样本收益随后推进。
+1. **粒子 child/event death 最小闭环**（`2131872317`/`3768903841` 烟花爆炸）与高命中 built-in 纹理（`rosepetals`、`beam_1`）继续按官方 Children 语义推进；现有 eventspawn/child trail/budget 是公共前置，不等于 eventdeath 已完成；
+2. **超预算 BC 容器的正确合成**：多帧/超大 BC 载荷当前保持直通（straight-alpha matte 边界已记录）；候选方案是 GPU compute premultiply 或 fragment 侧 per-texture straight-alpha 标记；
+3. `3769364482` 的 Fire effect、299 多余粒子与全局比例/裁切按隔离样本收益随后推进。
 
 视觉判断先以样本自带 preview 约束构图、色调和明显效果，WaifuX SceneBake 只作辅助动态参考，最终仍需合法 Windows WE 输出。
 
@@ -186,3 +185,4 @@
 | S4.3 particle child 触发 | `f4173ea`、`7d53c10` | strict eventspawn child、child trail、粒子预算 |
 | S2/S4 合成正确性批次 | `8bac86e`、`dd85dcf` | puppet bind-pose mesh 重组（v23）；BC1/2/3 premultiplied 解码与裁剪（单帧 16M 像素预算内，超限/多帧容器保持直通）；REFRACT 粒子 fail closed；45/13 两门按新口径刷新 |
 | Puppet 静态 attachment | `49ee89a` | 受限 MDLS0004 hierarchy + MDAT0001 named bind frame；`parent * attachment * child local` 静态定位；interpretation v24；MDLA/deformation/动画 follow 仍 fail closed；13/45 两门通过 |
+| Puppet MDLA 严格单 clip 播放 | `ca6d841`、`56f92a2`、`2be2b44`、`f1ee79b` | 三来源 MDLA0006/full TRS/MDLS weights；source-FPS 离散 loop + CPU LBS；interpretation v25；mixing/动态 visibility/attachment follow fail closed；13/45 两门通过 |

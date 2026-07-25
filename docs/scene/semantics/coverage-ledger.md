@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-25
 >
-> Scene 实现基线：`49ee89a`（Puppet bind-pose mesh `8bac86e`，静态 MDAT attachment `49ee89a`）
+> Scene 实现基线：`f1ee79b`（Puppet bind-pose mesh `8bac86e`，静态 MDAT attachment `49ee89a`，严格单 clip MDLA/LBS 播放 `f1ee79b`）
 >
-> 当前完整快照门：`.codex/scene-attachment-full45-20260725/results-v1/report.json`；固定回归门：`.codex/scene-attachment-fixed13-20260725/results-v1/report.json`
+> 当前完整快照门：`.codex/scene-puppet-animation-20260725/full45-v2/report.json`；固定回归门：`.codex/scene-puppet-animation-20260725/fixed13-v3/report.json`
 >
-> 最新运行门：真实目录 45 个可运行样本完整快照 45/45、particle 79/131；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 13/13、particle 13/27，仍单独保留且不能互相替代。particle 计数按 `8bac86e` 的 REFRACT fail-closed 新口径统计。完整 Scene suite 422 项：419 通过、3 项跳过；语义覆盖 11/11。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：真实目录 45 个可运行样本完整快照 45/45、particle 79/131；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 13/13、particle 13/27，仍单独保留且不能互相替代。particle 计数按 `8bac86e` 的 REFRACT fail-closed 新口径统计。完整 Scene suite 370 项：367 通过、3 项跳过；语义覆盖 11/11。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -46,7 +46,7 @@
 | 系统 | 当前级别 | 当前真实能力 | 主要缺口 / 升级门 | 批次 |
 |---|---|---|---|---|
 | PKG/TEX/资源索引 | `L3` | loose/PKG 查找、常见 TEX、内嵌 MP4、诊断式失败 | case/symlink/duplicate/多格式边界与完整 VFS golden | B0 |
-| Scene IR 与基础层级 | `L3` | 基础对象、顺序、父子 transform/visibility、受限 Puppet 静态 attachment frame、常见 image/text/solid/particle | 模型、动态 attachment follow、复杂 object component 和全部动态字段 | B0 |
+| Scene IR 与基础层级 | `L3` | 基础对象、顺序、父子 transform/visibility、受限 Puppet 静态 attachment frame 与 animation layer 声明、常见 image/text/solid/particle | 模型、动态 attachment follow、复杂 object component 和全部动态字段 | B0 |
 | Utility composition | `L3` | typed composition/project/fullscreen、受限 current prefix 与 `_a` named target | nested/effectful/child、`_b` 数据流、RGB 语义 | B2/B3 |
 | 画布/cover/背景 | `L3` | cover 投影和作者声明视差门，未覆盖区域不再暴露灰底 | 多比例、多屏和 Windows 像素基准 | B5 |
 | Frame Context | `L3` | host 单一 60 Hz driver；shader/video/particle/parallax 同帧 timing | pause/resume、delta clamp、fixed step、目标 FPS、离线 adapter | B0 |
@@ -78,8 +78,8 @@
 | Authored shader path/source identity | `L1` | material path 与 ShaderContract stage/source/raw hash/canonical identity 已安全保存 | 尚无 include expansion、translation、compile 或 executor | B2 |
 | Shader source/include/annotation/declaration contract | `L1` | 完整 source、include reference、annotation raw/structured value、uniform/attribute/varying declaration 已 loss-preserving 保存并诊断 | typed default/combo consumer、include expansion、macro/permutation preprocessor、stage link/translation/compile | B2 |
 | Arbitrary custom shader execution | `L0` | 自有受限 Metal shader 不等于作者 shader | 通用受控翻译/映射、安全与产品门 | P3 |
-| Puppet asset identity | `L2` | MDLV0021/0023 mesh block 与受限 MDLV0023 + MDLS0004 + MDAT0001 bind attachment 已由真实资产交叉核验并 fail-closed 解析；MDAT 的 `u16` 作为 MDLS bone index，保存 named attachment | 完整 bone/weights schema、MDLA 动画 schema、更多版本与超出已验证形状的数据 | P2 |
-| Puppet runtime | `L3`（bind pose + 静态 attachment）/`L0`（动画） | 图集按 mesh 重组为 bind-pose 纹理（`8bac86e`）；child 按 `parent world * attachment bind * child local` 静态定位（`49ee89a`），两者均为 `executed-degraded` | MDLA 播放、deformation/skinning、动画 attachment follow、constraint/IK/physics/events | P2 |
+| Puppet asset identity | `L2` | MDLV0021/0023 mesh、受限 MDLV0023 + MDLS0004 + MDAT0001，以及三来源 MDLA0006/full-TRS/80+84-byte skin weights 已交叉核验并 fail closed；v25 保存 authored animation layers | 更多 MDL/MDLA 版本、完整辅助轨道与超出已验证形状的数据 | P2 |
+| Puppet runtime | `L3 executed-degraded` | bind-pose 重组（`8bac86e`）、静态 attachment（`49ee89a`）和严格单可见 clip 的 loop/fixed-step/LBS 播放（`f1ee79b`）；混合、动态 visibility 或畸形声明整层回退 bind pose | 插值、非 loop mode、rate/blend/mixing、动画 attachment follow、constraint/IK/physics/events、Windows golden | P2 |
 | 2D lighting/Scene HDR | `L0` | layer Bloom 近似不等于官方 lighting/HDR pipeline | PBR maps、light、shadow/reflection/volumetric、scene post | P2 |
 | 3D model/camera/physics | `L0` | 无 Scene 3D runtime | model/node/material/skeleton/attachment/camera/physics | P3 |
 | RGB device integration | `L0` | 无 Scene RGB provider/output | macOS 策略、授权和 fail-closed | P3 |
@@ -207,8 +207,8 @@
 
 | 能力族 | 当前级别 | 最小可用门 |
 |---|---|---|
-| Puppet asset identity | `L2` | MDLA/weights schema fixture、更多 MDL 版本和完整资源图 |
-| Puppet mesh/bones/weights runtime | `L3` bind pose + 静态 attachment / `L0` skinning | 动画播放、GPU skinning、动态 attachment follow、层级/遮罩 |
+| Puppet asset identity | `L2` | 更多 MDL/MDLA 版本、辅助轨道和完整资源图 |
+| Puppet mesh/bones/weights runtime | `L3` bind pose + 静态 attachment + 严格单 clip CPU LBS | 插值/mixing、GPU skinning、动态 attachment follow、层级/遮罩 |
 | Puppet spring/rigid/rope/wind | `L0` | fixed timestep solver、events、确定性 golden |
 | 2D PBR maps | `L0` | normal/roughness/metalness/emissive slot 与 color space |
 | Point/spot/tube/directional light | `L0` | light IR、排序、坐标和至少一条渲染路径 |

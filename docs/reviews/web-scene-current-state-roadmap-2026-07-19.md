@@ -22,9 +22,9 @@ Web 目前没有已确认的宿主 P0 阻断，当前 HEAD 的 34+5+3 已知样�
 
 ### Scene
 
-Scene 已建立独立模块、PKGV 读取、受控缓存、typed interpretation、纹理解码、Metal 渲染和桌面宿主。当前链路为 interpretation v24；实现基线 `49ee89a` 的 renderer 消费 precise Blur、standard-default Blur、stock Local Contrast、exact Workshop Shadow、exact stock Opacity、Shake、Water Waves、Water Flow、Foliage Sway、Water Ripple 与 X-Ray 十一类严格注册 backend，并生成 11 个精确登记的项目自有 built-in 粒子纹理。`8bac86e` 新增 puppet bind-pose mesh 重组、BC1/2/3 premultiplied CPU 解码与裁剪和 REFRACT 粒子材质 fail-closed；`49ee89a` 对已验证的 MDLS0004/MDAT0001 bind 数据执行静态 attachment child 定位。动态 profile 按完整 definition/material/shader/resource fingerprint 准入，并在同一 ordered scheduler 保持作者顺序；X-Ray 另有明确受限的前缀执行边界。默认 96 MiB pool 只保证 6 个全尺寸 BGRA texture unit，超预算链在规划阶段整链拒绝。generic material pass、authored shader preprocessing/translation、真实 history consumer、generic compose/scene-background、condition/function、SceneScript/time/media、puppet MDLA/deformation/动画 attachment follow 与粒子 child/event 完整生命周期仍未实现。
+Scene 已建立独立模块、PKGV 读取、受控缓存、typed interpretation、纹理解码、Metal 渲染和桌面宿主。当前链路为 interpretation v25；实现基线 `f1ee79b` 的 renderer 消费 precise Blur、standard-default Blur、stock Local Contrast、exact Workshop Shadow、exact stock Opacity、Shake、Water Waves、Water Flow、Foliage Sway、Water Ripple 与 X-Ray 十一类严格注册 backend，并生成 11 个精确登记的项目自有 built-in 粒子纹理。Puppet 已有 bind-pose mesh、静态 MDAT attachment，以及只接受 MDLV0023/MDLS0004/MDLA0006、单个静态可见 loop clip、non-additive、blend/rate=1 的 source-FPS 离散 CPU LBS 子集；其他 profile 回退 bind pose。动态 effect profile 按完整 definition/material/shader/resource fingerprint 准入，并在同一 ordered scheduler 保持作者顺序；X-Ray 另有明确受限的前缀执行边界。默认 96 MiB pool 只保证 6 个全尺寸 BGRA texture unit，超预算链在规划阶段整链拒绝。generic material pass、authored shader preprocessing/translation、真实 history consumer、generic compose/scene-background、condition/function、SceneScript/time/media、Puppet 插值/mixing/动画 attachment follow/constraints 与粒子 eventdeath 完整生命周期仍未实现。
 
-当前运行证据分两层：`.codex/scene-attachment-full45-20260725/results-v1/report.json` 对当前真实目录中 45 个可运行隔离样本 **45/45 通过**；`3770500543` 因源目录缺少 `scene.pkg` 而明确排除。`.codex/scene-attachment-fixed13-20260725/results-v1/report.json` 固定回归门 **13/13 通过**。45 门验证 image `449/451`、text `244/244`、solid `140/140`、particle `79/131`，strict stage 91、chain 15、Water Flow 10、Water Waves 11、Shake 24、failed 0；固定门保护 particle `13/27`、24 stage、2 chain、Water Flow 1、Water Waves 6、Shake 1、Opacity 4、Workshop Shadow 1、failed 0。完整 Scene suite 为 **422 项：419 通过、3 项跳过**。签名 App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `65cf71e5a1236091c9363e154ab42fc6bb657aa9`、可执行文件 SHA-256 `1afc01878dcfc6fcbb8ee1e8027e1a908123821653145c4432ede15e9b70e2c0`；13/45 个样本均为 interpretation v24、退出 surface 归零、sample root residue 0。样本自带 preview 是当前第一视觉依据（证据基线 `3194ac5`）；WaifuX SceneBake MP4 只作辅助动态参考，二者均不能解释为 WE 视觉一致。
+当前运行证据分两层：`.codex/scene-puppet-animation-20260725/full45-v2/report.json` 对当前真实目录中 45 个可运行隔离样本 **45/45 通过**；`3770500543` 因源目录缺少 `scene.pkg` 而明确排除。`.codex/scene-puppet-animation-20260725/fixed13-v3/report.json` 固定回归门 **13/13 通过**。45 门验证 image `449/451`、text `244/244`、solid `140/140`、particle `79/131`，strict stage 91、chain 15、Water Flow 10、Water Waves 11、Shake 24、failed 0；固定门保护 particle `13/27`、24 stage、2 chain、Water Flow 1、Water Waves 6、Shake 1、Opacity 4、Workshop Shadow 1、failed 0。完整 Scene suite 为 **370 项：367 通过、3 项跳过**。签名 App 为 `2.0.8 (268)`、Team `H9QWU9XN8R`、CDHash `8de83c56e043c0e88804a8b6ebf40fb61ad7e6fc`、可执行文件 SHA-256 `f7832a98a950bd10a0b98e975f91cb0199be414ddd04f41dd5ae4e26f55b4a5a`；13/45 个样本均为 interpretation v25、退出 surface 归零、sample root residue 0。样本自带 preview 是当前第一视觉依据（证据基线 `3194ac5`）；WaifuX SceneBake MP4 只作辅助动态参考，二者均不能解释为 WE 视觉一致。
 
 ## 2. 评估口径与证据边界
 
@@ -366,7 +366,7 @@ python3 script/scene_wallpaper_benchmark.py \
   --duration 3.0
 ```
 
-`<isolated-scene-sample-root>` 必须包含测试副本 `Scene/<id>`；不得直接传入真实 `~/Movies/MyWallpaperX/创意工坊/Scene`。当前完整快照门为 `.codex/scene-attachment-full45-20260725/results-v1/report.json`，当前固定回归门为 `.codex/scene-attachment-fixed13-20260725/results-v1/report.json`，Puppet attachment 定向门为 `.codex/scene-ahri-attachment-20260725/targeted-v1/report.json`，`particle/halo_4` 三样本门为 `.codex/scene-halo4-targeted-compact-20260724/report.json`，X-Ray 三样本门为 `.codex/scene-xray-composition-20260724/results-pass3/report.json`，视觉校准门为 `.codex/scene-preview-visual-20260724/calibration6-final/report.json`；其他 chromaticdot、Water Flow/Water Waves/Shake、legacy-compose、Workshop Shadow、effect-chain、Local Contrast、ShaderContract、frame-context、file-property、utility、particle-trail、static-fallback 和旧 IR 报告只保留为对应阶段证据，不能反向覆盖当前结论。
+`<isolated-scene-sample-root>` 必须包含测试副本 `Scene/<id>`；不得直接传入真实 `~/Movies/MyWallpaperX/创意工坊/Scene`。当前完整快照门为 `.codex/scene-puppet-animation-20260725/full45-v2/report.json`，当前固定回归门为 `.codex/scene-puppet-animation-20260725/fixed13-v3/report.json`，Puppet animation 定向门为 `.codex/scene-puppet-animation-20260725/targeted-v1/report.json`；Puppet attachment、`particle/halo_4`、X-Ray 和视觉校准报告只保留为对应阶段证据，不能反向覆盖当前结论。
 
 ## 5. Scene 当前实现状况
 
@@ -381,7 +381,7 @@ Scene 的逐系统能力等级、代码/测试/运行证据与剩余缺口不再
 
 - **执行子集是受限白名单，不是通用引擎**：十一类 strict effect backend、puppet bind-pose、11 个程序化 built-in 粒子纹理和受限 provider/dependency 链都按完整 fingerprint 准入、fail closed；generic material/shader executor、真实 history consumer、generic compose、condition/function 未实现。
 - **每新增一个 strict backend 仍重复 texture/state/target 调度基础**：下一步应提取共享 material pass executor、stock shader registry 和 shader preprocessing IR，而不是继续复制每个 effect 的调度代码。
-- **动态系统尚未起步**：Timeline 无 IR、SceneScript 无运行时、音频/媒体桥未接；Puppet MDAT 只闭合静态 bind 定位，MDLA/deformation 与动画 attachment follow 未实现。这些决定大量样本的"画面会动"体验。
+- **动态系统仍不完整**：Timeline 无 IR、SceneScript 无运行时、音频/媒体桥未接；Puppet 已有严格单 clip MDLA/full-TRS/CPU LBS，但没有插值、mixing、动态 attachment follow、constraint/IK/physics。粒子 eventdeath、动态文字 producer 和大量 effect 时间语义仍决定许多样本的核心动态差距。
 - **正确性与健壮性遗留**：PKG reader 逐 entry 重复解析整包、`entryCount` 缺上限、每屏重复解码上传纹理、无按屏刷新率/目标 FPS/后台节流；这些不阻塞当前门但在性能预算阶段必须关闭。
 - **产品闭环缺口**：无按屏 pause/resume、FPS/音量/画质策略；用户属性的 Texture Variants、media、transform、particle/audio target 未闭环。
 

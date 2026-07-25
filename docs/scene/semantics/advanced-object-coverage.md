@@ -24,7 +24,7 @@
 | particle layer | `L3` | 固定门 13/27、完整门 79/131 可见层进入受限 runtime（REFRACT 材质 fail closed）；[E-PARTICLE](runtime-evidence-index.md#e-particle) | 逐组件状态见 [粒子表](particle-component-coverage.md) |
 | container/parent hierarchy | `L3` | source order、parent transform/visibility/parallax propagation、[E-BASE](runtime-evidence-index.md#e-base) | composition、动态 reparent、复杂 component |
 | sound layer | `L0` | 无 sound content IR/player | asset/stream、volume、loop、pause/stop、property/script target |
-| Puppet layer | `L3` bind pose + 静态 attachment（`executed-degraded`） | MDLV mesh block 重组（`8bac86e`）+ 受限 MDLS/MDAT bind attachment child 定位（`49ee89a`）；[E-PUPPET-BC](runtime-evidence-index.md#e-puppet-bc) | warp 动画、deformation/skinning、动画 attachment follow、独立 content kind |
+| Puppet layer | `L3 executed-degraded` | MDLV bind-pose 重组（`8bac86e`）+ 静态 MDAT attachment（`49ee89a`）+ 严格单 clip MDLA/full-TRS/CPU LBS（`f1ee79b`）；[E-PUPPET-BC](runtime-evidence-index.md#e-puppet-bc) | 插值/mixing、rate/blend、动画 attachment follow、constraints/IK/physics/channels/clipping、更多版本与 Windows golden |
 | 3D model layer | `L0` | model/material link 不等于 3D runtime | loader/scene graph/camera/PBR/animation |
 | light object | `L0` | 无 light IR | 类型、坐标、排序、shadow 和 lifecycle |
 
@@ -50,70 +50,32 @@ Utility composition 已是极窄的 `L3` 子集，不再写成完全缺失；但
 
 ## 3. Puppet Warp 官方页面覆盖（13）
 
-本节逐页记录官方公开的作者行为和播放器必须消费的导出结果。Geometry 自动生成、权重绘制、Character Sheet 制作等属于编辑器工作流；MyWallpaperX 不需要复刻这些工具，但必须在未来 Puppet IR 中保留其导出的 mesh、bone、weight、depth order、channel、constraint 和 animation 数据。官方页面没有公开 mesh/weight 序列化、deformation、IK、constraint、clipping 或 animation mixing 的数值算法，均保持 `algorithm unknown`，不能凭视觉近似写成已验证合同。
+本节逐页记录官方公开的作者行为和播放器必须消费的导出结果。Geometry 自动生成、权重绘制、Character Sheet 制作等属于编辑器工作流；MyWallpaperX 不需要复刻这些工具，但 Puppet IR 必须逐步保留其导出的 mesh、bone、weight、depth order、channel、constraint 和 animation 数据。官方页面没有公开 mesh/weight 序列化、deformation、IK、constraint、clipping 或 animation mixing 的数值算法，均保持 `algorithm unknown`，不能凭视觉近似写成已验证合同。
 
-### 3.0 Puppet 动画执行原则（官方合同，2026-07-25 补充）
+### 3.0 Puppet 动画证据边界（2026-07-25 核对）
 
-Puppet Warp 的核心是**骨骼驱动的网格变形**，官方明确了动画操作的基本约束，这些规则决定了 MDLA IR 设计和 evaluator 实现。
+Puppet Warp 的核心是骨骼驱动网格变形。官方页面说明 bone hierarchy、weight painting、Timeline animation/mode 和 animation-before-SceneScript 顺序，但没有公开 MDLS/MDLA 二进制 schema、矩阵乘法顺序、skinning 数值算法或 mixing 冲突规则。编辑器教程以旋转关节为主要创作方式，不等于运行时格式禁止 translation/scale；三份独立真实 MDLA0006 资产的逐帧记录都包含变化的 translation 和 scale，因此 IR 必须保留完整 TRS。
 
-#### 核心动画约束
+当前可执行合同来自真实资产的假设-验证循环，而不是把编辑器建议改写成官方 schema：
 
-**只旋转骨骼角度（rotation），不移动（translation）或缩放（scale）**
-
-- Puppet animation 通过改变骨骼的**角度**来驱动角色动作
-- 骨骼的位置（origin）和缩放在 bind pose 中定义，动画时保持不变
-- 正确的动画方式：旋转关节让肢体摆动
-- 错误的动画方式：直接平移手臂末端到目标位置（会破坏层级关系）
-
-**骨骼层级结构**：
-
-1. **Root bones（根骨骼）**
-   - 作为锚点或质心
-   - 通常是脚部或角色中心
-   - 几乎不移动，其他骨骼相对它们运动
-
-2. **Connected bones（连接骨骼）**
-   - 形成父子层级链
-   - 新骨骼连接到已选骨骼
-   - 子骨骼继承父骨骼的变换
-
-**权重映射（Weight Painting）**：
-
-- 骨骼通过**颜色编码区域**影响网格点的变形
-- 权重决定每个顶点受哪些骨骼影响及影响程度
-- 网格变形 = 所有骨骼影响的加权和
-
-**Timeline 集成**：
-
-- Puppet 动画由 Timeline 驱动，支持 Loop/Mirror/Single 模式
-- Timeline 关键帧记录骨骼角度
-- 帧间插值由 Timeline 模式决定（默认 Bézier）
-
-#### 实施约束（MDLA 动画设计）
-
-当前 MDLA IR 尚未实现（`L0`），下一批次实施时必须遵守：
-
-1. **MDLA keyframe schema**：只保存骨骼 rotation，不保存 translation/scale
-2. **Evaluator 设计**：按骨骼层级顺序，从 root 向叶节点传播旋转变换
-3. **与 bind pose 的关系**：
-   - Bind pose 定义初始骨骼位置和 mesh UV 图集
-   - Animation 只修改骨骼角度
-   - 最终顶点位置 = bind pose position + 加权骨骼旋转
-4. **Animation mixing**：官方未公开多动画层的 blend 算法，首个闭环只做单动画层
-5. **与 SceneScript 的交互**：Timeline 先求值 → SceneScript 可覆盖骨骼角度
+1. MDLA0006 每个 bone track 保存 `frameCount + 1` 个完整 TRS sample；reader 只接受已核验的 `loop` 形状和有限预算。
+2. 真实 bind frame 对照锁定局部矩阵为 `T * Rz * Ry * Rx * S`；`身体_puppet.mdl` 最大误差 `8.61e-6`，错误的 `R * T * S` 次序误差约 `758.8`。
+3. evaluator 按 MDLS parent 顺序求 bind/animated world，再以 `animatedWorld * inverse(bindWorld)` 和 normalized four-weight linear blend skinning 计算顶点。
+4. 产品播放只接单个静态可见、non-additive、blend/rate=1、无 blend-in/out 的 layer，按 source FPS 离散 loop；未验证插值与 mixing 不做近似。
+5. 官方公开的 animation-before-SceneScript 顺序仍保留；当前没有 SceneScript bone override、constraint/IK/physics merge 或动态 attachment follow。
 
 #### 与其他系统的边界
 
-- **Attachment（MDAT）**：静态 bind 矩阵定义挂点位置，动画驱动的 attachment 跟随需要 MDLA 播放器
+- **Attachment（MDAT）**：静态 bind 矩阵定义挂点位置；动画跟随还需要 attachment 消费当前 animated bone world，已有 MDLA mesh 播放不会自动完成这条链
 - **Physics/Constraints**：Spring/Rigid/IK 会修改骨骼角度，与 animation 合并（算法未公开）
 - **Blend Shapes**：morph target 与骨骼变形是独立系统，执行顺序未公开
 
 | 官方页面 | 分类 | 官方合同与分类边界 | 当前等级 / 最小升级门 |
 |---|---|---|---|
-| <a id="op-puppet-introduction"></a>[Introduction](https://docs.wallpaperengine.io/en/scene/puppet-warp/introduction.html) | `runtime-required` + `editor-export` | 播放器消费透明 source、deformable geometry、bone/root hierarchy、weights、一个或多个 Timeline animation；image effect 只能作用在作者配置的 mesh/padding 范围。自动切图、建 mesh、画权重是 editor-only。 | `L3` bind pose（`executed-degraded`，`8bac86e`）：MDLV mesh block 在加载时把图集重组为 bind-pose 纹理，effect/mask 作用在重组结果上；deformation、bone/weight 消费、Loop/Mirror/Single 仍 `L0`。 |
-| <a id="op-puppet-charactersheet"></a>[Character Sheet](https://docs.wallpaperengine.io/en/scene/puppet-warp/charactersheet.html) | `editor-export` | 多个身体/衣物部件位于同一 texture，bone parent order、depth order、weights 与 reference pose 把分离部件重组；播放器消费导出结果，不负责切图或 overlay 辅助。 | `L3` 静态重组（`8bac86e`）：mesh UV/position 已把 sheet 部件按 reference pose 重组（`3769688830` 七个 sheet 验证）；depth order 依赖 mesh 三角形顺序的语义未单独验证，weights 未消费。 |
+| <a id="op-puppet-introduction"></a>[Introduction](https://docs.wallpaperengine.io/en/scene/puppet-warp/introduction.html) | `runtime-required` + `editor-export` | 播放器消费透明 source、deformable geometry、bone/root hierarchy、weights、一个或多个 Timeline animation；image effect 只能作用在作者配置的 mesh/padding 范围。自动切图、建 mesh、画权重是 editor-only。 | `L3 executed-degraded`：MDLV bind-pose 重组、受限 MDLS hierarchy/weights 与严格单 loop clip LBS 已执行；Mirror/Single、插值/mixing、channels/clipping/physics 仍未执行。 |
+| <a id="op-puppet-charactersheet"></a>[Character Sheet](https://docs.wallpaperengine.io/en/scene/puppet-warp/charactersheet.html) | `editor-export` | 多个身体/衣物部件位于同一 texture，bone parent order、depth order、weights 与 reference pose 把分离部件重组；播放器消费导出结果，不负责切图或 overlay 辅助。 | `L3`：mesh UV/position 重组 bind pose；受限 80/84-byte records 的四权重已供单 clip LBS 消费。depth order 与更多 vertex layout 仍未单独验证。 |
 | <a id="op-puppet-extending"></a>[Extending](https://docs.wallpaperengine.io/en/scene/puppet-warp/extending.html) | `editor-export` + `ingest-boundary` | 扩展 sheet 时原部件像素位置保持不变，新区域加在右侧/底部或既有空隙；locked geometry 不自动补 mesh，1.7 及更早项目可能不兼容。运行时只消费更新后的 asset/version，不自行扩图。 | `L0`：无 Puppet schema/version gate；需 old/new asset identity、locked geometry、missing bone/weight 和版本失败关闭 fixture。 |
-| <a id="op-puppet-attachments"></a>[Attachments](https://docs.wallpaperengine.io/en/scene/puppet-warp/attachments.html) | `runtime-required` | named attachment 属于具体 bone/local point；作为 child 的任意 layer 跟随全部 Puppet animation。effect/asset 的 point property 也可绑定 attachment，绑定只在运行时生效。 | `L3 executed-degraded` 静态 bind 子集（`49ee89a`）：MDAT `u16` 绑定 MDLS bone，运行时保存 name 与解析后的 bind frame，并按 `parent * attachment * child local` 定位；`3769688830` 三个真实挂点通过数值和视觉门。MDLA 动画 follow、point property attachment 与其他 MDL 版本仍 absent/recognized。 |
+| <a id="op-puppet-attachments"></a>[Attachments](https://docs.wallpaperengine.io/en/scene/puppet-warp/attachments.html) | `runtime-required` | named attachment 属于具体 bone/local point；作为 child 的任意 layer 跟随全部 Puppet animation。effect/asset 的 point property 也可绑定 attachment，绑定只在运行时生效。 | `L3 executed-degraded` 静态 bind 子集（`49ee89a`）：MDAT `u16` 绑定 MDLS bone并按 `parent * attachment * child local` 定位。虽然 parent mesh 可播放 MDLA，attachment 仍只用 bind frame；动画 follow、point property attachment 与其他版本未执行。 |
 | <a id="op-puppet-clipping-masks"></a>[Clipping Masks](https://docs.wallpaperengine.io/en/scene/puppet-warp/clippingmasks.html) | `runtime-required` | 被 clip 的 limb 默认不可见，只在与指定 limb/mask 重叠时出现；支持 nested mask，反向互相引用等 cycle 非法，depth order 影响 shadow/shading。官方未公开 overlap raster/edge 算法。 | `L0`：无 clip graph；需 acyclic nested graph、deformed geometry overlap、depth/alpha/order、cycle 失败和 pixel fixture。 |
 | <a id="op-puppet-texture-channels"></a>[Texture Channels](https://docs.wallpaperengine.io/en/scene/puppet-warp/texturechannels.html) | `runtime-required` | channel 与 base texture 分辨率完全相同，可按作者顺序叠加多个 channel；Timeline 以 `0...1` opacity 混合，`Alpha writing` 决定是否写 silhouette alpha。它不是 GIF/frame sequence，官方 data limit 未公开。 | `L0`：无 Puppet channel IR；需 equal-size validation、ordered opacity mix、alpha-write on/off、limit failure 和 color/alpha pixel 门。 |
 | <a id="op-puppet-bone-constraints"></a>[Bone Constraints](https://docs.wallpaperengine.io/en/scene/puppet-warp/boneconstraints.html) | `runtime-required` + `research-boundary` | Spring、Rigid 与 kinematic-chain Rope 可模拟 rotation/translation、stiffness/friction/inertia、gravity、mass、tip、limits、torque、wind；animation motion 与 physics 合并。官方明确结果会随 max FPS 变化，但未公开 integrator/iteration order。 | `L0`：无 solver；需 typed constraints、fixed/variable FPS 对照、animation+physics ordering、pause/discontinuity、deterministic reset 和 budget 门；不得发明 WE 数值算法。 |
@@ -122,27 +84,27 @@ Puppet Warp 的核心是**骨骼驱动的网格变形**，官方明确了动画�
 | <a id="op-puppet-perspective"></a>[Perspective](https://docs.wallpaperengine.io/en/scene/puppet-warp/perspective.html) | `runtime-required` | 2D Puppet mesh 可带 painted depth/extrusion scale；X/Y bone angles 或 layer Perspective 显示 extrusion。`Normal` culling 隐藏背面，`No cull` 镜像 texture 到背面；这不是 3D Model runtime。 | `L0`：无 depth/extruded mesh；需 depth attribute、X/Y rotation、cull/no-cull、clip/effect bounds 与 perspective pixel 门。 |
 | <a id="op-puppet-blend-shapes"></a>[Blend Shapes](https://docs.wallpaperengine.io/en/scene/puppet-warp/blendshapes.html) | `runtime-required` | blend shape 是锁定 topology 上的 alternate vertex arrangement；Expression 是多个 shape weight 的组合，Timeline 动画 expression。官方未公开 shape 混合、bone deformation 与 clipping 的内部顺序。 | `L0`：无 morph target；需 topology identity、shape/expression weights、mix-order fixture、bounds 和 Timeline consumer。 |
 | <a id="op-puppet-blend-rules"></a>[Blend Rules](https://docs.wallpaperengine.io/en/scene/puppet-warp/blendrules.html) | `runtime-required` + `research-boundary` | bone 可通过 `0...1` 动画权重在原 parent 与 alternate bone 间切换；多个 blend rule 可把对象置于多个 bones 之间。确切 transform interpolation/conflict order 未公开。 | `L0`：无 rule evaluator；需 stable bone identity、0/1/intermediate/multiple rule、parent cycle、animation order 和 Windows transform golden。 |
-| <a id="op-puppet-animation-mixing"></a>[Animation Mixing](https://docs.wallpaperengine.io/en/scene/puppet-warp/animationmixing.html) | `runtime-required` + `research-boundary` | 同一 Puppet 可同时启用多个 animation，并分别设置 duration/rate；官方运行时把它们合并。相同 bone/property 的冲突、blend weight 与 merge algorithm 未公开。 | `L0`：无 clip mixer；需 independent rates、disjoint/same-target conflicts、pause/seek/loop、script override 与合法 golden。 |
+| <a id="op-puppet-animation-mixing"></a>[Animation Mixing](https://docs.wallpaperengine.io/en/scene/puppet-warp/animationmixing.html) | `runtime-required` + `research-boundary` | 同一 Puppet 可同时启用多个 animation，并分别设置 duration/rate；官方运行时把它们合并。相同 bone/property 的冲突、blend weight 与 merge algorithm 未公开。 | `L1` 声明 / `L0` mixer：v25 保存 layers，严格单 clip 可播放；多 visible layer、additive、非 1 blend/rate 或动态 visibility 全部回退 bind pose。需 independent rates、冲突、pause/seek、script override 与合法 golden。 |
 
 Puppet runtime 必须把 authored pose、animations/mixing/rules、constraints/IK/physics、SceneScript bone override、deformation/channels/clipping 和 layer effects 建成可区分的阶段。只有 "animations before scripts" 是官方公开顺序；physics、IK、blend、deformation、clipping 与 effect 的相对次序在获得合法样本或官方证据前均保持 `order unknown`，不得先用箭头固化。
 
-### 3.1 当前实施合同：MDAT 静态 attachment 已闭合，MDLA 动画待实现
+### 3.1 当前实施合同：静态 MDAT 与严格单 clip MDLA 已闭合
 
-以下合同基于 `8bac86e` 的 mesh 分析、`49ee89a` 的 attachment 执行和真实样本证据（`3769688830`）；块布局细节见 [场景格式与 Render Graph 第 11 节](scene-format-and-render-graph.md)。
+以下合同基于 `8bac86e` 的 mesh 分析、`49ee89a` 的 attachment 执行、`ca6d841`/`56f92a2`/`2be2b44` 的 MDLA/rig/full-TRS IR 与 `f1ee79b` 的播放执行；块布局细节见 [场景格式与 Render Graph 第 11 节](scene-format-and-render-graph.md)。
 
 **MDAT attachment 定位（`49ee89a` 已完成的受限静态子集）**
 
 - 已核验事实：MDAT0001 位于 MDLS 与 MDLA 之间；条目是 `u16 boneIndex + name\0 + 列主序 4x4 attachment-local matrix`。最终模型 bind frame 是层级 MDLS bone world matrix 与 attachment-local matrix 的乘积；转入 Scene 坐标使用 `F * M * F`，其中 `F = diag(1,-1,1,1)`。
 - 已淘汰候选并确定组合顺序：child world 是 `parentWorld * attachmentSceneBind * childLocal`，child origin 仍作为相对 attachment 的 authored local transform。`3769688830` 三个 Scene bind 平移为 `aaaaaaaaa (-807.9761, 223.3849)`、`orb (-205.5704, -45.2606)`、`Attachment (-39.8856, 300.5312)`。
 - 受限执行边界：只解析已验证的 `MDLV0023 + MDLS0004 + MDAT0001` 形状；marker/bounds/count/parent/bone/name/affine matrix 任一非法时整组 fail closed。child 没有合法 parent、parent model 没有同名 attachment 或 frame 非 16 个有限 float 时保留普通 parent transform，并以 `attachment=<name>:unavailable` 诊断；没有样本 ID 特判。
-- 验收：隔离 `3769688830` 定向门中 ahriarm 从画面最右回到肩部、ahriorb 回到右上挂点；三个 attachment 都进入 interpretation v24，其中当前不可执行的 `Water droplets` 只保留 bind IR，不伪装成已渲染。固定 13 门与完整 45 门分别 13/13、45/45。
+- 验收：隔离 `3769688830` 定向门中 ahriarm 从画面最右回到肩部、ahriorb 回到右上挂点；三个 attachment 进入 interpretation。当前不可执行的 `Water droplets` 只保留 bind IR，不伪装成已渲染；动画播放器也没有把静态 attachment 升级为动态 follow。
 
-**MDLA 动画（fixture 先行，不直接进产品执行）**
+**MDLA 动画（`f1ee79b` 严格子集）**
 
-- 现状：MDLS 只在 attachment reader 内受限求 bind hierarchy，尚无可复用 bone/weight IR；MDLA 块已定位未解析；animationlayers 声明（additive/blend/rate/visible）已进 descriptor 诊断。
-- 第一步是纯 IR：用 `3769688830`（10 动画层的 skinned base）与至少一个第二来源样本做 MDLA 块的结构假设-验证循环，产出 keyframe/bone track 布局合同和失败关闭解析器 + fixture 测试；此阶段不改渲染。
-- 第二步才是播放：需要 MDLS 骨骼层级 + 顶点 weights（stride 84 的中间 60 字节的骨骼索引/权重布局也未核验）+ fixed-step 采样进入 bind-pose 重组 pass 的顶点变换。任何一环未核验则整链保持 bind pose，不做部分插值近似。
-- 与官方合同的对齐约束：animation mixing 的 blend/conflict 算法官方未公开（见上表 Animation Mixing 行），首个闭环只做单动画层直接采样，多层合成保持 fail closed。
+- v25 保存 animation layer 的 id/clip/additive/blend/blend-in/out/time/rate/static-or-bound visibility；缺失或畸形可选数值返回 `nil`，不会递归崩溃。
+- loader 只对已验证 MDLV0023/MDLS0004/MDLA0006 建立 persistent target 与三份 persistent vertex buffer；每帧 CPU 求 source-FPS 离散 LBS，并在正常 frame command buffer 中先更新 target、再供 compositor 采样，没有 per-frame `waitUntilCompleted`。
+- `3747492842` 六层真实播放；`3768229922`/`3769688830` 同时证明支持层执行和 blend 1.3、additive、property-bound、multi-layer 的逐层 bind-pose 回退。固定 13 与完整 45 分别 13/13、45/45，均为 v25、退出 surface 归零、residue 0。
+- 旧 v24 同样本对照仍有 effect 运动，因此 whole-frame 增量只是方向性证据。没有 Windows WE golden 时，不把当前离散采样、矩阵或 LBS 写成 `L4`，也不宣称 interpolation/mixing/attachment follow。
 
 ## 4. 3D Models 官方页面覆盖（8）
 
