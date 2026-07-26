@@ -1,63 +1,55 @@
 import Foundation
 import Metal
 
-/// Executes strict depth-one children. Unsupported declarations stay diagnostic.
+/// Executes strict children up to depth two. Unsupported declarations stay diagnostic.
 final class SceneParticleChildRuntime {
-    private enum Trigger: Equatable {
-        case staticChild
-        case spawn
-        case death
-        case follow
-    }
-
     struct AdvanceResult {
         let batches: [SceneParticleDrawBatch]
         let bufferFailurePaths: [String]
         let limitationDetails: [String]
     }
 
-    private struct Template {
-        let index: Int
-        let path: String
-        let definition: SceneParticleDefinition
-        let trigger: Trigger
-        let trail: SceneParticleTrailRenderPlan?
-        let texture: MTLTexture
-        let blendMode: SceneParticlePipelineBlendMode
-        let spriteAnimation: SceneSpriteAnimation?
-        let orientation: SceneParticleOrientation
-        let orientationAxis: SIMD3<Float>?
-        let usesPerspective: Bool
-        let probability: Double
-        let staticOrigin: SIMD3<Double>
-        let maximumSystemCount: Int
-        let particleBudget: Int
-        let instanceBuffer = SceneParticleMetalInstanceBuffer()
-    }
-
     private struct System {
+        let id: UInt64
         let templateIndex: Int
+        let depth: Int
+        let spawnScopeID: UInt64?
         let parentParticleID: UInt64?
         let emissionCompletionTime: Double?
         var origin: SIMD3<Double>
         var simulator: SceneParticleSimulator
     }
 
+    private struct ParentFrame {
+        let systemID: UInt64
+        let path: String
+        let origin: SIMD3<Double>
+        let births: [SceneParticleState]
+        let deaths: [SceneParticleState]
+        let particles: [SceneParticleState]
+    }
+
+    // Child systems run on the CPU fallback; cap burst spikes while retaining authored
+    // distribution. Each depth keeps its own aggregate budget so nested trails cannot
+    // starve depth-one children and vice versa.
+    static let maximumParticlesPerSystem = 1024
+    private static let maximumSystemsPerDepth = 64
+
     let unsupportedDetails: [String]
     let performanceDetails: [String]
     let handlesAllChildren: Bool
-    var hasTemplates: Bool { !templates.isEmpty }
+    var hasTemplates: Bool {
+        !templates.isEmpty
+    }
 
     private let layerID: Int
     private let layerAlpha: Float
     private let device: MTLDevice
-    private let templates: [Template]
+    private let templates: [SceneParticleChildTemplate]
+    private let nestedParentPaths: Set<String>
     private var systems: [System] = []
     private var nextSeed: UInt64 = 0
-
-    // Child systems run on the CPU fallback; cap burst spikes while retaining authored distribution.
-    private static let maximumParticlesPerSystem = 1_024
-    private static let maximumChildSystems = 64
+    private var nextSystemID: UInt64 = 1
 
     init(
         layerID: Int,
@@ -71,120 +63,28 @@ final class SceneParticleChildRuntime {
         self.layerID = layerID
         self.layerAlpha = layerAlpha
         self.device = device
-        var accepted: [Template] = []
-        var unsupported: [String] = []
-        var performance: [String] = []
-        var handledChildren = 0
-
-        for (index, child) in rootAsset.definition.children.enumerated() {
-            let label = child.path ?? "child#\(index)"
-            let trigger: Trigger
-            switch child.type?.lowercased() {
-            case nil, "static": trigger = .staticChild
-            case "eventspawn": trigger = .spawn
-            case "eventdeath": trigger = .death
-            case "eventfollow": trigger = .follow
-            default:
-                unsupported.append("\(label):unsupportedType:\(child.type ?? "missing")")
-                continue
-            }
-            let staticOrigin = trigger == .staticChild
-                ? SceneParticleChildTemplateSupport.staticOriginTranslation(child) : .zero
-            let supportsTransform = trigger == .staticChild
-                ? staticOrigin != nil : SceneParticleChildTemplateSupport.hasIdentityTransform(child)
-            guard supportsTransform,
-                  child.controlPointStartIndex == nil,
-                  child.rawFlags == 0 else {
-                unsupported.append("\(label):unsupportedTransformOrControlPoint")
-                continue
-            }
-            let probability = child.probability ?? 1
-            guard probability.isFinite, (0...1).contains(probability) else {
-                unsupported.append("\(label):invalidProbability")
-                continue
-            }
-            guard trigger != .staticChild || probability == 1 else {
-                unsupported.append("\(label):unsupportedStaticProbability")
-                continue
-            }
-            if probability == 0 {
-                handledChildren += 1
-                continue
-            }
-            guard let rawPath = child.path else {
-                unsupported.append("child#\(index):missingPath")
-                continue
-            }
-            let path = SceneParticleAssetGraphLoader.normalizedPath(rawPath)
-            guard let asset = graph.assetsByPath[path] else {
-                unsupported.append("\(path):missingAsset")
-                continue
-            }
-            guard asset.definition.children.isEmpty,
-                  SceneParticleChildLifecycle.supportsEmitterProfile(asset.definition),
-                  let render = SceneParticleChildTemplateSupport.supportedRenderer(
-                    in: asset.definition
-                  ) else {
-                let profile = trigger == .staticChild
-                    ? "outsideStrictStaticProfile" : "outsideStrictEventProfile"
-                unsupported.append("\(path):\(profile)")
-                continue
-            }
-            guard let source = asset.textureSource,
-                  let loaded = SceneParticleChildTemplateSupport.loadTexture(
-                    source,
-                    textureLoader: textureLoader,
-                    builtInTextureRegistry: builtInTextureRegistry,
-                    device: device
-                  ) else {
-                unsupported.append("\(path):textureLoadFailed")
-                continue
-            }
-            let maximum = child.maximumCount ?? 512
-            guard maximum > 0, maximum <= 512 else {
-                unsupported.append("\(path):invalidSystemLimit")
-                continue
-            }
-            let authoredMaximum = min(max(asset.definition.maximumCount ?? 1, 0), 20_000)
-            let particleBudget = min(authoredMaximum, Self.maximumParticlesPerSystem)
-            if particleBudget < authoredMaximum {
-                let instantaneous = asset.definition.emitters.map { $0.instantaneousCount ?? 0 }.max() ?? 0
-                performance.append(
-                    "\(path):particleBudget:max=\(authoredMaximum):instantaneous=\(instantaneous):effective=\(particleBudget)"
-                )
-            }
-            accepted.append(Template(
-                index: index,
-                path: path,
-                definition: asset.definition,
-                trigger: trigger,
-                trail: render.trail,
-                texture: loaded.texture,
-                blendMode: asset.blendMode == .additive ? .additive : .translucent,
-                spriteAnimation: loaded.animation,
-                orientation: SceneParticleOrientation(authoredValue: render.renderer.orientation),
-                orientationAxis: render.renderer.axis.map {
-                    SceneParticleSimulationMath.vector($0, fallback: SIMD3(0, 0, 1)).childFloatValue
-                },
-                usesPerspective: asset.definition.flags.usesPerspective,
-                probability: probability,
-                staticOrigin: staticOrigin ?? .zero,
-                maximumSystemCount: maximum,
-                particleBudget: particleBudget
-            ))
-            handledChildren += 1
+        let expansion = SceneParticleChildGraphExpansion.expand(
+            rootAsset: rootAsset,
+            graph: graph,
+            textureLoader: textureLoader,
+            builtInTextureRegistry: builtInTextureRegistry,
+            device: device
+        )
+        templates = expansion.templates
+        unsupportedDetails = expansion.unsupportedDetails
+        handlesAllChildren = expansion.handledRootChildren == rootAsset.definition.children.count
+        nestedParentPaths = Set(templates.compactMap(\.parentAssetPath))
+        var performance = expansion.performanceDetails
+        let staticTemplates = templates.filter { $0.trigger == .staticChild }
+        if staticTemplates.count > Self.maximumSystemsPerDepth {
+            performance.append(Self.budgetDetail(depth: 1))
         }
-        templates = accepted
-        unsupportedDetails = unsupported
-        handlesAllChildren = handledChildren == rootAsset.definition.children.count
-        let staticTemplates = accepted.filter { $0.trigger == .staticChild }
-        if staticTemplates.count > Self.maximumChildSystems {
-            performance.append(Self.aggregateBudgetDetail)
-        }
-        systems = Array(staticTemplates.prefix(Self.maximumChildSystems)).enumerated().map {
-            offset, template in
-            System(
+        for (offset, template) in staticTemplates.prefix(Self.maximumSystemsPerDepth).enumerated() {
+            systems.append(System(
+                id: nextSystemID,
                 templateIndex: template.index,
+                depth: template.depth,
+                spawnScopeID: nil,
                 parentParticleID: nil,
                 emissionCompletionTime: SceneParticleChildLifecycle.emissionCompletionTime(
                     template.definition
@@ -193,11 +93,12 @@ final class SceneParticleChildRuntime {
                 simulator: SceneParticleSimulator(
                     definition: template.definition,
                     seed: UInt64(bitPattern: Int64(layerID))
-                        ^ UInt64(template.index &+ 1) &* 0xBF58476D1CE4E5B9
+                        ^ UInt64(template.index &+ 1) &* 0xBF58_476D_1CE4_E5B9
                         ^ UInt64(offset),
                     particleBudget: template.particleBudget
                 )
-            )
+            ))
+            nextSystemID &+= 1
         }
         performanceDetails = performance
     }
@@ -209,32 +110,20 @@ final class SceneParticleChildRuntime {
         parentParticles: [SceneParticleState]
     ) -> AdvanceResult {
         var limitations: Set<String> = []
-        let parentsByID: [UInt64: SceneParticleState] = templates.contains { $0.trigger == .follow }
-            ? Dictionary(uniqueKeysWithValues: parentParticles.map { ($0.id, $0) })
-            : [:]
-        systems.removeAll { system in
-            guard let parentID = system.parentParticleID else { return false }
-            return parentsByID[parentID] == nil
-        }
-        for index in systems.indices {
-            if let parentID = systems[index].parentParticleID,
-               let parent = parentsByID[parentID] {
-                systems[index].origin = parent.position
-            }
-            systems[index].simulator.advance(by: frameDelta)
-            _ = systems[index].simulator.consumeBirthEvents()
-            _ = systems[index].simulator.consumeDeathEvents()
-        }
-        systems.removeAll {
-            $0.parentParticleID == nil
-                && $0.simulator.simulationTime > 0
-                && $0.emissionCompletionTime != nil
-                && $0.simulator.simulationTime + 1e-12 >= ($0.emissionCompletionTime ?? .infinity)
-                && $0.simulator.particles.isEmpty
-        }
-        spawn(from: spawnEvents, trigger: .spawn, limitations: &limitations)
-        spawn(from: deathEvents, trigger: .death, limitations: &limitations)
-        reconcileFollowers(parentParticles, limitations: &limitations)
+        let parentFrames = advanceDepthOne(by: frameDelta, rootParticles: parentParticles)
+        spawn(
+            from: spawnEvents, trigger: .spawn, depth: 1, parentPath: nil,
+            scopeID: nil, parentOrigin: .zero, limitations: &limitations
+        )
+        spawn(
+            from: deathEvents, trigger: .death, depth: 1, parentPath: nil,
+            scopeID: nil, parentOrigin: .zero, limitations: &limitations
+        )
+        reconcileFollowers(
+            parentParticles, depth: 1, parentPath: nil,
+            scopeID: nil, parentOrigin: .zero, limitations: &limitations
+        )
+        advanceDepthTwo(by: frameDelta, parentFrames: parentFrames, limitations: &limitations)
 
         var batches: [SceneParticleDrawBatch] = []
         var failures: [String] = []
@@ -264,124 +153,246 @@ final class SceneParticleChildRuntime {
         )
     }
 
+    /// Advances depth-one systems against the root simulator and collects the per-system
+    /// event frames that feed nested children, before completed systems are recycled.
+    private func advanceDepthOne(
+        by frameDelta: TimeInterval,
+        rootParticles: [SceneParticleState]
+    ) -> [ParentFrame] {
+        let parentsByID: [UInt64: SceneParticleState] = templates.contains {
+            $0.depth == 1 && $0.trigger == .follow
+        } ? Dictionary(uniqueKeysWithValues: rootParticles.map { ($0.id, $0) }) : [:]
+        systems.removeAll { system in
+            guard system.depth == 1, let parentID = system.parentParticleID else { return false }
+            return parentsByID[parentID] == nil
+        }
+        var frames: [ParentFrame] = []
+        for index in systems.indices where systems[index].depth == 1 {
+            if let parentID = systems[index].parentParticleID,
+               let parent = parentsByID[parentID]
+            {
+                systems[index].origin = parent.position
+            }
+            systems[index].simulator.advance(by: frameDelta)
+            let births = systems[index].simulator.consumeBirthEvents()
+            let deaths = systems[index].simulator.consumeDeathEvents()
+            guard let path = templatePath(at: systems[index].templateIndex),
+                  nestedParentPaths.contains(path) else { continue }
+            frames.append(ParentFrame(
+                systemID: systems[index].id,
+                path: path,
+                origin: systems[index].origin,
+                births: births,
+                deaths: deaths,
+                particles: systems[index].simulator.particles
+            ))
+        }
+        removeCompletedSystems(depth: 1)
+        return frames
+    }
+
+    private func advanceDepthTwo(
+        by frameDelta: TimeInterval,
+        parentFrames: [ParentFrame],
+        limitations: inout Set<String>
+    ) {
+        guard !nestedParentPaths.isEmpty else { return }
+        var liveParents: [UInt64: (origin: SIMD3<Double>, particles: [UInt64: SceneParticleState])]
+            = [:]
+        if templates.contains(where: { $0.depth == 2 && $0.trigger == .follow }) {
+            for frame in parentFrames {
+                liveParents[frame.systemID] = (
+                    frame.origin,
+                    Dictionary(uniqueKeysWithValues: frame.particles.map { ($0.id, $0) })
+                )
+            }
+        }
+        systems.removeAll { system in
+            guard system.depth == 2, let parentID = system.parentParticleID else { return false }
+            guard let scope = system.spawnScopeID,
+                  let parent = liveParents[scope] else { return true }
+            return parent.particles[parentID] == nil
+        }
+        for index in systems.indices where systems[index].depth == 2 {
+            if let scope = systems[index].spawnScopeID,
+               let parentID = systems[index].parentParticleID,
+               let parent = liveParents[scope],
+               let particle = parent.particles[parentID]
+            {
+                systems[index].origin = parent.origin + particle.position
+            }
+            systems[index].simulator.advance(by: frameDelta)
+            _ = systems[index].simulator.consumeBirthEvents()
+            _ = systems[index].simulator.consumeDeathEvents()
+        }
+        removeCompletedSystems(depth: 2)
+        for frame in parentFrames {
+            spawn(
+                from: frame.births, trigger: .spawn, depth: 2, parentPath: frame.path,
+                scopeID: frame.systemID, parentOrigin: frame.origin, limitations: &limitations
+            )
+            spawn(
+                from: frame.deaths, trigger: .death, depth: 2, parentPath: frame.path,
+                scopeID: frame.systemID, parentOrigin: frame.origin, limitations: &limitations
+            )
+            reconcileFollowers(
+                frame.particles, depth: 2, parentPath: frame.path,
+                scopeID: frame.systemID, parentOrigin: frame.origin, limitations: &limitations
+            )
+        }
+    }
+
+    private func removeCompletedSystems(depth: Int) {
+        systems.removeAll {
+            $0.depth == depth
+                && $0.parentParticleID == nil
+                && $0.simulator.simulationTime > 0
+                && $0.emissionCompletionTime != nil
+                && $0.simulator.simulationTime + 1e-12 >= ($0.emissionCompletionTime ?? .infinity)
+                && $0.simulator.particles.isEmpty
+        }
+    }
+
     private func spawn(
         from events: [SceneParticleState],
-        trigger: Trigger,
+        trigger: SceneParticleChildTrigger,
+        depth: Int,
+        parentPath: String?,
+        scopeID: UInt64?,
+        parentOrigin: SIMD3<Double>,
         limitations: inout Set<String>
     ) {
         guard !events.isEmpty else { return }
         for event in events {
-            for template in templates {
-                guard template.trigger == trigger else { continue }
-                let activeCount = systems.lazy.filter { $0.templateIndex == template.index }.count
+            for template in templates
+                where template.trigger == trigger && template.depth == depth
+                && template.parentAssetPath == parentPath
+            {
+                let activeCount = systems.lazy.filter {
+                    $0.templateIndex == template.index && $0.spawnScopeID == scopeID
+                }.count
                 guard activeCount < template.maximumSystemCount,
-                      Self.accepts(event: event, template: template) else { continue }
-                guard systems.count < Self.maximumChildSystems else {
-                    limitations.insert(Self.aggregateBudgetDetail)
+                      Self.accepts(event: event, template: template, scopeID: scopeID)
+                else { continue }
+                guard depthSystemCount(depth) < Self.maximumSystemsPerDepth else {
+                    limitations.insert(Self.budgetDetail(depth: depth))
                     continue
                 }
-                let seed = UInt64(bitPattern: Int64(layerID))
-                    ^ event.id &* 0x9E3779B97F4A7C15
-                    ^ UInt64(template.index &+ 1) &* 0xBF58476D1CE4E5B9
-                    ^ nextSeed
-                nextSeed &+= 1
-                systems.append(System(
-                    templateIndex: template.index,
+                appendSystem(
+                    template: template,
+                    scopeID: scopeID,
                     parentParticleID: nil,
-                    emissionCompletionTime: SceneParticleChildLifecycle.emissionCompletionTime(
-                        template.definition
-                    ),
-                    origin: event.position,
-                    simulator: SceneParticleSimulator(
-                        definition: template.definition,
-                        seed: seed,
-                        particleBudget: template.particleBudget
-                    )
-                ))
+                    origin: parentOrigin + event.position,
+                    eventID: event.id
+                )
             }
         }
     }
 
     private func reconcileFollowers(
         _ parents: [SceneParticleState],
+        depth: Int,
+        parentPath: String?,
+        scopeID: UInt64?,
+        parentOrigin: SIMD3<Double>,
         limitations: inout Set<String>
     ) {
         guard !parents.isEmpty else { return }
-        for template in templates where template.trigger == .follow {
+        for template in templates
+            where template.trigger == .follow && template.depth == depth
+            && template.parentAssetPath == parentPath
+        {
             var followedIDs = Set(systems.lazy.compactMap { system in
-                system.templateIndex == template.index ? system.parentParticleID : nil
+                system.templateIndex == template.index && system.spawnScopeID == scopeID
+                    ? system.parentParticleID : nil
             })
             for parent in parents {
                 guard !followedIDs.contains(parent.id),
                       followedIDs.count < template.maximumSystemCount,
-                      Self.accepts(event: parent, template: template) else { continue }
-                guard systems.count < Self.maximumChildSystems else {
-                    limitations.insert(Self.aggregateBudgetDetail)
+                      Self.accepts(event: parent, template: template, scopeID: scopeID)
+                else { continue }
+                guard depthSystemCount(depth) < Self.maximumSystemsPerDepth else {
+                    limitations.insert(Self.budgetDetail(depth: depth))
                     continue
                 }
                 followedIDs.insert(parent.id)
-                let seed = UInt64(bitPattern: Int64(layerID))
-                    ^ parent.id &* 0x9E3779B97F4A7C15
-                    ^ UInt64(template.index &+ 1) &* 0xBF58476D1CE4E5B9
-                    ^ nextSeed
-                nextSeed &+= 1
-                systems.append(System(
-                    templateIndex: template.index,
+                appendSystem(
+                    template: template,
+                    scopeID: scopeID,
                     parentParticleID: parent.id,
-                    emissionCompletionTime: SceneParticleChildLifecycle.emissionCompletionTime(
-                        template.definition
-                    ),
-                    origin: parent.position,
-                    simulator: SceneParticleSimulator(
-                        definition: template.definition,
-                        seed: seed,
-                        particleBudget: template.particleBudget
-                    )
-                ))
+                    origin: parentOrigin + parent.position,
+                    eventID: parent.id
+                )
             }
         }
     }
 
-    private func makeInstances(for template: Template) -> [SceneParticleGPUInstance] {
+    private func appendSystem(
+        template: SceneParticleChildTemplate,
+        scopeID: UInt64?,
+        parentParticleID: UInt64?,
+        origin: SIMD3<Double>,
+        eventID: UInt64
+    ) {
+        let seed = UInt64(bitPattern: Int64(layerID))
+            ^ eventID &* 0x9E37_79B9_7F4A_7C15
+            ^ UInt64(template.index &+ 1) &* 0xBF58_476D_1CE4_E5B9
+            ^ (scopeID ?? 0) &* 0x94D0_49BB_1331_11EB
+            ^ nextSeed
+        nextSeed &+= 1
+        systems.append(System(
+            id: nextSystemID,
+            templateIndex: template.index,
+            depth: template.depth,
+            spawnScopeID: scopeID,
+            parentParticleID: parentParticleID,
+            emissionCompletionTime: SceneParticleChildLifecycle.emissionCompletionTime(
+                template.definition
+            ),
+            origin: origin,
+            simulator: SceneParticleSimulator(
+                definition: template.definition,
+                seed: seed,
+                particleBudget: template.particleBudget
+            )
+        ))
+        nextSystemID &+= 1
+    }
+
+    private func makeInstances(for template: SceneParticleChildTemplate) -> [SceneParticleGPUInstance] {
         systems.lazy.filter { $0.templateIndex == template.index }.flatMap { system in
             system.simulator.particles.map { particle in
-                let frames = SceneParticleRuntime.spriteFrames(
-                    animation: template.spriteAnimation,
-                    definition: template.definition,
-                    particleID: particle.id,
-                    age: Float(particle.age),
-                    lifetime: Float(particle.lifetime)
-                )
-                return SceneParticleGPUInstance(
-                    position: (system.origin + particle.position).childFloatValue,
-                    size: Float(particle.size),
-                    rotation: particle.rotation.childFloatValue,
-                    color: particle.color.childFloatValue,
-                    alpha: Float(particle.alpha) * layerAlpha,
-                    velocity: particle.velocity.childFloatValue,
-                    trailStretch: template.trail?.stretch(for: particle.velocity),
-                    currentFrame: frames.current,
-                    nextFrame: frames.next,
-                    frameMix: frames.mix
-                )
+                template.instance(origin: system.origin, particle: particle, layerAlpha: layerAlpha)
             }
         }
     }
 
-    private static func accepts(event: SceneParticleState, template: Template) -> Bool {
+    private func depthSystemCount(_ depth: Int) -> Int {
+        systems.lazy.filter { $0.depth == depth }.count
+    }
+
+    private func templatePath(at index: Int) -> String? {
+        templates.first { $0.index == index }?.path
+    }
+
+    private static func accepts(
+        event: SceneParticleState,
+        template: SceneParticleChildTemplate,
+        scopeID: UInt64?
+    ) -> Bool {
         guard template.probability < 1 else { return true }
         var random = SceneParticleRandomGenerator(
-            state: event.id ^ UInt64(template.index &+ 1) &* 0x94D049BB133111EB
+            state: event.id ^ UInt64(template.index &+ 1) &* 0x94D0_49BB_1331_11EB
+                ^ (scopeID ?? 0) &* 0xBF58_476D_1CE4_E5B9
         )
         return random.unit() < template.probability
     }
 
-    private static var aggregateBudgetDetail: String {
-        "aggregateSystemBudget:systems=\(maximumChildSystems):particleCapacity="
-            + "\(maximumChildSystems * maximumParticlesPerSystem)"
+    private static func budgetDetail(depth: Int) -> String {
+        depth <= 1
+            ? "aggregateSystemBudget:systems=\(maximumSystemsPerDepth):particleCapacity="
+            + "\(maximumSystemsPerDepth * maximumParticlesPerSystem)"
+            : "nestedAggregateSystemBudget:depth=2:systems=\(maximumSystemsPerDepth)"
+            + ":particleCapacity=\(maximumSystemsPerDepth * maximumParticlesPerSystem)"
     }
-}
-
-private extension SIMD3 where Scalar == Double {
-    var childFloatValue: SIMD3<Float> { SIMD3<Float>(Float(x), Float(y), Float(z)) }
 }

@@ -191,6 +191,8 @@ enum Harness {
 
         var samplesWithParticles = 0
         var reachableAssetCount = 0
+        var maximumChildDepth = 0
+        var nestedParentDeclarations = 0
         var blendCounts: [String: Int] = [:]
         var diagnosticCounts: [String: Int] = [:]
         var missingResourceDiagnostics: [String] = []
@@ -242,6 +244,24 @@ enum Harness {
                 materialPasses: materialPasses,
                 cacheDirectory: outputURL
             )
+            for root in rootPaths.map(normalizedPath) {
+                var queue: [(String, Int)] = [(root, 0)]
+                var visited = Set<String>()
+                while let (path, depth) = queue.popLast() {
+                    guard visited.insert(path).inserted, depth <= 8,
+                          let asset = graph.assetsByPath[path] else { continue }
+                    for child in asset.definition.children {
+                        guard let raw = child.path else { continue }
+                        let childPath = normalizedPath(raw)
+                        maximumChildDepth = max(maximumChildDepth, depth + 1)
+                        let target = graph.assetsByPath[childPath]
+                        if !(target?.definition.children.isEmpty ?? true) {
+                            nestedParentDeclarations += 1
+                        }
+                        queue.append((childPath, depth + 1))
+                    }
+                }
+            }
             reachableAssetCount += graph.assetsByPath.count
             for asset in graph.assetsByPath.values {
                 blendCounts[asset.blendMode.rawValue, default: 0] += 1
@@ -271,6 +291,8 @@ enum Harness {
             "sampleCount": sampleURLs.count,
             "samplesWithParticles": samplesWithParticles,
             "reachableAssetCount": reachableAssetCount,
+            "maximumChildDepth": maximumChildDepth,
+            "nestedParentDeclarations": nestedParentDeclarations,
             "blendCounts": blendCounts,
             "diagnosticCounts": diagnosticCounts,
             "missingResourceDiagnostics": missingResourceDiagnostics.sorted(),
@@ -506,6 +528,10 @@ class SceneParticleAssetTests(unittest.TestCase):
         self.assertEqual(result["sampleCount"], 26)
         self.assertEqual(result["samplesWithParticles"], 23)
         self.assertEqual(result["reachableAssetCount"], 89)
+        # 语料内 child 声明链最深两层（root -> static matrix head -> eventfollow
+        # trail），63 条 nested 声明全部来自 2938612768 引用 matrix_code_copy1。
+        self.assertEqual(result["maximumChildDepth"], 2)
+        self.assertEqual(result["nestedParentDeclarations"], 63)
         self.assertEqual(result["blendCounts"], {"additive": 68, "translucent": 21})
         # 26 样本集的 built-in 纹理缺口为 3；2131872317 另有 2 处 util/white
         # 缺失文件属于该样本自带的 workshop preset 引用缺口。

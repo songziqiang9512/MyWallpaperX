@@ -25,6 +25,8 @@ FLARE_PARTICLE_CACHE = (
     sample_cache_root("2998757800") / "particles/workshop/2105295491"
 )
 STATIC_ORIGIN_SAMPLE_CACHE = sample_cache_root("3088601835")
+NESTED_SAMPLE_CACHE = sample_cache_root("2974757317")
+NESTED_AUTHOR_OFF_SAMPLE_CACHE = sample_cache_root("2938612768")
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneResourceIndex.swift",
     SOURCE_ROOT / "Resources/SceneStockTextureResolver.swift",
@@ -47,6 +49,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneTextureLoader.swift",
     SOURCE_ROOT / "Rendering/SceneSpriteAnimation.swift",
     SOURCE_ROOT / "Rendering/SceneLayerVisibility.swift",
+    SOURCE_ROOT / "Particles/SceneParticleChildGraphExpansion.swift",
     SOURCE_ROOT / "Particles/SceneParticleChildRuntime.swift",
     SOURCE_ROOT / "Particles/SceneParticleRuntime.swift",
     SOURCE_ROOT / "Particles/SceneParticleRuntime+Support.swift",
@@ -139,6 +142,11 @@ enum Harness {
             try printJSON(realEventDeathSample(cachePath: CommandLine.arguments[2]))
         case "eventfollow-synthetic":
             try printJSON(syntheticEventFollow())
+        case "nested-synthetic":
+            try printJSON(syntheticNestedChildren())
+        case "nested-real":
+            guard CommandLine.arguments.count == 3 else { throw HarnessError.missingPath }
+            try printJSON(realNestedMatrix(cachePath: CommandLine.arguments[2]))
         case "continuous-profile-real":
             guard CommandLine.arguments.count == 3 else { throw HarnessError.missingPath }
             try printJSON(realContinuousProfiles(cachePath: CommandLine.arguments[2]))
@@ -492,6 +500,188 @@ enum Harness {
             },
             "audioChildDetails": runtime.diagnostics.compactMap {
                 $0.layerID == 13 && $0.kind == .childSystemsUnsupported ? $0.detail : nil
+            },
+        ]
+    }
+
+    private static func syntheticNestedChildren() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mwx-particle-nested-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        try writeParticle(
+            "particles/nested-root.json", material: "materials/shared.json",
+            rate: 0, instantaneous: 1,
+            children: [["name": "particles/nested-head.json", "origin": "40 0 0"]],
+            under: directory
+        )
+        try writeParticle(
+            "particles/nested-head.json", material: "materials/shared.json",
+            velocityX: 60, lifetime: 5.0 / 60.0, moves: true, rate: 0, instantaneous: 1,
+            children: [[
+                "name": "particles/nested-trail.json", "type": "eventfollow", "maxcount": 1,
+            ]], under: directory
+        )
+        try writeParticle(
+            "particles/nested-trail.json", material: "materials/shared.json",
+            rate: 60, under: directory
+        )
+        try writeParticle(
+            "particles/depth-root.json", material: "materials/shared.json",
+            rate: 0, instantaneous: 1,
+            children: [["name": "particles/depth-two.json", "type": "eventfollow"]],
+            under: directory
+        )
+        try writeParticle(
+            "particles/depth-two.json", material: "materials/shared.json",
+            rate: 60,
+            children: [["name": "particles/depth-three.json", "type": "eventfollow"]],
+            under: directory
+        )
+        try writeParticle(
+            "particles/depth-three.json", material: "materials/shared.json",
+            rate: 60,
+            children: [["name": "particles/depth-four.json", "type": "eventfollow"]],
+            under: directory
+        )
+        try writeParticle(
+            "particles/depth-four.json", material: "materials/shared.json",
+            rate: 60, under: directory
+        )
+        try writeParticle(
+            "particles/static-root.json", material: "materials/shared.json",
+            rate: 0, instantaneous: 1,
+            children: [["name": "particles/static-mid.json"]], under: directory
+        )
+        try writeParticle(
+            "particles/static-mid.json", material: "materials/shared.json",
+            rate: 60,
+            children: [["name": "particles/static-leaf.json", "type": "static"]],
+            under: directory
+        )
+        try writeParticle(
+            "particles/static-leaf.json", material: "materials/shared.json",
+            rate: 60, under: directory
+        )
+        try writeParticle(
+            "particles/budget-nested-root.json", material: "materials/shared.json",
+            rate: 0, instantaneous: 1,
+            children: [["name": "particles/budget-nested-head.json"]], under: directory
+        )
+        try writeParticle(
+            "particles/budget-nested-head.json", material: "materials/shared.json",
+            rate: 0, instantaneous: 80,
+            children: [[
+                "name": "particles/budget-nested-trail.json", "type": "eventfollow",
+                "maxcount": 512,
+            ]], under: directory
+        )
+        try writeParticle(
+            "particles/budget-nested-trail.json", material: "materials/shared.json",
+            rate: 60, under: directory
+        )
+
+        let descriptor = SceneRenderDescriptor(
+            layers: [
+                layer(20, "particles/nested-root.json"),
+                layer(21, "particles/depth-root.json"),
+                layer(22, "particles/static-root.json"),
+                layer(23, "particles/budget-nested-root.json"),
+            ],
+            renderOrderLayerIDs: [20, 21, 22, 23],
+            materialPasses: [
+                .init(
+                    materialPath: "materials/shared.json",
+                    shaderPath: "genericparticle", texturePaths: ["shared.png"], blending: "additive"
+                ),
+            ]
+        )
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let runtime = SceneParticleRuntime(
+            descriptor: descriptor,
+            cacheDirectory: directory,
+            device: device
+        )
+        var trailCounts: [Int] = []
+        var trailOrigins: [Float] = []
+        var headPositions: [Float] = []
+        var budgetTrailCounts: [Int] = []
+        for _ in 0..<6 {
+            let batches = runtime.advance(by: 1.0 / 60.0)
+            let trail = batches.first {
+                $0.particlePath == "particles/nested-trail.json"
+            }?.instances ?? []
+            trailCounts.append(trail.count)
+            if let first = trail.first { trailOrigins.append(first.positionAndSize.x) }
+            let head = batches.first {
+                $0.particlePath == "particles/nested-head.json"
+            }?.instances ?? []
+            if let first = head.first { headPositions.append(first.positionAndSize.x) }
+            budgetTrailCounts.append(batches.first {
+                $0.particlePath == "particles/budget-nested-trail.json"
+            }?.instances.count ?? 0)
+        }
+        return [
+            "trailCounts": trailCounts,
+            "trailOrigins": trailOrigins,
+            "headPositions": headPositions,
+            "budgetTrailCounts": budgetTrailCounts,
+            "depthDetails": runtime.diagnostics.compactMap {
+                $0.layerID == 21 && $0.kind == .childSystemsUnsupported ? $0.detail : nil
+            },
+            "staticDetails": runtime.diagnostics.compactMap {
+                $0.layerID == 22 && $0.kind == .childSystemsUnsupported ? $0.detail : nil
+            },
+            "budgetDetails": runtime.diagnostics.compactMap {
+                $0.layerID == 23 && $0.kind == .simulationLimitation ? $0.detail : nil
+            },
+            "nestedUnsupportedLayers": runtime.diagnostics.compactMap {
+                $0.kind == .childSystemsUnsupported && $0.layerID != 21 && $0.layerID != 22
+                    ? $0.layerID : nil
+            },
+        ]
+    }
+
+    private static func realNestedMatrix(cachePath: String) throws -> [String: Any] {
+        let cache = URL(fileURLWithPath: cachePath, isDirectory: true)
+        let interpretation = try JSONDecoder().decode(
+            Interpretation.self,
+            from: Data(contentsOf: cache.appendingPathComponent(".mywallpaperx-scene-interpretation.json"))
+        )
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let runtime = SceneParticleRuntime(
+            descriptor: interpretation.renderDescriptor,
+            cacheDirectory: cache,
+            device: device
+        )
+        for _ in 0..<4 { _ = runtime.advance(by: 1) }
+        let batches = runtime.advance(by: 1.0 / 60.0)
+        var headCount = 0
+        var trailCount = 0
+        var trailBatchCount = 0
+        for batch in batches {
+            if batch.particlePath.hasSuffix("matrix_code_copy1.json") {
+                headCount += batch.instances.count
+            }
+            if batch.particlePath.hasSuffix("matrix_trail_copy1.json") {
+                trailCount += batch.instances.count
+                trailBatchCount += 1
+            }
+        }
+        let staticRejections = runtime.diagnostics.filter {
+            $0.kind == .childSystemsUnsupported
+                && ($0.detail ?? "").contains("matrix_code_copy1.json")
+        }
+        return [
+            "headCount": headCount,
+            "trailCount": trailCount,
+            "trailBatchCount": trailBatchCount,
+            "staticRejections": staticRejections.count,
+            "activeLayerIDs": runtime.activeLayerIDs,
+            "nestedBudgetDetails": runtime.diagnostics.compactMap { value in
+                (value.detail ?? "").contains("nestedAggregateSystemBudget")
+                    ? (value.detail ?? "") : nil
             },
         ]
     }
@@ -957,6 +1147,53 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             "particles/audio-child.json:outsideStrictEventProfile",
             result["audioChildDetails"],
         )
+
+    def test_synthetic_nested_children_follow_depth_limit_and_budget(self) -> None:
+        result = self.run_harness("nested-synthetic")
+        self.assertEqual(result["trailCounts"], [0, 1, 2, 3, 0, 0])
+        heads = result["headPositions"]
+        origins = result["trailOrigins"]
+        self.assertEqual(len(heads), 4)
+        self.assertEqual(len(origins), 3)
+        for index, origin in enumerate(origins):
+            self.assertAlmostEqual(origin, heads[index + 1], delta=0.01)
+        for index in range(1, len(heads)):
+            self.assertAlmostEqual(heads[index] - heads[index - 1], 1.0, delta=0.01)
+        self.assertGreater(heads[0], 40)
+        self.assertIn(
+            "particles/depth-three.json:nestedDepthUnsupported", result["depthDetails"]
+        )
+        self.assertIn(
+            "particles/static-leaf.json:nestedStaticChildUnsupported",
+            result["staticDetails"],
+        )
+        self.assertIn(
+            "nestedAggregateSystemBudget:depth=2:systems=64:particleCapacity=65536",
+            result["budgetDetails"],
+        )
+        self.assertEqual(result["budgetTrailCounts"][0], 0)
+        self.assertEqual(result["budgetTrailCounts"][1], 64)
+        self.assertEqual(result["nestedUnsupportedLayers"], [])
+
+    def test_real_2974757317_executes_nested_matrix_rain(self) -> None:
+        if not (NESTED_SAMPLE_CACHE / ".mywallpaperx-scene-interpretation.json").is_file():
+            self.skipTest("isolated 2974757317 cache is unavailable")
+        result = self.run_harness("nested-real", str(NESTED_SAMPLE_CACHE))
+        self.assertEqual(result["headCount"], 43)
+        self.assertGreaterEqual(result["trailCount"], 43)
+        self.assertEqual(result["trailBatchCount"], 1)
+        self.assertEqual(result["staticRejections"], 0)
+        self.assertEqual(result["nestedBudgetDetails"], [])
+
+    def test_real_2938612768_keeps_author_disabled_matrix_off(self) -> None:
+        cache = NESTED_AUTHOR_OFF_SAMPLE_CACHE
+        if not (cache / ".mywallpaperx-scene-interpretation.json").is_file():
+            self.skipTest("isolated 2938612768 cache is unavailable")
+        result = self.run_harness("nested-real", str(cache))
+        self.assertEqual(result["headCount"], 0)
+        self.assertEqual(result["trailCount"], 0)
+        self.assertNotIn(85705, result["activeLayerIDs"])
+        self.assertEqual(result["staticRejections"], 0)
 
     def test_real_flare_children_enter_continuous_emitter_profile(self) -> None:
         if not FLARE_PARTICLE_CACHE.is_dir():
