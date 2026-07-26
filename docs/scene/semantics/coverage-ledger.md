@@ -8,7 +8,7 @@
 >
 > 当前完整快照门：`.codex/scene-nested-child-full45-20260727/report.json`；当前源码固定回归门：`.codex/scene-nested-child-fixed13-20260727/report.json`；历史 static-origin 定向门：`.codex/scene-static-origin-targeted-20260725/report.json`
 >
-> 最新运行门：`b86db59` 以真实目录重建 45 样本隔离副本，完整矩阵合同刷新到 interpretation v29 后完整快照 44/45、particle 110/131；唯一失败为 `3743305891` 的 masked Opacity layer 23（`20dc036` 遮罩消费批次引入、feat 前构建复现一致、与 particle 无关，独立核查中）；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 PASS 13/13、particle 66/76。历史 static-origin 定向门 1/1、particle 17/19 按当时口径保留；`3088601835` 当前为 19/19。完整 Scene suite 86 模块：字体替代断言 5 项既有失败独立处理中，其余全部通过；代码健康 456 Swift files、44 个锁定历史文件、400 行上限；语义覆盖 11/11；签名 Debug 构建和 `codesign --deep --strict` 通过。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：`b86db59` 以真实目录重建 45 样本隔离副本，完整矩阵合同刷新到 interpretation v29 后完整快照 44/45、particle 110/131；唯一失败 `3743305891` 的 masked Opacity layer 23 已修复（根因是 mp4 payload 视频层从不加载 per-layer effect 资源，与 particle 无关；定向复跑 PASS、固定 13 样本门 PASS 13/13，完整门 44/45 为修复前快照、待下次刷新）；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 PASS 13/13、particle 66/76。历史 static-origin 定向门 1/1、particle 17/19 按当时口径保留；`3088601835` 当前为 19/19。完整 Scene suite 86 模块：字体替代断言 5 项既有失败独立处理中，其余全部通过；代码健康 456 Swift files、44 个锁定历史文件、400 行上限；语义覆盖 11/11；签名 Debug 构建和 `codesign --deep --strict` 通过。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 

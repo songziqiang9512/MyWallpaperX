@@ -130,6 +130,21 @@ class SceneMetalView: NSView {
         var loadedPuppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
         var loadedEffectTextures = SceneLayerEffectTextureStore()
         var puppetRecomposeBytes = 0
+        // 每个会真正参与渲染的层都要走这里：mp4 payload 视频层同样带 effect 实例资源
+        // （opacity 遮罩、shake flow、waterwaves 遮罩……），漏掉就会让 authored effect
+        // 在执行期取不到贴图而整段失败。
+        func loadEffectTextures(for layer: SceneRenderDescriptor.Layer) -> SceneLayerEffectTextures {
+            let stages = renderer.authoredEffectChain(for: layer.id)?.stages ?? []
+            let textures = SceneLayerEffectTextureLoader.load(
+                for: layer, resolver: resolver, loader: loader, device: metalDevice,
+                shakeEffectIDs: Set(stages.compactMap { $0.shake?.effectKey.descriptorID }),
+                waterFlowEffectIDs: Set(stages.compactMap { $0.waterFlow?.effectKey.descriptorID }),
+                waterWavesEffectIDs: Set(stages.compactMap { $0.waterWaves?.effectKey.descriptorID }),
+                userPropertyTextures: userPropertyTextureLoad.textures
+            )
+            loadedEffectTextures.merge(layerID: layer.id, textures: textures)
+            return textures
+        }
         report.append("Scene preview texture load report")
         report.append("camera: projection=cover parallax=\(renderer.renderDescriptor.camera.parallaxEnabled) amount=\(renderer.renderDescriptor.camera.parallaxAmount) delay=\(renderer.renderDescriptor.camera.parallaxDelay) mouseInfluence=\(renderer.renderDescriptor.camera.parallaxMouseInfluence)")
         report.append("cacheDirectory: \(cacheDirectory.path)")
@@ -146,27 +161,13 @@ class SceneMetalView: NSView {
         for layer in imageLayers {
             let name = layer.name ?? "(unnamed)"
             let placementSummary = renderer.debugPlacementSummary(for: layer)
-            let authoredStages = renderer.authoredEffectChain(for: layer.id)?.stages ?? []
-            let shakeEffectIDs = Set(authoredStages.compactMap {
-                $0.shake?.effectKey.descriptorID
-            })
-            let waterFlowEffectIDs = Set(authoredStages.compactMap { $0.waterFlow?.effectKey.descriptorID })
-            let waterWavesEffectIDs = Set(authoredStages.compactMap {
-                $0.waterWaves?.effectKey.descriptorID
-            })
             if layer.contentKind == "solid" {
                 guard let texture = solidLayerTexture else {
                     report.append("layer \(layer.id) \"\(name)\": procedural solid texture unavailable; \(placementSummary)")
                     continue
                 }
                 loaded[layer.id] = texture
-                let effectTextures = SceneLayerEffectTextureLoader.load(
-                    for: layer, resolver: resolver, loader: loader, device: metalDevice,
-                    shakeEffectIDs: shakeEffectIDs, waterFlowEffectIDs: waterFlowEffectIDs,
-                    waterWavesEffectIDs: waterWavesEffectIDs,
-                    userPropertyTextures: userPropertyTextureLoad.textures
-                )
-                loadedEffectTextures.merge(layerID: layer.id, textures: effectTextures)
+                let effectTextures = loadEffectTextures(for: layer)
                 let color = SIMD3(layer.colorRGB ?? [], fill: 1)
                 var message = String(
                     format: "layer %d \"%@\": OK procedural solid tint=(%.5f, %.5f, %.5f)",
@@ -191,11 +192,13 @@ class SceneMetalView: NSView {
                 device: metalDevice
             ) {
                 loadedVideoSources[layer.id] = videoSource
+                let effectTextures = loadEffectTextures(for: layer)
                 var message = "layer \(layer.id) \"\(name)\": mp4 payload video source ready (\(url.lastPathComponent))"
                 if let initialTexture = videoSource.currentTexture(forHostTime: CACurrentMediaTime()) {
                     message += " → \(initialTexture.width)×\(initialTexture.height)"
                 }
                 message += " [\(relativePath(for: url, cacheDirectory: cacheDirectory))]"
+                message += effectTextures.message
                 if let effectSummary = renderer.effectRuntimeSummary(for: layer) {
                     message += "; \(effectSummary)"
                 }
@@ -238,16 +241,7 @@ class SceneMetalView: NSView {
                         animation.duration
                     )
                 }
-                let effectTextures = SceneLayerEffectTextureLoader.load(
-                    for: layer,
-                    resolver: resolver,
-                    loader: loader,
-                    device: metalDevice,
-                    shakeEffectIDs: shakeEffectIDs, waterFlowEffectIDs: waterFlowEffectIDs,
-                    waterWavesEffectIDs: waterWavesEffectIDs,
-                    userPropertyTextures: userPropertyTextureLoad.textures
-                )
-                loadedEffectTextures.merge(layerID: layer.id, textures: effectTextures)
+                let effectTextures = loadEffectTextures(for: layer)
                 message += effectTextures.message
                 if let effectSummary = renderer.effectRuntimeSummary(
                     for: layer,
@@ -261,7 +255,8 @@ class SceneMetalView: NSView {
                 if let inlineSummary = SceneInlineEffectRuntime.summary(
                     for: layer,
                     hasWaterMask: effectTextures.waterMask != nil,
-                    handlesWaterWaves: waterWavesEffectIDs.isEmpty == false
+                    handlesWaterWaves: (renderer.authoredEffectChain(for: layer.id)?
+                        .waterWavesCount ?? 0) > 0
                 ) {
                     message += "; \(inlineSummary)"
                 }
@@ -286,14 +281,7 @@ class SceneMetalView: NSView {
                 && (renderer.authoredEffectChain(for: layer.id)?.xRayCount ?? 0) > 0
         }
         for layer in utilityXRayLayers {
-            let effectTextures = SceneLayerEffectTextureLoader.load(
-                for: layer,
-                resolver: resolver,
-                loader: loader,
-                device: metalDevice,
-                userPropertyTextures: userPropertyTextureLoad.textures
-            )
-            loadedEffectTextures.merge(layerID: layer.id, textures: effectTextures)
+            let effectTextures = loadEffectTextures(for: layer)
             report.append(
                 "utility layer \(layer.id) \"\(layer.name ?? "(unnamed)")\""
                     + effectTextures.message

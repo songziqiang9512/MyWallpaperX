@@ -2927,6 +2927,7 @@
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
       "expected_authored_effect_graph_succeeded_layer_ids": [
+        23,
         54,
         60,
         66
