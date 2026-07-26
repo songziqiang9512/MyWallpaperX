@@ -20,6 +20,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredLocalContrastPlanner.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionChain.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainPlanner+StageResolution.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectXRayPrefix.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift",
@@ -186,6 +187,21 @@ enum SceneAuthoredTintPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneTintExecutionPlan? {
+        nil
+    }
+}
+
+struct ScenePulseExecutionPlan {
+    var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
+}
+
+enum SceneAuthoredPulsePlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> ScenePulseExecutionPlan? {
         nil
     }
 }

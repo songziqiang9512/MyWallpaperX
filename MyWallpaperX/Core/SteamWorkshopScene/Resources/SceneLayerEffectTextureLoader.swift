@@ -46,6 +46,7 @@ struct SceneLayerEffectTextures {
     let waterFlowEffects: [String: SceneWaterFlowEffectTextures]
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
     let opacityEffects: [String: SceneOpacityEffectTextures]
+    let pulseEffects: [String: ScenePulseEffectTextures]
     let xRay: SceneXRayEffectTextures?
     let message: String
 }
@@ -62,6 +63,7 @@ struct SceneLayerEffectTextureStore {
     var waterFlowEffects: [String: SceneWaterFlowEffectTextures] = [:]
     var waterWavesEffects: [String: SceneWaterWavesEffectTextures] = [:]
     var opacityEffects: [String: SceneOpacityEffectTextures] = [:]
+    var pulseEffects: [String: ScenePulseEffectTextures] = [:]
     var xRayEffects: [Int: SceneXRayEffectTextures] = [:]
 
     mutating func merge(layerID: Int, textures: SceneLayerEffectTextures) {
@@ -76,6 +78,7 @@ struct SceneLayerEffectTextureStore {
         waterFlowEffects.merge(textures.waterFlowEffects) { _, incoming in incoming }
         waterWavesEffects.merge(textures.waterWavesEffects) { _, incoming in incoming }
         opacityEffects.merge(textures.opacityEffects) { _, incoming in incoming }
+        pulseEffects.merge(textures.pulseEffects) { _, incoming in incoming }
         xRayEffects[layerID] = textures.xRay
     }
 }
@@ -173,6 +176,12 @@ enum SceneLayerEffectTextureLoader {
             loader: loader,
             device: device
         )
+        let pulseEffects = ScenePulseEffectTextureLoader.load(
+            for: layer,
+            resolver: resolver,
+            loader: loader,
+            device: device
+        )
         let foliageUVScale = mappedUVScale(for: foliageURL, texture: foliage.texture)
         let foliageScaleMessage = foliage.texture == nil || foliageUVScale == SIMD2(repeating: 1)
             ? ""
@@ -193,12 +202,13 @@ enum SceneLayerEffectTextureLoader {
             waterFlowEffects: waterFlow.textures,
             waterWavesEffects: waterWaves.textures,
             opacityEffects: opacityEffects.textures,
+            pulseEffects: pulseEffects.textures,
             xRay: xRay.textures,
             message: [
                 iris.message, opacity.message, water.message, foliage.message,
                 foliageScaleMessage, normal.message, shake.message,
                 waterFlow.message, waterWaves.message, opacityEffects.message,
-                xRay.message,
+                pulseEffects.message, xRay.message,
             ].joined()
         )
     }

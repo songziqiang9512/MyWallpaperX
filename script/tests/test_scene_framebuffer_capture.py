@@ -41,6 +41,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneXRayPipeline.swift",
     SOURCE_ROOT / "Effects/SceneBlendModeShaderSource.swift",
     SOURCE_ROOT / "Effects/SceneTintPipeline.swift",
+    SOURCE_ROOT / "Effects/ScenePulsePipeline.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectMaskSemantics.swift",
     SOURCE_ROOT / "Effects/SceneFoliageSwayRuntimePlan.swift",
     SOURCE_ROOT / "Effects/SceneGaussianBlurRuntimePlan.swift",
@@ -52,6 +53,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneEffectRuntimePlan.swift",
     SOURCE_ROOT / "Effects/SceneOffscreenEffectRenderer.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Pulse.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerCompositor+Uniforms.swift",
@@ -203,6 +205,7 @@ struct SceneAuthoredEffectExecutionPlan {
         case waterRipple(SceneWaterRippleExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
         case tint(SceneTintExecutionPlan)
+        case pulse(ScenePulseExecutionPlan)
     }
 
     let layerID: Int
@@ -398,6 +401,62 @@ struct SceneTintExecutionPlan {
 
     func resolvedAlpha(in snapshot: SceneDynamicSnapshot) -> Float {
         staticOrFallbackAlpha
+    }
+}
+
+struct ScenePulseShaderProfile {
+    let phaseOffset: Float
+    let noiseUVScale: SIMD2<Float>
+    let saturatesOutput: Bool
+
+    static let stock = ScenePulseShaderProfile(
+        phaseOffset: -1.57079632679,
+        noiseUVScale: SIMD2(0.08333333, 0.02777777),
+        saturatesOutput: false
+    )
+}
+
+struct ScenePulseExecutionPlan {
+    enum Constant: String {
+        case speed, phase, amount, bounds, power
+        case noiseSpeed = "noisespeed"
+        case noiseAmount = "noiseamount"
+        case tintLow = "tintlow"
+        case tintHigh = "tinthigh"
+    }
+
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+    let shaderProfile: ScenePulseShaderProfile
+    let blendMode: Int
+    let pulseColor: Bool
+    let pulseAlpha: Bool
+    let maskTexturePath: String?
+    let requiresNoiseTexture: Bool
+    let values: [Constant: SIMD3<Double>]
+
+    func resolvedComponents(
+        _ constant: Constant,
+        in snapshot: SceneDynamicSnapshot
+    ) -> SIMD3<Double> {
+        values[constant] ?? SIMD3(repeating: 0)
+    }
+}
+
+struct ScenePulseEffectTextures {
+    let noise: MTLTexture?
+    let mask: MTLTexture?
+    let maskUVScale: SIMD2<Float>
+    let maskPath: String?
+
+    func matches(_ plan: ScenePulseExecutionPlan) -> Bool {
+        let maskSatisfied = plan.maskTexturePath.map { path in
+            mask != nil && normalized(maskPath ?? "") == normalized(path)
+        } ?? true
+        return maskSatisfied && (!plan.requiresNoiseTexture || noise != nil)
+    }
+
+    private func normalized(_ path: String) -> String {
+        path.replacingOccurrences(of: "\\", with: "/").lowercased()
     }
 }
 
@@ -1912,6 +1971,7 @@ enum Harness {
                             maskUVScale: SIMD2<Float>(repeating: 1),
                             maskPath: maskPath
                         )] : [:],
+                        pulseEffects: [:],
                         xRay: nil
                     ),
                     textureFrame: .identity,
@@ -2127,6 +2187,7 @@ enum Harness {
             waterFlowEffects: [:],
             waterWavesEffects: [:],
             opacityEffects: [:],
+            pulseEffects: [:],
             xRay: SceneXRayEffectTextures(blend: blend, halo: nil, opacityMask: opacity)
         )
         let mainPass = SceneMainPassEncoder(

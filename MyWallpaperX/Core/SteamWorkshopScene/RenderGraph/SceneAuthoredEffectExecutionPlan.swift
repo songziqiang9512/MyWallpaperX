@@ -106,6 +106,7 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
             "authoredEffectGraphWaterRippleCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.waterRippleCount })",
             "authoredEffectGraphXRayCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.xRayCount })",
             "authoredEffectGraphTintCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.tintCount })",
+            "authoredEffectGraphPulseCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.pulseCount })",
             "authoredEffectGraphXRayPrefixCount: \(xRayPrefixOmittedEffectPathsByLayerID.count)",
             "authoredEffectGraphXRayPrefixOmittedEffects: \(xRayPrefixOmittedEffectPathsByLayerID.sorted(by: { $0.key < $1.key }).map { "\($0.key)=\($0.value.joined(separator: ","))" }.joined(separator: ";"))",
         ]

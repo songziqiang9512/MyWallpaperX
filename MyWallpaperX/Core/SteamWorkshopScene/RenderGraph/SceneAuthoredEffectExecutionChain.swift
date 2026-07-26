@@ -57,6 +57,10 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         stages.filter { $0.tint != nil }.count
     }
 
+    var pulseCount: Int {
+        stages.filter { $0.pulse != nil }.count
+    }
+
     var liveConsumerTargets: Set<SceneDynamicTarget> {
         Set(stages.flatMap(\.liveConsumerTargets))
     }
@@ -95,174 +99,12 @@ enum SceneAuthoredEffectChainPlanner {
             let inputRole: SceneAuthoredEffectInputRole = ordinal == 0
                 ? .layerSource
                 : .priorEffectOutput
-            let localContrast = SceneAuthoredLocalContrastPlanner.plan(
-                graph: stageGraph,
+            let stage = resolveStage(
+                stageGraph: stageGraph,
+                inputRole: inputRole,
                 descriptor: descriptor,
-                shaderContracts: shaderContracts,
-                inputRole: inputRole
+                shaderContracts: shaderContracts
             )
-            let opacity = SceneAuthoredOpacityPlanner.plan(
-                graph: stageGraph,
-                descriptor: descriptor,
-                shaderContracts: shaderContracts,
-                inputRole: inputRole
-            )
-            let workshopShadow = SceneAuthoredWorkshopShadowPlanner.plan(
-                graph: stageGraph,
-                descriptor: descriptor,
-                shaderContracts: shaderContracts,
-                inputRole: inputRole
-            )
-            let preciseBlur = SceneAuthoredEffectExecutionPlanner.plan(
-                graph: stageGraph,
-                descriptor: descriptor,
-                inputRole: inputRole
-            )
-            let standardBlur = SceneAuthoredStandardBlurPlanner.plan(
-                graph: stageGraph,
-                descriptor: descriptor,
-                inputRole: inputRole
-            )
-            let shake = SceneAuthoredShakePlanner.plan(
-                graph: stageGraph,
-                descriptor: descriptor,
-                shaderContracts: shaderContracts,
-                inputRole: inputRole
-            )
-            let waterFlow = SceneAuthoredWaterFlowPlanner.plan(
-                graph: stageGraph,
-                descriptor: descriptor,
-                shaderContracts: shaderContracts,
-                inputRole: inputRole
-            )
-            let waterWaves = SceneAuthoredWaterWavesPlanner.plan(
-                graph: stageGraph,
-                descriptor: descriptor,
-                shaderContracts: shaderContracts,
-                inputRole: inputRole
-            )
-            let foliageSway = SceneAuthoredFoliageSwayPlanner.plan(
-                graph: stageGraph,
-                descriptor: descriptor,
-                shaderContracts: shaderContracts,
-                inputRole: inputRole
-            )
-            let waterRipple = SceneAuthoredWaterRipplePlanner.plan(
-                graph: stageGraph,
-                descriptor: descriptor,
-                shaderContracts: shaderContracts,
-                inputRole: inputRole
-            )
-            let xRay = SceneAuthoredXRayPlanner.plan(
-                graph: stageGraph,
-                descriptor: descriptor,
-                shaderContracts: shaderContracts,
-                inputRole: inputRole
-            )
-            let tint = SceneAuthoredTintPlanner.plan(
-                graph: stageGraph,
-                descriptor: descriptor,
-                shaderContracts: shaderContracts,
-                inputRole: inputRole
-            )
-            let stage: SceneAuthoredEffectExecutionPlan?
-            if let preciseBlur {
-                stage = preciseBlur
-            } else if let standardBlur {
-                stage = standardBlur
-            } else if let localContrast {
-                stage = SceneAuthoredEffectExecutionPlan(
-                    layerID: graph.layerID,
-                    renderGraph: stageGraph,
-                    backend: .localContrast(localContrast),
-                    materialNodeCount: 4,
-                    logicalRenderTargetCount: 2,
-                    inputRole: inputRole
-                )
-            } else if let opacity {
-                stage = SceneAuthoredEffectExecutionPlan(
-                    layerID: graph.layerID,
-                    renderGraph: stageGraph,
-                    backend: .opacity(opacity),
-                    materialNodeCount: 1,
-                    logicalRenderTargetCount: 0,
-                    inputRole: inputRole
-                )
-            } else if let workshopShadow {
-                stage = SceneAuthoredEffectExecutionPlan(
-                    layerID: graph.layerID,
-                    renderGraph: stageGraph,
-                    backend: .workshopShadow(workshopShadow),
-                    materialNodeCount: 1,
-                    logicalRenderTargetCount: 0,
-                    inputRole: inputRole
-                )
-            } else if let shake {
-                stage = SceneAuthoredEffectExecutionPlan(
-                    layerID: graph.layerID,
-                    renderGraph: stageGraph,
-                    backend: .shake(shake),
-                    materialNodeCount: 1,
-                    logicalRenderTargetCount: 0,
-                    inputRole: inputRole
-                )
-            } else if let waterFlow {
-                stage = SceneAuthoredEffectExecutionPlan(
-                    layerID: graph.layerID,
-                    renderGraph: stageGraph,
-                    backend: .waterFlow(waterFlow),
-                    materialNodeCount: 1,
-                    logicalRenderTargetCount: 0,
-                    inputRole: inputRole
-                )
-            } else if let waterWaves {
-                stage = SceneAuthoredEffectExecutionPlan(
-                    layerID: graph.layerID,
-                    renderGraph: stageGraph,
-                    backend: .waterWaves(waterWaves),
-                    materialNodeCount: 1,
-                    logicalRenderTargetCount: 0,
-                    inputRole: inputRole
-                )
-            } else if let foliageSway {
-                stage = SceneAuthoredEffectExecutionPlan(
-                    layerID: graph.layerID,
-                    renderGraph: stageGraph,
-                    backend: .foliageSway(foliageSway),
-                    materialNodeCount: 1,
-                    logicalRenderTargetCount: 0,
-                    inputRole: inputRole
-                )
-            } else if let waterRipple {
-                stage = SceneAuthoredEffectExecutionPlan(
-                    layerID: graph.layerID,
-                    renderGraph: stageGraph,
-                    backend: .waterRipple(waterRipple),
-                    materialNodeCount: 1,
-                    logicalRenderTargetCount: 0,
-                    inputRole: inputRole
-                )
-            } else if let xRay {
-                stage = SceneAuthoredEffectExecutionPlan(
-                    layerID: graph.layerID,
-                    renderGraph: stageGraph,
-                    backend: .xRay(xRay),
-                    materialNodeCount: 1,
-                    logicalRenderTargetCount: 0,
-                    inputRole: inputRole
-                )
-            } else if let tint {
-                stage = SceneAuthoredEffectExecutionPlan(
-                    layerID: graph.layerID,
-                    renderGraph: stageGraph,
-                    backend: .tint(tint),
-                    materialNodeCount: 1,
-                    logicalRenderTargetCount: 0,
-                    inputRole: inputRole
-                )
-            } else {
-                stage = nil
-            }
             guard let stage else {
                 if let prefix = xRayPrefix(
                     plannedStages: stages,

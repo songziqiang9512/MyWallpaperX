@@ -69,7 +69,7 @@
 | User Properties | `L3` | 独立窗口、条件、持久化、PNG/JPEG `sceneTexture`；layer alpha、纯 solid color、direct text、strict Local Contrast/Opacity 与受限 X-Ray target 已无重建 live 更新 | unsupported/mixed/SceneScript bindings、Texture Variants、shortcut、跨重启 UI 门；精确 census 见 runtime-input 专项表 | **B0/B1** |
 | Typed texture provider | `L3` | layer/named/property identity、status/fallback；静态 resource generation 与 named frame epoch 已分离 | 显式 dynamic generation、metadata、cancel、system/media/video/variant、通用 material、nested/effectful/child | **B1** |
 | EffectDefinition/Material IR | `L2` | definition/pass/RT/material/slot hole/combo/constant 可保留并建图；ShaderContract 保存 source identity；material render state 已把随包并存的 `depthtest`/`depthtesting`、`depthwrite`/`depthwriting`、`cullmode`/`culling` 两套拼写归一到同一份 IR，规范拼写共存时优先；pass 级 `alphawriting`（随包 60 处，值域 `default`/`enabled`）与 `usershadervalues`（随包 36 处，`{shader 值名: 用户属性名}`，与 `constantshadervalues` key 不重叠）已 loss-preserving 进 IR 并随 interpretation v26 上线 | 完整 schema、typed shader defaults、condition/function；`alphawriting` 尚未驱动 color write mask，`usershadervalues` 尚无 executor 消费也未让 strict backend fail closed | B2 |
-| Bounded effect executors | `L3` | 两个严格 Blur 图、strict stock Local Contrast、exact Workshop Shadow、exact stock Opacity（含 per-effect 遮罩槽，按 `descriptorID` 绑定，官方 `albedo.a *= mask * g_UserAlpha`，遮罩声明后取不到贴图整段拒绝）、Shake、Water Waves、Water Flow、Foliage Sway、Water Ripple、X-Ray 与 Tint 十二类 backend 的 ordered strict chain 与若干受限手写 executor | 其余官方 Effect、variant、Opacity 之外的遮罩槽（Shake `g_Texture3`、Tint `g_Texture1` 仍整段拒绝）、SceneScript/mixed chain 与 visual golden | B3/B4 |
+| Bounded effect executors | `L3` | 两个严格 Blur 图、strict stock Local Contrast、exact Workshop Shadow、exact stock Opacity（含 per-effect 遮罩槽，按 `descriptorID` 绑定，官方 `albedo.a *= mask * g_UserAlpha`，遮罩声明后取不到贴图整段拒绝）、Shake、Water Waves、Water Flow、Foliage Sway、Water Ripple、X-Ray、Tint 与 Pulse（首个多指纹 shader profile：stock + 3 legacy 变体逐指纹绑定相位/noise UV/输出 clamp 语义）十三类 backend 的 ordered strict chain 与若干受限手写 executor | 其余官方 Effect、variant、Opacity 之外的遮罩槽（Shake `g_Texture3`、Tint `g_Texture1` 仍整段拒绝）、Pulse audio 驱动与第五指纹、SceneScript/mixed chain 与 visual golden | B3/B4 |
 | Current-frame capture | `L3` | bounded utility prefix capture 可执行 | 通用 capture/extent/format/mask | B2/B3 |
 | Named primary target | `L3` | bounded `_a` producer/consumer 可执行 | 通用 authored identity 和依赖环检测 | B2 |
 | Named secondary identity | `L2` | registry 区分完整 variant；无 `_b` producer/consumer flow | secondary 数据流、copy/swap/history | B2 |
@@ -90,7 +90,7 @@
 
 ## 4. 官方 Effect 覆盖摘要
 
-45 项的作者条件、执行通道、公共依赖、当前证据和下一验收门统一维护在 [官方 Effect 执行覆盖表](effect-execution-coverage.md)。汇总为 `L1=24`、`L2=5`、`L3=16`、`L4=0`；所有 `L3` 都是表内明确限定的 profile，不是 WE parity。内部 `_empty`、Workshop `gradient_color` 和 layer Bloom 另列，不能替代任何官方 Effect。
+45 项的作者条件、执行通道、公共依赖、当前证据和下一验收门统一维护在 [官方 Effect 执行覆盖表](effect-execution-coverage.md)。汇总为 `L1=23`、`L2=5`、`L3=17`、`L4=0`；所有 `L3` 都是表内明确限定的 profile，不是 WE parity。内部 `_empty`、Workshop `gradient_color` 和 layer Bloom 另列，不能替代任何官方 Effect。
 
 ## 5. Particle 子系统覆盖
 

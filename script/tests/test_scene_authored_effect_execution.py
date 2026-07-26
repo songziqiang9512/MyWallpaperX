@@ -20,6 +20,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredLocalContrastPlanner.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionChain.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainPlanner+StageResolution.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectXRayPrefix.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift",
@@ -29,6 +30,10 @@ SWIFT_SOURCES = [
 ]
 CHAIN_PLANNER_SOURCE = (
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionChain.swift"
+)
+# stage 解析（逐 planner 尝试 + backend 构造）拆在扩展文件中，文本标记检查读拼接。
+CHAIN_STAGE_RESOLUTION_SOURCE = (
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainPlanner+StageResolution.swift"
 )
 CHAIN_BACKEND_SOURCE = (
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift"
@@ -239,6 +244,22 @@ enum SceneAuthoredXRayPlanner {
 
 struct SceneTintExecutionPlan {
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
+}
+
+struct ScenePulseExecutionPlan {
+    var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
+}
+
+enum SceneAuthoredPulsePlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> ScenePulseExecutionPlan? {
+        graph.effects.first?.definitionPath.lowercased()
+            == "effects/pulse/effect.json" ? ScenePulseExecutionPlan() : nil
+    }
 }
 
 enum SceneAuthoredTintPlanner {
@@ -831,6 +852,7 @@ enum Harness {
             case .waterRipple: backend = "waterRipple"
             case .xRay: backend = "xRay"
             case .tint: backend = "tint"
+            case .pulse: backend = "pulse"
             }
             return [effectIndex, backend]
         } ?? []
@@ -1247,7 +1269,8 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
             self.assertEqual(self.result[key], [530], key)
 
     def assert_ordered_stage_fixture(self, sample_id: str) -> None:
-        planner = CHAIN_PLANNER_SOURCE.read_text(encoding="utf-8")
+        planner = CHAIN_PLANNER_SOURCE.read_text(encoding="utf-8") \
+            + CHAIN_STAGE_RESOLUTION_SOURCE.read_text(encoding="utf-8")
         backend = CHAIN_BACKEND_SOURCE.read_text(encoding="utf-8")
         renderer = CHAIN_RENDERER_SOURCE.read_text(encoding="utf-8")
         compositor = COMPOSITOR_SOURCE.read_text(encoding="utf-8")

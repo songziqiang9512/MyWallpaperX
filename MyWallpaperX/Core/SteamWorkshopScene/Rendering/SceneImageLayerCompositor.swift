@@ -16,6 +16,7 @@ struct SceneImageLayerCompositor {
     private let perspectiveOpacityPipeline: ScenePerspectiveOpacityPipeline
     private let xRayPipeline: SceneXRayPipeline
     private let tintPipeline: SceneTintPipeline
+    private let pulsePipeline: ScenePulsePipeline
     private let additivePipeline: SceneImageLayerPipeline
 
     init?(device: MTLDevice) {
@@ -33,6 +34,7 @@ struct SceneImageLayerCompositor {
               let perspectiveOpacityPipeline = ScenePerspectiveOpacityPipeline(device: device),
               let xRayPipeline = SceneXRayPipeline(device: device),
               let tintPipeline = SceneTintPipeline(device: device),
+              let pulsePipeline = ScenePulsePipeline(device: device),
               let additivePipeline = SceneImageLayerPipeline(device: device, blendMode: .additive) else {
             return nil
         }
@@ -50,6 +52,7 @@ struct SceneImageLayerCompositor {
         self.perspectiveOpacityPipeline = perspectiveOpacityPipeline
         self.xRayPipeline = xRayPipeline
         self.tintPipeline = tintPipeline
+        self.pulsePipeline = pulsePipeline
         self.additivePipeline = additivePipeline
     }
 
@@ -143,6 +146,7 @@ struct SceneImageLayerCompositor {
                         waterRipplePipeline: waterRipplePipeline,
                         xRayPipeline: xRayPipeline,
                         tintPipeline: tintPipeline,
+                        pulsePipeline: pulsePipeline,
                         cursorUV: request.uniforms.cursorUV,
                         pointerIsInside: request.uniforms.cursorIsInside,
                         commandBuffer: commandBuffer
@@ -279,7 +283,7 @@ struct SceneImageLayerCompositor {
                             time: directUniforms.time,
                             commandBuffer: commandBuffer
                         )
-                    case .foliageSway, .waterRipple, .xRay, .tint:
+                    case .foliageSway, .waterRipple, .xRay, .tint, .pulse:
                         return nil
                     }
                 }

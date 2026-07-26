@@ -14,6 +14,7 @@ extension SceneAuthoredEffectExecutionPlan {
         case waterRipple(SceneWaterRippleExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
         case tint(SceneTintExecutionPlan)
+        case pulse(ScenePulseExecutionPlan)
     }
 
     var gaussianBlur: SceneGaussianBlurPlan? {
@@ -76,12 +77,18 @@ extension SceneAuthoredEffectExecutionPlan {
         return plan
     }
 
+    nonisolated var pulse: ScenePulseExecutionPlan? {
+        guard case .pulse(let plan) = backend else { return nil }
+        return plan
+    }
+
     nonisolated var liveConsumerTargets: Set<SceneDynamicTarget> {
         var targets = Set<SceneDynamicTarget>()
         if let target = localContrast?.liveStrengthTarget { targets.insert(target) }
         if let target = opacity?.liveAlphaTarget { targets.insert(target) }
         if let xRay { targets.formUnion(xRay.liveConsumerTargets) }
         if let tint { targets.formUnion(tint.liveConsumerTargets) }
+        if let pulse { targets.formUnion(pulse.liveConsumerTargets) }
         return targets
     }
 

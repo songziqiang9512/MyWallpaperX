@@ -20,6 +20,7 @@ enum SceneAuthoredEffectChainRenderer {
         waterRipplePipeline: SceneWaterRipplePipeline,
         xRayPipeline: SceneXRayPipeline,
         tintPipeline: SceneTintPipeline,
+        pulsePipeline: ScenePulsePipeline,
         cursorUV: SIMD2<Float>,
         pointerIsInside: Bool,
         commandBuffer: MTLCommandBuffer
@@ -56,6 +57,7 @@ enum SceneAuthoredEffectChainRenderer {
                 waterRipplePipeline: waterRipplePipeline,
                 xRayPipeline: xRayPipeline,
                 tintPipeline: tintPipeline,
+                pulsePipeline: pulsePipeline,
                 cursorUV: cursorUV,
                 pointerIsInside: pointerIsInside,
                 time: sourceUniforms.time,
@@ -87,6 +89,7 @@ enum SceneAuthoredEffectChainRenderer {
         waterRipplePipeline: SceneWaterRipplePipeline,
         xRayPipeline: SceneXRayPipeline,
         tintPipeline: SceneTintPipeline,
+        pulsePipeline: ScenePulsePipeline,
         cursorUV: SIMD2<Float>,
         pointerIsInside: Bool,
         time: Float,
@@ -328,6 +331,20 @@ enum SceneAuthoredEffectChainRenderer {
                 return nil
             }
             return targets.outputTexture
+        case .pulse(let pulse):
+            return renderPulse(
+                pulse,
+                sourceTexture: sourceTexture,
+                masks: masks,
+                auxMask: auxMask,
+                targets: targets,
+                dynamicValues: dynamicValues,
+                sourceUniforms: sourceUniforms,
+                pipeline: pipeline,
+                pulsePipeline: pulsePipeline,
+                time: time,
+                commandBuffer: commandBuffer
+            )
         }
     }
 

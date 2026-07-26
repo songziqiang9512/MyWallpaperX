@@ -249,6 +249,7 @@ struct SceneMetalRenderer {
                         waterFlowEffects: effectTextures.waterFlowEffects,
                         waterWavesEffects: effectTextures.waterWavesEffects,
                         opacityEffects: effectTextures.opacityEffects,
+                        pulseEffects: effectTextures.pulseEffects,
                         xRay: effectTextures.xRayEffects[layer.id]
                     ),
                     textureFrame: spriteAnimations[layer.id]?.transform(at: time) ?? .identity,
