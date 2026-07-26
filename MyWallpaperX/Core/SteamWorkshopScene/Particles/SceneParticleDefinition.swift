@@ -29,6 +29,37 @@ nonisolated enum SceneParticleEmitterKind: Equatable, Sendable {
     case unsupported(String)
 }
 
+/// 粒子组件的 audio response 声明。
+///
+/// 粒子与 effect 是两套独立 schema，不能混用字段名：effect 侧走
+/// `audiobounds`/`audioamount`/`audioexponent` 加 `frequencymin`/`frequencymax`
+/// 的 shader constant，粒子侧只有下面这一组 `audioprocessing*` 字段，且**没有**
+/// amount。45 样本语料中启用 audio 的 11 处粒子组件全部只出现
+/// `audioprocessingmode`（11）、`audioprocessingbounds`（6）与
+/// `audioprocessingfrequencyend`（1），未出现任何 effect 侧字段名。
+///
+/// 证据等级：字段名来自真实样本与第三方播放器 parser 交叉验证；
+/// **默认值与求值公式官方均未公开**，因此这里只做 loss-preserving 保存，
+/// 不内置默认值、不做求值。升级到执行所缺的证据见粒子组件覆盖表 E15。
+nonisolated struct SceneParticleAudioResponse: Equatable, Sendable {
+    let mode: Int?
+    let bounds: SceneParticleNumericValue?
+    let exponent: Double?
+    let frequencyStart: Int?
+    let frequencyEnd: Int?
+
+    static let none = SceneParticleAudioResponse(
+        mode: nil,
+        bounds: nil,
+        exponent: nil,
+        frequencyStart: nil,
+        frequencyEnd: nil
+    )
+
+    /// 作者是否启用。`mode` 缺省或 0 表示关闭。
+    nonisolated var isEnabled: Bool { (mode ?? 0) != 0 }
+}
+
 nonisolated struct SceneParticleEmitter: Equatable, Sendable {
     let id: Int?
     let kind: SceneParticleEmitterKind
@@ -43,11 +74,7 @@ nonisolated struct SceneParticleEmitter: Equatable, Sendable {
     let speedMaximum: Double?
     let duration: Double?
     let controlPoint: Int?
-    let audioProcessingMode: Int?
-    let audioAmount: Double?
-    let audioExponent: Double?
-    let audioFrequency: SceneParticleNumericValue?
-    let audioProcessingBounds: SceneParticleNumericValue?
+    let audioResponse: SceneParticleAudioResponse
     let rawFlags: Int
 
     nonisolated var limitsToOnePerFrame: Bool { rawFlags & 1 != 0 }
@@ -76,11 +103,7 @@ nonisolated struct SceneParticleTurbulentVelocity: Equatable, Sendable {
     let speedMinimum: Double?
     let speedMaximum: Double?
     let timeScale: Double?
-    let audioProcessingMode: Int?
-    let audioAmount: Double?
-    let audioExponent: Double?
-    let audioFrequency: SceneParticleNumericValue?
-    let audioProcessingBounds: SceneParticleNumericValue?
+    let audioResponse: SceneParticleAudioResponse
 }
 
 nonisolated struct SceneParticleInitializer: Equatable, Sendable {
@@ -138,8 +161,7 @@ nonisolated struct SceneParticleOperator: Equatable, Sendable {
     let threshold: Double?
     let speedMinimum: Double?
     let speedMaximum: Double?
-    let audioProcessingMode: Int?
-    let audioProcessingBounds: SceneParticleNumericValue?
+    let audioResponse: SceneParticleAudioResponse
 }
 
 nonisolated enum SceneParticleRendererKind: Equatable, Sendable {

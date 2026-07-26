@@ -56,7 +56,7 @@ enum Harness {
           "animationmode":"Sequence",
           "sequencemultiplier":3,
           "emitter":[
-            {"id":1,"name":"sphereRandom","origin":"1 2 3","directions":"1 0 1","sign":"-1 0 1","distancemin":"2 3 4","distancemax":"20 30 40","rate":15,"instantaneous":4,"speedmin":5,"speedmax":9,"duration":2,"controlpoint":3,"audioprocessingmode":1,"audioamount":2,"audioexponent":0.5,"audiofrequency":"2 12","audioprocessingbounds":"0.1 0.9","flags":1},
+            {"id":1,"name":"sphereRandom","origin":"1 2 3","directions":"1 0 1","sign":"-1 0 1","distancemin":"2 3 4","distancemax":"20 30 40","rate":15,"instantaneous":4,"speedmin":5,"speedmax":9,"duration":2,"controlpoint":3,"audioprocessingmode":1,"audioprocessingexponent":0.5,"audioprocessingfrequencystart":2,"audioprocessingfrequencyend":12,"audioprocessingbounds":"0.1 0.9","flags":1},
             {"id":2,"name":"boxRandom","origin":"4 5 6","distancemax":"100 200 0","rate":30},
             {"id":3,"name":"layerImage"}
           ],
@@ -68,7 +68,7 @@ enum Harness {
             {"id":14,"name":"alphaRandom","min":0.2,"max":0.8},
             {"id":15,"name":"rotationRandom","min":"0 0 0","max":"0 0 6.28"},
             {"id":16,"name":"angularVelocityRandom","min":"0 0 -1","max":"0 0 1"},
-            {"id":17,"name":"turbulentVelocityRandom","forward":"0 1 0","right":"1 0 0","up":"0 0 1","offset":0.5,"phasemin":0.25,"phasemax":6.28,"scale":0.2,"speedmin":10,"speedmax":20,"timescale":0.1,"audioprocessingmode":1,"audioamount":2,"audioexponent":0.5,"audiofrequency":"3 13","audioprocessingbounds":"0.2 0.8"},
+            {"id":17,"name":"turbulentVelocityRandom","forward":"0 1 0","right":"1 0 0","up":"0 0 1","offset":0.5,"phasemin":0.25,"phasemax":6.28,"scale":0.2,"speedmin":10,"speedmax":20,"timescale":0.1,"audioprocessingmode":1,"audioprocessingexponent":0.5,"audioprocessingfrequencystart":3,"audioprocessingfrequencyend":13,"audioprocessingbounds":"0.2 0.8"},
             {"id":18,"name":"futureInitializer"}
           ],
           "operator":[
@@ -137,16 +137,16 @@ enum Harness {
             "sphereDirection": definition.emitters[0].directions?.vectorValue ?? [],
             "sphereControlPoint": definition.emitters[0].controlPoint ?? -1,
             "sphereOnePerFrame": definition.emitters[0].limitsToOnePerFrame,
-            "sphereAudioMode": definition.emitters[0].audioProcessingMode ?? -1,
-            "sphereAudioAmount": definition.emitters[0].audioAmount ?? -1,
-            "sphereAudioExponent": definition.emitters[0].audioExponent ?? -1,
-            "sphereAudioFrequency": definition.emitters[0].audioFrequency?.vectorValue ?? [],
-            "sphereAudioBounds": definition.emitters[0].audioProcessingBounds?.vectorValue ?? [],
+            "sphereAudioMode": definition.emitters[0].audioResponse.mode ?? -1,
+            "sphereAudioExponent": definition.emitters[0].audioResponse.exponent ?? -1,
+            "sphereAudioFrequencyStart": definition.emitters[0].audioResponse.frequencyStart ?? -1,
+            "sphereAudioFrequencyEnd": definition.emitters[0].audioResponse.frequencyEnd ?? -1,
+            "sphereAudioBounds": definition.emitters[0].audioResponse.bounds?.vectorValue ?? [],
             "initializerKinds": definition.initializers.map { initializerName($0.kind) },
             "turbulentPhaseMinimum": definition.initializers[7].turbulentVelocity?.phaseMinimum ?? -1,
             "turbulentTimeScale": definition.initializers[7].turbulentVelocity?.timeScale ?? -1,
-            "turbulentAudioMode": definition.initializers[7].turbulentVelocity?.audioProcessingMode ?? -1,
-            "turbulentAudioBounds": definition.initializers[7].turbulentVelocity?.audioProcessingBounds?.vectorValue ?? [],
+            "turbulentAudioMode": definition.initializers[7].turbulentVelocity?.audioResponse.mode ?? -1,
+            "turbulentAudioBounds": definition.initializers[7].turbulentVelocity?.audioResponse.bounds?.vectorValue ?? [],
             "operatorKinds": definition.operators.map { operatorName($0.kind) },
             "movementGravity": definition.operators[0].gravity?.vectorValue ?? [],
             "movementDrag": definition.operators[0].drag ?? -1,
@@ -156,7 +156,7 @@ enum Harness {
             "attractControlPoint": definition.operators[9].controlPoint ?? -1,
             "attractThreshold": definition.operators[9].threshold ?? -1,
             "turbulenceSpeedMaximum": definition.operators[10].speedMaximum ?? -1,
-            "vortexAudioBounds": definition.operators[11].audioProcessingBounds?.vectorValue ?? [],
+            "vortexAudioBounds": definition.operators[11].audioResponse.bounds?.vectorValue ?? [],
             "rendererKinds": definition.renderers.map { rendererName($0.kind) },
             "spriteWorldSpace": definition.renderers[0].isWorldSpace,
             "ropeSegments": definition.renderers[2].segments ?? -1,
@@ -493,9 +493,10 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         self.assertEqual(result["sphereControlPoint"], 3)
         self.assertTrue(result["sphereOnePerFrame"])
         self.assertEqual(result["sphereAudioMode"], 1)
-        self.assertEqual(result["sphereAudioAmount"], 2)
         self.assertEqual(result["sphereAudioExponent"], 0.5)
-        self.assertEqual(result["sphereAudioFrequency"], [2, 12])
+        # 粒子 schema 用 frequencystart/end 两个标量，没有 effect 侧的 audiofrequency 向量
+        self.assertEqual(result["sphereAudioFrequencyStart"], 2)
+        self.assertEqual(result["sphereAudioFrequencyEnd"], 12)
         self.assertEqual(result["sphereAudioBounds"], [0.1, 0.9])
         self.assertEqual(result["turbulentPhaseMinimum"], 0.25)
         self.assertEqual(len(result["initializerKinds"]), 9)

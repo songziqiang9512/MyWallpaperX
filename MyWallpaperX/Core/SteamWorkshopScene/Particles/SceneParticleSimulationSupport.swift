@@ -90,7 +90,7 @@ nonisolated enum SceneParticleSimulationMath {
         _ time: Double,
         _ random: inout SceneParticleRandomGenerator
     ) -> SIMD3<Double> {
-        guard let value, (value.audioProcessingMode ?? 0) == 0 else { return .zero }
+        guard let value, !value.audioResponse.isEnabled else { return .zero }
         let phase = random.value(value.phaseMinimum ?? 0, value.phaseMaximum ?? 2 * .pi)
         let noiseTime = phase + (value.offset ?? 0) + time * (value.timeScale ?? 1)
         // Author positions select a coherent field; scale controls angular spread, not frequency.
@@ -203,12 +203,16 @@ nonisolated enum SceneParticleSimulationMath {
 
         for emitter in definition.emitters {
             if case let .unsupported(name) = emitter.kind { add(.unsupportedEmitter, name) }
-            if (emitter.audioProcessingMode ?? 0) != 0 { add(.audioResponseIgnored, "emitter") }
+            if emitter.audioResponse.isEnabled { add(.audioResponseIgnored, "emitter") }
+        }
+        for `operator` in definition.operators {
+            // operator 的 audio 调制此前不产生诊断，启用后会静默按无音频路径模拟。
+            if `operator`.audioResponse.isEnabled { add(.audioResponseIgnored, "operator") }
         }
         for initializer in definition.initializers {
             switch initializer.kind {
             case .turbulentVelocity:
-                if (initializer.turbulentVelocity?.audioProcessingMode ?? 0) != 0 {
+                if initializer.turbulentVelocity?.audioResponse.isEnabled == true {
                     add(.unsupportedInitializer, "turbulentvelocityrandom")
                     add(.audioResponseIgnored, "turbulentvelocityrandom")
                 }

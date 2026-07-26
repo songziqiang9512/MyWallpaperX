@@ -13,7 +13,7 @@ nonisolated enum SceneParticleChildLifecycle {
             let count = emitter.instantaneousCount ?? 0
             let duration = emitter.duration ?? 0
             return supportedKind && emitter.rawFlags & ~1 == 0
-                && (emitter.audioProcessingMode ?? 0) == 0
+                && !emitter.audioResponse.isEnabled
                 && rate.isFinite && rate >= 0 && count >= 0
                 && duration.isFinite && duration >= 0 && (rate > 0 || count > 0)
         }

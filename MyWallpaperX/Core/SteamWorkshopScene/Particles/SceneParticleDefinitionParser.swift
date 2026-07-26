@@ -109,13 +109,7 @@ nonisolated struct SceneParticleDefinitionParser {
             speedMaximum: Self.number(root["speedmax"]),
             duration: Self.number(root["duration"]),
             controlPoint: Self.integer(root["controlpoint"]),
-            audioProcessingMode: Self.integer(root["audioprocessingmode"]),
-            audioAmount: Self.number(root["audioamount"]),
-            audioExponent: Self.number(root["audioexponent"]),
-            audioFrequency: Self.numericValue(root["audiofrequency"]),
-            audioProcessingBounds: Self.numericValue(
-                root["audioprocessingbounds"] ?? root["audiobounds"]
-            ),
+            audioResponse: Self.audioResponse(root),
             rawFlags: Self.integer(root["flags"]) ?? 0
         )
     }
@@ -150,13 +144,7 @@ nonisolated struct SceneParticleDefinitionParser {
             speedMinimum: Self.number(root["speedmin"]),
             speedMaximum: Self.number(root["speedmax"]),
             timeScale: Self.number(root["timescale"]),
-            audioProcessingMode: Self.integer(root["audioprocessingmode"]),
-            audioAmount: Self.number(root["audioamount"]),
-            audioExponent: Self.number(root["audioexponent"]),
-            audioFrequency: Self.numericValue(root["audiofrequency"]),
-            audioProcessingBounds: Self.numericValue(
-                root["audioprocessingbounds"] ?? root["audiobounds"]
-            )
+            audioResponse: Self.audioResponse(root)
         ) : nil
         return SceneParticleInitializer(
             id: Self.integer(root["id"]), kind: kind,
@@ -210,10 +198,23 @@ nonisolated struct SceneParticleDefinitionParser {
             origin: Self.numericValue(root["origin"]), scale: Self.numericValue(root["scale"]),
             threshold: Self.number(root["threshold"]),
             speedMinimum: Self.number(root["speedmin"]), speedMaximum: Self.number(root["speedmax"]),
-            audioProcessingMode: Self.integer(root["audioprocessingmode"]),
-            audioProcessingBounds: Self.numericValue(
-                root["audioprocessingbounds"] ?? root["audiobounds"]
-            )
+            audioResponse: Self.audioResponse(root)
+        )
+    }
+
+    /// 粒子 audio response 声明。字段名只取 `audioprocessing*` 一套——effect 侧的
+    /// `audiobounds`/`audioamount`/`audioexponent` 属于 shader constant schema，
+    /// 45 样本语料中的粒子组件从未出现，早前把它们当作 fallback 会解析出恒为 nil 的
+    /// 字段，同时漏掉真实存在的 `audioprocessingfrequencyend`。
+    private nonisolated static func audioResponse(
+        _ root: [String: Any]
+    ) -> SceneParticleAudioResponse {
+        SceneParticleAudioResponse(
+            mode: Self.integer(root["audioprocessingmode"]),
+            bounds: Self.numericValue(root["audioprocessingbounds"]),
+            exponent: Self.number(root["audioprocessingexponent"]),
+            frequencyStart: Self.integer(root["audioprocessingfrequencystart"]),
+            frequencyEnd: Self.integer(root["audioprocessingfrequencyend"])
         )
     }
 
