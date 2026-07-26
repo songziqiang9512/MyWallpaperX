@@ -137,11 +137,7 @@ enum DebugWebRuntimeSwitchRunner {
     }
 
     private static func bundledVideoURL(named name: String) -> URL? {
-        guard let url = Bundle.main.url(forResource: name, withExtension: "mp4"),
-              FileManager.default.fileExists(atPath: url.path) else {
-            return nil
-        }
-        return url
+        BundledVideoLibrary.videoURL(named: name)
     }
 
     private static func setVideo(_ url: URL, title: String, on engine: WallpaperEngine) {

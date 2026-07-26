@@ -7,12 +7,18 @@ import json
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from web_runtime_switch_benchmark import apply_process_outcome, score_log, write_reports
+from web_runtime_switch_benchmark import (
+    apply_process_outcome,
+    score_log,
+    validate_bundled_video_archive,
+    write_reports,
+)
 
 
 SAMPLE_ID = "1509243786"
@@ -213,6 +219,19 @@ def replace_checkpoint(lines: list[str], name: str, mutate) -> list[str]:
 
 
 class WebRuntimeSwitchBenchmarkTests(unittest.TestCase):
+    def test_bundled_video_preflight_requires_the_fixed_archive(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-runtime-switch-videos-") as directory:
+            resources = Path(directory)
+            with zipfile.ZipFile(resources / "Videos.zip", "w") as archive:
+                for index in range(1, 6):
+                    archive.writestr(f"Video{index}.mp4", b"video")
+            validate_bundled_video_archive(resources)
+
+            with zipfile.ZipFile(resources / "Videos.zip", "w") as archive:
+                archive.writestr("Video1.mp4", b"video")
+            with self.assertRaisesRegex(ValueError, "entries are invalid"):
+                validate_bundled_video_archive(resources)
+
     def test_passing_timeline(self) -> None:
         result = score(passing_lines())
         self.assertTrue(result["passed"], result["failures"])

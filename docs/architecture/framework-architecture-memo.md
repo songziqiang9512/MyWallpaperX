@@ -22,7 +22,7 @@ MyWallpaperX/
 │   │   ├── StaticImageLibrary/ ← 已完成
 │   │   ├── OnlineLibrary/      ← 已完成（Pixabay 在线库，以下可简称“在线库”）
 │   │   └── SteamWorkshop/      ← 已接入（创意工坊浏览/下载模块，内嵌 Workshop + steamcmd）
-│   ├── Resources/Videos/
+│   ├── Resources/Videos.zip     ← 内置示例视频，首次使用时解压到 Application Support
 │   ├── Shared/
 │   │   ├── UI/                 ← 见下表
 │   │   └── Components/         ← SidebarComponents、AppKitSettingsComponents

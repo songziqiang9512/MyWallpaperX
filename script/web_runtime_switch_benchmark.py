@@ -10,6 +10,7 @@ import re
 import subprocess
 import sys
 import time
+import zipfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -52,6 +53,23 @@ EXPECTED_CHECKPOINTS = [
     "stopped",
     "post-stop",
 ]
+BUNDLED_VIDEO_FILES = {f"Video{index}.mp4" for index in range(1, 6)}
+
+
+def validate_bundled_video_archive(resources: Path) -> None:
+    archive_path = resources / "Videos.zip"
+    if not archive_path.is_file():
+        raise ValueError(f"App bundle is missing {archive_path.name}")
+    try:
+        with zipfile.ZipFile(archive_path) as archive:
+            names = set(archive.namelist())
+            corrupt = archive.testzip()
+    except (OSError, zipfile.BadZipFile) as error:
+        raise ValueError(f"App bundled video archive is invalid: {error}") from error
+    if names != BUNDLED_VIDEO_FILES:
+        raise ValueError(f"App bundled video archive entries are invalid: {sorted(names)}")
+    if corrupt is not None:
+        raise ValueError(f"App bundled video archive is corrupt: {corrupt}")
 SWITCH_ACTIONS = ["preflight", "video1", "web", "video2"]
 OWNERSHIP_ACTIONS = [
     "inject-stale-failure",
@@ -655,9 +673,10 @@ def run_benchmark(args: argparse.Namespace) -> int:
         print(f"App binary is missing or not executable: {app_binary}", file=sys.stderr)
         return 2
     resources = app_binary.parent.parent / "Resources"
-    missing_videos = [name for name in ("Video1.mp4", "Video2.mp4") if not (resources / name).is_file()]
-    if missing_videos:
-        print(f"App bundle is missing built-in videos: {missing_videos}", file=sys.stderr)
+    try:
+        validate_bundled_video_archive(resources)
+    except ValueError as error:
+        print(f"Precondition failed: {error}", file=sys.stderr)
         return 2
     if args.duration < MINIMUM_DURATION_SECONDS:
         print(

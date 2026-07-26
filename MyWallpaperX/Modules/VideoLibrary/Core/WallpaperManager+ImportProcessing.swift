@@ -50,25 +50,12 @@ extension WallpaperManager {
         // 后续启动完全以持久化的 wallpapers 列表为准（包含空列表），避免删除后又恢复。
         guard !hasPersistedWallpaperIndex() else { return }
 
-        // 从 Bundle 中加载视频文件，只做初始种子，不参与日常导入逻辑。
-        if let resourceURL = Bundle.main.resourceURL {
-            do {
-                // 只扫描资源目录一次，避免启动期做无意义的递归查找。
-                let allFiles = try FileManager.default.contentsOfDirectory(at: resourceURL, includingPropertiesForKeys: nil)
-
-                // 只把 mp4 当作默认示例素材。
-                let videoFiles = allFiles.filter { url in
-                    url.pathExtension.lowercased() == "mp4"
-                }
-
-                for videoURL in videoFiles {
-                    let title = videoURL.deletingPathExtension().lastPathComponent
-                    let newWallpaper = makeImportedWallpaper(from: videoURL, title: title, context: .library)
-                    _ = upsertWallpaper(newWallpaper)
-                    schedulePreviewAssetGeneration(for: videoURL)
-                }
-            } catch {
-            }
+        // 内置示例从签名 Bundle 中的 Videos.zip 首次解压到 Application Support。
+        for videoURL in BundledVideoLibrary.videoURLs {
+            let title = videoURL.deletingPathExtension().lastPathComponent
+            let newWallpaper = makeImportedWallpaper(from: videoURL, title: title, context: .library)
+            _ = upsertWallpaper(newWallpaper)
+            schedulePreviewAssetGeneration(for: videoURL)
         }
     }
     func processImportedVideos(from urls: [URL], presentingIn window: NSWindow?, context: ImportContext,

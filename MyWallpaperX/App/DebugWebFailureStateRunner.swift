@@ -279,7 +279,7 @@ enum DebugWebFailureStateRunner {
             && payload?["contentKind"] as? String == "web"
             && payload?["requestID"] as? String == requestID.uuidString
 
-        guard let videoURL = Bundle.main.url(forResource: "Video1", withExtension: "mp4") else {
+        guard let videoURL = BundledVideoLibrary.videoURL(named: "Video1") else {
             finish(preconditionFailure: "bundled-video-missing")
             return
         }

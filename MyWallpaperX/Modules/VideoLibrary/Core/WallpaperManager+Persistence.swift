@@ -75,7 +75,7 @@ extension WallpaperManager {
         // 启动时先用 UserDefaults 旧数据（毫秒级）让后续 init() 链路立即可用。
         // 没有旧数据时 wallpapers 保持空数组，loadSampleData 会注入内置示例。
         if let legacyWallpapers: [VideoWallpaper] = loadCodableValue(forKey: wallpapersKey) {
-            wallpapers = deduplicatedWallpapersByPath(legacyWallpapers)
+            wallpapers = deduplicatedWallpapersByPath(legacyWallpapers.map(migratedBundledVideoWallpaper))
             scheduleMissingIndexedSourceFilesScan()
         }
 
@@ -86,7 +86,7 @@ extension WallpaperManager {
             guard let self else { return }
             switch result {
             case .success(let sqliteWallpapers) where !sqliteWallpapers.isEmpty:
-                let deduped = self.deduplicatedWallpapersByPath(sqliteWallpapers)
+                let deduped = self.deduplicatedWallpapersByPath(self.migratedBundledVideoIndex(sqliteWallpapers))
                 self.wallpapers = deduped
                 self.scanForMissingMetadata()
                 self.scheduleMissingIndexedSourceFilesScan()
@@ -273,6 +273,7 @@ extension WallpaperManager {
 
         if let resolved = resolveExistingWallpaperFromSnapshot(savedWallpaper) {
             currentWallpaper = resolved
+            if resolved.path != savedWallpaper.path { saveCurrentWallpaper() }
         } else {
             // 壁纸文件不存在，尝试从最近播放列表中找
             loadFromRecentWallpapers()
@@ -291,7 +292,7 @@ extension WallpaperManager {
         }
 
         // 最近使用是快照数据，启动时必须先做存在性清洗，再决定是否回写。
-        recentlyUsedWallpapers = savedWallpapers
+        recentlyUsedWallpapers = savedWallpapers.map(migratedBundledVideoWallpaper)
         normalizeRecentWallpapers(limit: WallpaperManager.recentWallpapersLimit, requireExistingFiles: true)
 
         // 仅在清洗后的结果与原持久化内容不一致时才回写，减少冷启动无意义写盘。
@@ -413,13 +414,6 @@ extension WallpaperManager {
 
     private func encode<T: Encodable>(_ value: T) -> Data? {
         try? JSONEncoder().encode(value)
-    }
-
-    private func resolveExistingWallpaperFromSnapshot(_ wallpaper: VideoWallpaper) -> VideoWallpaper? {
-        // 恢复快照前先确认源文件还存在，否则只能退回到最近使用 / 库首项。
-        guard normalizedSourcePathExists(wallpaper.path) else { return nil }
-        let storedID = upsertWallpaper(wallpaper)
-        return wallpapers.first(where: { $0.id == storedID }) ?? wallpaper
     }
 
     func resetToFreshInstallState() {
