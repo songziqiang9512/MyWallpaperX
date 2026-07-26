@@ -113,8 +113,11 @@ enum Harness {
                 translucent.sourceAlpha == .one,
                 translucent.destinationAlpha == .oneMinusSourceAlpha,
             ],
+            // additive 源因子取 sourceAlpha:shader 输出已是 premultiplied,再乘一次
+            // 粒子 alpha 对齐官方 CPU premultiply + (SRC_ALPHA, ONE) 的 additive 合同
+            //(官方 genericparticle.frag 输出 straight,作者靠 alpha 调 additive 强度)。
             "additiveBlend": [
-                additive.sourceRGB == .one,
+                additive.sourceRGB == .sourceAlpha,
                 additive.destinationRGB == .one,
                 additive.sourceAlpha == .one,
                 additive.destinationAlpha == .oneMinusSourceAlpha,

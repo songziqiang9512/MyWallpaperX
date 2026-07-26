@@ -268,7 +268,7 @@ struct SceneParticleMetalPipeline {
         for mode: SceneParticlePipelineBlendMode
     ) -> BlendConfiguration {
         BlendConfiguration(
-            sourceRGB: .one,
+            sourceRGB: mode == .additive ? .sourceAlpha : .one,
             destinationRGB: mode == .additive ? .one : .oneMinusSourceAlpha,
             sourceAlpha: .one,
             destinationAlpha: .oneMinusSourceAlpha
