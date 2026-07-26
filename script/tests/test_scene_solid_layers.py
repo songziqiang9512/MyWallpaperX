@@ -15,6 +15,8 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneDocument.swift",
+    SOURCE_ROOT / "Format/SceneDocument+ShaderValue.swift",
+    SOURCE_ROOT / "Format/SceneDocument+Timeline.swift",
     SOURCE_ROOT / "Format/SceneDocumentObject.swift",
     SOURCE_ROOT / "Format/SceneTimelineAnimation.swift",
     SOURCE_ROOT / "Format/SceneDocument+NumericParsing.swift",
@@ -24,6 +26,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
     SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift",
     SOURCE_ROOT / "Runtime/SceneRenderDescriptor.swift",
+    SOURCE_ROOT / "Runtime/SceneRenderDescriptor+Layer.swift",
     SOURCE_ROOT / "Runtime/SceneRenderDescriptor+AuthoredAssets.swift",
     SOURCE_ROOT / "Rendering/SceneMetalPipeline.swift",
     SOURCE_ROOT / "Resources/SceneSolidLayerTexture.swift",

@@ -7,13 +7,13 @@ extension SceneDocument {
     /// 携带（宿主身份是 effectIndex/passIndex/name）；粒子 `instanceoverride.*` 上的
     /// Timeline 属于粒子通路，随包 45 样本中有 7 处（全在 `2998757800`），当前两条通路
     /// 都不解析它。
-    struct SceneObjectTimeline {
+    struct SceneObjectTimeline: Codable, Equatable {
         /// 作者 JSON 中的宿主属性名，同时也是 target 身份的一部分。
         ///
         /// `maxwidth`/`zoom` 目前没有对应的 `SceneDynamicTarget`，但它们确实是 layer 级
         /// 宿主属性，IR 先无损保留，能否写回由 target 编译阶段判定并诊断，不在解析期
         /// 假装作者没写。
-        enum Host: String, CaseIterable {
+        enum Host: String, CaseIterable, Codable {
             case alpha
             case origin
             case angles

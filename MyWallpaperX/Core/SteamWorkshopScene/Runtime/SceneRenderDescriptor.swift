@@ -21,65 +21,6 @@ struct SceneRenderDescriptor: Codable {
         let parallaxMouseInfluence: Float
     }
 
-    struct Layer: Identifiable, Codable {
-        let id: Int
-        let layerIndex: Int
-        let name: String?
-        let contentKind: String
-        let imagePath: String?
-        let particlePath: String?
-        let particleInstanceOverride: SceneParticleInstanceOverride?
-        let utilityLayer: SceneUtilityLayer?
-        let dependencyLayerIDs: [Int]
-        let parentID: Int?
-        let childLayerIDs: [Int]
-        let attachmentName: String?
-        let parentAttachmentBindFrame: [Float]?
-        let puppetAnimationLayers: [ScenePuppetAnimationLayer]
-        let visible: Bool?
-        let alpha: Double?
-        let colorRGB: [Float]?
-        let colorBlendMode: Int?
-        // 作者 `brightness` 颜色乘数；text 通道已在 CoreText 栅格化阶段消费同名 key。
-        let brightness: Double?
-        let origin: String?
-        let size: String?
-        let scale: String?
-        let angles: String?
-        // Numeric transform fields parsed from the corresponding string fields.
-        // originXYZ: world-space center (3 floats, defaults to [0,0,0]).
-        // sizeWH: world-space size in pixels (2 floats, defaults to [0,0]).
-        // scaleXYZ: per-axis scale factor (3 floats, defaults to [1,1,1]).
-        // anglesXYZ: rotation in radians around X/Y/Z (3 floats, defaults to [0,0,0]).
-        let originXYZ: [Float]?
-        let sizeWH: [Float]?
-        let scaleXYZ: [Float]?
-        let anglesXYZ: [Float]?
-        let parallaxDepthXY: [Float]?
-        let disablesParallaxPropagation: Bool
-        let modelCropOffsetXY: [Float]?
-        // Puppet `.mdl` path plus the authored animation layer declarations.
-        let puppetMeshPath: String?
-        let text: String?
-        let textStyle: SceneTextDescriptor?
-        let hasInlineScript: Bool
-        let effects: [EffectDescriptor]
-        let effectFiles: [String]
-        let texturePaths: [String]
-
-        nonisolated var isImageRenderable: Bool {
-            contentKind == "image" || contentKind == "solid"
-        }
-
-        nonisolated var renderSizeWH: [Float]? {
-            guard contentKind == "text", let textStyle else { return sizeWH }
-            return SceneTextGeometry.expandedSize(
-                authoredSize: sizeWH,
-                padding: textStyle.padding
-            ) ?? sizeWH
-        }
-    }
-
     let entryPath: String
     let camera: CameraDescriptor
     let layers: [Layer]
@@ -181,6 +122,8 @@ struct SceneRenderDescriptorBuilder {
                     anglesXYZ: padVector(parseVector(object.angles), length: 3, fill: 0),
                     parallaxDepthXY: padVector(parseVector(object.parallaxDepth), length: 2, fill: 0),
                     disablesParallaxPropagation: object.disablesParallaxPropagation,
+                    timelines: object.timelines,
+                    timelineDiagnostics: object.timelineDiagnostics,
                     modelCropOffsetXY: object.imagePath.flatMap { modelCropOffsetsByPath[$0] } ?? nil,
                     puppetMeshPath: object.imagePath.flatMap { puppetMeshPathsByModelPath[$0] } ?? nil,
                     text: object.text,
