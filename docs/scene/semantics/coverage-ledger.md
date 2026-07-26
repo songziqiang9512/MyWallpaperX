@@ -2,13 +2,13 @@
 
 > 状态：现役系统汇总；逐项等级以各专项能力表为准
 >
-> 最近核对：2026-07-25
+> 最近核对：2026-07-26
 >
-> Scene 实现基线：`678a052` 加当前 stock PNG resolver 批次（Puppet bind-pose mesh `8bac86e`，静态 MDAT attachment `49ee89a`，严格单 clip MDLA/LBS 播放 `f1ee79b`；strict particle eventspawn/natural-eventdeath `f4173ea`/`7d53c10`、eventfollow `928acca`、持续 child `2f897bc`、static child `899704b` 与有限 static origin `678a052`；22-key 程序纹理 registry 作为 bundle 缺失回退；311 项 stock identity 中 particle 164 项已按 catalog 路由到同路径 PNG；非音频 turbulent velocity `4a17ee6`；超预算/多 image BC 颜色归一 `18d0056`）
+> Scene 实现基线：`678a052` 加当前 stock TEX resolver 批次（Puppet bind-pose mesh `8bac86e`，静态 MDAT attachment `49ee89a`，严格单 clip MDLA/LBS 播放 `f1ee79b`；strict particle eventspawn/natural-eventdeath `f4173ea`/`7d53c10`、eventfollow `928acca`、持续 child `2f897bc`、static child `899704b` 与有限 static origin `678a052`；22-key 程序纹理 registry 作为 bundle 缺失回退；311 项 stock identity 中 particle 164 项已按 catalog 路由到同路径 TEX；非音频 turbulent velocity `4a17ee6`；超预算/多 image BC 颜色归一 `18d0056`）
 >
 > 当前完整快照门：`.codex/scene-static-origin-full45-20260725/report.json`；当前源码固定回归门：`.codex/scene-static-origin-fixed13-20260725/report.json`；static-origin 定向门：`.codex/scene-static-origin-targeted-20260725/report.json`
 >
-> 最新运行门：`678a052` 的真实目录 45 个可运行样本完整快照 45/45、particle 101/131；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 13/13、particle 19/27，static-origin 定向门 1/1、particle 17/19；这些历史门仍单独保留且不能互相替代。当前 stock 批次的 `3757555836` 真实 App 定向门加载 particle 7/7，含过去缺失的 `debris1`，全部走 16x16 bundle PNG；唯一 gate failure 是矩阵 interpretation v25 与当前 v29 不符。固定门本机仅 6/13 样本可用，六个均完成运行且无 `builtInTextureUnavailable`/`textureLoadFailed`，但矩阵版本及 `2902406982` strict graph 断言过期，不能宣称固定门 PASS。此前 20/22-key 的 unavailable census 保留为接 bundle 前历史，不代表当前 catalog 可达性。完整 Scene suite 435 项：433 通过、2 项跳过；代码健康 453 Swift files、44 个锁定历史文件、400 行上限；语义覆盖 11/11。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：`678a052` 的真实目录 45 个可运行样本完整快照 45/45、particle 101/131；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 13/13、particle 19/27，static-origin 定向门 1/1、particle 17/19；这些历史门仍单独保留且不能互相替代。当前 stock TEX 批次的固定门本机仅 6/13 样本可用，六个均完成运行、image 82/82、particle 11/13、sample-root residue 0，且无 `builtInTextureUnavailable`/`textureLoadFailed`；但矩阵 interpretation v25 与当前 v29 及 `2902406982` strict graph 断言过期，不能宣称固定门 PASS。此前 20/22-key 的 unavailable census 保留为接 bundle 前历史，不代表当前 catalog 可达性。完整 Scene suite 435 项：433 通过、2 项跳过；代码健康 453 Swift files、44 个锁定历史文件、400 行上限；语义覆盖 11/11；签名 Debug 构建和 `codesign --deep --strict` 通过。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -63,7 +63,7 @@
 | Audio frame input | `L0` | Scene 不消费频谱 | 16/32/64 双声道 snapshot、注册和设备生命周期 | B0/B4 |
 | 内嵌视频纹理 | `L3` | TEX 内嵌 MP4 image-layer 播放，消费共享 host time | seek/pause/switch/loop 精确合同及更多容器 | B1 |
 | 系统媒体 identity | `L1` | `$mediaThumbnail` typed 引用存在 | producer/consumer、事件、缩略图 generation | B1/B4 |
-| Particle runtime | `L3` | 作者 sprite、常见组件、Sprite Trail；2.8.42 的 311 项 stock TEX 身份目录中 particle 164 项已按 exact identity 路由到同路径 PNG，样本本地资源优先，22-key 程序纹理只作 bundle 缺失回退；历史固定门 `19/27`、完整门 `101/131` | resolver 只使 identity 达 `L2 wired`；当前 311 张均为 16x16 占位，无官方尺寸/通道/atlas/像素语义 | **B4** |
+| Particle runtime | `L3` | 作者 sprite、常见组件、Sprite Trail；2.8.42 的 311 项 stock TEX 身份目录中 particle 164 项已按 exact identity 路由到同路径 TEX，样本本地资源优先，22-key 程序纹理只作 bundle 缺失回退；历史固定门 `19/27`、完整门 `101/131` | resolver 只使 identity 达 `L2 wired`；当前 311 个 TEX 均封装同一 16x16 占位，无对应官方尺寸/通道/mip/atlas/像素语义；298 个 sidecar 也仅是占位且不进入 runtime | **B4** |
 | Text/Font runtime | `L3` | CoreText 静态栅格、direct property 动态重栅格和部分 font/pointsize/padding/scale；结构门 `79/108` | time/SceneScript/system/media text、Windows baseline/fallback、outline/shadow/effect | B4/B5 |
 | Camera Parallax | `L3` | 仅作者开启且非零 depth 时启用，含层级传播/阻断 | WE 数值 golden、camera shake/zoom、3D camera | B5 |
 | User Properties | `L3` | 独立窗口、条件、持久化、PNG/JPEG `sceneTexture`；layer alpha、纯 solid color、direct text、strict Local Contrast/Opacity 与受限 X-Ray target 已无重建 live 更新 | unsupported/mixed/SceneScript bindings、Texture Variants、shortcut、跨重启 UI 门；精确 census 见 runtime-input 专项表 | **B0/B1** |

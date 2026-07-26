@@ -74,32 +74,32 @@ class SceneStockTextureResolverTests(unittest.TestCase):
         )
         return json.loads(completed.stdout)
 
-    def test_catalog_aliases_resolve_to_exact_png_paths(self) -> None:
+    def test_catalog_aliases_resolve_to_exact_tex_paths(self) -> None:
         references = [
             "particle/fire/fire1",
             r"Materials\Particle\Fire\Fire1.TEX",
-            "assets/materials/particle/fire/fire1.png",
+            "assets/materials/particle/fire/fire1.tex",
             "materials/lut/neutral.tex",
             "effects/waterflow/preview/materials/effects/waterflowphase",
         ]
         paths = self.run_harness(references)
-        fire = str(BUNDLE_ROOT / "assets/materials/particle/fire/fire1.png")
+        fire = str(BUNDLE_ROOT / "assets/materials/particle/fire/fire1.tex")
         self.assertEqual(paths["particle/fire/fire1"], fire)
         self.assertEqual(paths[r"Materials\Particle\Fire\Fire1.TEX"], fire)
-        self.assertEqual(paths["assets/materials/particle/fire/fire1.png"], fire)
+        self.assertEqual(paths["assets/materials/particle/fire/fire1.tex"], fire)
         self.assertEqual(
             paths["materials/lut/neutral.tex"],
-            str(BUNDLE_ROOT / "assets/materials/lut/neutral.png"),
+            str(BUNDLE_ROOT / "assets/materials/lut/neutral.tex"),
         )
         self.assertEqual(
             paths["effects/waterflow/preview/materials/effects/waterflowphase"],
             str(
                 BUNDLE_ROOT
-                / "assets/effects/waterflow/preview/materials/effects/waterflowphase.png"
+                / "assets/effects/waterflow/preview/materials/effects/waterflowphase.tex"
             ),
         )
 
-    def test_all_catalog_official_paths_resolve_to_project_pngs(self) -> None:
+    def test_all_catalog_official_paths_resolve_to_project_tex_files(self) -> None:
         catalog = json.loads((BUNDLE_ROOT / "texture-catalog.json").read_text())
         references = [entry["official_path"] for entry in catalog["textures"]]
         paths = self.run_harness(references)

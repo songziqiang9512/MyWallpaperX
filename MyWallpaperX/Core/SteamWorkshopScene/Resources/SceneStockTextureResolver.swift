@@ -104,16 +104,13 @@ nonisolated struct SceneStockTextureResolver: Sendable {
     }
 
     private static func removingTextureExtension(from path: String) -> String {
-        for suffix in [".tex", ".png"] where path.hasSuffix(suffix) {
-            return String(path.dropLast(suffix.count))
-        }
-        return path
+        path.hasSuffix(".tex") ? String(path.dropLast(".tex".count)) : path
     }
 
     private static func isSafeCatalogPath(_ path: String) -> Bool {
         guard let normalized = normalizedReference(path),
               normalized.hasPrefix("assets/"),
-              normalized.hasSuffix(".png") else {
+              normalized.hasSuffix(".tex") else {
             return false
         }
         return true

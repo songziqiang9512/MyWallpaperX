@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import sys
 import tempfile
 import unittest
@@ -35,11 +36,14 @@ class SceneStockTextureCatalogTests(unittest.TestCase):
             fire.write_bytes(b"official-fire-payload")
             white.write_bytes(b"official-white-payload")
             Path(f"{fire}-json").write_text('{"format":"r8"}')
+            orphan = source / "assets/materials/util/orphan.tex-json"
+            orphan.write_text('{"format":"rg88"}')
             output = root / "SceneStockTextures.bundle"
 
             catalog = generator.build_catalog(source, PLACEHOLDER, output, "23967692")
 
             self.assertEqual(catalog["texture_count"], 2)
+            self.assertEqual(catalog["sidecar_count"], 2)
             self.assertEqual(catalog["wallpaper_engine_version"], "2.8.42")
             self.assertEqual(catalog["category_counts"], {
                 "assets/materials/particle": 1,
@@ -47,13 +51,27 @@ class SceneStockTextureCatalogTests(unittest.TestCase):
             })
             self.assertTrue(catalog["textures"][0]["official_sidecar_present"])
             self.assertFalse(catalog["textures"][1]["official_sidecar_present"])
+            placeholder_tex = generator.placeholder_tex_bytes(PLACEHOLDER.read_bytes())
             self.assertEqual(
-                (output / "assets/materials/particle/fire/fire1.png").read_bytes(),
-                PLACEHOLDER.read_bytes(),
+                (output / "assets/materials/particle/fire/fire1.tex").read_bytes(),
+                placeholder_tex,
             )
+            self.assertTrue(placeholder_tex.startswith(b"TEXV0005\0TEXI0001\0"))
             self.assertNotIn(b"official-fire-payload", b"".join(
-                path.read_bytes() for path in output.rglob("*.png")
+                path.read_bytes() for path in output.rglob("*.tex")
             ))
+            self.assertEqual(
+                (output / "assets/materials/particle/fire/fire1.tex-json").read_bytes(),
+                generator.SIDECAR_PLACEHOLDER_BYTES,
+            )
+            self.assertEqual(
+                (output / "assets/materials/util/orphan.tex-json").read_bytes(),
+                generator.SIDECAR_PLACEHOLDER_BYTES,
+            )
+            self.assertEqual(
+                [entry["corresponding_texture_present"] for entry in catalog["sidecars"]],
+                [True, False],
+            )
 
     def test_checked_in_catalog_matches_the_bundled_placeholder_tree(self) -> None:
         catalog = json.loads(
@@ -63,19 +81,38 @@ class SceneStockTextureCatalogTests(unittest.TestCase):
         self.assertEqual(catalog["wallpaper_engine_version"], "2.8.42")
         self.assertEqual(catalog["steam_build_id"], "23967692")
         self.assertEqual(catalog["texture_count"], 311)
+        self.assertEqual(catalog["sidecar_count"], 298)
         self.assertEqual(catalog["category_counts"]["assets/materials/particle"], 164)
         self.assertTrue(catalog["mapping"]["runtime_consumed"])
-        placeholder_hash = generator.sha256(BUNDLE_ROOT / "placeholder.png")
+        placeholder_hash = hashlib.sha256(
+            generator.placeholder_tex_bytes(PLACEHOLDER.read_bytes())
+        ).hexdigest()
         self.assertEqual(catalog["placeholder_sha256"], placeholder_hash)
+        self.assertEqual(catalog["mapping"]["project_extension"], ".tex")
 
         project_paths = [entry["project_path"] for entry in catalog["textures"]]
         self.assertEqual(len(project_paths), len(set(project_paths)))
-        self.assertIn("assets/materials/particle/fire/fire1.png", project_paths)
-        self.assertIn("assets/materials/lut/neutral.png", project_paths)
+        self.assertIn("assets/materials/particle/fire/fire1.tex", project_paths)
+        self.assertIn("assets/materials/lut/neutral.tex", project_paths)
+        self.assertEqual(
+            project_paths,
+            [entry["official_path"] for entry in catalog["textures"]],
+        )
+        self.assertEqual(list((BUNDLE_ROOT / "assets").rglob("*.png")), [])
         for path in project_paths:
             candidate = BUNDLE_ROOT / path
             self.assertTrue(candidate.is_file(), path)
             self.assertEqual(generator.sha256(candidate), placeholder_hash, path)
+
+        sidecar_paths = [entry["project_path"] for entry in catalog["sidecars"]]
+        self.assertEqual(len(sidecar_paths), len(set(sidecar_paths)))
+        self.assertEqual(len(sidecar_paths), 298)
+        sidecar_hash = hashlib.sha256(generator.SIDECAR_PLACEHOLDER_BYTES).hexdigest()
+        self.assertEqual(catalog["sidecar_placeholder_sha256"], sidecar_hash)
+        for path in sidecar_paths:
+            candidate = BUNDLE_ROOT / path
+            self.assertTrue(candidate.is_file(), path)
+            self.assertEqual(generator.sha256(candidate), sidecar_hash, path)
 
 
 if __name__ == "__main__":
