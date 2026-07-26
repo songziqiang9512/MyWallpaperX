@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
   "sample_root": ".codex/scene-user-samples-20260722/Scene",
-  "runtime_homes": ".codex/scene-static-origin-full45-20260725/runtime-homes",
-  "report": ".codex/scene-static-origin-full45-20260725/report.json"
+  "runtime_homes": ".codex/scene-nested-child-full45-20260727/runtime-homes",
+  "report": ".codex/scene-nested-child-full45-20260727/report.json"
 }

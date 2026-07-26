@@ -2,13 +2,13 @@
 
 > 状态：现役系统汇总；逐项等级以各专项能力表为准
 >
-> 最近核对：2026-07-26
+> 最近核对：2026-07-27
 >
-> Scene 实现基线：`678a052` 加当前 stock 资产批次（Puppet bind-pose mesh `8bac86e`，静态 MDAT attachment `49ee89a`，严格单 clip MDLA/LBS 播放 `f1ee79b`；strict particle eventspawn/natural-eventdeath `f4173ea`/`7d53c10`、eventfollow `928acca`、持续 child `2f897bc`、static child `899704b` 与有限 static origin `678a052`；22-key 程序纹理 registry 作为 bundle 缺失回退；919 个播放候选物理路径中有 223 TEX，particle 164 项已直接按官方路径查找；15 个 stock 字体也已合并到同一 bundle；非音频 turbulent velocity `4a17ee6`；超预算/多 image BC 颜色归一 `18d0056`）
+> Scene 实现基线：`b86db59`（Puppet bind-pose mesh `8bac86e`，静态 MDAT attachment `49ee89a`，严格单 clip MDLA/LBS 播放 `f1ee79b`；strict particle eventspawn/natural-eventdeath `f4173ea`/`7d53c10`、eventfollow `928acca`、持续 child `2f897bc`、static child `899704b`、有限 static origin `678a052` 与 strict depth-two nested child/per-depth 预算 `b86db59`；22-key 程序纹理 registry 作为 bundle 缺失回退；919 个播放候选物理路径中有 223 TEX 真实素材，particle 164 项已直接按官方路径查找；15 个 stock 字体也已合并到同一 bundle；非音频 turbulent velocity `4a17ee6`；超预算/多 image BC 颜色归一 `18d0056`）
 >
-> 当前完整快照门：`.codex/scene-static-origin-full45-20260725/report.json`；当前源码固定回归门：`.codex/scene-static-origin-fixed13-20260725/report.json`；static-origin 定向门：`.codex/scene-static-origin-targeted-20260725/report.json`
+> 当前完整快照门：`.codex/scene-nested-child-full45-20260727/report.json`；当前源码固定回归门：`.codex/scene-nested-child-fixed13-20260727/report.json`；历史 static-origin 定向门：`.codex/scene-static-origin-targeted-20260725/report.json`
 >
-> 最新运行门：`678a052` 的真实目录 45 个可运行样本完整快照 45/45、particle 101/131；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 13/13、particle 19/27，static-origin 定向门 1/1、particle 17/19；这些历史门仍单独保留且不能互相替代。当前 stock 资产批次的固定门本机仅 6/13 样本可用，六个均完成运行、image 82/82、particle 11/13、sample-root residue 0，且无 `builtInTextureUnavailable`/`textureLoadFailed`；但矩阵 interpretation v25 与当前 v29 及 `2902406982` strict graph 断言过期，不能宣称固定门 PASS。此前 20/22-key 的 unavailable census 保留为接 bundle 前历史，不代表当前路径可达性。完整 Scene suite 435 项：433 通过、2 项跳过；代码健康 453 Swift files、44 个锁定历史文件、400 行上限；语义覆盖 11/11；签名 Debug 构建和 `codesign --deep --strict` 通过。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：`b86db59` 以真实目录重建 45 样本隔离副本，完整矩阵合同刷新到 interpretation v29 后完整快照 44/45、particle 110/131；唯一失败为 `3743305891` 的 masked Opacity layer 23（`20dc036` 遮罩消费批次引入、feat 前构建复现一致、与 particle 无关，独立核查中）；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 PASS 13/13、particle 66/76。历史 static-origin 定向门 1/1、particle 17/19 按当时口径保留；`3088601835` 当前为 19/19。完整 Scene suite 86 模块：字体替代断言 5 项既有失败独立处理中，其余全部通过；代码健康 456 Swift files、44 个锁定历史文件、400 行上限；语义覆盖 11/11；签名 Debug 构建和 `codesign --deep --strict` 通过。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -116,8 +116,8 @@
 | Static control-point subset | `L2` | static local offset/instance override 有分支；缺最终位置断言 | emitter 位置、空间与 parent golden |
 | Dynamic control-point declaration | `L1` | 可识别或诊断 object/cursor/script 需求 | typed target 和 binding IR |
 | Dynamic control-point execution | `L0` | 无 object/cursor/script runtime | 坐标转换与每帧更新 |
-| Child asset graph | `L3` | 可递归发现并为 strict depth-one event child 建立 runtime template；missing/cycle/nested fail closed | runtime cycle lifecycle、depth/total budget |
-| Child execution/events | `L3` | deterministic birth/natural-death queue；strict static/default-static child 在有限 authored local origin 创建一次，仍要求零 angles、单位 scale、无 CP、probability=1；`eventspawn`、natural-`eventdeath` 与 identity/no-CP `eventfollow` strict child 独立模拟、绘制、跟随和回收；Sphere/Box child 可执行 instantaneous、continuous rate、混合发射与有限/无限 duration，每 system 1,024 粒子、每 root runtime 64 systems/65,536 capacity | static angles/scale、event transform、collision/delete、CP/value inheritance、nested child、跨层/递归总预算 |
+| Child asset graph | `L3` | 可递归发现并为 strict child 建立 runtime template 至层级 2：depth-one 每声明一个 template，depth-two 仅 event 触发且按 parent asset path 去重展开一次；missing/cycle/depth-three/nested-static fail closed | runtime cycle lifecycle、depth-two static 语义与 teardown 压力门 |
+| Child execution/events | `L3` | deterministic birth/natural-death queue；strict static/default-static child 在有限 authored local origin 创建一次，仍要求零 angles、单位 scale、无 CP、probability=1，且目标定义自身含 event children 时不再被 nested 阻断；`eventspawn`、natural-`eventdeath` 与 identity/no-CP `eventfollow` strict child 独立模拟、绘制、跟随和回收，depth-two event child 以 (parent system, 粒子) 为 owner、事件跨层按帧串行传播；每 system 1,024 粒子，每 root runtime 每深度 64 systems、跨两层 128 systems/131,072 capacity | static angles/scale、event transform、collision/delete、CP/value inheritance、depth-two static、stop/switch 压力门 |
 | Built-in textures | `L3` | 20 个精确 key；`particle/fire/fire1`、`particle/light/light_shafts_0`、Flare 三纹理、`particle/nature/snow` 与 `particle/smoke/smoke2` 等为项目自建确定性遮罩，不等于官方资产 | `rain_drops_sheet` 等剩余高频 key、atlas metadata、多纹理 material |
 | World-space declaration | `L1` | 明确 `worldSpaceUnsupported` | 不能冒充执行 |
 | World-space execution | `L0` | 无 camera/parent transform runtime | 多屏和 parent 语义 |
@@ -134,7 +134,7 @@
 | Turbulent velocity initializer | `L3` | 非音频 profile 消费 forward/right/up、phase、scale、time 与 speed range；audio fail closed | Windows WE 固定 seed 数值/视觉 golden 与 injectable audio snapshot |
 | Delta clamp/prewarm cap | `L2` | 代码有上限分支，缺定向预算断言 | 长帧和高 prewarm 压力门 |
 
-当前固定矩阵可见粒子为 `19/27`，完整矩阵为 `101/131`（REFRACT 材质层 fail closed 不计入）；`3088601835` 为 `17/19`，其中 Snow root layers `513/534` 已执行，static `snowstormfog` child 也已由真实缓存门确认在两层生成实例。child 不增加 root loaded-layer 计数，因此矩阵分数保持 `17/19`。`3769364482` 的 torch 为 `2/2`、`3757555836` 的 candle 为 `1/1`，固定门 `3724289844` 的 Sakura 为 `5/5`，`3750813609` 是 `7/9`，后者另外两层因 world-space 不支持而保持 fail closed。这些数字只度量对应矩阵实际加载的 layer，不代表粒子组件覆盖率。
+当前固定矩阵可见粒子为 `66/76`，完整矩阵为 `110/131`（REFRACT 材质层 fail closed 不计入）；`3088601835` 为 `19/19`，其中 Snow root layers `513/534` 已执行，static `snowstormfog` child 也已由真实缓存门确认在两层生成实例，matrix-code 两层随 `b86db59` 解除 nested 阻断进入执行。child 不增加 root loaded-layer 计数。`3769364482` 为 `3/3`、`3757555836` 为 `7/7`、`2974757317` 为 `3/3`（含 matrix 头层 85705），`3750813609` 是 `7/9`，后者另外两层因 world-space 不支持而保持 fail closed；`3724289844` 已不在当前真实目录。这些数字只度量对应矩阵实际加载的 layer，不代表粒子组件覆盖率。
 
 ## 6. 动态运行系统覆盖
 
@@ -242,7 +242,7 @@
 | **B5 Fidelity** | `S2-S4` 广度完成后 | 字体、视差、粒子、常用 Effect 与 WE Windows golden 对齐 | 固定输入逐像素/数值阈值、性能预算、长稳和多屏门 |
 | **Advanced** | `S5` | Puppet、2D light/HDR、3D、arbitrary custom shader、RGB、offline bake | 每个系统有完整 IR/runtime/lifecycle/product gate 后再升级 |
 
-研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、B2 ordered strict chain、Workshop Shadow、stock Opacity、exact stock Shake/Foliage Sway/Water Ripple/Water Waves/Water Flow/X-Ray、同帧 copy/swap foundation、受限 history seed/clear、Precise Blur 两种 material-command interleave 与 exact legacy compose 归一化已合龙；20 个精确 built-in 粒子纹理、非音频 turbulent velocity、strict depth-one static/default-static/eventspawn/natural-eventdeath/eventfollow child、持续/混合/duration child emitter、root child aggregate budget、有限 static origin translation，以及超预算/多 image BC1/2/3 的 GPU premultiply 与静态首帧 fallback 已进入公共 runtime。非 exact Water Waves/Foliage Sway/Water Ripple 的 legacy inline 仍受原有唯一 Effect 或单 profile 边界约束，mixed/repeated unsupported declarations fail closed；X-Ray 受限前缀明确省略后续 unsupported effect。当前完整门为 91 stage/15 chain/0 failed，固定门为 24 stage/2 chain/0 failed；超出默认 96 MiB 纹理预算的长链在规划阶段拒绝。隔离 45 样本 census 记录 static/default-static 119 条，其中 14 条 identity declaration 与 `snowstormfog` 有限 origin declaration 已执行，其余 104 条 non-identity static 先受 nested profile 阻断；collision/delete、inherit-value 与非空 child CP mapping 均为 0。两条 event scale probe 分别被 world-space root 与 world-space Rope Trail root 阻断，没有新增执行层；下一代码批处理 nested ownership、递归深度与跨层总预算。`2998757800` 的右下亮边不随 `fog1` 透明化消失，不提交 fog 调暗或样本 ID 比例特判。样本自带 preview 是当前第一视觉依据，WaifuX MP4 只作辅助动态参考，均不能替代 Windows WE 动态/像素 golden。
+研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、B2 ordered strict chain、Workshop Shadow、stock Opacity、exact stock Shake/Foliage Sway/Water Ripple/Water Waves/Water Flow/X-Ray、同帧 copy/swap foundation、受限 history seed/clear、Precise Blur 两种 material-command interleave 与 exact legacy compose 归一化已合龙；20 个精确 built-in 粒子纹理、非音频 turbulent velocity、strict static/default-static/eventspawn/natural-eventdeath/eventfollow child（`b86db59` 起层级 ≤ 2，depth-two 仅 event 触发、per-depth 64/跨两层 128 systems 预算）、持续/混合/duration child emitter、root child aggregate budget、有限 static origin translation，以及超预算/多 image BC1/2/3 的 GPU premultiply 与静态首帧 fallback 已进入公共 runtime。非 exact Water Waves/Foliage Sway/Water Ripple 的 legacy inline 仍受原有唯一 Effect 或单 profile 边界约束，mixed/repeated unsupported declarations fail closed；X-Ray 受限前缀明确省略后续 unsupported effect。当前完整门为 91 stage/15 chain/0 failed，固定门为 24 stage/2 chain/0 failed；超出默认 96 MiB 纹理预算的长链在规划阶段拒绝。隔离 45-home 缓存 census 确认语料最深 authored child 链为两层（matrix spawner -> static head -> eventfollow trail），depth-two 声明全部为 identity eventfollow、probability 1；`b86db59` 据此解除 matrix spawner static 声明的 nested 阻断并执行 depth-two event child，26 样本 census 门锁定 maximumChildDepth 2、63 条 nested 声明，collision/delete、inherit-value 与非空 child CP mapping 仍为 0。两条 event scale probe 分别被 world-space root 与 world-space Rope Trail root 阻断，没有新增执行层；下一代码批接通 sidecar metadata 与 spritesheet 序列帧 consumer。`2998757800` 的右下亮边不随 `fog1` 透明化消失，不提交 fog 调暗或样本 ID 比例特判。样本自带 preview 是当前第一视觉依据，WaifuX MP4 只作辅助动态参考，均不能替代 Windows WE 动态/像素 golden。
 
 ## 9. 更新规则
 

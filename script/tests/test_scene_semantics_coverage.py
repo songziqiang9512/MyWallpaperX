@@ -400,7 +400,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         for path in current_state_documents:
             text = document_text[path]
             self.assertIn(
-                "`678a052`",
+                "`b86db59`",
                 text,
                 f"Current Scene entrypoint is missing the current implementation: {path}",
             )
@@ -419,9 +419,8 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             )
 
         report_paths = (
-            ".codex/scene-static-origin-full45-20260725/report.json",
-            ".codex/scene-static-origin-fixed13-20260725/report.json",
-            ".codex/scene-static-origin-targeted-20260725/report.json",
+            ".codex/scene-nested-child-full45-20260727/report.json",
+            ".codex/scene-nested-child-fixed13-20260727/report.json",
         )
         for path in current_state_documents:
             for report_path in report_paths:
@@ -437,7 +436,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         self.assertIn("### E-EFFECT-OPACITY:", evidence)
         self.assertIn("### E-EFFECT-SHAKE:", evidence)
         self.assertIn("### E-EFFECT-XRAY:", evidence)
-        self.assertIn("strict depth-one eventspawn/natural-eventdeath child", evidence)
+        self.assertIn("strict eventspawn/natural-eventdeath child", evidence)
         self.assertIn("strict static/default-static child", evidence)
         self.assertIn("`4e64232`", evidence)
         self.assertIn(
@@ -455,7 +454,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             "### E-GRAPH-LEGACY-COMPOSE: exact Blur Precise legacy two-pass normalization",
             evidence,
         )
-        self.assertIn("完整 Scene suite 435 项：433 通过、2 跳过", evidence)
+        self.assertIn("完整 Scene suite 86 模块：字体替代断言 5 项既有失败独立处理中", evidence)
         self.assertIn("Water Flow 10、Water Waves 11、Shake 24", evidence)
         self.assertIn("comparison_scope=same-sample-change-only", evidence)
         self.assertIn("cross_sample_ranking=false", evidence)

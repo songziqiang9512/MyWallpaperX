@@ -171,7 +171,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         }.issubset(samples))
         self.assertNotIn("3770500543", samples)
         for sample in samples.values():
-            self.assertEqual(sample["expected_interpretation_format"], 25)
+            self.assertEqual(sample["expected_interpretation_format"], 29)
             self.assertRegex(sample["project_sha256"], r"^[0-9a-f]{64}$")
             self.assertRegex(sample["package_sha256"], r"^[0-9a-f]{64}$")
             self.assertRegex(
@@ -209,10 +209,10 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(
             samples["2470144420"]["required_particle_loaded_layer_ids"],
-            [106],
+            [106, 128],
         )
         self.assertEqual(
-            samples["3769688830"]["required_particle_loaded_layer_ids"],
+            sorted(samples["3769688830"]["required_particle_loaded_layer_ids"]),
             [354, 761, 1214, 1427],
         )
 

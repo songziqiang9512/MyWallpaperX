@@ -31,7 +31,7 @@ class SceneRealTestFixturesTests(unittest.TestCase):
             root,
             (
                 fixtures.REPOSITORY_ROOT
-                / ".codex/scene-static-origin-full45-20260725/runtime-homes"
+                / ".codex/scene-nested-child-full45-20260727/runtime-homes"
             ).resolve(),
         )
 
