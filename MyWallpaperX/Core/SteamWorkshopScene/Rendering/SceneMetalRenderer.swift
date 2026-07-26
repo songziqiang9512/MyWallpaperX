@@ -151,8 +151,7 @@ struct SceneMetalRenderer {
             orthoSize: SIMD2(
                 camera.orthoWidth ?? Float(viewportSize.width),
                 camera.orthoHeight ?? Float(viewportSize.height)
-            ),
-            cameraEyeOffset: SIMD2(camera.eye, fill: 0)
+            )
         )
         let orderedLayers = renderDescriptor.renderOrderLayerIDs.compactMap { layersByID[$0] }
         let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)

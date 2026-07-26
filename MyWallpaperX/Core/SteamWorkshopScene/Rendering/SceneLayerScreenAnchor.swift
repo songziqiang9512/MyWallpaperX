@@ -16,7 +16,6 @@ nonisolated enum SceneLayerScreenAnchor {
     nonisolated static func offset(
         anchor: String?,
         orthoSize: SIMD2<Float>,
-        cameraEyeOffset: SIMD2<Float>,
         visibleHalfExtents: SIMD2<Float>
     ) -> SIMD2<Float> {
         guard let factors = factors(anchor),
@@ -27,7 +26,7 @@ nonisolated enum SceneLayerScreenAnchor {
         }
         let designHalf = orthoSize * 0.5
         let designAnchor = designHalf + factors * designHalf
-        let visibleAnchor = designHalf + cameraEyeOffset + factors * visibleHalfExtents
+        let visibleAnchor = designHalf + factors * visibleHalfExtents
         let shift = visibleAnchor - designAnchor
         guard shift.x.isFinite, shift.y.isFinite else { return .zero }
         return shift

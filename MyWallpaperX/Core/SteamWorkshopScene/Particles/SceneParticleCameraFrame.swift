@@ -22,7 +22,6 @@ struct SceneParticleCameraFrame: Sendable {
 
         let orthoWidth = camera.orthoWidth ?? Float(viewportSize.width)
         let orthoHeight = camera.orthoHeight ?? Float(viewportSize.height)
-        let centerOffset = SIMD3<Float>(camera.center, fill: 0)
         let hasValidViewport = viewportSize.width > 0 && viewportSize.height > 0
         let hasValidScene = orthoWidth.isFinite && orthoHeight.isFinite
             && orthoWidth > 0 && orthoHeight > 0
@@ -39,8 +38,7 @@ struct SceneParticleCameraFrame: Sendable {
         coverHalfExtents = SceneCameraProjection.coverHalfExtents(
             orthoWidth: orthoWidth,
             orthoHeight: orthoHeight,
-            viewportSize: viewportSize,
-            centerOffset: centerOffset
+            viewportSize: viewportSize
         )
 
         let sceneCenter = SIMD3<Float>(orthoWidth * 0.5, orthoHeight * 0.5, 0)

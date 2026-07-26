@@ -52,7 +52,6 @@ struct SceneRenderDescriptor {
 enum Harness {
     static let ortho = SIMD2<Float>(343, 193)
     // dino_run 的 camera：eye (0,0,0)、center (0,0,-1)、up (0,1,0)。
-    static let centerOffset = SIMD3<Float>(0, 0, -1)
     static let camera = SceneRenderDescriptor.CameraDescriptor(
         eye: [0, 0, 0], center: [0, 0, -1], up: [0, 1, 0],
         orthoWidth: 343, orthoHeight: 193, nearZ: 0.01, farZ: 10_000
@@ -68,7 +67,7 @@ enum Harness {
         for anchor in anchors {
             table[anchor] = vector(SceneLayerScreenAnchor.offset(
                 anchor: anchor, orthoSize: ortho,
-                cameraEyeOffset: .zero, visibleHalfExtents: SIMD2(100, 50)
+                visibleHalfExtents: SIMD2(100, 50)
             ))
         }
 
@@ -81,27 +80,23 @@ enum Harness {
             "table": table,
             "uppercase": vector(SceneLayerScreenAnchor.offset(
                 anchor: "TopRight", orthoSize: ortho,
-                cameraEyeOffset: .zero, visibleHalfExtents: SIMD2(100, 50)
+                visibleHalfExtents: SIMD2(100, 50)
             )),
             "missing": vector(SceneLayerScreenAnchor.offset(
                 anchor: nil, orthoSize: ortho,
-                cameraEyeOffset: .zero, visibleHalfExtents: SIMD2(100, 50)
+                visibleHalfExtents: SIMD2(100, 50)
             )),
             "unknown": vector(SceneLayerScreenAnchor.offset(
                 anchor: "middleright", orthoSize: ortho,
-                cameraEyeOffset: .zero, visibleHalfExtents: SIMD2(100, 50)
+                visibleHalfExtents: SIMD2(100, 50)
             )),
             "degenerateOrtho": vector(SceneLayerScreenAnchor.offset(
                 anchor: "topright", orthoSize: .zero,
-                cameraEyeOffset: .zero, visibleHalfExtents: SIMD2(100, 50)
+                visibleHalfExtents: SIMD2(100, 50)
             )),
             "degenerateViewport": vector(SceneLayerScreenAnchor.offset(
                 anchor: "topright", orthoSize: ortho,
-                cameraEyeOffset: .zero, visibleHalfExtents: .zero
-            )),
-            "cameraOffset": vector(SceneLayerScreenAnchor.offset(
-                anchor: "center", orthoSize: ortho,
-                cameraEyeOffset: SIMD2(12, -8), visibleHalfExtents: SIMD2(100, 50)
+                visibleHalfExtents: .zero
             )),
             "widescreen": margins(width: 1_920, height: 1_080),
             "sixteenTen": margins(width: 1_920, height: 1_200),
@@ -117,12 +112,11 @@ enum Harness {
         let half = SceneCameraProjection.coverHalfExtents(
             orthoWidth: ortho.x,
             orthoHeight: ortho.y,
-            viewportSize: CGSize(width: width, height: height),
-            centerOffset: centerOffset
+            viewportSize: CGSize(width: width, height: height)
         )
         let offset = SceneLayerScreenAnchor.offset(
             anchor: "topright", orthoSize: ortho,
-            cameraEyeOffset: .zero, visibleHalfExtents: half
+            visibleHalfExtents: half
         )
         let sceneCenter = ortho * 0.5
         let visibleMaxX = sceneCenter.x + half.x
@@ -233,11 +227,11 @@ enum Harness {
     static func labelMVP(anchor: String, viewportSize: CGSize) -> simd_float4x4 {
         let half = SceneCameraProjection.coverHalfExtents(
             orthoWidth: ortho.x, orthoHeight: ortho.y,
-            viewportSize: viewportSize, centerOffset: centerOffset
+            viewportSize: viewportSize
         )
         let shift = SceneLayerScreenAnchor.offset(
             anchor: anchor, orthoSize: ortho,
-            cameraEyeOffset: .zero, visibleHalfExtents: half
+            visibleHalfExtents: half
         )
         let world = SceneMatrix.translation(SIMD3(341.42999, 193 - 185.129, 0))
             * SceneMatrix.scale(SIMD3(repeating: 0.057))
@@ -349,7 +343,6 @@ class SceneLayerScreenAnchorTests(unittest.TestCase):
         self.assert_close(self.result["degenerateOrtho"], (0, 0))
         self.assert_close(self.result["degenerateViewport"], (0, 0))
         # 屏幕锚定跟随相机，所以 center 锚点的偏移就是相机偏移本身。
-        self.assert_close(self.result["cameraOffset"], (12, -8))
 
     def test_dino_run_score_label_keeps_its_corner_margin_across_aspects(self) -> None:
         # 作者宽高比（16:9）下偏移几乎为零：完全保留作者摆位。

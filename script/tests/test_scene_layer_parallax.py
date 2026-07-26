@@ -31,11 +31,11 @@ enum Harness {
         ]
         let configuration = SceneLayerParallax.Configuration(
             enabled: true, amount: 0.1, mouseInfluence: 0.5,
-            orthoSize: SIMD2(1000, 500), cameraEyeOffset: .zero
+            orthoSize: SIMD2(1000, 500)
         )
         let disabled = SceneLayerParallax.Configuration(
             enabled: false, amount: 1, mouseInfluence: 1,
-            orthoSize: SIMD2(1000, 500), cameraEyeOffset: .zero
+            orthoSize: SIMD2(1000, 500)
         )
         let center = SIMD2<Float>(500, 250)
         let depth = SceneLayerParallax.Resolution(sourceLayerID: 99, depth: SIMD2(2, 3))

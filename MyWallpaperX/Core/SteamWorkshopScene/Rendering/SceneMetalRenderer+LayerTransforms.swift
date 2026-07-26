@@ -20,7 +20,6 @@ extension SceneMetalRenderer {
         let screenAnchor = SceneLayerScreenAnchor.offset(
             anchor: layer.textStyle?.screenAnchor,
             orthoSize: configuration.orthoSize,
-            cameraEyeOffset: configuration.cameraEyeOffset,
             visibleHalfExtents: visibleHalfExtents
         )
         let shift = parallax + screenAnchor
