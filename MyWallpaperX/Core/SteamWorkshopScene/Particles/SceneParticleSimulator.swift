@@ -16,7 +16,8 @@ nonisolated struct SceneParticleSimulator: Sendable {
     private(set) var simulationTime = 0.0
 
     private let definition: SceneParticleDefinition
-    private let instanceOverride: SceneParticleInstanceOverride?
+    let instanceOverride: SceneParticleInstanceOverride?
+    private let emissionDeadline: Double?
     private var emitters: [EmitterState]
     private var random: SceneParticleRandomGenerator
     private var accumulator = 0.0
@@ -27,10 +28,12 @@ nonisolated struct SceneParticleSimulator: Sendable {
         instanceOverride: SceneParticleInstanceOverride? = nil,
         seed: UInt64 = 0,
         fixedTimeStep: Double = 1.0 / 60.0,
-        particleBudget: Int? = nil
+        particleBudget: Int? = nil,
+        emissionDeadline: Double? = nil
     ) {
         self.definition = definition
         self.instanceOverride = instanceOverride
+        self.emissionDeadline = emissionDeadline
         self.fixedTimeStep = fixedTimeStep.isFinite && fixedTimeStep > 0 ? fixedTimeStep : 1.0 / 60.0
         let authoredMaximum = min(max(definition.maximumCount ?? 1, 0), 20_000)
         maximumParticleCount = min(authoredMaximum, max(particleBudget ?? authoredMaximum, 0))
@@ -91,6 +94,8 @@ nonisolated struct SceneParticleSimulator: Sendable {
             count = max(0, emitter.instantaneousCount ?? 0)
             emitters[index].emittedInstantaneous = true
         } else {
+            // Event-child rate emission ends at the bounded window; bursts already fired.
+            if let deadline = emissionDeadline, simulationTime + 1e-12 >= deadline { return }
             let authoredRate = emitter.rate ?? 5
             let scaledRate = (authoredRate.isFinite ? authoredRate : 0)
                 * max(0, overrideScalar(instanceOverride?.count)) * rateScale
@@ -171,21 +176,6 @@ nonisolated struct SceneParticleSimulator: Sendable {
                 break
             }
         }
-    }
-
-    private nonisolated func applyInstanceOverride(to particle: inout SceneParticleState) {
-        guard let value = instanceOverride else { return }
-        particle.lifetime *= overrideScalar(value.lifetime)
-        particle.alpha *= overrideScalar(value.alpha)
-        particle.size *= overrideScalar(value.size)
-        particle.velocity *= overrideScalar(value.speed)
-        if let color = overrideVector(value.color) {
-            let normalized = color / 255
-            particle.color = normalized * normalized
-        } else if let color = overrideVector(value.normalizedColor) {
-            particle.color = color * color
-        }
-        particle.color *= overrideScalar(value.brightness)
     }
 
     private nonisolated mutating func updateParticle(at index: Int, duration: Double) {
@@ -385,16 +375,6 @@ nonisolated struct SceneParticleSimulator: Sendable {
             result += SceneParticleSimulationMath.vector(override.value, fallback: .zero)
         }
         return result
-    }
-
-    private nonisolated func overrideScalar(_ value: SceneParticleBoundValue?) -> Double {
-        let result = SceneParticleSimulationMath.scalar(value?.value, fallback: 1)
-        return result.isFinite ? result : 1
-    }
-
-    private nonisolated func overrideVector(_ value: SceneParticleBoundValue?) -> SIMD3<Double>? {
-        guard value?.value != nil else { return nil }
-        return SceneParticleSimulationMath.vector(value?.value, fallback: .zero)
     }
 
 }

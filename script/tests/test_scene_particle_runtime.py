@@ -37,6 +37,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleAssetGraph.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulationSupport.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator.swift",
+    SOURCE_ROOT / "Particles/SceneParticleSimulator+InstanceOverride.swift",
     SOURCE_ROOT / "Particles/SceneParticleChildLifecycle.swift",
     SOURCE_ROOT / "Particles/SceneParticleChildTemplateSupport.swift",
     SOURCE_ROOT / "Particles/SceneParticleTrailRenderPlan.swift",
@@ -445,6 +446,17 @@ enum Harness {
             "particles/audio-child.json", material: "materials/shared.json",
             rate: 60, audioProcessingMode: 1, under: directory
         )
+        try writeParticle(
+            "particles/window-root.json", material: "materials/shared.json",
+            rate: 0, instantaneous: 1,
+            children: [[
+                "name": "particles/window-child.json", "type": "eventspawn",
+            ]], under: directory
+        )
+        try writeParticle(
+            "particles/window-child.json", material: "materials/shared.json",
+            lifetime: 2.0 / 60.0, rate: 60, under: directory
+        )
 
         let descriptor = SceneRenderDescriptor(
             layers: [
@@ -452,8 +464,9 @@ enum Harness {
                 layer(11, "particles/bounded-root.json"),
                 layer(12, "particles/budget-root.json"),
                 layer(13, "particles/audio-root.json"),
+                layer(14, "particles/window-root.json"),
             ],
-            renderOrderLayerIDs: [10, 11, 12, 13],
+            renderOrderLayerIDs: [10, 11, 12, 13, 14],
             materialPasses: [
                 .init(
                     materialPath: "materials/shared.json",
@@ -471,6 +484,7 @@ enum Harness {
         var childPositions: [Float] = []
         var boundedCounts: [Int] = []
         var budgetCounts: [Int] = []
+        var windowCounts: [Int] = []
         for _ in 0..<6 {
             let batches = runtime.advance(by: 1.0 / 60.0)
             let instances = batches.first {
@@ -486,8 +500,12 @@ enum Harness {
             budgetCounts.append(batches.first {
                 $0.particlePath == "particles/budget-child.json"
             }?.instances.count ?? 0)
+            windowCounts.append(batches.first {
+                $0.particlePath == "particles/window-child.json"
+            }?.instances.count ?? 0)
         }
         return [
+            "windowCounts": windowCounts,
             "childCounts": childCounts,
             "childPositions": childPositions,
             "boundedCounts": boundedCounts,
@@ -1147,6 +1165,15 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             "particles/audio-child.json:outsideStrictEventProfile",
             result["audioChildDetails"],
         )
+
+    def test_rate_only_event_children_stop_after_bounded_window(self) -> None:
+        result = self.run_harness("eventfollow-synthetic")
+        counts = result["windowCounts"]
+        # rate-only eventspawn child(无 duration)只允许一个有界 burst:
+        # 发射窗口 = 自身粒子最大寿命,粒子清空后系统回收,计数必须归零并保持。
+        self.assertGreaterEqual(max(counts), 1)
+        self.assertEqual(counts[-2:], [0, 0])
+        self.assertLess(counts.index(max(counts)), len(counts) - 2)
 
     def test_synthetic_nested_children_follow_depth_limit_and_budget(self) -> None:
         result = self.run_harness("nested-synthetic")

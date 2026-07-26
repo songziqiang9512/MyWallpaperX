@@ -340,20 +340,22 @@ final class SceneParticleChildRuntime {
             ^ (scopeID ?? 0) &* 0x94D0_49BB_1331_11EB
             ^ nextSeed
         nextSeed &+= 1
+        let completion = template.trigger == .follow
+            ? SceneParticleChildLifecycle.emissionCompletionTime(template.definition)
+            : SceneParticleChildLifecycle.eventEmissionWindow(template.definition)
         systems.append(System(
             id: nextSystemID,
             templateIndex: template.index,
             depth: template.depth,
             spawnScopeID: scopeID,
             parentParticleID: parentParticleID,
-            emissionCompletionTime: SceneParticleChildLifecycle.emissionCompletionTime(
-                template.definition
-            ),
+            emissionCompletionTime: completion,
             origin: origin,
             simulator: SceneParticleSimulator(
                 definition: template.definition,
                 seed: seed,
-                particleBudget: template.particleBudget
+                particleBudget: template.particleBudget,
+                emissionDeadline: template.trigger == .follow ? nil : completion
             )
         ))
         nextSystemID &+= 1
