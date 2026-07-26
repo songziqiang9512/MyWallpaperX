@@ -84,6 +84,11 @@ nonisolated struct SceneTimelineDiagnostic: Equatable {
     let code: Code
     /// 对应 lane 的 component 下标；整体性问题为 `nil`。
     let laneIndex: Int?
+
+    /// 报告用的稳定短标识，宿主前缀由聚合方补。
+    nonisolated var token: String {
+        laneIndex.map { "\(code.rawValue)@c\($0)" } ?? code.rawValue
+    }
 }
 
 nonisolated struct SceneTimelineParseResult: Equatable {

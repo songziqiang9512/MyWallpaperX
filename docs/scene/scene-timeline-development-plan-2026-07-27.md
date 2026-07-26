@@ -111,22 +111,25 @@ keyframe：
 
 宿主属性与现有写回通道的可达性：
 
-| 宿主 | 处数 | 现有 `SceneDynamicTarget` | 现有逐帧 consumer |
+| 宿主 JSON 路径 | 处数 | 现有 `SceneDynamicTarget` | 现有逐帧 consumer |
 |---|---:|---|---|
-| effect `constantshadervalues.*`（`multiply` 16、`alpha` 6、`rayintensity` 1） | **23** | `.effectConstant` ✓ | ✓ 已有 strict backend live 消费 |
-| layer `alpha` | **12** | `.layer(.alpha)` ✓ | ✓ `SceneDynamicLayerValues.alpha` 每帧读快照 |
-| layer `origin` / `angles` / `scale` | **10** | `.layer(.origin/.angles/.scale)` ✓ | ✗ `worldFramesByLayerID` 在 `SceneMetalRenderer.init` 一次性算好 |
-| text `maxwidth` | 2 | ✗ 无 | ✗ |
-| camera `zoom` | 1 | ✗ 无 | ✗ |
+| `objects.effects.passes.constantshadervalues.*`（`multiply` 16、`alpha` 6、`rayintensity` 1） | **23** | `.effectConstant` ✓ | ✓ 已有 strict backend live 消费 |
+| `objects.alpha` | **5** | `.layer(.alpha)` ✓ | ✓ `SceneDynamicLayerValues.alpha` 每帧读快照 |
+| `objects.origin` / `objects.angles` / `objects.scale` | **10** | `.layer(.origin/.angles/.scale)` ✓ | ✗ `worldFramesByLayerID` 在 `SceneMetalRenderer.init` 一次性算好 |
+| `objects.instanceoverride.alpha` | **7** | `.particle(field: .alpha)` ✓ | ✗ 粒子 key 当前整场重建 |
+| `objects.maxwidth` | 2 | ✗ 无 | ✗ |
+| `objects.zoom` | 1 | ✗ 无 | ✗ |
 
-**35 / 48（73%）的 Timeline 目标落在已有 live consumer 上**，这是批次划分的主要依据。
+**28 / 48（58%）的 Timeline 目标落在已有 live consumer 上**（effect constant 23 + layer alpha 5），这是批次划分的主要依据。
+
+必须按**完整 JSON 路径**而不是末段属性名归类：`alpha` 一名三用，分别挂在 layer 顶层（5 处）、effect constant（6 处）和粒子 `instanceoverride`（7 处），三者走完全不同的 target 与 consumer。
 
 逐样本分布（用于选门）：
 
 | 样本 | n | mode | 宿主 | 特征 |
 |---|---:|---|---|---|
-| `2998757800` | 7 | 全 loop | layer alpha | 无 script、无 relative、无 wraploop、单 lane —— **最干净的正门** |
-| `3769688830` | 6 | 全 loop | effect alpha | wraploop 全开 —— wrap-loop 门 |
+| `2998757800` | 7 | 全 loop | **粒子 `instanceoverride.alpha`** | 无 script、无 relative、单 lane，但全部走粒子通路，不是 layer alpha |
+| `3769688830` | 6 | 全 loop | effect alpha | wraploop 全开、无其他类型 —— **T2 最干净的正门**，同时是 wrap-loop 门 |
 | `3768903841` | 4 | 全 mirror | layer angles | relative 全开、三 lane —— **Mirror + relative + vector 门** |
 | `3028090166` | 4 | 全 single | alpha ×3、scale ×1 | 1 个 relative —— Single 门 |
 | `3768229922` | 5 | 全 single | alpha ×2、origin ×2、zoom ×1 | 含无 target 的 `zoom` |
@@ -200,16 +203,16 @@ D2 frame context (sceneTime 送入求值阶段, pause/clamp)
 
 ### T2 evaluator + 已有 consumer 目标（第一个可见批次）
 
-- **目标**：`alpha` 与 `effectConstant` 两类共 **35** 处 Timeline 真正驱动画面。
+- **目标**：layer `alpha`（5）与 `effectConstant`（23）两类共 **28** 处 Timeline 真正驱动画面。
 - **改动**：
   1. `SceneTimelineEvaluator`：绝对 scene time → lane 值。实现 Loop / Mirror / Single 三种 mode、`startpaused` 保持首帧、关键帧定位与**线性**插值。tangent 按 §1.4-1 暂不消费，等接入后视觉定标再决定 handle 解释。
   2. Timeline target 编译成 `SceneDynamicTargetDefinition`，与 `propertyBindingProgram.definitions` 合并（重复 target fail-closed）。
   3. `renderFrame()` 产出 `timelineValues` 并传入 `evaluate`。
 - **不做**：不实现 `wraploop`（按普通 loop 执行 + 诊断）、不实现 `relative`（含 `relative: true` 的动画本批 fail-closed）、不碰 layer transform。
 - **样本门**：
-  - 正门 `2998757800`（7 × loop × layer alpha，最干净）
+  - 正门 `3769688830`（6 × loop × effect alpha，无 startpaused、无其他类型，最干净）
   - 正门 `3769364482`（1 × loop × effect rayintensity，最小 effectConstant）
-  - 正门 `3028090166`（single，验证末态保持）
+  - 正门 `3028090166`（3 × single × layer alpha，验证末态保持）
   - 负门 `2067939514`（`startpaused` + script → 必须停在首帧，不得自动播放）
   - 回归 固定 13 样本门
 - **验收**：正门样本在两个不同 scene time 采样点的 GPU 截图有确定性差异且可复现；负门样本首帧与末帧像素一致；`relative`/`wraploop` 样本出现明确诊断而不是错误画面。
