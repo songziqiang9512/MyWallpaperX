@@ -16,8 +16,15 @@ nonisolated enum SceneTimelineMode: String, Codable, Equatable {
 }
 
 /// 单侧 Bézier handle。`isEnabled == false` 对应官方 tangent mode 的 `none`，该侧退化
-/// 为直线段。`x`/`y` 的单位尚无官方定义，随包数据恒为 `x=±1, y=0`，两种可能解释在
-/// `y == 0` 时给出同一条曲线，因此 IR 只做保真，不在这里做任何归一化。
+/// 为直线段。
+///
+/// `x`/`y` 的单位尚无官方定义，随包数据恒为 `x=±1, y=0`。「x 为帧偏移」与「x 为归一化
+/// 段长比例」两种解释**不等价**：y 分量的控制点虽然相同，但 x 参数化不同，按 frame 反
+/// 求 t 会落在曲线的不同位置。以 `2067939514` 的 `0→15` 帧、值 `1→0` 段为例，frame=3.75
+/// 处前者约 0.767、后者约 0.970（线性为 0.5），只有中点因对称而巧合相同。
+///
+/// 因此 IR 只做保真，不在这里做任何归一化，也不由 IR 选择解释；消费方必须显式声明自己
+/// 采用哪一种，并以视觉定标为准。
 nonisolated struct SceneTimelineTangent: Codable, Equatable {
     let isEnabled: Bool
     let x: Double

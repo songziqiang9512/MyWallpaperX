@@ -152,7 +152,7 @@ export function mediaThumbnailChanged(event) {
 
 以下在官方页面和随包资产中都没有确定答案，第一实现批必须 fail-closed 或按保守默认执行，并在文档中标注为推断：
 
-1. **Bézier handle 的 `x`/`y` 单位与坐标空间。** 样本中几乎全部是 `x=±1, y=0`。是「帧」还是「归一化段长」无法从数据区分，因为 y 恒为 0 时两种解释给出相同曲线。必须先按「x 为帧、y 为值增量」实现，并在 `y ≠ 0` 的作者数据出现前不宣称 tangent parity。
+1. **Bézier handle 的 `x`/`y` 单位与坐标空间。** 样本中几乎全部是 `x=±1, y=0`。是「帧偏移」还是「归一化段长比例」无法从数据区分，而且两者**不等价**——y 分量的控制点相同，但 x 参数化不同，按 frame 反求 t 会落在曲线的不同位置。以 `2067939514` 的 `0→15` 帧、值 `1→0` 段为例，frame=3.75 处「x 为帧」约 0.767、「x 为归一化段长」约 0.970、线性 0.5，只有中点因对称而巧合相同。因此在取得视觉定标前，evaluator 不得擅自选一种解释并宣称实现了 Bézier；tangent 保持 `L1`（IR 保真 + 不消费），插值先走线性。
 2. **`relative: true` 的确切合成语义。** 推断为「最终值 = 作者基值 + 动画值」，依据是 `2134765860` 的 `angles.value = "0 0 0"` 配 `c2` 末值 `6.2831855`（2π）。需要用 `3768903841` 的视觉证据反证，不能只靠数值自洽。
 3. **`wraploop` 的精确算法。** 官方描述为首尾平滑过渡，但没有公开是「末帧向首帧插值一段」还是「切线跨边界连续」。第一批只保存 IR 并按普通 loop 执行，同时输出诊断，不冒充已实现。
 4. **`length` 与末关键帧 `frame` 不一致时的截断规则。** 随包样本中两者恒等，无反例可依。
@@ -202,7 +202,7 @@ D2 frame context (sceneTime 送入求值阶段, pause/clamp)
 
 - **目标**：`alpha` 与 `effectConstant` 两类共 **35** 处 Timeline 真正驱动画面。
 - **改动**：
-  1. `SceneTimelineEvaluator`：绝对 scene time → lane 值。实现 Loop / Mirror / Single 三种 mode、Bézier 分段求值（`enabled=false` 退化为线性）、`startpaused` 保持首帧。
+  1. `SceneTimelineEvaluator`：绝对 scene time → lane 值。实现 Loop / Mirror / Single 三种 mode、`startpaused` 保持首帧、关键帧定位与**线性**插值。tangent 按 §1.4-1 暂不消费，等接入后视觉定标再决定 handle 解释。
   2. Timeline target 编译成 `SceneDynamicTargetDefinition`，与 `propertyBindingProgram.definitions` 合并（重复 target fail-closed）。
   3. `renderFrame()` 产出 `timelineValues` 并传入 `evaluate`。
 - **不做**：不实现 `wraploop`（按普通 loop 执行 + 诊断）、不实现 `relative`（含 `relative: true` 的动画本批 fail-closed）、不碰 layer transform。
@@ -241,7 +241,7 @@ D2 frame context (sceneTime 送入求值阶段, pause/clamp)
 | scene-time evaluation | `L0` | `L0` | `L3`（限 alpha + effectConstant） | `L3`（+ transform） |
 | Loop / Single | `L0` | `L0` | `L3` | `L3` |
 | Mirror | `L0` | `L0` | `L1`（IR + 诊断） | `L3` |
-| Bézier tangent | `L0` | `L1` | `L3`（限 `y=0` 形态，见 §1.4-1） | 同左 |
+| Bézier tangent | `L0` | `L1` | `L1`（IR 保真，插值走线性，见 §1.4-1） | 同左 |
 | `relative` | `L0` | `L1` | `L1`（fail-closed） | `L3`（推断语义 + 视觉验证） |
 | `wraploop` | `L0` | `L1` | `L1` | `L1` |
 | Animation Event | `L0` | `L0` | `L0` | `L0`（T4 后 `L1`） |
