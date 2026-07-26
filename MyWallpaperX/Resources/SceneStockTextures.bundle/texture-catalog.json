@@ -7,7 +7,7 @@
     "official_extension": ".tex",
     "project_extension": ".png",
     "placeholder_only": true,
-    "runtime_consumed": false
+    "runtime_consumed": true
   },
   "texture_count": 311,
   "category_counts": {

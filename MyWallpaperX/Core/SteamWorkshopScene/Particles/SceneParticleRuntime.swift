@@ -71,7 +71,8 @@ final class SceneParticleRuntime {
     init(
         descriptor: SceneRenderDescriptor,
         cacheDirectory: URL,
-        device: MTLDevice
+        device: MTLDevice,
+        stockTextureBundleURL: URL? = SceneStockTextureResolver.defaultBundleRoot()
     ) {
         self.device = device
         let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
@@ -87,7 +88,9 @@ final class SceneParticleRuntime {
                 combos: $0.combos
             )
         }
-        let graph = SceneParticleAssetGraphLoader().load(
+        let graph = SceneParticleAssetGraphLoader(
+            stockTextureBundleURL: stockTextureBundleURL
+        ).load(
             rootPaths: particleLayers.compactMap(\.particlePath),
             materialPasses: materialPasses,
             cacheDirectory: cacheDirectory

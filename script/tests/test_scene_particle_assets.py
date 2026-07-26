@@ -21,6 +21,7 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 ISOLATED_SAMPLE_ROOT = sample_root()
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneResourceIndex.swift",
+    SOURCE_ROOT / "Resources/SceneStockTextureResolver.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Particles/SceneParticleTextureSource.swift",

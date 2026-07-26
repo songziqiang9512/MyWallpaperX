@@ -64,7 +64,7 @@ class SceneStockTextureCatalogTests(unittest.TestCase):
         self.assertEqual(catalog["steam_build_id"], "23967692")
         self.assertEqual(catalog["texture_count"], 311)
         self.assertEqual(catalog["category_counts"]["assets/materials/particle"], 164)
-        self.assertFalse(catalog["mapping"]["runtime_consumed"])
+        self.assertTrue(catalog["mapping"]["runtime_consumed"])
         placeholder_hash = generator.sha256(BUNDLE_ROOT / "placeholder.png")
         self.assertEqual(catalog["placeholder_sha256"], placeholder_hash)
 

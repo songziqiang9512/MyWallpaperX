@@ -63,6 +63,14 @@ nonisolated struct SceneParticleAssetDiagnostic: Codable, Equatable, Hashable, S
 }
 
 nonisolated struct SceneParticleAssetGraphLoader {
+    private let stockTextureResolver: SceneStockTextureResolver?
+
+    init(stockTextureBundleURL: URL? = SceneStockTextureResolver.defaultBundleRoot()) {
+        stockTextureResolver = stockTextureBundleURL.flatMap {
+            SceneStockTextureResolver(bundleRoot: $0)
+        }
+    }
+
     func load(
         rootPaths: [String],
         materialPasses: [SceneParticleMaterialPass],
@@ -120,7 +128,7 @@ nonisolated struct SceneParticleAssetGraphLoader {
                 diagnose(.missingTextureReference, path, materialPath)
             }
             var textureSource = textureName.flatMap {
-                Self.resolveTextureSource(named: $0, filesByPath: filesByPath)
+                resolveTextureSource(named: $0, filesByPath: filesByPath)
             }
             if let textureName, textureSource == nil {
                 diagnose(
@@ -187,11 +195,11 @@ nonisolated struct SceneParticleAssetGraphLoader {
         return name == "genericparticle"
     }
 
-    private static func resolveTextureSource(
+    private func resolveTextureSource(
         named rawName: String,
         filesByPath: [String: URL]
     ) -> SceneParticleTextureSource? {
-        let name = normalizedPath(rawName)
+        let name = Self.normalizedPath(rawName)
         let bases = name.hasPrefix("materials/") ? [name] : ["materials/\(name)", name]
         var candidates = bases.flatMap { [$0, "\($0).tex"] }
         if URL(fileURLWithPath: name).pathExtension.isEmpty {
@@ -199,6 +207,9 @@ nonisolated struct SceneParticleAssetGraphLoader {
         }
         if let localURL = candidates.lazy.compactMap({ filesByPath[$0] }).first {
             return .file(localURL)
+        }
+        if let stockURL = stockTextureResolver?.textureURL(for: name) {
+            return .file(stockURL)
         }
         return SceneParticleTextureSource(reference: name)
     }

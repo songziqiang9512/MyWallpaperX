@@ -102,7 +102,7 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
 | provider identity/status/generation/fallback | layer/named/property 子集 `L3`；静态 resource generation 与 named frame epoch 已分离 | 显式 dynamic generation、metadata、video/system/media/variant、nested/effectful/child producer |
-| candidate selection | 受限 static image blend | 通用 material slots 0...7；pending/unavailable 不截断 authored fallback |
+| candidate selection | 受限 static image blend；Particle slot 0 先取样本本地资源，再按 exact catalog identity 取 stock bundle PNG | 通用 material slots 0...7；stock placeholder 的尺寸/通道/atlas metadata；pending/unavailable 不截断 authored fallback |
 | upload/cancel/teardown | PNG/JPEG property 子集 | video frame、thumbnail、device rebuild、stale generation 和 budget |
 
 <a id="d6"></a>
@@ -183,7 +183,7 @@ F0 完成后才开始下一轮代码。F1/F2 优先级由公共依赖决定，�
 
 ## 6. 下次会话的决策顺序
 
-1. B0 live-property、direct dynamic text、B2 target-table、十一类 strict backend、ordered strict chain、同帧 copy/swap command foundation、受限 history seed、Precise Blur material-command interleave、pointer-driven X-Ray、Puppet bind-pose/静态 attachment/严格单 clip MDLA LBS、strict depth-one static/default-static/eventspawn/natural-eventdeath/eventfollow particle child、持续/混合/duration child emitter、root child aggregate budget、有限 static origin translation、22-key built-in particle registry、非音频 turbulent velocity、预算内 CPU 与超预算/多 image GPU BC premultiply、静态 authored 首帧 fallback，以及 REFRACT fail-closed 已合龙。当前实现基线为 `678a052`；隔离 45 样本 census 的 static/default-static 为 119 条，其中 14 条 identity declaration 与 `snowstormfog` 有限 origin declaration 已执行，其余 104 条 non-identity static 先受 nested profile 阻断；collision/delete、inherit-value 和非空 child CP mapping 都是 0。两条 event scale probe 分别被 world-space root 与 world-space Rope Trail root 阻断；当前批次优先级以 [开发计划的当前批次优先级](../scene-capability-development-plan-2026-07-22.md) 为准：下一代码批处理 nested child ownership、递归深度与跨层总预算；是否提取共享 material pass executor 按 [Render Graph 覆盖表第 6 节](render-graph-shader-coverage.md) 的 consolidation 判据执行。`route-only` 只是布局诊断，不能决定优先级。
+1. B0 live-property、direct dynamic text、B2 target-table、十一类 strict backend、ordered strict chain、同帧 copy/swap、受限 history seed、Precise Blur material-command interleave、pointer-driven X-Ray、Puppet、strict depth-one particle child、root child aggregate budget、有限 static origin、stock PNG resolver、22-key bundle-missing fallback、非音频 turbulent velocity、BC premultiply、静态 authored 首帧 fallback，以及 REFRACT fail-closed 已合龙。当前实现基线为 `678a052` 加 stock resolver 批次；311 项 exact identity 已路由，但 PNG 仍是 16x16 占位，不能把 identity wired 写成视觉兼容。下一代码批仍按 [开发计划](../scene-capability-development-plan-2026-07-22.md) 处理 nested ownership、递归深度与跨层总预算；共享 material pass executor 继续服从 [Render Graph 覆盖表第 6 节](render-graph-shader-coverage.md) 的 consolidation 判据。
 2. 打开对应专项表，确认作者启用、输入、当前等级、未知项、依赖和验收门。
 3. 查 [运行证据索引](runtime-evidence-index.md)，确认现有正反例，不重复制造无信息矩阵。
 4. 只实现一个可独立验证的公共合同；涉及 live property 时，compiler target、真实 consumer、fallback 和 surface/window identity 必须同批验收，目标样本和相关样本通过后单独提交。

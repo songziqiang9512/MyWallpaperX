@@ -27,6 +27,7 @@ FLARE_PARTICLE_CACHE = (
 STATIC_ORIGIN_SAMPLE_CACHE = sample_cache_root("3088601835")
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneResourceIndex.swift",
+    SOURCE_ROOT / "Resources/SceneStockTextureResolver.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Particles/SceneParticleTextureSource.swift",
@@ -144,6 +145,9 @@ enum Harness {
         case "static-origin-real":
             guard CommandLine.arguments.count == 3 else { throw HarnessError.missingPath }
             try printJSON(realStaticOriginSample(cachePath: CommandLine.arguments[2]))
+        case "stock-synthetic":
+            guard CommandLine.arguments.count == 3 else { throw HarnessError.missingPath }
+            try printJSON(stockSynthetic(bundlePath: CommandLine.arguments[2]))
         case "synthetic":
             try printJSON(synthetic())
         default:
@@ -544,6 +548,45 @@ enum Harness {
         ]
     }
 
+    private static func stockSynthetic(bundlePath: String) throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mwx-particle-stock-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writeParticle(
+            "particles/stock.json",
+            material: "materials/stock.json",
+            under: directory
+        )
+
+        let descriptor = SceneRenderDescriptor(
+            layers: [layer(21, "particles/stock.json")],
+            renderOrderLayerIDs: [21],
+            materialPasses: [
+                .init(
+                    materialPath: "materials/stock.json",
+                    shaderPath: "genericparticle",
+                    texturePaths: ["particle/debris/debris1.tex"],
+                    blending: "translucent"
+                ),
+            ]
+        )
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let runtime = SceneParticleRuntime(
+            descriptor: descriptor,
+            cacheDirectory: directory,
+            device: device,
+            stockTextureBundleURL: URL(fileURLWithPath: bundlePath, isDirectory: true)
+        )
+        let batches = runtime.advance(by: 0)
+        return [
+            "activeLayerIDs": runtime.activeLayerIDs,
+            "textureWidth": batches.first?.texture.width ?? 0,
+            "textureHeight": batches.first?.texture.height ?? 0,
+            "diagnosticKinds": runtime.diagnostics.map(\.kind.rawValue),
+        ]
+    }
+
     private static func synthetic() throws -> [String: Any] {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("mwx-particle-runtime-\(UUID().uuidString)", isDirectory: true)
@@ -889,6 +932,14 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             result["staticChildUnsupportedDetails"],
         )
         self.assertIn("builtInTextureUnavailable", kinds)
+
+    def test_stock_png_reference_loads_through_particle_runtime(self) -> None:
+        bundle = REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneStockTextures.bundle"
+        result = self.run_harness("stock-synthetic", str(bundle))
+        self.assertEqual(result["activeLayerIDs"], [21])
+        self.assertEqual(result["textureWidth"], 16)
+        self.assertEqual(result["textureHeight"], 16)
+        self.assertEqual(result["diagnosticKinds"], [])
 
     def test_continuous_children_follow_finish_and_obey_aggregate_budget(self) -> None:
         result = self.run_harness("eventfollow-synthetic")

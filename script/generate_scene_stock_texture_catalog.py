@@ -90,7 +90,7 @@ def build_catalog(
             "official_extension": ".tex",
             "project_extension": ".png",
             "placeholder_only": True,
-            "runtime_consumed": False,
+            "runtime_consumed": True,
         },
         "texture_count": len(entries),
         "category_counts": category_counts(entries),
