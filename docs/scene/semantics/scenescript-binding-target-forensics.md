@@ -1,7 +1,7 @@
 # SceneScript 内联脚本与 binding target 取证
 
 审查日期：2026-07-25
-证据来源：本机 Wallpaper Engine 2.8.42 正版安装 `projects/defaultprojects`
+取证快照：Wallpaper Engine 2.8.42 `projects/defaultprojects`
 审查方式：只读静态解析 `scene.json`
 
 > [SceneScript API 覆盖表](scenescript-api-coverage.md) 中「property-bound 实例」一项为 `L0`，缺口写的是「建立 `ScriptSource + owner + target + authoredValue + valueType` IR」。本文用随包工程中的 13 处真实内联脚本，把这五项的**实际 JSON 形态**确定到静态输入层。
@@ -154,13 +154,7 @@
 
 注意本文只确定 target 的**静态形态**，不证明求值语义。脚本实际执行结果仍需 VM 实现后按 [SceneScript 运行时实现层合同](scenescript-runtime-implementation-contract.md) 的行为表验证。
 
-## 9. Clean-room 边界
-
-本文记录 JSON 路径、wrapper 字段名、`value` 字面量、导出事件名和被调用的 API 名。这些属于结构与合同信息。
-
-**不复制官方脚本源码进仓库。** `dino_run` 的游戏逻辑、`razer_bedroom` 的彩虹色循环算法均为官方创作内容。需要端到端 fixture 时，按本文的 target 形态自行编写等价最小脚本。
-
-## 10. 关联文档
+## 9. 关联文档
 
 - [SceneScript 运行时实现层合同](scenescript-runtime-implementation-contract.md) —— Vec3 字符串构造与序列化格式
 - [SceneScript API 覆盖表](scenescript-api-coverage.md) —— 各 API 当前实现等级

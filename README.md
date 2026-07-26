@@ -154,9 +154,7 @@ xcodebuild -project MyWallpaperX.xcodeproj -scheme MyWallpaperX -configuration D
 
 MyWallpaperX 是一个面向 macOS 的个人壁纸管理与播放工具。
 
-- 本应用不声称拥有用户导入、下载或播放的任何壁纸、视频、Web 内容或 Steam Workshop 内容的版权，用户应自行确认素材的版权归属与授权范围。
-- 本项目不隶属于 Steam、Valve、Wallpaper Engine、Pixabay 或其他第三方内容平台。Steam 创意工坊能力仅用于访问用户可合法使用的内容。
-- 因用户导入内容、账号使用、网络环境或违反第三方条款导致的风险由用户自行承担。本项目按现状提供，不对持续可用性或第三方服务稳定性作保证。
+- 用户导入内容、账号使用和第三方平台条款由用户自行负责；本项目不隶属于 Steam、Valve、Wallpaper Engine、Pixabay 或其他第三方内容平台。
 
 ---
 

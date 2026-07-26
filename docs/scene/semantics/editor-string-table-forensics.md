@@ -1,7 +1,7 @@
 # 编辑器字符串表取证（locale/ui_en-us.json）
 
 审查日期：2026-07-26
-证据来源：本机 Wallpaper Engine 2.8.42 正版安装 `locale/ui_en-us.json`（3,332 keys）及同族 `core_en-us.json`（96 keys）、`var_en-us.json`（28 keys），36 种语言各三族
+取证快照：Wallpaper Engine 2.8.42 `locale/ui_en-us.json`（3,332 keys）及同族 `core_en-us.json`（96 keys）、`var_en-us.json`（28 keys），36 种语言各三族
 审查方式：只读静态提取
 
 > 字符串表是官方**字段名到作者可见语义**的权威对照：wire 字段（`horizontalalign`、`maxrows`、`controlpoint`…）在编辑器里叫什么、归哪个面板、和哪些枚举值成组。它还给出每个粒子组件与 utility 层的**官方一句话定义**——这些定义在 179 个官方网页中没有的粒度。

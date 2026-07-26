@@ -18,7 +18,6 @@
 - 视频纹理和图层混合模式；
 - Scene 相机、指针与 Effect 投影；
 - WaifuX、`wallpaper-wgpu`、RePKG、RenderDoc 的可用边界；
-- GPL、官方资源和 clean-room 重写边界。
 
 本文是参考资料与实施依据，不代表 MyWallpaperX 当前已经实现了这些能力。当前能力状态仍应以项目内 Scene capability ledger、运行证据和测试结果为准。
 
@@ -27,8 +26,8 @@
 1. `linux-wallpaperengine-reference` 是参考目录中唯一可审计的 Scene 渲染器源码，但它主要负责解释 Wallpaper Engine 的 Project、Material、Shader 和 Pass，不是独立实现所有官方 Effect 算法。
 2. X-Ray、Water Ripple、Water Flow、通用混合模式等精确算法，实际来自 WaifuX `zip_data.o` 中的 stock shader/material 资源。
 3. WaifuX 的 `wallpaper-wgpu` 只有预编译 arm64 二进制，没有 Rust/Cargo 源码，不能用于源码移植，也不能把二进制字符串直接提升为官方语义。
-4. 最值得借鉴的是“数据结构、执行顺序、纹理槽位、矩阵和像素行为”，不应直接复制 GPL C++、stock shader 或官方纹理资源。
-5. MyWallpaperX 应继续采用 clean-room Metal 重写：用样本配置、封面/预览和可观察输出固定行为合同，再以自有代码和自有测试实现。
+4. 最值得借鉴的是“数据结构、执行顺序、纹理槽位、矩阵和像素行为”。
+5. MyWallpaperX 应以样本配置、封面/预览和可观察输出固定行为合同，再以代码和测试实现。
 
 ## 3. 证据等级
 
@@ -39,7 +38,7 @@
 | C | 单一第三方实现或不透明二进制线索 | 只能生成待验证假设 |
 | D | 未经样本或源码证实的推测 | 不应进入兼容声明 |
 
-`zip_data.o` 内资源与真实样本缓存文件 hash 完全一致时，可以证明它们是同一份 stock payload；这仍不等于已经确认其再分发许可证。
+`zip_data.o` 内资源与真实样本缓存文件 hash 完全一致时，可以证明它们是同一份 stock payload。
 
 ## 4. 参考项目概况
 
@@ -47,14 +46,12 @@
 
 - 路径：`/Users/songziqiang/Documents/Development/MyWallpaperX/Reference Project/linux-wallpaperengine-reference`
 - 审查提交：`b016d7d1fdcf4e5fd2f9c9fa420a8aaa07fee02d`
-- 许可证：GPL-3.0
 - 价值：Project/Material/Effect 解析、有序 pass、FBO、纹理覆盖链、固定渲染状态、时间/鼠标输入。
 - 限制：部分语义存在 TODO、退化或明确错误，不能把该项目等同于 Wallpaper Engine 官方标准。
 
 ### 4.2 WaifuX-main
 
 - 路径：`/Users/songziqiang/Documents/Development/MyWallpaperX/Reference Project/WaifuX-main`
-- 许可证：GPL-3.0
 - 价值：renderer 启动协议、属性/画布/裁切输入、内嵌 stock assets、烘焙 sidecar 和宿主生命周期。
 - 限制：核心 Scene renderer 是预编译二进制。
 
@@ -72,7 +69,6 @@
 ### 4.3 RePKG
 
 - 路径：`/Users/songziqiang/Documents/Development/MyWallpaperX/Reference Project/repkg-master`
-- 许可证：MIT
 - 价值：PKG 目录表、TEX header、mipmap、LZ4、DXT1/3/5 解码。
 - 限制：没有 Effect、Shader、SceneScript、混合或相机语义。
 
@@ -244,7 +240,7 @@ MyWallpaperX 可独立实现：
 
 ### 6.6 MyWallpaperX 实现建议
 
-可以 clean-room 实现：
+可以独立实现：
 
 - 当前 pass 的 model/view/projection；
 - effect texture projection 及 inverse；
@@ -339,7 +335,7 @@ stock 路径：
 - `replacementkey`
 - 编辑器 `gizmos`
 
-运行 pass、dependencies、material 和 shader 不变，因此 stock Ripple 数学可用于该样本的 clean-room 行为合同。
+运行 pass、dependencies、material 和 shader 不变，因此 stock Ripple 数学可用于该样本的行为合同。
 
 ## 9. Water Flow
 
@@ -766,58 +762,7 @@ RenderDoc 的价值主要是：
 - 离屏纹理导出；
 - 固定像素 probe 和截图差异。
 
-## 16. 许可证与来源边界
-
-### 16.1 GPL
-
-以下项目为 GPL-3.0：
-
-- `linux-wallpaperengine-reference`
-- `WaifuX-main`
-
-在不把 MyWallpaperX 纳入完整 GPL 合规发布方案的前提下，不应直接复制：
-
-- C++/Swift 源码；
-- 类结构和控制流；
-- 原始错误文字；
-- shader preprocessing 实现；
-- WaifuX 宿主实现。
-
-可以记录和独立实现：
-
-- 输入输出行为；
-- 数据格式事实；
-- 数学关系；
-- pass 顺序；
-- 测试向量；
-- 运行时可观察结果。
-
-### 16.2 stock assets
-
-WaifuX `README.md:169-175` 声明软件不包含 Wallpaper Engine shader、模型或纹理，但 `Resources/zip_data.o` 实际包含：
-
-- `assets/shaders/*`
-- `assets/effects/*`
-- `assets/materials/*`
-- `assets/fonts/*`
-
-因此：
-
-- 这些 payload 的来源和再分发权存在不一致；
-- 不能因为外层仓库是 GPL 就自动认为这些官方资源也可按 GPL 再分发；
-- 它们应作为本地研究和互操作行为证据；
-- 产品中应使用自有 shader、自有纹理，或从用户合法安装中运行时读取。
-
-### 16.3 MIT
-
-以下项目为 MIT：
-
-- RePKG
-- RenderDoc
-
-RePKG 格式解析知识可以在保留许可证通知的前提下复用，但仍应评估与项目现有 PKG/TEX 实现是否重复。
-
-## 17. 推荐开发顺序
+## 16. 推荐开发顺序
 
 ### P0：公共有序执行链
 

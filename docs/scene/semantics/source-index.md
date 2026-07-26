@@ -175,9 +175,9 @@ https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/<Name>.htm
 
 本轮只建立能力边界，没有把这些高级模块错误提升为当前 P0。
 
-### 1.11 本机正版客户端随包证据
+### 1.11 2.8.42 客户端历史静态取证
 
-本机 Wallpaper Engine 2.8.42 / Steam build `23967692` 的结构化随包证据记录在：
+Wallpaper Engine 2.8.42 / Steam build `23967692` 的历史结构化取证记录在：
 
 - [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md)：stock Effect、Material、TEX/3D LUT、MDL、粒子预览/预设、默认项目和 compiled blob census。
 - [stock 播放资产包](stock-asset-bundle.md)：官方 2.8.42 `assets/**` 的 3,113 项全库存经固定分类后，919 个播放候选路径在 `SceneStockAssets.bundle` 建立项目自有占位；2,194 个 preset/preview/example/editor/thumbnail/source-only 文件明确排除。包内有 223 TEX、198 sidecar、根级 Effect/Material/Shader/Script/zcompat 路径和 15 个官方命名字体；Particle slot 0 与字体 consumer 已直接按路径接入，其余 consumer 不因物理文件存在而升级。
@@ -190,7 +190,7 @@ https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/<Name>.htm
 - [编辑器字符串表取证](editor-string-table-forensics.md)：`locale/ui_en-us.json` 3,332 keys 的 Scene 子集；45 Effect、粒子组件、blend mode、Timeline、scene options 与 utility 层的官方名称与一句话定义。
 - [客户端二进制与第三方依赖取证](client-binary-dependency-forensics.md)：`bin/` 62 文件模块清单、`bin/licenses` 官方自认的 34+14 项第三方库及其到 Scene 系统的映射、`assets/shaders/{base,editor,HLSL}` 子目录补漏与 165 个官方元素预览视频登记。
 
-上述三份客户端深挖文档由 `script/extract_wallpaper_engine_client_evidence.py` 支持复现提取。证据范围包含用户合法安装副本中的 `assets`、官方 default projects/templates、声明文件、`locale` 字符串表、`ui/dist` 内嵌 changelog/类型库与 `bin` 的文件身份及许可清单；不包含用户项目/config/cache（`config.json`、`config_backups`、`projects/myprojects`、`ui/uicache`、`ui/wpcache`），也不执行、反汇编或复制 Windows binary/payload。随包资源是当前 build 的 A 级结构证据，但仍不能代替运行时 event order、history lifecycle、shader 数学或 Windows pixel golden。
+上述客户端深挖文档由 `script/extract_wallpaper_engine_client_evidence.py` 支持针对同版本输入重新提取。历史证据覆盖 `assets`、default projects/templates、声明文件、`locale` 字符串表、`ui/dist` 类型库与 `bin` 模块清单；不覆盖用户项目、配置或缓存。静态取证可以作为结构证据，但仍不能代替运行时 event order、history lifecycle、shader 数学或 Windows pixel golden。
 
 ## 2. 真实样本证据
 
@@ -226,8 +226,7 @@ https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/<Name>.htm
 
 - 仓库：https://github.com/Almamu/linux-wallpaperengine
 - 本轮固定 revision：[`b016d7d1fdcf4e5fd2f9c9fa420a8aaa07fee02d`](https://github.com/Almamu/linux-wallpaperengine/commit/b016d7d1fdcf4e5fd2f9c9fa420a8aaa07fee02d)
-- 许可证：GPL-3.0
-- 定位：OpenGL educational/compatibility project，需要用户合法安装的 Wallpaper Engine assets。
+- 定位：OpenGL educational/compatibility project。
 - 资产边界：该 revision 的源码树不附带 `.json`、`.material`、`.frag` 或 `.vert` stock effect 资产；README `85-118` 也明确要求用户另行安装或指定官方 assets。因此源码只能交叉核对通用 parser/executor 结构，不能独立证明 45 个 stock effect 的逐参数、默认值、pass 数或 shader 算法。
 
 高价值源码入口：
@@ -281,7 +280,7 @@ Reference Project/WaifuX-main
 - bake 调用同一二进制的 `bake` 子命令；
 - Swift 宿主不解释 effect/material/particle/text；
 - renderer Rust/Cargo 源码不在仓库；build script 从开发者私有路径复制预编译 binary；
-- `zip_data.o` 内有 WE-compatible effects/materials/shaders，但来源、版本与分发许可不可从仓库验证；
+- `zip_data.o` 内有 WE-compatible effects/materials/shaders，但版本不可从仓库验证；
 - 项目 GPL-3.0，README 与实际 binary/backend/assets 存在漂移。
 
 可借鉴：实时/离线共核、control file、属性 cache key、队列/checkpoint 和诊断思路。
@@ -297,15 +296,7 @@ Reference Project/WaifuX-main
 - 网络研究只用 `curl`/GitHub API/官方 HTML；
 - 开源项目只静态 clone/read，不 build/run。
 
-## 6. 许可证和 clean-room 规则
-
-- Wallpaper Engine 官方 assets 不随 MyWallpaperX 分发；未来只从用户合法安装位置读取。
-- GPL-3.0 项目只用于研究概念、数据关系和已知缺陷，不复制代码、shader、fixtures 或注释表达。
-- WaifuX 的内嵌 asset payload 只用于本轮语义对照，不复制进仓库。
-- 文档对官方页面只做摘要和链接，不镜像整页内容。
-- MyWallpaperX 需要独立的 Swift/Metal 实现、自己的 fixtures、测试和运行证据。
-
-## 7. 尚未有官方公开合同的部分
+## 6. 尚未有官方公开合同的部分
 
 以下内容目前只能由合法官方 assets、真实样本与黑盒对照继续确认：
 

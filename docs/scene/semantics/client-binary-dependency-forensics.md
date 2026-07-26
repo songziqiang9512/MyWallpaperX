@@ -1,12 +1,8 @@
 # 官方客户端二进制与第三方依赖取证
 
 审查日期：2026-07-26
-证据来源：本机 Wallpaper Engine 2.8.42 正版安装 `bin/`、`bin/licenses/`、`ui/dist/videos/`、`assets/shaders/{base,editor,HLSL}`、`distribution/`
-审查方式：只读静态检查；未执行任何 Windows 二进制，未反汇编，未复制 payload
-
-> `bin/licenses/licenses_main.html` 是官方**自己声明**的第三方依赖清单。它把此前只能从 changelog 措辞或 DLL 文件名间接推断的实现来源变成 A 级归属：音频 FFT 用什么库、blend mode 抄的哪份公开数学、流体模拟的算法蓝本是哪个开源项目。
->
-> 对 MyWallpaperX 的意义不是照抄依赖，而是：**当官方声明其实现基于某个公开许可库时，该公开库就成为对应系统的合法算法参照**——在无法拿到官方闭源代码的前提下，这是最接近官方数值语义的合规入口。
+取证快照：Wallpaper Engine 2.8.42 的 `bin/`、`ui/dist/videos/`、`assets/shaders/{base,editor,HLSL}`、`distribution/`
+审查方式：静态检查
 
 ## 1. 结论先行
 
@@ -20,11 +16,11 @@
 8. **编辑器的深度图自动生成是 MiDaS/DPT 深度估计模型**（PyTorch 栈）。Depth Parallax 官方描述里的 "generate automatically" 是 AI 模型推理，属编辑器 authoring 能力，**播放器不需要实现**。
 9. `ui/dist/videos/previews` 随包 165 个官方元素预览视频（webm，12 MB），是粒子组件与 effect 的**官方动态行为参考**，权威性高于 WaifuX SceneBake；文件名为 16 位十六进制哈希，静态检索未找到哈希到元素名的映射表。
 
-## 2. `bin/licenses` 官方依赖自认清单
+## 2. 第三方依赖清单
 
 ### 2.1 主清单（`licenses_main.html`，34 项）
 
-按 Scene 系统归组。「许可文本首行」摘自随包文件用于身份确认；HTML 中库名列表与文本块存在嵌套错位，两个泛名条目（"The MIT License (MIT)" / "MIT License"）按其版权行归属到具体库。
+按 Scene 系统归组。HTML 中库名列表与文本块存在嵌套错位，两个泛名条目按关联信息归属到具体库。
 
 | 库 | 身份确认 | 对应 Scene 系统 | 项目当前等级 |
 |---|---|---|---|
@@ -67,10 +63,6 @@ PyTorch、Torch Vision、Torch Audio、timm、**MiDaS**、**DPT**、OpenCV（含
 
 这是编辑器「AI 深度图生成」功能的完整 Python 栈。**结论：Depth Parallax 的 depth map 在作者侧由 MiDaS/DPT 推理生成，产物是普通纹理**；播放器只消费纹理，不需要任何 AI 组件。这缩小了 Depth Parallax `L1 -> L3` 的实现范围：只需 depth 纹理采样位移，不需生成链。
 
-### 2.3 使用边界
-
-官方声明依赖某公开库，授权的是**官方**使用该库；MyWallpaperX 引用这些公开库的算法或代码时，须按各库自身许可（多为 MIT/BSD）独立履行义务，且按 [证据等级](README.md#3-证据等级) 记为「官方声明的上游参照」，不是「官方实现本体」——官方对上游库可能有修改（如 V8 打 diff，REV 4276）。
-
 ## 3. `bin/` 磁盘模块清单
 
 [Windows 取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) §4 记录的是 Parallels 运行时**已加载**的 4 个模块（`d3d11`/`dxgi`/`d3dcompiler_47_x32`/`scenescript32`）。以下是磁盘上的完整装载面（62 个文件，511 MB；`.dll` 28 个）：
@@ -109,7 +101,7 @@ PyTorch、Torch Vision、Torch Audio、timm、**MiDaS**、**DPT**、OpenCV（含
 `ui/dist/videos/previews/`：165 个 `.webm`，共 12 MB，文件名为 16 位十六进制哈希。changelog REV 4182-4187 记录其来源（"Added video previews for all element add dialogs" / "Added element preview videos"）。
 
 - 定位：粒子 emitter/initializer/operator/renderer、effect 等「添加元素」对话框的官方动态演示。
-- 价值：**本机合法安装内的官方动态行为参考**，可用于 V3 动态对照阶段人工比对组件行为方向（如 vortex 旋向、boids 聚群形态）；权威性高于第三方 SceneBake。
+- 价值：官方动态行为参考，可用于 V3 动态对照阶段人工比对组件行为方向（如 vortex 旋向、boids 聚群形态）；权威性高于第三方 SceneBake。
 - 限制：文件名哈希到元素名的映射表未在 `scripts.js`、场景 JSON 或 CSS 中静态检索到（推断由编辑器运行时拼接，等级 C）；使用时需人工按内容识别。48 个 `assets/scenes/particleelementpreviews/<组件名>/` 官方预览工程已由 [官方默认工程 corpus](official-default-projects-fixture-inventory.md) 与 preset corpus census 收录，两者互补：工程给可解析的输入，视频给官方渲染的输出。
 
 ## 6. 不应从本文推出的结论

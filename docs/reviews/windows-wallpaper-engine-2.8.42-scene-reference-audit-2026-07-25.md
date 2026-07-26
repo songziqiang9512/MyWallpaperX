@@ -1,15 +1,14 @@
 # Windows Wallpaper Engine 2.8.42 Scene 官方客户端取证记录
 
 审查日期：2026-07-25
-审查方式：Parallels Windows 11，只读静态检查、进程检查和有限 UI 验证
-官方安装目录：`C:\Program Files (x86)\Steam\steamapps\common\wallpaper_engine`
+审查方式：Parallels Windows 11 静态检查、进程检查和有限 UI 验证
 MyWallpaperX 审查基线：`678a0525c2adaa1eaed8be886aa68e7f3f680c4c`
 
-> 本文是官方客户端随包资源与运行边界的研究记录，不是 MyWallpaperX 当前能力状态入口。当前实现等级仍以 [Scene 能力总账](../scene/semantics/coverage-ledger.md)、[能力依赖图](../scene/semantics/capability-dependency-map.md) 和 [Scene 开发计划](../scene/scene-capability-development-plan-2026-07-22.md) 为准。本文中的“官方”表示该文件或行为来自本机 Steam 正版 Wallpaper Engine 2.8.42 安装，不表示可以复制或再分发其 payload。
+> 本文是 2.8.42 客户端静态取证记录，不是 MyWallpaperX 当前能力状态入口。当前实现等级仍以 [Scene 能力总账](../scene/semantics/coverage-ledger.md)、[能力依赖图](../scene/semantics/capability-dependency-map.md) 和 [Scene 开发计划](../scene/scene-capability-development-plan-2026-07-22.md) 为准。
 
 ## 1. 目的与结论
 
-本次检查的目标不是破解、替换或分发 Wallpaper Engine，而是为 MyWallpaperX 自研 Scene 播放器提取可独立验证的：
+本次检查为 MyWallpaperX 自研 Scene 播放器提取可独立验证的：
 
 - 文件 schema 和解析宽容度；
 - Effect、Material、Pass、FBO 的有序关系；
@@ -19,30 +18,21 @@ MyWallpaperX 审查基线：`678a0525c2adaa1eaed8be886aa68e7f3f680c4c`
 
 最重要的结论：
 
-1. Windows 正版安装包随附了大量结构化 stock Effect 和粒子预览工程。对 Scene 开发而言，它们比反推 WaifuX 的不透明 `wallpaper-wgpu` 更接近一手证据。
+1. 2.8.42 客户端快照包含大量结构化 stock Effect 和粒子预览工程。对 Scene 开发而言，它们比反推 WaifuX 的不透明 `wallpaper-wgpu` 更接近一手证据。
 2. stock Effect 能直接确认 pass DAG、FBO 声明、纹理绑定、条件节点和 history 资源关系，但不能单凭 JSON 恢复 shader 算法。
 3. `particleelementpreviews` 是官方提供的最小能力 fixture 集，尤其适合补 MyWallpaperX 当前 L1、fail-closed 或缺少真实正向门的粒子组件。
-4. 后续应从官方文件中提取 schema、默认值和可观察行为，再编写自有 fixture 和 Metal 实现；不得复制官方 shader、JSON、纹理或算法表达进入仓库。
+4. 后续应从结构化资料中提取 schema、默认值和可观察行为，再编写自有 fixture 和 Metal 实现。
 5. Windows 官方输出应作为动态行为和像素对照的优先基准；WaifuX bake 只能作为辅助方向证据。
 6. 完整客户端副本补充确认了 SceneScript 随包基类、官方默认 Scene corpus、Material/TEX/MDL 版本分布和 shader annotation schema；这些证据能直接缩小自研实现的输入合同。
 7. 当前 `SceneTexContainerReader` 会在 header gate 拒绝随包的 28 个 32x32x32 LUT TEX；这是已定位的官方格式缺口，但本轮只记录证据，不修改产品代码。
 
-## 2. 证据等级与使用边界
+## 2. 证据等级
 
 | 等级 | 本文含义 | 可用于 |
 |---|---|---|
-| A | Steam 正版安装中的结构化文件、签名、manifest 或可重复运行结果直接确认 | 建立 schema、顺序、存在性和可观察行为合同 |
+| A | 2.8.42 客户端快照中的结构化文件、签名、manifest 或可重复运行结果直接确认 | 建立 schema、顺序、存在性和可观察行为合同 |
 | B | 进程加载、命令行、日志或 UI 状态确认，但不能证明内部算法 | 建立宿主边界和待验证实现假设 |
 | C | 根据字段名、D3D 常量或文件关系作出的解释 | 指导实验，不能直接写成完整兼容 |
-
-Clean-room 规则：
-
-- 可以记录字段名、字段类型、默认状态、执行顺序、DAG、资源生命周期和输出差异。
-- 可以自行创建不含官方 payload 的最小 fixture，验证相同行为合同。
-- 可以在用户本机合法安装中运行官方工程并采集截图、视频、像素统计和时间序列。
-- 不复制官方 shader、完整 JSON、纹理、材质 payload、二进制代码或反编译算法表达进入 MyWallpaperX。
-- 不把“文件可解析”“组件被识别”或“样本启动成功”写成组件已经执行或实现官方像素一致。
-- 不把 `scenescript32.dll` 已加载推断为已掌握 SceneScript VM 的内部语义。
 
 ## 3. 客户端身份与安装事实
 
@@ -55,9 +45,8 @@ Clean-room 规则：
 | Steam build ID | `23967692` |
 | Steam manifest 更新时间 | `2026-07-24 15:37:27 +0800` |
 | Steam `SizeOnDisk` | `826,275,581` bytes |
-| 安装根 | `C:\Program Files (x86)\Steam\steamapps\common\wallpaper_engine` |
 
-版本事实来自安装根的版本信息、Windows 文件元数据和 Steam app manifest。后续复核应同时记录 build ID，不能只写产品版本，因为同一 `2.8.x` 可能发生资源更新。
+版本事实来自当时的 Windows 文件元数据和 Steam app manifest。后续复核应同时记录 build ID，不能只写产品版本，因为同一 `2.8.x` 可能发生资源更新。
 
 ### 3.2 签名
 
@@ -66,7 +55,7 @@ Clean-room 规则：
 - 签名主体：`Skutta Software GmbH`
 - 签名状态：Windows 验证有效
 
-这能确认被检查文件属于当前合法安装的签名发行物；它不授予复制、修改或再分发权利。
+这能确认被检查文件属于当时的签名发行物。
 
 ### 3.3 DirectX 能力标记
 
@@ -155,7 +144,7 @@ ui\uicache\editor\base
 资源根：
 
 ```text
-C:\Program Files (x86)\Steam\steamapps\common\wallpaper_engine\assets\effects
+<client-root>/assets/effects
 ```
 
 本次结构化统计：
@@ -298,7 +287,7 @@ Fluid Simulation 是当前 stock Effect 中 graph 语义最完整的官方 fixtu
 资源根：
 
 ```text
-C:\Program Files (x86)\Steam\steamapps\common\wallpaper_engine\assets\scenes\particleelementpreviews
+<client-root>/assets/scenes/particleelementpreviews
 ```
 
 本次统计：
@@ -512,7 +501,7 @@ ROBOCOPY_RC:0
 
 本文提供 Windows 正版官方客户端的本机证据，优先级高于不透明 renderer 的二进制字符串推断，并与以下文档互补：
 
-- [Scene 参考项目只读审查](scene-reference-project-audit-2026-07-24.md)：第三方参考项目、许可证和架构线索。
+- [Scene 参考项目只读审查](scene-reference-project-audit-2026-07-24.md)：第三方参考项目和架构线索。
 - [Scene 参考项目与官方语义证据审查](scene-reference-audit-effects-runtime-2026-07-24.md)：Effect/runtime 专项交叉审查。
 - [Scene 资料来源与证据索引](../scene/semantics/source-index.md)：官方网页、真实样本和证据入口。
 - [Effect 执行覆盖表](../scene/semantics/effect-execution-coverage.md)：MyWallpaperX 当前逐项实现等级。
@@ -529,23 +518,16 @@ ROBOCOPY_RC:0
 
 本文是 2.8.42 / build `23967692` 的时间点快照。Wallpaper Engine 更新后，应重新记录 build ID、stock Effect/particle census 和关键 fixture hash，再决定本记录是否仍适用。
 
-## 14. macOS 完整客户端副本扩展审查
+## 14. 完整客户端快照扩展审查
 
-用户随后把完整客户端副本复制到：
-
-```text
-/Users/songziqiang/Downloads/wallpaper_engine
-```
-
-本轮继续只读静态检查，没有执行其中任何 Windows 二进制，也没有重新控制 Parallels。范围边界如下：
+补充快照继续采用静态检查，未执行 Windows 二进制。统计范围如下：
 
 - 总目录约 `1.8 GiB`、6524 个文件；`assets` 约 86 MiB，`projects` 约 146 MiB，`ui/uicache` 约 491 MiB。
 - 目录体积大于 Steam manifest 的 `826,275,581` bytes，因为副本包含 UI cache、运行状态和用户侧目录；不能把 1.8 GiB 写成官方发行 payload 的净大小。
 - 实际内容检查限定在 `assets`、`projects/defaultprojects`、`projects/templates` 和与它们直接关联的声明/素材。
 - 未读取或修改 `config.json`、`config_backups`、`projects/myprojects/123`；没有把 cache 或用户项目纳入 schema 统计。
-- 没有复制官方 shader、JSON、纹理、模型或二进制 payload 进入 MyWallpaperX。
 
-因此，下文统计是“本机 2.8.42 完整副本中官方候选资源”的快照，不是 Steam 全版本、Workshop 全体项目或跨平台统一 schema。
+因此，下文统计是 2.8.42 完整快照中官方候选资源的记录，不是 Steam 全版本、Workshop 全体项目或跨平台统一 schema。
 
 ## 15. SceneScript 随包实现合同
 
@@ -909,10 +891,10 @@ MyWallpaperX 当前 Puppet mesh reader 只接受 `MDLV0021/MDLV0023`，rig/anima
 
 以下是证据导出的候选工作，不改变现役 [Scene 能力总账](../scene/semantics/coverage-ledger.md) 的等级和既定批次：
 
-1. **TEX 3D LUT ingest**：先写自有 2x2x2/4x4x4 fixture，扩展 header/extent IR、3D uploader、stride/budget 和 fail-closed 测试，再用本机官方 neutral LUT 做只读解析对照和 Windows pixel golden。
+1. **TEX 3D LUT ingest**：先写自有 2x2x2/4x4x4 fixture，扩展 header/extent IR、3D uploader、stride/budget 和 fail-closed 测试，再用 2.8.42 neutral LUT 取证结果做解析对照和 Windows pixel golden。
 2. **SceneScript Source/Binding IR**：先保留 13 个默认脚本实际出现的 owner/property target，不再压成 Bool；随后才接受控 VM、Vec/Mat、官方 module registry 和最小 layer/text/sound handles。
 3. **粒子 event/trail/collision**：以 `eventspawn/static`、inherit、rope/trail、collision family 的官方最小预览重建自有 fixture；按 60 Hz 生命周期、实例数和像素门验证。
-4. **Material state/annotation IR**：兼容 state 字段别名、稀疏 slot、annotation relationship；优先做 parser/validator，不复制 stock shader 数学。
+4. **Material state/annotation IR**：兼容 state 字段别名、稀疏 slot、annotation relationship；优先做 parser/validator。
 5. **3D model 独立边界**：把 MDLV0004/0014 记入 versioned ingest backlog，但保持 P3，除非当前可见样本或计划重新排序；不得借 Puppet reader 快速放行。
 6. **Windows official golden**：每批只改一个变量，固定 build ID、项目 hash、分辨率、时间点和生命周期事件；静态资源 census 不能替代运行输出。
 
@@ -924,4 +906,4 @@ MyWallpaperX 当前 Puppet mesh reader 只接受 `MDLV0021/MDLV0023`，rig/anima
 
 作者 shader 还声明了 16/32/64 三档、左右声道分别命名的 audio spectrum uniform。静态声明只约束 binder identity，不能证明 Windows renderer 实际填入独立 stereo 数据。
 
-这批文件不能静态确认 ID 的身份、`maximumprojectid` 比较方向、Web replace 的首次/全量策略、缺文件/零匹配行为或补丁应用时机。详细 A/C 边界见 [zcompat 向后兼容机制取证](../scene/semantics/zcompat-backward-compatibility-forensics.md)。MyWallpaperX 若建立兼容层，应使用自有、版本化 manifest 与隔离 fixture，不复制官方或 Workshop shader/patch payload。
+这批文件不能静态确认 ID 的身份、`maximumprojectid` 比较方向、Web replace 的首次/全量策略、缺文件/零匹配行为或补丁应用时机。详细 A/C 边界见 [zcompat 向后兼容机制取证](../scene/semantics/zcompat-backward-compatibility-forensics.md)。MyWallpaperX 若建立兼容层，应使用版本化 manifest 与隔离 fixture。

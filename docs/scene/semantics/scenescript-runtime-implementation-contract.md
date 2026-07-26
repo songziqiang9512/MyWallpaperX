@@ -1,10 +1,10 @@
-# SceneScript 运行时实现层合同（本地安装包取证）
+# SceneScript 运行时实现层合同（2.8.42 客户端取证）
 
 审查日期：2026-07-25
-证据来源：本机 Wallpaper Engine 2.8.42 正版安装随包文件
-审查方式：只读静态检查
+取证快照：Wallpaper Engine 2.8.42 随包文件
+审查方式：静态检查
 
-> 本文只覆盖**在线文档没有、只有本地安装包才有**的实现层事实。`lib.sceneScript.d.ts` 的 API 表面（接口、签名、生命周期钩子）已在 [SceneScript API 覆盖表](scenescript-api-coverage.md) 建立，本文不重复。
+> 本文只覆盖在线文档未公开、但客户端取证记录到的实现层事实。`lib.sceneScript.d.ts` 的 API 表面（接口、签名、生命周期钩子）已在 [SceneScript API 覆盖表](scenescript-api-coverage.md) 建立，本文不重复。
 >
 > 本文回答的是 API 覆盖表回答不了的问题：**声明背后的实际数值行为、宿主与 VM 的桥接协议、以及编辑器声明的 authoring/type surface**。
 
@@ -17,7 +17,7 @@
 - 用户属性怎么跨 native/JS 边界传递、怎么反序列化成 `Vec3`，声明里完全没有；
 - SceneScript 自定义属性 UI（slider/combo/color）的构建协议，声明里**一个字都没有**。
 
-这些都是 pixel-exact 对齐和 conformance test 必需的。本地随包文件提供了它们。
+这些都是 pixel-exact 对齐和 conformance test 必需的。客户端取证提供了它们。
 
 ## 2. 证据来源与等级
 
@@ -28,9 +28,7 @@
 | `DT` | `ui/dist/monaco/autocomplete/lib.sceneScript.d.ts` | 2570 行 | A |
 | `LB` | `ui/dist/monaco/autocomplete/lib.es*.d.ts` 清单 | 23 个文件 | A |
 
-等级沿用 [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md)：A = 正版安装中的结构化文件直接确认。
-
-**Clean-room 边界**：`baseclasses.js` 是官方**实现源码**（非声明），版权属 Skutta Software GmbH。本文只记录可观察的输入/输出行为合同、常量值和字段名，不复制其代码表达。实现 MyWallpaperX 时按本文的行为表自研，不照抄官方源码。
+等级沿用 [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md)：A = 客户端快照中的结构化文件直接确认。
 
 ## 3. 编辑器 authoring/type surface（`LB`）
 
@@ -298,5 +296,5 @@ Mat3/Mat4 的乘法索引和向量变换直接确认其数组为 column-major �
 
 - [SceneScript API 覆盖表](scenescript-api-coverage.md) —— API 表面与当前实现等级
 - [资料来源与证据索引](source-index.md) —— 本文来源应登记于此
-- [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) —— 证据等级与 clean-room 规则出处
+- [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) —— 证据等级出处
 - [运行时系统语义](runtime-systems-reference.md) —— 运行系统执行顺序

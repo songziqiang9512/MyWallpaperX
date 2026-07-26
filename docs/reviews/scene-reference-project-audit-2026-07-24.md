@@ -40,12 +40,12 @@
 
 - 当前缺口已经不是 Scene IR 或基础 target identity，而是通用 material/pass 执行与 shader 合同的消费。
 - 不应继续为每个 stock effect 重复搭一套纹理解析、render state 和 pass 调度基础设施。
-- 也不应立即挑战任意 authored shader 全自动转换；应先建立共享 pass executor、只保存自有元数据/哈希/用户本地合法资产引用的 stock shader registry、预处理合同和自有 shader fixture，不内嵌 stock shader payload。
+- 也不应立即挑战任意 authored shader 全自动转换；应先建立共享 pass executor、stock shader registry、预处理合同和 shader fixture。
 - PKG/TEX 当前主路径已经较完整，近期收益主要来自补 fixture、sampler flag、边界格式和损坏输入，不是重写解析器。
 - 粒子已有可见 `L3` 子集，应按真实样本频率补组件，不应照搬第三方粒子系统。
 - SceneScript、音频、输入、Puppet 和 3D 都不能从这些参考项目得到官方精确语义，只能取得宿主边界或早期里程碑线索。
 
-## 3. 项目、版本与许可证
+## 3. 项目与版本
 
 ### 3.1 WaifuX-main
 
@@ -55,21 +55,10 @@
 - App 版本：`38.0.136`
   - `Reference Project/WaifuX-main/WaifuX.xcodeproj/project.pbxproj:1450`
   - `Reference Project/WaifuX-main/WaifuX.xcodeproj/project.pbxproj:1460`
-- 项目许可证：GPLv3
-  - `Reference Project/WaifuX-main/LICENSE:1-6`
-  - `Reference Project/WaifuX-main/README.md:23-25`
 - 两份 `wallpaper-wgpu` 均为 arm64 Mach-O，内容相同：
   - `Reference Project/WaifuX-main/wallpaper-wgpu`
   - `Reference Project/WaifuX-main/Resources/wallpaper-wgpu`
   - SHA-256：`0c170c6830227dc6b29e0dc3054e3cc858a493cc4f6756192a1da488b19dec6d`
-
-许可证和来源风险：
-
-- WaifuX Swift 源码属于 GPLv3。直接复制或链接到 MyWallpaperX 会带来 GPL 发布义务。
-- `wallpaper-wgpu` 没有随快照提供可对应的源码、commit、构建说明或独立许可证。
-- `scripts/build-wallpaper-wgpu.sh:61-80` 只从开发机路径或下载目录复制预编译文件，不能证明 binary 的源码和许可证。
-- 在来源和发布授权明确前，不得把该 binary 链接、嵌入或随 MyWallpaperX 分发。
-- 即使采用独立进程隔离，也不能消除 binary 本身来源不明和再分发授权不明的问题。
 
 可用范围：
 
@@ -85,14 +74,7 @@
 - commit 日期：2026-06-09
 - commit message：`refactor: remove subprocess in favor of dbus and wire up to javascript (#606)`
 - 没有可用 release tag，`git describe` 为 `b016d7d`。
-- 许可证：GPLv3
-  - `Reference Project/linux-wallpaperengine-reference/LICENSE:1-6`
-
-许可证风险：
-
-- 不复制实现、注释或测试表达，不静态或动态链接该项目。
-- 仅把字段关系、执行顺序和失败模式作为第三方行为线索。
-- 所有准备固化到 MyWallpaperX 的语义仍需真实样本、合法官方 assets 或官方文档交叉验证。
+- 字段关系、执行顺序和失败模式可作为第三方行为线索。
 
 ### 3.3 renderdoc-1.x
 
@@ -101,13 +83,7 @@
 - 本地目录没有独立 `.git`，无法确认 commit。
 - 版本：1.46
   - `Reference Project/renderdoc-1.x/renderdoc/api/replay/version.h:93-98`
-- 主许可证：MIT
-  - `Reference Project/renderdoc-1.x/LICENSE.md:1-17`
-
-许可证和产品判断：
-
-- MIT 代码可以使用，但复制时必须保留 copyright 和 license notice。
-- RenderDoc 还包含独立第三方组件；实际引入前仍需逐项核对其 notices。
+产品判断：
 - 当前 Metal 支持默认关闭：
   - `Reference Project/renderdoc-1.x/CMakeLists.txt:203-208`
 - 官方 FAQ 仍把 Metal 列为未来可能支持的 API：
@@ -130,13 +106,7 @@
 - 本地目录没有独立 `.git`，无法确认 commit。
 - 版本：`0.4.0`
   - `Reference Project/repkg-master/RePKG/RePKG.csproj:5-7`
-- 许可证：MIT
-  - `Reference Project/repkg-master/LICENSE:1-13`
-
-许可证和证据边界：
-
-- 可在保留 MIT notice 的前提下移植代码。
-- 更推荐根据格式事实和自有合法 fixture 独立实现 Swift 测试，避免逐行翻译。
+- 更推荐根据格式事实和自有 fixture 独立实现 Swift 测试，避免逐行翻译。
 - 当前快照的 `RePKG.Tests` 没有附带其命名所指向的完整二进制 fixture，因此不能直接运行或迁移原测试。
 
 ## 4. Material、Pass、FBO 与 Effect 顺序
@@ -717,7 +687,6 @@ WaifuX 已生成的 SceneBakes MP4 可以作为：
 - 官方 Windows WE pixel golden
 - shader 数值真值
 - 输入、音频、Timeline 或 SceneScript 动态真值
-- binary 再分发依据
 
 ## 11. 直接采用、架构参考和拒绝项
 
@@ -764,19 +733,19 @@ WaifuX 已生成的 SceneBakes MP4 可以作为：
 
 ## 12. 行动建议
 
-按可见画面收益、实现成本和许可证风险综合排序：
+按可见画面收益和实现成本综合排序：
 
-| 排名 | 行动 | 可见画面收益 | 实现成本 | 许可证风险 |
-|---|---|---:|---:|---:|
-| 1 | 在现有 graph/resolver 上建立共享 `MaterialPassExecutor`，先服务只含自有元数据、哈希和用户本地合法资产引用的 stock shader registry，再逐步让 strict backend 复用；不得内嵌 stock shader payload | 高 | 中高 | 低，独立实现 |
-| 2 | 闭合 `previous`、generic compose、named target、跨帧 ping-pong/history 与完整生命周期 | 高 | 中高 | 低 |
-| 3 | 用真实样本 shader 建 include/require/combo/default/annotation/slot 合同门，再实现 tokenizer/preprocessor IR | 高 | 中 | 低 |
-| 4 | 从 WaifuX SceneBakes 为固定关键样本抽同时间点帧，纳入人工并排视觉门 | 高，主要是验证收益 | 低 | 低，仅本机参考 |
-| 5 | 补 TEX V1-V4、R8/RG88、DXT、animated TEX、MP4、clamp/nearest fixture | 中高 | 低中 | 低，MIT 格式事实 |
-| 6 | 按真实样本 census 补高频 particle emitter/initializer/operator、dynamic control point 和多纹理 material | 中高 | 中 | 低 |
-| 7 | 先实现双声道 audio snapshot、pointer button/event 和统一 shader built-ins，再接 effect/particle consumer | 高 | 中 | 低 |
-| 8 | SceneScript 先保存 source/target IR，再以 JavaScriptCore 建预算受限、样本驱动 API | 中高 | 高 | 低 |
-| 9 | Puppet 先做格式 census 和静态 mesh 实验；骨骼、IK、lighting、完整 3D 暂缓 | 中低 | 很高 | 低 |
+| 排名 | 行动 | 可见画面收益 | 实现成本 |
+|---|---|---:|---:|
+| 1 | 在现有 graph/resolver 上建立共享 `MaterialPassExecutor`，再逐步让 strict backend 复用 | 高 | 中高 |
+| 2 | 闭合 `previous`、generic compose、named target、跨帧 ping-pong/history 与完整生命周期 | 高 | 中高 |
+| 3 | 用真实样本 shader 建 include/require/combo/default/annotation/slot 合同门，再实现 tokenizer/preprocessor IR | 高 | 中 |
+| 4 | 从 WaifuX SceneBakes 为固定关键样本抽同时间点帧，纳入人工并排视觉门 | 高，主要是验证收益 | 低 |
+| 5 | 补 TEX V1-V4、R8/RG88、DXT、animated TEX、MP4、clamp/nearest fixture | 中高 | 低中 |
+| 6 | 按真实样本 census 补高频 particle emitter/initializer/operator、dynamic control point 和多纹理 material | 中高 | 中 |
+| 7 | 先实现双声道 audio snapshot、pointer button/event 和统一 shader built-ins，再接 effect/particle consumer | 高 | 中 |
+| 8 | SceneScript 先保存 source/target IR，再以 JavaScriptCore 建预算受限、样本驱动 API | 中高 | 高 |
+| 9 | Puppet 先做格式 census 和静态 mesh 实验；骨骼、IK、lighting、完整 3D 暂缓 | 中低 | 很高 |
 
 ## 13. 下一阶段决策
 
@@ -803,6 +772,6 @@ WaifuX 已生成的 SceneBakes MP4 可以作为：
 这些结论绑定于本文件记录的本地快照：
 
 - `linux-wallpaperengine` 的 commit 可重复定位。
-- WaifuX、RenderDoc 和 RePKG 没有本地 `.git`，未来替换目录后必须重新确认版本、许可证和实现。
+- WaifuX、RenderDoc 和 RePKG 没有本地 `.git`，未来替换目录后必须重新确认版本和实现。
 - MyWallpaperX 能力状态会持续变化；实现前应重新查看 `coverage-ledger.md` 和专项能力表，不能用本审查覆盖更新后的代码事实。
 - 若未来取得 Windows Wallpaper Engine 同配置录屏或合法官方 assets，应以其更新当前第三方行为假设。

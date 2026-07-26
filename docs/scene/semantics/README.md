@@ -82,12 +82,12 @@ Wallpaper Engine 没有公开稳定、完整的 Workshop Scene 序列化规范�
 | 等级 | 来源 | 可以证明什么 | 不能证明什么 |
 |---|---|---|---|
 | `A` | Wallpaper Engine 官方 Designer 文档、官方 SceneScript `lib.sceneScript.d.ts` | 作者可见能力、启用规则、参数含义、脚本 API 和生命周期 | 私有 JSON/PKG/TEX 的全部字段和内部 pass 调度 |
-| `B` | 用户合法取得的 Workshop 样本及其隔离解包结果 | 真实实例字段、顺序、override、资源引用和组合方式 | 字段在所有版本中的稳定性、官方内部默认算法 |
-| `C` | WaifuX 内嵌的 WE-compatible asset payload | effect/material/shader 定义形态和具体高频效果的执行线索 | 资源来源、许可、版本和官方真实性；不得随项目复制或分发 |
+| `B` | Workshop 样本及其隔离解包结果 | 真实实例字段、顺序、override、资源引用和组合方式 | 字段在所有版本中的稳定性、官方内部默认算法 |
+| `C` | WaifuX 内嵌的 WE-compatible asset payload | effect/material/shader 定义形态和具体高频效果的执行线索 | 资源来源、版本和官方真实性；不作为项目资产 |
 | `D` | `Almamu/linux-wallpaperengine` 等开源播放器 | 一种可审计解释路径、常见陷阱、字段间关系 | 官方真值；项目中的 TODO、启发式和 bug 不能反向成为规范 |
 | `E` | MyWallpaperX 当前代码、测试和样本矩阵 | 当前真实支持范围、已知降级和回归证据 | Wallpaper Engine parity 或未覆盖样本的正确性 |
 
-冲突时按 `A -> 合法安装的官方 assets -> B -> C -> D -> E` 排查。本机现有 Wallpaper Engine 2.8.42 正版安装，其随包结构化证据与逐篇取证入口见 [资料来源与证据索引](source-index.md) §1.11；该层优先于 B/C，但仍不能证明运行时事件顺序、shader 数学与 Windows 像素 parity。WaifuX 的资源包**不因此提升**为“官方 assets”，仍留在 `C`。
+冲突时按 `A -> 历史 2.8.42 客户端静态取证 -> B -> C -> D -> E` 排查。该历史快照的逐篇取证入口见 [资料来源与证据索引](source-index.md) §1.11；它优先于 B/C，但仍不能证明运行时事件顺序、shader 数学与 Windows 像素 parity。WaifuX 的资源包仍留在 `C`。
 
 注意本表的 `A`-`E` 与 [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) 的 `A`/`B`/`C` 是**两套不同的标度**：后者的 `C` 指“根据字段名或常量作出的解释”，不是本表的 WaifuX payload。§1.11 登记的 5 篇随包取证文档使用后者。引用“等级 C”时必须指明出处标度。
 
@@ -120,13 +120,6 @@ Wallpaper Engine 没有公开稳定、完整的 Workshop Scene 序列化规范�
 - `compile-or-pipeline-failed`
 
 “成功启动”“非黑帧”和“route-only”不能记为视觉支持。
-
-### 4.4 许可证与来源边界
-
-- 不复制或分发 WaifuX 的 `wallpaper-wgpu`、`zip_data.o`、shader、material 或 texture。
-- 不直接复制 GPL-3.0 开源播放器实现；只把它们用于结构佐证和缺陷分析。
-- 官方 assets 将来只能从用户合法安装位置读取，不打包进 MyWallpaperX。
-- MyWallpaperX 的算法、Metal shader、fixtures 和测试必须独立实现，并保留来源说明。
 
 ## 5. 统一运行模型
 

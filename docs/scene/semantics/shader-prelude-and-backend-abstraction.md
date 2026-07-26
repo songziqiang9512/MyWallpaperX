@@ -1,7 +1,7 @@
 # Shader source 前置合同与跨后端假设审查
 
 审查日期：2026-07-25
-证据来源：本机 Wallpaper Engine 2.8.42 正版安装 `assets/shaders`
+取证快照：Wallpaper Engine 2.8.42 `assets/shaders`
 审查方式：只读静态检查，共 14 个头文件 + 108 个顶层 shader + 7 个 HLSL 专用 shader
 
 > [Render Graph 与 Shader 覆盖表](render-graph-shader-coverage.md) 记录了 EffectDefinition、Material、FBO 与 Shader 的 IR 与 executor 实现进度。本文补充一个前置观察：扫描到的官方 shader 源码使用一组在同一 source corpus 中没有定义的 token；它们可能由编译前端、未随包的 include 或其他宿主阶段提供。
@@ -274,7 +274,7 @@ common_vertex.h   ── base/model_vertex_v1.h
 
 后三个是**同一意图的三种不同拼写**（其中两种只是词序相反），各出现 1 次，且**全部在 stock 官方资产中**，不是作者内容。`[OFF_COMBO]`/`[COMBO_OFF]` 仍带完整 `combo`/`type`/`default` 载荷，`[COMBO_DISABLED]` 无 `type`。
 
-只匹配 `[COMBO]` 的 parser 会把它们当普通注释丢弃；按「包含 COMBO」宽松匹配又会把它们误当启用的 combo。两种都错。MyWallpaperX 应只承认精确 `[COMBO]`，其余拼写记为「已识别、不启用」的显式诊断。官方未公开这三种拼写的合同，见 [资料来源与证据索引](source-index.md) §7。
+只匹配 `[COMBO]` 的 parser 会把它们当普通注释丢弃；按「包含 COMBO」宽松匹配又会把它们误当启用的 combo。两种都错。MyWallpaperX 应只承认精确 `[COMBO]`，其余拼写记为「已识别、不启用」的显式诊断。官方未公开这三种拼写的合同，见 [资料来源与证据索引](source-index.md) §6。
 
 `projects/defaultprojects` 的 21 个 `[COMBO]` 中没有任何变体拼写。
 
@@ -359,7 +359,7 @@ shaders/chroma4.frag:2   // [PASS] shadow shadowcaster
 | 纹理格式 combo | §4.1 的 13 个枚举值 | 加载器实际格式 → combo 值映射正确；R8 上传为 `r8Unorm` |
 | 法线解压 | §4.2 三分支，`0.965` 偏移 | 同一法线贴图分别以 BC7 与 RGBA8888 编码，解压结果一致 |
 | 灰度 | §5 两套权重分别实现 | 纯红输入下 `greyscale` 得 0.11、`Desaturate` 得 0.30 |
-| PBR | 保留 helper 身份与参数，不复制 source 算法 | 参数 sweep 与 Windows 像素 golden 定义已支持子集 |
+| PBR | 保留 helper 身份与参数 | 参数 sweep 与 Windows 像素 golden 定义已支持子集 |
 | combo 注解 | 只承认精确 `[COMBO]`；除 `combo` 外全部键可缺席；`require` 参与 variant 剪枝 | §8.1 三种变体拼写产出诊断而非静默忽略；`require` 不满足的组合不进 variant 矩阵 |
 | uniform 标注 | 与 combo 分成两条通道，`type` 值域不共用 | `type == "color"` 不生成 variant；`type == "imageblending"` 不生成颜色控件 |
 | `[PASS]` 注解 | shader 头部声明的附加 pass 进入依赖收集与 pass 枚举 | fur/foliage/chroma 的 shadow pass 被枚举到，而非只扫 JSON |
@@ -369,11 +369,10 @@ shaders/chroma4.frag:2   // [PASS] shadow shadowcaster
 - 候选 prelude/frontend token 的**确切展开文本与提供者**不在随包 source corpus 中。本文能 A 级确认 token 使用与本地定义缺席；“由 binary 注入”和多数语义解释均为 C 级。
 - `SHADERVERSION` 与 `VERSION` 的取值范围无本地证据。
 - `HLSL/` 子目录下 7 个 `dx11*` shader 是 D3D11 专用回退路径（`dx11fallback`、`dx11playlistgaussian`、`dx11playlisttransition`），与跨平台抽象无关，未展开。
-- 本文不复制官方 shader 源码或算法表达。记录的是 token、格式枚举、helper 身份、分支存在性与测试假设。实现时自研 frontend、MSL 与 fixtures，不移植官方 GLSL/HLSL 表达式。
 
 ## 11. 关联文档
 
 - [Render Graph 与 Shader 覆盖表](render-graph-shader-coverage.md) —— Shader IR 与 executor 实现进度
 - [SceneScript 运行时实现层合同](scenescript-runtime-implementation-contract.md) —— JS 侧 WEColor 与 shader 侧色彩函数的差异
 - [资料来源与证据索引](source-index.md) —— 官方 Shader 文档页面入口
-- [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) —— 证据等级与 clean-room 规则
+- [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) —— 证据等级

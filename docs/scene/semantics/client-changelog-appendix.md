@@ -3,7 +3,7 @@
 审查日期：2026-07-26
 证据来源：`ui/dist/scripts/scripts.js`（SHA-256 `be104cf40bd7fe1e3598f7387f1cfa545c4a71282d9a3a3b30dcc4a8b262373e`，客户端 2.8.42）
 
-> 本文是 [官方客户端 changelog 取证](client-changelog-forensics.md) 的全量数据附录：459 个 revision、741 条变更逐字固化，使后续查证不再依赖本机官方客户端目录。
+> 本文是 [官方客户端 changelog 取证](client-changelog-forensics.md) 的全量数据附录：459 个 revision、741 条变更逐字固化。
 > 分析、结论与使用边界见主文档；本文只按 REV 降序罗列原文，不做筛选或改写。
 > 由 `script/extract_wallpaper_engine_client_evidence.py` 输出生成；官方客户端更新后重跑提取并整体重生成本文，不做手工增删。
 

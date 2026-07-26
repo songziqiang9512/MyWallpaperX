@@ -1,7 +1,7 @@
 # 官方 19 工程 fixture 清单
 
 审查日期：2026-07-25
-证据来源：本机 Wallpaper Engine 2.8.42 正版安装 `projects/defaultprojects`
+取证快照：Wallpaper Engine 2.8.42 `projects/defaultprojects`
 审查方式：只读静态解析 `project.json` / scene 文件 / 资产目录
 
 > 这批工程随正版安装分发，**全部为解包状态（0 个 `.pkg`）**。它们是一批官方分发、结构完全可见的正向输入 corpus；本文不声称它们覆盖全部官方作者工程或历史版本。
@@ -348,17 +348,9 @@ G0–G3 建议作为**回归门**（每次改动都跑），G4–G8 作为**快�
 - 视频纹理、Timeline 动画事件、Texture Variants、`displaycondition`
 - 用户属性的全部类型（`project.json.general` 中的属性未在本文展开，需单独取证）
 
-这些仍需 Workshop 样本或自建 fixture，见 [资料来源与证据索引](source-index.md) §7。
+这些仍需 Workshop 样本或自建 fixture，见 [资料来源与证据索引](source-index.md) §6。
 
-## 13. Clean-room 边界
-
-本文记录工程名、文件名、字段名、字段取值、组件名、资产格式与数量统计。这些是结构与合同信息。
-
-**不复制官方工程的 scene 数据、shader 源码、模型、纹理或脚本进仓库。** 运行或注入测试前应复制到隔离 root 并使用临时 HOME；原始安装副本只作只读来源，与 [资料来源与证据索引](source-index.md) §6 的隔离原则一致。
-
-需要可提交到仓库的 fixture 时，按本文的结构规格自建等价最小工程，不放官方 payload。
-
-## 14. 关联文档
+## 13. 关联文档
 
 - [内联脚本与 binding target 取证](scenescript-binding-target-forensics.md) —— 本批工程中 13 处内联 SceneScript 的详细取证
 - [Shader Prelude 与跨后端抽象层取证](shader-prelude-and-backend-abstraction.md) —— `dxt5n` 与 `DecompressNormal` 分支的对接

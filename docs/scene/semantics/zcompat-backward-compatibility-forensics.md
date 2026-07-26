@@ -1,7 +1,7 @@
 # zcompat 官方向后兼容机制取证
 
 审查日期：2026-07-25
-证据来源：本机 Wallpaper Engine 2.8.42 正版安装 `assets/zcompat`
+取证快照：Wallpaper Engine 2.8.42 `assets/zcompat`
 审查方式：只读静态检查，全目录 11 个文件 / 52 KB
 
 > `assets/zcompat` 随包分发了按数字 ID 组织的 shader 替代候选与 Web 字符串补丁记录。静态文件能确认补丁数据形态，但不能单独确认官方 loader 的匹配顺序、应用时机或失败策略。
@@ -62,7 +62,7 @@ assets/zcompat/
 
 ### 3.3 覆盖 shader 的结构事实
 
-两份 shader 的结构信息（不复制源码）：
+两份 shader 的结构信息：
 
 | 项 | `pixelate` | `Simple_Audio_Bars` |
 |---|---|---|
@@ -174,7 +174,7 @@ g_AudioSpectrum64Left[64]   g_AudioSpectrum64Right[64]
 | web patch 多路径 | 分别测试缺文件、零匹配、单匹配与多匹配 | 记录 Windows 的跳过/警告/失败策略，不预设静默 |
 | web patch 匹配 | 比较字面、正则、首次/全量替换候选 | 非 ASCII 与换行差异也进入负向门 |
 | 音频频谱 | IR 保留 L/R 独立 identity 与 16/32/64 三档 | 非对称立体声输入下记录 Windows 两组数组和可见输出 |
-| 只读边界 | 官方 `zcompat` 只作本机结构对照；仓库 fixture 自行编写，不复制 shader/patch payload | — |
+| fixture 路径 | 官方 `zcompat` 的结构用于对照；仓库 fixture 自行编写 | — |
 
 需要注意的取舍：MyWallpaperX 是独立实现，官方的兼容补丁是针对**官方引擎某次行为变更**写的。直接套用官方补丁**未必正确**——如果 MyWallpaperX 的纹理就绪时序本来就是安全的，`texImage2D` 空值守卫是无害冗余；但 THREE.js 那份改的是**可见外观**（背景从透明变成 `0xe0dacd`），套用与否会直接改变画面。
 
@@ -186,7 +186,6 @@ g_AudioSpectrum64Left[64]   g_AudioSpectrum64Right[64]
 - 覆盖 shader 在 `maximumprojectid` 判定失败时是回退到作者原版还是拒载，无证据。
 - web 补丁的应用时机（解包时改写磁盘 / 加载时内存改写）无证据。MyWallpaperX 无论采用何种自有兼容层，都不得修改真实 Workshop 来源；必须在隔离副本或内存表示上执行。
 - 只有 2 个 scene 覆盖和 5 个 web 补丁，样本量不足以推断字段的完整取值域（例如 `config.json` 是否支持 material 或 texture 覆盖）。
-- 本文不复制 `pixelate.frag`、`Simple_Audio_Bars.frag` 或任何被补丁作品的代码。记录的是配置字段名、字段取值、uniform 名、combo 类型和补丁的行为模式。这两份 shader 的著作权属其 Workshop 作者，不进仓库。
 
 ## 8. 关联文档
 
