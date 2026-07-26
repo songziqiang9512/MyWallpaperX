@@ -10,7 +10,9 @@
 
 本目录建立官方随包 `.tex` 与 `.tex-json` 的相对路径和文件身份，方便逐项制作、替换和比较项目自有素材。官方 TEX/sidecar payload、shader、material JSON 和像素均未复制进仓库。
 
-项目 counterpart 的 `assets/...` 目录、311 个 `.tex` 和 298 个 `.tex-json` 文件名与官方静态库存集合完全一致。每个 TEX 是项目自建的合法 `TEXV0005/TEXI0001/TEXB0002` format-0 单 mip 容器，内嵌同一张 16x16 项目图标；每个 sidecar 是 `rgba8888`、`nomip=true` 的合法 JSON 占位。Particle material slot 0 已在样本本地资源查找失败后按 catalog 精确 identity 解析 bundle TEX；这只证明资源路由、TEX 解码和 GPU 上传，不证明占位容器具备对应官方文件的 codec、尺寸、通道、mip、atlas 或像素语义。
+**资产库存状态：完整。** 对当前事实快照观察到的全部 stock 纹理相关文件，项目 counterpart 的 `assets/...` 目录、311 个 `.tex` 和 298 个 `.tex-json` 文件名与官方静态库存集合完全一致；没有待补的已知 TEX 或 sidecar 路径。这里的“完整”只表示文件身份和相对路径占位完整，不表示所有运行时 consumer、TEX metadata 或官方视觉语义已经兼容。
+
+每个 TEX 是项目自建的合法 `TEXV0005/TEXI0001/TEXB0002` format-0 单 mip 容器，内嵌同一张 16x16 项目图标；每个 sidecar 是 `rgba8888`、`nomip=true` 的合法 JSON 占位。Particle material slot 0 已在样本本地资源查找失败后按 catalog 精确 identity 解析 bundle TEX；这只证明资源路由、TEX 解码和 GPU 上传，不证明占位容器具备对应官方文件的 codec、尺寸、通道、mip、atlas 或像素语义。
 
 ## 2. 官方静态事实
 
@@ -37,6 +39,8 @@ official: assets/materials/particle/fire/fire1.tex
 project:  assets/materials/particle/fire/fire1.tex
 sidecar: assets/materials/particle/fire/fire1.tex-json
 ```
+
+素材制作完成后必须直接替换 catalog 所列项目文件，保留相同相对路径、文件名和扩展名，不新增平行命名或替代目录。当前 Particle material slot 0 会从这些固定路径读取替换后的 TEX；sidecar 及 LUT、normal、多纹理、Effect preview、preset、scene preview 等 consumer 尚未接入。后续实现任一对应能力时，必须复用既有 catalog identity，并以“人工替换后的目标 TEX/sidecar 被该 consumer 实际读取”为资源链验收条件，不得再造另一套资产身份。
 
 生成入口：
 
