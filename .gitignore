@@ -54,3 +54,4 @@ docs/agents/data-source-script-agent/outputs/
 MyWallpaperX/Resources/SteamCMDRuntime.bundle/Steam/logs/
 
 /Reference Project/
+.claude/settings.local.json

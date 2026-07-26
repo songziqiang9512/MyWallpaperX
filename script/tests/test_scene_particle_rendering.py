@@ -15,6 +15,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Rendering/SceneMatrix.swift",
     SOURCE_ROOT / "Particles/SceneParticleRenderSupport.swift",
     SOURCE_ROOT / "Particles/SceneParticleMetalPipeline.swift",
+    SOURCE_ROOT / "Particles/SceneParticleTextureSource.swift",
 ]
 
 
@@ -129,6 +130,7 @@ enum Harness {
                 ))
             ),
             "instanceBufferSlots": instanceBufferSlotTest(),
+            "colorContract": colorContractTest(),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -369,6 +371,109 @@ enum Harness {
         ]
     }
 
+    private static func colorContractTest() -> [String: Any] {
+        guard let device = MTLCreateSystemDefaultDevice() else { return [:] }
+        let r8Descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .r8Unorm, width: 2, height: 2, mipmapped: false
+        )
+        r8Descriptor.usage = .shaderRead
+        r8Descriptor.storageMode = .shared
+        guard let r8 = device.makeTexture(descriptor: r8Descriptor) else { return [:] }
+        var gray = [UInt8](repeating: 200, count: 4)
+        r8.replace(
+            region: MTLRegionMake2D(0, 0, 2, 2), mipmapLevel: 0,
+            withBytes: &gray, bytesPerRow: 2
+        )
+        let rawR8 = centerPixel(texture: r8)
+        let adaptedR8 = centerPixel(
+            texture: SceneParticleColorTextureAdapter.adapt(r8, device: device)
+        )
+
+        let rgDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rg8Unorm, width: 2, height: 2, mipmapped: false
+        )
+        rgDescriptor.usage = .shaderRead
+        rgDescriptor.storageMode = .shared
+        guard let rg = device.makeTexture(descriptor: rgDescriptor) else { return [:] }
+        var luminanceAlpha = [UInt8](repeating: 0, count: 8)
+        for index in 0..<4 {
+            luminanceAlpha[index * 2] = 255
+            luminanceAlpha[index * 2 + 1] = 128
+        }
+        rg.replace(
+            region: MTLRegionMake2D(0, 0, 2, 2), mipmapLevel: 0,
+            withBytes: &luminanceAlpha, bytesPerRow: 4
+        )
+        let adaptedRG = SceneParticleColorTextureAdapter.adapt(rg, device: device)
+        var expanded = [UInt8](repeating: 0, count: 4)
+        if adaptedRG.pixelFormat == .rgba8Unorm {
+            adaptedRG.getBytes(
+                &expanded,
+                bytesPerRow: adaptedRG.width * 4,
+                from: MTLRegionMake2D(0, 0, 1, 1),
+                mipmapLevel: 0
+            )
+        }
+        return [
+            "rawR8": rawR8,
+            "adaptedR8": adaptedR8,
+            "rgExpandedFormatIsRGBA": adaptedRG.pixelFormat == .rgba8Unorm,
+            "rgExpandedPixel": expanded.map(Int.init),
+        ]
+    }
+
+    /// Draws one full-alpha particle with the given texture and returns the
+    /// blended BGRA center pixel, exercising the real sampler and swizzle.
+    private static func centerPixel(texture: MTLTexture) -> [Int] {
+        let size = 8
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let pipeline = SceneParticleMetalPipeline(device: device),
+              let queue = device.makeCommandQueue(),
+              let command = queue.makeCommandBuffer() else { return [] }
+        let outputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm, width: size, height: size, mipmapped: false
+        )
+        outputDescriptor.usage = .renderTarget
+        outputDescriptor.storageMode = .shared
+        guard let output = device.makeTexture(descriptor: outputDescriptor) else { return [] }
+        let instances = SceneParticleMetalInstanceBuffer()
+        guard instances.update(device: device, instances: [SceneParticleGPUInstance(
+            position: .zero, size: 2, rotation: .zero,
+            color: SIMD3(repeating: 1), alpha: 1
+        )]) else { return [] }
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = output
+        pass.colorAttachments[0].loadAction = .clear
+        pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+        pass.colorAttachments[0].storeAction = .store
+        guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return [] }
+        pipeline.draw(
+            texture: texture,
+            instances: instances,
+            uniforms: SceneParticleLayerUniforms(
+                viewProjection: SceneMatrix.identity(),
+                layerModel: SceneMatrix.identity(),
+                basis: SceneParticleOrientation.screen.basis(
+                    cameraRight: SIMD3(1, 0, 0), cameraUp: SIMD3(0, 1, 0),
+                    cameraForward: SIMD3(0, 0, -1)
+                )
+            ),
+            blendMode: .translucent,
+            encoder: encoder
+        )
+        encoder.endEncoding()
+        instances.markSubmitted(on: command)
+        guard commitAndWait(command) else { return [] }
+        var pixel = [UInt8](repeating: 0, count: 4)
+        output.getBytes(
+            &pixel,
+            bytesPerRow: size * 4,
+            from: MTLRegionMake2D(size / 2, size / 2, 1, 1),
+            mipmapLevel: 0
+        )
+        return pixel.map(Int.init)
+    }
+
     private static func instance(x: Float) -> SceneParticleGPUInstance {
         SceneParticleGPUInstance(
             position: SIMD3(x, 0, 0), size: 1, rotation: .zero,
@@ -459,6 +564,25 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertGreater(horizontal["width"], horizontal["height"] * 2.5)
         self.assertGreater(vertical["height"], vertical["width"] * 2.5)
         self.assertGreater(rotated["height"], rotated["width"] * 2.5)
+
+    def test_color_contract_adapts_r8_and_rg88_particle_textures(self) -> None:
+        contract = self.result["colorContract"]
+        raw = contract["rawR8"]
+        adapted = contract["adaptedR8"]
+        if not raw or not adapted:
+            self.skipTest("Metal offscreen draw is unavailable")
+        # 未适配的 r8Unorm 采样得 (r,0,0,1):BGRA 读回蓝/绿为 0、红为灰度。
+        self.assertEqual(raw[0], 0)
+        self.assertEqual(raw[1], 0)
+        self.assertGreater(raw[2], 150)
+        # 适配后 swizzle rrrr:灰白(B==G==R)且保持预乘白合同。
+        self.assertGreater(adapted[0], 150)
+        self.assertEqual(adapted[0], adapted[1])
+        self.assertEqual(adapted[1], adapted[2])
+        self.assertEqual(adapted[2], adapted[3])
+        # RG88 luminance+alpha 展开为预乘 RGBA:255*128/255=128,alpha=128。
+        self.assertTrue(contract["rgExpandedFormatIsRGBA"])
+        self.assertEqual(contract["rgExpandedPixel"], [128, 128, 128, 128])
 
     def test_in_flight_instance_slots_are_not_reused_until_completion(self) -> None:
         slots = self.result["instanceBufferSlots"]

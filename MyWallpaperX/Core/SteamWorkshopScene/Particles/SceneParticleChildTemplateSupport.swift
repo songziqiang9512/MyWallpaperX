@@ -47,7 +47,10 @@ enum SceneParticleChildTemplateSupport {
             guard case let .loaded(texture) = textureLoader.load(from: url, device: device) else {
                 return nil
             }
-            return (texture, SceneSpriteAnimation.load(from: url))
+            return (
+                SceneParticleColorTextureAdapter.adapt(texture, device: device),
+                SceneSpriteAnimation.load(from: url)
+            )
         case let .builtIn(key):
             guard let texture = builtInTextureRegistry.texture(for: key) else { return nil }
             return (texture, nil)

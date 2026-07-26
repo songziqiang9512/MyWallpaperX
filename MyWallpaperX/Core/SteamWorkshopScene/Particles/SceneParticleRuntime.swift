@@ -151,7 +151,7 @@ final class SceneParticleRuntime {
                     )
                     continue
                 }
-                texture = loadedTexture
+                texture = SceneParticleColorTextureAdapter.adapt(loadedTexture, device: device)
                 spriteAnimation = SceneSpriteAnimation.load(from: textureURL)
             case let .builtIn(key):
                 guard let loadedTexture = builtInTextureRegistry.texture(for: key) else {

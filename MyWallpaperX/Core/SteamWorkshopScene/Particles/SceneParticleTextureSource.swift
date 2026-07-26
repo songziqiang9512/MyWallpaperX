@@ -1,4 +1,76 @@
 import Foundation
+import Metal
+
+/// The particle fragment shader multiplies the sampled texel straight into the
+/// premultiplied blend chain, so every color texture must satisfy RGB == color * A.
+/// Authored/stock TEX may arrive as R8 (grayscale mask) or RG88 (luminance +
+/// alpha); sampling those natively yields (r,0,0,1)/(r,g,0,1) and floods layers
+/// with red or amber. Adapt them here, at the particle consumer, so shared
+/// data-texture users (flow, phase, normal maps) keep native channels.
+enum SceneParticleColorTextureAdapter {
+    static func adapt(_ texture: MTLTexture, device: MTLDevice) -> MTLTexture {
+        switch texture.pixelFormat {
+        case .r8Unorm:
+            return texture.makeTextureView(
+                pixelFormat: .r8Unorm,
+                textureType: .type2D,
+                levels: 0..<texture.mipmapLevelCount,
+                slices: 0..<1,
+                swizzle: MTLTextureSwizzleChannels(
+                    red: .red, green: .red, blue: .red, alpha: .red
+                )
+            ) ?? texture
+        case .rg8Unorm:
+            return expandLuminanceAlpha(texture, device: device) ?? texture
+        default:
+            return texture
+        }
+    }
+
+    private static func expandLuminanceAlpha(
+        _ texture: MTLTexture,
+        device: MTLDevice
+    ) -> MTLTexture? {
+        guard texture.storageMode == .shared else { return nil }
+        let width = texture.width
+        let height = texture.height
+        var source = [UInt8](repeating: 0, count: width * height * 2)
+        texture.getBytes(
+            &source,
+            bytesPerRow: width * 2,
+            from: MTLRegionMake2D(0, 0, width, height),
+            mipmapLevel: 0
+        )
+        var expanded = [UInt8](repeating: 0, count: width * height * 4)
+        for index in 0..<(width * height) {
+            let luminance = UInt16(source[index * 2])
+            let alpha = UInt16(source[index * 2 + 1])
+            let premultiplied = UInt8((luminance * alpha + 127) / 255)
+            expanded[index * 4] = premultiplied
+            expanded[index * 4 + 1] = premultiplied
+            expanded[index * 4 + 2] = premultiplied
+            expanded[index * 4 + 3] = UInt8(alpha)
+        }
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm,
+            width: width,
+            height: height,
+            mipmapped: false
+        )
+        descriptor.usage = .shaderRead
+        descriptor.storageMode = .shared
+        guard let output = device.makeTexture(descriptor: descriptor) else { return nil }
+        expanded.withUnsafeBytes { buffer in
+            output.replace(
+                region: MTLRegionMake2D(0, 0, width, height),
+                mipmapLevel: 0,
+                withBytes: buffer.baseAddress!,
+                bytesPerRow: width * 4
+            )
+        }
+        return output
+    }
+}
 
 nonisolated enum SceneParticleBuiltInTexture: String, Hashable, Sendable {
     case chromaticDot = "particle/chromaticdot"
