@@ -23,6 +23,7 @@ enum SceneAuthoredEffectChainRenderer {
         pulsePipeline: ScenePulsePipeline,
         cursorUV: SIMD2<Float>,
         pointerIsInside: Bool,
+        audioSpectrum: SceneAudioSpectrumSnapshot,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         guard !chain.stages.isEmpty,
@@ -61,6 +62,7 @@ enum SceneAuthoredEffectChainRenderer {
                 cursorUV: cursorUV,
                 pointerIsInside: pointerIsInside,
                 time: sourceUniforms.time,
+                audioSpectrum: audioSpectrum,
                 commandBuffer: commandBuffer
             ) else {
 #if DEBUG
@@ -99,6 +101,7 @@ enum SceneAuthoredEffectChainRenderer {
         cursorUV: SIMD2<Float>,
         pointerIsInside: Bool,
         time: Float,
+        audioSpectrum: SceneAudioSpectrumSnapshot,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         let auxMask = masks.iris ?? masks.opacity
@@ -215,6 +218,9 @@ enum SceneAuthoredEffectChainRenderer {
                 plan: shake,
                 resources: resources,
                 time: time,
+                audioPulse: shake.audio.map {
+                    SceneAudioResponse.evaluate(spectrum: audioSpectrum, parameters: $0)
+                },
                 inputTexture: targets.inputTexture,
                 outputTexture: targets.outputTexture,
                 pipeline: shakePipeline,

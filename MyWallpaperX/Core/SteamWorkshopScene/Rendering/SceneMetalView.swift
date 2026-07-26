@@ -140,6 +140,7 @@ class SceneMetalView: NSView {
                 shakeEffectIDs: Set(stages.compactMap { $0.shake?.effectKey.descriptorID }),
                 waterFlowEffectIDs: Set(stages.compactMap { $0.waterFlow?.effectKey.descriptorID }),
                 waterWavesEffectIDs: Set(stages.compactMap { $0.waterWaves?.effectKey.descriptorID }),
+                tintEffectIDs: Set(stages.compactMap { $0.tint?.effectKey.descriptorID }),
                 userPropertyTextures: userPropertyTextureLoad.textures
             )
             loadedEffectTextures.merge(layerID: layer.id, textures: textures)
@@ -332,14 +333,16 @@ class SceneMetalView: NSView {
 
     func renderFrame(
         timing: SceneFrameTiming,
-        dynamicValues: SceneDynamicSnapshot
+        dynamicValues: SceneDynamicSnapshot,
+        audioSpectrum: SceneAudioSpectrumSnapshot = .silent
     ) {
         guard let drawable = metalLayer.nextDrawable() else { return }
         let parallaxMouseNormalized = parallaxPointerSmoother.advance(delta: timing.frameTime)
         let frameContext = makeFrameContext(
             timing: timing,
             dynamicValues: dynamicValues,
-            parallax: parallaxMouseNormalized
+            parallax: parallaxMouseNormalized,
+            audioSpectrum: audioSpectrum
         )
         pointerState.previous = pointerState.current
         let particleBatches = particlePlayback?.advance(by: timing.frameTime) ?? []

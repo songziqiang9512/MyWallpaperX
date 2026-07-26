@@ -14,6 +14,7 @@ struct SceneImageLayerMasks {
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
     let opacityEffects: [String: SceneOpacityEffectTextures]
     let pulseEffects: [String: ScenePulseEffectTextures]
+    let tintEffects: [String: SceneTintEffectTextures]
     let xRay: SceneXRayEffectTextures?
 
     var authoredEffectResourcesOnly: SceneImageLayerMasks {
@@ -30,6 +31,7 @@ struct SceneImageLayerMasks {
             waterWavesEffects: waterWavesEffects,
             opacityEffects: opacityEffects,
             pulseEffects: pulseEffects,
+            tintEffects: tintEffects,
             xRay: xRay
         )
     }
@@ -47,6 +49,7 @@ struct SceneImageLayerMasks {
         waterWavesEffects: [:],
         opacityEffects: [:],
         pulseEffects: [:],
+        tintEffects: [:],
         xRay: nil
     )
 
@@ -64,6 +67,7 @@ struct SceneImageLayerMasks {
             waterWavesEffects: [:],
             opacityEffects: [:],
             pulseEffects: [:],
+            tintEffects: [:],
             xRay: xRay
         )
     }
@@ -115,5 +119,6 @@ struct SceneImageLayerDrawRequest {
     let blocksLegacyGaussianBlur: Bool
     var authoredEffectChain: SceneAuthoredEffectExecutionChain? = nil
     var dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0)
+    var audioSpectrum: SceneAudioSpectrumSnapshot = .silent
     var localContrastStrength: Float? = nil
 }

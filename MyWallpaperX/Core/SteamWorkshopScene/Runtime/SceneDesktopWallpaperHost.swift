@@ -87,6 +87,9 @@ final class SceneDesktopWallpaperHost {
             logURL: logURL,
             recordID: recordID
         )
+        SceneAudioSpectrumInbox.shared.setDemand(
+            Self.requiresAudioSpectrum(in: authoredEffectCatalog)
+        )
         return rebuildSurfaces(resetClock: true)
     }
 
@@ -294,6 +297,7 @@ final class SceneDesktopWallpaperHost {
         }
         surfaces.removeAll()
         if clearContext {
+            SceneAudioSpectrumInbox.shared.setDemand(false)
             launchContext = nil
 #if DEBUG
             debugPointerOverride = nil
@@ -345,13 +349,19 @@ final class SceneDesktopWallpaperHost {
             wallDate: Date()
         )
         let definitions = launchContext.interpretationFile.propertyBindingProgram.definitions
+        // host-shared：所有 surface 共用同一帧频谱，与 property 输入同级。
+        let audioSpectrum = SceneAudioSpectrumInbox.shared.latest()
         for surface in surfaces.values {
             let dynamicValues = surface.evaluationTransaction.evaluate(
                 frameIndex: timing.frameIndex,
                 definitions: definitions,
                 userValues: launchContext.liveState.userValues
             ).snapshot
-            surface.metalView.renderFrame(timing: timing, dynamicValues: dynamicValues)
+            surface.metalView.renderFrame(
+                timing: timing,
+                dynamicValues: dynamicValues,
+                audioSpectrum: audioSpectrum
+            )
         }
     }
 

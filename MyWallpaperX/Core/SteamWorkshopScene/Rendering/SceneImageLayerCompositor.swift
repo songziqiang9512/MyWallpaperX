@@ -149,6 +149,7 @@ struct SceneImageLayerCompositor {
                         pulsePipeline: pulsePipeline,
                         cursorUV: request.uniforms.cursorUV,
                         pointerIsInside: request.uniforms.cursorIsInside,
+                        audioSpectrum: request.audioSpectrum,
                         commandBuffer: commandBuffer
                     )
                 }
@@ -264,6 +265,12 @@ struct SceneImageLayerCompositor {
                             plan: shake,
                             resources: resources,
                             time: directUniforms.time,
+                            audioPulse: shake.audio.map {
+                                SceneAudioResponse.evaluate(
+                                    spectrum: request.audioSpectrum,
+                                    parameters: $0
+                                )
+                            },
                             inputTexture: targets.inputTexture,
                             outputTexture: targets.outputTexture,
                             pipeline: shakePipeline,

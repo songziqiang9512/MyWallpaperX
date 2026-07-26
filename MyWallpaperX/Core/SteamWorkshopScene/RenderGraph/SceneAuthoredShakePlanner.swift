@@ -10,6 +10,7 @@ nonisolated struct SceneShakeExecutionPlan {
     let strength: Float
     let flowTexturePath: String
     let phaseTexturePath: String?
+    let audio: SceneAudioResponse.Parameters?
 }
 
 enum SceneAuthoredShakePlanner {
@@ -63,6 +64,7 @@ enum SceneAuthoredShakePlanner {
                   from: instance.constantShaderValues,
                   profile: shaderProfile
               ),
+              let audio = audioParameters(instance, profile: shaderProfile),
               let resolved = SceneAuthoredMaterialResolver.resolve(
                 node: node,
                 graph: graph,
@@ -86,7 +88,8 @@ enum SceneAuthoredShakePlanner {
             speed: parameters.speed,
             strength: parameters.strength,
             flowTexturePath: paths.flow,
-            phaseTexturePath: paths.phase
+            phaseTexturePath: paths.phase,
+            audio: audio.parameters
         )
     }
 
@@ -280,9 +283,10 @@ enum SceneAuthoredShakePlanner {
         // g_Amp 0.1); every other profile keeps the exact four-key contract.
         let fillsDefaults = profile == .legacyUnconditionalPhase
         let supported = Set(["bounds", "friction", "speed", "strength"])
+        let motionKeys = Set(values.keys).subtracting(audioConstantKeys)
         guard fillsDefaults
-                ? Set(values.keys).isSubset(of: supported)
-                : Set(values.keys) == supported,
+                ? motionKeys.isSubset(of: supported)
+                : motionKeys == supported,
               let bounds = vector(
                   values["bounds"], range: 0...1,
                   fallback: fillsDefaults ? SIMD2(0, 1) : nil
@@ -355,9 +359,10 @@ enum SceneAuthoredShakePlanner {
             }
         }
         return normalizedValues.allSatisfy { key, value in
-            if ["AUDIOPROCESSING", "NOISE", "DIRECTION", "MASK"].contains(key) {
-                return value == 0
+            if key == "AUDIOPROCESSING" {
+                return value == 0 || (audioCapable(profile) && (1 ... 3).contains(value))
             }
+            if ["NOISE", "DIRECTION", "MASK"].contains(key) { return value == 0 }
             return key == "TIMEOFFSET"
                 && profile == .timeOffsetCombo
                 && (value == 0 || value == 1)

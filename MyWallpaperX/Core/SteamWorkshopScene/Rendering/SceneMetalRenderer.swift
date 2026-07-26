@@ -250,6 +250,7 @@ struct SceneMetalRenderer {
                         waterWavesEffects: effectTextures.waterWavesEffects,
                         opacityEffects: effectTextures.opacityEffects,
                         pulseEffects: effectTextures.pulseEffects,
+                        tintEffects: effectTextures.tintEffects,
                         xRay: effectTextures.xRayEffects[layer.id]
                     ),
                     textureFrame: spriteAnimations[layer.id]?.transform(at: time) ?? .identity,
@@ -273,7 +274,8 @@ struct SceneMetalRenderer {
                     authoredEffectPlan: authoredEffectPlan,
                     blocksLegacyGaussianBlur: blocksLegacyGaussianBlur(for: layer.id),
                     authoredEffectChain: authoredEffectChain,
-                    dynamicValues: frameContext.dynamicValues
+                    dynamicValues: frameContext.dynamicValues,
+                    audioSpectrum: frameContext.audioSpectrum
                 )
                 let encoded = imageCompositor.draw(request, pipeline: imagePipeline, mainPass: mainPass)
                 if authoredEffectChain != nil {

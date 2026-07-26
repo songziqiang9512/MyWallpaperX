@@ -22,6 +22,9 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneShaderContractLoader.swift",
     SOURCE_ROOT / "RenderGraph/SceneShakeShaderProfile.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredShakePlanner.swift",
+    SOURCE_ROOT / "Runtime/SceneAudioSpectrum.swift",
+    SOURCE_ROOT / "Runtime/SceneAudioResponse.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredShakePlanner+Audio.swift",
 ]
 
 VERTEX_BASE64 = (
@@ -251,6 +254,14 @@ enum Harness {
         var depthTest = "disabled"
         var duplicateMaterial = false
         var definitionMutation = "none"
+        // audio 常量：nil 表示不写该键，交由 shader annotation 默认值填充
+        var frequencyMin: Double?
+        var frequencyMax: Double?
+        var audioExponent: Double?
+        var audioBounds: [Double]?
+        var audioAmount: Double?
+        var boundAudioConstant: String?
+        var unknownAudioConstant = false
     }
 
     struct GraphOptions {
@@ -287,6 +298,19 @@ enum Harness {
         ]
         if let subset = options.constantSubset {
             result = result.filter { subset.contains($0.key) }
+        }
+        if let value = options.frequencyMin { result["frequencymin"] = self.value([value], kind: "number") }
+        if let value = options.frequencyMax { result["frequencymax"] = self.value([value], kind: "number") }
+        if let value = options.audioExponent { result["audioexponent"] = self.value([value], kind: "number") }
+        if let value = options.audioAmount { result["audioamount"] = self.value([value], kind: "number") }
+        if let value = options.audioBounds { result["audiobounds"] = self.value(value, kind: "vector") }
+        if options.unknownAudioConstant { result["audiounknown"] = self.value([1], kind: "number") }
+        if let key = options.boundAudioConstant, let existing = result[key] {
+            result[key] = self.value(
+                existing.components ?? [],
+                kind: existing.valueKind,
+                binding: "newproperty7"
+            )
         }
         if let key = options.missingConstant { result.removeValue(forKey: key) }
         if options.extraConstant { result["extra"] = value([1], kind: "number") }
@@ -575,7 +599,6 @@ enum Harness {
         var output = GraphOptions(); output.outputMismatch = true
         var wrongDefinition = GraphOptions(); wrongDefinition.definitionPath = "effects/other/effect.json"
 
-        var audio = Options(); audio.instanceCombos = ["AUDIOPROCESSING": 1]
         var noise = Options(); noise.materialCombos = ["NOISE": 1]
         var direction = Options(); direction.instanceCombos = ["DIRECTION": 2]
         var mask = Options(); mask.materialCombos = ["MASK": 1]
@@ -605,6 +628,48 @@ enum Harness {
         var strengthOutOfRange = Options(); strengthOutOfRange.constantSubset = ["strength"]
         strengthOutOfRange.strength = 0.6
         var legacyAudio = Options(); legacyAudio.instanceCombos = ["AUDIOPROCESSING": 3]
+
+        // --- AUDIOPROCESSING 正门 ---
+        // 全部五个 audio 常量齐备（3767460992 形态）
+        var audioFull = Options()
+        audioFull.instanceCombos = ["AUDIOPROCESSING": 3]
+        audioFull.frequencyMin = 0
+        audioFull.frequencyMax = 4
+        audioFull.audioExponent = 0.5
+        audioFull.audioBounds = [0.25, 0.75]
+        audioFull.audioAmount = 2
+        // 仅部分常量（1937925563 形态：缺 frequencymin 与 audioexponent）
+        var audioPartial = Options()
+        audioPartial.instanceCombos = ["AUDIOPROCESSING": 1]
+        audioPartial.frequencyMax = 0
+        audioPartial.audioAmount = 2
+        audioPartial.audioBounds = [0, 1.2]
+        // 全部缺省，走 shader annotation 默认值
+        var audioDefaults = Options()
+        audioDefaults.instanceCombos = ["AUDIOPROCESSING": 2]
+        // --- AUDIOPROCESSING 反门 ---
+        var audioOutOfRange = Options()
+        audioOutOfRange.instanceCombos = ["AUDIOPROCESSING": 4]
+        var audioBoundConstant = Options()
+        audioBoundConstant.instanceCombos = ["AUDIOPROCESSING": 3]
+        audioBoundConstant.audioAmount = 1
+        audioBoundConstant.boundAudioConstant = "audioamount"
+        var audioUnknownConstant = Options()
+        audioUnknownConstant.instanceCombos = ["AUDIOPROCESSING": 3]
+        audioUnknownConstant.unknownAudioConstant = true
+        var audioFrequencyOutOfRange = Options()
+        audioFrequencyOutOfRange.instanceCombos = ["AUDIOPROCESSING": 3]
+        audioFrequencyOutOfRange.frequencyMax = 16
+        var audioExponentOutOfRange = Options()
+        audioExponentOutOfRange.instanceCombos = ["AUDIOPROCESSING": 3]
+        audioExponentOutOfRange.audioExponent = 5
+        var audioWithDirection = Options()
+        audioWithDirection.instanceCombos = ["AUDIOPROCESSING": 3, "DIRECTION": 1]
+
+        let audioFullPlan = planned(descriptorOptions: audioFull, contracts: contracts)
+        let audioPartialPlan = planned(descriptorOptions: audioPartial, contracts: contracts)
+        let audioDefaultsPlan = planned(descriptorOptions: audioDefaults, contracts: contracts)
+        let nonAudioPlan = planned(contracts: contracts)
         var legacyTimeOffset = Options(); legacyTimeOffset.instanceCombos = ["TIMEOFFSET": 1]
         let legacyPlan = planned(contracts: legacyContracts)
         let legacyEmptyPlan = planned(
@@ -646,7 +711,48 @@ enum Harness {
             "graphRejected": [blocker, target, binding, command, condition, copy, output,
                               wrongDefinition]
                 .allSatisfy { !accepted(graphOptions: $0, contracts: contracts) },
-            "comboRejected": [audio, noise, direction, mask, unknownCombo]
+            "comboRejected": [noise, direction, mask, unknownCombo]
+                .allSatisfy { !accepted(descriptorOptions: $0, contracts: contracts) },
+            "audioDisabledPlanHasNoParameters": nonAudioPlan.map { $0.audio == nil } ?? false,
+            "audioFullAccepted": audioFullPlan.map {
+                $0.audio == SceneAudioResponse.Parameters(
+                    channel: .average,
+                    frequencyMin: 0,
+                    frequencyMax: 4,
+                    boundsLower: 0.25,
+                    boundsUpper: 0.75,
+                    exponent: 0.5,
+                    multiply: 2
+                )
+            } ?? false,
+            "audioPartialBackfilled": audioPartialPlan.map {
+                $0.audio == SceneAudioResponse.Parameters(
+                    channel: .left,
+                    frequencyMin: 0,
+                    frequencyMax: 0,
+                    boundsLower: 0,
+                    boundsUpper: 1.2,
+                    exponent: 1,
+                    multiply: 2
+                )
+            } ?? false,
+            "audioDefaultsBackfilled": audioDefaultsPlan.map {
+                $0.audio == SceneAudioResponse.Parameters(
+                    channel: .right,
+                    frequencyMin: 0,
+                    frequencyMax: 1,
+                    boundsLower: 0,
+                    boundsUpper: 1.2,
+                    exponent: 1,
+                    multiply: 1
+                )
+            } ?? false,
+            "audioMotionConstantsPreserved": audioFullPlan.map {
+                $0.bounds == SIMD2(0, 1) && $0.speed == 1 && $0.strength == 0.1
+            } ?? false,
+            "audioRejected": [audioOutOfRange, audioBoundConstant, audioUnknownConstant,
+                              audioFrequencyOutOfRange, audioExponentOutOfRange,
+                              audioWithDirection]
                 .allSatisfy { !accepted(descriptorOptions: $0, contracts: contracts) },
             "dynamicRejected": [boundSpeed, wrongKind]
                 .allSatisfy { !accepted(descriptorOptions: $0, contracts: contracts) },

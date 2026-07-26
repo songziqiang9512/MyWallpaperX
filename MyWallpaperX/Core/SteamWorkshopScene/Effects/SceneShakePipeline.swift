@@ -14,6 +14,9 @@ struct ShakeUniforms {
     float4 boundsAndFriction;
     float4 motion;
     float4 flowUVScale;
+    // x: 已在 CPU 侧按官方 CreateAudioResponse 求出的 audio pulse
+    // y: 作者是否启用 AUDIOPROCESSING（0/1）
+    float4 audio;
 };
 
 vertex ShakeVaryings sceneShakeVert(uint vertexID [[vertex_id]]) {
@@ -44,18 +47,26 @@ fragment float4 sceneShakeFrag(
     float flowPhase = phaseMap.sample(linearClamp, flowUV).r * twoPi;
     float2 flowMask = (flowMap.sample(linearClamp, flowUV).rg - float2(0.498)) * 2.0;
 
-    float time = uniforms.motion.x * uniforms.motion.z + flowPhase;
-    float offset = sin(fract(time / twoPi) * twoPi);
-    offset = offset * 0.498 + 0.5;
-    float branch = step(0.0, cos(time));
-    float lower = 1.0 - pow(1.0 - offset, uniforms.boundsAndFriction.z);
-    float upper = pow(offset, uniforms.boundsAndFriction.w);
-    offset = mix(lower, upper, branch);
-    offset = saturate(
-        (offset - uniforms.boundsAndFriction.x)
-            / (uniforms.boundsAndFriction.y - uniforms.boundsAndFriction.x)
-    );
-    offset = offset * 2.0 - 1.0;
+    // 官方 shake.frag 把整段时间驱动计算包在 `#if AUDIOPROCESSING == 0` 内：
+    // 启用 audio 后 speed / friction / bounds / flowPhase 都不参与，
+    // offset 由 0 起，DIRECTION == 0 下等于 `offset += v_AudioPulse`。
+    float offset;
+    if (uniforms.audio.y > 0.5) {
+        offset = uniforms.audio.x;
+    } else {
+        float time = uniforms.motion.x * uniforms.motion.z + flowPhase;
+        offset = sin(fract(time / twoPi) * twoPi);
+        offset = offset * 0.498 + 0.5;
+        float branch = step(0.0, cos(time));
+        float lower = 1.0 - pow(1.0 - offset, uniforms.boundsAndFriction.z);
+        float upper = pow(offset, uniforms.boundsAndFriction.w);
+        offset = mix(lower, upper, branch);
+        offset = saturate(
+            (offset - uniforms.boundsAndFriction.x)
+                / (uniforms.boundsAndFriction.y - uniforms.boundsAndFriction.x)
+        );
+        offset = offset * 2.0 - 1.0;
+    }
 
     float2 displacedUV = input.texcoord
         + offset * uniforms.motion.y * uniforms.motion.y * flowMask;
@@ -67,6 +78,7 @@ private struct SceneShakeUniforms {
     let boundsAndFriction: SIMD4<Float>
     let motion: SIMD4<Float>
     let flowUVScale: SIMD4<Float>
+    let audio: SIMD4<Float>
 }
 
 struct SceneShakePipeline {
@@ -106,6 +118,7 @@ struct SceneShakePipeline {
         target: MTLTexture,
         plan: SceneShakeExecutionPlan,
         time: Float,
+        audioPulse: Float?,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
         let phase = phaseMap ?? whitePhaseTexture
@@ -141,7 +154,8 @@ struct SceneShakePipeline {
                 plan.friction.y
             ),
             motion: SIMD4(plan.speed, plan.strength, time, 0),
-            flowUVScale: SIMD4(flowUVScale.x, flowUVScale.y, 0, 0)
+            flowUVScale: SIMD4(flowUVScale.x, flowUVScale.y, 0, 0),
+            audio: SIMD4(audioPulse ?? 0, audioPulse == nil ? 0 : 1, 0, 0)
         )
         encoder.setFragmentBytes(
             &uniforms,

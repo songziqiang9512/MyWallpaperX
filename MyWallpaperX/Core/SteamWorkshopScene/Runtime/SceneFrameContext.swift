@@ -16,6 +16,8 @@ nonisolated struct SceneFrameContext: Equatable, Sendable {
     let screenSize: CGSize
     let pointer: SceneSurfacePointerState
     let cameraParallaxPosition: SIMD2<Float>
+    /// host-shared 频谱输入。无消费者或采集不可用时为稳定零输入。
+    let audioSpectrum: SceneAudioSpectrumSnapshot
 
     nonisolated var pointerCurrent: SIMD2<Float> { pointer.current }
     nonisolated var pointerPrevious: SIMD2<Float> { pointer.previous }

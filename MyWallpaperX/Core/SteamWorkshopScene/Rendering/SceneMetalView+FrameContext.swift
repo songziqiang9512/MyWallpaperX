@@ -5,7 +5,8 @@ extension SceneMetalView {
     func makeFrameContext(
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot,
-        parallax: SIMD2<Float>
+        parallax: SIMD2<Float>,
+        audioSpectrum: SceneAudioSpectrumSnapshot
     ) -> SceneFrameContext {
         let screenSize = metalLayer.drawableSize
         let camera = renderer.renderDescriptor.camera
@@ -18,7 +19,8 @@ extension SceneMetalView {
             ),
             screenSize: screenSize,
             pointer: pointerState,
-            cameraParallaxPosition: parallax
+            cameraParallaxPosition: parallax,
+            audioSpectrum: audioSpectrum
         )
     }
 }

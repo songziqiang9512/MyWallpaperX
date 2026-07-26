@@ -5,6 +5,7 @@ enum SceneShakeRenderer {
         plan: SceneShakeExecutionPlan,
         resources: SceneShakeEffectTextures,
         time: Float,
+        audioPulse: Float?,
         inputTexture: MTLTexture,
         outputTexture: MTLTexture,
         pipeline: SceneShakePipeline,
@@ -20,6 +21,7 @@ enum SceneShakeRenderer {
                   target: outputTexture,
                   plan: plan,
                   time: time,
+                  audioPulse: audioPulse,
                   commandBuffer: commandBuffer
               ) else {
             return nil
