@@ -18,9 +18,9 @@
 ## 范围与证据
 
 - 样本源：`.codex/scene-user-samples-20260722/Scene`。它是用户真实 Workshop 目录的隔离副本；本轮没有写入 `~/Movies/MyWallpaperX/创意工坊/Scene`。
-- 20 个 `scene.json` 样本的运行结果：[report.json](../../.codex/scene-visible-effect-full20-20260722/report.json)；人工总览：[contact-sheet.png](../../.codex/scene-visible-effect-full20-20260722/contact-sheet.png)。报告为 20/20 PASS，运行 App 为 `2.0.8 (268)`，签名 Team 为 `H9QWU9XN8R`。
-- `3766415113` 使用 `gifscene.json` / `gifscene.pkg`，以包含 entry、sequence 和单图 UV 修正的 [gifscene 最终报告](../../.codex/scene-gifscene-sprite-gate-20260722/report.json) 为准。
-- `3738202317` 在 20 样本旧报告中因 `.tex format 6` 显示灰底；该结果已经被 [BC2/DXT3 修复后报告](../../.codex/scene-bc2-format6-final-20260722/report.json) 覆盖，当前为 1/1 纹理加载成功。
+- 20 个 `scene.json` 样本的历史运行报告与人工总览不作为本机保留物；当时记录为 20/20 PASS，运行 App 为 `2.0.8 (268)`，签名 Team 为 `H9QWU9XN8R`。
+- `3766415113` 使用 `gifscene.json` / `gifscene.pkg`；历史报告记录了 entry、sequence 和单图 UV 修正。
+- `3738202317` 在 20 样本旧报告中因 `.tex format 6` 显示灰底；后续 BC2/DXT3 修复记录为 1/1 纹理加载成功。
 - “作者预期”首先来自包内 scene 描述、`project.json` 属性和样本自带 preview。`3194ac5` 已把 preview reference、中心裁切运行截图、分项指标和并排图接入固定门；WaifuX SceneBake 只作辅助动态参考，不能在冲突时覆盖样本 preview。两者都不是逐帧金标准，最终仍需在相同分辨率、相同属性默认值下与 Wallpaper Engine 录屏做差异验收。
 - 首轮 21 样本报告保留为修复前视觉基线；现役提交、正式矩阵、签名与测试总数统一查 [运行证据索引](semantics/runtime-evidence-index.md)，本历史评估不再复制易过期的全局状态。
 

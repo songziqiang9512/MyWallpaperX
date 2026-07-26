@@ -12,7 +12,7 @@
 
 **播放资产路径状态：完整。** 官方目录共有 3,113 个文件；保守播放分类纳入 919 项并建立物理文件，明确排除 2,194 项编辑器资产。这里的“完整”只表示当前官方版本的播放候选路径占位完整，不表示占位 payload 有官方语义，也不表示所有 consumer 已实现。
 
-本包不含 catalog。运行时直接按 `SceneStockAssets.bundle/assets/...` 官方相对路径查文件；目录本身与 [test_scene_stock_asset_bundle.py](../../../script/tests/test_scene_stock_asset_bundle.py) 的固定集合门是合同。
+本包不含 catalog。运行时直接按 `SceneStockAssets.bundle/assets/...` 官方相对路径查文件；播放候选目录清单是当前资源合同，`.tex` 路径由 [test_scene_stock_texture_resolver.py](../../../script/tests/test_scene_stock_texture_resolver.py) 覆盖解析。
 
 ## 2. 纳入集合
 

@@ -45,13 +45,6 @@
 - `Verifier / QA Agent`
 - `Gatekeeper`
 
-### 默认模块角色
-
-- `VideoLibrary Module Agent`
-- `StaticImageLibrary Module Agent`
-- `OnlineLibrary Module Agent`
-- `SteamWorkshop Module Agent`
-
 ### 扩展 Agent
 
 这些角色不默认进入主执行链路，但在任务类型明确匹配时必须可发现、可引入：
@@ -63,7 +56,6 @@
 - [code-health-split-agent/AGENTS.md](/Users/songziqiang/Documents/Development/MyWallpaperX/docs/agents/code-health-split-agent/AGENTS.md)
 - [redundancy-cleanup-agent/AGENTS.md](/Users/songziqiang/Documents/Development/MyWallpaperX/docs/agents/redundancy-cleanup-agent/AGENTS.md)
 - [status-menu-monitor-agent/AGENTS.md](/Users/songziqiang/Documents/Development/MyWallpaperX/docs/agents/status-menu-monitor-agent/AGENTS.md)
-- [data-source-script-agent/AGENTS.md](/Users/songziqiang/Documents/Development/MyWallpaperX/docs/agents/data-source-script-agent/AGENTS.md)
 
 ---
 
@@ -194,21 +186,9 @@
 
 ---
 
-## 5. 当前模块 Agent 入口
+## 5. 模块边界
 
-模块级 Agent 文档不在这个目录里，而在各自模块目录中：
-
-- [../../MyWallpaperX/Modules/VideoLibrary/AGENTS.md](/Users/songziqiang/Documents/Development/MyWallpaperX/MyWallpaperX/Modules/VideoLibrary/AGENTS.md)
-- [../../MyWallpaperX/Modules/StaticImageLibrary/AGENTS.md](/Users/songziqiang/Documents/Development/MyWallpaperX/MyWallpaperX/Modules/StaticImageLibrary/AGENTS.md)
-- [../../MyWallpaperX/Modules/OnlineLibrary/AGENTS.md](/Users/songziqiang/Documents/Development/MyWallpaperX/MyWallpaperX/Modules/OnlineLibrary/AGENTS.md)
-- [../../MyWallpaperX/Modules/SteamWorkshop/AGENTS.md](/Users/songziqiang/Documents/Development/MyWallpaperX/MyWallpaperX/Modules/SteamWorkshop/AGENTS.md)
-
-这些文档负责描述：
-
-- 各模块的边界
-- 各模块允许 / 禁止做什么
-- 各模块当前真实状态
-- 模块实现时的输入输出格式
+模块不维护独立 `AGENTS.md`。现行任务边界以仓库根目录 [AGENTS.md](/Users/songziqiang/Documents/Development/MyWallpaperX/AGENTS.md)、对应源码目录和当前测试为准。
 
 ---
 

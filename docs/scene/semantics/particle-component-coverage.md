@@ -52,7 +52,6 @@
 | T-CAM | [script/tests/test_scene_particle_camera_frame.py](../../../script/tests/test_scene_particle_camera_frame.py) |
 | T-TRAIL | [script/tests/test_scene_particle_trail_plan.py](../../../script/tests/test_scene_particle_trail_plan.py) |
 | T-TEX | [script/tests/test_scene_particle_builtin_textures.py](../../../script/tests/test_scene_particle_builtin_textures.py) |
-| T-BUNDLE | [script/tests/test_scene_stock_asset_bundle.py](../../../script/tests/test_scene_stock_asset_bundle.py) |
 | T-STOCK | [script/tests/test_scene_stock_texture_resolver.py](../../../script/tests/test_scene_stock_texture_resolver.py) |
 
 ## 3. General
