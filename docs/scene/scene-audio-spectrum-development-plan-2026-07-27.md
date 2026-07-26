@@ -106,9 +106,9 @@ D4 Input snapshots ────┘        │
 
 ## 3. 批次计划
 
-### A0 音频 frame 输入底座
+### A0 音频 frame 输入底座（已完成，见 §3.1 实际边界）
 
-**目标**：让 Scene 在 host frame 层拿到 16/32/64 × left/right 频谱快照，并具备按需采集、零输入与确定性注入。
+**目标**：让 Scene 在 host frame 层拿到 16 × left/right 频谱快照，并具备按需采集与零输入。
 
 **代码落点**
 
@@ -137,6 +137,32 @@ D4 Input snapshots ────┘        │
 4. 不改变任何现有画面：固定 13 样本门 PASS 13/13，指标与 `b86db59` 一致。
 
 **边界**：本批只建输入，不接任何 consumer；等级从 `L0` 升到 `L2`（有 snapshot 与路由，无消费者），**不得写成 audio response 已支持**。
+
+<a id="a0-actual"></a>
+#### 3.1 A0 实际交付边界（与上文计划的差异）
+
+实施时对计划做了三处收窄，均为减少与并行批次的耦合、避免预埋无消费者的扩展点：
+
+| 计划 | 实际 | 原因 |
+|---|---|---|
+| 16/32/64 三档分辨率 | **只做 16 档** | census 显示 effect 侧 stock shader 只用 `g_AudioSpectrum16*`；32/64 仅出现在 workshop 自定义 shader 与 SceneScript `registerAudioBuffers`，两者前置均未闭合。预留档位属于预埋扩展点 |
+| 折进 `SceneFrameContext`、host 每帧采样 | **不改 `SceneFrameContext`、不改 `SceneDesktopWallpaperHost`、不改 renderer 签名** | A0 无任何消费者，加一个没人读的字段是预埋。数据流终点定在 `SceneAudioSpectrumInbox`（Scene Runtime 侧），A2 接第一个 consumer 时再决定按帧采样的接法 |
+| demand 由 scene 内容自动判定 | **默认关闭，由 `setDemand(_:)` 显式驱动** | `SceneRenderDescriptor` 不携带 `supportsAudioProcessing`，取它要 bump interpretation format；且 `supportsaudioprocessing` 与真实 audio 声明只部分重叠（45 样本中 12 个为 true，与 11 个 effect-audio 样本互有出入），不是可靠的 consumer 信号。A0 无消费者时自动开启采集只会白占系统音频权限 |
+
+**落地位置**
+
+| 文件 | 作用 |
+|---|---|
+| `Runtime/SceneAudioSpectrum.swift`（新） | `SceneAudioSpectrumSnapshot`（16 band × left/right + generation，非法值归零）与 `SceneAudioSpectrumInbox`（`os_unfair_lock` 保护的最近一帧 + demand 生命周期） |
+| `Playback/SystemAudioSceneSpectrumAnalyzer.swift`（新） | 16 频段 FFT，32 Hz→16 kHz 对数划分、-80 dB 归一化，与 Web 分析器完全独立 |
+| `Playback/SystemAudioSpectrumService.swift` | 新增第三类 consumer `sceneEnabled` 与 `onSceneLevels`；采集门统一为 `hasActiveConsumer` |
+| `Playback/WallpaperEngine+SystemAudioSpectrum.swift` | scene levels 直接发布到 inbox（不经主队列）；`refreshSystemAudioSpectrumCapture` 增 scene 分支并在不采集时归零 |
+| `Playback/WallpaperEngine.swift` | 初始化时注册 demand observer（1 行） |
+| `script/tests/test_scene_audio_spectrum_input.py`（新） | 20 项门：snapshot 形状/归零、inbox 代际/需求生命周期、analyzer 静音零输入/频段顺序/确定性/fail-closed，以及服务与引擎的静态接线断言 |
+
+**验收结果**：新增门 20/20；`test_scene_frame_context` 8/8、`test_scene_semantics_coverage` 11/11 无回归；代码健康 471 Swift files / 44 locked / 400 行上限通过；签名 Debug 构建 `BUILD SUCCEEDED`。
+
+**A2 必须同批补上的两件事**：consumer 存在性驱动 demand（并在 Scene stop/switch 时撤销），以及按渲染帧采样进入 surface 求值链路。
 
 ---
 
