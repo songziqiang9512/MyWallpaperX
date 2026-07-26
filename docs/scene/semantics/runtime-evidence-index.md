@@ -87,7 +87,7 @@
 ### E-TEXT: 静态文字
 
 - 代码：[SceneTextTextureLoader.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextTextureLoader.swift)
-- 自动门：[test_scene_text_rendering.py](../../../script/tests/test_scene_text_rendering.py)、[test_scene_user_properties.py](../../../script/tests/test_scene_user_properties.py)
+- 自动门：[test_scene_text_geometry.py](../../../script/tests/test_scene_text_geometry.py)、[test_scene_user_properties.py](../../../script/tests/test_scene_user_properties.py)
 - 运行门：`.codex/scene-text-fixed-20260722/report.json` 和正式矩阵的 text loaded/candidate 结构门；没有 Windows 字体/基线 golden。
 
 <a id="e-text-anchor"></a>
@@ -95,7 +95,7 @@
 
 - 代码：[SceneLayerScreenAnchor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneLayerScreenAnchor.swift)、[SceneMetalRenderer+LayerTransforms.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalRenderer+LayerTransforms.swift)、[SceneTextDescriptor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextDescriptor.swift)
 - 作者合同：`lib.sceneScript.d.ts` 的 `ITextLayer.anchor` 给出 none/center/top/topright/right/bottomright/bottom/bottomleft/left/topleft 十个取值，`locale/ui_en-us.json` 的 `ui_editor_properties_screen_anchor` 为 "Screen anchor"；随包只有 5 个 text layer，`dino_run` 的 231/177 为 `topright`，`previewcountdown`/`previewclock`/`preview3dclock` 为 `none`。
-- 自动门：[test_scene_layer_screen_anchor.py](../../../script/tests/test_scene_layer_screen_anchor.py)、[test_scene_text_rendering.py](../../../script/tests/test_scene_text_rendering.py)。锁定十个取值的符号表、大小写不敏感、缺省/未知/退化输入零偏移、`center` 锚点等于相机偏移，以及真实 `coverHalfExtents` 下 16:9/16:10/21:9 的锚定边距恒为作者画布上的 1.57/7.871 世界单位（不锚定时 16:10 的右边距为 `-15.53`、21:9 的上边距为 `-16.28`，即整块移出可见矩形）。
+- 自动门：[test_scene_layer_screen_anchor.py](../../../script/tests/test_scene_layer_screen_anchor.py)、[test_scene_text_geometry.py](../../../script/tests/test_scene_text_geometry.py)。锁定十个取值的符号表、大小写不敏感、缺省/未知/退化输入零偏移、`center` 锚点等于相机偏移，以及真实 `coverHalfExtents` 下 16:9/16:10/21:9 的锚定边距恒为作者画布上的 1.57/7.871 世界单位（不锚定时 16:10 的右边距为 `-15.53`、21:9 的上边距为 `-16.28`，即整块移出可见矩形）。
 - GPU 门：同一自动门用真实 `SceneImageLayerPipeline` 与真实 `SceneCameraProjection.viewProjection` 把 `dino_run` 的 `label_coins`（size `780x291`、scale `0.057`、origin `341.42999 185.129`、作者对齐 `right`/`center`）画进离屏纹理：作者宽高比 16:9 下锚定前后完全相同（396 px、x`[222,254]`、y`[0,11]`）；21:9 下不锚定为 0 覆盖像素，锚定后回到同一组 396 px。
 - 边界：`anchor` 只在 text layer 上存在，CoreText 栅格化不消费它。没有桌面真实运行截图门，也没有 Windows 像素标定；`45/45` 与 `13/13` 运行门是本次改动之前的基线，不覆盖 `anchor`。layer pivot 见 [E-TEXT-PIVOT](#e-text-pivot)。
 
@@ -115,7 +115,7 @@
 - 代码：[SceneTextGeometry.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextGeometry.swift)、[SceneTextTextureLoader.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextTextureLoader.swift)
 - 作者合同：`ui/dist/monaco/autocomplete/lib.sceneScript.d.ts:1604` 给 `ITextLayer.pointsize` 的注释是 "Size of the font in points for 300 DPI."，因此像素字号 = `pointsize * 300 / 72 = pointsize * 25/6 ≈ 4.16667`；此前实现用的 `round(pointsize * 4)` 比它低 4%。
 - 数值判据：历史探针用 `assets/fonts/Segment7Standard.otf`（unitsPerEm 1000）在 CoreText 里排 `dino_run` 两个记分标签的同一内容 `"00000"`，该串 advance 恒为像素字号的 2.925 倍。`pointsize 64 -> 266.667 px` 时排版宽正好 780.000、ascent+descent+leading 290.67（取整 291）；`pointsize 32 -> 133.333 px` 时排版宽正好 390.000、ascent+descent+leading 145.33（取整 145）。作者 size 分别是 `780x291` 与 `390x145`，四个数字逐位相符。反解同样落在 25/6：让排版宽等于作者宽所需的像素字号是 266.667 与 133.333，倍率都是 4.1667；`x4.0` 只能给出 748.80 与 374.40。
-- 自动门：[test_scene_text_rendering.py](../../../script/tests/test_scene_text_rendering.py)。锁定 `32 -> 400/3`、`64 -> 800/3`、两者严格 2 倍线性、包裹式 property 值 `42 -> 175`，以及 `0 -> 1`、`300 -> 1024` 两端夹取。
+- 自动门：[test_scene_text_geometry.py](../../../script/tests/test_scene_text_geometry.py)。锁定 `32 -> 400/3`、`64 -> 800/3`、两者严格 2 倍线性、包裹式 property 值 `42 -> 175`，以及 `0 -> 1`、`300 -> 1024` 两端夹取。
 - 边界：数值判据来自历史手动探针，不是仓库内自动门——自动门只校验算术，字体度量没有进 CI。字号仍夹在 `[1, 1024]` px，作者值 ≥ 245.76 磅起偏离官方换算，这是本地纹理保护不是官方合同（超大外框另由 `SceneTextGeometry.rasterLayout` 整块等比缩小）。作者 size 仍被当固定外框，见 [E-TEXT-PIVOT](#e-text-pivot) 的边界，所以换算准确只保证字号，不保证长内容不被裁。没有 Windows 逐像素对照。
 
 <a id="e-text-limits"></a>
@@ -136,7 +136,7 @@
 - 类别判据：15 个 stock 字体的类别来自历史 CoreText 实测，不按字体名猜。emoji 看 `traitColorGlyphs` 与 COLR/sbix/CBDT 表；mono 看 fixed-pitch trait 或数字与字母 advance 是否一致；NotoSans-Regular 归 sans，其余 display。类别只决定 app 包缺失时的兜底家族（Menlo / Noto Sans / Apple Color Emoji / Helvetica）和诊断后缀，不再决定正常命中时的字形。
 - 字形来源判据：15 个官方名字全部物理位于 `MyWallpaperX/Resources/SceneStockAssets.bundle/assets/fonts`，其中 8 个为原版、7 个为替代字体；两类都按官方物理文件名读取。
 - 替代选择判据：替代不是按名字或类别硬凑，而是把每个原版与候选逐个并排渲染 "Hamburg 0123" 比对字形后选定——Atami→Poppins-Medium、Alcubierre→Poppins-ExtraLight（同为几何无衬线，单层 a、圆形 O、线宽与字重吻合）、spincycle_3d_ot→BungeeShade-Regular（同为宽扁立体描边大写，比对中 RubikIso 的小写更杂乱被否）、summer85 与 Lazer84→PermanentMarker-Regular（同为粗马克笔 display，KaushanScript 过轻被否）、kust→Bangers-Regular、CursedTimerUlil-Aznm→复用已随包的 Segment7Standard（同为七段数码管，不新增文件）。
-- 自动门：[test_scene_text_rendering.py](../../../script/tests/test_scene_text_rendering.py)。CLI 下把 `SceneStockAssets.bundle` 复制到 harness binary 旁边即命中与 App 相同的 `assets/fonts` 加载路径。断言分四组：原版逐个校 PostScript 名；替代字体校 `stockSubstituted` 诊断；闭合遍历全部 15 个官方引用并计数为 8/7；包缺失时回退 `stockApproximation`。形态断言仍实测等宽/彩色 glyph，并保留包内同名优先、traversal 拒绝和未知 system alias 三个负例。
+- 自动门：当前没有字体引用的自动门。
 - 边界：7 个替代字形的轮廓、advance、kerning 与原版不同，命中时带 `stockSubstituted` 诊断。8 个原版仍无 Windows 栅格化逐像素对照；`weight`/`italic`/CJK 缺字回退链仍缺，见 [E-TEXT](#e-text)。
 
 <a id="e-dynamic-text"></a>
