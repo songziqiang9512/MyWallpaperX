@@ -1,4 +1,15 @@
 {
-  "format": "rgba8888",
-  "nomip": true
+	"clampuvs" : false,
+	"format" : "rg88",
+	"alphachannelpriority" : true,
+	"nonpoweroftwo" : true,
+	"spritesheetsequences" : 
+	[
+		{
+			"duration" : 1,
+			"frames" : 14,
+			"height" : 32,
+			"width" : 32
+		}
+	]
 }

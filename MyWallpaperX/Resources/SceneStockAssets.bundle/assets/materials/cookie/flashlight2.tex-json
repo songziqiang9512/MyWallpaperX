@@ -1,4 +1,4 @@
 {
-  "format": "rgba8888",
-  "nomip": true
+	"format" : "rgb888",
+	"clampuvs" : true
 }

@@ -1,1 +1,7 @@
-{}
+{
+	"passes": [{
+		"shader": "occlusiontest",
+		"cullmode" : "nocull",
+		"depthwrite": "disabled"
+	}]
+}

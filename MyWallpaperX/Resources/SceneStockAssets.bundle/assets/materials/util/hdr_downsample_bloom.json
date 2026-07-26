@@ -1,1 +1,9 @@
-{}
+{
+	"passes": [{
+		"shader": "hdr_downsample",
+		"cullmode" : "nocull",
+		"depthtest": "disabled",
+		"depthwrite": "disabled",
+		"combos": {"BLOOM":1}
+	}]
+}

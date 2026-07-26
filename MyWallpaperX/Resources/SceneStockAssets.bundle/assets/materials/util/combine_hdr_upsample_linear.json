@@ -1,1 +1,12 @@
-{}
+{
+	"passes": [{
+		"shader": "combine_hdr",
+		"cullmode" : "nocull",
+		"depthtest": "disabled",
+		"depthwrite": "disabled",
+		"textures": ["_rt_FullFrameBuffer"],
+		"combos": {
+			"LINEAR": 1
+		}
+	}]
+}

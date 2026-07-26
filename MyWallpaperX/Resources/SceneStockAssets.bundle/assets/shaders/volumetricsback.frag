@@ -1,1 +1,3 @@
-// MyWallpaperX stock asset placeholder
+
+void main() {
+}

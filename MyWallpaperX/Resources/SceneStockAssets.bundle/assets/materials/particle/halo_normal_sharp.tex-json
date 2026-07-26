@@ -1,4 +1,5 @@
 {
-  "format": "rgba8888",
-  "nomip": true
+	"clampuvs" : true,
+	"format" : "rgba8888n",
+	"nonpoweroftwo" : true
 }

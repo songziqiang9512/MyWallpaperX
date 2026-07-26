@@ -1,1 +1,9 @@
-{}
+{
+	"passes": [{
+		"shader": "downsample_eighth_blur_v",
+		"cullmode" : "nocull",
+		"depthtest": "disabled",
+		"depthwrite": "disabled",
+		"textures": ["_rt_4FrameBuffer"]
+	}]
+}

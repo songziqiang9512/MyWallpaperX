@@ -1,4 +1,14 @@
 {
-  "format": "rgba8888",
-  "nomip": true
+	"clampuvs" : true,
+	"format" : "r8",
+	"nonpoweroftwo" : true,
+	"spritesheetsequences" : 
+	[
+		{
+			"duration" : 1,
+			"frames" : 8,
+			"height" : 128,
+			"width" : 128
+		}
+	]
 }

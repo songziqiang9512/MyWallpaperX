@@ -1,4 +1,5 @@
 {
-  "format": "rgba8888",
-  "nomip": true
+	"format" : "rg88",
+	"alphachannelpriority" : true,
+	"clampuvs" : false
 }

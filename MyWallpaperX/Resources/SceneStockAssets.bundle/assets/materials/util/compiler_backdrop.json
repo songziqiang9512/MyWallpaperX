@@ -1,1 +1,8 @@
-{}
+{
+	"passes": [{
+		"shader": "compilerbackdrop",
+		"cullmode" : "nocull",
+		"depthtest": "disabled",
+		"blending": "translucent"
+	}]
+}

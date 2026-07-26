@@ -1,4 +1,6 @@
 {
-  "format": "rgba8888",
-  "nomip": true
+	"clampuvs" : true,
+	"format" : "r8",
+	"nointerpolation" : false,
+	"nomip" : true
 }
