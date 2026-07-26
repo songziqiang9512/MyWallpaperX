@@ -48,6 +48,9 @@ Scene 兼容的核心不是不断增加“看起来差不多”的效果分支�
 | 官方 shader source 使用哪些未定义 token、哪些后端结论仍需实验 | [Shader source 前置合同与跨后端假设审查](shader-prelude-and-backend-abstraction.md) |
 | 19 个随包工程各覆盖什么能力、哪些可作为隔离验证候选 | [官方默认工程 corpus](official-default-projects-fixture-inventory.md) |
 | 随包 `zcompat` 有哪些 patch record、哪些 matcher/runtime 语义尚未确认 | [zcompat 向后兼容机制取证](zcompat-backward-compatibility-forensics.md) |
+| 官方某能力哪个版本引入、改过什么、VM/字体/FBO 条件等实现事实 | [官方客户端 changelog 取证](client-changelog-forensics.md) |
+| 某个 wire 字段在编辑器叫什么、粒子组件/blend/Timeline/scene options 的官方名称与定义 | [编辑器字符串表取证](editor-string-table-forensics.md) |
+| 官方各系统的实现库来源、bin 模块清单、官方元素预览视频在哪 | [客户端二进制与第三方依赖取证](client-binary-dependency-forensics.md) |
 | 官方站当前有哪些 Scene 页面、某个 API 专页在哪里 | [官方页面全目录](official-page-catalog.md) |
 | 某条结论来自官方、样本还是第三方实现 | [资料来源与证据索引](source-index.md) |
 | 某条 `L3` 到底由哪些代码、自动测试和运行/GPU 结果支撑 | [运行证据索引](runtime-evidence-index.md) |

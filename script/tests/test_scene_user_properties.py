@@ -349,47 +349,50 @@ class SceneUserPropertyTests(unittest.TestCase):
             },
         )
 
-    def test_isolated_21_sample_census(self) -> None:
+    def test_isolated_26_sample_census(self) -> None:
+        # 隔离缓存 2026-07-26 起为 26 个样本：原 21 个加上固定回归门重建时
+        # 补入的 2131872317/3088601835/3747492842/3768903841/3769688830。
         if not ISOLATED_SAMPLE_ROOT.is_dir():
             self.skipTest(f"isolated sample root is unavailable: {ISOLATED_SAMPLE_ROOT}")
         result = self.run_harness("census", str(ISOLATED_SAMPLE_ROOT))
-        self.assertEqual(result["sampleCount"], 21)
-        self.assertEqual(result["definitionCount"], 424)
-        self.assertEqual(result["unsupportedDefinitionCount"], 0)
+        self.assertEqual(result["sampleCount"], 26)
+        self.assertEqual(result["definitionCount"], 530)
+        self.assertEqual(result["unsupportedDefinitionCount"], 1)
         self.assertEqual(
             result["definitionKinds"],
             {
-                "bool": 100,
-                "color": 87,
-                "combo": 20,
-                "group": 7,
-                "scenetexture": 9,
-                "slider": 62,
-                "text": 91,
-                "textinput": 48,
+                "bool": 143,
+                "color": 104,
+                "combo": 21,
+                "group": 16,
+                "scenetexture": 14,
+                "slider": 90,
+                "text": 92,
+                "textinput": 49,
+                "unsupported": 1,
             },
         )
-        self.assertEqual(result["bindingCount"], 952)
-        self.assertEqual(result["directBindingCount"], 757)
+        self.assertEqual(result["bindingCount"], 1101)
+        self.assertEqual(result["directBindingCount"], 906)
         self.assertEqual(result["conditionalBindingCount"], 195)
         self.assertEqual(
             result["targetCounts"],
             {
                 "camera": 5,
-                "effectVisibility": 129,
-                "layerAlpha": 73,
-                "layerColor": 73,
-                "layerVisibility": 230,
-                "shaderValue": 122,
-                "text": 267,
-                "unsupported": 53,
+                "effectVisibility": 149,
+                "layerAlpha": 78,
+                "layerColor": 74,
+                "layerVisibility": 275,
+                "shaderValue": 164,
+                "text": 274,
+                "unsupported": 82,
             },
         )
         self.assertEqual(
             result["conditionalTargetCounts"],
             {"effectVisibility": 86, "layerVisibility": 109},
         )
-        self.assertEqual(result["diagnosticCounts"], {"unsupportedTarget": 53})
+        self.assertEqual(result["diagnosticCounts"], {"unsupportedTarget": 82})
 
 
 if __name__ == "__main__":

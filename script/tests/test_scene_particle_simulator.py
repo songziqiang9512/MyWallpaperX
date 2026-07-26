@@ -529,13 +529,15 @@ class SceneParticleSimulatorTests(unittest.TestCase):
             ],
         )
 
-    def test_isolated_21_sample_definitions_can_initialize_and_advance(self) -> None:
+    def test_isolated_26_sample_definitions_can_initialize_and_advance(self) -> None:
+        # 隔离缓存 2026-07-26 起为 26 个样本：原 21 个加上固定回归门重建时
+        # 补入的 2131872317/3088601835/3747492842/3768903841/3769688830。
         if not ISOLATED_SAMPLE_ROOT.is_dir():
-            self.skipTest("isolated 21-sample Scene corpus is unavailable")
+            self.skipTest("isolated 26-sample Scene corpus is unavailable")
         result = self.run_harness("census", str(ISOLATED_SAMPLE_ROOT))
-        self.assertEqual(result["sampleCount"], 21)
-        self.assertEqual(result["definitionSimulators"], 55)
-        self.assertEqual(result["rootSimulators"], 60)
+        self.assertEqual(result["sampleCount"], 26)
+        self.assertEqual(result["definitionSimulators"], 89)
+        self.assertEqual(result["rootSimulators"], 100)
 
 
 if __name__ == "__main__":

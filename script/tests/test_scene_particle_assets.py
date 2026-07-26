@@ -497,21 +497,31 @@ class SceneParticleAssetTests(unittest.TestCase):
             },
         )
 
-    def test_isolated_21_sample_asset_graph(self) -> None:
+    def test_isolated_26_sample_asset_graph(self) -> None:
+        # 隔离缓存 2026-07-26 起为 26 个样本：原 21 个加上固定回归门重建时
+        # 补入的 2131872317/3088601835/3747492842/3768903841/3769688830。
         if not ISOLATED_SAMPLE_ROOT.is_dir():
-            self.skipTest("isolated 21-sample Scene corpus is unavailable")
+            self.skipTest("isolated 26-sample Scene corpus is unavailable")
         result = self.run_harness("census", str(ISOLATED_SAMPLE_ROOT))
-        self.assertEqual(result["sampleCount"], 21)
-        self.assertEqual(result["samplesWithParticles"], 18)
-        self.assertEqual(result["reachableAssetCount"], 55)
-        self.assertEqual(result["blendCounts"], {"additive": 42, "translucent": 13})
-        # 新增 particle/halo_6 与 particle/star 的生成实现后，本样本集的缺口从 6 降到 2。
-        self.assertEqual(result["diagnosticCounts"].get("builtInTextureUnavailable", 0), 2)
+        self.assertEqual(result["sampleCount"], 26)
+        self.assertEqual(result["samplesWithParticles"], 23)
+        self.assertEqual(result["reachableAssetCount"], 89)
+        self.assertEqual(result["blendCounts"], {"additive": 68, "translucent": 21})
+        # 26 样本集的 built-in 纹理缺口为 3；2131872317 另有 2 处 util/white
+        # 缺失文件属于该样本自带的 workshop preset 引用缺口。
+        self.assertEqual(result["diagnosticCounts"].get("builtInTextureUnavailable", 0), 3)
+        self.assertEqual(result["diagnosticCounts"].get("missingTextureFile", 0), 2)
+        self.assertEqual(
+            result["missingResourceDiagnostics"],
+            [
+                "2131872317:particles/presets/fireworkshitdistort.json:util/white",
+                "2131872317:particles/workshop/2110548715/presets/fireworkshitdistort.json:util/white",
+            ],
+        )
         for kind in (
             "missingDefinition",
             "missingMaterial",
             "missingTextureReference",
-            "missingTextureFile",
         ):
             self.assertEqual(
                 result["diagnosticCounts"].get(kind, 0),

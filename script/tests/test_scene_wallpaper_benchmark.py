@@ -277,27 +277,28 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertLess(outside, after)
 
     def test_default_matrix_pins_solid_layer_semantics(self) -> None:
+        # 固定门 2026-07-26 重建为当前真实目录中的 13 个代表样本。
         matrix = benchmark.load_matrix(SCRIPT_DIR / "scene_wallpaper_sample_matrix.json")
         samples = {sample["id"]: sample for sample in matrix["samples"]}
         expected = {
-            "3722933264": (0, 0, 0),
-            "3723230275": (1, 0, 1),
-            "3723257973": (29, 3, 2),
-            "3723344874": (3, 1, 3),
-            "3724095562": (0, 0, 0),
-            "3724289844": (0, 0, 0),
-            "3724553795": (0, 0, 0),
-            "3742133044": (0, 0, 0),
-            "3750813609": (1, 1, 1),
-            "3766387484": (0, 0, 0),
+            "2131872317": (0, 0, 0),
+            "2802243144": (0, 0, 0),
             "2902406982": (9, 6, 1),
-            "3765760121": (0, 0, 0),
             "2938612768": (11, 9, 2),
+            "2998757800": (0, 0, 0),
+            "3088601835": (0, 0, 0),
+            "3122339805": (84, 73, 57),
+            "3742133044": (0, 0, 0),
+            "3747492842": (2, 1, 2),
+            "3750813609": (1, 1, 1),
+            "3757555836": (0, 0, 0),
+            "3768903841": (6, 1, 3),
+            "3769688830": (1, 0, 1),
         }
         self.assertEqual(set(samples), set(expected))
         for sample_id, (solid_count, authored_color_count, effective_count) in expected.items():
             sample = samples[sample_id]
-            self.assertEqual(sample["expected_interpretation_format"], 25)
+            self.assertEqual(sample["expected_interpretation_format"], 29)
             self.assertEqual(sample["expected_solid_layer_count"], solid_count)
             self.assertEqual(
                 sample["expected_authored_solid_color_layer_count"],
@@ -313,13 +314,32 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
     def test_default_matrix_pins_shader_contracts(self) -> None:
         matrix = benchmark.load_matrix(SCRIPT_DIR / "scene_wallpaper_sample_matrix.json")
         self.assertEqual(len(matrix["samples"]), 13)
+        # (authored, builtin, stage, diagnostic)。stage 不服从 authored*2 的
+        # 旧经验律：3088601835/3122339805 带 2 条 contract 诊断且 stage 少 2。
+        expected = {
+            "2131872317": (5, 2, 10, 0),
+            "2802243144": (3, 2, 6, 0),
+            "2902406982": (17, 3, 34, 0),
+            "2938612768": (18, 3, 36, 0),
+            "2998757800": (4, 2, 8, 0),
+            "3088601835": (11, 1, 20, 2),
+            "3122339805": (3, 1, 4, 2),
+            "3742133044": (3, 2, 6, 0),
+            "3747492842": (14, 2, 28, 0),
+            "3750813609": (7, 2, 14, 0),
+            "3757555836": (4, 2, 8, 0),
+            "3768903841": (7, 2, 14, 2),
+            "3769688830": (16, 3, 32, 0),
+        }
+        self.assertEqual({s["id"] for s in matrix["samples"]}, set(expected))
         for sample in matrix["samples"]:
-            authored = sample["expected_shader_contract_authored_count"]
-            builtin = sample["expected_shader_contract_builtin_count"]
-            self.assertEqual(sample["expected_interpretation_format"], 25)
+            authored, builtin, stage, diagnostics = expected[sample["id"]]
+            self.assertEqual(sample["expected_interpretation_format"], 29)
+            self.assertEqual(sample["expected_shader_contract_authored_count"], authored)
+            self.assertEqual(sample["expected_shader_contract_builtin_count"], builtin)
             self.assertEqual(sample["expected_shader_contract_count"], authored + builtin)
-            self.assertEqual(sample["expected_shader_contract_stage_count"], authored * 2)
-            self.assertEqual(sample["expected_shader_contract_diagnostic_count"], 0)
+            self.assertEqual(sample["expected_shader_contract_stage_count"], stage)
+            self.assertEqual(sample["expected_shader_contract_diagnostic_count"], diagnostics)
             self.assertRegex(
                 sample["expected_shader_contract_aggregate_sha256"],
                 r"^[0-9a-f]{64}$",
@@ -427,11 +447,11 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(sample["required_utility_capture_succeeded_layer_ids"], [410, 530])
         self.assertEqual(
             sample["required_named_target_capture_succeeded_layer_ids"],
-            [125, 84, 91, 253, 271, 291],
+            [84, 91, 125, 253, 271, 291],
         )
         self.assertEqual(
             sample["required_named_target_binding_succeeded_layer_ids"],
-            [70, 791, 182, 217, 245, 265, 285],
+            [70, 182, 217, 245, 265, 285, 791],
         )
         media_sample = next(item for item in matrix["samples"] if item["id"] == "2938612768")
         self.assertEqual(media_sample["expected_utility_named_target_planned"], 2)
@@ -454,44 +474,40 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
     def test_default_matrix_pins_procedural_particle_layers(self) -> None:
         matrix = benchmark.load_matrix(SCRIPT_DIR / "scene_wallpaper_sample_matrix.json")
         samples = {sample["id"]: sample for sample in matrix["samples"]}
+        # 2026-07-26 固定门重建后，除 3122339805（无粒子）外 12 个样本都
+        # 锁定实际加载的粒子 layer ID 集合。
         expected = {
-            "3724095562": [22],
-            "3724289844": [259, 262, 265, 268, 255],
-            "3750813609": [121, 200, 90, 504, 511, 516, 498],
-            "3766387484": [48],
+            "2131872317": [8929, 10203, 10440, 3180, 529, 832, 1375, 37, 2530],
+            "2802243144": [20, 25],
             "2902406982": [262],
+            "2938612768": [173],
+            "2998757800": [260, 211, 172, 187, 199, 181, 193, 205, 38618],
+            "3088601835": [534, 558, 569, 513, 550, 564, 572, 576, 579, 587, 592, 595, 598, 606, 922, 927, 1152, 1156, 1159],
+            "3742133044": [196],
+            "3747492842": [269],
+            "3750813609": [121, 200, 90, 504, 511, 516, 498],
+            "3757555836": [81, 219, 88, 222, 91, 225, 98],
+            "3768903841": [306, 309, 312, 264, 271],
+            "3769688830": [354, 1214, 1427, 761],
         }
         for sample_id, layer_ids in expected.items():
             sample = samples[sample_id]
             self.assertEqual(sample["minimum_particle_loaded"], len(layer_ids))
             self.assertEqual(sample["required_particle_loaded_layer_ids"], layer_ids)
+        self.assertEqual(samples["3122339805"]["required_particle_loaded_layer_ids"], [])
 
     def test_default_matrix_pins_authored_effect_graph_execution(self) -> None:
         matrix = benchmark.load_matrix(SCRIPT_DIR / "scene_wallpaper_sample_matrix.json")
         samples = {sample["id"]: sample for sample in matrix["samples"]}
+        # v29 基线下 2902406982 的 strict succeeded 从 v25 的 7 层扩到 35 层；
+        # 稳定核心子集由 required_authored_effect_graph_succeeded_layer_ids 锁定。
         self.assertEqual(
-            samples["3765760121"]["expected_authored_effect_graph_succeeded_layer_ids"],
-            [68, 74, 76, 82],
-        )
-        self.assertEqual(
-            samples["3724289844"]["expected_authored_effect_graph_succeeded_layer_ids"],
-            [20, 28, 36],
-        )
-        self.assertEqual(
-            samples["3724289844"]["expected_authored_effect_graph_legacy_blur_blocked_layer_ids"],
-            [],
-        )
-        self.assertEqual(
-            samples["3724289844"]["expected_authored_effect_graph_workshop_shadow_count"],
-            1,
-        )
-        self.assertEqual(
-            samples["3723257973"]["expected_authored_effect_graph_succeeded_layer_ids"],
-            [],
-        )
-        self.assertEqual(
-            samples["2902406982"]["expected_authored_effect_graph_succeeded_layer_ids"],
+            samples["2902406982"]["required_authored_effect_graph_succeeded_layer_ids"],
             [167, 177, 365, 372, 530, 647, 664],
+        )
+        self.assertEqual(
+            len(samples["2902406982"]["expected_authored_effect_graph_succeeded_layer_ids"]),
+            35,
         )
         self.assertEqual(
             samples["2902406982"]["expected_authored_effect_graph_local_contrast_count"],
@@ -511,7 +527,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             ],
             [365, 372, 647, 664],
         )
-        self.assertEqual(samples["2902406982"]["expected_route_only_effect_count"], 3)
+        self.assertEqual(samples["2902406982"]["expected_route_only_effect_count"], 31)
         self.assertEqual(
             samples["2902406982"]["minimum_authored_opacity_runtime_count"],
             4,
@@ -544,31 +560,27 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             [165, 454, 626, 629, 924],
         )
         self.assertEqual(samples["2938612768"]["expected_route_only_effect_count"], 18)
-        expected_legacy_water_waves_counts = {
-            "3722933264": 0,
-            "3723344874": 0,
-            "3724553795": 0,
-            "2902406982": 0,
-            "2938612768": 0,
-        }
-        for sample_id, count in expected_legacy_water_waves_counts.items():
+        for sample_id in ("2902406982", "2938612768"):
             self.assertEqual(
-                samples[sample_id]["minimum_legacy_waterwaves_runtime_count"],
-                count,
+                samples[sample_id]["minimum_legacy_waterwaves_runtime_count"], 0
             )
             self.assertEqual(
-                samples[sample_id]["maximum_legacy_waterwaves_runtime_count"],
-                count,
+                samples[sample_id]["maximum_legacy_waterwaves_runtime_count"], 0
             )
         expected_chain_metrics = {
-            "3722933264": (1, 6),
-            "3723257973": (0, 0),
-            "3723344874": (0, 3),
-            "3724289844": (1, 4),
-            "3750813609": (0, 0),
-            "2902406982": (0, 7),
-            "3765760121": (0, 4),
+            "2131872317": (0, 0),
+            "2802243144": (3, 6),
+            "2902406982": (0, 35),
             "2938612768": (0, 0),
+            "2998757800": (4, 18),
+            "3088601835": (0, 0),
+            "3122339805": (0, 3),
+            "3742133044": (0, 0),
+            "3747492842": (0, 1),
+            "3750813609": (0, 0),
+            "3757555836": (1, 5),
+            "3768903841": (1, 10),
+            "3769688830": (1, 4),
         }
         for sample_id, (chain_count, stage_count) in expected_chain_metrics.items():
             self.assertEqual(
@@ -580,30 +592,30 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 stage_count,
             )
         self.assertEqual(
-            samples["3722933264"]["expected_authored_effect_graph_water_waves_count"],
+            samples["3768903841"]["expected_authored_effect_graph_water_waves_count"],
             4,
         )
         self.assertEqual(
-            samples["3723344874"]["expected_authored_effect_graph_water_waves_count"],
-            2,
+            samples["2998757800"]["expected_authored_effect_graph_shake_count"],
+            16,
         )
         self.assertEqual(
             sum(
                 sample.get("expected_authored_effect_graph_stage_count", 0)
                 for sample in samples.values()
             ),
-            24,
+            82,
         )
         self.assertEqual(
             sum(
                 sample.get("expected_authored_effect_graph_chain_count", 0)
                 for sample in samples.values()
             ),
-            2,
+            10,
         )
         self.assertEqual(
             sum(sample["expected_route_only_effect_count"] for sample in samples.values()),
-            32,
+            59,
         )
         self.assertEqual(
             sum(
@@ -620,7 +632,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 ))
                 for sample in samples.values()
             ),
-            2,
+            1,
         )
 
     def test_entry_basename_package_is_preferred_and_copied(self) -> None:

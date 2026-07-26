@@ -186,8 +186,11 @@ https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/<Name>.htm
 - [官方默认工程 corpus](official-default-projects-fixture-inventory.md)：19 个随包工程的入口形态，以及 16 个 scene-shaped 工程的对象、相机、Effect、纹理、模型、粒子与 shader cache 输入清单。
 - [Shader source 前置合同与跨后端假设审查](shader-prelude-and-backend-abstraction.md)：随包 source token、format branch 与 uniform census；token 缺席为 A 级，注入者、矩阵/NDC/Metal 映射为 C 级。
 - [zcompat 向后兼容机制取证](zcompat-backward-compatibility-forensics.md)：随包 scene shader 候选与 Web patch record schema；匹配方向、应用时机、失败策略和音频填充行为仍是待运行确认项。
+- [官方客户端 changelog 取证](client-changelog-forensics.md)：`ui/dist/scripts/scripts.js` 内嵌 REV 3943-4401 共 459 版 / 741 条变更；V8 VM、MSDF 字体、FBO condition 运算符、默认值裁剪与粒子/child/CP 语义的版本事实。
+- [编辑器字符串表取证](editor-string-table-forensics.md)：`locale/ui_en-us.json` 3,332 keys 的 Scene 子集；45 Effect、粒子组件、blend mode、Timeline、scene options 与 utility 层的官方名称与一句话定义。
+- [客户端二进制与第三方依赖取证](client-binary-dependency-forensics.md)：`bin/` 62 文件模块清单、`bin/licenses` 官方自认的 34+14 项第三方库及其到 Scene 系统的映射、`assets/shaders/{base,editor,HLSL}` 子目录补漏与 165 个官方元素预览视频登记。
 
-证据范围只包含用户合法安装副本中的 `assets`、官方 default projects/templates 与声明文件；不包含用户项目/config/cache，也不执行或复制 Windows binary/payload。随包资源是当前 build 的 A 级结构证据，但仍不能代替运行时 event order、history lifecycle、shader 数学或 Windows pixel golden。
+上述三份客户端深挖文档由 `script/extract_wallpaper_engine_client_evidence.py` 支持复现提取。证据范围包含用户合法安装副本中的 `assets`、官方 default projects/templates、声明文件、`locale` 字符串表、`ui/dist` 内嵌 changelog/类型库与 `bin` 的文件身份及许可清单；不包含用户项目/config/cache（`config.json`、`config_backups`、`projects/myprojects`、`ui/uicache`、`ui/wpcache`），也不执行、反汇编或复制 Windows binary/payload。随包资源是当前 build 的 A 级结构证据，但仍不能代替运行时 event order、history lifecycle、shader 数学或 Windows pixel golden。
 
 ## 2. 真实样本证据
 

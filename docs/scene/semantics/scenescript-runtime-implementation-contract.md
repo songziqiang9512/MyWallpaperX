@@ -292,7 +292,7 @@ Mat3/Mat4 的乘法索引和向量变换直接确认其数组为 column-major �
 
 - `CameraTransforms` 是唯一确认由引擎原生提供的类，其 4 个成员的实际行为**无本地证据**，仍需运行时观测。
 - prototype 导出（§4.1）与 token 机制（§4.2）的原生侧用法为等级 C 推断，只能指导实现，不能写成兼容承诺。
-- `ui/dist/scripts/scripts.js`（1.2 MB 编辑器逻辑）未展开，可能含属性 schema 校验与默认值，属后续可挖来源。
+- `ui/dist/scripts/scripts.js`（1.2 MB 编辑器逻辑）已于 2026-07-26 展开：其中**不含** Scene wire 字段的 schema 校验或默认值表（`depthtest`/`pointsize`/`maxrows` 等命中 0 次），此前「可能含属性 schema 校验与默认值」的推测不成立；其真实价值是内嵌的官方 changelog（含 10 条 V8 证据，把 §3 的 VM 选型目标从推断收窄为官方事实），见 [官方客户端 changelog 取证](client-changelog-forensics.md)。
 
 ## 10. 关联文档
 

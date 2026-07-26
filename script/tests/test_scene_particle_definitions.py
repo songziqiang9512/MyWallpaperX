@@ -548,72 +548,74 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         for key in ("fraction", "huge", "boolean", "nan", "infinity"):
             self.assertIsNone(result[key], key)
 
-    def test_isolated_21_sample_particle_census(self) -> None:
+    def test_isolated_26_sample_particle_census(self) -> None:
+        # 隔离缓存 2026-07-26 起为 26 个样本：原 21 个加上固定回归门重建时
+        # 补入的 2131872317/3088601835/3747492842/3768903841/3769688830。
         if not ISOLATED_SAMPLE_ROOT.is_dir():
-            self.skipTest("isolated 21-sample Scene corpus is unavailable")
+            self.skipTest("isolated 26-sample Scene corpus is unavailable")
         result = self.run_harness("census", str(ISOLATED_SAMPLE_ROOT))
-        self.assertEqual(result["sampleCount"], 21)
-        self.assertEqual(result["samplesWithParticles"], 18)
-        self.assertEqual(result["particleLayerReferenceCount"], 60)
-        self.assertEqual(result["uniqueRootReferencePathCount"], 29)
-        self.assertEqual(result["reachableDefinitionCount"], 55)
-        self.assertEqual(result["childReferenceCount"], 77)
+        self.assertEqual(result["sampleCount"], 26)
+        self.assertEqual(result["samplesWithParticles"], 23)
+        self.assertEqual(result["particleLayerReferenceCount"], 100)
+        self.assertEqual(result["uniqueRootReferencePathCount"], 45)
+        self.assertEqual(result["reachableDefinitionCount"], 89)
+        self.assertEqual(result["childReferenceCount"], 86)
         self.assertEqual(result["missingDefinitionCount"], 0)
-        self.assertEqual(result["emitterCounts"], {"boxrandom": 9, "sphererandom": 47})
+        self.assertEqual(result["emitterCounts"], {"boxrandom": 16, "sphererandom": 74})
         self.assertEqual(
             result["initializerCounts"],
             {
-                "alpharandom": 13,
-                "angularvelocityrandom": 13,
-                "colorrandom": 40,
-                "lifetimerandom": 55,
-                "rotationrandom": 24,
-                "sizerandom": 55,
-                "turbulentvelocityrandom": 15,
-                "velocityrandom": 39,
+                "alpharandom": 20,
+                "angularvelocityrandom": 17,
+                "colorrandom": 73,
+                "lifetimerandom": 89,
+                "rotationrandom": 36,
+                "sizerandom": 89,
+                "turbulentvelocityrandom": 17,
+                "velocityrandom": 59,
             },
         )
         self.assertEqual(
             result["operatorCounts"],
             {
-                "alphachange": 2,
-                "alphafade": 48,
-                "angularmovement": 11,
+                "alphachange": 3,
+                "alphafade": 77,
+                "angularmovement": 18,
                 "colorchange": 1,
-                "controlpointattract": 7,
-                "movement": 50,
-                "oscillatealpha": 8,
-                "oscillateposition": 9,
+                "controlpointattract": 8,
+                "movement": 76,
+                "oscillatealpha": 18,
+                "oscillateposition": 17,
                 "oscillatesize": 1,
-                "sizechange": 10,
-                "turbulence": 1,
+                "sizechange": 23,
+                "turbulence": 4,
                 "vortex": 1,
             },
         )
         self.assertEqual(
             result["rendererCounts"],
-            {"ropetrail": 1, "sprite": 49, "spritetrail": 5},
+            {"ropetrail": 1, "sprite": 79, "spritetrail": 9},
         )
-        self.assertEqual(result["implicitRendererCount"], 4)
+        self.assertEqual(result["implicitRendererCount"], 6)
         self.assertEqual(result["diagnosticCounts"], {})
-        self.assertEqual(result["instanceOverrideCount"], 59)
+        self.assertEqual(result["instanceOverrideCount"], 95)
         self.assertEqual(
             result["instanceOverrideFieldCounts"],
             {
-                "alpha": 33,
+                "alpha": 48,
                 "brightness": 3,
-                "colorn": 27,
+                "colorn": 41,
                 "controlpoint": 4,
-                "count": 30,
-                "lifetime": 15,
-                "rate": 20,
-                "size": 26,
-                "speed": 15,
+                "count": 49,
+                "lifetime": 19,
+                "rate": 41,
+                "size": 40,
+                "speed": 27,
             },
         )
         self.assertEqual(
             result["dynamicOverrideCounts"],
-            {"animation": 7, "script": 11, "user": 6},
+            {"animation": 7, "script": 11, "user": 9},
         )
 
 
