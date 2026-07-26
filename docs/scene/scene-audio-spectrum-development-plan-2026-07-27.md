@@ -263,6 +263,42 @@ D4 Input snapshots ────┘        │
 3. 正门：`2131872317`（固定 13 门内）的 sphererandom、`3299228616` 的 6 层 boxrandom、`2419444134` 的 turbulentvelocity 各建定向门，emitter 计数/初速随注入频谱变化。
 4. `audioResponseIgnored` 诊断在已接通的三类组件上消失，其余组件保留。
 
+<a id="a4-blocked"></a>
+#### 3.2 A4 执行被证据缺口阻断（取证结论）
+
+实施时取证发现 **A4 的执行部分当前不具备实现条件**，只交付了声明 IR 的正确性修正。
+
+**粒子与 effect 是两套独立 schema**，不能套用 A1 的求值器：
+
+| | effect | 粒子 |
+|---|---|---|
+| 启用 | `AUDIOPROCESSING` combo | `audioprocessingmode` |
+| 边界 | `audiobounds` | `audioprocessingbounds` |
+| 指数 | `audioexponent` | `audioprocessingexponent` |
+| 频段 | `frequencymin` / `frequencymax` | `audioprocessingfrequencystart` / `audioprocessingfrequencyend` |
+| 幅度 | `audioamount` | **无对应字段** |
+
+45 样本语料中启用 audio 的 11 处粒子组件，字段只出现 `audioprocessingmode`（11）、`audioprocessingbounds`（6）、`audioprocessingfrequencyend`（1），未出现任何 effect 字段名；`mode` 全部为 3。
+
+**证据状况**
+
+| 项 | 证据等级 | 结论 |
+|---|---|---|
+| 字段名 | 真实样本 + 第三方 parser 交叉验证 | 可用 |
+| 默认值 | **仅第三方 parser**，且其自身矛盾——emitter 处为 `bounds 0.8/1.0, exponent 2, frequencyEnd 1`，initializer 处为 `bounds 0.0/1.0, exponent 1, frequencyEnd 15` | 不可用 |
+| 频谱聚合公式 | **无**。effect 侧有 shader 源码，粒子侧没有对应源码 | 缺失 |
+| 调制目标与方式 | **无**。第三方 `CParticle.cpp` 相关代码是 `float audioAmplitude = 0.0f; // TODO`，`speed *= (1 + amplitude)` 从未真正运行，是未接通的占位 | 缺失 |
+
+官方文档只有一句"rate/shape/speed 等参数可由频谱范围、amount、exponent 调制"，不足以确定调制的是 rate 还是 speed、是乘是加、系数几何。在此基础上实现等于用视觉近似反向定义官方语义，为计划第 1 节与 AGENTS.md 明确禁止。
+
+**本批实际交付**（等级仍为 `L1`，不升 `L3`）
+
+1. 修正 parser 字段名：此前误用 effect 侧的 `audioamount`/`audioexponent`/`audiofrequency`，解析出恒为 nil 的字段，同时漏掉真实存在的 `audioprocessingfrequencyend`——`2131872317` 的该字段被静默丢弃，违反 D0 的 loss-preserving 合同；
+2. 三类组件（emitter / turbulent velocity / operator）共用 `SceneParticleAudioResponse` 声明类型，补齐 `exponent` / `frequencyStart` / `frequencyEnd`，且**不内置任何默认值**；
+3. operator 的 audio 启用此前不产生任何诊断、会静默按无音频路径模拟，现纳入 `audioResponseIgnored`。
+
+**解除阻断所需**：合法 Windows WE 的固定输入对照（V4 级证据），或官方公开粒子 audio 算法。在此之前 E15 / O29 / I09-audio 保持 `L1`，`audioResponseIgnored` 继续如实报告。
+
 ---
 
 ### A5 / A6 不排期项
