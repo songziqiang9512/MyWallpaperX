@@ -63,7 +63,7 @@
 | Audio frame input | `L0` | Scene 不消费频谱 | 16/32/64 双声道 snapshot、注册和设备生命周期 | B0/B4 |
 | 内嵌视频纹理 | `L3` | TEX 内嵌 MP4 image-layer 播放，消费共享 host time | seek/pause/switch/loop 精确合同及更多容器 | B1 |
 | 系统媒体 identity | `L1` | `$mediaThumbnail` typed 引用存在 | producer/consumer、事件、缩略图 generation | B1/B4 |
-| Particle runtime | `L3` | 作者 sprite、常见组件、Sprite Trail；`SceneStockAssets.bundle` 的 919 个播放候选路径中有 223 TEX、198 sidecar，其中 particle 164 项按 exact identity 直接查找同路径 TEX，样本本地资源优先，22-key 程序纹理只作 bundle 缺失回退；素材原位替换，后续 consumer 必须复用这些物理路径 | 路径完整不等于执行完整：当前只有 Particle slot 0 是纹理 consumer；223 个 TEX 均封装同一 16x16 占位，无对应官方尺寸/通道/mip/atlas/像素语义；198 个 sidecar 也仅是占位且不进入 runtime | **B4** |
+| Particle runtime | `L3` | 作者 sprite、常见组件、Sprite Trail；`SceneStockAssets.bundle` 的 919 个播放候选路径中有 223 TEX、198 sidecar，其中 particle 164 项按 exact identity 直接查找同路径 TEX，样本本地资源优先，22-key 程序纹理只作 bundle 缺失回退；素材原位替换，后续 consumer 必须复用这些物理路径 | 路径完整不等于执行完整：当前只有 Particle slot 0 是纹理 consumer；223 个 TEX 已是真实素材但逐资产官方通道/mip/atlas/像素 parity 未证明；198 个 sidecar 携带 metadata 但不进入 runtime，spritesheet 序列帧未逐帧播放 | **B4** |
 | Text/Font runtime | `L3` | CoreText 静态栅格、direct property 动态重栅格和部分 font/pointsize/padding/scale；结构门 `79/108` | time/SceneScript/system/media text、Windows baseline/fallback、outline/shadow/effect | B4/B5 |
 | Camera Parallax | `L3` | 仅作者开启且非零 depth 时启用，含层级传播/阻断 | WE 数值 golden、camera shake/zoom、3D camera | B5 |
 | User Properties | `L3` | 独立窗口、条件、持久化、PNG/JPEG `sceneTexture`；layer alpha、纯 solid color、direct text、strict Local Contrast/Opacity 与受限 X-Ray target 已无重建 live 更新 | unsupported/mixed/SceneScript bindings、Texture Variants、shortcut、跨重启 UI 门；精确 census 见 runtime-input 专项表 | **B0/B1** |

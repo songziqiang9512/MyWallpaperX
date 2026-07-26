@@ -38,7 +38,7 @@ Scene 兼容的核心不是不断增加“看起来差不多”的效果分支�
 | 45 类官方 effect 当前分别走哪条执行通道、证据和下一门 | [Effect 执行覆盖表](effect-execution-coverage.md) |
 | EffectDefinition、Material、FBO、Shader 的 IR 与 executor 分别做到哪里 | [Render Graph 与 Shader 覆盖表](render-graph-shader-coverage.md) |
 | 粒子每个 General/Emitter/Initializer/Operator/Renderer/Child 项做到哪里 | [粒子组件覆盖表](particle-component-coverage.md) |
-| 官方客户端有哪些播放端 stock 资产路径、项目占位素材如何一一对应 | [stock 播放资产包](stock-asset-bundle.md) |
+| 官方客户端有哪些播放端 stock 资产路径、项目素材如何一一对应 | [stock 播放资产包](stock-asset-bundle.md) |
 | Frame Context、Timeline、属性 target、文字、cursor/audio/media/provider 做到哪里 | [运行输入与属性覆盖表](runtime-input-property-coverage.md) |
 | SceneScript v2.8 每个生命周期、事件、handle 和 global 做到哪里 | [SceneScript API 覆盖表](scenescript-api-coverage.md) |
 | Utility、Puppet、3D、Lighting、性能、RGB 和离线做到哪里 | [高级对象覆盖表](advanced-object-coverage.md) |

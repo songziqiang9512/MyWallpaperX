@@ -937,8 +937,9 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         bundle = REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneStockAssets.bundle"
         result = self.run_harness("stock-synthetic", str(bundle))
         self.assertEqual(result["activeLayerIDs"], [21])
-        self.assertEqual(result["textureWidth"], 16)
-        self.assertEqual(result["textureHeight"], 16)
+        # debris1.tex 是官方 8 帧 128×128 spritesheet，整张上传为 1024×128 纹理。
+        self.assertEqual(result["textureWidth"], 1024)
+        self.assertEqual(result["textureHeight"], 128)
         self.assertEqual(result["diagnosticKinds"], [])
 
     def test_continuous_children_follow_finish_and_obey_aggregate_budget(self) -> None:
