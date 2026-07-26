@@ -14,9 +14,15 @@ import json
 import shutil
 import struct
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(SCRIPT_DIR))
+
+from scene_real_test_fixtures import sample_cache_root
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -26,11 +32,9 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneMdlPuppetAttachmentReader.swift",
 ]
 REAL_ATTACHMENT_ASSETS = list(
-    (
-        REPOSITORY_ROOT
-        / ".codex/scene-ahri-puppet-20260725/final/runtime-homes/3769688830"
-        / "Library/Caches/MyWallpaperX/SteamWorkshopScene"
-    ).glob("*/models/spiritblossomahribase_puppet.mdl")
+    sample_cache_root("3769688830").glob(
+        "models/spiritblossomahribase_puppet.mdl"
+    )
 )
 
 HARNESS = r'''

@@ -5,39 +5,26 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
+SCRIPT_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(SCRIPT_DIR))
+
+from scene_real_test_fixtures import sample_cache_root
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-REAL_SAMPLE_CACHE = (
-    REPOSITORY_ROOT
-    / ".codex/scene-particle-contract-20260722/runtime-homes/3742133044"
-    / "Library/Caches/MyWallpaperX/SteamWorkshopScene/72cdb5be4865b335"
-)
-EVENTSPAWN_SAMPLE_CACHE = (
-    REPOSITORY_ROOT
-    / ".codex/scene-halo4-targeted-compact-20260724/runtime-homes/3768903841"
-    / "Library/Caches/MyWallpaperX/SteamWorkshopScene/964b264a636e9e02"
-)
-EVENTDEATH_SAMPLE_CACHE = (
-    REPOSITORY_ROOT
-    / ".codex/scene-eventspawn-targeted-final-20260724/runtime-homes/2131872317"
-    / "Library/Caches/MyWallpaperX/SteamWorkshopScene/8ccb6157084ce19f"
-)
+REAL_SAMPLE_CACHE = sample_cache_root("3742133044")
+EVENTSPAWN_SAMPLE_CACHE = sample_cache_root("3768903841")
+EVENTDEATH_SAMPLE_CACHE = sample_cache_root("2131872317")
 FLARE_PARTICLE_CACHE = (
-    REPOSITORY_ROOT
-    / ".codex/scene-turbulent-velocity-final-targeted-20260725/runtime-homes/2998757800"
-    / "Library/Caches/MyWallpaperX/SteamWorkshopScene/302becd241426966"
-    / "particles/workshop/2105295491"
+    sample_cache_root("2998757800") / "particles/workshop/2105295491"
 )
-STATIC_ORIGIN_SAMPLE_CACHE = (
-    REPOSITORY_ROOT
-    / ".codex/scene-snow-smoke-full45-20260725/runtime-homes/3088601835"
-    / "Library/Caches/MyWallpaperX/SteamWorkshopScene/fdbdffd7b8183bd4"
-)
+STATIC_ORIGIN_SAMPLE_CACHE = sample_cache_root("3088601835")
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneResourceIndex.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",

@@ -29,6 +29,7 @@ MyWallpaperX.xcodeproj/project.xcworkspace/xcshareddata/*
 !MyWallpaperX.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 
 # VS Code
+.vscode
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json

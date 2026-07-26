@@ -9,19 +9,22 @@ import math
 import shutil
 import struct
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(SCRIPT_DIR))
+
+from scene_real_test_fixtures import runtime_homes_root
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCE = SCENE_ROOT / "Format/SceneMdlPuppetAnimationReader.swift"
 SWIFT_MODEL_SOURCE = SCENE_ROOT / "Format/SceneMdlPuppetAnimation.swift"
-REAL_ASSET_ROOT = (
-    REPOSITORY_ROOT
-    / ".codex/scene-attachment-full45-20260725/results-v1/runtime-homes"
-)
+REAL_ASSET_ROOT = runtime_homes_root()
 
 HARNESS = r'''
 import Foundation

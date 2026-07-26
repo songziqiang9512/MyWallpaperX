@@ -235,6 +235,18 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 benchmark.load_matrix(path)
 
+    def test_select_matrix_samples_reuses_tracked_matrix_for_targeted_runs(self) -> None:
+        matrix = {
+            "schema_version": 1,
+            "name": "fixture",
+            "samples": [{"id": "1"}, {"id": "2"}, {"id": "3"}],
+        }
+        selected = benchmark.select_matrix_samples(matrix, ["3", "1"])
+        self.assertEqual([sample["id"] for sample in selected["samples"]], ["1", "3"])
+        self.assertEqual(len(matrix["samples"]), 3)
+        with self.assertRaisesRegex(ValueError, "9"):
+            benchmark.select_matrix_samples(matrix, ["9"])
+
     def test_hover_pointer_contract_accepts_only_finite_normalized_pairs(self) -> None:
         self.assertEqual(
             benchmark.hover_pointer_normalized(
@@ -326,6 +338,83 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             destination = root / "copied"
             benchmark.copy_sample(source, destination)
             self.assertEqual((destination / "scene.pkg").read_bytes(), b"PKGV")
+
+    def test_passing_runtime_is_removed_without_keep_flag(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-scene-retention-") as directory:
+            root = Path(directory)
+            runtime_root = root / "runtime"
+            runtime_sample = runtime_root / "runtime-samples/1"
+            runtime_home = runtime_root / "runtime-homes/1"
+            runtime_binary = (
+                runtime_root
+                / "runtime-app-fixture/MyWallpaperX.app/Contents/MacOS/MyWallpaperX"
+            )
+            for path in (runtime_sample, runtime_home, runtime_binary.parent):
+                path.mkdir(parents=True, exist_ok=True)
+            runtime_binary.write_bytes(b"binary")
+            app_identity = {
+                "runtime_root_path": str(runtime_root / "runtime-app-fixture"),
+                "runtime_bundle_path": str(
+                    runtime_root / "runtime-app-fixture/MyWallpaperX.app"
+                ),
+                "runtime_executable_path": str(runtime_binary),
+                "runtime_retained": True,
+            }
+            result = {
+                "id": "1",
+                "passed": True,
+                "runtime_sample": str(runtime_sample),
+                "runtime_home": str(runtime_home),
+                "runtime_retained": True,
+            }
+
+            benchmark.apply_runtime_retention(
+                runtime_root,
+                app_identity,
+                [result],
+                keep_runtime=False,
+            )
+
+            self.assertFalse(runtime_root.exists())
+            self.assertFalse(result["runtime_retained"])
+            self.assertIsNone(result["runtime_sample"])
+            self.assertIsNone(result["runtime_home"])
+            self.assertFalse(app_identity["runtime_retained"])
+
+    def test_failed_runtime_is_retained_while_passing_sample_is_removed(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-scene-retention-") as directory:
+            runtime_root = Path(directory) / "runtime"
+            app_root = runtime_root / "runtime-app-fixture"
+            app_root.mkdir(parents=True)
+            results = []
+            for sample_id, passed in (("1", True), ("2", False)):
+                runtime_sample = runtime_root / "runtime-samples" / sample_id
+                runtime_home = runtime_root / "runtime-homes" / sample_id
+                runtime_sample.mkdir(parents=True)
+                runtime_home.mkdir(parents=True)
+                results.append({
+                    "id": sample_id,
+                    "passed": passed,
+                    "runtime_sample": str(runtime_sample),
+                    "runtime_home": str(runtime_home),
+                    "runtime_retained": True,
+                })
+            app_identity = {"runtime_retained": True}
+
+            benchmark.apply_runtime_retention(
+                runtime_root,
+                app_identity,
+                results,
+                keep_runtime=False,
+            )
+
+            self.assertFalse((runtime_root / "runtime-samples/1").exists())
+            self.assertFalse((runtime_root / "runtime-homes/1").exists())
+            self.assertTrue((runtime_root / "runtime-samples/2").is_dir())
+            self.assertTrue((runtime_root / "runtime-homes/2").is_dir())
+            self.assertFalse(results[0]["runtime_retained"])
+            self.assertTrue(results[1]["runtime_retained"])
+            self.assertTrue(app_identity["runtime_retained"])
 
     def test_default_matrix_pins_utility_capture_layers(self) -> None:
         matrix = benchmark.load_matrix(SCRIPT_DIR / "scene_wallpaper_sample_matrix.json")

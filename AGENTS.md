@@ -145,3 +145,16 @@ Agent 修改 Swift 代码时必须同时控制文件体积和实现复杂度：
 9. `Particles`：粒子 definition、parser、simulation、pipeline、texture 和 trail。
 
 同一主类型的 extension 与主文件放在同一目录。不得新增 `Misc`、`Common`、`Helpers` 等兜底目录，也不得为空的未来能力预建占位目录。只有现有九类无法表达已经落地的一组独立职责时，才允许新增一级目录；通常应至少已有多个共同生命周期或依赖边界清晰的文件，而不是单个文件。可预见但尚未落地的 Timeline/Animation、SceneScript/Scripting、system/media/audio provider 和 Puppet/3D/Lighting 继续按开发计划推进，形成真实代码边界后再决定是否新增目录。新增目录须同步更新 Scene 语义手册和 `test_scene_semantics_coverage.py` 的布局门。移动 Scene 源码时必须同步测试源码路径和文档链接，保持 `project.pbxproj` 无无关改动，并运行 Scene 全量测试、代码健康检查和签名构建。
+
+13. `.codex` 工作区治理
+
+`.codex` 是本机生成物工作区，不是源码、测试脚本或长期归档目录。开发过程必须遵守以下规则：
+
+1. 可复用的 Python/Swift/Shell 测试脚本、probe、census 和矩阵生成器必须直接进入 `script/`；正式自动测试进入 `script/tests/`。不得先写进 `.codex` 后在后续任务中重复重写；
+2. 一次性脚本使用 `mktemp -d` 创建的系统临时目录，任务结束前删除。若其结论需要复现，必须在提交前整理为 `script/` 下的通用入口；
+3. Scene 定向运行优先使用 `scene_wallpaper_benchmark.py --sample-id <id>` 从现有 tracked matrix 选择样本。新的长期断言必须并入现有固定/完整 matrix 或正式测试，不得为每轮测试在 `.codex` 留一份新 matrix；
+4. 正式测试不得硬编码带日期的 `.codex/.../runtime-homes`、`runtime-samples` 或 `runtime-app-*` 路径。真实样本缓存统一由 `script/scene_real_test_fixture.json` 指向当前主线完整门，切换基线只更新这一处；
+5. benchmark 的 `runtime-app-*`、隔离样本副本和临时 HOME 只属于当次运行。PASS 后自动删除；FAIL 只保留失败样本现场；确需检查完整运行沙箱时显式传 `--keep-runtime` 或 `--keep-runtime-app`；
+6. 当前主线需要保留的 `.codex` 内容必须是构建/调试配置或 tracked fixture 的直接运行依赖。文档中的当前/历史报告路径和 SHA 只记录证据，不构成保留本机目录的理由；
+7. 每个开发批次收尾前运行 `python3 script/audit_codex_artifacts.py --fail-on-candidates`。候选项先输出精确清单和体积，确认后移到废纸篓；不得使用 `rm -rf .codex`、`git clean` 或按日期/名称模糊批量删除；
+8. `DerivedData` 只保留共享的 `.codex/DerivedData`。不得为单次能力验证长期留下 `DerivedData-*` 副本。

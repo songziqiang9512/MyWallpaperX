@@ -139,6 +139,33 @@ class WebBenchmarkCaptureTests(unittest.TestCase):
                 capture.verify_staged_app(identity)
             self.assertFalse(identity["verified_after"])
 
+            identity_values.return_value = changed
+            capture.discard_staged_app(identity)
+            self.assertFalse(runtime_binary.exists())
+            self.assertFalse(identity["runtime_retained"])
+            self.assertIsNone(identity["runtime_root_path"])
+            self.assertIsNone(identity["runtime_bundle_path"])
+            self.assertIsNone(identity["runtime_executable_path"])
+
+    def test_discard_staged_app_rejects_paths_outside_runtime_root(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-capture-cleanup-") as directory:
+            root = Path(directory)
+            runtime_root = root / "runtime-app-fixture"
+            runtime_root.mkdir()
+            outside_bundle = root / "Outside.app"
+            outside_binary = outside_bundle / "Contents/MacOS/MyWallpaperX"
+            outside_binary.parent.mkdir(parents=True)
+            outside_binary.write_bytes(b"binary")
+            identity = {
+                "runtime_root_path": str(runtime_root),
+                "runtime_bundle_path": str(outside_bundle),
+                "runtime_executable_path": str(outside_binary),
+            }
+
+            with self.assertRaises(capture.AppIdentityError):
+                capture.discard_staged_app(identity)
+            self.assertTrue(runtime_root.is_dir())
+
 
 if __name__ == "__main__":
     unittest.main()

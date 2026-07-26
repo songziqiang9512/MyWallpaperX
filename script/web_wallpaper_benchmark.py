@@ -31,6 +31,7 @@ from web_debug_defaults import (
 from web_benchmark_capture import (
     AppIdentityError,
     capture_non_black_screenshot,
+    discard_staged_app,
     has_window_snapshot,
     logged_snapshot_paths,
     require_fresh_output_dir,
@@ -1490,14 +1491,32 @@ def run_benchmark(args: argparse.Namespace) -> int:
         except AppIdentityError as error:
             print(f"Staged Debug app verification failed: {error}", file=sys.stderr)
             return 1
+        if result == 0 and not args.keep_runtime_app:
+            try:
+                discard_staged_app(app_identity)
+            except (AppIdentityError, OSError) as error:
+                print(f"Staged Debug app cleanup failed: {error}", file=sys.stderr)
+                return 1
         return result
 
     try:
         samples, matrix_config = load_samples_from_args(args)
     except (OSError, ValueError, json.JSONDecodeError) as error:
+        if not args.keep_runtime_app:
+            try:
+                discard_staged_app(app_identity)
+            except (AppIdentityError, OSError) as cleanup_error:
+                print(f"Staged Debug app cleanup failed: {cleanup_error}", file=sys.stderr)
+                return 1
         print(f"Failed to load sample selection: {error}", file=sys.stderr)
         return 2
     if not samples:
+        if not args.keep_runtime_app:
+            try:
+                discard_staged_app(app_identity)
+            except (AppIdentityError, OSError) as error:
+                print(f"Staged Debug app cleanup failed: {error}", file=sys.stderr)
+                return 1
         print(f"No Web samples found under {args.workshop_root}.", file=sys.stderr)
         print("Pass --ids 3700131876,2997985023 to run explicit Workshop IDs.", file=sys.stderr)
         return 2
@@ -1530,20 +1549,29 @@ def run_benchmark(args: argparse.Namespace) -> int:
 
     comparison = compare_with_baseline(results, Path(args.baseline) if args.baseline else None)
     summary = summarize(results, comparison, matrix_config=matrix_config)
+    matrix_gate = summary.get("matrix_gate")
+    matrix_failed = bool(matrix_gate and not matrix_gate.get("passed"))
+    defaults_failed = any(
+        result.grade != "N/A" and result.debug_defaults_suite is None
+        for result in results
+    )
+    benchmark_passed = not matrix_failed and not defaults_failed
+    if benchmark_passed and not args.keep_runtime_app:
+        try:
+            discard_staged_app(app_identity)
+        except (AppIdentityError, OSError) as error:
+            print(f"Staged Debug app cleanup failed: {error}", file=sys.stderr)
+            return 1
     json_path = write_json_report(output_dir, args, results, summary)
     md_path = write_markdown_report(output_dir, results, summary)
 
     print(f"Report JSON: {json_path}")
     print(f"Report Markdown: {md_path}")
     print(f"Average score: {summary['average_score']} coverage={summary['average_coverage']}%")
-    matrix_gate = summary.get("matrix_gate")
-    if matrix_gate and not matrix_gate.get("passed"):
+    if matrix_failed:
         print(f"Matrix gate failed: {len(matrix_gate.get('failures', []))} failure(s)", file=sys.stderr)
         return 1
-    if any(
-        result.grade != "N/A" and result.debug_defaults_suite is None
-        for result in results
-    ):
+    if defaults_failed:
         print("UserDefaults isolation gate failed for one or more samples.", file=sys.stderr)
         return 1
     return 0
@@ -2012,6 +2040,11 @@ def make_parser() -> argparse.ArgumentParser:
     parser.add_argument("--kill-existing", action="store_true", help="Kill existing MyWallpaperX processes before each sample.")
     parser.add_argument("--baseline", help="Previous report.json for score comparison.")
     parser.add_argument("--output-dir", help="Directory for logs and reports.")
+    parser.add_argument(
+        "--keep-runtime-app",
+        action="store_true",
+        help="retain the staged signed app after a passing benchmark",
+    )
     return parser
 
 

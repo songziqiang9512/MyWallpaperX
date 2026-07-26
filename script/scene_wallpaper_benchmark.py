@@ -17,6 +17,7 @@ from typing import Any
 
 from web_benchmark_capture import (
     AppIdentityError,
+    discard_staged_app,
     png_flat_border_ratio,
     png_has_non_black_pixel,
     png_motion_metrics,
@@ -181,6 +182,27 @@ def load_matrix(path: Path) -> dict[str, Any]:
             raise ValueError(f"invalid Scene matrix sample: {path}")
         hover_pointer_normalized(sample)
     return payload
+
+
+def select_matrix_samples(
+    matrix: dict[str, Any],
+    sample_ids: list[str] | None,
+) -> dict[str, Any]:
+    if not sample_ids:
+        return matrix
+    requested = set(sample_ids)
+    available = {str(sample["id"]) for sample in matrix["samples"]}
+    missing = sorted(requested - available)
+    if missing:
+        raise ValueError(
+            "Scene matrix does not contain requested sample IDs: " + ", ".join(missing)
+        )
+    return {
+        **matrix,
+        "samples": [
+            sample for sample in matrix["samples"] if str(sample["id"]) in requested
+        ],
+    }
 
 
 def hover_pointer_normalized(
@@ -1137,14 +1159,15 @@ def run_sample(
     sample_root: Path,
     sample: dict[str, Any],
     output_dir: Path,
+    runtime_root: Path,
     duration: float,
     after_snapshot_delay: float | None,
 ) -> dict[str, Any]:
     sample_id = str(sample["id"])
     source = sample_root / "Scene" / sample_id
     result_dir = output_dir / "results" / sample_id
-    runtime_sample = output_dir / "runtime-samples" / sample_id
-    runtime_home = output_dir / "runtime-homes" / sample_id
+    runtime_sample = runtime_root / "runtime-samples" / sample_id
+    runtime_home = runtime_root / "runtime-homes" / sample_id
     result_dir.mkdir(parents=True)
     runtime_home.mkdir(parents=True)
     copy_sample(source, runtime_sample)
@@ -1293,6 +1316,7 @@ def run_sample(
         if interpretation_match is not None
         else Path("-")
     )
+    evidence_interpretation_path = interpretation_path
     interpretation = interpretation_metrics(interpretation_path)
     sample_root_residue = [
         file_name
@@ -1318,6 +1342,10 @@ def run_sample(
             interpretation_path.resolve().relative_to(interpretation_cache_root)
         except ValueError:
             failures.append("Scene interpretation path is outside package cache")
+        else:
+            if interpretation_path.is_file():
+                evidence_interpretation_path = result_dir / "scene-interpretation.json"
+                shutil.copy2(interpretation_path, evidence_interpretation_path)
     if sample_root_residue:
         failures.append(
             "Scene sample root contains derived files: " + ", ".join(sample_root_residue)
@@ -1590,10 +1618,11 @@ def run_sample(
         "package_file": package_path.name,
         "runtime_sample": str(runtime_sample),
         "runtime_home": str(runtime_home),
+        "runtime_retained": True,
         "evidence": {
             "app_log": str(app_log),
             "preview_log": str(preview_log),
-            "interpretation": str(interpretation_path),
+            "interpretation": str(evidence_interpretation_path),
             "sample_root_residue": sample_root_residue,
             "ready_snapshot": str(ready_snapshot),
             "hover_snapshot": str(hover_snapshot) if hover_pointer is not None else None,
@@ -1689,6 +1718,42 @@ def run_sample(
     }
 
 
+def apply_runtime_retention(
+    runtime_root: Path,
+    app_identity: dict[str, Any],
+    results: list[dict[str, Any]],
+    keep_runtime: bool,
+) -> None:
+    if keep_runtime:
+        return
+
+    failed_results = [result for result in results if not result["passed"]]
+    for result in results:
+        if not result["passed"]:
+            continue
+        for key in ("runtime_sample", "runtime_home"):
+            path = Path(result[key])
+            try:
+                path.resolve().relative_to(runtime_root.resolve())
+            except ValueError as error:
+                raise RuntimeError(f"Scene runtime cleanup path escapes runtime root: {path}") from error
+            if path.exists():
+                shutil.rmtree(path)
+            result[key] = None
+        result["runtime_retained"] = False
+
+    if failed_results:
+        for directory_name in ("runtime-samples", "runtime-homes"):
+            directory = runtime_root / directory_name
+            if directory.is_dir() and not any(directory.iterdir()):
+                directory.rmdir()
+        return
+
+    discard_staged_app(app_identity)
+    if runtime_root.is_dir():
+        shutil.rmtree(runtime_root)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--app", required=True, type=Path, help="signed MyWallpaperX executable")
@@ -1698,8 +1763,18 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path(__file__).with_name("scene_wallpaper_sample_matrix.json"),
     )
+    parser.add_argument(
+        "--sample-id",
+        action="append",
+        help="run only this ID from the selected matrix; may be repeated",
+    )
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--duration", type=float, default=7)
+    parser.add_argument(
+        "--keep-runtime",
+        action="store_true",
+        help="retain staged app, isolated samples, and temporary HOME after a passing run",
+    )
     parser.add_argument(
         "--after-snapshot-delay",
         type=float,
@@ -1722,12 +1797,19 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
-    output_dir = require_fresh_output_dir(args.output_dir.expanduser().resolve())
     matrix_path = args.matrix.expanduser().resolve()
-    matrix = load_matrix(matrix_path)
     try:
-        runtime_binary, app_identity = stage_signed_app(args.app, output_dir)
+        matrix = select_matrix_samples(load_matrix(matrix_path), args.sample_id)
+    except ValueError as error:
+        print(f"Scene benchmark precondition failed: {error}", file=sys.stderr)
+        return 2
+    output_dir = require_fresh_output_dir(args.output_dir.expanduser().resolve())
+    runtime_root = output_dir / "runtime"
+    runtime_root.mkdir()
+    try:
+        runtime_binary, app_identity = stage_signed_app(args.app, runtime_root)
     except AppIdentityError as error:
+        shutil.rmtree(runtime_root, ignore_errors=True)
         print(f"Scene benchmark precondition failed: {error}", file=sys.stderr)
         return 2
 
@@ -1737,6 +1819,7 @@ def main() -> int:
             sample_root=args.sample_root.expanduser().resolve(),
             sample=sample,
             output_dir=output_dir,
+            runtime_root=runtime_root,
             duration=duration,
             after_snapshot_delay=args.after_snapshot_delay,
         )
@@ -1750,8 +1833,14 @@ def main() -> int:
             result["passed"] = False
 
     passed = all(result["passed"] for result in results)
+    apply_runtime_retention(
+        runtime_root=runtime_root,
+        app_identity=app_identity,
+        results=results,
+        keep_runtime=args.keep_runtime,
+    )
     report = {
-        "schema_version": 1,
+        "schema_version": 2,
         "matrix": matrix["name"],
         "matrix_path": str(matrix_path),
         "matrix_sha256": sha256(matrix_path),

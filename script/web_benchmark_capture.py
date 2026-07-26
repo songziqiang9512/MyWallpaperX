@@ -122,10 +122,12 @@ def stage_signed_app(source_binary: Path, output_dir: Path) -> tuple[Path, dict[
 
     identity = {
         **_identity_values(runtime_bundle, runtime_binary),
+        "runtime_root_path": str(runtime_root),
         "source_bundle_path": str(source_bundle),
         "source_executable_path": str(source_binary),
         "runtime_bundle_path": str(runtime_bundle),
         "runtime_executable_path": str(runtime_binary),
+        "runtime_retained": True,
         "source_signature_verified": True,
         "verified_before": True,
         "verified_after": None,
@@ -154,6 +156,35 @@ def verify_staged_app(identity: dict[str, Any]) -> None:
     identity["verified_after"] = not mismatches
     if mismatches:
         raise AppIdentityError(f"staged app identity changed during benchmark: {', '.join(mismatches)}")
+
+
+def discard_staged_app(identity: dict[str, Any]) -> None:
+    runtime_root_raw = identity.get("runtime_root_path")
+    runtime_bundle_raw = identity.get("runtime_bundle_path")
+    runtime_binary_raw = identity.get("runtime_executable_path")
+    if not all(isinstance(path, str) and path for path in (
+        runtime_root_raw,
+        runtime_bundle_raw,
+        runtime_binary_raw,
+    )):
+        raise AppIdentityError("staged app cleanup metadata is incomplete")
+
+    runtime_root = Path(runtime_root_raw).resolve()
+    runtime_bundle = Path(runtime_bundle_raw).resolve()
+    runtime_binary = Path(runtime_binary_raw).resolve()
+    try:
+        runtime_bundle.relative_to(runtime_root)
+        runtime_binary.relative_to(runtime_bundle)
+    except ValueError as error:
+        raise AppIdentityError("staged app cleanup paths escape the runtime root") from error
+    if not runtime_root.name.startswith("runtime-app-"):
+        raise AppIdentityError("staged app cleanup root has an unexpected name")
+
+    shutil.rmtree(runtime_root)
+    identity["runtime_root_path"] = None
+    identity["runtime_bundle_path"] = None
+    identity["runtime_executable_path"] = None
+    identity["runtime_retained"] = False
 
 
 def logged_snapshot_paths(metadata: dict[str, Any], sample_dir: Path) -> list[Path]:

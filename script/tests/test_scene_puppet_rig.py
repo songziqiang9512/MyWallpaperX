@@ -8,9 +8,15 @@ import json
 import shutil
 import struct
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(SCRIPT_DIR))
+
+from scene_real_test_fixtures import runtime_homes_root
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -19,10 +25,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneMdlPuppetMeshReader.swift",
     SCENE_ROOT / "Format/SceneMdlPuppetRigReader.swift",
 ]
-REAL_ASSET_ROOT = (
-    REPOSITORY_ROOT
-    / ".codex/scene-attachment-full45-20260725/results-v1/runtime-homes"
-)
+REAL_ASSET_ROOT = runtime_homes_root()
 
 HARNESS = r'''
 import Foundation
