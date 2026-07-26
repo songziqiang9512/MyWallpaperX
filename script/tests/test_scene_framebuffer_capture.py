@@ -39,6 +39,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneWaterRipplePipeline.swift",
     SOURCE_ROOT / "Effects/ScenePerspectiveOpacityPipeline.swift",
     SOURCE_ROOT / "Effects/SceneXRayPipeline.swift",
+    SOURCE_ROOT / "Effects/SceneBlendModeShaderSource.swift",
+    SOURCE_ROOT / "Effects/SceneTintPipeline.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectMaskSemantics.swift",
     SOURCE_ROOT / "Effects/SceneFoliageSwayRuntimePlan.swift",
     SOURCE_ROOT / "Effects/SceneGaussianBlurRuntimePlan.swift",
@@ -147,15 +149,43 @@ struct SceneWorkshopShadowExecutionPlan: Equatable, Sendable {
 struct SceneOpacityExecutionPlan: Equatable, Sendable {
     let staticOrFallbackAlpha: Float
     let liveEffectIndex: Int?
+    let maskTexturePath: String?
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
 
-    init(staticOrFallbackAlpha: Float, liveEffectIndex: Int? = nil) {
+    init(
+        staticOrFallbackAlpha: Float,
+        liveEffectIndex: Int? = nil,
+        maskTexturePath: String? = nil,
+        effectKey: SceneAuthoredEffectRenderPlan.EffectKey = .init(
+            layerID: 0, effectIndex: 0, descriptorID: ""
+        )
+    ) {
         self.staticOrFallbackAlpha = staticOrFallbackAlpha
         self.liveEffectIndex = liveEffectIndex
+        self.maskTexturePath = maskTexturePath
+        self.effectKey = effectKey
     }
 
     func resolvedAlpha(in snapshot: SceneDynamicSnapshot) -> Float {
         liveEffectIndex.flatMap { snapshot.opacitiesByEffectIndex[$0] }
             ?? staticOrFallbackAlpha
+    }
+}
+
+// 与 SceneOpacityEffectTextureLoader.swift 里的同名结构保持一致的替身：那个文件还依赖
+// SceneTexturePathResolver/SceneTextureLoader，整条链拉进来会和本 harness 自带的
+// SceneRenderDescriptor 桩冲突，沿用本文件对 SceneShakeEffectTextures 等的同类做法。
+struct SceneOpacityEffectTextures {
+    let mask: MTLTexture?
+    let maskUVScale: SIMD2<Float>
+    let maskPath: String
+
+    func matches(_ plan: SceneOpacityExecutionPlan) -> Bool {
+        mask != nil && normalized(maskPath) == plan.maskTexturePath.map(normalized)
+    }
+
+    private func normalized(_ path: String) -> String {
+        path.replacingOccurrences(of: "\\", with: "/").lowercased()
     }
 }
 
@@ -172,6 +202,7 @@ struct SceneAuthoredEffectExecutionPlan {
         case foliageSway(SceneFoliageSwayExecutionPlan)
         case waterRipple(SceneWaterRippleExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
+        case tint(SceneTintExecutionPlan)
     }
 
     let layerID: Int
@@ -354,6 +385,20 @@ enum SceneFoliageSwayRenderer {
 
 struct SceneWaterRippleExecutionPlan {
     let runtimePlan: SceneWaterRippleNormalPlan
+}
+
+struct SceneTintExecutionPlan {
+    let blendMode: Int
+    let staticOrFallbackColor: SIMD3<Float>
+    let staticOrFallbackAlpha: Float
+
+    func resolvedColor(in snapshot: SceneDynamicSnapshot) -> SIMD3<Float> {
+        staticOrFallbackColor
+    }
+
+    func resolvedAlpha(in snapshot: SceneDynamicSnapshot) -> Float {
+        staticOrFallbackAlpha
+    }
 }
 
 struct SceneAuthoredEffectExecutionChain {
@@ -881,6 +926,18 @@ enum Harness {
             pipeline: pipeline,
             compositor: compositor
         )
+        let authoredOpacityMaskPixel = try authoredOpacityMaskPixels(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor
+        )
+        let authoredTintChainPixels = try authoredTintChainPixels(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor
+        )
         let authoredFailedChain = try authoredFailedChainEvidence(
             device: device,
             queue: queue,
@@ -986,6 +1043,7 @@ enum Harness {
             "authoredStandardCheckerboard": authoredStandardCheckerboard,
             "authoredTwoStageChain": authoredTwoStageChain,
             "authoredOpacityLivePixels": authoredOpacityLivePixels,
+            "authoredOpacityMaskPixel": authoredOpacityMaskPixel,            "authoredTintChainPixels": authoredTintChainPixels,
             "authoredFailedChain": authoredFailedChain,
             "authoredStandardBlurOverridesLegacy": authoredStandardBlurOverridesLegacy,
             "standardBlurAlphaAwareDownsampleBGRA": standardBlurAlphaAwareDownsample,
@@ -1786,6 +1844,171 @@ enum Harness {
         }
     }
 
+    // 官方 opacity.frag 在 MASK 下是 `albedo.a *= mask * g_UserAlpha`。legacy 路径靠 capture
+    // 阶段的 `color *= auxMask * alpha` 实现；authored chain 路径的 capture uniforms 是
+    // .neutral，遮罩必须由 opacity 后端自己乘。这里让同一层既带 opacity 遮罩又带 authored
+    // chain，量出两条路径是否都只乘一次遮罩和 alpha；第三个用例声明了遮罩却不给贴图，
+    // 必须整段拒绝而不是静默降级成无遮罩。
+    static func authoredOpacityMaskPixels(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor
+    ) throws -> [String: Any] {
+        var out: [String: Any] = [:]
+        let maskPath = "masks/opacity_mask"
+        let cases: [(key: String, chain: SceneAuthoredEffectExecutionChain?, binds: Bool)] = [
+            ("authored", authoredOpacityChain(alpha: 0.5, maskTexturePath: maskPath), true),
+            ("legacy", nil, false),
+            ("missingMask", authoredOpacityChain(alpha: 0.5, maskTexturePath: maskPath), false),
+        ]
+        for item in cases {
+            guard let source = makeTexture(device: device, size: 1, usage: .shaderRead),
+                  let mask = makeTexture(device: device, size: 1, usage: .shaderRead),
+                  let target = makeTexture(
+                      device: device, size: 1, usage: [.renderTarget, .shaderRead]
+                  ), let commandBuffer = queue.makeCommandBuffer() else {
+                throw HarnessError.metalUnavailable
+            }
+            fill(source, bgra: [40, 80, 160, 200])
+            fill(mask, bgra: [0, 0, 128, 255])
+            let mainPass = SceneMainPassEncoder(
+                commandBuffer: commandBuffer,
+                target: target,
+                clearColor: MTLClearColorMake(0, 0, 0, 0)
+            )
+            let effect = SceneRenderDescriptor.EffectDescriptor(
+                file: "effects/opacity/effect.json",
+                visible: true,
+                passes: [SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
+                    texturePaths: [maskPath],
+                    textureSlots: [nil, maskPath],
+                    combos: [:],
+                    constantShaderValues: ["alpha": .init(components: [0.5])]
+                )]
+            )
+            let encoded = compositor.draw(
+                SceneImageLayerDrawRequest(
+                    layer: SceneRenderDescriptor.Layer(
+                        contentKind: "image",
+                        colorRGB: nil,
+                        colorBlendMode: nil,
+                        effects: [effect]
+                    ),
+                    texture: source,
+                    masks: SceneImageLayerMasks(
+                        iris: nil,
+                        opacity: mask,
+                        water: nil,
+                        waterUVScale: SIMD2<Float>(repeating: 1),
+                        foliage: nil,
+                        foliageUVScale: SIMD2<Float>(repeating: 1),
+                        waterRippleNormal: nil,
+                        shakeEffects: [:],
+                        waterFlowEffects: [:],
+                        waterWavesEffects: [:],
+                        opacityEffects: item.binds ? ["850#effect#0": SceneOpacityEffectTextures(
+                            mask: mask,
+                            maskUVScale: SIMD2<Float>(repeating: 1),
+                            maskPath: maskPath
+                        )] : [:],
+                        xRay: nil
+                    ),
+                    textureFrame: .identity,
+                    mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+                    uniforms: SceneImageLayerUniformValues(time: 0, alpha: 1, cursorUV: .zero),
+                    offscreenTexturePool: SceneOffscreenTexturePool(
+                        device: device, maxDimension: 1
+                    ),
+                    offscreenSize: nil,
+                    requiresSourceCopy: false,
+                    finalCompositeAlpha: nil,
+                    dependencyEffect: nil,
+                    authoredEffectPlan: nil,
+                    blocksLegacyGaussianBlur: false,
+                    authoredEffectChain: item.chain,
+                    dynamicValues: SceneDynamicSnapshot.empty(frameIndex: 0)
+                ),
+                pipeline: pipeline,
+                mainPass: mainPass
+            )
+            if item.key == "missingMask" {
+                out["missingMaskRefused"] = !encoded
+                continue
+            }
+            guard encoded else { throw HarnessError.drawRefused }
+            mainPass.finishEnsuringClear()
+            commandBuffer.commit()
+            commandBuffer.waitUntilCompleted()
+            guard commandBuffer.status == .completed else {
+                throw HarnessError.commandFailed
+            }
+            out[item.key] = pixel(target, x: 0, y: 0)
+        }
+        return out
+    }
+
+    // 官方 tint.frag：mode 0 走 `mix(A, B, o)` 并强制 alpha=1；mode 30 走
+    // `mix(A, max(A.r, A.g, A.b) * B, o)` 并保留源 alpha。两个模式共用同一条链，
+    // 用来证明 plan 里的 blendMode/color/alpha 真的进了 shader，而不是写死一个模式。
+    static func authoredTintChainPixels(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor
+    ) throws -> [[UInt8]] {
+        try [0, 30].map { blendMode in
+            guard let source = makeTexture(device: device, size: 1, usage: .shaderRead),
+                  let target = makeTexture(
+                      device: device, size: 1, usage: [.renderTarget, .shaderRead]
+                  ), let commandBuffer = queue.makeCommandBuffer() else {
+                throw HarnessError.metalUnavailable
+            }
+            fill(source, bgra: [40, 80, 160, 200])
+            let mainPass = SceneMainPassEncoder(
+                commandBuffer: commandBuffer,
+                target: target,
+                clearColor: MTLClearColorMake(0, 0, 0, 0)
+            )
+            guard compositor.draw(
+                SceneImageLayerDrawRequest(
+                    layer: SceneRenderDescriptor.Layer(
+                        contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
+                    ),
+                    texture: source,
+                    masks: .empty,
+                    textureFrame: .identity,
+                    mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+                    uniforms: SceneImageLayerUniformValues(
+                        time: 0, alpha: 1, cursorUV: .zero
+                    ),
+                    offscreenTexturePool: SceneOffscreenTexturePool(
+                        device: device, maxDimension: 1
+                    ),
+                    offscreenSize: nil,
+                    requiresSourceCopy: false,
+                    finalCompositeAlpha: nil,
+                    dependencyEffect: nil,
+                    authoredEffectPlan: nil,
+                    blocksLegacyGaussianBlur: false,
+                    authoredEffectChain: authoredTintChain(blendMode: blendMode),
+                    dynamicValues: SceneDynamicSnapshot.empty(frameIndex: 0)
+                ),
+                pipeline: pipeline,
+                mainPass: mainPass
+            ) else {
+                throw HarnessError.drawRefused
+            }
+            mainPass.finishEnsuringClear()
+            commandBuffer.commit()
+            commandBuffer.waitUntilCompleted()
+            guard commandBuffer.status == .completed else {
+                throw HarnessError.commandFailed
+            }
+            return pixel(target, x: 0, y: 0)
+        }
+    }
+
     static func authoredFailedChainEvidence(
         device: MTLDevice,
         queue: MTLCommandQueue,
@@ -1903,6 +2126,7 @@ enum Harness {
             shakeEffects: [:],
             waterFlowEffects: [:],
             waterWavesEffects: [:],
+            opacityEffects: [:],
             xRay: SceneXRayEffectTextures(blend: blend, halo: nil, opacityMask: opacity)
         )
         let mainPass = SceneMainPassEncoder(
@@ -2212,7 +2436,10 @@ enum Harness {
         )
     }
 
-    static func authoredOpacityChain() -> SceneAuthoredEffectExecutionChain {
+    static func authoredOpacityChain(
+        alpha: Float = 1,
+        maskTexturePath: String? = nil
+    ) -> SceneAuthoredEffectExecutionChain {
         let layerID = 850
         let effectKey = Graph.EffectKey(
             layerID: layerID,
@@ -2256,8 +2483,68 @@ enum Harness {
             layerID: layerID,
             renderGraph: graph,
             backend: .opacity(SceneOpacityExecutionPlan(
-                staticOrFallbackAlpha: 1,
-                liveEffectIndex: 0
+                staticOrFallbackAlpha: alpha,
+                liveEffectIndex: 0,
+                maskTexturePath: maskTexturePath,
+                effectKey: effectKey
+            )),
+            materialNodeCount: 1,
+            logicalRenderTargetCount: 0
+        )
+        return SceneAuthoredEffectExecutionChain(
+            layerID: layerID,
+            renderGraph: graph,
+            stages: [stage]
+        )
+    }
+
+    static func authoredTintChain(blendMode: Int) -> SceneAuthoredEffectExecutionChain {
+        let layerID = 851
+        let effectKey = Graph.EffectKey(
+            layerID: layerID,
+            effectIndex: 0,
+            descriptorID: "\(layerID)#effect#0"
+        )
+        let input = graphTexture(.layerSource, layerID: layerID)
+        let output = graphTexture(.effectOutput, layerID: layerID, effect: effectKey)
+        let node = Graph.Node(
+            nodeIndex: 0,
+            effect: effectKey,
+            definitionPassIndex: 0,
+            materialOrdinal: 0,
+            instancePassIndex: 0,
+            kind: .material,
+            materialPath: "materials/effects/tint.json",
+            materialPassID: "materials/effects/tint.json#0",
+            target: output,
+            bindings: [],
+            commandSource: nil,
+            commandTarget: nil,
+            compose: nil,
+            conditions: nil
+        )
+        let effect = Graph.Effect(
+            key: effectKey,
+            definitionPath: "effects/tint/effect.json",
+            input: input,
+            output: output,
+            nodeIndices: [0]
+        )
+        let graph = Graph(
+            layerID: layerID,
+            effects: [effect],
+            renderTargets: [],
+            nodes: [node],
+            finalOutput: output,
+            blockers: []
+        )
+        let stage = SceneAuthoredEffectExecutionPlan(
+            layerID: layerID,
+            renderGraph: graph,
+            backend: .tint(SceneTintExecutionPlan(
+                blendMode: blendMode,
+                staticOrFallbackColor: SIMD3<Float>(0, 0, 1),
+                staticOrFallbackAlpha: 1
             )),
             materialNodeCount: 1,
             logicalRenderTargetCount: 0
@@ -2680,6 +2967,34 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         authored, live = self.result["authoredOpacityLivePixels"]
         self.assertLessEqual(max(abs(a - b) for a, b in zip(authored, [40, 80, 160, 200])), 1)
         self.assertLessEqual(max(abs(a - b) for a, b in zip(live, [8, 16, 32, 40])), 1)
+
+    def test_opacity_mask_alpha_is_applied_exactly_once(self) -> None:
+        # 官方 opacity.frag：`albedo.a *= mask * g_UserAlpha`。源 premultiplied
+        # BGRA [40,80,160,200]、mask=0.5、alpha=0.5 → 应为 ×0.25 = [10,20,40,50]。
+        # 丢遮罩会得到 ×0.5 = [20,40,80,100]，遮罩或 alpha 乘两次会得到 ×0.125。
+        pixel = self.result["authoredOpacityMaskPixel"]
+        self.assertLessEqual(
+            max(abs(a - b) for a, b in zip(pixel["legacy"], [10, 20, 40, 50])),
+            1,
+            f"legacy opacity mask route wrong: {pixel['legacy']}",
+        )
+        self.assertLessEqual(
+            max(abs(a - b) for a, b in zip(pixel["authored"], [10, 20, 40, 50])),
+            1,
+            f"authored opacity dropped the mask: {pixel['authored']}",
+        )
+        # 声明了遮罩但 opacityEffects 里没有对应贴图时必须整段拒绝：静默按无遮罩渲染
+        # 就是这次修的那类缺陷，会让语料里 108 个绑遮罩的 stock opacity pass 不声不响地失效。
+        self.assertTrue(pixel["missingMaskRefused"], pixel)
+
+    def test_tint_chain_routes_blend_mode_from_plan_on_gpu(self) -> None:
+        # 源 BGRA [40,80,160,200] → A_rgb=(0.6275,0.3137,0.1569)，tint color=(0,0,1)，o=1。
+        # mode 0 落到 `mix(A, B, o)` 并强制 alpha=1；mode 30 落到
+        # `mix(A, max(A.r,A.g,A.b) * B, o)`（0.6275×蓝）并保留源 alpha。两条结果不同，
+        # 证明 blendMode 是从 plan 走到 shader 的，不是写死一个模式。
+        mode0, mode30 = self.result["authoredTintChainPixels"]
+        self.assertLessEqual(max(abs(a - b) for a, b in zip(mode0, [255, 0, 0, 255])), 1)
+        self.assertLessEqual(max(abs(a - b) for a, b in zip(mode30, [160, 0, 0, 200])), 1)
 
     def test_failed_later_stage_never_composites_an_earlier_stage(self) -> None:
         evidence = self.result["authoredFailedChain"]

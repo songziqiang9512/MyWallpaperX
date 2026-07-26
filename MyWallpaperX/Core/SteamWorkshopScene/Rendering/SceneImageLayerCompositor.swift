@@ -15,6 +15,7 @@ struct SceneImageLayerCompositor {
     private let waterRipplePipeline: SceneWaterRipplePipeline
     private let perspectiveOpacityPipeline: ScenePerspectiveOpacityPipeline
     private let xRayPipeline: SceneXRayPipeline
+    private let tintPipeline: SceneTintPipeline
     private let additivePipeline: SceneImageLayerPipeline
 
     init?(device: MTLDevice) {
@@ -31,6 +32,7 @@ struct SceneImageLayerCompositor {
               let waterRipplePipeline = SceneWaterRipplePipeline(device: device),
               let perspectiveOpacityPipeline = ScenePerspectiveOpacityPipeline(device: device),
               let xRayPipeline = SceneXRayPipeline(device: device),
+              let tintPipeline = SceneTintPipeline(device: device),
               let additivePipeline = SceneImageLayerPipeline(device: device, blendMode: .additive) else {
             return nil
         }
@@ -47,6 +49,7 @@ struct SceneImageLayerCompositor {
         self.waterRipplePipeline = waterRipplePipeline
         self.perspectiveOpacityPipeline = perspectiveOpacityPipeline
         self.xRayPipeline = xRayPipeline
+        self.tintPipeline = tintPipeline
         self.additivePipeline = additivePipeline
     }
 
@@ -139,6 +142,7 @@ struct SceneImageLayerCompositor {
                         waterWavesPipeline: waterWavesPipeline,
                         waterRipplePipeline: waterRipplePipeline,
                         xRayPipeline: xRayPipeline,
+                        tintPipeline: tintPipeline,
                         cursorUV: request.uniforms.cursorUV,
                         pointerIsInside: request.uniforms.cursorIsInside,
                         commandBuffer: commandBuffer
@@ -215,6 +219,10 @@ struct SceneImageLayerCompositor {
                         }
                         return SceneOpacityRenderer.render(
                             alpha: alpha,
+                            // 这条分支的 capture 用的是 effectPlan.inputs，遮罩已在
+                            // EFFECT_OPACITY_MASK 里乘过，这里再乘一次就是双乘。
+                            mask: nil,
+                            maskUVScale: SIMD2(repeating: 1),
                             inputTexture: targets.inputTexture,
                             outputTexture: targets.outputTexture,
                             pipeline: opacityPipeline,
@@ -271,7 +279,7 @@ struct SceneImageLayerCompositor {
                             time: directUniforms.time,
                             commandBuffer: commandBuffer
                         )
-                    case .foliageSway, .waterRipple, .xRay:
+                    case .foliageSway, .waterRipple, .xRay, .tint:
                         return nil
                     }
                 }

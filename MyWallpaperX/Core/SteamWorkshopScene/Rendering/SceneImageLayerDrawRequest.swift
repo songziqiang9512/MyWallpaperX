@@ -12,6 +12,7 @@ struct SceneImageLayerMasks {
     let shakeEffects: [String: SceneShakeEffectTextures]
     let waterFlowEffects: [String: SceneWaterFlowEffectTextures]
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
+    let opacityEffects: [String: SceneOpacityEffectTextures]
     let xRay: SceneXRayEffectTextures?
 
     var authoredEffectResourcesOnly: SceneImageLayerMasks {
@@ -26,6 +27,7 @@ struct SceneImageLayerMasks {
             shakeEffects: shakeEffects,
             waterFlowEffects: waterFlowEffects,
             waterWavesEffects: waterWavesEffects,
+            opacityEffects: opacityEffects,
             xRay: xRay
         )
     }
@@ -41,6 +43,7 @@ struct SceneImageLayerMasks {
         shakeEffects: [:],
         waterFlowEffects: [:],
         waterWavesEffects: [:],
+        opacityEffects: [:],
         xRay: nil
     )
 
@@ -56,6 +59,7 @@ struct SceneImageLayerMasks {
             shakeEffects: [:],
             waterFlowEffects: [:],
             waterWavesEffects: [:],
+            opacityEffects: [:],
             xRay: xRay
         )
     }

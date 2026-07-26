@@ -118,6 +118,8 @@ enum Harness {
     static func render(
         input: [UInt8],
         alpha: Float,
+        mask: [UInt8]? = nil,
+        maskUVScale: SIMD2<Float> = SIMD2(repeating: 1),
         device: MTLDevice,
         queue: MTLCommandQueue,
         pipeline: SceneOpacityPipeline
@@ -125,11 +127,19 @@ enum Harness {
         let source = texture(device: device)
         let target = texture(device: device)
         uploadRGBA(input, to: source)
+        var maskTexture: MTLTexture?
+        if let mask {
+            let loaded = texture(device: device)
+            uploadRGBA(mask, to: loaded)
+            maskTexture = loaded
+        }
         guard let command = queue.makeCommandBuffer() else {
             fatalError("command allocation failed")
         }
         let rendered = SceneOpacityRenderer.render(
             alpha: alpha,
+            mask: maskTexture,
+            maskUVScale: maskUVScale,
             inputTexture: source,
             outputTexture: target,
             pipeline: pipeline,
@@ -157,18 +167,23 @@ enum Harness {
         let targetWrongUsage = texture(device: device, usage: [.shaderRead])
         let non2D = arrayTexture(device: device)
         let multisample = multisampleTexture(device: device)
+        let maskNoRead = texture(device: device, usage: [.renderTarget])
         guard let command = queue.makeCommandBuffer() else {
             fatalError("command allocation failed")
         }
         func encoded(
             source candidateSource: MTLTexture = source,
             target candidateTarget: MTLTexture = target,
-            alpha: Float = 0.5
+            alpha: Float = 0.5,
+            mask: MTLTexture? = nil,
+            maskUVScale: SIMD2<Float> = SIMD2(repeating: 1)
         ) -> Bool {
             pipeline.encode(
                 source: candidateSource,
                 target: candidateTarget,
                 alpha: alpha,
+                mask: mask,
+                maskUVScale: maskUVScale,
                 commandBuffer: command
             )
         }
@@ -189,6 +204,12 @@ enum Harness {
             "infiniteAlpha": !encoded(alpha: .infinity),
             "negativeAlpha": !encoded(alpha: -0.001),
             "overflowAlpha": !encoded(alpha: 1.001),
+            "maskNon2D": !encoded(mask: non2D),
+            "maskMultisample": !encoded(mask: multisample),
+            "maskWrongUsage": !encoded(mask: maskNoRead),
+            "nanMaskScale": !encoded(mask: source, maskUVScale: SIMD2(.nan, 1)),
+            "zeroMaskScale": !encoded(mask: source, maskUVScale: SIMD2(0, 1)),
+            "overflowMaskScale": !encoded(mask: source, maskUVScale: SIMD2(1, 1.001)),
             "wrongPipelineFormat": SceneOpacityPipeline(
                 device: device,
                 pixelFormat: .rgba8Unorm
@@ -206,31 +227,42 @@ enum Harness {
         let alternateQueue = alternate.makeCommandQueue(),
         let primaryCommand = primaryQueue.makeCommandBuffer(),
         let alternateCommand = alternateQueue.makeCommandBuffer() else {
-            return ["available": false, "source": true, "target": true, "queue": true]
+            return ["available": false, "source": true, "target": true, "queue": true,
+                    "mask": true]
         }
         let primarySource = texture(device: device)
         let primaryTarget = texture(device: device)
         let alternateSource = texture(device: alternate)
         let alternateTarget = texture(device: alternate)
+        func encoded(
+            source: MTLTexture,
+            target: MTLTexture,
+            mask: MTLTexture? = nil,
+            command: MTLCommandBuffer
+        ) -> Bool {
+            pipeline.encode(
+                source: source,
+                target: target,
+                alpha: 0.5,
+                mask: mask,
+                maskUVScale: SIMD2(repeating: 1),
+                commandBuffer: command
+            )
+        }
         return [
             "available": true,
-            "source": !pipeline.encode(
-                source: alternateSource,
-                target: primaryTarget,
-                alpha: 0.5,
-                commandBuffer: primaryCommand
+            "source": !encoded(
+                source: alternateSource, target: primaryTarget, command: primaryCommand
             ),
-            "target": !pipeline.encode(
-                source: primarySource,
-                target: alternateTarget,
-                alpha: 0.5,
-                commandBuffer: primaryCommand
+            "target": !encoded(
+                source: primarySource, target: alternateTarget, command: primaryCommand
             ),
-            "queue": !pipeline.encode(
-                source: primarySource,
-                target: primaryTarget,
-                alpha: 0.5,
-                commandBuffer: alternateCommand
+            "queue": !encoded(
+                source: primarySource, target: primaryTarget, command: alternateCommand
+            ),
+            "mask": !encoded(
+                source: primarySource, target: primaryTarget,
+                mask: alternateSource, command: primaryCommand
             ),
         ]
     }
@@ -257,12 +289,29 @@ enum Harness {
         let zero = render(
             input: input, alpha: 0, device: device, queue: queue, pipeline: pipeline
         )
+        let mask: [UInt8] = [
+            255, 0, 0, 255,
+            128, 0, 0, 255,
+            0, 0, 0, 255,
+            64, 0, 0, 255,
+        ]
+        let masked = render(
+            input: input, alpha: 0.5, mask: mask,
+            device: device, queue: queue, pipeline: pipeline
+        )
+        let maskedHalfScale = render(
+            input: input, alpha: 0.5, mask: mask, maskUVScale: SIMD2(0.5, 0.5),
+            device: device, queue: queue, pipeline: pipeline
+        )
         let result: [String: Any] = [
             "metalUnavailable": false,
             "input": input,
+            "mask": mask,
             "identity": identity.output,
             "quarter": quarter.output,
             "zero": zero.output,
+            "masked": masked.output,
+            "maskedHalfScale": maskedHalfScale.output,
             "rendererReturnedOutput": identity.rendererReturnedOutput,
             "rejections": rejectionChecks(
                 device: device,
@@ -328,6 +377,24 @@ class SceneOpacityRenderingTests(unittest.TestCase):
 
     def test_alpha_zero_clears_every_channel(self) -> None:
         self.assertEqual(self.result["zero"], [0] * len(self.result["input"]))
+
+    def test_mask_red_channel_multiplies_alpha_per_texel(self) -> None:
+        # 官方 opacity.frag 的 MASK 分支是 `albedo.a *= mask * g_UserAlpha`。源纹理是
+        # premultiplied，等价形式为四通道同乘 mask.r × alpha。四个 texel 的 mask.r 互不相同，
+        # 因此这条断言同时排除了「遮罩被丢掉」和「遮罩按常量取一次」两种实现。
+        source = self.result["input"]
+        mask = self.result["mask"]
+        expected = [
+            source[index] * 0.5 * (mask[(index // 4) * 4] / 255.0)
+            for index in range(len(source))
+        ]
+        for actual, reference in zip(self.result["masked"], expected):
+            self.assertAlmostEqual(actual, reference, delta=1)
+
+    def test_mask_uv_scale_reaches_the_shader(self) -> None:
+        # 官方 opacity.vert 用 `g_Texture1Resolution.zw / .xy` 修正遮罩 UV。换一个缩放值必须
+        # 改变采样结果，否则说明 maskUVScale 根本没送到 shader。
+        self.assertNotEqual(self.result["maskedHalfScale"], self.result["masked"])
 
     def test_invalid_alpha_and_resources_fail_closed(self) -> None:
         self.assertTrue(all(self.result["rejections"].values()))

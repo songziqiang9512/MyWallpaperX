@@ -280,6 +280,7 @@ extension SteamWorkshopService {
             ("bloom", ["threshold", "gamma", "radius", "opacity", "strength", "tint"]),
             ("perspective", ["top", "bottom", "left", "right"]),
             ("opacity", ["alpha"]),
+            ("tint", ["alpha", "color"]),
             ("xray", ["size"])
         ]
         guard let supportedNames = supportedNamesByPath.first(where: { path.contains($0.0) })?.1 else {

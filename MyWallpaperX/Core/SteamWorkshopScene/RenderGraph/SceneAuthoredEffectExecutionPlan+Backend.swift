@@ -13,6 +13,7 @@ extension SceneAuthoredEffectExecutionPlan {
         case foliageSway(SceneFoliageSwayExecutionPlan)
         case waterRipple(SceneWaterRippleExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
+        case tint(SceneTintExecutionPlan)
     }
 
     var gaussianBlur: SceneGaussianBlurPlan? {
@@ -70,11 +71,17 @@ extension SceneAuthoredEffectExecutionPlan {
         return plan
     }
 
+    nonisolated var tint: SceneTintExecutionPlan? {
+        guard case .tint(let plan) = backend else { return nil }
+        return plan
+    }
+
     nonisolated var liveConsumerTargets: Set<SceneDynamicTarget> {
         var targets = Set<SceneDynamicTarget>()
         if let target = localContrast?.liveStrengthTarget { targets.insert(target) }
         if let target = opacity?.liveAlphaTarget { targets.insert(target) }
         if let xRay { targets.formUnion(xRay.liveConsumerTargets) }
+        if let tint { targets.formUnion(tint.liveConsumerTargets) }
         return targets
     }
 

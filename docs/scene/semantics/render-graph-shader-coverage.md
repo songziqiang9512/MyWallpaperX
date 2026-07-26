@@ -132,7 +132,7 @@ interpretation wire schema 的 graph/shader 侧增量：v22 在既有 ShaderCont
 | `common.h` | `M_PI`、`M_PI_HALF`、`M_PI_2`、`SQRT_2`、`SQRT_3`；`hsv2rgb`、`rgb2hsv`、`rotateVec2`、`greyscale` | `L0`：无 include graph/module identity；未来实现需锁定常量精度与函数 golden。 |
 | `common_fragment.h` | `DecompressNormal`、`DecompressNormalWithMask`、`ConvertSampleR8`、`ConvertTexture0Format` | `L0`：依赖 texture format/通道合同，不能用普通 RGBA sample 近似。 |
 | `common_vertex.h` | 两种 `BuildTangentSpace` | `L0`：依赖完整 vertex attribute、model transform 与 handedness。 |
-| `common_blending.h` | `BLENDMODE` imageblending combo + `ApplyBlending(BLENDMODE, colorA, colorB, blend)`；首参为兼容性保留 | `L0`：无 stock header 或 blend-mode oracle；Metal fixed-function blend 不能替代 shader 内颜色混合。 |
+| `common_blending.h` | `BLENDMODE` imageblending combo + `ApplyBlending(BLENDMODE, colorA, colorB, blend)`；首参为兼容性保留 | `L3`：32 个模式已按官方 header 源码自研为共享 Metal shader 源（`SceneBlendModeShaderSource`），逐模式对独立 numpy 重算做过 GPU 交叉验证，含 mode 5/10 忽略 opacity、mode 31 为加法而非 mix、mode 0 强制 alpha=1 三条偏离；另有一条 authored chain 运行门证明 `blendMode` 由 plan 送达 shader。边界：只有 Tint backend 消费，没有官方 Windows 像素 oracle；HSL 四模式沿用 header 自带的 RGB↔HSL 实现，不是色彩管理空间。 |
 
 <a id="op-shader-mobile"></a>
 ### 4.5 Mobile

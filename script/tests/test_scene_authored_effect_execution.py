@@ -237,6 +237,22 @@ enum SceneAuthoredXRayPlanner {
     }
 }
 
+struct SceneTintExecutionPlan {
+    var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
+}
+
+enum SceneAuthoredTintPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneTintExecutionPlan? {
+        graph.effects.first?.definitionPath.lowercased()
+            == "effects/tint/effect.json" ? SceneTintExecutionPlan() : nil
+    }
+}
+
 struct SceneRenderDescriptor {
     struct EffectDescriptor {
         struct PassDescriptor {
@@ -814,6 +830,7 @@ enum Harness {
             case .foliageSway: backend = "foliageSway"
             case .waterRipple: backend = "waterRipple"
             case .xRay: backend = "xRay"
+            case .tint: backend = "tint"
             }
             return [effectIndex, backend]
         } ?? []

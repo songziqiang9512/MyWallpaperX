@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+"""tint planner 的 fail-closed 准入测试。
+
+与 opacity 的差别有两处刻意的偏离，这里各有一条专门断言：
+- `色值` 是 vec3 用户绑定，走 `.vector3` 动态目标；
+- 任何挂在 `g_Texture1` 上的遮罩贴图整条拒绝（opacity 是接受后按无遮罩渲染）。
+"""
 
 from __future__ import annotations
 
@@ -10,7 +16,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
@@ -21,41 +26,53 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneShaderContract.swift",
     SOURCE_ROOT / "RenderGraph/SceneShaderContractLoader.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredOpacityPlanner.swift",
+    SOURCE_ROOT / "Effects/SceneBlendModeShaderSource.swift",
+    SOURCE_ROOT / "RenderGraph/SceneTintExecutionPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredTintPlanner.swift",
 ]
 
 VERTEX_BASE64 = (
     "DQp1bmlmb3JtIG1hdDQgZ19Nb2RlbFZpZXdQcm9qZWN0aW9uTWF0cml4Ow0K"
-    "dW5pZm9ybSB2ZWM0IGdfVGV4dHVyZTFSZXNvbHV0aW9uOw0KDQphdHRyaWJ1"
-    "dGUgdmVjMyBhX1Bvc2l0aW9uOw0KYXR0cmlidXRlIHZlYzIgYV9UZXhDb29y"
-    "ZDsNCg0KdmFyeWluZyB2ZWM0IHZfVGV4Q29vcmQ7DQoNCnZvaWQgbWFpbigp"
-    "IHsNCglnbF9Qb3NpdGlvbiA9IG11bCh2ZWM0KGFfUG9zaXRpb24sIDEuMCks"
-    "IGdfTW9kZWxWaWV3UHJvamVjdGlvbk1hdHJpeCk7DQoJdl9UZXhDb29yZC54"
-    "eSA9IGFfVGV4Q29vcmQ7DQoJdl9UZXhDb29yZC56dyA9IHZlYzIodl9UZXhD"
-    "b29yZC54ICogZ19UZXh0dXJlMVJlc29sdXRpb24ueiAvIGdfVGV4dHVyZTFS"
-    "ZXNvbHV0aW9uLngsDQoJCQkJCQl2X1RleENvb3JkLnkgKiBnX1RleHR1cmUx"
-    "UmVzb2x1dGlvbi53IC8gZ19UZXh0dXJlMVJlc29sdXRpb24ueSk7DQp9DQo="
+    "DQojaWYgTUFTSw0KdW5pZm9ybSB2ZWM0IGdfVGV4dHVyZTFSZXNvbHV0aW9u"
+    "Ow0KI2VuZGlmDQoNCmF0dHJpYnV0ZSB2ZWMzIGFfUG9zaXRpb247DQphdHRy"
+    "aWJ1dGUgdmVjMiBhX1RleENvb3JkOw0KDQp2YXJ5aW5nIHZlYzQgdl9UZXhD"
+    "b29yZDsNCg0Kdm9pZCBtYWluKCkgew0KCWdsX1Bvc2l0aW9uID0gbXVsKHZl"
+    "YzQoYV9Qb3NpdGlvbiwgMS4wKSwgZ19Nb2RlbFZpZXdQcm9qZWN0aW9uTWF0"
+    "cml4KTsNCgl2X1RleENvb3JkID0gYV9UZXhDb29yZC54eXh5Ow0KCQ0KI2lm"
+    "IE1BU0sNCgl2X1RleENvb3JkLnp3ID0gdmVjMih2X1RleENvb3JkLnggKiBn"
+    "X1RleHR1cmUxUmVzb2x1dGlvbi56IC8gZ19UZXh0dXJlMVJlc29sdXRpb24u"
+    "eCwNCgkJCQkJCXZfVGV4Q29vcmQueSAqIGdfVGV4dHVyZTFSZXNvbHV0aW9u"
+    "LncgLyBnX1RleHR1cmUxUmVzb2x1dGlvbi55KTsNCiNlbmRpZg0KfQ0K"
 )
 FRAGMENT_BASE64 = (
-    "DQp2YXJ5aW5nIHZlYzQgdl9UZXhDb29yZDsNCg0KdW5pZm9ybSBzYW1wbGVy"
-    "MkQgZ19UZXh0dXJlMDsgLy8geyJoaWRkZW4iOnRydWV9DQp1bmlmb3JtIHNh"
-    "bXBsZXIyRCBnX1RleHR1cmUxOyAvLyB7ImxhYmVsIjoidWlfZWRpdG9yX3By"
-    "b3BlcnRpZXNfb3BhY2l0eV9tYXNrIiwibW9kZSI6Im9wYWNpdHltYXNrIiwi"
-    "Y29tYm8iOiJNQVNLIiwicGFpbnRkZWZhdWx0Y29sb3IiOiIwIDAgMCAxIn0N"
-    "Cg0KdW5pZm9ybSBmbG9hdCBnX1VzZXJBbHBoYTsgLy8geyJtYXRlcmlhbCI6"
-    "ImFscGhhIiwibGFiZWwiOiJ1aV9lZGl0b3JfcHJvcGVydGllc19hbHBoYSIs"
-    "ImRlZmF1bHQiOjEuMCwicmFuZ2UiOlswLjAxLCAxXX0NCg0Kdm9pZCBtYWlu"
+    "DQovLyBbQ09NQk9dIHsibWF0ZXJpYWwiOiJ1aV9lZGl0b3JfcHJvcGVydGll"
+    "c19ibGVuZF9tb2RlIiwiY29tYm8iOiJCTEVORE1PREUiLCJ0eXBlIjoiaW1h"
+    "Z2VibGVuZGluZyIsImRlZmF1bHQiOjMwfQ0KDQojaW5jbHVkZSAiY29tbW9u"
+    "X2JsZW5kaW5nLmgiDQoNCnZhcnlpbmcgdmVjNCB2X1RleENvb3JkOw0KDQp1"
+    "bmlmb3JtIHNhbXBsZXIyRCBnX1RleHR1cmUwOyAvLyB7ImhpZGRlbiI6dHJ1"
+    "ZX0NCnVuaWZvcm0gc2FtcGxlcjJEIGdfVGV4dHVyZTE7IC8vIHsibGFiZWwi"
+    "OiJ1aV9lZGl0b3JfcHJvcGVydGllc19vcGFjaXR5X21hc2siLCJtb2RlIjoi"
+    "b3BhY2l0eW1hc2siLCJjb21ibyI6Ik1BU0siLCJwYWludGRlZmF1bHRjb2xv"
+    "ciI6IjAgMCAwIDEifQ0KDQp1bmlmb3JtIGZsb2F0IGdfQmxlbmRBbHBoYTsg"
+    "Ly8geyJtYXRlcmlhbCI6ImFscGhhIiwgImxhYmVsIjoidWlfZWRpdG9yX3By"
+    "b3BlcnRpZXNfYWxwaGEiLCJkZWZhdWx0IjoxLCJyYW5nZSI6WzAsMV19DQp1"
+    "bmlmb3JtIHZlYzMgZ19UaW50Q29sb3I7IC8vIHsibWF0ZXJpYWwiOiJjb2xv"
+    "ciIsICJsYWJlbCI6InVpX2VkaXRvcl9wcm9wZXJ0aWVzX2NvbG9yIiwgInR5"
+    "cGUiOiAiY29sb3IiLCAiZGVmYXVsdCI6IjEgMCAwIn0NCg0Kdm9pZCBtYWlu"
     "KCkgew0KCXZlYzQgYWxiZWRvID0gdGV4U2FtcGxlMkQoZ19UZXh0dXJlMCwg"
-    "dl9UZXhDb29yZC54eSk7DQojaWYgTUFTSw0KCWZsb2F0IG1hc2sgPSB0ZXhT"
-    "YW1wbGUyRChnX1RleHR1cmUxLCB2X1RleENvb3JkLnp3KS5yOw0KI2Vsc2UN"
-    "CglmbG9hdCBtYXNrID0gMS4wOw0KI2VuZGlmDQoJYWxiZWRvLmEgKj0gbWFz"
-    "ayAqIGdfVXNlckFscGhhOw0KCQ0KCWdsX0ZyYWdDb2xvciA9IGFsYmVkbzsN"
+    "dl9UZXhDb29yZC54eSk7DQoJZmxvYXQgbWFzayA9IGdfQmxlbmRBbHBoYTsN"
+    "CgkNCiNpZiBNQVNLDQoJbWFzayAqPSB0ZXhTYW1wbGUyRChnX1RleHR1cmUx"
+    "LCB2X1RleENvb3JkLnp3KS5yOw0KI2VuZGlmDQoJDQoJYWxiZWRvLnJnYiA9"
+    "IEFwcGx5QmxlbmRpbmcoQkxFTkRNT0RFLCBhbGJlZG8ucmdiLCBnX1RpbnRD"
+    "b2xvciwgbWFzayk7DQoJDQojaWYgQkxFTkRNT0RFID09IDANCglhbGJlZG8u"
+    "YSA9IDEuMDsNCiNlbmRpZg0KCQ0KCWdsX0ZyYWdDb2xvciA9IGFsYmVkbzsN"
     "Cn0NCg=="
 )
 
 
 HARNESS = r'''
 import Foundation
+import simd
 
 struct SceneDocument {
     struct ShaderValue {
@@ -112,15 +129,19 @@ struct SceneRenderDescriptor {
 @main
 enum Harness {
     typealias Graph = SceneAuthoredEffectRenderPlan
-    static let definitionPath = "effects/opacity/effect.json"
-    static let materialPath = "materials/effects/opacity.json"
-    static let shaderIdentity = "effects/opacity"
+    static let definitionPath = "effects/tint/effect.json"
+    static let materialPath = "materials/effects/tint.json"
+    static let shaderIdentity = "effects/tint"
 
     struct Options {
-        var contentKind = "text"
+        var contentKind = "image"
+        var color: [Double] = [0.25, 0.6, 0.9]
+        var colorKind = "vector"
+        var colorBinding: String?
+        var includesColor = true
         var alpha = 0.4
         var alphaKind = "number"
-        var userBinding: String?
+        var alphaBinding: String?
         var includesAlpha = true
         var extraInstanceConstant = false
         var instanceCombos: [String: Int] = [:]
@@ -135,7 +156,7 @@ enum Harness {
         var depthTest = "disabled"
         var materialPath = Harness.materialPath
         var materialRawSHA256 =
-            "f32a0ee2080b2c79ee395e950ea072e28778d279c5d62e1cc76adbcd2d733747"
+            "d5a190abf6ebc13981b7e26ca623577d2cfe0783a343e05fc1a46dcce7cb5016"
         var materialPassIndex = 0
         var shaderIdentity = Harness.shaderIdentity
         var visible: Bool? = true
@@ -173,11 +194,18 @@ enum Harness {
 
     static func constants(_ options: Options) -> [String: SceneDocument.ShaderValue] {
         var result: [String: SceneDocument.ShaderValue] = [:]
+        if options.includesColor {
+            result["color"] = value(
+                options.color,
+                kind: options.colorKind,
+                binding: options.colorBinding
+            )
+        }
         if options.includesAlpha {
             result["alpha"] = value(
                 [options.alpha],
                 kind: options.alphaKind,
-                binding: options.userBinding
+                binding: options.alphaBinding
             )
         }
         if options.extraInstanceConstant {
@@ -202,17 +230,17 @@ enum Harness {
         )
         let dependencies = [
             materialPath,
-            "shaders/effects/opacity.frag",
-            "shaders/effects/opacity.vert",
+            "shaders/effects/tint.frag",
+            "shaders/effects/tint.vert",
         ]
         return SceneEffectDefinition(
             relativePath: definitionPath,
             version: mutation == "version" ? 2 : 1,
-            replacementKey: mutation == "replacement" ? "other" : "opacity",
-            name: mutation == "name" ? "Other" : "ui_editor_effect_opacity_title",
+            replacementKey: mutation == "replacement" ? "other" : "tint",
+            name: mutation == "name" ? "Other" : "ui_editor_effect_tint_title",
             description: mutation == "description"
                 ? "Other"
-                : "ui_editor_effect_opacity_description",
+                : "ui_editor_effect_tint_description",
             group: mutation == "group" ? "other" : "colorize",
             performance: mutation == "performance" ? "high" : nil,
             previewPath: mutation == "preview" ? "other/project.json" : "preview/project.json",
@@ -225,7 +253,9 @@ enum Harness {
                     extraFields: [:]
                 )
             ] : [],
-            dependencies: mutation == "dependencies" ? Array(dependencies.reversed()) : dependencies,
+            dependencies: mutation == "dependencies"
+                ? Array(dependencies.reversed())
+                : dependencies,
             functions: mutation == "functions" ? .object([:]) : nil,
             gizmos: mutation == "gizmos" ? .array([]) : nil,
             extraFields: mutation == "extra" ? ["extra": .bool(true)] : [:],
@@ -245,13 +275,11 @@ enum Harness {
             textureSlots: options.maskTexture
                 ? [nil, "mask.png"]
                 : options.instanceTexture ? ["asset.png"] : [],
-            userTextureInputs: options.instanceUserTexture
-                ? [.init(name: "mask")]
-                : [],
+            userTextureInputs: options.instanceUserTexture ? [.init(name: "mask")] : [],
             combos: options.instanceCombos,
             constantShaderValues: constants(options)
         )
-        let opacity = SceneRenderDescriptor.EffectDescriptor(
+        let tint = SceneRenderDescriptor.EffectDescriptor(
             id: priorInput ? "20#effect#305" : "20#effect#21",
             file: definitionPath,
             visible: options.visible,
@@ -271,9 +299,7 @@ enum Harness {
             shaderPath: options.shaderIdentity,
             texturePaths: options.materialTexture ? ["asset.png"] : [],
             textureSlots: options.materialTexture ? ["asset.png"] : [],
-            userTextureInputs: options.materialUserTexture
-                ? [.init(name: "mask")]
-                : [],
+            userTextureInputs: options.materialUserTexture ? [.init(name: "mask")] : [],
             combos: options.materialCombos,
             constantShaderValues: options.materialConstant
                 ? ["extra": value([1], kind: "number")]
@@ -292,7 +318,7 @@ enum Harness {
             layers: [.init(
                 id: 20,
                 contentKind: options.contentKind,
-                effects: priorInput ? [dummy, opacity] : [opacity]
+                effects: priorInput ? [dummy, tint] : [tint]
             )],
             materialPasses: materials,
             effectDefinitions: definitions
@@ -358,7 +384,12 @@ enum Harness {
             conditions: nil
         )
         let blocker: [Graph.Blocker] = options.blocker ? [
-            .init(effect: key, definitionPassIndex: 0, reason: .unsupportedCondition, detail: "bad")
+            .init(
+                effect: key,
+                definitionPassIndex: 0,
+                reason: .unsupportedCondition,
+                detail: "bad"
+            )
         ] : []
         return .init(
             layerID: 20,
@@ -412,18 +443,39 @@ enum Harness {
         return mode == "duplicate" ? [contract, contract] : [changed]
     }
 
+    static func planned(
+        graphOptions: GraphOptions = .init(),
+        descriptorOptions: Options = .init(),
+        contracts: [SceneShaderContract],
+        role: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneTintExecutionPlan? {
+        SceneAuthoredTintPlanner.plan(
+            graph: graph(graphOptions),
+            descriptor: descriptor(descriptorOptions, priorInput: graphOptions.priorInput),
+            shaderContracts: contracts,
+            inputRole: role
+        )
+    }
+
     static func accepted(
         graphOptions: GraphOptions = .init(),
         descriptorOptions: Options = .init(),
         contracts: [SceneShaderContract],
         role: SceneAuthoredEffectInputRole = .layerSource
     ) -> Bool {
-        SceneAuthoredOpacityPlanner.plan(
-            graph: graph(graphOptions),
-            descriptor: descriptor(descriptorOptions, priorInput: graphOptions.priorInput),
-            shaderContracts: contracts,
-            inputRole: role
+        planned(
+            graphOptions: graphOptions,
+            descriptorOptions: descriptorOptions,
+            contracts: contracts,
+            role: role
         ) != nil
+    }
+
+    static func blendMode(
+        _ options: Options,
+        contracts: [SceneShaderContract]
+    ) -> Int? {
+        planned(descriptorOptions: options, contracts: contracts)?.blendMode
     }
 
     static func main() throws {
@@ -432,32 +484,39 @@ enum Harness {
             shaderReferences: [shaderIdentity],
             rootURL: root
         )
-        let staticPlan = SceneAuthoredOpacityPlanner.plan(
-            graph: graph(), descriptor: descriptor(), shaderContracts: contracts
-        )!
+        let staticPlan = planned(contracts: contracts)!
+
         var boundOptions = Options()
+        boundOptions.colorKind = "binding"
+        boundOptions.colorBinding = "newproperty50"
         boundOptions.alphaKind = "binding"
-        boundOptions.userBinding = "newproperty50"
-        let boundPlan = SceneAuthoredOpacityPlanner.plan(
-            graph: graph(), descriptor: descriptor(boundOptions), shaderContracts: contracts
-        )!
-        let target = boundPlan.liveAlphaTarget!
-        let targetDefinition = SceneDynamicTargetDefinition(
-            target: target,
-            valueType: .scalar,
-            authoredValue: .scalar(0.4)
-        )
+        boundOptions.alphaBinding = "newproperty51"
+        let boundPlan = planned(descriptorOptions: boundOptions, contracts: contracts)!
+        let colorTarget = boundPlan.colorBinding!.dynamicTarget
+        let alphaTarget = boundPlan.alphaBinding!.dynamicTarget
+        let definitions = [
+            SceneDynamicTargetDefinition(
+                target: colorTarget,
+                valueType: .vector3,
+                authoredValue: .vector3(0.25, 0.6, 0.9)
+            ),
+            SceneDynamicTargetDefinition(
+                target: alphaTarget,
+                valueType: .scalar,
+                authoredValue: .scalar(0.4)
+            ),
+        ]
         let liveSnapshot = SceneDynamicSnapshotResolver().resolve(
             frameIndex: 1,
             generation: 1,
-            definitions: [targetDefinition],
-            userValues: [target: .scalar(0.75)]
+            definitions: definitions,
+            userValues: [colorTarget: .vector3(0.1, 0.2, 0.3), alphaTarget: .scalar(0.75)]
         ).snapshot
         let invalidSnapshot = SceneDynamicSnapshotResolver().resolve(
             frameIndex: 2,
             generation: 2,
-            definitions: [targetDefinition],
-            userValues: [target: .scalar(1.5)]
+            definitions: definitions,
+            userValues: [colorTarget: .vector3(1.5, 0.2, 0.3), alphaTarget: .scalar(1.5)]
         ).snapshot
 
         var prior = GraphOptions(); prior.priorInput = true
@@ -471,33 +530,61 @@ enum Harness {
         var effectCount = GraphOptions(); effectCount.extraEffect = true
         var nodeCount = GraphOptions(); nodeCount.extraNode = true
         var workshop = GraphOptions()
-        workshop.definitionPath = "effects/workshop/123/opacity/effect.json"
+        workshop.definitionPath = "effects/workshop/123/tint/effect.json"
         var graphMaterial = GraphOptions(); graphMaterial.materialPath = "materials/other.json"
 
+        var missingAlpha = Options(); missingAlpha.includesAlpha = false
         var alphaZero = Options(); alphaZero.alpha = 0
         var alphaOne = Options(); alphaOne.alpha = 1
-        var script = Options(); script.alphaKind = "binding"
-        var wrongBindingKind = Options(); wrongBindingKind.userBinding = "newproperty50"
-        var emptyBinding = Options(); emptyBinding.alphaKind = "binding"; emptyBinding.userBinding = "  "
-        var missingAlpha = Options(); missingAlpha.includesAlpha = false
+        var blackColor = Options(); blackColor.color = [0, 0, 0]
+        var whiteColor = Options(); whiteColor.color = [1, 1, 1]
+
+        var materialBlend = Options(); materialBlend.materialCombos = ["BLENDMODE": 12]
+        var instanceBlend = Options(); instanceBlend.instanceCombos = ["BLENDMODE": 0]
+        var overrideBlend = Options()
+        overrideBlend.materialCombos = ["BLENDMODE": 12]
+        overrideBlend.instanceCombos = ["BLENDMODE": 22]
+        var maxBlend = Options(); maxBlend.instanceCombos = ["BLENDMODE": 32]
+        var aboveMaxBlend = Options(); aboveMaxBlend.instanceCombos = ["BLENDMODE": 33]
+        var negativeBlend = Options(); negativeBlend.instanceCombos = ["BLENDMODE": -1]
+        var lowercaseBlend = Options(); lowercaseBlend.instanceCombos = ["blendmode": 18]
+
+        var colorScript = Options(); colorScript.colorKind = "binding"
+        var alphaScript = Options(); alphaScript.alphaKind = "binding"
+        var colorWrongKind = Options(); colorWrongKind.colorBinding = "newproperty50"
+        var alphaWrongKind = Options(); alphaWrongKind.alphaBinding = "newproperty51"
+        var emptyColorBinding = Options()
+        emptyColorBinding.colorKind = "binding"
+        emptyColorBinding.colorBinding = "  "
+
+        var missingColor = Options(); missingColor.includesColor = false
+        var shortColor = Options(); shortColor.color = [0.5, 0.5]
+        var longColor = Options(); longColor.color = [0.5, 0.5, 0.5, 0.5]
+        var lowColor = Options(); lowColor.color = [-0.01, 0.5, 0.5]
+        var highColor = Options(); highColor.color = [1.01, 0.5, 0.5]
+        var nonFiniteColor = Options(); nonFiniteColor.color = [.nan, 0.5, 0.5]
         var extraConstant = Options(); extraConstant.extraInstanceConstant = true
         var lowAlpha = Options(); lowAlpha.alpha = -0.01
         var highAlpha = Options(); highAlpha.alpha = 1.01
         var nonFiniteAlpha = Options(); nonFiniteAlpha.alpha = .infinity
+
         var instanceMask = Options(); instanceMask.instanceCombos = ["MASK": 0]
         var materialMask = Options(); materialMask.materialCombos = ["MASK": 0]
         var maskOne = Options(); maskOne.instanceCombos = ["MASK": 1]
         var unknownCombo = Options(); unknownCombo.materialCombos = ["OTHER": 0]
-        var instanceTexture = Options(); instanceTexture.instanceTexture = true
         var maskTexture = Options(); maskTexture.maskTexture = true
+        var instanceTexture = Options(); instanceTexture.instanceTexture = true
         var instanceUserTexture = Options(); instanceUserTexture.instanceUserTexture = true
         var materialTexture = Options(); materialTexture.materialTexture = true
         var materialUserTexture = Options(); materialUserTexture.materialUserTexture = true
+
         var materialConstant = Options(); materialConstant.materialConstant = true
         var state = Options(); state.blending = "additive"
         var depth = Options(); depth.depthTest = "enabled"
-        var materialPath = Options(); materialPath.materialPath = "materials/other.json"
-        var materialHash = Options(); materialHash.materialRawSHA256 = String(repeating: "0", count: 64)
+        var materialPathOption = Options()
+        materialPathOption.materialPath = "materials/other.json"
+        var materialHash = Options()
+        materialHash.materialRawSHA256 = String(repeating: "0", count: 64)
         var materialPass = Options(); materialPass.materialPassIndex = 1
         var shader = Options(); shader.shaderIdentity = "effects/other"
         var hidden = Options(); hidden.visible = false
@@ -516,20 +603,44 @@ enum Harness {
         }
         let contractRejected = ["source", "raw", "metadata", "builtin", "canonical", "duplicate"]
             .allSatisfy { !accepted(contracts: mutate(contracts, $0)) }
-        let direct = boundPlan.directAlphaBinding!
+
+        let liveColor = boundPlan.resolvedColor(in: liveSnapshot)
+        let fallbackColor = boundPlan.resolvedColor(in: invalidSnapshot)
         let result: [String: Any] = [
             "canonicalContract": contracts.first?.canonicalSHA256
-                == "89d4ee2fed510c7a81a1d1e8d0d0a353798b607fbe3d637c836fb47efb0c1cd2",
-            "staticAccepted": staticPlan.staticOrFallbackAlpha == 0.4
-                && staticPlan.directAlphaBinding == nil,
-            "endpointsAccepted": accepted(descriptorOptions: alphaZero, contracts: contracts)
-                && accepted(descriptorOptions: alphaOne, contracts: contracts),
-            "directBindingAccepted": direct.propertyKey == "newproperty50"
-                && direct.layerID == 20 && direct.effectIndex == 0
-                && direct.passIndex == 0 && direct.constantName == "alpha",
-            "snapshotApplied": boundPlan.resolvedAlpha(in: liveSnapshot) == 0.75,
-            "snapshotFallback": boundPlan.resolvedAlpha(in: invalidSnapshot) == 0.4,
-            "candidateDetected": SceneAuthoredOpacityPlanner.containsCandidate(graph: graph()),
+                == "606ea00aef226fc0d7d1360f9bb4750af3c323831bc94399c64327084c9f5b36",
+            "staticAccepted": staticPlan.staticOrFallbackColor
+                == SIMD3<Float>(0.25, 0.6, 0.9)
+                && staticPlan.staticOrFallbackAlpha == 0.4
+                && staticPlan.colorBinding == nil
+                && staticPlan.alphaBinding == nil
+                && staticPlan.liveConsumerTargets.isEmpty,
+            // 官方 tint.frag 的 [COMBO] 默认值 30，未声明 BLENDMODE 时按 30 走。
+            "defaultBlendMode": staticPlan.blendMode == 30,
+            "missingAlphaDefaultsToOne": planned(
+                descriptorOptions: missingAlpha, contracts: contracts
+            )?.staticOrFallbackAlpha == 1,
+            "endpointsAccepted": [alphaZero, alphaOne, blackColor, whiteColor]
+                .allSatisfy { accepted(descriptorOptions: $0, contracts: contracts) },
+            "blendModeResolved": blendMode(materialBlend, contracts: contracts) == 12
+                && blendMode(instanceBlend, contracts: contracts) == 0
+                && blendMode(overrideBlend, contracts: contracts) == 22
+                && blendMode(maxBlend, contracts: contracts) == 32
+                && blendMode(lowercaseBlend, contracts: contracts) == 18,
+            "blendModeRangeRejected": [aboveMaxBlend, negativeBlend]
+                .allSatisfy { !accepted(descriptorOptions: $0, contracts: contracts) },
+            "bindingsAccepted": boundPlan.colorBinding!.propertyKey == "newproperty50"
+                && boundPlan.colorBinding!.layerID == 20
+                && boundPlan.colorBinding!.effectIndex == 0
+                && boundPlan.colorBinding!.constantName == "color"
+                && boundPlan.alphaBinding!.propertyKey == "newproperty51"
+                && boundPlan.alphaBinding!.constantName == "alpha"
+                && boundPlan.liveConsumerTargets.count == 2,
+            "snapshotApplied": liveColor == SIMD3<Float>(0.1, 0.2, 0.3)
+                && boundPlan.resolvedAlpha(in: liveSnapshot) == 0.75,
+            "snapshotFallback": fallbackColor == SIMD3<Float>(0.25, 0.6, 0.9)
+                && boundPlan.resolvedAlpha(in: invalidSnapshot) == 0.4,
+            "candidateDetected": SceneAuthoredTintPlanner.containsCandidate(graph: graph()),
             "priorInputAccepted": accepted(
                 graphOptions: prior, contracts: contracts, role: .priorEffectOutput
             ),
@@ -539,29 +650,28 @@ enum Harness {
                                    output, effectCount, nodeCount, graphMaterial]
                 .allSatisfy { !accepted(graphOptions: $0, contracts: contracts) },
             "definitionRejected": definitionRejected,
-            "sceneScriptRejected": !accepted(descriptorOptions: script, contracts: contracts),
-            "wrongBindingKindRejected": !accepted(
-                descriptorOptions: wrongBindingKind, contracts: contracts
+            "sceneScriptRejected": [colorScript, alphaScript]
+                .allSatisfy { !accepted(descriptorOptions: $0, contracts: contracts) },
+            "wrongBindingKindRejected": [colorWrongKind, alphaWrongKind]
+                .allSatisfy { !accepted(descriptorOptions: $0, contracts: contracts) },
+            "emptyBindingRejected": !accepted(
+                descriptorOptions: emptyColorBinding, contracts: contracts
             ),
-            "emptyBindingRejected": !accepted(descriptorOptions: emptyBinding, contracts: contracts),
-            "alphaShapeRejected": [missingAlpha, extraConstant, lowAlpha, highAlpha, nonFiniteAlpha]
+            "colorShapeRejected": [missingColor, shortColor, longColor, lowColor, highColor,
+                                   nonFiniteColor, extraConstant]
+                .allSatisfy { !accepted(descriptorOptions: $0, contracts: contracts) },
+            "alphaShapeRejected": [lowAlpha, highAlpha, nonFiniteAlpha]
                 .allSatisfy { !accepted(descriptorOptions: $0, contracts: contracts) },
             "maskDefaultsAccepted": accepted(descriptorOptions: instanceMask, contracts: contracts)
                 && accepted(descriptorOptions: materialMask, contracts: contracts),
-            // 官方 opacity.frag 的 MASK 分支读 g_Texture1，槽位 1 绑图就是绑了遮罩。
-            // plan 必须把这个路径记下来交给渲染层，没绑图时必须是 nil。
-            "maskTexturePathRecorded": SceneAuthoredOpacityPlanner.plan(
-                graph: graph(),
-                descriptor: descriptor(maskTexture),
-                shaderContracts: contracts
-            )?.maskTexturePath == "mask.png"
-                && staticPlan.maskTexturePath == nil,
             "comboRejected": !accepted(descriptorOptions: maskOne, contracts: contracts)
                 && !accepted(descriptorOptions: unknownCombo, contracts: contracts),
+            // 与 opacity 的刻意偏离：挂了遮罩贴图就整条拒绝，不按无遮罩渲染。
+            "maskTextureRejected": !accepted(descriptorOptions: maskTexture, contracts: contracts),
             "textureRejected": [instanceTexture, instanceUserTexture, materialTexture,
                                 materialUserTexture]
                 .allSatisfy { !accepted(descriptorOptions: $0, contracts: contracts) },
-            "materialRejected": [materialConstant, state, depth, materialPath, materialHash,
+            "materialRejected": [materialConstant, state, depth, materialPathOption, materialHash,
                                  materialPass, shader, duplicateMaterial]
                 .allSatisfy { !accepted(descriptorOptions: $0, contracts: contracts) },
             "layerRejected": !accepted(descriptorOptions: hidden, contracts: contracts)
@@ -575,20 +685,20 @@ enum Harness {
 '''
 
 
-class SceneOpacityPlannerTests(unittest.TestCase):
+class SceneTintPlannerTests(unittest.TestCase):
     def test_stock_profile_is_exact_and_fail_closed(self) -> None:
         swiftc = shutil.which("swiftc")
         if not swiftc:
             self.skipTest("swiftc is unavailable")
 
-        with tempfile.TemporaryDirectory(prefix="scene-opacity-") as directory:
+        with tempfile.TemporaryDirectory(prefix="scene-tint-") as directory:
             root = Path(directory)
             shader_root = root / "shaders/effects"
             shader_root.mkdir(parents=True)
-            (shader_root / "opacity.vert").write_bytes(base64.b64decode(VERTEX_BASE64))
-            (shader_root / "opacity.frag").write_bytes(base64.b64decode(FRAGMENT_BASE64))
+            (shader_root / "tint.vert").write_bytes(base64.b64decode(VERTEX_BASE64))
+            (shader_root / "tint.frag").write_bytes(base64.b64decode(FRAGMENT_BASE64))
             harness = root / "Harness.swift"
-            executable = root / "opacity-harness"
+            executable = root / "tint-harness"
             harness.write_text(HARNESS, encoding="utf-8")
             compilation = subprocess.run(
                 [

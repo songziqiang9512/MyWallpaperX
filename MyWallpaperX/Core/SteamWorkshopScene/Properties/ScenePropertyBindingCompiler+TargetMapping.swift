@@ -57,6 +57,28 @@ extension ScenePropertyBindingCompiler {
                 passIndex: passIndex,
                 name: name.lowercased()
             )
+        case let .shaderValue(layerID, effectIndex, passIndex, name, effectPath)
+            where normalized(effectPath) == "effects/tint/effect.json"
+                && passIndex == 0 && name.lowercased() == "alpha":
+            effectConstant(
+                layerID: layerID,
+                effectIndex: effectIndex,
+                passIndex: passIndex,
+                name: "alpha"
+            )
+        case let .shaderValue(layerID, effectIndex, passIndex, name, effectPath)
+            where normalized(effectPath) == "effects/tint/effect.json"
+                && passIndex == 0 && name.lowercased() == "color":
+            (
+                .effectConstant(
+                    layerID: layerID,
+                    effectIndex: effectIndex,
+                    passIndex: passIndex,
+                    name: "color"
+                ),
+                .vector3,
+                .color
+            )
         default:
             nil
         }

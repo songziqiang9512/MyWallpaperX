@@ -1,15 +1,19 @@
 import Metal
+import simd
 
-private let sceneOpacityShaderSource = """
-#include <metal_stdlib>
-using namespace metal;
+private let sceneTintShaderSource = SceneBlendModeShaderSource.blendFunctions + """
 
-struct OpacityVaryings {
+struct TintVaryings {
     float4 position [[position]];
     float2 texcoord;
 };
 
-vertex OpacityVaryings sceneOpacityVert(uint vertexID [[vertex_id]]) {
+struct SceneTintUniforms {
+    float4 colorAlpha;
+    int blendMode;
+};
+
+vertex TintVaryings sceneTintVert(uint vertexID [[vertex_id]]) {
     const float2 positions[4] = {
         float2(-1.0, -1.0), float2(1.0, -1.0),
         float2(-1.0,  1.0), float2(1.0,  1.0)
@@ -18,44 +22,31 @@ vertex OpacityVaryings sceneOpacityVert(uint vertexID [[vertex_id]]) {
         float2(0.0, 1.0), float2(1.0, 1.0),
         float2(0.0, 0.0), float2(1.0, 0.0)
     };
-    OpacityVaryings output;
+    TintVaryings output;
     output.position = float4(positions[vertexID], 0.0, 1.0);
     output.texcoord = texcoords[vertexID];
     return output;
 }
 
-struct OpacityUniforms {
-    float alpha;
-    float maskScaleX;
-    float maskScaleY;
-    uint hasMask;
-};
-
-fragment float4 sceneOpacityFrag(
-    OpacityVaryings input [[stage_in]],
+fragment float4 sceneTintFrag(
+    TintVaryings input [[stage_in]],
     texture2d<float> source [[texture(0)]],
-    texture2d<float> mask [[texture(1)]],
-    constant OpacityUniforms &uniforms [[buffer(0)]]
+    constant SceneTintUniforms &u [[buffer(0)]]
 ) {
     constexpr sampler linearClamp(filter::linear, address::clamp_to_edge);
-    // 官方 opacity.frag: `albedo.a *= mask * g_UserAlpha`。这里的 source 是 premultiplied，
-    // 等价形式是四个通道一起乘。遮罩 UV 沿用官方 opacity.vert 的
-    // `g_Texture1Resolution.zw / .xy` 修正，由 maskScale 传入。
-    float opacity = uniforms.alpha;
-    if (uniforms.hasMask != 0u) {
-        float2 maskUV = input.texcoord * float2(uniforms.maskScaleX, uniforms.maskScaleY);
-        opacity *= mask.sample(linearClamp, maskUV).r;
+    float4 albedo = source.sample(linearClamp, input.texcoord);
+    albedo.rgb = sceneApplyBlending(u.blendMode, albedo.rgb, u.colorAlpha.xyz, u.colorAlpha.w);
+    if (u.blendMode == 0) {
+        albedo.a = 1.0;
     }
-    return source.sample(linearClamp, input.texcoord) * opacity;
+    return albedo;
 }
 """
 
-struct SceneOpacityPipeline {
+struct SceneTintPipeline {
     private struct Uniforms {
-        var alpha: Float
-        var maskScaleX: Float
-        var maskScaleY: Float
-        var hasMask: UInt32
+        var colorAlpha: SIMD4<Float>
+        var blendMode: Int32
     }
 
     private let state: MTLRenderPipelineState
@@ -65,10 +56,11 @@ struct SceneOpacityPipeline {
         let options = MTLCompileOptions()
         guard pixelFormat == .bgra8Unorm,
               let library = try? device.makeLibrary(
-                source: sceneOpacityShaderSource,
-                options: options
-              ), let vertex = library.makeFunction(name: "sceneOpacityVert"),
-              let fragment = library.makeFunction(name: "sceneOpacityFrag") else {
+                  source: sceneTintShaderSource,
+                  options: options
+              ), let vertex = library.makeFunction(name: "sceneTintVert"),
+              let fragment = library.makeFunction(name: "sceneTintFrag")
+        else {
             return nil
         }
         let descriptor = MTLRenderPipelineDescriptor()
@@ -85,19 +77,17 @@ struct SceneOpacityPipeline {
     func encode(
         source: MTLTexture,
         target: MTLTexture,
+        color: SIMD3<Float>,
         alpha: Float,
-        mask: MTLTexture?,
-        maskUVScale: SIMD2<Float>,
+        blendMode: Int,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
         guard alpha.isFinite,
-              (0...1).contains(alpha),
-              valid(source: source, target: target, commandBuffer: commandBuffer),
-              validMask(mask, commandBuffer: commandBuffer),
-              maskUVScale.x.isFinite,
-              maskUVScale.y.isFinite,
-              maskUVScale.min() > 0,
-              maskUVScale.max() <= 1 else {
+              (0 ... 1).contains(alpha),
+              color.x.isFinite, color.y.isFinite, color.z.isFinite,
+              (0 ... SceneBlendModeShaderSource.maximumMode).contains(blendMode),
+              valid(source: source, target: target, commandBuffer: commandBuffer)
+        else {
             return false
         }
         let descriptor = MTLRenderPassDescriptor()
@@ -110,12 +100,9 @@ struct SceneOpacityPipeline {
         }
         encoder.setRenderPipelineState(state)
         encoder.setFragmentTexture(source, index: 0)
-        encoder.setFragmentTexture(mask ?? source, index: 1)
         var uniforms = Uniforms(
-            alpha: alpha,
-            maskScaleX: maskUVScale.x,
-            maskScaleY: maskUVScale.y,
-            hasMask: mask == nil ? 0 : 1
+            colorAlpha: SIMD4<Float>(color.x, color.y, color.z, alpha),
+            blendMode: Int32(blendMode)
         )
         encoder.setFragmentBytes(
             &uniforms,
@@ -125,16 +112,6 @@ struct SceneOpacityPipeline {
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         encoder.endEncoding()
         return true
-    }
-
-    private func validMask(_ mask: MTLTexture?, commandBuffer: MTLCommandBuffer) -> Bool {
-        guard let mask else { return true }
-        return mask.textureType == .type2D
-            && mask.width > 0
-            && mask.height > 0
-            && mask.sampleCount == 1
-            && mask.usage.contains(.shaderRead)
-            && mask.device.registryID == deviceRegistryID
     }
 
     private func valid(

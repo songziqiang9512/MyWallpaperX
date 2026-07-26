@@ -53,6 +53,10 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         stages.filter { $0.xRay != nil }.count
     }
 
+    var tintCount: Int {
+        stages.filter { $0.tint != nil }.count
+    }
+
     var liveConsumerTargets: Set<SceneDynamicTarget> {
         Set(stages.flatMap(\.liveConsumerTargets))
     }
@@ -155,6 +159,12 @@ enum SceneAuthoredEffectChainPlanner {
                 shaderContracts: shaderContracts,
                 inputRole: inputRole
             )
+            let tint = SceneAuthoredTintPlanner.plan(
+                graph: stageGraph,
+                descriptor: descriptor,
+                shaderContracts: shaderContracts,
+                inputRole: inputRole
+            )
             let stage: SceneAuthoredEffectExecutionPlan?
             if let preciseBlur {
                 stage = preciseBlur
@@ -237,6 +247,15 @@ enum SceneAuthoredEffectChainPlanner {
                     layerID: graph.layerID,
                     renderGraph: stageGraph,
                     backend: .xRay(xRay),
+                    materialNodeCount: 1,
+                    logicalRenderTargetCount: 0,
+                    inputRole: inputRole
+                )
+            } else if let tint {
+                stage = SceneAuthoredEffectExecutionPlan(
+                    layerID: graph.layerID,
+                    renderGraph: stageGraph,
+                    backend: .tint(tint),
                     materialNodeCount: 1,
                     logicalRenderTargetCount: 0,
                     inputRole: inputRole

@@ -175,6 +175,21 @@ enum SceneAuthoredXRayPlanner {
     }
 }
 
+struct SceneTintExecutionPlan {
+    var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
+}
+
+enum SceneAuthoredTintPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneTintExecutionPlan? {
+        nil
+    }
+}
+
 struct SceneRenderDescriptor {
     struct EffectDescriptor {
         struct PassDescriptor {
