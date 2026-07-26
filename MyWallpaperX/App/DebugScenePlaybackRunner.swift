@@ -133,6 +133,17 @@ enum DebugScenePlaybackRunner {
                 requestSnapshot(reason: reason, outputDirectory: outputDirectory)
             }
         }
+        guard ProcessInfo.processInfo.arguments.contains(
+            "--mwx-debug-scene-periodic-snapshots"
+        ) else { return }
+        var delay: TimeInterval = 5
+        while delay < requestedDuration - 1 {
+            let reason = "t\(Int(delay))"
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                requestSnapshot(reason: reason, outputDirectory: outputDirectory)
+            }
+            delay += 5
+        }
     }
 
     private static func schedulePointerSnapshots(
