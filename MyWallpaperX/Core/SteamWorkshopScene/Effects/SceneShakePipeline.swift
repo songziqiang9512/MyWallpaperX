@@ -163,8 +163,14 @@ struct SceneShakePipeline {
         time: Float,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
+        // flow 只消费 `.rg` 通道：stock 语料是 RG88 容器，legacy 老编辑器包
+        // （`2131872317` 系）把同语义 flow 存成 ARGB8888，通道语义一致。
         validTexture(source, format: .bgra8Unorm, usage: .shaderRead)
-            && validTexture(flowMap, format: .rg8Unorm, usage: .shaderRead)
+            && validTexture(
+                flowMap,
+                formats: [.rg8Unorm, .bgra8Unorm, .rgba8Unorm],
+                usage: .shaderRead
+            )
             && validTexture(phaseMap, format: .r8Unorm, usage: .shaderRead)
             && validTexture(target, format: .bgra8Unorm, usage: .renderTarget)
             && source.width == target.width
@@ -199,8 +205,16 @@ struct SceneShakePipeline {
         format: MTLPixelFormat,
         usage: MTLTextureUsage
     ) -> Bool {
+        validTexture(texture, formats: [format], usage: usage)
+    }
+
+    private func validTexture(
+        _ texture: MTLTexture,
+        formats: Set<MTLPixelFormat>,
+        usage: MTLTextureUsage
+    ) -> Bool {
         texture.textureType == .type2D
-            && texture.pixelFormat == format
+            && formats.contains(texture.pixelFormat)
             && texture.width > 0
             && texture.height > 0
             && texture.mipmapLevelCount == 1

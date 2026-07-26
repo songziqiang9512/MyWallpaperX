@@ -55,10 +55,15 @@ fragment float4 sceneWaterWavesFrag(
     float value = sin(distance);
     value = sign(value) * pow(abs(value), exponent);
 
-    float mask = maskTexture.sample(
-        linearClamp,
-        clamp(input.texcoord * maskUVScale, 0.0, 1.0)
-    ).r;
+    // maskUVScale == 0 是「无遮罩」哨兵（legacy 无绑图实例，等价 mask=1）；
+    // 合法遮罩的 UV scale 恒 > 0（pipeline 入口校验）。
+    float mask = 1.0;
+    if (maskUVScale.x > 0.0) {
+        mask = maskTexture.sample(
+            linearClamp,
+            clamp(input.texcoord * maskUVScale, 0.0, 1.0)
+        ).r;
+    }
     float2 offset = float2(direction.y, -direction.x);
     float2 sampleUV = input.texcoord + value * offset * strength * strength * mask;
     return source.sample(linearClamp, sampleUV);
@@ -93,7 +98,7 @@ struct SceneWaterWavesPipeline {
 
     func encode(
         source: MTLTexture,
-        mask: MTLTexture,
+        mask: MTLTexture?,
         target: MTLTexture,
         plan: SceneWaterWavesExecutionPlan,
         time: Float,
@@ -121,10 +126,15 @@ struct SceneWaterWavesPipeline {
         }
         encoder.setRenderPipelineState(state)
         encoder.setFragmentTexture(source, index: 0)
-        encoder.setFragmentTexture(mask, index: 1)
+        encoder.setFragmentTexture(mask ?? source, index: 1)
+        // mask 为 nil 时以 maskUVScale = 0 作 shader 侧「无遮罩」哨兵（等价 mask=1）。
+        let effectiveMaskUVScale = mask == nil ? SIMD2<Float>(repeating: 0) : maskUVScale
         var uniforms = SceneWaterWavesUniforms(
             wave0: SIMD4(time, plan.direction, plan.speed, plan.scale),
-            wave1: SIMD4(plan.exponent, plan.strength, maskUVScale.x, maskUVScale.y)
+            wave1: SIMD4(
+                plan.exponent, plan.strength,
+                effectiveMaskUVScale.x, effectiveMaskUVScale.y
+            )
         )
         encoder.setFragmentBytes(
             &uniforms,
@@ -138,53 +148,56 @@ struct SceneWaterWavesPipeline {
 
     private func valid(
         source: MTLTexture,
-        mask: MTLTexture,
+        mask: MTLTexture?,
         target: MTLTexture,
         plan: SceneWaterWavesExecutionPlan,
         time: Float,
         maskUVScale: SIMD2<Float>,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
-        let supportedMaskFormats: Set<MTLPixelFormat> = [
-            .r8Unorm, .rgba8Unorm, .bgra8Unorm,
-        ]
-        return time.isFinite
+        guard time.isFinite
             && plan.direction.isFinite
             && (0.01...50).contains(plan.speed)
             && (0.01...1000).contains(plan.scale)
             && (0.51...4).contains(plan.exponent)
             && (0.01...1).contains(plan.strength)
-            && maskUVScale.x.isFinite
-            && maskUVScale.y.isFinite
-            && (0...1).contains(maskUVScale.x)
-            && (0...1).contains(maskUVScale.y)
-            && maskUVScale.x > 0
-            && maskUVScale.y > 0
             && source.textureType == .type2D
-            && mask.textureType == .type2D
             && target.textureType == .type2D
             && source.pixelFormat == .bgra8Unorm
-            && supportedMaskFormats.contains(mask.pixelFormat)
             && target.pixelFormat == .bgra8Unorm
             && source.width > 0
             && source.width == target.width
             && source.height > 0
             && source.height == target.height
-            && mask.width > 0
-            && mask.height > 0
             && source.mipmapLevelCount == 1
-            && mask.mipmapLevelCount == 1
             && target.mipmapLevelCount == 1
             && source.sampleCount == 1
-            && mask.sampleCount == 1
             && target.sampleCount == 1
             && source.usage.contains(.shaderRead)
-            && mask.usage.contains(.shaderRead)
             && target.usage.contains(.renderTarget)
             && ObjectIdentifier(source) != ObjectIdentifier(target)
             && commandBuffer.commandQueue.device.registryID == deviceRegistryID
             && source.device.registryID == deviceRegistryID
+            && target.device.registryID == deviceRegistryID else {
+            return false
+        }
+        guard let mask else { return true }
+        let supportedMaskFormats: Set<MTLPixelFormat> = [
+            .r8Unorm, .rgba8Unorm, .bgra8Unorm,
+        ]
+        return maskUVScale.x.isFinite
+            && maskUVScale.y.isFinite
+            && (0...1).contains(maskUVScale.x)
+            && (0...1).contains(maskUVScale.y)
+            && maskUVScale.x > 0
+            && maskUVScale.y > 0
+            && mask.textureType == .type2D
+            && supportedMaskFormats.contains(mask.pixelFormat)
+            && mask.width > 0
+            && mask.height > 0
+            && mask.mipmapLevelCount == 1
+            && mask.sampleCount == 1
+            && mask.usage.contains(.shaderRead)
             && mask.device.registryID == deviceRegistryID
-            && target.device.registryID == deviceRegistryID
     }
 }

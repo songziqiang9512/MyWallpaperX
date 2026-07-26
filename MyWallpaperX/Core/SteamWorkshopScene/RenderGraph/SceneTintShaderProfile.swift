@@ -1,10 +1,24 @@
 import CryptoKit
 import Foundation
 
-nonisolated enum SceneShakeShaderProfile {
-    case whitePhaseFallback
-    case timeOffsetCombo
-    case legacyUnconditionalPhase
+/// 官方 `effects/tint` 的逐指纹 shader profile。
+///
+/// 语料 45 样本携带 2 种 tint shader 源，vert 完全相同（`62b2f585…`），frag 两个版本：
+/// - `stock2842`：2.8.42 原版；
+/// - `legacyMaskOverride`：历史版（样本 `1937925563` / `2131872317`，25 个可见实例），
+///   与 stock 逐行 diff 只有两类差异：
+///   1. `g_Texture0`/`g_Texture1` 的注解元数据（legacy 多 `"material":"framebuffer"`、
+///      `"material":"mask"`、mask `"default":"util/white"`），不进任何执行路径；
+///   2. `#if MASK` 分支：stock 是 `mask *= tex(g_Texture1).r`（与 g_BlendAlpha 相乘），
+///      legacy 是 `mask = tex(g_Texture1).r`（覆盖 g_BlendAlpha）。
+///
+/// `BLENDMODE` 的 `[COMBO]` 注解两版逐字符一致（default 30）；`MASK == 0` 时两版 main
+/// 数学逐行相同（`mask = g_BlendAlpha` → `ApplyBlending` → `BLENDMODE == 0` 置 alpha=1，
+/// 无输出 clamp）。planner 只准入 `MASK == 0` 的实例，因此两 profile 当前执行语义一致，
+/// 不携带分流参数；将来放开 `MASK == 1` 时，mask 语义必须按 profile 分流（相乘 vs 覆盖）。
+nonisolated enum SceneTintShaderProfile: Equatable {
+    case stock2842
+    case legacyMaskOverride
 
     private struct CanonicalShaderPayload: Encodable {
         let identity: String
@@ -14,12 +28,12 @@ nonisolated enum SceneShakeShaderProfile {
     }
 
     private struct Fingerprint {
-        let profile: SceneShakeShaderProfile
+        let profile: SceneTintShaderProfile
         let canonicalSHA256: String
         let fragmentSHA256: String
     }
 
-    static func resolve(_ contracts: [SceneShaderContract]) -> SceneShakeShaderProfile? {
+    static func resolve(_ contracts: [SceneShaderContract]) -> SceneTintShaderProfile? {
         let matches = contracts.filter { normalized($0.identity) == shaderIdentity }
         guard matches.count == 1, let contract = matches.first,
               contract.sourceKind == .authoredSource,
@@ -28,7 +42,8 @@ nonisolated enum SceneShakeShaderProfile {
               let fingerprint = fingerprints.first(where: {
                   $0.canonicalSHA256 == contract.canonicalSHA256
               }),
-              canonicalHash(contract) == fingerprint.canonicalSHA256 else {
+              canonicalHash(contract) == fingerprint.canonicalSHA256
+        else {
             return nil
         }
         let expected: [(SceneShaderContract.StageKind, String, String)] = [
@@ -67,26 +82,21 @@ nonisolated enum SceneShakeShaderProfile {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
-    private static let shaderIdentity = "effects/shake"
-    private static let vertexPath = "shaders/effects/shake.vert"
+    private static let shaderIdentity = "effects/tint"
+    private static let vertexPath = "shaders/effects/tint.vert"
     private static let vertexSHA256 =
-        "9b884c23ad3e38cb7fa76330bf98d8f7029653c3a73f7a732f1cfd3c3829c4bc"
-    private static let fragmentPath = "shaders/effects/shake.frag"
+        "62b2f5853fc565d706c1b6c789981385254f8195e0e1579c3d737796b41ddf2a"
+    private static let fragmentPath = "shaders/effects/tint.frag"
     private static let fingerprints = [
         Fingerprint(
-            profile: .whitePhaseFallback,
-            canonicalSHA256: "9b94cf5844faf7b0a5a01f1d81195f9a26752e6e55057aa821a8074e6187ac76",
-            fragmentSHA256: "f8734c9237d2393bab81b06db8d54cfa6afb64d1687edbf7572db3be52ee27cf"
+            profile: .stock2842,
+            canonicalSHA256: "606ea00aef226fc0d7d1360f9bb4750af3c323831bc94399c64327084c9f5b36",
+            fragmentSHA256: "02b9397cec32de6f0d8caa2e1af7c07510752d474bd64048c9d78f55926973f1"
         ),
         Fingerprint(
-            profile: .timeOffsetCombo,
-            canonicalSHA256: "1f6fec9dd4296d518694aeb2177b9131a9b9e9789c5cbcb636054164c75e8bf3",
-            fragmentSHA256: "9f3d003499dea2870d2f49692c7d859e38499f35f82574daaebccbce0b0d57ac"
-        ),
-        Fingerprint(
-            profile: .legacyUnconditionalPhase,
-            canonicalSHA256: "af9b4c97f86d10182d73b239cea9fd377ffcd4ac9ee8f7947c3dddea58898963",
-            fragmentSHA256: "c4911d58042b97b814c0562800463c85af0a6354035d5fc9d7e1b342bc8014ef"
+            profile: .legacyMaskOverride,
+            canonicalSHA256: "3c418471e512703771cdf2bd3ffbfeda024113fa6edd426ddd37267605e087ee",
+            fragmentSHA256: "98f97e9e9ed0c22e2216ccdfb50012274f7e9c944a9ea014eaddc45d606ea63a"
         ),
     ]
 }

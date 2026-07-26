@@ -1,4 +1,3 @@
-import CryptoKit
 import Foundation
 
 nonisolated struct SceneWaterRippleExecutionPlan {
@@ -10,15 +9,15 @@ nonisolated struct SceneWaterRippleExecutionPlan {
     let normalTexturePath: String
 }
 
+/// 官方 `effects/waterripple` 的 fail-closed 准入器。
+///
+/// shader 源按 [SceneWaterRippleShaderProfile](SceneWaterRippleShaderProfile.swift)
+/// 的逐指纹白名单准入：stock 2.8.42 之外另收两族 legacy 变体，effect.json 的
+/// gizmos/replacementkey 形态与实例常量键（legacy 只写非默认键）按 profile 分流，
+/// `legacyInvertedScroll` 的 scroll 基向量差异折算为 `scrolldirection + π` 进
+/// runtimePlan，pipeline 与渲染层无感知。stock 准入面保持不变。
 enum SceneAuthoredWaterRipplePlanner {
     typealias Graph = SceneAuthoredEffectRenderPlan
-
-    private nonisolated struct CanonicalShaderPayload: Encodable {
-        let identity: String
-        let sourceKind: SceneShaderContract.SourceKind
-        let stages: [SceneShaderContract.Stage]
-        let diagnostics: [SceneShaderContract.Diagnostic]
-    }
 
     nonisolated static func plan(
         graph: Graph,
@@ -39,8 +38,8 @@ enum SceneAuthoredWaterRipplePlanner {
         let effect = graph.effects[0]
         let node = graph.nodes[0]
         guard normalized(effect.definitionPath) == definitionPath,
-              validDefinition(in: descriptor, path: effect.definitionPath),
-              shaderContractMatches(shaderContracts),
+              let profile = SceneWaterRippleShaderProfile.resolve(shaderContracts),
+              validDefinition(in: descriptor, path: effect.definitionPath, profile: profile),
               effect.nodeIndices == [node.nodeIndex],
               SceneAuthoredEffectInputValidator.accepts(
                   effect.input,
@@ -54,13 +53,13 @@ enum SceneAuthoredWaterRipplePlanner {
               let instance = instancePass(effect: effect, layer: layer),
               let paths = texturePaths(from: instance),
               let runtimePlan = SceneWaterRippleRuntimePlanner.plan(for: instance),
-              validInstance(instance),
+              validInstance(instance, profile: profile),
               let resolved = SceneAuthoredMaterialResolver.resolve(
                   node: node,
                   graph: graph,
                   descriptor: descriptor
               ).node,
-              validResolvedMaterial(resolved, paths: paths) else {
+              validResolvedMaterial(resolved, paths: paths, profile: profile) else {
             return nil
         }
 
@@ -68,22 +67,43 @@ enum SceneAuthoredWaterRipplePlanner {
             layerID: graph.layerID,
             effectKey: effect.key,
             renderGraph: graph,
-            runtimePlan: runtimePlan,
+            runtimePlan: applying(profile, to: runtimePlan),
             maskTexturePath: paths.mask,
             normalTexturePath: paths.normal
         )
     }
 
+    /// `legacyInvertedScroll` 的 vert scroll 基向量是 `vec2(0,-1)`，rotateVec2
+    /// 线性旋转下与 stock 精确等价于 `scrolldirection + π`，在 plan 阶段折算，
+    /// pipeline uniforms 保持 stock 语义。
+    private nonisolated static func applying(
+        _ profile: SceneWaterRippleShaderProfile,
+        to plan: SceneWaterRippleNormalPlan
+    ) -> SceneWaterRippleNormalPlan {
+        guard profile.scrollDirectionOffset != 0 else { return plan }
+        return SceneWaterRippleNormalPlan(
+            animationSpeed: plan.animationSpeed,
+            scale: plan.scale,
+            scrollSpeed: plan.scrollSpeed,
+            direction: plan.direction + profile.scrollDirectionOffset,
+            ratio: plan.ratio,
+            strength: plan.strength
+        )
+    }
+
     private nonisolated static func validDefinition(
         in descriptor: SceneRenderDescriptor,
-        path: String
+        path: String,
+        profile: SceneWaterRippleShaderProfile
     ) -> Bool {
         let matches = descriptor.effectDefinitions.filter {
             normalized($0.relativePath) == normalized(path)
         }
         guard matches.count == 1, let definition = matches.first,
               definition.version == 1,
-              definition.replacementKey == "waterripple",
+              definition.replacementKey == "waterripple"
+                  || (profile.acceptsMissingReplacementKey
+                      && definition.replacementKey == nil),
               definition.name == "ui_editor_effect_water_ripple_title",
               definition.description == "ui_editor_effect_water_ripple_description",
               definition.group == "animate",
@@ -93,7 +113,7 @@ enum SceneAuthoredWaterRipplePlanner {
               definition.framebuffers.isEmpty,
               definition.dependencies.map(normalized) == dependencies,
               definition.functions == nil,
-              definition.gizmos == expectedGizmos,
+              definition.gizmos == (profile.expectsPerspectiveGizmos ? expectedGizmos : nil),
               definition.extraFields.isEmpty,
               definition.unknownFieldPaths.isEmpty,
               definition.passes.count == 1,
@@ -186,13 +206,11 @@ enum SceneAuthoredWaterRipplePlanner {
     }
 
     private nonisolated static func validInstance(
-        _ pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor
+        _ pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor,
+        profile: SceneWaterRippleShaderProfile
     ) -> Bool {
         pass.combos.isEmpty
-            && Set(pass.constantShaderValues.keys.map { $0.lowercased() }) == Set([
-                "animationspeed", "ratio", "ripplestrength", "scale",
-                "scrolldirection", "scrollspeed",
-            ])
+            && validConstantKeys(pass.constantShaderValues.keys, profile: profile)
             && pass.constantShaderValues.values.allSatisfy {
                 $0.userBinding == nil
                     && $0.valueKind.lowercased() == "number"
@@ -201,9 +219,22 @@ enum SceneAuthoredWaterRipplePlanner {
             }
     }
 
+    /// stock 语料实例始终写满 6 个常量键；legacy 编辑器只写非默认键，
+    /// 缺失键由 SceneWaterRippleRuntimePlanner 的注解默认值补齐。
+    private nonisolated static func validConstantKeys(
+        _ keys: some Collection<String>,
+        profile: SceneWaterRippleShaderProfile
+    ) -> Bool {
+        let lowered = Set(keys.map { $0.lowercased() })
+        return profile.allowsSparseConstants
+            ? lowered.isSubset(of: constantKeys)
+            : lowered == constantKeys
+    }
+
     private nonisolated static func validResolvedMaterial(
         _ material: SceneResolvedMaterialNode,
-        paths: (mask: String, normal: String)
+        paths: (mask: String, normal: String),
+        profile: SceneWaterRippleShaderProfile
     ) -> Bool {
         guard normalized(material.shaderPath) == shaderIdentity,
               material.textureSlots.count == 8,
@@ -213,10 +244,7 @@ enum SceneAuthoredWaterRipplePlanner {
                   [1, 2].contains($0.offset) || $0.element == nil
               }),
               material.combos.isEmpty,
-              Set(material.constants.keys.map { $0.lowercased() }) == Set([
-                  "animationspeed", "ratio", "ripplestrength", "scale",
-                  "scrolldirection", "scrollspeed",
-              ]) else {
+              validConstantKeys(material.constants.keys, profile: profile) else {
             return false
         }
         return material.renderState.blending?.lowercased() == "normal"
@@ -236,43 +264,6 @@ enum SceneAuthoredWaterRipplePlanner {
         return path
     }
 
-    private nonisolated static func shaderContractMatches(
-        _ contracts: [SceneShaderContract]
-    ) -> Bool {
-        let matches = contracts.filter { normalized($0.identity) == shaderIdentity }
-        guard matches.count == 1, let contract = matches.first,
-              contract.sourceKind == .authoredSource,
-              contract.diagnostics.isEmpty,
-              contract.canonicalSHA256 == shaderCanonicalSHA256,
-              canonicalHash(contract) == shaderCanonicalSHA256,
-              contract.stages.count == 2 else {
-            return false
-        }
-        let expected: [(SceneShaderContract.StageKind, String, String)] = [
-            (.vertex, vertexPath, vertexSHA256),
-            (.fragment, fragmentPath, fragmentSHA256),
-        ]
-        return zip(contract.stages, expected).allSatisfy { stage, fingerprint in
-            stage.kind == fingerprint.0
-                && normalized(stage.relativePath) == fingerprint.1
-                && stage.rawSHA256 == fingerprint.2
-                && sha256(Data(stage.source.utf8)) == fingerprint.2
-        }
-    }
-
-    private nonisolated static func canonicalHash(_ contract: SceneShaderContract) -> String {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        let payload = CanonicalShaderPayload(
-            identity: contract.identity,
-            sourceKind: contract.sourceKind,
-            stages: contract.stages,
-            diagnostics: contract.diagnostics
-        )
-        guard let data = try? encoder.encode(payload) else { return "" }
-        return sha256(data)
-    }
-
     private nonisolated static func effectOutput(
         _ effect: Graph.EffectKey
     ) -> Graph.TextureIdentity {
@@ -281,10 +272,6 @@ enum SceneAuthoredWaterRipplePlanner {
 
     private nonisolated static func normalized(_ value: String) -> String {
         value.replacingOccurrences(of: "\\", with: "/").lowercased()
-    }
-
-    private nonisolated static func sha256(_ data: Data) -> String {
-        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
     private nonisolated static let definitionPath = "effects/waterripple/effect.json"
@@ -301,14 +288,10 @@ enum SceneAuthoredWaterRipplePlanner {
         "shaders/effects/waterripple.frag",
         "shaders/effects/waterripple.vert",
     ]
-    private nonisolated static let shaderCanonicalSHA256 =
-        "cff8420a7f1103b6123906feff9db9f3233039d9cd1d9da2e02352700048c7ce"
-    private nonisolated static let vertexPath = "shaders/effects/waterripple.vert"
-    private nonisolated static let vertexSHA256 =
-        "e1347f6f4dbec03106514592f652e9f63e6a75dc6e6c3cd8c76138c34dc2e7a4"
-    private nonisolated static let fragmentPath = "shaders/effects/waterripple.frag"
-    private nonisolated static let fragmentSHA256 =
-        "21bcc2216765fd09804331dec96b9aa94aa4b15e4b5957c6b001371e1e82e38a"
+    private nonisolated static let constantKeys: Set<String> = [
+        "animationspeed", "ratio", "ripplestrength", "scale",
+        "scrolldirection", "scrollspeed",
+    ]
     private nonisolated static let expectedGizmos = SceneJSONValue.array([
         .object([
             "condition": .object(["PERSPECTIVE": .number(1)]),

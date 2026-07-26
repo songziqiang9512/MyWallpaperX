@@ -1,8 +1,10 @@
-import CryptoKit
 import Foundation
 import simd
 
 /// 官方 `effects/tint` 的 fail-closed 准入器。
+///
+/// shader 源按 [SceneTintShaderProfile](SceneTintShaderProfile.swift) 的逐指纹白名单准入
+/// （stock 2.8.42 + legacy 注解变体，`MASK == 0` 下两版执行语义一致）。
 ///
 /// v1 只接受未绑定遮罩贴图的实例：去重语料（52 包 / 54 份 scene.json）里 224 个 tint pass
 /// 有 30 个把遮罩贴到 `g_Texture1`，这些实例整条拒绝而不是按无遮罩渲染。
@@ -14,13 +16,6 @@ import simd
 /// 传给 `ApplyBlending`，不动 alpha 通道。
 enum SceneAuthoredTintPlanner {
     typealias Graph = SceneAuthoredEffectRenderPlan
-
-    private nonisolated struct CanonicalShaderPayload: Encodable {
-        let identity: String
-        let sourceKind: SceneShaderContract.SourceKind
-        let stages: [SceneShaderContract.Stage]
-        let diagnostics: [SceneShaderContract.Diagnostic]
-    }
 
     /// `nil` 表示常量形态不合法整条拒绝；`.constant` 表示静态取值、无动态目标。
     private nonisolated enum ConstantSource {
@@ -54,7 +49,7 @@ enum SceneAuthoredTintPlanner {
         let node = graph.nodes[0]
         guard normalized(effect.definitionPath) == definitionPath,
               validDefinition(in: descriptor, path: effect.definitionPath),
-              shaderContractMatches(shaderContracts),
+              SceneTintShaderProfile.resolve(shaderContracts) != nil,
               effect.nodeIndices == [node.nodeIndex],
               SceneAuthoredEffectInputValidator.accepts(
                   effect.input,
@@ -306,44 +301,6 @@ enum SceneAuthoredTintPlanner {
         ))
     }
 
-    private nonisolated static func shaderContractMatches(
-        _ contracts: [SceneShaderContract]
-    ) -> Bool {
-        let matches = contracts.filter { normalized($0.identity) == shaderIdentity }
-        guard matches.count == 1, let contract = matches.first,
-              contract.sourceKind == .authoredSource,
-              contract.diagnostics.isEmpty,
-              contract.canonicalSHA256 == shaderCanonicalSHA256,
-              canonicalHash(contract) == shaderCanonicalSHA256,
-              contract.stages.count == 2
-        else {
-            return false
-        }
-        let expected: [(SceneShaderContract.StageKind, String, String)] = [
-            (.vertex, vertexPath, vertexSHA256),
-            (.fragment, fragmentPath, fragmentSHA256),
-        ]
-        return zip(contract.stages, expected).allSatisfy { stage, fingerprint in
-            stage.kind == fingerprint.0
-                && normalized(stage.relativePath) == fingerprint.1
-                && stage.rawSHA256 == fingerprint.2
-                && sha256(Data(stage.source.utf8)) == fingerprint.2
-        }
-    }
-
-    private nonisolated static func canonicalHash(_ contract: SceneShaderContract) -> String {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        let payload = CanonicalShaderPayload(
-            identity: contract.identity,
-            sourceKind: contract.sourceKind,
-            stages: contract.stages,
-            diagnostics: contract.diagnostics
-        )
-        guard let data = try? encoder.encode(payload) else { return "" }
-        return sha256(data)
-    }
-
     private nonisolated static func effectOutput(
         _ effect: Graph.EffectKey
     ) -> Graph.TextureIdentity {
@@ -352,10 +309,6 @@ enum SceneAuthoredTintPlanner {
 
     private nonisolated static func normalized(_ value: String) -> String {
         value.replacingOccurrences(of: "\\", with: "/").lowercased()
-    }
-
-    private nonisolated static func sha256(_ data: Data) -> String {
-        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
     private nonisolated static let definitionPath = "effects/tint/effect.json"
@@ -369,14 +322,7 @@ enum SceneAuthoredTintPlanner {
         "shaders/effects/tint.frag",
         "shaders/effects/tint.vert",
     ]
-    private nonisolated static let shaderCanonicalSHA256 =
-        "606ea00aef226fc0d7d1360f9bb4750af3c323831bc94399c64327084c9f5b36"
-    private nonisolated static let vertexPath = "shaders/effects/tint.vert"
-    private nonisolated static let vertexSHA256 =
-        "62b2f5853fc565d706c1b6c789981385254f8195e0e1579c3d737796b41ddf2a"
-    private nonisolated static let fragmentPath = "shaders/effects/tint.frag"
-    private nonisolated static let fragmentSHA256 =
-        "02b9397cec32de6f0d8caa2e1af7c07510752d474bd64048c9d78f55926973f1"
+    /// stock 与 legacy 两个指纹的 `[COMBO]` 注解逐字符一致，默认值不按 profile 分流。
     private nonisolated static let defaultBlendMode = 30
     private nonisolated static let defaultAlpha: Float = 1
 }

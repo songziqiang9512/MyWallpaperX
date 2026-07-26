@@ -59,7 +59,10 @@ enum SceneAuthoredShakePlanner {
                   profile: shaderProfile
               ),
               let paths = texturePaths(from: instance, profile: shaderProfile),
-              let parameters = parameters(from: instance.constantShaderValues),
+              let parameters = parameters(
+                  from: instance.constantShaderValues,
+                  profile: shaderProfile
+              ),
               let resolved = SceneAuthoredMaterialResolver.resolve(
                 node: node,
                 graph: graph,
@@ -211,6 +214,14 @@ enum SceneAuthoredShakePlanner {
         }
         let expected = [flow] + (phase.map { [$0] } ?? [])
         guard pass.texturePaths == expected else { return nil }
+        // legacy 实例把 phase 显式写成 shader 注解默认 `util/white`（stock 资产，白=2π≡0）。
+        // 显式默认与缺省语义相同，归一为 nil 走 pipeline 内置 R8 白回退，
+        // 避免解码 BGRA white.tex 撞 pipeline 的 R8 phase 格式合同。
+        if profile == .legacyUnconditionalPhase,
+           let explicitPhase = phase,
+           normalized(explicitPhase) == "util/white" {
+            return (flow, nil)
+        }
         return (flow, phase)
     }
 
@@ -220,15 +231,21 @@ enum SceneAuthoredShakePlanner {
         phasePath: String?,
         profile: SceneShakeShaderProfile
     ) -> Bool {
+        // 归一后的 nil phase 在 resolved material 侧仍可能是显式 `util/white` 槽。
+        let resolvedPhase = assetPath(material.textureSlots[2])
+        let phaseMatches = resolvedPhase == phasePath
+            || (profile == .legacyUnconditionalPhase
+                && phasePath == nil
+                && resolvedPhase.map(normalized) == "util/white")
         guard normalized(material.shaderPath) == shaderIdentity,
               material.textureSlots.count == 8,
               assetPath(material.textureSlots[1]) == flowPath,
-              assetPath(material.textureSlots[2]) == phasePath,
+              phaseMatches,
               material.textureSlots.enumerated().allSatisfy({
                   [1, 2].contains($0.offset) || $0.element == nil
               }),
               validCombos(material.combos, profile: profile),
-              parameters(from: material.constants) != nil else {
+              parameters(from: material.constants, profile: profile) != nil else {
             return false
         }
         return material.renderState.blending?.lowercased() == "normal"
@@ -249,7 +266,8 @@ enum SceneAuthoredShakePlanner {
     }
 
     private nonisolated static func parameters(
-        from authored: [String: SceneDocument.ShaderValue]
+        from authored: [String: SceneDocument.ShaderValue],
+        profile: SceneShakeShaderProfile
     ) -> Parameters? {
         var values: [String: SceneDocument.ShaderValue] = [:]
         for (key, value) in authored {
@@ -257,12 +275,31 @@ enum SceneAuthoredShakePlanner {
                 return nil
             }
         }
-        guard Set(values.keys) == Set(["bounds", "friction", "speed", "strength"]),
-              let bounds = vector(values["bounds"], range: 0...1),
+        // The legacy corpus authors only the deltas and relies on the shader
+        // annotation defaults (g_Bounds "0 1", g_Friction "1 1", g_Speed 1,
+        // g_Amp 0.1); every other profile keeps the exact four-key contract.
+        let fillsDefaults = profile == .legacyUnconditionalPhase
+        let supported = Set(["bounds", "friction", "speed", "strength"])
+        guard fillsDefaults
+                ? Set(values.keys).isSubset(of: supported)
+                : Set(values.keys) == supported,
+              let bounds = vector(
+                  values["bounds"], range: 0...1,
+                  fallback: fillsDefaults ? SIMD2(0, 1) : nil
+              ),
               bounds.y > bounds.x,
-              let friction = vector(values["friction"], range: 0.01...10),
-              let speed = scalar(values["speed"], range: 0...10),
-              let strength = scalar(values["strength"], range: 0.01...0.5) else {
+              let friction = vector(
+                  values["friction"], range: 0.01...10,
+                  fallback: fillsDefaults ? SIMD2(1, 1) : nil
+              ),
+              let speed = scalar(
+                  values["speed"], range: 0...10,
+                  fallback: fillsDefaults ? 1 : nil
+              ),
+              let strength = scalar(
+                  values["strength"], range: 0.01...0.5,
+                  fallback: fillsDefaults ? 0.1 : nil
+              ) else {
             return nil
         }
         return Parameters(
@@ -275,10 +312,11 @@ enum SceneAuthoredShakePlanner {
 
     private nonisolated static func vector(
         _ value: SceneDocument.ShaderValue?,
-        range: ClosedRange<Double>
+        range: ClosedRange<Double>,
+        fallback: SIMD2<Float>?
     ) -> SIMD2<Float>? {
-        guard let value,
-              value.userBinding == nil,
+        guard let value else { return fallback }
+        guard value.userBinding == nil,
               value.valueKind.lowercased() == "vector",
               let components = value.components,
               components.count == 2,
@@ -290,10 +328,11 @@ enum SceneAuthoredShakePlanner {
 
     private nonisolated static func scalar(
         _ value: SceneDocument.ShaderValue?,
-        range: ClosedRange<Double>
+        range: ClosedRange<Double>,
+        fallback: Float?
     ) -> Float? {
-        guard let value,
-              value.userBinding == nil,
+        guard let value else { return fallback }
+        guard value.userBinding == nil,
               value.valueKind.lowercased() == "number",
               let components = value.components,
               components.count == 1,

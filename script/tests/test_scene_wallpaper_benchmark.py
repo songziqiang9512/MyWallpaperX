@@ -568,7 +568,9 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 samples[sample_id]["maximum_legacy_waterwaves_runtime_count"], 0
             )
         expected_chain_metrics = {
-            "2131872317": (0, 0),
+            # legacy 指纹批次（2026-07-27）：waterripple/pulse/waterwaves/shake 多指纹
+            # 白名单让 2131872317 五层整链（19 stage / 4 chain）。
+            "2131872317": (4, 19),
             "2802243144": (3, 6),
             "2902406982": (0, 35),
             "2938612768": (0, 0),
@@ -604,14 +606,15 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 sample.get("expected_authored_effect_graph_stage_count", 0)
                 for sample in samples.values()
             ),
-            82,
+            # legacy 指纹批次后 2131872317 由 0 stage 升到 19。
+            101,
         )
         self.assertEqual(
             sum(
                 sample.get("expected_authored_effect_graph_chain_count", 0)
                 for sample in samples.values()
             ),
-            10,
+            14,
         )
         self.assertEqual(
             sum(sample["expected_route_only_effect_count"] for sample in samples.values()),

@@ -63,6 +63,12 @@ enum SceneAuthoredEffectChainRenderer {
                 time: sourceUniforms.time,
                 commandBuffer: commandBuffer
             ) else {
+#if DEBUG
+                print(
+                    "MWX authored effect chain stage failed layer=\(chain.layerID) "
+                        + "index=\(index) backend=\(stage.backend)"
+                )
+#endif
                 return nil
             }
             currentSource = output

@@ -4,6 +4,11 @@
 与 opacity 的差别有两处刻意的偏离，这里各有一条专门断言：
 - `色值` 是 vec3 用户绑定，走 `.vector3` 动态目标；
 - 任何挂在 `g_Texture1` 上的遮罩贴图整条拒绝（opacity 是接受后按无遮罩渲染）。
+
+shader 源按 SceneTintShaderProfile 双指纹白名单准入：stock 2.8.42 与 legacy 注解
+变体（frag `98f97e9e9ed0…`，vert 与 stock 相同，样本 1937925563 / 2131872317）各自
+resolve；legacy 的 `#if MASK` 分支是 mask 覆盖而非相乘，`MASK == 1` 与遮罩贴图在
+两指纹下都整条拒绝。
 """
 
 from __future__ import annotations
@@ -27,6 +32,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneShaderContractLoader.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "Effects/SceneBlendModeShaderSource.swift",
+    SOURCE_ROOT / "RenderGraph/SceneTintShaderProfile.swift",
     SOURCE_ROOT / "RenderGraph/SceneTintExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredTintPlanner.swift",
 ]
@@ -67,6 +73,35 @@ FRAGMENT_BASE64 = (
     "b2xvciwgbWFzayk7DQoJDQojaWYgQkxFTkRNT0RFID09IDANCglhbGJlZG8u"
     "YSA9IDEuMDsNCiNlbmRpZg0KCQ0KCWdsX0ZyYWdDb2xvciA9IGFsYmVkbzsN"
     "Cn0NCg=="
+)
+# 语料样本 2131872317 / 1937925563 的 scene.pkg 里 shaders/effects/tint.frag 原始
+# 字节（两样本逐字节相同，SHA256 98f97e9e9ed0…）；vert 与 stock 相同，共用上面的
+# VERTEX_BASE64。
+LEGACY_FRAGMENT_BASE64 = (
+    "DQovLyBbQ09NQk9dIHsibWF0ZXJpYWwiOiJ1aV9lZGl0b3JfcHJvcGVydGll"
+    "c19ibGVuZF9tb2RlIiwiY29tYm8iOiJCTEVORE1PREUiLCJ0eXBlIjoiaW1h"
+    "Z2VibGVuZGluZyIsImRlZmF1bHQiOjMwfQ0KDQojaW5jbHVkZSAiY29tbW9u"
+    "X2JsZW5kaW5nLmgiDQoNCnZhcnlpbmcgdmVjNCB2X1RleENvb3JkOw0KDQp1"
+    "bmlmb3JtIHNhbXBsZXIyRCBnX1RleHR1cmUwOyAvLyB7Im1hdGVyaWFsIjoi"
+    "ZnJhbWVidWZmZXIiLCAibGFiZWwiOiJ1aV9lZGl0b3JfcHJvcGVydGllc19m"
+    "cmFtZWJ1ZmZlciIsICJoaWRkZW4iOnRydWV9DQp1bmlmb3JtIHNhbXBsZXIy"
+    "RCBnX1RleHR1cmUxOyAvLyB7Im1hdGVyaWFsIjoibWFzayIsICJsYWJlbCI6"
+    "InVpX2VkaXRvcl9wcm9wZXJ0aWVzX29wYWNpdHlfbWFzayIsIm1vZGUiOiJv"
+    "cGFjaXR5bWFzayIsImRlZmF1bHQiOiJ1dGlsL3doaXRlIiwiY29tYm8iOiJN"
+    "QVNLIiwicGFpbnRkZWZhdWx0Y29sb3IiOiIwIDAgMCAxIn0NCg0KdW5pZm9y"
+    "bSBmbG9hdCBnX0JsZW5kQWxwaGE7IC8vIHsibWF0ZXJpYWwiOiJhbHBoYSIs"
+    "ICJsYWJlbCI6InVpX2VkaXRvcl9wcm9wZXJ0aWVzX2FscGhhIiwiZGVmYXVs"
+    "dCI6MSwicmFuZ2UiOlswLDFdfQ0KdW5pZm9ybSB2ZWMzIGdfVGludENvbG9y"
+    "OyAvLyB7Im1hdGVyaWFsIjoiY29sb3IiLCAibGFiZWwiOiJ1aV9lZGl0b3Jf"
+    "cHJvcGVydGllc19jb2xvciIsICJ0eXBlIjogImNvbG9yIiwgImRlZmF1bHQi"
+    "OiIxIDAgMCJ9DQoNCnZvaWQgbWFpbigpIHsNCgl2ZWM0IGFsYmVkbyA9IHRl"
+    "eFNhbXBsZTJEKGdfVGV4dHVyZTAsIHZfVGV4Q29vcmQueHkpOw0KCWZsb2F0"
+    "IG1hc2sgPSBnX0JsZW5kQWxwaGE7DQoJDQojaWYgTUFTSw0KCW1hc2sgPSB0"
+    "ZXhTYW1wbGUyRChnX1RleHR1cmUxLCB2X1RleENvb3JkLnp3KS5yOw0KI2Vu"
+    "ZGlmDQoJDQoJYWxiZWRvLnJnYiA9IEFwcGx5QmxlbmRpbmcoQkxFTkRNT0RF"
+    "LCBhbGJlZG8ucmdiLCBnX1RpbnRDb2xvciwgbWFzayk7DQoJDQojaWYgQkxF"
+    "TkRNT0RFID09IDANCglhbGJlZG8uYSA9IDEuMDsNCiNlbmRpZg0KCQ0KCWds"
+    "X0ZyYWdDb2xvciA9IGFsYmVkbzsNCn0NCg=="
 )
 
 
@@ -480,11 +515,17 @@ enum Harness {
 
     static func main() throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
+        let legacyRoot = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
         let contracts = SceneShaderContractLoader().load(
             shaderReferences: [shaderIdentity],
             rootURL: root
         )
+        let legacyContracts = SceneShaderContractLoader().load(
+            shaderReferences: [shaderIdentity],
+            rootURL: legacyRoot
+        )
         let staticPlan = planned(contracts: contracts)!
+        let legacyStaticPlan = planned(contracts: legacyContracts)!
 
         var boundOptions = Options()
         boundOptions.colorKind = "binding"
@@ -609,12 +650,40 @@ enum Harness {
         let result: [String: Any] = [
             "canonicalContract": contracts.first?.canonicalSHA256
                 == "606ea00aef226fc0d7d1360f9bb4750af3c323831bc94399c64327084c9f5b36",
+            "legacyCanonicalContract": legacyContracts.first?.canonicalSHA256
+                == "3c418471e512703771cdf2bd3ffbfeda024113fa6edd426ddd37267605e087ee",
+            "profilesResolved": SceneTintShaderProfile.resolve(contracts) == .stock2842
+                && SceneTintShaderProfile.resolve(legacyContracts) == .legacyMaskOverride,
             "staticAccepted": staticPlan.staticOrFallbackColor
                 == SIMD3<Float>(0.25, 0.6, 0.9)
                 && staticPlan.staticOrFallbackAlpha == 0.4
                 && staticPlan.colorBinding == nil
                 && staticPlan.alphaBinding == nil
                 && staticPlan.liveConsumerTargets.isEmpty,
+            "legacyStaticAccepted": legacyStaticPlan.staticOrFallbackColor
+                == SIMD3<Float>(0.25, 0.6, 0.9)
+                && legacyStaticPlan.staticOrFallbackAlpha == 0.4
+                && legacyStaticPlan.colorBinding == nil
+                && legacyStaticPlan.alphaBinding == nil,
+            // legacy 的 [COMBO]/常量注解与 stock 逐字符一致：BLENDMODE 默认同为 30、
+            // 缺省 alpha 同为 1、显式 BLENDMODE 同样生效。
+            "legacyDefaultBlendMode": legacyStaticPlan.blendMode == 30,
+            "legacyMissingAlphaDefaultsToOne": planned(
+                descriptorOptions: missingAlpha, contracts: legacyContracts
+            )?.staticOrFallbackAlpha == 1,
+            "legacyBlendModeResolved":
+                blendMode(materialBlend, contracts: legacyContracts) == 12
+                && blendMode(instanceBlend, contracts: legacyContracts) == 0,
+            "legacyBindingsAccepted": planned(
+                descriptorOptions: boundOptions, contracts: legacyContracts
+            )?.colorBinding?.propertyKey == "newproperty50",
+            // legacy 的 #if MASK 分支是 mask 覆盖而非相乘：MASK == 1 与遮罩贴图在
+            // legacy 指纹下同样整条拒绝，语义分歧点不进渲染。
+            "legacyMaskRejected": !accepted(descriptorOptions: maskOne, contracts: legacyContracts)
+                && !accepted(descriptorOptions: maskTexture, contracts: legacyContracts),
+            "legacyContractRejected": ["source", "raw", "metadata", "builtin", "canonical",
+                                       "duplicate"]
+                .allSatisfy { !accepted(contracts: mutate(legacyContracts, $0)) },
             // 官方 tint.frag 的 [COMBO] 默认值 30，未声明 BLENDMODE 时按 30 走。
             "defaultBlendMode": staticPlan.blendMode == 30,
             "missingAlphaDefaultsToOne": planned(
@@ -686,7 +755,7 @@ enum Harness {
 
 
 class SceneTintPlannerTests(unittest.TestCase):
-    def test_stock_profile_is_exact_and_fail_closed(self) -> None:
+    def test_fingerprint_profiles_are_exact_and_fail_closed(self) -> None:
         swiftc = shutil.which("swiftc")
         if not swiftc:
             self.skipTest("swiftc is unavailable")
@@ -697,6 +766,15 @@ class SceneTintPlannerTests(unittest.TestCase):
             shader_root.mkdir(parents=True)
             (shader_root / "tint.vert").write_bytes(base64.b64decode(VERTEX_BASE64))
             (shader_root / "tint.frag").write_bytes(base64.b64decode(FRAGMENT_BASE64))
+            legacy_root = root / "legacy"
+            legacy_shader_root = legacy_root / "shaders/effects"
+            legacy_shader_root.mkdir(parents=True)
+            (legacy_shader_root / "tint.vert").write_bytes(
+                base64.b64decode(VERTEX_BASE64)
+            )
+            (legacy_shader_root / "tint.frag").write_bytes(
+                base64.b64decode(LEGACY_FRAGMENT_BASE64)
+            )
             harness = root / "Harness.swift"
             executable = root / "tint-harness"
             harness.write_text(HARNESS, encoding="utf-8")
@@ -715,7 +793,7 @@ class SceneTintPlannerTests(unittest.TestCase):
             )
             self.assertEqual(compilation.returncode, 0, compilation.stderr)
             completed = subprocess.run(
-                [str(executable), str(root)],
+                [str(executable), str(root), str(legacy_root)],
                 check=True,
                 capture_output=True,
                 text=True,

@@ -94,6 +94,74 @@ VERTEX_BASE64 = (
 
 FRAGMENT_BASE64 = "DQovLyBbQ09NQk9dIHsibWF0ZXJpYWwiOiJ1aV9lZGl0b3JfcHJvcGVydGllc19ub2lzZSIsImNvbWJvIjoiTk9JU0UiLCJ0eXBlIjoib3B0aW9ucyIsImRlZmF1bHQiOjB9DQovLyBbQ09NQk9dIHsibWF0ZXJpYWwiOiJ1aV9lZGl0b3JfcHJvcGVydGllc19kaXJlY3Rpb24iLCJjb21ibyI6IkRJUkVDVElPTiIsInR5cGUiOiJvcHRpb25zIiwiZGVmYXVsdCI6MCwib3B0aW9ucyI6eyJ1aV9lZGl0b3JfcHJvcGVydGllc19jZW50ZXIiOjAsInVpX2VkaXRvcl9wcm9wZXJ0aWVzX2xlZnQiOjEsInVpX2VkaXRvcl9wcm9wZXJ0aWVzX3JpZ2h0IjoyfX0NCg0KI2luY2x1ZGUgImNvbW1vbi5oIg0KDQp2YXJ5aW5nIHZlYzQgdl9UZXhDb29yZDsNCnZhcnlpbmcgdmVjMiB2X0JvdW5kczsNCg0KdW5pZm9ybSBzYW1wbGVyMkQgZ19UZXh0dXJlMDsgLy8geyJoaWRkZW4iOnRydWV9DQp1bmlmb3JtIHNhbXBsZXIyRCBnX1RleHR1cmUxOyAvLyB7ImxhYmVsIjoidWlfZWRpdG9yX3Byb3BlcnRpZXNfc2hha2VfZGlyZWN0aW9uX21hcCIsIm1vZGUiOiJmbG93bWFzayIsImRlZmF1bHQiOiJ1dGlsL25vZmxvdyJ9DQp1bmlmb3JtIHNhbXBsZXIyRCBnX1RleHR1cmUyOyAvLyB7ImxhYmVsIjoidWlfZWRpdG9yX3Byb3BlcnRpZXNfdGltZV9vZmZzZXQiLCJtb2RlIjoib3BhY2l0eW1hc2siLCJkZWZhdWx0IjoidXRpbC93aGl0ZSJ9DQp1bmlmb3JtIHNhbXBsZXIyRCBnX1RleHR1cmUzOyAvLyB7ImxhYmVsIjoidWlfZWRpdG9yX3Byb3BlcnRpZXNfb3BhY2l0eSIsIm1vZGUiOiJvcGFjaXR5bWFzayIsImNvbWJvIjoiTUFTSyJ9DQp1bmlmb3JtIGZsb2F0IGdfVGltZTsNCg0KdW5pZm9ybSBmbG9hdCBnX1NwZWVkOyAvLyB7Im1hdGVyaWFsIjoic3BlZWQiLCJsYWJlbCI6InVpX2VkaXRvcl9wcm9wZXJ0aWVzX3NwZWVkIiwiZGVmYXVsdCI6MSwicmFuZ2UiOlswLjAsIDEwXX0NCnVuaWZvcm0gZmxvYXQgZ19BbXA7IC8vIHsibWF0ZXJpYWwiOiJzdHJlbmd0aCIsImxhYmVsIjoidWlfZWRpdG9yX3Byb3BlcnRpZXNfc3RyZW5ndGgiLCJkZWZhdWx0IjowLjEsInJhbmdlIjpbMC4wMSwgMC41XX0NCnVuaWZvcm0gdmVjMiBnX0ZyaWN0aW9uOyAvLyB7Im1hdGVyaWFsIjoiZnJpY3Rpb24iLCJsYWJlbCI6InVpX2VkaXRvcl9wcm9wZXJ0aWVzX2ZyaWN0aW9uIiwiZGVmYXVsdCI6IjEgMSIsImxpbmtlZCI6dHJ1ZSwicmFuZ2UiOlswLjAxLCAxMC4wXX0NCg0KI2lmIEFVRElPUFJPQ0VTU0lORw0KdmFyeWluZyBmbG9hdCB2X0F1ZGlvUHVsc2U7DQojZW5kaWYNCg0KI2lmIE1BU0sgPT0gMQ0KdmFyeWluZyB2ZWM0IHZfVGV4Q29vcmRNYXNrOw0KI2VuZGlmDQoNCnZvaWQgbWFpbigpIHsNCg0KCWZsb2F0IGZsb3dQaGFzZSA9IHRleFNhbXBsZTJEKGdfVGV4dHVyZTIsIHZfVGV4Q29vcmQuencpLnIgKiBNX1BJXzI7DQoJdmVjMiBmbG93Q29sb3JzID0gdGV4U2FtcGxlMkQoZ19UZXh0dXJlMSwgdl9UZXhDb29yZC56dykucmc7DQoJdmVjMiBmbG93TWFzayA9IChmbG93Q29sb3JzLnJnIC0gdmVjMigwLjQ5OCwgMC40OTgpKSAqIDIuMDsNCglmbG9hdCBvZmZzZXQgPSAwLjA7DQoJDQojaWYgQVVESU9QUk9DRVNTSU5HID09IDANCiNpZiBOT0lTRQ0KCXZlYzQgc2luZXMgPSBmbG93UGhhc2UgKyBmcmFjKGdfU3BlZWQgKiBnX1RpbWUgLyBNX1BJXzIgKiB2ZWM0KDEsIC0wLjE2MTYxNjE2LCAwLjAwODMzMzMsIC0wLjAwMDE5ODQxKSkgKiBNX1BJXzI7DQoJdmVjNCBjc2luZXMgPSBjb3Moc2luZXMpOw0KCXNpbmVzID0gc2luKHNpbmVzKTsNCgkNCgl2ZWM0IGJhc2UgPSBzdGVwKDAuMCwgY3NpbmVzKTsNCglzaW5lcyA9IHNpbmVzICogMC40OTggKyAwLjU7DQoJc2luZXMgPSBtaXgoMS4wIC0gcG93KDEuMCAtIHNpbmVzLCBDQVNUNChnX0ZyaWN0aW9uLngpKSwgcG93KHNpbmVzLCBDQVNUNChnX0ZyaWN0aW9uLnkpKSwgYmFzZSk7DQoJb2Zmc2V0ID0gZG90KENBU1Q0KDAuNSksIHNpbmVzKTsNCiNlbHNlDQoJZmxvYXQgdGltZSA9IGdfU3BlZWQgKiBnX1RpbWUgKyBmbG93UGhhc2U7DQoJb2Zmc2V0ID0gc2luKGZyYWModGltZSAvIE1fUElfMikgKiBNX1BJXzIpOw0KCW9mZnNldCA9IG9mZnNldCAqIDAuNDk4ICsgMC41Ow0KCWZsb2F0IGJhc2UgPSBzdGVwKDAuMCwgY29zKHRpbWUpKTsNCglvZmZzZXQgPSBtaXgoMS4wIC0gcG93KDEuMCAtIG9mZnNldCwgZ19GcmljdGlvbi54KSwgcG93KG9mZnNldCwgZ19GcmljdGlvbi55KSwgYmFzZSk7DQojZW5kaWYNCglvZmZzZXQgPSBzYXR1cmF0ZSgob2Zmc2V0IC0gdl9Cb3VuZHMueCkgKiB2X0JvdW5kcy55KTsNCiNlbmRpZg0KDQoNCiNpZiBESVJFQ1RJT04gPT0gMA0KI2lmIEFVRElPUFJPQ0VTU0lORw0KCW9mZnNldCArPSB2X0F1ZGlvUHVsc2U7DQojZWxzZQ0KCW9mZnNldCA9IG9mZnNldCAqIDIuMCAtIDEuMDsNCiNlbmRpZg0KI2VuZGlmDQoNCiNpZiBESVJFQ1RJT04gPT0gMQ0KI2lmIEFVRElPUFJPQ0VTU0lORw0KCW9mZnNldCA9IDEuMCAtIHZfQXVkaW9QdWxzZTsNCiNlbmRpZg0KI2VuZGlmDQoNCiNpZiBESVJFQ1RJT04gPT0gMg0KI2lmIEFVRElPUFJPQ0VTU0lORw0KCW9mZnNldCAtPSB2X0F1ZGlvUHVsc2U7DQojZWxzZQ0KCW9mZnNldCA9IG9mZnNldCAtIDEuMDsNCiNlbmRpZg0KI2VuZGlmDQoJDQoJdmVjMiB0ZXhDb29yZE9mZnNldCA9IG9mZnNldCAqIGdfQW1wICogZ19BbXAgKiBmbG93TWFzazsNCglnbF9GcmFnQ29sb3IgPSB0ZXhTYW1wbGUyRChnX1RleHR1cmUwLCB0ZXhDb29yZE9mZnNldCArIHZfVGV4Q29vcmQueHkpOw0KCQ0KI2lmIE1BU0sNCgkvLyBPbmx5IGFsbG93IHNhbXBsaW5nIGZyb20gbWFzaw0KCWZsb2F0IG1hc2sgPSB0ZXhTYW1wbGUyRChnX1RleHR1cmUzLCB0ZXhDb29yZE9mZnNldCAqIHZfVGV4Q29vcmRNYXNrLnp3ICsgdl9UZXhDb29yZE1hc2sueHkpLnI7DQoJZ2xfRnJhZ0NvbG9yID0gbWl4KHRleFNhbXBsZTJEKGdfVGV4dHVyZTAsIHZfVGV4Q29vcmQueHkpLCBnbF9GcmFnQ29sb3IsIG1hc2spOw0KI2VuZGlmDQp9DQo="
 
+# Raw bytes of shaders/effects/shake.frag extracted from workshop item
+# 2131872317 scene.pkg (legacy fragment, SHA256
+# c4911d58042b97b814c0562800463c85af0a6354035d5fc9d7e1b342bc8014ef).
+LEGACY_FRAGMENT_BASE64 = (
+    "DQovLyBbQ09NQk9dIHsibWF0ZXJpYWwiOiJ1aV9lZGl0b3JfcHJvcGVydGllc19ub2lz"
+    "ZSIsImNvbWJvIjoiTk9JU0UiLCJ0eXBlIjoib3B0aW9ucyIsImRlZmF1bHQiOjB9DQov"
+    "LyBbQ09NQk9dIHsibWF0ZXJpYWwiOiJ1aV9lZGl0b3JfcHJvcGVydGllc19kaXJlY3Rp"
+    "b24iLCJjb21ibyI6IkRJUkVDVElPTiIsInR5cGUiOiJvcHRpb25zIiwiZGVmYXVsdCI6"
+    "MCwib3B0aW9ucyI6eyJ1aV9lZGl0b3JfcHJvcGVydGllc19jZW50ZXIiOjAsInVpX2Vk"
+    "aXRvcl9wcm9wZXJ0aWVzX2xlZnQiOjEsInVpX2VkaXRvcl9wcm9wZXJ0aWVzX3JpZ2h0"
+    "IjoyfX0NCg0KI2luY2x1ZGUgImNvbW1vbi5oIg0KDQp2YXJ5aW5nIHZlYzQgdl9UZXhD"
+    "b29yZDsNCnZhcnlpbmcgdmVjMiB2X0JvdW5kczsNCg0KdW5pZm9ybSBzYW1wbGVyMkQg"
+    "Z19UZXh0dXJlMDsgLy8geyJtYXRlcmlhbCI6ImZyYW1lYnVmZmVyIiwibGFiZWwiOiJ1"
+    "aV9lZGl0b3JfcHJvcGVydGllc19mcmFtZWJ1ZmZlciIsImhpZGRlbiI6dHJ1ZX0NCnVu"
+    "aWZvcm0gc2FtcGxlcjJEIGdfVGV4dHVyZTE7IC8vIHsibWF0ZXJpYWwiOiJmbG93Iiwi"
+    "bGFiZWwiOiJ1aV9lZGl0b3JfcHJvcGVydGllc19zaGFrZV9kaXJlY3Rpb25fbWFwIiwi"
+    "bW9kZSI6ImZsb3dtYXNrIiwiZGVmYXVsdCI6InV0aWwvbm9mbG93In0NCnVuaWZvcm0g"
+    "c2FtcGxlcjJEIGdfVGV4dHVyZTI7IC8vIHsibWF0ZXJpYWwiOiJwaGFzZSIsImxhYmVs"
+    "IjoidWlfZWRpdG9yX3Byb3BlcnRpZXNfdGltZV9vZmZzZXQiLCJtb2RlIjoib3BhY2l0"
+    "eW1hc2siLCJkZWZhdWx0IjoidXRpbC93aGl0ZSJ9DQp1bmlmb3JtIHNhbXBsZXIyRCBn"
+    "X1RleHR1cmUzOyAvLyB7Im1hdGVyaWFsIjoibWFzayIsImxhYmVsIjoidWlfZWRpdG9y"
+    "X3Byb3BlcnRpZXNfb3BhY2l0eSIsIm1vZGUiOiJvcGFjaXR5bWFzayIsImNvbWJvIjoi"
+    "TUFTSyIsImRlZmF1bHQiOiJ1dGlsL3doaXRlIn0NCnVuaWZvcm0gZmxvYXQgZ19UaW1l"
+    "Ow0KDQp1bmlmb3JtIGZsb2F0IGdfU3BlZWQ7IC8vIHsibWF0ZXJpYWwiOiJzcGVlZCIs"
+    "ImxhYmVsIjoidWlfZWRpdG9yX3Byb3BlcnRpZXNfc3BlZWQiLCJkZWZhdWx0IjoxLCJy"
+    "YW5nZSI6WzAuMCwgMTBdfQ0KdW5pZm9ybSBmbG9hdCBnX0FtcDsgLy8geyJtYXRlcmlh"
+    "bCI6InN0cmVuZ3RoIiwibGFiZWwiOiJ1aV9lZGl0b3JfcHJvcGVydGllc19zdHJlbmd0"
+    "aCIsImRlZmF1bHQiOjAuMSwicmFuZ2UiOlswLjAxLCAwLjVdfQ0KdW5pZm9ybSB2ZWMy"
+    "IGdfRnJpY3Rpb247IC8vIHsibWF0ZXJpYWwiOiJmcmljdGlvbiIsImxhYmVsIjoidWlf"
+    "ZWRpdG9yX3Byb3BlcnRpZXNfZnJpY3Rpb24iLCJkZWZhdWx0IjoiMSAxIiwibGlua2Vk"
+    "Ijp0cnVlLCJyYW5nZSI6WzAuMDEsIDEwLjBdfQ0KDQojaWYgQVVESU9QUk9DRVNTSU5H"
+    "DQp2YXJ5aW5nIGZsb2F0IHZfQXVkaW9QdWxzZTsNCiNlbmRpZg0KDQojaWYgTUFTSyA9"
+    "PSAxDQp2YXJ5aW5nIHZlYzQgdl9UZXhDb29yZE1hc2s7DQojZW5kaWYNCg0Kdm9pZCBt"
+    "YWluKCkgew0KDQoJZmxvYXQgZmxvd1BoYXNlID0gdGV4U2FtcGxlMkQoZ19UZXh0dXJl"
+    "Miwgdl9UZXhDb29yZC56dykuciAqIE1fUElfMjsNCgl2ZWMyIGZsb3dDb2xvcnMgPSB0"
+    "ZXhTYW1wbGUyRChnX1RleHR1cmUxLCB2X1RleENvb3JkLnp3KS5yZzsNCgl2ZWMyIGZs"
+    "b3dNYXNrID0gKGZsb3dDb2xvcnMucmcgLSB2ZWMyKDAuNDk4LCAwLjQ5OCkpICogMi4w"
+    "Ow0KCWZsb2F0IG9mZnNldCA9IDAuMDsNCgkNCiNpZiBBVURJT1BST0NFU1NJTkcgPT0g"
+    "MA0KI2lmIE5PSVNFDQoJdmVjNCBzaW5lcyA9IGZsb3dQaGFzZSArIGZyYWMoZ19TcGVl"
+    "ZCAqIGdfVGltZSAvIE1fUElfMiAqIHZlYzQoMSwgLTAuMTYxNjE2MTYsIDAuMDA4MzMz"
+    "MywgLTAuMDAwMTk4NDEpKSAqIE1fUElfMjsNCgl2ZWM0IGNzaW5lcyA9IGNvcyhzaW5l"
+    "cyk7DQoJc2luZXMgPSBzaW4oc2luZXMpOw0KCQ0KCXZlYzQgYmFzZSA9IHN0ZXAoMC4w"
+    "LCBjc2luZXMpOw0KCXNpbmVzID0gc2luZXMgKiAwLjQ5OCArIDAuNTsNCglzaW5lcyA9"
+    "IG1peCgxLjAgLSBwb3coMS4wIC0gc2luZXMsIENBU1Q0KGdfRnJpY3Rpb24ueCkpLCBw"
+    "b3coc2luZXMsIENBU1Q0KGdfRnJpY3Rpb24ueSkpLCBiYXNlKTsNCglvZmZzZXQgPSBk"
+    "b3QoQ0FTVDQoMC41KSwgc2luZXMpOw0KI2Vsc2UNCglmbG9hdCB0aW1lID0gZ19TcGVl"
+    "ZCAqIGdfVGltZSArIGZsb3dQaGFzZTsNCglvZmZzZXQgPSBzaW4oZnJhYyh0aW1lIC8g"
+    "TV9QSV8yKSAqIE1fUElfMik7DQoJb2Zmc2V0ID0gb2Zmc2V0ICogMC40OTggKyAwLjU7"
+    "DQoJZmxvYXQgYmFzZSA9IHN0ZXAoMC4wLCBjb3ModGltZSkpOw0KCW9mZnNldCA9IG1p"
+    "eCgxLjAgLSBwb3coMS4wIC0gb2Zmc2V0LCBnX0ZyaWN0aW9uLngpLCBwb3cob2Zmc2V0"
+    "LCBnX0ZyaWN0aW9uLnkpLCBiYXNlKTsNCiNlbmRpZg0KCW9mZnNldCA9IHNhdHVyYXRl"
+    "KChvZmZzZXQgLSB2X0JvdW5kcy54KSAqIHZfQm91bmRzLnkpOw0KI2VuZGlmDQoNCg0K"
+    "I2lmIERJUkVDVElPTiA9PSAwDQojaWYgQVVESU9QUk9DRVNTSU5HDQoJb2Zmc2V0ICs9"
+    "IHZfQXVkaW9QdWxzZTsNCiNlbHNlDQoJb2Zmc2V0ID0gb2Zmc2V0ICogMi4wIC0gMS4w"
+    "Ow0KI2VuZGlmDQojZW5kaWYNCg0KI2lmIERJUkVDVElPTiA9PSAxDQojaWYgQVVESU9Q"
+    "Uk9DRVNTSU5HDQoJb2Zmc2V0ID0gMS4wIC0gdl9BdWRpb1B1bHNlOw0KI2VuZGlmDQoj"
+    "ZW5kaWYNCg0KI2lmIERJUkVDVElPTiA9PSAyDQojaWYgQVVESU9QUk9DRVNTSU5HDQoJ"
+    "b2Zmc2V0IC09IHZfQXVkaW9QdWxzZTsNCiNlbHNlDQoJb2Zmc2V0ID0gb2Zmc2V0IC0g"
+    "MS4wOw0KI2VuZGlmDQojZW5kaWYNCgkNCgl2ZWMyIHRleENvb3JkT2Zmc2V0ID0gb2Zm"
+    "c2V0ICogZ19BbXAgKiBnX0FtcCAqIGZsb3dNYXNrOw0KCWdsX0ZyYWdDb2xvciA9IHRl"
+    "eFNhbXBsZTJEKGdfVGV4dHVyZTAsIHRleENvb3JkT2Zmc2V0ICsgdl9UZXhDb29yZC54"
+    "eSk7DQoJDQojaWYgTUFTSyA9PSAxDQoJLy8gT25seSBhbGxvdyBzYW1wbGluZyBmcm9t"
+    "IG1hc2sNCglmbG9hdCBtYXNrID0gdGV4U2FtcGxlMkQoZ19UZXh0dXJlMywgdGV4Q29v"
+    "cmRPZmZzZXQgKiB2X1RleENvb3JkTWFzay56dyArIHZfVGV4Q29vcmRNYXNrLnh5KS5y"
+    "Ow0KCWdsX0ZyYWdDb2xvciA9IG1peCh0ZXhTYW1wbGUyRChnX1RleHR1cmUwLCB2X1Rl"
+    "eENvb3JkLnh5KSwgZ2xfRnJhZ0NvbG9yLCBtYXNrKTsNCiNlbmRpZg0KfQ0K"
+)
+
 HARNESS = r'''
 import Foundation
 
@@ -170,6 +238,7 @@ enum Harness {
         var materialCombos: [String: Int] = [:]
         var missingConstant: String?
         var extraConstant = false
+        var constantSubset: [String]?
         var boundConstant: String?
         var wrongKindConstant: String?
         var bounds = [0.0, 1.0]
@@ -216,6 +285,9 @@ enum Harness {
             "speed": value([options.speed], kind: "number"),
             "strength": value([options.strength], kind: "number"),
         ]
+        if let subset = options.constantSubset {
+            result = result.filter { subset.contains($0.key) }
+        }
         if let key = options.missingConstant { result.removeValue(forKey: key) }
         if options.extraConstant { result["extra"] = value([1], kind: "number") }
         if let key = options.boundConstant, let existing = result[key] {
@@ -447,6 +519,17 @@ enum Harness {
         return mode == "duplicate" ? [contract, contract] : [changed]
     }
 
+    static func planned(
+        descriptorOptions: Options = .init(),
+        contracts: [SceneShaderContract]
+    ) -> SceneShakeExecutionPlan? {
+        SceneAuthoredShakePlanner.plan(
+            graph: graph(),
+            descriptor: descriptor(descriptorOptions),
+            shaderContracts: contracts
+        )
+    }
+
     static func accepted(
         graphOptions: GraphOptions = .init(),
         descriptorOptions: Options = .init(),
@@ -469,6 +552,11 @@ enum Harness {
         let contracts = SceneShaderContractLoader().load(
             shaderReferences: [shaderIdentity],
             rootURL: root
+        )
+        let legacyRoot = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
+        let legacyContracts = SceneShaderContractLoader().load(
+            shaderReferences: [shaderIdentity],
+            rootURL: legacyRoot
         )
         let plan = SceneAuthoredShakePlanner.plan(
             graph: graph(),
@@ -510,6 +598,23 @@ enum Harness {
         var duplicateMaterial = Options(); duplicateMaterial.duplicateMaterial = true
         var hidden = Options(); hidden.visible = false
         var particle = Options(); particle.contentKind = "particle"
+
+        var emptyConstants = Options(); emptyConstants.constantSubset = []
+        var strengthOnly = Options(); strengthOnly.constantSubset = ["strength"]
+        strengthOnly.strength = 0.3
+        var strengthOutOfRange = Options(); strengthOutOfRange.constantSubset = ["strength"]
+        strengthOutOfRange.strength = 0.6
+        var legacyAudio = Options(); legacyAudio.instanceCombos = ["AUDIOPROCESSING": 3]
+        var legacyTimeOffset = Options(); legacyTimeOffset.instanceCombos = ["TIMEOFFSET": 1]
+        let legacyPlan = planned(contracts: legacyContracts)
+        let legacyEmptyPlan = planned(
+            descriptorOptions: emptyConstants,
+            contracts: legacyContracts
+        )
+        let legacyStrengthPlan = planned(
+            descriptorOptions: strengthOnly,
+            contracts: legacyContracts
+        )
 
         let definitionMutations = [
             "missing", "version", "replacement", "name", "description", "group",
@@ -560,6 +665,42 @@ enum Harness {
             "contractRejected": contractMutations.allSatisfy {
                 !accepted(contracts: mutate(contracts, $0))
             },
+            "stockSubsetRejected": [emptyConstants, strengthOnly]
+                .allSatisfy { !accepted(descriptorOptions: $0, contracts: contracts) },
+            "legacyCanonicalContract": legacyContracts.first?.canonicalSHA256
+                == "af9b4c97f86d10182d73b239cea9fd377ffcd4ac9ee8f7947c3dddea58898963",
+            "legacyExactAccepted": legacyPlan.map {
+                $0.layerID == layerID
+                    && $0.flowTexturePath == flowPath
+                    && $0.phaseTexturePath == phasePath
+                    && $0.bounds == SIMD2(0, 1)
+                    && $0.friction == SIMD2(1, 1)
+                    && $0.speed == 1
+                    && $0.strength == 0.1
+            } ?? false,
+            "legacyWhitePhaseAccepted": accepted(
+                descriptorOptions: noPhase,
+                contracts: legacyContracts
+            ),
+            "legacyEmptyConstantsBackfilled": legacyEmptyPlan.map {
+                $0.bounds == SIMD2(0, 1)
+                    && $0.friction == SIMD2(1, 1)
+                    && $0.speed == 1
+                    && $0.strength == 0.1
+            } ?? false,
+            "legacyStrengthOnlyBackfilled": legacyStrengthPlan.map {
+                $0.bounds == SIMD2(0, 1)
+                    && $0.friction == SIMD2(1, 1)
+                    && $0.speed == 1
+                    && $0.strength == 0.3
+            } ?? false,
+            "legacyParameterRejected": [extra, badBounds, badFriction, badSpeed,
+                                        badStrength, strengthOutOfRange]
+                .allSatisfy { !accepted(descriptorOptions: $0, contracts: legacyContracts) },
+            "legacyDynamicRejected": [boundSpeed, wrongKind]
+                .allSatisfy { !accepted(descriptorOptions: $0, contracts: legacyContracts) },
+            "legacyComboRejected": [legacyAudio, noise, direction, mask, legacyTimeOffset]
+                .allSatisfy { !accepted(descriptorOptions: $0, contracts: legacyContracts) },
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -568,46 +709,74 @@ enum Harness {
 '''
 
 
+_HARNESS_OUTPUT: dict[str, bool] | None = None
+
+
+def harness_output(test: unittest.TestCase) -> dict[str, bool]:
+    global _HARNESS_OUTPUT
+    if _HARNESS_OUTPUT is not None:
+        return _HARNESS_OUTPUT
+    swiftc = shutil.which("swiftc")
+    if not swiftc:
+        test.skipTest("swiftc is unavailable")
+
+    with tempfile.TemporaryDirectory(prefix="scene-shake-planner-") as directory:
+        root = Path(directory)
+        stock_root = root / "stock"
+        legacy_root = root / "legacy"
+        for shader_root, fragment_base64 in (
+            (stock_root, FRAGMENT_BASE64),
+            (legacy_root, LEGACY_FRAGMENT_BASE64),
+        ):
+            effects = shader_root / "shaders/effects"
+            effects.mkdir(parents=True)
+            (effects / "shake.vert").write_bytes(base64.b64decode(VERTEX_BASE64))
+            (effects / "shake.frag").write_bytes(base64.b64decode(fragment_base64))
+        harness = root / "Harness.swift"
+        executable = root / "shake-planner-harness"
+        harness.write_text(HARNESS, encoding="utf-8")
+        compilation = subprocess.run(
+            [
+                swiftc,
+                "-parse-as-library",
+                *(str(path) for path in SWIFT_SOURCES),
+                str(harness),
+                "-o",
+                str(executable),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        test.assertEqual(compilation.returncode, 0, compilation.stderr)
+        completed = subprocess.run(
+            [str(executable), str(stock_root), str(legacy_root)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        test.assertEqual(completed.returncode, 0, completed.stderr)
+
+    _HARNESS_OUTPUT = json.loads(completed.stdout)
+    return _HARNESS_OUTPUT
+
+
 class SceneShakePlannerTests(unittest.TestCase):
+    def assert_flags(self, legacy: bool) -> None:
+        output = harness_output(self)
+        flags = {
+            key: value
+            for key, value in output.items()
+            if key.startswith("legacy") == legacy
+        }
+        self.assertTrue(flags)
+        self.assertTrue(all(flags.values()), flags)
+
     def test_stock_profile_is_exact_and_fail_closed(self) -> None:
-        swiftc = shutil.which("swiftc")
-        if not swiftc:
-            self.skipTest("swiftc is unavailable")
+        self.assert_flags(legacy=False)
 
-        with tempfile.TemporaryDirectory(prefix="scene-shake-planner-") as directory:
-            root = Path(directory)
-            shader_root = root / "shaders/effects"
-            shader_root.mkdir(parents=True)
-            (shader_root / "shake.vert").write_bytes(base64.b64decode(VERTEX_BASE64))
-            (shader_root / "shake.frag").write_bytes(base64.b64decode(FRAGMENT_BASE64))
-            harness = root / "Harness.swift"
-            executable = root / "shake-planner-harness"
-            harness.write_text(HARNESS, encoding="utf-8")
-            compilation = subprocess.run(
-                [
-                    swiftc,
-                    "-parse-as-library",
-                    *(str(path) for path in SWIFT_SOURCES),
-                    str(harness),
-                    "-o",
-                    str(executable),
-                ],
-                check=False,
-                capture_output=True,
-                text=True,
-            )
-            self.assertEqual(compilation.returncode, 0, compilation.stderr)
-            completed = subprocess.run(
-                [str(executable), str(root)],
-                check=False,
-                capture_output=True,
-                text=True,
-            )
-            self.assertEqual(completed.returncode, 0, completed.stderr)
-
-        output = json.loads(completed.stdout)
-        self.assertTrue(output)
-        self.assertTrue(all(output.values()), output)
+    def test_legacy_profile_backfills_shader_defaults(self) -> None:
+        self.assert_flags(legacy=True)
 
 
 if __name__ == "__main__":

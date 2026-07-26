@@ -1,4 +1,3 @@
-import CryptoKit
 import Foundation
 import simd
 
@@ -6,12 +5,16 @@ nonisolated struct SceneWaterWavesExecutionPlan {
     let layerID: Int
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
     let renderGraph: SceneAuthoredEffectRenderPlan
+    let shaderProfile: SceneWaterWavesShaderProfile
+    /// 已按 profile 归一（`legacyReversedDirection` 的基向量翻转折算为 +π）。
     let direction: Float
     let speed: Float
     let scale: Float
     let exponent: Float
     let strength: Float
-    let maskTexturePath: String
+    /// nil 表示 legacy 实例未绑遮罩（v1 default `util/white`、v2 MASK combo 未启用，
+    /// 均等价无遮罩）；stock profile 恒非 nil。
+    let maskTexturePath: String?
 }
 
 enum SceneAuthoredWaterWavesPlanner {
@@ -23,13 +26,6 @@ enum SceneAuthoredWaterWavesPlanner {
         let scale: Float
         let exponent: Float
         let strength: Float
-    }
-
-    private nonisolated struct CanonicalShaderPayload: Encodable {
-        let identity: String
-        let sourceKind: SceneShaderContract.SourceKind
-        let stages: [SceneShaderContract.Stage]
-        let diagnostics: [SceneShaderContract.Diagnostic]
     }
 
     nonisolated static func plan(
@@ -51,8 +47,8 @@ enum SceneAuthoredWaterWavesPlanner {
         let effect = graph.effects[0]
         let node = graph.nodes[0]
         guard normalized(effect.definitionPath) == definitionPath,
-              validDefinition(in: descriptor, path: effect.definitionPath),
-              shaderContractMatches(shaderContracts),
+              let profile = SceneWaterWavesShaderProfile.resolve(shaderContracts),
+              validDefinition(in: descriptor, path: effect.definitionPath, profile: profile),
               effect.nodeIndices == [node.nodeIndex],
               SceneAuthoredEffectInputValidator.accepts(
                   effect.input,
@@ -64,8 +60,11 @@ enum SceneAuthoredWaterWavesPlanner {
               validNode(node, effect: effect),
               validMaterialDescriptor(in: descriptor),
               let instance = instancePass(effect: effect, layer: layer),
-              let maskPath = maskPath(from: instance),
-              let parameters = parameters(from: instance.constantShaderValues),
+              let maskPath = maskPath(from: instance, profile: profile),
+              let parameters = parameters(
+                  from: instance.constantShaderValues,
+                  profile: profile
+              ),
               let resolved = SceneAuthoredMaterialResolver.resolve(
                   node: node,
                   graph: graph,
@@ -74,7 +73,8 @@ enum SceneAuthoredWaterWavesPlanner {
               validResolvedMaterial(
                   resolved,
                   maskPath: maskPath,
-                  parameters: parameters
+                  parameters: parameters,
+                  profile: profile
               ) else {
             return nil
         }
@@ -83,12 +83,13 @@ enum SceneAuthoredWaterWavesPlanner {
             layerID: graph.layerID,
             effectKey: effect.key,
             renderGraph: graph,
-            direction: parameters.direction,
+            shaderProfile: profile,
+            direction: parameters.direction + profile.directionOffset,
             speed: parameters.speed,
             scale: parameters.scale,
             exponent: parameters.exponent,
             strength: parameters.strength,
-            maskTexturePath: maskPath
+            maskTexturePath: maskPath.path
         )
     }
 
@@ -98,7 +99,8 @@ enum SceneAuthoredWaterWavesPlanner {
 
     private nonisolated static func validDefinition(
         in descriptor: SceneRenderDescriptor,
-        path: String
+        path: String,
+        profile: SceneWaterWavesShaderProfile
     ) -> Bool {
         let matches = descriptor.effectDefinitions.filter {
             normalized($0.relativePath) == normalized(path)
@@ -115,7 +117,7 @@ enum SceneAuthoredWaterWavesPlanner {
               definition.framebuffers.isEmpty,
               definition.dependencies.map(normalized) == dependencies,
               definition.functions == nil,
-              definition.gizmos == expectedGizmos,
+              definition.gizmos == (profile.expectsGizmos ? expectedGizmos : nil),
               definition.extraFields.isEmpty,
               definition.unknownFieldPaths.isEmpty,
               definition.passes.count == 1,
@@ -193,9 +195,18 @@ enum SceneAuthoredWaterWavesPlanner {
         return pass
     }
 
+    /// 区分「拒绝」（nil）与「合法无遮罩」（`.path == nil`，仅 legacy profile）。
+    private struct MaskResolution {
+        let path: String?
+    }
+
     private nonisolated static func maskPath(
-        from pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor
-    ) -> String? {
+        from pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor,
+        profile: SceneWaterWavesShaderProfile
+    ) -> MaskResolution? {
+        if pass.textureSlots.isEmpty && pass.texturePaths.isEmpty {
+            return profile.requiresMaskTexture ? nil : MaskResolution(path: nil)
+        }
         guard pass.textureSlots.count == 2,
               pass.textureSlots[0] == nil,
               let path = pass.textureSlots[1],
@@ -203,22 +214,26 @@ enum SceneAuthoredWaterWavesPlanner {
               pass.texturePaths == [path] else {
             return nil
         }
-        return path
+        return MaskResolution(path: path)
     }
 
     private nonisolated static func validResolvedMaterial(
         _ material: SceneResolvedMaterialNode,
-        maskPath: String,
-        parameters: Parameters
+        maskPath: MaskResolution,
+        parameters: Parameters,
+        profile: SceneWaterWavesShaderProfile
     ) -> Bool {
         guard normalized(material.shaderPath) == shaderIdentity,
               material.textureSlots.count == 8,
-              assetPath(material.textureSlots[1]) == maskPath,
+              assetPath(material.textureSlots[1]) == maskPath.path,
               material.textureSlots.enumerated().allSatisfy({
                   $0.offset == 1 || $0.element == nil
               }),
               material.combos.isEmpty,
-              let resolvedParameters = self.parameters(from: material.constants),
+              let resolvedParameters = self.parameters(
+                  from: material.constants,
+                  profile: profile
+              ),
               resolvedParameters.direction == parameters.direction,
               resolvedParameters.speed == parameters.speed,
               resolvedParameters.scale == parameters.scale,
@@ -244,7 +259,8 @@ enum SceneAuthoredWaterWavesPlanner {
     }
 
     private nonisolated static func parameters(
-        from authored: [String: SceneDocument.ShaderValue]
+        from authored: [String: SceneDocument.ShaderValue],
+        profile: SceneWaterWavesShaderProfile
     ) -> Parameters? {
         var values: [String: SceneDocument.ShaderValue] = [:]
         for (key, value) in authored {
@@ -252,21 +268,54 @@ enum SceneAuthoredWaterWavesPlanner {
                 return nil
             }
         }
-        guard Set(values.keys) == Set(["direction", "speed", "scale", "exponent", "strength"]),
-              let direction = scalar(values["direction"]),
-              let speed = scalar(values["speed"], range: 0.01...50),
-              let scale = scalar(values["scale"], range: 0.01...1000),
-              let exponent = scalar(values["exponent"], range: 0.51...4),
-              let strength = scalar(values["strength"], range: 0.01...1) else {
+        guard profile.allowsOmittedConstants else {
+            guard Set(values.keys)
+                == Set(["direction", "speed", "scale", "exponent", "strength"]),
+                let direction = scalar(values["direction"]),
+                let speed = scalar(values["speed"], range: 0.01...50),
+                let scale = scalar(values["scale"], range: 0.01...1000),
+                let exponent = scalar(values["exponent"], range: 0.51...4),
+                let strength = scalar(values["strength"], range: 0.01...1) else {
+                return nil
+            }
+            return Parameters(
+                direction: direction,
+                speed: speed,
+                scale: scale,
+                exponent: exponent,
+                strength: strength
+            )
+        }
+        // legacy shader 无 g_Exponent；语料按旧编辑器行为省略未改动键，缺省用注解 default。
+        // `perspective` 是 legacy 专有标量（range [0,0.2]），语料全部为 0，非 0 无执行
+        // oracle，fail closed；执行端因此无需 perspective 修正项。
+        let legacyKeys: Set<String> = ["direction", "speed", "scale", "strength", "perspective"]
+        guard Set(values.keys).isSubset(of: legacyKeys),
+              !profile.supportsExponent,
+              let direction = scalarOrDefault(values["direction"], default: 0),
+              let speed = scalarOrDefault(values["speed"], range: 0.01...50, default: 5),
+              let scale = scalarOrDefault(values["scale"], range: 0.01...1000, default: 200),
+              let strength = scalarOrDefault(values["strength"], range: 0.01...1, default: 0.1),
+              let perspective = scalarOrDefault(values["perspective"], range: 0...0.2, default: 0),
+              perspective == 0 else {
             return nil
         }
         return Parameters(
             direction: direction,
             speed: speed,
             scale: scale,
-            exponent: exponent,
+            exponent: 1,
             strength: strength
         )
+    }
+
+    private nonisolated static func scalarOrDefault(
+        _ value: SceneDocument.ShaderValue?,
+        range: ClosedRange<Double>? = nil,
+        default defaultValue: Float
+    ) -> Float? {
+        guard value != nil else { return defaultValue }
+        return scalar(value, range: range)
     }
 
     private nonisolated static func scalar(
@@ -279,49 +328,19 @@ enum SceneAuthoredWaterWavesPlanner {
               let components = value.components,
               components.count == 1,
               let component = components.first,
-              component.isFinite,
-              range?.contains(component) ?? true else {
+              component.isFinite else {
             return nil
         }
+        // range 按 Float 精度比较：作者值是编辑器 float32 序列化（语料
+        // `2131872317` 的 scale 0.01 存成 0.009999999776…），shader 消费同为 Float。
         let result = Float(component)
-        return result.isFinite ? result : nil
-    }
-
-    private nonisolated static func shaderContractMatches(
-        _ contracts: [SceneShaderContract]
-    ) -> Bool {
-        let matches = contracts.filter { normalized($0.identity) == shaderIdentity }
-        guard matches.count == 1, let contract = matches.first,
-              contract.sourceKind == .authoredSource,
-              contract.diagnostics.isEmpty,
-              contract.canonicalSHA256 == shaderCanonicalSHA256,
-              canonicalHash(contract) == shaderCanonicalSHA256,
-              contract.stages.count == 2 else {
-            return false
+        guard result.isFinite,
+              range.map({ ClosedRange(
+                  uncheckedBounds: (Float($0.lowerBound), Float($0.upperBound))
+              ).contains(result) }) ?? true else {
+            return nil
         }
-        let expected: [(SceneShaderContract.StageKind, String, String)] = [
-            (.vertex, vertexPath, vertexSHA256),
-            (.fragment, fragmentPath, fragmentSHA256),
-        ]
-        return zip(contract.stages, expected).allSatisfy { stage, fingerprint in
-            stage.kind == fingerprint.0
-                && normalized(stage.relativePath) == fingerprint.1
-                && stage.rawSHA256 == fingerprint.2
-                && sha256(Data(stage.source.utf8)) == fingerprint.2
-        }
-    }
-
-    private nonisolated static func canonicalHash(_ contract: SceneShaderContract) -> String {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        let payload = CanonicalShaderPayload(
-            identity: contract.identity,
-            sourceKind: contract.sourceKind,
-            stages: contract.stages,
-            diagnostics: contract.diagnostics
-        )
-        guard let data = try? encoder.encode(payload) else { return "" }
-        return sha256(data)
+        return result
     }
 
     private nonisolated static func effectOutput(
@@ -332,10 +351,6 @@ enum SceneAuthoredWaterWavesPlanner {
 
     private nonisolated static func normalized(_ value: String) -> String {
         value.replacingOccurrences(of: "\\", with: "/").lowercased()
-    }
-
-    private nonisolated static func sha256(_ data: Data) -> String {
-        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
     private nonisolated static let definitionPath = "effects/waterwaves/effect.json"
@@ -349,14 +364,6 @@ enum SceneAuthoredWaterWavesPlanner {
         "shaders/effects/waterwaves.frag",
         "shaders/effects/waterwaves.vert",
     ]
-    private nonisolated static let shaderCanonicalSHA256 =
-        "0aa56eeed43aa54d09ced6993f742c07a5dc0cfd1dcd89873f1fb22142e68831"
-    private nonisolated static let vertexPath = "shaders/effects/waterwaves.vert"
-    private nonisolated static let vertexSHA256 =
-        "188d1e33de160e86708329ed1401cdc546426293e1f0b66b041d5cd556fe388f"
-    private nonisolated static let fragmentPath = "shaders/effects/waterwaves.frag"
-    private nonisolated static let fragmentSHA256 =
-        "18df156687addc31957922f782ec5da44a126619b0ffd60c1b69557d2512d50e"
     private nonisolated static let expectedGizmos = SceneJSONValue.array([
         .object([
             "condition": .object(["PERSPECTIVE": .number(1)]),

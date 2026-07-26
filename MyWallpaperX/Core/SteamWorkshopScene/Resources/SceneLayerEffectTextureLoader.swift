@@ -20,20 +20,6 @@ struct SceneShakeEffectTextures {
     }
 }
 
-struct SceneWaterWavesEffectTextures {
-    let mask: MTLTexture?
-    let maskUVScale: SIMD2<Float>
-    let maskPath: String
-
-    func matches(_ plan: SceneWaterWavesExecutionPlan) -> Bool {
-        mask != nil && normalized(maskPath) == normalized(plan.maskTexturePath)
-    }
-
-    private func normalized(_ path: String) -> String {
-        path.replacingOccurrences(of: "\\", with: "/").lowercased()
-    }
-}
-
 struct SceneLayerEffectTextures {
     let irisMask: MTLTexture?
     let opacityMask: MTLTexture?
@@ -156,7 +142,7 @@ enum SceneLayerEffectTextureLoader {
             loader: loader,
             device: device
         )
-        let waterWaves = loadWaterWavesEffects(
+        let waterWaves = SceneWaterWavesEffectTextureLoader.load(
             for: layer,
             effectIDs: waterWavesEffectIDs,
             resolver: resolver,
@@ -213,42 +199,6 @@ enum SceneLayerEffectTextureLoader {
         )
     }
 
-    private static func loadWaterWavesEffects(
-        for layer: SceneRenderDescriptor.Layer,
-        effectIDs: Set<String>,
-        resolver: SceneTexturePathResolver,
-        loader: SceneTextureLoader,
-        device: MTLDevice
-    ) -> (textures: [String: SceneWaterWavesEffectTextures], message: String) {
-        var textures: [String: SceneWaterWavesEffectTextures] = [:]
-        var messages: [String] = []
-        for effect in layer.effects where effectIDs.contains(effect.id) {
-            guard effect.file.replacingOccurrences(of: "\\", with: "/").lowercased()
-                    == "effects/waterwaves/effect.json",
-                  effect.passes.count == 1,
-                  let pass = effect.passes.first,
-                  let maskPath = SceneEffectMaskSemantics.maskPath(in: pass) else {
-                continue
-            }
-            let maskURL = resolver.resolveTextureFile(named: maskPath)
-            let loaded = loadTexture(
-                url: maskURL,
-                label: "waterwaves mask",
-                loader: loader,
-                device: device
-            )
-            textures[effect.id] = SceneWaterWavesEffectTextures(
-                mask: loaded.texture,
-                maskUVScale: mappedUVScale(for: maskURL, texture: loaded.texture),
-                maskPath: maskPath
-            )
-            messages.append(maskURL == nil
-                ? "; waterwaves mask missing \(maskPath)"
-                : loaded.message)
-        }
-        return (textures, messages.joined())
-    }
-
     private static func loadShakeEffects(
         for layer: SceneRenderDescriptor.Layer,
         effectIDs: Set<String>,
@@ -268,9 +218,15 @@ enum SceneLayerEffectTextureLoader {
                   let flowPath = pass.textureSlots[1] else {
                 continue
             }
-            let phasePath = pass.textureSlots.indices.contains(2)
+            // legacy 实例显式写 shader 默认 `util/white` 时按缺省处理（等价 nil，
+            // 走 pipeline 内置 R8 白回退），与 planner 的归一保持一致。
+            let rawPhasePath = pass.textureSlots.indices.contains(2)
                 ? pass.textureSlots[2]
                 : nil
+            let phasePath = rawPhasePath.flatMap { path -> String? in
+                path.replacingOccurrences(of: "\\", with: "/").lowercased()
+                    == "util/white" ? nil : path
+            }
             let flowURL = resolver.resolveTextureFile(named: flowPath)
             let phaseURL = phasePath.flatMap(resolver.resolveTextureFile(named:))
             let flow = loadTexture(

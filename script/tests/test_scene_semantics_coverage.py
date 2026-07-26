@@ -330,7 +330,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         self.assertEqual(len(set(asset_ids)), 45, "Effect asset IDs must be unique")
         self.assertEqual(
             {level: levels[level] for level in ("L0", "L1", "L2", "L3", "L4")},
-            {"L0": 0, "L1": 24, "L2": 5, "L3": 16, "L4": 0},
+            {"L0": 0, "L1": 23, "L2": 5, "L3": 17, "L4": 0},
         )
 
     def test_generic_graph_primitives_remain_l2(self) -> None:
@@ -419,8 +419,8 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             )
 
         report_paths = (
-            ".codex/scene-nested-child-full45-20260727/report.json",
-            ".codex/scene-nested-child-fixed13-20260727/report.json",
+            ".codex/scene-legacy-fingerprints-20260727/full45-report.json",
+            ".codex/scene-legacy-fingerprints-20260727/fixed13-report.json",
         )
         for path in current_state_documents:
             for report_path in report_paths:
