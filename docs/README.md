@@ -8,6 +8,7 @@
 - [scene/semantics/coverage-ledger.md](scene/semantics/coverage-ledger.md)：Scene 当前系统级摘要；新会话从这里定位系统，再进入专项能力表。
 - [scene/semantics/runtime-evidence-index.md](scene/semantics/runtime-evidence-index.md)：Scene 当前提交、正式运行门、签名身份与能力证据包。
 - [scene/scene-capability-development-plan-2026-07-22.md](scene/scene-capability-development-plan-2026-07-22.md)：Scene 现役实施顺序、样本规范和测试门。
+- [scene/scene-audio-spectrum-development-plan-2026-07-27.md](scene/scene-audio-spectrum-development-plan-2026-07-27.md)：Scene 音频频谱链路专项计划；含 45 样本 audio 声明 census、stock shader 算法合同和 A0-A4 批次门。
 - [web/README.md](web/README.md)：Web 壁纸当前专题入口。
 - [release/release-signing.md](release/release-signing.md)：发布签名与 notarization 流程。
 
