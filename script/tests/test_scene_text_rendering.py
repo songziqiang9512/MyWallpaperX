@@ -12,7 +12,7 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-STOCK_FONT_BUNDLE = REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneStockFonts.bundle"
+STOCK_FONT_BUNDLE = REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneStockAssets.bundle"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Text/SceneTextDescriptor.swift",
     SOURCE_ROOT / "Text/SceneTextGeometry.swift",
@@ -472,7 +472,7 @@ class SceneTextRenderingTests(unittest.TestCase):
     def test_licensed_client_stock_fonts_render_real_glyphs_from_app_bundle(self) -> None:
         # 官方 `assets/fonts` 下 15 个客户端自带字体；作者写 `fonts/X` 时官方先找壁纸包内、
         # 再用客户端自带。其中 8 个的许可允许再分发（OFL/Apache/CC-BY/freeware），随 app
-        # 打进 SceneStockFonts.bundle，必须命中原版字形而不是本机家族近似：PostScript 名
+        # 打进 SceneStockAssets.bundle/assets/fonts，必须命中原版字形而不是本机家族近似：PostScript 名
         # 不能是近似目标（Helvetica/Menlo/Apple Color Emoji）。
         # `Blackout 2 AM` 的内嵌 copyright 写 All rights reserved，但 The League of
         # Moveable Type 以 OFL 发布的同名文件与客户端那份 SHA-256 逐字节相同，因此算原版。
@@ -541,9 +541,9 @@ class SceneTextRenderingTests(unittest.TestCase):
     def test_stock_font_bundle_ships_a_license_for_every_font(self) -> None:
         # OFL / Apache 2.0 / CC-BY / monofur 的 freeware 条款都要求随附许可与署名；
         # 少一份文本，这个 bundle 的再分发本身就失去授权。
-        fonts = sorted(path.name for path in (STOCK_FONT_BUNDLE / "Fonts").iterdir())
+        fonts = sorted(path.name for path in (STOCK_FONT_BUNDLE / "assets/fonts").iterdir())
         licenses = sorted(path.name for path in (STOCK_FONT_BUNDLE / "Licenses").iterdir())
-        self.assertEqual(len(fonts), 13)
+        self.assertEqual(len(fonts), 15)
         self.assertTrue((STOCK_FONT_BUNDLE / "NOTICE.md").is_file())
         notice = (STOCK_FONT_BUNDLE / "NOTICE.md").read_text(encoding="utf-8")
         for name in fonts:

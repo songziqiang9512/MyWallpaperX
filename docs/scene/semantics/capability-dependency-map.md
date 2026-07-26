@@ -102,7 +102,7 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
 | provider identity/status/generation/fallback | layer/named/property 子集 `L3`；静态 resource generation 与 named frame epoch 已分离 | 显式 dynamic generation、metadata、video/system/media/variant、nested/effectful/child producer |
-| candidate selection | 受限 static image blend；Particle slot 0 先取样本本地资源，再按 exact catalog identity 取 stock bundle TEX | 通用 material slots 0...7；stock placeholder 的尺寸/通道/mip/atlas metadata；pending/unavailable 不截断 authored fallback |
+| candidate selection | 受限 static image blend；Particle slot 0 先取样本本地资源，再按官方相对路径直接取 stock bundle TEX | 通用 material slots 0...7；stock placeholder 的尺寸/通道/mip/atlas metadata；pending/unavailable 不截断 authored fallback |
 | upload/cancel/teardown | PNG/JPEG property 子集 | video frame、thumbnail、device rebuild、stale generation 和 budget |
 
 <a id="d6"></a>
@@ -183,7 +183,7 @@ F0 完成后才开始下一轮代码。F1/F2 优先级由公共依赖决定，�
 
 ## 6. 下次会话的决策顺序
 
-1. B0 live-property、direct dynamic text、B2 target-table、十一类 strict backend、ordered strict chain、同帧 copy/swap、受限 history seed、Precise Blur material-command interleave、pointer-driven X-Ray、Puppet、strict depth-one particle child、root child aggregate budget、有限 static origin、stock TEX resolver、22-key bundle-missing fallback、非音频 turbulent velocity、BC premultiply、静态 authored 首帧 fallback，以及 REFRACT fail-closed 已合龙。当前实现基线为 `678a052` 加 stock resolver 批次；311 项 exact identity 已路由，但 TEX 仍只封装同一 16x16 占位，298 个 sidecar 也未被 runtime 消费，不能把 identity wired 写成视觉兼容。下一代码批仍按 [开发计划](../scene-capability-development-plan-2026-07-22.md) 处理 nested ownership、递归深度与跨层总预算；共享 material pass executor 继续服从 [Render Graph 覆盖表第 6 节](render-graph-shader-coverage.md) 的 consolidation 判据。
+1. B0 live-property、direct dynamic text、B2 target-table、十一类 strict backend、ordered strict chain、同帧 copy/swap、受限 history seed、Precise Blur material-command interleave、pointer-driven X-Ray、Puppet、strict depth-one particle child、root child aggregate budget、有限 static origin、stock TEX resolver、22-key bundle-missing fallback、非音频 turbulent velocity、BC premultiply、静态 authored 首帧 fallback，以及 REFRACT fail-closed 已合龙。当前实现基线为 `678a052` 加 stock 资产批次；`SceneStockAssets.bundle` 已建立 919 个播放候选物理路径，其中 223 TEX 可直接查找、198 个 sidecar 尚未被 runtime 消费；占位 TEX 仍只封装同一 16x16 图，不能把路径存在写成视觉兼容。下一代码批仍按 [开发计划](../scene-capability-development-plan-2026-07-22.md) 处理 nested ownership、递归深度与跨层总预算；共享 material pass executor 继续服从 [Render Graph 覆盖表第 6 节](render-graph-shader-coverage.md) 的 consolidation 判据。
 2. 打开对应专项表，确认作者启用、输入、当前等级、未知项、依赖和验收门。
 3. 查 [运行证据索引](runtime-evidence-index.md)，确认现有正反例，不重复制造无信息矩阵。
 4. 只实现一个可独立验证的公共合同；涉及 live property 时，compiler target、真实 consumer、fallback 和 surface/window identity 必须同批验收，目标样本和相关样本通过后单独提交。

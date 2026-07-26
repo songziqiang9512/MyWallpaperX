@@ -15,7 +15,7 @@ SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneStockTextureResolver.swift"
 )
-BUNDLE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneStockTextures.bundle"
+BUNDLE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneStockAssets.bundle"
 
 HARNESS_SOURCE = r'''
 import Foundation
@@ -80,7 +80,6 @@ class SceneStockTextureResolverTests(unittest.TestCase):
             r"Materials\Particle\Fire\Fire1.TEX",
             "assets/materials/particle/fire/fire1.tex",
             "materials/lut/neutral.tex",
-            "effects/waterflow/preview/materials/effects/waterflowphase",
         ]
         paths = self.run_harness(references)
         fire = str(BUNDLE_ROOT / "assets/materials/particle/fire/fire1.tex")
@@ -91,32 +90,29 @@ class SceneStockTextureResolverTests(unittest.TestCase):
             paths["materials/lut/neutral.tex"],
             str(BUNDLE_ROOT / "assets/materials/lut/neutral.tex"),
         )
-        self.assertEqual(
-            paths["effects/waterflow/preview/materials/effects/waterflowphase"],
-            str(
-                BUNDLE_ROOT
-                / "assets/effects/waterflow/preview/materials/effects/waterflowphase.tex"
-            ),
-        )
-
-    def test_all_catalog_official_paths_resolve_to_project_tex_files(self) -> None:
-        catalog = json.loads((BUNDLE_ROOT / "texture-catalog.json").read_text())
-        references = [entry["official_path"] for entry in catalog["textures"]]
+    def test_all_playback_tex_paths_resolve_without_a_catalog(self) -> None:
+        texture_paths = sorted((BUNDLE_ROOT / "assets").rglob("*.tex"))
+        references = [path.relative_to(BUNDLE_ROOT).as_posix() for path in texture_paths]
         paths = self.run_harness(references)
-        self.assertEqual(len(paths), 311)
-        for entry in catalog["textures"]:
+        self.assertEqual(len(paths), 223)
+        for reference, texture_path in zip(references, texture_paths):
             self.assertEqual(
-                paths[entry["official_path"]],
-                str(BUNDLE_ROOT / entry["project_path"]),
+                paths[reference],
+                str(texture_path),
             )
 
     def test_missing_and_unsafe_references_fail_closed(self) -> None:
         references = [
             "particle/not-present",
+            "effects/waterflow/preview/materials/effects/waterflowphase",
             "../assets/materials/particle/fire/fire1.tex",
         ]
         paths = self.run_harness(references)
         self.assertEqual(paths["particle/not-present"], "missing")
+        self.assertEqual(
+            paths["effects/waterflow/preview/materials/effects/waterflowphase"],
+            "missing",
+        )
         self.assertEqual(
             paths["../assets/materials/particle/fire/fire1.tex"],
             "missing",

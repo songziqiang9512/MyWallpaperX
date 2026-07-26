@@ -934,7 +934,7 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertIn("builtInTextureUnavailable", kinds)
 
     def test_stock_tex_reference_loads_through_particle_runtime(self) -> None:
-        bundle = REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneStockTextures.bundle"
+        bundle = REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneStockAssets.bundle"
         result = self.run_harness("stock-synthetic", str(bundle))
         self.assertEqual(result["activeLayerIDs"], [21])
         self.assertEqual(result["textureWidth"], 16)

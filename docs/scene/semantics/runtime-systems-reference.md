@@ -194,7 +194,7 @@ Text 不是播放器 UI overlay。真实样本中的 text object 同时具有：
 
 字体文件与系统字体别名必须可诊断。找不到字体时记录 fallback 的具体字体，不能无声替换。
 
-MyWallpaperX 当前按 alias → 包内文件 → 客户端自带（stock）→ 缺失四层解析，路径安全判定优先于后三层。官方 `systemfont_*` 别名共 8 个，缺失家族退到形态最接近的本机家族（`consolas` 必须落回等宽，否则本机语料引用最多的别名会从等宽退化成比例字体）；客户端 `assets/fonts` 的 15 个 stock 名字全部有随 app 分发的真实字体文件（`SceneStockFonts.bundle`），其中 8 个许可允许再分发的搬原版、报 `stockBundled`，另外 7 个许可禁止再分发的换成逐个并排比对字形选出的自由字体、报 `stockSubstituted`，只有 app 包缺失或损坏时才落回本机家族近似并报 `stockApproximation`。替代字形不是官方字形等价，见 [E-TEXT-FONTREF](runtime-evidence-index.md#e-text-fontref)。
+MyWallpaperX 当前按 alias → 包内文件 → 客户端自带（stock）→ 缺失四层解析，路径安全判定优先于后三层。官方 `systemfont_*` 别名共 8 个，缺失家族退到形态最接近的本机家族（`consolas` 必须落回等宽，否则本机语料引用最多的别名会从等宽退化成比例字体）；客户端 `assets/fonts` 的 15 个 stock 名字全部物理位于 `SceneStockAssets.bundle/assets/fonts`。8 个许可允许再分发的搬原版、报 `stockBundled`；另外 7 个许可禁止再分发的换成逐项比对字形选出的自由字体，payload 直接复制成官方文件名并报 `stockSubstituted`，runtime 不维护替代文件名映射。只有 app 包缺失或损坏时才落回本机家族近似并报 `stockApproximation`。替代字形不是官方字形等价，见 [E-TEXT-FONTREF](runtime-evidence-index.md#e-text-fontref)。
 
 MyWallpaperX 当前的 `pointsize * 300 / 72` 直接来自官方 typings 对 `ITextLayer.pointsize` 的 300 DPI 说明，并由随包 `dino_run` 两个记分标签的作者 size 逐位复现，见 [E-TEXT-POINTSIZE](runtime-evidence-index.md#e-text-pointsize)。但 scene unit、raster backing scale 和 Retina 输出之间的精确关系仍需官方 Windows 对照，本地还对像素字号做了 1024 的夹取；实现和文档都不能把这一个换算提升为完整文字语义。
 

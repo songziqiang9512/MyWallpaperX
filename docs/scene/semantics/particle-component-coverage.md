@@ -41,7 +41,7 @@
 | TRAIL | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleTrailRenderPlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleTrailRenderPlan.swift) |
 | TEX | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleTextureSource.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleTextureSource.swift) |
 | BUILTIN | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleBuiltInTextureRegistry.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleBuiltInTextureRegistry.swift) |
-| STOCK-CATALOG | [stock 纹理身份目录](stock-texture-asset-catalog.md) |
+| STOCK-ASSETS | [stock 播放资产包](stock-asset-bundle.md) |
 | STOCK-RESOLVER | [MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneStockTextureResolver.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneStockTextureResolver.swift) |
 | PLAY | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticlePlaybackState.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticlePlaybackState.swift) |
 | T-DEF | [script/tests/test_scene_particle_definitions.py](../../../script/tests/test_scene_particle_definitions.py) |
@@ -52,7 +52,7 @@
 | T-CAM | [script/tests/test_scene_particle_camera_frame.py](../../../script/tests/test_scene_particle_camera_frame.py) |
 | T-TRAIL | [script/tests/test_scene_particle_trail_plan.py](../../../script/tests/test_scene_particle_trail_plan.py) |
 | T-TEX | [script/tests/test_scene_particle_builtin_textures.py](../../../script/tests/test_scene_particle_builtin_textures.py) |
-| T-CATALOG | [script/tests/test_scene_stock_texture_catalog.py](../../../script/tests/test_scene_stock_texture_catalog.py) |
+| T-BUNDLE | [script/tests/test_scene_stock_asset_bundle.py](../../../script/tests/test_scene_stock_asset_bundle.py) |
 | T-STOCK | [script/tests/test_scene_stock_texture_resolver.py](../../../script/tests/test_scene_stock_texture_resolver.py) |
 
 ## 3. General
@@ -269,7 +269,7 @@
 | M14 Depth test/write/cull | perspective/world 粒子可需要 depth 和 cull render state。 | `L0` | [AST] [GPU] | Particle material adapter 只携带 blending。 | typed render state + depth attachment 正反门。 |
 | M15 Material combos/constants | combo/constant 选择 shader variant 和参数。 | `L0` | [AST] [GPU] | Particle adapter 丢弃 combos/constants。 | 保真 IR、variant key 和参数 buffer fixture。 |
 | M16 File-backed TEX/PNG/JPEG | 合法本地 particle texture 可解码并上传 GPU。 | `L3` | [AST] [RUN] [T-AST] [T-RUN] | 格式集合受 SceneTextureLoader 限制；无跨格式视觉 parity。 | TEX variants、color space、损坏资源负向门。 |
-| M17 Built-in texture identity | `particle/...` key 指向 Wallpaper Engine 内置粒子资产。 | `L2` | [TEX] [AST] [STOCK-CATALOG] [STOCK-RESOLVER] [T-AST] [T-RUN] [T-CATALOG] [T-STOCK] | 2.8.42 / build 23967692 的 311 项 stock TEX 与 298 项 sidecar 身份已版本化建账，其中 `assets/materials/particle` TEX 164 项；样本本地纹理优先，缺失时按 exact catalog identity 把 `.tex`/无扩展名引用映射到 bundle TEX。311/311 official TEX path 映射门和 298/298 sidecar 路径门通过，TEX 定向 runtime 门加载为 16x16。当前全是同一占位图，sidecar 不进入 runtime，无对应官方尺寸/通道/mip/atlas/像素语义，因此只到 wired。 | 逐项替换为自有 TEX/sidecar，补尺寸、通道、mip、atlas、颜色空间和 Windows pixel 门后再升级。 |
+| M17 Built-in texture identity | `particle/...` key 指向 Wallpaper Engine 内置粒子资产。 | `L2` | [TEX] [AST] [STOCK-ASSETS] [STOCK-RESOLVER] [T-AST] [T-RUN] [T-BUNDLE] [T-STOCK] | 2.8.42 / build 23967692 的 919 个播放候选路径已在 `SceneStockAssets.bundle` 建立物理占位，其中 223 TEX、198 sidecar，`assets/materials/particle` TEX 164 项；样本本地纹理优先，缺失时直接把 `.tex`/无扩展名引用映射到官方相对路径，不依赖 catalog。223/223 TEX 直查门和 919 项 bundle 集合门通过，TEX 定向 runtime 门加载为 16x16。当前全是同一占位图，sidecar 不进入 runtime，无对应官方尺寸/通道/mip/atlas/像素语义，因此只到 wired。 | 逐项原位替换为自有 TEX/sidecar，补尺寸、通道、mip、atlas、颜色空间和 Windows pixel 门后再升级。 |
 | M18 Twenty-two generated built-ins | 二十二个高命中 key 可生成确定性替代纹理，形态按官方 `.tex` 解码后的 alpha 场拟合。 | `L3` | [TEX] [BUILTIN] [T-TEX] [T-RUN] | stock bundle 可用时优先直接读取对应 TEX；本 registry 只作为 bundle 缺失时的兼容回退。程序图形不是官方资产。尺寸对齐官方 `imageWidth`/`imageHeight`，非方形 key 不再按方形近似（`drop`/`beam_1` 32×128、`light_shafts_0` 256×512、`light_shafts_6` 128×512、`flare_1` 256×256）。八个静态 key 以本地解码的官方 alpha 为参照做网格拟合，归一化坐标 64×64 采样的引用次数加权 RMSE 为 0.0373：`halo_4` 0.0106、`flare_1` 0.0253、`light_shafts_0` 0.0359、`light_shafts_6` 0.0365、`halo_6` 0.0368、`beam_1` 0.0405、`drop` 0.0477、`star` 0.1118。序列帧 key 仍只生成单帧且为灰度。 | bundle 占位 TEX 逐项具备真实素材后，以同路径 TEX 为主门；程序 fallback 保留确定性与安全 alpha 门。 |
 | M19 Missing built-in fail-closed | 未支持 built-in 应报告 unavailable，不能静默用任意白块。 | `L3` | [AST] [RUN] [T-AST] [T-RUN] | 诊断明确且层不可用；尚无用户可见降级说明。 | 诊断聚合和 fallback policy 产品门。 |
 | M20 Sprite atlas metadata | TEX frame origin/axes/duration 选择 atlas 子区域。 | `L3` | [RUN] [GPU] [T-GPU] | 仅当前 SpriteAnimation 结构；无多 texture sequence。 | rotated/trimmed/variable duration atlas pixel 门。 |

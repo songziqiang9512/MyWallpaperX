@@ -1,92 +1,48 @@
 import Foundation
 
 nonisolated struct SceneStockTextureResolver: Sendable {
-    private struct Catalog: Decodable {
-        struct Texture: Decodable {
-            let officialPath: String
-            let projectPath: String
-
-            enum CodingKeys: String, CodingKey {
-                case officialPath = "official_path"
-                case projectPath = "project_path"
-            }
-        }
-
-        let textures: [Texture]
-    }
-
     private let bundleRoot: URL
-    private let projectPathByReference: [String: String]
 
     init?(bundleRoot: URL) {
-        let catalogURL = bundleRoot.appendingPathComponent("texture-catalog.json")
-        guard let data = try? Data(contentsOf: catalogURL),
-              let catalog = try? JSONDecoder().decode(Catalog.self, from: data) else {
-            return nil
-        }
-
-        var mappings: [String: String] = [:]
-        var ambiguousReferences: Set<String> = []
-        for texture in catalog.textures {
-            guard Self.isSafeCatalogPath(texture.projectPath) else { continue }
-            for alias in Self.aliases(for: texture) {
-                if let existing = mappings[alias], existing != texture.projectPath {
-                    ambiguousReferences.insert(alias)
-                    mappings.removeValue(forKey: alias)
-                } else if !ambiguousReferences.contains(alias) {
-                    mappings[alias] = texture.projectPath
-                }
-            }
-        }
-
-        self.bundleRoot = bundleRoot.standardizedFileURL
-        self.projectPathByReference = mappings
+        let standardizedRoot = bundleRoot.standardizedFileURL
+        let assetsRoot = standardizedRoot.appendingPathComponent("assets", isDirectory: true)
+        guard FileManager.default.fileExists(atPath: assetsRoot.path) else { return nil }
+        self.bundleRoot = standardizedRoot
     }
 
     func textureURL(for rawReference: String) -> URL? {
-        guard let reference = Self.normalizedReference(rawReference),
-              let projectPath = projectPathByReference[reference] else {
-            return nil
+        guard let reference = Self.normalizedReference(rawReference) else { return nil }
+        for projectPath in Self.projectPathCandidates(for: reference) {
+            let candidate = bundleRoot.appendingPathComponent(projectPath).standardizedFileURL
+            guard candidate.path.hasPrefix(bundleRoot.path + "/") else { continue }
+            if FileManager.default.fileExists(atPath: candidate.path) {
+                return candidate
+            }
         }
-        let candidate = bundleRoot.appendingPathComponent(projectPath).standardizedFileURL
-        guard candidate.path.hasPrefix(bundleRoot.path + "/"),
-              FileManager.default.fileExists(atPath: candidate.path) else {
-            return nil
-        }
-        return candidate
+        return nil
     }
 
     static func defaultBundleRoot(in bundle: Bundle = .main) -> URL? {
-        if let bundled = bundle.url(forResource: "SceneStockTextures", withExtension: "bundle") {
+        if let bundled = bundle.url(forResource: "SceneStockAssets", withExtension: "bundle") {
             return bundled
         }
         guard let resourceURL = bundle.resourceURL else { return nil }
         let candidate = resourceURL.appendingPathComponent(
-            "SceneStockTextures.bundle",
+            "SceneStockAssets.bundle",
             isDirectory: true
         )
         return FileManager.default.fileExists(atPath: candidate.path) ? candidate : nil
     }
 
-    private static func aliases(for texture: Catalog.Texture) -> Set<String> {
-        var values: Set<String> = []
-        for rawPath in [texture.officialPath, texture.projectPath] {
-            guard let path = normalizedReference(rawPath) else { continue }
-            values.insert(path)
-            values.insert(removingTextureExtension(from: path))
-
-            guard path.hasPrefix("assets/") else { continue }
-            let withoutAssets = String(path.dropFirst("assets/".count))
-            values.insert(withoutAssets)
-            values.insert(removingTextureExtension(from: withoutAssets))
-
-            if withoutAssets.hasPrefix("materials/particle/") {
-                let particlePath = String(withoutAssets.dropFirst("materials/".count))
-                values.insert(particlePath)
-                values.insert(removingTextureExtension(from: particlePath))
-            }
+    private static func projectPathCandidates(for reference: String) -> [String] {
+        let withExtension = reference.hasSuffix(".tex") ? reference : reference + ".tex"
+        if withExtension.hasPrefix("assets/") {
+            return [withExtension]
         }
-        return values
+        if withExtension.hasPrefix("particle/") {
+            return ["assets/materials/" + withExtension]
+        }
+        return ["assets/" + withExtension]
     }
 
     private static func normalizedReference(_ rawReference: String) -> String? {
@@ -101,18 +57,5 @@ nonisolated struct SceneStockTextureResolver: Sendable {
             return nil
         }
         return value
-    }
-
-    private static func removingTextureExtension(from path: String) -> String {
-        path.hasSuffix(".tex") ? String(path.dropLast(".tex".count)) : path
-    }
-
-    private static func isSafeCatalogPath(_ path: String) -> Bool {
-        guard let normalized = normalizedReference(path),
-              normalized.hasPrefix("assets/"),
-              normalized.hasSuffix(".tex") else {
-            return false
-        }
-        return true
     }
 }

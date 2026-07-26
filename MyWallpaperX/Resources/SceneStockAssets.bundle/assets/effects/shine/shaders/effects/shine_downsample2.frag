@@ -1,0 +1,1 @@
+// MyWallpaperX stock asset placeholder

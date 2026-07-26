@@ -59,18 +59,9 @@ nonisolated enum SceneTextFontResolver {
         "systemfont_segoe": SystemAlias(family: "Segoe UI", fallbackFamily: "Helvetica"),
         "systemfont_verdana": SystemAlias(family: "Verdana", fallbackFamily: "Helvetica")
     ]
-    /// stock 字体的字形来源。官方客户端有权随自己分发全部 15 个字体，这个权利不传递给
-    /// MyWallpaperX，所以只有许可允许再分发的才搬原版文件，其余换成外形接近的自由字体。
-    private enum StockGlyphSource {
-        /// 官方原版字体文件，许可允许随 MyWallpaperX 再分发。
-        case original(String)
-        /// 原版禁止再分发，改用外形接近、许可明确的替代字体。
-        case substitute(String)
-    }
-
     private struct StockFont {
         let category: StockCategory
-        let glyphs: StockGlyphSource
+        let substituted: Bool
     }
 
     /// 官方客户端 `assets/fonts` 下的 15 个 stock 字体（另有 4 个 license `.txt`）。
@@ -78,76 +69,38 @@ nonisolated enum SceneTextFontResolver {
     /// COLR/sbix/CBDT 表，mono 看 fixed-pitch trait 或数字与字母 advance 是否一致，
     /// 其余比例字体按有无常规西文正文形态分成 sans / display。替代字体是逐个渲染
     /// "Hamburg 0123" 与原版并排比对后选的，不是按名字或类别硬凑。键是作者路径的小写
-    /// basename，括号里是 `SceneStockFonts.bundle/Fonts` 内的真实文件名。
+    /// basename。物理文件已在 `SceneStockAssets.bundle/assets/fonts` 中复制成官方文件名，
+    /// runtime 直接读取作者请求的相对路径，不维护另一套文件名映射。
     private static let stockFonts: [String: StockFont] = [
-        "8bitoperatorplus8-regular": StockFont(
-            category: .display,
-            glyphs: .original("8bitOperatorPlus8-Regular.ttf")
-        ),
+        "8bitoperatorplus8-regular": StockFont(category: .display, substituted: false),
         // 极细几何无衬线，Poppins ExtraLight 的单层 a、圆形 O 和线宽最接近。
-        "alcubierre": StockFont(
-            category: .display,
-            glyphs: .substitute("Poppins-ExtraLight.ttf")
-        ),
+        "alcubierre": StockFont(category: .display, substituted: true),
         // 语料里引用最多的 stock 字体（17 个去重 layer）。作者 EULA 明确禁止再分发，
         // 换成同为几何无衬线、字重与比例吻合的 Poppins Medium。
-        "atami-regular": StockFont(
-            category: .display,
-            glyphs: .substitute("Poppins-Medium.ttf")
-        ),
+        "atami-regular": StockFont(category: .display, substituted: true),
         // 内嵌 copyright 写 All rights reserved，但 The League of Moveable Type 以 OFL
         // 发布同一份文件（SHA-256 与官方客户端那份逐字节相同），因此是原版而不是替代。
-        "blackout 2 am": StockFont(
-            category: .display,
-            glyphs: .original("Blackout 2 AM.ttf")
-        ),
+        "blackout 2 am": StockFont(category: .display, substituted: false),
         // 同为七段数码管字体，直接复用已随包的 Segment7Standard。
-        "cursedtimerulil-aznm": StockFont(
-            category: .mono,
-            glyphs: .substitute("Segment7Standard.otf")
-        ),
+        "cursedtimerulil-aznm": StockFont(category: .mono, substituted: true),
         // 粗糙手绘大写，Bangers 是同类粗大写 display。
-        "kust": StockFont(category: .display, glyphs: .substitute("Bangers-Regular.ttf")),
+        "kust": StockFont(category: .display, substituted: true),
         // 80 年代粗斜笔刷，与 summer85 同属马克笔 display，共用 Permanent Marker。
-        "lazer84": StockFont(
-            category: .display,
-            glyphs: .substitute("PermanentMarker-Regular.ttf")
-        ),
-        "monofur-pk7og": StockFont(
-            category: .mono,
-            glyphs: .original("Monofur-PK7og.ttf")
-        ),
-        "notosans-regular": StockFont(
-            category: .sans,
-            glyphs: .original("NotoSans-Regular.ttf")
-        ),
-        "opensticks": StockFont(category: .mono, glyphs: .original("opensticks.ttf")),
-        "robotomono-regular": StockFont(
-            category: .mono,
-            glyphs: .original("RobotoMono-Regular.ttf")
-        ),
-        "segment7standard": StockFont(
-            category: .mono,
-            glyphs: .original("Segment7Standard.otf")
-        ),
+        "lazer84": StockFont(category: .display, substituted: true),
+        "monofur-pk7og": StockFont(category: .mono, substituted: false),
+        "notosans-regular": StockFont(category: .sans, substituted: false),
+        "opensticks": StockFont(category: .mono, substituted: false),
+        "robotomono-regular": StockFont(category: .mono, substituted: false),
+        "segment7standard": StockFont(category: .mono, substituted: false),
         // 立体描边字，Bungee Shade 的宽扁大写加阴影轮廓最接近。
-        "spincycle_3d_ot": StockFont(
-            category: .display,
-            glyphs: .substitute("BungeeShade-Regular.ttf")
-        ),
-        "summer85": StockFont(
-            category: .display,
-            glyphs: .substitute("PermanentMarker-Regular.ttf")
-        ),
-        "twemojimozilla": StockFont(
-            category: .emoji,
-            glyphs: .original("TwemojiMozilla.ttf")
-        )
+        "spincycle_3d_ot": StockFont(category: .display, substituted: true),
+        "summer85": StockFont(category: .display, substituted: true),
+        "twemojimozilla": StockFont(category: .emoji, substituted: false)
     ]
     /// 随 app 分发的 stock 字体目录。命令行门禁没有 app bundle，此时 `resourceURL` 就是
     /// 可执行文件所在目录，把同名 bundle 放在 binary 旁边即可命中同一条真实加载路径。
     private static let stockFontsDirectory: URL? = Bundle.main.resourceURL?
-        .appendingPathComponent("SceneStockFonts.bundle/Fonts", isDirectory: true)
+        .appendingPathComponent("SceneStockAssets.bundle/assets/fonts", isDirectory: true)
     private static let installedFontFamilies: Set<String> = {
         let names = CTFontManagerCopyAvailableFontFamilyNames() as? [String] ?? []
         return Set(names.map { $0.lowercased() })
@@ -191,6 +144,7 @@ nonisolated enum SceneTextFontResolver {
             if let stock = stockFonts[basename] {
                 return resolveStockFont(
                     stock,
+                    stockPath: normalizedPath,
                     requestedPath: path,
                     size: clampedSize
                 )
@@ -256,29 +210,19 @@ nonisolated enum SceneTextFontResolver {
 
     nonisolated private static func resolveStockFont(
         _ stock: StockFont,
+        stockPath: String,
         requestedPath: String,
         size: CGFloat
     ) -> Resolution {
-        switch stock.glyphs {
-        case let .original(fileName):
-            if let font = stockFont(fileName: fileName, size: size) {
-                return resolution(
-                    font: font,
-                    source: "stockBundled",
-                    diagnostic: nil,
-                    requestedPath: requestedPath
-                )
-            }
-        case let .substitute(fileName):
-            if let font = stockFont(fileName: fileName, size: size) {
-                // 替代字形不是官方原版，必须一直可见，否则报告会把近似读成等价。
-                return resolution(
-                    font: font,
-                    source: "stockSubstituted",
-                    diagnostic: "stockFontSubstituted:\(stock.category.rawValue)",
-                    requestedPath: requestedPath
-                )
-            }
+        if let font = stockFont(path: stockPath, size: size) {
+            return resolution(
+                font: font,
+                source: stock.substituted ? "stockSubstituted" : "stockBundled",
+                diagnostic: stock.substituted
+                    ? "stockFontSubstituted:\(stock.category.rawValue)"
+                    : nil,
+                requestedPath: requestedPath
+            )
         }
         return approximateStockFont(stock, requestedPath: requestedPath, size: size)
     }
@@ -301,9 +245,15 @@ nonisolated enum SceneTextFontResolver {
         )
     }
 
-    nonisolated private static func stockFont(fileName: String, size: CGFloat) -> CTFont? {
-        guard let stockFontsDirectory else { return nil }
-        let url = stockFontsDirectory.appendingPathComponent(fileName)
+    nonisolated private static func stockFont(path: String, size: CGFloat) -> CTFont? {
+        let parts = path.split(separator: "/", omittingEmptySubsequences: false)
+        guard let stockFontsDirectory,
+              parts.count == 2,
+              parts[0].lowercased() == "fonts",
+              !parts[1].isEmpty else {
+            return nil
+        }
+        let url = stockFontsDirectory.appendingPathComponent(String(parts[1]))
         guard let data = try? Data(contentsOf: url),
               let provider = CGDataProvider(data: data as CFData),
               let graphicsFont = CGFont(provider) else {
