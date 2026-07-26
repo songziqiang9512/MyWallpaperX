@@ -130,6 +130,7 @@ public final class WallpaperEngine: NSObject {
             }
         }
         systemAudioSpectrumService = makeSystemAudioSpectrumService(barCount: WallpaperEngine.defaultSpectrumBarCount)
+        observeSceneAudioSpectrumDemand()
         setupNotifications()
         scanDisplays()
     }

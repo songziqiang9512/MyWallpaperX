@@ -19,7 +19,21 @@ extension WallpaperEngine {
                 self?.updateWebAudioSpectrumLevels(levels)
             }
         }
+        // Scene 消费者按渲染帧自行采样，这里直接发布到 inbox，不经过主队列，
+        // 避免在 30 Hz 采集与 60 Hz 渲染之间多插一层调度延迟。
+        service.onSceneLevels = { left, right in
+            SceneAudioSpectrumInbox.shared.publish(left: left, right: right)
+        }
         return service
+    }
+
+    /// 由 `SceneAudioSpectrumInbox` 的需求变化驱动。Scene 没有消费者时不采集。
+    func observeSceneAudioSpectrumDemand() {
+        SceneAudioSpectrumInbox.shared.setDemandObserver { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.refreshSystemAudioSpectrumCapture()
+            }
+        }
     }
 
     public func setSystemAudioSpectrumEnabled(_ enabled: Bool) {
@@ -116,9 +130,17 @@ extension WallpaperEngine {
         let webCaptureRequested = captureAllowed
             && currentPlaybackContentKind == .web
             && currentWebAudioSpectrumRequested
+        // Scene 不走 daemon session，因此不参与 currentPlaybackContentKind 判定；
+        // 需求完全由 Scene runtime 侧的消费者声明决定。
+        let sceneCaptureRequested = captureAllowed
+            && SceneAudioSpectrumInbox.shared.isDemanded
+        if !sceneCaptureRequested {
+            SceneAudioSpectrumInbox.shared.clearSnapshot()
+        }
         systemAudioSpectrumService.setConsumers(
             overlayEnabled: captureAllowed && currentSystemAudioSpectrumEnabled,
-            webEnabled: webCaptureRequested
+            webEnabled: webCaptureRequested,
+            sceneEnabled: sceneCaptureRequested
         )
     }
 

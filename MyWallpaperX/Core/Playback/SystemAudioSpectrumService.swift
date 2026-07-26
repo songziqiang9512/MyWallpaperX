@@ -18,6 +18,7 @@ final class SystemAudioSpectrumService: NSObject {
     private let captureBuffer = SystemAudioCaptureBuffer(maximumFrameCount: 4096)
     private let overlayAnalyzer: SystemAudioOverlaySpectrumAnalyzer
     private let webAnalyzer = SystemAudioWebSpectrumAnalyzer()
+    private let sceneAnalyzer = SystemAudioSceneSpectrumAnalyzer()
     private lazy var configurationMonitor = SystemAudioCaptureConfigurationMonitor(queue: sampleQueue)
 
     private var processingSource: DispatchSourceUserDataAdd!
@@ -27,6 +28,7 @@ final class SystemAudioSpectrumService: NSObject {
     private var tapStreamFormat = AudioStreamBasicDescription()
     private var overlayEnabled = false
     private var webEnabled = false
+    private var sceneEnabled = false
     private var lastProcessedAt: TimeInterval = 0
     private var captureRetryAttempt = 0
     private var captureRetryWorkItem: DispatchWorkItem?
@@ -38,6 +40,7 @@ final class SystemAudioSpectrumService: NSObject {
 
     var onLevels: (([Float]) -> Void)?
     var onWebLevels: (([Float]) -> Void)?
+    var onSceneLevels: ((_ left: [Float], _ right: [Float]) -> Void)?
 
     init(barCount: Int) {
         self.barCount = barCount
@@ -61,7 +64,7 @@ final class SystemAudioSpectrumService: NSObject {
         stopCapture()
     }
 
-    func setConsumers(overlayEnabled: Bool, webEnabled: Bool) {
+    func setConsumers(overlayEnabled: Bool, webEnabled: Bool, sceneEnabled: Bool = false) {
         sampleQueue.async { [weak self] in
             guard let self else { return }
             if self.overlayEnabled != overlayEnabled {
@@ -70,8 +73,12 @@ final class SystemAudioSpectrumService: NSObject {
             if self.webEnabled != webEnabled {
                 self.onWebLevels?(Self.clearedWebLevels)
             }
+            if self.sceneEnabled != sceneEnabled {
+                self.onSceneLevels?(Self.clearedSceneLevels, Self.clearedSceneLevels)
+            }
             self.overlayEnabled = overlayEnabled
             self.webEnabled = webEnabled
+            self.sceneEnabled = sceneEnabled
             self.reconcileCaptureState()
         }
     }
@@ -87,8 +94,13 @@ final class SystemAudioSpectrumService: NSObject {
         }
     }
 
+    /// 任一消费者存在才采集；全部撤销时释放 tap 与聚合设备。
+    private var hasActiveConsumer: Bool {
+        overlayEnabled || webEnabled || sceneEnabled
+    }
+
     private func startCaptureIfNeeded() {
-        guard overlayEnabled || webEnabled else { return }
+        guard hasActiveConsumer else { return }
         guard tapID == kAudioObjectUnknown, aggregateDeviceID == kAudioObjectUnknown else { return }
         guard #available(macOS 14.2, *) else {
             NSLog("MWX AUDIO CAPTURE: unavailable before macOS 14.2")
@@ -158,7 +170,7 @@ final class SystemAudioSpectrumService: NSObject {
     }
 
     private func reconcileCaptureState() {
-        let shouldCapture = overlayEnabled || webEnabled
+        let shouldCapture = hasActiveConsumer
         let hasCaptureResources = tapID != kAudioObjectUnknown
             || aggregateDeviceID != kAudioObjectUnknown
             || ioProcID != nil
@@ -181,7 +193,7 @@ final class SystemAudioSpectrumService: NSObject {
     }
 
     private func scheduleCaptureRetryIfNeeded() {
-        guard overlayEnabled || webEnabled else { return }
+        guard hasActiveConsumer else { return }
         captureRetryAttempt += 1
         let delay = min(pow(2, Double(captureRetryAttempt - 1)), 30)
         let workItem = DispatchWorkItem { [weak self] in
@@ -197,7 +209,7 @@ final class SystemAudioSpectrumService: NSObject {
 
     private func scheduleCaptureRestart(reason: String, generation: Int) {
         guard generation == captureResourceGeneration,
-              overlayEnabled || webEnabled,
+              hasActiveConsumer,
               tapID != kAudioObjectUnknown,
               aggregateDeviceID != kAudioObjectUnknown else { return }
         captureRestartSequence += 1
@@ -208,7 +220,7 @@ final class SystemAudioSpectrumService: NSObject {
             guard let self,
                   self.captureRestartSequence == sequence,
                   self.captureResourceGeneration == generation,
-                  self.overlayEnabled || self.webEnabled else { return }
+                  self.hasActiveConsumer else { return }
             self.captureRestartWorkItem = nil
             NSLog("MWX AUDIO CAPTURE: restarting reason=%@ generation=%d", reason, generation)
             self.stopCapture()
@@ -219,13 +231,13 @@ final class SystemAudioSpectrumService: NSObject {
     }
 
     private func scheduleCaptureStartAfterRestart() {
-        guard overlayEnabled || webEnabled else { return }
+        guard hasActiveConsumer else { return }
         captureRestartSequence += 1
         let sequence = captureRestartSequence
         let workItem = DispatchWorkItem { [weak self] in
             guard let self,
                   self.captureRestartSequence == sequence,
-                  self.overlayEnabled || self.webEnabled else { return }
+                  self.hasActiveConsumer else { return }
             self.captureRestartWorkItem = nil
             self.startCaptureIfNeeded()
         }
@@ -268,6 +280,7 @@ final class SystemAudioSpectrumService: NSObject {
         lastProcessedAt = 0
         onLevels?(overlayAnalyzer.reset())
         onWebLevels?(Self.clearedWebLevels)
+        onSceneLevels?(Self.clearedSceneLevels, Self.clearedSceneLevels)
         if hadCapture {
             NSLog("MWX AUDIO CAPTURE: stopped")
         }
@@ -285,8 +298,10 @@ final class SystemAudioSpectrumService: NSObject {
     private func resetConsumersAfterCaptureFailure() {
         overlayEnabled = false
         webEnabled = false
+        sceneEnabled = false
         onLevels?(overlayAnalyzer.reset())
         onWebLevels?(Self.clearedWebLevels)
+        onSceneLevels?(Self.clearedSceneLevels, Self.clearedSceneLevels)
     }
 
     private func processAudioBufferList(_ inputData: UnsafePointer<AudioBufferList>) {
@@ -326,6 +341,15 @@ final class SystemAudioSpectrumService: NSObject {
         if webEnabled {
             onWebLevels?(webAnalyzer.analyze(frame, sampleRate: sampleRate))
         }
+        if sceneEnabled {
+            guard let sceneAnalyzer else {
+                // FFT setup 不可用时保持稳定零输入，不产生假波形。
+                onSceneLevels?(Self.clearedSceneLevels, Self.clearedSceneLevels)
+                return
+            }
+            let bands = sceneAnalyzer.analyze(frame, sampleRate: sampleRate)
+            onSceneLevels?(bands.left, bands.right)
+        }
     }
 }
 
@@ -333,5 +357,9 @@ private extension SystemAudioSpectrumService {
     static let clearedWebLevels = Array(
         repeating: Float(0),
         count: SystemAudioWebSpectrumAnalyzer.outputLevelCount
+    )
+    static let clearedSceneLevels = Array(
+        repeating: Float(0),
+        count: SystemAudioSceneSpectrumAnalyzer.bandCount
     )
 }
