@@ -12,13 +12,18 @@ import Foundation
 ///   2. `#if MASK` 分支：stock 是 `mask *= tex(g_Texture1).r`（与 g_BlendAlpha 相乘），
 ///      legacy 是 `mask = tex(g_Texture1).r`（覆盖 g_BlendAlpha）。
 ///
-/// `BLENDMODE` 的 `[COMBO]` 注解两版逐字符一致（default 30）；`MASK == 0` 时两版 main
+/// `BLENDMODE` 的 `[COMBO]` 注解两版逐字符一致（default 30）；无遮罩时两版 main
 /// 数学逐行相同（`mask = g_BlendAlpha` → `ApplyBlending` → `BLENDMODE == 0` 置 alpha=1，
-/// 无输出 clamp）。planner 只准入 `MASK == 0` 的实例，因此两 profile 当前执行语义一致，
-/// 不携带分流参数；将来放开 `MASK == 1` 时，mask 语义必须按 profile 分流（相乘 vs 覆盖）。
+/// 无输出 clamp）。槽位 1 绑图（编辑器在编译期自动置 `MASK=1`，语料 0 次显式声明）时
+/// 两版 mask 语义分流：stock `mask = g_BlendAlpha * tex.r`，legacy `mask = tex.r` 覆盖。
 nonisolated enum SceneTintShaderProfile: Equatable {
     case stock2842
     case legacyMaskOverride
+
+    /// `#if MASK` 分支语义：stock 将遮罩与 `g_BlendAlpha` 相乘，legacy 直接覆盖。
+    var maskMultipliesBlendAlpha: Bool {
+        self == .stock2842
+    }
 
     private struct CanonicalShaderPayload: Encodable {
         let identity: String

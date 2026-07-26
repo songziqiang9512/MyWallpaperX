@@ -49,7 +49,7 @@ enum SceneAuthoredTintPlanner {
         let node = graph.nodes[0]
         guard normalized(effect.definitionPath) == definitionPath,
               validDefinition(in: descriptor, path: effect.definitionPath),
-              SceneTintShaderProfile.resolve(shaderContracts) != nil,
+              let profile = SceneTintShaderProfile.resolve(shaderContracts),
               effect.nodeIndices == [node.nodeIndex],
               SceneAuthoredEffectInputValidator.accepts(
                   effect.input,
@@ -60,13 +60,13 @@ enum SceneAuthoredTintPlanner {
               graph.finalOutput == effect.output,
               validNode(node, effect: effect),
               validMaterialDescriptor(in: descriptor),
-              validInstance(effect: effect, layer: layer),
+              let maskPath = maskTexturePath(effect: effect, layer: layer),
               let resolved = SceneAuthoredMaterialResolver.resolve(
                   node: node,
                   graph: graph,
                   descriptor: descriptor
               ).node,
-              validResolvedMaterial(resolved),
+              validResolvedMaterial(resolved, maskPath: maskPath.path),
               let blendMode = blendMode(from: resolved.combos),
               let color = color(from: resolved.constants, effect: effect.key),
               let alpha = alpha(from: resolved.constants, effect: effect.key)
@@ -78,11 +78,13 @@ enum SceneAuthoredTintPlanner {
             layerID: graph.layerID,
             effectKey: effect.key,
             renderGraph: graph,
+            shaderProfile: profile,
             blendMode: blendMode,
             staticOrFallbackColor: color.value,
             staticOrFallbackAlpha: alpha.value,
             colorBinding: color.source.binding,
-            alphaBinding: alpha.source.binding
+            alphaBinding: alpha.source.binding,
+            maskTexturePath: maskPath.path
         )
     }
 
@@ -169,37 +171,73 @@ enum SceneAuthoredTintPlanner {
             && material.cullMode?.lowercased() == "nocull"
     }
 
-    private nonisolated static func validInstance(
+    /// 区分「拒绝」（nil）与「合法无遮罩」（`.path == nil`）。官方 tint.frag 的遮罩挂在
+    /// 槽位 1（`g_Texture1`），编辑器按绑图在编译期自动置 `MASK`（E-MASK-SLOT-COMBO，
+    /// 语料 0 次显式声明），语义为 `mask = g_BlendAlpha * tex.r`（stock）/ `tex.r` 覆盖
+    /// （legacy），是 `ApplyBlending` 的混合权重，不动 alpha 通道。
+    private struct MaskResolution {
+        let path: String?
+    }
+
+    private nonisolated static func maskTexturePath(
         effect: Graph.Effect,
         layer: SceneRenderDescriptor.Layer
-    ) -> Bool {
-        guard layer.effects.indices.contains(effect.key.effectIndex) else { return false }
+    ) -> MaskResolution? {
+        guard layer.effects.indices.contains(effect.key.effectIndex) else { return nil }
         let descriptor = layer.effects[effect.key.effectIndex]
         guard descriptor.id == effect.key.descriptorID,
               normalized(descriptor.file) == definitionPath,
               descriptor.visible != false,
               descriptor.passes.count == 1,
-              let pass = descriptor.passes.first
+              let pass = descriptor.passes.first,
+              pass.passIndex == 0,
+              pass.userTextureInputs.isEmpty,
+              validCombos(pass.combos)
         else {
-            return false
+            return nil
         }
-        return pass.passIndex == 0
-            && pass.texturePaths.isEmpty
-            && pass.textureSlots.isEmpty
-            && pass.userTextureInputs.isEmpty
-            && validCombos(pass.combos)
+        if pass.texturePaths.isEmpty && pass.textureSlots.isEmpty {
+            return MaskResolution(path: nil)
+        }
+        guard pass.textureSlots.count == 2,
+              pass.textureSlots[0] == nil,
+              let maskPath = pass.textureSlots[1],
+              !maskPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              pass.texturePaths == [maskPath]
+        else {
+            return nil
+        }
+        return MaskResolution(path: maskPath)
     }
 
     private nonisolated static func validResolvedMaterial(
-        _ material: SceneResolvedMaterialNode
+        _ material: SceneResolvedMaterialNode,
+        maskPath: String?
     ) -> Bool {
-        normalized(material.shaderPath) == shaderIdentity
-            && material.textureSlots.allSatisfy { $0 == nil }
-            && validCombos(material.combos)
-            && material.renderState.blending?.lowercased() == "normal"
-            && material.renderState.depthTest?.lowercased() == "disabled"
-            && material.renderState.depthWrite?.lowercased() == "disabled"
-            && material.renderState.cullMode?.lowercased() == "nocull"
+        guard normalized(material.shaderPath) == shaderIdentity,
+              validCombos(material.combos),
+              material.renderState.blending?.lowercased() == "normal",
+              material.renderState.depthTest?.lowercased() == "disabled",
+              material.renderState.depthWrite?.lowercased() == "disabled",
+              material.renderState.cullMode?.lowercased() == "nocull"
+        else {
+            return false
+        }
+        guard let maskPath else {
+            return material.textureSlots.allSatisfy { $0 == nil }
+        }
+        guard material.textureSlots.count > 1,
+              material.textureSlots[0] == nil,
+              let slot = material.textureSlots[1],
+              slot.provenance == .instance,
+              case .asset(let path) = slot.source,
+              path == maskPath
+        else {
+            return false
+        }
+        return material.textureSlots.enumerated().allSatisfy { index, slot in
+            index == 1 || slot == nil
+        }
     }
 
     private nonisolated static func normalizedCombos(_ authored: [String: Int]) -> [String: Int]? {

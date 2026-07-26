@@ -677,10 +677,15 @@ enum Harness {
             "legacyBindingsAccepted": planned(
                 descriptorOptions: boundOptions, contracts: legacyContracts
             )?.colorBinding?.propertyKey == "newproperty50",
-            // legacy 的 #if MASK 分支是 mask 覆盖而非相乘：MASK == 1 与遮罩贴图在
-            // legacy 指纹下同样整条拒绝，语义分歧点不进渲染。
-            "legacyMaskRejected": !accepted(descriptorOptions: maskOne, contracts: legacyContracts)
-                && !accepted(descriptorOptions: maskTexture, contracts: legacyContracts),
+            // 遮罩按指纹分流：legacy 的 #if MASK 是覆盖语义，plan 记录 profile 供渲染分流；
+            // 显式 MASK combo 声明（语料 0 次）在两个指纹下都仍整条拒绝。
+            "legacyMaskRejected": !accepted(descriptorOptions: maskOne, contracts: legacyContracts),
+            "legacyMaskAccepted": planned(
+                descriptorOptions: maskTexture, contracts: legacyContracts
+            )?.maskTexturePath == "mask.png"
+                && planned(
+                    descriptorOptions: maskTexture, contracts: legacyContracts
+                )?.shaderProfile.maskMultipliesBlendAlpha == false,
             "legacyContractRejected": ["source", "raw", "metadata", "builtin", "canonical",
                                        "duplicate"]
                 .allSatisfy { !accepted(contracts: mutate(legacyContracts, $0)) },
@@ -735,8 +740,15 @@ enum Harness {
                 && accepted(descriptorOptions: materialMask, contracts: contracts),
             "comboRejected": !accepted(descriptorOptions: maskOne, contracts: contracts)
                 && !accepted(descriptorOptions: unknownCombo, contracts: contracts),
-            // 与 opacity 的刻意偏离：挂了遮罩贴图就整条拒绝，不按无遮罩渲染。
-            "maskTextureRejected": !accepted(descriptorOptions: maskTexture, contracts: contracts),
+            // E-MASK-SLOT-COMBO 落地：槽位 1 绑图按官方遮罩语义执行（混合权重，
+            // stock 与 g_BlendAlpha 相乘），不再整条拒绝。
+            "maskTextureAccepted": planned(
+                descriptorOptions: maskTexture, contracts: contracts
+            )?.maskTexturePath == "mask.png"
+                && planned(
+                    descriptorOptions: maskTexture, contracts: contracts
+                )?.shaderProfile.maskMultipliesBlendAlpha == true
+                && planned(contracts: contracts)?.maskTexturePath == nil,
             "textureRejected": [instanceTexture, instanceUserTexture, materialTexture,
                                 materialUserTexture]
                 .allSatisfy { !accepted(descriptorOptions: $0, contracts: contracts) },

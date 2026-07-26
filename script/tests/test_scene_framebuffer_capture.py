@@ -52,6 +52,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneEffectRuntimeSupport.swift",
     SOURCE_ROOT / "Effects/SceneEffectRuntimePlan.swift",
     SOURCE_ROOT / "Effects/SceneOffscreenEffectRenderer.swift",
+    SOURCE_ROOT / "Runtime/SceneAudioSpectrum.swift",
+    SOURCE_ROOT / "Runtime/SceneAudioResponse.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Pulse.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift",
@@ -295,6 +297,7 @@ struct SceneAuthoredEffectExecutionPlan {
 
 struct SceneShakeExecutionPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+    var audio: SceneAudioResponse.Parameters? = nil
 }
 
 struct SceneShakeEffectTextures {}
@@ -308,6 +311,7 @@ enum SceneShakeRenderer {
         plan: SceneShakeExecutionPlan,
         resources: SceneShakeEffectTextures,
         time: Float,
+        audioPulse: Float?,
         inputTexture: MTLTexture,
         outputTexture: MTLTexture,
         pipeline: SceneShakePipeline,
@@ -390,10 +394,19 @@ struct SceneWaterRippleExecutionPlan {
     let runtimePlan: SceneWaterRippleNormalPlan
 }
 
+struct SceneTintShaderProfile {
+    let maskMultipliesBlendAlpha: Bool
+
+    static let stock = SceneTintShaderProfile(maskMultipliesBlendAlpha: true)
+}
+
 struct SceneTintExecutionPlan {
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+    let shaderProfile: SceneTintShaderProfile
     let blendMode: Int
     let staticOrFallbackColor: SIMD3<Float>
     let staticOrFallbackAlpha: Float
+    let maskTexturePath: String?
 
     func resolvedColor(in snapshot: SceneDynamicSnapshot) -> SIMD3<Float> {
         staticOrFallbackColor
@@ -401,6 +414,17 @@ struct SceneTintExecutionPlan {
 
     func resolvedAlpha(in snapshot: SceneDynamicSnapshot) -> Float {
         staticOrFallbackAlpha
+    }
+}
+
+struct SceneTintEffectTextures {
+    let mask: MTLTexture?
+    let maskUVScale: SIMD2<Float>
+    let maskPath: String?
+
+    func matches(_ plan: SceneTintExecutionPlan) -> Bool {
+        guard let planPath = plan.maskTexturePath else { return maskPath == nil }
+        return mask != nil && maskPath == planPath
     }
 }
 
@@ -1972,6 +1996,7 @@ enum Harness {
                             maskPath: maskPath
                         )] : [:],
                         pulseEffects: [:],
+                        tintEffects: [:],
                         xRay: nil
                     ),
                     textureFrame: .identity,
@@ -2017,7 +2042,9 @@ enum Harness {
         pipeline: SceneImageLayerPipeline,
         compositor: SceneImageLayerCompositor
     ) throws -> [[UInt8]] {
-        try [0, 30].map { blendMode in
+        // 第三个 case 用 mode 0 + 半灰遮罩：官方语义 mask = g_BlendAlpha * tex.r，
+        // mix(A, B, 0.5) 且 mode 0 强制 alpha=1。
+        try [(0, false), (30, false), (0, true)].map { blendMode, masked in
             guard let source = makeTexture(device: device, size: 1, usage: .shaderRead),
                   let target = makeTexture(
                       device: device, size: 1, usage: [.renderTarget, .shaderRead]
@@ -2025,6 +2052,14 @@ enum Harness {
                 throw HarnessError.metalUnavailable
             }
             fill(source, bgra: [40, 80, 160, 200])
+            var maskTexture: MTLTexture?
+            if masked {
+                guard let mask = makeTexture(device: device, size: 1, usage: .shaderRead) else {
+                    throw HarnessError.metalUnavailable
+                }
+                fill(mask, bgra: [128, 128, 128, 255])
+                maskTexture = mask
+            }
             let mainPass = SceneMainPassEncoder(
                 commandBuffer: commandBuffer,
                 target: target,
@@ -2036,7 +2071,10 @@ enum Harness {
                         contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
                     ),
                     texture: source,
-                    masks: .empty,
+                    masks: tintChainMasks(
+                        mask: maskTexture,
+                        maskPath: masked ? "masks/tint_mask_test" : nil
+                    ),
                     textureFrame: .identity,
                     mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
                     uniforms: SceneImageLayerUniformValues(
@@ -2051,7 +2089,10 @@ enum Harness {
                     dependencyEffect: nil,
                     authoredEffectPlan: nil,
                     blocksLegacyGaussianBlur: false,
-                    authoredEffectChain: authoredTintChain(blendMode: blendMode),
+                    authoredEffectChain: authoredTintChain(
+                        blendMode: blendMode,
+                        maskPath: masked ? "masks/tint_mask_test" : nil
+                    ),
                     dynamicValues: SceneDynamicSnapshot.empty(frameIndex: 0)
                 ),
                 pipeline: pipeline,
@@ -2188,6 +2229,7 @@ enum Harness {
             waterWavesEffects: [:],
             opacityEffects: [:],
             pulseEffects: [:],
+            tintEffects: [:],
             xRay: SceneXRayEffectTextures(blend: blend, halo: nil, opacityMask: opacity)
         )
         let mainPass = SceneMainPassEncoder(
@@ -2559,7 +2601,36 @@ enum Harness {
         )
     }
 
-    static func authoredTintChain(blendMode: Int) -> SceneAuthoredEffectExecutionChain {
+    static func tintChainMasks(
+        mask: MTLTexture? = nil,
+        maskPath: String? = nil
+    ) -> SceneImageLayerMasks {
+        SceneImageLayerMasks(
+            iris: nil,
+            opacity: nil,
+            water: nil,
+            waterUVScale: SIMD2(repeating: 1),
+            foliage: nil,
+            foliageUVScale: SIMD2(repeating: 1),
+            waterRippleNormal: nil,
+            shakeEffects: [:],
+            waterFlowEffects: [:],
+            waterWavesEffects: [:],
+            opacityEffects: [:],
+            pulseEffects: [:],
+            tintEffects: ["851#effect#0": SceneTintEffectTextures(
+                mask: mask,
+                maskUVScale: SIMD2(repeating: 1),
+                maskPath: maskPath
+            )],
+            xRay: nil
+        )
+    }
+
+    static func authoredTintChain(
+        blendMode: Int,
+        maskPath: String? = nil
+    ) -> SceneAuthoredEffectExecutionChain {
         let layerID = 851
         let effectKey = Graph.EffectKey(
             layerID: layerID,
@@ -2603,9 +2674,12 @@ enum Harness {
             layerID: layerID,
             renderGraph: graph,
             backend: .tint(SceneTintExecutionPlan(
+                effectKey: effectKey,
+                shaderProfile: .stock,
                 blendMode: blendMode,
                 staticOrFallbackColor: SIMD3<Float>(0, 0, 1),
-                staticOrFallbackAlpha: 1
+                staticOrFallbackAlpha: 1,
+                maskTexturePath: maskPath
             )),
             materialNodeCount: 1,
             logicalRenderTargetCount: 0
@@ -3053,9 +3127,12 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         # mode 0 落到 `mix(A, B, o)` 并强制 alpha=1；mode 30 落到
         # `mix(A, max(A.r,A.g,A.b) * B, o)`（0.6275×蓝）并保留源 alpha。两条结果不同，
         # 证明 blendMode 是从 plan 走到 shader 的，不是写死一个模式。
-        mode0, mode30 = self.result["authoredTintChainPixels"]
+        mode0, mode30, mode0_masked = self.result["authoredTintChainPixels"]
         self.assertLessEqual(max(abs(a - b) for a, b in zip(mode0, [255, 0, 0, 255])), 1)
         self.assertLessEqual(max(abs(a - b) for a, b in zip(mode30, [160, 0, 0, 200])), 1)
+        # 半灰遮罩（0.502）作 ApplyBlending 权重：mix(A_bgr=(40,80,160), B=(255,0,0), 0.502)
+        # → bgra ≈ (148, 40, 80) 且 mode 0 强制 alpha=255。
+        self.assertLessEqual(max(abs(a - b) for a, b in zip(mode0_masked, [148, 40, 80, 255])), 2)
 
     def test_failed_later_stage_never_composites_an_earlier_stage(self) -> None:
         evidence = self.result["authoredFailedChain"]

@@ -1129,8 +1129,16 @@
       "required_image_blend_succeeded_layer_ids": [],
       "expected_authored_effect_graph_succeeded_layer_ids": [
         324,
+        466,
+        495,
+        542,
+        546,
         571,
-        579
+        579,
+        628,
+        637,
+        668,
+        675
       ],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
@@ -1141,8 +1149,8 @@
       "expected_authored_effect_graph_water_flow_count": 0,
       "expected_authored_effect_graph_water_waves_count": 0,
       "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 3,
-      "expected_route_only_effect_count": 3
+      "expected_authored_effect_graph_stage_count": 11,
+      "expected_route_only_effect_count": 11
     },
     {
       "id": "3742133044",

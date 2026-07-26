@@ -20,11 +20,15 @@ nonisolated struct SceneTintExecutionPlan {
     let layerID: Int
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
     let renderGraph: SceneAuthoredEffectRenderPlan
+    /// 遮罩语义按指纹分流（stock 与 `g_BlendAlpha` 相乘、legacy 覆盖）。
+    let shaderProfile: SceneTintShaderProfile
     let blendMode: Int
     let staticOrFallbackColor: SIMD3<Float>
     let staticOrFallbackAlpha: Float
     let colorBinding: ConstantBinding?
     let alphaBinding: ConstantBinding?
+    /// 槽位 1（`g_Texture1`）遮罩；nil 表示实例未绑图（`ApplyBlending` 权重只有 alpha）。
+    let maskTexturePath: String?
 
     nonisolated var liveConsumerTargets: Set<SceneDynamicTarget> {
         Set([colorBinding?.dynamicTarget, alphaBinding?.dynamicTarget].compactMap { $0 })

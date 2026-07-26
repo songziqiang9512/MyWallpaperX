@@ -576,7 +576,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "2938612768": (0, 0),
             "2998757800": (4, 18),
             "3088601835": (0, 0),
-            "3122339805": (0, 3),
+            "3122339805": (0, 11),
             "3742133044": (0, 0),
             "3747492842": (0, 1),
             "3750813609": (0, 0),
@@ -606,8 +606,9 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 sample.get("expected_authored_effect_graph_stage_count", 0)
                 for sample in samples.values()
             ),
-            # legacy 指纹批次后 2131872317 由 0 stage 升到 19。
-            101,
+            # legacy 指纹批次后 2131872317 由 0 stage 升到 19；
+            # Tint 遮罩欠账落地后 3122339805 由 3 stage 升到 11。
+            109,
         )
         self.assertEqual(
             sum(
@@ -618,7 +619,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(
             sum(sample["expected_route_only_effect_count"] for sample in samples.values()),
-            59,
+            67,
         )
         self.assertEqual(
             sum(

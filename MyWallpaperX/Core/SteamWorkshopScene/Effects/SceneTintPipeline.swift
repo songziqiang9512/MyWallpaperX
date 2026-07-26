@@ -10,6 +10,7 @@ struct TintVaryings {
 
 struct SceneTintUniforms {
     float4 colorAlpha;
+    float4 maskScaleFlags; // xy = mask UV scale, z = hasMask, w = maskMultiplies
     int blendMode;
 };
 
@@ -31,11 +32,22 @@ vertex TintVaryings sceneTintVert(uint vertexID [[vertex_id]]) {
 fragment float4 sceneTintFrag(
     TintVaryings input [[stage_in]],
     texture2d<float> source [[texture(0)]],
+    texture2d<float> maskTexture [[texture(1)]],
     constant SceneTintUniforms &u [[buffer(0)]]
 ) {
     constexpr sampler linearClamp(filter::linear, address::clamp_to_edge);
     float4 albedo = source.sample(linearClamp, input.texcoord);
-    albedo.rgb = sceneApplyBlending(u.blendMode, albedo.rgb, u.colorAlpha.xyz, u.colorAlpha.w);
+    // 官方语义：遮罩是 ApplyBlending 的混合权重，不动 alpha 通道。
+    // stock 与 g_BlendAlpha 相乘；legacy 指纹覆盖 g_BlendAlpha。
+    float mask = u.colorAlpha.w;
+    if (u.maskScaleFlags.z > 0.5) {
+        float sampled = maskTexture.sample(
+            linearClamp,
+            clamp(input.texcoord * u.maskScaleFlags.xy, 0.0, 1.0)
+        ).r;
+        mask = u.maskScaleFlags.w > 0.5 ? mask * sampled : sampled;
+    }
+    albedo.rgb = sceneApplyBlending(u.blendMode, albedo.rgb, u.colorAlpha.xyz, mask);
     if (u.blendMode == 0) {
         albedo.a = 1.0;
     }
@@ -46,6 +58,7 @@ fragment float4 sceneTintFrag(
 struct SceneTintPipeline {
     private struct Uniforms {
         var colorAlpha: SIMD4<Float>
+        var maskScaleFlags: SIMD4<Float>
         var blendMode: Int32
     }
 
@@ -76,6 +89,9 @@ struct SceneTintPipeline {
 
     func encode(
         source: MTLTexture,
+        mask: MTLTexture? = nil,
+        maskUVScale: SIMD2<Float> = SIMD2(repeating: 1),
+        maskMultipliesBlendAlpha: Bool = true,
         target: MTLTexture,
         color: SIMD3<Float>,
         alpha: Float,
@@ -86,7 +102,8 @@ struct SceneTintPipeline {
               (0 ... 1).contains(alpha),
               color.x.isFinite, color.y.isFinite, color.z.isFinite,
               (0 ... SceneBlendModeShaderSource.maximumMode).contains(blendMode),
-              valid(source: source, target: target, commandBuffer: commandBuffer)
+              valid(source: source, target: target, commandBuffer: commandBuffer),
+              validMask(mask, maskUVScale: maskUVScale)
         else {
             return false
         }
@@ -100,8 +117,15 @@ struct SceneTintPipeline {
         }
         encoder.setRenderPipelineState(state)
         encoder.setFragmentTexture(source, index: 0)
+        encoder.setFragmentTexture(mask ?? source, index: 1)
         var uniforms = Uniforms(
             colorAlpha: SIMD4<Float>(color.x, color.y, color.z, alpha),
+            maskScaleFlags: SIMD4<Float>(
+                maskUVScale.x,
+                maskUVScale.y,
+                mask != nil ? 1 : 0,
+                maskMultipliesBlendAlpha ? 1 : 0
+            ),
             blendMode: Int32(blendMode)
         )
         encoder.setFragmentBytes(
@@ -112,6 +136,25 @@ struct SceneTintPipeline {
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         encoder.endEncoding()
         return true
+    }
+
+    private func validMask(_ mask: MTLTexture?, maskUVScale: SIMD2<Float>) -> Bool {
+        guard let mask else { return true }
+        let supportedFormats: Set<MTLPixelFormat> = [.r8Unorm, .rgba8Unorm, .bgra8Unorm]
+        return maskUVScale.x.isFinite
+            && maskUVScale.y.isFinite
+            && (0...1).contains(maskUVScale.x)
+            && (0...1).contains(maskUVScale.y)
+            && maskUVScale.x > 0
+            && maskUVScale.y > 0
+            && mask.textureType == .type2D
+            && supportedFormats.contains(mask.pixelFormat)
+            && mask.width > 0
+            && mask.height > 0
+            && mask.mipmapLevelCount == 1
+            && mask.sampleCount == 1
+            && mask.usage.contains(.shaderRead)
+            && mask.device.registryID == deviceRegistryID
     }
 
     private func valid(
