@@ -8,7 +8,7 @@
 >
 > 当前完整快照门：`.codex/scene-static-origin-full45-20260725/report.json`；当前源码固定回归门：`.codex/scene-static-origin-fixed13-20260725/report.json`；static-origin 定向门：`.codex/scene-static-origin-targeted-20260725/report.json`
 >
-> 最新运行门：`678a052` 的真实目录 45 个可运行样本完整快照 45/45、particle 101/131；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 13/13、particle 19/27，static-origin 定向门 1/1、particle 17/19；两类矩阵仍单独保留且不能互相替代。20-key 完整门的 `builtInTextureUnavailable` 诊断从 15-key 历史完整门的 37 次降至 24 次；该 45 样本门尚未在 22-key 下重跑，故此处沿用 20-key 数字。22-key 下已实测的是 21 样本 census：`builtInTextureUnavailable` 从 6 次降至 2 次；按 663 包 / 2,362 个 particle definition 的语料统计，slot 0 且非 `REFRACT` 的内置纹理缺口为 3 名 / 78 次（`debris1` 53、`fire2` 17、`hose_4` 8），另有 289 次落在 `REFRACT` fail-closed 路径、补纹理无收益。这些都只是资源可达性诊断，不替代形态保真与专项 census。完整 Scene suite 411 项：408 通过、3 项跳过；代码健康 447 Swift files、44 个锁定历史文件、400 行上限；语义覆盖 11/11。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：`678a052` 的真实目录 45 个可运行样本完整快照 45/45、particle 101/131；另有 `3770500543` 缺 package 未进入矩阵。固定 13 样本门 13/13、particle 19/27，static-origin 定向门 1/1、particle 17/19；两类矩阵仍单独保留且不能互相替代。20-key 完整门的 `builtInTextureUnavailable` 诊断从 15-key 历史完整门的 37 次降至 24 次；该 45 样本门尚未在 22-key 下重跑，故此处沿用 20-key 数字。22-key 下已实测的是 21 样本 census：`builtInTextureUnavailable` 从 6 次降至 2 次；按 663 包 / 2,362 个 particle definition 的语料统计，slot 0 且非 `REFRACT` 的内置纹理缺口为 3 名 / 78 次（`debris1` 53、`fire2` 17、`hose_4` 8），另有 289 次落在 `REFRACT` fail-closed 路径、补纹理无收益。这些都只是资源可达性诊断，不替代形态保真与专项 census。完整 Scene suite 431 项：429 通过、2 项跳过；代码健康 452 Swift files、44 个锁定历史文件、400 行上限；语义覆盖 11/11。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -63,7 +63,7 @@
 | Audio frame input | `L0` | Scene 不消费频谱 | 16/32/64 双声道 snapshot、注册和设备生命周期 | B0/B4 |
 | 内嵌视频纹理 | `L3` | TEX 内嵌 MP4 image-layer 播放，消费共享 host time | seek/pause/switch/loop 精确合同及更多容器 | B1 |
 | 系统媒体 identity | `L1` | `$mediaThumbnail` typed 引用存在 | producer/consumer、事件、缩略图 generation | B1/B4 |
-| Particle runtime | `L3` | 作者 sprite、常见组件、Sprite Trail、20 个精确 built-in key；固定门 `19/27`、完整门 `101/131` | 逐项状态见粒子专项表 | **B4** |
+| Particle runtime | `L3` | 作者 sprite、常见组件、Sprite Trail、22 个精确 built-in key；另有 2.8.42 的 311 项 stock TEX 身份目录（其中 particle 164 项）与同路径 stem PNG 占位，但该 bundle 未接 runtime；固定门 `19/27`、完整门 `101/131` | 逐项状态见粒子专项表；catalog/placeholder 不是执行证据 | **B4** |
 | Text/Font runtime | `L3` | CoreText 静态栅格、direct property 动态重栅格和部分 font/pointsize/padding/scale；结构门 `79/108` | time/SceneScript/system/media text、Windows baseline/fallback、outline/shadow/effect | B4/B5 |
 | Camera Parallax | `L3` | 仅作者开启且非零 depth 时启用，含层级传播/阻断 | WE 数值 golden、camera shake/zoom、3D camera | B5 |
 | User Properties | `L3` | 独立窗口、条件、持久化、PNG/JPEG `sceneTexture`；layer alpha、纯 solid color、direct text、strict Local Contrast/Opacity 与受限 X-Ray target 已无重建 live 更新 | unsupported/mixed/SceneScript bindings、Texture Variants、shortcut、跨重启 UI 门；精确 census 见 runtime-input 专项表 | **B0/B1** |
