@@ -2,13 +2,13 @@
 
 > 状态：现役系统汇总；逐项等级以各专项能力表为准
 >
-> 最近核对：2026-07-27
+> 最近核对：2026-07-28
 >
-> Scene 实现基线：`a77b875`（生产播放改为原始项目目录直达宿主并在内存构建 `SceneRuntimeInput`；`0ff96e0` 的 strict stock Radial God Rays 及此前 Timeline、16 档音频、Puppet、BC、strict particle child 与 stock 资源子集均包含在该提交祖先中；逐能力落地提交见专项表和运行证据索引）
+> Scene 实现基线：`ee69fc4`（在原始项目目录直达宿主与内存 `SceneRuntimeInput` 基础上，包含原生分辨率 authored shader、投影 extent、RGB Perlin 坐标、effect premultiplied-alpha 与 stock-equivalent relocated Color Key；逐能力落地提交见专项表和运行证据索引）
 >
-> 最近一次完整快照门：`.codex/scene-runtime-input-full45-20260727/results/report.json`；当前固定回归门：`/private/tmp/mwx-scene-runtime-input-fixed13-20260727-v1/report.json`
+> 最近一次完整快照门：`.codex/scene-runtime-input-full45-20260727/results/report.json`（`a77b875`）；当前固定回归门：`/private/tmp/mwx-fixed13-colorkey-v2.VTJqEa/results/report.json`（`ee69fc4`）
 >
-> 最新运行门：`a77b875` 的同一签名 Debug App 在隔离 root/HOME 下完成原始目录直传完整快照 `45/45` 与固定回归 `13/13`；58 份 Debug runtime evidence 均为 schema 1，旧解释 JSON/preview log residue 0，固定门 stop 后 surface=0。完整门报告/matrix SHA-256 为 `2f3a92e30d906f875a570b56b3c1f87d17b988020626cebab0364a417619b3ac` / `d9ad98be0d27f2ca2d2afa75eff6b04279a917b8756c0fcda364dfdde2607abf`，固定门为 `41336701149c47bcae819a7a5af61a11de8aeb8bb24631ffb59a7fb35353ad4a` / `1cd9ee22ec1c8ccc84d9d2ac9fa37cf9734382c39da43a4ab5710c4b163c0f22`。完整门 particle `110/131`、strict stage 154、chain 21、Godrays 2、graph failed 0；固定门 particle `66/76`、stage 109、chain 14、graph failed 0。完整 Scene 测试 `100/100` 模块通过；代码健康 491 Swift files、44 个锁定历史文件、400 行上限。聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：最近完整快照仍为 `a77b875` 的 `45/45 PASS`；`ee69fc4` 以同一隔离 root/HOME 合同完成当前固定回归 `13/13 PASS`，并定向完成 `3141421197` 与 `3767460992` 各 `1/1 PASS`。完整门报告/matrix SHA-256 为 `2f3a92e30d906f875a570b56b3c1f87d17b988020626cebab0364a417619b3ac` / `d9ad98be0d27f2ca2d2afa75eff6b04279a917b8756c0fcda364dfdde2607abf`；固定门为 `de065a83d441dd6bbabf90187180782a874007488c8fffdd811f751860bf12c3` / `1594a97e39f6325f2e55ad891536bc8a7e069c39ca6859f93271fc81da8e7263`。完整门 particle `110/131`、strict stage 154、chain 21、Godrays 2、graph failed 0；当前固定门 particle `66/76`、stage 115、chain 16、graph failed 0。Color Key planner 1/1、benchmark 42/42、代码健康 550 Swift files、44 个锁定历史文件、400 行上限，签名 Debug build 通过；完整 Scene suite 尚未在 `ee69fc4` 重跑。聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
