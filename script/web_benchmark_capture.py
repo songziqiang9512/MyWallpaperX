@@ -12,6 +12,7 @@ import struct
 import subprocess
 import time
 import zlib
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -213,11 +214,30 @@ def has_window_snapshot(paths: list[str] | list[Path]) -> bool:
 
 def _paeth(left: int, up: int, upper_left: int) -> int:
     estimate = left + up - upper_left
-    distances = (abs(estimate - left), abs(estimate - up), abs(estimate - upper_left))
-    return (left, up, upper_left)[distances.index(min(distances))]
+    left_distance = abs(estimate - left)
+    up_distance = abs(estimate - up)
+    upper_left_distance = abs(estimate - upper_left)
+    if left_distance <= up_distance and left_distance <= upper_left_distance:
+        return left
+    if up_distance <= upper_left_distance:
+        return up
+    return upper_left
 
 
 def _decode_png_rows(path: Path) -> tuple[int, int, int, int, list[bytes]] | None:
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    return _decode_png_rows_cached(path.resolve(), stat.st_mtime_ns, stat.st_size)
+
+
+@lru_cache(maxsize=4)
+def _decode_png_rows_cached(
+    path: Path,
+    _mtime_ns: int,
+    _size: int,
+) -> tuple[int, int, int, int, list[bytes]] | None:
     try:
         payload = path.read_bytes()
         if payload[:8] != b"\x89PNG\r\n\x1a\n":
@@ -275,6 +295,19 @@ def _decode_png_rows(path: Path) -> tuple[int, int, int, int, list[bytes]] | Non
 
 
 def png_rgb_pixels(path: Path) -> tuple[int, int, list[bytes]] | None:
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    return _png_rgb_pixels_cached(path.resolve(), stat.st_mtime_ns, stat.st_size)
+
+
+@lru_cache(maxsize=4)
+def _png_rgb_pixels_cached(
+    path: Path,
+    _mtime_ns: int,
+    _size: int,
+) -> tuple[int, int, list[bytes]] | None:
     decoded = _decode_png_rows(path)
     if decoded is None:
         return None
