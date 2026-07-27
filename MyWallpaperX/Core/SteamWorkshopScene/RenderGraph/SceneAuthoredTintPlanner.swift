@@ -48,8 +48,8 @@ enum SceneAuthoredTintPlanner {
         let effect = graph.effects[0]
         let node = graph.nodes[0]
         guard normalized(effect.definitionPath) == definitionPath,
-              validDefinition(in: descriptor, path: effect.definitionPath),
               let profile = SceneTintShaderProfile.resolve(shaderContracts),
+              validDefinition(in: descriptor, path: effect.definitionPath, profile: profile),
               effect.nodeIndices == [node.nodeIndex],
               SceneAuthoredEffectInputValidator.accepts(
                   effect.input,
@@ -94,14 +94,18 @@ enum SceneAuthoredTintPlanner {
 
     private nonisolated static func validDefinition(
         in descriptor: SceneRenderDescriptor,
-        path: String
+        path: String,
+        profile: SceneTintShaderProfile
     ) -> Bool {
         let matches = descriptor.effectDefinitions.filter {
             normalized($0.relativePath) == normalized(path)
         }
+        let validReplacementKeys: [String?] = profile.acceptsMissingReplacementKey
+            ? ["tint", nil]
+            : ["tint"]
         guard matches.count == 1, let definition = matches.first,
               definition.version == 1,
-              definition.replacementKey == "tint",
+              validReplacementKeys.contains(definition.replacementKey),
               definition.name == "ui_editor_effect_tint_title",
               definition.description == "ui_editor_effect_tint_description",
               definition.group == "colorize",

@@ -271,7 +271,9 @@ enum Harness {
         return SceneEffectDefinition(
             relativePath: definitionPath,
             version: mutation == "version" ? 2 : 1,
-            replacementKey: mutation == "replacement" ? "other" : "tint",
+            replacementKey: mutation == "replacement"
+                ? "other"
+                : mutation == "missingReplacement" ? nil : "tint",
             name: mutation == "name" ? "Other" : "ui_editor_effect_tint_title",
             description: mutation == "description"
                 ? "Other"
@@ -628,6 +630,8 @@ enum Harness {
         materialHash.materialRawSHA256 = String(repeating: "0", count: 64)
         var materialPass = Options(); materialPass.materialPassIndex = 1
         var shader = Options(); shader.shaderIdentity = "effects/other"
+        var missingReplacement = Options()
+        missingReplacement.definitionMutation = "missingReplacement"
         var hidden = Options(); hidden.visible = false
         var content = Options(); content.contentKind = "particle"
         var duplicateMaterial = Options(); duplicateMaterial.duplicateMaterial = true
@@ -689,6 +693,11 @@ enum Harness {
             "legacyContractRejected": ["source", "raw", "metadata", "builtin", "canonical",
                                        "duplicate"]
                 .allSatisfy { !accepted(contracts: mutate(legacyContracts, $0)) },
+            // definition 白名单：legacy 包（1937925563）的 effect.json 缺 replacementkey，
+            // 仅 legacy 指纹接受该形态；stock 指纹保持必须携带，错值两边都拒。
+            "legacyMissingReplacementAccepted": accepted(
+                descriptorOptions: missingReplacement, contracts: legacyContracts
+            ) && !accepted(descriptorOptions: missingReplacement, contracts: contracts),
             // 官方 tint.frag 的 [COMBO] 默认值 30，未声明 BLENDMODE 时按 30 走。
             "defaultBlendMode": staticPlan.blendMode == 30,
             "missingAlphaDefaultsToOne": planned(

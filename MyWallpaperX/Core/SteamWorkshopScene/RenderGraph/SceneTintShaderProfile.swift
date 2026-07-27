@@ -25,6 +25,12 @@ nonisolated enum SceneTintShaderProfile: Equatable {
         self == .stock2842
     }
 
+    /// legacy 包（`1937925563`）的 effect.json 缺 `replacementkey` 字段，其余字段与
+    /// stock 逐字段一致；stock 指纹保持必须携带。
+    var acceptsMissingReplacementKey: Bool {
+        self == .legacyMaskOverride
+    }
+
     private struct CanonicalShaderPayload: Encodable {
         let identity: String
         let sourceKind: SceneShaderContract.SourceKind
