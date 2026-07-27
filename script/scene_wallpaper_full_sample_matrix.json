@@ -1606,18 +1606,20 @@
         875,
         1509
       ],
-      "expected_authored_effect_graph_succeeded_layer_ids": [],
+      "expected_authored_effect_graph_succeeded_layer_ids": [
+        390
+      ],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
-      "expected_authored_effect_graph_opacity_count": 0,
+      "expected_authored_effect_graph_opacity_count": 1,
       "expected_authored_effect_graph_opacity_layer_ids": [],
       "expected_authored_effect_graph_workshop_shadow_count": 0,
-      "expected_authored_effect_graph_shake_count": 0,
+      "expected_authored_effect_graph_shake_count": 1,
       "expected_authored_effect_graph_water_flow_count": 0,
       "expected_authored_effect_graph_water_waves_count": 0,
-      "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 18
+      "expected_authored_effect_graph_chain_count": 1,
+      "expected_authored_effect_graph_stage_count": 2,
+      "expected_route_only_effect_count": 17
     },
     {
       "id": "2974757317",
@@ -4080,6 +4082,7 @@
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
       "expected_authored_effect_graph_succeeded_layer_ids": [
+        17,
         79,
         945
       ],
@@ -4088,13 +4091,13 @@
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
       "expected_authored_effect_graph_workshop_shadow_count": 1,
-      "expected_authored_effect_graph_spin_count": 2,
-      "expected_authored_effect_graph_procedural_noise_count": 1,
-      "expected_authored_effect_graph_shake_count": 0,
+      "expected_authored_effect_graph_spin_count": 3,
+      "expected_authored_effect_graph_procedural_noise_count": 2,
+      "expected_authored_effect_graph_shake_count": 1,
       "expected_authored_effect_graph_water_flow_count": 0,
       "expected_authored_effect_graph_water_waves_count": 0,
-      "expected_authored_effect_graph_chain_count": 2,
-      "expected_authored_effect_graph_stage_count": 11,
+      "expected_authored_effect_graph_chain_count": 3,
+      "expected_authored_effect_graph_stage_count": 15,
       "expected_route_only_effect_count": 3
     },
     {

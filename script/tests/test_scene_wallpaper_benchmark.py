@@ -547,7 +547,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertGreater(samples["2902406982"]["minimum_live_changed_ratio"], 0)
         self.assertEqual(
             samples["2938612768"]["expected_authored_effect_graph_succeeded_layer_ids"],
-            [],
+            [390],
         )
         self.assertEqual(
             samples["2938612768"]["expected_authored_effect_graph_local_contrast_count"],
@@ -555,11 +555,15 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(
             samples["2938612768"]["expected_authored_effect_graph_opacity_count"],
-            0,
+            1,
         )
         self.assertEqual(
             samples["2938612768"]["expected_authored_effect_graph_opacity_layer_ids"],
             [],
+        )
+        self.assertEqual(
+            samples["2938612768"]["expected_authored_effect_graph_shake_count"],
+            1,
         )
         self.assertEqual(
             samples["2938612768"][
@@ -567,7 +571,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             ],
             [165, 454, 626, 629, 924],
         )
-        self.assertEqual(samples["2938612768"]["expected_route_only_effect_count"], 18)
+        self.assertEqual(samples["2938612768"]["expected_route_only_effect_count"], 17)
         for sample_id in ("2902406982", "2938612768"):
             self.assertEqual(
                 samples[sample_id]["minimum_legacy_waterwaves_runtime_count"], 0
@@ -581,7 +585,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "2131872317": (4, 19),
             "2802243144": (3, 6),
             "2902406982": (0, 35),
-            "2938612768": (0, 0),
+            "2938612768": (1, 2),
             "2998757800": (4, 18),
             "3088601835": (0, 0),
             "3122339805": (0, 11),
@@ -617,25 +621,26 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             # legacy 指纹批次后 2131872317 由 0 stage 升到 19；
             # Tint 遮罩欠账落地后 3122339805 由 3 stage 升到 11。
             # Stock Spin 解锁 3769688830 的四级链后再增加 4 stage。
-            113,
+            # Shake annotation 默认值解锁 2938612768 的 Shake -> Opacity 两级链。
+            115,
         )
         self.assertEqual(
             sum(
                 sample.get("expected_authored_effect_graph_chain_count", 0)
                 for sample in samples.values()
             ),
-            15,
+            16,
         )
         self.assertEqual(
             sum(sample["expected_route_only_effect_count"] for sample in samples.values()),
-            67,
+            66,
         )
         self.assertEqual(
             sum(
                 sample.get("expected_authored_effect_graph_opacity_count", 0)
                 for sample in samples.values()
             ),
-            4,
+            5,
         )
         self.assertEqual(
             sum(

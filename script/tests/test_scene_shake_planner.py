@@ -681,6 +681,18 @@ enum Harness {
             descriptorOptions: strengthOnly,
             contracts: legacyContracts
         )
+        let stockEmptyPlan = planned(
+            descriptorOptions: emptyConstants,
+            contracts: contracts
+        )
+        let stockStrengthPlan = planned(
+            descriptorOptions: strengthOnly,
+            contracts: contracts
+        )
+        let stockMissingPlan = planned(
+            descriptorOptions: missing,
+            contracts: contracts
+        )
 
         let definitionMutations = [
             "missing", "version", "replacement", "name", "description", "group",
@@ -757,7 +769,7 @@ enum Harness {
                 .allSatisfy { !accepted(descriptorOptions: $0, contracts: contracts) },
             "dynamicRejected": [boundSpeed, wrongKind]
                 .allSatisfy { !accepted(descriptorOptions: $0, contracts: contracts) },
-            "parameterRejected": [missing, extra, badBounds, badFriction, badSpeed, badStrength]
+            "parameterRejected": [extra, badBounds, badFriction, badSpeed, badStrength]
                 .allSatisfy { !accepted(descriptorOptions: $0, contracts: contracts) },
             "resourceRejected": [missingFlow, pathMismatch, extraSlot]
                 .allSatisfy { !accepted(descriptorOptions: $0, contracts: contracts) },
@@ -772,8 +784,21 @@ enum Harness {
             "contractRejected": contractMutations.allSatisfy {
                 !accepted(contracts: mutate(contracts, $0))
             },
-            "stockSubsetRejected": [emptyConstants, strengthOnly]
-                .allSatisfy { !accepted(descriptorOptions: $0, contracts: contracts) },
+            "stockEmptyConstantsBackfilled": stockEmptyPlan.map {
+                $0.bounds == SIMD2(0, 1)
+                    && $0.friction == SIMD2(1, 1)
+                    && $0.speed == 1
+                    && $0.strength == 0.1
+            } ?? false,
+            "stockStrengthOnlyBackfilled": stockStrengthPlan.map {
+                $0.bounds == SIMD2(0, 1)
+                    && $0.friction == SIMD2(1, 1)
+                    && $0.speed == 1
+                    && $0.strength == 0.3
+            } ?? false,
+            "stockMissingFrictionBackfilled": stockMissingPlan.map {
+                $0.friction == SIMD2(1, 1)
+            } ?? false,
             "legacyCanonicalContract": legacyContracts.first?.canonicalSHA256
                 == "af9b4c97f86d10182d73b239cea9fd377ffcd4ac9ee8f7947c3dddea58898963",
             "legacyExactAccepted": legacyPlan.map {
@@ -879,7 +904,7 @@ class SceneShakePlannerTests(unittest.TestCase):
         self.assertTrue(flags)
         self.assertTrue(all(flags.values()), flags)
 
-    def test_stock_profile_is_exact_and_fail_closed(self) -> None:
+    def test_stock_profile_backfills_exact_shader_defaults_and_fails_closed(self) -> None:
         self.assert_flags(legacy=False)
 
     def test_legacy_profile_backfills_shader_defaults(self) -> None:

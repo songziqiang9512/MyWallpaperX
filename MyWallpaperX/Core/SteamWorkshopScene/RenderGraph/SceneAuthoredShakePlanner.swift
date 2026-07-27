@@ -61,8 +61,7 @@ enum SceneAuthoredShakePlanner {
               ),
               let paths = texturePaths(from: instance, profile: shaderProfile),
               let parameters = parameters(
-                  from: instance.constantShaderValues,
-                  profile: shaderProfile
+                  from: instance.constantShaderValues
               ),
               let audio = audioParameters(instance, profile: shaderProfile),
               let resolved = SceneAuthoredMaterialResolver.resolve(
@@ -248,7 +247,7 @@ enum SceneAuthoredShakePlanner {
                   [1, 2].contains($0.offset) || $0.element == nil
               }),
               validCombos(material.combos, profile: profile),
-              parameters(from: material.constants, profile: profile) != nil else {
+              parameters(from: material.constants) != nil else {
             return false
         }
         return material.renderState.blending?.lowercased() == "normal"
@@ -269,8 +268,7 @@ enum SceneAuthoredShakePlanner {
     }
 
     private nonisolated static func parameters(
-        from authored: [String: SceneDocument.ShaderValue],
-        profile: SceneShakeShaderProfile
+        from authored: [String: SceneDocument.ShaderValue]
     ) -> Parameters? {
         var values: [String: SceneDocument.ShaderValue] = [:]
         for (key, value) in authored {
@@ -278,31 +276,27 @@ enum SceneAuthoredShakePlanner {
                 return nil
             }
         }
-        // The legacy corpus authors only the deltas and relies on the shader
-        // annotation defaults (g_Bounds "0 1", g_Friction "1 1", g_Speed 1,
-        // g_Amp 0.1); every other profile keeps the exact four-key contract.
-        let fillsDefaults = profile == .legacyUnconditionalPhase
+        // All admitted fingerprints declare the same annotation defaults.
+        // Workshop instances may persist only values changed by the author.
         let supported = Set(["bounds", "friction", "speed", "strength"])
         let motionKeys = Set(values.keys).subtracting(audioConstantKeys)
-        guard fillsDefaults
-                ? motionKeys.isSubset(of: supported)
-                : motionKeys == supported,
+        guard motionKeys.isSubset(of: supported),
               let bounds = vector(
                   values["bounds"], range: 0...1,
-                  fallback: fillsDefaults ? SIMD2(0, 1) : nil
+                  fallback: SIMD2(0, 1)
               ),
               bounds.y > bounds.x,
               let friction = vector(
                   values["friction"], range: 0.01...10,
-                  fallback: fillsDefaults ? SIMD2(1, 1) : nil
+                  fallback: SIMD2(1, 1)
               ),
               let speed = scalar(
                   values["speed"], range: 0...10,
-                  fallback: fillsDefaults ? 1 : nil
+                  fallback: 1
               ),
               let strength = scalar(
                   values["strength"], range: 0.01...0.5,
-                  fallback: fillsDefaults ? 0.1 : nil
+                  fallback: 0.1
               ) else {
             return nil
         }
