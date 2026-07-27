@@ -29,6 +29,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneShaderContractLoader.swift",
     SOURCE_ROOT / "RenderGraph/SceneWorkshopShiftHueExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredWorkshopShiftHuePlanner.swift",
+    SOURCE_ROOT / "RenderGraph/SceneWorkshopAudioBarsExecutionPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredWorkshopAudioBarsPlanner.swift",
 ]
 
 
@@ -312,7 +314,14 @@ enum Harness {
             identity: mode == "identity" ? "other" : contract.identity,
             sourceKind: mode == "builtin" ? .hostBuiltin : contract.sourceKind,
             stages: stages,
-            diagnostics: mode == "diagnostic" ? [] : contract.diagnostics,
+            diagnostics: mode == "diagnostic"
+                ? contract.diagnostics + [.init(
+                    code: .malformedAnnotation,
+                    message: "fixture",
+                    relativePath: nil,
+                    line: nil
+                )]
+                : contract.diagnostics,
             canonicalSHA256: mode == "canonical"
                 ? String(repeating: "0", count: 64)
                 : contract.canonicalSHA256
@@ -337,10 +346,226 @@ enum Harness {
         ) != nil
     }
 
+    static let audioDefinitionPath =
+        "effects/workshop/3082978660/enhanced_simple_audio_bars/effect.json"
+    static let audioMaterialPath =
+        "materials/workshop/3082978660/effects/simple_audio_bars.json"
+    static let audioShaderIdentity = "workshop/3082978660/effects/Simple_Audio_Bars"
+
+    static func audioValue(_ components: [Double]) -> SceneDocument.ShaderValue {
+        .init(
+            rawValue: components.map { String($0) }.joined(separator: " "),
+            valueKind: components.count == 1 ? "number" : "vector",
+            userBinding: nil,
+            components: components
+        )
+    }
+
+    static func audioConstants(extra: Bool = false) -> [String: SceneDocument.ShaderValue] {
+        var values = [
+            "Anti-alias blurring ": audioValue([0.05, 0]),
+            "Bar color": audioValue([1, 0, 1]),
+            "Bar count": audioValue([32]),
+            "Bar spacing": audioValue([0.45]),
+            "Circle start/end angles": audioValue([0, 360]),
+            "Lower/upper bar bounds": audioValue([0, 1]),
+            "Minimum height (will be multiplied by the bar width)": audioValue([0]),
+            "Radius": audioValue([1]),
+            "Segment count": audioValue([24]),
+            "Segment spacing": audioValue([0.26]),
+            "Segment threshold": audioValue([1]),
+            "ui_editor_properties_opacity": audioValue([1]),
+            "Volume factor": audioValue([0.75]),
+        ]
+        if extra { values["unexpected"] = audioValue([1]) }
+        return values
+    }
+
+    static func audioDefinition(mutated: Bool = false) -> SceneEffectDefinition {
+        .init(
+            relativePath: audioDefinitionPath,
+            version: 1,
+            replacementKey: "enhanced_simple_audio_bars",
+            name: mutated ? "Other" : "Enhanced Simple Audio Bars",
+            description: nil,
+            group: "localeffects",
+            performance: nil,
+            previewPath: nil,
+            editable: false,
+            passes: [.init(
+                passIndex: 0,
+                materialPath: audioMaterialPath,
+                target: nil,
+                bindings: [],
+                compose: nil,
+                command: nil,
+                source: nil,
+                conditions: nil,
+                extraFields: [:]
+            )],
+            framebuffers: [],
+            dependencies: [
+                audioMaterialPath,
+                "shaders/workshop/3082978660/effects/simple_audio_bars.frag",
+                "shaders/workshop/3082978660/effects/simple_audio_bars.vert",
+            ],
+            functions: nil,
+            gizmos: nil,
+            extraFields: [:],
+            unknownFieldPaths: []
+        )
+    }
+
+    static func audioDescriptor(
+        shape: Int = 4,
+        resolution: Int = 64,
+        extraConstant: Bool = false,
+        texture: Bool = false,
+        badHash: Bool = false,
+        definitionMutation: Bool = false,
+        priorInput: Bool = false
+    ) -> SceneRenderDescriptor {
+        let paths = texture ? ["unexpected.png"] : []
+        let combos = ["RESOLUTION": resolution, "SEGMENT": 1, "SHAPE": shape]
+        let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
+            passIndex: 0,
+            texturePaths: paths,
+            textureSlots: paths,
+            userTextureInputs: [],
+            combos: combos,
+            constantShaderValues: audioConstants(extra: extraConstant)
+        )
+        let effect = SceneRenderDescriptor.EffectDescriptor(
+            id: "945#effect#947",
+            file: audioDefinitionPath,
+            visible: true,
+            passes: [pass]
+        )
+        let prior = SceneRenderDescriptor.EffectDescriptor(
+            id: "945#effect#900",
+            file: "effects/prior/effect.json",
+            visible: true,
+            passes: []
+        )
+        let material = SceneRenderDescriptor.MaterialPassDescriptor(
+            id: "\(audioMaterialPath)#0",
+            materialPath: audioMaterialPath,
+            materialRawSHA256: badHash
+                ? String(repeating: "0", count: 64)
+                : "719776f9d2011b8e02848b7a77373131bc4d7655ee28eb5db884c18d3f963eb5",
+            passIndex: 0,
+            shaderPath: audioShaderIdentity,
+            texturePaths: [],
+            textureSlots: [],
+            userTextureInputs: [],
+            combos: [:],
+            constantShaderValues: [:],
+            blending: "normal",
+            depthTest: "disabled",
+            depthWrite: "disabled",
+            cullMode: "nocull"
+        )
+        return .init(
+            layers: [.init(
+                id: 945,
+                contentKind: "image",
+                effects: priorInput ? [prior, effect] : [effect]
+            )],
+            materialPasses: [material],
+            effectDefinitions: [audioDefinition(mutated: definitionMutation)]
+        )
+    }
+
+    static func audioGraph(priorInput: Bool = false, blocker: Bool = false) -> Graph {
+        let key = Graph.EffectKey(
+            layerID: 945,
+            effectIndex: priorInput ? 1 : 0,
+            descriptorID: "945#effect#947"
+        )
+        let prior = Graph.EffectKey(
+            layerID: 945, effectIndex: 0, descriptorID: "945#effect#900"
+        )
+        let input = Graph.TextureIdentity(
+            kind: priorInput ? .effectOutput : .layerSource,
+            layerID: 945,
+            effect: priorInput ? prior : nil,
+            name: nil
+        )
+        let output = Graph.TextureIdentity(
+            kind: .effectOutput, layerID: 945, effect: key, name: nil
+        )
+        return .init(
+            layerID: 945,
+            effects: [.init(
+                key: key,
+                definitionPath: audioDefinitionPath,
+                input: input,
+                output: output,
+                nodeIndices: [0]
+            )],
+            renderTargets: [],
+            nodes: [.init(
+                nodeIndex: 0,
+                effect: key,
+                definitionPassIndex: 0,
+                materialOrdinal: 0,
+                instancePassIndex: 0,
+                kind: .material,
+                materialPath: audioMaterialPath,
+                materialPassID: "\(audioMaterialPath)#0",
+                target: output,
+                bindings: [],
+                commandSource: nil,
+                commandTarget: nil,
+                compose: nil,
+                conditions: nil
+            )],
+            finalOutput: output,
+            blockers: blocker ? [.init(
+                effect: key,
+                definitionPassIndex: 0,
+                reason: .unsupportedCondition,
+                detail: "fixture"
+            )] : []
+        )
+    }
+
+    static func audioAccepted(
+        contracts: [SceneShaderContract],
+        shape: Int = 4,
+        resolution: Int = 64,
+        extraConstant: Bool = false,
+        texture: Bool = false,
+        badHash: Bool = false,
+        definitionMutation: Bool = false,
+        priorInput: Bool = false,
+        blocker: Bool = false,
+        role: SceneAuthoredEffectInputRole = .layerSource
+    ) -> Bool {
+        SceneAuthoredWorkshopAudioBarsPlanner.plan(
+            graph: audioGraph(priorInput: priorInput, blocker: blocker),
+            descriptor: audioDescriptor(
+                shape: shape,
+                resolution: resolution,
+                extraConstant: extraConstant,
+                texture: texture,
+                badHash: badHash,
+                definitionMutation: definitionMutation,
+                priorInput: priorInput
+            ),
+            shaderContracts: contracts,
+            inputRole: role
+        ) != nil
+    }
+
     static func main() throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let contracts = SceneShaderContractLoader().load(
             shaderReferences: [shaderIdentity],
+            rootURL: root
+        )
+        let audioContracts = SceneShaderContractLoader().load(
+            shaderReferences: [audioShaderIdentity],
             rootURL: root
         )
         let plan = SceneAuthoredWorkshopShiftHuePlanner.plan(
@@ -401,6 +626,29 @@ enum Harness {
             "duplicateRejected": !accepted(contracts: mutate(contracts, "duplicate")),
             "candidateDetected": SceneAuthoredWorkshopShiftHuePlanner.containsCandidate(
                 graph: graph()
+            ),
+            "audioShape4Accepted": audioAccepted(contracts: audioContracts),
+            "audioShape5Accepted": audioAccepted(contracts: audioContracts, shape: 5),
+            "audioPriorAccepted": audioAccepted(
+                contracts: audioContracts,
+                priorInput: true,
+                role: .priorEffectOutput
+            ),
+            "audioProfileRejected": [
+                audioAccepted(contracts: audioContracts, shape: 3),
+                audioAccepted(contracts: audioContracts, resolution: 32),
+                audioAccepted(contracts: audioContracts, extraConstant: true),
+                audioAccepted(contracts: audioContracts, texture: true),
+                audioAccepted(contracts: audioContracts, badHash: true),
+                audioAccepted(contracts: audioContracts, definitionMutation: true),
+                audioAccepted(contracts: audioContracts, blocker: true),
+                audioAccepted(contracts: audioContracts, priorInput: true),
+            ].allSatisfy { !$0 },
+            "audioContractsRejected": contractMutations.allSatisfy {
+                !audioAccepted(contracts: mutate(audioContracts, $0))
+            },
+            "audioCandidateDetected": SceneAuthoredWorkshopAudioBarsPlanner.containsCandidate(
+                graph: audioGraph()
             ),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])

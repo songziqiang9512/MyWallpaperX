@@ -100,6 +100,7 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
             "authoredEffectGraphOpacityCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.opacityCount })",
             "authoredEffectGraphColorKeyCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.colorKeyCount })",
             "authoredEffectGraphWorkshopShiftHueCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.workshopShiftHueCount })",
+            "authoredEffectGraphWorkshopAudioBarsCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.workshopAudioBarsCount })",
             "authoredEffectGraphWorkshopShadowCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.workshopShadowCount })",
             "authoredEffectGraphShakeCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.shakeCount })",
             "authoredEffectGraphWaterFlowCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.waterFlowCount })",

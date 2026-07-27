@@ -1455,6 +1455,7 @@ utility layer 763: skippedHidden kind=composition
             "authoredEffectGraphOpacityCount: 4\n"
             "authoredEffectGraphColorKeyCount: 2\n"
             "authoredEffectGraphWorkshopShiftHueCount: 3\n"
+            "authoredEffectGraphWorkshopAudioBarsCount: 2\n"
             "layer 365: effect runtime opacity-authored; 1 declared pass(es)\n"
             "layer 372: effect runtime opacity-authored; 1 declared pass(es)\n"
             "layer 647: effect runtime opacity-authored; 1 declared pass(es)\n"
@@ -1466,11 +1467,13 @@ utility layer 763: skippedHidden kind=composition
         opacity_count = benchmark.authored_effect_graph_opacity_count(preview)
         color_key_count = benchmark.authored_effect_graph_color_key_count(preview)
         shift_hue_count = benchmark.authored_effect_graph_workshop_shift_hue_count(preview)
+        audio_bars_count = benchmark.authored_effect_graph_workshop_audio_bars_count(preview)
         opacity_layers = benchmark.authored_effect_graph_opacity_layer_ids(preview)
         route_only_count = preview.count("offscreen route-only")
         self.assertEqual(opacity_count, 4)
         self.assertEqual(color_key_count, 2)
         self.assertEqual(shift_hue_count, 3)
+        self.assertEqual(audio_bars_count, 2)
         self.assertEqual(opacity_layers, [365, 372, 647, 664])
         self.assertEqual(route_only_count, 3)
         self.assertEqual(
@@ -1509,6 +1512,7 @@ utility layer 763: skippedHidden kind=composition
         self.assertIsNone(benchmark.authored_effect_graph_opacity_count(""))
         self.assertIsNone(benchmark.authored_effect_graph_color_key_count(""))
         self.assertIsNone(benchmark.authored_effect_graph_workshop_shift_hue_count(""))
+        self.assertIsNone(benchmark.authored_effect_graph_workshop_audio_bars_count(""))
         self.assertEqual(benchmark.authored_effect_graph_opacity_layer_ids(""), [])
 
     def test_authored_effect_chain_counts_are_exact_gates(self) -> None:

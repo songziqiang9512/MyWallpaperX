@@ -65,6 +65,18 @@ extension SceneAuthoredEffectChainPlanner {
                 inputRole: inputRole
             )
         }
+        if let audioBars = SceneAuthoredWorkshopAudioBarsPlanner.plan(
+            graph: stageGraph,
+            descriptor: descriptor,
+            shaderContracts: shaderContracts,
+            inputRole: inputRole
+        ) {
+            return stage(
+                .workshopAudioBars(audioBars),
+                stageGraph: stageGraph,
+                inputRole: inputRole
+            )
+        }
         if let workshopShadow = SceneAuthoredWorkshopShadowPlanner.plan(
             graph: stageGraph,
             descriptor: descriptor,

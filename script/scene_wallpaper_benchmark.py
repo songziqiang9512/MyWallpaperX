@@ -118,6 +118,10 @@ AUTHORED_EFFECT_GRAPH_WORKSHOP_SHIFT_HUE_COUNT_RE = re.compile(
     r"^authoredEffectGraphWorkshopShiftHueCount: (?P<count>\d+)$",
     re.MULTILINE,
 )
+AUTHORED_EFFECT_GRAPH_WORKSHOP_AUDIO_BARS_COUNT_RE = re.compile(
+    r"^authoredEffectGraphWorkshopAudioBarsCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
 AUTHORED_EFFECT_GRAPH_OPACITY_LAYER_RE = re.compile(
     r"^(?:(?:image|text|solid) )?layer (?P<id>\d+)\b[^\n]*?"
     r"(?:effect runtime foliagesway-uv; )?"
@@ -853,6 +857,11 @@ def authored_effect_graph_workshop_shift_hue_count(preview_text: str) -> int | N
     return int(match.group("count")) if match is not None else None
 
 
+def authored_effect_graph_workshop_audio_bars_count(preview_text: str) -> int | None:
+    match = AUTHORED_EFFECT_GRAPH_WORKSHOP_AUDIO_BARS_COUNT_RE.search(preview_text)
+    return int(match.group("count")) if match is not None else None
+
+
 def authored_effect_graph_opacity_layer_ids(preview_text: str) -> list[int]:
     return sorted({
         int(match.group("id"))
@@ -1287,6 +1296,9 @@ def run_sample(
     authored_effect_graph_workshop_shift_hue = (
         authored_effect_graph_workshop_shift_hue_count(preview_text)
     )
+    authored_effect_graph_workshop_audio_bars = (
+        authored_effect_graph_workshop_audio_bars_count(preview_text)
+    )
     authored_effect_graph_opacity_layers = authored_effect_graph_opacity_layer_ids(
         preview_text
     )
@@ -1685,6 +1697,7 @@ def run_sample(
             "authored_effect_graph_opacity_count": authored_effect_graph_opacity,
             "authored_effect_graph_color_key_count": authored_effect_graph_color_key,
             "authored_effect_graph_workshop_shift_hue_count": authored_effect_graph_workshop_shift_hue,
+            "authored_effect_graph_workshop_audio_bars_count": authored_effect_graph_workshop_audio_bars,
             "authored_effect_graph_opacity_layer_ids": authored_effect_graph_opacity_layers,
             "authored_effect_graph_workshop_shadow_count": authored_effect_graph_workshop_shadow,
             "authored_effect_graph_shake_count": authored_effect_graph_shake,

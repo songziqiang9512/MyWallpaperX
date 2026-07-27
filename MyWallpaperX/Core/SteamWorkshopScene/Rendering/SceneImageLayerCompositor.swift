@@ -8,6 +8,7 @@ struct SceneImageLayerCompositor {
     private let opacityPipeline: SceneOpacityPipeline
     private let colorKeyPipeline: SceneColorKeyPipeline
     private let shiftHuePipeline: SceneWorkshopShiftHuePipeline
+    private let audioBarsPipeline: SceneWorkshopAudioBarsPipeline
     private let workshopShadowPipeline: SceneWorkshopShadowPipeline
     private let shakePipeline: SceneShakePipeline
     private let waterFlowPipeline: SceneWaterFlowPipeline
@@ -29,6 +30,7 @@ struct SceneImageLayerCompositor {
               let opacityPipeline = SceneOpacityPipeline(device: device),
               let colorKeyPipeline = SceneColorKeyPipeline(device: device),
               let shiftHuePipeline = SceneWorkshopShiftHuePipeline(device: device),
+              let audioBarsPipeline = SceneWorkshopAudioBarsPipeline(device: device),
               let workshopShadowPipeline = SceneWorkshopShadowPipeline(device: device),
               let shakePipeline = SceneShakePipeline(device: device),
               let waterFlowPipeline = SceneWaterFlowPipeline(device: device),
@@ -49,6 +51,7 @@ struct SceneImageLayerCompositor {
         self.opacityPipeline = opacityPipeline
         self.colorKeyPipeline = colorKeyPipeline
         self.shiftHuePipeline = shiftHuePipeline
+        self.audioBarsPipeline = audioBarsPipeline
         self.workshopShadowPipeline = workshopShadowPipeline
         self.shakePipeline = shakePipeline
         self.waterFlowPipeline = waterFlowPipeline
@@ -62,6 +65,27 @@ struct SceneImageLayerCompositor {
         self.pulsePipeline = pulsePipeline
         self.godraysPipeline = godraysPipeline
         self.colorBlendPipeline = colorBlendPipeline
+    }
+
+    private var authoredEffectPipelines: SceneAuthoredEffectPipelineSet {
+        .init(
+            gaussianBlur: gaussianBlurPipeline,
+            standardBlur: standardBlurPipeline,
+            localContrast: localContrastPipeline,
+            opacity: opacityPipeline,
+            colorKey: colorKeyPipeline,
+            shiftHue: shiftHuePipeline,
+            audioBars: audioBarsPipeline,
+            workshopShadow: workshopShadowPipeline,
+            shake: shakePipeline,
+            waterFlow: waterFlowPipeline,
+            waterWaves: waterWavesPipeline,
+            waterRipple: waterRipplePipeline,
+            xRay: xRayPipeline,
+            tint: tintPipeline,
+            pulse: pulsePipeline,
+            godrays: godraysPipeline
+        )
     }
 
     @discardableResult
@@ -146,21 +170,7 @@ struct SceneImageLayerCompositor {
                         dynamicValues: request.dynamicValues,
                         sourceUniforms: directUniforms,
                         pipeline: pipeline,
-                        gaussianBlurPipeline: gaussianBlurPipeline,
-                        standardBlurPipeline: standardBlurPipeline,
-                        localContrastPipeline: localContrastPipeline,
-                        opacityPipeline: opacityPipeline,
-                        colorKeyPipeline: colorKeyPipeline,
-                        shiftHuePipeline: shiftHuePipeline,
-                        workshopShadowPipeline: workshopShadowPipeline,
-                        shakePipeline: shakePipeline,
-                        waterFlowPipeline: waterFlowPipeline,
-                        waterWavesPipeline: waterWavesPipeline,
-                        waterRipplePipeline: waterRipplePipeline,
-                        xRayPipeline: xRayPipeline,
-                        tintPipeline: tintPipeline,
-                        pulsePipeline: pulsePipeline,
-                        godraysPipeline: godraysPipeline,
+                        pipelines: authoredEffectPipelines,
                         cursorUV: request.uniforms.cursorUV,
                         pointerIsInside: request.uniforms.cursorIsInside,
                         audioSpectrum: request.audioSpectrum,
@@ -305,7 +315,7 @@ struct SceneImageLayerCompositor {
                             commandBuffer: commandBuffer
                         )
                     case .foliageSway, .waterRipple, .xRay, .tint, .pulse, .godrays,
-                         .colorKey, .workshopShiftHue:
+                         .colorKey, .workshopShiftHue, .workshopAudioBars:
                         return nil
                     }
                 }
