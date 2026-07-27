@@ -21,8 +21,13 @@ extension WallpaperEngine {
         }
         // Scene 消费者按渲染帧自行采样，这里直接发布到 inbox，不经过主队列，
         // 避免在 30 Hz 采集与 60 Hz 渲染之间多插一层调度延迟。
-        service.onSceneLevels = { left, right in
-            SceneAudioSpectrumInbox.shared.publish(left: left, right: right)
+        service.onSceneLevels = { left, right, left64, right64 in
+            SceneAudioSpectrumInbox.shared.publish(
+                left: left,
+                right: right,
+                left64: left64,
+                right64: right64
+            )
         }
         return service
     }

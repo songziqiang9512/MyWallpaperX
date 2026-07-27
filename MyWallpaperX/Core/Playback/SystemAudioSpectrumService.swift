@@ -40,7 +40,9 @@ final class SystemAudioSpectrumService: NSObject {
 
     var onLevels: (([Float]) -> Void)?
     var onWebLevels: (([Float]) -> Void)?
-    var onSceneLevels: ((_ left: [Float], _ right: [Float]) -> Void)?
+    var onSceneLevels: ((
+        _ left: [Float], _ right: [Float], _ left64: [Float], _ right64: [Float]
+    ) -> Void)?
 
     init(barCount: Int) {
         self.barCount = barCount
@@ -74,7 +76,7 @@ final class SystemAudioSpectrumService: NSObject {
                 self.onWebLevels?(Self.clearedWebLevels)
             }
             if self.sceneEnabled != sceneEnabled {
-                self.onSceneLevels?(Self.clearedSceneLevels, Self.clearedSceneLevels)
+                self.clearSceneLevels()
             }
             self.overlayEnabled = overlayEnabled
             self.webEnabled = webEnabled
@@ -280,7 +282,7 @@ final class SystemAudioSpectrumService: NSObject {
         lastProcessedAt = 0
         onLevels?(overlayAnalyzer.reset())
         onWebLevels?(Self.clearedWebLevels)
-        onSceneLevels?(Self.clearedSceneLevels, Self.clearedSceneLevels)
+        clearSceneLevels()
         if hadCapture {
             NSLog("MWX AUDIO CAPTURE: stopped")
         }
@@ -301,7 +303,7 @@ final class SystemAudioSpectrumService: NSObject {
         sceneEnabled = false
         onLevels?(overlayAnalyzer.reset())
         onWebLevels?(Self.clearedWebLevels)
-        onSceneLevels?(Self.clearedSceneLevels, Self.clearedSceneLevels)
+        clearSceneLevels()
     }
 
     private func processAudioBufferList(_ inputData: UnsafePointer<AudioBufferList>) {
@@ -344,12 +346,21 @@ final class SystemAudioSpectrumService: NSObject {
         if sceneEnabled {
             guard let sceneAnalyzer else {
                 // FFT setup 不可用时保持稳定零输入，不产生假波形。
-                onSceneLevels?(Self.clearedSceneLevels, Self.clearedSceneLevels)
+                clearSceneLevels()
                 return
             }
             let bands = sceneAnalyzer.analyze(frame, sampleRate: sampleRate)
-            onSceneLevels?(bands.left, bands.right)
+            onSceneLevels?(bands.left, bands.right, bands.left64, bands.right64)
         }
+    }
+
+    private func clearSceneLevels() {
+        onSceneLevels?(
+            Self.clearedSceneLevels,
+            Self.clearedSceneLevels,
+            Self.clearedExtendedSceneLevels,
+            Self.clearedExtendedSceneLevels
+        )
     }
 }
 
@@ -361,5 +372,9 @@ private extension SystemAudioSpectrumService {
     static let clearedSceneLevels = Array(
         repeating: Float(0),
         count: SystemAudioSceneSpectrumAnalyzer.bandCount
+    )
+    static let clearedExtendedSceneLevels = Array(
+        repeating: Float(0),
+        count: SystemAudioSceneSpectrumAnalyzer.extendedBandCount
     )
 }

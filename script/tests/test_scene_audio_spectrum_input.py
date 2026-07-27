@@ -4,7 +4,7 @@
 覆盖三段：
   1. `SceneAudioSpectrumSnapshot` 的形状与非法值归零；
   2. `SceneAudioSpectrumInbox` 的发布/代际/需求生命周期；
-  3. `SystemAudioSceneSpectrumAnalyzer` 的 16 频段输出、静音零输入与确定性。
+  3. `SystemAudioSceneSpectrumAnalyzer` 的 16/64 频段输出、静音零输入与确定性。
 
 这里只验证输入管线本身。A0 阶段没有任何 effect / particle 消费者，
 因此不存在渲染侧断言。
@@ -59,10 +59,16 @@ enum Harness {
 
     static func snapshotChecks() -> [String: Any] {
         let bandCount = SceneAudioSpectrumSnapshot.bandCount
+        let extendedBandCount = SceneAudioSpectrumSnapshot.extendedBandCount
         let valid = (0 ..< bandCount).map { Float($0) / Float(bandCount) }
+        let valid64 = (0 ..< extendedBandCount).map {
+            Float($0) / Float(extendedBandCount)
+        }
         let accepted = SceneAudioSpectrumSnapshot(
             left: valid,
             right: valid,
+            left64: valid64,
+            right64: valid64,
             generation: 7
         )
         let shortInput = SceneAudioSpectrumSnapshot(
@@ -81,7 +87,9 @@ enum Harness {
         )
         return [
             "bandCount": bandCount,
+            "extendedBandCount": extendedBandCount,
             "acceptedLeft": accepted.left,
+            "acceptedLeft64": accepted.left64,
             "acceptedGeneration": accepted.generation,
             "acceptedIsSilent": accepted.isSilent,
             "shortInputLeft": shortInput.left,
@@ -90,6 +98,7 @@ enum Harness {
             "silentIsSilent": SceneAudioSpectrumSnapshot.silent.isSilent,
             "silentGeneration": SceneAudioSpectrumSnapshot.silent.generation,
             "silentCount": SceneAudioSpectrumSnapshot.silent.left.count,
+            "silentExtendedCount": SceneAudioSpectrumSnapshot.silent.left64.count,
         ]
     }
 
@@ -100,12 +109,20 @@ enum Harness {
         let bandCount = SceneAudioSpectrumSnapshot.bandCount
         let ones = Array(repeating: Float(0.25), count: bandCount)
         let twos = Array(repeating: Float(0.5), count: bandCount)
+        let ones64 = Array(
+            repeating: Float(0.75),
+            count: SceneAudioSpectrumSnapshot.extendedBandCount
+        )
+        let twos64 = Array(
+            repeating: Float(1),
+            count: SceneAudioSpectrumSnapshot.extendedBandCount
+        )
 
         var observed: [Bool] = []
         inbox.setDemandObserver { observed.append($0) }
 
         let initial = inbox.latest()
-        inbox.publish(left: ones, right: twos)
+        inbox.publish(left: ones, right: twos, left64: ones64, right64: twos64)
         let first = inbox.latest()
         inbox.publish(left: twos, right: ones)
         let second = inbox.latest()
@@ -129,6 +146,8 @@ enum Harness {
             "initialGeneration": initial.generation,
             "firstLeft": first.left,
             "firstRight": first.right,
+            "firstLeft64": first.left64,
+            "firstRight64": first.right64,
             "firstGeneration": first.generation,
             "secondGeneration": second.generation,
             "demandedBefore": demandedBefore,
@@ -194,23 +213,33 @@ enum Harness {
         return [
             "available": true,
             "bandCount": bandCount,
+            "extendedBandCount": SystemAudioSceneSpectrumAnalyzer.extendedBandCount,
             "silentLeft": silent.left,
             "silentRight": silent.right,
             "stereoLeft": stereo.left,
             "stereoRight": stereo.right,
+            "stereoLeft64": stereo.left64,
+            "stereoRight64": stereo.right64,
             "stereoLeftPeakBand": peakBand(stereo.left),
             "stereoRightPeakBand": peakBand(stereo.right),
+            "stereoLeft64PeakBand": peakBand(stereo.left64),
+            "stereoRight64PeakBand": peakBand(stereo.right64),
             "deterministic": repeated.left == stereo.left
-                && repeated.right == stereo.right,
-            "monoMirrors": mono.left == mono.right,
-            "monoMatchesStereoLeft": mono.left == stereo.left,
+                && repeated.right == stereo.right
+                && repeated.left64 == stereo.left64
+                && repeated.right64 == stereo.right64,
+            "monoMirrors": mono.left == mono.right && mono.left64 == mono.right64,
+            "monoMatchesStereoLeft": mono.left == stereo.left
+                && mono.left64 == stereo.left64,
             "invalidRateLeft": invalidRate.left,
             "emptyLeft": empty.left,
             "sanitizedToneFinite": sanitizedTone.left.allSatisfy { $0.isFinite },
             "sanitizedTonePeakBand": peakBand(sanitizedTone.left),
             "biasedPeakBand": peakBand(biasedResult.left),
             "allWithinUnitRange": (stereo.left + stereo.right)
-                .allSatisfy { $0 >= 0 && $0 <= 1 },
+                .allSatisfy { $0 >= 0 && $0 <= 1 }
+                && (stereo.left64 + stereo.right64)
+                    .allSatisfy { $0 >= 0 && $0 <= 1 },
         ]
     }
 
@@ -276,6 +305,11 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
         self.assertEqual(snapshot["acceptedGeneration"], 7)
         self.assertFalse(snapshot["acceptedIsSilent"])
 
+    def test_snapshot_carries_the_workshop_sixty_four_band_shape(self) -> None:
+        snapshot = self.result["snapshot"]
+        self.assertEqual(snapshot["extendedBandCount"], 64)
+        self.assertEqual(len(snapshot["acceptedLeft64"]), 64)
+
     def test_snapshot_zeroes_wrong_length_and_non_finite_values(self) -> None:
         snapshot = self.result["snapshot"]
         self.assertEqual(
@@ -298,6 +332,7 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
         self.assertTrue(snapshot["silentIsSilent"])
         self.assertEqual(snapshot["silentGeneration"], 0)
         self.assertEqual(snapshot["silentCount"], 16)
+        self.assertEqual(snapshot["silentExtendedCount"], 64)
 
     # MARK: inbox
 
@@ -307,6 +342,8 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
         self.assertEqual(inbox["initialGeneration"], 0)
         self.assertEqual(inbox["firstLeft"], [0.25] * 16)
         self.assertEqual(inbox["firstRight"], [0.5] * 16)
+        self.assertEqual(inbox["firstLeft64"], [0.75] * 64)
+        self.assertEqual(inbox["firstRight64"], [1.0] * 64)
         self.assertEqual(inbox["firstGeneration"], 1)
         self.assertEqual(
             inbox["secondGeneration"],
@@ -346,6 +383,16 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
         self.assertEqual(analyzer["bandCount"], 16)
         self.assertEqual(len(analyzer["stereoLeft"]), 16)
         self.assertEqual(len(analyzer["stereoRight"]), 16)
+
+    def test_analyzer_emits_sixty_four_bands_from_the_same_fft(self) -> None:
+        analyzer = self.result["analyzer"]
+        self.assertEqual(analyzer["extendedBandCount"], 64)
+        self.assertEqual(len(analyzer["stereoLeft64"]), 64)
+        self.assertEqual(len(analyzer["stereoRight64"]), 64)
+        self.assertLess(
+            analyzer["stereoLeft64PeakBand"],
+            analyzer["stereoRight64PeakBand"],
+        )
 
     def test_silence_produces_a_stable_zero_spectrum(self) -> None:
         analyzer = self.result["analyzer"]
@@ -433,16 +480,17 @@ class SceneAudioSpectrumWiringTests(unittest.TestCase):
     def test_service_clears_scene_levels_on_stop_and_failure(self) -> None:
         source = SERVICE_SOURCE.read_text(encoding="utf-8")
         self.assertEqual(
-            source.count("onSceneLevels?(Self.clearedSceneLevels, Self.clearedSceneLevels)"),
-            4,
-            "消费者切换、采集停止、FFT 不可用与采集失败四处都必须推零",
+            source.count("clearSceneLevels()"),
+            5,
+            "消费者切换、采集停止、FFT 不可用与采集失败四处都必须调用统一归零入口",
         )
         self.assertIn("count: SystemAudioSceneSpectrumAnalyzer.bandCount", source)
+        self.assertIn("count: SystemAudioSceneSpectrumAnalyzer.extendedBandCount", source)
 
     def test_engine_routes_scene_levels_into_the_inbox(self) -> None:
         source = ENGINE_SPECTRUM_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
-            "SceneAudioSpectrumInbox.shared.publish(left: left, right: right)",
+            "left64: left64",
             source,
         )
         self.assertIn("SceneAudioSpectrumInbox.shared.isDemanded", source)

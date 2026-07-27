@@ -8,21 +8,24 @@ import os.lock
 
 /// 一帧 Scene 音频频谱快照。
 ///
-/// 官方 stock shader（`pulse.vert` / `shake.vert`）公开的 effect 侧合同是
-/// `g_AudioSpectrum16Left[16]` / `g_AudioSpectrum16Right[16]`：16 个频段、左右分离、
-/// 由低到高、取正值。本类型只承载这一形状。
+/// 官方 stock shader（`pulse.vert` / `shake.vert`）使用 16 档；Workshop shader
+/// 还会明确声明 32/64 档。当前宿主同时承载 16 与 64 档、左右分离、由低到高、取正值。
 ///
 /// 频段边界、幅度归一化与平滑策略官方均未公开，当前实现是工程选择而非官方合同，
-/// 不能据此宣称与 Wallpaper Engine 数值等价。32/64 分辨率只在 SceneScript
-/// `registerAudioBuffers` 与 workshop 自定义 shader 中出现，两者前置均未闭合，
-/// 因此这里不预留档位。
+/// 不能据此宣称与 Wallpaper Engine 数值等价。32 档与 SceneScript audio buffer
+/// 仍未接入；64 档仅供严格准入的 Workshop shader consumer 使用。
 nonisolated struct SceneAudioSpectrumSnapshot: Equatable {
     static let bandCount = 16
+    static let extendedBandCount = 64
 
     /// 左声道频段能量，索引 0 为最低频。
     let left: [Float]
     /// 右声道频段能量，索引 0 为最低频。
     let right: [Float]
+    /// Workshop shader 的 64 档左声道频段能量。
+    let left64: [Float]
+    /// Workshop shader 的 64 档右声道频段能量。
+    let right64: [Float]
     /// 每次发布递增；相同内容也会递增，用于区分「同一帧重复读取」与「新采样」。
     let generation: UInt64
 
@@ -30,24 +33,45 @@ nonisolated struct SceneAudioSpectrumSnapshot: Equatable {
     static let silent = SceneAudioSpectrumSnapshot(
         left: Array(repeating: 0, count: bandCount),
         right: Array(repeating: 0, count: bandCount),
+        left64: Array(repeating: 0, count: extendedBandCount),
+        right64: Array(repeating: 0, count: extendedBandCount),
         generation: 0
     )
 
     /// 全零判定。采集失败与真实静音在数值上等价，都必须是稳定零而不是假波形。
     nonisolated var isSilent: Bool {
         left.allSatisfy { $0 == 0 } && right.allSatisfy { $0 == 0 }
+            && left64.allSatisfy { $0 == 0 } && right64.allSatisfy { $0 == 0 }
     }
 
     nonisolated init(left: [Float], right: [Float], generation: UInt64) {
-        self.left = Self.sanitized(left)
-        self.right = Self.sanitized(right)
+        self.init(
+            left: left,
+            right: right,
+            left64: Array(repeating: 0, count: Self.extendedBandCount),
+            right64: Array(repeating: 0, count: Self.extendedBandCount),
+            generation: generation
+        )
+    }
+
+    nonisolated init(
+        left: [Float],
+        right: [Float],
+        left64: [Float],
+        right64: [Float],
+        generation: UInt64
+    ) {
+        self.left = Self.sanitized(left, count: Self.bandCount)
+        self.right = Self.sanitized(right, count: Self.bandCount)
+        self.left64 = Self.sanitized(left64, count: Self.extendedBandCount)
+        self.right64 = Self.sanitized(right64, count: Self.extendedBandCount)
         self.generation = generation
     }
 
     /// 长度不符或含非有限值一律退化为零，避免把坏数据送进 simulation 或 shader。
-    private nonisolated static func sanitized(_ values: [Float]) -> [Float] {
-        guard values.count == bandCount else {
-            return Array(repeating: 0, count: bandCount)
+    private nonisolated static func sanitized(_ values: [Float], count: Int) -> [Float] {
+        guard values.count == count else {
+            return Array(repeating: 0, count: count)
         }
         return values.map { value in
             guard value.isFinite, value > 0 else { return 0 }
@@ -88,12 +112,23 @@ final class SceneAudioSpectrumInbox: @unchecked Sendable {
 
     /// 由采集侧发布一帧。长度或数值非法时 `SceneAudioSpectrumSnapshot` 会归零。
     func publish(left: [Float], right: [Float]) {
+        publish(
+            left: left,
+            right: right,
+            left64: Array(repeating: 0, count: SceneAudioSpectrumSnapshot.extendedBandCount),
+            right64: Array(repeating: 0, count: SceneAudioSpectrumSnapshot.extendedBandCount)
+        )
+    }
+
+    func publish(left: [Float], right: [Float], left64: [Float], right64: [Float]) {
         os_unfair_lock_lock(&lock)
         let generation = nextGeneration
         nextGeneration &+= 1
         snapshot = SceneAudioSpectrumSnapshot(
             left: left,
             right: right,
+            left64: left64,
+            right64: right64,
             generation: generation
         )
         os_unfair_lock_unlock(&lock)

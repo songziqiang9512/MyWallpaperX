@@ -5,11 +5,12 @@
 
 import Accelerate
 
-/// Scene 侧 16 频段频谱分析。
+/// Scene 侧 16/64 频段频谱分析。
 ///
 /// 与 `SystemAudioWebSpectrumAnalyzer` 刻意分开实现：Web 壁纸走固定 64+64 频段并叠加
 /// 为兼容 Wallpaper Engine Web 运行时而调出的增益/指数常量，Scene 的 stock shader
-/// 合同是 16 频段、左右分离、正值、由低到高，两套数值合同互不适用。合并成一个可参数化
+/// stock 合同是 16 频段，严格 Workshop consumer 另需 64 频段；两者都从同一次 FFT
+/// 取左右分离、正值、由低到高的快照。Web 与 Scene 两套数值合同互不适用。合并成一个可参数化
 /// 的分析器会让任一侧的调参隐式影响另一侧，因此这里保留独立实现而不是抽公共层。
 ///
 /// 未知项：官方没有公开 16 频段的频率边界、幅度归一化与平滑策略。下面的频率范围与
@@ -17,6 +18,14 @@ import Accelerate
 /// 不构成与 Wallpaper Engine 的数值等价。
 final class SystemAudioSceneSpectrumAnalyzer {
     static let bandCount = SceneAudioSpectrumSnapshot.bandCount
+    static let extendedBandCount = SceneAudioSpectrumSnapshot.extendedBandCount
+
+    struct Levels {
+        let left: [Float]
+        let right: [Float]
+        let left64: [Float]
+        let right64: [Float]
+    }
 
     /// 频段下沿。低于此频率的分量并入首段。
     private let minimumFrequency: Float = 32
@@ -54,38 +63,59 @@ final class SystemAudioSceneSpectrumAnalyzer {
     func analyze(
         _ frame: SystemAudioCapturedFrame,
         sampleRate: Float
-    ) -> (left: [Float], right: [Float]) {
+    ) -> Levels {
         analyze(signedChannels: frame.signedChannels, sampleRate: sampleRate)
     }
 
     func analyze(
         signedChannels: [[Float]],
         sampleRate: Float
-    ) -> (left: [Float], right: [Float]) {
+    ) -> Levels {
         guard let leftChannel = signedChannels.first else {
-            return (Self.zeroBands, Self.zeroBands)
+            return Self.zeroLevels
         }
-        let left = bandLevels(for: leftChannel, sampleRate: sampleRate)
-        guard signedChannels.count > 1 else { return (left, left) }
-        return (left, bandLevels(for: signedChannels[1], sampleRate: sampleRate))
+        let left = levels(for: leftChannel, sampleRate: sampleRate)
+        guard signedChannels.count > 1 else {
+            return Levels(left: left.0, right: left.0, left64: left.1, right64: left.1)
+        }
+        let right = levels(for: signedChannels[1], sampleRate: sampleRate)
+        return Levels(left: left.0, right: right.0, left64: left.1, right64: right.1)
     }
 
-    private func bandLevels(for samples: [Float], sampleRate: Float) -> [Float] {
+    private func levels(for samples: [Float], sampleRate: Float) -> ([Float], [Float]) {
         guard !samples.isEmpty, sampleRate.isFinite, sampleRate > 64 else {
-            return Self.zeroBands
+            return (Self.zeroBands, Self.zeroExtendedBands)
         }
 
         let magnitudes = magnitudeSpectrum(for: samples)
         let nyquist = sampleRate * 0.5
         let upperBound = min(maximumFrequency, nyquist)
         let binWidth = sampleRate / Float(fftSize)
-        guard upperBound > minimumFrequency, binWidth > 0 else { return Self.zeroBands }
+        guard upperBound > minimumFrequency, binWidth > 0 else {
+            return (Self.zeroBands, Self.zeroExtendedBands)
+        }
+        return (
+            bandLevels(magnitudes, upperBound: upperBound, binWidth: binWidth, count: Self.bandCount),
+            bandLevels(
+                magnitudes,
+                upperBound: upperBound,
+                binWidth: binWidth,
+                count: Self.extendedBandCount
+            )
+        )
+    }
 
-        var levels = Self.zeroBands
+    private func bandLevels(
+        _ magnitudes: [Float],
+        upperBound: Float,
+        binWidth: Float,
+        count: Int
+    ) -> [Float] {
+        var levels = Array(repeating: Float(0), count: count)
         let ratio = upperBound / minimumFrequency
-        for band in 0 ..< Self.bandCount {
-            let lowerProgress = Float(band) / Float(Self.bandCount)
-            let upperProgress = Float(band + 1) / Float(Self.bandCount)
+        for band in 0 ..< count {
+            let lowerProgress = Float(band) / Float(count)
+            let upperProgress = Float(band + 1) / Float(count)
             let lowerFrequency = minimumFrequency * pow(ratio, lowerProgress)
             let upperFrequency = minimumFrequency * pow(ratio, upperProgress)
             // bin 0 是直流分量，恒定跳过。
@@ -165,5 +195,18 @@ final class SystemAudioSceneSpectrumAnalyzer {
 
     private static var zeroBands: [Float] {
         Array(repeating: 0, count: bandCount)
+    }
+
+    private static var zeroExtendedBands: [Float] {
+        Array(repeating: 0, count: extendedBandCount)
+    }
+
+    private static var zeroLevels: Levels {
+        Levels(
+            left: zeroBands,
+            right: zeroBands,
+            left64: zeroExtendedBands,
+            right64: zeroExtendedBands
+        )
     }
 }
