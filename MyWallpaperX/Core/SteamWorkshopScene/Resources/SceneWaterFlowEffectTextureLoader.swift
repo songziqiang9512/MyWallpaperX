@@ -54,7 +54,7 @@ enum SceneWaterFlowEffectTextureLoader {
                 loader: loader,
                 device: device
             )
-            let builtInPhase = phase.texture == nil
+            let builtInPhase = phaseURL == nil
                 ? SceneWaterFlowBuiltInPhaseTexture.make(path: phasePath, device: device)
                 : nil
             textures[effect.id] = SceneWaterFlowEffectTextures(
