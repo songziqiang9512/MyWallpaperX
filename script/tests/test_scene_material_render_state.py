@@ -17,6 +17,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Properties/SceneUserProperty.swift",
     SCENE_ROOT / "Properties/SceneUserPropertyDefinitionParser.swift",
     SCENE_ROOT / "Resources/SceneResourceIndex.swift",
+    SCENE_ROOT / "Resources/SceneResourceView.swift",
     SCENE_ROOT / "Resources/SceneAssetCatalog.swift",
     SCENE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
     SCENE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",

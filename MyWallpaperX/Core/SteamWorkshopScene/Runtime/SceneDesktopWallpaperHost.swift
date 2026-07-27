@@ -207,9 +207,16 @@ final class SceneDesktopWallpaperHost {
                 continue
             }
             if wroteLog {
-                metalView.loadImageLayers(from: launchContext.cacheDirectory)
+                metalView.loadImageLayers(
+                    from: launchContext.cacheDirectory,
+                    resourceView: launchContext.resourceView
+                )
             } else {
-                metalView.loadImageLayers(from: launchContext.cacheDirectory, logURL: launchContext.logURL)
+                metalView.loadImageLayers(
+                    from: launchContext.cacheDirectory,
+                    resourceView: launchContext.resourceView,
+                    logURL: launchContext.logURL
+                )
                 Self.appendTimelineReport(
                     to: launchContext.logURL,
                     program: launchContext.timelineProgram

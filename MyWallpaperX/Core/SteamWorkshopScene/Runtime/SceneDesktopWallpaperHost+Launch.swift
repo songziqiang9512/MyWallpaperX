@@ -7,6 +7,7 @@ struct SceneDesktopWallpaperLaunchContext {
     var liveState: ScenePropertyLiveUpdateState
     let userPropertyTextureURLs: [String: URL]
     let cacheDirectory: URL
+    let resourceView: SceneResourceView
     let logURL: URL?
     let recordID: String?
 }
@@ -63,6 +64,7 @@ extension SceneDesktopWallpaperHost {
             ),
             userPropertyTextureURLs: userPropertyTextureURLs,
             cacheDirectory: cacheDirectory,
+            resourceView: model.diagnostics.resourceView,
             logURL: logURL,
             recordID: recordID
         ))

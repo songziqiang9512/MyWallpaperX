@@ -68,21 +68,61 @@ struct SceneAssetCatalog {
 }
 
 struct SceneAssetCatalogLoader {
-    nonisolated func load(project: SceneProject, packageReport: ScenePkgExtractionReport?) throws -> SceneAssetCatalog {
-        let rootURL = packageReport?.outputURL ?? project.rootURL
-        let resourceIndex = SceneResourceIndexBuilder().build(rootURL: rootURL)
-        let resourcesByPath = Dictionary(
-            uniqueKeysWithValues: resourceIndex.resources.map { ($0.relativePath, $0) }
+    nonisolated func load(
+        project: SceneProject,
+        packageReport: ScenePkgExtractionReport?,
+        referencedResourcePaths: [String] = [],
+        stockAssetsRootURL: URL? = SceneResourceView.defaultStockAssetsRootURL()
+    ) throws -> SceneAssetCatalog {
+        let resourceView = SceneResourceView(
+            projectRootURL: project.rootURL,
+            packageRootURL: packageReport?.outputURL,
+            stockAssetsRootURL: stockAssetsRootURL
         )
+        return try load(
+            resourceView: resourceView,
+            referencedResourcePaths: referencedResourcePaths
+        )
+    }
 
-        let modelResources = resourceIndex.resources.filter {
+    nonisolated func load(
+        resourceView: SceneResourceView,
+        referencedResourcePaths: [String]
+    ) throws -> SceneAssetCatalog {
+        let rootURL = resourceView.primaryRootURL
+        var resources = resourceView.authorResources
+        for path in referencedResourcePaths {
+            guard let resource = resourceView.resource(forReference: path) else { continue }
+            if resourceView.source(containing: resource.url) != .stock || resource.kind == .model {
+                append(resource, to: &resources)
+            }
+        }
+
+        let modelResources = resources.filter {
             $0.kind == .model && $0.relativePath.localizedLowercase.hasSuffix(".json")
         }
-        let materialResources = resourceIndex.resources.filter {
+        let models = modelResources.compactMap {
+            loadModel($0, resourceView: resourceView)
+        }
+        for model in models {
+            if !model.isSolidLayer && !Self.isUtilityModelPath(model.relativePath) {
+                append(model.materialPath.flatMap(resourceView.resource(relativePath:)), to: &resources)
+            }
+            append(model.puppetPath.flatMap(resourceView.resource(relativePath:)), to: &resources)
+        }
+
+        let effectResources = resources.filter { $0.kind == .effectDefinition }
+        let effectResults = effectResources.map(loadEffectDefinition)
+        let effectDefinitions = effectResults.compactMap(\.definition)
+        for definition in effectDefinitions {
+            for path in definition.passes.compactMap(\.materialPath) + definition.dependencies {
+                append(resourceView.resource(forReference: path), to: &resources)
+            }
+        }
+
+        let materialResources = resources.filter {
             $0.kind == .material && $0.relativePath.localizedLowercase.hasSuffix(".json")
         }
-        let effectResources = resourceIndex.resources.filter { $0.kind == .effectDefinition }
-        let effectResults = effectResources.map(loadEffectDefinition)
         let materials = materialResources.compactMap(loadMaterial)
         let shaderReferences = SceneAssetCatalog.uniqueSorted(materials.flatMap { material in
             material.passes.compactMap(\.shader)
@@ -90,17 +130,62 @@ struct SceneAssetCatalogLoader {
 
         return SceneAssetCatalog(
             rootURL: rootURL,
-            models: modelResources.compactMap {
-                loadModel($0, resourcesByPath: resourcesByPath)
-            },
+            models: models,
             materials: materials,
-            effectDefinitions: effectResults.compactMap(\.definition),
+            effectDefinitions: effectDefinitions,
             effectDefinitionDiagnostics: effectResults.compactMap(\.diagnostic),
-            shaderContracts: SceneShaderContractLoader().load(
-                shaderReferences: shaderReferences,
-                rootURL: rootURL
-            )
+            shaderContracts: shaderReferences.flatMap { reference in
+                SceneShaderContractLoader().load(
+                    shaderReferences: [reference],
+                    rootURL: shaderRootURL(
+                        for: reference,
+                        resourceView: resourceView,
+                        fallback: rootURL
+                    )
+                )
+            }
         )
+    }
+
+    nonisolated private func append(
+        _ resource: SceneResourceIndex.Resource?,
+        to resources: inout [SceneResourceIndex.Resource]
+    ) {
+        guard let resource else { return }
+        let identity = resource.relativePath.localizedLowercase
+        guard !resources.contains(where: { $0.relativePath.localizedLowercase == identity }) else {
+            return
+        }
+        resources.append(resource)
+    }
+
+    nonisolated private func shaderRootURL(
+        for reference: String,
+        resourceView: SceneResourceView,
+        fallback: URL
+    ) -> URL {
+        var identity = reference.replacingOccurrences(of: "\\", with: "/")
+        for suffix in [".vert", ".frag", ".json"]
+        where identity.localizedLowercase.hasSuffix(suffix) {
+            identity.removeLast(suffix.count)
+            break
+        }
+        for suffix in [".vert", ".frag"] {
+            if let resource = resourceView.resource(
+                relativePath: "shaders/" + identity + suffix
+            ), let rootURL = resourceView.rootURL(containing: resource.url) {
+                return rootURL
+            }
+        }
+        return fallback
+    }
+
+    nonisolated private static func isUtilityModelPath(_ path: String) -> Bool {
+        [
+            "models/util/composelayer.json",
+            "models/util/projectlayer.json",
+            "models/util/fullscreenlayer.json",
+        ].contains(path.localizedLowercase)
     }
 
     nonisolated private func loadEffectDefinition(
@@ -137,12 +222,12 @@ struct SceneAssetCatalogLoader {
 
     nonisolated private func loadModel(
         _ resource: SceneResourceIndex.Resource,
-        resourcesByPath: [String: SceneResourceIndex.Resource]
+        resourceView: SceneResourceView
     ) -> SceneAssetCatalog.ModelAsset? {
         guard let root = loadJSON(resource.url) else { return nil }
         let puppetPath = normalizedPath(root["puppet"] as? String)
         let puppetAttachments = puppetPath
-            .flatMap { resourcesByPath[$0] }
+            .flatMap(resourceView.resource(relativePath:))
             .flatMap { try? Data(contentsOf: $0.url) }
             .flatMap { try? SceneMdlPuppetAttachmentReader.read(data: $0) } ?? []
         return SceneAssetCatalog.ModelAsset(

@@ -117,10 +117,12 @@ class SceneMetalView: NSView {
     // Loads textures for every image layer and, when `logURL` is provided,
     // writes a human-readable per-layer load report next to the sample so
     // black previews can be debugged without attaching a debugger.
-    func loadImageLayers(from cacheDirectory: URL, logURL: URL? = nil) {
+    func loadImageLayers(
+        from cacheDirectory: URL, resourceView: SceneResourceView, logURL: URL? = nil
+    ) {
         let loader = SceneTextureLoader()
         let resolver = SceneTexturePathResolver(
-            cacheDirectory: cacheDirectory,
+            resourceView: resourceView,
             descriptor: renderer.renderDescriptor
         )
         var report: [String] = []
@@ -199,7 +201,7 @@ class SceneMetalView: NSView {
                 if let initialTexture = videoSource.currentTexture(forHostTime: CACurrentMediaTime()) {
                     message += " → \(initialTexture.width)×\(initialTexture.height)"
                 }
-                message += " [\(relativePath(for: url, cacheDirectory: cacheDirectory))]"
+                message += " [\(resourceView.displayPath(for: url))]"
                 message += effectTextures.message
                 if let effectSummary = renderer.effectRuntimeSummary(for: layer) {
                     message += "; \(effectSummary)"
@@ -233,7 +235,7 @@ class SceneMetalView: NSView {
                     puppetMessage = "; \(puppetOutcome.message)"
                 }
                 loaded[layer.id] = effectiveTexture
-                var message = "layer \(layer.id) \"\(name)\": OK \(url.lastPathComponent) → \(texture.width)×\(texture.height) [\(relativePath(for: url, cacheDirectory: cacheDirectory))]"
+                var message = "layer \(layer.id) \"\(name)\": OK \(url.lastPathComponent) → \(texture.width)×\(texture.height) [\(resourceView.displayPath(for: url))]"
                 message += puppetMessage
                 if let animation = SceneSpriteAnimation.load(from: url) {
                     loadedSpriteAnimations[layer.id] = animation
@@ -394,7 +396,4 @@ class SceneMetalView: NSView {
         )
     }
 
-    private func relativePath(for url: URL, cacheDirectory: URL) -> String {
-        url.path.replacingOccurrences(of: cacheDirectory.path + "/", with: "")
-    }
 }

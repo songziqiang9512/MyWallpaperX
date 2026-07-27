@@ -19,6 +19,7 @@ struct SceneDiagnosticsReport {
     let resourceReferences: SceneResourceReferenceIndex?
     let resourceIndex: SceneResourceIndex
     let packageReport: ScenePkgExtractionReport?
+    let resourceView: SceneResourceView
     let issues: [Issue]
     let capabilityProfile: SceneCapabilityProfile?
     let renderDescriptor: SceneRenderDescriptor?
@@ -42,6 +43,10 @@ struct SceneDiagnosticsBuilder {
                 outputURL: rootURL.appendingPathComponent(".scene-extracted", isDirectory: true)
             )
         }()
+        let resourceView = SceneResourceView(
+            projectRootURL: rootURL,
+            packageRootURL: packageReport?.outputURL
+        )
         let sceneDocument = project.flatMap {
             try? SceneDocumentLoader().load(
                 project: $0,
@@ -49,14 +54,16 @@ struct SceneDiagnosticsBuilder {
                 propertyOverrides: propertyOverrides
             )
         }
-        let assetCatalog = project.flatMap {
-            try? SceneAssetCatalogLoader().load(project: $0, packageReport: packageReport)
+        let assetCatalog = project.flatMap { project in
+            try? SceneAssetCatalogLoader().load(
+                resourceView: resourceView,
+                referencedResourcePaths: sceneDocument?.referencedResourcePaths ?? []
+            )
         }
         let resourceReferences = sceneDocument.map {
             SceneResourceReferenceIndexBuilder().build(
                 document: $0,
-                packageReport: packageReport,
-                resourceIndex: resourceIndex
+                resourceView: resourceView
             )
         }
         let capabilityProfile = SceneCapabilityProfileBuilder().build(
@@ -165,6 +172,7 @@ struct SceneDiagnosticsBuilder {
             resourceReferences: resourceReferences,
             resourceIndex: resourceIndex,
             packageReport: packageReport,
+            resourceView: resourceView,
             issues: issues,
             capabilityProfile: capabilityProfile,
             renderDescriptor: renderDescriptor

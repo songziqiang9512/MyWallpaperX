@@ -6,7 +6,7 @@ import Foundation
 //     -> materialPasses: material -> first texture name (no extension/path prefix)
 //     -> probes common Wallpaper Engine path/extension patterns
 struct SceneTexturePathResolver {
-    let cacheDirectory: URL
+    let resourceView: SceneResourceView
     let descriptor: SceneRenderDescriptor
 
     private static let candidatePathTemplates: [String] = [
@@ -20,6 +20,21 @@ struct SceneTexturePathResolver {
         "%@.jpeg"
     ]
 
+    init(resourceView: SceneResourceView, descriptor: SceneRenderDescriptor) {
+        self.resourceView = resourceView
+        self.descriptor = descriptor
+    }
+
+    init(cacheDirectory: URL, descriptor: SceneRenderDescriptor) {
+        self.init(
+            resourceView: SceneResourceView(
+                projectRootURL: cacheDirectory,
+                packageRootURL: nil
+            ),
+            descriptor: descriptor
+        )
+    }
+
     func resolvePrimaryTexture(for layer: SceneRenderDescriptor.Layer) -> URL? {
         guard let modelPath = layer.imagePath else { return nil }
         guard let materialPath = descriptor.modelMaterialLinks
@@ -32,12 +47,10 @@ struct SceneTexturePathResolver {
     }
 
     func resolveTextureFile(named textureName: String) -> URL? {
-        let fileManager = FileManager.default
         for template in Self.candidatePathTemplates {
             let relative = String(format: template, textureName)
-            let url = cacheDirectory.appendingPathComponent(relative)
-            if fileManager.fileExists(atPath: url.path) {
-                return url
+            if let resource = resourceView.resource(relativePath: relative) {
+                return resource.url
             }
         }
         return nil

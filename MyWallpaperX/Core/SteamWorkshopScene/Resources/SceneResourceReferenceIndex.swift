@@ -40,12 +40,31 @@ struct SceneResourceReferenceIndex {
 struct SceneResourceReferenceIndexBuilder {
     nonisolated func build(
         document: SceneDocument,
+        resourceView: SceneResourceView
+    ) -> SceneResourceReferenceIndex {
+        build(
+            document: document,
+            availableRelativePaths: resourceView.availableRelativePaths
+        )
+    }
+
+    nonisolated func build(
+        document: SceneDocument,
         packageReport: ScenePkgExtractionReport?,
         resourceIndex: SceneResourceIndex
     ) -> SceneResourceReferenceIndex {
-        let availablePaths = Set(
-            (packageReport?.discoveredPaths ?? []) + resourceIndex.resources.map(\.relativePath)
-        ).map(Self.normalizedPath)
+        build(
+            document: document,
+            availableRelativePaths: (packageReport?.discoveredPaths ?? [])
+                + resourceIndex.resources.map(\.relativePath)
+        )
+    }
+
+    nonisolated private func build(
+        document: SceneDocument,
+        availableRelativePaths: [String]
+    ) -> SceneResourceReferenceIndex {
+        let availablePaths = Set(availableRelativePaths).map(Self.normalizedPath)
 
         let matches = document.referencedResourcePaths.map { path in
             let normalized = Self.normalizedPath(path)
