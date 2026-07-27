@@ -301,7 +301,7 @@ enum Harness {
             "wrongSourceFormat": !encoded(source: wrongBGRA),
             "wrongTargetFormat": !encoded(target: wrongBGRA),
             "wrongExtent": !encoded(target: wrongExtent),
-            "sourceMipmapped": !encoded(source: mipmapped),
+            "sourceMipmappedAccepted": encoded(source: mipmapped),
             "targetMipmapped": !encoded(target: mipmapped),
             "sourceWrongUsage": !encoded(source: sourceWrongUsage),
             "targetWrongUsage": !encoded(target: targetWrongUsage),

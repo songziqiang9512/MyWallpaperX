@@ -144,7 +144,12 @@ fragment float4 sceneImageLayerFrag(
     texture2d<float> dependencyTex [[texture(5)]],
     constant LayerFragmentUniforms &u [[buffer(0)]]
 ) {
-    constexpr sampler s(filter::linear, address::clamp_to_edge);
+    constexpr sampler s(
+        min_filter::linear,
+        mag_filter::linear,
+        mip_filter::linear,
+        address::clamp_to_edge
+    );
     float2 uv = in.texcoord;
     float shakeMask = 1.0;
     if ((u.effectFlags & EFFECT_HAS_SHAKE_MASK) != 0u) {

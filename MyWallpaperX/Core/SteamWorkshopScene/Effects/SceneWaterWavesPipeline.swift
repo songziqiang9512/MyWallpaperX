@@ -169,7 +169,7 @@ struct SceneWaterWavesPipeline {
             && source.width == target.width
             && source.height > 0
             && source.height == target.height
-            && source.mipmapLevelCount == 1
+            && source.mipmapLevelCount > 0
             && target.mipmapLevelCount == 1
             && source.sampleCount == 1
             && target.sampleCount == 1
@@ -195,7 +195,7 @@ struct SceneWaterWavesPipeline {
             && supportedMaskFormats.contains(mask.pixelFormat)
             && mask.width > 0
             && mask.height > 0
-            && mask.mipmapLevelCount == 1
+            && mask.mipmapLevelCount > 0
             && mask.sampleCount == 1
             && mask.usage.contains(.shaderRead)
             && mask.device.registryID == deviceRegistryID

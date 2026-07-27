@@ -16,6 +16,10 @@ struct SceneTexContainer {
         let data: Data
     }
 
+    struct Image {
+        let mips: [Mip]
+    }
+
     struct SpriteFrame {
         let imageIndex: Int
         let duration: Float
@@ -30,12 +34,14 @@ struct SceneTexContainer {
     let textureHeight: Int
     let imageWidth: Int
     let imageHeight: Int
-    let imageCount: Int
     let containerVersion: ContainerVersion
     let freeImageFormat: Int32
     let isVideoMp4: Bool
-    let mips: [Mip]
+    let images: [Image]
     let spriteFrames: [SpriteFrame]
+
+    var imageCount: Int { images.count }
+    var mips: [Mip] { images.first?.mips ?? [] }
 
     var isAnimated: Bool {
         flags & 4 != 0
@@ -173,9 +179,10 @@ struct SceneTexContainerReader {
                 : .texb0004
         }
 
-        var firstImageMips: [SceneTexContainer.Mip] = []
+        var images: [SceneTexContainer.Image] = []
+        images.reserveCapacity(imageCount)
         var imageSizes: [SIMD2<Float>] = []
-        for imageIndex in 0..<imageCount {
+        for _ in 0..<imageCount {
             guard offset + 4 <= data.count else {
                 throw ReadError.invalidMipTable
             }
@@ -196,17 +203,13 @@ struct SceneTexContainerReader {
                 if mipIndex == 0 {
                     imageSizes.append(SIMD2(Float(mip.width), Float(mip.height)))
                 }
-                if imageIndex == 0 {
-                    parsedMips.append(mip)
-                }
+                parsedMips.append(mip)
             }
-
-            if imageIndex == 0 {
-                firstImageMips = parsedMips
-            }
+            images.append(.init(mips: parsedMips))
         }
 
-        guard !firstImageMips.isEmpty else {
+        guard images.count == imageCount,
+              images.allSatisfy({ !$0.mips.isEmpty }) else {
             throw ReadError.invalidMipTable
         }
         let spriteFrames = flags & 4 == 0
@@ -220,11 +223,10 @@ struct SceneTexContainerReader {
             textureHeight: textureHeight,
             imageWidth: imageWidth,
             imageHeight: imageHeight,
-            imageCount: imageCount,
             containerVersion: effectiveContainerVersion,
             freeImageFormat: freeImageFormat,
             isVideoMp4: isVideoMp4,
-            mips: firstImageMips,
+            images: images,
             spriteFrames: spriteFrames
         )
     }

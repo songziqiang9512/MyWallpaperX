@@ -187,6 +187,7 @@ struct SceneShakePipeline {
             )
             && validTexture(phaseMap, format: .r8Unorm, usage: .shaderRead)
             && validTexture(target, format: .bgra8Unorm, usage: .renderTarget)
+            && target.mipmapLevelCount == 1
             && source.width == target.width
             && source.height == target.height
             && ObjectIdentifier(source) != ObjectIdentifier(target)
@@ -231,7 +232,7 @@ struct SceneShakePipeline {
             && formats.contains(texture.pixelFormat)
             && texture.width > 0
             && texture.height > 0
-            && texture.mipmapLevelCount == 1
+            && texture.mipmapLevelCount > 0
             && texture.sampleCount == 1
             && texture.usage.contains(usage)
     }

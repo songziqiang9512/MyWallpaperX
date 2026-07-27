@@ -115,12 +115,15 @@ struct SceneTextureLoader {
         }
 
         if Self.isEmbeddedImagePayload(firstMip.data) {
-            return decodeEmbeddedImagePayload(firstMip.data, device: device)
+            return SceneTextureMipUploader.uploadEmbeddedImages(
+                container.mips,
+                device: device
+            ) ?? decodeEmbeddedImagePayload(firstMip.data, device: device)
         }
 
         let expectedRawByteCount = firstMip.width * firstMip.height * 4
         if firstMip.data.count == expectedRawByteCount {
-            return makeRawARGB8888Texture(from: container, device: device)
+            return SceneTextureMipUploader.uploadRawRGBA(container: container, device: device)
         }
 
         if let embedded = Self.extractEmbeddedImageData(from: fallbackData) {
@@ -255,91 +258,6 @@ struct SceneTextureLoader {
         )
     }
 
-    private func makeRawTexture(
-        from container: SceneTexContainer,
-        pixelFormat: MTLPixelFormat,
-        bytesPerPixel: Int,
-        device: MTLDevice
-    ) -> SceneTextureLoadOutcome {
-        guard let firstMip = container.mips.first else {
-            return .decodeFailed("TEX container has no mip data")
-        }
-
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: pixelFormat,
-            width: firstMip.width,
-            height: firstMip.height,
-            mipmapped: false
-        )
-        descriptor.usage = .shaderRead
-        descriptor.storageMode = .shared
-
-        guard let texture = device.makeTexture(descriptor: descriptor) else {
-            return .textureAllocationFailed(width: firstMip.width, height: firstMip.height)
-        }
-
-        let bytesPerRow = firstMip.width * bytesPerPixel
-        let expectedByteCount = bytesPerRow * firstMip.height
-        guard firstMip.data.count == expectedByteCount else {
-            return .decodeFailed("raw mip data size mismatch: \(firstMip.data.count) != \(expectedByteCount)")
-        }
-
-        firstMip.data.withUnsafeBytes { rawBuffer in
-            texture.replace(
-                region: MTLRegionMake2D(0, 0, firstMip.width, firstMip.height),
-                mipmapLevel: 0,
-                withBytes: rawBuffer.baseAddress!,
-                bytesPerRow: bytesPerRow
-            )
-        }
-        return .loaded(texture)
-    }
-
-    private func makeRawARGB8888Texture(
-        from container: SceneTexContainer,
-        device: MTLDevice
-    ) -> SceneTextureLoadOutcome {
-        guard let firstMip = container.mips.first else {
-            return .decodeFailed("TEX container has no mip data")
-        }
-        guard firstMip.width > 0, firstMip.height > 0 else {
-            return .decodeFailed("raw ARGB8888 mip has invalid size")
-        }
-
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .rgba8Unorm,
-            width: firstMip.width,
-            height: firstMip.height,
-            mipmapped: false
-        )
-        descriptor.usage = .shaderRead
-        descriptor.storageMode = .shared
-
-        guard let texture = device.makeTexture(descriptor: descriptor) else {
-            return .textureAllocationFailed(width: firstMip.width, height: firstMip.height)
-        }
-
-        let bytesPerRow = firstMip.width * 4
-        let expectedByteCount = bytesPerRow * firstMip.height
-        guard firstMip.data.count == expectedByteCount else {
-            return .decodeFailed("raw ARGB8888 mip data size mismatch: \(firstMip.data.count) != \(expectedByteCount)")
-        }
-        guard Self.isMP4Payload(firstMip.data) == false else {
-            return .texContainsVideoPayload
-        }
-
-        let premultiplied = Self.premultiplyStraightAlphaRGBA(firstMip.data)
-        premultiplied.withUnsafeBytes { rawBuffer in
-            texture.replace(
-                region: MTLRegionMake2D(0, 0, firstMip.width, firstMip.height),
-                mipmapLevel: 0,
-                withBytes: rawBuffer.baseAddress!,
-                bytesPerRow: bytesPerRow
-            )
-        }
-        return .loaded(texture)
-    }
-
     private func makeDirectUploadTexture(
         from container: SceneTexContainer,
         device: MTLDevice
@@ -349,15 +267,15 @@ struct SceneTextureLoader {
         }
         if let pixelFormat = container.rawMetalPixelFormat,
            let bytesPerPixel = container.rawBytesPerPixel {
-            return makeRawTexture(
-                from: container,
+            return SceneTextureMipUploader.uploadRaw(
+                container: container,
                 pixelFormat: pixelFormat,
                 bytesPerPixel: bytesPerPixel,
                 device: device
             )
         }
         if container.format == 0 {
-            return makeRawARGB8888Texture(from: container, device: device)
+            return SceneTextureMipUploader.uploadRawRGBA(container: container, device: device)
         }
         return nil
     }
@@ -372,24 +290,4 @@ struct SceneTextureLoader {
             || data.starts(with: Data([0xFF, 0xD8, 0xFF]))
     }
 
-    // format 0 raw payloads are authored with straight alpha. The renderer's
-    // blend state is premultiplied source-over (matching the CGContext path we
-    // use for PNG/JPEG decode), so upload a CPU-premultiplied copy here;
-    // otherwise transparent texels keep their white/pink RGB and bloom into
-    // opaque-looking matte backgrounds when composited.
-    private static func premultiplyStraightAlphaRGBA(_ data: Data) -> Data {
-        var output = data
-        let pixelCount = output.count / 4
-        output.withUnsafeMutableBytes { rawBuffer in
-            guard let bytes = rawBuffer.bindMemory(to: UInt8.self).baseAddress else { return }
-            for index in 0..<pixelCount {
-                let pixel = bytes.advanced(by: index * 4)
-                let alpha = UInt16(pixel[3])
-                pixel[0] = UInt8((UInt16(pixel[0]) * alpha + 127) / 255)
-                pixel[1] = UInt8((UInt16(pixel[1]) * alpha + 127) / 255)
-                pixel[2] = UInt8((UInt16(pixel[2]) * alpha + 127) / 255)
-            }
-        }
-        return output
-    }
 }

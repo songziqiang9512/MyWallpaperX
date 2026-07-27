@@ -98,6 +98,24 @@ enum Harness {
         if case let .decodeFailed(message) = rejected {
             result["rotatedFailure"] = message
         }
+
+        let mipmapped = SceneCompressedTextureUploader.upload(
+            container: makeMipmappedContainer(),
+            pixelFormat: .bc1_rgba,
+            device: device
+        )
+        if case let .loaded(texture) = mipmapped {
+            result["mipmapLevelCount"] = texture.mipmapLevelCount
+            result["secondMipPixel"] = try readFirstPixel(
+                texture: texture,
+                level: 1,
+                device: device
+            )
+        }
+        let parsed = try SceneTexContainerReader().read(data: makeTwoImageTex())
+        result["parsedImageCount"] = parsed.images.count
+        result["parsedMipCounts"] = parsed.images.map { $0.mips.count }
+        result["parsedFirstBytes"] = parsed.images.map { Int($0.mips[0].data[0]) }
         FileHandle.standardOutput.write(
             try JSONSerialization.data(withJSONObject: result)
         )
@@ -114,16 +132,67 @@ enum Harness {
             textureHeight: mip.height,
             imageWidth: mip.width,
             imageHeight: mip.height,
-            imageCount: 2,
             containerVersion: .texb0002,
             freeImageFormat: -1,
             isVideoMp4: false,
-            mips: [mip],
+            images: [.init(mips: [mip]), .init(mips: [mip])],
             spriteFrames: frames
         )
     }
 
-    static func readFirstPixel(texture: MTLTexture, device: MTLDevice) throws -> [UInt8] {
+    static func makeMipmappedContainer() -> SceneTexContainer {
+        let redBlock = Data([0x00, 0xF8, 0, 0, 0, 0, 0, 0])
+        let greenBlock = Data([0xE0, 0x07, 0, 0, 0, 0, 0, 0])
+        return SceneTexContainer(
+            format: 7,
+            flags: 2,
+            textureWidth: 8,
+            textureHeight: 8,
+            imageWidth: 8,
+            imageHeight: 8,
+            containerVersion: .texb0002,
+            freeImageFormat: -1,
+            isVideoMp4: false,
+            images: [.init(mips: [
+                .init(width: 8, height: 8, data: redBlock + redBlock + redBlock + redBlock),
+                .init(width: 4, height: 4, data: greenBlock)
+            ])],
+            spriteFrames: []
+        )
+    }
+
+    static func makeTwoImageTex() -> Data {
+        var data = Data("TEXV0005\0TEXI0001\0".utf8)
+        func append(_ value: UInt32) {
+            var littleEndian = value.littleEndian
+            withUnsafeBytes(of: &littleEndian) { data.append(contentsOf: $0) }
+        }
+        append(7)
+        append(0)
+        append(4)
+        append(4)
+        append(4)
+        append(4)
+        append(0)
+        data.append(Data("TEXB0002\0".utf8))
+        append(2)
+        for marker: UInt8 in [17, 29] {
+            append(1)
+            append(4)
+            append(4)
+            append(0)
+            append(0)
+            append(8)
+            data.append(Data(repeating: marker, count: 8))
+        }
+        return data
+    }
+
+    static func readFirstPixel(
+        texture: MTLTexture,
+        level: Int = 0,
+        device: MTLDevice
+    ) throws -> [UInt8] {
         guard let queue = device.makeCommandQueue(),
               let commandBuffer = queue.makeCommandBuffer(),
               let buffer = device.makeBuffer(length: 4) else { throw HarnessError.noDevice }
@@ -131,7 +200,7 @@ enum Harness {
         blit.copy(
             from: texture,
             sourceSlice: 0,
-            sourceLevel: 0,
+            sourceLevel: level,
             sourceOrigin: MTLOrigin(x: 0, y: 0, z: 0),
             sourceSize: MTLSize(width: 1, height: 1, depth: 1),
             to: buffer,
@@ -188,6 +257,16 @@ class SceneBCTextureUploaderTests(unittest.TestCase):
 
     def test_rotated_cross_image_first_frame_fails_closed(self) -> None:
         self.assertIn("static first-frame region", self.result["rotatedFailure"])
+
+    def test_single_image_bc_upload_preserves_authored_mip_chain(self) -> None:
+        self.assertEqual(self.result["mipmapLevelCount"], 2)
+        red, green, blue, alpha = self.result["secondMipPixel"]
+        self.assertEqual((red, green, blue, alpha), (0, 255, 0, 255))
+
+    def test_tex_reader_preserves_every_image_payload(self) -> None:
+        self.assertEqual(self.result["parsedImageCount"], 2)
+        self.assertEqual(self.result["parsedMipCounts"], [1, 1])
+        self.assertEqual(self.result["parsedFirstBytes"], [17, 29])
 
 
 if __name__ == "__main__":
