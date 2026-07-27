@@ -10,6 +10,7 @@ struct SceneImageLayerMasks {
     let foliageUVScale: SIMD2<Float>
     let waterRippleNormal: MTLTexture?
     let shakeEffects: [String: SceneShakeEffectTextures]
+    let filmGrainEffects: [String: SceneFilmGrainEffectTextures]
     let waterFlowEffects: [String: SceneWaterFlowEffectTextures]
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
     let opacityEffects: [String: SceneOpacityEffectTextures]
@@ -28,6 +29,7 @@ struct SceneImageLayerMasks {
             foliageUVScale: foliageUVScale,
             waterRippleNormal: waterRippleNormal,
             shakeEffects: shakeEffects,
+            filmGrainEffects: filmGrainEffects,
             waterFlowEffects: waterFlowEffects,
             waterWavesEffects: waterWavesEffects,
             opacityEffects: opacityEffects,
@@ -47,6 +49,7 @@ struct SceneImageLayerMasks {
         foliageUVScale: SIMD2(repeating: 1),
         waterRippleNormal: nil,
         shakeEffects: [:],
+        filmGrainEffects: [:],
         waterFlowEffects: [:],
         waterWavesEffects: [:],
         opacityEffects: [:],
@@ -66,6 +69,7 @@ struct SceneImageLayerMasks {
             foliageUVScale: SIMD2(repeating: 1),
             waterRippleNormal: nil,
             shakeEffects: [:],
+            filmGrainEffects: [:],
             waterFlowEffects: [:],
             waterWavesEffects: [:],
             opacityEffects: [:],

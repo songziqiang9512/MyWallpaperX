@@ -14,6 +14,7 @@ extension SceneAuthoredEffectExecutionPlan {
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
         case spin(SceneSpinExecutionPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
+        case filmGrain(SceneFilmGrainExecutionPlan)
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
@@ -82,6 +83,11 @@ extension SceneAuthoredEffectExecutionPlan {
 
     nonisolated var proceduralNoise: SceneProceduralNoiseExecutionPlan? {
         guard case .proceduralNoise(let plan) = backend else { return nil }
+        return plan
+    }
+
+    nonisolated var filmGrain: SceneFilmGrainExecutionPlan? {
+        guard case .filmGrain(let plan) = backend else { return nil }
         return plan
     }
 

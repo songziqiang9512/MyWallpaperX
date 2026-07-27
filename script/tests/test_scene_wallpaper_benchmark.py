@@ -1428,6 +1428,31 @@ utility layer 763: skippedHidden kind=composition
             ),
         )
 
+    def test_authored_film_grain_count_is_an_exact_gate(self) -> None:
+        preview = "authoredEffectGraphFilmGrainCount: 1\n"
+        count = benchmark.authored_effect_graph_film_grain_count(preview)
+        self.assertEqual(count, 1)
+        self.assertEqual(
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_film_grain_count": 1},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                film_grain_count=count,
+            ),
+            [],
+        )
+        self.assertIn(
+            "authored effect graph Film Grain count mismatch",
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_film_grain_count": 0},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                film_grain_count=count,
+            ),
+        )
+
     def test_authored_shake_count_is_an_exact_gate(self) -> None:
         preview = "authoredEffectGraphShakeCount: 3\n"
         count = benchmark.authored_effect_graph_shake_count(preview)

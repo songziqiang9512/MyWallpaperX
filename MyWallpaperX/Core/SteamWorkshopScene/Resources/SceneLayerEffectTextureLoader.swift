@@ -29,6 +29,7 @@ struct SceneLayerEffectTextures {
     let foliageUVScale: SIMD2<Float>
     let waterRippleNormal: MTLTexture?
     let shakeEffects: [String: SceneShakeEffectTextures]
+    let filmGrainEffects: [String: SceneFilmGrainEffectTextures]
     let waterFlowEffects: [String: SceneWaterFlowEffectTextures]
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
     let opacityEffects: [String: SceneOpacityEffectTextures]
@@ -48,6 +49,7 @@ struct SceneLayerEffectTextureStore {
     var foliageUVScales: [Int: SIMD2<Float>] = [:]
     var waterRippleNormals: [Int: MTLTexture] = [:]
     var shakeEffects: [String: SceneShakeEffectTextures] = [:]
+    var filmGrainEffects: [String: SceneFilmGrainEffectTextures] = [:]
     var waterFlowEffects: [String: SceneWaterFlowEffectTextures] = [:]
     var waterWavesEffects: [String: SceneWaterWavesEffectTextures] = [:]
     var opacityEffects: [String: SceneOpacityEffectTextures] = [:]
@@ -65,6 +67,7 @@ struct SceneLayerEffectTextureStore {
         foliageUVScales[layerID] = textures.foliageUVScale
         waterRippleNormals[layerID] = textures.waterRippleNormal
         shakeEffects.merge(textures.shakeEffects) { _, incoming in incoming }
+        filmGrainEffects.merge(textures.filmGrainEffects) { _, incoming in incoming }
         waterFlowEffects.merge(textures.waterFlowEffects) { _, incoming in incoming }
         waterWavesEffects.merge(textures.waterWavesEffects) { _, incoming in incoming }
         opacityEffects.merge(textures.opacityEffects) { _, incoming in incoming }
@@ -82,6 +85,7 @@ enum SceneLayerEffectTextureLoader {
         loader: SceneTextureLoader,
         device: MTLDevice,
         shakeEffectIDs: Set<String> = [],
+        filmGrainEffectIDs: Set<String> = [],
         waterFlowEffectIDs: Set<String> = [],
         waterWavesEffectIDs: Set<String> = [],
         tintEffectIDs: Set<String> = [],
@@ -139,6 +143,13 @@ enum SceneLayerEffectTextureLoader {
         let shake = loadShakeEffects(
             for: layer,
             effectIDs: shakeEffectIDs,
+            resolver: resolver,
+            loader: loader,
+            device: device
+        )
+        let filmGrain = SceneFilmGrainEffectTextureLoader.load(
+            for: layer,
+            effectIDs: filmGrainEffectIDs,
             resolver: resolver,
             loader: loader,
             device: device
@@ -207,6 +218,7 @@ enum SceneLayerEffectTextureLoader {
             foliageUVScale: foliageUVScale,
             waterRippleNormal: normal.texture,
             shakeEffects: shake.textures,
+            filmGrainEffects: filmGrain.textures,
             waterFlowEffects: waterFlow.textures,
             waterWavesEffects: waterWaves.textures,
             opacityEffects: opacityEffects.textures,
@@ -216,7 +228,7 @@ enum SceneLayerEffectTextureLoader {
             xRay: xRay.textures,
             message: [
                 iris.message, opacity.message, water.message, foliage.message,
-                foliageScaleMessage, normal.message, shake.message,
+                foliageScaleMessage, normal.message, shake.message, filmGrain.message,
                 waterFlow.message, waterWaves.message, opacityEffects.message,
                 pulseEffects.message, tintEffects.message, godraysEffects.message,
                 xRay.message,

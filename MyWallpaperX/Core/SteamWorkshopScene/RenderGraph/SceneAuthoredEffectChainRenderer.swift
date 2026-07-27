@@ -219,6 +219,13 @@ enum SceneAuthoredEffectChainRenderer {
                 time: time,
                 commandBuffer: commandBuffer
             )
+        case .filmGrain(let filmGrain):
+            return renderFilmGrain(
+                filmGrain, sourceTexture: sourceTexture, masks: masks, auxMask: auxMask,
+                targets: targets, sourceUniforms: sourceUniforms, pipeline: pipeline,
+                filmGrainPipeline: pipelines.filmGrain, time: time,
+                commandBuffer: commandBuffer
+            )
         case .shake(let shake):
             guard let resources = masks.shakeEffects[shake.effectKey.descriptorID],
                   targets.plan.logicalTargets.isEmpty,

@@ -57,6 +57,10 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         stages.filter { $0.proceduralNoise != nil }.count
     }
 
+    var filmGrainCount: Int {
+        stages.filter { $0.filmGrain != nil }.count
+    }
+
     var shakeCount: Int {
         stages.filter { $0.shake != nil }.count
     }

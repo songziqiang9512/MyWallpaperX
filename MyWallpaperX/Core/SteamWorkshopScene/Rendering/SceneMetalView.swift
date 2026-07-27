@@ -140,6 +140,7 @@ class SceneMetalView: NSView {
             let textures = SceneLayerEffectTextureLoader.load(
                 for: layer, resolver: resolver, loader: loader, device: metalDevice,
                 shakeEffectIDs: Set(stages.compactMap { $0.shake?.effectKey.descriptorID }),
+                filmGrainEffectIDs: Set(stages.compactMap { $0.filmGrain?.effectKey.descriptorID }),
                 waterFlowEffectIDs: Set(stages.compactMap { $0.waterFlow?.effectKey.descriptorID }),
                 waterWavesEffectIDs: Set(stages.compactMap { $0.waterWaves?.effectKey.descriptorID }),
                 tintEffectIDs: Set(stages.compactMap { $0.tint?.effectKey.descriptorID }),
