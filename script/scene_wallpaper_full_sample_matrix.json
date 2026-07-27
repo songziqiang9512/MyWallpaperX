@@ -4105,7 +4105,10 @@
       "expected_authored_effect_graph_color_key_count": 4,
       "expected_authored_effect_graph_chain_count": 5,
       "expected_authored_effect_graph_stage_count": 24,
-      "expected_route_only_effect_count": 3
+      "expected_route_only_effect_count": 3,
+      "requires_motion": true,
+      "minimum_changed_ratio": 0.2,
+      "maximum_flat_border_ratio": 0.5
     },
     {
       "id": "3768020435",
