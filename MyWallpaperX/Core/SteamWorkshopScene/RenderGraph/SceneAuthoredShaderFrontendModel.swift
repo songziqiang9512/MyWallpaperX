@@ -140,10 +140,10 @@ nonisolated struct SceneAuthoredShaderProgram {
               viewportSize.height > 0 else {
             return nil
         }
-        let operationBudget = 16_000_000.0
+        let operationBudget = 2_000_000.0
         let work = Double(max(1, staticLoopWork))
         let budgetDimension = floor(sqrt(operationBudget / work))
-        let maximumDimension = max(192, min(1_024, Int(budgetDimension)))
+        let maximumDimension = max(1, min(512, Int(budgetDimension)))
         let scale = min(
             1,
             CGFloat(maximumDimension) / max(viewportSize.width, viewportSize.height)

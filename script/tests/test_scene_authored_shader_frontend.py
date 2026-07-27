@@ -37,6 +37,8 @@ import Metal
 private struct HarnessOutput: Codable {
     let diagnosticCodes: [String]
     let staticLoopWork: Int?
+    let offscreenWidth: Int?
+    let offscreenHeight: Int?
     let metalError: String?
 }
 
@@ -74,6 +76,12 @@ private struct AuthoredShaderFrontendHarness {
         let encoded = try JSONEncoder().encode(HarnessOutput(
             diagnosticCodes: output.diagnostics.map { $0.code.rawValue },
             staticLoopWork: output.program?.staticLoopWork,
+            offscreenWidth: output.program?.offscreenSize(
+                viewportSize: CGSize(width: 3840, height: 2160)
+            ).map { Int($0.width) },
+            offscreenHeight: output.program?.offscreenSize(
+                viewportSize: CGSize(width: 3840, height: 2160)
+            ).map { Int($0.height) },
             metalError: metalError
         ))
         FileHandle.standardOutput.write(encoded)
@@ -240,6 +248,50 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertEqual(recursive["diagnosticCodes"], ["recursiveFunction"])
         self.assertEqual(over_budget["diagnosticCodes"], ["loopBudgetExceeded"])
 
+    def test_loop_cost_expands_calls_inside_static_loops(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            varying vec2 v_TexCoord;
+            float expensive(float value) {
+                for (int inner = 0; inner < 256; inner++) { value += 1.0; }
+                return value;
+            }
+            void main() {
+                float value = 0.0;
+                for (int outer = 0; outer < 32; outer++) { value += expensive(value); }
+                gl_FragColor = vec4(value);
+            }
+            """,
+            metal=False,
+        )
+        self.assertEqual(output["diagnosticCodes"], ["loopBudgetExceeded"])
+
+    def test_offscreen_size_obeys_expanded_work_budget(self):
+        loops = "\n".join(
+            f"for (int index{i} = 0; index{i} < 256; index{i}++) {{ value += 1.0; }}"
+            for i in range(16)
+        )
+        output = self.compile(
+            VERTEX_SOURCE,
+            f"""
+            varying vec2 v_TexCoord;
+            void main() {{
+                float value = 0.0;
+                {loops}
+                gl_FragColor = vec4(value);
+            }}
+            """,
+            metal=False,
+        )
+        self.assertEqual(output["diagnosticCodes"], [])
+        pixel_work = (
+            output["offscreenWidth"]
+            * output["offscreenHeight"]
+            * output["staticLoopWork"]
+        )
+        self.assertLessEqual(pixel_work, 2_000_000)
+
     def test_stage_link_mismatch_fails_closed(self):
         output = self.compile(
             VERTEX_SOURCE,
@@ -267,6 +319,12 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         output = json.loads(completed.stdout)
         self.assertEqual(output["diagnosticCodes"], [])
         self.assertIsNone(output.get("metalError"))
+        pixel_work = (
+            output["offscreenWidth"]
+            * output["offscreenHeight"]
+            * output["staticLoopWork"]
+        )
+        self.assertLessEqual(pixel_work, 2_000_000)
 
 
 if __name__ == "__main__":

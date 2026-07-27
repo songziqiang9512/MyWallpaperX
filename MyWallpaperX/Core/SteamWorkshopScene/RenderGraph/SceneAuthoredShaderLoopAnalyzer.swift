@@ -6,6 +6,11 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
         let diagnostics: [SceneAuthoredShaderFrontendDiagnostic]
     }
 
+    private struct FunctionWork {
+        var loopWork = 0
+        var calls: [Int: Int] = [:]
+    }
+
     private static let maximumLoopIterations = 256
     private static let maximumStaticLoopWork = 4_096
 
@@ -15,21 +20,38 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
         defines: [String: String],
         stage: SceneShaderContract.StageKind
     ) -> Output {
-        var total = 0
-        for function in functions {
-            let result = loopWork(
-                in: function.bodyRange,
+        let indicesByName = Dictionary(grouping: functions.indices) {
+            functions[$0].name
+        }
+        var directWork: [Int: FunctionWork] = [:]
+        for index in functions.indices {
+            let result = functionWork(
+                in: functions[index].bodyRange,
                 tokens: tokens,
                 defines: defines,
+                functionIndicesByName: indicesByName,
+                multiplier: 1,
                 stage: stage
             )
-            if !result.diagnostics.isEmpty { return result }
-            total += result.work
+            if !result.diagnostics.isEmpty {
+                return Output(work: 0, diagnostics: result.diagnostics)
+            }
+            directWork[index] = result.work
         }
+        guard let mainIndex = functions.indices.first(where: {
+            functions[$0].name == "main"
+        }) else {
+            return Output(work: 0, diagnostics: [])
+        }
+        let total = expandedWork(
+            for: mainIndex,
+            directWork: directWork,
+            path: []
+        )
         guard total <= maximumStaticLoopWork else {
             return Output(work: total, diagnostics: [.init(
                 code: .loopBudgetExceeded,
-                message: "Shader static loop work \(total) exceeds \(maximumStaticLoopWork).",
+                message: "Shader expanded static work \(total) exceeds \(maximumStaticLoopWork).",
                 stage: stage,
                 line: nil,
                 column: nil
@@ -38,16 +60,32 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
         return Output(work: total, diagnostics: [])
     }
 
-    private static func loopWork(
+    private struct FunctionWorkOutput {
+        let work: FunctionWork
+        let diagnostics: [SceneAuthoredShaderFrontendDiagnostic]
+    }
+
+    private static func functionWork(
         in range: Range<Int>,
         tokens: [SceneAuthoredShaderToken],
         defines: [String: String],
+        functionIndicesByName: [String: [Int]],
+        multiplier: Int,
         stage: SceneShaderContract.StageKind
-    ) -> Output {
+    ) -> FunctionWorkOutput {
         var cursor = range.lowerBound
-        var total = 0
+        var result = FunctionWork()
         while cursor < range.upperBound {
             guard tokens[cursor].text == "for" else {
+                if cursor + 1 < tokens.count,
+                   tokens[cursor + 1].text == "(",
+                   let functionIndices = functionIndicesByName[tokens[cursor].text] {
+                    for functionIndex in functionIndices {
+                        guard add(multiplier, to: &result.calls[functionIndex, default: 0]) else {
+                            return budgetFailure(token: tokens[cursor], stage: stage)
+                        }
+                    }
+                }
                 cursor += 1
                 continue
             }
@@ -61,18 +99,88 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
                   ),
                   iterations <= maximumLoopIterations,
                   let body = statementRange(after: close, tokens: tokens) else {
-                return Output(work: 0, diagnostics: [diagnostic(
+                return FunctionWorkOutput(work: .init(), diagnostics: [diagnostic(
                     "Shader for-loop must have a static bound of at most \(maximumLoopIterations).",
                     token: tokens[cursor],
                     stage: stage
                 )])
             }
-            let nested = loopWork(in: body, tokens: tokens, defines: defines, stage: stage)
+            let (weightedIterations, overflow) = multiplier.multipliedReportingOverflow(
+                by: iterations
+            )
+            guard !overflow,
+                  add(weightedIterations, to: &result.loopWork) else {
+                return budgetFailure(token: tokens[cursor], stage: stage)
+            }
+            let nested = functionWork(
+                in: body,
+                tokens: tokens,
+                defines: defines,
+                functionIndicesByName: functionIndicesByName,
+                multiplier: weightedIterations,
+                stage: stage
+            )
             if !nested.diagnostics.isEmpty { return nested }
-            total += iterations * max(1, nested.work)
+            guard merge(nested.work, into: &result) else {
+                return budgetFailure(token: tokens[cursor], stage: stage)
+            }
             cursor = body.upperBound
         }
-        return Output(work: total, diagnostics: [])
+        return FunctionWorkOutput(work: result, diagnostics: [])
+    }
+
+    private static func expandedWork(
+        for index: Int,
+        directWork: [Int: FunctionWork],
+        path: Set<Int>
+    ) -> Int {
+        guard !path.contains(index), let direct = directWork[index] else {
+            return maximumStaticLoopWork + 1
+        }
+        var total = max(1, direct.loopWork)
+        let nextPath = path.union([index])
+        for (callee, count) in direct.calls {
+            let expanded = expandedWork(
+                for: callee,
+                directWork: directWork,
+                path: nextPath
+            )
+            let (weighted, productOverflow) = count.multipliedReportingOverflow(by: expanded)
+            let (next, sumOverflow) = total.addingReportingOverflow(weighted)
+            if productOverflow || sumOverflow || next > maximumStaticLoopWork {
+                return maximumStaticLoopWork + 1
+            }
+            total = next
+        }
+        return total
+    }
+
+    private static func add(_ value: Int, to target: inout Int) -> Bool {
+        let (next, overflow) = target.addingReportingOverflow(value)
+        guard !overflow, next <= maximumStaticLoopWork else { return false }
+        target = next
+        return true
+    }
+
+    private static func merge(_ source: FunctionWork, into target: inout FunctionWork) -> Bool {
+        guard add(source.loopWork, to: &target.loopWork) else { return false }
+        for (index, count) in source.calls {
+            guard add(count, to: &target.calls[index, default: 0]) else { return false }
+        }
+        return true
+    }
+
+    private static func budgetFailure(
+        token: SceneAuthoredShaderToken,
+        stage: SceneShaderContract.StageKind
+    ) -> FunctionWorkOutput {
+        .init(work: .init(), diagnostics: [.init(
+            code: .loopBudgetExceeded,
+            message: "Shader expanded static work exceeds \(maximumStaticLoopWork).",
+            stage: stage,
+            line: token.line,
+            column: token.column
+        )])
     }
 
     private static func loopIterations(
