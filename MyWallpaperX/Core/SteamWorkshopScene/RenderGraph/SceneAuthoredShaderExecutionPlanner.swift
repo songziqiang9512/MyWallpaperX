@@ -172,8 +172,16 @@ nonisolated enum SceneAuthoredShaderExecutionPlanner {
                 source = .modelViewProjection
             case ("g_Time", .float):
                 source = .time
+            case ("g_Daytime", .float):
+                source = .dayTime
+            case ("g_Frametime", .float):
+                source = .frameTime
             case ("g_PointerPosition", .float2):
                 source = .pointerPosition
+            case ("g_PointerPositionLast", .float2):
+                source = .pointerPositionLast
+            case ("g_Screen", .float3):
+                source = .screen
             case ("g_TexelSize", .float2):
                 source = .texelSize(scale: 1)
             case ("g_TexelSizeHalf", .float2):
@@ -196,9 +204,6 @@ nonisolated enum SceneAuthoredShaderExecutionPlanner {
             if field.name == "g_Texture\(slot)Resolution", field.type == .float4 {
                 return .textureResolution(slot: slot)
             }
-            if field.name == "g_Texture\(slot)Texel", field.type == .float2 {
-                return .textureTexel(slot: slot)
-            }
         }
         return nil
     }
@@ -213,7 +218,10 @@ nonisolated enum SceneAuthoredShaderExecutionPlanner {
               value.timelineDiagnostics.isEmpty,
               let components = value.components,
               components.count == componentCount(field.type),
-              components.allSatisfy(\.isFinite) else {
+              SceneAuthoredShaderUniformBinder.canEncodeConstant(
+                  components,
+                  as: field.type
+              ) else {
             return nil
         }
         return .constant(components)

@@ -7,10 +7,13 @@ nonisolated struct SceneAuthoredShaderExecutionPlan {
             case renderSize
             case modelViewProjection
             case time
+            case dayTime
+            case frameTime
             case pointerPosition
+            case pointerPositionLast
+            case screen
             case texelSize(scale: Double)
             case textureResolution(slot: Int)
-            case textureTexel(slot: Int)
             case constant([Double])
         }
 

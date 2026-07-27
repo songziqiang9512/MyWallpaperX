@@ -34,6 +34,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontend.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderExecutionPlan.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderUniformBinder.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderExecutionPlanner.swift",
 ]
 
@@ -271,6 +272,10 @@ enum Harness {
                 $0.framebufferTextureSlots == [0]
                     && $0.mappedSize == CGSize(width: 128, height: 128)
                     && $0.uniformBindings.contains { $0.field.name == "g_Strength" }
+                    && $0.uniformBindings.contains { $0.field.name == "g_Daytime" }
+                    && $0.uniformBindings.contains { $0.field.name == "g_Frametime" }
+                    && $0.uniformBindings.contains { $0.field.name == "g_PointerPositionLast" }
+                    && $0.uniformBindings.contains { $0.field.name == "g_Screen" }
             } ?? false,
             "realAccepted": real != nil,
             "realContractPreserved": real.map {
@@ -331,6 +336,10 @@ def fragment_source(*, annotation: bool = True, unknown: bool = False) -> str:
     return f'''
 uniform sampler2D g_Texture0;{sampler_annotation}
 uniform float g_Strength;
+uniform float g_Daytime;
+uniform float g_Frametime;
+uniform vec2 g_PointerPositionLast;
+uniform vec3 g_Screen;
 {extra_uniform}
 varying vec2 v_TexCoord;
 void main() {{
