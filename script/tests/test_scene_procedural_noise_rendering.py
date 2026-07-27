@@ -211,6 +211,14 @@ class SceneProceduralNoiseRenderingTests(unittest.TestCase):
     def test_invalid_resources_and_uniforms_fail_closed(self) -> None:
         self.assertTrue(all(self.result["rejections"].values()), self.result["rejections"])
 
+    def test_rgb_perlin_channels_share_xy_cells(self) -> None:
+        source = SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            "return float4(cell, depth + channel, seed + channel);",
+            source,
+        )
+        self.assertNotIn("float4(tiled.xy, low.z, seed) + channel", source)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -49,6 +49,12 @@ float2 noiseHash23(float3 value) {
     return fract((value.xx + value.yz) * value.zy);
 }
 
+float4 noisePerlinHashCoordinate(
+    float2 cell, float depth, float seed, float channel
+) {
+    return float4(cell, depth + channel, seed + channel);
+}
+
 float noiseInterpolate(float4 odd, float4 even, float3 amount) {
     odd = mix(odd, even, amount.x);
     even.xy = mix(odd.xz, odd.yw, amount.y);
@@ -68,14 +74,14 @@ float4 noisePerlin(float3 uv, float seed) {
         float channel = float(index);
         float4 odd;
         float4 even;
-        odd.x = dot(noiseHash44(float4(tiled.xy, low.z, seed) + channel).xyz - 0.5, fraction);
-        even.x = dot(noiseHash44(float4(tiled.zy, low.z, seed) + channel).xyz - 0.5, fraction - sub.xyy);
-        odd.y = dot(noiseHash44(float4(tiled.xw, low.z, seed) + channel).xyz - 0.5, fraction - sub.yxy);
-        even.y = dot(noiseHash44(float4(tiled.zw, low.z, seed) + channel).xyz - 0.5, fraction - sub.xxy);
-        odd.z = dot(noiseHash44(float4(tiled.xy, high.z, seed) + channel).xyz - 0.5, fraction - sub.yyx);
-        even.z = dot(noiseHash44(float4(tiled.zy, high.z, seed) + channel).xyz - 0.5, fraction - sub.xyx);
-        odd.w = dot(noiseHash44(float4(tiled.xw, high.z, seed) + channel).xyz - 0.5, fraction - sub.yxx);
-        even.w = dot(noiseHash44(float4(tiled.zw, high.z, seed) + channel).xyz - 0.5, fraction - sub.xxx);
+        odd.x = dot(noiseHash44(noisePerlinHashCoordinate(tiled.xy, low.z, seed, channel)).xyz - 0.5, fraction);
+        even.x = dot(noiseHash44(noisePerlinHashCoordinate(tiled.zy, low.z, seed, channel)).xyz - 0.5, fraction - sub.xyy);
+        odd.y = dot(noiseHash44(noisePerlinHashCoordinate(tiled.xw, low.z, seed, channel)).xyz - 0.5, fraction - sub.yxy);
+        even.y = dot(noiseHash44(noisePerlinHashCoordinate(tiled.zw, low.z, seed, channel)).xyz - 0.5, fraction - sub.xxy);
+        odd.z = dot(noiseHash44(noisePerlinHashCoordinate(tiled.xy, high.z, seed, channel)).xyz - 0.5, fraction - sub.yyx);
+        even.z = dot(noiseHash44(noisePerlinHashCoordinate(tiled.zy, high.z, seed, channel)).xyz - 0.5, fraction - sub.xyx);
+        odd.w = dot(noiseHash44(noisePerlinHashCoordinate(tiled.xw, high.z, seed, channel)).xyz - 0.5, fraction - sub.yxx);
+        even.w = dot(noiseHash44(noisePerlinHashCoordinate(tiled.zw, high.z, seed, channel)).xyz - 0.5, fraction - sub.xxx);
         color[index] = noiseInterpolate(odd, even, faded);
     }
     return color;
