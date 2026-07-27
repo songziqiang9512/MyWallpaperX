@@ -33,6 +33,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneOpacityRenderer.swift",
     SOURCE_ROOT / "Effects/SceneColorKeyPipeline.swift",
     SOURCE_ROOT / "Effects/SceneColorKeyRenderer.swift",
+    SOURCE_ROOT / "Effects/SceneWorkshopShiftHuePipeline.swift",
+    SOURCE_ROOT / "Effects/SceneWorkshopShiftHueRenderer.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShadowPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShadowRenderer.swift",
     SOURCE_ROOT / "Rendering/SceneImageBlendPipeline.swift",
@@ -60,6 +62,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+ColorKey.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Pulse.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+ShiftHue.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Tint.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Topology.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift",
@@ -192,6 +195,10 @@ struct SceneColorKeyExecutionPlan: Sendable {
     let flatten: Bool
 }
 
+struct SceneWorkshopShiftHueExecutionPlan: Sendable {
+    let speed: Float
+}
+
 // 与 SceneOpacityEffectTextureLoader.swift 里的同名结构保持一致的替身：那个文件还依赖
 // SceneTexturePathResolver/SceneTextureLoader，整条链拉进来会和本 harness 自带的
 // SceneRenderDescriptor 桩冲突，沿用本文件对 SceneShakeEffectTextures 等的同类做法。
@@ -216,6 +223,7 @@ struct SceneAuthoredEffectExecutionPlan {
         case localContrast(SceneLocalContrastPlan)
         case opacity(SceneOpacityExecutionPlan)
         case colorKey(SceneColorKeyExecutionPlan)
+        case workshopShiftHue(SceneWorkshopShiftHueExecutionPlan)
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)

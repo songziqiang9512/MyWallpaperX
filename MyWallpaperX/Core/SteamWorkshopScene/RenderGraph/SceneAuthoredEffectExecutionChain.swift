@@ -29,6 +29,10 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         stages.filter { $0.colorKey != nil }.count
     }
 
+    var workshopShiftHueCount: Int {
+        stages.filter { $0.workshopShiftHue != nil }.count
+    }
+
     var workshopShadowCount: Int {
         stages.filter { $0.workshopShadow != nil }.count
     }

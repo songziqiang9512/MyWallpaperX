@@ -14,6 +14,7 @@ enum SceneAuthoredEffectChainRenderer {
         localContrastPipeline: SceneLocalContrastPipeline,
         opacityPipeline: SceneOpacityPipeline,
         colorKeyPipeline: SceneColorKeyPipeline,
+        shiftHuePipeline: SceneWorkshopShiftHuePipeline,
         workshopShadowPipeline: SceneWorkshopShadowPipeline,
         shakePipeline: SceneShakePipeline,
         waterFlowPipeline: SceneWaterFlowPipeline,
@@ -54,6 +55,7 @@ enum SceneAuthoredEffectChainRenderer {
                 localContrastPipeline: localContrastPipeline,
                 opacityPipeline: opacityPipeline,
                 colorKeyPipeline: colorKeyPipeline,
+                shiftHuePipeline: shiftHuePipeline,
                 workshopShadowPipeline: workshopShadowPipeline,
                 shakePipeline: shakePipeline,
                 waterFlowPipeline: waterFlowPipeline,
@@ -95,6 +97,7 @@ enum SceneAuthoredEffectChainRenderer {
         localContrastPipeline: SceneLocalContrastPipeline,
         opacityPipeline: SceneOpacityPipeline,
         colorKeyPipeline: SceneColorKeyPipeline,
+        shiftHuePipeline: SceneWorkshopShiftHuePipeline,
         workshopShadowPipeline: SceneWorkshopShadowPipeline,
         shakePipeline: SceneShakePipeline,
         waterFlowPipeline: SceneWaterFlowPipeline,
@@ -202,6 +205,19 @@ enum SceneAuthoredEffectChainRenderer {
                 sourceUniforms: sourceUniforms,
                 pipeline: pipeline,
                 colorKeyPipeline: colorKeyPipeline,
+                commandBuffer: commandBuffer
+            )
+        case .workshopShiftHue(let shiftHue):
+            return renderWorkshopShiftHue(
+                shiftHue,
+                sourceTexture: sourceTexture,
+                masks: masks,
+                auxMask: auxMask,
+                targets: targets,
+                sourceUniforms: sourceUniforms,
+                pipeline: pipeline,
+                shiftHuePipeline: shiftHuePipeline,
+                time: time,
                 commandBuffer: commandBuffer
             )
         case .workshopShadow(let shadow):

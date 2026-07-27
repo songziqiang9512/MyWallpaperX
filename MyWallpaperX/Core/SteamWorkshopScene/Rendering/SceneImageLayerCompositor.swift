@@ -7,6 +7,7 @@ struct SceneImageLayerCompositor {
     private let localContrastPipeline: SceneLocalContrastPipeline
     private let opacityPipeline: SceneOpacityPipeline
     private let colorKeyPipeline: SceneColorKeyPipeline
+    private let shiftHuePipeline: SceneWorkshopShiftHuePipeline
     private let workshopShadowPipeline: SceneWorkshopShadowPipeline
     private let shakePipeline: SceneShakePipeline
     private let waterFlowPipeline: SceneWaterFlowPipeline
@@ -27,6 +28,7 @@ struct SceneImageLayerCompositor {
               let localContrastPipeline = SceneLocalContrastPipeline(device: device),
               let opacityPipeline = SceneOpacityPipeline(device: device),
               let colorKeyPipeline = SceneColorKeyPipeline(device: device),
+              let shiftHuePipeline = SceneWorkshopShiftHuePipeline(device: device),
               let workshopShadowPipeline = SceneWorkshopShadowPipeline(device: device),
               let shakePipeline = SceneShakePipeline(device: device),
               let waterFlowPipeline = SceneWaterFlowPipeline(device: device),
@@ -46,6 +48,7 @@ struct SceneImageLayerCompositor {
         self.localContrastPipeline = localContrastPipeline
         self.opacityPipeline = opacityPipeline
         self.colorKeyPipeline = colorKeyPipeline
+        self.shiftHuePipeline = shiftHuePipeline
         self.workshopShadowPipeline = workshopShadowPipeline
         self.shakePipeline = shakePipeline
         self.waterFlowPipeline = waterFlowPipeline
@@ -148,6 +151,7 @@ struct SceneImageLayerCompositor {
                         localContrastPipeline: localContrastPipeline,
                         opacityPipeline: opacityPipeline,
                         colorKeyPipeline: colorKeyPipeline,
+                        shiftHuePipeline: shiftHuePipeline,
                         workshopShadowPipeline: workshopShadowPipeline,
                         shakePipeline: shakePipeline,
                         waterFlowPipeline: waterFlowPipeline,
@@ -300,7 +304,8 @@ struct SceneImageLayerCompositor {
                             time: directUniforms.time,
                             commandBuffer: commandBuffer
                         )
-                    case .foliageSway, .waterRipple, .xRay, .tint, .pulse, .godrays, .colorKey:
+                    case .foliageSway, .waterRipple, .xRay, .tint, .pulse, .godrays,
+                         .colorKey, .workshopShiftHue:
                         return nil
                     }
                 }
