@@ -1834,6 +1834,7 @@
       "expected_authored_effect_graph_succeeded_layer_ids": [
         17,
         44,
+        47,
         698
       ],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
@@ -1841,11 +1842,12 @@
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
       "expected_authored_effect_graph_workshop_shadow_count": 0,
-      "expected_authored_effect_graph_shake_count": 0,
-      "expected_authored_effect_graph_water_flow_count": 3,
+      "expected_authored_effect_graph_spin_count": 1,
+      "expected_authored_effect_graph_shake_count": 1,
+      "expected_authored_effect_graph_water_flow_count": 4,
       "expected_authored_effect_graph_water_waves_count": 0,
-      "expected_authored_effect_graph_chain_count": 1,
-      "expected_authored_effect_graph_stage_count": 4,
+      "expected_authored_effect_graph_chain_count": 2,
+      "expected_authored_effect_graph_stage_count": 8,
       "expected_route_only_effect_count": 2
     }
   ]

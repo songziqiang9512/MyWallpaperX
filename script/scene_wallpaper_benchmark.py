@@ -140,6 +140,10 @@ AUTHORED_EFFECT_GRAPH_WORKSHOP_SHADOW_COUNT_RE = re.compile(
     r"^authoredEffectGraphWorkshopShadowCount: (?P<count>\d+)$",
     re.MULTILINE,
 )
+AUTHORED_EFFECT_GRAPH_SPIN_COUNT_RE = re.compile(
+    r"^authoredEffectGraphSpinCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
 AUTHORED_EFFECT_GRAPH_SHAKE_COUNT_RE = re.compile(
     r"^authoredEffectGraphShakeCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -894,6 +898,11 @@ def authored_effect_graph_workshop_shadow_count(preview_text: str) -> int | None
     return int(match.group("count")) if match is not None else None
 
 
+def authored_effect_graph_spin_count(preview_text: str) -> int | None:
+    match = AUTHORED_EFFECT_GRAPH_SPIN_COUNT_RE.search(preview_text)
+    return int(match.group("count")) if match is not None else None
+
+
 def authored_effect_graph_shake_count(preview_text: str) -> int | None:
     match = AUTHORED_EFFECT_GRAPH_SHAKE_COUNT_RE.search(preview_text)
     return int(match.group("count")) if match is not None else None
@@ -987,6 +996,7 @@ def authored_effect_graph_failures(
     local_contrast_count: int | None,
     chain_metrics: dict[str, int | None] | None = None,
     workshop_shadow_count: int | None = None,
+    spin_count: int | None = None,
     shake_count: int | None = None,
     water_flow_count: int | None = None,
     water_waves_count: int | None = None,
@@ -1029,6 +1039,10 @@ def authored_effect_graph_failures(
     if expected_workshop_shadow is not None:
         if workshop_shadow_count != int(expected_workshop_shadow):
             failures.append("authored effect graph Workshop Shadow count mismatch")
+    expected_spin = sample.get("expected_authored_effect_graph_spin_count")
+    if expected_spin is not None:
+        if spin_count != int(expected_spin):
+            failures.append("authored effect graph Spin count mismatch")
     expected_shake = sample.get("expected_authored_effect_graph_shake_count")
     if expected_shake is not None:
         if shake_count != int(expected_shake):
@@ -1331,6 +1345,7 @@ def run_sample(
     authored_effect_graph_workshop_shadow = authored_effect_graph_workshop_shadow_count(
         preview_text
     )
+    authored_effect_graph_spin = authored_effect_graph_spin_count(preview_text)
     authored_effect_graph_shake = authored_effect_graph_shake_count(preview_text)
     authored_effect_graph_water_flow = authored_effect_graph_water_flow_count(preview_text)
     authored_effect_graph_water_waves = authored_effect_graph_water_waves_count(preview_text)
@@ -1443,6 +1458,7 @@ def run_sample(
         authored_effect_graph_local_contrast,
         authored_effect_graph_chain,
         workshop_shadow_count=authored_effect_graph_workshop_shadow,
+        spin_count=authored_effect_graph_spin,
         shake_count=authored_effect_graph_shake,
         water_flow_count=authored_effect_graph_water_flow,
         water_waves_count=authored_effect_graph_water_waves,
@@ -1728,6 +1744,7 @@ def run_sample(
             "authored_effect_graph_workshop_audio_hue_shift_count": authored_effect_graph_workshop_audio_hue_shift,
             "authored_effect_graph_opacity_layer_ids": authored_effect_graph_opacity_layers,
             "authored_effect_graph_workshop_shadow_count": authored_effect_graph_workshop_shadow,
+            "authored_effect_graph_spin_count": authored_effect_graph_spin,
             "authored_effect_graph_shake_count": authored_effect_graph_shake,
             "authored_effect_graph_water_flow_count": authored_effect_graph_water_flow,
             "authored_effect_graph_water_waves_count": authored_effect_graph_water_waves,

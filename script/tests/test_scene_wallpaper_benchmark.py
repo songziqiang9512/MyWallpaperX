@@ -590,7 +590,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "3750813609": (0, 0),
             "3757555836": (1, 5),
             "3768903841": (1, 10),
-            "3769688830": (1, 4),
+            "3769688830": (2, 8),
         }
         for sample_id, (chain_count, stage_count) in expected_chain_metrics.items():
             self.assertEqual(
@@ -616,14 +616,15 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             ),
             # legacy 指纹批次后 2131872317 由 0 stage 升到 19；
             # Tint 遮罩欠账落地后 3122339805 由 3 stage 升到 11。
-            109,
+            # Stock Spin 解锁 3769688830 的四级链后再增加 4 stage。
+            113,
         )
         self.assertEqual(
             sum(
                 sample.get("expected_authored_effect_graph_chain_count", 0)
                 for sample in samples.values()
             ),
-            14,
+            15,
         )
         self.assertEqual(
             sum(sample["expected_route_only_effect_count"] for sample in samples.values()),
@@ -1369,6 +1370,31 @@ utility layer 763: skippedHidden kind=composition
                 [],
                 None,
                 workshop_shadow_count=count,
+            ),
+        )
+
+    def test_authored_spin_count_is_an_exact_gate(self) -> None:
+        preview = "authoredEffectGraphSpinCount: 1\n"
+        count = benchmark.authored_effect_graph_spin_count(preview)
+        self.assertEqual(count, 1)
+        self.assertEqual(
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_spin_count": 1},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                spin_count=count,
+            ),
+            [],
+        )
+        self.assertIn(
+            "authored effect graph Spin count mismatch",
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_spin_count": 0},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                spin_count=count,
             ),
         )
 

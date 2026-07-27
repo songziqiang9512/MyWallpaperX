@@ -2,25 +2,10 @@ import Metal
 import simd
 
 struct SceneImageLayerCompositor {
-    private let gaussianBlurPipeline: SceneGaussianBlurPipeline
-    private let standardBlurPipeline: SceneStandardBlurPipeline
-    private let localContrastPipeline: SceneLocalContrastPipeline
-    private let opacityPipeline: SceneOpacityPipeline
-    private let colorKeyPipeline: SceneColorKeyPipeline
-    private let shiftHuePipeline: SceneWorkshopShiftHuePipeline
-    private let audioBarsPipeline: SceneWorkshopAudioBarsPipeline, workshopGradientPipeline: SceneWorkshopGradientPipeline
-    private let workshopShadowPipeline: SceneWorkshopShadowPipeline
-    private let shakePipeline: SceneShakePipeline
-    private let waterFlowPipeline: SceneWaterFlowPipeline
-    private let waterWavesPipeline: SceneWaterWavesPipeline
+    private let authoredEffectPipelines: SceneAuthoredEffectPipelineSet
     private let bloomPipeline: SceneBloomPipeline
     private let gradientColorPipeline: SceneGradientColorPipeline
-    private let waterRipplePipeline: SceneWaterRipplePipeline
     private let perspectiveOpacityPipeline: ScenePerspectiveOpacityPipeline
-    private let xRayPipeline: SceneXRayPipeline
-    private let tintPipeline: SceneTintPipeline
-    private let pulsePipeline: ScenePulsePipeline
-    private let godraysPipeline: SceneGodraysPipeline
     private let colorBlendPipeline: SceneLayerColorBlendPipeline
 
     init?(device: MTLDevice) {
@@ -32,6 +17,7 @@ struct SceneImageLayerCompositor {
               let shiftHuePipeline = SceneWorkshopShiftHuePipeline(device: device),
               let audioBarsPipeline = SceneWorkshopAudioBarsPipeline(device: device),
               let workshopGradientPipeline = SceneWorkshopGradientPipeline(device: device),
+              let spinPipeline = SceneSpinPipeline(device: device),
               let workshopShadowPipeline = SceneWorkshopShadowPipeline(device: device),
               let shakePipeline = SceneShakePipeline(device: device),
               let waterFlowPipeline = SceneWaterFlowPipeline(device: device),
@@ -46,31 +32,7 @@ struct SceneImageLayerCompositor {
               let godraysPipeline = SceneGodraysPipeline(device: device),
               let colorBlendPipeline = SceneLayerColorBlendPipeline(device: device)
         else { return nil }
-        self.gaussianBlurPipeline = gaussianBlurPipeline
-        self.standardBlurPipeline = standardBlurPipeline
-        self.localContrastPipeline = localContrastPipeline
-        self.opacityPipeline = opacityPipeline
-        self.colorKeyPipeline = colorKeyPipeline
-        self.shiftHuePipeline = shiftHuePipeline
-        self.audioBarsPipeline = audioBarsPipeline
-        self.workshopGradientPipeline = workshopGradientPipeline
-        self.workshopShadowPipeline = workshopShadowPipeline
-        self.shakePipeline = shakePipeline
-        self.waterFlowPipeline = waterFlowPipeline
-        self.waterWavesPipeline = waterWavesPipeline
-        self.bloomPipeline = bloomPipeline
-        self.gradientColorPipeline = gradientColorPipeline
-        self.waterRipplePipeline = waterRipplePipeline
-        self.perspectiveOpacityPipeline = perspectiveOpacityPipeline
-        self.xRayPipeline = xRayPipeline
-        self.tintPipeline = tintPipeline
-        self.pulsePipeline = pulsePipeline
-        self.godraysPipeline = godraysPipeline
-        self.colorBlendPipeline = colorBlendPipeline
-    }
-
-    private var authoredEffectPipelines: SceneAuthoredEffectPipelineSet {
-        .init(
+        authoredEffectPipelines = .init(
             gaussianBlur: gaussianBlurPipeline,
             standardBlur: standardBlurPipeline,
             localContrast: localContrastPipeline,
@@ -80,6 +42,7 @@ struct SceneImageLayerCompositor {
             audioBars: audioBarsPipeline,
             workshopGradient: workshopGradientPipeline,
             workshopShadow: workshopShadowPipeline,
+            spin: spinPipeline,
             shake: shakePipeline,
             waterFlow: waterFlowPipeline,
             waterWaves: waterWavesPipeline,
@@ -89,6 +52,10 @@ struct SceneImageLayerCompositor {
             pulse: pulsePipeline,
             godrays: godraysPipeline
         )
+        self.bloomPipeline = bloomPipeline
+        self.gradientColorPipeline = gradientColorPipeline
+        self.perspectiveOpacityPipeline = perspectiveOpacityPipeline
+        self.colorBlendPipeline = colorBlendPipeline
     }
 
     @discardableResult
@@ -203,7 +170,7 @@ struct SceneImageLayerCompositor {
                             targets: targets,
                             sourceUniforms: directUniforms,
                             pipeline: pipeline,
-                            gaussianBlurPipeline: gaussianBlurPipeline,
+                            gaussianBlurPipeline: authoredEffectPipelines.gaussianBlur,
                             commandBuffer: commandBuffer
                         )
                     case .standardBlur(let blur):
@@ -216,7 +183,7 @@ struct SceneImageLayerCompositor {
                             plan: blur,
                             sourceUniforms: directUniforms,
                             pipeline: pipeline,
-                            standardBlurPipeline: standardBlurPipeline,
+                            standardBlurPipeline: authoredEffectPipelines.standardBlur,
                             commandBuffer: commandBuffer
                         )
                     case .localContrast(let contrast):
@@ -231,7 +198,7 @@ struct SceneImageLayerCompositor {
                                 ?? contrast.staticOrFallbackStrength,
                             sourceUniforms: directUniforms,
                             pipeline: pipeline,
-                            localContrastPipeline: localContrastPipeline,
+                            localContrastPipeline: authoredEffectPipelines.localContrast,
                             commandBuffer: commandBuffer
                         )
                     case .opacity(let opacity):
@@ -257,7 +224,7 @@ struct SceneImageLayerCompositor {
                             maskUVScale: SIMD2(repeating: 1),
                             inputTexture: targets.inputTexture,
                             outputTexture: targets.outputTexture,
-                            pipeline: opacityPipeline,
+                            pipeline: authoredEffectPipelines.opacity,
                             commandBuffer: commandBuffer
                         )
                     case .workshopShadow(let shadow):
@@ -270,7 +237,7 @@ struct SceneImageLayerCompositor {
                             plan: shadow,
                             sourceUniforms: directUniforms,
                             pipeline: pipeline,
-                            workshopShadowPipeline: workshopShadowPipeline,
+                            workshopShadowPipeline: authoredEffectPipelines.workshopShadow,
                             commandBuffer: commandBuffer
                         )
                     case .shake(let shake):
@@ -300,7 +267,7 @@ struct SceneImageLayerCompositor {
                             },
                             inputTexture: targets.inputTexture,
                             outputTexture: targets.outputTexture,
-                            pipeline: shakePipeline,
+                            pipeline: authoredEffectPipelines.shake,
                             commandBuffer: commandBuffer
                         )
                     case .waterFlow:
@@ -313,11 +280,11 @@ struct SceneImageLayerCompositor {
                             targets: targets,
                             sourceUniforms: directUniforms,
                             sourcePipeline: pipeline,
-                            waterWavesPipeline: waterWavesPipeline,
+                            waterWavesPipeline: authoredEffectPipelines.waterWaves,
                             time: directUniforms.time,
                             commandBuffer: commandBuffer
                         )
-                    case .foliageSway, .waterRipple, .xRay, .tint, .pulse, .godrays,
+                    case .foliageSway, .waterRipple, .xRay, .tint, .pulse, .godrays, .spin,
                          .colorKey, .workshopShiftHue, .workshopAudioBars, .workshopGradient, .workshopAudioHueShift:
                         return nil
                     }
@@ -345,10 +312,10 @@ struct SceneImageLayerCompositor {
                         perspectiveOpacityPlan: effectPlan.perspectiveOpacity,
                         sourceUniforms: directUniforms,
                         pipeline: pipeline,
-                        gaussianBlurPipeline: gaussianBlurPipeline,
+                        gaussianBlurPipeline: authoredEffectPipelines.gaussianBlur,
                         bloomPipeline: bloomPipeline,
                         gradientColorPipeline: gradientColorPipeline,
-                        waterRipplePipeline: waterRipplePipeline,
+                        waterRipplePipeline: authoredEffectPipelines.waterRipple,
                         perspectiveOpacityPipeline: perspectiveOpacityPipeline,
                         commandBuffer: commandBuffer
                     )

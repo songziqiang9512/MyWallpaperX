@@ -49,6 +49,10 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         stages.filter { $0.workshopShadow != nil }.count
     }
 
+    var spinCount: Int {
+        stages.filter { $0.spin != nil }.count
+    }
+
     var shakeCount: Int {
         stages.filter { $0.shake != nil }.count
     }

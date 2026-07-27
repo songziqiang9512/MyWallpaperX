@@ -113,6 +113,14 @@ extension SceneAuthoredEffectChainPlanner {
                 inputRole: inputRole
             )
         }
+        if let spin = SceneAuthoredSpinPlanner.plan(
+            graph: stageGraph,
+            descriptor: descriptor,
+            shaderContracts: shaderContracts,
+            inputRole: inputRole
+        ) {
+            return stage(.spin(spin), stageGraph: stageGraph, inputRole: inputRole)
+        }
         if let shake = SceneAuthoredShakePlanner.plan(
             graph: stageGraph,
             descriptor: descriptor,

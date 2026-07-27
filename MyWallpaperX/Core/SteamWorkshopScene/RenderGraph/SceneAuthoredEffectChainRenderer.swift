@@ -193,6 +193,19 @@ enum SceneAuthoredEffectChainRenderer {
                 workshopShadowPipeline: pipelines.workshopShadow,
                 commandBuffer: commandBuffer
             )
+        case .spin(let spin):
+            return renderSpin(
+                spin,
+                sourceTexture: sourceTexture,
+                masks: masks,
+                auxMask: auxMask,
+                targets: targets,
+                sourceUniforms: sourceUniforms,
+                pipeline: pipeline,
+                spinPipeline: pipelines.spin,
+                time: time,
+                commandBuffer: commandBuffer
+            )
         case .shake(let shake):
             guard let resources = masks.shakeEffects[shake.effectKey.descriptorID],
                   targets.plan.logicalTargets.isEmpty,

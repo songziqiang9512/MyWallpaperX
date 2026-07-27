@@ -37,6 +37,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneWorkshopShiftHueRenderer.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopAudioBarsPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopGradientPipeline.swift",
+    SOURCE_ROOT / "Effects/SceneSpinPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShadowPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShadowRenderer.swift",
     SOURCE_ROOT / "Rendering/SceneImageBlendPipeline.swift",
@@ -61,6 +62,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneOffscreenEffectRenderer.swift",
     SOURCE_ROOT / "Runtime/SceneAudioSpectrum.swift",
     SOURCE_ROOT / "Runtime/SceneAudioResponse.swift",
+    SOURCE_ROOT / "RenderGraph/SceneSpinExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+AudioBars.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+AudioHueShift.swift",
@@ -68,6 +70,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+ColorKey.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Pulse.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+ShiftHue.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Spin.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Tint.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Topology.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+WorkshopStage.swift",
@@ -248,6 +251,7 @@ struct SceneAuthoredEffectExecutionPlan {
         case workshopGradient(SceneWorkshopGradientExecutionPlan)
         case workshopAudioHueShift(SceneWorkshopAudioHueShiftExecutionPlan)
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
+        case spin(SceneSpinExecutionPlan)
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
