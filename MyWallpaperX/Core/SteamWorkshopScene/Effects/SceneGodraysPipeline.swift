@@ -389,7 +389,9 @@ struct SceneGodraysPipeline {
             && [.bgra8Unorm, .rgba8Unorm, .r8Unorm].contains(texture.pixelFormat)
             && texture.width > 0
             && texture.height > 0
-            && texture.mipmapLevelCount == 1
+            && (usage.contains(.renderTarget)
+                ? texture.mipmapLevelCount == 1
+                : texture.mipmapLevelCount > 0)
             && texture.sampleCount == 1
             && texture.usage.contains(usage)
             && texture.device.registryID == deviceRegistryID

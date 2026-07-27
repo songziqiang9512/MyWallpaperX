@@ -151,7 +151,7 @@ struct SceneTintPipeline {
             && supportedFormats.contains(mask.pixelFormat)
             && mask.width > 0
             && mask.height > 0
-            && mask.mipmapLevelCount == 1
+            && mask.mipmapLevelCount > 0
             && mask.sampleCount == 1
             && mask.usage.contains(.shaderRead)
             && mask.device.registryID == deviceRegistryID

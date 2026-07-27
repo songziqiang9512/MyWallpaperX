@@ -217,8 +217,8 @@ struct SceneWaterFlowPipeline {
             && phaseTexture.width > 0
             && phaseTexture.height > 0
             && source.mipmapLevelCount == 1
-            && flowTexture.mipmapLevelCount == 1
-            && phaseTexture.mipmapLevelCount == 1
+            && flowTexture.mipmapLevelCount > 0
+            && phaseTexture.mipmapLevelCount > 0
             && target.mipmapLevelCount == 1
             && source.sampleCount == 1
             && flowTexture.sampleCount == 1
