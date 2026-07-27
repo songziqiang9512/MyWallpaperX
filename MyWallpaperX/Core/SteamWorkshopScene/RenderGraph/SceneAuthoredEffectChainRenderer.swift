@@ -165,55 +165,19 @@ enum SceneAuthoredEffectChainRenderer {
                 colorKeyPipeline: pipelines.colorKey,
                 commandBuffer: commandBuffer
             )
-        case .workshopShiftHue(let shiftHue):
-            return renderWorkshopShiftHue(
-                shiftHue,
+        case .workshopShiftHue, .workshopAudioBars, .workshopGradient,
+             .workshopAudioHueShift:
+            return renderWorkshopStage(
+                stage,
                 sourceTexture: sourceTexture,
                 masks: masks,
                 auxMask: auxMask,
                 targets: targets,
                 sourceUniforms: sourceUniforms,
                 pipeline: pipeline,
-                shiftHuePipeline: pipelines.shiftHue,
+                pipelines: pipelines,
                 time: time,
-                commandBuffer: commandBuffer
-            )
-        case .workshopAudioBars(let audioBars):
-            return renderWorkshopAudioBars(
-                audioBars,
-                sourceTexture: sourceTexture,
-                masks: masks,
-                auxMask: auxMask,
-                targets: targets,
-                sourceUniforms: sourceUniforms,
-                pipeline: pipeline,
-                audioBarsPipeline: pipelines.audioBars,
-                spectrum: audioSpectrum,
-                commandBuffer: commandBuffer
-            )
-        case .workshopGradient(let gradient):
-            return renderWorkshopGradient(
-                gradient,
-                sourceTexture: sourceTexture,
-                masks: masks,
-                auxMask: auxMask,
-                targets: targets,
-                sourceUniforms: sourceUniforms,
-                pipeline: pipeline,
-                gradientPipeline: pipelines.workshopGradient,
-                commandBuffer: commandBuffer
-            )
-        case .workshopAudioHueShift(let hueShift):
-            return renderWorkshopAudioHueShift(
-                hueShift,
-                sourceTexture: sourceTexture,
-                masks: masks,
-                auxMask: auxMask,
-                targets: targets,
-                sourceUniforms: sourceUniforms,
-                pipeline: pipeline,
-                hueShiftPipeline: pipelines.shiftHue,
-                spectrum: audioSpectrum,
+                audioSpectrum: audioSpectrum,
                 commandBuffer: commandBuffer
             )
         case .workshopShadow(let shadow):

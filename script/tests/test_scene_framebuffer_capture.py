@@ -70,6 +70,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+ShiftHue.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Tint.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Topology.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+WorkshopStage.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectPipelineSet.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift",
