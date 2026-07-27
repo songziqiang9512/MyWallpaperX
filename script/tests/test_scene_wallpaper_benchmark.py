@@ -322,16 +322,16 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
     def test_default_matrix_pins_shader_contracts(self) -> None:
         matrix = benchmark.load_matrix(SCRIPT_DIR / "scene_wallpaper_sample_matrix.json")
         self.assertEqual(len(matrix["samples"]), 13)
-        # (authored, builtin, stage, diagnostic)。stage 不服从 authored*2 的
-        # 旧经验律：3088601835/3122339805 带 2 条 contract 诊断且 stage 少 2。
+        # (authored, builtin, stage, diagnostic)。统一 stock namespace 后，
+        # 3088601835/3122339805 此前缺失的 shader stage 已恢复，诊断归零。
         expected = {
             "2131872317": (5, 2, 10, 0),
             "2802243144": (3, 2, 6, 0),
             "2902406982": (17, 3, 34, 0),
             "2938612768": (18, 3, 36, 0),
             "2998757800": (4, 2, 8, 0),
-            "3088601835": (11, 1, 20, 2),
-            "3122339805": (3, 1, 4, 2),
+            "3088601835": (11, 1, 22, 0),
+            "3122339805": (3, 1, 6, 0),
             "3742133044": (3, 2, 6, 0),
             "3747492842": (14, 2, 28, 0),
             "3750813609": (7, 2, 14, 0),
