@@ -357,9 +357,7 @@ struct SceneDocumentLoader {
 
     nonisolated private static func normalizedPath(_ path: String?) -> String? {
         guard let path else { return nil }
-        let normalized = path
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: "\\", with: "/")
+        let normalized = path.replacingOccurrences(of: "\\", with: "/")
         return normalized.isEmpty ? nil : normalized
     }
 

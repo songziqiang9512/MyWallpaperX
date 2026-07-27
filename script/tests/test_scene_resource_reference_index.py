@@ -41,6 +41,14 @@ enum Harness {
                     url: rootURL.appendingPathComponent("models/example.json"),
                     kind: .model,
                     fileSize: 1
+                ),
+                .init(
+                    relativePath: "materials/workshop/3571866376/Album art 3  test .tex",
+                    url: rootURL.appendingPathComponent(
+                        "materials/workshop/3571866376/Album art 3  test .tex"
+                    ),
+                    kind: .texture,
+                    fileSize: 1
                 )
             ]
         )
@@ -53,6 +61,8 @@ enum Harness {
             "_rt_imageLayerComposite_bad_a",
             "_rt_imageLayerComposite_42_c",
             "_rt_imagelayercomposite_42_a",
+            "workshop/3571866376/Album art 3  test ",
+            "workshop/3571866376/Album art 3  test",
             "materials/missing",
         ]
         let index = SceneResourceReferenceIndexBuilder().build(
@@ -116,7 +126,7 @@ class SceneResourceReferenceIndexTests(unittest.TestCase):
         cls.temporary_directory.cleanup()
 
     def test_counts_distinguish_disk_built_in_runtime_and_missing(self) -> None:
-        self.assertEqual(self.result["resolvedCount"], 1)
+        self.assertEqual(self.result["resolvedCount"], 2)
         self.assertEqual(self.result["builtInCount"], 1)
         self.assertEqual(self.result["runtimeProvidedCount"], 3)
         self.assertEqual(
@@ -125,9 +135,15 @@ class SceneResourceReferenceIndexTests(unittest.TestCase):
                 "_rt_imageLayerComposite_bad_a",
                 "_rt_imageLayerComposite_42_c",
                 "_rt_imagelayercomposite_42_a",
+                "workshop/3571866376/Album art 3  test",
                 "materials/missing",
             ],
         )
+
+    def test_file_reference_whitespace_is_part_of_the_path_identity(self) -> None:
+        matches = {match["path"]: match for match in self.result["matches"]}
+        self.assertTrue(matches["workshop/3571866376/Album art 3  test "]["resolved"])
+        self.assertFalse(matches["workshop/3571866376/Album art 3  test"]["resolved"])
 
     def test_runtime_references_are_recognized_only_by_typed_parser(self) -> None:
         matches = {match["path"]: match for match in self.result["matches"]}

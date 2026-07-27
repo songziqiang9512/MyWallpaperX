@@ -54,7 +54,7 @@ struct SceneResourceReferenceIndexBuilder {
                 matchedPath: Self.matchPath(normalized, in: availablePaths),
                 isBuiltInReference: Self.isBuiltInReference(normalized),
                 isRuntimeProvidedReference: SceneNamedTextureReference.parse(
-                    Self.normalizedReference(path)
+                    Self.normalizedControlReference(path)
                 ) != nil
             )
         }
@@ -95,10 +95,10 @@ struct SceneResourceReferenceIndexBuilder {
     }
 
     nonisolated private static func normalizedPath(_ path: String) -> String {
-        normalizedReference(path).localizedLowercase
+        path.replacingOccurrences(of: "\\", with: "/").localizedLowercase
     }
 
-    nonisolated private static func normalizedReference(_ path: String) -> String {
+    nonisolated private static func normalizedControlReference(_ path: String) -> String {
         path
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "\\", with: "/")
