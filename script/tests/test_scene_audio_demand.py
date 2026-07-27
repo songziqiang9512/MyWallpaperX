@@ -39,12 +39,18 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
 
     def test_host_claims_and_revokes_demand_across_the_lifecycle(self) -> None:
         source = HOST_SOURCE.read_text(encoding="utf-8")
-        self.assertIn(
-            "SceneAudioSpectrumInbox.shared.setDemand(\n"
-            "            Self.requiresAudioSpectrum(in: authoredEffectCatalog)\n"
-            "        )",
-            source,
-            "launch 时按 consumer 存在性声明需求",
+        activate_index = source.index(
+            "func activate(_ context: SceneDesktopWallpaperLaunchContext) throws"
+        )
+        demand_index = source.index(
+            "SceneAudioSpectrumInbox.shared.setDemand(Self.requiresAudioSpectrum(",
+            activate_index,
+        )
+        self.assertIn("in: context.authoredEffectCatalog", source[demand_index:])
+        self.assertLess(
+            demand_index,
+            source.index("guard rebuildSurfaces(resetClock: true)", activate_index),
+            "launch 时必须在创建 surface 前按 consumer 存在性声明需求",
         )
         self.assertIn(
             "SceneAudioSpectrumInbox.shared.setDemand(false)",
