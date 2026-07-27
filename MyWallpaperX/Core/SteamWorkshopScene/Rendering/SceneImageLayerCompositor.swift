@@ -18,7 +18,7 @@ struct SceneImageLayerCompositor {
     private let tintPipeline: SceneTintPipeline
     private let pulsePipeline: ScenePulsePipeline
     private let godraysPipeline: SceneGodraysPipeline
-    private let additivePipeline: SceneImageLayerPipeline
+    private let colorBlendPipeline: SceneLayerColorBlendPipeline
 
     init?(device: MTLDevice) {
         guard let gaussianBlurPipeline = SceneGaussianBlurPipeline(device: device),
@@ -37,7 +37,7 @@ struct SceneImageLayerCompositor {
               let tintPipeline = SceneTintPipeline(device: device),
               let pulsePipeline = ScenePulsePipeline(device: device),
               let godraysPipeline = SceneGodraysPipeline(device: device),
-              let additivePipeline = SceneImageLayerPipeline(device: device, blendMode: .additive)
+              let colorBlendPipeline = SceneLayerColorBlendPipeline(device: device)
         else { return nil }
         self.gaussianBlurPipeline = gaussianBlurPipeline
         self.standardBlurPipeline = standardBlurPipeline
@@ -55,7 +55,7 @@ struct SceneImageLayerCompositor {
         self.tintPipeline = tintPipeline
         self.pulsePipeline = pulsePipeline
         self.godraysPipeline = godraysPipeline
-        self.additivePipeline = additivePipeline
+        self.colorBlendPipeline = colorBlendPipeline
     }
 
     @discardableResult
@@ -68,6 +68,8 @@ struct SceneImageLayerCompositor {
             return false
         }
         let masks = request.masks
+        let layerColorBlendMode = request.layer.colorBlendMode ?? 0
+        guard SceneLayerColorBlendRenderer.supports(layerColorBlendMode) else { return false }
         let auxMask = masks.iris ?? masks.opacity
         let runtimeAuthoredPlan = request.authoredEffectPlan
             ?? request.authoredEffectChain?.singleStage
@@ -88,6 +90,7 @@ struct SceneImageLayerCompositor {
         let routesOffscreen = effectPlan.offscreenPassCount > 0
             || request.requiresSourceCopy
             || request.authoredEffectChain != nil
+            || layerColorBlendMode > 0
         let requestedOffscreenWidth = max(
             1,
             Int((request.offscreenSize?.width ?? CGFloat(request.texture.width)).rounded(.up))
@@ -381,20 +384,16 @@ struct SceneImageLayerCompositor {
         pipeline: SceneImageLayerPipeline,
         mainPass: SceneMainPassEncoder
     ) -> Bool {
-        guard let encoder = mainPass.encoder() else { return false }
-        let compositePipeline = layer.colorBlendMode == 9 ? additivePipeline : pipeline
-        compositePipeline.bind(encoder: encoder)
-        compositePipeline.drawLayer(
+        SceneLayerColorBlendRenderer.draw(
             texture: texture,
-            shakeMaskTexture: nil,
-            waterMaskTexture: masks.water,
-            foliageMaskTexture: masks.foliage,
-            auxMaskTexture: masks.iris ?? masks.opacity,
-            dependencyTexture: dependencyTexture,
+            masks: masks,
             mvp: mvp,
             uniforms: uniforms,
-            encoder: encoder
+            dependencyTexture: dependencyTexture,
+            layer: layer,
+            pipeline: pipeline,
+            colorBlendPipeline: colorBlendPipeline,
+            mainPass: mainPass
         )
-        return true
     }
 }

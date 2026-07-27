@@ -159,6 +159,15 @@ extension SceneRenderDescriptor {
             return true
         }
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: self)
+        if layers.contains(where: { layer in
+            visibleLayerIDs.contains(layer.id)
+                && ["image", "solid", "text"].contains(layer.contentKind)
+                && (1 ... SceneBlendModeShaderSource.maximumMode).contains(
+                    layer.colorBlendMode ?? 0
+                )
+        }) {
+            return true
+        }
         return !SceneDependencyRenderPlan(
             descriptor: self,
             visibleLayerIDs: visibleLayerIDs

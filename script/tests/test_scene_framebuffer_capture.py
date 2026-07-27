@@ -40,6 +40,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/ScenePerspectiveOpacityPipeline.swift",
     SOURCE_ROOT / "Effects/SceneXRayPipeline.swift",
     SOURCE_ROOT / "Effects/SceneBlendModeShaderSource.swift",
+    SOURCE_ROOT / "Rendering/SceneLayerColorBlendPipeline.swift",
     SOURCE_ROOT / "Effects/SceneTintPipeline.swift",
     SOURCE_ROOT / "Effects/ScenePulsePipeline.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectMaskSemantics.swift",
@@ -991,6 +992,14 @@ enum Harness {
             device: device, queue: queue, pipeline: pipeline, compositor: compositor,
             contentKind: "text", brightness: 0.5
         )
+        let vividLayerBlend = try layerColorBlendPixel(
+            device: device, queue: queue, pipeline: pipeline, compositor: compositor,
+            blendMode: 14
+        )
+        let invalidLayerBlendRefused = try layerColorBlendPixel(
+            device: device, queue: queue, pipeline: pipeline, compositor: compositor,
+            blendMode: 33
+        ) == nil
         let coarseBlur = blurPlan(path: "effects/blur/effect.json", scale: 0.6)
         let preciseBlur = blurPlan(path: "effects/blurprecise/effect.json", scale: 0.45)
         let blockedPreciseBlur = blurPlan(
@@ -1142,6 +1151,8 @@ enum Harness {
             "imageTintBGRA": imageTint,
             "imageBrightnessBGRA": imageBrightness,
             "textBrightnessBGRA": textBrightness,
+            "vividLayerBlendBGRA": vividLayerBlend as Any,
+            "invalidLayerBlendRefused": invalidLayerBlendRefused,
             "fragmentUniformSize": MemoryLayout<SceneLayerFragmentUniforms>.size,
             "dependencyBlendModeOffset": MemoryLayout<SceneLayerFragmentUniforms>.offset(
                 of: \SceneLayerFragmentUniforms.dependencyBlendMode
@@ -1302,6 +1313,60 @@ enum Harness {
             mainPass: mainPass
         )
         guard drew else { throw HarnessError.drawRefused }
+        mainPass.finishEnsuringClear()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
+        return pixel(target, x: 0, y: 0)
+    }
+
+    static func layerColorBlendPixel(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor,
+        blendMode: Int
+    ) throws -> [UInt8]? {
+        guard let source = makeTexture(device: device, size: 1, usage: .shaderRead),
+              let target = makeTexture(
+                  device: device, size: 1, usage: [.renderTarget, .shaderRead]
+              ),
+              let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.metalUnavailable
+        }
+        fill(source, bgra: [64, 96, 128, 128])
+        let mainPass = SceneMainPassEncoder(
+            commandBuffer: commandBuffer,
+            target: target,
+            clearColor: MTLClearColorMake(0.2, 0.4, 0.6, 1)
+        )
+        let drew = compositor.draw(
+            SceneImageLayerDrawRequest(
+                layer: SceneRenderDescriptor.Layer(
+                    contentKind: "image",
+                    colorRGB: nil,
+                    colorBlendMode: blendMode,
+                    effects: []
+                ),
+                texture: source,
+                masks: .empty,
+                textureFrame: .identity,
+                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+                uniforms: SceneImageLayerUniformValues(
+                    time: 0, alpha: 1, cursorUV: .zero
+                ),
+                offscreenTexturePool: SceneOffscreenTexturePool(device: device),
+                offscreenSize: nil,
+                requiresSourceCopy: false,
+                finalCompositeAlpha: nil,
+                dependencyEffect: nil,
+                authoredEffectPlan: nil,
+                blocksLegacyGaussianBlur: false
+            ),
+            pipeline: pipeline,
+            mainPass: mainPass
+        )
+        guard drew else { return nil }
         mainPass.finishEnsuringClear()
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
@@ -3048,6 +3113,10 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assert_pixel_close(self.result["imageBrightnessBGRA"], [128, 128, 128, 255])
         # text 通道的纹理已由 CoreText 乘过同一个 key，compositor 再乘就是二次提亮。
         self.assert_pixel_close(self.result["textBrightnessBGRA"], [255, 255, 255, 255])
+
+    def test_layer_color_blend_reads_the_framebuffer_and_rejects_unknown_modes(self) -> None:
+        self.assert_pixel_close(self.result["vividLayerBlendBGRA"], [153, 153, 153, 255], 2)
+        self.assertTrue(self.result["invalidLayerBlendRefused"])
 
     def test_blur_scales_remain_authored_pixels_until_target_normalization(self) -> None:
         for actual, expected in zip(self.result["coarseBlur"], [0.6, 0.6, 4]):
