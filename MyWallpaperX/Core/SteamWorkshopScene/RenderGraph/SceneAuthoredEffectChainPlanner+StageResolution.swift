@@ -45,6 +45,14 @@ extension SceneAuthoredEffectChainPlanner {
         ) {
             return stage(.opacity(opacity), stageGraph: stageGraph, inputRole: inputRole)
         }
+        if let colorKey = SceneAuthoredColorKeyPlanner.plan(
+            graph: stageGraph,
+            descriptor: descriptor,
+            shaderContracts: shaderContracts,
+            inputRole: inputRole
+        ) {
+            return stage(.colorKey(colorKey), stageGraph: stageGraph, inputRole: inputRole)
+        }
         if let workshopShadow = SceneAuthoredWorkshopShadowPlanner.plan(
             graph: stageGraph,
             descriptor: descriptor,

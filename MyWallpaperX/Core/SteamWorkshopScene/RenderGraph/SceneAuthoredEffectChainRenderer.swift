@@ -13,6 +13,7 @@ enum SceneAuthoredEffectChainRenderer {
         standardBlurPipeline: SceneStandardBlurPipeline,
         localContrastPipeline: SceneLocalContrastPipeline,
         opacityPipeline: SceneOpacityPipeline,
+        colorKeyPipeline: SceneColorKeyPipeline,
         workshopShadowPipeline: SceneWorkshopShadowPipeline,
         shakePipeline: SceneShakePipeline,
         waterFlowPipeline: SceneWaterFlowPipeline,
@@ -52,6 +53,7 @@ enum SceneAuthoredEffectChainRenderer {
                 standardBlurPipeline: standardBlurPipeline,
                 localContrastPipeline: localContrastPipeline,
                 opacityPipeline: opacityPipeline,
+                colorKeyPipeline: colorKeyPipeline,
                 workshopShadowPipeline: workshopShadowPipeline,
                 shakePipeline: shakePipeline,
                 waterFlowPipeline: waterFlowPipeline,
@@ -92,6 +94,7 @@ enum SceneAuthoredEffectChainRenderer {
         standardBlurPipeline: SceneStandardBlurPipeline,
         localContrastPipeline: SceneLocalContrastPipeline,
         opacityPipeline: SceneOpacityPipeline,
+        colorKeyPipeline: SceneColorKeyPipeline,
         workshopShadowPipeline: SceneWorkshopShadowPipeline,
         shakePipeline: SceneShakePipeline,
         waterFlowPipeline: SceneWaterFlowPipeline,
@@ -187,6 +190,18 @@ enum SceneAuthoredEffectChainRenderer {
                 inputTexture: targets.inputTexture,
                 outputTexture: targets.outputTexture,
                 pipeline: opacityPipeline,
+                commandBuffer: commandBuffer
+            )
+        case .colorKey(let colorKey):
+            return renderColorKey(
+                colorKey,
+                sourceTexture: sourceTexture,
+                masks: masks,
+                auxMask: auxMask,
+                targets: targets,
+                sourceUniforms: sourceUniforms,
+                pipeline: pipeline,
+                colorKeyPipeline: colorKeyPipeline,
                 commandBuffer: commandBuffer
             )
         case .workshopShadow(let shadow):
@@ -366,31 +381,4 @@ enum SceneAuthoredEffectChainRenderer {
         }
     }
 
-    private static func validTopology(
-        chain: SceneAuthoredEffectExecutionChain,
-        targets: [SceneGraphRenderTargetTable]
-    ) -> Bool {
-        var previousOutput: SceneAuthoredEffectRenderPlan.TextureIdentity?
-        for index in chain.stages.indices {
-            let stage = chain.stages[index]
-            let table = targets[index]
-            guard stage.layerID == chain.layerID,
-                  table.plan.layerID == chain.layerID,
-                  table.plan.inputRole == stage.inputRole,
-                  table.plan.input == stage.renderGraph.effects.first?.input,
-                  table.plan.output == stage.renderGraph.finalOutput else {
-                return false
-            }
-            if index == chain.stages.startIndex {
-                guard stage.inputRole == .layerSource else { return false }
-            } else {
-                guard stage.inputRole == .priorEffectOutput,
-                      stage.renderGraph.effects.first?.input == previousOutput else {
-                    return false
-                }
-            }
-            previousOutput = stage.renderGraph.finalOutput
-        }
-        return previousOutput == chain.renderGraph.finalOutput
-    }
 }

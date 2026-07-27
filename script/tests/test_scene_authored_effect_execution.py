@@ -131,6 +131,8 @@ struct SceneOpacityExecutionPlan: Sendable {
     func resolvedAlpha(in snapshot: SceneDynamicSnapshot) -> Float { 1 }
 }
 
+struct SceneColorKeyExecutionPlan: Sendable {}
+
 enum SceneAuthoredOpacityPlanner {
     static func plan(
         graph: SceneAuthoredEffectRenderPlan,
@@ -138,6 +140,17 @@ enum SceneAuthoredOpacityPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneOpacityExecutionPlan? {
+        nil
+    }
+}
+
+enum SceneAuthoredColorKeyPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneColorKeyExecutionPlan? {
         nil
     }
 }
@@ -859,6 +872,7 @@ enum Harness {
             case .standardBlur: backend = "standardBlur"
             case .localContrast: backend = "localContrast"
             case .opacity: backend = "opacity"
+            case .colorKey: backend = "colorKey"
             case .workshopShadow: backend = "workshopShadow"
             case .shake: backend = "shake"
             case .waterFlow: backend = "waterFlow"

@@ -6,6 +6,7 @@ struct SceneImageLayerCompositor {
     private let standardBlurPipeline: SceneStandardBlurPipeline
     private let localContrastPipeline: SceneLocalContrastPipeline
     private let opacityPipeline: SceneOpacityPipeline
+    private let colorKeyPipeline: SceneColorKeyPipeline
     private let workshopShadowPipeline: SceneWorkshopShadowPipeline
     private let shakePipeline: SceneShakePipeline
     private let waterFlowPipeline: SceneWaterFlowPipeline
@@ -25,6 +26,7 @@ struct SceneImageLayerCompositor {
               let standardBlurPipeline = SceneStandardBlurPipeline(device: device),
               let localContrastPipeline = SceneLocalContrastPipeline(device: device),
               let opacityPipeline = SceneOpacityPipeline(device: device),
+              let colorKeyPipeline = SceneColorKeyPipeline(device: device),
               let workshopShadowPipeline = SceneWorkshopShadowPipeline(device: device),
               let shakePipeline = SceneShakePipeline(device: device),
               let waterFlowPipeline = SceneWaterFlowPipeline(device: device),
@@ -43,6 +45,7 @@ struct SceneImageLayerCompositor {
         self.standardBlurPipeline = standardBlurPipeline
         self.localContrastPipeline = localContrastPipeline
         self.opacityPipeline = opacityPipeline
+        self.colorKeyPipeline = colorKeyPipeline
         self.workshopShadowPipeline = workshopShadowPipeline
         self.shakePipeline = shakePipeline
         self.waterFlowPipeline = waterFlowPipeline
@@ -144,6 +147,7 @@ struct SceneImageLayerCompositor {
                         standardBlurPipeline: standardBlurPipeline,
                         localContrastPipeline: localContrastPipeline,
                         opacityPipeline: opacityPipeline,
+                        colorKeyPipeline: colorKeyPipeline,
                         workshopShadowPipeline: workshopShadowPipeline,
                         shakePipeline: shakePipeline,
                         waterFlowPipeline: waterFlowPipeline,
@@ -296,7 +300,7 @@ struct SceneImageLayerCompositor {
                             time: directUniforms.time,
                             commandBuffer: commandBuffer
                         )
-                    case .foliageSway, .waterRipple, .xRay, .tint, .pulse, .godrays:
+                    case .foliageSway, .waterRipple, .xRay, .tint, .pulse, .godrays, .colorKey:
                         return nil
                     }
                 }
@@ -341,7 +345,7 @@ struct SceneImageLayerCompositor {
             ) else {
                 return false
             }
-            return drawToMainPass(
+            return SceneImageLayerMainPassRenderer.draw(
                 texture: finalTexture,
                 masks: .empty,
                 mvp: request.mvp,
@@ -352,6 +356,7 @@ struct SceneImageLayerCompositor {
                 dependencyTexture: request.dependencyEffect?.texture,
                 layer: request.layer,
                 pipeline: pipeline,
+                colorBlendPipeline: colorBlendPipeline,
                 mainPass: mainPass
             )
         }
@@ -362,35 +367,13 @@ struct SceneImageLayerCompositor {
             return false
         }
 
-        return drawToMainPass(
+        return SceneImageLayerMainPassRenderer.draw(
             texture: request.texture,
             masks: masks,
             mvp: request.mvp,
             uniforms: directUniforms,
             dependencyTexture: request.dependencyEffect?.texture,
             layer: request.layer,
-            pipeline: pipeline,
-            mainPass: mainPass
-        )
-    }
-
-    private func drawToMainPass(
-        texture: MTLTexture,
-        masks: SceneImageLayerMasks,
-        mvp: simd_float4x4,
-        uniforms: SceneLayerFragmentUniforms,
-        dependencyTexture: MTLTexture?,
-        layer: SceneRenderDescriptor.Layer,
-        pipeline: SceneImageLayerPipeline,
-        mainPass: SceneMainPassEncoder
-    ) -> Bool {
-        SceneLayerColorBlendRenderer.draw(
-            texture: texture,
-            masks: masks,
-            mvp: mvp,
-            uniforms: uniforms,
-            dependencyTexture: dependencyTexture,
-            layer: layer,
             pipeline: pipeline,
             colorBlendPipeline: colorBlendPipeline,
             mainPass: mainPass

@@ -1453,6 +1453,7 @@ utility layer 763: skippedHidden kind=composition
     def test_authored_opacity_and_route_only_counts_are_exact_gates(self) -> None:
         preview = (
             "authoredEffectGraphOpacityCount: 4\n"
+            "authoredEffectGraphColorKeyCount: 2\n"
             "layer 365: effect runtime opacity-authored; 1 declared pass(es)\n"
             "layer 372: effect runtime opacity-authored; 1 declared pass(es)\n"
             "layer 647: effect runtime opacity-authored; 1 declared pass(es)\n"
@@ -1462,9 +1463,11 @@ utility layer 763: skippedHidden kind=composition
             "layer 462: offscreen route-only\n"
         )
         opacity_count = benchmark.authored_effect_graph_opacity_count(preview)
+        color_key_count = benchmark.authored_effect_graph_color_key_count(preview)
         opacity_layers = benchmark.authored_effect_graph_opacity_layer_ids(preview)
         route_only_count = preview.count("offscreen route-only")
         self.assertEqual(opacity_count, 4)
+        self.assertEqual(color_key_count, 2)
         self.assertEqual(opacity_layers, [365, 372, 647, 664])
         self.assertEqual(route_only_count, 3)
         self.assertEqual(
@@ -1501,6 +1504,7 @@ utility layer 763: skippedHidden kind=composition
         self.assertIn("authored effect graph Opacity layer IDs mismatch", failures)
         self.assertIn("offscreen route-only effect count mismatch", failures)
         self.assertIsNone(benchmark.authored_effect_graph_opacity_count(""))
+        self.assertIsNone(benchmark.authored_effect_graph_color_key_count(""))
         self.assertEqual(benchmark.authored_effect_graph_opacity_layer_ids(""), [])
 
     def test_authored_effect_chain_counts_are_exact_gates(self) -> None:

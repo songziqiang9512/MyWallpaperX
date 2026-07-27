@@ -31,6 +31,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneLocalContrastRenderer.swift",
     SOURCE_ROOT / "Effects/SceneOpacityPipeline.swift",
     SOURCE_ROOT / "Effects/SceneOpacityRenderer.swift",
+    SOURCE_ROOT / "Effects/SceneColorKeyPipeline.swift",
+    SOURCE_ROOT / "Effects/SceneColorKeyRenderer.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShadowPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShadowRenderer.swift",
     SOURCE_ROOT / "Rendering/SceneImageBlendPipeline.swift",
@@ -56,11 +58,14 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Runtime/SceneAudioSpectrum.swift",
     SOURCE_ROOT / "Runtime/SceneAudioResponse.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+ColorKey.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Pulse.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Tint.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Topology.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerCompositor+Uniforms.swift",
+    SOURCE_ROOT / "Rendering/SceneImageLayerMainPassRenderer.swift",
     SOURCE_ROOT / "Runtime/SceneGPUCompletionTelemetry.swift",
 ]
 
@@ -178,6 +183,15 @@ struct SceneOpacityExecutionPlan: Equatable, Sendable {
     }
 }
 
+struct SceneColorKeyExecutionPlan: Sendable {
+    let keyAlpha: Float
+    let fuzziness: Float
+    let tolerance: Float
+    let keyColor: SIMD3<Float>
+    let invert: Bool
+    let flatten: Bool
+}
+
 // 与 SceneOpacityEffectTextureLoader.swift 里的同名结构保持一致的替身：那个文件还依赖
 // SceneTexturePathResolver/SceneTextureLoader，整条链拉进来会和本 harness 自带的
 // SceneRenderDescriptor 桩冲突，沿用本文件对 SceneShakeEffectTextures 等的同类做法。
@@ -201,6 +215,7 @@ struct SceneAuthoredEffectExecutionPlan {
         case standardBlur(SceneStandardBlurPlan)
         case localContrast(SceneLocalContrastPlan)
         case opacity(SceneOpacityExecutionPlan)
+        case colorKey(SceneColorKeyExecutionPlan)
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)

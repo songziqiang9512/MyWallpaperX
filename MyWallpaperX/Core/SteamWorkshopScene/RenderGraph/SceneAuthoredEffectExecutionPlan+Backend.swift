@@ -6,6 +6,7 @@ extension SceneAuthoredEffectExecutionPlan {
         case standardBlur(SceneStandardBlurPlan)
         case localContrast(SceneLocalContrastPlan)
         case opacity(SceneOpacityExecutionPlan)
+        case colorKey(SceneColorKeyExecutionPlan)
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)
@@ -35,6 +36,11 @@ extension SceneAuthoredEffectExecutionPlan {
 
     nonisolated var opacity: SceneOpacityExecutionPlan? {
         guard case .opacity(let plan) = backend else { return nil }
+        return plan
+    }
+
+    nonisolated var colorKey: SceneColorKeyExecutionPlan? {
+        guard case .colorKey(let plan) = backend else { return nil }
         return plan
     }
 
