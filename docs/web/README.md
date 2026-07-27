@@ -33,16 +33,8 @@
 
 - [web-official-alignment-progress-2026-04-14.md](web-official-alignment-progress-2026-04-14.md)
 - [regression/](regression/)：当前保留的作者源码与 Steam CDN 代表样本基线；旧调试流水和 handoff 已由现役路线图与 Git 历史取代。
-- [../agents/web-development-expert-agent/web-handoff-2026-04-16.md](../agents/web-development-expert-agent/web-handoff-2026-04-16.md)
 
-## 4. 角色入口
-
-如果任务不是单纯读规范，而是需要明确由谁处理：
-
-- Steam Web 官方兼容审查：[../agents/steam-web-compat-auditor/AGENTS.md](../agents/steam-web-compat-auditor/AGENTS.md)
-- Web 宿主 / Web 模块兼容开发：[../agents/web-development-expert-agent/AGENTS.md](../agents/web-development-expert-agent/AGENTS.md)
-
-## 5. 使用规则
+## 4. 使用规则
 
 - 判断当前实现边界和闭环状态时，先看“当前状态与验收边界”，再用当前代码和最新报告复核。
 - 实现稳定机制时看“长期规范与运行模型”，不要从历史回归记录反推设计规则。

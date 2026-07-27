@@ -18,10 +18,9 @@
 - [scene/semantics/official-page-map.md](scene/semantics/official-page-map.md)：179 个官方 Scene 页面逐页映射到唯一合同 anchor、分类和产品决策；这是资料完整性门。
 - [scene/semantics/capability-dependency-map.md](scene/semantics/capability-dependency-map.md)：公共依赖层与实施波次；用于避免属性、脚本、粒子、Provider 和 Render Graph 相互绕开或重复实现。
 
-## 历史与协作参考
+## 历史参考
 
 - [architecture/framework-architecture-memo.md](architecture/framework-architecture-memo.md) 与 [architecture/project-working-memory.md](architecture/project-working-memory.md) 分别是 2026-05-05、2026-05-17 快照；只用于追溯，必须与当前代码核对。
-- [agents/README.md](agents/README.md)：多 Agent 角色资料；实际工作规则以仓库根目录 `AGENTS.md` 为准。
 - `archive/`、`regression/` 和普通 `reviews/` 文件默认是历史证据；只有上面明确列出的路线图仍是当前事实入口。
 
 ## 目录分类
@@ -32,7 +31,6 @@
 - `steam/`：Steam Workshop、SteamCMD、下载库重构和相关评审。
 - `release/`：发布、签名、版本和 notarization。
 - `reviews/`：跨项目审计、模块审查和 WaifuX 对比资料。
-- `agents/`：协作角色、流程和审查标准。
 
 ## 使用规则
 
