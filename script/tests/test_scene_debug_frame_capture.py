@@ -41,12 +41,24 @@ enum Harness {
         let capture = SceneDebugFrameCapture()
         capture.request(reason: "ready", outputDirectory: outputDirectory)
         capture.request(reason: "after", outputDirectory: outputDirectory)
-        try encodeFrame(capture: capture, device: device, queue: queue, value: 64)
-        try encodeFrame(capture: capture, device: device, queue: queue, value: 192)
+        try encodeFrame(
+            capture: capture, device: device, queue: queue,
+            width: 4, height: 4, value: 64
+        )
+        try encodeFrame(
+            capture: capture, device: device, queue: queue,
+            width: 1_304, height: 4, value: 192
+        )
 
-        for name in ["scene-ready-window.png", "scene-after-window.png"] {
+        for (name, expectedSize) in [
+            ("scene-ready-window.png", NSSize(width: 4, height: 4)),
+            ("scene-after-window.png", NSSize(width: 1_304, height: 4)),
+        ] {
             let path = outputDirectory.appendingPathComponent(name)
-            guard FileManager.default.fileExists(atPath: path.path) else {
+            guard let image = NSImage(contentsOf: path),
+                  let representation = image.representations.first,
+                  representation.pixelsWide == Int(expectedSize.width),
+                  representation.pixelsHigh == Int(expectedSize.height) else {
                 throw HarnessError.missingCapture(name)
             }
         }
@@ -56,12 +68,14 @@ enum Harness {
         capture: SceneDebugFrameCapture,
         device: MTLDevice,
         queue: MTLCommandQueue,
+        width: Int,
+        height: Int,
         value: UInt8
     ) throws {
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .bgra8Unorm,
-            width: 4,
-            height: 4,
+            width: width,
+            height: height,
             mipmapped: false
         )
         descriptor.storageMode = .shared
@@ -70,7 +84,7 @@ enum Harness {
               let commandBuffer = queue.makeCommandBuffer() else {
             throw HarnessError.metalUnavailable
         }
-        var pixels = [UInt8](repeating: 0, count: 4 * 4 * 4)
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
         for offset in stride(from: 0, to: pixels.count, by: 4) {
             pixels[offset] = value
             pixels[offset + 1] = value
@@ -78,10 +92,10 @@ enum Harness {
             pixels[offset + 3] = 255
         }
         texture.replace(
-            region: MTLRegionMake2D(0, 0, 4, 4),
+            region: MTLRegionMake2D(0, 0, width, height),
             mipmapLevel: 0,
             withBytes: pixels,
-            bytesPerRow: 4 * 4
+            bytesPerRow: width * 4
         )
         capture.encodeIfRequested(texture: texture, commandBuffer: commandBuffer)
         commandBuffer.commit()

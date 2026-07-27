@@ -94,8 +94,7 @@ nonisolated final class SceneDebugFrameCapture {
                 shouldInterpolate: false,
                 intent: .defaultIntent
               ),
-              let image = resized(source, maximumDimension: 1_280),
-              let png = NSBitmapImageRep(cgImage: image).representation(
+              let png = NSBitmapImageRep(cgImage: source).representation(
                 using: .png,
                 properties: [:]
               ) else {
@@ -115,28 +114,6 @@ nonisolated final class SceneDebugFrameCapture {
         } catch {
             reportFailure(reason: request.reason, stage: "write", error: error)
         }
-    }
-
-    private static func resized(_ source: CGImage, maximumDimension: Int) -> CGImage? {
-        let scale = min(
-            1,
-            CGFloat(maximumDimension) / CGFloat(max(source.width, source.height))
-        )
-        guard scale < 1 else { return source }
-        let width = max(1, Int((CGFloat(source.width) * scale).rounded()))
-        let height = max(1, Int((CGFloat(source.height) * scale).rounded()))
-        guard let context = CGContext(
-            data: nil,
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bytesPerRow: width * 4,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { return nil }
-        context.interpolationQuality = .high
-        context.draw(source, in: CGRect(x: 0, y: 0, width: width, height: height))
-        return context.makeImage()
     }
 
     private static func reportFailure(
