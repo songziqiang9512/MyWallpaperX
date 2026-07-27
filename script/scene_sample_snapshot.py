@@ -104,7 +104,7 @@ def create_snapshot(args: argparse.Namespace) -> int:
             "title": title,
             "project_sha256": sample_manifest["project_sha256"],
             "package_sha256": sample_manifest["package_sha256"],
-            "expected_interpretation_format": args.interpretation_format,
+            "expected_runtime_evidence_schema": args.runtime_evidence_schema,
         })
 
     manifest = {
@@ -179,7 +179,7 @@ def parse_args() -> argparse.Namespace:
     create.add_argument("--source-root", required=True, type=Path)
     create.add_argument("--output-root", required=True, type=Path)
     create.add_argument("--name", required=True)
-    create.add_argument("--interpretation-format", required=True, type=int)
+    create.add_argument("--runtime-evidence-schema", required=True, type=int)
     create.set_defaults(handler=create_snapshot)
     verify = subparsers.add_parser("verify")
     verify.add_argument("--manifest", required=True, type=Path)

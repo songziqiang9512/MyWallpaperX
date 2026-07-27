@@ -5,8 +5,8 @@ import json
 from pathlib import Path
 
 
-INTERPRETATION_METRICS = [
-    "format_version",
+RUNTIME_EVIDENCE_METRICS = [
+    "schema_version",
     "shader_contract_count",
     "shader_contract_authored_count",
     "shader_contract_builtin_count",
@@ -74,7 +74,7 @@ def capabilities(runtime):
     ):
         if runtime.get(key, 0):
             values.append(label)
-    if runtime["interpretation"].get("dependency_edge_count", 0):
+    if runtime["runtime_evidence"].get("dependency_edge_count", 0):
         values.append("dependency_graph")
     if runtime.get("authored_effect_graph_stage_count", 0):
         values.append("authored_effect_runtime")
@@ -85,7 +85,7 @@ def capabilities(runtime):
 
 def matrix_sample(result, old):
     runtime = result["runtime"]
-    interpretation = runtime["interpretation"]
+    runtime_evidence = runtime["runtime_evidence"]
     sample = {
         "id": result["id"],
         "title": result.get("title"),
@@ -96,14 +96,14 @@ def matrix_sample(result, old):
     if result.get("package_file") != "scene.pkg":
         sample["package_file"] = result["package_file"]
 
-    for metric in INTERPRETATION_METRICS:
-        expectation = "expected_interpretation_format" if metric == "format_version" else f"expected_{metric}"
-        sample[expectation] = interpretation[metric]
-    sample["expected_shader_contract_aggregate_sha256"] = interpretation[
+    for metric in RUNTIME_EVIDENCE_METRICS:
+        expectation = "expected_runtime_evidence_schema" if metric == "schema_version" else f"expected_{metric}"
+        sample[expectation] = runtime_evidence[metric]
+    sample["expected_shader_contract_aggregate_sha256"] = runtime_evidence[
         "shader_contract_aggregate_sha256"
     ]
-    sample["expected_effect_graph_sha256"] = interpretation["effect_graph_sha256"]
-    sample["expected_stock_opacity_single_effect_candidate_layer_ids"] = interpretation[
+    sample["expected_effect_graph_sha256"] = runtime_evidence["effect_graph_sha256"]
+    sample["expected_stock_opacity_single_effect_candidate_layer_ids"] = runtime_evidence[
         "stock_opacity_single_effect_candidate_layer_ids"
     ]
 

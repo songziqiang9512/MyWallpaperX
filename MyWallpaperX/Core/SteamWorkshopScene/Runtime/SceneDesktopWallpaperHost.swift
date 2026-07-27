@@ -29,19 +29,8 @@ final class SceneDesktopWallpaperHost {
         }
     }
 
-    private struct LaunchContext {
-        let interpretationFile: SceneInterpretationFile
-        let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
-        let timelineProgram: SceneTimelineProgram
-        var liveState: ScenePropertyLiveUpdateState
-        let userPropertyTextureURLs: [String: URL]
-        let cacheDirectory: URL
-        let logURL: URL?
-        let recordID: String?
-    }
-
     private var surfaces: [CGDirectDisplayID: Surface] = [:]
-    private var launchContext: LaunchContext?
+    private var launchContext: SceneDesktopWallpaperLaunchContext?
     private var observers: [NSObjectProtocol] = []
     private var frameTimer: Timer?
     private var sceneClock = SceneClock(hostTime: CACurrentMediaTime())
@@ -59,42 +48,15 @@ final class SceneDesktopWallpaperHost {
         observers.forEach(NotificationCenter.default.removeObserver)
     }
 
-    @discardableResult
-    func launch(
-        interpretationFile: SceneInterpretationFile,
-        userPropertyTextureURLs: [String: URL] = [:],
-        cacheDirectory: URL,
-        logURL: URL?,
-        recordID: String? = nil
-    ) -> Bool {
-        let authoredEffectCatalog = SceneAuthoredEffectExecutionCatalog(
-            descriptor: interpretationFile.renderDescriptor,
-            authoredPlans: interpretationFile.authoredEffectRenderPlans,
-            shaderContracts: interpretationFile.shaderContracts
-        )
-        launchContext = LaunchContext(
-            interpretationFile: interpretationFile,
-            authoredEffectCatalog: authoredEffectCatalog,
-            timelineProgram: SceneTimelineTargetCompiler.compile(
-                descriptor: interpretationFile.renderDescriptor
-            ),
-            liveState: ScenePropertyLiveUpdateState(
-                program: interpretationFile.propertyBindingProgram,
-                effectiveValues: interpretationFile.effectivePropertyValues,
-                activeConsumerTargets: Self.activeLiveConsumerTargets(
-                    in: interpretationFile.renderDescriptor,
-                    authoredEffectCatalog: authoredEffectCatalog
-                )
-            ),
-            userPropertyTextureURLs: userPropertyTextureURLs,
-            cacheDirectory: cacheDirectory,
-            logURL: logURL,
-            recordID: recordID
-        )
-        SceneAudioSpectrumInbox.shared.setDemand(
-            Self.requiresAudioSpectrum(in: authoredEffectCatalog)
-        )
-        return rebuildSurfaces(resetClock: true)
+    func activate(_ context: SceneDesktopWallpaperLaunchContext) throws {
+        launchContext = context
+        SceneAudioSpectrumInbox.shared.setDemand(Self.requiresAudioSpectrum(
+            in: context.authoredEffectCatalog
+        ))
+        guard rebuildSurfaces(resetClock: true) else {
+            stop()
+            throw SceneDesktopWallpaperHostLaunchError.noSurface
+        }
     }
 
     @discardableResult
@@ -237,7 +199,7 @@ final class SceneDesktopWallpaperHost {
             guard let screenID = Self.screenID(for: screen) else { continue }
             let frame = screen.frame
             guard let metalView = SceneMetalView(
-                renderDescriptor: launchContext.interpretationFile.renderDescriptor,
+                renderDescriptor: launchContext.runtimeInput.renderDescriptor,
                 authoredEffectCatalog: launchContext.authoredEffectCatalog,
                 userPropertyTextureURLs: launchContext.userPropertyTextureURLs,
                 frame: frame
@@ -357,7 +319,7 @@ final class SceneDesktopWallpaperHost {
             wallDate: Date()
         )
         let definitions = SceneTimelineRuntime.mergedDefinitions(
-            propertyDefinitions: launchContext.interpretationFile.propertyBindingProgram.definitions,
+            propertyDefinitions: launchContext.runtimeInput.propertyBindingProgram.definitions,
             timelineProgram: launchContext.timelineProgram
         )
         // host-shared：所有 surface 共用同一帧频谱，与 property 输入同级。

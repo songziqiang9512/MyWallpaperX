@@ -1,49 +1,28 @@
 import Foundation
 
+struct SteamWorkshopScenePlaybackRequest {
+    let rootURL: URL
+    let propertyOverrides: [String: SceneUserPropertyValue]
+    let userPropertyTextureURLs: [String: URL]
+    let recordID: String
+}
+
 extension SteamWorkshopService {
     func requestSceneRender(_ record: SteamWorkshopDownloadRecord) {
         guard record.contentType == .scene else { return }
 
-        // Diagnostics rebuilds cache-owned derived state without mutating the
-        // Workshop sample directory.
-        let report = SceneDiagnosticsBuilder().build(
-            rootURL: record.folderURL,
-            propertyOverrides: scenePropertyOverrides(for: record)
-        )
-
-        guard let cacheDirectory = report.packageReport?.outputURL else {
-            downloadError = "Scene 资源尚未解包，无法设为壁纸。请确认入口对应的资源包存在且可读。"
-            return
-        }
-        guard let interpretationFileURL = report.interpretationFileURL else {
-            downloadError = "Scene 派生解释文件生成失败：\(report.interpretationFileError ?? "未知原因")"
-            return
-        }
-        let previewLogURL = cacheDirectory.appendingPathComponent(
-            ".mywallpaperx-scene-preview-log.txt"
-        )
-        let userPropertyTextureKeys: Set<String> = report.renderDescriptor.map { descriptor in
-            let plan = SceneImageBlendRenderPlan(
-                descriptor: descriptor,
-                visibleLayerIDs: SceneLayerVisibility.visibleLayerIDs(in: descriptor)
-            )
-            return plan.executedUserPropertyKeys
-        } ?? []
-
-        withResolvedSceneTexturePropertyURLs(
-            for: record,
-            keys: userPropertyTextureKeys
-        ) { userPropertyTextureURLs in
+        let propertyOverrides = scenePropertyOverrides(for: record)
+        withResolvedSceneTexturePropertyURLs(for: record) { userPropertyTextureURLs in
             NotificationCenter.default.post(
                 name: .steamWorkshopSceneReadyToRender,
                 object: nil,
                 userInfo: [
-                    "rootURL": record.folderURL,
-                    "cacheDirectory": cacheDirectory,
-                    "interpretationFileURL": interpretationFileURL,
-                    "previewLogURL": previewLogURL,
-                    "userPropertyTextureURLs": userPropertyTextureURLs,
-                    "recordID": record.id
+                    "request": SteamWorkshopScenePlaybackRequest(
+                        rootURL: record.folderURL,
+                        propertyOverrides: propertyOverrides,
+                        userPropertyTextureURLs: userPropertyTextureURLs,
+                        recordID: record.id
+                    )
                 ]
             )
         }

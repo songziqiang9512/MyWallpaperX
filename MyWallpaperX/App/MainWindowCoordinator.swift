@@ -458,25 +458,23 @@ enum MainWindowCoordinator {
             object: nil,
             queue: .main
         ) { notification in
-            guard let cacheDirectory = notification.userInfo?["cacheDirectory"] as? URL,
-                  let interpretationFileURL = notification.userInfo?["interpretationFileURL"] as? URL,
-                  let previewLogURL = notification.userInfo?["previewLogURL"] as? URL,
-                  let recordID = notification.userInfo?["recordID"] as? String else { return }
-            let userTextureURLs = notification.userInfo?["userPropertyTextureURLs"] as? [String: URL] ?? [:]
-            guard let file = try? SceneInterpretationFileReader().read(from: interpretationFileURL) else { return }
-            guard SceneDesktopWallpaperHost.shared.launch(
-                interpretationFile: file,
-                userPropertyTextureURLs: userTextureURLs,
-                cacheDirectory: cacheDirectory,
-                logURL: previewLogURL,
-                recordID: recordID
-            ) else { return }
-            postWallpaperRuntimeWillSwitch(to: .scene)
-            wallpaperManager.clearCurrentWallpaperReference()
-            wallpaperManager.activeWallpaperRuntime = .scene
-            wallpaperManager.isPlaying = true
-            wallpaperManager.stopAutoSwitchTimer()
-            WallpaperEngine.shared.stopPlayback()
+            guard let request = notification.userInfo?["request"] as? SteamWorkshopScenePlaybackRequest else { return }
+            do {
+                try SceneDesktopWallpaperHost.shared.launch(
+                    rootURL: request.rootURL,
+                    propertyOverrides: request.propertyOverrides,
+                    userPropertyTextureURLs: request.userPropertyTextureURLs,
+                    recordID: request.recordID
+                )
+                postWallpaperRuntimeWillSwitch(to: .scene)
+                wallpaperManager.clearCurrentWallpaperReference()
+                wallpaperManager.activeWallpaperRuntime = .scene
+                wallpaperManager.isPlaying = true
+                wallpaperManager.stopAutoSwitchTimer()
+                WallpaperEngine.shared.stopPlayback()
+            } catch {
+                MainActor.assumeIsolated { SteamWorkshopService.shared.downloadError = error.localizedDescription }
+            }
         }
         observerTokens.append(observer)
     }

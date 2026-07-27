@@ -11,6 +11,17 @@ import Foundation
 enum DebugScenePlaybackRunner {
     private static let debugRecordID = "debug-scene-playback"
 
+    private struct SceneRuntimeEvidence: Encodable {
+        let schemaVersion = 1
+        let sourceEntryPath: String
+        let runtimeInput: SceneRuntimeInput
+
+        init(model: SceneRuntimeModel) {
+            sourceEntryPath = model.project.entryPath
+            runtimeInput = model.runtimeInput
+        }
+    }
+
     static var runsIsolatedSceneSample: Bool {
         argumentValue(after: "--mwx-debug-scene-root") != nil
     }
@@ -50,32 +61,24 @@ enum DebugScenePlaybackRunner {
             if evidenceDirectory != nil {
                 NSApp.activate(ignoringOtherApps: true)
             }
-            let model = try SceneRuntimeModelBuilder().build(
-                rootURL: rootURL,
-                propertyOverrides: requestedPropertyOverrides
-            )
-            guard let cacheDirectory = model.diagnostics.packageReport?.outputURL else {
-                throw SceneRuntimeModelBuilder.BuildError.missingRenderDescriptor
-            }
             let previewLogURL = evidenceDirectory?.appendingPathComponent("scene-preview.log")
             let userPropertyTextureURLs = requestedUserPropertyTextureURLs(rootURL: rootURL)
-            let launched = SceneDesktopWallpaperHost.shared.launch(
-                interpretationFile: model.interpretationFile,
+            let model = try SceneDesktopWallpaperHost.shared.launch(
+                rootURL: rootURL,
+                propertyOverrides: requestedPropertyOverrides,
                 userPropertyTextureURLs: userPropertyTextureURLs,
-                cacheDirectory: cacheDirectory,
                 logURL: previewLogURL,
                 recordID: debugRecordID
             )
-            guard launched else {
-                NSLog("MWX DEBUG SCENE: phase=launch-failed reason=no-surface root=%@", rootURL.path)
-                terminate(after: 0.1)
-                return
-            }
+            let runtimeEvidenceURL = try writeRuntimeEvidence(
+                model: model,
+                to: evidenceDirectory
+            )
 
             let snapshot = SceneDesktopWallpaperHost.shared.debugSnapshot()
             let imageLayerCount = model.renderDescriptor.layers.filter(\.isImageRenderable).count
             NSLog(
-                "MWX DEBUG SCENE: phase=ready root=%@ layers=%d imageLayers=%d effects=%d surfaces=%d windows=%@ previewLog=%@ interpretation=%@",
+                "MWX DEBUG SCENE: phase=ready root=%@ layers=%d imageLayers=%d effects=%d surfaces=%d windows=%@ previewLog=%@ runtimeEvidence=%@",
                 rootURL.path,
                 model.renderDescriptor.layers.count,
                 imageLayerCount,
@@ -83,7 +86,7 @@ enum DebugScenePlaybackRunner {
                 snapshot.surfaceCount,
                 snapshot.windowNumbers.map(String.init).joined(separator: ","),
                 previewLogURL?.path ?? "-",
-                model.diagnostics.interpretationFileURL?.path ?? "-"
+                runtimeEvidenceURL?.path ?? "-"
             )
             if let evidenceDirectory {
                 if let hoverPointer = requestedHoverPointer {
@@ -102,13 +105,31 @@ enum DebugScenePlaybackRunner {
             }
             scheduleStop(after: requestedDuration)
         } catch {
+            SceneDesktopWallpaperHost.shared.stop()
             NSLog(
-                "MWX DEBUG SCENE: phase=build-failed root=%@ error=%@",
+                "MWX DEBUG SCENE: phase=launch-failed root=%@ error=%@",
                 rootURL.path,
                 error.localizedDescription
             )
             terminate(after: 0.1)
         }
+    }
+
+    private static func writeRuntimeEvidence(
+        model: SceneRuntimeModel,
+        to outputDirectory: URL?
+    ) throws -> URL? {
+        guard let outputDirectory else { return nil }
+        let outputURL = outputDirectory.appendingPathComponent(
+            "scene-runtime-evidence.json"
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(SceneRuntimeEvidence(model: model)).write(
+            to: outputURL,
+            options: [.atomic]
+        )
+        return outputURL
     }
 
     private static func scheduleStop(after duration: TimeInterval) {

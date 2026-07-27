@@ -35,6 +35,14 @@ def shader_stage(identity: str, kind: str, source: str) -> dict[str, object]:
     }
 
 
+def runtime_evidence(runtime_input: dict[str, object]) -> dict[str, object]:
+    return {
+        "schemaVersion": 1,
+        "sourceEntryPath": "scene.json",
+        "runtimeInput": runtime_input,
+    }
+
+
 class SceneWallpaperBenchmarkTests(unittest.TestCase):
     def test_project_preview_path_stays_inside_isolated_sample(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-preview-path-") as directory:
@@ -171,7 +179,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         }.issubset(samples))
         self.assertNotIn("3770500543", samples)
         for sample in samples.values():
-            self.assertEqual(sample["expected_interpretation_format"], 29)
+            self.assertEqual(sample["expected_runtime_evidence_schema"], 1)
             self.assertRegex(sample["project_sha256"], r"^[0-9a-f]{64}$")
             self.assertRegex(sample["package_sha256"], r"^[0-9a-f]{64}$")
             self.assertRegex(
@@ -298,7 +306,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(set(samples), set(expected))
         for sample_id, (solid_count, authored_color_count, effective_count) in expected.items():
             sample = samples[sample_id]
-            self.assertEqual(sample["expected_interpretation_format"], 29)
+            self.assertEqual(sample["expected_runtime_evidence_schema"], 1)
             self.assertEqual(sample["expected_solid_layer_count"], solid_count)
             self.assertEqual(
                 sample["expected_authored_solid_color_layer_count"],
@@ -334,7 +342,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual({s["id"] for s in matrix["samples"]}, set(expected))
         for sample in matrix["samples"]:
             authored, builtin, stage, diagnostics = expected[sample["id"]]
-            self.assertEqual(sample["expected_interpretation_format"], 29)
+            self.assertEqual(sample["expected_runtime_evidence_schema"], 1)
             self.assertEqual(sample["expected_shader_contract_authored_count"], authored)
             self.assertEqual(sample["expected_shader_contract_builtin_count"], builtin)
             self.assertEqual(sample["expected_shader_contract_count"], authored + builtin)
@@ -728,9 +736,9 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             )
             self.assertEqual(fallback.stdout.strip(), "scene.pkg")
 
-    def test_interpretation_metrics_preserve_slots_and_combos(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="mwx-scene-interpretation-") as directory:
-            path = Path(directory) / ".mywallpaperx-scene-interpretation.json"
+    def test_runtime_evidence_metrics_preserve_slots_and_combos(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-scene-runtime-evidence-") as directory:
+            path = Path(directory) / "scene-runtime-evidence.json"
             shader_contracts = [{
                 "identity": "effects/zeta",
                 "sourceKind": "authoredSource",
@@ -781,8 +789,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 "blockers": [],
             }]
             path.write_text(
-                json.dumps({
-                    "formatVersion": 20,
+                json.dumps(runtime_evidence({
                     "shaderContracts": shader_contracts,
                     "authoredEffectRenderPlans": effect_graphs,
                     "renderDescriptor": {
@@ -833,11 +840,11 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                             "effects": [],
                         }],
                     },
-                }),
+                })),
                 encoding="utf-8",
             )
-            metrics = benchmark.interpretation_metrics(path)
-            self.assertEqual(metrics["format_version"], 20)
+            metrics = benchmark.runtime_evidence_metrics(path)
+            self.assertEqual(metrics["schema_version"], 1)
             self.assertEqual(metrics["shader_contract_count"], 3)
             self.assertEqual(metrics["shader_contract_authored_count"], 2)
             self.assertEqual(metrics["shader_contract_builtin_count"], 1)
@@ -909,19 +916,18 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             self.assertEqual(metrics["missing_resource_count"], 2)
             self.assertIsNone(metrics["error"])
 
-    def test_interpretation_metrics_reject_invalid_slot_shape(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="mwx-scene-interpretation-") as directory:
-            path = Path(directory) / ".mywallpaperx-scene-interpretation.json"
-            path.write_text(json.dumps({
-                "formatVersion": 20,
+    def test_runtime_evidence_metrics_reject_invalid_slot_shape(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-scene-runtime-evidence-") as directory:
+            path = Path(directory) / "scene-runtime-evidence.json"
+            path.write_text(json.dumps(runtime_evidence({
                 "shaderContracts": [],
                 "renderDescriptor": {
                     "layers": [{"effects": [{"passes": [{"textureSlots": "bad", "combos": {}}]}]}],
                     "materialPasses": [],
                 },
-            }), encoding="utf-8")
-            metrics = benchmark.interpretation_metrics(path)
-            self.assertIsNone(metrics["format_version"])
+            })), encoding="utf-8")
+            metrics = benchmark.runtime_evidence_metrics(path)
+            self.assertIsNone(metrics["schema_version"])
             self.assertIn("invalid shape", metrics["error"])
 
     def test_shader_contract_aggregate_is_independent_of_contract_order(self) -> None:
@@ -948,7 +954,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             reverse["shader_contract_aggregate_sha256"],
         )
 
-    def test_interpretation_metrics_reject_missing_or_malformed_shader_contracts(self) -> None:
+    def test_runtime_evidence_metrics_reject_missing_or_malformed_shader_contracts(self) -> None:
         valid_contract = {
             "identity": "effects/example",
             "sourceKind": "authoredSource",
@@ -987,19 +993,20 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 "stages": [shader_stage("genericimage2", "vertex", "bad")],
             }],
         }
-        with tempfile.TemporaryDirectory(prefix="mwx-scene-interpretation-") as directory:
-            path = Path(directory) / ".mywallpaperx-scene-interpretation.json"
+        with tempfile.TemporaryDirectory(prefix="mwx-scene-runtime-evidence-") as directory:
+            path = Path(directory) / "scene-runtime-evidence.json"
             for case, contracts in malformed_contract_sets.items():
                 with self.subTest(case=case):
                     payload = {
-                        "formatVersion": 20,
                         "renderDescriptor": {"layers": [], "materialPasses": []},
                     }
                     if case != "missing":
                         payload["shaderContracts"] = contracts
-                    path.write_text(json.dumps(payload), encoding="utf-8")
-                    metrics = benchmark.interpretation_metrics(path)
-                    self.assertIsNone(metrics["format_version"])
+                    path.write_text(
+                        json.dumps(runtime_evidence(payload)), encoding="utf-8"
+                    )
+                    metrics = benchmark.runtime_evidence_metrics(path)
+                    self.assertIsNone(metrics["schema_version"])
                     self.assertIsNone(metrics["shader_contract_aggregate_sha256"])
                     self.assertTrue(metrics["error"])
 
@@ -1007,12 +1014,12 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         ready = benchmark.READY_RE.search(
             "MWX DEBUG SCENE: phase=ready root=/tmp/sample layers=35 "
             "imageLayers=24 effects=29 surfaces=1 windows=42 previewLog=/tmp/log "
-            "interpretation=/tmp/cache/.mywallpaperx-scene-interpretation.json"
+            "runtimeEvidence=/tmp/evidence/scene-runtime-evidence.json"
         )
-        interpretation = benchmark.INTERPRETATION_RE.search(
+        evidence = benchmark.RUNTIME_EVIDENCE_RE.search(
             "MWX DEBUG SCENE: phase=ready root=/tmp/sample layers=35 "
             "imageLayers=24 effects=29 surfaces=1 windows=42 previewLog=/tmp/log "
-            "interpretation=/tmp/cache/.mywallpaperx-scene-interpretation.json"
+            "runtimeEvidence=/tmp/evidence/scene-runtime-evidence.json"
         )
         stopped = benchmark.STOPPED_RE.search(
             "MWX DEBUG SCENE: phase=stopped surfacesBefore=1 surfacesAfter=0"
@@ -1031,8 +1038,8 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         )
         self.assertEqual(ready.group("images"), "24")
         self.assertEqual(
-            interpretation.group("path"),
-            "/tmp/cache/.mywallpaperx-scene-interpretation.json",
+            evidence.group("path"),
+            "/tmp/evidence/scene-runtime-evidence.json",
         )
         self.assertEqual(stopped.group("after"), "0")
         self.assertEqual(live, {

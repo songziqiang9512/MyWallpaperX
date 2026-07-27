@@ -34,7 +34,7 @@ class SceneSampleSnapshotTests(unittest.TestCase):
                 source_root=source_root,
                 output_root=output_root,
                 name="fixture",
-                interpretation_format=25,
+                runtime_evidence_schema=1,
             )
 
             self.assertEqual(snapshot.create_snapshot(create_args), 0)
@@ -45,7 +45,9 @@ class SceneSampleSnapshotTests(unittest.TestCase):
                 ).exists()
             )
             matrix = json.loads((output_root / "matrix-probe.json").read_text())
-            self.assertEqual(matrix["samples"][0]["expected_interpretation_format"], 25)
+            self.assertEqual(
+                matrix["samples"][0]["expected_runtime_evidence_schema"], 1
+            )
             verify_args = argparse.Namespace(
                 manifest=output_root / "source-manifest.json"
             )

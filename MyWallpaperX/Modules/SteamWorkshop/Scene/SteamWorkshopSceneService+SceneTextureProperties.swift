@@ -61,9 +61,14 @@ extension SteamWorkshopService {
 
     func withResolvedSceneTexturePropertyURLs(
         for record: SteamWorkshopDownloadRecord,
-        keys: Set<String>,
         perform: ([String: URL]) -> Void
     ) {
+        let prefix = SceneTexturePropertyStore.bookmarkPrefix + record.id + "."
+        let keys: [String] = defaults.dictionaryRepresentation().keys.compactMap { bookmarkKey in
+            guard bookmarkKey.hasPrefix(prefix) else { return nil }
+            let propertyKey = String(bookmarkKey.dropFirst(prefix.count))
+            return propertyKey.isEmpty ? nil : propertyKey
+        }
         var openedScopes: [URL] = []
         let urls = keys.reduce(into: [String: URL]()) { urls, key in
             let bookmarkKey = sceneTexturePropertyBookmarkKey(forKey: key, record: record)

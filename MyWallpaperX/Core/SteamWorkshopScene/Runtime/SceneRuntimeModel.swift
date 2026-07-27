@@ -9,7 +9,7 @@ struct SceneRuntimeModel {
     let capabilityProfile: SceneCapabilityProfile
     let renderDescriptor: SceneRenderDescriptor
     let authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan]
-    let interpretationFile: SceneInterpretationFile
+    let runtimeInput: SceneRuntimeInput
     let diagnostics: SceneDiagnosticsReport
 }
 
@@ -20,7 +20,6 @@ struct SceneRuntimeModelBuilder {
         case missingAssetCatalog
         case missingResourceReferences
         case missingRenderDescriptor
-        case interpretationEntryMismatch(String)
 
         var errorDescription: String? {
             switch self {
@@ -34,8 +33,6 @@ struct SceneRuntimeModelBuilder {
                 return "无法构建 Scene runtime：资源引用索引未建立。"
             case .missingRenderDescriptor:
                 return "无法构建 Scene runtime：renderer 输入描述未建立。"
-            case .interpretationEntryMismatch(let entryPath):
-                return "无法构建 Scene runtime：派生解释文件入口不匹配：\(entryPath)"
             }
         }
     }
@@ -67,12 +64,20 @@ struct SceneRuntimeModelBuilder {
             resourceReferences: resourceReferences,
             resourceIndex: diagnostics.resourceIndex
         )
-        let rendererInput = try loadRendererInput(
-            project: project,
-            sceneDocument: sceneDocument,
-            propertyOverrides: propertyOverrides,
-            shaderContracts: assetCatalog.shaderContracts,
-            diagnostics: diagnostics
+        guard let renderDescriptor = diagnostics.renderDescriptor else {
+            throw BuildError.missingRenderDescriptor
+        }
+        let compilation = ScenePropertyBindingCompiler().compile(
+            report: sceneDocument.userPropertyResolution.bindingReport,
+            catalog: project.userProperties
+        )
+        let runtimeInput = SceneRuntimeInput(
+            renderDescriptor: renderDescriptor,
+            propertyBindingProgram: compilation.program,
+            effectivePropertyValues: project.userProperties.effectiveValues(
+                overrides: propertyOverrides
+            ),
+            shaderContracts: assetCatalog.shaderContracts
         )
 
         return SceneRuntimeModel(
@@ -82,42 +87,10 @@ struct SceneRuntimeModelBuilder {
             resourceReferences: resourceReferences,
             resourceIndex: diagnostics.resourceIndex,
             capabilityProfile: capabilityProfile,
-            renderDescriptor: rendererInput.renderDescriptor,
-            authoredEffectRenderPlans: rendererInput.authoredEffectRenderPlans,
-            interpretationFile: rendererInput,
+            renderDescriptor: runtimeInput.renderDescriptor,
+            authoredEffectRenderPlans: runtimeInput.authoredEffectRenderPlans,
+            runtimeInput: runtimeInput,
             diagnostics: diagnostics
-        )
-    }
-
-    private func loadRendererInput(
-        project: SceneProject,
-        sceneDocument: SceneDocument,
-        propertyOverrides: [String: SceneUserPropertyValue],
-        shaderContracts: [SceneShaderContract],
-        diagnostics: SceneDiagnosticsReport
-    ) throws -> SceneInterpretationFile {
-        if let interpretationFileURL = diagnostics.interpretationFileURL {
-            let file = try SceneInterpretationFileReader().read(from: interpretationFileURL)
-            guard file.sourceEntryPath == project.entryPath else {
-                throw BuildError.interpretationEntryMismatch(file.sourceEntryPath)
-            }
-            return file
-        }
-
-        guard let renderDescriptor = diagnostics.renderDescriptor else {
-            throw BuildError.missingRenderDescriptor
-        }
-        let compilation = ScenePropertyBindingCompiler().compile(
-            report: sceneDocument.userPropertyResolution.bindingReport,
-            catalog: project.userProperties
-        )
-        return SceneInterpretationFileWriter().make(
-            renderDescriptor: renderDescriptor,
-            propertyBindingProgram: compilation.program,
-            effectivePropertyValues: project.userProperties.effectiveValues(
-                overrides: propertyOverrides
-            ),
-            shaderContracts: shaderContracts
         )
     }
 }

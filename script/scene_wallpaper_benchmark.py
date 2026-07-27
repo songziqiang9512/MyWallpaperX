@@ -35,8 +35,8 @@ READY_RE = re.compile(
     r"phase=ready .* layers=(?P<layers>\d+) imageLayers=(?P<images>\d+) "
     r"effects=(?P<effects>\d+) surfaces=(?P<surfaces>\d+)"
 )
-INTERPRETATION_RE = re.compile(
-    r"phase=ready .* interpretation=(?P<path>.+)$",
+RUNTIME_EVIDENCE_RE = re.compile(
+    r"phase=ready .* runtimeEvidence=(?P<path>.+)$",
     re.MULTILINE,
 )
 STOPPED_RE = re.compile(r"phase=stopped surfacesBefore=(?P<before>\d+) surfacesAfter=(?P<after>\d+)")
@@ -255,13 +255,13 @@ def pass_metadata_metrics(passes: list[Any]) -> tuple[int, int, int]:
     combo_count = 0
     for item in passes:
         if not isinstance(item, dict):
-            raise ValueError("Scene interpretation pass is not an object")
+            raise ValueError("Scene runtime evidence pass is not an object")
         slots = item.get("textureSlots")
         combos = item.get("combos")
         if not isinstance(slots, list) or any(slot is not None and not isinstance(slot, str) for slot in slots):
-            raise ValueError("Scene interpretation textureSlots has an invalid shape")
+            raise ValueError("Scene runtime evidence textureSlots has an invalid shape")
         if not isinstance(combos, dict) or any(type(value) is not int for value in combos.values()):
-            raise ValueError("Scene interpretation combos has an invalid shape")
+            raise ValueError("Scene runtime evidence combos has an invalid shape")
         slot_count += len(slots)
         slot_holes += sum(slot is None for slot in slots)
         combo_count += len(combos)
@@ -270,7 +270,7 @@ def pass_metadata_metrics(passes: list[Any]) -> tuple[int, int, int]:
 
 def shader_contract_metrics(contracts: Any) -> dict[str, Any]:
     if not isinstance(contracts, list):
-        raise ValueError("Scene interpretation shaderContracts has an invalid shape")
+        raise ValueError("Scene runtime evidence shaderContracts has an invalid shape")
 
     authored_count = 0
     builtin_count = 0
@@ -280,83 +280,83 @@ def shader_contract_metrics(contracts: Any) -> dict[str, Any]:
     identities: set[str] = set()
     for contract in contracts:
         if not isinstance(contract, dict):
-            raise ValueError("Scene interpretation shader contract is not an object")
+            raise ValueError("Scene runtime evidence shader contract is not an object")
         identity = contract.get("identity")
         source_kind = contract.get("sourceKind")
         stages = contract.get("stages")
         diagnostics = contract.get("diagnostics")
         canonical_sha256 = contract.get("canonicalSHA256")
         if not isinstance(identity, str) or not identity:
-            raise ValueError("Scene interpretation shader contract identity has an invalid shape")
+            raise ValueError("Scene runtime evidence shader contract identity has an invalid shape")
         if identity in identities:
-            raise ValueError("Scene interpretation shader contract identity is duplicated")
+            raise ValueError("Scene runtime evidence shader contract identity is duplicated")
         identities.add(identity)
         if source_kind not in {"authoredSource", "hostBuiltin"}:
-            raise ValueError("Scene interpretation shader contract sourceKind has an invalid shape")
+            raise ValueError("Scene runtime evidence shader contract sourceKind has an invalid shape")
         if not isinstance(stages, list):
-            raise ValueError("Scene interpretation shader contract stages has an invalid shape")
+            raise ValueError("Scene runtime evidence shader contract stages has an invalid shape")
         if not isinstance(diagnostics, list):
-            raise ValueError("Scene interpretation shader contract diagnostics has an invalid shape")
+            raise ValueError("Scene runtime evidence shader contract diagnostics has an invalid shape")
         if not isinstance(canonical_sha256, str) or re.fullmatch(
             r"[0-9a-f]{64}", canonical_sha256
         ) is None:
             raise ValueError(
-                "Scene interpretation shader contract canonicalSHA256 has an invalid shape"
+                "Scene runtime evidence shader contract canonicalSHA256 has an invalid shape"
             )
 
         stage_kinds: set[str] = set()
         for stage in stages:
             if not isinstance(stage, dict):
-                raise ValueError("Scene interpretation shader contract stage is not an object")
+                raise ValueError("Scene runtime evidence shader contract stage is not an object")
             kind = stage.get("kind")
             relative_path = stage.get("relativePath")
             source = stage.get("source")
             raw_sha256 = stage.get("rawSHA256")
             if kind not in {"vertex", "fragment"} or kind in stage_kinds:
-                raise ValueError("Scene interpretation shader contract stage kind is invalid")
+                raise ValueError("Scene runtime evidence shader contract stage kind is invalid")
             stage_kinds.add(kind)
             if relative_path != f"shaders/{identity}.{'vert' if kind == 'vertex' else 'frag'}":
-                raise ValueError("Scene interpretation shader contract stage path is invalid")
+                raise ValueError("Scene runtime evidence shader contract stage path is invalid")
             if not isinstance(source, str) or not isinstance(raw_sha256, str):
-                raise ValueError("Scene interpretation shader contract stage source is invalid")
+                raise ValueError("Scene runtime evidence shader contract stage source is invalid")
             if raw_sha256 != hashlib.sha256(source.encode("utf-8")).hexdigest():
-                raise ValueError("Scene interpretation shader contract stage rawSHA256 mismatch")
+                raise ValueError("Scene runtime evidence shader contract stage rawSHA256 mismatch")
 
             for field in ("includes", "annotations", "declarations"):
                 if not isinstance(stage.get(field), list):
                     raise ValueError(
-                        f"Scene interpretation shader contract stage {field} is invalid"
+                        f"Scene runtime evidence shader contract stage {field} is invalid"
                     )
             for include in stage["includes"]:
                 if not isinstance(include, dict) or not isinstance(include.get("relativePath"), str):
-                    raise ValueError("Scene interpretation shader contract include is invalid")
+                    raise ValueError("Scene runtime evidence shader contract include is invalid")
                 if not isinstance(include.get("raw"), str) or type(include.get("line")) is not int:
-                    raise ValueError("Scene interpretation shader contract include is invalid")
+                    raise ValueError("Scene runtime evidence shader contract include is invalid")
             for annotation in stage["annotations"]:
                 marker = annotation.get("marker") if isinstance(annotation, dict) else None
                 if not isinstance(annotation, dict) or "value" not in annotation:
-                    raise ValueError("Scene interpretation shader contract annotation is invalid")
+                    raise ValueError("Scene runtime evidence shader contract annotation is invalid")
                 if marker is not None and not isinstance(marker, str):
-                    raise ValueError("Scene interpretation shader contract annotation is invalid")
+                    raise ValueError("Scene runtime evidence shader contract annotation is invalid")
                 if not isinstance(annotation.get("raw"), str) or type(annotation.get("line")) is not int:
-                    raise ValueError("Scene interpretation shader contract annotation is invalid")
+                    raise ValueError("Scene runtime evidence shader contract annotation is invalid")
             for declaration in stage["declarations"]:
                 if not isinstance(declaration, dict) or declaration.get("kind") not in {
                     "uniform", "attribute", "varying"
                 }:
-                    raise ValueError("Scene interpretation shader contract declaration is invalid")
+                    raise ValueError("Scene runtime evidence shader contract declaration is invalid")
                 if not all(isinstance(declaration.get(field), str) for field in ("type", "name", "raw")):
-                    raise ValueError("Scene interpretation shader contract declaration is invalid")
+                    raise ValueError("Scene runtime evidence shader contract declaration is invalid")
                 if type(declaration.get("line")) is not int:
-                    raise ValueError("Scene interpretation shader contract declaration is invalid")
+                    raise ValueError("Scene runtime evidence shader contract declaration is invalid")
                 if declaration.get("arraySuffix") is not None and not isinstance(
                     declaration.get("arraySuffix"), str
                 ):
-                    raise ValueError("Scene interpretation shader contract declaration is invalid")
+                    raise ValueError("Scene runtime evidence shader contract declaration is invalid")
                 if declaration.get("arraySize") is not None and type(
                     declaration.get("arraySize")
                 ) is not int:
-                    raise ValueError("Scene interpretation shader contract declaration is invalid")
+                    raise ValueError("Scene runtime evidence shader contract declaration is invalid")
 
         diagnostic_codes = {
             "duplicateIdentity", "invalidReference", "pathEscape", "symlinkEscape",
@@ -365,17 +365,17 @@ def shader_contract_metrics(contracts: Any) -> dict[str, Any]:
         }
         for diagnostic in diagnostics:
             if not isinstance(diagnostic, dict) or diagnostic.get("code") not in diagnostic_codes:
-                raise ValueError("Scene interpretation shader contract diagnostic is invalid")
+                raise ValueError("Scene runtime evidence shader contract diagnostic is invalid")
             if not isinstance(diagnostic.get("message"), str):
-                raise ValueError("Scene interpretation shader contract diagnostic is invalid")
+                raise ValueError("Scene runtime evidence shader contract diagnostic is invalid")
             if diagnostic.get("relativePath") is not None and not isinstance(
                 diagnostic.get("relativePath"), str
             ):
-                raise ValueError("Scene interpretation shader contract diagnostic is invalid")
+                raise ValueError("Scene runtime evidence shader contract diagnostic is invalid")
             if diagnostic.get("line") is not None and type(diagnostic.get("line")) is not int:
-                raise ValueError("Scene interpretation shader contract diagnostic is invalid")
+                raise ValueError("Scene runtime evidence shader contract diagnostic is invalid")
         if source_kind == "hostBuiltin" and (stages or diagnostics):
-            raise ValueError("Scene interpretation host builtin shader contract is invalid")
+            raise ValueError("Scene runtime evidence host builtin shader contract is invalid")
 
         authored_count += source_kind == "authoredSource"
         builtin_count += source_kind == "hostBuiltin"
@@ -452,9 +452,10 @@ def layer_graph_metrics(layers: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def interpretation_metrics(path: Path) -> dict[str, Any]:
+def runtime_evidence_metrics(path: Path) -> dict[str, Any]:
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        evidence = json.loads(path.read_text(encoding="utf-8"))
+        payload = evidence["runtimeInput"]
         shader_contracts = shader_contract_metrics(payload["shaderContracts"])
         descriptor = payload["renderDescriptor"]
         layers = descriptor.get("layers", [])
@@ -544,7 +545,7 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
         effect_slot_count, effect_slot_holes, effect_combo_count = pass_metadata_metrics(effect_passes)
         material_slot_count, material_slot_holes, material_combo_count = pass_metadata_metrics(material_passes)
         return {
-            "format_version": int(payload["formatVersion"]),
+            "schema_version": int(evidence["schemaVersion"]),
             **shader_contracts,
             "effect_texture_slot_count": effect_slot_count,
             "effect_texture_slot_hole_count": effect_slot_holes,
@@ -630,7 +631,7 @@ def interpretation_metrics(path: Path) -> dict[str, Any]:
         }
     except (AttributeError, KeyError, TypeError, ValueError, json.JSONDecodeError, OSError) as error:
         return {
-            "format_version": None,
+            "schema_version": None,
             "shader_contract_count": 0,
             "shader_contract_authored_count": 0,
             "shader_contract_builtin_count": 0,
@@ -1242,7 +1243,7 @@ def run_sample(
     preview_log = result_dir / "scene-preview.log"
     preview_text = preview_log.read_text(encoding="utf-8", errors="replace") if preview_log.is_file() else ""
     ready_match = READY_RE.search(log_text)
-    interpretation_match = INTERPRETATION_RE.search(log_text)
+    runtime_evidence_match = RUNTIME_EVIDENCE_RE.search(log_text)
     stopped_match = STOPPED_RE.search(log_text)
     live_property_update = live_property_update_metrics(log_text)
     loaded_match = LOADED_RE.search(preview_text)
@@ -1311,13 +1312,12 @@ def run_sample(
         after_snapshot,
         result_dir,
     )
-    interpretation_path = (
-        Path(interpretation_match.group("path").strip())
-        if interpretation_match is not None
+    runtime_evidence_path = (
+        Path(runtime_evidence_match.group("path").strip())
+        if runtime_evidence_match is not None
         else Path("-")
     )
-    evidence_interpretation_path = interpretation_path
-    interpretation = interpretation_metrics(interpretation_path)
+    runtime_evidence = runtime_evidence_metrics(runtime_evidence_path)
     sample_root_residue = [
         file_name
         for file_name in SAMPLE_ROOT_DERIVED_FILES
@@ -1332,20 +1332,12 @@ def run_sample(
         failures.append("missing ready event")
     elif int(ready_match.group("surfaces")) < 1:
         failures.append("no Scene surface")
-    if interpretation_match is None:
-        failures.append("missing cache interpretation path")
-    else:
-        interpretation_cache_root = (
-            runtime_home / "Library/Caches/MyWallpaperX/SteamWorkshopScene"
-        ).resolve()
-        try:
-            interpretation_path.resolve().relative_to(interpretation_cache_root)
-        except ValueError:
-            failures.append("Scene interpretation path is outside package cache")
-        else:
-            if interpretation_path.is_file():
-                evidence_interpretation_path = result_dir / "scene-interpretation.json"
-                shutil.copy2(interpretation_path, evidence_interpretation_path)
+    if runtime_evidence_match is None:
+        failures.append("missing runtime evidence path")
+    elif runtime_evidence_path.resolve() != (
+        result_dir / "scene-runtime-evidence.json"
+    ).resolve():
+        failures.append("Scene runtime evidence path is outside Debug evidence directory")
     if sample_root_residue:
         failures.append(
             "Scene sample root contains derived files: " + ", ".join(sample_root_residue)
@@ -1371,7 +1363,7 @@ def run_sample(
         if actual_parallax != bool(expected_parallax):
             failures.append("camera parallax state mismatch")
     minimum_parallax_layers = int(sample.get("minimum_authored_parallax_layer_count", 0))
-    if interpretation["authored_parallax_layer_count"] < minimum_parallax_layers:
+    if runtime_evidence["authored_parallax_layer_count"] < minimum_parallax_layers:
         failures.append("authored parallax layer count below minimum")
     if loaded_ratio < float(sample.get("minimum_loaded_ratio", 0)):
         failures.append(f"loaded ratio {loaded_ratio:.3f} below minimum")
@@ -1464,10 +1456,10 @@ def run_sample(
     color_blend_mode_9_count = preview_text.count("layer color blend mode=9")
     if color_blend_mode_9_count < int(sample.get("minimum_color_blend_mode_9_count", 0)):
         failures.append("layer color blend mode 9 count below minimum")
-    if interpretation["format_version"] is None:
-        failures.append("Scene interpretation evidence missing or invalid")
-    interpretation_expectations = {
-        "expected_interpretation_format": "format_version",
+    if runtime_evidence["schema_version"] is None:
+        failures.append("Scene runtime evidence missing or invalid")
+    runtime_evidence_expectations = {
+        "expected_runtime_evidence_schema": "schema_version",
         "expected_shader_contract_count": "shader_contract_count",
         "expected_shader_contract_authored_count": "shader_contract_authored_count",
         "expected_shader_contract_builtin_count": "shader_contract_builtin_count",
@@ -1511,59 +1503,59 @@ def run_sample(
         "expected_fullscreen_layer_count": "fullscreen_layer_count",
         "expected_dependency_edge_count": "dependency_edge_count",
     }
-    for expectation, metric in interpretation_expectations.items():
-        if expectation in sample and interpretation[metric] != int(sample[expectation]):
-            failures.append(f"Scene interpretation {metric} mismatch")
+    for expectation, metric in runtime_evidence_expectations.items():
+        if expectation in sample and runtime_evidence[metric] != int(sample[expectation]):
+            failures.append(f"Scene runtime evidence {metric} mismatch")
     expected_effect_graph_sha256 = sample.get("expected_effect_graph_sha256")
     if expected_effect_graph_sha256 is not None:
-        if interpretation["effect_graph_sha256"] != expected_effect_graph_sha256:
-            failures.append("Scene interpretation effect graph sha256 mismatch")
+        if runtime_evidence["effect_graph_sha256"] != expected_effect_graph_sha256:
+            failures.append("Scene runtime evidence effect graph sha256 mismatch")
     expected_opacity_candidates = sample.get(
         "expected_stock_opacity_single_effect_candidate_layer_ids"
     )
     if expected_opacity_candidates is not None:
         if (
-            interpretation["stock_opacity_single_effect_candidate_layer_ids"]
+            runtime_evidence["stock_opacity_single_effect_candidate_layer_ids"]
             != sorted(expected_opacity_candidates)
         ):
-            failures.append("Scene interpretation stock Opacity candidate IDs mismatch")
+            failures.append("Scene runtime evidence stock Opacity candidate IDs mismatch")
     expected_shader_contract_aggregate_sha256 = sample.get(
         "expected_shader_contract_aggregate_sha256"
     )
     if expected_shader_contract_aggregate_sha256 is not None:
         if (
-            interpretation["shader_contract_aggregate_sha256"]
+            runtime_evidence["shader_contract_aggregate_sha256"]
             != expected_shader_contract_aggregate_sha256
         ):
-            failures.append("Scene interpretation shader contract aggregate sha256 mismatch")
+            failures.append("Scene runtime evidence shader contract aggregate sha256 mismatch")
     expected_text_value = sample.get("expected_text_value")
-    if expected_text_value is not None and expected_text_value not in interpretation["text_values"]:
-        failures.append("Scene interpretation text property mismatch")
-    visible_layer_ids = set(interpretation["visible_layer_ids"])
+    if expected_text_value is not None and expected_text_value not in runtime_evidence["text_values"]:
+        failures.append("Scene runtime evidence text property mismatch")
+    visible_layer_ids = set(runtime_evidence["visible_layer_ids"])
     for layer_id in sample.get("required_visible_layer_ids", []):
         if layer_id not in visible_layer_ids:
             failures.append(f"Scene property layer {layer_id} should be visible")
     for layer_id in sample.get("required_hidden_layer_ids", []):
         if layer_id in visible_layer_ids:
             failures.append(f"Scene property layer {layer_id} should be hidden")
-    effective_visible_layer_ids = set(interpretation["effective_visible_layer_ids"])
+    effective_visible_layer_ids = set(runtime_evidence["effective_visible_layer_ids"])
     for layer_id in sample.get("required_effectively_visible_layer_ids", []):
         if layer_id not in effective_visible_layer_ids:
             failures.append(f"Scene layer {layer_id} should be effectively visible")
     for layer_id in sample.get("required_effectively_hidden_layer_ids", []):
         if layer_id in effective_visible_layer_ids:
             failures.append(f"Scene layer {layer_id} should be effectively hidden")
-    solid_layer_ids = set(interpretation["solid_layer_ids"])
+    solid_layer_ids = set(runtime_evidence["solid_layer_ids"])
     for layer_id in sample.get("required_solid_layer_ids", []):
         if layer_id not in solid_layer_ids:
             failures.append(f"Scene solid layer {layer_id} is missing")
     effective_visible_solid_layer_ids = set(
-        interpretation["effective_visible_solid_layer_ids"]
+        runtime_evidence["effective_visible_solid_layer_ids"]
     )
     for layer_id in sample.get("required_effectively_visible_solid_layer_ids", []):
         if layer_id not in effective_visible_solid_layer_ids:
             failures.append(f"Scene solid layer {layer_id} should be effectively visible")
-    effect_files = set(interpretation["effect_files"])
+    effect_files = set(runtime_evidence["effect_files"])
     for effect_file in sample.get("required_effect_files", []):
         if effect_file not in effect_files:
             failures.append(f"Scene effect file missing: {effect_file}")
@@ -1622,7 +1614,7 @@ def run_sample(
         "evidence": {
             "app_log": str(app_log),
             "preview_log": str(preview_log),
-            "interpretation": str(evidence_interpretation_path),
+            "runtime_evidence": str(runtime_evidence_path),
             "sample_root_residue": sample_root_residue,
             "ready_snapshot": str(ready_snapshot),
             "hover_snapshot": str(hover_snapshot) if hover_pointer is not None else None,
@@ -1713,7 +1705,7 @@ def run_sample(
             "color_blend_mode_9_count": color_blend_mode_9_count,
             "bloom_runtime_count": bloom_runtime_count,
             "route_only_effect_count": route_only_effect_count,
-            "interpretation": interpretation,
+            "runtime_evidence": runtime_evidence,
         },
     }
 

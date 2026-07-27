@@ -43,3 +43,16 @@ def sample_cache_root(sample_id: str) -> Path:
     )
     candidates = sorted(path for path in cache_parent.iterdir() if path.is_dir()) if cache_parent.is_dir() else []
     return candidates[0] if len(candidates) == 1 else cache_parent / "__unavailable__"
+
+
+def sample_runtime_evidence_path(sample_id: str) -> Path:
+    report_path = configured_path("report", "MWX_SCENE_TEST_REPORT")
+    if not report_path.is_file():
+        return report_path.parent / "__unavailable__"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    sample = next(
+        (item for item in report.get("samples", []) if str(item.get("id")) == sample_id),
+        None,
+    )
+    evidence_path = (sample or {}).get("evidence", {}).get("runtime_evidence")
+    return Path(evidence_path) if evidence_path else report_path.parent / "__unavailable__"

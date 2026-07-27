@@ -38,7 +38,6 @@ struct SteamWorkshopSceneDetailSection: View {
             SteamWorkshopSceneDiagnosticsRow(label: "render order", value: renderDescriptor?.renderOrderPolicy ?? "未解析"),
             SteamWorkshopSceneDiagnosticsRow(label: "render pass", value: "\(renderDescriptor?.materialPasses.count ?? 0)"),
             SteamWorkshopSceneDiagnosticsRow(label: "effect pass", value: "\(report.sceneDocument?.objects.flatMap { $0.effects }.reduce(0) { $0 + $1.passes.count } ?? 0)"),
-            SteamWorkshopSceneDiagnosticsRow(label: "解释文件", value: report.interpretationFileURL?.lastPathComponent ?? report.interpretationFileError ?? "未生成"),
             SteamWorkshopSceneDiagnosticsRow(label: "内联脚本", value: "\(report.sceneDocument?.objects.filter(\.hasInlineScript).count ?? 0)")
         ]
     }

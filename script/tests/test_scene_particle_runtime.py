@@ -13,20 +13,26 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from scene_real_test_fixtures import sample_cache_root
+from scene_real_test_fixtures import sample_cache_root, sample_runtime_evidence_path
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 REAL_SAMPLE_CACHE = sample_cache_root("3742133044")
+REAL_SAMPLE_EVIDENCE = sample_runtime_evidence_path("3742133044")
 EVENTSPAWN_SAMPLE_CACHE = sample_cache_root("3768903841")
+EVENTSPAWN_SAMPLE_EVIDENCE = sample_runtime_evidence_path("3768903841")
 EVENTDEATH_SAMPLE_CACHE = sample_cache_root("2131872317")
+EVENTDEATH_SAMPLE_EVIDENCE = sample_runtime_evidence_path("2131872317")
 FLARE_PARTICLE_CACHE = (
     sample_cache_root("2998757800") / "particles/workshop/2105295491"
 )
 STATIC_ORIGIN_SAMPLE_CACHE = sample_cache_root("3088601835")
+STATIC_ORIGIN_SAMPLE_EVIDENCE = sample_runtime_evidence_path("3088601835")
 NESTED_SAMPLE_CACHE = sample_cache_root("2974757317")
+NESTED_SAMPLE_EVIDENCE = sample_runtime_evidence_path("2974757317")
 NESTED_AUTHOR_OFF_SAMPLE_CACHE = sample_cache_root("2938612768")
+NESTED_AUTHOR_OFF_SAMPLE_EVIDENCE = sample_runtime_evidence_path("2938612768")
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneResourceIndex.swift",
     SOURCE_ROOT / "Resources/SceneStockTextureResolver.swift",
@@ -123,8 +129,12 @@ final class SceneVideoTextureSource {
     ) { return nil }
 }
 
-private struct Interpretation: Decodable {
-    let renderDescriptor: SceneRenderDescriptor
+private struct RuntimeEvidence: Decodable {
+    struct RuntimeInput: Decodable {
+        let renderDescriptor: SceneRenderDescriptor
+    }
+
+    let runtimeInput: RuntimeInput
 }
 
 @main
@@ -133,27 +143,42 @@ enum Harness {
         guard CommandLine.arguments.count >= 2 else { throw HarnessError.missingMode }
         switch CommandLine.arguments[1] {
         case "real":
-            guard CommandLine.arguments.count == 3 else { throw HarnessError.missingPath }
-            try printJSON(realSample(cachePath: CommandLine.arguments[2]))
+            guard CommandLine.arguments.count == 4 else { throw HarnessError.missingPath }
+            try printJSON(realSample(
+                evidencePath: CommandLine.arguments[2],
+                cachePath: CommandLine.arguments[3]
+            ))
         case "eventspawn-real":
-            guard CommandLine.arguments.count == 3 else { throw HarnessError.missingPath }
-            try printJSON(realEventSpawnSample(cachePath: CommandLine.arguments[2]))
+            guard CommandLine.arguments.count == 4 else { throw HarnessError.missingPath }
+            try printJSON(realEventSpawnSample(
+                evidencePath: CommandLine.arguments[2],
+                cachePath: CommandLine.arguments[3]
+            ))
         case "eventdeath-real":
-            guard CommandLine.arguments.count == 3 else { throw HarnessError.missingPath }
-            try printJSON(realEventDeathSample(cachePath: CommandLine.arguments[2]))
+            guard CommandLine.arguments.count == 4 else { throw HarnessError.missingPath }
+            try printJSON(realEventDeathSample(
+                evidencePath: CommandLine.arguments[2],
+                cachePath: CommandLine.arguments[3]
+            ))
         case "eventfollow-synthetic":
             try printJSON(syntheticEventFollow())
         case "nested-synthetic":
             try printJSON(syntheticNestedChildren())
         case "nested-real":
-            guard CommandLine.arguments.count == 3 else { throw HarnessError.missingPath }
-            try printJSON(realNestedMatrix(cachePath: CommandLine.arguments[2]))
+            guard CommandLine.arguments.count == 4 else { throw HarnessError.missingPath }
+            try printJSON(realNestedMatrix(
+                evidencePath: CommandLine.arguments[2],
+                cachePath: CommandLine.arguments[3]
+            ))
         case "continuous-profile-real":
             guard CommandLine.arguments.count == 3 else { throw HarnessError.missingPath }
             try printJSON(realContinuousProfiles(cachePath: CommandLine.arguments[2]))
         case "static-origin-real":
-            guard CommandLine.arguments.count == 3 else { throw HarnessError.missingPath }
-            try printJSON(realStaticOriginSample(cachePath: CommandLine.arguments[2]))
+            guard CommandLine.arguments.count == 4 else { throw HarnessError.missingPath }
+            try printJSON(realStaticOriginSample(
+                evidencePath: CommandLine.arguments[2],
+                cachePath: CommandLine.arguments[3]
+            ))
         case "stock-synthetic":
             guard CommandLine.arguments.count == 3 else { throw HarnessError.missingPath }
             try printJSON(stockSynthetic(bundlePath: CommandLine.arguments[2]))
@@ -164,15 +189,23 @@ enum Harness {
         }
     }
 
-    private static func realSample(cachePath: String) throws -> [String: Any] {
+    private static func renderDescriptor(evidencePath: String) throws -> SceneRenderDescriptor {
+        let evidenceURL = URL(fileURLWithPath: evidencePath)
+        return try JSONDecoder().decode(
+            RuntimeEvidence.self,
+            from: Data(contentsOf: evidenceURL)
+        ).runtimeInput.renderDescriptor
+    }
+
+    private static func realSample(
+        evidencePath: String,
+        cachePath: String
+    ) throws -> [String: Any] {
         let cache = URL(fileURLWithPath: cachePath, isDirectory: true)
-        let interpretation = try JSONDecoder().decode(
-            Interpretation.self,
-            from: Data(contentsOf: cache.appendingPathComponent(".mywallpaperx-scene-interpretation.json"))
-        )
+        let descriptor = try renderDescriptor(evidencePath: evidencePath)
         guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
         let runtime = SceneParticleRuntime(
-            descriptor: interpretation.renderDescriptor,
+            descriptor: descriptor,
             cacheDirectory: cache,
             device: device
         )
@@ -183,14 +216,14 @@ enum Harness {
         let advanced = runtime.advance(by: 1)
         let advancedInstances = advanced.first?.instances ?? []
         let secondPositions = advancedInstances.map(\.positionAndSize)
-        let override = interpretation.renderDescriptor.layers
+        let override = descriptor.layers
             .first(where: { $0.id == 196 })?.particleInstanceOverride
         guard let playback = SceneParticlePlaybackState(
-            descriptor: interpretation.renderDescriptor,
+            descriptor: descriptor,
             cacheDirectory: cache,
             device: device
         ) else { throw HarnessError.noParticlePipeline }
-        let playbackReport = playback.loadReportLines(descriptor: interpretation.renderDescriptor)
+        let playbackReport = playback.loadReportLines(descriptor: descriptor)
 
         return [
             "activeLayerIDs": runtime.activeLayerIDs,
@@ -217,15 +250,15 @@ enum Harness {
         ]
     }
 
-    private static func realEventSpawnSample(cachePath: String) throws -> [String: Any] {
+    private static func realEventSpawnSample(
+        evidencePath: String,
+        cachePath: String
+    ) throws -> [String: Any] {
         let cache = URL(fileURLWithPath: cachePath, isDirectory: true)
-        let interpretation = try JSONDecoder().decode(
-            Interpretation.self,
-            from: Data(contentsOf: cache.appendingPathComponent(".mywallpaperx-scene-interpretation.json"))
-        )
+        let descriptor = try renderDescriptor(evidencePath: evidencePath)
         guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
         let runtime = SceneParticleRuntime(
-            descriptor: interpretation.renderDescriptor,
+            descriptor: descriptor,
             cacheDirectory: cache,
             device: device
         )
@@ -242,15 +275,15 @@ enum Harness {
         ]
     }
 
-    private static func realEventDeathSample(cachePath: String) throws -> [String: Any] {
+    private static func realEventDeathSample(
+        evidencePath: String,
+        cachePath: String
+    ) throws -> [String: Any] {
         let cache = URL(fileURLWithPath: cachePath, isDirectory: true)
-        let interpretation = try JSONDecoder().decode(
-            Interpretation.self,
-            from: Data(contentsOf: cache.appendingPathComponent(".mywallpaperx-scene-interpretation.json"))
-        )
+        let descriptor = try renderDescriptor(evidencePath: evidencePath)
         guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
         let runtime = SceneParticleRuntime(
-            descriptor: interpretation.renderDescriptor,
+            descriptor: descriptor,
             cacheDirectory: cache,
             device: device
         )
@@ -661,15 +694,15 @@ enum Harness {
         ]
     }
 
-    private static func realNestedMatrix(cachePath: String) throws -> [String: Any] {
+    private static func realNestedMatrix(
+        evidencePath: String,
+        cachePath: String
+    ) throws -> [String: Any] {
         let cache = URL(fileURLWithPath: cachePath, isDirectory: true)
-        let interpretation = try JSONDecoder().decode(
-            Interpretation.self,
-            from: Data(contentsOf: cache.appendingPathComponent(".mywallpaperx-scene-interpretation.json"))
-        )
+        let descriptor = try renderDescriptor(evidencePath: evidencePath)
         guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
         let runtime = SceneParticleRuntime(
-            descriptor: interpretation.renderDescriptor,
+            descriptor: descriptor,
             cacheDirectory: cache,
             device: device
         )
@@ -729,15 +762,15 @@ enum Harness {
         ]
     }
 
-    private static func realStaticOriginSample(cachePath: String) throws -> [String: Any] {
+    private static func realStaticOriginSample(
+        evidencePath: String,
+        cachePath: String
+    ) throws -> [String: Any] {
         let cache = URL(fileURLWithPath: cachePath, isDirectory: true)
-        let interpretation = try JSONDecoder().decode(
-            Interpretation.self,
-            from: Data(contentsOf: cache.appendingPathComponent(".mywallpaperx-scene-interpretation.json"))
-        )
+        let descriptor = try renderDescriptor(evidencePath: evidencePath)
         guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
         let runtime = SceneParticleRuntime(
-            descriptor: interpretation.renderDescriptor,
+            descriptor: descriptor,
             cacheDirectory: cache,
             device: device
         )
@@ -1084,9 +1117,11 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         return json.loads(completed.stdout)
 
     def test_real_3742133044_only_assembles_visible_snow_layer(self) -> None:
-        if not (REAL_SAMPLE_CACHE / ".mywallpaperx-scene-interpretation.json").is_file():
-            self.skipTest("isolated 3742133044 cache is unavailable")
-        result = self.run_harness("real", str(REAL_SAMPLE_CACHE))
+        if not REAL_SAMPLE_EVIDENCE.is_file() or not REAL_SAMPLE_CACHE.is_dir():
+            self.skipTest("isolated 3742133044 runtime evidence is unavailable")
+        result = self.run_harness(
+            "real", str(REAL_SAMPLE_EVIDENCE), str(REAL_SAMPLE_CACHE)
+        )
         self.assertEqual(result["activeLayerIDs"], [196])
         self.assertEqual(result["batchLayerIDs"], [196])
         self.assertGreater(result["initialCount"], 0)
@@ -1203,9 +1238,11 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertEqual(result["nestedUnsupportedLayers"], [])
 
     def test_real_2974757317_executes_nested_matrix_rain(self) -> None:
-        if not (NESTED_SAMPLE_CACHE / ".mywallpaperx-scene-interpretation.json").is_file():
-            self.skipTest("isolated 2974757317 cache is unavailable")
-        result = self.run_harness("nested-real", str(NESTED_SAMPLE_CACHE))
+        if not NESTED_SAMPLE_EVIDENCE.is_file() or not NESTED_SAMPLE_CACHE.is_dir():
+            self.skipTest("isolated 2974757317 runtime evidence is unavailable")
+        result = self.run_harness(
+            "nested-real", str(NESTED_SAMPLE_EVIDENCE), str(NESTED_SAMPLE_CACHE)
+        )
         self.assertEqual(result["headCount"], 43)
         self.assertGreaterEqual(result["trailCount"], 43)
         self.assertEqual(result["trailBatchCount"], 1)
@@ -1214,9 +1251,11 @@ class SceneParticleRuntimeTests(unittest.TestCase):
 
     def test_real_2938612768_keeps_author_disabled_matrix_off(self) -> None:
         cache = NESTED_AUTHOR_OFF_SAMPLE_CACHE
-        if not (cache / ".mywallpaperx-scene-interpretation.json").is_file():
-            self.skipTest("isolated 2938612768 cache is unavailable")
-        result = self.run_harness("nested-real", str(cache))
+        if not NESTED_AUTHOR_OFF_SAMPLE_EVIDENCE.is_file() or not cache.is_dir():
+            self.skipTest("isolated 2938612768 runtime evidence is unavailable")
+        result = self.run_harness(
+            "nested-real", str(NESTED_AUTHOR_OFF_SAMPLE_EVIDENCE), str(cache)
+        )
         self.assertEqual(result["headCount"], 0)
         self.assertEqual(result["trailCount"], 0)
         self.assertNotIn(85705, result["activeLayerIDs"])
@@ -1236,27 +1275,39 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertEqual(result["instantaneous"]["Flare_Sparks"], 1)
 
     def test_real_3088601835_applies_static_snowstorm_fog_origin(self) -> None:
-        if not (STATIC_ORIGIN_SAMPLE_CACHE / ".mywallpaperx-scene-interpretation.json").is_file():
-            self.skipTest("isolated 3088601835 cache is unavailable")
-        result = self.run_harness("static-origin-real", str(STATIC_ORIGIN_SAMPLE_CACHE))
+        if not STATIC_ORIGIN_SAMPLE_EVIDENCE.is_file() or not STATIC_ORIGIN_SAMPLE_CACHE.is_dir():
+            self.skipTest("isolated 3088601835 runtime evidence is unavailable")
+        result = self.run_harness(
+            "static-origin-real",
+            str(STATIC_ORIGIN_SAMPLE_EVIDENCE),
+            str(STATIC_ORIGIN_SAMPLE_CACHE),
+        )
         self.assertEqual(result["childLayerIDs"], [513, 534])
         self.assertEqual(result["childInstanceCounts"], [1, 1])
         self.assertEqual(result["childTextureWidths"], [128, 128])
         self.assertEqual(result["unsupportedLayerIDs"], [])
 
     def test_real_3768903841_executes_strict_eventspawn_child(self) -> None:
-        if not (EVENTSPAWN_SAMPLE_CACHE / ".mywallpaperx-scene-interpretation.json").is_file():
-            self.skipTest("isolated 3768903841 cache is unavailable")
-        result = self.run_harness("eventspawn-real", str(EVENTSPAWN_SAMPLE_CACHE))
+        if not EVENTSPAWN_SAMPLE_EVIDENCE.is_file() or not EVENTSPAWN_SAMPLE_CACHE.is_dir():
+            self.skipTest("isolated 3768903841 runtime evidence is unavailable")
+        result = self.run_harness(
+            "eventspawn-real",
+            str(EVENTSPAWN_SAMPLE_EVIDENCE),
+            str(EVENTSPAWN_SAMPLE_CACHE),
+        )
         self.assertIn(264, result["activeLayerIDs"])
         self.assertGreater(result["childInstanceCount"], 0)
         self.assertEqual(result["childTextureWidth"], 128)
         self.assertFalse(result["layer264ChildUnsupported"])
 
     def test_real_2131872317_executes_eventdeath_firework_burst(self) -> None:
-        if not (EVENTDEATH_SAMPLE_CACHE / ".mywallpaperx-scene-interpretation.json").is_file():
-            self.skipTest("isolated 2131872317 cache is unavailable")
-        result = self.run_harness("eventdeath-real", str(EVENTDEATH_SAMPLE_CACHE))
+        if not EVENTDEATH_SAMPLE_EVIDENCE.is_file() or not EVENTDEATH_SAMPLE_CACHE.is_dir():
+            self.skipTest("isolated 2131872317 runtime evidence is unavailable")
+        result = self.run_harness(
+            "eventdeath-real",
+            str(EVENTDEATH_SAMPLE_EVIDENCE),
+            str(EVENTDEATH_SAMPLE_CACHE),
+        )
         self.assertGreater(result["firstHitFrame"], 0)
         self.assertEqual(result["hitInstanceCount"], 1_024)
         self.assertGreater(result["hitMaximumAlpha"], 0)

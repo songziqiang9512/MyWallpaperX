@@ -22,8 +22,6 @@ struct SceneDiagnosticsReport {
     let issues: [Issue]
     let capabilityProfile: SceneCapabilityProfile?
     let renderDescriptor: SceneRenderDescriptor?
-    let interpretationFileURL: URL?
-    let interpretationFileError: String?
 
     var isLaunchableInCurrentBuild: Bool {
         false
@@ -127,7 +125,7 @@ struct SceneDiagnosticsBuilder {
             if !assetCatalog.effectDefinitionDiagnostics.isEmpty {
                 issues.append(.init(
                     severity: .warning,
-                    message: "Effect definition 有 \(assetCatalog.effectDefinitionDiagnostics.count) 项保真诊断，已写入派生解释文件。"
+                    message: "Effect definition 有 \(assetCatalog.effectDefinitionDiagnostics.count) 项保真诊断，已保留在内存运行模型中。"
                 ))
             }
         } else if project != nil {
@@ -159,20 +157,6 @@ struct SceneDiagnosticsBuilder {
         if let renderDescriptor {
             issues.append(.init(severity: .info, message: "已建立 renderer 输入描述：layer \(renderDescriptor.layers.count) 个，material pass \(renderDescriptor.materialPasses.count) 个。"))
         }
-        let interpretationFileResult = Self.writeInterpretationFileIfPossible(
-            project: project,
-            sceneDocument: sceneDocument,
-            assetCatalog: assetCatalog,
-            renderDescriptor: renderDescriptor,
-            propertyOverrides: propertyOverrides,
-            outputDirectory: packageReport?.outputURL
-        )
-        let interpretationFileURL = interpretationFileResult.url
-        if let interpretationFileURL {
-            issues.append(.init(severity: .info, message: "已生成并验证 Scene 派生解释文件：\(interpretationFileURL.lastPathComponent)。"))
-        } else if let error = interpretationFileResult.error {
-            issues.append(.init(severity: .warning, message: "Scene 派生解释文件生成失败：\(error)"))
-        }
 
         return SceneDiagnosticsReport(
             project: project,
@@ -183,49 +167,7 @@ struct SceneDiagnosticsBuilder {
             packageReport: packageReport,
             issues: issues,
             capabilityProfile: capabilityProfile,
-            renderDescriptor: renderDescriptor,
-            interpretationFileURL: interpretationFileURL,
-            interpretationFileError: interpretationFileResult.error
+            renderDescriptor: renderDescriptor
         )
-    }
-
-    // Derived renderer state belongs to the package cache. The Workshop sample
-    // remains read-only, and rebuilding the package cache regenerates this file.
-    private static func writeInterpretationFileIfPossible(
-        project: SceneProject?,
-        sceneDocument: SceneDocument?,
-        assetCatalog: SceneAssetCatalog?,
-        renderDescriptor: SceneRenderDescriptor?,
-        propertyOverrides: [String: SceneUserPropertyValue],
-        outputDirectory: URL?
-    ) -> (url: URL?, error: String?) {
-        guard let project, let sceneDocument, let assetCatalog, let renderDescriptor else {
-            return (nil, nil)
-        }
-        guard let outputDirectory else {
-            return (nil, "Scene 缓存目录不可用，无法生成派生解释文件。")
-        }
-        do {
-            let compilation = ScenePropertyBindingCompiler().compile(
-                report: sceneDocument.userPropertyResolution.bindingReport,
-                catalog: project.userProperties
-            )
-            let url = try SceneInterpretationFileWriter().write(
-                renderDescriptor: renderDescriptor,
-                propertyBindingProgram: compilation.program,
-                effectivePropertyValues: project.userProperties.effectiveValues(
-                    overrides: propertyOverrides
-                ),
-                shaderContracts: assetCatalog.shaderContracts,
-                outputDirectory: outputDirectory
-            )
-            let file = try SceneInterpretationFileReader().read(from: url)
-            guard file.sourceEntryPath == renderDescriptor.entryPath else {
-                return (nil, "派生解释文件入口不匹配：\(file.sourceEntryPath)")
-            }
-            return (url, nil)
-        } catch {
-            return (nil, error.localizedDescription)
-        }
     }
 }

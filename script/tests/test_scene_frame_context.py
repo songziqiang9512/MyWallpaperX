@@ -22,6 +22,10 @@ AUDIO_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneAudioSpectrum.swift"
 )
 HOST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift"
+HOST_LAUNCH_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Launch.swift"
+)
 LIVE_CONSUMERS_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+LiveConsumers.swift"
@@ -187,19 +191,20 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertNotIn("displayTimer", view)
         self.assertNotIn("renderStartTime", view)
 
-    def test_launch_callers_forward_the_complete_interpretation_file(self) -> None:
-        host = HOST_SOURCE.read_text(encoding="utf-8")
+    def test_launch_callers_forward_raw_root_and_host_owns_runtime_input(self) -> None:
+        host = HOST_LAUNCH_SOURCE.read_text(encoding="utf-8")
         coordinator = COORDINATOR_SOURCE.read_text(encoding="utf-8")
         debug_runner = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("interpretationFile: SceneInterpretationFile", host)
+        self.assertIn("let runtimeInput: SceneRuntimeInput", host)
         self.assertIn("let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog", host)
-        self.assertIn("shaderContracts: interpretationFile.shaderContracts", host)
+        self.assertIn("shaderContracts: runtimeInput.shaderContracts", host)
         self.assertIn(
-            "program: interpretationFile.propertyBindingProgram", host
+            "program: runtimeInput.propertyBindingProgram", host
         )
-        self.assertIn("effectiveValues: interpretationFile.effectivePropertyValues", host)
-        self.assertIn("interpretationFile: file", coordinator)
-        self.assertIn("interpretationFile: model.interpretationFile", debug_runner)
+        self.assertIn("effectiveValues: runtimeInput.effectivePropertyValues", host)
+        self.assertIn("rootURL: request.rootURL", coordinator)
+        self.assertIn("rootURL: rootURL", debug_runner)
+        self.assertNotIn("interpretationFileURL", coordinator)
 
     def test_host_derives_only_renderer_backed_live_consumers(self) -> None:
         derivation = LIVE_CONSUMERS_SOURCE.read_text(encoding="utf-8")
