@@ -1,0 +1,13 @@
+{
+	"passes" : 
+	[
+		{
+			"cullmode" : "nocull",
+			"depthtest" : "disabled",
+			"depthwrite" : "disabled",
+			"shader" : "genericimage",
+			"textures" : [ "util/black" ],
+			"usertextures" : [ { "name" : "videotex", "keepaspect" : true } ]
+		}
+	]
+}
