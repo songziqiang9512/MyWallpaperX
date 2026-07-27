@@ -172,7 +172,9 @@ class SceneRuntimeInputTests(unittest.TestCase):
         source = ASSET_CATALOG_SOURCE.read_text(encoding="utf-8")
         self.assertIn("let shaderContracts: [SceneShaderContract]", source)
         self.assertIn("SceneShaderContractLoader().load(", source)
-        self.assertIn("shaderReferences: shaderReferences", source)
+        self.assertIn("shaderContracts: shaderReferences.flatMap { reference in", source)
+        self.assertIn("shaderReferences: [reference]", source)
+        self.assertIn("rootURL: shaderRootURL(", source)
 
 
 if __name__ == "__main__":
