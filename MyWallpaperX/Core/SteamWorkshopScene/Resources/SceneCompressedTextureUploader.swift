@@ -261,15 +261,15 @@ struct SceneCompressedTextureUploader {
 
     private static func premultiplyStraightAlphaRGBA(_ data: Data) -> Data {
         var output = data
-        let pixelCount = output.count / 4
         output.withUnsafeMutableBytes { rawBuffer in
             guard let bytes = rawBuffer.bindMemory(to: UInt8.self).baseAddress else { return }
-            for index in 0..<pixelCount {
-                let pixel = bytes.advanced(by: index * 4)
-                let alpha = UInt16(pixel[3])
-                pixel[0] = UInt8((UInt16(pixel[0]) * alpha + 127) / 255)
-                pixel[1] = UInt8((UInt16(pixel[1]) * alpha + 127) / 255)
-                pixel[2] = UInt8((UInt16(pixel[2]) * alpha + 127) / 255)
+            var offset = 0
+            while offset + 3 < rawBuffer.count {
+                let alpha = UInt16(bytes[offset + 3])
+                bytes[offset] = UInt8((UInt16(bytes[offset]) * alpha + 127) / 255)
+                bytes[offset + 1] = UInt8((UInt16(bytes[offset + 1]) * alpha + 127) / 255)
+                bytes[offset + 2] = UInt8((UInt16(bytes[offset + 2]) * alpha + 127) / 255)
+                offset += 4
             }
         }
         return output
