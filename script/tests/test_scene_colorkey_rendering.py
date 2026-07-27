@@ -184,8 +184,8 @@ enum Harness {
         let input: [UInt8] = [
             0, 0, 0, 255,
             255, 0, 0, 255,
-            0, 255, 0, 128,
-            255, 255, 255, 64,
+            0, 128, 0, 128,
+            64, 64, 64, 64,
         ]
         let result: [String: Any] = [
             "metalUnavailable": false,
@@ -242,23 +242,22 @@ class SceneColorKeyRenderingTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
 
-    def test_key_color_clears_alpha_without_changing_rgb(self) -> None:
+    def test_key_color_clears_every_premultiplied_channel(self) -> None:
         keyed = self.result["keyed"]
-        self.assertEqual(keyed[:3], self.result["input"][:3])
-        self.assertEqual(keyed[3], 0)
+        self.assertEqual(keyed[:4], [0, 0, 0, 0])
         self.assertEqual(keyed[4:], self.result["input"][4:])
 
     def test_key_alpha_is_mixed_only_for_matching_pixels(self) -> None:
         quarter = self.result["quarter"]
+        self.assertEqual(quarter[:3], [0, 0, 0])
         self.assertAlmostEqual(quarter[3], 64, delta=1)
         self.assertEqual(quarter[7:], self.result["input"][7:])
 
     def test_invert_reverses_key_selection(self) -> None:
         inverted = self.result["inverted"]
         self.assertEqual(inverted[3], 255)
-        self.assertEqual(inverted[7], 0)
-        self.assertEqual(inverted[11], 0)
-        self.assertEqual(inverted[15], 0)
+        for offset in (4, 8, 12):
+            self.assertEqual(inverted[offset:offset + 4], [0, 0, 0, 0])
 
     def test_flatten_multiplies_rgb_by_result_alpha(self) -> None:
         flattened = self.result["flattenedRed"]

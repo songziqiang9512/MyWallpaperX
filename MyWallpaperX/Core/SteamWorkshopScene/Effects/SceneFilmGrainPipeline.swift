@@ -44,7 +44,11 @@ fragment float4 sceneFilmGrainFrag(
     float3 first = noiseTexture.sample(linearRepeat, firstUV).rgb;
     float3 second = noiseTexture.sample(linearRepeat, secondUV).gbr;
     float3 noise = pow(saturate(first * second), float3(u.exponent));
-    albedo.rgb = sceneApplyBlending(u.blendMode, albedo.rgb, noise, u.strength);
+    float3 straightRGB = albedo.a > 1e-6
+        ? clamp(albedo.rgb / albedo.a, 0.0, 1.0)
+        : float3(0.0);
+    albedo.rgb = sceneApplyBlending(u.blendMode, straightRGB, noise, u.strength)
+        * albedo.a;
     return albedo;
 }
 """

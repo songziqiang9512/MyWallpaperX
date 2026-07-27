@@ -62,7 +62,7 @@ fragment float4 sceneWorkshopGradientFrag(
     }
     float3 gradient = pow(weighted / max(totalWeight, 1e-6), float3(1.0 / gamma));
     float4 scene = source.sample(linearClamp, input.texcoord);
-    return float4(gradient, scene.a);
+    return float4(gradient * scene.a, scene.a);
 }
 """
 

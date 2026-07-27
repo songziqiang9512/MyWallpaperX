@@ -170,6 +170,9 @@ fragment float4 proceduralNoiseFragment(
 ) {
     constexpr sampler linearClamp(filter::linear, address::clamp_to_edge);
     float4 albedo = source.sample(linearClamp, input.uv);
+    float3 albedoStraight = albedo.a > 1e-6
+        ? clamp(albedo.rgb / albedo.a, 0.0, 1.0)
+        : float3(0.0);
     float2 aspect = float2(1.0, float(source.get_height()) / float(source.get_width()));
     float2 transformScale = max(1e-6, uniforms.scale * 10.0 * aspect);
     float2 scroll = float2(
@@ -197,7 +200,8 @@ fragment float4 proceduralNoiseFragment(
         noise = saturate((noise - 0.5) / max(1e-6, uniforms.params1.x) + 0.5);
         float3 color = noise.rgb * (uniforms.colorsMax.rgb - uniforms.colorsMin.rgb)
             + uniforms.colorsMin.rgb;
-        return float4(mix(albedo.rgb, color, uniforms.params0.x), albedo.a);
+        float3 result = mix(albedoStraight, color, uniforms.params0.x);
+        return float4(result * albedo.a, albedo.a);
     }
 
     float2 displacement = 0.0;
@@ -235,7 +239,11 @@ fragment float4 proceduralNoiseFragment(
         displacement *= uniforms.params2.z / transformScale;
     }
     float4 warped = source.sample(linearClamp, input.uv + displacement);
-    return float4(mix(albedo.rgb, warped.rgb, uniforms.params0.x), albedo.a);
+    float3 warpedStraight = warped.a > 1e-6
+        ? clamp(warped.rgb / warped.a, 0.0, 1.0)
+        : float3(0.0);
+    float3 result = mix(albedoStraight, warpedStraight, uniforms.params0.x);
+    return float4(result * albedo.a, albedo.a);
 }
 """
 

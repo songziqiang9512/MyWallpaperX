@@ -42,10 +42,11 @@ enum Harness {
         for y in 0..<size {
             for x in 0..<size {
                 let offset = (y * size + x) * 4
-                bytes[offset] = UInt8((x * 4) % 256)
-                bytes[offset + 1] = UInt8((y * 4) % 256)
-                bytes[offset + 2] = UInt8(((x / 5 + y / 7) % 2) * 255)
-                bytes[offset + 3] = 255
+                let alpha = UInt8((x % 8) * 32)
+                bytes[offset] = UInt8(Int(alpha) * x / size)
+                bytes[offset + 1] = UInt8(Int(alpha) * y / size)
+                bytes[offset + 2] = ((x / 5 + y / 7) % 2) == 0 ? 0 : alpha
+                bytes[offset + 3] = alpha
             }
         }
         texture.replace(
@@ -96,6 +97,12 @@ enum Harness {
                 $0 + abs(Int(lhs[offset + $1]) - Int(rhs[offset + $1]))
             }
             return count + (difference > threshold ? 1 : 0)
+        }
+    }
+
+    static func isPremultiplied(_ bytes: [UInt8]) -> Bool {
+        stride(from: 0, to: bytes.count, by: 4).allSatisfy { offset in
+            max(bytes[offset], bytes[offset + 1], bytes[offset + 2]) <= bytes[offset + 3]
         }
     }
 
@@ -161,6 +168,8 @@ enum Harness {
             "worleyChanged": changed(original, worley0),
             "worleyMotion": changed(worley0, worley1),
             "variantsDiffer": changed(curl0, worley0),
+            "premultiplied": [color0, color1, curl0, curl1, worley0, worley1]
+                .allSatisfy(isPremultiplied),
             "rejections": rejections(device: device, queue: queue, pipeline: pipeline),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -210,6 +219,9 @@ class SceneProceduralNoiseRenderingTests(unittest.TestCase):
 
     def test_invalid_resources_and_uniforms_fail_closed(self) -> None:
         self.assertTrue(all(self.result["rejections"].values()), self.result["rejections"])
+
+    def test_all_variants_preserve_premultiplied_alpha(self) -> None:
+        self.assertTrue(self.result["premultiplied"], self.result)
 
     def test_rgb_perlin_channels_share_xy_cells(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")

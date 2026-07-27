@@ -39,8 +39,11 @@ fragment float4 sceneColorKeyFrag(
 ) {
     constexpr sampler linearClamp(filter::linear, address::clamp_to_edge);
     float4 albedo = source.sample(linearClamp, input.texcoord);
+    float3 straightRGB = albedo.a > 1e-6
+        ? clamp(albedo.rgb / albedo.a, 0.0, 1.0)
+        : float3(0.0);
     float delta = dot(
-        abs(uniforms.keyColorAndAlpha.rgb - albedo.rgb),
+        abs(uniforms.keyColorAndAlpha.rgb - straightRGB),
         float3(1.0)
     );
     float blend = smoothstep(
@@ -51,11 +54,8 @@ fragment float4 sceneColorKeyFrag(
     if (uniforms.invert != 0u) {
         blend = 1.0 - blend;
     }
-    albedo.a *= mix(uniforms.keyColorAndAlpha.a, 1.0, blend);
-    if (uniforms.flatten != 0u) {
-        albedo.rgb *= albedo.a;
-    }
-    return albedo;
+    float resultAlpha = albedo.a * mix(uniforms.keyColorAndAlpha.a, 1.0, blend);
+    return float4(straightRGB * resultAlpha, resultAlpha);
 }
 """
 

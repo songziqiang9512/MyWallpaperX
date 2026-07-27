@@ -77,6 +77,7 @@ enum Harness {
     static func metrics(_ pixels: [UInt8]) -> [String: Any] {
         var colors = Set<String>()
         var alphaPreserved = true
+        var premultiplied = true
         var saturated = 0
         for pixel in 0..<(size * size) {
             let offset = pixel * 4
@@ -86,11 +87,13 @@ enum Harness {
             let a = Int(pixels[offset + 3])
             colors.insert("\(r),\(g),\(b)")
             if a != pixel % 256 { alphaPreserved = false }
+            if max(r, g, b) > a + 1 { premultiplied = false }
             if max(r, g, b) - min(r, g, b) > 100 { saturated += 1 }
         }
         return [
             "colorCount": colors.count,
             "alphaPreserved": alphaPreserved,
+            "premultiplied": premultiplied,
             "saturated": saturated,
         ]
     }
@@ -190,6 +193,7 @@ class SceneWorkshopGradientRenderingTests(unittest.TestCase):
 
     def test_source_alpha_is_preserved(self) -> None:
         self.assertTrue(self.result["metrics"]["alphaPreserved"])
+        self.assertTrue(self.result["metrics"]["premultiplied"])
 
     def test_invalid_resources_fail_closed(self) -> None:
         self.assertTrue(all(self.result["rejections"].values()), self.result["rejections"])

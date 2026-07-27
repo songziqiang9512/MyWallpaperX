@@ -111,9 +111,12 @@ fragment float4 sceneWorkshopAudioBarsFrag(
 
     float4 scene = source.sample(linearClamp, uv);
     float3 authoredColor = float3(barColor.x, barColor.y, 1.0);
-    float3 base = mix(authoredColor, scene.rgb, scene.a);
+    float3 sceneStraight = scene.a > 1e-6
+        ? clamp(scene.rgb / scene.a, 0.0, 1.0)
+        : float3(0.0);
+    float3 base = mix(authoredColor, sceneStraight, scene.a);
     float3 finalColor = mix(base, authoredColor, bar);
-    return float4(finalColor, bar);
+    return float4(finalColor * bar, bar);
 }
 """
 

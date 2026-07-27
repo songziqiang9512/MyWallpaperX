@@ -78,6 +78,7 @@ enum Harness {
     static func metrics(_ pixels: [UInt8]) -> [String: Int] {
         var visible = 0
         var magenta = 0
+        var transparentRGB = 0
         var center = 0
         for offset in stride(from: 0, to: pixels.count, by: 4) {
             let b = Int(pixels[offset])
@@ -86,10 +87,16 @@ enum Harness {
             let a = Int(pixels[offset + 3])
             if a > 0 { visible += 1 }
             if a > 0 && r > 0 && b > 0 && g == 0 { magenta += 1 }
+            if a == 0 && (r != 0 || g != 0 || b != 0) { transparentRGB += 1 }
         }
         let centerOffset = ((size / 2) * size + size / 2) * 4
         center = Int(pixels[centerOffset + 3])
-        return ["visible": visible, "magenta": magenta, "centerAlpha": center]
+        return [
+            "visible": visible,
+            "magenta": magenta,
+            "transparentRGB": transparentRGB,
+            "centerAlpha": center,
+        ]
     }
 
     static func invalidResources(
@@ -210,10 +217,12 @@ class SceneWorkshopAudioBarsRenderingTests(unittest.TestCase):
 
     def test_silence_is_transparent(self) -> None:
         self.assertEqual(self.result["silent"]["visible"], 0)
+        self.assertEqual(self.result["silent"]["transparentRGB"], 0)
 
     def test_native_64_band_input_draws_segmented_magenta_pixels(self) -> None:
         for shape in ("inner", "outer"):
             self.assertGreater(self.result[shape]["visible"], 0, self.result[shape])
+            self.assertEqual(self.result[shape]["transparentRGB"], 0, self.result[shape])
             self.assertEqual(
                 self.result[shape]["visible"],
                 self.result[shape]["magenta"],
