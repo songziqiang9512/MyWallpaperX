@@ -139,6 +139,20 @@ struct SceneWorkshopAudioHueShiftExecutionPlan: Sendable {}
 struct SceneSpinExecutionPlan: Sendable {}
 struct SceneProceduralNoiseExecutionPlan: Sendable {}
 struct SceneFilmGrainExecutionPlan: Sendable {}
+struct SceneAuthoredShaderExecutionPlan: Sendable {
+    let offscreenSize: CGSize?
+}
+
+enum SceneAuthoredShaderExecutionPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole
+    ) -> SceneAuthoredShaderExecutionPlan? {
+        nil
+    }
+}
 
 enum SceneAuthoredOpacityPlanner {
     static func plan(
@@ -974,6 +988,7 @@ enum Harness {
             case .tint: backend = "tint"
             case .pulse: backend = "pulse"
             case .godrays: backend = "godrays"
+            case .authoredShader: backend = "authoredShader"
             }
             return [effectIndex, backend]
         } ?? []

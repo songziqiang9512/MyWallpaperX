@@ -21,4 +21,5 @@ struct SceneAuthoredEffectPipelineSet {
     let tint: SceneTintPipeline
     let pulse: ScenePulsePipeline
     let godrays: SceneGodraysPipeline
+    let authoredShader: SceneAuthoredShaderPipelineCache
 }

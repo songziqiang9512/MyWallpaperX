@@ -97,6 +97,16 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         stages.filter { $0.godrays != nil }.count
     }
 
+    var authoredShaderCount: Int {
+        stages.filter { $0.authoredShader != nil }.count
+    }
+
+    var authoredShaderOffscreenSize: CGSize? {
+        stages.compactMap { $0.authoredShader?.offscreenSize }.min {
+            $0.width * $0.height < $1.width * $1.height
+        }
+    }
+
     var liveConsumerTargets: Set<SceneDynamicTarget> {
         Set(stages.flatMap(\.liveConsumerTargets))
     }

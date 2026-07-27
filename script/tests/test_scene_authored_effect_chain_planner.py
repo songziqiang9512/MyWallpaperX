@@ -82,6 +82,20 @@ struct SceneWorkshopAudioHueShiftExecutionPlan: Sendable {}
 struct SceneSpinExecutionPlan: Sendable {}
 struct SceneProceduralNoiseExecutionPlan: Sendable {}
 struct SceneFilmGrainExecutionPlan: Sendable {}
+struct SceneAuthoredShaderExecutionPlan {
+    let offscreenSize: CGSize? = nil
+}
+
+enum SceneAuthoredShaderExecutionPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole
+    ) -> SceneAuthoredShaderExecutionPlan? {
+        nil
+    }
+}
 
 enum SceneAuthoredOpacityPlanner {
     static func plan(

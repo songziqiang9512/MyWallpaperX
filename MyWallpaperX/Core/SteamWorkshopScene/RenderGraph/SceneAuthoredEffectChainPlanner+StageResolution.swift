@@ -227,6 +227,18 @@ extension SceneAuthoredEffectChainPlanner {
                 logicalRenderTargetCount: 2
             )
         }
+        if let authoredShader = SceneAuthoredShaderExecutionPlanner.plan(
+            graph: stageGraph,
+            descriptor: descriptor,
+            shaderContracts: shaderContracts,
+            inputRole: inputRole
+        ) {
+            return stage(
+                .authoredShader(authoredShader),
+                stageGraph: stageGraph,
+                inputRole: inputRole
+            )
+        }
         return nil
     }
 

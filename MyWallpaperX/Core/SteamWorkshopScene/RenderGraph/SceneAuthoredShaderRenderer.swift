@@ -1,8 +1,50 @@
 import CoreGraphics
 import Foundation
 import Metal
+import simd
 
 enum SceneAuthoredShaderRenderer {
+    static func encode(
+        plan: SceneAuthoredShaderExecutionPlan,
+        source: MTLTexture,
+        target: MTLTexture,
+        frame: SceneAuthoredShaderFrameInputs,
+        pipelineCache: SceneAuthoredShaderPipelineCache,
+        commandBuffer: MTLCommandBuffer
+    ) -> Bool {
+        let width = Float(target.width)
+        let height = Float(target.height)
+        let modelViewProjection = simd_float4x4(diagonal: SIMD4<Float>(
+            2 / width,
+            2 / height,
+            1,
+            1
+        ))
+        let physicalSize = CGSize(width: source.width, height: source.height)
+        return encode(
+            plan: plan,
+            source: source,
+            target: target,
+            inputs: SceneAuthoredShaderUniformInputs(
+                renderSize: CGSize(width: target.width, height: target.height),
+                screenSize: frame.screenSize,
+                modelViewProjection: modelViewProjection,
+                sceneTime: frame.sceneTime,
+                dayTime: frame.dayTime,
+                frameTime: frame.frameTime,
+                pointerCurrentNDC: frame.pointerCurrentNDC,
+                pointerPreviousNDC: frame.pointerPreviousNDC,
+                texturePhysicalSizes: Dictionary(
+                    uniqueKeysWithValues: plan.framebufferTextureSlots.map {
+                        ($0, physicalSize)
+                    }
+                )
+            ),
+            pipelineCache: pipelineCache,
+            commandBuffer: commandBuffer
+        )
+    }
+
     static func encode(
         plan: SceneAuthoredShaderExecutionPlan,
         source: MTLTexture,

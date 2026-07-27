@@ -13,6 +13,7 @@ enum SceneAuthoredEffectChainRenderer {
         cursorUV: SIMD2<Float>,
         pointerIsInside: Bool,
         audioSpectrum: SceneAudioSpectrumSnapshot,
+        authoredShaderFrameInputs: SceneAuthoredShaderFrameInputs?,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         guard !chain.stages.isEmpty,
@@ -41,6 +42,7 @@ enum SceneAuthoredEffectChainRenderer {
                 pointerIsInside: pointerIsInside,
                 time: sourceUniforms.time,
                 audioSpectrum: audioSpectrum,
+                authoredShaderFrameInputs: authoredShaderFrameInputs,
                 commandBuffer: commandBuffer
             ) else {
 #if DEBUG
@@ -69,6 +71,7 @@ enum SceneAuthoredEffectChainRenderer {
         pointerIsInside: Bool,
         time: Float,
         audioSpectrum: SceneAudioSpectrumSnapshot,
+        authoredShaderFrameInputs: SceneAuthoredShaderFrameInputs?,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         let auxMask = masks.iris ?? masks.opacity
@@ -117,41 +120,11 @@ enum SceneAuthoredEffectChainRenderer {
                 commandBuffer: commandBuffer
             )
         case .opacity(let opacity):
-            // 官方 opacity.frag 的遮罩挂在 effect 实例上（同一层可以有多个 opacity 各绑一张），
-            // 所以按 descriptorID 取，且声明了遮罩却取不到贴图时整段拒绝，不静默降级成无遮罩。
-            var opacityMask: MTLTexture?
-            var opacityMaskUVScale = SIMD2<Float>(repeating: 1)
-            if opacity.maskTexturePath != nil {
-                guard let resources = masks.opacityEffects[opacity.effectKey.descriptorID],
-                      resources.matches(opacity),
-                      let texture = resources.mask else {
-                    return nil
-                }
-                opacityMask = texture
-                opacityMaskUVScale = resources.maskUVScale
-            }
-            guard let alpha = stage.opacityAlpha(in: dynamicValues),
-                  targets.plan.logicalTargets.isEmpty,
-                  SceneOffscreenEffectRenderer.captureSource(
-                      sourceTexture: sourceTexture,
-                      waterMaskTexture: masks.water,
-                      foliageMaskTexture: masks.foliage,
-                      auxMaskTexture: auxMask,
-                      target: targets.inputTexture,
-                      sourceUniforms: sourceUniforms,
-                      pipeline: pipeline,
-                      commandBuffer: commandBuffer
-                  ) else {
-                return nil
-            }
-            return SceneOpacityRenderer.render(
-                alpha: alpha,
-                mask: opacityMask,
-                maskUVScale: opacityMaskUVScale,
-                inputTexture: targets.inputTexture,
-                outputTexture: targets.outputTexture,
-                pipeline: pipelines.opacity,
-                commandBuffer: commandBuffer
+            return renderOpacity(
+                opacity, stage: stage, sourceTexture: sourceTexture, masks: masks,
+                auxMask: auxMask, targets: targets, dynamicValues: dynamicValues,
+                sourceUniforms: sourceUniforms, pipeline: pipeline,
+                opacityPipeline: pipelines.opacity, commandBuffer: commandBuffer
             )
         case .colorKey(let colorKey):
             return renderColorKey(
@@ -386,6 +359,13 @@ enum SceneAuthoredEffectChainRenderer {
                 time: time,
                 audioSpectrum: audioSpectrum,
                 commandBuffer: commandBuffer
+            )
+        case .authoredShader(let shader):
+            return renderAuthoredShader(
+                shader, sourceTexture: sourceTexture, masks: masks, auxMask: auxMask,
+                targets: targets, sourceUniforms: sourceUniforms,
+                frame: authoredShaderFrameInputs, pipeline: pipeline,
+                pipelineCache: pipelines.authoredShader, commandBuffer: commandBuffer
             )
         }
     }

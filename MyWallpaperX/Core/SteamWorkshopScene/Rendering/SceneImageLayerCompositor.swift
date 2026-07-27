@@ -32,6 +32,7 @@ struct SceneImageLayerCompositor {
               let tintPipeline = SceneTintPipeline(device: device),
               let pulsePipeline = ScenePulsePipeline(device: device),
               let godraysPipeline = SceneGodraysPipeline(device: device),
+              let authoredShaderPipeline = SceneAuthoredShaderPipelineCache(device: device),
               let colorBlendPipeline = SceneLayerColorBlendPipeline(device: device)
         else { return nil }
         authoredEffectPipelines = .init(
@@ -54,7 +55,8 @@ struct SceneImageLayerCompositor {
             xRay: xRayPipeline,
             tint: tintPipeline,
             pulse: pulsePipeline,
-            godrays: godraysPipeline
+            godrays: godraysPipeline,
+            authoredShader: authoredShaderPipeline
         )
         self.bloomPipeline = bloomPipeline
         self.gradientColorPipeline = gradientColorPipeline
@@ -95,13 +97,15 @@ struct SceneImageLayerCompositor {
             || request.requiresSourceCopy
             || request.authoredEffectChain != nil
             || layerColorBlendMode > 0
+        let requestedOffscreenSize = request.offscreenSize
+            ?? request.authoredEffectChain?.authoredShaderOffscreenSize
         let requestedOffscreenWidth = max(
             1,
-            Int((request.offscreenSize?.width ?? CGFloat(request.texture.width)).rounded(.up))
+            Int((requestedOffscreenSize?.width ?? CGFloat(request.texture.width)).rounded(.up))
         )
         let requestedOffscreenHeight = max(
             1,
-            Int((request.offscreenSize?.height ?? CGFloat(request.texture.height)).rounded(.up))
+            Int((requestedOffscreenSize?.height ?? CGFloat(request.texture.height)).rounded(.up))
         )
 
         let sourceEffectInputs = request.authoredEffectChain == nil
@@ -148,6 +152,7 @@ struct SceneImageLayerCompositor {
                         cursorUV: request.uniforms.cursorUV,
                         pointerIsInside: request.uniforms.cursorIsInside,
                         audioSpectrum: request.audioSpectrum,
+                        authoredShaderFrameInputs: request.authoredShaderFrameInputs,
                         commandBuffer: commandBuffer
                     )
                 }
@@ -290,7 +295,8 @@ struct SceneImageLayerCompositor {
                         )
                     case .foliageSway, .waterRipple, .xRay, .tint, .pulse, .godrays, .spin,
                          .proceduralNoise, .filmGrain,
-                         .colorKey, .workshopShiftHue, .workshopAudioBars, .workshopGradient, .workshopAudioHueShift:
+                         .colorKey, .workshopShiftHue, .workshopAudioBars, .workshopGradient,
+                         .workshopAudioHueShift, .authoredShader:
                         return nil
                     }
                 }

@@ -2,6 +2,15 @@ import CoreGraphics
 import Foundation
 import simd
 
+nonisolated struct SceneAuthoredShaderFrameInputs {
+    let screenSize: CGSize
+    let sceneTime: Float
+    let dayTime: Float
+    let frameTime: Float
+    let pointerCurrentNDC: SIMD2<Float>
+    let pointerPreviousNDC: SIMD2<Float>
+}
+
 nonisolated struct SceneAuthoredShaderUniformInputs {
     let renderSize: CGSize
     let screenSize: CGSize

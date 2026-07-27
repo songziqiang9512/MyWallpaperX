@@ -277,7 +277,8 @@ struct SceneMetalRenderer {
                     blocksLegacyGaussianBlur: blocksLegacyGaussianBlur(for: layer.id),
                     authoredEffectChain: authoredEffectChain,
                     dynamicValues: frameContext.dynamicValues,
-                    audioSpectrum: frameContext.audioSpectrum
+                    audioSpectrum: frameContext.audioSpectrum,
+                    authoredShaderFrameInputs: .init(frameContext: frameContext)
                 )
                 let encoded = imageCompositor.draw(request, pipeline: imagePipeline, mainPass: mainPass)
                 if authoredEffectChain != nil {

@@ -129,4 +129,5 @@ struct SceneImageLayerDrawRequest {
     var dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0)
     var audioSpectrum: SceneAudioSpectrumSnapshot = .silent
     var localContrastStrength: Float? = nil
+    var authoredShaderFrameInputs: SceneAuthoredShaderFrameInputs? = nil
 }

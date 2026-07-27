@@ -116,6 +116,7 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
             "authoredEffectGraphTintCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.tintCount })",
             "authoredEffectGraphPulseCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.pulseCount })",
             "authoredEffectGraphGodraysCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.godraysCount })",
+            "authoredEffectGraphAuthoredShaderCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.authoredShaderCount })",
             "authoredEffectGraphXRayPrefixCount: \(xRayPrefixOmittedEffectPathsByLayerID.count)",
             "authoredEffectGraphXRayPrefixOmittedEffects: \(xRayPrefixOmittedEffectPathsByLayerID.sorted(by: { $0.key < $1.key }).map { "\($0.key)=\($0.value.joined(separator: ","))" }.joined(separator: ";"))",
         ]

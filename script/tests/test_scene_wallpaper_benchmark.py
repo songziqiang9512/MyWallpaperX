@@ -1531,6 +1531,32 @@ utility layer 763: skippedHidden kind=composition
         )
         self.assertIsNone(benchmark.authored_effect_graph_water_waves_count(""))
 
+    def test_authored_shader_count_is_an_exact_gate(self) -> None:
+        preview = "authoredEffectGraphAuthoredShaderCount: 1\n"
+        count = benchmark.authored_effect_graph_authored_shader_count(preview)
+        self.assertEqual(count, 1)
+        self.assertEqual(
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_authored_shader_count": 1},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                authored_shader_count=count,
+            ),
+            [],
+        )
+        self.assertIn(
+            "authored effect graph authored shader count mismatch",
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_authored_shader_count": 0},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                authored_shader_count=count,
+            ),
+        )
+        self.assertIsNone(benchmark.authored_effect_graph_authored_shader_count(""))
+
     def test_authored_opacity_and_route_only_counts_are_exact_gates(self) -> None:
         preview = (
             "authoredEffectGraphOpacityCount: 4\n"

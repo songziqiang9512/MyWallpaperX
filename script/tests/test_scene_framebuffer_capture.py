@@ -61,6 +61,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneInlineEffectRuntime.swift",
     SOURCE_ROOT / "Effects/SceneEffectRuntimeSupport.swift",
     SOURCE_ROOT / "Effects/SceneEffectRuntimePlan.swift",
+    SOURCE_ROOT / "Effects/SceneEffectRuntimeModel.swift",
     SOURCE_ROOT / "Effects/SceneOffscreenEffectRenderer.swift",
     SOURCE_ROOT / "Runtime/SceneAudioSpectrum.swift",
     SOURCE_ROOT / "Runtime/SceneAudioResponse.swift",
@@ -68,6 +69,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneProceduralNoiseExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneFilmGrainExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+AuthoredShader.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Opacity.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+AudioBars.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+AudioHueShift.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+WorkshopGradient.swift",
@@ -228,6 +231,29 @@ struct SceneWorkshopAudioHueShiftExecutionPlan: Sendable {
     let audio: SceneAudioResponse.Parameters
 }
 
+struct SceneAuthoredShaderExecutionPlan: Sendable {
+    let offscreenSize: CGSize?
+}
+
+struct SceneAuthoredShaderFrameInputs: Sendable {}
+
+final class SceneAuthoredShaderPipelineCache {
+    init?(device: MTLDevice) {}
+}
+
+enum SceneAuthoredShaderRenderer {
+    static func encode(
+        plan: SceneAuthoredShaderExecutionPlan,
+        source: MTLTexture,
+        target: MTLTexture,
+        frame: SceneAuthoredShaderFrameInputs,
+        pipelineCache: SceneAuthoredShaderPipelineCache,
+        commandBuffer: MTLCommandBuffer
+    ) -> Bool {
+        false
+    }
+}
+
 // 与 SceneOpacityEffectTextureLoader.swift 里的同名结构保持一致的替身：那个文件还依赖
 // SceneTexturePathResolver/SceneTextureLoader，整条链拉进来会和本 harness 自带的
 // SceneRenderDescriptor 桩冲突，沿用本文件对 SceneShakeEffectTextures 等的同类做法。
@@ -269,6 +295,7 @@ struct SceneAuthoredEffectExecutionPlan {
         case tint(SceneTintExecutionPlan)
         case pulse(ScenePulseExecutionPlan)
         case godrays(SceneGodraysPlan)
+        case authoredShader(SceneAuthoredShaderExecutionPlan)
     }
 
     let layerID: Int
@@ -314,6 +341,11 @@ struct SceneAuthoredEffectExecutionPlan {
 
     var opacity: SceneOpacityExecutionPlan? {
         guard case .opacity(let plan) = backend else { return nil }
+        return plan
+    }
+
+    var authoredShader: SceneAuthoredShaderExecutionPlan? {
+        guard case .authoredShader(let plan) = backend else { return nil }
         return plan
     }
 
@@ -600,6 +632,12 @@ struct SceneAuthoredEffectExecutionChain {
 
     var singleStage: SceneAuthoredEffectExecutionPlan? {
         stages.count == 1 ? stages[0] : nil
+    }
+
+    var authoredShaderOffscreenSize: CGSize? {
+        stages.compactMap { $0.authoredShader?.offscreenSize }.min {
+            $0.width * $0.height < $1.width * $1.height
+        }
     }
 }
 
@@ -3383,7 +3421,10 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         )
         self.assertIn("sourceUniforms: isFirstStage ? sourceUniforms : .neutral()", source)
         self.assertIn("stage.localContrastStrength(in: dynamicValues)", source)
-        self.assertIn("stage.opacityAlpha(in: dynamicValues)", source)
+        opacity_source = (
+            SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Opacity.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("stage.opacityAlpha(in: dynamicValues)", opacity_source)
 
     def test_opacity_chain_consumes_live_snapshot_on_gpu(self) -> None:
         authored, live = self.result["authoredOpacityLivePixels"]
