@@ -16,6 +16,7 @@
 | Scene Overview | https://docs.wallpaperengine.io/en/scene/overview.html | Scene 能力边界 |
 | Sitemap | https://docs.wallpaperengine.io/sitemap.xml | 枚举所有现役官方页面 |
 | SceneScript Type Declaration v2.8 | https://docs.wallpaperengine.io/reference/lib.sceneScript.d.ts | property-bound API、类型和事件合同 |
+| SceneScript Type Declaration v2.8 本地参考快照 | [lib.sceneScript-v2.8.d.ts](../reference/official/lib.sceneScript-v2.8.d.ts)（SHA-256 `d9ccc5cd1383bbb91c8a589a34874833d13798d163f2b427117023ea2bfac3f4`） | 2026-07-28 从官方 URL 下载归档的 API diff/fixture 参考；仅用于研究，不进入 App bundle 或运行时输入。下次刷新前应与上行 URL 比对。 |
 | Official docs source | https://github.com/Wallpaper-Engine-Team/wallpaper-engine-docs | 文档 Markdown、声明与官方 sample 的可审计来源 |
 
 本轮固定官方文档 revision：[`b26412295cbfd0ee5cdceff67e2c95069527aa1b`](https://github.com/Wallpaper-Engine-Team/wallpaper-engine-docs/commit/b26412295cbfd0ee5cdceff67e2c95069527aa1b)，也是 2026-07-22 核验时的远端 `HEAD`。线上页面与源码发生漂移时，先对比该 revision，不从记忆猜改动。

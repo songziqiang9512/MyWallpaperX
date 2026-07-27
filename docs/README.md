@@ -5,6 +5,7 @@
 ## 当前事实入口
 
 - [reviews/web-scene-current-state-roadmap-2026-07-19.md](reviews/web-scene-current-state-roadmap-2026-07-19.md)：Web / Scene 当前能力、验证结果、闭环边界和后续路线。
+- [scene/README.md](scene/README.md)：Scene 专题入口；区分现役台账、专项计划、稳定语义、公开参考和历史资料。
 - [scene/semantics/coverage-ledger.md](scene/semantics/coverage-ledger.md)：Scene 当前系统级摘要；新会话从这里定位系统，再进入专项能力表。
 - [scene/semantics/runtime-evidence-index.md](scene/semantics/runtime-evidence-index.md)：Scene 当前提交、正式运行门、签名身份与能力证据包。
 - [scene/scene-capability-development-plan-2026-07-22.md](scene/scene-capability-development-plan-2026-07-22.md)：Scene 现役实施顺序、样本规范和测试门。
@@ -21,21 +22,20 @@
 ## 历史参考
 
 - [architecture/framework-architecture-memo.md](architecture/framework-architecture-memo.md) 与 [architecture/project-working-memory.md](architecture/project-working-memory.md) 分别是 2026-05-05、2026-05-17 快照；只用于追溯，必须与当前代码核对。
-- `archive/`、`regression/` 和普通 `reviews/` 文件默认是历史证据；只有上面明确列出的路线图仍是当前事实入口。
+- 专题下的 `regression/` 与普通 `reviews/` 文件默认是历史证据；只有上面明确列出的路线图仍是当前事实入口。
 
 ## 目录分类
 
 - `architecture/`：当前架构事实、AppKit 迁移和跨 Web / Scene 的整体方案。
 - `web/`：Web 壁纸规范、运行模型、评测标准、样本回归记录和历史方案。
-- `scene/`：Scene 壁纸设计、现役计划、`semantics/` 语义手册和历史评审。
-- `steam/`：Steam Workshop、SteamCMD、下载库重构和相关评审。
+- `scene/`：Scene 壁纸设计、现役计划、`semantics/` 语义手册、`reference/` 公开参考快照和历史评审。
 - `release/`：发布、签名、版本和 notarization。
 - `reviews/`：跨项目审计、模块审查和 WaifuX 对比资料。
 
 ## 使用规则
 
 - 判断框架结构时以代码和 `AGENTS.md` 为准，`architecture/` 旧 memo 只作线索；判断 Web / Scene 能力和闭环状态时看上面的当前事实入口。
-- `archive/`、`regression/`、`reviews/` 下的文件主要用于查历史原因和证据，不反向覆盖当前规范；其中 `reviews/web-scene-current-state-roadmap-2026-07-19.md` 是 Web / Scene 的现役状态入口。
-- 新增长期规范时放入对应专题目录；新增一次性排障记录时放入专题下的 `regression/` 或 `archive/`。
+- 专题下的 `regression/` 与 `reviews/` 下的文件主要用于查历史原因和证据，不反向覆盖当前规范；其中 `reviews/web-scene-current-state-roadmap-2026-07-19.md` 是 Web / Scene 的现役状态入口。
+- 新增长期规范时放入对应专题目录；新增一次性样本回归或排障记录时放入该专题已有的 `regression/`，没有合适归属时先在对应专题建立清晰入口，不新设空泛归档目录。
 - 脚本统一放在仓库根目录的 `script/`，不要再新增 `scripts/`。
 - 文档描述与当前代码或运行门禁冲突时，以当前代码和最新可复现证据为准，并回补对应现役文档，不能只在旧 review 中追加新结论。
