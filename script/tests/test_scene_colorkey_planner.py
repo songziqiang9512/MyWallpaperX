@@ -86,9 +86,9 @@ struct SceneRenderDescriptor {
 @main
 enum Harness {
     typealias Graph = SceneAuthoredEffectRenderPlan
-    static let definitionPath = "effects/colorkey/effect.json"
-    static let materialPath = "materials/effects/colorkey.json"
-    static let shaderIdentity = "effects/colorkey"
+    static var definitionPath = "effects/colorkey/effect.json"
+    static var materialPath = "materials/effects/colorkey.json"
+    static var shaderIdentity = "effects/colorkey"
 
     struct Options {
         var contentKind = "solid"
@@ -102,9 +102,11 @@ enum Harness {
         var omitConstants = false
         var extraConstant = false
         var texture = false
+        var materialTexture = false
         var materialHash =
             "02d5f948d42690e5a697be56d9b43f59ab30e633db7dd042f4ac9d20537b4a0c"
         var definitionVersion = 1
+        var blending = "normal"
     }
 
     static func value(
@@ -157,8 +159,8 @@ enum Harness {
             framebuffers: [],
             dependencies: [
                 materialPath,
-                "shaders/effects/colorkey.frag",
-                "shaders/effects/colorkey.vert",
+                "shaders/\(shaderIdentity).frag",
+                "shaders/\(shaderIdentity).vert",
             ],
             functions: nil,
             gizmos: nil,
@@ -192,18 +194,19 @@ enum Harness {
             visible: true,
             passes: []
         )
+        let materialPaths = options.materialTexture ? ["unexpected.png"] : []
         let material = SceneRenderDescriptor.MaterialPassDescriptor(
             id: "\(materialPath)#0",
             materialPath: materialPath,
             materialRawSHA256: options.materialHash,
             passIndex: 0,
             shaderPath: shaderIdentity,
-            texturePaths: [],
-            textureSlots: [],
+            texturePaths: materialPaths,
+            textureSlots: materialPaths,
             userTextureInputs: [],
             combos: [:],
             constantShaderValues: [:],
-            blending: "normal",
+            blending: options.blending,
             depthTest: "disabled",
             depthWrite: "disabled",
             cullMode: "nocull"
@@ -320,7 +323,7 @@ enum Harness {
         var hash = Options(); hash.materialHash = String(repeating: "0", count: 64)
         var version = Options(); version.definitionVersion = 2
 
-        let result: [String: Bool] = [
+        var result: [String: Bool] = [
             "stockAccepted": stock.keyAlpha == 0 && stock.fuzziness == 0
                 && stock.tolerance == 0.1 && stock.keyColor == SIMD3(repeating: 0)
                 && !stock.invert && !stock.flatten,
@@ -336,13 +339,44 @@ enum Harness {
             "roleMismatchRejected": plan(contracts: contracts, priorInput: true) == nil,
             "parametersRejected": [badAlpha, badFuzz, badTolerance, badColor, bound, extra]
                 .allSatisfy { plan($0, contracts: contracts) == nil },
-            "shapeRejected": [texture, comboRange, comboUnknown, hidden, content, hash, version]
+            "shapeRejected": [texture, comboRange, comboUnknown, hidden, content, version]
                 .allSatisfy { plan($0, contracts: contracts) == nil },
+            "materialSerializationAccepted": plan(hash, contracts: contracts) != nil,
             "blockerRejected": plan(contracts: contracts, blocker: true) == nil,
             "contractRejected": plan(contracts: []) == nil
                 && plan(contracts: contracts + contracts) == nil,
-            "candidateDetected": SceneAuthoredColorKeyPlanner.containsCandidate(graph: graph()),
+            "stockCandidateDetected": SceneAuthoredColorKeyPlanner.containsCandidate(graph: graph()),
         ]
+
+        definitionPath = "effects/workshop/fixture/colorkey/effect.json"
+        materialPath = "materials/workshop/fixture/effects/colorkey.json"
+        shaderIdentity = "workshop/fixture/effects/colorkey"
+        let relocatedRoot = URL(
+            fileURLWithPath: CommandLine.arguments[2],
+            isDirectory: true
+        )
+        let relocatedContracts = SceneShaderContractLoader().load(
+            shaderReferences: [shaderIdentity],
+            rootURL: relocatedRoot
+        )
+        let mutatedRoot = URL(
+            fileURLWithPath: CommandLine.arguments[3],
+            isDirectory: true
+        )
+        let mutatedContracts = SceneShaderContractLoader().load(
+            shaderReferences: [shaderIdentity],
+            rootURL: mutatedRoot
+        )
+        var materialTexture = Options(); materialTexture.materialTexture = true
+        var renderState = Options(); renderState.blending = "additive"
+
+        result["relocatedAccepted"] = plan(contracts: relocatedContracts) != nil
+        result["relocatedExecutableRejected"] = plan(contracts: mutatedContracts) == nil
+        result["relocatedMaterialContractRejected"] = [materialTexture, renderState]
+            .allSatisfy { plan($0, contracts: relocatedContracts) == nil }
+        result["relocatedCandidateDetected"] = SceneAuthoredColorKeyPlanner.containsCandidate(
+            graph: graph()
+        )
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }
@@ -351,6 +385,23 @@ enum Harness {
 
 
 class SceneColorKeyPlannerTests(unittest.TestCase):
+    @staticmethod
+    def _write_relocated_shader_fixture(root: Path, *, mutate: bool) -> None:
+        shader_root = root / "shaders/workshop/fixture/effects"
+        shader_root.mkdir(parents=True)
+        for suffix in ("vert", "frag"):
+            source = (STOCK_ROOT / f"shaders/effects/colorkey.{suffix}").read_text()
+            if suffix == "frag":
+                source = source.replace(
+                    '{"material":"color","label":"ui_editor_properties_color", '
+                    '"type": "color", "default":"1 1 1"}',
+                    '{"default":"1 1 1","label":"ui_editor_properties_color",'
+                    '"material":"color","type":"color"}',
+                )
+                if mutate:
+                    source = source.replace("albedo.a *= mix", "albedo.a += mix")
+            (shader_root / f"colorkey.{suffix}").write_text(source)
+
     def test_stock_profile_is_exact_and_fail_closed(self) -> None:
         if shutil.which("swiftc") is None:
             self.skipTest("swiftc is unavailable")
@@ -358,6 +409,10 @@ class SceneColorKeyPlannerTests(unittest.TestCase):
             root = Path(directory)
             harness = root / "Harness.swift"
             binary = root / "scene-colorkey-planner"
+            relocated_root = root / "relocated"
+            mutated_root = root / "mutated"
+            self._write_relocated_shader_fixture(relocated_root, mutate=False)
+            self._write_relocated_shader_fixture(mutated_root, mutate=True)
             harness.write_text(HARNESS, encoding="utf-8")
             compilation = subprocess.run(
                 [
@@ -370,7 +425,12 @@ class SceneColorKeyPlannerTests(unittest.TestCase):
             )
             self.assertEqual(compilation.returncode, 0, compilation.stderr)
             completed = subprocess.run(
-                [str(binary), str(STOCK_ROOT)],
+                [
+                    str(binary),
+                    str(STOCK_ROOT),
+                    str(relocated_root),
+                    str(mutated_root),
+                ],
                 check=True,
                 capture_output=True,
                 text=True,

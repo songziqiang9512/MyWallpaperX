@@ -2,16 +2,16 @@ import CryptoKit
 import Foundation
 import simd
 
-/// Exact stock 2.8.42 Color Key profile. Unknown definitions, shader bytes,
-/// bindings, texture slots, constants, and combos remain fail-closed.
+/// Verified Color Key profile. Relocated author copies are accepted only when
+/// their executable shader source and full render contract remain equivalent.
 enum SceneAuthoredColorKeyPlanner {
     typealias Graph = SceneAuthoredEffectRenderPlan
 
-    private nonisolated struct CanonicalShaderPayload: Encodable {
-        let identity: String
-        let sourceKind: SceneShaderContract.SourceKind
-        let stages: [SceneShaderContract.Stage]
-        let diagnostics: [SceneShaderContract.Diagnostic]
+    private nonisolated struct Profile {
+        let definitionPath: String
+        let materialPath: String
+        let materialPassID: String
+        let shaderIdentity: String
     }
 
     nonisolated static func plan(
@@ -32,9 +32,8 @@ enum SceneAuthoredColorKeyPlanner {
 
         let effect = graph.effects[0]
         let node = graph.nodes[0]
-        guard normalized(effect.definitionPath) == definitionPath,
-              validDefinition(in: descriptor, path: effect.definitionPath),
-              shaderContractMatches(shaderContracts),
+        guard let profile = profile(in: descriptor, path: effect.definitionPath),
+              shaderContractMatches(shaderContracts, profile: profile),
               effect.nodeIndices == [node.nodeIndex],
               SceneAuthoredEffectInputValidator.accepts(
                   effect.input,
@@ -43,15 +42,15 @@ enum SceneAuthoredColorKeyPlanner {
               ),
               effect.output == effectOutput(effect.key),
               graph.finalOutput == effect.output,
-              validNode(node, effect: effect),
-              validMaterialDescriptor(in: descriptor),
-              validInstance(effect: effect, layer: layer),
+              validNode(node, effect: effect, profile: profile),
+              validMaterialDescriptor(in: descriptor, profile: profile),
+              validInstance(effect: effect, layer: layer, profile: profile),
               let resolved = SceneAuthoredMaterialResolver.resolve(
                   node: node,
                   graph: graph,
                   descriptor: descriptor
               ).node,
-              validResolvedMaterial(resolved),
+              validResolvedMaterial(resolved, profile: profile),
               let parameters = parameters(from: resolved.constants),
               let combos = combos(from: resolved.combos) else {
             return nil
@@ -71,13 +70,13 @@ enum SceneAuthoredColorKeyPlanner {
     }
 
     nonisolated static func containsCandidate(graph: Graph) -> Bool {
-        graph.effects.contains { normalized($0.definitionPath) == definitionPath }
+        graph.effects.contains { normalized($0.definitionPath).hasSuffix("/colorkey/effect.json") }
     }
 
-    private nonisolated static func validDefinition(
+    private nonisolated static func profile(
         in descriptor: SceneRenderDescriptor,
         path: String
-    ) -> Bool {
+    ) -> Profile? {
         let matches = descriptor.effectDefinitions.filter {
             normalized($0.relativePath) == normalized(path)
         }
@@ -91,37 +90,58 @@ enum SceneAuthoredColorKeyPlanner {
               definition.previewPath == "preview/project.json",
               definition.editable == nil,
               definition.framebuffers.isEmpty,
-              definition.dependencies.map(normalized) == dependencies,
               definition.functions == nil,
               definition.gizmos == nil,
               definition.extraFields.isEmpty,
               definition.unknownFieldPaths.isEmpty,
               definition.passes.count == 1,
-              let pass = definition.passes.first else {
-            return false
+              let pass = definition.passes.first,
+              let authoredMaterialPath = pass.materialPath else {
+            return nil
         }
-        return pass.passIndex == 0
-            && normalized(pass.materialPath ?? "") == materialPath
-            && pass.target == nil
-            && pass.bindings.isEmpty
-            && pass.compose == nil
-            && pass.command == nil
-            && pass.source == nil
-            && pass.conditions == nil
-            && pass.extraFields.isEmpty
+        let materialPath = normalized(authoredMaterialPath)
+        let materialMatches = descriptor.materialPasses.filter {
+            normalized($0.materialPath) == materialPath && $0.passIndex == 0
+        }
+        guard pass.passIndex == 0,
+              pass.target == nil,
+              pass.bindings.isEmpty,
+              pass.compose == nil,
+              pass.command == nil,
+              pass.source == nil,
+              pass.conditions == nil,
+              pass.extraFields.isEmpty,
+              materialMatches.count == 1,
+              let shaderPath = materialMatches.first?.shaderPath else {
+            return nil
+        }
+        let shaderIdentity = normalized(shaderPath)
+        let dependencies = [
+            materialPath,
+            "shaders/\(shaderIdentity).frag",
+            "shaders/\(shaderIdentity).vert",
+        ]
+        guard definition.dependencies.map(normalized) == dependencies else { return nil }
+        return Profile(
+            definitionPath: normalized(path),
+            materialPath: materialPath,
+            materialPassID: "\(materialPath)#0",
+            shaderIdentity: shaderIdentity
+        )
     }
 
     private nonisolated static func validNode(
         _ node: Graph.Node,
-        effect: Graph.Effect
+        effect: Graph.Effect,
+        profile: Profile
     ) -> Bool {
         node.effect == effect.key
             && node.definitionPassIndex == 0
             && node.materialOrdinal == 0
             && node.instancePassIndex == 0
             && node.kind == .material
-            && normalized(node.materialPath ?? "") == materialPath
-            && normalized(node.materialPassID ?? "") == materialPassID
+            && normalized(node.materialPath ?? "") == profile.materialPath
+            && normalized(node.materialPassID ?? "") == profile.materialPassID
             && node.target == effect.output
             && node.bindings.isEmpty
             && node.commandSource == nil
@@ -131,16 +151,16 @@ enum SceneAuthoredColorKeyPlanner {
     }
 
     private nonisolated static func validMaterialDescriptor(
-        in descriptor: SceneRenderDescriptor
+        in descriptor: SceneRenderDescriptor,
+        profile: Profile
     ) -> Bool {
         let matches = descriptor.materialPasses.filter {
-            normalized($0.id) == materialPassID
+            normalized($0.id) == profile.materialPassID
         }
         guard matches.count == 1, let material = matches.first else { return false }
-        return normalized(material.materialPath) == materialPath
-            && material.materialRawSHA256 == materialSHA256
+        return normalized(material.materialPath) == profile.materialPath
             && material.passIndex == 0
-            && normalized(material.shaderPath ?? "") == shaderIdentity
+            && normalized(material.shaderPath ?? "") == profile.shaderIdentity
             && material.texturePaths.isEmpty
             && material.textureSlots.isEmpty
             && material.userTextureInputs.isEmpty
@@ -154,12 +174,13 @@ enum SceneAuthoredColorKeyPlanner {
 
     private nonisolated static func validInstance(
         effect: Graph.Effect,
-        layer: SceneRenderDescriptor.Layer
+        layer: SceneRenderDescriptor.Layer,
+        profile: Profile
     ) -> Bool {
         guard layer.effects.indices.contains(effect.key.effectIndex) else { return false }
         let descriptor = layer.effects[effect.key.effectIndex]
         guard descriptor.id == effect.key.descriptorID,
-              normalized(descriptor.file) == definitionPath,
+              normalized(descriptor.file) == profile.definitionPath,
               descriptor.visible != false,
               descriptor.passes.count == 1,
               let pass = descriptor.passes.first else {
@@ -173,9 +194,10 @@ enum SceneAuthoredColorKeyPlanner {
     }
 
     private nonisolated static func validResolvedMaterial(
-        _ material: SceneResolvedMaterialNode
+        _ material: SceneResolvedMaterialNode,
+        profile: Profile
     ) -> Bool {
-        normalized(material.shaderPath) == shaderIdentity
+        normalized(material.shaderPath) == profile.shaderIdentity
             && material.textureSlots.allSatisfy { $0 == nil }
             && validCombos(material.combos)
             && material.renderState.blending?.lowercased() == "normal"
@@ -280,40 +302,35 @@ enum SceneAuthoredColorKeyPlanner {
     }
 
     private nonisolated static func shaderContractMatches(
-        _ contracts: [SceneShaderContract]
+        _ contracts: [SceneShaderContract],
+        profile: Profile
     ) -> Bool {
-        let matches = contracts.filter { normalized($0.identity) == shaderIdentity }
+        let matches = contracts.filter { normalized($0.identity) == profile.shaderIdentity }
         guard matches.count == 1, let contract = matches.first,
               contract.sourceKind == .authoredSource,
               contract.diagnostics.isEmpty,
-              contract.canonicalSHA256 == shaderCanonicalSHA256,
-              canonicalHash(contract) == shaderCanonicalSHA256,
               contract.stages.count == 2 else {
             return false
         }
         let expected: [(SceneShaderContract.StageKind, String, String)] = [
-            (.vertex, vertexPath, vertexSHA256),
-            (.fragment, fragmentPath, fragmentSHA256),
+            (.vertex, "shaders/\(profile.shaderIdentity).vert", vertexExecutableSHA256),
+            (.fragment, "shaders/\(profile.shaderIdentity).frag", fragmentExecutableSHA256),
         ]
         return zip(contract.stages, expected).allSatisfy { stage, fingerprint in
             stage.kind == fingerprint.0
                 && normalized(stage.relativePath) == fingerprint.1
-                && stage.rawSHA256 == fingerprint.2
-                && sha256(Data(stage.source.utf8)) == fingerprint.2
+                && stage.rawSHA256 == sha256(Data(stage.source.utf8))
+                && executableSHA256(stage.source) == fingerprint.2
         }
     }
 
-    private nonisolated static func canonicalHash(_ contract: SceneShaderContract) -> String {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        let payload = CanonicalShaderPayload(
-            identity: contract.identity,
-            sourceKind: contract.sourceKind,
-            stages: contract.stages,
-            diagnostics: contract.diagnostics
-        )
-        guard let data = try? encoder.encode(payload) else { return "" }
-        return sha256(data)
+    private nonisolated static func executableSHA256(_ source: String) -> String {
+        let executable = source.split(whereSeparator: \Character.isNewline).compactMap { line in
+            let code = line.split(separator: "//", maxSplits: 1, omittingEmptySubsequences: false)[0]
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return code.isEmpty ? nil : code
+        }.joined(separator: "\n") + "\n"
+        return sha256(Data(executable.utf8))
     }
 
     private nonisolated static func effectOutput(
@@ -330,25 +347,10 @@ enum SceneAuthoredColorKeyPlanner {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
-    private nonisolated static let definitionPath = "effects/colorkey/effect.json"
-    private nonisolated static let materialPath = "materials/effects/colorkey.json"
-    private nonisolated static let materialPassID = "\(materialPath)#0"
-    private nonisolated static let materialSHA256 =
-        "02d5f948d42690e5a697be56d9b43f59ab30e633db7dd042f4ac9d20537b4a0c"
-    private nonisolated static let shaderIdentity = "effects/colorkey"
-    private nonisolated static let dependencies = [
-        materialPath,
-        "shaders/effects/colorkey.frag",
-        "shaders/effects/colorkey.vert",
-    ]
-    private nonisolated static let shaderCanonicalSHA256 =
-        "aa6e7d600fb192b638a16bc7f6f62bbfe1c8981c58b16802f46865bd8b137af4"
-    private nonisolated static let vertexPath = "shaders/effects/colorkey.vert"
-    private nonisolated static let vertexSHA256 =
-        "0b346bf8e6d1fb2aafee37d80d46ec4821c08d3fc62b11c42b23112a4b8739cb"
-    private nonisolated static let fragmentPath = "shaders/effects/colorkey.frag"
-    private nonisolated static let fragmentSHA256 =
-        "e05cc509f3a286f9ecee63063280b7f8ce22cee7d8b705b74cee0b133ef71bed"
+    private nonisolated static let vertexExecutableSHA256 =
+        "c1f686bcfc476371409c5d1da8bef10e2c142aa35d065cdd25eb6c7844e6123d"
+    private nonisolated static let fragmentExecutableSHA256 =
+        "e938eca07a060f6949baa8bda070b59e56621cbc404415067eb675de6b1e244d"
     private nonisolated static let constantKeys: Set<String> = [
         "alpha", "color", "fuzziness", "tolerance",
     ]

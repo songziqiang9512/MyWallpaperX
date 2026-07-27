@@ -1031,6 +1031,7 @@ def authored_effect_graph_failures(
     water_waves_count: int | None = None,
     authored_shader_count: int | None = None,
     opacity_count: int | None = None,
+    color_key_count: int | None = None,
     route_only_effect_count: int | None = None,
     opacity_layer_ids: list[int] | None = None,
 ) -> list[str]:
@@ -1059,6 +1060,10 @@ def authored_effect_graph_failures(
     if expected_opacity is not None:
         if opacity_count != int(expected_opacity):
             failures.append("authored effect graph Opacity count mismatch")
+    expected_color_key = sample.get("expected_authored_effect_graph_color_key_count")
+    if expected_color_key is not None:
+        if color_key_count != int(expected_color_key):
+            failures.append("authored effect graph Color Key count mismatch")
     expected_opacity_layers = sample.get("expected_authored_effect_graph_opacity_layer_ids")
     if expected_opacity_layers is not None:
         if (opacity_layer_ids or []) != sorted(expected_opacity_layers):
@@ -1517,6 +1522,7 @@ def run_sample(
         water_waves_count=authored_effect_graph_water_waves,
         authored_shader_count=authored_effect_graph_authored_shader,
         opacity_count=authored_effect_graph_opacity,
+        color_key_count=authored_effect_graph_color_key,
         route_only_effect_count=route_only_effect_count,
         opacity_layer_ids=authored_effect_graph_opacity_layers,
     ))

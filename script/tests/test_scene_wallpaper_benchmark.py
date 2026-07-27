@@ -1253,6 +1253,7 @@ utility layer 763: skippedHidden kind=composition
             benchmark.authored_effect_graph_failures(
                 {
                     "expected_authored_effect_graph_opacity_count": 4,
+                    "expected_authored_effect_graph_color_key_count": 2,
                     "expected_authored_effect_graph_opacity_layer_ids":
                         [365, 372, 647, 664],
                     "expected_route_only_effect_count": 3,
@@ -1261,6 +1262,7 @@ utility layer 763: skippedHidden kind=composition
                 [],
                 None,
                 opacity_count=opacity_count,
+                color_key_count=color_key_count,
                 route_only_effect_count=route_only_count,
                 opacity_layer_ids=opacity_layers,
             ),
@@ -1269,6 +1271,7 @@ utility layer 763: skippedHidden kind=composition
         failures = benchmark.authored_effect_graph_failures(
             {
                 "expected_authored_effect_graph_opacity_count": 0,
+                "expected_authored_effect_graph_color_key_count": 0,
                 "expected_authored_effect_graph_opacity_layer_ids": [],
                 "expected_route_only_effect_count": 18,
             },
@@ -1276,10 +1279,12 @@ utility layer 763: skippedHidden kind=composition
             [],
             None,
             opacity_count=opacity_count,
+            color_key_count=color_key_count,
             route_only_effect_count=route_only_count,
             opacity_layer_ids=opacity_layers,
         )
         self.assertIn("authored effect graph Opacity count mismatch", failures)
+        self.assertIn("authored effect graph Color Key count mismatch", failures)
         self.assertIn("authored effect graph Opacity layer IDs mismatch", failures)
         self.assertIn("offscreen route-only effect count mismatch", failures)
         self.assertIsNone(benchmark.authored_effect_graph_opacity_count(""))
