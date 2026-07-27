@@ -57,8 +57,9 @@ enum SceneAuthoredPulsePlanner {
         else {
             return reject("graph-shape")
         }
-        guard validMaterialDescriptor(in: descriptor) else { return reject("material") }
-        guard validInstance(effect: effect, layer: layer) else { return reject("instance") }
+        guard validMaterialDescriptor(in: descriptor, profile: profile) else { return reject("material") }
+        guard validInstance(effect: effect, layer: layer, profile: profile)
+        else { return reject("instance") }
         guard let resolved = SceneAuthoredMaterialResolver.resolve(
             node: node,
             graph: graph,
@@ -67,11 +68,20 @@ enum SceneAuthoredPulsePlanner {
             return reject("resolver")
         }
         guard validResolvedMaterial(resolved) else { return reject("resolved-material") }
-        guard let combos = resolvedCombos(resolved.combos) else { return reject("combos") }
+        guard let combos = resolvedCombos(resolved.combos, profile: profile)
+        else { return reject("combos") }
+        guard let audio = audioParameters(
+            combos: resolved.combos,
+            constants: resolved.constants,
+            profile: profile
+        ) else {
+            return reject("audio")
+        }
         guard let constants = resolvedConstants(
             from: resolved.constants,
             effect: effect.key,
-            profile: profile
+            profile: profile,
+            audioEnabled: audio.parameters != nil
         ) else {
             return reject("constants")
         }
@@ -92,7 +102,8 @@ enum SceneAuthoredPulsePlanner {
             staticOrFallbackValues: constants.values,
             bindings: constants.bindings,
             maskTexturePath: slots.mask,
-            noiseTexturePath: slots.noise
+            noiseTexturePath: slots.noise,
+            audio: audio.parameters
         )
     }
 
@@ -158,7 +169,8 @@ enum SceneAuthoredPulsePlanner {
     }
 
     private nonisolated static func validMaterialDescriptor(
-        in descriptor: SceneRenderDescriptor
+        in descriptor: SceneRenderDescriptor,
+        profile: ScenePulseShaderProfile
     ) -> Bool {
         let matches = descriptor.materialPasses.filter {
             normalized($0.id) == materialPassID
@@ -171,7 +183,7 @@ enum SceneAuthoredPulsePlanner {
             && material.texturePaths.isEmpty
             && material.textureSlots.isEmpty
             && material.userTextureInputs.isEmpty
-            && validAuthoredCombos(material.combos)
+            && validAuthoredCombos(material.combos, allowsAudio: false)
             && material.constantShaderValues.isEmpty
             && material.blending?.lowercased() == "normal"
             && material.depthTest?.lowercased() == "disabled"
@@ -181,7 +193,8 @@ enum SceneAuthoredPulsePlanner {
 
     private nonisolated static func validInstance(
         effect: Graph.Effect,
-        layer: SceneRenderDescriptor.Layer
+        layer: SceneRenderDescriptor.Layer,
+        profile: ScenePulseShaderProfile
     ) -> Bool {
         guard layer.effects.indices.contains(effect.key.effectIndex) else { return false }
         let descriptor = layer.effects[effect.key.effectIndex]
@@ -196,7 +209,7 @@ enum SceneAuthoredPulsePlanner {
         return pass.passIndex == 0
             && validInstanceTextureSlots(paths: pass.texturePaths, slots: pass.textureSlots)
             && pass.userTextureInputs.isEmpty
-            && validAuthoredCombos(pass.combos)
+            && validAuthoredCombos(pass.combos, allowsAudio: profile == .stock2842)
     }
 
     private nonisolated static func validResolvedMaterial(

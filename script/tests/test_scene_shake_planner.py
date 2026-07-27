@@ -24,6 +24,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredShakePlanner.swift",
     SOURCE_ROOT / "Runtime/SceneAudioSpectrum.swift",
     SOURCE_ROOT / "Runtime/SceneAudioResponse.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAudioResponseAdmission.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredShakePlanner+Audio.swift",
 ]
 

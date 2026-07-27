@@ -91,6 +91,8 @@ nonisolated struct ScenePulseExecutionPlan {
     let maskTexturePath: String?
     /// slot 1（`g_Texture1`）显式声明的 noise 覆盖；v1 只接受缺省或 `util/noise`。
     let noiseTexturePath: String?
+    /// 启用 `AUDIOPROCESSING` 时的求值参数；`nil` 表示时间驱动路径。
+    let audio: SceneAudioResponse.Parameters?
 
     nonisolated var liveConsumerTargets: Set<SceneDynamicTarget> {
         Set(bindings.values.map(\.dynamicTarget))

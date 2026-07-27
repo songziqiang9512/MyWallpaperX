@@ -14,6 +14,7 @@ extension SceneAuthoredEffectChainRenderer {
         pipeline: SceneImageLayerPipeline,
         pulsePipeline: ScenePulsePipeline,
         time: Float,
+        audioSpectrum: SceneAudioSpectrumSnapshot,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         guard let resources = masks.pulseEffects[pulse.effectKey.descriptorID],
@@ -33,7 +34,8 @@ extension SceneAuthoredEffectChainRenderer {
                   plan: pulse,
                   resources: resources,
                   time: time,
-                  dynamicValues: dynamicValues
+                  dynamicValues: dynamicValues,
+                  audioSpectrum: audioSpectrum
               ),
               pulsePipeline.encode(
                   source: targets.inputTexture,
@@ -53,7 +55,8 @@ extension SceneAuthoredEffectChainRenderer {
         plan: ScenePulseExecutionPlan,
         resources: ScenePulseEffectTextures,
         time: Float,
-        dynamicValues: SceneDynamicSnapshot
+        dynamicValues: SceneDynamicSnapshot,
+        audioSpectrum: SceneAudioSpectrumSnapshot
     ) -> ScenePulsePipeline.Inputs? {
         typealias Constant = ScenePulseExecutionPlan.Constant
         func scalar(_ constant: Constant) -> Float {
@@ -82,7 +85,10 @@ extension SceneAuthoredEffectChainRenderer {
             pulseColor: plan.pulseColor,
             pulseAlpha: plan.pulseAlpha,
             saturatesOutput: plan.shaderProfile.saturatesOutput,
-            maskUVScale: resources.maskUVScale
+            maskUVScale: resources.maskUVScale,
+            audioPulse: plan.audio.map {
+                SceneAudioResponse.evaluate(spectrum: audioSpectrum, parameters: $0)
+            }
         )
     }
 }

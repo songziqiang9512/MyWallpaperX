@@ -457,6 +457,7 @@ struct ScenePulseExecutionPlan {
     let maskTexturePath: String?
     let requiresNoiseTexture: Bool
     let values: [Constant: SIMD3<Double>]
+    var audio: SceneAudioResponse.Parameters? = nil
 
     func resolvedComponents(
         _ constant: Constant,

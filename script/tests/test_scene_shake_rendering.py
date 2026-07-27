@@ -209,6 +209,7 @@ enum Harness {
             plan: plan,
             resources: resources,
             time: time,
+            audioPulse: nil,
             inputTexture: source,
             outputTexture: target,
             pipeline: pipeline,
@@ -290,6 +291,7 @@ enum Harness {
                 target: candidateTarget,
                 plan: candidatePlan,
                 time: time,
+                audioPulse: nil,
                 commandBuffer: command
             )
         }
@@ -337,6 +339,7 @@ enum Harness {
                 plan: plan(),
                 resources: resources,
                 time: 1,
+                audioPulse: nil,
                 inputTexture: source,
                 outputTexture: target,
                 pipeline: pipeline,
@@ -397,6 +400,7 @@ enum Harness {
                 target: target,
                 plan: plan(),
                 time: 1,
+                audioPulse: nil,
                 commandBuffer: command
             )
         }

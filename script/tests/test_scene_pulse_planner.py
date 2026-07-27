@@ -38,6 +38,9 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/ScenePulseExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredPulsePlanner.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredPulsePlanner+Constants.swift",
+    SOURCE_ROOT / "Runtime/SceneAudioSpectrum.swift",
+    SOURCE_ROOT / "Runtime/SceneAudioResponse.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAudioResponseAdmission.swift",
 ]
 
 # 语料历史版本 shader 源（v-a=1937925563/2131872317/2241938645，
@@ -709,6 +712,25 @@ enum Harness {
         ).snapshot
 
         var audio = Options(); audio.instanceCombos = ["AUDIOPROCESSING": 3]
+        var audioFull = Options()
+        audioFull.instanceCombos = ["AUDIOPROCESSING": 3]
+        audioFull.constants = [
+            "frequencymin": value([1], kind: "number"),
+            "frequencymax": value([5], kind: "number"),
+            "audioexponent": value([0.5], kind: "number"),
+            "audiobounds": value([0.25, 0.75], kind: "vector"),
+            "audioamount": value([2], kind: "number"),
+        ]
+        var audioOutOfRange = Options()
+        audioOutOfRange.instanceCombos = ["AUDIOPROCESSING": 4]
+        var audioBoundConstant = Options()
+        audioBoundConstant.instanceCombos = ["AUDIOPROCESSING": 3]
+        audioBoundConstant.constants = [
+            "audioamount": value([1], kind: "binding", binding: "newproperty9")
+        ]
+        let audioPlan = planned(descriptorOptions: audio, contracts: stockContracts)
+        let audioFullPlan = planned(descriptorOptions: audioFull, contracts: stockContracts)
+        let nonAudioPlan = planned(contracts: stockContracts)
         var unknownKey = Options()
         unknownKey.constants = [
             "ui_editor_properties_pulse_speed": value([2], kind: "number")
@@ -871,7 +893,34 @@ enum Harness {
             "legacyNoiseSpeedRange": !accepted(
                 descriptorOptions: noiseSpeedFast, contracts: legacyContracts[0]
             ) && accepted(descriptorOptions: noiseSpeedFast, contracts: stockContracts),
-            "audioRejected": !accepted(descriptorOptions: audio, contracts: stockContracts),
+            "audioDisabledPlanHasNoParameters": nonAudioPlan.map { $0.audio == nil } ?? false,
+            "audioStockDefaultsBackfilled": audioPlan.map {
+                $0.audio == SceneAudioResponse.Parameters(
+                    channel: .average,
+                    frequencyMin: 0,
+                    frequencyMax: 1,
+                    boundsLower: 0.5,
+                    boundsUpper: 1,
+                    exponent: 1,
+                    multiply: 1
+                )
+            } ?? false,
+            "audioStockFullAccepted": audioFullPlan.map {
+                $0.audio == SceneAudioResponse.Parameters(
+                    channel: .average,
+                    frequencyMin: 1,
+                    frequencyMax: 5,
+                    boundsLower: 0.25,
+                    boundsUpper: 0.75,
+                    exponent: 0.5,
+                    multiply: 2
+                )
+            } ?? false,
+            "audioRejected": [audioOutOfRange, audioBoundConstant]
+                .allSatisfy { !accepted(descriptorOptions: $0, contracts: stockContracts) },
+            "legacyAudioRejected": legacyContracts.allSatisfy {
+                !accepted(descriptorOptions: audio, contracts: $0)
+            },
             "audioZeroAccepted": accepted(
                 descriptorOptions: {
                     var options = Options()

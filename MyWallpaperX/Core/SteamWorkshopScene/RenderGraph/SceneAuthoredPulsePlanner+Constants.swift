@@ -8,6 +8,8 @@ extension SceneAuthoredPulsePlanner {
         let blendMode: Int
         let pulseColor: Bool
         let pulseAlpha: Bool
+        /// `.off` 表示作者未启用 audio，走时间驱动路径。
+        let audioChannel: SceneAudioResponse.Channel
     }
 
     nonisolated struct ResolvedConstants {
@@ -20,14 +22,21 @@ extension SceneAuthoredPulsePlanner {
         let mask: String?
     }
 
-    /// `AUDIOPROCESSING` 只接受缺省或显式 0：audio 驱动没有频谱输入管线，fail closed。
+    /// `AUDIOPROCESSING` 取值 1/2/3 分别是 left、right 与左右平均，只在 stock 指纹上
+    /// 放开：两个 legacy profile 的 audio 行为尚无正反例，继续 fail closed。
     /// `MASK` 由编辑器按槽位绑图在编译期自动设置（E-MASK-SLOT-COMBO），语料 0 次显式声明。
-    nonisolated static func validAuthoredCombos(_ authored: [String: Int]) -> Bool {
+    /// `allowsAudio` 只对 effect 实例 pass 为真：语料中 audio 声明全部落在实例层，
+    /// material 层是经 SHA 校验的 stock 文件，出现非 0 值即视为异常。
+    nonisolated static func validAuthoredCombos(
+        _ authored: [String: Int],
+        allowsAudio: Bool
+    ) -> Bool {
         guard let combos = normalizedCombos(authored) else { return false }
+        let audio = combos["AUDIOPROCESSING", default: 0]
         guard combos.keys.allSatisfy({
             ["AUDIOPROCESSING", "BLENDMODE", "PULSEALPHA", "PULSECOLOR"].contains($0)
         }),
-            combos["AUDIOPROCESSING", default: 0] == 0,
+            audio == 0 || (allowsAudio && (1 ... 3).contains(audio)),
             [0, 1].contains(combos["PULSEALPHA", default: 0]),
             [0, 1].contains(combos["PULSECOLOR", default: 1])
         else {
@@ -37,8 +46,11 @@ extension SceneAuthoredPulsePlanner {
             .contains(combos["BLENDMODE", default: defaultBlendMode])
     }
 
-    nonisolated static func resolvedCombos(_ authored: [String: Int]) -> ResolvedCombos? {
-        guard validAuthoredCombos(authored),
+    nonisolated static func resolvedCombos(
+        _ authored: [String: Int],
+        profile: ScenePulseShaderProfile
+    ) -> ResolvedCombos? {
+        guard validAuthoredCombos(authored, allowsAudio: profile == .stock2842),
               let combos = normalizedCombos(authored)
         else {
             return nil
@@ -46,21 +58,47 @@ extension SceneAuthoredPulsePlanner {
         return ResolvedCombos(
             blendMode: combos["BLENDMODE", default: defaultBlendMode],
             pulseColor: combos["PULSECOLOR", default: 1] == 1,
-            pulseAlpha: combos["PULSEALPHA", default: 0] == 1
+            pulseAlpha: combos["PULSEALPHA", default: 0] == 1,
+            audioChannel: SceneAudioResponse.Channel(
+                comboValue: combos["AUDIOPROCESSING", default: 0]
+            ) ?? .off
         )
     }
 
     /// 全部键必须是官方九个 material 常量之一；静态值按 shader 注解 range 准入
     /// （`noisespeed` 的界随 profile 变），user binding 记录动态目标并保留 authored
     /// fallback，SceneScript 形态拒绝。
+    /// stock `pulse.vert` 的 `audiobounds` annotation 默认值是 `0.5 1.0`，
+    /// 与 shake 的 `0.0 1.2` 不同，因此默认值在这里给出而不是由共享层内置。
+    nonisolated static func audioParameters(
+        combos: [String: Int],
+        constants: [String: SceneDocument.ShaderValue],
+        profile: ScenePulseShaderProfile
+    ) -> SceneAudioResponseAdmission.Result? {
+        let comboValue = combos.first { $0.key.uppercased() == "AUDIOPROCESSING" }?.value
+        return SceneAudioResponseAdmission.resolve(
+            comboValue: comboValue ?? 0,
+            constants: constants,
+            defaultBounds: SIMD2(0.5, 1),
+            isAudioCapableProfile: profile == .stock2842
+        )
+    }
+
     nonisolated static func resolvedConstants(
         from constants: [String: SceneDocument.ShaderValue],
         effect: Graph.EffectKey,
-        profile: ScenePulseShaderProfile
+        profile: ScenePulseShaderProfile,
+        audioEnabled: Bool
     ) -> ResolvedConstants? {
         var values: [Constant: SIMD3<Double>] = [:]
         var bindings: [Constant: ScenePulseExecutionPlan.ConstantBinding] = [:]
         for (key, value) in constants {
+            // 启用 audio 时这五个常量由 SceneAudioResponseAdmission 准入；
+            // 未启用时官方 shader 根本不声明对应 uniform，出现即视为声明不一致。
+            if audioEnabled,
+               SceneAudioResponseAdmission.constantKeys.contains(key.lowercased()) {
+                continue
+            }
             guard let constant = Constant(rawValue: key.lowercased()),
                   values[constant] == nil
             else {

@@ -21,6 +21,10 @@ CHAIN_RENDERER_SOURCE = SCENE_ROOT / "RenderGraph/SceneAuthoredEffectChainRender
 COMPOSITOR_SOURCE = SCENE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
 SHAKE_PIPELINE_SOURCE = SCENE_ROOT / "Effects/SceneShakePipeline.swift"
 SHAKE_PLANNER_AUDIO_SOURCE = SCENE_ROOT / "RenderGraph/SceneAuthoredShakePlanner+Audio.swift"
+AUDIO_ADMISSION_SOURCE = SCENE_ROOT / "RenderGraph/SceneAudioResponseAdmission.swift"
+PULSE_CONSTANTS_SOURCE = (
+    SCENE_ROOT / "RenderGraph/SceneAuthoredPulsePlanner+Constants.swift"
+)
 
 
 class SceneAudioDemandWiringTests(unittest.TestCase):
@@ -75,25 +79,45 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
 
 class SceneShakeAudioContractTests(unittest.TestCase):
     def test_legacy_profile_keeps_audio_fail_closed(self) -> None:
-        source = SHAKE_PLANNER_AUDIO_SOURCE.read_text(encoding="utf-8")
         self.assertRegex(
-            source,
+            SHAKE_PLANNER_AUDIO_SOURCE.read_text(encoding="utf-8"),
             r"case \.legacyUnconditionalPhase:\s*\n\s*return false",
-            "legacy 指纹尚无 audio 正反例，必须继续整段拒绝",
+            "legacy Shake 指纹尚无 audio 正反例，必须继续整段拒绝",
+        )
+        self.assertIn(
+            "isAudioCapableProfile: profile == .stock2842",
+            PULSE_CONSTANTS_SOURCE.read_text(encoding="utf-8"),
+            "两个 legacy Pulse 指纹同样继续拒绝 audio",
         )
 
     def test_audio_defaults_match_the_official_annotations(self) -> None:
-        # shake.vert 的 annotation：frequencymin 0、frequencymax 1、
-        # audioexponent 1.0、audiobounds "0.0 1.2"、audioamount 1。
-        source = SHAKE_PLANNER_AUDIO_SOURCE.read_text(encoding="utf-8")
+        # 四个共享默认值来自 shake/pulse 同名 annotation：frequencymin 0、
+        # frequencymax 1、audioexponent 1.0、audioamount 1。
+        shared = AUDIO_ADMISSION_SOURCE.read_text(encoding="utf-8")
         for pattern in (
             r'values\["frequencymin"\], range: 0 ?\.\.\. ?15, fallback: 0',
             r'values\["frequencymax"\], range: 0 ?\.\.\. ?15, fallback: 1',
             r'values\["audioexponent"\], range: 0 ?\.\.\. ?4, fallback: 1',
             r'values\["audioamount"\], range: 0 ?\.\.\. ?2, fallback: 1',
-            r'values\["audiobounds"\], fallback: SIMD2\(0, 1\.2\)',
         ):
-            self.assertRegex(source, pattern)
+            self.assertRegex(shared, pattern)
+        # audiobounds 默认值两个 effect 不同，必须由各自 planner 给出。
+        self.assertIn(
+            "defaultBounds: SIMD2(0, 1.2)",
+            SHAKE_PLANNER_AUDIO_SOURCE.read_text(encoding="utf-8"),
+            "stock shake.vert 的 audiobounds 默认值是 0.0 1.2",
+        )
+        self.assertIn(
+            "defaultBounds: SIMD2(0.5, 1)",
+            PULSE_CONSTANTS_SOURCE.read_text(encoding="utf-8"),
+            "stock pulse.vert 的 audiobounds 默认值是 0.5 1.0",
+        )
+        for literal in ("SIMD2(0, 1.2)", "SIMD2(0.5, 1)"):
+            self.assertNotIn(
+                literal,
+                shared,
+                "共享层只接收 defaultBounds 参数，不得内置任一 effect 的默认值",
+            )
 
     def test_shader_skips_the_time_driven_block_when_audio_is_enabled(self) -> None:
         source = SHAKE_PIPELINE_SOURCE.read_text(encoding="utf-8")

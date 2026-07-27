@@ -18,6 +18,9 @@ POINTER_SOURCE = (
 DYNAMIC_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneDynamicSnapshot.swift"
 )
+AUDIO_SOURCE = (
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneAudioSpectrum.swift"
+)
 HOST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift"
 LIVE_CONSUMERS_SOURCE = (
     REPOSITORY_ROOT
@@ -62,7 +65,8 @@ enum Harness {
                 isInside: true,
                 isPrimaryButtonDown: false
             ),
-            cameraParallaxPosition: SIMD2(0.1, 0.2)
+            cameraParallaxPosition: SIMD2(0.1, 0.2),
+            audioSpectrum: .silent
         )
         let payload: [String: Any] = [
             "first": timing(first),
@@ -110,6 +114,7 @@ class SceneFrameContextTests(unittest.TestCase):
             [
                 "swiftc",
                 str(DYNAMIC_SOURCE),
+                str(AUDIO_SOURCE),
                 str(POINTER_SOURCE),
                 str(SOURCE),
                 str(harness),
@@ -174,10 +179,9 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertNotIn(
             "SceneDynamicSnapshot.empty(frameIndex: timing.frameIndex)", host
         )
-        self.assertIn(
-            "surface.metalView.renderFrame(timing: timing, dynamicValues: dynamicValues)",
-            host,
-        )
+        # 调用可能跨行（频谱等 host-shared 输入随参数增长），只锁语义不锁排版。
+        self.assertIn("surface.metalView.renderFrame(", host)
+        self.assertIn("dynamicValues: dynamicValues", host)
         self.assertIn("dynamicValues: SceneDynamicSnapshot", view)
         self.assertIn("dynamicValues: dynamicValues", view)
         self.assertNotIn("displayTimer", view)

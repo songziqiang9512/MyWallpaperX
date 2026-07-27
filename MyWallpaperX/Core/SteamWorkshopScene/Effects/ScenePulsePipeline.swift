@@ -20,6 +20,8 @@ struct ScenePulseUniforms {
     float4 boundsMaskScale;    // xy = g_PulseThresholds, zw = mask UV scale
     float4 timeSpeedPhaseAmount;
     float4 noiseSpeedAmountPower; // x = noiseSpeed, y = noiseAmount, z = power, w = phaseOffset
+    // x: CPU 侧按官方 CreateAudioResponse 求出的 pulse；y: 是否启用 AUDIOPROCESSING
+    float4 audio;
     float4 noiseUVScale;       // xy = profile 的 noise UV 时间系数
     int blendMode;
     int pulseColor;
@@ -52,17 +54,25 @@ fragment float4 scenePulseFrag(
     constexpr sampler linearClamp(filter::linear, address::clamp_to_edge);
     constexpr sampler linearRepeat(filter::linear, address::repeat);
     float time = u.timeSpeedPhaseAmount.x;
-    float wave = sin(time * u.timeSpeedPhaseAmount.y
-        + (u.timeSpeedPhaseAmount.z + u.noiseSpeedAmountPower.w)) * 0.5 + 0.5;
-    float pulse = smoothstep(u.boundsMaskScale.x, u.boundsMaskScale.y, wave)
-        * u.timeSpeedPhaseAmount.w;
-    if ((u.flags & 1) != 0) {
-        float2 noiseUV = float2(time * u.noiseUVScale.x, time * u.noiseUVScale.y)
-            * u.noiseSpeedAmountPower.x;
-        pulse += noiseTexture.sample(linearRepeat, noiseUV).r
-            * u.noiseSpeedAmountPower.y;
+    // 官方 pulse.frag 先无条件 `pulse = v_Pulse`，再在 `#if AUDIOPROCESSING == 0`
+    // 分支里用时间驱动值整体覆盖。启用 audio 后 speed/phase/amount/bounds/noise/power
+    // 都不参与，pulse 即 CreateAudioResponse 的结果。
+    float pulse;
+    if (u.audio.y > 0.5) {
+        pulse = u.audio.x;
+    } else {
+        float wave = sin(time * u.timeSpeedPhaseAmount.y
+            + (u.timeSpeedPhaseAmount.z + u.noiseSpeedAmountPower.w)) * 0.5 + 0.5;
+        pulse = smoothstep(u.boundsMaskScale.x, u.boundsMaskScale.y, wave)
+            * u.timeSpeedPhaseAmount.w;
+        if ((u.flags & 1) != 0) {
+            float2 noiseUV = float2(time * u.noiseUVScale.x, time * u.noiseUVScale.y)
+                * u.noiseSpeedAmountPower.x;
+            pulse += noiseTexture.sample(linearRepeat, noiseUV).r
+                * u.noiseSpeedAmountPower.y;
+        }
+        pulse = pow(pulse, u.noiseSpeedAmountPower.z);
     }
-    pulse = pow(pulse, u.noiseSpeedAmountPower.z);
 
     float4 sampled = source.sample(linearClamp, input.texcoord);
     float4 albedo = sampled;
@@ -108,6 +118,8 @@ struct ScenePulsePipeline {
         let pulseAlpha: Bool
         let saturatesOutput: Bool
         let maskUVScale: SIMD2<Float>
+        /// `nil` 表示作者未启用 AUDIOPROCESSING，走时间驱动路径。
+        let audioPulse: Float?
     }
 
     private struct Uniforms {
@@ -117,6 +129,7 @@ struct ScenePulsePipeline {
         var timeSpeedPhaseAmount: SIMD4<Float>
         var noiseSpeedAmountPower: SIMD4<Float>
         var noiseUVScale: SIMD4<Float>
+        var audio: SIMD4<Float>
         var blendMode: Int32
         var pulseColor: Int32
         var pulseAlpha: Int32
@@ -188,6 +201,12 @@ struct ScenePulsePipeline {
             ),
             noiseUVScale: SIMD4(
                 inputs.noiseUVScale.x, inputs.noiseUVScale.y, 0, 0
+            ),
+            audio: SIMD4(
+                inputs.audioPulse ?? 0,
+                inputs.audioPulse == nil ? 0 : 1,
+                0,
+                0
             ),
             blendMode: Int32(inputs.blendMode),
             pulseColor: inputs.pulseColor ? 1 : 0,

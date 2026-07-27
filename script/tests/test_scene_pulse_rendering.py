@@ -120,7 +120,8 @@ enum Harness {
             pulseColor: pulseColor,
             pulseAlpha: pulseAlpha,
             saturatesOutput: saturatesOutput,
-            maskUVScale: maskUVScale
+            maskUVScale: maskUVScale,
+            audioPulse: nil
         )
     }
 

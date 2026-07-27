@@ -13,13 +13,13 @@ extension SceneDesktopWallpaperHost {
     /// 声明，45 样本中它为 true 的 12 个与真正带 audio 声明的样本互有出入，
     /// 会让没有任何 consumer 的壁纸也去占用系统音频权限。
     ///
-    /// 当前唯一的 consumer 是 stock Shake 的 `AUDIOPROCESSING` 分支；
+    /// 当前的 consumer 是 stock Shake 与 stock Pulse 的 `AUDIOPROCESSING` 分支；
     /// 新增 consumer 时必须同批扩充这里，否则采集不会启动。
     nonisolated static func requiresAudioSpectrum(
         in catalog: SceneAuthoredEffectExecutionCatalog
     ) -> Bool {
         catalog.chainsByLayerID.values.contains { chain in
-            chain.stages.contains { $0.shake?.audio != nil }
+            chain.stages.contains { $0.shake?.audio != nil || $0.pulse?.audio != nil }
         }
     }
 }

@@ -355,6 +355,7 @@ enum SceneAuthoredEffectChainRenderer {
                 pipeline: pipeline,
                 pulsePipeline: pulsePipeline,
                 time: time,
+                audioSpectrum: audioSpectrum,
                 commandBuffer: commandBuffer
             )
         }
