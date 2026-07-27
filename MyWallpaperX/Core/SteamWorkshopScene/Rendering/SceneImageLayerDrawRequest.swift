@@ -15,6 +15,7 @@ struct SceneImageLayerMasks {
     let opacityEffects: [String: SceneOpacityEffectTextures]
     let pulseEffects: [String: ScenePulseEffectTextures]
     let tintEffects: [String: SceneTintEffectTextures]
+    let godraysEffects: [String: SceneGodraysEffectTextures]
     let xRay: SceneXRayEffectTextures?
 
     var authoredEffectResourcesOnly: SceneImageLayerMasks {
@@ -32,6 +33,7 @@ struct SceneImageLayerMasks {
             opacityEffects: opacityEffects,
             pulseEffects: pulseEffects,
             tintEffects: tintEffects,
+            godraysEffects: godraysEffects,
             xRay: xRay
         )
     }
@@ -50,6 +52,7 @@ struct SceneImageLayerMasks {
         opacityEffects: [:],
         pulseEffects: [:],
         tintEffects: [:],
+        godraysEffects: [:],
         xRay: nil
     )
 
@@ -68,6 +71,7 @@ struct SceneImageLayerMasks {
             opacityEffects: [:],
             pulseEffects: [:],
             tintEffects: [:],
+            godraysEffects: [:],
             xRay: xRay
         )
     }

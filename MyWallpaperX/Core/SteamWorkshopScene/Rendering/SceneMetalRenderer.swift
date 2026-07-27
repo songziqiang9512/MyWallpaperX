@@ -251,6 +251,7 @@ struct SceneMetalRenderer {
                         opacityEffects: effectTextures.opacityEffects,
                         pulseEffects: effectTextures.pulseEffects,
                         tintEffects: effectTextures.tintEffects,
+                        godraysEffects: effectTextures.godraysEffects,
                         xRay: effectTextures.xRayEffects[layer.id]
                     ),
                     textureFrame: spriteAnimations[layer.id]?.transform(at: time) ?? .identity,

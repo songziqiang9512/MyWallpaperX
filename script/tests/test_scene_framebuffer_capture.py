@@ -56,6 +56,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Runtime/SceneAudioResponse.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Pulse.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Tint.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerCompositor+Uniforms.swift",
@@ -208,6 +209,7 @@ struct SceneAuthoredEffectExecutionPlan {
         case xRay(SceneXRayExecutionPlan)
         case tint(SceneTintExecutionPlan)
         case pulse(ScenePulseExecutionPlan)
+        case godrays(SceneGodraysPlan)
     }
 
     let layerID: Int
@@ -425,6 +427,44 @@ struct SceneTintEffectTextures {
     func matches(_ plan: SceneTintExecutionPlan) -> Bool {
         guard let planPath = plan.maskTexturePath else { return maskPath == nil }
         return mask != nil && maskPath == planPath
+    }
+}
+
+struct SceneGodraysPlan {
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+    let firstHalfTarget: SceneAuthoredEffectRenderPlan.TextureIdentity
+    let secondHalfTarget: SceneAuthoredEffectRenderPlan.TextureIdentity
+    let maskTexturePath: String?
+}
+
+struct SceneGodraysEffectTextures {
+    let mask: MTLTexture?
+    let maskUVScale: SIMD2<Float>
+    let maskPath: String?
+    let noise: MTLTexture?
+
+    func matches(_ plan: SceneGodraysPlan) -> Bool {
+        noise != nil && (plan.maskTexturePath == nil ? maskPath == nil : mask != nil)
+    }
+}
+
+struct SceneGodraysPipeline {
+    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
+}
+
+enum SceneGodraysRenderer {
+    static func renderCaptured(
+        plan: SceneGodraysPlan,
+        sourceTexture: MTLTexture,
+        masks: SceneImageLayerMasks,
+        targets: SceneGraphRenderTargetTable,
+        sourceUniforms: SceneLayerFragmentUniforms,
+        sourcePipeline: SceneImageLayerPipeline,
+        godraysPipeline: SceneGodraysPipeline,
+        time: Float,
+        commandBuffer: MTLCommandBuffer
+    ) -> MTLTexture? {
+        nil
     }
 }
 
@@ -1998,6 +2038,7 @@ enum Harness {
                         )] : [:],
                         pulseEffects: [:],
                         tintEffects: [:],
+                        godraysEffects: [:],
                         xRay: nil
                     ),
                     textureFrame: .identity,
@@ -2231,6 +2272,7 @@ enum Harness {
             opacityEffects: [:],
             pulseEffects: [:],
             tintEffects: [:],
+            godraysEffects: [:],
             xRay: SceneXRayEffectTextures(blend: blend, halo: nil, opacityMask: opacity)
         )
         let mainPass = SceneMainPassEncoder(
@@ -2624,6 +2666,7 @@ enum Harness {
                 maskUVScale: SIMD2(repeating: 1),
                 maskPath: maskPath
             )],
+            godraysEffects: [:],
             xRay: nil
         )
     }

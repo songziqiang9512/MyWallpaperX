@@ -33,6 +33,8 @@ struct SceneLayerEffectTextures {
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
     let opacityEffects: [String: SceneOpacityEffectTextures]
     let pulseEffects: [String: ScenePulseEffectTextures]
+    let tintEffects: [String: SceneTintEffectTextures]
+    let godraysEffects: [String: SceneGodraysEffectTextures]
     let xRay: SceneXRayEffectTextures?
     let message: String
 }
@@ -50,6 +52,8 @@ struct SceneLayerEffectTextureStore {
     var waterWavesEffects: [String: SceneWaterWavesEffectTextures] = [:]
     var opacityEffects: [String: SceneOpacityEffectTextures] = [:]
     var pulseEffects: [String: ScenePulseEffectTextures] = [:]
+    var tintEffects: [String: SceneTintEffectTextures] = [:]
+    var godraysEffects: [String: SceneGodraysEffectTextures] = [:]
     var xRayEffects: [Int: SceneXRayEffectTextures] = [:]
 
     mutating func merge(layerID: Int, textures: SceneLayerEffectTextures) {
@@ -65,6 +69,8 @@ struct SceneLayerEffectTextureStore {
         waterWavesEffects.merge(textures.waterWavesEffects) { _, incoming in incoming }
         opacityEffects.merge(textures.opacityEffects) { _, incoming in incoming }
         pulseEffects.merge(textures.pulseEffects) { _, incoming in incoming }
+        tintEffects.merge(textures.tintEffects) { _, incoming in incoming }
+        godraysEffects.merge(textures.godraysEffects) { _, incoming in incoming }
         xRayEffects[layerID] = textures.xRay
     }
 }
@@ -78,6 +84,8 @@ enum SceneLayerEffectTextureLoader {
         shakeEffectIDs: Set<String> = [],
         waterFlowEffectIDs: Set<String> = [],
         waterWavesEffectIDs: Set<String> = [],
+        tintEffectIDs: Set<String> = [],
+        godraysEffectIDs: Set<String> = [],
         userPropertyTextures: [String: MTLTexture] = [:]
     ) -> SceneLayerEffectTextures {
         let iris = loadTexture(
@@ -168,6 +176,20 @@ enum SceneLayerEffectTextureLoader {
             loader: loader,
             device: device
         )
+        let tintEffects = SceneTintEffectTextureLoader.load(
+            for: layer,
+            effectIDs: tintEffectIDs,
+            resolver: resolver,
+            loader: loader,
+            device: device
+        )
+        let godraysEffects = SceneGodraysEffectTextureLoader.load(
+            for: layer,
+            effectIDs: godraysEffectIDs,
+            resolver: resolver,
+            loader: loader,
+            device: device
+        )
         let foliageUVScale = mappedUVScale(for: foliageURL, texture: foliage.texture)
         let foliageScaleMessage = foliage.texture == nil || foliageUVScale == SIMD2(repeating: 1)
             ? ""
@@ -189,12 +211,15 @@ enum SceneLayerEffectTextureLoader {
             waterWavesEffects: waterWaves.textures,
             opacityEffects: opacityEffects.textures,
             pulseEffects: pulseEffects.textures,
+            tintEffects: tintEffects.textures,
+            godraysEffects: godraysEffects.textures,
             xRay: xRay.textures,
             message: [
                 iris.message, opacity.message, water.message, foliage.message,
                 foliageScaleMessage, normal.message, shake.message,
                 waterFlow.message, waterWaves.message, opacityEffects.message,
-                pulseEffects.message, xRay.message,
+                pulseEffects.message, tintEffects.message, godraysEffects.message,
+                xRay.message,
             ].joined()
         )
     }

@@ -129,6 +129,20 @@ extension SceneAuthoredEffectChainPlanner {
         ) {
             return stage(.pulse(pulse), stageGraph: stageGraph, inputRole: inputRole)
         }
+        if let godrays = SceneAuthoredGodraysPlanner.plan(
+            graph: stageGraph,
+            descriptor: descriptor,
+            shaderContracts: shaderContracts,
+            inputRole: inputRole
+        ) {
+            return stage(
+                .godrays(godrays),
+                stageGraph: stageGraph,
+                inputRole: inputRole,
+                materialNodeCount: 5,
+                logicalRenderTargetCount: 2
+            )
+        }
         return nil
     }
 

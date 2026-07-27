@@ -61,6 +61,10 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         stages.filter { $0.pulse != nil }.count
     }
 
+    var godraysCount: Int {
+        stages.filter { $0.godrays != nil }.count
+    }
+
     var liveConsumerTargets: Set<SceneDynamicTarget> {
         Set(stages.flatMap(\.liveConsumerTargets))
     }
@@ -144,16 +148,38 @@ enum SceneAuthoredEffectChainPlanner {
         if stages.allSatisfy({ $0.logicalRenderTargetCount == 0 }) {
             return !stages.isEmpty
         }
-        var textureUnits = 0
+        // 与运行时 SceneGraphRenderTargetTable 的字节口径一致：混合链每 stage
+        // 独立分配 input/output 各 1 个全尺寸单位，logical RT 按 extent 折算
+        // （scale=s → 1/s²）；运行时不支持或声明数不符的形态按整张保守计。
+        var textureUnits = 0.0
         for stage in stages {
-            let (stageUnits, stageOverflow) = stage.logicalRenderTargetCount
-                .addingReportingOverflow(2)
-            guard !stageOverflow else { return false }
-            let (nextUnits, totalOverflow) = textureUnits.addingReportingOverflow(stageUnits)
-            guard !totalOverflow, nextUnits <= maximumResidentTextureUnits else { return false }
-            textureUnits = nextUnits
+            var stageUnits = 2.0
+            let declaredTargets = stage.renderGraph.renderTargets
+            if declaredTargets.count == stage.logicalRenderTargetCount {
+                for target in declaredTargets {
+                    stageUnits += renderTargetUnitCost(target.extent)
+                }
+            } else {
+                stageUnits += Double(
+                    max(declaredTargets.count, stage.logicalRenderTargetCount)
+                )
+            }
+            textureUnits += stageUnits
+            guard textureUnits <= Double(maximumResidentTextureUnits) else { return false }
         }
         return !stages.isEmpty
+    }
+
+    private nonisolated static func renderTargetUnitCost(
+        _ extent: SceneAuthoredEffectRenderPlan.TargetExtent
+    ) -> Double {
+        guard extent.kind == .scale,
+              let scale = extent.first,
+              scale.isFinite,
+              scale >= 1 else {
+            return 1
+        }
+        return 1 / (scale * scale)
     }
 
     private nonisolated static func validOuterChain(_ graph: Graph) -> Bool {

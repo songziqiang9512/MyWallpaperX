@@ -21,6 +21,7 @@ enum SceneAuthoredEffectChainRenderer {
         xRayPipeline: SceneXRayPipeline,
         tintPipeline: SceneTintPipeline,
         pulsePipeline: ScenePulsePipeline,
+        godraysPipeline: SceneGodraysPipeline,
         cursorUV: SIMD2<Float>,
         pointerIsInside: Bool,
         audioSpectrum: SceneAudioSpectrumSnapshot,
@@ -59,6 +60,7 @@ enum SceneAuthoredEffectChainRenderer {
                 xRayPipeline: xRayPipeline,
                 tintPipeline: tintPipeline,
                 pulsePipeline: pulsePipeline,
+                godraysPipeline: godraysPipeline,
                 cursorUV: cursorUV,
                 pointerIsInside: pointerIsInside,
                 time: sourceUniforms.time,
@@ -98,6 +100,7 @@ enum SceneAuthoredEffectChainRenderer {
         xRayPipeline: SceneXRayPipeline,
         tintPipeline: SceneTintPipeline,
         pulsePipeline: ScenePulsePipeline,
+        godraysPipeline: SceneGodraysPipeline,
         cursorUV: SIMD2<Float>,
         pointerIsInside: Bool,
         time: Float,
@@ -321,28 +324,30 @@ enum SceneAuthoredEffectChainRenderer {
                 return targets.outputTexture
             }
         case .tint(let tint):
-            guard targets.plan.logicalTargets.isEmpty,
-                  SceneOffscreenEffectRenderer.captureSource(
-                      sourceTexture: sourceTexture,
-                      waterMaskTexture: masks.water,
-                      foliageMaskTexture: masks.foliage,
-                      auxMaskTexture: auxMask,
-                      target: targets.inputTexture,
-                      sourceUniforms: sourceUniforms,
-                      pipeline: pipeline,
-                      commandBuffer: commandBuffer
-                  ),
-                  tintPipeline.encode(
-                      source: targets.inputTexture,
-                      target: targets.outputTexture,
-                      color: tint.resolvedColor(in: dynamicValues),
-                      alpha: tint.resolvedAlpha(in: dynamicValues),
-                      blendMode: tint.blendMode,
-                      commandBuffer: commandBuffer
-                  ) else {
-                return nil
-            }
-            return targets.outputTexture
+            return renderTint(
+                tint,
+                sourceTexture: sourceTexture,
+                masks: masks,
+                auxMask: auxMask,
+                targets: targets,
+                dynamicValues: dynamicValues,
+                sourceUniforms: sourceUniforms,
+                pipeline: pipeline,
+                tintPipeline: tintPipeline,
+                commandBuffer: commandBuffer
+            )
+        case .godrays(let godrays):
+            return SceneGodraysRenderer.renderCaptured(
+                plan: godrays,
+                sourceTexture: sourceTexture,
+                masks: masks,
+                targets: targets,
+                sourceUniforms: sourceUniforms,
+                sourcePipeline: pipeline,
+                godraysPipeline: godraysPipeline,
+                time: time,
+                commandBuffer: commandBuffer
+            )
         case .pulse(let pulse):
             return renderPulse(
                 pulse,

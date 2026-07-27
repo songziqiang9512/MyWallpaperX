@@ -15,6 +15,7 @@ extension SceneAuthoredEffectExecutionPlan {
         case xRay(SceneXRayExecutionPlan)
         case tint(SceneTintExecutionPlan)
         case pulse(ScenePulseExecutionPlan)
+        case godrays(SceneGodraysPlan)
     }
 
     var gaussianBlur: SceneGaussianBlurPlan? {
@@ -79,6 +80,11 @@ extension SceneAuthoredEffectExecutionPlan {
 
     nonisolated var pulse: ScenePulseExecutionPlan? {
         guard case .pulse(let plan) = backend else { return nil }
+        return plan
+    }
+
+    nonisolated var godrays: SceneGodraysPlan? {
+        guard case .godrays(let plan) = backend else { return nil }
         return plan
     }
 

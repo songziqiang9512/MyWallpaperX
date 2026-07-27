@@ -17,6 +17,7 @@ struct SceneImageLayerCompositor {
     private let xRayPipeline: SceneXRayPipeline
     private let tintPipeline: SceneTintPipeline
     private let pulsePipeline: ScenePulsePipeline
+    private let godraysPipeline: SceneGodraysPipeline
     private let additivePipeline: SceneImageLayerPipeline
 
     init?(device: MTLDevice) {
@@ -35,9 +36,9 @@ struct SceneImageLayerCompositor {
               let xRayPipeline = SceneXRayPipeline(device: device),
               let tintPipeline = SceneTintPipeline(device: device),
               let pulsePipeline = ScenePulsePipeline(device: device),
-              let additivePipeline = SceneImageLayerPipeline(device: device, blendMode: .additive) else {
-            return nil
-        }
+              let godraysPipeline = SceneGodraysPipeline(device: device),
+              let additivePipeline = SceneImageLayerPipeline(device: device, blendMode: .additive)
+        else { return nil }
         self.gaussianBlurPipeline = gaussianBlurPipeline
         self.standardBlurPipeline = standardBlurPipeline
         self.localContrastPipeline = localContrastPipeline
@@ -53,6 +54,7 @@ struct SceneImageLayerCompositor {
         self.xRayPipeline = xRayPipeline
         self.tintPipeline = tintPipeline
         self.pulsePipeline = pulsePipeline
+        self.godraysPipeline = godraysPipeline
         self.additivePipeline = additivePipeline
     }
 
@@ -147,6 +149,7 @@ struct SceneImageLayerCompositor {
                         xRayPipeline: xRayPipeline,
                         tintPipeline: tintPipeline,
                         pulsePipeline: pulsePipeline,
+                        godraysPipeline: godraysPipeline,
                         cursorUV: request.uniforms.cursorUV,
                         pointerIsInside: request.uniforms.cursorIsInside,
                         audioSpectrum: request.audioSpectrum,
@@ -290,7 +293,7 @@ struct SceneImageLayerCompositor {
                             time: directUniforms.time,
                             commandBuffer: commandBuffer
                         )
-                    case .foliageSway, .waterRipple, .xRay, .tint, .pulse:
+                    case .foliageSway, .waterRipple, .xRay, .tint, .pulse, .godrays:
                         return nil
                     }
                 }
@@ -394,5 +397,4 @@ struct SceneImageLayerCompositor {
         )
         return true
     }
-
 }

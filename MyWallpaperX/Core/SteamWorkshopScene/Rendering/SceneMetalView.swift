@@ -141,6 +141,7 @@ class SceneMetalView: NSView {
                 waterFlowEffectIDs: Set(stages.compactMap { $0.waterFlow?.effectKey.descriptorID }),
                 waterWavesEffectIDs: Set(stages.compactMap { $0.waterWaves?.effectKey.descriptorID }),
                 tintEffectIDs: Set(stages.compactMap { $0.tint?.effectKey.descriptorID }),
+                godraysEffectIDs: Set(stages.compactMap { $0.godrays?.effectKey.descriptorID }),
                 userPropertyTextures: userPropertyTextureLoad.textures
             )
             loadedEffectTextures.merge(layerID: layer.id, textures: textures)
@@ -297,6 +298,18 @@ class SceneMetalView: NSView {
             effectSummary: { [renderer] in renderer.effectRuntimeSummary(for: $0) }
         )
         imageTextures.merge(textLoad.textures) { _, incoming in incoming }
+        // text layer 纹理走 CoreText 栅格化，不经过上面的 image 循环；带 authored effect 的
+        // text 层同样要装载 per-effect 贴图，否则链在执行期取不到整段失败（同 mp4 视频层先例）。
+        for layer in renderer.renderDescriptor.layers
+        where layer.contentKind == "text" && renderer.authoredEffectChain(for: layer.id) != nil {
+            let effectTextures = loadEffectTextures(for: layer)
+            if !effectTextures.message.isEmpty {
+                report.append(
+                    "text layer \(layer.id) \"\(layer.name ?? "(unnamed)")\" effect resources"
+                        + effectTextures.message
+                )
+            }
+        }
         dynamicTextTextures = SceneDynamicTextTextureStore(
             descriptor: renderer.renderDescriptor,
             cacheDirectory: cacheDirectory,

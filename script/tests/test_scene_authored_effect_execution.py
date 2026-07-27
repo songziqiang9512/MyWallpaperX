@@ -262,6 +262,21 @@ enum SceneAuthoredPulsePlanner {
     }
 }
 
+struct SceneGodraysPlan {
+    var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
+}
+
+enum SceneAuthoredGodraysPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneGodraysPlan? {
+        nil
+    }
+}
+
 enum SceneAuthoredTintPlanner {
     static func plan(
         graph: SceneAuthoredEffectRenderPlan,
@@ -853,6 +868,7 @@ enum Harness {
             case .xRay: backend = "xRay"
             case .tint: backend = "tint"
             case .pulse: backend = "pulse"
+            case .godrays: backend = "godrays"
             }
             return [effectIndex, backend]
         } ?? []
