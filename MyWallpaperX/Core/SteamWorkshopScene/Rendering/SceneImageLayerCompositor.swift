@@ -8,7 +8,7 @@ struct SceneImageLayerCompositor {
     private let opacityPipeline: SceneOpacityPipeline
     private let colorKeyPipeline: SceneColorKeyPipeline
     private let shiftHuePipeline: SceneWorkshopShiftHuePipeline
-    private let audioBarsPipeline: SceneWorkshopAudioBarsPipeline
+    private let audioBarsPipeline: SceneWorkshopAudioBarsPipeline, workshopGradientPipeline: SceneWorkshopGradientPipeline
     private let workshopShadowPipeline: SceneWorkshopShadowPipeline
     private let shakePipeline: SceneShakePipeline
     private let waterFlowPipeline: SceneWaterFlowPipeline
@@ -31,6 +31,7 @@ struct SceneImageLayerCompositor {
               let colorKeyPipeline = SceneColorKeyPipeline(device: device),
               let shiftHuePipeline = SceneWorkshopShiftHuePipeline(device: device),
               let audioBarsPipeline = SceneWorkshopAudioBarsPipeline(device: device),
+              let workshopGradientPipeline = SceneWorkshopGradientPipeline(device: device),
               let workshopShadowPipeline = SceneWorkshopShadowPipeline(device: device),
               let shakePipeline = SceneShakePipeline(device: device),
               let waterFlowPipeline = SceneWaterFlowPipeline(device: device),
@@ -52,6 +53,7 @@ struct SceneImageLayerCompositor {
         self.colorKeyPipeline = colorKeyPipeline
         self.shiftHuePipeline = shiftHuePipeline
         self.audioBarsPipeline = audioBarsPipeline
+        self.workshopGradientPipeline = workshopGradientPipeline
         self.workshopShadowPipeline = workshopShadowPipeline
         self.shakePipeline = shakePipeline
         self.waterFlowPipeline = waterFlowPipeline
@@ -76,6 +78,7 @@ struct SceneImageLayerCompositor {
             colorKey: colorKeyPipeline,
             shiftHue: shiftHuePipeline,
             audioBars: audioBarsPipeline,
+            workshopGradient: workshopGradientPipeline,
             workshopShadow: workshopShadowPipeline,
             shake: shakePipeline,
             waterFlow: waterFlowPipeline,
@@ -315,7 +318,7 @@ struct SceneImageLayerCompositor {
                             commandBuffer: commandBuffer
                         )
                     case .foliageSway, .waterRipple, .xRay, .tint, .pulse, .godrays,
-                         .colorKey, .workshopShiftHue, .workshopAudioBars:
+                         .colorKey, .workshopShiftHue, .workshopAudioBars, .workshopGradient:
                         return nil
                     }
                 }

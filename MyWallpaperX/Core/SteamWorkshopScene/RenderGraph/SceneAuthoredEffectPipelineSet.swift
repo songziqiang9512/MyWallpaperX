@@ -8,6 +8,7 @@ struct SceneAuthoredEffectPipelineSet {
     let colorKey: SceneColorKeyPipeline
     let shiftHue: SceneWorkshopShiftHuePipeline
     let audioBars: SceneWorkshopAudioBarsPipeline
+    let workshopGradient: SceneWorkshopGradientPipeline
     let workshopShadow: SceneWorkshopShadowPipeline
     let shake: SceneShakePipeline
     let waterFlow: SceneWaterFlowPipeline

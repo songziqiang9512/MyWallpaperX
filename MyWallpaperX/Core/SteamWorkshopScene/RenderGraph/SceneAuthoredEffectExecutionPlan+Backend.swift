@@ -9,6 +9,7 @@ extension SceneAuthoredEffectExecutionPlan {
         case colorKey(SceneColorKeyExecutionPlan)
         case workshopShiftHue(SceneWorkshopShiftHueExecutionPlan)
         case workshopAudioBars(SceneWorkshopAudioBarsExecutionPlan)
+        case workshopGradient(SceneWorkshopGradientExecutionPlan)
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)
@@ -53,6 +54,11 @@ extension SceneAuthoredEffectExecutionPlan {
 
     nonisolated var workshopAudioBars: SceneWorkshopAudioBarsExecutionPlan? {
         guard case .workshopAudioBars(let plan) = backend else { return nil }
+        return plan
+    }
+
+    nonisolated var workshopGradient: SceneWorkshopGradientExecutionPlan? {
+        guard case .workshopGradient(let plan) = backend else { return nil }
         return plan
     }
 

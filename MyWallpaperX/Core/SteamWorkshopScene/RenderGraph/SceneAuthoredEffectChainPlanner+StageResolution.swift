@@ -77,6 +77,18 @@ extension SceneAuthoredEffectChainPlanner {
                 inputRole: inputRole
             )
         }
+        if let gradient = SceneAuthoredWorkshopGradientPlanner.plan(
+            graph: stageGraph,
+            descriptor: descriptor,
+            shaderContracts: shaderContracts,
+            inputRole: inputRole
+        ) {
+            return stage(
+                .workshopGradient(gradient),
+                stageGraph: stageGraph,
+                inputRole: inputRole
+            )
+        }
         if let workshopShadow = SceneAuthoredWorkshopShadowPlanner.plan(
             graph: stageGraph,
             descriptor: descriptor,

@@ -36,6 +36,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneWorkshopShiftHuePipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShiftHueRenderer.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopAudioBarsPipeline.swift",
+    SOURCE_ROOT / "Effects/SceneWorkshopGradientPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShadowPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShadowRenderer.swift",
     SOURCE_ROOT / "Rendering/SceneImageBlendPipeline.swift",
@@ -62,6 +63,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Runtime/SceneAudioResponse.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+AudioBars.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+WorkshopGradient.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+ColorKey.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Pulse.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+ShiftHue.swift",
@@ -206,6 +208,11 @@ struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
     let shape: Int
 }
 
+struct SceneWorkshopGradientExecutionPlan: Sendable {
+    let layerID: Int
+    let renderGraph: SceneAuthoredEffectRenderPlan
+}
+
 // 与 SceneOpacityEffectTextureLoader.swift 里的同名结构保持一致的替身：那个文件还依赖
 // SceneTexturePathResolver/SceneTextureLoader，整条链拉进来会和本 harness 自带的
 // SceneRenderDescriptor 桩冲突，沿用本文件对 SceneShakeEffectTextures 等的同类做法。
@@ -232,6 +239,7 @@ struct SceneAuthoredEffectExecutionPlan {
         case colorKey(SceneColorKeyExecutionPlan)
         case workshopShiftHue(SceneWorkshopShiftHueExecutionPlan)
         case workshopAudioBars(SceneWorkshopAudioBarsExecutionPlan)
+        case workshopGradient(SceneWorkshopGradientExecutionPlan)
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)

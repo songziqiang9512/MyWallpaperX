@@ -77,6 +77,7 @@ struct SceneOpacityExecutionPlan: Sendable {
 struct SceneColorKeyExecutionPlan: Sendable {}
 struct SceneWorkshopShiftHueExecutionPlan: Sendable {}
 struct SceneWorkshopAudioBarsExecutionPlan: Sendable {}
+struct SceneWorkshopGradientExecutionPlan: Sendable {}
 
 enum SceneAuthoredOpacityPlanner {
     static func plan(
@@ -118,6 +119,17 @@ enum SceneAuthoredWorkshopAudioBarsPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneWorkshopAudioBarsExecutionPlan? {
+        nil
+    }
+}
+
+enum SceneAuthoredWorkshopGradientPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneWorkshopGradientExecutionPlan? {
         nil
     }
 }
@@ -776,6 +788,7 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
             "authoredEffectGraphStageCount: 2",
             "authoredEffectGraphLocalContrastCount: 0",
             "authoredEffectGraphWorkshopAudioBarsCount: 0",
+            "authoredEffectGraphWorkshopGradientCount: 0",
             "authoredEffectGraphWorkshopShadowCount: 0",
         ):
             self.assertIn(line, catalog["reportLines"])

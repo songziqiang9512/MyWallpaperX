@@ -134,6 +134,7 @@ struct SceneOpacityExecutionPlan: Sendable {
 struct SceneColorKeyExecutionPlan: Sendable {}
 struct SceneWorkshopShiftHueExecutionPlan: Sendable {}
 struct SceneWorkshopAudioBarsExecutionPlan: Sendable {}
+struct SceneWorkshopGradientExecutionPlan: Sendable {}
 
 enum SceneAuthoredOpacityPlanner {
     static func plan(
@@ -175,6 +176,17 @@ enum SceneAuthoredWorkshopAudioBarsPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneWorkshopAudioBarsExecutionPlan? {
+        nil
+    }
+}
+
+enum SceneAuthoredWorkshopGradientPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneWorkshopGradientExecutionPlan? {
         nil
     }
 }
@@ -899,6 +911,7 @@ enum Harness {
             case .colorKey: backend = "colorKey"
             case .workshopShiftHue: backend = "workshopShiftHue"
             case .workshopAudioBars: backend = "workshopAudioBars"
+            case .workshopGradient: backend = "workshopGradient"
             case .workshopShadow: backend = "workshopShadow"
             case .shake: backend = "shake"
             case .waterFlow: backend = "waterFlow"

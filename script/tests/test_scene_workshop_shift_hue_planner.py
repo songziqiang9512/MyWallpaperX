@@ -31,6 +31,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredWorkshopShiftHuePlanner.swift",
     SOURCE_ROOT / "RenderGraph/SceneWorkshopAudioBarsExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredWorkshopAudioBarsPlanner.swift",
+    SOURCE_ROOT / "RenderGraph/SceneWorkshopGradientExecutionPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredWorkshopGradientPlanner.swift",
 ]
 
 
@@ -558,6 +560,203 @@ enum Harness {
         ) != nil
     }
 
+    static let gradientDefinitionPath =
+        "effects/workshop/3347128360/gradient_generator/effect.json"
+    static let gradientMaterialPath =
+        "materials/workshop/3347128360/effects/gradient_generator.json"
+    static let gradientShaderIdentity =
+        "workshop/3347128360/effects/gradient_generator"
+
+    static func gradientConstants(extra: Bool = false) -> [String: SceneDocument.ShaderValue] {
+        var values = [
+            "Gamma": audioValue([2.2]),
+            "center": audioValue([0, 0]),
+            "color1": audioValue([1, 0, 0]),
+            "color2": audioValue([1, 0.6470588235294118, 0]),
+            "color3": audioValue([0, 0, 1]),
+            "color4": audioValue([0, 1, 1]),
+            "color5": audioValue([1, 0, 1]),
+            "color6": audioValue([1, 1, 0]),
+            "ratio": audioValue([1]),
+            "rotation": audioValue([0]),
+            "scale": audioValue([1]),
+            "ui_editor_properties_feather": audioValue([1]),
+            "ui_editor_properties_offset": audioValue([0]),
+            "ui_editor_properties_opacity": audioValue([1]),
+        ]
+        if extra { values["unexpected"] = audioValue([1]) }
+        return values
+    }
+
+    static func gradientDefinition(gizmos: Bool = true) -> SceneEffectDefinition {
+        .init(
+            relativePath: gradientDefinitionPath,
+            version: 1,
+            replacementKey: "gradient_generator",
+            name: "Gradient Generator",
+            description: nil,
+            group: "localeffects",
+            performance: nil,
+            previewPath: nil,
+            editable: false,
+            passes: [.init(
+                passIndex: 0,
+                materialPath: gradientMaterialPath,
+                target: nil,
+                bindings: [],
+                compose: nil,
+                command: nil,
+                source: nil,
+                conditions: nil,
+                extraFields: [:]
+            )],
+            framebuffers: [],
+            dependencies: [
+                gradientMaterialPath,
+                "shaders/workshop/3347128360/effects/gradient_generator.frag",
+                "shaders/workshop/3347128360/effects/gradient_generator.vert",
+            ],
+            functions: nil,
+            gizmos: gizmos ? .array([]) : nil,
+            extraFields: [:],
+            unknownFieldPaths: []
+        )
+    }
+
+    static func gradientDescriptor(
+        shape: Int = 3,
+        colorCount: Int = 24,
+        extraConstant: Bool = false,
+        texture: Bool = false,
+        badHash: Bool = false,
+        gizmos: Bool = true,
+        priorInput: Bool = false
+    ) -> SceneRenderDescriptor {
+        let paths = texture ? ["unexpected.png"] : []
+        let effect = SceneRenderDescriptor.EffectDescriptor(
+            id: "945#effect#952",
+            file: gradientDefinitionPath,
+            visible: true,
+            passes: [.init(
+                passIndex: 0,
+                texturePaths: paths,
+                textureSlots: paths,
+                userTextureInputs: [],
+                combos: ["NCOLORS": colorCount, "SHAPE": shape],
+                constantShaderValues: gradientConstants(extra: extraConstant)
+            )]
+        )
+        let prior = SceneRenderDescriptor.EffectDescriptor(
+            id: "945#effect#900",
+            file: "effects/prior/effect.json",
+            visible: true,
+            passes: []
+        )
+        let material = SceneRenderDescriptor.MaterialPassDescriptor(
+            id: "\(gradientMaterialPath)#0",
+            materialPath: gradientMaterialPath,
+            materialRawSHA256: badHash
+                ? String(repeating: "0", count: 64)
+                : "b8f11556196ee64a4429da813cc007923b9426723533163e3e73152ef009d4ce",
+            passIndex: 0,
+            shaderPath: gradientShaderIdentity,
+            texturePaths: [],
+            textureSlots: [],
+            userTextureInputs: [],
+            combos: [:],
+            constantShaderValues: [:],
+            blending: "normal",
+            depthTest: "disabled",
+            depthWrite: "disabled",
+            cullMode: "nocull"
+        )
+        return .init(
+            layers: [.init(
+                id: 945,
+                contentKind: "solid",
+                effects: priorInput ? [prior, effect] : [effect]
+            )],
+            materialPasses: [material],
+            effectDefinitions: [gradientDefinition(gizmos: gizmos)]
+        )
+    }
+
+    static func gradientGraph(priorInput: Bool = false) -> Graph {
+        let key = Graph.EffectKey(
+            layerID: 945,
+            effectIndex: priorInput ? 1 : 0,
+            descriptorID: "945#effect#952"
+        )
+        let prior = Graph.EffectKey(
+            layerID: 945, effectIndex: 0, descriptorID: "945#effect#900"
+        )
+        let input = Graph.TextureIdentity(
+            kind: priorInput ? .effectOutput : .layerSource,
+            layerID: 945,
+            effect: priorInput ? prior : nil,
+            name: nil
+        )
+        let output = Graph.TextureIdentity(
+            kind: .effectOutput, layerID: 945, effect: key, name: nil
+        )
+        return .init(
+            layerID: 945,
+            effects: [.init(
+                key: key,
+                definitionPath: gradientDefinitionPath,
+                input: input,
+                output: output,
+                nodeIndices: [0]
+            )],
+            renderTargets: [],
+            nodes: [.init(
+                nodeIndex: 0,
+                effect: key,
+                definitionPassIndex: 0,
+                materialOrdinal: 0,
+                instancePassIndex: 0,
+                kind: .material,
+                materialPath: gradientMaterialPath,
+                materialPassID: "\(gradientMaterialPath)#0",
+                target: output,
+                bindings: [],
+                commandSource: nil,
+                commandTarget: nil,
+                compose: nil,
+                conditions: nil
+            )],
+            finalOutput: output,
+            blockers: []
+        )
+    }
+
+    static func gradientAccepted(
+        contracts: [SceneShaderContract],
+        shape: Int = 3,
+        colorCount: Int = 24,
+        extraConstant: Bool = false,
+        texture: Bool = false,
+        badHash: Bool = false,
+        gizmos: Bool = true,
+        priorInput: Bool = false,
+        role: SceneAuthoredEffectInputRole = .layerSource
+    ) -> Bool {
+        SceneAuthoredWorkshopGradientPlanner.plan(
+            graph: gradientGraph(priorInput: priorInput),
+            descriptor: gradientDescriptor(
+                shape: shape,
+                colorCount: colorCount,
+                extraConstant: extraConstant,
+                texture: texture,
+                badHash: badHash,
+                gizmos: gizmos,
+                priorInput: priorInput
+            ),
+            shaderContracts: contracts,
+            inputRole: role
+        ) != nil
+    }
+
     static func main() throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let contracts = SceneShaderContractLoader().load(
@@ -566,6 +765,10 @@ enum Harness {
         )
         let audioContracts = SceneShaderContractLoader().load(
             shaderReferences: [audioShaderIdentity],
+            rootURL: root
+        )
+        let gradientContracts = SceneShaderContractLoader().load(
+            shaderReferences: [gradientShaderIdentity],
             rootURL: root
         )
         let plan = SceneAuthoredWorkshopShiftHuePlanner.plan(
@@ -649,6 +852,27 @@ enum Harness {
             },
             "audioCandidateDetected": SceneAuthoredWorkshopAudioBarsPlanner.containsCandidate(
                 graph: audioGraph()
+            ),
+            "gradientAccepted": gradientAccepted(contracts: gradientContracts),
+            "gradientPriorAccepted": gradientAccepted(
+                contracts: gradientContracts,
+                priorInput: true,
+                role: .priorEffectOutput
+            ),
+            "gradientProfileRejected": [
+                gradientAccepted(contracts: gradientContracts, shape: 2),
+                gradientAccepted(contracts: gradientContracts, colorCount: 20),
+                gradientAccepted(contracts: gradientContracts, extraConstant: true),
+                gradientAccepted(contracts: gradientContracts, texture: true),
+                gradientAccepted(contracts: gradientContracts, badHash: true),
+                gradientAccepted(contracts: gradientContracts, gizmos: false),
+                gradientAccepted(contracts: gradientContracts, priorInput: true),
+            ].allSatisfy { !$0 },
+            "gradientContractsRejected": contractMutations.allSatisfy {
+                !gradientAccepted(contracts: mutate(gradientContracts, $0))
+            },
+            "gradientCandidateDetected": SceneAuthoredWorkshopGradientPlanner.containsCandidate(
+                graph: gradientGraph()
             ),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])

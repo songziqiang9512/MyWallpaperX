@@ -191,6 +191,18 @@ enum SceneAuthoredEffectChainRenderer {
                 spectrum: audioSpectrum,
                 commandBuffer: commandBuffer
             )
+        case .workshopGradient(let gradient):
+            return renderWorkshopGradient(
+                gradient,
+                sourceTexture: sourceTexture,
+                masks: masks,
+                auxMask: auxMask,
+                targets: targets,
+                sourceUniforms: sourceUniforms,
+                pipeline: pipeline,
+                gradientPipeline: pipelines.workshopGradient,
+                commandBuffer: commandBuffer
+            )
         case .workshopShadow(let shadow):
             return SceneOffscreenEffectRenderer.renderWorkshopShadow(
                 sourceTexture: sourceTexture,
