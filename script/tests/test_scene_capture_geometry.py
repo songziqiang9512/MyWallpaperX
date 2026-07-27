@@ -52,6 +52,10 @@ enum Harness {
             layerMVP: localMVP,
             viewportSize: CGSize(width: 0, height: 800)
         )
+        let projected = SceneCaptureGeometryResolver.projectedPixelSize(
+            layerMVP: SceneMatrix.scale(SIMD3<Float>(1.5, 0.25, 1)),
+            viewportSize: viewport
+        )
         let result: [String: Any] = [
             "localOrigin": vector(local.sourceUV.origin),
             "localXAxis": vector(local.sourceUV.xAxis),
@@ -67,6 +71,7 @@ enum Harness {
             "fullscreenOutput": matrix(fullscreen.outputMVP),
             "projectOutput": matrix(project.outputMVP),
             "invalidIsNil": invalid == nil,
+            "projectedSize": projected.map { [$0.width, $0.height] } ?? [],
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -133,6 +138,9 @@ class SceneCaptureGeometryTests(unittest.TestCase):
 
     def test_degenerate_viewport_is_rejected(self) -> None:
         self.assertTrue(self.result["invalidIsNil"])
+
+    def test_projected_pixel_size_preserves_non_square_surface_extent(self) -> None:
+        self.assertEqual(self.result["projectedSize"], [750, 100])
 
 
 if __name__ == "__main__":

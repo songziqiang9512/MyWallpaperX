@@ -8,6 +8,29 @@ struct SceneCaptureGeometry {
 }
 
 enum SceneCaptureGeometryResolver {
+    nonisolated static func projectedPixelSize(
+        layerMVP: simd_float4x4,
+        viewportSize: CGSize
+    ) -> CGSize? {
+        guard viewportSize.width.isFinite, viewportSize.height.isFinite,
+              viewportSize.width > 0, viewportSize.height > 0,
+              let topLeft = sourceUV(position: SIMD2(-0.5, 0.5), mvp: layerMVP),
+              let topRight = sourceUV(position: SIMD2(0.5, 0.5), mvp: layerMVP),
+              let bottomLeft = sourceUV(position: SIMD2(-0.5, -0.5), mvp: layerMVP),
+              let bottomRight = sourceUV(position: SIMD2(0.5, -0.5), mvp: layerMVP) else {
+            return nil
+        }
+        let points = [topLeft, topRight, bottomLeft, bottomRight]
+        let minX = points.map(\.x).min() ?? 0
+        let maxX = points.map(\.x).max() ?? 0
+        let minY = points.map(\.y).min() ?? 0
+        let maxY = points.map(\.y).max() ?? 0
+        return CGSize(
+            width: max(1, ceil(CGFloat(maxX - minX) * viewportSize.width)),
+            height: max(1, ceil(CGFloat(maxY - minY) * viewportSize.height))
+        )
+    }
+
     nonisolated static func resolve(
         kind: SceneUtilityLayer.Kind,
         layerMVP: simd_float4x4,
@@ -27,17 +50,13 @@ enum SceneCaptureGeometryResolver {
 
         guard let topLeft = sourceUV(position: SIMD2(-0.5, 0.5), mvp: layerMVP),
               let topRight = sourceUV(position: SIMD2(0.5, 0.5), mvp: layerMVP),
-              let bottomLeft = sourceUV(position: SIMD2(-0.5, -0.5), mvp: layerMVP),
-              let bottomRight = sourceUV(position: SIMD2(0.5, -0.5), mvp: layerMVP) else {
+              let bottomLeft = sourceUV(position: SIMD2(-0.5, -0.5), mvp: layerMVP) else {
             return nil
         }
-        let points = [topLeft, topRight, bottomLeft, bottomRight]
-        let minX = points.map(\.x).min() ?? 0
-        let maxX = points.map(\.x).max() ?? 0
-        let minY = points.map(\.y).min() ?? 0
-        let maxY = points.map(\.y).max() ?? 0
-        let width = max(1, ceil(CGFloat(maxX - minX) * viewportSize.width))
-        let height = max(1, ceil(CGFloat(maxY - minY) * viewportSize.height))
+        guard let pixelSize = projectedPixelSize(
+            layerMVP: layerMVP,
+            viewportSize: viewportSize
+        ) else { return nil }
 
         return SceneCaptureGeometry(
             sourceUV: SceneTextureUVTransform(
@@ -46,7 +65,7 @@ enum SceneCaptureGeometryResolver {
                 yAxis: bottomLeft - topLeft
             ),
             outputMVP: layerMVP,
-            pixelSize: CGSize(width: width, height: height)
+            pixelSize: pixelSize
         )
     }
 

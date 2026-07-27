@@ -50,8 +50,9 @@
 | IR | 读取并保真保存 definition/material/shader source contract，再编译资源身份、节点、slot 和 blocker | [SceneEffectDefinition.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneEffectDefinition.swift)、[SceneAuthoredEffectRenderPlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectRenderPlan.swift)、[SceneShaderContract.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderContract.swift)、[SceneAuthoredEffectRenderPlanner.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectRenderPlanner.swift) |
 | generic runtime | 可复用的 frame context、texture registry、offscreen allocation、Metal encoder 等基础设施 | 它们提供时钟、pointer、尺寸、纹理和命令编码能力，但**不会自动解释 authored graph node 或 shader source** |
 | strict executor | 先匹配完整 graph/material/profile，再调用独立手写 Metal backend；任何未知 shape/state/combo 均拒绝 | 目前有 2-pass Blur Precise、4-pass stock Blur、4-pass stock Local Contrast 与 exact Workshop Shadow 单 pass；[chain planner](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectExecutionChain.swift) 只接纳每段均严格支持且输入连续的链，[chain renderer](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredEffectChainRenderer.swift) 在同一 command buffer 顺序执行并仅合成末段；Shadow 准入见 [SceneAuthoredWorkshopShadowPlanner.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredWorkshopShadowPlanner.swift) |
+| bounded authored frontend | 只对完整准入后的单 effect/单 material/framebuffer-only shader 翻译 source 并编译 Metal | 无 include/combo/material texture/FBO，normal/no-depth/no-cull，静态控制流和 uniform layout 均有预算；未知语法、动态/递归循环和非 framebuffer sampler 失败关闭 |
 
-`SceneMetalPipeline.swift` 中 Foliage/Shake/Water/Cursor 等手写 MSL 是 legacy/profile approximation。它们证明宿主能上传纹理、time、pointer 和矩阵，不证明 WE shader source、annotation、macro 或 built-in 名称已经兼容，也不属于 generic authored shader executor。
+`SceneMetalPipeline.swift` 中 Foliage/Shake/Water/Cursor 等手写 MSL 是 legacy/profile approximation。它们证明宿主能上传纹理、time、pointer 和矩阵，不证明 WE shader source、annotation、macro 或 built-in 名称已经兼容，也不属于 generic authored shader executor。当前独立的 [authored shader planner](../../../MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderExecutionPlanner.swift) 与 frontend 只覆盖上述严格子集；`3141421197` 是 framebuffer-only raymarch 正门，不授权放宽其他 shader。
 
 ## 3. Render Graph 覆盖
 
@@ -61,7 +62,7 @@
 
 `809b75e` 的 exact Workshop Shadow 只接受 `effects/workshop/3488490208/shadow_____________/effect.json` 的单 material stage、零 authored FBO/bind/slot、`MASK=0`、`BLENDMODE=0`、normal/nocull/depth disabled、black color，以及静态有限 alpha/border/offset；definition、material、vertex/fragment ShaderContract fingerprint 任一差异都拒绝。它复用 target table 的 synthetic input/output texture，在 ordered chain 中消费前一 stage output；仓内手写 MSL 保持 premultiplied host 边界，但 mode 0 没有合法官方 Windows 像素 oracle，因此不等于 WE 像素等价、官方 45 项 Effect、generic Shadow 或 authored shader execution。
 
-`b541867` 的 scheduler 验证全局 effect/node/target identity、layer source -> effect output 连续性和最终输出，并先为整链建立 plan/table、预算与 LRU 候选，成功后一次提交。GPU 在同一 offscreen command buffer 依序执行八个 fixed backend。`f1c6a10`、`dcedc2e`、`ebf44a9`、`4f13daf` 分别建立同帧 copy/swap、受限 history seed/clear、Precise Blur interleave 和 exact legacy compose；`e505a9e`、`31ae557`、`94aebc5` 又让 Shake、Water Waves、Water Flow 在同一 chain 中按 authored order 消费 previous output、effect texture 与统一 scene time。默认 96 MiB pool 只保证 6 个全尺寸 BGRA texture unit，超预算链在规划阶段拒绝。generic compose/condition/function、跨帧 logical swap 与真实 history consumer 仍不执行，也不让下表 generic primitive 整体升级到 `L3`。
+`b541867` 的 scheduler 验证全局 effect/node/target identity、layer source -> effect output 连续性和最终输出，并先为整链建立 plan/table、预算与 LRU 候选，成功后一次提交。GPU 在同一 offscreen command buffer 依序执行 strict backend。普通 effect 继续按最长边 2048 分档；受限 authored shader 按 drawable 上的图层投影像素执行，最长边上限 4096，pool 驻留预算 128 MiB。超预算链仍在规划阶段拒绝。generic compose/condition/function、跨帧 logical swap 与真实 history consumer 仍不执行，也不让下表 generic primitive 整体升级到 `L3`。
 
 | 语义项 | 等级 | IR | generic runtime | strict executor | 代码/测试证据 | 执行边界 | 下一门 |
 |---|---|---|---|---|---|---|---|
@@ -92,7 +93,7 @@
 
 | 官方合同 | 当前级别 | 当前边界 / 实现门 |
 |---|---|---|
-| effect shader 使用类 GLSL source，并在需要时翻译为 HLSL | `L1` | ShaderContract 已完整保存 source/path/raw hash/stage/canonical identity；没有 preprocessor、translation、compile 或 GPU execution。见 [D7](capability-dependency-map.md#d7) 与 [E-SHADER-CONTRACT](runtime-evidence-index.md#e-shader-contract)。 |
+| effect shader 使用类 GLSL source，并在需要时翻译为 HLSL | `L3 子集` | ShaderContract 保真后，严格 framebuffer-only 单 pass 子集可翻译为 MSL、编译和执行；无 include/preprocessor/combo/material texture/任意 render state，不能外推为官方完整 source compatibility。见 [E-AUTHORED-SHADER](runtime-evidence-index.md#e-authored-shader)。 |
 | 官方向 effect shader 提供向后兼容承诺 | `L0` | MyWallpaperX 尚无能承接该承诺的 generic executor；strict MSL 不能冒充 source compatibility。 |
 | 3D 自定义 shader 必须兼容 `generic2.vert` / `generic2.frag` | `L0` | 无 3D model/runtime，也未取得这两个 stock contract 的合法本地 schema。 |
 | 不应替换 particle 等 system shader；官方不保证其向后兼容 | `L0` | 产品门：即使未来能读取，也必须默认拒绝 system-shader override，不能把它纳入首期 arbitrary shader。 |

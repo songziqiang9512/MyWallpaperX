@@ -101,8 +101,8 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         stages.filter { $0.authoredShader != nil }.count
     }
 
-    var authoredShaderOffscreenSize: CGSize? {
-        stages.compactMap { $0.authoredShader?.offscreenSize }.min {
+    func authoredShaderOffscreenSize(for requestedSize: CGSize) -> CGSize? {
+        stages.compactMap { $0.authoredShader?.offscreenSize(for: requestedSize) }.min {
             $0.width * $0.height < $1.width * $1.height
         }
     }

@@ -267,7 +267,7 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         )
         self.assertEqual(output["diagnosticCodes"], ["loopBudgetExceeded"])
 
-    def test_offscreen_size_obeys_expanded_work_budget(self):
+    def test_offscreen_size_preserves_native_viewport_despite_static_loop_work(self):
         loops = "\n".join(
             f"for (int index{i} = 0; index{i} < 256; index{i}++) {{ value += 1.0; }}"
             for i in range(16)
@@ -285,12 +285,9 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
             metal=False,
         )
         self.assertEqual(output["diagnosticCodes"], [])
-        pixel_work = (
-            output["offscreenWidth"]
-            * output["offscreenHeight"]
-            * output["staticLoopWork"]
-        )
-        self.assertLessEqual(pixel_work, 2_000_000)
+        self.assertEqual(output["offscreenWidth"], 3840)
+        self.assertEqual(output["offscreenHeight"], 2160)
+        self.assertGreater(output["staticLoopWork"], 1)
 
     def test_stage_link_mismatch_fails_closed(self):
         output = self.compile(
@@ -334,12 +331,9 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         output = json.loads(completed.stdout)
         self.assertEqual(output["diagnosticCodes"], [])
         self.assertIsNone(output.get("metalError"))
-        pixel_work = (
-            output["offscreenWidth"]
-            * output["offscreenHeight"]
-            * output["staticLoopWork"]
-        )
-        self.assertLessEqual(pixel_work, 2_000_000)
+        self.assertEqual(output["offscreenWidth"], 3840)
+        self.assertEqual(output["offscreenHeight"], 2160)
+        self.assertGreater(output["staticLoopWork"], 1)
 
 
 if __name__ == "__main__":

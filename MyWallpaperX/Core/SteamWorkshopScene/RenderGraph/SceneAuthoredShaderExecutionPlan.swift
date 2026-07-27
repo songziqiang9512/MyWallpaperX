@@ -27,7 +27,7 @@ nonisolated struct SceneAuthoredShaderExecutionPlan {
     let framebufferTextureSlots: [Int]
     let uniformBindings: [UniformBinding]
 
-    var offscreenSize: CGSize? {
-        program.offscreenSize(viewportSize: mappedSize)
+    func offscreenSize(for requestedSize: CGSize) -> CGSize? {
+        program.offscreenSize(viewportSize: requestedSize)
     }
 }

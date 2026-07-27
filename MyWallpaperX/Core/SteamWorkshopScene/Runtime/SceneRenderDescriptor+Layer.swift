@@ -62,5 +62,6 @@ extension SceneRenderDescriptor {
                 padding: textStyle.padding
             ) ?? sizeWH
         }
+
     }
 }

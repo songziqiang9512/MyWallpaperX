@@ -97,8 +97,12 @@ struct SceneImageLayerCompositor {
             || request.requiresSourceCopy
             || request.authoredEffectChain != nil
             || layerColorBlendMode > 0
-        let requestedOffscreenSize = request.offscreenSize
-            ?? request.authoredEffectChain?.authoredShaderOffscreenSize
+        guard !routesOffscreen
+            || request.layer.contentKind != "solid"
+            || request.offscreenSize != nil else {
+            return false
+        }
+        let requestedOffscreenSize = request.resolvedOffscreenSize
         let requestedOffscreenWidth = max(
             1,
             Int((requestedOffscreenSize?.width ?? CGFloat(request.texture.width)).rounded(.up))

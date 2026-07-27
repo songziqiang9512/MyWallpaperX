@@ -130,4 +130,12 @@ struct SceneImageLayerDrawRequest {
     var audioSpectrum: SceneAudioSpectrumSnapshot = .silent
     var localContrastStrength: Float? = nil
     var authoredShaderFrameInputs: SceneAuthoredShaderFrameInputs? = nil
+
+    var resolvedOffscreenSize: CGSize? {
+        let desired = offscreenSize ?? CGSize(
+            width: CGFloat(texture.width),
+            height: CGFloat(texture.height)
+        )
+        return authoredEffectChain?.authoredShaderOffscreenSize(for: desired) ?? offscreenSize
+    }
 }

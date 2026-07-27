@@ -141,6 +141,8 @@ struct SceneProceduralNoiseExecutionPlan: Sendable {}
 struct SceneFilmGrainExecutionPlan: Sendable {}
 struct SceneAuthoredShaderExecutionPlan: Sendable {
     let offscreenSize: CGSize?
+
+    func offscreenSize(for requestedSize: CGSize) -> CGSize? { offscreenSize }
 }
 
 enum SceneAuthoredShaderExecutionPlanner {

@@ -415,7 +415,7 @@ enum Harness {
             "realContractPreserved": real.map {
                 $0.framebufferTextureSlots == [0]
                     && $0.mappedSize == CGSize(width: 128, height: 128)
-                    && $0.offscreenSize != nil
+                    && $0.offscreenSize(for: CGSize(width: 128, height: 128)) != nil
                     && $0.uniformBindings.contains { $0.field.name == "g_Time" }
                     && $0.uniformBindings.contains { $0.field.name == "g_Texture0Resolution" }
             } ?? false,

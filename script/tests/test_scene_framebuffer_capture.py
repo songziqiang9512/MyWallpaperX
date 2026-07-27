@@ -23,6 +23,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Rendering/SceneMetalPipeline.swift",
     SOURCE_ROOT / "Rendering/SceneSpriteAnimation.swift",
     SOURCE_ROOT / "Rendering/SceneMainPassEncoder.swift",
+    SOURCE_ROOT / "RenderGraph/SceneOffscreenResolutionPolicy.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTexturePool.swift",
     SOURCE_ROOT / "Effects/SceneGaussianBlurPipeline.swift",
     SOURCE_ROOT / "Effects/SceneStandardBlurPipeline.swift",
@@ -233,6 +234,8 @@ struct SceneWorkshopAudioHueShiftExecutionPlan: Sendable {
 
 struct SceneAuthoredShaderExecutionPlan: Sendable {
     let offscreenSize: CGSize?
+
+    func offscreenSize(for requestedSize: CGSize) -> CGSize? { offscreenSize }
 }
 
 struct SceneAuthoredShaderFrameInputs: Sendable {}
@@ -634,8 +637,8 @@ struct SceneAuthoredEffectExecutionChain {
         stages.count == 1 ? stages[0] : nil
     }
 
-    var authoredShaderOffscreenSize: CGSize? {
-        stages.compactMap { $0.authoredShader?.offscreenSize }.min {
+    func authoredShaderOffscreenSize(for requestedSize: CGSize) -> CGSize? {
+        stages.compactMap { $0.authoredShader?.offscreenSize(for: requestedSize) }.min {
             $0.width * $0.height < $1.width * $1.height
         }
     }
@@ -1236,6 +1239,12 @@ enum Harness {
             sourceBGRA: [128, 128, 128, 128],
             dependencyBGRA: [0, 255, 0, 255]
         )
+        let solidMappedEffectExtent = try solidMappedEffectExtentEvidence(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor
+        )
         let xRayThreeTextureRoute = try xRayThreeTextureRouteEvidence(
             device: device,
             queue: queue,
@@ -1304,6 +1313,7 @@ enum Harness {
             "gradientTopBGRA": standaloneGradientPixels[0],
             "gradientBottomBGRA": standaloneGradientPixels[1],
             "clippedGradientTopBGRA": clippedGradientPixels[0],
+            "solidMappedEffectExtent": solidMappedEffectExtent,
             "xRayThreeTextureRoute": xRayThreeTextureRoute,
             "filmGrain": filmGrain,
         ]
@@ -1696,6 +1706,82 @@ enum Harness {
         commandBuffer.waitUntilCompleted()
         guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
         return [pixel(target, x: 4, y: 0), pixel(target, x: 4, y: 7)]
+    }
+
+    static func solidMappedEffectExtentEvidence(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor
+    ) throws -> [String: Any] {
+        let width = 64
+        let height = 36
+        guard let source = makeTexture(device: device, size: 1, usage: .shaderRead),
+              let target = makeTexture(
+                  device: device, size: width, usage: [.renderTarget, .shaderRead]
+              ),
+              let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.metalUnavailable
+        }
+        fill(source, bgra: [255, 255, 255, 255])
+        let chain = authoredWorkshopGradientChain()
+        let pool = SceneOffscreenTexturePool(device: device, maxDimension: width)
+        let mainPass = SceneMainPassEncoder(
+            commandBuffer: commandBuffer,
+            target: target,
+            clearColor: MTLClearColorMake(0, 0, 0, 0)
+        )
+        let drew = compositor.draw(
+            SceneImageLayerDrawRequest(
+                layer: SceneRenderDescriptor.Layer(
+                    contentKind: "solid", colorRGB: [1, 1, 1],
+                    colorBlendMode: nil, effects: []
+                ),
+                texture: source,
+                masks: .empty,
+                textureFrame: .identity,
+                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+                uniforms: SceneImageLayerUniformValues(
+                    time: 0, alpha: 1, cursorUV: .zero, tint: SIMD3(repeating: 1)
+                ),
+                offscreenTexturePool: pool,
+                offscreenSize: CGSize(width: CGFloat(width), height: CGFloat(height)),
+                requiresSourceCopy: false,
+                finalCompositeAlpha: nil,
+                dependencyEffect: nil,
+                authoredEffectPlan: nil,
+                blocksLegacyGaussianBlur: false,
+                authoredEffectChain: chain
+            ),
+            pipeline: pipeline,
+            mainPass: mainPass
+        )
+        guard drew else { throw HarnessError.drawRefused }
+        mainPass.finishEnsuringClear()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed,
+              let table = pool.graphTargets(
+                  for: chain, requestedWidth: width, requestedHeight: height
+              )?.first else {
+            throw HarnessError.commandFailed
+        }
+        let output = try textureBytes(table.outputTexture, queue: queue)
+        var colors = Set<UInt32>()
+        for offset in stride(from: 0, to: output.count, by: 4) {
+            colors.insert(
+                UInt32(output[offset])
+                    | UInt32(output[offset + 1]) << 8
+                    | UInt32(output[offset + 2]) << 16
+                    | UInt32(output[offset + 3]) << 24
+            )
+        }
+        return [
+            "encoded": true,
+            "sourceSize": [source.width, source.height],
+            "offscreenSize": [table.outputTexture.width, table.outputTexture.height],
+            "uniqueColorCount": colors.count,
+        ]
     }
 
     static func gradientLayer(includesClipping: Bool) -> SceneRenderDescriptor.Layer {
@@ -2851,6 +2937,60 @@ enum Harness {
         )
     }
 
+    static func authoredWorkshopGradientChain() -> SceneAuthoredEffectExecutionChain {
+        let layerID = 845
+        let effectKey = Graph.EffectKey(
+            layerID: layerID,
+            effectIndex: 0,
+            descriptorID: "\(layerID)#effect#0"
+        )
+        let input = graphTexture(.layerSource, layerID: layerID)
+        let output = graphTexture(.effectOutput, layerID: layerID, effect: effectKey)
+        let node = Graph.Node(
+            nodeIndex: 0,
+            effect: effectKey,
+            definitionPassIndex: 0,
+            materialOrdinal: 0,
+            instancePassIndex: 0,
+            kind: .material,
+            materialPath: "materials/workshop/gradient.json",
+            materialPassID: "materials/workshop/gradient.json#0",
+            target: output,
+            bindings: [],
+            commandSource: nil,
+            commandTarget: nil,
+            compose: nil,
+            conditions: nil
+        )
+        let effect = Graph.Effect(
+            key: effectKey,
+            definitionPath: "effects/workshop/gradient/effect.json",
+            input: input,
+            output: output,
+            nodeIndices: [0]
+        )
+        let graph = Graph(
+            layerID: layerID,
+            effects: [effect],
+            renderTargets: [],
+            nodes: [node],
+            finalOutput: output,
+            blockers: []
+        )
+        let stage = SceneAuthoredEffectExecutionPlan(
+            layerID: layerID,
+            renderGraph: graph,
+            backend: .workshopGradient(.init(layerID: layerID, renderGraph: graph)),
+            materialNodeCount: 1,
+            logicalRenderTargetCount: 0
+        )
+        return SceneAuthoredEffectExecutionChain(
+            layerID: layerID,
+            renderGraph: graph,
+            stages: [stage]
+        )
+    }
+
     static func authoredOpacityChain(
         alpha: Float = 1,
         maskTexturePath: String? = nil
@@ -3410,6 +3550,13 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertLessEqual(evidence["firstOutputToSecondInputDelta"], 1, evidence)
         self.assertGreater(evidence["firstToSecondOutputDelta"], 1, evidence)
         self.assertLessEqual(evidence["secondOutputToMainDelta"], 2, evidence)
+
+    def test_solid_effect_chain_uses_mapped_extent_instead_of_one_pixel_provider(self) -> None:
+        evidence = self.result["solidMappedEffectExtent"]
+        self.assertTrue(evidence["encoded"])
+        self.assertEqual(evidence["sourceSize"], [1, 1])
+        self.assertEqual(evidence["offscreenSize"], [64, 36])
+        self.assertGreater(evidence["uniqueColorCount"], 8, evidence)
 
     def test_chain_renderer_resolves_live_values_per_stage_and_neutralizes_recapture(self) -> None:
         source = (SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift").read_text(

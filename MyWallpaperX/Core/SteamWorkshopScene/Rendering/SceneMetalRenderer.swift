@@ -269,7 +269,7 @@ struct SceneMetalRenderer {
                         )
                     ),
                     offscreenTexturePool: offscreenTexturePool,
-                    offscreenSize: nil,
+                    offscreenSize: layer.contentKind == "solid" ? SceneCaptureGeometryResolver.projectedPixelSize(layerMVP: mvp, viewportSize: viewportSize) : nil,
                     requiresSourceCopy: false,
                     finalCompositeAlpha: nil,
                     dependencyEffect: dependencyEffect,

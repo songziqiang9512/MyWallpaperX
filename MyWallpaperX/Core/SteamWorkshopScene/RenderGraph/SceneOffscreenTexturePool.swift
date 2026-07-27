@@ -55,8 +55,8 @@ final class SceneOffscreenTexturePool {
     init(
         device: MTLDevice,
         pixelFormat: MTLPixelFormat = .bgra8Unorm,
-        maxDimension: Int = 2048,
-        residentByteBudget: Int = 96 * 1_024 * 1_024
+        maxDimension: Int = 4096,
+        residentByteBudget: Int = 128 * 1_024 * 1_024
     ) {
         self.device = device
         self.pixelFormat = pixelFormat
@@ -68,8 +68,18 @@ final class SceneOffscreenTexturePool {
         textures(width: sourceTexture.width, height: sourceTexture.height)
     }
 
-    func textures(width requestedWidth: Int, height requestedHeight: Int) -> Pair? {
-        let (width, height) = limitedDimensions(width: requestedWidth, height: requestedHeight)
+    func textures(
+        width requestedWidth: Int,
+        height requestedHeight: Int,
+        maximumDimension: Int? = nil
+    ) -> Pair? {
+        let (width, height) = SceneOffscreenResolutionPolicy.limitedDimensions(
+            width: requestedWidth,
+            height: requestedHeight,
+            maximumDimension: maximumDimension ?? SceneOffscreenResolutionPolicy.maximumDimension(
+                hardLimit: maxDimension, includesAuthoredShader: false
+            )
+        )
         let key = CacheKey.pair(width: width, height: height)
         accessCounter &+= 1
         if var cached = cachedAllocations[key], case .pair(let pair) = cached.allocation {
@@ -140,11 +150,20 @@ final class SceneOffscreenTexturePool {
         requestedHeight: Int
     ) -> [SceneGraphRenderTargetTable]? {
         guard pixelFormat == .bgra8Unorm, !chain.stages.isEmpty else { return nil }
-        let (width, height) = limitedDimensions(
-            width: requestedWidth,
-            height: requestedHeight
+        let dimensionLimit = SceneOffscreenResolutionPolicy.maximumDimension(
+            hardLimit: maxDimension,
+            includesAuthoredShader: chain.stages.contains { $0.authoredShader != nil }
         )
-        guard let pair = textures(width: width, height: height) else { return nil }
+        let (width, height) = SceneOffscreenResolutionPolicy.limitedDimensions(
+            width: requestedWidth,
+            height: requestedHeight,
+            maximumDimension: dimensionLimit
+        )
+        guard let pair = textures(
+            width: width,
+            height: height,
+            maximumDimension: dimensionLimit
+        ) else { return nil }
         let inputs = [pair.primary, pair.tertiary, pair.secondary]
         let outputs = [pair.secondary, pair.primary, pair.tertiary]
         var priorOutput: SceneAuthoredEffectRenderPlan.TextureIdentity?
@@ -191,9 +210,14 @@ final class SceneOffscreenTexturePool {
         guard !stages.isEmpty, stages.allSatisfy({ $0.layerID == layerID }) else {
             return nil
         }
-        let (width, height) = limitedDimensions(
+        let dimensionLimit = SceneOffscreenResolutionPolicy.maximumDimension(
+            hardLimit: maxDimension,
+            includesAuthoredShader: stages.contains { $0.authoredShader != nil }
+        )
+        let (width, height) = SceneOffscreenResolutionPolicy.limitedDimensions(
             width: requestedWidth,
-            height: requestedHeight
+            height: requestedHeight,
+            maximumDimension: dimensionLimit
         )
         if stages.contains(where: \.requiresExactInputExtent),
            (requestedWidth <= 0 || requestedHeight <= 0
@@ -292,17 +316,6 @@ final class SceneOffscreenTexturePool {
         cachedAllocations.removeAll()
         residentByteCost = 0
         accessCounter = 0
-    }
-
-    private func limitedDimensions(width requestedWidth: Int, height requestedHeight: Int) -> (Int, Int) {
-        let sourceWidth = max(1, requestedWidth)
-        let sourceHeight = max(1, requestedHeight)
-        let longestEdge = max(sourceWidth, sourceHeight)
-        let scale = longestEdge > maxDimension ? Double(maxDimension) / Double(longestEdge) : 1
-        return (
-            max(1, Int((Double(sourceWidth) * scale).rounded())),
-            max(1, Int((Double(sourceHeight) * scale).rounded()))
-        )
     }
 
     private func evictUntilAffordable(_ incomingByteCost: Int) {

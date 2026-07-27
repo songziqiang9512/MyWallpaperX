@@ -18,6 +18,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetTable.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphCommandRuntime.swift",
+    SOURCE_ROOT / "RenderGraph/SceneOffscreenResolutionPolicy.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTexturePool.swift",
 ]
 
@@ -33,6 +34,8 @@ struct SceneAuthoredEffectExecutionPlan {
     let logicalRenderTargetCount: Int
     let requiresExactInputExtent: Bool
     let inputRole: SceneAuthoredEffectInputRole
+
+    var authoredShader: Int? { nil }
 }
 
 struct SceneAuthoredEffectExecutionChain {
@@ -510,6 +513,12 @@ enum Harness {
             "accessFailureBytes": accessFailureBytes,
             "failedChainDidNotRefreshLRU": accessFirstTable.inputTexture
                 !== accessFirstAfterEviction.inputTexture,
+            "standardMaximumDimension": SceneOffscreenResolutionPolicy.maximumDimension(
+                hardLimit: 4096, includesAuthoredShader: false
+            ),
+            "authoredShaderMaximumDimension": SceneOffscreenResolutionPolicy.maximumDimension(
+                hardLimit: 4096, includesAuthoredShader: true
+            ),
         ]
         resizePool.reset()
         var finalResult = result
@@ -638,6 +647,10 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         self.assertEqual(self.result["resetAllocationCount"], 0)
         self.assertEqual(self.result["resetTextureCount"], 0)
         self.assertEqual(self.result["resetBytes"], 0)
+
+    def test_authored_shader_resolution_policy_does_not_raise_standard_effect_extent(self) -> None:
+        self.assertEqual(self.result["standardMaximumDimension"], 2048)
+        self.assertEqual(self.result["authoredShaderMaximumDimension"], 4096)
 
 
 if __name__ == "__main__":

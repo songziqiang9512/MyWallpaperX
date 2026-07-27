@@ -112,7 +112,7 @@ enum SceneAuthoredShaderRenderer {
               renderHeight.isFinite,
               renderWidth > 0,
               renderHeight > 0,
-              let maximumSize = plan.offscreenSize,
+              let maximumSize = plan.offscreenSize(for: inputs.renderSize),
               maximumSize.width.isFinite,
               maximumSize.height.isFinite,
               maximumSize.width > 0,
