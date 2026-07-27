@@ -33,6 +33,11 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredWorkshopAudioBarsPlanner.swift",
     SOURCE_ROOT / "RenderGraph/SceneWorkshopGradientExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredWorkshopGradientPlanner.swift",
+    SOURCE_ROOT / "Runtime/SceneAudioSpectrum.swift",
+    SOURCE_ROOT / "Runtime/SceneAudioResponse.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAudioResponseAdmission.swift",
+    SOURCE_ROOT / "RenderGraph/SceneWorkshopAudioHueShiftExecutionPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredWorkshopAudioHueShiftPlanner.swift",
 ]
 
 
@@ -757,6 +762,207 @@ enum Harness {
         ) != nil
     }
 
+    static let audioHueDefinitionPath =
+        "effects/workshop/2193274282/hue_shift/effect.json"
+    static let audioHueMaterialPath =
+        "materials/workshop/2193274282/effects/hue_shift.json"
+    static let audioHueShaderIdentity = "workshop/2193274282/effects/hue_shift"
+
+    static func hueConstants(
+        amount: Double = 1.75,
+        exponent: Double = 0.15,
+        extra: Bool = false,
+        speed: Double? = nil
+    ) -> [String: SceneDocument.ShaderValue] {
+        var values = [
+            "audioamount": audioValue([amount]),
+            "audiobounds": audioValue([0.5, 1]),
+            "audioexponent": audioValue([exponent]),
+            "frequencymax": audioValue([1]),
+            "frequencymin": audioValue([0]),
+        ]
+        if let speed { values["speed"] = audioValue([speed]) }
+        if extra { values["unexpected"] = audioValue([1]) }
+        return values
+    }
+
+    static func audioHueDefinition() -> SceneEffectDefinition {
+        .init(
+            relativePath: audioHueDefinitionPath,
+            version: 1,
+            replacementKey: "hue_shift",
+            name: "Hue Shift",
+            description: nil,
+            group: "localeffects",
+            performance: nil,
+            previewPath: nil,
+            editable: false,
+            passes: [.init(
+                passIndex: 0,
+                materialPath: audioHueMaterialPath,
+                target: nil,
+                bindings: [],
+                compose: nil,
+                command: nil,
+                source: nil,
+                conditions: nil,
+                extraFields: [:]
+            )],
+            framebuffers: [],
+            dependencies: [
+                audioHueMaterialPath,
+                "shaders/workshop/2193274282/effects/hue_shift.frag",
+                "shaders/workshop/2193274282/effects/hue_shift.vert",
+            ],
+            functions: nil,
+            gizmos: nil,
+            extraFields: [:],
+            unknownFieldPaths: []
+        )
+    }
+
+    static func audioHueDescriptor(
+        combo: Int = 3,
+        amount: Double = 1.75,
+        exponent: Double = 0.15,
+        extra: Bool = false,
+        speed: Double? = nil,
+        texture: Bool = false,
+        badHash: Bool = false,
+        priorInput: Bool = false
+    ) -> SceneRenderDescriptor {
+        let paths = texture ? ["unexpected.png"] : []
+        let effect = SceneRenderDescriptor.EffectDescriptor(
+            id: "945#effect#954",
+            file: audioHueDefinitionPath,
+            visible: true,
+            passes: [.init(
+                passIndex: 0,
+                texturePaths: paths,
+                textureSlots: paths,
+                userTextureInputs: [],
+                combos: ["AUDIOPROCESSING": combo],
+                constantShaderValues: hueConstants(
+                    amount: amount,
+                    exponent: exponent,
+                    extra: extra,
+                    speed: speed
+                )
+            )]
+        )
+        let prior = SceneRenderDescriptor.EffectDescriptor(
+            id: "945#effect#900",
+            file: "effects/prior/effect.json",
+            visible: true,
+            passes: []
+        )
+        let material = SceneRenderDescriptor.MaterialPassDescriptor(
+            id: "\(audioHueMaterialPath)#0",
+            materialPath: audioHueMaterialPath,
+            materialRawSHA256: badHash
+                ? String(repeating: "0", count: 64)
+                : "a84200743a00ab9fc1635171fcec36e3e63fa6474b6fd234fd72ead283be4dc8",
+            passIndex: 0,
+            shaderPath: audioHueShaderIdentity,
+            texturePaths: [],
+            textureSlots: [],
+            userTextureInputs: [],
+            combos: [:],
+            constantShaderValues: [:],
+            blending: "normal",
+            depthTest: "disabled",
+            depthWrite: "disabled",
+            cullMode: "nocull"
+        )
+        return .init(
+            layers: [.init(
+                id: 945,
+                contentKind: "solid",
+                effects: priorInput ? [prior, effect] : [effect]
+            )],
+            materialPasses: [material],
+            effectDefinitions: [audioHueDefinition()]
+        )
+    }
+
+    static func audioHueGraph(priorInput: Bool = false) -> Graph {
+        let key = Graph.EffectKey(
+            layerID: 945,
+            effectIndex: priorInput ? 1 : 0,
+            descriptorID: "945#effect#954"
+        )
+        let prior = Graph.EffectKey(
+            layerID: 945, effectIndex: 0, descriptorID: "945#effect#900"
+        )
+        let input = Graph.TextureIdentity(
+            kind: priorInput ? .effectOutput : .layerSource,
+            layerID: 945,
+            effect: priorInput ? prior : nil,
+            name: nil
+        )
+        let output = Graph.TextureIdentity(
+            kind: .effectOutput, layerID: 945, effect: key, name: nil
+        )
+        return .init(
+            layerID: 945,
+            effects: [.init(
+                key: key,
+                definitionPath: audioHueDefinitionPath,
+                input: input,
+                output: output,
+                nodeIndices: [0]
+            )],
+            renderTargets: [],
+            nodes: [.init(
+                nodeIndex: 0,
+                effect: key,
+                definitionPassIndex: 0,
+                materialOrdinal: 0,
+                instancePassIndex: 0,
+                kind: .material,
+                materialPath: audioHueMaterialPath,
+                materialPassID: "\(audioHueMaterialPath)#0",
+                target: output,
+                bindings: [],
+                commandSource: nil,
+                commandTarget: nil,
+                compose: nil,
+                conditions: nil
+            )],
+            finalOutput: output,
+            blockers: []
+        )
+    }
+
+    static func audioHueAccepted(
+        contracts: [SceneShaderContract],
+        combo: Int = 3,
+        amount: Double = 1.75,
+        exponent: Double = 0.15,
+        extra: Bool = false,
+        speed: Double? = nil,
+        texture: Bool = false,
+        badHash: Bool = false,
+        priorInput: Bool = false,
+        role: SceneAuthoredEffectInputRole = .layerSource
+    ) -> Bool {
+        SceneAuthoredWorkshopAudioHueShiftPlanner.plan(
+            graph: audioHueGraph(priorInput: priorInput),
+            descriptor: audioHueDescriptor(
+                combo: combo,
+                amount: amount,
+                exponent: exponent,
+                extra: extra,
+                speed: speed,
+                texture: texture,
+                badHash: badHash,
+                priorInput: priorInput
+            ),
+            shaderContracts: contracts,
+            inputRole: role
+        ) != nil
+    }
+
     static func main() throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let contracts = SceneShaderContractLoader().load(
@@ -769,6 +975,10 @@ enum Harness {
         )
         let gradientContracts = SceneShaderContractLoader().load(
             shaderReferences: [gradientShaderIdentity],
+            rootURL: root
+        )
+        let audioHueContracts = SceneShaderContractLoader().load(
+            shaderReferences: [audioHueShaderIdentity],
             rootURL: root
         )
         let plan = SceneAuthoredWorkshopShiftHuePlanner.plan(
@@ -873,6 +1083,33 @@ enum Harness {
             },
             "gradientCandidateDetected": SceneAuthoredWorkshopGradientPlanner.containsCandidate(
                 graph: gradientGraph()
+            ),
+            "audioHueAccepted": audioHueAccepted(contracts: audioHueContracts),
+            "audioHueOptionalSpeedAccepted": audioHueAccepted(
+                contracts: audioHueContracts,
+                speed: 0.25
+            ),
+            "audioHuePriorAccepted": audioHueAccepted(
+                contracts: audioHueContracts,
+                priorInput: true,
+                role: .priorEffectOutput
+            ),
+            "audioHueProfileRejected": [
+                audioHueAccepted(contracts: audioHueContracts, combo: 0),
+                audioHueAccepted(contracts: audioHueContracts, combo: 1),
+                audioHueAccepted(contracts: audioHueContracts, amount: 2.01),
+                audioHueAccepted(contracts: audioHueContracts, exponent: 4.01),
+                audioHueAccepted(contracts: audioHueContracts, extra: true),
+                audioHueAccepted(contracts: audioHueContracts, speed: 10.01),
+                audioHueAccepted(contracts: audioHueContracts, texture: true),
+                audioHueAccepted(contracts: audioHueContracts, badHash: true),
+                audioHueAccepted(contracts: audioHueContracts, priorInput: true),
+            ].allSatisfy { !$0 },
+            "audioHueContractsRejected": contractMutations.allSatisfy {
+                !audioHueAccepted(contracts: mutate(audioHueContracts, $0))
+            },
+            "audioHueCandidateDetected": SceneAuthoredWorkshopAudioHueShiftPlanner.containsCandidate(
+                graph: audioHueGraph()
             ),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])

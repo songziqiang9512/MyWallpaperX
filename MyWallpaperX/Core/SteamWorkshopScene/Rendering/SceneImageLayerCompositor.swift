@@ -318,7 +318,7 @@ struct SceneImageLayerCompositor {
                             commandBuffer: commandBuffer
                         )
                     case .foliageSway, .waterRipple, .xRay, .tint, .pulse, .godrays,
-                         .colorKey, .workshopShiftHue, .workshopAudioBars, .workshopGradient:
+                         .colorKey, .workshopShiftHue, .workshopAudioBars, .workshopGradient, .workshopAudioHueShift:
                         return nil
                     }
                 }

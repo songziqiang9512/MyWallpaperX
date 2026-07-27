@@ -89,6 +89,18 @@ extension SceneAuthoredEffectChainPlanner {
                 inputRole: inputRole
             )
         }
+        if let audioHueShift = SceneAuthoredWorkshopAudioHueShiftPlanner.plan(
+            graph: stageGraph,
+            descriptor: descriptor,
+            shaderContracts: shaderContracts,
+            inputRole: inputRole
+        ) {
+            return stage(
+                .workshopAudioHueShift(audioHueShift),
+                stageGraph: stageGraph,
+                inputRole: inputRole
+            )
+        }
         if let workshopShadow = SceneAuthoredWorkshopShadowPlanner.plan(
             graph: stageGraph,
             descriptor: descriptor,

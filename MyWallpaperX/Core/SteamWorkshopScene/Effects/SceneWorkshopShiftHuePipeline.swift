@@ -88,8 +88,39 @@ struct SceneWorkshopShiftHuePipeline {
         time: Float,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
-        guard speed.isFinite, (0...1).contains(speed), time.isFinite,
-              valid(source: source, target: target, commandBuffer: commandBuffer) else {
+        guard speed.isFinite, (0...1).contains(speed), time.isFinite else {
+            return false
+        }
+        return encodeValues(
+            source: source,
+            target: target,
+            timeAndSpeed: SIMD2(time, speed),
+            commandBuffer: commandBuffer
+        )
+    }
+
+    func encodeHueOffset(
+        source: MTLTexture,
+        target: MTLTexture,
+        offset: Float,
+        commandBuffer: MTLCommandBuffer
+    ) -> Bool {
+        guard offset.isFinite, (0...2).contains(offset) else { return false }
+        return encodeValues(
+            source: source,
+            target: target,
+            timeAndSpeed: SIMD2(1, offset),
+            commandBuffer: commandBuffer
+        )
+    }
+
+    private func encodeValues(
+        source: MTLTexture,
+        target: MTLTexture,
+        timeAndSpeed: SIMD2<Float>,
+        commandBuffer: MTLCommandBuffer
+    ) -> Bool {
+        guard valid(source: source, target: target, commandBuffer: commandBuffer) else {
             return false
         }
         let descriptor = MTLRenderPassDescriptor()
@@ -102,7 +133,7 @@ struct SceneWorkshopShiftHuePipeline {
         }
         encoder.setRenderPipelineState(state)
         encoder.setFragmentTexture(source, index: 0)
-        var values = SIMD2(time, speed)
+        var values = timeAndSpeed
         encoder.setFragmentBytes(&values, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         encoder.endEncoding()

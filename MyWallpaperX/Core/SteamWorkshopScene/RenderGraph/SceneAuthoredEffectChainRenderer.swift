@@ -203,6 +203,19 @@ enum SceneAuthoredEffectChainRenderer {
                 gradientPipeline: pipelines.workshopGradient,
                 commandBuffer: commandBuffer
             )
+        case .workshopAudioHueShift(let hueShift):
+            return renderWorkshopAudioHueShift(
+                hueShift,
+                sourceTexture: sourceTexture,
+                masks: masks,
+                auxMask: auxMask,
+                targets: targets,
+                sourceUniforms: sourceUniforms,
+                pipeline: pipeline,
+                hueShiftPipeline: pipelines.shiftHue,
+                spectrum: audioSpectrum,
+                commandBuffer: commandBuffer
+            )
         case .workshopShadow(let shadow):
             return SceneOffscreenEffectRenderer.renderWorkshopShadow(
                 sourceTexture: sourceTexture,

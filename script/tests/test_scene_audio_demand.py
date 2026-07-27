@@ -32,6 +32,7 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
         source = DEMAND_SOURCE.read_text(encoding="utf-8")
         self.assertIn("$0.shake?.audio != nil", source)
         self.assertIn("$0.workshopAudioBars != nil", source)
+        self.assertIn("$0.workshopAudioHueShift != nil", source)
         self.assertNotIn(
             "supportsAudioProcessing",
             source,

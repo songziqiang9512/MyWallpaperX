@@ -63,6 +63,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Runtime/SceneAudioResponse.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+AudioBars.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+AudioHueShift.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+WorkshopGradient.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+ColorKey.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Pulse.swift",
@@ -213,6 +214,10 @@ struct SceneWorkshopGradientExecutionPlan: Sendable {
     let renderGraph: SceneAuthoredEffectRenderPlan
 }
 
+struct SceneWorkshopAudioHueShiftExecutionPlan: Sendable {
+    let audio: SceneAudioResponse.Parameters
+}
+
 // 与 SceneOpacityEffectTextureLoader.swift 里的同名结构保持一致的替身：那个文件还依赖
 // SceneTexturePathResolver/SceneTextureLoader，整条链拉进来会和本 harness 自带的
 // SceneRenderDescriptor 桩冲突，沿用本文件对 SceneShakeEffectTextures 等的同类做法。
@@ -240,6 +245,7 @@ struct SceneAuthoredEffectExecutionPlan {
         case workshopShiftHue(SceneWorkshopShiftHueExecutionPlan)
         case workshopAudioBars(SceneWorkshopAudioBarsExecutionPlan)
         case workshopGradient(SceneWorkshopGradientExecutionPlan)
+        case workshopAudioHueShift(SceneWorkshopAudioHueShiftExecutionPlan)
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)

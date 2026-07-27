@@ -102,6 +102,29 @@ enum Harness {
         return read(target)
     }
 
+    static func renderOffset(
+        input: [UInt8],
+        offset: Float,
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneWorkshopShiftHuePipeline
+    ) -> [UInt8] {
+        let source = texture(device: device)
+        let target = texture(device: device)
+        upload(input, to: source)
+        let command = queue.makeCommandBuffer()!
+        guard pipeline.encodeHueOffset(
+            source: source,
+            target: target,
+            offset: offset,
+            commandBuffer: command
+        ) else { fatalError("valid hue offset rejected") }
+        command.commit()
+        command.waitUntilCompleted()
+        guard command.status == .completed else { fatalError("GPU command failed") }
+        return read(target)
+    }
+
     static func rejections(
         device: MTLDevice,
         queue: MTLCommandQueue,
@@ -142,6 +165,15 @@ enum Harness {
             "speedHigh": !accepts(speed: 1.01),
             "speedNaN": !accepts(speed: .nan),
             "timeNaN": !accepts(time: .nan),
+            "offsetLow": !pipeline.encodeHueOffset(
+                source: source, target: target, offset: -0.01, commandBuffer: command
+            ),
+            "offsetHigh": !pipeline.encodeHueOffset(
+                source: source, target: target, offset: 2.01, commandBuffer: command
+            ),
+            "offsetNaN": !pipeline.encodeHueOffset(
+                source: source, target: target, offset: .nan, commandBuffer: command
+            ),
             "formatInit": SceneWorkshopShiftHuePipeline(
                 device: device,
                 pixelFormat: .rgba8Unorm
@@ -173,6 +205,14 @@ enum Harness {
                             queue: queue, pipeline: pipeline),
             "wrapped": render(input: input, speed: 1, time: 1, device: device,
                               queue: queue, pipeline: pipeline),
+            "audioYellow": renderOffset(
+                input: input, offset: 1.0 / 6.0, device: device,
+                queue: queue, pipeline: pipeline
+            ),
+            "audioWrappedYellow": renderOffset(
+                input: input, offset: 1.0 + 1.0 / 6.0, device: device,
+                queue: queue, pipeline: pipeline
+            ),
             "rejections": rejections(device: device, queue: queue, pipeline: pipeline),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -228,6 +268,14 @@ class SceneWorkshopShiftHueRenderingTests(unittest.TestCase):
         self.assertGreaterEqual(green[1], 254)
         self.assertLessEqual(green[2], 1)
         self.assertEqual(green[3], 255)
+
+    def test_audio_offset_can_exceed_one_and_wrap(self) -> None:
+        for key in ("audioYellow", "audioWrappedYellow"):
+            pixel = self.result[key][:4]
+            self.assertGreaterEqual(pixel[0], 254)
+            self.assertGreaterEqual(pixel[1], 254)
+            self.assertLessEqual(pixel[2], 1)
+            self.assertEqual(pixel[3], 255)
 
     def test_gray_and_alpha_are_stable(self) -> None:
         self.assertEqual(self.result["green"][-4:], [96, 96, 96, 64])
