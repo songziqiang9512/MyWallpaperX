@@ -41,12 +41,25 @@ nonisolated struct SceneTimelineKeyframe: Codable, Equatable {
     let locksLength: Bool?
 }
 
+/// 官方 Combined Animation 的序列化形态：同组 animation 用 property key 互相引用，并
+/// 复用持有方的 mode/时长。随包 `3768229922` 的 object 55 是唯一实例——`origin` 带
+/// `children: [{"key": "zoom"}]`，`zoom` 带 `parent: {"key": "origin"}`。
+nonisolated struct SceneTimelineGroupReference: Codable, Equatable {
+    let key: String
+}
+
 nonisolated struct SceneTimelineOptions: Codable, Equatable {
     let fps: Double
     let length: Double
     let mode: SceneTimelineMode
     let startsPaused: Bool
     let wrapsLoop: Bool
+    /// 随包 16 处声明但全为 null，语义未知，只做无损保留。
+    let smoothing: Double?
+    let stiffness: Double?
+    /// Combined Animation 分组。持有方在 `children` 列出成员，成员用 `parent` 指回。
+    let parent: SceneTimelineGroupReference?
+    let children: [SceneTimelineGroupReference]
 
     /// 作者声明的总时长。`length` 是帧数，不是秒。
     nonisolated var durationSeconds: Double {
@@ -168,7 +181,11 @@ nonisolated enum SceneTimelineAnimationParser {
             length: length,
             mode: mode,
             startsPaused: root["startpaused"] as? Bool ?? false,
-            wrapsLoop: root["wraploop"] as? Bool ?? false
+            wrapsLoop: root["wraploop"] as? Bool ?? false,
+            smoothing: doubleValue(root["smoothing"]),
+            stiffness: doubleValue(root["stiffness"]),
+            parent: groupReference(root["parent"]),
+            children: (root["children"] as? [Any] ?? []).compactMap(groupReference)
         )
     }
 
@@ -260,6 +277,12 @@ nonisolated enum SceneTimelineAnimationParser {
             x: x,
             y: y
         ), ())
+    }
+
+    private nonisolated static func groupReference(_ value: Any?) -> SceneTimelineGroupReference? {
+        guard let root = value as? [String: Any],
+              let key = root["key"] as? String, !key.isEmpty else { return nil }
+        return SceneTimelineGroupReference(key: key)
     }
 
     private nonisolated static func doubleValue(_ value: Any?) -> Double? {

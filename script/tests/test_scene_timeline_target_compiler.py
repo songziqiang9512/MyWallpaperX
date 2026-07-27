@@ -159,6 +159,19 @@ SCENE_FIXTURE = {
             },
         },
         {
+            "id": 65,
+            "name": "Combined animation group is rejected",
+            "image": "models/user/h.json",
+            "size": "100 100",
+            "alpha": {
+                "value": 1,
+                "animation": animation(
+                    [[keyframe(0, 0), keyframe(60, 1)]],
+                    options={"children": [{"key": "zoom"}]},
+                ),
+            },
+        },
+        {
             "id": 70,
             "name": "Wrap loop is downgraded not rejected",
             "image": "models/user/g.json",
@@ -408,6 +421,13 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
                     f"layer 60 {host}: unsupportedHost", self.result["diagnostics"]
                 )
         self.assertNotIn("layer:60:maxwidth", self.targets())
+
+    def test_combined_animation_group_is_rejected(self) -> None:
+        # 组内成员共享持有方的 clock，独立求值会让两条 lane 逐渐错相
+        self.assertNotIn("layer:65:alpha", self.targets())
+        self.assertIn(
+            "layer 65 alpha: combinedAnimationUnsupported", self.result["diagnostics"]
+        )
 
     def test_wrap_loop_is_downgraded_not_rejected(self) -> None:
         # wraploop 未实现，但不能因此丢掉整条动画

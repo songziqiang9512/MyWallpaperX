@@ -29,6 +29,8 @@ nonisolated enum SceneTimelineTargetCompiler {
         case unsupportedHost
         /// `relative` 的合成语义尚未定标，先整条拒绝而不是猜一个基准。
         case relativeUnsupported
+        /// Combined Animation：同组成员共享持有方的 clock/settings，分组语义未实现。
+        case combinedAnimationUnsupported
         /// lane 数与 target 的值类型不符（例如 3 lane 写 scalar）。
         case componentMismatch
         /// 同一 target 被多条 Timeline 写入，官方未定义优先级，全部拒绝。
@@ -127,6 +129,11 @@ nonisolated enum SceneTimelineTargetCompiler {
     ) {
         guard !animation.isRelative else {
             diagnostics.append("\(label): \(Diagnostic.relativeUnsupported.rawValue)")
+            return
+        }
+        // 组内成员必须共用持有方的 clock，独立求值会让两条 lane 逐渐错相。
+        guard animation.options.parent == nil, animation.options.children.isEmpty else {
+            diagnostics.append("\(label): \(Diagnostic.combinedAnimationUnsupported.rawValue)")
             return
         }
         guard animation.componentCount == componentCount(of: valueType) else {

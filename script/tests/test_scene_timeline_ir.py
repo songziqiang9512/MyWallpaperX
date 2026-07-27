@@ -71,6 +71,10 @@ enum Harness {
                 "mode": animation.options.mode.rawValue,
                 "startsPaused": animation.options.startsPaused,
                 "wrapsLoop": animation.options.wrapsLoop,
+                "smoothing": animation.options.smoothing.map { "\($0)" } ?? "-",
+                "stiffness": animation.options.stiffness.map { "\($0)" } ?? "-",
+                "parent": animation.options.parent?.key ?? "-",
+                "children": animation.options.children.map(\.key),
                 "durationSeconds": animation.options.durationSeconds,
             ],
             "lanes": animation.lanes.map { lane in
@@ -163,6 +167,39 @@ CASES = {
         "animation": {
             "c0": [keyframe(0, 0, front=False, back=False), keyframe(30, 1)],
             "options": {"fps": 1.2, "length": 144, "mode": "loop"},
+        },
+    },
+    "combined_group_parent": {
+        "value": "0 0 0",
+        "animation": {
+            "c0": [keyframe(0, 0), keyframe(180, 1)],
+            "c1": [keyframe(0, 0), keyframe(180, 1)],
+            "c2": [keyframe(0, 0), keyframe(180, 1)],
+            "options": {
+                "children": [{"key": "zoom"}],
+                "fps": 30,
+                "length": 180,
+                "mode": "single",
+                "smoothing": None,
+                "stiffness": None,
+                "wraploop": None,
+            },
+            "relative": True,
+        },
+    },
+    "combined_group_child": {
+        "value": 1,
+        "animation": {
+            "c0": [keyframe(0, 0), keyframe(180, 1)],
+            "options": {
+                "fps": 30,
+                "length": 180,
+                "mode": "single",
+                "parent": {"key": "origin"},
+                "smoothing": None,
+                "stiffness": None,
+                "wraploop": None,
+            },
         },
     },
     # --- 负例 ---
@@ -301,6 +338,24 @@ class SceneTimelineIRTests(unittest.TestCase):
         self.assertEqual(first["locksLength"], "true")
         self.assertEqual(first["front"]["x"], 1)
         self.assertEqual(first["back"]["x"], -1)
+
+    def test_combined_animation_group_links_round_trip(self) -> None:
+        parent = self.animation("combined_group_parent")
+        self.assertEqual(parent["options"]["children"], ["zoom"])
+        self.assertEqual(parent["options"]["parent"], "-")
+        child = self.animation("combined_group_child")
+        self.assertEqual(child["options"]["parent"], "origin")
+        self.assertEqual(child["options"]["children"], [])
+        # 同组共享持有方的 mode/时长
+        self.assertEqual(parent["options"]["mode"], child["options"]["mode"])
+        self.assertEqual(
+            parent["options"]["durationSeconds"], child["options"]["durationSeconds"]
+        )
+
+    def test_null_smoothing_and_stiffness_round_trip_as_absent(self) -> None:
+        options = self.animation("combined_group_parent")["options"]
+        self.assertEqual(options["smoothing"], "-")
+        self.assertEqual(options["stiffness"], "-")
 
     def test_absent_animation_is_not_a_diagnostic(self) -> None:
         self.assertNotIn("animation", self.result["no_animation"])
