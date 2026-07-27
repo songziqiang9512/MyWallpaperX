@@ -1,0 +1,368 @@
+#!/usr/bin/env python3
+"""Timeline 每帧值产出门。
+
+覆盖 host 每帧要做的两件事：把 Timeline definition 并进 property definitions，
+以及按绝对 scene time 求出该帧的全部 Timeline 值。
+
+`SceneDynamicSnapshotResolver` 对不在 definitions 里的 target 判 `unknownTarget`
+丢弃，对重复 definition 判 `duplicateDefinition` 把该 target 整个丢掉——两条都会
+让 Timeline 静默失效，所以这里直接用真实 resolver 走完整条链路来断言。
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+SWIFT_SOURCES = [
+    SOURCE_ROOT / "Format/SceneDocument.swift",
+    SOURCE_ROOT / "Format/SceneDocument+ShaderValue.swift",
+    SOURCE_ROOT / "Format/SceneDocument+Timeline.swift",
+    SOURCE_ROOT / "Format/SceneDocumentObject.swift",
+    SOURCE_ROOT / "Format/SceneDocument+NumericParsing.swift",
+    SOURCE_ROOT / "Format/ScenePuppetAnimationLayer.swift",
+    SOURCE_ROOT / "Format/SceneTimelineAnimation.swift",
+    SOURCE_ROOT / "Format/SceneTimelineEvaluator.swift",
+    SOURCE_ROOT / "Format/SceneJSONValue.swift",
+    SOURCE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
+    SOURCE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
+    SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift",
+    SOURCE_ROOT / "Runtime/SceneRenderDescriptor.swift",
+    SOURCE_ROOT / "Runtime/SceneRenderDescriptor+Layer.swift",
+    SOURCE_ROOT / "Runtime/SceneRenderDescriptor+AuthoredAssets.swift",
+    SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
+    SOURCE_ROOT / "Properties/SceneSurfaceEvaluationTransaction.swift",
+    SOURCE_ROOT / "Properties/SceneTimelineTargetCompiler.swift",
+    SOURCE_ROOT / "Properties/SceneTimelineRuntime.swift",
+]
+
+
+def keyframe(frame, value):
+    return {
+        "back": {"enabled": True, "x": -1, "y": 0},
+        "frame": frame,
+        "front": {"enabled": True, "x": 1, "y": 0},
+        "lockangle": True,
+        "locklength": True,
+        "value": value,
+    }
+
+
+SCENE_FIXTURE = {
+    "version": 3,
+    "objects": [
+        {
+            "id": 10,
+            "name": "Loop alpha",
+            "image": "models/user/a.json",
+            "size": "100 100",
+            "alpha": {
+                "value": 0.25,
+                "animation": {
+                    "c0": [keyframe(0, 0), keyframe(60, 1)],
+                    "options": {"fps": 30, "length": 60, "mode": "loop"},
+                },
+            },
+        },
+        {
+            "id": 20,
+            "name": "Effect constant",
+            "image": "models/user/b.json",
+            "size": "100 100",
+            "effects": [
+                {
+                    "file": "effects/pulse/effect.json",
+                    "passes": [
+                        {
+                            "constantshadervalues": {
+                                "multiply": {
+                                    "value": 1,
+                                    "animation": {
+                                        "c0": [keyframe(0, 1), keyframe(15, 0)],
+                                        "options": {
+                                            "fps": 15,
+                                            "length": 15,
+                                            "mode": "single",
+                                        },
+                                    },
+                                }
+                            }
+                        }
+                    ],
+                }
+            ],
+        },
+        {
+            "id": 30,
+            "name": "Start paused",
+            "image": "models/user/c.json",
+            "size": "100 100",
+            "alpha": {
+                "value": 1,
+                "animation": {
+                    "c0": [keyframe(0, 1), keyframe(60, 0)],
+                    "options": {
+                        "fps": 30,
+                        "length": 60,
+                        "mode": "single",
+                        "startpaused": True,
+                    },
+                },
+            },
+        },
+    ],
+}
+
+HARNESS_SOURCE = r'''
+import Foundation
+
+struct SceneParticleInstanceOverride: Codable {}
+struct SceneParticleDefinitionParser {
+    func parseInstanceOverride(_ raw: Any?) -> SceneParticleInstanceOverride? { nil }
+}
+struct SceneTextDescriptor: Codable {
+    let padding: Float
+    init(padding: Float = 0) { self.padding = padding }
+    static func parse(_ root: [String: Any]) -> SceneTextDescriptor { .init() }
+}
+enum SceneTextGeometry {
+    static func expandedSize(authoredSize: [Float]?, padding: Float) -> [Float]? { authoredSize }
+}
+enum SceneUserPropertyValue {}
+enum SceneUserPropertyKind { case sceneTexture }
+struct SceneUserPropertyDefinition {
+    let key: String
+    let kind: SceneUserPropertyKind
+}
+struct SceneUserPropertyCatalog {
+    let definitions: [SceneUserPropertyDefinition]
+    static let empty = SceneUserPropertyCatalog(definitions: [])
+}
+struct SceneUserPropertyResolution { let root: [String: Any] }
+struct SceneUserPropertyDocumentResolver {
+    func resolve(
+        root: [String: Any],
+        catalog: SceneUserPropertyCatalog,
+        overrides: [String: SceneUserPropertyValue]
+    ) -> SceneUserPropertyResolution { SceneUserPropertyResolution(root: root) }
+}
+struct ScenePkgExtractionReport { let outputURL: URL? }
+struct SceneProject {
+    let rootURL: URL
+    let entryPath: String
+    let userProperties: SceneUserPropertyCatalog
+    var entryURL: URL { rootURL.appendingPathComponent(entryPath) }
+}
+struct SceneMdlPuppetAttachment {
+    let name: String
+    let sceneBindFrameColumnMajor: [Float]
+}
+struct SceneAssetCatalog {
+    struct ModelAsset {
+        let relativePath: String
+        let materialPath: String?
+        let cropOffsetXY: [Float]?
+        let isSolidLayer: Bool
+        let puppetPath: String?
+        let puppetAttachments: [SceneMdlPuppetAttachment]
+    }
+    struct MaterialAsset {
+        struct Pass {
+            let shader: String?
+            let textures: [String]
+            let textureSlots: [String?]
+            let userTextureInputs: [SceneEffectTextureInput?]
+            let combos: [String: Int]
+            let constantShaderValues: [String: SceneDocument.ShaderValue]
+            let userShaderValues: [String: String]
+            let blending: String?
+            let depthTest: String?
+            let depthWrite: String?
+            let cullMode: String?
+            let alphaWriting: String?
+        }
+        let relativePath: String
+        let rawSHA256: String
+        let passes: [Pass]
+    }
+    let models: [ModelAsset]
+    let materials: [MaterialAsset]
+    let effectDefinitions: [SceneEffectDefinition]
+    let effectDefinitionDiagnostics: [SceneEffectDefinitionDiagnostic]
+    let shaderReferences: [String]
+    let textureReferences: [String]
+}
+struct SceneResourceReferenceIndex {
+    let missingReferences: [String]
+    let builtInReferenceCount: Int
+    let runtimeProvidedReferenceCount: Int
+}
+struct SceneCapabilityProfile { let firstStageRendererGaps: [String] }
+struct SceneDiagnosticsReport {
+    let project: SceneProject?
+    let sceneDocument: SceneDocument?
+    let assetCatalog: SceneAssetCatalog?
+    let resourceReferences: SceneResourceReferenceIndex?
+    let capabilityProfile: SceneCapabilityProfile?
+}
+
+enum HarnessError: Error { case missingFixture }
+
+@main
+enum Harness {
+    static func main() throws {
+        guard CommandLine.arguments.count == 2 else { throw HarnessError.missingFixture }
+        let sceneURL = URL(fileURLWithPath: CommandLine.arguments[1])
+        let document = try SceneDocumentLoader().load(from: sceneURL)
+        let descriptor = SceneRenderDescriptorBuilder().build(
+            project: SceneProject(
+                rootURL: sceneURL.deletingLastPathComponent(),
+                entryPath: sceneURL.lastPathComponent,
+                userProperties: .empty
+            ),
+            sceneDocument: document,
+            assetCatalog: SceneAssetCatalog(
+                models: [], materials: [], effectDefinitions: [],
+                effectDefinitionDiagnostics: [], shaderReferences: [], textureReferences: []
+            ),
+            resourceReferences: SceneResourceReferenceIndex(
+                missingReferences: [], builtInReferenceCount: 0,
+                runtimeProvidedReferenceCount: 0
+            ),
+            capabilityProfile: SceneCapabilityProfile(firstStageRendererGaps: [])
+        )
+        let program = SceneTimelineTargetCompiler.compile(descriptor: descriptor)
+
+        // 模拟 host：一个已有的 property definition 与 layer 10 的 alpha 撞 target。
+        let sharedTarget = SceneDynamicTarget.layer(layerID: 10, field: .alpha)
+        let propertyDefinitions = [
+            SceneDynamicTargetDefinition(
+                target: sharedTarget, valueType: .scalar, authoredValue: .scalar(0.25)
+            ),
+        ]
+        let merged = SceneTimelineRuntime.mergedDefinitions(
+            propertyDefinitions: propertyDefinitions, timelineProgram: program
+        )
+
+        var payload: [String: Any] = [
+            "definitionCount": merged.count,
+            "sharedTargetDefinitionCount": merged.filter { $0.target == sharedTarget }.count,
+            "bindingCount": program.bindings.count,
+        ]
+
+        // 走真实 resolver：断言 Timeline 值真的落进 snapshot 而不是被丢弃。
+        var samples: [String: Any] = [:]
+        for (label, seconds) in [("t0", 0.0), ("half", 1.0), ("late", 5.0)] {
+            var transaction = SceneSurfaceEvaluationTransaction()
+            let values = SceneTimelineRuntime.values(program: program, sceneTime: seconds)
+            let resolution = transaction.evaluate(
+                frameIndex: 0,
+                definitions: merged,
+                userValues: [sharedTarget: .scalar(0.25)],
+                timelineValues: values
+            )
+            var entry: [String: Any] = [
+                "diagnostics": resolution.diagnostics.map { $0.code.rawValue },
+            ]
+            for (name, target) in [
+                ("layer10Alpha", sharedTarget),
+                ("layer30Alpha", SceneDynamicTarget.layer(layerID: 30, field: .alpha)),
+                ("constant", SceneDynamicTarget.effectConstant(
+                    layerID: 20, effectIndex: 0, passIndex: 0, name: "multiply"
+                )),
+            ] {
+                if let resolved = resolution.snapshot[target],
+                   case let .scalar(v) = resolved.value {
+                    entry[name] = ["value": v, "source": resolved.source.rawValue]
+                }
+            }
+            samples[label] = entry
+        }
+        payload["samples"] = samples
+        print(String(decoding: try JSONSerialization.data(
+            withJSONObject: payload, options: [.sortedKeys]
+        ), as: UTF8.self))
+    }
+}
+'''
+
+
+class SceneTimelineRuntimeTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.temporary_directory = tempfile.TemporaryDirectory(
+            prefix="mwx-scene-timeline-runtime-"
+        )
+        directory = Path(cls.temporary_directory.name)
+        harness = directory / "Harness.swift"
+        harness.write_text(HARNESS_SOURCE, encoding="utf-8")
+        scene = directory / "scene.json"
+        scene.write_text(json.dumps(SCENE_FIXTURE), encoding="utf-8")
+        binary = directory / "scene-timeline-runtime"
+        compilation = subprocess.run(
+            [
+                "swiftc",
+                *(str(source) for source in SWIFT_SOURCES),
+                str(harness),
+                "-o",
+                str(binary),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if compilation.returncode != 0:
+            raise RuntimeError(compilation.stderr)
+        completed = subprocess.run(
+            [str(binary), str(scene)], check=True, capture_output=True, text=True
+        )
+        cls.result = json.loads(completed.stdout)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temporary_directory.cleanup()
+
+    def test_shared_target_is_not_duplicated_in_definitions(self) -> None:
+        # 三条 binding：layer10 alpha、layer30 alpha、layer20 constant
+        self.assertEqual(self.result["bindingCount"], 3)
+        # layer10 alpha 两边都声明，合并后只能有一份，否则 resolver 会整个丢弃
+        self.assertEqual(self.result["sharedTargetDefinitionCount"], 1)
+        # 1 条 property + 2 条 timeline 独有
+        self.assertEqual(self.result["definitionCount"], 3)
+
+    def test_resolver_accepts_every_timeline_value(self) -> None:
+        for label in ("t0", "half", "late"):
+            with self.subTest(sample=label):
+                self.assertEqual(self.result["samples"][label]["diagnostics"], [])
+
+    def test_timeline_outranks_the_user_property_on_a_shared_target(self) -> None:
+        # 同一 target 上 property 给 0.25，Timeline 在 t=1s（第 30 帧）给 0.5
+        entry = self.result["samples"]["half"]["layer10Alpha"]
+        self.assertEqual(entry["source"], "timeline")
+        self.assertAlmostEqual(entry["value"], 0.5)
+
+    def test_loop_wraps_while_single_holds_its_final_value(self) -> None:
+        # layer10 是 2 秒一圈的 loop：t=5s 落在第 30 帧，与 t=1s 同相位
+        self.assertAlmostEqual(
+            self.result["samples"]["late"]["layer10Alpha"]["value"], 0.5
+        )
+        # constant 是 1 秒的 single：t=1s 已到末帧，t=5s 仍保持 0
+        self.assertAlmostEqual(self.result["samples"]["half"]["constant"]["value"], 0.0)
+        self.assertAlmostEqual(self.result["samples"]["late"]["constant"]["value"], 0.0)
+        self.assertAlmostEqual(self.result["samples"]["t0"]["constant"]["value"], 1.0)
+
+    def test_start_paused_layer_never_leaves_its_first_frame(self) -> None:
+        for label in ("t0", "half", "late"):
+            with self.subTest(sample=label):
+                entry = self.result["samples"][label]["layer30Alpha"]
+                self.assertAlmostEqual(entry["value"], 1.0)
+                # 仍然由 timeline 提供，只是值恒定——不是回落到 authored
+                self.assertEqual(entry["source"], "timeline")
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -32,6 +32,7 @@ final class SceneDesktopWallpaperHost {
     private struct LaunchContext {
         let interpretationFile: SceneInterpretationFile
         let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
+        let timelineProgram: SceneTimelineProgram
         var liveState: ScenePropertyLiveUpdateState
         let userPropertyTextureURLs: [String: URL]
         let cacheDirectory: URL
@@ -74,6 +75,9 @@ final class SceneDesktopWallpaperHost {
         launchContext = LaunchContext(
             interpretationFile: interpretationFile,
             authoredEffectCatalog: authoredEffectCatalog,
+            timelineProgram: SceneTimelineTargetCompiler.compile(
+                descriptor: interpretationFile.renderDescriptor
+            ),
             liveState: ScenePropertyLiveUpdateState(
                 program: interpretationFile.propertyBindingProgram,
                 effectiveValues: interpretationFile.effectivePropertyValues,
@@ -244,6 +248,10 @@ final class SceneDesktopWallpaperHost {
                 metalView.loadImageLayers(from: launchContext.cacheDirectory)
             } else {
                 metalView.loadImageLayers(from: launchContext.cacheDirectory, logURL: launchContext.logURL)
+                Self.appendTimelineReport(
+                    to: launchContext.logURL,
+                    program: launchContext.timelineProgram
+                )
                 wroteLog = true
             }
 
@@ -348,14 +356,23 @@ final class SceneDesktopWallpaperHost {
             hostTime: CACurrentMediaTime(),
             wallDate: Date()
         )
-        let definitions = launchContext.interpretationFile.propertyBindingProgram.definitions
+        let definitions = SceneTimelineRuntime.mergedDefinitions(
+            propertyDefinitions: launchContext.interpretationFile.propertyBindingProgram.definitions,
+            timelineProgram: launchContext.timelineProgram
+        )
         // host-shared：所有 surface 共用同一帧频谱，与 property 输入同级。
         let audioSpectrum = SceneAudioSpectrumInbox.shared.latest()
+        // Timeline 只依赖绝对 scene time，对所有 surface 同值，每帧算一次。
+        let timelineValues = SceneTimelineRuntime.values(
+            program: launchContext.timelineProgram,
+            sceneTime: timing.sceneTime
+        )
         for surface in surfaces.values {
             let dynamicValues = surface.evaluationTransaction.evaluate(
                 frameIndex: timing.frameIndex,
                 definitions: definitions,
-                userValues: launchContext.liveState.userValues
+                userValues: launchContext.liveState.userValues,
+                timelineValues: timelineValues
             ).snapshot
             surface.metalView.renderFrame(
                 timing: timing,
