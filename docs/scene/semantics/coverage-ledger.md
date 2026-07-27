@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-27
 >
-> Scene 实现基线：`b86db59`（Puppet bind-pose mesh `8bac86e`，静态 MDAT attachment `49ee89a`，严格单 clip MDLA/LBS 播放 `f1ee79b`；strict particle eventspawn/natural-eventdeath `f4173ea`/`7d53c10`、eventfollow `928acca`、持续 child `2f897bc`、static child `899704b`、有限 static origin `678a052` 与 strict depth-two nested child/per-depth 预算 `b86db59`；22-key 程序纹理 registry 作为 bundle 缺失回退；919 个播放候选物理路径中有 223 TEX 真实素材，particle 164 项已直接按官方路径查找；15 个 stock 字体也已合并到同一 bundle；非音频 turbulent velocity `4a17ee6`；超预算/多 image BC 颜色归一 `18d0056`）
+> Scene 实现基线：`a77b875`（生产播放改为原始项目目录直达宿主并在内存构建 `SceneRuntimeInput`；`0ff96e0` 的 strict stock Radial God Rays 及此前 Timeline、16 档音频、Puppet、BC、strict particle child 与 stock 资源子集均包含在该提交祖先中；逐能力落地提交见专项表和运行证据索引）
 >
-> 当前完整快照门：`.codex/scene-legacy-fingerprints-20260727/full45-report.json`；当前源码固定回归门：`.codex/scene-legacy-fingerprints-20260727/fixed13-report.json`；历史 static-origin 定向门：`.codex/scene-static-origin-targeted-20260725/report.json`
+> 最近一次完整快照门：`.codex/scene-runtime-input-full45-20260727/results/report.json`；当前固定回归门：`/private/tmp/mwx-scene-runtime-input-fixed13-20260727-v1/report.json`
 >
-> 最新运行门：legacy 指纹批次以真实目录重建 45 样本隔离副本，完整快照 43/45、particle 110/131、strict stage 142、chain 19、graph failed 0；唯二失败 `2131872317`/`3028090166` 均为多指纹白名单解锁后的正向计数撞 v29 旧合同，完整矩阵刷新到 v30 后二样本定向复跑 PASS，`2131872317` 现为五层整链（19 stage、4 chain，含 Pulse 首批 7 个真实语料执行）。固定 13 样本门首跑 12/13（唯一 mismatch 同源），合同刷新后定向复跑 PASS。另有 `3770500543` 缺 package 未进入矩阵。历史 static-origin 定向门 1/1、particle 17/19 按当时口径保留；`3088601835` 当前为 19/19。完整 Scene suite 90+ 模块全部通过（音频频谱线并行推进中）；代码健康 472 Swift files、44 个锁定历史文件、400 行上限；语义覆盖 11/11；签名 Debug 构建和 `codesign --deep --strict` 通过。preview 方向性证据基线为 `3194ac5`；聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：`a77b875` 的同一签名 Debug App 在隔离 root/HOME 下完成原始目录直传完整快照 `45/45` 与固定回归 `13/13`；58 份 Debug runtime evidence 均为 schema 1，旧解释 JSON/preview log residue 0，固定门 stop 后 surface=0。完整门报告/matrix SHA-256 为 `2f3a92e30d906f875a570b56b3c1f87d17b988020626cebab0364a417619b3ac` / `d9ad98be0d27f2ca2d2afa75eff6b04279a917b8756c0fcda364dfdde2607abf`，固定门为 `41336701149c47bcae819a7a5af61a11de8aeb8bb24631ffb59a7fb35353ad4a` / `1cd9ee22ec1c8ccc84d9d2ac9fa37cf9734382c39da43a4ab5710c4b163c0f22`。完整门 particle `110/131`、strict stage 154、chain 21、Godrays 2、graph failed 0；固定门 particle `66/76`、stage 109、chain 14、graph failed 0。完整 Scene 测试 `100/100` 模块通过；代码健康 491 Swift files、44 个锁定历史文件、400 行上限。聚合缺口、视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -53,14 +53,14 @@
 | Dynamic target/value 与 property binding program | `L3` | 六类 value、主要 target、固定优先级；v22 保存 layer alpha/color、direct text 三字段、strict Local Contrast/Opacity definitions/instructions/effective values；mixed/invalid/SceneScript key 标记重建 | direct text 已有 per-layer generation/stale cancellation；hidden/no-consumer text 与其他 effect constant 仍重建 | **B0/B4** |
 | Per-surface dynamic snapshot | `L3` | host 共享 property 输入，每个 surface 独立 evaluation transaction、snapshot 与 generation；相同 payload 不增 generation | pointer/size/provider/Timeline/SceneScript 等 local producer 接入后继续扩充隔离门 | **B0/B4** |
 | Atomic live property state/routing | `L3` | layer alpha、纯 solid color、strict Local Contrast strength 与 stock Opacity alpha 先原子求值并直接供 renderer 消费；失败、mixed、SceneScript、unsupported 或无 consumer 时保留整场重建 fallback | 扩展 target 前必须补类型、eligibility、consumer、fallback 和 identity 门 | **B0/B4** |
-| Timeline runtime | `L0` | 没有 Timeline target/keyframe/mode/tangent/event IR | 保真 IR、确定性 evaluator、target 写回 | **B4** |
+| Timeline runtime | `L3` | 作者 `animation` 无损进 IR（lane/keyframe/tangent/options/combined 分组/`relative`/`previewvalue`），44 个真实 `scene.json` 的 48 处全部解析成功、0 诊断；纯函数 evaluator 按**绝对 scene time** 求值（Loop/Mirror/Single、`startpaused` 停首帧、端点保持不外推）；编译成 typed `SceneDynamicTargetDefinition` 后经既有 per-surface transaction 写回，`SceneDynamicSource.timeline` 优先级高于 userProperty。真实执行 **28/48**（effect constant 23 + layer alpha 5，散布 9 个样本），其中 mode 为 single 21、loop 7；`3769688830`/`3769364482`/`3028090166` 为正门，`2067939514` 的 `startpaused` 为负门（首帧与半程同值）。preview 日志输出确定性求值样本，不依赖像素归因 | **其余 20/48 全部 fail-closed 且留诊断**：`relative` 10（合成语义未定标）、`maxwidth`/`zoom` 3（无 target）、粒子 `instanceoverride` 7（粒子通路未接）；Bézier tangent 只保真不消费、插值走线性（handle 单位两种解释不等价，未定标）；`wraploop` 7 处按普通 loop 降级执行并记 `wrapLoopIgnored`；Mirror 有 evaluator 与单测但真实样本 0 处执行；Combined Animation 整组拒绝；Animation Event 仍 `L0`；无 Windows golden | **B4** |
 | SceneScript presence | `L1` | 只保留对象是否含 inline `script` 的布尔值 | source path/inline source 与绑定 IR | **B0/B4** |
 | SceneScript source/VM/API | `L0` | 源码和绑定目标会丢失；无执行器 | source IR、安全 ECMAScript、生命周期、API/events、预算隔离 | **B4** |
 | Current pointer | `L3` | view-normalized -> scene world 与 axis-aligned authored layer UV 极窄子集；parallax/受限 effect 消费 | parent/rotation/scale/parallax 逆变换与 effect/control-point/script golden | B0/B4 |
 | Previous pointer | `L2` | Frame Context 保存，但 renderer 未消费 | shader built-in 与事件 delta | B0/B4 |
 | Pointer buttons/events | `L0` | 无 button/down/up/click snapshot 或 dispatch | 同帧输入队列与 author-off | B0/B4 |
-| Audio declarations | `L1` | 部分 effect/particle 字段可保留 | 不等于频谱 producer 或 consumer | B0/B4 |
-| Audio frame input | `L0` | Scene 不消费频谱 | 16/32/64 双声道 snapshot、注册和设备生命周期 | B0/B4 |
+| Audio declarations | `L3` | effect 侧 `AUDIOPROCESSING` combo 与五个 audio 常量已由共享准入层消费；粒子侧 `audioprocessingmode`/`audioprocessingbounds`/`audioprocessingexponent`/`audioprocessingfrequencystart`/`audioprocessingfrequencyend` 按粒子自身 schema 保真解析（此前误用 effect 字段名，`audioprocessingfrequencyend` 被静默丢弃） | 粒子声明可保真不等于可执行；workshop 自定义 audio shader 仍无 IR consumer | B0/B4 |
+| Audio frame input | `L3` | 16 频段 × left/right host-shared 快照：系统音频 tap -> `SystemAudioSceneSpectrumAnalyzer` -> `SceneAudioSpectrumInbox` -> `SceneFrameContext`，host 每帧采样一次广播给所有 surface；采集由 consumer 存在性驱动，无 consumer/暂停/锁屏/休眠即停采并归零 | **只做 16 档**（stock effect 只用 `g_AudioSpectrum16*`）；32/64 档随 SceneScript 与 workshop shader 前置一并欠账。频段边界（32 Hz→16 kHz 对数）与 -80 dB 归一化是工程选择，非官方合同，无 Windows 数值 golden | B0/B4 |
 | 内嵌视频纹理 | `L3` | TEX 内嵌 MP4 image-layer 播放，消费共享 host time | seek/pause/switch/loop 精确合同及更多容器 | B1 |
 | 系统媒体 identity | `L1` | `$mediaThumbnail` typed 引用存在 | producer/consumer、事件、缩略图 generation | B1/B4 |
 | Particle runtime | `L3` | 作者 sprite、常见组件、Sprite Trail；`SceneStockAssets.bundle` 的 919 个播放候选路径中有 223 TEX、198 sidecar，其中 particle 164 项按 exact identity 直接查找同路径 TEX，样本本地资源优先，22-key 程序纹理只作 bundle 缺失回退；素材原位替换，后续 consumer 必须复用这些物理路径 | 路径完整不等于执行完整：当前只有 Particle slot 0 是纹理 consumer；223 个 TEX 已是真实素材但逐资产官方通道/mip/atlas/像素 parity 未证明；198 个 sidecar 携带 metadata 但不进入 runtime，spritesheet 序列帧未逐帧播放 | **B4** |
@@ -69,7 +69,7 @@
 | User Properties | `L3` | 独立窗口、条件、持久化、PNG/JPEG `sceneTexture`；layer alpha、纯 solid color、direct text、strict Local Contrast/Opacity 与受限 X-Ray target 已无重建 live 更新 | unsupported/mixed/SceneScript bindings、Texture Variants、shortcut、跨重启 UI 门；精确 census 见 runtime-input 专项表 | **B0/B1** |
 | Typed texture provider | `L3` | layer/named/property identity、status/fallback；静态 resource generation 与 named frame epoch 已分离 | 显式 dynamic generation、metadata、cancel、system/media/video/variant、通用 material、nested/effectful/child | **B1** |
 | EffectDefinition/Material IR | `L2` | definition/pass/RT/material/slot hole/combo/constant 可保留并建图；ShaderContract 保存 source identity；material render state 已把随包并存的 `depthtest`/`depthtesting`、`depthwrite`/`depthwriting`、`cullmode`/`culling` 两套拼写归一到同一份 IR，规范拼写共存时优先；pass 级 `alphawriting`（随包 60 处，值域 `default`/`enabled`）与 `usershadervalues`（随包 36 处，`{shader 值名: 用户属性名}`，与 `constantshadervalues` key 不重叠）已 loss-preserving 进 IR 并随 interpretation v26 上线 | 完整 schema、typed shader defaults、condition/function；`alphawriting` 尚未驱动 color write mask，`usershadervalues` 尚无 executor 消费也未让 strict backend fail closed | B2 |
-| Bounded effect executors | `L3` | 两个严格 Blur 图、strict stock Local Contrast、exact Workshop Shadow、exact stock Opacity（含 per-effect 遮罩槽，按 `descriptorID` 绑定，官方 `albedo.a *= mask * g_UserAlpha`，遮罩声明后取不到贴图整段拒绝）、Shake、Water Waves、Water Flow、Foliage Sway、Water Ripple、X-Ray、Tint 与 Pulse 十三类 backend 的 ordered strict chain 与若干受限手写 executor；Pulse/Water Waves/Water Ripple/Tint/Shake 五类按多指纹白名单同时执行 stock 2.8.42 与逐版本 diff 过的 legacy 变体（可折算差异在 plan 侧参数化：基向量 +π 归一、exponent 恒 1、常量子集缺省回填） | 其余官方 Effect、variant、Shake `g_Texture3` 遮罩槽（仍整段拒绝；Tint `g_Texture1` 遮罩已按官方混合权重语义执行）、audio 驱动实例、label-as-key 与缺 `version`/`replacementkey` 的 definition 变体（definition 白名单欠账）、SceneScript/mixed chain 与 visual golden | B3/B4 |
+| Bounded effect executors | `L3` | 两个严格 Blur 图、strict stock Local Contrast、exact Workshop Shadow、exact stock Opacity（含 per-effect 遮罩槽，按 `descriptorID` 绑定，官方 `albedo.a *= mask * g_UserAlpha`，遮罩声明后取不到贴图整段拒绝）、Shake、Water Waves、Water Flow、Foliage Sway、Water Ripple、X-Ray、Tint、Pulse 与 God Rays（stock Radial 单指纹族：downsample2→cast→gaussian×2→combine 5-pass/双 half RT，混合链 RT 预算按 extent 折算与运行时字节口径一致）十四类 backend 的 ordered strict chain 与若干受限手写 executor；Pulse/Water Waves/Water Ripple/Tint/Shake 五类按多指纹白名单同时执行 stock 2.8.42 与逐版本 diff 过的 legacy 变体（可折算差异在 plan 侧参数化：基向量 +π 归一、exponent 恒 1、常量子集缺省回填） | 其余官方 Effect、variant、Shake `g_Texture3` 遮罩槽（仍整段拒绝；Tint `g_Texture1` 遮罩已按官方混合权重语义执行）、legacy 指纹与 workshop 自定义 shader 的 audio 驱动实例（stock Shake 两指纹与 stock Pulse `stock2842` 的 `AUDIOPROCESSING` 已执行，见 Effect 执行覆盖表）、label-as-key 与缺 `version`/`replacementkey` 的 definition 变体（definition 白名单欠账）、SceneScript/mixed chain 与 visual golden | B3/B4 |
 | Current-frame capture | `L3` | bounded utility prefix capture 可执行 | 通用 capture/extent/format/mask | B2/B3 |
 | Named primary target | `L3` | bounded `_a` producer/consumer 可执行 | 通用 authored identity 和依赖环检测 | B2 |
 | Named secondary identity | `L2` | registry 区分完整 variant；无 `_b` producer/consumer flow | secondary 数据流、copy/swap/history | B2 |
@@ -90,7 +90,7 @@
 
 ## 4. 官方 Effect 覆盖摘要
 
-45 项的作者条件、执行通道、公共依赖、当前证据和下一验收门统一维护在 [官方 Effect 执行覆盖表](effect-execution-coverage.md)。汇总为 `L1=23`、`L2=5`、`L3=17`、`L4=0`；所有 `L3` 都是表内明确限定的 profile，不是 WE parity。内部 `_empty`、Workshop `gradient_color` 和 layer Bloom 另列，不能替代任何官方 Effect。
+45 项的作者条件、执行通道、公共依赖、当前证据和下一验收门统一维护在 [官方 Effect 执行覆盖表](effect-execution-coverage.md)。汇总为 `L1=23`、`L2=4`、`L3=18`、`L4=0`；所有 `L3` 都是表内明确限定的 profile，不是 WE parity。内部 `_empty`、Workshop `gradient_color` 和 layer Bloom 另列，不能替代任何官方 Effect。
 
 ## 5. Particle 子系统覆盖
 
@@ -123,15 +123,15 @@
 | World-space execution | `L0` | 无 camera/parent transform runtime | 多屏和 parent 语义 |
 | Collision declaration | `L1` | 可诊断但无 solver | shape/depth/response/event IR |
 | Collision execution | `L0` | 无 solver | fixed step 与 event dispatch |
-| Audio-response declaration | `L1` | 参数可见但 simulation 不消费 | frequency/channel/bounds/exponent IR |
-| Audio-response execution | `L0` | 无频谱 snapshot | mapping 和确定性 fixture |
+| Audio-response declaration | `L1` | 五字段按粒子 schema 保真进 IR，emitter/turbulent velocity/operator 三类共用同一声明类型；启用后一律报 `audioResponseIgnored`（operator 此前无诊断、会静默按无音频路径模拟） | 声明保真不等于可执行；默认值官方未公开，IR 层不内置 |
+| Audio-response execution | `L0` | frame snapshot 已可用，但**求值公式与调制目标无证据**：粒子侧无 shader 源码，第三方参考实现对应代码是 `audioAmplitude = 0.0` 的 TODO 占位，其默认值在 emitter/initializer 两处自相矛盾 | 需 Windows golden 或官方公开算法；在此之前不得按推测实现 |
 | Sprite Sheet | `L3` | Sequence/Random frame/frame blend 子集可执行 | 全 atlas metadata、loop/edge 和多纹理 material |
 | Static instance overrides | `L3` | alpha/size/lifetime/rate/speed/count/brightness/normalizedColor 有运行断言 | 完整类型/range 门 |
 | Direct color/control-point position override | `L2` | parser/simulation 分支已接线，最终值门不足 | direct color 与 CP position/angle 断言 |
 | Dynamic instance overrides | `L1` | wrapper 只诊断 | typed live target、generation 和逐帧应用 |
 | Material/blend | `L3` | `genericparticle` 首纹理、additive/translucent 子集；additive 按官方 CPU premultiply + `(SRC_ALPHA, ONE)` 等效合同(作者 alpha 即 additive 强度),unsupported shader/blend 尚可能回退 | 先严格 fail-closed，再补多纹理/combo/render state 与 additive 的 Windows 像素标定 |
 | Fixed step/seed/maxcount | `L3` | fixed simulation step、deterministic seed、maxcount 有运行门 | pause/discontinuity 与 WE 数值 golden |
-| Turbulent velocity initializer | `L3` | 非音频 profile 消费 forward/right/up、phase、scale、time 与 speed range；audio fail closed | Windows WE 固定 seed 数值/视觉 golden 与 injectable audio snapshot |
+| Turbulent velocity initializer | `L3` | 非音频 profile 消费 forward/right/up、phase、scale、time 与 speed range；audio profile 继续 fail closed——frame snapshot 已可用，缺的是粒子侧求值公式证据 | Windows WE 固定 seed 数值/视觉 golden；audio 分支另需官方算法或 golden |
 | Delta clamp/prewarm cap | `L2` | 代码有上限分支，缺定向预算断言 | 长帧和高 prewarm 压力门 |
 
 当前固定矩阵可见粒子为 `66/76`，完整矩阵为 `110/131`（REFRACT 材质层 fail closed 不计入）；`3088601835` 为 `19/19`，其中 Snow root layers `513/534` 已执行，static `snowstormfog` child 也已由真实缓存门确认在两层生成实例，matrix-code 两层随 `b86db59` 解除 nested 阻断进入执行。child 不增加 root loaded-layer 计数。`3769364482` 为 `3/3`、`3757555836` 为 `7/7`、`2974757317` 为 `3/3`（含 matrix 头层 85705），`3750813609` 是 `7/9`，后者另外两层因 world-space 不支持而保持 fail closed；`3724289844` 已不在当前真实目录。这些数字只度量对应矩阵实际加载的 layer，不代表粒子组件覆盖率。
@@ -143,9 +143,14 @@
 | 能力 | 当前级别 | 升级门 |
 |---|---|---|
 | Particle `animation` wrapper presence | `L1` | 与正式 Timeline IR 分开，只作为动态值诊断 |
-| Timeline object/property target | `L0` | typed target ID 与完整 authored base value |
-| Keyframe/value/tangent | `L0` | 当前不保留内容；需保真 IR、Bézier/step/linear evaluator |
-| Loop/Mirror/Single/paused | `L0` | 绝对 scene time、wrap、seek/pause tests |
+| Timeline object/property target | `L3` | layer `alpha` 与 effect constant 已 typed 编译并写回（28 处）；`origin`/`angles`/`scale` 有 target 但随包 10 处全带 `relative`，整批 fail-closed；`maxwidth`/`zoom` 与粒子 `instanceoverride` 无对应 target |
+| Keyframe/value/tangent | `L2` | 帧号/值/双侧 handle/`lockangle`/`locklength` 已无损保真；求值只走线性，tangent 未消费——handle 的「帧偏移」与「归一化段长」两种解释不等价（`2067939514` 段在 frame=3.75 处分别约 0.767 / 0.970，线性 0.5），需视觉定标后才能宣称 Bézier |
+| Loop/Single | `L3` | 按绝对 scene time 求值，真实执行 loop 7、single 21；single 到末帧保持末值不回绕，loop 跨周期同相位，有单测与真实样本双证 |
+| Mirror | `L2` | evaluator 与单测已覆盖三角波折返，但随包 6 处 mirror 全落在被 `relative` 拒绝的 layer transform 上，真实样本 0 处执行 |
+| start paused | `L3` | 6 处执行且恒停首帧；`2067939514` 为负门——无 VM 时不存在能调 `play()` 的主体，自动播放会偏离作者意图 |
+| wrap-loop | `L1` | IR 保真（随包 9 处声明），执行时按普通 loop 降级并记 `wrapLoopIgnored`（7 处）；官方未公开首尾平滑算法 |
+| `relative` 合成 | `L1` | IR 保真（10 处），编译期整条拒绝；推断语义为「作者基值 + 动画值」，未取得官方定义也未做视觉验证 |
+| Combined Animations | `L1` | `options.parent`/`children` 的双向 key 引用已保真（随包唯一实例为 `3768229922` object 55 的 `origin`↔`zoom`）；组内成员须共用持有方 clock，分组语义未实现，整组 fail-closed |
 | Animation Events | `L0` | frame crossing、loop、同 layer script dispatch |
 | Script presence | `L1` | 仅保存对象是否含 inline `script` 的布尔值 |
 | Script source/binding IR | `L0` | 当前 inline/source path/绑定目标会丢失 |
@@ -189,9 +194,12 @@
 | outline/shadow/text effects | `L1` | 字段或 effect 可保留，未形成完整绘制链 |
 | property-driven text | `L2` | 通过 Scene 重建应用；需 per-frame target 和按 layer 纹理 generation |
 | SceneScript clock/text | `L0` | 先有 VM、Date 和 typed text target |
-| Audio declaration | `L1` | 部分 effect/particle 参数可见，不等于输入可用 |
-| Audio 16/32/64 bins | `L0` | Scene 无可注入 frame snapshot |
-| Audio effect/particle/script consumer | `L0` | 每个 consumer 正反 fixture |
+| Audio declaration | `L3` | effect 与粒子两套 schema 分别保真解析；两者字段名不同，粒子无 `audioamount` |
+| Audio 16 bins | `L3` | left/right host-shared 快照，静音/无权限/停采集稳定归零，可注入；频段与归一化为工程选择 |
+| Audio 32/64 bins | `L0` | stock effect 不用；随 SceneScript `registerAudioBuffers` 与 workshop shader 前置一并欠账 |
+| Audio effect consumer | `L3` | 仅 stock Shake（`whitePhaseFallback`/`timeOffsetCombo`）与 stock Pulse（`stock2842`）的 `AUDIOPROCESSING` 分支；legacy 指纹、workshop 自定义 audio shader、带 user binding 的 audio 常量全部 fail closed |
+| Audio particle consumer | `L0` | 声明已保真但求值公式无证据；见 5 节 Audio-response execution |
+| Audio script consumer | `L0` | 前置 VM 未闭合 |
 | Sound layer | `L0` | 补 sound content IR、播放、volume 和生命周期 |
 | Embedded MP4 frame | `L3` | image-layer 子集；不同于系统媒体 provider |
 | Media status/metadata/timeline | `L0` | injectable snapshot 和 lifecycle |
@@ -238,11 +246,11 @@
 | **B1 Provider Core** | `S2 第 5 项 + S3` | dynamic text 已完成 per-layer generation、stale cancellation、last-ready fallback；frame registry 双代已完成 | 把 status/metadata/cancel/teardown 推广到 Texture Variants、video/system/media 与 material candidate；不含 nested graph source |
 | **B2 Graph Resource Runtime** | `S2 第 1-5 项` | strict Blur、stock Local Contrast、exact Workshop `shadow_____________`、exact stock Opacity、exact stock Shake 与 ordered strict effect-chain 已消费 target table；cache/resize/reset、整链原子 allocation、D7 ShaderContract IR v1、BGRA/RGBA/RG/R8 format、exact shader fingerprint、同帧 copy/swap foundation、受限 history seed/clear、Precise Blur 两种 material-command interleave 与 exact legacy compose 归一化已完成；generic compose/scene-background、真实 history consumer 与 typed shader defaults/built-ins/state 未完成 | read/write、RT lifecycle、slot/combo/state 和 resize/switch/stop 门；下一批用 preview 并排图和同样本分项变化验证画面收益 |
 | **B3 Provider-Graph Integration** | `S2 第 5-6 项` | nested/effectful/scene-background source、通用 material consumer、45 Effect 严格 profile family | B1+B2 均完成后接入；不得新增 effect-name 视觉旁路 |
-| **B4 Feature Breadth** | `S3-S4` | direct dynamic text 已完成首个子集；Timeline、SceneScript core、system/media text、cursor/audio/media、按依赖排序的 particle breadth仍待推进 | 每族正向、默认关闭、unsupported、determinism 和 lifecycle 门 |
+| **B4 Feature Breadth** | `S3-S4` | direct dynamic text、Timeline 28/48 typed target 子集、16 档 audio 输入与 stock Shake/Pulse consumer 已完成；SceneScript core、system/media text、cursor/media、其余 Timeline/audio 与按依赖排序的 particle breadth 仍待推进 | 每族正向、默认关闭、unsupported、determinism 和 lifecycle 门 |
 | **B5 Fidelity** | `S2-S4` 广度完成后 | 字体、视差、粒子、常用 Effect 与 WE Windows golden 对齐 | 固定输入逐像素/数值阈值、性能预算、长稳和多屏门 |
 | **Advanced** | `S5` | Puppet、2D light/HDR、3D、arbitrary custom shader、RGB、offline bake | 每个系统有完整 IR/runtime/lifecycle/product gate 后再升级 |
 
-研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、B2 ordered strict chain、Workshop Shadow、stock Opacity、exact stock Shake/Foliage Sway/Water Ripple/Water Waves/Water Flow/X-Ray、同帧 copy/swap foundation、受限 history seed/clear、Precise Blur 两种 material-command interleave 与 exact legacy compose 归一化已合龙；20 个精确 built-in 粒子纹理、非音频 turbulent velocity、strict static/default-static/eventspawn/natural-eventdeath/eventfollow child（`b86db59` 起层级 ≤ 2，depth-two 仅 event 触发、per-depth 64/跨两层 128 systems 预算）、持续/混合/duration child emitter、root child aggregate budget、有限 static origin translation，以及超预算/多 image BC1/2/3 的 GPU premultiply 与静态首帧 fallback 已进入公共 runtime。非 exact Water Waves/Foliage Sway/Water Ripple 的 legacy inline 仍受原有唯一 Effect 或单 profile 边界约束，mixed/repeated unsupported declarations fail closed；X-Ray 受限前缀明确省略后续 unsupported effect。当前完整门为 91 stage/15 chain/0 failed，固定门为 24 stage/2 chain/0 failed；超出默认 96 MiB 纹理预算的长链在规划阶段拒绝。隔离 45-home 缓存 census 确认语料最深 authored child 链为两层（matrix spawner -> static head -> eventfollow trail），depth-two 声明全部为 identity eventfollow、probability 1；`b86db59` 据此解除 matrix spawner static 声明的 nested 阻断并执行 depth-two event child，26 样本 census 门锁定 maximumChildDepth 2、63 条 nested 声明，collision/delete、inherit-value 与非空 child CP mapping 仍为 0。两条 event scale probe 分别被 world-space root 与 world-space Rope Trail root 阻断，没有新增执行层；下一代码批接通 sidecar metadata 与 spritesheet 序列帧 consumer。`2998757800` 的右下亮边不随 `fog1` 透明化消失，不提交 fog 调暗或样本 ID 比例特判。样本自带 preview 是当前第一视觉依据，WaifuX MP4 只作辅助动态参考，均不能替代 Windows WE 动态/像素 golden。
+研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、Timeline 的受限 typed target、16 档 Scene audio 输入与 stock Shake/Pulse consumer、B2 ordered strict chain、Workshop Shadow、stock Opacity、exact stock Shake/Foliage Sway/Water Ripple/Water Waves/Water Flow/X-Ray/God Rays、同帧 copy/swap foundation、受限 history seed/clear、Precise Blur 两种 material-command interleave 与 exact legacy compose 归一化已合龙；stock 资源子集、非音频 turbulent velocity、strict static/default-static/eventspawn/natural-eventdeath/eventfollow child（`b86db59` 起层级 ≤ 2）、持续/混合/duration child emitter、root child aggregate budget、有限 static origin translation，以及超预算/多 image BC1/2/3 的 GPU premultiply 与静态首帧 fallback已进入公共 runtime。unsupported Effect/Timeline/粒子/SceneScript 形态继续 fail closed。当前完整门为 154 stage/21 chain/0 failed，固定门为 109 stage/14 chain/0 failed；混合链纹理预算按实际 target extent 折算，超过默认 96 MiB 时仍在规划阶段整链拒绝。样本自带 preview 是当前第一视觉依据，人工检查 `3770462923` 的签名 App 截图为非黑画面，Day/Date 文字可见 Radial God Rays，车身和构图正常；该截图与 WaifuX MP4 都不能替代 Windows WE 动态/像素 golden。下一代码批仍须从开发计划和专项缺口重新选择，不从本次 Godrays 正门外推通用 shader 或 Effect 兼容。
 
 ## 9. 更新规则
 

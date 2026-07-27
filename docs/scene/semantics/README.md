@@ -63,8 +63,8 @@ Scene 兼容的核心不是不断增加“看起来差不多”的效果分支�
 
 | 目录 | 主要职责 |
 |---|---|
-| `Format` | Project、Document、PKG/TEX、JSON、interpretation |
-| `Runtime` | Host、frame context、runtime model、descriptor、diagnostics |
+| `Format` | Project、Document、PKG/TEX 与 JSON source format |
+| `Runtime` | Host、frame context、runtime model/input、descriptor、diagnostics |
 | `Properties` | 用户属性、binding program、dynamic snapshot、live update |
 | `Resources` | asset/resource index、texture loader、path resolver、video source |
 | `Rendering` | Metal 核心、compositor、layer、camera、geometry、utility |
@@ -156,7 +156,7 @@ scene.json / scene.pkg / assets
 - [覆盖台账](coverage-ledger.md) 只做系统摘要；Effect、粒子、SceneScript、Graph/Shader、运行输入/属性和高级对象的专项能力表分别是其逐项等级事实来源。
 - 实现前必须先查 [能力依赖图](capability-dependency-map.md)，再进入对应专项表查看作者条件、代码、测试、运行证据和下一门；不能从同系统某个 `L3` 子集推断整套能力。
 - 资料入口完整性以 [179 页逐页表](official-page-map.md) 与自动门禁为准；16 组分组统计不能替代逐页映射。
-- 专项表不写「实现基线：`<commit>`」。基线 commit 与 interpretation schema 版本只在 [覆盖台账](coverage-ledger.md)、[运行证据索引](runtime-evidence-index.md)、[开发计划](../scene-capability-development-plan-2026-07-22.md) 和 roadmap 维护（自动门禁只校验这四份）；专项表里出现的 commit 号一律理解为该能力的历史落地提交，不是当前基线。此前 7 份专项表各自复制基线，最旧的落后 42 个提交。
+- 专项表不写「实现基线：`<commit>`」。基线 commit、生产播放输入边界与 Debug runtime evidence schema 只在 [覆盖台账](coverage-ledger.md)、[运行证据索引](runtime-evidence-index.md)、[开发计划](../scene-capability-development-plan-2026-07-22.md) 和 roadmap 维护（自动门禁只校验这四份）；专项表里出现的 commit 号一律理解为该能力的历史落地提交，不是当前基线。此前 7 份专项表各自复制基线，最旧的落后 42 个提交。
 - 新发现的字段先标证据等级和样本来源，再判断是否进入实现。
 - 官方文档或 `lib.sceneScript.d.ts` 版本变化时，更新 [资料来源与证据索引](source-index.md) 的核验日期和差异。
 - 第三方播放器与官方资料冲突时，记录其偏差，不修正文档去迎合第三方行为。

@@ -2,7 +2,7 @@
 
 > 状态：现役专项表
 >
-> 最近核对：2026-07-23
+> 最近核对：2026-07-27
 >
 > 本页的 direct dynamic text 实现基线为 `1762743`；精确全局当前状态见 [总覆盖台账](coverage-ledger.md)。
 >
@@ -39,13 +39,13 @@ HostFrameInputs(time, properties, audio, media)
 | shader/video/particle/parallax 共用 timing | `L3` | [`SceneMetalView.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView.swift)、[E-FRAME](runtime-evidence-index.md#e-frame) | 补 pause、delta clamp、fixed step |
 | typed value 六类 | `L2` | `bool/scalar/vector2/vector3/vector4/string`；[`SceneDynamicSnapshot.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneDynamicSnapshot.swift) | texture/provider 不属于普通值；新增类型仍需 wire/type/finite 门 |
 | typed target 族 | `L2` | scene/camera/layer/effect/text/particle/script instance 已定义；layer alpha/color、exact stock Local Contrast strength 与 exact stock Opacity alpha 进入 compiler | 其他 effect target 不得直接开放 live；SceneScript 值必须与 direct binding 分开 |
-| 固定 source priority | `L2` | authored -> property -> Timeline -> SceneScript；property producer 已执行 | Timeline/SceneScript 尚无 producer，接入后必须复用同一 resolver |
+| 固定 source priority | `L3` | authored -> property -> Timeline -> SceneScript；property 与受限 Timeline producer 已执行，`.timeline` 覆盖同 target 的 property 值 | SceneScript 尚无 producer，接入后必须复用同一 resolver |
 | property binding program persistence | `L3` | format 22 持久化 definitions、instructions、rebuild-required keys 与 effective values；严格 decode/validation | layer alpha/solid color、direct text 三字段、Local Contrast strength 与 Opacity alpha 均有真实 consumer |
 | host-shared / surface-local scope | `L3` | property 输入由 host 捕获，每个 surface 有独立 transaction/snapshot/generation；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | pointer/matrix/provider/script 接入后继续补双屏隔离门 |
 | target invalidation domain | `L3` | alpha/color/effect scalar 为 value-only；direct text 为 per-layer texture generation；mixed/hidden/no-consumer/SceneScript/unsupported key 标记 rebuild | visibility/topology、通用 provider 和 simulation target 继续登记 |
-| per-surface evaluation transaction | `L3` | property evaluation、validation 与 atomic commit 已闭环；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | event/Timeline/SceneScript mutation 尚未接入 |
+| per-surface evaluation transaction | `L3` | property 与 Timeline evaluation、validation、同帧合并及 atomic commit 已闭环；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property)、[E-TIMELINE](runtime-evidence-index.md#e-timeline) | event/SceneScript mutation 尚未接入 |
 | changed-target generation | `L3` | 每 surface 持有 generation，相同 payload 不增加；跨 surface 不共享 owner | local input/script/provider 接入后继续验证独立 diff |
-| live consumer | `L3` | layer alpha、solid-only color、visible direct text content/point-size/color、strict Local Contrast/Opacity 读取 snapshot；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property)、[E-DYNAMIC-TEXT](runtime-evidence-index.md#e-dynamic-text) | hidden/no-consumer text、particle/container/non-solid color、SceneScript/其他 effect constant 仍重建 |
+| live consumer | `L3` | layer alpha、solid-only color、visible direct text content/point-size/color、strict Local Contrast/Opacity 与 23 处 Timeline effect constant 读取 snapshot；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property)、[E-TIMELINE](runtime-evidence-index.md#e-timeline) | hidden/no-consumer text、particle/container/non-solid color、SceneScript 与 unsupported Timeline target 仍重建或 fail closed |
 | Scene pause/resume | `L0` | 播放控制未控制 Scene clock | pause 冻结 scene time；resume 不补长帧 |
 | delta clamp / dropped-time | `L0` | `frameTime` 只做单调差值 | 同时保留 raw delta 和 simulation delta |
 | offline fixed-time adapter | `L0` | Debug PNG readback 不是离线 adapter | 注入 frame index/time/seed/provider replay |
@@ -114,13 +114,13 @@ Timeline 是带预定义时长的 component-property 动画，不是 Effect anim
 
 | 官方能力 | 等级 | 当前事实 | 最小实现门 |
 |---|---|---|---|
-| dynamic `animation` wrapper presence | `L1` | 部分粒子值记录 `hasAnimation` 并诊断 | 不得冒充 Timeline IR |
-| animation identity / optional name | `L0` | 未保存正式 Timeline identity 或 name | 稳定 animation ID、作者名称和 owner scope |
-| duration seconds / authored frame slots | `L0` | 未保存 | seconds、frame count、首末 frame 和异常值保真 |
-| component/property/axis target | `L0` | 未保存 Timeline target | 编译成 object + component + property + optional axis typed target |
-| keyframe frame/time/value | `L0` | 未保存 | 保真 parse/encode、同 frame 多 lane 和异常顺序门 |
-| scene-time evaluation | `L0` | Frame Context 有 scene time，但 Timeline 未消费 | 按绝对 scene time 求值；不得按显示刷新逐步前进 |
-| wrap-loop frames | `L0` | 无 loop shaping IR | 首尾平滑过渡和关闭时允许瞬时回跳的数值门 |
+| dynamic `animation` wrapper presence | `L1` | 粒子 `instanceoverride` 仍只记 `hasAnimation` 并诊断，随包 7 处未进 Timeline IR | 不得冒充 Timeline IR |
+| animation identity / optional name | `L1` | 身份由宿主 JSON 路径（layer + host 属性名，或 layer/effect/pass/constant 名）决定；官方 optional name 在随包 48 处中未出现，未保存 | 出现合法 fixture 后补 name 与 owner scope |
+| duration seconds / authored frame slots | `L2` | `fps`/`length` 原样保存，时长按 `length / fps` 换算（随包三例交叉验证 1.0s / 0.5s / 0.5s）；`smoothing`/`stiffness` 随包 16 处全为 null，只保真不解释 | 异常值（`length` 与末帧不符）无反例可依 |
+| component/property/axis target | `L3` | lane 以 `c0/c1/c2` 对应 component 下标，必须从 `c0` 起连续否则 fail-closed；已 typed 编译为 `.layer(.alpha)` 与 `.effectConstant`，lane 数与值类型不符报 `componentMismatch` | `origin`/`angles`/`scale` 因 `relative` 未执行；`maxwidth`/`zoom` 无 target |
+| keyframe frame/time/value | `L2` | `frame`/`value`/`front`/`back`/`lockangle`/`locklength` 六个键在 180 个真实 keyframe 上全部保真；帧号必须严格递增 | 同 frame 多 lane 与异常顺序目前只有负例门，无 Windows 对照 |
+| scene-time evaluation | `L3` | 纯函数 evaluator，同一 `sceneTime` 必得同一结果，不持播放状态、不逐帧累加；host 每帧算一次后经 per-surface transaction 写回 | 未接 pause/resume 与 seek |
+| wrap-loop frames | `L1` | `wraploop` 已保真（随包 9 处），执行按普通 loop 降级并记 `wrapLoopIgnored` | 官方未公开首尾平滑算法，需合法 fixture |
 
 <a id="op-timeline-combined"></a>
 ### 4.2 [Combined Animations](https://docs.wallpaperengine.io/en/scene/timeline/combined.html)
@@ -129,20 +129,20 @@ Combined Animation 会把新的 property lane 加入一个已有 animation，并
 
 | 官方能力 | 等级 | 当前事实 | 最小实现门 |
 |---|---|---|---|
-| existing-animation membership | `L0` | 无 animation/lane identity | 多 property 共用一份 clock/settings，lane 仍有独立 target/keyframes |
-| authored lane order | `L0` | 无 Combined IR | 保真顺序和 canonical encode；重复 target 先 fail closed |
-| atomic multi-target commit | `L0` | 无 Timeline producer | 同一 frame 的全部 lane 一次写入 SurfaceDynamicSnapshot |
+| existing-animation membership | `L1` | `options.parent`/`options.children` 的双向 key 引用已保真；随包唯一实例是 `3768229922` object 55 的 `origin`（`children: [{"key": "zoom"}]`）与 `zoom`（`parent: {"key": "origin"}`），两者共享同一份 options | 组内成员必须共用持有方 clock，分组语义未实现，编译期整组报 `combinedAnimationUnsupported` |
+| authored lane order | `L2` | lane 按 `c0/c1/c2` 下标顺序保真；同一 target 被多条 Timeline 写入时全部拒绝并报 `duplicateTarget`，不按声明序或字典序猜 | 官方未定义冲突优先级，维持 fail closed |
+| atomic multi-target commit | `L3` | 全部 Timeline 值在同一帧算出后一次性送进 `SceneSurfaceEvaluationTransaction`，与 property 输入同一次原子提交 | 分组语义落地后需补组内同帧一致性门 |
 
 <a id="op-timeline-modes"></a>
 ### 4.3 [Playback](https://docs.wallpaperengine.io/en/scene/timeline/modes.html) 与 Bézier modes
 
 | 官方能力 | 等级 | 当前事实 | 最小实现门 |
 |---|---|---|---|
-| Loop | `L0` | 无 evaluator | 运行到末尾后立即回到开头；与 wrap-loop 平滑开关分别测试 |
-| Mirror | `L0` | 无 evaluator | 到末尾后按相同速度反向，端点不得重复或跳帧 |
-| Single | `L0` | 无 evaluator | 只播放一次并永久保持最后状态 |
-| start paused | `L0` | 无 Timeline state | 初始不推进，必须由 SceneScript 手动播放；与 Scene pause 分离 |
-| Bézier `both/left/right/none` | `L0` | 无 tangent IR/evaluator | 每 keyframe 独立保存左右 handle；`none` 产生直线匀速段 |
+| Loop | `L3` | 按 `length` 取模，跨周期同相位；真实执行 7 处 | 与 wrap-loop 平滑开关的联合门待 `wraploop` 落地 |
+| Mirror | `L2` | 周期 `2*length` 的三角波，端点不重复采样；单测覆盖折返段与上行段同值 | 随包 6 处 mirror 全落在被 `relative` 拒绝的 layer transform 上，真实样本 0 处执行；端点是否重复采样官方未定义 |
+| Single | `L3` | 到末帧后保持末值不回绕；真实执行 21 处 | — |
+| start paused | `L3` | 恒停首帧，真实执行 6 处；`2067939514` 为负门（同级脚本在 `mediaThumbnailChanged` 里调 `play()`，无 VM 时不得自动播放） | 与 Scene pause 的分离待 pause/resume 落地 |
+| Bézier `both/left/right/none` | `L1` | 每 keyframe 的左右 handle 与 `enabled` 已独立保真 | **求值不消费 tangent，一律线性**：handle 的 `x` 是「帧偏移」还是「归一化段长比例」两种解释不等价（`2067939514` 的 `0→15` 帧段在 frame=3.75 处分别约 0.767 与 0.970，线性 0.5，仅中点因对称巧合相同），需视觉定标后才能宣称 Bézier parity |
 
 <a id="op-timeline-events"></a>
 ### 4.4 [Animation Events](https://docs.wallpaperengine.io/en/scene/timeline/animationevents.html)
@@ -306,9 +306,11 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 | full layer/effect/control-point local pointer | `L0` | 无 parent/world inverse 或 effect/control-point 投影 | hierarchy/rotation/scale/parallax 正反 golden |
 | previous pointer storage | `L2` | Frame Context 保存；renderer 未消费 | shader built-in 和 event delta consumer |
 | pointer buttons/down/up/click | `L0` | 无状态或事件队列 | 同帧 event snapshot 与坐标空间 |
-| audio declarations | `L1` | 部分 effect/particle 字段可见 | 不能据此宣称 audio response |
-| 16/32/64 stereo buffers | `L0` | Scene 无 producer/snapshot | left/right/average、每渲染帧更新、零输入 |
-| audio consumer registration/lifecycle | `L0` | 无 Scene consumer | 无 consumer 停采集，设备/权限恢复 |
+| audio declarations | `L3` | effect 与粒子两套 schema 分别保真解析（字段名不同，粒子无 `audioamount`）；[E-AUDIO-EFFECT](runtime-evidence-index.md#e-audio-effect) | 粒子声明保真不等于可执行 |
+| 16 stereo buffers | `L3` | left/right host-shared 快照每帧广播给所有 surface，静音/无权限稳定归零；[E-AUDIO-INPUT](runtime-evidence-index.md#e-audio-input) | 频段划分与归一化是工程选择，无官方数值合同；采集 30 Hz 与渲染 60 Hz 之间首批不插值 |
+| 32/64 stereo buffers | `L0` | stock effect 不用，未预留档位 | 随 SceneScript `registerAudioBuffers` 与 workshop shader 前置一并欠账 |
+| audio `average` 缓冲 | `L0` | 官方 `AudioBuffers` 的第三个数组尚无消费者 | 由 SceneScript 前置决定形状 |
+| audio consumer registration/lifecycle | `L3` | 采集由 consumer 存在性驱动，launch 声明/teardown 撤销，暂停/锁屏/休眠停采并归零 | 新增 consumer 必须同批扩充判定，否则采集不会启动 |
 | media status/playback/properties/timeline | `L0` | 无 snapshot | 可注入 provider 和原子 generation |
 | generic media thumbnail identity | `L1` | `$mediaThumbnail` runtime reference 可分类 | current/previous typed identity、producer、decode cancellation、authored fallback |
 | media events | `L0` | 无 SceneScript dispatch | 每屏队列、顺序和异常隔离 |
@@ -346,7 +348,7 @@ Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选
 | current cover identity/provider | `L0` | 无 current typed identity 或 frame publication | hasThumbnail、ready/pending/unavailable、generation 和 decode cancel |
 | previous cover identity/provider | `L0` | 无 previous typed identity/history | 新封面提交时原 current 原子转为 previous；stop/reset 清空 |
 | authored placeholder fallback | `L0` | system/media 尚未接现有 fallback consumer | 无播放、无封面、decode 失败均回退作者 texture/solid，不显示空白 |
-| authored cover transition graph | `L0` | 缺 current/previous、Blend 通用 consumer、Timeline 和 SceneScript | 新 thumbnail event -> restart Single animation；缺封面不误触发 |
+| authored cover transition graph | `L0` | 通用 Timeline evaluator 已有，但仍缺 current/previous cover、Blend 通用 consumer、media event 与 SceneScript restart | 新 thumbnail event -> restart Single animation；缺封面不误触发 |
 | recommended cover extent policy | `L0` | 无 media decode/resize policy | 保持 aspect、方形目标、<=256 建议与异常输入预算门 |
 
 ## 9. Texture / Video provider
@@ -369,6 +371,6 @@ Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选
 1. **B0 live-property 与首个 generation consumer 已完成**：format 22 binding program、per-surface transaction、atomic state，以及 layer alpha、solid color、direct text、Local Contrast/Opacity consumer 均已闭环；隔离真实样本证明 live 更新不替换 surface/window。
 2. 新增任何 live target 时，必须在同一能力切片中补稳定 identity/value semantic、compiler definition/instruction、真实 renderer/runtime consumer、原子失败、fallback 与 identity 运行门；缺一项就保留整场重建。
 3. B2 ordered strict scheduler、exact Workshop Shadow 与 stock Opacity `MASK=0` 已完成。`2902406982:[365,372,647,664]` 是 direct-binding live 正门；`2938612768:[165,454,626,629,924]` 是 SceneScript fail-closed 负门。optional mask、未知 fingerprint 或缺 consumer 的部分 live 继续拒绝。
-4. B2 同帧 copy/swap foundation、受限 history seed 与 Precise Blur 两种 material-command interleave 已完成，下一步推进真实 persistent/history consumer 与 compose；B1 把 dynamic text 已验证的 generation/stale-cancellation/last-ready 合同推广到 system/media/video provider。visibility 仍需 topology invalidation 后才能取消整场重建。
-5. Timeline 完整保存后接 evaluator；SceneScript 只有在 source/binding IR 和沙箱成立后接入同一 target 层。
-6. audio/media provider 必须有作者未启用反例、失败 fallback、generation/cancel 和 stop teardown。
+4. B2 同帧 copy/swap foundation、受限 history seed、Precise Blur interleave 与 stock Radial God Rays 双 half RT 已完成；真实 persistent/history consumer、generic compose 与 provider generation/cancel 仍未完成。
+5. Timeline 的 IR、绝对 scene-time evaluator 和 28/48 typed target 子集已接入；`relative`、Combined、tangent、其余 target 与 event crossing 继续 fail closed。SceneScript 只有在 source/binding IR 和沙箱成立后接入同一 target 层。
+6. 16 档 audio provider 已有 consumer 驱动、失败归零和 teardown 门；新增 audio 档位/consumer 与 media provider仍须同批补作者未启用反例、fallback、generation/cancel 和 stop teardown。

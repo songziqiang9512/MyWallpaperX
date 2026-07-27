@@ -330,7 +330,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         self.assertEqual(len(set(asset_ids)), 45, "Effect asset IDs must be unique")
         self.assertEqual(
             {level: levels[level] for level in ("L0", "L1", "L2", "L3", "L4")},
-            {"L0": 0, "L1": 23, "L2": 5, "L3": 17, "L4": 0},
+            {"L0": 0, "L1": 23, "L2": 4, "L3": 18, "L4": 0},
         )
 
     def test_generic_graph_primitives_remain_l2(self) -> None:
@@ -400,7 +400,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         for path in current_state_documents:
             text = document_text[path]
             self.assertIn(
-                "`b86db59`",
+                "`a77b875`",
                 text,
                 f"Current Scene entrypoint is missing the current implementation: {path}",
             )
@@ -419,8 +419,8 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             )
 
         report_paths = (
-            ".codex/scene-legacy-fingerprints-20260727/full45-report.json",
-            ".codex/scene-legacy-fingerprints-20260727/fixed13-report.json",
+            ".codex/scene-runtime-input-full45-20260727/results/report.json",
+            "/private/tmp/mwx-scene-runtime-input-fixed13-20260727-v1/report.json",
         )
         for path in current_state_documents:
             for report_path in report_paths:
@@ -436,6 +436,10 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         self.assertIn("### E-EFFECT-OPACITY:", evidence)
         self.assertIn("### E-EFFECT-SHAKE:", evidence)
         self.assertIn("### E-EFFECT-XRAY:", evidence)
+        self.assertIn("### E-EFFECT-GODRAYS:", evidence)
+        self.assertIn("### E-TIMELINE:", evidence)
+        self.assertIn("### E-AUDIO-INPUT:", evidence)
+        self.assertIn("### E-AUDIO-EFFECT:", evidence)
         self.assertIn("strict eventspawn/natural-eventdeath child", evidence)
         self.assertIn("strict static/default-static child", evidence)
         self.assertIn("`4e64232`", evidence)
@@ -454,12 +458,13 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             "### E-GRAPH-LEGACY-COMPOSE: exact Blur Precise legacy two-pass normalization",
             evidence,
         )
-        self.assertIn("完整 Scene suite 86 模块：字体替代断言 5 项既有失败独立处理中", evidence)
-        self.assertIn("Water Flow 10、Water Waves 11、Shake 24", evidence)
+        self.assertIn("Godrays planner 1/1", evidence)
+        self.assertIn("完整 Scene suite `100/100` 模块", evidence)
+        self.assertIn("Water Waves 19、Shake 27、Water Flow 10", evidence)
         self.assertIn("comparison_scope=same-sample-change-only", evidence)
         self.assertIn("cross_sample_ranking=false", evidence)
         self.assertIn("absolute_threshold=null", evidence)
-        self.assertIn("strict graph 为 91 stage", evidence)
+        self.assertIn("strict graph 154 stage/21 chain/Godrays 2/0 failed", evidence)
         self.assertIn("generic `compose` 整体仍为 `L2`", evidence)
         self.assertIn(
             "ordered strict effect-chain",
@@ -471,11 +476,11 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
 
         current_status = "\n".join(document_text.values())
         for fact in (
-            "interpretation v29",
-            "十一类 strict backend",
-            "91 stage",
-            "113 个 route-only effect",
-            "particle 为 `101/131`",
+            "runtime evidence schema 1",
+            "十四类 strict backend",
+            "154 stage",
+            "Godrays 2",
+            "particle `110/131`",
             "customtext/textcolor/textsize",
             "stale cancellation",
             "SceneScript/time/media",
@@ -516,6 +521,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             "按 route-only 组成",
             "eventdeath 爆炸仍未执行",
             "无 event queue 或 typed payload",
+            "| Timeline | 数据识别不足或空壳 |",
         )
         for path, text in document_text.items():
             for stale_route in stale_current_routes:

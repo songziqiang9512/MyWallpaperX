@@ -329,6 +329,10 @@ Scene 与 Web 音频合同不同：
 
 测试必须区分 provider 注册、频谱数值正确和最终 visual consumer 生效三层。
 
+MyWallpaperX 当前状态（见 [E-AUDIO-INPUT](runtime-evidence-index.md#e-audio-input)、[E-AUDIO-EFFECT](runtime-evidence-index.md#e-audio-effect)）：**只实现 16 档 left/right**，作为 host-shared 输入每帧广播给所有 surface；采集按 consumer 存在性驱动，无消费者/暂停/锁屏/休眠停采并归零，采集失败输出稳定全零。consumer 侧只有 stock Shake（两指纹）与 stock Pulse（`stock2842`）的 `AUDIOPROCESSING`；粒子 audio 声明已保真解析但未执行，SceneScript `AudioBuffers` 与 `average` 数组仍缺 VM 前置。effect 与粒子是两套字段名不同的 schema，不能互推。
+
+三处未知必须继续标注：16 档的频率边界、幅度归一化与平滑策略官方均未公开；当前的 32 Hz→16 kHz 对数划分与 -80 dB 映射是工程选择，与 Web 侧的 64+64 合同互不适用；采集 30 Hz 与渲染 60 Hz 之间首批不插值。
+
 ### 7.3 Media
 
 官方 SceneScript 提供 status、playback、properties、thumbnail 和 timeline 事件。运行时需要 generation-based snapshot：
@@ -393,24 +397,25 @@ Realtime Adapter              Offline Adapter
 
 | 系统 | 当前实现状态 | 不能据此宣称 |
 |---|---|---|
-| Particle | 作者 2D sprite、部分 emitter/initializer/operator、13 个精确 built-in key 的程序纹理、Sprite Trail 子集；固定门 18/27、完整门 83/131 | 程序纹理等于官方资产，或 child/rope/world-space/control point/collision/audio/全部 preset 完整 |
+| Particle | 作者 2D sprite、部分 emitter/initializer/operator、Sprite Trail 与 strict child 子集；Particle slot 0 可按 exact identity 消费 bundle 内 164 项 TEX，22-key 程序纹理只作缺失回退；固定门 `66/76`、完整门 `110/131` | 路径存在或程序 fallback 等于官方视觉资产，或 child/rope/world-space/control point/collision/audio/全部 preset 完整；粒子 audio 声明虽已保真解析，simulation 仍不消费 |
 | Text | CoreText 静态纹理、direct property 动态重栅格、部分 font/pointsize/padding/scale | 动态时间、system/media、完整 alignment/effects/SceneScript |
-| Effect graph | v22 继承 EffectDefinition/authored graph/provider metadata，并保存 ShaderContract 与 binding program；十一类 strict backend 及 ordered chain 已执行，同帧 copy/swap、Precise Blur material-command interleave/legacy compose、Shake/Foliage/Water/X-Ray 均有严格门 | dynamic effect、generic compose/history、通用 material/pass、authored shader 语义等价或官方 Shadow/lighting；精确当前门见 [运行证据索引](runtime-evidence-index.md) |
+| Effect graph | 内存 `SceneRuntimeInput` 保存 EffectDefinition/authored graph/provider metadata、ShaderContract 与 binding program；十四类 strict backend 及 ordered chain 已执行，包含 stock Radial God Rays 五 pass / 双 half RT。Debug evidence schema 1 只作结构验证 | dynamic effect、generic compose/history、通用 material/pass、authored shader 语义等价、未知/Directional God Rays 或官方 Shadow/lighting；精确当前门见 [运行证据索引](runtime-evidence-index.md) |
 | Frame Context | 宿主单一 60 Hz driver；所有屏幕共享 frame index/host/scene/wall time；shader、video、particle、parallax 已迁移 | pause/resume、delta clamp、固定 timestep、离线实时等价已闭环 |
-| Dynamic target snapshot | 六类 typed value、主要 target 族、固定优先级、v22 binding program、per-surface evaluation transaction/snapshot/generation；layer alpha、纯 solid color、direct text、exact Local Contrast/Opacity 与受限 X-Ray target 有真实 producer/consumer | Timeline、SceneScript、particle 与其他 effect constant 仍未 live；293 的 SceneScript opacity 明确 fail closed |
-| Timeline | 数据识别不足或空壳 | 任意动画模式可用 |
+| Dynamic target snapshot | 六类 typed value、主要 target 族、固定优先级、binding program、per-surface evaluation transaction/snapshot/generation；layer alpha、纯 solid color、direct text、exact Local Contrast/Opacity、受限 X-Ray target 与 Timeline 的 effect constant/layer alpha 子集有真实 producer/consumer | Timeline 的 `relative`/Combined/tangent/其他 target、SceneScript 与 particle dynamic target 仍未 live；unsupported host 留诊断 |
+| Timeline | IR、绝对 scene-time evaluator 与 28/48 typed target 子集已执行，覆盖 Loop/Single/start-paused 及 effect constant/layer alpha | Mirror 尚无真实语料正门；`relative`、wrap-loop、Combined、tangent、其余 target 与 event crossing 未完成，不能宣称任意动画模式可用 |
 | SceneScript | 只检测 script | ECMAScript/runtime/API 可用 |
 | User Properties | 独立窗口、条件、默认/override、部分 target 与持久化；`texture`/`scenetexture` 内部归一；受限静态 consumer 可选择 PNG/JPEG；已注册 B0/direct text/X-Ray target 可无重建更新 | 全部样本属性可调、所有 texture target/variant/live value 已闭环 |
 | Texture Provider | frame identity/status/generation、named variant 隔离、property absent -> authored fallback、受限 file-backed property source | system media、Texture Variants、视频、通用 material 与 effectful/nested provider 已闭环 |
-| Audio/Media | Web 侧已有服务，但 Scene consumer 未闭合 | Scene 音频/媒体可用 |
+| Audio | Scene 16 档频谱输入与 stock Shake/Pulse consumer 已闭合 | 32/64 档、粒子/脚本 consumer、`average` 数组或任何数值 parity |
+| Media | Web 侧已有服务，Scene consumer 未开始 | Scene 媒体可用 |
 
 ## 11. 实施顺序
 
 1. D1-D4 的 property 子集已完成：稳定 target、v22 binding program、per-surface evaluation transaction/snapshot、原子 generation，以及 B0/direct text/X-Ray 真实 consumer；未迁移 target 继续使用 rebuild fallback。
-2. D6 ordered strict effect-chain 与十一类 exact backend 已完成受限执行，包含 `Blur Precise -> Shadow`、Water chain 和 pointer-driven X-Ray 正门；这些 profile 不升级通用 graph、官方 Shadow/lighting 或 authored shader。
+2. D6 ordered strict effect-chain 与十四类 strict backend 已完成受限执行，包含 `Blur Precise -> Shadow`、Water chain、pointer-driven X-Ray 与 `[Blur Precise, God Rays]` 正门；这些 profile 不升级通用 graph、Directional/COPYBG God Rays、官方 Shadow/lighting 或 authored shader。
 3. Provider Core 并行补 dynamic generation、metadata/cancellation；nested/effectful provider 和通用 material consumer 放在 B1/B2 集成层，不能互相形成前置环。
-4. Direct dynamic text 与 X-Ray pointer 已完成首个子集；Timeline、SceneScript core、audio/media 与剩余 particle 动态能力继续按 D10 的真实依赖接入。
-5. exact stock Opacity `MASK=0` 与 direct-binding alpha 已完成；290 四层是正门，293 五层因 SceneScript 是负门。下一批按 `3769688830` 公共 blend/composition、`3769364482` Fire effect、299 多余粒子和全局比例/裁切推进；仍只按共享 primitive 或完整合同严格 profile 扩展，不新增 effect-name 近似。
+4. Direct dynamic text、X-Ray pointer、Timeline 的 28/48 typed target 子集与 16 档 audio 输入已完成；SceneScript core、media、其余 Timeline/particle 动态能力继续按 D10 的真实依赖接入。粒子 audio 在拿到官方求值公式证据前不接执行。
+5. exact stock Opacity、Tint mask 与 stock Radial God Rays 子集已完成；下一批从能力开发计划按公共依赖、真实样本收益和 fail-closed 边界重新选择，不新增 effect-name 或样本 ID 近似。
 6. 广度闭合后用固定、扩展和新下载样本矩阵暴露冲突，再用 Windows golden 校准 effect、text、particle 和动态值精度；最后扩 Puppet/3D/Lighting 与离线编码产品层。
 
 每一步都同时需要正向样本和默认关闭/未声明反例。

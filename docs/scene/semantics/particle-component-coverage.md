@@ -2,11 +2,11 @@
 
 > 状态：现役专题能力表
 >
-> 最近核对：2026-07-25
+> 最近核对：2026-07-27
 >
 > 口径来源：[官方页面目录](official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[资料来源与证据索引](source-index.md)
-> 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，并执行非音频 Turbulent Velocity Random、严格的 child 层级 ≤ 2（depth-one static/default-static/`eventspawn` / natural-`eventdeath` / `eventfollow`，加 depth-two 仅 event 触发的 nested child）、有限 static origin translation，以及持续/混合/duration child emitter；它仍不是通用 Particle System，尤其没有 Layer Image、static angles/scale、event child transform、collision/delete event、动态 Control Point、World Space、Rope、Audio Response 和完整 Particle Material。
-> Scene 实现基线：`b86db59`；eventspawn/death 子集由 `f4173ea`、`7d53c10` 实现，eventfollow owner 由 `928acca` 实现，持续 child lifecycle/root aggregate budget 由 `2f897bc` 实现，static/default-static 由 `899704b` 实现，有限 static origin translation 由 `678a052` 实现，strict depth-two nested child 与 per-depth 64/跨两层 128 systems 预算由 `b86db59` 实现，`4e64232` 补齐延迟截图证据入口，`c654571` 增加 `rosepetals`/`beam_1`，`f02f41d` 增加 `particle/fire/fire1`，`a5a951f` 增加 `particle/light/light_shafts_0`，`9748a8c` 增加 `particle/halo_3`、`particle/fog/fog3`、`particle/light/flare_1`，`8a27089` 增加 `particle/nature/snow` 与 `particle/smoke/smoke2`，`4a17ee6` 执行非音频 turbulent velocity。固定 13 样本门 particle 为 `66/76`，完整 45 样本门为 `110/131`；当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。仍不是通用 Particle System。
+> 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，并执行非音频 Turbulent Velocity Random、严格的 child 层级 ≤ 2（depth-one static/default-static/`eventspawn` / natural-`eventdeath` / `eventfollow`，加 depth-two 仅 event 触发的 nested child）、有限 static origin translation，以及持续/混合/duration child emitter；它仍不是通用 Particle System，尤其没有 Layer Image、static angles/scale、event child transform、collision/delete event、动态 Control Point、World Space、Rope、Audio Response（声明已保真解析，执行缺公式证据）和完整 Particle Material。
+> 粒子落地提交分别是 eventspawn/death `f4173ea`/`7d53c10`、eventfollow `928acca`、持续 child/root aggregate budget `2f897bc`、static/default-static `899704b`、有限 static origin `678a052`、strict depth-two nested child/per-depth 预算 `b86db59` 与非音频 turbulent velocity `4a17ee6`。本专项表不复制全局实现基线；固定 13 样本门 particle 为 `66/76`，完整 45 样本门为 `110/131`，当前两层报告、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。仍不是通用 Particle System。
 
 本文把官方 Particle 的 General、Emitter、Initializer、Operator、Renderer、Control Point、Children、instance override 与 material 逐项映射到当前实现。它是 [总覆盖台账](coverage-ledger.md) 中 Particle 行的展开表；总表与本文冲突时，以本文更细粒度、更新的代码证据为准。
 
@@ -100,7 +100,7 @@
 | E12 One per frame | 作者 flag 可将本次发射限制为每帧最多一个。 | `L3` | [DEF] [SIM] [T-DEF] [T-SIM] | 这里的“帧”实际是 1/60 simulation step，不一定等于 WE render frame。 | 不同 render FPS 下与官方计数核验。 |
 | E13 Speed min/max | 生成时按范围给粒子初始径向速度。 | `L2` | [DEF] [SIM] [T-DEF] | 已接入 velocity，但没有 emitter speed 的定向数值断言；零半径会走自有零速度。 | 零半径、负速度、各 emitter 的 velocity golden。 |
 | E14 Control point source | emitter 可把指定 control point 作为发射基准。 | `L2` | [DEF] [SIM] [T-DEF] | 仅有静态 local offset 分支，测试未断言最终位置；不支持角度、指针、parent/world。 | CP 0...7 静态位置断言，再补动态移动与坐标转换门。 |
-| E15 Audio response | rate/shape/speed 等参数可由频谱范围、amount、exponent 调制。 | `L1` | [DEF] [PAR] [SUP] [T-DEF] [T-SIM] | 参数可保留，runtime 明确 `audioResponseIgnored`。 | 可注入频谱 snapshot、静音负向门和固定音频 fixture。 |
+| E15 Audio response | rate/shape/speed 等参数可由频谱范围、amount、exponent 调制。 | `L1` | [DEF] [PAR] [SUP] [T-DEF] [T-SIM] | 五字段按粒子自身 schema 保真进 IR（`audioprocessingmode`/`bounds`/`exponent`/`frequencystart`/`frequencyend`；粒子**没有** `audioamount`，字段名与 effect 侧不同），emitter/turbulent velocity/operator 三类共用同一声明类型，启用后一律报 `audioResponseIgnored`。 | 频谱 snapshot 已可用（[E-AUDIO-INPUT](runtime-evidence-index.md#e-audio-input)），阻塞项是**求值公式与调制目标无证据**：粒子侧无 shader 源码，第三方参考实现是 `audioAmplitude = 0.0` 的 TODO 占位、默认值在 emitter/initializer 两处自相矛盾。需 Windows golden 或官方算法。 |
 | E16 Layer Image color/motion inherit | Layer Image 可从命中像素继承颜色和纹理运动。 | `L0` | [DEF] [PAR] [SIM] | 无 emission sample、pixel color 或 motion field。 | CPU/GPU emission map 和继承值 initializer fixture。 |
 | E17 Layer Image bitmap update | 动态 source 变化时才更新 emission bitmap，不应无条件每帧重建。 | `L0` | [AST] [RUN] [SIM] | 没有 source generation 或 emission bitmap cache。 | 静态零重建、时钟 text 按 generation 更新的性能门。 |
 
@@ -118,7 +118,7 @@
 | I06 Alpha Random | 从范围选择初始 alpha。 | `L3` | [DEF] [SIM] [T-SIM] | 无官方 clamp/precision golden。 | 0、1、越界、override 组合测试。 |
 | I07 Velocity Random | 仅设置初始 velocity；位置推进仍需 Movement operator。 | `L3` | [DEF] [SIM] [T-SIM] | 各轴线性随机；exponent 未消费。 | 无 Movement 时静止负向门和分布 golden。 |
 | I08 Inherit Control Point Velocity | 新粒子继承指定 control point 的速度。 | `L1` | [PAR] [SUP] [T-DEF] | 没有 CP previous/current state或 velocity。 | 动态 CP 两帧差分、空间转换和倍率 fixture。 |
-| I09 Turbulent Velocity Random | 使用方向、noise phase/scale/time 和速度范围初始化湍流速度。 | `L3` | [DEF] [PAR] [SIM] [SUP] [T-DEF] [T-SIM] | 非音频 profile 使用项目自建确定性 3D gradient noise；`scale=0` 保持 forward，phase/time/seed 和速度范围有数值门。Audio profile 继续 fail closed；无 Windows WE 数值/像素等价证据。 | 合法 Windows WE 固定 seed/phase/time 状态 golden，再接 injectable audio snapshot。 |
+| I09 Turbulent Velocity Random | 使用方向、noise phase/scale/time 和速度范围初始化湍流速度。 | `L3` | [DEF] [PAR] [SIM] [SUP] [T-DEF] [T-SIM] | 非音频 profile 使用项目自建确定性 3D gradient noise；`scale=0` 保持 forward，phase/time/seed 和速度范围有数值门。Audio profile 继续 fail closed——snapshot 已可用，缺的是粒子侧求值公式证据；无 Windows WE 数值/像素等价证据。 | 合法 Windows WE 固定 seed/phase/time 状态 golden；audio 分支另需官方算法或 golden。 |
 | I10 Rotation Random | 为新粒子选择初始旋转。 | `L2` | [DEF] [SIM] [T-DEF] | 已接入 simulator，但现有测试只证明 component 解析，没有最终 rotation 数值断言。 | screen/upright/fixed 下角度 golden。 |
 | I11 Position Offset Random | 在 emitter 结果上增加随机位置 offset。 | `L1` | [PAR] [SUP] [T-DEF] | 名称可诊断，未保存专用范围或执行。 | typed min/max、作者顺序和空间 fixture。 |
 | I12 Angular Velocity Random | 为新粒子选择初始角速度。 | `L3` | [DEF] [SIM] [T-SIM] | 只有 Angular Movement 才推进；单位未核验。 | 无/有 Angular Movement 的状态 golden。 |
@@ -163,7 +163,7 @@
 | O26 Blend-in/out windows | 很多 operator 以单粒子 normalized age 的 0...1 窗口混合权重。 | `L2` | [DEF] [SIM] [T-DEF] | 字段和 oscillation 分支存在，但没有窗口运行断言，也不是通用 operator weight。 | 定向窗口测试后提取统一权重并覆盖所有支持 operator。 |
 | O27 Normalized age and order | 每个 operator 读取同一 age/lifetime，并按作者顺序运行。 | `L2` | [SIM] [T-SIM] | normalized age 已接线，但现有组合测试不能证明顺序合同；没有 event/collision 阶段。 | 重复 operator、顺序交换、死亡边界 golden。 |
 | O28 World-space movement flag | Movement 可选择 local/world 空间。 | `L1` | [DEF] [PAR] [SIM] [RUN] | raw flags 保留，但系统 world-space 直接 fail-closed。 | parent transform 移动时 local/world 分离门。 |
-| O29 Audio-modulated operator | Vortex/Turbulence 等 operator 可读取频谱调制。 | `L1` | [DEF] [PAR] [SUP] [T-DEF] | 参数部分保留，simulation 无 audio snapshot。 | 可注入频谱、静音和固定音频 golden。 |
+| O29 Audio-modulated operator | Vortex/Turbulence 等 operator 可读取频谱调制。 | `L1` | [DEF] [PAR] [SUP] [T-DEF] | 声明与 emitter/initializer 共用同一类型并保真保存；启用后进入 `audioResponseIgnored`（此前 operator 完全无诊断、会静默按无音频路径模拟）。 | 同 E15：缺求值公式证据。语料唯一命中的 `vortex`（`2419444134`）其 operator 本体亦为 `L1`。 |
 
 ## 7. Renderers
 
@@ -292,7 +292,7 @@
 | X10 Pause/sleep/display change | 暂停、睡眠和屏幕变化不得继续发射或突然追帧。 | `L0` | [PLAY] [SIM] | 没有 particle-specific lifecycle 状态机。 | host lifecycle 注入和 count/time 负向测试。 |
 | X11 Wallpaper switch/stop cleanup | stop 后 simulator、child、texture 和 GPU buffers 应归零。 | `L2` | [RUN] [PLAY] [GPU] | 依赖对象释放和 Metal completion；无专门资源归零测试。 | 多次切换后的 active layer/buffer/texture/内存门。 |
 | X12 Realtime/offline equivalence | 实时与离线 bake 应复用同一 simulator、seed 和 renderer。 | `L0` | [SIM] [PLAY] | 有 fixed step primitive，没有 offline adapter。 | 固定 clock/seed/input fixture 和逐帧 hash 门。 |
-| X13 Audio/media determinism | 音频或外部 provider 必须以可注入 frame snapshot 驱动。 | `L0` | [SUP] [T-SIM] | audio 参数只诊断，粒子没有 provider 输入。 | 固定音频 snapshot、静音与离线重放门。 |
+| X13 Audio/media determinism | 音频或外部 provider 必须以可注入 frame snapshot 驱动。 | `L1` | [SUP] [T-SIM] | 可注入 frame snapshot 已存在且有确定性门（同输入同输出），但粒子 simulation 尚未消费。 | 接入时须明确：每个 fixed simulation step 读取该帧开始时的快照，同帧内所有 step 用同一值、跨帧不插值，否则 determinism 门不成立。 |
 
 ## 13. 当前统计与使用规则
 

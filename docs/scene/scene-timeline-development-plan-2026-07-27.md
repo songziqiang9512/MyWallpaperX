@@ -2,11 +2,36 @@
 
 > 建立日期：2026-07-27
 >
-> 实现基线：`daa6936`（interpretation v29）
+> Timeline 计划起点：`daa6936`；当前播放输入边界随 `a77b875` 改为内存 `SceneRuntimeInput`
 >
 > 作用：定义 Scene 时间能力从当前 `L0/L1` 到可运行、可诊断、fail-closed 最小闭环的实施顺序、样本门与验收标准。
 >
 > 依赖约束见 [公共能力依赖图](semantics/capability-dependency-map.md)；等级口径与当前事实见 [总覆盖台账](semantics/coverage-ledger.md)；逐项官方合同见 [运行输入、Timeline 与属性覆盖表](semantics/runtime-input-property-coverage.md) 第 4 节。本计划是 [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md) 中 `D10 System runtimes / Timeline` 与 `B4 Feature Breadth` 的展开，不改变任何现有能力等级。
+
+## 0.1 当前进度（2026-07-27 收口）
+
+**T1 与 T2 已完成并提交**（`a80af3a` IR、`35ab987` evaluator、`5b6c818` document 保真、
+`daa8b1c` target 编译、`6d6776c` combined/smoothing 补齐、`eb4801f` host 接入）。Timeline
+runtime 从 `L0` 升到 `L3`（限定 profile），真实执行 **28/48**，散布 9 个样本。运行门
+`.codex/scene-timeline-t2-20260727/report.json` 5/5，证据见
+[E-TIMELINE](semantics/runtime-evidence-index.md#e-timeline)。
+
+与本文计划的四处偏差，均已在下文正文更正：
+
+1. **T0 拆解并入 T2。** 原计划把「给 `evaluate` 增加 `sceneTime` 形参」列为硬前提，实际不需要——
+   Timeline 只依赖绝对时间且对所有 surface 同值，在 host 层用 `timing.sceneTime` 求好再送进已有的
+   `timelineValues` 参数即可。T0 的另两项（pause/resume、delta clamp）Timeline 并不依赖，
+   已退回为独立的 Frame Context 健壮性项，不在本计划范围内。
+2. **census 分类修正。** 原按「路径末段属性名」归类，把 `2998757800` 的 7 处
+   `objects.instanceoverride.alpha` 误记为 layer alpha。真实可达面是 28/48 而非 35/48，
+   T2 正门也据此从 `2998757800` 换成 `3769688830`。
+3. **Bézier tangent 降级。** 原计划 T2 实现 Bézier，实际改为只保真不消费、插值走线性，
+   等级从预期的 `L3` 下调为 `L1`，理由见 §1.4-1。
+4. **IR 补漏。** 接入时逐字段扫描发现 `smoothing`/`stiffness`/`parent`/`children` 四个 options
+   字段此前未保存，其中 `parent`/`children` 是官方 Combined Animation 的序列化形态，已补进 IR
+   并对整组 fail-closed。
+
+剩余步骤见 §8。
 
 ## 0. 范围界定
 
@@ -181,7 +206,7 @@ D2 frame context (sceneTime 送入求值阶段, pause/clamp)
 
 ## 3. 批次计划
 
-### T0 时间底座（前置，最小改动）
+### T0 时间底座（已取消，见 §0.1-1）
 
 - **目标**：让 Timeline 有一个可求值、可暂停、可注入的时间源。
 - **改动**：
@@ -192,16 +217,16 @@ D2 frame context (sceneTime 送入求值阶段, pause/clamp)
 - **验证**：`script/tests/` 新增纯 CPU 单测（不进样本门）：单调性、暂停冻结、恢复不补长帧、clamp 边界。
 - **验收**：既有 45 样本的 particle/puppet/sprite 运行结果与 `daa6936` 逐项一致（本批不得产生任何视觉差异）。
 
-### T1 Timeline IR（无损解析，不执行）
+### T1 Timeline IR（无损解析，不执行）— 已完成
 
 - **目标**：把 48 个 animation 无损进 IR，并对未知形态 fail-closed。
-- **改动**：新增 `SceneTimelineAnimation` / `SceneTimelineLane` / `SceneTimelineKeyframe` / `SceneTimelineOptions` 结构；在 `SceneDocument` 解析宿主属性时保留 animation；`SceneRenderDescriptor` 增加 `timelines` 与 `timelineDiagnostics`；interpretation format 升 v30。
+- **改动**：新增 `SceneTimelineAnimation` / `SceneTimelineLane` / `SceneTimelineKeyframe` / `SceneTimelineOptions` 结构；在 `SceneDocument` 解析宿主属性时保留 animation；`SceneRenderDescriptor` 增加 `timelines` 与 `timelineDiagnostics`。当批仍沿用派生格式 v29；该交换层后来由 `a77b875` 删除，不再存在播放文件升版欠账。
 - **必须保真**：`frame`、`value`、`front/back` 的 `enabled/x/y`、`lockangle`、`locklength`、`fps`、`length`、`mode`、`startpaused`、`wraploop`、`relative`、lane 顺序、宿主 JSON 路径。`previewvalue` 单独保存并标记为不可消费。
 - **fail-closed**：未知 `mode`、非有限数值、`frame` 逆序、lane 数不匹配目标类型、同一 target 重复动画 —— 全部记诊断且不产出 target definition。
 - **验证**：11 个含 Timeline 样本 + 3 个不含 Timeline 的样本（确认零误报）；矩阵新增 `expected_timeline_count` / `expected_timeline_lane_count` / `expected_timeline_diagnostic_count`。
 - **验收**：48 个 animation 全部进 IR；`animation` 字段的 canonical re-encode 与作者原文逐字段等价；**本批不改变任何一帧画面**。
 
-### T2 evaluator + 已有 consumer 目标（第一个可见批次）
+### T2 evaluator + 已有 consumer 目标（第一个可见批次）— 已完成
 
 - **目标**：layer `alpha`（5）与 `effectConstant`（23）两类共 **28** 处 Timeline 真正驱动画面。
 - **改动**：
@@ -258,7 +283,7 @@ D2 frame context (sceneTime 送入求值阶段, pause/clamp)
 按 `AGENTS.md` 第 6 节的两层矩阵口径：
 
 - **T0**：纯 CPU 单测 + 固定 13 门（证明零视觉变化）。
-- **T1**：11 个含 Timeline 样本 + 3 个反例样本；解析层改动触及 interpretation format，需刷新完整矩阵合同。
+- **T1**：11 个含 Timeline 样本 + 3 个反例样本；解析字段需同步 typed runtime input、Debug evidence 与矩阵合同。
 - **T2**：4 个定向样本（含 1 个负门）+ 固定 13 门。
 - **T3**：4 个定向样本 + 固定 13 门 + **完整 45 门**（触碰公共 transform 路径）。
 - **T4**：2 个定向样本 + 固定 13 门。
@@ -273,8 +298,8 @@ D2 frame context (sceneTime 送入求值阶段, pause/clamp)
 | `relative` 语义猜错，导致旋转/位移叠加到错误基准 | T2 对 `relative` fail-closed，推迟到 T3 与视觉证据一起验证 |
 | `worldFramesByLayerID` 改为逐帧后性能回退 | T3 要求实测耗时增量，且只对存在动态写入的层及其父链失效 |
 | 无 VM 时对 `startpaused`/script 驱动的动画误自动播放 | `2067939514` 固定为负门，首末帧像素必须一致 |
-| Timeline target 与 user property 写同一 target 造成抖动 | resolver 已有固定优先级（timeline > userProperty），T2 需补一个双写 target 的定向断言 |
-| interpretation format 升版影响完整矩阵 | T1 单独一批提交并刷新矩阵合同，不与 T2 混提交 |
+| Timeline target 与 user property 写同一 target 造成抖动 | resolver 固定优先级为 timeline > userProperty；`test_scene_timeline_runtime.py` 已锁共享 target 最终 source 为 `.timeline` |
+| Debug evidence schema 变化影响完整矩阵 | schema 迁移单独刷新两层矩阵，不与 Timeline 执行语义混提交；生产播放不读取 evidence |
 
 ## 7. 与并行开发的边界
 
@@ -284,10 +309,23 @@ D2 frame context (sceneTime 送入求值阶段, pause/clamp)
 
 ## 8. 待补的仓库入口
 
-以下条目在对应批次落地后补写，本文不预先声明：
+已随 2026-07-27 文档收口更新：
 
-1. `semantics/coverage-ledger.md` 的 `Timeline runtime` 行与 §6.1「Timeline 与 SceneScript」表的等级刷新。
-2. `semantics/runtime-input-property-coverage.md` §4 各表「当前事实」列。
-3. `semantics/runtime-evidence-index.md` 新增 `E-TIMELINE` 证据锚点。
-4. `semantics/official-page-map.md` 中 `TIMELINE-001..004` 的归属状态。
-5. `scene-capability-development-plan-2026-07-22.md` 第 8 节批次索引。
+1. `semantics/coverage-ledger.md` 的 `Timeline runtime` 行与 §6.1 表——后者按子能力拆成
+   9 行，Loop/Single/start-paused 为 `L3`，Mirror 为 `L2`（语料 0 命中），tangent/wrap-loop/
+   `relative`/Combined 为 `L1`，Animation Event 仍 `L0`。
+2. `semantics/runtime-input-property-coverage.md` §4.1–4.3 的「当前事实」列。
+3. `semantics/runtime-evidence-index.md` 新增 [E-TIMELINE](semantics/runtime-evidence-index.md#e-timeline)。
+4. `semantics/capability-dependency-map.md` 的 D10 Timeline 行。
+
+`semantics/official-page-map.md` **不需要改**：该表是「官方页面 → 本地合同」的映射，没有状态列，
+`TIMELINE-001..004` 的指向未变。本文先前把它列进待补入口是多余的。
+
+`scene-capability-development-plan-2026-07-22.md` 第 8 节已补 Timeline、Audio、legacy Effect、Tint mask 与 Godrays 批次索引。
+
+后续基础设施收口：
+
+5. **播放输入与矩阵合同已解耦**。`a77b875` 删除了生产链路的派生解释文件 writer/reader，
+   `timelines`、`timelineDiagnostics` 与其他 typed descriptor 字段现在只在内存
+   `SceneRuntimeInput` 中传给 renderer。两层矩阵改锁 Debug runtime evidence schema 1；
+   evidence 只写入显式目录且不作为播放输入，因此 Timeline 字段变化不再需要 bump 私有播放文件版本。

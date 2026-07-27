@@ -2,7 +2,7 @@
 
 > 状态：现役架构入口
 >
-> 最近核对：2026-07-25
+> 最近核对：2026-07-27
 >
 > 本页只维护依赖与完成门；精确当前提交、报告和测试总数统一见 [总覆盖台账](coverage-ledger.md) 与 [运行证据索引](runtime-evidence-index.md)。
 >
@@ -42,7 +42,7 @@ D3 + D4 + D5 + D6 + D7 + D8
 |---|---|---|
 | project/scene/PKG/TEX/resource ingest | 常见子集 `L3` | version、case、duplicate、symlink、损坏和 VFS golden |
 | object/content/effect/material/particle/script source preservation | 混合 `L0-L3` | raw + typed round-trip；未知字段可诊断，不静默丢失 |
-| derived renderer input | interpretation v25；继承 v24 attachment frame，并增加 authored Puppet animation layer 声明；当前每次解包都会重建，JSON 仍被同进程播放链写入后立即读回，不构成可复用缓存 | 保留 typed interpretation；播放改为内存对象直传，JSON 降为可选诊断证据。若以后恢复复用，必须增加 package/source/compiler identity，而不只校验 version/entry |
+| typed renderer input | `a77b875` 起宿主接收原始项目目录与属性覆盖，解析后直接构建内存 `SceneRuntimeInput`；生产播放不再生成或读取私有解释 JSON/preview log | 已闭合：Debug 结构证据只写入显式 evidence directory 的 `scene-runtime-evidence.json`（schema 1），不作为播放输入；固定 13 样本 raw-root 门 13/13 |
 
 <a id="d1"></a>
 ### D1 Stable identity and dependency graph
@@ -92,7 +92,8 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
 | pointer position/buttons/events | position 极窄子集 | world/layer/effect local 变换、button queue、同帧顺序 |
-| audio 16/32/64 stereo bins | `L0` | injectable producer、按需注册、无消费者停采集 |
+| audio 16 stereo bins | `L3` | 已闭合：injectable producer、按 consumer 存在性注册、无消费者停采集并归零 |
+| audio 32/64 stereo bins | `L0` | stock effect 不用；随 SceneScript 与 workshop shader 前置一并欠账 |
 | media state/properties/timeline/thumbnail | identity `L1`、runtime `L0` | generation、取消旧 decode、事件与纹理同代 |
 | user/general/animation events | `L0` | per-screen queue、owner isolation、异常隔离 |
 
@@ -110,7 +111,7 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| ordered nodes、target/bind/compose/copy/swap | 通用 IR/runtime `L2`；十一类 strict backend 已按作者顺序消费 target table，真实 chain 覆盖 `Blur Precise -> Shadow`、Blur/Shake 双向顺序、Foliage Sway/Water Ripple、重复 Water Waves、`Water Flow -> Opacity` 与 X-Ray 受限前缀；Precise Blur 的 `material -> copy/swap -> material` 两种白名单拓扑可按 authored nodeIndex 交错执行并达到受限 `L3` | 真实 history consumer、compose/condition/function、跨帧 logical swap 与通用 hazard |
+| ordered nodes、target/bind/compose/copy/swap | 通用 IR/runtime `L2`；十四类 strict backend 已按作者顺序消费 target table，真实 chain 覆盖 `Blur Precise -> Shadow`、Blur/Shake 双向顺序、Foliage Sway/Water Ripple、重复 Water Waves、`Water Flow -> Opacity`、X-Ray 受限前缀与 `[Blur Precise, God Rays]`；God Rays 双 half RT 让混合链预算按 target extent 折算，Precise Blur 的 `material -> copy/swap -> material` 两种白名单拓扑仍按 authored nodeIndex 交错执行 | 真实 history consumer、compose/condition/function、跨帧 logical swap 与通用 hazard |
 | extent/format/clear/UV/unique | strict Blur 的 input/BGRA 与 stock Local Contrast 的 scale=4/RGBA target 子集为 `L3`；generic table 的其他形态仍为 `L2` | 其余 format-to-Metal、mapped size、sampler、load/store 和跨帧 reset |
 | history/ping-pong | `L0` | first frame、resize、seek、switch、stop 和 memory budget |
 
@@ -137,18 +138,18 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 <a id="d9"></a>
 ### D9 Generic 2D execution layer
 
-这一层只消费 `D0-D8` 的统一合同：base layer compositor、generic material/pass executor、effect profile registry、particle geometry/material、text texture generation。`b541867` 已完成有界的 ordered strict effect-chain 调度，`809b75e`、`e505a9e`、`31ae557` 与 `94aebc5` 分别闭合 Blur/Shadow、Blur/Shake、重复 Water Waves 与 `Water Flow -> Opacity` 真实 chain；它们都只连接 catalog 中每个 stage 均有严格 backend 的链，不能替代 generic material/pass executor，也不能升级官方 Shadow/lighting 或动态 effect variants。若某项需要在 renderer 内重新解析 JSON、猜 effect 名称、重新决定属性优先级或自行保存 history，说明底座仍有缺口，应回到对应 D 层修复。
+这一层只消费 `D0-D8` 的统一合同：base layer compositor、共享 material pass executor、effect profile registry、particle geometry/material、text texture generation。当前共享层仍是目标，而不是已经完成的事实；`b541867` 已完成有界的 ordered strict effect-chain 调度，`809b75e`、`e505a9e`、`31ae557` 与 `94aebc5` 分别闭合 Blur/Shadow、Blur/Shake、重复 Water Waves 与 `Water Flow -> Opacity` 真实 chain，但它们都只连接 catalog 中每个 stage 均有严格 backend 的链，不能替代 generic material/pass executor，也不能升级官方 Shadow/lighting 或动态 effect variants。若某项需要在 renderer 内重新解析 JSON、猜 effect 名称、重新决定属性优先级或自行保存 history，说明底座仍有缺口，应回到对应 D 层修复。
 
 <a id="d10"></a>
 ### D10 System runtimes
 
 | Runtime | 前置依赖 | 最小闭环 |
 |---|---|---|
-| Timeline | D2 + D3 | lossless IR、Loop/Mirror/Single、tangent、event crossing、typed writes |
+| Timeline | D2 + D3 | lossless IR、绝对 scene-time evaluator（Loop/Single 已真实执行，Mirror 有 evaluator 但语料 0 命中）与 typed writes 已完成，真实执行 28/48（effect constant + layer alpha，经既有 per-surface transaction 与 `.timeline` 优先级写回）；tangent 只保真不消费、插值走线性，`relative`/wrap-loop/Combined 分组/event crossing 与 layer transform、粒子 `instanceoverride` 目标仍待推进 |
 | SceneScript | D2 + D3 + D4 + D5 | source/binding IR、sandbox VM、lifecycle、typed writes、budget |
 | dynamic text | D3 + D5 + D9 | direct property 子集已完成 per-layer generation、stale cancellation、last-ready；SceneScript/system/media producer 与 layout fidelity仍待推进 |
 | particle breadth | D2 + D3 + D4 + D5 + D8 + D9 | control point、child/event、world space、rope、audio、collision |
-| audio/media | D4 + D5 | injectable inputs、event ordering、provider generation、teardown |
+| audio/media | D4 + D5 | audio 侧已闭合 injectable inputs 与 teardown（16 档，consumer 驱动）；media 侧的 event ordering 与 provider generation 仍未开始 |
 
 <a id="d11"></a>
 ### D11 Fidelity and advanced runtimes
@@ -183,7 +184,7 @@ F0 完成后才开始下一轮代码。F1/F2 优先级由公共依赖决定，�
 
 ## 6. 下次会话的决策顺序
 
-1. B0 live-property、direct dynamic text、B2 target-table、十一类 strict backend、ordered strict chain、同帧 copy/swap、受限 history seed、Precise Blur material-command interleave、pointer-driven X-Ray、Puppet、strict particle child（层级 ≤ 2，per-depth 64/跨两层 128 systems 预算）、root child aggregate budget、有限 static origin、stock TEX resolver、22-key bundle-missing fallback、非音频 turbulent velocity、BC premultiply、静态 authored 首帧 fallback，以及 REFRACT fail-closed 已合龙。当前实现基线为 `b86db59`；`SceneStockAssets.bundle` 已建立 919 个播放候选物理路径，其中 223 TEX 可直接查找、198 个 sidecar 尚未被 runtime 消费；TEX payload 已是真实素材，但逐资产官方 parity 未证明，不能把路径存在写成视觉兼容。下一代码批按 [开发计划](../scene-capability-development-plan-2026-07-22.md) 接通 sidecar metadata 与 spritesheet 序列帧 consumer；共享 material pass executor 继续服从 [Render Graph 覆盖表第 6 节](render-graph-shader-coverage.md) 的 consolidation 判据。
+1. B0 live-property、direct dynamic text、Timeline 受限 typed target、16 档 audio 输入与 stock Shake/Pulse consumer、B2 target-table、十四类 strict backend（含 stock Radial God Rays）、ordered strict chain、同帧 copy/swap、受限 history seed、Precise Blur material-command interleave、pointer-driven X-Ray、Puppet、strict particle child、stock TEX resolver、非音频 turbulent velocity、BC premultiply、静态 authored 首帧 fallback与 REFRACT fail-closed 已合龙。当前实现基线为 `a77b875`；最新 45/13 两层门和未闭合边界见 [运行证据索引](runtime-evidence-index.md)。下一代码批必须重新按 [开发计划](../scene-capability-development-plan-2026-07-22.md) 的依赖与真实样本收益选择；不得从单指纹 God Rays 正门外推 generic shader、Directional/COPYBG 或其他 Effect 兼容。
 2. 打开对应专项表，确认作者启用、输入、当前等级、未知项、依赖和验收门。
 3. 查 [运行证据索引](runtime-evidence-index.md)，确认现有正反例，不重复制造无信息矩阵。
 4. 只实现一个可独立验证的公共合同；涉及 live property 时，compiler target、真实 consumer、fallback 和 surface/window identity 必须同批验收，目标样本和相关样本通过后单独提交。

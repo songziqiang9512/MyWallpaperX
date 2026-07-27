@@ -2,7 +2,7 @@
 
 > 建立日期：2026-07-27
 >
-> 实现基线：`b86db59`（interpretation v29）
+> Audio 计划起点：`b86db59`；当前播放输入边界随 `a77b875` 改为内存 `SceneRuntimeInput`
 >
 > 作用：定义 Scene 音频频谱从当前 `L0/L1` 到可运行、可诊断、fail-closed 最小闭环的实施顺序、样本门与验收标准。
 >
@@ -53,7 +53,7 @@ audioResponse = saturate(pow(audioResponse, power)) * multiply
 
 ### 1.3 真实样本 census（45 样本隔离缓存，只读扫描）
 
-只统计作者 `scene.json` 中 `AUDIOPROCESSING != 0` 与 particle `audioprocessingmode != 0`，排除 stock shader 自带的 `[COMBO]` 声明和我们自己生成的 interpretation 文件：
+只统计作者 `scene.json` 中 `AUDIOPROCESSING != 0` 与 particle `audioprocessingmode != 0`，排除 stock shader 自带的 `[COMBO]` 声明和当时由工具生成的派生解释文件：
 
 | 类别 | 样本数 | 处数 | 分布 |
 |---|---:|---:|---|
@@ -147,7 +147,7 @@ D4 Input snapshots ────┘        │
 |---|---|---|
 | 16/32/64 三档分辨率 | **只做 16 档** | census 显示 effect 侧 stock shader 只用 `g_AudioSpectrum16*`；32/64 仅出现在 workshop 自定义 shader 与 SceneScript `registerAudioBuffers`，两者前置均未闭合。预留档位属于预埋扩展点 |
 | 折进 `SceneFrameContext`、host 每帧采样 | **不改 `SceneFrameContext`、不改 `SceneDesktopWallpaperHost`、不改 renderer 签名** | A0 无任何消费者，加一个没人读的字段是预埋。数据流终点定在 `SceneAudioSpectrumInbox`（Scene Runtime 侧），A2 接第一个 consumer 时再决定按帧采样的接法 |
-| demand 由 scene 内容自动判定 | **默认关闭，由 `setDemand(_:)` 显式驱动** | `SceneRenderDescriptor` 不携带 `supportsAudioProcessing`，取它要 bump interpretation format；且 `supportsaudioprocessing` 与真实 audio 声明只部分重叠（45 样本中 12 个为 true，与 11 个 effect-audio 样本互有出入），不是可靠的 consumer 信号。A0 无消费者时自动开启采集只会白占系统音频权限 |
+| demand 由 scene 内容自动判定 | **默认关闭，由 `setDemand(_:)` 显式驱动** | `supportsaudioprocessing` 与真实 audio 声明只部分重叠（45 样本中 12 个为 true，与 11 个 effect-audio 样本互有出入），不是可靠的 consumer 信号；A0 无消费者时自动开启采集只会白占系统音频权限。播放输入已是内存对象，不再存在为了该字段 bump 私有文件格式的约束 |
 
 **落地位置**
 
