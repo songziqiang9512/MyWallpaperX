@@ -229,7 +229,32 @@ D4 Input snapshots ────┘        │
 - 非音频路径需要 `util/noise` 纹理与 `g_NoiseSpeed`/`g_NoiseAmount`；stock bundle 已有该资源路径，按现有 resolver 消费，缺失则 fail closed。
 - 按 [Render Graph 覆盖表第 6 节](semantics/render-graph-shader-coverage.md) 的 consolidation 判据：**这是"下一个新增 strict profile"**，若仍需复制 source capture/uniform 组装/target 绑定/合成提交四段调度代码，则先提取共享 material pass executor 再接本 profile。
 
-**验收门**：正/负/静音/作者关闭四类 + `2974757317` 定向门（完整 45 门内，固定 13 门外）+ 固定 13 门（其中 `2938612768` 含 stock pulse audio）+ 离屏像素门。
+**验收门**：正/负/静音/作者关闭四类 + 固定 13 门 + 离屏像素门。
+
+<a id="a3-actual"></a>
+#### 3.3 A3 实际交付边界
+
+Pulse strict backend 已由 `daa6936` 建成（本计划外的批次），A3 只接 audio 分支。
+
+**profile 归属取证改变了正门样本判断**。按 `pulse.frag` 指纹核对 4 个带 stock pulse audio 声明的样本：
+
+| 样本 | pulse 指纹 | audio 处数 | 结果 |
+|---|---|---:|---|
+| `3768229922` | `stock2842` | 4 | ✅ 唯一正门 |
+| `2419444134` | `legacyDirectPhaseMaxClamp` | 1 | legacy，继续拒绝 |
+| `2938612768` | 未注册 | 1 | 本就 fail closed |
+| `2974757317` | 未注册 | 1 | 本就 fail closed |
+
+计划正文原先把 `2974757317` 当作定向正门，取证后作废——它的 pulse 指纹根本不在注册表内。唯一正门是 `3768229922`（完整 45 门内、固定 13 门外）。
+
+**共享层提取**：audio 常量准入即将被复制第二次时，按 [Render Graph 覆盖表第 6 节](semantics/render-graph-shader-coverage.md) 的 consolidation 判据先提取 `SceneAudioResponseAdmission`，Shake 侧改为薄封装、行为不变（30 项 harness 断言全绿）。`audiobounds` 默认值两 effect 不同（shake `0.0 1.2` / pulse `0.5 1.0`），由各 planner 传入，共享层不内置——测试锁定了这一条。
+
+**两处边界收紧**（比计划更严）：
+
+1. material 层 combo 仍要求 `AUDIOPROCESSING == 0`。语料中 audio 声明只出现在 effect 实例层，material 是经 SHA 校验的 stock 文件，非 0 值即视为异常；
+2. 未启用 audio 时出现 audio 常量继续拒绝。官方 shader 在 `AUDIOPROCESSING == 0` 下根本不声明这些 uniform，出现即为声明不一致。
+
+**同批修复的既有门**：`SceneFrameContext` 与 `encode` 签名变更影响了 `test_scene_frame_context`、`test_scene_shake_rendering`、`test_scene_pulse_rendering`、`test_scene_framebuffer_capture` 四个模块。其中 frame context 的 `renderFrame` 断言原先锁定单行字符串，已改为只锁语义不锁排版——host-shared 输入还会继续增加，锁排版会反复误报。
 
 ---
 
@@ -312,12 +337,14 @@ D4 Input snapshots ────┘        │
 
 ## 4. 等级预期
 
-| 能力 | 当前 | A0 后 | A2/A3/A4 后 |
+| 能力 | 计划前 | 当前实际 | 备注 |
 |---|---|---|---|
-| Audio frame input | `L0` | `L2` | `L3`（受限：无 Windows 数值 golden） |
-| Audio effect consumer | `L0` | `L0` | `L3`（仅 stock shake/pulse exact profile） |
-| Audio particle consumer | `L0` | `L0` | `L3`（仅 3 类组件） |
-| SceneScript AudioBuffers | `L0` | `L0` | `L0` |
+| Audio frame input | `L0` | `L3` | 受限：频段划分与幅度归一化为工程选择，无 Windows 数值 golden |
+| Audio effect consumer | `L0` | `L3` | 仅 stock Shake（`whitePhaseFallback`/`timeOffsetCombo`）与 stock Pulse（`stock2842`）；legacy 指纹与 workshop 自定义 shader 全部 fail closed |
+| Audio particle consumer | `L0` | `L1` | 声明 IR 已修正保真，执行被证据缺口阻断（§3.2） |
+| SceneScript AudioBuffers | `L0` | `L0` | 前置 VM 未闭合 |
+
+覆盖台账、Effect 执行覆盖表与运行证据索引的等级同步尚未进行——这三份文档在并行批次持有期内被列为禁改，需在其收口后单独提交。
 
 **任何批次都不足以升到 `L4`**：16-bin 频率划分、幅度归一化与平滑策略均无官方公开合同，需 V4 Windows golden。文档中不得把"频谱接通"写成"音频可视化兼容"。
 
