@@ -36,11 +36,15 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderExecutionPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderUniformBinder.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderExecutionPlanner.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderPipelineCache.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderRenderer.swift",
 ]
 
 
 HARNESS = r'''
 import Foundation
+import Metal
+import simd
 
 struct SceneDocument {
     struct ShaderValue {
@@ -248,6 +252,129 @@ enum Harness {
         )
     }
 
+    static func render(
+        _ plan: SceneAuthoredShaderExecutionPlan,
+        dimension: Int,
+        device: MTLDevice
+    ) -> [String: Any]? {
+        guard dimension > 0,
+              let queue = device.makeCommandQueue(),
+              let pipelineCache = SceneAuthoredShaderPipelineCache(device: device) else {
+            return nil
+        }
+        let sourceDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm,
+            width: dimension,
+            height: dimension,
+            mipmapped: false
+        )
+        sourceDescriptor.storageMode = .shared
+        sourceDescriptor.usage = [.shaderRead, .renderTarget]
+        let targetDescriptor = sourceDescriptor.copy() as! MTLTextureDescriptor
+        guard let source = device.makeTexture(descriptor: sourceDescriptor),
+              let target = device.makeTexture(descriptor: targetDescriptor),
+              let commandBuffer = queue.makeCommandBuffer() else {
+            return nil
+        }
+        let inputBytes = [UInt8](
+            repeating: 255,
+            count: dimension * dimension * 4
+        )
+        inputBytes.withUnsafeBytes { bytes in
+            guard let baseAddress = bytes.baseAddress else { return }
+            source.replace(
+                region: MTLRegionMake2D(0, 0, dimension, dimension),
+                mipmapLevel: 0,
+                withBytes: baseAddress,
+                bytesPerRow: dimension * 4
+            )
+        }
+        let size = CGSize(width: dimension, height: dimension)
+        let mvp = simd_float4x4(columns: (
+            SIMD4(2 / Float(dimension), 0, 0, 0),
+            SIMD4(0, 2 / Float(dimension), 0, 0),
+            SIMD4(0, 0, 1, 0),
+            SIMD4(0, 0, 0, 1)
+        ))
+        let inputs = SceneAuthoredShaderUniformInputs(
+            renderSize: size,
+            screenSize: CGSize(width: 1920, height: 1080),
+            modelViewProjection: mvp,
+            sceneTime: 1,
+            dayTime: 0.5,
+            frameTime: 1.0 / 60.0,
+            pointerCurrentNDC: .zero,
+            pointerPreviousNDC: .zero,
+            texturePhysicalSizes: Dictionary(
+                uniqueKeysWithValues: plan.framebufferTextureSlots.map { ($0, size) }
+            )
+        )
+        guard SceneAuthoredShaderRenderer.encode(
+            plan: plan,
+            source: source,
+            target: target,
+            inputs: inputs,
+            pipelineCache: pipelineCache,
+            commandBuffer: commandBuffer
+        ) else {
+            return nil
+        }
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else { return nil }
+
+        var output = [UInt8](repeating: 0, count: dimension * dimension * 4)
+        target.getBytes(
+            &output,
+            bytesPerRow: dimension * 4,
+            from: MTLRegionMake2D(0, 0, dimension, dimension),
+            mipmapLevel: 0
+        )
+        let rgb = output.enumerated().compactMap { index, value in
+            index % 4 == 3 ? nil : Int(value)
+        }
+        return [
+            "minimumRGB": rgb.min() ?? 0,
+            "maximumRGB": rgb.max() ?? 0,
+            "distinctRGB": Set(rgb).count,
+            "averageRGB": rgb.reduce(0, +) / max(1, rgb.count),
+            "alphaMinimum": output.enumerated().compactMap {
+                $0.offset % 4 == 3 ? Int($0.element) : nil
+            }.min() ?? 0,
+            "compilationAttempts": pipelineCache.compilationAttemptCount,
+        ]
+    }
+
+    static func failureIsCached(
+        _ plan: SceneAuthoredShaderExecutionPlan,
+        device: MTLDevice
+    ) -> Bool {
+        guard let cache = SceneAuthoredShaderPipelineCache(device: device) else {
+            return false
+        }
+        let original = plan.program
+        let invalidProgram = SceneAuthoredShaderProgram(
+            metalSource: "this is not metal source",
+            vertexFunctionName: original.vertexFunctionName,
+            fragmentFunctionName: original.fragmentFunctionName,
+            uniformLayout: original.uniformLayout,
+            textureBindings: original.textureBindings,
+            staticLoopWork: original.staticLoopWork
+        )
+        let invalid = SceneAuthoredShaderExecutionPlan(
+            cacheKey: plan.cacheKey,
+            program: invalidProgram,
+            mappedSize: plan.mappedSize,
+            framebufferTextureSlots: plan.framebufferTextureSlots,
+            uniformBindings: plan.uniformBindings
+        )
+        return cache.pipeline(for: invalid) == nil
+            && cache.pipeline(for: invalid) == nil
+            && cache.entryCount == 1
+            && cache.failedEntryCount == 1
+            && cache.compilationAttemptCount == 1
+    }
+
     static func main() throws {
         let realRoot = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let syntheticRoot = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
@@ -266,7 +393,14 @@ enum Harness {
         let rejectedOptions = [
             external, combo, bound, userShader, alphaWriting, blending, missingSize, video,
         ]
-        let result: [String: Bool] = [
+        let device = MTLCreateSystemDefaultDevice()
+        let genericPixels = generic.flatMap { plan in
+            device.flatMap { render(plan, dimension: 4, device: $0) }
+        }
+        let realPixels = real.flatMap { plan in
+            device.flatMap { render(plan, dimension: 32, device: $0) }
+        }
+        let result: [String: Any] = [
             "genericAccepted": generic != nil,
             "genericContractPreserved": generic.map {
                 $0.framebufferTextureSlots == [0]
@@ -308,6 +442,12 @@ enum Harness {
                 root: syntheticRoot,
                 blocker: true
             ) == nil,
+            "genericPixels": genericPixels ?? NSNull(),
+            "realPixels": realPixels ?? NSNull(),
+            "compileFailureCached": generic.map {
+                guard let device else { return false }
+                return failureIsCached($0, device: device)
+            } ?? false,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -402,7 +542,24 @@ class SceneAuthoredShaderExecutionPlannerTests(unittest.TestCase):
             )
 
         result = json.loads(completed.stdout)
-        self.assertTrue(all(result.values()), result)
+        boolean_contracts = {
+            key: value for key, value in result.items()
+            if key not in {"genericPixels", "realPixels"}
+        }
+        self.assertTrue(all(boolean_contracts.values()), result)
+        generic_pixels = result["genericPixels"]
+        self.assertIsInstance(generic_pixels, dict, result)
+        self.assertEqual(generic_pixels["minimumRGB"], 191, result)
+        self.assertEqual(generic_pixels["maximumRGB"], 191, result)
+        self.assertEqual(generic_pixels["alphaMinimum"], 255, result)
+        self.assertEqual(generic_pixels["compilationAttempts"], 1, result)
+        real_pixels = result["realPixels"]
+        self.assertIsInstance(real_pixels, dict, result)
+        self.assertGreater(real_pixels["maximumRGB"], 0, result)
+        self.assertGreater(real_pixels["distinctRGB"], 1, result)
+        self.assertLess(real_pixels["averageRGB"], 250, result)
+        self.assertEqual(real_pixels["alphaMinimum"], 255, result)
+        self.assertEqual(real_pixels["compilationAttempts"], 1, result)
 
 
 if __name__ == "__main__":

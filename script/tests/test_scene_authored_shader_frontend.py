@@ -303,6 +303,21 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         )
         self.assertEqual(output["diagnosticCodes"], ["stageLinkMismatch"])
 
+    def test_uniform_upload_budget_fails_closed(self):
+        declarations = "\n".join(
+            f"uniform vec4 u_Value{index};" for index in range(300)
+        )
+        output = self.compile(
+            VERTEX_SOURCE,
+            f"""
+            {declarations}
+            varying vec2 v_TexCoord;
+            void main() {{ gl_FragColor = vec4(v_TexCoord, 0.0, 1.0); }}
+            """,
+            metal=False,
+        )
+        self.assertEqual(output["diagnosticCodes"], ["invalidUniformLayout"])
+
     def test_isolated_314_shader_enters_the_same_frontend(self):
         cache = sample_cache_root("3141421197")
         vertex = cache / "shaders/effects/myfirstshader.vert"

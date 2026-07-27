@@ -219,6 +219,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
         }
         let remainder = offset % 16
         if remainder != 0 { offset += 16 - remainder }
+        guard offset <= 4_096 else { return nil }
         return .init(fields: fields, byteSize: offset)
     }
 }
