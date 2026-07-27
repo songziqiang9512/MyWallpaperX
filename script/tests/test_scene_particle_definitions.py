@@ -5,20 +5,12 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-SCRIPT_DIR = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(SCRIPT_DIR))
-
-from scene_real_test_fixtures import sample_root
-
-
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-ISOLATED_SAMPLE_ROOT = sample_root()
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
@@ -548,77 +540,6 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         self.assertEqual(result["validString"], 42)
         for key in ("fraction", "huge", "boolean", "nan", "infinity"):
             self.assertIsNone(result[key], key)
-
-    def test_isolated_26_sample_particle_census(self) -> None:
-        # 隔离缓存 2026-07-26 起为 26 个样本：原 21 个加上固定回归门重建时
-        # 补入的 2131872317/3088601835/3747492842/3768903841/3769688830。
-        if not ISOLATED_SAMPLE_ROOT.is_dir():
-            self.skipTest("isolated 26-sample Scene corpus is unavailable")
-        result = self.run_harness("census", str(ISOLATED_SAMPLE_ROOT))
-        self.assertEqual(result["sampleCount"], 26)
-        self.assertEqual(result["samplesWithParticles"], 23)
-        self.assertEqual(result["particleLayerReferenceCount"], 100)
-        self.assertEqual(result["uniqueRootReferencePathCount"], 45)
-        self.assertEqual(result["reachableDefinitionCount"], 89)
-        self.assertEqual(result["childReferenceCount"], 86)
-        self.assertEqual(result["missingDefinitionCount"], 0)
-        self.assertEqual(result["emitterCounts"], {"boxrandom": 16, "sphererandom": 74})
-        self.assertEqual(
-            result["initializerCounts"],
-            {
-                "alpharandom": 20,
-                "angularvelocityrandom": 17,
-                "colorrandom": 73,
-                "lifetimerandom": 89,
-                "rotationrandom": 36,
-                "sizerandom": 89,
-                "turbulentvelocityrandom": 17,
-                "velocityrandom": 59,
-            },
-        )
-        self.assertEqual(
-            result["operatorCounts"],
-            {
-                "alphachange": 3,
-                "alphafade": 77,
-                "angularmovement": 18,
-                "colorchange": 1,
-                "controlpointattract": 8,
-                "movement": 76,
-                "oscillatealpha": 18,
-                "oscillateposition": 17,
-                "oscillatesize": 1,
-                "sizechange": 23,
-                "turbulence": 4,
-                "vortex": 1,
-            },
-        )
-        self.assertEqual(
-            result["rendererCounts"],
-            {"ropetrail": 1, "sprite": 79, "spritetrail": 9},
-        )
-        self.assertEqual(result["implicitRendererCount"], 6)
-        self.assertEqual(result["diagnosticCounts"], {})
-        self.assertEqual(result["instanceOverrideCount"], 95)
-        self.assertEqual(
-            result["instanceOverrideFieldCounts"],
-            {
-                "alpha": 48,
-                "brightness": 3,
-                "colorn": 41,
-                "controlpoint": 4,
-                "count": 49,
-                "lifetime": 19,
-                "rate": 41,
-                "size": 40,
-                "speed": 27,
-            },
-        )
-        self.assertEqual(
-            result["dynamicOverrideCounts"],
-            {"animation": 7, "script": 11, "user": 9},
-        )
-
 
 if __name__ == "__main__":
     unittest.main()

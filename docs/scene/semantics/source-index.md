@@ -180,7 +180,7 @@ https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/<Name>.htm
 Wallpaper Engine 2.8.42 / Steam build `23967692` 的历史结构化取证记录在：
 
 - [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md)：stock Effect、Material、TEX/3D LUT、MDL、粒子预览/预设、默认项目和 compiled blob census。
-- [stock 播放资产包](stock-asset-bundle.md)：官方 2.8.42 `assets/**` 的 3,113 项全库存经固定分类后，919 个播放候选路径在 `SceneStockAssets.bundle` 建立项目自有占位；2,194 个 preset/preview/example/editor/thumbnail/source-only 文件明确排除。包内有 223 TEX、198 sidecar、根级 Effect/Material/Shader/Script/zcompat 路径和 15 个官方命名字体；Particle slot 0 与字体 consumer 已直接按路径接入，其余 consumer 不因物理文件存在而升级。
+- [stock 资产包](stock-asset-bundle.md)：`SceneStockAssets.bundle` 按官方相对路径保存 Scene 资源，不区分播放、编辑器或 preview 资产，也不设目录级库存门。Particle slot 0 与字体 consumer 已直接按路径接入；其余 consumer 不因物理文件存在而升级。
 - [SceneScript 运行时实现层合同](scenescript-runtime-implementation-contract.md)：随包 Vec/Mat、宿主桥、用户属性转换、自定义 script property builder 和官方 JS module 行为。
 - [SceneScript binding target 取证](scenescript-binding-target-forensics.md)：13 处内联脚本 wrapper、owner/target、authored value 与导出 hook 的静态输入合同。
 - [官方默认工程 corpus](official-default-projects-fixture-inventory.md)：19 个随包工程的入口形态，以及 16 个 scene-shaped 工程的对象、相机、Effect、纹理、模型、粒子与 shader cache 输入清单。

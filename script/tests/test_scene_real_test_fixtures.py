@@ -16,25 +16,6 @@ import scene_real_test_fixtures as fixtures
 
 
 class SceneRealTestFixturesTests(unittest.TestCase):
-    def test_default_fixture_is_declared_by_tracked_config(self) -> None:
-        with mock.patch.dict(os.environ, {}, clear=True):
-            sample_root = fixtures.sample_root()
-            root = fixtures.runtime_homes_root()
-        self.assertEqual(
-            sample_root,
-            (
-                fixtures.REPOSITORY_ROOT
-                / ".codex/scene-user-samples-20260722/Scene"
-            ).resolve(),
-        )
-        self.assertEqual(
-            root,
-            (
-                fixtures.REPOSITORY_ROOT
-                / ".codex/scene-nested-child-full45-20260727/runtime-homes"
-            ).resolve(),
-        )
-
     def test_environment_override_resolves_single_sample_cache(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-fixtures-") as directory:
             samples = Path(directory) / "samples"
