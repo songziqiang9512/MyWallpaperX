@@ -1398,6 +1398,31 @@ utility layer 763: skippedHidden kind=composition
             ),
         )
 
+    def test_authored_procedural_noise_count_is_an_exact_gate(self) -> None:
+        preview = "authoredEffectGraphProceduralNoiseCount: 3\n"
+        count = benchmark.authored_effect_graph_procedural_noise_count(preview)
+        self.assertEqual(count, 3)
+        self.assertEqual(
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_procedural_noise_count": 3},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                procedural_noise_count=count,
+            ),
+            [],
+        )
+        self.assertIn(
+            "authored effect graph Procedural Noise count mismatch",
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_procedural_noise_count": 0},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                procedural_noise_count=count,
+            ),
+        )
+
     def test_authored_shake_count_is_an_exact_gate(self) -> None:
         preview = "authoredEffectGraphShakeCount: 3\n"
         count = benchmark.authored_effect_graph_shake_count(preview)

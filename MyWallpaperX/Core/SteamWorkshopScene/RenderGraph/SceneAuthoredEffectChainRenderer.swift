@@ -206,6 +206,19 @@ enum SceneAuthoredEffectChainRenderer {
                 time: time,
                 commandBuffer: commandBuffer
             )
+        case .proceduralNoise(let noise):
+            return renderProceduralNoise(
+                noise,
+                sourceTexture: sourceTexture,
+                masks: masks,
+                auxMask: auxMask,
+                targets: targets,
+                sourceUniforms: sourceUniforms,
+                pipeline: pipeline,
+                noisePipeline: pipelines.proceduralNoise,
+                time: time,
+                commandBuffer: commandBuffer
+            )
         case .shake(let shake):
             guard let resources = masks.shakeEffects[shake.effectKey.descriptorID],
                   targets.plan.logicalTargets.isEmpty,

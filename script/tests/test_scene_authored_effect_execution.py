@@ -136,6 +136,8 @@ struct SceneWorkshopShiftHueExecutionPlan: Sendable {}
 struct SceneWorkshopAudioBarsExecutionPlan: Sendable {}
 struct SceneWorkshopGradientExecutionPlan: Sendable {}
 struct SceneWorkshopAudioHueShiftExecutionPlan: Sendable {}
+struct SceneSpinExecutionPlan: Sendable {}
+struct SceneProceduralNoiseExecutionPlan: Sendable {}
 
 enum SceneAuthoredOpacityPlanner {
     static func plan(
@@ -210,6 +212,28 @@ enum SceneAuthoredWorkshopShadowPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneWorkshopShadowExecutionPlan? {
+        nil
+    }
+}
+
+enum SceneAuthoredSpinPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneSpinExecutionPlan? {
+        nil
+    }
+}
+
+enum SceneAuthoredProceduralNoisePlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneProceduralNoiseExecutionPlan? {
         nil
     }
 }
@@ -926,6 +950,8 @@ enum Harness {
             case .workshopGradient: backend = "workshopGradient"
             case .workshopAudioHueShift: backend = "workshopAudioHueShift"
             case .workshopShadow: backend = "workshopShadow"
+            case .spin: backend = "spin"
+            case .proceduralNoise: backend = "proceduralNoise"
             case .shake: backend = "shake"
             case .waterFlow: backend = "waterFlow"
             case .waterWaves: backend = "waterWaves"

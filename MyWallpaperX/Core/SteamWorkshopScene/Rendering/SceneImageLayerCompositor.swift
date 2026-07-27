@@ -18,6 +18,7 @@ struct SceneImageLayerCompositor {
               let audioBarsPipeline = SceneWorkshopAudioBarsPipeline(device: device),
               let workshopGradientPipeline = SceneWorkshopGradientPipeline(device: device),
               let spinPipeline = SceneSpinPipeline(device: device),
+              let proceduralNoisePipeline = SceneProceduralNoisePipeline(device: device),
               let workshopShadowPipeline = SceneWorkshopShadowPipeline(device: device),
               let shakePipeline = SceneShakePipeline(device: device),
               let waterFlowPipeline = SceneWaterFlowPipeline(device: device),
@@ -43,6 +44,7 @@ struct SceneImageLayerCompositor {
             workshopGradient: workshopGradientPipeline,
             workshopShadow: workshopShadowPipeline,
             spin: spinPipeline,
+            proceduralNoise: proceduralNoisePipeline,
             shake: shakePipeline,
             waterFlow: waterFlowPipeline,
             waterWaves: waterWavesPipeline,
@@ -285,6 +287,7 @@ struct SceneImageLayerCompositor {
                             commandBuffer: commandBuffer
                         )
                     case .foliageSway, .waterRipple, .xRay, .tint, .pulse, .godrays, .spin,
+                         .proceduralNoise,
                          .colorKey, .workshopShiftHue, .workshopAudioBars, .workshopGradient, .workshopAudioHueShift:
                         return nil
                     }

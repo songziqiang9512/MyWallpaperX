@@ -53,6 +53,10 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         stages.filter { $0.spin != nil }.count
     }
 
+    var proceduralNoiseCount: Int {
+        stages.filter { $0.proceduralNoise != nil }.count
+    }
+
     var shakeCount: Int {
         stages.filter { $0.shake != nil }.count
     }

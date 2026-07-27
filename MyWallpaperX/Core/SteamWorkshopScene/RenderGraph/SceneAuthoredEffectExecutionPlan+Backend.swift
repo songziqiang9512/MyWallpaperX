@@ -13,6 +13,7 @@ extension SceneAuthoredEffectExecutionPlan {
         case workshopAudioHueShift(SceneWorkshopAudioHueShiftExecutionPlan)
         case workshopShadow(SceneWorkshopShadowExecutionPlan)
         case spin(SceneSpinExecutionPlan)
+        case proceduralNoise(SceneProceduralNoiseExecutionPlan)
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
@@ -76,6 +77,11 @@ extension SceneAuthoredEffectExecutionPlan {
 
     nonisolated var spin: SceneSpinExecutionPlan? {
         guard case .spin(let plan) = backend else { return nil }
+        return plan
+    }
+
+    nonisolated var proceduralNoise: SceneProceduralNoiseExecutionPlan? {
+        guard case .proceduralNoise(let plan) = backend else { return nil }
         return plan
     }
 

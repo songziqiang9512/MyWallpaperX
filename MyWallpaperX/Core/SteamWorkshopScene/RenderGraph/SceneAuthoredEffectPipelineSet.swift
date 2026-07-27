@@ -11,6 +11,7 @@ struct SceneAuthoredEffectPipelineSet {
     let workshopGradient: SceneWorkshopGradientPipeline
     let workshopShadow: SceneWorkshopShadowPipeline
     let spin: SceneSpinPipeline
+    let proceduralNoise: SceneProceduralNoisePipeline
     let shake: SceneShakePipeline
     let waterFlow: SceneWaterFlowPipeline
     let waterWaves: SceneWaterWavesPipeline

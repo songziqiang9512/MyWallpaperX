@@ -121,6 +121,18 @@ extension SceneAuthoredEffectChainPlanner {
         ) {
             return stage(.spin(spin), stageGraph: stageGraph, inputRole: inputRole)
         }
+        if let proceduralNoise = SceneAuthoredProceduralNoisePlanner.plan(
+            graph: stageGraph,
+            descriptor: descriptor,
+            shaderContracts: shaderContracts,
+            inputRole: inputRole
+        ) {
+            return stage(
+                .proceduralNoise(proceduralNoise),
+                stageGraph: stageGraph,
+                inputRole: inputRole
+            )
+        }
         if let shake = SceneAuthoredShakePlanner.plan(
             graph: stageGraph,
             descriptor: descriptor,
