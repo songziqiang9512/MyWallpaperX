@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-28
 >
-> 实现基线：`38cd1d3`
+> 实现基线：`88510a6`
 
 本页给覆盖表中的 `L3` 子集提供可追溯证据包。每个证据包至少包含代码、自动测试和真实运行或 GPU 证据；缺少任一项的能力只能标 `L0-L2`，或在专项表中明确写 `gate incomplete`。`.codex` 报告是本机隔离运行产物，不提交 Git；报告路径、App 身份和摘要写入现役文档，避免将其误当源码 fixture。
 
@@ -13,7 +13,8 @@
 | 项目 | 当前证据 |
 |---|---|
 | 当前完整快照门 | `49a5878` 的签名 Debug App 以真实只读目录的 45 样本隔离副本跑 `.codex/scene-light-shafts-full45-20260728/report.json`，**45/45 PASS**；45 份 Debug `scene-runtime-evidence.json` 均为 schema 1，particle `109/130`、静态透明粒子跳过 1、strict stage 196、chain 30、Light Shafts 2、Workshop Audio Bars 3、Blend 2、Transform 2、Transform 静态 fallback 2、graph failed 0。报告 SHA-256 `a8d894f28e25aac910d0fc942f083e023c3daa12e79a2d5aa1afdd5e2b351063`，matrix SHA-256 `f198ab106341a46530806e40219181176ac61d98edbdd7bff2d1f3032071c998`；45 个 performance event 均可解析且 failed frames 合计 0，但没有统一性能阈值。 |
-| 最近固定回归门 | `715e078` 的签名 Debug App 跑 `.codex/scene-simple-audio-bars-fixed13-algo-final-20260728/report.json`，**13/13 PASS**；particle `66/76`、strict stage 117、chain 16、Workshop Audio Bars 2、graph failed 0。报告 SHA-256 `8cb5c87c4f8cb284f220dfef1a3539edb970fe0c70bbbc994ce7bf5f08d417e1`，fixed matrix SHA-256 `a41d0da9ec80b23290f3adb412efa36c89a6a92f95a79e0f49f50261ae59f00d`。本批因 full45 已覆盖同一 13 个样本而未重复运行 fixed13；两矩阵仍是不同合同，不能互相改写历史结果。 |
+| 最近固定回归门 | `88510a6` 的签名 Debug App 跑 `.codex/scene-image-alignment-fixed13-20260728-v1/report.json`，**13/13 PASS**，13 个样本 loaded 1.0、failures 空、sample-root residue 0；报告 SHA-256 `7a81204b6e7c4b2a60867adc951487fcbbd6a364ef64d22c8f98fbeffc39ba87`，fixed matrix SHA-256 `a41d0da9ec80b23290f3adb412efa36c89a6a92f95a79e0f49f50261ae59f00d`。固定集中 `2902406982`、`2938612768`、`3122339805`、`3747492842` 共四个样本使用非中心 image/solid alignment，因此本批定向门不能替代这次 fixed13；它也不能替代 full45。 |
+| Image/Solid alignment 定向门 | `88510a6` 的签名 Debug App 跑 `.codex/scene-image-alignment-targeted-20260728-v1/report.json`，`3122339805` 与 `3767460992` **2/2 PASS**，均 loaded 1.0、failures 空、sample-root residue 0、签名前后 identity 不变；报告 SHA-256 `f66cb394e9172fd7ce00126ada36af6bcd5a54b8603ca4d7e4f7cd85912722a8`，full matrix SHA-256 `f198ab106341a46530806e40219181176ac61d98edbdd7bff2d1f3032071c998`。人工对官方截图核对：`3122339805` 的左侧背景与窗口框从整体向内/向下错位恢复到作者边界，`3767460992` 的 X 面板从左下偏移回到父内容中央；这只验证可见方向与锚点几何，不证明两个样本完整还原。 |
 | Light Shafts 定向门 | `38cd1d3` 的签名 Debug App 跑 `.codex/scene-light-shafts-quad-targeted-20260728/report.json`，**5/5 PASS**，报告 SHA-256 `581690d4b522bd5d41d51ac91057255cf82e75931d56515c702bcc9dae6869da`，matrix SHA-256 `f198ab106341a46530806e40219181176ac61d98edbdd7bff2d1f3032071c998`。`3299228616:601` 与 `3766387484:80` 各执行 1 个 strict Light Shafts；前者 chain/stage `1/3`、succeeded `[303,601]`，后者 direct-draw chain/stage `0/1`、succeeded `[80]`，两者 failed 均空、loaded 1.0；`3747492842` Color、`3768724269` Corner、`3768903841` Radial 仍各为 0。上一版 2/2 与 full45 是 `49a5878` 的历史证据，不用于证明当前几何/UV 修正。 |
 | Godrays 定向门 | `.codex/scene-godrays-20260727/targeted-final/report.json` 为 **4/4 PASS**，报告 SHA-256 `6b2d2b351d00ac24261879e5c6c16c9c9365c6644e6ddee2f58a5d67ef21c38d`。`3770462923` 的 text layers 26/32 各执行 `[blurprecise, godrays]`，Godrays 2、stage 5、chain 2、succeeded `[18,26,32]`、legacy blocked/failed 均空；其余三样本按 sibling/指纹边界保持 Godrays 0。 |
 | 历史 static-origin 定向门 | `.codex/scene-static-origin-targeted-20260725/report.json` 为 1/1、particle `17/19`（当时口径）；`3088601835` 在当前门下为 `19/19`，matrix-code 两层随 `b86db59` 解除 nested 阻断；`snowstormfog` child 仍由真实缓存门确认执行 |
@@ -51,9 +52,11 @@
 <a id="e-base"></a>
 ### E-BASE: 基础 layer、层级、cover 与合成
 
-- 代码：[SceneRenderDescriptor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneRenderDescriptor.swift)、[SceneMetalRenderer.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalRenderer.swift)、[SceneImageLayerCompositor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneImageLayerCompositor.swift)
-- 自动门：[test_scene_solid_layers.py](../../../script/tests/test_scene_solid_layers.py)、[test_scene_capture_geometry.py](../../../script/tests/test_scene_capture_geometry.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)
-- 运行门：正式矩阵的 layer/image/solid/text/particle 计数、cover projection、非黑截图和 GPU completion。
+- 代码：[SceneDocument.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift)、[SceneRenderDescriptor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneRenderDescriptor.swift)、[SceneImageLayerPivot.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneImageLayerPivot.swift)、[SceneMetalRenderer+LayerTransforms.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalRenderer+LayerTransforms.swift)、[SceneImageLayerCompositor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneImageLayerCompositor.swift)。
+- 作者合同与语料：[官方本地声明](../reference/official/lib.sceneScript-v2.8.d.ts) 的 `IImageLayer.alignment` 支持 center/top/right/bottom/left 与四角。44 份已解包真实 `scene.json` 中 16 个样本共 135 次 image/solid alignment 声明，center 83、非中心 52；非中心分布为 left 22、right 2、bottom 1、topleft 24、bottomleft 3，其中 35 次位于 parented layer。修复前 parser 丢弃该字段，renderer 因而把所有 image/solid origin 当作几何中心；`88510a6` 将字段完整保留到 layer descriptor，并在 `sizeScale` 后、layer rotation 内应用独立 quad pivot，缺省或未知值退回中心，text layer 继续只用自己的 horizontal/vertical alignment。
+- 自动门：[test_scene_image_layer_alignment.py](../../../script/tests/test_scene_image_layer_alignment.py)、[test_scene_solid_layers.py](../../../script/tests/test_scene_solid_layers.py)、[test_scene_capture_geometry.py](../../../script/tests/test_scene_capture_geometry.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)。alignment 门锁定全部九种官方取值、大小写归一、缺省/未知负例、Scene JSON 到 descriptor round-trip、text/image 路由隔离、pivot 位于 `sizeScale` 之后，以及 root/parented 两种几何 fixture。当前 Scene suite 共运行 622 项并通过，2 项按既有环境条件跳过。
+- 运行门：alignment 定向 `.codex/scene-image-alignment-targeted-20260728-v1/report.json` 为 2/2，fixed13 `.codex/scene-image-alignment-fixed13-20260728-v1/report.json` 为 13/13；签名 App identity 为 team `H9QWU9XN8R`、CDHash `2db431064c38159153fde7486147134a8eaa4ae9`、executable SHA-256 `bbbdba7831c8dc8f919061c62619aeda2b8a1d0ee112ff5a26dd37a383bf2821`，运行前后验证不变。最近 full45 仍是修复前 `49a5878` 的 45/45，不能用于证明当前 alignment。
+- 视觉边界：`3122339805` 仍缺作者脚本驱动的窗口标题、日志/时钟/日历内容和部分窗口显隐；`3767460992` 的动态背景相位不能用单帧逐像素对齐。当前证据证明公共锚点字段被接受并产生正确方向的共享可见修正，不证明 Windows 像素等价或两个样本完整兼容。
 
 <a id="e-preview-visual"></a>
 ### E-PREVIEW-VISUAL: Steam preview 方向性视觉证据
