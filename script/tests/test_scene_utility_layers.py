@@ -16,7 +16,14 @@ SOURCE = SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift"
 RUNTIME_PLAN_SOURCE = SOURCE_ROOT / "Rendering/SceneUtilityLayerRuntimePlan.swift"
 UTILITY_RENDERER_SOURCE = SOURCE_ROOT / "Rendering/SceneUtilityLayerRenderer.swift"
 METAL_RENDERER_SOURCE = SOURCE_ROOT / "Rendering/SceneMetalRenderer.swift"
+METAL_RENDERER_MASKS_SOURCE = (
+    SOURCE_ROOT / "Rendering/SceneMetalRenderer+EffectMasks.swift"
+)
+METAL_VIEW_SOURCE = SOURCE_ROOT / "Rendering/SceneMetalView.swift"
 BACKEND_SOURCE = SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift"
+FOLIAGE_PLANNER_SOURCE = (
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredFoliageSwayPlanner.swift"
+)
 
 HARNESS_SOURCE = r'''
 import Foundation
@@ -106,14 +113,53 @@ class SceneUtilityLayerTests(unittest.TestCase):
         )
         backend = BACKEND_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
-            "guard case .workshopAudioBars(let plan) = backend",
+            "case .foliageSway:",
             backend,
+            "the exact Foliage backend must explicitly admit utility capture",
         )
         self.assertIn(
             "case .simple = plan.profile",
             backend,
-            "only the exact Simple Audio Bars backend is admitted initially",
+            "the existing Simple Audio Bars utility contract must stay exact",
         )
+        self.assertIn("default:", backend)
+        self.assertIn("return false", backend)
+
+    def test_foliage_utility_source_requires_a_typed_kind_pair(self) -> None:
+        planner = FOLIAGE_PLANNER_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("supportsLayerSource(layer)", planner)
+        self.assertIn('if layer.contentKind == "image"', planner)
+        self.assertIn("switch layer.utilityLayer", planner)
+        self.assertIn("case nil:", planner)
+        self.assertIn("case .some:", planner)
+        for pair in (
+            '("composition", .composition)',
+            '("project", .project)',
+            '("fullscreen", .fullscreen)',
+        ):
+            self.assertIn(pair, planner)
+        self.assertIn("default:", planner)
+        self.assertIn("return false", planner)
+
+    def test_planned_utility_chain_loads_and_receives_effect_resources(self) -> None:
+        metal_view = METAL_VIEW_SOURCE.read_text(encoding="utf-8")
+        metal_renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8")
+        metal_renderer_masks = METAL_RENDERER_MASKS_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            "utilityPlans[layer.id]?.shouldCapture == true && chain != nil",
+            metal_view,
+            "utility resources require both a planned capture and an executable chain",
+        )
+        self.assertIn(
+            ").authoredEffectResourcesOnly",
+            metal_renderer,
+            "utility capture must receive the same planned effect-instance resources",
+        )
+        self.assertIn(
+            "foliageSwayEffects: store.foliageSwayEffects",
+            metal_renderer_masks,
+        )
+        self.assertIn("xRay: store.xRayEffects[layerID]", metal_renderer_masks)
 
     def test_utility_capture_receives_the_frame_audio_snapshot(self) -> None:
         utility_renderer = UTILITY_RENDERER_SOURCE.read_text(encoding="utf-8")

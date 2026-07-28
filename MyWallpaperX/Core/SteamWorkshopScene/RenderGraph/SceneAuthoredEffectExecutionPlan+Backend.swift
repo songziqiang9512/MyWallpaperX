@@ -192,11 +192,15 @@ extension SceneAuthoredEffectExecutionPlan {
     }
 
     nonisolated var supportsUtilityCapture: Bool {
-        guard case .workshopAudioBars(let plan) = backend,
-              case .simple = plan.profile else {
+        switch backend {
+        case .foliageSway:
+            return true
+        case .workshopAudioBars(let plan):
+            guard case .simple = plan.profile else { return false }
+            return true
+        default:
             return false
         }
-        return true
     }
 
     func localContrastStrength(in snapshot: SceneDynamicSnapshot) -> Float? {

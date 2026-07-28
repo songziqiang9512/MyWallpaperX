@@ -24,7 +24,7 @@ enum SceneAuthoredFoliageSwayPlanner {
               graph.renderTargets.isEmpty,
               descriptor.layers.filter({ $0.id == graph.layerID }).count == 1,
               let layer = descriptor.layers.first(where: { $0.id == graph.layerID }),
-              layer.contentKind == "image" else {
+              supportsLayerSource(layer) else {
             return nil
         }
 
@@ -70,6 +70,27 @@ enum SceneAuthoredFoliageSwayPlanner {
             maskTexturePath: maskPath,
             noiseTexturePath: noisePath
         )
+    }
+
+    private nonisolated static func supportsLayerSource(
+        _ layer: SceneRenderDescriptor.Layer
+    ) -> Bool {
+        if layer.contentKind == "image" {
+            switch layer.utilityLayer {
+            case nil:
+                return true
+            case .some:
+                return false
+            }
+        }
+        switch (layer.contentKind, layer.utilityLayer?.kind) {
+        case ("composition", .composition),
+             ("project", .project),
+             ("fullscreen", .fullscreen):
+            return true
+        default:
+            return false
+        }
     }
 
     private nonisolated static func validDefinition(

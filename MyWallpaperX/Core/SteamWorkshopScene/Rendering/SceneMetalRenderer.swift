@@ -202,28 +202,7 @@ struct SceneMetalRenderer {
                 let request = SceneImageLayerDrawRequest(
                     layer: layer,
                     texture: preparedTexture,
-                    masks: SceneImageLayerMasks(
-                        iris: effectTextures.irisMasks[layer.id],
-                        opacity: effectTextures.opacityMasks[layer.id],
-                        water: effectTextures.waterMasks[layer.id],
-                        waterUVScale: effectTextures.waterUVScales[layer.id]
-                            ?? SIMD2(repeating: 1),
-                        foliage: effectTextures.foliageMasks[layer.id],
-                        foliageUVScale: effectTextures.foliageUVScales[layer.id] ?? SIMD2(repeating: 1),
-                        waterRippleNormal: effectTextures.waterRippleNormals[layer.id], foliageSwayEffects: effectTextures.foliageSwayEffects,
-                        waterRippleEffects: effectTextures.waterRippleEffects, blendEffects: effectTextures.blendEffects,
-                        shakeEffects: effectTextures.shakeEffects,
-                        filmGrainEffects: effectTextures.filmGrainEffects,
-                        waterFlowEffects: effectTextures.waterFlowEffects,
-                        waterWavesEffects: effectTextures.waterWavesEffects,
-                        cursorRippleEffects: effectTextures.cursorRippleEffects,
-                        opacityEffects: effectTextures.opacityEffects,
-                        pulseEffects: effectTextures.pulseEffects,
-                        tintEffects: effectTextures.tintEffects,
-                        godraysEffects: effectTextures.godraysEffects,
-                        shineEffects: effectTextures.shineEffects,
-                        xRay: effectTextures.xRayEffects[layer.id]
-                    ),
+                    masks: effectMasks(for: layer.id, in: effectTextures),
                     textureFrame: spriteAnimations[layer.id]?.transform(at: time) ?? .identity,
                     mvp: mvp,
                     uniforms: SceneImageLayerUniformValues(
@@ -371,7 +350,10 @@ struct SceneMetalRenderer {
                     authoredValue: layer.alpha,
                     snapshot: frameContext.dynamicValues
                 ),
-                masks: .xRayOnly(effectTextures.xRayEffects[layer.id]),
+                masks: effectMasks(
+                    for: layer.id,
+                    in: effectTextures
+                ).authoredEffectResourcesOnly,
                 cursorUV: cursorUV ?? .zero,
                 pointerIsInside: frameContext.pointer.isInside && cursorUV != nil,
                 authoredEffectChain: authoredEffectChain,

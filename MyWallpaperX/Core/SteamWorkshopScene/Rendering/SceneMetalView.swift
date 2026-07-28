@@ -267,9 +267,13 @@ class SceneMetalView: NSView {
                 report.append("layer \(layer.id) \"\(name)\": texture allocation failed at \(w)×\(h); \(placementSummary)")
             }
         }
+        let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(
+            in: renderer.renderDescriptor,
+            authoredEffectCatalog: renderer.authoredEffectCatalog
+        )
         let effectOnlyLayers = renderer.renderDescriptor.layers.filter { layer in
             let chain = renderer.authoredEffectChain(for: layer.id)
-            return (layer.utilityLayer != nil && (chain?.xRayCount ?? 0) > 0)
+            return (utilityPlans[layer.id]?.shouldCapture == true && chain != nil)
                 || (layer.contentKind == "quad" && (chain?.lightShaftsCount ?? 0) > 0)
         }
         for layer in effectOnlyLayers {
