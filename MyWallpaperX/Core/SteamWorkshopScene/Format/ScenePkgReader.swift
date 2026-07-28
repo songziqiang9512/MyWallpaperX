@@ -47,6 +47,14 @@ struct ScenePkgReader {
     func readEntryData(_ entry: ScenePkgIndex.Entry, in packageURL: URL) throws -> Data {
         let data = try Data(contentsOf: packageURL)
         let index = try readIndex(data: data)
+        return try readEntryData(entry, in: data, index: index)
+    }
+
+    func readEntryData(
+        _ entry: ScenePkgIndex.Entry,
+        in data: Data,
+        index: ScenePkgIndex
+    ) throws -> Data {
         let dataStart = index.dataStartOffset
         let start = dataStart + Int(entry.offset)
         let end = start + Int(entry.size)
@@ -56,7 +64,7 @@ struct ScenePkgReader {
         return data.subdata(in: start..<end)
     }
 
-    private func readIndex(data: Data) throws -> ScenePkgIndex {
+    func readIndex(data: Data) throws -> ScenePkgIndex {
         var cursor = 0
 
         func readUInt32() throws -> UInt32 {
