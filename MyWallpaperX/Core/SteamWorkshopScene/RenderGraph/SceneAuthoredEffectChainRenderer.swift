@@ -359,17 +359,16 @@ enum SceneAuthoredEffectChainRenderer {
                 commandBuffer: commandBuffer
             )
         case .godrays(let godrays):
-            guard let godraysPipeline = pipelines.godrays else { return nil }
-            return SceneGodraysRenderer.renderCaptured(
-                plan: godrays,
-                sourceTexture: sourceTexture,
-                masks: masks,
-                targets: targets,
-                sourceUniforms: sourceUniforms,
-                sourcePipeline: pipeline,
-                godraysPipeline: godraysPipeline,
-                time: time,
-                commandBuffer: commandBuffer
+            return renderGodrays(
+                godrays, source: sourceTexture, masks: masks, targets: targets,
+                uniforms: sourceUniforms, sourcePipeline: pipeline,
+                pipelines: pipelines, time: time, commandBuffer: commandBuffer
+            )
+        case .shine(let shine):
+            return renderShine(
+                shine, source: sourceTexture, masks: masks, targets: targets,
+                uniforms: sourceUniforms, sourcePipeline: pipeline,
+                pipelines: pipelines, time: time, commandBuffer: commandBuffer
             )
         case .pulse(let pulse):
             guard let pulsePipeline = pipelines.pulse else { return nil }

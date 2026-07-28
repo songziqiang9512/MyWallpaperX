@@ -5,18 +5,21 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
     let renderGraph: SceneAuthoredEffectRenderPlan
     let stages: [SceneAuthoredEffectExecutionPlan]
     let isolatedCursorRippleOmittedEffectPaths: [String]
+    let isolatedShineOmittedEffectPaths: [String]
 
     init(
         layerID: Int,
         renderGraph: SceneAuthoredEffectRenderPlan,
         stages: [SceneAuthoredEffectExecutionPlan],
-        isolatedCursorRippleOmittedEffectPaths: [String] = []
+        isolatedCursorRippleOmittedEffectPaths: [String] = [],
+        isolatedShineOmittedEffectPaths: [String] = []
     ) {
         self.layerID = layerID
         self.renderGraph = renderGraph
         self.stages = stages
         self.isolatedCursorRippleOmittedEffectPaths =
             isolatedCursorRippleOmittedEffectPaths
+        self.isolatedShineOmittedEffectPaths = isolatedShineOmittedEffectPaths
     }
 
     var singleStage: SceneAuthoredEffectExecutionPlan? {
@@ -135,6 +138,14 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         stages.filter { $0.godrays != nil }.count
     }
 
+    var shineCount: Int {
+        stages.filter { $0.shine != nil }.count
+    }
+
+    var isolatedShineCount: Int {
+        isolatedShineOmittedEffectPaths.isEmpty ? 0 : shineCount
+    }
+
     var authoredShaderCount: Int {
         stages.filter { $0.authoredShader != nil }.count
     }
@@ -201,6 +212,13 @@ enum SceneAuthoredEffectChainPlanner {
                 ) {
                     return isolated
                 }
+                if let isolated = isolatedShineChain(
+                    graph: graph,
+                    descriptor: descriptor,
+                    shaderContracts: shaderContracts
+                ) {
+                    return isolated
+                }
                 if let prefix = xRayPrefix(
                     plannedStages: stages,
                     unsupportedOrdinal: ordinal,
@@ -220,6 +238,13 @@ enum SceneAuthoredEffectChainPlanner {
             stages.append(stage)
         }
         guard fitsDefaultTextureBudget(stages) else {
+            if let isolated = isolatedShineChain(
+                graph: graph,
+                descriptor: descriptor,
+                shaderContracts: shaderContracts
+            ) {
+                return isolated
+            }
 #if DEBUG
             print("MWX authored effect chain rejected layer=\(graph.layerID) reason=texture-budget")
 #endif

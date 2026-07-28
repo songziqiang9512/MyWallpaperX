@@ -1381,6 +1381,77 @@ utility layer 763: skippedHidden kind=composition
             benchmark.authored_effect_graph_cursor_ripple_omitted_effects("")
         )
 
+    def test_authored_shine_count_is_an_exact_gate(self) -> None:
+        preview = (
+            "authoredEffectGraphShineCount: 4\n"
+            "authoredEffectGraphShineIsolatedCount: 1\n"
+            "authoredEffectGraphShineOmittedEffects: "
+            "layer=59,omitted=effects/shake/effect.json;"
+            "layer=59,omitted=effects/shine/effect.json\n"
+        )
+        omissions = [
+            "layer=59,omitted=effects/shake/effect.json",
+            "layer=59,omitted=effects/shine/effect.json",
+        ]
+        self.assertEqual(benchmark.authored_effect_graph_shine_count(preview), 4)
+        self.assertEqual(
+            benchmark.authored_effect_graph_shine_isolated_count(preview), 1
+        )
+        self.assertEqual(
+            benchmark.authored_effect_graph_shine_omitted_effects(preview),
+            omissions,
+        )
+        self.assertEqual(
+            benchmark.authored_effect_graph_failures(
+                {
+                    "expected_authored_effect_graph_shine_count": 4,
+                    "expected_authored_effect_graph_shine_isolated_count": 1,
+                    "expected_authored_effect_graph_shine_omitted_effects": omissions,
+                },
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                shine_count=4,
+                shine_isolated_count=1,
+                shine_omitted_effects=omissions,
+            ),
+            [],
+        )
+        for sample, arguments, message in (
+            (
+                {"expected_authored_effect_graph_shine_count": 0},
+                {"shine_count": 4},
+                "Shine count mismatch",
+            ),
+            (
+                {"expected_authored_effect_graph_shine_isolated_count": 0},
+                {"shine_isolated_count": 1},
+                "isolated Shine count mismatch",
+            ),
+            (
+                {"expected_authored_effect_graph_shine_omitted_effects": []},
+                {"shine_omitted_effects": omissions},
+                "Shine omissions mismatch",
+            ),
+        ):
+            self.assertIn(
+                message,
+                benchmark.authored_effect_graph_failures(
+                    sample,
+                    {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                    [],
+                    None,
+                    **arguments,
+                )[0],
+            )
+        self.assertIsNone(benchmark.authored_effect_graph_shine_count(""))
+        self.assertIsNone(
+            benchmark.authored_effect_graph_shine_isolated_count("")
+        )
+        self.assertIsNone(
+            benchmark.authored_effect_graph_shine_omitted_effects("")
+        )
+
     def test_authored_clipping_mask_count_is_an_exact_gate(self) -> None:
         preview = "authoredEffectGraphClippingMaskCount: 7\n"
         count = benchmark.authored_effect_graph_clipping_mask_count(preview)

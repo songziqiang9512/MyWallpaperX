@@ -285,7 +285,7 @@ struct SceneImageLayerCompositor {
                         )
                     case .cursorRipple, .foliageSway, .waterRipple, .xRay, .clippingMask,
                          .blend, .tint, .transform,
-                         .pulse, .godrays, .spin,
+                         .pulse, .godrays, .shine, .spin,
                          .proceduralNoise, .filmGrain, .lightShafts,
                          .colorKey, .workshopShiftHue, .workshopAudioBars, .workshopGradient,
                          .workshopAudioHueShift, .authoredShader:

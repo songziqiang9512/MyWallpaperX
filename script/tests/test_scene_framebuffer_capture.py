@@ -16,6 +16,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetTable.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphCommandRuntime.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphNodeScheduler.swift",
@@ -76,6 +77,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneFilmGrainExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneLightShaftsExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+CursorRipple.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Rays.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Blend.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+AuthoredShader.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Opacity.swift",
@@ -413,6 +416,7 @@ struct SceneAuthoredEffectExecutionPlan {
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
+        case cursorRipple(SceneCursorRippleExecutionPlan)
         case foliageSway(SceneFoliageSwayExecutionPlan)
         case waterRipple(SceneWaterRippleExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
@@ -422,6 +426,7 @@ struct SceneAuthoredEffectExecutionPlan {
         case transform(SceneTransformExecutionPlan)
         case pulse(ScenePulseExecutionPlan)
         case godrays(SceneGodraysPlan)
+        case shine(SceneShineExecutionPlan)
         case authoredShader(SceneAuthoredShaderExecutionPlan)
     }
 
@@ -468,6 +473,11 @@ struct SceneAuthoredEffectExecutionPlan {
 
     var opacity: SceneOpacityExecutionPlan? {
         guard case .opacity(let plan) = backend else { return nil }
+        return plan
+    }
+
+    var cursorRipple: SceneCursorRippleExecutionPlan? {
+        guard case .cursorRipple(let plan) = backend else { return nil }
         return plan
     }
 
@@ -617,6 +627,35 @@ enum SceneWaterWavesRenderer {
     }
 }
 
+struct SceneCursorRippleExecutionPlan {
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+}
+struct SceneCursorRippleEffectTextures {}
+
+struct SceneCursorRipplePipeline {
+    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
+}
+
+enum SceneCursorRippleRenderer {
+    static func renderCaptured(
+        plan: SceneCursorRippleExecutionPlan,
+        sourceTexture: MTLTexture,
+        masks: SceneImageLayerMasks,
+        targets: SceneGraphRenderTargetTable,
+        sourceUniforms: SceneLayerFragmentUniforms,
+        sourcePipeline: SceneImageLayerPipeline,
+        cursorRipplePipeline: SceneCursorRipplePipeline,
+        currentCursorUV: SIMD2<Float>,
+        previousCursorUV: SIMD2<Float>,
+        pointerIsInside: Bool,
+        previousPointerIsInside: Bool,
+        frameTime: Float,
+        commandBuffer: MTLCommandBuffer
+    ) -> MTLTexture? {
+        nil
+    }
+}
+
 struct SceneFoliageSwayExecutionPlan {}
 
 enum SceneFoliageSwayRenderer {
@@ -703,6 +742,29 @@ enum SceneGodraysRenderer {
         sourceUniforms: SceneLayerFragmentUniforms,
         sourcePipeline: SceneImageLayerPipeline,
         godraysPipeline: SceneGodraysPipeline,
+        time: Float,
+        commandBuffer: MTLCommandBuffer
+    ) -> MTLTexture? {
+        nil
+    }
+}
+
+struct SceneShineExecutionPlan {}
+struct SceneShineEffectTextures {}
+
+struct SceneShinePipeline {
+    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
+}
+
+enum SceneShineRenderer {
+    static func renderCaptured(
+        plan: SceneShineExecutionPlan,
+        sourceTexture: MTLTexture,
+        masks: SceneImageLayerMasks,
+        targets: SceneGraphRenderTargetTable,
+        sourceUniforms: SceneLayerFragmentUniforms,
+        sourcePipeline: SceneImageLayerPipeline,
+        shinePipeline: SceneShinePipeline,
         time: Float,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
@@ -2624,6 +2686,7 @@ enum Harness {
                         filmGrainEffects: [:],
                         waterFlowEffects: [:],
                         waterWavesEffects: [:],
+                        cursorRippleEffects: [:],
                         opacityEffects: item.binds ? ["850#effect#0": SceneOpacityEffectTextures(
                             mask: mask,
                             maskUVScale: SIMD2<Float>(repeating: 1),
@@ -2632,6 +2695,7 @@ enum Harness {
                         pulseEffects: [:],
                         tintEffects: [:],
                         godraysEffects: [:],
+                        shineEffects: [:],
                         xRay: nil
                     ),
                     textureFrame: .identity,
@@ -3012,10 +3076,12 @@ enum Harness {
             filmGrainEffects: [:],
             waterFlowEffects: [:],
             waterWavesEffects: [:],
+            cursorRippleEffects: [:],
             opacityEffects: [:],
             pulseEffects: [:],
             tintEffects: [:],
             godraysEffects: [:],
+            shineEffects: [:],
             xRay: SceneXRayEffectTextures(blend: blend, halo: nil, opacityMask: opacity)
         )
         let mainPass = SceneMainPassEncoder(
@@ -3664,6 +3730,7 @@ enum Harness {
             filmGrainEffects: [:],
             waterFlowEffects: [:],
             waterWavesEffects: [:],
+            cursorRippleEffects: [:],
             opacityEffects: [:],
             pulseEffects: [:],
             tintEffects: ["851#effect#0": SceneTintEffectTextures(
@@ -3672,6 +3739,7 @@ enum Harness {
                 maskPath: tintMaskPath
             )],
             godraysEffects: [:],
+            shineEffects: [:],
             xRay: nil
         )
     }

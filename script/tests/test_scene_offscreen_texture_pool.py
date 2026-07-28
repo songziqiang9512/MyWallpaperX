@@ -16,6 +16,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetTable.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphCommandRuntime.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenResolutionPolicy.swift",
@@ -27,6 +28,10 @@ HARNESS = r'''
 import Foundation
 import Metal
 
+struct SceneCursorRippleExecutionPlan {
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+}
+
 struct SceneAuthoredEffectExecutionPlan {
     let layerID: Int
     let renderGraph: SceneAuthoredEffectRenderPlan
@@ -36,6 +41,7 @@ struct SceneAuthoredEffectExecutionPlan {
     let inputRole: SceneAuthoredEffectInputRole
 
     var authoredShader: Int? { nil }
+    var cursorRipple: SceneCursorRippleExecutionPlan? { nil }
 }
 
 struct SceneAuthoredEffectExecutionChain {

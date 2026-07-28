@@ -29,6 +29,7 @@ extension SceneAuthoredEffectExecutionPlan {
         case transform(SceneTransformExecutionPlan)
         case pulse(ScenePulseExecutionPlan)
         case godrays(SceneGodraysPlan)
+        case shine(SceneShineExecutionPlan)
         case authoredShader(SceneAuthoredShaderExecutionPlan)
     }
 
@@ -164,6 +165,11 @@ extension SceneAuthoredEffectExecutionPlan {
 
     nonisolated var godrays: SceneGodraysPlan? {
         guard case .godrays(let plan) = backend else { return nil }
+        return plan
+    }
+
+    nonisolated var shine: SceneShineExecutionPlan? {
+        guard case .shine(let plan) = backend else { return nil }
         return plan
     }
 

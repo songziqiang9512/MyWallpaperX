@@ -126,18 +126,11 @@ class SceneMetalView: NSView {
         func loadEffectTextures(for layer: SceneRenderDescriptor.Layer) -> SceneLayerEffectTextures {
             let stages = renderer.authoredEffectChain(for: layer.id)?.stages ?? []
             let textures = SceneLayerEffectTextureLoader.load(
-                for: layer, resolver: resolver, loader: loader, device: metalDevice,
-                blendEffectIDs: Set(stages.compactMap { $0.blend?.effectKey.descriptorID }),
-                shakeEffectIDs: Set(stages.compactMap { $0.shake?.effectKey.descriptorID }),
-                filmGrainEffectIDs: Set(stages.compactMap { $0.filmGrain?.effectKey.descriptorID }),
-                lightShaftsEffectIDs: Set(
-                    stages.compactMap { $0.lightShafts?.effectKey.descriptorID }
-                ),
-                waterFlowEffectIDs: Set(stages.compactMap { $0.waterFlow?.effectKey.descriptorID }),
-                waterWavesEffectIDs: Set(stages.compactMap { $0.waterWaves?.effectKey.descriptorID }),
-                cursorRippleEffectIDs: Set(stages.compactMap { $0.cursorRipple?.effectKey.descriptorID }),
-                tintEffectIDs: Set(stages.compactMap { $0.tint?.effectKey.descriptorID }),
-                godraysEffectIDs: Set(stages.compactMap { $0.godrays?.effectKey.descriptorID }),
+                for: layer,
+                stages: stages,
+                resolver: resolver,
+                loader: loader,
+                device: metalDevice,
                 userPropertyTextures: userPropertyTextureLoad.textures
             )
             loadedEffectTextures.merge(layerID: layer.id, textures: textures)

@@ -293,6 +293,20 @@ extension SceneAuthoredEffectChainPlanner {
                 logicalRenderTargetCount: 2
             )
         }
+        if let shine = SceneAuthoredShinePlanner.plan(
+            graph: stageGraph,
+            descriptor: descriptor,
+            shaderContracts: shaderContracts,
+            inputRole: inputRole
+        ) {
+            return stage(
+                .shine(shine),
+                stageGraph: stageGraph,
+                inputRole: inputRole,
+                materialNodeCount: 5,
+                logicalRenderTargetCount: 2
+            )
+        }
         if let authoredShader = SceneAuthoredShaderExecutionPlanner.plan(
             graph: stageGraph,
             descriptor: descriptor,

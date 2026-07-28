@@ -221,6 +221,7 @@ struct SceneMetalRenderer {
                         pulseEffects: effectTextures.pulseEffects,
                         tintEffects: effectTextures.tintEffects,
                         godraysEffects: effectTextures.godraysEffects,
+                        shineEffects: effectTextures.shineEffects,
                         xRay: effectTextures.xRayEffects[layer.id]
                     ),
                     textureFrame: spriteAnimations[layer.id]?.transform(at: time) ?? .identity,

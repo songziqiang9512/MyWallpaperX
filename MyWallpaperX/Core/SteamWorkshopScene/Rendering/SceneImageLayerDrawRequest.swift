@@ -19,6 +19,7 @@ struct SceneImageLayerMasks {
     let pulseEffects: [String: ScenePulseEffectTextures]
     let tintEffects: [String: SceneTintEffectTextures]
     let godraysEffects: [String: SceneGodraysEffectTextures]
+    let shineEffects: [String: SceneShineEffectTextures]
     let xRay: SceneXRayEffectTextures?
 
     var authoredEffectResourcesOnly: SceneImageLayerMasks {
@@ -40,6 +41,7 @@ struct SceneImageLayerMasks {
             pulseEffects: pulseEffects,
             tintEffects: tintEffects,
             godraysEffects: godraysEffects,
+            shineEffects: shineEffects,
             xRay: xRay
         )
     }
@@ -62,6 +64,7 @@ struct SceneImageLayerMasks {
         pulseEffects: [:],
         tintEffects: [:],
         godraysEffects: [:],
+        shineEffects: [:],
         xRay: nil
     )
 
@@ -84,6 +87,7 @@ struct SceneImageLayerMasks {
             pulseEffects: [:],
             tintEffects: [:],
             godraysEffects: [:],
+            shineEffects: [:],
             xRay: xRay
         )
     }

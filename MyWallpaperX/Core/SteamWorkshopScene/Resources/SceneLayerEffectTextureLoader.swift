@@ -16,6 +16,7 @@ enum SceneLayerEffectTextureLoader {
         cursorRippleEffectIDs: Set<String> = [],
         tintEffectIDs: Set<String> = [],
         godraysEffectIDs: Set<String> = [],
+        shineEffectIDs: Set<String> = [],
         userPropertyTextures: [String: MTLTexture] = [:]
     ) -> SceneLayerEffectTextures {
         let iris = loadTexture(
@@ -145,6 +146,13 @@ enum SceneLayerEffectTextureLoader {
             loader: loader,
             device: device
         )
+        let shineEffects = SceneShineEffectTextureLoader.load(
+            for: layer,
+            effectIDs: shineEffectIDs,
+            resolver: resolver,
+            loader: loader,
+            device: device
+        )
         let foliageUVScale = mappedUVScale(for: foliageURL, texture: foliage.texture)
         let foliageScaleMessage = foliage.texture == nil || foliageUVScale == SIMD2(repeating: 1)
             ? ""
@@ -172,6 +180,7 @@ enum SceneLayerEffectTextureLoader {
             pulseEffects: pulseEffects.textures,
             tintEffects: tintEffects.textures,
             godraysEffects: godraysEffects.textures,
+            shineEffects: shineEffects.textures,
             xRay: xRay.textures,
             message: [
                 iris.message, opacity.message, water.message, foliage.message,
@@ -180,6 +189,7 @@ enum SceneLayerEffectTextureLoader {
                 waterFlow.message, waterWaves.message, cursorRipple.message,
                 opacityEffects.message,
                 pulseEffects.message, tintEffects.message, godraysEffects.message,
+                shineEffects.message,
                 xRay.message,
             ].joined()
         )

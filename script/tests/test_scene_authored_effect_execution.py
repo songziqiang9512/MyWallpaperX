@@ -362,6 +362,14 @@ extension SceneAuthoredEffectChainPlanner {
     ) -> SceneAuthoredEffectExecutionChain? {
         nil
     }
+
+    static func isolatedShineChain(
+        graph: Graph,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract]
+    ) -> SceneAuthoredEffectExecutionChain? {
+        nil
+    }
 }
 
 struct SceneFoliageSwayExecutionPlan {}
@@ -490,6 +498,19 @@ enum SceneAuthoredGodraysPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneGodraysPlan? {
+        nil
+    }
+}
+
+struct SceneShineExecutionPlan {}
+
+enum SceneAuthoredShinePlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneShineExecutionPlan? {
         nil
     }
 }
@@ -1099,6 +1120,7 @@ enum Harness {
             case .transform: backend = "transform"
             case .pulse: backend = "pulse"
             case .godrays: backend = "godrays"
+            case .shine: backend = "shine"
             case .authoredShader: backend = "authoredShader"
             }
             return [effectIndex, backend]

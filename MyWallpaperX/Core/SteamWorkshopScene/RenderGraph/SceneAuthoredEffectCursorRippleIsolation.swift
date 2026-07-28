@@ -20,7 +20,7 @@ extension SceneAuthoredEffectChainPlanner {
                   shaderContracts: shaderContracts,
                   inputRole: candidate.offset == 0 ? .layerSource : .priorEffectOutput
               ),
-              let rebasedGraph = rebaseToLayerSource(originalStageGraph),
+              let rebasedGraph = rebaseStageToLayerSource(originalStageGraph),
               let rebasedPlan = validated.rebased(renderGraph: rebasedGraph) else {
             return nil
         }
@@ -41,56 +41,6 @@ extension SceneAuthoredEffectChainPlanner {
             renderGraph: rebasedGraph,
             stages: [stage],
             isolatedCursorRippleOmittedEffectPaths: omitted
-        )
-    }
-
-    private nonisolated static func rebaseToLayerSource(_ graph: Graph) -> Graph? {
-        guard graph.effects.count == 1, let effect = graph.effects.first else { return nil }
-        let layerSource = SceneAuthoredEffectInputValidator.layerSource(layerID: graph.layerID)
-        var replacedPreviousBindings = 0
-        let nodes = graph.nodes.map { node in
-            let bindings = node.bindings.map { binding in
-                guard binding.texture == effect.input else { return binding }
-                replacedPreviousBindings += 1
-                return Graph.Binding(
-                    slot: binding.slot,
-                    authoredName: binding.authoredName,
-                    texture: layerSource,
-                    conditions: binding.conditions
-                )
-            }
-            return Graph.Node(
-                nodeIndex: node.nodeIndex,
-                effect: node.effect,
-                definitionPassIndex: node.definitionPassIndex,
-                materialOrdinal: node.materialOrdinal,
-                instancePassIndex: node.instancePassIndex,
-                kind: node.kind,
-                materialPath: node.materialPath,
-                materialPassID: node.materialPassID,
-                target: node.target,
-                bindings: bindings,
-                commandSource: node.commandSource,
-                commandTarget: node.commandTarget,
-                compose: node.compose,
-                conditions: node.conditions
-            )
-        }
-        guard replacedPreviousBindings == 1 else { return nil }
-        let rebasedEffect = Graph.Effect(
-            key: effect.key,
-            definitionPath: effect.definitionPath,
-            input: layerSource,
-            output: effect.output,
-            nodeIndices: effect.nodeIndices
-        )
-        return Graph(
-            layerID: graph.layerID,
-            effects: [rebasedEffect],
-            renderTargets: graph.renderTargets,
-            nodes: nodes,
-            finalOutput: effect.output,
-            blockers: []
         )
     }
 

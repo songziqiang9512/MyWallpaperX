@@ -23,6 +23,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainPlanner+StageResolution.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectXRayPrefix.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionCatalog+Reporting.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredPreciseBlurPlanner+Topology.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredStandardBlurPlanner.swift",
@@ -300,6 +301,14 @@ extension SceneAuthoredEffectChainPlanner {
     ) -> SceneAuthoredEffectExecutionChain? {
         nil
     }
+
+    static func isolatedShineChain(
+        graph: Graph,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract]
+    ) -> SceneAuthoredEffectExecutionChain? {
+        nil
+    }
 }
 
 struct SceneFoliageSwayExecutionPlan {}
@@ -431,6 +440,19 @@ enum SceneAuthoredGodraysPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneGodraysPlan? {
+        nil
+    }
+}
+
+struct SceneShineExecutionPlan {}
+
+enum SceneAuthoredShinePlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneShineExecutionPlan? {
         nil
     }
 }
