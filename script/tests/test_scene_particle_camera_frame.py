@@ -16,6 +16,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Rendering/SceneCameraProjection.swift",
     SOURCE_ROOT / "Particles/SceneParticleRenderSupport.swift",
     SOURCE_ROOT / "Particles/SceneParticleCameraFrame.swift",
+    SOURCE_ROOT / "Particles/SceneParticleWorldSpacePlan.swift",
 ]
 
 
@@ -61,6 +62,50 @@ enum Harness {
             worldFrame: scaledWorld,
             parallaxOffset: SIMD2(5, -7)
         )
+        let worldSpaceFrame = SceneParticleWorldSpaceFrame(worldFrame: scaledWorld)!
+        let localDirection = worldSpaceFrame.localDirection(SIMD3(12, -7, 0))
+        let reprojectedDirection = scaledWorld * SIMD4<Float>(
+            Float(localDirection.x), Float(localDirection.y), Float(localDirection.z), 0
+        )
+        let eligibleWorldSpaceLayers = SceneParticleStaticWorldSpacePlan.eligibleLayerIDs(
+            nodes: [
+                .init(
+                    id: 1, parentID: nil,
+                    hasAuthoredTransformMotion: false,
+                    hasEffectiveParallaxMotion: false
+                ),
+                .init(
+                    id: 2, parentID: 1,
+                    hasAuthoredTransformMotion: false,
+                    hasEffectiveParallaxMotion: false
+                ),
+                .init(
+                    id: 3, parentID: nil,
+                    hasAuthoredTransformMotion: true,
+                    hasEffectiveParallaxMotion: false
+                ),
+                .init(
+                    id: 4, parentID: 3,
+                    hasAuthoredTransformMotion: false,
+                    hasEffectiveParallaxMotion: false
+                ),
+                .init(
+                    id: 5, parentID: nil,
+                    hasAuthoredTransformMotion: false,
+                    hasEffectiveParallaxMotion: true
+                ),
+                .init(
+                    id: 6, parentID: 7,
+                    hasAuthoredTransformMotion: false,
+                    hasEffectiveParallaxMotion: false
+                ),
+                .init(
+                    id: 7, parentID: 6,
+                    hasAuthoredTransformMotion: false,
+                    hasEffectiveParallaxMotion: false
+                ),
+            ]
+        ).sorted()
         let inheritedScale = SceneParticleCameraFrame.billboardScale(
             inheritedFrom: layerModel
         )
@@ -133,6 +178,12 @@ enum Harness {
             ),
             "layerCenter": vector4(stationary),
             "inheritedScale": vector2(inheritedScale),
+            "worldSpaceDirectionRoundTrip": vector3(SIMD3(
+                reprojectedDirection.x,
+                reprojectedDirection.y,
+                reprojectedDirection.z
+            )),
+            "eligibleWorldSpaceLayers": eligibleWorldSpaceLayers,
             "stationaryNDCY": stationaryNDC[1],
             "fallingNDCY": fallingNDC[1],
             "invalidPerspectiveIsIdentity": invalidFrame.perspectiveViewProjection
@@ -243,6 +294,14 @@ class SceneParticleCameraFrameTests(unittest.TestCase):
         self.assertAlmostEqual(self.result["inheritedScale"][0], 2, places=5)
         self.assertAlmostEqual(self.result["inheritedScale"][1], 3, places=5)
         self.assertLess(self.result["fallingNDCY"], self.result["stationaryNDCY"])
+
+    def test_static_world_space_plan_and_direction_inverse(self) -> None:
+        self.assertEqual(self.result["eligibleWorldSpaceLayers"], [1, 2])
+        for actual, expected in zip(
+            self.result["worldSpaceDirectionRoundTrip"],
+            [12, -7, 0],
+        ):
+            self.assertAlmostEqual(actual, expected, places=4)
 
     def test_invalid_dimensions_fail_closed(self) -> None:
         self.assertTrue(self.result["invalidPerspectiveIsIdentity"])

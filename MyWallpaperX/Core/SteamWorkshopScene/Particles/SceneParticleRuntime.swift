@@ -1,48 +1,6 @@
 import Foundation
 import Metal
 
-enum SceneParticleRuntimeDiagnosticKind: String, Codable, Sendable {
-    case missingDefinition
-    case invalidDefinition
-    case cyclicChildReference
-    case missingMaterial
-    case unsupportedShader
-    case missingTextureReference
-    case missingTextureFile
-    case builtInTextureUnavailable
-    case unsupportedBlendMode
-    case refractionUnsupported
-    case missingSpriteRenderer
-    case worldSpaceUnsupported
-    case trailRendererUnsupported
-    case ropeRendererUnsupported
-    case childSystemsUnsupported
-    case textureLoadFailed
-    case simulationLimitation
-    case instanceBufferAllocationFailed
-}
-
-struct SceneParticleRuntimeDiagnostic: Codable, Equatable, Hashable, Sendable {
-    let kind: SceneParticleRuntimeDiagnosticKind
-    let layerID: Int?
-    let particlePath: String
-    let detail: String?
-}
-
-struct SceneParticleDrawBatch {
-    let layerID: Int
-    let particlePath: String
-    let texture: MTLTexture
-    let colorUVScale: SIMD2<Float>
-    let refraction: SceneParticleRefractionBinding?
-    let blendMode: SceneParticlePipelineBlendMode
-    let instanceBuffer: SceneParticleMetalInstanceBuffer
-    let instances: [SceneParticleGPUInstance]
-    let orientation: SceneParticleOrientation
-    let orientationAxis: SIMD3<Float>?
-    let usesPerspective: Bool
-}
-
 /// Owns the CPU state and GPU instance buffers for effectively visible particle layers.
 /// Particle positions and sizes stay in the author-defined layer-local coordinate system.
 /// The renderer applies the layer world frame, Y-axis convention, and layer scale once.
@@ -79,9 +37,12 @@ final class SceneParticleRuntime {
         device: MTLDevice,
         resourceView: SceneResourceView? = nil,
         stockTextureBundleURL: URL? = SceneStockTextureResolver.defaultBundleRoot(),
-        textureLoader: SceneTextureLoader = SceneTextureLoader()
+        textureLoader: SceneTextureLoader = SceneTextureLoader(),
+        staticWorldSpaceFrames: [Int: SceneParticleWorldSpaceFrame]? = nil
     ) {
         self.device = device
+        let staticWorldSpaceFrames = staticWorldSpaceFrames
+            ?? descriptor.staticParticleWorldSpaceFrames
         let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let particleLayers = Self.orderedLayers(in: descriptor).filter {
             visibleIDs.contains($0.id)
@@ -157,9 +118,24 @@ final class SceneParticleRuntime {
                 layerID: layer.id,
                 path: path
             ) else { continue }
-            guard !asset.definition.flags.isWorldSpace,
-                  !asset.definition.renderers.contains(where: \.isWorldSpace) else {
-                addDiagnostic(kind: .worldSpaceUnsupported, layerID: layer.id, path: path)
+            let worldSpaceFrame = staticWorldSpaceFrames[layer.id]
+            guard !asset.definition.flags.isWorldSpace || worldSpaceFrame != nil else {
+                addDiagnostic(
+                    kind: .worldSpaceUnsupported,
+                    layerID: layer.id,
+                    path: path,
+                    detail: "dynamicSystemTransform"
+                )
+                continue
+            }
+            guard !asset.definition.operators.contains(where: \.isWorldSpaceMovement)
+                    || worldSpaceFrame != nil else {
+                addDiagnostic(
+                    kind: .worldSpaceMovementUnsupported,
+                    layerID: layer.id,
+                    path: path,
+                    detail: "dynamicSystemTransform"
+                )
                 continue
             }
             guard let textureSource = asset.textureSource else { continue }
@@ -226,7 +202,8 @@ final class SceneParticleRuntime {
             let simulator = SceneParticleSimulator(
                 definition: asset.definition,
                 instanceOverride: layer.particleInstanceOverride,
-                seed: UInt64(bitPattern: Int64(layer.id))
+                seed: UInt64(bitPattern: Int64(layer.id)),
+                worldSpaceFrame: worldSpaceFrame
             )
             let childRuntime = SceneParticleChildRuntime(
                 layerID: layer.id,
@@ -235,7 +212,8 @@ final class SceneParticleRuntime {
                 layerAlpha: Float(min(max(layer.alpha ?? 1, 0), 1)),
                 textureLoader: textureLoader,
                 builtInTextureRegistry: builtInTextureRegistry,
-                device: device
+                device: device,
+                worldSpaceFrame: worldSpaceFrame
             )
             for detail in childRuntime.unsupportedDetails {
                 addDiagnostic(
@@ -269,7 +247,10 @@ final class SceneParticleRuntime {
                 refraction: refraction,
                 blendMode: asset.blendMode == .additive ? .additive : .translucent,
                 spriteAnimation: spriteAnimation,
-                orientation: SceneParticleOrientation(authoredValue: render.renderer.orientation),
+                orientation: SceneParticleOrientation(
+                    authoredValue: render.renderer.orientation,
+                    isWorldSpace: render.renderer.isWorldSpace
+                ),
                 orientationAxis: render.renderer.axis.map {
                     SceneParticleSimulationMath.vector($0, fallback: SIMD3(0, 0, 1)).floatValue
                 },

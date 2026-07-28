@@ -9,26 +9,6 @@ final class SceneParticleChildRuntime {
         let limitationDetails: [String]
     }
 
-    private struct System {
-        let id: UInt64
-        let templateIndex: Int
-        let depth: Int
-        let spawnScopeID: UInt64?
-        let parentParticleID: UInt64?
-        let emissionCompletionTime: Double?
-        var origin: SIMD3<Double>
-        var simulator: SceneParticleSimulator
-    }
-
-    private struct ParentFrame {
-        let systemID: UInt64
-        let path: String
-        let origin: SIMD3<Double>
-        let births: [SceneParticleState]
-        let deaths: [SceneParticleState]
-        let particles: [SceneParticleState]
-    }
-
     // Child systems run on the CPU fallback; cap burst spikes while retaining authored
     // distribution. Each depth keeps its own aggregate budget so nested trails cannot
     // starve depth-one children and vice versa.
@@ -47,7 +27,7 @@ final class SceneParticleChildRuntime {
     private let device: MTLDevice
     private let templates: [SceneParticleChildTemplate]
     private let nestedParentPaths: Set<String>
-    private var systems: [System] = []
+    private var systems: [SceneParticleChildSystem] = []
     private var instanceScratch: [Int: [SceneParticleGPUInstance]] = [:]
     private var nextSeed: UInt64 = 0
     private var nextSystemID: UInt64 = 1
@@ -59,7 +39,8 @@ final class SceneParticleChildRuntime {
         layerAlpha: Float,
         textureLoader: SceneTextureLoader,
         builtInTextureRegistry: SceneParticleBuiltInTextureRegistry,
-        device: MTLDevice
+        device: MTLDevice,
+        worldSpaceFrame: SceneParticleWorldSpaceFrame?
     ) {
         self.layerID = layerID
         self.layerAlpha = layerAlpha
@@ -69,7 +50,8 @@ final class SceneParticleChildRuntime {
             graph: graph,
             textureLoader: textureLoader,
             builtInTextureRegistry: builtInTextureRegistry,
-            device: device
+            device: device,
+            worldSpaceFrame: worldSpaceFrame
         )
         templates = expansion.templates
         unsupportedDetails = expansion.unsupportedDetails
@@ -81,7 +63,7 @@ final class SceneParticleChildRuntime {
             performance.append(Self.budgetDetail(depth: 1))
         }
         for (offset, template) in staticTemplates.prefix(Self.maximumSystemsPerDepth).enumerated() {
-            systems.append(System(
+            systems.append(SceneParticleChildSystem(
                 id: nextSystemID,
                 templateIndex: template.index,
                 depth: template.depth,
@@ -90,13 +72,13 @@ final class SceneParticleChildRuntime {
                 emissionCompletionTime: SceneParticleChildLifecycle.emissionCompletionTime(
                     template.definition
                 ),
+                isWorldSpace: template.definition.flags.isWorldSpace,
                 origin: template.staticOrigin,
-                simulator: SceneParticleSimulator(
-                    definition: template.definition,
+                particleOrigins: [:],
+                simulator: template.simulator(
                     seed: UInt64(bitPattern: Int64(layerID))
                         ^ UInt64(template.index &+ 1) &* 0xBF58_476D_1CE4_E5B9
-                        ^ UInt64(offset),
-                    particleBudget: template.particleBudget
+                        ^ UInt64(offset)
                 )
             ))
             nextSystemID &+= 1
@@ -163,7 +145,7 @@ final class SceneParticleChildRuntime {
     private func advanceDepthOne(
         by frameDelta: TimeInterval,
         rootParticles: [SceneParticleState]
-    ) -> [ParentFrame] {
+    ) -> [SceneParticleChildParentFrame] {
         let parentsByID: [UInt64: SceneParticleState] = templates.contains {
             $0.depth == 1 && $0.trigger == .follow
         } ? Dictionary(uniqueKeysWithValues: rootParticles.map { ($0.id, $0) }) : [:]
@@ -171,7 +153,7 @@ final class SceneParticleChildRuntime {
             guard system.depth == 1, let parentID = system.parentParticleID else { return false }
             return parentsByID[parentID] == nil
         }
-        var frames: [ParentFrame] = []
+        var frames: [SceneParticleChildParentFrame] = []
         for index in systems.indices where systems[index].depth == 1 {
             if let parentID = systems[index].parentParticleID,
                let parent = parentsByID[parentID]
@@ -181,11 +163,12 @@ final class SceneParticleChildRuntime {
             systems[index].simulator.advance(by: frameDelta)
             let births = systems[index].simulator.consumeBirthEvents()
             let deaths = systems[index].simulator.consumeDeathEvents()
+            updateWorldSpaceOrigins(systemAt: index, births: births, deaths: deaths)
             guard let path = templates.first(where: {
                 $0.index == systems[index].templateIndex
             })?.path,
                   nestedParentPaths.contains(path) else { continue }
-            frames.append(ParentFrame(
+            frames.append(SceneParticleChildParentFrame(
                 systemID: systems[index].id,
                 path: path,
                 origin: systems[index].origin,
@@ -200,7 +183,7 @@ final class SceneParticleChildRuntime {
 
     private func advanceDepthTwo(
         by frameDelta: TimeInterval,
-        parentFrames: [ParentFrame],
+        parentFrames: [SceneParticleChildParentFrame],
         limitations: inout Set<String>
     ) {
         guard !nestedParentPaths.isEmpty else { return }
@@ -229,8 +212,9 @@ final class SceneParticleChildRuntime {
                 systems[index].origin = parent.origin + particle.position
             }
             systems[index].simulator.advance(by: frameDelta)
-            _ = systems[index].simulator.consumeBirthEvents()
-            _ = systems[index].simulator.consumeDeathEvents()
+            let births = systems[index].simulator.consumeBirthEvents()
+            let deaths = systems[index].simulator.consumeDeathEvents()
+            updateWorldSpaceOrigins(systemAt: index, births: births, deaths: deaths)
         }
         removeCompletedSystems(depth: 2)
         for frame in parentFrames {
@@ -350,18 +334,18 @@ final class SceneParticleChildRuntime {
         let completion = template.trigger == .follow
             ? SceneParticleChildLifecycle.emissionCompletionTime(template.definition)
             : SceneParticleChildLifecycle.eventEmissionWindow(template.definition)
-        systems.append(System(
+        systems.append(SceneParticleChildSystem(
             id: nextSystemID,
             templateIndex: template.index,
             depth: template.depth,
             spawnScopeID: scopeID,
             parentParticleID: parentParticleID,
             emissionCompletionTime: completion,
+            isWorldSpace: template.definition.flags.isWorldSpace,
             origin: origin,
-            simulator: SceneParticleSimulator(
-                definition: template.definition,
+            particleOrigins: [:],
+            simulator: template.simulator(
                 seed: seed,
-                particleBudget: template.particleBudget,
                 emissionDeadline: template.trigger == .follow ? nil : completion
             )
         ))
@@ -380,11 +364,27 @@ final class SceneParticleChildRuntime {
         for system in matchingSystems {
             for particle in system.simulator.particles {
                 instances.append(template.instance(
-                    origin: system.origin,
+                    origin: template.definition.flags.isWorldSpace
+                        ? system.particleOrigins[particle.id] ?? system.origin
+                        : system.origin,
                     particle: particle,
                     layerAlpha: layerAlpha
                 ))
             }
+        }
+    }
+
+    private func updateWorldSpaceOrigins(
+        systemAt index: Int,
+        births: [SceneParticleState],
+        deaths: [SceneParticleState]
+    ) {
+        guard systems[index].isWorldSpace else { return }
+        for particle in births {
+            systems[index].particleOrigins[particle.id] = systems[index].origin
+        }
+        for particle in deaths {
+            systems[index].particleOrigins.removeValue(forKey: particle.id)
         }
     }
 

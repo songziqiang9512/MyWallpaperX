@@ -67,6 +67,16 @@ enum Harness {
             cameraForward: SIMD3(0, 0, -1),
             fixedRight: SIMD3(0, 1, 0), fixedUp: SIMD3(0, 0, 1)
         )
+        let rotatedLayer = SceneMatrix.rotationZ(.pi / 2)
+            * SceneMatrix.scale(SIMD3<Float>(2, 3, 1))
+        let localFixedVectors = SceneParticleOrientation.fixed.fixedBasisVectors(
+            axis: SIMD3(0, 0, 1),
+            layerModel: rotatedLayer
+        )
+        let worldFixedVectors = SceneParticleOrientation.worldFixed.fixedBasisVectors(
+            axis: SIMD3(0, 0, 1),
+            layerModel: rotatedLayer
+        )
 
         let width: Float = 1280
         let height: Float = 832
@@ -103,6 +113,9 @@ enum Harness {
             "uprightUp": vector(upright.up),
             "fixedRight": vector(fixed.right),
             "fixedUp": vector(fixed.up),
+            "localFixedRight": vector(localFixedVectors.right),
+            "worldFixedRight": vector(worldFixedVectors.right),
+            "worldFixedUp": vector(worldFixedVectors.up),
             "nearNDC": ndc(projection, SIMD4(0, 0, -0.1, 1)),
             "farNDC": ndc(projection, SIMD4(0, 0, -5000, 1)),
             "sceneCenterNDC": ndc(viewProjection, SIMD4(width / 2, height / 2, 0, 1)),
@@ -655,6 +668,9 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertEqual(self.result["uprightUp"], [0, 1, 0])
         self.assertEqual(self.result["fixedRight"], [0, 1, 0])
         self.assertEqual(self.result["fixedUp"], [0, 0, 1])
+        self.assertNotEqual(self.result["localFixedRight"], self.result["worldFixedRight"])
+        self.assertEqual(self.result["worldFixedRight"], [1, 0, 0])
+        self.assertEqual(self.result["worldFixedUp"], [0, -1, 0])
 
     def test_metal_right_handed_perspective_matches_scene_camera(self) -> None:
         self.assertAlmostEqual(self.result["nearNDC"][2], 0, places=5)

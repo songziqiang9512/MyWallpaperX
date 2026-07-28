@@ -1997,8 +1997,10 @@
       "expected_particle_authored": 15,
       "expected_particle_visible": 15,
       "expected_particle_skipped_hidden": 0,
-      "expected_particle_refract_loaded": 4,
+      "expected_particle_refract_loaded": 6,
       "required_particle_loaded_layer_ids": [
+        840,
+        214034,
         260,
         211,
         172,
@@ -2867,15 +2869,17 @@
       "expected_solid_candidates": 0,
       "required_solid_loaded_layer_ids": [],
       "expected_particle_candidates": 7,
-      "minimum_particle_loaded": 4,
+      "minimum_particle_loaded": 6,
       "expected_particle_authored": 42,
       "expected_particle_visible": 7,
       "expected_particle_skipped_hidden": 35,
       "required_particle_loaded_layer_ids": [
         593,
         244,
+        248,
         253,
-        258
+        258,
+        263
       ],
       "expected_camera_parallax": false,
       "expected_utility_candidates": 90,
@@ -3553,7 +3557,7 @@
         199
       ],
       "expected_particle_candidates": 9,
-      "minimum_particle_loaded": 7,
+      "minimum_particle_loaded": 9,
       "expected_particle_authored": 9,
       "expected_particle_visible": 9,
       "expected_particle_skipped_hidden": 0,
@@ -3563,6 +3567,8 @@
         90,
         504,
         511,
+        523,
+        530,
         516,
         498
       ],
@@ -5174,6 +5180,7 @@
       "expected_particle_refract_loaded": 1,
       "required_particle_loaded_layer_ids": [
         354,
+        967,
         1214,
         1427,
         761
@@ -5416,12 +5423,15 @@
       "expected_solid_candidates": 0,
       "required_solid_loaded_layer_ids": [],
       "expected_particle_candidates": 5,
-      "minimum_particle_loaded": 1,
+      "minimum_particle_loaded": 4,
       "expected_particle_authored": 5,
       "expected_particle_visible": 5,
       "expected_particle_skipped_hidden": 0,
       "expected_particle_refract_loaded": 3,
       "required_particle_loaded_layer_ids": [
+        239,
+        245,
+        248,
         285
       ],
       "expected_camera_parallax": false,

@@ -14,6 +14,7 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
+    SOURCE_ROOT / "Particles/SceneParticleWorldSpacePlan.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulationSupport.swift",
     SOURCE_ROOT / "Particles/SceneParticleOscillationCache.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator.swift",
@@ -25,6 +26,7 @@ SWIFT_SOURCES = [
 
 HARNESS_SOURCE = r'''
 import Foundation
+import simd
 
 @main
 enum Harness {
@@ -71,6 +73,19 @@ enum Harness {
         movement.advance(by: 0.5)
         let movementPosition = movement.particles[0].position
         movement.advance(by: 1.25)
+        let scaledWorld = simd_float4x4(
+            SIMD4(2, 0, 0, 0),
+            SIMD4(0, 4, 0, 0),
+            SIMD4(0, 0, 1, 0),
+            SIMD4(0, 0, 0, 1)
+        )
+        var worldMovement = simulator(
+            worldMovementJSON,
+            seed: 1,
+            step: 0.5,
+            worldSpaceFrame: SceneParticleWorldSpaceFrame(worldFrame: scaledWorld)
+        )
+        worldMovement.advance(by: 0.5)
 
         let overrideRoot = try object(overrideJSON)
         let parsedOverride = SceneParticleDefinitionParser().parseInstanceOverride(overrideRoot)
@@ -142,6 +157,8 @@ enum Harness {
                 (-1...1).contains($0.x) && (-2...2).contains($0.y) && (-3...3).contains($0.z)
             },
             "movementPosition": vector(movementPosition),
+            "worldMovementPosition": vector(worldMovement.particles[0].position),
+            "worldMovementLocalVelocity": vector(worldMovement.particles[0].velocity),
             "fadeAlpha": movement.particles[0].alpha,
             "overrideLifetime": overriddenParticle.lifetime,
             "overrideSize": overriddenParticle.size,
@@ -175,7 +192,8 @@ enum Harness {
         override: SceneParticleInstanceOverride? = nil,
         seed: UInt64,
         step: Double,
-        particleBudget: Int? = nil
+        particleBudget: Int? = nil,
+        worldSpaceFrame: SceneParticleWorldSpaceFrame? = nil
     ) -> SceneParticleSimulator {
         let definition = SceneParticleDefinitionParser().parse(root: try! object(source))
         return SceneParticleSimulator(
@@ -183,7 +201,8 @@ enum Harness {
             instanceOverride: override,
             seed: seed,
             fixedTimeStep: step,
-            particleBudget: particleBudget
+            particleBudget: particleBudget,
+            worldSpaceFrame: worldSpaceFrame
         )
     }
 
@@ -232,6 +251,14 @@ enum Harness {
      "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
      "initializer":[{"name":"lifetimerandom","min":2,"max":2},{"name":"velocityrandom","min":"2 0 0","max":"2 0 0"},{"name":"alpharandom","min":1,"max":1}],
      "operator":[{"name":"movement","gravity":"0 -2 0","drag":1},{"name":"alphafade","fadeintime":0.25,"fadeouttime":0.75}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let worldMovementJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2},{"name":"velocityrandom","min":"8 4 0","max":"8 4 0"}],
+     "operator":[{"name":"movement","flags":1,"gravity":"0 -8 0"}],
      "renderer":[{"name":"sprite"}]}
     """#
 
@@ -472,6 +499,8 @@ class SceneParticleSimulatorTests(unittest.TestCase):
     def test_movement_gravity_drag_and_alpha_fade(self) -> None:
         self.assertEqual(self.results["movementPosition"], [0.65625, -0.34375, 0])
         self.assertAlmostEqual(self.results["fadeAlpha"], 0.5)
+        self.assertEqual(self.results["worldMovementPosition"], [2, 0, 0])
+        self.assertEqual(self.results["worldMovementLocalVelocity"], [4, 0, 0])
 
     def test_static_instance_overrides_apply_and_dynamic_binding_is_diagnosed(self) -> None:
         self.assertEqual(self.results["overrideLifetime"], 4)

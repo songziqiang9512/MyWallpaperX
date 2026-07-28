@@ -162,6 +162,10 @@ nonisolated struct SceneParticleOperator: Equatable, Sendable {
     let speedMinimum: Double?
     let speedMaximum: Double?
     let audioResponse: SceneParticleAudioResponse
+
+    nonisolated var isWorldSpaceMovement: Bool {
+        kind == .movement && rawFlags & 1 != 0
+    }
 }
 
 nonisolated enum SceneParticleRendererKind: Equatable, Sendable {

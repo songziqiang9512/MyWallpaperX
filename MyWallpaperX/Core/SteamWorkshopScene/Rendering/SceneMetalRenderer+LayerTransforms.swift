@@ -93,23 +93,17 @@ extension SceneMetalRenderer {
         layerModel: simd_float4x4,
         cameraFrame: SceneParticleCameraFrame
     ) -> SceneParticleOrientationBasis {
-        guard batch.orientation == .fixed else {
+        guard batch.orientation.isFixed else {
             return cameraFrame.basis(for: batch.orientation)
         }
-        let rawAxis = batch.orientationAxis ?? SIMD3<Float>(0, 0, 1)
-        let axisLength = simd_length_squared(rawAxis)
-        let normal = axisLength.isFinite && axisLength > 1e-8
-            ? rawAxis / sqrt(axisLength)
-            : SIMD3<Float>(0, 0, 1)
-        let reference = abs(normal.y) < 0.999 ? SIMD3<Float>(0, 1, 0) : SIMD3(1, 0, 0)
-        let localRight = simd_normalize(simd_cross(reference, normal))
-        let localUp = simd_normalize(simd_cross(normal, localRight))
-        let transformedRight = layerModel * SIMD4(localRight.x, localRight.y, localRight.z, 0)
-        let transformedUp = layerModel * SIMD4(localUp.x, localUp.y, localUp.z, 0)
+        let vectors = batch.orientation.fixedBasisVectors(
+            axis: batch.orientationAxis ?? SIMD3<Float>(0, 0, 1),
+            layerModel: layerModel
+        )
         return cameraFrame.basis(
             for: batch.orientation,
-            fixedRight: SIMD3(transformedRight.x, transformedRight.y, transformedRight.z),
-            fixedUp: SIMD3(transformedUp.x, transformedUp.y, transformedUp.z)
+            fixedRight: vectors.right,
+            fixedUp: vectors.up
         )
     }
 }

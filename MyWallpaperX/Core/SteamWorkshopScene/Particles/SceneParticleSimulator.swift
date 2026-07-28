@@ -18,6 +18,8 @@ nonisolated struct SceneParticleSimulator: Sendable {
     private let definition: SceneParticleDefinition
     let instanceOverride: SceneParticleInstanceOverride?
     private let emissionDeadline: Double?
+    private let worldSpaceFrame: SceneParticleWorldSpaceFrame?
+    private let hasWorldSpaceMovement: Bool
     private var emitters: [EmitterState]
     var random: SceneParticleRandomGenerator
     private var accumulator = 0.0
@@ -31,11 +33,16 @@ nonisolated struct SceneParticleSimulator: Sendable {
         seed: UInt64 = 0,
         fixedTimeStep: Double = 1.0 / 60.0,
         particleBudget: Int? = nil,
-        emissionDeadline: Double? = nil
+        emissionDeadline: Double? = nil,
+        worldSpaceFrame: SceneParticleWorldSpaceFrame? = nil
     ) {
         self.definition = definition
         self.instanceOverride = instanceOverride
         self.emissionDeadline = emissionDeadline
+        self.worldSpaceFrame = worldSpaceFrame
+        self.hasWorldSpaceMovement = definition.operators.contains(
+            where: \.isWorldSpaceMovement
+        )
         self.fixedTimeStep = fixedTimeStep.isFinite && fixedTimeStep > 0 ? fixedTimeStep : 1.0 / 60.0
         let authoredMaximum = min(max(definition.maximumCount ?? 1, 0), 20_000)
         maximumParticleCount = min(authoredMaximum, max(particleBudget ?? authoredMaximum, 0))
@@ -164,6 +171,9 @@ nonisolated struct SceneParticleSimulator: Sendable {
         nextParticleID &+= 1
         applyInitializers(to: &particle)
         applyInstanceOverride(to: &particle)
+        if hasWorldSpaceMovement, let worldSpaceFrame {
+            particle.velocity = worldSpaceFrame.localDirection(particle.velocity)
+        }
         particle.initialColor = particle.color
         particle.initialAlpha = particle.alpha
         particle.initialSize = particle.size
@@ -206,7 +216,13 @@ nonisolated struct SceneParticleSimulator: Sendable {
     ) {
         switch value.kind {
         case .movement:
-            let gravity = SceneParticleSimulationMath.vector(value.gravity, fallback: .zero)
+            let authoredGravity = SceneParticleSimulationMath.vector(
+                value.gravity,
+                fallback: .zero
+            )
+            let gravity = value.isWorldSpaceMovement
+                ? worldSpaceFrame?.localDirection(authoredGravity) ?? authoredGravity
+                : authoredGravity
             let drag = max(0, value.drag ?? 0)
             for index in particles.indices {
                 let acceleration = gravity - particles[index].velocity * drag

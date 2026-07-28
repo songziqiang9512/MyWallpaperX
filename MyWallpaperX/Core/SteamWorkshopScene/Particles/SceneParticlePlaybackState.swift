@@ -20,7 +20,8 @@ final class SceneParticlePlaybackState {
             cacheDirectory: cacheDirectory,
             device: device,
             resourceView: resourceView,
-            textureLoader: textureLoader
+            textureLoader: textureLoader,
+            staticWorldSpaceFrames: descriptor.staticParticleWorldSpaceFrames
         )
         self.batches = runtime.advance(by: 0)
     }

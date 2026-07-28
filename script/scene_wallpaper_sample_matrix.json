@@ -736,8 +736,10 @@
       "expected_particle_authored": 15,
       "expected_particle_visible": 15,
       "expected_particle_skipped_hidden": 0,
-      "expected_particle_refract_loaded": 4,
+      "expected_particle_refract_loaded": 6,
       "required_particle_loaded_layer_ids": [
+        840,
+        214034,
         260,
         211,
         172,
@@ -1467,7 +1469,7 @@
         199
       ],
       "expected_particle_candidates": 9,
-      "minimum_particle_loaded": 7,
+      "minimum_particle_loaded": 9,
       "expected_particle_authored": 9,
       "expected_particle_visible": 9,
       "expected_particle_skipped_hidden": 0,
@@ -1477,6 +1479,8 @@
         90,
         504,
         511,
+        523,
+        530,
         516,
         498
       ],
@@ -1828,13 +1832,14 @@
         153
       ],
       "expected_particle_candidates": 6,
-      "minimum_particle_loaded": 4,
+      "minimum_particle_loaded": 6,
       "expected_particle_authored": 6,
       "expected_particle_visible": 6,
       "expected_particle_skipped_hidden": 0,
       "expected_particle_refract_loaded": 1,
       "required_particle_loaded_layer_ids": [
         354,
+        967,
         1214,
         1427,
         761

@@ -22,6 +22,7 @@ struct SceneParticleChildTemplate {
     let orientation: SceneParticleOrientation
     let orientationAxis: SIMD3<Float>?
     let usesPerspective: Bool
+    let worldSpaceFrame: SceneParticleWorldSpaceFrame?
     let probability: Double
     let staticOrigin: SIMD3<Double>
     let maximumSystemCount: Int
@@ -56,7 +57,8 @@ enum SceneParticleChildGraphExpansion {
         graph: SceneParticleAssetGraph,
         textureLoader: SceneTextureLoader,
         builtInTextureRegistry: SceneParticleBuiltInTextureRegistry,
-        device: MTLDevice
+        device: MTLDevice,
+        worldSpaceFrame: SceneParticleWorldSpaceFrame?
     ) -> Expansion {
         var templates: [SceneParticleChildTemplate] = []
         var unsupported: [String] = []
@@ -76,6 +78,7 @@ enum SceneParticleChildGraphExpansion {
                 textureLoader: textureLoader,
                 builtInTextureRegistry: builtInTextureRegistry,
                 device: device,
+                worldSpaceFrame: worldSpaceFrame,
                 performance: &performance
             )
             switch evaluation {
@@ -99,6 +102,7 @@ enum SceneParticleChildGraphExpansion {
                             textureLoader: textureLoader,
                             builtInTextureRegistry: builtInTextureRegistry,
                             device: device,
+                            worldSpaceFrame: worldSpaceFrame,
                             performance: &performance
                         )
                         switch nestedEvaluation {
@@ -135,6 +139,7 @@ enum SceneParticleChildGraphExpansion {
         textureLoader: SceneTextureLoader,
         builtInTextureRegistry: SceneParticleBuiltInTextureRegistry,
         device: MTLDevice,
+        worldSpaceFrame: SceneParticleWorldSpaceFrame?,
         performance: inout [String]
     ) -> Evaluation {
         let label = child.path ?? "child#\(declarationIndex)"
@@ -186,6 +191,11 @@ enum SceneParticleChildGraphExpansion {
             let profile = trigger == .staticChild
                 ? "outsideStrictStaticProfile" : "outsideStrictEventProfile"
             return .rejected("\(path):\(profile)")
+        }
+        let needsStaticFrame = asset.definition.flags.isWorldSpace
+            || asset.definition.operators.contains(where: \.isWorldSpaceMovement)
+        guard !needsStaticFrame || worldSpaceFrame != nil else {
+            return .rejected("\(path):dynamicWorldSpaceTransform")
         }
         guard let source = asset.textureSource else {
             return .rejected("\(path):textureLoadFailed")
@@ -245,11 +255,15 @@ enum SceneParticleChildGraphExpansion {
                 refraction: refraction,
                 blendMode: asset.blendMode == .additive ? .additive : .translucent,
                 spriteAnimation: animation,
-                orientation: SceneParticleOrientation(authoredValue: render.renderer.orientation),
+                orientation: SceneParticleOrientation(
+                    authoredValue: render.renderer.orientation,
+                    isWorldSpace: render.renderer.isWorldSpace
+                ),
                 orientationAxis: render.renderer.axis.map {
                     SceneParticleSimulationMath.vector($0, fallback: SIMD3(0, 0, 1)).particleFloatValue
                 },
                 usesPerspective: asset.definition.flags.usesPerspective,
+                worldSpaceFrame: worldSpaceFrame,
                 probability: probability,
                 staticOrigin: staticOrigin ?? .zero,
                 maximumSystemCount: maximum,
@@ -263,6 +277,19 @@ enum SceneParticleChildGraphExpansion {
 }
 
 extension SceneParticleChildTemplate {
+    func simulator(
+        seed: UInt64,
+        emissionDeadline: Double? = nil
+    ) -> SceneParticleSimulator {
+        SceneParticleSimulator(
+            definition: definition,
+            seed: seed,
+            particleBudget: particleBudget,
+            emissionDeadline: emissionDeadline,
+            worldSpaceFrame: worldSpaceFrame
+        )
+    }
+
     func instance(
         origin: SIMD3<Double>,
         particle: SceneParticleState,

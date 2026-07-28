@@ -77,12 +77,29 @@ nonisolated enum SceneParticleOrientation: Equatable, Sendable {
     case screen
     case upright
     case fixed
+    case worldScreen
+    case worldUpright
+    case worldFixed
 
-    nonisolated init(authoredValue: String?) {
-        switch authoredValue?.lowercased() {
-        case "upright", "vertical": self = .upright
-        case "fixed", "world", "worldspace": self = .fixed
+    nonisolated init(authoredValue: String?, isWorldSpace: Bool = false) {
+        switch (authoredValue?.lowercased(), isWorldSpace) {
+        case ("upright", false), ("vertical", false): self = .upright
+        case ("upright", true), ("vertical", true): self = .worldUpright
+        case ("fixed", false), ("world", false), ("worldspace", false): self = .fixed
+        case ("fixed", true), ("world", true), ("worldspace", true): self = .worldFixed
+        case (_, true): self = .worldScreen
         default: self = .screen
+        }
+    }
+
+    nonisolated var isFixed: Bool {
+        self == .fixed || self == .worldFixed
+    }
+
+    nonisolated var isWorldSpace: Bool {
+        switch self {
+        case .worldScreen, .worldUpright, .worldFixed: true
+        case .screen, .upright, .fixed: false
         }
     }
 
@@ -95,12 +112,12 @@ nonisolated enum SceneParticleOrientation: Equatable, Sendable {
         fixedUp: SIMD3<Float> = SIMD3(0, 1, 0)
     ) -> SceneParticleOrientationBasis {
         switch self {
-        case .screen:
+        case .screen, .worldScreen:
             return SceneParticleOrientationBasis.orthonormalized(
                 right: cameraRight,
                 up: cameraUp
             )
-        case .upright:
+        case .upright, .worldUpright:
             let up = SceneParticleOrientationBasis.normalized(
                 worldUp,
                 fallback: SIMD3(0, 1, 0)
@@ -109,12 +126,41 @@ nonisolated enum SceneParticleOrientation: Equatable, Sendable {
             let aligned = simd_dot(horizontal, cameraRight) < 0 ? -horizontal : horizontal
             let right = simd_length_squared(aligned) > 1e-8 ? aligned : cameraRight
             return SceneParticleOrientationBasis.orthonormalized(right: right, up: up)
-        case .fixed:
+        case .fixed, .worldFixed:
             return SceneParticleOrientationBasis.orthonormalized(
                 right: fixedRight,
                 up: fixedUp
             )
         }
+    }
+
+    nonisolated func fixedBasisVectors(
+        axis rawAxis: SIMD3<Float>,
+        layerModel: simd_float4x4
+    ) -> (right: SIMD3<Float>, up: SIMD3<Float>) {
+        let axisLength = simd_length_squared(rawAxis)
+        let normal = axisLength.isFinite && axisLength > 1e-8
+            ? rawAxis / sqrt(axisLength)
+            : SIMD3<Float>(0, 0, 1)
+        let reference = abs(normal.y) < 0.999
+            ? SIMD3<Float>(0, 1, 0)
+            : SIMD3<Float>(1, 0, 0)
+        let localRight = simd_normalize(simd_cross(reference, normal))
+        let localUp = simd_normalize(simd_cross(normal, localRight))
+        let basisModel = isWorldSpace
+            ? simd_float4x4(
+                SIMD4(1, 0, 0, 0),
+                SIMD4(0, -1, 0, 0),
+                SIMD4(0, 0, 1, 0),
+                SIMD4(0, 0, 0, 1)
+            )
+            : layerModel
+        let transformedRight = basisModel * SIMD4(localRight.x, localRight.y, localRight.z, 0)
+        let transformedUp = basisModel * SIMD4(localUp.x, localUp.y, localUp.z, 0)
+        return (
+            SIMD3(transformedRight.x, transformedRight.y, transformedRight.z),
+            SIMD3(transformedUp.x, transformedUp.y, transformedUp.z)
+        )
     }
 }
 

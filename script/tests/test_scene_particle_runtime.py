@@ -41,6 +41,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneStockTextureResolver.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
+    SOURCE_ROOT / "Particles/SceneParticleWorldSpacePlan.swift",
     SOURCE_ROOT / "Particles/SceneParticleTextureSource.swift",
     SOURCE_ROOT / "Particles/SceneParticleRefractionPlan.swift",
     SOURCE_ROOT / "Particles/SceneParticleRefractionBinding.swift",
@@ -68,7 +69,9 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Rendering/SceneSpriteAnimation.swift",
     SOURCE_ROOT / "Rendering/SceneLayerVisibility.swift",
     SOURCE_ROOT / "Particles/SceneParticleChildGraphExpansion.swift",
+    SOURCE_ROOT / "Particles/SceneParticleChildRuntimeModels.swift",
     SOURCE_ROOT / "Particles/SceneParticleChildRuntime.swift",
+    SOURCE_ROOT / "Particles/SceneParticleRuntimeModels.swift",
     SOURCE_ROOT / "Particles/SceneParticleRuntime.swift",
     SOURCE_ROOT / "Particles/SceneParticleRuntime+Support.swift",
     SOURCE_ROOT / "Particles/SceneParticlePlaybackState.swift",
@@ -146,6 +149,12 @@ struct SceneRenderDescriptor: Codable {
     let layers: [Layer]
     let renderOrderLayerIDs: [Int]
     let materialPasses: [MaterialPassDescriptor]
+
+    var staticParticleWorldSpaceFrames: [Int: SceneParticleWorldSpaceFrame] {
+        Dictionary(uniqueKeysWithValues: layers.map {
+            ($0.id, SceneParticleWorldSpaceFrame(worldFrame: matrix_identity_float4x4)!)
+        })
+    }
 }
 
 struct SceneDocument {
@@ -590,7 +599,7 @@ enum Harness {
         )
         try writeParticle(
             "particles/follow-child.json", material: "materials/shared.json",
-            rate: 60, under: directory
+            flags: 1, rate: 60, under: directory
         )
         try writeParticle(
             "particles/bounded-root.json", material: "materials/shared.json",
@@ -984,6 +993,18 @@ enum Harness {
         try writeParticle("particles/no-texture.json", material: "materials/no-texture.json", under: directory)
         try writeParticle("particles/world.json", material: "materials/shared.json", flags: 1, under: directory)
         try writeParticle(
+            "particles/world-dynamic.json", material: "materials/shared.json",
+            flags: 1, under: directory
+        )
+        try writeParticle(
+            "particles/renderer-world.json", material: "materials/shared.json",
+            rendererFlags: 1, under: directory
+        )
+        try writeParticle(
+            "particles/movement-world.json", material: "materials/shared.json",
+            moves: true, movementFlags: 1, under: directory
+        )
+        try writeParticle(
             "particles/trail.json", material: "materials/shared.json",
             renderer: "spritetrail", rendererLength: 0.05,
             rendererMinimumLength: 1, rendererMaximumLength: 10,
@@ -1039,8 +1060,11 @@ enum Harness {
                 layer(9, "particles/unsupported-child-root.json"),
                 layer(10, "particles/trail.json", particleAlpha: 0),
                 layer(11, "particles/trail.json", particleAlpha: 0, alphaHasScript: true),
+                layer(12, "particles/world-dynamic.json"),
+                layer(13, "particles/renderer-world.json"),
+                layer(14, "particles/movement-world.json"),
             ],
-            renderOrderLayerIDs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+            renderOrderLayerIDs: Array(1 ... 14),
             materialPasses: [
                 .init(
                     materialPath: "materials/no-texture.json",
@@ -1068,7 +1092,11 @@ enum Harness {
         let runtime = SceneParticleRuntime(
             descriptor: descriptor,
             cacheDirectory: directory,
-            device: device
+            device: device,
+            staticWorldSpaceFrames: [
+                2: SceneParticleWorldSpaceFrame(worldFrame: matrix_identity_float4x4)!,
+                14: SceneParticleWorldSpaceFrame(worldFrame: matrix_identity_float4x4)!,
+            ]
         )
         _ = runtime.advance(by: 0.25)
         let batches = runtime.advance(by: 0.25)
@@ -1101,6 +1129,9 @@ enum Harness {
                 .instances.first.map {
                     [$0.velocityAndTrail.x, $0.velocityAndTrail.y, $0.velocityAndTrail.z]
                 } ?? [],
+            "rendererWorldOrientation": batches.first(where: { $0.layerID == 13 })?
+                .orientation == .worldScreen,
+            "movementWorldLayerLoaded": batches.contains { $0.layerID == 14 },
             "diagnostics": runtime.diagnostics.map {
                 [
                     "kind": $0.kind.rawValue,
@@ -1154,12 +1185,14 @@ enum Harness {
         material: String,
         flags: Int = 0,
         renderer: String = "sprite",
+        rendererFlags: Int = 0,
         rendererLength: Double? = nil,
         rendererMinimumLength: Double? = nil,
         rendererMaximumLength: Double? = nil,
         velocityX: Double? = nil,
         lifetime: Double = 10,
         moves: Bool = false,
+        movementFlags: Int = 0,
         rate: Double = 60,
         emitterDuration: Double? = nil,
         audioProcessingMode: Int? = nil,
@@ -1178,7 +1211,10 @@ enum Harness {
                 "max": [velocityX, 0, 0],
             ])
         }
-        var rendererDefinition: [String: Any] = ["name": renderer]
+        var rendererDefinition: [String: Any] = [
+            "name": renderer,
+            "flags": rendererFlags,
+        ]
         if let rendererLength { rendererDefinition["length"] = rendererLength }
         if let rendererMinimumLength { rendererDefinition["minlength"] = rendererMinimumLength }
         if let rendererMaximumLength { rendererDefinition["maxlength"] = rendererMaximumLength }
@@ -1197,7 +1233,12 @@ enum Harness {
             "renderer": [rendererDefinition],
             "children": children,
         ]
-        if moves { definition["operator"] = [["name": "movement"]] }
+        if moves {
+            definition["operator"] = [[
+                "name": "movement",
+                "flags": movementFlags,
+            ]]
+        }
         try writeJSON(definition, to: root.appendingPathComponent(path))
     }
 
@@ -1312,8 +1353,11 @@ class SceneParticleRuntimeTests(unittest.TestCase):
 
     def test_synthetic_rejects_unsupported_roots_and_keeps_diagnostics(self) -> None:
         result = self.run_harness("synthetic")
-        self.assertEqual(result["activeLayerIDs"], [3, 4, 6, 7, 9, 11])
-        self.assertEqual(result["batchLayerIDs"], [3, 4, 4, 6, 7, 9, 9, 9, 9, 11])
+        self.assertEqual(result["activeLayerIDs"], [2, 3, 4, 6, 7, 9, 11, 13, 14])
+        self.assertEqual(
+            result["batchLayerIDs"],
+            [2, 3, 4, 4, 6, 7, 9, 9, 9, 9, 11, 13, 14],
+        )
         self.assertGreater(result["activeParticleCount"], 0)
         self.assertGreater(result["childInstanceCount"], 0)
         self.assertEqual(result["staticChildInstanceCount"], 3)
@@ -1323,6 +1367,8 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertEqual(result["batchTextureSizes"]["7"], [64, 64])
         self.assertAlmostEqual(result["trailStretch"], 5)
         self.assertEqual(result["trailVelocity"], [100, 0, 0])
+        self.assertTrue(result["rendererWorldOrientation"])
+        self.assertTrue(result["movementWorldLayerLoaded"])
         self.assertFalse(result["hiddenMentioned"])
         self.assertNotIn(10, result["activeLayerIDs"])
         self.assertIn(11, result["activeLayerIDs"])
@@ -1361,7 +1407,7 @@ class SceneParticleRuntimeTests(unittest.TestCase):
     def test_continuous_children_follow_finish_and_obey_aggregate_budget(self) -> None:
         result = self.run_harness("eventfollow-synthetic")
         self.assertEqual(result["childCounts"], [0, 1, 2, 0, 0, 0])
-        self.assertEqual(result["childPositions"], [2, 3])
+        self.assertEqual(result["childPositions"], [2, 2])
         self.assertEqual(result["boundedCounts"], [0, 1, 1, 1, 0, 0])
         self.assertEqual(result["budgetCounts"], [0, 64, 128, 192, 256, 320])
         self.assertEqual(result["childUnsupportedLayers"], [])
