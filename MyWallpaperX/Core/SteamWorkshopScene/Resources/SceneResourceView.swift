@@ -164,7 +164,11 @@ struct SceneResourceView {
 
     nonisolated private static func normalizedRelativePath(_ rawPath: String) -> String? {
         let path = rawPath.replacingOccurrences(of: "\\", with: "/")
-        guard !path.isEmpty, !path.hasPrefix("/") else { return nil }
+        guard !path.isEmpty,
+              !path.hasPrefix("/"),
+              path.range(of: #"^[A-Za-z]:/"#, options: .regularExpression) == nil else {
+            return nil
+        }
         let components = path.split(separator: "/", omittingEmptySubsequences: false)
         guard components.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }) else {
             return nil

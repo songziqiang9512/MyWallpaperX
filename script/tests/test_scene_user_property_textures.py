@@ -73,6 +73,23 @@ enum Harness {
             ],
             device: device
         )
+        let sharedLoader = SceneTextureLoader()
+        let firstCached = sharedLoader.load(from: pngURL, device: device)
+        let secondCached = sharedLoader.load(from: pngURL, device: device)
+        let reusedTexture: Bool
+        if case let .loaded(first) = firstCached,
+           case let .loaded(second) = secondCached {
+            reusedTexture = first === second
+        } else {
+            reusedTexture = false
+        }
+        try Data("changed user image".utf8).write(to: pngURL)
+        let changedFileInvalidatedCache: Bool
+        if case .decodeFailed = sharedLoader.load(from: pngURL, device: device) {
+            changedFileInvalidatedCache = true
+        } else {
+            changedFileInvalidatedCache = false
+        }
         let retry = loader.load(
             urlsByPropertyKey: ["png": invalidURL],
             device: device
@@ -87,6 +104,8 @@ enum Harness {
             "retryReportLines": retry.reportLines,
             "emptyLoadedKeys": empty.textures.keys.sorted(),
             "emptyReportLines": empty.reportLines,
+            "reusedTexture": reusedTexture,
+            "changedFileInvalidatedCache": changedFileInvalidatedCache,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -195,6 +214,10 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
     def test_empty_input_is_a_noop(self) -> None:
         self.assertEqual(self.result["emptyLoadedKeys"], [])
         self.assertEqual(self.result["emptyReportLines"], [])
+
+    def test_loader_reuses_unchanged_textures_but_invalidates_changed_user_files(self) -> None:
+        self.assertTrue(self.result["reusedTexture"])
+        self.assertTrue(self.result["changedFileInvalidatedCache"])
 
     def test_surface_rebuild_reopens_security_scoped_urls(self) -> None:
         source = HOST_SOURCE.read_text(encoding="utf-8")

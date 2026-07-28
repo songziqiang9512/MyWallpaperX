@@ -17,9 +17,28 @@ enum SceneTextureLoadOutcome {
     case textureAllocationFailed(width: Int, height: Int)
 }
 
-struct SceneTextureLoader {
+final class SceneTextureLoader {
+    private struct SourceKey: Hashable {
+        let path: String
+        let size: UInt64
+        let modifiedAtBits: UInt64
+    }
+
+    private struct TextureKey: Hashable {
+        let source: SourceKey
+        let deviceRegistryID: UInt64
+    }
+
+    private struct TexResource {
+        let data: Data
+        let container: SceneTexContainer?
+        let parseError: String?
+    }
+
     private static let directImageExtensions: Set<String> = ["png", "jpg", "jpeg"]
     private static let texExtension = "tex"
+    private var textureOutcomes: [TextureKey: SceneTextureLoadOutcome] = [:]
+    private var texResources: [SourceKey: TexResource] = [:]
 
     // GPUs cope poorly with extremely large textures (e.g. 8192×6144 RGBA8 =
     // 192 MB), and Apple Silicon's maxTexture2DLimit is 16384 but actual
@@ -28,14 +47,19 @@ struct SceneTextureLoader {
     private static let maxTextureDimension = 4096
 
     func load(from url: URL, device: MTLDevice) -> SceneTextureLoadOutcome {
+        let key = TextureKey(source: sourceKey(for: url), deviceRegistryID: device.registryID)
+        if let cached = textureOutcomes[key] { return cached }
         let ext = url.pathExtension.lowercased()
+        let outcome: SceneTextureLoadOutcome
         if Self.directImageExtensions.contains(ext) {
-            return loadDirectImage(url: url, device: device)
+            outcome = loadDirectImage(url: url, device: device)
+        } else if ext == Self.texExtension {
+            outcome = loadWallpaperEngineTex(url: url, device: device)
+        } else {
+            outcome = .unsupportedFormat(extension: ext)
         }
-        if ext == Self.texExtension {
-            return loadWallpaperEngineTex(url: url, device: device)
-        }
-        return .unsupportedFormat(extension: ext)
+        textureOutcomes[key] = outcome
+        return outcome
     }
 
     func makeVideoTextureSourceIfNeeded(
@@ -45,8 +69,8 @@ struct SceneTextureLoader {
         device: MTLDevice
     ) -> SceneVideoTextureSource? {
         guard url.pathExtension.lowercased() == Self.texExtension,
-              let data = try? Data(contentsOf: url),
-              let container = try? SceneTexContainerReader().read(data: data),
+              let resource = texResource(from: url),
+              let container = resource.container,
               container.format == 0,
               let payload = container.mips.first?.data,
               container.isVideoMp4 || Self.isMP4Payload(payload) else {
@@ -58,6 +82,11 @@ struct SceneTextureLoader {
             cacheDirectory: cacheDirectory,
             device: device
         )
+    }
+
+    func texContainer(from url: URL) -> SceneTexContainer? {
+        guard url.pathExtension.lowercased() == Self.texExtension else { return nil }
+        return texResource(from: url)?.container
     }
 
     private func loadDirectImage(url: URL, device: MTLDevice) -> SceneTextureLoadOutcome {
@@ -74,11 +103,11 @@ struct SceneTextureLoader {
     // variants using DXT/BC compression have no embedded standard image and
     // are reported as such for diagnosis.
     private func loadWallpaperEngineTex(url: URL, device: MTLDevice) -> SceneTextureLoadOutcome {
-        guard let data = try? Data(contentsOf: url) else {
+        guard let resource = texResource(from: url) else {
             return .decodeFailed("read failed: \(url.lastPathComponent)")
         }
-        let parsedContainer = Result { try SceneTexContainerReader().read(data: data) }
-        if case let .success(container) = parsedContainer {
+        let data = resource.data
+        if let container = resource.container {
             if container.format == 0 {
                 return loadFormatZeroContainer(container, fallbackData: data, device: device)
             }
@@ -87,18 +116,49 @@ struct SceneTextureLoader {
             }
         }
         guard let embedded = Self.extractEmbeddedImageData(from: data) else {
-            switch parsedContainer {
-            case let .success(container):
+            if let container = resource.container {
                 return .unsupportedTexFormat(code: container.format)
-            case let .failure(error):
-                return .decodeFailed("TEX parse failed: \(error.localizedDescription)")
             }
+            return .decodeFailed("TEX parse failed: \(resource.parseError ?? "unknown error")")
         }
         guard let source = CGImageSourceCreateWithData(embedded as CFData, nil),
               let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
             return .decodeFailed("embedded image decode failed")
         }
         return makeTexture(from: cgImage, device: device)
+    }
+
+    private func texResource(from url: URL) -> TexResource? {
+        let key = sourceKey(for: url)
+        if let cached = texResources[key] { return cached }
+        guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return nil }
+        let resource: TexResource
+        do {
+            resource = TexResource(
+                data: data,
+                container: try SceneTexContainerReader().read(data: data),
+                parseError: nil
+            )
+        } catch {
+            resource = TexResource(
+                data: data,
+                container: nil,
+                parseError: error.localizedDescription
+            )
+        }
+        texResources[key] = resource
+        return resource
+    }
+
+    private func sourceKey(for url: URL) -> SourceKey {
+        let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
+        let size = (attributes?[.size] as? NSNumber)?.uint64Value ?? 0
+        let modifiedAt = (attributes?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+        return SourceKey(
+            path: url.resolvingSymlinksInPath().standardizedFileURL.path,
+            size: size,
+            modifiedAtBits: modifiedAt.bitPattern
+        )
     }
 
     private func loadFormatZeroContainer(

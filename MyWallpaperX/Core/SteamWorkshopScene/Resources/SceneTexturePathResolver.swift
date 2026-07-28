@@ -19,6 +19,9 @@ struct SceneTexturePathResolver {
         "%@.jpg",
         "%@.jpeg"
     ]
+    private static let explicitTextureExtensions: Set<String> = [
+        "tex", "png", "jpg", "jpeg",
+    ]
 
     init(resourceView: SceneResourceView, descriptor: SceneRenderDescriptor) {
         self.resourceView = resourceView
@@ -47,6 +50,10 @@ struct SceneTexturePathResolver {
     }
 
     func resolveTextureFile(named textureName: String) -> URL? {
+        let pathExtension = (textureName as NSString).pathExtension.lowercased()
+        if Self.explicitTextureExtensions.contains(pathExtension) {
+            return resourceView.resource(relativePath: textureName)?.url
+        }
         for template in Self.candidatePathTemplates {
             let relative = String(format: template, textureName)
             if let resource = resourceView.resource(relativePath: relative) {

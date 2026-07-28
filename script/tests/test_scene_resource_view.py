@@ -65,6 +65,24 @@ enum Harness {
             "duplicate": view.resource(relativePath: "materials/duplicate.tex")?.url.path ?? "missing",
             "loose": resolver.resolvePrimaryTexture(for: layer)?.path ?? "missing",
             "stock": resolver.resolveTextureFile(named: "stock")?.path ?? "missing",
+            "exactRelative": resolver.resolveTextureFile(
+                named: "materials/exact.tex"
+            )?.path ?? "missing",
+            "exactStock": resolver.resolveTextureFile(
+                named: "materials/exact-stock.tex"
+            )?.path ?? "missing",
+            "absolute": resolver.resolveTextureFile(
+                named: package.appendingPathComponent("materials/exact.tex").path
+            )?.path ?? "missing",
+            "resolverEscape": resolver.resolveTextureFile(
+                named: "../outside.tex"
+            )?.path ?? "missing",
+            "windowsAbsolute": resolver.resolveTextureFile(
+                named: "C:\\outside.tex"
+            )?.path ?? "missing",
+            "explicitSuffixFallback": resolver.resolveTextureFile(
+                named: "missing.tex"
+            )?.path ?? "missing",
             "explicitStock": view.resource(
                 relativePath: "assets/models/util/solidlayer_depthtest.json"
             )?.url.path ?? "missing",
@@ -102,10 +120,17 @@ class SceneResourceViewTests(unittest.TestCase):
             (directory / "materials").mkdir(parents=True)
 
         (cls.package / "materials/duplicate.tex").write_bytes(b"package")
+        (cls.package / "materials/missing.tex.tex").write_bytes(b"suffix-lure")
+        windows_absolute_lure = cls.package / "C:/outside.tex"
+        windows_absolute_lure.parent.mkdir(parents=True)
+        windows_absolute_lure.write_bytes(b"windows-absolute-lure")
+        (cls.package / "loose").write_bytes(b"bare-stem-shadow")
         (cls.loose / "materials/duplicate.tex").write_bytes(b"loose")
         (cls.loose / "materials/loose.tex").write_bytes(b"loose")
+        (cls.loose / "materials/exact.tex").write_bytes(b"exact")
         (cls.loose / "materials/Album art 3  test .tex").write_bytes(b"space")
         (cls.stock / "materials/stock.tex").write_bytes(b"stock")
+        (cls.stock / "materials/exact-stock.tex").write_bytes(b"exact-stock")
         stock_model = cls.stock / "models/util/solidlayer_depthtest.json"
         stock_model.parent.mkdir(parents=True)
         stock_model.write_text("{}", encoding="utf-8")
@@ -157,6 +182,16 @@ class SceneResourceViewTests(unittest.TestCase):
         )
         self.assertTrue(self.result["diagnosticSeesExplicitStock"])
 
+    def test_exact_relative_texture_paths_use_the_shared_resource_namespace(self) -> None:
+        self.assertEqual(
+            self.result["exactRelative"],
+            str((self.loose / "materials/exact.tex").resolve()),
+        )
+        self.assertEqual(
+            self.result["exactStock"],
+            str((self.stock / "materials/exact-stock.tex").resolve()),
+        )
+
     def test_file_identity_preserves_trailing_space_and_rejects_escape(self) -> None:
         self.assertEqual(
             self.result["trailingSpace"],
@@ -164,6 +199,10 @@ class SceneResourceViewTests(unittest.TestCase):
         )
         self.assertEqual(self.result["trimmed"], "missing")
         self.assertEqual(self.result["escape"], "missing")
+        self.assertEqual(self.result["absolute"], "missing")
+        self.assertEqual(self.result["resolverEscape"], "missing")
+        self.assertEqual(self.result["windowsAbsolute"], "missing")
+        self.assertEqual(self.result["explicitSuffixFallback"], "missing")
 
 
 if __name__ == "__main__":
