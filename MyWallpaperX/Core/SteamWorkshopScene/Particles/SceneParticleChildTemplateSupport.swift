@@ -49,7 +49,9 @@ enum SceneParticleChildTemplateSupport {
             }
             return (
                 SceneParticleColorTextureAdapter.adapt(texture, device: device),
-                SceneSpriteAnimation.load(from: url)
+                textureLoader.texContainer(from: url).flatMap {
+                    SceneSpriteAnimation(frames: $0.spriteFrames)
+                }
             )
         case let .builtIn(key):
             guard let texture = builtInTextureRegistry.texture(for: key) else { return nil }

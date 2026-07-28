@@ -63,4 +63,17 @@ nonisolated enum SceneParticleChildLifecycle {
         let bounded = maximum > 0 ? maximum : fallback
         return bounded.isFinite ? bounded : fallback
     }
+
+    nonisolated static func accepts(
+        event: SceneParticleState,
+        template: SceneParticleChildTemplate,
+        scopeID: UInt64?
+    ) -> Bool {
+        guard template.probability < 1 else { return true }
+        var random = SceneParticleRandomGenerator(
+            state: event.id ^ UInt64(template.index &+ 1) &* 0x94D0_49BB_1331_11EB
+                ^ (scopeID ?? 0) &* 0xBF58_476D_1CE4_E5B9
+        )
+        return random.unit() < template.probability
+    }
 }

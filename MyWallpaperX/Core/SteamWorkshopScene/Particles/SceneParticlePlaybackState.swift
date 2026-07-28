@@ -9,19 +9,22 @@ final class SceneParticlePlaybackState {
     init?(
         descriptor: SceneRenderDescriptor,
         cacheDirectory: URL,
-        device: MTLDevice
+        device: MTLDevice,
+        textureLoader: SceneTextureLoader = SceneTextureLoader()
     ) {
         guard let pipeline = SceneParticleMetalPipeline(device: device) else { return nil }
         self.pipeline = pipeline
         self.runtime = SceneParticleRuntime(
             descriptor: descriptor,
             cacheDirectory: cacheDirectory,
-            device: device
+            device: device,
+            textureLoader: textureLoader
         )
         self.batches = runtime.advance(by: 0)
     }
 
     func advance(by frameDelta: TimeInterval) -> [SceneParticleDrawBatch] {
+        batches.removeAll(keepingCapacity: true)
         batches = runtime.advance(by: min(max(frameDelta, 0), 0.25))
         return batches
     }
@@ -30,6 +33,9 @@ final class SceneParticlePlaybackState {
         let particleLayers = descriptor.layers.filter { $0.contentKind == "particle" }
         let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let visibleLayers = particleLayers.filter { visibleIDs.contains($0.id) }
+        let renderableLayers = visibleLayers.filter {
+            $0.particleInstanceOverride?.alpha?.isStaticZeroScalar != true
+        }
         let batchesByID = Dictionary(grouping: batches, by: \.layerID)
         var lines = [
             "particle authored: \(particleLayers.count)",
@@ -40,6 +46,10 @@ final class SceneParticlePlaybackState {
             let name = layer.name ?? "(unnamed)"
             guard visibleIDs.contains(layer.id) else {
                 lines.append("particle layer \(layer.id) \"\(name)\": skipped hidden")
+                continue
+            }
+            guard layer.particleInstanceOverride?.alpha?.isStaticZeroScalar != true else {
+                lines.append("particle layer \(layer.id) \"\(name)\": skipped transparent")
                 continue
             }
             guard let batch = batchesByID[layer.id]?.first else {
@@ -60,10 +70,11 @@ final class SceneParticlePlaybackState {
         }
         lines.append(Self.loadedSummaryLine(
             batchLayerIDs: batches.map(\.layerID),
-            visibleLayerCount: visibleLayers.count
+            visibleLayerCount: renderableLayers.count
         ))
         lines.append("particle initial live: \(batches.reduce(0) { $0 + $1.instances.count })")
         lines.append("particle skipped hidden: \(particleLayers.count - visibleLayers.count)")
+        lines.append("particle skipped transparent: \(visibleLayers.count - renderableLayers.count)")
         return lines
     }
 

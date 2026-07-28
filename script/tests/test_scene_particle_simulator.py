@@ -15,7 +15,9 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulationSupport.swift",
+    SOURCE_ROOT / "Particles/SceneParticleOscillationCache.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator.swift",
+    SOURCE_ROOT / "Particles/SceneParticleSimulator+Random.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+InstanceOverride.swift",
     SOURCE_ROOT / "Format/ScenePkgReader.swift",
 ]

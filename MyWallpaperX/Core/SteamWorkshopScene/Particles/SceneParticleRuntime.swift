@@ -58,6 +58,7 @@ final class SceneParticleRuntime {
         let usesPerspective: Bool
         let layerAlpha: Float
         let instanceBuffer = SceneParticleMetalInstanceBuffer()
+        var instances: [SceneParticleGPUInstance] = []
         var simulator: SceneParticleSimulator
         var childRuntime: SceneParticleChildRuntime?
     }
@@ -72,12 +73,16 @@ final class SceneParticleRuntime {
         descriptor: SceneRenderDescriptor,
         cacheDirectory: URL,
         device: MTLDevice,
-        stockTextureBundleURL: URL? = SceneStockTextureResolver.defaultBundleRoot()
+        stockTextureBundleURL: URL? = SceneStockTextureResolver.defaultBundleRoot(),
+        textureLoader: SceneTextureLoader = SceneTextureLoader()
     ) {
         self.device = device
         let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let particleLayers = Self.orderedLayers(in: descriptor).filter {
-            visibleIDs.contains($0.id) && $0.contentKind == "particle" && $0.particlePath != nil
+            visibleIDs.contains($0.id)
+                && $0.contentKind == "particle"
+                && $0.particlePath != nil
+                && $0.particleInstanceOverride?.alpha?.isStaticZeroScalar != true
         }
         let materialPasses = descriptor.materialPasses.map {
             SceneParticleMaterialPass(
@@ -120,7 +125,6 @@ final class SceneParticleRuntime {
             }
         }
 
-        let textureLoader = SceneTextureLoader()
         let builtInTextureRegistry = SceneParticleBuiltInTextureRegistry(device: device)
         for layer in particleLayers {
             guard let rawPath = layer.particlePath else { continue }
@@ -152,7 +156,9 @@ final class SceneParticleRuntime {
                     continue
                 }
                 texture = SceneParticleColorTextureAdapter.adapt(loadedTexture, device: device)
-                spriteAnimation = SceneSpriteAnimation.load(from: textureURL)
+                spriteAnimation = textureLoader.texContainer(from: textureURL).flatMap {
+                    SceneSpriteAnimation(frames: $0.spriteFrames)
+                }
             case let .builtIn(key):
                 guard let loadedTexture = builtInTextureRegistry.texture(for: key) else {
                     addDiagnostic(
@@ -254,8 +260,11 @@ final class SceneParticleRuntime {
                     )
                 }
             }
-            let instances = makeGPUInstances(for: layers[index])
-            guard layers[index].instanceBuffer.update(device: device, instances: instances) else {
+            rebuildGPUInstances(forLayerAt: index)
+            guard layers[index].instanceBuffer.update(
+                device: device,
+                instances: layers[index].instances
+            ) else {
                 addDiagnostic(
                     kind: .instanceBufferAllocationFailed,
                     layerID: layers[index].layerID,
@@ -269,7 +278,7 @@ final class SceneParticleRuntime {
                 texture: layers[index].texture,
                 blendMode: layers[index].blendMode,
                 instanceBuffer: layers[index].instanceBuffer,
-                instances: instances,
+                instances: layers[index].instances,
                 orientation: layers[index].orientation,
                 orientationAxis: layers[index].orientationAxis,
                 usesPerspective: layers[index].usesPerspective
@@ -278,27 +287,34 @@ final class SceneParticleRuntime {
         return batches
     }
 
-    private func makeGPUInstances(for layer: LayerRuntime) -> [SceneParticleGPUInstance] {
-        layer.simulator.particles.map { particle in
+    private func rebuildGPUInstances(forLayerAt index: Int) {
+        let particles = layers[index].simulator.particles
+        let spriteAnimation = layers[index].spriteAnimation
+        let definition = layers[index].definition
+        let layerAlpha = layers[index].layerAlpha
+        let trail = layers[index].trail
+        layers[index].instances.removeAll(keepingCapacity: true)
+        layers[index].instances.reserveCapacity(particles.count)
+        for particle in particles {
             let frames = Self.spriteFrames(
-                animation: layer.spriteAnimation,
-                definition: layer.definition,
+                animation: spriteAnimation,
+                definition: definition,
                 particleID: particle.id,
                 age: Float(particle.age),
                 lifetime: Float(particle.lifetime)
             )
-            return SceneParticleGPUInstance(
+            layers[index].instances.append(SceneParticleGPUInstance(
                 position: particle.position.floatValue,
                 size: Float(particle.size),
                 rotation: particle.rotation.floatValue,
                 color: particle.color.floatValue,
-                alpha: Float(particle.alpha) * layer.layerAlpha,
+                alpha: Float(particle.alpha) * layerAlpha,
                 velocity: particle.velocity.floatValue,
-                trailStretch: layer.trail?.stretch(for: particle.velocity),
+                trailStretch: trail?.stretch(for: particle.velocity),
                 currentFrame: frames.current,
                 nextFrame: frames.next,
                 frameMix: frames.mix
-            )
+            ))
         }
     }
 

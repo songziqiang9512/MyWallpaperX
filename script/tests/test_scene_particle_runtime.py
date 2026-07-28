@@ -42,7 +42,9 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleBuiltInTextureRegistry.swift",
     SOURCE_ROOT / "Particles/SceneParticleAssetGraph.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulationSupport.swift",
+    SOURCE_ROOT / "Particles/SceneParticleOscillationCache.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator.swift",
+    SOURCE_ROOT / "Particles/SceneParticleSimulator+Random.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+InstanceOverride.swift",
     SOURCE_ROOT / "Particles/SceneParticleChildLifecycle.swift",
     SOURCE_ROOT / "Particles/SceneParticleChildTemplateSupport.swift",
@@ -892,8 +894,10 @@ enum Harness {
                 layer(7, "particles/halo.json"),
                 layer(8, "particles/unknown.json"),
                 layer(9, "particles/unsupported-child-root.json"),
+                layer(10, "particles/trail.json", particleAlpha: 0),
+                layer(11, "particles/trail.json", particleAlpha: 0, alphaHasScript: true),
             ],
-            renderOrderLayerIDs: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+            renderOrderLayerIDs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
             materialPasses: [
                 .init(
                     materialPath: "materials/no-texture.json",
@@ -971,11 +975,34 @@ enum Harness {
     private static func layer(
         _ id: Int,
         _ path: String,
-        visible: Bool = true
+        visible: Bool = true,
+        particleAlpha: Double? = nil,
+        alphaHasScript: Bool = false
     ) -> SceneRenderDescriptor.Layer {
         .init(
             id: id, name: nil, contentKind: "particle", particlePath: path,
-            particleInstanceOverride: nil, parentID: nil, visible: visible, alpha: 1
+            particleInstanceOverride: particleAlpha.map {
+                SceneParticleInstanceOverride(
+                    id: nil,
+                    alpha: SceneParticleBoundValue(
+                        value: .scalar($0),
+                        userPropertyKey: "foreground",
+                        hasScript: alphaHasScript,
+                        hasAnimation: false
+                    ),
+                    size: nil,
+                    lifetime: nil,
+                    rate: nil,
+                    speed: nil,
+                    count: nil,
+                    brightness: nil,
+                    color: nil,
+                    normalizedColor: nil,
+                    controlPoints: [:],
+                    controlPointAngles: [:]
+                )
+            },
+            parentID: nil, visible: visible, alpha: 1
         )
     }
 
@@ -1142,8 +1169,8 @@ class SceneParticleRuntimeTests(unittest.TestCase):
 
     def test_synthetic_rejects_unsupported_roots_and_keeps_diagnostics(self) -> None:
         result = self.run_harness("synthetic")
-        self.assertEqual(result["activeLayerIDs"], [3, 4, 6, 7, 9])
-        self.assertEqual(result["batchLayerIDs"], [3, 4, 4, 6, 7, 9, 9, 9, 9])
+        self.assertEqual(result["activeLayerIDs"], [3, 4, 6, 7, 9, 11])
+        self.assertEqual(result["batchLayerIDs"], [3, 4, 4, 6, 7, 9, 9, 9, 9, 11])
         self.assertGreater(result["activeParticleCount"], 0)
         self.assertGreater(result["childInstanceCount"], 0)
         self.assertEqual(result["staticChildInstanceCount"], 3)
@@ -1154,6 +1181,8 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertAlmostEqual(result["trailStretch"], 5)
         self.assertEqual(result["trailVelocity"], [100, 0, 0])
         self.assertFalse(result["hiddenMentioned"])
+        self.assertNotIn(10, result["activeLayerIDs"])
+        self.assertIn(11, result["activeLayerIDs"])
         diagnostics = result["diagnostics"]
         kinds = {value["kind"] for value in diagnostics}
         self.assertIn("missingTextureReference", kinds)

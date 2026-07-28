@@ -19,9 +19,11 @@ nonisolated struct SceneParticleSimulator: Sendable {
     let instanceOverride: SceneParticleInstanceOverride?
     private let emissionDeadline: Double?
     private var emitters: [EmitterState]
-    private var random: SceneParticleRandomGenerator
+    var random: SceneParticleRandomGenerator
     private var accumulator = 0.0
     private var nextParticleID: UInt64 = 0
+    private var normalizedLives: [Double] = []
+    var positionOscillationCache: [SceneParticleOscillationCacheKey: SceneParticlePositionOscillation] = [:]
 
     nonisolated init(
         definition: SceneParticleDefinition,
@@ -74,9 +76,28 @@ nonisolated struct SceneParticleSimulator: Sendable {
 
     private nonisolated mutating func step(by duration: Double) {
         for index in definition.emitters.indices { emit(index: index, duration: duration) }
-        for index in particles.indices { updateParticle(at: index, duration: duration) }
+        normalizedLives.removeAll(keepingCapacity: true)
+        normalizedLives.reserveCapacity(particles.count)
+        for index in particles.indices {
+            particles[index].alpha = particles[index].initialAlpha
+            particles[index].size = particles[index].initialSize
+            particles[index].color = particles[index].initialColor
+            particles[index].age += duration
+            normalizedLives.append(min(max(
+                particles[index].age / max(particles[index].lifetime, 1e-12), 0
+            ), 1))
+        }
+        for (operatorIndex, value) in definition.operators.enumerated() {
+            apply(value, operatorIndex: operatorIndex, duration: duration)
+        }
         for particle in particles where particle.age + 1e-12 >= particle.lifetime {
             deathEvents.append(particle)
+            for (operatorIndex, value) in definition.operators.enumerated()
+            where value.kind == .oscillatePosition {
+                positionOscillationCache.removeValue(forKey: .init(
+                    particleID: particle.id, operatorIndex: operatorIndex
+                ))
+            }
         }
         particles.removeAll { $0.age + 1e-12 >= $0.lifetime }
         simulationTime += duration
@@ -178,68 +199,79 @@ nonisolated struct SceneParticleSimulator: Sendable {
         }
     }
 
-    private nonisolated mutating func updateParticle(at index: Int, duration: Double) {
-        particles[index].alpha = particles[index].initialAlpha
-        particles[index].size = particles[index].initialSize
-        particles[index].color = particles[index].initialColor
-        particles[index].age += duration
-        let life = min(max(particles[index].age / max(particles[index].lifetime, 1e-12), 0), 1)
-        for (operatorIndex, value) in definition.operators.enumerated() {
-            apply(value, index: index, operatorIndex: operatorIndex, life: life, duration: duration)
-        }
-    }
-
     private nonisolated mutating func apply(
         _ value: SceneParticleOperator,
-        index: Int,
         operatorIndex: Int,
-        life: Double,
         duration: Double
     ) {
         switch value.kind {
         case .movement:
             let gravity = SceneParticleSimulationMath.vector(value.gravity, fallback: .zero)
-            let acceleration = gravity - particles[index].velocity * max(0, value.drag ?? 0)
-            particles[index].velocity += acceleration * duration
-            particles[index].position += particles[index].velocity * duration
+            let drag = max(0, value.drag ?? 0)
+            for index in particles.indices {
+                let acceleration = gravity - particles[index].velocity * drag
+                particles[index].velocity += acceleration * duration
+                particles[index].position += particles[index].velocity * duration
+            }
         case .angularMovement:
             let force = SceneParticleSimulationMath.vector(value.force, fallback: .zero)
-            let acceleration = force - particles[index].angularVelocity * max(0, value.drag ?? 0)
-            particles[index].angularVelocity += acceleration * duration
-            particles[index].rotation += particles[index].angularVelocity * duration
+            let drag = max(0, value.drag ?? 0)
+            for index in particles.indices {
+                let acceleration = force - particles[index].angularVelocity * drag
+                particles[index].angularVelocity += acceleration * duration
+                particles[index].rotation += particles[index].angularVelocity * duration
+            }
         case .alphaFade:
             let fadeIn = max(0, value.fadeInTime ?? 0.5)
             let fadeOut = min(max(value.fadeOutTime ?? 0.5, 0), 1)
-            if life <= fadeIn { particles[index].alpha *= SceneParticleSimulationMath.changeAmount(life, 0, fadeIn) }
-            if life > fadeOut { particles[index].alpha *= 1 - SceneParticleSimulationMath.changeAmount(life, fadeOut, 1) }
+            for index in particles.indices {
+                let life = normalizedLives[index]
+                if life <= fadeIn { particles[index].alpha *= SceneParticleSimulationMath.changeAmount(life, 0, fadeIn) }
+                if life > fadeOut { particles[index].alpha *= 1 - SceneParticleSimulationMath.changeAmount(life, fadeOut, 1) }
+            }
         case .alphaChange:
-            particles[index].alpha *= changeFactor(value, life: life, fallback: (1, 0))
+            for index in particles.indices {
+                particles[index].alpha *= changeFactor(value, life: normalizedLives[index], fallback: (1, 0))
+            }
         case .sizeChange:
-            particles[index].size *= changeFactor(value, life: life, fallback: (1, 0))
+            for index in particles.indices {
+                particles[index].size *= changeFactor(value, life: normalizedLives[index], fallback: (1, 0))
+            }
         case .colorChange:
             let start = SceneParticleSimulationMath.vector(value.startValue, fallback: SIMD3(repeating: 1))
             let end = SceneParticleSimulationMath.vector(value.endValue, fallback: .zero)
-            let amount = SceneParticleSimulationMath.changeAmount(life, value.startTime, value.endTime)
-            particles[index].color *= start + (end - start) * amount
+            for index in particles.indices {
+                let amount = SceneParticleSimulationMath.changeAmount(
+                    normalizedLives[index], value.startTime, value.endTime
+                )
+                particles[index].color *= start + (end - start) * amount
+            }
         case .oscillateAlpha:
-            let factor = oscillationFactor(value, index, operatorIndex)
-            particles[index].alpha *= 1 + (factor - 1) * oscillationBlend(value, life)
+            for index in particles.indices {
+                let factor = oscillationFactor(value, index, operatorIndex)
+                particles[index].alpha *= 1 + (factor - 1)
+                    * oscillationBlend(value, normalizedLives[index])
+            }
         case .oscillateSize:
-            let factor = oscillationFactor(value, index, operatorIndex, sizeDefaults: true)
-            particles[index].size *= 1 + (factor - 1) * oscillationBlend(value, life)
+            for index in particles.indices {
+                let factor = oscillationFactor(value, index, operatorIndex, sizeDefaults: true)
+                particles[index].size *= 1 + (factor - 1)
+                    * oscillationBlend(value, normalizedLives[index])
+            }
         case .oscillatePosition:
             let mask = SceneParticleSimulationMath.vector(value.mask, fallback: SIMD3(1, 1, 0))
-            for component in 0..<3 where abs(mask[component]) > 1e-6 {
-                let frequency = oscillationRandom(value.frequencyMinimum ?? 0, value.frequencyMaximum ?? 5, index, operatorIndex, component)
-                let scale = oscillationRandom(
-                    SceneParticleSimulationMath.vector(value.scaleMinimum, fallback: .zero)[component],
-                    SceneParticleSimulationMath.vector(value.scaleMaximum, fallback: SIMD3(repeating: 1))[component],
-                    index, operatorIndex, component + 3
+            for index in particles.indices {
+                let blend = oscillationBlend(value, normalizedLives[index])
+                let oscillation = positionOscillation(
+                    value, particleIndex: index, operatorIndex: operatorIndex, mask: mask
                 )
-                let phase = oscillationRandom(value.phaseMinimum ?? 0, value.phaseMaximum ?? 2 * .pi, index, operatorIndex, component + 6)
-                particles[index].position[component] -= scale * frequency
-                    * sin(frequency * particles[index].age + phase) * duration
-                    * oscillationBlend(value, life)
+                for component in 0..<3 where abs(mask[component]) > 1e-6 {
+                    let frequency = oscillation.frequency[component]
+                    particles[index].position[component] -= oscillation.scale[component]
+                        * frequency
+                        * sin(frequency * particles[index].age + oscillation.phase[component])
+                        * duration * blend
+                }
             }
         case .controlPointAttract, .turbulence, .vortex, .unsupported:
             break
@@ -290,76 +322,13 @@ nonisolated struct SceneParticleSimulator: Sendable {
         return result
     }
 
-    private nonisolated func oscillationRandom(
+    nonisolated func oscillationRandom(
         _ first: Double, _ second: Double, _ index: Int, _ operatorIndex: Int, _ salt: Int
     ) -> Double {
         var state = particles[index].id &* 0x9E3779B97F4A7C15
         state ^= UInt64(operatorIndex &* 31 &+ salt) &* 0xBF58476D1CE4E5B9
         var generator = SceneParticleRandomGenerator(state: state)
         return generator.value(first, second)
-    }
-
-    private nonisolated mutating func randomScalar(
-        _ value: SceneParticleInitializer, defaults: (Double, Double)
-    ) -> Double {
-        random.value(
-            SceneParticleSimulationMath.scalar(value.minimum, fallback: defaults.0),
-            SceneParticleSimulationMath.scalar(value.maximum, fallback: defaults.1)
-        )
-    }
-
-    private nonisolated mutating func randomVector(
-        _ value: SceneParticleInitializer,
-        defaults: (SIMD3<Double>, SIMD3<Double>)
-    ) -> SIMD3<Double> {
-        let minimum = SceneParticleSimulationMath.vector(value.minimum, fallback: defaults.0)
-        let maximum = SceneParticleSimulationMath.vector(value.maximum, fallback: defaults.1)
-        return SIMD3(random.value(minimum.x, maximum.x), random.value(minimum.y, maximum.y), random.value(minimum.z, maximum.z))
-    }
-
-    private nonisolated mutating func randomColor(
-        _ value: SceneParticleInitializer,
-        defaults: (SIMD3<Double>, SIMD3<Double>)
-    ) -> SIMD3<Double> {
-        let minimum = SceneParticleSimulationMath.vector(value.minimum, fallback: defaults.0)
-        let maximum = SceneParticleSimulationMath.vector(value.maximum, fallback: defaults.1)
-        return minimum + (maximum - minimum) * random.unit()
-    }
-
-    private nonisolated mutating func randomSphereOffset(_ emitter: SceneParticleEmitter) -> SIMD3<Double> {
-        let directions = SceneParticleSimulationMath.vector(emitter.directions, fallback: SIMD3(1, 1, 0))
-        var unit = SIMD3<Double>.zero
-        var foundDirection = false
-        for _ in 0..<8 {
-            unit = SIMD3(random.value(-1, 1), random.value(-1, 1), random.value(-1, 1))
-            for component in 0..<3 where abs(directions[component]) <= 1e-6 { unit[component] = 0 }
-            let length = SceneParticleSimulationMath.length(unit)
-            if length > 1e-6, length <= 1 {
-                unit /= length
-                foundDirection = true
-                break
-            }
-        }
-        if !foundDirection { unit = SIMD3(1, 0, 0) }
-        let dimensions = max((0..<3).filter { abs(directions[$0]) > 1e-6 }.count, 1)
-        let minimum = max(0, SceneParticleSimulationMath.scalar(emitter.distanceMinimum, fallback: 0))
-        let maximum = max(minimum, SceneParticleSimulationMath.scalar(emitter.distanceMaximum, fallback: 256))
-        let radius = pow(random.value(pow(minimum, Double(dimensions)), pow(maximum, Double(dimensions))), 1 / Double(dimensions))
-        var absoluteDirections = directions
-        for component in 0..<3 { absoluteDirections[component] = abs(absoluteDirections[component]) }
-        var result = unit * absoluteDirections * radius
-        let sign = SceneParticleSimulationMath.vector(emitter.sign, fallback: .zero)
-        for component in 0..<3 where abs(sign[component]) > 1e-6 {
-            result[component] = abs(result[component]) * (sign[component] < 0 ? -1 : 1)
-        }
-        return result
-    }
-
-    private nonisolated mutating func randomBoxOffset(_ emitter: SceneParticleEmitter) -> SIMD3<Double> {
-        let minimum = SceneParticleSimulationMath.vector(emitter.distanceMinimum, fallback: .zero)
-        let maximum = SceneParticleSimulationMath.vector(emitter.distanceMaximum, fallback: SIMD3(repeating: 256))
-        let direction = SceneParticleSimulationMath.vector(emitter.directions, fallback: SIMD3(1, 1, 0))
-        return SIMD3(random.value(minimum.x, maximum.x), random.value(minimum.y, maximum.y), random.value(minimum.z, maximum.z)) * direction
     }
 
     private nonisolated func emitterOrigin(_ emitter: SceneParticleEmitter) -> SIMD3<Double> {

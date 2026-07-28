@@ -48,6 +48,7 @@ final class SceneParticleChildRuntime {
     private let templates: [SceneParticleChildTemplate]
     private let nestedParentPaths: Set<String>
     private var systems: [System] = []
+    private var instanceScratch: [Int: [SceneParticleGPUInstance]] = [:]
     private var nextSeed: UInt64 = 0
     private var nextSystemID: UInt64 = 1
 
@@ -128,7 +129,9 @@ final class SceneParticleChildRuntime {
         var batches: [SceneParticleDrawBatch] = []
         var failures: [String] = []
         for template in templates {
-            let instances = makeInstances(for: template)
+            var instances = instanceScratch.removeValue(forKey: template.index) ?? []
+            rebuildInstances(for: template, into: &instances)
+            instanceScratch[template.index] = instances
             guard !instances.isEmpty else { continue }
             guard template.instanceBuffer.update(device: device, instances: instances) else {
                 failures.append(template.path)
@@ -176,7 +179,9 @@ final class SceneParticleChildRuntime {
             systems[index].simulator.advance(by: frameDelta)
             let births = systems[index].simulator.consumeBirthEvents()
             let deaths = systems[index].simulator.consumeDeathEvents()
-            guard let path = templatePath(at: systems[index].templateIndex),
+            guard let path = templates.first(where: {
+                $0.index == systems[index].templateIndex
+            })?.path,
                   nestedParentPaths.contains(path) else { continue }
             frames.append(ParentFrame(
                 systemID: systems[index].id,
@@ -272,7 +277,7 @@ final class SceneParticleChildRuntime {
                     $0.templateIndex == template.index && $0.spawnScopeID == scopeID
                 }.count
                 guard activeCount < template.maximumSystemCount,
-                      Self.accepts(event: event, template: template, scopeID: scopeID)
+                      SceneParticleChildLifecycle.accepts(event: event, template: template, scopeID: scopeID)
                 else { continue }
                 guard depthSystemCount(depth) < Self.maximumSystemsPerDepth else {
                     limitations.insert(Self.budgetDetail(depth: depth))
@@ -309,7 +314,7 @@ final class SceneParticleChildRuntime {
             for parent in parents {
                 guard !followedIDs.contains(parent.id),
                       followedIDs.count < template.maximumSystemCount,
-                      Self.accepts(event: parent, template: template, scopeID: scopeID)
+                      SceneParticleChildLifecycle.accepts(event: parent, template: template, scopeID: scopeID)
                 else { continue }
                 guard depthSystemCount(depth) < Self.maximumSystemsPerDepth else {
                     limitations.insert(Self.budgetDetail(depth: depth))
@@ -361,33 +366,28 @@ final class SceneParticleChildRuntime {
         nextSystemID &+= 1
     }
 
-    private func makeInstances(for template: SceneParticleChildTemplate) -> [SceneParticleGPUInstance] {
-        systems.lazy.filter { $0.templateIndex == template.index }.flatMap { system in
-            system.simulator.particles.map { particle in
-                template.instance(origin: system.origin, particle: particle, layerAlpha: layerAlpha)
+    private func rebuildInstances(
+        for template: SceneParticleChildTemplate,
+        into instances: inout [SceneParticleGPUInstance]
+    ) {
+        instances.removeAll(keepingCapacity: true)
+        let matchingSystems = systems.lazy.filter { $0.templateIndex == template.index }
+        instances.reserveCapacity(matchingSystems.reduce(0) {
+            $0 + $1.simulator.particles.count
+        })
+        for system in matchingSystems {
+            for particle in system.simulator.particles {
+                instances.append(template.instance(
+                    origin: system.origin,
+                    particle: particle,
+                    layerAlpha: layerAlpha
+                ))
             }
         }
     }
 
     private func depthSystemCount(_ depth: Int) -> Int {
         systems.lazy.filter { $0.depth == depth }.count
-    }
-
-    private func templatePath(at index: Int) -> String? {
-        templates.first { $0.index == index }?.path
-    }
-
-    private static func accepts(
-        event: SceneParticleState,
-        template: SceneParticleChildTemplate,
-        scopeID: UInt64?
-    ) -> Bool {
-        guard template.probability < 1 else { return true }
-        var random = SceneParticleRandomGenerator(
-            state: event.id ^ UInt64(template.index &+ 1) &* 0x94D0_49BB_1331_11EB
-                ^ (scopeID ?? 0) &* 0xBF58_476D_1CE4_E5B9
-        )
-        return random.unit() < template.probability
     }
 
     private static func budgetDetail(depth: Int) -> String {

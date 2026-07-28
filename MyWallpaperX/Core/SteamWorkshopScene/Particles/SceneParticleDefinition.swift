@@ -247,6 +247,15 @@ nonisolated struct SceneParticleBoundValue: Codable, Equatable, Sendable {
     let userPropertyKey: String?
     let hasScript: Bool
     let hasAnimation: Bool
+
+    nonisolated var isStaticZeroScalar: Bool {
+        guard !hasScript, !hasAnimation,
+              let scalar = value?.scalarValue,
+              scalar.isFinite else {
+            return false
+        }
+        return scalar <= 0
+    }
 }
 
 nonisolated struct SceneParticleInstanceOverride: Codable, Equatable, Sendable {
