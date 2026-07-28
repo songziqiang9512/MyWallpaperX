@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-28
 >
-> Scene 实现基线：`715e078`（在原始项目目录直达宿主与内存 `SceneRuntimeInput` 基础上，包含 exact single-texture Blend、identity-only Transform、exact Workshop Simple Audio Bars、16/32/64 host spectrum、完整 authored utility-chain capture、launch-owned lazy pipeline repository、结构化帧性能遥测、透明粒子剔除与内容寻址 PKG cache；逐能力落地提交见专项表和运行证据索引）
+> Scene 实现基线：`49a5878`（在原始项目目录直达宿主与内存 `SceneRuntimeInput` 基础上，包含 exact single-texture Blend、identity-only Transform、exact Workshop Simple Audio Bars、strict linear/direct-draw/gradient Light Shafts quad、16/32/64 host spectrum、完整 authored utility-chain capture、launch-owned lazy pipeline repository、结构化帧性能遥测、透明粒子剔除与内容寻址 PKG cache；逐能力落地提交见专项表和运行证据索引）
 >
-> 当前完整快照门：`.codex/scene-simple-audio-bars-full45-algo-final-20260728/report.json`（`715e078`）；当前 fixed13：`.codex/scene-simple-audio-bars-fixed13-algo-final-20260728/report.json`（同一实现与签名 App，不同矩阵）
+> 当前完整快照门：`.codex/scene-light-shafts-full45-20260728/report.json`（`49a5878`）；最近一次专门 fixed13 仍为 `.codex/scene-simple-audio-bars-fixed13-algo-final-20260728/report.json`（`715e078`），当前实现已由包含同一 13 个样本的 full45 覆盖，本批没有重复运行 fixed13
 >
-> 最新运行门：`715e078` 以隔离 root/HOME 完成 **45/45 PASS**；报告/matrix SHA-256 为 `25ee6642f742cae04f69cabfefd54a5e537cc15633eee140a1cee680965a02cc` / `dc71ee6c28492f4d7580f40bb0eda47d10f7c9b17b1f9f1754dd0ea55460b773`。完整门 particle `109/130`、静态透明跳过 1、strict stage 194、chain 30、Workshop Audio Bars 3、Blend 2、Transform 2、static fallback 2、graph failed 0；fixed13 为 **13/13 PASS**、117 stage/16 chain/Audio Bars 2。完整 Scene/Web suite 128 个测试模块全部通过，benchmark 49/49，代码健康 576 Swift files、44 个锁定历史文件、400 行上限，签名 Debug build/codesign 通过。聚合缺口、性能/视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：`49a5878` 以隔离 root/HOME 完成 **45/45 PASS**；报告/matrix SHA-256 为 `a8d894f28e25aac910d0fc942f083e023c3daa12e79a2d5aa1afdd5e2b351063` / `f198ab106341a46530806e40219181176ac61d98edbdd7bff2d1f3032071c998`。完整门 particle `109/130`、静态透明跳过 1、strict stage 196、chain 30、Light Shafts 2、Workshop Audio Bars 3、Blend 2、Transform 2、static fallback 2、graph failed 0；最近专门 fixed13 为 **13/13 PASS**、117 stage/16 chain/Audio Bars 2。完整 Scene/Web suite 131 个测试模块全部通过，benchmark 单测 50/50，代码健康 581 Swift files、44 个锁定历史文件、400 行上限，签名 Debug build/codesign 通过。聚合缺口、性能/视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -134,7 +134,7 @@
 | Turbulent velocity initializer | `L3` | 非音频 profile 消费 forward/right/up、phase、scale、time 与 speed range；audio profile 继续 fail closed——frame snapshot 已可用，缺的是粒子侧求值公式证据 | Windows WE 固定 seed 数值/视觉 golden；audio 分支另需官方算法或 golden |
 | Delta clamp/prewarm cap | `L2` | 代码有上限分支，缺定向预算断言 | 长帧和高 prewarm 压力门 |
 
-当前完整矩阵可见粒子为 `109/130`，另有 1 个解析后静态透明层在 runtime 构造前跳过；同一 `715e078` 实现的 fixed13 为 `66/76`。`3088601835` 为 `19/19`，其中 Snow root layers `513/534` 已执行，static `snowstormfog` child 也已由真实缓存门确认在两层生成实例，matrix-code 两层随 `b86db59` 解除 nested 阻断进入执行。child 不增加 root loaded-layer 计数。`3769364482` 为 `3/3`、`3757555836` 为 `7/7`、`2974757317` 为 `3/3`（含 matrix 头层 85705），`3750813609` 是 `7/9`，后者另外两层因 world-space 不支持而保持 fail closed；`3724289844` 已不在当前真实目录。这些数字只度量对应矩阵实际加载的 layer，不代表粒子组件覆盖率。
+当前完整矩阵可见粒子为 `109/130`，另有 1 个解析后静态透明层在 runtime 构造前跳过；最近专门 fixed13（`715e078`）为 `66/76`，当前 `49a5878` full45 已覆盖同一 13 个样本。`3088601835` 为 `19/19`，其中 Snow root layers `513/534` 已执行，static `snowstormfog` child 也已由真实缓存门确认在两层生成实例，matrix-code 两层随 `b86db59` 解除 nested 阻断进入执行。child 不增加 root loaded-layer 计数。`3769364482` 为 `3/3`、`3757555836` 为 `7/7`、`2974757317` 为 `3/3`（含 matrix 头层 85705），`3750813609` 是 `7/9`，后者另外两层因 world-space 不支持而保持 fail closed；`3724289844` 已不在当前真实目录。这些数字只度量对应矩阵实际加载的 layer，不代表粒子组件覆盖率。
 
 ## 6. 动态运行系统覆盖
 
@@ -250,7 +250,7 @@
 | **B5 Fidelity** | `S2-S4` 广度完成后 | 字体、视差、粒子、常用 Effect 与 WE Windows golden 对齐 | 固定输入逐像素/数值阈值、性能预算、长稳和多屏门 |
 | **Advanced** | `S5` | Puppet、2D light/HDR、3D、arbitrary custom shader、RGB、offline bake | 每个系统有完整 IR/runtime/lifecycle/product gate 后再升级 |
 
-研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、Timeline 的受限 typed target、16/32/64 档 Scene audio、stock Shake/Pulse 与 exact Simple Audio Bars consumer、B2 ordered strict chain、Workshop Shadow、stock Opacity、exact stock Shake/Foliage Sway/Water Ripple/Water Waves/Water Flow/X-Ray/God Rays、single-texture Blend、identity-only Transform、同帧 copy/swap foundation、受限 history seed/clear、Precise Blur material-command interleave 与 legacy compose 归一化已合龙；stock 资源子集、透明粒子静态剔除、非音频 turbulent velocity、strict child 子集、超预算/多 image BC1/2/3 GPU premultiply 与静态首帧 fallback 已进入公共 runtime。unsupported Effect/Timeline/粒子/SceneScript 形态继续 fail closed。当前完整门为 194 stage/30 chain/Workshop Audio Bars 3/Blend 2/Transform 2/0 failed；混合链纹理预算按实际 target extent 折算，超过默认 128 MiB（八个 2048×2048 BGRA units）时在规划阶段整链拒绝。Simple Audio Bars 真实门为系统静音，只证明 stage/capture/稳定零输入；注入式非零 GPU 门不等于 Windows visual golden。206 的人工截图只证明主构图方向恢复；lazy pipeline A/B 没有证明单屏启动加速，Performance budgets 仍为 `L0`。下一代码批仍须从开发计划和专项缺口重新选择，不从 bounded 正门外推通用 shader、Transform、Audio Bars 或 Effect 兼容。
+研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、Timeline 的受限 typed target、16/32/64 档 Scene audio、stock Shake/Pulse 与 exact Simple Audio Bars consumer、B2 ordered strict chain、Workshop Shadow、stock Opacity、exact stock Shake/Foliage Sway/Water Ripple/Water Waves/Water Flow/X-Ray/God Rays、strict linear/direct-draw/gradient Light Shafts quad、single-texture Blend、identity-only Transform、同帧 copy/swap foundation、受限 history seed/clear、Precise Blur material-command interleave 与 legacy compose 归一化已合龙；stock 资源子集、透明粒子静态剔除、非音频 turbulent velocity、strict child 子集、超预算/多 image BC1/2/3 GPU premultiply 与静态首帧 fallback 已进入公共 runtime。unsupported Effect/Timeline/粒子/SceneScript 形态继续 fail closed。当前完整门为 196 stage/30 chain/Light Shafts 2/Workshop Audio Bars 3/Blend 2/Transform 2/0 failed；混合链纹理预算按实际 target extent 折算，超过默认 128 MiB（八个 2048×2048 BGRA units）时在规划阶段整链拒绝。Light Shafts 是独立 clean-room 近似，radial/corner/color/mask/chain 形态保持关闭；Simple Audio Bars 真实门为系统静音，只证明 stage/capture/稳定零输入；注入式非零 GPU 门不等于 Windows visual golden。206 的人工截图只证明主构图方向恢复；lazy pipeline A/B 没有证明单屏启动加速，Performance budgets 仍为 `L0`。下一代码批仍须从开发计划和专项缺口重新选择，不从 bounded 正门外推通用 shader、Transform、Audio Bars、Light Shafts 或 Effect 兼容。
 
 ## 9. 更新规则
 
