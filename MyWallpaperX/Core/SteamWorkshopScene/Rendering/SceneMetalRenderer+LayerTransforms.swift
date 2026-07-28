@@ -53,6 +53,25 @@ extension SceneMetalRenderer {
         )
     }
 
+    func lightShaftsModelMatrix(
+        for layer: SceneRenderDescriptor.Layer,
+        parallaxMouseNormalized: SIMD2<Float>,
+        configuration: SceneLayerParallax.Configuration
+    ) -> simd_float4x4? {
+        let world = worldFramesByLayerID[layer.id] ?? SceneMatrix.identity()
+        let parallax = parallaxOffset(
+            for: layer,
+            worldFrame: world,
+            mouseNormalized: parallaxMouseNormalized,
+            configuration: configuration
+        )
+        return SceneLightShaftsQuadGeometry.modelMatrix(
+            worldFrame: world,
+            parallaxOffset: parallax,
+            canvasSize: configuration.orthoSize
+        )
+    }
+
     private func parallaxOffset(
         for layer: SceneRenderDescriptor.Layer,
         worldFrame: simd_float4x4,

@@ -68,7 +68,10 @@ enum SceneAuthoredLightShaftsPlanner {
                   descriptor: descriptor
               ).node,
               validResolvedMaterial(resolved),
-              let parameters = parameters(from: resolved.constants) else {
+              let parameters = parameters(from: resolved.constants),
+              let effectUVTransform = SceneLightShaftsPerspectiveTransform.make(
+                  points: parameters.points
+              ) else {
             return nil
         }
 
@@ -77,6 +80,7 @@ enum SceneAuthoredLightShaftsPlanner {
             effectKey: effect.key,
             renderGraph: graph,
             points: parameters.points,
+            effectUVTransform: effectUVTransform,
             feather: parameters.feather,
             scale: parameters.scale,
             smoothness: parameters.smoothness,

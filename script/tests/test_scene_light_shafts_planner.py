@@ -29,6 +29,7 @@ SOURCES = [
 
 HARNESS = r'''
 import Foundation
+import simd
 
 struct SceneDocument {
     struct ShaderValue {
@@ -109,6 +110,7 @@ enum Harness {
         var inlineScript = false
         var visible: Bool? = true
         var intensity = 1.21
+        var degeneratePoints = false
     }
 
     static func scalar(_ value: Double, binding: Bool = false) -> SceneDocument.ShaderValue {
@@ -130,6 +132,9 @@ enum Harness {
     }
 
     static func constants(_ options: Options) -> [String: SceneDocument.ShaderValue] {
+        let points = options.degeneratePoints
+            ? Array(repeating: [0.5, 0.5], count: 4)
+            : [[0.4, 0.25], [0.6, 0.25], [0.8, 0.8], [0.2, 0.8]]
         var values = [
             "colorastart": vector([1, 1, 1]),
             "colorend": vector([0.435294, 0.886274, 1]),
@@ -137,10 +142,10 @@ enum Harness {
             "colorwintensity": scalar(options.intensity, binding: options.binding),
             "noiseamount": scalar(0.33),
             "noisescale": scalar(1.17),
-            "point0": vector([0.4, 0.25]),
-            "point1": vector([0.6, 0.25]),
-            "point2": vector([0.8, 0.8]),
-            "point3": vector([0.2, 0.8]),
+            "point0": vector(points[0]),
+            "point1": vector(points[1]),
+            "point2": vector(points[2]),
+            "point3": vector(points[3]),
             "rayfeather": vector([0.31, 0.31]),
             "rayradius": scalar(0.14),
             "rayscale": vector([0.8, 0.2]),
@@ -369,9 +374,10 @@ enum Harness {
         var extra = Options(); extra.extraConstant = true
         var intensity = Options(); intensity.intensity = 10.01
         var hidden = Options(); hidden.visible = false
+        var degenerate = Options(); degenerate.degeneratePoints = true
         let rejected = [
             radial, notDirect, colorMode, texture, binding, image, child,
-            dependency, script, hash, extra, intensity, hidden,
+            dependency, script, hash, extra, intensity, hidden, degenerate,
         ].allSatisfy { !accepted(options: $0, contracts: contracts) }
         let result: [String: Bool] = [
             "accepted": plan != nil,
@@ -381,6 +387,18 @@ enum Harness {
                     && $0.feather == SIMD2<Float>(0.31, 0.31)
                     && $0.scale == SIMD2<Float>(0.8, 0.2)
                     && $0.intensity == Float(1.21)
+                    && $0.effectUVTransform.project(SIMD2<Float>(0.4, 0.25)).map {
+                        simd_distance($0, SIMD2<Float>(0, 0)) < 0.001
+                    } == true
+                    && $0.effectUVTransform.project(SIMD2<Float>(0.8, 0.8)).map {
+                        simd_distance($0, SIMD2<Float>(1, 1)) < 0.001
+                    } == true
+                    && $0.effectUVTransform.project(SIMD2<Float>(0.6, 0.25)).map {
+                        simd_distance($0, SIMD2<Float>(1, 0)) < 0.001
+                    } == true
+                    && $0.effectUVTransform.project(SIMD2<Float>(0.2, 0.8)).map {
+                        simd_distance($0, SIMD2<Float>(0, 1)) < 0.001
+                    } == true
                     && $0.noiseTexturePath == "materials/util/noise"
                     && $0.gradientTexturePath
                         == "materials/gradient/gradient_iridescent"

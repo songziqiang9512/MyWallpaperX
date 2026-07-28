@@ -27,8 +27,21 @@ struct SceneQuadVertex {
     var texcoord: SIMD2<Float>
 }
 
+struct SceneLightShaftsPerspectiveTransform {
+    let row0: SIMD3<Float>
+    let row1: SIMD3<Float>
+    let row2: SIMD3<Float>
+
+    var isFinite: Bool {
+        [row0, row1, row2].allSatisfy {
+            $0.x.isFinite && $0.y.isFinite && $0.z.isFinite
+        }
+    }
+}
+
 struct SceneLightShaftsExecutionPlan {
     let points: (SIMD2<Float>, SIMD2<Float>, SIMD2<Float>, SIMD2<Float>)
+    let effectUVTransform: SceneLightShaftsPerspectiveTransform
     let feather: SIMD2<Float>
     let scale: SIMD2<Float>
     let smoothness: Float
@@ -130,7 +143,13 @@ enum Harness {
         )
     }
 
-    static func plan() -> SceneLightShaftsExecutionPlan {
+    static func plan(
+        transform: SceneLightShaftsPerspectiveTransform = .init(
+            row0: SIMD3<Float>(1.6666667, 0, -0.33333334),
+            row1: SIMD3<Float>(0, 1.6666667, -0.33333334),
+            row2: SIMD3<Float>(0, 0, 1)
+        )
+    ) -> SceneLightShaftsExecutionPlan {
         .init(
             points: (
                 SIMD2<Float>(0.2, 0.2),
@@ -138,6 +157,7 @@ enum Harness {
                 SIMD2<Float>(0.8, 0.8),
                 SIMD2<Float>(0.2, 0.8)
             ),
+            effectUVTransform: transform,
             feather: SIMD2<Float>(0.12, 0.12),
             scale: SIMD2<Float>(0.8, 0.5),
             smoothness: 0.85,
@@ -154,6 +174,7 @@ enum Harness {
         queue: MTLCommandQueue,
         pipeline: SceneLightShaftsPipeline,
         resources: SceneLightShaftsEffectTextures,
+        plan: SceneLightShaftsExecutionPlan,
         time: Float,
         alpha: Float
     ) -> (accepted: Bool, bytes: [UInt8]) {
@@ -172,9 +193,9 @@ enum Harness {
         let command = queue.makeCommandBuffer()!
         let encoder = command.makeRenderCommandEncoder(descriptor: pass)!
         let accepted = pipeline.draw(
-            plan: plan(),
+            plan: plan,
             resources: resources,
-            mvp: simd_float4x4(diagonal: SIMD4<Float>(0.002, 0.002, 1, 1)),
+            mvp: simd_float4x4(diagonal: SIMD4<Float>(2, 2, 1, 1)),
             time: time,
             alpha: alpha,
             encoder: encoder
@@ -200,11 +221,13 @@ enum Harness {
             return
         }
         let resources = makeResources(device: device)
+        let authoredPlan = plan()
         let first = render(
             device: device,
             queue: queue,
             pipeline: pipeline,
             resources: resources,
+            plan: authoredPlan,
             time: 0,
             alpha: 1
         )
@@ -213,6 +236,7 @@ enum Harness {
             queue: queue,
             pipeline: pipeline,
             resources: resources,
+            plan: authoredPlan,
             time: 1.25,
             alpha: 1
         )
@@ -221,6 +245,7 @@ enum Harness {
             queue: queue,
             pipeline: pipeline,
             resources: resources,
+            plan: authoredPlan,
             time: 0,
             alpha: 0.5
         )
@@ -229,8 +254,22 @@ enum Harness {
             queue: queue,
             pipeline: pipeline,
             resources: resources,
+            plan: authoredPlan,
             time: 0,
             alpha: 1.1
+        )
+        let alternate = render(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            resources: resources,
+            plan: plan(transform: .init(
+                row0: SIMD3<Float>(1.25, 0, -0.125),
+                row1: SIMD3<Float>(0, 1.25, -0.125),
+                row2: SIMD3<Float>(0, 0, 1)
+            )),
+            time: 0,
+            alpha: 1
         )
         let alphaValues = stride(from: 3, to: first.bytes.count, by: 4).map {
             first.bytes[$0]
@@ -247,6 +286,16 @@ enum Harness {
                 ) <= first.bytes[offset + 3]
             }
         let centerOffset = ((size / 2) * size + size / 2) * 4
+        let unitQuad = SceneLightShaftsPipeline.unitQuadVertices
+        let fixedUnitGeometry = unitQuad.count == 4
+            && unitQuad.map(\.position) == [
+                SIMD2<Float>(-0.5, -0.5), SIMD2<Float>(0.5, -0.5),
+                SIMD2<Float>(-0.5, 0.5), SIMD2<Float>(0.5, 0.5),
+            ]
+            && unitQuad.map(\.texcoord) == [
+                SIMD2<Float>(0, 1), SIMD2<Float>(1, 1),
+                SIMD2<Float>(0, 0), SIMD2<Float>(1, 0),
+            ]
         let result: [String: Any] = [
             "metalUnavailable": false,
             "accepted": first.accepted && second.accepted && half.accepted,
@@ -257,6 +306,8 @@ enum Harness {
             "premultiplied": premultiplied,
             "timeChangesOutput": first.bytes != second.bytes,
             "halfAlphaLower": (halfAlpha.max() ?? 0) < (alphaValues.max() ?? 0),
+            "fixedUnitGeometry": fixedUnitGeometry,
+            "perspectiveChangesOutput": first.bytes != alternate.bytes,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -308,6 +359,8 @@ class SceneLightShaftsRenderingTests(unittest.TestCase):
         self.assertTrue(result["premultiplied"], result)
         self.assertTrue(result["timeChangesOutput"], result)
         self.assertTrue(result["halfAlphaLower"], result)
+        self.assertTrue(result["fixedUnitGeometry"], result)
+        self.assertTrue(result["perspectiveChangesOutput"], result)
 
 
 if __name__ == "__main__":

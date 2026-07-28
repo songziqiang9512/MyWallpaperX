@@ -12,7 +12,13 @@ struct LightShaftsVertex {
 
 struct LightShaftsVaryings {
     float4 position [[position]];
-    float2 uv;
+    float3 effectCoord;
+};
+
+struct LightShaftsPerspectiveUniforms {
+    float4 effectUVRow0;
+    float4 effectUVRow1;
+    float4 effectUVRow2;
 };
 
 struct LightShaftsUniforms {
@@ -29,11 +35,17 @@ struct LightShaftsUniforms {
 vertex LightShaftsVaryings sceneLightShaftsVert(
     uint vertexID [[vertex_id]],
     constant LightShaftsVertex *vertices [[buffer(0)]],
-    constant float4x4 &mvp [[buffer(1)]]
+    constant float4x4 &mvp [[buffer(1)]],
+    constant LightShaftsPerspectiveUniforms &u [[buffer(2)]]
 ) {
     LightShaftsVaryings out;
     out.position = mvp * float4(vertices[vertexID].position, 0.0, 1.0);
-    out.uv = vertices[vertexID].texcoord;
+    float3 base = float3(vertices[vertexID].texcoord, 1.0);
+    out.effectCoord = float3(
+        dot(u.effectUVRow0.xyz, base),
+        dot(u.effectUVRow1.xyz, base),
+        dot(u.effectUVRow2.xyz, base)
+    );
     return out;
 }
 
@@ -45,15 +57,16 @@ fragment float4 sceneLightShaftsFrag(
 ) {
     constexpr sampler repeatSampler(filter::linear, address::repeat);
     constexpr sampler clampSampler(filter::linear, address::clamp_to_edge);
+    float2 uv = input.effectCoord.xy / input.effectCoord.z;
     float2 frequency = max(u.scale, float2(0.001)) * float2(4.0, 7.0);
     float travel = u.time * u.speed;
     float first = noiseTexture.sample(
         repeatSampler,
-        input.uv * frequency + float2(travel * 0.11, travel * 0.29)
+        uv * frequency + float2(travel * 0.11, travel * 0.29)
     ).r;
     float second = noiseTexture.sample(
         repeatSampler,
-        float2(1.0 - input.uv.x, input.uv.y) * frequency * 0.57
+        float2(1.0 - uv.x, uv.y) * frequency * 0.57
             + float2(-travel * 0.19, travel * 0.41)
     ).g;
     float structure = saturate(first * 0.62 + second * 0.38);
@@ -62,20 +75,26 @@ fragment float4 sceneLightShaftsFrag(
     shafts = pow(max(shafts, 0.0001), max(u.exponent, 0.01));
 
     float2 edgeWidth = max(u.feather, float2(0.0001));
-    float horizontal = smoothstep(0.0, edgeWidth.x, input.uv.x)
-        * smoothstep(0.0, edgeWidth.x, 1.0 - input.uv.x);
-    float longitudinal = smoothstep(0.0, edgeWidth.y, input.uv.y)
-        * smoothstep(0.0, edgeWidth.y, 1.0 - input.uv.y);
+    float horizontal = smoothstep(0.0, edgeWidth.x, uv.x)
+        * smoothstep(0.0, edgeWidth.x, 1.0 - uv.x);
+    float longitudinal = smoothstep(0.0, edgeWidth.y, uv.y)
+        * smoothstep(0.0, edgeWidth.y, 1.0 - uv.y);
     float opacity = saturate(shafts * horizontal * longitudinal * u.intensity) * u.alpha;
     float3 gradient = gradientTexture.sample(
         clampSampler,
-        float2(saturate(input.uv.y), 0.5)
+        float2(saturate(uv.y), 0.5)
     ).rgb;
     return float4(gradient * opacity, opacity);
 }
 """
 
 final class SceneLightShaftsPipeline {
+    private struct PerspectiveUniforms {
+        var effectUVRow0: SIMD4<Float>
+        var effectUVRow1: SIMD4<Float>
+        var effectUVRow2: SIMD4<Float>
+    }
+
     private struct Uniforms {
         var scale: SIMD2<Float>
         var feather: SIMD2<Float>
@@ -89,6 +108,12 @@ final class SceneLightShaftsPipeline {
 
     private let state: MTLRenderPipelineState
     private let deviceRegistryID: UInt64
+    static let unitQuadVertices: [SceneQuadVertex] = [
+        .init(position: SIMD2(-0.5, -0.5), texcoord: SIMD2(0, 1)),
+        .init(position: SIMD2(0.5, -0.5), texcoord: SIMD2(1, 1)),
+        .init(position: SIMD2(-0.5, 0.5), texcoord: SIMD2(0, 0)),
+        .init(position: SIMD2(0.5, 0.5), texcoord: SIMD2(1, 0)),
+    ]
 
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {
         guard pixelFormat == .bgra8Unorm,
@@ -134,8 +159,13 @@ final class SceneLightShaftsPipeline {
               gradient.device.registryID == deviceRegistryID else {
             return false
         }
-        var vertices = vertices(for: plan.points)
+        var vertices = Self.unitQuadVertices
         var mvpCopy = mvp
+        var perspective = PerspectiveUniforms(
+            effectUVRow0: SIMD4(plan.effectUVTransform.row0, 0),
+            effectUVRow1: SIMD4(plan.effectUVTransform.row1, 0),
+            effectUVRow2: SIMD4(plan.effectUVTransform.row2, 0)
+        )
         var uniforms = Uniforms(
             scale: plan.scale,
             feather: plan.feather,
@@ -157,6 +187,11 @@ final class SceneLightShaftsPipeline {
             length: MemoryLayout<simd_float4x4>.size,
             index: 1
         )
+        encoder.setVertexBytes(
+            &perspective,
+            length: MemoryLayout<PerspectiveUniforms>.stride,
+            index: 2
+        )
         encoder.setFragmentBytes(
             &uniforms,
             length: MemoryLayout<Uniforms>.stride,
@@ -168,22 +203,6 @@ final class SceneLightShaftsPipeline {
         return true
     }
 
-    private func vertices(
-        for points: (SIMD2<Float>, SIMD2<Float>, SIMD2<Float>, SIMD2<Float>)
-    ) -> [SceneQuadVertex] {
-        let ordered = [points.3, points.2, points.0, points.1]
-        let texcoords = [
-            SIMD2<Float>(0, 1), SIMD2<Float>(1, 1),
-            SIMD2<Float>(0, 0), SIMD2<Float>(1, 0),
-        ]
-        return zip(ordered, texcoords).map { point, texcoord in
-            SceneQuadVertex(
-                position: SIMD2((point.x - 0.5) * 1_000, (0.5 - point.y) * 1_000),
-                texcoord: texcoord
-            )
-        }
-    }
-
     private func valid(
         plan: SceneLightShaftsExecutionPlan,
         time: Float,
@@ -191,6 +210,7 @@ final class SceneLightShaftsPipeline {
     ) -> Bool {
         let points = [plan.points.0, plan.points.1, plan.points.2, plan.points.3]
         return points.allSatisfy { $0.x.isFinite && $0.y.isFinite }
+            && plan.effectUVTransform.isFinite
             && plan.feather.x.isFinite && plan.feather.y.isFinite
             && plan.scale.x.isFinite && plan.scale.y.isFinite
             && plan.smoothness.isFinite

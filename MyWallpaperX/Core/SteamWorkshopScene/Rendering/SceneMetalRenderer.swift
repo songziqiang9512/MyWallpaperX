@@ -260,14 +260,14 @@ struct SceneMetalRenderer {
                           plan.effectKey.descriptorID
                       ],
                       let pipeline = pipelineRepository.lightShafts(),
+                      let model = lightShaftsModelMatrix(
+                          for: layer,
+                          parallaxMouseNormalized: parallaxMouseNormalized,
+                          configuration: parallaxConfiguration
+                      ),
                       let encoder = mainPass.encoder() else {
                     continue
                 }
-                let model = particleModelMatrix(
-                    for: layer,
-                    parallaxMouseNormalized: parallaxMouseNormalized,
-                    configuration: parallaxConfiguration
-                )
                 let encoded = pipeline.draw(
                     plan: plan,
                     resources: resources,
