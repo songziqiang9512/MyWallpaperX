@@ -1301,6 +1301,86 @@ utility layer 763: skippedHidden kind=composition
         )
         self.assertIsNone(benchmark.authored_effect_graph_water_waves_count(""))
 
+    def test_authored_cursor_ripple_count_is_an_exact_gate(self) -> None:
+        preview = (
+            "authoredEffectGraphCursorRippleCount: 3\n"
+            "authoredEffectGraphCursorRippleIsolatedCount: 2\n"
+            "authoredEffectGraphCursorRippleOmittedEffects: "
+            "layer=1,omitted=effects/blend/effect.json;"
+            "layer=2,omitted=effects/reflection/effect.json\n"
+        )
+        count = benchmark.authored_effect_graph_cursor_ripple_count(preview)
+        self.assertEqual(count, 3)
+        self.assertEqual(
+            benchmark.authored_effect_graph_cursor_ripple_isolated_count(preview),
+            2,
+        )
+        self.assertEqual(
+            benchmark.authored_effect_graph_cursor_ripple_omitted_effects(preview),
+            [
+                "layer=1,omitted=effects/blend/effect.json",
+                "layer=2,omitted=effects/reflection/effect.json",
+            ],
+        )
+        self.assertEqual(
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_cursor_ripple_count": 3},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                cursor_ripple_count=count,
+                cursor_ripple_isolated_count=2,
+                cursor_ripple_omitted_effects=[
+                    "layer=1,omitted=effects/blend/effect.json",
+                    "layer=2,omitted=effects/reflection/effect.json",
+                ],
+            ),
+            [],
+        )
+        self.assertIn(
+            "Cursor Ripple count mismatch",
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_cursor_ripple_count": 0},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                cursor_ripple_count=count,
+            )[0],
+        )
+        self.assertIn(
+            "isolated Cursor Ripple count mismatch",
+            benchmark.authored_effect_graph_failures(
+                {
+                    "expected_authored_effect_graph_cursor_ripple_isolated_count": 1
+                },
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                cursor_ripple_isolated_count=2,
+            )[0],
+        )
+        self.assertIn(
+            "Cursor Ripple omissions mismatch",
+            benchmark.authored_effect_graph_failures(
+                {
+                    "expected_authored_effect_graph_cursor_ripple_omitted_effects": [
+                        "layer=1,omitted=effects/blend/effect.json"
+                    ]
+                },
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                cursor_ripple_omitted_effects=[],
+            )[0],
+        )
+        self.assertIsNone(benchmark.authored_effect_graph_cursor_ripple_count(""))
+        self.assertIsNone(
+            benchmark.authored_effect_graph_cursor_ripple_isolated_count("")
+        )
+        self.assertIsNone(
+            benchmark.authored_effect_graph_cursor_ripple_omitted_effects("")
+        )
+
     def test_authored_clipping_mask_count_is_an_exact_gate(self) -> None:
         preview = "authoredEffectGraphClippingMaskCount: 7\n"
         count = benchmark.authored_effect_graph_clipping_mask_count(preview)

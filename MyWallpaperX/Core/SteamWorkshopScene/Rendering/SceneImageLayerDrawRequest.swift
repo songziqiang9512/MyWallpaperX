@@ -14,6 +14,7 @@ struct SceneImageLayerMasks {
     let filmGrainEffects: [String: SceneFilmGrainEffectTextures]
     let waterFlowEffects: [String: SceneWaterFlowEffectTextures]
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
+    let cursorRippleEffects: [String: SceneCursorRippleEffectTextures]
     let opacityEffects: [String: SceneOpacityEffectTextures]
     let pulseEffects: [String: ScenePulseEffectTextures]
     let tintEffects: [String: SceneTintEffectTextures]
@@ -34,6 +35,7 @@ struct SceneImageLayerMasks {
             filmGrainEffects: filmGrainEffects,
             waterFlowEffects: waterFlowEffects,
             waterWavesEffects: waterWavesEffects,
+            cursorRippleEffects: cursorRippleEffects,
             opacityEffects: opacityEffects,
             pulseEffects: pulseEffects,
             tintEffects: tintEffects,
@@ -55,6 +57,7 @@ struct SceneImageLayerMasks {
         filmGrainEffects: [:],
         waterFlowEffects: [:],
         waterWavesEffects: [:],
+        cursorRippleEffects: [:],
         opacityEffects: [:],
         pulseEffects: [:],
         tintEffects: [:],
@@ -76,6 +79,7 @@ struct SceneImageLayerMasks {
             filmGrainEffects: [:],
             waterFlowEffects: [:],
             waterWavesEffects: [:],
+            cursorRippleEffects: [:],
             opacityEffects: [:],
             pulseEffects: [:],
             tintEffects: [:],
@@ -89,23 +93,32 @@ struct SceneImageLayerUniformValues {
     let time: Float
     let alpha: Float
     let cursorUV: SIMD2<Float>
+    let previousCursorUV: SIMD2<Float>
     let cursorIsInside: Bool
+    let previousCursorIsInside: Bool
     let primaryButtonIsDown: Bool
+    let frameTime: Float
     let tint: SIMD3<Float>
 
     init(
         time: Float,
         alpha: Float,
         cursorUV: SIMD2<Float>,
+        previousCursorUV: SIMD2<Float>? = nil,
         cursorIsInside: Bool = true,
+        previousCursorIsInside: Bool? = nil,
         primaryButtonIsDown: Bool = false,
+        frameTime: Float = 0,
         tint: SIMD3<Float> = SIMD3(repeating: 1)
     ) {
         self.time = time
         self.alpha = alpha
         self.cursorUV = cursorUV
+        self.previousCursorUV = previousCursorUV ?? cursorUV
         self.cursorIsInside = cursorIsInside
+        self.previousCursorIsInside = previousCursorIsInside ?? cursorIsInside
         self.primaryButtonIsDown = primaryButtonIsDown
+        self.frameTime = frameTime
         self.tint = tint
     }
 }

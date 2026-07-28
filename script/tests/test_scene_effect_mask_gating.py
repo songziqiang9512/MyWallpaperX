@@ -87,6 +87,9 @@ enum Harness {
             "utilityMaskedFoliage": SceneEffectRuntimeSupport.supportsUtilityCapture(maskedFoliage),
             "utilityPlainFoliage": SceneEffectRuntimeSupport.supportsUtilityCapture(plainFoliage),
             "utilityCursorRipple": SceneEffectRuntimeSupport.supportsUtilityCapture(cursorRipple),
+            "cursorRippleInlineFlags": raw(
+                [cursorRipple], water: false, foliage: true
+            ),
             "chromatic": raw([chromatic], water: false, foliage: false),
             "workshopChromatic": raw([workshopChromatic], water: false, foliage: false),
             "utilityWorkshopChromatic": SceneEffectRuntimeSupport.supportsUtilityCapture(workshopChromatic),
@@ -182,6 +185,7 @@ class SceneEffectMaskGatingTests(unittest.TestCase):
         self.assertFalse(self.result["utilityMaskedFoliage"])
         self.assertTrue(self.result["utilityPlainFoliage"])
         self.assertFalse(self.result["utilityCursorRipple"])
+        self.assertEqual(self.result["cursorRippleInlineFlags"], 0)
 
     def test_water_waves_inline_fallback_requires_a_single_visible_effect(self) -> None:
         self.assertEqual(self.result["orderedWaterChain"], 0)

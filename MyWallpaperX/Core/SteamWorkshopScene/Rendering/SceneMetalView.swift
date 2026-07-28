@@ -62,7 +62,6 @@ class SceneMetalView: NSView {
         self.parallaxPointerSmoother = SceneParallaxPointerSmoother(
             delay: renderDescriptor.camera.parallaxDelay
         )
-
         super.init(frame: frame)
 
         // Layer-hosting view: set layer before wantsLayer = true.
@@ -136,6 +135,7 @@ class SceneMetalView: NSView {
                 ),
                 waterFlowEffectIDs: Set(stages.compactMap { $0.waterFlow?.effectKey.descriptorID }),
                 waterWavesEffectIDs: Set(stages.compactMap { $0.waterWaves?.effectKey.descriptorID }),
+                cursorRippleEffectIDs: Set(stages.compactMap { $0.cursorRipple?.effectKey.descriptorID }),
                 tintEffectIDs: Set(stages.compactMap { $0.tint?.effectKey.descriptorID }),
                 godraysEffectIDs: Set(stages.compactMap { $0.godrays?.effectKey.descriptorID }),
                 userPropertyTextures: userPropertyTextureLoad.textures

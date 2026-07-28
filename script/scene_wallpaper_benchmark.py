@@ -179,6 +179,18 @@ AUTHORED_EFFECT_GRAPH_WATER_WAVES_COUNT_RE = re.compile(
     r"^authoredEffectGraphWaterWavesCount: (?P<count>\d+)$",
     re.MULTILINE,
 )
+AUTHORED_EFFECT_GRAPH_CURSOR_RIPPLE_COUNT_RE = re.compile(
+    r"^authoredEffectGraphCursorRippleCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
+AUTHORED_EFFECT_GRAPH_CURSOR_RIPPLE_ISOLATED_COUNT_RE = re.compile(
+    r"^authoredEffectGraphCursorRippleIsolatedCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
+AUTHORED_EFFECT_GRAPH_CURSOR_RIPPLE_OMITTED_EFFECTS_RE = re.compile(
+    r"^authoredEffectGraphCursorRippleOmittedEffects: ?(?P<effects>.*)$",
+    re.MULTILINE,
+)
 AUTHORED_EFFECT_GRAPH_CLIPPING_MASK_COUNT_RE = re.compile(
     r"^authoredEffectGraphClippingMaskCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -1112,6 +1124,32 @@ def authored_effect_graph_water_waves_count(preview_text: str) -> int | None:
     return int(match.group("count")) if match is not None else None
 
 
+def authored_effect_graph_cursor_ripple_count(preview_text: str) -> int | None:
+    match = AUTHORED_EFFECT_GRAPH_CURSOR_RIPPLE_COUNT_RE.search(preview_text)
+    return int(match.group("count")) if match is not None else None
+
+
+def authored_effect_graph_cursor_ripple_isolated_count(
+    preview_text: str,
+) -> int | None:
+    match = AUTHORED_EFFECT_GRAPH_CURSOR_RIPPLE_ISOLATED_COUNT_RE.search(
+        preview_text
+    )
+    return int(match.group("count")) if match is not None else None
+
+
+def authored_effect_graph_cursor_ripple_omitted_effects(
+    preview_text: str,
+) -> list[str] | None:
+    match = AUTHORED_EFFECT_GRAPH_CURSOR_RIPPLE_OMITTED_EFFECTS_RE.search(
+        preview_text
+    )
+    if match is None:
+        return None
+    effects = match.group("effects").strip()
+    return effects.split(";") if effects else []
+
+
 def authored_effect_graph_clipping_mask_count(preview_text: str) -> int | None:
     match = AUTHORED_EFFECT_GRAPH_CLIPPING_MASK_COUNT_RE.search(preview_text)
     return int(match.group("count")) if match is not None else None
@@ -1238,6 +1276,9 @@ def authored_effect_graph_failures(
     shake_count: int | None = None,
     water_flow_count: int | None = None,
     water_waves_count: int | None = None,
+    cursor_ripple_count: int | None = None,
+    cursor_ripple_isolated_count: int | None = None,
+    cursor_ripple_omitted_effects: list[str] | None = None,
     clipping_mask_count: int | None = None,
     blend_count: int | None = None,
     transform_count: int | None = None,
@@ -1325,6 +1366,28 @@ def authored_effect_graph_failures(
     if expected_water_waves is not None:
         if water_waves_count != int(expected_water_waves):
             failures.append("authored effect graph Water Waves count mismatch")
+    expected_cursor_ripple = sample.get(
+        "expected_authored_effect_graph_cursor_ripple_count"
+    )
+    if expected_cursor_ripple is not None:
+        if cursor_ripple_count != int(expected_cursor_ripple):
+            failures.append("authored effect graph Cursor Ripple count mismatch")
+    expected_isolated_ripple = sample.get(
+        "expected_authored_effect_graph_cursor_ripple_isolated_count"
+    )
+    if expected_isolated_ripple is not None:
+        if cursor_ripple_isolated_count != int(expected_isolated_ripple):
+            failures.append(
+                "authored effect graph isolated Cursor Ripple count mismatch"
+            )
+    expected_ripple_omissions = sample.get(
+        "expected_authored_effect_graph_cursor_ripple_omitted_effects"
+    )
+    if expected_ripple_omissions is not None:
+        if cursor_ripple_omitted_effects != expected_ripple_omissions:
+            failures.append(
+                "authored effect graph Cursor Ripple omissions mismatch"
+            )
     expected_clipping_mask = sample.get(
         "expected_authored_effect_graph_clipping_mask_count"
     )
@@ -1681,6 +1744,15 @@ def run_sample(
     authored_effect_graph_shake = authored_effect_graph_shake_count(preview_text)
     authored_effect_graph_water_flow = authored_effect_graph_water_flow_count(preview_text)
     authored_effect_graph_water_waves = authored_effect_graph_water_waves_count(preview_text)
+    authored_effect_graph_cursor_ripple = authored_effect_graph_cursor_ripple_count(
+        preview_text
+    )
+    authored_effect_graph_cursor_ripple_isolated = (
+        authored_effect_graph_cursor_ripple_isolated_count(preview_text)
+    )
+    authored_effect_graph_cursor_ripple_omitted = (
+        authored_effect_graph_cursor_ripple_omitted_effects(preview_text)
+    )
     authored_effect_graph_clipping_mask = authored_effect_graph_clipping_mask_count(
         preview_text
     )
@@ -1816,6 +1888,9 @@ def run_sample(
         shake_count=authored_effect_graph_shake,
         water_flow_count=authored_effect_graph_water_flow,
         water_waves_count=authored_effect_graph_water_waves,
+        cursor_ripple_count=authored_effect_graph_cursor_ripple,
+        cursor_ripple_isolated_count=authored_effect_graph_cursor_ripple_isolated,
+        cursor_ripple_omitted_effects=authored_effect_graph_cursor_ripple_omitted,
         clipping_mask_count=authored_effect_graph_clipping_mask,
         blend_count=authored_effect_graph_blend,
         transform_count=authored_effect_graph_transform,
@@ -2117,6 +2192,9 @@ def run_sample(
             "authored_effect_graph_shake_count": authored_effect_graph_shake,
             "authored_effect_graph_water_flow_count": authored_effect_graph_water_flow,
             "authored_effect_graph_water_waves_count": authored_effect_graph_water_waves,
+            "authored_effect_graph_cursor_ripple_count": authored_effect_graph_cursor_ripple,
+            "authored_effect_graph_cursor_ripple_isolated_count": authored_effect_graph_cursor_ripple_isolated,
+            "authored_effect_graph_cursor_ripple_omitted_effects": authored_effect_graph_cursor_ripple_omitted,
             "authored_effect_graph_clipping_mask_count": authored_effect_graph_clipping_mask,
             "authored_effect_graph_blend_count": authored_effect_graph_blend,
             "authored_effect_graph_transform_count": authored_effect_graph_transform,

@@ -279,6 +279,29 @@ enum SceneAuthoredWaterWavesPlanner {
     }
 }
 
+struct SceneCursorRippleExecutionPlan {}
+
+enum SceneAuthoredCursorRipplePlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneCursorRippleExecutionPlan? {
+        nil
+    }
+}
+
+extension SceneAuthoredEffectChainPlanner {
+    static func isolatedCursorRippleChain(
+        graph: Graph,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract]
+    ) -> SceneAuthoredEffectExecutionChain? {
+        nil
+    }
+}
+
 struct SceneFoliageSwayExecutionPlan {}
 
 enum SceneAuthoredFoliageSwayPlanner {

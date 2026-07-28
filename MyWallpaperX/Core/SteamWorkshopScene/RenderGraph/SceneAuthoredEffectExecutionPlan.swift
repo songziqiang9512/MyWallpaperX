@@ -93,6 +93,12 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
                 }
             }
         }
+        let isolatedCursorRippleDiagnostics = chainsByLayerID
+            .sorted { $0.key < $1.key }.compactMap { entry -> String? in
+            let omitted = entry.value.isolatedCursorRippleOmittedEffectPaths
+            guard !omitted.isEmpty else { return nil }
+            return "layer=\(entry.key),omitted=\(omitted.joined(separator: ","))"
+        }
         return [
             "authoredEffectGraphPlannedCount: \(chainsByLayerID.count)",
             "authoredEffectGraphMaterialNodeCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.materialNodeCount })",
@@ -119,6 +125,9 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
             "authoredEffectGraphShakeCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.shakeCount })",
             "authoredEffectGraphWaterFlowCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.waterFlowCount })",
             "authoredEffectGraphWaterWavesCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.waterWavesCount })",
+            "authoredEffectGraphCursorRippleCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.cursorRippleCount })",
+            "authoredEffectGraphCursorRippleIsolatedCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.isolatedCursorRippleCount })",
+            "authoredEffectGraphCursorRippleOmittedEffects: \(isolatedCursorRippleDiagnostics.joined(separator: ";"))",
             "authoredEffectGraphFoliageSwayCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.foliageSwayCount })",
             "authoredEffectGraphWaterRippleCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.waterRippleCount })",
             "authoredEffectGraphXRayCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.xRayCount })",

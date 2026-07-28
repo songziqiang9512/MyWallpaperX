@@ -1905,7 +1905,9 @@
         1314,
         2011
       ],
-      "expected_authored_effect_graph_succeeded_layer_ids": [],
+      "expected_authored_effect_graph_succeeded_layer_ids": [
+        1200
+      ],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
@@ -1919,14 +1921,19 @@
       "expected_authored_effect_graph_shake_count": 0,
       "expected_authored_effect_graph_water_flow_count": 0,
       "expected_authored_effect_graph_water_waves_count": 0,
+      "expected_authored_effect_graph_cursor_ripple_count": 1,
+      "expected_authored_effect_graph_cursor_ripple_isolated_count": 1,
+      "expected_authored_effect_graph_cursor_ripple_omitted_effects": [
+        "layer=1200,omitted=effects/tint/effect.json,effects/blend/effect.json,effects/blend/effect.json,effects/blendgradient/effect.json,effects/localcontrast/effect.json,effects/pulse/effect.json"
+      ],
       "expected_authored_effect_graph_blend_count": 0,
       "expected_authored_effect_graph_transform_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
       "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
-      "expected_route_only_effect_count": 14
+      "expected_authored_effect_graph_stage_count": 1,
+      "expected_route_only_effect_count": 13
     },
     {
       "id": "2998757800",
@@ -2895,6 +2902,7 @@
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
       "expected_authored_effect_graph_succeeded_layer_ids": [
+        246,
         303,
         601
       ],
@@ -2911,13 +2919,18 @@
       "expected_authored_effect_graph_shake_count": 0,
       "expected_authored_effect_graph_water_flow_count": 0,
       "expected_authored_effect_graph_water_waves_count": 0,
+      "expected_authored_effect_graph_cursor_ripple_count": 1,
+      "expected_authored_effect_graph_cursor_ripple_isolated_count": 1,
+      "expected_authored_effect_graph_cursor_ripple_omitted_effects": [
+        "layer=246,omitted=effects/waterripple/effect.json,effects/reflection/effect.json,effects/workshop/3299091578/pulse/effect.json,effects/shake/effect.json"
+      ],
       "expected_authored_effect_graph_blend_count": 0,
       "expected_authored_effect_graph_transform_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
       "expected_authored_effect_graph_chain_count": 1,
-      "expected_authored_effect_graph_stage_count": 3,
+      "expected_authored_effect_graph_stage_count": 4,
       "expected_route_only_effect_count": 29
     },
     {
@@ -4357,7 +4370,9 @@
       "required_named_target_binding_succeeded_layer_ids": [],
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_succeeded_layer_ids": [],
+      "expected_authored_effect_graph_succeeded_layer_ids": [
+        17
+      ],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
@@ -4371,13 +4386,18 @@
       "expected_authored_effect_graph_shake_count": 0,
       "expected_authored_effect_graph_water_flow_count": 0,
       "expected_authored_effect_graph_water_waves_count": 0,
+      "expected_authored_effect_graph_cursor_ripple_count": 1,
+      "expected_authored_effect_graph_cursor_ripple_isolated_count": 1,
+      "expected_authored_effect_graph_cursor_ripple_omitted_effects": [
+        "layer=17,omitted=effects/workshop/2798696916/sharpen_filter/effect.json,effects/waterripple/effect.json"
+      ],
       "expected_authored_effect_graph_blend_count": 0,
       "expected_authored_effect_graph_transform_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
       "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 0,
+      "expected_authored_effect_graph_stage_count": 1,
       "expected_route_only_effect_count": 0
     },
     {

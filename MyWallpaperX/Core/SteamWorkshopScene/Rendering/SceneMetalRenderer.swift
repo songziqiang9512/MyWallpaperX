@@ -195,6 +195,10 @@ struct SceneMetalRenderer {
                     mouseNormalized: frameContext.pointer.current,
                     modelViewProjection: mvp
                 )
+                let previousCursorUV = SceneLayerCursorGeometry.layerUV(
+                    mouseNormalized: frameContext.pointer.previous,
+                    modelViewProjection: mvp
+                )
                 let request = SceneImageLayerDrawRequest(
                     layer: layer,
                     texture: preparedTexture,
@@ -212,6 +216,7 @@ struct SceneMetalRenderer {
                         filmGrainEffects: effectTextures.filmGrainEffects,
                         waterFlowEffects: effectTextures.waterFlowEffects,
                         waterWavesEffects: effectTextures.waterWavesEffects,
+                        cursorRippleEffects: effectTextures.cursorRippleEffects,
                         opacityEffects: effectTextures.opacityEffects,
                         pulseEffects: effectTextures.pulseEffects,
                         tintEffects: effectTextures.tintEffects,
@@ -224,8 +229,12 @@ struct SceneMetalRenderer {
                         time: time,
                         alpha: layerAlpha,
                         cursorUV: cursorUV ?? .zero,
+                        previousCursorUV: previousCursorUV ?? cursorUV ?? .zero,
                         cursorIsInside: frameContext.pointer.isInside && cursorUV != nil,
+                        previousCursorIsInside: frameContext.pointer.isInside
+                            && previousCursorUV != nil,
                         primaryButtonIsDown: frameContext.pointer.isPrimaryButtonDown,
+                        frameTime: Float(frameContext.frameTime),
                         tint: SceneDynamicLayerValues.color(
                             layerID: layer.id, authoredValue: layer.colorRGB,
                             snapshot: frameContext.dynamicValues

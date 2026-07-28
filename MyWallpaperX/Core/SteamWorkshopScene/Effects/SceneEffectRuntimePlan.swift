@@ -116,8 +116,12 @@ enum SceneEffectRuntimePlanner {
         if authoredEffectPlan?.localContrast != nil {
             return "\(foliage)effect runtime local-contrast-authored; \(passCount) declared pass(es)"
         }
-        if authoredEffectPlan?.opacity != nil || authoredEffectPlan?.waterWaves != nil {
-            let name = authoredEffectPlan?.opacity != nil ? "opacity" : "waterwaves"
+        if authoredEffectPlan?.opacity != nil
+            || authoredEffectPlan?.waterWaves != nil
+            || authoredEffectPlan?.cursorRipple != nil {
+            let name = authoredEffectPlan?.opacity != nil
+                ? "opacity"
+                : (authoredEffectPlan?.waterWaves != nil ? "waterwaves" : "cursorripple")
             return "\(foliage)effect runtime \(name)-authored; \(passCount) declared pass(es)"
         }
         if authoredEffectPlan?.workshopAudioBars != nil {
@@ -277,7 +281,7 @@ enum SceneEffectRuntimePlanner {
             if hasWaterMask && (lower.contains("waterwaves") || lower.contains("waterripple")) {
                 flags.insert(.hasWaterMask)
             }
-            if hasFoliageMask && (lower.contains("foliagesway") || lower.contains("cursorripple")) {
+            if hasFoliageMask && lower.contains("foliagesway") {
                 flags.insert(.hasFoliageMask)
             }
             if hasIrisMask && lower.contains("iris") {

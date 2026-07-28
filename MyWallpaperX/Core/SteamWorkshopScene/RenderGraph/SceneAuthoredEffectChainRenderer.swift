@@ -11,7 +11,10 @@ enum SceneAuthoredEffectChainRenderer {
         pipeline: SceneImageLayerPipeline,
         pipelines: SceneAuthoredEffectPipelineSet,
         cursorUV: SIMD2<Float>,
+        previousCursorUV: SIMD2<Float>,
         pointerIsInside: Bool,
+        previousPointerIsInside: Bool,
+        frameTime: Float,
         audioSpectrum: SceneAudioSpectrumSnapshot,
         authoredShaderFrameInputs: SceneAuthoredShaderFrameInputs?,
         dependencyEffect: SceneDependencyEffectInput?,
@@ -40,7 +43,10 @@ enum SceneAuthoredEffectChainRenderer {
                 pipeline: pipeline,
                 pipelines: pipelines,
                 cursorUV: cursorUV,
+                previousCursorUV: previousCursorUV,
                 pointerIsInside: pointerIsInside,
+                previousPointerIsInside: previousPointerIsInside,
+                frameTime: frameTime,
                 time: sourceUniforms.time,
                 audioSpectrum: audioSpectrum,
                 authoredShaderFrameInputs: authoredShaderFrameInputs,
@@ -70,7 +76,10 @@ enum SceneAuthoredEffectChainRenderer {
         pipeline: SceneImageLayerPipeline,
         pipelines: SceneAuthoredEffectPipelineSet,
         cursorUV: SIMD2<Float>,
+        previousCursorUV: SIMD2<Float>,
         pointerIsInside: Bool,
+        previousPointerIsInside: Bool,
+        frameTime: Float,
         time: Float,
         audioSpectrum: SceneAudioSpectrumSnapshot,
         authoredShaderFrameInputs: SceneAuthoredShaderFrameInputs?,
@@ -243,31 +252,22 @@ enum SceneAuthoredEffectChainRenderer {
                 commandBuffer: commandBuffer
             )
         case .waterFlow(let waterFlow):
-            guard let waterFlowPipeline = pipelines.waterFlow else { return nil }
-            return SceneWaterFlowRenderer.renderCaptured(
-                plan: waterFlow,
-                sourceTexture: sourceTexture,
-                masks: masks,
-                targets: targets,
-                sourceUniforms: sourceUniforms,
-                sourcePipeline: pipeline,
-                waterFlowPipeline: waterFlowPipeline,
-                time: time,
-                commandBuffer: commandBuffer
-            )
+            return renderWaterFlow(
+                waterFlow, sourceTexture: sourceTexture, masks: masks, targets: targets,
+                sourceUniforms: sourceUniforms, pipeline: pipeline, pipelines: pipelines,
+                time: time, commandBuffer: commandBuffer)
         case .waterWaves(let waterWaves):
-            guard let waterWavesPipeline = pipelines.waterWaves else { return nil }
-            return SceneWaterWavesRenderer.renderCaptured(
-                plan: waterWaves,
-                sourceTexture: sourceTexture,
-                masks: masks,
-                targets: targets,
-                sourceUniforms: sourceUniforms,
-                sourcePipeline: pipeline,
-                waterWavesPipeline: waterWavesPipeline,
-                time: time,
-                commandBuffer: commandBuffer
-            )
+            return renderWaterWaves(
+                waterWaves, sourceTexture: sourceTexture, masks: masks, targets: targets,
+                sourceUniforms: sourceUniforms, pipeline: pipeline, pipelines: pipelines,
+                time: time, commandBuffer: commandBuffer)
+        case .cursorRipple(let cursorRipple):
+            return renderCursorRipple(
+                cursorRipple, sourceTexture: sourceTexture, masks: masks, targets: targets,
+                sourceUniforms: sourceUniforms, pipeline: pipeline, pipelines: pipelines,
+                cursorUV: cursorUV, previousCursorUV: previousCursorUV, pointerIsInside: pointerIsInside,
+                previousPointerIsInside: previousPointerIsInside, frameTime: frameTime,
+                commandBuffer: commandBuffer)
         case .foliageSway(let foliage):
             guard targets.plan.logicalTargets.isEmpty,
                   let mask = masks.foliage else {

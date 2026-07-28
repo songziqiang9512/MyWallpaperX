@@ -114,7 +114,10 @@ struct SceneImageLayerCompositor {
                         pipeline: pipeline,
                         pipelines: authoredEffectPipelines,
                         cursorUV: request.uniforms.cursorUV,
+                        previousCursorUV: request.uniforms.previousCursorUV,
                         pointerIsInside: request.uniforms.cursorIsInside,
+                        previousPointerIsInside: request.uniforms.previousCursorIsInside,
+                        frameTime: request.uniforms.frameTime,
                         audioSpectrum: request.audioSpectrum,
                         authoredShaderFrameInputs: request.authoredShaderFrameInputs,
                         dependencyEffect: request.dependencyEffect,
@@ -280,7 +283,7 @@ struct SceneImageLayerCompositor {
                             time: directUniforms.time,
                             commandBuffer: commandBuffer
                         )
-                    case .foliageSway, .waterRipple, .xRay, .clippingMask,
+                    case .cursorRipple, .foliageSway, .waterRipple, .xRay, .clippingMask,
                          .blend, .tint, .transform,
                          .pulse, .godrays, .spin,
                          .proceduralNoise, .filmGrain, .lightShafts,

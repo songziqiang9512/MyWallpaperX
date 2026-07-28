@@ -162,13 +162,20 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
                             return .failure(.invalidAccess)
                         }
                         if firstWrites[binding.texture] == nil {
-                            guard declarations[binding.texture]?.declaredUnique == true else {
+                            guard permitsHistorySeed(
+                                binding.texture,
+                                executionPlan: executionPlan,
+                                declarations: declarations
+                            ) else {
                                 return .failure(.historyRequired)
                             }
                             historySeedTargets.insert(binding.texture)
                         }
-                        guard declarations[binding.texture]?.declaredUnique == true
-                            || firstWrites[binding.texture] != nil else {
+                        guard permitsHistorySeed(
+                            binding.texture,
+                            executionPlan: executionPlan,
+                            declarations: declarations
+                        ) || firstWrites[binding.texture] != nil else {
                             return .failure(.historyRequired)
                         }
                         firstReads[binding.texture] =
@@ -331,31 +338,6 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             return nil
         }
         return TargetDescriptor(extent: extent, format: format)
-    }
-
-    private static func pixelExtent(
-        _ authored: Graph.TargetExtent,
-        inputWidth: Int,
-        inputHeight: Int
-    ) -> PixelExtent? {
-        switch authored.kind {
-        case .input:
-            guard authored.first == nil, authored.second == nil else { return nil }
-            return PixelExtent(width: inputWidth, height: inputHeight)
-        case .scale:
-            guard let scale = authored.first,
-                  scale.isFinite,
-                  scale >= 1,
-                  authored.second == nil else {
-                return nil
-            }
-            return PixelExtent(
-                width: max(1, Int((Double(inputWidth) / scale).rounded(.down))),
-                height: max(1, Int((Double(inputHeight) / scale).rounded(.down)))
-            )
-        case .fit, .absolute, .unsupported:
-            return nil
-        }
     }
 
     private static func textureFormat(_ authored: String?) -> TextureFormat? {

@@ -4,6 +4,20 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
     let layerID: Int
     let renderGraph: SceneAuthoredEffectRenderPlan
     let stages: [SceneAuthoredEffectExecutionPlan]
+    let isolatedCursorRippleOmittedEffectPaths: [String]
+
+    init(
+        layerID: Int,
+        renderGraph: SceneAuthoredEffectRenderPlan,
+        stages: [SceneAuthoredEffectExecutionPlan],
+        isolatedCursorRippleOmittedEffectPaths: [String] = []
+    ) {
+        self.layerID = layerID
+        self.renderGraph = renderGraph
+        self.stages = stages
+        self.isolatedCursorRippleOmittedEffectPaths =
+            isolatedCursorRippleOmittedEffectPaths
+    }
 
     var singleStage: SceneAuthoredEffectExecutionPlan? {
         stages.count == 1 ? stages[0] : nil
@@ -75,6 +89,14 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
 
     var waterWavesCount: Int {
         stages.filter { $0.waterWaves != nil }.count
+    }
+
+    var cursorRippleCount: Int {
+        stages.filter { $0.cursorRipple != nil }.count
+    }
+
+    var isolatedCursorRippleCount: Int {
+        isolatedCursorRippleOmittedEffectPaths.isEmpty ? 0 : cursorRippleCount
     }
 
     var foliageSwayCount: Int {
@@ -172,6 +194,13 @@ enum SceneAuthoredEffectChainPlanner {
                 shaderContracts: shaderContracts
             )
             guard let stage else {
+                if let isolated = isolatedCursorRippleChain(
+                    graph: graph,
+                    descriptor: descriptor,
+                    shaderContracts: shaderContracts
+                ) {
+                    return isolated
+                }
                 if let prefix = xRayPrefix(
                     plannedStages: stages,
                     unsupportedOrdinal: ordinal,
@@ -235,6 +264,16 @@ enum SceneAuthoredEffectChainPlanner {
     private nonisolated static func renderTargetUnitCost(
         _ extent: SceneAuthoredEffectRenderPlan.TargetExtent
     ) -> Double {
+        if extent.kind == .fit,
+           let maximumSide = extent.first,
+           maximumSide.isFinite,
+           maximumSide > 0,
+           extent.second == nil {
+            // Offscreen admission runs before the concrete input extent is known.
+            // The pool's documented 2048² unit is therefore the conservative
+            // denominator; smaller inputs cost less at allocation time.
+            return min(1, (maximumSide * maximumSide) / (2048 * 2048))
+        }
         guard extent.kind == .scale,
               let scale = extent.first,
               scale.isFinite,

@@ -22,9 +22,6 @@ enum SceneInlineEffectRuntime {
                canRunMaskedEffect(effect, maskAvailable: hasWaterMask) {
                 flags.insert(.waterwaves)
             }
-            if path.contains("cursorripple") && canRunMaskedEffect(effect, maskAvailable: hasFoliageMask) {
-                flags.insert(.cursorripple)
-            }
             if SceneEffectRuntimeSupport.isChromaticAberration(path) {
                 flags.insert(.chromaticaberration)
             }

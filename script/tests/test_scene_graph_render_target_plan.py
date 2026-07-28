@@ -16,28 +16,36 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
 ]
 
 
 HARNESS = r'''
 import Foundation
 
+struct SceneCursorRippleExecutionPlan {
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+}
+
 struct SceneAuthoredEffectExecutionPlan {
     let layerID: Int
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
     let inputRole: SceneAuthoredEffectInputRole
+    let cursorRipple: SceneCursorRippleExecutionPlan?
 
     init(
         layerID: Int,
         materialNodeCount: Int,
         logicalRenderTargetCount: Int,
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
+        inputRole: SceneAuthoredEffectInputRole = .layerSource,
+        cursorRipple: SceneCursorRippleExecutionPlan? = nil
     ) {
         self.layerID = layerID
         self.materialNodeCount = materialNodeCount
         self.logicalRenderTargetCount = logicalRenderTargetCount
         self.inputRole = inputRole
+        self.cursorRipple = cursorRipple
     }
 }
 
@@ -335,6 +343,37 @@ enum Harness {
         guard case .success(let persistentHistoryPlan) = persistentHistoryResult else {
             fatalError("persistent history fixture rejected")
         }
+        let rippleBuffer1 = texture(.framebuffer, key: key, name: "_rt_EightBuffer1")
+        let rippleBuffer2 = texture(.framebuffer, key: key, name: "_rt_EightBuffer2")
+        let fit512 = Graph.TargetExtent(kind: .fit, first: 512, second: nil)
+        let cursorHistory = graph(
+            targets: [
+                target(rippleBuffer1, extent: fit512, format: "rgba8888"),
+                target(rippleBuffer2, extent: fit512, format: "rgba8888"),
+            ],
+            nodes: [
+                node(0, key: key, target: rippleBuffer1, reads: [rippleBuffer2]),
+                node(1, key: key, target: rippleBuffer2, reads: [rippleBuffer1]),
+                node(2, key: key, target: output, reads: [rippleBuffer2, input]),
+            ],
+            key: key,
+            input: input,
+            output: output
+        )
+        let cursorHistoryResult = SceneGraphRenderTargetPlan.make(
+            executionPlan: .init(
+                layerID: 10,
+                materialNodeCount: 3,
+                logicalRenderTargetCount: 2,
+                cursorRipple: .init(effectKey: key)
+            ),
+            graph: cursorHistory,
+            inputWidth: 1920,
+            inputHeight: 1080
+        )
+        guard case .success(let cursorHistoryPlan) = cursorHistoryResult else {
+            fatalError("cursor history fixture rejected")
+        }
         let duplicate = graph(
             targets: [target(q1, extent: scaleFour), target(q1, extent: scaleFour)],
             nodes: standard.nodes,
@@ -395,6 +434,7 @@ enum Harness {
             "preciseTargets": targetSummary(precisePlan),
             "commandTargets": targetSummary(commandsPlan),
             "persistentHistoryTargets": targetSummary(persistentHistoryPlan),
+            "cursorHistoryTargets": targetSummary(cursorHistoryPlan),
             "commands": commandsPlan.commands.map {
                 [
                     "node": $0.nodeIndex,
@@ -538,6 +578,35 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
                     "name": "q2",
                     "size": [480, 270],
                     "format": "rgbaBackbuffer",
+                    "firstWrite": 1,
+                    "lastWrite": 1,
+                    "firstRead": 0,
+                    "lastRead": 2,
+                    "persistent": True,
+                    "historySeed": True,
+                },
+            ],
+        )
+
+    def test_cursor_ripple_admits_only_its_named_history_and_fit_extent(self) -> None:
+        self.assertEqual(
+            self.result["cursorHistoryTargets"],
+            [
+                {
+                    "name": "_rt_EightBuffer1",
+                    "size": [512, 288],
+                    "format": "rgba8888",
+                    "firstWrite": 0,
+                    "lastWrite": 0,
+                    "firstRead": 1,
+                    "lastRead": 1,
+                    "persistent": False,
+                    "historySeed": False,
+                },
+                {
+                    "name": "_rt_EightBuffer2",
+                    "size": [512, 288],
+                    "format": "rgba8888",
                     "firstWrite": 1,
                     "lastWrite": 1,
                     "firstRead": 0,

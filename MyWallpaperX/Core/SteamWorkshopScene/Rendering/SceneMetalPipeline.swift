@@ -24,7 +24,6 @@ struct SceneEffectFlags: OptionSet {
 
     static let foliagesway          = SceneEffectFlags(rawValue: 1 << 0)
     static let waterwaves           = SceneEffectFlags(rawValue: 1 << 1)
-    static let cursorripple         = SceneEffectFlags(rawValue: 1 << 2)
     static let chromaticaberration  = SceneEffectFlags(rawValue: 1 << 3)
     static let irisMask             = SceneEffectFlags(rawValue: 1 << 4)
     static let opacityMask          = SceneEffectFlags(rawValue: 1 << 5)
@@ -98,7 +97,6 @@ float2 textureFrameUV(float2 uv, constant LayerFragmentUniforms &u) {
 
 constant uint EFFECT_FOLIAGESWAY         = 1u << 0;
 constant uint EFFECT_WATERWAVES          = 1u << 1;
-constant uint EFFECT_CURSORRIPPLE        = 1u << 2;
 constant uint EFFECT_CHROMATICABERRATION = 1u << 3;
 constant uint EFFECT_IRIS_MASK           = 1u << 4;
 constant uint EFFECT_OPACITY_MASK        = 1u << 5;
@@ -235,19 +233,6 @@ fragment float4 sceneImageLayerFrag(
         float wave1 = cos(phase * 0.67 + u.time * speed * 0.73);
         uv += normal * (wave0 * strength * 0.020) * waterMask;
         uv += axis   * (wave1 * strength * 0.010) * waterMask;
-    }
-
-    // cursorripple: concentric ring around the cursor position in this
-    // layer's UV space, attenuated by distance so the effect is local.
-    if ((u.effectFlags & EFFECT_CURSORRIPPLE) != 0u) {
-        float2 d = uv - u.cursorUV;
-        float dist = length(d);
-        float decay = exp(-dist * 7.0);
-        if (decay > 0.005) {
-            float wave = sin(dist * 32.0 - u.time * 6.0) * decay;
-            float2 dir = dist > 0.0001 ? d / dist : float2(0.0);
-            uv += dir * wave * 0.006 * foliageMask;
-        }
     }
 
     float2 sampleUV = uv;

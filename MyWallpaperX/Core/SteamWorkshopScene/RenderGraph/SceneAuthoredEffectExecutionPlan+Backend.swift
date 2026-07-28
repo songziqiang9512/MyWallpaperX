@@ -19,6 +19,7 @@ extension SceneAuthoredEffectExecutionPlan {
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
+        case cursorRipple(SceneCursorRippleExecutionPlan)
         case foliageSway(SceneFoliageSwayExecutionPlan)
         case waterRipple(SceneWaterRippleExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
@@ -113,6 +114,11 @@ extension SceneAuthoredEffectExecutionPlan {
 
     nonisolated var waterWaves: SceneWaterWavesExecutionPlan? {
         guard case .waterWaves(let plan) = backend else { return nil }
+        return plan
+    }
+
+    nonisolated var cursorRipple: SceneCursorRippleExecutionPlan? {
+        guard case .cursorRipple(let plan) = backend else { return nil }
         return plan
     }
 

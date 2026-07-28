@@ -51,6 +51,7 @@ final class SceneImageEffectPipelineRepository {
     private let shakeSlot: ScenePipelineSlot<SceneShakePipeline>
     private let waterFlowSlot: ScenePipelineSlot<SceneWaterFlowPipeline>
     private let waterWavesSlot: ScenePipelineSlot<SceneWaterWavesPipeline>
+    private let cursorRippleSlot: ScenePipelineSlot<SceneCursorRipplePipeline>
     private let waterRippleSlot: ScenePipelineSlot<SceneWaterRipplePipeline>
     private let xRaySlot: ScenePipelineSlot<SceneXRayPipeline>
     private let blendSlot: ScenePipelineSlot<SceneBlendPipeline>
@@ -81,6 +82,7 @@ final class SceneImageEffectPipelineRepository {
         shakeSlot = .init { SceneShakePipeline(device: device) }
         waterFlowSlot = .init { SceneWaterFlowPipeline(device: device) }
         waterWavesSlot = .init { SceneWaterWavesPipeline(device: device) }
+        cursorRippleSlot = .init { SceneCursorRipplePipeline(device: device) }
         waterRippleSlot = .init { SceneWaterRipplePipeline(device: device) }
         xRaySlot = .init { SceneXRayPipeline(device: device) }
         blendSlot = .init { SceneBlendPipeline(device: device) }
@@ -116,6 +118,7 @@ final class SceneImageEffectPipelineRepository {
     func shake() -> SceneShakePipeline? { shakeSlot.resolve() }
     func waterFlow() -> SceneWaterFlowPipeline? { waterFlowSlot.resolve() }
     func waterWaves() -> SceneWaterWavesPipeline? { waterWavesSlot.resolve() }
+    func cursorRipple() -> SceneCursorRipplePipeline? { cursorRippleSlot.resolve() }
     func waterRipple() -> SceneWaterRipplePipeline? { waterRippleSlot.resolve() }
     func xRay() -> SceneXRayPipeline? { xRaySlot.resolve() }
     func blend() -> SceneBlendPipeline? { blendSlot.resolve() }

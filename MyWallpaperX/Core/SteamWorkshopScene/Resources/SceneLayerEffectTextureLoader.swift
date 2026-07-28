@@ -13,6 +13,7 @@ enum SceneLayerEffectTextureLoader {
         lightShaftsEffectIDs: Set<String> = [],
         waterFlowEffectIDs: Set<String> = [],
         waterWavesEffectIDs: Set<String> = [],
+        cursorRippleEffectIDs: Set<String> = [],
         tintEffectIDs: Set<String> = [],
         godraysEffectIDs: Set<String> = [],
         userPropertyTextures: [String: MTLTexture] = [:]
@@ -45,7 +46,7 @@ enum SceneLayerEffectTextureLoader {
         )
         let foliageURL = resolveMaskedTexture(
             for: layer,
-            effectFragments: ["foliagesway", "cursorripple"],
+            effectFragments: ["foliagesway"],
             resolver: resolver
         )
         let foliage = loadTexture(
@@ -100,6 +101,13 @@ enum SceneLayerEffectTextureLoader {
         let waterWaves = SceneWaterWavesEffectTextureLoader.load(
             for: layer,
             effectIDs: waterWavesEffectIDs,
+            resolver: resolver,
+            loader: loader,
+            device: device
+        )
+        let cursorRipple = SceneCursorRippleEffectTextureLoader.load(
+            for: layer,
+            effectIDs: cursorRippleEffectIDs,
             resolver: resolver,
             loader: loader,
             device: device
@@ -159,6 +167,7 @@ enum SceneLayerEffectTextureLoader {
             lightShaftsEffects: lightShafts.textures,
             waterFlowEffects: waterFlow.textures,
             waterWavesEffects: waterWaves.textures,
+            cursorRippleEffects: cursorRipple.textures,
             opacityEffects: opacityEffects.textures,
             pulseEffects: pulseEffects.textures,
             tintEffects: tintEffects.textures,
@@ -168,7 +177,8 @@ enum SceneLayerEffectTextureLoader {
                 iris.message, opacity.message, water.message, foliage.message,
                 foliageScaleMessage, normal.message, blend.message, shake.message, filmGrain.message,
                 lightShafts.message,
-                waterFlow.message, waterWaves.message, opacityEffects.message,
+                waterFlow.message, waterWaves.message, cursorRipple.message,
+                opacityEffects.message,
                 pulseEffects.message, tintEffects.message, godraysEffects.message,
                 xRay.message,
             ].joined()

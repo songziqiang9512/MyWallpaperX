@@ -189,6 +189,20 @@ extension SceneAuthoredEffectChainPlanner {
         ) {
             return stage(.waterWaves(waterWaves), stageGraph: stageGraph, inputRole: inputRole)
         }
+        if let cursorRipple = SceneAuthoredCursorRipplePlanner.plan(
+            graph: stageGraph,
+            descriptor: descriptor,
+            shaderContracts: shaderContracts,
+            inputRole: inputRole
+        ) {
+            return stage(
+                .cursorRipple(cursorRipple),
+                stageGraph: stageGraph,
+                inputRole: inputRole,
+                materialNodeCount: 3,
+                logicalRenderTargetCount: 2
+            )
+        }
         if let foliageSway = SceneAuthoredFoliageSwayPlanner.plan(
             graph: stageGraph,
             descriptor: descriptor,

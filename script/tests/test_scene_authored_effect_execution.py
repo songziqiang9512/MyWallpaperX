@@ -27,6 +27,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredPreciseBlurPlanner+Topology.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredStandardBlurPlanner.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
 ]
 CHAIN_PLANNER_SOURCE = (
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionChain.swift"
@@ -334,6 +335,31 @@ enum SceneAuthoredWaterWavesPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneWaterWavesExecutionPlan? {
+        nil
+    }
+}
+
+struct SceneCursorRippleExecutionPlan {
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+}
+
+enum SceneAuthoredCursorRipplePlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneCursorRippleExecutionPlan? {
+        nil
+    }
+}
+
+extension SceneAuthoredEffectChainPlanner {
+    static func isolatedCursorRippleChain(
+        graph: Graph,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract]
+    ) -> SceneAuthoredEffectExecutionChain? {
         nil
     }
 }
@@ -1063,6 +1089,7 @@ enum Harness {
             case .shake: backend = "shake"
             case .waterFlow: backend = "waterFlow"
             case .waterWaves: backend = "waterWaves"
+            case .cursorRipple: backend = "cursorRipple"
             case .foliageSway: backend = "foliageSway"
             case .waterRipple: backend = "waterRipple"
             case .xRay: backend = "xRay"
