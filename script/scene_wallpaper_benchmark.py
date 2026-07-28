@@ -56,6 +56,10 @@ PARTICLE_LOADED_RE = re.compile(
     r"^particle loaded: (?P<loaded>\d+) / (?P<total>\d+)$",
     re.MULTILINE,
 )
+PARTICLE_REFRACT_LOADED_RE = re.compile(
+    r"^particle refract loaded: (?P<count>\d+)$",
+    re.MULTILINE,
+)
 PARTICLE_INITIAL_LIVE_RE = re.compile(
     r"^particle initial live: (?P<live>\d+)$",
     re.MULTILINE,
@@ -888,6 +892,7 @@ def runtime_evidence_metrics(path: Path) -> dict[str, Any]:
 
 def particle_runtime_metrics(preview_text: str) -> dict[str, Any]:
     loaded_match = PARTICLE_LOADED_RE.search(preview_text)
+    refract_loaded_match = PARTICLE_REFRACT_LOADED_RE.search(preview_text)
     initial_live_match = PARTICLE_INITIAL_LIVE_RE.search(preview_text)
     authored_match = PARTICLE_AUTHORED_RE.search(preview_text)
     visible_match = PARTICLE_VISIBLE_RE.search(preview_text)
@@ -905,6 +910,9 @@ def particle_runtime_metrics(preview_text: str) -> dict[str, Any]:
         "loaded": loaded,
         "candidates": candidates,
         "loaded_ratio": loaded / candidates if candidates else 0.0,
+        "has_refract_evidence": refract_loaded_match is not None,
+        "refract_loaded": int(refract_loaded_match.group("count"))
+        if refract_loaded_match else 0,
         "initial_live": int(initial_live_match.group("live")) if initial_live_match else 0,
         "authored": int(authored_match.group("count")) if authored_match else 0,
         "visible": int(visible_match.group("count")) if visible_match else 0,
@@ -1450,6 +1458,11 @@ def particle_runtime_failures(
     for layer_id in sample.get("required_particle_loaded_layer_ids", []):
         if layer_id not in loaded_layer_ids:
             failures.append(f"particle layer {layer_id} should be loaded")
+    if "expected_particle_refract_loaded" in sample:
+        if not metrics["has_refract_evidence"]:
+            failures.append("particle refract evidence missing")
+        elif metrics["refract_loaded"] != int(sample["expected_particle_refract_loaded"]):
+            failures.append("particle refract loaded count mismatch")
     return failures
 
 
@@ -2122,6 +2135,7 @@ def run_sample(
             "loaded_particle_layers": particle_runtime["loaded"],
             "particle_candidates": particle_runtime["candidates"],
             "particle_loaded_ratio": round(particle_runtime["loaded_ratio"], 4),
+            "particle_refract_loaded": particle_runtime["refract_loaded"],
             "particle_initial_live": particle_runtime["initial_live"],
             "particle_authored": particle_runtime["authored"],
             "particle_visible": particle_runtime["visible"],

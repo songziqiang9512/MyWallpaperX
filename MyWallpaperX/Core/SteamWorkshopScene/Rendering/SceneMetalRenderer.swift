@@ -287,30 +287,20 @@ struct SceneMetalRenderer {
                 )
             case "particle":
                 guard let particlePipeline,
-                      let layerBatches = particleBatchesByID[layer.id],
-                      let encoder = mainPass.encoder() else { continue }
+                      let layerBatches = particleBatchesByID[layer.id] else { continue }
                 let model = particleModelMatrix(
                     for: layer,
                     parallaxMouseNormalized: parallaxMouseNormalized,
                     configuration: parallaxConfiguration
                 )
-                for batch in layerBatches {
-                    let basis = particleBasis(for: batch, layerModel: model, cameraFrame: cameraFrame)
-                    particlePipeline.draw(
-                        texture: batch.texture,
-                        instances: batch.instanceBuffer,
-                        uniforms: SceneParticleLayerUniforms(
-                            viewProjection: cameraFrame.viewProjection(
-                                usesPerspective: batch.usesPerspective
-                            ),
-                            layerModel: model,
-                            basis: basis
-                        ),
-                        blendMode: batch.blendMode,
-                        encoder: encoder
-                    )
-                    batch.instanceBuffer.markSubmitted(on: commandBuffer)
-                }
+                renderParticleBatches(
+                    layerBatches,
+                    pipeline: particlePipeline,
+                    model: model,
+                    cameraFrame: cameraFrame,
+                    mainPass: mainPass,
+                    commandBuffer: commandBuffer
+                )
             default:
                 continue
             }

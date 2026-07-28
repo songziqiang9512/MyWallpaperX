@@ -42,7 +42,7 @@ nonisolated struct SceneStockTextureResolver: Sendable {
         if withExtension.hasPrefix("particle/") {
             return ["assets/materials/" + withExtension]
         }
-        return ["assets/" + withExtension]
+        return ["assets/materials/" + withExtension, "assets/" + withExtension]
     }
 
     private static func normalizedReference(_ rawReference: String) -> String? {

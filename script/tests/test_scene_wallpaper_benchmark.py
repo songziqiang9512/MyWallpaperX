@@ -702,6 +702,9 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         loaded = benchmark.LOADED_RE.search("loaded: 20 / 24")
         text_loaded = benchmark.TEXT_LOADED_RE.search("text loaded: 10 / 10")
         particle_loaded = benchmark.PARTICLE_LOADED_RE.search("particle loaded: 3 / 4")
+        particle_refract = benchmark.PARTICLE_REFRACT_LOADED_RE.search(
+            "particle refract loaded: 2"
+        )
         particle_live = benchmark.PARTICLE_INITIAL_LIVE_RE.search("particle initial live: 96")
         camera = benchmark.CAMERA_RE.search(
             "camera: projection=cover parallax=false amount=8e-2 delay=0.25 mouseInfluence=-1.0"
@@ -725,6 +728,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(text_loaded.group("loaded"), "10")
         self.assertEqual(particle_loaded.group("loaded"), "3")
         self.assertEqual(particle_loaded.group("total"), "4")
+        self.assertEqual(particle_refract.group("count"), "2")
         self.assertEqual(particle_live.group("live"), "96")
         self.assertEqual(camera.group("projection"), "cover")
         self.assertEqual(camera.group("parallax"), "false")
@@ -902,6 +906,7 @@ layer 311 "Accent": OK procedural solid tint=(0.20000, 0.40000, 0.60000)
 loaded: 20 / 24
 text loaded: 10 / 10
 particle loaded: 3 / 4
+particle refract loaded: 2
 particle initial live: 96
 particle authored: 5
 particle visible: 3
@@ -916,6 +921,8 @@ particle skipped transparent: 1
         self.assertEqual(metrics["loaded"], 3)
         self.assertEqual(metrics["candidates"], 4)
         self.assertEqual(metrics["loaded_ratio"], 0.75)
+        self.assertTrue(metrics["has_refract_evidence"])
+        self.assertEqual(metrics["refract_loaded"], 2)
         self.assertEqual(metrics["initial_live"], 96)
         self.assertEqual(metrics["authored"], 5)
         self.assertEqual(metrics["visible"], 3)
@@ -932,6 +939,7 @@ particle skipped transparent: 1
                 "expected_particle_visible": 3,
                 "expected_particle_skipped_hidden": 2,
                 "expected_particle_skipped_transparent": 1,
+                "expected_particle_refract_loaded": 2,
                 "required_particle_loaded_layer_ids": [200, 201],
             }, metrics),
             [],
@@ -944,6 +952,7 @@ particle skipped transparent: 1
                 "expected_particle_authored": 4,
                 "expected_particle_visible": 4,
                 "expected_particle_skipped_hidden": 1,
+                "expected_particle_refract_loaded": 3,
                 "required_particle_loaded_layer_ids": [202],
             }, metrics),
             [
@@ -954,6 +963,7 @@ particle skipped transparent: 1
                 "particle visible count mismatch",
                 "particle skipped_hidden count mismatch",
                 "particle layer 202 should be loaded",
+                "particle refract loaded count mismatch",
             ],
         )
 
@@ -1686,10 +1696,12 @@ utility layer 763: skippedHidden kind=composition
             benchmark.particle_runtime_failures({
                 "expected_particle_candidates": 0,
                 "minimum_particle_initial_live": 0,
+                "expected_particle_refract_loaded": 0,
             }, missing),
             [
                 "particle load evidence missing",
                 "particle initial live evidence missing",
+                "particle refract evidence missing",
             ],
         )
 

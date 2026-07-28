@@ -13,7 +13,10 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Rendering/SceneMatrix.swift",
+    SOURCE_ROOT / "Rendering/SceneFramebufferSnapshot.swift",
     SOURCE_ROOT / "Particles/SceneParticleRenderSupport.swift",
+    SOURCE_ROOT / "Particles/SceneParticleMetalInstanceBuffer.swift",
+    SOURCE_ROOT / "Particles/SceneParticleRefractionBinding.swift",
     SOURCE_ROOT / "Particles/SceneParticleMetalPipeline.swift",
     SOURCE_ROOT / "Particles/SceneParticleTextureSource.swift",
 ]
@@ -134,6 +137,7 @@ enum Harness {
             ),
             "instanceBufferSlots": instanceBufferSlotTest(),
             "colorContract": colorContractTest(),
+            "refractionContract": refractionContractTest(),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -425,6 +429,112 @@ enum Harness {
         ]
     }
 
+    private static func refractionContractTest() -> [String: Any] {
+        let neutral = refractedCenter(normalX: 128, amount: 0.25)
+        let shifted = refractedCenter(normalX: 255, amount: 0.25)
+        return [
+            "neutral": neutral,
+            "shifted": shifted,
+            "budget64MiBAllows4K": SceneFramebufferSnapshot.byteCost(
+                width: 3840, height: 2160
+            ).map { $0 <= SceneFramebufferSnapshot.defaultByteBudget } ?? false,
+            "budget64MiBRejects8K": SceneFramebufferSnapshot.byteCost(
+                width: 7680, height: 4320
+            ).map { $0 > SceneFramebufferSnapshot.defaultByteBudget } ?? false,
+        ]
+    }
+
+    private static func refractedCenter(normalX: UInt8, amount: Float) -> [Int] {
+        let size = 8
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let pipeline = SceneParticleMetalPipeline(device: device),
+              let queue = device.makeCommandQueue(),
+              let command = queue.makeCommandBuffer() else { return [] }
+        let targetDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm, width: size, height: size, mipmapped: false
+        )
+        targetDescriptor.usage = [.renderTarget, .shaderRead]
+        targetDescriptor.storageMode = .shared
+        let inputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false
+        )
+        inputDescriptor.usage = .shaderRead
+        inputDescriptor.storageMode = .shared
+        guard let target = device.makeTexture(descriptor: targetDescriptor),
+              let color = device.makeTexture(descriptor: inputDescriptor),
+              let normal = device.makeTexture(descriptor: inputDescriptor) else { return [] }
+        var background = [UInt8](repeating: 0, count: size * size * 4)
+        for y in 0..<size {
+            for x in 0..<size {
+                let offset = (y * size + x) * 4
+                background[offset] = UInt8(20 + x * 20)
+                background[offset + 1] = UInt8(30 + y * 10)
+                background[offset + 2] = 40
+                background[offset + 3] = 255
+            }
+        }
+        target.replace(
+            region: MTLRegionMake2D(0, 0, size, size), mipmapLevel: 0,
+            withBytes: &background, bytesPerRow: size * 4
+        )
+        var white: [UInt8] = [255, 255, 255, 255]
+        var packedNormal: [UInt8] = [0, 128, 0, normalX]
+        color.replace(
+            region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
+            withBytes: &white, bytesPerRow: 4
+        )
+        normal.replace(
+            region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
+            withBytes: &packedNormal, bytesPerRow: 4
+        )
+        guard let captured = pipeline.snapshot(target: target, commandBuffer: command) else {
+            return []
+        }
+        let instances = SceneParticleMetalInstanceBuffer()
+        guard instances.update(device: device, instances: [SceneParticleGPUInstance(
+            position: .zero, size: 2, rotation: .zero,
+            color: SIMD3(repeating: 1), alpha: 1
+        )]) else { return [] }
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = target
+        pass.colorAttachments[0].loadAction = .load
+        pass.colorAttachments[0].storeAction = .store
+        guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return [] }
+        pipeline.drawRefraction(
+            texture: color,
+            binding: SceneParticleRefractionBinding(
+                normalTexture: normal,
+                amount: amount,
+                overbright: 1,
+                colorEncoding: .rgba,
+                normalUsesParticleFrames: false,
+                normalUVScale: SIMD2(repeating: 1)
+            ),
+            background: captured,
+            instances: instances,
+            uniforms: SceneParticleLayerUniforms(
+                viewProjection: SceneMatrix.identity(),
+                layerModel: SceneMatrix.identity(),
+                basis: SceneParticleOrientation.screen.basis(
+                    cameraRight: SIMD3(1, 0, 0), cameraUp: SIMD3(0, 1, 0),
+                    cameraForward: SIMD3(0, 0, -1)
+                )
+            ),
+            blendMode: .translucent,
+            colorUVScale: SIMD2(repeating: 1),
+            encoder: encoder
+        )
+        encoder.endEncoding()
+        instances.markSubmitted(on: command)
+        guard commitAndWait(command) else { return [] }
+        var pixel = [UInt8](repeating: 0, count: 4)
+        target.getBytes(
+            &pixel, bytesPerRow: size * 4,
+            from: MTLRegionMake2D(size / 2, size / 2, 1, 1), mipmapLevel: 0
+        )
+        return pixel.map(Int.init)
+    }
+
     /// Draws one full-alpha particle with the given texture and returns the
     /// blended BGRA center pixel, exercising the real sampler and swizzle.
     private static func centerPixel(texture: MTLTexture) -> [Int] {
@@ -599,6 +709,22 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertTrue(slots["firstCompleted"])
         self.assertTrue(slots["reusedFirst"])
         self.assertTrue(slots["cleanupCompleted"])
+
+    def test_refraction_samples_the_preceding_framebuffer_with_bounded_snapshot(self) -> None:
+        contract = self.result["refractionContract"]
+        neutral = contract["neutral"]
+        shifted = contract["shifted"]
+        if not neutral or not shifted:
+            self.skipTest("Metal refraction draw is unavailable")
+        # The center's original BGRA is [100,70,40,255]. A neutral normal must
+        # preserve it; +X moves the sampled blue gradient toward larger values.
+        self.assertLessEqual(max(abs(a - b) for a, b in zip(
+            neutral, [100, 70, 40, 255]
+        )), 2)
+        self.assertGreater(shifted[0], neutral[0] + 15)
+        self.assertEqual(shifted[1], neutral[1])
+        self.assertTrue(contract["budget64MiBAllows4K"])
+        self.assertTrue(contract["budget64MiBRejects8K"])
 
 
 if __name__ == "__main__":

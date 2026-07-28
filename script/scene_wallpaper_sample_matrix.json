@@ -69,6 +69,7 @@
       "expected_particle_authored": 9,
       "expected_particle_visible": 9,
       "expected_particle_skipped_hidden": 0,
+      "expected_particle_refract_loaded": 0,
       "required_particle_loaded_layer_ids": [
         8929,
         10203,
@@ -735,6 +736,7 @@
       "expected_particle_authored": 15,
       "expected_particle_visible": 15,
       "expected_particle_skipped_hidden": 0,
+      "expected_particle_refract_loaded": 4,
       "required_particle_loaded_layer_ids": [
         260,
         211,
@@ -1830,6 +1832,7 @@
       "expected_particle_authored": 6,
       "expected_particle_visible": 6,
       "expected_particle_skipped_hidden": 0,
+      "expected_particle_refract_loaded": 1,
       "required_particle_loaded_layer_ids": [
         354,
         1214,

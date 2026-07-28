@@ -13,10 +13,12 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneResourceIndex.swift",
+    SOURCE_ROOT / "Resources/SceneResourceView.swift",
     SOURCE_ROOT / "Resources/SceneStockTextureResolver.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Particles/SceneParticleTextureSource.swift",
+    SOURCE_ROOT / "Particles/SceneParticleRefractionPlan.swift",
     SOURCE_ROOT / "Particles/SceneParticleAssetGraph.swift",
     SOURCE_ROOT / "Format/ScenePkgReader.swift",
 ]
@@ -78,7 +80,9 @@ enum Harness {
         ], relativePath: "particles/refract.json", under: directory)
         try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/root.tex", under: directory)
         try write(Data([0x89, 0x50, 0x4e, 0x47]), relativePath: "materials/particle/child.png", under: directory)
+        try writeJSON(["passes": []], relativePath: "materials/particle/halo.json", under: directory)
         try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/refract-blank.tex", under: directory)
+        try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/refract-normal.tex", under: directory)
 
         let passes = [
             SceneParticleMaterialPass(
@@ -114,12 +118,17 @@ enum Harness {
             SceneParticleMaterialPass(
                 materialPath: "materials/particle/refract.json",
                 shaderPath: "shaders/genericparticle.json",
-                texturePaths: ["particle/refract-blank"],
+                texturePaths: ["particle/refract-blank", "particle/refract-normal"],
                 blending: "translucent",
                 combos: ["REFRACT": 1]
             )
         ]
-        let graph = SceneParticleAssetGraphLoader().load(
+        let resourceView = SceneResourceView(
+            projectRootURL: directory,
+            packageRootURL: nil,
+            stockAssetsRootURL: nil
+        )
+        let graph = SceneParticleAssetGraphLoader(resourceView: resourceView).load(
             rootPaths: [
                 "Particles\\Root.JSON",
                 "particles/missing-material.json",
@@ -164,6 +173,17 @@ enum Harness {
             "dropTextureSource": sourceKind(drop?.textureSource),
             "localDropTextureSource": sourceKind(localDrop?.textureSource),
             "refractHasTextureSource": refract?.textureSource != nil,
+            "refractHasPlan": refract?.refraction != nil,
+            "refractDefaultAmount": refract?.refraction?.amount ?? -1,
+            "unknownEnabledComboRejected": SceneParticleRefractionPlanner.plan(
+                for: SceneParticleMaterialPass(
+                    materialPath: "materials/particle/refract.json",
+                    shaderPath: "shaders/genericparticle.json",
+                    texturePaths: ["particle/refract-blank", "particle/refract-normal"],
+                    blending: "translucent",
+                    combos: ["REFRACT": 1, "LIGHTING": 1]
+                )
+            ) == nil,
             "diagnostics": diagnostics
         ]
     }
@@ -498,7 +518,10 @@ class SceneParticleAssetTests(unittest.TestCase):
         self.assertEqual(result["haloTextureSource"], "particle/halo")
         self.assertEqual(result["dropTextureSource"], "particle/drop")
         self.assertEqual(result["localDropTextureSource"], "file")
-        self.assertFalse(result["refractHasTextureSource"])
+        self.assertTrue(result["refractHasTextureSource"])
+        self.assertTrue(result["refractHasPlan"])
+        self.assertAlmostEqual(result["refractDefaultAmount"], 0.05, places=6)
+        self.assertTrue(result["unknownEnabledComboRejected"])
         self.assertEqual(
             result["diagnostics"],
             {
@@ -507,7 +530,6 @@ class SceneParticleAssetTests(unittest.TestCase):
                 "missingMaterial": 1,
                 "missingTextureFile": 1,
                 "missingTextureReference": 1,
-                "refractionUnsupported": 1,
             },
         )
 

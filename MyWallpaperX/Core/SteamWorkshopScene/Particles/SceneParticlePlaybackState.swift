@@ -10,6 +10,7 @@ final class SceneParticlePlaybackState {
         descriptor: SceneRenderDescriptor,
         cacheDirectory: URL,
         device: MTLDevice,
+        resourceView: SceneResourceView? = nil,
         textureLoader: SceneTextureLoader = SceneTextureLoader()
     ) {
         guard let pipeline = SceneParticleMetalPipeline(device: device) else { return nil }
@@ -18,6 +19,7 @@ final class SceneParticlePlaybackState {
             descriptor: descriptor,
             cacheDirectory: cacheDirectory,
             device: device,
+            resourceView: resourceView,
             textureLoader: textureLoader
         )
         self.batches = runtime.advance(by: 0)
@@ -59,7 +61,8 @@ final class SceneParticlePlaybackState {
             lines.append(
                 "particle layer \(layer.id) \"\(name)\": OK \(batch.texture.width)x\(batch.texture.height) "
                     + "blend=\(batch.blendMode == .additive ? "additive" : "translucent") "
-                    + "initial=\(batch.instances.count) perspective=\(batch.usesPerspective)"
+                    + "initial=\(batch.instances.count) perspective=\(batch.usesPerspective) "
+                    + "refract=\(batch.refraction != nil)"
             )
         }
         for value in runtime.diagnostics {
@@ -72,6 +75,9 @@ final class SceneParticlePlaybackState {
             batchLayerIDs: batches.map(\.layerID),
             visibleLayerCount: renderableLayers.count
         ))
+        lines.append(
+            "particle refract loaded: \(Set(batches.filter { $0.refraction != nil }.map(\.layerID)).count)"
+        )
         lines.append("particle initial live: \(batches.reduce(0) { $0 + $1.instances.count })")
         lines.append("particle skipped hidden: \(particleLayers.count - visibleLayers.count)")
         lines.append("particle skipped transparent: \(visibleLayers.count - renderableLayers.count)")

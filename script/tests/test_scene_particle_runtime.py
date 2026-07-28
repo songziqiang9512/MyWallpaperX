@@ -29,16 +29,22 @@ FLARE_PARTICLE_CACHE = (
 )
 STATIC_ORIGIN_SAMPLE_CACHE = sample_cache_root("3088601835")
 STATIC_ORIGIN_SAMPLE_EVIDENCE = sample_runtime_evidence_path("3088601835")
+REFRACTION_SAMPLE_CACHE = sample_cache_root("3768229922")
+REFRACTION_SAMPLE_EVIDENCE = sample_runtime_evidence_path("3768229922")
 NESTED_SAMPLE_CACHE = sample_cache_root("2974757317")
 NESTED_SAMPLE_EVIDENCE = sample_runtime_evidence_path("2974757317")
 NESTED_AUTHOR_OFF_SAMPLE_CACHE = sample_cache_root("2938612768")
 NESTED_AUTHOR_OFF_SAMPLE_EVIDENCE = sample_runtime_evidence_path("2938612768")
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneResourceIndex.swift",
+    SOURCE_ROOT / "Resources/SceneResourceView.swift",
     SOURCE_ROOT / "Resources/SceneStockTextureResolver.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Particles/SceneParticleTextureSource.swift",
+    SOURCE_ROOT / "Particles/SceneParticleRefractionPlan.swift",
+    SOURCE_ROOT / "Particles/SceneParticleRefractionBinding.swift",
+    SOURCE_ROOT / "Particles/SceneParticleRefractionTextureLoader.swift",
     SOURCE_ROOT / "Particles/SceneParticleBuiltInTextureRegistry.swift",
     SOURCE_ROOT / "Particles/SceneParticleAssetGraph.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulationSupport.swift",
@@ -50,7 +56,9 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleChildTemplateSupport.swift",
     SOURCE_ROOT / "Particles/SceneParticleTrailRenderPlan.swift",
     SOURCE_ROOT / "Particles/SceneParticleRenderSupport.swift",
+    SOURCE_ROOT / "Particles/SceneParticleMetalInstanceBuffer.swift",
     SOURCE_ROOT / "Particles/SceneParticleMetalPipeline.swift",
+    SOURCE_ROOT / "Rendering/SceneFramebufferSnapshot.swift",
     SOURCE_ROOT / "Format/SceneTexDataReader.swift",
     SOURCE_ROOT / "Format/SceneTexContainer.swift",
     SOURCE_ROOT / "Format/SceneBCTextureDecoder.swift",
@@ -88,15 +96,77 @@ struct SceneRenderDescriptor: Codable {
 
     struct MaterialPassDescriptor: Codable {
         let materialPath: String
+        let passIndex: Int
         let shaderPath: String?
         let texturePaths: [String]
+        let textureSlots: [String?]
+        let constantShaderValues: [String: SceneDocument.ShaderValue]
+        let userTextureInputs: [SceneUserTextureInput?]
+        let userShaderValues: [String: String]
         let blending: String?
-        var combos: [String: Int] = [:]
+        let combos: [String: Int]
+        let depthTest: String?
+        let depthWrite: String?
+        let cullMode: String?
+        let alphaWriting: String?
+
+        init(
+            materialPath: String,
+            passIndex: Int = 0,
+            shaderPath: String?,
+            texturePaths: [String],
+            textureSlots: [String?]? = nil,
+            constantShaderValues: [String: SceneDocument.ShaderValue] = [:],
+            userTextureInputs: [SceneUserTextureInput?] = [],
+            userShaderValues: [String: String] = [:],
+            blending: String?,
+            combos: [String: Int] = [:],
+            depthTest: String? = "disabled",
+            depthWrite: String? = "disabled",
+            cullMode: String? = "nocull",
+            alphaWriting: String? = nil
+        ) {
+            self.materialPath = materialPath
+            self.passIndex = passIndex
+            self.shaderPath = shaderPath
+            self.texturePaths = texturePaths
+            self.textureSlots = textureSlots ?? texturePaths.map(Optional.some)
+            self.constantShaderValues = constantShaderValues
+            self.userTextureInputs = userTextureInputs
+            self.userShaderValues = userShaderValues
+            self.blending = blending
+            self.combos = combos
+            self.depthTest = depthTest
+            self.depthWrite = depthWrite
+            self.cullMode = cullMode
+            self.alphaWriting = alphaWriting
+        }
     }
 
     let layers: [Layer]
     let renderOrderLayerIDs: [Int]
     let materialPasses: [MaterialPassDescriptor]
+}
+
+struct SceneDocument {
+    struct ShaderValue: Codable {
+        let rawValue: String
+        let valueKind: String
+        let components: [Double]?
+        let userBinding: String?
+        let timeline: SceneJSONPresence?
+        let timelineDiagnostics: [String]
+    }
+}
+
+struct SceneJSONPresence: Codable {
+    init(from decoder: Decoder) throws {}
+    func encode(to encoder: Encoder) throws {}
+}
+
+struct SceneUserTextureInput: Codable {
+    init(from decoder: Decoder) throws {}
+    func encode(to encoder: Encoder) throws {}
 }
 
 struct SceneLayerFragmentUniforms {
@@ -182,6 +252,18 @@ enum Harness {
                 evidencePath: CommandLine.arguments[2],
                 cachePath: CommandLine.arguments[3]
             ))
+        case "refraction-real":
+            guard CommandLine.arguments.count == 4 else { throw HarnessError.missingPath }
+            try printJSON(realRefractionSample(
+                evidencePath: CommandLine.arguments[2],
+                cachePath: CommandLine.arguments[3]
+            ))
+        case "refraction-child-real":
+            guard CommandLine.arguments.count == 4 else { throw HarnessError.missingPath }
+            try printJSON(realRefractionChildSample(
+                evidencePath: CommandLine.arguments[2],
+                cachePath: CommandLine.arguments[3]
+            ))
         case "stock-synthetic":
             guard CommandLine.arguments.count == 3 else { throw HarnessError.missingPath }
             try printJSON(stockSynthetic(bundlePath: CommandLine.arguments[2]))
@@ -250,6 +332,67 @@ enum Harness {
             "missingBatchLoadedLine": SceneParticlePlaybackState.loadedSummaryLine(
                 batchLayerIDs: [], visibleLayerCount: 1
             ),
+        ]
+    }
+
+    private static func realRefractionSample(
+        evidencePath: String,
+        cachePath: String
+    ) throws -> [String: Any] {
+        let descriptor = try renderDescriptor(evidencePath: evidencePath)
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let runtime = SceneParticleRuntime(
+            descriptor: descriptor,
+            cacheDirectory: URL(fileURLWithPath: cachePath, isDirectory: true),
+            device: device,
+            stockTextureBundleURL: URL(fileURLWithPath:
+                "\(FileManager.default.currentDirectoryPath)/MyWallpaperX/Resources/SceneStockAssets.bundle",
+                isDirectory: true
+            )
+        )
+        let batches = runtime.advance(by: 0)
+        return [
+            "batchLayerIDs": batches.map(\.layerID),
+            "refractionLayerIDs": batches.filter { $0.refraction != nil }.map(\.layerID),
+            "sameTextureIdentity": batches.filter { $0.refraction != nil }.allSatisfy {
+                $0.texture === $0.refraction?.normalTexture
+            },
+            "amounts": batches.compactMap { $0.refraction?.amount },
+            "diagnostics": runtime.diagnostics.map(\.kind.rawValue),
+            "diagnosticDetails": runtime.diagnostics.map { $0.detail ?? "" },
+        ]
+    }
+
+    private static func realRefractionChildSample(
+        evidencePath: String,
+        cachePath: String
+    ) throws -> [String: Any] {
+        let descriptor = try renderDescriptor(evidencePath: evidencePath)
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let runtime = SceneParticleRuntime(
+            descriptor: descriptor,
+            cacheDirectory: URL(fileURLWithPath: cachePath, isDirectory: true),
+            device: device,
+            stockTextureBundleURL: URL(fileURLWithPath:
+                "\(FileManager.default.currentDirectoryPath)/MyWallpaperX/Resources/SceneStockAssets.bundle",
+                isDirectory: true
+            )
+        )
+        var paths = Set<String>()
+        var firstFrame = -1
+        for frame in 0..<(7 * 60) {
+            let refractive = runtime.advance(by: 1.0 / 60.0).filter {
+                $0.refraction != nil && !$0.instances.isEmpty
+            }
+            if !refractive.isEmpty && firstFrame < 0 { firstFrame = frame }
+            paths.formUnion(refractive.map(\.particlePath))
+        }
+        return [
+            "firstFrame": firstFrame,
+            "paths": paths.sorted(),
+            "refractionUnsupported": runtime.diagnostics.filter {
+                $0.kind == .refractionUnsupported
+            }.map { $0.detail ?? "" },
         ]
     }
 
@@ -1353,6 +1496,36 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             "max=20000:instantaneous=8500:effective=1024",
             result["layer529SimulationDetails"],
         )
+
+    def test_real_3768229922_loads_strict_refraction_without_duplicate_upload(self) -> None:
+        if not REFRACTION_SAMPLE_EVIDENCE.is_file() or not REFRACTION_SAMPLE_CACHE.is_dir():
+            self.skipTest("isolated 3768229922 runtime evidence is unavailable")
+        result = self.run_harness(
+            "refraction-real",
+            str(REFRACTION_SAMPLE_EVIDENCE),
+            str(REFRACTION_SAMPLE_CACHE),
+        )
+        self.assertEqual(
+            sorted(result["refractionLayerIDs"]), [1103, 1144], result
+        )
+        self.assertTrue(result["sameTextureIdentity"])
+        self.assertEqual(result["amounts"], [0.5, 0.5])
+        self.assertNotIn("refractionUnsupported", result["diagnostics"])
+
+    def test_real_2131872317_executes_refractive_eventdeath_child(self) -> None:
+        if not EVENTDEATH_SAMPLE_EVIDENCE.is_file() or not EVENTDEATH_SAMPLE_CACHE.is_dir():
+            self.skipTest("isolated 2131872317 runtime evidence is unavailable")
+        result = self.run_harness(
+            "refraction-child-real",
+            str(EVENTDEATH_SAMPLE_EVIDENCE),
+            str(EVENTDEATH_SAMPLE_CACHE),
+        )
+        self.assertGreater(result["firstFrame"], 0)
+        self.assertIn(
+            "particles/presets/fireworkshitdistort.json",
+            result["paths"],
+        )
+        self.assertEqual(result["refractionUnsupported"], [])
 
 
 if __name__ == "__main__":

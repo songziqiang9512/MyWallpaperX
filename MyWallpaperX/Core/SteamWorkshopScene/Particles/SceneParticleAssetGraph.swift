@@ -7,23 +7,50 @@ nonisolated enum SceneParticleMaterialBlendMode: String, Codable, Sendable {
 
 nonisolated struct SceneParticleMaterialPass: Equatable, Sendable {
     let materialPath: String
+    let passIndex: Int
     let shaderPath: String?
     let texturePaths: [String]
+    let textureSlots: [String?]
     let blending: String?
     let combos: [String: Int]
+    let constantValues: [String: SceneParticleMaterialConstant]
+    let hasUserTextureInputs: Bool
+    let hasUserShaderValues: Bool
+    let depthTest: String?
+    let depthWrite: String?
+    let cullMode: String?
+    let alphaWriting: String?
 
     init(
         materialPath: String,
+        passIndex: Int = 0,
         shaderPath: String?,
         texturePaths: [String],
+        textureSlots: [String?]? = nil,
         blending: String?,
-        combos: [String: Int] = [:]
+        combos: [String: Int] = [:],
+        constantValues: [String: SceneParticleMaterialConstant] = [:],
+        hasUserTextureInputs: Bool = false,
+        hasUserShaderValues: Bool = false,
+        depthTest: String? = "disabled",
+        depthWrite: String? = "disabled",
+        cullMode: String? = "nocull",
+        alphaWriting: String? = nil
     ) {
         self.materialPath = materialPath
+        self.passIndex = passIndex
         self.shaderPath = shaderPath
         self.texturePaths = texturePaths
+        self.textureSlots = textureSlots ?? texturePaths.map(Optional.some)
         self.blending = blending
         self.combos = combos
+        self.constantValues = constantValues
+        self.hasUserTextureInputs = hasUserTextureInputs
+        self.hasUserShaderValues = hasUserShaderValues
+        self.depthTest = depthTest
+        self.depthWrite = depthWrite
+        self.cullMode = cullMode
+        self.alphaWriting = alphaWriting
     }
 }
 
@@ -33,6 +60,7 @@ nonisolated struct SceneParticleAsset: Sendable {
     let definition: SceneParticleDefinition
     let materialPass: SceneParticleMaterialPass?
     let textureSource: SceneParticleTextureSource?
+    let refraction: SceneParticleRefractionDeclaration?
     let blendMode: SceneParticleMaterialBlendMode
     let childPaths: [String]
 }
@@ -64,8 +92,13 @@ nonisolated struct SceneParticleAssetDiagnostic: Codable, Equatable, Hashable, S
 
 nonisolated struct SceneParticleAssetGraphLoader {
     private let stockTextureResolver: SceneStockTextureResolver?
+    private let resourceView: SceneResourceView?
 
-    init(stockTextureBundleURL: URL? = SceneStockTextureResolver.defaultBundleRoot()) {
+    init(
+        resourceView: SceneResourceView? = nil,
+        stockTextureBundleURL: URL? = SceneStockTextureResolver.defaultBundleRoot()
+    ) {
+        self.resourceView = resourceView
         stockTextureResolver = stockTextureBundleURL.flatMap {
             SceneStockTextureResolver(bundleRoot: $0)
         }
@@ -123,7 +156,12 @@ nonisolated struct SceneParticleAssetGraphLoader {
                 diagnose(.unsupportedShader, path, materialPass?.shaderPath)
             }
 
-            let textureName = materialPass?.texturePaths.first
+            let refractionPlan = materialPass.flatMap(
+                SceneParticleRefractionPlanner.plan(for:)
+            )
+            let textureName = refractionPlan?.colorReference
+                ?? materialPass?.textureSlots.first.flatMap { $0 }
+                ?? materialPass?.texturePaths.first
             if textureName == nil {
                 diagnose(.missingTextureReference, path, materialPath)
             }
@@ -137,13 +175,31 @@ nonisolated struct SceneParticleAssetGraphLoader {
                     textureName
                 )
             }
-            // Refraction particles carry a blank color texture and rely on a
-            // normal-map distortion of the backdrop; sampling the blank as a
-            // color source paints solid white sprites. Fail closed until a
-            // real refraction pass exists.
+            var refraction: SceneParticleRefractionDeclaration?
             if let refract = materialPass?.combos["REFRACT"], refract != 0 {
-                diagnose(.refractionUnsupported, path, "REFRACT=\(refract)")
-                textureSource = nil
+                if let refractionPlan,
+                   let normal = resolveTextureSource(
+                       named: refractionPlan.normalReference,
+                       filesByPath: filesByPath
+                   ) {
+                    refraction = SceneParticleRefractionDeclaration(
+                        normalTextureSource: normal,
+                        amount: refractionPlan.amount,
+                        overbright: refractionPlan.overbright
+                    )
+                } else if refractionPlan == nil {
+                    diagnose(.refractionUnsupported, path, "unsupportedMaterialProfile")
+                    textureSource = nil
+                } else if let normalReference = refractionPlan?.normalReference {
+                    diagnose(
+                        Self.isBuiltInTexture(normalReference)
+                            ? .builtInTextureUnavailable : .missingTextureFile,
+                        path,
+                        normalReference
+                    )
+                    diagnose(.refractionUnsupported, path, "normalTextureUnavailable")
+                    textureSource = nil
+                }
             }
 
             let blendMode: SceneParticleMaterialBlendMode
@@ -164,6 +220,7 @@ nonisolated struct SceneParticleAssetGraphLoader {
                 definition: definition,
                 materialPass: materialPass,
                 textureSource: textureSource,
+                refraction: refraction,
                 blendMode: blendMode,
                 childPaths: childPaths
             )
@@ -207,6 +264,11 @@ nonisolated struct SceneParticleAssetGraphLoader {
         }
         if let localURL = candidates.lazy.compactMap({ filesByPath[$0] }).first {
             return .file(localURL)
+        }
+        if let resource = candidates.lazy.compactMap({
+            resourceView?.resource(relativePath: $0)
+        }).first {
+            return .file(resource.url)
         }
         if let stockURL = stockTextureResolver?.textureURL(for: name) {
             return .file(stockURL)

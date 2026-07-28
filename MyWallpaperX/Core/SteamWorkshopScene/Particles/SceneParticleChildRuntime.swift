@@ -141,6 +141,8 @@ final class SceneParticleChildRuntime {
                 layerID: layerID,
                 particlePath: template.path,
                 texture: template.texture,
+                colorUVScale: template.colorUVScale,
+                refraction: template.refraction,
                 blendMode: template.blendMode,
                 instanceBuffer: template.instanceBuffer,
                 instances: instances,
@@ -386,9 +388,7 @@ final class SceneParticleChildRuntime {
         }
     }
 
-    private func depthSystemCount(_ depth: Int) -> Int {
-        systems.lazy.filter { $0.depth == depth }.count
-    }
+    private func depthSystemCount(_ depth: Int) -> Int { systems.lazy.filter { $0.depth == depth }.count }
 
     private static func budgetDetail(depth: Int) -> String {
         depth <= 1

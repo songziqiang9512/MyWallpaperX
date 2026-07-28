@@ -42,10 +42,8 @@ fragment float4 sceneLayerColorBlendFrag(
 """
 
 final class SceneLayerColorBlendPipeline {
-    private let device: MTLDevice
     private let state: MTLRenderPipelineState
-    private var backgroundTexture: MTLTexture?
-    private let byteBudget = 64 * 1_024 * 1_024
+    private let framebufferSnapshot: SceneFramebufferSnapshot
 
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {
         let options = MTLCompileOptions()
@@ -63,36 +61,18 @@ final class SceneLayerColorBlendPipeline {
         guard let state = try? device.makeRenderPipelineState(descriptor: descriptor) else {
             return nil
         }
-        self.device = device
         self.state = state
+        self.framebufferSnapshot = SceneFramebufferSnapshot(
+            device: device,
+            label: "Scene layer color blend background"
+        )
     }
 
     func snapshot(
         target: MTLTexture,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
-        guard target.textureType == .type2D,
-              target.sampleCount == 1,
-              target.pixelFormat == .bgra8Unorm,
-              let byteCost = byteCost(width: target.width, height: target.height),
-              byteCost <= byteBudget,
-              let background = background(width: target.width, height: target.height),
-              let encoder = commandBuffer.makeBlitCommandEncoder() else {
-            return nil
-        }
-        encoder.copy(
-            from: target,
-            sourceSlice: 0,
-            sourceLevel: 0,
-            sourceOrigin: MTLOrigin(x: 0, y: 0, z: 0),
-            sourceSize: MTLSize(width: target.width, height: target.height, depth: 1),
-            to: background,
-            destinationSlice: 0,
-            destinationLevel: 0,
-            destinationOrigin: MTLOrigin(x: 0, y: 0, z: 0)
-        )
-        encoder.endEncoding()
-        return background
+        framebufferSnapshot.capture(target: target, commandBuffer: commandBuffer)
     }
 
     func draw(
@@ -120,32 +100,6 @@ final class SceneLayerColorBlendPipeline {
         encoder.setFragmentTexture(layerTexture, index: 0)
         encoder.setFragmentTexture(backgroundTexture, index: 1)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
-    }
-
-    private func background(width: Int, height: Int) -> MTLTexture? {
-        if let backgroundTexture,
-           backgroundTexture.width == width,
-           backgroundTexture.height == height {
-            return backgroundTexture
-        }
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .bgra8Unorm,
-            width: width,
-            height: height,
-            mipmapped: false
-        )
-        descriptor.storageMode = .private
-        descriptor.usage = .shaderRead
-        guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
-        texture.label = "Scene layer color blend background \(width)x\(height)"
-        backgroundTexture = texture
-        return texture
-    }
-
-    private func byteCost(width: Int, height: Int) -> Int? {
-        let (pixels, pixelOverflow) = width.multipliedReportingOverflow(by: height)
-        let (bytes, byteOverflow) = pixels.multipliedReportingOverflow(by: 4)
-        return pixelOverflow || byteOverflow ? nil : bytes
     }
 
     private static let unitQuadVertices: [SceneQuadVertex] = [

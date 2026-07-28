@@ -172,6 +172,9 @@ extension SceneRenderDescriptor {
     func requiresReadableFramebuffer(
         authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
     ) -> Bool {
+        if materialPasses.contains(where: { $0.combos["REFRACT"] == 1 }) {
+            return true
+        }
         if SceneUtilityLayerRuntimePlanner.plans(
             in: self,
             authoredEffectCatalog: authoredEffectCatalog

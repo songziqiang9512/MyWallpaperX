@@ -41,6 +41,50 @@ enum SceneTextureMipUploader {
         return .loaded(texture)
     }
 
+    static func uploadEmbeddedDataImages(
+        _ mips: [SceneTexContainer.Mip],
+        device: MTLDevice
+    ) -> SceneTextureLoadOutcome? {
+        let images = mips.compactMap { mip -> CGImage? in
+            guard isEmbeddedImage(mip.data),
+                  let source = CGImageSourceCreateWithData(mip.data as CFData, nil) else {
+                return nil
+            }
+            return CGImageSourceCreateImageAtIndex(source, 0, nil)
+        }
+        guard images.count == mips.count,
+              let first = images.first,
+              first.width <= 4096,
+              first.height <= 4096,
+              validDimensions(images.map { ($0.width, $0.height) }) else {
+            return nil
+        }
+        let descriptor = descriptor(
+            pixelFormat: .rgba8Unorm,
+            width: first.width,
+            height: first.height,
+            levelCount: images.count
+        )
+        guard let texture = device.makeTexture(descriptor: descriptor) else {
+            return .textureAllocationFailed(width: first.width, height: first.height)
+        }
+        for (level, image) in images.enumerated() {
+            guard let rgba = rasterizedRGBA(image) else {
+                return .decodeFailed("embedded data image mip rasterization failed")
+            }
+            let data = unpremultipliedRGBA(rgba)
+            replace(
+                texture: texture,
+                level: level,
+                width: image.width,
+                height: image.height,
+                bytesPerRow: image.width * 4,
+                data: data
+            )
+        }
+        return .loaded(texture)
+    }
+
     static func uploadRaw(
         container: SceneTexContainer,
         pixelFormat: MTLPixelFormat,
@@ -189,6 +233,28 @@ enum SceneTextureMipUploader {
                 bytes[offset] = UInt8((UInt16(bytes[offset]) * alpha + 127) / 255)
                 bytes[offset + 1] = UInt8((UInt16(bytes[offset + 1]) * alpha + 127) / 255)
                 bytes[offset + 2] = UInt8((UInt16(bytes[offset + 2]) * alpha + 127) / 255)
+                offset += 4
+            }
+        }
+        return output
+    }
+
+    private static func unpremultipliedRGBA(_ data: Data) -> Data {
+        var output = data
+        output.withUnsafeMutableBytes { raw in
+            guard let bytes = raw.bindMemory(to: UInt8.self).baseAddress else { return }
+            var offset = 0
+            while offset + 3 < raw.count {
+                let alpha = UInt16(bytes[offset + 3])
+                if alpha > 0 {
+                    bytes[offset] = UInt8(min(255, (UInt16(bytes[offset]) * 255) / alpha))
+                    bytes[offset + 1] = UInt8(
+                        min(255, (UInt16(bytes[offset + 1]) * 255) / alpha)
+                    )
+                    bytes[offset + 2] = UInt8(
+                        min(255, (UInt16(bytes[offset + 2]) * 255) / alpha)
+                    )
+                }
                 offset += 4
             }
         }

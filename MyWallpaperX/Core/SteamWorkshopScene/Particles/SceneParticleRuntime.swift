@@ -33,6 +33,8 @@ struct SceneParticleDrawBatch {
     let layerID: Int
     let particlePath: String
     let texture: MTLTexture
+    let colorUVScale: SIMD2<Float>
+    let refraction: SceneParticleRefractionBinding?
     let blendMode: SceneParticlePipelineBlendMode
     let instanceBuffer: SceneParticleMetalInstanceBuffer
     let instances: [SceneParticleGPUInstance]
@@ -51,6 +53,8 @@ final class SceneParticleRuntime {
         let definition: SceneParticleDefinition
         let trail: SceneParticleTrailRenderPlan?
         let texture: MTLTexture
+        let colorUVScale: SIMD2<Float>
+        let refraction: SceneParticleRefractionBinding?
         let blendMode: SceneParticlePipelineBlendMode
         let spriteAnimation: SceneSpriteAnimation?
         let orientation: SceneParticleOrientation
@@ -73,6 +77,7 @@ final class SceneParticleRuntime {
         descriptor: SceneRenderDescriptor,
         cacheDirectory: URL,
         device: MTLDevice,
+        resourceView: SceneResourceView? = nil,
         stockTextureBundleURL: URL? = SceneStockTextureResolver.defaultBundleRoot(),
         textureLoader: SceneTextureLoader = SceneTextureLoader()
     ) {
@@ -87,13 +92,30 @@ final class SceneParticleRuntime {
         let materialPasses = descriptor.materialPasses.map {
             SceneParticleMaterialPass(
                 materialPath: $0.materialPath,
+                passIndex: $0.passIndex,
                 shaderPath: $0.shaderPath,
                 texturePaths: $0.texturePaths,
+                textureSlots: $0.textureSlots,
                 blending: $0.blending,
-                combos: $0.combos
+                combos: $0.combos,
+                constantValues: $0.constantShaderValues.mapValues {
+                    SceneParticleMaterialConstant(
+                        components: $0.components ?? [],
+                        isStatic: $0.userBinding == nil
+                            && $0.timeline == nil
+                            && $0.timelineDiagnostics.isEmpty
+                    )
+                },
+                hasUserTextureInputs: !$0.userTextureInputs.isEmpty,
+                hasUserShaderValues: !$0.userShaderValues.isEmpty,
+                depthTest: $0.depthTest,
+                depthWrite: $0.depthWrite,
+                cullMode: $0.cullMode,
+                alphaWriting: $0.alphaWriting
             )
         }
         let graph = SceneParticleAssetGraphLoader(
+            resourceView: resourceView,
             stockTextureBundleURL: stockTextureBundleURL
         ).load(
             rootPaths: particleLayers.compactMap(\.particlePath),
@@ -143,34 +165,62 @@ final class SceneParticleRuntime {
             guard let textureSource = asset.textureSource else { continue }
             let texture: MTLTexture
             let spriteAnimation: SceneSpriteAnimation?
-            switch textureSource {
-            case let .file(textureURL):
-                let outcome = textureLoader.load(from: textureURL, device: device)
-                guard case let .loaded(loadedTexture) = outcome else {
+            let colorUVScale: SIMD2<Float>
+            let refraction: SceneParticleRefractionBinding?
+            if let declaration = asset.refraction {
+                guard let loaded = SceneParticleRefractionTextureLoader.load(
+                    colorSource: textureSource,
+                    declaration: declaration,
+                    textureLoader: textureLoader,
+                    device: device
+                ) else {
                     addDiagnostic(
-                        kind: .textureLoadFailed,
+                        kind: .refractionUnsupported,
                         layerID: layer.id,
                         path: path,
-                        detail: Self.textureFailureDescription(outcome)
+                        detail: "textureProfileUnsupported"
                     )
                     continue
                 }
-                texture = SceneParticleColorTextureAdapter.adapt(loadedTexture, device: device)
-                spriteAnimation = textureLoader.texContainer(from: textureURL).flatMap {
-                    SceneSpriteAnimation(frames: $0.spriteFrames)
-                }
-            case let .builtIn(key):
-                guard let loadedTexture = builtInTextureRegistry.texture(for: key) else {
-                    addDiagnostic(
-                        kind: .textureLoadFailed,
-                        layerID: layer.id,
-                        path: path,
-                        detail: "builtInTextureAllocationFailed:\(key.rawValue)"
+                texture = loaded.color
+                spriteAnimation = loaded.colorAnimation
+                colorUVScale = loaded.colorUVScale
+                refraction = loaded.binding
+            } else {
+                switch textureSource {
+                case let .file(textureURL):
+                    let outcome = textureLoader.load(from: textureURL, device: device)
+                    guard case let .loaded(loadedTexture) = outcome else {
+                        addDiagnostic(
+                            kind: .textureLoadFailed,
+                            layerID: layer.id,
+                            path: path,
+                            detail: Self.textureFailureDescription(outcome)
+                        )
+                        continue
+                    }
+                    texture = SceneParticleColorTextureAdapter.adapt(
+                        loadedTexture,
+                        device: device
                     )
-                    continue
+                    spriteAnimation = textureLoader.texContainer(from: textureURL).flatMap {
+                        SceneSpriteAnimation(frames: $0.spriteFrames)
+                    }
+                case let .builtIn(key):
+                    guard let loadedTexture = builtInTextureRegistry.texture(for: key) else {
+                        addDiagnostic(
+                            kind: .textureLoadFailed,
+                            layerID: layer.id,
+                            path: path,
+                            detail: "builtInTextureAllocationFailed:\(key.rawValue)"
+                        )
+                        continue
+                    }
+                    texture = loadedTexture
+                    spriteAnimation = nil
                 }
-                texture = loadedTexture
-                spriteAnimation = nil
+                colorUVScale = SIMD2(repeating: 1)
+                refraction = nil
             }
 
             let simulator = SceneParticleSimulator(
@@ -215,6 +265,8 @@ final class SceneParticleRuntime {
                 definition: asset.definition,
                 trail: render.trail,
                 texture: texture,
+                colorUVScale: colorUVScale,
+                refraction: refraction,
                 blendMode: asset.blendMode == .additive ? .additive : .translucent,
                 spriteAnimation: spriteAnimation,
                 orientation: SceneParticleOrientation(authoredValue: render.renderer.orientation),
@@ -276,6 +328,8 @@ final class SceneParticleRuntime {
                 layerID: layers[index].layerID,
                 particlePath: layers[index].particlePath,
                 texture: layers[index].texture,
+                colorUVScale: layers[index].colorUVScale,
+                refraction: layers[index].refraction,
                 blendMode: layers[index].blendMode,
                 instanceBuffer: layers[index].instanceBuffer,
                 instances: layers[index].instances,

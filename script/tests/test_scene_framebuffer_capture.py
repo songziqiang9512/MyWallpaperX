@@ -23,6 +23,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Rendering/SceneMetalPipeline.swift",
     SOURCE_ROOT / "Rendering/SceneSpriteAnimation.swift",
     SOURCE_ROOT / "Rendering/SceneMainPassEncoder.swift",
+    SOURCE_ROOT / "Rendering/SceneFramebufferSnapshot.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenResolutionPolicy.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTexturePool.swift",
     SOURCE_ROOT / "Effects/SceneGaussianBlurPipeline.swift",

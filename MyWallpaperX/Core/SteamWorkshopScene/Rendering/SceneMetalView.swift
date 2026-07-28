@@ -320,7 +320,7 @@ class SceneMetalView: NSView {
         particlePlayback = SceneParticlePlaybackState(
             descriptor: renderer.renderDescriptor,
             cacheDirectory: cacheDirectory,
-            device: metalDevice, textureLoader: loader
+            device: metalDevice, resourceView: resourceView, textureLoader: loader
         )
         if let particlePlayback {
             report.append(contentsOf: particlePlayback.loadReportLines(descriptor: renderer.renderDescriptor))

@@ -15,6 +15,8 @@ struct SceneParticleChildTemplate {
     let trigger: SceneParticleChildTrigger
     let trail: SceneParticleTrailRenderPlan?
     let texture: MTLTexture
+    let colorUVScale: SIMD2<Float>
+    let refraction: SceneParticleRefractionBinding?
     let blendMode: SceneParticlePipelineBlendMode
     let spriteAnimation: SceneSpriteAnimation?
     let orientation: SceneParticleOrientation
@@ -185,15 +187,39 @@ enum SceneParticleChildGraphExpansion {
                 ? "outsideStrictStaticProfile" : "outsideStrictEventProfile"
             return .rejected("\(path):\(profile)")
         }
-        guard let source = asset.textureSource,
-              let loaded = SceneParticleChildTemplateSupport.loadTexture(
-                  source,
-                  textureLoader: textureLoader,
-                  builtInTextureRegistry: builtInTextureRegistry,
-                  device: device
-              )
-        else {
+        guard let source = asset.textureSource else {
             return .rejected("\(path):textureLoadFailed")
+        }
+        let texture: MTLTexture
+        let animation: SceneSpriteAnimation?
+        let colorUVScale: SIMD2<Float>
+        let refraction: SceneParticleRefractionBinding?
+        if let declaration = asset.refraction {
+            guard let loaded = SceneParticleRefractionTextureLoader.load(
+                colorSource: source,
+                declaration: declaration,
+                textureLoader: textureLoader,
+                device: device
+            ) else {
+                return .rejected("\(path):refractionTextureProfileUnsupported")
+            }
+            texture = loaded.color
+            animation = loaded.colorAnimation
+            colorUVScale = loaded.colorUVScale
+            refraction = loaded.binding
+        } else {
+            guard let loaded = SceneParticleChildTemplateSupport.loadTexture(
+                source,
+                textureLoader: textureLoader,
+                builtInTextureRegistry: builtInTextureRegistry,
+                device: device
+            ) else {
+                return .rejected("\(path):textureLoadFailed")
+            }
+            texture = loaded.texture
+            animation = loaded.animation
+            colorUVScale = SIMD2(repeating: 1)
+            refraction = nil
         }
         let maximum = child.maximumCount ?? 512
         guard maximum > 0, maximum <= 512 else {
@@ -214,9 +240,11 @@ enum SceneParticleChildGraphExpansion {
                 definition: asset.definition,
                 trigger: trigger,
                 trail: render.trail,
-                texture: loaded.texture,
+                texture: texture,
+                colorUVScale: colorUVScale,
+                refraction: refraction,
                 blendMode: asset.blendMode == .additive ? .additive : .translucent,
-                spriteAnimation: loaded.animation,
+                spriteAnimation: animation,
                 orientation: SceneParticleOrientation(authoredValue: render.renderer.orientation),
                 orientationAxis: render.renderer.axis.map {
                     SceneParticleSimulationMath.vector($0, fallback: SIMD3(0, 0, 1)).particleFloatValue

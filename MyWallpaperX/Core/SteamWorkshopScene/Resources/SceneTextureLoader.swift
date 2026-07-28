@@ -18,6 +18,11 @@ enum SceneTextureLoadOutcome {
 }
 
 final class SceneTextureLoader {
+    private enum TexturePurpose: Hashable {
+        case color
+        case data
+    }
+
     private struct SourceKey: Hashable {
         let path: String
         let size: UInt64
@@ -27,6 +32,7 @@ final class SceneTextureLoader {
     private struct TextureKey: Hashable {
         let source: SourceKey
         let deviceRegistryID: UInt64
+        let purpose: TexturePurpose
     }
 
     private struct TexResource {
@@ -47,7 +53,11 @@ final class SceneTextureLoader {
     private static let maxTextureDimension = 4096
 
     func load(from url: URL, device: MTLDevice) -> SceneTextureLoadOutcome {
-        let key = TextureKey(source: sourceKey(for: url), deviceRegistryID: device.registryID)
+        let key = TextureKey(
+            source: sourceKey(for: url),
+            deviceRegistryID: device.registryID,
+            purpose: .color
+        )
         if let cached = textureOutcomes[key] { return cached }
         let ext = url.pathExtension.lowercased()
         let outcome: SceneTextureLoadOutcome
@@ -57,6 +67,43 @@ final class SceneTextureLoader {
             outcome = loadWallpaperEngineTex(url: url, device: device)
         } else {
             outcome = .unsupportedFormat(extension: ext)
+        }
+        textureOutcomes[key] = outcome
+        return outcome
+    }
+
+    /// Loads TEX channels without color premultiplication. This is reserved for
+    /// data consumers such as particle normal maps; ordinary image/color paths
+    /// continue through `load(from:device:)`.
+    func loadDataTexture(from url: URL, device: MTLDevice) -> SceneTextureLoadOutcome {
+        let key = TextureKey(source: sourceKey(for: url), deviceRegistryID: device.registryID,
+                             purpose: .data)
+        if let cached = textureOutcomes[key] { return cached }
+        let outcome: SceneTextureLoadOutcome
+        guard url.pathExtension.lowercased() == Self.texExtension,
+              let resource = texResource(from: url),
+              let container = resource.container else {
+            outcome = .unsupportedFormat(extension: url.pathExtension.lowercased())
+            textureOutcomes[key] = outcome
+            return outcome
+        }
+        if container.format == 0 {
+            if container.mips.allSatisfy({ Self.isEmbeddedImagePayload($0.data) }) {
+                outcome = SceneTextureMipUploader.uploadEmbeddedDataImages(
+                    container.mips,
+                    device: device
+                ) ?? .decodeFailed("embedded data image mip rasterization failed")
+            } else {
+                outcome = SceneTextureMipUploader.uploadRaw(
+                    container: container,
+                    pixelFormat: .rgba8Unorm,
+                    bytesPerPixel: 4,
+                    device: device
+                )
+            }
+        } else {
+            outcome = makeDirectUploadTexture(from: container, device: device)
+                ?? .unsupportedTexFormat(code: container.format)
         }
         textureOutcomes[key] = outcome
         return outcome
