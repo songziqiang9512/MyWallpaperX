@@ -5,11 +5,11 @@
 
 import Accelerate
 
-/// Scene 侧 16/64 频段频谱分析。
+/// Scene 侧 16/32/64 频段频谱分析。
 ///
 /// 与 `SystemAudioWebSpectrumAnalyzer` 刻意分开实现：Web 壁纸走固定 64+64 频段并叠加
 /// 为兼容 Wallpaper Engine Web 运行时而调出的增益/指数常量，Scene 的 stock shader
-/// stock 合同是 16 频段，严格 Workshop consumer 另需 64 频段；两者都从同一次 FFT
+/// stock 合同是 16 频段，严格 Workshop consumer 另需 32/64 频段；三者都从同一次 FFT
 /// 取左右分离、正值、由低到高的快照。Web 与 Scene 两套数值合同互不适用。合并成一个可参数化
 /// 的分析器会让任一侧的调参隐式影响另一侧，因此这里保留独立实现而不是抽公共层。
 ///
@@ -18,11 +18,14 @@ import Accelerate
 /// 不构成与 Wallpaper Engine 的数值等价。
 final class SystemAudioSceneSpectrumAnalyzer {
     static let bandCount = SceneAudioSpectrumSnapshot.bandCount
+    static let mediumBandCount = SceneAudioSpectrumSnapshot.mediumBandCount
     static let extendedBandCount = SceneAudioSpectrumSnapshot.extendedBandCount
 
     struct Levels {
         let left: [Float]
         let right: [Float]
+        let left32: [Float]
+        let right32: [Float]
         let left64: [Float]
         let right64: [Float]
     }
@@ -76,15 +79,32 @@ final class SystemAudioSceneSpectrumAnalyzer {
         }
         let left = levels(for: leftChannel, sampleRate: sampleRate)
         guard signedChannels.count > 1 else {
-            return Levels(left: left.0, right: left.0, left64: left.1, right64: left.1)
+            return Levels(
+                left: left.base,
+                right: left.base,
+                left32: left.medium,
+                right32: left.medium,
+                left64: left.extended,
+                right64: left.extended
+            )
         }
         let right = levels(for: signedChannels[1], sampleRate: sampleRate)
-        return Levels(left: left.0, right: right.0, left64: left.1, right64: right.1)
+        return Levels(
+            left: left.base,
+            right: right.base,
+            left32: left.medium,
+            right32: right.medium,
+            left64: left.extended,
+            right64: right.extended
+        )
     }
 
-    private func levels(for samples: [Float], sampleRate: Float) -> ([Float], [Float]) {
+    private func levels(
+        for samples: [Float],
+        sampleRate: Float
+    ) -> (base: [Float], medium: [Float], extended: [Float]) {
         guard !samples.isEmpty, sampleRate.isFinite, sampleRate > 64 else {
-            return (Self.zeroBands, Self.zeroExtendedBands)
+            return (Self.zeroBands, Self.zeroMediumBands, Self.zeroExtendedBands)
         }
 
         let magnitudes = magnitudeSpectrum(for: samples)
@@ -92,10 +112,16 @@ final class SystemAudioSceneSpectrumAnalyzer {
         let upperBound = min(maximumFrequency, nyquist)
         let binWidth = sampleRate / Float(fftSize)
         guard upperBound > minimumFrequency, binWidth > 0 else {
-            return (Self.zeroBands, Self.zeroExtendedBands)
+            return (Self.zeroBands, Self.zeroMediumBands, Self.zeroExtendedBands)
         }
         return (
             bandLevels(magnitudes, upperBound: upperBound, binWidth: binWidth, count: Self.bandCount),
+            bandLevels(
+                magnitudes,
+                upperBound: upperBound,
+                binWidth: binWidth,
+                count: Self.mediumBandCount
+            ),
             bandLevels(
                 magnitudes,
                 upperBound: upperBound,
@@ -201,10 +227,16 @@ final class SystemAudioSceneSpectrumAnalyzer {
         Array(repeating: 0, count: extendedBandCount)
     }
 
+    private static var zeroMediumBands: [Float] {
+        Array(repeating: 0, count: mediumBandCount)
+    }
+
     private static var zeroLevels: Levels {
         Levels(
             left: zeroBands,
             right: zeroBands,
+            left32: zeroMediumBands,
+            right32: zeroMediumBands,
             left64: zeroExtendedBands,
             right64: zeroExtendedBands
         )

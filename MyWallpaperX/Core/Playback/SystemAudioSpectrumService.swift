@@ -41,7 +41,8 @@ final class SystemAudioSpectrumService: NSObject {
     var onLevels: (([Float]) -> Void)?
     var onWebLevels: (([Float]) -> Void)?
     var onSceneLevels: ((
-        _ left: [Float], _ right: [Float], _ left64: [Float], _ right64: [Float]
+        _ left: [Float], _ right: [Float], _ left32: [Float], _ right32: [Float],
+        _ left64: [Float], _ right64: [Float]
     ) -> Void)?
 
     init(barCount: Int) {
@@ -350,7 +351,14 @@ final class SystemAudioSpectrumService: NSObject {
                 return
             }
             let bands = sceneAnalyzer.analyze(frame, sampleRate: sampleRate)
-            onSceneLevels?(bands.left, bands.right, bands.left64, bands.right64)
+            onSceneLevels?(
+                bands.left,
+                bands.right,
+                bands.left32,
+                bands.right32,
+                bands.left64,
+                bands.right64
+            )
         }
     }
 
@@ -358,6 +366,8 @@ final class SystemAudioSpectrumService: NSObject {
         onSceneLevels?(
             Self.clearedSceneLevels,
             Self.clearedSceneLevels,
+            Self.clearedMediumSceneLevels,
+            Self.clearedMediumSceneLevels,
             Self.clearedExtendedSceneLevels,
             Self.clearedExtendedSceneLevels
         )
@@ -376,5 +386,9 @@ private extension SystemAudioSpectrumService {
     static let clearedExtendedSceneLevels = Array(
         repeating: Float(0),
         count: SystemAudioSceneSpectrumAnalyzer.extendedBandCount
+    )
+    static let clearedMediumSceneLevels = Array(
+        repeating: Float(0),
+        count: SystemAudioSceneSpectrumAnalyzer.mediumBandCount
     )
 }

@@ -79,6 +79,20 @@ extension ScenePropertyBindingCompiler {
                 .vector3,
                 .color
             )
+        case let .shaderValue(layerID, effectIndex, passIndex, name, effectPath)
+            where normalized(effectPath)
+                == "effects/workshop/2084198056/simple_audio_bars/effect.json"
+                && passIndex == 0 && name.lowercased() == "bar color":
+            (
+                .effectConstant(
+                    layerID: layerID,
+                    effectIndex: effectIndex,
+                    passIndex: passIndex,
+                    name: "bar color"
+                ),
+                .vector3,
+                .color
+            )
         default:
             nil
         }

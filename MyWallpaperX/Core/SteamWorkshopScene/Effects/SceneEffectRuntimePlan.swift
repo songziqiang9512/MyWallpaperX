@@ -120,6 +120,10 @@ enum SceneEffectRuntimePlanner {
             let name = authoredEffectPlan?.opacity != nil ? "opacity" : "waterwaves"
             return "\(foliage)effect runtime \(name)-authored; \(passCount) declared pass(es)"
         }
+        if authoredEffectPlan?.workshopAudioBars != nil {
+            return "\(foliage)effect runtime workshop-audio-bars-authored; "
+                + "\(passCount) declared pass(es)"
+        }
         if authoredEffectPlan?.standardBlur != nil {
             return "\(foliage)effect runtime standard-blur-authored; \(passCount) declared pass(es)"
         }

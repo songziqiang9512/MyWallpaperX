@@ -9,19 +9,24 @@ import os.lock
 /// 一帧 Scene 音频频谱快照。
 ///
 /// 官方 stock shader（`pulse.vert` / `shake.vert`）使用 16 档；Workshop shader
-/// 还会明确声明 32/64 档。当前宿主同时承载 16 与 64 档、左右分离、由低到高、取正值。
+/// 还会明确声明 32/64 档。当前宿主同时承载三档、左右分离、由低到高、取正值。
 ///
 /// 频段边界、幅度归一化与平滑策略官方均未公开，当前实现是工程选择而非官方合同，
-/// 不能据此宣称与 Wallpaper Engine 数值等价。32 档与 SceneScript audio buffer
-/// 仍未接入；64 档仅供严格准入的 Workshop shader consumer 使用。
+/// 不能据此宣称与 Wallpaper Engine 数值等价。SceneScript audio buffer 仍未接入；
+/// 32/64 档仅供严格准入的 Workshop shader consumer 使用。
 nonisolated struct SceneAudioSpectrumSnapshot: Equatable {
     static let bandCount = 16
+    static let mediumBandCount = 32
     static let extendedBandCount = 64
 
     /// 左声道频段能量，索引 0 为最低频。
     let left: [Float]
     /// 右声道频段能量，索引 0 为最低频。
     let right: [Float]
+    /// Workshop shader 的 32 档左声道频段能量。
+    let left32: [Float]
+    /// Workshop shader 的 32 档右声道频段能量。
+    let right32: [Float]
     /// Workshop shader 的 64 档左声道频段能量。
     let left64: [Float]
     /// Workshop shader 的 64 档右声道频段能量。
@@ -33,6 +38,8 @@ nonisolated struct SceneAudioSpectrumSnapshot: Equatable {
     static let silent = SceneAudioSpectrumSnapshot(
         left: Array(repeating: 0, count: bandCount),
         right: Array(repeating: 0, count: bandCount),
+        left32: Array(repeating: 0, count: mediumBandCount),
+        right32: Array(repeating: 0, count: mediumBandCount),
         left64: Array(repeating: 0, count: extendedBandCount),
         right64: Array(repeating: 0, count: extendedBandCount),
         generation: 0
@@ -41,6 +48,7 @@ nonisolated struct SceneAudioSpectrumSnapshot: Equatable {
     /// 全零判定。采集失败与真实静音在数值上等价，都必须是稳定零而不是假波形。
     nonisolated var isSilent: Bool {
         left.allSatisfy { $0 == 0 } && right.allSatisfy { $0 == 0 }
+            && left32.allSatisfy { $0 == 0 } && right32.allSatisfy { $0 == 0 }
             && left64.allSatisfy { $0 == 0 } && right64.allSatisfy { $0 == 0 }
     }
 
@@ -48,6 +56,8 @@ nonisolated struct SceneAudioSpectrumSnapshot: Equatable {
         self.init(
             left: left,
             right: right,
+            left32: Array(repeating: 0, count: Self.mediumBandCount),
+            right32: Array(repeating: 0, count: Self.mediumBandCount),
             left64: Array(repeating: 0, count: Self.extendedBandCount),
             right64: Array(repeating: 0, count: Self.extendedBandCount),
             generation: generation
@@ -57,12 +67,16 @@ nonisolated struct SceneAudioSpectrumSnapshot: Equatable {
     nonisolated init(
         left: [Float],
         right: [Float],
+        left32: [Float] = [],
+        right32: [Float] = [],
         left64: [Float],
         right64: [Float],
         generation: UInt64
     ) {
         self.left = Self.sanitized(left, count: Self.bandCount)
         self.right = Self.sanitized(right, count: Self.bandCount)
+        self.left32 = Self.sanitized(left32, count: Self.mediumBandCount)
+        self.right32 = Self.sanitized(right32, count: Self.mediumBandCount)
         self.left64 = Self.sanitized(left64, count: Self.extendedBandCount)
         self.right64 = Self.sanitized(right64, count: Self.extendedBandCount)
         self.generation = generation
@@ -115,18 +129,40 @@ final class SceneAudioSpectrumInbox: @unchecked Sendable {
         publish(
             left: left,
             right: right,
+            left32: Array(repeating: 0, count: SceneAudioSpectrumSnapshot.mediumBandCount),
+            right32: Array(repeating: 0, count: SceneAudioSpectrumSnapshot.mediumBandCount),
             left64: Array(repeating: 0, count: SceneAudioSpectrumSnapshot.extendedBandCount),
             right64: Array(repeating: 0, count: SceneAudioSpectrumSnapshot.extendedBandCount)
         )
     }
 
     func publish(left: [Float], right: [Float], left64: [Float], right64: [Float]) {
+        publish(
+            left: left,
+            right: right,
+            left32: Array(repeating: 0, count: SceneAudioSpectrumSnapshot.mediumBandCount),
+            right32: Array(repeating: 0, count: SceneAudioSpectrumSnapshot.mediumBandCount),
+            left64: left64,
+            right64: right64
+        )
+    }
+
+    func publish(
+        left: [Float],
+        right: [Float],
+        left32: [Float],
+        right32: [Float],
+        left64: [Float],
+        right64: [Float]
+    ) {
         os_unfair_lock_lock(&lock)
         let generation = nextGeneration
         nextGeneration &+= 1
         snapshot = SceneAudioSpectrumSnapshot(
             left: left,
             right: right,
+            left32: left32,
+            right32: right32,
             left64: left64,
             right64: right64,
             generation: generation

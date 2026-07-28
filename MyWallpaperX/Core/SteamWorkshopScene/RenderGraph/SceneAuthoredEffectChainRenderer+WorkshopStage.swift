@@ -7,6 +7,7 @@ extension SceneAuthoredEffectChainRenderer {
         masks: SceneImageLayerMasks,
         auxMask: MTLTexture?,
         targets: SceneGraphRenderTargetTable,
+        dynamicValues: SceneDynamicSnapshot,
         sourceUniforms: SceneLayerFragmentUniforms,
         pipeline: SceneImageLayerPipeline,
         pipelines: SceneAuthoredEffectPipelineSet,
@@ -30,19 +31,37 @@ extension SceneAuthoredEffectChainRenderer {
                 commandBuffer: commandBuffer
             )
         case .workshopAudioBars(let audioBars):
-            guard let audioBarsPipeline = pipelines.audioBars else { return nil }
-            return renderWorkshopAudioBars(
-                audioBars,
-                sourceTexture: sourceTexture,
-                masks: masks,
-                auxMask: auxMask,
-                targets: targets,
-                sourceUniforms: sourceUniforms,
-                pipeline: pipeline,
-                audioBarsPipeline: audioBarsPipeline,
-                spectrum: audioSpectrum,
-                commandBuffer: commandBuffer
-            )
+            switch audioBars.profile {
+            case .enhancedSegmented:
+                guard let audioBarsPipeline = pipelines.audioBars else { return nil }
+                return renderWorkshopAudioBars(
+                    audioBars,
+                    sourceTexture: sourceTexture,
+                    masks: masks,
+                    auxMask: auxMask,
+                    targets: targets,
+                    sourceUniforms: sourceUniforms,
+                    pipeline: pipeline,
+                    audioBarsPipeline: audioBarsPipeline,
+                    spectrum: audioSpectrum,
+                    commandBuffer: commandBuffer
+                )
+            case .simple:
+                guard let simplePipeline = pipelines.simpleAudioBars else { return nil }
+                return renderWorkshopSimpleAudioBars(
+                    audioBars,
+                    sourceTexture: sourceTexture,
+                    masks: masks,
+                    auxMask: auxMask,
+                    targets: targets,
+                    dynamicValues: dynamicValues,
+                    sourceUniforms: sourceUniforms,
+                    pipeline: pipeline,
+                    audioBarsPipeline: simplePipeline,
+                    spectrum: audioSpectrum,
+                    commandBuffer: commandBuffer
+                )
+            }
         case .workshopGradient(let gradient):
             guard let gradientPipeline = pipelines.workshopGradient else { return nil }
             return renderWorkshopGradient(

@@ -21,6 +21,15 @@ FRAME_DRIVER_SOURCE = (
 )
 FRAME_CONTEXT_SOURCE = SCENE_ROOT / "Runtime/SceneFrameContext.swift"
 CHAIN_RENDERER_SOURCE = SCENE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift"
+WORKSHOP_STAGE_SOURCE = (
+    SCENE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+WorkshopStage.swift"
+)
+SIMPLE_AUDIO_BARS_SOURCE = (
+    SCENE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+SimpleAudioBars.swift"
+)
+SIMPLE_AUDIO_BARS_PIPELINE_SOURCE = (
+    SCENE_ROOT / "Effects/SceneWorkshopSimpleAudioBarsPipeline.swift"
+)
 COMPOSITOR_SOURCE = SCENE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
 SHAKE_PIPELINE_SOURCE = SCENE_ROOT / "Effects/SceneShakePipeline.swift"
 SHAKE_PLANNER_AUDIO_SOURCE = SCENE_ROOT / "RenderGraph/SceneAuthoredShakePlanner+Audio.swift"
@@ -89,6 +98,17 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
         )
         compositor = COMPOSITOR_SOURCE.read_text(encoding="utf-8")
         self.assertIn("spectrum: request.audioSpectrum", compositor)
+
+    def test_spectrum_reaches_both_workshop_audio_bars_profiles(self) -> None:
+        workshop_stage = WORKSHOP_STAGE_SOURCE.read_text(encoding="utf-8")
+        simple_audio_bars = SIMPLE_AUDIO_BARS_SOURCE.read_text(encoding="utf-8")
+        simple_pipeline = SIMPLE_AUDIO_BARS_PIPELINE_SOURCE.read_text(encoding="utf-8")
+        self.assertGreaterEqual(workshop_stage.count("spectrum: audioSpectrum"), 2)
+        self.assertIn("spectrum: spectrum", simple_audio_bars)
+        self.assertIn("spectrum.left32", simple_pipeline)
+        self.assertIn("spectrum.right32", simple_pipeline)
+        self.assertIn("spectrum.left64", simple_pipeline)
+        self.assertIn("spectrum.right64", simple_pipeline)
 
 
 class SceneShakeAudioContractTests(unittest.TestCase):

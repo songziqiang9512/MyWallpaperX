@@ -133,7 +133,15 @@ struct SceneOpacityExecutionPlan: Sendable {
 
 struct SceneColorKeyExecutionPlan: Sendable {}
 struct SceneWorkshopShiftHueExecutionPlan: Sendable {}
-struct SceneWorkshopAudioBarsExecutionPlan: Sendable {}
+struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
+    enum Profile: Sendable {
+        case enhancedSegmented(shape: Int)
+        case simple
+    }
+
+    let profile: Profile
+    var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
+}
 struct SceneWorkshopGradientExecutionPlan: Sendable {}
 struct SceneWorkshopAudioHueShiftExecutionPlan: Sendable {}
 struct SceneSpinExecutionPlan: Sendable {}
@@ -190,6 +198,17 @@ enum SceneAuthoredWorkshopShiftHuePlanner {
 }
 
 enum SceneAuthoredWorkshopAudioBarsPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneWorkshopAudioBarsExecutionPlan? {
+        nil
+    }
+}
+
+enum SceneAuthoredWorkshopSimpleAudioBarsPlanner {
     static func plan(
         graph: SceneAuthoredEffectRenderPlan,
         descriptor: SceneRenderDescriptor,

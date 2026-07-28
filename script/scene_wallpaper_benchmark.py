@@ -1218,6 +1218,7 @@ def authored_effect_graph_failures(
     authored_shader_count: int | None = None,
     opacity_count: int | None = None,
     color_key_count: int | None = None,
+    workshop_audio_bars_count: int | None = None,
     route_only_effect_count: int | None = None,
     opacity_layer_ids: list[int] | None = None,
 ) -> list[str]:
@@ -1250,6 +1251,12 @@ def authored_effect_graph_failures(
     if expected_color_key is not None:
         if color_key_count != int(expected_color_key):
             failures.append("authored effect graph Color Key count mismatch")
+    expected_audio_bars = sample.get(
+        "expected_authored_effect_graph_workshop_audio_bars_count"
+    )
+    if expected_audio_bars is not None:
+        if workshop_audio_bars_count != int(expected_audio_bars):
+            failures.append("authored effect graph Workshop Audio Bars count mismatch")
     expected_opacity_layers = sample.get("expected_authored_effect_graph_opacity_layer_ids")
     if expected_opacity_layers is not None:
         if (opacity_layer_ids or []) != sorted(expected_opacity_layers):
@@ -1766,6 +1773,7 @@ def run_sample(
         authored_shader_count=authored_effect_graph_authored_shader,
         opacity_count=authored_effect_graph_opacity,
         color_key_count=authored_effect_graph_color_key,
+        workshop_audio_bars_count=authored_effect_graph_workshop_audio_bars,
         route_only_effect_count=route_only_effect_count,
         opacity_layer_ids=authored_effect_graph_opacity_layers,
     ))

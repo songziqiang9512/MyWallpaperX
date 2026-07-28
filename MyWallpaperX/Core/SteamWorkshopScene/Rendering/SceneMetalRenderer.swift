@@ -374,6 +374,7 @@ struct SceneMetalRenderer {
                 pointerIsInside: frameContext.pointer.isInside && cursorUV != nil,
                 authoredEffectChain: authoredEffectChain,
                 dynamicValues: frameContext.dynamicValues,
+                audioSpectrum: frameContext.audioSpectrum,
                 blocksLegacyGaussianBlur: blocksLegacyGaussianBlur(for: layer.id),
                 pipeline: imagePipeline,
                 compositor: imageCompositor,

@@ -77,6 +77,18 @@ extension SceneAuthoredEffectChainPlanner {
                 inputRole: inputRole
             )
         }
+        if let audioBars = SceneAuthoredWorkshopSimpleAudioBarsPlanner.plan(
+            graph: stageGraph,
+            descriptor: descriptor,
+            shaderContracts: shaderContracts,
+            inputRole: inputRole
+        ) {
+            return stage(
+                .workshopAudioBars(audioBars),
+                stageGraph: stageGraph,
+                inputRole: inputRole
+            )
+        }
         if let gradient = SceneAuthoredWorkshopGradientPlanner.plan(
             graph: stageGraph,
             descriptor: descriptor,

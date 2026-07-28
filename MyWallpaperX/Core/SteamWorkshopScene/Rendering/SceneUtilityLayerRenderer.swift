@@ -16,6 +16,7 @@ enum SceneUtilityLayerRenderer {
         pointerIsInside: Bool,
         authoredEffectChain: SceneAuthoredEffectExecutionChain?,
         dynamicValues: SceneDynamicSnapshot,
+        audioSpectrum: SceneAudioSpectrumSnapshot,
         blocksLegacyGaussianBlur: Bool,
         pipeline: SceneImageLayerPipeline,
         compositor: SceneImageLayerCompositor,
@@ -52,7 +53,8 @@ enum SceneUtilityLayerRenderer {
                     authoredEffectPlan: authoredEffectChain?.singleStage,
                     blocksLegacyGaussianBlur: blocksLegacyGaussianBlur,
                     authoredEffectChain: authoredEffectChain,
-                    dynamicValues: dynamicValues
+                    dynamicValues: dynamicValues,
+                    audioSpectrum: audioSpectrum
                 ),
                 pipeline: pipeline,
                 mainPass: mainPass

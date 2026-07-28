@@ -13,6 +13,10 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SOURCE = SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift"
+RUNTIME_PLAN_SOURCE = SOURCE_ROOT / "Rendering/SceneUtilityLayerRuntimePlan.swift"
+UTILITY_RENDERER_SOURCE = SOURCE_ROOT / "Rendering/SceneUtilityLayerRenderer.swift"
+METAL_RENDERER_SOURCE = SOURCE_ROOT / "Rendering/SceneMetalRenderer.swift"
+BACKEND_SOURCE = SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift"
 
 HARNESS_SOURCE = r'''
 import Foundation
@@ -81,6 +85,42 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertIn('root["dependencies"] as? [Int] ?? []', document)
         self.assertIn("dependencyLayerIDs: object.dependencyLayerIDs", descriptor)
         self.assertIn("if let utilityLayer = object.utilityLayer", descriptor)
+
+    def test_complete_authored_capture_requires_every_visible_stage(self) -> None:
+        runtime_plan = RUNTIME_PLAN_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("supportsCompleteAuthoredCapture", runtime_plan)
+        self.assertIn(
+            "chain.stages.count == visible.count",
+            runtime_plan,
+            "utility capture must not silently truncate a visible effect suffix",
+        )
+        self.assertIn(
+            "chain.stages.count == chain.renderGraph.effects.count",
+            runtime_plan,
+            "utility capture must represent the complete authored graph",
+        )
+        self.assertIn(
+            "chain.stages.allSatisfy(\\.supportsUtilityCapture)",
+            runtime_plan,
+            "every stage must explicitly admit utility capture",
+        )
+        backend = BACKEND_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            "guard case .workshopAudioBars(let plan) = backend",
+            backend,
+        )
+        self.assertIn(
+            "case .simple = plan.profile",
+            backend,
+            "only the exact Simple Audio Bars backend is admitted initially",
+        )
+
+    def test_utility_capture_receives_the_frame_audio_snapshot(self) -> None:
+        utility_renderer = UTILITY_RENDERER_SOURCE.read_text(encoding="utf-8")
+        metal_renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("audioSpectrum: SceneAudioSpectrumSnapshot", utility_renderer)
+        self.assertIn("audioSpectrum: audioSpectrum", utility_renderer)
+        self.assertIn("audioSpectrum: frameContext.audioSpectrum", metal_renderer)
 
 
 if __name__ == "__main__":

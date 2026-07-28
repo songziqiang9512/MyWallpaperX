@@ -27,6 +27,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
     SOURCE_ROOT / "RenderGraph/SceneShaderContract.swift",
     SOURCE_ROOT / "RenderGraph/SceneShaderContractLoader.swift",
+    SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "RenderGraph/SceneWorkshopShiftHueExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredWorkshopShiftHuePlanner.swift",
     SOURCE_ROOT / "RenderGraph/SceneWorkshopAudioBarsExecutionPlan.swift",

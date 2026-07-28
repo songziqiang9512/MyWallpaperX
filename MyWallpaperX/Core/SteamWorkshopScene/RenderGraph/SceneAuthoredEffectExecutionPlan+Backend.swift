@@ -161,7 +161,18 @@ extension SceneAuthoredEffectExecutionPlan {
         if let xRay { targets.formUnion(xRay.liveConsumerTargets) }
         if let tint { targets.formUnion(tint.liveConsumerTargets) }
         if let pulse { targets.formUnion(pulse.liveConsumerTargets) }
+        if let workshopAudioBars {
+            targets.formUnion(workshopAudioBars.liveConsumerTargets)
+        }
         return targets
+    }
+
+    nonisolated var supportsUtilityCapture: Bool {
+        guard case .workshopAudioBars(let plan) = backend,
+              case .simple = plan.profile else {
+            return false
+        }
+        return true
     }
 
     func localContrastStrength(in snapshot: SceneDynamicSnapshot) -> Float? {

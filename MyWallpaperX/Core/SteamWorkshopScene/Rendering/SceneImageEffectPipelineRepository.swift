@@ -41,6 +41,7 @@ final class SceneImageEffectPipelineRepository {
     private let colorKeySlot: ScenePipelineSlot<SceneColorKeyPipeline>
     private let shiftHueSlot: ScenePipelineSlot<SceneWorkshopShiftHuePipeline>
     private let audioBarsSlot: ScenePipelineSlot<SceneWorkshopAudioBarsPipeline>
+    private let simpleAudioBarsSlot: ScenePipelineSlot<SceneWorkshopSimpleAudioBarsPipeline>
     private let workshopGradientSlot: ScenePipelineSlot<SceneWorkshopGradientPipeline>
     private let workshopShadowSlot: ScenePipelineSlot<SceneWorkshopShadowPipeline>
     private let spinSlot: ScenePipelineSlot<SceneSpinPipeline>
@@ -69,6 +70,7 @@ final class SceneImageEffectPipelineRepository {
         colorKeySlot = .init { SceneColorKeyPipeline(device: device) }
         shiftHueSlot = .init { SceneWorkshopShiftHuePipeline(device: device) }
         audioBarsSlot = .init { SceneWorkshopAudioBarsPipeline(device: device) }
+        simpleAudioBarsSlot = .init { SceneWorkshopSimpleAudioBarsPipeline(device: device) }
         workshopGradientSlot = .init { SceneWorkshopGradientPipeline(device: device) }
         workshopShadowSlot = .init { SceneWorkshopShadowPipeline(device: device) }
         spinSlot = .init { SceneSpinPipeline(device: device) }
@@ -96,6 +98,9 @@ final class SceneImageEffectPipelineRepository {
     func colorKey() -> SceneColorKeyPipeline? { colorKeySlot.resolve() }
     func shiftHue() -> SceneWorkshopShiftHuePipeline? { shiftHueSlot.resolve() }
     func audioBars() -> SceneWorkshopAudioBarsPipeline? { audioBarsSlot.resolve() }
+    func simpleAudioBars() -> SceneWorkshopSimpleAudioBarsPipeline? {
+        simpleAudioBarsSlot.resolve()
+    }
     func workshopGradient() -> SceneWorkshopGradientPipeline? {
         workshopGradientSlot.resolve()
     }

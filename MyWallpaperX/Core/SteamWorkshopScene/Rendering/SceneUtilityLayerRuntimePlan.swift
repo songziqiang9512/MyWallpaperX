@@ -56,6 +56,11 @@ enum SceneUtilityLayerRuntimePlanner {
                 } else {
                     disposition = .unsupportedChildren
                 }
+            } else if supportsCompleteAuthoredCapture(
+                layer: layer,
+                catalog: authoredEffectCatalog
+            ) {
+                disposition = .capture
             } else if visibleEffects(in: layer).allSatisfy(SceneEffectRuntimeSupport.supportsUtilityCapture)
                 && implementedEffectPlan(for: layer).hasImplementedVisualWork {
                 disposition = .capture
@@ -145,6 +150,21 @@ enum SceneUtilityLayerRuntimePlanner {
         in layer: SceneRenderDescriptor.Layer
     ) -> [SceneRenderDescriptor.EffectDescriptor] {
         layer.effects.filter { $0.visible != false }
+    }
+
+    private static func supportsCompleteAuthoredCapture(
+        layer: SceneRenderDescriptor.Layer,
+        catalog: SceneAuthoredEffectExecutionCatalog
+    ) -> Bool {
+        let visible = visibleEffects(in: layer)
+        guard !visible.isEmpty,
+              let chain = catalog.chainsByLayerID[layer.id],
+              catalog.xRayPrefixOmittedEffectPathsByLayerID[layer.id] == nil,
+              chain.stages.count == visible.count,
+              chain.stages.count == chain.renderGraph.effects.count else {
+            return false
+        }
+        return chain.stages.allSatisfy(\.supportsUtilityCapture)
     }
 }
 

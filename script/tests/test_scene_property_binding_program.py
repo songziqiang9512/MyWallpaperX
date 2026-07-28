@@ -199,6 +199,58 @@ enum Harness {
             definitions: localContrast.program.definitions,
             userValues: localContrastEvaluation.userValues
         ).snapshot
+        let audioBarsColorTarget = SceneDynamicTarget.effectConstant(
+            layerID: 64,
+            effectIndex: 0,
+            passIndex: 0,
+            name: "bar color"
+        )
+        let audioBarsColor = compiler.compile(
+            report: .init(bindings: [binding(
+                "basecolor",
+                .string("0.99608 0.09804 1"),
+                64,
+                audioBarsColorBindingTarget(layerID: 64, effectIndex: 0)
+            )], diagnostics: []),
+            catalog: .init(definitions: [
+                property("basecolor", .color, .string("0.99608 0.09804 1")),
+            ])
+        )
+        let audioBarsColorAuthored = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 6,
+            generation: 6,
+            definitions: audioBarsColor.program.definitions
+        ).snapshot
+        let audioBarsColorEvaluation = audioBarsColor.program.evaluate(effectiveValues: [
+            "basecolor": .string("0.25 0.5 0.75"),
+        ])
+        let audioBarsColorUser = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 7,
+            generation: 7,
+            definitions: audioBarsColor.program.definitions,
+            userValues: audioBarsColorEvaluation.userValues
+        ).snapshot
+        let unsupportedAudioBarsColorTargets = compiler.compile(
+            report: .init(bindings: [
+                binding("audioWrongPath", .string("1 0 1"), 110, .shaderValue(
+                    layerID: 110, effectIndex: 0, passIndex: 0, name: "Bar Color",
+                    effectPath: "effects/workshop/2084198056/other/effect.json"
+                )),
+                binding("audioWrongPass", .string("1 0 1"), 111, .shaderValue(
+                    layerID: 111, effectIndex: 0, passIndex: 1, name: "Bar Color",
+                    effectPath: "effects/workshop/2084198056/simple_audio_bars/effect.json"
+                )),
+                binding("audioWrongName", .string("1 0 1"), 112, .shaderValue(
+                    layerID: 112, effectIndex: 0, passIndex: 0, name: "Color",
+                    effectPath: "effects/workshop/2084198056/simple_audio_bars/effect.json"
+                )),
+            ], diagnostics: []),
+            catalog: .init(definitions: [
+                property("audioWrongPath", .color, .string("1 0 1")),
+                property("audioWrongPass", .color, .string("1 0 1")),
+                property("audioWrongName", .color, .string("1 0 1")),
+            ])
+        )
         let opacityTargets = [365, 372, 647, 664].map {
             SceneDynamicTarget.effectConstant(
                 layerID: $0,
@@ -465,6 +517,20 @@ enum Harness {
             "localContrastAuthored": resolved(localContrastAuthored[localContrastTarget]),
             "localContrastUser": resolved(localContrastUser[localContrastTarget]),
             "localContrastRuntimeCodes": codes(localContrastEvaluation.diagnostics),
+            "audioBarsColorCount": audioBarsColor.program.instructions.count,
+            "audioBarsColorTarget":
+                audioBarsColor.program.instructions.first?.target == audioBarsColorTarget,
+            "audioBarsColorCodes": codes(audioBarsColor.diagnostics),
+            "audioBarsColorRebuild": audioBarsColor.program.rebuildRequiredPropertyKeys,
+            "audioBarsColorAuthored": resolved(audioBarsColorAuthored[audioBarsColorTarget]),
+            "audioBarsColorUser": resolved(audioBarsColorUser[audioBarsColorTarget]),
+            "audioBarsColorRuntimeCodes": codes(audioBarsColorEvaluation.diagnostics),
+            "unsupportedAudioBarsColorCount":
+                unsupportedAudioBarsColorTargets.program.instructions.count,
+            "unsupportedAudioBarsColorCodes":
+                codes(unsupportedAudioBarsColorTargets.diagnostics),
+            "unsupportedAudioBarsColorRebuild":
+                unsupportedAudioBarsColorTargets.program.rebuildRequiredPropertyKeys,
             "opacityCount": opacity.program.instructions.count,
             "opacityTargets": opacity.program.instructions.map(\.target) == opacityTargets,
             "opacityRoundTrip": opacityDecoded == opacity.program,
@@ -588,6 +654,19 @@ enum Harness {
             effectPath: usesNormalizedVariant
                 ? "Effects\\Opacity\\Effect.json"
                 : "effects/opacity/effect.json"
+        )
+    }
+
+    static func audioBarsColorBindingTarget(
+        layerID: Int,
+        effectIndex: Int
+    ) -> SceneUserPropertyBindingTarget {
+        .shaderValue(
+            layerID: layerID,
+            effectIndex: effectIndex,
+            passIndex: 0,
+            name: "Bar Color",
+            effectPath: "Effects\\Workshop\\2084198056\\Simple_Audio_Bars\\Effect.json"
         )
     }
 
@@ -727,6 +806,32 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
             ["scalar(0.75)", "userProperty"],
         )
         self.assertEqual(self.result["localContrastRuntimeCodes"], [])
+
+    def test_simple_audio_bars_color_compiles_as_live_vector_target(self) -> None:
+        self.assertEqual(self.result["audioBarsColorCount"], 1)
+        self.assertTrue(self.result["audioBarsColorTarget"])
+        self.assertEqual(self.result["audioBarsColorCodes"], [])
+        self.assertEqual(self.result["audioBarsColorRebuild"], [])
+        self.assertEqual(
+            self.result["audioBarsColorAuthored"],
+            ["vector3(0.99608, 0.09804, 1.0)", "authored"],
+        )
+        self.assertEqual(
+            self.result["audioBarsColorUser"],
+            ["vector3(0.25, 0.5, 0.75)", "userProperty"],
+        )
+        self.assertEqual(self.result["audioBarsColorRuntimeCodes"], [])
+
+    def test_other_simple_audio_bars_color_targets_remain_closed(self) -> None:
+        self.assertEqual(self.result["unsupportedAudioBarsColorCount"], 0)
+        self.assertEqual(
+            self.result["unsupportedAudioBarsColorCodes"],
+            ["unsupportedTarget"] * 3,
+        )
+        self.assertEqual(
+            self.result["unsupportedAudioBarsColorRebuild"],
+            ["audioWrongName", "audioWrongPass", "audioWrongPath"],
+        )
 
     def test_direct_opacity_alpha_compiles_four_live_scalar_targets(self) -> None:
         self.assertEqual(self.result["opacityCount"], 4)
