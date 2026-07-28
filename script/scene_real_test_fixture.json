@@ -2,5 +2,5 @@
   "schema_version": 1,
   "sample_root": ".codex/scene-transform-full45-20260728/Scene",
   "runtime_homes": ".codex/scene-nested-child-full45-20260727/runtime-homes",
-  "report": ".codex/scene-transform-full45-c81a-final-20260728/report.json"
+  "report": ".codex/scene-cursor-ripple-full45-20260729-v2/report.json"
 }
