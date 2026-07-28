@@ -105,10 +105,11 @@
 | Workshop `gradient_color` | `L3` | 项目样本中的严格单 pass profile；不是官方 Blend Gradient |
 | Workshop layer Bloom approximation | `L3` | 受限 threshold/blur/composite；不是官方 Scene-level Bloom/HDR，也不是 45 个 Effect 专页之一 |
 | Workshop `3488490208/shadow_____________` | `L3` | exact single-pass strict profile；只接受完整 definition/material/ShaderContract fingerprint、`MASK=0`、`BLENDMODE=0`、normal/nocull/depth disabled 与静态常量。不是官方 45 项 Effect、generic Shadow 或 authored shader；mode 0 尚无官方 Windows 像素 oracle |
+| Workshop `2084198056/Simple_Audio_Bars` | `L3` | exact fragment-C bottom/replace single-pass profile；只接受完整 definition/material/raw+canonical ShaderContract fingerprint，以及 `32+CLIP_LOW` 或 `64+CLIP_HIGH` 两个观察到的 combo tuple。32/64 左右频谱、slot-origin 相邻 band 插值、居中 spacing、bounds/clip、premultiplied 输出与 direct-binding `Bar Color` 有独立 backend；solid 与无 child/dependency 的 composition 完整链 capture 共用公共能力。其他 fragment revision、combo 交叉、shape/transparency、Scroll/SceneScript sibling 与 partial chain fail closed，见 [E-WORKSHOP-SIMPLE-AUDIO-BARS](runtime-evidence-index.md#e-workshop-simple-audio-bars) |
 
 45 项汇总：`L1=21`、`L2=4`、`L3=20`、`L4=0`。这个统计只反映当前表中最小可声明级别，不是样本命中率、视觉相似度或已知语义比例。
 
-`b541867` 建立 strict profile 之间有序、全有或全无的调度；后续 Workshop Shadow、stock Opacity、legacy Blur Precise compose、Shake、Water、Foliage、X-Ray、Tint、Pulse、God Rays、Blend 与 identity-only Transform 逐步扩充受限 `L3` profile。当前完整门为 192 stage、30 chain、Blend 2、Transform 2、static fallback 2、graph failed 0；最近 fixed13 是旧实现基线，只保留为历史分层证据。最新报告、App 身份与矩阵哈希统一见 [运行证据索引](runtime-evidence-index.md)。这些聚合只证明表内 bounded profile 的当前样本合同；generic authored shader、非 identity Transform、其他 Blend variants、SceneScript/mixed unsupported stage 与 Windows visual golden 仍未闭合。
+`b541867` 建立 strict profile 之间有序、全有或全无的调度；后续 Workshop Shadow、stock Opacity、legacy Blur Precise compose、Shake、Water、Foliage、X-Ray、Tint、Pulse、God Rays、Blend、identity-only Transform 与 exact Simple Audio Bars 逐步扩充受限 `L3` profile。当前完整门为 194 stage、30 chain、Workshop Audio Bars 3、Blend 2、Transform 2、static fallback 2、graph failed 0；当前 fixed13 为 117 stage、16 chain、Workshop Audio Bars 2。最新报告、App 身份与矩阵哈希统一见 [运行证据索引](runtime-evidence-index.md)。这些聚合只证明表内 bounded profile 的当前样本合同；generic authored shader、非 identity Transform、其他 Blend/Audio Bars variants、SceneScript/mixed unsupported stage 与 Windows visual golden 仍未闭合。
 
 ## 9. 开发顺序
 
