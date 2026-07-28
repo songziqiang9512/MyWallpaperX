@@ -159,6 +159,10 @@ AUTHORED_EFFECT_GRAPH_FILM_GRAIN_COUNT_RE = re.compile(
     r"^authoredEffectGraphFilmGrainCount: (?P<count>\d+)$",
     re.MULTILINE,
 )
+AUTHORED_EFFECT_GRAPH_LIGHT_SHAFTS_COUNT_RE = re.compile(
+    r"^authoredEffectGraphLightShaftsCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
 AUTHORED_EFFECT_GRAPH_SHAKE_COUNT_RE = re.compile(
     r"^authoredEffectGraphShakeCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -1076,6 +1080,11 @@ def authored_effect_graph_film_grain_count(preview_text: str) -> int | None:
     return int(match.group("count")) if match is not None else None
 
 
+def authored_effect_graph_light_shafts_count(preview_text: str) -> int | None:
+    match = AUTHORED_EFFECT_GRAPH_LIGHT_SHAFTS_COUNT_RE.search(preview_text)
+    return int(match.group("count")) if match is not None else None
+
+
 def authored_effect_graph_shake_count(preview_text: str) -> int | None:
     match = AUTHORED_EFFECT_GRAPH_SHAKE_COUNT_RE.search(preview_text)
     return int(match.group("count")) if match is not None else None
@@ -1208,6 +1217,7 @@ def authored_effect_graph_failures(
     spin_count: int | None = None,
     procedural_noise_count: int | None = None,
     film_grain_count: int | None = None,
+    light_shafts_count: int | None = None,
     shake_count: int | None = None,
     water_flow_count: int | None = None,
     water_waves_count: int | None = None,
@@ -1279,6 +1289,12 @@ def authored_effect_graph_failures(
     if expected_film_grain is not None:
         if film_grain_count != int(expected_film_grain):
             failures.append("authored effect graph Film Grain count mismatch")
+    expected_light_shafts = sample.get(
+        "expected_authored_effect_graph_light_shafts_count"
+    )
+    if expected_light_shafts is not None:
+        if light_shafts_count != int(expected_light_shafts):
+            failures.append("authored effect graph Light Shafts count mismatch")
     expected_shake = sample.get("expected_authored_effect_graph_shake_count")
     if expected_shake is not None:
         if shake_count != int(expected_shake):
@@ -1630,6 +1646,9 @@ def run_sample(
         authored_effect_graph_procedural_noise_count(preview_text)
     )
     authored_effect_graph_film_grain = authored_effect_graph_film_grain_count(preview_text)
+    authored_effect_graph_light_shafts = authored_effect_graph_light_shafts_count(
+        preview_text
+    )
     authored_effect_graph_shake = authored_effect_graph_shake_count(preview_text)
     authored_effect_graph_water_flow = authored_effect_graph_water_flow_count(preview_text)
     authored_effect_graph_water_waves = authored_effect_graph_water_waves_count(preview_text)
@@ -1761,6 +1780,7 @@ def run_sample(
         spin_count=authored_effect_graph_spin,
         procedural_noise_count=authored_effect_graph_procedural_noise,
         film_grain_count=authored_effect_graph_film_grain,
+        light_shafts_count=authored_effect_graph_light_shafts,
         shake_count=authored_effect_graph_shake,
         water_flow_count=authored_effect_graph_water_flow,
         water_waves_count=authored_effect_graph_water_waves,
@@ -2060,6 +2080,7 @@ def run_sample(
             "authored_effect_graph_spin_count": authored_effect_graph_spin,
             "authored_effect_graph_procedural_noise_count": authored_effect_graph_procedural_noise,
             "authored_effect_graph_film_grain_count": authored_effect_graph_film_grain,
+            "authored_effect_graph_light_shafts_count": authored_effect_graph_light_shafts,
             "authored_effect_graph_shake_count": authored_effect_graph_shake,
             "authored_effect_graph_water_flow_count": authored_effect_graph_water_flow,
             "authored_effect_graph_water_waves_count": authored_effect_graph_water_waves,

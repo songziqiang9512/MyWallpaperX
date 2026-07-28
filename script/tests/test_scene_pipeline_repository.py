@@ -51,6 +51,7 @@ final class SceneWorkshopShadowPipeline { init?(device: MTLDevice) {} }
 final class SceneSpinPipeline { init?(device: MTLDevice) {} }
 final class SceneProceduralNoisePipeline { init?(device: MTLDevice) {} }
 final class SceneFilmGrainPipeline { init?(device: MTLDevice) {} }
+final class SceneLightShaftsPipeline { init?(device: MTLDevice) {} }
 final class SceneShakePipeline { init?(device: MTLDevice) {} }
 final class SceneWaterFlowPipeline { init?(device: MTLDevice) {} }
 final class SceneWaterWavesPipeline { init?(device: MTLDevice) {} }

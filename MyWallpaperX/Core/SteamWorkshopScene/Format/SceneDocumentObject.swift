@@ -35,6 +35,7 @@ extension SceneDocument {
         let particlePath: String?
         let particleInstanceOverride: SceneParticleInstanceOverride?
         let utilityLayer: SceneUtilityLayer?
+        let shape: String?
         let dependencyLayerIDs: [Int]
         let parentID: Int?
         let attachmentName: String?

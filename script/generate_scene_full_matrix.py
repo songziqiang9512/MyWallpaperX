@@ -143,6 +143,7 @@ def matrix_sample(result, old):
         "expected_authored_effect_graph_spin_count": runtime["authored_effect_graph_spin_count"],
         "expected_authored_effect_graph_procedural_noise_count": runtime["authored_effect_graph_procedural_noise_count"],
         "expected_authored_effect_graph_film_grain_count": runtime["authored_effect_graph_film_grain_count"],
+        "expected_authored_effect_graph_light_shafts_count": runtime["authored_effect_graph_light_shafts_count"],
         "expected_authored_effect_graph_shake_count": runtime["authored_effect_graph_shake_count"],
         "expected_authored_effect_graph_water_flow_count": runtime["authored_effect_graph_water_flow_count"],
         "expected_authored_effect_graph_water_waves_count": runtime["authored_effect_graph_water_waves_count"],

@@ -1,4 +1,34 @@
 extension SceneMetalRenderer {
+    func authoredEffectRuntimeReportLines() -> [String] {
+        authoredEffectCatalog.reportLines
+    }
+
+    func utilityRuntimeReportLines() -> [String] {
+        SceneUtilityLayerRuntimePlanner.reportLines(
+            descriptor: renderDescriptor,
+            authoredEffectCatalog: authoredEffectCatalog
+        )
+    }
+
+    func authoredEffectPlan(for layerID: Int) -> SceneAuthoredEffectExecutionPlan? {
+        authoredEffectCatalog.plansByLayerID[layerID]
+    }
+
+    func authoredEffectChain(for layerID: Int) -> SceneAuthoredEffectExecutionChain? {
+        authoredEffectCatalog.chainsByLayerID[layerID]
+    }
+
+    func blocksLegacyGaussianBlur(for layerID: Int) -> Bool {
+        authoredEffectCatalog.legacyGaussianBlurBlockedLayerIDs.contains(layerID)
+    }
+
+    func debugPlacementSummary(for layer: SceneRenderDescriptor.Layer) -> String {
+        SceneLayerPlacementSummary.make(
+            layer: layer,
+            worldFrame: worldFramesByLayerID[layer.id] ?? SceneMatrix.identity()
+        )
+    }
+
     func diagnostics() -> SceneMetalRendererDiagnostic {
         let layers = renderDescriptor.layers
         let imageCount = layers.filter(\.isImageRenderable).count

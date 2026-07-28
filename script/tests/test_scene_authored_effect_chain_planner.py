@@ -90,6 +90,7 @@ struct SceneWorkshopAudioHueShiftExecutionPlan: Sendable {}
 struct SceneSpinExecutionPlan: Sendable {}
 struct SceneProceduralNoiseExecutionPlan: Sendable {}
 struct SceneFilmGrainExecutionPlan: Sendable {}
+struct SceneLightShaftsExecutionPlan: Sendable {}
 struct SceneAuthoredShaderExecutionPlan {
     let offscreenSize: CGSize? = nil
 
@@ -224,6 +225,17 @@ enum SceneAuthoredFilmGrainPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneFilmGrainExecutionPlan? {
+        nil
+    }
+}
+
+enum SceneAuthoredLightShaftsPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneLightShaftsExecutionPlan? {
         nil
     }
 }
@@ -932,6 +944,7 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
             "authoredEffectGraphWorkshopShadowCount: 0",
             "authoredEffectGraphSpinCount: 0",
             "authoredEffectGraphProceduralNoiseCount: 0",
+            "authoredEffectGraphLightShaftsCount: 0",
             "authoredEffectGraphBlendCount: 0",
         ):
             self.assertIn(line, catalog["reportLines"])

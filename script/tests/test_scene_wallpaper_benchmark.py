@@ -1187,6 +1187,32 @@ utility layer 763: skippedHidden kind=composition
             ),
         )
 
+    def test_authored_light_shafts_count_is_an_exact_gate(self) -> None:
+        preview = "authoredEffectGraphLightShaftsCount: 2\n"
+        count = benchmark.authored_effect_graph_light_shafts_count(preview)
+        self.assertEqual(count, 2)
+        self.assertEqual(
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_light_shafts_count": 2},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                light_shafts_count=count,
+            ),
+            [],
+        )
+        self.assertIn(
+            "authored effect graph Light Shafts count mismatch",
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_light_shafts_count": 0},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                light_shafts_count=count,
+            ),
+        )
+        self.assertIsNone(benchmark.authored_effect_graph_light_shafts_count(""))
+
     def test_authored_shake_count_is_an_exact_gate(self) -> None:
         preview = "authoredEffectGraphShakeCount: 3\n"
         count = benchmark.authored_effect_graph_shake_count(preview)
@@ -1387,13 +1413,14 @@ utility layer 763: skippedHidden kind=composition
             "authored_effect_graph_spin_count": 2,
             "authored_effect_graph_procedural_noise_count": 3,
             "authored_effect_graph_film_grain_count": 4,
-            "authored_effect_graph_blend_count": 5,
-            "authored_effect_graph_transform_count": 6,
+            "authored_effect_graph_light_shafts_count": 5,
+            "authored_effect_graph_blend_count": 6,
+            "authored_effect_graph_transform_count": 7,
             "authored_effect_graph_transform_static_fallback_count": 2,
             "authored_effect_graph_transform_static_fallback_diagnostics": [
                 "fixture"
             ],
-            "authored_effect_graph_authored_shader_count": 7,
+            "authored_effect_graph_authored_shader_count": 8,
         }
         runtime.update(expected_counts)
         sample = matrix_generator.matrix_sample(
@@ -1409,7 +1436,7 @@ utility layer 763: skippedHidden kind=composition
         for metric, expected in expected_counts.items():
             self.assertEqual(sample[f"expected_{metric}"], expected)
 
-    def test_tracked_full_matrix_closes_transform_contract_for_every_sample(self) -> None:
+    def test_tracked_full_matrix_closes_transform_and_light_shafts_contracts(self) -> None:
         matrix = json.loads(
             (SCRIPT_DIR / "scene_wallpaper_full_sample_matrix.json").read_text(
                 encoding="utf-8"
@@ -1429,6 +1456,10 @@ utility layer 763: skippedHidden kind=composition
                 )
                 self.assertIn(
                     "expected_authored_effect_graph_transform_static_fallback_diagnostics",
+                    sample,
+                )
+                self.assertIn(
+                    "expected_authored_effect_graph_light_shafts_count",
                     sample,
                 )
 

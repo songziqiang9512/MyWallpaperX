@@ -48,6 +48,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneBlendPipeline.swift",
     SOURCE_ROOT / "Effects/SceneGradientColorPipeline.swift",
     SOURCE_ROOT / "Effects/SceneBloomPipeline.swift",
+    SOURCE_ROOT / "Effects/SceneLightShaftsPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWaterRipplePipeline.swift",
     SOURCE_ROOT / "Effects/ScenePerspectiveOpacityPipeline.swift",
     SOURCE_ROOT / "Effects/SceneXRayPipeline.swift",
@@ -72,6 +73,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneSpinExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneProceduralNoiseExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneFilmGrainExecutionPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneLightShaftsExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Blend.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+AuthoredShader.swift",
@@ -358,6 +360,24 @@ struct SceneBlendEffectTextures {
     }
 }
 
+struct SceneLightShaftsEffectTextures {
+    let noise: MTLTexture?
+    let gradient: MTLTexture?
+    let noisePath: String
+    let gradientPath: String
+
+    func matches(_ plan: SceneLightShaftsExecutionPlan) -> Bool {
+        noise != nil
+            && gradient != nil
+            && normalized(noisePath) == normalized(plan.noiseTexturePath)
+            && normalized(gradientPath) == normalized(plan.gradientTexturePath)
+    }
+
+    private func normalized(_ path: String) -> String {
+        path.replacingOccurrences(of: "\\", with: "/").lowercased()
+    }
+}
+
 struct SceneAuthoredEffectExecutionPlan {
     enum Backend {
         case preciseGaussian(SceneGaussianBlurPlan)
@@ -373,6 +393,7 @@ struct SceneAuthoredEffectExecutionPlan {
         case spin(SceneSpinExecutionPlan)
         case proceduralNoise(SceneProceduralNoiseExecutionPlan)
         case filmGrain(SceneFilmGrainExecutionPlan)
+        case lightShafts(SceneLightShaftsExecutionPlan)
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)

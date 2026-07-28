@@ -1,7 +1,6 @@
 import AppKit
 import Metal
 import QuartzCore
-
 // Layer-hosting NSView that drives SceneMetalRenderer through a CAMetalLayer.
 class SceneMetalView: NSView {
     private let metalDevice: MTLDevice
@@ -24,7 +23,6 @@ class SceneMetalView: NSView {
 #if DEBUG
     let debugFrameCapture = SceneDebugFrameCapture()
 #endif
-
     init?(
         renderDescriptor: SceneRenderDescriptor,
         authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog,
@@ -106,7 +104,6 @@ class SceneMetalView: NSView {
     override func mouseUp(with event: NSEvent) { handlePointerEvent(event) }
 
     // MARK: - Texture loading
-
     // Loads textures for every image layer and, when `logURL` is provided,
     // writes a human-readable per-layer load report next to the sample so
     // black previews can be debugged without attaching a debugger.
@@ -134,6 +131,9 @@ class SceneMetalView: NSView {
                 blendEffectIDs: Set(stages.compactMap { $0.blend?.effectKey.descriptorID }),
                 shakeEffectIDs: Set(stages.compactMap { $0.shake?.effectKey.descriptorID }),
                 filmGrainEffectIDs: Set(stages.compactMap { $0.filmGrain?.effectKey.descriptorID }),
+                lightShaftsEffectIDs: Set(
+                    stages.compactMap { $0.lightShafts?.effectKey.descriptorID }
+                ),
                 waterFlowEffectIDs: Set(stages.compactMap { $0.waterFlow?.effectKey.descriptorID }),
                 waterWavesEffectIDs: Set(stages.compactMap { $0.waterWaves?.effectKey.descriptorID }),
                 tintEffectIDs: Set(stages.compactMap { $0.tint?.effectKey.descriptorID }),
@@ -274,14 +274,15 @@ class SceneMetalView: NSView {
                 report.append("layer \(layer.id) \"\(name)\": texture allocation failed at \(w)×\(h); \(placementSummary)")
             }
         }
-        let utilityXRayLayers = renderer.renderDescriptor.layers.filter { layer in
-            layer.utilityLayer != nil
-                && (renderer.authoredEffectChain(for: layer.id)?.xRayCount ?? 0) > 0
+        let effectOnlyLayers = renderer.renderDescriptor.layers.filter { layer in
+            let chain = renderer.authoredEffectChain(for: layer.id)
+            return (layer.utilityLayer != nil && (chain?.xRayCount ?? 0) > 0)
+                || (layer.contentKind == "quad" && (chain?.lightShaftsCount ?? 0) > 0)
         }
-        for layer in utilityXRayLayers {
+        for layer in effectOnlyLayers {
             let effectTextures = loadEffectTextures(for: layer)
             report.append(
-                "utility layer \(layer.id) \"\(layer.name ?? "(unnamed)")\""
+                "effect-only layer \(layer.id) \"\(layer.name ?? "(unnamed)")\""
                     + effectTextures.message
             )
         }

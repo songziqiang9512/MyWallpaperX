@@ -209,6 +209,8 @@ enum SceneAuthoredEffectChainRenderer {
                 filmGrainPipeline: filmGrainPipeline, time: time,
                 commandBuffer: commandBuffer
             )
+        case .lightShafts:
+            return nil
         case .shake(let shake):
             guard let resources = masks.shakeEffects[shake.effectKey.descriptorID],
                   let shakePipeline = pipelines.shake,

@@ -153,6 +153,18 @@ extension SceneAuthoredEffectChainPlanner {
         ) {
             return stage(.filmGrain(filmGrain), stageGraph: stageGraph, inputRole: inputRole)
         }
+        if let lightShafts = SceneAuthoredLightShaftsPlanner.plan(
+            graph: stageGraph,
+            descriptor: descriptor,
+            shaderContracts: shaderContracts,
+            inputRole: inputRole
+        ) {
+            return stage(
+                .lightShafts(lightShafts),
+                stageGraph: stageGraph,
+                inputRole: inputRole
+            )
+        }
         if let shake = SceneAuthoredShakePlanner.plan(
             graph: stageGraph,
             descriptor: descriptor,

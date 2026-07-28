@@ -1,19 +1,19 @@
 import Metal
 import QuartzCore
 import simd
-
 struct SceneMetalRenderer {
     let device: MTLDevice
     let commandQueue: MTLCommandQueue
     let renderDescriptor: SceneRenderDescriptor
     private let imageCompositor: SceneImageLayerCompositor
+    private let pipelineRepository: SceneImageEffectPipelineRepository
     private let visibleLayerIDs: Set<Int>
     // Cached transforms propagate parent pivot/orientation without double-scaling child quads.
     let worldFramesByLayerID: [Int: simd_float4x4]
     let parallaxByLayerID: [Int: SceneLayerParallax.Resolution]
     private let layersByID: [Int: SceneRenderDescriptor.Layer]
     private let utilityPlansByTriggerLayerID: [Int: [SceneUtilityLayerRuntimePlan]]
-    private let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
+    let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
     private let dependencyRuntime: SceneDependencyFrameRuntime
     private let textureRegistry = SceneFrameTextureRegistry()
     private let utilityCaptureTelemetry = SceneGPUCompletionTelemetry(phase: "utility-capture")
@@ -30,6 +30,7 @@ struct SceneMetalRenderer {
         self.device = device
         self.commandQueue = commandQueue
         self.renderDescriptor = renderDescriptor
+        self.pipelineRepository = pipelineRepository
         self.imageCompositor = SceneImageLayerCompositor(
             pipelineRepository: pipelineRepository
         )
@@ -75,36 +76,6 @@ struct SceneMetalRenderer {
         let g = Double(c.count > 1 ? c[1] : 0.7)
         let b = Double(c.count > 2 ? c[2] : 0.7)
         return MTLClearColorMake(r, g, b, 1.0)
-    }
-
-    func authoredEffectRuntimeReportLines() -> [String] {
-        authoredEffectCatalog.reportLines
-    }
-
-    func utilityRuntimeReportLines() -> [String] {
-        SceneUtilityLayerRuntimePlanner.reportLines(
-            descriptor: renderDescriptor,
-            authoredEffectCatalog: authoredEffectCatalog
-        )
-    }
-
-    func authoredEffectPlan(for layerID: Int) -> SceneAuthoredEffectExecutionPlan? {
-        authoredEffectCatalog.plansByLayerID[layerID]
-    }
-
-    func authoredEffectChain(for layerID: Int) -> SceneAuthoredEffectExecutionChain? {
-        authoredEffectCatalog.chainsByLayerID[layerID]
-    }
-
-    func blocksLegacyGaussianBlur(for layerID: Int) -> Bool {
-        authoredEffectCatalog.legacyGaussianBlurBlockedLayerIDs.contains(layerID)
-    }
-
-    func debugPlacementSummary(for layer: SceneRenderDescriptor.Layer) -> String {
-        SceneLayerPlacementSummary.make(
-            layer: layer,
-            worldFrame: worldFramesByLayerID[layer.id] ?? SceneMatrix.identity()
-        )
     }
 
     func renderFrame(
@@ -283,6 +254,37 @@ struct SceneMetalRenderer {
                 )
             case "composition", "project", "fullscreen":
                 break
+            case "quad":
+                guard let plan = authoredEffectChain(for: layer.id)?.singleStage?.lightShafts,
+                      let resources = effectTextures.lightShaftsEffects[
+                          plan.effectKey.descriptorID
+                      ],
+                      let pipeline = pipelineRepository.lightShafts(),
+                      let encoder = mainPass.encoder() else {
+                    continue
+                }
+                let model = particleModelMatrix(
+                    for: layer,
+                    parallaxMouseNormalized: parallaxMouseNormalized,
+                    configuration: parallaxConfiguration
+                )
+                let encoded = pipeline.draw(
+                    plan: plan,
+                    resources: resources,
+                    mvp: cameraFrame.orthographicViewProjection * model,
+                    time: time,
+                    alpha: SceneDynamicLayerValues.alpha(
+                        layerID: layer.id,
+                        authoredValue: layer.alpha,
+                        snapshot: frameContext.dynamicValues
+                    ),
+                    encoder: encoder
+                )
+                authoredEffectTelemetry.record(
+                    layerID: layer.id,
+                    encoded: encoded,
+                    on: commandBuffer
+                )
             case "particle":
                 guard let particlePipeline,
                       let layerBatches = particleBatchesByID[layer.id],
@@ -395,5 +397,4 @@ struct SceneMetalRenderer {
             }
         }
     }
-
 }

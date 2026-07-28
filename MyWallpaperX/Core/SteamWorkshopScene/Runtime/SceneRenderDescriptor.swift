@@ -238,6 +238,9 @@ struct SceneRenderDescriptorBuilder {
         if object.text != nil {
             return "text"
         }
+        if object.shape == "quad" {
+            return "quad"
+        }
         return "container"
     }
 

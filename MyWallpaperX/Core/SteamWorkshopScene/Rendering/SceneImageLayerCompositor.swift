@@ -280,7 +280,7 @@ struct SceneImageLayerCompositor {
                         )
                     case .foliageSway, .waterRipple, .xRay, .blend, .tint, .transform,
                          .pulse, .godrays, .spin,
-                         .proceduralNoise, .filmGrain,
+                         .proceduralNoise, .filmGrain, .lightShafts,
                          .colorKey, .workshopShiftHue, .workshopAudioBars, .workshopGradient,
                          .workshopAudioHueShift, .authoredShader:
                         return nil

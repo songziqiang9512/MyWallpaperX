@@ -147,6 +147,7 @@ struct SceneWorkshopAudioHueShiftExecutionPlan: Sendable {}
 struct SceneSpinExecutionPlan: Sendable {}
 struct SceneProceduralNoiseExecutionPlan: Sendable {}
 struct SceneFilmGrainExecutionPlan: Sendable {}
+struct SceneLightShaftsExecutionPlan: Sendable {}
 struct SceneAuthoredShaderExecutionPlan: Sendable {
     let offscreenSize: CGSize?
 
@@ -281,6 +282,17 @@ enum SceneAuthoredFilmGrainPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneFilmGrainExecutionPlan? {
+        nil
+    }
+}
+
+enum SceneAuthoredLightShaftsPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneLightShaftsExecutionPlan? {
         nil
     }
 }
@@ -1034,6 +1046,7 @@ enum Harness {
             case .spin: backend = "spin"
             case .proceduralNoise: backend = "proceduralNoise"
             case .filmGrain: backend = "filmGrain"
+            case .lightShafts: backend = "lightShafts"
             case .shake: backend = "shake"
             case .waterFlow: backend = "waterFlow"
             case .waterWaves: backend = "waterWaves"

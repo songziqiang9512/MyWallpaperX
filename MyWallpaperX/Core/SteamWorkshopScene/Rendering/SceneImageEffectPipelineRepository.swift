@@ -47,6 +47,7 @@ final class SceneImageEffectPipelineRepository {
     private let spinSlot: ScenePipelineSlot<SceneSpinPipeline>
     private let proceduralNoiseSlot: ScenePipelineSlot<SceneProceduralNoisePipeline>
     private let filmGrainSlot: ScenePipelineSlot<SceneFilmGrainPipeline>
+    private let lightShaftsSlot: ScenePipelineSlot<SceneLightShaftsPipeline>
     private let shakeSlot: ScenePipelineSlot<SceneShakePipeline>
     private let waterFlowSlot: ScenePipelineSlot<SceneWaterFlowPipeline>
     private let waterWavesSlot: ScenePipelineSlot<SceneWaterWavesPipeline>
@@ -76,6 +77,7 @@ final class SceneImageEffectPipelineRepository {
         spinSlot = .init { SceneSpinPipeline(device: device) }
         proceduralNoiseSlot = .init { SceneProceduralNoisePipeline(device: device) }
         filmGrainSlot = .init { SceneFilmGrainPipeline(device: device) }
+        lightShaftsSlot = .init { SceneLightShaftsPipeline(device: device) }
         shakeSlot = .init { SceneShakePipeline(device: device) }
         waterFlowSlot = .init { SceneWaterFlowPipeline(device: device) }
         waterWavesSlot = .init { SceneWaterWavesPipeline(device: device) }
@@ -110,6 +112,7 @@ final class SceneImageEffectPipelineRepository {
         proceduralNoiseSlot.resolve()
     }
     func filmGrain() -> SceneFilmGrainPipeline? { filmGrainSlot.resolve() }
+    func lightShafts() -> SceneLightShaftsPipeline? { lightShaftsSlot.resolve() }
     func shake() -> SceneShakePipeline? { shakeSlot.resolve() }
     func waterFlow() -> SceneWaterFlowPipeline? { waterFlowSlot.resolve() }
     func waterWaves() -> SceneWaterWavesPipeline? { waterWavesSlot.resolve() }

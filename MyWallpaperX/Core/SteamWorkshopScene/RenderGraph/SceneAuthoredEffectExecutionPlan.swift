@@ -115,6 +115,7 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
             "authoredEffectGraphSpinCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.spinCount })",
             "authoredEffectGraphProceduralNoiseCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.proceduralNoiseCount })",
             "authoredEffectGraphFilmGrainCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.filmGrainCount })",
+            "authoredEffectGraphLightShaftsCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.lightShaftsCount })",
             "authoredEffectGraphShakeCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.shakeCount })",
             "authoredEffectGraphWaterFlowCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.waterFlowCount })",
             "authoredEffectGraphWaterWavesCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.waterWavesCount })",
