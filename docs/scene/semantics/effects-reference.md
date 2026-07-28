@@ -4,7 +4,7 @@
 >
 > 覆盖：官方 sitemap 中 45 个用户可见 Scene effect 页面，以及 1 个 asset 内部 `_empty` 占位。
 >
-> 实现基线、当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)；本表不复制基线 commit，文内 commit 号是各能力的历史落地提交。
+> 实现基线、当前完整快照门、历史 fixed13、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)；本表不复制基线 commit，文内 commit 号是各能力的历史落地提交。
 >
 > 用法：先按 effect ID 查作者启用、输入、pass/RT，再决定 parser、renderer 和测试，不按名称直接套一个视觉近似。
 
@@ -151,4 +151,4 @@ knownDeviation
 
 `supportLevel` 至少区分：`recognized`、`graph-built`、`executed-degraded`、`semantics-verified`，不能把“识别名称”统计成效果已支持。
 
-当前 MyWallpaperX v22 继承 EffectDefinition、authored graph/canonical SHA、provider metadata、property binding program 和 loss-preserving ShaderContract；严格匹配的 precise Blur、stock standard Blur、stock Local Contrast、exact Workshop Shadow、stock Opacity、Shake、Water Waves、Water Flow、Foliage Sway、Water Ripple 与 X-Ray 共十一类 backend 已进入 GPU。所有 strict profile 均核对 exact graph/material/shader/resource 合同；部分合法 live 值从 per-surface snapshot 消费，动态形变只消费各自受控参数与 scene time 或 pointer。fingerprint 只用于准入，实际仍执行项目内手写 MSL。当前 45 样本门为 91 stage、15 条 chain、Water Flow 10、Water Waves 11、Shake 24、0 failed；固定 13 样本门保护 24 stage、2 条 chain、Water Flow 1、Water Waves 6、Shake 1、Opacity 4、Workshop Shadow 1、failed 0。这些子集仍只能记为 `executed-degraded`。X-Ray 后接 unsupported Effect 时只允许显式受限前缀；MASK1、dynamic variants、Workshop variants、generic shader 与 Windows pixel parity 均未完成。
+MyWallpaperX 当前逐项执行等级、exact profile、自动门和运行证据统一见 [官方 Effect 执行覆盖表](effect-execution-coverage.md) 与 [运行证据索引](runtime-evidence-index.md)，本语义参考不复制易漂移的 backend/样本聚合数字。当前 Blend 只实现 exact 单纹理有界 profile，Transform 只实现 identity-only exact profile；两者以及其他 strict backend 都必须先匹配完整 graph/material/shader/resource 合同，fingerprint 只用于准入，实际执行项目自有实现。这里列出的完整官方 Blend/Transform 语义不能反向缩窄，也不能因该有界子集而表述为 dynamic Transform、通用 Blend、generic shader 或 Windows pixel parity 已完成。

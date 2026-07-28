@@ -2,9 +2,9 @@
 
 > 状态：现役专项能力表
 >
-> 最近核对：2026-07-24
+> 最近核对：2026-07-28
 >
-> 实现基线、当前两层运行门、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)；本表不复制基线 commit，文内 commit 号是各能力的历史落地提交。
+> 实现基线、当前完整快照门、历史 fixed13、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)；本表不复制基线 commit，文内 commit 号是各能力的历史落地提交。
 
 本文把 45 个官方用户 Effect 逐项映射到 MyWallpaperX 当前执行级别和公共依赖。作者语义、输入槽和 pass/RT 结构见 [Effects 语义全集](effects-reference.md)，Graph/Shader 原子能力见 [Render Graph 与 Shader 覆盖表](render-graph-shader-coverage.md)，依赖 ID 见 [公共能力依赖图](capability-dependency-map.md)。
 
@@ -61,7 +61,7 @@
 
 | Effect / asset ID | 等级 | 当前执行通道与边界 | 公共依赖 | 当前证据 | 下一验收门 |
 |---|---|---|---|---|---|
-| Blend / `blend` | `L3` | `provider-profile`：单 image dependency、有限 blend mode、静态 consumer | [D1](capability-dependency-map.md#d1) [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-PROVIDER](runtime-evidence-index.md#e-provider) | six slots、holes、per-slot UV/amount、mask/write-alpha |
+| Blend / `blend` | `L3` | `strict-graph-profile`：exact 单 pass/单纹理 legacy profile，完整匹配 definition/material/raw shader 指纹、无 authored RT、slot 1、`BLENDMODE=0`、`NUMBLENDTEXTURES=1`、`TRANSFORMUV=0`、`TRANSFORMREPEAT=0`、`WRITEALPHA=0`、`OPACITYMASK=0`、中性 alpha/angle/offset/scale 与有限 multiply；asset texture 可按作者声明由 property texture fallback 覆盖。旧 dependency provider blend 是独立路径，不作为此 Effect 的证据 | [D1](capability-dependency-map.md#d1) [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-BLEND-TRANSFORM](runtime-evidence-index.md#e-effect-blend-transform) [E-EFFECT-CHAIN](runtime-evidence-index.md#e-effect-chain) | 其他 blend mode、T2-T6、多纹理、UV transform/repeat、opacity mask、write alpha、动态 shader 值与 Windows golden |
 | Blend Gradient / `blendgradient` | `L1` | `IR-only`；Workshop `gradient_color` profile 不是此 Effect | [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | blend/gradient/opacity 三输入、edge glow、write-alpha |
 | Chromatic Aberration / `chromaticaberration` | `L3` | `inline-profile`：手写径向通道偏移子集 | [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-INLINE](runtime-evidence-index.md#e-effect-inline) | directional/radial/barrel/expansion、mask/aspect variants |
 | Clouds / `clouds` | `L1` | `IR-only`；不冒充粒子 | [D2](capability-dependency-map.md#d2) [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | albedo/mask、shading/blend/write-alpha/Perspective |
@@ -86,7 +86,7 @@
 | Perspective / `perspective` | `L3` | `inline-profile`：仅严格 Perspective -> Opacity 四边映射 | [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-INLINE](runtime-evidence-index.md#e-effect-inline) | standalone effect、clip、invalid quad、all combos/pixel gate |
 | Refraction / `refraction` | `L1` | raw `compose` 可保留并 fail-closed；无 scene background executor | [D1](capability-dependency-map.md#d1) [D5](capability-dependency-map.md#d5) [D6](capability-dependency-map.md#d6) [D8](capability-dependency-map.md#d8) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | background/source/final identity、normal/mask、ordering |
 | Skew / `skew` | `L1` | `IR-only` | [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | Vertex/UV、four edges、repeat/clamp variants |
-| Transform / `transform` | `L1` | `IR-only`；object transform 不是此 Effect | [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | effect-local center/offset/rotation/scale、clamp/repeat |
+| Transform / `transform` | `L3` | `strict-graph-profile`：identity-only exact stock 2.8.42 profile；完整匹配 definition/material/raw vertex+fragment 指纹、单 material、无 authored RT、`MODE=1`、`CLAMP=1`、`angle=0`、`offset=(0,0)`、`scale=(1,1)`，只复用 framebuffer capture/copy，不执行 transform 数学。206 的两个 binding scale 只有 `[1,1]` fallback 且无可执行 user/timeline binding，按静态 identity fallback 并留 `unsupported-dynamic-binding-static-fallback`，不代表 dynamic scale/live update | [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-BLEND-TRANSFORM](runtime-evidence-index.md#e-effect-blend-transform) [E-EFFECT-CHAIN](runtime-evidence-index.md#e-effect-chain) | 非 identity center/offset/rotation/scale、user/timeline binding、Vertex/UV variants、repeat/`CLAMP=0`、未知 hash 与 Windows golden |
 
 ## 7. Enhancement
 
@@ -106,9 +106,9 @@
 | Workshop layer Bloom approximation | `L3` | 受限 threshold/blur/composite；不是官方 Scene-level Bloom/HDR，也不是 45 个 Effect 专页之一 |
 | Workshop `3488490208/shadow_____________` | `L3` | exact single-pass strict profile；只接受完整 definition/material/ShaderContract fingerprint、`MASK=0`、`BLENDMODE=0`、normal/nocull/depth disabled 与静态常量。不是官方 45 项 Effect、generic Shadow 或 authored shader；mode 0 尚无官方 Windows 像素 oracle |
 
-45 项汇总：`L1=23`、`L2=4`、`L3=18`、`L4=0`。这个统计只反映当前表中最小可声明级别，不是样本命中率、视觉相似度或已知语义比例。
+45 项汇总：`L1=21`、`L2=4`、`L3=20`、`L4=0`。这个统计只反映当前表中最小可声明级别，不是样本命中率、视觉相似度或已知语义比例。
 
-`b541867` 建立 strict profile 之间有序、全有或全无的调度；其 8 stage/0 real chain 报告是 Shadow 前的历史负门。后续 Workshop Shadow、stock Opacity、legacy Blur Precise compose、Shake、Water、Foliage、X-Ray、Tint、Pulse 与多指纹白名单逐步扩充受限 `L3` profile。`0ff96e0` 新增 God Rays 的 stock Radial 单指纹族，并把混合链纹理预算改为按实际 target extent 折算；当前完整门为 154 stage、21 chain、Godrays 2、Water Flow 10、Water Waves 19、Shake 27、0 failed，固定门为 109 stage、14 chain、Godrays 0、Water Flow 5、Water Waves 11、Shake 23、0 failed。最新报告、App 身份与矩阵哈希统一见 [运行证据索引](runtime-evidence-index.md)。这些聚合只证明固定 profile 的当前样本门；generic authored shader、未知/legacy God Rays、Directional/COPYBG、SceneScript/mixed unsupported stage 与 Windows visual golden 仍未闭合。
+`b541867` 建立 strict profile 之间有序、全有或全无的调度；后续 Workshop Shadow、stock Opacity、legacy Blur Precise compose、Shake、Water、Foliage、X-Ray、Tint、Pulse、God Rays、Blend 与 identity-only Transform 逐步扩充受限 `L3` profile。当前完整门为 192 stage、30 chain、Blend 2、Transform 2、static fallback 2、graph failed 0；最近 fixed13 是旧实现基线，只保留为历史分层证据。最新报告、App 身份与矩阵哈希统一见 [运行证据索引](runtime-evidence-index.md)。这些聚合只证明表内 bounded profile 的当前样本合同；generic authored shader、非 identity Transform、其他 Blend variants、SceneScript/mixed unsupported stage 与 Windows visual golden 仍未闭合。
 
 ## 9. 开发顺序
 
