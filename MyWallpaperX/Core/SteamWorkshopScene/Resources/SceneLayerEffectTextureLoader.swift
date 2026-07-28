@@ -13,6 +13,8 @@ enum SceneLayerEffectTextureLoader {
         lightShaftsEffectIDs: Set<String> = [],
         waterFlowEffectIDs: Set<String> = [],
         waterWavesEffectIDs: Set<String> = [],
+        foliageSwayEffectIDs: Set<String> = [],
+        waterRippleEffectIDs: Set<String> = [],
         cursorRippleEffectIDs: Set<String> = [],
         tintEffectIDs: Set<String> = [],
         godraysEffectIDs: Set<String> = [],
@@ -113,6 +115,20 @@ enum SceneLayerEffectTextureLoader {
             loader: loader,
             device: device
         )
+        let foliageSway = SceneFoliageSwayEffectTextureLoader.load(
+            for: layer,
+            effectIDs: foliageSwayEffectIDs,
+            resolver: resolver,
+            loader: loader,
+            device: device
+        )
+        let waterRipple = SceneWaterRippleEffectTextureLoader.load(
+            for: layer,
+            effectIDs: waterRippleEffectIDs,
+            resolver: resolver,
+            loader: loader,
+            device: device
+        )
         let xRay = SceneXRayEffectTextureLoader.load(
             for: layer,
             resolver: resolver,
@@ -169,6 +185,8 @@ enum SceneLayerEffectTextureLoader {
             foliageMask: foliage.texture,
             foliageUVScale: foliageUVScale,
             waterRippleNormal: normal.texture,
+            foliageSwayEffects: foliageSway.textures,
+            waterRippleEffects: waterRipple.textures,
             blendEffects: blend.textures,
             shakeEffects: shake.textures,
             filmGrainEffects: filmGrain.textures,
@@ -187,6 +205,7 @@ enum SceneLayerEffectTextureLoader {
                 foliageScaleMessage, normal.message, blend.message, shake.message, filmGrain.message,
                 lightShafts.message,
                 waterFlow.message, waterWaves.message, cursorRipple.message,
+                foliageSway.message, waterRipple.message,
                 opacityEffects.message,
                 pulseEffects.message, tintEffects.message, godraysEffects.message,
                 shineEffects.message,

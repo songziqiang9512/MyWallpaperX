@@ -26,6 +26,16 @@ nonisolated enum SceneFoliageSwayRuntimePlanner {
               !SceneEffectMaskSemantics.declaresMask(in: effect) || hasMask else {
             return nil
         }
+        return plan(for: pass)
+    }
+
+    static func plan(
+        for pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor
+    ) -> SceneFoliageSwayPlan? {
+        guard pass.passIndex == 0,
+              combo("MODE", in: pass) ?? 0 == 0 else {
+            return nil
+        }
         let values = pass.constantShaderValues
         return SceneFoliageSwayPlan(
             strength: clamped(value("strength", in: values, fallback: 0.4), 0...1),

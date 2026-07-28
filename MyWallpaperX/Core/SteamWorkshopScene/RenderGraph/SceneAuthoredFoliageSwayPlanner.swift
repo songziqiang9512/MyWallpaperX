@@ -1,4 +1,3 @@
-import CryptoKit
 import Foundation
 
 nonisolated struct SceneFoliageSwayExecutionPlan {
@@ -7,17 +6,11 @@ nonisolated struct SceneFoliageSwayExecutionPlan {
     let renderGraph: SceneAuthoredEffectRenderPlan
     let runtimePlan: SceneFoliageSwayPlan
     let maskTexturePath: String
+    let noiseTexturePath: String
 }
 
 enum SceneAuthoredFoliageSwayPlanner {
     typealias Graph = SceneAuthoredEffectRenderPlan
-
-    private nonisolated struct CanonicalShaderPayload: Encodable {
-        let identity: String
-        let sourceKind: SceneShaderContract.SourceKind
-        let stages: [SceneShaderContract.Stage]
-        let diagnostics: [SceneShaderContract.Diagnostic]
-    }
 
     nonisolated static func plan(
         graph: Graph,
@@ -31,11 +24,7 @@ enum SceneAuthoredFoliageSwayPlanner {
               graph.renderTargets.isEmpty,
               descriptor.layers.filter({ $0.id == graph.layerID }).count == 1,
               let layer = descriptor.layers.first(where: { $0.id == graph.layerID }),
-              layer.contentKind == "image",
-              let runtimePlan = SceneFoliageSwayRuntimePlanner.plan(
-                  for: layer,
-                  hasMask: true
-              ) else {
+              layer.contentKind == "image" else {
             return nil
         }
 
@@ -43,7 +32,7 @@ enum SceneAuthoredFoliageSwayPlanner {
         let node = graph.nodes[0]
         guard normalized(effect.definitionPath) == definitionPath,
               validDefinition(in: descriptor, path: effect.definitionPath),
-              shaderContractMatches(shaderContracts),
+              let profile = SceneFoliageSwayShaderProfile.resolve(shaderContracts),
               effect.nodeIndices == [node.nodeIndex],
               SceneAuthoredEffectInputValidator.accepts(
                   effect.input,
@@ -56,13 +45,20 @@ enum SceneAuthoredFoliageSwayPlanner {
               validMaterialDescriptor(in: descriptor),
               let instance = instancePass(effect: effect, layer: layer),
               let maskPath = SceneEffectMaskSemantics.maskPath(in: instance),
-              validInstance(instance, maskPath: maskPath),
+              let noisePath = noisePath(in: instance, profile: profile),
+              validInstance(instance, maskPath: maskPath, profile: profile),
+              let runtimePlan = SceneFoliageSwayRuntimePlanner.plan(for: instance),
               let resolved = SceneAuthoredMaterialResolver.resolve(
                   node: node,
                   graph: graph,
                   descriptor: descriptor
               ).node,
-              validResolvedMaterial(resolved, maskPath: maskPath) else {
+              validResolvedMaterial(
+                  resolved,
+                  maskPath: maskPath,
+                  noisePath: noisePath,
+                  profile: profile
+              ) else {
             return nil
         }
 
@@ -71,7 +67,8 @@ enum SceneAuthoredFoliageSwayPlanner {
             effectKey: effect.key,
             renderGraph: graph,
             runtimePlan: runtimePlan,
-            maskTexturePath: maskPath
+            maskTexturePath: maskPath,
+            noiseTexturePath: noisePath
         )
     }
 
@@ -173,42 +170,80 @@ enum SceneAuthoredFoliageSwayPlanner {
 
     private nonisolated static func validInstance(
         _ pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor,
-        maskPath: String
+        maskPath: String,
+        profile: SceneFoliageSwayShaderProfile
     ) -> Bool {
-        pass.textureSlots == [nil, maskPath, nil]
-            && pass.texturePaths == [maskPath]
+        let expectedSlots: [String?] = profile.expectsExplicitNoise
+            ? [nil, maskPath, noiseAssetPath]
+            : [nil, maskPath, nil]
+        let expectedPaths = profile.expectsExplicitNoise
+            ? [maskPath, noiseAssetPath]
+            : [maskPath]
+        return pass.textureSlots == expectedSlots
+            && pass.texturePaths == expectedPaths
             && pass.combos.allSatisfy {
                 $0.key.uppercased() == "MODE" && $0.value == 0
             }
-            && Set(pass.constantShaderValues.keys.map { $0.lowercased() }) == Set([
-                "phase", "power", "ratio", "scale", "scrolldirection",
-                "speeduv", "strength",
-            ])
+            && validConstantKeys(pass.constantShaderValues.keys, profile: profile)
+            && pass.constantShaderValues.values.allSatisfy {
+                $0.userBinding == nil
+                    && $0.valueKind.lowercased() == "number"
+                    && $0.components?.count == 1
+                    && $0.components?.first?.isFinite == true
+                    && $0.timeline == nil
+                    && $0.timelineDiagnostics.isEmpty
+            }
     }
 
     private nonisolated static func validResolvedMaterial(
         _ material: SceneResolvedMaterialNode,
-        maskPath: String
+        maskPath: String,
+        noisePath: String,
+        profile: SceneFoliageSwayShaderProfile
     ) -> Bool {
         guard normalized(material.shaderPath) == shaderIdentity,
               material.textureSlots.count == 8,
               assetPath(material.textureSlots[1]) == maskPath,
               material.textureSlots.enumerated().allSatisfy({
-                  $0.offset == 1 || $0.element == nil
+                  $0.offset == 1
+                      || (profile.expectsExplicitNoise
+                          && $0.offset == 2
+                          && assetPath($0.element) == noisePath)
+                      || $0.element == nil
               }),
               material.combos.allSatisfy({
                   $0.key.uppercased() == "MODE" && $0.value == 0
               }),
-              Set(material.constants.keys.map { $0.lowercased() }) == Set([
-                  "phase", "power", "ratio", "scale", "scrolldirection",
-                  "speeduv", "strength",
-              ]) else {
+              validConstantKeys(material.constants.keys, profile: profile) else {
             return false
         }
         return material.renderState.blending?.lowercased() == "normal"
             && material.renderState.depthTest?.lowercased() == "disabled"
             && material.renderState.depthWrite?.lowercased() == "disabled"
             && material.renderState.cullMode?.lowercased() == "nocull"
+    }
+
+    private nonisolated static func noisePath(
+        in pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor,
+        profile: SceneFoliageSwayShaderProfile
+    ) -> String? {
+        guard profile.expectsExplicitNoise else { return noiseAssetPath }
+        guard pass.textureSlots.indices.contains(2),
+              let path = pass.textureSlots[2],
+              normalized(path) == noiseAssetPath else {
+            return nil
+        }
+        return path
+    }
+
+    private nonisolated static func validConstantKeys(
+        _ keys: some Collection<String>,
+        profile: SceneFoliageSwayShaderProfile
+    ) -> Bool {
+        let actual = Set(keys.map { $0.lowercased() })
+        return profile.acceptsSparseConstants
+            ? actual.isSubset(of: constantKeys)
+            : actual == constantKeys
     }
 
     private nonisolated static func assetPath(
@@ -221,43 +256,6 @@ enum SceneAuthoredFoliageSwayPlanner {
         return path
     }
 
-    private nonisolated static func shaderContractMatches(
-        _ contracts: [SceneShaderContract]
-    ) -> Bool {
-        let matches = contracts.filter { normalized($0.identity) == shaderIdentity }
-        guard matches.count == 1, let contract = matches.first,
-              contract.sourceKind == .authoredSource,
-              contract.diagnostics.isEmpty,
-              contract.canonicalSHA256 == shaderCanonicalSHA256,
-              canonicalHash(contract) == shaderCanonicalSHA256,
-              contract.stages.count == 2 else {
-            return false
-        }
-        let expected: [(SceneShaderContract.StageKind, String, String)] = [
-            (.vertex, vertexPath, vertexSHA256),
-            (.fragment, fragmentPath, fragmentSHA256),
-        ]
-        return zip(contract.stages, expected).allSatisfy { stage, fingerprint in
-            stage.kind == fingerprint.0
-                && normalized(stage.relativePath) == fingerprint.1
-                && stage.rawSHA256 == fingerprint.2
-                && sha256(Data(stage.source.utf8)) == fingerprint.2
-        }
-    }
-
-    private nonisolated static func canonicalHash(_ contract: SceneShaderContract) -> String {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        let payload = CanonicalShaderPayload(
-            identity: contract.identity,
-            sourceKind: contract.sourceKind,
-            stages: contract.stages,
-            diagnostics: contract.diagnostics
-        )
-        guard let data = try? encoder.encode(payload) else { return "" }
-        return sha256(data)
-    }
-
     private nonisolated static func effectOutput(
         _ effect: Graph.EffectKey
     ) -> Graph.TextureIdentity {
@@ -266,10 +264,6 @@ enum SceneAuthoredFoliageSwayPlanner {
 
     private nonisolated static func normalized(_ value: String) -> String {
         value.replacingOccurrences(of: "\\", with: "/").lowercased()
-    }
-
-    private nonisolated static func sha256(_ data: Data) -> String {
-        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
     private nonisolated static let definitionPath = "effects/foliagesway/effect.json"
@@ -283,12 +277,9 @@ enum SceneAuthoredFoliageSwayPlanner {
         "shaders/effects/foliagesway.frag",
         "shaders/effects/foliagesway.vert",
     ]
-    private nonisolated static let shaderCanonicalSHA256 =
-        "1f5c11c92bb715d86fd0b57f59c4fb5b263596a2bbeb158276336b7cc86544d6"
-    private nonisolated static let vertexPath = "shaders/effects/foliagesway.vert"
-    private nonisolated static let vertexSHA256 =
-        "4ee7daa1e00a02feed697b59950218444c82f9b82cc7418f72fcdee6f4545c49"
-    private nonisolated static let fragmentPath = "shaders/effects/foliagesway.frag"
-    private nonisolated static let fragmentSHA256 =
-        "02954542ab458f828eeb0d9da8201f02bf9c180effecacb81e86402704040f4c"
+    nonisolated static let noiseAssetPath = "util/noise"
+    private nonisolated static let constantKeys = Set([
+        "phase", "power", "ratio", "scale", "scrolldirection",
+        "speeduv", "strength",
+    ])
 }

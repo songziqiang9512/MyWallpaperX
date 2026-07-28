@@ -1452,6 +1452,47 @@ utility layer 763: skippedHidden kind=composition
             benchmark.authored_effect_graph_shine_omitted_effects("")
         )
 
+    def test_foliage_sway_and_water_ripple_counts_are_exact_gates(self) -> None:
+        preview = (
+            "authoredEffectGraphFoliageSwayCount: 3\n"
+            "authoredEffectGraphWaterRippleCount: 2\n"
+        )
+        self.assertEqual(
+            benchmark.authored_effect_graph_foliage_sway_count(preview), 3
+        )
+        self.assertEqual(
+            benchmark.authored_effect_graph_water_ripple_count(preview), 2
+        )
+        self.assertEqual(
+            benchmark.authored_effect_graph_failures(
+                {
+                    "expected_authored_effect_graph_foliage_sway_count": 3,
+                    "expected_authored_effect_graph_water_ripple_count": 2,
+                },
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                foliage_sway_count=3,
+                water_ripple_count=2,
+            ),
+            [],
+        )
+        failures = benchmark.authored_effect_graph_failures(
+            {
+                "expected_authored_effect_graph_foliage_sway_count": 0,
+                "expected_authored_effect_graph_water_ripple_count": 0,
+            },
+            {"succeeded_layer_ids": [], "failed_layer_ids": []},
+            [],
+            None,
+            foliage_sway_count=3,
+            water_ripple_count=2,
+        )
+        self.assertIn("authored effect graph Foliage Sway count mismatch", failures)
+        self.assertIn("authored effect graph Water Ripple count mismatch", failures)
+        self.assertIsNone(benchmark.authored_effect_graph_foliage_sway_count(""))
+        self.assertIsNone(benchmark.authored_effect_graph_water_ripple_count(""))
+
     def test_authored_clipping_mask_count_is_an_exact_gate(self) -> None:
         preview = "authoredEffectGraphClippingMaskCount: 7\n"
         count = benchmark.authored_effect_graph_clipping_mask_count(preview)

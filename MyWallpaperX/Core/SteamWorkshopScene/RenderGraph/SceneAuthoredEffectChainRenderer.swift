@@ -270,23 +270,24 @@ enum SceneAuthoredEffectChainRenderer {
                 commandBuffer: commandBuffer)
         case .foliageSway(let foliage):
             guard targets.plan.logicalTargets.isEmpty,
-                  let mask = masks.foliage else {
+                  let resources = masks.foliageSwayEffects[foliage.effectKey.descriptorID],
+                  let foliageSwayPipeline = pipelines.foliageSway else {
                 return nil
             }
             return SceneFoliageSwayRenderer.render(
                 plan: foliage,
                 sourceTexture: sourceTexture,
-                maskTexture: mask,
-                maskUVScale: masks.foliageUVScale,
+                resources: resources,
                 target: targets.outputTexture,
                 time: time,
-                sourcePipeline: pipeline,
+                pipeline: foliageSwayPipeline,
                 commandBuffer: commandBuffer
             )
         case .waterRipple(let ripple):
             guard targets.plan.logicalTargets.isEmpty,
-                  let mask = masks.water,
-                  let normal = masks.waterRippleNormal,
+                  let resources = masks.waterRippleEffects[ripple.effectKey.descriptorID], resources.matches(ripple),
+                  let mask = resources.mask,
+                  let normal = resources.normal,
                   let waterRipplePipeline = pipelines.waterRipple,
                   waterRipplePipeline.encode(
                       source: sourceTexture,
@@ -295,7 +296,7 @@ enum SceneAuthoredEffectChainRenderer {
                       plan: ripple.runtimePlan,
                       time: time,
                       maskTexture: mask,
-                      maskUVScale: masks.waterUVScale,
+                      maskUVScale: resources.maskUVScale,
                       commandBuffer: commandBuffer
                   ) else {
                 return nil

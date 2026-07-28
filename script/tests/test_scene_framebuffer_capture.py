@@ -656,17 +656,22 @@ enum SceneCursorRippleRenderer {
     }
 }
 
-struct SceneFoliageSwayExecutionPlan {}
+struct SceneFoliageSwayExecutionPlan {
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+}
+struct SceneFoliageSwayEffectTextures {}
+struct SceneFoliageSwayPipeline {
+    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
+}
 
 enum SceneFoliageSwayRenderer {
     static func render(
         plan: SceneFoliageSwayExecutionPlan,
         sourceTexture: MTLTexture,
-        maskTexture: MTLTexture,
-        maskUVScale: SIMD2<Float>,
+        resources: SceneFoliageSwayEffectTextures,
         target: MTLTexture,
         time: Float,
-        sourcePipeline: SceneImageLayerPipeline,
+        pipeline: SceneFoliageSwayPipeline,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         nil
@@ -674,7 +679,15 @@ enum SceneFoliageSwayRenderer {
 }
 
 struct SceneWaterRippleExecutionPlan {
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
     let runtimePlan: SceneWaterRippleNormalPlan
+}
+struct SceneWaterRippleEffectTextures {
+    let mask: MTLTexture?
+    let maskUVScale: SIMD2<Float>
+    let normal: MTLTexture?
+
+    func matches(_ plan: SceneWaterRippleExecutionPlan) -> Bool { true }
 }
 
 struct SceneTintShaderProfile {
@@ -2681,6 +2694,8 @@ enum Harness {
                         foliage: nil,
                         foliageUVScale: SIMD2<Float>(repeating: 1),
                         waterRippleNormal: nil,
+                        foliageSwayEffects: [:],
+                        waterRippleEffects: [:],
                         blendEffects: [:],
                         shakeEffects: [:],
                         filmGrainEffects: [:],
@@ -3071,6 +3086,8 @@ enum Harness {
             foliage: nil,
             foliageUVScale: SIMD2(repeating: 1),
             waterRippleNormal: nil,
+            foliageSwayEffects: [:],
+            waterRippleEffects: [:],
             blendEffects: [:],
             shakeEffects: [:],
             filmGrainEffects: [:],
@@ -3725,6 +3742,8 @@ enum Harness {
             foliage: nil,
             foliageUVScale: SIMD2(repeating: 1),
             waterRippleNormal: nil,
+            foliageSwayEffects: [:],
+            waterRippleEffects: [:],
             blendEffects: blendEffects,
             shakeEffects: [:],
             filmGrainEffects: [:],
