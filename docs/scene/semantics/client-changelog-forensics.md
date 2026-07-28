@@ -22,7 +22,7 @@ python3 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Downl
 2. **官方会主动从 JSON 中删除等于默认值的字段**（REV 4148、REV 4366）。这意味着样本里字段缺席**不等于作者未声明**，parser 必须持有正确的默认值表；把「缺失」一律当「该能力关闭」会系统性偏离官方渲染结果。
 3. **官方文字渲染是 MSDF（多通道有向距离场），不是位图栅格**（REV 4319-4367 共 19 条）。outline、drop shadow、blur 三类 text effect 都建立在 MSDF 之上。MyWallpaperX 当前的 CoreText 位图路径与官方是两套体系，这解释了字体保真为何难以对齐，也说明 outline/shadow 的 `L1` 不是「少写几行绘制代码」。
 4. **shader pass / FBO / binding 的条件表达式共有四个比较运算符**：REV 4192 先落地 `ge`，REV 4193 补齐 `gt`、`le`、`lt`。项目 Graph 里 condition/function 一直只作为 blocker 存在，现在有了完整运算符集。
-5. **REFRACT 粒子的官方语义是用 framebuffer 乘法降低粒子不透明度，不是做扭曲**（REV 4256）。MyWallpaperX 当前对 REFRACT 材质整层 fail closed，方向正确（画成白块是错的），但目标形态不是「折射扭曲 pass」而是 framebuffer 乘法。
+5. **REV 4256 不能被解读为「REFRACT 只降低不透明度、不是扭曲」**。它只说明：某些 profile 曾借 refraction feature 降低粒子不透明度而非制造位移，因此官方重新启用了 particle shader 的 framebuffer multiplication；同域 REV 4149/4252 及当前官方 Particle General 文档仍把 refraction 与 normal map/background distortion 关联。`e698c18` 因而实现 strict normal + framebuffer displacement 子集，同时保留未知 profile fail closed；精确乘法、位移和历史兼容分支仍需 Windows golden。
 6. **粒子系统在 REV 4102-4112 被整体重构**，且 REV 4103 明确「changed new child config structure」。child 配置结构变过，跨版本样本可能带两种形态。
 7. **static child 初始化必须计入 parent object transform**（REV 4120）。这条直接落在项目刚闭合的「有限 static origin translation」批次边界上。
 8. 官方存在**按作品新旧分叉的行为开关**：REV 3967 的粒子颜色覆盖修复注明 "Only enabled for new wallpapers"，REV 3987 为「依赖旧 build 错误 eye z pos 的老作品」保留兼容。这与 [zcompat 取证](zcompat-backward-compatibility-forensics.md) 的 `maximumprojectid` 机制是同一类设计。
@@ -321,7 +321,7 @@ python3 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Downl
 | 4140 | Added lighting support for particles. / Added two new basic particle normal maps for lighting. | 粒子有光照路径 |
 | 4252 | Hide particle normal map texture without lighting/refraction. | **normal map 槽只在 lighting 或 refraction 开启时有意义** |
 | 4150 / 4171 | Added cutout options to particle shaders. / Improved particle cutout shader option. | 粒子 shader 有 cutout 选项 |
-| 4256 | Enabled shader framebuffer multiplication in particles again when refraction feature was used to reduce particle opacity instead of distortion. | **REFRACT 的官方语义** |
+| 4256 | Enabled shader framebuffer multiplication in particles again when refraction feature was used to reduce particle opacity instead of distortion. | 只证明“借 refraction feature 降 opacity”的 profile 需要 framebuffer multiplication；**不能反推全部 REFRACT 都没有 distortion** |
 | 3956 | Disabled color override on fireworks refract particle to fix background tinting. | refract 粒子与颜色覆盖冲突 |
 | 4152 | Changed example 3D particles to use translucent but not additive blending. | — |
 | 4206 | Added hardware compression padding to texture sheets. | sprite sheet 有硬件压缩 padding |

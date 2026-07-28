@@ -2,11 +2,11 @@
 
 > 状态：现役专题能力表
 >
-> 最近核对：2026-07-27
+> 最近核对：2026-07-29
 >
 > 口径来源：[官方页面目录](official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[资料来源与证据索引](source-index.md)
-> 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，并执行非音频 Turbulent Velocity Random、严格的 child 层级 ≤ 2（depth-one static/default-static/`eventspawn` / natural-`eventdeath` / `eventfollow`，加 depth-two 仅 event 触发的 nested child）、有限 static origin translation，以及持续/混合/duration child emitter；它仍不是通用 Particle System，尤其没有 Layer Image、static angles/scale、event child transform、collision/delete event、动态 Control Point、World Space、Rope、Audio Response（声明已保真解析，执行缺公式证据）和完整 Particle Material。
-> 粒子落地提交分别是 eventspawn/death `f4173ea`/`7d53c10`、eventfollow `928acca`、持续 child/root aggregate budget `2f897bc`、static/default-static `899704b`、有限 static origin `678a052`、strict depth-two nested child/per-depth 预算 `b86db59` 与非音频 turbulent velocity `4a17ee6`。本专项表不复制全局实现基线；固定 13 样本门 particle 为 `66/76`，完整 45 样本门为 `110/131`，当前两层报告、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。仍不是通用 Particle System。
+> 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，并执行非音频 Turbulent Velocity Random、严格的 child 层级 ≤ 2（depth-one static/default-static/`eventspawn` / natural-`eventdeath` / `eventfollow`，加 depth-two 仅 event 触发的 nested child）、有限 static origin translation、持续/混合/duration child emitter，以及严格 `genericparticle` `REFRACT=1` 双纹理背景折射子集；它仍不是通用 Particle System，尤其没有 Layer Image、static angles/scale、event child transform、collision/delete event、动态 Control Point、World Space、Rope、Audio Response（声明已保真解析，执行缺公式证据）、Lighting 和通用 Particle Material。
+> 粒子落地提交分别是 eventspawn/death `f4173ea`/`7d53c10`、eventfollow `928acca`、持续 child/root aggregate budget `2f897bc`、static/default-static `899704b`、有限 static origin `678a052`、strict depth-two nested child/per-depth 预算 `b86db59`、非音频 turbulent velocity `4a17ee6` 与 strict REFRACT `e698c18`。本专项表不复制全局实现基线；当前固定 13 样本门 particle 为 `71/76`，完整 45 样本门为 `120/130`，当前两层报告、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。仍不是通用 Particle System。
 
 本文把官方 Particle 的 General、Emitter、Initializer、Operator、Renderer、Control Point、Children、instance override 与 material 逐项映射到当前实现。它是 [总覆盖台账](coverage-ledger.md) 中 Particle 行的展开表；总表与本文冲突时，以本文更细粒度、更新的代码证据为准。
 
@@ -38,6 +38,8 @@
 | CHILD-LIFE | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleChildLifecycle.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleChildLifecycle.swift) |
 | AST | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleAssetGraph.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleAssetGraph.swift) |
 | GPU | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleMetalPipeline.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleMetalPipeline.swift) |
+| REFR | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleRefractionPlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleRefractionPlan.swift) |
+| SNAP | [MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneFramebufferSnapshot.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneFramebufferSnapshot.swift) |
 | CAM | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleCameraFrame.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleCameraFrame.swift) |
 | TRAIL | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleTrailRenderPlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleTrailRenderPlan.swift) |
 | TEX | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleTextureSource.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleTextureSource.swift) |
@@ -256,17 +258,17 @@
 | M02 `genericparticle` shader family | 官方通用粒子 shader 按 material combo 决定 renderer variant。 | `L3` | [AST] [GPU] [T-AST] [T-GPU] | 仅识别名字并使用自写 Metal 近似；不执行官方 shader/combo。 | combo matrix 和合法 Windows pixel golden。 |
 | M03 Non-generic/custom shader | 非通用 shader 只能在具备等价 executor 时运行，否则应 fail-closed。 | `L1` | [AST] [RUN] [T-AST] | 会诊断 `unsupportedShader`，但含 Sprite 时仍可能进入自有 pipeline，存在误渲染风险。 | runtime 阻断负向门，再逐 shader family 加 executor。 |
 | M04 Albedo / texture slot 0 | 首纹理提供 sprite 的颜色与 alpha。 | `L3` | [AST] [RUN] [GPU] [T-AST] [T-GPU] | 只消费首纹理。 | alpha edge、sampling、颜色空间 Windows 门。 |
-| M05 Additional texture slots | material 可同时使用 normal/mask/noise 等多个纹理槽。 | `L1` | [AST] [T-AST] | `texturePaths` 可保留，asset/runtime 只取 `.first`。 | 8-slot identity、nullable hole、binding precedence 测试。 |
-| M06 Normal map | normal texture 参与 lighting/refraction 的表面方向。 | `L1` | [AST] [GPU] | 路径可能留在 texture list，GPU 只绑定 texture(0)。 | normal slot/combo、切线基和 light pixel 门。 |
+| M05 Additional texture slots | material 可同时使用 normal/mask/noise 等多个纹理槽。 | `L3` | [AST] [REFR] [RUN] [T-AST] [T-RUN] | strict REFRACT 只消费无 hole 的 slot 0 albedo + slot 1 normal；其他 mask/noise、多槽和 user texture input 继续 fail closed。 | 其他已验证 variant 的 8-slot identity、nullable hole、binding precedence 测试。 |
+| M06 Normal map | normal texture 参与 lighting/refraction 的表面方向。 | `L3` | [AST] [REFR] [RUN] [GPU] [T-GPU] [T-RUN] | 只在 strict REFRACT 中按 RG88 luminance-alpha 或 RGBA alpha/green 解码并建立投影切线；Lighting、Rope 与 Windows normal 数值未覆盖。 | Lighting/Rope 独立 profile、切线基和 Windows pixel 门。 |
 | M07 Cutout | 按作者阈值丢弃低 alpha 像素，而不是仅做 translucent blend。 | `L0` | [DEF] [AST] [GPU] | 没有 cutout flag/threshold 或 discard 分支。 | threshold 0/0.5/1 正反 pixel fixture。 |
 | M08 Lighting | 粒子可受 Scene light、normal 与材质参数影响。 | `L0` | [AST] [GPU] | 无 light snapshot、normal/PBR 输入或 lit variant。 | 先接 Scene lighting contract，再做 lit/unlit pixel 门。 |
-| M09 Refraction | 粒子可采样背景并产生折射。 | `L0` | [AST] [GPU] | 无 current framebuffer/background provider；`REFRACT` combo 的材质自 `8bac86e` 起整层 fail closed（`refractionUnsupported`），不再把 blank 颜色纹理画成白色方块。 | background capture、refraction strength 和边界门。 |
+| M09 Refraction | 粒子可采样背景并产生折射。 | `L3` | [AST] [REFR] [SNAP] [RUN] [GPU] [T-AST] [T-GPU] [T-RUN] | `e698c18` 只接受 pass 0、`genericparticle`、`REFRACT=1`、两槽、无 user binding、no-depth/no-cull、translucent/additive 的静态 profile；按作者 batch 顺序捕获此前 framebuffer，消费 amount/overbright 与 normal/albedo animation。全分辨率 BGRA snapshot 上限 64 MiB，超限、未知 combo/state/format、缺槽均 fail closed；这是 clean-room 近似，无 Windows 像素等价。 | Windows 固定背景/法线/amount golden、5K/多 batch 带宽预算、resize/多屏/8K fail-closed 门。 |
 | M10 Overbright/HDR | 作者可让粒子颜色超过 SDR，并参与 bloom/HDR。 | `L0` | [GPU] [SIM] | brightness 可让 CPU color >1，但当前 target/material 没有正式 HDR contract。 | float target、bloom ordering 与 HDR screenshot 门。 |
 | M11 Additive blend | 粒子颜色加到目标上，常用于光、火花。 | `L3` | [AST] [GPU] [T-AST] [T-GPU] [T-RUN] | 自有 blend factor；未与 WE premultiply/alpha 写入核验。 | 重叠 sprite 和非 1 alpha 的 pixel golden。 |
 | M12 Translucent blend | 粒子按 alpha 与目标混合。 | `L3` | [AST] [GPU] [T-AST] [T-GPU] | 自有 premultiplied 路径；官方边缘像素未知。 | 透明边缘、叠层顺序和颜色空间门。 |
 | M13 Other blend modes | 其他作者 blend 必须有明确映射或 fail-closed。 | `L1` | [AST] [T-AST] | 会诊断后回退 translucent，可能产生错误画面。 | 禁止无证据 fallback；每种模式独立 pixel 门。 |
-| M14 Depth test/write/cull | perspective/world 粒子可需要 depth 和 cull render state。 | `L0` | [AST] [GPU] | Particle material adapter 只携带 blending。 | typed render state + depth attachment 正反门。 |
-| M15 Material combos/constants | combo/constant 选择 shader variant 和参数。 | `L0` | [AST] [GPU] | Particle adapter 丢弃 combos/constants。 | 保真 IR、variant key 和参数 buffer fixture。 |
+| M14 Depth test/write/cull | perspective/world 粒子可需要 depth 和 cull render state。 | `L2` | [AST] [REFR] [T-AST] | pass state 已保真进入粒子 adapter，strict REFRACT 只准入 disabled/disabled/nocull；GPU 尚无通用 depth attachment/state consumer。 | typed state + depth attachment 正反门。 |
+| M15 Material combos/constants | combo/constant 选择 shader variant 和参数。 | `L3` | [AST] [REFR] [RUN] [GPU] [T-AST] [T-GPU] [T-RUN] | strict REFRACT 消费 `REFRACT`、零值 `CUTOUT`/`LIGHTING`、静态 `g_Amount`/`g_Overbright`；未知启用 combo、动态/user shader value 失败关闭。 | Lighting/Cutout 等各自 strict variant key 与参数 buffer fixture。 |
 | M16 File-backed TEX/PNG/JPEG | 合法本地 particle texture 可解码并上传 GPU。 | `L3` | [AST] [RUN] [T-AST] [T-RUN] | 格式集合受 SceneTextureLoader 限制；无跨格式视觉 parity。 | TEX variants、color space、损坏资源负向门。 |
 | M17 Built-in texture identity | `particle/...` key 指向 Wallpaper Engine 内置粒子资产。 | `L2` | [TEX] [AST] [STOCK-ASSETS] [STOCK-RESOLVER] [T-AST] [T-RUN] | `SceneStockAssets.bundle` 保留内置粒子资源的官方相对路径；样本本地纹理优先，缺失时直接把 `.tex`/无扩展名引用映射到官方相对路径，不依赖 catalog。bundle 不设目录级 TEX 盘点门；定向 runtime 门加载 `debris1` 为 1024x128 R8 spritesheet 整张纹理。sidecar 仍不进入 runtime，序列帧未逐帧播放，逐资产官方通道/mip/atlas/像素 parity 未证明，因此只到 wired。 | 接通 sidecar metadata 与 spritesheet 序列帧 consumer，补通道、mip、atlas、颜色空间和 Windows pixel 门后再升级。 |
 | M18 Twenty-two generated built-ins | 二十二个高命中 key 可生成确定性替代纹理，形态按官方 `.tex` 解码后的 alpha 场拟合。 | `L3` | [TEX] [BUILTIN] [T-TEX] [T-RUN] | stock bundle 可用时优先直接读取对应 TEX；本 registry 只作为 bundle 缺失时的兼容回退。程序图形不是官方资产。尺寸对齐官方 `imageWidth`/`imageHeight`，非方形 key 不再按方形近似（`drop`/`beam_1` 32×128、`light_shafts_0` 256×512、`light_shafts_6` 128×512、`flare_1` 256×256）。八个静态 key 以本地解码的官方 alpha 为参照做网格拟合，归一化坐标 64×64 采样的引用次数加权 RMSE 为 0.0373：`halo_4` 0.0106、`flare_1` 0.0253、`light_shafts_0` 0.0359、`light_shafts_6` 0.0365、`halo_6` 0.0368、`beam_1` 0.0405、`drop` 0.0477、`star` 0.1118。序列帧 key 仍只生成单帧且为灰度。 | bundle TEX 已具备真实素材，以同路径 TEX 为主门；程序 fallback 保留确定性与安全 alpha 门。 |
@@ -296,7 +298,7 @@
 ## 13. 当前统计与使用规则
 
 - 本台账共覆盖 `171` 个粒子能力项：General 18、Emitter 17、Initializer 18、Operator 29、Renderer 14、Control Point 12、Children 12、Instance Override 16、Material 22、执行/生命周期 13。
-- 等级分布为 `L0 30 / L1 56 / L2 23 / L3 62 / L4 0`。`L3` 主要集中在 Sphere/Box、常见随机 initializer、基础 movement/change/oscillation、Sprite/Sprite Trail、strict static/event child、已测试的静态 override、首纹理和两种 blend。
-- 当前固定矩阵的“可见粒子 66/76”、完整矩阵的“110/131”、`3088601835` 的“19/19”与 `3750813609` 的“7/9”只是 root layer 样本运行门，不是上述 171 项的兼容率；child instance 由专项 runtime 门计证，world-space、depth-three 或其他 fail-closed declaration 也不能计为可播放。
-- 开发批次应优先消除公共断点：复用现有 per-surface typed snapshot 接入动态 Control Point 与 author allow gates，再补 Layer Image、剩余 Children/Event、Collision 和 Rope，最后扩展 audio/material/lighting。逐样本 hardcode、把 unsupported 静默回退成 Sprite/translucent、或把程序纹理称为官方资产，都不允许升级等级。
+- 等级分布为 `L0 27 / L1 54 / L2 24 / L3 66 / L4 0`。`L3` 主要集中在 Sphere/Box、常见随机 initializer、基础 movement/change/oscillation、Sprite/Sprite Trail、strict static/event child、已测试的静态 override、首纹理、两种 blend 和 strict REFRACT 双槽子集。
+- 当前固定矩阵的“可见粒子 71/76”、完整矩阵的“120/130”、`3088601835` 的“19/19”与 `3750813609` 的“7/9”只是 root layer 样本运行门，不是上述 171 项的兼容率；完整门另有 11 个初始 REFRACT root batch，`2131872317` 的 event-death child REFRACT 由延迟 runtime 门计证。world-space、depth-three 或其他 fail-closed declaration 不能计为可播放。
+- 开发批次应优先消除公共断点：复用现有 per-surface typed snapshot 接入动态 Control Point 与 author allow gates，再补 Layer Image、剩余 Children/Event、Collision、World Space 和 Rope，最后扩展 audio/material/lighting。逐样本 hardcode、把 unsupported 静默回退成 Sprite/translucent、或把程序纹理称为官方资产，都不允许升级等级。
 - 任一条目升级时，必须同时更新本表的等级、边界、证据路径和下一验收门；只有跑过对应正向、负向、生命周期测试后才能从 `L2` 升到 `L3`。
