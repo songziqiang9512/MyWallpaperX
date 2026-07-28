@@ -20,11 +20,14 @@ final class SceneAuthoredShaderPipelineCache {
     private let device: MTLDevice
     private let pixelFormat: MTLPixelFormat
     private let sampler: MTLSamplerState
+    private let lock = NSLock()
     private var entries: [Key: Entry] = [:]
-    private(set) var compilationAttemptCount = 0
-    private(set) var failedEntryCount = 0
+    private var compilationAttempts = 0
+    private var failedEntries = 0
 
-    var entryCount: Int { entries.count }
+    var entryCount: Int { withLock { entries.count } }
+    var compilationAttemptCount: Int { withLock { compilationAttempts } }
+    var failedEntryCount: Int { withLock { failedEntries } }
 
     init?(
         device: MTLDevice,
@@ -48,13 +51,15 @@ final class SceneAuthoredShaderPipelineCache {
     }
 
     func pipeline(for plan: SceneAuthoredShaderExecutionPlan) -> Pipeline? {
+        lock.lock()
+        defer { lock.unlock() }
         let key = cacheKey(for: plan)
         if let entry = entries[key] {
             guard case .ready(let pipeline) = entry else { return nil }
             return pipeline
         }
 
-        compilationAttemptCount += 1
+        compilationAttempts += 1
         guard plan.program.uniformLayout.byteSize > 0,
               plan.program.uniformLayout.byteSize <= 4_096,
               let library = try? device.makeLibrary(
@@ -86,14 +91,16 @@ final class SceneAuthoredShaderPipelineCache {
     }
 
     func reset() {
+        lock.lock()
+        defer { lock.unlock() }
         entries.removeAll(keepingCapacity: true)
-        compilationAttemptCount = 0
-        failedEntryCount = 0
+        compilationAttempts = 0
+        failedEntries = 0
     }
 
     private func recordFailure(for key: Key) {
         entries[key] = .failed
-        failedEntryCount += 1
+        failedEntries += 1
     }
 
     private func cacheKey(for plan: SceneAuthoredShaderExecutionPlan) -> Key {
@@ -101,5 +108,11 @@ final class SceneAuthoredShaderPipelineCache {
             contractKey: plan.cacheKey,
             pixelFormatRawValue: pixelFormat.rawValue
         )
+    }
+
+    private func withLock<T>(_ body: () -> T) -> T {
+        lock.lock()
+        defer { lock.unlock() }
+        return body()
     }
 }

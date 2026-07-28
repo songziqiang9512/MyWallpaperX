@@ -131,6 +131,14 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         self.assertIn("authoredEffectCatalog.liveConsumerTargets.contains(.effectConstant(", support)
         self.assertNotIn('(\"localcontrast\", [\"strength\"])', self.service)
 
+    def test_authored_texture_properties_require_the_strict_execution_catalog(self) -> None:
+        context = method_body(self.service, "func scenePropertyContext(")
+        self.assertIn(
+            "actionableKeys.formUnion(authoredEffectCatalog.executedUserPropertyKeys)",
+            context,
+        )
+        self.assertIn("actionableKeys.formUnion(blendPlan.executedUserPropertyKeys)", context)
+
 
 if __name__ == "__main__":
     unittest.main()

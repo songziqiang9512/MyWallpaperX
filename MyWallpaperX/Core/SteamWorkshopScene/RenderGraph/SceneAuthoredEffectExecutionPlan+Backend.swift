@@ -21,7 +21,9 @@ extension SceneAuthoredEffectExecutionPlan {
         case foliageSway(SceneFoliageSwayExecutionPlan)
         case waterRipple(SceneWaterRippleExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
+        case blend(SceneBlendExecutionPlan)
         case tint(SceneTintExecutionPlan)
+        case transform(SceneTransformExecutionPlan)
         case pulse(ScenePulseExecutionPlan)
         case godrays(SceneGodraysPlan)
         case authoredShader(SceneAuthoredShaderExecutionPlan)
@@ -122,8 +124,18 @@ extension SceneAuthoredEffectExecutionPlan {
         return plan
     }
 
+    nonisolated var blend: SceneBlendExecutionPlan? {
+        guard case .blend(let plan) = backend else { return nil }
+        return plan
+    }
+
     nonisolated var tint: SceneTintExecutionPlan? {
         guard case .tint(let plan) = backend else { return nil }
+        return plan
+    }
+
+    nonisolated var transform: SceneTransformExecutionPlan? {
+        guard case .transform(let plan) = backend else { return nil }
         return plan
     }
 

@@ -17,11 +17,11 @@ enum SceneOffscreenEffectRenderer {
         perspectiveOpacityPlan: ScenePerspectiveOpacityPlan?,
         sourceUniforms: SceneLayerFragmentUniforms,
         pipeline: SceneImageLayerPipeline,
-        gaussianBlurPipeline: SceneGaussianBlurPipeline,
-        bloomPipeline: SceneBloomPipeline,
-        gradientColorPipeline: SceneGradientColorPipeline,
-        waterRipplePipeline: SceneWaterRipplePipeline,
-        perspectiveOpacityPipeline: ScenePerspectiveOpacityPipeline,
+        gaussianBlurPipeline: SceneGaussianBlurPipeline?,
+        bloomPipeline: SceneBloomPipeline?,
+        gradientColorPipeline: SceneGradientColorPipeline?,
+        waterRipplePipeline: SceneWaterRipplePipeline?,
+        perspectiveOpacityPipeline: ScenePerspectiveOpacityPipeline?,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         guard captureSource(
@@ -38,6 +38,7 @@ enum SceneOffscreenEffectRenderer {
         }
 
         if let gradientColorPlan {
+            guard let gradientColorPipeline else { return nil }
             guard gradientColorPipeline.encode(
                 source: offscreenPair.primary,
                 target: offscreenPair.secondary,
@@ -53,6 +54,7 @@ enum SceneOffscreenEffectRenderer {
         var effectSource = offscreenPair.primary
         var perspectiveTarget = offscreenPair.secondary
         if let waterRippleNormalPlan, let waterRippleNormalTexture {
+            guard let waterRipplePipeline else { return nil }
             guard waterRipplePipeline.encode(
                source: offscreenPair.primary,
                normalMap: waterRippleNormalTexture,
@@ -68,6 +70,7 @@ enum SceneOffscreenEffectRenderer {
         }
 
         if let perspectiveOpacityPlan, let auxMaskTexture {
+            guard let perspectiveOpacityPipeline else { return nil }
             guard perspectiveOpacityPipeline.encode(
                source: effectSource,
                opacityMask: auxMaskTexture,
@@ -85,6 +88,7 @@ enum SceneOffscreenEffectRenderer {
         }
 
         if let bloomPlan {
+            guard let bloomPipeline, let gaussianBlurPipeline else { return nil }
             return renderBloom(
                 plan: bloomPlan,
                 textures: offscreenPair,
@@ -95,6 +99,7 @@ enum SceneOffscreenEffectRenderer {
         }
 
         if let blurPlan {
+            guard let gaussianBlurPipeline else { return nil }
             let horizontalStep = blurPlan.horizontalStep
                 * blurPlan.sampleResolutionScale / Float(offscreenPair.primary.width)
             let verticalStep = blurPlan.verticalStep
@@ -355,46 +360,4 @@ enum SceneOffscreenEffectRenderer {
         return textures.tertiary
     }
 
-    private static func beginEncoder(
-        commandBuffer: MTLCommandBuffer,
-        target: MTLTexture
-    ) -> MTLRenderCommandEncoder? {
-        let descriptor = MTLRenderPassDescriptor()
-        descriptor.colorAttachments[0].texture = target
-        descriptor.colorAttachments[0].loadAction = .clear
-        descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
-        descriptor.colorAttachments[0].storeAction = .store
-        return commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
-    }
-
-    static func captureSource(
-        sourceTexture: MTLTexture,
-        waterMaskTexture: MTLTexture?,
-        foliageMaskTexture: MTLTexture?,
-        auxMaskTexture: MTLTexture?,
-        target: MTLTexture,
-        sourceUniforms: SceneLayerFragmentUniforms,
-        pipeline: SceneImageLayerPipeline,
-        commandBuffer: MTLCommandBuffer
-    ) -> Bool {
-        guard let encoder = beginEncoder(commandBuffer: commandBuffer, target: target) else {
-            return false
-        }
-        pipeline.bind(encoder: encoder)
-        pipeline.drawLayer(
-            texture: sourceTexture,
-            shakeMaskTexture: nil,
-            waterMaskTexture: waterMaskTexture,
-            foliageMaskTexture: foliageMaskTexture,
-            auxMaskTexture: auxMaskTexture,
-            mvp: fullTargetMVP,
-            uniforms: sourceUniforms,
-            encoder: encoder
-        )
-        encoder.endEncoding()
-        return true
-    }
-
-    private static let fullTargetMVP = SceneMatrix.scale(SIMD3<Float>(2, 2, 1))
-    private static let neutralUniforms = SceneLayerFragmentUniforms.neutral()
 }

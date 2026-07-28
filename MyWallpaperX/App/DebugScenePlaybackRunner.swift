@@ -28,12 +28,13 @@ enum DebugScenePlaybackRunner {
 
     static func scheduleScenePlaybackIfRequested() {
         guard let rootPath = argumentValue(after: "--mwx-debug-scene-root") else { return }
+        let requestUptime = ProcessInfo.processInfo.systemUptime
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            launchScene(rootPath: rootPath)
+            launchScene(rootPath: rootPath, requestUptime: requestUptime)
         }
     }
 
-    private static func launchScene(rootPath: String) {
+    private static func launchScene(rootPath: String, requestUptime: TimeInterval) {
         let rootURL = URL(fileURLWithPath: rootPath, isDirectory: true)
             .resolvingSymlinksInPath().standardizedFileURL
         guard isIsolatedSampleRoot(rootURL) else {
@@ -77,13 +78,17 @@ enum DebugScenePlaybackRunner {
 
             let snapshot = SceneDesktopWallpaperHost.shared.debugSnapshot()
             let imageLayerCount = model.renderDescriptor.layers.filter(\.isImageRenderable).count
+            let startupElapsedMS = (
+                ProcessInfo.processInfo.systemUptime - requestUptime
+            ) * 1_000
             NSLog(
-                "MWX DEBUG SCENE: phase=ready root=%@ layers=%d imageLayers=%d effects=%d surfaces=%d windows=%@ previewLog=%@ runtimeEvidence=%@",
+                "MWX DEBUG SCENE: phase=ready root=%@ layers=%d imageLayers=%d effects=%d surfaces=%d startupElapsedMS=%.3f windows=%@ previewLog=%@ runtimeEvidence=%@",
                 rootURL.path,
                 model.renderDescriptor.layers.count,
                 imageLayerCount,
                 model.sceneDocument.effectCount,
                 snapshot.surfaceCount,
+                startupElapsedMS,
                 snapshot.windowNumbers.map(String.init).joined(separator: ","),
                 previewLogURL?.path ?? "-",
                 runtimeEvidenceURL?.path ?? "-"
@@ -103,6 +108,10 @@ enum DebugScenePlaybackRunner {
             if !livePropertyOverrides.isEmpty {
                 scheduleLivePropertyUpdate(livePropertyOverrides)
             }
+            schedulePerformanceMeasurement(
+                duration: requestedDuration,
+                afterSnapshotDelay: requestedAfterSnapshotDelay
+            )
             scheduleStop(after: requestedDuration)
         } catch {
             SceneDesktopWallpaperHost.shared.stop()
@@ -257,7 +266,7 @@ enum DebugScenePlaybackRunner {
               let duration = TimeInterval(raw) else {
             return 10
         }
-        return min(max(duration, 5), 60)
+        return min(max(duration, 7), 60)
     }
 
     private static var requestedAfterSnapshotDelay: TimeInterval {

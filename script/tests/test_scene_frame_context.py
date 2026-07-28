@@ -22,6 +22,10 @@ AUDIO_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneAudioSpectrum.swift"
 )
 HOST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift"
+HOST_FRAME_DRIVER_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+)
 HOST_LAUNCH_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Launch.swift"
@@ -31,6 +35,19 @@ LIVE_CONSUMERS_SOURCE = (
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+LiveConsumers.swift"
 )
 VIEW_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView.swift"
+RENDERER_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalRenderer.swift"
+)
+COMPOSITOR_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneImageLayerCompositor.swift"
+)
+PIPELINE_REPOSITORY_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering"
+    / "SceneImageEffectPipelineRepository.swift"
+)
 COORDINATOR_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/MainWindowCoordinator.swift"
 DEBUG_RUNNER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner.swift"
 
@@ -167,25 +184,26 @@ class SceneFrameContextTests(unittest.TestCase):
 
     def test_host_owns_the_only_scene_frame_timer_and_per_surface_snapshots(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")
+        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         view = VIEW_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("private var frameTimer: Timer?", host)
-        self.assertIn("private final class Surface", host)
+        self.assertIn("var frameTimer: Timer?", host)
+        self.assertIn("final class Surface", host)
         self.assertIn(
             "var evaluationTransaction = SceneSurfaceEvaluationTransaction()", host
         )
-        self.assertIn("let timing = sceneClock.advance", host)
-        render_position = host.index("private func renderFrame()")
-        broadcast_position = host.index("for surface in surfaces.values", render_position)
-        snapshot_position = host.index(
+        self.assertIn("let timing = sceneClock.advance", frame_driver)
+        render_position = frame_driver.index("private func renderFrame()")
+        broadcast_position = frame_driver.index("for surface in surfaces.values", render_position)
+        snapshot_position = frame_driver.index(
             "surface.evaluationTransaction.evaluate", broadcast_position
         )
         self.assertLess(broadcast_position, snapshot_position)
         self.assertNotIn(
-            "SceneDynamicSnapshot.empty(frameIndex: timing.frameIndex)", host
+            "SceneDynamicSnapshot.empty(frameIndex: timing.frameIndex)", frame_driver
         )
         # 调用可能跨行（频谱等 host-shared 输入随参数增长），只锁语义不锁排版。
-        self.assertIn("surface.metalView.renderFrame(", host)
-        self.assertIn("dynamicValues: dynamicValues", host)
+        self.assertIn("surface.metalView.renderFrame(", frame_driver)
+        self.assertIn("dynamicValues: dynamicValues", frame_driver)
         self.assertIn("dynamicValues: SceneDynamicSnapshot", view)
         self.assertIn("dynamicValues: dynamicValues", view)
         self.assertNotIn("displayTimer", view)
@@ -205,6 +223,41 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("rootURL: request.rootURL", coordinator)
         self.assertIn("rootURL: rootURL", debug_runner)
         self.assertNotIn("interpretationFileURL", coordinator)
+
+    def test_launch_owns_and_reuses_the_lazy_effect_pipeline_repository(self) -> None:
+        launch = HOST_LAUNCH_SOURCE.read_text(encoding="utf-8")
+        host = HOST_SOURCE.read_text(encoding="utf-8")
+        view = VIEW_SOURCE.read_text(encoding="utf-8")
+        renderer = RENDERER_SOURCE.read_text(encoding="utf-8")
+        compositor = COMPOSITOR_SOURCE.read_text(encoding="utf-8")
+        repository = PIPELINE_REPOSITORY_SOURCE.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "let pipelineRepository: SceneImageEffectPipelineRepository", launch
+        )
+        self.assertIn(
+            "pipelineRepository: SceneImageEffectPipelineRepository(device: device)",
+            launch,
+        )
+        rebuild = host.split("private func rebuildSurfaces(", maxsplit=1)[1]
+        self.assertIn(
+            "pipelineRepository: launchContext.pipelineRepository", rebuild
+        )
+        self.assertIn(
+            "pipelineRepository: SceneImageEffectPipelineRepository", view
+        )
+        self.assertIn(
+            "pipelineRepository: SceneImageEffectPipelineRepository", renderer
+        )
+        self.assertNotIn("MTLCreateSystemDefaultDevice()", renderer)
+        self.assertIn(
+            "SceneImageLayerCompositor(\n            pipelineRepository:",
+            renderer,
+        )
+        self.assertNotIn("SceneGaussianBlurPipeline(device:", compositor)
+        self.assertNotIn("SceneBloomPipeline(device:", compositor)
+        self.assertIn("final class ScenePipelineSlot<Value>", repository)
+        self.assertIn("case resolved(Value?)", repository)
 
     def test_host_derives_only_renderer_backed_live_consumers(self) -> None:
         derivation = LIVE_CONSUMERS_SOURCE.read_text(encoding="utf-8")
@@ -255,11 +308,32 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertNotIn("teardownSurfaces", single + bulk)
 
     def test_each_frame_reads_the_latest_live_state_values(self) -> None:
-        host = HOST_SOURCE.read_text(encoding="utf-8")
+        host = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         render_start = host.index("private func renderFrame()")
         render = host[render_start:]
         self.assertIn("userValues: launchContext.liveState.userValues", render)
         self.assertNotIn("userDynamicValues", host)
+
+    def test_screen_notifications_are_debounced_and_skip_unchanged_topology(self) -> None:
+        host = HOST_SOURCE.read_text(encoding="utf-8")
+        observer = host.split(
+            "NSApplication.didChangeScreenParametersNotification", maxsplit=1
+        )[1]
+        observer = observer.split(
+            "NSWorkspace.activeSpaceDidChangeNotification", maxsplit=1
+        )[0]
+        self.assertIn("scheduleScreenConfigurationReconciliation()", observer)
+        reconciliation = host.split(
+            "private func scheduleScreenConfigurationReconciliation()", maxsplit=1
+        )[1]
+        reconciliation = reconciliation.split(
+            "private func reassertSurfaceVisibility()", maxsplit=1
+        )[0]
+        self.assertIn("screenReconciliationWorkItem?.cancel()", reconciliation)
+        self.assertIn("asyncAfter(deadline: .now() + 0.2", reconciliation)
+        self.assertIn("currentTopology != self.screenTopology", reconciliation)
+        self.assertIn("self.reassertSurfaceVisibility()", reconciliation)
+        self.assertIn("self.rebuildSurfaces()", reconciliation)
 
 
 if __name__ == "__main__":

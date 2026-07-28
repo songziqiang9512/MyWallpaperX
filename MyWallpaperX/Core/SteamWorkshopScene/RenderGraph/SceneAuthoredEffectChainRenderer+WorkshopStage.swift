@@ -16,6 +16,7 @@ extension SceneAuthoredEffectChainRenderer {
     ) -> MTLTexture? {
         switch stage.backend {
         case .workshopShiftHue(let shiftHue):
+            guard let shiftHuePipeline = pipelines.shiftHue else { return nil }
             return renderWorkshopShiftHue(
                 shiftHue,
                 sourceTexture: sourceTexture,
@@ -24,11 +25,12 @@ extension SceneAuthoredEffectChainRenderer {
                 targets: targets,
                 sourceUniforms: sourceUniforms,
                 pipeline: pipeline,
-                shiftHuePipeline: pipelines.shiftHue,
+                shiftHuePipeline: shiftHuePipeline,
                 time: time,
                 commandBuffer: commandBuffer
             )
         case .workshopAudioBars(let audioBars):
+            guard let audioBarsPipeline = pipelines.audioBars else { return nil }
             return renderWorkshopAudioBars(
                 audioBars,
                 sourceTexture: sourceTexture,
@@ -37,11 +39,12 @@ extension SceneAuthoredEffectChainRenderer {
                 targets: targets,
                 sourceUniforms: sourceUniforms,
                 pipeline: pipeline,
-                audioBarsPipeline: pipelines.audioBars,
+                audioBarsPipeline: audioBarsPipeline,
                 spectrum: audioSpectrum,
                 commandBuffer: commandBuffer
             )
         case .workshopGradient(let gradient):
+            guard let gradientPipeline = pipelines.workshopGradient else { return nil }
             return renderWorkshopGradient(
                 gradient,
                 sourceTexture: sourceTexture,
@@ -50,10 +53,11 @@ extension SceneAuthoredEffectChainRenderer {
                 targets: targets,
                 sourceUniforms: sourceUniforms,
                 pipeline: pipeline,
-                gradientPipeline: pipelines.workshopGradient,
+                gradientPipeline: gradientPipeline,
                 commandBuffer: commandBuffer
             )
         case .workshopAudioHueShift(let hueShift):
+            guard let hueShiftPipeline = pipelines.shiftHue else { return nil }
             return renderWorkshopAudioHueShift(
                 hueShift,
                 sourceTexture: sourceTexture,
@@ -62,7 +66,7 @@ extension SceneAuthoredEffectChainRenderer {
                 targets: targets,
                 sourceUniforms: sourceUniforms,
                 pipeline: pipeline,
-                hueShiftPipeline: pipelines.shiftHue,
+                hueShiftPipeline: hueShiftPipeline,
                 spectrum: audioSpectrum,
                 commandBuffer: commandBuffer
             )

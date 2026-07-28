@@ -289,8 +289,42 @@ enum SceneAuthoredXRayPlanner {
     }
 }
 
+struct SceneBlendExecutionPlan {
+    var executedUserPropertyKeys: Set<String> { [] }
+}
+
+enum SceneAuthoredBlendPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneBlendExecutionPlan? {
+        nil
+    }
+}
+
 struct SceneTintExecutionPlan {
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
+}
+
+struct SceneTransformStaticFallbackDiagnostic {
+    var reportValue: String { "" }
+}
+
+struct SceneTransformExecutionPlan {
+    var staticFallbackDiagnostics: [SceneTransformStaticFallbackDiagnostic] { [] }
+}
+
+enum SceneAuthoredTransformPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneTransformExecutionPlan? {
+        nil
+    }
 }
 
 enum SceneAuthoredTintPlanner {
@@ -668,6 +702,21 @@ enum Harness {
             descriptor: validDescriptor,
             shaderContracts: []
         )!
+        let identityGraph = Graph(
+            layerID: chain.stages[0].renderGraph.layerID,
+            effects: chain.stages[0].renderGraph.effects,
+            renderTargets: [],
+            nodes: chain.stages[0].renderGraph.nodes,
+            finalOutput: chain.stages[0].renderGraph.finalOutput,
+            blockers: []
+        )
+        let identityStage = SceneAuthoredEffectExecutionPlan(
+            layerID: identityGraph.layerID,
+            renderGraph: identityGraph,
+            backend: .tint(SceneTintExecutionPlan()),
+            materialNodeCount: identityGraph.nodes.count,
+            logicalRenderTargetCount: 0
+        )
         let catalog = SceneAuthoredEffectExecutionCatalog(
             descriptor: validDescriptor,
             authoredPlans: [validGraph]
@@ -731,6 +780,10 @@ enum Harness {
                 "bothPrecise": chain.stages.allSatisfy { $0.gaussianBlur != nil },
                 "fitsDefaultTextureBudget":
                     SceneAuthoredEffectChainPlanner.fitsDefaultTextureBudget(chain.stages),
+                "mixedSevenUnitChainFitsBudget":
+                    SceneAuthoredEffectChainPlanner.fitsDefaultTextureBudget(
+                        [identityStage, chain.stages[0], identityStage]
+                    ),
                 "oversizedChainRejected":
                     !SceneAuthoredEffectChainPlanner.fitsDefaultTextureBudget(
                         chain.stages + [chain.stages[0]]
@@ -741,6 +794,7 @@ enum Harness {
                 "singleStageLayers": catalog.plansByLayerID.keys.sorted(),
                 "legacyBlocked": catalog.legacyGaussianBlurBlockedLayerIDs.sorted(),
                 "liveTargetCount": catalog.liveConsumerTargets.count,
+                "executedPropertyKeys": catalog.executedUserPropertyKeys.sorted(),
                 "reportLines": catalog.reportLines,
             ],
             "directRejections": [
@@ -836,6 +890,7 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         self.assertEqual(success["localContrastCount"], 0)
         self.assertEqual(success["liveTargetCount"], 0)
         self.assertTrue(success["fitsDefaultTextureBudget"])
+        self.assertTrue(success["mixedSevenUnitChainFitsBudget"])
         self.assertTrue(success["oversizedChainRejected"])
 
     def test_catalog_reports_chain_counts_without_exposing_single_stage_plan(self) -> None:
@@ -844,6 +899,7 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         self.assertEqual(catalog["singleStageLayers"], [])
         self.assertEqual(catalog["legacyBlocked"], [])
         self.assertEqual(catalog["liveTargetCount"], 0)
+        self.assertEqual(catalog["executedPropertyKeys"], [])
         for line in (
             "authoredEffectGraphPlannedCount: 1",
             "authoredEffectGraphMaterialNodeCount: 4",
@@ -857,6 +913,7 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
             "authoredEffectGraphWorkshopShadowCount: 0",
             "authoredEffectGraphSpinCount: 0",
             "authoredEffectGraphProceduralNoiseCount: 0",
+            "authoredEffectGraphBlendCount: 0",
         ):
             self.assertIn(line, catalog["reportLines"])
 

@@ -46,6 +46,23 @@ import Foundation
 import Metal
 import simd
 
+final class Counter {
+    private let lock = NSLock()
+    private var value = 0
+
+    func increment() {
+        lock.lock()
+        value += 1
+        lock.unlock()
+    }
+
+    func read() -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return value
+    }
+}
+
 struct SceneDocument {
     struct ShaderValue {
         let userBinding: String?
@@ -375,6 +392,63 @@ enum Harness {
             && cache.compilationAttemptCount == 1
     }
 
+    static func concurrentCacheIsSingleAttempt(
+        _ plan: SceneAuthoredShaderExecutionPlan,
+        device: MTLDevice
+    ) -> Bool {
+        guard let cache = SceneAuthoredShaderPipelineCache(device: device) else {
+            return false
+        }
+        let lock = NSLock()
+        var states: [ObjectIdentifier] = []
+        DispatchQueue.concurrentPerform(iterations: 64) { _ in
+            if let pipeline = cache.pipeline(for: plan) {
+                lock.lock()
+                states.append(ObjectIdentifier(pipeline.state))
+                lock.unlock()
+            }
+        }
+        return states.count == 64
+            && Set(states).count == 1
+            && cache.entryCount == 1
+            && cache.failedEntryCount == 0
+            && cache.compilationAttemptCount == 1
+    }
+
+    static func concurrentFailureIsSingleAttempt(
+        _ plan: SceneAuthoredShaderExecutionPlan,
+        device: MTLDevice
+    ) -> Bool {
+        guard let cache = SceneAuthoredShaderPipelineCache(device: device) else {
+            return false
+        }
+        let original = plan.program
+        let invalid = SceneAuthoredShaderExecutionPlan(
+            cacheKey: plan.cacheKey,
+            program: SceneAuthoredShaderProgram(
+                metalSource: "this is not metal source",
+                vertexFunctionName: original.vertexFunctionName,
+                fragmentFunctionName: original.fragmentFunctionName,
+                uniformLayout: original.uniformLayout,
+                textureBindings: original.textureBindings,
+                staticLoopWork: original.staticLoopWork
+            ),
+            mappedSize: plan.mappedSize,
+            framebufferTextureSlots: plan.framebufferTextureSlots,
+            uniformBindings: plan.uniformBindings
+        )
+        let successes = Counter()
+        DispatchQueue.concurrentPerform(iterations: 64) { _ in
+            if cache.pipeline(for: invalid) != nil {
+                successes.increment()
+            }
+        }
+        return successes.read() == 0
+            && cache.entryCount == 1
+            && cache.failedEntryCount == 1
+            && cache.compilationAttemptCount == 1
+    }
+
     static func main() throws {
         let realRoot = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let syntheticRoot = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
@@ -447,6 +521,14 @@ enum Harness {
             "compileFailureCached": generic.map {
                 guard let device else { return false }
                 return failureIsCached($0, device: device)
+            } ?? false,
+            "concurrentCacheSingleAttempt": generic.map {
+                guard let device else { return false }
+                return concurrentCacheIsSingleAttempt($0, device: device)
+            } ?? false,
+            "concurrentFailureSingleAttempt": generic.map {
+                guard let device else { return false }
+                return concurrentFailureIsSingleAttempt($0, device: device)
             } ?? false,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])

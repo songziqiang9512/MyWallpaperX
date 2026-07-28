@@ -1,8 +1,10 @@
 import Foundation
+import Metal
 
 struct SceneDesktopWallpaperLaunchContext {
     let runtimeInput: SceneRuntimeInput
     let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
+    let pipelineRepository: SceneImageEffectPipelineRepository
     let timelineProgram: SceneTimelineProgram
     var liveState: ScenePropertyLiveUpdateState
     let userPropertyTextureURLs: [String: URL]
@@ -48,9 +50,13 @@ extension SceneDesktopWallpaperHost {
             authoredPlans: runtimeInput.authoredEffectRenderPlans,
             shaderContracts: runtimeInput.shaderContracts
         )
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw SceneDesktopWallpaperHostLaunchError.noSurface
+        }
         try activate(SceneDesktopWallpaperLaunchContext(
             runtimeInput: runtimeInput,
             authoredEffectCatalog: authoredEffectCatalog,
+            pipelineRepository: SceneImageEffectPipelineRepository(device: device),
             timelineProgram: SceneTimelineTargetCompiler.compile(
                 descriptor: runtimeInput.renderDescriptor
             ),

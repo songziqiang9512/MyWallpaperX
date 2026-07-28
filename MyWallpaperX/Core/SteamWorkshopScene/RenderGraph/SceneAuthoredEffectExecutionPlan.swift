@@ -85,7 +85,15 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
     }
 
     var reportLines: [String] {
-        [
+        let transformDiagnostics = chainsByLayerID.sorted(by: { $0.key < $1.key }).flatMap {
+            entry in
+            entry.value.stages.compactMap(\.transform).flatMap { transform in
+                transform.staticFallbackDiagnostics.map {
+                    "layer=\(entry.key),\($0.reportValue)"
+                }
+            }
+        }
+        return [
             "authoredEffectGraphPlannedCount: \(chainsByLayerID.count)",
             "authoredEffectGraphMaterialNodeCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.materialNodeCount })",
             "authoredEffectGraphLogicalRTCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.logicalRenderTargetCount })",
@@ -113,7 +121,11 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
             "authoredEffectGraphFoliageSwayCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.foliageSwayCount })",
             "authoredEffectGraphWaterRippleCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.waterRippleCount })",
             "authoredEffectGraphXRayCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.xRayCount })",
+            "authoredEffectGraphBlendCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.blendCount })",
             "authoredEffectGraphTintCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.tintCount })",
+            "authoredEffectGraphTransformCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.transformCount })",
+            "authoredEffectGraphTransformStaticFallbackCount: \(transformDiagnostics.count)",
+            "authoredEffectGraphTransformStaticFallbackDiagnostics: \(transformDiagnostics.joined(separator: ";"))",
             "authoredEffectGraphPulseCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.pulseCount })",
             "authoredEffectGraphGodraysCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.godraysCount })",
             "authoredEffectGraphAuthoredShaderCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.authoredShaderCount })",
@@ -124,6 +136,10 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
 
     var liveConsumerTargets: Set<SceneDynamicTarget> {
         Set(chainsByLayerID.values.flatMap(\.liveConsumerTargets))
+    }
+
+    var executedUserPropertyKeys: Set<String> {
+        Set(chainsByLayerID.values.flatMap(\.executedUserPropertyKeys))
     }
 }
 

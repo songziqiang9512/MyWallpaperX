@@ -62,29 +62,27 @@ final class SceneFilmGrainPipeline {
         var blendMode: Int32
     }
 
-    private let device: MTLDevice
-    private let pixelFormat: MTLPixelFormat
+    private let state: MTLRenderPipelineState
     private let deviceRegistryID: UInt64
-    private lazy var state: MTLRenderPipelineState? = {
-        guard let library = try? device.makeLibrary(
-            source: sceneFilmGrainShaderSource,
-            options: MTLCompileOptions()
-        ),
-        let vertex = library.makeFunction(name: "sceneFilmGrainVert"),
-        let fragment = library.makeFunction(name: "sceneFilmGrainFrag") else {
+
+    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {
+        guard pixelFormat == .bgra8Unorm,
+              let library = try? device.makeLibrary(
+                  source: sceneFilmGrainShaderSource,
+                  options: MTLCompileOptions()
+              ),
+              let vertex = library.makeFunction(name: "sceneFilmGrainVert"),
+              let fragment = library.makeFunction(name: "sceneFilmGrainFrag") else {
             return nil
         }
         let descriptor = MTLRenderPipelineDescriptor()
         descriptor.vertexFunction = vertex
         descriptor.fragmentFunction = fragment
         descriptor.colorAttachments[0].pixelFormat = pixelFormat
-        return try? device.makeRenderPipelineState(descriptor: descriptor)
-    }()
-
-    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {
-        guard pixelFormat == .bgra8Unorm else { return nil }
-        self.device = device
-        self.pixelFormat = pixelFormat
+        guard let state = try? device.makeRenderPipelineState(descriptor: descriptor) else {
+            return nil
+        }
+        self.state = state
         deviceRegistryID = device.registryID
     }
 
@@ -96,8 +94,7 @@ final class SceneFilmGrainPipeline {
         time: Float,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
-        guard let state,
-              valid(source: source, noise: noise, target: target),
+        guard valid(source: source, noise: noise, target: target),
               source.width == target.width,
               source.height == target.height,
               ObjectIdentifier(source) != ObjectIdentifier(target),

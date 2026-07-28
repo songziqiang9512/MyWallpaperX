@@ -169,7 +169,7 @@ enum SceneLayerColorBlendRenderer {
         dependencyTexture: MTLTexture?,
         layer: SceneRenderDescriptor.Layer,
         pipeline: SceneImageLayerPipeline,
-        colorBlendPipeline: SceneLayerColorBlendPipeline,
+        colorBlendPipeline: SceneLayerColorBlendPipeline?,
         mainPass: SceneMainPassEncoder
     ) -> Bool {
         let blendMode = layer.colorBlendMode ?? 0
@@ -191,6 +191,7 @@ enum SceneLayerColorBlendRenderer {
             return true
         }
 
+        guard let colorBlendPipeline else { return false }
         let captured = mainPass.withReadableTarget { target, commandBuffer in
             colorBlendPipeline.snapshot(target: target, commandBuffer: commandBuffer)
         }

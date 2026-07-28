@@ -1,10 +1,15 @@
 import AppKit
 import CoreGraphics
 import Foundation
+import OSLog
 import QuartzCore
 
 final class SceneDesktopWallpaperHost {
     static let shared = SceneDesktopWallpaperHost()
+    private static let performanceLogger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "MyWallpaperX",
+        category: "ScenePerformance"
+    )
 
 #if DEBUG
     struct DebugSnapshot {
@@ -18,7 +23,7 @@ final class SceneDesktopWallpaperHost {
         override var canBecomeMain: Bool { SceneDesktopWallpaperHost.usesDebugEvidenceWindow }
     }
 
-    private final class Surface {
+    final class Surface {
         let window: NSWindow
         let metalView: SceneMetalView
         var evaluationTransaction = SceneSurfaceEvaluationTransaction()
@@ -29,13 +34,15 @@ final class SceneDesktopWallpaperHost {
         }
     }
 
-    private var surfaces: [CGDirectDisplayID: Surface] = [:]
-    private var launchContext: SceneDesktopWallpaperLaunchContext?
+    var surfaces: [CGDirectDisplayID: Surface] = [:]
+    var launchContext: SceneDesktopWallpaperLaunchContext?
     private var observers: [NSObjectProtocol] = []
-    private var frameTimer: Timer?
-    private var sceneClock = SceneClock(hostTime: CACurrentMediaTime())
+    var frameTimer: Timer?
+    private var screenReconciliationWorkItem: DispatchWorkItem?
+    private var screenTopology: [SceneScreenTopology] = []
+    var sceneClock = SceneClock(hostTime: CACurrentMediaTime())
 #if DEBUG
-    private var debugPointerOverride: SceneSurfacePointerState?
+    var debugPointerOverride: SceneSurfacePointerState?
 #endif
 
     var activeRecordID: String? { launchContext?.recordID }
@@ -49,6 +56,8 @@ final class SceneDesktopWallpaperHost {
     }
 
     func activate(_ context: SceneDesktopWallpaperLaunchContext) throws {
+        screenReconciliationWorkItem?.cancel()
+        screenReconciliationWorkItem = nil
         launchContext = context
         SceneAudioSpectrumInbox.shared.setDemand(Self.requiresAudioSpectrum(
             in: context.authoredEffectCatalog
@@ -139,7 +148,7 @@ final class SceneDesktopWallpaperHost {
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
-                self?.handleScreenConfigurationChanged()
+                self?.scheduleScreenConfigurationReconciliation()
             },
             center.addObserver(
                 forName: NSWorkspace.activeSpaceDidChangeNotification,
@@ -160,9 +169,26 @@ final class SceneDesktopWallpaperHost {
         stop()
     }
 
-    private func handleScreenConfigurationChanged() {
+    private func scheduleScreenConfigurationReconciliation() {
         guard launchContext != nil else { return }
-        _ = rebuildSurfaces()
+        screenReconciliationWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self, self.launchContext != nil else { return }
+            let currentTopology = SceneScreenTopology.capture()
+            guard currentTopology != self.screenTopology else {
+                Self.performanceLogger.debug(
+                    "Ignored unchanged Scene screen topology; surfaces=\(self.surfaces.count)"
+                )
+                self.reassertSurfaceVisibility()
+                return
+            }
+            Self.performanceLogger.info(
+                "Rebuilding Scene surfaces after screen topology change; old=\(self.screenTopology.count) new=\(currentTopology.count)"
+            )
+            _ = self.rebuildSurfaces()
+        }
+        screenReconciliationWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: workItem)
     }
 
     private func reassertSurfaceVisibility() {
@@ -201,6 +227,7 @@ final class SceneDesktopWallpaperHost {
             guard let metalView = SceneMetalView(
                 renderDescriptor: launchContext.runtimeInput.renderDescriptor,
                 authoredEffectCatalog: launchContext.authoredEffectCatalog,
+                pipelineRepository: launchContext.pipelineRepository,
                 userPropertyTextureURLs: launchContext.userPropertyTextureURLs,
                 frame: frame
             ) else {
@@ -261,11 +288,17 @@ final class SceneDesktopWallpaperHost {
         if resetClock {
             sceneClock.reset(hostTime: CACurrentMediaTime())
         }
+        screenTopology = SceneScreenTopology.capture()
         startFrameDriver()
         return true
     }
 
     private func teardownSurfaces(clearContext: Bool) {
+        if clearContext {
+            screenReconciliationWorkItem?.cancel()
+            screenReconciliationWorkItem = nil
+            screenTopology = []
+        }
         frameTimer?.invalidate()
         frameTimer = nil
         for surface in surfaces.values {
@@ -300,7 +333,7 @@ final class SceneDesktopWallpaperHost {
         return [.canJoinAllSpaces, .stationary, .ignoresCycle]
     }
 
-    private static var usesDebugEvidenceWindow: Bool {
+    static var usesDebugEvidenceWindow: Bool {
 #if DEBUG
         ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-evidence-dir")
 #else
@@ -308,61 +341,4 @@ final class SceneDesktopWallpaperHost {
 #endif
     }
 
-    private func startFrameDriver() {
-        frameTimer?.invalidate()
-        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
-            self?.renderFrame()
-        }
-        RunLoop.main.add(timer, forMode: .common)
-        frameTimer = timer
-        renderFrame()
-    }
-
-    private func renderFrame() {
-        guard let launchContext else { return }
-        updateMouseLocations()
-        let timing = sceneClock.advance(
-            hostTime: CACurrentMediaTime(),
-            wallDate: Date()
-        )
-        let definitions = SceneTimelineRuntime.mergedDefinitions(
-            propertyDefinitions: launchContext.runtimeInput.propertyBindingProgram.definitions,
-            timelineProgram: launchContext.timelineProgram
-        )
-        // host-shared：所有 surface 共用同一帧频谱，与 property 输入同级。
-        let audioSpectrum = SceneAudioSpectrumInbox.shared.latest()
-        // Timeline 只依赖绝对 scene time，对所有 surface 同值，每帧算一次。
-        let timelineValues = SceneTimelineRuntime.values(
-            program: launchContext.timelineProgram,
-            sceneTime: timing.sceneTime
-        )
-        for surface in surfaces.values {
-            let dynamicValues = surface.evaluationTransaction.evaluate(
-                frameIndex: timing.frameIndex,
-                definitions: definitions,
-                userValues: launchContext.liveState.userValues,
-                timelineValues: timelineValues
-            ).snapshot
-            surface.metalView.renderFrame(
-                timing: timing,
-                dynamicValues: dynamicValues,
-                audioSpectrum: audioSpectrum
-            )
-        }
-    }
-
-    private func updateMouseLocations() {
-#if DEBUG
-        if let debugPointerOverride {
-            for surface in surfaces.values {
-                surface.metalView.applyPointerState(debugPointerOverride)
-            }
-            return
-        }
-#endif
-        let mouseLocation = NSEvent.mouseLocation
-        for surface in surfaces.values {
-            surface.metalView.updateMouseLocationInScreen(mouseLocation)
-        }
-    }
 }

@@ -22,18 +22,20 @@ class SceneMetalView: NSView {
     var parallaxPointerSmoother: SceneParallaxPointerSmoother
     var trackingArea: NSTrackingArea?
 #if DEBUG
-    private let debugFrameCapture = SceneDebugFrameCapture()
+    let debugFrameCapture = SceneDebugFrameCapture()
 #endif
 
     init?(
         renderDescriptor: SceneRenderDescriptor,
         authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog,
+        pipelineRepository: SceneImageEffectPipelineRepository,
         userPropertyTextureURLs: [String: URL] = [:],
         frame: NSRect
     ) {
         guard let renderer = SceneMetalRenderer(
             renderDescriptor: renderDescriptor,
-            authoredEffectCatalog: authoredEffectCatalog
+            authoredEffectCatalog: authoredEffectCatalog,
+            pipelineRepository: pipelineRepository
         ) else { return nil }
         self.metalDevice = renderer.device
         self.renderer = renderer
@@ -103,15 +105,6 @@ class SceneMetalView: NSView {
     override func mouseDown(with event: NSEvent) { handlePointerEvent(event) }
     override func mouseUp(with event: NSEvent) { handlePointerEvent(event) }
 
-    private func updateDrawableSize() {
-        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1
-        metalLayer.contentsScale = scale
-        let pixelSize = CGSize(width: max(bounds.width, 1) * scale, height: max(bounds.height, 1) * scale)
-        if metalLayer.drawableSize != pixelSize {
-            metalLayer.drawableSize = pixelSize
-        }
-    }
-
     // MARK: - Texture loading
 
     // Loads textures for every image layer and, when `logURL` is provided,
@@ -132,13 +125,13 @@ class SceneMetalView: NSView {
         var loadedPuppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
         var loadedEffectTextures = SceneLayerEffectTextureStore()
         var puppetRecomposeBytes = 0
-        // 每个会真正参与渲染的层都要走这里：mp4 payload 视频层同样带 effect 实例资源
-        // （opacity 遮罩、shake flow、waterwaves 遮罩……），漏掉就会让 authored effect
-        // 在执行期取不到贴图而整段失败。
+        // 每个会真正参与渲染的层都要走这里；mp4 payload 视频层也带 effect 实例资源，
+        // 漏掉会让 authored effect 在执行期取不到贴图而整段失败。
         func loadEffectTextures(for layer: SceneRenderDescriptor.Layer) -> SceneLayerEffectTextures {
             let stages = renderer.authoredEffectChain(for: layer.id)?.stages ?? []
             let textures = SceneLayerEffectTextureLoader.load(
                 for: layer, resolver: resolver, loader: loader, device: metalDevice,
+                blendEffectIDs: Set(stages.compactMap { $0.blend?.effectKey.descriptorID }),
                 shakeEffectIDs: Set(stages.compactMap { $0.shake?.effectKey.descriptorID }),
                 filmGrainEffectIDs: Set(stages.compactMap { $0.filmGrain?.effectKey.descriptorID }),
                 waterFlowEffectIDs: Set(stages.compactMap { $0.waterFlow?.effectKey.descriptorID }),
@@ -238,7 +231,7 @@ class SceneMetalView: NSView {
                 loaded[layer.id] = effectiveTexture
                 var message = "layer \(layer.id) \"\(name)\": OK \(url.lastPathComponent) → \(texture.width)×\(texture.height) [\(resourceView.displayPath(for: url))]"
                 message += puppetMessage
-                if let animation = SceneSpriteAnimation.load(from: url) {
+                if let animation = loader.texContainer(from: url).flatMap({ SceneSpriteAnimation(frames: $0.spriteFrames) }) {
                     loadedSpriteAnimations[layer.id] = animation
                     message += String(
                         format: "; sprite animation frames=%d duration=%.3fs",
@@ -326,7 +319,7 @@ class SceneMetalView: NSView {
         particlePlayback = SceneParticlePlaybackState(
             descriptor: renderer.renderDescriptor,
             cacheDirectory: cacheDirectory,
-            device: metalDevice
+            device: metalDevice, textureLoader: loader
         )
         if let particlePlayback {
             report.append(contentsOf: particlePlayback.loadReportLines(descriptor: renderer.renderDescriptor))
@@ -341,18 +334,18 @@ class SceneMetalView: NSView {
         }
     }
 
-#if DEBUG
-    func requestDebugSnapshot(reason: String, outputDirectory: URL) {
-        debugFrameCapture.request(reason: reason, outputDirectory: outputDirectory)
-    }
-#endif
-
     func renderFrame(
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot,
-        audioSpectrum: SceneAudioSpectrumSnapshot = .silent
+        audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
+        performanceTelemetry: SceneFramePerformanceTelemetry? = nil
     ) {
-        guard let drawable = metalLayer.nextDrawable() else { return }
+        let frameStart = performanceTelemetry.map { _ in ProcessInfo.processInfo.systemUptime }
+        guard let drawable = metalLayer.nextDrawable() else {
+            performanceTelemetry?.recordDrawableMiss()
+            return
+        }
+        let drawableAcquired = performanceTelemetry.map { _ in ProcessInfo.processInfo.systemUptime }
         let parallaxMouseNormalized = parallaxPointerSmoother.advance(delta: timing.frameTime)
         let frameContext = makeFrameContext(
             timing: timing,
@@ -373,10 +366,16 @@ class SceneMetalView: NSView {
             }
         }
 #if DEBUG
-        let frameReadback: ((MTLTexture, MTLCommandBuffer) -> Void)? = debugFrameCapture.encodeIfRequested
+        let frameReadback = debugFrameCapture.encodeIfRequested
 #else
         let frameReadback: ((MTLTexture, MTLCommandBuffer) -> Void)? = nil
 #endif
+        if let frameStart, let drawableAcquired {
+            performanceTelemetry?.recordPreparation(
+                drawableWait: drawableAcquired - frameStart,
+                preEncode: ProcessInfo.processInfo.systemUptime - drawableAcquired
+            )
+        }
         renderer.renderFrame(
             imageTextures: currentImageTextures,
             userPropertyTextures: userPropertyTextureLoad.textures,
@@ -393,8 +392,8 @@ class SceneMetalView: NSView {
                 }
             },
             encodeFrameReadback: frameReadback,
+            performanceTelemetry: performanceTelemetry,
             to: drawable
         )
     }
-
 }

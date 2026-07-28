@@ -126,6 +126,9 @@ enum SceneEffectRuntimePlanner {
         if authoredEffectPlan?.authoredShader != nil {
             return "\(foliage)effect runtime authored-shader; \(passCount) declared pass(es)"
         }
+        if authoredEffectPlan?.blend != nil {
+            return "\(foliage)effect runtime blend-authored; \(passCount) declared pass(es)"
+        }
         if gaussianBlur?.isPrecise == true {
             return "\(foliage)effect runtime gaussian-blur-precise; \(passCount) declared pass(es)"
         }

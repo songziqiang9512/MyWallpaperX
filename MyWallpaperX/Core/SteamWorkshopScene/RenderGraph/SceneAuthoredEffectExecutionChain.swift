@@ -85,8 +85,16 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         stages.filter { $0.xRay != nil }.count
     }
 
+    var blendCount: Int {
+        stages.filter { $0.blend != nil }.count
+    }
+
     var tintCount: Int {
         stages.filter { $0.tint != nil }.count
+    }
+
+    var transformCount: Int {
+        stages.filter { $0.transform != nil }.count
     }
 
     var pulseCount: Int {
@@ -109,6 +117,10 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
 
     var liveConsumerTargets: Set<SceneDynamicTarget> {
         Set(stages.flatMap(\.liveConsumerTargets))
+    }
+
+    var executedUserPropertyKeys: Set<String> {
+        Set(stages.flatMap { $0.blend?.executedUserPropertyKeys ?? [] })
     }
 }
 
@@ -294,6 +306,6 @@ enum SceneAuthoredEffectChainPlanner {
             && output.name == nil
     }
 
-    // The default 96 MiB pool guarantees six 2048x2048 BGRA textures.
-    private nonisolated static let maximumResidentTextureUnits = 6
+    // The default 128 MiB pool guarantees eight 2048x2048 BGRA textures.
+    private nonisolated static let maximumResidentTextureUnits = 8
 }

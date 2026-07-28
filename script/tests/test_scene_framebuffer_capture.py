@@ -44,6 +44,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneWorkshopShadowPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShadowRenderer.swift",
     SOURCE_ROOT / "Rendering/SceneImageBlendPipeline.swift",
+    SOURCE_ROOT / "Effects/SceneBlendPipeline.swift",
     SOURCE_ROOT / "Effects/SceneGradientColorPipeline.swift",
     SOURCE_ROOT / "Effects/SceneBloomPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWaterRipplePipeline.swift",
@@ -64,12 +65,14 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneEffectRuntimePlan.swift",
     SOURCE_ROOT / "Effects/SceneEffectRuntimeModel.swift",
     SOURCE_ROOT / "Effects/SceneOffscreenEffectRenderer.swift",
+    SOURCE_ROOT / "Effects/SceneOffscreenEffectRenderer+Capture.swift",
     SOURCE_ROOT / "Runtime/SceneAudioSpectrum.swift",
     SOURCE_ROOT / "Runtime/SceneAudioResponse.swift",
     SOURCE_ROOT / "RenderGraph/SceneSpinExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneProceduralNoiseExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneFilmGrainExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Blend.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+AuthoredShader.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Opacity.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+AudioBars.swift",
@@ -82,8 +85,11 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+ProceduralNoise.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+FilmGrain.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Tint.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Transform.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+XRay.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Topology.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+WorkshopStage.swift",
+    SOURCE_ROOT / "Rendering/SceneImageEffectPipelineRepository.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectPipelineSet.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift",
@@ -274,6 +280,41 @@ struct SceneOpacityEffectTextures {
     }
 }
 
+enum SceneBlendShaderProfile {
+    case legacySingleTexture
+}
+
+struct SceneBlendExecutionPlan {
+    let layerID: Int
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+    let renderGraph: SceneAuthoredEffectRenderPlan
+    let shaderProfile: SceneBlendShaderProfile
+    let blendMode: Int
+    let multiply: Float
+    let assetTexturePath: String
+    let userPropertyKey: String?
+}
+
+struct SceneTransformExecutionPlan {
+    let renderGraph: SceneAuthoredEffectRenderPlan
+}
+
+struct SceneBlendEffectTextures {
+    let texture: MTLTexture
+    let uvScale: SIMD2<Float>
+    let assetPath: String
+    let propertyKey: String?
+
+    func matches(_ plan: SceneBlendExecutionPlan) -> Bool {
+        normalized(assetPath) == normalized(plan.assetTexturePath)
+            && propertyKey == plan.userPropertyKey
+    }
+
+    private func normalized(_ path: String) -> String {
+        path.replacingOccurrences(of: "\\", with: "/").lowercased()
+    }
+}
+
 struct SceneAuthoredEffectExecutionPlan {
     enum Backend {
         case preciseGaussian(SceneGaussianBlurPlan)
@@ -295,7 +336,9 @@ struct SceneAuthoredEffectExecutionPlan {
         case foliageSway(SceneFoliageSwayExecutionPlan)
         case waterRipple(SceneWaterRippleExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
+        case blend(SceneBlendExecutionPlan)
         case tint(SceneTintExecutionPlan)
+        case transform(SceneTransformExecutionPlan)
         case pulse(ScenePulseExecutionPlan)
         case godrays(SceneGodraysPlan)
         case authoredShader(SceneAuthoredShaderExecutionPlan)
@@ -349,6 +392,11 @@ struct SceneAuthoredEffectExecutionPlan {
 
     var authoredShader: SceneAuthoredShaderExecutionPlan? {
         guard case .authoredShader(let plan) = backend else { return nil }
+        return plan
+    }
+
+    var blend: SceneBlendExecutionPlan? {
+        guard case .blend(let plan) = backend else { return nil }
         return plan
     }
 
@@ -723,6 +771,10 @@ struct SceneLocalContrastPlan {
 enum Harness {
     typealias Graph = SceneAuthoredEffectRenderPlan
 
+    static let authoredBlendLayerID = 852
+    static let authoredBlendEffectID = "852#effect#0"
+    static let authoredBlendAssetPath = "materials/authored_blend_test.tex"
+
     static func graphTexture(
         _ kind: Graph.TextureKind,
         layerID: Int,
@@ -971,17 +1023,27 @@ enum Harness {
     }
 
     static func main() throws {
-        guard let device = MTLCreateSystemDefaultDevice(),
-              let queue = device.makeCommandQueue(),
-              let pipeline = SceneImageLayerPipeline(device: device),
-              let imageBlendPipeline = SceneImageBlendPipeline(device: device),
-              let compositor = SceneImageLayerCompositor(device: device),
-              let source = makeTexture(device: device, size: 8, usage: .shaderRead),
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw HarnessError.deviceUnavailable
+        }
+        guard let queue = device.makeCommandQueue() else {
+            throw HarnessError.queueUnavailable
+        }
+        guard let pipeline = SceneImageLayerPipeline(device: device) else {
+            throw HarnessError.imagePipelineUnavailable
+        }
+        guard let imageBlendPipeline = SceneImageBlendPipeline(device: device) else {
+            throw HarnessError.imageBlendPipelineUnavailable
+        }
+        guard let compositor = SceneImageLayerCompositor(device: device) else {
+            throw HarnessError.compositorUnavailable
+        }
+        guard let source = makeTexture(device: device, size: 8, usage: .shaderRead),
               let target = makeTexture(
                   device: device, size: 8, usage: [.renderTarget, .shaderRead]
               ),
               let commandBuffer = queue.makeCommandBuffer() else {
-            throw HarnessError.metalUnavailable
+            throw HarnessError.baseTextureUnavailable
         }
         fillQuadrants(source)
 
@@ -1173,6 +1235,19 @@ enum Harness {
             pipeline: pipeline,
             compositor: compositor
         )
+        let authoredBlendChainPixel = try authoredBlendChainPixel(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor
+        )
+        let authoredTransformChainPixel = try authoredTransformChainPixel(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor
+        )
+        let authoredBlendRuntimeSummary = authoredBlendRuntimeSummary()
         let authoredTintChainPixels = try authoredTintChainPixels(
             device: device,
             queue: queue,
@@ -1293,7 +1368,11 @@ enum Harness {
             "authoredStandardCheckerboard": authoredStandardCheckerboard,
             "authoredTwoStageChain": authoredTwoStageChain,
             "authoredOpacityLivePixels": authoredOpacityLivePixels,
-            "authoredOpacityMaskPixel": authoredOpacityMaskPixel,            "authoredTintChainPixels": authoredTintChainPixels,
+            "authoredOpacityMaskPixel": authoredOpacityMaskPixel,
+            "authoredBlendChainPixel": authoredBlendChainPixel,
+            "authoredTransformChainPixel": authoredTransformChainPixel,
+            "authoredBlendRuntimeSummary": authoredBlendRuntimeSummary as Any,
+            "authoredTintChainPixels": authoredTintChainPixels,
             "authoredFailedChain": authoredFailedChain,
             "authoredStandardBlurOverridesLegacy": authoredStandardBlurOverridesLegacy,
             "standardBlurAlphaAwareDownsampleBGRA": standardBlurAlphaAwareDownsample,
@@ -2381,6 +2460,7 @@ enum Harness {
                         foliage: nil,
                         foliageUVScale: SIMD2<Float>(repeating: 1),
                         waterRippleNormal: nil,
+                        blendEffects: [:],
                         shakeEffects: [:],
                         filmGrainEffects: [:],
                         waterFlowEffects: [:],
@@ -2429,6 +2509,154 @@ enum Harness {
         return out
     }
 
+    static func authoredBlendChainPixel(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor
+    ) throws -> [String: Any] {
+        let sourceBGRA: [UInt8] = [40, 80, 160, 200]
+        let blendBGRA: [UInt8] = [100, 20, 60, 128]
+        let multiply: Float = 0.5
+        guard let source = makeTexture(device: device, size: 1, usage: .shaderRead),
+              let blend = makeTexture(device: device, size: 1, usage: .shaderRead),
+              let target = makeTexture(
+                  device: device, size: 1, usage: [.renderTarget, .shaderRead]
+              ), let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.authoredBlendUnavailable
+        }
+        fill(source, bgra: sourceBGRA)
+        fill(blend, bgra: blendBGRA)
+        let chain = authoredBlendChain(multiply: multiply)
+        let pool = SceneOffscreenTexturePool(device: device, maxDimension: 1)
+        let mainPass = SceneMainPassEncoder(
+            commandBuffer: commandBuffer,
+            target: target,
+            clearColor: MTLClearColorMake(0, 0, 0, 0)
+        )
+        let encoded = compositor.draw(
+            SceneImageLayerDrawRequest(
+                layer: SceneRenderDescriptor.Layer(
+                    contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
+                ),
+                texture: source,
+                masks: authoredEffectMasks(blendEffects: [
+                    authoredBlendEffectID: SceneBlendEffectTextures(
+                        texture: blend,
+                        uvScale: SIMD2<Float>(repeating: 1),
+                        assetPath: authoredBlendAssetPath,
+                        propertyKey: nil
+                    ),
+                ]),
+                textureFrame: .identity,
+                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+                uniforms: SceneImageLayerUniformValues(time: 0, alpha: 1, cursorUV: .zero),
+                offscreenTexturePool: pool,
+                offscreenSize: nil,
+                requiresSourceCopy: false,
+                finalCompositeAlpha: nil,
+                dependencyEffect: nil,
+                authoredEffectPlan: nil,
+                blocksLegacyGaussianBlur: false,
+                authoredEffectChain: chain,
+                dynamicValues: SceneDynamicSnapshot.empty(frameIndex: 0)
+            ),
+            pipeline: pipeline,
+            mainPass: mainPass
+        )
+        guard encoded else { throw HarnessError.drawRefused }
+        mainPass.finishEnsuringClear()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else {
+            throw HarnessError.commandFailed
+        }
+        guard let stageTargets = pool.graphTargets(
+            for: chain,
+            requestedWidth: 1,
+            requestedHeight: 1
+        )?.first else {
+            throw HarnessError.authoredBlendUnavailable
+        }
+        return [
+            "encoded": encoded,
+            "source": sourceBGRA,
+            "blend": blendBGRA,
+            "multiply": multiply,
+            "capturedSourcePixel": pixel(stageTargets.inputTexture, x: 0, y: 0),
+            "authoredPixel": pixel(stageTargets.outputTexture, x: 0, y: 0),
+            "mainPixel": pixel(target, x: 0, y: 0),
+        ]
+    }
+
+    static func authoredTransformChainPixel(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor
+    ) throws -> [String: Any] {
+        let sourceBGRA: [UInt8] = [40, 80, 160, 200]
+        guard let source = makeTexture(device: device, size: 1, usage: .shaderRead),
+              let target = makeTexture(
+                  device: device, size: 1, usage: [.renderTarget, .shaderRead]
+              ), let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.baseTextureUnavailable
+        }
+        fill(source, bgra: sourceBGRA)
+        let chain = authoredTransformChain()
+        let pool = SceneOffscreenTexturePool(device: device, maxDimension: 1)
+        let mainPass = SceneMainPassEncoder(
+            commandBuffer: commandBuffer,
+            target: target,
+            clearColor: MTLClearColorMake(0, 0, 0, 0)
+        )
+        let encoded = compositor.draw(
+            SceneImageLayerDrawRequest(
+                layer: SceneRenderDescriptor.Layer(
+                    contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
+                ),
+                texture: source,
+                masks: .empty,
+                textureFrame: .identity,
+                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+                uniforms: SceneImageLayerUniformValues(
+                    time: 0, alpha: 0.5, cursorUV: .zero
+                ),
+                offscreenTexturePool: pool,
+                offscreenSize: nil,
+                requiresSourceCopy: false,
+                finalCompositeAlpha: nil,
+                dependencyEffect: nil,
+                authoredEffectPlan: nil,
+                blocksLegacyGaussianBlur: false,
+                authoredEffectChain: chain,
+                dynamicValues: SceneDynamicSnapshot.empty(frameIndex: 0)
+            ),
+            pipeline: pipeline,
+            mainPass: mainPass
+        )
+        guard encoded else { throw HarnessError.drawRefused }
+        mainPass.finishEnsuringClear()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else {
+            throw HarnessError.commandFailed
+        }
+        guard let stageTargets = pool.graphTargets(
+            for: chain,
+            requestedWidth: 1,
+            requestedHeight: 1
+        )?.first else {
+            throw HarnessError.baseTextureUnavailable
+        }
+        return [
+            "encoded": encoded,
+            "source": sourceBGRA,
+            "authoredPixel": pixel(stageTargets.outputTexture, x: 0, y: 0),
+            "mainPixel": pixel(target, x: 0, y: 0),
+        ]
+    }
+
     // 官方 tint.frag：mode 0 走 `mix(A, B, o)` 并强制 alpha=1；mode 30 走
     // `mix(A, max(A.r, A.g, A.b) * B, o)` 并保留源 alpha。两个模式共用同一条链，
     // 用来证明 plan 里的 blendMode/color/alpha 真的进了 shader，而不是写死一个模式。
@@ -2467,9 +2695,9 @@ enum Harness {
                         contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
                     ),
                     texture: source,
-                    masks: tintChainMasks(
-                        mask: maskTexture,
-                        maskPath: masked ? "masks/tint_mask_test" : nil
+                    masks: authoredEffectMasks(
+                        tintMask: maskTexture,
+                        tintMaskPath: masked ? "masks/tint_mask_test" : nil
                     ),
                     textureFrame: .identity,
                     mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
@@ -2620,6 +2848,7 @@ enum Harness {
             foliage: nil,
             foliageUVScale: SIMD2(repeating: 1),
             waterRippleNormal: nil,
+            blendEffects: [:],
             shakeEffects: [:],
             filmGrainEffects: [:],
             waterFlowEffects: [:],
@@ -3053,9 +3282,153 @@ enum Harness {
         )
     }
 
-    static func tintChainMasks(
-        mask: MTLTexture? = nil,
-        maskPath: String? = nil
+    static func authoredBlendChain(
+        multiply: Float
+    ) -> SceneAuthoredEffectExecutionChain {
+        let layerID = authoredBlendLayerID
+        let effectKey = Graph.EffectKey(
+            layerID: layerID,
+            effectIndex: 0,
+            descriptorID: authoredBlendEffectID
+        )
+        let input = graphTexture(.layerSource, layerID: layerID)
+        let output = graphTexture(.effectOutput, layerID: layerID, effect: effectKey)
+        let node = Graph.Node(
+            nodeIndex: 0,
+            effect: effectKey,
+            definitionPassIndex: 0,
+            materialOrdinal: 0,
+            instancePassIndex: 0,
+            kind: .material,
+            materialPath: "materials/effects/blend.json",
+            materialPassID: "materials/effects/blend.json#0",
+            target: output,
+            bindings: [],
+            commandSource: nil,
+            commandTarget: nil,
+            compose: nil,
+            conditions: nil
+        )
+        let effect = Graph.Effect(
+            key: effectKey,
+            definitionPath: "effects/blend/effect.json",
+            input: input,
+            output: output,
+            nodeIndices: [0]
+        )
+        let graph = Graph(
+            layerID: layerID,
+            effects: [effect],
+            renderTargets: [],
+            nodes: [node],
+            finalOutput: output,
+            blockers: []
+        )
+        let blend = SceneBlendExecutionPlan(
+            layerID: layerID,
+            effectKey: effectKey,
+            renderGraph: graph,
+            shaderProfile: .legacySingleTexture,
+            blendMode: 0,
+            multiply: multiply,
+            assetTexturePath: authoredBlendAssetPath,
+            userPropertyKey: nil
+        )
+        let stage = SceneAuthoredEffectExecutionPlan(
+            layerID: layerID,
+            renderGraph: graph,
+            backend: .blend(blend),
+            materialNodeCount: 1,
+            logicalRenderTargetCount: 0
+        )
+        return SceneAuthoredEffectExecutionChain(
+            layerID: layerID,
+            renderGraph: graph,
+            stages: [stage]
+        )
+    }
+
+    static func authoredBlendRuntimeSummary() -> String? {
+        let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
+            texturePaths: [authoredBlendAssetPath],
+            textureSlots: [nil, authoredBlendAssetPath],
+            combos: ["BLENDMODE": 0],
+            constantShaderValues: ["multiply": .init(components: [0.5])]
+        )
+        let layer = SceneRenderDescriptor.Layer(
+            contentKind: "solid",
+            colorRGB: [0, 0, 0],
+            colorBlendMode: nil,
+            effects: [.init(
+                file: "effects/blend/effect.json",
+                visible: true,
+                passes: [pass]
+            )]
+        )
+        return SceneEffectRuntimePlanner.runtimeSummary(
+            for: layer,
+            authoredEffectPlan: authoredBlendChain(multiply: 0.5).stages[0]
+        )
+    }
+
+    static func authoredTransformChain() -> SceneAuthoredEffectExecutionChain {
+        let layerID = 852
+        let effectKey = Graph.EffectKey(
+            layerID: layerID,
+            effectIndex: 0,
+            descriptorID: "\(layerID)#effect#0"
+        )
+        let input = graphTexture(.layerSource, layerID: layerID)
+        let output = graphTexture(.effectOutput, layerID: layerID, effect: effectKey)
+        let node = Graph.Node(
+            nodeIndex: 0,
+            effect: effectKey,
+            definitionPassIndex: 0,
+            materialOrdinal: 0,
+            instancePassIndex: 0,
+            kind: .material,
+            materialPath: "materials/effects/transform.json",
+            materialPassID: "materials/effects/transform.json#0",
+            target: output,
+            bindings: [],
+            commandSource: nil,
+            commandTarget: nil,
+            compose: nil,
+            conditions: nil
+        )
+        let effect = Graph.Effect(
+            key: effectKey,
+            definitionPath: "effects/transform/effect.json",
+            input: input,
+            output: output,
+            nodeIndices: [0]
+        )
+        let graph = Graph(
+            layerID: layerID,
+            effects: [effect],
+            renderTargets: [],
+            nodes: [node],
+            finalOutput: output,
+            blockers: []
+        )
+        let stage = SceneAuthoredEffectExecutionPlan(
+            layerID: layerID,
+            renderGraph: graph,
+            backend: .transform(SceneTransformExecutionPlan(renderGraph: graph)),
+            materialNodeCount: 1,
+            logicalRenderTargetCount: 0
+        )
+        return SceneAuthoredEffectExecutionChain(
+            layerID: layerID,
+            renderGraph: graph,
+            stages: [stage]
+        )
+    }
+
+    static func authoredEffectMasks(
+        blendEffects: [String: SceneBlendEffectTextures] = [:],
+        tintMask: MTLTexture? = nil,
+        tintMaskPath: String? = nil
     ) -> SceneImageLayerMasks {
         SceneImageLayerMasks(
             iris: nil,
@@ -3065,6 +3438,7 @@ enum Harness {
             foliage: nil,
             foliageUVScale: SIMD2(repeating: 1),
             waterRippleNormal: nil,
+            blendEffects: blendEffects,
             shakeEffects: [:],
             filmGrainEffects: [:],
             waterFlowEffects: [:],
@@ -3072,9 +3446,9 @@ enum Harness {
             opacityEffects: [:],
             pulseEffects: [:],
             tintEffects: ["851#effect#0": SceneTintEffectTextures(
-                mask: mask,
+                mask: tintMask,
                 maskUVScale: SIMD2(repeating: 1),
-                maskPath: maskPath
+                maskPath: tintMaskPath
             )],
             godraysEffects: [:],
             xRay: nil
@@ -3391,6 +3765,13 @@ enum Harness {
 
     enum HarnessError: Error {
         case metalUnavailable
+        case baseTextureUnavailable
+        case deviceUnavailable
+        case queueUnavailable
+        case imagePipelineUnavailable
+        case imageBlendPipelineUnavailable
+        case compositorUnavailable
+        case authoredBlendUnavailable
         case encoderUnavailable
         case commandFailed
         case drawRefused
@@ -3423,9 +3804,13 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         )
         if compilation.returncode != 0:
             raise RuntimeError(compilation.stderr)
-        completed = subprocess.run(
-            [str(cls.binary)], check=True, capture_output=True, text=True
-        )
+        completed = subprocess.run([str(cls.binary)], capture_output=True, text=True)
+        if completed.returncode != 0:
+            raise RuntimeError(
+                f"framebuffer harness exited {completed.returncode}\n"
+                f"stdout:\n{completed.stdout}\n"
+                f"stderr:\n{completed.stderr}"
+            )
         cls.result = json.loads(completed.stdout)
         cls.stderr = completed.stderr
 
@@ -3596,6 +3981,54 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         # 声明了遮罩但 opacityEffects 里没有对应贴图时必须整段拒绝：静默按无遮罩渲染
         # 就是这次修的那类缺陷，会让语料里 108 个绑遮罩的 stock opacity pass 不声不响地失效。
         self.assertTrue(pixel["missingMaskRefused"], pixel)
+
+    def test_authored_blend_chain_mixes_overlay_alpha_and_preserves_source_alpha(
+        self,
+    ) -> None:
+        evidence = self.result["authoredBlendChainPixel"]
+        source = evidence["source"]
+        blend = evidence["blend"]
+        weight = evidence["multiply"] * blend[3] / 255
+        self.assertTrue(all(channel <= source[3] for channel in source[:3]), evidence)
+        self.assertTrue(all(channel <= blend[3] for channel in blend[:3]), evidence)
+        expected = [
+            round(
+                (
+                    source[index] / source[3]
+                    + (blend[index] / blend[3] - source[index] / source[3])
+                    * weight
+                )
+                * source[3]
+            )
+            for index in range(3)
+        ] + [source[3]]
+        self.assertTrue(evidence["encoded"], evidence)
+        self.assertEqual(evidence["capturedSourcePixel"], source, evidence)
+        self.assertEqual(expected, [69, 68, 143, 200])
+        self.assertLessEqual(
+            max(
+                abs(actual - wanted)
+                for actual, wanted in zip(evidence["authoredPixel"], expected)
+            ),
+            1,
+            evidence,
+        )
+        self.assertEqual(evidence["authoredPixel"][3], source[3])
+        self.assert_pixel_close(evidence["mainPixel"], expected, 1)
+
+    def test_authored_blend_runtime_summary_is_not_route_only(self) -> None:
+        self.assertEqual(
+            self.result["authoredBlendRuntimeSummary"],
+            "effect runtime blend-authored; 1 declared pass(es)",
+        )
+
+    def test_identity_transform_applies_first_stage_source_uniforms_once(self) -> None:
+        evidence = self.result["authoredTransformChainPixel"]
+        expected = [20, 40, 80, 100]
+        self.assertTrue(evidence["encoded"], evidence)
+        self.assertEqual(evidence["source"], [40, 80, 160, 200], evidence)
+        self.assert_pixel_close(evidence["authoredPixel"], expected, 1)
+        self.assert_pixel_close(evidence["mainPixel"], expected, 1)
 
     def test_tint_chain_routes_blend_mode_from_plan_on_gpu(self) -> None:
         # 源 BGRA [40,80,160,200] → A_rgb=(0.6275,0.3137,0.1569)，tint color=(0,0,1)，o=1。

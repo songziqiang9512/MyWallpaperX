@@ -10,7 +10,7 @@ enum SceneImageLayerMainPassRenderer {
         dependencyTexture: MTLTexture?,
         layer: SceneRenderDescriptor.Layer,
         pipeline: SceneImageLayerPipeline,
-        colorBlendPipeline: SceneLayerColorBlendPipeline,
+        colorBlendPipeline: SceneLayerColorBlendPipeline?,
         mainPass: SceneMainPassEncoder
     ) -> Bool {
         SceneLayerColorBlendRenderer.draw(

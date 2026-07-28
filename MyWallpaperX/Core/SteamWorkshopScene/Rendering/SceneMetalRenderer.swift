@@ -20,17 +20,19 @@ struct SceneMetalRenderer {
     private let authoredEffectTelemetry = SceneGPUCompletionTelemetry(phase: "authored-effect-graph")
     init?(
         renderDescriptor: SceneRenderDescriptor,
-        authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
+        authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog,
+        pipelineRepository: SceneImageEffectPipelineRepository
     ) {
-        guard let device = MTLCreateSystemDefaultDevice(),
-              let commandQueue = device.makeCommandQueue(),
-              let imageCompositor = SceneImageLayerCompositor(device: device) else {
+        let device = pipelineRepository.device
+        guard let commandQueue = device.makeCommandQueue() else {
             return nil
         }
         self.device = device
         self.commandQueue = commandQueue
         self.renderDescriptor = renderDescriptor
-        self.imageCompositor = imageCompositor
+        self.imageCompositor = SceneImageLayerCompositor(
+            pipelineRepository: pipelineRepository
+        )
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: renderDescriptor)
         self.visibleLayerIDs = visibleLayerIDs
         self.authoredEffectCatalog = authoredEffectCatalog
@@ -105,21 +107,6 @@ struct SceneMetalRenderer {
         )
     }
 
-    func renderClearPass(to drawable: CAMetalDrawable, clearColor: MTLClearColor? = nil) {
-        guard let commandBuffer = commandQueue.makeCommandBuffer() else { return }
-
-        let renderPassDescriptor = MTLRenderPassDescriptor()
-        renderPassDescriptor.colorAttachments[0].texture = drawable.texture
-        renderPassDescriptor.colorAttachments[0].loadAction = .clear
-        renderPassDescriptor.colorAttachments[0].clearColor = clearColor ?? sceneClearColor
-        renderPassDescriptor.colorAttachments[0].storeAction = .store
-
-        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else { return }
-        encoder.endEncoding()
-        commandBuffer.present(drawable)
-        commandBuffer.commit()
-    }
-
     func renderFrame(
         imageTextures: [Int: MTLTexture],
         userPropertyTextures: [String: MTLTexture] = [:],
@@ -132,9 +119,14 @@ struct SceneMetalRenderer {
         frameContext: SceneFrameContext,
         encodeSourceUpdates: ((MTLCommandBuffer) -> Void)? = nil,
         encodeFrameReadback: ((MTLTexture, MTLCommandBuffer) -> Void)? = nil,
+        performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
         to drawable: CAMetalDrawable
     ) {
-        guard let commandBuffer = commandQueue.makeCommandBuffer() else { return }
+        let cpuStart = performanceTelemetry.map { _ in ProcessInfo.processInfo.systemUptime }
+        guard let commandBuffer = commandQueue.makeCommandBuffer() else {
+            performanceTelemetry?.recordCommandBufferUnavailable()
+            return
+        }
         encodeSourceUpdates?(commandBuffer)
 
         let viewportSize = frameContext.screenSize
@@ -242,9 +234,9 @@ struct SceneMetalRenderer {
                         waterUVScale: effectTextures.waterUVScales[layer.id]
                             ?? SIMD2(repeating: 1),
                         foliage: effectTextures.foliageMasks[layer.id],
-                        foliageUVScale: effectTextures.foliageUVScales[layer.id]
-                            ?? SIMD2(repeating: 1),
+                        foliageUVScale: effectTextures.foliageUVScales[layer.id] ?? SIMD2(repeating: 1),
                         waterRippleNormal: effectTextures.waterRippleNormals[layer.id],
+                        blendEffects: effectTextures.blendEffects,
                         shakeEffects: effectTextures.shakeEffects,
                         filmGrainEffects: effectTextures.filmGrainEffects,
                         waterFlowEffects: effectTextures.waterFlowEffects,
@@ -325,7 +317,13 @@ struct SceneMetalRenderer {
         mainPass.finishEnsuringClear()
         encodeFrameReadback?(drawable.texture, commandBuffer)
         commandBuffer.present(drawable)
+        performanceTelemetry?.recordSubmitted(on: commandBuffer)
         commandBuffer.commit()
+        if let cpuStart {
+            performanceTelemetry?.recordCPUFrame(
+                duration: ProcessInfo.processInfo.systemUptime - cpuStart
+            )
+        }
     }
 
     private func renderUtilityPlans(

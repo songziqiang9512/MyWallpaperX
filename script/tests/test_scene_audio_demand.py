@@ -16,6 +16,9 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 DEMAND_SOURCE = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+AudioDemand.swift"
 HOST_SOURCE = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost.swift"
+FRAME_DRIVER_SOURCE = (
+    SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+)
 FRAME_CONTEXT_SOURCE = SCENE_ROOT / "Runtime/SceneFrameContext.swift"
 CHAIN_RENDERER_SOURCE = SCENE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift"
 COMPOSITOR_SOURCE = SCENE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
@@ -61,7 +64,10 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
         )
 
     def test_host_samples_one_spectrum_per_frame_for_all_surfaces(self) -> None:
-        source = HOST_SOURCE.read_text(encoding="utf-8")
+        source = (
+            HOST_SOURCE.read_text(encoding="utf-8")
+            + FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        )
         self.assertIn("let audioSpectrum = SceneAudioSpectrumInbox.shared.latest()", source)
         # 采样必须在 surface 循环之外：频谱是 host-shared 输入，
         # 同一帧内所有屏幕必须看到同一份数据。

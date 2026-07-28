@@ -3,65 +3,20 @@ import simd
 
 struct SceneImageLayerCompositor {
     private let authoredEffectPipelines: SceneAuthoredEffectPipelineSet
-    private let bloomPipeline: SceneBloomPipeline
-    private let gradientColorPipeline: SceneGradientColorPipeline
-    private let perspectiveOpacityPipeline: ScenePerspectiveOpacityPipeline
-    private let colorBlendPipeline: SceneLayerColorBlendPipeline
+    private let pipelineRepository: SceneImageEffectPipelineRepository
+    private let colorBlendPipelineSlot: ScenePipelineSlot<SceneLayerColorBlendPipeline>
 
     init?(device: MTLDevice) {
-        guard let gaussianBlurPipeline = SceneGaussianBlurPipeline(device: device),
-              let standardBlurPipeline = SceneStandardBlurPipeline(device: device),
-              let localContrastPipeline = SceneLocalContrastPipeline(device: device),
-              let opacityPipeline = SceneOpacityPipeline(device: device),
-              let colorKeyPipeline = SceneColorKeyPipeline(device: device),
-              let shiftHuePipeline = SceneWorkshopShiftHuePipeline(device: device),
-              let audioBarsPipeline = SceneWorkshopAudioBarsPipeline(device: device),
-              let workshopGradientPipeline = SceneWorkshopGradientPipeline(device: device),
-              let spinPipeline = SceneSpinPipeline(device: device),
-              let proceduralNoisePipeline = SceneProceduralNoisePipeline(device: device),
-              let filmGrainPipeline = SceneFilmGrainPipeline(device: device),
-              let workshopShadowPipeline = SceneWorkshopShadowPipeline(device: device),
-              let shakePipeline = SceneShakePipeline(device: device),
-              let waterFlowPipeline = SceneWaterFlowPipeline(device: device),
-              let waterWavesPipeline = SceneWaterWavesPipeline(device: device),
-              let bloomPipeline = SceneBloomPipeline(device: device),
-              let gradientColorPipeline = SceneGradientColorPipeline(device: device),
-              let waterRipplePipeline = SceneWaterRipplePipeline(device: device),
-              let perspectiveOpacityPipeline = ScenePerspectiveOpacityPipeline(device: device),
-              let xRayPipeline = SceneXRayPipeline(device: device),
-              let tintPipeline = SceneTintPipeline(device: device),
-              let pulsePipeline = ScenePulsePipeline(device: device),
-              let godraysPipeline = SceneGodraysPipeline(device: device),
-              let authoredShaderPipeline = SceneAuthoredShaderPipelineCache(device: device),
-              let colorBlendPipeline = SceneLayerColorBlendPipeline(device: device)
-        else { return nil }
-        authoredEffectPipelines = .init(
-            gaussianBlur: gaussianBlurPipeline,
-            standardBlur: standardBlurPipeline,
-            localContrast: localContrastPipeline,
-            opacity: opacityPipeline,
-            colorKey: colorKeyPipeline,
-            shiftHue: shiftHuePipeline,
-            audioBars: audioBarsPipeline,
-            workshopGradient: workshopGradientPipeline,
-            workshopShadow: workshopShadowPipeline,
-            spin: spinPipeline,
-            proceduralNoise: proceduralNoisePipeline,
-            filmGrain: filmGrainPipeline,
-            shake: shakePipeline,
-            waterFlow: waterFlowPipeline,
-            waterWaves: waterWavesPipeline,
-            waterRipple: waterRipplePipeline,
-            xRay: xRayPipeline,
-            tint: tintPipeline,
-            pulse: pulsePipeline,
-            godrays: godraysPipeline,
-            authoredShader: authoredShaderPipeline
-        )
-        self.bloomPipeline = bloomPipeline
-        self.gradientColorPipeline = gradientColorPipeline
-        self.perspectiveOpacityPipeline = perspectiveOpacityPipeline
-        self.colorBlendPipeline = colorBlendPipeline
+        self.init(pipelineRepository: SceneImageEffectPipelineRepository(device: device))
+    }
+
+    init(pipelineRepository: SceneImageEffectPipelineRepository) {
+        self.pipelineRepository = pipelineRepository
+        authoredEffectPipelines = .init(repository: pipelineRepository)
+        let device = pipelineRepository.device
+        colorBlendPipelineSlot = .init {
+            SceneLayerColorBlendPipeline(device: device)
+        }
     }
 
     @discardableResult
@@ -76,6 +31,10 @@ struct SceneImageLayerCompositor {
         let masks = request.masks
         let layerColorBlendMode = request.layer.colorBlendMode ?? 0
         guard SceneLayerColorBlendRenderer.supports(layerColorBlendMode) else { return false }
+        let colorBlendPipeline = layerColorBlendMode == 0
+            ? nil
+            : colorBlendPipelineSlot.resolve()
+        guard layerColorBlendMode == 0 || colorBlendPipeline != nil else { return false }
         let auxMask = masks.iris ?? masks.opacity
         let runtimeAuthoredPlan = request.authoredEffectPlan
             ?? request.authoredEffectChain?.singleStage
@@ -174,6 +133,10 @@ struct SceneImageLayerCompositor {
                     }
                     switch authoredPlan.backend {
                     case .preciseGaussian:
+                        guard let gaussianBlurPipeline =
+                            authoredEffectPipelines.gaussianBlur else {
+                            return nil
+                        }
                         return SceneOffscreenEffectRenderer.renderPreciseBlur(
                             executionPlan: authoredPlan,
                             sourceTexture: request.texture,
@@ -183,10 +146,14 @@ struct SceneImageLayerCompositor {
                             targets: targets,
                             sourceUniforms: directUniforms,
                             pipeline: pipeline,
-                            gaussianBlurPipeline: authoredEffectPipelines.gaussianBlur,
+                            gaussianBlurPipeline: gaussianBlurPipeline,
                             commandBuffer: commandBuffer
                         )
                     case .standardBlur(let blur):
+                        guard let standardBlurPipeline =
+                            authoredEffectPipelines.standardBlur else {
+                            return nil
+                        }
                         return SceneOffscreenEffectRenderer.renderStandardBlur(
                             sourceTexture: request.texture,
                             waterMaskTexture: masks.water,
@@ -196,10 +163,14 @@ struct SceneImageLayerCompositor {
                             plan: blur,
                             sourceUniforms: directUniforms,
                             pipeline: pipeline,
-                            standardBlurPipeline: authoredEffectPipelines.standardBlur,
+                            standardBlurPipeline: standardBlurPipeline,
                             commandBuffer: commandBuffer
                         )
                     case .localContrast(let contrast):
+                        guard let localContrastPipeline =
+                            authoredEffectPipelines.localContrast else {
+                            return nil
+                        }
                         return SceneOffscreenEffectRenderer.renderLocalContrast(
                             sourceTexture: request.texture,
                             waterMaskTexture: masks.water,
@@ -211,12 +182,13 @@ struct SceneImageLayerCompositor {
                                 ?? contrast.staticOrFallbackStrength,
                             sourceUniforms: directUniforms,
                             pipeline: pipeline,
-                            localContrastPipeline: authoredEffectPipelines.localContrast,
+                            localContrastPipeline: localContrastPipeline,
                             commandBuffer: commandBuffer
                         )
                     case .opacity(let opacity):
                         let alpha = opacity.resolvedAlpha(in: request.dynamicValues)
-                        guard targets.plan.logicalTargets.isEmpty,
+                        guard let opacityPipeline = authoredEffectPipelines.opacity,
+                              targets.plan.logicalTargets.isEmpty,
                               SceneOffscreenEffectRenderer.captureSource(
                                   sourceTexture: request.texture,
                                   waterMaskTexture: masks.water,
@@ -237,10 +209,14 @@ struct SceneImageLayerCompositor {
                             maskUVScale: SIMD2(repeating: 1),
                             inputTexture: targets.inputTexture,
                             outputTexture: targets.outputTexture,
-                            pipeline: authoredEffectPipelines.opacity,
+                            pipeline: opacityPipeline,
                             commandBuffer: commandBuffer
                         )
                     case .workshopShadow(let shadow):
+                        guard let workshopShadowPipeline =
+                            authoredEffectPipelines.workshopShadow else {
+                            return nil
+                        }
                         return SceneOffscreenEffectRenderer.renderWorkshopShadow(
                             sourceTexture: request.texture,
                             waterMaskTexture: masks.water,
@@ -250,11 +226,12 @@ struct SceneImageLayerCompositor {
                             plan: shadow,
                             sourceUniforms: directUniforms,
                             pipeline: pipeline,
-                            workshopShadowPipeline: authoredEffectPipelines.workshopShadow,
+                            workshopShadowPipeline: workshopShadowPipeline,
                             commandBuffer: commandBuffer
                         )
                     case .shake(let shake):
                         guard let resources = masks.shakeEffects[shake.effectKey.descriptorID],
+                              let shakePipeline = authoredEffectPipelines.shake,
                               targets.plan.logicalTargets.isEmpty,
                               SceneOffscreenEffectRenderer.captureSource(
                                   sourceTexture: request.texture,
@@ -280,12 +257,16 @@ struct SceneImageLayerCompositor {
                             },
                             inputTexture: targets.inputTexture,
                             outputTexture: targets.outputTexture,
-                            pipeline: authoredEffectPipelines.shake,
+                            pipeline: shakePipeline,
                             commandBuffer: commandBuffer
                         )
                     case .waterFlow:
                         return nil
                     case .waterWaves(let waterWaves):
+                        guard let waterWavesPipeline =
+                            authoredEffectPipelines.waterWaves else {
+                            return nil
+                        }
                         return SceneWaterWavesRenderer.renderCaptured(
                             plan: waterWaves,
                             sourceTexture: request.texture,
@@ -293,11 +274,12 @@ struct SceneImageLayerCompositor {
                             targets: targets,
                             sourceUniforms: directUniforms,
                             sourcePipeline: pipeline,
-                            waterWavesPipeline: authoredEffectPipelines.waterWaves,
+                            waterWavesPipeline: waterWavesPipeline,
                             time: directUniforms.time,
                             commandBuffer: commandBuffer
                         )
-                    case .foliageSway, .waterRipple, .xRay, .tint, .pulse, .godrays, .spin,
+                    case .foliageSway, .waterRipple, .xRay, .blend, .tint, .transform,
+                         .pulse, .godrays, .spin,
                          .proceduralNoise, .filmGrain,
                          .colorKey, .workshopShiftHue, .workshopAudioBars, .workshopGradient,
                          .workshopAudioHueShift, .authoredShader:
@@ -327,11 +309,22 @@ struct SceneImageLayerCompositor {
                         perspectiveOpacityPlan: effectPlan.perspectiveOpacity,
                         sourceUniforms: directUniforms,
                         pipeline: pipeline,
-                        gaussianBlurPipeline: authoredEffectPipelines.gaussianBlur,
-                        bloomPipeline: bloomPipeline,
-                        gradientColorPipeline: gradientColorPipeline,
-                        waterRipplePipeline: authoredEffectPipelines.waterRipple,
-                        perspectiveOpacityPipeline: perspectiveOpacityPipeline,
+                        gaussianBlurPipeline: effectPlan.gaussianBlur == nil
+                            && effectPlan.bloom == nil
+                            ? nil
+                            : authoredEffectPipelines.gaussianBlur,
+                        bloomPipeline: effectPlan.bloom == nil
+                            ? nil
+                            : pipelineRepository.bloom(),
+                        gradientColorPipeline: effectPlan.gradientColor == nil
+                            ? nil
+                            : pipelineRepository.gradientColor(),
+                        waterRipplePipeline: effectPlan.waterRippleNormal == nil
+                            ? nil
+                            : authoredEffectPipelines.waterRipple,
+                        perspectiveOpacityPipeline: effectPlan.perspectiveOpacity == nil
+                            ? nil
+                            : pipelineRepository.perspectiveOpacity(),
                         commandBuffer: commandBuffer
                     )
                 }

@@ -77,6 +77,7 @@ enum SceneAuthoredEffectChainRenderer {
         let auxMask = masks.iris ?? masks.opacity
         switch stage.backend {
         case .preciseGaussian:
+            guard let gaussianBlurPipeline = pipelines.gaussianBlur else { return nil }
             return SceneOffscreenEffectRenderer.renderPreciseBlur(
                 executionPlan: stage,
                 sourceTexture: sourceTexture,
@@ -86,10 +87,11 @@ enum SceneAuthoredEffectChainRenderer {
                 targets: targets,
                 sourceUniforms: sourceUniforms,
                 pipeline: pipeline,
-                gaussianBlurPipeline: pipelines.gaussianBlur,
+                gaussianBlurPipeline: gaussianBlurPipeline,
                 commandBuffer: commandBuffer
             )
         case .standardBlur(let blur):
+            guard let standardBlurPipeline = pipelines.standardBlur else { return nil }
             return SceneOffscreenEffectRenderer.renderStandardBlur(
                 sourceTexture: sourceTexture,
                 waterMaskTexture: masks.water,
@@ -99,11 +101,12 @@ enum SceneAuthoredEffectChainRenderer {
                 plan: blur,
                 sourceUniforms: sourceUniforms,
                 pipeline: pipeline,
-                standardBlurPipeline: pipelines.standardBlur,
+                standardBlurPipeline: standardBlurPipeline,
                 commandBuffer: commandBuffer
             )
         case .localContrast(let contrast):
-            guard let strength = stage.localContrastStrength(in: dynamicValues) else {
+            guard let strength = stage.localContrastStrength(in: dynamicValues),
+                  let localContrastPipeline = pipelines.localContrast else {
                 return nil
             }
             return SceneOffscreenEffectRenderer.renderLocalContrast(
@@ -116,17 +119,19 @@ enum SceneAuthoredEffectChainRenderer {
                 strength: strength,
                 sourceUniforms: sourceUniforms,
                 pipeline: pipeline,
-                localContrastPipeline: pipelines.localContrast,
+                localContrastPipeline: localContrastPipeline,
                 commandBuffer: commandBuffer
             )
         case .opacity(let opacity):
+            guard let opacityPipeline = pipelines.opacity else { return nil }
             return renderOpacity(
                 opacity, stage: stage, sourceTexture: sourceTexture, masks: masks,
                 auxMask: auxMask, targets: targets, dynamicValues: dynamicValues,
                 sourceUniforms: sourceUniforms, pipeline: pipeline,
-                opacityPipeline: pipelines.opacity, commandBuffer: commandBuffer
+                opacityPipeline: opacityPipeline, commandBuffer: commandBuffer
             )
         case .colorKey(let colorKey):
+            guard let colorKeyPipeline = pipelines.colorKey else { return nil }
             return renderColorKey(
                 colorKey,
                 sourceTexture: sourceTexture,
@@ -135,7 +140,7 @@ enum SceneAuthoredEffectChainRenderer {
                 targets: targets,
                 sourceUniforms: sourceUniforms,
                 pipeline: pipeline,
-                colorKeyPipeline: pipelines.colorKey,
+                colorKeyPipeline: colorKeyPipeline,
                 commandBuffer: commandBuffer
             )
         case .workshopShiftHue, .workshopAudioBars, .workshopGradient,
@@ -154,6 +159,7 @@ enum SceneAuthoredEffectChainRenderer {
                 commandBuffer: commandBuffer
             )
         case .workshopShadow(let shadow):
+            guard let workshopShadowPipeline = pipelines.workshopShadow else { return nil }
             return SceneOffscreenEffectRenderer.renderWorkshopShadow(
                 sourceTexture: sourceTexture,
                 waterMaskTexture: masks.water,
@@ -163,10 +169,11 @@ enum SceneAuthoredEffectChainRenderer {
                 plan: shadow,
                 sourceUniforms: sourceUniforms,
                 pipeline: pipeline,
-                workshopShadowPipeline: pipelines.workshopShadow,
+                workshopShadowPipeline: workshopShadowPipeline,
                 commandBuffer: commandBuffer
             )
         case .spin(let spin):
+            guard let spinPipeline = pipelines.spin else { return nil }
             return renderSpin(
                 spin,
                 sourceTexture: sourceTexture,
@@ -175,11 +182,12 @@ enum SceneAuthoredEffectChainRenderer {
                 targets: targets,
                 sourceUniforms: sourceUniforms,
                 pipeline: pipeline,
-                spinPipeline: pipelines.spin,
+                spinPipeline: spinPipeline,
                 time: time,
                 commandBuffer: commandBuffer
             )
         case .proceduralNoise(let noise):
+            guard let noisePipeline = pipelines.proceduralNoise else { return nil }
             return renderProceduralNoise(
                 noise,
                 sourceTexture: sourceTexture,
@@ -188,19 +196,21 @@ enum SceneAuthoredEffectChainRenderer {
                 targets: targets,
                 sourceUniforms: sourceUniforms,
                 pipeline: pipeline,
-                noisePipeline: pipelines.proceduralNoise,
+                noisePipeline: noisePipeline,
                 time: time,
                 commandBuffer: commandBuffer
             )
         case .filmGrain(let filmGrain):
+            guard let filmGrainPipeline = pipelines.filmGrain else { return nil }
             return renderFilmGrain(
                 filmGrain, sourceTexture: sourceTexture, masks: masks, auxMask: auxMask,
                 targets: targets, sourceUniforms: sourceUniforms, pipeline: pipeline,
-                filmGrainPipeline: pipelines.filmGrain, time: time,
+                filmGrainPipeline: filmGrainPipeline, time: time,
                 commandBuffer: commandBuffer
             )
         case .shake(let shake):
             guard let resources = masks.shakeEffects[shake.effectKey.descriptorID],
+                  let shakePipeline = pipelines.shake,
                   targets.plan.logicalTargets.isEmpty,
                   SceneOffscreenEffectRenderer.captureSource(
                       sourceTexture: sourceTexture,
@@ -223,10 +233,11 @@ enum SceneAuthoredEffectChainRenderer {
                 },
                 inputTexture: targets.inputTexture,
                 outputTexture: targets.outputTexture,
-                pipeline: pipelines.shake,
+                pipeline: shakePipeline,
                 commandBuffer: commandBuffer
             )
         case .waterFlow(let waterFlow):
+            guard let waterFlowPipeline = pipelines.waterFlow else { return nil }
             return SceneWaterFlowRenderer.renderCaptured(
                 plan: waterFlow,
                 sourceTexture: sourceTexture,
@@ -234,11 +245,12 @@ enum SceneAuthoredEffectChainRenderer {
                 targets: targets,
                 sourceUniforms: sourceUniforms,
                 sourcePipeline: pipeline,
-                waterFlowPipeline: pipelines.waterFlow,
+                waterFlowPipeline: waterFlowPipeline,
                 time: time,
                 commandBuffer: commandBuffer
             )
         case .waterWaves(let waterWaves):
+            guard let waterWavesPipeline = pipelines.waterWaves else { return nil }
             return SceneWaterWavesRenderer.renderCaptured(
                 plan: waterWaves,
                 sourceTexture: sourceTexture,
@@ -246,7 +258,7 @@ enum SceneAuthoredEffectChainRenderer {
                 targets: targets,
                 sourceUniforms: sourceUniforms,
                 sourcePipeline: pipeline,
-                waterWavesPipeline: pipelines.waterWaves,
+                waterWavesPipeline: waterWavesPipeline,
                 time: time,
                 commandBuffer: commandBuffer
             )
@@ -269,7 +281,8 @@ enum SceneAuthoredEffectChainRenderer {
             guard targets.plan.logicalTargets.isEmpty,
                   let mask = masks.water,
                   let normal = masks.waterRippleNormal,
-                  pipelines.waterRipple.encode(
+                  let waterRipplePipeline = pipelines.waterRipple,
+                  waterRipplePipeline.encode(
                       source: sourceTexture,
                       normalMap: normal,
                       target: targets.outputTexture,
@@ -283,44 +296,28 @@ enum SceneAuthoredEffectChainRenderer {
             }
             return targets.outputTexture
         case .xRay(let xRay):
-            guard targets.plan.logicalTargets.isEmpty,
-                  SceneOffscreenEffectRenderer.captureSource(
-                      sourceTexture: sourceTexture,
-                      waterMaskTexture: masks.water,
-                      foliageMaskTexture: masks.foliage,
-                      auxMaskTexture: auxMask,
-                      target: targets.inputTexture,
-                      sourceUniforms: sourceUniforms,
-                      pipeline: pipeline,
-                      commandBuffer: commandBuffer
-                  ) else {
-                return nil
-            }
-            switch SceneXRayRuntimePlanner.resolve(
-                declaration: xRay.declaration,
-                resources: masks.xRay,
-                snapshot: dynamicValues,
-                pointerIsInside: pointerIsInside
-            ) {
-            case .identity:
-                return targets.inputTexture
-            case .unsupported:
-                return nil
-            case .render(let runtime):
-                guard let resources = masks.xRay,
-                      pipelines.xRay.encode(
-                          source: targets.inputTexture,
-                          resources: resources,
-                          target: targets.outputTexture,
-                          plan: runtime,
-                          cursorUV: cursorUV,
-                          commandBuffer: commandBuffer
-                      ) else {
-                    return nil
-                }
-                return targets.outputTexture
-            }
+            return renderXRay(
+                xRay, sourceTexture: sourceTexture, masks: masks, auxMask: auxMask,
+                targets: targets, dynamicValues: dynamicValues,
+                sourceUniforms: sourceUniforms, pipeline: pipeline,
+                pipelines: pipelines, cursorUV: cursorUV,
+                pointerIsInside: pointerIsInside, commandBuffer: commandBuffer
+            )
+        case .blend(let blend):
+            guard let blendPipeline = pipelines.blend else { return nil }
+            return renderBlend(
+                blend,
+                sourceTexture: sourceTexture,
+                masks: masks,
+                auxMask: auxMask,
+                targets: targets,
+                sourceUniforms: sourceUniforms,
+                sourcePipeline: pipeline,
+                blendPipeline: blendPipeline,
+                commandBuffer: commandBuffer
+            )
         case .tint(let tint):
+            guard let tintPipeline = pipelines.tint else { return nil }
             return renderTint(
                 tint,
                 sourceTexture: sourceTexture,
@@ -330,10 +327,22 @@ enum SceneAuthoredEffectChainRenderer {
                 dynamicValues: dynamicValues,
                 sourceUniforms: sourceUniforms,
                 pipeline: pipeline,
-                tintPipeline: pipelines.tint,
+                tintPipeline: tintPipeline,
+                commandBuffer: commandBuffer
+            )
+        case .transform(let transform):
+            return renderTransform(
+                transform,
+                sourceTexture: sourceTexture,
+                masks: masks,
+                auxMask: auxMask,
+                targets: targets,
+                sourceUniforms: sourceUniforms,
+                pipeline: pipeline,
                 commandBuffer: commandBuffer
             )
         case .godrays(let godrays):
+            guard let godraysPipeline = pipelines.godrays else { return nil }
             return SceneGodraysRenderer.renderCaptured(
                 plan: godrays,
                 sourceTexture: sourceTexture,
@@ -341,11 +350,12 @@ enum SceneAuthoredEffectChainRenderer {
                 targets: targets,
                 sourceUniforms: sourceUniforms,
                 sourcePipeline: pipeline,
-                godraysPipeline: pipelines.godrays,
+                godraysPipeline: godraysPipeline,
                 time: time,
                 commandBuffer: commandBuffer
             )
         case .pulse(let pulse):
+            guard let pulsePipeline = pipelines.pulse else { return nil }
             return renderPulse(
                 pulse,
                 sourceTexture: sourceTexture,
@@ -355,17 +365,18 @@ enum SceneAuthoredEffectChainRenderer {
                 dynamicValues: dynamicValues,
                 sourceUniforms: sourceUniforms,
                 pipeline: pipeline,
-                pulsePipeline: pipelines.pulse,
+                pulsePipeline: pulsePipeline,
                 time: time,
                 audioSpectrum: audioSpectrum,
                 commandBuffer: commandBuffer
             )
         case .authoredShader(let shader):
+            guard let authoredShaderPipeline = pipelines.authoredShader else { return nil }
             return renderAuthoredShader(
                 shader, sourceTexture: sourceTexture, masks: masks, auxMask: auxMask,
                 targets: targets, sourceUniforms: sourceUniforms,
                 frame: authoredShaderFrameInputs, pipeline: pipeline,
-                pipelineCache: pipelines.authoredShader, commandBuffer: commandBuffer
+                pipelineCache: authoredShaderPipeline, commandBuffer: commandBuffer
             )
         }
     }

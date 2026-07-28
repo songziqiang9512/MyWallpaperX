@@ -355,8 +355,42 @@ enum SceneAuthoredXRayPlanner {
     }
 }
 
+struct SceneBlendExecutionPlan {
+    var executedUserPropertyKeys: Set<String> { [] }
+}
+
+enum SceneAuthoredBlendPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneBlendExecutionPlan? {
+        nil
+    }
+}
+
 struct SceneTintExecutionPlan {
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
+}
+
+struct SceneTransformStaticFallbackDiagnostic {
+    var reportValue: String { "" }
+}
+
+struct SceneTransformExecutionPlan {
+    var staticFallbackDiagnostics: [SceneTransformStaticFallbackDiagnostic] { [] }
+}
+
+enum SceneAuthoredTransformPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneTransformExecutionPlan? {
+        nil
+    }
 }
 
 struct ScenePulseExecutionPlan {
@@ -987,7 +1021,9 @@ enum Harness {
             case .foliageSway: backend = "foliageSway"
             case .waterRipple: backend = "waterRipple"
             case .xRay: backend = "xRay"
+            case .blend: backend = "blend"
             case .tint: backend = "tint"
+            case .transform: backend = "transform"
             case .pulse: backend = "pulse"
             case .godrays: backend = "godrays"
             case .authoredShader: backend = "authoredShader"
@@ -1494,7 +1530,13 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         )
         end = source.index("static let empty", start)
         resources_only = source[start:end]
-        for resource in ("water", "foliage", "waterRippleNormal", "xRay"):
+        for resource in (
+            "water",
+            "foliage",
+            "waterRippleNormal",
+            "blendEffects",
+            "xRay",
+        ):
             self.assertIn(f"{resource}: {resource}", resources_only)
             self.assertNotIn(f"{resource}: nil", resources_only)
 

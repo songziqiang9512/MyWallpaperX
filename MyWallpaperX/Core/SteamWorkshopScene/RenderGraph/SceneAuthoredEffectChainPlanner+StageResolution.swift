@@ -197,6 +197,14 @@ extension SceneAuthoredEffectChainPlanner {
         ) {
             return stage(.xRay(xRay), stageGraph: stageGraph, inputRole: inputRole)
         }
+        if let blend = SceneAuthoredBlendPlanner.plan(
+            graph: stageGraph,
+            descriptor: descriptor,
+            shaderContracts: shaderContracts,
+            inputRole: inputRole
+        ) {
+            return stage(.blend(blend), stageGraph: stageGraph, inputRole: inputRole)
+        }
         if let tint = SceneAuthoredTintPlanner.plan(
             graph: stageGraph,
             descriptor: descriptor,
@@ -204,6 +212,14 @@ extension SceneAuthoredEffectChainPlanner {
             inputRole: inputRole
         ) {
             return stage(.tint(tint), stageGraph: stageGraph, inputRole: inputRole)
+        }
+        if let transform = SceneAuthoredTransformPlanner.plan(
+            graph: stageGraph,
+            descriptor: descriptor,
+            shaderContracts: shaderContracts,
+            inputRole: inputRole
+        ) {
+            return stage(.transform(transform), stageGraph: stageGraph, inputRole: inputRole)
         }
         if let pulse = SceneAuthoredPulsePlanner.plan(
             graph: stageGraph,

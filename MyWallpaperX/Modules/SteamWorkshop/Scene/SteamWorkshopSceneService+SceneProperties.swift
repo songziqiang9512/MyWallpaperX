@@ -116,6 +116,7 @@ extension SteamWorkshopService {
             descriptor: renderDescriptor,
             visibleLayerIDs: Set(renderDescriptor.layers.map(\.id))
         )
+        actionableKeys.formUnion(authoredEffectCatalog.executedUserPropertyKeys)
         actionableKeys.formUnion(blendPlan.executedUserPropertyKeys)
         let catalog = project.userProperties
         let context = SteamWorkshopScenePropertyContext(
