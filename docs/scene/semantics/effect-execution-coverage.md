@@ -2,7 +2,7 @@
 
 > 状态：现役专项能力表
 >
-> 最近核对：2026-07-28
+> 最近核对：2026-07-29
 >
 > 实现基线、当前完整快照门、历史 fixed13、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)；本表不复制基线 commit，文内 commit 号是各能力的历史落地提交。
 
@@ -95,7 +95,7 @@
 | Edge Detection / `edgedetection` | `L1` | `IR-only` | [D5](capability-dependency-map.md#d5) [D7](capability-dependency-map.md#d7) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | Sobel texel size、threshold/color/blend、mask if authored |
 | God Rays / `godrays` | `L3` | `strict-graph-profile`：只接受 stock 2.8.42 单指纹族的 downsample2→cast→gaussian×2→combine 5-pass/双 half RT（`_rt_halfcompobuffer1/2`，scale=2、rgba_backbuffer）图，`CASTER=0`（Radial）、`NOISE=1`、`COPYBG=0`；`SAMPLES` 0/1、`KERNEL` 0/1（x/y 必须一致）、实例遮罩与常量子集缺省回填为受限正门；`CASTER=1`（Directional）、COPYBG、legacy 指纹与 named-RT 实例绑定（`1937925563` 形态）fail-closed | [D5](capability-dependency-map.md#d5) [D6](capability-dependency-map.md#d6) [D7](capability-dependency-map.md#d7) | [E-EFFECT-GODRAYS](runtime-evidence-index.md#e-effect-godrays) [E-EFFECT-CHAIN](runtime-evidence-index.md#e-effect-chain) | Directional caster、COPYBG、legacy 指纹家族、named-RT 半程缓冲消费与 visual golden |
 | Local Contrast / `localcontrast` | `L3` | `strict-graph-profile`：每个 stage 只接受 stock KERNEL0/GREYSCALE0/MASK0、Gaussian `scale=(1,1)` 的 4-pass/2-quarter-RGBA 图；exact graph/material/shader fingerprint 失败即关闭，可参与整链全部支持的 ordered strict chain | [D5](capability-dependency-map.md#d5) [D6](capability-dependency-map.md#d6) [D7](capability-dependency-map.md#d7) | [E-EFFECT-LOCAL-CONTRAST](runtime-evidence-index.md#e-effect-local-contrast) [E-EFFECT-CHAIN](runtime-evidence-index.md#e-effect-chain) | mask/greyscale、非默认 kernel/Gaussian scale、包含 unsupported stage 的 mixed chain、generic shader 与 Windows golden |
-| Shine / `shine` | `L2` | `graph-only`：多 pass identity，无 visual executor | [D2](capability-dependency-map.md#d2) [D5](capability-dependency-map.md#d5) [D6](capability-dependency-map.md#d6) [D7](capability-dependency-map.md#d7) | [E-EFFECT-IR](runtime-evidence-index.md#e-effect-ir) | 5 pass、half RT、threshold/noise/kernel/edge/COPYBG |
+| Shine / `shine` | `L3 executed-degraded` | `strict-graph-profile`：exact modern stock 5 pass / 2 half RT，执行 threshold/noise、multi-edge cast、Gaussian X/Y 与 authored blend；支持静态 threshold/noise/edge/sample/direction/speed/length/intensity/color/kernel/scale/blend、可选实例遮罩与 stock `util/clouds_256`。完整 `[Blur Precise, Shine]` text chain 可按作者顺序执行；复杂链中只允许恰好一个合格静态 Shine 显式重基到 layer source，并逐项报告 omitted sibling。legacy definition、Timeline/user binding、`COPYBG` 和未知指纹继续 fail closed | [D2](capability-dependency-map.md#d2) [D5](capability-dependency-map.md#d5) [D6](capability-dependency-map.md#d6) [D7](capability-dependency-map.md#d7) [D8](capability-dependency-map.md#d8) | [E-EFFECT-SHINE](runtime-evidence-index.md#e-effect-shine) [E-EFFECT-CHAIN](runtime-evidence-index.md#e-effect-chain) | legacy profile、动态 Timeline/user 值、`COPYBG`/full-frame variant、完整 unsupported sibling chain 与 Windows 像素 golden |
 
 ## 8. 非 45 项边界与汇总
 
@@ -110,7 +110,7 @@
 
 45 项汇总：`L1=20`、`L2=4`、`L3=21`、`L4=0`。这个统计只反映当前表中最小可声明级别，不是样本命中率、视觉相似度或已知语义比例。
 
-`b541867` 建立 strict profile 之间有序、全有或全无的调度；后续 Workshop Shadow、stock Opacity、legacy Blur Precise compose、Shake、Water、Foliage、X-Ray、Tint、Pulse、God Rays、Blend、identity-only Transform、exact Simple Audio Bars、strict Light Shafts direct-draw quad 与 exact Workshop Clipping Mask 逐步扩充受限 `L3` profile。当前完整门为 204 stage、30 chain、Clipping Mask 8、graph failed 0；最近 fixed13 为 125 stage、16 chain、Clipping Mask 8、graph failed 0。最新报告、App 身份与矩阵哈希统一见 [运行证据索引](runtime-evidence-index.md)。这些聚合只证明表内 bounded profile 的当前样本合同；generic authored shader、composition Clipping Mask consumer、非 identity Transform、其他 Blend/Audio Bars/Light Shafts variants、SceneScript/mixed unsupported stage 与 Windows visual golden 仍未闭合。
+`b541867` 建立 strict profile 之间有序、全有或全无的调度；后续 Workshop Shadow、stock Opacity、legacy Blur Precise compose、Shake、Water、Foliage、X-Ray、Tint、Pulse、God Rays、Shine、Blend、identity-only Transform、exact Simple Audio Bars、strict Light Shafts direct-draw quad 与 exact Workshop Clipping Mask 逐步扩充受限 `L3` profile。当前完整门为 216 stage、33 chain、Shine 6（isolated 3）、Cursor Ripple 3（isolated 3）、Clipping Mask 8、graph failed 0；最近 fixed13 仍是独立历史门，不与当前完整门相加。最新报告、App 身份与矩阵哈希统一见 [运行证据索引](runtime-evidence-index.md)。这些聚合只证明表内 bounded profile 的当前样本合同；generic authored shader、legacy/dynamic/COPYBG Shine、composition Clipping Mask consumer、非 identity Transform、其他 Blend/Audio Bars/Light Shafts variants、SceneScript/mixed unsupported stage 与 Windows visual golden 仍未闭合。
 
 ## 9. 开发顺序
 
