@@ -5,8 +5,8 @@
 > 最近核对：2026-07-29
 >
 > 口径来源：[官方页面目录](official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[资料来源与证据索引](source-index.md)
-> 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，并执行非音频 Turbulent Velocity Random、严格的 child 层级 ≤ 2（depth-one static/default-static/`eventspawn` / natural-`eventdeath` / `eventfollow`，加 depth-two 仅 event 触发的 nested child）、有限 static origin translation、持续/混合/duration child emitter，以及严格 `genericparticle` `REFRACT=1` 双纹理背景折射子集；它仍不是通用 Particle System，尤其没有 Layer Image、static angles/scale、event child transform、collision/delete event、动态 Control Point、World Space、Rope、Audio Response（声明已保真解析，执行缺公式证据）、Lighting 和通用 Particle Material。
-> 粒子落地提交分别是 eventspawn/death `f4173ea`/`7d53c10`、eventfollow `928acca`、持续 child/root aggregate budget `2f897bc`、static/default-static `899704b`、有限 static origin `678a052`、strict depth-two nested child/per-depth 预算 `b86db59`、非音频 turbulent velocity `4a17ee6` 与 strict REFRACT `e698c18`。本专项表不复制全局实现基线；当前固定 13 样本门 particle 为 `71/76`，完整 45 样本门为 `120/130`，当前两层报告、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。仍不是通用 Particle System。
+> 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，并执行非音频 Turbulent Velocity Random、严格的 child 层级 ≤ 2（depth-one static/default-static/`eventspawn` / natural-`eventdeath` / `eventfollow`，加 depth-two 仅 event 触发的 nested child）、有限 static origin translation、持续/混合/duration child emitter、静态可逆 layer world frame 下的 General/Movement/Renderer world-space 子集，以及严格 `genericparticle` `REFRACT=1` 双纹理背景折射子集；它仍不是通用 Particle System，尤其没有 Layer Image、static angles/scale、event child transform、collision/delete event、动态 Control Point、动态 world-space system transform、Rope、Audio Response（声明已保真解析，执行缺公式证据）、Lighting 和通用 Particle Material。
+> 粒子落地提交分别是 eventspawn/death `f4173ea`/`7d53c10`、eventfollow `928acca`、持续 child/root aggregate budget `2f897bc`、static/default-static `899704b`、有限 static origin `678a052`、strict depth-two nested child/per-depth 预算 `b86db59`、非音频 turbulent velocity `4a17ee6`、strict REFRACT `e698c18` 与 static world-space `54a6ebc`。本专项表不复制全局实现基线；当前固定 13 样本门 particle 为 `76/76`，完整 45 样本门为 `127/130`，当前两层报告、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。仍不是通用 Particle System。
 
 本文把官方 Particle 的 General、Emitter、Initializer、Operator、Renderer、Control Point、Children、instance override 与 material 逐项映射到当前实现。它是 [总覆盖台账](coverage-ledger.md) 中 Particle 行的展开表；总表与本文冲突时，以本文更细粒度、更新的代码证据为准。
 
@@ -41,6 +41,8 @@
 | REFR | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleRefractionPlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleRefractionPlan.swift) |
 | SNAP | [MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneFramebufferSnapshot.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneFramebufferSnapshot.swift) |
 | CAM | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleCameraFrame.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleCameraFrame.swift) |
+| WORLD | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleWorldSpacePlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleWorldSpacePlan.swift) |
+| WORLD-DESC | [MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneParticleWorldSpacePlan+Descriptor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneParticleWorldSpacePlan+Descriptor.swift) |
 | TRAIL | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleTrailRenderPlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleTrailRenderPlan.swift) |
 | TEX | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleTextureSource.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleTextureSource.swift) |
 | BUILTIN | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleBuiltInTextureRegistry.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleBuiltInTextureRegistry.swift) |
@@ -65,7 +67,7 @@
 | G01 Material reference | 粒子系统引用 material，material 决定纹理、shader 与 render state。 | `L3` | [DEF] [AST] [T-AST] | 只执行 `genericparticle` 近似路径和首纹理；完整能力见 Material 表。 | 多纹理 material fixture、未知 shader fail-closed、Windows 像素门。 |
 | G02 Maximum count | `max count` 限制系统同时存活的粒子数量并进入预算。 | `L3` | [DEF] [SIM] [T-SIM] | 上限额外硬夹到 20,000，尚未核验官方边界和 runtime change。 | 0、1、超大值、动态修改与压力 fixture。 |
 | G03 Start time / prewarm | 开始时间影响系统何时进入已推进状态，不能由“层可见”替代。 | `L3` | [DEF] [SIM] [T-SIM] | 当前直接当 prewarm duration，最多 240 次步进；未核验 WE 的 start-time 精确定义。 | 与 Windows 在 0、正值、长时长下做粒子状态 golden。 |
-| G04 World space | 粒子可脱离 object-local 空间，在世界空间持续模拟和绘制。 | `L1` | [DEF] [RUN] [T-RUN] | flag 可解析，但整层 `worldSpaceUnsupported` fail-closed。 | world transform、parent/camera/multi-screen 正反 fixture。 |
+| G04 World space | 粒子出生后不再随粒子系统的位置/旋转变化。 | `L3` | [DEF] [WORLD] [WORLD-DESC] [RUN] [CHILD] [T-CAM] [T-RUN] | 仅静态、可逆 layer/ancestor world frame；root 与 strict child `eventfollow` 为每个新粒子保存出生系统原点。inline script、transform Timeline/诊断、有效 parallax、循环或奇异 frame 均 fail closed；无动态 parent 或 Windows golden。 | 动态 parent/Timeline、camera/multi-screen 与 Windows 轨迹 golden。 |
 | G05 Perspective rendering | 作者可选择透视粒子相机，而非一律正交 billboard。 | `L3` | [DEF] [CAM] [RUN] [T-CAM] [T-RUN] | 使用自有固定 eye-distance 相机；未与 WE FOV/depth 做像素核验。 | 正交/透视同场景 Windows golden 和 near/far 边界门。 |
 | G06 Sprite sheet animation mode | Sprite Sheet 可按 Sequence 或 Random Frame 选择帧。 | `L3` | [DEF] [RUN] [T-GPU] | 仅当前 TEX sprite metadata；未知 mode 默认为 Sequence。 | 非法 mode fail-closed、完整 atlas 与 Windows 帧序列门。 |
 | G07 Frame blending | 相邻 sprite 帧可插值，作者也可关闭。 | `L3` | [DEF] [RUN] [GPU] [T-GPU] | 仅 Sequence 混帧；未核验颜色空间、边缘 sampling。 | 相邻帧像素 golden、Random Frame 和禁用负向门。 |
@@ -136,7 +138,7 @@
 
 | ID / 能力 | 官方语义摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
 |---|---|---|---|---|---|
-| O01 Movement | 用 velocity、gravity、drag 随时间推进位置。 | `L3` | [DEF] [SIM] [T-SIM] | 自有 semi-implicit integration；worldspace flag 未执行。 | 不同 dt、gravity/drag 边界与 Windows 轨迹 golden。 |
+| O01 Movement | 用 velocity、gravity、drag 随时间推进位置。 | `L3` | [DEF] [SIM] [WORLD] [T-SIM] | 自有 semi-implicit integration；world-space 子集先用静态逆 world linear frame 把作者 velocity/gravity 转回 local simulation direction。 | 不同 dt、gravity/drag、动态 parent 边界与 Windows 轨迹 golden。 |
 | O02 Angular Movement | 用 angular velocity、force、drag 推进旋转。 | `L3` | [DEF] [SIM] [T-SIM] | 角度单位和三轴 renderer 关系未核验。 | 三 orientation、不同 dt 的旋转 golden。 |
 | O03 Cap Velocity | 将速度限制在作者范围而不改变方向语义。 | `L1` | [PAR] [SUP] [T-DEF] | 只有 unsupported diagnostic。 | min/max、超限、零向量 fixture。 |
 | O04 Alpha Fade | 在 lifetime 的淡入/淡出区间调制 alpha。 | `L3` | [DEF] [SIM] [T-SIM] | 默认值与边界行为为自有近似。 | 交叠区间、零长度、边界帧 golden。 |
@@ -163,7 +165,7 @@
 | O25 Collision response | Collision 可 bounce、slide、stop、delete，并产生 death event。 | `L0` | [DEF] [PAR] [SIM] | 没有 response enum、collision state 或 collision-produced event。 | 每种 response 的速度/存活状态 fixture。 |
 | O26 Blend-in/out windows | 很多 operator 以单粒子 normalized age 的 0...1 窗口混合权重。 | `L2` | [DEF] [SIM] [T-DEF] | 字段和 oscillation 分支存在，但没有窗口运行断言，也不是通用 operator weight。 | 定向窗口测试后提取统一权重并覆盖所有支持 operator。 |
 | O27 Normalized age and order | 每个 operator 读取同一 age/lifetime，并按作者顺序运行。 | `L2` | [SIM] [T-SIM] | normalized age 已接线，但现有组合测试不能证明顺序合同；没有 event/collision 阶段。 | 重复 operator、顺序交换、死亡边界 golden。 |
-| O28 World-space movement flag | Movement 可选择 local/world 空间。 | `L1` | [DEF] [PAR] [SIM] [RUN] | raw flags 保留，但系统 world-space 直接 fail-closed。 | parent transform 移动时 local/world 分离门。 |
+| O28 World-space movement flag | Movement 可选择 local/world 空间。 | `L3` | [DEF] [PAR] [SIM] [WORLD] [RUN] [T-SIM] [T-RUN] | 静态可逆 world frame 下执行世界方向 velocity/gravity；动态 script/Timeline/parallax/奇异 frame 仍报 `worldSpaceMovementUnsupported`。 | parent 动画时 local/world 分离门与 Windows 数值 golden。 |
 | O29 Audio-modulated operator | Vortex/Turbulence 等 operator 可读取频谱调制。 | `L1` | [DEF] [PAR] [SUP] [T-DEF] | 声明与 emitter/initializer 共用同一类型并保真保存；启用后进入 `audioResponseIgnored`（此前 operator 完全无诊断、会静默按无音频路径模拟）。 | 同 E15：缺求值公式证据。语料唯一命中的 `vortex`（`2419444134`）其 operator 本体亦为 `L1`。 |
 
 ## 7. Renderers
@@ -180,7 +182,7 @@
 | R06 Screen orientation | Sprite 始终面向相机屏幕基。 | `L3` | [DEF] [RUN] [CAM] [T-CAM] [T-GPU] | 自有 camera basis；未做 WE pixel golden。 | 正交/透视、旋转层和非方画布门。 |
 | R07 Upright orientation | Sprite 保持 world-up，同时面向相机。 | `L3` | [DEF] [CAM] [T-CAM] [T-GPU] | world-up 固定为当前实现约定。 | 相机/父级旋转和 Windows orientation 门。 |
 | R08 Fixed orientation / axis | Sprite 使用作者轴和 layer transform 的固定平面。 | `L2` | [DEF] [RUN] [CAM] [T-DEF] [T-CAM] | axis 已路由到 renderer，但没有 authored-axis 端到端断言。 | 非默认 axis 的 GPU 几何和截图门。 |
-| R09 Renderer world space | renderer 可在 world space 解释位置与 orientation。 | `L1` | [DEF] [RUN] [T-DEF] [T-RUN] | flag 可解析；任何 world-space renderer 使层 fail-closed。 | world-space Sprite/Trail 与 camera/parent fixture。 |
+| R09 Renderer world space | renderer 的 orientation 可独立于粒子系统 orientation。 | `L3` | [DEF] [RUN] [T-DEF] [T-GPU] [T-RUN] | Sprite 的 screen/upright/fixed world orientation 已与 system rotation/scale 解耦；这与 General/Movement world-space 分开准入。Trail/Rope、3D camera 和 Windows orientation golden 未完成。 | world-space Trail、camera/parent 组合与 Windows orientation golden。 |
 | R10 Sprite Sheet UV | renderer 按 TEX atlas frame 的 origin/axes 取样。 | `L3` | [RUN] [GPU] [T-GPU] | 仅已解析 TEX metadata；多纹理 atlas 和所有 edge case 缺失。 | rotated/trimmed frames、边缘 sampling pixel 门。 |
 | R11 Rope segments/subdivision | Rope 用 segments/subdivision 控制曲线细分。 | `L1` | [DEF] [PAR] [T-DEF] | 字段保留但无 geometry consumer。 | 数量、拓扑和 GPU buffer 上限测试。 |
 | R12 Rope UV scale/smoothing/scroll | Rope 保持连续 UV，并支持 scale、平滑和滚动。 | `L0` | [DEF] [PAR] [GPU] | 没有字段或 rope shader。 | typed UV contract + 时间驱动 pixel fixture。 |
@@ -283,7 +285,7 @@
 |---|---|---|---|---|---|
 | X01 Emitter → initializer → operator | 每帧先推进 schedule/spawn，再对新粒子初始化，对存活粒子运行 operator。 | `L2` | [SIM] [T-SIM] | 阶段顺序已写入代码，但现有结果测试没有锁定同帧 birth/update 边界；也没有 collision/event/children 阶段。 | 同帧 birth/update 边界与 Windows 状态 golden。 |
 | X02 Collision/death/spawn events | operator 后处理碰撞、死亡、spawn/follow 事件。 | `L3` | [SIM] [CHILD] [T-SIM] [T-RUN] | birth 与 natural-death queue 按 fixed step 收集 typed final state 并 drain；collision、delete、follow event 不存在。 | collision/delete 顺序、同帧递归限制和 fixture。 |
-| X03 Child/control point update | 事件后更新 child systems 和动态 CP。 | `L3` | [SIM] [CHILD] [CHILD-EXPAND] [CHILD-LIFE] [RUN] [T-RUN] | strict child systems 分深度每帧更新并回收：depth-one 先推进并收集 per-system 事件，depth-two 随后消费（跨层事件按帧串行传播），Event Follow 分别以 root 粒子与 (parent system, 粒子) 更新 origin 并随 parent 消失回收；动态 CP 与跨空间 mapping 未实现。 | 动态 CP、跨空间 mapping 与 Windows frame-order 门。 |
+| X03 Child/control point update | 事件后更新 child systems 和动态 CP。 | `L3` | [SIM] [CHILD] [CHILD-EXPAND] [CHILD-LIFE] [RUN] [T-RUN] | strict child systems 分深度每帧更新并回收：depth-one 先推进并收集 per-system 事件，depth-two 随后消费（跨层事件按帧串行传播），Event Follow 分别以 root 粒子与 (parent system, 粒子) 更新 origin 并随 parent 消失回收；General world-space child 为每个 birth 固定当时 system origin，不再拖动旧粒子。动态 CP 与跨空间 mapping 未实现。 | 动态 CP、跨空间 mapping 与 Windows frame-order 门。 |
 | X04 Renderer-specific geometry | 最后按 Sprite/Trail/Rope 类型生成不同 geometry。 | `L3` | [RUN] [GPU] [TRAIL] [T-GPU] | 只有 Sprite 和单 quad Sprite Trail；Rope 缺失。 | renderer 多输出和 Rope topology 门。 |
 | X05 Scene render order | 粒子 batch 应遵守 Scene layer render order。 | `L3` | [RUN] [T-RUN] | 初始化时固定排序；live reorder 依赖重建。 | 动态 visibility/order 和 effect 前后关系门。 |
 | X06 GPU instance-buffer lifecycle | 每帧更新实例数据，in-flight buffer 不得被覆盖。 | `L3` | [RUN] [GPU] [T-GPU] | 有 slot completion 门；没有长稳内存预算。 | 10 分钟压力、切换/resize 和峰值预算。 |
@@ -299,6 +301,6 @@
 
 - 本台账共覆盖 `171` 个粒子能力项：General 18、Emitter 17、Initializer 18、Operator 29、Renderer 14、Control Point 12、Children 12、Instance Override 16、Material 22、执行/生命周期 13。
 - 等级分布为 `L0 27 / L1 54 / L2 24 / L3 66 / L4 0`。`L3` 主要集中在 Sphere/Box、常见随机 initializer、基础 movement/change/oscillation、Sprite/Sprite Trail、strict static/event child、已测试的静态 override、首纹理、两种 blend 和 strict REFRACT 双槽子集。
-- 当前固定矩阵的“可见粒子 71/76”、完整矩阵的“120/130”、`3088601835` 的“19/19”与 `3750813609` 的“7/9”只是 root layer 样本运行门，不是上述 171 项的兼容率；完整门另有 11 个初始 REFRACT root batch，`2131872317` 的 event-death child REFRACT 由延迟 runtime 门计证。world-space、depth-three 或其他 fail-closed declaration 不能计为可播放。
-- 开发批次应优先消除公共断点：复用现有 per-surface typed snapshot 接入动态 Control Point 与 author allow gates，再补 Layer Image、剩余 Children/Event、Collision、World Space 和 Rope，最后扩展 audio/material/lighting。逐样本 hardcode、把 unsupported 静默回退成 Sprite/translucent、或把程序纹理称为官方资产，都不允许升级等级。
+- 当前固定矩阵的“可见粒子 76/76”、完整矩阵的“127/130”、`3088601835` 的“19/19”与 `3750813609` 的“9/9”只是 root layer 样本运行门，不是上述 171 项的兼容率；完整门另有 13 个初始 REFRACT root batch，`2131872317` 的 event-death child REFRACT 由延迟 runtime 门计证。剩余 3 个 full45 root 缺口均为 Rope/RopeTrail；动态 world-space、depth-three 或其他 fail-closed declaration 不能计为可播放。
+- 开发批次应优先消除公共断点：复用现有 per-surface typed snapshot 接入动态 Control Point 与 author allow gates，再补 Layer Image、剩余 Children/Event、Collision 和 Rope，最后扩展动态 world-space、audio/material/lighting。逐样本 hardcode、把 unsupported 静默回退成 Sprite/translucent、或把程序纹理称为官方资产，都不允许升级等级。
 - 任一条目升级时，必须同时更新本表的等级、边界、证据路径和下一验收门；只有跑过对应正向、负向、生命周期测试后才能从 `L2` 升到 `L3`。
