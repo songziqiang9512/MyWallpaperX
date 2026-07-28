@@ -40,6 +40,7 @@ SCENE_FIXTURE = {
             "id": 10,
             "name": "Plain solid",
             "image": "models/util/solidlayer.json",
+            "alignment": "topleft",
             "color": "0.1 0.2 0.3",
             "size": "1920 1080",
             "alpha": 0.75,
@@ -63,6 +64,7 @@ SCENE_FIXTURE = {
             "id": 40,
             "name": "Regular image",
             "image": "models/user/photo.json",
+            "alignment": {"value": "bottomleft"},
             "size": "100 100",
             "brightness": 3.0,
             "effects": [
@@ -328,6 +330,9 @@ enum Harness {
             "documentAlphas": [10, 20, 30, 40].map { objects[$0]?.alpha ?? -1 },
             "descriptorAlphas": [10, 20, 30, 40].map { layers[$0]?.alpha ?? -1 },
             "descriptorBrightness": [10, 40, 80].map { layers[$0]?.brightness ?? -1 },
+            "imageAlignments": [10, 20, 40, 80].map {
+                layers[$0]?.imageAlignment ?? "nil"
+            },
             "brightnessContentKinds": [40, 80].map { layers[$0]?.contentKind ?? "" },
             "userTextureInputKinds": layers[40]?.effects.first?.passes.first?.userTextureInputs.map {
                 $0?.kind.rawValue ?? "nil"
@@ -441,6 +446,12 @@ class SceneSolidLayerTests(unittest.TestCase):
         expected = [0.75, 0, 0.25, -1]
         self.assertEqual(self.result["documentAlphas"], expected)
         self.assertEqual(self.result["descriptorAlphas"], expected)
+
+    def test_image_alignment_round_trips_without_leaking_into_text(self) -> None:
+        self.assertEqual(
+            self.result["imageAlignments"],
+            ["topleft", "nil", "bottomleft", "nil"],
+        )
 
     def test_effect_texture_inputs_keep_system_property_and_path_slots_typed(self) -> None:
         self.assertEqual(

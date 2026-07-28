@@ -112,6 +112,7 @@ struct SceneRenderDescriptorBuilder {
                     colorRGB: padVector(object.colorRGB, length: 3, fill: 1),
                     colorBlendMode: object.colorBlendMode,
                     brightness: object.brightness,
+                    imageAlignment: object.imageAlignment,
                     origin: object.origin,
                     size: object.size,
                     scale: object.scale,

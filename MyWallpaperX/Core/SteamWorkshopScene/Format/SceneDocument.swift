@@ -178,6 +178,7 @@ struct SceneDocumentLoader {
             colorRGB: floatVector(root["color"]),
             colorBlendMode: root["colorBlendMode"] as? Int,
             brightness: doubleValue(root["brightness"]),
+            imageAlignment: stringValue(root["alignment"]),
             origin: stringValue(root["origin"]),
             size: stringValue(root["size"]),
             scale: stringValue(root["scale"]),

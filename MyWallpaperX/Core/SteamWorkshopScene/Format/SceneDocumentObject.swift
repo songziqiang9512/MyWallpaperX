@@ -48,6 +48,8 @@ extension SceneDocument {
         // 做过曝发光，其余随包 object 都是 1.0。text 通道在 CoreText 栅格化阶段已消费同名
         // key（见 SceneTextDescriptor.brightness），所以这里保留原始声明而不折进 colorRGB。
         let brightness: Double?
+        // IImageLayer 的 quad pivot；与 text 的 horizontal/vertical alignment 是两套合同。
+        let imageAlignment: String?
         let origin: String?
         let size: String?
         let scale: String?

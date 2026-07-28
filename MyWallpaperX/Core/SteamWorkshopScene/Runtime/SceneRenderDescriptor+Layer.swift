@@ -22,6 +22,8 @@ extension SceneRenderDescriptor {
         let colorBlendMode: Int?
         // 作者 `brightness` 颜色乘数；text 通道已在 CoreText 栅格化阶段消费同名 key。
         let brightness: Double?
+        // image/solid quad pivot: center/top/right/bottom/left and corner variants.
+        let imageAlignment: String?
         let origin: String?
         let size: String?
         let scale: String?

@@ -22,13 +22,15 @@ extension SceneMetalRenderer {
             orthoSize: configuration.orthoSize,
             visibleHalfExtents: visibleHalfExtents
         )
+        // image/solid 的 `alignment` 与 text 的 horizontal/vertical alignment 都会定义
+        // origin 落在哪条 quad 边上，但它们来自两套作者字段，不能互相代替。
+        let pivot = layer.contentKind == "text"
+            ? SceneTextLayerPivot.unitOffset(
+                horizontal: layer.textStyle?.horizontalAlignment,
+                vertical: layer.textStyle?.verticalAlignment
+            )
+            : SceneImageLayerPivot.unitOffset(alignment: layer.imageAlignment)
         let shift = parallax + screenAnchor
-        // 作者 text layer 的对齐同时是 quad pivot：origin 落在对齐命名的那条边上，
-        // 放在 sizeScale 之后才能跟着作者 size、layer scale 缩放并留在旋转内部。
-        let pivot = SceneTextLayerPivot.unitOffset(
-            horizontal: layer.textStyle?.horizontalAlignment,
-            vertical: layer.textStyle?.verticalAlignment
-        )
         return SceneMatrix.translation(SIMD3(shift.x, shift.y, 0))
             * world
             * sizeScale
