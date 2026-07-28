@@ -221,6 +221,18 @@ extension SceneAuthoredEffectChainPlanner {
         ) {
             return stage(.xRay(xRay), stageGraph: stageGraph, inputRole: inputRole)
         }
+        if let clippingMask = SceneAuthoredClippingMaskPlanner.plan(
+            graph: stageGraph,
+            descriptor: descriptor,
+            shaderContracts: shaderContracts,
+            inputRole: inputRole
+        ) {
+            return stage(
+                .clippingMask(clippingMask),
+                stageGraph: stageGraph,
+                inputRole: inputRole
+            )
+        }
         if let blend = SceneAuthoredBlendPlanner.plan(
             graph: stageGraph,
             descriptor: descriptor,

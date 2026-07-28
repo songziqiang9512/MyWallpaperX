@@ -15,6 +15,7 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneNamedTextureReference.swift",
     SOURCE_ROOT / "Effects/SceneGradientColorRuntimePlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneClippingMaskContract.swift",
     SOURCE_ROOT / "RenderGraph/SceneDependencyRenderPlan.swift",
 ]
 
@@ -104,6 +105,11 @@ enum Harness {
             provider: 1,
             effectPath: "effects/blend/effect.json"
         )
+        let lookalikeConsumer = consumer(
+            16,
+            provider: 1,
+            effectPath: "effects/workshop/other/clipping_mask/effect.json"
+        )
         let supportedGradientConsumer = gradientConsumer(12, provider: 1)
         let reversedGradientConsumer = gradientConsumer(13, provider: 1, reversed: true)
         let invalidGradientConsumer = gradientConsumer(14, provider: 1, axis: 2)
@@ -122,13 +128,13 @@ enum Harness {
                 cycleA, cycleB, forwardConsumer, forwardProvider, partialConsumer,
                 neutralOpacityConsumer, nonNeutralOpacityConsumer, unsupportedBlendConsumer,
                 supportedGradientConsumer, reversedGradientConsumer, invalidGradientConsumer,
-                utilityConsumer,
+                utilityConsumer, lookalikeConsumer,
             ],
-            renderOrderLayerIDs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+            renderOrderLayerIDs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
         )
         let plan = SceneDependencyRenderPlan(
             descriptor: descriptor,
-            visibleLayerIDs: [1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+            visibleLayerIDs: [1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
         )
         let matrixProviders = (10...15).map { layer($0, kind: .composition) }
         let matrixProviderIDs = [10, 10, 10, 11, 12, 13, 14, 15]
@@ -189,7 +195,7 @@ enum Harness {
         visible: Bool? = true,
         extraEffect: Bool = false,
         opacity: Double? = nil,
-        effectPath: String = "effects/workshop/clipping_mask/effect.json"
+        effectPath: String = "effects/workshop/2800594362/clipping_mask/effect.json"
     ) -> SceneRenderDescriptor.Layer {
         var effects = [effect(
             id: id,
@@ -215,7 +221,7 @@ enum Harness {
         id: Int,
         provider: Int,
         opacity: Double? = nil,
-        path: String = "effects/workshop/clipping_mask/effect.json"
+        path: String = "effects/workshop/2800594362/clipping_mask/effect.json"
     ) -> SceneRenderDescriptor.EffectDescriptor {
         .init(
             id: "effect-\(id)",
@@ -223,8 +229,11 @@ enum Harness {
             visible: true,
             passes: [.init(
                 passIndex: 0,
-                textureSlots: [nil, "_rt_imageLayerComposite_\(provider)_a"],
-                combos: ["BLENDMODE": 5],
+                texturePaths: ["_rt_imageLayerComposite_\(provider)_a"],
+                textureSlots: opacity == nil
+                    ? [nil, "_rt_imageLayerComposite_\(provider)_a"]
+                    : [nil, "_rt_imageLayerComposite_\(provider)_a", nil],
+                combos: opacity == nil ? ["BLENDMODE": 5] : [:],
                 constantShaderValues: opacity.map {
                     ["Opacity": SceneDocument.ShaderValue(components: [$0])]
                 } ?? [:]
@@ -306,24 +315,22 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         self.assertTrue(self.result["invalidReference"])
 
     def test_only_visible_backward_clipping_consumer_is_executable(self) -> None:
-        self.assertEqual(self.result["referenceCount"], 11)
+        self.assertEqual(self.result["referenceCount"], 12)
         self.assertEqual(
             self.result["namedConsumers"],
-            [2, 6, 8, 9, 10, 11, 12, 13, 14, 15],
+            [2, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16],
         )
-        self.assertEqual(self.result["requiredEffectConsumers"], [2, 6, 8, 9, 10, 12, 13, 14])
-        self.assertEqual(self.result["bindingConsumers"], [2, 9, 12])
+        self.assertEqual(self.result["requiredEffectConsumers"], [2, 6, 8, 9, 12, 13, 14])
+        self.assertEqual(self.result["bindingConsumers"], [2, 8, 9, 12, 13, 14])
         self.assertEqual(self.result["requiredProviders"], [1])
 
-    def test_cycle_forward_and_partial_stacks_fail_closed(self) -> None:
+    def test_cycle_forward_and_invalid_clipping_contracts_fail_closed(self) -> None:
         self.assertEqual(self.result["cycles"], [4, 5])
         self.assertIn("2:dependencyMismatch:1", self.result["issues"])
         self.assertIn("6:forwardUtilityProvider:7", self.result["issues"])
-        self.assertIn("8:unsupportedConsumer:-1", self.result["issues"])
         self.assertIn("10:unsupportedConsumer:-1", self.result["issues"])
-        self.assertIn("13:unsupportedConsumer:-1", self.result["issues"])
-        self.assertIn("14:unsupportedConsumer:-1", self.result["issues"])
         self.assertIn("15:unsupportedConsumer:-1", self.result["issues"])
+        self.assertIn("16:unsupportedConsumer:-1", self.result["issues"])
 
     def test_matrix_shape_keeps_hidden_consumer_out_of_runtime_liveness(self) -> None:
         self.assertEqual(self.result["matrixBindingCount"], 7)

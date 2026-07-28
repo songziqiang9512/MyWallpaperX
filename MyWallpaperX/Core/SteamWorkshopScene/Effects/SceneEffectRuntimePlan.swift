@@ -133,6 +133,10 @@ enum SceneEffectRuntimePlanner {
         if authoredEffectPlan?.blend != nil {
             return "\(foliage)effect runtime blend-authored; \(passCount) declared pass(es)"
         }
+        if authoredEffectPlan?.clippingMask != nil {
+            return "\(foliage)effect runtime clipping-mask-authored; "
+                + "\(passCount) declared pass(es)"
+        }
         if gaussianBlur?.isPrecise == true {
             return "\(foliage)effect runtime gaussian-blur-precise; \(passCount) declared pass(es)"
         }

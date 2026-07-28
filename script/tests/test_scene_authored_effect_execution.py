@@ -374,6 +374,8 @@ struct SceneXRayExecutionPlan {
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
 
+struct SceneClippingMaskExecutionPlan {}
+
 enum SceneAuthoredXRayPlanner {
     static func plan(
         graph: SceneAuthoredEffectRenderPlan,
@@ -383,6 +385,17 @@ enum SceneAuthoredXRayPlanner {
     ) -> SceneXRayExecutionPlan? {
         graph.effects.first?.definitionPath.lowercased()
             == "effects/xray/effect.json" ? SceneXRayExecutionPlan() : nil
+    }
+}
+
+enum SceneAuthoredClippingMaskPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneClippingMaskExecutionPlan? {
+        nil
     }
 }
 
@@ -1053,6 +1066,7 @@ enum Harness {
             case .foliageSway: backend = "foliageSway"
             case .waterRipple: backend = "waterRipple"
             case .xRay: backend = "xRay"
+            case .clippingMask: backend = "clippingMask"
             case .blend: backend = "blend"
             case .tint: backend = "tint"
             case .transform: backend = "transform"

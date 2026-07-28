@@ -22,6 +22,7 @@ extension SceneAuthoredEffectExecutionPlan {
         case foliageSway(SceneFoliageSwayExecutionPlan)
         case waterRipple(SceneWaterRippleExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
+        case clippingMask(SceneClippingMaskExecutionPlan)
         case blend(SceneBlendExecutionPlan)
         case tint(SceneTintExecutionPlan)
         case transform(SceneTransformExecutionPlan)
@@ -127,6 +128,11 @@ extension SceneAuthoredEffectExecutionPlan {
 
     nonisolated var xRay: SceneXRayExecutionPlan? {
         guard case .xRay(let plan) = backend else { return nil }
+        return plan
+    }
+
+    nonisolated var clippingMask: SceneClippingMaskExecutionPlan? {
+        guard case .clippingMask(let plan) = backend else { return nil }
         return plan
     }
 

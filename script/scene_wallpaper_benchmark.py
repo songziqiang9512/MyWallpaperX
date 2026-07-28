@@ -175,6 +175,10 @@ AUTHORED_EFFECT_GRAPH_WATER_WAVES_COUNT_RE = re.compile(
     r"^authoredEffectGraphWaterWavesCount: (?P<count>\d+)$",
     re.MULTILINE,
 )
+AUTHORED_EFFECT_GRAPH_CLIPPING_MASK_COUNT_RE = re.compile(
+    r"^authoredEffectGraphClippingMaskCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
 AUTHORED_EFFECT_GRAPH_BLEND_COUNT_RE = re.compile(
     r"^authoredEffectGraphBlendCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -1100,6 +1104,11 @@ def authored_effect_graph_water_waves_count(preview_text: str) -> int | None:
     return int(match.group("count")) if match is not None else None
 
 
+def authored_effect_graph_clipping_mask_count(preview_text: str) -> int | None:
+    match = AUTHORED_EFFECT_GRAPH_CLIPPING_MASK_COUNT_RE.search(preview_text)
+    return int(match.group("count")) if match is not None else None
+
+
 def authored_effect_graph_blend_count(preview_text: str) -> int | None:
     match = AUTHORED_EFFECT_GRAPH_BLEND_COUNT_RE.search(preview_text)
     return int(match.group("count")) if match is not None else None
@@ -1221,6 +1230,7 @@ def authored_effect_graph_failures(
     shake_count: int | None = None,
     water_flow_count: int | None = None,
     water_waves_count: int | None = None,
+    clipping_mask_count: int | None = None,
     blend_count: int | None = None,
     transform_count: int | None = None,
     transform_static_fallback_count: int | None = None,
@@ -1307,6 +1317,12 @@ def authored_effect_graph_failures(
     if expected_water_waves is not None:
         if water_waves_count != int(expected_water_waves):
             failures.append("authored effect graph Water Waves count mismatch")
+    expected_clipping_mask = sample.get(
+        "expected_authored_effect_graph_clipping_mask_count"
+    )
+    if expected_clipping_mask is not None:
+        if clipping_mask_count != int(expected_clipping_mask):
+            failures.append("authored effect graph Clipping Mask count mismatch")
     expected_blend = sample.get("expected_authored_effect_graph_blend_count")
     if expected_blend is not None:
         if blend_count != int(expected_blend):
@@ -1652,6 +1668,9 @@ def run_sample(
     authored_effect_graph_shake = authored_effect_graph_shake_count(preview_text)
     authored_effect_graph_water_flow = authored_effect_graph_water_flow_count(preview_text)
     authored_effect_graph_water_waves = authored_effect_graph_water_waves_count(preview_text)
+    authored_effect_graph_clipping_mask = authored_effect_graph_clipping_mask_count(
+        preview_text
+    )
     authored_effect_graph_blend = authored_effect_graph_blend_count(preview_text)
     authored_effect_graph_transform = authored_effect_graph_transform_count(preview_text)
     authored_effect_graph_transform_static_fallback = (
@@ -1784,6 +1803,7 @@ def run_sample(
         shake_count=authored_effect_graph_shake,
         water_flow_count=authored_effect_graph_water_flow,
         water_waves_count=authored_effect_graph_water_waves,
+        clipping_mask_count=authored_effect_graph_clipping_mask,
         blend_count=authored_effect_graph_blend,
         transform_count=authored_effect_graph_transform,
         transform_static_fallback_count=authored_effect_graph_transform_static_fallback,
@@ -2084,6 +2104,7 @@ def run_sample(
             "authored_effect_graph_shake_count": authored_effect_graph_shake,
             "authored_effect_graph_water_flow_count": authored_effect_graph_water_flow,
             "authored_effect_graph_water_waves_count": authored_effect_graph_water_waves,
+            "authored_effect_graph_clipping_mask_count": authored_effect_graph_clipping_mask,
             "authored_effect_graph_blend_count": authored_effect_graph_blend,
             "authored_effect_graph_transform_count": authored_effect_graph_transform,
             "authored_effect_graph_transform_static_fallback_count": authored_effect_graph_transform_static_fallback,

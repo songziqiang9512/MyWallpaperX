@@ -89,6 +89,10 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         stages.filter { $0.xRay != nil }.count
     }
 
+    var clippingMaskCount: Int {
+        stages.filter { $0.clippingMask != nil }.count
+    }
+
     var blendCount: Int {
         stages.filter { $0.blend != nil }.count
     }

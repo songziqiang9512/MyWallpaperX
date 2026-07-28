@@ -88,6 +88,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Spin.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+ProceduralNoise.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+FilmGrain.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+ClippingMask.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Tint.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Transform.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+XRay.swift",
@@ -164,6 +165,20 @@ struct SceneRenderDescriptor {
         var brightness: Double? = nil
         let effects: [EffectDescriptor]
     }
+}
+
+enum SceneClippingMaskProfile: String {
+    case classic
+    case weightedNeutral
+}
+
+struct SceneClippingMaskExecutionPlan {
+    let layerID: Int
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+    let renderGraph: SceneAuthoredEffectRenderPlan
+    let providerLayerID: Int
+    let blendMode: Int
+    let profile: SceneClippingMaskProfile
 }
 
 struct SceneTexContainer {
@@ -400,6 +415,7 @@ struct SceneAuthoredEffectExecutionPlan {
         case foliageSway(SceneFoliageSwayExecutionPlan)
         case waterRipple(SceneWaterRippleExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
+        case clippingMask(SceneClippingMaskExecutionPlan)
         case blend(SceneBlendExecutionPlan)
         case tint(SceneTintExecutionPlan)
         case transform(SceneTransformExecutionPlan)
@@ -451,6 +467,11 @@ struct SceneAuthoredEffectExecutionPlan {
 
     var opacity: SceneOpacityExecutionPlan? {
         guard case .opacity(let plan) = backend else { return nil }
+        return plan
+    }
+
+    var clippingMask: SceneClippingMaskExecutionPlan? {
+        guard case .clippingMask(let plan) = backend else { return nil }
         return plan
     }
 
@@ -752,6 +773,10 @@ struct SceneAuthoredEffectExecutionChain {
 
     var singleStage: SceneAuthoredEffectExecutionPlan? {
         stages.count == 1 ? stages[0] : nil
+    }
+
+    var clippingMaskCount: Int {
+        stages.filter { $0.clippingMask != nil }.count
     }
 
     func authoredShaderOffscreenSize(for requestedSize: CGSize) -> CGSize? {
@@ -1215,6 +1240,12 @@ enum Harness {
             device: device, queue: queue, pipeline: pipeline, compositor: compositor,
             blendMode: 5, alpha: 0.5
         )
+        let authoredClippingMask = try authoredClippingMaskPixel(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor
+        )
         let solidTint = try layerTintPixel(
             device: device, queue: queue, pipeline: pipeline, compositor: compositor,
             contentKind: "solid"
@@ -1406,6 +1437,7 @@ enum Harness {
             "normalDependencyBGRA": normalDependency,
             "darkenDependencyBGRA": darkenDependency,
             "darkenHalfAlphaBGRA": darkenHalfAlpha,
+            "authoredClippingMaskBGRA": authoredClippingMask,
             "solidTintBGRA": solidTint,
             "imageTintBGRA": imageTint,
             "imageBrightnessBGRA": imageBrightness,
@@ -1609,6 +1641,63 @@ enum Harness {
                 },
                 authoredEffectPlan: nil,
                 blocksLegacyGaussianBlur: false
+            ),
+            pipeline: pipeline,
+            mainPass: mainPass
+        )
+        guard drew else { throw HarnessError.drawRefused }
+        mainPass.finishEnsuringClear()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
+        return pixel(target, x: 4, y: 4)
+    }
+
+    static func authoredClippingMaskPixel(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor
+    ) throws -> [UInt8] {
+        guard let source = makeTexture(device: device, size: 8, usage: .shaderRead),
+              let dependency = makeTexture(device: device, size: 8, usage: .shaderRead),
+              let target = makeTexture(
+                  device: device, size: 8, usage: [.renderTarget, .shaderRead]
+              ),
+              let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.metalUnavailable
+        }
+        fill(source, bgra: [32, 64, 128, 128])
+        fill(dependency, bgra: [192, 32, 64, 255])
+        let layer = SceneRenderDescriptor.Layer(
+            contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
+        )
+        let mainPass = SceneMainPassEncoder(
+            commandBuffer: commandBuffer,
+            target: target,
+            clearColor: MTLClearColorMake(0, 0, 0, 0)
+        )
+        let drew = compositor.draw(
+            SceneImageLayerDrawRequest(
+                layer: layer,
+                texture: source,
+                masks: .empty,
+                textureFrame: .identity,
+                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+                uniforms: SceneImageLayerUniformValues(
+                    time: 0, alpha: 1, cursorUV: .zero
+                ),
+                offscreenTexturePool: SceneOffscreenTexturePool(device: device),
+                offscreenSize: nil,
+                requiresSourceCopy: false,
+                finalCompositeAlpha: nil,
+                dependencyEffect: SceneDependencyEffectInput(
+                    texture: dependency,
+                    blendMode: 0
+                ),
+                authoredEffectPlan: nil,
+                blocksLegacyGaussianBlur: false,
+                authoredEffectChain: authoredClippingMaskChain()
             ),
             pipeline: pipeline,
             mainPass: mainPass
@@ -3289,6 +3378,68 @@ enum Harness {
         )
     }
 
+    static func authoredClippingMaskChain() -> SceneAuthoredEffectExecutionChain {
+        let layerID = 846
+        let effectKey = Graph.EffectKey(
+            layerID: layerID,
+            effectIndex: 0,
+            descriptorID: "\(layerID)#effect#0"
+        )
+        let input = graphTexture(.layerSource, layerID: layerID)
+        let output = graphTexture(.effectOutput, layerID: layerID, effect: effectKey)
+        let node = Graph.Node(
+            nodeIndex: 0,
+            effect: effectKey,
+            definitionPassIndex: 0,
+            materialOrdinal: 0,
+            instancePassIndex: 0,
+            kind: .material,
+            materialPath: "materials/workshop/clipping_mask.json",
+            materialPassID: "materials/workshop/clipping_mask.json#0",
+            target: output,
+            bindings: [],
+            commandSource: nil,
+            commandTarget: nil,
+            compose: nil,
+            conditions: nil
+        )
+        let effect = Graph.Effect(
+            key: effectKey,
+            definitionPath: "effects/workshop/clipping_mask/effect.json",
+            input: input,
+            output: output,
+            nodeIndices: [0]
+        )
+        let graph = Graph(
+            layerID: layerID,
+            effects: [effect],
+            renderTargets: [],
+            nodes: [node],
+            finalOutput: output,
+            blockers: []
+        )
+        let clipping = SceneClippingMaskExecutionPlan(
+            layerID: layerID,
+            effectKey: effectKey,
+            renderGraph: graph,
+            providerLayerID: 1,
+            blendMode: 0,
+            profile: .classic
+        )
+        let stage = SceneAuthoredEffectExecutionPlan(
+            layerID: layerID,
+            renderGraph: graph,
+            backend: .clippingMask(clipping),
+            materialNodeCount: 1,
+            logicalRenderTargetCount: 0
+        )
+        return SceneAuthoredEffectExecutionChain(
+            layerID: layerID,
+            renderGraph: graph,
+            stages: [stage]
+        )
+    }
+
     static func authoredOpacityChain(
         alpha: Float = 1,
         maskTexturePath: String? = nil
@@ -3909,6 +4060,12 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assert_pixel_close(self.result["normalDependencyBGRA"], [112, 48, 96, 128])
         self.assert_pixel_close(self.result["darkenDependencyBGRA"], [32, 32, 64, 128])
         self.assert_pixel_close(self.result["darkenHalfAlphaBGRA"], [16, 16, 32, 64])
+
+    def test_authored_clipping_stage_consumes_dependency_once(self) -> None:
+        self.assert_pixel_close(
+            self.result["authoredClippingMaskBGRA"],
+            self.result["normalDependencyBGRA"],
+        )
 
     def test_layer_tint_is_applied_only_to_solid_content_on_gpu(self) -> None:
         self.assert_pixel_close(self.result["solidTintBGRA"], [191, 128, 64, 255])

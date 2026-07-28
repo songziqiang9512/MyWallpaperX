@@ -309,6 +309,8 @@ struct SceneXRayExecutionPlan {
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
 
+struct SceneClippingMaskExecutionPlan {}
+
 enum SceneAuthoredXRayPlanner {
     static func plan(
         graph: SceneAuthoredEffectRenderPlan,
@@ -316,6 +318,17 @@ enum SceneAuthoredXRayPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneXRayExecutionPlan? {
+        nil
+    }
+}
+
+enum SceneAuthoredClippingMaskPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneClippingMaskExecutionPlan? {
         nil
     }
 }

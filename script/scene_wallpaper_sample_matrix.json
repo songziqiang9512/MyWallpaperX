@@ -401,8 +401,14 @@
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
       "expected_authored_effect_graph_succeeded_layer_ids": [
+        70,
         167,
         177,
+        182,
+        217,
+        245,
+        265,
+        285,
         317,
         330,
         365,
@@ -434,6 +440,7 @@
         710,
         725,
         736,
+        791,
         912,
         1270
       ],
@@ -450,8 +457,9 @@
       "expected_authored_effect_graph_shake_count": 0,
       "expected_authored_effect_graph_water_flow_count": 0,
       "expected_authored_effect_graph_water_waves_count": 0,
+      "expected_authored_effect_graph_clipping_mask_count": 7,
       "expected_authored_effect_graph_chain_count": 0,
-      "expected_authored_effect_graph_stage_count": 35,
+      "expected_authored_effect_graph_stage_count": 42,
       "expected_route_only_effect_count": 31,
       "minimum_authored_opacity_runtime_count": 4,
       "minimum_legacy_waterwaves_runtime_count": 0,
@@ -636,6 +644,7 @@
         1509
       ],
       "expected_authored_effect_graph_succeeded_layer_ids": [
+        322,
         390,
         563
       ],
@@ -648,8 +657,9 @@
       "expected_authored_effect_graph_shake_count": 1,
       "expected_authored_effect_graph_water_flow_count": 0,
       "expected_authored_effect_graph_water_waves_count": 0,
+      "expected_authored_effect_graph_clipping_mask_count": 1,
       "expected_authored_effect_graph_chain_count": 1,
-      "expected_authored_effect_graph_stage_count": 3,
+      "expected_authored_effect_graph_stage_count": 4,
       "expected_route_only_effect_count": 17,
       "minimum_legacy_waterwaves_runtime_count": 0,
       "maximum_legacy_waterwaves_runtime_count": 0,

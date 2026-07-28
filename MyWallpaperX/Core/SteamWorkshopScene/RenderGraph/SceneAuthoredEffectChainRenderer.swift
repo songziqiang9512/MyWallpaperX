@@ -14,6 +14,7 @@ enum SceneAuthoredEffectChainRenderer {
         pointerIsInside: Bool,
         audioSpectrum: SceneAudioSpectrumSnapshot,
         authoredShaderFrameInputs: SceneAuthoredShaderFrameInputs?,
+        dependencyEffect: SceneDependencyEffectInput?,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         guard !chain.stages.isEmpty,
@@ -43,6 +44,7 @@ enum SceneAuthoredEffectChainRenderer {
                 time: sourceUniforms.time,
                 audioSpectrum: audioSpectrum,
                 authoredShaderFrameInputs: authoredShaderFrameInputs,
+                dependencyEffect: dependencyEffect,
                 commandBuffer: commandBuffer
             ) else {
 #if DEBUG
@@ -72,6 +74,7 @@ enum SceneAuthoredEffectChainRenderer {
         time: Float,
         audioSpectrum: SceneAudioSpectrumSnapshot,
         authoredShaderFrameInputs: SceneAuthoredShaderFrameInputs?,
+        dependencyEffect: SceneDependencyEffectInput?,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         let auxMask = masks.iris ?? masks.opacity
@@ -306,6 +309,17 @@ enum SceneAuthoredEffectChainRenderer {
                 pipelines: pipelines, cursorUV: cursorUV,
                 pointerIsInside: pointerIsInside, commandBuffer: commandBuffer
             )
+        case .clippingMask(let clippingMask):
+            return renderClippingMask(
+                clippingMask,
+                sourceTexture: sourceTexture,
+                masks: masks,
+                targets: targets,
+                sourceUniforms: sourceUniforms,
+                dependencyEffect: dependencyEffect,
+                pipeline: pipeline,
+                commandBuffer: commandBuffer
+            )
         case .blend(let blend):
             guard let blendPipeline = pipelines.blend else { return nil }
             return renderBlend(
@@ -383,5 +397,4 @@ enum SceneAuthoredEffectChainRenderer {
             )
         }
     }
-
 }

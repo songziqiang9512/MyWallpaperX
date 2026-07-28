@@ -86,10 +86,7 @@ nonisolated struct SceneDependencyRenderPlan {
             guard visibleLayerIDs.contains(layer.id),
                   case nil = layer.utilityLayer,
                   references.contains(where: { $0.consumerLayerID == layer.id }),
-                  layer.effects.contains(where: {
-                      $0.visible != false
-                          && $0.file.localizedLowercase.contains("clipping_mask")
-                  }) else {
+                  layer.effects.compactMap(SceneClippingMaskContract.declaration).count == 1 else {
                 return nil
             }
             return layer.id
@@ -193,21 +190,13 @@ nonisolated struct SceneDependencyRenderPlan {
     ) -> Binding? {
         let visibleEffects = layer.effects.filter { $0.visible != false }
         guard case nil = layer.utilityLayer,
-              let effect = supportedClippingEffect(in: visibleEffects),
-              effect.passes.count == 1,
-              let pass = effect.passes.first,
+              let clipping = supportedClippingEffect(in: visibleEffects),
               references.count == 1,
               let reference = references.first,
+              reference.slot.effectID == clipping.declaration.effectID,
+              reference.slot.passIndex == clipping.declaration.passIndex,
               reference.slot.slotIndex == 1,
-              supportsClippingConstants(pass.constantShaderValues),
-              pass.combos.allSatisfy({ key, value in
-                  key.caseInsensitiveCompare("BLENDMODE") == .orderedSame || value == 0
-              }) else {
-            issues.append(Issue(kind: .unsupportedConsumer, layerID: layer.id, providerLayerID: nil))
-            return nil
-        }
-        let blendMode = combo("BLENDMODE", in: pass) ?? 0
-        guard blendMode == 0 || blendMode == 5 else {
+              reference.providerLayerID == clipping.declaration.providerLayerID else {
             issues.append(Issue(kind: .unsupportedConsumer, layerID: layer.id, providerLayerID: nil))
             return nil
         }
@@ -244,43 +233,21 @@ nonisolated struct SceneDependencyRenderPlan {
             consumerLayerID: layer.id,
             providerLayerID: provider.id,
             slot: reference.slot,
-            blendMode: blendMode
+            blendMode: clipping.declaration.blendMode
         )
     }
 
     private nonisolated static func supportedClippingEffect(
         in visibleEffects: [SceneRenderDescriptor.EffectDescriptor]
-    ) -> SceneRenderDescriptor.EffectDescriptor? {
-        if visibleEffects.count == 1,
-           visibleEffects[0].file.localizedLowercase.contains("clipping_mask") {
-            return visibleEffects[0]
-        }
-        guard visibleEffects.count == 2,
-              SceneGradientColorRuntimePlanner.plan(for: visibleEffects[0]) != nil,
-              visibleEffects[1].file.localizedLowercase.contains("clipping_mask") else {
-            return nil
-        }
-        return visibleEffects[1]
-    }
-
-    private nonisolated static func combo(
-        _ name: String,
-        in pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor
-    ) -> Int? {
-        pass.combos.first { $0.key.caseInsensitiveCompare(name) == .orderedSame }?.value
-    }
-
-    private nonisolated static func supportsClippingConstants(
-        _ values: [String: SceneDocument.ShaderValue]
-    ) -> Bool {
-        values.allSatisfy { key, value in
-            guard key.caseInsensitiveCompare("Opacity") == .orderedSame,
-                  let components = value.components,
-                  components.count == 1,
-                  let opacity = components.first else {
-                return false
+    ) -> (
+        effect: SceneRenderDescriptor.EffectDescriptor,
+        declaration: SceneClippingMaskDeclaration
+    )? {
+        let matches = visibleEffects.compactMap { effect in
+            SceneClippingMaskContract.declaration(for: effect).map {
+                (effect: effect, declaration: $0)
             }
-            return opacity.isFinite && abs(opacity - 1) < 0.000_001
         }
+        return matches.count == 1 ? matches[0] : nil
     }
 }

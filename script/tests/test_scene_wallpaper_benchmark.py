@@ -1291,6 +1291,32 @@ utility layer 763: skippedHidden kind=composition
         )
         self.assertIsNone(benchmark.authored_effect_graph_water_waves_count(""))
 
+    def test_authored_clipping_mask_count_is_an_exact_gate(self) -> None:
+        preview = "authoredEffectGraphClippingMaskCount: 7\n"
+        count = benchmark.authored_effect_graph_clipping_mask_count(preview)
+        self.assertEqual(count, 7)
+        self.assertEqual(
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_clipping_mask_count": 7},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                clipping_mask_count=count,
+            ),
+            [],
+        )
+        self.assertIn(
+            "authored effect graph Clipping Mask count mismatch",
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_clipping_mask_count": 0},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                clipping_mask_count=count,
+            ),
+        )
+        self.assertIsNone(benchmark.authored_effect_graph_clipping_mask_count(""))
+
     def test_authored_blend_count_is_an_exact_gate(self) -> None:
         preview = "authoredEffectGraphBlendCount: 1\n"
         count = benchmark.authored_effect_graph_blend_count(preview)

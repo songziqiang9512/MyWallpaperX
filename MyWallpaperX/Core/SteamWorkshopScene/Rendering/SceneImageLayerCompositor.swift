@@ -70,6 +70,7 @@ struct SceneImageLayerCompositor {
             1,
             Int((requestedOffscreenSize?.height ?? CGFloat(request.texture.height)).rounded(.up))
         )
+        let chainConsumesDependency = request.authoredEffectChain?.clippingMaskCount == 1
 
         let sourceEffectInputs = request.authoredEffectChain == nil
             ? effectPlan.inputs
@@ -116,6 +117,7 @@ struct SceneImageLayerCompositor {
                         pointerIsInside: request.uniforms.cursorIsInside,
                         audioSpectrum: request.audioSpectrum,
                         authoredShaderFrameInputs: request.authoredShaderFrameInputs,
+                        dependencyEffect: request.dependencyEffect,
                         commandBuffer: commandBuffer
                     )
                 }
@@ -278,7 +280,8 @@ struct SceneImageLayerCompositor {
                             time: directUniforms.time,
                             commandBuffer: commandBuffer
                         )
-                    case .foliageSway, .waterRipple, .xRay, .blend, .tint, .transform,
+                    case .foliageSway, .waterRipple, .xRay, .clippingMask,
+                         .blend, .tint, .transform,
                          .pulse, .godrays, .spin,
                          .proceduralNoise, .filmGrain, .lightShafts,
                          .colorKey, .workshopShiftHue, .workshopAudioBars, .workshopGradient,
@@ -344,9 +347,13 @@ struct SceneImageLayerCompositor {
                 mvp: request.mvp,
                 uniforms: .neutral(
                     alpha: request.finalCompositeAlpha ?? 1,
-                    dependencyBlendMode: request.dependencyEffect?.blendMode
+                    dependencyBlendMode: chainConsumesDependency
+                        ? nil
+                        : request.dependencyEffect?.blendMode
                 ),
-                dependencyTexture: request.dependencyEffect?.texture,
+                dependencyTexture: chainConsumesDependency
+                    ? nil
+                    : request.dependencyEffect?.texture,
                 layer: request.layer,
                 pipeline: pipeline,
                 colorBlendPipeline: colorBlendPipeline,
