@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from collections import defaultdict
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1]
@@ -19,6 +20,7 @@ DEBUG_RUNNER_SOURCE = (
 
 import scene_wallpaper_benchmark as benchmark
 import scene_preview_visual_evidence as visual
+import generate_scene_full_matrix as matrix_generator
 
 
 def shader_stage(identity: str, kind: str, source: str) -> dict[str, object]:
@@ -679,12 +681,14 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
     def test_runtime_log_patterns_capture_ready_and_release(self) -> None:
         ready = benchmark.READY_RE.search(
             "MWX DEBUG SCENE: phase=ready root=/tmp/sample layers=35 "
-            "imageLayers=24 effects=29 surfaces=1 windows=42 previewLog=/tmp/log "
+            "imageLayers=24 effects=29 surfaces=1 startupElapsedMS=1825.250 "
+            "windows=42 previewLog=/tmp/log "
             "runtimeEvidence=/tmp/evidence/scene-runtime-evidence.json"
         )
         evidence = benchmark.RUNTIME_EVIDENCE_RE.search(
             "MWX DEBUG SCENE: phase=ready root=/tmp/sample layers=35 "
-            "imageLayers=24 effects=29 surfaces=1 windows=42 previewLog=/tmp/log "
+            "imageLayers=24 effects=29 surfaces=1 startupElapsedMS=1825.250 "
+            "windows=42 previewLog=/tmp/log "
             "runtimeEvidence=/tmp/evidence/scene-runtime-evidence.json"
         )
         stopped = benchmark.STOPPED_RE.search(
@@ -703,6 +707,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "camera: projection=cover parallax=false amount=8e-2 delay=0.25 mouseInfluence=-1.0"
         )
         self.assertEqual(ready.group("images"), "24")
+        self.assertEqual(float(ready.group("startup_elapsed_ms")), 1825.25)
         self.assertEqual(
             evidence.group("path"),
             "/tmp/evidence/scene-runtime-evidence.json",
@@ -726,6 +731,71 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(float(camera.group("amount")), 0.08)
         self.assertEqual(float(camera.group("delay")), 0.25)
         self.assertEqual(float(camera.group("influence")), -1.0)
+
+    def test_performance_metrics_parse_v6_evidence_and_normalize_surfaces(self) -> None:
+        log = (
+            "MWX DEBUG SCENE: phase=performance elapsed=6.833 callbacks=410 "
+            "submitted=410 completed=409 failed=0 submittedFPS=60.004 "
+            "completedFPS=59.857 callbackP50MS=16.666 callbackP95MS=16.698 "
+            "callbackMaxMS=17.171 callbackOver16=199 callbackOver33=0 "
+            "drawableMissed=0 drawableWaitP95MS=0.013 drawableWaitMaxMS=0.034 "
+            "preEncodeP95MS=7.671 preEncodeMaxMS=7.868 mainFrameP95MS=8.097 "
+            "mainFrameMaxMS=8.311 cpuP50MS=0.348 cpuP95MS=0.380 "
+            "cpuMaxMS=0.578 cpuOver16=0 cpuOver33=0 gpuSamples=409 "
+            "gpuP50MS=2.279 gpuP95MS=3.886 gpuMaxMS=4.752 "
+            "gpuOver16=0 gpuOver33=0"
+        )
+        metrics = benchmark.performance_metrics(log, surface_count=1)
+        self.assertTrue(metrics["available"])
+        self.assertEqual(metrics["driver_callbacks"], 410)
+        self.assertAlmostEqual(metrics["driver_fps"], 410 / 6.833)
+        self.assertEqual(metrics["completed_frames"], 409)
+        self.assertEqual(metrics["callback_over_16_67_ms"], 199)
+        self.assertAlmostEqual(metrics["completed_fps_per_surface"], 59.857)
+        self.assertAlmostEqual(metrics["pre_encode_p95_ms"], 7.671)
+        self.assertAlmostEqual(metrics["gpu_frame_p95_ms"], 3.886)
+        two_surface = benchmark.performance_metrics(log, surface_count=2)
+        self.assertAlmostEqual(two_surface["completed_fps_per_surface"], 29.9285)
+        self.assertEqual(benchmark.performance_failures(metrics), [])
+
+    def test_performance_metrics_fail_closed_on_missing_or_malformed_evidence(self) -> None:
+        self.assertIn(
+            "expected one performance event",
+            benchmark.performance_metrics("", 1)["error"],
+        )
+        duplicate = (
+            "phase=performance elapsed=1 elapsed=2\n"
+        )
+        self.assertIn("duplicate performance field", benchmark.performance_metrics(duplicate, 1)["error"])
+        missing = "phase=performance elapsed=1 callbacks=60"
+        self.assertIn("missing performance fields", benchmark.performance_metrics(missing, 1)["error"])
+
+    def test_performance_summary_preserves_worst_sample_identity(self) -> None:
+        results = [
+            {
+                "id": "fast",
+                "runtime": {
+                    "startup_ready_ms": 800.0,
+                    "performance": {"available": True, "driver_fps": 60.0},
+                },
+            },
+            {
+                "id": "slow",
+                "runtime": {
+                    "startup_ready_ms": 1800.0,
+                    "performance": {"available": True, "driver_fps": 48.0},
+                },
+            },
+            {"id": "missing", "runtime": {"performance": {"available": False}}},
+        ]
+        summary = benchmark.summarize_performance(results)
+        self.assertEqual(summary["available_count"], 2)
+        self.assertEqual(summary["unavailable_count"], 1)
+        self.assertEqual(summary["lowest_driver_fps"], {"id": "slow", "fps": 48.0})
+        self.assertEqual(
+            summary["slowest_startup_ready_ms"],
+            {"id": "slow", "milliseconds": 1800.0},
+        )
 
     def test_live_property_arguments_and_strict_identity_gate(self) -> None:
         command = ["MyWallpaperX"]
@@ -838,6 +908,7 @@ particle visible: 3
 particle layer 200 "Snow": OK 64x64 blend=additive initial=32 perspective=false
 particle layer 201 "Bird": OK 64x64 blend=translucent initial=64 perspective=true
 particle skipped hidden: 2
+particle skipped transparent: 1
 """
         metrics = benchmark.particle_runtime_metrics(preview_log)
         self.assertTrue(metrics["has_load_evidence"])
@@ -849,6 +920,8 @@ particle skipped hidden: 2
         self.assertEqual(metrics["authored"], 5)
         self.assertEqual(metrics["visible"], 3)
         self.assertEqual(metrics["skipped_hidden"], 2)
+        self.assertEqual(metrics["skipped_transparent"], 1)
+        self.assertTrue(metrics["has_transparent_evidence"])
         self.assertEqual(metrics["loaded_layer_ids"], [200, 201])
         self.assertEqual(
             benchmark.particle_runtime_failures({
@@ -858,6 +931,7 @@ particle skipped hidden: 2
                 "expected_particle_authored": 5,
                 "expected_particle_visible": 3,
                 "expected_particle_skipped_hidden": 2,
+                "expected_particle_skipped_transparent": 1,
                 "required_particle_loaded_layer_ids": [200, 201],
             }, metrics),
             [],
@@ -1190,6 +1264,173 @@ utility layer 763: skippedHidden kind=composition
             ),
         )
         self.assertIsNone(benchmark.authored_effect_graph_water_waves_count(""))
+
+    def test_authored_blend_count_is_an_exact_gate(self) -> None:
+        preview = "authoredEffectGraphBlendCount: 1\n"
+        count = benchmark.authored_effect_graph_blend_count(preview)
+        self.assertEqual(count, 1)
+        self.assertEqual(
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_blend_count": 1},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                blend_count=count,
+            ),
+            [],
+        )
+        self.assertIn(
+            "authored effect graph Blend count mismatch",
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_blend_count": 0},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                blend_count=count,
+            ),
+        )
+        self.assertIsNone(benchmark.authored_effect_graph_blend_count(""))
+
+    def test_authored_transform_contract_is_an_exact_gate(self) -> None:
+        diagnostics = [
+            "layer=65,effect=2,pass=0,constant=scale,"
+            "reason=unsupported-dynamic-binding-static-fallback",
+            "layer=161,effect=2,pass=0,constant=scale,"
+            "reason=unsupported-dynamic-binding-static-fallback",
+        ]
+        preview = (
+            "authoredEffectGraphTransformCount: 2\n"
+            "authoredEffectGraphTransformStaticFallbackCount: 2\n"
+            "authoredEffectGraphTransformStaticFallbackDiagnostics: "
+            + ";".join(diagnostics)
+            + "\n"
+        )
+        count = benchmark.authored_effect_graph_transform_count(preview)
+        fallback_count = (
+            benchmark.authored_effect_graph_transform_static_fallback_count(preview)
+        )
+        parsed_diagnostics = (
+            benchmark.authored_effect_graph_transform_static_fallback_diagnostics(
+                preview
+            )
+        )
+        self.assertEqual(count, 2)
+        self.assertEqual(fallback_count, 2)
+        self.assertEqual(parsed_diagnostics, diagnostics)
+        sample = {
+            "expected_authored_effect_graph_transform_count": 2,
+            "expected_authored_effect_graph_transform_static_fallback_count": 2,
+            "expected_authored_effect_graph_transform_static_fallback_diagnostics": (
+                diagnostics
+            ),
+        }
+        self.assertEqual(
+            benchmark.authored_effect_graph_failures(
+                sample,
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                transform_count=count,
+                transform_static_fallback_count=fallback_count,
+                transform_static_fallback_diagnostics=parsed_diagnostics,
+            ),
+            [],
+        )
+        failures = benchmark.authored_effect_graph_failures(
+            sample,
+            {"succeeded_layer_ids": [], "failed_layer_ids": []},
+            [],
+            None,
+            transform_count=1,
+            transform_static_fallback_count=1,
+            transform_static_fallback_diagnostics=None,
+        )
+        self.assertIn(
+            "authored effect graph Transform count mismatch",
+            failures,
+        )
+        self.assertIn(
+            "authored effect graph Transform static fallback count mismatch",
+            failures,
+        )
+        self.assertIn(
+            "authored effect graph Transform static fallback diagnostics mismatch",
+            failures,
+        )
+        self.assertIsNone(benchmark.authored_effect_graph_transform_count(""))
+        self.assertIsNone(
+            benchmark.authored_effect_graph_transform_static_fallback_count("")
+        )
+        self.assertIsNone(
+            benchmark.authored_effect_graph_transform_static_fallback_diagnostics("")
+        )
+        self.assertEqual(
+            benchmark.authored_effect_graph_transform_static_fallback_diagnostics(
+                "authoredEffectGraphTransformStaticFallbackDiagnostics: \n"
+            ),
+            [],
+        )
+
+    def test_full_matrix_generator_preserves_exact_authored_backend_counts(self) -> None:
+        evidence = {
+            metric: 0 for metric in matrix_generator.RUNTIME_EVIDENCE_METRICS
+        }
+        evidence.update({
+            "shader_contract_aggregate_sha256": "a" * 64,
+            "effect_graph_sha256": "b" * 64,
+            "stock_opacity_single_effect_candidate_layer_ids": [],
+        })
+        runtime: defaultdict[str, object] = defaultdict(int)
+        runtime["runtime_evidence"] = evidence
+        expected_counts = {
+            "authored_effect_graph_color_key_count": 1,
+            "authored_effect_graph_spin_count": 2,
+            "authored_effect_graph_procedural_noise_count": 3,
+            "authored_effect_graph_film_grain_count": 4,
+            "authored_effect_graph_blend_count": 5,
+            "authored_effect_graph_transform_count": 6,
+            "authored_effect_graph_transform_static_fallback_count": 2,
+            "authored_effect_graph_transform_static_fallback_diagnostics": [
+                "fixture"
+            ],
+            "authored_effect_graph_authored_shader_count": 7,
+        }
+        runtime.update(expected_counts)
+        sample = matrix_generator.matrix_sample(
+            {
+                "id": "fixture",
+                "title": "Fixture",
+                "package_file": "scene.pkg",
+                "hashes": {"project_sha256": "c" * 64, "package_sha256": "d" * 64},
+                "runtime": runtime,
+            },
+            {"capabilities": ["fixture"]},
+        )
+        for metric, expected in expected_counts.items():
+            self.assertEqual(sample[f"expected_{metric}"], expected)
+
+    def test_tracked_full_matrix_closes_transform_contract_for_every_sample(self) -> None:
+        matrix = json.loads(
+            (SCRIPT_DIR / "scene_wallpaper_full_sample_matrix.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        samples = matrix["samples"]
+        self.assertEqual(len(samples), 45)
+        for sample in samples:
+            with self.subTest(sample_id=sample["id"]):
+                self.assertIn(
+                    "expected_authored_effect_graph_transform_count",
+                    sample,
+                )
+                self.assertIn(
+                    "expected_authored_effect_graph_transform_static_fallback_count",
+                    sample,
+                )
+                self.assertIn(
+                    "expected_authored_effect_graph_transform_static_fallback_diagnostics",
+                    sample,
+                )
 
     def test_authored_shader_count_is_an_exact_gate(self) -> None:
         preview = "authoredEffectGraphAuthoredShaderCount: 1\n"

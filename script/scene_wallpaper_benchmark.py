@@ -31,15 +31,18 @@ from scene_preview_visual_evidence import (
 )
 
 
+FLOAT_PATTERN = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
 READY_RE = re.compile(
     r"phase=ready .* layers=(?P<layers>\d+) imageLayers=(?P<images>\d+) "
-    r"effects=(?P<effects>\d+) surfaces=(?P<surfaces>\d+)"
+    r"effects=(?P<effects>\d+) surfaces=(?P<surfaces>\d+) "
+    rf"(?:startupElapsedMS=(?P<startup_elapsed_ms>{FLOAT_PATTERN}) )?"
 )
 RUNTIME_EVIDENCE_RE = re.compile(
     r"phase=ready .* runtimeEvidence=(?P<path>.+)$",
     re.MULTILINE,
 )
 STOPPED_RE = re.compile(r"phase=stopped surfacesBefore=(?P<before>\d+) surfacesAfter=(?P<after>\d+)")
+PERFORMANCE_LINE_RE = re.compile(r"phase=performance (?P<fields>[^\r\n]+)")
 LIVE_PROPERTY_UPDATE_RE = re.compile(
     r"phase=live-property-update accepted=(?P<accepted>true|false) "
     r"surfacesBefore=(?P<before>\d+) surfacesAfter=(?P<after>\d+) "
@@ -61,6 +64,10 @@ PARTICLE_AUTHORED_RE = re.compile(r"^particle authored: (?P<count>\d+)$", re.MUL
 PARTICLE_VISIBLE_RE = re.compile(r"^particle visible: (?P<count>\d+)$", re.MULTILINE)
 PARTICLE_SKIPPED_HIDDEN_RE = re.compile(
     r"^particle skipped hidden: (?P<count>\d+)$",
+    re.MULTILINE,
+)
+PARTICLE_SKIPPED_TRANSPARENT_RE = re.compile(
+    r"^particle skipped transparent: (?P<count>\d+)$",
     re.MULTILINE,
 )
 PARTICLE_LAYER_OK_RE = re.compile(r'^particle layer (?P<id>\d+) .*: OK ', re.MULTILINE)
@@ -164,6 +171,22 @@ AUTHORED_EFFECT_GRAPH_WATER_WAVES_COUNT_RE = re.compile(
     r"^authoredEffectGraphWaterWavesCount: (?P<count>\d+)$",
     re.MULTILINE,
 )
+AUTHORED_EFFECT_GRAPH_BLEND_COUNT_RE = re.compile(
+    r"^authoredEffectGraphBlendCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
+AUTHORED_EFFECT_GRAPH_TRANSFORM_COUNT_RE = re.compile(
+    r"^authoredEffectGraphTransformCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
+AUTHORED_EFFECT_GRAPH_TRANSFORM_STATIC_FALLBACK_COUNT_RE = re.compile(
+    r"^authoredEffectGraphTransformStaticFallbackCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
+AUTHORED_EFFECT_GRAPH_TRANSFORM_STATIC_FALLBACK_DIAGNOSTICS_RE = re.compile(
+    r"^authoredEffectGraphTransformStaticFallbackDiagnostics: ?(?P<diagnostics>.*)$",
+    re.MULTILINE,
+)
 AUTHORED_EFFECT_GRAPH_AUTHORED_SHADER_COUNT_RE = re.compile(
     r"^authoredEffectGraphAuthoredShaderCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -188,7 +211,6 @@ IMAGE_BLEND_PLANNED_RE = re.compile(
 IMAGE_BLEND_EXECUTION_RE = re.compile(
     r"phase=image-blend layer=(?P<id>\d+) status=(?P<status>succeeded|failed)"
 )
-FLOAT_PATTERN = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
 CAMERA_RE = re.compile(
     r"^camera: projection=(?P<projection>\S+) parallax=(?P<parallax>true|false) "
     rf"amount=(?P<amount>{FLOAT_PATTERN}) (?:delay=(?P<delay>{FLOAT_PATTERN}) )?"
@@ -199,6 +221,40 @@ SAMPLE_ROOT_DERIVED_FILES = (
     ".mywallpaperx-scene-interpretation.json",
     ".mywallpaperx-scene-preview-log.txt",
 )
+PERFORMANCE_INT_FIELDS = {
+    "callbacks": "driver_callbacks",
+    "submitted": "submitted_frames",
+    "completed": "completed_frames",
+    "failed": "failed_frames",
+    "callbackOver16": "callback_over_16_67_ms",
+    "callbackOver33": "callback_over_33_33_ms",
+    "drawableMissed": "drawable_missed",
+    "cpuOver16": "cpu_over_16_67_ms",
+    "cpuOver33": "cpu_over_33_33_ms",
+    "gpuSamples": "gpu_samples",
+    "gpuOver16": "gpu_over_16_67_ms",
+    "gpuOver33": "gpu_over_33_33_ms",
+}
+PERFORMANCE_FLOAT_FIELDS = {
+    "elapsed": "measurement_elapsed_seconds",
+    "submittedFPS": "submitted_fps_total",
+    "completedFPS": "completed_fps_total",
+    "callbackP50MS": "callback_p50_ms",
+    "callbackP95MS": "callback_p95_ms",
+    "callbackMaxMS": "callback_max_ms",
+    "drawableWaitP95MS": "drawable_wait_p95_ms",
+    "drawableWaitMaxMS": "drawable_wait_max_ms",
+    "preEncodeP95MS": "pre_encode_p95_ms",
+    "preEncodeMaxMS": "pre_encode_max_ms",
+    "mainFrameP95MS": "main_frame_p95_ms",
+    "mainFrameMaxMS": "main_frame_max_ms",
+    "cpuP50MS": "cpu_frame_p50_ms",
+    "cpuP95MS": "cpu_frame_p95_ms",
+    "cpuMaxMS": "cpu_frame_max_ms",
+    "gpuP50MS": "gpu_frame_p50_ms",
+    "gpuP95MS": "gpu_frame_p95_ms",
+    "gpuMaxMS": "gpu_frame_max_ms",
+}
 
 
 def sha256(path: Path) -> str:
@@ -207,6 +263,97 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def performance_metrics(log_text: str, surface_count: int | None) -> dict[str, Any]:
+    matches = list(PERFORMANCE_LINE_RE.finditer(log_text))
+    if len(matches) != 1:
+        return {
+            "available": False,
+            "error": f"expected one performance event, found {len(matches)}",
+        }
+
+    raw_fields: dict[str, str] = {}
+    for token in matches[0].group("fields").split():
+        if token.count("=") != 1:
+            return {"available": False, "error": f"invalid performance token: {token}"}
+        key, value = token.split("=", 1)
+        if not key or not value:
+            return {"available": False, "error": f"invalid performance token: {token}"}
+        if key in raw_fields:
+            return {"available": False, "error": f"duplicate performance field: {key}"}
+        raw_fields[key] = value
+
+    required = set(PERFORMANCE_INT_FIELDS) | set(PERFORMANCE_FLOAT_FIELDS)
+    missing = sorted(required - raw_fields.keys())
+    if missing:
+        return {
+            "available": False,
+            "error": "missing performance fields: " + ", ".join(missing),
+        }
+
+    metrics: dict[str, Any] = {"available": True, "target_fps": 60.0}
+    try:
+        for source, destination in PERFORMANCE_INT_FIELDS.items():
+            value = int(raw_fields[source])
+            if value < 0:
+                raise ValueError(f"negative performance field: {source}")
+            metrics[destination] = value
+        for source, destination in PERFORMANCE_FLOAT_FIELDS.items():
+            value = float(raw_fields[source])
+            if not math.isfinite(value) or value < 0:
+                raise ValueError(f"invalid performance field: {source}")
+            metrics[destination] = value
+    except ValueError as error:
+        return {"available": False, "error": str(error)}
+
+    elapsed = metrics["measurement_elapsed_seconds"]
+    if elapsed <= 0:
+        return {"available": False, "error": "performance elapsed must be positive"}
+    if surface_count is None or surface_count <= 0:
+        return {"available": False, "error": "performance surface count must be positive"}
+
+    metrics["driver_fps"] = metrics["driver_callbacks"] / elapsed
+    metrics["submitted_fps_per_surface"] = metrics["submitted_fps_total"] / surface_count
+    metrics["completed_fps_per_surface"] = metrics["completed_fps_total"] / surface_count
+    return metrics
+
+
+def performance_failures(metrics: dict[str, Any]) -> list[str]:
+    if metrics.get("available") is True:
+        return []
+    return [f"performance evidence unavailable: {metrics.get('error', 'unknown error')}"]
+
+
+def summarize_performance(results: list[dict[str, Any]]) -> dict[str, Any]:
+    available = [
+        (str(result["id"]), result.get("runtime", {}).get("performance"))
+        for result in results
+        if result.get("runtime", {}).get("performance", {}).get("available") is True
+    ]
+    unavailable = len(results) - len(available)
+    if not available:
+        return {
+            "available_count": 0,
+            "unavailable_count": unavailable,
+            "lowest_driver_fps": None,
+            "slowest_startup_ready_ms": None,
+        }
+    lowest_id, lowest = min(available, key=lambda item: item[1]["driver_fps"])
+    startup_values = [
+        (str(result["id"]), result.get("runtime", {}).get("startup_ready_ms"))
+        for result in results
+        if isinstance(result.get("runtime", {}).get("startup_ready_ms"), (int, float))
+    ]
+    slowest = max(startup_values, key=lambda item: item[1]) if startup_values else None
+    return {
+        "available_count": len(available),
+        "unavailable_count": unavailable,
+        "lowest_driver_fps": {"id": lowest_id, "fps": lowest["driver_fps"]},
+        "slowest_startup_ready_ms": (
+            {"id": slowest[0], "milliseconds": slowest[1]} if slowest else None
+        ),
+    }
 
 
 def load_matrix(path: Path) -> dict[str, Any]:
@@ -737,6 +884,7 @@ def particle_runtime_metrics(preview_text: str) -> dict[str, Any]:
     authored_match = PARTICLE_AUTHORED_RE.search(preview_text)
     visible_match = PARTICLE_VISIBLE_RE.search(preview_text)
     skipped_hidden_match = PARTICLE_SKIPPED_HIDDEN_RE.search(preview_text)
+    skipped_transparent_match = PARTICLE_SKIPPED_TRANSPARENT_RE.search(preview_text)
     loaded = int(loaded_match.group("loaded")) if loaded_match else 0
     candidates = int(loaded_match.group("total")) if loaded_match else 0
     return {
@@ -753,6 +901,9 @@ def particle_runtime_metrics(preview_text: str) -> dict[str, Any]:
         "authored": int(authored_match.group("count")) if authored_match else 0,
         "visible": int(visible_match.group("count")) if visible_match else 0,
         "skipped_hidden": int(skipped_hidden_match.group("count")) if skipped_hidden_match else 0,
+        "has_transparent_evidence": skipped_transparent_match is not None,
+        "skipped_transparent": int(skipped_transparent_match.group("count"))
+        if skipped_transparent_match else 0,
         "loaded_layer_ids": [int(match.group("id")) for match in PARTICLE_LAYER_OK_RE.finditer(preview_text)],
     }
 
@@ -940,6 +1091,37 @@ def authored_effect_graph_water_waves_count(preview_text: str) -> int | None:
     return int(match.group("count")) if match is not None else None
 
 
+def authored_effect_graph_blend_count(preview_text: str) -> int | None:
+    match = AUTHORED_EFFECT_GRAPH_BLEND_COUNT_RE.search(preview_text)
+    return int(match.group("count")) if match is not None else None
+
+
+def authored_effect_graph_transform_count(preview_text: str) -> int | None:
+    match = AUTHORED_EFFECT_GRAPH_TRANSFORM_COUNT_RE.search(preview_text)
+    return int(match.group("count")) if match is not None else None
+
+
+def authored_effect_graph_transform_static_fallback_count(
+    preview_text: str,
+) -> int | None:
+    match = AUTHORED_EFFECT_GRAPH_TRANSFORM_STATIC_FALLBACK_COUNT_RE.search(
+        preview_text
+    )
+    return int(match.group("count")) if match is not None else None
+
+
+def authored_effect_graph_transform_static_fallback_diagnostics(
+    preview_text: str,
+) -> list[str] | None:
+    match = AUTHORED_EFFECT_GRAPH_TRANSFORM_STATIC_FALLBACK_DIAGNOSTICS_RE.search(
+        preview_text
+    )
+    if match is None:
+        return None
+    diagnostics = match.group("diagnostics").strip()
+    return diagnostics.split(";") if diagnostics else []
+
+
 def authored_effect_graph_authored_shader_count(preview_text: str) -> int | None:
     match = AUTHORED_EFFECT_GRAPH_AUTHORED_SHADER_COUNT_RE.search(preview_text)
     return int(match.group("count")) if match is not None else None
@@ -1029,6 +1211,10 @@ def authored_effect_graph_failures(
     shake_count: int | None = None,
     water_flow_count: int | None = None,
     water_waves_count: int | None = None,
+    blend_count: int | None = None,
+    transform_count: int | None = None,
+    transform_static_fallback_count: int | None = None,
+    transform_static_fallback_diagnostics: list[str] | None = None,
     authored_shader_count: int | None = None,
     opacity_count: int | None = None,
     color_key_count: int | None = None,
@@ -1098,6 +1284,30 @@ def authored_effect_graph_failures(
     if expected_water_waves is not None:
         if water_waves_count != int(expected_water_waves):
             failures.append("authored effect graph Water Waves count mismatch")
+    expected_blend = sample.get("expected_authored_effect_graph_blend_count")
+    if expected_blend is not None:
+        if blend_count != int(expected_blend):
+            failures.append("authored effect graph Blend count mismatch")
+    expected_transform = sample.get("expected_authored_effect_graph_transform_count")
+    if expected_transform is not None:
+        if transform_count != int(expected_transform):
+            failures.append("authored effect graph Transform count mismatch")
+    expected_transform_fallback = sample.get(
+        "expected_authored_effect_graph_transform_static_fallback_count"
+    )
+    if expected_transform_fallback is not None:
+        if transform_static_fallback_count != int(expected_transform_fallback):
+            failures.append(
+                "authored effect graph Transform static fallback count mismatch"
+            )
+    expected_transform_diagnostics = sample.get(
+        "expected_authored_effect_graph_transform_static_fallback_diagnostics"
+    )
+    if expected_transform_diagnostics is not None:
+        if transform_static_fallback_diagnostics != expected_transform_diagnostics:
+            failures.append(
+                "authored effect graph Transform static fallback diagnostics mismatch"
+            )
     expected_authored_shader = sample.get(
         "expected_authored_effect_graph_authored_shader_count"
     )
@@ -1190,6 +1400,13 @@ def particle_runtime_failures(
         for expectation, metric in visibility_expectations.items():
             if expectation in sample and metrics[metric] != int(sample[expectation]):
                 failures.append(f"particle {metric} count mismatch")
+    if "expected_particle_skipped_transparent" in sample:
+        if not metrics["has_transparent_evidence"]:
+            failures.append("particle transparent visibility evidence missing")
+        elif metrics["skipped_transparent"] != int(
+            sample["expected_particle_skipped_transparent"]
+        ):
+            failures.append("particle skipped transparent count mismatch")
     loaded_layer_ids = set(metrics["loaded_layer_ids"])
     for layer_id in sample.get("required_particle_loaded_layer_ids", []):
         if layer_id not in loaded_layer_ids:
@@ -1355,6 +1572,13 @@ def run_sample(
     ready_match = READY_RE.search(log_text)
     runtime_evidence_match = RUNTIME_EVIDENCE_RE.search(log_text)
     stopped_match = STOPPED_RE.search(log_text)
+    surface_count = int(ready_match.group("surfaces")) if ready_match else None
+    startup_ready_ms = (
+        float(ready_match.group("startup_elapsed_ms"))
+        if ready_match and ready_match.group("startup_elapsed_ms") is not None
+        else None
+    )
+    performance = performance_metrics(log_text, surface_count)
     live_property_update = live_property_update_metrics(log_text)
     loaded_match = LOADED_RE.search(preview_text)
     loaded = int(loaded_match.group("loaded")) if loaded_match else 0
@@ -1402,6 +1626,14 @@ def run_sample(
     authored_effect_graph_shake = authored_effect_graph_shake_count(preview_text)
     authored_effect_graph_water_flow = authored_effect_graph_water_flow_count(preview_text)
     authored_effect_graph_water_waves = authored_effect_graph_water_waves_count(preview_text)
+    authored_effect_graph_blend = authored_effect_graph_blend_count(preview_text)
+    authored_effect_graph_transform = authored_effect_graph_transform_count(preview_text)
+    authored_effect_graph_transform_static_fallback = (
+        authored_effect_graph_transform_static_fallback_count(preview_text)
+    )
+    authored_effect_graph_transform_fallback_diagnostics = (
+        authored_effect_graph_transform_static_fallback_diagnostics(preview_text)
+    )
     authored_effect_graph_authored_shader = authored_effect_graph_authored_shader_count(
         preview_text
     )
@@ -1463,6 +1695,11 @@ def run_sample(
         failures.append("missing ready event")
     elif int(ready_match.group("surfaces")) < 1:
         failures.append("no Scene surface")
+    elif startup_ready_ms is None:
+        failures.append("missing startup ready elapsed evidence")
+    elif not math.isfinite(startup_ready_ms) or startup_ready_ms < 0:
+        failures.append("invalid startup ready elapsed evidence")
+    failures.extend(performance_failures(performance))
     if runtime_evidence_match is None:
         failures.append("missing runtime evidence path")
     elif runtime_evidence_path.resolve() != (
@@ -1520,6 +1757,12 @@ def run_sample(
         shake_count=authored_effect_graph_shake,
         water_flow_count=authored_effect_graph_water_flow,
         water_waves_count=authored_effect_graph_water_waves,
+        blend_count=authored_effect_graph_blend,
+        transform_count=authored_effect_graph_transform,
+        transform_static_fallback_count=authored_effect_graph_transform_static_fallback,
+        transform_static_fallback_diagnostics=(
+            authored_effect_graph_transform_fallback_diagnostics
+        ),
         authored_shader_count=authored_effect_graph_authored_shader,
         opacity_count=authored_effect_graph_opacity,
         color_key_count=authored_effect_graph_color_key,
@@ -1768,6 +2011,8 @@ def run_sample(
             "image_layers": int(ready_match.group("images")) if ready_match else None,
             "effects": int(ready_match.group("effects")) if ready_match else None,
             "surfaces": int(ready_match.group("surfaces")) if ready_match else None,
+            "startup_ready_ms": startup_ready_ms,
+            "performance": performance,
             "hover_pointer_normalized": (
                 list(hover_pointer) if hover_pointer is not None else None
             ),
@@ -1810,6 +2055,10 @@ def run_sample(
             "authored_effect_graph_shake_count": authored_effect_graph_shake,
             "authored_effect_graph_water_flow_count": authored_effect_graph_water_flow,
             "authored_effect_graph_water_waves_count": authored_effect_graph_water_waves,
+            "authored_effect_graph_blend_count": authored_effect_graph_blend,
+            "authored_effect_graph_transform_count": authored_effect_graph_transform,
+            "authored_effect_graph_transform_static_fallback_count": authored_effect_graph_transform_static_fallback,
+            "authored_effect_graph_transform_static_fallback_diagnostics": authored_effect_graph_transform_fallback_diagnostics,
             "authored_effect_graph_authored_shader_count": authored_effect_graph_authored_shader,
             "authored_effect_graph_chain_count": authored_effect_graph_chain["chain_count"],
             "authored_effect_graph_stage_count": authored_effect_graph_chain["stage_count"],
@@ -1827,6 +2076,7 @@ def run_sample(
             "particle_authored": particle_runtime["authored"],
             "particle_visible": particle_runtime["visible"],
             "particle_skipped_hidden": particle_runtime["skipped_hidden"],
+            "particle_skipped_transparent": particle_runtime["skipped_transparent"],
             "particle_loaded_layer_ids": particle_runtime["loaded_layer_ids"],
             "camera_projection": camera_match.group("projection") if camera_match else None,
             "camera_parallax": camera_match.group("parallax") == "true" if camera_match else None,
@@ -1922,7 +2172,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    duration = max(args.duration, 5)
+    duration = max(args.duration, 7)
     if args.after_snapshot_delay is not None and (
         not math.isfinite(args.after_snapshot_delay)
         or args.after_snapshot_delay <= 1
@@ -1989,6 +2239,7 @@ def main() -> int:
             "sample_count": len(results),
             "passed_count": sum(result["passed"] for result in results),
             "preview_visual": summarize_preview_visual_evidence(results),
+            "performance": summarize_performance(results),
         },
         "samples": results,
     }
