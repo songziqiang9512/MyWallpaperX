@@ -21,13 +21,18 @@ extension SceneDesktopWallpaperHost {
 #endif
         updateMouseLocations()
         let timing = sceneClock.advance(hostTime: CACurrentMediaTime(), wallDate: Date())
-        let definitions = SceneTimelineRuntime.mergedDefinitions(
+        let definitions = SceneDynamicDefinitionMerger.merge(
             propertyDefinitions: launchContext.runtimeInput.propertyBindingProgram.definitions,
-            timelineProgram: launchContext.timelineProgram
+            timelineProgram: launchContext.timelineProgram,
+            textScriptProgram: launchContext.textScriptProgram
         )
         let audioSpectrum = SceneAudioSpectrumInbox.shared.latest()
         let timelineValues = SceneTimelineRuntime.values(
             program: launchContext.timelineProgram, sceneTime: timing.sceneTime
+        )
+        let textScriptValues = SceneTextScriptRuntime.values(
+            program: launchContext.textScriptProgram,
+            wallDate: timing.wallDate
         )
         for surface in surfaces.values {
 #if DEBUG
@@ -35,7 +40,9 @@ extension SceneDesktopWallpaperHost {
 #endif
             let dynamicValues = surface.evaluationTransaction.evaluate(
                 frameIndex: timing.frameIndex, definitions: definitions,
-                userValues: launchContext.liveState.userValues, timelineValues: timelineValues
+                userValues: launchContext.liveState.userValues,
+                timelineValues: timelineValues,
+                sceneScriptValues: textScriptValues
             ).snapshot
             surface.metalView.renderFrame(
                 timing: timing, dynamicValues: dynamicValues, audioSpectrum: audioSpectrum,

@@ -129,6 +129,7 @@ struct SceneRenderDescriptorBuilder {
                     puppetMeshPath: object.imagePath.flatMap { puppetMeshPathsByModelPath[$0] } ?? nil,
                     text: object.text,
                     textStyle: object.textStyle,
+                    textScript: object.textScript,
                     hasInlineScript: object.hasInlineScript,
                     effects: effectDescriptors(from: object),
                     effectFiles: object.effectFiles,

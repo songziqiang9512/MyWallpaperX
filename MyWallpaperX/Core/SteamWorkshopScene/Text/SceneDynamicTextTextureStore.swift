@@ -2,6 +2,11 @@ import Foundation
 import Metal
 
 final class SceneDynamicTextTextureStore: @unchecked Sendable {
+    struct Snapshot {
+        let textures: [Int: MTLTexture]
+        let renderSizes: [Int: [Float]]
+    }
+
     private let cacheDirectory: URL
     private let device: MTLDevice
     private let layersByID: [Int: SceneRenderDescriptor.Layer]
@@ -9,6 +14,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
     private let lock = NSLock()
     private var generationState = SceneDynamicTextGenerationState()
     private var currentTextures: [Int: MTLTexture]
+    private var currentRenderSizes: [Int: [Float]]
 
     init(
         descriptor: SceneRenderDescriptor,
@@ -27,6 +33,9 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         self.device = device
         self.layersByID = Dictionary(uniqueKeysWithValues: layers.map { ($0.id, $0) })
         self.currentTextures = initialTextures
+        self.currentRenderSizes = Dictionary(uniqueKeysWithValues: layers.compactMap { layer in
+            layer.renderSizeWH.map { (layer.id, $0) }
+        })
         for layer in layers {
             generationState.registerInitial(
                 layerID: layer.id,
@@ -49,10 +58,10 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         }
     }
 
-    func textures() -> [Int: MTLTexture] {
+    func snapshot() -> Snapshot {
         lock.lock()
         defer { lock.unlock() }
-        return currentTextures
+        return Snapshot(textures: currentTextures, renderSizes: currentRenderSizes)
     }
 
     deinit {
@@ -67,7 +76,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         generation: UInt64
     ) {
         guard let layer = layersByID[layerID] else { return }
-        let texture = SceneTextTextureLoader.makeTexture(
+        let rendered = SceneTextTextureLoader.makeDynamicTexture(
             for: layer,
             content: signature.content,
             pointSize: signature.pointSize,
@@ -80,9 +89,10 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         guard generationState.complete(
             layerID: layerID,
             generation: generation,
-            succeeded: texture != nil
-        ), let texture else { return }
-        currentTextures[layerID] = texture
+            succeeded: rendered != nil
+        ), let rendered else { return }
+        currentTextures[layerID] = rendered.texture
+        currentRenderSizes[layerID] = rendered.renderSizeWH
     }
 
     private static func signature(

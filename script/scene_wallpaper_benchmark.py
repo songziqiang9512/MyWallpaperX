@@ -52,6 +52,19 @@ LIVE_PROPERTY_UPDATE_RE = re.compile(
 LOADED_RE = re.compile(r"^loaded: (?P<loaded>\d+) / (?P<total>\d+)$", re.MULTILINE)
 TEXT_LOADED_RE = re.compile(r"^text loaded: (?P<loaded>\d+) / (?P<total>\d+)$", re.MULTILINE)
 TEXT_LAYER_OK_RE = re.compile(r'^text layer (?P<id>\d+) .*: OK ', re.MULTILINE)
+TEXT_SCRIPT_BINDING_COUNT_RE = re.compile(
+    r"^textScriptBindingCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
+TEXT_SCRIPT_DIAGNOSTIC_COUNT_RE = re.compile(
+    r"^textScriptDiagnosticCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
+TEXT_SCRIPT_BINDING_RE = re.compile(
+    r"^textScript layer (?P<id>\d+) content: profile=(?P<profile>\S+) "
+    r"value@fixture=(?P<value>.+)$",
+    re.MULTILINE,
+)
 PARTICLE_LOADED_RE = re.compile(
     r"^particle loaded: (?P<loaded>\d+) / (?P<total>\d+)$",
     re.MULTILINE,
@@ -971,6 +984,27 @@ def solid_runtime_metrics(preview_text: str) -> dict[str, Any]:
     }
 
 
+def text_script_runtime_metrics(preview_text: str) -> dict[str, Any]:
+    binding_match = TEXT_SCRIPT_BINDING_COUNT_RE.search(preview_text)
+    diagnostic_match = TEXT_SCRIPT_DIAGNOSTIC_COUNT_RE.search(preview_text)
+    bindings = [
+        {
+            "layer_id": int(match.group("id")),
+            "profile": match.group("profile"),
+            "fixture_value": match.group("value"),
+        }
+        for match in TEXT_SCRIPT_BINDING_RE.finditer(preview_text)
+    ]
+    return {
+        "binding_count": int(binding_match.group("count")) if binding_match else None,
+        "diagnostic_count": (
+            int(diagnostic_match.group("count")) if diagnostic_match else None
+        ),
+        "binding_layer_ids": sorted(binding["layer_id"] for binding in bindings),
+        "bindings": bindings,
+    }
+
+
 def utility_runtime_metrics(preview_text: str) -> dict[str, Any]:
     count_match = UTILITY_LAYER_COUNT_RE.search(preview_text)
     capture_match = UTILITY_CAPTURE_COUNT_RE.search(preview_text)
@@ -1788,6 +1822,7 @@ def run_sample(
     text_loaded = int(text_loaded_match.group("loaded")) if text_loaded_match else 0
     text_total = int(text_loaded_match.group("total")) if text_loaded_match else 0
     text_loaded_layer_ids = [int(match.group("id")) for match in TEXT_LAYER_OK_RE.finditer(preview_text)]
+    text_script_runtime = text_script_runtime_metrics(preview_text)
     solid_runtime = solid_runtime_metrics(preview_text)
     utility_runtime = utility_runtime_metrics(preview_text)
     utility_capture_execution = utility_capture_execution_metrics(log_text)
@@ -2149,6 +2184,17 @@ def run_sample(
     expected_text_value = sample.get("expected_text_value")
     if expected_text_value is not None and expected_text_value not in runtime_evidence["text_values"]:
         failures.append("Scene runtime evidence text property mismatch")
+    expected_text_script_binding_count = sample.get("expected_text_script_binding_count")
+    if expected_text_script_binding_count is not None:
+        if text_script_runtime["binding_count"] != int(expected_text_script_binding_count):
+            failures.append("text script binding count mismatch")
+    required_text_script_binding_layer_ids = sorted(
+        int(layer_id)
+        for layer_id in sample.get("required_text_script_binding_layer_ids", [])
+    )
+    if required_text_script_binding_layer_ids:
+        if text_script_runtime["binding_layer_ids"] != required_text_script_binding_layer_ids:
+            failures.append("text script binding layer IDs mismatch")
     visible_layer_ids = set(runtime_evidence["visible_layer_ids"])
     for layer_id in sample.get("required_visible_layer_ids", []):
         if layer_id not in visible_layer_ids:
@@ -2262,6 +2308,10 @@ def run_sample(
             "loaded_textures_text": text_loaded,
             "text_candidates": text_total,
             "text_loaded_layer_ids": text_loaded_layer_ids,
+            "text_script_binding_count": text_script_runtime["binding_count"],
+            "text_script_diagnostic_count": text_script_runtime["diagnostic_count"],
+            "text_script_binding_layer_ids": text_script_runtime["binding_layer_ids"],
+            "text_script_bindings": text_script_runtime["bindings"],
             "loaded_solid_layers": solid_runtime["loaded"],
             "solid_candidates": solid_runtime["candidates"],
             "solid_loaded_ratio": round(solid_runtime["loaded_ratio"], 4),

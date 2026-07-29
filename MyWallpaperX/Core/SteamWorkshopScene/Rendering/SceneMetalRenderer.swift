@@ -80,6 +80,7 @@ struct SceneMetalRenderer {
 
     func renderFrame(
         imageTextures: [Int: MTLTexture],
+        dynamicTextRenderSizes: [Int: [Float]] = [:],
         userPropertyTextures: [String: MTLTexture] = [:],
         spriteAnimations: [Int: SceneSpriteAnimation],
         effectTextures: SceneLayerEffectTextureStore,
@@ -147,6 +148,7 @@ struct SceneMetalRenderer {
             if let imagePipeline, dependencyRuntime.requiresCapture(for: layer.id) {
                 let providerModel = imageModelMatrix(
                     for: layer,
+                    renderSizeOverride: dynamicTextRenderSizes[layer.id],
                     parallaxMouseNormalized: parallaxMouseNormalized,
                     configuration: parallaxConfiguration,
                     visibleHalfExtents: cameraFrame.coverHalfExtents
@@ -186,6 +188,7 @@ struct SceneMetalRenderer {
                 )
                 let model = imageModelMatrix(
                     for: layer,
+                    renderSizeOverride: dynamicTextRenderSizes[layer.id],
                     parallaxMouseNormalized: parallaxMouseNormalized,
                     configuration: parallaxConfiguration,
                     visibleHalfExtents: cameraFrame.coverHalfExtents

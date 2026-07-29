@@ -8,12 +8,19 @@ struct SceneTextTextureLoadResult {
 }
 
 enum SceneTextTextureLoader {
+    struct DynamicTexture {
+        let texture: MTLTexture
+        let renderSizeWH: [Float]
+    }
+
     private struct RenderedTexture {
         let texture: MTLTexture
         let font: SceneTextFontResolver.Resolution
+        let renderSizeWH: [Float]
     }
 
     private static let maxDimension = 2048
+    private static let maxAutoSizeDimension: Float = 16_384
 
     static func load(
         descriptor: SceneRenderDescriptor,
@@ -52,22 +59,28 @@ enum SceneTextTextureLoader {
         return SceneTextTextureLoadResult(textures: textures, messages: messages)
     }
 
-    static func makeTexture(
+    static func makeDynamicTexture(
         for layer: SceneRenderDescriptor.Layer,
         content: String,
         pointSize: Float,
         colorRGB: [Float],
         cacheDirectory: URL,
         device: MTLDevice
-    ) -> MTLTexture? {
-        makeRenderedTexture(
+    ) -> DynamicTexture? {
+        guard let rendered = makeRenderedTexture(
             for: layer,
             content: content,
             pointSize: pointSize,
             colorRGB: colorRGB,
             cacheDirectory: cacheDirectory,
             device: device
-        )?.texture
+        ) else {
+            return nil
+        }
+        return DynamicTexture(
+            texture: rendered.texture,
+            renderSizeWH: rendered.renderSizeWH
+        )
     }
 
     private static func makeRenderedTexture(
@@ -80,16 +93,32 @@ enum SceneTextTextureLoader {
     ) -> RenderedTexture? {
         guard let text = content ?? layer.text, let authoredStyle = layer.textStyle else { return nil }
         let style = authoredStyle.replacing(pointSize: pointSize, colorRGB: colorRGB)
+        let baseRenderSize = layer.renderSizeWH
+        let sourceFont = SceneTextFontResolver.resolve(
+            path: style.fontPath,
+            size: CGFloat(SceneTextGeometry.pointSizeInPixels(style.pointSize)),
+            cacheDirectory: cacheDirectory
+        )
+        let renderSize = content == nil
+            ? baseRenderSize
+            : autoSizedRenderSize(
+                text: text,
+                style: style,
+                font: sourceFont.font,
+                baseRenderSize: baseRenderSize
+            )
         guard let layout = SceneTextGeometry.rasterLayout(
-            renderSize: layer.renderSizeWH,
+            renderSize: renderSize,
             padding: style.padding,
             maxDimension: maxDimension
         ) else { return nil }
-        let font = SceneTextFontResolver.resolve(
-            path: style.fontPath,
-            size: CGFloat(SceneTextGeometry.pointSizeInPixels(style.pointSize) * layout.scale),
-            cacheDirectory: cacheDirectory
-        )
+        let font = layout.scale == 1
+            ? sourceFont
+            : SceneTextFontResolver.resolve(
+                path: style.fontPath,
+                size: CGFloat(SceneTextGeometry.pointSizeInPixels(style.pointSize) * layout.scale),
+                cacheDirectory: cacheDirectory
+            )
         let width = layout.width
         let height = layout.height
         let rowBytes = width * 4
@@ -136,7 +165,47 @@ enum SceneTextTextureLoader {
             withBytes: pixels,
             bytesPerRow: rowBytes
         )
-        return RenderedTexture(texture: texture, font: font)
+        return RenderedTexture(
+            texture: texture,
+            font: font,
+            renderSizeWH: renderSize ?? [Float(width), Float(height)]
+        )
+    }
+
+    private static func autoSizedRenderSize(
+        text: String,
+        style: SceneTextDescriptor,
+        font: CTFont,
+        baseRenderSize: [Float]?
+    ) -> [Float]? {
+        guard let baseRenderSize, baseRenderSize.count >= 2,
+              !style.limitWidth else {
+            return baseRenderSize
+        }
+        let attributes = [kCTFontAttributeName: font] as CFDictionary
+        guard let attributed = CFAttributedStringCreate(
+            kCFAllocatorDefault,
+            text as CFString,
+            attributes
+        ) else {
+            return baseRenderSize
+        }
+        let framesetter = CTFramesetterCreateWithAttributedString(attributed)
+        let measured = CTFramesetterSuggestFrameSizeWithConstraints(
+            framesetter,
+            CFRange(location: 0, length: 0),
+            nil,
+            CGSize(
+                width: CGFloat(maxAutoSizeDimension),
+                height: CGFloat(maxAutoSizeDimension)
+            ),
+            nil
+        )
+        let padding = max(0, style.padding) * 2
+        return [
+            min(maxAutoSizeDimension, max(baseRenderSize[0], Float(ceil(measured.width)) + padding)),
+            min(maxAutoSizeDimension, max(baseRenderSize[1], Float(ceil(measured.height)) + padding)),
+        ]
     }
 
     private static func draw(

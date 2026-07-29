@@ -2745,10 +2745,13 @@
         "solid_layers",
         "text_layers",
         "particle_layers",
-        "strict_effect_runtime"
+        "strict_effect_runtime",
+        "verified_text_script_runtime"
       ],
       "project_sha256": "9cd2f6580c3bd30df94336c2a74a00938c65c0ee13792b9028b902a90be5f6a5",
       "package_sha256": "8bd66b5521a2437fcad478f2db15ce1daedbefbfa18c8890b315e25e337ccefa",
+      "expected_text_script_binding_count": 1,
+      "required_text_script_binding_layer_ids": [28],
       "expected_runtime_evidence_schema": 1,
       "expected_shader_contract_count": 5,
       "expected_shader_contract_authored_count": 3,
@@ -3200,10 +3203,13 @@
         "text_layers",
         "particle_layers",
         "strict_effect_runtime",
-        "route_only_effects"
+        "route_only_effects",
+        "verified_text_script_runtime"
       ],
       "project_sha256": "0d41bcedebbbd5cbf0874840b4fe753d3b1c3e98d1b93d541c28095495904403",
       "package_sha256": "9a2a446ed0f1010585d95b26a620bd823a7756b6d31c0dad49aa09d7e2d724c7",
+      "expected_text_script_binding_count": 3,
+      "required_text_script_binding_layer_ids": [54, 60, 66],
       "expected_runtime_evidence_schema": 1,
       "expected_shader_contract_count": 5,
       "expected_shader_contract_authored_count": 3,
@@ -3810,10 +3816,13 @@
         "text_layers",
         "utility_layers",
         "strict_effect_runtime",
-        "route_only_effects"
+        "route_only_effects",
+        "verified_text_script_runtime"
       ],
       "project_sha256": "97dc2022c38b2c1be9aa061a032e0063f3f5b5c80f50cfed72c6cc4166b8fade",
       "package_sha256": "9a485dfe1cbd695b35a446f769083911872ffea703baafc11d42a8cf03bed5ae",
+      "expected_text_script_binding_count": 3,
+      "required_text_script_binding_layer_ids": [68, 76, 82],
       "expected_runtime_evidence_schema": 1,
       "expected_shader_contract_count": 8,
       "expected_shader_contract_authored_count": 6,
@@ -3928,10 +3937,13 @@
       "capabilities": [
         "image_layers",
         "text_layers",
-        "particle_layers"
+        "particle_layers",
+        "verified_text_script_runtime"
       ],
       "project_sha256": "c258aee6aaa856f748c08ba2ffd67629203c120f63a5d374d36840ce863a2a64",
       "package_sha256": "a0765a5aff41a8a907aa87d75d1f8f75f2e6c5c54df10a8c4e44b1b9f3806a0a",
+      "expected_text_script_binding_count": 3,
+      "required_text_script_binding_layer_ids": [55, 62, 68],
       "expected_runtime_evidence_schema": 1,
       "expected_shader_contract_count": 10,
       "expected_shader_contract_authored_count": 8,
@@ -4844,10 +4856,13 @@
         "image_layers",
         "text_layers",
         "solid_layers",
-        "particle_layers"
+        "particle_layers",
+        "verified_text_script_runtime"
       ],
       "project_sha256": "9aeeb5675e9df7796fcc577c16ee8f00f59c8fcfb554cc5322f7c15d508e06d2",
       "package_sha256": "354f56910695e87ad3adcea5c7577dcb85a6c5d19b0c27a825123eaf1851733c",
+      "expected_text_script_binding_count": 3,
+      "required_text_script_binding_layer_ids": [67, 74, 80],
       "expected_runtime_evidence_schema": 1,
       "expected_shader_contract_count": 11,
       "expected_shader_contract_authored_count": 9,
@@ -5614,10 +5629,13 @@
         "image_layers",
         "text_layers",
         "authored_effect_runtime",
-        "route_only_effects"
+        "route_only_effects",
+        "verified_text_script_runtime"
       ],
       "project_sha256": "e0646a55b2fdb7216d5c95207a2f340f52d43ab7980de44b4fc767d1688eea23",
       "package_sha256": "8e19e176d5a68b9c7a9e53b27c56b6e4aadee5e83ee74a868f69d24b031e1bb5",
+      "expected_text_script_binding_count": 3,
+      "required_text_script_binding_layer_ids": [18, 26, 32],
       "expected_runtime_evidence_schema": 1,
       "expected_shader_contract_count": 6,
       "expected_shader_contract_authored_count": 5,

@@ -355,9 +355,8 @@ class SceneMetalView: NSView {
         let particleBatches = particlePlayback?.advance(by: timing.frameTime) ?? []
         dynamicTextTextures?.update(from: dynamicValues)
         var currentImageTextures = imageTextures
-        if let textTextures = dynamicTextTextures?.textures() {
-            currentImageTextures.merge(textTextures) { _, incoming in incoming }
-        }
+        let dynamicTextSnapshot = dynamicTextTextures?.snapshot()
+        currentImageTextures.merge(dynamicTextSnapshot?.textures ?? [:]) { _, incoming in incoming }
         for (layerID, videoSource) in videoTextureSources {
             if let texture = videoSource.currentTexture(forHostTime: timing.hostTime) {
                 currentImageTextures[layerID] = texture
@@ -376,6 +375,7 @@ class SceneMetalView: NSView {
         }
         renderer.renderFrame(
             imageTextures: currentImageTextures,
+            dynamicTextRenderSizes: dynamicTextSnapshot?.renderSizes ?? [:],
             userPropertyTextures: userPropertyTextureLoad.textures,
             spriteAnimations: spriteAnimations,
             effectTextures: effectTextures,

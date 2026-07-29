@@ -187,6 +187,7 @@ struct SceneDocumentLoader {
             disablesParallaxPropagation: visibleValue(root["disablepropagation"]) ?? false,
             text: text,
             textStyle: text == nil ? nil : SceneTextDescriptor.parse(root),
+            textScript: SceneTextScriptDefinition.parse(root["text"]),
             hasInlineScript: containsInlineScript(root),
             effects: parsedEffects,
             effectFiles: uniqueSorted(effectFiles),

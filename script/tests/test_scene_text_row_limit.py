@@ -29,6 +29,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Runtime/SceneRenderDescriptor+Layer.swift",
     SOURCE_ROOT / "Runtime/SceneRenderDescriptor+AuthoredAssets.swift",
     SOURCE_ROOT / "Text/SceneTextDescriptor.swift",
+    SOURCE_ROOT / "Text/SceneTextScriptDefinition.swift",
     SOURCE_ROOT / "Text/SceneTextGeometry.swift",
     SOURCE_ROOT / "Text/SceneTextFontResolver.swift",
     SOURCE_ROOT / "Text/SceneTextRowLimit.swift",
@@ -368,11 +369,36 @@ enum Harness {
                 scale: 1
             ),
         ]
+        let longContent = "AAAA BBBB CCCC DDDD"
+        let autoSized = layers[70].flatMap {
+            SceneTextTextureLoader.makeDynamicTexture(
+                for: $0,
+                content: longContent,
+                pointSize: $0.textStyle!.pointSize,
+                colorRGB: $0.textStyle!.colorRGB,
+                cacheDirectory: cacheDirectory,
+                device: device
+            )
+        }
+        let widthLimited = layers[60].flatMap {
+            SceneTextTextureLoader.makeDynamicTexture(
+                for: $0,
+                content: longContent,
+                pointSize: $0.textStyle!.pointSize,
+                colorRGB: $0.textStyle!.colorRGB,
+                cacheDirectory: cacheDirectory,
+                device: device
+            )
+        }
 
         let result: [String: Any] = [
             "style": style,
             "ink": ink,
             "wrapWidths": wrapWidths,
+            "dynamicRenderSizes": [
+                "auto": autoSized?.renderSizeWH ?? [],
+                "limited": widthLimited?.renderSizeWH ?? [],
+            ],
             "messages": loaded.messages,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -552,6 +578,10 @@ class SceneTextRowLimitTests(unittest.TestCase):
         self.assertGreater(len(limited["rowRanges"]), 1)
         self.assertLessEqual(limited["maxX"], 100)
         self.assertGreater(unlimited["maxX"], 100)
+
+    def test_dynamic_text_expands_only_when_width_is_not_authored_limited(self) -> None:
+        self.assertGreater(self.result["dynamicRenderSizes"]["auto"][0], 400)
+        self.assertEqual(self.result["dynamicRenderSizes"]["limited"], [400, 140])
 
 
 if __name__ == "__main__":

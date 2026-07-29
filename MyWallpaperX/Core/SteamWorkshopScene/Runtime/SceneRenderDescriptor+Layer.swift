@@ -48,6 +48,7 @@ extension SceneRenderDescriptor {
         let puppetMeshPath: String?
         let text: String?
         let textStyle: SceneTextDescriptor?
+        var textScript: SceneTextScriptDefinition? = nil
         let hasInlineScript: Bool
         let effects: [EffectDescriptor]
         let effectFiles: [String]

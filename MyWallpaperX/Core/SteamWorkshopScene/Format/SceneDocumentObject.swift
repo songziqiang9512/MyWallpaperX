@@ -58,6 +58,7 @@ extension SceneDocument {
         let disablesParallaxPropagation: Bool
         let text: String?
         let textStyle: SceneTextDescriptor?
+        let textScript: SceneTextScriptDefinition?
         let hasInlineScript: Bool
         let effects: [SceneEffect]
         let effectFiles: [String]

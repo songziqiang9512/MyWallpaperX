@@ -248,6 +248,10 @@ final class SceneDesktopWallpaperHost {
                     to: launchContext.logURL,
                     program: launchContext.timelineProgram
                 )
+                Self.appendTextScriptReport(
+                    to: launchContext.logURL,
+                    program: launchContext.textScriptProgram
+                )
                 wroteLog = true
             }
 

@@ -3,11 +3,12 @@ import simd
 extension SceneMetalRenderer {
     func imageModelMatrix(
         for layer: SceneRenderDescriptor.Layer,
+        renderSizeOverride: [Float]? = nil,
         parallaxMouseNormalized: SIMD2<Float>,
         configuration: SceneLayerParallax.Configuration,
         visibleHalfExtents: SIMD2<Float>
     ) -> simd_float4x4 {
-        let size = SIMD2(layer.renderSizeWH ?? [], fill: 0)
+        let size = SIMD2(renderSizeOverride ?? layer.renderSizeWH ?? [], fill: 0)
         let sizeScale = SceneMatrix.scale(SIMD3(size.x, -size.y, 1))
         let world = worldFramesByLayerID[layer.id] ?? SceneMatrix.identity()
         let parallax = parallaxOffset(

@@ -6,6 +6,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
     let pipelineRepository: SceneImageEffectPipelineRepository
     let timelineProgram: SceneTimelineProgram
+    let textScriptProgram: SceneTextScriptProgram
     var liveState: ScenePropertyLiveUpdateState
     let userPropertyTextureURLs: [String: URL]
     let cacheDirectory: URL
@@ -58,6 +59,9 @@ extension SceneDesktopWallpaperHost {
             authoredEffectCatalog: authoredEffectCatalog,
             pipelineRepository: SceneImageEffectPipelineRepository(device: device),
             timelineProgram: SceneTimelineTargetCompiler.compile(
+                descriptor: runtimeInput.renderDescriptor
+            ),
+            textScriptProgram: SceneTextScriptCompiler.compile(
                 descriptor: runtimeInput.renderDescriptor
             ),
             liveState: ScenePropertyLiveUpdateState(
