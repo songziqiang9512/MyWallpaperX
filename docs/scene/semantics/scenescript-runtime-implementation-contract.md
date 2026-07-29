@@ -1,6 +1,6 @@
 # SceneScript 运行时实现层合同（2.8.42 客户端取证）
 
-审查日期：2026-07-25
+审查日期：2026-07-25；Ghidra engine 增补：2026-07-30
 取证快照：Wallpaper Engine 2.8.42 随包文件
 审查方式：静态检查
 
@@ -27,6 +27,7 @@
 | `JM` | `assets/scripts/jsmodules/{wemath,wevector,wecolor}.js` | 13/15/47 行 | A |
 | `DT` | `ui/dist/monaco/autocomplete/lib.sceneScript.d.ts` | 2570 行 | A |
 | `LB` | `ui/dist/monaco/autocomplete/lib.es*.d.ts` 清单 | 23 个文件 | A |
+| `GB` | `wallpaper64.exe` + `scenescript64.dll` 的 Ghidra 有界静态路径 | module/engine/event/timer/teardown 邻域 | B |
 
 等级沿用 [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md)：A = 客户端快照中的结构化文件直接确认。
 
@@ -271,7 +272,38 @@ Mat3/Mat4 的乘法索引和向量变换直接确认其数组为 column-major �
 
 **注意与 shader 侧的差异**：`assets/shaders/common.h` 中同名的 `rgb2hsv`/`hsv2rgb` 是**另一套实现**（GLSL 无分支版，用 `1e-10` 防除零）。JS 侧与 shader 侧算法不同，数值在边界处不保证逐位一致。跨侧比对时不能互为 golden。
 
-## 8. 对 MyWallpaperX 的验收门
+## 8. Engine 与宿主生命周期静态互证（`GB`）
+
+本节只记录高层行为合同，不保存地址、伪代码、函数体、字节或客户端算法表达；静态 executable 证据也不改变 Generic VM/Event 的 `L0` 等级。
+
+### 8.1 Module、engine 与预算边界
+
+- 主程序要求 SceneScript module 返回精确匹配的版本身份；缺导出或版本不符时不创建 engine，属于 fail-closed。
+- module `Init`/`Shutdown` 是进程级引用计数边界；每个 engine 另有独立 isolate、script/timer/property/audio 表与 host bridge。
+- 每个 engine 有独立 watchdog。连续执行长时间不退出会使该实例进入永久中断并跳过后续 event/timer，不是“下一帧自动恢复”。
+- event 与 timer callback 会累计真实执行耗时，宿主可读取并清零。项目可据此设计分级预算，但不能把观察到的客户端 watchdog 阈值直接复制为 MyWallpaperX policy。
+
+### 8.2 Event、timer 与 audio tick
+
+- 每个 script record 固定保存 19 个 event slot：init/update/resize/destroy、用户属性、通用设置、animation、六个 cursor 与五个 media。
+- 每个 slot 有独立存在/禁用位；单一 handler 被禁用不等于停掉整份脚本。
+- init、update 与 animationEvent 的返回值进入绑定 property writeback；其他 event 只产生副作用。
+- frame tick 先刷新 16/32/64 的 left/right/average 稳定数组，再处理 timer。
+- timer 由 frame delta 驱动；interval 到期每帧至多执行一次，执行后从完整周期重新计时，不追补长帧漏掉的周期。
+- `registerAudioBuffers` / `registerAsset` 与 timer/storage 等操作存在不同求值阶段约束；公开取消合同仍以注册函数返回的 cancel function 为准。
+
+### 8.3 Property return 与反射
+
+property return 通过集中式 typed conversion 写回 number、bool、string 和 vector；标量可广播到向量，错类型、不完整向量或非法数值不得覆盖旧值。原生 property reflection 还保留 name、label、顺序、类型、数值范围、bool、归一化颜色、文本和 combo option。带单位字段的精确转换与全部异常边界仍需项目自有 fixture。
+
+### 8.4 Destroy 与 teardown
+
+- engine teardown 会先停止/唤醒 watchdog 并等待监督线程退出，再释放 script record、timer、音频注册、host wrapper 与 isolate。
+- DLL 的 record removal / engine 析构不会替宿主调用用户 `destroy`。
+- 主程序两条独立 lifecycle path 都会主动派发 destroy，因此 owner removal 前 exactly-once destroy 是 host 职责。
+- adapter/多接口间接层使 `destroy -> record removal -> engine teardown` 的完整相对顺序仍无法由静态路径无歧义确认，应保留 fake-VM fixture 或 Windows dynamic trace 门。
+
+## 9. 对 MyWallpaperX 的验收门
 
 按 [SceneScript API 覆盖表](scenescript-api-coverage.md) 的分级口径，本文可支撑以下项从「无依据」升级为「有 A 级规格、待实现」：
 
@@ -283,16 +315,18 @@ Mat3/Mat4 的乘法索引和向量变换直接确认其数组为 column-major �
 | 自定义属性 UI | §6 完整 builder 协议 | 双键命名；combo 取 `options[0].value`；`order` 自增即渲染序 |
 | 官方模块 | §7 三模块行为 | `mix` 不 clamp；角度制；`rgb2hsv` 三分量归一化 |
 | 序列化 | §4.3 replacer + §5.3 格式 | 含向量的对象经 `stringifyConfig` 后向量为空格分隔字符串 |
+| engine lifecycle | §8 版本、事件、timer、watchdog、teardown | 版本不符失败；19 slot；单事件隔离；实例熔断；destroy exactly-once；stop 后 timer/audio/handle 为 0 |
+| typed return/reflection | §8.3 conversion 与 metadata 通道 | scalar/Vec/bool/string/错类型/NaN/Inf；order/label/range/combo/color round-trip |
 
 均**不需要**复制官方源码即可实现与验证。
 
-## 9. 未覆盖与后续
+## 10. 未覆盖与后续
 
 - `CameraTransforms` 是唯一确认由引擎原生提供的类，其 4 个成员的实际行为**无本地证据**，仍需运行时观测。
 - prototype 导出（§4.1）与 token 机制（§4.2）的原生侧用法为等级 C 推断，只能指导实现，不能写成兼容承诺。
 - `ui/dist/scripts/scripts.js`（1.2 MB 编辑器逻辑）已于 2026-07-26 展开：其中**不含** Scene wire 字段的 schema 校验或默认值表（`depthtest`/`pointsize`/`maxrows` 等命中 0 次），此前「可能含属性 schema 校验与默认值」的推测不成立；其真实价值是内嵌的官方 changelog（含 10 条 V8 证据，把 §3 的 VM 选型目标从推断收窄为官方事实），见 [官方客户端 changelog 取证](client-changelog-forensics.md)。
 
-## 10. 关联文档
+## 11. 关联文档
 
 - [SceneScript API 覆盖表](scenescript-api-coverage.md) —— API 表面与当前实现等级
 - [资料来源与证据索引](source-index.md) —— 本文来源应登记于此

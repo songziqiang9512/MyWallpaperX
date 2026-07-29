@@ -1,6 +1,6 @@
 # 官方客户端二进制与第三方依赖取证
 
-审查日期：2026-07-26
+审查日期：2026-07-26；Ghidra 深层增补：2026-07-30
 取证快照：Wallpaper Engine 2.8.42 的 `bin/`、`ui/dist/videos/`、`assets/shaders/{base,editor,HLSL}`、`distribution/`
 审查方式：静态检查
 
@@ -83,6 +83,32 @@ PyTorch、Torch Vision、Torch Audio、timm、**MiDaS**、**DPT**、OpenCV（含
 | Steam | `steam_api.dll` / `steam_api64.dll` | — |
 
 `distribution/` 与 `bin/`+`plugins/` 内容为同一套发行 payload（文件名集合仅差 3 个运行时状态文件：`playliststatetime.bin`、`workshopcache.json`、`workshopcache_editor.json`），无独立证据价值，后续不再检查。
+
+### 3.1 Ghidra 深层静态取证方法与边界
+
+2.8.42 深层增补使用 Ghidra 12.1.2，将 PE import/export、RTTI、字符串 xref、从命名入口开始的有限调用可达性与选择性反编译组合起来。选择性反编译只用于恢复高层模块职责；只有得到公开文档、随包结构化资产或多个独立静态线索互证的结论才进入正式合同。
+
+证据解释：
+
+- 命名入口到命名依赖的直接/thunk-aware 可达性可以确认正向路径存在；
+- 未解析 COM/vtable/函数指针会削弱负面结论，不能用“没有可达”证明功能不存在；
+- 字符串、RTTI 或单一反编译表达只能作为定位线索；
+- 本项目不保存地址、伪代码、函数体、字节或客户端私有算法表达；原始 Ghidra project 和一次性脚本在归纳完成后删除。
+
+### 3.2 模块级结构事实
+
+| 模块 | 深层静态可支持的结构事实 | 不能据此推出 |
+|---|---|---|
+| `resourceutil64.dll` | 三个命名 image loader 都汇入 32-bit 像素转换和方向规范化；GIF 是独立的 open/prepare/advance/free 生命周期 | 所有 Scene TEX 都应在运行时全局翻转；最终通道、颜色空间或 alpha convention |
+| `resourcecompiler64.exe` | sidecar 字段解析、格式选择与 TEXB/TEXS 写出属于同一离线编译边界；272 个无歧义 sidecar/TEX 配对用于互证 | numeric format 单独决定 color/data/normal 语义 |
+| `wallpaper64.exe` | 存在集中式 indexed material/texture resolver、shader frontend/built-in binder、effect condition admission，以及显式的 device-loss/scene rebuild 事务 | shader 数学、完整 override 优先级、Metal 等价参数或 Windows 像素结果 |
+| `scenescript64.dll` | 主程序执行严格版本握手后创建独立 engine；engine 有固定事件表、timer/watchdog/耗时统计，owner `destroy` 需要宿主显式派发 | MyWallpaperX 当前已有通用 VM、全部 API/event 或官方预算数值 |
+| `mediaextensions64.dll` | 主程序经公开 factory 动态取得音频扩展；模块覆盖 source/device/context、queue、capture、pause/resume 与线程化 teardown | 主程序使用全部 OpenAL 面；该模块是通用媒体解码器 |
+| `winrtutil64.exe` | 主程序以辅助进程边界启动；模块聚合系统媒体会话、storage stream、thumbnail/Shell image 与异步注册/注销 | 每张封面的精确变换顺序、WinRT 事件顺序或 macOS 应复制该进程拓扑 |
+| `wallpaperservice64.exe` | Windows Service、电源/会话通知和每用户进程编排器；未发现主程序直接名称/导入关系 | 官方 Scene pause/clock 算法 |
+| `cloneextensions64.dll` | 主程序动态解析 clone/composition 入口；模块有独立 surface/window/swapchain create/update/destroy 边界 | 所有 Scene 与显示配置都使用 clone 路径；跨平台应复制 DirectComposition |
+
+这些结果证明深层静态分析对 resolver、binder、frontend 与生命周期边界有价值；它仍不替代公开 schema、真实样本动态证据和 Windows pixel golden。
 
 ## 4. `assets/shaders` 子目录补漏
 

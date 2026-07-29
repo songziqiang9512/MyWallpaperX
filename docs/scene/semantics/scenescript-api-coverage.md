@@ -39,6 +39,7 @@ Scene host 已有 16/32/64 档 left/right 频谱 snapshot，并由 stock effect�
 | `W` | [`SceneParticleDefinitionParser.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleDefinitionParser.swift)、[`test_scene_particle_definitions.py`](../../../script/tests/test_scene_particle_definitions.py) | 动态 wrapper 的 `hasScript` presence 可诊断 | wrapper script 的源码或求值 |
 | `D` | [`SceneDynamicSnapshot.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneDynamicSnapshot.swift)、[`SceneTextScriptCompiler.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextScriptCompiler.swift)、[`test_scene_text_script_runtime.py`](../../../script/tests/test_scene_text_script_runtime.py) | typed target、固定优先级与三个 exact native text profile 的 `.sceneScript` 值 | JavaScript、通用 source/property binding compiler、API bridge |
 | `F` | [`SceneFrameContext.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneFrameContext.swift)、[`SceneTextScriptRuntime.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextScriptRuntime.swift)、[`SceneDesktopWallpaperHost+FrameDriver.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift) | 同帧 wall date、per-surface evaluation/snapshot 与 exact text 输出提交 | 脚本实例、事件、官方 `Date`/timer API、任意 JS |
+| `G` | 2.8.42 主程序与 SceneScript module 的 Ghidra 有界静态证据，详见 [实现层合同 §8](scenescript-runtime-implementation-contract.md#8-engine-与宿主生命周期静态互证gb) | 版本握手、固定事件槽、watchdog/timer/audio tick、typed return、host-owned destroy 与 teardown 结构 | MyWallpaperX 已实现、动态事件顺序、完整 ABI、官方性能/视觉等价 |
 | `N` | 全仓 `SceneScript`/VM/API 搜索及现有 Scene 测试 | 没有 VM、handle bridge 或任一官方 API 执行测试；exact native formatter 不冒充 API | 不能把其他 Swift renderer 的同名能力算成脚本 API |
 
 ## 2. 执行模型与求值顺序（官方合同，2026-07-25 补充）
@@ -154,7 +155,7 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 | 直接赋值其他 property | 脚本可通过 `thisLayer`/其他 handle 同时修改多个 property | `L0` | `D` 只有 Swift target，没有 JS handle setter | 同帧 mutation buffer；确定冲突顺序、失效 handle 和只读字段；原子提交到 snapshot |
 | source/module loader | 加载 inline 或 `.js` 源码及其 export/import | `L0` | `I` 只保存顶层 wrapper 的 inline source；没有 file/module loader 或 executable module graph | 规范化路径、UTF-8/大小限制、模块依赖图、循环/缺失/越界负向门 |
 | ECMAScript VM | 受控 ECMAScript 环境，无 DOM/Web/Node/shell/任意文件系统 | `L0` | `N` | 选定 VM；严格 global allowlist；网络/文件/进程逃逸测试 |
-| budget/error boundary | 每实例/每帧时间、指令、内存和 timer 有界；脚本错误不终止 renderer | `L0` | `N` | 超时、死循环、递归、OOM、异常、日志节流、单实例熔断和下一帧恢复门 |
+| budget/error boundary | 每实例/每帧时间、指令、内存和 timer 有界；脚本错误不终止 renderer | `L0` | `G` 确认耗时累计、单事件禁用和连续执行 watchdog；项目仍无 VM，`N` | 超时、死循环、递归、OOM、异常、日志节流与单实例熔断；“下一帧恢复”若采用只能是项目策略，不能冒充官方 watchdog parity |
 | instance ownership | 每屏/每 scene 的实例隔离；switch/stop 必须销毁 | `L0` | `F` 已有 per-surface transaction/snapshot，但没有任何脚本实例 | 双屏 frame/time 相同但 pointer/size/result/generation 隔离；pause/resume、switch、stop 后无 timer/handle/provider residue |
 
 ## 3. 生命周期与事件
@@ -163,7 +164,7 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 |---|---|---:|---|---|
 | `init(value)` | owner 创建后调用一次，返回绑定 property 初值 | `L0` | `I/D/N` | 每实例恰好一次；先后顺序、typed return、异常降级可测 |
 | `update(value)` | 每个渲染帧调用；动画应乘 `engine.frametime` | `L0` | `F/N` | 与 frame context 同帧；0 delta、长帧 clamp、暂停和预算门 |
-| `destroy()` | owner 销毁前调用 | `L0` | `N` | switch/stop/动态删 layer 均恰好一次；回调内 handle 失效顺序明确 |
+| `destroy()` | owner 销毁前调用 | `L0` | `G` 确认 host 显式派发、VM/engine 析构不代发；项目仍无实例，`N` | switch/stop/动态删 layer 均恰好一次；先允许脚本清理、再失效 handle/移除 record 的顺序用 fixture/动态 trace 校准 |
 | `resizeScreen(size)` | 分辨率变化时调用；首次创建不会自动调用 | `L0` | `N` | resize 正例和 startup 反例；每屏 size、去重和事件顺序 |
 | `applyUserProperties(changed)` | 首次加载调用，之后只含变化键；使用 `hasOwnProperty` | `L0` | 现有属性系统不派发脚本事件；`D/N` | generation queue；初次全量/后续 delta、批量改动、类型和顺序测试 |
 | `applyGeneralSettings(changed)` | 首次及 app general setting 改变时调用，v2.8 当前主要是 language | `L0` | `N` | typed settings snapshot；初次/增量、未知键和多屏一致性 |
@@ -171,7 +172,7 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 | `cursorMove` | 指针移动时传 `CursorEvent` | `L0` | `N` | world/local 坐标、帧内合并、不同 owner 事件顺序 |
 | `cursorDown` / `cursorUp` / `cursorClick` | 对象上按下、释放和同对象完整点击 | `L0` | `N` | capture、拖出、隐藏/销毁中断、puppet hitBox、按钮限制门 |
 | 五个 media events | status/playback/properties/thumbnail/timeline 变化事件 | `L0` | Scene 没有 media snapshot 或 script queue；`N` | generation 原子更新、缺字段、乱序/旧封面取消、无 provider 稳定事件 |
-| `animationEvent` | Timeline/puppet 指定帧向同 layer script 派发 name/frame | `L0` | `N` | crossing、loop/mirror、seek、低 FPS 跨多帧和一次性派发 |
+| `animationEvent` | Timeline/puppet 指定帧向同 layer script 派发 name/frame | `L0` | `G` 确认它属于可回写绑定 property 的三个 event 之一；项目仍无 dispatch，`N` | typed return、crossing、loop/mirror、seek、低 FPS 跨多帧和一次性派发 |
 
 `animationEvent` 由 Timeline 官方页面确认，但 v2.8 `IComponent` 没列该回调；实现必须保留兼容测试，不能任选一份官方资料后删除另一边。
 
@@ -241,8 +242,8 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 | `input.cursorLeftDown` | 左键当前状态 | `L0` | `N` | down/up/capture 与 event snapshot 同帧 |
 | `CursorEvent.worldPosition/localPosition/hitBox?` | 事件时 world/local 坐标与 puppet hit box；声明明确 screenPosition/button 未使用 | `L0` | `N` | hit-test、坐标变换、未使用字段不得伪造 |
 | [audio resolution constants](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html) | `AUDIO_RESOLUTION_16/32/64` | `L0` | renderer host 已有三档 typed snapshot，native plan 内部严格验证 64；没有 JS global/constant bridge | 只接受三个常量；错误分辨率 fail closed |
-| [`engine.registerAudioBuffers(resolution)`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html) | 必须在 script global context 注册，返回逐帧频谱 | `L0` | exact source compiler 直接声明 native consumer demand；没有 VM、engine method 调用或脚本订阅 | global-only enforcement、consumer generation、重复注册/取消订阅与 stop 生命周期 |
-| [`AudioBuffers`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AudioBuffers.html) | 同长度 `left`, `right`, `average` Float32Array，每帧自动更新；低频到高频，通常 0...1 但可大于 1 | `L0` | host snapshot 只有 left/right；两个 native renderer consumer 逐 bin 派生算术平均且不裁剪 >1，但没有 JS object、Float32Array identity、自动更新对象语义或脚本 consumer | 数组长度/更新时点、跨帧对象语义与受控脚本输入 |
+| [`engine.registerAudioBuffers(resolution)`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html) | 必须在 script global context 注册，返回逐帧频谱 | `L0` | `G` 确认 global-phase 限制和 engine teardown 注销；exact source compiler 仅声明 native demand，没有 VM/API bridge | global-only enforcement、consumer generation、重复注册/取消订阅与 stop 生命周期 |
+| [`AudioBuffers`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AudioBuffers.html) | 同长度 `left`, `right`, `average` Float32Array，每帧自动更新；低频到高频，通常 0...1 但可大于 1 | `L0` | `G` 确认 16/32/64 × left/right/average 稳定数组在 timer 前刷新；项目 host 只有 left/right，仍无 JS object/identity/订阅 | 数组 identity、更新时点、平均值数值、跨帧对象语义与受控脚本输入 |
 | `MediaStatusEvent` | `enabled` 表示媒体集成可用/启用 | `L0` | `N` | enable/disable、无 provider 和订阅生命周期 |
 | `MediaPlaybackEvent` | state 0 stopped / 1 playing / 2 paused | `L0` | `N` | 状态映射、重复事件去重和 app 切换 |
 | `MediaPropertiesEvent` | title/artist/subTitle/albumTitle/albumArtist/genres/contentType | `L0` | `N` | 缺字段、Unicode、原子曲目切换和 stale generation |

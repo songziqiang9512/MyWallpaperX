@@ -178,6 +178,23 @@ common_vertex.h   ── base/model_vertex_v1.h
 
 `ConvertTextureFormat(format, sample)` 是同逻辑的**运行时分支版本**（`if` 而非 `#if`），用于格式在编译期未知的场合。
 
+### 4.4 存储格式与纹理用途必须分离
+
+2.8.42 随包语料中 272 个无歧义 `.tex-json`/`.tex` 配对证明：
+
+- 普通 `dxt5` 与 packed-normal `dxt5n` 都会写成 TEX numeric format 4；
+- `rgba8888`、`rgba8888n` 与 `rgb888` 都可能写成 format 0；
+- `rg88`/`rg88n` 共享 format 8。
+
+因此 numeric format 只决定存储布局和可用解码器，不能单独决定 color、mask、flow/data 或 normal 语义。用途必须作为独立 typed identity 贯穿 parser、resolver、cache key、upload 与 sampler：
+
+- color 可按最终 composite 合同执行颜色空间处理和 premultiply；
+- data/normal 不得进入颜色 premultiply 或未声明的色彩转换；
+- 相同存储格式、不同用途的缓存结果不能复用；
+- packed normal 的最终恢复只由项目自有 fixture 与 Windows golden 定标，不从客户端反编译表达直接实现。
+
+`8b06538d` 已落地第一层公共合同：loader cache 与 compressed uploader 共用 typed `.premultipliedColor` / `.preservedChannels` identity。小型单 image BC1/2/3 的 preserved-channel 路径仍执行有界 CPU decode，但不 premultiply 且保留物理 mip extent；大型或多 image 则保留 native BC。自建 BC3 fixture 锁定 `G/A=255/64` 在 color 路径变为 `64/64`、在 data 路径保持 `255/64`，并锁定两种调用顺序、跨用途 cache 隔离与 padding/mapped extent。该实现只证明项目内部用途不会在上传阶段丢失；它没有证明 DXT5n 恢复公式、颜色空间或 Windows 像素等价。
+
 ## 5. 灰度权重冲突
 
 两个函数计算灰度，权重向量的 R/B 分量相反：
@@ -257,6 +274,16 @@ common_vertex.h   ── base/model_vertex_v1.h
 它们属于 §10 说明的 D3D11 专用回退路径，**不参与跨平台抽象**，与上表合并统计会得到 161 这个无实现意义的数字。MyWallpaperX 不需要实现这一组。
 
 官方公开的 built-in 变量应以在线 Variables 页面为准（见 [资料来源与证据索引](source-index.md) §1.4）；本清单包含未公开的内部 uniform，可用于判断某个 workshop shader 引用的是否为合法 built-in。
+
+### 7.4 运行时 slot metadata binder 的静态确认
+
+Ghidra 选择性静态路径确认，2.8.42 运行时为每个内部纹理槽建立同构的 resolution、mapped size、texel/mipmap、rotation 与 translation 元数据族；内部 registry 覆盖 0...9。
+
+官方公开 authored shader 合同仍只有 sampler 0...7，因此：
+
+- MyWallpaperX 的公开 schema、兼容声明和作者输入继续限制 0...7；
+- 内部 8/9 只能作为保留槽或显式 unsupported，不能据此扩宽公开兼容范围；
+- per-slot binder 必须从最终 texture candidate/generation 更新同一组元数据，不能由各 strict effect 分别猜测。
 
 ## 8. shader 注解合同
 
@@ -348,6 +375,12 @@ shaders/chroma4.frag:2   // [PASS] shadow shadowcaster
 
 对 render graph 的影响：依赖收集与 pass 枚举不能只扫 JSON，还要解析 shader 头部注解。三个宿主 shader 都是 3D 模型类（fur/foliage/chroma），与阴影投射用途一致。只有 3 个样本，`[PASS]` 的完整参数形态与官方调度时机无证据（等级 C）。
 
+### 8.6 Shader frontend 注解是运行输入
+
+Ghidra 静态执行路径确认，客户端 frontend 会识别多位数字的 `g_TextureN`、`uniform` inline metadata，以及 `[COMBO]`、`[PASS]`。inline metadata 至少包含 `material`、`default`、`components` 和 `formatcombo` 族。
+
+这把上述注解从“随包 source 中存在”推进为“运行时 frontend 会读取”；它仍不能推出完整预处理展开、default/override 精确优先级、backend translation 或未公开 slot 的作者可用性。
+
 ## 9. 对 MyWallpaperX 的规格与验收门
 
 | 项 | 规格 | 验收门 |
@@ -363,10 +396,13 @@ shaders/chroma4.frag:2   // [PASS] shadow shadowcaster
 | combo 注解 | 只承认精确 `[COMBO]`；除 `combo` 外全部键可缺席；`require` 参与 variant 剪枝 | §8.1 三种变体拼写产出诊断而非静默忽略；`require` 不满足的组合不进 variant 矩阵 |
 | uniform 标注 | 与 combo 分成两条通道，`type` 值域不共用 | `type == "color"` 不生成 variant；`type == "imageblending"` 不生成颜色控件 |
 | `[PASS]` 注解 | shader 头部声明的附加 pass 进入依赖收集与 pass 枚举 | fur/foliage/chroma 的 shadow pass 被枚举到，而非只扫 JSON |
+| sampler parser | 支持多位数字索引，同时对 authored contract 执行 0...7 边界 | `g_Texture7` 正门、`g_Texture8/9` 保留/失败关闭门、超范围负门 |
+| slot metadata | 每个公开槽使用同构 physical/mapped/texel/mip/rotation/translation binder | 0...7 表驱动 fixture；资源 generation 改变时元数据与纹理原子更新 |
+| texture purpose | storage format 与 color/data/normal identity 分离 | 同一 BC3 fixture 走 color 与 normal/data，只有 color 发生项目要求的 premultiply |
 
 ## 10. 未覆盖与边界
 
-- 候选 prelude/frontend token 的**确切展开文本与提供者**不在随包 source corpus 中。本文能 A 级确认 token 使用与本地定义缺席；“由 binary 注入”和多数语义解释均为 C 级。
+- 候选 prelude/frontend token 的**确切展开文本与完整 provider**不在随包 source corpus 中。运行时 frontend 与 built-in binder 的存在已有静态执行路径支持；token 展开文本、完整 backend translation 和数值语义仍未知。
 - `SHADERVERSION` 与 `VERSION` 的取值范围无本地证据。
 - `HLSL/` 子目录下 7 个 `dx11*` shader 是 D3D11 专用回退路径（`dx11fallback`、`dx11playlistgaussian`、`dx11playlisttransition`），与跨平台抽象无关，未展开。
 

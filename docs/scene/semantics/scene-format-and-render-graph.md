@@ -176,6 +176,15 @@ pass 顺序是执行合同。典型类型：
 
 Motion Blur 等定义含显式 copy，用来复制 source 像素到 target；省略 copy 或把它当 material pass，会改变 read/write 顺序。观察到的 swap command 则交换资源 identity/handle，不是像素 copy。两者都不消耗 material ordinal；swap 还必须验证 allocation scope、UV、clear/reset 和 condition 合同兼容后才能执行。
 
+### 5.6 Condition 是图准入条件
+
+2.8.42 客户端的 Ghidra 静态执行路径确认，condition 在受影响 pass/FBO/bind 纳入执行图之前求值。目标执行合同：
+
+- 不满足条件的节点不分配 RT、不构建 material，也不留下部分 texture binding；
+- 运算符集合以 [客户端 changelog 取证](client-changelog-forensics.md) 的版本事实为入口，避免在多份文档重复名单；
+- 缺值、类型转换、相等比较与跨版本默认仍是 unknown，未经 fixture 不猜测；
+- condition 改变时，graph identity、resource allocation 与输出切换必须是同一事务。
+
 ## 6. Render target 与生命周期
 
 | 属性 | 执行含义 | 错误实现的后果 |
@@ -227,6 +236,16 @@ MyWallpaperX 当前 material resolver 与 frame registry 仍是两份明确分�
 blend、depth 和 cull 属于 material/pass 语义。未知 blend mode 不能无声回退 normal 后仍宣称支持；至少应 passthrough 并记录 `unsupported-render-state`。alpha 的 straight/premultiplied 关系要在纹理解码、effect RT 和最终 composite 三处一致。
 
 `linux-wallpaperengine` 的 parser 在字段缺失或未知时分别回退 `normal`、`nocull`、`disabled`、`disabled`（`MaterialParser.cpp:39-56,73-127`）。这是 D 级兼容实现的 fallback，不是官方默认值证明；尤其其 unknown enum 会记录错误后继续运行，MyWallpaperX 不能照此回退后仍把该 pass 记为语义支持。
+
+### 7.3 Material resolution 与 value channels
+
+2.8.42 客户端静态执行路径确认存在集中式 indexed resolver，联合处理 authored slot、user/system/provider reference、可选尺寸信息和 fallback。由此强化以下公共合同：
+
+- sparse slot 和来源 identity 必须保留，不能压缩数组或只留下最终路径；
+- `constantshadervalues`、动态 user values 与 shader metadata defaults 是不同 value channel；
+- 缺失值会参考 shader metadata 的方向已有静态支持，但完整 override 优先级仍需合法资产与运行 fixture 确认；
+- authored blend state 可能同时参与 GPU pipeline state 与 shader variant identity，planner 不能把两者彻底分离；
+- 官方公开 material slot 仍是 0...7；客户端内部更大容量只作为内部事实，不扩宽兼容声明。
 
 ## 8. Shader 语义
 
@@ -286,10 +305,12 @@ for object in authored source order:
   draw base object into object working texture
 
   for effect in authored order where resolved visible:
+    evaluate node/FBO/bind conditions before allocation
     allocate/reuse effect instance RTs
     for pass in authored order:
       resolve shader variant and render state
-      resolve texture0...7 without compacting holes
+      resolve authored/provider/default value channels without compacting holes
+      update each slot's metadata from the final texture candidate/generation
       execute compose/copy/swap/material node to declared target
       publish named target; keep this effect's previous fixed
 
@@ -301,11 +322,14 @@ apply scene post processing
 present or read back
 ```
 
+HDR、video HDR 和 display-output 等最终路径应拥有 typed output-mode/transfer identity，不能隐含为一个统一 framebuffer conversion。
+
 ## 11. 二进制资产合同（TEX BC 与 Puppet MDL）
 
 序列化细节均属"真实样本 + 第三方播放器解释"证据，不是官方 schema；任何超出已验证形状的数据必须 fail closed。
 
-- **TEX BC 颜色载荷**（`8bac86e`）：TEXI format 4/6/7 分别为 BC3/BC2/BC1。块网格按存储尺寸（4 对齐 padding）持有，作者内容尺寸在 TEXB `imageWidth/imageHeight`。合成管线是 premultiplied source-over，而 BC 块存 straight alpha，因此颜色载荷必须 CPU 解码 -> premultiply -> 裁剪到 image 尺寸后以 `rgba8Unorm` 上传；直通上传会让透明 texel 的 RGB（常为白）泛成不透明 matte，并让 physical/mapped 尺寸错位。BC5（format 5）是法线载荷、不参与颜色合成，保持 GPU 原生直通并保留 mapped UV scale。行级并发解码保证未优化 Debug 构建的 4K 纹理亚秒级加载。
+- **TEX BC 存储与用途**（`8bac86e` + 2.8.42 sidecar/TEX 相关性）：TEXI format 4/6/7 分别描述 BC3/BC2/BC1 存储，块网格按存储尺寸（4 对齐 padding）持有，作者内容尺寸在 TEXB `imageWidth/imageHeight`。但 numeric format 4 同时承载普通 `dxt5` 颜色与 packed-normal `dxt5n`，所以格式不能单独决定处理。明确为 **color** 的 BC 块存 straight alpha，在当前 premultiplied source-over 合同下需要解码、裁剪并按 color purpose premultiply；**data/normal** consumer 必须保留 packed 通道并跳过颜色预乘/色彩转换。BC5（format 5）也是法线存储候选，但不能据此反推所有法线只会使用 format 5。cache key、upload、sampler 与 shader variant 都必须包含 resource purpose 和 physical/mapped metadata。
+- `8b06538d` 已让 `SceneTextureLoader` 的 cache key 与 `SceneCompressedTextureUploader` 共享同一个 purpose identity：普通 color 保留现有 premultiply/crop，REFRACT straight albedo 与 packed normal 使用 preserved-channel，且 data padding 保留物理 extent 供 mapped UV 消费。自动门覆盖独立 green/alpha、加载顺序、cache identity 和 padding；其他 Effect mask/noise/flow/phase/normal 仍经 color loader，不能由本项外推为已修正。
 - **Puppet MDL mesh block**（`8bac86e`）：MDLV0021/0023，marker 9 字节；首个 `MDLS` 偏移为 mesh 搜索上界。块形状为 `u32 vertexBytes` + 顶点 + `u32 indexBytes` + uint16 三角形索引；已核验 stride 80（tail/arm 类）与 84（skinned base 类），position 是块内偏移 0 的 3 个 float（模型中心原点、y 向上），UV 是 stride 尾部 8 字节（v=0 为图集顶部，与项目纹理 UV 约定一致）。判定条件 `max(index) == vertexCount - 1` 对不同 stride 数学互斥，天然唯一。加载时按层声明 size 归一化顶点并一次性重组图集为 bind-pose 纹理。
 - **MDLS / MDAT 静态 attachment**（`49ee89a`）：受限 reader 只接受已验证的 `MDLV0023 + MDLS0004 + MDAT0001`。MDAT 条目为 `u16 boneIndex + name\0 + 列主序 4x4 attachment-local matrix`；沿 MDLS parent hierarchy 求 bone world 后乘 attachment local，再用 `F * M * F`（`F = diag(1,-1,1,1)`）转为 Scene bind frame。child transform 顺序为 `parentWorld * attachmentSceneBind * childLocal`；非法 bounds/count/parent/bone/name/matrix、parent model 无同名 attachment 或运行时 frame 非 16 个有限 float 均 fail closed 到普通 parent transform并输出诊断。
 - **MDLS skin / MDLA 动画**（`2be2b44`、`f1ee79b`）：受限 reader 只接受已验证的 `MDLV0023 + MDLS0004 + MDLA0006`。80/84-byte vertex record 的四个 bone index 位于 `stride - 40`，四个 float weight 位于 `stride - 24`，每顶点权重必须有限、非负且和为 1。MDLA 每个 bone track 保存 `frameCount + 1` 个完整 TRS；真实资产证明 translation 与 scale 也会变化，不能按编辑器建议丢弃。局部矩阵顺序经真实 bind frame 核验为 `T * Rz * Ry * Rx * S`，层级 world 后用 `animatedWorld * inverse(bindWorld)` 做四权重 normalized LBS。当前只消费 `loop`、单个静态可见、non-additive、blend/rate=1、无 blend-in/out 的 animation layer，并按 source FPS 离散 fixed-step 采样；其他声明回退 bind pose。animation mixing、插值、动画 attachment follow、constraint/IK/physics 均未执行。

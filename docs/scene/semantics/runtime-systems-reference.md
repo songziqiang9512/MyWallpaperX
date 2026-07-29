@@ -32,6 +32,30 @@ MyWallpaperX 当前已落地第一阶段 `SceneFrameTiming` / `SceneFrameContext
 
 这仍不等于完整时钟和动态系统合同。16/32/64 host audio 与 bounded consumers 已接入；pause/resume、delta clamp、fixed timestep、buttons、media producer、deterministic seed、离线 adapter、通用 SceneScript 与其余 Timeline/particle target 仍未闭合。
 
+### 1.1 Frame timing、wall date 与 readiness 分离
+
+2.8.42 客户端的 Ghidra 静态执行路径支持以下结构事实：
+
+- frame delta 来自高分辨率单调计时；
+- local/daytime 是另一类输入，不从 frame index 推导；
+- resource/video readiness 与等待状态会影响调度。
+
+MyWallpaperX 的公共合同应保持 monotonic delta、wall date、scene time 与 surface readiness 分离。本文不保存客户端等待常数；pause/resume、掉帧或 rebuild 后采用 clamp、freeze 还是显式 discontinuity，必须由项目自有 policy 和 fixture 定义。
+
+### 1.2 Reset 与 interruption 是跨资源事务
+
+静态路径显示 device loss/scene rebuild 会跨 render target、material/resource cache、provider 与 scene state 执行显式释放和重建，不是等待各对象被动 `deinit`。目标应有 `reset(reason, generation)` 或同等事务：
+
+- 覆盖 render-target pool、material/shader cache、texture/provider、video、sound、particle、script 与异步任务；
+- 旧 generation 的异步完成不得重新注入新场景；
+- reset 后按确定顺序重建，失败保持可诊断状态。
+
+用户暂停、screen lock、system sleep 与 display sleep 则由一个 reason-set interruption coordinator 管理：重复通知幂等，所有原因清除后才恢复。Frame driver、SceneClock、video、sound、provider、SceneScript、particle 与 history 必须同步冻结或遵循明确 discontinuity 规则，避免巨大 delta、视频相位和历史资源分叉。
+
+### 1.3 Surface 策略是请求合同
+
+Windows 客户端的 clone 扩展只证明存在独立 surface/window/swapchain 生命周期，不要求 macOS 复制 DirectComposition。Scene request 应显式选择 clone、span、per-display 或 selected/disabled display；公共层维护稳定 surface identity、共享 host time/只读资产，以及 surface-local viewport、pointer、history 和 teardown。
+
 ## 2. Particle System
 
 官方 Particle 文档把系统明确拆成 General、Emitter、Initializer、Operator、Renderer、Control Point 和 Children。它不是“生成一些 sprite 然后向下移动”的单一算法。
@@ -291,6 +315,18 @@ Timeline 由 runtime time 求值，不应按“每渲染帧加一个 keyframe st
 - script error 只降级绑定 property，不能中止整个 renderer；
 - `localStorage`、user shortcut 和外部文件动作按 macOS sandbox/TCC 单独设计，不照搬 Windows 行为。
 
+### 5.5 SceneScript 模块边界静态互证
+
+2.8.42 主程序与 `scenescript64.dll` 的有界 Ghidra 路径补充确认：
+
+- 主程序先做精确版本握手，匹配后才执行 module init 和 engine creation；版本不符失败关闭；
+- engine 使用固定事件槽、timer、watchdog 与每回调耗时统计，不是 renderer draw 中的一次无预算 `eval`；
+- host 侧两条独立 lifecycle path 都会主动派发 `destroy` 事件；DLL 的 record/engine 清理不会自行合成该事件；
+- 因此 owner removal 前 exactly-once `destroy` 是宿主职责。`destroy -> record removal -> engine teardown` 的完整相对顺序仍不能由静态 vtable 无歧义恢复，需最小 fake-VM fixture 或 Windows dynamic trace；
+- interval 由 frame delta 驱动，到期每帧至多执行一次，不追补积压周期；项目应把 drift/catch-up 行为写成显式 timer policy。
+
+独立 module、engine instance、owner script instance 与 host event bridge 是四个生命周期层。官方 API、事件与 ECMAScript 版本仍以 §5.1–5.3 的公开资料为准；本节不改变当前 Generic VM/Event 的覆盖等级。
+
 ## 6. User Properties
 
 官方类型：
@@ -335,6 +371,8 @@ MyWallpaperX 当前状态（见 [E-AUDIO-INPUT](runtime-evidence-index.md#e-audi
 
 三处未知必须继续标注：频率边界、幅度归一化与平滑策略官方均未公开；当前的 32 Hz→16 kHz 对数划分与 -60 dB 映射是工程选择，与 Web 侧的 64+64 合同互不适用；采集 30 Hz 与渲染 60 Hz 之间不插值。
 
+Scene `Sound` 对象与 host spectrum provider 是两条合同。`mediaextensions64.dll` 的静态边界覆盖 source/device/context、play/pause/stop/rewind、buffer queue、capture、device pause/resume 和线程化 teardown，但它不代表项目必须实现完整 OpenAL。最小公共 Sound 生命周期应先覆盖 owner-scoped prepare/play/pause/resume/stop/dispose、one-shot/loop/volume、decoder/buffer budget 和 device reset；Scene 自己的声音是否回馈到 spectrum 必须显式定义。
+
 ### 7.3 Media
 
 官方 SceneScript 提供 status、playback、properties、thumbnail 和 timeline 事件。运行时需要 generation-based snapshot：
@@ -346,6 +384,16 @@ MyWallpaperX 当前状态（见 [E-AUDIO-INPUT](runtime-evidence-index.md#e-audi
 - 无 consumer 时解除订阅。
 
 `$mediaThumbnail` 或等价 system texture 是 provider 资源，不是普通文件路径。
+
+2.8.42 的 `winrtutil64.exe` 静态边界进一步支持“异步系统媒体 snapshot producer”：
+
+- provider identity、status、metadata、timeline 与 thumbnail 必须共享 generation；
+- track/stream switch 原子更新，stale thumbnail decode 必须取消或丢弃；
+- scene pause/switch/rebuild 要与 start/pause/resume/seek/reset/current-frame 同步；
+- last-ready/authored fallback、图像尺寸/格式/方向和资源上限是 provider 合同；
+- stop 后 observer、pending task、临时资源与 texture 全部释放。
+
+这是跨平台设计依据，不要求 macOS 复制 WinRT 类、进程拓扑或图像处理表达。A→B→C（B 故意延迟）的自有 fixture 必须证明 B 永不覆盖 C。
 
 ### 7.4 Scene Texture
 

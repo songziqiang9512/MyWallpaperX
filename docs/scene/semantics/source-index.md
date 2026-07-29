@@ -190,8 +190,11 @@ Wallpaper Engine 2.8.42 / Steam build `23967692` 的历史结构化取证记录�
 - [官方客户端 changelog 取证](client-changelog-forensics.md)：`ui/dist/scripts/scripts.js` 内嵌 REV 3943-4401 共 459 版 / 741 条变更；V8 VM、MSDF 字体、FBO condition 运算符、默认值裁剪与粒子/child/CP 语义的版本事实。
 - [编辑器字符串表取证](editor-string-table-forensics.md)：`locale/ui_en-us.json` 3,332 keys 的 Scene 子集；45 Effect、粒子组件、blend mode、Timeline、scene options 与 utility 层的官方名称与一句话定义。
 - [客户端二进制与第三方依赖取证](client-binary-dependency-forensics.md)：`bin/` 62 文件模块清单、`bin/licenses` 官方自认的 34+14 项第三方库及其到 Scene 系统的映射、`assets/shaders/{base,editor,HLSL}` 子目录补漏与 165 个官方元素预览视频登记。
+- [Ghidra clean-room 深层静态审查报告](../../../.codex/scene-ghidra-clean-room-audit-2.8.42-20260730/report.md)：Wallpaper Engine 2.8.42，Ghidra 12.1.2；覆盖 `wallpaper64.exe`、`scenescript64.dll`、`resourceutil64.dll`、`resourcecompiler64.exe`、`mediaextensions64.dll`、`winrtutil64.exe`、`wallpaperservice64.exe` 与 `cloneextensions64.dll`。方法为 import/export、RTTI/string xref、命名入口有限可达性、选择性反编译和 sidecar/TEX/公开文档/当前代码交叉验证。sanitized 报告 SHA-256 `6276b2a1bd868f7ade49ea8a67850f1b3197aef79f2dd59a93395aea82ed9590`；报告同时追踪由证据触发的首个公共修复 `8b06538d` 及其自动/运行边界。原始 Ghidra project、地址、伪代码、函数体、字节和一次性脚本已删除，不是项目依赖。
 
 上述客户端深挖文档由 `script/extract_wallpaper_engine_client_evidence.py` 支持针对同版本输入重新提取。历史证据覆盖 `assets`、default projects/templates、声明文件、`locale` 字符串表、`ui/dist` 类型库与 `bin` 模块清单；不覆盖用户项目、配置或缓存。静态取证可以作为结构证据，但仍不能代替运行时 event order、history lifecycle、shader 数学或 Windows pixel golden。
+
+深层 executable 证据可进一步确认 resolver、binder、frontend 与生命周期结构；它仍不能代替颜色空间/alpha、性能、精确事件顺序或 Windows 视觉/声音 golden。静态结论不更新 [覆盖台账](coverage-ledger.md) 的任何能力等级。
 
 ## 2. 真实样本证据
 
