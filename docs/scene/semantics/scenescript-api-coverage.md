@@ -1,6 +1,6 @@
 # SceneScript API 覆盖表（官方声明 v2.8）
 
-> 核验日期：2026-07-29
+> 核验日期：2026-07-30
 >
 > 官方基线：`lib.sceneScript.d.ts` **VERSION 2.8**，固定文档 revision `b26412295cbfd0ee5cdceff67e2c95069527aa1b`。
 >
@@ -10,11 +10,13 @@
 
 ## 1. 当前结论与评级口径
 
-通用 SceneScript 当前仍是 **L0 runtime**。项目没有 ECMAScript VM、通用 property-script binding IR、host object bridge、事件队列、timer scheduler 或任意脚本输出消费者。独立 `.js`、非文字 inline script 和粒子动态 wrapper 仍只保留 presence；文字层现在额外保真保存 inline source 与 `scriptproperties`，但只交给下述三个 exact native profile，不能作为通用 JavaScript 执行证据。
+通用 SceneScript 当前仍是 **L0 runtime**。项目没有 ECMAScript VM、通用 file/module/value-type loader、host object bridge、事件队列或 timer scheduler。layer 顶层 property wrapper 现在可把 `host`、inline `source`、`scriptproperties` 与 authored fallback 保真送入 descriptor/cache，达到局部 `L1`；nested wrapper 不会被错误提升，旧 cache 缺少该字段仍可解码。它没有建立通用 owner/handle、模块、生命周期或任意 JavaScript 执行能力。
 
 `8740737` 新增一个与 VM 分离的 **L3 bounded native text profile**：按 raw source SHA-256 和完整 property key/type/range 同时准入 Workshop `2981960200` 的 clock、spaced-day、date 三个已独立复核格式器；每帧从 `SceneFrameContext.wallDate` 产生 string，按 `authored -> user -> Timeline -> SceneScript` 写入 per-surface snapshot，再复用 dynamic text generation/纹理 consumer。六个未修改真实样本的 16 个有效可见绑定执行，未知 source、增删/变异 property 均保留作者 fallback 并报告诊断。它不是 JavaScript 解释器，不开放 `Date`、`engine`、lifecycle、handle、event、module 或任一官方 API；因此本表的通用 SceneScript 和逐 API 行仍保持 `L0`。
 
-Scene host 已有 16/32/64 档 left/right 频谱 snapshot，并由 stock effect 与三个 exact Workshop Audio Bars profile 按需驱动采集；这只是 renderer 输入公共底座。当前仍没有 SceneScript source/binding IR、VM、`engine.registerAudioBuffers` bridge、`AudioBuffers`/`average` object 或脚本 consumer，因此下表相关 API 全部保持 `L0`。
+两个额外的 **L3 bounded native audio profile** 按 raw source SHA-256 与完整 binding/property/layer/asset/shader/render-state 合同准入 `2241938645:282` 与 `3743305891:112` 的 64 段条形：复用 host 64 档 left/right，逐 bin 求算术平均，以同一纹理执行 64 次 renderer draw。未知或变异 profile 整体 fail closed；没有样本 ID/layer ID 分支。它不执行 JavaScript，64 个 renderer instance 也不是可枚举、排序、销毁的 Scene layer。
+
+Scene host 已有 16/32/64 档 left/right 频谱 snapshot，并由 stock effect、三个 exact Workshop Audio Bars profile与上述两个 native profile 按需驱动采集；这仍只是 renderer 输入/有界 consumer。当前没有 VM、`engine.registerAudioBuffers` bridge、`AudioBuffers`/Float32Array object identity 或脚本订阅，因此下表相关官方 API 全部保持 `L0`。
 
 `2938612768:[165,454,626,629,924]` 的 Opacity 值来自未支持 SceneScript，当前 strict planner 仍必须拒绝；只有 `2902406982:[365,372,647,664]` 的 direct binding 是正门。粗粒度总表中的 “Script presence L1” 只表示发现能力，exact native text profile 的证据与边界见 [E-TEXT-SCRIPT](runtime-evidence-index.md#e-text-script)。
 
@@ -33,7 +35,7 @@ Scene host 已有 16/32/64 档 left/right 频谱 snapshot，并由 stock effect 
 | 代号 | 代码/测试证据 | 能证明什么 | 不能证明什么 |
 |---|---|---|---|
 | `P` | [`SceneResourceIndex.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneResourceIndex.swift)、[`SceneCapabilityProfile.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneCapabilityProfile.swift) | `.js` 分类和 package-level presence | 源码读取、模块加载、执行 |
-| `I` | [`SceneDocument.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift)、[`SceneRenderDescriptor.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneRenderDescriptor.swift)、[`SceneTextScriptDefinition.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextScriptDefinition.swift) | 文字层保真 inline source/`scriptproperties`；其他对象递归发现 presence | 通用 binding owner/target、模块、导出事件、返回类型 |
+| `I` | [`SceneDocument.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift)、[`SceneScriptBindingDefinition.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneScriptBindingDefinition.swift)、[`SceneRenderDescriptor.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneRenderDescriptor.swift)、[`SceneTextScriptDefinition.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextScriptDefinition.swift) | layer 顶层 property wrapper 保真 `host`、inline source、properties 与 authored fallback；文字层保真 inline source/`scriptproperties` | file/module/value type、通用 owner/handle、VM、API、生命周期 |
 | `W` | [`SceneParticleDefinitionParser.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleDefinitionParser.swift)、[`test_scene_particle_definitions.py`](../../../script/tests/test_scene_particle_definitions.py) | 动态 wrapper 的 `hasScript` presence 可诊断 | wrapper script 的源码或求值 |
 | `D` | [`SceneDynamicSnapshot.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneDynamicSnapshot.swift)、[`SceneTextScriptCompiler.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextScriptCompiler.swift)、[`test_scene_text_script_runtime.py`](../../../script/tests/test_scene_text_script_runtime.py) | typed target、固定优先级与三个 exact native text profile 的 `.sceneScript` 值 | JavaScript、通用 source/property binding compiler、API bridge |
 | `F` | [`SceneFrameContext.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneFrameContext.swift)、[`SceneTextScriptRuntime.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextScriptRuntime.swift)、[`SceneDesktopWallpaperHost+FrameDriver.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift) | 同帧 wall date、per-surface evaluation/snapshot 与 exact text 输出提交 | 脚本实例、事件、官方 `Date`/timer API、任意 JS |
@@ -147,10 +149,10 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 
 | API/合同 | 官方含义 | 等级 | 当前代码/测试证据 | 缺口与升级验收门 |
 |---|---|---:|---|---|
-| property-bound 实例 | 每份脚本绑定一个具体 property；通用逻辑通常绑定 layer visibility | `L0` | `I/W` 只保留 presence，没有 property identity | 建立 `ScriptSource + owner + target + authoredValue + valueType` IR；重复/缺失 target fail closed |
+| property-bound 实例 | 每份脚本绑定一个具体 property；通用逻辑通常绑定 layer visibility | `L1` | `I` 保真 layer 顶层 host/source/properties/authored fallback，nested wrapper 不提升；未执行脚本 | 补 file/module/value type、通用 owner/target/handle IR；重复/缺失 target fail closed |
 | `init(value)` / `update(value)` 的 typed value | 入参是绑定 property 当前值；返回兼容值写回；无返回则保持原值 | `L0` | `D` 有 typed snapshot，但没有脚本输入/返回桥 | bool/number/string/Vec2/3/4 的返回、无返回、错类型、NaN/Inf、异常隔离测试 |
 | 直接赋值其他 property | 脚本可通过 `thisLayer`/其他 handle 同时修改多个 property | `L0` | `D` 只有 Swift target，没有 JS handle setter | 同帧 mutation buffer；确定冲突顺序、失效 handle 和只读字段；原子提交到 snapshot |
-| source/module loader | 加载 inline 或 `.js` 源码及其 export/import | `L0` | `P/I` 不保存可执行 source IR | 保真源码、规范化路径、UTF-8/大小限制、模块依赖图、循环/缺失/越界负向门 |
+| source/module loader | 加载 inline 或 `.js` 源码及其 export/import | `L0` | `I` 只保存顶层 wrapper 的 inline source；没有 file/module loader 或 executable module graph | 规范化路径、UTF-8/大小限制、模块依赖图、循环/缺失/越界负向门 |
 | ECMAScript VM | 受控 ECMAScript 环境，无 DOM/Web/Node/shell/任意文件系统 | `L0` | `N` | 选定 VM；严格 global allowlist；网络/文件/进程逃逸测试 |
 | budget/error boundary | 每实例/每帧时间、指令、内存和 timer 有界；脚本错误不终止 renderer | `L0` | `N` | 超时、死循环、递归、OOM、异常、日志节流、单实例熔断和下一帧恢复门 |
 | instance ownership | 每屏/每 scene 的实例隔离；switch/stop 必须销毁 | `L0` | `F` 已有 per-surface transaction/snapshot，但没有任何脚本实例 | 双屏 frame/time 相同但 pointer/size/result/generation 隔离；pause/resume、switch、stop 后无 timer/handle/provider residue |
@@ -181,13 +183,13 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 |---|---|---:|---|---|
 | `IObject` | `getAnimation(name?)` 取当前 property 或命名动画 | `L0` | `N` | typed animation handle；缺失/重名/owner 销毁语义 |
 | `IThisPropertyObjectBase` | v2.8 中是只继承 `IObject` 的空 property-owner 基类 | `L0` | `I` 没有保留 owner 类型或绑定 property | binding compiler 根据 owner/property 生成具体 typed handle；不自行添加声明外成员 |
-| `thisLayer: ILayer` | 当前脚本 owner 的 layer handle | `L0` | `D` 只有整数 layer target | VM host identity、每实例 owner、跨层访问权限和失效门 |
+| `thisLayer: ILayer` | 当前脚本 owner 的 layer handle | `L0` | `D` 只有整数 layer target；native Audio Bars renderer 不创建 handle | VM host identity、每实例 owner、跨层访问权限和失效门 |
 | `ILayer` transform | `origin`, `angles`, `scale`, `parallaxDepth`, `name`, `visible` | `L0` | renderer 静态字段不是脚本 API；`D/N` | getter/setter 类型、local/world 语义、同帧写回、只支持类型的 fail closed |
 | `ILayer` orientation | `getTransformMatrix`, `rotateObjectSpace`, `lookAt`, `lookAtYaw` | `L0` | `N` | 数学/坐标合同、parent 情况和 2D/3D fixture |
 | `ILayer` parenting | 两个 `setParent` overload、`getParent`, `getChildren` | `L0` | 静态 parent graph 不等于动态 API；`N` | 调整 transform、attachment、循环拒绝、frame-end mutation 和销毁门 |
 | `ILayer` attachment | `getAttachmentIndex/Matrix/Origin/Angles` | `L0` | `N` | puppet/model attachment identity、缺失返回和 world transform golden |
 | `thisScene` lookup | `getLayer(name|index)`, `getLayerByID`, `getLayerCount`, `enumerateLayers` | `L0` | 静态 descriptor 不暴露 JS handles；`N` | source order、重名、字符串 ID、动态 layer 和失效 handle tests |
-| `thisScene` layer mutation | `createLayer`, `destroyLayer`, `sortLayer`, `getLayerIndex`, `getInitialLayerConfig` | `L0` | `N` | frame-end mutation queue、资产授权、排序、回收、预算和 initial config 深拷贝 |
+| `thisScene` layer mutation | `createLayer`, `destroyLayer`, `sortLayer`, `getLayerIndex`, `getInitialLayerConfig` | `L0` | native Audio Bars 的 64 次 draw 是 renderer instance，不产生 scene topology、handle 或 dynamic-layer lifecycle；`N` | frame-end mutation queue、资产授权、排序、回收、预算和 initial config 深拷贝 |
 | scene camera handles | `getCameraTransforms`, `setCameraTransforms`, `getAnimation` | `L0` | renderer 有静态 camera；无 JS bridge | 2D/3D camera、screen resize、动态 target 冲突和可逆测试 |
 
 ### 4.2 内容、effect、动画和高级句柄
@@ -238,9 +240,9 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 | `input.cursorScreenPosition` | 屏幕像素坐标 | `L0` | `N` | Retina、多屏 origin、屏外和 resize fixture |
 | `input.cursorLeftDown` | 左键当前状态 | `L0` | `N` | down/up/capture 与 event snapshot 同帧 |
 | `CursorEvent.worldPosition/localPosition/hitBox?` | 事件时 world/local 坐标与 puppet hit box；声明明确 screenPosition/button 未使用 | `L0` | `N` | hit-test、坐标变换、未使用字段不得伪造 |
-| [audio resolution constants](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html) | `AUDIO_RESOLUTION_16/32/64` | `L0` | renderer host 已有三档 typed snapshot，但没有 JS global/constant bridge | 只接受三个常量；错误分辨率 fail closed |
-| [`engine.registerAudioBuffers(resolution)`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html) | 必须在 script global context 注册，返回逐帧频谱 | `L0` | renderer consumer 已有按需 capture、静音/拒权归零和 teardown；没有 source IR、VM、engine method 或脚本订阅 | global-only enforcement、consumer generation、重复注册/取消订阅与 stop 生命周期 |
-| [`AudioBuffers`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AudioBuffers.html) | 同长度 `left`, `right`, `average` Float32Array，每帧自动更新；低频到高频，通常 0...1 但可大于 1 | `L0` | renderer snapshot 只有三档 left/right；没有 JS object、`average`、数组 identity 或脚本 consumer | 数组长度/更新时点、跨帧对象语义、>1 非裁剪 fixture 与受控左右/平均输入 |
+| [audio resolution constants](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html) | `AUDIO_RESOLUTION_16/32/64` | `L0` | renderer host 已有三档 typed snapshot，native plan 内部严格验证 64；没有 JS global/constant bridge | 只接受三个常量；错误分辨率 fail closed |
+| [`engine.registerAudioBuffers(resolution)`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html) | 必须在 script global context 注册，返回逐帧频谱 | `L0` | exact source compiler 直接声明 native consumer demand；没有 VM、engine method 调用或脚本订阅 | global-only enforcement、consumer generation、重复注册/取消订阅与 stop 生命周期 |
+| [`AudioBuffers`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AudioBuffers.html) | 同长度 `left`, `right`, `average` Float32Array，每帧自动更新；低频到高频，通常 0...1 但可大于 1 | `L0` | host snapshot 只有 left/right；两个 native renderer consumer 逐 bin 派生算术平均且不裁剪 >1，但没有 JS object、Float32Array identity、自动更新对象语义或脚本 consumer | 数组长度/更新时点、跨帧对象语义与受控脚本输入 |
 | `MediaStatusEvent` | `enabled` 表示媒体集成可用/启用 | `L0` | `N` | enable/disable、无 provider 和订阅生命周期 |
 | `MediaPlaybackEvent` | state 0 stopped / 1 playing / 2 paused | `L0` | `N` | 状态映射、重复事件去重和 app 切换 |
 | `MediaPropertiesEvent` | title/artist/subTitle/albumTitle/albumArtist/genres/contentType | `L0` | `N` | 缺字段、Unicode、原子曲目切换和 stale generation |
@@ -313,7 +315,7 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 |---|---|---:|---|---|
 | `engine.registerAsset(file, precache)` | 必须在脚本 global/root 执行；注册动态 layer 所需资产并确保发布包含；可预缓存 | `L0` | `P` 只索引现有资源；无 script asset registry | global-only 静态/运行时门、规范化路径、越界拒绝、precache budget、缺失/循环依赖 |
 | `IAssetHandle` | `registerAsset` 返回并可传给 `createLayer` 的 opaque handle | `L0` | `N` | v2.8 声明引用但未给 interface body；先按 opaque identity/lifetime 实现，不猜成员 |
-| `thisScene.createLayer(asset)` | 由 path/config/asset handle/model data 创建动态 layer | `L0` | `N` | asset ownership、初始化配置、动态排序、publisher/resource dependency 和 teardown |
+| `thisScene.createLayer(asset)` | 由 path/config/asset handle/model data 创建动态 layer | `L0` | native Audio Bars 的 64 次 renderer draw 不产生动态 layer 或 handle；`N` | asset ownership、初始化配置、动态排序、publisher/resource dependency 和 teardown |
 | texture/video animation handles | 从 image layer albedo 获取 animation/video handle | `L0` | 现有纹理/视频 renderer 不暴露 JS handle | provider generation、seek/playback、asset unload 后失效和 callback cleanup |
 | custom model asset/material | model shape 的 `material` 使用已注册 `IAssetHandle`；model data 可共享 | `L0` | 无 model runtime；`N` | material precache、buffer/handle compatibility、共享引用计数和资源预算 |
 | user shortcut | `engine.openUserShortcut(userPropertyName)` 打开已注册 shortcut | `L0` | 属性 UI 有类型占位，无脚本 API | macOS 产品授权/安全降级、未知 property、用户取消和非交互环境门 |
@@ -334,7 +336,7 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 
 SceneScript 不能从“嵌一个 JS VM”开始后直接调用 renderer。最小正确顺序是：
 
-1. **Source/Binding IR**：保真保存 inline/file source、owner、property target、value type、module dependency；目前只有文字层 inline source/`scriptproperties` 的 bounded IR，其他对象仍多为 presence。
+1. **Source/Binding IR**：layer 顶层 property wrapper 的 host/inline source/properties/authored fallback 已局部达到 `L1`；仍需保真 inline/file source、通用 owner/target、value type 与 module dependency。
 2. **受控 VM core**：严格 global allowlist、module loader、Date/Math、预算、异常和日志隔离。
 3. **Lifecycle core**：`init/update/destroy/resizeScreen`，每屏实例，与 `SceneFrameContext` 同帧。
 4. **Per-surface evaluation transaction**：host 先捕获共享 time/property/audio/media，surface 再加入 viewport/pointer/matrix/provider；脚本返回和直接 setter 进入该 surface 的 mutation buffer，校验后原子提交 immutable snapshot。优先级保持 `authored -> user -> Timeline -> SceneScript`。

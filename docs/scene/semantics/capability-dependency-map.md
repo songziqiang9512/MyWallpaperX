@@ -2,7 +2,7 @@
 
 > 状态：现役架构入口
 >
-> 最近核对：2026-07-27
+> 最近核对：2026-07-30
 >
 > 本页只维护依赖与完成门；精确当前提交、报告和测试总数统一见 [总覆盖台账](coverage-ledger.md) 与 [运行证据索引](runtime-evidence-index.md)。
 >
@@ -41,7 +41,7 @@ D3 + D4 + D5 + D6 + D7 + D8
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
 | project/scene/PKG/TEX/resource ingest | 常见子集 `L3` | version、case、duplicate、symlink、损坏和 VFS golden |
-| object/content/effect/material/particle/script source preservation | 混合 `L0-L3` | raw + typed round-trip；未知字段可诊断，不静默丢失 |
+| object/content/effect/material/particle/script source preservation | 混合 `L0-L3`；layer 顶层 property wrapper 的 host/inline source/properties/authored fallback 为 `L1` | raw + typed round-trip；generic file/module/value type 与未知字段可诊断，不静默丢失 |
 | typed renderer input | `a77b875` 起宿主接收原始项目目录与属性覆盖，解析后直接构建内存 `SceneRuntimeInput`；生产播放不再生成或读取私有解释 JSON/preview log | 已闭合：Debug 结构证据只写入显式 evidence directory 的 `scene-runtime-evidence.json`（schema 1），不作为播放输入；固定 13 样本 raw-root 门 13/13 |
 
 <a id="d1"></a>
@@ -93,7 +93,7 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 |---|---|---|
 | pointer position/buttons/events | position 极窄子集 | world/layer/effect local 变换、button queue、同帧顺序 |
 | audio 16 stereo bins | `L3` | 已闭合：injectable producer、按 consumer 存在性注册、无消费者停采集并归零 |
-| audio 32/64 stereo bins | `L0` | stock effect 不用；随 SceneScript 与 workshop shader 前置一并欠账 |
+| audio 32/64 stereo bins | `L3 bounded` | 与 16 档由同次 FFT 生成；exact Workshop 32/64 profiles 与两个 exact native property-script 64-band profiles 已消费，generic SceneScript bridge 仍为 `L0` |
 | media state/properties/timeline/thumbnail | identity `L1`、runtime `L0` | generation、取消旧 decode、事件与纹理同代 |
 | user/general/animation events | `L0` | per-screen queue、owner isolation、异常隔离 |
 
@@ -146,10 +146,11 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 | Runtime | 前置依赖 | 最小闭环 |
 |---|---|---|
 | Timeline | D2 + D3 | lossless IR、绝对 scene-time evaluator（Loop/Single 已真实执行，Mirror 有 evaluator 但语料 0 命中）与 typed writes 已完成，真实执行 28/48（effect constant + layer alpha，经既有 per-surface transaction 与 `.timeline` 优先级写回）；tangent 只保真不消费、插值走线性，`relative`/wrap-loop/Combined 分组/event crossing 与 layer transform、粒子 `instanceoverride` 目标仍待推进 |
-| SceneScript | D2 + D3 + D4 + D5 | source/binding IR、sandbox VM、lifecycle、typed writes、budget |
+| Exact native property-script profiles | D0 + D4 + D7 + D8 + D9 | text 三 profile 与 audio bars 两 profile 已形成 bounded native `L3`；完整指纹准入、失败关闭，不开放 API |
+| Generic SceneScript | D2 + D3 + D4 + D5 | 顶层 layer wrapper partial IR 已有；仍需 generic source/module/value IR、sandbox VM、lifecycle、typed handles/writes、events、budget |
 | dynamic text | D3 + D5 + D9 | direct property 子集已完成 per-layer generation、stale cancellation、last-ready；SceneScript/system/media producer 与 layout fidelity仍待推进 |
 | particle breadth | D2 + D3 + D4 + D5 + D8 + D9 | control point、child/event、world space、rope、audio、collision |
-| audio/media | D4 + D5 | audio 侧已闭合 injectable inputs 与 teardown（16 档，consumer 驱动）；media 侧的 event ordering 与 provider generation 仍未开始 |
+| audio/media | D4 + D5 | audio 侧已闭合 consumer-driven 16/32/64 host input、既有 effect consumers 与两个 native 64-band consumers；通用 SceneScript bridge/Sound/particle audio 未闭合，media event ordering 与 provider generation 仍未开始 |
 
 <a id="d11"></a>
 ### D11 Fidelity and advanced runtimes

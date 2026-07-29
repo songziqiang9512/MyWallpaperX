@@ -6,7 +6,7 @@
 
 ## 1. 结论先行
 
-1. **音频频谱的 FFT 实现是 FFTS**（Anthony M. Blake，BSD）。项目 Audio 16/32/64 bins 系统（当前 `L0`）实现时的频域行为参照对象明确了。
+1. **官方音频频谱的 FFT 实现依赖 FFTS**（Anthony M. Blake，BSD）。项目当前已有 `L3 bounded` 的 16/32/64 host 输入与严格 consumers，但频段、归一化和平滑仍是项目工程选择；识别上游库不构成数值 parity。
 2. **blend mode 数学的来源是 Romain Dura 的 Photoshop Blend Functions**（公开 MIT 库，即广为流传的 PhotoshopMath 系列 shader）。`common_blending.h` 的 `ApplyBlending` 32 模式表与该公开库同源；项目 Tint backend 的对照基准从「只读随包 GLSL」升级为「随包 GLSL + 其声明的上游公开库」。
 3. **Advanced Fluid Simulation 的算法蓝本是 WebGL-Fluid-Simulation**（Pavel Dobryakov 的公开 MIT 项目）。该 effect 当前 `L2`（约 20 nodes/swap graph-only）；官方声明许可意味着其 pass 结构可与该公开实现对照解读（advection/divergence/pressure/gradient subtract 的标准分解）。
 4. **粒子噪声栈**：CPU 侧 Perlin Simplex Noise（Sebastien Rombauts）+ FastNoise 2（Jordan Peck），GPU 侧 GLSL noise（Ashima Arts / Stefan Gustavson 的 webgl-noise）+ GLSL hash（David Hoskins）。turbulence/simplex/fbm 的官方噪声族全部有公开参照。
@@ -25,7 +25,7 @@
 | 库 | 身份确认 | 对应 Scene 系统 | 项目当前等级 |
 |---|---|---|---|
 | **V8** | — | SceneScript VM | `L0`，见 [changelog 取证](client-changelog-forensics.md) §3 |
-| **FFTS** | Anthony M. Blake 2012-2013 | 音频频谱 FFT | Audio frame input `L0` |
+| **FFTS** | Anthony M. Blake 2012-2013 | 官方客户端音频频谱 FFT 参照 | Audio frame input `L3 bounded`；项目未复用官方私有参数 |
 | **Photoshop Blend Functions** | Romain Dura（romz）2012 | `common_blending.h` blend mode 数学 | Tint `L3`；[blend 名单](editor-string-table-forensics.md#4-blend-mode-官方名单35) |
 | **WebGL-Fluid-Simulation** | Pavel Dobryakov（MIT） | Advanced Fluid Simulation effect | `L2` graph-only |
 | **Perlin Simplex Noise** | Sebastien Rombauts（MIT） | CPU 粒子噪声 | turbulent velocity `L3` 非等价实现 |

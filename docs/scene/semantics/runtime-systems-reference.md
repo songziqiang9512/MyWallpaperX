@@ -13,7 +13,7 @@
 ```text
 HostFrameInputs
   frameIndex / runtime / daytime / frameTime
-  audio16 / audio32 / audio64 (left/right/average)
+  audio16 / audio32 / audio64 (host left/right; bounded consumers may derive average)
   mediaSnapshot / thumbnail generation
   userPropertyGeneration / deterministicRandomSeed
     -> SurfaceFrameContext
@@ -28,9 +28,9 @@ HostFrameInputs
 
 MyWallpaperX 当前已落地第一阶段 `SceneFrameTiming` / `SceneFrameContext`：桌面宿主每帧只采样一次 monotonic host time 与 wall date，并把相同的 frame index、scene time 和 frame delta 广播给所有屏幕；shader time、视频 host time、粒子推进和相机视差平滑已消费该快照。各屏仍保留自己的 viewport、pointer 和 particle simulation。
 
-`36bfef0` 建立了六类 `SceneDynamicValue`、主要 target、固定覆盖顺序和不可变 snapshot。当前 v22 已完成 property binding program、per-surface transaction/generation，以及 layer alpha、solid color、direct text content/point-size/color、Local Contrast/Opacity producer/consumer。`1762743` 的 dynamic text 按 layer signature 异步生成并拒绝 stale completion；这个子集不能外推到 Timeline、SceneScript、particle、system/media text 或其他 effect constant。
+`36bfef0` 建立了六类 `SceneDynamicValue`、主要 target、固定覆盖顺序和不可变 snapshot。当前 v22 已完成 property binding program、per-surface transaction/generation，以及 layer alpha、solid color、direct text content/point-size/color、Local Contrast/Opacity producer/consumer。`1762743` 的 dynamic text 按 layer signature 异步生成并拒绝 stale completion；Timeline 有 bounded typed producer，SceneScript 也只有 exact native text/audio profiles，均不能外推为通用脚本、particle、system/media text 或其他 effect constant。
 
-这仍不等于完整时钟和动态系统合同。pause/resume、delta clamp、fixed timestep、buttons、audio/media producer、deterministic seed 和离线 adapter尚未接入；Timeline、SceneScript、system/media-driven text、particle 与其他 effect target 也还没有真实 producer/consumer。
+这仍不等于完整时钟和动态系统合同。16/32/64 host audio 与 bounded consumers 已接入；pause/resume、delta clamp、fixed timestep、buttons、media producer、deterministic seed、离线 adapter、通用 SceneScript 与其余 Timeline/particle target 仍未闭合。
 
 ## 2. Particle System
 
@@ -281,6 +281,8 @@ Timeline 由 runtime time 求值，不应按“每渲染帧加一个 keyframe st
 
 实现不能只嵌入一个通用 JavaScript VM。必须先有 typed layer/effect/text/particle/material target 和确定生命周期，否则大部分脚本即使能执行也没有可写对象。
 
+当前实现只把 layer 顶层 property wrapper 的 `host`、inline source、properties 与 authored fallback 保真进 IR（`L1`），并将三个 text source profile 与两个 64-band audio source profile 编译为严格失败关闭的 native `L3 bounded` consumer。audio profile 的 64 次 Metal draw 是 renderer instance，不产生动态 Scene layer、`ILayer` handle 或 topology；ECMAScript VM、`registerAudioBuffers`、`AudioBuffers` object、`createLayer`、事件和生命周期仍全部为 `L0`。
+
 ### 5.4 安全和资源边界
 
 - 不提供 DOM、network、Node.js、shell 或任意文件系统 API；
@@ -329,9 +331,9 @@ Scene 与 Web 音频合同不同：
 
 测试必须区分 provider 注册、频谱数值正确和最终 visual consumer 生效三层。
 
-MyWallpaperX 当前状态（见 [E-AUDIO-INPUT](runtime-evidence-index.md#e-audio-input)、[E-AUDIO-EFFECT](runtime-evidence-index.md#e-audio-effect)）：**只实现 16 档 left/right**，作为 host-shared 输入每帧广播给所有 surface；采集按 consumer 存在性驱动，无消费者/暂停/锁屏/休眠停采并归零，采集失败输出稳定全零。consumer 侧只有 stock Shake（两指纹）与 stock Pulse（`stock2842`）的 `AUDIOPROCESSING`；粒子 audio 声明已保真解析但未执行，SceneScript `AudioBuffers` 与 `average` 数组仍缺 VM 前置。effect 与粒子是两套字段名不同的 schema，不能互推。
+MyWallpaperX 当前状态（见 [E-AUDIO-INPUT](runtime-evidence-index.md#e-audio-input)、[E-AUDIO-EFFECT](runtime-evidence-index.md#e-audio-effect)）：host-shared snapshot 同一次 FFT 生成 16/32/64 档 left/right 并每帧广播给所有 surface；采集按 consumer 存在性驱动，无消费者/暂停/锁屏/休眠停采并归零，失败输出稳定全零。consumer 包括 stock Shake/Pulse、三个 exact Workshop Audio Bars，以及两个 exact native property-script 64-band Audio Bars。后者仅在 geometry consumer 内按 `(left + right) / 2` 派生 average；没有 JS `AudioBuffers` object、Float32Array identity 或脚本订阅。粒子 audio 声明已保真解析但未执行，effect 与粒子两套 schema 不能互推。
 
-三处未知必须继续标注：16 档的频率边界、幅度归一化与平滑策略官方均未公开；当前的 32 Hz→16 kHz 对数划分与 -80 dB 映射是工程选择，与 Web 侧的 64+64 合同互不适用；采集 30 Hz 与渲染 60 Hz 之间首批不插值。
+三处未知必须继续标注：频率边界、幅度归一化与平滑策略官方均未公开；当前的 32 Hz→16 kHz 对数划分与 -60 dB 映射是工程选择，与 Web 侧的 64+64 合同互不适用；采集 30 Hz 与渲染 60 Hz 之间不插值。
 
 ### 7.3 Media
 
@@ -403,10 +405,10 @@ Realtime Adapter              Offline Adapter
 | Frame Context | 宿主单一 60 Hz driver；所有屏幕共享 frame index/host/scene/wall time；shader、video、particle、parallax 已迁移 | pause/resume、delta clamp、固定 timestep、离线实时等价已闭环 |
 | Dynamic target snapshot | 六类 typed value、主要 target 族、固定优先级、binding program、per-surface evaluation transaction/snapshot/generation；layer alpha、纯 solid color、direct text、exact Local Contrast/Opacity、受限 X-Ray target 与 Timeline 的 effect constant/layer alpha 子集有真实 producer/consumer | Timeline 的 `relative`/Combined/tangent/其他 target、SceneScript 与 particle dynamic target 仍未 live；unsupported host 留诊断 |
 | Timeline | IR、绝对 scene-time evaluator 与 28/48 typed target 子集已执行，覆盖 Loop/Single/start-paused 及 effect constant/layer alpha | Mirror 尚无真实语料正门；`relative`、wrap-loop、Combined、tangent、其余 target 与 event crossing 未完成，不能宣称任意动画模式可用 |
-| SceneScript | 只检测 script | ECMAScript/runtime/API 可用 |
+| SceneScript | 顶层 layer binding IR 为 `L1`；三个 text 与两个 64-band audio exact native profiles 为 `L3 bounded` | ECMAScript VM/API、`registerAudioBuffers`/`AudioBuffers`、`createLayer`/`ILayer` handles 可用 |
 | User Properties | 独立窗口、条件、默认/override、部分 target 与持久化；`texture`/`scenetexture` 内部归一；受限静态 consumer 可选择 PNG/JPEG；已注册 B0/direct text/X-Ray target 可无重建更新 | 全部样本属性可调、所有 texture target/variant/live value 已闭环 |
 | Texture Provider | frame identity/status/generation、named variant 隔离、property absent -> authored fallback、受限 file-backed property source | system media、Texture Variants、视频、通用 material 与 effectful/nested provider 已闭环 |
-| Audio | Scene 16 档频谱输入与 stock Shake/Pulse consumer 已闭合 | 32/64 档、粒子/脚本 consumer、`average` 数组或任何数值 parity |
+| Audio | Scene 16/32/64 host left/right、既有 effect consumers 与两个 native 64-band average profiles 已闭合 | JS `AudioBuffers`、Sound/self-play、粒子 audio 或任何数值/视觉 parity |
 | Media | Web 侧已有服务，Scene consumer 未开始 | Scene 媒体可用 |
 
 ## 11. 实施顺序
@@ -414,7 +416,7 @@ Realtime Adapter              Offline Adapter
 1. D1-D4 的 property 子集已完成：稳定 target、v22 binding program、per-surface evaluation transaction/snapshot、原子 generation，以及 B0/direct text/X-Ray 真实 consumer；未迁移 target 继续使用 rebuild fallback。
 2. D6 ordered strict effect-chain 与十四类 strict backend 已完成受限执行，包含 `Blur Precise -> Shadow`、Water chain、pointer-driven X-Ray 与 `[Blur Precise, God Rays]` 正门；这些 profile 不升级通用 graph、Directional/COPYBG God Rays、官方 Shadow/lighting 或 authored shader。
 3. Provider Core 并行补 dynamic generation、metadata/cancellation；nested/effectful provider 和通用 material consumer 放在 B1/B2 集成层，不能互相形成前置环。
-4. Direct dynamic text、X-Ray pointer、Timeline 的 28/48 typed target 子集与 16 档 audio 输入已完成；SceneScript core、media、其余 Timeline/particle 动态能力继续按 D10 的真实依赖接入。粒子 audio 在拿到官方求值公式证据前不接执行。
+4. Direct dynamic text、X-Ray pointer、Timeline 的 28/48 typed target 子集、16/32/64 audio 输入与两个 exact native 64-band profiles 已完成；SceneScript core、Sound、media、其余 Timeline/particle 动态能力继续按 D10 的真实依赖接入。粒子 audio 在拿到官方求值公式证据前不接执行。
 5. exact stock Opacity、Tint mask 与 stock Radial God Rays 子集已完成；下一批从能力开发计划按公共依赖、真实样本收益和 fail-closed 边界重新选择，不新增 effect-name 或样本 ID 近似。
 6. 广度闭合后用固定、扩展和新下载样本矩阵暴露冲突，再用 Windows golden 校准 effect、text、particle 和动态值精度；最后扩 Puppet/3D/Lighting 与离线编码产品层。
 

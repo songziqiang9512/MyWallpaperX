@@ -2,13 +2,13 @@
 
 > 状态：现役系统汇总；逐项等级以各专项能力表为准
 >
-> 最近核对：2026-07-29
+> 最近核对：2026-07-30
 >
-> Scene 实现基线：`e315743`（在 `aa68bb8` 的严格 Screen RopeTrail 基线上，新增可重定位的 exact 16-band stereo up/down Simple Audio Bars profile，以及 exact stock zero-distortion / `BACKGROUND=0` Fisheye 后级；更早的 text-script、image/solid alignment、bounded effect/particle/resource/runtime 与 Pulse/Water/Iris/频谱能力保持有效，逐能力落地提交见专项表和运行证据索引）
+> Scene 实现基线：`9a6a028`（在 `e315743` 的 bounded effect/audio 基线上，新增 layer 顶层 property-script binding IR，以及两个按 exact source + 被消费 layer/model/material/shader/texture-path/render-state 合同准入的 native 64-band Audio Bars profiles；更早的 text-script、image/solid alignment、bounded effect/particle/resource/runtime 与 Pulse/Water/Iris/频谱能力保持有效，逐能力落地提交见专项表和运行证据索引）
 >
-> 当前完整快照门：`e315743` 的最终签名 Debug App 在 2026-07-29 从真实只读根重新构建的 45 样本隔离副本上运行 `.codex/scene-full45-audio-bars-fisheye-20260729-v1/report.json`，**45/45 PASS**、image texture **451/451**、particle **130/130**、strict stage/chain **294/53**、Audio Bars **4**、Fisheye zero-distortion **1**，graph failed/failed frame/drawable miss 均为 0。历史 fixed13 仍为 `.codex/scene-fixed13-ropetrail-20260729-v1/report.json` 的 **13/13 PASS**；它没有在当前构建上重跑，也不能替代当前 full45。
+> 当前完整快照门：`9a6a028` 的最终签名 Debug App 在 2026-07-30 从真实只读根重新构建的 45 样本隔离副本上运行 `.codex/scene-full45-script-audio-bars-20260730-v1/report.json`，**45/45 PASS**、image texture **451/451**、particle **130/130**、strict stage/chain **294/53**、Workshop Audio Bars **4**、Fisheye zero-distortion **1**、native script plan/bar **2/128**，script diagnostic/GPU failed、graph failed、failed frame、drawable miss 均为 0。报告/full matrix SHA-256 为 `44ab901828093074b46f8b1f850c48a056f6675e9775bc02e00de57b4473121a` / `cde6c1df6c0fcce3569420796df6d293db44a31c6d49113d7c258f24733654c7`。历史 fixed13 仍为 `.codex/scene-fixed13-ropetrail-20260729-v1/report.json` 的 **13/13 PASS**；它没有在当前构建上重跑，也不能替代当前 full45。
 >
-> 最新聚焦门：`3299228616` 默认属性隔离运行 **1/1 PASS**，composition utility layer `151` 执行 strict 可重定位 16-band stereo up/down Simple Audio Bars 后，继续按作者顺序执行 exact stock zero-distortion Fisheye，utility capture `1/1`、strict chain/stage `2/6`、failed frame/drawable miss 0。最终完整 Scene suite **693 项通过 / 2 项按既有条件跳过**，代码健康为 640 Swift files / 44 locked legacy / 400-line limit，签名 Debug build 与严格 codesign 通过。系统音频为静音，真实截图只证明链路、稳定静音与无崩溃；非零左右频谱、峰值大于 1 和 alpha/add 混合由确定性 GPU 输入门覆盖，仍不构成 Wallpaper Engine 动态或像素等价。
+> 最新聚焦门：`.codex/scene-script-audio-bars-targeted-20260730-v2/report.json` 对 `2241938645:282` 与 `3743305891:112` **2/2 PASS**，各 plan 1、diagnostic 0、bar 64、GPU succeeded、failed frame/drawable miss 0，报告 SHA-256 `595a3d7c79fa2a297c5aabc7868b6778b3ab48c9f962809386d139ce7d0d763d`。最终完整 Scene suite **714 项通过 / 2 项按既有条件跳过**，代码健康为 648 Swift files / 44 locked legacy / 400-line limit，签名 Debug build 与严格 codesign 通过。系统音频为静音，真实截图只证明准入、64-draw 链路、稳定静音与无崩溃；非零平均频谱、峰值大于 1 和几何/混合由确定性 GPU 输入门覆盖，仍不构成 Wallpaper Engine 动态或像素等价。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -54,14 +54,15 @@
 | Per-surface dynamic snapshot | `L3` | host 共享 property 输入，每个 surface 独立 evaluation transaction、snapshot 与 generation；相同 payload 不增 generation | pointer/size/provider/Timeline/SceneScript 等 local producer 接入后继续扩充隔离门 | **B0/B4** |
 | Atomic live property state/routing | `L3` | layer alpha、纯 solid color、strict Local Contrast strength 与 stock Opacity alpha 先原子求值并直接供 renderer 消费；失败、mixed、SceneScript、unsupported 或无 consumer 时保留整场重建 fallback | 扩展 target 前必须补类型、eligibility、consumer、fallback 和 identity 门 | **B0/B4** |
 | Timeline runtime | `L3` | 作者 `animation` 无损进 IR（lane/keyframe/tangent/options/combined 分组/`relative`/`previewvalue`），44 个真实 `scene.json` 的 48 处全部解析成功、0 诊断；纯函数 evaluator 按**绝对 scene time** 求值（Loop/Mirror/Single、`startpaused` 停首帧、端点保持不外推）；编译成 typed `SceneDynamicTargetDefinition` 后经既有 per-surface transaction 写回，`SceneDynamicSource.timeline` 优先级高于 userProperty。真实执行 **28/48**（effect constant 23 + layer alpha 5，散布 9 个样本），其中 mode 为 single 21、loop 7；`3769688830`/`3769364482`/`3028090166` 为正门，`2067939514` 的 `startpaused` 为负门（首帧与半程同值）。preview 日志输出确定性求值样本，不依赖像素归因 | **其余 20/48 全部 fail-closed 且留诊断**：`relative` 10（合成语义未定标）、`maxwidth`/`zoom` 3（无 target）、粒子 `instanceoverride` 7（粒子通路未接）；Bézier tangent 只保真不消费、插值走线性（handle 单位两种解释不等价，未定标）；`wraploop` 7 处按普通 loop 降级执行并记 `wrapLoopIgnored`；Mirror 有 evaluator 与单测但真实样本 0 处执行；Combined Animation 整组拒绝；Animation Event 仍 `L0`；无 Windows golden | **B4** |
-| SceneScript presence / bounded text source | `L1` | 普通对象仍只保留 inline `script` presence；文字层保真 source/`scriptproperties` | 通用 source path、owner/target/module binding IR | **B0/B4** |
+| SceneScript layer property binding IR | `L1` | layer 顶层 property wrapper 无损保存 `host`、inline `source`、`scriptproperties` 与 authored fallback，并随 descriptor/cache 传递；旧 cache 缺少新字段仍可解码 | 只覆盖顶层 wrapper；nested script 不提升为 binding，file/module/value type、通用 owner/handle/lifecycle 仍缺 | **B4** |
 | Exact native text-script profiles | `L3 bounded` | 三个 source SHA + 完整 property shape 双重准入；6 样本 16 个有效可见 clock/day/date binding 每帧进入 typed snapshot 与动态文字 consumer，未知/变异 profile fail closed | 不执行 JavaScript，不开放 `Date`/engine/lifecycle/handle/event；其余 38 个可见 text-script 实例仍只诊断，见 [E-TEXT-SCRIPT](runtime-evidence-index.md#e-text-script) | **B4** |
-| Generic SceneScript VM/API | `L0` | 无 ECMAScript VM、通用 binding 或 API bridge | 完整 source IR、安全 ECMAScript、生命周期、API/events、预算隔离 | **B4** |
+| Exact native SceneScript 64-band Audio Bars profiles | `L3 bounded` | 两个 raw source SHA 与完整 binding/property/layer/asset/shader/render-state 合同双重准入；复用 host 64 档左右声道，逐 bin 求算术平均并以单纹理 64 draw 执行；未知或变异 profile 整体 fail closed | 不执行 JavaScript，不开放 `registerAudioBuffers`、`AudioBuffers`、`createLayer`、`ILayer` 或 dynamic-layer lifecycle；renderer instance 不等于 Scene layer；无同步非零音频或 Windows golden，见 [E-SCENESCRIPT-AUDIO-BARS](runtime-evidence-index.md#e-scenescript-audio-bars) | **B4** |
+| Generic SceneScript VM/API | `L0` | 无 ECMAScript VM、通用 file/module loader、host object/API bridge 或事件/lifecycle runtime | 完整 source/binding/value-type IR、安全 ECMAScript、生命周期、API/events、预算隔离 | **B4** |
 | Current pointer | `L3` | view-normalized -> scene world 与 axis-aligned authored layer UV 极窄子集；parallax/受限 effect 消费 | parent/rotation/scale/parallax 逆变换与 effect/control-point/script golden | B0/B4 |
 | Previous pointer | `L2` | Frame Context 保存，但 renderer 未消费 | shader built-in 与事件 delta | B0/B4 |
 | Pointer buttons/events | `L0` | 无 button/down/up/click snapshot 或 dispatch | 同帧输入队列与 author-off | B0/B4 |
 | Audio declarations | `L3` | effect 侧 `AUDIOPROCESSING` combo 与五个 audio 常量已由共享准入层消费；exact Workshop `2084198056/Simple_Audio_Bars` 的 16/32/64 数组与三个严格 combo tuple 有独立 consumer；粒子侧 audio schema 保真解析 | 粒子声明可保真不等于可执行；其他 Workshop audio shader、SceneScript `AudioBuffers` bridge 和未准入 combo/指纹继续失败关闭 | B0/B4 |
-| Audio frame input | `L3` | 16/32/64 频段 × left/right host-shared 快照：系统音频 tap -> 单次 FFT 的 `SystemAudioSceneSpectrumAnalyzer` -> `SceneAudioSpectrumInbox` -> `SceneFrameContext`，host 每帧采样一次广播给所有 surface；采集由 consumer 存在性驱动，无 consumer/暂停/锁屏/休眠即停采并归零 | stock effect 与 strict relocated stereo up/down Audio Bars 消费 16 档，另两个 exact bottom Audio Bars profile 消费 32/64 档；频段边界、归一化和平滑是工程选择，非官方合同，无 Windows 数值 golden；SceneScript audio buffer 未接 | B0/B4 |
+| Audio frame input | `L3` | 16/32/64 频段 × left/right host-shared 快照：系统音频 tap -> 单次 FFT 的 `SystemAudioSceneSpectrumAnalyzer` -> `SceneAudioSpectrumInbox` -> `SceneFrameContext`，host 每帧采样一次广播给所有 surface；采集由 consumer 存在性驱动，无 consumer/暂停/锁屏/休眠即停采并归零 | stock/effect profiles 消费 16/32/64；两个 exact native property-script profile 消费 64 档并在 renderer 内派生算术平均。频段边界、归一化和平滑是工程选择，非官方合同；native average 不等于 SceneScript `AudioBuffers` bridge/object | B0/B4 |
 | 内嵌视频纹理 | `L3` | TEX 内嵌 MP4 image-layer 播放，消费共享 host time | seek/pause/switch/loop 精确合同及更多容器 | B1 |
 | 系统媒体 identity | `L1` | `$mediaThumbnail` typed 引用存在 | producer/consumer、事件、缩略图 generation | B1/B4 |
 | Particle runtime | `L3` | 作者 Sprite、常见组件、Sprite Trail，以及严格单 renderer、Screen orientation、renderer world-space 关闭的 RopeTrail 子集；RopeTrail 要求 finite `length`，`segments` 缺省 4 且只准 1...8，可选 `fadealpha`，以 fixed-step/prewarm snapshot 和 live particle ID 保存有界轨迹，复用现有 TEX、blend 与 strict REFRACT pipeline。项目准入预算为 `length <= 4`、`maxcount <= 512`、`maxcount × segments <= 4096`，不是官方数值边界。其余既有 root/child、TEX sampler/mip、Random/Box/Oscillation/Turbulence、strict REFRACT 与静态 world-space 子集不变 | Rope 仍未执行；RopeTrail 的 subdivision、UV scale/scroll、animated TEX、非 Screen/world-space、multi renderer、`fadesize`、死亡尾迹、pause/seek/reset 与 whole-scene 聚合预算未实现。上述 RopeTrail 几何、fade 与预算都是有界 clean-room 合同；官方没有公开数值默认值、Length 单位、节点/插值/接缝或精确 UV，仍无 Windows golden。粒子 live override、动态 world-space transform、Lighting、sidecar nominal geometry/rotated/trimmed atlas 等缺口不变 | **B4** |
@@ -161,9 +162,10 @@
 | `relative` 合成 | `L1` | IR 保真（10 处），编译期整条拒绝；推断语义为「作者基值 + 动画值」，未取得官方定义也未做视觉验证 |
 | Combined Animations | `L1` | `options.parent`/`children` 的双向 key 引用已保真（随包唯一实例为 `3768229922` object 55 的 `origin`↔`zoom`）；组内成员须共用持有方 clock，分组语义未实现，整组 fail-closed |
 | Animation Events | `L0` | frame crossing、loop、同 layer script dispatch |
-| Script presence | `L1` | 普通对象只保存 inline presence；文字层保真 inline source/`scriptproperties` |
+| Layer property binding IR | `L1` | 顶层 wrapper 保存 host/inline source/properties/authored fallback；nested wrapper 不提升，generic file/module/value type/handle IR 仍缺 |
 | Exact native text profile | `L3 bounded` | 三个 exact source/property profile 直接编译为 typed text target；不执行 JavaScript |
-| Generic script source/binding IR | `L0` | 非文字 inline/source path、通用 owner/target/module binding 仍会丢失 |
+| Exact native 64-band Audio Bars profile | `L3 bounded` | 两个 exact source/profile 直接编译为 64 个 renderer draw；不执行 JavaScript，也不创建动态 layer |
+| Generic file/module/value-type/handle IR | `L0` | 通用 path、module dependency、owner/target type 和 handle identity 仍缺 |
 | ECMAScript VM | `L0` | 安全隔离、确定性 budget、异常处理 |
 | `init`/`update` 生命周期 | `L0` | 每屏实例、同帧 snapshot、stop teardown |
 | `engine` globals/Date/Math | `L0` | exact native text formatter 只读取 host wall date，不暴露这些 API |
@@ -206,11 +208,12 @@
 | SceneScript clock/text | `L3 bounded` | exact clock/spaced-day/date 三 profile 在 6 样本 16 个可见绑定执行；通用 VM/Date API 仍为 `L0` |
 | Audio declaration | `L3` | effect 与粒子两套 schema 分别保真解析；两者字段名不同，粒子无 `audioamount` |
 | Audio 16 bins | `L3` | left/right host-shared 快照，静音/无权限/停采集稳定归零，可注入；当前 Scene 分析器以 -60 dB 下限扩大相邻条幅度差，频段、下限与归一化仍为工程选择 |
-| Audio 32/64 bins | `L3` bounded | left/right host-shared snapshot 与同次 FFT 已接；只供 exact Workshop Simple Audio Bars 的 `32+CLIP_LOW` / `64+CLIP_HIGH` profile，其他 Workshop/SceneScript 不外推 |
+| Audio 32/64 bins | `L3` bounded | left/right host-shared snapshot 与同次 FFT 已接；供 exact Workshop Simple Audio Bars 的 `32+CLIP_LOW` / `64+CLIP_HIGH` profile及两个 exact native property-script 64-band profile，其他 Workshop/SceneScript 不外推 |
 | Audio effect consumer | `L3` | stock Shake（`whitePhaseFallback`/`timeOffsetCombo`）、exact old-editor Shake（`legacyUnconditionalPhase`）、stock Pulse（`stock2842`，并接受同一精确旧版 profile 缺省 `replacementkey`）与 exact Workshop Simple Audio Bars 三 profile（含可重定位 16-band stereo up/down）；其余 legacy 指纹、其他 Workshop audio shader、未支持 combo 与 SceneScript binding fail closed |
 | Audio particle consumer | `L0` | 声明已保真但求值公式无证据；见 5 节 Audio-response execution |
-| Audio script consumer | `L0` | 前置 VM 未闭合 |
-| Sound layer | `L0` | 补 sound content IR、播放、volume 和生命周期 |
+| Exact native property-script audio bars | `L3 bounded` | 两个严格 source profile；64 档逐 bin average、单纹理 64 draw、完整准入与失败关闭；不产生 JS object 或 Scene layer handle |
+| Generic SceneScript audio API | `L0` | 无 VM、`registerAudioBuffers`、`AudioBuffers` object/array identity 或订阅 lifecycle |
+| Sound layer | `L0` | `3743305891` authored FLAC 尚未解码/播放，也未成为 Scene 频谱输入；当前 system tap 排除本进程。需补 sound content IR、提取/播放、volume、生命周期与自有频谱合同 |
 | Embedded MP4 frame | `L3` | image-layer 子集；不同于系统媒体 provider |
 | Media status/metadata/timeline | `L0` | injectable snapshot 和 lifecycle |
 | Media thumbnail identity | `L1` | `$mediaThumbnail` typed reference 已分类；不等于 producer |
@@ -256,11 +259,11 @@
 | **B1 Provider Core** | `S2 第 5 项 + S3` | dynamic text 已完成 per-layer generation、stale cancellation、last-ready fallback；frame registry 双代已完成 | 把 status/metadata/cancel/teardown 推广到 Texture Variants、video/system/media 与 material candidate；不含 nested graph source |
 | **B2 Graph Resource Runtime** | `S2 第 1-5 项` | strict Blur、stock Local Contrast、exact Workshop `shadow_____________`、exact stock Opacity、exact stock Shake、exact Workshop Clipping Mask、exact modern static Shine、exact Cursor Ripple 与 ordered strict effect-chain 已消费 target table；cache/resize/reset、整链原子 allocation、D7 ShaderContract IR v1、BGRA/RGBA/RG/R8 format、exact shader fingerprint、同帧 copy/swap foundation、受限 history seed/clear、Cursor Ripple 跨帧 history、Precise Blur 两种 material-command interleave、exact legacy compose 归一化与 exact Foliage typed utility capture 已完成；generic compose/scene-background、其他 composition effect consumer、通用 history consumer 与 typed shader defaults/built-ins/state 未完成 | read/write、RT lifecycle、slot/combo/state 和 resize/switch/stop 门；下一批用 preview 并排图和同样本分项变化验证画面收益 |
 | **B3 Provider-Graph Integration** | `S2 第 5-6 项` | nested/effectful/scene-background source、通用 material consumer、45 Effect 严格 profile family | B1+B2 均完成后接入；不得新增 effect-name 视觉旁路 |
-| **B4 Feature Breadth** | `S3-S4` | direct dynamic text、exact native clock/day/date profile、Timeline 28/48 typed target 子集、16/32/64 档 host audio、stock Shake/Pulse 与 exact Workshop Simple Audio Bars consumer 已完成；通用 SceneScript core、system/media text、cursor/media、其余 Timeline/audio 与按依赖排序的 particle breadth 仍待推进 | 每族正向、默认关闭、unsupported、determinism 和 lifecycle 门 |
+| **B4 Feature Breadth** | `S3-S4` | direct dynamic text、exact native clock/day/date、两个 exact native 64-band property-script Audio Bars、Timeline 28/48 typed target 子集、16/32/64 档 host audio、stock Shake/Pulse 与 exact Workshop Simple Audio Bars consumer 已完成；通用 SceneScript core、Sound、system/media text、cursor/media、其余 Timeline/audio 与按依赖排序的 particle breadth 仍待推进 | 每族正向、默认关闭、unsupported、determinism 和 lifecycle 门 |
 | **B5 Fidelity** | `S2-S4` 广度完成后 | 字体、视差、粒子、常用 Effect 与 WE Windows golden 对齐 | 固定输入逐像素/数值阈值、性能预算、长稳和多屏门 |
 | **Advanced** | `S5` | Puppet、2D light/HDR、3D、arbitrary custom shader、RGB、offline bake | 每个系统有完整 IR/runtime/lifecycle/product gate 后再升级 |
 
-研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、exact native clock/day/date、Timeline 受限 typed target、Scene audio 和既有 bounded effect/particle/resource runtime 已形成各自正向门；unsupported Effect/Timeline/粒子/通用 SceneScript 形态继续 fail closed。当前完整门为 294 stage/53 chain、Audio Bars 4、Fisheye zero-distortion 1、0 graph failed、16 个 exact text-script binding；`3299228616` 的新增两 stage、`1937925563` 的 Pulse/Water Ripple/Directional Godrays、`2470144420` 与 `3742133044` 的严格 Iris 终止后缀都只属于 exact profile。官方图与当前帧的方向性对照显示 193 的 6+6 彩色频谱条、三角呼吸和水面动态已出现；条末柔化、条间振幅差异及青/紫比例仍未达到 Windows 像素/动态 golden，不宣称 95% 或视觉等价。`3765760121` 的日期、时间、星期已替代占位符并穿过 project capture/Foliage chain，但静态截图仍不能证明 Foliage 振幅/相位。三个 source/property profile 不外推为通用 SceneScript、`Date` API 或同类格式脚本支持；其他可见未知 text script 继续诊断并保留作者 fallback。下一代码批须从专项缺口重新选择，不从任一 bounded 正门外推通用兼容。
+研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、exact native clock/day/date、两个 exact native 64-band property-script Audio Bars、Timeline 受限 typed target、Scene audio 和既有 bounded effect/particle/resource runtime 已形成各自正向门；unsupported Effect/Timeline/粒子/通用 SceneScript 形态继续 fail closed。当前完整门与聚合计数见页首及运行证据索引；`3299228616` 的新增两 stage、`1937925563` 的 Pulse/Water Ripple/Directional Godrays、`2470144420` 与 `3742133044` 的严格 Iris 终止后缀都只属于 exact profile。三个 text profile 与两个 audio profile 不外推为通用 SceneScript、`Date`/`AudioBuffers` API、动态 layer 或同类格式脚本支持；其他可见未知 script 继续诊断并保留作者 fallback。官方图与当前帧只作方向性检查，没有同步非零音频或 Windows pixel golden 时不宣称视觉等价。下一代码批须从专项缺口重新选择，不从任一 bounded 正门外推通用兼容。
 
 ## 9. 更新规则
 
