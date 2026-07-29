@@ -102,7 +102,8 @@ Swift/Metal 测试若受模块缓存权限阻塞，先将 `CLANG_MODULE_CACHE_PA
 - 新的长期断言并入现有固定/完整矩阵或正式测试。定向 Scene 运行优先使用 `scene_wallpaper_benchmark.py --sample-id <id>`；不得为每轮测试留下新的 `.codex` matrix。
 - 正式测试不得硬编码带日期的 `.codex` runtime 路径。真实样本 fixture 统一由 `script/scene_real_test_fixture.json` 指向当前主线完整门。
 - benchmark 的隔离样本、副本、临时 `HOME` 和 `runtime-app-*` 只属于当次运行；PASS 后应由既有流程清理，FAIL 仅保留失败现场。检查完整沙箱时显式使用 `--keep-runtime` 或 `--keep-runtime-app`。
-- 产生过 `.codex` build、benchmark 或 runtime 产物的批次，收尾前运行 `python3 script/audit_codex_artifacts.py --fail-on-candidates`。它只报告候选项，不授权清理；确认后才可移入废纸篓。禁止 `rm -rf .codex`、`git clean` 或按名称/日期模糊删除。
+- 产生过 `.codex` build、benchmark 或 runtime 产物的批次，收尾前运行 `python3 script/audit_codex_artifacts.py --fail-on-candidates`。对目标精确、已无 fixture/文档/测试/进程引用、且属于可重建或重复运行结果的无用残留，可无需再次询问直接删除。
+- 删除后重跑审计，最终只报告实际删除范围、释放空间、保留例外和不可恢复性。归属不清、仍是唯一失败现场/运行证据/样本输入的候选只报告不删。禁止 `rm -rf .codex`、`git clean` 或按名称/日期模糊删除。
 - 只保留共享 `.codex/DerivedData`，不得长期留下单次能力验证的 `DerivedData-*`。
 
 ## 8. 并行工作
