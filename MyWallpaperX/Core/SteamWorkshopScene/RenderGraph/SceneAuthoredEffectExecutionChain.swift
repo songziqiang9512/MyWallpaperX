@@ -137,6 +137,10 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         stages.filter { $0.transform != nil }.count
     }
 
+    var fisheyeZeroDistortionCount: Int {
+        stages.filter { $0.fisheyeZeroDistortion != nil }.count
+    }
+
     var pulseCount: Int {
         stages.filter { $0.pulse != nil }.count
     }

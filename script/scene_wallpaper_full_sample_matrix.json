@@ -2963,18 +2963,21 @@
       ],
       "expected_camera_parallax": false,
       "expected_utility_candidates": 90,
-      "expected_utility_capture_planned": 0,
+      "expected_utility_capture_planned": 1,
       "expected_utility_dependency_edges": 0,
       "expected_utility_named_consumers": 0,
       "expected_utility_named_target_planned": 0,
       "expected_utility_named_binding_planned": 0,
       "expected_utility_named_target_gaps": 0,
-      "required_utility_capture_succeeded_layer_ids": [],
+      "required_utility_capture_succeeded_layer_ids": [
+        151
+      ],
       "required_named_target_capture_succeeded_layer_ids": [],
       "required_named_target_binding_succeeded_layer_ids": [],
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
       "expected_authored_effect_graph_succeeded_layer_ids": [
+        151,
         246,
         303,
         601
@@ -2984,6 +2987,8 @@
       "expected_authored_effect_graph_opacity_count": 2,
       "expected_authored_effect_graph_opacity_layer_ids": [],
       "expected_authored_effect_graph_color_key_count": 0,
+      "expected_authored_effect_graph_workshop_audio_bars_count": 1,
+      "expected_authored_effect_graph_fisheye_zero_distortion_count": 1,
       "expected_authored_effect_graph_workshop_shadow_count": 0,
       "expected_authored_effect_graph_spin_count": 0,
       "expected_authored_effect_graph_procedural_noise_count": 0,
@@ -3002,8 +3007,8 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_authored_effect_graph_chain_count": 1,
-      "expected_authored_effect_graph_stage_count": 4,
+      "expected_authored_effect_graph_chain_count": 2,
+      "expected_authored_effect_graph_stage_count": 6,
       "expected_route_only_effect_count": 29,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0

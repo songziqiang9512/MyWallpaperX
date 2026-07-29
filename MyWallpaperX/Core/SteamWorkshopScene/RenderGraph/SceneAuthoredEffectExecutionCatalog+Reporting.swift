@@ -53,6 +53,7 @@ extension SceneAuthoredEffectExecutionCatalog {
             "authoredEffectGraphBlendCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.blendCount })",
             "authoredEffectGraphTintCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.tintCount })",
             "authoredEffectGraphTransformCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.transformCount })",
+            "authoredEffectGraphFisheyeZeroDistortionCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.fisheyeZeroDistortionCount })",
             "authoredEffectGraphTransformStaticFallbackCount: \(transformDiagnostics.count)",
             "authoredEffectGraphTransformStaticFallbackDiagnostics: \(transformDiagnostics.joined(separator: ";"))",
             "authoredEffectGraphPulseCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.pulseCount })",

@@ -11,7 +11,8 @@ extension SceneAuthoredWorkshopSimpleAudioBarsPlanner {
     }
 
     nonisolated static func profile(
-        from authored: [String: Int]
+        from authored: [String: Int],
+        revision: AssetContract.Revision
     ) -> Parameters.Profile? {
         let allowed = Set([
             "SHAPE", "TRANSPARENCY", "RESOLUTION", "BLENDMODE",
@@ -35,21 +36,37 @@ extension SceneAuthoredWorkshopSimpleAudioBarsPlanner {
             clipLow: values["CLIP_LOW", default: 0],
             clipHigh: values["CLIP_HIGH", default: 0]
         )
-        guard normalizedValues.shape == 0,
-              normalizedValues.transparency == 1,
-              normalizedValues.blendMode == 0,
-              normalizedValues.smoothCurve == 0,
-              normalizedValues.antialias == 0 else {
+        guard normalizedValues.smoothCurve == 0 else {
             return nil
         }
-        switch (
-            normalizedValues.resolution,
-            normalizedValues.clipLow,
-            normalizedValues.clipHigh
-        ) {
-        case (32, 1, 0): return .bottomReplace32ClipLow
-        case (64, 0, 1): return .bottomReplace64ClipHigh
-        default: return nil
+        switch revision {
+        case .originalFragmentC:
+            guard normalizedValues.shape == 0,
+                  normalizedValues.transparency == 1,
+                  normalizedValues.blendMode == 0,
+                  normalizedValues.antialias == 0 else {
+                return nil
+            }
+            switch (
+                normalizedValues.resolution,
+                normalizedValues.clipLow,
+                normalizedValues.clipHigh
+            ) {
+            case (32, 1, 0): return .bottomReplace32ClipLow
+            case (64, 0, 1): return .bottomReplace64ClipHigh
+            default: return nil
+            }
+        case .relocatedLegacy:
+            guard normalizedValues.shape == 9,
+                  normalizedValues.transparency == 4,
+                  normalizedValues.resolution == 16,
+                  normalizedValues.blendMode == 31,
+                  normalizedValues.antialias == 1,
+                  normalizedValues.clipLow == 0,
+                  normalizedValues.clipHigh == 0 else {
+                return nil
+            }
+            return .stereoUpDown16IntersectAdd
         }
     }
 
@@ -70,21 +87,53 @@ extension SceneAuthoredWorkshopSimpleAudioBarsPlanner {
               (1.0 ... 200.0).contains(countValue),
               let color = color(values["bar color"], effectKey: effectKey),
               let spacing = scalar(values["bar spacing"], kind: "number"),
-              abs(spacing - 0.30000001) <= 0.000_001,
               let bounds = vector(
                   values["lower/upper bar bounds"],
                   count: 2,
                   kind: "vector"
               ),
               0 <= bounds[0], bounds[0] < bounds[1], bounds[1] <= 1,
-              let opacity = scalar(
-                  values["ui_editor_properties_opacity"],
-                  kind: "number"
-              ),
-              (0 ... 1).contains(opacity),
-              inactiveVector(values["circle start/end angles"], count: 2),
-              inactiveVector(values["anti-alias blurring"], count: 2) else {
+              inactiveVector(values["circle start/end angles"], count: 2) else {
             return nil
+        }
+        let opacity: (
+            value: Double,
+            binding: SceneWorkshopAudioBarsExecutionPlan.ConstantBinding?
+        )
+        let antiAliasSmoothing: SIMD2<Float>
+        switch profile {
+        case .bottomReplace32ClipLow, .bottomReplace64ClipHigh:
+            guard abs(spacing - 0.30000001) <= 0.000_001,
+                  let staticOpacity = scalar(
+                      values["ui_editor_properties_opacity"],
+                      kind: "number"
+                  ),
+                  (0 ... 1).contains(staticOpacity),
+                  inactiveVector(values["anti-alias blurring"], count: 2) else {
+                return nil
+            }
+            opacity = (staticOpacity, nil)
+            antiAliasSmoothing = .zero
+        case .stereoUpDown16IntersectAdd:
+            guard countValue == 35,
+                  abs(spacing - 0.5) <= 0.000_001,
+                  abs(bounds[0]) <= 0.000_001,
+                  abs(bounds[1] - 0.5) <= 0.000_001,
+                  let authoredOpacity = boundScalar(
+                      values["ui_editor_properties_opacity"],
+                      effectKey: effectKey,
+                      constantName: "ui_editor_properties_opacity"
+                  ),
+                  let smoothing = vector(
+                      values["anti-alias blurring"],
+                      count: 2,
+                      kind: "vector"
+                  ),
+                  smoothing.allSatisfy({ abs($0 - 0.05) <= 0.000_001 }) else {
+                return nil
+            }
+            opacity = authoredOpacity
+            antiAliasSmoothing = SIMD2(0.05, 0.05)
         }
         return Parameters(
             profile: profile,
@@ -94,7 +143,9 @@ extension SceneAuthoredWorkshopSimpleAudioBarsPlanner {
             barSpacing: Float(spacing),
             lowerBound: Float(bounds[0]),
             upperBound: Float(bounds[1]),
-            opacity: Float(opacity)
+            opacity: Float(opacity.value),
+            opacityBinding: opacity.binding,
+            antiAliasSmoothing: antiAliasSmoothing
         )
     }
 
@@ -144,6 +195,39 @@ extension SceneAuthoredWorkshopSimpleAudioBarsPlanner {
         return component
     }
 
+    private nonisolated static func boundScalar(
+        _ value: SceneDocument.ShaderValue?,
+        effectKey: Graph.EffectKey,
+        constantName: String
+    ) -> (
+        value: Double,
+        binding: SceneWorkshopAudioBarsExecutionPlan.ConstantBinding
+    )? {
+        guard let value,
+              value.valueKind.lowercased() == "binding",
+              let propertyKey = value.userBinding?.trimmingCharacters(
+                  in: .whitespacesAndNewlines
+              ),
+              !propertyKey.isEmpty,
+              let components = value.components,
+              components.count == 1,
+              let component = components.first,
+              component.isFinite,
+              (0 ... 1).contains(component) else {
+            return nil
+        }
+        return (
+            component,
+            .init(
+                propertyKey: propertyKey,
+                layerID: effectKey.layerID,
+                effectIndex: effectKey.effectIndex,
+                passIndex: 0,
+                constantName: constantName
+            )
+        )
+    }
+
     private nonisolated static func vector(
         _ value: SceneDocument.ShaderValue?,
         count: Int,
@@ -172,20 +256,25 @@ extension SceneAuthoredWorkshopSimpleAudioBarsPlanner {
     }
 
     nonisolated static func shaderContractMatches(
-        _ contracts: [SceneShaderContract]
+        _ contracts: [SceneShaderContract],
+        assets: AssetContract
     ) -> Bool {
-        let matches = contracts.filter { normalized($0.identity) == shaderIdentity }
+        let matches = contracts.filter {
+            normalized($0.identity) == assets.shaderIdentity
+        }
         guard matches.count == 1, let contract = matches.first,
               contract.sourceKind == .authoredSource,
               contract.diagnostics.isEmpty,
-              contract.canonicalSHA256 == shaderCanonicalSHA256,
-              canonicalHash(contract) == shaderCanonicalSHA256,
+              canonicalHash(contract) == contract.canonicalSHA256,
+              assets.canonicalSHA256.map({
+                  contract.canonicalSHA256 == $0
+              }) ?? true,
               contract.stages.count == 2 else {
             return false
         }
         let expected: [(SceneShaderContract.StageKind, String, String)] = [
-            (.vertex, vertexPath, vertexSHA256),
-            (.fragment, fragmentPath, fragmentSHA256),
+            (.vertex, assets.vertexPath, assets.vertexSHA256),
+            (.fragment, assets.fragmentPath, assets.fragmentSHA256),
         ]
         return zip(contract.stages, expected).allSatisfy { stage, fingerprint in
             stage.kind == fingerprint.0
@@ -224,30 +313,75 @@ extension SceneAuthoredWorkshopSimpleAudioBarsPlanner {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
-    nonisolated static let definitionPath =
-        "effects/workshop/2084198056/simple_audio_bars/effect.json"
-    nonisolated static let materialPath =
-        "materials/workshop/2084198056/effects/simple_audio_bars.json"
-    nonisolated static let materialPassID = "\(materialPath)#0"
-    nonisolated static let materialSHA256 =
+    nonisolated static func assetContract(
+        forDefinitionPath path: String
+    ) -> AssetContract? {
+        let normalizedPath = normalized(path)
+        let effectsPrefix = "effects/"
+        let definitionTail =
+            "workshop/2084198056/simple_audio_bars/effect.json"
+        guard normalizedPath.hasPrefix(effectsPrefix) else { return nil }
+        let relative = String(normalizedPath.dropFirst(effectsPrefix.count))
+        guard relative.hasSuffix(definitionTail) else { return nil }
+        let namespace = String(relative.dropLast(definitionTail.count))
+        let revision: AssetContract.Revision
+        if namespace.isEmpty {
+            revision = .originalFragmentC
+        } else {
+            let components = namespace.split(
+                separator: "/",
+                omittingEmptySubsequences: true
+            )
+            guard components.count == 2,
+                  components[0] == "workshop",
+                  !components[1].isEmpty,
+                  components[1].allSatisfy(\.isNumber) else {
+                return nil
+            }
+            revision = .relocatedLegacy
+        }
+
+        let assetRoot = "\(namespace)workshop/2084198056"
+        let materialPath =
+            "materials/\(assetRoot)/effects/simple_audio_bars.json"
+        let shaderIdentity =
+            "\(assetRoot)/effects/simple_audio_bars"
+        let vertexPath =
+            "shaders/\(assetRoot)/effects/simple_audio_bars.vert"
+        let fragmentPath =
+            "shaders/\(assetRoot)/effects/simple_audio_bars.frag"
+        return AssetContract(
+            revision: revision,
+            definitionPath: normalizedPath,
+            materialPath: materialPath,
+            materialPassID: "\(materialPath)#0",
+            materialSHA256: revision == .originalFragmentC
+                ? originalMaterialSHA256
+                : nil,
+            shaderIdentity: shaderIdentity,
+            dependencies: [materialPath, fragmentPath, vertexPath],
+            vertexPath: vertexPath,
+            vertexSHA256: vertexSHA256,
+            fragmentPath: fragmentPath,
+            fragmentSHA256: revision == .originalFragmentC
+                ? originalFragmentSHA256
+                : relocatedFragmentSHA256,
+            canonicalSHA256: revision == .originalFragmentC
+                ? originalShaderCanonicalSHA256
+                : nil
+        )
+    }
+
+    private nonisolated static let originalMaterialSHA256 =
         "a283c6fa4cda8c6c91f2e8a737f9c42739473bbd900a0590b50458088b390de9"
-    nonisolated static let shaderIdentity =
-        "workshop/2084198056/effects/simple_audio_bars"
-    nonisolated static let dependencies = [
-        materialPath,
-        "shaders/workshop/2084198056/effects/simple_audio_bars.frag",
-        "shaders/workshop/2084198056/effects/simple_audio_bars.vert",
-    ]
-    private nonisolated static let shaderCanonicalSHA256 =
+    private nonisolated static let originalShaderCanonicalSHA256 =
         "75c498bcb6c5faaead0b223902fec61bb5b57043f1fbcd2b51e098a663299f00"
-    private nonisolated static let vertexPath =
-        "shaders/workshop/2084198056/effects/simple_audio_bars.vert"
     private nonisolated static let vertexSHA256 =
         "cbe7c41f414468a69ff24a92007dfaa9139a7f5a8c0cd804375339a73e16fe60"
-    private nonisolated static let fragmentPath =
-        "shaders/workshop/2084198056/effects/simple_audio_bars.frag"
-    private nonisolated static let fragmentSHA256 =
+    private nonisolated static let originalFragmentSHA256 =
         "65ce71ebbfcc4ba450e540336262dce3e9580cd90c4157e5f21205bedcc64493"
+    private nonisolated static let relocatedFragmentSHA256 =
+        "3ef3b5682caa3779d2b90520e77e1c6fffd28aeaafbb206eadc736830df79020"
     private nonisolated static let expectedConstantNames = Set([
         "anti-alias blurring",
         "bar color",

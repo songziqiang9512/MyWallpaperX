@@ -271,6 +271,18 @@ extension SceneAuthoredEffectChainPlanner {
         ) {
             return stage(.transform(transform), stageGraph: stageGraph, inputRole: inputRole)
         }
+        if let fisheye = SceneAuthoredFisheyeZeroDistortionPlanner.plan(
+            graph: stageGraph,
+            descriptor: descriptor,
+            shaderContracts: shaderContracts,
+            inputRole: inputRole
+        ) {
+            return stage(
+                .fisheyeZeroDistortion(fisheye),
+                stageGraph: stageGraph,
+                inputRole: inputRole
+            )
+        }
         if let pulse = SceneAuthoredPulsePlanner.plan(
             graph: stageGraph,
             descriptor: descriptor,

@@ -27,6 +27,7 @@ extension SceneAuthoredEffectExecutionPlan {
         case blend(SceneBlendExecutionPlan)
         case tint(SceneTintExecutionPlan)
         case transform(SceneTransformExecutionPlan)
+        case fisheyeZeroDistortion(SceneFisheyeZeroDistortionPlan)
         case pulse(ScenePulseExecutionPlan)
         case godrays(SceneGodraysPlan)
         case shine(SceneShineExecutionPlan)
@@ -158,6 +159,11 @@ extension SceneAuthoredEffectExecutionPlan {
         return plan
     }
 
+    nonisolated var fisheyeZeroDistortion: SceneFisheyeZeroDistortionPlan? {
+        guard case .fisheyeZeroDistortion(let plan) = backend else { return nil }
+        return plan
+    }
+
     nonisolated var pulse: ScenePulseExecutionPlan? {
         guard case .pulse(let plan) = backend else { return nil }
         return plan
@@ -194,6 +200,8 @@ extension SceneAuthoredEffectExecutionPlan {
     nonisolated var supportsUtilityCapture: Bool {
         switch backend {
         case .foliageSway:
+            return true
+        case .fisheyeZeroDistortion:
             return true
         case .workshopAudioBars(let plan):
             guard case .simple = plan.profile else { return false }

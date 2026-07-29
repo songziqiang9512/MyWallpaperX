@@ -1741,6 +1741,7 @@ utility layer 763: skippedHidden kind=composition
             "authoredEffectGraphColorKeyCount: 2\n"
             "authoredEffectGraphWorkshopShiftHueCount: 3\n"
             "authoredEffectGraphWorkshopAudioBarsCount: 2\n"
+            "authoredEffectGraphFisheyeZeroDistortionCount: 1\n"
             "authoredEffectGraphWorkshopGradientCount: 2\n"
             "authoredEffectGraphWorkshopAudioHueShiftCount: 4\n"
             "layer 365: effect runtime opacity-authored; 1 declared pass(es)\n"
@@ -1755,6 +1756,9 @@ utility layer 763: skippedHidden kind=composition
         color_key_count = benchmark.authored_effect_graph_color_key_count(preview)
         shift_hue_count = benchmark.authored_effect_graph_workshop_shift_hue_count(preview)
         audio_bars_count = benchmark.authored_effect_graph_workshop_audio_bars_count(preview)
+        fisheye_count = (
+            benchmark.authored_effect_graph_fisheye_zero_distortion_count(preview)
+        )
         gradient_count = benchmark.authored_effect_graph_workshop_gradient_count(preview)
         audio_hue_count = benchmark.authored_effect_graph_workshop_audio_hue_shift_count(preview)
         opacity_layers = benchmark.authored_effect_graph_opacity_layer_ids(preview)
@@ -1763,6 +1767,7 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(color_key_count, 2)
         self.assertEqual(shift_hue_count, 3)
         self.assertEqual(audio_bars_count, 2)
+        self.assertEqual(fisheye_count, 1)
         self.assertEqual(gradient_count, 2)
         self.assertEqual(audio_hue_count, 4)
         self.assertEqual(opacity_layers, [365, 372, 647, 664])
@@ -1773,6 +1778,7 @@ utility layer 763: skippedHidden kind=composition
                     "expected_authored_effect_graph_opacity_count": 4,
                     "expected_authored_effect_graph_color_key_count": 2,
                     "expected_authored_effect_graph_workshop_audio_bars_count": 2,
+                    "expected_authored_effect_graph_fisheye_zero_distortion_count": 1,
                     "expected_authored_effect_graph_opacity_layer_ids":
                         [365, 372, 647, 664],
                     "expected_route_only_effect_count": 3,
@@ -1783,6 +1789,7 @@ utility layer 763: skippedHidden kind=composition
                 opacity_count=opacity_count,
                 color_key_count=color_key_count,
                 workshop_audio_bars_count=audio_bars_count,
+                fisheye_zero_distortion_count=fisheye_count,
                 route_only_effect_count=route_only_count,
                 opacity_layer_ids=opacity_layers,
             ),
@@ -1793,6 +1800,7 @@ utility layer 763: skippedHidden kind=composition
                 "expected_authored_effect_graph_opacity_count": 0,
                 "expected_authored_effect_graph_color_key_count": 0,
                 "expected_authored_effect_graph_workshop_audio_bars_count": 0,
+                "expected_authored_effect_graph_fisheye_zero_distortion_count": 0,
                 "expected_authored_effect_graph_opacity_layer_ids": [],
                 "expected_route_only_effect_count": 18,
             },
@@ -1802,6 +1810,7 @@ utility layer 763: skippedHidden kind=composition
             opacity_count=opacity_count,
             color_key_count=color_key_count,
             workshop_audio_bars_count=audio_bars_count,
+            fisheye_zero_distortion_count=fisheye_count,
             route_only_effect_count=route_only_count,
             opacity_layer_ids=opacity_layers,
         )
@@ -1811,12 +1820,19 @@ utility layer 763: skippedHidden kind=composition
             "authored effect graph Workshop Audio Bars count mismatch",
             failures,
         )
+        self.assertIn(
+            "authored effect graph Fisheye Zero Distortion count mismatch",
+            failures,
+        )
         self.assertIn("authored effect graph Opacity layer IDs mismatch", failures)
         self.assertIn("offscreen route-only effect count mismatch", failures)
         self.assertIsNone(benchmark.authored_effect_graph_opacity_count(""))
         self.assertIsNone(benchmark.authored_effect_graph_color_key_count(""))
         self.assertIsNone(benchmark.authored_effect_graph_workshop_shift_hue_count(""))
         self.assertIsNone(benchmark.authored_effect_graph_workshop_audio_bars_count(""))
+        self.assertIsNone(
+            benchmark.authored_effect_graph_fisheye_zero_distortion_count("")
+        )
         self.assertIsNone(benchmark.authored_effect_graph_workshop_gradient_count(""))
         self.assertIsNone(benchmark.authored_effect_graph_workshop_audio_hue_shift_count(""))
         self.assertEqual(benchmark.authored_effect_graph_opacity_layer_ids(""), [])

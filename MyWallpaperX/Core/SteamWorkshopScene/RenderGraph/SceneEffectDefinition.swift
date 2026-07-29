@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 struct SceneEffectDefinition: Codable, Equatable, Identifiable, Sendable {
@@ -54,11 +55,50 @@ struct SceneEffectDefinition: Codable, Equatable, Identifiable, Sendable {
     let gizmos: SceneJSONValue?
     let extraFields: [String: SceneJSONValue]
     let unknownFieldPaths: [String]
+    let rawSHA256: String?
 
     var id: String { relativePath }
 
     nonisolated var materialPassCount: Int {
         passes.filter { $0.materialPath != nil }.count
+    }
+
+    nonisolated init(
+        relativePath: String,
+        version: Int?,
+        replacementKey: String?,
+        name: String?,
+        description: String?,
+        group: String?,
+        performance: String?,
+        previewPath: String?,
+        editable: Bool?,
+        passes: [Pass],
+        framebuffers: [Framebuffer],
+        dependencies: [String],
+        functions: SceneJSONValue?,
+        gizmos: SceneJSONValue?,
+        extraFields: [String: SceneJSONValue],
+        unknownFieldPaths: [String],
+        rawSHA256: String? = nil
+    ) {
+        self.relativePath = relativePath
+        self.version = version
+        self.replacementKey = replacementKey
+        self.name = name
+        self.description = description
+        self.group = group
+        self.performance = performance
+        self.previewPath = previewPath
+        self.editable = editable
+        self.passes = passes
+        self.framebuffers = framebuffers
+        self.dependencies = dependencies
+        self.functions = functions
+        self.gizmos = gizmos
+        self.extraFields = extraFields
+        self.unknownFieldPaths = unknownFieldPaths
+        self.rawSHA256 = rawSHA256
     }
 }
 
@@ -132,7 +172,10 @@ struct SceneEffectDefinitionLoader {
             functions: root["functions"].flatMap(SceneJSONValue.init(jsonObject:)),
             gizmos: root["gizmos"].flatMap(SceneJSONValue.init(jsonObject:)),
             extraFields: topExtras,
-            unknownFieldPaths: unknownPaths
+            unknownFieldPaths: unknownPaths,
+            rawSHA256: SHA256.hash(data: data).map {
+                String(format: "%02x", $0)
+            }.joined()
         )
     }
 

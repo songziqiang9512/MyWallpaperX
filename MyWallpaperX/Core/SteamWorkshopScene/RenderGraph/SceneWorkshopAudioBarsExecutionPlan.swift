@@ -22,11 +22,13 @@ nonisolated struct SceneWorkshopAudioBarsExecutionPlan {
         enum Profile: Equatable, Sendable {
             case bottomReplace32ClipLow
             case bottomReplace64ClipHigh
+            case stereoUpDown16IntersectAdd
 
             nonisolated var resolution: Int {
                 switch self {
                 case .bottomReplace32ClipLow: 32
                 case .bottomReplace64ClipHigh: 64
+                case .stereoUpDown16IntersectAdd: 16
                 }
             }
 
@@ -36,6 +38,10 @@ nonisolated struct SceneWorkshopAudioBarsExecutionPlan {
 
             nonisolated var clipsHigh: Bool {
                 self == .bottomReplace64ClipHigh
+            }
+
+            nonisolated var usesStereoUpDown: Bool {
+                self == .stereoUpDown16IntersectAdd
             }
         }
 
@@ -47,9 +53,14 @@ nonisolated struct SceneWorkshopAudioBarsExecutionPlan {
         let lowerBound: Float
         let upperBound: Float
         let opacity: Float
+        let opacityBinding: ConstantBinding?
+        let antiAliasSmoothing: SIMD2<Float>
 
         nonisolated var liveConsumerTargets: Set<SceneDynamicTarget> {
-            Set([colorBinding?.dynamicTarget].compactMap { $0 })
+            Set([
+                colorBinding?.dynamicTarget,
+                opacityBinding?.dynamicTarget,
+            ].compactMap { $0 })
         }
 
         nonisolated func resolvedColor(in snapshot: SceneDynamicSnapshot) -> SIMD3<Float> {
@@ -61,6 +72,16 @@ nonisolated struct SceneWorkshopAudioBarsExecutionPlan {
                 return staticOrFallbackColor
             }
             return SIMD3(Float(red), Float(green), Float(blue))
+        }
+
+        nonisolated func resolvedOpacity(in snapshot: SceneDynamicSnapshot) -> Float {
+            guard let target = opacityBinding?.dynamicTarget,
+                  case let .scalar(value) = snapshot[target]?.value,
+                  value.isFinite,
+                  (0 ... 1).contains(value) else {
+                return opacity
+            }
+            return Float(value)
         }
     }
 
@@ -112,8 +133,12 @@ nonisolated struct SceneWorkshopAudioBarsExecutionPlan {
 
     nonisolated func resolvedSimpleParameters(
         in snapshot: SceneDynamicSnapshot
-    ) -> (parameters: SimpleParameters, color: SIMD3<Float>)? {
+    ) -> (parameters: SimpleParameters, color: SIMD3<Float>, opacity: Float)? {
         guard case .simple(let parameters) = profile else { return nil }
-        return (parameters, parameters.resolvedColor(in: snapshot))
+        return (
+            parameters,
+            parameters.resolvedColor(in: snapshot),
+            parameters.resolvedOpacity(in: snapshot)
+        )
     }
 }

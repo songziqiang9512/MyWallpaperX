@@ -348,15 +348,15 @@ enum SceneAuthoredEffectChainRenderer {
                 tintPipeline: tintPipeline,
                 commandBuffer: commandBuffer
             )
-        case .transform(let transform):
-            return renderTransform(
-                transform,
-                sourceTexture: sourceTexture,
+        case .transform, .fisheyeZeroDistortion:
+            return renderTransformOrFisheye(
+                stage, sourceTexture: sourceTexture,
                 masks: masks,
                 auxMask: auxMask,
                 targets: targets,
                 sourceUniforms: sourceUniforms,
                 pipeline: pipeline,
+                pipelines: pipelines,
                 commandBuffer: commandBuffer
             )
         case .godrays(let godrays):

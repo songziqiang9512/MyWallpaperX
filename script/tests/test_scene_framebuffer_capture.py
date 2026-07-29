@@ -36,6 +36,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneOpacityRenderer.swift",
     SOURCE_ROOT / "Effects/SceneColorKeyPipeline.swift",
     SOURCE_ROOT / "Effects/SceneColorKeyRenderer.swift",
+    SOURCE_ROOT / "Effects/SceneFisheyeZeroDistortionPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShiftHuePipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShiftHueRenderer.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopAudioBarsPipeline.swift",
@@ -253,16 +254,19 @@ struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
         enum Profile: Equatable, Sendable {
             case bottomReplace32ClipLow
             case bottomReplace64ClipHigh
+            case stereoUpDown16IntersectAdd
 
             var resolution: Int {
                 switch self {
                 case .bottomReplace32ClipLow: 32
                 case .bottomReplace64ClipHigh: 64
+                case .stereoUpDown16IntersectAdd: 16
                 }
             }
 
             var clipsLow: Bool { self == .bottomReplace32ClipLow }
             var clipsHigh: Bool { self == .bottomReplace64ClipHigh }
+            var usesStereoUpDown: Bool { self == .stereoUpDown16IntersectAdd }
         }
 
         let profile: Profile
@@ -271,6 +275,7 @@ struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
         let lowerBound: Float
         let upperBound: Float
         let opacity: Float
+        let antiAliasSmoothing: SIMD2<Float>
     }
 
     enum Profile: Sendable {
@@ -287,9 +292,9 @@ struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
 
     func resolvedSimpleParameters(
         in snapshot: SceneDynamicSnapshot
-    ) -> (parameters: SimpleParameters, color: SIMD3<Float>)? {
+    ) -> (parameters: SimpleParameters, color: SIMD3<Float>, opacity: Float)? {
         guard case .simple(let parameters) = profile else { return nil }
-        return (parameters, SIMD3(repeating: 1))
+        return (parameters, SIMD3(repeating: 1), parameters.opacity)
     }
 }
 
@@ -363,6 +368,12 @@ struct SceneTransformExecutionPlan {
     let renderGraph: SceneAuthoredEffectRenderPlan
 }
 
+struct SceneFisheyeZeroDistortionPlan {
+    let renderGraph: SceneAuthoredEffectRenderPlan
+    let center: SIMD2<Float>
+    let size: Float
+}
+
 struct SceneBlendEffectTextures {
     let texture: MTLTexture
     let uvScale: SIMD2<Float>
@@ -424,6 +435,7 @@ struct SceneAuthoredEffectExecutionPlan {
         case blend(SceneBlendExecutionPlan)
         case tint(SceneTintExecutionPlan)
         case transform(SceneTransformExecutionPlan)
+        case fisheyeZeroDistortion(SceneFisheyeZeroDistortionPlan)
         case pulse(ScenePulseExecutionPlan)
         case godrays(SceneGodraysPlan)
         case shine(SceneShineExecutionPlan)

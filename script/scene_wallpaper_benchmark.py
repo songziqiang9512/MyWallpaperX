@@ -146,6 +146,10 @@ AUTHORED_EFFECT_GRAPH_WORKSHOP_AUDIO_BARS_COUNT_RE = re.compile(
     r"^authoredEffectGraphWorkshopAudioBarsCount: (?P<count>\d+)$",
     re.MULTILINE,
 )
+AUTHORED_EFFECT_GRAPH_FISHEYE_ZERO_DISTORTION_COUNT_RE = re.compile(
+    r"^authoredEffectGraphFisheyeZeroDistortionCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
 AUTHORED_EFFECT_GRAPH_WORKSHOP_GRADIENT_COUNT_RE = re.compile(
     r"^authoredEffectGraphWorkshopGradientCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -1135,6 +1139,13 @@ def authored_effect_graph_workshop_audio_bars_count(preview_text: str) -> int | 
     return int(match.group("count")) if match is not None else None
 
 
+def authored_effect_graph_fisheye_zero_distortion_count(
+    preview_text: str,
+) -> int | None:
+    match = AUTHORED_EFFECT_GRAPH_FISHEYE_ZERO_DISTORTION_COUNT_RE.search(preview_text)
+    return int(match.group("count")) if match is not None else None
+
+
 def authored_effect_graph_workshop_gradient_count(preview_text: str) -> int | None:
     match = AUTHORED_EFFECT_GRAPH_WORKSHOP_GRADIENT_COUNT_RE.search(preview_text)
     return int(match.group("count")) if match is not None else None
@@ -1421,6 +1432,7 @@ def authored_effect_graph_failures(
     opacity_count: int | None = None,
     color_key_count: int | None = None,
     workshop_audio_bars_count: int | None = None,
+    fisheye_zero_distortion_count: int | None = None,
     route_only_effect_count: int | None = None,
     opacity_layer_ids: list[int] | None = None,
 ) -> list[str]:
@@ -1459,6 +1471,14 @@ def authored_effect_graph_failures(
     if expected_audio_bars is not None:
         if workshop_audio_bars_count != int(expected_audio_bars):
             failures.append("authored effect graph Workshop Audio Bars count mismatch")
+    expected_fisheye_zero_distortion = sample.get(
+        "expected_authored_effect_graph_fisheye_zero_distortion_count"
+    )
+    if expected_fisheye_zero_distortion is not None:
+        if fisheye_zero_distortion_count != int(expected_fisheye_zero_distortion):
+            failures.append(
+                "authored effect graph Fisheye Zero Distortion count mismatch"
+            )
     expected_opacity_layers = sample.get("expected_authored_effect_graph_opacity_layer_ids")
     if expected_opacity_layers is not None:
         if (opacity_layer_ids or []) != sorted(expected_opacity_layers):
@@ -1901,6 +1921,9 @@ def run_sample(
     authored_effect_graph_workshop_audio_bars = (
         authored_effect_graph_workshop_audio_bars_count(preview_text)
     )
+    authored_effect_graph_fisheye_zero_distortion = (
+        authored_effect_graph_fisheye_zero_distortion_count(preview_text)
+    )
     authored_effect_graph_workshop_gradient = (
         authored_effect_graph_workshop_gradient_count(preview_text)
     )
@@ -2110,6 +2133,9 @@ def run_sample(
         opacity_count=authored_effect_graph_opacity,
         color_key_count=authored_effect_graph_color_key,
         workshop_audio_bars_count=authored_effect_graph_workshop_audio_bars,
+        fisheye_zero_distortion_count=(
+            authored_effect_graph_fisheye_zero_distortion
+        ),
         route_only_effect_count=route_only_effect_count,
         opacity_layer_ids=authored_effect_graph_opacity_layers,
     ))
@@ -2404,6 +2430,7 @@ def run_sample(
             "authored_effect_graph_color_key_count": authored_effect_graph_color_key,
             "authored_effect_graph_workshop_shift_hue_count": authored_effect_graph_workshop_shift_hue,
             "authored_effect_graph_workshop_audio_bars_count": authored_effect_graph_workshop_audio_bars,
+            "authored_effect_graph_fisheye_zero_distortion_count": authored_effect_graph_fisheye_zero_distortion,
             "authored_effect_graph_workshop_gradient_count": authored_effect_graph_workshop_gradient,
             "authored_effect_graph_workshop_audio_hue_shift_count": authored_effect_graph_workshop_audio_hue_shift,
             "authored_effect_graph_opacity_layer_ids": authored_effect_graph_opacity_layers,

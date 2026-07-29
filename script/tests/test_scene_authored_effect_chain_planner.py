@@ -160,7 +160,10 @@ enum SceneAuthoredWorkshopSimpleAudioBarsPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneWorkshopAudioBarsExecutionPlan? {
-        nil
+        graph.effects.first?.definitionPath.lowercased()
+            == "effects/simple/effect.json" && inputRole == .layerSource
+            ? SceneWorkshopAudioBarsExecutionPlan(profile: .simple)
+            : nil
     }
 }
 
@@ -411,6 +414,22 @@ enum SceneAuthoredTransformPlanner {
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneTransformExecutionPlan? {
         nil
+    }
+}
+
+struct SceneFisheyeZeroDistortionPlan {}
+
+enum SceneAuthoredFisheyeZeroDistortionPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneFisheyeZeroDistortionPlan? {
+        graph.effects.first?.definitionPath.lowercased()
+            == "effects/fisheye/effect.json" && inputRole == .priorEffectOutput
+            ? SceneFisheyeZeroDistortionPlan()
+            : nil
     }
 }
 
@@ -760,6 +779,72 @@ enum Harness {
         )
     }
 
+    static func simpleFisheyeGraph(
+        fisheyePath: String = "effects/fisheye/effect.json"
+    ) -> Graph {
+        let firstKey = Graph.EffectKey(
+            layerID: layerID,
+            effectIndex: 0,
+            descriptorID: "42#effect#0"
+        )
+        let secondKey = Graph.EffectKey(
+            layerID: layerID,
+            effectIndex: 1,
+            descriptorID: "42#effect#1"
+        )
+        let source = texture(.layerSource)
+        let firstOutput = texture(.effectOutput, effect: firstKey)
+        let secondOutput = texture(.effectOutput, effect: secondKey)
+        func node(
+            index: Int,
+            effect: Graph.EffectKey,
+            target: Graph.TextureIdentity
+        ) -> Graph.Node {
+            .init(
+                nodeIndex: index,
+                effect: effect,
+                definitionPassIndex: 0,
+                materialOrdinal: 0,
+                instancePassIndex: 0,
+                kind: .material,
+                materialPath: "materials/stub.json",
+                materialPassID: "materials/stub.json#0",
+                target: target,
+                bindings: [],
+                commandSource: nil,
+                commandTarget: nil,
+                compose: nil,
+                conditions: nil
+            )
+        }
+        return .init(
+            layerID: layerID,
+            effects: [
+                .init(
+                    key: firstKey,
+                    definitionPath: "effects/simple/effect.json",
+                    input: source,
+                    output: firstOutput,
+                    nodeIndices: [0]
+                ),
+                .init(
+                    key: secondKey,
+                    definitionPath: fisheyePath,
+                    input: firstOutput,
+                    output: secondOutput,
+                    nodeIndices: [1]
+                ),
+            ],
+            renderTargets: [],
+            nodes: [
+                node(index: 0, effect: firstKey, target: firstOutput),
+                node(index: 1, effect: secondKey, target: secondOutput),
+            ],
+            finalOutput: secondOutput,
+            blockers: []
+        )
+    }
+
     static func roleName(_ role: SceneAuthoredEffectInputRole) -> String {
         switch role {
         case .layerSource: "layerSource"
@@ -861,6 +946,15 @@ enum Harness {
             descriptor: descriptor(visible: false),
             authoredPlans: [validGraph]
         )
+        let simpleFisheye = SceneAuthoredEffectChainPlanner.plan(
+            graph: simpleFisheyeGraph(),
+            descriptor: validDescriptor,
+            shaderContracts: []
+        )!
+        let simpleFisheyeCatalog = SceneAuthoredEffectExecutionCatalog(
+            descriptor: validDescriptor,
+            authoredPlans: [simpleFisheyeGraph()]
+        )
 
         let result: [String: Any] = [
             "success": [
@@ -929,6 +1023,23 @@ enum Harness {
                 "singleStageLayers": hiddenCatalog.plansByLayerID.keys.sorted(),
                 "eligible": hiddenCatalog.hiddenEligibleLayerIDs,
                 "legacyBlocked": hiddenCatalog.legacyGaussianBlurBlockedLayerIDs.sorted(),
+            ],
+            "simpleFisheye": [
+                "stageCount": simpleFisheye.stages.count,
+                "audioBarsCount": simpleFisheye.workshopAudioBarsCount,
+                "fisheyeCount": simpleFisheye.fisheyeZeroDistortionCount,
+                "transformCount": simpleFisheye.transformCount,
+                "inputRoles": simpleFisheye.stages.map { roleName($0.inputRole) },
+                "utilityCapture": simpleFisheye.stages.allSatisfy(
+                    \.supportsUtilityCapture
+                ),
+                "reportLines": simpleFisheyeCatalog.reportLines,
+                "variantRejected": rejected(
+                    graph: simpleFisheyeGraph(
+                        fisheyePath: "effects/fisheye_variant/effect.json"
+                    ),
+                    descriptor: validDescriptor
+                ),
             ],
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -1034,6 +1145,27 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         self.assertEqual(hidden["singleStageLayers"], [])
         self.assertEqual(hidden["eligible"], [42])
         self.assertEqual(hidden["legacyBlocked"], [])
+
+    def test_simple_audio_bars_then_strict_fisheye_is_an_ordered_public_chain(self) -> None:
+        chain = self.result["simpleFisheye"]
+        self.assertEqual(chain["stageCount"], 2)
+        self.assertEqual(chain["audioBarsCount"], 1)
+        self.assertEqual(chain["fisheyeCount"], 1)
+        self.assertEqual(chain["transformCount"], 0)
+        self.assertEqual(
+            chain["inputRoles"],
+            ["layerSource", "priorEffectOutput"],
+        )
+        self.assertTrue(chain["utilityCapture"])
+        self.assertTrue(chain["variantRejected"])
+        self.assertIn(
+            "authoredEffectGraphFisheyeZeroDistortionCount: 1",
+            chain["reportLines"],
+        )
+        self.assertIn(
+            "authoredEffectGraphTransformCount: 0",
+            chain["reportLines"],
+        )
 
 
 if __name__ == "__main__":

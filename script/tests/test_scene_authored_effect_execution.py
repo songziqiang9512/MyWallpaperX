@@ -488,6 +488,19 @@ enum SceneAuthoredTransformPlanner {
     }
 }
 
+struct SceneFisheyeZeroDistortionPlan {}
+
+enum SceneAuthoredFisheyeZeroDistortionPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneFisheyeZeroDistortionPlan? {
+        nil
+    }
+}
+
 struct ScenePulseExecutionPlan {
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
@@ -1135,6 +1148,7 @@ enum Harness {
             case .blend: backend = "blend"
             case .tint: backend = "tint"
             case .transform: backend = "transform"
+            case .fisheyeZeroDistortion: backend = "fisheyeZeroDistortion"
             case .pulse: backend = "pulse"
             case .godrays: backend = "godrays"
             case .shine: backend = "shine"

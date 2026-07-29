@@ -230,6 +230,57 @@ enum Harness {
             definitions: audioBarsColor.program.definitions,
             userValues: audioBarsColorEvaluation.userValues
         ).snapshot
+        let relocatedAudioBarsTargets = [
+            SceneDynamicTarget.effectConstant(
+                layerID: 151,
+                effectIndex: 0,
+                passIndex: 0,
+                name: "bar color"
+            ),
+            SceneDynamicTarget.effectConstant(
+                layerID: 151,
+                effectIndex: 0,
+                passIndex: 0,
+                name: "ui_editor_properties_opacity"
+            ),
+        ]
+        let relocatedAudioBarsPath =
+            "effects/workshop/3299008209/workshop/2084198056/"
+            + "Simple_Audio_Bars/effect.json"
+        let relocatedAudioBars = compiler.compile(
+            report: .init(bindings: [
+                binding("barcolor", .string("1 1 1"), 151, .shaderValue(
+                    layerID: 151,
+                    effectIndex: 0,
+                    passIndex: 0,
+                    name: "Bar Color",
+                    effectPath: relocatedAudioBarsPath
+                )),
+                binding("musicbar", .number(1), 151, .shaderValue(
+                    layerID: 151,
+                    effectIndex: 0,
+                    passIndex: 0,
+                    name: "ui_editor_properties_opacity",
+                    effectPath: relocatedAudioBarsPath
+                )),
+            ], diagnostics: []),
+            catalog: .init(definitions: [
+                property("barcolor", .color, .string("1 1 1")),
+                property("musicbar", .slider, .number(1)),
+            ])
+        )
+        let relocatedAudioBarsEvaluation = relocatedAudioBars.program.evaluate(
+            effectiveValues: [
+                "barcolor": .string("0.2 0.4 0.6"),
+                "musicbar": .number(0.35),
+            ]
+        )
+        let relocatedAudioBarsUser = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 8,
+            generation: 8,
+            definitions: relocatedAudioBars.program.definitions,
+            userValues: relocatedAudioBarsEvaluation.userValues
+        ).snapshot
         let unsupportedAudioBarsColorTargets = compiler.compile(
             report: .init(bindings: [
                 binding("audioWrongPath", .string("1 0 1"), 110, .shaderValue(
@@ -525,6 +576,18 @@ enum Harness {
             "audioBarsColorAuthored": resolved(audioBarsColorAuthored[audioBarsColorTarget]),
             "audioBarsColorUser": resolved(audioBarsColorUser[audioBarsColorTarget]),
             "audioBarsColorRuntimeCodes": codes(audioBarsColorEvaluation.diagnostics),
+            "relocatedAudioBarsCount": relocatedAudioBars.program.instructions.count,
+            "relocatedAudioBarsTargets":
+                relocatedAudioBars.program.instructions.map(\.target)
+                    == relocatedAudioBarsTargets,
+            "relocatedAudioBarsCodes": codes(relocatedAudioBars.diagnostics),
+            "relocatedAudioBarsRebuild":
+                relocatedAudioBars.program.rebuildRequiredPropertyKeys,
+            "relocatedAudioBarsUser": relocatedAudioBarsTargets.map {
+                resolved(relocatedAudioBarsUser[$0])
+            },
+            "relocatedAudioBarsRuntimeCodes":
+                codes(relocatedAudioBarsEvaluation.diagnostics),
             "unsupportedAudioBarsColorCount":
                 unsupportedAudioBarsColorTargets.program.instructions.count,
             "unsupportedAudioBarsColorCodes":
@@ -821,6 +884,20 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
             ["vector3(0.25, 0.5, 0.75)", "userProperty"],
         )
         self.assertEqual(self.result["audioBarsColorRuntimeCodes"], [])
+
+    def test_relocated_audio_bars_color_and_opacity_are_live_typed_targets(self) -> None:
+        self.assertEqual(self.result["relocatedAudioBarsCount"], 2)
+        self.assertTrue(self.result["relocatedAudioBarsTargets"])
+        self.assertEqual(self.result["relocatedAudioBarsCodes"], [])
+        self.assertEqual(self.result["relocatedAudioBarsRebuild"], [])
+        self.assertEqual(
+            self.result["relocatedAudioBarsUser"],
+            [
+                ["vector3(0.2, 0.4, 0.6)", "userProperty"],
+                ["scalar(0.35)", "userProperty"],
+            ],
+        )
+        self.assertEqual(self.result["relocatedAudioBarsRuntimeCodes"], [])
 
     def test_other_simple_audio_bars_color_targets_remain_closed(self) -> None:
         self.assertEqual(self.result["unsupportedAudioBarsColorCount"], 0)

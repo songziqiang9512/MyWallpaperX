@@ -80,8 +80,7 @@ extension ScenePropertyBindingCompiler {
                 .color
             )
         case let .shaderValue(layerID, effectIndex, passIndex, name, effectPath)
-            where normalized(effectPath)
-                == "effects/workshop/2084198056/simple_audio_bars/effect.json"
+            where isSimpleAudioBars(effectPath)
                 && passIndex == 0 && name.lowercased() == "bar color":
             (
                 .effectConstant(
@@ -93,6 +92,16 @@ extension ScenePropertyBindingCompiler {
                 .vector3,
                 .color
             )
+        case let .shaderValue(layerID, effectIndex, passIndex, name, effectPath)
+            where isSimpleAudioBars(effectPath)
+                && passIndex == 0
+                && name.lowercased() == "ui_editor_properties_opacity":
+            effectConstant(
+                layerID: layerID,
+                effectIndex: effectIndex,
+                passIndex: passIndex,
+                name: "ui_editor_properties_opacity"
+            )
         default:
             nil
         }
@@ -100,6 +109,26 @@ extension ScenePropertyBindingCompiler {
 
     private nonisolated static func normalized(_ path: String?) -> String? {
         path?.replacingOccurrences(of: "\\", with: "/").lowercased()
+    }
+
+    private nonisolated static func isSimpleAudioBars(_ path: String?) -> Bool {
+        guard let path = normalized(path),
+              path.hasPrefix("effects/") else {
+            return false
+        }
+        let tail = "workshop/2084198056/simple_audio_bars/effect.json"
+        let relative = String(path.dropFirst("effects/".count))
+        guard relative.hasSuffix(tail) else { return false }
+        let namespace = String(relative.dropLast(tail.count))
+        if namespace.isEmpty { return true }
+        let components = namespace.split(
+            separator: "/",
+            omittingEmptySubsequences: true
+        )
+        return components.count == 2
+            && components[0] == "workshop"
+            && !components[1].isEmpty
+            && components[1].allSatisfy(\.isNumber)
     }
 
     private nonisolated static func effectConstant(

@@ -76,6 +76,10 @@ final class SceneTintPipeline {
     }
 }
 
+final class SceneFisheyeZeroDistortionPipeline {
+    init?(device: MTLDevice) {}
+}
+
 final class SceneGodraysPipeline {
     static let attempts = Counter()
 

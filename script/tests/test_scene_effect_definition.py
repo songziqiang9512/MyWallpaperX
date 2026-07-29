@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 import subprocess
@@ -174,6 +175,7 @@ enum Harness {
             "fluidGizmosPreserved": fluid.gizmos != nil,
             "fluidFit": fluid.framebuffers[0].fit?.numberValue ?? -1,
             "unknownPaths": fluid.unknownFieldPaths,
+            "rawHashes": definitions.map { $0.rawSHA256 ?? "" },
             "roundTrip": roundTrip == definitions,
             "invalidRejected": invalidRejected,
         ]
@@ -265,6 +267,16 @@ class SceneEffectDefinitionTests(unittest.TestCase):
             ],
         )
         self.assertTrue(self.result["roundTrip"])
+
+    def test_raw_definition_fingerprints_are_preserved(self) -> None:
+        root = Path(self.temporary_directory.name)
+        expected = [
+            hashlib.sha256(
+                (root / "effects" / name / "effect.json").read_bytes()
+            ).hexdigest()
+            for name in ("blur", "motion", "fluid")
+        ]
+        self.assertEqual(self.result["rawHashes"], expected)
 
 
 if __name__ == "__main__":

@@ -67,7 +67,11 @@ enum Harness {
             barSpacing: spacing,
             lowerBound: lower,
             upperBound: upper,
-            opacity: opacity
+            opacity: opacity,
+            opacityBinding: nil,
+            antiAliasSmoothing: profile.usesStereoUpDown
+                ? SIMD2(0.05, 0.05)
+                : .zero
         )
     }
 
@@ -108,6 +112,39 @@ enum Harness {
         )
     }
 
+    static func spectrum16(
+        leftFill: Float,
+        rightFill: Float
+    ) -> SceneAudioSpectrumSnapshot {
+        .init(
+            left: Array(repeating: leftFill, count: 16),
+            right: Array(repeating: rightFill, count: 16),
+            left32: Array(repeating: 0, count: 32),
+            right32: Array(repeating: 0, count: 32),
+            left64: Array(repeating: 0, count: 64),
+            right64: Array(repeating: 0, count: 64),
+            generation: 1
+        )
+    }
+
+    static func fill(_ texture: MTLTexture, bgra: SIMD4<UInt8>) {
+        var bytes = Array(repeating: UInt8(0), count: width * height * 4)
+        for offset in stride(from: 0, to: bytes.count, by: 4) {
+            bytes[offset] = bgra.x
+            bytes[offset + 1] = bgra.y
+            bytes[offset + 2] = bgra.z
+            bytes[offset + 3] = bgra.w
+        }
+        bytes.withUnsafeBytes { raw in
+            texture.replace(
+                region: MTLRegionMake2D(0, 0, width, height),
+                mipmapLevel: 0,
+                withBytes: raw.baseAddress!,
+                bytesPerRow: width * 4
+            )
+        }
+    }
+
     static func pixels(_ texture: MTLTexture) -> [UInt8] {
         var result = Array(repeating: UInt8(0), count: width * height * 4)
         texture.getBytes(
@@ -123,15 +160,22 @@ enum Harness {
         Int(pixels[(y * width + x) * 4 + 3])
     }
 
+    static func red(_ pixels: [UInt8], x: Int, y: Int) -> Int {
+        Int(pixels[(y * width + x) * 4 + 2])
+    }
+
     static func render(
         pipeline: SceneWorkshopSimpleAudioBarsPipeline,
         queue: MTLCommandQueue,
         device: MTLDevice,
         parameters: Parameters,
         color: SIMD3<Float>,
-        spectrum: SceneAudioSpectrumSnapshot
+        spectrum: SceneAudioSpectrumSnapshot,
+        opacity: Float? = nil,
+        sourceBGRA: SIMD4<UInt8> = .zero
     ) -> [UInt8] {
         let source = texture(device: device)
+        fill(source, bgra: sourceBGRA)
         let target = texture(device: device)
         let command = queue.makeCommandBuffer()!
         guard pipeline.encode(
@@ -139,6 +183,7 @@ enum Harness {
             target: target,
             parameters: parameters,
             color: color,
+            opacity: opacity ?? parameters.opacity,
             spectrum: spectrum,
             commandBuffer: command
         ) else {
@@ -205,6 +250,7 @@ enum Harness {
                 target: candidateTarget,
                 parameters: candidateParameters,
                 color: color,
+                opacity: candidateParameters.opacity,
                 spectrum: spectrum(),
                 commandBuffer: command
             )
@@ -313,6 +359,61 @@ enum Harness {
             color: SIMD3(1, 0, 0),
             spectrum: spectrum32(activeBand: 11)
         )
+        let stereoParameters = parameters(
+            profile: .stereoUpDown16IntersectAdd,
+            spacing: 0.5,
+            lower: 0,
+            upper: 0.5,
+            opacity: 1,
+            barCount: 35
+        )
+        let opaqueSource = SIMD4<UInt8>(32, 32, 32, 255)
+        let stereoLeft = render(
+            pipeline: pipeline,
+            queue: queue,
+            device: device,
+            parameters: stereoParameters,
+            color: SIMD3(1, 1, 1),
+            spectrum: spectrum16(leftFill: 1, rightFill: 0),
+            sourceBGRA: opaqueSource
+        )
+        let stereoRight = render(
+            pipeline: pipeline,
+            queue: queue,
+            device: device,
+            parameters: stereoParameters,
+            color: SIMD3(1, 1, 1),
+            spectrum: spectrum16(leftFill: 0, rightFill: 1),
+            sourceBGRA: opaqueSource
+        )
+        let aboveOne = render(
+            pipeline: pipeline,
+            queue: queue,
+            device: device,
+            parameters: stereoParameters,
+            color: SIMD3(1, 1, 1),
+            spectrum: spectrum16(leftFill: 2, rightFill: 0),
+            sourceBGRA: opaqueSource
+        )
+        let intersected = render(
+            pipeline: pipeline,
+            queue: queue,
+            device: device,
+            parameters: stereoParameters,
+            color: SIMD3(1, 1, 1),
+            spectrum: spectrum16(leftFill: 1, rightFill: 0),
+            opacity: 0.5,
+            sourceBGRA: SIMD4<UInt8>(16, 16, 16, 128)
+        )
+        let stereoSilent = render(
+            pipeline: pipeline,
+            queue: queue,
+            device: device,
+            parameters: stereoParameters,
+            color: SIMD3(1, 1, 1),
+            spectrum: .silent,
+            sourceBGRA: opaqueSource
+        )
         let result: [String: Any] = [
             "metalUnavailable": false,
             "profile32": metrics(pixels32),
@@ -327,6 +428,18 @@ enum Harness {
                 "firstBandAlpha": alpha(firstBand, x: 20, y: 20),
                 "interpolatedAlpha": alpha(interpolatedBand, x: 64, y: 20),
                 "aboveInterpolatedAlpha": alpha(interpolatedBand, x: 64, y: 10),
+            ],
+            "stereo": [
+                "leftTop": alpha(stereoLeft, x: 2, y: 8),
+                "leftBottom": alpha(stereoLeft, x: 2, y: 55),
+                "rightTop": alpha(stereoRight, x: 2, y: 8),
+                "rightBottom": alpha(stereoRight, x: 2, y: 55),
+                "aboveOneExtends": alpha(aboveOne, x: 2, y: 20),
+                "unitStops": alpha(stereoLeft, x: 2, y: 20),
+                "intersectAlpha": alpha(intersected, x: 2, y: 8),
+                "intersectRed": red(intersected, x: 2, y: 8),
+                "silentVisible": metrics(stereoSilent)["visible"] ?? -1,
+                "silentTransparentRGB": metrics(stereoSilent)["transparentRGB"] ?? -1,
             ],
             "profilesDiffer": pixels32 != pixels64,
             "rejections": rejections(
@@ -409,6 +522,23 @@ class SceneWorkshopSimpleAudioBarsRenderingTests(unittest.TestCase):
         self.assertGreater(frequency["firstBandAlpha"], 0)
         self.assertGreater(frequency["interpolatedAlpha"], 0)
         self.assertEqual(frequency["aboveInterpolatedAlpha"], 0)
+
+    def test_16_band_stereo_profile_splits_channels_and_preserves_peak_range(self) -> None:
+        stereo = self.result["stereo"]
+        self.assertGreater(stereo["leftTop"], 0)
+        self.assertEqual(stereo["leftBottom"], 0)
+        self.assertEqual(stereo["rightTop"], 0)
+        self.assertGreater(stereo["rightBottom"], 0)
+        self.assertEqual(stereo["unitStops"], 0)
+        self.assertGreater(stereo["aboveOneExtends"], 0)
+
+    def test_stereo_profile_intersects_source_alpha_and_applies_additive_color(self) -> None:
+        stereo = self.result["stereo"]
+        self.assertGreaterEqual(stereo["intersectAlpha"], 62)
+        self.assertLessEqual(stereo["intersectAlpha"], 66)
+        self.assertGreater(stereo["intersectRed"], stereo["intersectAlpha"])
+        self.assertEqual(stereo["silentVisible"], 0)
+        self.assertEqual(stereo["silentTransparentRGB"], 0)
 
     def test_invalid_parameters_and_resources_fail_closed(self) -> None:
         self.assertTrue(

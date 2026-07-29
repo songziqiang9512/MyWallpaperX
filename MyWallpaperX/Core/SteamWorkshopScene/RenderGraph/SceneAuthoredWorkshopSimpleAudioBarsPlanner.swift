@@ -1,10 +1,31 @@
 import Foundation
 
-/// Exact clean-room backend for the observed Workshop 2084198056 fragment-C bottom-bar profiles.
+/// Exact clean-room backend for verified Workshop 2084198056 Simple Audio Bars profiles.
+/// Relocated assets are accepted only when every derived path and content fingerprint agrees.
 /// Other shader revisions, positions, transparency modes, and combo cross-products stay closed.
 enum SceneAuthoredWorkshopSimpleAudioBarsPlanner {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias Parameters = SceneWorkshopAudioBarsExecutionPlan.SimpleParameters
+
+    nonisolated struct AssetContract: Equatable, Sendable {
+        enum Revision: Equatable, Sendable {
+            case originalFragmentC
+            case relocatedLegacy
+        }
+
+        let revision: Revision
+        let definitionPath: String
+        let materialPath: String
+        let materialPassID: String
+        let materialSHA256: String?
+        let shaderIdentity: String
+        let dependencies: [String]
+        let vertexPath: String
+        let vertexSHA256: String
+        let fragmentPath: String
+        let fragmentSHA256: String
+        let canonicalSHA256: String?
+    }
 
     nonisolated static func plan(
         graph: Graph,
@@ -24,9 +45,9 @@ enum SceneAuthoredWorkshopSimpleAudioBarsPlanner {
         }
         let effect = graph.effects[0]
         let node = graph.nodes[0]
-        guard normalized(effect.definitionPath) == definitionPath,
-              validDefinition(in: descriptor, path: effect.definitionPath),
-              shaderContractMatches(shaderContracts),
+        guard let assets = assetContract(forDefinitionPath: effect.definitionPath),
+              validDefinition(in: descriptor, path: effect.definitionPath, assets: assets),
+              shaderContractMatches(shaderContracts, assets: assets),
               effect.nodeIndices == [node.nodeIndex],
               SceneAuthoredEffectInputValidator.accepts(
                   effect.input,
@@ -35,10 +56,13 @@ enum SceneAuthoredWorkshopSimpleAudioBarsPlanner {
               ),
               effect.output == effectOutput(effect.key),
               graph.finalOutput == effect.output,
-              validNode(node, effect: effect),
-              validMaterialDescriptor(in: descriptor),
-              let instance = validInstance(effect: effect, layer: layer),
-              let selectedProfile = profile(from: instance.combos),
+              validNode(node, effect: effect, assets: assets),
+              validMaterialDescriptor(in: descriptor, assets: assets),
+              let instance = validInstance(effect: effect, layer: layer, assets: assets),
+              let selectedProfile = profile(
+                  from: instance.combos,
+                  revision: assets.revision
+              ),
               let instanceParameters = parameters(
                   from: instance.constantShaderValues,
                   effectKey: effect.key,
@@ -49,8 +73,8 @@ enum SceneAuthoredWorkshopSimpleAudioBarsPlanner {
                   graph: graph,
                   descriptor: descriptor
               ).node,
-              validResolvedMaterial(resolved),
-              profile(from: resolved.combos) == selectedProfile,
+              validResolvedMaterial(resolved, assets: assets),
+              profile(from: resolved.combos, revision: assets.revision) == selectedProfile,
               let resolvedParameters = parameters(
                   from: resolved.constants,
                   effectKey: effect.key,
@@ -68,7 +92,9 @@ enum SceneAuthoredWorkshopSimpleAudioBarsPlanner {
     }
 
     nonisolated static func containsCandidate(graph: Graph) -> Bool {
-        graph.effects.contains { normalized($0.definitionPath) == definitionPath }
+        graph.effects.contains {
+            assetContract(forDefinitionPath: $0.definitionPath) != nil
+        }
     }
 
     private nonisolated static func supportedContent(
@@ -84,7 +110,8 @@ enum SceneAuthoredWorkshopSimpleAudioBarsPlanner {
 
     private nonisolated static func validDefinition(
         in descriptor: SceneRenderDescriptor,
-        path: String
+        path: String,
+        assets: AssetContract
     ) -> Bool {
         let matches = descriptor.effectDefinitions.filter {
             normalized($0.relativePath) == normalized(path)
@@ -99,9 +126,9 @@ enum SceneAuthoredWorkshopSimpleAudioBarsPlanner {
               definition.group == "localeffects",
               definition.performance == nil,
               definition.previewPath == "preview/project.json",
-              definition.editable == false,
+              validEditable(definition.editable, revision: assets.revision),
               definition.framebuffers.isEmpty,
-              definition.dependencies.map(normalized) == dependencies,
+              definition.dependencies.map(normalized) == assets.dependencies,
               definition.functions == nil,
               definition.gizmos == nil,
               definition.extraFields.isEmpty,
@@ -111,7 +138,7 @@ enum SceneAuthoredWorkshopSimpleAudioBarsPlanner {
             return false
         }
         return pass.passIndex == 0
-            && normalized(pass.materialPath ?? "") == materialPath
+            && normalized(pass.materialPath ?? "") == assets.materialPath
             && pass.target == nil
             && pass.bindings.isEmpty
             && pass.compose == nil
@@ -123,15 +150,16 @@ enum SceneAuthoredWorkshopSimpleAudioBarsPlanner {
 
     private nonisolated static func validNode(
         _ node: Graph.Node,
-        effect: Graph.Effect
+        effect: Graph.Effect,
+        assets: AssetContract
     ) -> Bool {
         node.effect == effect.key
             && node.definitionPassIndex == 0
             && node.materialOrdinal == 0
             && node.instancePassIndex == 0
             && node.kind == .material
-            && normalized(node.materialPath ?? "") == materialPath
-            && normalized(node.materialPassID ?? "") == materialPassID
+            && normalized(node.materialPath ?? "") == assets.materialPath
+            && normalized(node.materialPassID ?? "") == assets.materialPassID
             && node.target == effect.output
             && node.bindings.isEmpty
             && node.commandSource == nil
@@ -141,35 +169,41 @@ enum SceneAuthoredWorkshopSimpleAudioBarsPlanner {
     }
 
     private nonisolated static func validMaterialDescriptor(
-        in descriptor: SceneRenderDescriptor
+        in descriptor: SceneRenderDescriptor,
+        assets: AssetContract
     ) -> Bool {
         let matches = descriptor.materialPasses.filter {
-            normalized($0.id) == materialPassID
+            normalized($0.id) == assets.materialPassID
         }
         guard matches.count == 1, let material = matches.first else { return false }
-        return normalized(material.materialPath) == materialPath
-            && material.materialRawSHA256 == materialSHA256
+        return normalized(material.materialPath) == assets.materialPath
+            && (assets.materialSHA256.map {
+                material.materialRawSHA256 == $0
+            } ?? true)
             && material.passIndex == 0
-            && normalized(material.shaderPath ?? "") == shaderIdentity
+            && normalized(material.shaderPath ?? "") == assets.shaderIdentity
             && material.texturePaths.isEmpty
             && material.textureSlots.isEmpty
             && material.userTextureInputs.isEmpty
             && material.combos.isEmpty
             && material.constantShaderValues.isEmpty
+            && material.userShaderValues.isEmpty
             && material.blending?.lowercased() == "normal"
             && material.depthTest?.lowercased() == "disabled"
             && material.depthWrite?.lowercased() == "disabled"
             && material.cullMode?.lowercased() == "nocull"
+            && material.alphaWriting == nil
     }
 
     private nonisolated static func validInstance(
         effect: Graph.Effect,
-        layer: SceneRenderDescriptor.Layer
+        layer: SceneRenderDescriptor.Layer,
+        assets: AssetContract
     ) -> SceneRenderDescriptor.EffectDescriptor.PassDescriptor? {
         guard layer.effects.indices.contains(effect.key.effectIndex) else { return nil }
         let descriptor = layer.effects[effect.key.effectIndex]
         guard descriptor.id == effect.key.descriptorID,
-              normalized(descriptor.file) == definitionPath,
+              normalized(descriptor.file) == assets.definitionPath,
               descriptor.visible != false,
               descriptor.passes.count == 1,
               let pass = descriptor.passes.first,
@@ -183,13 +217,26 @@ enum SceneAuthoredWorkshopSimpleAudioBarsPlanner {
     }
 
     private nonisolated static func validResolvedMaterial(
-        _ material: SceneResolvedMaterialNode
+        _ material: SceneResolvedMaterialNode,
+        assets: AssetContract
     ) -> Bool {
-        normalized(material.shaderPath) == shaderIdentity
+        normalized(material.shaderPath) == assets.shaderIdentity
             && material.textureSlots.allSatisfy { $0 == nil }
             && material.renderState.blending?.lowercased() == "normal"
             && material.renderState.depthTest?.lowercased() == "disabled"
             && material.renderState.depthWrite?.lowercased() == "disabled"
             && material.renderState.cullMode?.lowercased() == "nocull"
+    }
+
+    private nonisolated static func validEditable(
+        _ editable: Bool?,
+        revision: AssetContract.Revision
+    ) -> Bool {
+        switch revision {
+        case .originalFragmentC:
+            editable == false
+        case .relocatedLegacy:
+            editable == nil
+        }
     }
 }

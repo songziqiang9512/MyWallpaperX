@@ -31,6 +31,7 @@ extension SceneAuthoredEffectChainRenderer {
                   target: targets.outputTexture,
                   parameters: resolved.parameters,
                   color: resolved.color,
+                  opacity: resolved.opacity,
                   spectrum: spectrum,
                   commandBuffer: commandBuffer
               ) else {

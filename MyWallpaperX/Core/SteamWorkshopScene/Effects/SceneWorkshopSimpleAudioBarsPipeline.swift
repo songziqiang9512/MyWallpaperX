@@ -20,6 +20,9 @@ struct SimpleAudioBarsUniforms {
     float opacity;
     uint clipLow;
     uint clipHigh;
+    uint stereoUpDown;
+    uint _padding;
+    float2 antiAliasSmoothing;
 };
 
 vertex SimpleAudioBarsVaryings sceneWorkshopSimpleAudioBarsVert(
@@ -46,11 +49,21 @@ fragment float4 sceneWorkshopSimpleAudioBarsFrag(
     constant float *right [[buffer(1)]],
     constant SimpleAudioBarsUniforms &u [[buffer(2)]]
 ) {
+    constexpr sampler linearClamp(filter::linear, address::clamp_to_edge);
     float horizontal = clamp(input.texcoord.x, 0.0, 0.999999);
     float barCoordinate = horizontal * float(u.barCount);
     float slotDistance = abs(fract(barCoordinate) * 2.0 - 1.0);
-    if (slotDistance > 1.0 - u.spacing) {
+    if (u.stereoUpDown == 0 && slotDistance > 1.0 - u.spacing) {
         return float4(0.0);
+    }
+    float horizontalCoverage = 1.0;
+    if (u.stereoUpDown != 0 && u.spacing > 0.01) {
+        float edge = 1.0 - u.spacing;
+        horizontalCoverage = 1.0 - smoothstep(
+            edge - u.antiAliasSmoothing.x,
+            edge + u.antiAliasSmoothing.x,
+            slotDistance
+        );
     }
 
     float frequency = floor(barCoordinate)
@@ -58,10 +71,60 @@ fragment float4 sceneWorkshopSimpleAudioBarsFrag(
     float wrappedFrequency = fmod(frequency, float(u.bandCount));
     int firstIndex = clamp(int(floor(wrappedFrequency)), 0, u.bandCount - 1);
     int secondIndex = (firstIndex + 1) % u.bandCount;
+    float interpolation = smoothstep(0.0, 1.0, fract(frequency));
+
+    if (u.stereoUpDown != 0) {
+        float leftLevel = max(mix(
+            left[firstIndex],
+            left[secondIndex],
+            interpolation
+        ), 0.0);
+        float rightLevel = max(mix(
+            right[firstIndex],
+            right[secondIndex],
+            interpolation
+        ), 0.0);
+        float leftHeight = 0.5 * mix(u.lowerBound, u.upperBound, leftLevel);
+        float rightHeight = 0.5 * mix(u.lowerBound, u.upperBound, rightLevel);
+        float leftWidth = u.antiAliasSmoothing.y * 0.05
+            * clamp(leftLevel * 100.0, 0.0, 1.0);
+        float rightWidth = u.antiAliasSmoothing.y * 0.05
+            * clamp(rightLevel * 100.0, 0.0, 1.0);
+        float topDistance = input.texcoord.y;
+        float bottomDistance = 1.0 - input.texcoord.y;
+        float leftCoverage = leftWidth > 0.0
+            ? 1.0 - smoothstep(
+                leftHeight - leftWidth,
+                leftHeight + leftWidth,
+                topDistance
+            )
+            : float(topDistance <= leftHeight);
+        float rightCoverage = rightWidth > 0.0
+            ? 1.0 - smoothstep(
+                rightHeight - rightWidth,
+                rightHeight + rightWidth,
+                bottomDistance
+            )
+            : float(bottomDistance <= rightHeight);
+        float coverage = max(leftCoverage, rightCoverage) * horizontalCoverage;
+        float weight = coverage * u.opacity;
+        float4 scene = source.sample(linearClamp, input.texcoord);
+        float alpha = scene.a * weight;
+        if (alpha <= 0.0) {
+            return float4(0.0);
+        }
+        float3 sceneStraight = scene.a > 0.000001
+            ? clamp(scene.rgb / scene.a, 0.0, 1.0)
+            : float3(0.0);
+        float3 base = mix(u.color, sceneStraight, scene.a);
+        float3 blended = max(base + u.color * weight, float3(0.0));
+        return float4(blended * alpha, alpha);
+    }
+
     float firstLevel = (left[firstIndex] + right[firstIndex]) * 0.5;
     float secondLevel = (left[secondIndex] + right[secondIndex]) * 0.5;
     float level = clamp(
-        mix(firstLevel, secondLevel, smoothstep(0.0, 1.0, fract(frequency))),
+        mix(firstLevel, secondLevel, interpolation),
         0.0,
         1.0
     );
@@ -93,6 +156,9 @@ struct SceneWorkshopSimpleAudioBarsPipeline {
         var opacity: Float
         var clipLow: UInt32
         var clipHigh: UInt32
+        var stereoUpDown: UInt32
+        var padding: UInt32 = 0
+        var antiAliasSmoothing: SIMD2<Float>
     }
 
     private let state: MTLRenderPipelineState
@@ -130,6 +196,7 @@ struct SceneWorkshopSimpleAudioBarsPipeline {
         target: MTLTexture,
         parameters: Parameters,
         color: SIMD3<Float>,
+        opacity: Float,
         spectrum: SceneAudioSpectrumSnapshot,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
@@ -137,7 +204,7 @@ struct SceneWorkshopSimpleAudioBarsPipeline {
             for: parameters.profile.resolution,
             spectrum: spectrum
         ),
-        valid(parameters: parameters, color: color),
+        valid(parameters: parameters, color: color, opacity: opacity),
         valid(source: source, target: target, commandBuffer: commandBuffer) else {
             return false
         }
@@ -166,9 +233,11 @@ struct SceneWorkshopSimpleAudioBarsPipeline {
             spacing: parameters.barSpacing,
             lowerBound: parameters.lowerBound,
             upperBound: parameters.upperBound,
-            opacity: parameters.opacity,
+            opacity: opacity,
             clipLow: parameters.profile.clipsLow ? 1 : 0,
-            clipHigh: parameters.profile.clipsHigh ? 1 : 0
+            clipHigh: parameters.profile.clipsHigh ? 1 : 0,
+            stereoUpDown: parameters.profile.usesStereoUpDown ? 1 : 0,
+            antiAliasSmoothing: parameters.antiAliasSmoothing
         )
         encoder.setFragmentBytes(
             &uniforms,
@@ -185,6 +254,12 @@ struct SceneWorkshopSimpleAudioBarsPipeline {
         spectrum: SceneAudioSpectrumSnapshot
     ) -> (left: [Float], right: [Float])? {
         switch resolution {
+        case SceneAudioSpectrumSnapshot.bandCount:
+            guard spectrum.left.count == resolution,
+                  spectrum.right.count == resolution else {
+                return nil
+            }
+            return (spectrum.left, spectrum.right)
         case SceneAudioSpectrumSnapshot.mediumBandCount:
             guard spectrum.left32.count == resolution,
                   spectrum.right32.count == resolution else {
@@ -202,7 +277,11 @@ struct SceneWorkshopSimpleAudioBarsPipeline {
         }
     }
 
-    private func valid(parameters: Parameters, color: SIMD3<Float>) -> Bool {
+    private func valid(
+        parameters: Parameters,
+        color: SIMD3<Float>,
+        opacity: Float
+    ) -> Bool {
         (1 ... 200).contains(parameters.barCount)
             && parameters.barSpacing.isFinite
             && (0 ... 1).contains(parameters.barSpacing)
@@ -213,6 +292,12 @@ struct SceneWorkshopSimpleAudioBarsPipeline {
             && parameters.upperBound <= 1
             && parameters.opacity.isFinite
             && (0 ... 1).contains(parameters.opacity)
+            && opacity.isFinite
+            && (0 ... 1).contains(opacity)
+            && parameters.antiAliasSmoothing.x.isFinite
+            && parameters.antiAliasSmoothing.y.isFinite
+            && (0 ... 0.1).contains(parameters.antiAliasSmoothing.x)
+            && (0 ... 0.1).contains(parameters.antiAliasSmoothing.y)
             && color.x.isFinite && color.y.isFinite && color.z.isFinite
             && (0 ... 1).contains(color.x)
             && (0 ... 1).contains(color.y)

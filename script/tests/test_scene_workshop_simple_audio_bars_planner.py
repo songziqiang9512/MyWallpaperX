@@ -16,6 +16,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 RUNTIME_PLAN_SOURCE = SOURCE_ROOT / "Effects/SceneEffectRuntimePlan.swift"
 REAL_SAMPLE_CACHE = sample_cache_root("3122339805")
+RELOCATED_SAMPLE_CACHE = sample_cache_root("3299228616")
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
@@ -85,10 +86,12 @@ struct SceneRenderDescriptor {
         let userTextureInputs: [SceneEffectTextureInput?]
         let combos: [String: Int]
         let constantShaderValues: [String: SceneDocument.ShaderValue]
+        let userShaderValues: [String: String]
         let blending: String?
         let depthTest: String?
         let depthWrite: String?
         let cullMode: String?
+        let alphaWriting: String?
     }
 
     let layers: [Layer]
@@ -295,10 +298,12 @@ enum Harness {
             userTextureInputs: [],
             combos: [:],
             constantShaderValues: [:],
+            userShaderValues: [:],
             blending: "normal",
             depthTest: "disabled",
             depthWrite: "disabled",
-            cullMode: "nocull"
+            cullMode: "nocull",
+            alphaWriting: nil
         )
         return .init(
             layers: [.init(
@@ -422,6 +427,87 @@ enum Harness {
             shaderReferences: [shaderIdentity],
             rootURL: root
         )
+        let relocatedRoot = URL(
+            fileURLWithPath: CommandLine.arguments[2],
+            isDirectory: true
+        )
+        let relocatedDefinitionPath =
+            "effects/workshop/3299008209/workshop/2084198056/"
+            + "Simple_Audio_Bars/effect.json"
+        let relocatedShaderIdentity =
+            "workshop/3299008209/workshop/2084198056/effects/Simple_Audio_Bars"
+        let relocatedContracts = SceneShaderContractLoader().load(
+            shaderReferences: [relocatedShaderIdentity],
+            rootURL: relocatedRoot
+        )
+        let relocatedAssets =
+            SceneAuthoredWorkshopSimpleAudioBarsPlanner.assetContract(
+                forDefinitionPath: relocatedDefinitionPath
+            )
+        let relocatedCombos = [
+            "ANTIALIAS": 1,
+            "BLENDMODE": 31,
+            "RESOLUTION": 16,
+            "SHAPE": 9,
+            "TRANSPARENCY": 4,
+        ]
+        let relocatedProfile = relocatedAssets.flatMap {
+            SceneAuthoredWorkshopSimpleAudioBarsPlanner.profile(
+                from: relocatedCombos,
+                revision: $0.revision
+            )
+        }
+        let relocatedValues = [
+            "Anti-alias blurring": value([0.05, 0.05]),
+            "Bar Color": value([1, 1, 1], binding: "barcolor"),
+            "Bar Count": value([35]),
+            "Bar Spacing": value([0.5]),
+            "Lower/Upper Bar Bounds": value([0, 0.5]),
+            "ui_editor_properties_opacity": value([1], binding: "musicbar"),
+        ]
+        let relocatedKey = Graph.EffectKey(
+            layerID: 151,
+            effectIndex: 0,
+            descriptorID: "151#effect#152"
+        )
+        let relocatedParameters = relocatedProfile.flatMap {
+            SceneAuthoredWorkshopSimpleAudioBarsPlanner.parameters(
+                from: relocatedValues,
+                effectKey: relocatedKey,
+                profile: $0
+            )
+        }
+        let relocatedColorTarget = relocatedParameters?.colorBinding?.dynamicTarget
+        let relocatedOpacityTarget = relocatedParameters?.opacityBinding?.dynamicTarget
+        let relocatedDefinitions = [
+            relocatedColorTarget.map {
+                SceneDynamicTargetDefinition(
+                    target: $0,
+                    valueType: .vector3,
+                    authoredValue: .vector3(1, 1, 1)
+                )
+            },
+            relocatedOpacityTarget.map {
+                SceneDynamicTargetDefinition(
+                    target: $0,
+                    valueType: .scalar,
+                    authoredValue: .scalar(1)
+                )
+            },
+        ].compactMap { $0 }
+        var relocatedUserValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
+        if let relocatedColorTarget {
+            relocatedUserValues[relocatedColorTarget] = .vector3(0.2, 0.4, 0.6)
+        }
+        if let relocatedOpacityTarget {
+            relocatedUserValues[relocatedOpacityTarget] = .scalar(0.35)
+        }
+        let relocatedDynamic = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 2,
+            generation: 2,
+            definitions: relocatedDefinitions,
+            userValues: relocatedUserValues
+        ).snapshot
         var profile32 = Options()
         profile32.profile64 = false
         profile32.content = .composition
@@ -507,6 +593,45 @@ enum Harness {
                 SceneAuthoredWorkshopSimpleAudioBarsPlanner.containsCandidate(
                     graph: graph(.init())
                 ),
+            "relocatedAssetDerived": relocatedAssets?.revision == .relocatedLegacy
+                && relocatedAssets?.definitionPath
+                    == relocatedDefinitionPath.lowercased()
+                && relocatedAssets?.materialPath
+                    == "materials/workshop/3299008209/workshop/2084198056/"
+                        + "effects/simple_audio_bars.json",
+            "relocatedShaderAccepted": relocatedAssets.map {
+                SceneAuthoredWorkshopSimpleAudioBarsPlanner.shaderContractMatches(
+                    relocatedContracts,
+                    assets: $0
+                )
+            } == true,
+            "relocatedProfileAccepted":
+                relocatedParameters?.profile == .stereoUpDown16IntersectAdd
+                && relocatedParameters?.barCount == 35
+                && relocatedParameters?.antiAliasSmoothing == SIMD2<Float>(0.05, 0.05),
+            "relocatedBindingsResolved":
+                relocatedParameters?.resolvedColor(in: relocatedDynamic)
+                    == SIMD3<Float>(0.2, 0.4, 0.6)
+                && relocatedParameters?.resolvedOpacity(in: relocatedDynamic) == 0.35,
+            "relocatedMutationRejected": relocatedAssets.map { assets in
+                ["source", "canonical", "duplicate"].allSatisfy {
+                    !SceneAuthoredWorkshopSimpleAudioBarsPlanner.shaderContractMatches(
+                        mutatedContracts(relocatedContracts, mode: $0),
+                        assets: assets
+                    )
+                }
+            } == true,
+            "relocationShapeRejected": relocatedAssets.map {
+                SceneAuthoredWorkshopSimpleAudioBarsPlanner.profile(
+                    from: relocatedCombos.merging(["SHAPE": 1]) { _, incoming in incoming },
+                    revision: $0.revision
+                ) == nil
+            } == true,
+            "untrustedRelocationRejected":
+                SceneAuthoredWorkshopSimpleAudioBarsPlanner.assetContract(
+                    forDefinitionPath:
+                        "effects/copied/workshop/2084198056/simple_audio_bars/effect.json"
+                ) == nil,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -525,6 +650,7 @@ class SceneWorkshopSimpleAudioBarsPlannerTests(unittest.TestCase):
         if shutil.which("swiftc") is None:
             self.skipTest("swiftc is unavailable")
         self.assertTrue(REAL_SAMPLE_CACHE.is_dir(), REAL_SAMPLE_CACHE)
+        self.assertTrue(RELOCATED_SAMPLE_CACHE.is_dir(), RELOCATED_SAMPLE_CACHE)
         with tempfile.TemporaryDirectory(prefix="mwx-simple-audio-bars-plan-") as tmp:
             root = Path(tmp)
             harness = root / "Harness.swift"
@@ -546,7 +672,11 @@ class SceneWorkshopSimpleAudioBarsPlannerTests(unittest.TestCase):
             )
             self.assertEqual(compilation.returncode, 0, compilation.stderr)
             completed = subprocess.run(
-                [str(binary), str(REAL_SAMPLE_CACHE)],
+                [
+                    str(binary),
+                    str(REAL_SAMPLE_CACHE),
+                    str(RELOCATED_SAMPLE_CACHE),
+                ],
                 check=True,
                 capture_output=True,
                 text=True,
