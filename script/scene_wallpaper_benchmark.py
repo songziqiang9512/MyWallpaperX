@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from scene_matrix_contract import AUTHORED_EFFECT_RUNTIME_EXPECTATIONS
 from web_benchmark_capture import (
     AppIdentityError,
     discard_staged_app,
@@ -1766,180 +1767,55 @@ def authored_effect_graph_failures(
     if expected_blocked is not None:
         if set(legacy_blur_blocked_layer_ids) != set(expected_blocked):
             failures.append("authored effect graph legacy blur blocked layer IDs mismatch")
-    expected_local_contrast = sample.get("expected_authored_effect_graph_local_contrast_count")
-    if expected_local_contrast is not None:
-        if local_contrast_count != int(expected_local_contrast):
-            failures.append("authored effect graph Local Contrast count mismatch")
-    expected_opacity = sample.get("expected_authored_effect_graph_opacity_count")
-    if expected_opacity is not None:
-        if opacity_count != int(expected_opacity):
-            failures.append("authored effect graph Opacity count mismatch")
-    expected_color_key = sample.get("expected_authored_effect_graph_color_key_count")
-    if expected_color_key is not None:
-        if color_key_count != int(expected_color_key):
-            failures.append("authored effect graph Color Key count mismatch")
-    expected_audio_bars = sample.get(
-        "expected_authored_effect_graph_workshop_audio_bars_count"
-    )
-    if expected_audio_bars is not None:
-        if workshop_audio_bars_count != int(expected_audio_bars):
-            failures.append("authored effect graph Workshop Audio Bars count mismatch")
-    expected_fisheye_zero_distortion = sample.get(
-        "expected_authored_effect_graph_fisheye_zero_distortion_count"
-    )
-    if expected_fisheye_zero_distortion is not None:
-        if fisheye_zero_distortion_count != int(expected_fisheye_zero_distortion):
-            failures.append(
-                "authored effect graph Fisheye Zero Distortion count mismatch"
-            )
-    expected_opacity_layers = sample.get("expected_authored_effect_graph_opacity_layer_ids")
-    if expected_opacity_layers is not None:
-        if (opacity_layer_ids or []) != sorted(expected_opacity_layers):
-            failures.append("authored effect graph Opacity layer IDs mismatch")
-    expected_workshop_shadow = sample.get(
-        "expected_authored_effect_graph_workshop_shadow_count"
-    )
-    if expected_workshop_shadow is not None:
-        if workshop_shadow_count != int(expected_workshop_shadow):
-            failures.append("authored effect graph Workshop Shadow count mismatch")
-    expected_spin = sample.get("expected_authored_effect_graph_spin_count")
-    if expected_spin is not None:
-        if spin_count != int(expected_spin):
-            failures.append("authored effect graph Spin count mismatch")
-    expected_noise = sample.get("expected_authored_effect_graph_procedural_noise_count")
-    if expected_noise is not None:
-        if procedural_noise_count != int(expected_noise):
-            failures.append("authored effect graph Procedural Noise count mismatch")
-    expected_film_grain = sample.get("expected_authored_effect_graph_film_grain_count")
-    if expected_film_grain is not None:
-        if film_grain_count != int(expected_film_grain):
-            failures.append("authored effect graph Film Grain count mismatch")
-    expected_light_shafts = sample.get(
-        "expected_authored_effect_graph_light_shafts_count"
-    )
-    if expected_light_shafts is not None:
-        if light_shafts_count != int(expected_light_shafts):
-            failures.append("authored effect graph Light Shafts count mismatch")
-    expected_shake = sample.get("expected_authored_effect_graph_shake_count")
-    if expected_shake is not None:
-        if shake_count != int(expected_shake):
-            failures.append("authored effect graph Shake count mismatch")
-    expected_water_flow = sample.get("expected_authored_effect_graph_water_flow_count")
-    if expected_water_flow is not None:
-        if water_flow_count != int(expected_water_flow):
-            failures.append("authored effect graph Water Flow count mismatch")
-    expected_water_waves = sample.get("expected_authored_effect_graph_water_waves_count")
-    if expected_water_waves is not None:
-        if water_waves_count != int(expected_water_waves):
-            failures.append("authored effect graph Water Waves count mismatch")
-    expected_foliage_sway = sample.get(
-        "expected_authored_effect_graph_foliage_sway_count"
-    )
-    if expected_foliage_sway is not None:
-        if foliage_sway_count != int(expected_foliage_sway):
-            failures.append("authored effect graph Foliage Sway count mismatch")
-    expected_water_ripple = sample.get(
-        "expected_authored_effect_graph_water_ripple_count"
-    )
-    if expected_water_ripple is not None:
-        if water_ripple_count != int(expected_water_ripple):
-            failures.append("authored effect graph Water Ripple count mismatch")
-    expected_iris_inline_suffix = sample.get(
-        "expected_authored_effect_graph_iris_inline_suffix_count"
-    )
-    if expected_iris_inline_suffix is not None:
-        if iris_inline_suffix_count != int(expected_iris_inline_suffix):
-            failures.append("authored effect graph Iris inline suffix count mismatch")
-    expected_cursor_ripple = sample.get(
-        "expected_authored_effect_graph_cursor_ripple_count"
-    )
-    if expected_cursor_ripple is not None:
-        if cursor_ripple_count != int(expected_cursor_ripple):
-            failures.append("authored effect graph Cursor Ripple count mismatch")
-    expected_isolated_ripple = sample.get(
-        "expected_authored_effect_graph_cursor_ripple_isolated_count"
-    )
-    if expected_isolated_ripple is not None:
-        if cursor_ripple_isolated_count != int(expected_isolated_ripple):
-            failures.append(
-                "authored effect graph isolated Cursor Ripple count mismatch"
-            )
-    expected_ripple_omissions = sample.get(
-        "expected_authored_effect_graph_cursor_ripple_omitted_effects"
-    )
-    if expected_ripple_omissions is not None:
-        if cursor_ripple_omitted_effects != expected_ripple_omissions:
-            failures.append(
-                "authored effect graph Cursor Ripple omissions mismatch"
-            )
-    expected_shine = sample.get("expected_authored_effect_graph_shine_count")
-    if expected_shine is not None:
-        if shine_count != int(expected_shine):
-            failures.append("authored effect graph Shine count mismatch")
-    expected_isolated_shine = sample.get(
-        "expected_authored_effect_graph_shine_isolated_count"
-    )
-    if expected_isolated_shine is not None:
-        if shine_isolated_count != int(expected_isolated_shine):
-            failures.append("authored effect graph isolated Shine count mismatch")
-    expected_shine_omissions = sample.get(
-        "expected_authored_effect_graph_shine_omitted_effects"
-    )
-    if expected_shine_omissions is not None:
-        if shine_omitted_effects != expected_shine_omissions:
-            failures.append("authored effect graph Shine omissions mismatch")
-    expected_clipping_mask = sample.get(
-        "expected_authored_effect_graph_clipping_mask_count"
-    )
-    if expected_clipping_mask is not None:
-        if clipping_mask_count != int(expected_clipping_mask):
-            failures.append("authored effect graph Clipping Mask count mismatch")
-    expected_blend = sample.get("expected_authored_effect_graph_blend_count")
-    if expected_blend is not None:
-        if blend_count != int(expected_blend):
-            failures.append("authored effect graph Blend count mismatch")
-    expected_tint = sample.get("expected_authored_effect_graph_tint_count")
-    if expected_tint is not None:
-        if tint_count != int(expected_tint):
-            failures.append("authored effect graph Tint count mismatch")
-    expected_pulse = sample.get("expected_authored_effect_graph_pulse_count")
-    if expected_pulse is not None:
-        if pulse_count != int(expected_pulse):
-            failures.append("authored effect graph Pulse count mismatch")
-    expected_godrays = sample.get("expected_authored_effect_graph_godrays_count")
-    if expected_godrays is not None:
-        if godrays_count != int(expected_godrays):
-            failures.append("authored effect graph Godrays count mismatch")
-    expected_transform = sample.get("expected_authored_effect_graph_transform_count")
-    if expected_transform is not None:
-        if transform_count != int(expected_transform):
-            failures.append("authored effect graph Transform count mismatch")
-    expected_transform_fallback = sample.get(
-        "expected_authored_effect_graph_transform_static_fallback_count"
-    )
-    if expected_transform_fallback is not None:
-        if transform_static_fallback_count != int(expected_transform_fallback):
-            failures.append(
-                "authored effect graph Transform static fallback count mismatch"
-            )
-    expected_transform_diagnostics = sample.get(
-        "expected_authored_effect_graph_transform_static_fallback_diagnostics"
-    )
-    if expected_transform_diagnostics is not None:
-        if transform_static_fallback_diagnostics != expected_transform_diagnostics:
-            failures.append(
-                "authored effect graph Transform static fallback diagnostics mismatch"
-            )
-    expected_authored_shader = sample.get(
-        "expected_authored_effect_graph_authored_shader_count"
-    )
-    if expected_authored_shader is not None:
-        if authored_shader_count != int(expected_authored_shader):
-            failures.append("authored effect graph authored shader count mismatch")
-    expected_route_only = sample.get("expected_route_only_effect_count")
-    if expected_route_only is not None:
-        if route_only_effect_count != int(expected_route_only):
-            failures.append("offscreen route-only effect count mismatch")
+    runtime_values = {
+        "local_contrast_count": local_contrast_count,
+        "opacity_count": opacity_count,
+        "color_key_count": color_key_count,
+        "workshop_audio_bars_count": workshop_audio_bars_count,
+        "fisheye_zero_distortion_count": fisheye_zero_distortion_count,
+        "opacity_layer_ids": opacity_layer_ids,
+        "workshop_shadow_count": workshop_shadow_count,
+        "spin_count": spin_count,
+        "procedural_noise_count": procedural_noise_count,
+        "film_grain_count": film_grain_count,
+        "light_shafts_count": light_shafts_count,
+        "shake_count": shake_count,
+        "water_flow_count": water_flow_count,
+        "water_waves_count": water_waves_count,
+        "foliage_sway_count": foliage_sway_count,
+        "water_ripple_count": water_ripple_count,
+        "iris_inline_suffix_count": iris_inline_suffix_count,
+        "cursor_ripple_count": cursor_ripple_count,
+        "cursor_ripple_isolated_count": cursor_ripple_isolated_count,
+        "cursor_ripple_omitted_effects": cursor_ripple_omitted_effects,
+        "shine_count": shine_count,
+        "shine_isolated_count": shine_isolated_count,
+        "shine_omitted_effects": shine_omitted_effects,
+        "clipping_mask_count": clipping_mask_count,
+        "blend_count": blend_count,
+        "tint_count": tint_count,
+        "pulse_count": pulse_count,
+        "godrays_count": godrays_count,
+        "transform_count": transform_count,
+        "transform_static_fallback_count": transform_static_fallback_count,
+        "transform_static_fallback_diagnostics":
+            transform_static_fallback_diagnostics,
+        "authored_shader_count": authored_shader_count,
+        "route_only_effect_count": route_only_effect_count,
+    }
+    for expectation in AUTHORED_EFFECT_RUNTIME_EXPECTATIONS:
+        expected = sample.get(expectation.matrix_key)
+        if expected is None:
+            continue
+        actual = runtime_values[expectation.benchmark_metric]
+        if expectation.comparison == "integer":
+            matches = actual == int(expected)
+        elif expectation.comparison == "sorted_list":
+            matches = (actual or []) == sorted(expected)
+        else:
+            matches = actual == expected
+        if not matches:
+            failures.append(expectation.failure_message)
     chain_metrics = chain_metrics or {"chain_count": None, "stage_count": None}
     for sample_key, metric_key, label in (
         ("expected_authored_effect_graph_chain_count", "chain_count", "chain count"),

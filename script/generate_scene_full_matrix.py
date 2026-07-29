@@ -4,6 +4,11 @@ import argparse
 import json
 from pathlib import Path
 
+from scene_matrix_contract import (
+    AUTHORED_EFFECT_RUNTIME_EXPECTATIONS,
+    optional_group_is_active,
+)
+
 
 RUNTIME_EVIDENCE_METRICS = [
     "schema_version",
@@ -60,7 +65,35 @@ PRESERVED_KEYS = [
     "maximum_flat_border_ratio",
     "property_overrides",
     "live_property_overrides",
+    "maximum_legacy_waterwaves_runtime_count",
+    "minimum_authored_opacity_runtime_count",
+    "minimum_authored_parallax_layer_count",
+    "minimum_legacy_waterwaves_runtime_count",
+    "minimum_live_changed_ratio",
+    "minimum_particle_initial_live",
+    "required_authored_effect_graph_succeeded_layer_ids",
+    "required_effect_files",
+    "required_effectively_hidden_layer_ids",
+    "required_effectively_visible_layer_ids",
+    "required_effectively_visible_solid_layer_ids",
+    "required_solid_layer_ids",
+    "required_utility_dispositions",
 ]
+
+OPTIONAL_RUNTIME_EXPECTATION_GROUPS = {
+    "particle_refract": {
+        "expected_particle_refract_loaded": "particle_refract_loaded",
+    },
+    "particle_transparency": {
+        "expected_particle_skipped_transparent":
+            "particle_skipped_transparent",
+    },
+    "text_script_binding": {
+        "expected_text_script_binding_count": "text_script_binding_count",
+        "required_text_script_binding_layer_ids":
+            "text_script_binding_layer_ids",
+    },
+}
 
 SCENE_SCRIPT_AUDIO_BARS_EXPECTATIONS = {
     "expected_scene_script_audio_bars_plan_count": "scene_script_audio_bars_plan_count",
@@ -154,33 +187,32 @@ def matrix_sample(result, old):
         "required_image_blend_succeeded_layer_ids": runtime["image_blend_succeeded_layer_ids"],
         "expected_authored_effect_graph_succeeded_layer_ids": runtime["authored_effect_graph_succeeded_layer_ids"],
         "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": runtime["authored_effect_graph_legacy_blur_blocked_layer_ids"],
-        "expected_authored_effect_graph_local_contrast_count": runtime["authored_effect_graph_local_contrast_count"],
-        "expected_authored_effect_graph_opacity_count": runtime["authored_effect_graph_opacity_count"],
-        "expected_authored_effect_graph_opacity_layer_ids": runtime["authored_effect_graph_opacity_layer_ids"],
-        "expected_authored_effect_graph_color_key_count": runtime["authored_effect_graph_color_key_count"],
-        "expected_authored_effect_graph_workshop_shadow_count": runtime["authored_effect_graph_workshop_shadow_count"],
-        "expected_authored_effect_graph_spin_count": runtime["authored_effect_graph_spin_count"],
-        "expected_authored_effect_graph_procedural_noise_count": runtime["authored_effect_graph_procedural_noise_count"],
-        "expected_authored_effect_graph_film_grain_count": runtime["authored_effect_graph_film_grain_count"],
-        "expected_authored_effect_graph_light_shafts_count": runtime["authored_effect_graph_light_shafts_count"],
-        "expected_authored_effect_graph_shake_count": runtime["authored_effect_graph_shake_count"],
-        "expected_authored_effect_graph_water_flow_count": runtime["authored_effect_graph_water_flow_count"],
-        "expected_authored_effect_graph_water_waves_count": runtime["authored_effect_graph_water_waves_count"],
-        "expected_authored_effect_graph_foliage_sway_count": runtime["authored_effect_graph_foliage_sway_count"],
-        "expected_authored_effect_graph_water_ripple_count": runtime["authored_effect_graph_water_ripple_count"],
-        "expected_authored_effect_graph_iris_inline_suffix_count": runtime["authored_effect_graph_iris_inline_suffix_count"],
-        "expected_authored_effect_graph_blend_count": runtime["authored_effect_graph_blend_count"],
-        "expected_authored_effect_graph_tint_count": runtime["authored_effect_graph_tint_count"],
-        "expected_authored_effect_graph_pulse_count": runtime["authored_effect_graph_pulse_count"],
-        "expected_authored_effect_graph_godrays_count": runtime["authored_effect_graph_godrays_count"],
-        "expected_authored_effect_graph_transform_count": runtime["authored_effect_graph_transform_count"],
-        "expected_authored_effect_graph_transform_static_fallback_count": runtime["authored_effect_graph_transform_static_fallback_count"],
-        "expected_authored_effect_graph_transform_static_fallback_diagnostics": runtime["authored_effect_graph_transform_static_fallback_diagnostics"],
-        "expected_authored_effect_graph_authored_shader_count": runtime["authored_effect_graph_authored_shader_count"],
         "expected_authored_effect_graph_chain_count": runtime["authored_effect_graph_chain_count"],
         "expected_authored_effect_graph_stage_count": runtime["authored_effect_graph_stage_count"],
-        "expected_route_only_effect_count": runtime["route_only_effect_count"],
     })
+
+    optional_effect_groups = {
+        expectation.optional_group
+        for expectation in AUTHORED_EFFECT_RUNTIME_EXPECTATIONS
+        if expectation.optional_group
+        and optional_group_is_active(expectation.optional_group, runtime, old)
+    }
+    for expectation in AUTHORED_EFFECT_RUNTIME_EXPECTATIONS:
+        if (
+            expectation.optional_group
+            and expectation.optional_group not in optional_effect_groups
+        ):
+            continue
+        sample[expectation.matrix_key] = runtime[expectation.report_metric]
+
+    for expectations in OPTIONAL_RUNTIME_EXPECTATION_GROUPS.values():
+        is_active = any(
+            matrix_key in old or bool(runtime.get(runtime_key))
+            for matrix_key, runtime_key in expectations.items()
+        )
+        if is_active:
+            for matrix_key, runtime_key in expectations.items():
+                sample[matrix_key] = runtime[runtime_key]
 
     has_scene_script_audio_bars_contract = bool(
         runtime.get("scene_script_audio_bars_plan_count")
@@ -192,6 +224,13 @@ def matrix_sample(result, old):
     for key in PRESERVED_KEYS:
         if key in old:
             sample[key] = old[key]
+
+    unhandled_keys = sorted(set(old) - set(sample) - {"package_file"})
+    if unhandled_keys:
+        joined = ", ".join(unhandled_keys)
+        raise ValueError(
+            f"sample {result['id']} has unclassified matrix keys: {joined}"
+        )
     return sample
 
 
