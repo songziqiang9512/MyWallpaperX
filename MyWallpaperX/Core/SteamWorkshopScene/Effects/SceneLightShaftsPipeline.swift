@@ -24,6 +24,9 @@ struct LightShaftsPerspectiveUniforms {
 struct LightShaftsUniforms {
     float2 scale;
     float2 feather;
+    float radius;
+    float noiseAmount;
+    float noiseScale;
     float smoothness;
     float speed;
     float intensity;
@@ -58,33 +61,52 @@ fragment float4 sceneLightShaftsFrag(
     constexpr sampler repeatSampler(filter::linear, address::repeat);
     constexpr sampler clampSampler(filter::linear, address::clamp_to_edge);
     float2 uv = input.effectCoord.xy / input.effectCoord.z;
-    float2 frequency = max(u.scale, float2(0.001)) * float2(4.0, 7.0);
-    float travel = u.time * u.speed;
-    float first = noiseTexture.sample(
-        repeatSampler,
-        uv * frequency + float2(travel * 0.11, travel * 0.29)
-    ).r;
-    float second = noiseTexture.sample(
-        repeatSampler,
-        float2(1.0 - uv.x, uv.y) * frequency * 0.57
-            + float2(-travel * 0.19, travel * 0.41)
-    ).g;
-    float structure = saturate(first * 0.62 + second * 0.38);
-    float threshold = mix(0.72, 0.18, u.smoothness);
-    float shafts = smoothstep(threshold, 1.0, structure);
-    shafts = pow(max(shafts, 0.0001), max(u.exponent, 0.01));
+    float profile = 0.0;
+    float baseWidth = (
+        0.015 + saturate(u.radius) * 0.09 + saturate(u.smoothness) * 0.006
+    ) / sqrt(max(u.scale.x, 0.1));
+    float phase = u.time * u.speed * (0.65 + max(u.scale.y, 0.0) * 0.35);
+    for (uint index = 0; index < 6; ++index) {
+        float ray = float(index);
+        float2 seedCoord = fract(float2(
+            0.13 + ray * 0.173 * max(u.noiseScale, 0.01),
+            0.27 + ray * 0.319 + u.noiseScale * 0.071
+        ));
+        float3 seed = noiseTexture.sample(repeatSampler, seedCoord).rgb;
+        float rayPhase = phase + ray * 2.3999632
+            + (seed.b - 0.5) * u.noiseAmount * 0.8;
+        float pulse = smoothstep(0.22, 0.78, 0.5 + 0.5 * sin(rayPhase));
+        pulse = mix(0.18, 1.0, pulse);
+        float center = (ray + 0.5) / 6.0
+            + (seed.r - 0.5) * u.noiseAmount * 0.12
+            + sin(rayPhase * 0.47) * u.noiseAmount * 0.012;
+        float width = baseWidth * mix(0.78, 1.22, seed.g);
+        float distance = (uv.x - center) / max(width, 0.001);
+        float band = exp(-0.5 * distance * distance);
+        profile += band * pulse * mix(0.78, 1.18, seed.r);
+    }
+    float structure = saturate(profile * 0.8);
+    float contrast = mix(1.7, 0.8, saturate(u.smoothness));
+    float shafts = pow(structure, contrast);
+    shafts = pow(max(shafts, 0.0), max(u.exponent, 0.01));
 
     float2 edgeWidth = max(u.feather, float2(0.0001));
     float horizontal = smoothstep(0.0, edgeWidth.x, uv.x)
         * smoothstep(0.0, edgeWidth.x, 1.0 - uv.x);
-    float longitudinal = smoothstep(0.0, edgeWidth.y, uv.y)
-        * smoothstep(0.0, edgeWidth.y, 1.0 - uv.y);
-    float opacity = saturate(shafts * horizontal * longitudinal * u.intensity) * u.alpha;
+    float topFade = smoothstep(0.0, max(edgeWidth.y * 0.35, 0.0001), uv.y);
+    float reachExponent = mix(0.35, 1.1, saturate(edgeWidth.y * 2.0));
+    float longitudinal = topFade * pow(saturate(1.0 - uv.y), reachExponent);
+    float opacity = saturate(
+        shafts * horizontal * longitudinal * min(max(u.intensity, 0.0), 1.0) * 0.58
+    ) * u.alpha;
     float3 gradient = gradientTexture.sample(
         clampSampler,
         float2(saturate(uv.y), 0.5)
     ).rgb;
-    return float4(gradient * opacity, opacity);
+    float luminance = dot(gradient, float3(0.2126, 0.7152, 0.0722));
+    float3 softenedGradient = mix(float3(luminance), gradient, 0.55);
+    float3 litColor = saturate(softenedGradient * max(u.intensity, 1.0));
+    return float4(litColor * opacity, opacity);
 }
 """
 
@@ -98,6 +120,9 @@ final class SceneLightShaftsPipeline {
     private struct Uniforms {
         var scale: SIMD2<Float>
         var feather: SIMD2<Float>
+        var radius: Float
+        var noiseAmount: Float
+        var noiseScale: Float
         var smoothness: Float
         var speed: Float
         var intensity: Float
@@ -169,6 +194,9 @@ final class SceneLightShaftsPipeline {
         var uniforms = Uniforms(
             scale: plan.scale,
             feather: plan.feather,
+            radius: plan.radius,
+            noiseAmount: plan.noiseAmount,
+            noiseScale: plan.noiseScale,
             smoothness: plan.smoothness,
             speed: plan.speed,
             intensity: plan.intensity,
@@ -213,6 +241,9 @@ final class SceneLightShaftsPipeline {
             && plan.effectUVTransform.isFinite
             && plan.feather.x.isFinite && plan.feather.y.isFinite
             && plan.scale.x.isFinite && plan.scale.y.isFinite
+            && plan.radius.isFinite
+            && plan.noiseAmount.isFinite
+            && plan.noiseScale.isFinite
             && plan.smoothness.isFinite
             && plan.speed.isFinite
             && plan.intensity.isFinite

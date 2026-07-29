@@ -19,6 +19,9 @@ enum SceneAuthoredLightShaftsPlanner {
         let points: (SIMD2<Float>, SIMD2<Float>, SIMD2<Float>, SIMD2<Float>)
         let feather: SIMD2<Float>
         let scale: SIMD2<Float>
+        let radius: Float
+        let noiseAmount: Float
+        let noiseScale: Float
         let smoothness: Float
         let speed: Float
         let intensity: Float
@@ -83,6 +86,9 @@ enum SceneAuthoredLightShaftsPlanner {
             effectUVTransform: effectUVTransform,
             feather: parameters.feather,
             scale: parameters.scale,
+            radius: parameters.radius,
+            noiseAmount: parameters.noiseAmount,
+            noiseScale: parameters.noiseScale,
             smoothness: parameters.smoothness,
             speed: parameters.speed,
             intensity: parameters.intensity,
@@ -227,9 +233,9 @@ enum SceneAuthoredLightShaftsPlanner {
         guard Set(values.keys) == constantKeys,
               vector(values["colorastart"], count: 3, range: 0...1) != nil,
               vector(values["colorend"], count: 3, range: 0...1) != nil,
-              scalar(values["noiseamount"], range: 0...1) != nil,
-              scalar(values["noisescale"], range: 0...10) != nil,
-              scalar(values["rayradius"], range: 0...2) != nil,
+              let noiseAmount = scalar(values["noiseamount"], range: 0...1),
+              let noiseScale = scalar(values["noisescale"], range: 0...10),
+              let radius = scalar(values["rayradius"], range: 0...2),
               let point0 = vector2(values["point0"], range: -2...3),
               let point1 = vector2(values["point1"], range: -2...3),
               let point2 = vector2(values["point2"], range: -2...3),
@@ -246,6 +252,9 @@ enum SceneAuthoredLightShaftsPlanner {
             points: (point0, point1, point2, point3),
             feather: feather,
             scale: scale,
+            radius: radius,
+            noiseAmount: noiseAmount,
+            noiseScale: noiseScale,
             smoothness: smoothness,
             speed: speed,
             intensity: intensity,

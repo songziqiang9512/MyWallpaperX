@@ -110,6 +110,9 @@ enum Harness {
         var inlineScript = false
         var visible: Bool? = true
         var intensity = 1.21
+        var radius = 0.14
+        var noiseAmount = 0.33
+        var noiseScale = 1.17
         var degeneratePoints = false
     }
 
@@ -140,14 +143,14 @@ enum Harness {
             "colorend": vector([0.435294, 0.886274, 1]),
             "colorwexponent": scalar(0.49),
             "colorwintensity": scalar(options.intensity, binding: options.binding),
-            "noiseamount": scalar(0.33),
-            "noisescale": scalar(1.17),
+            "noiseamount": scalar(options.noiseAmount),
+            "noisescale": scalar(options.noiseScale),
             "point0": vector(points[0]),
             "point1": vector(points[1]),
             "point2": vector(points[2]),
             "point3": vector(points[3]),
             "rayfeather": vector([0.31, 0.31]),
-            "rayradius": scalar(0.14),
+            "rayradius": scalar(options.radius),
             "rayscale": vector([0.8, 0.2]),
             "raysmoothness": scalar(0.68),
             "rayspeed": scalar(0.39),
@@ -373,11 +376,15 @@ enum Harness {
         var hash = Options(); hash.materialHash = String(repeating: "0", count: 64)
         var extra = Options(); extra.extraConstant = true
         var intensity = Options(); intensity.intensity = 10.01
+        var radius = Options(); radius.radius = 2.01
+        var noiseAmount = Options(); noiseAmount.noiseAmount = 1.01
+        var noiseScale = Options(); noiseScale.noiseScale = 10.01
         var hidden = Options(); hidden.visible = false
         var degenerate = Options(); degenerate.degeneratePoints = true
         let rejected = [
             radial, notDirect, colorMode, texture, binding, image, child,
-            dependency, script, hash, extra, intensity, hidden, degenerate,
+            dependency, script, hash, extra, intensity, radius, noiseAmount,
+            noiseScale, hidden, degenerate,
         ].allSatisfy { !accepted(options: $0, contracts: contracts) }
         let result: [String: Bool] = [
             "accepted": plan != nil,
@@ -386,6 +393,9 @@ enum Harness {
                     && $0.points.2 == SIMD2<Float>(0.8, 0.8)
                     && $0.feather == SIMD2<Float>(0.31, 0.31)
                     && $0.scale == SIMD2<Float>(0.8, 0.2)
+                    && $0.radius == Float(0.14)
+                    && $0.noiseAmount == Float(0.33)
+                    && $0.noiseScale == Float(1.17)
                     && $0.intensity == Float(1.21)
                     && $0.effectUVTransform.project(SIMD2<Float>(0.4, 0.25)).map {
                         simd_distance($0, SIMD2<Float>(0, 0)) < 0.001

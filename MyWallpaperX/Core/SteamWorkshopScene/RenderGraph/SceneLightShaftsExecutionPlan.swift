@@ -123,6 +123,9 @@ nonisolated struct SceneLightShaftsExecutionPlan {
     let effectUVTransform: SceneLightShaftsPerspectiveTransform
     let feather: SIMD2<Float>
     let scale: SIMD2<Float>
+    let radius: Float
+    let noiseAmount: Float
+    let noiseScale: Float
     let smoothness: Float
     let speed: Float
     let intensity: Float
