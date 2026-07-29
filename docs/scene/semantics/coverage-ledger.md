@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-29
 >
-> Scene 实现基线：`8f4cd30`（在既有 text-script、image/solid alignment、bounded effect/particle/resource/runtime 基础上，补齐静态 raw TEX 作者尺寸裁剪、旧版 Pulse 缺省身份、严格终止 Iris 内联后缀、legacy Directional Godrays 边界采样与 Scene 音频动态范围；逐能力落地提交见专项表和运行证据索引）
+> Scene 实现基线：`7b1d36f`（在 `8f4cd30` 的 text-script、image/solid alignment、bounded effect/particle/resource/runtime 与 Pulse/Water/Iris/频谱基线上，新增非音频 Particle Turbulence operator 的有界公共执行；逐能力落地提交见专项表和运行证据索引）
 >
 > 当前完整快照门：`.codex/scene-full45-pulse-iris-spectrum-20260729-v2/report.json`（`8f4cd30`），**45/45 PASS**；当前 fixed13 为 `.codex/scene-fixed13-pulse-iris-spectrum-20260729-v3/report.json`（`8f4cd30`），**13/13 PASS**
 >
-> 最新运行门：`8f4cd30` 复用从真实只读目录重建的 45 样本隔离副本；full45 **45/45 PASS**，image texture `451/451`、particle `127/130`、strict graph 292 stage/52 chain、graph failed 0、failed frame 0。聚合 Pulse 8、Godrays 15、Water Ripple 9、Water Waves 20、Water Flow 13、Foliage Sway 16、Iris inline suffix 2。`1937925563` 新增 `Pulse -> Water Ripple -> Godrays` 后接既有频谱链，`2470144420` 与 `3742133044` 通过严格终止 Iris 后缀分别执行 Water Waves/Ripple/Foliage 与 Water Flow/Foliage。报告/full matrix SHA-256 为 `4af8774e13473f86cab8e9cb72ea378edb911956cd439b283e32d6b68d336473` / `21b4de5142f36708e02018c799ee0495518aa55dfaf2eb2f11ff85cc296cdb97`；fixed13 **13/13 PASS**，报告/fixed matrix SHA-256 为 `114cfb65ab38b9742d149da688739c569bca39e1e9bc97546963827d779062d7` / `a06aa14ad42abf6f27d1578e1bf053b79f7386f95370f6ee28cbf89a9de297f0`。本批代码健康 632 Swift files、44 个锁定历史文件、400 行上限，完整 Scene suite 665 项通过、2 项按既有条件跳过，Developer ID 签名 Debug build 通过。聚合缺口、性能/视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：`7b1d36f` 的签名 Debug App 在隔离副本上定向运行 `2131872317`、`3299228616`、`3757555836`、`3769688830`、`3769761761`，`.codex/scene-turbulence-targeted-20260729-v1/report.json` **5/5 PASS**、failed frame 0，并消除这 5 个样本此前 14 条 `unsupportedOperator:turbulence`；报告/full matrix SHA-256 为 `8a713218c73a264a8a15ee9dd7460136d37201444a5f1751552aafe7355b67dc` / `21b4de5142f36708e02018c799ee0495518aa55dfaf2eb2f11ff85cc296cdb97`。聚焦 parser/simulator 18 项、完整 particle 68 项、代码健康与签名 Debug build 通过。该定向集合覆盖当前 8 样本/19 加载图层缺口中的 5 样本/14 图层；没有重跑 fixed13/full45，页首 `8f4cd30` 的 **13/13** 与 **45/45** 仍是最近统一门，不外推到新实现。聚合缺口、性能/视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -107,9 +107,10 @@
 | Layer Image/其他 emitter | `L1` | 名称可诊断，字段和执行不足 | 独立 fixture 和作者条件 |
 | 已接 initializer 子集 | `L3` | lifetime/size/velocity/color/alpha/angular velocity 常见路径 | 每一项 range/distribution/seed golden |
 | Rotation Random initializer | `L2` | 字段与 simulation 分支已接线；无最终 rotation 断言 | renderer orientation 数值门 |
-| 未接 initializer | `L1` | turbulent/control-point/remap 等可诊断或字段不足 | 逐项 fixture 与创建时语义 |
-| 已接 operator 子集 | `L3` | movement/angular、alpha/size/color change、部分 oscillate | timestep/curve/phase 数值门 |
-| 未接 force/operator | `L1` | attract/turbulence/vortex 等明确 unsupported | control-point/world-space 力场 |
+| 其他未接 initializer | `L1` | control-point/remap 等可诊断或字段不足 | 逐项 fixture 与创建时语义 |
+| 已接 operator 子集 | `L3` | movement/angular、alpha/size/color change、部分 oscillate 与非音频 Turbulence | timestep/curve/phase 数值门 |
+| Turbulence operator | `L3 executed-degraded` | 非音频 profile 按作者顺序消费 mask/phase/scale/time scale/speed/blend/fixed dt/static speed override，非有限写入失败关闭；audio profile 零执行 | Windows 固定 seed 轨迹/像素 golden；audio phase 调制公式 |
+| 其他未接 force/operator | `L1` | attract/vortex 等明确 unsupported | control-point/world-space 力场 |
 | Sprite renderer | `L3` | 作者纹理和程序化静态遮罩子集 | 全 material/blend/lighting/atlas |
 | Sprite Trail | `L3` | 受限 trail 执行 | orientation/length/atlas/曲线精度 |
 | Rope/Rope Trail declaration | `L1` | 结构/诊断不足 | topology、constraint 和 material IR |
@@ -136,6 +137,8 @@
 | Delta clamp/prewarm cap | `L2` | 代码有上限分支，缺定向预算断言 | 长帧和高 prewarm 压力门 |
 
 当前 `8f4cd30` 完整矩阵可见粒子为 `127/130`，fixed13 为 `76/76`；两门的初始 REFRACT root batch 分别为 13 与 7。`2131872317` 的 event-death child REFRACT 在初始报告中仍为 0，另由 7 秒延迟 runtime 门证明生成非空折射 batch。`3088601835` 为 `19/19`，其中 Snow root layers `513/534` 已执行，static `snowstormfog` child 也已由真实缓存门确认在两层生成实例，matrix-code 两层随 `b86db59` 解除 nested 阻断进入执行。child 不增加 root loaded-layer 计数。`3750813609` 已由 `7/9` 升至 `9/9`；`2998757800` 为 `15/15` 且 REFRACT 6，`3299228616` 为 `6/7`，`3769688830` 为 `6/6`，`3770444459` 为 `4/5`。full45 剩余 3 个 root 缺口均为 Rope/RopeTrail；`2998757800` 的 child scale 0.2 仍在独立 strict child-transform 边界外。这些数字只度量对应矩阵实际加载的 root layer，不代表粒子组件覆盖率或 Windows 视觉等价。
+
+`7b1d36f` 的 Turbulence 定向门为 5/5，覆盖旧 full45 日志中 19 条 `unsupportedOperator:turbulence` 的 14 条；另 3 个命中样本没有在新实现上复跑。该批没有改变 particle root loaded 计数，也没有重跑 fixed13/full45。
 
 ## 6. 动态运行系统覆盖
 

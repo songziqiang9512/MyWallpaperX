@@ -5,8 +5,8 @@
 > 最近核对：2026-07-29
 >
 > 口径来源：[官方页面目录](official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[资料来源与证据索引](source-index.md)
-> 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，并执行非音频 Turbulent Velocity Random、严格的 child 层级 ≤ 2（depth-one static/default-static/`eventspawn` / natural-`eventdeath` / `eventfollow`，加 depth-two 仅 event 触发的 nested child）、有限 static origin translation、持续/混合/duration child emitter、静态可逆 layer world frame 下的 General/Movement/Renderer world-space 子集，以及严格 `genericparticle` `REFRACT=1` 双纹理背景折射子集；它仍不是通用 Particle System，尤其没有 Layer Image、static angles/scale、event child transform、collision/delete event、动态 Control Point、动态 world-space system transform、Rope、Audio Response（声明已保真解析，执行缺公式证据）、Lighting 和通用 Particle Material。
-> 粒子落地提交分别是 eventspawn/death `f4173ea`/`7d53c10`、eventfollow `928acca`、持续 child/root aggregate budget `2f897bc`、static/default-static `899704b`、有限 static origin `678a052`、strict depth-two nested child/per-depth 预算 `b86db59`、非音频 turbulent velocity `4a17ee6`、strict REFRACT `e698c18` 与 static world-space `54a6ebc`。本专项表不复制全局实现基线；当前固定 13 样本门 particle 为 `76/76`，完整 45 样本门为 `127/130`，当前两层报告、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。仍不是通用 Particle System。
+> 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，并执行非音频 Turbulent Velocity Random、非音频 Turbulence operator、严格的 child 层级 ≤ 2（depth-one static/default-static/`eventspawn` / natural-`eventdeath` / `eventfollow`，加 depth-two 仅 event 触发的 nested child）、有限 static origin translation、持续/混合/duration child emitter、静态可逆 layer world frame 下的 General/Movement/Renderer world-space 子集，以及严格 `genericparticle` `REFRACT=1` 双纹理背景折射子集；它仍不是通用 Particle System，尤其没有 Layer Image、static angles/scale、event child transform、collision/delete event、动态 Control Point、动态 world-space system transform、Rope、Audio Response（声明已保真解析，执行缺公式证据）、Lighting 和通用 Particle Material。
+> 粒子落地提交分别是 eventspawn/death `f4173ea`/`7d53c10`、eventfollow `928acca`、持续 child/root aggregate budget `2f897bc`、static/default-static `899704b`、有限 static origin `678a052`、strict depth-two nested child/per-depth 预算 `b86db59`、非音频 turbulent velocity `4a17ee6`、strict REFRACT `e698c18`、static world-space `54a6ebc` 与非音频 Turbulence operator `7b1d36f`。本专项表不复制全局实现基线；当前固定 13 样本门 particle 为 `76/76`，完整 45 样本门为 `127/130`，两者仍是 `8f4cd30` 的最近统一门；`7b1d36f` 的定向报告、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。仍不是通用 Particle System。
 
 本文把官方 Particle 的 General、Emitter、Initializer、Operator、Renderer、Control Point、Children、instance override 与 material 逐项映射到当前实现。它是 [总覆盖台账](coverage-ledger.md) 中 Particle 行的展开表；总表与本文冲突时，以本文更细粒度、更新的代码证据为准。
 
@@ -152,7 +152,7 @@
 | O12 Maintain Distance To Control Point | 约束粒子和一个 CP 的距离。 | `L1` | [PAR] [SUP] [T-DEF] | 只有 unsupported 名称。 | constraint solver、stiffness/damping fixture。 |
 | O13 Maintain Distance Between Control Points | 约束两个 CP 之间的关系。 | `L1` | [PAR] [SUP] [T-DEF] | 没有双 CP typed identity。 | 两端动态 CP 和固定 dt 稳定性门。 |
 | O14 Reduce Movement Near Control Point | 靠近 CP 时按距离衰减运动。 | `L1` | [PAR] [SUP] [T-DEF] | 只有 unsupported 名称。 | 距离曲线、零半径和 world/local fixture。 |
-| O15 Turbulence | 用确定性 noise field 持续改变运动。 | `L1` | [DEF] [PAR] [SUP] [T-SIM] | typed 部分字段但执行明确忽略。 | noise field、seed、time scale、fixed-step golden。 |
+| O15 Turbulence | 用确定性 noise field 持续改变运动。 | `L3` | [DEF] [PAR] [SIM] [SUP] [T-DEF] [T-SIM] | 非音频 profile 按作者顺序消费 mask、phase、scale、time scale、speed range、normalized-age blend window、fixed `dt` 与静态 speed override；particle ID、operator index 和 simulation seed 产生稳定 phase/speed，最终非有限 velocity 写入失败关闭。缺省 `scale=0.005`、`speed=500...1000`、`timeScale=0.01`、`mask=(1,1,0)`、`phase=0...0` 来自现有 stock corpus/clean-room parser 交叉推断，不是官方数值合同；audio-enabled profile 零执行并保留 `audioResponseIgnored`/`unsupportedOperator`。 | Windows WE 固定 seed/phase/time 数值与轨迹 golden；另以官方算法或 golden 接入 audio phase 调制。 |
 | O16 Vortex | 围绕中心/CP 产生旋转场。 | `L1` | [DEF] [PAR] [SUP] [T-SIM] | typed 部分字段但执行明确忽略。 | axis、radius、speed、CP/world fixture。 |
 | O17 Boids | 粒子按邻域 separation/alignment/cohesion 群集运动。 | `L1` | [PAR] [SUP] [T-DEF] | 只有 unsupported 名称；没有 spatial index。 | 小规模确定性邻域 fixture 和预算门。 |
 | O18 Remap Value | 每帧把一个粒子通道映射到另一个通道。 | `L1` | [PAR] [SUP] [T-DEF] | 没有 source/target channel typed model。 | typed channel + clamp/extrapolate 数值门。 |
@@ -163,8 +163,8 @@
 | O23 Quad Collision | 粒子与有限 quad 表面碰撞。 | `L1` | [PAR] [SUP] [T-DEF] | 名称可诊断，没有 quad geometry。 | 平面内外、边缘、旋转 quad fixture。 |
 | O24 Model Collision | 粒子与 model/depth geometry 碰撞。 | `L1` | [PAR] [SUP] [T-DEF] | 名称可诊断；没有 model runtime。 | 先完成 model/depth provider，再做 hit/event 门。 |
 | O25 Collision response | Collision 可 bounce、slide、stop、delete，并产生 death event。 | `L0` | [DEF] [PAR] [SIM] | 没有 response enum、collision state 或 collision-produced event。 | 每种 response 的速度/存活状态 fixture。 |
-| O26 Blend-in/out windows | 很多 operator 以单粒子 normalized age 的 0...1 窗口混合权重。 | `L2` | [DEF] [SIM] [T-DEF] | 字段和 oscillation 分支存在，但没有窗口运行断言，也不是通用 operator weight。 | 定向窗口测试后提取统一权重并覆盖所有支持 operator。 |
-| O27 Normalized age and order | 每个 operator 读取同一 age/lifetime，并按作者顺序运行。 | `L2` | [SIM] [T-SIM] | normalized age 已接线，但现有组合测试不能证明顺序合同；没有 event/collision 阶段。 | 重复 operator、顺序交换、死亡边界 golden。 |
+| O26 Blend-in/out windows | 很多 operator 以单粒子 normalized age 的 0...1 窗口混合权重。 | `L2` | [DEF] [SIM] [T-DEF] [T-SIM] | oscillation 与 Turbulence 已消费窗口，Turbulence 有窗口内/外运行断言；仍没有覆盖所有已支持 operator 的统一 weight 合同。 | 提取统一权重并覆盖所有支持 operator。 |
+| O27 Normalized age and order | 每个 operator 读取同一 age/lifetime，并按作者顺序运行。 | `L2` | [SIM] [T-SIM] | Turbulence/Movement 顺序交换已锁定首步位置差异，证明这一组合按作者顺序；仍无重复 operator、event/collision 阶段与通用顺序门。 | 重复 operator、更多顺序交换与死亡边界 golden。 |
 | O28 World-space movement flag | Movement 可选择 local/world 空间。 | `L3` | [DEF] [PAR] [SIM] [WORLD] [RUN] [T-SIM] [T-RUN] | 静态可逆 world frame 下执行世界方向 velocity/gravity；动态 script/Timeline/parallax/奇异 frame 仍报 `worldSpaceMovementUnsupported`。 | parent 动画时 local/world 分离门与 Windows 数值 golden。 |
 | O29 Audio-modulated operator | Vortex/Turbulence 等 operator 可读取频谱调制。 | `L1` | [DEF] [PAR] [SUP] [T-DEF] | 声明与 emitter/initializer 共用同一类型并保真保存；启用后进入 `audioResponseIgnored`（此前 operator 完全无诊断、会静默按无音频路径模拟）。 | 同 E15：缺求值公式证据。语料唯一命中的 `vortex`（`2419444134`）其 operator 本体亦为 `L1`。 |
 
@@ -238,7 +238,7 @@
 | IV03 Size | 统一缩放新粒子的 size。 | `L3` | [DEF] [SIM] [T-SIM] | 仅创建时静态乘法。 | live generation 与存量粒子语义 fixture。 |
 | IV04 Lifetime | 统一缩放新粒子的 lifetime。 | `L3` | [DEF] [SIM] [T-SIM] | 仅创建时静态乘法；不重算存量 age。 | live 修改时剩余 lifetime 的 Windows 状态门。 |
 | IV05 Rate | 缩放 emitter 的发射时间/速率。 | `L3` | [DEF] [SIM] [T-SIM] | 当前同时缩放 elapsed 和 authored rate，官方精确公式未核验。 | duration + rate override 的计数 golden。 |
-| IV06 Speed | 缩放新粒子的 velocity。 | `L3` | [DEF] [SIM] [T-SIM] | 只作用创建时，不影响已有粒子。 | live 修改与 emitter speed/initializer velocity 组合门。 |
+| IV06 Speed | 缩放粒子速度来源。 | `L3` | [DEF] [SIM] [T-SIM] | 创建时缩放初始 velocity，并对每步非音频 Turbulence 力使用同一静态倍率；live 修改不更新存量粒子，其他 operator 是否消费仍未定义。 | live 修改与 emitter/initializer/operator 组合门。 |
 | IV07 Count | 缩放每步生成数量。 | `L3` | [DEF] [SIM] [T-SIM] | 与 rate 相乘，分数累积使用自有 remainder。 | 0、分数、>1、instantaneous 的计数 golden。 |
 | IV08 Brightness | 统一调制粒子颜色亮度。 | `L3` | [DEF] [SIM] [T-SIM] | 直接乘 color，可超 1；HDR/overbright 管线不存在。 | SDR/HDR、clamp 与 blend pixel 门。 |
 | IV09 Color | 以作者色值覆盖/调制粒子颜色。 | `L2` | [DEF] [SIM] [T-DEF] | 分支存在，但运行测试只覆盖 normalized color；除 255 后平方的依据未核验。 | direct color 数值断言和官方 color/linear conversion golden。 |
@@ -300,7 +300,8 @@
 ## 13. 当前统计与使用规则
 
 - 本台账共覆盖 `171` 个粒子能力项：General 18、Emitter 17、Initializer 18、Operator 29、Renderer 14、Control Point 12、Children 12、Instance Override 16、Material 22、执行/生命周期 13。
-- 等级分布为 `L0 27 / L1 54 / L2 24 / L3 66 / L4 0`。`L3` 主要集中在 Sphere/Box、常见随机 initializer、基础 movement/change/oscillation、Sprite/Sprite Trail、strict static/event child、已测试的静态 override、首纹理、两种 blend 和 strict REFRACT 双槽子集。
+- 等级分布为 `L0 23 / L1 44 / L2 26 / L3 78 / L4 0`；该数字按表内 171 个能力行重新计数，O15 本批由 `L1` 移到 `L3`。`L3` 主要集中在 Sphere/Box、常见随机 initializer、基础 movement/change/oscillation、非音频 Turbulence、Sprite/Sprite Trail、strict static/event child、已测试的静态 override、首纹理、两种 blend 和 strict REFRACT 双槽子集。
 - 当前固定矩阵的“可见粒子 76/76”、完整矩阵的“127/130”、`3088601835` 的“19/19”与 `3750813609` 的“9/9”只是 root layer 样本运行门，不是上述 171 项的兼容率；完整门另有 13 个初始 REFRACT root batch，`2131872317` 的 event-death child REFRACT 由延迟 runtime 门计证。剩余 3 个 full45 root 缺口均为 Rope/RopeTrail；动态 world-space、depth-three 或其他 fail-closed declaration 不能计为可播放。
+- `7b1d36f` 的 Turbulence 定向门覆盖 5 个隔离真实样本、此前 19 个当前加载缺口中的 14 个图层；它没有重跑 fixed13/full45，因此不能把 `8f4cd30` 的两层统一门写成新实现的回归结论。
 - 开发批次应优先消除公共断点：复用现有 per-surface typed snapshot 接入动态 Control Point 与 author allow gates，再补 Layer Image、剩余 Children/Event、Collision 和 Rope，最后扩展动态 world-space、audio/material/lighting。逐样本 hardcode、把 unsupported 静默回退成 Sprite/translucent、或把程序纹理称为官方资产，都不允许升级等级。
 - 任一条目升级时，必须同时更新本表的等级、边界、证据路径和下一验收门；只有跑过对应正向、负向、生命周期测试后才能从 `L2` 升到 `L3`。
