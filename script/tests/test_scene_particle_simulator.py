@@ -74,6 +74,14 @@ enum Harness {
         let centeredBoxOffsets = centeredBox.particles.map {
             $0.position - SIMD3(10, 20, 30)
         }
+        var explicitCenteredBox = simulator(
+            explicitCenteredBoxJSON, seed: 23, step: 0.1
+        )
+        explicitCenteredBox.advance(by: 0.1)
+        let explicitCenteredOffsets = explicitCenteredBox.particles.map(\.position)
+        var positiveBox = simulator(positiveBoxJSON, seed: 29, step: 0.1)
+        positiveBox.advance(by: 0.1)
+        let positiveBoxPositions = positiveBox.particles.map(\.position)
 
         var movement = simulator(movementJSON, seed: 1, step: 0.25)
         movement.advance(by: 0.5)
@@ -112,6 +120,7 @@ enum Harness {
         let quarterLifeOscillationAlpha = lifetimeOscillation.particles[0].alpha
         lifetimeOscillation.advance(by: 1)
         let halfLifeOscillationAlpha = lifetimeOscillation.particles[0].alpha
+        let halfLifeOscillationSize = lifetimeOscillation.particles[0].size
         var fineLifetimeOscillation = simulator(
             lifetimeOscillationJSON,
             seed: 1,
@@ -119,6 +128,7 @@ enum Harness {
         )
         fineLifetimeOscillation.advance(by: 2)
         let fineHalfLifeOscillationAlpha = fineLifetimeOscillation.particles[0].alpha
+        let fineHalfLifeOscillationSize = fineLifetimeOscillation.particles[0].size
 
         let diagnosticOverride = SceneParticleDefinitionParser().parseInstanceOverride(
             try object(#"{"size":{"script":"return 2","value":2}}"#)
@@ -138,6 +148,26 @@ enum Harness {
         biasedSize.advance(by: 0.1)
         let uniformSizeAmount = (uniformSize.particles[0].size - 20) / 30
         let biasedSizeAmount = (biasedSize.particles[0].size - 20) / 30
+        var maximumSize = simulator(maximumSizeJSON, seed: 17, step: 0.1)
+        maximumSize.advance(by: 0.1)
+        var uniformVelocity = simulator(uniformVelocityJSON, seed: 31, step: 0.1)
+        var biasedVelocity = simulator(biasedVelocityJSON, seed: 31, step: 0.1)
+        uniformVelocity.advance(by: 0.1)
+        biasedVelocity.advance(by: 0.1)
+        let uniformVelocityAmount = (uniformVelocity.particles[0].velocity
+            - SIMD3(10, 20, 30)) / SIMD3(10, 20, 20)
+        let biasedVelocityAmount = (biasedVelocity.particles[0].velocity
+            - SIMD3(10, 20, 30)) / SIMD3(10, 20, 20)
+        var uniformColor = simulator(uniformColorJSON, seed: 37, step: 0.1)
+        var biasedColor = simulator(biasedColorJSON, seed: 37, step: 0.1)
+        uniformColor.advance(by: 0.1)
+        biasedColor.advance(by: 0.1)
+        let uniformColorAmount = (
+            uniformColor.particles[0].color.x * 255 - 10
+        ) / 230
+        let biasedColorAmount = (
+            biasedColor.particles[0].color.x * 255 - 10
+        ) / 230
 
         var turbulentFirst = simulator(turbulentJSON, seed: 71, step: 0.1)
         var turbulentRepeat = simulator(turbulentJSON, seed: 71, step: 0.1)
@@ -254,6 +284,16 @@ enum Harness {
                 && centeredBoxOffsets.contains(where: { $0.x > 0 })
                 && centeredBoxOffsets.contains(where: { $0.y < 0 })
                 && centeredBoxOffsets.contains(where: { $0.y > 0 }),
+            "explicitCenteredBoxHasBothSigns":
+                explicitCenteredOffsets.contains(where: { $0.x < 0 })
+                && explicitCenteredOffsets.contains(where: { $0.x > 0 })
+                && explicitCenteredOffsets.contains(where: { $0.y < 0 })
+                && explicitCenteredOffsets.contains(where: { $0.y > 0 }),
+            "positiveBoxPreservesInterval": positiveBoxPositions.allSatisfy {
+                (2...4).contains($0.x)
+                    && (3...5).contains($0.y)
+                    && (1...2).contains($0.z)
+            },
             "movementPosition": vector(movementPosition),
             "worldMovementPosition": vector(worldMovement.particles[0].position),
             "worldMovementLocalVelocity": vector(worldMovement.particles[0].velocity),
@@ -273,10 +313,17 @@ enum Harness {
             "quarterLifeOscillationAlpha": quarterLifeOscillationAlpha,
             "halfLifeOscillationAlpha": halfLifeOscillationAlpha,
             "fineHalfLifeOscillationAlpha": fineHalfLifeOscillationAlpha,
+            "halfLifeOscillationSize": halfLifeOscillationSize,
+            "fineHalfLifeOscillationSize": fineHalfLifeOscillationSize,
             "colorUsesSingleInterpolation": abs(randomColor.y - expectedGreen) < 1e-12
                 && abs(randomColor.z - expectedBlue) < 1e-12,
             "uniformSizeAmount": uniformSizeAmount,
             "biasedSizeAmount": biasedSizeAmount,
+            "maximumSize": maximumSize.particles[0].size,
+            "uniformVelocityAmount": vector(uniformVelocityAmount),
+            "biasedVelocityAmount": vector(biasedVelocityAmount),
+            "uniformColorAmount": uniformColorAmount,
+            "biasedColorAmount": biasedColorAmount,
             "turbulentDeterministic": turbulentFirst.particles == turbulentRepeat.particles,
             "turbulentDifferentSeed": turbulentFirst.particles != turbulentDifferent.particles,
             "turbulentDifferentTime": earlyVelocity != lateVelocity,
@@ -387,6 +434,20 @@ enum Harness {
      "renderer":[{"name":"sprite"}]}
     """#
 
+    private static let explicitCenteredBoxJSON = #"""
+    {"material":"p.json","maxcount":100,
+     "emitter":[{"name":"boxrandom","instantaneous":100,"distancemin":"0 0 0","distancemax":"4 3 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let positiveBoxJSON = #"""
+    {"material":"p.json","maxcount":100,
+     "emitter":[{"name":"boxrandom","instantaneous":100,"directions":"1 1 1","distancemin":"2 3 1","distancemax":"4 5 2"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
     private static let worldMovementJSON = #"""
     {"material":"p.json","maxcount":1,
      "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
@@ -433,8 +494,8 @@ enum Harness {
     private static let lifetimeOscillationJSON = #"""
     {"material":"p.json","maxcount":1,
      "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
-     "initializer":[{"name":"lifetimerandom","min":4,"max":4},{"name":"alpharandom","min":1,"max":1}],
-     "operator":[{"name":"oscillatealpha","frequencymin":1,"frequencymax":1,"phasemin":0,"phasemax":0,"scalemin":0,"scalemax":1}],
+     "initializer":[{"name":"lifetimerandom","min":4,"max":4},{"name":"alpharandom","min":1,"max":1},{"name":"sizerandom","min":10,"max":10}],
+     "operator":[{"name":"oscillatealpha","frequencymin":0.25,"frequencymax":0.25,"phasemin":0,"phasemax":0,"scalemin":0.2,"scalemax":1},{"name":"oscillatesize","frequencymin":0.25,"frequencymax":0.25,"phasemin":0,"phasemax":0,"scalemin":0.5,"scalemax":1}],
      "renderer":[{"name":"sprite"}]}
     """#
 
@@ -556,6 +617,41 @@ enum Harness {
     {"material":"p.json","maxcount":1,
      "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
      "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"sizerandom","min":20,"max":50,"exponent":2}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let maximumSizeJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"sizerandom","min":20,"max":50,"exponent":0}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let uniformVelocityJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"velocityrandom","min":"10 20 30","max":"20 40 50","exponent":1}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let biasedVelocityJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"velocityrandom","min":"10 20 30","max":"20 40 50","exponent":2}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let uniformColorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"colorrandom","min":"10 40 80","max":"240 200 160","exponent":1}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let biasedColorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"colorrandom","min":"10 40 80","max":"240 200 160","exponent":2}],
      "renderer":[{"name":"sprite"}]}
     """#
 
@@ -731,6 +827,8 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertTrue(self.results["boxInBounds"])
         self.assertTrue(self.results["centeredBoxInBounds"])
         self.assertTrue(self.results["centeredBoxHasBothSigns"])
+        self.assertTrue(self.results["explicitCenteredBoxHasBothSigns"])
+        self.assertTrue(self.results["positiveBoxPreservesInterval"])
 
     def test_movement_gravity_drag_and_alpha_fade(self) -> None:
         self.assertEqual(self.results["movementPosition"], [0.65625, -0.34375, 0])
@@ -753,9 +851,28 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["operatorColor"], [0.975, 0.9875, 1])
         self.assertEqual(self.results["operatorRotation"], [0, 0, 0.25])
         self.assertLess(self.results["operatorPosition"][0], 0)
-        self.assertAlmostEqual(self.results["quarterLifeOscillationAlpha"], 0.5)
-        self.assertAlmostEqual(self.results["halfLifeOscillationAlpha"], 0)
-        self.assertAlmostEqual(self.results["fineHalfLifeOscillationAlpha"], 0)
+        quarter_wave = (math.cos(math.pi / 8) + 1) * 0.5
+        half_wave = (math.cos(math.pi / 4) + 1) * 0.5
+        self.assertAlmostEqual(
+            self.results["quarterLifeOscillationAlpha"],
+            0.2 + 0.8 * quarter_wave,
+        )
+        self.assertAlmostEqual(
+            self.results["halfLifeOscillationAlpha"],
+            0.2 + 0.8 * half_wave,
+        )
+        self.assertAlmostEqual(
+            self.results["fineHalfLifeOscillationAlpha"],
+            self.results["halfLifeOscillationAlpha"],
+        )
+        self.assertAlmostEqual(
+            self.results["halfLifeOscillationSize"],
+            10 * (0.5 + 0.5 * half_wave),
+        )
+        self.assertAlmostEqual(
+            self.results["fineHalfLifeOscillationSize"],
+            self.results["halfLifeOscillationSize"],
+        )
 
     def test_color_initializer_interpolates_between_authored_colors(self) -> None:
         self.assertTrue(self.results["colorUsesSingleInterpolation"])
@@ -767,6 +884,20 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertLess(uniform, 1)
         self.assertAlmostEqual(biased, uniform * uniform)
         self.assertLess(biased, uniform)
+        self.assertEqual(self.results["maximumSize"], 50)
+        for uniform_component, biased_component in zip(
+            self.results["uniformVelocityAmount"],
+            self.results["biasedVelocityAmount"],
+        ):
+            self.assertAlmostEqual(
+                biased_component,
+                uniform_component * uniform_component,
+            )
+        self.assertAlmostEqual(
+            self.results["biasedColorAmount"],
+            self.results["uniformColorAmount"]
+            * self.results["uniformColorAmount"],
+        )
 
     def test_non_audio_turbulent_velocity_is_deterministic_and_bounded(self) -> None:
         self.assertTrue(self.results["turbulentDeterministic"])
