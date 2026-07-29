@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-29
 >
-> Scene 实现基线：`c47fe22`（在 `8f4cd30` 的 text-script、image/solid alignment、bounded effect/particle/resource/runtime 与 Pulse/Water/Iris/频谱基线上，依次新增非音频 Particle Turbulence operator、TEX sampler、常见随机分布/Box/lifetime oscillation、完整粒子 mip 链、lifetime-normalized Position oscillation，以及 strict Linear Light Shafts 的持续双侧多光束近似；逐能力落地提交见专项表和运行证据索引）
+> Scene 实现基线：`aa68bb8`（在既有 text-script、image/solid alignment、bounded effect/particle/resource/runtime 与 Pulse/Water/Iris/频谱基线上，依次新增非音频 Particle Turbulence operator、TEX sampler、常见随机分布/Box/lifetime oscillation、完整粒子 mip 链、lifetime-normalized Position oscillation、strict Linear Light Shafts 的持续双侧多光束近似，以及严格受限的 Screen RopeTrail 公共执行链；逐能力落地提交见专项表和运行证据索引）
 >
-> 当前完整快照门：`.codex/scene-full45-pulse-iris-spectrum-20260729-v2/report.json`（`8f4cd30`），**45/45 PASS**；当前 fixed13 为 `.codex/scene-fixed13-pulse-iris-spectrum-20260729-v3/report.json`（`8f4cd30`），**13/13 PASS**
+> 当前完整快照门：`.codex/scene-full45-ropetrail-20260729-v1/report.json`，**45/45 PASS**、particle **130/130**；当前 fixed13 为 `.codex/scene-fixed13-ropetrail-20260729-v1/report.json`，**13/13 PASS**、particle **76/76**。两门使用同一 RopeTrail 共享渲染实现；随后对 Bool 与 renderer 容器做了更严格的 parser fail-closed 收窄，因此统一门不外推到该最终收窄，当前实现另由完整 Scene suite 和最终三样本门覆盖。
 >
-> 最新运行门：`5911049` 的签名 Debug App 在隔离副本上定向运行 `2067939514`、`3088601835`、`3299228616`、`3742133044`，Position oscillation 报告 **4/4 PASS**、texture loaded ratio 1.0、failed frame/drawable miss 0；完整 `test_scene_particle*.py` **72/72 PASS**，代码健康与签名 Debug build/严格 codesign 通过。此前 `f4e8a0c` 的 mip 门为 **2/2 PASS**，分布/振荡门分别 **1/1 PASS**，TEX sampler 中间构建为 **4/4 PASS**。这些批次都没有重跑 fixed13/full45，页首 `8f4cd30` 的 **13/13** 与 **45/45** 仍是最近统一门，不外推到新实现；报告身份、SHA、方向性视觉与边界见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：`aa68bb8` 的最终签名 Debug App 在隔离副本上定向运行 `3299228616`、`3743305891`、`3770444459`，RopeTrail 报告 **3/3 PASS**，particle 分别 **7/7、1/1、5/5**，failed frame/drawable miss 0；五个聚焦模块 **54/54 PASS**、完整 Scene suite **681 项通过 / 2 项按既有条件跳过**，代码健康、签名 Debug build 与严格 codesign 通过。报告身份、SHA、方向性视觉和统一门/最终 parser 收窄的证据边界见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -64,7 +64,7 @@
 | Audio frame input | `L3` | 16/32/64 频段 × left/right host-shared 快照：系统音频 tap -> 单次 FFT 的 `SystemAudioSceneSpectrumAnalyzer` -> `SceneAudioSpectrumInbox` -> `SceneFrameContext`，host 每帧采样一次广播给所有 surface；采集由 consumer 存在性驱动，无 consumer/暂停/锁屏/休眠即停采并归零 | stock effect 只消费 16 档，32/64 只供两个 exact Simple Audio Bars profile；频段边界、归一化和平滑是工程选择，非官方合同，无 Windows 数值 golden；SceneScript audio buffer 未接 | B0/B4 |
 | 内嵌视频纹理 | `L3` | TEX 内嵌 MP4 image-layer 播放，消费共享 host time | seek/pause/switch/loop 精确合同及更多容器 | B1 |
 | 系统媒体 identity | `L1` | `$mediaThumbnail` typed 引用存在 | producer/consumer、事件、缩略图 generation | B1/B4 |
-| Particle runtime | `L3` | 作者 sprite、常见组件、Sprite Trail；解析后有效 alpha≤0 且无 script/animation 的层不构造 runtime，operator/instance/TEX 热路径复用存储；`SceneStockAssets.bundle` 保留内置资源的官方相对路径，particle texture 依次走 package/loose/stock 的明确纹理候选，同名 material JSON 不得抢占；22-key 程序纹理只作 bundle 缺失回退。root/child 与 strict REFRACT color/normal 按 TEX container flags 独立选择 nearest/linear、repeat/clamp-edge，并消费实际 mip 链；RG88 颜色适配保留每级 mip。常见 Random initializer 消费 finite nonnegative exponent；zero/absent-min Box 以 origin 为中心；Oscillate Alpha/Size/Position 的 frequency 按 normalized lifetime，其中 Position 以当前/上一波形差值无漂移叠加并消费数值 axis mask；Turbulent Velocity 的 offset 参与 forward/tangent 方向旋转。strict `genericparticle` `REFRACT=1` 与静态 world-space 子集边界不变 | 粒子 live override、动态 world-space transform、Rope、Lighting 仍未执行；TEX flag 位义、random/offset 数值和 REFRACT 都是有界 clean-room 合同，clamp-border 当前降级 edge，sidecar frame nominal geometry/rotated/trimmed atlas、默认 oscillator/system-seed hierarchy、相机/材质 alpha 与 Windows golden 未完成 | **B4** |
+| Particle runtime | `L3` | 作者 Sprite、常见组件、Sprite Trail，以及严格单 renderer、Screen orientation、renderer world-space 关闭的 RopeTrail 子集；RopeTrail 要求 finite `length`，`segments` 缺省 4 且只准 1...8，可选 `fadealpha`，以 fixed-step/prewarm snapshot 和 live particle ID 保存有界轨迹，复用现有 TEX、blend 与 strict REFRACT pipeline。项目准入预算为 `length <= 4`、`maxcount <= 512`、`maxcount × segments <= 4096`，不是官方数值边界。其余既有 root/child、TEX sampler/mip、Random/Box/Oscillation/Turbulence、strict REFRACT 与静态 world-space 子集不变 | Rope 仍未执行；RopeTrail 的 subdivision、UV scale/scroll、animated TEX、非 Screen/world-space、multi renderer、`fadesize`、死亡尾迹、pause/seek/reset 与 whole-scene 聚合预算未实现。上述 RopeTrail 几何、fade 与预算都是有界 clean-room 合同；官方没有公开数值默认值、Length 单位、节点/插值/接缝或精确 UV，仍无 Windows golden。粒子 live override、动态 world-space transform、Lighting、sidecar nominal geometry/rotated/trimmed atlas 等缺口不变 | **B4** |
 | Text/Font runtime | `L3` | CoreText 静态栅格、direct property 动态重栅格、exact clock/day/date native profile 和部分 font/pointsize/padding/scale；动态内容在 `limitwidth=false` 时按 intrinsic size 扩框并贯穿 capture/effect/final quad；结构门 `79/108` | 通用 SceneScript/system/media text、Windows baseline/fallback、outline/shadow/effect；动态扩框无 Windows 像素 golden | B4/B5 |
 | Camera Parallax | `L3` | 仅作者开启且非零 depth 时启用，含层级传播/阻断 | WE 数值 golden、camera shake/zoom、3D camera | B5 |
 | User Properties | `L3` | 独立窗口、条件、持久化、PNG/JPEG `sceneTexture`；layer alpha、纯 solid color、direct text、strict Local Contrast/Opacity 与受限 X-Ray target 已无重建 live 更新；exact Simple Audio Bars `Bar Color` 已有 typed compiler/snapshot/GPU consumer | Audio Bars 尚无真实 live override 门；unsupported/mixed/SceneScript bindings、Texture Variants、shortcut、跨重启 UI 门；精确 census 见 runtime-input 专项表 | **B0/B1** |
@@ -113,8 +113,9 @@
 | 其他未接 force/operator | `L1` | attract/vortex 等明确 unsupported | control-point/world-space 力场 |
 | Sprite renderer | `L3` | 作者纹理和程序化静态遮罩子集；TEX filter/address/mip 进入真实 Metal sampler，UV>1 repeat、minification 与单 mip 均有 GPU 门 | clamp-border 精确值、全 material/blend/lighting/atlas 与像素 golden |
 | Sprite Trail | `L3` | 受限 trail 执行 | orientation/length/atlas/曲线精度 |
-| Rope/Rope Trail declaration | `L1` | 结构/诊断不足 | topology、constraint 和 material IR |
-| Rope/Rope Trail execution | `L0` | 无 renderer | geometry/history/lifecycle |
+| Rope declaration | `L1` | typed kind/字段可见，runtime 明确拒绝 | topology、constraint、material IR 和 lifecycle |
+| Rope execution | `L0` | 无 renderer | geometry/topology/连续 UV/lifecycle |
+| Rope Trail strict execution | `L3` | 严格 Screen 单 renderer 子集以有界历史生成 quad 段；非准入字段、组合和预算全部 fail closed | 官方数值/UV/接缝/死亡尾迹/暂停恢复语义与 Windows golden |
 | Static control-point subset | `L2` | static local offset/instance override 有分支；缺最终位置断言 | emitter 位置、空间与 parent golden |
 | Dynamic control-point declaration | `L1` | 可识别或诊断 object/cursor/script 需求 | typed target 和 binding IR |
 | Dynamic control-point execution | `L0` | 无 object/cursor/script runtime | 坐标转换与每帧更新 |
@@ -136,7 +137,7 @@
 | Turbulent velocity initializer | `L3` | 非音频 profile 消费 forward/right/up、phase、scale、time、speed range；finite offset 作为 forward→tangent 平面方向旋转，`scale=0` 仍保留 offset；audio profile 继续 fail closed | right/up/noise mapping 与 offset 弧度解释仍属 clean-room；Windows 固定 seed 数值/视觉 golden 与 audio 公式 |
 | Delta clamp/prewarm cap | `L2` | 代码有上限分支，缺定向预算断言 | 长帧和高 prewarm 压力门 |
 
-当前 `8f4cd30` 完整矩阵可见粒子为 `127/130`，fixed13 为 `76/76`；两门的初始 REFRACT root batch 分别为 13 与 7。`2131872317` 的 event-death child REFRACT 在初始报告中仍为 0，另由 7 秒延迟 runtime 门证明生成非空折射 batch。`3088601835` 为 `19/19`，其中 Snow root layers `513/534` 已执行，static `snowstormfog` child 也已由真实缓存门确认在两层生成实例，matrix-code 两层随 `b86db59` 解除 nested 阻断进入执行。child 不增加 root loaded-layer 计数。`3750813609` 已由 `7/9` 升至 `9/9`；`2998757800` 为 `15/15` 且 REFRACT 6，`3299228616` 为 `6/7`，`3769688830` 为 `6/6`，`3770444459` 为 `4/5`。full45 剩余 3 个 root 缺口均为 Rope/RopeTrail；`2998757800` 的 child scale 0.2 仍在独立 strict child-transform 边界外。这些数字只度量对应矩阵实际加载的 root layer，不代表粒子组件覆盖率或 Windows 视觉等价。
+当前完整矩阵可见粒子为 `130/130`，fixed13 为 `76/76`；两门的初始 REFRACT root batch 分别为 14 与 7。RopeTrail 三个目标样本为 `3299228616=7/7`、`3743305891=1/1`、`3770444459=5/5`，后者 REFRACT 为 4。当前矩阵没有 root particle 加载缺口；这不等于粒子组件完整兼容，`3299228616` 的音频响应、`3743305891` 的 child transform、`3770444459` 的 Boids/滴水与 splash children，以及 Rope、动态 world-space、Lighting 等 unsupported component 仍在。`2131872317` 的 event-death child REFRACT 继续由独立 7 秒延迟 runtime 门证明，child 不增加 root loaded-layer 计数。上述数字只度量对应矩阵实际加载的 root layer，不代表 Windows 视觉等价。
 
 `7b1d36f` 的 Turbulence 定向门为 5/5，覆盖旧 full45 日志中 19 条 `unsupportedOperator:turbulence` 的 14 条；另 3 个命中样本没有在新实现上复跑。该批没有改变 particle root loaded 计数，也没有重跑 fixed13/full45。
 
