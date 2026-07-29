@@ -51,7 +51,7 @@ struct SceneParticleSamplerStateSet {
         let metalFilter: MTLSamplerMinMagFilter = filter == .nearest ? .nearest : .linear
         descriptor.minFilter = metalFilter
         descriptor.magFilter = metalFilter
-        descriptor.mipFilter = .notMipmapped
+        descriptor.mipFilter = filter == .nearest ? .nearest : .linear
         let metalAddress: MTLSamplerAddressMode = addressMode == .repeatWrap
             ? .repeat
             : .clampToEdge

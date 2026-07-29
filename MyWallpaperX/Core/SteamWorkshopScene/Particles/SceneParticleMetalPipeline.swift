@@ -92,7 +92,7 @@ struct SceneParticleMetalPipeline {
         uniforms: SceneParticleLayerUniforms,
         blendMode: SceneParticlePipelineBlendMode,
         colorUVScale: SIMD2<Float> = SIMD2(repeating: 1),
-        colorSampling: SceneParticleTextureSampling = .directImageFallback,
+        colorSampling: SceneParticleTextureSampling,
         encoder: MTLRenderCommandEncoder
     ) {
         guard let drawState = instances.currentDrawState() else { return }
@@ -146,7 +146,7 @@ struct SceneParticleMetalPipeline {
         uniforms: SceneParticleLayerUniforms,
         blendMode: SceneParticlePipelineBlendMode,
         colorUVScale: SIMD2<Float>,
-        colorSampling: SceneParticleTextureSampling = .directImageFallback,
+        colorSampling: SceneParticleTextureSampling,
         encoder: MTLRenderCommandEncoder
     ) {
         guard let drawState = instances.currentDrawState() else { return }

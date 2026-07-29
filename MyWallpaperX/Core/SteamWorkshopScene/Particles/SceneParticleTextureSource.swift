@@ -72,41 +72,44 @@ enum SceneParticleColorTextureAdapter {
         device: MTLDevice
     ) -> MTLTexture? {
         guard texture.storageMode == .shared else { return nil }
-        let width = texture.width
-        let height = texture.height
-        var source = [UInt8](repeating: 0, count: width * height * 2)
-        texture.getBytes(
-            &source,
-            bytesPerRow: width * 2,
-            from: MTLRegionMake2D(0, 0, width, height),
-            mipmapLevel: 0
-        )
-        var expanded = [UInt8](repeating: 0, count: width * height * 4)
-        for index in 0..<(width * height) {
-            let luminance = UInt16(source[index * 2])
-            let alpha = UInt16(source[index * 2 + 1])
-            let premultiplied = UInt8((luminance * alpha + 127) / 255)
-            expanded[index * 4] = premultiplied
-            expanded[index * 4 + 1] = premultiplied
-            expanded[index * 4 + 2] = premultiplied
-            expanded[index * 4 + 3] = UInt8(alpha)
-        }
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .rgba8Unorm,
-            width: width,
-            height: height,
-            mipmapped: false
+            width: texture.width,
+            height: texture.height,
+            mipmapped: texture.mipmapLevelCount > 1
         )
+        descriptor.mipmapLevelCount = texture.mipmapLevelCount
         descriptor.usage = .shaderRead
         descriptor.storageMode = .shared
         guard let output = device.makeTexture(descriptor: descriptor) else { return nil }
-        expanded.withUnsafeBytes { buffer in
-            output.replace(
-                region: MTLRegionMake2D(0, 0, width, height),
-                mipmapLevel: 0,
-                withBytes: buffer.baseAddress!,
-                bytesPerRow: width * 4
+        for level in 0..<texture.mipmapLevelCount {
+            let width = max(texture.width >> level, 1)
+            let height = max(texture.height >> level, 1)
+            var source = [UInt8](repeating: 0, count: width * height * 2)
+            texture.getBytes(
+                &source,
+                bytesPerRow: width * 2,
+                from: MTLRegionMake2D(0, 0, width, height),
+                mipmapLevel: level
             )
+            var expanded = [UInt8](repeating: 0, count: width * height * 4)
+            for index in 0..<(width * height) {
+                let luminance = UInt16(source[index * 2])
+                let alpha = UInt16(source[index * 2 + 1])
+                let premultiplied = UInt8((luminance * alpha + 127) / 255)
+                expanded[index * 4] = premultiplied
+                expanded[index * 4 + 1] = premultiplied
+                expanded[index * 4 + 2] = premultiplied
+                expanded[index * 4 + 3] = UInt8(alpha)
+            }
+            expanded.withUnsafeBytes { buffer in
+                output.replace(
+                    region: MTLRegionMake2D(0, 0, width, height),
+                    mipmapLevel: level,
+                    withBytes: buffer.baseAddress!,
+                    bytesPerRow: width * 4
+                )
+            }
         }
         return output
     }

@@ -166,6 +166,7 @@ enum Harness {
                 ),
             ],
             "samplerPixels": samplerPixels(),
+            "mipSamplerPixels": mipSamplerPixels(),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -267,7 +268,9 @@ enum Harness {
                 viewProjection: SceneMatrix.identity(),
                 layerModel: SceneMatrix.identity(), basis: basis
             ),
-            blendMode: .translucent, encoder: encoder
+            blendMode: .translucent,
+            colorSampling: .directImageFallback,
+            encoder: encoder
         )
         pipeline.draw(
             texture: input, instances: instances,
@@ -275,7 +278,9 @@ enum Harness {
                 viewProjection: SceneMatrix.identity(),
                 layerModel: SceneMatrix.identity(), basis: basis
             ),
-            blendMode: .additive, encoder: encoder
+            blendMode: .additive,
+            colorSampling: .directImageFallback,
+            encoder: encoder
         )
         encoder.endEncoding()
         let submitted = instances.markSubmitted(on: command)
@@ -387,6 +392,7 @@ enum Harness {
                 )
             ),
             blendMode: .translucent,
+            colorSampling: .directImageFallback,
             encoder: encoder
         )
         encoder.endEncoding()
@@ -435,7 +441,7 @@ enum Harness {
         )
 
         let rgDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .rg8Unorm, width: 2, height: 2, mipmapped: false
+            pixelFormat: .rg8Unorm, width: 2, height: 2, mipmapped: true
         )
         rgDescriptor.usage = .shaderRead
         rgDescriptor.storageMode = .shared
@@ -449,8 +455,14 @@ enum Harness {
             region: MTLRegionMake2D(0, 0, 2, 2), mipmapLevel: 0,
             withBytes: &luminanceAlpha, bytesPerRow: 4
         )
+        var secondMip: [UInt8] = [64, 64]
+        rg.replace(
+            region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 1,
+            withBytes: &secondMip, bytesPerRow: 2
+        )
         let adaptedRG = SceneParticleColorTextureAdapter.adapt(rg, device: device)
         var expanded = [UInt8](repeating: 0, count: 4)
+        var expandedSecondMip = [UInt8](repeating: 0, count: 4)
         if adaptedRG.pixelFormat == .rgba8Unorm {
             adaptedRG.getBytes(
                 &expanded,
@@ -458,12 +470,20 @@ enum Harness {
                 from: MTLRegionMake2D(0, 0, 1, 1),
                 mipmapLevel: 0
             )
+            adaptedRG.getBytes(
+                &expandedSecondMip,
+                bytesPerRow: 4,
+                from: MTLRegionMake2D(0, 0, 1, 1),
+                mipmapLevel: 1
+            )
         }
         return [
             "rawR8": rawR8,
             "adaptedR8": adaptedR8,
             "rgExpandedFormatIsRGBA": adaptedRG.pixelFormat == .rgba8Unorm,
+            "rgExpandedMipCount": adaptedRG.mipmapLevelCount,
             "rgExpandedPixel": expanded.map(Int.init),
+            "rgExpandedSecondMip": expandedSecondMip.map(Int.init),
         ]
     }
 
@@ -561,6 +581,7 @@ enum Harness {
             ),
             blendMode: .translucent,
             colorUVScale: SIMD2(repeating: 1),
+            colorSampling: .directImageFallback,
             encoder: encoder
         )
         encoder.endEncoding()
@@ -583,6 +604,116 @@ enum Harness {
                 sampling: SceneParticleTextureSampling(texFlags: 0)
             ),
         ]
+    }
+
+    private static func mipSamplerPixels() -> [String: Any] {
+        [
+            "linear": sampledMipCenter(
+                sampling: SceneParticleTextureSampling(texFlags: 2),
+                mipmapped: true
+            ),
+            "nearest": sampledMipCenter(
+                sampling: SceneParticleTextureSampling(texFlags: 3),
+                mipmapped: true
+            ),
+            "singleLevel": sampledMipCenter(
+                sampling: SceneParticleTextureSampling(texFlags: 2),
+                mipmapped: false
+            ),
+        ]
+    }
+
+    private static func sampledMipCenter(
+        sampling: SceneParticleTextureSampling,
+        mipmapped: Bool
+    ) -> [Int] {
+        let outputSize = 64
+        let inputSize = 8
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let pipeline = SceneParticleMetalPipeline(device: device),
+              let queue = device.makeCommandQueue(),
+              let command = queue.makeCommandBuffer() else { return [] }
+        let inputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm,
+            width: inputSize,
+            height: inputSize,
+            mipmapped: mipmapped
+        )
+        inputDescriptor.usage = .shaderRead
+        inputDescriptor.storageMode = .shared
+        let outputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm,
+            width: outputSize,
+            height: outputSize,
+            mipmapped: false
+        )
+        outputDescriptor.usage = .renderTarget
+        outputDescriptor.storageMode = .shared
+        guard let input = device.makeTexture(descriptor: inputDescriptor),
+              let output = device.makeTexture(descriptor: outputDescriptor) else { return [] }
+        for level in 0..<input.mipmapLevelCount {
+            let width = max(input.width >> level, 1)
+            let height = max(input.height >> level, 1)
+            let color: [UInt8] = mipmapped
+                ? (level == 0 ? [255, 0, 0, 255] : [0, 255, 0, 255])
+                : [0, 0, 255, 255]
+            var texels = [UInt8]()
+            texels.reserveCapacity(width * height * 4)
+            for _ in 0..<(width * height) {
+                texels.append(contentsOf: color)
+            }
+            input.replace(
+                region: MTLRegionMake2D(0, 0, width, height),
+                mipmapLevel: level,
+                withBytes: &texels,
+                bytesPerRow: width * 4
+            )
+        }
+        let instances = SceneParticleMetalInstanceBuffer()
+        guard instances.update(device: device, instances: [
+            SceneParticleGPUInstance(
+                position: .zero,
+                size: 0.0625,
+                rotation: .zero,
+                color: SIMD3(repeating: 1),
+                alpha: 1
+            ),
+        ]) else { return [] }
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = output
+        pass.colorAttachments[0].loadAction = .clear
+        pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+        pass.colorAttachments[0].storeAction = .store
+        guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else {
+            return []
+        }
+        pipeline.draw(
+            texture: input,
+            instances: instances,
+            uniforms: SceneParticleLayerUniforms(
+                viewProjection: SceneMatrix.identity(),
+                layerModel: SceneMatrix.identity(),
+                basis: SceneParticleOrientation.screen.basis(
+                    cameraRight: SIMD3(1, 0, 0),
+                    cameraUp: SIMD3(0, 1, 0),
+                    cameraForward: SIMD3(0, 0, -1)
+                )
+            ),
+            blendMode: .translucent,
+            colorSampling: sampling,
+            encoder: encoder
+        )
+        encoder.endEncoding()
+        instances.markSubmitted(on: command)
+        guard commitAndWait(command) else { return [] }
+        var pixel = [UInt8](repeating: 0, count: 4)
+        output.getBytes(
+            &pixel,
+            bytesPerRow: outputSize * 4,
+            from: MTLRegionMake2D(outputSize / 2, outputSize / 2, 1, 1),
+            mipmapLevel: 0
+        )
+        return pixel.map(Int.init)
     }
 
     private static func sampledCenter(
@@ -705,6 +836,7 @@ enum Harness {
                 )
             ),
             blendMode: .translucent,
+            colorSampling: .directImageFallback,
             encoder: encoder
         )
         encoder.endEncoding()
@@ -831,7 +963,9 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertEqual(adapted[2], adapted[3])
         # RG88 luminance+alpha 展开为预乘 RGBA:255*128/255=128,alpha=128。
         self.assertTrue(contract["rgExpandedFormatIsRGBA"])
+        self.assertEqual(contract["rgExpandedMipCount"], 2)
         self.assertEqual(contract["rgExpandedPixel"], [128, 128, 128, 128])
+        self.assertEqual(contract["rgExpandedSecondMip"], [16, 16, 16, 64])
 
     def test_in_flight_instance_slots_are_not_reused_until_completion(self) -> None:
         slots = self.result["instanceBufferSlots"]
@@ -897,6 +1031,24 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertLess(clamp[1], 5)
         self.assertGreater(repeat[1], clamp[1] + 40)
         self.assertNotEqual(repeat, clamp)
+
+    def test_sampler_uses_authored_mip_chain_and_preserves_single_level_textures(
+        self,
+    ) -> None:
+        pixels = self.result["mipSamplerPixels"]
+        linear = pixels["linear"]
+        nearest = pixels["nearest"]
+        single_level = pixels["singleLevel"]
+        if not linear or not nearest or not single_level:
+            self.skipTest("Metal mip sampler draw is unavailable")
+        # BGRA: the minified multi-level texture selects green lower mips,
+        # while the single-level texture remains blue at LOD0.
+        self.assertGreater(linear[1], 240)
+        self.assertLess(linear[2], 5)
+        self.assertGreater(nearest[1], 240)
+        self.assertLess(nearest[2], 5)
+        self.assertGreater(single_level[0], 240)
+        self.assertLess(single_level[1], 5)
 
 
 if __name__ == "__main__":
