@@ -10,6 +10,8 @@ import io
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 
 SCRIPT_DIRECTORY = Path(__file__).resolve().parents[1]
@@ -153,6 +155,33 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
                 with contextlib.redirect_stderr(error):
                     self.assertEqual(runner.main(arguments), 2)
                 self.assertIn(message, error.getvalue())
+
+    @mock.patch.object(runner.subprocess, "run")
+    def test_module_process_disables_bytecode_writes(
+        self,
+        run: mock.Mock,
+    ) -> None:
+        run.return_value = SimpleNamespace(
+            returncode=0,
+            stdout="",
+            stderr="",
+        )
+        module, returncode, _, output = runner.run_module(
+            "script.tests.test_scene_test_runner"
+        )
+        self.assertEqual(module, "script.tests.test_scene_test_runner")
+        self.assertEqual(returncode, 0)
+        self.assertEqual(output, "")
+        self.assertEqual(
+            run.call_args.args[0],
+            [
+                sys.executable,
+                "-B",
+                "-m",
+                "unittest",
+                "script.tests.test_scene_test_runner",
+            ],
+        )
 
 
 if __name__ == "__main__":

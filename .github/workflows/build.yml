@@ -32,11 +32,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check Swift file health
+      - name: Run tests and check Swift file health
         env:
           BASE_REF: ${{ github.event.before }}
         run: |
-          python3 -B -m unittest discover -s script/tests
+          python3 -B script/run_scene_tests.py --scope all --jobs 4
           if [ -z "${BASE_REF}" ] || [[ "${BASE_REF}" =~ ^0+$ ]]; then
             BASE_REF="$(git tag --merged HEAD --list 'build-*' --sort=-version:refname | head -n 1)"
           fi

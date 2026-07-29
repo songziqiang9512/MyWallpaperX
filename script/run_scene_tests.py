@@ -122,7 +122,7 @@ def parse_arguments(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def run_module(module: str) -> tuple[str, int, float, str]:
     started = time.monotonic()
     completed = subprocess.run(
-        [sys.executable, "-m", "unittest", module],
+        [sys.executable, "-B", "-m", "unittest", module],
         cwd=REPOSITORY_ROOT,
         capture_output=True,
         text=True,
