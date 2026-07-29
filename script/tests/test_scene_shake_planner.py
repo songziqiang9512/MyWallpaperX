@@ -235,6 +235,7 @@ enum Harness {
         var contentKind = "image"
         var visible: Bool? = true
         var includePhase = true
+        var trimOmittedPhase = false
         var missingFlow = false
         var texturePathMismatch = false
         var extraTextureSlot = false
@@ -345,7 +346,9 @@ enum Harness {
         return SceneEffectDefinition(
             relativePath: definitionPath,
             version: mutation == "version" ? 2 : 1,
-            replacementKey: mutation == "replacement" ? "other" : "shake",
+            replacementKey: mutation == "replacement"
+                ? "other"
+                : (mutation == "missingReplacement" ? nil : "shake"),
             name: mutation == "name" ? "other" : "ui_editor_effect_shake_title",
             description: mutation == "description"
                 ? "other"
@@ -382,6 +385,7 @@ enum Harness {
             options.missingFlow ? nil : flowPath,
             options.includePhase ? phasePath : nil,
         ]
+        if options.trimOmittedPhase { slots.removeLast() }
         if options.extraTextureSlot { slots.append("extra") }
         var paths = slots.compactMap { $0 }
         if options.texturePathMismatch { paths.reverse() }
@@ -628,7 +632,13 @@ enum Harness {
         strengthOnly.strength = 0.3
         var strengthOutOfRange = Options(); strengthOutOfRange.constantSubset = ["strength"]
         strengthOutOfRange.strength = 0.6
-        var legacyAudio = Options(); legacyAudio.instanceCombos = ["AUDIOPROCESSING": 3]
+        var legacyAudio = Options()
+        legacyAudio.instanceCombos = ["AUDIOPROCESSING": 3]
+        legacyAudio.includePhase = false
+        legacyAudio.trimOmittedPhase = true
+        legacyAudio.frequencyMax = 0
+        legacyAudio.audioAmount = 2
+        legacyAudio.audioBounds = [0, 1.2]
 
         // --- AUDIOPROCESSING 正门 ---
         // 全部五个 audio 常量齐备（3767460992 形态）
@@ -681,6 +691,12 @@ enum Harness {
             descriptorOptions: strengthOnly,
             contracts: legacyContracts
         )
+        let legacyAudioPlan = planned(
+            descriptorOptions: legacyAudio,
+            contracts: legacyContracts
+        )
+        var legacyMissingReplacement = Options()
+        legacyMissingReplacement.definitionMutation = "missingReplacement"
         let stockEmptyPlan = planned(
             descriptorOptions: emptyConstants,
             contracts: contracts
@@ -826,12 +842,27 @@ enum Harness {
                     && $0.speed == 1
                     && $0.strength == 0.3
             } ?? false,
+            "legacyAudioAccepted": legacyAudioPlan.map {
+                $0.audio == SceneAudioResponse.Parameters(
+                    channel: .average,
+                    frequencyMin: 0,
+                    frequencyMax: 0,
+                    boundsLower: 0,
+                    boundsUpper: 1.2,
+                    exponent: 1,
+                    multiply: 2
+                )
+            } ?? false,
+            "legacyMissingReplacementAccepted": accepted(
+                descriptorOptions: legacyMissingReplacement,
+                contracts: legacyContracts
+            ),
             "legacyParameterRejected": [extra, badBounds, badFriction, badSpeed,
                                         badStrength, strengthOutOfRange]
                 .allSatisfy { !accepted(descriptorOptions: $0, contracts: legacyContracts) },
             "legacyDynamicRejected": [boundSpeed, wrongKind]
                 .allSatisfy { !accepted(descriptorOptions: $0, contracts: legacyContracts) },
-            "legacyComboRejected": [legacyAudio, noise, direction, mask, legacyTimeOffset]
+            "legacyComboRejected": [noise, direction, mask, legacyTimeOffset]
                 .allSatisfy { !accepted(descriptorOptions: $0, contracts: legacyContracts) },
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])

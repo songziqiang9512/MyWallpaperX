@@ -16,6 +16,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneBlendModeShaderSource.swift",
     SOURCE_ROOT / "Effects/SceneWaterFlowPipeline.swift",
     SOURCE_ROOT / "Effects/SceneGodraysPipeline.swift",
+    SOURCE_ROOT / "Effects/SceneGodraysPipeline+Encoding.swift",
     SOURCE_ROOT / "Effects/SceneTintPipeline.swift",
 ]
 
@@ -43,6 +44,8 @@ struct SceneGodraysPlan {
     let rayIntensity: Float
     let samples50: Bool
     let kernel13: Bool
+    let direction: Float?
+    let legacyGaussianWeights: Bool
     let blurScaleX: SIMD2<Float>
     let blurScaleY: SIMD2<Float>
     let blendMode: Int
@@ -246,6 +249,8 @@ enum Harness {
             rayIntensity: 1,
             samples50: false,
             kernel13: false,
+            direction: nil,
+            legacyGaussianWeights: false,
             blurScaleX: SIMD2(repeating: 1),
             blurScaleY: SIMD2(repeating: 1),
             blendMode: 9

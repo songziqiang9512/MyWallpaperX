@@ -112,11 +112,16 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
 
 
 class SceneShakeAudioContractTests(unittest.TestCase):
-    def test_legacy_profile_keeps_audio_fail_closed(self) -> None:
-        self.assertRegex(
-            SHAKE_PLANNER_AUDIO_SOURCE.read_text(encoding="utf-8"),
+    def test_verified_legacy_shake_profile_accepts_audio(self) -> None:
+        source = SHAKE_PLANNER_AUDIO_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            ".legacyUnconditionalPhase",
+            source,
+            "legacy Shake 的同源 vertex 与真实 mode 1/3 语料已验证，可走共享 audio 求值",
+        )
+        self.assertNotRegex(
+            source,
             r"case \.legacyUnconditionalPhase:\s*\n\s*return false",
-            "legacy Shake 指纹尚无 audio 正反例，必须继续整段拒绝",
         )
         self.assertIn(
             "isAudioCapableProfile: profile == .stock2842",

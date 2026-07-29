@@ -130,6 +130,7 @@ struct SceneShakePipeline {
             flowUVScale: flowUVScale,
             plan: plan,
             time: time,
+            audioPulse: audioPulse,
             commandBuffer: commandBuffer
         ) else {
             return false
@@ -175,6 +176,7 @@ struct SceneShakePipeline {
         flowUVScale: SIMD2<Float>,
         plan: SceneShakeExecutionPlan,
         time: Float,
+        audioPulse: Float?,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
         // flow 只消费 `.rg` 通道：stock 语料是 RG88 容器，legacy 老编辑器包
@@ -209,6 +211,7 @@ struct SceneShakePipeline {
             && plan.strength.isFinite
             && (0.01...0.5).contains(plan.strength)
             && time.isFinite
+            && (audioPulse?.isFinite ?? true)
             && commandBuffer.commandQueue.device.registryID == deviceRegistryID
             && [source, flowMap, phaseMap, target].allSatisfy {
                 $0.device.registryID == deviceRegistryID

@@ -47,11 +47,19 @@ fragment float4 sceneTintFrag(
         ).r;
         mask = u.maskScaleFlags.w > 0.5 ? mask * sampled : sampled;
     }
-    albedo.rgb = sceneApplyBlending(u.blendMode, albedo.rgb, u.colorAlpha.xyz, mask);
+    float sourceAlpha = albedo.a;
+    float3 straightRGB = sourceAlpha > 1e-6
+        ? clamp(albedo.rgb / sourceAlpha, 0.0, 1.0)
+        : float3(0.0);
+    float3 blended = clamp(
+        sceneApplyBlending(u.blendMode, straightRGB, u.colorAlpha.xyz, mask),
+        0.0,
+        1.0
+    );
     if (u.blendMode == 0) {
-        albedo.a = 1.0;
+        return float4(blended, 1.0);
     }
-    return albedo;
+    return float4(blended * sourceAlpha, sourceAlpha);
 }
 """
 

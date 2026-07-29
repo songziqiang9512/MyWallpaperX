@@ -1,8 +1,8 @@
 import Metal
 import simd
 
-/// 官方 godrays 五 pass 的 Metal 等价实现（`CASTER=0` Radial / `NOISE=1` / `COPYBG=0`）。
-/// 每个 kernel 逐行对照 stock 2.8.42 shader；combine 消费共享 `ApplyBlending` 表。
+/// Godrays 五 pass 的 Metal 等价实现。完整 shader contract profile 决定 radial
+/// 或 legacy directional cast 以及对应 Gaussian 权重；combine 消费共享 blending 表。
 private let sceneGodraysShaderSource = SceneBlendModeShaderSource.blendFunctions + """
 
 struct GodraysVaryings {
@@ -80,6 +80,7 @@ fragment float4 sceneGodraysDownsampleFrag(
 struct GodraysCastUniforms {
     float4 centerLength;     // xy=center, z=rayLength, w=rayIntensity
     float4 colorSamples;     // xyz=colorRays, w=samples50
+    float4 directionProfile; // x=legacy direction radians, y=directional
 };
 
 fragment float4 sceneGodraysCastFrag(
@@ -90,7 +91,9 @@ fragment float4 sceneGodraysCastFrag(
     constexpr sampler linearClamp(filter::linear, address::clamp_to_edge);
     float2 texCoords = input.texcoord;
     float4 albedo = float4(0.0);
-    float2 direction = u.centerLength.xy - texCoords;
+    float2 direction = u.directionProfile.y > 0.5
+        ? float2(0.5 * sin(u.directionProfile.x), -0.5 * cos(u.directionProfile.x))
+        : u.centerLength.xy - texCoords;
     float dist = length(direction);
     direction /= dist;
     dist *= u.centerLength.z;
@@ -114,6 +117,7 @@ fragment float4 sceneGodraysCastFrag(
 struct GodraysGaussianUniforms {
     float4 step; // xy = 采样步长（官方 v_TexCoord.zw：scale / halfResolution）
     int kernel13;
+    int legacyWeights;
 };
 
 fragment float4 sceneGodraysGaussianFrag(
@@ -124,6 +128,17 @@ fragment float4 sceneGodraysGaussianFrag(
     constexpr sampler linearClamp(filter::linear, address::clamp_to_edge);
     float2 uv = input.texcoord;
     float2 d = u.step.xy;
+    if (u.legacyWeights != 0) {
+        constexpr float weights[7] = {
+            0.171834, 0.156756, 0.119007, 0.075189, 0.039533, 0.017298, 0.006299
+        };
+        float4 result = source.sample(linearClamp, uv) * weights[0];
+        for (int i = 1; i <= 6; ++i) {
+            result += (source.sample(linearClamp, uv + float(i) * d)
+                + source.sample(linearClamp, uv - float(i) * d)) * weights[i];
+        }
+        return result;
+    }
     if (u.kernel13 != 0) {
         float2 o1 = float2(1.4091998770852122) * d;
         float2 o2 = float2(3.2979348079914822) * d;
@@ -180,11 +195,13 @@ struct SceneGodraysPipeline {
     private struct CastUniforms {
         var centerLength: SIMD4<Float>
         var colorSamples: SIMD4<Float>
+        var directionProfile: SIMD4<Float>
     }
 
     private struct GaussianUniforms {
         var step: SIMD4<Float>
         var kernel13: Int32
+        var legacyWeights: Int32
     }
 
     private struct CombineUniforms {
@@ -195,7 +212,7 @@ struct SceneGodraysPipeline {
     private let castState: MTLRenderPipelineState
     private let gaussianState: MTLRenderPipelineState
     private let combineState: MTLRenderPipelineState
-    private let deviceRegistryID: UInt64
+    let deviceRegistryID: UInt64
 
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {
         guard pixelFormat == .bgra8Unorm,
@@ -274,7 +291,8 @@ struct SceneGodraysPipeline {
         plan: SceneGodraysPlan,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
-        guard validColor(source, usage: .shaderRead),
+        guard (plan.direction?.isFinite ?? true),
+              validColor(source, usage: .shaderRead),
               validColor(target, usage: .renderTarget)
         else {
             return false
@@ -286,6 +304,9 @@ struct SceneGodraysPipeline {
             colorSamples: SIMD4(
                 plan.colorRays.x, plan.colorRays.y, plan.colorRays.z,
                 plan.samples50 ? 1 : 0
+            ),
+            directionProfile: SIMD4(
+                plan.direction ?? 0, plan.direction == nil ? 0 : 1, 0, 0
             )
         )
         return draw(
@@ -317,7 +338,8 @@ struct SceneGodraysPipeline {
             : SIMD2<Float>(plan.blurScaleX.x / Float(source.width), 0)
         var uniforms = GaussianUniforms(
             step: SIMD4(step.x, step.y, 0, 0),
-            kernel13: plan.kernel13 ? 1 : 0
+            kernel13: plan.kernel13 ? 1 : 0,
+            legacyWeights: plan.legacyGaussianWeights ? 1 : 0
         )
         return draw(
             state: gaussianState,
@@ -356,44 +378,4 @@ struct SceneGodraysPipeline {
         )
     }
 
-    private func draw<Uniforms>(
-        state: MTLRenderPipelineState,
-        textures: [MTLTexture],
-        uniforms: inout Uniforms,
-        length: Int,
-        target: MTLTexture,
-        commandBuffer: MTLCommandBuffer
-    ) -> Bool {
-        let descriptor = MTLRenderPassDescriptor()
-        descriptor.colorAttachments[0].texture = target
-        descriptor.colorAttachments[0].loadAction = .clear
-        descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
-        descriptor.colorAttachments[0].storeAction = .store
-        guard commandBuffer.commandQueue.device.registryID == deviceRegistryID,
-              let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
-        else {
-            return false
-        }
-        encoder.setRenderPipelineState(state)
-        for (index, texture) in textures.enumerated() {
-            encoder.setFragmentTexture(texture, index: index)
-        }
-        encoder.setFragmentBytes(&uniforms, length: length, index: 0)
-        encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
-        encoder.endEncoding()
-        return true
-    }
-
-    private func validColor(_ texture: MTLTexture, usage: MTLTextureUsage) -> Bool {
-        texture.textureType == .type2D
-            && [.bgra8Unorm, .rgba8Unorm, .r8Unorm].contains(texture.pixelFormat)
-            && texture.width > 0
-            && texture.height > 0
-            && (usage.contains(.renderTarget)
-                ? texture.mipmapLevelCount == 1
-                : texture.mipmapLevelCount > 0)
-            && texture.sampleCount == 1
-            && texture.usage.contains(usage)
-            && texture.device.registryID == deviceRegistryID
-    }
 }

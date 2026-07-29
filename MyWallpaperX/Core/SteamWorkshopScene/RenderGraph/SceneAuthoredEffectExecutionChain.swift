@@ -237,19 +237,9 @@ enum SceneAuthoredEffectChainPlanner {
             }
             stages.append(stage)
         }
-        guard fitsDefaultTextureBudget(stages) else {
-            if let isolated = isolatedShineChain(
-                graph: graph,
-                descriptor: descriptor,
-                shaderContracts: shaderContracts
-            ) {
-                return isolated
-            }
-#if DEBUG
-            print("MWX authored effect chain rejected layer=\(graph.layerID) reason=texture-budget")
-#endif
-            return nil
-        }
+        // 这里只能按假设的 2048² 输入估算，不能据此拒绝真实的小纹理长链。
+        // SceneOffscreenTexturePool 会在拿到实际 extent 后按精确字节数原子准入，
+        // 超出 128 MiB 的链仍会在分配前整条拒绝且不破坏现有 resident state。
 
         return SceneAuthoredEffectExecutionChain(
             layerID: graph.layerID,

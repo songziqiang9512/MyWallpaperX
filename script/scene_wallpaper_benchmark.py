@@ -232,6 +232,14 @@ AUTHORED_EFFECT_GRAPH_BLEND_COUNT_RE = re.compile(
     r"^authoredEffectGraphBlendCount: (?P<count>\d+)$",
     re.MULTILINE,
 )
+AUTHORED_EFFECT_GRAPH_TINT_COUNT_RE = re.compile(
+    r"^authoredEffectGraphTintCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
+AUTHORED_EFFECT_GRAPH_GODRAYS_COUNT_RE = re.compile(
+    r"^authoredEffectGraphGodraysCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
 AUTHORED_EFFECT_GRAPH_TRANSFORM_COUNT_RE = re.compile(
     r"^authoredEffectGraphTransformCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -1246,6 +1254,16 @@ def authored_effect_graph_blend_count(preview_text: str) -> int | None:
     return int(match.group("count")) if match is not None else None
 
 
+def authored_effect_graph_tint_count(preview_text: str) -> int | None:
+    match = AUTHORED_EFFECT_GRAPH_TINT_COUNT_RE.search(preview_text)
+    return int(match.group("count")) if match is not None else None
+
+
+def authored_effect_graph_godrays_count(preview_text: str) -> int | None:
+    match = AUTHORED_EFFECT_GRAPH_GODRAYS_COUNT_RE.search(preview_text)
+    return int(match.group("count")) if match is not None else None
+
+
 def authored_effect_graph_transform_count(preview_text: str) -> int | None:
     match = AUTHORED_EFFECT_GRAPH_TRANSFORM_COUNT_RE.search(preview_text)
     return int(match.group("count")) if match is not None else None
@@ -1372,6 +1390,8 @@ def authored_effect_graph_failures(
     shine_omitted_effects: list[str] | None = None,
     clipping_mask_count: int | None = None,
     blend_count: int | None = None,
+    tint_count: int | None = None,
+    godrays_count: int | None = None,
     transform_count: int | None = None,
     transform_static_fallback_count: int | None = None,
     transform_static_fallback_diagnostics: list[str] | None = None,
@@ -1517,6 +1537,14 @@ def authored_effect_graph_failures(
     if expected_blend is not None:
         if blend_count != int(expected_blend):
             failures.append("authored effect graph Blend count mismatch")
+    expected_tint = sample.get("expected_authored_effect_graph_tint_count")
+    if expected_tint is not None:
+        if tint_count != int(expected_tint):
+            failures.append("authored effect graph Tint count mismatch")
+    expected_godrays = sample.get("expected_authored_effect_graph_godrays_count")
+    if expected_godrays is not None:
+        if godrays_count != int(expected_godrays):
+            failures.append("authored effect graph Godrays count mismatch")
     expected_transform = sample.get("expected_authored_effect_graph_transform_count")
     if expected_transform is not None:
         if transform_count != int(expected_transform):
@@ -1890,6 +1918,8 @@ def run_sample(
         preview_text
     )
     authored_effect_graph_blend = authored_effect_graph_blend_count(preview_text)
+    authored_effect_graph_tint = authored_effect_graph_tint_count(preview_text)
+    authored_effect_graph_godrays = authored_effect_graph_godrays_count(preview_text)
     authored_effect_graph_transform = authored_effect_graph_transform_count(preview_text)
     authored_effect_graph_transform_static_fallback = (
         authored_effect_graph_transform_static_fallback_count(preview_text)
@@ -2031,6 +2061,8 @@ def run_sample(
         shine_omitted_effects=authored_effect_graph_shine_omitted,
         clipping_mask_count=authored_effect_graph_clipping_mask,
         blend_count=authored_effect_graph_blend,
+        tint_count=authored_effect_graph_tint,
+        godrays_count=authored_effect_graph_godrays,
         transform_count=authored_effect_graph_transform,
         transform_static_fallback_count=authored_effect_graph_transform_static_fallback,
         transform_static_fallback_diagnostics=(
@@ -2355,6 +2387,8 @@ def run_sample(
             "authored_effect_graph_shine_omitted_effects": authored_effect_graph_shine_omitted,
             "authored_effect_graph_clipping_mask_count": authored_effect_graph_clipping_mask,
             "authored_effect_graph_blend_count": authored_effect_graph_blend,
+            "authored_effect_graph_tint_count": authored_effect_graph_tint,
+            "authored_effect_graph_godrays_count": authored_effect_graph_godrays,
             "authored_effect_graph_transform_count": authored_effect_graph_transform,
             "authored_effect_graph_transform_static_fallback_count": authored_effect_graph_transform_static_fallback,
             "authored_effect_graph_transform_static_fallback_diagnostics": authored_effect_graph_transform_fallback_diagnostics,

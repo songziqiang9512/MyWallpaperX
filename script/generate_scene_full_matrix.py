@@ -150,6 +150,8 @@ def matrix_sample(result, old):
         "expected_authored_effect_graph_foliage_sway_count": runtime["authored_effect_graph_foliage_sway_count"],
         "expected_authored_effect_graph_water_ripple_count": runtime["authored_effect_graph_water_ripple_count"],
         "expected_authored_effect_graph_blend_count": runtime["authored_effect_graph_blend_count"],
+        "expected_authored_effect_graph_tint_count": runtime["authored_effect_graph_tint_count"],
+        "expected_authored_effect_graph_godrays_count": runtime["authored_effect_graph_godrays_count"],
         "expected_authored_effect_graph_transform_count": runtime["authored_effect_graph_transform_count"],
         "expected_authored_effect_graph_transform_static_fallback_count": runtime["authored_effect_graph_transform_static_fallback_count"],
         "expected_authored_effect_graph_transform_static_fallback_diagnostics": runtime["authored_effect_graph_transform_static_fallback_diagnostics"],

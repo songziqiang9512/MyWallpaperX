@@ -105,7 +105,9 @@ enum SceneAuthoredShakePlanner {
         }
         guard matches.count == 1, let definition = matches.first,
               definition.version == 1,
-              definition.replacementKey == "shake",
+              // 旧编辑器包可能省略只用于编辑器替换菜单的 replacementkey；
+              // 运行语义继续由精确 definition/material/shader 合同约束。
+              [nil, "shake"].contains(definition.replacementKey),
               definition.name == "ui_editor_effect_shake_title",
               definition.description == "ui_editor_effect_shake_description",
               definition.group == "animate",
@@ -199,8 +201,9 @@ enum SceneAuthoredShakePlanner {
         from pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor,
         profile: SceneShakeShaderProfile
     ) -> (flow: String, phase: String?)? {
-        let supportsOmittedPhase = profile == .timeOffsetCombo
-            && normalizedComboValue("TIMEOFFSET", in: pass.combos) != 1
+        let supportsOmittedPhase = profile == .legacyUnconditionalPhase
+            || (profile == .timeOffsetCombo
+                && normalizedComboValue("TIMEOFFSET", in: pass.combos) != 1)
         guard pass.textureSlots.count == 3
                 || (supportsOmittedPhase && pass.textureSlots.count == 2),
               pass.textureSlots[0] == nil,
@@ -216,8 +219,8 @@ enum SceneAuthoredShakePlanner {
         }
         let expected = [flow] + (phase.map { [$0] } ?? [])
         guard pass.texturePaths == expected else { return nil }
-        // legacy 实例把 phase 显式写成 shader 注解默认 `util/white`（stock 资产，白=2π≡0）。
-        // 显式默认与缺省语义相同，归一为 nil 走 pipeline 内置 R8 白回退，
+        // legacy 实例会省略 phase，或显式写成 shader 注解默认 `util/white`
+        //（stock 资产，白=2π≡0）。显式默认与缺省语义相同，归一为 nil 走内置 R8 白回退，
         // 避免解码 BGRA white.tex 撞 pipeline 的 R8 phase 格式合同。
         if profile == .legacyUnconditionalPhase,
            let explicitPhase = phase,

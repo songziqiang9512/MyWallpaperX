@@ -1643,12 +1643,14 @@ utility layer 763: skippedHidden kind=composition
             "authored_effect_graph_film_grain_count": 4,
             "authored_effect_graph_light_shafts_count": 5,
             "authored_effect_graph_blend_count": 6,
-            "authored_effect_graph_transform_count": 7,
+            "authored_effect_graph_tint_count": 7,
+            "authored_effect_graph_godrays_count": 8,
+            "authored_effect_graph_transform_count": 9,
             "authored_effect_graph_transform_static_fallback_count": 2,
             "authored_effect_graph_transform_static_fallback_diagnostics": [
                 "fixture"
             ],
-            "authored_effect_graph_authored_shader_count": 8,
+            "authored_effect_graph_authored_shader_count": 10,
         }
         runtime.update(expected_counts)
         sample = matrix_generator.matrix_sample(
@@ -1837,6 +1839,45 @@ utility layer 763: skippedHidden kind=composition
                 metrics,
             ),
         )
+
+    def test_authored_tint_and_godrays_counts_are_exact_gates(self) -> None:
+        preview = (
+            "authoredEffectGraphTintCount: 24\n"
+            "authoredEffectGraphGodraysCount: 12\n"
+        )
+        tint_count = benchmark.authored_effect_graph_tint_count(preview)
+        godrays_count = benchmark.authored_effect_graph_godrays_count(preview)
+        self.assertEqual(tint_count, 24)
+        self.assertEqual(godrays_count, 12)
+        self.assertEqual(
+            benchmark.authored_effect_graph_failures(
+                {
+                    "expected_authored_effect_graph_tint_count": 24,
+                    "expected_authored_effect_graph_godrays_count": 12,
+                },
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                tint_count=tint_count,
+                godrays_count=godrays_count,
+            ),
+            [],
+        )
+        failures = benchmark.authored_effect_graph_failures(
+            {
+                "expected_authored_effect_graph_tint_count": 0,
+                "expected_authored_effect_graph_godrays_count": 0,
+            },
+            {"succeeded_layer_ids": [], "failed_layer_ids": []},
+            [],
+            None,
+            tint_count=tint_count,
+            godrays_count=godrays_count,
+        )
+        self.assertIn("authored effect graph Tint count mismatch", failures)
+        self.assertIn("authored effect graph Godrays count mismatch", failures)
+        self.assertIsNone(benchmark.authored_effect_graph_tint_count(""))
+        self.assertIsNone(benchmark.authored_effect_graph_godrays_count(""))
 
     def test_image_blend_runtime_pins_planned_and_completed_consumers(self) -> None:
         metrics = benchmark.image_blend_runtime_metrics(

@@ -13,13 +13,12 @@ extension SceneAuthoredShakePlanner {
     }
 
     /// `AUDIOPROCESSING` 只在已随 audio 验证过指纹的 profile 上放开。
-    /// `legacyUnconditionalPhase` 的老编辑器包尚无 audio 正反例，保持整段拒绝。
+    /// legacy 与 white-phase profile 共用同一 vertex 指纹及 audio 分支语义；
+    /// 真实语料覆盖 mode 1/3，仍由各 profile 的完整 fragment 指纹约束准入。
     nonisolated static func audioCapable(_ profile: SceneShakeShaderProfile) -> Bool {
         switch profile {
-        case .whitePhaseFallback, .timeOffsetCombo:
+        case .whitePhaseFallback, .timeOffsetCombo, .legacyUnconditionalPhase:
             return true
-        case .legacyUnconditionalPhase:
-            return false
         }
     }
 

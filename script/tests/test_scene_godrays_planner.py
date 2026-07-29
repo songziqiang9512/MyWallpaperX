@@ -30,6 +30,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneShaderContractLoader.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "Effects/SceneBlendModeShaderSource.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGodraysShaderProfile.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredGodraysPlanner.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredGodraysPlanner+Constants.swift",
 ]

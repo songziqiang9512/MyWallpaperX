@@ -194,6 +194,7 @@ enum Harness {
         phase: MTLTexture?,
         plan: SceneShakeExecutionPlan = plan(),
         time: Float,
+        audioPulse: Float? = nil,
         flowUVScale: SIMD2<Float> = SIMD2(1, 1)
     ) -> (bytes: [UInt8], returnedOutput: Bool, completed: Bool) {
         let target = texture(device: device)
@@ -209,7 +210,7 @@ enum Harness {
             plan: plan,
             resources: resources,
             time: time,
-            audioPulse: nil,
+            audioPulse: audioPulse,
             inputTexture: source,
             outputTexture: target,
             pipeline: pipeline,
@@ -281,7 +282,8 @@ enum Harness {
             target candidateTarget: MTLTexture = target,
             flowUVScale: SIMD2<Float> = SIMD2(1, 1),
             plan candidatePlan: SceneShakeExecutionPlan = plan(),
-            time: Float = 1.5707963
+            time: Float = 1.5707963,
+            audioPulse: Float? = nil
         ) -> Bool {
             pipeline.encode(
                 source: candidateSource,
@@ -291,7 +293,7 @@ enum Harness {
                 target: candidateTarget,
                 plan: candidatePlan,
                 time: time,
-                audioPulse: nil,
+                audioPulse: audioPulse,
                 commandBuffer: command
             )
         }
@@ -317,6 +319,7 @@ enum Harness {
             "invalidSpeed": !encoded(plan: plan(speed: 10.1)),
             "invalidStrength": !encoded(plan: plan(strength: 0)),
             "nanTime": !encoded(time: .nan),
+            "nanAudioPulse": !encoded(audioPulse: .nan),
             "wrongPipelineFormat": SceneShakePipeline(
                 device: device,
                 pixelFormat: .rgba8Unorm
@@ -453,11 +456,32 @@ enum Harness {
             phase: nil,
             time: 4.712389
         )
+        let silentAudio = render(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            source: source,
+            flow: flow,
+            phase: nil,
+            time: 1.5707963,
+            audioPulse: 0
+        )
+        let activeAudio = render(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            source: source,
+            flow: flow,
+            phase: nil,
+            time: 1.5707963,
+            audioPulse: 1
+        )
         let result: [String: Any] = [
             "metalUnavailable": false,
             "changedPixels": changedPixels(input, fallback.bytes),
             "cornerChangedPixels": cornerChangedPixels(input, fallback.bytes),
             "timeChangedPixels": changedPixels(fallback.bytes, later.bytes),
+            "audioChangedPixels": changedPixels(silentAudio.bytes, activeAudio.bytes),
             "whiteFallbackMatches": fallback.bytes == explicitWhite.bytes,
             "rendererReturnedOutput": fallback.returnedOutput,
             "commandsCompleted": fallback.completed && explicitWhite.completed && later.completed,
@@ -531,6 +555,9 @@ class SceneShakeRenderingTests(unittest.TestCase):
 
     def test_missing_phase_uses_the_authored_white_fallback(self) -> None:
         self.assertTrue(self.result["whiteFallbackMatches"])
+
+    def test_nonzero_audio_pulse_changes_the_displacement(self) -> None:
+        self.assertGreater(self.result["audioChangedPixels"], 20)
 
     def test_invalid_textures_uniforms_and_resources_fail_closed(self) -> None:
         self.assertTrue(all(self.result["rejections"].values()))

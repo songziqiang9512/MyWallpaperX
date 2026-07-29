@@ -4352,9 +4352,13 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         mode0, mode30, mode0_masked = self.result["authoredTintChainPixels"]
         self.assertLessEqual(max(abs(a - b) for a, b in zip(mode0, [255, 0, 0, 255])), 1)
         self.assertLessEqual(max(abs(a - b) for a, b in zip(mode30, [160, 0, 0, 200])), 1)
-        # 半灰遮罩（0.502）作 ApplyBlending 权重：mix(A_bgr=(40,80,160), B=(255,0,0), 0.502)
-        # → bgra ≈ (148, 40, 80) 且 mode 0 强制 alpha=255。
-        self.assertLessEqual(max(abs(a - b) for a, b in zip(mode0_masked, [148, 40, 80, 255])), 2)
+        # 半灰遮罩（0.502）必须在 straight RGB 上混合。源 premultiplied
+        # BGRA=(40,80,160), alpha=200 先解预乘为约 (51,102,204)，再与
+        # B=(255,0,0) 混合；mode 0 最终强制 alpha=255。
+        self.assertLessEqual(
+            max(abs(a - b) for a, b in zip(mode0_masked, [153, 51, 102, 255])),
+            2,
+        )
 
     def test_failed_later_stage_never_composites_an_earlier_stage(self) -> None:
         evidence = self.result["authoredFailedChain"]
