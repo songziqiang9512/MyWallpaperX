@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "source_root": "MyWallpaperX/Core/SteamWorkshopScene",
+  "top_level_directories": [
+    "Effects",
+    "Format",
+    "Particles",
+    "Properties",
+    "RenderGraph",
+    "Rendering",
+    "Resources",
+    "Runtime",
+    "Text"
+  ],
+  "declared_second_level_directories": {
+    "RenderGraph": {
+      "EffectExecution": {
+        "file_globs": [
+          "SceneAuthoredEffectChainRenderer*.swift"
+        ],
+        "responsibility": "Ordered authored-effect chain GPU execution and its backend extensions."
+      }
+    }
+  },
+  "forbidden_directory_names": [
+    "Common",
+    "Helpers",
+    "Misc"
+  ]
+}

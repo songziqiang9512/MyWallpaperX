@@ -40,7 +40,7 @@ CHAIN_BACKEND_SOURCE = (
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift"
 )
 CHAIN_RENDERER_SOURCE = (
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift"
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer.swift"
 )
 IRIS_SUFFIX_SOURCE = (
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectIrisInlineSuffix.swift"

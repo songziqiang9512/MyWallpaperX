@@ -77,28 +77,28 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneProceduralNoiseExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneFilmGrainExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneLightShaftsExecutionPlan.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+CursorRipple.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Rays.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Blend.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+AuthoredShader.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Opacity.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+AudioBars.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+SimpleAudioBars.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+AudioHueShift.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+WorkshopGradient.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+ColorKey.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Pulse.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+ShiftHue.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Spin.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+ProceduralNoise.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+FilmGrain.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+ClippingMask.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Tint.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Transform.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+XRay.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Topology.swift",
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+WorkshopStage.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+CursorRipple.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Rays.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Blend.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+AuthoredShader.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Opacity.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+AudioBars.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+SimpleAudioBars.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+AudioHueShift.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+WorkshopGradient.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+ColorKey.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Pulse.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+ShiftHue.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Spin.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+ProceduralNoise.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+FilmGrain.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+ClippingMask.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Tint.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Transform.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+XRay.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Topology.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+WorkshopStage.swift",
     SOURCE_ROOT / "Rendering/SceneImageEffectPipelineRepository.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectPipelineSet.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift",
@@ -4276,7 +4276,7 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertGreater(evidence["uniqueColorCount"], 8, evidence)
 
     def test_chain_renderer_resolves_live_values_per_stage_and_neutralizes_recapture(self) -> None:
-        source = (SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift").read_text(
+        source = (SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer.swift").read_text(
             encoding="utf-8"
         )
         self.assertIn(
@@ -4286,7 +4286,7 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertIn("sourceUniforms: isFirstStage ? sourceUniforms : .neutral()", source)
         self.assertIn("stage.localContrastStrength(in: dynamicValues)", source)
         opacity_source = (
-            SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Opacity.swift"
+            SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Opacity.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("stage.opacityAlpha(in: dynamicValues)", opacity_source)
 

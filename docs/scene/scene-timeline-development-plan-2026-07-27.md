@@ -303,7 +303,7 @@ D2 frame context (sceneTime 送入求值阶段, pause/clamp)
 
 ## 7. 与并行开发的边界
 
-本计划实施期间需避让的在改文件（截至 `daa6936` 工作区状态）：`Core/Playback/SystemAudio*`、`Effects/SceneShakePipeline.swift`、`Effects/SceneWaterWaves*`、`RenderGraph/SceneAuthored{Shake,Tint,WaterRipple,WaterWaves}Planner.swift`、`RenderGraph/SceneAuthoredEffectChainRenderer.swift`、`RenderGraph/Scene*ShaderProfile.swift`、`Resources/SceneLayerEffectTextureLoader.swift`、`semantics/effect-execution-coverage.md`、`semantics/runtime-evidence-index.md`、`script/scene_wallpaper_sample_matrix.json`。
+本计划实施期间需避让的在改文件（截至 `daa6936` 工作区状态）：`Core/Playback/SystemAudio*`、`Effects/SceneShakePipeline.swift`、`Effects/SceneWaterWaves*`、`RenderGraph/SceneAuthored{Shake,Tint,WaterRipple,WaterWaves}Planner.swift`、`RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer.swift`、`RenderGraph/Scene*ShaderProfile.swift`、`Resources/SceneLayerEffectTextureLoader.swift`、`semantics/effect-execution-coverage.md`、`semantics/runtime-evidence-index.md`、`script/scene_wallpaper_sample_matrix.json`。
 
 其中 `script/scene_wallpaper_sample_matrix.json` 与 `effectConstant` 的 strict backend 是**真实交叉点**：T2 要驱动 effect constant，而音频批次同时在改这些 planner 的 constant 解析。T2 开工前必须先确认音频批次的 constant source 改动是否已落地，避免两边同时改 `constantSource` 的准入判断。
 

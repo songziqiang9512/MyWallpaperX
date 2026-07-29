@@ -2,9 +2,11 @@
 
 > 建立日期：2026-07-22
 >
+> 文档状态：截至 2026-07-27 的实施批次快照；当前 baseline、矩阵报告、签名身份和运行边界只查 [`semantics/runtime-evidence-index.md`](semantics/runtime-evidence-index.md)。
+>
 > 最近更新：2026-07-27（实现基线 `a77b875`；生产播放把原始项目目录交给宿主并在内存构建 `SceneRuntimeInput`，Debug runtime evidence schema 1 不参与播放；`0ff96e0` 的十四类 strict effect backend、stock Radial God Rays、Timeline 28/48 typed target 与 Scene audio 16 档 consumer 均保留。当前完整门 `.codex/scene-runtime-input-full45-20260727/results/report.json` 为 45/45，固定门 `/private/tmp/mwx-scene-runtime-input-fixed13-20260727-v1/report.json` 为 13/13；58 份 runtime evidence 均为 schema 1，旧解释 JSON/preview log residue 0。精确哈希、App 身份和边界见运行证据索引。）
 >
-> 作用：定义 MyWallpaperX Scene runtime 从当前可审计子集向 Wallpaper Engine 常用能力逼近的实施顺序、样本门和验收标准。作者/执行语义先查 [`semantics/README.md`](semantics/README.md)；当前能力结论仍以 [`../reviews/web-scene-current-state-roadmap-2026-07-19.md`](../reviews/web-scene-current-state-roadmap-2026-07-19.md) 与最新运行证据为准；历史 memo 不反向覆盖本计划。已完成批次的逐项验收记录收敛到第 8 节索引与 [运行证据索引](semantics/runtime-evidence-index.md)，不再在本文正文逐段展开。
+> 作用：保留该批次从可审计子集向 Wallpaper Engine 常用能力逼近的实施顺序、样本门和验收标准。作者/执行语义先查 [`semantics/README.md`](semantics/README.md)，当前能力结论只以专项表与 [运行证据索引](semantics/runtime-evidence-index.md) 为准。
 
 ## 1. 目标与边界
 

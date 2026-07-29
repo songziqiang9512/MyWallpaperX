@@ -156,8 +156,9 @@ scene.json / scene.pkg / assets
 - [覆盖台账](coverage-ledger.md) 只做系统摘要；Effect、粒子、SceneScript、Graph/Shader、运行输入/属性和高级对象的专项能力表分别是其逐项等级事实来源。
 - 实现前必须先查 [能力依赖图](capability-dependency-map.md)，再进入对应专项表查看作者条件、代码、测试、运行证据和下一门；不能从同系统某个 `L3` 子集推断整套能力。
 - 资料入口完整性以 [179 页逐页表](official-page-map.md) 与自动门禁为准；16 组分组统计不能替代逐页映射。
-- 专项表不写「实现基线：`<commit>`」。基线 commit、生产播放输入边界与 Debug runtime evidence schema 只在 [覆盖台账](coverage-ledger.md)、[运行证据索引](runtime-evidence-index.md)、[开发计划](../scene-capability-development-plan-2026-07-22.md) 和 roadmap 维护（自动门禁只校验这四份）；专项表里出现的 commit 号一律理解为该能力的历史落地提交，不是当前基线。此前 7 份专项表各自复制基线，最旧的落后 42 个提交。
+- 专项表不写「当前实现基线：`<commit>`」。当前基线、生产播放输入边界、签名身份和 Debug runtime evidence schema 只在 [运行证据索引](runtime-evidence-index.md) 维护；覆盖台账只做系统摘要，能力依赖图只维护前置关系，带日期的 plan/roadmap 只表示历史批次快照。专项表里出现的 commit 号一律理解为对应能力的历史落地提交。
 - 新发现的字段先标证据等级和样本来源，再判断是否进入实现。
 - 官方文档或 `lib.sceneScript.d.ts` 版本变化时，更新 [资料来源与证据索引](source-index.md) 的核验日期和差异。
 - 第三方播放器与官方资料冲突时，记录其偏差，不修正文档去迎合第三方行为。
-- Scene 源码导航以本页九类目录为准；目录调整必须同步根 `AGENTS.md`、自动布局门、测试源码路径和文档代码链接。
+- Scene 源码导航以根 `AGENTS.md` 的九类职责和 [`script/scene_source_layout.json`](../../../script/scene_source_layout.json) 为准。当前二级簇 `RenderGraph/EffectExecution` 收纳 ordered authored-effect chain renderer 及其 backend extensions；其他类别目前仍平铺，达到维护需要时可增加职责清晰的二级目录。目录调整必须同步布局 manifest、自动门、测试源码路径和文档代码链接。
+- `test_scene_semantics_coverage.py` 自动校验布局 manifest 与本目录相对 Markdown 链接，不复制或锁定动态基线、报告计数和路线结论。

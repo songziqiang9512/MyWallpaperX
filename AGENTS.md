@@ -13,13 +13,14 @@
 
 真实创意工坊样本根 `~/Movies/MyWallpaperX/创意工坊/` 只读。任何 benchmark、属性注入、缓存操作或样本修改都必须在隔离副本中进行，并同时使用隔离的 Workshop root 与临时 `HOME`；不得直接改动、删除或清理真实样本。
 
-Scene 开发和报告使用以下层级，低层或历史材料不得反向覆盖高层事实：
+Scene 事实按类型使用唯一入口，历史计划或低层材料不得覆盖现役事实：
 
 1. [总覆盖台账](docs/scene/semantics/coverage-ledger.md)：系统摘要与专项表入口。
-2. [能力依赖图](docs/scene/semantics/capability-dependency-map.md)：确认公共前置能力和开发顺序。
-3. Effect、粒子、SceneScript、Graph/Shader、运行输入/属性和高级对象专项表：逐项等级、代码、测试与缺口的事实来源。
-4. [运行证据索引](docs/scene/semantics/runtime-evidence-index.md)：当前可宣称的样本、构建与运行事实。
-5. [Web/Scene 现状路线](docs/reviews/web-scene-current-state-roadmap-2026-07-19.md)：跨系统摘要和路线入口，不替代专项表或运行证据。
+2. Effect、粒子、SceneScript、Graph/Shader、运行输入/属性和高级对象专项表：逐项等级、代码、测试与缺口。
+3. [运行证据索引](docs/scene/semantics/runtime-evidence-index.md)：当前基线、样本、构建、签名和运行报告。
+4. [能力依赖图](docs/scene/semantics/capability-dependency-map.md)：公共前置能力与开发顺序。
+
+带日期的 plan、roadmap 和 review 是批次快照，不是当前能力或运行基线的权威入口。
 
 不得将 `recognized`、`wired`、`executed-degraded`、固定 strict profile、固定样本通过或静态参考材料表述为完整兼容或 Wallpaper Engine 视觉等价。官方/参考材料只可作为 clean-room 证据；不得复制其 payload、shader、纹理、JSON、二进制或算法表达，新增断言使用项目自有 fixture。
 
@@ -51,7 +52,8 @@ Scene 开发和报告使用以下层级，低层或历史材料不得反向覆�
 | --- | --- |
 | 单一解析分支、effect profile 或样本逻辑 | 对应单元/模块测试和定向隔离样本 |
 | 公共解析、属性、缓存、资源链或运行时 | 相关测试集合和能覆盖受影响分支的定向隔离样本；仅在定向集合无法覆盖共享风险时增加固定门 |
-| RenderGraph、核心执行链路、公共依赖或目录迁移 | Scene 全量测试、代码健康和签名构建；固定门按下述触发条件决定，不因目录或公共代码改动自动运行 |
+| RenderGraph 行为、核心执行链路或公共依赖 | Scene 全量测试、代码健康和 `script/build_and_run.sh verify`；固定门按下述触发条件决定 |
+| 字节不变的 Scene 目录迁移 | 布局/链接门、受路径影响的测试、代码健康和 `script/build_and_run.sh verify`；首次改变布局合同再跑一次 Scene 全量测试 |
 | 真实样本新增/移除、完整矩阵合同变化、发布或里程碑收口 | 重建隔离副本并运行完整快照门 |
 
 `script/scene_wallpaper_sample_matrix.json` 是固定回归门，`script/scene_wallpaper_full_sample_matrix.json` 是当前真实 Scene 目录的完整快照门。两者有重叠但不可互相替代，报告必须分别说明；部分样本或矩阵缺失不得写成 PASS。
@@ -72,7 +74,7 @@ Swift/Metal 测试若受模块缓存权限阻塞，先将 `CLANG_MODULE_CACHE_PA
 
 ## 6. Scene 源码布局
 
-`MyWallpaperX/Core/SteamWorkshopScene` 是分类根目录，不直接放置 Swift 文件。当前布局合同由 `script/tests/test_scene_semantics_coverage.py` 强制：源码只可位于以下九个一级目录，且当前不允许二级源码目录：
+`MyWallpaperX/Core/SteamWorkshopScene` 是分类根目录，不直接放置 Swift 文件。`script/scene_source_layout.json` 是机器可读布局合同，`script/tests/test_scene_semantics_coverage.py` 强制执行。源码只可位于以下九个一级目录：
 
 | 目录 | 职责 |
 | --- | --- |
@@ -86,10 +88,11 @@ Swift/Metal 测试若受模块缓存权限阻塞，先将 `CLANG_MODULE_CACHE_PA
 | `Text` | 文字 descriptor、font、geometry、texture 与 dynamic text |
 | `Particles` | 粒子 definition、parser、simulation、pipeline、texture 与 trail |
 
+- 当前已落地的二级目录为 `RenderGraph/EffectExecution`，用于 `SceneAuthoredEffectChainRenderer*` 主类型及其全部 backend extensions；其余类别目前仍平铺，三级源码目录保持受控。
 - 同一主类型与其 extension 必须在同一目录；不得新增 `Misc`、`Common`、`Helpers` 等兜底目录，也不得为未来能力预建空目录。
 - 只有现有九类不能表达一组已经落地、具有共同生命周期或清晰依赖边界的多个文件时，才考虑新增一级目录。
-- `RenderGraph` 的密度达到需要二级分组时，必须作为独立架构变更：先更新本规则、布局测试、受影响文档链接和测试源码路径，再按职责小批迁移；不得在功能修复中顺手移动文件。迁移完成前，现有一层深合同继续生效。
-- 移动 Scene 源码时保持 `project.pbxproj` 无无关改动，并按第 5 节的核心执行链路范围验证。
+- 当目录密度、共同生命周期或职责边界表明有必要时，可灵活新增二级目录，不要求预先固定全局分组方案；同批同步本规则、布局 manifest、自动门、受影响文档链接和测试源码路径，并按完整类型族迁移。
+- 移动 Scene 源码时保持 Swift 内容字节不变和 `project.pbxproj` 无无关改动，并按“验证选择”的目录迁移合同验证。
 
 ## 7. `.codex` 工作区
 
@@ -99,9 +102,15 @@ Swift/Metal 测试若受模块缓存权限阻塞，先将 `CLANG_MODULE_CACHE_PA
 - 新的长期断言并入现有固定/完整矩阵或正式测试。定向 Scene 运行优先使用 `scene_wallpaper_benchmark.py --sample-id <id>`；不得为每轮测试留下新的 `.codex` matrix。
 - 正式测试不得硬编码带日期的 `.codex` runtime 路径。真实样本 fixture 统一由 `script/scene_real_test_fixture.json` 指向当前主线完整门。
 - benchmark 的隔离样本、副本、临时 `HOME` 和 `runtime-app-*` 只属于当次运行；PASS 后应由既有流程清理，FAIL 仅保留失败现场。检查完整沙箱时显式使用 `--keep-runtime` 或 `--keep-runtime-app`。
-- 每个开发批次收尾前运行 `python3 script/audit_codex_artifacts.py --fail-on-candidates`。它只报告候选项，不授权清理；确认后才可移入废纸篓。禁止 `rm -rf .codex`、`git clean` 或按名称/日期模糊删除。
+- 产生过 `.codex` build、benchmark 或 runtime 产物的批次，收尾前运行 `python3 script/audit_codex_artifacts.py --fail-on-candidates`。它只报告候选项，不授权清理；确认后才可移入废纸篓。禁止 `rm -rf .codex`、`git clean` 或按名称/日期模糊删除。
 - 只保留共享 `.codex/DerivedData`，不得长期留下单次能力验证的 `DerivedData-*`。
 
-## 8. 汇报
+## 8. 并行工作
+
+- 并行写入前分配互不重叠的文件或主类型所有权；同一测试、矩阵和权威文档不得并发修改。
+- 静态扫描和彼此独立的测试模块可以并行；`script/build_and_run.sh`、共享 `.codex/DerivedData`、App runtime、benchmark、固定门和完整门必须串行。
+- 一个共享批次只由一名整合者暂存和提交，禁止 `git add -A`。
+
+## 9. 汇报
 
 过程更新简短说明正在处理的问题、已确认根因、拟改位置和下一步。最终仅报告：改动、影响范围、实际运行的验证与结果、是否提交，以及尚未消除的风险或未验证项。不要把静态检查、样本矩阵、路由计数或历史文档描述成超出其证据范围的结论。

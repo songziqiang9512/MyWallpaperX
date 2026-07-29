@@ -16,7 +16,7 @@ PIPELINE_SOURCE = (
     SOURCE_ROOT / "Effects/SceneFisheyeZeroDistortionPipeline.swift"
 )
 CHAIN_RENDERER_SOURCE = (
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+Transform.swift"
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Transform.swift"
 )
 
 

@@ -23,12 +23,12 @@ FRAME_DRIVER_SOURCE = (
     SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
 )
 FRAME_CONTEXT_SOURCE = SCENE_ROOT / "Runtime/SceneFrameContext.swift"
-CHAIN_RENDERER_SOURCE = SCENE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift"
+CHAIN_RENDERER_SOURCE = SCENE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer.swift"
 WORKSHOP_STAGE_SOURCE = (
-    SCENE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+WorkshopStage.swift"
+    SCENE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+WorkshopStage.swift"
 )
 SIMPLE_AUDIO_BARS_SOURCE = (
-    SCENE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer+SimpleAudioBars.swift"
+    SCENE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+SimpleAudioBars.swift"
 )
 SIMPLE_AUDIO_BARS_PIPELINE_SOURCE = (
     SCENE_ROOT / "Effects/SceneWorkshopSimpleAudioBarsPipeline.swift"

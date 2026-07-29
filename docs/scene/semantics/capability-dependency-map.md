@@ -185,7 +185,7 @@ F0 完成后才开始下一轮代码。F1/F2 优先级由公共依赖决定，�
 
 ## 6. 下次会话的决策顺序
 
-1. B0 live-property、direct dynamic text、Timeline 受限 typed target、16 档 audio 输入与 stock Shake/Pulse consumer、B2 target-table、十四类 strict backend（含 stock Radial God Rays）、ordered strict chain、同帧 copy/swap、受限 history seed、Precise Blur material-command interleave、pointer-driven X-Ray、Puppet、strict particle child、stock TEX resolver、非音频 turbulent velocity、BC premultiply、静态 authored 首帧 fallback与 REFRACT fail-closed 已合龙。当前实现基线为 `a77b875`；最新 45/13 两层门和未闭合边界见 [运行证据索引](runtime-evidence-index.md)。下一代码批必须重新按 [开发计划](../scene-capability-development-plan-2026-07-22.md) 的依赖与真实样本收益选择；不得从单指纹 God Rays 正门外推 generic shader、Directional/COPYBG 或其他 Effect 兼容。
+1. 先查 [运行证据索引](runtime-evidence-index.md) 确认当前 baseline、45/13 两层门和未闭合边界；本依赖图不复制易漂移的实现 commit。下一代码批再按本图依赖与真实样本收益选择，不得从单个 strict profile 正门外推 generic shader、其他 Effect 或同类格式兼容。
 2. 打开对应专项表，确认作者启用、输入、当前等级、未知项、依赖和验收门。
 3. 查 [运行证据索引](runtime-evidence-index.md)，确认现有正反例，不重复制造无信息矩阵。
 4. 只实现一个可独立验证的公共合同；涉及 live property 时，compiler target、真实 consumer、fallback 和 surface/window identity 必须同批验收，目标样本和相关样本通过后单独提交。
