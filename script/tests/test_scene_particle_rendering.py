@@ -17,6 +17,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleRenderSupport.swift",
     SOURCE_ROOT / "Particles/SceneParticleMetalInstanceBuffer.swift",
     SOURCE_ROOT / "Particles/SceneParticleRefractionBinding.swift",
+    SOURCE_ROOT / "Particles/SceneParticleShaderSource.swift",
+    SOURCE_ROOT / "Particles/SceneParticleSamplerStateSet.swift",
     SOURCE_ROOT / "Particles/SceneParticleMetalPipeline.swift",
     SOURCE_ROOT / "Particles/SceneParticleTextureSource.swift",
 ]
@@ -151,6 +153,19 @@ enum Harness {
             "instanceBufferSlots": instanceBufferSlotTest(),
             "colorContract": colorContractTest(),
             "refractionContract": refractionContractTest(),
+            "texSampling": [
+                "default": sampling(.directImageFallback),
+                "flags0": sampling(SceneParticleTextureSampling(texFlags: 0)),
+                "flags1": sampling(SceneParticleTextureSampling(texFlags: 1)),
+                "flags2": sampling(SceneParticleTextureSampling(texFlags: 2)),
+                "flags3": sampling(SceneParticleTextureSampling(texFlags: 3)),
+                "flags4": sampling(SceneParticleTextureSampling(texFlags: 4)),
+                "flags8": sampling(SceneParticleTextureSampling(texFlags: 8)),
+                "alphaPriority": sampling(
+                    SceneParticleTextureSampling(texFlags: 524_288)
+                ),
+            ],
+            "samplerPixels": samplerPixels(),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -184,6 +199,16 @@ enum Harness {
 
     private static func vector(_ value: SIMD3<Float>) -> [Float] {
         [value.x, value.y, value.z]
+    }
+
+    private static func sampling(
+        _ value: SceneParticleTextureSampling
+    ) -> [String: Any] {
+        [
+            "filter": value.filter.rawValue,
+            "address": value.addressMode.rawValue,
+            "clampBorderFallback": value.usesClampBorderFallback,
+        ]
     }
 
     private static func ndc(_ matrix: simd_float4x4, _ point: SIMD4<Float>) -> [Float] {
@@ -521,7 +546,8 @@ enum Harness {
                 overbright: 1,
                 colorEncoding: .rgba,
                 normalUsesParticleFrames: false,
-                normalUVScale: SIMD2(repeating: 1)
+                normalUVScale: SIMD2(repeating: 1),
+                normalSampling: .directImageFallback
             ),
             background: captured,
             instances: instances,
@@ -544,6 +570,100 @@ enum Harness {
         target.getBytes(
             &pixel, bytesPerRow: size * 4,
             from: MTLRegionMake2D(size / 2, size / 2, 1, 1), mipmapLevel: 0
+        )
+        return pixel.map(Int.init)
+    }
+
+    private static func samplerPixels() -> [String: Any] {
+        [
+            "clamp": sampledCenter(
+                sampling: SceneParticleTextureSampling(texFlags: 2)
+            ),
+            "repeat": sampledCenter(
+                sampling: SceneParticleTextureSampling(texFlags: 0)
+            ),
+        ]
+    }
+
+    private static func sampledCenter(
+        sampling: SceneParticleTextureSampling
+    ) -> [Int] {
+        let size = 8
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let pipeline = SceneParticleMetalPipeline(device: device),
+              let queue = device.makeCommandQueue(),
+              let command = queue.makeCommandBuffer() else { return [] }
+        let inputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm, width: 2, height: 2, mipmapped: false
+        )
+        inputDescriptor.usage = .shaderRead
+        inputDescriptor.storageMode = .shared
+        let outputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm, width: size, height: size, mipmapped: false
+        )
+        outputDescriptor.usage = .renderTarget
+        outputDescriptor.storageMode = .shared
+        guard let input = device.makeTexture(descriptor: inputDescriptor),
+              let output = device.makeTexture(descriptor: outputDescriptor) else { return [] }
+        var texels: [UInt8] = [
+            0, 255, 0, 255, 0, 255, 0, 255,
+            255, 0, 0, 255, 255, 0, 0, 255,
+        ]
+        input.replace(
+            region: MTLRegionMake2D(0, 0, 2, 2),
+            mipmapLevel: 0,
+            withBytes: &texels,
+            bytesPerRow: 8
+        )
+        let frame = SceneParticleFrameTransform(
+            origin: SIMD2(0, 1),
+            xAxis: SIMD2(1, 0),
+            yAxis: SIMD2(0, 1)
+        )
+        let instances = SceneParticleMetalInstanceBuffer()
+        guard instances.update(device: device, instances: [
+            SceneParticleGPUInstance(
+                position: .zero,
+                size: 2,
+                rotation: .zero,
+                color: SIMD3(repeating: 1),
+                alpha: 1,
+                currentFrame: frame
+            ),
+        ]) else { return [] }
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = output
+        pass.colorAttachments[0].loadAction = .clear
+        pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+        pass.colorAttachments[0].storeAction = .store
+        guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else {
+            return []
+        }
+        pipeline.draw(
+            texture: input,
+            instances: instances,
+            uniforms: SceneParticleLayerUniforms(
+                viewProjection: SceneMatrix.identity(),
+                layerModel: SceneMatrix.identity(),
+                basis: SceneParticleOrientation.screen.basis(
+                    cameraRight: SIMD3(1, 0, 0),
+                    cameraUp: SIMD3(0, 1, 0),
+                    cameraForward: SIMD3(0, 0, -1)
+                )
+            ),
+            blendMode: .translucent,
+            colorSampling: sampling,
+            encoder: encoder
+        )
+        encoder.endEncoding()
+        instances.markSubmitted(on: command)
+        guard commitAndWait(command) else { return [] }
+        var pixel = [UInt8](repeating: 0, count: 4)
+        output.getBytes(
+            &pixel,
+            bytesPerRow: size * 4,
+            from: MTLRegionMake2D(size / 2, size / 2, 1, 1),
+            mipmapLevel: 0
         )
         return pixel.map(Int.init)
     }
@@ -741,6 +861,42 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertEqual(shifted[1], neutral[1])
         self.assertTrue(contract["budget64MiBAllows4K"])
         self.assertTrue(contract["budget64MiBRejects8K"])
+
+    def test_tex_flags_select_filter_and_address_modes_without_cross_talk(self) -> None:
+        values = self.result["texSampling"]
+        self.assertEqual(values["default"], {
+            "filter": "linear",
+            "address": "clampToEdge",
+            "clampBorderFallback": False,
+        })
+        self.assertEqual(values["flags0"], {
+            "filter": "linear",
+            "address": "repeatWrap",
+            "clampBorderFallback": False,
+        })
+        self.assertEqual(values["flags1"]["filter"], "nearest")
+        self.assertEqual(values["flags1"]["address"], "repeatWrap")
+        self.assertEqual(values["flags2"]["filter"], "linear")
+        self.assertEqual(values["flags2"]["address"], "clampToEdge")
+        self.assertEqual(values["flags3"]["filter"], "nearest")
+        self.assertEqual(values["flags3"]["address"], "clampToEdge")
+        self.assertEqual(values["flags4"], values["flags0"])
+        self.assertEqual(values["alphaPriority"], values["flags0"])
+        self.assertEqual(values["flags8"]["address"], "clampToEdge")
+        self.assertTrue(values["flags8"]["clampBorderFallback"])
+
+    def test_repeat_sampler_restores_sprite_frame_uvs_beyond_one(self) -> None:
+        pixels = self.result["samplerPixels"]
+        clamp = pixels["clamp"]
+        repeat = pixels["repeat"]
+        if not clamp or not repeat:
+            self.skipTest("Metal sampler draw is unavailable")
+        # Frame UV V=1...2:clamp collapses onto the red lower edge,repeat wraps
+        # into the green/red atlas instead of stretching that edge across the quad.
+        self.assertGreater(clamp[2], 240)
+        self.assertLess(clamp[1], 5)
+        self.assertGreater(repeat[1], clamp[1] + 40)
+        self.assertNotEqual(repeat, clamp)
 
 
 if __name__ == "__main__":

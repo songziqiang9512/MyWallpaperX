@@ -58,6 +58,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleTrailRenderPlan.swift",
     SOURCE_ROOT / "Particles/SceneParticleRenderSupport.swift",
     SOURCE_ROOT / "Particles/SceneParticleMetalInstanceBuffer.swift",
+    SOURCE_ROOT / "Particles/SceneParticleShaderSource.swift",
+    SOURCE_ROOT / "Particles/SceneParticleSamplerStateSet.swift",
     SOURCE_ROOT / "Particles/SceneParticleMetalPipeline.swift",
     SOURCE_ROOT / "Rendering/SceneFramebufferSnapshot.swift",
     SOURCE_ROOT / "Format/SceneTexDataReader.swift",
@@ -543,6 +545,7 @@ enum Harness {
                     basis: basis
                 ),
                 blendMode: batch.blendMode,
+                colorSampling: batch.colorSampling,
                 encoder: encoder
             )
         }
@@ -952,6 +955,15 @@ enum Harness {
         try writeParticle(
             "particles/stock.json",
             material: "materials/stock.json",
+            children: [[
+                "name": "particles/repeat-child.json",
+                "type": "static",
+            ]],
+            under: directory
+        )
+        try writeParticle(
+            "particles/repeat-child.json",
+            material: "materials/repeat.json",
             under: directory
         )
 
@@ -965,20 +977,56 @@ enum Harness {
                     texturePaths: ["particle/debris/debris1.tex"],
                     blending: "translucent"
                 ),
+                .init(
+                    materialPath: "materials/repeat.json",
+                    shaderPath: "genericparticle",
+                    texturePaths: ["particle/nature/rosepetals"],
+                    blending: "translucent"
+                ),
             ]
         )
         guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let bundleURL = URL(fileURLWithPath: bundlePath, isDirectory: true)
         let runtime = SceneParticleRuntime(
             descriptor: descriptor,
             cacheDirectory: directory,
             device: device,
-            stockTextureBundleURL: URL(fileURLWithPath: bundlePath, isDirectory: true)
+            stockTextureBundleURL: bundleURL
         )
-        let batches = runtime.advance(by: 0)
+        let batches = runtime.advance(by: 1.0 / 60.0)
+        let root = batches.first { $0.particlePath == "particles/stock.json" }
+        let child = batches.first {
+            $0.particlePath == "particles/repeat-child.json"
+        }
+        let refractionSampling: [String: Any]
+        if let resolver = SceneStockTextureResolver(bundleRoot: bundleURL),
+           let colorURL = resolver.textureURL(for: "particle/misc/wave"),
+           let normalURL = resolver.textureURL(for: "particle/normal_splash"),
+           let loaded = SceneParticleRefractionTextureLoader.load(
+               colorSource: .file(colorURL),
+               declaration: SceneParticleRefractionDeclaration(
+                   normalTextureSource: .file(normalURL),
+                   amount: 1,
+                   overbright: 1
+               ),
+               textureLoader: SceneTextureLoader(),
+               device: device
+           ) {
+            refractionSampling = [
+                "color": sampling(loaded.colorSampling),
+                "normal": sampling(loaded.binding.normalSampling),
+            ]
+        } else {
+            refractionSampling = [:]
+        }
         return [
             "activeLayerIDs": runtime.activeLayerIDs,
-            "textureWidth": batches.first?.texture.width ?? 0,
-            "textureHeight": batches.first?.texture.height ?? 0,
+            "textureWidth": root?.texture.width ?? 0,
+            "textureHeight": root?.texture.height ?? 0,
+            "rootSampling": root.map { sampling($0.colorSampling) } ?? [:],
+            "childTextureWidth": child?.texture.width ?? 0,
+            "childSampling": child.map { sampling($0.colorSampling) } ?? [:],
+            "refractionSampling": refractionSampling,
             "diagnosticKinds": runtime.diagnostics.map(\.kind.rawValue),
         ]
     }
@@ -1268,6 +1316,16 @@ enum Harness {
         value?.value?.scalarValue ?? -1
     }
 
+    private static func sampling(
+        _ value: SceneParticleTextureSampling
+    ) -> [String: Any] {
+        [
+            "filter": value.filter.rawValue,
+            "address": value.addressMode.rawValue,
+            "clampBorderFallback": value.usesClampBorderFallback,
+        ]
+    }
+
     private static func vector(_ value: SIMD4<Float>) -> [Float] {
         [value.x, value.y, value.z, value.w]
     }
@@ -1402,6 +1460,29 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         # debris1.tex 是官方 8 帧 128×128 spritesheet，整张上传为 1024×128 纹理。
         self.assertEqual(result["textureWidth"], 1024)
         self.assertEqual(result["textureHeight"], 128)
+        self.assertEqual(result["rootSampling"], {
+            "filter": "linear",
+            "address": "clampToEdge",
+            "clampBorderFallback": False,
+        })
+        self.assertEqual(result["childTextureWidth"], 512)
+        self.assertEqual(result["childSampling"], {
+            "filter": "linear",
+            "address": "repeatWrap",
+            "clampBorderFallback": False,
+        })
+        self.assertEqual(result["refractionSampling"], {
+            "color": {
+                "filter": "linear",
+                "address": "repeatWrap",
+                "clampBorderFallback": False,
+            },
+            "normal": {
+                "filter": "linear",
+                "address": "clampToEdge",
+                "clampBorderFallback": False,
+            },
+        })
         self.assertEqual(result["diagnosticKinds"], [])
 
     def test_continuous_children_follow_finish_and_obey_aggregate_budget(self) -> None:

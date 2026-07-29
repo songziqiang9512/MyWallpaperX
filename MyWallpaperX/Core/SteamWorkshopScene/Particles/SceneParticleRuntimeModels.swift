@@ -35,6 +35,7 @@ struct SceneParticleDrawBatch {
     let particlePath: String
     let texture: MTLTexture
     let colorUVScale: SIMD2<Float>
+    let colorSampling: SceneParticleTextureSampling
     let refraction: SceneParticleRefractionBinding?
     let blendMode: SceneParticlePipelineBlendMode
     let instanceBuffer: SceneParticleMetalInstanceBuffer

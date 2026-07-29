@@ -12,6 +12,7 @@ final class SceneParticleRuntime {
         let trail: SceneParticleTrailRenderPlan?
         let texture: MTLTexture
         let colorUVScale: SIMD2<Float>
+        let colorSampling: SceneParticleTextureSampling
         let refraction: SceneParticleRefractionBinding?
         let blendMode: SceneParticlePipelineBlendMode
         let spriteAnimation: SceneSpriteAnimation?
@@ -142,6 +143,7 @@ final class SceneParticleRuntime {
             let texture: MTLTexture
             let spriteAnimation: SceneSpriteAnimation?
             let colorUVScale: SIMD2<Float>
+            let colorSampling: SceneParticleTextureSampling
             let refraction: SceneParticleRefractionBinding?
             if let declaration = asset.refraction {
                 guard let loaded = SceneParticleRefractionTextureLoader.load(
@@ -161,6 +163,7 @@ final class SceneParticleRuntime {
                 texture = loaded.color
                 spriteAnimation = loaded.colorAnimation
                 colorUVScale = loaded.colorUVScale
+                colorSampling = loaded.colorSampling
                 refraction = loaded.binding
             } else {
                 switch textureSource {
@@ -179,9 +182,13 @@ final class SceneParticleRuntime {
                         loadedTexture,
                         device: device
                     )
-                    spriteAnimation = textureLoader.texContainer(from: textureURL).flatMap {
+                    let container = textureLoader.texContainer(from: textureURL)
+                    spriteAnimation = container.flatMap {
                         SceneSpriteAnimation(frames: $0.spriteFrames)
                     }
+                    colorSampling = container.map {
+                        SceneParticleTextureSampling(texFlags: $0.flags)
+                    } ?? .directImageFallback
                 case let .builtIn(key):
                     guard let loadedTexture = builtInTextureRegistry.texture(for: key) else {
                         addDiagnostic(
@@ -194,6 +201,7 @@ final class SceneParticleRuntime {
                     }
                     texture = loadedTexture
                     spriteAnimation = nil
+                    colorSampling = .directImageFallback
                 }
                 colorUVScale = SIMD2(repeating: 1)
                 refraction = nil
@@ -244,6 +252,7 @@ final class SceneParticleRuntime {
                 trail: render.trail,
                 texture: texture,
                 colorUVScale: colorUVScale,
+                colorSampling: colorSampling,
                 refraction: refraction,
                 blendMode: asset.blendMode == .additive ? .additive : .translucent,
                 spriteAnimation: spriteAnimation,
@@ -310,6 +319,7 @@ final class SceneParticleRuntime {
                 particlePath: layers[index].particlePath,
                 texture: layers[index].texture,
                 colorUVScale: layers[index].colorUVScale,
+                colorSampling: layers[index].colorSampling,
                 refraction: layers[index].refraction,
                 blendMode: layers[index].blendMode,
                 instanceBuffer: layers[index].instanceBuffer,

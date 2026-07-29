@@ -1,5 +1,11 @@
 import Foundation
 
+struct SceneParticleChildAdvanceResult {
+    let batches: [SceneParticleDrawBatch]
+    let bufferFailurePaths: [String]
+    let limitationDetails: [String]
+}
+
 struct SceneParticleChildSystem {
     let id: UInt64
     let templateIndex: Int

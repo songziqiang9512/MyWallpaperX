@@ -41,21 +41,28 @@ enum SceneParticleChildTemplateSupport {
         textureLoader: SceneTextureLoader,
         builtInTextureRegistry: SceneParticleBuiltInTextureRegistry,
         device: MTLDevice
-    ) -> (texture: MTLTexture, animation: SceneSpriteAnimation?)? {
+    ) -> (
+        texture: MTLTexture,
+        animation: SceneSpriteAnimation?,
+        sampling: SceneParticleTextureSampling
+    )? {
         switch source {
         case let .file(url):
             guard case let .loaded(texture) = textureLoader.load(from: url, device: device) else {
                 return nil
             }
+            let container = textureLoader.texContainer(from: url)
             return (
                 SceneParticleColorTextureAdapter.adapt(texture, device: device),
-                textureLoader.texContainer(from: url).flatMap {
+                container.flatMap {
                     SceneSpriteAnimation(frames: $0.spriteFrames)
-                }
+                },
+                container.map { SceneParticleTextureSampling(texFlags: $0.flags) }
+                    ?? .directImageFallback
             )
         case let .builtIn(key):
             guard let texture = builtInTextureRegistry.texture(for: key) else { return nil }
-            return (texture, nil)
+            return (texture, nil, .directImageFallback)
         }
     }
 }

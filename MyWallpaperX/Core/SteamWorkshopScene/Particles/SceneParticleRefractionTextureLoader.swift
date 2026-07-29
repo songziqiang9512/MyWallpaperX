@@ -6,6 +6,7 @@ enum SceneParticleRefractionTextureLoader {
         let color: MTLTexture
         let colorAnimation: SceneSpriteAnimation?
         let colorUVScale: SIMD2<Float>
+        let colorSampling: SceneParticleTextureSampling
         let binding: SceneParticleRefractionBinding
     }
 
@@ -54,6 +55,7 @@ enum SceneParticleRefractionTextureLoader {
             colorAnimation: colorFrames.isEmpty
                 ? nil : SceneSpriteAnimation(frames: colorFrames),
             colorUVScale: uvScale(for: colorContainer, usesFrames: !colorFrames.isEmpty),
+            colorSampling: SceneParticleTextureSampling(texFlags: colorContainer.flags),
             binding: SceneParticleRefractionBinding(
                 normalTexture: normal,
                 amount: declaration.amount,
@@ -63,6 +65,9 @@ enum SceneParticleRefractionTextureLoader {
                 normalUVScale: uvScale(
                     for: normalContainer,
                     usesFrames: normalUsesParticleFrames
+                ),
+                normalSampling: SceneParticleTextureSampling(
+                    texFlags: normalContainer.flags
                 )
             )
         )

@@ -37,6 +37,7 @@ extension SceneMetalRenderer {
                     uniforms: uniforms,
                     blendMode: batch.blendMode,
                     colorUVScale: batch.colorUVScale,
+                    colorSampling: batch.colorSampling,
                     encoder: encoder
                 )
             } else if let encoder = mainPass.encoder() {
@@ -46,6 +47,7 @@ extension SceneMetalRenderer {
                     uniforms: uniforms,
                     blendMode: batch.blendMode,
                     colorUVScale: batch.colorUVScale,
+                    colorSampling: batch.colorSampling,
                     encoder: encoder
                 )
             }

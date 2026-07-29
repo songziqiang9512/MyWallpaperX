@@ -12,4 +12,5 @@ struct SceneParticleRefractionBinding {
     let colorEncoding: ColorEncoding
     let normalUsesParticleFrames: Bool
     let normalUVScale: SIMD2<Float>
+    let normalSampling: SceneParticleTextureSampling
 }

@@ -1,6 +1,46 @@
 import Foundation
 import Metal
 
+nonisolated struct SceneParticleTextureSampling: Equatable, Sendable {
+    enum Filter: String, Equatable, Sendable {
+        case linear
+        case nearest
+    }
+
+    enum AddressMode: String, Equatable, Sendable {
+        case clampToEdge
+        case repeatWrap
+    }
+
+    let filter: Filter
+    let addressMode: AddressMode
+    let usesClampBorderFallback: Bool
+
+    static let directImageFallback = SceneParticleTextureSampling(
+        filter: .linear,
+        addressMode: .clampToEdge,
+        usesClampBorderFallback: false
+    )
+
+    init(texFlags: UInt32) {
+        filter = texFlags & 1 == 0 ? .linear : .nearest
+        usesClampBorderFallback = texFlags & 8 != 0
+        addressMode = usesClampBorderFallback || texFlags & 2 != 0
+            ? .clampToEdge
+            : .repeatWrap
+    }
+
+    private init(
+        filter: Filter,
+        addressMode: AddressMode,
+        usesClampBorderFallback: Bool
+    ) {
+        self.filter = filter
+        self.addressMode = addressMode
+        self.usesClampBorderFallback = usesClampBorderFallback
+    }
+}
+
 /// The particle fragment shader multiplies the sampled texel straight into the
 /// premultiplied blend chain, so every color texture must satisfy RGB == color * A.
 /// Authored/stock TEX may arrive as R8 (grayscale mask) or RG88 (luminance +

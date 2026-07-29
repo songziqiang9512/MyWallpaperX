@@ -16,6 +16,7 @@ struct SceneParticleChildTemplate {
     let trail: SceneParticleTrailRenderPlan?
     let texture: MTLTexture
     let colorUVScale: SIMD2<Float>
+    let colorSampling: SceneParticleTextureSampling
     let refraction: SceneParticleRefractionBinding?
     let blendMode: SceneParticlePipelineBlendMode
     let spriteAnimation: SceneSpriteAnimation?
@@ -203,6 +204,7 @@ enum SceneParticleChildGraphExpansion {
         let texture: MTLTexture
         let animation: SceneSpriteAnimation?
         let colorUVScale: SIMD2<Float>
+        let colorSampling: SceneParticleTextureSampling
         let refraction: SceneParticleRefractionBinding?
         if let declaration = asset.refraction {
             guard let loaded = SceneParticleRefractionTextureLoader.load(
@@ -216,6 +218,7 @@ enum SceneParticleChildGraphExpansion {
             texture = loaded.color
             animation = loaded.colorAnimation
             colorUVScale = loaded.colorUVScale
+            colorSampling = loaded.colorSampling
             refraction = loaded.binding
         } else {
             guard let loaded = SceneParticleChildTemplateSupport.loadTexture(
@@ -228,6 +231,7 @@ enum SceneParticleChildGraphExpansion {
             }
             texture = loaded.texture
             animation = loaded.animation
+            colorSampling = loaded.sampling
             colorUVScale = SIMD2(repeating: 1)
             refraction = nil
         }
@@ -252,6 +256,7 @@ enum SceneParticleChildGraphExpansion {
                 trail: render.trail,
                 texture: texture,
                 colorUVScale: colorUVScale,
+                colorSampling: colorSampling,
                 refraction: refraction,
                 blendMode: asset.blendMode == .additive ? .additive : .translucent,
                 spriteAnimation: animation,

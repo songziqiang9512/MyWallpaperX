@@ -3,12 +3,6 @@ import Metal
 
 /// Executes strict children up to depth two. Unsupported declarations stay diagnostic.
 final class SceneParticleChildRuntime {
-    struct AdvanceResult {
-        let batches: [SceneParticleDrawBatch]
-        let bufferFailurePaths: [String]
-        let limitationDetails: [String]
-    }
-
     // Child systems run on the CPU fallback; cap burst spikes while retaining authored
     // distribution. Each depth keeps its own aggregate budget so nested trails cannot
     // starve depth-one children and vice versa.
@@ -91,7 +85,7 @@ final class SceneParticleChildRuntime {
         spawnEvents: [SceneParticleState],
         deathEvents: [SceneParticleState],
         parentParticles: [SceneParticleState]
-    ) -> AdvanceResult {
+    ) -> SceneParticleChildAdvanceResult {
         var limitations: Set<String> = []
         let parentFrames = advanceDepthOne(by: frameDelta, rootParticles: parentParticles)
         spawn(
@@ -124,6 +118,7 @@ final class SceneParticleChildRuntime {
                 particlePath: template.path,
                 texture: template.texture,
                 colorUVScale: template.colorUVScale,
+                colorSampling: template.colorSampling,
                 refraction: template.refraction,
                 blendMode: template.blendMode,
                 instanceBuffer: template.instanceBuffer,
@@ -133,7 +128,7 @@ final class SceneParticleChildRuntime {
                 usesPerspective: template.usesPerspective
             ))
         }
-        return AdvanceResult(
+        return SceneParticleChildAdvanceResult(
             batches: batches,
             bufferFailurePaths: failures,
             limitationDetails: limitations.sorted()
