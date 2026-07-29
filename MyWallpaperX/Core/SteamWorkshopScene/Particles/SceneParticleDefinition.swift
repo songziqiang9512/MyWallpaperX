@@ -158,6 +158,7 @@ nonisolated struct SceneParticleOperator: Equatable, Sendable {
     let controlPoint: Int?
     let origin: SceneParticleNumericValue?
     let scale: SceneParticleNumericValue?
+    let timeScale: Double?
     let threshold: Double?
     let speedMinimum: Double?
     let speedMaximum: Double?

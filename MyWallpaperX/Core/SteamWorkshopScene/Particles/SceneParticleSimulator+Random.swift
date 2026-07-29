@@ -32,6 +32,15 @@ extension SceneParticleSimulator {
         return minimum + (maximum - minimum) * random.unit()
     }
 
+    nonisolated func turbulenceRandom(
+        _ first: Double, _ second: Double, _ index: Int, _ operatorIndex: Int, _ salt: Int
+    ) -> Double {
+        var state = simulationSeed ^ (particles[index].id &* 0x9E3779B97F4A7C15)
+        state ^= UInt64(operatorIndex &* 31 &+ salt) &* 0xBF58476D1CE4E5B9
+        var generator = SceneParticleRandomGenerator(state: state)
+        return generator.value(first, second)
+    }
+
     nonisolated mutating func randomSphereOffset(
         _ emitter: SceneParticleEmitter
     ) -> SIMD3<Double> {

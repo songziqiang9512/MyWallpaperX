@@ -196,6 +196,7 @@ nonisolated struct SceneParticleDefinitionParser {
             blendOutStart: Self.number(root["blendoutstart"]), blendOutEnd: Self.number(root["blendoutend"]),
             controlPoint: Self.integer(root["controlpoint"]),
             origin: Self.numericValue(root["origin"]), scale: Self.numericValue(root["scale"]),
+            timeScale: Self.number(root["timescale"]),
             threshold: Self.number(root["threshold"]),
             speedMinimum: Self.number(root["speedmin"]), speedMaximum: Self.number(root["speedmax"]),
             audioResponse: Self.audioResponse(root)

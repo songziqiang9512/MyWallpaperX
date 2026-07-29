@@ -135,6 +135,66 @@ enum Harness {
         var audioTurbulent = simulator(audioTurbulentJSON, seed: 71, step: 0.1)
         audioTurbulent.advance(by: 0.1)
 
+        var turbulenceOperator = simulator(turbulenceOperatorJSON, seed: 71, step: 0.1)
+        var turbulenceOperatorPartitioned = simulator(
+            turbulenceOperatorJSON, seed: 71, step: 0.1
+        )
+        var turbulenceOperatorDifferentSeed = simulator(
+            turbulenceOperatorJSON, seed: 72, step: 0.1
+        )
+        var turbulenceOperatorOneStep = simulator(
+            turbulenceOperatorJSON, seed: 71, step: 0.1
+        )
+        turbulenceOperator.advance(by: 0.3)
+        turbulenceOperatorPartitioned.advance(by: 0.1)
+        turbulenceOperatorPartitioned.advance(by: 0.2)
+        turbulenceOperatorDifferentSeed.advance(by: 0.3)
+        turbulenceOperatorOneStep.advance(by: 0.1)
+        let turbulenceOperatorVelocity = turbulenceOperatorOneStep.particles[0].velocity
+
+        var zeroTimeTurbulence = simulator(
+            zeroTimeTurbulenceOperatorJSON, seed: 71, step: 0.1
+        )
+        zeroTimeTurbulence.advance(by: 0.3)
+        var xOnlyTurbulence = simulator(
+            xOnlyTurbulenceOperatorJSON, seed: 71, step: 0.1
+        )
+        xOnlyTurbulence.advance(by: 0.1)
+        var defaultTurbulence = simulator(
+            defaultTurbulenceOperatorJSON, seed: 71, step: 0.1
+        )
+        defaultTurbulence.advance(by: 0.1)
+        var blendedTurbulence = simulator(
+            blendedTurbulenceOperatorJSON, seed: 71, step: 0.1
+        )
+        blendedTurbulence.advance(by: 0.1)
+        let turbulenceOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"speed":2}"#)
+        )
+        var overriddenTurbulence = simulator(
+            turbulenceOperatorJSON,
+            override: turbulenceOverride,
+            seed: 71,
+            step: 0.1
+        )
+        overriddenTurbulence.advance(by: 0.1)
+        var audioOperatorTurbulence = simulator(
+            audioTurbulenceOperatorJSON, seed: 71, step: 0.1
+        )
+        audioOperatorTurbulence.advance(by: 0.1)
+        var turbulenceBeforeMovement = simulator(
+            turbulenceBeforeMovementJSON, seed: 71, step: 0.1
+        )
+        var movementBeforeTurbulence = simulator(
+            movementBeforeTurbulenceJSON, seed: 71, step: 0.1
+        )
+        turbulenceBeforeMovement.advance(by: 0.1)
+        movementBeforeTurbulence.advance(by: 0.1)
+        var overflowTurbulence = simulator(
+            overflowTurbulenceOperatorJSON, seed: 71, step: 0.1
+        )
+        overflowTurbulence.advance(by: 0.1)
+
         return [
             "deterministic": first.particles == partitioned.particles,
             "differentSeed": first.particles != different.particles,
@@ -183,6 +243,28 @@ enum Harness {
             "turbulentDiagnostics": turbulentFirst.diagnostics.map(\.kind.rawValue),
             "audioTurbulentVelocity": vector(audioTurbulent.particles[0].velocity),
             "audioTurbulentDiagnostics": audioTurbulent.diagnostics.map(\.kind.rawValue).sorted(),
+            "turbulenceOperatorDeterministic":
+                turbulenceOperator.particles == turbulenceOperatorPartitioned.particles,
+            "turbulenceOperatorDifferentSeed":
+                turbulenceOperator.particles != turbulenceOperatorDifferentSeed.particles,
+            "turbulenceOperatorTimeScale":
+                turbulenceOperator.particles != zeroTimeTurbulence.particles,
+            "turbulenceOperatorSpeed": length(turbulenceOperatorVelocity),
+            "turbulenceOperatorPlanar": abs(turbulenceOperatorVelocity.z) < 1e-12,
+            "xOnlyTurbulenceVelocity": vector(xOnlyTurbulence.particles[0].velocity),
+            "defaultTurbulenceSpeed": length(defaultTurbulence.particles[0].velocity),
+            "blendedTurbulenceVelocity": vector(blendedTurbulence.particles[0].velocity),
+            "overriddenTurbulenceSpeed": length(overriddenTurbulence.particles[0].velocity),
+            "turbulenceOperatorDiagnostics": turbulenceOperator.diagnostics.map(\.kind.rawValue),
+            "audioOperatorTurbulenceVelocity":
+                vector(audioOperatorTurbulence.particles[0].velocity),
+            "audioOperatorTurbulenceDiagnostics":
+                audioOperatorTurbulence.diagnostics.map(\.kind.rawValue).sorted(),
+            "turbulenceBeforeMovementPosition":
+                vector(turbulenceBeforeMovement.particles[0].position),
+            "movementBeforeTurbulencePosition":
+                vector(movementBeforeTurbulence.particles[0].position),
+            "overflowTurbulenceVelocity": vector(overflowTurbulence.particles[0].velocity),
             "diagnostics": diagnosticSimulator.diagnostics.map(\.kind.rawValue).sorted()
         ]
     }
@@ -315,6 +397,78 @@ enum Harness {
     {"material":"p.json","maxcount":1,
      "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
      "initializer":[{"name":"lifetimerandom","min":2,"max":2},{"name":"turbulentvelocityrandom","speedmin":25,"speedmax":25,"audioprocessingmode":1}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let turbulenceOperatorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"4 8 0","distancemax":"4 8 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2}],
+     "operator":[{"name":"turbulence","mask":"1 1 0","scale":0.02,"speedmin":25,"speedmax":25,"phasemin":0.1,"phasemax":0.7,"timescale":2}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let zeroTimeTurbulenceOperatorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"4 8 0","distancemax":"4 8 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2}],
+     "operator":[{"name":"turbulence","mask":"1 1 0","scale":0.02,"speedmin":25,"speedmax":25,"phasemin":0.1,"phasemax":0.7,"timescale":0}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let xOnlyTurbulenceOperatorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"4 8 0","distancemax":"4 8 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2}],
+     "operator":[{"name":"turbulence","mask":"2 0 0","scale":0.02,"speedmin":25,"speedmax":25,"phasemin":0.1,"phasemax":0.7,"timescale":2}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let defaultTurbulenceOperatorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"4 8 0","distancemax":"4 8 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2}],
+     "operator":[{"name":"turbulence","timescale":30}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let blendedTurbulenceOperatorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"4 8 0","distancemax":"4 8 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2}],
+     "operator":[{"name":"turbulence","mask":"1 1 0","scale":0.02,"speedmin":25,"speedmax":25,"timescale":2,"blendinstart":0.5,"blendinend":0.6}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let audioTurbulenceOperatorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"4 8 0","distancemax":"4 8 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2}],
+     "operator":[{"name":"turbulence","mask":"1 1 0","scale":0.02,"speedmin":25,"speedmax":25,"timescale":2,"audioprocessingmode":1}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let turbulenceBeforeMovementJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2}],
+     "operator":[{"name":"turbulence","mask":"1 1 0","speedmin":25,"speedmax":25,"phasemin":0.3,"phasemax":0.3},{"name":"movement"}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let movementBeforeTurbulenceJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2}],
+     "operator":[{"name":"movement"},{"name":"turbulence","mask":"1 1 0","speedmin":25,"speedmax":25,"phasemin":0.3,"phasemax":0.3}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let overflowTurbulenceOperatorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2}],
+     "operator":[{"name":"turbulence","mask":"1e308 1e308 0","speedmin":1e308,"speedmax":1e308}],
      "renderer":[{"name":"sprite"}]}
     """#
 
@@ -537,6 +691,34 @@ class SceneParticleSimulatorTests(unittest.TestCase):
             ["audioResponseIgnored", "unsupportedInitializer"],
         )
 
+    def test_non_audio_turbulence_operator_executes_bounded_fixed_step_noise(self) -> None:
+        self.assertTrue(self.results["turbulenceOperatorDeterministic"])
+        self.assertTrue(self.results["turbulenceOperatorDifferentSeed"])
+        self.assertTrue(self.results["turbulenceOperatorTimeScale"])
+        self.assertAlmostEqual(self.results["turbulenceOperatorSpeed"], 2.5)
+        self.assertTrue(self.results["turbulenceOperatorPlanar"])
+        self.assertAlmostEqual(self.results["xOnlyTurbulenceVelocity"][1], 0)
+        self.assertAlmostEqual(self.results["xOnlyTurbulenceVelocity"][2], 0)
+        self.assertGreaterEqual(self.results["defaultTurbulenceSpeed"], 50)
+        self.assertLessEqual(self.results["defaultTurbulenceSpeed"], 100)
+        self.assertEqual(self.results["blendedTurbulenceVelocity"], [0, 0, 0])
+        self.assertAlmostEqual(self.results["overriddenTurbulenceSpeed"], 5)
+        self.assertNotIn(
+            "unsupportedOperator", self.results["turbulenceOperatorDiagnostics"]
+        )
+
+    def test_audio_turbulence_operator_remains_fail_closed(self) -> None:
+        self.assertEqual(self.results["audioOperatorTurbulenceVelocity"], [0, 0, 0])
+        self.assertEqual(
+            self.results["audioOperatorTurbulenceDiagnostics"],
+            ["audioResponseIgnored", "unsupportedOperator"],
+        )
+
+    def test_turbulence_respects_authored_operator_order_and_rejects_overflow(self) -> None:
+        self.assertNotEqual(self.results["turbulenceBeforeMovementPosition"], [0, 0, 0])
+        self.assertEqual(self.results["movementBeforeTurbulencePosition"], [0, 0, 0])
+        self.assertEqual(self.results["overflowTurbulenceVelocity"], [0, 0, 0])
+
     def test_unsupported_capabilities_are_reported(self) -> None:
         self.assertEqual(
             self.results["diagnostics"],
@@ -548,7 +730,6 @@ class SceneParticleSimulatorTests(unittest.TestCase):
                 "dynamicOverrideIgnored",
                 "pointerControlPointIgnored",
                 "unsupportedInitializer",
-                "unsupportedOperator",
                 "unsupportedOperator",
             ],
         )

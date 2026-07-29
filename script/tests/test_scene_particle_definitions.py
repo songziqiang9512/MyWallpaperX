@@ -74,7 +74,7 @@ enum Harness {
             {"id":27,"name":"oscillateAlpha","frequencymin":2,"frequencymax":4,"scalemin":0.1,"scalemax":0.9,"blendinstart":0.1,"blendinend":0.2,"blendoutstart":0.8,"blendoutend":0.9},
             {"id":28,"name":"oscillateSize","frequencymin":1,"frequencymax":2,"scalemin":0.5,"scalemax":1.5},
             {"id":29,"name":"controlPointAttract","controlpoint":2,"origin":"4 5 0","scale":512,"threshold":256},
-            {"id":30,"name":"turbulence","mask":"1 1 0","phasemin":0.1,"phasemax":0.5,"scale":0.02,"speedmin":50,"speedmax":100},
+            {"id":30,"name":"turbulence","mask":"1 1 0","phasemin":0.1,"phasemax":0.5,"scale":0.02,"speedmin":50,"speedmax":100,"timescale":0.25},
             {"id":31,"name":"vortex","audioprocessingmode":1,"audioprocessingbounds":"0.3 0.7"},
             {"id":32,"name":"futureOperator"}
           ],
@@ -148,6 +148,7 @@ enum Harness {
             "attractControlPoint": definition.operators[9].controlPoint ?? -1,
             "attractThreshold": definition.operators[9].threshold ?? -1,
             "turbulenceSpeedMaximum": definition.operators[10].speedMaximum ?? -1,
+            "turbulenceTimeScale": definition.operators[10].timeScale ?? -1,
             "vortexAudioBounds": definition.operators[11].audioResponse.bounds?.vectorValue ?? [],
             "rendererKinds": definition.renderers.map { rendererName($0.kind) },
             "spriteWorldSpace": definition.renderers[0].isWorldSpace,
@@ -504,6 +505,7 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         self.assertEqual(result["attractControlPoint"], 2)
         self.assertEqual(result["attractThreshold"], 256)
         self.assertEqual(result["turbulenceSpeedMaximum"], 100)
+        self.assertEqual(result["turbulenceTimeScale"], 0.25)
         self.assertEqual(result["vortexAudioBounds"], [0.3, 0.7])
         self.assertEqual(
             result["rendererKinds"],

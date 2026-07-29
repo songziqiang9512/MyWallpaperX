@@ -84,6 +84,16 @@ nonisolated enum SceneParticleSimulationMath {
         sqrt(value.x * value.x + value.y * value.y + value.z * value.z)
     }
 
+    static func addFinite(
+        _ delta: SIMD3<Double>,
+        to value: inout SIMD3<Double>
+    ) {
+        let result = value + delta
+        if result.x.isFinite && result.y.isFinite && result.z.isFinite {
+            value = result
+        }
+    }
+
     static func turbulentVelocity(
         _ value: SceneParticleTurbulentVelocity?,
         _ position: SIMD3<Double>,
@@ -180,6 +190,42 @@ nonisolated enum SceneParticleSimulationMath {
         first + (second - first) * amount
     }
 
+    static func turbulenceDirection(
+        position: SIMD3<Double>,
+        time: Double,
+        phase: Double,
+        scale: Double,
+        timeScale: Double,
+        mask: SIMD3<Double>
+    ) -> SIMD3<Double> {
+        guard position.x.isFinite, position.y.isFinite, position.z.isFinite,
+              time.isFinite, phase.isFinite, scale.isFinite, timeScale.isFinite,
+              mask.x.isFinite, mask.y.isFinite, mask.z.isFinite else { return .zero }
+        let noiseTime = phase + time * timeScale
+        // De-correlate one project-owned coherent field across its three sample axes.
+        let point = position * scale + SIMD3(
+            noiseTime,
+            noiseTime * 0.754_877_666,
+            noiseTime * 1.324_717_957
+        )
+        guard point.x.isFinite, point.y.isFinite, point.z.isFinite,
+              abs(point.x) < 1e12, abs(point.y) < 1e12, abs(point.z) < 1e12 else {
+            return .zero
+        }
+        let turn = gradientNoise(point, seed: 0xD6E8FEB86659FD93) * 2 * Double.pi
+        var direction = SIMD3(cos(turn), sin(turn), 0.0)
+        if abs(mask.z) > 1e-9 {
+            direction.z = gradientNoise(
+                point + SIMD3(47.17, 73.31, 101.03),
+                seed: 0xA0761D6478BD642F
+            )
+            let directionLength = length(direction)
+            guard directionLength.isFinite, directionLength > 1e-9 else { return .zero }
+            direction /= directionLength
+        }
+        return direction * mask
+    }
+
     static func changeAmount(
         _ life: Double,
         _ rawStart: Double?,
@@ -227,7 +273,9 @@ nonisolated enum SceneParticleSimulationMath {
             case .controlPointAttract:
                 add(.controlPointForceIgnored, "controlpointattract")
             case .turbulence:
-                add(.unsupportedOperator, "turbulence")
+                if value.audioResponse.isEnabled {
+                    add(.unsupportedOperator, "turbulence")
+                }
             case .vortex:
                 add(.unsupportedOperator, "vortex")
             case let .unsupported(name):

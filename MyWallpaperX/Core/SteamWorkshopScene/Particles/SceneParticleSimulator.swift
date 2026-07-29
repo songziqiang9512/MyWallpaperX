@@ -20,6 +20,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
     private let emissionDeadline: Double?
     private let worldSpaceFrame: SceneParticleWorldSpaceFrame?
     private let hasWorldSpaceMovement: Bool
+    let simulationSeed: UInt64
     private var emitters: [EmitterState]
     var random: SceneParticleRandomGenerator
     private var accumulator = 0.0
@@ -43,6 +44,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
         self.hasWorldSpaceMovement = definition.operators.contains(
             where: \.isWorldSpaceMovement
         )
+        self.simulationSeed = seed
         self.fixedTimeStep = fixedTimeStep.isFinite && fixedTimeStep > 0 ? fixedTimeStep : 1.0 / 60.0
         let authoredMaximum = min(max(definition.maximumCount ?? 1, 0), 20_000)
         maximumParticleCount = min(authoredMaximum, max(particleBudget ?? authoredMaximum, 0))
@@ -289,7 +291,39 @@ nonisolated struct SceneParticleSimulator: Sendable {
                         * duration * blend
                 }
             }
-        case .controlPointAttract, .turbulence, .vortex, .unsupported:
+        case .turbulence:
+            guard !value.audioResponse.isEnabled else { break }
+            let scale = SceneParticleSimulationMath.scalar(value.scale, fallback: 0.005)
+            let timeScale = value.timeScale ?? 0.01
+            let mask = SceneParticleSimulationMath.vector(value.mask, fallback: SIMD3(1, 1, 0))
+            let rawMinimumSpeed = value.speedMinimum ?? 500
+            let rawMaximumSpeed = value.speedMaximum ?? 1_000
+            guard scale.isFinite, timeScale.isFinite,
+                  rawMinimumSpeed.isFinite, rawMaximumSpeed.isFinite else { break }
+            let minimumSpeed = max(rawMinimumSpeed, 0)
+            let maximumSpeed = max(rawMaximumSpeed, minimumSpeed)
+            let speedOverride = overrideScalar(instanceOverride?.speed)
+            for index in particles.indices {
+                let phase = turbulenceRandom(
+                    value.phaseMinimum ?? 0, value.phaseMaximum ?? 0,
+                    index, operatorIndex, 0
+                )
+                let speed = turbulenceRandom(
+                    minimumSpeed, maximumSpeed, index, operatorIndex, 1
+                ) * speedOverride
+                let direction = SceneParticleSimulationMath.turbulenceDirection(
+                    position: particles[index].position,
+                    time: simulationTime,
+                    phase: phase,
+                    scale: scale,
+                    timeScale: timeScale,
+                    mask: mask
+                )
+                let delta = direction * speed * duration
+                    * oscillationBlend(value, normalizedLives[index])
+                SceneParticleSimulationMath.addFinite(delta, to: &particles[index].velocity)
+            }
+        case .controlPointAttract, .vortex, .unsupported:
             break
         }
     }
