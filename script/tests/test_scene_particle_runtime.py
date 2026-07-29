@@ -31,6 +31,8 @@ STATIC_ORIGIN_SAMPLE_CACHE = sample_cache_root("3088601835")
 STATIC_ORIGIN_SAMPLE_EVIDENCE = sample_runtime_evidence_path("3088601835")
 REFRACTION_SAMPLE_CACHE = sample_cache_root("3768229922")
 REFRACTION_SAMPLE_EVIDENCE = sample_runtime_evidence_path("3768229922")
+WATER_IMPACT_SAMPLE_CACHE = sample_cache_root("3770444459")
+WATER_IMPACT_SAMPLE_EVIDENCE = sample_runtime_evidence_path("3770444459")
 NESTED_SAMPLE_CACHE = sample_cache_root("2974757317")
 NESTED_SAMPLE_EVIDENCE = sample_runtime_evidence_path("2974757317")
 NESTED_AUTHOR_OFF_SAMPLE_CACHE = sample_cache_root("2938612768")
@@ -277,6 +279,12 @@ enum Harness {
                 evidencePath: CommandLine.arguments[2],
                 cachePath: CommandLine.arguments[3]
             ))
+        case "water-impact-real":
+            guard CommandLine.arguments.count == 4 else { throw HarnessError.missingPath }
+            try printJSON(realWaterImpactSample(
+                evidencePath: CommandLine.arguments[2],
+                cachePath: CommandLine.arguments[3]
+            ))
         case "stock-synthetic":
             guard CommandLine.arguments.count == 3 else { throw HarnessError.missingPath }
             try printJSON(stockSynthetic(bundlePath: CommandLine.arguments[2]))
@@ -405,6 +413,49 @@ enum Harness {
         return [
             "firstFrame": firstFrame,
             "paths": paths.sorted(),
+            "refractionUnsupported": runtime.diagnostics.filter {
+                $0.kind == .refractionUnsupported
+            }.map { $0.detail ?? "" },
+        ]
+    }
+
+    private static func realWaterImpactSample(
+        evidencePath: String,
+        cachePath: String
+    ) throws -> [String: Any] {
+        let descriptor = try renderDescriptor(evidencePath: evidencePath)
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let runtime = SceneParticleRuntime(
+            descriptor: descriptor,
+            cacheDirectory: URL(fileURLWithPath: cachePath, isDirectory: true),
+            device: device,
+            stockTextureBundleURL: URL(fileURLWithPath:
+                "\(FileManager.default.currentDirectoryPath)/MyWallpaperX/Resources/SceneStockAssets.bundle",
+                isDirectory: true
+            )
+        )
+        let targetLayers = Set([239, 245, 248])
+        var activeFrames: [Int: Int] = [:]
+        var maximumInstances: [Int: Int] = [:]
+        for _ in 0..<(8 * 60) {
+            for batch in runtime.advance(by: 1.0 / 60.0)
+            where targetLayers.contains(batch.layerID)
+                && batch.refraction != nil
+                && !batch.instances.isEmpty {
+                activeFrames[batch.layerID, default: 0] += 1
+                maximumInstances[batch.layerID] = max(
+                    maximumInstances[batch.layerID, default: 0],
+                    batch.instances.count
+                )
+            }
+        }
+        return [
+            "activeFrames": Dictionary(uniqueKeysWithValues: targetLayers.sorted().map {
+                (String($0), activeFrames[$0, default: 0])
+            }),
+            "maximumInstances": Dictionary(uniqueKeysWithValues: targetLayers.sorted().map {
+                (String($0), maximumInstances[$0, default: 0])
+            }),
             "refractionUnsupported": runtime.diagnostics.filter {
                 $0.kind == .refractionUnsupported
             }.map { $0.detail ?? "" },
@@ -1922,6 +1973,22 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             "particles/presets/fireworkshitdistort.json",
             result["paths"],
         )
+        self.assertEqual(result["refractionUnsupported"], [])
+
+    def test_real_3770444459_sustains_refractive_water_impacts(self) -> None:
+        if (
+            not WATER_IMPACT_SAMPLE_EVIDENCE.is_file()
+            or not WATER_IMPACT_SAMPLE_CACHE.is_dir()
+        ):
+            self.skipTest("isolated 3770444459 runtime evidence is unavailable")
+        result = self.run_harness(
+            "water-impact-real",
+            str(WATER_IMPACT_SAMPLE_EVIDENCE),
+            str(WATER_IMPACT_SAMPLE_CACHE),
+        )
+        for layer_id in ("239", "245", "248"):
+            self.assertGreater(result["activeFrames"][layer_id], 0, result)
+            self.assertGreater(result["maximumInstances"][layer_id], 0, result)
         self.assertEqual(result["refractionUnsupported"], [])
 
 

@@ -18,11 +18,6 @@ enum SceneTextureLoadOutcome {
 }
 
 final class SceneTextureLoader {
-    private enum TexturePurpose: Hashable {
-        case color
-        case data
-    }
-
     private struct SourceKey: Hashable {
         let path: String
         let size: UInt64
@@ -32,7 +27,7 @@ final class SceneTextureLoader {
     private struct TextureKey: Hashable {
         let source: SourceKey
         let deviceRegistryID: UInt64
-        let purpose: TexturePurpose
+        let purpose: SceneCompressedTextureUploader.Purpose
     }
 
     private struct TexResource {
@@ -56,7 +51,7 @@ final class SceneTextureLoader {
         let key = TextureKey(
             source: sourceKey(for: url),
             deviceRegistryID: device.registryID,
-            purpose: .color
+            purpose: .premultipliedColor
         )
         if let cached = textureOutcomes[key] { return cached }
         let ext = url.pathExtension.lowercased()
@@ -77,7 +72,7 @@ final class SceneTextureLoader {
     /// continue through `load(from:device:)`.
     func loadDataTexture(from url: URL, device: MTLDevice) -> SceneTextureLoadOutcome {
         let key = TextureKey(source: sourceKey(for: url), deviceRegistryID: device.registryID,
-                             purpose: .data)
+                             purpose: .preservedChannels)
         if let cached = textureOutcomes[key] { return cached }
         let outcome: SceneTextureLoadOutcome
         guard url.pathExtension.lowercased() == Self.texExtension,
@@ -102,7 +97,11 @@ final class SceneTextureLoader {
                 )
             }
         } else {
-            outcome = makeDirectUploadTexture(from: container, device: device)
+            outcome = makeDirectUploadTexture(
+                from: container,
+                purpose: .preservedChannels,
+                device: device
+            )
                 ?? .unsupportedTexFormat(code: container.format)
         }
         textureOutcomes[key] = outcome
@@ -158,7 +157,11 @@ final class SceneTextureLoader {
             if container.format == 0 {
                 return loadFormatZeroContainer(container, fallbackData: data, device: device)
             }
-            if let directUploadOutcome = makeDirectUploadTexture(from: container, device: device) {
+            if let directUploadOutcome = makeDirectUploadTexture(
+                from: container,
+                purpose: .premultipliedColor,
+                device: device
+            ) {
                 return directUploadOutcome
             }
         }
@@ -353,24 +356,18 @@ final class SceneTextureLoader {
         return makeTexture(from: cgImage, device: device)
     }
 
-    private func makeCompressedTexture(
-        from container: SceneTexContainer,
-        pixelFormat: MTLPixelFormat,
-        device: MTLDevice
-    ) -> SceneTextureLoadOutcome {
-        SceneCompressedTextureUploader.upload(
-            container: container,
-            pixelFormat: pixelFormat,
-            device: device
-        )
-    }
-
     private func makeDirectUploadTexture(
         from container: SceneTexContainer,
+        purpose: SceneCompressedTextureUploader.Purpose,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome? {
         if let pixelFormat = container.metalPixelFormat {
-            return makeCompressedTexture(from: container, pixelFormat: pixelFormat, device: device)
+            return SceneCompressedTextureUploader.upload(
+                container: container,
+                pixelFormat: pixelFormat,
+                purpose: purpose,
+                device: device
+            )
         }
         if let pixelFormat = container.rawMetalPixelFormat,
            let bytesPerPixel = container.rawBytesPerPixel {

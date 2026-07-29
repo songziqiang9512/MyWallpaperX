@@ -3,6 +3,11 @@ import Metal
 import MetalPerformanceShaders
 
 struct SceneCompressedTextureUploader {
+    enum Purpose: Hashable {
+        case premultipliedColor
+        case preservedChannels
+    }
+
     // CPU decode budget: a decoded RGBA copy of one 4096x4096 mip is 64 MiB.
     // Larger payloads and multi-image sprites first keep their compact native
     // upload, then use the GPU to premultiply into the authored image or a
@@ -14,23 +19,30 @@ struct SceneCompressedTextureUploader {
     static func upload(
         container: SceneTexContainer,
         pixelFormat: MTLPixelFormat,
+        purpose: Purpose,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
         guard let firstMip = container.mips.first else {
             return .decodeFailed("TEX container has no mip data")
         }
-        // BC1/BC2/BC3 are color sources with straight alpha. The compositor
-        // blends premultiplied source-over, so normalize color payloads before
-        // consumers see them. Small single images decode on CPU; larger or
-        // multi-image containers use the GPU path below. Both crop padded
-        // storage to an authored image/frame region. Direct sampling would let
-        // transparent texels bloom their RGB into opaque-looking mattes.
+        // BC1/BC2/BC3 storage does not identify the consumer's channel
+        // semantics. Small single images decode on CPU for either purpose;
+        // only color consumers premultiply straight alpha before compositing.
         if let bcFormat = SceneBCTextureDecoder.Format(texFormat: container.format) {
             if container.imageCount == 1,
                firstMip.width * firstMip.height <= maxDecodedPixelCount {
-                return uploadDecodedColor(
+                return uploadDecoded(
                     container: container,
                     format: bcFormat,
+                    purpose: purpose,
+                    device: device
+                )
+            }
+            guard purpose == .premultipliedColor else {
+                return uploadDirect(
+                    container: container,
+                    mips: container.imageCount == 1 ? container.mips : [firstMip],
+                    pixelFormat: pixelFormat,
                     device: device
                 )
             }
@@ -49,18 +61,25 @@ struct SceneCompressedTextureUploader {
         )
     }
 
-    private static func uploadDecodedColor(
+    private static func uploadDecoded(
         container: SceneTexContainer,
         format: SceneBCTextureDecoder.Format,
+        purpose: Purpose,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
         let decoded = container.mips.enumerated().compactMap { level, mip in
-            SceneBCTextureDecoder.decode(
+            let imageWidth = purpose == .premultipliedColor
+                ? max(1, container.imageWidth >> level)
+                : mip.width
+            let imageHeight = purpose == .premultipliedColor
+                ? max(1, container.imageHeight >> level)
+                : mip.height
+            return SceneBCTextureDecoder.decode(
                 blockData: mip.data,
                 storedWidth: mip.width,
                 storedHeight: mip.height,
-                imageWidth: max(1, container.imageWidth >> level),
-                imageHeight: max(1, container.imageHeight >> level),
+                imageWidth: imageWidth,
+                imageHeight: imageHeight,
                 format: format
             )
         }
@@ -84,8 +103,10 @@ struct SceneCompressedTextureUploader {
         }
 
         for (level, image) in decoded.enumerated() {
-            let premultiplied = premultiplyStraightAlphaRGBA(image.rgba)
-            premultiplied.withUnsafeBytes { rawBuffer in
+            let rgba = purpose == .premultipliedColor
+                ? premultiplyStraightAlphaRGBA(image.rgba)
+                : image.rgba
+            rgba.withUnsafeBytes { rawBuffer in
                 texture.replace(
                     region: MTLRegionMake2D(0, 0, image.width, image.height),
                     mipmapLevel: level,
@@ -197,7 +218,8 @@ struct SceneCompressedTextureUploader {
         )
     }
 
-    // Non-color payloads (BC5 normal maps) keep their native block upload.
+    // Large preserved-channel payloads and formats without a CPU decoder keep
+    // their native block upload.
     private static func uploadDirect(
         container: SceneTexContainer,
         mips: [SceneTexContainer.Mip],
