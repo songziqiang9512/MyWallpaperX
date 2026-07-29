@@ -62,6 +62,17 @@ PRESERVED_KEYS = [
     "live_property_overrides",
 ]
 
+SCENE_SCRIPT_AUDIO_BARS_EXPECTATIONS = {
+    "expected_scene_script_audio_bars_plan_count": "scene_script_audio_bars_plan_count",
+    "expected_scene_script_audio_bars_diagnostic_count": "scene_script_audio_bars_diagnostic_count",
+    "expected_scene_script_audio_bars_has_audio_consumer": "scene_script_audio_bars_has_audio_consumer",
+    "expected_scene_script_audio_bars_total_bar_count": "scene_script_audio_bars_total_bar_count",
+    "expected_scene_script_audio_bars_plan_layer_ids": "scene_script_audio_bars_plan_layer_ids",
+    "expected_scene_script_audio_bars_plans": "scene_script_audio_bars_plans",
+    "expected_scene_script_audio_bars_succeeded_layer_ids": "scene_script_audio_bars_succeeded_layer_ids",
+    "required_scene_script_audio_bars_succeeded_layer_ids": "scene_script_audio_bars_succeeded_layer_ids",
+}
+
 
 def capabilities(runtime):
     values = []
@@ -80,16 +91,24 @@ def capabilities(runtime):
         values.append("authored_effect_runtime")
     if runtime.get("route_only_effect_count", 0):
         values.append("route_only_effects")
+    if runtime.get("scene_script_audio_bars_plan_count", 0):
+        values.append("scene_script_audio_bars")
     return values
 
 
 def matrix_sample(result, old):
     runtime = result["runtime"]
     runtime_evidence = runtime["runtime_evidence"]
+    sample_capabilities = list(old.get("capabilities") or capabilities(runtime))
+    if (
+        runtime.get("scene_script_audio_bars_plan_count", 0)
+        and "scene_script_audio_bars" not in sample_capabilities
+    ):
+        sample_capabilities.append("scene_script_audio_bars")
     sample = {
         "id": result["id"],
         "title": result.get("title"),
-        "capabilities": old.get("capabilities") or capabilities(runtime),
+        "capabilities": sample_capabilities,
         "project_sha256": result["hashes"]["project_sha256"],
         "package_sha256": result["hashes"]["package_sha256"],
     }
@@ -162,6 +181,13 @@ def matrix_sample(result, old):
         "expected_authored_effect_graph_stage_count": runtime["authored_effect_graph_stage_count"],
         "expected_route_only_effect_count": runtime["route_only_effect_count"],
     })
+
+    has_scene_script_audio_bars_contract = bool(
+        runtime.get("scene_script_audio_bars_plan_count")
+    ) or any(key in old for key in SCENE_SCRIPT_AUDIO_BARS_EXPECTATIONS)
+    if has_scene_script_audio_bars_contract:
+        for expectation, metric in SCENE_SCRIPT_AUDIO_BARS_EXPECTATIONS.items():
+            sample[expectation] = runtime[metric]
 
     for key in PRESERVED_KEYS:
         if key in old:

@@ -6,7 +6,7 @@ import simd
 //
 // Right-handed world space. View space: looking along -Z, +Y up. Layers live
 // on a single z=0 plane unless their origin specifies otherwise.
-enum SceneMatrix {
+nonisolated enum SceneMatrix {
     // MARK: - Identity / translate / scale / rotate
 
     static func identity() -> simd_float4x4 {
@@ -127,7 +127,7 @@ enum SceneMatrix {
 }
 
 extension SIMD3 where Scalar == Float {
-    init(_ array: [Float], fill: Float = 0) {
+    nonisolated init(_ array: [Float], fill: Float = 0) {
         let x = array.count > 0 ? array[0] : fill
         let y = array.count > 1 ? array[1] : fill
         let z = array.count > 2 ? array[2] : fill
@@ -136,7 +136,7 @@ extension SIMD3 where Scalar == Float {
 }
 
 extension SIMD2 where Scalar == Float {
-    init(_ array: [Float], fill: Float = 0) {
+    nonisolated init(_ array: [Float], fill: Float = 0) {
         let x = array.count > 0 ? array[0] : fill
         let y = array.count > 1 ? array[1] : fill
         self.init(x, y)

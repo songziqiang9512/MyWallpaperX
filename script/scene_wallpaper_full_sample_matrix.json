@@ -733,10 +733,45 @@
       "capabilities": [
         "image_layers",
         "particle_layers",
-        "route_only_effects"
+        "route_only_effects",
+        "scene_script_audio_bars"
       ],
       "project_sha256": "ba0930a888d9d808b997eeaf8decf42598e3ec4eab5bff72a0f9d9d9ca7ba2b4",
       "package_sha256": "763e7e031e8bdcb4528a7eb04c6db7673b0def098cd116784bf2d1b21b814910",
+      "expected_scene_script_audio_bars_plan_count": 1,
+      "expected_scene_script_audio_bars_diagnostic_count": 0,
+      "expected_scene_script_audio_bars_has_audio_consumer": true,
+      "expected_scene_script_audio_bars_total_bar_count": 64,
+      "expected_scene_script_audio_bars_plan_layer_ids": [
+        282
+      ],
+      "expected_scene_script_audio_bars_plans": [
+        {
+          "layer_id": 282,
+          "host": "visible",
+          "source_sha256": "2d874f553bef33dfd4650b1d38630148ccf52940bb6b542f46860411aa5d9379",
+          "bar_count": 64,
+          "audio_resolution": 64,
+          "channel": "average",
+          "model_path": "models/workshop/2079954552/bar.json",
+          "material_path": "materials/workshop/2079954552/bar.json",
+          "texture_path": "workshop/2079954552/bar",
+          "width_multiplier": 1.0,
+          "height_multiplier": 50.0,
+          "depth_multiplier": 1.0,
+          "x_step": 5.6,
+          "y_step": 11.3,
+          "angle_degrees": 60.0,
+          "alignment": "centre",
+          "first_step": "advanceBeforeFirstBar"
+        }
+      ],
+      "expected_scene_script_audio_bars_succeeded_layer_ids": [
+        282
+      ],
+      "required_scene_script_audio_bars_succeeded_layer_ids": [
+        282
+      ],
       "expected_runtime_evidence_schema": 1,
       "expected_shader_contract_count": 11,
       "expected_shader_contract_authored_count": 9,
@@ -3236,10 +3271,45 @@
         "particle_layers",
         "strict_effect_runtime",
         "route_only_effects",
-        "verified_text_script_runtime"
+        "verified_text_script_runtime",
+        "scene_script_audio_bars"
       ],
       "project_sha256": "0d41bcedebbbd5cbf0874840b4fe753d3b1c3e98d1b93d541c28095495904403",
       "package_sha256": "9a2a446ed0f1010585d95b26a620bd823a7756b6d31c0dad49aa09d7e2d724c7",
+      "expected_scene_script_audio_bars_plan_count": 1,
+      "expected_scene_script_audio_bars_diagnostic_count": 0,
+      "expected_scene_script_audio_bars_has_audio_consumer": true,
+      "expected_scene_script_audio_bars_total_bar_count": 64,
+      "expected_scene_script_audio_bars_plan_layer_ids": [
+        112
+      ],
+      "expected_scene_script_audio_bars_plans": [
+        {
+          "layer_id": 112,
+          "host": "visible",
+          "source_sha256": "e6ff1bbde3ab348731a5ba35f757f8f0fc97fd70a117dd7e74eaffe98026b149",
+          "bar_count": 64,
+          "audio_resolution": 64,
+          "channel": "average",
+          "model_path": "models/workshop/2727665642/bar.json",
+          "material_path": "materials/workshop/2727665642/bar.json",
+          "texture_path": "workshop/2727665642/bar",
+          "width_multiplier": 2.5,
+          "height_multiplier": 50.0,
+          "depth_multiplier": 0.0,
+          "x_step": 20.0,
+          "y_step": 0.0,
+          "angle_degrees": 0.0,
+          "alignment": "centre",
+          "first_step": "ownerAtBaseOrigin"
+        }
+      ],
+      "expected_scene_script_audio_bars_succeeded_layer_ids": [
+        112
+      ],
+      "required_scene_script_audio_bars_succeeded_layer_ids": [
+        112
+      ],
       "expected_text_script_binding_count": 3,
       "required_text_script_binding_layer_ids": [54, 60, 66],
       "expected_runtime_evidence_schema": 1,

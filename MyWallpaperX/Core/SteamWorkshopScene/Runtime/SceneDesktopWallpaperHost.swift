@@ -60,7 +60,8 @@ final class SceneDesktopWallpaperHost {
         screenReconciliationWorkItem = nil
         launchContext = context
         SceneAudioSpectrumInbox.shared.setDemand(Self.requiresAudioSpectrum(
-            in: context.authoredEffectCatalog
+            in: context.authoredEffectCatalog,
+            sceneScriptAudioBarsProgram: context.sceneScriptAudioBarsProgram
         ))
         guard rebuildSurfaces(resetClock: true) else {
             stop()
@@ -227,6 +228,7 @@ final class SceneDesktopWallpaperHost {
             guard let metalView = SceneMetalView(
                 renderDescriptor: launchContext.runtimeInput.renderDescriptor,
                 authoredEffectCatalog: launchContext.authoredEffectCatalog,
+                sceneScriptAudioBarsProgram: launchContext.sceneScriptAudioBarsProgram,
                 pipelineRepository: launchContext.pipelineRepository,
                 userPropertyTextureURLs: launchContext.userPropertyTextureURLs,
                 frame: frame
@@ -251,6 +253,10 @@ final class SceneDesktopWallpaperHost {
                 Self.appendTextScriptReport(
                     to: launchContext.logURL,
                     program: launchContext.textScriptProgram
+                )
+                Self.appendSceneScriptAudioBarsReport(
+                    to: launchContext.logURL,
+                    program: launchContext.sceneScriptAudioBarsProgram
                 )
                 wroteLog = true
             }

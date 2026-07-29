@@ -65,6 +65,38 @@ TEXT_SCRIPT_BINDING_RE = re.compile(
     r"value@fixture=(?P<value>.+)$",
     re.MULTILINE,
 )
+SCENE_SCRIPT_AUDIO_BARS_PLAN_COUNT_RE = re.compile(
+    r"^sceneScriptAudioBarsPlanCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
+SCENE_SCRIPT_AUDIO_BARS_DIAGNOSTIC_COUNT_RE = re.compile(
+    r"^sceneScriptAudioBarsDiagnosticCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
+SCENE_SCRIPT_AUDIO_BARS_HAS_AUDIO_CONSUMER_RE = re.compile(
+    r"^sceneScriptAudioBarsHasAudioConsumer: (?P<value>true|false)$",
+    re.MULTILINE | re.IGNORECASE,
+)
+SCENE_SCRIPT_AUDIO_BARS_PLAN_RE = re.compile(
+    r"^sceneScript audio bars: layer=(?P<id>\d+) "
+    r"host=(?P<host>\S+) "
+    r"sourceSHA256=(?P<source_sha256>[0-9a-fA-F]{64}) "
+    r"(?:count|instances)=(?P<bar_count>\d+) "
+    r"resolution=(?P<audio_resolution>\d+) "
+    r"channel=(?P<channel>\S+) "
+    r"model=(?P<model_path>\S+) "
+    r"material=(?P<material_path>\S+) "
+    r"texture=(?P<texture_path>\S+) "
+    rf"width=(?P<width_multiplier>{FLOAT_PATTERN}) "
+    rf"height=(?P<height_multiplier>{FLOAT_PATTERN}) "
+    rf"depth=(?P<depth_multiplier>{FLOAT_PATTERN}) "
+    rf"xStep=(?P<x_step>{FLOAT_PATTERN}) "
+    rf"yStep=(?P<y_step>{FLOAT_PATTERN}) "
+    rf"angle=(?P<angle_degrees>{FLOAT_PATTERN}) "
+    r"alignment=(?P<alignment>\S+) "
+    r"firstStep=(?P<first_step>\S+)$",
+    re.MULTILINE,
+)
 PARTICLE_LOADED_RE = re.compile(
     r"^particle loaded: (?P<loaded>\d+) / (?P<total>\d+)$",
     re.MULTILINE,
@@ -118,6 +150,10 @@ UTILITY_LAYER_RE = re.compile(
 )
 UTILITY_CAPTURE_EXECUTION_RE = re.compile(
     r"phase=utility-capture layer=(?P<id>\d+) status=(?P<status>succeeded|failed)"
+)
+SCENE_SCRIPT_AUDIO_BARS_EXECUTION_RE = re.compile(
+    r"phase=scene-script-audio-bars layer=(?P<id>\d+) "
+    r"status=(?P<status>succeeded|failed)"
 )
 AUTHORED_EFFECT_GRAPH_EXECUTION_RE = re.compile(
     r"phase=authored-effect-graph layer=(?P<id>\d+) status=(?P<status>succeeded|failed)"
@@ -1025,6 +1061,283 @@ def text_script_runtime_metrics(preview_text: str) -> dict[str, Any]:
     }
 
 
+def scene_script_audio_bars_runtime_metrics(preview_text: str) -> dict[str, Any]:
+    plan_count_match = SCENE_SCRIPT_AUDIO_BARS_PLAN_COUNT_RE.search(preview_text)
+    diagnostic_count_match = (
+        SCENE_SCRIPT_AUDIO_BARS_DIAGNOSTIC_COUNT_RE.search(preview_text)
+    )
+    has_audio_consumer_match = (
+        SCENE_SCRIPT_AUDIO_BARS_HAS_AUDIO_CONSUMER_RE.search(preview_text)
+    )
+    plans = [
+        {
+            "layer_id": int(match.group("id")),
+            "host": match.group("host"),
+            "source_sha256": match.group("source_sha256").lower(),
+            "bar_count": int(match.group("bar_count")),
+            "audio_resolution": int(match.group("audio_resolution")),
+            "channel": match.group("channel"),
+            "model_path": match.group("model_path"),
+            "material_path": match.group("material_path"),
+            "texture_path": match.group("texture_path"),
+            "width_multiplier": float(match.group("width_multiplier")),
+            "height_multiplier": float(match.group("height_multiplier")),
+            "depth_multiplier": float(match.group("depth_multiplier")),
+            "x_step": float(match.group("x_step")),
+            "y_step": float(match.group("y_step")),
+            "angle_degrees": float(match.group("angle_degrees")),
+            "alignment": match.group("alignment"),
+            "first_step": match.group("first_step"),
+        }
+        for match in SCENE_SCRIPT_AUDIO_BARS_PLAN_RE.finditer(preview_text)
+    ]
+    return {
+        "plan_count": (
+            int(plan_count_match.group("count")) if plan_count_match else None
+        ),
+        "diagnostic_count": (
+            int(diagnostic_count_match.group("count"))
+            if diagnostic_count_match
+            else None
+        ),
+        "has_audio_consumer": (
+            has_audio_consumer_match.group("value").lower() == "true"
+            if has_audio_consumer_match
+            else None
+        ),
+        "plan_layer_ids": sorted(plan["layer_id"] for plan in plans),
+        "total_bar_count": sum(plan["bar_count"] for plan in plans),
+        "plans": plans,
+    }
+
+
+SCENE_SCRIPT_AUDIO_BARS_PLAN_FIELDS = (
+    "layer_id",
+    "host",
+    "source_sha256",
+    "bar_count",
+    "audio_resolution",
+    "channel",
+    "model_path",
+    "material_path",
+    "texture_path",
+    "width_multiplier",
+    "height_multiplier",
+    "depth_multiplier",
+    "x_step",
+    "y_step",
+    "angle_degrees",
+    "alignment",
+    "first_step",
+)
+SCENE_SCRIPT_AUDIO_BARS_PLAN_INTEGER_FIELDS = {
+    "layer_id",
+    "bar_count",
+    "audio_resolution",
+}
+SCENE_SCRIPT_AUDIO_BARS_PLAN_FLOAT_FIELDS = {
+    "width_multiplier",
+    "height_multiplier",
+    "depth_multiplier",
+    "x_step",
+    "y_step",
+    "angle_degrees",
+}
+
+
+def scene_script_audio_bars_plan_matches(
+    actual: dict[str, Any],
+    expected: dict[str, Any],
+) -> bool:
+    if any(field not in expected for field in SCENE_SCRIPT_AUDIO_BARS_PLAN_FIELDS):
+        return False
+    try:
+        for field in SCENE_SCRIPT_AUDIO_BARS_PLAN_FIELDS:
+            if field in SCENE_SCRIPT_AUDIO_BARS_PLAN_FLOAT_FIELDS:
+                if not math.isclose(
+                    float(actual[field]),
+                    float(expected[field]),
+                    rel_tol=1e-6,
+                    abs_tol=1e-4,
+                ):
+                    return False
+            elif field in SCENE_SCRIPT_AUDIO_BARS_PLAN_INTEGER_FIELDS:
+                if int(actual[field]) != int(expected[field]):
+                    return False
+            elif field == "source_sha256":
+                if str(actual[field]).lower() != str(expected[field]).lower():
+                    return False
+            elif str(actual[field]) != str(expected[field]):
+                return False
+    except (KeyError, TypeError, ValueError):
+        return False
+    return True
+
+
+def scene_script_audio_bars_execution_metrics(log_text: str) -> dict[str, Any]:
+    matches = list(SCENE_SCRIPT_AUDIO_BARS_EXECUTION_RE.finditer(log_text))
+    succeeded: set[int] = set()
+    failed: set[int] = set()
+    for match in matches:
+        layer_id = int(match.group("id"))
+        if match.group("status") == "succeeded":
+            succeeded.add(layer_id)
+        else:
+            failed.add(layer_id)
+    return {
+        "has_evidence": bool(matches),
+        "succeeded_layer_ids": sorted(succeeded),
+        "failed_layer_ids": sorted(failed),
+    }
+
+
+def scene_script_audio_bars_runtime_failures(
+    sample: dict[str, Any],
+    metrics: dict[str, Any],
+    execution: dict[str, Any] | None = None,
+) -> list[str]:
+    expectation_keys = {
+        "expected_scene_script_audio_bars_plan_count",
+        "expected_scene_script_audio_bars_diagnostic_count",
+        "expected_scene_script_audio_bars_has_audio_consumer",
+        "expected_scene_script_audio_bars_total_bar_count",
+        "expected_scene_script_audio_bars_plan_layer_ids",
+        "expected_scene_script_audio_bars_plans",
+        "expected_scene_script_audio_bars_succeeded_layer_ids",
+        "required_scene_script_audio_bars_succeeded_layer_ids",
+    }
+    if not any(key in sample for key in expectation_keys):
+        return []
+
+    failures: list[str] = []
+    if any(
+        metrics[key] is None
+        for key in ("plan_count", "diagnostic_count", "has_audio_consumer")
+    ):
+        failures.append("SceneScript audio bars runtime evidence missing")
+    elif metrics["plan_count"] != len(metrics["plans"]):
+        failures.append("SceneScript audio bars plan detail count mismatch")
+    expected_plan_count = sample.get(
+        "expected_scene_script_audio_bars_plan_count"
+    )
+    if (
+        expected_plan_count is not None
+        and metrics["plan_count"] != int(expected_plan_count)
+    ):
+        failures.append("SceneScript audio bars plan count mismatch")
+    expected_diagnostic_count = sample.get(
+        "expected_scene_script_audio_bars_diagnostic_count"
+    )
+    if (
+        expected_diagnostic_count is not None
+        and metrics["diagnostic_count"] != int(expected_diagnostic_count)
+    ):
+        failures.append("SceneScript audio bars diagnostic count mismatch")
+    expected_has_audio_consumer = sample.get(
+        "expected_scene_script_audio_bars_has_audio_consumer"
+    )
+    if (
+        expected_has_audio_consumer is not None
+        and metrics["has_audio_consumer"] is not bool(expected_has_audio_consumer)
+    ):
+        failures.append("SceneScript audio bars audio consumer state mismatch")
+    expected_total_bar_count = sample.get(
+        "expected_scene_script_audio_bars_total_bar_count"
+    )
+    if (
+        expected_total_bar_count is not None
+        and metrics["total_bar_count"] != int(expected_total_bar_count)
+    ):
+        failures.append("SceneScript audio bars total bar count mismatch")
+    expected_layer_ids = sample.get(
+        "expected_scene_script_audio_bars_plan_layer_ids"
+    )
+    if expected_layer_ids is not None:
+        if metrics["plan_layer_ids"] != sorted(int(value) for value in expected_layer_ids):
+            failures.append("SceneScript audio bars plan layer IDs mismatch")
+
+    expected_plans = sample.get("expected_scene_script_audio_bars_plans")
+    expected_plan_layer_ids: list[int] = []
+    if expected_plans is not None:
+        if not isinstance(expected_plans, list):
+            failures.append("SceneScript audio bars expected plan tuple invalid")
+        else:
+            try:
+                actual_sorted = sorted(
+                    metrics["plans"],
+                    key=lambda plan: (
+                        int(plan["layer_id"]),
+                        str(plan["source_sha256"]),
+                    ),
+                )
+                expected_sorted = sorted(
+                    expected_plans,
+                    key=lambda plan: (
+                        int(plan["layer_id"]),
+                        str(plan["source_sha256"]),
+                    ),
+                )
+                expected_plan_layer_ids = sorted({
+                    int(plan["layer_id"]) for plan in expected_plans
+                })
+            except (KeyError, TypeError, ValueError):
+                failures.append("SceneScript audio bars expected plan tuple invalid")
+            else:
+                if (
+                    len(actual_sorted) != len(expected_sorted)
+                    or any(
+                        not scene_script_audio_bars_plan_matches(actual, expected)
+                        for actual, expected in zip(actual_sorted, expected_sorted)
+                    )
+                ):
+                    failures.append("SceneScript audio bars plan tuple mismatch")
+
+    expected_succeeded = sample.get(
+        "expected_scene_script_audio_bars_succeeded_layer_ids"
+    )
+    required_succeeded = sorted(
+        int(layer_id)
+        for layer_id in sample.get(
+            "required_scene_script_audio_bars_succeeded_layer_ids",
+            [],
+        )
+    )
+    requires_execution = (
+        expected_plans is not None
+        or expected_succeeded is not None
+        or bool(required_succeeded)
+    )
+    if requires_execution:
+        execution = execution or {
+            "has_evidence": False,
+            "succeeded_layer_ids": [],
+            "failed_layer_ids": [],
+        }
+        succeeded = set(execution["succeeded_layer_ids"])
+        if not execution["has_evidence"]:
+            failures.append("SceneScript audio bars execution evidence missing")
+        failures.extend(
+            f"SceneScript audio bars layer {layer_id} failed"
+            for layer_id in execution["failed_layer_ids"]
+        )
+        if expected_succeeded is not None:
+            if succeeded != {int(layer_id) for layer_id in expected_succeeded}:
+                failures.append(
+                    "SceneScript audio bars succeeded layer IDs mismatch"
+                )
+        for layer_id in required_succeeded:
+            if layer_id not in succeeded:
+                failures.append(
+                    f"SceneScript audio bars layer {layer_id} should succeed"
+                )
+        for layer_id in expected_plan_layer_ids:
+            if layer_id not in succeeded:
+                failures.append(
+                    f"SceneScript audio bars planned layer {layer_id} should succeed"
+                )
+    return failures
+
+
 def utility_runtime_metrics(preview_text: str) -> dict[str, Any]:
     count_match = UTILITY_LAYER_COUNT_RE.search(preview_text)
     capture_match = UTILITY_CAPTURE_COUNT_RE.search(preview_text)
@@ -1903,6 +2216,12 @@ def run_sample(
     text_total = int(text_loaded_match.group("total")) if text_loaded_match else 0
     text_loaded_layer_ids = [int(match.group("id")) for match in TEXT_LAYER_OK_RE.finditer(preview_text)]
     text_script_runtime = text_script_runtime_metrics(preview_text)
+    scene_script_audio_bars_runtime = scene_script_audio_bars_runtime_metrics(
+        preview_text
+    )
+    scene_script_audio_bars_execution = (
+        scene_script_audio_bars_execution_metrics(log_text)
+    )
     solid_runtime = solid_runtime_metrics(preview_text)
     utility_runtime = utility_runtime_metrics(preview_text)
     utility_capture_execution = utility_capture_execution_metrics(log_text)
@@ -2291,6 +2610,13 @@ def run_sample(
     if required_text_script_binding_layer_ids:
         if text_script_runtime["binding_layer_ids"] != required_text_script_binding_layer_ids:
             failures.append("text script binding layer IDs mismatch")
+    failures.extend(
+        scene_script_audio_bars_runtime_failures(
+            sample,
+            scene_script_audio_bars_runtime,
+            scene_script_audio_bars_execution,
+        )
+    )
     visible_layer_ids = set(runtime_evidence["visible_layer_ids"])
     for layer_id in sample.get("required_visible_layer_ids", []):
         if layer_id not in visible_layer_ids:
@@ -2408,6 +2734,30 @@ def run_sample(
             "text_script_diagnostic_count": text_script_runtime["diagnostic_count"],
             "text_script_binding_layer_ids": text_script_runtime["binding_layer_ids"],
             "text_script_bindings": text_script_runtime["bindings"],
+            "scene_script_audio_bars_plan_count": (
+                scene_script_audio_bars_runtime["plan_count"]
+            ),
+            "scene_script_audio_bars_diagnostic_count": (
+                scene_script_audio_bars_runtime["diagnostic_count"]
+            ),
+            "scene_script_audio_bars_has_audio_consumer": (
+                scene_script_audio_bars_runtime["has_audio_consumer"]
+            ),
+            "scene_script_audio_bars_total_bar_count": (
+                scene_script_audio_bars_runtime["total_bar_count"]
+            ),
+            "scene_script_audio_bars_plan_layer_ids": (
+                scene_script_audio_bars_runtime["plan_layer_ids"]
+            ),
+            "scene_script_audio_bars_plans": (
+                scene_script_audio_bars_runtime["plans"]
+            ),
+            "scene_script_audio_bars_succeeded_layer_ids": (
+                scene_script_audio_bars_execution["succeeded_layer_ids"]
+            ),
+            "scene_script_audio_bars_failed_layer_ids": (
+                scene_script_audio_bars_execution["failed_layer_ids"]
+            ),
             "loaded_solid_layers": solid_runtime["loaded"],
             "solid_candidates": solid_runtime["candidates"],
             "solid_loaded_ratio": round(solid_runtime["loaded_ratio"], 4),

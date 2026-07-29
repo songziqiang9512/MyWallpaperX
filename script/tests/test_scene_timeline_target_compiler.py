@@ -28,6 +28,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneDocument+NumericParsing.swift",
     SOURCE_ROOT / "Format/ScenePuppetAnimationLayer.swift",
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
+    SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
     SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift",

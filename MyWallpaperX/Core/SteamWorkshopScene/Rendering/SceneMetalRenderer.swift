@@ -14,13 +14,18 @@ struct SceneMetalRenderer {
     private let layersByID: [Int: SceneRenderDescriptor.Layer]
     private let utilityPlansByTriggerLayerID: [Int: [SceneUtilityLayerRuntimePlan]]
     let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
+    let sceneScriptAudioBarsPlansByLayerID: [Int: SceneScriptAudioBarsPlan]
     private let dependencyRuntime: SceneDependencyFrameRuntime
     private let textureRegistry = SceneFrameTextureRegistry()
     private let utilityCaptureTelemetry = SceneGPUCompletionTelemetry(phase: "utility-capture")
     private let authoredEffectTelemetry = SceneGPUCompletionTelemetry(phase: "authored-effect-graph")
+    private let sceneScriptAudioBarsTelemetry = SceneGPUCompletionTelemetry(
+        phase: "scene-script-audio-bars"
+    )
     init?(
         renderDescriptor: SceneRenderDescriptor,
         authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog,
+        sceneScriptAudioBarsProgram: SceneScriptAudioBarsProgram = .empty,
         pipelineRepository: SceneImageEffectPipelineRepository
     ) {
         let device = pipelineRepository.device
@@ -37,6 +42,7 @@ struct SceneMetalRenderer {
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: renderDescriptor)
         self.visibleLayerIDs = visibleLayerIDs
         self.authoredEffectCatalog = authoredEffectCatalog
+        self.sceneScriptAudioBarsPlansByLayerID = Dictionary(uniqueKeysWithValues: sceneScriptAudioBarsProgram.plans.map { ($0.layerID, $0) })
         self.dependencyRuntime = SceneDependencyFrameRuntime(
             descriptor: renderDescriptor,
             visibleLayerIDs: visibleLayerIDs,
@@ -68,14 +74,6 @@ struct SceneMetalRenderer {
         self.parallaxByLayerID = Dictionary(uniqueKeysWithValues: byID.keys.compactMap { id in
             SceneLayerParallax.resolve(layerID: id, nodesByID: parallaxNodes).map { (id, $0) }
         })
-    }
-
-    var sceneClearColor: MTLClearColor {
-        let c = renderDescriptor.camera.clearColor
-        let r = Double(c.count > 0 ? c[0] : 0.7)
-        let g = Double(c.count > 1 ? c[1] : 0.7)
-        let b = Double(c.count > 2 ? c[2] : 0.7)
-        return MTLClearColorMake(r, g, b, 1.0)
     }
 
     func renderFrame(
@@ -166,6 +164,18 @@ struct SceneMetalRenderer {
             switch layer.contentKind {
             case "image", "solid", "text":
                 guard let imagePipeline, let texture = imageTextures[layer.id] else { continue }
+                if let plan = sceneScriptAudioBarsPlansByLayerID[layer.id] {
+                    let encoded = renderSceneScriptAudioBars(
+                        plan: plan, layer: layer, texture: texture, pipeline: imagePipeline,
+                        frameContext: frameContext, sceneOrthoHeight: camera.orthoHeight,
+                        viewProjection: cameraFrame.orthographicViewProjection,
+                        mainPass: mainPass
+                    )
+                    sceneScriptAudioBarsTelemetry.record(
+                        layerID: layer.id, encoded: encoded, on: commandBuffer
+                    )
+                    continue
+                }
                 let dependencyEffect = dependencyRuntime.effectInput(
                     for: layer.id,
                     textureRegistry: textureRegistry

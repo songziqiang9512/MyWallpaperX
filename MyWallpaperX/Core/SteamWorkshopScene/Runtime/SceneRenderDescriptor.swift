@@ -130,6 +130,7 @@ struct SceneRenderDescriptorBuilder {
                     text: object.text,
                     textStyle: object.textStyle,
                     textScript: object.textScript,
+                    scriptBindings: object.scriptBindings,
                     hasInlineScript: object.hasInlineScript,
                     effects: effectDescriptors(from: object),
                     effectFiles: object.effectFiles,

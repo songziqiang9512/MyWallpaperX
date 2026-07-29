@@ -188,6 +188,7 @@ struct SceneDocumentLoader {
             text: text,
             textStyle: text == nil ? nil : SceneTextDescriptor.parse(root),
             textScript: SceneTextScriptDefinition.parse(root["text"]),
+            scriptBindings: SceneScriptBindingDefinition.parseLayerProperties(in: root),
             hasInlineScript: containsInlineScript(root),
             effects: parsedEffects,
             effectFiles: uniqueSorted(effectFiles),

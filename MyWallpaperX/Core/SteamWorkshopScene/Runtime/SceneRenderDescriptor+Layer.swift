@@ -49,6 +49,7 @@ extension SceneRenderDescriptor {
         let text: String?
         let textStyle: SceneTextDescriptor?
         var textScript: SceneTextScriptDefinition? = nil
+        var scriptBindings: [SceneScriptBindingDefinition]? = nil
         let hasInlineScript: Bool
         let effects: [EffectDescriptor]
         let effectFiles: [String]
