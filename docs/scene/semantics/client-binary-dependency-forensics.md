@@ -67,19 +67,19 @@ PyTorch、Torch Vision、Torch Audio、timm、**MiDaS**、**DPT**、OpenCV（含
 
 [Windows 取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) §4 记录的是 Parallels 运行时**已加载**的 4 个模块（`d3d11`/`dxgi`/`d3dcompiler_47_x32`/`scenescript32`）。以下是磁盘上的完整装载面（62 个文件，511 MB；`.dll` 28 个）：
 
-| 组 | 文件 | 推断（等级 C） |
+| 组 | 文件 | 结构事实 / 边界（逐项等级见下文） |
 |---|---|---|
 | Scene 脚本 | `scenescript32.dll` / `scenescript64.dll` | V8 VM 独立模块边界 |
 | Shader 编译 | `d3dcompiler_47.dll` / `d3dcompiler_47_x32.dll` | FXC，SM5 路径 |
 | Shader 编译（新） | `dxcompiler.dll` / `dxil.dll` | **DXC/DXIL 存在于磁盘**，说明官方具备 SM6 编译链；但随包 blob 只有 `blobsSM40`（DXBC），运行时是否走 DXC 未证实 |
 | 3D 模型 | `assimp-vc143-mt32.dll` / `-mt64.dll` | 与 licenses 的 Assimp 对应；VC143 工具链 |
 | 图像 | `FreeImage32.dll` / `FreeImage64.dll` | — |
-| 媒体 | `mediaextensions32/64.dll`、`steammdmp32/64.dll` | 媒体集成与 Steam 媒体桥 |
+| 媒体 | `mediaextensions32/64.dll` | 音频扩展集成；主程序实际使用面仍需调用链与动态状态互证 |
 | 资源 | `resourceutil32/64.dll` | 资源编译/工具 |
 | RGB 设备 | `CUESDK.x64_2017.dll` / `CUESDK_2017.dll` | Corsair iCUE；`plugins/led/` 另有 LED 插件（本机加载失败，错误码 126/183，见根 `log.txt`） |
 | UI/Web | `libcef.dll`、`libEGL.dll`、`libGLESv2.dll`、`vk_swiftshader.dll`、`vulkan-1.dll`、`chrome_elf.dll`、`icudtl.dat`、`*.pak` | CEF/ANGLE/SwiftShader，全部属 UI 进程，与 `wallpaper32.exe` Scene 渲染无关（§4.2 已界定） |
 | 桌面注入 | `applicationwallpaperinject32/64.exe`、`cloneextensions32/64.dll`、`edgewallpaper64.exe` | Windows 桌面集成，无 macOS 对应义务 |
-| 诊断 | `diagnostics32/64.exe`、`apputil32.exe` | — |
+| 诊断 | `diagnostics32/64.exe`、`apputil32.exe`、`steammdmp32/64.dll` | `steammdmp` 的唯一公开导出为 `WriteSteamMiniDump`，属于崩溃转储边界，不是媒体桥 |
 | Steam | `steam_api.dll` / `steam_api64.dll` | — |
 
 `distribution/` 与 `bin/`+`plugins/` 内容为同一套发行 payload（文件名集合仅差 3 个运行时状态文件：`playliststatetime.bin`、`workshopcache.json`、`workshopcache_editor.json`），无独立证据价值，后续不再检查。
@@ -109,6 +109,24 @@ PyTorch、Torch Vision、Torch Audio、timm、**MiDaS**、**DPT**、OpenCV（含
 | `cloneextensions64.dll` | 主程序动态解析 clone/composition 入口；模块有独立 surface/window/swapchain create/update/destroy 边界 | 所有 Scene 与显示配置都使用 clone 路径；跨平台应复制 DirectComposition |
 
 这些结果证明深层静态分析对 resolver、binder、frontend 与生命周期边界有价值；它仍不替代公开 schema、真实样本动态证据和 Windows pixel golden。
+
+### 3.3 仍未闭合的静态研究队列
+
+当前完成的是 `wallpaper64.exe`、`scenescript64.dll`、`resourceutil64.dll`、`resourcecompiler64.exe`、`mediaextensions64.dll`、`winrtutil64.exe`、`wallpaperservice64.exe`、`cloneextensions64.dll` 八个模块的**有界深挖**，不是客户端全量分析。每项只归纳可迁移的结构事实；地址、伪代码、函数体、私有算法表达和客户端 payload 均不进入项目。
+
+| 优先级 | 后续主题 | Ghidra 仍可回答 | 必须由动态/自有 fixture 回答 |
+|---|---|---|---|
+| 高 | `wallpaper32.exe` / `scenescript32.dll` 对 64 位结构差分 | 可识别 parser/binder/event/factory/lifecycle 入口和直接可达结构是否对应 | 完整内部等价、启动器何时选择 32/64 位、同场景像素/时序/性能 |
+| 高 | TEX / slot / sampler 链 | `TEXV/TEXI/TEXB/TEXS` 分支及 flags/尺寸/mip 参与 slot metadata、sampler、fallback 的可达路径 | 完整路径、UV、padding、sRGB、alpha、swizzle、DXT5n/BC5 解包与 GPU 像素 |
+| 高 | RenderGraph / FBO / history / render state | copy/swap/history/clear/unique/format/target/compose 的已识别参与者、局部顺序与资源生命周期线索 | 全局所有权/顺序、跨帧 history、alias/clear 值及 blend/depth/cull/write-mask 输出 |
+| 高 | Particle factory 与生命周期 | 可识别 factory、initializer/operator/renderer 阶段、child/control-point、排序/批次/释放入口 | 完整所有权、数值公式、随机种子、fixed-step、逐帧阶段顺序和视觉轨迹 |
+| 高 | SceneScript 宿主绑定可恢复表 | `thisScene`/`thisLayer`/`engine`/`input`/storage/renderContext 等可识别注册子集、owner 类型和 error-scope 线索 | 完整绑定覆盖、事件重入、异常、销毁顺序、API 副作用和跨帧可见性 |
+| 高 | Video / Sound 实际宿主调用 | 可识别 Media Foundation 状态参与者、Scene clock/seek/loop/reset 调用点与主程序使用的 OpenAL 子集 | 完整 state machine/所有权、A/V 同步、设备中断、事件顺序、视频颜色空间和 frame readiness |
+| 高 | Material override / variant | 可识别 authored/default/user/system/provider 参与者、variant key 与 render-state 注入点 | 完整来源集合、优先级和最终输出；继续用项目自有 fixture 验证，不复刻内部算法 |
+
+优先顺序从 32 位结构差分开始，因为现有 Parallels 运行记录实际加载 `wallpaper32.exe`、`scenescript32.dll` 与 `d3dcompiler_47_x32.dll`；目前只确认公开导入/API 基本同构，不能据此推出内部等价。随后依次处理 TEX/sampler、FBO/history/state、particle、SceneScript host binding 与 video/Sound；text/MSDF、3D/Lighting/Puppet、HDR/final combine、GIF 与 resource compiler 的 trim/rotation/mip 属中收益缺口。
+
+FreeImage、Assimp、OpenAL Soft、DXC/DXIL、CEF、ANGLE、SwiftShader、Vulkan 与设备 SDK 已有公开源码或正式 API，原则上研究官方客户端如何调用它们，不继续反编译第三方库本身。`wallpaperui.exe` 的作者字段优先取结构化 UI/locale/default project；`webwallpaper64.exe`、注入器、screensaver、installer、launcher 等不混入当前 Scene 播放链批次。任何静态结果都不能代替 Windows 同步像素、事件顺序和生命周期证据。
 
 ## 4. `assets/shaders` 子目录补漏
 
