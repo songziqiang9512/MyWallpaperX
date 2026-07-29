@@ -34,8 +34,10 @@ final class SystemAudioSceneSpectrumAnalyzer {
     private let minimumFrequency: Float = 32
     /// 频段上沿，同时受 Nyquist 限制。
     private let maximumFrequency: Float = 16000
-    /// 映射到 0 的幅度下限。
-    private let minimumDecibels: Float = -80
+    /// 映射到 0 的幅度下限。Scene 的 16 档直接驱动 Shake/Pulse 位移，过低的
+    /// noise floor 会把音乐中绝大多数频段压到相近的高位；-60 dB 保留弱频段与
+    /// 主频段的可见差异。Web 壁纸继续使用自己的独立数值合同。
+    private let minimumDecibels: Float = -60
 
     private let fftSize = 4096
     private let log2FFTSize: vDSP_Length

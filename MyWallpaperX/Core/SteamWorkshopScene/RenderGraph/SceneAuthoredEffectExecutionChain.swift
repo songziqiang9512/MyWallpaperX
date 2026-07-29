@@ -4,6 +4,7 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
     let layerID: Int
     let renderGraph: SceneAuthoredEffectRenderPlan
     let stages: [SceneAuthoredEffectExecutionPlan]
+    let irisInlineSuffix: SceneIrisInlineSuffixPlan?
     let isolatedCursorRippleOmittedEffectPaths: [String]
     let isolatedShineOmittedEffectPaths: [String]
 
@@ -11,12 +12,14 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         layerID: Int,
         renderGraph: SceneAuthoredEffectRenderPlan,
         stages: [SceneAuthoredEffectExecutionPlan],
+        irisInlineSuffix: SceneIrisInlineSuffixPlan? = nil,
         isolatedCursorRippleOmittedEffectPaths: [String] = [],
         isolatedShineOmittedEffectPaths: [String] = []
     ) {
         self.layerID = layerID
         self.renderGraph = renderGraph
         self.stages = stages
+        self.irisInlineSuffix = irisInlineSuffix
         self.isolatedCursorRippleOmittedEffectPaths =
             isolatedCursorRippleOmittedEffectPaths
         self.isolatedShineOmittedEffectPaths = isolatedShineOmittedEffectPaths
@@ -108,6 +111,10 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
 
     var waterRippleCount: Int {
         stages.filter { $0.waterRipple != nil }.count
+    }
+
+    var irisInlineSuffixCount: Int {
+        irisInlineSuffix == nil ? 0 : 1
     }
 
     var xRayCount: Int {
@@ -205,6 +212,15 @@ enum SceneAuthoredEffectChainPlanner {
                 shaderContracts: shaderContracts
             )
             guard let stage else {
+                if let suffix = irisInlineSuffix(
+                    plannedStages: stages,
+                    unsupportedOrdinal: ordinal,
+                    graph: graph,
+                    descriptor: descriptor,
+                    shaderContracts: shaderContracts
+                ) {
+                    return suffix
+                }
                 if let isolated = isolatedCursorRippleChain(
                     graph: graph,
                     descriptor: descriptor,

@@ -39,11 +39,15 @@ enum SceneAuthoredPulsePlanner {
             return nil
         }
         guard normalized(effect.definitionPath) == definitionPath else { return nil }
-        guard validDefinition(in: descriptor, path: effect.definitionPath) else {
-            return reject("definition")
-        }
         guard let profile = ScenePulseShaderProfile.resolve(shaderContracts) else {
             return reject("shader-profile")
+        }
+        guard validDefinition(
+            in: descriptor,
+            path: effect.definitionPath,
+            profile: profile
+        ) else {
+            return reject("definition")
         }
         guard effect.nodeIndices == [node.nodeIndex],
               SceneAuthoredEffectInputValidator.accepts(
@@ -113,14 +117,17 @@ enum SceneAuthoredPulsePlanner {
 
     private nonisolated static func validDefinition(
         in descriptor: SceneRenderDescriptor,
-        path: String
+        path: String,
+        profile: ScenePulseShaderProfile
     ) -> Bool {
         let matches = descriptor.effectDefinitions.filter {
-            normalized($0.relativePath) == normalized(path)
+              normalized($0.relativePath) == normalized(path)
         }
         guard matches.count == 1, let definition = matches.first,
               definition.version == 1,
-              definition.replacementKey == "pulse",
+              definition.replacementKey == "pulse"
+                  || (profile.acceptsMissingReplacementKey
+                      && definition.replacementKey == nil),
               definition.name == "ui_editor_effect_pulse_title",
               definition.description == "ui_editor_effect_pulse_description",
               definition.group == "animate",

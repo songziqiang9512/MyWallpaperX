@@ -68,8 +68,9 @@ extension SceneMetalRenderer {
         hasFoliageMask: Bool = false
     ) -> String? {
         if let chain = authoredEffectChain(for: layer.id), chain.stages.count > 1 {
+            let suffix = chain.irisInlineSuffix == nil ? "" : "; iris inline suffix"
             return "effect runtime authored-chain; \(chain.stages.count) stage(s); "
-                + "\(chain.materialNodeCount) material pass(es)"
+                + "\(chain.materialNodeCount) material pass(es)\(suffix)"
         }
         return SceneEffectRuntimePlanner.runtimeSummary(
             for: layer,

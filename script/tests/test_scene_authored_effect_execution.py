@@ -42,6 +42,12 @@ CHAIN_BACKEND_SOURCE = (
 CHAIN_RENDERER_SOURCE = (
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainRenderer.swift"
 )
+IRIS_SUFFIX_SOURCE = (
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectIrisInlineSuffix.swift"
+)
+IRIS_SUFFIX_PLANNER_SOURCE = (
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredIrisInlineSuffixPlanner.swift"
+)
 COMPOSITOR_SOURCE = SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
 DRAW_REQUEST_SOURCE = SOURCE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift"
 EFFECT_TEXTURE_LOADER_SOURCE = (
@@ -342,6 +348,7 @@ enum SceneAuthoredWaterWavesPlanner {
 struct SceneCursorRippleExecutionPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
 }
+struct SceneIrisInlineSuffixPlan {}
 
 enum SceneAuthoredCursorRipplePlanner {
     static func plan(
@@ -355,6 +362,16 @@ enum SceneAuthoredCursorRipplePlanner {
 }
 
 extension SceneAuthoredEffectChainPlanner {
+    static func irisInlineSuffix(
+        plannedStages: [SceneAuthoredEffectExecutionPlan],
+        unsupportedOrdinal: Int,
+        graph: Graph,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract]
+    ) -> SceneAuthoredEffectExecutionChain? {
+        nil
+    }
+
     static func isolatedCursorRippleChain(
         graph: Graph,
         descriptor: SceneRenderDescriptor,
@@ -1640,6 +1657,31 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
             "pass.textureSlots.count == 2 || pass.textureSlots.count == 3",
             loader,
         )
+
+    def test_iris_inline_suffix_is_terminal_strict_and_keeps_exact_prefix(self) -> None:
+        suffix = IRIS_SUFFIX_SOURCE.read_text(encoding="utf-8")
+        planner = IRIS_SUFFIX_PLANNER_SOURCE.read_text(encoding="utf-8")
+        compositor = COMPOSITOR_SOURCE.read_text(encoding="utf-8")
+
+        for marker in (
+            "!plannedStages.isEmpty",
+            "unsupportedOrdinal == graph.effects.count - 1",
+            "plannedStages.count == unsupportedOrdinal",
+            "inputRole: .priorEffectOutput",
+            "irisInlineSuffix: suffix",
+        ):
+            self.assertIn(marker, suffix)
+        for marker in (
+            "graph.blockers.isEmpty",
+            "graph.effects.count == 1",
+            "graph.nodes.count == 1",
+            "graph.renderTargets.isEmpty",
+            'definition.replacementKey == "iris"',
+            "SceneIrisShaderProfile.resolve(shaderContracts)",
+        ):
+            self.assertIn(marker, planner)
+        self.assertIn("irisSuffix?.inputs ?? .neutral", compositor)
+        self.assertIn("irisSuffix == nil ? .empty : masks", compositor)
 
 
 if __name__ == "__main__":

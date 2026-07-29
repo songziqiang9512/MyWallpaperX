@@ -847,6 +847,8 @@ struct SceneAuthoredEffectExecutionChain {
     let renderGraph: SceneAuthoredEffectRenderPlan
     let stages: [SceneAuthoredEffectExecutionPlan]
 
+    var irisInlineSuffix: SceneIrisInlineSuffixPlan? { nil }
+
     var singleStage: SceneAuthoredEffectExecutionPlan? {
         stages.count == 1 ? stages[0] : nil
     }
@@ -860,6 +862,10 @@ struct SceneAuthoredEffectExecutionChain {
             $0.width * $0.height < $1.width * $1.height
         }
     }
+}
+
+struct SceneIrisInlineSuffixPlan {
+    var inputs: SceneLayerEffectInputs { .neutral }
 }
 
 struct SceneDynamicSnapshot {

@@ -281,6 +281,7 @@ enum SceneAuthoredWaterWavesPlanner {
 }
 
 struct SceneCursorRippleExecutionPlan {}
+struct SceneIrisInlineSuffixPlan {}
 
 enum SceneAuthoredCursorRipplePlanner {
     static func plan(
@@ -294,6 +295,16 @@ enum SceneAuthoredCursorRipplePlanner {
 }
 
 extension SceneAuthoredEffectChainPlanner {
+    static func irisInlineSuffix(
+        plannedStages: [SceneAuthoredEffectExecutionPlan],
+        unsupportedOrdinal: Int,
+        graph: Graph,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract]
+    ) -> SceneAuthoredEffectExecutionChain? {
+        nil
+    }
+
     static func isolatedCursorRippleChain(
         graph: Graph,
         descriptor: SceneRenderDescriptor,

@@ -108,8 +108,10 @@ enum SceneTextureMipUploader {
             return .decodeFailed("TEX container has no mip data")
         }
         guard !isMP4(first.data) else { return .texContainsVideoPayload }
+        let mips = croppedStaticRawMips(container: container, bytesPerPixel: 4)
         return uploadRaw(
             container: container,
+            mips: mips,
             pixelFormat: .rgba8Unorm,
             bytesPerPixel: 4,
             premultiply: true,
@@ -119,25 +121,27 @@ enum SceneTextureMipUploader {
 
     private static func uploadRaw(
         container: SceneTexContainer,
+        mips: [SceneTexContainer.Mip]? = nil,
         pixelFormat: MTLPixelFormat,
         bytesPerPixel: Int,
         premultiply: Bool,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
-        guard let first = container.mips.first,
-              validDimensions(container.mips.map { ($0.width, $0.height) }) else {
+        let uploadMips = mips ?? container.mips
+        guard let first = uploadMips.first,
+              validDimensions(uploadMips.map { ($0.width, $0.height) }) else {
             return .decodeFailed("TEX container has an invalid mip chain")
         }
         let textureDescriptor = descriptor(
             pixelFormat: pixelFormat,
             width: first.width,
             height: first.height,
-            levelCount: container.mips.count
+            levelCount: uploadMips.count
         )
         guard let texture = device.makeTexture(descriptor: textureDescriptor) else {
             return .textureAllocationFailed(width: first.width, height: first.height)
         }
-        for (level, mip) in container.mips.enumerated() {
+        for (level, mip) in uploadMips.enumerated() {
             let bytesPerRow = mip.width * bytesPerPixel
             let expected = bytesPerRow * mip.height
             guard mip.data.count == expected else {
@@ -149,6 +153,42 @@ enum SceneTextureMipUploader {
                     bytesPerRow: bytesPerRow, data: data)
         }
         return .loaded(texture)
+    }
+
+    private static func croppedStaticRawMips(
+        container: SceneTexContainer,
+        bytesPerPixel: Int
+    ) -> [SceneTexContainer.Mip] {
+        guard container.imageCount == 1,
+              !container.isAnimated,
+              container.imageWidth > 0,
+              container.imageHeight > 0 else {
+            return container.mips
+        }
+        let dimensions = container.mips.enumerated().map { level, mip in
+            let targetWidth = max(1, container.imageWidth >> level)
+            let targetHeight = max(1, container.imageHeight >> level)
+            return (targetWidth, targetHeight, mip)
+        }
+        guard dimensions.allSatisfy({ targetWidth, targetHeight, mip in
+            targetWidth <= mip.width
+                && targetHeight <= mip.height
+                && mip.data.count == mip.width * mip.height * bytesPerPixel
+        }), dimensions.contains(where: { targetWidth, targetHeight, mip in
+            targetWidth != mip.width || targetHeight != mip.height
+        }) else {
+            return container.mips
+        }
+        return dimensions.map { targetWidth, targetHeight, mip in
+            let sourceBytesPerRow = mip.width * bytesPerPixel
+            let targetBytesPerRow = targetWidth * bytesPerPixel
+            var cropped = Data(capacity: targetBytesPerRow * targetHeight)
+            for row in 0 ..< targetHeight {
+                let start = row * sourceBytesPerRow
+                cropped.append(mip.data[start ..< (start + targetBytesPerRow)])
+            }
+            return .init(width: targetWidth, height: targetHeight, data: cropped)
+        }
     }
 
     private static func descriptor(

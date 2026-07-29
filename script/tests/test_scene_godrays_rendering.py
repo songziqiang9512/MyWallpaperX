@@ -99,6 +99,20 @@ enum Harness {
         return bytes
     }
 
+    static func bottomEdgeBytes() -> [UInt8] {
+        var bytes = [UInt8](repeating: 0, count: size * size * 4)
+        for y in 30...31 {
+            for x in 0..<size {
+                let offset = (y * size + x) * 4
+                bytes[offset] = 255
+                bytes[offset + 1] = 255
+                bytes[offset + 2] = 255
+                bytes[offset + 3] = 255
+            }
+        }
+        return bytes
+    }
+
     static func upload(_ bytes: [UInt8], to texture: MTLTexture) {
         bytes.withUnsafeBytes { raw in
             texture.replace(
@@ -146,7 +160,8 @@ enum Harness {
         device: MTLDevice,
         queue: MTLCommandQueue,
         pipeline: SceneGodraysPipeline,
-        source: MTLTexture
+        source: MTLTexture,
+        vertical: Bool = false
     ) -> [UInt8] {
         let target = texture(device: device, usage: [.shaderRead, .renderTarget])
         let command = queue.makeCommandBuffer()!
@@ -154,7 +169,7 @@ enum Harness {
             source: source,
             target: target,
             plan: plan(direction: 0),
-            vertical: false,
+            vertical: vertical,
             commandBuffer: command
         ))
         command.commit()
@@ -174,6 +189,23 @@ enum Harness {
 
     static func channel(_ bytes: [UInt8], x: Int, y: Int) -> Int {
         Int(bytes[(y * size + x) * 4])
+    }
+
+    static func channelSum(
+        _ bytes: [UInt8],
+        rows: ClosedRange<Int>
+    ) -> Int {
+        rows.reduce(0) { total, y in
+            total + (0..<size).reduce(0) { rowTotal, x in
+                rowTotal + channel(bytes, x: x, y: y)
+            }
+        }
+    }
+
+    static func channelRowSum(_ bytes: [UInt8], row: Int) -> Int {
+        (0..<size).reduce(0) {
+            $0 + channel(bytes, x: $1, y: row)
+        }
     }
 
     static func invalidDirectionRejected(
@@ -210,17 +242,38 @@ enum Harness {
             device: device, queue: queue, pipeline: pipeline,
             source: source, direction: Float.pi / 2
         )
+        let upward = renderCast(
+            device: device, queue: queue, pipeline: pipeline,
+            source: source, direction: Float.pi
+        )
         let gaussian = renderGaussian(
             device: device, queue: queue, pipeline: pipeline, source: source
+        )
+        upload(bottomEdgeBytes(), to: source)
+        let edgeCast = renderCast(
+            device: device, queue: queue, pipeline: pipeline,
+            source: source, direction: 0
+        )
+        let edgeGaussian = renderGaussian(
+            device: device, queue: queue, pipeline: pipeline,
+            source: source, vertical: true
         )
         let result: [String: Any] = [
             "metalUnavailable": false,
             "directionChangedPixels": changedPixels(vertical, horizontal),
+            "directionZeroUpperSum": channelSum(vertical, rows: 0...12),
+            "directionZeroLowerSum": channelSum(vertical, rows: 19...31),
+            "directionPiUpperSum": channelSum(upward, rows: 0...12),
+            "directionPiLowerSum": channelSum(upward, rows: 19...31),
             "gaussianChangedPixels": changedPixels(input, gaussian),
             "gaussianCenter": channel(gaussian, x: 15, y: 15),
             "gaussianNearLeft": channel(gaussian, x: 14, y: 15),
             "gaussianNearRight": channel(gaussian, x: 17, y: 15),
             "gaussianFar": channel(gaussian, x: 8, y: 15),
+            "edgeCastInnerSum": channelRowSum(edgeCast, row: 22),
+            "edgeCastBoundarySum": channelRowSum(edgeCast, row: 31),
+            "edgeGaussianInnerSum": channelRowSum(edgeGaussian, row: 30),
+            "edgeGaussianBoundarySum": channelRowSum(edgeGaussian, row: 31),
             "invalidDirectionRejected": invalidDirectionRejected(
                 device: device, queue: queue, pipeline: pipeline, source: source
             ),
@@ -286,6 +339,16 @@ class SceneGodraysRenderingTests(unittest.TestCase):
     def test_direction_rotates_the_cast_axis(self) -> None:
         self.assertGreater(self.result["directionChangedPixels"], 20)
 
+    def test_legacy_direction_matches_official_rotation_orientation(self) -> None:
+        self.assertGreater(
+            self.result["directionZeroUpperSum"],
+            self.result["directionZeroLowerSum"],
+        )
+        self.assertGreater(
+            self.result["directionPiLowerSum"],
+            self.result["directionPiUpperSum"],
+        )
+
     def test_legacy_gaussian_spreads_a_symmetric_impulse(self) -> None:
         self.assertGreater(self.result["gaussianChangedPixels"], 10)
         self.assertGreater(self.result["gaussianCenter"], self.result["gaussianFar"])
@@ -293,6 +356,18 @@ class SceneGodraysRenderingTests(unittest.TestCase):
             self.result["gaussianNearLeft"],
             self.result["gaussianNearRight"],
             delta=2,
+        )
+
+    def test_directional_cast_fades_at_the_framebuffer_boundary(self) -> None:
+        self.assertLess(
+            self.result["edgeCastBoundarySum"],
+            self.result["edgeCastInnerSum"] * 1.5,
+        )
+
+    def test_gaussian_pass_does_not_repeat_an_opaque_framebuffer_edge(self) -> None:
+        self.assertLess(
+            self.result["edgeGaussianBoundarySum"],
+            32 * 255 * 0.5,
         )
 
     def test_nonfinite_direction_fails_closed(self) -> None:

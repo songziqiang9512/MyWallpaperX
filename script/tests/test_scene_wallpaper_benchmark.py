@@ -1456,6 +1456,7 @@ utility layer 763: skippedHidden kind=composition
         preview = (
             "authoredEffectGraphFoliageSwayCount: 3\n"
             "authoredEffectGraphWaterRippleCount: 2\n"
+            "authoredEffectGraphIrisInlineSuffixCount: 1\n"
         )
         self.assertEqual(
             benchmark.authored_effect_graph_foliage_sway_count(preview), 3
@@ -1464,16 +1465,21 @@ utility layer 763: skippedHidden kind=composition
             benchmark.authored_effect_graph_water_ripple_count(preview), 2
         )
         self.assertEqual(
+            benchmark.authored_effect_graph_iris_inline_suffix_count(preview), 1
+        )
+        self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 {
                     "expected_authored_effect_graph_foliage_sway_count": 3,
                     "expected_authored_effect_graph_water_ripple_count": 2,
+                    "expected_authored_effect_graph_iris_inline_suffix_count": 1,
                 },
                 {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 foliage_sway_count=3,
                 water_ripple_count=2,
+                iris_inline_suffix_count=1,
             ),
             [],
         )
@@ -1481,17 +1487,25 @@ utility layer 763: skippedHidden kind=composition
             {
                 "expected_authored_effect_graph_foliage_sway_count": 0,
                 "expected_authored_effect_graph_water_ripple_count": 0,
+                "expected_authored_effect_graph_iris_inline_suffix_count": 0,
             },
             {"succeeded_layer_ids": [], "failed_layer_ids": []},
             [],
             None,
             foliage_sway_count=3,
             water_ripple_count=2,
+            iris_inline_suffix_count=1,
         )
         self.assertIn("authored effect graph Foliage Sway count mismatch", failures)
         self.assertIn("authored effect graph Water Ripple count mismatch", failures)
+        self.assertIn(
+            "authored effect graph Iris inline suffix count mismatch", failures
+        )
         self.assertIsNone(benchmark.authored_effect_graph_foliage_sway_count(""))
         self.assertIsNone(benchmark.authored_effect_graph_water_ripple_count(""))
+        self.assertIsNone(
+            benchmark.authored_effect_graph_iris_inline_suffix_count("")
+        )
 
     def test_authored_clipping_mask_count_is_an_exact_gate(self) -> None:
         preview = "authoredEffectGraphClippingMaskCount: 7\n"
@@ -1644,13 +1658,15 @@ utility layer 763: skippedHidden kind=composition
             "authored_effect_graph_light_shafts_count": 5,
             "authored_effect_graph_blend_count": 6,
             "authored_effect_graph_tint_count": 7,
-            "authored_effect_graph_godrays_count": 8,
-            "authored_effect_graph_transform_count": 9,
+            "authored_effect_graph_pulse_count": 8,
+            "authored_effect_graph_godrays_count": 9,
+            "authored_effect_graph_transform_count": 10,
             "authored_effect_graph_transform_static_fallback_count": 2,
             "authored_effect_graph_transform_static_fallback_diagnostics": [
                 "fixture"
             ],
-            "authored_effect_graph_authored_shader_count": 10,
+            "authored_effect_graph_authored_shader_count": 11,
+            "authored_effect_graph_iris_inline_suffix_count": 1,
         }
         runtime.update(expected_counts)
         sample = matrix_generator.matrix_sample(
@@ -1840,25 +1856,30 @@ utility layer 763: skippedHidden kind=composition
             ),
         )
 
-    def test_authored_tint_and_godrays_counts_are_exact_gates(self) -> None:
+    def test_authored_tint_pulse_and_godrays_counts_are_exact_gates(self) -> None:
         preview = (
             "authoredEffectGraphTintCount: 24\n"
+            "authoredEffectGraphPulseCount: 1\n"
             "authoredEffectGraphGodraysCount: 12\n"
         )
         tint_count = benchmark.authored_effect_graph_tint_count(preview)
+        pulse_count = benchmark.authored_effect_graph_pulse_count(preview)
         godrays_count = benchmark.authored_effect_graph_godrays_count(preview)
         self.assertEqual(tint_count, 24)
+        self.assertEqual(pulse_count, 1)
         self.assertEqual(godrays_count, 12)
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 {
                     "expected_authored_effect_graph_tint_count": 24,
+                    "expected_authored_effect_graph_pulse_count": 1,
                     "expected_authored_effect_graph_godrays_count": 12,
                 },
                 {"succeeded_layer_ids": [], "failed_layer_ids": []},
                 [],
                 None,
                 tint_count=tint_count,
+                pulse_count=pulse_count,
                 godrays_count=godrays_count,
             ),
             [],
@@ -1866,17 +1887,21 @@ utility layer 763: skippedHidden kind=composition
         failures = benchmark.authored_effect_graph_failures(
             {
                 "expected_authored_effect_graph_tint_count": 0,
+                "expected_authored_effect_graph_pulse_count": 0,
                 "expected_authored_effect_graph_godrays_count": 0,
             },
             {"succeeded_layer_ids": [], "failed_layer_ids": []},
             [],
             None,
             tint_count=tint_count,
+            pulse_count=pulse_count,
             godrays_count=godrays_count,
         )
         self.assertIn("authored effect graph Tint count mismatch", failures)
+        self.assertIn("authored effect graph Pulse count mismatch", failures)
         self.assertIn("authored effect graph Godrays count mismatch", failures)
         self.assertIsNone(benchmark.authored_effect_graph_tint_count(""))
+        self.assertIsNone(benchmark.authored_effect_graph_pulse_count(""))
         self.assertIsNone(benchmark.authored_effect_graph_godrays_count(""))
 
     def test_image_blend_runtime_pins_planned_and_completed_consumers(self) -> None:

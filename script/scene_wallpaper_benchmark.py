@@ -200,6 +200,10 @@ AUTHORED_EFFECT_GRAPH_WATER_RIPPLE_COUNT_RE = re.compile(
     r"^authoredEffectGraphWaterRippleCount: (?P<count>\d+)$",
     re.MULTILINE,
 )
+AUTHORED_EFFECT_GRAPH_IRIS_INLINE_SUFFIX_COUNT_RE = re.compile(
+    r"^authoredEffectGraphIrisInlineSuffixCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
 AUTHORED_EFFECT_GRAPH_CURSOR_RIPPLE_COUNT_RE = re.compile(
     r"^authoredEffectGraphCursorRippleCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -234,6 +238,10 @@ AUTHORED_EFFECT_GRAPH_BLEND_COUNT_RE = re.compile(
 )
 AUTHORED_EFFECT_GRAPH_TINT_COUNT_RE = re.compile(
     r"^authoredEffectGraphTintCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
+AUTHORED_EFFECT_GRAPH_PULSE_COUNT_RE = re.compile(
+    r"^authoredEffectGraphPulseCount: (?P<count>\d+)$",
     re.MULTILINE,
 )
 AUTHORED_EFFECT_GRAPH_GODRAYS_COUNT_RE = re.compile(
@@ -1196,6 +1204,13 @@ def authored_effect_graph_water_ripple_count(preview_text: str) -> int | None:
     return int(match.group("count")) if match is not None else None
 
 
+def authored_effect_graph_iris_inline_suffix_count(
+    preview_text: str,
+) -> int | None:
+    match = AUTHORED_EFFECT_GRAPH_IRIS_INLINE_SUFFIX_COUNT_RE.search(preview_text)
+    return int(match.group("count")) if match is not None else None
+
+
 def authored_effect_graph_cursor_ripple_count(preview_text: str) -> int | None:
     match = AUTHORED_EFFECT_GRAPH_CURSOR_RIPPLE_COUNT_RE.search(preview_text)
     return int(match.group("count")) if match is not None else None
@@ -1256,6 +1271,11 @@ def authored_effect_graph_blend_count(preview_text: str) -> int | None:
 
 def authored_effect_graph_tint_count(preview_text: str) -> int | None:
     match = AUTHORED_EFFECT_GRAPH_TINT_COUNT_RE.search(preview_text)
+    return int(match.group("count")) if match is not None else None
+
+
+def authored_effect_graph_pulse_count(preview_text: str) -> int | None:
+    match = AUTHORED_EFFECT_GRAPH_PULSE_COUNT_RE.search(preview_text)
     return int(match.group("count")) if match is not None else None
 
 
@@ -1382,6 +1402,7 @@ def authored_effect_graph_failures(
     water_waves_count: int | None = None,
     foliage_sway_count: int | None = None,
     water_ripple_count: int | None = None,
+    iris_inline_suffix_count: int | None = None,
     cursor_ripple_count: int | None = None,
     cursor_ripple_isolated_count: int | None = None,
     cursor_ripple_omitted_effects: list[str] | None = None,
@@ -1391,6 +1412,7 @@ def authored_effect_graph_failures(
     clipping_mask_count: int | None = None,
     blend_count: int | None = None,
     tint_count: int | None = None,
+    pulse_count: int | None = None,
     godrays_count: int | None = None,
     transform_count: int | None = None,
     transform_static_fallback_count: int | None = None,
@@ -1489,6 +1511,12 @@ def authored_effect_graph_failures(
     if expected_water_ripple is not None:
         if water_ripple_count != int(expected_water_ripple):
             failures.append("authored effect graph Water Ripple count mismatch")
+    expected_iris_inline_suffix = sample.get(
+        "expected_authored_effect_graph_iris_inline_suffix_count"
+    )
+    if expected_iris_inline_suffix is not None:
+        if iris_inline_suffix_count != int(expected_iris_inline_suffix):
+            failures.append("authored effect graph Iris inline suffix count mismatch")
     expected_cursor_ripple = sample.get(
         "expected_authored_effect_graph_cursor_ripple_count"
     )
@@ -1541,6 +1569,10 @@ def authored_effect_graph_failures(
     if expected_tint is not None:
         if tint_count != int(expected_tint):
             failures.append("authored effect graph Tint count mismatch")
+    expected_pulse = sample.get("expected_authored_effect_graph_pulse_count")
+    if expected_pulse is not None:
+        if pulse_count != int(expected_pulse):
+            failures.append("authored effect graph Pulse count mismatch")
     expected_godrays = sample.get("expected_authored_effect_graph_godrays_count")
     if expected_godrays is not None:
         if godrays_count != int(expected_godrays):
@@ -1898,6 +1930,9 @@ def run_sample(
     authored_effect_graph_water_ripple = authored_effect_graph_water_ripple_count(
         preview_text
     )
+    authored_effect_graph_iris_inline_suffix = (
+        authored_effect_graph_iris_inline_suffix_count(preview_text)
+    )
     authored_effect_graph_cursor_ripple = authored_effect_graph_cursor_ripple_count(
         preview_text
     )
@@ -1919,6 +1954,7 @@ def run_sample(
     )
     authored_effect_graph_blend = authored_effect_graph_blend_count(preview_text)
     authored_effect_graph_tint = authored_effect_graph_tint_count(preview_text)
+    authored_effect_graph_pulse = authored_effect_graph_pulse_count(preview_text)
     authored_effect_graph_godrays = authored_effect_graph_godrays_count(preview_text)
     authored_effect_graph_transform = authored_effect_graph_transform_count(preview_text)
     authored_effect_graph_transform_static_fallback = (
@@ -2053,6 +2089,7 @@ def run_sample(
         water_waves_count=authored_effect_graph_water_waves,
         foliage_sway_count=authored_effect_graph_foliage_sway,
         water_ripple_count=authored_effect_graph_water_ripple,
+        iris_inline_suffix_count=authored_effect_graph_iris_inline_suffix,
         cursor_ripple_count=authored_effect_graph_cursor_ripple,
         cursor_ripple_isolated_count=authored_effect_graph_cursor_ripple_isolated,
         cursor_ripple_omitted_effects=authored_effect_graph_cursor_ripple_omitted,
@@ -2062,6 +2099,7 @@ def run_sample(
         clipping_mask_count=authored_effect_graph_clipping_mask,
         blend_count=authored_effect_graph_blend,
         tint_count=authored_effect_graph_tint,
+        pulse_count=authored_effect_graph_pulse,
         godrays_count=authored_effect_graph_godrays,
         transform_count=authored_effect_graph_transform,
         transform_static_fallback_count=authored_effect_graph_transform_static_fallback,
@@ -2379,6 +2417,7 @@ def run_sample(
             "authored_effect_graph_water_waves_count": authored_effect_graph_water_waves,
             "authored_effect_graph_foliage_sway_count": authored_effect_graph_foliage_sway,
             "authored_effect_graph_water_ripple_count": authored_effect_graph_water_ripple,
+            "authored_effect_graph_iris_inline_suffix_count": authored_effect_graph_iris_inline_suffix,
             "authored_effect_graph_cursor_ripple_count": authored_effect_graph_cursor_ripple,
             "authored_effect_graph_cursor_ripple_isolated_count": authored_effect_graph_cursor_ripple_isolated,
             "authored_effect_graph_cursor_ripple_omitted_effects": authored_effect_graph_cursor_ripple_omitted,
@@ -2388,6 +2427,7 @@ def run_sample(
             "authored_effect_graph_clipping_mask_count": authored_effect_graph_clipping_mask,
             "authored_effect_graph_blend_count": authored_effect_graph_blend,
             "authored_effect_graph_tint_count": authored_effect_graph_tint,
+            "authored_effect_graph_pulse_count": authored_effect_graph_pulse,
             "authored_effect_graph_godrays_count": authored_effect_graph_godrays,
             "authored_effect_graph_transform_count": authored_effect_graph_transform,
             "authored_effect_graph_transform_static_fallback_count": authored_effect_graph_transform_static_fallback,

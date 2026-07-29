@@ -88,11 +88,14 @@ fragment float4 sceneGodraysCastFrag(
     texture2d<float> source [[texture(0)]],
     constant GodraysCastUniforms &u [[buffer(0)]]
 ) {
-    constexpr sampler linearClamp(filter::linear, address::clamp_to_edge);
+    // Framebuffer samples outside the authored effect extent are transparent.
+    // Repeating the edge pixel turns directional ray tips into hard rectangles.
+    constexpr sampler linearClamp(filter::linear, address::clamp_to_zero);
     float2 texCoords = input.texcoord;
     float4 albedo = float4(0.0);
     float2 direction = u.directionProfile.y > 0.5
-        ? float2(0.5 * sin(u.directionProfile.x), -0.5 * cos(u.directionProfile.x))
+        // official: rotateVec2(float2(0, -0.5), direction - pi)
+        ? float2(-0.5 * sin(u.directionProfile.x), 0.5 * cos(u.directionProfile.x))
         : u.centerLength.xy - texCoords;
     float dist = length(direction);
     direction /= dist;
@@ -125,7 +128,9 @@ fragment float4 sceneGodraysGaussianFrag(
     texture2d<float> source [[texture(0)]],
     constant GodraysGaussianUniforms &u [[buffer(0)]]
 ) {
-    constexpr sampler linearClamp(filter::linear, address::clamp_to_edge);
+    // Blur taps outside an offscreen target must contribute transparent zero;
+    // edge repetition otherwise keeps ray tips opaque after both Gaussian passes.
+    constexpr sampler linearClamp(filter::linear, address::clamp_to_zero);
     float2 uv = input.texcoord;
     float2 d = u.step.xy;
     if (u.legacyWeights != 0) {

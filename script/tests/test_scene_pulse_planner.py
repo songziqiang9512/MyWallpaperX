@@ -406,7 +406,9 @@ enum Harness {
         return SceneEffectDefinition(
             relativePath: definitionPath,
             version: mutation == "version" ? 2 : 1,
-            replacementKey: mutation == "replacement" ? "other" : "pulse",
+            replacementKey: mutation == "missingReplacement"
+                ? nil
+                : mutation == "replacement" ? "other" : "pulse",
             name: mutation == "name" ? "Other" : "ui_editor_effect_pulse_title",
             description: mutation == "description"
                 ? "Other"
@@ -677,6 +679,8 @@ enum Harness {
         )
         let defaultsPlan = planned(contracts: stockContracts)
         let legacyDefaultsPlan = planned(contracts: legacyContracts[0])
+        var missingReplacement = Options()
+        missingReplacement.definitionMutation = "missingReplacement"
 
         var boundOptions = Options()
         boundOptions.constants = [
@@ -890,6 +894,14 @@ enum Harness {
             "legacyNoiseSpeedDefault": legacyDefaultsPlan != nil
                 && legacyDefaultsPlan!.shaderProfile == .legacyDirectPhaseSaturate
                 && scalar(legacyDefaultsPlan!, .noiseSpeed) == 0.1,
+            "legacyMissingReplacementAccepted": accepted(
+                descriptorOptions: missingReplacement,
+                contracts: legacyContracts[0]
+            ),
+            "stockMissingReplacementRejected": !accepted(
+                descriptorOptions: missingReplacement,
+                contracts: stockContracts
+            ),
             "legacyNoiseSpeedRange": !accepted(
                 descriptorOptions: noiseSpeedFast, contracts: legacyContracts[0]
             ) && accepted(descriptorOptions: noiseSpeedFast, contracts: stockContracts),

@@ -205,8 +205,17 @@ enum Harness {
 
         let toneA = sineWave(frequency: 440, frameCount: frameCount)
         let toneB = sineWave(frequency: 5_000, frameCount: frameCount)
+        let quietToneA = sineWave(
+            frequency: 440,
+            frameCount: frameCount,
+            amplitude: 0.05
+        )
         let stereo = analyzer.analyze(
             signedChannels: [toneA, toneB],
+            sampleRate: sampleRate
+        )
+        let quiet = analyzer.analyze(
+            signedChannels: [quietToneA],
             sampleRate: sampleRate
         )
         let repeated = analyzer.analyze(
@@ -255,6 +264,8 @@ enum Harness {
             "stereoRight64PeakBand": peakBand(stereo.right64),
             "stereoLeft32PeakBand": peakBand(stereo.left32),
             "stereoRight32PeakBand": peakBand(stereo.right32),
+            "loudPeak": stereo.left.max() ?? 0,
+            "quietPeak": quiet.left.max() ?? 0,
             "deterministic": repeated.left == stereo.left
                 && repeated.right == stereo.right
                 && repeated.left32 == stereo.left32
@@ -281,9 +292,13 @@ enum Harness {
         ]
     }
 
-    static func sineWave(frequency: Float, frameCount: Int) -> [Float] {
+    static func sineWave(
+        frequency: Float,
+        frameCount: Int,
+        amplitude: Float = 0.5
+    ) -> [Float] {
         (0 ..< frameCount).map { index in
-            sin(2 * .pi * frequency * Float(index) / sampleRate) * 0.5
+            sin(2 * .pi * frequency * Float(index) / sampleRate) * amplitude
         }
     }
 
@@ -481,6 +496,10 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
 
     def test_output_stays_positive_and_within_unit_range(self) -> None:
         self.assertTrue(self.result["analyzer"]["allWithinUnitRange"])
+
+    def test_scene_dynamic_range_separates_quiet_and_loud_bands(self) -> None:
+        analyzer = self.result["analyzer"]
+        self.assertGreater(analyzer["loudPeak"] - analyzer["quietPeak"], 0.3)
 
     def test_analysis_is_deterministic_for_the_same_input(self) -> None:
         self.assertTrue(

@@ -68,6 +68,14 @@ nonisolated enum ScenePulseShaderProfile: Equatable {
         self == .legacyDirectPhaseSaturate
     }
 
+    /// 旧编辑器定义省略了 `replacementkey`；只对已登记的 legacy shader 指纹兼容。
+    var acceptsMissingReplacementKey: Bool {
+        switch self {
+        case .stock2842: false
+        case .legacyDirectPhaseSaturate, .legacyDirectPhaseMaxClamp: true
+        }
+    }
+
     static func resolve(_ contracts: [SceneShaderContract]) -> ScenePulseShaderProfile? {
         let matches = contracts.filter { normalized($0.identity) == shaderIdentity }
         guard matches.count == 1, let contract = matches.first,

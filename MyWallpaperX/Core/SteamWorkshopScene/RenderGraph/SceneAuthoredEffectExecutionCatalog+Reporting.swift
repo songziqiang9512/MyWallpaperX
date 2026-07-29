@@ -47,6 +47,7 @@ extension SceneAuthoredEffectExecutionCatalog {
             "authoredEffectGraphCursorRippleOmittedEffects: \(isolatedCursorRippleDiagnostics.joined(separator: ";"))",
             "authoredEffectGraphFoliageSwayCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.foliageSwayCount })",
             "authoredEffectGraphWaterRippleCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.waterRippleCount })",
+            "authoredEffectGraphIrisInlineSuffixCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.irisInlineSuffixCount })",
             "authoredEffectGraphXRayCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.xRayCount })",
             "authoredEffectGraphClippingMaskCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.clippingMaskCount })",
             "authoredEffectGraphBlendCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.blendCount })",

@@ -344,16 +344,27 @@ struct SceneImageLayerCompositor {
             ) else {
                 return false
             }
+            let irisSuffix = request.authoredEffectChain?.irisInlineSuffix
+            let finalValues = SceneImageLayerUniformValues(
+                time: request.uniforms.time,
+                alpha: request.finalCompositeAlpha ?? 1,
+                cursorUV: request.uniforms.cursorUV
+            )
+            let finalUniforms = makeFragmentUniforms(
+                values: finalValues,
+                effectInputs: irisSuffix?.inputs ?? .neutral,
+                textureFrame: .identity,
+                tint: SIMD3(repeating: 1),
+                foliageMaskUVScale: SIMD2(repeating: 1),
+                dependencyBlendMode: chainConsumesDependency
+                    ? nil
+                    : request.dependencyEffect?.blendMode
+            )
             return SceneImageLayerMainPassRenderer.draw(
                 texture: finalTexture,
-                masks: .empty,
+                masks: irisSuffix == nil ? .empty : masks,
                 mvp: request.mvp,
-                uniforms: .neutral(
-                    alpha: request.finalCompositeAlpha ?? 1,
-                    dependencyBlendMode: chainConsumesDependency
-                        ? nil
-                        : request.dependencyEffect?.blendMode
-                ),
+                uniforms: finalUniforms,
                 dependencyTexture: chainConsumesDependency
                     ? nil
                     : request.dependencyEffect?.texture,
