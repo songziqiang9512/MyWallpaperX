@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-29
 >
-> Scene 实现基线：`8740737`（在原始项目目录直达宿主与内存 `SceneRuntimeInput` 基础上，新增 exact clock/spaced-day/date native text-script profile、每帧 wall-date snapshot 值与动态文字 intrinsic size 贯穿 capture/effect/final quad；既有 image/solid 作者 `alignment`、bounded effect/particle/resource/runtime 能力不变，逐能力落地提交见专项表和运行证据索引）
+> Scene 实现基线：`f26aae5`（在既有 text-script、image/solid alignment、bounded effect/particle/resource/runtime 基础上，新增 exact old-editor Shake audio、legacy Directional Godrays、按真实 extent 的 effect-chain 预算准入与 premultiplied-safe Tint；逐能力落地提交见专项表和运行证据索引）
 >
-> 当前完整快照门：`.codex/scene-text-script-full45-20260729-v1/report.json`（`8740737`），**45/45 PASS**；当前 fixed13 仍为 `.codex/scene-particle-worldspace-fixed13-20260729-v1/report.json`（`54a6ebc`），**13/13 PASS**
+> 当前完整快照门：`.codex/scene-shake-godrays-full45-20260729-v2/report.json`（`f26aae5`），**45/45 PASS**；当前 fixed13 仍为 `.codex/scene-particle-worldspace-fixed13-20260729-v1/report.json`（`54a6ebc`），**13/13 PASS**
 >
-> 最新运行门：`8740737` 复用从真实只读目录重建的 45 样本隔离副本；final-matrix full45 **45/45 PASS**，image texture `451/451`、particle `127/130`、strict graph 222 stage/35 chain、graph failed 0、failed frame 0。三个 exact text-script profile 在 6 个样本执行 16 个有效可见绑定且这些样本 diagnostic 0；其余 14 个含可见未知 text script 的样本共 38 条 diagnostic，全部保留作者 fallback。报告/full matrix SHA-256 为 `bee745093392a49eead8816efd52279b8a52afac6f230b98cb19e3ac596eaa58` / `2fdb43f8a3e27ecd544635148fe4f02f27f88b836f4a6f1c15ad70cd0d83c927`。最近 fixed13 仍为 `54a6ebc` 的 **13/13 PASS**。本批代码健康 627 Swift files、44 个锁定历史文件、400 行上限，完整 Scene suite 648 项通过、2 项按既有条件跳过，Developer ID 签名 Debug build 通过。聚合缺口、性能/视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：`f26aae5` 复用从真实只读目录重建的 45 样本隔离副本；final-matrix full45 **45/45 PASS**，image texture `451/451`、particle `127/130`、strict graph 280 stage/49 chain、graph failed 0、failed frame 0。聚合 Shake 45、Tint 67、Godrays 14；其中 `1937925563` 的 12 条 `Shake -> Godrays -> Tint -> Tint` 链全部执行，`2067939514:1063` 与 `3767232084:17` 的既有完整链也因按真实纹理 extent 准入而执行。报告/full matrix SHA-256 为 `5174a562d97f467bf6a591eb428cd8948ff72692508a08731a4fa3c5ff7224fe` / `9acfab8f61034004fecf818989a6ba1eeae58210f4c2c0949360703f80bcebef`。最近 fixed13 仍为 `54a6ebc` 的 **13/13 PASS**。本批代码健康 629 Swift files、44 个锁定历史文件、400 行上限，完整 Scene suite 655 项通过、2 项按既有条件跳过，Developer ID 签名 Debug build 通过。聚合缺口、性能/视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -135,7 +135,7 @@
 | Turbulent velocity initializer | `L3` | 非音频 profile 消费 forward/right/up、phase、scale、time 与 speed range；audio profile 继续 fail closed——frame snapshot 已可用，缺的是粒子侧求值公式证据 | Windows WE 固定 seed 数值/视觉 golden；audio 分支另需官方算法或 golden |
 | Delta clamp/prewarm cap | `L2` | 代码有上限分支，缺定向预算断言 | 长帧和高 prewarm 压力门 |
 
-当前 `54a6ebc` 完整矩阵可见粒子为 `127/130`，fixed13 为 `76/76`；两门的初始 REFRACT root batch 分别为 13 与 7。`2131872317` 的 event-death child REFRACT 在初始报告中仍为 0，另由 7 秒延迟 runtime 门证明生成非空折射 batch。`3088601835` 为 `19/19`，其中 Snow root layers `513/534` 已执行，static `snowstormfog` child 也已由真实缓存门确认在两层生成实例，matrix-code 两层随 `b86db59` 解除 nested 阻断进入执行。child 不增加 root loaded-layer 计数。`3750813609` 已由 `7/9` 升至 `9/9`；`2998757800` 为 `15/15` 且 REFRACT 6，`3299228616` 为 `6/7`，`3769688830` 为 `6/6`，`3770444459` 为 `4/5`。full45 剩余 3 个 root 缺口均为 Rope/RopeTrail；`2998757800` 的 child scale 0.2 仍在独立 strict child-transform 边界外。这些数字只度量对应矩阵实际加载的 root layer，不代表粒子组件覆盖率或 Windows 视觉等价。
+当前 `f26aae5` 完整矩阵可见粒子为 `127/130`，fixed13 为 `76/76`；两门的初始 REFRACT root batch 分别为 13 与 7。`2131872317` 的 event-death child REFRACT 在初始报告中仍为 0，另由 7 秒延迟 runtime 门证明生成非空折射 batch。`3088601835` 为 `19/19`，其中 Snow root layers `513/534` 已执行，static `snowstormfog` child 也已由真实缓存门确认在两层生成实例，matrix-code 两层随 `b86db59` 解除 nested 阻断进入执行。child 不增加 root loaded-layer 计数。`3750813609` 已由 `7/9` 升至 `9/9`；`2998757800` 为 `15/15` 且 REFRACT 6，`3299228616` 为 `6/7`，`3769688830` 为 `6/6`，`3770444459` 为 `4/5`。full45 剩余 3 个 root 缺口均为 Rope/RopeTrail；`2998757800` 的 child scale 0.2 仍在独立 strict child-transform 边界外。这些数字只度量对应矩阵实际加载的 root layer，不代表粒子组件覆盖率或 Windows 视觉等价。
 
 ## 6. 动态运行系统覆盖
 
@@ -199,7 +199,7 @@
 | Audio declaration | `L3` | effect 与粒子两套 schema 分别保真解析；两者字段名不同，粒子无 `audioamount` |
 | Audio 16 bins | `L3` | left/right host-shared 快照，静音/无权限/停采集稳定归零，可注入；频段与归一化为工程选择 |
 | Audio 32/64 bins | `L3` bounded | left/right host-shared snapshot 与同次 FFT 已接；只供 exact Workshop Simple Audio Bars 的 `32+CLIP_LOW` / `64+CLIP_HIGH` profile，其他 Workshop/SceneScript 不外推 |
-| Audio effect consumer | `L3` | stock Shake（`whitePhaseFallback`/`timeOffsetCombo`）、stock Pulse（`stock2842`）与 exact Workshop Simple Audio Bars 两 profile；legacy 指纹、其他 Workshop audio shader、未支持 combo 与 SceneScript binding fail closed |
+| Audio effect consumer | `L3` | stock Shake（`whitePhaseFallback`/`timeOffsetCombo`）、exact old-editor Shake（`legacyUnconditionalPhase`）、stock Pulse（`stock2842`）与 exact Workshop Simple Audio Bars 两 profile；其余 legacy 指纹、其他 Workshop audio shader、未支持 combo 与 SceneScript binding fail closed |
 | Audio particle consumer | `L0` | 声明已保真但求值公式无证据；见 5 节 Audio-response execution |
 | Audio script consumer | `L0` | 前置 VM 未闭合 |
 | Sound layer | `L0` | 补 sound content IR、播放、volume 和生命周期 |
@@ -252,7 +252,7 @@
 | **B5 Fidelity** | `S2-S4` 广度完成后 | 字体、视差、粒子、常用 Effect 与 WE Windows golden 对齐 | 固定输入逐像素/数值阈值、性能预算、长稳和多屏门 |
 | **Advanced** | `S5` | Puppet、2D light/HDR、3D、arbitrary custom shader、RGB、offline bake | 每个系统有完整 IR/runtime/lifecycle/product gate 后再升级 |
 
-研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、exact native clock/day/date、Timeline 受限 typed target、Scene audio 和既有 bounded effect/particle/resource runtime 已形成各自正向门；unsupported Effect/Timeline/粒子/通用 SceneScript 形态继续 fail closed。当前完整门为 222 stage/35 chain、0 graph failed、16 个 exact text-script binding；`3765760121` 的日期、时间、星期已替代占位符并穿过 project capture/Foliage chain，但静态截图仍不能证明 Foliage 振幅/相位，Wednesday 在作者右边缘布局下也可能贴边。三个 source/property profile 不外推为通用 SceneScript、`Date` API 或同类格式脚本支持；其他可见未知 text script 继续诊断并保留作者 fallback。既有 effect clean-room 近似、系统静音 Audio Bars 门、Foliage/Water Ripple/Shine/Cursor Ripple 视觉和 performance 边界不变。下一代码批仍须从专项缺口重新选择，不从任一 bounded 正门外推通用兼容。
+研究可以并行，产品执行不能倒置：B0 live-property、direct dynamic text generation、exact native clock/day/date、Timeline 受限 typed target、Scene audio 和既有 bounded effect/particle/resource runtime 已形成各自正向门；unsupported Effect/Timeline/粒子/通用 SceneScript 形态继续 fail closed。当前完整门为 280 stage/49 chain、0 graph failed、16 个 exact text-script binding；新增 old-editor Shake audio 与 legacy Directional Godrays 仍只属于 exact profile。`3765760121` 的日期、时间、星期已替代占位符并穿过 project capture/Foliage chain，但静态截图仍不能证明 Foliage 振幅/相位，Wednesday 在作者右边缘布局下也可能贴边。三个 source/property profile 不外推为通用 SceneScript、`Date` API 或同类格式脚本支持；其他可见未知 text script 继续诊断并保留作者 fallback。既有 effect clean-room 近似、系统静音 Audio Bars 门、Foliage/Water Ripple/Shine/Cursor Ripple 视觉和 performance 边界不变。下一代码批仍须从专项缺口重新选择，不从任一 bounded 正门外推通用兼容。
 
 ## 9. 更新规则
 
