@@ -45,12 +45,14 @@ enum SceneWaterFlowEffectTextureLoader {
             let flow = SceneLayerEffectTextureLoader.loadTexture(
                 url: flowURL,
                 label: "waterflow flow",
+                purpose: .preservedChannels,
                 loader: loader,
                 device: device
             )
             let phase = SceneLayerEffectTextureLoader.loadTexture(
                 url: phaseURL,
                 label: "waterflow phase",
+                purpose: .preservedChannels,
                 loader: loader,
                 device: device
             )

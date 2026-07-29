@@ -19,17 +19,20 @@ enum SceneLayerEffectTextureLoader {
         tintEffectIDs: Set<String> = [],
         godraysEffectIDs: Set<String> = [],
         shineEffectIDs: Set<String> = [],
-        userPropertyTextures: [String: MTLTexture] = [:]
+        userPropertyTextures: [String: MTLTexture] = [:],
+        preservedUserPropertyTextures: [String: MTLTexture] = [:]
     ) -> SceneLayerEffectTextures {
         let iris = loadTexture(
             url: resolveFirstTexture(for: layer, effectFragment: "iris", resolver: resolver),
             label: "iris mask",
+            purpose: .preservedChannels,
             loader: loader,
             device: device
         )
         let opacity = loadTexture(
             url: resolveFirstTexture(for: layer, effectFragment: "opacity", resolver: resolver),
             label: "opacity mask",
+            purpose: .preservedChannels,
             loader: loader,
             device: device
         )
@@ -44,6 +47,7 @@ enum SceneLayerEffectTextureLoader {
         let water = loadTexture(
             url: waterURL,
             label: "water mask",
+            purpose: .preservedChannels,
             loader: loader,
             device: device
         )
@@ -55,6 +59,7 @@ enum SceneLayerEffectTextureLoader {
         let foliage = loadTexture(
             url: foliageURL,
             label: "foliage mask",
+            purpose: .preservedChannels,
             loader: loader,
             device: device
         )
@@ -66,6 +71,7 @@ enum SceneLayerEffectTextureLoader {
                 resolver: resolver
             ),
             label: "waterripple normal",
+            purpose: .preservedChannels,
             loader: loader,
             device: device
         )
@@ -134,7 +140,7 @@ enum SceneLayerEffectTextureLoader {
             resolver: resolver,
             loader: loader,
             device: device,
-            userPropertyTextures: userPropertyTextures
+            preservedUserPropertyTextures: preservedUserPropertyTextures
         )
         let opacityEffects = SceneOpacityEffectTextureLoader.load(
             for: layer,
@@ -247,12 +253,14 @@ enum SceneLayerEffectTextureLoader {
             let flow = loadTexture(
                 url: flowURL,
                 label: "shake flow",
+                purpose: .preservedChannels,
                 loader: loader,
                 device: device
             )
             let phase = loadTexture(
                 url: phaseURL,
                 label: "shake phase",
+                purpose: .preservedChannels,
                 loader: loader,
                 device: device
             )
@@ -329,11 +337,12 @@ enum SceneLayerEffectTextureLoader {
     static func loadTexture(
         url: URL?,
         label: String,
+        purpose: SceneTextureLoadPurpose,
         loader: SceneTextureLoader,
         device: MTLDevice
     ) -> (texture: MTLTexture?, message: String) {
         guard let url else { return (nil, "") }
-        switch loader.load(from: url, device: device) {
+        switch loader.load(from: url, purpose: purpose, device: device) {
         case .loaded(let texture):
             return (texture, "; \(label) OK \(url.lastPathComponent) → \(texture.width)×\(texture.height)")
         case .unsupportedFormat(let ext):

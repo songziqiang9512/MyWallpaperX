@@ -41,6 +41,7 @@ enum SceneOpacityEffectTextureLoader {
             let loaded = SceneLayerEffectTextureLoader.loadTexture(
                 url: maskURL,
                 label: "opacity effect mask",
+                purpose: .preservedChannels,
                 loader: loader,
                 device: device
             )

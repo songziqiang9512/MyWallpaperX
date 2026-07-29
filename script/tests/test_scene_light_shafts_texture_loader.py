@@ -17,6 +17,7 @@ SOURCES = [
     SCENE_ROOT / "Format/SceneTexDataReader.swift",
     SCENE_ROOT / "Format/SceneTexContainer.swift",
     SCENE_ROOT / "Format/SceneBCTextureDecoder.swift",
+    SCENE_ROOT / "Resources/SceneImageTextureUploader.swift",
     SCENE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
     SCENE_ROOT / "Resources/SceneTextureMipUploader.swift",
     SCENE_ROOT / "Resources/SceneTextureLoader.swift",
@@ -75,11 +76,12 @@ enum SceneLayerEffectTextureLoader {
     static func loadTexture(
         url: URL?,
         label: String,
+        purpose: SceneTextureLoadPurpose,
         loader: SceneTextureLoader,
         device: MTLDevice
     ) -> (texture: MTLTexture?, message: String) {
         guard let url else { return (nil, "; \(label) missing") }
-        switch loader.load(from: url, device: device) {
+        switch loader.load(from: url, purpose: purpose, device: device) {
         case .loaded(let texture):
             return (texture, "")
         default:

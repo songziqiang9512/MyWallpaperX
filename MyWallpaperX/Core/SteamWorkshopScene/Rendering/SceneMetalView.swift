@@ -40,8 +40,19 @@ class SceneMetalView: NSView {
         self.metalDevice = renderer.device
         self.renderer = renderer
         self.solidLayerTexture = SceneSolidLayerTexture.make(device: renderer.device)
+        let preservedPropertyKeys = Set(renderDescriptor.layers.flatMap { layer -> [String] in
+            guard let declaration = SceneXRayRuntimePlanner.declaration(for: layer) else {
+                return []
+            }
+            return [
+                declaration.blendPropertyKey,
+                declaration.haloPropertyKey,
+            ].compactMap { $0 }
+        })
         self.userPropertyTextureLoad = SceneUserPropertyTextureLoader().load(
-            urlsByPropertyKey: userPropertyTextureURLs, device: renderer.device
+            urlsByPropertyKey: userPropertyTextureURLs,
+            preservedPropertyKeys: preservedPropertyKeys,
+            device: renderer.device
         )
 
         let layer = CAMetalLayer()
@@ -75,24 +86,7 @@ class SceneMetalView: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { nil }
 
-    // MARK: - Geometry
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        updateDrawableSize()
-    }
-
-    override func setFrameSize(_ newSize: NSSize) {
-        super.setFrameSize(newSize)
-        metalLayer.frame = bounds
-        updateDrawableSize()
-    }
-
-    override func viewDidChangeBackingProperties() {
-        super.viewDidChangeBackingProperties()
-        updateDrawableSize()
-    }
-
+    // MARK: - Pointer input
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         configurePointerTracking()
@@ -133,7 +127,8 @@ class SceneMetalView: NSView {
                 resolver: resolver,
                 loader: loader,
                 device: metalDevice,
-                userPropertyTextures: userPropertyTextureLoad.textures
+                userPropertyTextures: userPropertyTextureLoad.textures,
+                preservedUserPropertyTextures: userPropertyTextureLoad.preservedTextures
             )
             loadedEffectTextures.merge(layerID: layer.id, textures: textures)
             return textures

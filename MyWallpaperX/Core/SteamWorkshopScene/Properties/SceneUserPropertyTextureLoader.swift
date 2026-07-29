@@ -3,6 +3,7 @@ import Metal
 
 struct SceneUserPropertyTextureLoadResult {
     let textures: [String: MTLTexture]
+    let preservedTextures: [String: MTLTexture]
     let reportLines: [String]
 }
 
@@ -15,13 +16,19 @@ struct SceneUserPropertyTextureLoader {
 
     func load(
         urlsByPropertyKey: [String: URL],
+        preservedPropertyKeys: Set<String> = [],
         device: MTLDevice
     ) -> SceneUserPropertyTextureLoadResult {
         guard !urlsByPropertyKey.isEmpty else {
-            return SceneUserPropertyTextureLoadResult(textures: [:], reportLines: [])
+            return SceneUserPropertyTextureLoadResult(
+                textures: [:],
+                preservedTextures: [:],
+                reportLines: []
+            )
         }
         let loader = SceneTextureLoader()
         var textures: [String: MTLTexture] = [:]
+        var preservedTextures: [String: MTLTexture] = [:]
         var reportLines = ["sceneUserTextureRequestedCount: \(urlsByPropertyKey.count)"]
 
         for key in urlsByPropertyKey.keys.sorted() {
@@ -43,8 +50,42 @@ struct SceneUserPropertyTextureLoader {
             case .unsupportedFormat, .unsupportedTexFormat, .texNoEmbeddedImage, .texContainsVideoPayload:
                 reportLines.append("scene user texture \(key): unsupported image payload")
             }
+            guard preservedPropertyKeys.contains(key) else { continue }
+            switch loader.load(
+                from: url,
+                purpose: .preservedChannels,
+                device: device
+            ) {
+            case let .loaded(texture):
+                preservedTextures[key] = texture
+                reportLines.append(
+                    "scene user texture \(key) preserved: OK "
+                        + "\(url.lastPathComponent) -> \(texture.width)x\(texture.height)"
+                )
+            case let .decodeFailed(message):
+                reportLines.append(
+                    "scene user texture \(key) preserved: decode failed (\(message))"
+                )
+            case let .textureAllocationFailed(width, height):
+                reportLines.append(
+                    "scene user texture \(key) preserved: allocation failed at "
+                        + "\(width)x\(height)"
+                )
+            case .unsupportedFormat, .unsupportedTexFormat,
+                 .texNoEmbeddedImage, .texContainsVideoPayload:
+                reportLines.append(
+                    "scene user texture \(key) preserved: unsupported image payload"
+                )
+            }
         }
         reportLines.append("sceneUserTextureLoadedCount: \(textures.count)")
-        return SceneUserPropertyTextureLoadResult(textures: textures, reportLines: reportLines)
+        reportLines.append(
+            "sceneUserTexturePreservedLoadedCount: \(preservedTextures.count)"
+        )
+        return SceneUserPropertyTextureLoadResult(
+            textures: textures,
+            preservedTextures: preservedTextures,
+            reportLines: reportLines
+        )
     }
 }

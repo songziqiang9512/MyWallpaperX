@@ -51,6 +51,7 @@ enum SceneGodraysEffectTextureLoader {
                 let loaded = SceneLayerEffectTextureLoader.loadTexture(
                     url: noiseURL,
                     label: "godrays noise",
+                    purpose: .preservedChannels,
                     loader: loader,
                     device: device
                 )
@@ -69,6 +70,7 @@ enum SceneGodraysEffectTextureLoader {
                 let loaded = SceneLayerEffectTextureLoader.loadTexture(
                     url: maskURL,
                     label: "godrays effect mask",
+                    purpose: .preservedChannels,
                     loader: loader,
                     device: device
                 )

@@ -69,6 +69,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneTexDataReader.swift",
     SOURCE_ROOT / "Format/SceneTexContainer.swift",
     SOURCE_ROOT / "Format/SceneBCTextureDecoder.swift",
+    SOURCE_ROOT / "Resources/SceneImageTextureUploader.swift",
     SOURCE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
     SOURCE_ROOT / "Resources/SceneTextureMipUploader.swift",
     SOURCE_ROOT / "Resources/SceneTextureLoader.swift",

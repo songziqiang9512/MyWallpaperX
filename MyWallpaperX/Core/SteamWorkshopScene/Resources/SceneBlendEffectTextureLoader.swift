@@ -59,6 +59,7 @@ enum SceneBlendEffectTextureLoader {
             let loaded = SceneLayerEffectTextureLoader.loadTexture(
                 url: assetURL,
                 label: "blend effect texture",
+                purpose: .premultipliedColor,
                 loader: loader,
                 device: device
             )

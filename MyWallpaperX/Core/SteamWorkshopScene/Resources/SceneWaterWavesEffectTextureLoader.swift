@@ -52,6 +52,7 @@ enum SceneWaterWavesEffectTextureLoader {
             let loaded = SceneLayerEffectTextureLoader.loadTexture(
                 url: maskURL,
                 label: "waterwaves mask",
+                purpose: .preservedChannels,
                 loader: loader,
                 device: device
             )

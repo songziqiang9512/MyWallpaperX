@@ -41,12 +41,14 @@ enum SceneLightShaftsEffectTextureLoader {
         let noise = SceneLayerEffectTextureLoader.loadTexture(
             url: noiseURL,
             label: "light shafts noise",
+            purpose: .preservedChannels,
             loader: loader,
             device: device
         )
         let gradient = SceneLayerEffectTextureLoader.loadTexture(
             url: gradientURL,
             label: "light shafts gradient",
+            purpose: .preservedChannels,
             loader: loader,
             device: device
         )

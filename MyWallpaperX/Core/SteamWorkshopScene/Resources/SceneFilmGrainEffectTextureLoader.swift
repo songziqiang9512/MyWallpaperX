@@ -33,6 +33,7 @@ enum SceneFilmGrainEffectTextureLoader {
         let loaded = SceneLayerEffectTextureLoader.loadTexture(
             url: noiseURL,
             label: "film grain noise",
+            purpose: .preservedChannels,
             loader: loader,
             device: device
         )

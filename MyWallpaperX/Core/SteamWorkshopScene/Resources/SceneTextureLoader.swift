@@ -27,7 +27,7 @@ final class SceneTextureLoader {
     private struct TextureKey: Hashable {
         let source: SourceKey
         let deviceRegistryID: UInt64
-        let purpose: SceneCompressedTextureUploader.Purpose
+        let purpose: SceneTextureLoadPurpose
     }
 
     private struct TexResource {
@@ -48,18 +48,29 @@ final class SceneTextureLoader {
     private static let maxTextureDimension = 4096
 
     func load(from url: URL, device: MTLDevice) -> SceneTextureLoadOutcome {
+        load(from: url, purpose: .premultipliedColor, device: device)
+    }
+
+    /// Loads a texture according to the consumer's channel contract. The
+    /// purpose participates in cache identity so one source can safely serve
+    /// both composited color and data/straight-channel consumers.
+    func load(
+        from url: URL,
+        purpose: SceneTextureLoadPurpose,
+        device: MTLDevice
+    ) -> SceneTextureLoadOutcome {
         let key = TextureKey(
             source: sourceKey(for: url),
             deviceRegistryID: device.registryID,
-            purpose: .premultipliedColor
+            purpose: purpose
         )
         if let cached = textureOutcomes[key] { return cached }
         let ext = url.pathExtension.lowercased()
         let outcome: SceneTextureLoadOutcome
         if Self.directImageExtensions.contains(ext) {
-            outcome = loadDirectImage(url: url, device: device)
+            outcome = loadDirectImage(url: url, purpose: purpose, device: device)
         } else if ext == Self.texExtension {
-            outcome = loadWallpaperEngineTex(url: url, device: device)
+            outcome = loadWallpaperEngineTex(url: url, purpose: purpose, device: device)
         } else {
             outcome = .unsupportedFormat(extension: ext)
         }
@@ -67,45 +78,9 @@ final class SceneTextureLoader {
         return outcome
     }
 
-    /// Loads TEX channels without color premultiplication. This is reserved for
-    /// data consumers such as particle normal maps; ordinary image/color paths
-    /// continue through `load(from:device:)`.
+    /// Compatibility wrapper for existing data consumers.
     func loadDataTexture(from url: URL, device: MTLDevice) -> SceneTextureLoadOutcome {
-        let key = TextureKey(source: sourceKey(for: url), deviceRegistryID: device.registryID,
-                             purpose: .preservedChannels)
-        if let cached = textureOutcomes[key] { return cached }
-        let outcome: SceneTextureLoadOutcome
-        guard url.pathExtension.lowercased() == Self.texExtension,
-              let resource = texResource(from: url),
-              let container = resource.container else {
-            outcome = .unsupportedFormat(extension: url.pathExtension.lowercased())
-            textureOutcomes[key] = outcome
-            return outcome
-        }
-        if container.format == 0 {
-            if container.mips.allSatisfy({ Self.isEmbeddedImagePayload($0.data) }) {
-                outcome = SceneTextureMipUploader.uploadEmbeddedDataImages(
-                    container.mips,
-                    device: device
-                ) ?? .decodeFailed("embedded data image mip rasterization failed")
-            } else {
-                outcome = SceneTextureMipUploader.uploadRaw(
-                    container: container,
-                    pixelFormat: .rgba8Unorm,
-                    bytesPerPixel: 4,
-                    device: device
-                )
-            }
-        } else {
-            outcome = makeDirectUploadTexture(
-                from: container,
-                purpose: .preservedChannels,
-                device: device
-            )
-                ?? .unsupportedTexFormat(code: container.format)
-        }
-        textureOutcomes[key] = outcome
-        return outcome
+        load(from: url, purpose: .preservedChannels, device: device)
     }
 
     func makeVideoTextureSourceIfNeeded(
@@ -135,12 +110,21 @@ final class SceneTextureLoader {
         return texResource(from: url)?.container
     }
 
-    private func loadDirectImage(url: URL, device: MTLDevice) -> SceneTextureLoadOutcome {
+    private func loadDirectImage(
+        url: URL,
+        purpose: SceneTextureLoadPurpose,
+        device: MTLDevice
+    ) -> SceneTextureLoadOutcome {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
               let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
             return .decodeFailed("CGImageSource failed to decode \(url.lastPathComponent)")
         }
-        return makeTexture(from: cgImage, device: device)
+        return SceneImageTextureUploader.upload(
+            image: cgImage,
+            purpose: purpose,
+            maxDimension: Self.maxTextureDimension,
+            device: device
+        )
     }
 
     // Wallpaper Engine .tex containers wrap one or more compressed payloads;
@@ -148,18 +132,27 @@ final class SceneTextureLoader {
     // just the largest (first) JPEG or PNG payload and decode that. .tex
     // variants using DXT/BC compression have no embedded standard image and
     // are reported as such for diagnosis.
-    private func loadWallpaperEngineTex(url: URL, device: MTLDevice) -> SceneTextureLoadOutcome {
+    private func loadWallpaperEngineTex(
+        url: URL,
+        purpose: SceneTextureLoadPurpose,
+        device: MTLDevice
+    ) -> SceneTextureLoadOutcome {
         guard let resource = texResource(from: url) else {
             return .decodeFailed("read failed: \(url.lastPathComponent)")
         }
         let data = resource.data
         if let container = resource.container {
             if container.format == 0 {
-                return loadFormatZeroContainer(container, fallbackData: data, device: device)
+                return loadFormatZeroContainer(
+                    container,
+                    fallbackData: data,
+                    purpose: purpose,
+                    device: device
+                )
             }
             if let directUploadOutcome = makeDirectUploadTexture(
                 from: container,
-                purpose: .premultipliedColor,
+                purpose: purpose,
                 device: device
             ) {
                 return directUploadOutcome
@@ -175,7 +168,12 @@ final class SceneTextureLoader {
               let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
             return .decodeFailed("embedded image decode failed")
         }
-        return makeTexture(from: cgImage, device: device)
+        return SceneImageTextureUploader.upload(
+            image: cgImage,
+            purpose: purpose,
+            maxDimension: Self.maxTextureDimension,
+            device: device
+        )
     }
 
     private func texResource(from url: URL) -> TexResource? {
@@ -214,6 +212,7 @@ final class SceneTextureLoader {
     private func loadFormatZeroContainer(
         _ container: SceneTexContainer,
         fallbackData: Data,
+        purpose: SceneTextureLoadPurpose,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
         guard let firstMip = container.mips.first else {
@@ -225,19 +224,44 @@ final class SceneTextureLoader {
         }
 
         if Self.isEmbeddedImagePayload(firstMip.data) {
-            return SceneTextureMipUploader.uploadEmbeddedImages(
-                container.mips,
+            let uploaded = purpose == .premultipliedColor
+                ? SceneTextureMipUploader.uploadEmbeddedImages(
+                    container.mips,
+                    device: device
+                )
+                : SceneTextureMipUploader.uploadEmbeddedDataImages(
+                    container.mips,
+                    device: device
+                )
+            return uploaded ?? decodeEmbeddedImagePayload(
+                firstMip.data,
+                purpose: purpose,
                 device: device
-            ) ?? decodeEmbeddedImagePayload(firstMip.data, device: device)
+            )
         }
 
         let expectedRawByteCount = firstMip.width * firstMip.height * 4
         if firstMip.data.count == expectedRawByteCount {
-            return SceneTextureMipUploader.uploadRawRGBA(container: container, device: device)
+            if purpose == .premultipliedColor {
+                return SceneTextureMipUploader.uploadRawRGBA(
+                    container: container,
+                    device: device
+                )
+            }
+            return SceneTextureMipUploader.uploadRaw(
+                container: container,
+                pixelFormat: .rgba8Unorm,
+                bytesPerPixel: 4,
+                device: device
+            )
         }
 
         if let embedded = Self.extractEmbeddedImageData(from: fallbackData) {
-            return decodeEmbeddedImagePayload(embedded, device: device)
+            return decodeEmbeddedImagePayload(
+                embedded,
+                purpose: purpose,
+                device: device
+            )
         }
 
         return .decodeFailed("raw ARGB8888 mip data size mismatch: \(firstMip.data.count) != \(expectedRawByteCount)")
@@ -280,85 +304,26 @@ final class SceneTextureLoader {
         return data.subdata(in: start..<data.count)
     }
 
-    private func makeTexture(from cgImage: CGImage, device: MTLDevice) -> SceneTextureLoadOutcome {
-        let srcWidth = cgImage.width
-        let srcHeight = cgImage.height
-        guard srcWidth > 0, srcHeight > 0 else {
-            return .decodeFailed("zero-sized image")
-        }
-
-        // Proportionally cap dimensions so we never allocate a > maxDim texture.
-        let maxDim = Self.maxTextureDimension
-        let scale: Double
-        if srcWidth > maxDim || srcHeight > maxDim {
-            scale = Double(maxDim) / Double(max(srcWidth, srcHeight))
-        } else {
-            scale = 1.0
-        }
-        let width = max(1, Int(Double(srcWidth) * scale))
-        let height = max(1, Int(Double(srcHeight) * scale))
-
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .rgba8Unorm,
-            width: width,
-            height: height,
-            mipmapped: false
-        )
-        descriptor.usage = .shaderRead
-        descriptor.storageMode = .shared
-        guard let texture = device.makeTexture(descriptor: descriptor) else {
-            return .textureAllocationFailed(width: width, height: height)
-        }
-
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-        let bytesPerRow = width * 4
-        guard let context = CGContext(
-            data: nil,
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bytesPerRow: bytesPerRow,
-            space: colorSpace,
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else {
-            return .decodeFailed("CGContext create failed (\(width)×\(height))")
-        }
-
-        // Draw without flipping. CGBitmapContext stores rows top-down in
-        // memory (row 0 is the visual top), so CGImage row 0 (image top)
-        // already lands at memory row 0 = MTLTexture (0,0) = UV (0,0).
-        // Previously we applied translateBy+scaleBy here, which actually
-        // flipped the texture upside down. CGContext also resamples the
-        // source CGImage into our target rect automatically, so the
-        // downsample for huge images happens transparently.
-        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
-
-        guard let data = context.data else {
-            return .decodeFailed("CGContext data unavailable")
-        }
-        texture.replace(
-            region: MTLRegionMake2D(0, 0, width, height),
-            mipmapLevel: 0,
-            withBytes: data,
-            bytesPerRow: bytesPerRow
-        )
-        return .loaded(texture)
-    }
-
     private func decodeEmbeddedImagePayload(
         _ data: Data,
+        purpose: SceneTextureLoadPurpose,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
               let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
             return .decodeFailed("embedded image decode failed")
         }
-        return makeTexture(from: cgImage, device: device)
+        return SceneImageTextureUploader.upload(
+            image: cgImage,
+            purpose: purpose,
+            maxDimension: Self.maxTextureDimension,
+            device: device
+        )
     }
 
     private func makeDirectUploadTexture(
         from container: SceneTexContainer,
-        purpose: SceneCompressedTextureUploader.Purpose,
+        purpose: SceneTextureLoadPurpose,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome? {
         if let pixelFormat = container.metalPixelFormat {

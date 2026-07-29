@@ -8,7 +8,8 @@ extension SceneLayerEffectTextureLoader {
         resolver: SceneTexturePathResolver,
         loader: SceneTextureLoader,
         device: MTLDevice,
-        userPropertyTextures: [String: MTLTexture]
+        userPropertyTextures: [String: MTLTexture],
+        preservedUserPropertyTextures: [String: MTLTexture]
     ) -> SceneLayerEffectTextures {
         load(
             for: layer,
@@ -35,7 +36,8 @@ extension SceneLayerEffectTextureLoader {
             tintEffectIDs: Set(stages.compactMap { $0.tint?.effectKey.descriptorID }),
             godraysEffectIDs: Set(stages.compactMap { $0.godrays?.effectKey.descriptorID }),
             shineEffectIDs: Set(stages.compactMap { $0.shine?.effectKey.descriptorID }),
-            userPropertyTextures: userPropertyTextures
+            userPropertyTextures: userPropertyTextures,
+            preservedUserPropertyTextures: preservedUserPropertyTextures
         )
     }
 }

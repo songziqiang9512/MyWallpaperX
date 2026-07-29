@@ -38,7 +38,7 @@ enum SceneXRayEffectTextureLoader {
         resolver: SceneTexturePathResolver,
         loader: SceneTextureLoader,
         device: MTLDevice,
-        userPropertyTextures: [String: MTLTexture] = [:]
+        preservedUserPropertyTextures: [String: MTLTexture] = [:]
     ) -> (textures: SceneXRayEffectTextures?, message: String) {
         guard let declaration = SceneXRayRuntimePlanner.declaration(for: layer) else {
             return (nil, "")
@@ -47,11 +47,12 @@ enum SceneXRayEffectTextureLoader {
         let blend = SceneLayerEffectTextureLoader.loadTexture(
             url: blendURL,
             label: "xray blend",
+            purpose: .preservedChannels,
             loader: loader,
             device: device
         )
         let propertyBlend = declaration.blendPropertyKey.flatMap {
-            userPropertyTextures[$0]
+            preservedUserPropertyTextures[$0]
         }
         guard let blendTexture = propertyBlend ?? blend.texture else {
             let missing = blendURL == nil
@@ -66,11 +67,12 @@ enum SceneXRayEffectTextureLoader {
         let halo = SceneLayerEffectTextureLoader.loadTexture(
             url: haloURL,
             label: "xray halo",
+            purpose: .preservedChannels,
             loader: loader,
             device: device
         )
         let propertyHalo = declaration.haloPropertyKey.flatMap {
-            userPropertyTextures[$0]
+            preservedUserPropertyTextures[$0]
         }
         if declaration.haloTexturePath != nil, propertyHalo == nil, halo.texture == nil {
             return (nil, blend.message + halo.message)
@@ -82,6 +84,7 @@ enum SceneXRayEffectTextureLoader {
         let opacity = SceneLayerEffectTextureLoader.loadTexture(
             url: opacityURL,
             label: "xray opacity",
+            purpose: .preservedChannels,
             loader: loader,
             device: device
         )

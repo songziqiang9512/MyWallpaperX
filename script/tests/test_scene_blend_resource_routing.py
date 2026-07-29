@@ -33,6 +33,11 @@ struct SceneBlendExecutionPlan {
 
 struct SceneTextureLoader {}
 
+enum SceneTextureLoadPurpose {
+    case premultipliedColor
+    case preservedChannels
+}
+
 struct SceneRenderDescriptor {
     struct EffectDescriptor {
         struct PassDescriptor {
@@ -71,6 +76,7 @@ enum SceneLayerEffectTextureLoader {
     static func loadTexture(
         url: URL?,
         label: String,
+        purpose: SceneTextureLoadPurpose,
         loader: SceneTextureLoader,
         device: MTLDevice
     ) -> (texture: MTLTexture?, message: String) {

@@ -3,11 +3,6 @@ import Metal
 import MetalPerformanceShaders
 
 struct SceneCompressedTextureUploader {
-    enum Purpose: Hashable {
-        case premultipliedColor
-        case preservedChannels
-    }
-
     // CPU decode budget: a decoded RGBA copy of one 4096x4096 mip is 64 MiB.
     // Larger payloads and multi-image sprites first keep their compact native
     // upload, then use the GPU to premultiply into the authored image or a
@@ -19,7 +14,7 @@ struct SceneCompressedTextureUploader {
     static func upload(
         container: SceneTexContainer,
         pixelFormat: MTLPixelFormat,
-        purpose: Purpose,
+        purpose: SceneTextureLoadPurpose,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
         guard let firstMip = container.mips.first else {
@@ -64,7 +59,7 @@ struct SceneCompressedTextureUploader {
     private static func uploadDecoded(
         container: SceneTexContainer,
         format: SceneBCTextureDecoder.Format,
-        purpose: Purpose,
+        purpose: SceneTextureLoadPurpose,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
         let decoded = container.mips.enumerated().compactMap { level, mip in

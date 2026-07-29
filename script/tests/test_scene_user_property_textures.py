@@ -17,6 +17,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneTexDataReader.swift",
     SOURCE_ROOT / "Format/SceneTexContainer.swift",
     SOURCE_ROOT / "Format/SceneBCTextureDecoder.swift",
+    SOURCE_ROOT / "Resources/SceneImageTextureUploader.swift",
     SOURCE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
     SOURCE_ROOT / "Resources/SceneTextureMipUploader.swift",
     SOURCE_ROOT / "Resources/SceneTextureLoader.swift",
@@ -56,7 +57,7 @@ enum Harness {
         let jpgURL = directory.appendingPathComponent("photo-alias.jpg")
         let invalidURL = directory.appendingPathComponent("broken.png")
         let unsupportedURL = directory.appendingPathComponent("disguised.gif")
-        try writeImage(pngURL, type: "public.png")
+        try writeStraightPNG(pngURL)
         try writeImage(jpegURL, type: "public.jpeg")
         try Data(contentsOf: jpegURL).write(to: jpgURL)
         try Data("not an image".utf8).write(to: invalidURL)
@@ -71,18 +72,44 @@ enum Harness {
                 "broken": invalidURL,
                 "unsupported": unsupportedURL,
             ],
+            preservedPropertyKeys: ["png"],
             device: device
         )
         let sharedLoader = SceneTextureLoader()
         let firstCached = sharedLoader.load(from: pngURL, device: device)
         let secondCached = sharedLoader.load(from: pngURL, device: device)
+        let firstPreserved = sharedLoader.load(
+            from: pngURL,
+            purpose: .preservedChannels,
+            device: device
+        )
+        let secondPreserved = sharedLoader.load(
+            from: pngURL,
+            purpose: .preservedChannels,
+            device: device
+        )
         let reusedTexture: Bool
+        let reusedPreservedTexture: Bool
+        let differentPurposeTexture: Bool
         if case let .loaded(first) = firstCached,
-           case let .loaded(second) = secondCached {
+           case let .loaded(second) = secondCached,
+           case let .loaded(preservedFirst) = firstPreserved,
+           case let .loaded(preservedSecond) = secondPreserved {
             reusedTexture = first === second
+            reusedPreservedTexture = preservedFirst === preservedSecond
+            differentPurposeTexture = first !== preservedFirst
         } else {
             reusedTexture = false
+            reusedPreservedTexture = false
+            differentPurposeTexture = false
         }
+        let reversedLoader = SceneTextureLoader()
+        let reversedPreserved = reversedLoader.load(
+            from: pngURL,
+            purpose: .preservedChannels,
+            device: device
+        )
+        let reversedColor = reversedLoader.load(from: pngURL, device: device)
         try Data("changed user image".utf8).write(to: pngURL)
         let changedFileInvalidatedCache: Bool
         if case .decodeFailed = sharedLoader.load(from: pngURL, device: device) {
@@ -96,19 +123,65 @@ enum Harness {
         )
         let empty = loader.load(urlsByPropertyKey: [:], device: device)
         let dimensions = result.textures.mapValues { ["width": $0.width, "height": $0.height] }
+        let preservedDimensions = result.preservedTextures.mapValues {
+            ["width": $0.width, "height": $0.height]
+        }
         let payload: [String: Any] = [
             "loadedKeys": result.textures.keys.sorted(),
+            "preservedLoadedKeys": result.preservedTextures.keys.sorted(),
             "dimensions": dimensions,
+            "preservedDimensions": preservedDimensions,
+            "colorPixels": try pixels(result.textures["png"]),
+            "preservedPixels": try pixels(result.preservedTextures["png"]),
+            "reversedColorPixels": try pixels(reversedColor),
+            "reversedPreservedPixels": try pixels(reversedPreserved),
             "reportLines": result.reportLines,
             "retryLoadedKeys": retry.textures.keys.sorted(),
+            "retryPreservedLoadedKeys": retry.preservedTextures.keys.sorted(),
             "retryReportLines": retry.reportLines,
             "emptyLoadedKeys": empty.textures.keys.sorted(),
+            "emptyPreservedLoadedKeys": empty.preservedTextures.keys.sorted(),
             "emptyReportLines": empty.reportLines,
             "reusedTexture": reusedTexture,
+            "reusedPreservedTexture": reusedPreservedTexture,
+            "differentPurposeTexture": differentPurposeTexture,
             "changedFileInvalidatedCache": changedFileInvalidatedCache,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
+    }
+
+    private static func writeStraightPNG(_ url: URL) throws {
+        let pixels = Data([
+            255, 128, 64, 0,
+            200, 100, 50, 64,
+        ])
+        guard let provider = CGDataProvider(data: pixels as CFData),
+              let image = CGImage(
+                width: 2,
+                height: 1,
+                bitsPerComponent: 8,
+                bitsPerPixel: 32,
+                bytesPerRow: 8,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGBitmapInfo(
+                    rawValue: CGImageAlphaInfo.last.rawValue
+                ),
+                provider: provider,
+                decode: nil,
+                shouldInterpolate: false,
+                intent: .defaultIntent
+              ),
+              let destination = CGImageDestinationCreateWithURL(
+                url as CFURL,
+                "public.png" as CFString,
+                1,
+                nil
+              ) else {
+            throw HarnessError.imageWrite
+        }
+        CGImageDestinationAddImage(destination, image, nil)
+        guard CGImageDestinationFinalize(destination) else { throw HarnessError.imageWrite }
     }
 
     private static func writeImage(_ url: URL, type: String) throws {
@@ -134,10 +207,30 @@ enum Harness {
         guard CGImageDestinationFinalize(destination) else { throw HarnessError.imageWrite }
     }
 
+    private static func pixels(_ texture: MTLTexture?) throws -> [UInt8] {
+        guard let texture else { throw HarnessError.textureRead }
+        var bytes = [UInt8](repeating: 0, count: texture.width * texture.height * 4)
+        bytes.withUnsafeMutableBytes { raw in
+            texture.getBytes(
+                raw.baseAddress!,
+                bytesPerRow: texture.width * 4,
+                from: MTLRegionMake2D(0, 0, texture.width, texture.height),
+                mipmapLevel: 0
+            )
+        }
+        return bytes
+    }
+
+    private static func pixels(_ outcome: SceneTextureLoadOutcome) throws -> [UInt8] {
+        guard case let .loaded(texture) = outcome else { throw HarnessError.textureRead }
+        return try pixels(texture)
+    }
+
     private enum HarnessError: Error {
         case missingDirectory
         case noMetal
         case imageWrite
+        case textureRead
     }
 }
 '''
@@ -164,6 +257,7 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
                 "-framework", "Metal",
                 "-framework", "CoreGraphics",
                 "-framework", "ImageIO",
+                "-module-cache-path", str(directory / "module-cache"),
                 "-o", str(cls.binary),
             ],
             capture_output=True,
@@ -187,14 +281,44 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
     def test_png_and_both_jpeg_extensions_load(self) -> None:
         self.assertEqual(self.result["loadedKeys"], ["jpeg", "jpg", "png"])
         self.assertEqual(self.result["reportLines"][0], "sceneUserTextureRequestedCount: 5")
-        self.assertEqual(self.result["reportLines"][-1], "sceneUserTextureLoadedCount: 3")
+        self.assertEqual(self.result["reportLines"][-2], "sceneUserTextureLoadedCount: 3")
+        self.assertEqual(
+            self.result["reportLines"][-1],
+            "sceneUserTexturePreservedLoadedCount: 1",
+        )
         self.assertEqual(
             self.result["dimensions"],
             {
                 "jpeg": {"height": 2, "width": 3},
                 "jpg": {"height": 2, "width": 3},
-                "png": {"height": 2, "width": 3},
+                "png": {"height": 1, "width": 2},
             },
+        )
+
+    def test_requested_property_has_a_separate_preserved_texture(self) -> None:
+        self.assertEqual(self.result["preservedLoadedKeys"], ["png"])
+        self.assertEqual(
+            self.result["preservedDimensions"],
+            {"png": {"height": 1, "width": 2}},
+        )
+        self.assertTrue(self.result["differentPurposeTexture"])
+
+    def test_png_channel_purpose_preserves_hidden_and_straight_rgb(self) -> None:
+        self.assertEqual(
+            self.result["preservedPixels"],
+            [255, 128, 64, 0, 200, 100, 50, 64],
+        )
+        self.assertEqual(
+            self.result["colorPixels"],
+            [0, 0, 0, 0, 50, 25, 13, 64],
+        )
+        self.assertEqual(
+            self.result["reversedPreservedPixels"],
+            self.result["preservedPixels"],
+        )
+        self.assertEqual(
+            self.result["reversedColorPixels"],
+            self.result["colorPixels"],
         )
 
     def test_corrupt_and_unsupported_files_fail_closed(self) -> None:
@@ -207,16 +331,27 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
     def test_failed_retry_does_not_retain_an_old_texture(self) -> None:
         self.assertEqual(self.result["retryLoadedKeys"], [])
         self.assertEqual(
-            [self.result["retryReportLines"][0], self.result["retryReportLines"][-1]],
-            ["sceneUserTextureRequestedCount: 1", "sceneUserTextureLoadedCount: 0"],
+            [
+                self.result["retryReportLines"][0],
+                self.result["retryReportLines"][-2],
+                self.result["retryReportLines"][-1],
+            ],
+            [
+                "sceneUserTextureRequestedCount: 1",
+                "sceneUserTextureLoadedCount: 0",
+                "sceneUserTexturePreservedLoadedCount: 0",
+            ],
         )
+        self.assertEqual(self.result["retryPreservedLoadedKeys"], [])
 
     def test_empty_input_is_a_noop(self) -> None:
         self.assertEqual(self.result["emptyLoadedKeys"], [])
+        self.assertEqual(self.result["emptyPreservedLoadedKeys"], [])
         self.assertEqual(self.result["emptyReportLines"], [])
 
     def test_loader_reuses_unchanged_textures_but_invalidates_changed_user_files(self) -> None:
         self.assertTrue(self.result["reusedTexture"])
+        self.assertTrue(self.result["reusedPreservedTexture"])
         self.assertTrue(self.result["changedFileInvalidatedCache"])
 
     def test_surface_rebuild_reopens_security_scoped_urls(self) -> None:

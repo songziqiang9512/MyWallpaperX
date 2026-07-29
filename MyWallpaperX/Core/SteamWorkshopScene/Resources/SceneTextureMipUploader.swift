@@ -69,10 +69,14 @@ enum SceneTextureMipUploader {
             return .textureAllocationFailed(width: first.width, height: first.height)
         }
         for (level, image) in images.enumerated() {
-            guard let rgba = rasterizedRGBA(image) else {
+            guard let data = SceneImageTextureUploader.rgbaData(
+                image: image,
+                width: image.width,
+                height: image.height,
+                purpose: .preservedChannels
+            ) else {
                 return .decodeFailed("embedded data image mip rasterization failed")
             }
-            let data = unpremultipliedRGBA(rgba)
             replace(
                 texture: texture,
                 level: level,
@@ -279,25 +283,4 @@ enum SceneTextureMipUploader {
         return output
     }
 
-    private static func unpremultipliedRGBA(_ data: Data) -> Data {
-        var output = data
-        output.withUnsafeMutableBytes { raw in
-            guard let bytes = raw.bindMemory(to: UInt8.self).baseAddress else { return }
-            var offset = 0
-            while offset + 3 < raw.count {
-                let alpha = UInt16(bytes[offset + 3])
-                if alpha > 0 {
-                    bytes[offset] = UInt8(min(255, (UInt16(bytes[offset]) * 255) / alpha))
-                    bytes[offset + 1] = UInt8(
-                        min(255, (UInt16(bytes[offset + 1]) * 255) / alpha)
-                    )
-                    bytes[offset + 2] = UInt8(
-                        min(255, (UInt16(bytes[offset + 2]) * 255) / alpha)
-                    )
-                }
-                offset += 4
-            }
-        }
-        return output
-    }
 }
