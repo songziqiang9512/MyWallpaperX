@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-29
 >
-> Scene 实现基线：`7b1d36f`（在 `8f4cd30` 的 text-script、image/solid alignment、bounded effect/particle/resource/runtime 与 Pulse/Water/Iris/频谱基线上，新增非音频 Particle Turbulence operator 的有界公共执行；逐能力落地提交见专项表和运行证据索引）
+> Scene 实现基线：`f4e8a0c`（在 `8f4cd30` 的 text-script、image/solid alignment、bounded effect/particle/resource/runtime 与 Pulse/Water/Iris/频谱基线上，依次新增非音频 Particle Turbulence operator、TEX sampler、常见随机分布/Box/lifetime oscillation 与完整粒子 mip 链的有界公共执行；逐能力落地提交见专项表和运行证据索引）
 >
 > 当前完整快照门：`.codex/scene-full45-pulse-iris-spectrum-20260729-v2/report.json`（`8f4cd30`），**45/45 PASS**；当前 fixed13 为 `.codex/scene-fixed13-pulse-iris-spectrum-20260729-v3/report.json`（`8f4cd30`），**13/13 PASS**
 >
-> 最新运行门：`7b1d36f` 的签名 Debug App 在隔离副本上定向运行 `2131872317`、`3299228616`、`3757555836`、`3769688830`、`3769761761`，`.codex/scene-turbulence-targeted-20260729-v1/report.json` **5/5 PASS**、failed frame 0，并消除这 5 个样本此前 14 条 `unsupportedOperator:turbulence`；报告/full matrix SHA-256 为 `8a713218c73a264a8a15ee9dd7460136d37201444a5f1751552aafe7355b67dc` / `21b4de5142f36708e02018c799ee0495518aa55dfaf2eb2f11ff85cc296cdb97`。聚焦 parser/simulator 18 项、完整 particle 68 项、代码健康与签名 Debug build 通过。该定向集合覆盖当前 8 样本/19 加载图层缺口中的 5 样本/14 图层；没有重跑 fixed13/full45，页首 `8f4cd30` 的 **13/13** 与 **45/45** 仍是最近统一门，不外推到新实现。聚合缺口、性能/视觉边界和签名身份见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：`f4e8a0c` 的签名 Debug App 在隔离副本上定向运行 `2470144420` 与 `3742133044`，mip 链报告 **2/2 PASS**、failed frame 0；此前同批分布/振荡构建对 `2470144420`、`1937925563`、`3742133044` 分别 **1/1 PASS**，TEX sampler 中间构建为 **4/4 PASS**。完整 `test_scene_particle*.py` **72/72 PASS**，代码健康与签名 Debug build/严格 codesign 通过。该批没有重跑 fixed13/full45，页首 `8f4cd30` 的 **13/13** 与 **45/45** 仍是最近统一门，不外推到新实现；报告身份、SHA、方向性视觉与边界见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -64,7 +64,7 @@
 | Audio frame input | `L3` | 16/32/64 频段 × left/right host-shared 快照：系统音频 tap -> 单次 FFT 的 `SystemAudioSceneSpectrumAnalyzer` -> `SceneAudioSpectrumInbox` -> `SceneFrameContext`，host 每帧采样一次广播给所有 surface；采集由 consumer 存在性驱动，无 consumer/暂停/锁屏/休眠即停采并归零 | stock effect 只消费 16 档，32/64 只供两个 exact Simple Audio Bars profile；频段边界、归一化和平滑是工程选择，非官方合同，无 Windows 数值 golden；SceneScript audio buffer 未接 | B0/B4 |
 | 内嵌视频纹理 | `L3` | TEX 内嵌 MP4 image-layer 播放，消费共享 host time | seek/pause/switch/loop 精确合同及更多容器 | B1 |
 | 系统媒体 identity | `L1` | `$mediaThumbnail` typed 引用存在 | producer/consumer、事件、缩略图 generation | B1/B4 |
-| Particle runtime | `L3` | 作者 sprite、常见组件、Sprite Trail；解析后有效 alpha≤0 且无 script/animation 的层不构造 runtime，operator/instance/TEX 热路径复用存储；`SceneStockAssets.bundle` 保留内置资源的官方相对路径，particle texture 依次走 package/loose/stock 的明确纹理候选，同名 material JSON 不得抢占；22-key 程序纹理只作 bundle 缺失回退。strict `genericparticle` `REFRACT=1` 消费 slot 0/1、静态 amount/overbright 和前序 framebuffer snapshot；静态可逆 layer world frame 下分别执行 General、Movement 与 Renderer world-space | 粒子 live override、动态 world-space transform、Rope、Lighting 仍未执行；REFRACT 是有界 clean-room 近似，逐资产通道/mip/atlas/像素 parity、spritesheet 逐帧播放、5K/多 batch 性能预算和 Windows golden 未完成 | **B4** |
+| Particle runtime | `L3` | 作者 sprite、常见组件、Sprite Trail；解析后有效 alpha≤0 且无 script/animation 的层不构造 runtime，operator/instance/TEX 热路径复用存储；`SceneStockAssets.bundle` 保留内置资源的官方相对路径，particle texture 依次走 package/loose/stock 的明确纹理候选，同名 material JSON 不得抢占；22-key 程序纹理只作 bundle 缺失回退。root/child 与 strict REFRACT color/normal 按 TEX container flags 独立选择 nearest/linear、repeat/clamp-edge，并消费实际 mip 链；RG88 颜色适配保留每级 mip。常见 Random initializer 消费 finite nonnegative exponent；zero/absent-min Box 以 origin 为中心；Oscillate Alpha/Size 的 frequency 按 normalized lifetime；Turbulent Velocity 的 offset 参与 forward/tangent 方向旋转。strict `genericparticle` `REFRACT=1` 与静态 world-space 子集边界不变 | 粒子 live override、动态 world-space transform、Rope、Lighting 仍未执行；TEX flag 位义、random/offset 数值和 REFRACT 都是有界 clean-room 合同，clamp-border 当前降级 edge，sidecar frame nominal geometry/rotated/trimmed atlas、默认 oscillator/相机/材质 alpha 与 Windows golden 未完成 | **B4** |
 | Text/Font runtime | `L3` | CoreText 静态栅格、direct property 动态重栅格、exact clock/day/date native profile 和部分 font/pointsize/padding/scale；动态内容在 `limitwidth=false` 时按 intrinsic size 扩框并贯穿 capture/effect/final quad；结构门 `79/108` | 通用 SceneScript/system/media text、Windows baseline/fallback、outline/shadow/effect；动态扩框无 Windows 像素 golden | B4/B5 |
 | Camera Parallax | `L3` | 仅作者开启且非零 depth 时启用，含层级传播/阻断 | WE 数值 golden、camera shake/zoom、3D camera | B5 |
 | User Properties | `L3` | 独立窗口、条件、持久化、PNG/JPEG `sceneTexture`；layer alpha、纯 solid color、direct text、strict Local Contrast/Opacity 与受限 X-Ray target 已无重建 live 更新；exact Simple Audio Bars `Bar Color` 已有 typed compiler/snapshot/GPU consumer | Audio Bars 尚无真实 live override 门；unsupported/mixed/SceneScript bindings、Texture Variants、shortcut、跨重启 UI 门；精确 census 见 runtime-input 专项表 | **B0/B1** |
@@ -103,15 +103,15 @@
 | General 执行子集 | `L3` | max count、prewarm、perspective、frame blend 分支可消费 | runtime change、prewarm cap 定向门与 WE 数值门 |
 | Emitter schedule | `L3` | rate、instantaneous、duration、one-per-frame | delay/periodic 和 WE 时间门 |
 | Sphere Random emitter | `L3` | 可执行子集 | 全参数、distribution golden |
-| Box Random emitter | `L3` | 可执行子集 | 全参数、distribution golden |
+| Box Random emitter | `L3` | zero/absent `distancemin` 的各轴按 `±abs(max)` 围绕 origin 采样；非零 min/max 保留作者区间路径 | directions/sign、反向范围与 Windows distribution golden |
 | Layer Image/其他 emitter | `L1` | 名称可诊断，字段和执行不足 | 独立 fixture 和作者条件 |
-| 已接 initializer 子集 | `L3` | lifetime/size/velocity/color/alpha/angular velocity 常见路径 | 每一项 range/distribution/seed golden |
+| 已接 initializer 子集 | `L3` | lifetime/size/velocity/color/alpha/angular velocity 常见路径；finite nonnegative exponent 以 `pow(U,e)` 施加到 scalar、vector 各轴和 color 共用插值因子 | 默认/非法/极值分布、WE RNG/seed golden |
 | Rotation Random initializer | `L2` | 字段与 simulation 分支已接线；无最终 rotation 断言 | renderer orientation 数值门 |
 | 其他未接 initializer | `L1` | control-point/remap 等可诊断或字段不足 | 逐项 fixture 与创建时语义 |
-| 已接 operator 子集 | `L3` | movement/angular、alpha/size/color change、部分 oscillate 与非音频 Turbulence | timestep/curve/phase 数值门 |
+| 已接 operator 子集 | `L3` | movement/angular、alpha/size/color change、部分 oscillate 与非音频 Turbulence；Oscillate Alpha/Size 按单粒子 normalized lifetime 解释 frequency，并从 initial state 按作者顺序组合 | Position oscillation 仍是 age-based 增量；默认 phase/seed、curve 与 Windows 数值门 |
 | Turbulence operator | `L3 executed-degraded` | 非音频 profile 按作者顺序消费 mask/phase/scale/time scale/speed/blend/fixed dt/static speed override，非有限写入失败关闭；audio profile 零执行 | Windows 固定 seed 轨迹/像素 golden；audio phase 调制公式 |
 | 其他未接 force/operator | `L1` | attract/vortex 等明确 unsupported | control-point/world-space 力场 |
-| Sprite renderer | `L3` | 作者纹理和程序化静态遮罩子集 | 全 material/blend/lighting/atlas |
+| Sprite renderer | `L3` | 作者纹理和程序化静态遮罩子集；TEX filter/address/mip 进入真实 Metal sampler，UV>1 repeat、minification 与单 mip 均有 GPU 门 | clamp-border 精确值、全 material/blend/lighting/atlas 与像素 golden |
 | Sprite Trail | `L3` | 受限 trail 执行 | orientation/length/atlas/曲线精度 |
 | Rope/Rope Trail declaration | `L1` | 结构/诊断不足 | topology、constraint 和 material IR |
 | Rope/Rope Trail execution | `L0` | 无 renderer | geometry/history/lifecycle |
@@ -127,18 +127,20 @@
 | Collision execution | `L0` | 无 solver | fixed step 与 event dispatch |
 | Audio-response declaration | `L1` | 五字段按粒子 schema 保真进 IR，emitter/turbulent velocity/operator 三类共用同一声明类型；启用后一律报 `audioResponseIgnored`（operator 此前无诊断、会静默按无音频路径模拟） | 声明保真不等于可执行；默认值官方未公开，IR 层不内置 |
 | Audio-response execution | `L0` | frame snapshot 已可用，但**求值公式与调制目标无证据**：粒子侧无 shader 源码，第三方参考实现对应代码是 `audioAmplitude = 0.0` 的 TODO 占位，其默认值在 emitter/initializer 两处自相矛盾 | 需 Windows golden 或官方公开算法；在此之前不得按推测实现 |
-| Sprite Sheet | `L3` | Sequence/Random frame/frame blend 子集可执行 | 全 atlas metadata、loop/edge 和多纹理 material |
+| Sprite Sheet | `L3` | Sequence/Random frame/frame blend 子集可执行；repeat sampler 不再把超 1 UV 拉成边缘条 | sidecar nominal frame aspect、rotated/trimmed metadata、loop/edge 和多纹理 material |
 | Static instance overrides | `L3` | alpha/size/lifetime/rate/speed/count/brightness/normalizedColor 有运行断言 | 完整类型/range 门 |
 | Direct color/control-point position override | `L2` | parser/simulation 分支已接线，最终值门不足 | direct color 与 CP position/angle 断言 |
 | Dynamic instance overrides | `L1` | wrapper 只诊断 | typed live target、generation 和逐帧应用 |
-| Material/blend | `L3` | `genericparticle` slot 0、additive/translucent 子集；strict REFRACT 额外消费 slot 1 normal、静态 combo/constants 与 no-depth/no-cull state admission；additive 按官方 CPU premultiply + `(SRC_ALPHA, ONE)` 等效合同（作者 alpha 即 additive 强度） | unsupported shader/blend 尚可能回退；除 REFRACT 外的多纹理/combo/render state、HDR/Lighting/Cutout 与 Windows 像素标定仍缺 |
+| Material/blend | `L3` | `genericparticle` slot 0、additive/translucent 子集；color TEX sampler 显式传到 renderer，strict REFRACT 的 slot 0 color / slot 1 normal 使用独立 sampler，background 固定 linear-clamp；additive 既有 premultiply 合同不变 | unsupported shader/blend 尚可能回退；除 REFRACT 外的多纹理/combo/render state、HDR/Lighting/Cutout、clamp-border 与 Windows 像素标定仍缺 |
 | Fixed step/seed/maxcount | `L3` | fixed simulation step、deterministic seed、maxcount 有运行门 | pause/discontinuity 与 WE 数值 golden |
-| Turbulent velocity initializer | `L3` | 非音频 profile 消费 forward/right/up、phase、scale、time 与 speed range；audio profile 继续 fail closed——frame snapshot 已可用，缺的是粒子侧求值公式证据 | Windows WE 固定 seed 数值/视觉 golden；audio 分支另需官方算法或 golden |
+| Turbulent velocity initializer | `L3` | 非音频 profile 消费 forward/right/up、phase、scale、time、speed range；finite offset 作为 forward→tangent 平面方向旋转，`scale=0` 仍保留 offset；audio profile 继续 fail closed | right/up/noise mapping 与 offset 弧度解释仍属 clean-room；Windows 固定 seed 数值/视觉 golden 与 audio 公式 |
 | Delta clamp/prewarm cap | `L2` | 代码有上限分支，缺定向预算断言 | 长帧和高 prewarm 压力门 |
 
 当前 `8f4cd30` 完整矩阵可见粒子为 `127/130`，fixed13 为 `76/76`；两门的初始 REFRACT root batch 分别为 13 与 7。`2131872317` 的 event-death child REFRACT 在初始报告中仍为 0，另由 7 秒延迟 runtime 门证明生成非空折射 batch。`3088601835` 为 `19/19`，其中 Snow root layers `513/534` 已执行，static `snowstormfog` child 也已由真实缓存门确认在两层生成实例，matrix-code 两层随 `b86db59` 解除 nested 阻断进入执行。child 不增加 root loaded-layer 计数。`3750813609` 已由 `7/9` 升至 `9/9`；`2998757800` 为 `15/15` 且 REFRACT 6，`3299228616` 为 `6/7`，`3769688830` 为 `6/6`，`3770444459` 为 `4/5`。full45 剩余 3 个 root 缺口均为 Rope/RopeTrail；`2998757800` 的 child scale 0.2 仍在独立 strict child-transform 边界外。这些数字只度量对应矩阵实际加载的 root layer，不代表粒子组件覆盖率或 Windows 视觉等价。
 
 `7b1d36f` 的 Turbulence 定向门为 5/5，覆盖旧 full45 日志中 19 条 `unsupportedOperator:turbulence` 的 14 条；另 3 个命中样本没有在新实现上复跑。该批没有改变 particle root loaded 计数，也没有重跑 fixed13/full45。
+
+`d19e76b` / `d792296` / `f4e8a0c` 依次补齐 TEX sampler、常见随机分布/Box/lifetime oscillation 与实际 mip 链。分布构建对 `2470144420`、`1937925563`、`3742133044` 各 1/1；最终 mip 构建对 `2470144420`、`3742133044` 各 1/1。`2470144420` 的 Sakura 命中 repeat、Turbulent Velocity offset、size exponent 2 与 7-level mip，Stars 命中 centered Box/Oscillate Alpha、但其 `halo_6` 是作者单 mip，因此 mip 修复不应改变星点。`3742133044` 的默认可见雪花命中 RG88 多 mip 保留；隐藏樱花不计入该门。该批没有样本 ID 分支，也没有重跑 fixed13/full45。
 
 ## 6. 动态运行系统覆盖
 

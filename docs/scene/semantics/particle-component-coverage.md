@@ -5,8 +5,8 @@
 > 最近核对：2026-07-29
 >
 > 口径来源：[官方页面目录](official-page-catalog.md)、[运行时系统语义](runtime-systems-reference.md)、[资料来源与证据索引](source-index.md)
-> 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，并执行非音频 Turbulent Velocity Random、非音频 Turbulence operator、严格的 child 层级 ≤ 2（depth-one static/default-static/`eventspawn` / natural-`eventdeath` / `eventfollow`，加 depth-two 仅 event 触发的 nested child）、有限 static origin translation、持续/混合/duration child emitter、静态可逆 layer world frame 下的 General/Movement/Renderer world-space 子集，以及严格 `genericparticle` `REFRACT=1` 双纹理背景折射子集；它仍不是通用 Particle System，尤其没有 Layer Image、static angles/scale、event child transform、collision/delete event、动态 Control Point、动态 world-space system transform、Rope、Audio Response（声明已保真解析，执行缺公式证据）、Lighting 和通用 Particle Material。
-> 粒子落地提交分别是 eventspawn/death `f4173ea`/`7d53c10`、eventfollow `928acca`、持续 child/root aggregate budget `2f897bc`、static/default-static `899704b`、有限 static origin `678a052`、strict depth-two nested child/per-depth 预算 `b86db59`、非音频 turbulent velocity `4a17ee6`、strict REFRACT `e698c18`、static world-space `54a6ebc` 与非音频 Turbulence operator `7b1d36f`。本专项表不复制全局实现基线；当前固定 13 样本门 particle 为 `76/76`，完整 45 样本门为 `127/130`，两者仍是 `8f4cd30` 的最近统一门；`7b1d36f` 的定向报告、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)。仍不是通用 Particle System。
+> 当前结论：MyWallpaperX 已有可见的 2D Sprite 粒子子集，并执行非音频 Turbulent Velocity Random、非音频 Turbulence operator、zero-min centered Box、常见 Random initializer exponent、lifetime-normalized Alpha/Size oscillation、TEX filter/address/mip sampler、严格的 child 层级 ≤ 2（depth-one static/default-static/`eventspawn` / natural-`eventdeath` / `eventfollow`，加 depth-two 仅 event 触发的 nested child）、有限 static origin translation、持续/混合/duration child emitter、静态可逆 layer world frame 下的 General/Movement/Renderer world-space 子集，以及严格 `genericparticle` `REFRACT=1` 双纹理背景折射子集；它仍不是通用 Particle System，尤其没有 Layer Image、static angles/scale、event child transform、collision/delete event、动态 Control Point、动态 world-space system transform、Rope、Audio Response（声明已保真解析，执行缺公式证据）、Lighting 和通用 Particle Material。
+> 粒子落地提交分别是 eventspawn/death `f4173ea`/`7d53c10`、eventfollow `928acca`、持续 child/root aggregate budget `2f897bc`、static/default-static `899704b`、有限 static origin `678a052`、strict depth-two nested child/per-depth 预算 `b86db59`、非音频 turbulent velocity `4a17ee6`、strict REFRACT `e698c18`、static world-space `54a6ebc`、非音频 Turbulence operator `7b1d36f`、TEX sampler `d19e76b`、分布/offset/lifetime oscillation `d792296` 与实际 mip 链 `f4e8a0c`。本专项表不复制全局实现基线；当前固定 13 样本门 particle 为 `76/76`，完整 45 样本门为 `127/130`，两者仍是 `8f4cd30` 的最近统一门；新能力只跑 E-PARTICLE 所列定向门，不能把旧统一门外推到新实现。仍不是通用 Particle System。
 
 本文把官方 Particle 的 General、Emitter、Initializer、Operator、Renderer、Control Point、Children、instance override 与 material 逐项映射到当前实现。它是 [总覆盖台账](coverage-ledger.md) 中 Particle 行的展开表；总表与本文冲突时，以本文更细粒度、更新的代码证据为准。
 
@@ -31,6 +31,8 @@
 | DEF | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleDefinition.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleDefinition.swift) |
 | PAR | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleDefinitionParser.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleDefinitionParser.swift) |
 | SIM | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleSimulator.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleSimulator.swift) |
+| RANDOM | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleSimulator+Random.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleSimulator+Random.swift) |
+| OSC | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleOscillationCache.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleOscillationCache.swift) |
 | SUP | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleSimulationSupport.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleSimulationSupport.swift) |
 | RUN | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleRuntime.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleRuntime.swift) |
 | CHILD | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleChildRuntime.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleChildRuntime.swift) |
@@ -38,6 +40,7 @@
 | CHILD-LIFE | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleChildLifecycle.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleChildLifecycle.swift) |
 | AST | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleAssetGraph.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleAssetGraph.swift) |
 | GPU | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleMetalPipeline.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleMetalPipeline.swift) |
+| SAMP | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleSamplerStateSet.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleSamplerStateSet.swift) |
 | REFR | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleRefractionPlan.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleRefractionPlan.swift) |
 | SNAP | [MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneFramebufferSnapshot.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneFramebufferSnapshot.swift) |
 | CAM | [MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleCameraFrame.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleCameraFrame.swift) |
@@ -90,7 +93,7 @@
 | ID / 能力 | 官方语义摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
 |---|---|---|---|---|---|
 | E01 Sphere Random | 在 origin/control point 周围的球或圆范围随机生成。 | `L3` | [DEF] [PAR] [SIM] [T-SIM] | 自有均匀半径算法；未核验 WE 的维度、seed 与 exponent 分布。 | 2D/3D、空方向、固定 seed 的位置分布 golden。 |
-| E02 Box Random | 在矩形或盒范围内随机生成。 | `L3` | [DEF] [PAR] [SIM] [T-SIM] | direction 仅作逐轴乘法；sign 等组合未完整核验。 | 各轴反向/禁用、非对称范围和 Windows 分布门。 |
+| E02 Box Random | 在矩形或盒范围内随机生成。 | `L3` | [DEF] [PAR] [RANDOM] [T-SIM] | `distancemin` 缺省或各轴为 0 时按 `-abs(max)...+abs(max)` 围绕 origin；显式正非零 min/max 保留作者区间。direction 仍只作逐轴乘法，sign、混合零/非零轴、反向范围和 WE 分布未核验。 | 各轴反向/禁用、混合轴与 Windows 固定 seed 分布门。 |
 | E03 Layer Image | 从 image/text/puppet 的有效像素发射，可继承颜色和 motion。 | `L1` | [PAR] [T-DEF] | 名称只进入 unsupported diagnostic，没有 source layer/bitmap IR。 | 静态 image bitmap emitter，再补 text/puppet 与 motion。 |
 | E04 Origin / offset | 作者 offset 决定发射中心，可叠加 control point。 | `L3` | [DEF] [SIM] [T-DEF] | 仅 local vector；没有 object/world/child 空间转换。 | local/object/world 三空间正反 fixture。 |
 | E05 Directions and sign | 可限制随机方向维度并固定正负方向。 | `L2` | [DEF] [SIM] [T-DEF] | 字段和执行分支存在，但测试只证明解析；Sphere/Box 组合和零向量 fallback 未验证。 | 全 2^3 direction/sign 组合状态门。 |
@@ -113,15 +116,15 @@
 
 | ID / 能力 | 官方语义摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
 |---|---|---|---|---|---|
-| I01 Lifetime Random | 从范围为新粒子选择 lifetime。 | `L3` | [DEF] [SIM] [T-SIM] | 自有线性分布；未核验单位、clamp 和 exponent。 | 固定 seed 分布、零/负 lifetime 与 Windows 门。 |
-| I02 Size Random | 从范围为新粒子选择初始 size。 | `L3` | [DEF] [SIM] [T-SIM] | scalar 路径为主，单位与 renderer 像素比例未核验。 | scalar/vector、size 0、透视缩放的画面门。 |
-| I03 Color Random | 用一个随机系数在作者给定的两个颜色之间插值。 | `L3` | [DEF] [SIM] [T-SIM] | RGB 共用同一插值系数并按 0...255 除法；线性/sRGB 合同未知。 | 色彩空间、端点/中间值分布和 Windows pixel golden。 |
+| I01 Lifetime Random | 从范围为新粒子选择 lifetime。 | `L3` | [DEF] [RANDOM] [T-SIM] | 无 exponent 时为线性；finite nonnegative exponent 使用 `pow(U,e)`。单位、clamp、非法/极值与 WE RNG 未核验。 | 零/负 lifetime、分数/大 exponent 与 Windows 固定 seed 分布门。 |
+| I02 Size Random | 从范围为新粒子选择初始 size。 | `L3` | [DEF] [RANDOM] [T-SIM] | scalar 路径消费 exponent；单位、renderer 像素比例与 WE RNG 未核验。 | size 0、透视缩放和 Windows 画面门。 |
+| I03 Color Random | 用一个随机系数在作者给定的两个颜色之间插值。 | `L3` | [DEF] [RANDOM] [T-SIM] | RGB 共用同一 exponent-biased 插值系数并按 0...255 除法；线性/sRGB 与 WE RNG 合同未知。 | 色彩空间、端点/中间值分布和 Windows pixel golden。 |
 | I04 HSV Color Random | 在 HSV 范围采样后转换为粒子颜色。 | `L1` | [PAR] [SUP] [T-DEF] | 仅保留 unsupported 名称。 | typed HSV ranges、wrap、转换色彩空间测试。 |
 | I05 Color List | 从作者颜色列表按规则选择。 | `L1` | [PAR] [SUP] [T-DEF] | 列表内容没有 typed IR。 | list、weight/index 语义 fixture 和 seed 门。 |
-| I06 Alpha Random | 从范围选择初始 alpha。 | `L3` | [DEF] [SIM] [T-SIM] | 无官方 clamp/precision golden。 | 0、1、越界、override 组合测试。 |
-| I07 Velocity Random | 仅设置初始 velocity；位置推进仍需 Movement operator。 | `L3` | [DEF] [SIM] [T-SIM] | 各轴线性随机；exponent 未消费。 | 无 Movement 时静止负向门和分布 golden。 |
+| I06 Alpha Random | 从范围选择初始 alpha。 | `L3` | [DEF] [RANDOM] [T-SIM] | scalar exponent 路径已共用；无官方 clamp/precision/RNG golden。 | 0、1、越界、override 组合测试。 |
+| I07 Velocity Random | 仅设置初始 velocity；位置推进仍需 Movement operator。 | `L3` | [DEF] [RANDOM] [T-SIM] | 各轴独立随机并消费同一 exponent；轴相关性与 WE 分布未知。 | 无 Movement 时静止负向门和 Windows 分布 golden。 |
 | I08 Inherit Control Point Velocity | 新粒子继承指定 control point 的速度。 | `L1` | [PAR] [SUP] [T-DEF] | 没有 CP previous/current state或 velocity。 | 动态 CP 两帧差分、空间转换和倍率 fixture。 |
-| I09 Turbulent Velocity Random | 使用方向、noise phase/scale/time 和速度范围初始化湍流速度。 | `L3` | [DEF] [PAR] [SIM] [SUP] [T-DEF] [T-SIM] | 非音频 profile 使用项目自建确定性 3D gradient noise；`scale=0` 保持 forward，phase/time/seed 和速度范围有数值门。Audio profile 继续 fail closed——snapshot 已可用，缺的是粒子侧求值公式证据；无 Windows WE 数值/像素等价证据。 | 合法 Windows WE 固定 seed/phase/time 状态 golden；audio 分支另需官方算法或 golden。 |
+| I09 Turbulent Velocity Random | 使用方向、noise phase/scale/time 和速度范围初始化湍流速度。 | `L3` | [DEF] [PAR] [SIM] [SUP] [T-DEF] [T-SIM] | 非音频 profile 使用项目自建确定性 3D gradient noise；`offset` 已从 noise time 分离，并作为 forward→tangent 平面弧度旋转，`scale=0` 仍保留 offset。right/up/noise mapping 与单位是 clean-room；Audio profile 继续 fail closed，无 Windows WE 数值/像素等价证据。 | 合法 Windows WE 固定 seed/offset/phase/time 状态 golden；audio 分支另需官方算法或 golden。 |
 | I10 Rotation Random | 为新粒子选择初始旋转。 | `L2` | [DEF] [SIM] [T-DEF] | 已接入 simulator，但现有测试只证明 component 解析，没有最终 rotation 数值断言。 | screen/upright/fixed 下角度 golden。 |
 | I11 Position Offset Random | 在 emitter 结果上增加随机位置 offset。 | `L1` | [PAR] [SUP] [T-DEF] | 名称可诊断，未保存专用范围或执行。 | typed min/max、作者顺序和空间 fixture。 |
 | I12 Angular Velocity Random | 为新粒子选择初始角速度。 | `L3` | [DEF] [SIM] [T-SIM] | 只有 Angular Movement 才推进；单位未核验。 | 无/有 Angular Movement 的状态 golden。 |
@@ -129,7 +132,7 @@
 | I14 Position Between Control Points | 在两个 CP 之间按规则放置新粒子。 | `L1` | [PAR] [SUP] [T-DEF] | 没有两个 CP identity 和插值字段。 | 端点、随机比例、移动 CP fixture。 |
 | I15 Remap Initial Value | 把一个初值范围映射到另一个粒子属性。 | `L1` | [PAR] [SUP] [T-DEF] | 没有 source/target property typed enum。 | typed particle channel、clamp/extrapolate 数值门。 |
 | I16 Inherit Value From Event | child/event 粒子继承 parent 的 color/size/alpha 等值。 | `L1` | [PAR] [SUP] [CHILD] [T-DEF] [T-RUN] | child runtime 收到 typed parent particle state，但 child initializer/operator 尚不消费 color/size/alpha。 | 每种继承 channel 的 typed fixture 与正反数值门。 |
-| I17 Exponent bias | Random min/max 可用 exponent 改变分布密度。 | `L1` | [DEF] [PAR] [SIM] [T-DEF] | `exponent` 被解析但随机函数不消费。 | exponent 0/1/>1 固定 seed 分布门。 |
+| I17 Exponent bias | Random min/max 可用 exponent 改变分布密度。 | `L3` | [DEF] [PAR] [RANDOM] [T-DEF] [T-SIM] | scalar、vector 各轴与 color 共用插值因子消费 finite nonnegative exponent；当前公式为 `pow(U,e)`，非法/负值回退无 bias。自动门覆盖 0/1/2、vector 与 color；这只是项目合同，不是官方 RNG 等价。 | 分数/大 exponent、非法值与 Windows fixed-seed 分布 golden。 |
 | I18 Run once in authored order | 每个 initializer 对新粒子执行一次，顺序可影响最终初值。 | `L2` | [PAR] [SIM] [T-SIM] | 代码按数组运行，但没有重复 initializer 或顺序交换的定向断言。 | 重复 initializer 与交换顺序的状态 golden。 |
 
 ## 6. Operators
@@ -146,8 +149,8 @@
 | O06 Color Change | 随 normalized age 改变 color。 | `L3` | [DEF] [SIM] [T-SIM] | 线性乘法近似；色彩空间未知。 | RGB/linear-sRGB、越界值与 pixel golden。 |
 | O07 Alpha Change | 随 normalized age 改变 alpha。 | `L3` | [DEF] [SIM] [T-SIM] | 线性乘法近似。 | 与 Alpha Fade 顺序交换、边界值门。 |
 | O08 Oscillate Position | 以 frequency/phase/scale/mask 周期偏移位置。 | `L3` | [DEF] [SIM] [T-SIM] | 当前按 velocity-like 增量累加，可能与官方绝对 offset 语义不同。 | 长时无漂移门和 Windows 轨迹 golden。 |
-| O09 Oscillate Alpha | 周期调制 alpha，并受 blend window 控制。 | `L3` | [DEF] [SIM] [T-SIM] | 自有 cosine 与随机 seed 合成。 | phase/frequency/窗口边界的数值 golden。 |
-| O10 Oscillate Size | 周期调制 size，并受 blend window 控制。 | `L3` | [DEF] [SIM] [T-SIM] | 自有默认 0.8...1.2；未核验官方默认。 | 显式/缺省参数双门。 |
+| O09 Oscillate Alpha | 周期调制 alpha，并受 blend window 控制。 | `L3` | [DEF] [SIM] [OSC] [T-SIM] | frequency 解释为每个粒子 lifetime 的周期数：`cos(2π*f*normalizedLife+phase)`；每步从 initial alpha 重置后按作者 operator 顺序组合，粗/细 fixed-step 在非零相位点一致。随机 phase/seed/default 与 WE 数值未核验。 | 缺省参数、随机范围、窗口边界和 Windows 数值 golden。 |
+| O10 Oscillate Size | 周期调制 size，并受 blend window 控制。 | `L3` | [DEF] [SIM] [OSC] [T-SIM] | 与 Alpha 共用 lifetime frequency；每步从 initial size 重置后组合。自有默认 0.8...1.2、phase/seed 未核验官方。 | 显式/缺省参数、随机范围与 Windows 数值门。 |
 | O11 Control Point Force | control point 对粒子施加吸引/排斥力。 | `L1` | [DEF] [PAR] [SUP] [T-SIM] | `controlpointattract` typed，但 simulator 明确忽略。 | local/world CP force、threshold、falloff 轨迹门。 |
 | O12 Maintain Distance To Control Point | 约束粒子和一个 CP 的距离。 | `L1` | [PAR] [SUP] [T-DEF] | 只有 unsupported 名称。 | constraint solver、stiffness/damping fixture。 |
 | O13 Maintain Distance Between Control Points | 约束两个 CP 之间的关系。 | `L1` | [PAR] [SUP] [T-DEF] | 没有双 CP typed identity。 | 两端动态 CP 和固定 dt 稳定性门。 |
@@ -174,7 +177,7 @@
 
 | ID / 能力 | 官方语义摘要 | 等级 | 代码/测试证据路径 | 当前边界 | 下一验收门 |
 |---|---|---|---|---|---|
-| R01 Sprite | 每个粒子绘制独立 textured sprite。 | `L3` | [DEF] [RUN] [GPU] [T-GPU] [T-RUN] | 自有 quad shader、首纹理、两种 blend。additive 源因子取 sourceAlpha(shader 输出 premultiplied,相当于官方 CPU premultiply + `(SRC_ALPHA, ONE)`,作者 alpha 是 additive 强度),此前 `(ONE, ONE)` 使 `3088601835` 多层雾雪在数秒内叠成全屏过曝;官方 `genericparticle.frag`(随包)输出 straight,精确 alpha 语义仍无 Windows pixel parity。 | 尺寸/旋转/alpha/color/UV 的 Windows golden。 |
+| R01 Sprite | 每个粒子绘制独立 textured sprite。 | `L3` | [DEF] [RUN] [GPU] [SAMP] [T-GPU] [T-RUN] | 自有 quad shader、首纹理、两种 blend；renderer 必须显式传入 texture sampling，TEX filter/address/mip 进入真实 Metal sampler。additive 既有 premultiply 合同不变，精确 alpha/size 仍无 Windows pixel parity。 | 尺寸/旋转/alpha/color/UV/sampling 的 Windows golden。 |
 | R02 Sprite Trail | 沿 velocity 拉伸 sprite，length 乘 speed 并受 min/max 限制。 | `L3` | [DEF] [TRAIL] [RUN] [T-TRAIL] [T-GPU] | 只做单 quad stretch；未核验 orientation、单位和低速边界。 | 速度方向、旋转、透视、atlas 联合 pixel 门。 |
 | R03 Rope | 连续连接存活粒子，并维持 subdivision 与 UV continuity。 | `L1` | [DEF] [PAR] [RUN] [T-DEF] [T-RUN] | typed kind/segments/subdivision 可见，runtime 明确拒绝。 | rope topology buffer、连续 UV 与生命周期 fixture。 |
 | R04 Rope Trail | 按轨迹长度保留 segments，并绘制连续 rope。 | `L1` | [DEF] [PAR] [RUN] [T-DEF] | typed kind/字段可见，runtime 明确拒绝。 | trail history、segments/subdivision、reset/resize 门。 |
@@ -183,7 +186,7 @@
 | R07 Upright orientation | Sprite 保持 world-up，同时面向相机。 | `L3` | [DEF] [CAM] [T-CAM] [T-GPU] | world-up 固定为当前实现约定。 | 相机/父级旋转和 Windows orientation 门。 |
 | R08 Fixed orientation / axis | Sprite 使用作者轴和 layer transform 的固定平面。 | `L2` | [DEF] [RUN] [CAM] [T-DEF] [T-CAM] | axis 已路由到 renderer，但没有 authored-axis 端到端断言。 | 非默认 axis 的 GPU 几何和截图门。 |
 | R09 Renderer world space | renderer 的 orientation 可独立于粒子系统 orientation。 | `L3` | [DEF] [RUN] [T-DEF] [T-GPU] [T-RUN] | Sprite 的 screen/upright/fixed world orientation 已与 system rotation/scale 解耦；这与 General/Movement world-space 分开准入。Trail/Rope、3D camera 和 Windows orientation golden 未完成。 | world-space Trail、camera/parent 组合与 Windows orientation golden。 |
-| R10 Sprite Sheet UV | renderer 按 TEX atlas frame 的 origin/axes 取样。 | `L3` | [RUN] [GPU] [T-GPU] | 仅已解析 TEX metadata；多纹理 atlas 和所有 edge case 缺失。 | rotated/trimmed frames、边缘 sampling pixel 门。 |
+| R10 Sprite Sheet UV | renderer 按 TEX atlas frame 的 origin/axes 取样。 | `L3` | [RUN] [GPU] [SAMP] [T-GPU] | UV>1 可随 TEX repeat sampler 回绕，不再 clamp 成边缘条；sidecar nominal frame size/aspect、rotated/trimmed 与多纹理 atlas 未接。 | frame aspect、rotated/trimmed frames 与 Windows sampling pixel 门。 |
 | R11 Rope segments/subdivision | Rope 用 segments/subdivision 控制曲线细分。 | `L1` | [DEF] [PAR] [T-DEF] | 字段保留但无 geometry consumer。 | 数量、拓扑和 GPU buffer 上限测试。 |
 | R12 Rope UV scale/smoothing/scroll | Rope 保持连续 UV，并支持 scale、平滑和滚动。 | `L0` | [DEF] [PAR] [GPU] | 没有字段或 rope shader。 | typed UV contract + 时间驱动 pixel fixture。 |
 | R13 Renderer selection failure | 没有可执行 renderer 时应 fail-closed 并给出可定位诊断。 | `L2` | [RUN] [T-DEF] | Rope/unknown 的拒绝分支存在，但没有 runtime 定向测试；含 unsupported shader 的 Sprite 仍可能误走自有 shader。 | renderer + shader 联合 fail-closed 负向门。 |
@@ -259,8 +262,8 @@
 | M01 Material/pass resolution | 从 particle material 找到 pass、shader、纹理和 render state。 | `L3` | [AST] [RUN] [T-AST] [T-RUN] | 只挑一个 pass，随后降级到专用自有 pipeline。 | 多 pass/slot、missing/duplicate、完整 state fixture。 |
 | M02 `genericparticle` shader family | 官方通用粒子 shader 按 material combo 决定 renderer variant。 | `L3` | [AST] [GPU] [T-AST] [T-GPU] | 仅识别名字并使用自写 Metal 近似；不执行官方 shader/combo。 | combo matrix 和合法 Windows pixel golden。 |
 | M03 Non-generic/custom shader | 非通用 shader 只能在具备等价 executor 时运行，否则应 fail-closed。 | `L1` | [AST] [RUN] [T-AST] | 会诊断 `unsupportedShader`，但含 Sprite 时仍可能进入自有 pipeline，存在误渲染风险。 | runtime 阻断负向门，再逐 shader family 加 executor。 |
-| M04 Albedo / texture slot 0 | 首纹理提供 sprite 的颜色与 alpha。 | `L3` | [AST] [RUN] [GPU] [T-AST] [T-GPU] | 只消费首纹理。 | alpha edge、sampling、颜色空间 Windows 门。 |
-| M05 Additional texture slots | material 可同时使用 normal/mask/noise 等多个纹理槽。 | `L3` | [AST] [REFR] [RUN] [T-AST] [T-RUN] | strict REFRACT 只消费无 hole 的 slot 0 albedo + slot 1 normal；其他 mask/noise、多槽和 user texture input 继续 fail closed。 | 其他已验证 variant 的 8-slot identity、nullable hole、binding precedence 测试。 |
+| M04 Albedo / texture slot 0 | 首纹理提供 sprite 的颜色与 alpha。 | `L3` | [AST] [RUN] [GPU] [SAMP] [T-AST] [T-GPU] | TEX container bit 0/1 分别映射 nearest 与 clamp，缺位分别为 linear 与 repeat；实际 mip 链随 minification 消费，直接 image/generated 回退 linear-clamp。bit mapping 由本地 container/sidecar corpus clean-room 交叉确认，clamp-border bit 仅降级 edge。 | clamp-border、alpha edge、颜色空间和 Windows sampling golden。 |
+| M05 Additional texture slots | material 可同时使用 normal/mask/noise 等多个纹理槽。 | `L3` | [AST] [REFR] [RUN] [GPU] [SAMP] [T-AST] [T-GPU] [T-RUN] | strict REFRACT 只消费无 hole 的 slot 0 albedo + slot 1 normal，两者使用独立 sampler；background 固定 linear-clamp。其他 mask/noise、多槽和 user texture input 继续 fail closed。 | 反向 sampler 像素门及其他已验证 variant 的 8-slot identity、nullable hole、binding precedence。 |
 | M06 Normal map | normal texture 参与 lighting/refraction 的表面方向。 | `L3` | [AST] [REFR] [RUN] [GPU] [T-GPU] [T-RUN] | 只在 strict REFRACT 中按 RG88 luminance-alpha 或 RGBA alpha/green 解码并建立投影切线；Lighting、Rope 与 Windows normal 数值未覆盖。 | Lighting/Rope 独立 profile、切线基和 Windows pixel 门。 |
 | M07 Cutout | 按作者阈值丢弃低 alpha 像素，而不是仅做 translucent blend。 | `L0` | [DEF] [AST] [GPU] | 没有 cutout flag/threshold 或 discard 分支。 | threshold 0/0.5/1 正反 pixel fixture。 |
 | M08 Lighting | 粒子可受 Scene light、normal 与材质参数影响。 | `L0` | [AST] [GPU] | 无 light snapshot、normal/PBR 输入或 lit variant。 | 先接 Scene lighting contract，再做 lit/unlit pixel 门。 |
@@ -271,12 +274,12 @@
 | M13 Other blend modes | 其他作者 blend 必须有明确映射或 fail-closed。 | `L1` | [AST] [T-AST] | 会诊断后回退 translucent，可能产生错误画面。 | 禁止无证据 fallback；每种模式独立 pixel 门。 |
 | M14 Depth test/write/cull | perspective/world 粒子可需要 depth 和 cull render state。 | `L2` | [AST] [REFR] [T-AST] | pass state 已保真进入粒子 adapter，strict REFRACT 只准入 disabled/disabled/nocull；GPU 尚无通用 depth attachment/state consumer。 | typed state + depth attachment 正反门。 |
 | M15 Material combos/constants | combo/constant 选择 shader variant 和参数。 | `L3` | [AST] [REFR] [RUN] [GPU] [T-AST] [T-GPU] [T-RUN] | strict REFRACT 消费 `REFRACT`、零值 `CUTOUT`/`LIGHTING`、静态 `g_Amount`/`g_Overbright`；未知启用 combo、动态/user shader value 失败关闭。 | Lighting/Cutout 等各自 strict variant key 与参数 buffer fixture。 |
-| M16 File-backed TEX/PNG/JPEG | 合法本地 particle texture 可解码并上传 GPU。 | `L3` | [AST] [RUN] [T-AST] [T-RUN] | 格式集合受 SceneTextureLoader 限制；无跨格式视觉 parity。 | TEX variants、color space、损坏资源负向门。 |
-| M17 Built-in texture identity | `particle/...` key 指向 Wallpaper Engine 内置粒子资产。 | `L2` | [TEX] [AST] [STOCK-ASSETS] [STOCK-RESOLVER] [T-AST] [T-RUN] | `SceneStockAssets.bundle` 保留内置粒子资源的官方相对路径；样本本地纹理优先，缺失时直接把 `.tex`/无扩展名引用映射到官方相对路径，不依赖 catalog。bundle 不设目录级 TEX 盘点门；定向 runtime 门加载 `debris1` 为 1024x128 R8 spritesheet 整张纹理。sidecar 仍不进入 runtime，序列帧未逐帧播放，逐资产官方通道/mip/atlas/像素 parity 未证明，因此只到 wired。 | 接通 sidecar metadata 与 spritesheet 序列帧 consumer，补通道、mip、atlas、颜色空间和 Windows pixel 门后再升级。 |
+| M16 File-backed TEX/PNG/JPEG | 合法本地 particle texture 可解码并上传 GPU。 | `L3` | [AST] [RUN] [TEX] [SAMP] [T-AST] [T-GPU] [T-RUN] | TEX container filter/address flags 与已上传实际 mip 链进入 sampler；R8 view 保留 levels，RG88 转 premultiplied RGBA 时逐级保留。sidecar sprite sequence/nominal geometry 仍不进入 runtime，PNG/JPEG 走 linear-clamp。 | TEX variants、clamp-border、sidecar frame geometry、color space 与损坏资源负向门。 |
+| M17 Built-in texture identity | `particle/...` key 指向 Wallpaper Engine 内置粒子资产。 | `L2` | [TEX] [AST] [STOCK-ASSETS] [STOCK-RESOLVER] [T-AST] [T-RUN] | `SceneStockAssets.bundle` 保留内置粒子资源的官方相对路径；样本本地纹理优先，缺失时按官方相对路径解析。runtime 消费 TEX container flags 与实际 mip levels，但不读取 `.tex-json` sidecar 的 sprite sequence/nominal frame geometry；序列帧未完整播放，逐资产通道/atlas/像素 parity 未证明，因此只到 wired。 | 接通 sidecar spritesheet sequence/frame geometry，补通道、atlas、颜色空间和 Windows pixel 门后再升级。 |
 | M18 Twenty-two generated built-ins | 二十二个高命中 key 可生成确定性替代纹理，形态按官方 `.tex` 解码后的 alpha 场拟合。 | `L3` | [TEX] [BUILTIN] [T-TEX] [T-RUN] | stock bundle 可用时优先直接读取对应 TEX；本 registry 只作为 bundle 缺失时的兼容回退。程序图形不是官方资产。尺寸对齐官方 `imageWidth`/`imageHeight`，非方形 key 不再按方形近似（`drop`/`beam_1` 32×128、`light_shafts_0` 256×512、`light_shafts_6` 128×512、`flare_1` 256×256）。八个静态 key 以本地解码的官方 alpha 为参照做网格拟合，归一化坐标 64×64 采样的引用次数加权 RMSE 为 0.0373：`halo_4` 0.0106、`flare_1` 0.0253、`light_shafts_0` 0.0359、`light_shafts_6` 0.0365、`halo_6` 0.0368、`beam_1` 0.0405、`drop` 0.0477、`star` 0.1118。序列帧 key 仍只生成单帧且为灰度。 | bundle TEX 已具备真实素材，以同路径 TEX 为主门；程序 fallback 保留确定性与安全 alpha 门。 |
 | M19 Missing built-in fail-closed | 未支持 built-in 应报告 unavailable，不能静默用任意白块。 | `L3` | [AST] [RUN] [T-AST] [T-RUN] | 诊断明确且层不可用；尚无用户可见降级说明。 | 诊断聚合和 fallback policy 产品门。 |
-| M20 Sprite atlas metadata | TEX frame origin/axes/duration 选择 atlas 子区域。 | `L3` | [RUN] [GPU] [T-GPU] | 仅当前 SpriteAnimation 结构；无多 texture sequence。 | rotated/trimmed/variable duration atlas pixel 门。 |
-| M21 Premultiplied alpha contract | CPU 颜色、纹理和 blend factor 必须使用一致 alpha 合同。 | `L3` | [BUILTIN] [GPU] [T-TEX] [T-GPU] | 生成纹理有 premultiply 门；外部 TEX/PNG 和 WE blend 未全链核验。 | file/built-in 双来源的重叠 pixel golden。 |
+| M20 Sprite atlas metadata | TEX frame origin/axes/duration 选择 atlas 子区域。 | `L3` | [RUN] [GPU] [SAMP] [T-GPU] | 当前 SpriteAnimation + repeat sampler 子集；sidecar nominal frame aspect、rotated/trimmed 与多 texture sequence 未接。 | frame aspect、rotated/trimmed/variable duration atlas pixel 门。 |
+| M21 Premultiplied alpha contract | CPU 颜色、纹理和 blend factor 必须使用一致 alpha 合同。 | `L3` | [BUILTIN] [TEX] [GPU] [T-TEX] [T-GPU] | generated 与 RG88 每级 mip 有 premultiply 门；其他外部 TEX/PNG 和 WE blend 未全链核验。 | file/built-in 双来源的重叠 pixel golden。 |
 | M22 Pixel-equivalent material result | 最终 sprite 颜色、边缘、HDR、lighting 与 WE 参考一致。 | `L0` | [GPU] [T-GPU] | 只有 Metal smoke/几何/状态测试，没有 Windows golden。 | 建立授权 Windows capture 和容差化图像比较。 |
 
 ## 12. 执行顺序、事件与生命周期
@@ -300,8 +303,8 @@
 ## 13. 当前统计与使用规则
 
 - 本台账共覆盖 `171` 个粒子能力项：General 18、Emitter 17、Initializer 18、Operator 29、Renderer 14、Control Point 12、Children 12、Instance Override 16、Material 22、执行/生命周期 13。
-- 等级分布为 `L0 23 / L1 44 / L2 26 / L3 78 / L4 0`；该数字按表内 171 个能力行重新计数，O15 本批由 `L1` 移到 `L3`。`L3` 主要集中在 Sphere/Box、常见随机 initializer、基础 movement/change/oscillation、非音频 Turbulence、Sprite/Sprite Trail、strict static/event child、已测试的静态 override、首纹理、两种 blend 和 strict REFRACT 双槽子集。
+- 等级分布为 `L0 23 / L1 43 / L2 26 / L3 79 / L4 0`；该数字按表内 171 个能力行重新计数，I17 本批由 `L1` 移到 `L3`。`L3` 主要集中在 Sphere/Box、常见 exponent-biased random initializer、基础 movement/change/lifetime Alpha/Size oscillation、非音频 Turbulence、Sprite/Sprite Trail、strict static/event child、已测试的静态 override、TEX sampler/mip、两种 blend 和 strict REFRACT 双槽子集。
 - 当前固定矩阵的“可见粒子 76/76”、完整矩阵的“127/130”、`3088601835` 的“19/19”与 `3750813609` 的“9/9”只是 root layer 样本运行门，不是上述 171 项的兼容率；完整门另有 13 个初始 REFRACT root batch，`2131872317` 的 event-death child REFRACT 由延迟 runtime 门计证。剩余 3 个 full45 root 缺口均为 Rope/RopeTrail；动态 world-space、depth-three 或其他 fail-closed declaration 不能计为可播放。
-- `7b1d36f` 的 Turbulence 定向门覆盖 5 个隔离真实样本、此前 19 个当前加载缺口中的 14 个图层；它没有重跑 fixed13/full45，因此不能把 `8f4cd30` 的两层统一门写成新实现的回归结论。
+- `7b1d36f` 的 Turbulence 定向门覆盖 5 个隔离真实样本、此前 19 个当前加载缺口中的 14 个图层；`d19e76b` / `d792296` / `f4e8a0c` 的 sampler/distribution/mip 门覆盖 E-PARTICLE 所列定向样本。它们都没有重跑 fixed13/full45，因此不能把 `8f4cd30` 的两层统一门写成新实现的回归结论。
 - 开发批次应优先消除公共断点：复用现有 per-surface typed snapshot 接入动态 Control Point 与 author allow gates，再补 Layer Image、剩余 Children/Event、Collision 和 Rope，最后扩展动态 world-space、audio/material/lighting。逐样本 hardcode、把 unsupported 静默回退成 Sprite/translucent、或把程序纹理称为官方资产，都不允许升级等级。
 - 任一条目升级时，必须同时更新本表的等级、边界、证据路径和下一验收门；只有跑过对应正向、负向、生命周期测试后才能从 `L2` 升到 `L3`。
