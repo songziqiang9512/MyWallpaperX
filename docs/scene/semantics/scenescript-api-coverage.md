@@ -14,6 +14,8 @@
 
 `8740737` 新增一个与 VM 分离的 **L3 bounded native text profile**：按 raw source SHA-256 和完整 property key/type/range 同时准入 Workshop `2981960200` 的 clock、spaced-day、date 三个已独立复核格式器；每帧从 `SceneFrameContext.wallDate` 产生 string，按 `authored -> user -> Timeline -> SceneScript` 写入 per-surface snapshot，再复用 dynamic text generation/纹理 consumer。六个未修改真实样本的 16 个有效可见绑定执行，未知 source、增删/变异 property 均保留作者 fallback 并报告诊断。它不是 JavaScript 解释器，不开放 `Date`、`engine`、lifecycle、handle、event、module 或任一官方 API；因此本表的通用 SceneScript 和逐 API 行仍保持 `L0`。
 
+Scene host 已有 16/32/64 档 left/right 频谱 snapshot，并由 stock effect 与三个 exact Workshop Audio Bars profile 按需驱动采集；这只是 renderer 输入公共底座。当前仍没有 SceneScript source/binding IR、VM、`engine.registerAudioBuffers` bridge、`AudioBuffers`/`average` object 或脚本 consumer，因此下表相关 API 全部保持 `L0`。
+
 `2938612768:[165,454,626,629,924]` 的 Opacity 值来自未支持 SceneScript，当前 strict planner 仍必须拒绝；只有 `2902406982:[365,372,647,664]` 的 direct binding 是正门。粗粒度总表中的 “Script presence L1” 只表示发现能力，exact native text profile 的证据与边界见 [E-TEXT-SCRIPT](runtime-evidence-index.md#e-text-script)。
 
 等级沿用总覆盖台账：
@@ -236,9 +238,9 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 | `input.cursorScreenPosition` | 屏幕像素坐标 | `L0` | `N` | Retina、多屏 origin、屏外和 resize fixture |
 | `input.cursorLeftDown` | 左键当前状态 | `L0` | `N` | down/up/capture 与 event snapshot 同帧 |
 | `CursorEvent.worldPosition/localPosition/hitBox?` | 事件时 world/local 坐标与 puppet hit box；声明明确 screenPosition/button 未使用 | `L0` | `N` | hit-test、坐标变换、未使用字段不得伪造 |
-| audio resolution constants | `AUDIO_RESOLUTION_16/32/64` | `L0` | `N` | 仅接受三个常量；错误分辨率 fail closed |
-| `engine.registerAudioBuffers(resolution)` | 必须在 script global context 注册，返回逐帧频谱 | `L0` | Scene 没有 audio snapshot；`N` | global-only enforcement、按需 capture、取消订阅、静音/拒权零输入 |
-| `AudioBuffers` | 同长度 `left`, `right`, `average` Float32Array | `L0` | `N` | 数组长度/更新时点/数值范围、不可跨帧错误复用、受控频谱 fixture |
+| [audio resolution constants](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html) | `AUDIO_RESOLUTION_16/32/64` | `L0` | renderer host 已有三档 typed snapshot，但没有 JS global/constant bridge | 只接受三个常量；错误分辨率 fail closed |
+| [`engine.registerAudioBuffers(resolution)`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html) | 必须在 script global context 注册，返回逐帧频谱 | `L0` | renderer consumer 已有按需 capture、静音/拒权归零和 teardown；没有 source IR、VM、engine method 或脚本订阅 | global-only enforcement、consumer generation、重复注册/取消订阅与 stop 生命周期 |
+| [`AudioBuffers`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AudioBuffers.html) | 同长度 `left`, `right`, `average` Float32Array，每帧自动更新；低频到高频，通常 0...1 但可大于 1 | `L0` | renderer snapshot 只有三档 left/right；没有 JS object、`average`、数组 identity 或脚本 consumer | 数组长度/更新时点、跨帧对象语义、>1 非裁剪 fixture 与受控左右/平均输入 |
 | `MediaStatusEvent` | `enabled` 表示媒体集成可用/启用 | `L0` | `N` | enable/disable、无 provider 和订阅生命周期 |
 | `MediaPlaybackEvent` | state 0 stopped / 1 playing / 2 paused | `L0` | `N` | 状态映射、重复事件去重和 app 切换 |
 | `MediaPropertiesEvent` | title/artist/subTitle/albumTitle/albumArtist/genres/contentType | `L0` | `N` | 缺字段、Unicode、原子曲目切换和 stale generation |

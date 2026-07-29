@@ -2,7 +2,7 @@
 
 > 状态：现役专项表
 >
-> 最近核对：2026-07-27
+> 最近核对：2026-07-29
 >
 > 本页的 direct dynamic text 实现基线为 `1762743`；精确全局当前状态见 [总覆盖台账](coverage-ledger.md)。
 >
@@ -307,15 +307,17 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 | previous pointer storage | `L2` | Frame Context 保存；renderer 未消费 | shader built-in 和 event delta consumer |
 | pointer buttons/down/up/click | `L0` | 无状态或事件队列 | 同帧 event snapshot 与坐标空间 |
 | audio declarations | `L3` | effect 与粒子两套 schema 分别保真解析（字段名不同，粒子无 `audioamount`）；[E-AUDIO-EFFECT](runtime-evidence-index.md#e-audio-effect) | 粒子声明保真不等于可执行 |
-| 16 stereo buffers | `L3` | left/right host-shared 快照每帧广播给所有 surface，静音/无权限稳定归零；[E-AUDIO-INPUT](runtime-evidence-index.md#e-audio-input) | 频段划分与归一化是工程选择，无官方数值合同；采集 30 Hz 与渲染 60 Hz 之间首批不插值 |
-| 32/64 stereo buffers | `L0` | stock effect 不用，未预留档位 | 随 SceneScript `registerAudioBuffers` 与 workshop shader 前置一并欠账 |
-| audio `average` 缓冲 | `L0` | 官方 `AudioBuffers` 的第三个数组尚无消费者 | 由 SceneScript 前置决定形状 |
+| 16 stereo buffers | `L3` | left/right host-shared 快照每帧广播给所有 surface，静音/无权限稳定归零；stock effect 与 strict relocated Simple Audio Bars stereo up/down profile 已消费；[E-AUDIO-INPUT](runtime-evidence-index.md#e-audio-input) | 频段划分与归一化是工程选择，无官方数值合同；采集 30 Hz 与渲染 60 Hz 之间不插值 |
+| 32/64 stereo buffers | `L3 bounded` | 与 16 档由同一次 FFT 生成并进入 host-shared snapshot；只供 exact Simple Audio Bars `32+CLIP_LOW` / `64+CLIP_HIGH` profile；[E-AUDIO-INPUT](runtime-evidence-index.md#e-audio-input) | 其他 Workshop shader 与 SceneScript `registerAudioBuffers` 尚无 consumer/bridge，不外推 |
+| audio `average` 缓冲 | `L0` | host snapshot 只有 left/right；没有 SceneScript `AudioBuffers` object 或 `average` consumer | 由 SceneScript bridge 在同一帧、同一分辨率从左右声道建立受控数组，并验证对象/数组生命周期 |
 | audio consumer registration/lifecycle | `L3` | 采集由 consumer 存在性驱动，launch 声明/teardown 撤销，暂停/锁屏/休眠停采并归零 | 新增 consumer 必须同批扩充判定，否则采集不会启动 |
 | media status/playback/properties/timeline | `L0` | 无 snapshot | 可注入 provider 和原子 generation |
 | generic media thumbnail identity | `L1` | `$mediaThumbnail` runtime reference 可分类 | current/previous typed identity、producer、decode cancellation、authored fallback |
 | media events | `L0` | 无 SceneScript dispatch | 每屏队列、顺序和异常隔离 |
 
 Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选择 16、32 或 64 bins，并在 render frame 更新。
+
+官方 [IEngine.registerAudioBuffers](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html) 只接受 16/32/64 三档，[AudioBuffers](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AudioBuffers.html) 的 `left`/`right`/`average` 等长数组按帧自动更新、由低频排到高频，数值通常在 0...1 但允许超过 1；shader 侧 [Audio globals](https://docs.wallpaperengine.io/en/scene/shader/variables.html) 同样明确为正值且不归一化。当前 16/32/64 host snapshot 满足 renderer consumer 的输入形状，但没有 SceneScript VM、engine method、`average` 数组或脚本订阅，因此不能据此升级任何 SceneScript API。
 
 <a id="op-media-overview"></a>
 ### 8.1 [Audio Visualizer](https://docs.wallpaperengine.io/en/scene/audiovisualizer/overview.html) 资料边界
@@ -373,4 +375,4 @@ Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选
 3. B2 ordered strict scheduler、exact Workshop Shadow 与 stock Opacity `MASK=0` 已完成。`2902406982:[365,372,647,664]` 是 direct-binding live 正门；`2938612768:[165,454,626,629,924]` 是 SceneScript fail-closed 负门。optional mask、未知 fingerprint 或缺 consumer 的部分 live 继续拒绝。
 4. B2 同帧 copy/swap foundation、受限 history seed、Precise Blur interleave 与 stock Radial God Rays 双 half RT 已完成；真实 persistent/history consumer、generic compose 与 provider generation/cancel 仍未完成。
 5. Timeline 的 IR、绝对 scene-time evaluator 和 28/48 typed target 子集已接入；`relative`、Combined、tangent、其余 target 与 event crossing 继续 fail closed。SceneScript 只有在 source/binding IR 和沙箱成立后接入同一 target 层。
-6. 16 档 audio provider 已有 consumer 驱动、失败归零和 teardown 门；新增 audio 档位/consumer 与 media provider仍须同批补作者未启用反例、fallback、generation/cancel 和 stop teardown。
+6. 16/32/64 档 audio provider 已有 consumer 驱动、失败归零和 teardown 门；当前只开放 stock effect 与三个 exact Workshop Audio Bars profile。新增 renderer consumer、SceneScript `AudioBuffers` bridge/`average` 或 media provider仍须同批补作者未启用反例、fallback、generation/cancel 和 stop teardown。
