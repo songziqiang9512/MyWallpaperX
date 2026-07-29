@@ -290,17 +290,20 @@ nonisolated struct SceneParticleSimulator: Sendable {
         case .oscillatePosition:
             let mask = SceneParticleSimulationMath.vector(value.mask, fallback: SIMD3(1, 1, 0))
             for index in particles.indices {
-                let blend = oscillationBlend(value, normalizedLives[index])
                 let oscillation = positionOscillation(
                     value, particleIndex: index, operatorIndex: operatorIndex, mask: mask
                 )
-                for component in 0..<3 where abs(mask[component]) > 1e-6 {
-                    let frequency = oscillation.frequency[component]
-                    particles[index].position[component] -= oscillation.scale[component]
-                        * frequency
-                        * sin(frequency * particles[index].age + oscillation.phase[component])
-                        * duration * blend
-                }
+                let delta = positionOscillationDelta(
+                    oscillation,
+                    value: value,
+                    mask: mask,
+                    age: particles[index].age,
+                    lifetime: particles[index].lifetime,
+                    duration: duration
+                )
+                SceneParticleSimulationMath.addFinite(
+                    delta, to: &particles[index].position
+                )
             }
         case .turbulence:
             guard !value.audioResponse.isEnabled else { break }

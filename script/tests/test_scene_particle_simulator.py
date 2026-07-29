@@ -129,6 +129,31 @@ enum Harness {
         fineLifetimeOscillation.advance(by: 2)
         let fineHalfLifeOscillationAlpha = fineLifetimeOscillation.particles[0].alpha
         let fineHalfLifeOscillationSize = fineLifetimeOscillation.particles[0].size
+        var positionOscillation = simulator(
+            positionOscillationJSON,
+            seed: 1,
+            step: 1
+        )
+        positionOscillation.advance(by: 2)
+        let quarterLifeOscillationPosition = positionOscillation.particles[0].position
+        positionOscillation.advance(by: 2)
+        let halfLifeOscillationPosition = positionOscillation.particles[0].position
+        var finePositionOscillation = simulator(
+            positionOscillationJSON,
+            seed: 1,
+            step: 1.0 / 60.0
+        )
+        finePositionOscillation.advance(by: 4)
+        let fineHalfLifeOscillationPosition =
+            finePositionOscillation.particles[0].position
+        var longPositionOscillation = simulator(
+            longPositionOscillationJSON,
+            seed: 1,
+            step: 1
+        )
+        longPositionOscillation.advance(by: 4)
+        let longQuarterLifeOscillationPosition =
+            longPositionOscillation.particles[0].position
 
         let diagnosticOverride = SceneParticleDefinitionParser().parseInstanceOverride(
             try object(#"{"size":{"script":"return 2","value":2}}"#)
@@ -315,6 +340,14 @@ enum Harness {
             "fineHalfLifeOscillationAlpha": fineHalfLifeOscillationAlpha,
             "halfLifeOscillationSize": halfLifeOscillationSize,
             "fineHalfLifeOscillationSize": fineHalfLifeOscillationSize,
+            "quarterLifeOscillationPosition":
+                vector(quarterLifeOscillationPosition),
+            "halfLifeOscillationPosition":
+                vector(halfLifeOscillationPosition),
+            "fineHalfLifeOscillationPosition":
+                vector(fineHalfLifeOscillationPosition),
+            "longQuarterLifeOscillationPosition":
+                vector(longQuarterLifeOscillationPosition),
             "colorUsesSingleInterpolation": abs(randomColor.y - expectedGreen) < 1e-12
                 && abs(randomColor.z - expectedBlue) < 1e-12,
             "uniformSizeAmount": uniformSizeAmount,
@@ -496,6 +529,22 @@ enum Harness {
      "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
      "initializer":[{"name":"lifetimerandom","min":4,"max":4},{"name":"alpharandom","min":1,"max":1},{"name":"sizerandom","min":10,"max":10}],
      "operator":[{"name":"oscillatealpha","frequencymin":0.25,"frequencymax":0.25,"phasemin":0,"phasemax":0,"scalemin":0.2,"scalemax":1},{"name":"oscillatesize","frequencymin":0.25,"frequencymax":0.25,"phasemin":0,"phasemax":0,"scalemin":0.5,"scalemax":1}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let positionOscillationJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":8,"max":8}],
+     "operator":[{"name":"oscillateposition","frequencymin":2,"frequencymax":2,"scalemin":"8 4 0","scalemax":"8 4 0","phasemin":0,"phasemax":0,"mask":"1 0.5 0"}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let longPositionOscillationJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":16,"max":16}],
+     "operator":[{"name":"oscillateposition","frequencymin":2,"frequencymax":2,"scalemin":"8 4 0","scalemax":"8 4 0","phasemin":0,"phasemax":0,"mask":"1 0.5 0"}],
      "renderer":[{"name":"sprite"}]}
     """#
 
@@ -873,6 +922,21 @@ class SceneParticleSimulatorTests(unittest.TestCase):
             self.results["fineHalfLifeOscillationSize"],
             self.results["halfLifeOscillationSize"],
         )
+        self.assertEqual(
+            self.results["quarterLifeOscillationPosition"],
+            [-16, -4, 0],
+        )
+        self.assertEqual(
+            self.results["longQuarterLifeOscillationPosition"],
+            self.results["quarterLifeOscillationPosition"],
+        )
+        for component in self.results["halfLifeOscillationPosition"]:
+            self.assertAlmostEqual(component, 0, places=10)
+        for coarse, fine in zip(
+            self.results["halfLifeOscillationPosition"],
+            self.results["fineHalfLifeOscillationPosition"],
+        ):
+            self.assertAlmostEqual(coarse, fine, places=10)
 
     def test_color_initializer_interpolates_between_authored_colors(self) -> None:
         self.assertTrue(self.results["colorUsesSingleInterpolation"])

@@ -121,4 +121,35 @@ extension SceneParticleSimulator {
         positionOscillationCache[key] = result
         return result
     }
+
+    nonisolated func positionOscillationDelta(
+        _ oscillation: SceneParticlePositionOscillation,
+        value: SceneParticleOperator,
+        mask: SIMD3<Double>,
+        age: Double,
+        lifetime: Double,
+        duration: Double
+    ) -> SIMD3<Double> {
+        let currentLife = min(max(age / max(lifetime, 1e-12), 0), 1)
+        let previousLife = min(max(
+            (age - duration) / max(lifetime, 1e-12), 0
+        ), 1)
+        let currentBlend = oscillationBlend(value, currentLife)
+        let previousBlend = oscillationBlend(value, previousLife)
+        var result = SIMD3<Double>.zero
+        for component in 0..<3 where abs(mask[component]) > 1e-6 {
+            let phase = oscillation.phase[component]
+            let frequency = oscillation.frequency[component]
+            let baseline = cos(phase)
+            let currentWave = cos(
+                2 * .pi * frequency * currentLife + phase
+            ) - baseline
+            let previousWave = cos(
+                2 * .pi * frequency * previousLife + phase
+            ) - baseline
+            result[component] = oscillation.scale[component] * mask[component]
+                * (currentWave * currentBlend - previousWave * previousBlend)
+        }
+        return result
+    }
 }
