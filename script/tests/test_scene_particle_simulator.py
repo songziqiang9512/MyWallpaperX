@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import shutil
 import subprocess
 import tempfile
@@ -68,6 +69,11 @@ enum Harness {
         let box = bounds.particles.dropFirst(50)
         let sphereRadii = sphere.map { length($0.position - SIMD3(10, 20, 30)) }
         let boxOffsets = box.map { $0.position - SIMD3(-10, -20, -30) }
+        var centeredBox = simulator(centeredBoxJSON, seed: 19, step: 0.1)
+        centeredBox.advance(by: 0.1)
+        let centeredBoxOffsets = centeredBox.particles.map {
+            $0.position - SIMD3(10, 20, 30)
+        }
 
         var movement = simulator(movementJSON, seed: 1, step: 0.25)
         movement.advance(by: 0.5)
@@ -97,6 +103,22 @@ enum Harness {
         var operators = simulator(operatorJSON, seed: 1, step: 0.25)
         operators.advance(by: 0.25)
         let operatorParticle = operators.particles[0]
+        var lifetimeOscillation = simulator(
+            lifetimeOscillationJSON,
+            seed: 1,
+            step: 1
+        )
+        lifetimeOscillation.advance(by: 1)
+        let quarterLifeOscillationAlpha = lifetimeOscillation.particles[0].alpha
+        lifetimeOscillation.advance(by: 1)
+        let halfLifeOscillationAlpha = lifetimeOscillation.particles[0].alpha
+        var fineLifetimeOscillation = simulator(
+            lifetimeOscillationJSON,
+            seed: 1,
+            step: 1.0 / 60.0
+        )
+        fineLifetimeOscillation.advance(by: 2)
+        let fineHalfLifeOscillationAlpha = fineLifetimeOscillation.particles[0].alpha
 
         let diagnosticOverride = SceneParticleDefinitionParser().parseInstanceOverride(
             try object(#"{"size":{"script":"return 2","value":2}}"#)
@@ -110,6 +132,12 @@ enum Harness {
         let colorAmount = (randomColor.x * 255 - 10) / 230
         let expectedGreen = (40 + 160 * colorAmount) / 255
         let expectedBlue = (80 + 80 * colorAmount) / 255
+        var uniformSize = simulator(uniformSizeJSON, seed: 17, step: 0.1)
+        var biasedSize = simulator(biasedSizeJSON, seed: 17, step: 0.1)
+        uniformSize.advance(by: 0.1)
+        biasedSize.advance(by: 0.1)
+        let uniformSizeAmount = (uniformSize.particles[0].size - 20) / 30
+        let biasedSizeAmount = (biasedSize.particles[0].size - 20) / 30
 
         var turbulentFirst = simulator(turbulentJSON, seed: 71, step: 0.1)
         var turbulentRepeat = simulator(turbulentJSON, seed: 71, step: 0.1)
@@ -132,6 +160,8 @@ enum Harness {
         )
         var zeroScaleTurbulent = simulator(zeroScaleTurbulentJSON, seed: 71, step: 0.1)
         zeroScaleTurbulent.advance(by: 0.1)
+        var offsetTurbulent = simulator(offsetTurbulentJSON, seed: 71, step: 0.1)
+        offsetTurbulent.advance(by: 0.1)
         var audioTurbulent = simulator(audioTurbulentJSON, seed: 71, step: 0.1)
         audioTurbulent.advance(by: 0.1)
 
@@ -216,6 +246,14 @@ enum Harness {
             "boxInBounds": boxOffsets.allSatisfy {
                 (-1...1).contains($0.x) && (-2...2).contains($0.y) && (-3...3).contains($0.z)
             },
+            "centeredBoxInBounds": centeredBoxOffsets.allSatisfy {
+                (-4...4).contains($0.x) && (-3...3).contains($0.y) && abs($0.z) < 1e-12
+            },
+            "centeredBoxHasBothSigns":
+                centeredBoxOffsets.contains(where: { $0.x < 0 })
+                && centeredBoxOffsets.contains(where: { $0.x > 0 })
+                && centeredBoxOffsets.contains(where: { $0.y < 0 })
+                && centeredBoxOffsets.contains(where: { $0.y > 0 }),
             "movementPosition": vector(movementPosition),
             "worldMovementPosition": vector(worldMovement.particles[0].position),
             "worldMovementLocalVelocity": vector(worldMovement.particles[0].velocity),
@@ -232,14 +270,20 @@ enum Harness {
             "operatorColor": vector(operatorParticle.color),
             "operatorRotation": vector(operatorParticle.rotation),
             "operatorPosition": vector(operatorParticle.position),
+            "quarterLifeOscillationAlpha": quarterLifeOscillationAlpha,
+            "halfLifeOscillationAlpha": halfLifeOscillationAlpha,
+            "fineHalfLifeOscillationAlpha": fineHalfLifeOscillationAlpha,
             "colorUsesSingleInterpolation": abs(randomColor.y - expectedGreen) < 1e-12
                 && abs(randomColor.z - expectedBlue) < 1e-12,
+            "uniformSizeAmount": uniformSizeAmount,
+            "biasedSizeAmount": biasedSizeAmount,
             "turbulentDeterministic": turbulentFirst.particles == turbulentRepeat.particles,
             "turbulentDifferentSeed": turbulentFirst.particles != turbulentDifferent.particles,
             "turbulentDifferentTime": earlyVelocity != lateVelocity,
             "turbulentSpeed": length(turbulentVelocity),
             "turbulentPlanar": abs(turbulentVelocity.z) < 1e-12,
             "zeroScaleTurbulentVelocity": vector(zeroScaleTurbulent.particles[0].velocity),
+            "offsetTurbulentVelocity": vector(offsetTurbulent.particles[0].velocity),
             "turbulentDiagnostics": turbulentFirst.diagnostics.map(\.kind.rawValue),
             "audioTurbulentVelocity": vector(audioTurbulent.particles[0].velocity),
             "audioTurbulentDiagnostics": audioTurbulent.diagnostics.map(\.kind.rawValue).sorted(),
@@ -336,6 +380,13 @@ enum Harness {
      "renderer":[{"name":"sprite"}]}
     """#
 
+    private static let centeredBoxJSON = #"""
+    {"material":"p.json","maxcount":100,
+     "emitter":[{"name":"boxrandom","instantaneous":100,"origin":"10 20 30","distancemax":"4 3 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
     private static let worldMovementJSON = #"""
     {"material":"p.json","maxcount":1,
      "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
@@ -379,10 +430,18 @@ enum Harness {
      "children":[{"name":"child.json","type":"static"}]}
     """#
 
+    private static let lifetimeOscillationJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":4,"max":4},{"name":"alpharandom","min":1,"max":1}],
+     "operator":[{"name":"oscillatealpha","frequencymin":1,"frequencymax":1,"phasemin":0,"phasemax":0,"scalemin":0,"scalemax":1}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
     private static let turbulentJSON = #"""
     {"material":"p.json","maxcount":2,
      "emitter":[{"name":"boxrandom","instantaneous":2,"distancemin":"4 8 0","distancemax":"4 8 0"}],
-     "initializer":[{"name":"lifetimerandom","min":2,"max":2},{"name":"turbulentvelocityrandom","forward":"0 1 0","right":"1 0 0","up":"0 0 0","offset":0.25,"phasemin":0.5,"phasemax":1,"scale":0.2,"speedmin":25,"speedmax":25,"timescale":0.5}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2},{"name":"turbulentvelocityrandom","forward":"0 1 0","right":"0 0 1","up":"0 0 0","offset":0.25,"phasemin":0.5,"phasemax":1,"scale":0.2,"speedmin":25,"speedmax":25,"timescale":0.5}],
      "renderer":[{"name":"sprite"}]}
     """#
 
@@ -390,6 +449,13 @@ enum Harness {
     {"material":"p.json","maxcount":1,
      "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
      "initializer":[{"name":"lifetimerandom","min":2,"max":2},{"name":"turbulentvelocityrandom","forward":"0 2 0","right":"1 0 0","scale":0,"speedmin":25,"speedmax":25}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let offsetTurbulentJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":2,"max":2},{"name":"turbulentvelocityrandom","forward":"0 1 0","offset":3,"scale":0,"speedmin":25,"speedmax":25}],
      "renderer":[{"name":"sprite"}]}
     """#
 
@@ -476,6 +542,20 @@ enum Harness {
     {"material":"p.json","maxcount":1,
      "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
      "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"colorrandom","min":"10 40 80","max":"240 200 160"}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let uniformSizeJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"sizerandom","min":20,"max":50,"exponent":1}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let biasedSizeJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"sizerandom","min":20,"max":50,"exponent":2}],
      "renderer":[{"name":"sprite"}]}
     """#
 
@@ -649,6 +729,8 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertGreaterEqual(self.results["sphereMinimumRadius"], 2.0)
         self.assertLessEqual(self.results["sphereMaximumRadius"], 4.0)
         self.assertTrue(self.results["boxInBounds"])
+        self.assertTrue(self.results["centeredBoxInBounds"])
+        self.assertTrue(self.results["centeredBoxHasBothSigns"])
 
     def test_movement_gravity_drag_and_alpha_fade(self) -> None:
         self.assertEqual(self.results["movementPosition"], [0.65625, -0.34375, 0])
@@ -671,9 +753,20 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["operatorColor"], [0.975, 0.9875, 1])
         self.assertEqual(self.results["operatorRotation"], [0, 0, 0.25])
         self.assertLess(self.results["operatorPosition"][0], 0)
+        self.assertAlmostEqual(self.results["quarterLifeOscillationAlpha"], 0.5)
+        self.assertAlmostEqual(self.results["halfLifeOscillationAlpha"], 0)
+        self.assertAlmostEqual(self.results["fineHalfLifeOscillationAlpha"], 0)
 
     def test_color_initializer_interpolates_between_authored_colors(self) -> None:
         self.assertTrue(self.results["colorUsesSingleInterpolation"])
+
+    def test_random_initializer_exponent_biases_values_towards_minimum(self) -> None:
+        uniform = self.results["uniformSizeAmount"]
+        biased = self.results["biasedSizeAmount"]
+        self.assertGreater(uniform, 0)
+        self.assertLess(uniform, 1)
+        self.assertAlmostEqual(biased, uniform * uniform)
+        self.assertLess(biased, uniform)
 
     def test_non_audio_turbulent_velocity_is_deterministic_and_bounded(self) -> None:
         self.assertTrue(self.results["turbulentDeterministic"])
@@ -682,6 +775,10 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertAlmostEqual(self.results["turbulentSpeed"], 25)
         self.assertTrue(self.results["turbulentPlanar"])
         self.assertEqual(self.results["zeroScaleTurbulentVelocity"], [0, 25, 0])
+        offset_velocity = self.results["offsetTurbulentVelocity"]
+        self.assertAlmostEqual(offset_velocity[0], -25 * math.sin(3), places=10)
+        self.assertAlmostEqual(offset_velocity[1], 25 * math.cos(3), places=10)
+        self.assertAlmostEqual(offset_velocity[2], 0, places=10)
         self.assertNotIn("unsupportedInitializer", self.results["turbulentDiagnostics"])
 
     def test_audio_turbulent_velocity_remains_fail_closed(self) -> None:

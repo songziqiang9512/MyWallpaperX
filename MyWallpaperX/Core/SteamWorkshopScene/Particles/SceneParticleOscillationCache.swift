@@ -12,6 +12,74 @@ nonisolated struct SceneParticlePositionOscillation: Sendable {
 }
 
 extension SceneParticleSimulator {
+    nonisolated func oscillationFactor(
+        _ value: SceneParticleOperator,
+        _ index: Int,
+        _ operatorIndex: Int,
+        life: Double,
+        sizeDefaults: Bool = false
+    ) -> Double {
+        let minimum = SceneParticleSimulationMath.scalar(
+            value.scaleMinimum,
+            fallback: sizeDefaults ? 0.8 : 0
+        )
+        let maximum = SceneParticleSimulationMath.scalar(
+            value.scaleMaximum,
+            fallback: sizeDefaults ? 1.2 : 1
+        )
+        let frequency = oscillationRandom(
+            value.frequencyMinimum ?? 0,
+            value.frequencyMaximum ?? 10,
+            index,
+            operatorIndex,
+            0
+        )
+        let phase = oscillationRandom(
+            value.phaseMinimum ?? 0,
+            value.phaseMaximum ?? 2 * .pi,
+            index,
+            operatorIndex,
+            1
+        )
+        let wave = (cos(2 * .pi * frequency * life + phase) + 1) * 0.5
+        return minimum + (maximum - minimum) * wave
+    }
+
+    nonisolated func oscillationBlend(
+        _ value: SceneParticleOperator,
+        _ life: Double
+    ) -> Double {
+        var result = 1.0
+        if value.blendInStart != nil || value.blendInEnd != nil {
+            result *= SceneParticleSimulationMath.changeAmount(
+                life,
+                value.blendInStart ?? 0,
+                value.blendInEnd ?? 0
+            )
+        }
+        if value.blendOutStart != nil || value.blendOutEnd != nil {
+            result *= 1 - SceneParticleSimulationMath.changeAmount(
+                life,
+                value.blendOutStart ?? 1,
+                value.blendOutEnd ?? 1
+            )
+        }
+        return result
+    }
+
+    nonisolated func oscillationRandom(
+        _ first: Double,
+        _ second: Double,
+        _ index: Int,
+        _ operatorIndex: Int,
+        _ salt: Int
+    ) -> Double {
+        var state = particles[index].id &* 0x9E3779B97F4A7C15
+        state ^= UInt64(operatorIndex &* 31 &+ salt) &* 0xBF58476D1CE4E5B9
+        var generator = SceneParticleRandomGenerator(state: state)
+        return generator.value(first, second)
+    }
+
     nonisolated mutating func positionOscillation(
         _ value: SceneParticleOperator,
         particleIndex: Int,

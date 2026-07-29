@@ -102,25 +102,40 @@ nonisolated enum SceneParticleSimulationMath {
     ) -> SIMD3<Double> {
         guard let value, !value.audioResponse.isEnabled else { return .zero }
         let phase = random.value(value.phaseMinimum ?? 0, value.phaseMaximum ?? 2 * .pi)
-        let noiseTime = phase + (value.offset ?? 0) + time * (value.timeScale ?? 1)
+        let timeScale = value.timeScale ?? 1
+        let directionalOffset = value.offset ?? 0
+        guard phase.isFinite, time.isFinite, timeScale.isFinite,
+              directionalOffset.isFinite,
+              position.x.isFinite, position.y.isFinite, position.z.isFinite else {
+            return .zero
+        }
+        let noiseTime = phase + time * timeScale
         // Author positions select a coherent field; scale controls angular spread, not frequency.
         let point = position * 0.001 + SIMD3(noiseTime, 0, 0)
+        guard point.x.isFinite, point.y.isFinite, point.z.isFinite else { return .zero }
         let turnNoise = gradientNoise(point, seed: 0xBF58476D1CE4E5B9)
         let planeNoise = gradientNoise(
             point + SIMD3(59.19, 71.41, 89.97), seed: 0x94D049BB133111EB
         )
         let forward = vector(value.forward, fallback: SIMD3(0, 1, 0))
-        let right = vector(value.right, fallback: SIMD3(1, 0, 0))
+        let normal = vector(value.right, fallback: SIMD3(0, 0, 1))
         let up = vector(value.up, fallback: .zero)
         let forwardLength = length(forward)
-        let rightLength = length(right)
-        guard forwardLength > 1e-9 || rightLength > 1e-9 else { return .zero }
-        let base = forwardLength > 1e-9 ? forward / forwardLength : right / rightLength
-        let lateralValue = right + up * planeNoise
-        let lateralLength = length(lateralValue)
-        let lateral = lateralLength > 1e-9 ? lateralValue / lateralLength : base
-        let turn = max(value.scale ?? 1, 0) * Double.pi * turnNoise
-        var direction = base * cos(turn) + lateral * sin(turn)
+        guard forwardLength.isFinite, forwardLength > 1e-9 else { return .zero }
+        let base = forward / forwardLength
+        let adjustedNormal = normal + up * planeNoise
+        let tangentValue = SIMD3(
+            adjustedNormal.y * base.z - adjustedNormal.z * base.y,
+            adjustedNormal.z * base.x - adjustedNormal.x * base.z,
+            adjustedNormal.x * base.y - adjustedNormal.y * base.x
+        )
+        let tangentLength = length(tangentValue)
+        guard tangentLength.isFinite, tangentLength > 1e-9 else { return .zero }
+        let tangent = tangentValue / tangentLength
+        let angularScale = max(value.scale ?? 1, 0)
+        guard angularScale.isFinite else { return .zero }
+        let turn = directionalOffset + angularScale * Double.pi * turnNoise
+        var direction = base * cos(turn) + tangent * sin(turn)
         var directionLength = length(direction)
         if !directionLength.isFinite || directionLength <= 1e-9 {
             direction = base
