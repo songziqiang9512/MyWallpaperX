@@ -4,11 +4,11 @@
 >
 > 最近核对：2026-07-29
 >
-> Scene 实现基线：`f4e8a0c`（在 `8f4cd30` 的 text-script、image/solid alignment、bounded effect/particle/resource/runtime 与 Pulse/Water/Iris/频谱基线上，依次新增非音频 Particle Turbulence operator、TEX sampler、常见随机分布/Box/lifetime oscillation 与完整粒子 mip 链的有界公共执行；逐能力落地提交见专项表和运行证据索引）
+> Scene 实现基线：`5911049`（在 `8f4cd30` 的 text-script、image/solid alignment、bounded effect/particle/resource/runtime 与 Pulse/Water/Iris/频谱基线上，依次新增非音频 Particle Turbulence operator、TEX sampler、常见随机分布/Box/lifetime oscillation、完整粒子 mip 链，以及 lifetime-normalized Position oscillation 的有界公共执行；逐能力落地提交见专项表和运行证据索引）
 >
 > 当前完整快照门：`.codex/scene-full45-pulse-iris-spectrum-20260729-v2/report.json`（`8f4cd30`），**45/45 PASS**；当前 fixed13 为 `.codex/scene-fixed13-pulse-iris-spectrum-20260729-v3/report.json`（`8f4cd30`），**13/13 PASS**
 >
-> 最新运行门：`f4e8a0c` 的签名 Debug App 在隔离副本上定向运行 `2470144420` 与 `3742133044`，mip 链报告 **2/2 PASS**、failed frame 0；此前同批分布/振荡构建对 `2470144420`、`1937925563`、`3742133044` 分别 **1/1 PASS**，TEX sampler 中间构建为 **4/4 PASS**。完整 `test_scene_particle*.py` **72/72 PASS**，代码健康与签名 Debug build/严格 codesign 通过。该批没有重跑 fixed13/full45，页首 `8f4cd30` 的 **13/13** 与 **45/45** 仍是最近统一门，不外推到新实现；报告身份、SHA、方向性视觉与边界见 [运行证据索引](runtime-evidence-index.md)。
+> 最新运行门：`5911049` 的签名 Debug App 在隔离副本上定向运行 `2067939514`、`3088601835`、`3299228616`、`3742133044`，Position oscillation 报告 **4/4 PASS**、texture loaded ratio 1.0、failed frame/drawable miss 0；完整 `test_scene_particle*.py` **72/72 PASS**，代码健康与签名 Debug build/严格 codesign 通过。此前 `f4e8a0c` 的 mip 门为 **2/2 PASS**，分布/振荡门分别 **1/1 PASS**，TEX sampler 中间构建为 **4/4 PASS**。这些批次都没有重跑 fixed13/full45，页首 `8f4cd30` 的 **13/13** 与 **45/45** 仍是最近统一门，不外推到新实现；报告身份、SHA、方向性视觉与边界见 [运行证据索引](runtime-evidence-index.md)。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
@@ -64,7 +64,7 @@
 | Audio frame input | `L3` | 16/32/64 频段 × left/right host-shared 快照：系统音频 tap -> 单次 FFT 的 `SystemAudioSceneSpectrumAnalyzer` -> `SceneAudioSpectrumInbox` -> `SceneFrameContext`，host 每帧采样一次广播给所有 surface；采集由 consumer 存在性驱动，无 consumer/暂停/锁屏/休眠即停采并归零 | stock effect 只消费 16 档，32/64 只供两个 exact Simple Audio Bars profile；频段边界、归一化和平滑是工程选择，非官方合同，无 Windows 数值 golden；SceneScript audio buffer 未接 | B0/B4 |
 | 内嵌视频纹理 | `L3` | TEX 内嵌 MP4 image-layer 播放，消费共享 host time | seek/pause/switch/loop 精确合同及更多容器 | B1 |
 | 系统媒体 identity | `L1` | `$mediaThumbnail` typed 引用存在 | producer/consumer、事件、缩略图 generation | B1/B4 |
-| Particle runtime | `L3` | 作者 sprite、常见组件、Sprite Trail；解析后有效 alpha≤0 且无 script/animation 的层不构造 runtime，operator/instance/TEX 热路径复用存储；`SceneStockAssets.bundle` 保留内置资源的官方相对路径，particle texture 依次走 package/loose/stock 的明确纹理候选，同名 material JSON 不得抢占；22-key 程序纹理只作 bundle 缺失回退。root/child 与 strict REFRACT color/normal 按 TEX container flags 独立选择 nearest/linear、repeat/clamp-edge，并消费实际 mip 链；RG88 颜色适配保留每级 mip。常见 Random initializer 消费 finite nonnegative exponent；zero/absent-min Box 以 origin 为中心；Oscillate Alpha/Size 的 frequency 按 normalized lifetime；Turbulent Velocity 的 offset 参与 forward/tangent 方向旋转。strict `genericparticle` `REFRACT=1` 与静态 world-space 子集边界不变 | 粒子 live override、动态 world-space transform、Rope、Lighting 仍未执行；TEX flag 位义、random/offset 数值和 REFRACT 都是有界 clean-room 合同，clamp-border 当前降级 edge，sidecar frame nominal geometry/rotated/trimmed atlas、默认 oscillator/相机/材质 alpha 与 Windows golden 未完成 | **B4** |
+| Particle runtime | `L3` | 作者 sprite、常见组件、Sprite Trail；解析后有效 alpha≤0 且无 script/animation 的层不构造 runtime，operator/instance/TEX 热路径复用存储；`SceneStockAssets.bundle` 保留内置资源的官方相对路径，particle texture 依次走 package/loose/stock 的明确纹理候选，同名 material JSON 不得抢占；22-key 程序纹理只作 bundle 缺失回退。root/child 与 strict REFRACT color/normal 按 TEX container flags 独立选择 nearest/linear、repeat/clamp-edge，并消费实际 mip 链；RG88 颜色适配保留每级 mip。常见 Random initializer 消费 finite nonnegative exponent；zero/absent-min Box 以 origin 为中心；Oscillate Alpha/Size/Position 的 frequency 按 normalized lifetime，其中 Position 以当前/上一波形差值无漂移叠加并消费数值 axis mask；Turbulent Velocity 的 offset 参与 forward/tangent 方向旋转。strict `genericparticle` `REFRACT=1` 与静态 world-space 子集边界不变 | 粒子 live override、动态 world-space transform、Rope、Lighting 仍未执行；TEX flag 位义、random/offset 数值和 REFRACT 都是有界 clean-room 合同，clamp-border 当前降级 edge，sidecar frame nominal geometry/rotated/trimmed atlas、默认 oscillator/system-seed hierarchy、相机/材质 alpha 与 Windows golden 未完成 | **B4** |
 | Text/Font runtime | `L3` | CoreText 静态栅格、direct property 动态重栅格、exact clock/day/date native profile 和部分 font/pointsize/padding/scale；动态内容在 `limitwidth=false` 时按 intrinsic size 扩框并贯穿 capture/effect/final quad；结构门 `79/108` | 通用 SceneScript/system/media text、Windows baseline/fallback、outline/shadow/effect；动态扩框无 Windows 像素 golden | B4/B5 |
 | Camera Parallax | `L3` | 仅作者开启且非零 depth 时启用，含层级传播/阻断 | WE 数值 golden、camera shake/zoom、3D camera | B5 |
 | User Properties | `L3` | 独立窗口、条件、持久化、PNG/JPEG `sceneTexture`；layer alpha、纯 solid color、direct text、strict Local Contrast/Opacity 与受限 X-Ray target 已无重建 live 更新；exact Simple Audio Bars `Bar Color` 已有 typed compiler/snapshot/GPU consumer | Audio Bars 尚无真实 live override 门；unsupported/mixed/SceneScript bindings、Texture Variants、shortcut、跨重启 UI 门；精确 census 见 runtime-input 专项表 | **B0/B1** |
@@ -108,7 +108,7 @@
 | 已接 initializer 子集 | `L3` | lifetime/size/velocity/color/alpha/angular velocity 常见路径；finite nonnegative exponent 以 `pow(U,e)` 施加到 scalar、vector 各轴和 color 共用插值因子 | 默认/非法/极值分布、WE RNG/seed golden |
 | Rotation Random initializer | `L2` | 字段与 simulation 分支已接线；无最终 rotation 断言 | renderer orientation 数值门 |
 | 其他未接 initializer | `L1` | control-point/remap 等可诊断或字段不足 | 逐项 fixture 与创建时语义 |
-| 已接 operator 子集 | `L3` | movement/angular、alpha/size/color change、部分 oscillate 与非音频 Turbulence；Oscillate Alpha/Size 按单粒子 normalized lifetime 解释 frequency，并从 initial state 按作者顺序组合 | Position oscillation 仍是 age-based 增量；默认 phase/seed、curve 与 Windows 数值门 |
+| 已接 operator 子集 | `L3` | movement/angular、alpha/size/color change、部分 oscillate 与非音频 Turbulence；Oscillate Alpha/Size/Position 按单粒子 normalized lifetime 解释 frequency；Position 从 birth-phase 基线计算波形、按当前/上一时相差值叠加，并消费 axis mask 数值权重 | 默认 phase/system seed、curve 与 Windows 数值/轨迹门 |
 | Turbulence operator | `L3 executed-degraded` | 非音频 profile 按作者顺序消费 mask/phase/scale/time scale/speed/blend/fixed dt/static speed override，非有限写入失败关闭；audio profile 零执行 | Windows 固定 seed 轨迹/像素 golden；audio phase 调制公式 |
 | 其他未接 force/operator | `L1` | attract/vortex 等明确 unsupported | control-point/world-space 力场 |
 | Sprite renderer | `L3` | 作者纹理和程序化静态遮罩子集；TEX filter/address/mip 进入真实 Metal sampler，UV>1 repeat、minification 与单 mip 均有 GPU 门 | clamp-border 精确值、全 material/blend/lighting/atlas 与像素 golden |
@@ -141,6 +141,8 @@
 `7b1d36f` 的 Turbulence 定向门为 5/5，覆盖旧 full45 日志中 19 条 `unsupportedOperator:turbulence` 的 14 条；另 3 个命中样本没有在新实现上复跑。该批没有改变 particle root loaded 计数，也没有重跑 fixed13/full45。
 
 `d19e76b` / `d792296` / `f4e8a0c` 依次补齐 TEX sampler、常见随机分布/Box/lifetime oscillation 与实际 mip 链。分布构建对 `2470144420`、`1937925563`、`3742133044` 各 1/1；最终 mip 构建对 `2470144420`、`3742133044` 各 1/1。`2470144420` 的 Sakura 命中 repeat、Turbulent Velocity offset、size exponent 2 与 7-level mip，Stars 命中 centered Box/Oscillate Alpha、但其 `halo_6` 是作者单 mip，因此 mip 修复不应改变星点。`3742133044` 的默认可见雪花命中 RG88 多 mip 保留；隐藏樱花不计入该门。该批没有样本 ID 分支，也没有重跑 fixed13/full45。
+
+`5911049` 把 Oscillate Position 从按秒龄逐帧积分的 velocity-like 增量改为每个粒子 normalized lifetime 的精确波形差值，并让 mask 的非 0/1 数值成为轴向幅度权重。保留 full45 提取中该 operator 命中 16 样本、38 个 root layer usage、24 个 sample-definition path；定向 `2067939514`、`3088601835`、`3299228616`、`3742133044` 为 4/4。数值门锁定 lifespan independence、1 秒与 1/60 秒 fixed-step 同时相一致、完整周期无漂移和半权重 mask；没有 Windows fixed-seed trajectory golden，不能升级为 `L4`。`2470144420` 的 Sakura/Stars 都不使用该 operator，因此本批不宣称修正其剩余花瓣/星点残差。
 
 ## 6. 动态运行系统覆盖
 
