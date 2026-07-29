@@ -14,7 +14,12 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Rendering/SceneMatrix.swift",
     SOURCE_ROOT / "Rendering/SceneFramebufferSnapshot.swift",
+    SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
+    SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Particles/SceneParticleRenderSupport.swift",
+    SOURCE_ROOT / "Particles/SceneParticleSimulationSupport.swift",
+    SOURCE_ROOT / "Particles/SceneParticleStepSnapshotRecorder.swift",
+    SOURCE_ROOT / "Particles/SceneParticleRopeTrailPlan.swift",
     SOURCE_ROOT / "Particles/SceneParticleMetalInstanceBuffer.swift",
     SOURCE_ROOT / "Particles/SceneParticleRefractionBinding.swift",
     SOURCE_ROOT / "Particles/SceneParticleShaderSource.swift",
@@ -109,6 +114,9 @@ enum Harness {
             "modeSequence": SceneParticleSpriteAnimationMode(authoredValue: "Sequence") == .sequence,
             "modeRandom": SceneParticleSpriteAnimationMode(authoredValue: "randomframe") == .randomFrame,
             "orientationDefault": SceneParticleOrientation(authoredValue: nil) == .screen,
+            "trailFrame": frame(
+                SceneParticleFrameTransform.identity.orientedForTrail(true)
+            ),
             "screenRight": vector(screen.right),
             "screenUp": vector(screen.up),
             "uprightRight": vector(upright.right),
@@ -150,6 +158,9 @@ enum Harness {
                     SIMD4(0, 0, 1, 0), SIMD4(0, 0, 0, 1)
                 ))
             ),
+            "ropeTrailRender": ropeTrailRenderContract(),
+            "ropeTrailTransform": ropeTrailTransformContract(),
+            "ropeTrailAspect": ropeTrailAspectContract(),
             "instanceBufferSlots": instanceBufferSlotTest(),
             "colorContract": colorContractTest(),
             "refractionContract": refractionContractTest(),
@@ -185,12 +196,21 @@ enum Harness {
         ].compactMap { $0 }
     }
 
+    private static func frame(_ value: SceneParticleFrameTransform) -> [Float] {
+        [
+            value.origin.x, value.origin.y,
+            value.xAxis.x, value.xAxis.y,
+            value.yAxis.x, value.yAxis.y,
+        ]
+    }
+
     private static func uniformOffsets() -> [Int] {
         [
             MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.viewProjection),
             MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.layerModel),
             MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.basisRight),
             MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.basisUp),
+            MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.viewportSize),
         ].compactMap { $0 }
     }
 
@@ -342,6 +362,466 @@ enum Harness {
         ]
     }
 
+    private static func ropeTrailRenderContract() -> [String: Any] {
+        let definition = SceneParticleDefinitionParser().parse(root: [
+            "material": "materials/particle.json",
+            "maxcount": 1,
+            "emitter": [["name": "sphererandom"]],
+            "renderer": [[
+                "name": "ropetrail",
+                "length": 1,
+                "segments": 4,
+                "fadealpha": true,
+            ]],
+        ])
+        guard let renderer = definition.renderers.first,
+              let plan = SceneParticleRopeTrailPlan(
+                renderer: renderer,
+                rendererCount: definition.renderers.count,
+                maximumParticleCount: 1
+              ) else {
+            return ["available": false]
+        }
+        let points: [SIMD2<Float>] = [
+            SIMD2(-0.6, -0.6),
+            SIMD2(-0.6, -0.2),
+            SIMD2(-0.6, 0.2),
+            SIMD2(-0.2, 0.2),
+            SIMD2(0.2, 0.2),
+        ]
+        var history = SceneParticleRopeTrailHistory(plan: plan)
+        var values: [SceneParticleGPUInstance] = []
+        for (index, point) in points.enumerated() {
+            values = history.advance(
+                by: index == 0 ? 0 : 0.25,
+                particles: [SceneParticleRopeTrailParticle(
+                    id: 1,
+                    position: SIMD3(point.x, point.y, 0),
+                    size: 0.12,
+                    color: SIMD3(repeating: 1),
+                    alpha: 1
+                )],
+                layerAlpha: 1
+            )
+        }
+
+        let size = 128
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let pipeline = SceneParticleMetalPipeline(device: device),
+              let queue = device.makeCommandQueue(),
+              let command = queue.makeCommandBuffer() else {
+            return ["available": false]
+        }
+        let inputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm,
+            width: 8,
+            height: 32,
+            mipmapped: false
+        )
+        inputDescriptor.usage = .shaderRead
+        inputDescriptor.storageMode = .shared
+        let outputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm,
+            width: size,
+            height: size,
+            mipmapped: false
+        )
+        outputDescriptor.usage = .renderTarget
+        outputDescriptor.storageMode = .shared
+        guard let input = device.makeTexture(descriptor: inputDescriptor),
+              let output = device.makeTexture(descriptor: outputDescriptor) else {
+            return ["available": false]
+        }
+        var drop = [UInt8](repeating: 0, count: 8 * 32 * 4)
+        for y in 0..<32 {
+            for x in 0..<8 {
+                let cross = max(0, 1 - abs(Float(x) - 3.5) / 3.5)
+                let trail = 1 - Float(y) / 31
+                let alpha = UInt8(max(0, min(255, Int(255 * cross * trail))))
+                let offset = (y * 8 + x) * 4
+                drop[offset] = alpha
+                drop[offset + 1] = alpha
+                drop[offset + 2] = alpha
+                drop[offset + 3] = alpha
+            }
+        }
+        input.replace(
+            region: MTLRegionMake2D(0, 0, 8, 32),
+            mipmapLevel: 0,
+            withBytes: &drop,
+            bytesPerRow: 8 * 4
+        )
+        let instances = SceneParticleMetalInstanceBuffer()
+        guard instances.update(device: device, instances: values) else {
+            return ["available": false]
+        }
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = output
+        pass.colorAttachments[0].loadAction = .clear
+        pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+        pass.colorAttachments[0].storeAction = .store
+        guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else {
+            return ["available": false]
+        }
+        pipeline.draw(
+            texture: input,
+            instances: instances,
+            uniforms: SceneParticleLayerUniforms(
+                viewProjection: SceneMatrix.identity(),
+                layerModel: SceneMatrix.identity(),
+                basis: SceneParticleOrientation.screen.basis(
+                    cameraRight: SIMD3(1, 0, 0),
+                    cameraUp: SIMD3(0, 1, 0),
+                    cameraForward: SIMD3(0, 0, -1)
+                )
+            ),
+            blendMode: .translucent,
+            colorSampling: .directImageFallback,
+            encoder: encoder
+        )
+        encoder.endEncoding()
+        guard instances.markSubmitted(on: command), commitAndWait(command) else {
+            return ["available": false]
+        }
+
+        var pixels = [UInt8](repeating: 0, count: size * size * 4)
+        output.getBytes(
+            &pixels,
+            bytesPerRow: size * 4,
+            from: MTLRegionMake2D(0, 0, size, size),
+            mipmapLevel: 0
+        )
+        let visible = (0..<(size * size)).filter { pixels[$0 * 4 + 3] > 0 }
+        let xs = visible.map { $0 % size }
+        let ys = visible.map { $0 / size }
+        let headAlpha = visible
+            .filter { $0 % size > 64 && (44...58).contains($0 / size) }
+            .map { Int(pixels[$0 * 4 + 3]) }
+            .max() ?? 0
+        let tailAlpha = visible
+            .filter { (20...32).contains($0 % size) && $0 / size > 85 }
+            .map { Int(pixels[$0 * 4 + 3]) }
+            .max() ?? 0
+        return [
+            "available": true,
+            "instanceCount": values.count,
+            "width": (xs.max() ?? 0) - (xs.min() ?? 0) + 1,
+            "height": (ys.max() ?? 0) - (ys.min() ?? 0) + 1,
+            "visiblePixels": visible.count,
+            "headAlpha": headAlpha,
+            "tailAlpha": tailAlpha,
+            "horizontalSegments": values.filter {
+                abs($0.velocityAndTrail.x) > abs($0.velocityAndTrail.y)
+            }.count,
+            "verticalSegments": values.filter {
+                abs($0.velocityAndTrail.y) > abs($0.velocityAndTrail.x)
+            }.count,
+        ]
+    }
+
+    private static func ropeTrailTransformContract() -> [String: Any] {
+        let size = 256
+        let tail = SIMD3<Float>(-0.35, -0.2, 0)
+        let head = SIMD3<Float>(0.45, 0.3, 0)
+        let center = (tail + head) * 0.5
+        let displacement = head - tail
+        let angle = Float.pi / 6
+        let scale = SIMD2<Float>(1.4, 0.6)
+        let layerModel = simd_float4x4(columns: (
+            SIMD4(cos(angle) * scale.x, sin(angle) * scale.x, 0, 0),
+            SIMD4(-sin(angle) * scale.y, cos(angle) * scale.y, 0, 0),
+            SIMD4(0, 0, 1, 0),
+            SIMD4(0.1, -0.05, 0, 1)
+        ))
+        let transformedTail = layerModel * SIMD4(tail, 1)
+        let transformedHead = layerModel * SIMD4(head, 1)
+        let transformedTailXY = SIMD2(transformedTail.x, transformedTail.y)
+        let transformedHeadXY = SIMD2(transformedHead.x, transformedHead.y)
+        let transformedDisplacement = transformedHeadXY - transformedTailXY
+        let direction = simd_normalize(transformedDisplacement)
+        let expectedTail = simd_dot(transformedTailXY, direction)
+        let expectedHead = simd_dot(transformedHeadXY, direction)
+
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let pipeline = SceneParticleMetalPipeline(device: device),
+              let queue = device.makeCommandQueue(),
+              let command = queue.makeCommandBuffer() else {
+            return ["available": false]
+        }
+        let inputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm,
+            width: 9,
+            height: 33,
+            mipmapped: false
+        )
+        inputDescriptor.usage = .shaderRead
+        inputDescriptor.storageMode = .shared
+        let outputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm,
+            width: size,
+            height: size,
+            mipmapped: false
+        )
+        outputDescriptor.usage = .renderTarget
+        outputDescriptor.storageMode = .shared
+        guard let input = device.makeTexture(descriptor: inputDescriptor),
+              let output = device.makeTexture(descriptor: outputDescriptor) else {
+            return ["available": false]
+        }
+        var centerline = [UInt8](repeating: 0, count: 9 * 33 * 4)
+        for y in 0..<33 {
+            for x in 3...5 {
+                let offset = (y * 9 + x) * 4
+                centerline[offset] = 255
+                centerline[offset + 1] = 255
+                centerline[offset + 2] = 255
+                centerline[offset + 3] = 255
+            }
+        }
+        input.replace(
+            region: MTLRegionMake2D(0, 0, 9, 33),
+            mipmapLevel: 0,
+            withBytes: &centerline,
+            bytesPerRow: 9 * 4
+        )
+        let segmentSize: Float = 0.08
+        let frame = SceneParticleFrameTransform.identity.verticalTrailSlice(
+            tailPosition: 0,
+            headPosition: 1
+        )
+        let instances = SceneParticleMetalInstanceBuffer()
+        guard instances.update(device: device, instances: [
+            SceneParticleGPUInstance(
+                position: center,
+                size: segmentSize,
+                rotation: .zero,
+                color: SIMD3(repeating: 1),
+                alpha: 1,
+                velocity: displacement,
+                trailStretch: simd_length(displacement) / segmentSize,
+                trailUVRange: SIMD2(0, 1),
+                usesTrailDisplacement: true,
+                currentFrame: frame
+            ),
+        ]) else {
+            return ["available": false]
+        }
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = output
+        pass.colorAttachments[0].loadAction = .clear
+        pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+        pass.colorAttachments[0].storeAction = .store
+        guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else {
+            return ["available": false]
+        }
+        pipeline.draw(
+            texture: input,
+            instances: instances,
+            uniforms: SceneParticleLayerUniforms(
+                viewProjection: SceneMatrix.identity(),
+                layerModel: layerModel,
+                basis: SceneParticleOrientation.screen.basis(
+                    cameraRight: SIMD3(1, 0, 0),
+                    cameraUp: SIMD3(0, 1, 0),
+                    cameraForward: SIMD3(0, 0, -1)
+                )
+            ),
+            blendMode: .translucent,
+            colorSampling: .directImageFallback,
+            encoder: encoder
+        )
+        encoder.endEncoding()
+        guard instances.markSubmitted(on: command), commitAndWait(command) else {
+            return ["available": false]
+        }
+        var pixels = [UInt8](repeating: 0, count: size * size * 4)
+        output.getBytes(
+            &pixels,
+            bytesPerRow: size * 4,
+            from: MTLRegionMake2D(0, 0, size, size),
+            mipmapLevel: 0
+        )
+        let projections = (0..<(size * size)).compactMap { index -> Float? in
+            guard pixels[index * 4 + 3] > 64 else { return nil }
+            let x = Float(index % size) + 0.5
+            let y = Float(index / size) + 0.5
+            let ndc = SIMD2(
+                x / Float(size) * 2 - 1,
+                1 - y / Float(size) * 2
+            )
+            return simd_dot(ndc, direction)
+        }
+        return [
+            "available": true,
+            "expectedTail": min(expectedTail, expectedHead),
+            "expectedHead": max(expectedTail, expectedHead),
+            "observedTail": projections.min() ?? 0,
+            "observedHead": projections.max() ?? 0,
+            "visiblePixels": projections.count,
+        ]
+    }
+
+    private static func ropeTrailAspectContract() -> [String: Any] {
+        let width = 320
+        let height = 180
+        let tail = SIMD3<Float>(-0.55, -0.38, 0)
+        let head = SIMD3<Float>(0.55, 0.38, 0)
+        let displacement = head - tail
+        let pathPixelDirection = simd_normalize(SIMD2(
+            displacement.x * Float(width),
+            -displacement.y * Float(height)
+        ))
+        let legacyPerpendicular = simd_normalize(SIMD2(
+            -displacement.y * Float(width),
+            -displacement.x * Float(height)
+        ))
+
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let pipeline = SceneParticleMetalPipeline(device: device),
+              let queue = device.makeCommandQueue(),
+              let command = queue.makeCommandBuffer() else {
+            return ["available": false]
+        }
+        let inputWidth = 33
+        let inputHeight = 65
+        let inputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm,
+            width: inputWidth,
+            height: inputHeight,
+            mipmapped: false
+        )
+        inputDescriptor.usage = .shaderRead
+        inputDescriptor.storageMode = .shared
+        let outputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm,
+            width: width,
+            height: height,
+            mipmapped: false
+        )
+        outputDescriptor.usage = .renderTarget
+        outputDescriptor.storageMode = .shared
+        guard let input = device.makeTexture(descriptor: inputDescriptor),
+              let output = device.makeTexture(descriptor: outputDescriptor) else {
+            return ["available": false]
+        }
+        var crossbar = [UInt8](repeating: 0, count: inputWidth * inputHeight * 4)
+        for y in 31...33 {
+            for x in 0..<inputWidth {
+                let offset = (y * inputWidth + x) * 4
+                crossbar[offset] = 255
+                crossbar[offset + 1] = 255
+                crossbar[offset + 2] = 255
+                crossbar[offset + 3] = 255
+            }
+        }
+        input.replace(
+            region: MTLRegionMake2D(0, 0, inputWidth, inputHeight),
+            mipmapLevel: 0,
+            withBytes: &crossbar,
+            bytesPerRow: inputWidth * 4
+        )
+        let segmentSize: Float = 0.42
+        let instances = SceneParticleMetalInstanceBuffer()
+        guard instances.update(device: device, instances: [
+            SceneParticleGPUInstance(
+                position: (tail + head) * 0.5,
+                size: segmentSize,
+                rotation: .zero,
+                color: SIMD3(repeating: 1),
+                alpha: 1,
+                velocity: displacement,
+                trailStretch: simd_length(displacement) / segmentSize,
+                trailUVRange: SIMD2(0, 1),
+                usesTrailDisplacement: true,
+                currentFrame: SceneParticleFrameTransform.identity.verticalTrailSlice(
+                    tailPosition: 0,
+                    headPosition: 1
+                )
+            ),
+        ]) else {
+            return ["available": false]
+        }
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = output
+        pass.colorAttachments[0].loadAction = .clear
+        pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+        pass.colorAttachments[0].storeAction = .store
+        guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else {
+            return ["available": false]
+        }
+        pipeline.draw(
+            texture: input,
+            instances: instances,
+            uniforms: SceneParticleLayerUniforms(
+                viewProjection: SceneMatrix.identity(),
+                layerModel: SceneMatrix.identity(),
+                basis: SceneParticleOrientation.screen.basis(
+                    cameraRight: SIMD3(1, 0, 0),
+                    cameraUp: SIMD3(0, 1, 0),
+                    cameraForward: SIMD3(0, 0, -1)
+                ),
+                viewportSize: SIMD2(Float(width), Float(height))
+            ),
+            blendMode: .translucent,
+            colorSampling: .directImageFallback,
+            encoder: encoder
+        )
+        encoder.endEncoding()
+        guard instances.markSubmitted(on: command), commitAndWait(command) else {
+            return ["available": false]
+        }
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        output.getBytes(
+            &pixels,
+            bytesPerRow: width * 4,
+            from: MTLRegionMake2D(0, 0, width, height),
+            mipmapLevel: 0
+        )
+        let points = (0..<(width * height)).compactMap { index -> SIMD2<Float>? in
+            guard pixels[index * 4 + 3] > 64 else { return nil }
+            return SIMD2(
+                Float(index % width) + 0.5,
+                Float(index / width) + 0.5
+            )
+        }
+        guard points.count > 2 else {
+            return ["available": true, "visiblePixels": points.count]
+        }
+        let mean = points.reduce(SIMD2<Float>.zero, +) / Float(points.count)
+        let covariance = points.reduce(SIMD3<Float>.zero) { partial, point in
+            let delta = point - mean
+            return partial + SIMD3(
+                delta.x * delta.x,
+                delta.x * delta.y,
+                delta.y * delta.y
+            )
+        } / Float(points.count)
+        let angle = 0.5 * atan2(
+            2 * covariance.y,
+            covariance.x - covariance.z
+        )
+        let crossPixelDirection = SIMD2(cos(angle), sin(angle))
+        let discriminant = sqrt(
+            (covariance.x - covariance.z) * (covariance.x - covariance.z)
+                + 4 * covariance.y * covariance.y
+        )
+        let majorVariance = (covariance.x + covariance.z + discriminant) * 0.5
+        let minorVariance = (covariance.x + covariance.z - discriminant) * 0.5
+        return [
+            "available": true,
+            "visiblePixels": points.count,
+            "absoluteDot": abs(simd_dot(
+                pathPixelDirection,
+                crossPixelDirection
+            )),
+            "legacyAbsoluteDot": abs(simd_dot(
+                pathPixelDirection,
+                legacyPerpendicular
+            )),
+            "varianceRatio": majorVariance / max(minorVariance, 0.0001),
+        ]
+    }
+
     private static func trailBounds(
         velocity: SIMD3<Float>,
         layerModel: simd_float4x4 = SceneMatrix.identity()
@@ -490,9 +970,76 @@ enum Harness {
     private static func refractionContractTest() -> [String: Any] {
         let neutral = refractedCenter(normalX: 128, amount: 0.25)
         let shifted = refractedCenter(normalX: 255, amount: 0.25)
+        let trailNeutral = refractedCenter(
+            normalX: 128,
+            normalY: 128,
+            amount: 0.25,
+            trailVelocity: SIMD3(1, 0, 0),
+            trailUVRange: SIMD2(0, 1),
+            usesTrailDisplacement: true
+        )
+        let trailAlong = refractedCenter(
+            normalX: 128,
+            normalY: 255,
+            amount: 0.25,
+            trailVelocity: SIMD3(1, 0, 0),
+            trailUVRange: SIMD2(0, 1),
+            usesTrailDisplacement: true
+        )
+        let trailAcross = refractedCenter(
+            normalX: 255,
+            normalY: 128,
+            amount: 0.25,
+            trailVelocity: SIMD3(1, 0, 0),
+            trailUVRange: SIMD2(0, 1),
+            usesTrailDisplacement: true
+        )
+        let magnitudeNeutral = refractedCenter(
+            normalX: 128,
+            normalY: 128,
+            amount: 0.25,
+            trailVelocity: SIMD3(0.4, 0, 0),
+            trailStretch: 2,
+            trailUVRange: SIMD2(0, 1),
+            usesTrailDisplacement: true
+        )
+        let fullSpanShortStretch = refractedCenter(
+            normalX: 128,
+            normalY: 255,
+            amount: 0.25,
+            trailVelocity: SIMD3(0.4, 0, 0),
+            trailStretch: 2,
+            trailUVRange: SIMD2(0, 1),
+            usesTrailDisplacement: true
+        )
+        let fullSpanLongStretch = refractedCenter(
+            normalX: 128,
+            normalY: 255,
+            amount: 0.25,
+            trailVelocity: SIMD3(0.4, 0, 0),
+            trailStretch: 8,
+            trailUVRange: SIMD2(0, 1),
+            usesTrailDisplacement: true
+        )
+        let halfSpanLongStretch = refractedCenter(
+            normalX: 128,
+            normalY: 255,
+            amount: 0.25,
+            trailVelocity: SIMD3(0.4, 0, 0),
+            trailStretch: 8,
+            trailUVRange: SIMD2(0.25, 0.75),
+            usesTrailDisplacement: true
+        )
         return [
             "neutral": neutral,
             "shifted": shifted,
+            "trailNeutral": trailNeutral,
+            "trailAlong": trailAlong,
+            "trailAcross": trailAcross,
+            "magnitudeNeutral": magnitudeNeutral,
+            "fullSpanShortStretch": fullSpanShortStretch,
+            "fullSpanLongStretch": fullSpanLongStretch,
+            "halfSpanLongStretch": halfSpanLongStretch,
             "budget64MiBAllows4K": SceneFramebufferSnapshot.byteCost(
                 width: 3840, height: 2160
             ).map { $0 <= SceneFramebufferSnapshot.defaultByteBudget } ?? false,
@@ -502,7 +1049,15 @@ enum Harness {
         ]
     }
 
-    private static func refractedCenter(normalX: UInt8, amount: Float) -> [Int] {
+    private static func refractedCenter(
+        normalX: UInt8,
+        normalY: UInt8 = 128,
+        amount: Float,
+        trailVelocity: SIMD3<Float>? = nil,
+        trailStretch: Float = 2,
+        trailUVRange: SIMD2<Float>? = nil,
+        usesTrailDisplacement: Bool = false
+    ) -> [Int] {
         let size = 8
         guard let device = MTLCreateSystemDefaultDevice(),
               let pipeline = SceneParticleMetalPipeline(device: device),
@@ -536,7 +1091,7 @@ enum Harness {
             withBytes: &background, bytesPerRow: size * 4
         )
         var white: [UInt8] = [255, 255, 255, 255]
-        var packedNormal: [UInt8] = [0, 128, 0, normalX]
+        var packedNormal: [UInt8] = [0, normalY, 0, normalX]
         color.replace(
             region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
             withBytes: &white, bytesPerRow: 4
@@ -549,10 +1104,18 @@ enum Harness {
             return []
         }
         let instances = SceneParticleMetalInstanceBuffer()
-        guard instances.update(device: device, instances: [SceneParticleGPUInstance(
-            position: .zero, size: 2, rotation: .zero,
-            color: SIMD3(repeating: 1), alpha: 1
-        )]) else { return [] }
+        let instance = SceneParticleGPUInstance(
+            position: .zero,
+            size: 2,
+            rotation: .zero,
+            color: SIMD3(repeating: 1),
+            alpha: 1,
+            velocity: trailVelocity ?? .zero,
+            trailStretch: trailVelocity == nil ? nil : trailStretch,
+            trailUVRange: trailUVRange,
+            usesTrailDisplacement: usesTrailDisplacement
+        )
+        guard instances.update(device: device, instances: [instance]) else { return [] }
         let pass = MTLRenderPassDescriptor()
         pass.colorAttachments[0].texture = target
         pass.colorAttachments[0].loadAction = .load
@@ -898,8 +1461,8 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertEqual(self.result["instanceStride"], 128)
         self.assertEqual(self.result["instanceAlignment"], 16)
         self.assertEqual(self.result["instanceOffsets"], [0, 16, 32, 48, 64, 80, 96, 112])
-        self.assertEqual(self.result["uniformStride"], 160)
-        self.assertEqual(self.result["uniformOffsets"], [0, 64, 128, 144])
+        self.assertEqual(self.result["uniformStride"], 176)
+        self.assertEqual(self.result["uniformOffsets"], [0, 64, 128, 144, 160])
 
     def test_lifetime_sprite_selection_and_frame_blending(self) -> None:
         self.assertEqual(self.result["sequence"]["current"], 2)
@@ -914,6 +1477,7 @@ class SceneParticleRenderingTests(unittest.TestCase):
 
     def test_orientation_bases_are_authored_and_orthonormal(self) -> None:
         self.assertTrue(self.result["orientationDefault"])
+        self.assertEqual(self.result["trailFrame"], [0, 1, 0, -1, 1, 0])
         self.assertEqual(self.result["screenRight"], [1, 0, 0])
         self.assertEqual(self.result["screenUp"], [0, 1, 0])
         self.assertEqual(self.result["uprightRight"], [1, 0, 0])
@@ -945,6 +1509,42 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertGreater(horizontal["width"], horizontal["height"] * 2.5)
         self.assertGreater(vertical["height"], vertical["width"] * 2.5)
         self.assertGreater(rotated["height"], rotated["width"] * 2.5)
+
+    def test_rope_trail_history_draws_a_multisegment_fading_path(self) -> None:
+        contract = self.result["ropeTrailRender"]
+        if not contract["available"]:
+            self.skipTest("Metal offscreen draw is unavailable")
+        self.assertEqual(contract["instanceCount"], 4)
+        self.assertEqual(contract["horizontalSegments"], 2)
+        self.assertEqual(contract["verticalSegments"], 2)
+        self.assertGreater(contract["width"], 45)
+        self.assertGreater(contract["height"], 45)
+        self.assertGreater(contract["visiblePixels"], 400)
+        self.assertGreater(contract["headAlpha"], contract["tailAlpha"] * 2)
+
+    def test_rope_segment_endpoints_follow_the_transformed_history_displacement(self) -> None:
+        contract = self.result["ropeTrailTransform"]
+        if not contract["available"]:
+            self.skipTest("Metal offscreen draw is unavailable")
+        self.assertGreater(contract["visiblePixels"], 100)
+        pixel_tolerance = 5 / 256 * 2
+        self.assertLessEqual(
+            abs(contract["observedTail"] - contract["expectedTail"]),
+            pixel_tolerance,
+        )
+        self.assertLessEqual(
+            abs(contract["observedHead"] - contract["expectedHead"]),
+            pixel_tolerance,
+        )
+
+    def test_diagonal_rope_cross_section_is_perpendicular_in_wide_viewport_pixels(self) -> None:
+        contract = self.result["ropeTrailAspect"]
+        if not contract["available"]:
+            self.skipTest("Metal offscreen draw is unavailable")
+        self.assertGreater(contract["visiblePixels"], 100)
+        self.assertGreater(contract["varianceRatio"], 4)
+        self.assertGreater(contract["legacyAbsoluteDot"], 0.35)
+        self.assertLess(contract["absoluteDot"], 0.12)
 
     def test_color_contract_adapts_r8_and_rg88_particle_textures(self) -> None:
         contract = self.result["colorContract"]
@@ -995,6 +1595,39 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertEqual(shifted[1], neutral[1])
         self.assertTrue(contract["budget64MiBAllows4K"])
         self.assertTrue(contract["budget64MiBRejects8K"])
+
+    def test_rope_trail_refraction_rotates_normal_axes_into_path_space(self) -> None:
+        contract = self.result["refractionContract"]
+        neutral = contract["trailNeutral"]
+        along = contract["trailAlong"]
+        across = contract["trailAcross"]
+        if not neutral or not along or not across:
+            self.skipTest("Metal refraction draw is unavailable")
+        # For a trail moving right, texture +Y follows the path and samples
+        # farther right in the blue X gradient. Texture +X is -perpendicular,
+        # crossing the trail downward in the green Y gradient.
+        self.assertGreater(along[0], neutral[0] + 15)
+        self.assertLessEqual(abs(along[1] - neutral[1]), 2)
+        self.assertGreater(across[1], neutral[1] + 8)
+        self.assertLessEqual(abs(across[0] - neutral[0]), 2)
+
+    def test_rope_trail_refraction_uses_displacement_per_uv_span(self) -> None:
+        contract = self.result["refractionContract"]
+        neutral = contract["magnitudeNeutral"]
+        short_stretch = contract["fullSpanShortStretch"]
+        long_stretch = contract["fullSpanLongStretch"]
+        half_span = contract["halfSpanLongStretch"]
+        if not neutral or not short_stretch or not long_stretch or not half_span:
+            self.skipTest("Metal refraction draw is unavailable")
+        short_delta = short_stretch[0] - neutral[0]
+        long_delta = long_stretch[0] - neutral[0]
+        half_delta = half_span[0] - neutral[0]
+        self.assertGreater(short_delta, 3)
+        self.assertLessEqual(abs(long_delta - short_delta), 2)
+        self.assertGreater(half_delta, short_delta * 1.7)
+        self.assertLess(half_delta, short_delta * 2.3)
+        for shifted in (short_stretch, long_stretch, half_span):
+            self.assertLessEqual(abs(shifted[1] - neutral[1]), 2)
 
     def test_tex_flags_select_filter_and_address_modes_without_cross_talk(self) -> None:
         values = self.result["texSampling"]

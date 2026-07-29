@@ -18,6 +18,7 @@ struct LayerUniforms {
     float4x4 layerModel;
     float4 basisRight;
     float4 basisUp;
+    float2 viewportSize;
 };
 struct Varyings {
     float4 position [[position]];
@@ -48,36 +49,79 @@ vertex Varyings sceneParticleVert(
     QuadVertex quadVertex = quad[vertexID];
     ParticleInstance particle = instances[instanceID];
     float4 center = uniforms.layerModel * float4(particle.positionAndSize.xyz, 1.0);
-    float3 local;
-    if (particle.velocityAndTrail.w >= 0.0) {
-        float3 worldVelocity = (uniforms.layerModel
-            * float4(particle.velocityAndTrail.xyz, 0.0)).xyz;
+    bool isTrail = particle.velocityAndTrail.w >= 0.0;
+    float2 layerScale = float2(length(uniforms.layerModel[0].xyz),
+                               length(uniforms.layerModel[1].xyz));
+    float3 local = float3(0.0);
+    float3 trailWorld = float3(0.0);
+    float3 trailAcrossWorld = float3(0.0);
+    if (isTrail) {
+        bool usesDisplacement = particle.frame1B.z > 0.5;
+        float velocityLength = length(particle.velocityAndTrail.xyz);
+        float3 localDirection = velocityLength > 0.00001
+            ? particle.velocityAndTrail.xyz / velocityLength
+            : float3(1.0, 0.0, 0.0);
+        float3 localTrail = usesDisplacement
+            ? particle.velocityAndTrail.xyz
+            : localDirection * particle.positionAndSize.w * particle.velocityAndTrail.w;
+        trailWorld = (uniforms.layerModel * float4(localTrail, 0.0)).xyz;
         float4 projectedStart = uniforms.viewProjection * center;
         float4 projectedEnd = uniforms.viewProjection
-            * float4(center.xyz + worldVelocity * 0.001, 1.0);
+            * float4(center.xyz + trailWorld * 0.001, 1.0);
         float2 velocity = projectedEnd.xy / max(abs(projectedEnd.w), 0.00001)
             - projectedStart.xy / max(abs(projectedStart.w), 0.00001);
-        float speed = length(velocity);
-        float2 direction = speed > 0.00001 ? velocity / speed : float2(1.0, 0.0);
-        float2 perpendicular = float2(-direction.y, direction.x);
-        float2 aligned = direction * quadVertex.position.x
-            * particle.positionAndSize.w * particle.velocityAndTrail.w
-            + perpendicular * quadVertex.position.y * particle.positionAndSize.w;
-        local = float3(aligned, 0.0);
+        float2 pixelVelocity = velocity * max(uniforms.viewportSize, float2(1.0));
+        float speed = length(pixelVelocity);
+        float2 trailDirection = speed > 0.00001
+            ? pixelVelocity / speed : float2(1.0, 0.0);
+        float2 perpendicular = float2(-trailDirection.y, trailDirection.x);
+        float4 projectedRight = uniforms.viewProjection
+            * float4(center.xyz + uniforms.basisRight.xyz, 1.0);
+        float4 projectedUp = uniforms.viewProjection
+            * float4(center.xyz + uniforms.basisUp.xyz, 1.0);
+        float2 rightPixel = (
+            projectedRight.xy / max(abs(projectedRight.w), 0.00001)
+                - projectedStart.xy / max(abs(projectedStart.w), 0.00001)
+        ) * uniforms.viewportSize;
+        float2 upPixel = (
+            projectedUp.xy / max(abs(projectedUp.w), 0.00001)
+                - projectedStart.xy / max(abs(projectedStart.w), 0.00001)
+        ) * uniforms.viewportSize;
+        float determinant = rightPixel.x * upPixel.y - rightPixel.y * upPixel.x;
+        float2 acrossCoefficients = perpendicular;
+        if (abs(determinant) > 0.00001) {
+            float2 targetPixel = perpendicular * max(length(rightPixel), 0.00001);
+            acrossCoefficients = float2(
+                (targetPixel.x * upPixel.y - targetPixel.y * upPixel.x)
+                    / determinant,
+                (rightPixel.x * targetPixel.y - rightPixel.y * targetPixel.x)
+                    / determinant
+            );
+        }
+        trailAcrossWorld = (
+            uniforms.basisRight.xyz * acrossCoefficients.x
+                + uniforms.basisUp.xyz * acrossCoefficients.y
+        ) * particle.positionAndSize.w * layerScale.x;
     } else {
         local = rotateXYZ(
             float3(quadVertex.position * particle.positionAndSize.w, 0.0),
             particle.rotationAndAlpha.xyz);
     }
     float3 normal = normalize(cross(uniforms.basisRight.xyz, uniforms.basisUp.xyz));
-    float2 layerScale = float2(length(uniforms.layerModel[0].xyz),
-                               length(uniforms.layerModel[1].xyz));
-    float3 offset = uniforms.basisRight.xyz * local.x * layerScale.x
-                  + uniforms.basisUp.xyz * local.y * layerScale.y
-                  + normal * local.z;
+    float3 offset = isTrail
+        ? trailWorld * quadVertex.position.x
+            + trailAcrossWorld * quadVertex.position.y
+        : uniforms.basisRight.xyz * local.x * layerScale.x
+            + uniforms.basisUp.xyz * local.y * layerScale.y
+            + normal * local.z;
     Varyings out;
     out.position = uniforms.viewProjection * float4(center.xyz + offset, 1.0);
-    out.baseUV = quadVertex.texcoord;
+    out.baseUV = isTrail
+        ? float2(
+            quadVertex.texcoord.y,
+            1.0 - mix(particle.frame0B.z, particle.frame0B.w, quadVertex.texcoord.x)
+        )
+        : quadVertex.texcoord;
     out.uv0 = particle.frame0A.xy + quadVertex.texcoord.x * particle.frame0A.zw
             + quadVertex.texcoord.y * particle.frame0B.xy;
     out.uv1 = particle.frame1A.xy + quadVertex.texcoord.x * particle.frame1A.zw
@@ -85,16 +129,24 @@ vertex Varyings sceneParticleVert(
     float alpha = saturate(particle.rotationAndAlpha.w);
     out.tint = float4(max(particle.colorAndFrameMix.xyz, 0.0) * alpha, alpha);
     out.frameBlend = saturate(particle.colorAndFrameMix.w);
-    float3 tangentLocalX = rotateXYZ(
-        float3(particle.positionAndSize.w, 0.0, 0.0),
-        particle.rotationAndAlpha.xyz);
-    float3 tangentLocalY = rotateXYZ(
-        float3(0.0, particle.positionAndSize.w, 0.0),
-        particle.rotationAndAlpha.xyz);
-    float3 tangentWorldX = uniforms.basisRight.xyz * tangentLocalX.x * layerScale.x
-                         + uniforms.basisUp.xyz * tangentLocalX.y * layerScale.y;
-    float3 tangentWorldY = uniforms.basisRight.xyz * tangentLocalY.x * layerScale.x
-                         + uniforms.basisUp.xyz * tangentLocalY.y * layerScale.y;
+    float3 tangentWorldX;
+    float3 tangentWorldY;
+    if (isTrail) {
+        float trailUVSpan = max(abs(particle.frame0B.w - particle.frame0B.z), 0.00001);
+        tangentWorldX = -trailAcrossWorld;
+        tangentWorldY = trailWorld / trailUVSpan;
+    } else {
+        float3 tangentLocalX = rotateXYZ(
+            float3(particle.positionAndSize.w, 0.0, 0.0),
+            particle.rotationAndAlpha.xyz);
+        float3 tangentLocalY = rotateXYZ(
+            float3(0.0, particle.positionAndSize.w, 0.0),
+            particle.rotationAndAlpha.xyz);
+        tangentWorldX = uniforms.basisRight.xyz * tangentLocalX.x * layerScale.x
+                      + uniforms.basisUp.xyz * tangentLocalX.y * layerScale.y;
+        tangentWorldY = uniforms.basisRight.xyz * tangentLocalY.x * layerScale.x
+                      + uniforms.basisUp.xyz * tangentLocalY.y * layerScale.y;
+    }
     float4 centerClip = uniforms.viewProjection * center;
     float4 tangentClipX = uniforms.viewProjection
         * float4(center.xyz + tangentWorldX, 1.0);
@@ -103,8 +155,10 @@ vertex Varyings sceneParticleVert(
     float2 centerNDC = centerClip.xy / max(abs(centerClip.w), 0.00001);
     float2 tangentNDCX = tangentClipX.xy / max(abs(tangentClipX.w), 0.00001);
     float2 tangentNDCY = tangentClipY.xy / max(abs(tangentClipY.w), 0.00001);
-    out.screenTangentX = (tangentNDCX - centerNDC) * float2(0.5, -0.5);
-    out.screenTangentY = (tangentNDCY - centerNDC) * float2(0.5, -0.5);
+    float2 screenTangentX = (tangentNDCX - centerNDC) * float2(0.5, -0.5);
+    float2 screenTangentY = (tangentNDCY - centerNDC) * float2(0.5, -0.5);
+    out.screenTangentX = screenTangentX;
+    out.screenTangentY = screenTangentY;
     return out;
 }
 

@@ -7,6 +7,7 @@ extension SceneMetalRenderer {
         pipeline: SceneParticleMetalPipeline,
         model: simd_float4x4,
         cameraFrame: SceneParticleCameraFrame,
+        viewportSize: SIMD2<Float>,
         mainPass: SceneMainPassEncoder,
         commandBuffer: MTLCommandBuffer
     ) {
@@ -21,7 +22,8 @@ extension SceneMetalRenderer {
                     usesPerspective: batch.usesPerspective
                 ),
                 layerModel: model,
-                basis: basis
+                basis: basis,
+                viewportSize: viewportSize
             )
             if let refraction = batch.refraction {
                 let captured = mainPass.withReadableTarget { target, buffer in

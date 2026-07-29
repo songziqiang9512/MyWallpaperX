@@ -26,6 +26,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
     private var accumulator = 0.0
     private var nextParticleID: UInt64 = 0
     private var normalizedLives: [Double] = []
+    private var stepSnapshotRecorder: SceneParticleStepSnapshotRecorder?
     var positionOscillationCache: [SceneParticleOscillationCacheKey: SceneParticlePositionOscillation] = [:]
 
     nonisolated init(
@@ -35,7 +36,8 @@ nonisolated struct SceneParticleSimulator: Sendable {
         fixedTimeStep: Double = 1.0 / 60.0,
         particleBudget: Int? = nil,
         emissionDeadline: Double? = nil,
-        worldSpaceFrame: SceneParticleWorldSpaceFrame? = nil
+        worldSpaceFrame: SceneParticleWorldSpaceFrame? = nil,
+        stepSnapshotPolicy: SceneParticleStepSnapshotPolicy? = nil
     ) {
         self.definition = definition
         self.instanceOverride = instanceOverride
@@ -43,6 +45,9 @@ nonisolated struct SceneParticleSimulator: Sendable {
         self.worldSpaceFrame = worldSpaceFrame
         self.hasWorldSpaceMovement = definition.operators.contains(
             where: \.isWorldSpaceMovement
+        )
+        self.stepSnapshotRecorder = stepSnapshotPolicy.map(
+            SceneParticleStepSnapshotRecorder.init(policy:)
         )
         self.simulationSeed = seed
         self.fixedTimeStep = fixedTimeStep.isFinite && fixedTimeStep > 0 ? fixedTimeStep : 1.0 / 60.0
@@ -74,6 +79,10 @@ nonisolated struct SceneParticleSimulator: Sendable {
     nonisolated mutating func consumeDeathEvents() -> [SceneParticleState] {
         defer { deathEvents.removeAll(keepingCapacity: true) }
         return deathEvents
+    }
+
+    nonisolated mutating func consumeStepSnapshots() -> [SceneParticleStepSnapshot] {
+        stepSnapshotRecorder?.consume() ?? []
     }
 
     private nonisolated mutating func warmUp(duration: Double) {
@@ -110,6 +119,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
         }
         particles.removeAll { $0.age + 1e-12 >= $0.lifetime }
         simulationTime += duration
+        stepSnapshotRecorder?.record(duration: duration, particles: particles)
     }
 
     private nonisolated mutating func emit(index: Int, duration: Double) {

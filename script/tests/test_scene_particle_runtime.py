@@ -50,12 +50,14 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleAssetGraph.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulationSupport.swift",
     SOURCE_ROOT / "Particles/SceneParticleOscillationCache.swift",
+    SOURCE_ROOT / "Particles/SceneParticleStepSnapshotRecorder.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+Random.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+InstanceOverride.swift",
     SOURCE_ROOT / "Particles/SceneParticleChildLifecycle.swift",
     SOURCE_ROOT / "Particles/SceneParticleChildTemplateSupport.swift",
     SOURCE_ROOT / "Particles/SceneParticleTrailRenderPlan.swift",
+    SOURCE_ROOT / "Particles/SceneParticleRopeTrailPlan.swift",
     SOURCE_ROOT / "Particles/SceneParticleRenderSupport.swift",
     SOURCE_ROOT / "Particles/SceneParticleMetalInstanceBuffer.swift",
     SOURCE_ROOT / "Particles/SceneParticleShaderSource.swift",
@@ -278,6 +280,8 @@ enum Harness {
         case "stock-synthetic":
             guard CommandLine.arguments.count == 3 else { throw HarnessError.missingPath }
             try printJSON(stockSynthetic(bundlePath: CommandLine.arguments[2]))
+        case "rope-trail-synthetic":
+            try printJSON(syntheticRopeTrail())
         case "synthetic":
             try printJSON(synthetic())
         default:
@@ -1031,6 +1035,182 @@ enum Harness {
         ]
     }
 
+    private static func syntheticRopeTrail() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mwx-rope-trail-runtime-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        func writeMalformedRendererParticle(_ path: String, renderer: Any) throws {
+            try writeJSON([
+                "material": "materials/shared.json",
+                "maxcount": 100,
+                "emitter": [["name": "sphererandom", "rate": 1]],
+                "initializer": [
+                    ["name": "lifetimerandom", "min": 1, "max": 1],
+                    ["name": "sizerandom", "min": 8, "max": 8],
+                ],
+                "renderer": renderer,
+            ], to: directory.appendingPathComponent(path))
+        }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        try writeAnimatedTEX(directory.appendingPathComponent("materials/animated.tex"))
+        try writeParticle(
+            "particles/rope-trail.json",
+            material: "materials/shared.json",
+            flags: 5,
+            renderer: "ropetrail",
+            rendererLength: 0.5,
+            velocityX: 100,
+            startTime: 1,
+            moves: true,
+            rate: 0,
+            instantaneous: 1,
+            under: directory
+        )
+        try writeParticle(
+            "particles/rope-trail-missing-length.json",
+            material: "materials/shared.json",
+            renderer: "ropetrail",
+            velocityX: 100,
+            moves: true,
+            under: directory
+        )
+        try writeParticle(
+            "particles/rope-trail-animated.json",
+            material: "materials/animated.json",
+            renderer: "ropetrail",
+            rendererLength: 0.5,
+            velocityX: 100,
+            moves: true,
+            under: directory
+        )
+        try writeParticle(
+            "particles/rope-trail-mixed-renderers.json",
+            material: "materials/shared.json",
+            renderer: "ropetrail",
+            rendererLength: 0.5,
+            additionalRenderers: [["name": "sprite", "flags": 0]],
+            velocityX: 100,
+            moves: true,
+            under: directory
+        )
+        try writeParticle(
+            "particles/rope-trail-malformed-renderers.json",
+            material: "materials/shared.json",
+            renderer: "ropetrail",
+            rendererLength: 0.5,
+            additionalRenderers: [NSNull()],
+            velocityX: 100,
+            moves: true,
+            under: directory
+        )
+        try writeMalformedRendererParticle(
+            "particles/rope-trail-object-renderer.json",
+            renderer: ["name": "ropetrail", "length": 0.5]
+        )
+        try writeMalformedRendererParticle(
+            "particles/rope-trail-only-malformed-renderer.json",
+            renderer: [NSNull()]
+        )
+        let descriptor = SceneRenderDescriptor(
+            layers: [
+                layer(31, "particles/rope-trail.json"),
+                layer(32, "particles/rope-trail-missing-length.json"),
+                layer(33, "particles/rope-trail-animated.json"),
+                layer(34, "particles/rope-trail-mixed-renderers.json"),
+                layer(35, "particles/rope-trail-malformed-renderers.json"),
+                layer(36, "particles/rope-trail-object-renderer.json"),
+                layer(37, "particles/rope-trail-only-malformed-renderer.json"),
+            ],
+            renderOrderLayerIDs: [31, 32, 33, 34, 35, 36, 37],
+            materialPasses: [
+                .init(
+                    materialPath: "materials/shared.json",
+                    shaderPath: "genericparticle",
+                    texturePaths: ["shared.png"],
+                    blending: "additive"
+                ),
+                .init(
+                    materialPath: "materials/animated.json",
+                    shaderPath: "genericparticle",
+                    texturePaths: ["animated.tex"],
+                    blending: "additive"
+                ),
+            ]
+        )
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        func makeRuntime() -> SceneParticleRuntime {
+            SceneParticleRuntime(
+                descriptor: descriptor,
+                cacheDirectory: directory,
+                device: device,
+                staticWorldSpaceFrames: [
+                    31: SceneParticleWorldSpaceFrame(
+                        worldFrame: matrix_identity_float4x4
+                    )!,
+                ]
+            )
+        }
+        let coarseRuntime = makeRuntime()
+        let fineRuntime = makeRuntime()
+        let prewarmedBatch = coarseRuntime.advance(by: 0).first {
+            $0.layerID == 31
+        }
+        _ = fineRuntime.advance(by: 0)
+        let coarseBatch = coarseRuntime.advance(by: 0.5).first {
+            $0.layerID == 31
+        }
+        var fineBatch: SceneParticleDrawBatch?
+        for _ in 0..<30 {
+            fineBatch = fineRuntime.advance(by: 1.0 / 60.0).first {
+                $0.layerID == 31
+            }
+        }
+        let diagnosticDetails = coarseRuntime.diagnostics.map {
+            "\($0.kind.rawValue):\($0.layerID ?? -1):\($0.detail ?? "")"
+        }
+        return [
+            "activeLayerIDs": coarseRuntime.activeLayerIDs,
+            "prewarmedInstanceCount": prewarmedBatch?.instances.count ?? -1,
+            "prewarmedAllSegmentsMoveForward": prewarmedBatch?.instances.allSatisfy {
+                $0.velocityAndTrail.x > 0
+                    && abs($0.velocityAndTrail.y) < 0.0001
+                    && $0.velocityAndTrail.w > 0
+            } ?? false,
+            "coarseSignature": ropeTrailSignature(coarseBatch),
+            "fineSignature": ropeTrailSignature(fineBatch),
+            "bufferMatches": coarseBatch?.instanceBuffer.count
+                == coarseBatch?.instances.count,
+            "usesPerspective": coarseBatch?.usesPerspective ?? false,
+            "orientationScreen": coarseBatch?.orientation == .screen,
+            "mixedRendererLoaded": coarseRuntime.activeLayerIDs.contains(34),
+            "malformedRendererLoaded": coarseRuntime.activeLayerIDs.contains(35),
+            "objectRendererLoaded": coarseRuntime.activeLayerIDs.contains(36),
+            "onlyMalformedRendererLoaded": coarseRuntime.activeLayerIDs.contains(37),
+            "diagnosticDetails": diagnosticDetails,
+            "missingSpriteRenderer": coarseRuntime.diagnostics.contains {
+                $0.kind == .missingSpriteRenderer
+            },
+        ]
+    }
+
+    private static func ropeTrailSignature(
+        _ batch: SceneParticleDrawBatch?
+    ) -> [Float] {
+        batch?.instances.flatMap {
+            [
+                $0.positionAndSize.x,
+                $0.positionAndSize.y,
+                $0.velocityAndTrail.x,
+                $0.velocityAndTrail.y,
+                $0.velocityAndTrail.w,
+                $0.frame0B.z,
+                $0.frame0B.w,
+                $0.rotationAndAlpha.w,
+            ]
+        } ?? []
+    }
+
     private static func synthetic() throws -> [String: Any] {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("mwx-particle-runtime-\(UUID().uuidString)", isDirectory: true)
@@ -1237,8 +1417,10 @@ enum Harness {
         rendererLength: Double? = nil,
         rendererMinimumLength: Double? = nil,
         rendererMaximumLength: Double? = nil,
+        additionalRenderers: [Any] = [],
         velocityX: Double? = nil,
         lifetime: Double = 10,
+        startTime: Double? = nil,
         moves: Bool = false,
         movementFlags: Int = 0,
         rate: Double = 60,
@@ -1278,9 +1460,10 @@ enum Harness {
             "flags": flags,
             "emitter": [emitter],
             "initializer": initializers,
-            "renderer": [rendererDefinition],
+            "renderer": ([rendererDefinition] as [Any]) + additionalRenderers,
             "children": children,
         ]
+        if let startTime { definition["starttime"] = startTime }
         if moves {
             definition["operator"] = [[
                 "name": "movement",
@@ -1310,6 +1493,49 @@ enum Harness {
         else { throw HarnessError.imageWrite }
         CGImageDestinationAddImage(destination, image, nil)
         guard CGImageDestinationFinalize(destination) else { throw HarnessError.imageWrite }
+    }
+
+    private static func writeAnimatedTEX(_ url: URL) throws {
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true
+        )
+        var data = Data("TEXV0005\0TEXI0001\0".utf8)
+        appendUInt32(0, to: &data)
+        appendUInt32(4, to: &data)
+        appendUInt32(2, to: &data)
+        appendUInt32(2, to: &data)
+        appendUInt32(2, to: &data)
+        appendUInt32(2, to: &data)
+        appendUInt32(0, to: &data)
+        data.append(Data("TEXB0002\0".utf8))
+        appendUInt32(1, to: &data)
+        appendUInt32(1, to: &data)
+        appendUInt32(2, to: &data)
+        appendUInt32(2, to: &data)
+        appendUInt32(0, to: &data)
+        appendUInt32(0, to: &data)
+        appendUInt32(16, to: &data)
+        data.append(Data(repeating: 255, count: 16))
+        data.append(Data("TEXS0002\0".utf8))
+        appendUInt32(2, to: &data)
+        for _ in 0..<2 {
+            appendUInt32(0, to: &data)
+            appendFloat32(0.1, to: &data)
+            for value: Float in [0, 0, 2, 0, 0, 2] {
+                appendFloat32(value, to: &data)
+            }
+        }
+        try data.write(to: url)
+    }
+
+    private static func appendUInt32(_ value: UInt32, to data: inout Data) {
+        var littleEndian = value.littleEndian
+        withUnsafeBytes(of: &littleEndian) { data.append(contentsOf: $0) }
+    }
+
+    private static func appendFloat32(_ value: Float, to data: inout Data) {
+        var bits = value.bitPattern.littleEndian
+        withUnsafeBytes(of: &bits) { data.append(contentsOf: $0) }
     }
 
     private static func scalar(_ value: SceneParticleBoundValue?) -> Double {
@@ -1452,6 +1678,50 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             result["staticChildUnsupportedDetails"],
         )
         self.assertIn("builtInTextureUnavailable", kinds)
+
+    def test_rope_trail_runtime_builds_multisegment_batches_and_fails_closed(self) -> None:
+        result = self.run_harness("rope-trail-synthetic")
+        self.assertEqual(result["activeLayerIDs"], [31])
+        self.assertGreaterEqual(result["prewarmedInstanceCount"], 4)
+        self.assertTrue(result["prewarmedAllSegmentsMoveForward"])
+        coarse = result["coarseSignature"]
+        fine = result["fineSignature"]
+        self.assertEqual(len(coarse), len(fine))
+        self.assertGreaterEqual(len(coarse), 4 * 8)
+        for coarse_value, fine_value in zip(coarse, fine):
+            self.assertAlmostEqual(coarse_value, fine_value, places=5)
+        self.assertTrue(result["bufferMatches"])
+        self.assertTrue(result["usesPerspective"])
+        self.assertTrue(result["orientationScreen"])
+        self.assertFalse(result["mixedRendererLoaded"])
+        self.assertFalse(result["malformedRendererLoaded"])
+        self.assertFalse(result["objectRendererLoaded"])
+        self.assertFalse(result["onlyMalformedRendererLoaded"])
+        self.assertTrue(result["missingSpriteRenderer"])
+        self.assertIn(
+            "trailRendererUnsupported:32:ropetrail:unsupportedProfile",
+            result["diagnosticDetails"],
+        )
+        self.assertIn(
+            "trailRendererUnsupported:33:ropetrail:animatedTexture",
+            result["diagnosticDetails"],
+        )
+        self.assertIn(
+            "trailRendererUnsupported:34:ropetrail:unsupportedProfile",
+            result["diagnosticDetails"],
+        )
+        self.assertIn(
+            "trailRendererUnsupported:35:ropetrail:unsupportedProfile",
+            result["diagnosticDetails"],
+        )
+        self.assertIn(
+            "missingSpriteRenderer:36:",
+            result["diagnosticDetails"],
+        )
+        self.assertIn(
+            "missingSpriteRenderer:37:",
+            result["diagnosticDetails"],
+        )
 
     def test_stock_tex_reference_loads_through_particle_runtime(self) -> None:
         bundle = REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneStockAssets.bundle"

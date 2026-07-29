@@ -23,6 +23,7 @@ final class SceneParticleRuntime {
         let instanceBuffer = SceneParticleMetalInstanceBuffer()
         var instances: [SceneParticleGPUInstance] = []
         var simulator: SceneParticleSimulator
+        var ropeTrailHistory: SceneParticleRopeTrailHistory?
         var childRuntime: SceneParticleChildRuntime?
     }
 
@@ -206,12 +207,16 @@ final class SceneParticleRuntime {
                 colorUVScale = SIMD2(repeating: 1)
                 refraction = nil
             }
+            guard supportsRopeTrailTexture(
+                plan: render.ropeTrail, animation: spriteAnimation,
+                layerID: layer.id, path: path
+            ) else { continue }
 
             let simulator = SceneParticleSimulator(
                 definition: asset.definition,
                 instanceOverride: layer.particleInstanceOverride,
                 seed: UInt64(bitPattern: Int64(layer.id)),
-                worldSpaceFrame: worldSpaceFrame
+                worldSpaceFrame: worldSpaceFrame, stepSnapshotPolicy: render.ropeTrail?.stepSnapshotPolicy
             )
             let childRuntime = SceneParticleChildRuntime(
                 layerID: layer.id,
@@ -266,6 +271,7 @@ final class SceneParticleRuntime {
                 usesPerspective: asset.definition.flags.usesPerspective,
                 layerAlpha: Float(min(max(layer.alpha ?? 1, 0), 1)),
                 simulator: simulator,
+                ropeTrailHistory: render.ropeTrail.map(SceneParticleRopeTrailHistory.init(plan:)),
                 childRuntime: childRuntime.hasTemplates ? childRuntime : nil
             ))
         }
@@ -333,11 +339,20 @@ final class SceneParticleRuntime {
     }
 
     private func rebuildGPUInstances(forLayerAt index: Int) {
+        let stepSnapshots = layers[index].simulator.consumeStepSnapshots()
         let particles = layers[index].simulator.particles
         let spriteAnimation = layers[index].spriteAnimation
         let definition = layers[index].definition
         let layerAlpha = layers[index].layerAlpha
         let trail = layers[index].trail
+        if var history = layers[index].ropeTrailHistory {
+            layers[index].instances = history.advance(
+                snapshots: stepSnapshots, currentParticles: particles,
+                layerAlpha: layerAlpha
+            )
+            layers[index].ropeTrailHistory = history
+            return
+        }
         layers[index].instances.removeAll(keepingCapacity: true)
         layers[index].instances.reserveCapacity(particles.count)
         for particle in particles {
@@ -356,8 +371,8 @@ final class SceneParticleRuntime {
                 alpha: Float(particle.alpha) * layerAlpha,
                 velocity: particle.velocity.floatValue,
                 trailStretch: trail?.stretch(for: particle.velocity),
-                currentFrame: frames.current,
-                nextFrame: frames.next,
+                currentFrame: frames.current.orientedForTrail(trail != nil),
+                nextFrame: frames.next?.orientedForTrail(trail != nil),
                 frameMix: frames.mix
             ))
         }

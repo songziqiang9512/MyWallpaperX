@@ -308,7 +308,7 @@ nonisolated enum SceneParticleSimulationMath {
             case .rope:
                 add(.unsupportedRenderer, "rope")
             case .ropeTrail:
-                add(.trailRendererIgnored, "ropetrail")
+                break
             case let .unsupported(name):
                 add(.unsupportedRenderer, name)
             }

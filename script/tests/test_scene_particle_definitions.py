@@ -81,8 +81,8 @@ enum Harness {
           "renderer":[
             {"id":30,"name":"sprite","orientation":"fixed","axis":"0 0 1","flags":1},
             {"id":31,"name":"spriteTrail","length":0.02,"minlength":1,"maxlength":10},
-            {"id":32,"name":"rope","segments":4,"subdivision":3},
-            {"id":33,"name":"ropeTrail","length":5,"segments":8,"subdivision":2},
+            {"id":32,"name":"rope","segments":4,"subdivision":3,"fadesize":false,"uvscale":2,"uvsmoothing":false,"uvscrolling":true},
+            {"id":33,"name":"ropeTrail","length":3,"segments":6,"fadealpha":true},
             {"id":34,"name":"futureRenderer"}
           ],
           "controlpoint":[{"id":1,"flags":3,"offset":"10 20 0"}],
@@ -153,6 +153,14 @@ enum Harness {
             "rendererKinds": definition.renderers.map { rendererName($0.kind) },
             "spriteWorldSpace": definition.renderers[0].isWorldSpace,
             "ropeSegments": definition.renderers[2].segments ?? -1,
+            "ropeSubdivision": definition.renderers[2].subdivision ?? -1,
+            "ropeFadesSize": definition.renderers[2].fadesSize ?? true,
+            "ropeUVScale": definition.renderers[2].uvScale ?? -1,
+            "ropeSmoothsUV": definition.renderers[2].smoothsUV ?? true,
+            "ropeScrollsUV": definition.renderers[2].scrollsUV ?? false,
+            "ropeTrailLength": definition.renderers[3].length ?? -1,
+            "ropeTrailSegments": definition.renderers[3].segments ?? -1,
+            "ropeTrailFadesAlpha": definition.renderers[3].fadesAlpha ?? false,
             "controlPointFollowsPointer": definition.controlPoints[0].followsPointer,
             "controlPointWorldSpace": definition.controlPoints[0].isWorldSpace,
             "childPath": definition.children[0].path ?? "",
@@ -513,6 +521,14 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         )
         self.assertTrue(result["spriteWorldSpace"])
         self.assertEqual(result["ropeSegments"], 4)
+        self.assertEqual(result["ropeSubdivision"], 3)
+        self.assertFalse(result["ropeFadesSize"])
+        self.assertEqual(result["ropeUVScale"], 2)
+        self.assertFalse(result["ropeSmoothsUV"])
+        self.assertTrue(result["ropeScrollsUV"])
+        self.assertEqual(result["ropeTrailLength"], 3)
+        self.assertEqual(result["ropeTrailSegments"], 6)
+        self.assertTrue(result["ropeTrailFadesAlpha"])
         self.assertTrue(result["controlPointFollowsPointer"])
         self.assertTrue(result["controlPointWorldSpace"])
         self.assertEqual(result["childPath"], "particles/child.json")

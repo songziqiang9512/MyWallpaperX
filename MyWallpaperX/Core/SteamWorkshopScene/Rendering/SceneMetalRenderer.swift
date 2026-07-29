@@ -290,6 +290,10 @@ struct SceneMetalRenderer {
                     pipeline: particlePipeline,
                     model: model,
                     cameraFrame: cameraFrame,
+                    viewportSize: SIMD2(
+                        Float(viewportSize.width),
+                        Float(viewportSize.height)
+                    ),
                     mainPass: mainPass,
                     commandBuffer: commandBuffer
                 )

@@ -205,6 +205,21 @@ nonisolated struct SceneParticleFrameTransform: Equatable, Sendable {
         xAxis: SIMD2(1, 0),
         yAxis: SIMD2(0, 1)
     )
+
+    nonisolated func orientedForTrail(_ enabled: Bool) -> SceneParticleFrameTransform {
+        enabled ? verticalTrailSlice(tailPosition: 0, headPosition: 1) : self
+    }
+
+    nonisolated func verticalTrailSlice(
+        tailPosition: Float,
+        headPosition: Float
+    ) -> SceneParticleFrameTransform {
+        SceneParticleFrameTransform(
+            origin: origin + yAxis * (1 - tailPosition),
+            xAxis: yAxis * (tailPosition - headPosition),
+            yAxis: xAxis
+        )
+    }
 }
 
 // Eight float4 values keep this layout identical to ParticleInstance in MSL.
@@ -226,6 +241,8 @@ nonisolated struct SceneParticleGPUInstance: Sendable {
         alpha: Float,
         velocity: SIMD3<Float> = .zero,
         trailStretch: Float? = nil,
+        trailUVRange: SIMD2<Float>? = nil,
+        usesTrailDisplacement: Bool = false,
         currentFrame: SceneParticleFrameTransform = .identity,
         nextFrame: SceneParticleFrameTransform? = nil,
         frameMix: Float = 0
@@ -240,14 +257,26 @@ nonisolated struct SceneParticleGPUInstance: Sendable {
             currentFrame.xAxis.x,
             currentFrame.xAxis.y
         )
-        frame0B = SIMD4(currentFrame.yAxis.x, currentFrame.yAxis.y, 0, 0)
+        let range = trailUVRange
+            ?? (trailStretch == nil ? .zero : SIMD2<Float>(0, 1))
+        frame0B = SIMD4(
+            currentFrame.yAxis.x,
+            currentFrame.yAxis.y,
+            range.x,
+            range.y
+        )
         frame1A = SIMD4(
             following.origin.x,
             following.origin.y,
             following.xAxis.x,
             following.xAxis.y
         )
-        frame1B = SIMD4(following.yAxis.x, following.yAxis.y, 0, 0)
+        frame1B = SIMD4(
+            following.yAxis.x,
+            following.yAxis.y,
+            usesTrailDisplacement ? 1 : 0,
+            0
+        )
         velocityAndTrail = SIMD4(
             velocity.x,
             velocity.y,
@@ -262,15 +291,20 @@ nonisolated struct SceneParticleLayerUniforms: Sendable {
     var layerModel: simd_float4x4
     var basisRight: SIMD4<Float>
     var basisUp: SIMD4<Float>
+    var viewportSize: SIMD2<Float>
 
     nonisolated init(
         viewProjection: simd_float4x4,
         layerModel: simd_float4x4,
-        basis: SceneParticleOrientationBasis
+        basis: SceneParticleOrientationBasis,
+        viewportSize: SIMD2<Float> = SIMD2(repeating: 1)
     ) {
         self.viewProjection = viewProjection
         self.layerModel = layerModel
         basisRight = SIMD4(basis.right.x, basis.right.y, basis.right.z, 0)
         basisUp = SIMD4(basis.up.x, basis.up.y, basis.up.z, 0)
+        self.viewportSize = viewportSize.x.isFinite && viewportSize.y.isFinite
+            && viewportSize.x > 0 && viewportSize.y > 0
+            ? viewportSize : SIMD2(repeating: 1)
     }
 }

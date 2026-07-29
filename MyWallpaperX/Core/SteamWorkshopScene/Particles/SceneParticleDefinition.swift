@@ -188,6 +188,13 @@ nonisolated struct SceneParticleRenderer: Equatable, Sendable {
     let maximumLength: Double?
     let segments: Int?
     let subdivision: Double?
+    let fadesAlpha: Bool?
+    let fadesSize: Bool?
+    let uvScale: Double?
+    let smoothsUV: Bool?
+    let scrollsUV: Bool?
+    let hasMalformedFields: Bool
+    let unsupportedFieldNames: [String]
 
     nonisolated var isWorldSpace: Bool { rawFlags & 1 != 0 }
 }

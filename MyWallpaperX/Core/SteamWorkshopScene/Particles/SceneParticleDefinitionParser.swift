@@ -1,4 +1,3 @@
-import CoreFoundation
 import Foundation
 
 nonisolated struct SceneParticleDefinitionParser {
@@ -30,14 +29,16 @@ nonisolated struct SceneParticleDefinitionParser {
         let operators = parseComponents(
             root["operator"], section: "operator", diagnostics: &diagnostics
         ) { parseOperator($0, diagnostics: &$1) }
+        let rendererWasImplicit = root["renderer"] == nil || (root["renderer"] as? [Any])?.isEmpty == true
         var renderers = parseComponents(
             root["renderer"], section: "renderer", diagnostics: &diagnostics
         ) { parseRenderer($0, diagnostics: &$1) }
-        let rendererWasImplicit = renderers.isEmpty
         if rendererWasImplicit {
             renderers = [.init(
                 id: nil, kind: .sprite, orientation: nil, axis: nil, rawFlags: 0,
-                length: nil, minimumLength: nil, maximumLength: nil, segments: nil, subdivision: nil
+                length: nil, minimumLength: nil, maximumLength: nil, segments: nil,
+                subdivision: nil, fadesAlpha: nil, fadesSize: nil,
+                uvScale: nil, smoothsUV: nil, scrollsUV: nil, hasMalformedFields: false, unsupportedFieldNames: []
             )]
         }
 
@@ -234,14 +235,50 @@ nonisolated struct SceneParticleDefinitionParser {
             kind = .unsupported(name)
             diagnostics.append(.init(kind: .unsupportedRenderer, path: "renderer", componentName: name))
         }
+        let hasMalformedFields = Self.hasMalformedRendererFields(root)
+        if hasMalformedFields {
+            diagnostics.append(.init(
+                kind: .malformedComponent, path: "renderer", componentName: name
+            ))
+        }
         return SceneParticleRenderer(
             id: Self.integer(root["id"]), kind: kind,
             orientation: Self.trimmed(root["orientation"] as? String)?.lowercased(),
             axis: Self.numericValue(root["axis"]), rawFlags: Self.integer(root["flags"]) ?? 0,
             length: Self.number(root["length"]), minimumLength: Self.number(root["minlength"]),
             maximumLength: Self.number(root["maxlength"]), segments: Self.integer(root["segments"]),
-            subdivision: Self.number(root["subdivision"])
+            subdivision: Self.number(root["subdivision"]),
+            fadesAlpha: Self.boolean(root["fadealpha"]),
+            fadesSize: Self.boolean(root["fadesize"]),
+            uvScale: Self.number(root["uvscale"]),
+            smoothsUV: Self.boolean(root["uvsmoothing"]),
+            scrollsUV: Self.boolean(root["uvscrolling"]),
+            hasMalformedFields: hasMalformedFields,
+            unsupportedFieldNames: Self.unsupportedRendererFieldNames(root)
         )
+    }
+
+    private nonisolated static func unsupportedRendererFieldNames(_ root: [String: Any]) -> [String] {
+        let supported = Set([
+            "id", "name", "orientation", "axis", "flags",
+            "length", "minlength", "maxlength", "segments", "subdivision",
+            "fadealpha", "fadesize", "uvscale", "uvsmoothing", "uvscrolling"
+        ])
+        return root.keys.filter { !supported.contains($0) }.sorted()
+    }
+
+    private nonisolated static func hasMalformedRendererFields(_ root: [String: Any]) -> Bool {
+        func authored(_ key: String) -> Bool {
+            root[key] != nil && !(root[key] is NSNull)
+        }
+        let scalarFields = ["length", "minlength", "maxlength", "subdivision", "uvscale"]
+        let integerFields = ["flags", "segments"]
+        let booleanFields = ["fadealpha", "fadesize", "uvsmoothing", "uvscrolling"]
+        return (authored("orientation") && trimmed(root["orientation"] as? String) == nil)
+            || (authored("axis") && numericValue(root["axis"]) == nil)
+            || scalarFields.contains { authored($0) && number(root[$0]) == nil }
+            || integerFields.contains { authored($0) && integer(root[$0]) == nil }
+            || booleanFields.contains { authored($0) && boolean(root[$0]) == nil }
     }
 
     private nonisolated func parseControlPoint(_ root: [String: Any]) -> SceneParticleControlPoint {
@@ -269,7 +306,11 @@ nonisolated struct SceneParticleDefinitionParser {
         diagnostics: inout [SceneParticleDiagnostic],
         transform: ([String: Any], inout [SceneParticleDiagnostic]) -> T
     ) -> [T] {
-        guard let values = rawValue as? [Any] else { return [] }
+        guard rawValue != nil else { return [] }
+        guard let values = rawValue as? [Any] else {
+            diagnostics.append(.init(kind: .malformedComponent, path: section, componentName: nil))
+            return []
+        }
         return values.enumerated().compactMap { index, value in
             guard let root = value as? [String: Any] else {
                 diagnostics.append(.init(
@@ -337,6 +378,11 @@ nonisolated struct SceneParticleDefinitionParser {
     private nonisolated static func integer(_ rawValue: Any?) -> Int? {
         guard let value = number(rawValue), value.isFinite else { return nil }
         return Int(exactly: value)
+    }
+
+    private nonisolated static func boolean(_ rawValue: Any?) -> Bool? {
+        guard let value = rawValue as? NSNumber else { return nil }
+        return CFGetTypeID(value) == CFBooleanGetTypeID() ? value.boolValue : nil
     }
 
     private nonisolated static func normalizedPath(_ rawValue: String?) -> String? {

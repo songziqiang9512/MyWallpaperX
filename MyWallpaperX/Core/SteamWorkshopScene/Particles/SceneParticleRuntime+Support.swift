@@ -31,22 +31,46 @@ extension SceneParticleRuntime {
         in definition: SceneParticleDefinition,
         layerID: Int,
         path: String
-    ) -> (renderer: SceneParticleRenderer, trail: SceneParticleTrailRenderPlan?)? {
-        var supported: (SceneParticleRenderer, SceneParticleTrailRenderPlan?)?
-        var sawSpriteRenderer = false
+    ) -> (
+        renderer: SceneParticleRenderer,
+        trail: SceneParticleTrailRenderPlan?,
+        ropeTrail: SceneParticleRopeTrailPlan?
+    )? {
+        let containsRopeTrail = definition.renderers.contains {
+            $0.kind == .ropeTrail
+        }
+        let malformedRendererCollection = definition.diagnostics.contains {
+            $0.kind == .malformedComponent && $0.path.hasPrefix("renderer[")
+        }
+        if containsRopeTrail,
+           definition.renderers.count != 1 || malformedRendererCollection {
+            addDiagnostic(
+                kind: .trailRendererUnsupported,
+                layerID: layerID,
+                path: path,
+                detail: "ropetrail:unsupportedProfile"
+            )
+            return nil
+        }
+        var supported: (
+            SceneParticleRenderer,
+            SceneParticleTrailRenderPlan?,
+            SceneParticleRopeTrailPlan?
+        )?
+        var sawKnownRenderer = false
         for renderer in definition.renderers {
             switch renderer.kind {
             case .sprite:
-                sawSpriteRenderer = true
-                if supported == nil { supported = (renderer, nil) }
+                sawKnownRenderer = true
+                if supported == nil { supported = (renderer, nil, nil) }
             case .spriteTrail:
-                sawSpriteRenderer = true
+                sawKnownRenderer = true
                 if let trail = SceneParticleTrailRenderPlan(
                     length: renderer.length,
                     minimumLength: renderer.minimumLength,
                     maximumLength: renderer.maximumLength
                 ) {
-                    if supported == nil { supported = (renderer, trail) }
+                    if supported == nil { supported = (renderer, trail, nil) }
                 } else {
                     addDiagnostic(
                         kind: .trailRendererUnsupported,
@@ -56,17 +80,48 @@ extension SceneParticleRuntime {
                     )
                 }
             case .rope:
+                sawKnownRenderer = true
                 addDiagnostic(kind: .ropeRendererUnsupported, layerID: layerID, path: path, detail: "rope")
             case .ropeTrail:
-                addDiagnostic(kind: .trailRendererUnsupported, layerID: layerID, path: path, detail: "ropetrail")
+                sawKnownRenderer = true
+                if let ropeTrail = SceneParticleRopeTrailPlan(
+                    renderer: renderer,
+                    rendererCount: definition.renderers.count,
+                    maximumParticleCount: definition.maximumCount ?? 1
+                ) {
+                    if supported == nil { supported = (renderer, nil, ropeTrail) }
+                } else {
+                    addDiagnostic(
+                        kind: .trailRendererUnsupported,
+                        layerID: layerID,
+                        path: path,
+                        detail: "ropetrail:unsupportedProfile"
+                    )
+                }
             case let .unsupported(name):
                 addDiagnostic(kind: .missingSpriteRenderer, layerID: layerID, path: path, detail: name)
             }
         }
-        if supported == nil && !sawSpriteRenderer {
+        if supported == nil && !sawKnownRenderer {
             addDiagnostic(kind: .missingSpriteRenderer, layerID: layerID, path: path)
         }
         return supported
+    }
+
+    func supportsRopeTrailTexture(
+        plan: SceneParticleRopeTrailPlan?,
+        animation: SceneSpriteAnimation?,
+        layerID: Int,
+        path: String
+    ) -> Bool {
+        guard plan != nil, animation != nil else { return true }
+        addDiagnostic(
+            kind: .trailRendererUnsupported,
+            layerID: layerID,
+            path: path,
+            detail: "ropetrail:animatedTexture"
+        )
+        return false
     }
 
     func appendSimulationDiagnostics(
@@ -124,5 +179,53 @@ extension SceneParticleRuntime {
         case let .decodeFailed(value): "decodeFailed:\(value)"
         case let .textureAllocationFailed(width, height): "textureAllocationFailed:\(width)x\(height)"
         }
+    }
+}
+
+extension SceneParticleRopeTrailParticle {
+    nonisolated init(state: SceneParticleState) {
+        id = state.id
+        position = SIMD3(
+            Float(state.position.x),
+            Float(state.position.y),
+            Float(state.position.z)
+        )
+        size = Float(state.size)
+        color = SIMD3(
+            Float(state.color.x),
+            Float(state.color.y),
+            Float(state.color.z)
+        )
+        alpha = Float(state.alpha)
+    }
+}
+
+extension SceneParticleRopeTrailHistory {
+    mutating func advance(
+        snapshots: [SceneParticleStepSnapshot],
+        currentParticles: [SceneParticleState],
+        layerAlpha: Float
+    ) -> [SceneParticleGPUInstance] {
+        for snapshot in snapshots {
+            ingest(
+                by: snapshot.duration,
+                particles: snapshot.particles.map(SceneParticleRopeTrailParticle.init)
+            )
+        }
+        return advance(
+            by: 0,
+            particles: currentParticles.map(SceneParticleRopeTrailParticle.init(state:)),
+            layerAlpha: layerAlpha
+        )
+    }
+}
+
+extension SceneParticleRopeTrailParticle {
+    nonisolated init(_ value: SceneParticleStepParticle) {
+        id = value.id
+        position = value.position
+        size = value.size
+        color = value.color
+        alpha = value.alpha
     }
 }

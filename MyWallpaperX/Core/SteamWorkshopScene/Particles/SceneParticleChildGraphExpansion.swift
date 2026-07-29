@@ -315,8 +315,8 @@ extension SceneParticleChildTemplate {
             alpha: Float(particle.alpha) * layerAlpha,
             velocity: particle.velocity.particleFloatValue,
             trailStretch: trail?.stretch(for: particle.velocity),
-            currentFrame: frames.current,
-            nextFrame: frames.next,
+            currentFrame: frames.current.orientedForTrail(trail != nil),
+            nextFrame: frames.next?.orientedForTrail(trail != nil),
             frameMix: frames.mix
         )
     }
