@@ -1,6 +1,6 @@
 # SceneScript API 覆盖表（官方声明 v2.8）
 
-> 核验日期：2026-07-23
+> 核验日期：2026-07-29
 >
 > 官方基线：`lib.sceneScript.d.ts` **VERSION 2.8**，固定文档 revision `b26412295cbfd0ee5cdceff67e2c95069527aa1b`。
 >
@@ -10,9 +10,11 @@
 
 ## 1. 当前结论与评级口径
 
-SceneScript 当前仍是 **L0 runtime**。项目只能发现独立 `.js` 文件和 inline `script` 的存在；inline 内容进入 `SceneDocument` 时被压缩为 `hasInlineScript: Bool`，粒子动态 wrapper 也只保留 `hasScript: Bool`。目前没有可执行源码 IR、property-script 绑定 IR、ECMAScript VM、host object bridge、事件队列、timer scheduler 或脚本输出消费者。
+通用 SceneScript 当前仍是 **L0 runtime**。项目没有 ECMAScript VM、通用 property-script binding IR、host object bridge、事件队列、timer scheduler 或任意脚本输出消费者。独立 `.js`、非文字 inline script 和粒子动态 wrapper 仍只保留 presence；文字层现在额外保真保存 inline source 与 `scriptproperties`，但只交给下述三个 exact native profile，不能作为通用 JavaScript 执行证据。
 
-`SceneDynamicSnapshot` 已预留 `.sceneScript` 优先级和 `scriptInstanceProperty` target；v22 已把 host-shared inputs、per-surface evaluation/final snapshot、binding program、transaction 与 generation 用在 layer alpha、纯 solid color、direct text、exact Local Contrast/Opacity 和受限 X-Ray target。项目仍没有 SceneScript source IR、producer、VM、API bridge、instance state 或输出 consumer，因此这些都不是 SceneScript 执行证据。`2938612768:[165,454,626,629,924]` 的 Opacity 值来自 SceneScript，当前 strict planner 必须拒绝；只有 `2902406982:[365,372,647,664]` 的 direct binding 是正门。粗粒度总表中的 “Script presence L1” 只表示发现能力，本表对每一项 **API 行为** 均给单值 `L0`。
+`8740737` 新增一个与 VM 分离的 **L3 bounded native text profile**：按 raw source SHA-256 和完整 property key/type/range 同时准入 Workshop `2981960200` 的 clock、spaced-day、date 三个已独立复核格式器；每帧从 `SceneFrameContext.wallDate` 产生 string，按 `authored -> user -> Timeline -> SceneScript` 写入 per-surface snapshot，再复用 dynamic text generation/纹理 consumer。六个未修改真实样本的 16 个有效可见绑定执行，未知 source、增删/变异 property 均保留作者 fallback 并报告诊断。它不是 JavaScript 解释器，不开放 `Date`、`engine`、lifecycle、handle、event、module 或任一官方 API；因此本表的通用 SceneScript 和逐 API 行仍保持 `L0`。
+
+`2938612768:[165,454,626,629,924]` 的 Opacity 值来自未支持 SceneScript，当前 strict planner 仍必须拒绝；只有 `2902406982:[365,372,647,664]` 的 direct binding 是正门。粗粒度总表中的 “Script presence L1” 只表示发现能力，exact native text profile 的证据与边界见 [E-TEXT-SCRIPT](runtime-evidence-index.md#e-text-script)。
 
 等级沿用总覆盖台账：
 
@@ -29,11 +31,11 @@ SceneScript 当前仍是 **L0 runtime**。项目只能发现独立 `.js` 文件�
 | 代号 | 代码/测试证据 | 能证明什么 | 不能证明什么 |
 |---|---|---|---|
 | `P` | [`SceneResourceIndex.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneResourceIndex.swift)、[`SceneCapabilityProfile.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneCapabilityProfile.swift) | `.js` 分类和 package-level presence | 源码读取、模块加载、执行 |
-| `I` | [`SceneDocument.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift)、[`SceneRenderDescriptor.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneRenderDescriptor.swift) | 递归发现 inline `script`，只传递布尔值 | 源码、绑定 property、导出事件、返回类型 |
+| `I` | [`SceneDocument.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift)、[`SceneRenderDescriptor.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneRenderDescriptor.swift)、[`SceneTextScriptDefinition.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextScriptDefinition.swift) | 文字层保真 inline source/`scriptproperties`；其他对象递归发现 presence | 通用 binding owner/target、模块、导出事件、返回类型 |
 | `W` | [`SceneParticleDefinitionParser.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleDefinitionParser.swift)、[`test_scene_particle_definitions.py`](../../../script/tests/test_scene_particle_definitions.py) | 动态 wrapper 的 `hasScript` presence 可诊断 | wrapper script 的源码或求值 |
-| `D` | [`SceneDynamicSnapshot.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneDynamicSnapshot.swift)、[`test_scene_dynamic_snapshot.py`](../../../script/tests/test_scene_dynamic_snapshot.py) | typed target、固定优先级和手工注入的 `.sceneScript` 值 | JavaScript、SceneScript source/property binding compiler、API bridge |
-| `F` | [`SceneFrameContext.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneFrameContext.swift)、[`SceneDesktopWallpaperHost.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift)、[`test_scene_frame_context.py`](../../../script/tests/test_scene_frame_context.py) | 同帧时间、host-shared inputs 与 per-surface evaluation/snapshot 基础设施 | SceneScript producer、脚本实例、事件、Date/timer、输出提交 |
-| `N` | 全仓 `SceneScript`/VM/API 搜索及现有 Scene 测试 | 没有 VM、handle bridge 或任一官方 API 执行测试 | 不能把其他 Swift renderer 的同名能力算成脚本 API |
+| `D` | [`SceneDynamicSnapshot.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneDynamicSnapshot.swift)、[`SceneTextScriptCompiler.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextScriptCompiler.swift)、[`test_scene_text_script_runtime.py`](../../../script/tests/test_scene_text_script_runtime.py) | typed target、固定优先级与三个 exact native text profile 的 `.sceneScript` 值 | JavaScript、通用 source/property binding compiler、API bridge |
+| `F` | [`SceneFrameContext.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneFrameContext.swift)、[`SceneTextScriptRuntime.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextScriptRuntime.swift)、[`SceneDesktopWallpaperHost+FrameDriver.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift) | 同帧 wall date、per-surface evaluation/snapshot 与 exact text 输出提交 | 脚本实例、事件、官方 `Date`/timer API、任意 JS |
+| `N` | 全仓 `SceneScript`/VM/API 搜索及现有 Scene 测试 | 没有 VM、handle bridge 或任一官方 API 执行测试；exact native formatter 不冒充 API | 不能把其他 Swift renderer 的同名能力算成脚本 API |
 
 ## 2. 执行模型与求值顺序（官方合同，2026-07-25 补充）
 
@@ -330,7 +332,7 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 
 SceneScript 不能从“嵌一个 JS VM”开始后直接调用 renderer。最小正确顺序是：
 
-1. **Source/Binding IR**：保真保存 inline/file source、owner、property target、value type、module dependency；presence 不再只是 Bool。
+1. **Source/Binding IR**：保真保存 inline/file source、owner、property target、value type、module dependency；目前只有文字层 inline source/`scriptproperties` 的 bounded IR，其他对象仍多为 presence。
 2. **受控 VM core**：严格 global allowlist、module loader、Date/Math、预算、异常和日志隔离。
 3. **Lifecycle core**：`init/update/destroy/resizeScreen`，每屏实例，与 `SceneFrameContext` 同帧。
 4. **Per-surface evaluation transaction**：host 先捕获共享 time/property/audio/media，surface 再加入 viewport/pointer/matrix/provider；脚本返回和直接 setter 进入该 surface 的 mutation buffer，校验后原子提交 immutable snapshot。优先级保持 `authored -> user -> Timeline -> SceneScript`。
@@ -347,7 +349,7 @@ SceneScript core 至少满足以下门后，相关行才可从 `L0` 升级：
 - typed return、无返回、错类型、NaN/Inf、throw、死循环均有正反测试，单脚本失败不影响 renderer；
 - 用户属性、cursor、audio、media 事件使用 generation/order 合同，旧事件和旧资源不得覆盖新状态；
 - 默认关闭的 effect/parallax/particle 仍保持关闭，脚本只修改作者明确绑定或显式访问的目标；
-- 至少用动态时钟文字、用户属性文字、cursor 局部坐标、受控音频 bins、media metadata 各一组隔离 fixture 验证；
+- 至少用通用 VM 执行的动态时钟文字、用户属性文字、cursor 局部坐标、受控音频 bins、media metadata 各一组隔离 fixture 验证；现有 exact native clock/date profile 不替代此门；
 - `L3` 还要求签名 App 真实运行、相关隔离样本正反例与 stop 生命周期；`L4` 需要相同输入下的 Windows Wallpaper Engine golden。
 
 ## 14. 更新规则
