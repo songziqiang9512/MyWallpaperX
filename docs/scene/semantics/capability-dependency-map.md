@@ -102,8 +102,8 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| provider identity/status/generation/fallback | layer/named/property 子集 `L3`；静态 resource generation 与 named frame epoch 已分离；direct text/embedded MP4 以显式 content generation publication 进入 frame registry并拒绝 stale/mismatched publication；Water Flow 2 槽、Standard Blur 1 槽、plain base image 与 bounded REFRACT normal 的静态 candidate 已原子携带 generation/metadata；Shake 1/2/3、Foliage Sway 1/2、Water Ripple 1/2 七个 bounded 槽进一步消费共享 slot-binding atom | system/media/variant、通用异步取消、nested/effectful/child producer |
-| candidate selection | 受限 static image blend；Particle slot 0 先取样本本地资源，再按官方相对路径直接取 stock bundle TEX；既有 candidate 携带 purpose、actual physical/mapped、UV、sampler、pixel format，authored `0...7` binding carrier 再原子携带 index、identity/generation、mip/resolution/texel。当前只拆给三个 bounded backend 的七槽 | authored 索引载体已覆盖 `0...7`，但其余 Effect 与 generic material 的 slot population/provider readiness、annotation/combo/state、dynamic generation 仍未开放；effectful base、stock placeholder 的尺寸/通道/mip/atlas metadata；pending/unavailable 不截断 authored fallback |
+| provider identity/status/generation/fallback | layer/named/property 子集 `L3`；静态 resource generation 与 named frame epoch 已分离；direct text/embedded MP4 以显式 content generation publication 进入 frame registry并拒绝 stale/mismatched publication；Water Flow 2 槽、Standard Blur 1 槽、plain base image 与 bounded REFRACT normal 的静态 candidate 已原子携带 generation/metadata；Shake 1/2/3、Foliage Sway 1/2、Water Ripple 1/2 与 exact legacy Blend 1 共八个 bounded 槽进一步消费共享 slot-binding atom，Blend 的 PNG/JPEG property 与 authored TEX 使用同一 typed candidate 合同 | system/media/variant、通用异步取消、nested/effectful/child producer |
+| candidate selection | 受限 static image blend；Particle slot 0 先取样本本地资源，再按官方相对路径直接取 stock bundle TEX；既有 candidate 携带 purpose、actual physical/mapped、UV、sampler、pixel format，authored `0...7` binding carrier 再原子携带 index、identity/generation、mip/resolution/texel。exact legacy Blend slot 1 按 authored asset -> property 的低到高顺序选择最终 ready candidate；property 缺失不截断 authored fallback，已选 candidate 若 purpose/format/UV/sampler 不合合同则在 GPU 拆分前失败关闭。当前拆给四个 bounded backend 的八槽 | authored 索引载体已覆盖 `0...7`，但其余 Effect 与 generic material 的 slot population/provider readiness、annotation/combo/state、dynamic generation 仍未开放；effectful base、stock placeholder 的尺寸/通道/mip/atlas metadata |
 | upload/cancel/teardown | PNG/JPEG property 子集；embedded video 有按帧 publication、pause/rebuild/stop 状态合同和临时文件清理 | thumbnail、异步 decode 取消、device loss/rebuild、budget 与真实 lifecycle 门 |
 
 <a id="d6"></a>
@@ -131,7 +131,7 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 |---|---|---|
 | canvas/view/world/layer/effect/particle/control-point spaces | 2D 子集 | parent/rotation/scale/parallax inverse、mapped UV、3D handedness |
 | cover/crop/extent/aspect | cover 子集 `L3` | 多比例、多屏、Retina、oversized image 和 Windows golden |
-| mask/flow/normal/local region | effect-specific 子集；exact Shake 已消费 RG8 flow、可选 R8 phase/white fallback 与映射 UV；Water Flow flow、Standard Blur mask 与 bounded REFRACT normal 已从 typed candidate 消费 axis-aligned mapped UV，Water Flow phase 与 plain base 仍只接受 identity | 不得降成整层 transform；其余槽位、phase transform、Shake MASK1/direction/noise、sprite rotation、每种坐标和 sampler 独立验证 |
+| mask/flow/normal/local region | effect-specific 子集；exact Shake 已消费 RG8 flow、可选 R8 phase/white fallback 与映射 UV；Water Flow flow、Standard Blur mask、bounded REFRACT normal 与 exact legacy Blend overlay 已从 typed candidate 消费 axis-aligned mapped UV。Blend 同时消费作者 filter/address sampler，repeatWrap 不再被 shader 预先 clamp；Water Flow phase 与 plain base 仍只接受 identity | 不得降成整层 transform；其余槽位、phase transform、Shake MASK1/direction/noise、sprite rotation、clamp-border、每种坐标和 sampler 独立验证 |
 
 ## 3. 消费层
 
