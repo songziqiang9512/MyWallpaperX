@@ -32,6 +32,7 @@ nonisolated struct SceneResolvedMaterialNode {
         let depthTest: String?
         let depthWrite: String?
         let cullMode: String?
+        let alphaWriting: String?
     }
 
     let nodeIndex: Int
@@ -112,7 +113,8 @@ enum SceneAuthoredMaterialResolver {
                 blending: material.blending,
                 depthTest: material.depthTest,
                 depthWrite: material.depthWrite,
-                cullMode: material.cullMode
+                cullMode: material.cullMode,
+                alphaWriting: material.alphaWriting
             )
         )
         return .init(node: issues.isEmpty ? resolved : nil, issues: issues)

@@ -181,6 +181,9 @@ enum SceneParticleChildGraphExpansion {
         guard let asset = graph.assetsByPath[path] else {
             return .rejected("\(path):missingAsset")
         }
+        guard let blendMode = asset.blendMode else {
+            return .rejected("\(path):unsupportedRenderState")
+        }
         if depth >= maximumDepth, !asset.definition.children.isEmpty {
             return .rejected("\(path):nestedDepthUnsupported")
         }
@@ -258,7 +261,7 @@ enum SceneParticleChildGraphExpansion {
                 colorUVScale: colorUVScale,
                 colorSampling: colorSampling,
                 refraction: refraction,
-                blendMode: asset.blendMode == .additive ? .additive : .translucent,
+                blendMode: blendMode == .additive ? .additive : .translucent,
                 spriteAnimation: animation,
                 orientation: SceneParticleOrientation(
                     authoredValue: render.renderer.orientation,

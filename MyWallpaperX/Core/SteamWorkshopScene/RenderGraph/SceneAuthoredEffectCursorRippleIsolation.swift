@@ -63,7 +63,8 @@ private extension SceneCursorRippleExecutionPlan {
             decay: decay,
             speed: speed,
             strength: strength,
-            maskTexturePath: maskTexturePath
+            maskTexturePath: maskTexturePath,
+            renderStates: renderStates
         )
     }
 }

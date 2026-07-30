@@ -36,12 +36,11 @@ nonisolated enum SceneAuthoredShaderExecutionPlanner {
         )
         guard resolution.isResolved,
               let material = resolution.node,
-              validMaterial(material),
+              let renderState = compiledRenderState(for: material),
               let materialDescriptor = descriptor.materialPasses.first(where: {
                   $0.id == node.materialPassID
               }),
               materialDescriptor.userShaderValues.isEmpty,
-              materialDescriptor.alphaWriting == nil,
               let contract = matchingContract(
                   material.shaderPath,
                   shaderContracts: shaderContracts
@@ -70,6 +69,7 @@ nonisolated enum SceneAuthoredShaderExecutionPlanner {
         return Plan(
             cacheKey: contract.canonicalSHA256,
             program: program,
+            renderState: renderState,
             mappedSize: mappedSize,
             framebufferTextureSlots: framebufferSlots,
             uniformBindings: uniformBindings
@@ -99,13 +99,24 @@ nonisolated enum SceneAuthoredShaderExecutionPlanner {
             && node.bindings.isEmpty
     }
 
-    private static func validMaterial(_ material: SceneResolvedMaterialNode) -> Bool {
-        material.textureSlots.allSatisfy { $0 == nil }
-            && material.combos.isEmpty
-            && normalized(material.renderState.blending) == "normal"
-            && normalized(material.renderState.depthTest) == "disabled"
-            && normalized(material.renderState.depthWrite) == "disabled"
-            && normalized(material.renderState.cullMode) == "nocull"
+    private static func compiledRenderState(
+        for material: SceneResolvedMaterialNode
+    ) -> SceneMaterialRenderState? {
+        guard material.textureSlots.allSatisfy { $0 == nil },
+              material.combos.isEmpty,
+              let renderState = SceneMaterialRenderState.compile(
+                  blending: material.renderState.blending,
+                  depthTest: material.renderState.depthTest,
+                  depthWrite: material.renderState.depthWrite,
+                  cullMode: material.renderState.cullMode,
+                  alphaWriting: material.renderState.alphaWriting
+              ),
+              renderState.matchesFullscreenOverwrite(
+                  alphaWriting: .unspecified
+              ) else {
+            return nil
+        }
+        return renderState
     }
 
     private static func matchingContract(

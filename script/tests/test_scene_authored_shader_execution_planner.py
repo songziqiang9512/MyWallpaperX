@@ -24,6 +24,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
+    SCENE_ROOT / "RenderGraph/SceneMaterialRenderState.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderContractLoader.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontendModel.swift",
@@ -131,7 +132,7 @@ enum Harness {
         var combo = false
         var userBinding = false
         var userShaderValue = false
-        var alphaWriting = false
+        var alphaWriting: String?
         var blending = "normal"
     }
 
@@ -177,7 +178,7 @@ enum Harness {
             depthTest: "disabled",
             depthWrite: "disabled",
             cullMode: "nocull",
-            alphaWriting: options.alphaWriting ? "enabled" : nil
+            alphaWriting: options.alphaWriting
         )
         return .init(
             layers: [.init(
@@ -381,6 +382,7 @@ enum Harness {
         let invalid = SceneAuthoredShaderExecutionPlan(
             cacheKey: plan.cacheKey,
             program: invalidProgram,
+            renderState: plan.renderState,
             mappedSize: plan.mappedSize,
             framebufferTextureSlots: plan.framebufferTextureSlots,
             uniformBindings: plan.uniformBindings
@@ -433,6 +435,7 @@ enum Harness {
                 textureBindings: original.textureBindings,
                 staticLoopWork: original.staticLoopWork
             ),
+            renderState: plan.renderState,
             mappedSize: plan.mappedSize,
             framebufferTextureSlots: plan.framebufferTextureSlots,
             uniformBindings: plan.uniformBindings
@@ -449,6 +452,39 @@ enum Harness {
             && cache.compilationAttemptCount == 1
     }
 
+    static func unsupportedStateDoesNotAlias(
+        _ plan: SceneAuthoredShaderExecutionPlan,
+        device: MTLDevice
+    ) -> Bool {
+        guard let unsupportedState = SceneMaterialRenderState.compile(
+                  blending: "additive",
+                  depthTest: "disabled",
+                  depthWrite: "disabled",
+                  cullMode: "nocull",
+                  alphaWriting: nil
+              ),
+              let cache = SceneAuthoredShaderPipelineCache(device: device),
+              let supported = cache.pipeline(for: plan) else {
+            return false
+        }
+        let unsupported = SceneAuthoredShaderExecutionPlan(
+            cacheKey: plan.cacheKey,
+            program: plan.program,
+            renderState: unsupportedState,
+            mappedSize: plan.mappedSize,
+            framebufferTextureSlots: plan.framebufferTextureSlots,
+            uniformBindings: plan.uniformBindings
+        )
+        guard cache.pipeline(for: unsupported) == nil,
+              let repeated = cache.pipeline(for: plan) else {
+            return false
+        }
+        return ObjectIdentifier(repeated.state) == ObjectIdentifier(supported.state)
+            && cache.entryCount == 2
+            && cache.failedEntryCount == 1
+            && cache.compilationAttemptCount == 2
+    }
+
     static func main() throws {
         let realRoot = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let syntheticRoot = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
@@ -459,13 +495,17 @@ enum Harness {
         var combo = Options(); combo.combo = true
         var bound = Options(); bound.userBinding = true
         var userShader = Options(); userShader.userShaderValue = true
-        var alphaWriting = Options(); alphaWriting.alphaWriting = true
+        var alphaWriting = Options(); alphaWriting.alphaWriting = "enabled"
+        var alphaWritingDefault = Options(); alphaWritingDefault.alphaWriting = "default"
+        var alphaWritingUnknown = Options(); alphaWritingUnknown.alphaWriting = "unknown"
         var blending = Options(); blending.blending = "additive"
+        var translucent = Options(); translucent.blending = "translucent"
         var missingSize = Options(); missingSize.size = nil
         var video = Options(); video.contentKind = "video"
 
         let rejectedOptions = [
-            external, combo, bound, userShader, alphaWriting, blending, missingSize, video,
+            external, combo, bound, userShader, alphaWriting, alphaWritingDefault,
+            alphaWritingUnknown, blending, translucent, missingSize, video,
         ]
         let device = MTLCreateSystemDefaultDevice()
         let genericPixels = generic.flatMap { plan in
@@ -484,6 +524,10 @@ enum Harness {
                     && $0.uniformBindings.contains { $0.field.name == "g_Frametime" }
                     && $0.uniformBindings.contains { $0.field.name == "g_PointerPositionLast" }
                     && $0.uniformBindings.contains { $0.field.name == "g_Screen" }
+                    && $0.renderState.matchesFullscreenOverwrite(
+                        alphaWriting: .unspecified
+                    )
+                    && $0.renderState.rawValues.alphaWriting == nil
             } ?? false,
             "realAccepted": real != nil,
             "realContractPreserved": real.map {
@@ -529,6 +573,10 @@ enum Harness {
             "concurrentFailureSingleAttempt": generic.map {
                 guard let device else { return false }
                 return concurrentFailureIsSingleAttempt($0, device: device)
+            } ?? false,
+            "unsupportedStateDoesNotAlias": generic.map {
+                guard let device else { return false }
+                return unsupportedStateDoesNotAlias($0, device: device)
             } ?? false,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])

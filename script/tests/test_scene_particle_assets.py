@@ -12,6 +12,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
+    SOURCE_ROOT / "RenderGraph/SceneMaterialRenderState.swift",
     SOURCE_ROOT / "Resources/SceneTextureSampling.swift",
     SOURCE_ROOT / "Resources/SceneResourceIndex.swift",
     SOURCE_ROOT / "Resources/SceneResourceView.swift",
@@ -79,6 +80,14 @@ enum Harness {
             "material": "materials/particle/refract.json",
             "emitter": [["name": "sphereRandom"]]
         ], relativePath: "particles/refract.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/unknown-blend.json",
+            "emitter": [["name": "sphereRandom"]]
+        ], relativePath: "particles/unknown-blend.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/unsupported-state.json",
+            "emitter": [["name": "sphereRandom"]]
+        ], relativePath: "particles/unsupported-state.json", under: directory)
         try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/root.tex", under: directory)
         try write(Data([0x89, 0x50, 0x4e, 0x47]), relativePath: "materials/particle/child.png", under: directory)
         try writeJSON(["passes": []], relativePath: "materials/particle/halo.json", under: directory)
@@ -122,6 +131,19 @@ enum Harness {
                 texturePaths: ["particle/refract-blank", "particle/refract-normal"],
                 blending: "translucent",
                 combos: ["REFRACT": 1]
+            ),
+            SceneParticleMaterialPass(
+                materialPath: "materials/particle/unknown-blend.json",
+                shaderPath: "shaders/genericparticle.json",
+                texturePaths: ["particle/root"],
+                blending: "multiply"
+            ),
+            SceneParticleMaterialPass(
+                materialPath: "materials/particle/unsupported-state.json",
+                shaderPath: "shaders/genericparticle.json",
+                texturePaths: ["particle/root"],
+                blending: "additive",
+                alphaWriting: "enabled"
             )
         ]
         let resourceView = SceneResourceView(
@@ -137,6 +159,8 @@ enum Harness {
                 "particles/builtin-texture.json",
                 "particles/drop-texture.json",
                 "particles/refract.json",
+                "particles/unknown-blend.json",
+                "particles/unsupported-state.json",
                 "particles/missing-definition.json"
             ],
             materialPasses: passes,
@@ -147,6 +171,8 @@ enum Harness {
         let halo = graph.assetsByPath["particles/builtin-texture.json"]
         let drop = graph.assetsByPath["particles/drop-texture.json"]
         let refract = graph.assetsByPath["particles/refract.json"]
+        let unknownBlend = graph.assetsByPath["particles/unknown-blend.json"]
+        let unsupportedState = graph.assetsByPath["particles/unsupported-state.json"]
         try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/drop.tex", under: directory)
         let localDropGraph = SceneParticleAssetGraphLoader().load(
             rootPaths: ["particles/drop-texture.json"],
@@ -160,8 +186,8 @@ enum Harness {
             "assetCount": graph.assetsByPath.count,
             "rootPaths": graph.rootPaths,
             "rootChildren": root?.childPaths ?? [],
-            "rootBlend": root?.blendMode.rawValue ?? "",
-            "childBlend": child?.blendMode.rawValue ?? "",
+            "rootBlend": root?.blendMode?.rawValue ?? "",
+            "childBlend": child?.blendMode?.rawValue ?? "",
             "rootTexture": fileURL(root?.textureSource)?.lastPathComponent ?? "",
             "childTexture": fileURL(child?.textureSource)?.lastPathComponent ?? "",
             "rootTextureExists": fileURL(root?.textureSource).map {
@@ -176,6 +202,10 @@ enum Harness {
             "refractHasTextureSource": refract?.textureSource != nil,
             "refractHasPlan": refract?.refraction != nil,
             "refractDefaultAmount": refract?.refraction?.amount ?? -1,
+            "unknownBlendRejected": unknownBlend?.blendMode == nil,
+            "unknownBlendStateRejected": unknownBlend?.renderState == nil,
+            "unsupportedStateRejected": unsupportedState?.blendMode == nil
+                && unsupportedState?.renderState == nil,
             "unknownEnabledComboRejected": SceneParticleRefractionPlanner.plan(
                 for: SceneParticleMaterialPass(
                     materialPath: "materials/particle/refract.json",
@@ -277,7 +307,8 @@ enum Harness {
             }
             reachableAssetCount += graph.assetsByPath.count
             for asset in graph.assetsByPath.values {
-                blendCounts[asset.blendMode.rawValue, default: 0] += 1
+                guard let blendMode = asset.blendMode else { continue }
+                blendCounts[blendMode.rawValue, default: 0] += 1
             }
             for diagnostic in graph.diagnostics {
                 diagnosticCounts[diagnostic.kind.rawValue, default: 0] += 1
@@ -496,7 +527,7 @@ class SceneParticleAssetTests(unittest.TestCase):
 
     def test_synthetic_asset_graph(self) -> None:
         result = self.run_harness("synthetic")
-        self.assertEqual(result["assetCount"], 7)
+        self.assertEqual(result["assetCount"], 9)
         self.assertEqual(
             result["rootPaths"],
             [
@@ -506,6 +537,8 @@ class SceneParticleAssetTests(unittest.TestCase):
                 "particles/builtin-texture.json",
                 "particles/drop-texture.json",
                 "particles/refract.json",
+                "particles/unknown-blend.json",
+                "particles/unsupported-state.json",
                 "particles/missing-definition.json",
             ],
         )
@@ -522,6 +555,9 @@ class SceneParticleAssetTests(unittest.TestCase):
         self.assertTrue(result["refractHasTextureSource"])
         self.assertTrue(result["refractHasPlan"])
         self.assertAlmostEqual(result["refractDefaultAmount"], 0.05, places=6)
+        self.assertTrue(result["unknownBlendRejected"])
+        self.assertTrue(result["unknownBlendStateRejected"])
+        self.assertTrue(result["unsupportedStateRejected"])
         self.assertTrue(result["unknownEnabledComboRejected"])
         self.assertEqual(
             result["diagnostics"],
@@ -531,6 +567,8 @@ class SceneParticleAssetTests(unittest.TestCase):
                 "missingMaterial": 1,
                 "missingTextureFile": 1,
                 "missingTextureReference": 1,
+                "unsupportedBlendMode": 1,
+                "unsupportedRenderState": 1,
             },
         )
 

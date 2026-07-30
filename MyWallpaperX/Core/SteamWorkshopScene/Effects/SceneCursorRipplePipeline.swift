@@ -181,21 +181,28 @@ struct SceneCursorRipplePipeline {
     private let deviceRegistryID: UInt64
 
     init?(device: MTLDevice) {
+        let renderStates = SceneCursorRippleExecutionPlan.RenderStates.supported
         guard let library = try? device.makeLibrary(
             source: sceneCursorRippleShaderSource,
             options: MTLCompileOptions()
         ), let vertex = library.makeFunction(name: "sceneCursorRippleVert"),
            let applyState = Self.makeState(
                device: device, library: library, vertex: vertex,
-               fragment: "sceneCursorRippleApplyFrag", format: .rgba8Unorm
+               fragment: "sceneCursorRippleApplyFrag", format: .rgba8Unorm,
+               renderState: renderStates.applyForce,
+               alphaWriting: .enabled
            ),
            let simulateState = Self.makeState(
                device: device, library: library, vertex: vertex,
-               fragment: "sceneCursorRippleSimulateFrag", format: .rgba8Unorm
+               fragment: "sceneCursorRippleSimulateFrag", format: .rgba8Unorm,
+               renderState: renderStates.simulateForce,
+               alphaWriting: .enabled
            ),
            let combineState = Self.makeState(
                device: device, library: library, vertex: vertex,
-               fragment: "sceneCursorRippleCombineFrag", format: .bgra8Unorm
+               fragment: "sceneCursorRippleCombineFrag", format: .bgra8Unorm,
+               renderState: renderStates.combine,
+               alphaWriting: .unspecified
            ) else {
             return nil
         }
@@ -278,7 +285,8 @@ struct SceneCursorRipplePipeline {
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
         let textures = [history, intermediate, source, output]
-        guard [256, 512].contains(plan.simulationResolution),
+        guard plan.renderStates.matchesSupportedTuple,
+              [256, 512].contains(plan.simulationResolution),
               (0...2).contains(plan.rippleScale),
               (0...1).contains(plan.decay),
               (0...1).contains(plan.speed),
@@ -328,6 +336,7 @@ struct SceneCursorRipplePipeline {
             return false
         }
         encoder.setRenderPipelineState(state)
+        encoder.setCullMode(.none)
         for (index, texture) in textures.enumerated() {
             encoder.setFragmentTexture(texture, index: index)
         }
@@ -344,13 +353,21 @@ struct SceneCursorRipplePipeline {
         library: MTLLibrary,
         vertex: MTLFunction,
         fragment name: String,
-        format: MTLPixelFormat
+        format: MTLPixelFormat,
+        renderState: SceneMaterialRenderState,
+        alphaWriting: SceneMaterialRenderState.AlphaWriting
     ) -> MTLRenderPipelineState? {
-        guard let fragment = library.makeFunction(name: name) else { return nil }
+        guard renderState.matchesFullscreenOverwrite(alphaWriting: alphaWriting),
+              let fragment = library.makeFunction(name: name) else {
+            return nil
+        }
         let descriptor = MTLRenderPipelineDescriptor()
         descriptor.vertexFunction = vertex
         descriptor.fragmentFunction = fragment
-        descriptor.colorAttachments[0].pixelFormat = format
+        let attachment = descriptor.colorAttachments[0]!
+        attachment.pixelFormat = format
+        attachment.isBlendingEnabled = false
+        attachment.writeMask = .all
         return try? device.makeRenderPipelineState(descriptor: descriptor)
     }
 }

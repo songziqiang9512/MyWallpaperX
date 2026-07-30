@@ -20,7 +20,15 @@ nonisolated enum SceneParticleRefractionPlanner {
     }
 
     static func plan(for pass: SceneParticleMaterialPass) -> Plan? {
-        guard pass.passIndex == 0,
+        guard let renderState = SceneMaterialRenderState.compile(
+                  blending: pass.blending,
+                  depthTest: pass.depthTest,
+                  depthWrite: pass.depthWrite,
+                  cullMode: pass.cullMode,
+                  alphaWriting: pass.alphaWriting,
+                  missingBlending: .translucent
+              ),
+              pass.passIndex == 0,
               pass.combos["REFRACT"] == 1,
               pass.combos.allSatisfy({
                   $0.key == "REFRACT"
@@ -33,17 +41,11 @@ nonisolated enum SceneParticleRefractionPlanner {
               !normal.isEmpty,
               !pass.hasUserTextureInputs,
               !pass.hasUserShaderValues,
-              pass.depthTest?.localizedLowercase == "disabled",
-              pass.depthWrite?.localizedLowercase == "disabled",
-              pass.cullMode?.localizedLowercase == "nocull",
-              pass.alphaWriting == nil
-                  || pass.alphaWriting?.localizedLowercase == "default",
-              pass.blending == nil
-                  || ["", "translucent", "additive"].contains(
-                      pass.blending?
-                          .trimmingCharacters(in: .whitespacesAndNewlines)
-                          .localizedLowercase ?? ""
-                  ) else {
+              renderState.depthTest == .disabled,
+              renderState.depthWrite == .disabled,
+              renderState.cullMode == .noCull,
+              [.unspecified, .default].contains(renderState.alphaWriting),
+              [.translucent, .additive].contains(renderState.blending) else {
             return nil
         }
 

@@ -11,6 +11,7 @@ enum SceneParticleRuntimeDiagnosticKind: String, Codable, Sendable {
     case missingTextureFile
     case builtInTextureUnavailable
     case unsupportedBlendMode
+    case unsupportedRenderState
     case refractionUnsupported
     case missingSpriteRenderer
     case worldSpaceUnsupported

@@ -17,6 +17,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontendModel.swift",
+    SCENE_ROOT / "RenderGraph/SceneMaterialRenderState.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderExecutionPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderUniformBinder.swift",
 ]
@@ -83,9 +84,17 @@ enum Harness {
             textureBindings: [.init(name: "g_Texture0", slot: 0)],
             staticLoopWork: 1
         )
+        let renderState = SceneMaterialRenderState.compile(
+            blending: "normal",
+            depthTest: "disabled",
+            depthWrite: "disabled",
+            cullMode: "nocull",
+            alphaWriting: nil
+        )!
         return .init(
             cacheKey: "fixture",
             program: program,
+            renderState: renderState,
             mappedSize: CGSize(width: 128, height: 64),
             framebufferTextureSlots: [0],
             uniformBindings: zip(fields, sources).map {

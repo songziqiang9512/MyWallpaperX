@@ -38,6 +38,7 @@ NESTED_SAMPLE_EVIDENCE = sample_runtime_evidence_path("2974757317")
 NESTED_AUTHOR_OFF_SAMPLE_CACHE = sample_cache_root("2938612768")
 NESTED_AUTHOR_OFF_SAMPLE_EVIDENCE = sample_runtime_evidence_path("2938612768")
 SWIFT_SOURCES = [
+    SOURCE_ROOT / "RenderGraph/SceneMaterialRenderState.swift",
     SOURCE_ROOT / "Resources/SceneTextureSampling.swift",
     SOURCE_ROOT / "Resources/SceneResourceIndex.swift",
     SOURCE_ROOT / "Resources/SceneResourceView.swift",

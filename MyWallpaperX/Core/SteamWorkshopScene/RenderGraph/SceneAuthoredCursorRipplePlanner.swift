@@ -1,6 +1,12 @@
 import Foundation
 
 nonisolated struct SceneCursorRippleExecutionPlan {
+    struct RenderStates: Equatable, Sendable {
+        let applyForce: SceneMaterialRenderState
+        let simulateForce: SceneMaterialRenderState
+        let combine: SceneMaterialRenderState
+    }
+
     let layerID: Int
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
     let renderGraph: SceneAuthoredEffectRenderPlan
@@ -10,6 +16,7 @@ nonisolated struct SceneCursorRippleExecutionPlan {
     let speed: Float
     let strength: Float
     let maskTexturePath: String?
+    let renderStates: RenderStates
 }
 
 nonisolated enum SceneAuthoredCursorRipplePlanner {
@@ -46,7 +53,7 @@ nonisolated enum SceneAuthoredCursorRipplePlanner {
                   effect: effect,
                   graph: graph
               ),
-              validMaterials(descriptor.materialPasses),
+              let renderStates = validMaterials(descriptor.materialPasses),
               layer.effects.indices.contains(effect.key.effectIndex) else {
             return reject(graph, reason: "definition-or-material")
         }
@@ -79,7 +86,8 @@ nonisolated enum SceneAuthoredCursorRipplePlanner {
                   graph: graph,
                   descriptor: descriptor,
                   effect: effect,
-                  maskPath: maskPath.path
+                  maskPath: maskPath.path,
+                  renderStates: renderStates
               ) else {
             return reject(graph, reason: "instance-or-resolved-node")
         }
@@ -92,7 +100,8 @@ nonisolated enum SceneAuthoredCursorRipplePlanner {
             decay: decay,
             speed: speed,
             strength: strength,
-            maskTexturePath: maskPath.path
+            maskTexturePath: maskPath.path,
+            renderStates: renderStates
         )
     }
 
@@ -166,28 +175,34 @@ nonisolated enum SceneAuthoredCursorRipplePlanner {
 
     private nonisolated static func validMaterials(
         _ descriptors: [SceneRenderDescriptor.MaterialPassDescriptor]
-    ) -> Bool {
-        materialPaths.indices.allSatisfy { index in
+    ) -> SceneCursorRippleExecutionPlan.RenderStates? {
+        var states: [SceneMaterialRenderState] = []
+        for index in materialPaths.indices {
             let matches = descriptors.filter {
                 normalized($0.id) == materialPaths[index] + "#0"
             }
-            guard matches.count == 1, let material = matches.first else { return false }
-            return normalized(material.materialPath) == materialPaths[index]
-                && material.materialRawSHA256 == materialHashes[index]
-                && material.passIndex == 0
-                && normalized(material.shaderPath ?? "") == shaderIdentities[index]
-                && material.texturePaths.isEmpty && material.textureSlots.isEmpty
-                && material.userTextureInputs.isEmpty && material.combos.isEmpty
-                && material.constantShaderValues.isEmpty
-                && material.userShaderValues.isEmpty
-                && material.blending?.lowercased() == "normal"
-                && material.depthTest?.lowercased() == "disabled"
-                && material.depthWrite?.lowercased() == "disabled"
-                && material.cullMode?.lowercased() == "nocull"
-                && (index == 2
-                    ? material.alphaWriting == nil
-                    : material.alphaWriting?.lowercased() == "enabled")
+            guard matches.count == 1,
+                  let material = matches.first,
+                  normalized(material.materialPath) == materialPaths[index],
+                  material.materialRawSHA256 == materialHashes[index],
+                  material.passIndex == 0,
+                  normalized(material.shaderPath ?? "") == shaderIdentities[index],
+                  material.texturePaths.isEmpty && material.textureSlots.isEmpty,
+                  material.userTextureInputs.isEmpty && material.combos.isEmpty,
+                  material.constantShaderValues.isEmpty && material.userShaderValues.isEmpty,
+                  let state = SceneMaterialRenderState.compile(
+                      blending: material.blending, depthTest: material.depthTest,
+                      depthWrite: material.depthWrite, cullMode: material.cullMode,
+                      alphaWriting: material.alphaWriting
+                  ),
+                  state.matchesFullscreenOverwrite(alphaWriting:
+                      index == 2 ? .unspecified : .enabled
+                  ) else { return nil }
+            states.append(state)
         }
+        return SceneCursorRippleExecutionPlan.RenderStates(
+            applyForce: states[0], simulateForce: states[1], combine: states[2]
+        )
     }
 
     private nonisolated static func validResolvedNodes(
@@ -195,18 +210,23 @@ nonisolated enum SceneAuthoredCursorRipplePlanner {
         graph: Graph,
         descriptor: SceneRenderDescriptor,
         effect: Graph.Effect,
-        maskPath: String?
+        maskPath: String?, renderStates: SceneCursorRippleExecutionPlan.RenderStates
     ) -> Bool {
-        nodes.indices.allSatisfy { index in
+        let expectedStates = [renderStates.applyForce, renderStates.simulateForce, renderStates.combine]
+        return nodes.indices.allSatisfy { index in
             guard let material = SceneAuthoredMaterialResolver.resolve(
                 node: nodes[index], graph: graph, descriptor: descriptor
             ).node,
                   normalized(material.shaderPath) == shaderIdentities[index],
                   material.combos.isEmpty,
-                  material.renderState.blending?.lowercased() == "normal",
-                  material.renderState.depthTest?.lowercased() == "disabled",
-                  material.renderState.depthWrite?.lowercased() == "disabled",
-                  material.renderState.cullMode?.lowercased() == "nocull" else {
+                  let resolvedState = SceneMaterialRenderState.compile(
+                      blending: material.renderState.blending,
+                      depthTest: material.renderState.depthTest,
+                      depthWrite: material.renderState.depthWrite,
+                      cullMode: material.renderState.cullMode,
+                      alphaWriting: material.renderState.alphaWriting
+                  ),
+                  resolvedState == expectedStates[index] else {
                 return false
             }
             let expectedConstants = index == 0

@@ -23,6 +23,7 @@ nonisolated struct SceneAuthoredShaderExecutionPlan {
 
     let cacheKey: String
     let program: SceneAuthoredShaderProgram
+    let renderState: SceneMaterialRenderState
     let mappedSize: CGSize
     let framebufferTextureSlots: [Int]
     let uniformBindings: [UniformBinding]

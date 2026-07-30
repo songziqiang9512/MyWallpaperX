@@ -90,6 +90,7 @@ struct SceneRenderDescriptor {
         let depthTest: String?
         let depthWrite: String?
         let cullMode: String?
+        let alphaWriting: String? = nil
     }
 
     let layers: [Layer]

@@ -61,7 +61,8 @@ nonisolated struct SceneParticleAsset: Sendable {
     let materialPass: SceneParticleMaterialPass?
     let textureSource: SceneParticleTextureSource?
     let refraction: SceneParticleRefractionDeclaration?
-    let blendMode: SceneParticleMaterialBlendMode
+    let renderState: SceneMaterialRenderState?
+    let blendMode: SceneParticleMaterialBlendMode?
     let childPaths: [String]
 }
 
@@ -82,6 +83,7 @@ nonisolated struct SceneParticleAssetDiagnostic: Codable, Equatable, Hashable, S
         case missingTextureFile
         case builtInTextureUnavailable
         case unsupportedBlendMode
+        case unsupportedRenderState
         case refractionUnsupported
     }
 
@@ -202,15 +204,50 @@ nonisolated struct SceneParticleAssetGraphLoader {
                 }
             }
 
-            let blendMode: SceneParticleMaterialBlendMode
-            switch materialPass?.blending?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-            case "additive":
-                blendMode = .additive
-            case nil, "", "translucent":
-                blendMode = .translucent
-            case let value?:
-                blendMode = .translucent
-                diagnose(.unsupportedBlendMode, path, value)
+            let compiledRenderState = materialPass.flatMap {
+                SceneMaterialRenderState.compile(
+                    blending: $0.blending,
+                    depthTest: $0.depthTest,
+                    depthWrite: $0.depthWrite,
+                    cullMode: $0.cullMode,
+                    alphaWriting: $0.alphaWriting,
+                    missingBlending: .translucent
+                )
+            }
+            let renderState: SceneMaterialRenderState? = compiledRenderState.flatMap { state in
+                guard state.depthTest == .disabled,
+                      state.depthWrite == .disabled,
+                      state.cullMode == .noCull,
+                      [.unspecified, .default].contains(state.alphaWriting) else {
+                    return nil
+                }
+                return state
+            }
+            let blendMode: SceneParticleMaterialBlendMode?
+            switch renderState?.blending {
+            case .additive: blendMode = .additive
+            case .translucent: blendMode = .translucent
+            case .normal:
+                blendMode = nil
+                diagnose(.unsupportedBlendMode, path, "normal")
+            case nil:
+                blendMode = nil
+                if let materialPass {
+                    let normalizedBlend = materialPass.blending?
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                        .localizedLowercase
+                    if let normalizedBlend,
+                       !normalizedBlend.isEmpty,
+                       !["additive", "translucent"].contains(normalizedBlend) {
+                        diagnose(.unsupportedBlendMode, path, materialPass.blending)
+                    } else {
+                        diagnose(
+                            .unsupportedRenderState,
+                            path,
+                            Self.renderStateSummary(materialPass)
+                        )
+                    }
+                }
             }
 
             let childPaths = Self.unique(definition.children.compactMap(\.path).map(Self.normalizedPath))
@@ -221,6 +258,7 @@ nonisolated struct SceneParticleAssetGraphLoader {
                 materialPass: materialPass,
                 textureSource: textureSource,
                 refraction: refraction,
+                renderState: renderState,
                 blendMode: blendMode,
                 childPaths: childPaths
             )
@@ -279,6 +317,18 @@ nonisolated struct SceneParticleAssetGraphLoader {
     private static func isBuiltInTexture(_ rawName: String) -> Bool {
         let name = normalizedPath(rawName)
         return name.hasPrefix("particle/") || name.hasPrefix("materials/particle/")
+    }
+
+    private static func renderStateSummary(
+        _ pass: SceneParticleMaterialPass
+    ) -> String {
+        [
+            pass.blending,
+            pass.depthTest,
+            pass.depthWrite,
+            pass.cullMode,
+            pass.alphaWriting,
+        ].map { $0 ?? "<nil>" }.joined(separator: "/")
     }
 
     static func normalizedPath(_ rawPath: String) -> String {

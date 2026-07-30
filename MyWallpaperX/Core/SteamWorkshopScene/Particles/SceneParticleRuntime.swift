@@ -114,7 +114,7 @@ final class SceneParticleRuntime {
         for layer in particleLayers {
             guard let rawPath = layer.particlePath else { continue }
             let path = SceneParticleAssetGraphLoader.normalizedPath(rawPath)
-            guard let asset = graph.assetsByPath[path] else { continue }
+            guard let asset = graph.assetsByPath[path], let blendMode = asset.blendMode else { continue }
             guard let render = supportedRenderer(
                 in: asset.definition,
                 layerID: layer.id,
@@ -259,7 +259,7 @@ final class SceneParticleRuntime {
                 colorUVScale: colorUVScale,
                 colorSampling: colorSampling,
                 refraction: refraction,
-                blendMode: asset.blendMode == .additive ? .additive : .translucent,
+                blendMode: blendMode == .additive ? .additive : .translucent,
                 spriteAnimation: spriteAnimation,
                 orientation: SceneParticleOrientation(
                     authoredValue: render.renderer.orientation,

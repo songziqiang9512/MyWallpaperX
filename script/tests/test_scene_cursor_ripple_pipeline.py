@@ -15,18 +15,51 @@ PIPELINE_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Effects/SceneCursorRipplePipeline.swift"
 )
+MATERIAL_RENDER_STATE_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneMaterialRenderState.swift"
+)
+CURSOR_RIPPLE_RENDER_STATES_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneCursorRippleRenderStates.swift"
+)
 
 HARNESS = r'''
 import Foundation
 import Metal
 
 struct SceneCursorRippleExecutionPlan {
+    struct RenderStates: Equatable {
+        let applyForce: SceneMaterialRenderState
+        let simulateForce: SceneMaterialRenderState
+        let combine: SceneMaterialRenderState
+    }
+
     let simulationResolution: Int
     let rippleScale: Float
     let decay: Float
     let speed: Float
     let strength: Float
     let maskTexturePath: String?
+    let renderStates: RenderStates
+
+    init(
+        simulationResolution: Int,
+        rippleScale: Float,
+        decay: Float,
+        speed: Float,
+        strength: Float,
+        maskTexturePath: String?,
+        renderStates: RenderStates = .supported
+    ) {
+        self.simulationResolution = simulationResolution
+        self.rippleScale = rippleScale
+        self.decay = decay
+        self.speed = speed
+        self.strength = strength
+        self.maskTexturePath = maskTexturePath
+        self.renderStates = renderStates
+    }
 }
 
 @main
@@ -64,6 +97,22 @@ enum Harness {
         )
     }
 
+    static func fillRGBA(_ texture: MTLTexture, _ pixel: [UInt8]) {
+        precondition(texture.pixelFormat == .rgba8Unorm)
+        precondition(pixel.count == 4)
+        let bytesPerRow = texture.width * 4
+        var bytes = [UInt8](repeating: 0, count: bytesPerRow * texture.height)
+        for offset in stride(from: 0, to: bytes.count, by: 4) {
+            bytes.replaceSubrange(offset ..< offset + 4, with: pixel)
+        }
+        texture.replace(
+            region: MTLRegionMake2D(0, 0, texture.width, texture.height),
+            mipmapLevel: 0,
+            withBytes: bytes,
+            bytesPerRow: bytesPerRow
+        )
+    }
+
     static func byteSum(_ texture: MTLTexture) -> Int {
         let bytesPerRow = texture.width * 4
         var bytes = [UInt8](repeating: 0, count: bytesPerRow * texture.height)
@@ -74,6 +123,28 @@ enum Harness {
             mipmapLevel: 0
         )
         return bytes.reduce(0) { $0 + Int($1) }
+    }
+
+    static func channelRanges(_ texture: MTLTexture) -> [Int] {
+        precondition(texture.pixelFormat == .rgba8Unorm)
+        let bytesPerRow = texture.width * 4
+        var bytes = [UInt8](repeating: 0, count: bytesPerRow * texture.height)
+        texture.getBytes(
+            &bytes,
+            bytesPerRow: bytesPerRow,
+            from: MTLRegionMake2D(0, 0, texture.width, texture.height),
+            mipmapLevel: 0
+        )
+        var minimums = [Int](repeating: 255, count: 4)
+        var maximums = [Int](repeating: 0, count: 4)
+        for offset in stride(from: 0, to: bytes.count, by: 4) {
+            for channel in 0 ..< 4 {
+                let value = Int(bytes[offset + channel])
+                minimums[channel] = min(minimums[channel], value)
+                maximums[channel] = max(maximums[channel], value)
+            }
+        }
+        return zip(minimums, maximums).flatMap { [$0.0, $0.1] }
     }
 
     static func encode(
@@ -165,6 +236,59 @@ enum Harness {
         )
         let stationarySum = byteSum(history)
 
+        clear(intermediate)
+        fillRGBA(history, [0, 0, 0, 255])
+        let negativeState = SceneCursorRippleExecutionPlan(
+            simulationResolution: 256,
+            rippleScale: 0.4,
+            decay: 1,
+            speed: 0.2,
+            strength: 0.25,
+            maskTexturePath: nil
+        )
+        let negativeStateEncoded = encode(
+            pipeline: pipeline, queue: queue,
+            history: history, intermediate: intermediate,
+            source: source, output: output, mask: nil, plan: negativeState,
+            current: SIMD2(0.5, 0.5), previous: SIMD2(0.5, 0.5)
+        )
+        let negativeStateChannels = channelRanges(history)
+
+        let defaultAlphaState = SceneMaterialRenderState.compile(
+            blending: "normal",
+            depthTest: "disabled",
+            depthWrite: "disabled",
+            cullMode: "nocull",
+            alphaWriting: "default"
+        )!
+        let invalidStates = SceneCursorRippleExecutionPlan.RenderStates(
+            applyForce: defaultAlphaState,
+            simulateForce: SceneCursorRippleExecutionPlan.RenderStates.supported.simulateForce,
+            combine: SceneCursorRippleExecutionPlan.RenderStates.supported.combine
+        )
+        let invalidStatePlan = SceneCursorRippleExecutionPlan(
+            simulationResolution: 256,
+            rippleScale: 0.4,
+            decay: 0.4,
+            speed: 0.2,
+            strength: 0.25,
+            maskTexturePath: nil,
+            renderStates: invalidStates
+        )
+        let invalidStateRejected = !encode(
+            pipeline: pipeline, queue: queue,
+            history: history, intermediate: intermediate,
+            source: source, output: output, mask: nil, plan: invalidStatePlan,
+            current: SIMD2(0.5, 0.5), previous: SIMD2(0.5, 0.5)
+        )
+        let unknownStateRejected = SceneMaterialRenderState.compile(
+            blending: "normal",
+            depthTest: "disabled",
+            depthWrite: "disabled",
+            cullMode: "nocull",
+            alphaWriting: "unknown"
+        ) == nil
+
         clear(history)
         clear(intermediate)
         let masked = SceneCursorRippleExecutionPlan(
@@ -187,6 +311,10 @@ enum Harness {
             "unmaskedSum": unmaskedSum,
             "stationaryEncoded": stationaryEncoded,
             "stationarySum": stationarySum,
+            "negativeStateEncoded": negativeStateEncoded,
+            "negativeStateChannels": negativeStateChannels,
+            "invalidStateRejected": invalidStateRejected,
+            "unknownStateRejected": unknownStateRejected,
             "maskedEncoded": maskedEncoded,
             "maskedSum": byteSum(history),
         ]
@@ -215,6 +343,8 @@ class SceneCursorRipplePipelineTests(unittest.TestCase):
                 "--sdk",
                 "macosx",
                 "swiftc",
+                str(MATERIAL_RENDER_STATE_SOURCE),
+                str(CURSOR_RIPPLE_RENDER_STATES_SOURCE),
                 str(PIPELINE_SOURCE),
                 str(harness),
                 "-o",
@@ -248,6 +378,21 @@ class SceneCursorRipplePipelineTests(unittest.TestCase):
     def test_white_collision_mask_blocks_wave_state(self) -> None:
         self.assertTrue(self.result["maskedEncoded"])
         self.assertEqual(self.result["maskedSum"], 0)
+
+    def test_state_targets_write_negative_height_and_velocity_channels(self) -> None:
+        self.assertTrue(self.result["negativeStateEncoded"])
+        ranges = self.result["negativeStateChannels"]
+        self.assertEqual(ranges[0:2], [0, 0])
+        self.assertGreater(ranges[2], 220)
+        self.assertLessEqual(ranges[3] - ranges[2], 1)
+        self.assertEqual(ranges[4:6], [0, 0])
+        self.assertGreater(ranges[6], 220)
+        self.assertLessEqual(ranges[7] - ranges[6], 1)
+        self.assertLessEqual(abs(ranges[2] - ranges[6]), 1)
+
+    def test_default_and_unknown_alpha_states_are_not_mapped(self) -> None:
+        self.assertTrue(self.result["invalidStateRejected"])
+        self.assertTrue(self.result["unknownStateRejected"])
 
 
 if __name__ == "__main__":

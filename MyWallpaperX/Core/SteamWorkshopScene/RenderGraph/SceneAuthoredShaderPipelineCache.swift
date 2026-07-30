@@ -10,6 +10,7 @@ final class SceneAuthoredShaderPipelineCache {
     private struct Key: Hashable {
         let contractKey: String
         let pixelFormatRawValue: UInt
+        let renderState: SceneMaterialRenderState
     }
 
     private enum Entry {
@@ -60,7 +61,10 @@ final class SceneAuthoredShaderPipelineCache {
         }
 
         compilationAttempts += 1
-        guard plan.program.uniformLayout.byteSize > 0,
+        guard plan.renderState.matchesFullscreenOverwrite(
+                  alphaWriting: .unspecified
+              ),
+              plan.program.uniformLayout.byteSize > 0,
               plan.program.uniformLayout.byteSize <= 4_096,
               let library = try? device.makeLibrary(
                   source: plan.program.metalSource,
@@ -81,6 +85,7 @@ final class SceneAuthoredShaderPipelineCache {
         descriptor.fragmentFunction = fragment
         descriptor.colorAttachments[0].pixelFormat = pixelFormat
         descriptor.colorAttachments[0].isBlendingEnabled = false
+        descriptor.colorAttachments[0].writeMask = .all
         guard let state = try? device.makeRenderPipelineState(descriptor: descriptor) else {
             recordFailure(for: key)
             return nil
@@ -106,7 +111,8 @@ final class SceneAuthoredShaderPipelineCache {
     private func cacheKey(for plan: SceneAuthoredShaderExecutionPlan) -> Key {
         return Key(
             contractKey: plan.cacheKey,
-            pixelFormatRawValue: pixelFormat.rawValue
+            pixelFormatRawValue: pixelFormat.rawValue,
+            renderState: plan.renderState
         )
     }
 

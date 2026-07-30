@@ -80,6 +80,7 @@ enum SceneAuthoredShaderRenderer {
         }
         encoder.label = "Scene authored shader pass"
         encoder.setRenderPipelineState(pipeline.state)
+        encoder.setCullMode(.none)
         uniforms.withUnsafeBytes { bytes in
             guard let baseAddress = bytes.baseAddress else { return }
             encoder.setVertexBytes(baseAddress, length: bytes.count, index: 0)
@@ -108,7 +109,10 @@ enum SceneAuthoredShaderRenderer {
         let plannedSlots = plan.framebufferTextureSlots.sorted()
         let renderWidth = inputs.renderSize.width
         let renderHeight = inputs.renderSize.height
-        guard renderWidth.isFinite,
+        guard plan.renderState.matchesFullscreenOverwrite(
+                  alphaWriting: .unspecified
+              ),
+              renderWidth.isFinite,
               renderHeight.isFinite,
               renderWidth > 0,
               renderHeight > 0,
