@@ -150,9 +150,24 @@ enum Harness {
         options: Options = .init()
     ) -> SceneRenderDescriptor {
         let textureSlots: [String?] = options.externalTexture ? ["external.png"] : []
-        let constants = identity == "effects/generic"
-            ? ["g_Strength": value(0.75, bound: options.userBinding)]
-            : [:]
+        let constants: [String: SceneDocument.ShaderValue]
+        switch identity {
+        case "effects/generic":
+            constants = ["g_Strength": value(0.75, bound: options.userBinding)]
+        case "effects/annotated":
+            constants = ["Strength label": value(0.75)]
+        case "effects/annotatedambiguous":
+            constants = [
+                "u_Strength": value(0.25),
+                "Strength label": value(0.75),
+            ]
+        case "effects/annotatedbound":
+            constants = ["Strength label": value(0.75, bound: true)]
+        case "effects/aliascollision":
+            constants = ["Strength label": value(0.75)]
+        default:
+            constants = [:]
+        }
         let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
             passIndex: 0,
             textureSlots: textureSlots,
@@ -489,6 +504,7 @@ enum Harness {
         let realRoot = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let syntheticRoot = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
         let generic = plan(identity: "effects/generic", root: syntheticRoot)
+        let annotated = plan(identity: "effects/annotated", root: syntheticRoot)
         let real = plan(identity: "effects/myfirstshader", root: realRoot)
 
         var external = Options(); external.externalTexture = true
@@ -511,6 +527,9 @@ enum Harness {
         let genericPixels = generic.flatMap { plan in
             device.flatMap { render(plan, dimension: 4, device: $0) }
         }
+        let annotatedPixels = annotated.flatMap { plan in
+            device.flatMap { render(plan, dimension: 4, device: $0) }
+        }
         let realPixels = real.flatMap { plan in
             device.flatMap { render(plan, dimension: 32, device: $0) }
         }
@@ -529,6 +548,24 @@ enum Harness {
                     )
                     && $0.renderState.rawValues.alphaWriting == nil
             } ?? false,
+            "annotatedAccepted": annotated != nil,
+            "annotatedContractPreserved": annotated.map { plan in
+                plan.uniformBindings.contains { binding in
+                    guard binding.field.name == "u_Strength",
+                          case .constant(let components) = binding.source else {
+                        return false
+                    }
+                    return components == [0.75]
+                }
+            } ?? false,
+            "annotatedFailuresRejected": [
+                "annotatedambiguous",
+                "annotatedbound",
+                "annotatedmissing",
+                "aliascollision",
+            ].allSatisfy {
+                plan(identity: "effects/\($0)", root: syntheticRoot) == nil
+            },
             "realAccepted": real != nil,
             "realContractPreserved": real.map {
                 $0.framebufferTextureSlots == [0]
@@ -561,6 +598,7 @@ enum Harness {
                 blocker: true
             ) == nil,
             "genericPixels": genericPixels ?? NSNull(),
+            "annotatedPixels": annotatedPixels ?? NSNull(),
             "realPixels": realPixels ?? NSNull(),
             "compileFailureCached": generic.map {
                 guard let device else { return false }
@@ -619,6 +657,24 @@ void main() {{
 '''
 
 
+def annotated_fragment_source(*, alias_collision: bool = False) -> str:
+    second_uniform = (
+        'uniform float u_Other; // {"material":"Strength label","default":0.25}'
+        if alias_collision else ""
+    )
+    factor = "u_Strength * u_Other" if alias_collision else "u_Strength"
+    return f'''
+uniform sampler2D g_Texture0; // {{"material":"framebuffer","hidden":true}}
+uniform float u_Strength; // {{"material":"Strength label","default":0.5}}
+{second_uniform}
+varying vec2 v_TexCoord;
+void main() {{
+    vec4 color = texture2D(g_Texture0, v_TexCoord);
+    gl_FragColor = vec4(color.rgb * {factor}, color.a);
+}}
+'''
+
+
 class SceneAuthoredShaderExecutionPlannerTests(unittest.TestCase):
     def test_generic_and_real_contracts_share_bounded_admission(self) -> None:
         if shutil.which("swiftc") is None:
@@ -634,6 +690,11 @@ class SceneAuthoredShaderExecutionPlannerTests(unittest.TestCase):
             shader_root.mkdir(parents=True)
             for identity, source in {
                 "generic": fragment_source(),
+                "annotated": annotated_fragment_source(),
+                "annotatedambiguous": annotated_fragment_source(),
+                "annotatedbound": annotated_fragment_source(),
+                "annotatedmissing": annotated_fragment_source(),
+                "aliascollision": annotated_fragment_source(alias_collision=True),
                 "noannotation": fragment_source(annotation=False),
                 "unknown": fragment_source(unknown=True),
                 "included": '#include "shared.inc"\n' + fragment_source(),
@@ -674,7 +735,7 @@ class SceneAuthoredShaderExecutionPlannerTests(unittest.TestCase):
         result = json.loads(completed.stdout)
         boolean_contracts = {
             key: value for key, value in result.items()
-            if key not in {"genericPixels", "realPixels"}
+            if key not in {"genericPixels", "annotatedPixels", "realPixels"}
         }
         self.assertTrue(all(boolean_contracts.values()), result)
         generic_pixels = result["genericPixels"]
@@ -683,6 +744,12 @@ class SceneAuthoredShaderExecutionPlannerTests(unittest.TestCase):
         self.assertEqual(generic_pixels["maximumRGB"], 191, result)
         self.assertEqual(generic_pixels["alphaMinimum"], 255, result)
         self.assertEqual(generic_pixels["compilationAttempts"], 1, result)
+        annotated_pixels = result["annotatedPixels"]
+        self.assertIsInstance(annotated_pixels, dict, result)
+        self.assertEqual(annotated_pixels["minimumRGB"], 191, result)
+        self.assertEqual(annotated_pixels["maximumRGB"], 191, result)
+        self.assertEqual(annotated_pixels["alphaMinimum"], 255, result)
+        self.assertEqual(annotated_pixels["compilationAttempts"], 1, result)
         real_pixels = result["realPixels"]
         self.assertIsInstance(real_pixels, dict, result)
         self.assertGreater(real_pixels["maximumRGB"], 0, result)

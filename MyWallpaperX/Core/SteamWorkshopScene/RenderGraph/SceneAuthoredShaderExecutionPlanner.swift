@@ -62,6 +62,7 @@ nonisolated enum SceneAuthoredShaderExecutionPlanner {
               let uniformBindings = uniformBindings(
                   program: program,
                   constants: material.constants,
+                  contract: contract,
                   framebufferSlots: Set(framebufferSlots)
               ) else {
             return nil
@@ -171,8 +172,15 @@ nonisolated enum SceneAuthoredShaderExecutionPlanner {
     private static func uniformBindings(
         program: SceneAuthoredShaderProgram,
         constants: [String: SceneDocument.ShaderValue],
+        contract: SceneShaderContract,
         framebufferSlots: Set<Int>
     ) -> [Plan.UniformBinding]? {
+        guard let materialKeys = materialConstantKeys(
+            program: program,
+            contract: contract
+        ) else {
+            return nil
+        }
         var bindings: [Plan.UniformBinding] = []
         for field in program.uniformLayout.fields {
             let source: Plan.UniformBinding.Source?
@@ -199,12 +207,59 @@ nonisolated enum SceneAuthoredShaderExecutionPlanner {
                 source = .texelSize(scale: 0.5)
             default:
                 source = textureBuiltin(field, framebufferSlots: framebufferSlots)
-                    ?? constant(field, authored: constants)
+                    ?? constant(
+                        field,
+                        authored: constants,
+                        materialKey: materialKeys[field.name]
+                    )
             }
             guard let source else { return nil }
             bindings.append(.init(field: field, source: source))
         }
         return bindings
+    }
+
+    private static func materialConstantKeys(
+        program: SceneAuthoredShaderProgram,
+        contract: SceneShaderContract
+    ) -> [String: String]? {
+        let uniformNames = Set(program.uniformLayout.fields.map(\.name))
+        var keysByUniform: [String: String] = [:]
+        var uniformByKey: [String: String] = [:]
+        for stage in contract.stages {
+            for declaration in stage.declarations
+            where declaration.kind == .uniform
+                && declaration.type.caseInsensitiveCompare("sampler2D") != .orderedSame
+                && uniformNames.contains(declaration.name) {
+                let annotations = stage.annotations.filter {
+                    $0.line == declaration.line
+                }
+                for annotation in annotations {
+                    guard case .object(let object) = annotation.value,
+                          let rawKey = object["material"] else {
+                        continue
+                    }
+                    guard let key = rawKey.stringValue,
+                          !key.isEmpty,
+                          key == key.trimmingCharacters(
+                              in: .whitespacesAndNewlines
+                          ) else {
+                        return nil
+                    }
+                    if let existing = keysByUniform[declaration.name],
+                       existing != key {
+                        return nil
+                    }
+                    if let owner = uniformByKey[key],
+                       owner != declaration.name {
+                        return nil
+                    }
+                    keysByUniform[declaration.name] = key
+                    uniformByKey[key] = declaration.name
+                }
+            }
+        }
+        return keysByUniform
     }
 
     private static func textureBuiltin(
@@ -221,9 +276,20 @@ nonisolated enum SceneAuthoredShaderExecutionPlanner {
 
     private static func constant(
         _ field: SceneAuthoredShaderUniformLayout.Field,
-        authored: [String: SceneDocument.ShaderValue]
+        authored: [String: SceneDocument.ShaderValue],
+        materialKey: String?
     ) -> Plan.UniformBinding.Source? {
-        guard let value = authored[field.name],
+        var matches: [SceneDocument.ShaderValue] = []
+        if let value = authored[field.name] {
+            matches.append(value)
+        }
+        if let materialKey,
+           materialKey != field.name,
+           let value = authored[materialKey] {
+            matches.append(value)
+        }
+        guard matches.count == 1,
+              let value = matches.first,
               value.userBinding == nil,
               value.timeline == nil,
               value.timelineDiagnostics.isEmpty,
