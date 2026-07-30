@@ -2,14 +2,29 @@ import Metal
 import simd
 
 struct SceneBlendEffectTextures {
-    let texture: MTLTexture
-    let uvScale: SIMD2<Float>
+    struct ResolvedArguments {
+        let blend: SceneTextureSlotBinding
+        let uvScale: SIMD2<Float>
+    }
+
+    let blendBinding: SceneTextureSlotBinding?
     let assetPath: String
     let propertyKey: String?
 
-    func matches(_ plan: SceneBlendExecutionPlan) -> Bool {
-        normalized(assetPath) == normalized(plan.assetTexturePath)
-            && propertyKey == plan.userPropertyKey
+    func resolvedArguments(
+        for plan: SceneBlendExecutionPlan
+    ) -> ResolvedArguments? {
+        guard normalized(assetPath) == normalized(plan.assetTexturePath),
+              propertyKey == plan.userPropertyKey,
+              let blendBinding,
+              let uvScale = blendBinding.axisAlignedUVScale(
+                  expectedSlotIndex: 1,
+                  expectedPurpose: .premultipliedColor,
+                  allowedPixelFormats: [.rgba8Unorm, .bgra8Unorm]
+              ) else {
+            return nil
+        }
+        return ResolvedArguments(blend: blendBinding, uvScale: uvScale)
     }
 
     private func normalized(_ path: String) -> String {
@@ -29,7 +44,7 @@ enum SceneBlendEffectTextureLoader {
         resolver: SceneTexturePathResolver,
         loader: SceneTextureLoader,
         device: MTLDevice,
-        userPropertyTextures: [String: MTLTexture]
+        userPropertyTextureCandidates: [String: SceneTextureCandidate]
     ) -> (textures: [String: SceneBlendEffectTextures], message: String) {
         var textures: [String: SceneBlendEffectTextures] = [:]
         var messages: [String] = []
@@ -43,42 +58,37 @@ enum SceneBlendEffectTextureLoader {
                 continue
             }
 
-            if let propertyKey = selection.propertyKey,
-               let propertyTexture = userPropertyTextures[propertyKey] {
-                textures[effect.id] = SceneBlendEffectTextures(
-                    texture: propertyTexture,
-                    uvScale: SIMD2(repeating: 1),
-                    assetPath: selection.assetPath,
-                    propertyKey: propertyKey
-                )
-                messages.append("; blend property texture OK \(propertyKey)")
-                continue
-            }
-
             let assetURL = resolver.resolveTextureFile(named: selection.assetPath)
-            let loaded = SceneLayerEffectTextureLoader.loadTexture(
+            let loaded = SceneLayerEffectTextureLoader.loadTextureCandidate(
                 url: assetURL,
                 label: "blend effect texture",
                 purpose: .premultipliedColor,
                 loader: loader,
                 device: device
             )
-            guard let texture = loaded.texture else {
+            let propertyCandidate = selection.propertyKey.flatMap {
+                userPropertyTextureCandidates[$0]
+            }
+            guard let binding = SceneTextureSlotBinding.resolveFinalCandidate(
+                slotIndex: 1,
+                candidates: [loaded.candidate, propertyCandidate]
+            ) else {
                 messages.append(assetURL == nil
                     ? "; blend effect texture missing \(selection.assetPath)"
                     : loaded.message)
                 continue
             }
             textures[effect.id] = SceneBlendEffectTextures(
-                texture: texture,
-                uvScale: SceneLayerEffectTextureLoader.mappedUVScale(
-                    for: assetURL,
-                    texture: texture
-                ),
+                blendBinding: binding,
                 assetPath: selection.assetPath,
                 propertyKey: selection.propertyKey
             )
-            messages.append(loaded.message)
+            if let propertyKey = selection.propertyKey,
+               propertyCandidate?.texture === binding.texture {
+                messages.append("; blend property texture OK \(propertyKey)")
+            } else {
+                messages.append(loaded.message)
+            }
         }
         return (textures, messages.joined())
     }

@@ -13,7 +13,7 @@ extension SceneAuthoredEffectChainRenderer {
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         guard let resources = masks.blendEffects[blend.effectKey.descriptorID],
-              resources.matches(blend),
+              let arguments = resources.resolvedArguments(for: blend),
               targets.plan.logicalTargets.isEmpty,
               SceneOffscreenEffectRenderer.captureSource(
                   sourceTexture: sourceTexture,
@@ -27,10 +27,11 @@ extension SceneAuthoredEffectChainRenderer {
               ),
               blendPipeline.encode(
                   source: targets.inputTexture,
-                  blend: resources.texture,
+                  blend: arguments.blend.texture,
                   target: targets.outputTexture,
                   multiply: blend.multiply,
-                  blendUVScale: resources.uvScale,
+                  blendUVScale: arguments.uvScale,
+                  blendSampling: arguments.blend.sampling,
                   commandBuffer: commandBuffer
               ) else {
             return nil

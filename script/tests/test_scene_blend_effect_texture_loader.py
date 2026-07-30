@@ -20,7 +20,11 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
     SCENE_ROOT / "Resources/SceneTextureMipUploader.swift",
     SCENE_ROOT / "Resources/SceneTextureLoader.swift",
-    SCENE_ROOT / "Rendering/SceneTextureMappedUVScale.swift",
+    SCENE_ROOT / "Resources/SceneTextureSampling.swift",
+    SCENE_ROOT / "Resources/SceneTextureUVTransform.swift",
+    SCENE_ROOT / "Resources/SceneTextureCandidate.swift",
+    SCENE_ROOT / "Resources/SceneTextureLoader+Candidate.swift",
+    SCENE_ROOT / "Resources/SceneTextureSlotBinding.swift",
     SCENE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
     SCENE_ROOT / "Resources/SceneBlendEffectTextureLoader.swift",
 ]
@@ -78,46 +82,35 @@ struct SceneRenderDescriptor {
 }
 
 enum SceneLayerEffectTextureLoader {
-    static func loadTexture(
+    static func loadTextureCandidate(
         url: URL?,
         label: String,
         purpose: SceneTextureLoadPurpose,
         loader: SceneTextureLoader,
         device: MTLDevice
-    ) -> (texture: MTLTexture?, message: String) {
+    ) -> (candidate: SceneTextureCandidate?, message: String) {
         guard let url else { return (nil, "") }
-        switch loader.load(from: url, purpose: purpose, device: device) {
-        case .loaded(let texture):
-            return (texture, "; \(label) OK \(url.lastPathComponent)")
-        case .unsupportedFormat(let ext):
-            return (nil, "; \(label) unsupported \(ext)")
-        case .unsupportedTexFormat(let code):
-            return (nil, "; \(label) unsupported .tex format \(code)")
-        case .texNoEmbeddedImage:
-            return (nil, "; \(label) has no embedded image")
-        case .texContainsVideoPayload:
-            return (nil, "; \(label) is mp4 payload")
-        case .decodeFailed(let message):
-            return (nil, "; \(label) decode failed (\(message))")
-        case .textureAllocationFailed(let width, let height):
-            return (nil, "; \(label) allocation failed at \(width)x\(height)")
+        switch loader.loadCandidate(from: url, purpose: purpose, device: device) {
+        case .loaded(let candidate):
+            return (candidate, "; \(label) OK \(url.lastPathComponent)")
+        case .failed(let outcome):
+            switch outcome {
+            case .loaded:
+                return (nil, "; \(label) typed candidate unavailable")
+            case .unsupportedFormat(let ext):
+                return (nil, "; \(label) unsupported \(ext)")
+            case .unsupportedTexFormat(let code):
+                return (nil, "; \(label) unsupported .tex format \(code)")
+            case .texNoEmbeddedImage:
+                return (nil, "; \(label) has no embedded image")
+            case .texContainsVideoPayload:
+                return (nil, "; \(label) is mp4 payload")
+            case .decodeFailed(let message):
+                return (nil, "; \(label) decode failed (\(message))")
+            case .textureAllocationFailed(let width, let height):
+                return (nil, "; \(label) allocation failed at \(width)x\(height)")
+            }
         }
-    }
-
-    static func mappedUVScale(for url: URL?, texture: MTLTexture?) -> SIMD2<Float> {
-        guard let url, url.pathExtension.localizedLowercase == "tex",
-              let data = try? Data(contentsOf: url),
-              let container = try? SceneTexContainerReader().read(data: data) else {
-            return SIMD2(repeating: 1)
-        }
-        return SceneTextureMappedUVScale.resolve(
-            physicalWidth: container.textureWidth,
-            physicalHeight: container.textureHeight,
-            mappedWidth: container.imageWidth,
-            mappedHeight: container.imageHeight,
-            sampledWidth: texture?.width,
-            sampledHeight: texture?.height
-        )
     }
 }
 
@@ -161,6 +154,10 @@ enum Harness {
             height: 5,
             label: "property override"
         )
+        let propertyCandidate = candidate(
+            texture: propertyTexture,
+            identity: "property:\(propertyKey)"
+        )
         let validInputs: [SceneEffectTextureInput?] = [
             nil,
             .init(kind: .property, value: propertyKey),
@@ -168,43 +165,43 @@ enum Harness {
         let property = load(
             inputs: validInputs,
             urlsByPath: [assetPath: texURL],
-            userPropertyTextures: [propertyKey: propertyTexture],
+            userPropertyTextureCandidates: [propertyKey: propertyCandidate],
             device: device
         )
         let fallback = load(
             inputs: validInputs,
             urlsByPath: [assetPath: texURL],
-            userPropertyTextures: [:],
+            userPropertyTextureCandidates: [:],
             device: device
         )
         let missing = load(
             inputs: validInputs,
             urlsByPath: [:],
-            userPropertyTextures: [:],
+            userPropertyTextureCandidates: [:],
             device: device
         )
         let corrupt = load(
             inputs: validInputs,
             urlsByPath: [assetPath: corruptURL],
-            userPropertyTextures: [:],
+            userPropertyTextureCandidates: [:],
             device: device
         )
         let system = load(
             inputs: [nil, .init(kind: .system, value: "$mediaThumbnail")],
             urlsByPath: [assetPath: texURL],
-            userPropertyTextures: [propertyKey: propertyTexture],
+            userPropertyTextureCandidates: [propertyKey: propertyCandidate],
             device: device
         )
         let emptyProperty = load(
             inputs: [nil, .init(kind: .property, value: "")],
             urlsByPath: [assetPath: texURL],
-            userPropertyTextures: [propertyKey: propertyTexture],
+            userPropertyTextureCandidates: [propertyKey: propertyCandidate],
             device: device
         )
         let malformed = load(
             inputs: [.init(kind: .property, value: propertyKey)],
             urlsByPath: [assetPath: texURL],
-            userPropertyTextures: [propertyKey: propertyTexture],
+            userPropertyTextureCandidates: [propertyKey: propertyCandidate],
             device: device
         )
 
@@ -222,19 +219,21 @@ enum Harness {
             assetTexturePath: assetPath,
             userPropertyKey: "different-property"
         )
+        let propertyArguments = propertyTextures?.resolvedArguments(for: exactPlan)
+        let fallbackArguments = fallbackTextures?.resolvedArguments(for: exactPlan)
 
         let result: [String: Any] = [
-            "propertyWins": propertyTextures?.texture === propertyTexture,
-            "propertyUsesIdentityUV": propertyTextures?.uvScale == SIMD2(repeating: 1),
+            "propertyWins": propertyArguments?.blend.texture === propertyTexture,
+            "propertyUsesIdentityUV": propertyArguments?.uvScale == SIMD2(repeating: 1),
             "propertyReported": property.message.contains(
                 "blend property texture OK \(propertyKey)"
             ),
-            "fallbackLoadedAuthoredTex": fallbackTextures?.texture !== propertyTexture
-                && fallbackTextures?.texture.width == 4
-                && fallbackTextures?.texture.height == 4,
+            "fallbackLoadedAuthoredTex": fallbackArguments?.blend.texture !== propertyTexture
+                && fallbackArguments?.blend.texture.width == 4
+                && fallbackArguments?.blend.texture.height == 4,
             "fallbackMappedUV": [
-                fallbackTextures?.uvScale.x ?? -1,
-                fallbackTextures?.uvScale.y ?? -1,
+                fallbackArguments?.uvScale.x ?? -1,
+                fallbackArguments?.uvScale.y ?? -1,
             ],
             "fallbackReported": fallback.message.contains("blend effect texture OK"),
             "missingStayedFailed": missing.textures[effectID] == nil,
@@ -246,11 +245,14 @@ enum Harness {
             "systemRejected": system.textures[effectID] == nil,
             "emptyPropertyRejected": emptyProperty.textures[effectID] == nil,
             "malformedInputsRejected": malformed.textures[effectID] == nil,
-            "normalizedMatch": fallbackTextures?.matches(exactPlan) ?? false,
-            "wrongAssetDoesNotMatch": !(fallbackTextures?.matches(wrongAssetPlan) ?? false),
+            "normalizedMatch": fallbackArguments != nil,
+            "wrongAssetDoesNotMatch":
+                fallbackTextures?.resolvedArguments(for: wrongAssetPlan) == nil,
             "wrongPropertyDoesNotMatch": !(
-                fallbackTextures?.matches(wrongPropertyPlan) ?? false
+                fallbackTextures?.resolvedArguments(for: wrongPropertyPlan) != nil
             ),
+            "bindingCarriesCandidate": fallbackArguments?.blend.identity
+                == fallbackArguments?.blend.candidate.identity,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -259,7 +261,7 @@ enum Harness {
     static func load(
         inputs: [SceneEffectTextureInput?],
         urlsByPath: [String: URL],
-        userPropertyTextures: [String: MTLTexture],
+        userPropertyTextureCandidates: [String: SceneTextureCandidate],
         device: MTLDevice
     ) -> (textures: [String: SceneBlendEffectTextures], message: String) {
         let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
@@ -280,7 +282,23 @@ enum Harness {
             resolver: .init(urlsByPath: urlsByPath),
             loader: SceneTextureLoader(),
             device: device,
-            userPropertyTextures: userPropertyTextures
+            userPropertyTextureCandidates: userPropertyTextureCandidates
+        )
+    }
+
+    static func candidate(
+        texture: MTLTexture,
+        identity: String
+    ) -> SceneTextureCandidate {
+        SceneTextureCandidate(
+            texture: texture,
+            identity: .builtIn(name: identity),
+            generation: .immutable(revision: 1),
+            purpose: .premultipliedColor,
+            physicalSize: CGSize(width: texture.width, height: texture.height),
+            mappedSize: CGSize(width: texture.width, height: texture.height),
+            uvTransform: .identity,
+            sampling: .directImageFallback
         )
     }
 
@@ -457,6 +475,7 @@ class SceneBlendEffectTextureLoaderTests(unittest.TestCase):
             "normalizedMatch",
             "wrongAssetDoesNotMatch",
             "wrongPropertyDoesNotMatch",
+            "bindingCarriesCandidate",
         ):
             self.assertTrue(self.result[key], (key, self.result))
 

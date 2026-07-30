@@ -110,6 +110,7 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
         self.assertEqual(
             candidate_callers,
             {
+                "SceneBlendEffectTextureLoader.swift": 1,
                 "SceneFoliageSwayEffectTextureLoader.swift": 2,
                 "SceneShakeEffectTextureLoader.swift": 3,
                 "SceneStandardBlurEffectTextureLoader.swift": 1,

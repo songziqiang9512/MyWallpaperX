@@ -14,6 +14,26 @@ struct SceneTextureSlotBinding {
     let slotIndex: Int
     let candidate: SceneTextureCandidate
 
+    /// Resolve the highest-priority ready candidate without letting an absent
+    /// override suppress an authored fallback. Candidate order is low to high
+    /// priority, matching material -> instance -> user/provider selection.
+    static func resolveFinalCandidate(
+        slotIndex: Int,
+        candidates: [SceneTextureCandidate?]
+    ) -> SceneTextureSlotBinding? {
+        for candidate in candidates.reversed() {
+            guard let candidate,
+                  let binding = SceneTextureSlotBinding(
+                      slotIndex: slotIndex,
+                      candidate: candidate
+                  ) else {
+                continue
+            }
+            return binding
+        }
+        return nil
+    }
+
     init?(
         slotIndex: Int,
         candidate: SceneTextureCandidate

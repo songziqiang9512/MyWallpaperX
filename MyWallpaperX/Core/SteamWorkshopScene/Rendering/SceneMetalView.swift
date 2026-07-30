@@ -129,6 +129,7 @@ class SceneMetalView: NSView {
                 loader: loader,
                 device: metalDevice,
                 userPropertyTextures: userPropertyTextureLoad.textures,
+                userPropertyTextureCandidates: userPropertyTextureLoad.textureCandidates,
                 preservedUserPropertyTextures: userPropertyTextureLoad.preservedTextures
             )
             loadedEffectTextures.merge(layerID: layer.id, textures: textures)

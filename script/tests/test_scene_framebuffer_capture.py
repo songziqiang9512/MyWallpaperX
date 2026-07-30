@@ -30,6 +30,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTexturePool.swift",
     SOURCE_ROOT / "Resources/SceneTextureSampling.swift",
     SOURCE_ROOT / "Resources/SceneTextureCandidate.swift",
+    SOURCE_ROOT / "Resources/SceneTextureSlotBinding.swift",
     SOURCE_ROOT / "Rendering/SceneBaseImageTextureCandidateSupport.swift",
     SOURCE_ROOT / "Effects/SceneGaussianBlurPipeline.swift",
     SOURCE_ROOT / "Effects/SceneStandardBlurPipeline.swift",
@@ -379,14 +380,27 @@ struct SceneFisheyeZeroDistortionPlan {
 }
 
 struct SceneBlendEffectTextures {
-    let texture: MTLTexture
-    let uvScale: SIMD2<Float>
+    struct ResolvedArguments {
+        let blend: SceneTextureSlotBinding
+        let uvScale: SIMD2<Float>
+    }
+
+    let blendBinding: SceneTextureSlotBinding?
     let assetPath: String
     let propertyKey: String?
 
-    func matches(_ plan: SceneBlendExecutionPlan) -> Bool {
-        normalized(assetPath) == normalized(plan.assetTexturePath)
-            && propertyKey == plan.userPropertyKey
+    func resolvedArguments(for plan: SceneBlendExecutionPlan) -> ResolvedArguments? {
+        guard normalized(assetPath) == normalized(plan.assetTexturePath),
+              propertyKey == plan.userPropertyKey,
+              let blendBinding,
+              let uvScale = blendBinding.axisAlignedUVScale(
+                  expectedSlotIndex: 1,
+                  expectedPurpose: .premultipliedColor,
+                  allowedPixelFormats: [.rgba8Unorm, .bgra8Unorm]
+              ) else {
+            return nil
+        }
+        return ResolvedArguments(blend: blendBinding, uvScale: uvScale)
     }
 
     private func normalized(_ path: String) -> String {
@@ -3178,6 +3192,16 @@ enum Harness {
         }
         fill(source, bgra: sourceBGRA)
         fill(blend, bgra: blendBGRA)
+        let blendCandidate = SceneTextureCandidate(
+            texture: blend,
+            identity: .builtIn(name: "authored-blend-fixture"),
+            generation: .immutable(revision: 1),
+            purpose: .premultipliedColor,
+            physicalSize: CGSize(width: 1, height: 1),
+            mappedSize: CGSize(width: 1, height: 1),
+            uvTransform: .identity,
+            sampling: .linearClamp
+        )
         let chain = authoredBlendChain(multiply: multiply)
         let pool = SceneOffscreenTexturePool(device: device, maxDimension: 1)
         let mainPass = SceneMainPassEncoder(
@@ -3193,8 +3217,10 @@ enum Harness {
                 texture: source,
                 masks: authoredEffectMasks(blendEffects: [
                     authoredBlendEffectID: SceneBlendEffectTextures(
-                        texture: blend,
-                        uvScale: SIMD2<Float>(repeating: 1),
+                        blendBinding: SceneTextureSlotBinding(
+                            slotIndex: 1,
+                            candidate: blendCandidate
+                        ),
                         assetPath: authoredBlendAssetPath,
                         propertyKey: nil
                     ),

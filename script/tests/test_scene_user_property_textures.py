@@ -21,6 +21,10 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
     SOURCE_ROOT / "Resources/SceneTextureMipUploader.swift",
     SOURCE_ROOT / "Resources/SceneTextureLoader.swift",
+    SOURCE_ROOT / "Resources/SceneTextureSampling.swift",
+    SOURCE_ROOT / "Resources/SceneTextureUVTransform.swift",
+    SOURCE_ROOT / "Resources/SceneTextureCandidate.swift",
+    SOURCE_ROOT / "Resources/SceneTextureLoader+Candidate.swift",
     SOURCE_ROOT / "Properties/SceneUserPropertyTextureLoader.swift",
 ]
 
@@ -171,11 +175,21 @@ enum Harness {
         )
         let empty = loader.load(urlsByPropertyKey: [:], device: device)
         let dimensions = result.textures.mapValues { ["width": $0.width, "height": $0.height] }
+        let candidate = result.textureCandidates["png"]
         let preservedDimensions = result.preservedTextures.mapValues {
             ["width": $0.width, "height": $0.height]
         }
         let payload: [String: Any] = [
             "loadedKeys": result.textures.keys.sorted(),
+            "candidateKeys": result.textureCandidates.keys.sorted(),
+            "candidateSharesTexture": candidate?.texture === result.textures["png"],
+            "candidatePurpose": candidate?.purpose == .premultipliedColor,
+            "candidatePhysicalMapped": [
+                candidate?.physicalSize.width ?? -1,
+                candidate?.physicalSize.height ?? -1,
+                candidate?.mappedSize.width ?? -1,
+                candidate?.mappedSize.height ?? -1,
+            ],
             "preservedLoadedKeys": result.preservedTextures.keys.sorted(),
             "dimensions": dimensions,
             "preservedDimensions": preservedDimensions,
@@ -186,9 +200,11 @@ enum Harness {
             "embeddedDataPixels": try pixels(embeddedDataOutcome),
             "reportLines": result.reportLines,
             "retryLoadedKeys": retry.textures.keys.sorted(),
+            "retryCandidateKeys": retry.textureCandidates.keys.sorted(),
             "retryPreservedLoadedKeys": retry.preservedTextures.keys.sorted(),
             "retryReportLines": retry.reportLines,
             "emptyLoadedKeys": empty.textures.keys.sorted(),
+            "emptyCandidateKeys": empty.textureCandidates.keys.sorted(),
             "emptyPreservedLoadedKeys": empty.preservedTextures.keys.sorted(),
             "emptyReportLines": empty.reportLines,
             "reusedTexture": reusedTexture,
@@ -375,6 +391,7 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
 
     def test_png_and_both_jpeg_extensions_load(self) -> None:
         self.assertEqual(self.result["loadedKeys"], ["jpeg", "jpg", "png"])
+        self.assertEqual(self.result["candidateKeys"], ["jpeg", "jpg", "png"])
         self.assertEqual(self.result["reportLines"][0], "sceneUserTextureRequestedCount: 5")
         self.assertEqual(self.result["reportLines"][-2], "sceneUserTextureLoadedCount: 3")
         self.assertEqual(
@@ -389,6 +406,11 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
                 "png": {"height": 1, "width": 2},
             },
         )
+
+    def test_color_textures_publish_atomic_candidates(self) -> None:
+        self.assertTrue(self.result["candidateSharesTexture"])
+        self.assertTrue(self.result["candidatePurpose"])
+        self.assertEqual(self.result["candidatePhysicalMapped"], [2, 1, 2, 1])
 
     def test_requested_property_has_a_separate_preserved_texture(self) -> None:
         self.assertEqual(self.result["preservedLoadedKeys"], ["png"])
@@ -439,6 +461,7 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
 
     def test_failed_retry_does_not_retain_an_old_texture(self) -> None:
         self.assertEqual(self.result["retryLoadedKeys"], [])
+        self.assertEqual(self.result["retryCandidateKeys"], [])
         self.assertEqual(
             [
                 self.result["retryReportLines"][0],
@@ -455,6 +478,7 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
 
     def test_empty_input_is_a_noop(self) -> None:
         self.assertEqual(self.result["emptyLoadedKeys"], [])
+        self.assertEqual(self.result["emptyCandidateKeys"], [])
         self.assertEqual(self.result["emptyPreservedLoadedKeys"], [])
         self.assertEqual(self.result["emptyReportLines"], [])
 

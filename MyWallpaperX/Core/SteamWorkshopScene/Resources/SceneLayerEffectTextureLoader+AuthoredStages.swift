@@ -9,6 +9,7 @@ extension SceneLayerEffectTextureLoader {
         loader: SceneTextureLoader,
         device: MTLDevice,
         userPropertyTextures: [String: MTLTexture],
+        userPropertyTextureCandidates: [String: SceneTextureCandidate],
         preservedUserPropertyTextures: [String: MTLTexture]
     ) -> SceneLayerEffectTextures {
         load(
@@ -40,6 +41,7 @@ extension SceneLayerEffectTextureLoader {
             godraysEffectIDs: Set(stages.compactMap { $0.godrays?.effectKey.descriptorID }),
             shineEffectIDs: Set(stages.compactMap { $0.shine?.effectKey.descriptorID }),
             userPropertyTextures: userPropertyTextures,
+            userPropertyTextureCandidates: userPropertyTextureCandidates,
             preservedUserPropertyTextures: preservedUserPropertyTextures
         )
     }

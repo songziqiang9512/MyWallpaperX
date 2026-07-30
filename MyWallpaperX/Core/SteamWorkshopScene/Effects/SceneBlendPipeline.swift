@@ -35,6 +35,7 @@ fragment float4 sceneAuthoredBlendFrag(
     BlendVaryings input [[stage_in]],
     texture2d<float> source [[texture(0)]],
     texture2d<float> blend [[texture(1)]],
+    sampler blendSampler [[sampler(0)]],
     constant BlendUniforms &uniforms [[buffer(0)]]
 ) {
     constexpr sampler linearClamp(
@@ -45,8 +46,8 @@ fragment float4 sceneAuthoredBlendFrag(
     );
     float4 albedo = source.sample(linearClamp, input.texcoord);
     float4 overlay = blend.sample(
-        linearClamp,
-        clamp(input.texcoord * uniforms.blendUVScale, 0.0, 1.0)
+        blendSampler,
+        input.texcoord * uniforms.blendUVScale
     );
     // Host textures are premultiplied; run authored Blend math in straight RGB.
     float3 sourceStraight = albedo.a > 0.00001 ? albedo.rgb / albedo.a : float3(0.0);
@@ -69,11 +70,13 @@ struct SceneBlendPipeline {
     }
 
     private let state: MTLRenderPipelineState
+    private let samplerStates: SceneTextureSamplerStateSet
     private let deviceRegistryID: UInt64
 
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {
         let options = MTLCompileOptions()
         guard pixelFormat == .bgra8Unorm,
+              let samplerStates = SceneTextureSamplerStateSet(device: device),
               let library = try? device.makeLibrary(source: sceneBlendShaderSource, options: options),
               let vertex = library.makeFunction(name: "sceneAuthoredBlendVert"),
               let fragment = library.makeFunction(name: "sceneAuthoredBlendFrag") else {
@@ -87,6 +90,7 @@ struct SceneBlendPipeline {
             return nil
         }
         self.state = state
+        self.samplerStates = samplerStates
         deviceRegistryID = device.registryID
     }
 
@@ -96,9 +100,11 @@ struct SceneBlendPipeline {
         target: MTLTexture,
         multiply: Float,
         blendUVScale: SIMD2<Float>,
+        blendSampling: SceneTextureSampling = .linearClamp,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
-        guard valid(
+        guard !blendSampling.usesClampBorderFallback,
+              valid(
             source: source,
             blend: blend,
             target: target,
@@ -119,6 +125,10 @@ struct SceneBlendPipeline {
         encoder.setRenderPipelineState(state)
         encoder.setFragmentTexture(source, index: 0)
         encoder.setFragmentTexture(blend, index: 1)
+        encoder.setFragmentSamplerState(
+            samplerStates.state(for: blendSampling),
+            index: 0
+        )
         var uniforms = Uniforms(multiply: multiply, blendUVScale: blendUVScale)
         encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 0)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)

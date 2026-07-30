@@ -38,6 +38,35 @@ enum SceneTextureLoadPurpose {
     case preservedChannels
 }
 
+struct SceneTextureCandidate {
+    let texture: MTLTexture
+}
+
+struct SceneTextureSlotBinding {
+    let slotIndex: Int
+    let candidate: SceneTextureCandidate
+
+    static func resolveFinalCandidate(
+        slotIndex: Int,
+        candidates: [SceneTextureCandidate?]
+    ) -> SceneTextureSlotBinding? {
+        candidates.reversed().compactMap { $0 }.first.map {
+            SceneTextureSlotBinding(slotIndex: slotIndex, candidate: $0)
+        }
+    }
+
+    var texture: MTLTexture { candidate.texture }
+
+    func axisAlignedUVScale(
+        expectedSlotIndex: Int,
+        expectedPurpose: SceneTextureLoadPurpose,
+        allowedPixelFormats: Set<MTLPixelFormat>,
+        requiresIdentityUV: Bool = false
+    ) -> SIMD2<Float>? {
+        slotIndex == expectedSlotIndex ? SIMD2(repeating: 1) : nil
+    }
+}
+
 struct SceneRenderDescriptor {
     struct EffectDescriptor {
         struct PassDescriptor {
@@ -73,13 +102,13 @@ struct SceneRenderDescriptor {
 }
 
 enum SceneLayerEffectTextureLoader {
-    static func loadTexture(
+    static func loadTextureCandidate(
         url: URL?,
         label: String,
         purpose: SceneTextureLoadPurpose,
         loader: SceneTextureLoader,
         device: MTLDevice
-    ) -> (texture: MTLTexture?, message: String) {
+    ) -> (candidate: SceneTextureCandidate?, message: String) {
         guard let url else { return (nil, "") }
         let source: String
         if url.path.contains("/package/") {
@@ -101,11 +130,7 @@ enum SceneLayerEffectTextureLoader {
             return (nil, "; allocation failed")
         }
         texture.label = source
-        return (texture, "; \(label) OK \(source)")
-    }
-
-    static func mappedUVScale(for url: URL?, texture: MTLTexture?) -> SIMD2<Float> {
-        SIMD2(repeating: 1)
+        return (SceneTextureCandidate(texture: texture), "; \(label) OK \(source)")
     }
 }
 
@@ -141,36 +166,41 @@ enum Harness {
 
         let authored = load(
             resolver: resolver(package: package, loose: loose, stock: stock),
-            userPropertyTextures: [:],
+            userPropertyTextureCandidates: [:],
             device: device
         )
         let looseFallback = load(
             resolver: resolver(package: nil, loose: loose, stock: stock),
-            userPropertyTextures: [:],
+            userPropertyTextureCandidates: [:],
             device: device
         )
         let stockFallback = load(
             resolver: resolver(package: nil, loose: empty, stock: stock),
-            userPropertyTextures: [:],
+            userPropertyTextureCandidates: [:],
             device: device
         )
         let propertyTexture = makeTexture(device: device, label: "property")
         let property = load(
             resolver: resolver(package: package, loose: loose, stock: stock),
-            userPropertyTextures: [propertyKey: propertyTexture],
+            userPropertyTextureCandidates: [
+                propertyKey: SceneTextureCandidate(texture: propertyTexture),
+            ],
             device: device
         )
         let missing = load(
             resolver: resolver(package: nil, loose: empty, stock: nil),
-            userPropertyTextures: [:],
+            userPropertyTextureCandidates: [:],
             device: device
         )
 
         let result: [String: Any] = [
-            "packageWins": authored.textures[effectID]?.texture.label == "package",
-            "looseWinsWithoutPackage": looseFallback.textures[effectID]?.texture.label == "loose",
-            "stockFillsMissingAuthorAsset": stockFallback.textures[effectID]?.texture.label == "stock",
-            "propertyWins": property.textures[effectID]?.texture === propertyTexture,
+            "packageWins": authored.textures[effectID]?.blendBinding?.texture.label == "package",
+            "looseWinsWithoutPackage":
+                looseFallback.textures[effectID]?.blendBinding?.texture.label == "loose",
+            "stockFillsMissingAuthorAsset":
+                stockFallback.textures[effectID]?.blendBinding?.texture.label == "stock",
+            "propertyWins":
+                property.textures[effectID]?.blendBinding?.texture === propertyTexture,
             "missingFailsClosed": missing.textures[effectID] == nil,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -190,7 +220,7 @@ enum Harness {
 
     static func load(
         resolver: SceneTexturePathResolver,
-        userPropertyTextures: [String: MTLTexture],
+        userPropertyTextureCandidates: [String: SceneTextureCandidate],
         device: MTLDevice
     ) -> (textures: [String: SceneBlendEffectTextures], message: String) {
         let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
@@ -211,7 +241,7 @@ enum Harness {
             resolver: resolver,
             loader: SceneTextureLoader(),
             device: device,
-            userPropertyTextures: userPropertyTextures
+            userPropertyTextureCandidates: userPropertyTextureCandidates
         )
     }
 
