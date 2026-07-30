@@ -36,6 +36,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontend.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderExecutionPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderUniformBinder.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredScrollShaderProfile.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderExecutionPlanner.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderPipelineCache.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderRenderer.swift",
@@ -147,26 +148,32 @@ enum Harness {
 
     static func descriptor(
         identity: String,
-        options: Options = .init()
+        options: Options = .init(),
+        resolvedMaterialPath: String = materialPath,
+        constantOverrides: [String: SceneDocument.ShaderValue]? = nil
     ) -> SceneRenderDescriptor {
         let textureSlots: [String?] = options.externalTexture ? ["external.png"] : []
         let constants: [String: SceneDocument.ShaderValue]
-        switch identity {
-        case "effects/generic":
-            constants = ["g_Strength": value(0.75, bound: options.userBinding)]
-        case "effects/annotated":
-            constants = ["Strength label": value(0.75)]
-        case "effects/annotatedambiguous":
-            constants = [
-                "u_Strength": value(0.25),
-                "Strength label": value(0.75),
-            ]
-        case "effects/annotatedbound":
-            constants = ["Strength label": value(0.75, bound: true)]
-        case "effects/aliascollision":
-            constants = ["Strength label": value(0.75)]
-        default:
-            constants = [:]
+        if let constantOverrides {
+            constants = constantOverrides
+        } else {
+            switch identity {
+            case "effects/generic":
+                constants = ["g_Strength": value(0.75, bound: options.userBinding)]
+            case "effects/annotated":
+                constants = ["Strength label": value(0.75)]
+            case "effects/annotatedambiguous":
+                constants = [
+                    "u_Strength": value(0.25),
+                    "Strength label": value(0.75),
+                ]
+            case "effects/annotatedbound":
+                constants = ["Strength label": value(0.75, bound: true)]
+            case "effects/aliascollision":
+                constants = ["Strength label": value(0.75)]
+            default:
+                constants = [:]
+            }
         }
         let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
             passIndex: 0,
@@ -181,8 +188,8 @@ enum Harness {
             passes: [pass]
         )
         let material = SceneRenderDescriptor.MaterialPassDescriptor(
-            id: materialPassID,
-            materialPath: materialPath,
+            id: "\(resolvedMaterialPath)#0",
+            materialPath: resolvedMaterialPath,
             shaderPath: identity,
             textureSlots: [],
             userTextureInputs: [],
@@ -206,7 +213,12 @@ enum Harness {
         )
     }
 
-    static func graph(priorInput: Bool = false, blocker: Bool = false) -> Graph {
+    static func graph(
+        priorInput: Bool = false,
+        blocker: Bool = false,
+        definitionPath: String = "effects/test/effect.json",
+        resolvedMaterialPath: String = materialPath
+    ) -> Graph {
         let key = Graph.EffectKey(
             layerID: layerID,
             effectIndex: 0,
@@ -233,7 +245,7 @@ enum Harness {
             layerID: layerID,
             effects: [.init(
                 key: key,
-                definitionPath: "effects/test/effect.json",
+                definitionPath: definitionPath,
                 input: input,
                 output: output,
                 nodeIndices: [0]
@@ -246,8 +258,8 @@ enum Harness {
                 materialOrdinal: 0,
                 instancePassIndex: 0,
                 kind: .material,
-                materialPath: materialPath,
-                materialPassID: materialPassID,
+                materialPath: resolvedMaterialPath,
+                materialPassID: "\(resolvedMaterialPath)#0",
                 target: output,
                 bindings: [],
                 commandSource: nil,
@@ -275,13 +287,60 @@ enum Harness {
         options: Options = .init(),
         priorInput: Bool = false,
         role: SceneAuthoredEffectInputRole = .layerSource,
-        blocker: Bool = false
+        blocker: Bool = false,
+        definitionPath: String = "effects/test/effect.json",
+        resolvedMaterialPath: String = materialPath,
+        constantOverrides: [String: SceneDocument.ShaderValue]? = nil
     ) -> SceneAuthoredShaderExecutionPlan? {
         SceneAuthoredShaderExecutionPlanner.plan(
-            graph: graph(priorInput: priorInput, blocker: blocker),
-            descriptor: descriptor(identity: identity, options: options),
+            graph: graph(
+                priorInput: priorInput,
+                blocker: blocker,
+                definitionPath: definitionPath,
+                resolvedMaterialPath: resolvedMaterialPath
+            ),
+            descriptor: descriptor(
+                identity: identity,
+                options: options,
+                resolvedMaterialPath: resolvedMaterialPath,
+                constantOverrides: constantOverrides
+            ),
             shaderContracts: contracts(identity, root: root),
             inputRole: role
+        )
+    }
+
+    static func scrollPlan(
+        identity: String,
+        definitionPath: String,
+        resolvedMaterialPath: String,
+        root: URL,
+        repeatValue: [Double] = [1, 1],
+        speedX: Double,
+        speedY: Double,
+        bound: Bool = false,
+        options: Options = .init(),
+        priorInput: Bool = true,
+        role: SceneAuthoredEffectInputRole = .priorEffectOutput
+    ) -> SceneAuthoredShaderExecutionPlan? {
+        plan(
+            identity: identity,
+            root: root,
+            options: options,
+            priorInput: priorInput,
+            role: role,
+            definitionPath: definitionPath,
+            resolvedMaterialPath: resolvedMaterialPath,
+            constantOverrides: [
+                "repeat": .init(
+                    userBinding: bound ? "repeat-property" : nil,
+                    components: repeatValue,
+                    timeline: nil,
+                    timelineDiagnostics: []
+                ),
+                "speedx": value(speedX),
+                "speedy": value(speedY),
+            ]
         )
     }
 
@@ -376,6 +435,88 @@ enum Harness {
             }.min() ?? 0,
             "compilationAttempts": pipelineCache.compilationAttemptCount,
         ]
+    }
+
+    static func scrollRow(
+        _ plan: SceneAuthoredShaderExecutionPlan,
+        time: Float,
+        device: MTLDevice
+    ) -> [Int]? {
+        let dimension = 8
+        guard let queue = device.makeCommandQueue(),
+              let pipelineCache = SceneAuthoredShaderPipelineCache(device: device) else {
+            return nil
+        }
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm,
+            width: dimension,
+            height: dimension,
+            mipmapped: false
+        )
+        descriptor.storageMode = .shared
+        descriptor.usage = [.shaderRead, .renderTarget]
+        guard let source = device.makeTexture(descriptor: descriptor),
+              let target = device.makeTexture(descriptor: descriptor),
+              let commandBuffer = queue.makeCommandBuffer() else {
+            return nil
+        }
+        var input = [UInt8](repeating: 0, count: dimension * dimension * 4)
+        for y in 0..<dimension {
+            for x in 0..<dimension {
+                let offset = (y * dimension + x) * 4
+                input[offset] = 0
+                input[offset + 1] = UInt8(x * 30)
+                input[offset + 2] = 0
+                input[offset + 3] = 255
+            }
+        }
+        input.withUnsafeBytes { bytes in
+            guard let baseAddress = bytes.baseAddress else { return }
+            source.replace(
+                region: MTLRegionMake2D(0, 0, dimension, dimension),
+                mipmapLevel: 0,
+                withBytes: baseAddress,
+                bytesPerRow: dimension * 4
+            )
+        }
+        let size = CGSize(width: dimension, height: dimension)
+        let inputs = SceneAuthoredShaderUniformInputs(
+            renderSize: size,
+            screenSize: size,
+            modelViewProjection: simd_float4x4(columns: (
+                SIMD4(0.25, 0, 0, 0),
+                SIMD4(0, 0.25, 0, 0),
+                SIMD4(0, 0, 1, 0),
+                SIMD4(0, 0, 0, 1)
+            )),
+            sceneTime: time,
+            dayTime: 0,
+            frameTime: 1.0 / 60.0,
+            pointerCurrentNDC: .zero,
+            pointerPreviousNDC: .zero,
+            texturePhysicalSizes: [0: size]
+        )
+        guard SceneAuthoredShaderRenderer.encode(
+            plan: plan,
+            source: source,
+            target: target,
+            inputs: inputs,
+            pipelineCache: pipelineCache,
+            commandBuffer: commandBuffer
+        ) else {
+            return nil
+        }
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else { return nil }
+        var output = [UInt8](repeating: 0, count: input.count)
+        target.getBytes(
+            &output,
+            bytesPerRow: dimension * 4,
+            from: MTLRegionMake2D(0, 0, dimension, dimension),
+            mipmapLevel: 0
+        )
+        return (0..<dimension).map { Int(output[$0 * 4 + 1]) }
     }
 
     static func failureIsCached(
@@ -506,7 +647,44 @@ enum Harness {
         let generic = plan(identity: "effects/generic", root: syntheticRoot)
         let annotated = plan(identity: "effects/annotated", root: syntheticRoot)
         let real = plan(identity: "effects/myfirstshader", root: realRoot)
-
+        let stockScrollRoot = URL(
+            fileURLWithPath: CommandLine.arguments[3],
+            isDirectory: true
+        )
+        let relocatedScrollRoot = URL(
+            fileURLWithPath: CommandLine.arguments[4],
+            isDirectory: true
+        )
+        let annotatedScrollRoot = URL(
+            fileURLWithPath: CommandLine.arguments[5],
+            isDirectory: true
+        )
+        let stockScroll = scrollPlan(
+            identity: "effects/scroll",
+            definitionPath: "effects/scroll/effect.json",
+            resolvedMaterialPath: "materials/effects/scroll.json",
+            root: stockScrollRoot,
+            speedX: 0.25,
+            speedY: 0
+        )
+        let relocatedScroll = scrollPlan(
+            identity: "workshop/3302578859/effects/scroll",
+            definitionPath: "effects/workshop/3302578859/scroll/effect.json",
+            resolvedMaterialPath:
+                "materials/workshop/3302578859/effects/scroll.json",
+            root: relocatedScrollRoot,
+            speedX: 0,
+            speedY: 0.15
+        )
+        let annotatedScroll = scrollPlan(
+            identity: "workshop/3387825383/effects/scroll",
+            definitionPath: "effects/workshop/3387825383/scroll/effect.json",
+            resolvedMaterialPath:
+                "materials/workshop/3387825383/effects/scroll.json",
+            root: annotatedScrollRoot,
+            speedX: 0.45,
+            speedY: 0
+        )
         var external = Options(); external.externalTexture = true
         var combo = Options(); combo.combo = true
         var bound = Options(); bound.userBinding = true
@@ -518,6 +696,7 @@ enum Harness {
         var translucent = Options(); translucent.blending = "translucent"
         var missingSize = Options(); missingSize.size = nil
         var video = Options(); video.contentKind = "video"
+        var composition = Options(); composition.contentKind = "composition"
 
         let rejectedOptions = [
             external, combo, bound, userShader, alphaWriting, alphaWritingDefault,
@@ -533,6 +712,14 @@ enum Harness {
         let realPixels = real.flatMap { plan in
             device.flatMap { render(plan, dimension: 32, device: $0) }
         }
+        let scrollAtZero = stockScroll.flatMap { plan in
+            device.flatMap { scrollRow(plan, time: 0, device: $0) }
+        }
+        let scrollAtOne = stockScroll.flatMap { plan in
+            device.flatMap { scrollRow(plan, time: 1, device: $0) }
+        }
+        var scrollExternal = Options()
+        scrollExternal.externalTexture = true
         let result: [String: Any] = [
             "genericAccepted": generic != nil,
             "genericContractPreserved": generic.map {
@@ -574,6 +761,73 @@ enum Harness {
                     && $0.uniformBindings.contains { $0.field.name == "g_Time" }
                     && $0.uniformBindings.contains { $0.field.name == "g_Texture0Resolution" }
             } ?? false,
+            "scrollProfilesAccepted": [
+                stockScroll, relocatedScroll, annotatedScroll,
+            ].allSatisfy {
+                $0?.profile == .scroll
+                    && $0?.framebufferTextureSlots == [0]
+                    && $0?.uniformBindings.contains {
+                        $0.field.name == "g_Time"
+                    } == true
+            },
+            "scrollInferenceBounded": scrollPlan(
+                identity: "effects/scroll",
+                definitionPath: "effects/unknown/scroll/effect.json",
+                resolvedMaterialPath: "materials/effects/scroll.json",
+                root: stockScrollRoot,
+                speedX: 0.25,
+                speedY: 0
+            ) == nil,
+            "scrollCompositionRejected": scrollPlan(
+                identity: "workshop/3302578859/effects/scroll",
+                definitionPath: "effects/workshop/3302578859/scroll/effect.json",
+                resolvedMaterialPath:
+                    "materials/workshop/3302578859/effects/scroll.json",
+                root: relocatedScrollRoot,
+                speedX: 0,
+                speedY: 0.15,
+                options: composition,
+                priorInput: false,
+                role: .layerSource
+            ) == nil,
+            "scrollDynamicRejected": scrollPlan(
+                identity: "effects/scroll",
+                definitionPath: "effects/scroll/effect.json",
+                resolvedMaterialPath: "materials/effects/scroll.json",
+                root: stockScrollRoot,
+                speedX: 0.25,
+                speedY: 0,
+                bound: true
+            ) == nil,
+            "scrollRangeRejected": scrollPlan(
+                identity: "effects/scroll",
+                definitionPath: "effects/scroll/effect.json",
+                resolvedMaterialPath: "materials/effects/scroll.json",
+                root: stockScrollRoot,
+                repeatValue: [0, 1],
+                speedX: 3,
+                speedY: 0
+            ) == nil,
+            "scrollExternalTextureRejected": scrollPlan(
+                identity: "effects/scroll",
+                definitionPath: "effects/scroll/effect.json",
+                resolvedMaterialPath: "materials/effects/scroll.json",
+                root: stockScrollRoot,
+                speedX: 0.25,
+                speedY: 0,
+                options: scrollExternal
+            ) == nil,
+            "scrollMovesPositiveXLeft": {
+                guard let before = scrollAtZero, let after = scrollAtOne,
+                      before.count == 8, after.count == 8 else {
+                    return false
+                }
+                return before != after
+                    && (0..<6).allSatisfy { index in
+                        after[index] > before[index]
+                            && after[index] < before[index + 1]
+                    }
+            }(),
             "priorAccepted": plan(
                 identity: "effects/generic",
                 root: syntheticRoot,
@@ -682,6 +936,25 @@ class SceneAuthoredShaderExecutionPlannerTests(unittest.TestCase):
         real_root = sample_cache_root("3141421197")
         if not (real_root / "shaders/effects/myfirstshader.frag").is_file():
             self.skipTest("isolated 3141421197 shader fixture is unavailable")
+        scroll_roots = {
+            "2974757317": (
+                sample_cache_root("2974757317"),
+                "shaders/effects/scroll.frag",
+            ),
+            "3299228616": (
+                sample_cache_root("3299228616"),
+                "shaders/workshop/3302578859/effects/scroll.frag",
+            ),
+            "3769688830": (
+                sample_cache_root("3769688830"),
+                "shaders/workshop/3387825383/effects/scroll.frag",
+            ),
+        }
+        if any(
+            not (root / relative_path).is_file()
+            for root, relative_path in scroll_roots.values()
+        ):
+            self.skipTest("isolated Scroll shader fixtures are unavailable")
 
         with tempfile.TemporaryDirectory(prefix="mwx-authored-shader-planner-") as directory:
             root = Path(directory)
@@ -725,7 +998,14 @@ class SceneAuthoredShaderExecutionPlannerTests(unittest.TestCase):
             )
             self.assertEqual(compilation.returncode, 0, compilation.stderr)
             completed = subprocess.run(
-                [str(binary), str(real_root), str(synthetic_root)],
+                [
+                    str(binary),
+                    str(real_root),
+                    str(synthetic_root),
+                    *(str(scroll_roots[sample_id][0]) for sample_id in (
+                        "2974757317", "3299228616", "3769688830",
+                    )),
+                ],
                 cwd=REPOSITORY_ROOT,
                 check=True,
                 capture_output=True,

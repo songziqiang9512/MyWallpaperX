@@ -63,6 +63,7 @@ extension SceneAuthoredEffectExecutionCatalog {
             "authoredEffectGraphShineIsolatedCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.isolatedShineCount })",
             "authoredEffectGraphShineOmittedEffects: \(isolatedShineDiagnostics.joined(separator: ";"))",
             "authoredEffectGraphAuthoredShaderCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.authoredShaderCount })",
+            "authoredEffectGraphScrollCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.scrollCount })",
             "authoredEffectGraphXRayPrefixCount: \(xRayPrefixOmittedEffectPathsByLayerID.count)",
             "authoredEffectGraphXRayPrefixOmittedEffects: \(xRayPrefixOmittedEffectPathsByLayerID.sorted(by: { $0.key < $1.key }).map { "\($0.key)=\($0.value.joined(separator: ","))" }.joined(separator: ";"))",
         ]

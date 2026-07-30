@@ -2,6 +2,11 @@ import CoreGraphics
 import Foundation
 
 nonisolated struct SceneAuthoredShaderExecutionPlan {
+    enum Profile {
+        case genericFramebuffer
+        case scroll
+    }
+
     struct UniformBinding {
         enum Source {
             case renderSize
@@ -27,6 +32,25 @@ nonisolated struct SceneAuthoredShaderExecutionPlan {
     let mappedSize: CGSize
     let framebufferTextureSlots: [Int]
     let uniformBindings: [UniformBinding]
+    let profile: Profile
+
+    init(
+        cacheKey: String,
+        program: SceneAuthoredShaderProgram,
+        renderState: SceneMaterialRenderState,
+        mappedSize: CGSize,
+        framebufferTextureSlots: [Int],
+        uniformBindings: [UniformBinding],
+        profile: Profile = .genericFramebuffer
+    ) {
+        self.cacheKey = cacheKey
+        self.program = program
+        self.renderState = renderState
+        self.mappedSize = mappedSize
+        self.framebufferTextureSlots = framebufferTextureSlots
+        self.uniformBindings = uniformBindings
+        self.profile = profile
+    }
 
     func offscreenSize(for requestedSize: CGSize) -> CGSize? {
         program.offscreenSize(viewportSize: requestedSize)

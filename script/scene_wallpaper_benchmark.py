@@ -309,6 +309,10 @@ AUTHORED_EFFECT_GRAPH_AUTHORED_SHADER_COUNT_RE = re.compile(
     r"^authoredEffectGraphAuthoredShaderCount: (?P<count>\d+)$",
     re.MULTILINE,
 )
+AUTHORED_EFFECT_GRAPH_SCROLL_COUNT_RE = re.compile(
+    r"^authoredEffectGraphScrollCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
 AUTHORED_EFFECT_GRAPH_CHAIN_COUNT_RE = re.compile(
     r"^authoredEffectGraphChainCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -1651,6 +1655,11 @@ def authored_effect_graph_authored_shader_count(preview_text: str) -> int | None
     return int(match.group("count")) if match is not None else None
 
 
+def authored_effect_graph_scroll_count(preview_text: str) -> int | None:
+    match = AUTHORED_EFFECT_GRAPH_SCROLL_COUNT_RE.search(preview_text)
+    return int(match.group("count")) if match is not None else None
+
+
 def authored_effect_graph_chain_metrics(preview_text: str) -> dict[str, int | None]:
     chain_match = AUTHORED_EFFECT_GRAPH_CHAIN_COUNT_RE.search(preview_text)
     stage_match = AUTHORED_EFFECT_GRAPH_STAGE_COUNT_RE.search(preview_text)
@@ -1755,6 +1764,7 @@ def authored_effect_graph_failures(
     transform_static_fallback_count: int | None = None,
     transform_static_fallback_diagnostics: list[str] | None = None,
     authored_shader_count: int | None = None,
+    scroll_count: int | None = None,
     opacity_count: int | None = None,
     color_key_count: int | None = None,
     workshop_audio_bars_count: int | None = None,
@@ -1814,6 +1824,7 @@ def authored_effect_graph_failures(
         "transform_static_fallback_diagnostics":
             transform_static_fallback_diagnostics,
         "authored_shader_count": authored_shader_count,
+        "scroll_count": scroll_count,
         "route_only_effect_count": route_only_effect_count,
     }
     for expectation in AUTHORED_EFFECT_RUNTIME_EXPECTATIONS:
@@ -2200,6 +2211,7 @@ def run_sample(
     authored_effect_graph_authored_shader = authored_effect_graph_authored_shader_count(
         preview_text
     )
+    authored_effect_graph_scroll = authored_effect_graph_scroll_count(preview_text)
     authored_effect_graph_chain = authored_effect_graph_chain_metrics(preview_text)
     route_only_effect_count = preview_text.count("offscreen route-only")
     named_target_capture_execution = named_target_capture_execution_metrics(log_text)
@@ -2342,6 +2354,7 @@ def run_sample(
             authored_effect_graph_transform_fallback_diagnostics
         ),
         authored_shader_count=authored_effect_graph_authored_shader,
+        scroll_count=authored_effect_graph_scroll,
         opacity_count=authored_effect_graph_opacity,
         color_key_count=authored_effect_graph_color_key,
         workshop_audio_bars_count=authored_effect_graph_workshop_audio_bars,
@@ -2704,6 +2717,7 @@ def run_sample(
             "authored_effect_graph_transform_static_fallback_count": authored_effect_graph_transform_static_fallback,
             "authored_effect_graph_transform_static_fallback_diagnostics": authored_effect_graph_transform_fallback_diagnostics,
             "authored_effect_graph_authored_shader_count": authored_effect_graph_authored_shader,
+            "authored_effect_graph_scroll_count": authored_effect_graph_scroll,
             "authored_effect_graph_chain_count": authored_effect_graph_chain["chain_count"],
             "authored_effect_graph_stage_count": authored_effect_graph_chain["stage_count"],
             "named_target_capture_succeeded_layer_ids": named_target_capture_execution["succeeded_layer_ids"],

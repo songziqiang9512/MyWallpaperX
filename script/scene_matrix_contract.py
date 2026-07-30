@@ -203,6 +203,11 @@ AUTHORED_EFFECT_RUNTIME_EXPECTATIONS = (
         "authored effect graph authored shader count mismatch",
     ),
     RuntimeExpectation(
+        "expected_authored_effect_graph_scroll_count",
+        "scroll_count",
+        "authored effect graph Scroll count mismatch",
+    ),
+    RuntimeExpectation(
         "expected_route_only_effect_count",
         "route_only_effect_count",
         "offscreen route-only effect count mismatch",

@@ -159,7 +159,21 @@ struct SceneProceduralNoiseExecutionPlan: Sendable {}
 struct SceneFilmGrainExecutionPlan: Sendable {}
 struct SceneLightShaftsExecutionPlan: Sendable {}
 struct SceneAuthoredShaderExecutionPlan: Sendable {
+    enum Profile: Sendable {
+        case genericFramebuffer
+        case scroll
+    }
+
     let offscreenSize: CGSize?
+    let profile: Profile
+
+    init(
+        offscreenSize: CGSize?,
+        profile: Profile = .genericFramebuffer
+    ) {
+        self.offscreenSize = offscreenSize
+        self.profile = profile
+    }
 
     func offscreenSize(for requestedSize: CGSize) -> CGSize? { offscreenSize }
 }

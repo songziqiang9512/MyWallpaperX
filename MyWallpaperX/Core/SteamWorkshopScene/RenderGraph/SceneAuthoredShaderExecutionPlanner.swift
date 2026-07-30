@@ -54,10 +54,19 @@ nonisolated enum SceneAuthoredShaderExecutionPlanner {
             fragmentSource: fragment.source
         )
         guard let program = frontend.program,
-              frontend.diagnostics.isEmpty,
-              let framebufferSlots = framebufferSlots(
+              frontend.diagnostics.isEmpty else {
+            return nil
+        }
+        let scrollProfile = SceneAuthoredScrollShaderProfile.resolve(
+            graph: graph,
+            descriptor: descriptor,
+            contract: contract,
+            program: program
+        )
+        guard let framebufferSlots = framebufferSlots(
                   program: program,
-                  contract: contract
+                  contract: contract,
+                  inferredSlots: scrollProfile?.inferredFramebufferSlots ?? []
               ),
               let uniformBindings = uniformBindings(
                   program: program,
@@ -73,7 +82,8 @@ nonisolated enum SceneAuthoredShaderExecutionPlanner {
             renderState: renderState,
             mappedSize: mappedSize,
             framebufferTextureSlots: framebufferSlots,
-            uniformBindings: uniformBindings
+            uniformBindings: uniformBindings,
+            profile: scrollProfile == nil ? .genericFramebuffer : .scroll
         )
     }
 
@@ -141,7 +151,8 @@ nonisolated enum SceneAuthoredShaderExecutionPlanner {
 
     private static func framebufferSlots(
         program: SceneAuthoredShaderProgram,
-        contract: SceneShaderContract
+        contract: SceneShaderContract,
+        inferredSlots: Set<Int>
     ) -> [Int]? {
         var slots: [Int] = []
         for texture in program.textureBindings {
@@ -152,10 +163,10 @@ nonisolated enum SceneAuthoredShaderExecutionPlanner {
                         && declaration.name == texture.name
                         && stage.annotations.contains {
                             $0.line == declaration.line && isFramebuffer($0.value)
-                        }
+                    }
                 }
             }
-            guard annotated else { return nil }
+            guard annotated || inferredSlots.contains(texture.slot) else { return nil }
             slots.append(texture.slot)
         }
         return slots.sorted()

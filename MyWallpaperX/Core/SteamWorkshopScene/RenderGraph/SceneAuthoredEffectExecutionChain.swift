@@ -164,6 +164,9 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
     var authoredShaderCount: Int {
         stages.filter { $0.authoredShader != nil }.count
     }
+    var scrollCount: Int {
+        stages.filter { $0.authoredShader?.profile == .scroll }.count
+    }
 
     func authoredShaderOffscreenSize(for requestedSize: CGSize) -> CGSize? {
         stages.compactMap { $0.authoredShader?.offscreenSize(for: requestedSize) }.min {

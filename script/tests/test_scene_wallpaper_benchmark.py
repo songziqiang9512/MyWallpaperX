@@ -1851,6 +1851,7 @@ utility layer 763: skippedHidden kind=composition
                 "fixture"
             ],
             "authored_effect_graph_authored_shader_count": 11,
+            "authored_effect_graph_scroll_count": 12,
             "authored_effect_graph_iris_inline_suffix_count": 1,
         }
         runtime.update(expected_counts)
@@ -2084,6 +2085,32 @@ utility layer 763: skippedHidden kind=composition
             ),
         )
         self.assertIsNone(benchmark.authored_effect_graph_authored_shader_count(""))
+
+    def test_scroll_count_is_an_exact_gate(self) -> None:
+        preview = "authoredEffectGraphScrollCount: 30\n"
+        count = benchmark.authored_effect_graph_scroll_count(preview)
+        self.assertEqual(count, 30)
+        self.assertEqual(
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_scroll_count": 30},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                scroll_count=count,
+            ),
+            [],
+        )
+        self.assertIn(
+            "authored effect graph Scroll count mismatch",
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_scroll_count": 0},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                scroll_count=count,
+            ),
+        )
+        self.assertIsNone(benchmark.authored_effect_graph_scroll_count(""))
 
     def test_authored_opacity_and_route_only_counts_are_exact_gates(self) -> None:
         preview = (
