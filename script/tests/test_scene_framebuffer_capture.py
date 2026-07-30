@@ -1411,6 +1411,13 @@ enum Harness {
             pipeline: pipeline,
             compositor: compositor
         )
+        let authoredCompositionClippingMask = try authoredClippingMaskPixel(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor,
+            contentKind: "composition"
+        )
         let solidTint = try layerTintPixel(
             device: device, queue: queue, pipeline: pipeline, compositor: compositor,
             contentKind: "solid"
@@ -1619,6 +1626,7 @@ enum Harness {
             "darkenDependencyBGRA": darkenDependency,
             "darkenHalfAlphaBGRA": darkenHalfAlpha,
             "authoredClippingMaskBGRA": authoredClippingMask,
+            "authoredCompositionClippingMaskBGRA": authoredCompositionClippingMask,
             "solidTintBGRA": solidTint,
             "imageTintBGRA": imageTint,
             "imageBrightnessBGRA": imageBrightness,
@@ -2069,7 +2077,8 @@ enum Harness {
         device: MTLDevice,
         queue: MTLCommandQueue,
         pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor
+        compositor: SceneImageLayerCompositor,
+        contentKind: String = "image"
     ) throws -> [UInt8] {
         guard let source = makeTexture(device: device, size: 8, usage: .shaderRead),
               let dependency = makeTexture(device: device, size: 8, usage: .shaderRead),
@@ -2082,7 +2091,7 @@ enum Harness {
         fill(source, bgra: [32, 64, 128, 128])
         fill(dependency, bgra: [192, 32, 64, 255])
         let layer = SceneRenderDescriptor.Layer(
-            contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
+            contentKind: contentKind, colorRGB: nil, colorBlendMode: nil, effects: []
         )
         let mainPass = SceneMainPassEncoder(
             commandBuffer: commandBuffer,
@@ -4719,6 +4728,10 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
     def test_authored_clipping_stage_consumes_dependency_once(self) -> None:
         self.assert_pixel_close(
             self.result["authoredClippingMaskBGRA"],
+            self.result["normalDependencyBGRA"],
+        )
+        self.assert_pixel_close(
+            self.result["authoredCompositionClippingMaskBGRA"],
             self.result["normalDependencyBGRA"],
         )
 

@@ -16,6 +16,7 @@ SOURCE = SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift"
 RUNTIME_PLAN_SOURCE = SOURCE_ROOT / "Rendering/SceneUtilityLayerRuntimePlan.swift"
 UTILITY_RENDERER_SOURCE = SOURCE_ROOT / "Rendering/SceneUtilityLayerRenderer.swift"
 METAL_RENDERER_SOURCE = SOURCE_ROOT / "Rendering/SceneMetalRenderer.swift"
+DEPENDENCY_RUNTIME_SOURCE = SOURCE_ROOT / "RenderGraph/SceneDependencyFrameRuntime.swift"
 METAL_RENDERER_MASKS_SOURCE = (
     SOURCE_ROOT / "Rendering/SceneMetalRenderer+EffectMasks.swift"
 )
@@ -118,6 +119,11 @@ class SceneUtilityLayerTests(unittest.TestCase):
             "the exact Foliage backend must explicitly admit utility capture",
         )
         self.assertIn(
+            "case .clippingMask, .opacity:",
+            backend,
+            "exact named clipping and static/direct opacity must admit utility capture",
+        )
+        self.assertIn(
             "case .simple = plan.profile",
             backend,
             "the existing Simple Audio Bars utility contract must stay exact",
@@ -167,6 +173,43 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertIn("audioSpectrum: SceneAudioSpectrumSnapshot", utility_renderer)
         self.assertIn("audioSpectrum: audioSpectrum", utility_renderer)
         self.assertIn("audioSpectrum: frameContext.audioSpectrum", metal_renderer)
+
+    def test_composition_capture_receives_named_dependency_atomically(self) -> None:
+        runtime_plan = RUNTIME_PLAN_SOURCE.read_text(encoding="utf-8")
+        utility_renderer = UTILITY_RENDERER_SOURCE.read_text(encoding="utf-8")
+        metal_renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8")
+        dependency_runtime = DEPENDENCY_RUNTIME_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            "dependencyPlan.bindingsByConsumerLayerID[layer.id] != nil",
+            runtime_plan,
+        )
+        self.assertIn(
+            "executableUtilityConsumerLayerIDs.contains(layer.id)",
+            runtime_plan,
+        )
+        self.assertIn(
+            "executableUtilityConsumerLayerIDs: Set<Int>",
+            dependency_runtime,
+        )
+        self.assertIn(
+            "executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs",
+            dependency_runtime,
+        )
+        self.assertIn(
+            "dependencyEffect: SceneDependencyEffectInput?",
+            utility_renderer,
+        )
+        self.assertIn("dependencyEffect: dependencyEffect", utility_renderer)
+        self.assertIn("dependencyRuntime.effectInput(", metal_renderer)
+        self.assertIn(
+            ".executableUtilityConsumerLayerIDs("
+            "in: renderDescriptor, authoredEffectCatalog: authoredEffectCatalog)",
+            metal_renderer,
+        )
+        self.assertIn(
+            "dependencyRuntime.recordBindingIfRequired(",
+            metal_renderer,
+        )
 
 
 if __name__ == "__main__":

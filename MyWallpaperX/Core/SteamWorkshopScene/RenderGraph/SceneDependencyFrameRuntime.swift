@@ -12,11 +12,13 @@ final class SceneDependencyFrameRuntime {
     init(
         descriptor: SceneRenderDescriptor,
         visibleLayerIDs: Set<Int>,
+        executableUtilityConsumerLayerIDs: Set<Int>,
         device: MTLDevice
     ) {
         self.plan = SceneDependencyRenderPlan(
             descriptor: descriptor,
-            visibleLayerIDs: visibleLayerIDs
+            visibleLayerIDs: visibleLayerIDs,
+            executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
         )
         self.targetPool = SceneNamedRenderTargetPool(device: device)
         self.imageBlendRuntime = SceneImageBlendRuntime(

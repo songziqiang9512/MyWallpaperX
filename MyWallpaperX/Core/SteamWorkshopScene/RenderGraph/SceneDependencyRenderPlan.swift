@@ -32,6 +32,7 @@ nonisolated struct SceneDependencyRenderPlan {
 
     let references: [Reference]
     let namedReferenceConsumerLayerIDs: Set<Int>
+    let executableUtilityConsumerLayerIDs: Set<Int>
     let requiredEffectConsumerLayerIDs: Set<Int>
     let bindingsByConsumerLayerID: [Int: Binding]
     let requiredProviderLayerIDs: Set<Int>
@@ -40,7 +41,8 @@ nonisolated struct SceneDependencyRenderPlan {
 
     nonisolated init(
         descriptor: SceneRenderDescriptor,
-        visibleLayerIDs: Set<Int>
+        visibleLayerIDs: Set<Int>,
+        executableUtilityConsumerLayerIDs: Set<Int> = []
     ) {
         let layersByID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
         let order = Dictionary(uniqueKeysWithValues: descriptor.renderOrderLayerIDs.enumerated().map {
@@ -64,6 +66,7 @@ nonisolated struct SceneDependencyRenderPlan {
                 layersByID: layersByID,
                 order: order,
                 cyclicLayerIDs: cyclicLayerIDs,
+                executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,
                 issues: &issues
             ) else {
                 continue
@@ -82,9 +85,13 @@ nonisolated struct SceneDependencyRenderPlan {
         self.namedReferenceConsumerLayerIDs = Set(references.compactMap { reference in
             visibleLayerIDs.contains(reference.consumerLayerID) ? reference.consumerLayerID : nil
         })
+        self.executableUtilityConsumerLayerIDs = executableUtilityConsumerLayerIDs
         self.requiredEffectConsumerLayerIDs = Set(descriptor.layers.compactMap { layer in
             guard visibleLayerIDs.contains(layer.id),
-                  case nil = layer.utilityLayer,
+                  Self.supportsEffectConsumer(
+                      layer,
+                      executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
+                  ),
                   references.contains(where: { $0.consumerLayerID == layer.id }),
                   layer.effects.compactMap(SceneClippingMaskContract.declaration).count == 1 else {
                 return nil
@@ -186,10 +193,14 @@ nonisolated struct SceneDependencyRenderPlan {
         layersByID: [Int: SceneRenderDescriptor.Layer],
         order: [Int: Int],
         cyclicLayerIDs: Set<Int>,
+        executableUtilityConsumerLayerIDs: Set<Int>,
         issues: inout [Issue]
     ) -> Binding? {
         let visibleEffects = layer.effects.filter { $0.visible != false }
-        guard case nil = layer.utilityLayer,
+        guard supportsEffectConsumer(
+                  layer,
+                  executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
+              ),
               let clipping = supportedClippingEffect(in: visibleEffects),
               references.count == 1,
               let reference = references.first,
@@ -198,6 +209,15 @@ nonisolated struct SceneDependencyRenderPlan {
               reference.slot.slotIndex == 1,
               reference.providerLayerID == clipping.declaration.providerLayerID else {
             issues.append(Issue(kind: .unsupportedConsumer, layerID: layer.id, providerLayerID: nil))
+            return nil
+        }
+        if case .some = layer.utilityLayer,
+           layer.dependencyLayerIDs != [reference.providerLayerID] {
+            issues.append(Issue(
+                kind: .dependencyMismatch,
+                layerID: layer.id,
+                providerLayerID: reference.providerLayerID
+            ))
             return nil
         }
         guard reference.variant == .primary else {
@@ -235,6 +255,18 @@ nonisolated struct SceneDependencyRenderPlan {
             slot: reference.slot,
             blendMode: clipping.declaration.blendMode
         )
+    }
+
+    private nonisolated static func supportsEffectConsumer(
+        _ layer: SceneRenderDescriptor.Layer,
+        executableUtilityConsumerLayerIDs: Set<Int>
+    ) -> Bool {
+        guard let utility = layer.utilityLayer else { return true }
+        return executableUtilityConsumerLayerIDs.contains(layer.id)
+            && utility.kind == .composition
+            && layer.contentKind == "composition"
+            && layer.childLayerIDs.isEmpty
+            && layer.dependencyLayerIDs.count == 1
     }
 
     private nonisolated static func supportedClippingEffect(

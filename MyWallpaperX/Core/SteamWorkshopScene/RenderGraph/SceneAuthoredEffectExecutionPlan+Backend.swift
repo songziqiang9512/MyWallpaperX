@@ -201,6 +201,8 @@ extension SceneAuthoredEffectExecutionPlan {
         switch backend {
         case .foliageSway:
             return true
+        case .clippingMask, .opacity:
+            return true
         case .fisheyeZeroDistortion:
             return true
         case .workshopAudioBars(let plan):

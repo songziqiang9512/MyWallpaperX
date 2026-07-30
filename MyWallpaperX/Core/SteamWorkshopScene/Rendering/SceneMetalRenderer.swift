@@ -19,9 +19,7 @@ struct SceneMetalRenderer {
     private let textureRegistry = SceneFrameTextureRegistry()
     private let utilityCaptureTelemetry = SceneGPUCompletionTelemetry(phase: "utility-capture")
     private let authoredEffectTelemetry = SceneGPUCompletionTelemetry(phase: "authored-effect-graph")
-    private let sceneScriptAudioBarsTelemetry = SceneGPUCompletionTelemetry(
-        phase: "scene-script-audio-bars"
-    )
+    private let sceneScriptAudioBarsTelemetry = SceneGPUCompletionTelemetry(phase: "scene-script-audio-bars")
     init?(
         renderDescriptor: SceneRenderDescriptor,
         authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog,
@@ -43,9 +41,12 @@ struct SceneMetalRenderer {
         self.visibleLayerIDs = visibleLayerIDs
         self.authoredEffectCatalog = authoredEffectCatalog
         self.sceneScriptAudioBarsPlansByLayerID = Dictionary(uniqueKeysWithValues: sceneScriptAudioBarsProgram.plans.map { ($0.layerID, $0) })
+        let executableUtilityConsumerLayerIDs = SceneUtilityLayerRuntimePlanner
+            .executableUtilityConsumerLayerIDs(in: renderDescriptor, authoredEffectCatalog: authoredEffectCatalog)
         self.dependencyRuntime = SceneDependencyFrameRuntime(
             descriptor: renderDescriptor,
             visibleLayerIDs: visibleLayerIDs,
+            executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,
             device: device
         )
 
@@ -53,7 +54,8 @@ struct SceneMetalRenderer {
         self.layersByID = byID
         let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(
             in: renderDescriptor,
-            authoredEffectCatalog: authoredEffectCatalog
+            authoredEffectCatalog: authoredEffectCatalog,
+            executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
         )
         self.utilityPlansByTriggerLayerID = Dictionary(
             grouping: utilityPlans.values.filter(\.shouldCapture),
@@ -338,8 +340,7 @@ struct SceneMetalRenderer {
         mainPass: SceneMainPassEncoder,
         commandBuffer: MTLCommandBuffer
     ) {
-        guard let plans = utilityPlansByTriggerLayerID[layerID],
-              let imagePipeline,
+        guard let plans = utilityPlansByTriggerLayerID[layerID], let imagePipeline,
               let offscreenTexturePool else {
             return
         }
@@ -353,8 +354,7 @@ struct SceneMetalRenderer {
             )
             let mvp = cameraFrame.orthographicViewProjection * model
             let cursorUV = SceneLayerCursorGeometry.layerUV(
-                mouseNormalized: frameContext.pointer.current,
-                modelViewProjection: mvp
+                mouseNormalized: frameContext.pointer.current, modelViewProjection: mvp
             )
             let authoredEffectChain = authoredEffectChain(for: layer.id)
             let captured = SceneUtilityLayerRenderer.draw(
@@ -364,13 +364,11 @@ struct SceneMetalRenderer {
                 viewportSize: viewportSize,
                 time: time,
                 finalCompositeAlpha: SceneDynamicLayerValues.alpha(
-                    layerID: layer.id,
-                    authoredValue: layer.alpha,
+                    layerID: layer.id, authoredValue: layer.alpha,
                     snapshot: frameContext.dynamicValues
                 ),
                 masks: effectMasks(
-                    for: layer.id,
-                    in: effectTextures
+                    for: layer.id, in: effectTextures
                 ).authoredEffectResourcesOnly,
                 cursorUV: cursorUV ?? .zero,
                 pointerIsInside: frameContext.pointer.isInside && cursorUV != nil,
@@ -378,21 +376,23 @@ struct SceneMetalRenderer {
                 dynamicValues: frameContext.dynamicValues,
                 audioSpectrum: frameContext.audioSpectrum,
                 blocksLegacyGaussianBlur: blocksLegacyGaussianBlur(for: layer.id),
+                dependencyEffect: dependencyRuntime.effectInput(
+                    for: layer.id, textureRegistry: textureRegistry
+                ),
                 pipeline: imagePipeline,
                 compositor: imageCompositor,
                 offscreenTexturePool: offscreenTexturePool,
                 mainPass: mainPass
             )
             utilityCaptureTelemetry.record(
-                layerID: layer.id,
-                encoded: captured,
-                on: commandBuffer
+                layerID: layer.id, encoded: captured, on: commandBuffer
+            )
+            dependencyRuntime.recordBindingIfRequired(
+                for: layer.id, encoded: captured, on: commandBuffer
             )
             if authoredEffectChain != nil {
                 authoredEffectTelemetry.record(
-                    layerID: layer.id,
-                    encoded: captured,
-                    on: commandBuffer
+                    layerID: layer.id, encoded: captured, on: commandBuffer
                 )
             }
         }

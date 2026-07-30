@@ -223,7 +223,9 @@ enum SceneAuthoredClippingMaskPlanner {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
-    private nonisolated static let supportedContentKinds = Set(["image", "solid", "text"])
+    private nonisolated static let supportedContentKinds = Set([
+        "image", "solid", "text", "composition",
+    ])
     private nonisolated static let materialPath =
         "materials/workshop/2800594362/effects/clipping_mask.json"
     private nonisolated static let materialPassID = "\(materialPath)#0"

@@ -64,7 +64,7 @@ enum SceneAuthoredOpacityPlanner {
               graph.renderTargets.isEmpty,
               descriptor.layers.filter({ $0.id == graph.layerID }).count == 1,
               let layer = descriptor.layers.first(where: { $0.id == graph.layerID }),
-              ["image", "solid", "text"].contains(layer.contentKind) else {
+              ["image", "solid", "text", "composition"].contains(layer.contentKind) else {
             return nil
         }
 

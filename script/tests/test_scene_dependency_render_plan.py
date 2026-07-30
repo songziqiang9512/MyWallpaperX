@@ -122,19 +122,57 @@ enum Harness {
             visible: true,
             effects: [effect(id: 15, provider: 1)]
         )
+        let projectUtilityConsumer = SceneRenderDescriptor.Layer(
+            id: 17,
+            contentKind: "project",
+            utilityLayer: .init(kind: .project),
+            dependencyLayerIDs: [1],
+            childLayerIDs: [],
+            visible: true,
+            effects: [effect(id: 17, provider: 1)]
+        )
+        let childUtilityConsumer = SceneRenderDescriptor.Layer(
+            id: 18,
+            contentKind: "composition",
+            utilityLayer: .init(kind: .composition),
+            dependencyLayerIDs: [1],
+            childLayerIDs: [99],
+            visible: true,
+            effects: [effect(id: 18, provider: 1)]
+        )
+        let extraDependencyUtilityConsumer = SceneRenderDescriptor.Layer(
+            id: 19,
+            contentKind: "composition",
+            utilityLayer: .init(kind: .composition),
+            dependencyLayerIDs: [1, 7],
+            childLayerIDs: [],
+            visible: true,
+            effects: [effect(id: 19, provider: 1)]
+        )
         let descriptor = SceneRenderDescriptor(
             layers: [
                 provider, visibleConsumer, hiddenConsumer,
                 cycleA, cycleB, forwardConsumer, forwardProvider, partialConsumer,
                 neutralOpacityConsumer, nonNeutralOpacityConsumer, unsupportedBlendConsumer,
                 supportedGradientConsumer, reversedGradientConsumer, invalidGradientConsumer,
-                utilityConsumer, lookalikeConsumer,
+                utilityConsumer, lookalikeConsumer, projectUtilityConsumer,
+                childUtilityConsumer, extraDependencyUtilityConsumer,
             ],
-            renderOrderLayerIDs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+            renderOrderLayerIDs: [
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+            ]
         )
+        let visibleLayerIDs: Set<Int> = [
+            1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+        ]
         let plan = SceneDependencyRenderPlan(
             descriptor: descriptor,
-            visibleLayerIDs: [1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+            visibleLayerIDs: visibleLayerIDs,
+            executableUtilityConsumerLayerIDs: [15]
+        )
+        let defaultPlan = SceneDependencyRenderPlan(
+            descriptor: descriptor,
+            visibleLayerIDs: visibleLayerIDs
         )
         let matrixProviders = (10...15).map { layer($0, kind: .composition) }
         let matrixProviderIDs = [10, 10, 10, 11, 12, 13, 14, 15]
@@ -159,8 +197,10 @@ enum Harness {
             "invalidReference": SceneNamedTextureReference.parse("_rt_imageLayerComposite_bad_a") == nil,
             "referenceCount": plan.references.count,
             "namedConsumers": plan.namedReferenceConsumerLayerIDs.sorted(),
+            "executableUtilityConsumers": plan.executableUtilityConsumerLayerIDs.sorted(),
             "requiredEffectConsumers": plan.requiredEffectConsumerLayerIDs.sorted(),
             "bindingConsumers": plan.bindingsByConsumerLayerID.keys.sorted(),
+            "defaultUtilityBinding": defaultPlan.bindingsByConsumerLayerID[15] != nil,
             "requiredProviders": plan.requiredProviderLayerIDs.sorted(),
             "cycles": plan.cyclicLayerIDs.sorted(),
             "issues": plan.issues.map { "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)" },
@@ -314,14 +354,22 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         self.assertEqual(self.result["parsedVariants"], ["unspecified", "a", "b"])
         self.assertTrue(self.result["invalidReference"])
 
-    def test_only_visible_backward_clipping_consumer_is_executable(self) -> None:
-        self.assertEqual(self.result["referenceCount"], 12)
+    def test_image_and_composition_clipping_consumers_share_backward_binding(self) -> None:
+        self.assertEqual(self.result["referenceCount"], 15)
         self.assertEqual(
             self.result["namedConsumers"],
-            [2, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+            [2, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
         )
-        self.assertEqual(self.result["requiredEffectConsumers"], [2, 6, 8, 9, 12, 13, 14])
-        self.assertEqual(self.result["bindingConsumers"], [2, 8, 9, 12, 13, 14])
+        self.assertEqual(
+            self.result["requiredEffectConsumers"],
+            [2, 6, 8, 9, 12, 13, 14, 15],
+        )
+        self.assertEqual(self.result["executableUtilityConsumers"], [15])
+        self.assertEqual(
+            self.result["bindingConsumers"],
+            [2, 8, 9, 12, 13, 14, 15],
+        )
+        self.assertFalse(self.result["defaultUtilityBinding"])
         self.assertEqual(self.result["requiredProviders"], [1])
 
     def test_cycle_forward_and_invalid_clipping_contracts_fail_closed(self) -> None:
@@ -329,8 +377,13 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         self.assertIn("2:dependencyMismatch:1", self.result["issues"])
         self.assertIn("6:forwardUtilityProvider:7", self.result["issues"])
         self.assertIn("10:unsupportedConsumer:-1", self.result["issues"])
-        self.assertIn("15:unsupportedConsumer:-1", self.result["issues"])
+        self.assertNotIn("15:unsupportedConsumer:-1", self.result["issues"])
         self.assertIn("16:unsupportedConsumer:-1", self.result["issues"])
+        for layer_id in (17, 18, 19):
+            self.assertIn(
+                f"{layer_id}:unsupportedConsumer:-1",
+                self.result["issues"],
+            )
 
     def test_matrix_shape_keeps_hidden_consumer_out_of_runtime_liveness(self) -> None:
         self.assertEqual(self.result["matrixBindingCount"], 7)

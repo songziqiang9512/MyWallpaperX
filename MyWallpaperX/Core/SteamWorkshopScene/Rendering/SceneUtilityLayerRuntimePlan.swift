@@ -29,7 +29,27 @@ enum SceneUtilityLayerRuntimePlanner {
         in descriptor: SceneRenderDescriptor,
         authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
     ) -> [Int: SceneUtilityLayerRuntimePlan] {
+        plans(
+            in: descriptor,
+            authoredEffectCatalog: authoredEffectCatalog,
+            executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs(
+                in: descriptor,
+                authoredEffectCatalog: authoredEffectCatalog
+            )
+        )
+    }
+
+    static func plans(
+        in descriptor: SceneRenderDescriptor,
+        authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog,
+        executableUtilityConsumerLayerIDs: Set<Int>
+    ) -> [Int: SceneUtilityLayerRuntimePlan] {
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
+        let dependencyPlan = SceneDependencyRenderPlan(
+            descriptor: descriptor,
+            visibleLayerIDs: visibleLayerIDs,
+            executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
+        )
         let namedTargetLayerIDs = Set(descriptor.layers.flatMap(\.dependencyLayerIDs))
         return Dictionary(uniqueKeysWithValues: descriptor.layers.compactMap { layer in
             guard let utility = layer.utilityLayer else { return nil }
@@ -39,7 +59,18 @@ enum SceneUtilityLayerRuntimePlanner {
             if !visibleLayerIDs.contains(layer.id) {
                 disposition = .skippedHidden
             } else if !layer.dependencyLayerIDs.isEmpty {
-                disposition = .unsupportedDependencies
+                if utility.kind == .composition,
+                   layer.childLayerIDs.isEmpty,
+                   executableUtilityConsumerLayerIDs.contains(layer.id),
+                   dependencyPlan.bindingsByConsumerLayerID[layer.id] != nil,
+                   supportsCompleteAuthoredCapture(
+                       layer: layer,
+                       catalog: authoredEffectCatalog
+                   ) {
+                    disposition = .capture
+                } else {
+                    disposition = .unsupportedDependencies
+                }
             } else if !layer.effects.contains(where: { $0.visible != false }) {
                 disposition = .skippedNoEffect
             } else if !layer.childLayerIDs.isEmpty {
@@ -83,19 +114,46 @@ enum SceneUtilityLayerRuntimePlanner {
         })
     }
 
+    static func executableUtilityConsumerLayerIDs(
+        in descriptor: SceneRenderDescriptor,
+        authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
+    ) -> Set<Int> {
+        let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
+        return Set(descriptor.layers.compactMap { layer in
+            guard visibleLayerIDs.contains(layer.id),
+                  layer.utilityLayer?.kind == .composition,
+                  layer.contentKind == "composition",
+                  layer.childLayerIDs.isEmpty,
+                  layer.dependencyLayerIDs.count == 1,
+                  supportsCompleteAuthoredCapture(
+                      layer: layer,
+                      catalog: authoredEffectCatalog
+                  ) else {
+                return nil
+            }
+            return layer.id
+        })
+    }
+
     static func reportLines(
         descriptor: SceneRenderDescriptor,
         authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
     ) -> [String] {
-        let plans = plans(
+        let executableUtilityConsumerLayerIDs = executableUtilityConsumerLayerIDs(
             in: descriptor,
             authoredEffectCatalog: authoredEffectCatalog
+        )
+        let plans = plans(
+            in: descriptor,
+            authoredEffectCatalog: authoredEffectCatalog,
+            executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
         )
         let ordered = descriptor.layers.compactMap { plans[$0.id] }
         let dependencyEdges = descriptor.layers.flatMap(\.dependencyLayerIDs).count
         let dependencyPlan = SceneDependencyRenderPlan(
             descriptor: descriptor,
-            visibleLayerIDs: SceneLayerVisibility.visibleLayerIDs(in: descriptor)
+            visibleLayerIDs: SceneLayerVisibility.visibleLayerIDs(in: descriptor),
+            executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
         )
         let namedTargetProviderIDs = dependencyPlan.requiredProviderLayerIDs
         let namedTargetGaps = ordered.filter {
@@ -175,9 +233,15 @@ extension SceneRenderDescriptor {
         if materialPasses.contains(where: { $0.combos["REFRACT"] == 1 }) {
             return true
         }
+        let executableUtilityConsumerLayerIDs = SceneUtilityLayerRuntimePlanner
+            .executableUtilityConsumerLayerIDs(
+                in: self,
+                authoredEffectCatalog: authoredEffectCatalog
+            )
         if SceneUtilityLayerRuntimePlanner.plans(
             in: self,
-            authoredEffectCatalog: authoredEffectCatalog
+            authoredEffectCatalog: authoredEffectCatalog,
+            executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
         ).values.contains(where: { $0.shouldCapture }) {
             return true
         }
@@ -193,7 +257,8 @@ extension SceneRenderDescriptor {
         }
         return !SceneDependencyRenderPlan(
             descriptor: self,
-            visibleLayerIDs: visibleLayerIDs
+            visibleLayerIDs: visibleLayerIDs,
+            executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
         ).requiredProviderLayerIDs.isEmpty
     }
 }
