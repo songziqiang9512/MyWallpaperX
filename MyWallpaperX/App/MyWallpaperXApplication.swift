@@ -19,7 +19,8 @@ enum MyWallpaperXApplication {
         let delegate = AppDelegate()
         app.delegate = delegate
 #if DEBUG
-        if !runsIsolatedWebWorkshopSample {
+        if !runsIsolatedWebWorkshopSample
+            && !DebugScenePlaybackRunner.runsIsolatedSceneSample {
             MainWindowCoordinator.configure(with: WallpaperManager.shared)
         }
 #else

@@ -5,6 +5,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
     struct Snapshot {
         let textures: [Int: MTLTexture]
         let renderSizes: [Int: [Float]]
+        let publications: [Int: SceneTextureProviderPublication]
     }
 
     private let cacheDirectory: URL
@@ -61,7 +62,23 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
     func snapshot() -> Snapshot {
         lock.lock()
         defer { lock.unlock() }
-        return Snapshot(textures: currentTextures, renderSizes: currentRenderSizes)
+        let publications = Dictionary(uniqueKeysWithValues: currentTextures.compactMap {
+            layerID, texture in
+            generationState.readyGeneration(layerID: layerID).map {
+                (
+                    layerID,
+                    SceneTextureProviderPublication(
+                        texture: texture,
+                        contentGeneration: $0
+                    )
+                )
+            }
+        })
+        return Snapshot(
+            textures: currentTextures,
+            renderSizes: currentRenderSizes,
+            publications: publications
+        )
     }
 
     deinit {

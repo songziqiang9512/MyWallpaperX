@@ -3,15 +3,28 @@ import Metal
 
 struct SceneBaseImageTextureSnapshot {
     let textures: [Int: MTLTexture]
+    let explicitLayerSources: [Int: SceneTextureProviderPublication]
     private let candidates: [Int: SceneTextureCandidate]
 
     init(
         textures: [Int: MTLTexture],
+        explicitLayerSources: [Int: SceneTextureProviderPublication] = [:],
         candidates: [Int: SceneTextureCandidate]
     ) {
-        self.textures = textures
+        var validatedTextures = textures
+        var validatedPublications: [Int: SceneTextureProviderPublication] = [:]
+        for (layerID, publication) in explicitLayerSources {
+            guard let texture = textures[layerID],
+                  texture === publication.texture else {
+                validatedTextures[layerID] = nil
+                continue
+            }
+            validatedPublications[layerID] = publication
+        }
+        self.textures = validatedTextures
+        self.explicitLayerSources = validatedPublications
         self.candidates = candidates.filter { layerID, candidate in
-            textures[layerID] === candidate.texture
+            validatedTextures[layerID] === candidate.texture
         }
     }
 
@@ -61,9 +74,13 @@ struct SceneBaseImageTextureStore {
         }
     }
 
-    func snapshot(textures: [Int: MTLTexture]) -> SceneBaseImageTextureSnapshot {
+    func snapshot(
+        textures: [Int: MTLTexture],
+        explicitLayerSources: [Int: SceneTextureProviderPublication] = [:]
+    ) -> SceneBaseImageTextureSnapshot {
         SceneBaseImageTextureSnapshot(
             textures: textures,
+            explicitLayerSources: explicitLayerSources,
             candidates: candidates
         )
     }

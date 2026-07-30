@@ -62,6 +62,13 @@ enum DebugScenePlaybackRunner {
             if evidenceDirectory != nil {
                 NSApp.activate(ignoringOtherApps: true)
             }
+            WallpaperEngine.shared.updateSettings(
+                pauseWhenOtherAppFocused: false,
+                pauseWhenOtherAppFullscreen: false,
+                pauseWhenUnplugged: false,
+                pauseWhenIdle: false,
+                idleTimeoutMinutes: 10
+            )
             let previewLogURL = evidenceDirectory?.appendingPathComponent("scene-preview.log")
             let userPropertyTextureURLs = requestedUserPropertyTextureURLs(rootURL: rootURL)
             let model = try SceneDesktopWallpaperHost.shared.launch(
@@ -71,6 +78,8 @@ enum DebugScenePlaybackRunner {
                 logURL: previewLogURL,
                 recordID: debugRecordID
             )
+            // 隔离证据进程必须显式解除宿主在首个窗口出现前捕获的 focus pause。
+            WallpaperEngine.shared.resumeAllPlayers()
             let runtimeEvidenceURL = try writeRuntimeEvidence(
                 model: model,
                 to: evidenceDirectory

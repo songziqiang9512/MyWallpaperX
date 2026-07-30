@@ -4,11 +4,31 @@ import QuartzCore
 extension SceneDesktopWallpaperHost {
     func startFrameDriver() {
         frameTimer?.invalidate()
+#if DEBUG
+        if Self.usesDebugEvidenceWindow {
+            NSLog(
+                "MWX DEBUG SCENE: phase=frame-driver-start paused=%@",
+                sceneClock.isPaused ? "true" : "false"
+            )
+        }
+#endif
+        guard !sceneClock.isPaused else {
+            frameTimer = nil
+            return
+        }
         let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
             self?.renderFrame()
         }
         RunLoop.main.add(timer, forMode: .common)
         frameTimer = timer
+#if DEBUG
+        if Self.usesDebugEvidenceWindow {
+            NSLog(
+                "MWX DEBUG SCENE: phase=frame-driver-ready timer=%@",
+                timer.isValid ? "active" : "inactive"
+            )
+        }
+#endif
         renderFrame()
     }
 

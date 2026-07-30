@@ -26,9 +26,20 @@ HOST_FRAME_DRIVER_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
 )
+HOST_VIDEO_PROVIDERS_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
+    / "SceneDesktopWallpaperHost+VideoProviders.swift"
+)
 HOST_LAUNCH_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Launch.swift"
+)
+PLAYBACK_CONTROL_SOURCE = (
+    REPOSITORY_ROOT / "MyWallpaperX/Core/Playback/WallpaperEngine+PlaybackControl.swift"
+)
+WALLPAPER_ENGINE_SOURCE = (
+    REPOSITORY_ROOT / "MyWallpaperX/Core/Playback/WallpaperEngine.swift"
 )
 LIVE_CONSUMERS_SOURCE = (
     REPOSITORY_ROOT
@@ -122,6 +133,95 @@ enum Harness {
 }
 '''
 
+PAUSE_HARNESS = r'''
+import Foundation
+
+@main
+enum PauseHarness {
+    static func main() throws {
+        var clock = SceneClock(hostTime: 10)
+        _ = clock.advance(
+            hostTime: 10.25,
+            wallDate: Date(timeIntervalSince1970: 1_000)
+        )
+        let beforePause = clock.advance(
+            hostTime: 10.5,
+            wallDate: Date(timeIntervalSince1970: 1_001)
+        )
+
+        clock.pause(hostTime: 10.5)
+        let pausedState = clock.isPaused
+        let pausedFirst = clock.advance(
+            hostTime: 20,
+            wallDate: Date(timeIntervalSince1970: 2_000)
+        )
+        let pausedSecond = clock.advance(
+            hostTime: 30,
+            wallDate: Date(timeIntervalSince1970: 3_000)
+        )
+
+        clock.resume(hostTime: 30)
+        let resumedFirst = clock.advance(
+            hostTime: 30,
+            wallDate: Date(timeIntervalSince1970: 3_001)
+        )
+        let resumedSecond = clock.advance(
+            hostTime: 30.25,
+            wallDate: Date(timeIntervalSince1970: 3_002)
+        )
+
+        clock.pause(hostTime: 31)
+        clock.reset(hostTime: 100)
+        let pausedAfterReset = clock.isPaused
+        let resetFirst = clock.advance(
+            hostTime: 100,
+            wallDate: Date(timeIntervalSince1970: 4_000)
+        )
+        let resetSecond = clock.advance(
+            hostTime: 100.25,
+            wallDate: Date(timeIntervalSince1970: 4_001)
+        )
+
+        let payload: [String: Any] = [
+            "beforePause": timing(beforePause),
+            "pausedState": pausedState,
+            "pausedFirst": timing(pausedFirst),
+            "pausedSecond": timing(pausedSecond),
+            "resumedFirst": timing(resumedFirst),
+            "resumedSecond": timing(resumedSecond),
+            "pausedAfterReset": pausedAfterReset,
+            "resetFirst": timing(resetFirst),
+            "resetSecond": timing(resetSecond),
+        ]
+        let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+        print(String(decoding: data, as: UTF8.self))
+    }
+
+    static func timing(_ value: SceneFrameTiming) -> [String: Any] {
+        [
+            "frameIndex": value.frameIndex,
+            "sceneTime": value.sceneTime,
+            "frameTime": value.frameTime,
+        ]
+    }
+}
+'''
+
+
+def swift_body(source: str, signature: str) -> str:
+    signature_start = source.index(signature)
+    body_start = source.index("{", signature_start)
+    depth = 0
+    for position in range(body_start, len(source)):
+        character = source[position]
+        if character == "{":
+            depth += 1
+        elif character == "}":
+            depth -= 1
+            if depth == 0:
+                return source[body_start + 1:position]
+    raise AssertionError(f"unterminated Swift body: {signature}")
+
 
 class SceneFrameContextTests(unittest.TestCase):
     @classmethod
@@ -172,6 +272,65 @@ class SceneFrameContextTests(unittest.TestCase):
             "sceneTime": 0, "wallTime": 2000,
         })
 
+    def test_clock_pause_freezes_scene_time_and_resume_drops_the_gap(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-scene-clock-pause-") as path:
+            directory = Path(path)
+            harness = directory / "PauseHarness.swift"
+            harness.write_text(PAUSE_HARNESS, encoding="utf-8")
+            binary = directory / "scene-clock-pause"
+            compilation = subprocess.run(
+                [
+                    "swiftc",
+                    str(DYNAMIC_SOURCE),
+                    str(AUDIO_SOURCE),
+                    str(POINTER_SOURCE),
+                    str(SOURCE),
+                    str(harness),
+                    "-o",
+                    str(binary),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(
+                compilation.returncode,
+                0,
+                f"SceneClock pause contract does not compile:\n{compilation.stderr}",
+            )
+            completed = subprocess.run(
+                [str(binary)], check=True, capture_output=True, text=True
+            )
+            result = json.loads(completed.stdout)
+
+        before_pause = result["beforePause"]
+        paused_first = result["pausedFirst"]
+        paused_second = result["pausedSecond"]
+        resumed_first = result["resumedFirst"]
+        resumed_second = result["resumedSecond"]
+        self.assertTrue(result["pausedState"])
+        self.assertEqual(paused_first["sceneTime"], before_pause["sceneTime"])
+        self.assertEqual(paused_second["sceneTime"], before_pause["sceneTime"])
+        self.assertEqual(paused_first["frameTime"], 0)
+        self.assertEqual(paused_second["frameTime"], 0)
+        self.assertEqual(paused_first["frameIndex"], paused_second["frameIndex"])
+        self.assertEqual(resumed_first["sceneTime"], before_pause["sceneTime"])
+        self.assertEqual(resumed_first["frameTime"], 0)
+        self.assertAlmostEqual(
+            resumed_second["sceneTime"], before_pause["sceneTime"] + 0.25
+        )
+        self.assertEqual(resumed_second["frameTime"], 0.25)
+        self.assertEqual(
+            resumed_second["frameIndex"], resumed_first["frameIndex"] + 1
+        )
+
+        self.assertFalse(result["pausedAfterReset"])
+        self.assertEqual(result["resetFirst"], {
+            "frameIndex": 0, "frameTime": 0, "sceneTime": 0,
+        })
+        self.assertEqual(result["resetSecond"], {
+            "frameIndex": 1, "frameTime": 0.25, "sceneTime": 0.25,
+        })
+
     def test_context_keeps_per_surface_inputs_with_shared_timing(self) -> None:
         self.assertEqual(self.result["context"]["frameIndex"], 1)
         self.assertEqual(self.result["context"]["dynamicFrameIndex"], 1)
@@ -208,6 +367,71 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("dynamicValues: dynamicValues", view)
         self.assertNotIn("displayTimer", view)
         self.assertNotIn("renderStartTime", view)
+
+    def test_host_pause_state_controls_clock_and_frame_driver(self) -> None:
+        host = HOST_SOURCE.read_text(encoding="utf-8")
+        video_providers = HOST_VIDEO_PROVIDERS_SOURCE.read_text(encoding="utf-8")
+        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("var isPlaybackActive: Bool", host)
+        playback_active = swift_body(host, "var isPlaybackActive: Bool")
+        self.assertIn("launchContext != nil", playback_active)
+        self.assertIn("sceneClock.isPaused", playback_active)
+
+        pause_control = swift_body(
+            video_providers, "func setPlaybackPaused(_ paused: Bool)"
+        )
+        self.assertIn("sceneClock.pause(hostTime:", pause_control)
+        self.assertIn("sceneClock.resume(hostTime:", pause_control)
+        self.assertIn("frameTimer?.invalidate()", pause_control)
+        self.assertIn("frameTimer = nil", pause_control)
+        self.assertIn("startFrameDriver()", pause_control)
+
+        start_driver = swift_body(frame_driver, "func startFrameDriver()")
+        paused_guard_positions = [
+            start_driver.find(candidate)
+            for candidate in (
+                "guard !sceneClock.isPaused",
+                "if sceneClock.isPaused",
+            )
+            if candidate in start_driver
+        ]
+        self.assertTrue(
+            paused_guard_positions,
+            "startFrameDriver must reject a paused Scene before creating a Timer",
+        )
+        self.assertLess(
+            min(paused_guard_positions),
+            start_driver.index("Timer(timeInterval:"),
+        )
+
+        rebuild = swift_body(
+            host, "private func rebuildSurfaces(resetClock: Bool = false) -> Bool"
+        )
+        self.assertIn("startFrameDriver()", rebuild)
+        self.assertNotIn("setPlaybackPaused(false)", rebuild)
+        self.assertNotIn("sceneClock.resume(hostTime:", rebuild)
+
+    def test_global_playback_control_delegates_active_scene_state(self) -> None:
+        playback_control = PLAYBACK_CONTROL_SOURCE.read_text(encoding="utf-8")
+        engine = WALLPAPER_ENGINE_SOURCE.read_text(encoding="utf-8")
+        combined = engine + playback_control
+        self.assertIn("var isPlaybackPaused: Bool", combined)
+        paused_getter = swift_body(combined, "var isPlaybackPaused: Bool")
+        self.assertIn("playbackPaused", paused_getter)
+
+        pause = swift_body(playback_control, "public func pauseAllPlayers()")
+        resume = swift_body(playback_control, "public func resumeAllPlayers()")
+        self.assertIn(
+            "SceneDesktopWallpaperHost.shared.setPlaybackPaused(true)", pause
+        )
+        self.assertIn(
+            "SceneDesktopWallpaperHost.shared.setPlaybackPaused(false)", resume
+        )
+
+        is_playing = swift_body(engine, "public func isPlaying()")
+        self.assertIn("SceneDesktopWallpaperHost.shared", is_playing)
+        self.assertIn("activeRecordID", is_playing)
+        self.assertIn("isPlaybackActive", is_playing)
 
     def test_launch_callers_forward_raw_root_and_host_owns_runtime_input(self) -> None:
         host = HOST_LAUNCH_SOURCE.read_text(encoding="utf-8")

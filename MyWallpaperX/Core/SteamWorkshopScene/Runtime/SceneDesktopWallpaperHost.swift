@@ -41,11 +41,16 @@ final class SceneDesktopWallpaperHost {
     private var screenReconciliationWorkItem: DispatchWorkItem?
     private var screenTopology: [SceneScreenTopology] = []
     var sceneClock = SceneClock(hostTime: CACurrentMediaTime())
+    var videoTextureSourceRegistry: SceneVideoTextureSourceRegistry?
+    var nextVideoProviderEpoch: UInt64 = 0
 #if DEBUG
     var debugPointerOverride: SceneSurfacePointerState?
 #endif
 
     var activeRecordID: String? { launchContext?.recordID }
+    var isPlaybackActive: Bool {
+        launchContext != nil && !sceneClock.isPaused
+    }
 
     private init() {
         installObservers()
@@ -58,6 +63,11 @@ final class SceneDesktopWallpaperHost {
     func activate(_ context: SceneDesktopWallpaperLaunchContext) throws {
         screenReconciliationWorkItem?.cancel()
         screenReconciliationWorkItem = nil
+        videoTextureSourceRegistry?.stop()
+        nextVideoProviderEpoch &+= 1
+        videoTextureSourceRegistry = SceneVideoTextureSourceRegistry(
+            epoch: nextVideoProviderEpoch
+        )
         launchContext = context
         SceneAudioSpectrumInbox.shared.setDemand(Self.requiresAudioSpectrum(
             in: context.authoredEffectCatalog,
@@ -205,7 +215,14 @@ final class SceneDesktopWallpaperHost {
 
     @discardableResult
     private func rebuildSurfaces(resetClock: Bool = false) -> Bool {
-        guard let launchContext else { return false }
+        guard let launchContext, let videoTextureSourceRegistry else { return false }
+
+        let rebuildHostTime = CACurrentMediaTime()
+        videoTextureSourceRegistry.beginSurfaceRebuild(
+            sceneTime: sceneClock.currentSceneTime(hostTime: rebuildHostTime),
+            hostTime: rebuildHostTime
+        )
+        defer { videoTextureSourceRegistry.completeSurfaceRebuild() }
 
         let screens = NSScreen.screens
         guard !screens.isEmpty else {
@@ -238,12 +255,14 @@ final class SceneDesktopWallpaperHost {
             if wroteLog {
                 metalView.loadImageLayers(
                     from: launchContext.cacheDirectory,
-                    resourceView: launchContext.resourceView
+                    resourceView: launchContext.resourceView,
+                    videoSourceRegistry: videoTextureSourceRegistry
                 )
             } else {
                 metalView.loadImageLayers(
                     from: launchContext.cacheDirectory,
                     resourceView: launchContext.resourceView,
+                    videoSourceRegistry: videoTextureSourceRegistry,
                     logURL: launchContext.logURL
                 )
                 Self.appendTimelineReport(
@@ -296,7 +315,12 @@ final class SceneDesktopWallpaperHost {
         }
 
         if resetClock {
-            sceneClock.reset(hostTime: CACurrentMediaTime())
+            let hostTime = CACurrentMediaTime()
+            let remainsPaused = sceneClock.isPaused
+            sceneClock.reset(hostTime: hostTime)
+            if remainsPaused {
+                sceneClock.pause(hostTime: hostTime)
+            }
         }
         screenTopology = SceneScreenTopology.capture()
         startFrameDriver()
@@ -304,6 +328,16 @@ final class SceneDesktopWallpaperHost {
     }
 
     private func teardownSurfaces(clearContext: Bool) {
+#if DEBUG
+        if Self.usesDebugEvidenceWindow, launchContext != nil {
+            NSLog(
+                "MWX DEBUG SCENE: phase=surface-teardown clearContext=%@ timer=%@ surfaces=%d",
+                clearContext ? "true" : "false",
+                frameTimer?.isValid == true ? "active" : "inactive",
+                surfaces.count
+            )
+        }
+#endif
         if clearContext {
             screenReconciliationWorkItem?.cancel()
             screenReconciliationWorkItem = nil
@@ -318,6 +352,8 @@ final class SceneDesktopWallpaperHost {
         surfaces.removeAll()
         if clearContext {
             SceneAudioSpectrumInbox.shared.setDemand(false)
+            videoTextureSourceRegistry?.stop()
+            videoTextureSourceRegistry = nil
             launchContext = nil
 #if DEBUG
             debugPointerOverride = nil

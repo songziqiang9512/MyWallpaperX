@@ -1,16 +1,34 @@
 import AVFoundation
 import CoreVideo
 import Metal
-import QuartzCore
 
 final class SceneVideoTextureSource {
+    struct Frame {
+        let texture: MTLTexture
+        let contentGeneration: UInt64
+        let itemTime: TimeInterval
+        let epoch: UInt64
+
+        var publication: SceneTextureProviderPublication {
+            SceneTextureProviderPublication(
+                texture: texture,
+                contentGeneration: contentGeneration
+            )
+        }
+    }
+
     private let player: AVPlayer
+    private let item: AVPlayerItem
     private let videoOutput: AVPlayerItemVideoOutput
     private let textureCache: CVMetalTextureCache
     private let temporaryFileURL: URL
-    private let endObserver: NSObjectProtocol
+    private var endObserver: NSObjectProtocol?
+    private var lifecycle = SceneVideoProviderLifecycleState(epoch: 0)
     private var currentCVMetalTexture: CVMetalTexture?
-    private var lastTexture: MTLTexture?
+    private var lastFrame: Frame?
+    private var hasStarted = false
+    private var needsPlayerAnchor = true
+    private var playbackBarrier: UInt64 = 0
 
     init?(
         layerID: Int,
@@ -39,6 +57,21 @@ final class SceneVideoTextureSource {
         }
         temporaryFileURL = fileURL
 
+        var maybeTextureCache: CVMetalTextureCache?
+        let cacheStatus = CVMetalTextureCacheCreate(
+            kCFAllocatorDefault,
+            nil,
+            device,
+            nil,
+            &maybeTextureCache
+        )
+        guard cacheStatus == kCVReturnSuccess,
+              let textureCache = maybeTextureCache else {
+            try? FileManager.default.removeItem(at: fileURL)
+            return nil
+        }
+        self.textureCache = textureCache
+
         let output = AVPlayerItemVideoOutput(
             pixelBufferAttributes: [
                 kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA),
@@ -50,56 +83,152 @@ final class SceneVideoTextureSource {
 
         let item = AVPlayerItem(url: fileURL)
         item.add(output)
+        self.item = item
         player = AVPlayer(playerItem: item)
-        player.actionAtItemEnd = .none
+        player.automaticallyWaitsToMinimizeStalling = false
+        player.actionAtItemEnd = .pause
         player.isMuted = true
         player.volume = 0
-
-        var maybeTextureCache: CVMetalTextureCache?
-        let cacheStatus = CVMetalTextureCacheCreate(
-            kCFAllocatorDefault,
-            nil,
-            device,
-            nil,
-            &maybeTextureCache
-        )
-        guard cacheStatus == kCVReturnSuccess,
-              let textureCache = maybeTextureCache else {
-            return nil
-        }
-        self.textureCache = textureCache
 
         endObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
             object: item,
             queue: .main
-        ) { [weak player] _ in
-            player?.seek(to: .zero)
-            player?.play()
+        ) { [weak self] _ in
+            self?.markPlayerAnchorRequired()
         }
-
-        player.play()
     }
 
     deinit {
-        NotificationCenter.default.removeObserver(endObserver)
+        stop()
+    }
+
+    func adoptLifecycleEpoch(_ epoch: UInt64) {
+        guard !hasStarted, lifecycle.contentGeneration == 0 else { return }
+        lifecycle = SceneVideoProviderLifecycleState(epoch: epoch)
+    }
+
+    func currentFrame(for timing: SceneFrameTiming) -> Frame? {
+        guard player.currentItem != nil else { return nil }
+        if !hasStarted {
+            lifecycle.start(
+                sceneTime: timing.sceneTime,
+                hostTime: timing.hostTime
+            )
+            hasStarted = true
+            markPlayerAnchorRequired()
+        }
+        let plan = lifecycle.planFrame(
+            frameIndex: timing.frameIndex,
+            sceneTime: timing.sceneTime,
+            hostTime: timing.hostTime
+        )
+        guard plan.shouldDecode else { return lastFrame }
+        guard item.status == .readyToPlay else {
+            markPlayerAnchorRequired()
+            return lastFrame
+        }
+
+        let itemTime = boundedItemTime(plan.itemTime)
+        if needsPlayerAnchor || player.rate == 0 {
+            player.setRate(
+                1,
+                time: itemTime,
+                atHostTime: hostTime(plan.hostTime)
+            )
+            needsPlayerAnchor = player.rate == 0
+        }
+        if player.rate == 0 {
+            needsPlayerAnchor = true
+            return lastFrame
+        }
+        let expectedBarrier = playbackBarrier
+        guard videoOutput.hasNewPixelBuffer(forItemTime: itemTime) else {
+            if player.rate == 0 {
+                needsPlayerAnchor = true
+            }
+            return lastFrame
+        }
+        var itemTimeForDisplay = CMTime.invalid
+        guard let pixelBuffer = videoOutput.copyPixelBuffer(
+            forItemTime: itemTime,
+            itemTimeForDisplay: &itemTimeForDisplay
+        ),
+        expectedBarrier == playbackBarrier,
+        let texture = makeTexture(from: pixelBuffer),
+        let contentGeneration = lifecycle.didPublish(
+            frameIndex: timing.frameIndex
+        ) else {
+            return lastFrame
+        }
+
+        let frame = Frame(
+            texture: texture,
+            contentGeneration: contentGeneration,
+            itemTime: plan.itemTime,
+            epoch: plan.epoch
+        )
+        needsPlayerAnchor = false
+        lastFrame = frame
+        return frame
+    }
+
+    func pause(sceneTime: TimeInterval, hostTime: TimeInterval) {
         player.pause()
+        guard hasStarted else { return }
+        lifecycle.pause(sceneTime: sceneTime, hostTime: hostTime)
+        markPlayerAnchorRequired()
+    }
+
+    func resume(sceneTime: TimeInterval, hostTime: TimeInterval) {
+        guard hasStarted else { return }
+        lifecycle.resume(sceneTime: sceneTime, hostTime: hostTime)
+        markPlayerAnchorRequired()
+    }
+
+    func rebuild(sceneTime: TimeInterval, hostTime: TimeInterval) {
+        player.pause()
+        guard hasStarted else { return }
+        lifecycle.rebuild(sceneTime: sceneTime, hostTime: hostTime)
+        markPlayerAnchorRequired()
+    }
+
+    func stop() {
+        guard lifecycle.stop() else { return }
+        if let endObserver {
+            NotificationCenter.default.removeObserver(endObserver)
+            self.endObserver = nil
+        }
+        player.pause()
+        player.replaceCurrentItem(with: nil)
+        currentCVMetalTexture = nil
+        lastFrame = nil
+        CVMetalTextureCacheFlush(textureCache, 0)
         try? FileManager.default.removeItem(at: temporaryFileURL)
     }
 
-    func currentTexture(forHostTime hostTime: CFTimeInterval) -> MTLTexture? {
-        let itemTime = videoOutput.itemTime(forHostTime: hostTime)
+    private func markPlayerAnchorRequired() {
+        player.pause()
+        needsPlayerAnchor = true
+        playbackBarrier &+= 1
+    }
 
-        if videoOutput.hasNewPixelBuffer(forItemTime: itemTime),
-           let pixelBuffer = videoOutput.copyPixelBuffer(
-               forItemTime: itemTime,
-               itemTimeForDisplay: nil
-           ),
-           let texture = makeTexture(from: pixelBuffer) {
-            lastTexture = texture
+    private func boundedItemTime(_ itemTime: TimeInterval) -> CMTime {
+        let duration = CMTimeGetSeconds(item.duration)
+        let seconds: TimeInterval
+        if duration.isFinite, duration > 0 {
+            seconds = max(0, itemTime).truncatingRemainder(dividingBy: duration)
+        } else {
+            seconds = max(0, itemTime)
         }
+        let timescale = item.duration.timescale > 0
+            ? item.duration.timescale
+            : CMTimeScale(600)
+        return CMTime(seconds: seconds, preferredTimescale: timescale)
+    }
 
-        return lastTexture
+    private func hostTime(_ hostTime: TimeInterval) -> CMTime {
+        CMTime(seconds: hostTime, preferredTimescale: 1_000_000)
     }
 
     private func makeTexture(from pixelBuffer: CVPixelBuffer) -> MTLTexture? {

@@ -10,6 +10,7 @@ nonisolated struct SceneDynamicTextGenerationState {
     private var requested: [Int: SceneDynamicTextSignature] = [:]
     private var ready: [Int: SceneDynamicTextSignature] = [:]
     private var generations: [Int: UInt64] = [:]
+    private var readyGenerations: [Int: UInt64] = [:]
 
     nonisolated mutating func registerInitial(
         layerID: Int,
@@ -17,7 +18,10 @@ nonisolated struct SceneDynamicTextGenerationState {
         isReady: Bool
     ) {
         requested[layerID] = signature
-        if isReady { ready[layerID] = signature }
+        if isReady {
+            ready[layerID] = signature
+            readyGenerations[layerID] = generations[layerID] ?? 0
+        }
     }
 
     nonisolated mutating func request(
@@ -40,6 +44,7 @@ nonisolated struct SceneDynamicTextGenerationState {
               generations[layerID] == generation,
               let signature = requested[layerID] else { return false }
         ready[layerID] = signature
+        readyGenerations[layerID] = generation
         return true
     }
 
@@ -47,9 +52,14 @@ nonisolated struct SceneDynamicTextGenerationState {
         ready[layerID]
     }
 
+    nonisolated func readyGeneration(layerID: Int) -> UInt64? {
+        readyGenerations[layerID]
+    }
+
     nonisolated mutating func reset() {
         requested.removeAll()
         ready.removeAll()
         generations.removeAll()
+        readyGenerations.removeAll()
     }
 }

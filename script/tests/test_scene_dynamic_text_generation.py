@@ -24,24 +24,31 @@ enum Harness {
         let latest = SceneDynamicTextSignature(content: "C", pointSize: 10, colorRGB: [0, 1, 0])
         var state = SceneDynamicTextGenerationState()
         state.registerInitial(layerID: 1, signature: authored, isReady: true)
+        let initialReadyGeneration = state.readyGeneration(layerID: 1)
         let duplicate = state.request(layerID: 1, signature: authored)
         let generationB = state.request(layerID: 1, signature: second)!
         let generationC = state.request(layerID: 1, signature: latest)!
         let staleAccepted = state.complete(layerID: 1, generation: generationB, succeeded: true)
         let failureAccepted = state.complete(layerID: 1, generation: generationC, succeeded: false)
         let readyAfterFailure = state.readySignature(layerID: 1)!
+        let generationAfterFailure = state.readyGeneration(layerID: 1)
         let latestAccepted = state.complete(layerID: 1, generation: generationC, succeeded: true)
         let readyAfterSuccess = state.readySignature(layerID: 1)!
+        let generationAfterSuccess = state.readyGeneration(layerID: 1)
         state.reset()
         let payload: [String: Any] = [
             "duplicate": duplicate as Any,
+            "initialReadyGeneration": initialReadyGeneration as Any,
             "ordered": generationC > generationB,
             "staleAccepted": staleAccepted,
             "failureAccepted": failureAccepted,
             "readyAfterFailure": readyAfterFailure.content,
+            "generationAfterFailure": generationAfterFailure as Any,
             "latestAccepted": latestAccepted,
             "readyAfterSuccess": readyAfterSuccess.content,
+            "generationAfterSuccess": generationAfterSuccess as Any,
             "readyAfterReset": state.readySignature(layerID: 1) as Any,
+            "generationAfterReset": state.readyGeneration(layerID: 1) as Any,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -83,9 +90,18 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
         self.assertFalse(self.result["staleAccepted"])
         self.assertFalse(self.result["failureAccepted"])
         self.assertEqual(self.result["readyAfterFailure"], "A")
+        self.assertEqual(
+            self.result["generationAfterFailure"],
+            self.result["initialReadyGeneration"],
+        )
         self.assertTrue(self.result["latestAccepted"])
         self.assertEqual(self.result["readyAfterSuccess"], "C")
+        self.assertGreater(
+            self.result["generationAfterSuccess"],
+            self.result["generationAfterFailure"],
+        )
         self.assertIsNone(self.result["readyAfterReset"])
+        self.assertIsNone(self.result["generationAfterReset"])
 
 
 if __name__ == "__main__":

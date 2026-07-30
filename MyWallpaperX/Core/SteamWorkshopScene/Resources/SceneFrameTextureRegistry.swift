@@ -51,6 +51,7 @@ final class SceneFrameTextureRegistry {
 
     private struct PersistentEntry {
         let texture: MTLTexture
+        let contentGeneration: UInt64?
         let generation: UInt64
     }
 
@@ -62,6 +63,7 @@ final class SceneFrameTextureRegistry {
     @discardableResult
     func beginFrame(
         layerSources: [Int: MTLTexture],
+        explicitLayerSources: [Int: SceneTextureProviderPublication] = [:],
         userPropertyTextures: [String: MTLTexture] = [:],
         systemTextures: [String: MTLTexture] = [:]
     ) -> UInt64 {
@@ -70,11 +72,22 @@ final class SceneFrameTextureRegistry {
         let previousPersistentEntries = persistentEntries
         persistentEntries.removeAll(keepingCapacity: true)
         layerSources.forEach { layerID, texture in
-            publishPersistent(
-                texture,
-                for: .layerSource(layerID),
-                previousEntries: previousPersistentEntries
-            )
+            let identity = SceneFrameTextureIdentity.layerSource(layerID)
+            if let publication = explicitLayerSources[layerID] {
+                if publication.texture === texture {
+                    publishExplicit(
+                        publication,
+                        for: identity,
+                        previousEntries: previousPersistentEntries
+                    )
+                }
+            } else {
+                publishPersistent(
+                    texture,
+                    for: identity,
+                    previousEntries: previousPersistentEntries
+                )
+            }
         }
         userPropertyTextures.forEach { key, texture in
             publishPersistent(
@@ -133,8 +146,60 @@ final class SceneFrameTextureRegistry {
         }
         persistentEntries[identity] = PersistentEntry(
             texture: texture,
+            contentGeneration: nil,
             generation: generation
         )
         entries[identity] = Entry(status: .ready(texture), generation: generation)
+    }
+
+    private func publishExplicit(
+        _ publication: SceneTextureProviderPublication,
+        for identity: SceneFrameTextureIdentity,
+        previousEntries: [SceneFrameTextureIdentity: PersistentEntry]
+    ) {
+        if let previous = previousEntries[identity],
+           let previousContentGeneration = previous.contentGeneration {
+            if publication.contentGeneration < previousContentGeneration {
+                persistentEntries[identity] = previous
+                entries[identity] = Entry(
+                    status: .ready(previous.texture),
+                    generation: previous.generation
+                )
+                return
+            }
+            if publication.contentGeneration == previousContentGeneration {
+                guard publication.texture === previous.texture else {
+                    persistentEntries[identity] = previous
+                    entries[identity] = Entry(
+                        status: .ready(previous.texture),
+                        generation: previous.generation
+                    )
+                    return
+                }
+                let entry = PersistentEntry(
+                    texture: publication.texture,
+                    contentGeneration: publication.contentGeneration,
+                    generation: previous.generation
+                )
+                persistentEntries[identity] = entry
+                entries[identity] = Entry(
+                    status: .ready(publication.texture),
+                    generation: previous.generation
+                )
+                return
+            }
+        }
+
+        resourceGeneration &+= 1
+        let entry = PersistentEntry(
+            texture: publication.texture,
+            contentGeneration: publication.contentGeneration,
+            generation: resourceGeneration
+        )
+        persistentEntries[identity] = entry
+        entries[identity] = Entry(
+            status: .ready(publication.texture),
+            generation: resourceGeneration
+        )
     }
 }

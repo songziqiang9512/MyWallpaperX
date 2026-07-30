@@ -14,6 +14,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneNamedTextureReference.swift",
+    SOURCE_ROOT / "Resources/SceneTextureProviderPublication.swift",
     SOURCE_ROOT / "Resources/SceneFrameTextureRegistry.swift",
 ]
 
@@ -46,10 +47,14 @@ enum Harness {
         let systemTexture = texture()
         let replacementSystemTexture = texture()
         let namedTexture = texture()
+        let dynamicTexture = texture()
+        let replacementDynamicTexture = texture()
+        let staleDynamicTexture = texture()
         let optionalProperty = SceneFrameTextureIdentity.userProperty("cover")
         let persistentProperty = SceneFrameTextureIdentity.userProperty("persistent-cover")
         let system = SceneFrameTextureIdentity.system("$mediaThumbnail")
         let fallback = SceneFrameTextureIdentity.layerSource(7)
+        let dynamic = SceneFrameTextureIdentity.layerSource(8)
         let selection = SceneFrameTextureSelection(candidates: [optionalProperty, fallback])
         let firstEpoch = registry.beginFrame(
             layerSources: [7: fallbackTexture],
@@ -112,6 +117,67 @@ enum Harness {
         let restoredProperty = registry.resolve(SceneFrameTextureSelection(candidates: [persistentProperty]))!
         let restoredSystem = registry.resolve(SceneFrameTextureSelection(candidates: [system]))!
 
+        registry.beginFrame(
+            layerSources: [8: dynamicTexture],
+            explicitLayerSources: [
+                8: SceneTextureProviderPublication(
+                    texture: dynamicTexture,
+                    contentGeneration: 10
+                )
+            ]
+        )
+        let firstDynamic = registry.resolve(
+            SceneFrameTextureSelection(candidates: [dynamic])
+        )!
+        registry.beginFrame(
+            layerSources: [8: dynamicTexture],
+            explicitLayerSources: [
+                8: SceneTextureProviderPublication(
+                    texture: dynamicTexture,
+                    contentGeneration: 11
+                )
+            ]
+        )
+        let secondDynamic = registry.resolve(
+            SceneFrameTextureSelection(candidates: [dynamic])
+        )!
+        registry.beginFrame(
+            layerSources: [8: replacementDynamicTexture],
+            explicitLayerSources: [
+                8: SceneTextureProviderPublication(
+                    texture: replacementDynamicTexture,
+                    contentGeneration: 11
+                )
+            ]
+        )
+        let sameGenerationDynamic = registry.resolve(
+            SceneFrameTextureSelection(candidates: [dynamic])
+        )!
+        registry.beginFrame(
+            layerSources: [8: staleDynamicTexture],
+            explicitLayerSources: [
+                8: SceneTextureProviderPublication(
+                    texture: staleDynamicTexture,
+                    contentGeneration: 9
+                )
+            ]
+        )
+        let rejectedStaleDynamic = registry.resolve(
+            SceneFrameTextureSelection(candidates: [dynamic])
+        )!
+        registry.beginFrame(
+            layerSources: [8: replacementDynamicTexture],
+            explicitLayerSources: [
+                8: SceneTextureProviderPublication(
+                    texture: staleDynamicTexture,
+                    contentGeneration: 12
+                )
+            ]
+        )
+        let mismatchedPublicationRejected = registry.resolve(
+            SceneFrameTextureSelection(candidates: [dynamic])
+        ) == nil
+
         let result: [String: Any] = [
             "frameEpochAdvanced": secondEpoch == firstEpoch + 1,
             "persistentGenerationsStable": secondFallback.generation == firstFallback.generation
@@ -133,6 +199,15 @@ enum Harness {
             "namedCleared": namedCleared,
             "namedGenerationAdvanced": secondNamed.generation == firstNamed.generation + 1,
             "persistentEntriesCleared": persistentEntriesCleared,
+            "explicitContentGenerationAdvanced":
+                secondDynamic.generation > firstDynamic.generation,
+            "sameExplicitGenerationStable":
+                sameGenerationDynamic.generation == secondDynamic.generation
+                    && sameGenerationDynamic.texture === dynamicTexture,
+            "staleExplicitGenerationRejected":
+                rejectedStaleDynamic.generation == sameGenerationDynamic.generation
+                    && rejectedStaleDynamic.texture === dynamicTexture,
+            "mismatchedPublicationRejected": mismatchedPublicationRejected,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -196,6 +271,17 @@ class SceneFrameTextureRegistryTests(unittest.TestCase):
             "replacementGenerationsAdvanced",
             "restoredGenerationsAdvanced",
             "persistentEntriesCleared",
+        ):
+            self.assertTrue(self.result[key], key)
+
+    def test_explicit_dynamic_generation_controls_publication_and_rejects_stale_frames(
+        self,
+    ) -> None:
+        for key in (
+            "explicitContentGenerationAdvanced",
+            "sameExplicitGenerationStable",
+            "staleExplicitGenerationRejected",
+            "mismatchedPublicationRejected",
         ):
             self.assertTrue(self.result[key], key)
 

@@ -22,6 +22,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneTextureUVTransform.swift",
     SCENE_ROOT / "Resources/SceneTextureCandidate.swift",
     SCENE_ROOT / "Resources/SceneTextureSlotBinding.swift",
+    SCENE_ROOT / "Resources/SceneTextureProviderPublication.swift",
     SCENE_ROOT / "Resources/SceneImageTextureUploader.swift",
     SCENE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
     SCENE_ROOT / "Resources/SceneTextureMipUploader.swift",
@@ -464,6 +465,18 @@ enum Harness {
                 for: 7,
                 matching: baseCropped.texture
             ) == nil
+        let mismatchedPublicationSnapshot = baseStore.snapshot(
+            textures: [7: baseDirect.texture],
+            explicitLayerSources: [
+                7: SceneTextureProviderPublication(
+                    texture: baseCropped.texture,
+                    contentGeneration: 1
+                )
+            ]
+        )
+        let baseSnapshotRejectsMismatchedPublication =
+            mismatchedPublicationSnapshot[7] == nil
+                && mismatchedPublicationSnapshot.explicitLayerSources[7] == nil
         let firstScale = first.axisAlignedMappedUVScale(expectedPurpose: .mask)
         let croppedColorScale = croppedColor.axisAlignedMappedUVScale(
             expectedPurpose: .premultipliedColor
@@ -740,6 +753,8 @@ enum Harness {
                 baseStoreReplacementClearsCandidate,
             "baseSnapshotDropsMismatchedCandidate":
                 baseSnapshotDropsMismatchedCandidate,
+            "baseSnapshotRejectsMismatchedPublication":
+                baseSnapshotRejectsMismatchedPublication,
             "generationChangedAfterRewrite": originalGeneration != refreshed.generation,
             "textureChangedAfterRewrite": first.texture !== refreshed.texture,
             "refreshedPhysical": [
@@ -1133,6 +1148,7 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "basePuppetLegacy": True,
                 "baseSpriteLegacy": True,
                 "baseSnapshotDropsMismatchedCandidate": True,
+                "baseSnapshotRejectsMismatchedPublication": True,
                 "baseStoreReplacementClearsCandidate": True,
                 "baseUnparsedLegacy": True,
                 "croppedColorMapped": [4, 4],

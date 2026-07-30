@@ -103,7 +103,8 @@ class SceneMetalView: NSView {
     // writes a human-readable per-layer load report next to the sample so
     // black previews can be debugged without attaching a debugger.
     func loadImageLayers(
-        from cacheDirectory: URL, resourceView: SceneResourceView, logURL: URL? = nil
+        from cacheDirectory: URL, resourceView: SceneResourceView,
+        videoSourceRegistry: SceneVideoTextureSourceRegistry, logURL: URL? = nil
     ) {
         let loader = SceneTextureLoader()
         let resolver = SceneTexturePathResolver(
@@ -173,18 +174,16 @@ class SceneMetalView: NSView {
                 report.append("layer \(layer.id) \"\(name)\": no texture URL (built-in or unresolvable); \(placementSummary)")
                 continue
             }
-            if let videoSource = loader.makeVideoTextureSourceIfNeeded(
+            if let videoSource = videoSourceRegistry.source(
                 from: url,
                 layerID: layer.id,
                 cacheDirectory: cacheDirectory,
-                device: metalDevice
+                device: metalDevice,
+                loader: loader
             ) {
                 loadedVideoSources[layer.id] = videoSource
                 let effectTextures = loadEffectTextures(for: layer)
                 var message = "layer \(layer.id) \"\(name)\": mp4 payload video source ready (\(url.lastPathComponent))"
-                if let initialTexture = videoSource.currentTexture(forHostTime: CACurrentMediaTime()) {
-                    message += " → \(initialTexture.width)×\(initialTexture.height)"
-                }
                 message += " [\(resourceView.displayPath(for: url))]"
                 message += effectTextures.message
                 if let effectSummary = renderer.effectRuntimeSummary(for: layer) {
@@ -357,14 +356,11 @@ class SceneMetalView: NSView {
         pointerState.previous = pointerState.current
         let particleBatches = particlePlayback?.advance(by: timing.frameTime) ?? []
         dynamicTextTextures?.update(from: dynamicValues)
-        var currentImageTextures = imageTextures.textures
         let dynamicTextSnapshot = dynamicTextTextures?.snapshot()
-        currentImageTextures.merge(dynamicTextSnapshot?.textures ?? [:]) { _, incoming in incoming }
-        for (layerID, videoSource) in videoTextureSources {
-            if let texture = videoSource.currentTexture(forHostTime: timing.hostTime) {
-                currentImageTextures[layerID] = texture
-            }
-        }
+        let frameImageTextures = SceneFrameLayerTextureAssembly.make(
+            base: imageTextures, dynamicText: dynamicTextSnapshot,
+            videoSources: videoTextureSources, timing: timing
+        )
 #if DEBUG
         let frameReadback = debugFrameCapture.encodeIfRequested
 #else
@@ -377,7 +373,7 @@ class SceneMetalView: NSView {
             )
         }
         renderer.renderFrame(
-            imageTextures: imageTextures.snapshot(textures: currentImageTextures),
+            imageTextures: frameImageTextures,
             dynamicTextRenderSizes: dynamicTextSnapshot?.renderSizes ?? [:],
             userPropertyTextures: userPropertyTextureLoad.textures,
             spriteAnimations: spriteAnimations,

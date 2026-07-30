@@ -469,9 +469,9 @@ enum MainWindowCoordinator {
                 postWallpaperRuntimeWillSwitch(to: .scene)
                 wallpaperManager.clearCurrentWallpaperReference()
                 wallpaperManager.activeWallpaperRuntime = .scene
-                wallpaperManager.isPlaying = true
                 wallpaperManager.stopAutoSwitchTimer()
                 WallpaperEngine.shared.stopPlayback()
+                wallpaperManager.isPlaying = WallpaperEngine.shared.isPlaying()
             } catch {
                 MainActor.assumeIsolated { SteamWorkshopService.shared.downloadError = error.localizedDescription }
             }

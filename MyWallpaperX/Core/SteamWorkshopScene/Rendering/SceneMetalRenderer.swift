@@ -122,9 +122,9 @@ struct SceneMetalRenderer {
             target: drawable.texture,
             clearColor: sceneClearColor
         )
-
         textureRegistry.beginFrame(
             layerSources: imageTextures.textures,
+            explicitLayerSources: imageTextures.explicitLayerSources,
             userPropertyTextures: userPropertyTextures
         )
         for layer in orderedLayers {

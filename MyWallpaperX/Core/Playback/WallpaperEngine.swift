@@ -66,6 +66,7 @@ public final class WallpaperEngine: NSObject {
     var screenLocked = false
     var visibilityReductionActive = false
     var playbackPaused = false
+    var isPlaybackPaused: Bool { playbackPaused }
     var reducedPerformanceMode = false
     var targetPlaybackRate: Float = 1.0
     var currentVolumeNormalized: Float = 0.5
@@ -290,6 +291,7 @@ public final class WallpaperEngine: NSObject {
         currentWebRequestID = nil
         currentWebLaunchSource = nil
         currentWallpaper = nil
+        SceneDesktopWallpaperHost.shared.setPlaybackPaused(playbackPaused)
     }
 
     public func cleanup() {
@@ -360,6 +362,10 @@ public final class WallpaperEngine: NSObject {
     }
 
     public func isPlaying() -> Bool {
+        let sceneHost = SceneDesktopWallpaperHost.shared
+        if sceneHost.activeRecordID != nil {
+            return !playbackPaused && sceneHost.isPlaybackActive
+        }
         guard !playbackPaused else { return false }
 
         if currentPlaybackContentKind == .web {
