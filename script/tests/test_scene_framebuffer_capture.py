@@ -27,6 +27,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Rendering/SceneFramebufferSnapshot.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenResolutionPolicy.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTexturePool.swift",
+    SOURCE_ROOT / "Resources/SceneTextureSampling.swift",
     SOURCE_ROOT / "Effects/SceneGaussianBlurPipeline.swift",
     SOURCE_ROOT / "Effects/SceneStandardBlurPipeline.swift",
     SOURCE_ROOT / "Effects/SceneStandardBlurRenderer.swift",
@@ -946,6 +947,33 @@ struct SceneStandardBlurPlan {
     let horizontalStep: Float
     let verticalStep: Float
     let renderTargetScale: Int
+    let effectDescriptorID: String
+    let maskTexturePath: String?
+
+    init(
+        horizontalStep: Float,
+        verticalStep: Float,
+        renderTargetScale: Int,
+        effectDescriptorID: String = "",
+        maskTexturePath: String? = nil
+    ) {
+        self.horizontalStep = horizontalStep
+        self.verticalStep = verticalStep
+        self.renderTargetScale = renderTargetScale
+        self.effectDescriptorID = effectDescriptorID
+        self.maskTexturePath = maskTexturePath
+    }
+}
+
+struct SceneStandardBlurEffectTextures {
+    let mask: MTLTexture?
+    let maskUVScale: SIMD2<Float>
+    let maskSampling: SceneTextureSampling
+    let maskPath: String
+
+    func matches(_ plan: SceneStandardBlurPlan) -> Bool {
+        mask != nil && maskPath == plan.maskTexturePath
+    }
 }
 
 struct SceneLocalContrastPlan {
@@ -1459,6 +1487,10 @@ enum Harness {
             device: device,
             queue: queue
         )
+        let standardBlurMaskPixels = try standardBlurMaskPixels(
+            device: device,
+            queue: queue
+        )
         let foliage = foliageInputs(mode: 0)
         let unsupportedFoliage = foliageInputs(mode: 1)
         let mappedMaskScale = SceneTextureMappedUVScale.resolve(
@@ -1571,6 +1603,7 @@ enum Harness {
             "authoredFailedChain": authoredFailedChain,
             "authoredStandardBlurOverridesLegacy": authoredStandardBlurOverridesLegacy,
             "standardBlurAlphaAwareDownsampleBGRA": standardBlurAlphaAwareDownsample,
+            "standardBlurMaskPixels": standardBlurMaskPixels,
             "foliageFlags": foliage.flags.rawValue,
             "foliageParams3": [
                 foliage.params3.x, foliage.params3.y, foliage.params3.z, foliage.params3.w,
@@ -2717,6 +2750,7 @@ enum Harness {
                         blendEffects: [:],
                         shakeEffects: [:],
                         filmGrainEffects: [:],
+                        standardBlurEffects: [:],
                         waterFlowEffects: [:],
                         waterWavesEffects: [:],
                         cursorRippleEffects: [:],
@@ -3109,6 +3143,7 @@ enum Harness {
             blendEffects: [:],
             shakeEffects: [:],
             filmGrainEffects: [:],
+            standardBlurEffects: [:],
             waterFlowEffects: [:],
             waterWavesEffects: [:],
             cursorRippleEffects: [:],
@@ -3330,6 +3365,49 @@ enum Harness {
         commandBuffer.waitUntilCompleted()
         guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
         return pixel(target, x: 0, y: 0)
+    }
+
+    static func standardBlurMaskPixels(
+        device: MTLDevice,
+        queue: MTLCommandQueue
+    ) throws -> [[UInt8]] {
+        guard let pipeline = SceneStandardBlurPipeline(device: device),
+              let blurred = makeTexture(device: device, size: 1, usage: .shaderRead),
+              let previous = makeTexture(device: device, size: 1, usage: .shaderRead),
+              let mask = makeTexture(device: device, size: 1, usage: .shaderRead),
+              let output = makeTexture(
+                  device: device,
+                  size: 1,
+                  usage: [.renderTarget, .shaderRead]
+              ) else {
+            throw HarnessError.metalUnavailable
+        }
+        let previousPixel: [UInt8] = [20, 40, 80, 100]
+        let blurredPixel: [UInt8] = [100, 80, 40, 200]
+        fill(previous, bgra: previousPixel)
+        fill(blurred, bgra: blurredPixel)
+
+        return try [0, 128, 255].map { maskValue in
+            fill(mask, bgra: [0, 0, UInt8(maskValue), 255])
+            guard let commandBuffer = queue.makeCommandBuffer(),
+                  pipeline.encodeCombine(
+                      blurred: blurred,
+                      mask: mask,
+                      maskUVScale: SIMD2(repeating: 1),
+                      maskSampling: .linearClamp,
+                      previous: previous,
+                      target: output,
+                      commandBuffer: commandBuffer
+                  ) else {
+                throw HarnessError.drawRefused
+            }
+            commandBuffer.commit()
+            commandBuffer.waitUntilCompleted()
+            guard commandBuffer.status == .completed else {
+                throw HarnessError.commandFailed
+            }
+            return pixel(output, x: 0, y: 0)
+        }
     }
 
     static func standardBlurOverridesLegacy() -> Bool {
@@ -3765,6 +3843,7 @@ enum Harness {
             blendEffects: blendEffects,
             shakeEffects: [:],
             filmGrainEffects: [:],
+            standardBlurEffects: [:],
             waterFlowEffects: [:],
             waterWavesEffects: [:],
             cursorRippleEffects: [:],
@@ -4259,6 +4338,12 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertGreater(evidence["horizontalToVerticalDelta"], 2, evidence)
         self.assertGreater(evidence["inputToOutputDelta"], 20, evidence)
         self.assertTrue(self.result["authoredStandardBlurOverridesLegacy"])
+
+    def test_standard_blur_combine_uses_red_mask_in_premultiplied_space(self) -> None:
+        mask_zero, mask_half, mask_one = self.result["standardBlurMaskPixels"]
+        self.assert_pixel_close(mask_zero, [20, 40, 80, 100], 1)
+        self.assert_pixel_close(mask_one, [100, 80, 40, 200], 1)
+        self.assert_pixel_close(mask_half, [60, 60, 60, 150], 2)
 
     def test_authored_effect_chain_runs_in_order_without_reapplying_layer_alpha(self) -> None:
         evidence = self.result["authoredTwoStageChain"]

@@ -839,7 +839,8 @@ enum Harness {
     static func standardBlurInstanceEffect(
         layerID: Int = 530,
         gaussianCombos: [String: Int] = [:],
-        combineCombos: [String: Int] = [:]
+        combineCombos: [String: Int] = [:],
+        maskPath: String? = nil
     ) -> SceneRenderDescriptor.EffectDescriptor {
         let scale = SceneDocument.ShaderValue(
             valueKind: "binding", userBinding: "newproperty", components: [0.6]
@@ -861,7 +862,7 @@ enum Harness {
                     constantShaderValues: ["scale": scale]
                 ),
                 .init(
-                    passIndex: 3, textureSlots: [], userTextureInputs: [],
+                    passIndex: 3, textureSlots: [nil, maskPath], userTextureInputs: [],
                     combos: combineCombos,
                     constantShaderValues: [
                         "compositecolor": .init(components: [1, 1, 1]),
@@ -1220,6 +1221,13 @@ enum Harness {
             graph: standardGraph, descriptor: standardDescriptor
         )!
         let standardBlur = standardPlan.standardBlur!
+        let standardMaskedDescriptor = standardBlurDescriptor(
+            effect: standardBlurInstanceEffect(maskPath: "masks/blur-mask")
+        )
+        let standardMaskedPlan = SceneAuthoredStandardBlurPlanner.plan(
+            graph: standardGraph,
+            descriptor: standardMaskedDescriptor
+        )?.standardBlur
         let standardRenderTargetPlan: SceneGraphRenderTargetPlan = {
             switch SceneGraphRenderTargetPlan.make(
                 executionPlan: standardPlan,
@@ -1313,6 +1321,15 @@ enum Harness {
         let standardCompositeDescriptor = standardBlurDescriptor(
             effect: standardBlurInstanceEffect(combineCombos: ["COMPOSITE": 2])
         )
+        let standardMaskWithoutTextureDescriptor = standardBlurDescriptor(
+            effect: standardBlurInstanceEffect(combineCombos: ["MASK": 1])
+        )
+        let standardUnknownMaskComboDescriptor = standardBlurDescriptor(
+            effect: standardBlurInstanceEffect(
+                combineCombos: ["MASK": 2],
+                maskPath: "masks/blur-mask"
+            )
+        )
         func standardRejected(
             graph: Graph = standardGraph,
             descriptor: SceneRenderDescriptor = standardDescriptor
@@ -1394,6 +1411,10 @@ enum Harness {
             "standardPlanned": standardCatalog.plansByLayerID.keys.sorted(),
             "standardScale": [standardBlur.horizontalStep, standardBlur.verticalStep],
             "standardRTScale": standardBlur.renderTargetScale,
+            "standardEffectDescriptorID": standardBlur.effectDescriptorID,
+            "standardMaskPath": (standardBlur.maskTexturePath as Any?) ?? NSNull(),
+            "standardMaskedPath": (standardMaskedPlan?.maskTexturePath as Any?)
+                ?? NSNull(),
             "standardNodes": standardPlan.materialNodeCount,
             "standardTargets": standardPlan.logicalRenderTargetCount,
             "standardGraphTargetCount": standardRenderTargetPlan.logicalTargets.count,
@@ -1416,6 +1437,12 @@ enum Harness {
             "standardBadStateRejected": standardRejected(descriptor: standardBadStateDescriptor),
             "standardKernelRejected": standardRejected(descriptor: standardKernelDescriptor),
             "standardCompositeRejected": standardRejected(descriptor: standardCompositeDescriptor),
+            "standardMaskWithoutTextureRejected": standardRejected(
+                descriptor: standardMaskWithoutTextureDescriptor
+            ),
+            "standardUnknownMaskComboRejected": standardRejected(
+                descriptor: standardUnknownMaskComboDescriptor
+            ),
             "standardMixedEffectRejected": standardRejected(graph: standardBlurGraph(extraMixedEffect: true)),
             "standardWrongExtentLegacyBlocked": standardLegacyBlocked(graph: standardBlurGraph(wrongExtent: true)),
             "standardWrongBindingLegacyBlocked": standardLegacyBlocked(graph: standardBlurGraph(wrongBinding: true)),
@@ -1505,6 +1532,9 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertEqual(self.result["standardNodes"], 4)
         self.assertEqual(self.result["standardTargets"], 2)
         self.assertEqual(self.result["standardRTScale"], 4)
+        self.assertEqual(self.result["standardEffectDescriptorID"], "530#effect#0")
+        self.assertIsNone(self.result["standardMaskPath"])
+        self.assertEqual(self.result["standardMaskedPath"], "masks/blur-mask")
         self.assertAlmostEqual(self.result["standardScale"][0], 0.6, places=5)
         self.assertAlmostEqual(self.result["standardScale"][1], 0.6, places=5)
         self.assertEqual(self.result["standardGraphTargetCount"], 2)
@@ -1552,6 +1582,8 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
             "standardBadStateRejected",
             "standardKernelRejected",
             "standardCompositeRejected",
+            "standardMaskWithoutTextureRejected",
+            "standardUnknownMaskComboRejected",
             "standardMixedEffectRejected",
         )
         for key in rejection_keys:

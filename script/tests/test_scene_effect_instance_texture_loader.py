@@ -45,7 +45,7 @@ final class SceneVideoTextureSource {
 }
 
 struct SceneFoliageSwayExecutionPlan {
-    let maskTexturePath: String
+    let maskTexturePath: String?
     let noiseTexturePath: String
 }
 
@@ -67,9 +67,23 @@ struct SceneTexturePathResolver {
 }
 
 struct SceneStockTextureResolver {
-    init(bundleRoot: URL) {}
-    static func defaultBundleRoot() -> URL? { nil }
-    func textureURL(for path: String) -> URL? { nil }
+    let bundleRoot: URL
+
+    init(bundleRoot: URL) {
+        self.bundleRoot = bundleRoot
+    }
+
+    static func defaultBundleRoot() -> URL? {
+        guard CommandLine.arguments.count == 2 else { return nil }
+        return URL(
+            fileURLWithPath: CommandLine.arguments[1],
+            isDirectory: true
+        )
+    }
+
+    func textureURL(for path: String) -> URL? {
+        bundleRoot.appendingPathComponent(path).appendingPathExtension("png")
+    }
 }
 
 struct SceneRenderDescriptor {
@@ -94,6 +108,11 @@ enum SceneEffectMaskSemantics {
     }
 }
 
+struct SceneEffectTextureLoadResult {
+    let texture: MTLTexture?
+    let message: String
+}
+
 enum SceneLayerEffectTextureLoader {
     static func loadTexture(
         url: URL?,
@@ -101,15 +120,18 @@ enum SceneLayerEffectTextureLoader {
         purpose: SceneTextureLoadPurpose,
         loader: SceneTextureLoader,
         device: MTLDevice
-    ) -> (texture: MTLTexture?, message: String) {
-        guard let url else { return (nil, "") }
+    ) -> SceneEffectTextureLoadResult {
+        guard let url else { return .init(texture: nil, message: "") }
         switch loader.load(from: url, purpose: purpose, device: device) {
         case .loaded(let texture):
-            return (texture, "; \(label) OK")
+            return .init(texture: texture, message: "; \(label) OK")
         case .decodeFailed(let message):
-            return (nil, "; \(label) decode failed (\(message))")
+            return .init(
+                texture: nil,
+                message: "; \(label) decode failed (\(message))"
+            )
         default:
-            return (nil, "; \(label) failed")
+            return .init(texture: nil, message: "; \(label) failed")
         }
     }
 
@@ -125,6 +147,7 @@ enum Harness {
     static let foliageExcluded = "9#effect#2"
     static let rippleA = "9#effect#3"
     static let rippleB = "9#effect#4"
+    static let foliageUnmasked = "9#effect#5"
     static let maskA = "masks/a"
     static let maskB = "masks/b"
     static let missingMask = "masks/missing"
@@ -146,8 +169,12 @@ enum Harness {
         )
         let maskAURL = root.appendingPathComponent("mask-a.png")
         let maskBURL = root.appendingPathComponent("mask-b.png")
-        let noiseURL = root.appendingPathComponent("noise.png")
+        let noiseURL = root.appendingPathComponent("materials/util/noise.png")
         let normalURL = root.appendingPathComponent("normal.png")
+        try FileManager.default.createDirectory(
+            at: noiseURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
         try writeImage(maskAURL, red: 32)
         try writeImage(maskBURL, red: 224)
         try writeImage(noiseURL, red: 128)
@@ -155,20 +182,20 @@ enum Harness {
         let resolver = SceneTexturePathResolver(urlsByPath: [
             maskA: maskAURL,
             maskB: maskBURL,
-            noise: noiseURL,
             normal: normalURL,
         ])
         let layer = SceneRenderDescriptor.Layer(effects: [
             foliage(foliageA, mask: maskA),
             foliage(foliageB, mask: maskB),
             foliage(foliageExcluded, mask: missingMask),
+            foliage(foliageUnmasked, mask: nil),
             ripple(rippleA, mask: maskA),
             ripple(rippleB, mask: maskB),
         ])
         let loader = SceneTextureLoader()
         let foliageLoaded = SceneFoliageSwayEffectTextureLoader.load(
             for: layer,
-            effectIDs: [foliageA, foliageB],
+            effectIDs: [foliageA, foliageB, foliageUnmasked],
             resolver: resolver,
             loader: loader,
             device: device
@@ -189,6 +216,7 @@ enum Harness {
         )
         let foliageAResources = foliageLoaded.textures[foliageA]
         let foliageBResources = foliageLoaded.textures[foliageB]
+        let foliageUnmaskedResources = foliageLoaded.textures[foliageUnmasked]
         let rippleAResources = rippleLoaded.textures[rippleA]
         let rippleBResources = rippleLoaded.textures[rippleB]
         let result: [String: Any] = [
@@ -199,6 +227,16 @@ enum Harness {
             "foliageBMatches": foliageBResources?.matches(.init(
                 maskTexturePath: maskB, noiseTexturePath: noise
             )) ?? false,
+            "foliageUnmaskedMatches": foliageUnmaskedResources?.matches(.init(
+                maskTexturePath: nil, noiseTexturePath: noise
+            )) ?? false,
+            "foliageUnmaskedMaskIsNil": foliageUnmaskedResources.map {
+                $0.mask == nil
+            } ?? false,
+            "foliageUnmaskedMaskPathIsNil": foliageUnmaskedResources.map {
+                $0.maskPath == nil
+            } ?? false,
+            "foliageUnmaskedStockNoiseLoaded": foliageUnmaskedResources?.noise != nil,
             "foliageMasksDistinct": foliageAResources?.mask !== foliageBResources?.mask,
             "foliageNoiseShared": foliageAResources?.noise === foliageBResources?.noise,
             "missingFoliageFailsClosed": !(foliageMissing.textures[foliageExcluded]?
@@ -220,12 +258,12 @@ enum Harness {
 
     static func foliage(
         _ id: String,
-        mask: String
+        mask: String?
     ) -> SceneRenderDescriptor.EffectDescriptor {
         .init(
             id: id,
             file: "effects/foliagesway/effect.json",
-            passes: [.init(textureSlots: [nil, mask, noise])]
+            passes: [.init(textureSlots: mask.map { [nil, $0, noise] } ?? [])]
         )
     }
 
@@ -327,9 +365,13 @@ class SceneEffectInstanceTextureLoaderTests(unittest.TestCase):
             {
                 "foliageAMatches": True,
                 "foliageBMatches": True,
-                "foliageKeys": ["9#effect#0", "9#effect#1"],
+                "foliageKeys": ["9#effect#0", "9#effect#1", "9#effect#5"],
                 "foliageMasksDistinct": True,
                 "foliageNoiseShared": True,
+                "foliageUnmaskedMaskIsNil": True,
+                "foliageUnmaskedMaskPathIsNil": True,
+                "foliageUnmaskedMatches": True,
+                "foliageUnmaskedStockNoiseLoaded": True,
                 "missingFoliageFailsClosed": True,
                 "rippleAMatches": True,
                 "rippleBMatches": True,

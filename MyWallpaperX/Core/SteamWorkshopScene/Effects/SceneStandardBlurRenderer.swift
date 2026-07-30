@@ -8,6 +8,9 @@ enum SceneStandardBlurRenderer {
         quarterA: MTLTexture,
         quarterB: MTLTexture,
         outputTexture: MTLTexture,
+        maskTexture: MTLTexture? = nil,
+        maskUVScale: SIMD2<Float> = SIMD2(repeating: 1),
+        maskSampling: SceneTextureSampling = .linearClamp,
         pipeline: SceneStandardBlurPipeline,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
@@ -29,6 +32,9 @@ enum SceneStandardBlurRenderer {
             commandBuffer: commandBuffer
         ), pipeline.encodeCombine(
             blurred: quarterA,
+            mask: maskTexture,
+            maskUVScale: maskUVScale,
+            maskSampling: maskSampling,
             previous: inputTexture,
             target: outputTexture,
             commandBuffer: commandBuffer

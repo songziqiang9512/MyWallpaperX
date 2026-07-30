@@ -161,9 +161,7 @@ struct SceneImageLayerCompositor {
                         }
                         return SceneOffscreenEffectRenderer.renderStandardBlur(
                             sourceTexture: request.texture,
-                            waterMaskTexture: masks.water,
-                            foliageMaskTexture: masks.foliage,
-                            auxMaskTexture: auxMask,
+                            masks: masks,
                             targets: targets,
                             plan: blur,
                             sourceUniforms: directUniforms,

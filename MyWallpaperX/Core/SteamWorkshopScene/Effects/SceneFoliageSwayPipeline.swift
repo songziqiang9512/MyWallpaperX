@@ -14,7 +14,8 @@ struct FoliageUniforms {
     float4 motion; // strength, speed, phase, power
     float4 noise;  // scale, ratio, direction, time
     float2 maskUVScale;
-    float2 padding;
+    float hasMask;
+    float padding;
 };
 
 vertex FoliageVaryings sceneFoliageSwayVert(uint vertexID [[vertex_id]]) {
@@ -46,10 +47,13 @@ fragment float4 sceneFoliageSwayFrag(
     constexpr sampler linearClamp(filter::linear, address::clamp_to_edge);
     constexpr sampler linearRepeat(filter::linear, address::repeat);
     float2 uv = input.uv;
-    float mask = maskTexture.sample(
-        linearClamp,
-        clamp(uv * u.maskUVScale, 0.0, 1.0)
-    ).r;
+    float mask = 1.0;
+    if (u.hasMask > 0.5) {
+        mask = maskTexture.sample(
+            linearClamp,
+            clamp(uv * u.maskUVScale, 0.0, 1.0)
+        ).r;
+    }
     float sourceAspect = float(source.get_width()) / max(float(source.get_height()), 1.0);
     float aspect = max(sourceAspect * u.noise.y, 0.001);
     float sine = sin(u.noise.z);
@@ -64,8 +68,8 @@ fragment float4 sceneFoliageSwayFrag(
     );
     float sampledNoise = noiseTexture.sample(
         linearRepeat,
-        uv * max(u.noise.x, 0.0001) * 32.0
-    ).r;
+        uv * u.noise.x
+    ).g;
     float phase = (
         sampledNoise * 6.2831853 + rotatedUV.x * 10.0 + rotatedUV.y * 5.0
     ) * u.motion.z;
@@ -92,7 +96,8 @@ struct SceneFoliageSwayPipeline {
         var motion: SIMD4<Float>
         var noise: SIMD4<Float>
         var maskUVScale: SIMD2<Float>
-        var padding = SIMD2<Float>.zero
+        var hasMask: Float
+        var padding: Float = 0
     }
 
     private let state: MTLRenderPipelineState
@@ -119,7 +124,7 @@ struct SceneFoliageSwayPipeline {
 
     func encode(
         source: MTLTexture,
-        mask: MTLTexture,
+        mask: MTLTexture?,
         noise: MTLTexture,
         target: MTLTexture,
         plan: SceneFoliageSwayPlan,
@@ -129,10 +134,7 @@ struct SceneFoliageSwayPipeline {
     ) -> Bool {
         guard source !== target,
               time.isFinite,
-              maskUVScale.x.isFinite,
-              maskUVScale.y.isFinite,
-              maskUVScale.x > 0,
-              maskUVScale.y > 0 else {
+              validMask(mask, uvScale: maskUVScale) else {
             return false
         }
         let descriptor = MTLRenderPassDescriptor()
@@ -148,7 +150,8 @@ struct SceneFoliageSwayPipeline {
         var uniforms = Uniforms(
             motion: SIMD4(plan.strength, plan.speed, plan.phase, plan.power),
             noise: SIMD4(plan.noiseScale, plan.ratio, plan.direction, time),
-            maskUVScale: maskUVScale
+            maskUVScale: maskUVScale,
+            hasMask: mask == nil ? 0 : 1
         )
         encoder.setRenderPipelineState(state)
         encoder.setFragmentBytes(
@@ -157,10 +160,21 @@ struct SceneFoliageSwayPipeline {
             index: 0
         )
         encoder.setFragmentTexture(source, index: 0)
-        encoder.setFragmentTexture(mask, index: 1)
+        encoder.setFragmentTexture(mask ?? source, index: 1)
         encoder.setFragmentTexture(noise, index: 2)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         encoder.endEncoding()
         return true
+    }
+
+    private func validMask(
+        _ mask: MTLTexture?,
+        uvScale: SIMD2<Float>
+    ) -> Bool {
+        guard mask != nil else { return true }
+        return uvScale.x.isFinite
+            && uvScale.y.isFinite
+            && uvScale.x > 0
+            && uvScale.y > 0
     }
 }

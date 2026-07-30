@@ -1,6 +1,12 @@
 import Metal
 import simd
 
+private struct SceneStandardBlurCombineUniforms {
+    var maskUVScale: SIMD2<Float>
+    var hasMask: UInt32
+    var padding: UInt32 = 0
+}
+
 // Stock Blur produces straight-alpha effect output; the final fragment converts it
 // back to the premultiplied convention used by the host compositor.
 private let sceneStandardBlurShaderSource = """
@@ -10,6 +16,12 @@ using namespace metal;
 struct StandardBlurVaryings {
     float4 position [[position]];
     float2 texcoord;
+};
+
+struct StandardBlurCombineUniforms {
+    float2 maskUVScale;
+    uint hasMask;
+    uint padding;
 };
 
 vertex StandardBlurVaryings sceneStandardBlurVert(uint vertexID [[vertex_id]]) {
@@ -70,15 +82,21 @@ fragment float4 sceneStandardBlurGaussianFrag(
 fragment float4 sceneStandardBlurCombineFrag(
     StandardBlurVaryings in [[stage_in]],
     texture2d<float> blurredTexture [[texture(0)]],
-    texture2d<float> previousTexture [[texture(2)]]
+    texture2d<float> maskTexture [[texture(1)]],
+    texture2d<float> previousTexture [[texture(2)]],
+    sampler maskSampler [[sampler(0)]],
+    constant StandardBlurCombineUniforms &uniforms [[buffer(0)]]
 ) {
     constexpr sampler s(filter::linear, address::clamp_to_edge);
     float4 blurred = blurredTexture.sample(s, in.texcoord);
     float4 previous = previousTexture.sample(s, in.texcoord);
     float divisor = blurred.a > 0.0 ? blurred.a : 1.0;
-    float4 effect = float4(blurred.rgb / divisor, blurred.a);
-    float4 composed = mix(previous, effect, 1.0);
-    return float4(composed.rgb * composed.a, composed.a);
+    float4 effectStraight = float4(blurred.rgb / divisor, blurred.a);
+    float4 effect = float4(effectStraight.rgb * effectStraight.a, effectStraight.a);
+    float mask = uniforms.hasMask == 0u
+        ? 1.0
+        : maskTexture.sample(maskSampler, in.texcoord * uniforms.maskUVScale).r;
+    return mix(previous, effect, clamp(mask, 0.0, 1.0));
 }
 """
 
@@ -86,6 +104,7 @@ struct SceneStandardBlurPipeline {
     private let downsampleState: MTLRenderPipelineState
     private let gaussianState: MTLRenderPipelineState
     private let combineState: MTLRenderPipelineState
+    private let samplerStates: SceneTextureSamplerStateSet
 
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {
         let options = MTLCompileOptions()
@@ -102,12 +121,13 @@ struct SceneStandardBlurPipeline {
         ), let combine = Self.makeState(
             device: device, vertex: vertex, library: library,
             fragmentName: "sceneStandardBlurCombineFrag", pixelFormat: pixelFormat
-        ) else {
+        ), let samplerStates = SceneTextureSamplerStateSet(device: device) else {
             return nil
         }
         downsampleState = downsample
         gaussianState = gaussian
         combineState = combine
+        self.samplerStates = samplerStates
     }
 
     func encodeDownsample(
@@ -137,14 +157,53 @@ struct SceneStandardBlurPipeline {
 
     func encodeCombine(
         blurred: MTLTexture,
+        mask: MTLTexture? = nil,
+        maskUVScale: SIMD2<Float> = SIMD2(repeating: 1),
+        maskSampling: SceneTextureSampling = .linearClamp,
         previous: MTLTexture,
         target: MTLTexture,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
-        encode(state: combineState, target: target, commandBuffer: commandBuffer) { encoder in
-            encoder.setFragmentTexture(blurred, index: 0)
-            encoder.setFragmentTexture(previous, index: 2)
+        guard maskUVScale.x.isFinite,
+              maskUVScale.y.isFinite,
+              maskUVScale.min() > 0,
+              maskUVScale.max() <= 1,
+              validMask(mask) else {
+            return false
         }
+        return encode(
+            state: combineState,
+            target: target,
+            commandBuffer: commandBuffer
+        ) { encoder in
+            encoder.setFragmentTexture(blurred, index: 0)
+            encoder.setFragmentTexture(mask ?? previous, index: 1)
+            encoder.setFragmentTexture(previous, index: 2)
+            encoder.setFragmentSamplerState(
+                samplerStates.state(for: maskSampling),
+                index: 0
+            )
+            var uniforms = SceneStandardBlurCombineUniforms(
+                maskUVScale: maskUVScale,
+                hasMask: mask == nil ? 0 : 1
+            )
+            encoder.setFragmentBytes(
+                &uniforms,
+                length: MemoryLayout<SceneStandardBlurCombineUniforms>.stride,
+                index: 0
+            )
+        }
+    }
+
+    private func validMask(_ mask: MTLTexture?) -> Bool {
+        guard let mask else { return true }
+        return mask.textureType == .type2D
+            && [.r8Unorm, .rg8Unorm, .rgba8Unorm, .bgra8Unorm].contains(mask.pixelFormat)
+            && mask.width > 0
+            && mask.height > 0
+            && mask.mipmapLevelCount > 0
+            && mask.sampleCount == 1
+            && mask.usage.contains(.shaderRead)
     }
 
     private func encode(

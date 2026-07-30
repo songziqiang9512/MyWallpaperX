@@ -216,9 +216,7 @@ enum SceneOffscreenEffectRenderer {
 
     static func renderStandardBlur(
         sourceTexture: MTLTexture,
-        waterMaskTexture: MTLTexture?,
-        foliageMaskTexture: MTLTexture?,
-        auxMaskTexture: MTLTexture?,
+        masks: SceneImageLayerMasks,
         targets: SceneGraphRenderTargetTable,
         plan: SceneStandardBlurPlan,
         sourceUniforms: SceneLayerFragmentUniforms,
@@ -226,17 +224,19 @@ enum SceneOffscreenEffectRenderer {
         standardBlurPipeline: SceneStandardBlurPipeline,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
+        let combineMask = masks.standardBlurEffects[plan.effectDescriptorID]
         let intermediates = targets.plan.logicalTargets.sorted {
             $0.lifetime.firstWriteNodeIndex < $1.lifetime.firstWriteNodeIndex
         }
         guard intermediates.count == 2,
+              plan.maskTexturePath == nil || combineMask?.matches(plan) == true,
               let quarterA = targets.texture(for: intermediates[0].identity),
               let quarterB = targets.texture(for: intermediates[1].identity),
               captureSource(
             sourceTexture: sourceTexture,
-            waterMaskTexture: waterMaskTexture,
-            foliageMaskTexture: foliageMaskTexture,
-            auxMaskTexture: auxMaskTexture,
+            waterMaskTexture: masks.water,
+            foliageMaskTexture: masks.foliage,
+            auxMaskTexture: masks.iris ?? masks.opacity,
             target: targets.inputTexture,
             sourceUniforms: sourceUniforms,
             pipeline: pipeline,
@@ -250,6 +250,9 @@ enum SceneOffscreenEffectRenderer {
             quarterA: quarterA,
             quarterB: quarterB,
             outputTexture: targets.outputTexture,
+            maskTexture: combineMask?.mask,
+            maskUVScale: combineMask?.maskUVScale ?? SIMD2(repeating: 1),
+            maskSampling: combineMask?.maskSampling ?? .linearClamp,
             pipeline: standardBlurPipeline,
             commandBuffer: commandBuffer
         )

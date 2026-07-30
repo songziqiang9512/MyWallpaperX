@@ -106,9 +106,7 @@ enum SceneAuthoredEffectChainRenderer {
             guard let standardBlurPipeline = pipelines.standardBlur else { return nil }
             return SceneOffscreenEffectRenderer.renderStandardBlur(
                 sourceTexture: sourceTexture,
-                waterMaskTexture: masks.water,
-                foliageMaskTexture: masks.foliage,
-                auxMaskTexture: auxMask,
+                masks: masks,
                 targets: targets,
                 plan: blur,
                 sourceUniforms: sourceUniforms,

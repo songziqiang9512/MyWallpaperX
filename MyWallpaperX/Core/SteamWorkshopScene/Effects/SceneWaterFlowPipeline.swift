@@ -44,18 +44,19 @@ fragment float4 sceneWaterFlowFrag(
     texture2d<float> source [[texture(0)]],
     texture2d<float> flowTexture [[texture(1)]],
     texture2d<float> phaseTexture [[texture(2)]],
+    sampler flowSampler [[sampler(0)]],
+    sampler phaseSampler [[sampler(1)]],
     constant WaterFlowUniforms &uniforms [[buffer(0)]]
 ) {
     constexpr sampler linearClamp(filter::linear, address::clamp_to_edge);
-    constexpr sampler linearRepeat(filter::linear, address::repeat);
     float time = uniforms.flow.x;
     float speed = uniforms.flow.y;
     float strength = uniforms.flow.z;
     float phaseScale = uniforms.flow.w;
 
-    float phase = phaseTexture.sample(linearRepeat, input.texcoord * phaseScale).r;
+    float phase = phaseTexture.sample(phaseSampler, input.texcoord * phaseScale).r;
     float2 flowColors = flowTexture.sample(
-        linearClamp,
+        flowSampler,
         clamp(input.texcoord * uniforms.maskUVScale, 0.0, 1.0)
     ).rg;
     float2 flowMask = (flowColors - float2(0.498)) * 2.0;
@@ -103,11 +104,13 @@ fragment float4 sceneWaterFlowFrag(
 
 struct SceneWaterFlowPipeline {
     private let state: MTLRenderPipelineState
+    private let samplerStates: SceneTextureSamplerStateSet
     private let deviceRegistryID: UInt64
 
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {
         let options = MTLCompileOptions()
         guard pixelFormat == .bgra8Unorm,
+              let samplerStates = SceneTextureSamplerStateSet(device: device),
               let library = try? device.makeLibrary(
                   source: sceneWaterFlowShaderSource,
                   options: options
@@ -124,6 +127,7 @@ struct SceneWaterFlowPipeline {
             return nil
         }
         self.state = state
+        self.samplerStates = samplerStates
         deviceRegistryID = device.registryID
     }
 
@@ -135,6 +139,8 @@ struct SceneWaterFlowPipeline {
         plan: SceneWaterFlowExecutionPlan,
         time: Float,
         maskUVScale: SIMD2<Float>,
+        flowSampling: SceneTextureSampling = .linearClamp,
+        phaseSampling: SceneTextureSampling = .linearRepeat,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
         guard valid(
@@ -161,6 +167,14 @@ struct SceneWaterFlowPipeline {
         encoder.setFragmentTexture(source, index: 0)
         encoder.setFragmentTexture(flowTexture, index: 1)
         encoder.setFragmentTexture(phaseTexture, index: 2)
+        encoder.setFragmentSamplerState(
+            samplerStates.state(for: flowSampling),
+            index: 0
+        )
+        encoder.setFragmentSamplerState(
+            samplerStates.state(for: phaseSampling),
+            index: 1
+        )
         var uniforms = SceneWaterFlowUniforms(
             flow: SIMD4(time, plan.speed, plan.strength, plan.phaseScale),
             maskUVScale: maskUVScale,

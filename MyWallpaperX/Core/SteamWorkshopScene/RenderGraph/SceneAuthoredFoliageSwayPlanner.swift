@@ -5,7 +5,7 @@ nonisolated struct SceneFoliageSwayExecutionPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
     let renderGraph: SceneAuthoredEffectRenderPlan
     let runtimePlan: SceneFoliageSwayPlan
-    let maskTexturePath: String
+    let maskTexturePath: String?
     let noiseTexturePath: String
 }
 
@@ -44,9 +44,12 @@ enum SceneAuthoredFoliageSwayPlanner {
               validNode(node, effect: effect),
               validMaterialDescriptor(in: descriptor),
               let instance = instancePass(effect: effect, layer: layer),
-              let maskPath = SceneEffectMaskSemantics.maskPath(in: instance),
               let noisePath = noisePath(in: instance, profile: profile),
-              validInstance(instance, maskPath: maskPath, profile: profile),
+              validInstance(
+                  instance,
+                  maskPath: SceneEffectMaskSemantics.maskPath(in: instance),
+                  profile: profile
+              ),
               let runtimePlan = SceneFoliageSwayRuntimePlanner.plan(for: instance),
               let resolved = SceneAuthoredMaterialResolver.resolve(
                   node: node,
@@ -55,7 +58,7 @@ enum SceneAuthoredFoliageSwayPlanner {
               ).node,
               validResolvedMaterial(
                   resolved,
-                  maskPath: maskPath,
+                  maskPath: SceneEffectMaskSemantics.maskPath(in: instance),
                   noisePath: noisePath,
                   profile: profile
               ) else {
@@ -67,7 +70,7 @@ enum SceneAuthoredFoliageSwayPlanner {
             effectKey: effect.key,
             renderGraph: graph,
             runtimePlan: runtimePlan,
-            maskTexturePath: maskPath,
+            maskTexturePath: SceneEffectMaskSemantics.maskPath(in: instance),
             noiseTexturePath: noisePath
         )
     }
@@ -191,17 +194,22 @@ enum SceneAuthoredFoliageSwayPlanner {
 
     private nonisolated static func validInstance(
         _ pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor,
-        maskPath: String,
+        maskPath: String?,
         profile: SceneFoliageSwayShaderProfile
     ) -> Bool {
-        let expectedSlots: [String?] = profile.expectsExplicitNoise
-            ? [nil, maskPath, noiseAssetPath]
-            : [nil, maskPath, nil]
-        let expectedPaths = profile.expectsExplicitNoise
-            ? [maskPath, noiseAssetPath]
-            : [maskPath]
-        return pass.textureSlots == expectedSlots
-            && pass.texturePaths == expectedPaths
+        let validTextures: Bool
+        if profile.expectsExplicitNoise {
+            validTextures = maskPath.map {
+                pass.textureSlots == [nil, $0, noiseAssetPath]
+                    && pass.texturePaths == [$0, noiseAssetPath]
+            } ?? false
+        } else if let maskPath {
+            validTextures = pass.textureSlots == [nil, maskPath, nil]
+                && pass.texturePaths == [maskPath]
+        } else {
+            validTextures = pass.textureSlots.isEmpty && pass.texturePaths.isEmpty
+        }
+        return validTextures
             && pass.combos.allSatisfy {
                 $0.key.uppercased() == "MODE" && $0.value == 0
             }
@@ -218,15 +226,15 @@ enum SceneAuthoredFoliageSwayPlanner {
 
     private nonisolated static func validResolvedMaterial(
         _ material: SceneResolvedMaterialNode,
-        maskPath: String,
+        maskPath: String?,
         noisePath: String,
         profile: SceneFoliageSwayShaderProfile
     ) -> Bool {
         guard normalized(material.shaderPath) == shaderIdentity,
               material.textureSlots.count == 8,
-              assetPath(material.textureSlots[1]) == maskPath,
+              maskSlotMatches(material.textureSlots[1], path: maskPath),
               material.textureSlots.enumerated().allSatisfy({
-                  $0.offset == 1
+                  ($0.offset == 1 && maskSlotMatches($0.element, path: maskPath))
                       || (profile.expectsExplicitNoise
                           && $0.offset == 2
                           && assetPath($0.element) == noisePath)
@@ -242,6 +250,14 @@ enum SceneAuthoredFoliageSwayPlanner {
             && material.renderState.depthTest?.lowercased() == "disabled"
             && material.renderState.depthWrite?.lowercased() == "disabled"
             && material.renderState.cullMode?.lowercased() == "nocull"
+    }
+
+    private nonisolated static func maskSlotMatches(
+        _ slot: SceneResolvedMaterialNode.TextureSlot?,
+        path: String?
+    ) -> Bool {
+        guard let path else { return slot == nil }
+        return assetPath(slot) == path
     }
 
     private nonisolated static func noisePath(

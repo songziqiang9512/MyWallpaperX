@@ -10,6 +10,9 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 RESOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources"
 LAYER_LOADER = RESOURCE_ROOT / "SceneLayerEffectTextureLoader.swift"
+TEXTURE_LOADING = (
+    RESOURCE_ROOT / "SceneLayerEffectTextureLoader+TextureLoading.swift"
+)
 XRAY_LOADER = RESOURCE_ROOT / "SceneXRayEffectTextureLoader.swift"
 METAL_VIEW = (
     REPOSITORY_ROOT
@@ -82,7 +85,7 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
         self.assertEqual(dict(calls), EXPECTED_PURPOSES)
 
     def test_effect_helper_has_no_default_purpose(self) -> None:
-        source = LAYER_LOADER.read_text(encoding="utf-8")
+        source = TEXTURE_LOADING.read_text(encoding="utf-8")
         signature = source.split("static func loadTexture(", maxsplit=1)[1]
         signature = signature.split(") ->", maxsplit=1)[0]
         self.assertIn("purpose: SceneTextureLoadPurpose", signature)

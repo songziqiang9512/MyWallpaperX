@@ -57,6 +57,8 @@ enum SceneWaterFlowRenderer {
                   plan: plan,
                   time: time,
                   maskUVScale: resources.flowUVScale,
+                  flowSampling: resources.flowSampling,
+                  phaseSampling: resources.phaseSampling,
                   commandBuffer: commandBuffer
               ) else {
             return nil

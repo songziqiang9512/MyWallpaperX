@@ -12,11 +12,10 @@ enum SceneFoliageSwayRenderer {
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         guard resources.matches(plan),
-              let mask = resources.mask,
               let noise = resources.noise,
               pipeline.encode(
                   source: sourceTexture,
-                  mask: mask,
+                  mask: plan.maskTexturePath == nil ? nil : resources.mask,
                   noise: noise,
                   target: target,
                   plan: plan.runtimePlan,

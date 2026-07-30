@@ -10,6 +10,7 @@ enum SceneLayerEffectTextureLoader {
         blendEffectIDs: Set<String> = [],
         shakeEffectIDs: Set<String> = [],
         filmGrainEffectIDs: Set<String> = [],
+        standardBlurEffectIDs: Set<String> = [],
         lightShaftsEffectIDs: Set<String> = [],
         waterFlowEffectIDs: Set<String> = [],
         waterWavesEffectIDs: Set<String> = [],
@@ -89,6 +90,13 @@ enum SceneLayerEffectTextureLoader {
         let filmGrain = SceneFilmGrainEffectTextureLoader.load(
             for: layer,
             effectIDs: filmGrainEffectIDs,
+            resolver: resolver,
+            loader: loader,
+            device: device
+        )
+        let standardBlur = SceneStandardBlurEffectTextureLoader.load(
+            for: layer,
+            effectIDs: standardBlurEffectIDs,
             resolver: resolver,
             loader: loader,
             device: device
@@ -196,6 +204,7 @@ enum SceneLayerEffectTextureLoader {
             blendEffects: blend.textures,
             shakeEffects: shake.textures,
             filmGrainEffects: filmGrain.textures,
+            standardBlurEffects: standardBlur.textures,
             lightShaftsEffects: lightShafts.textures,
             waterFlowEffects: waterFlow.textures,
             waterWavesEffects: waterWaves.textures,
@@ -209,6 +218,7 @@ enum SceneLayerEffectTextureLoader {
             message: [
                 iris.message, opacity.message, water.message, foliage.message,
                 foliageScaleMessage, normal.message, blend.message, shake.message, filmGrain.message,
+                standardBlur.message,
                 lightShafts.message,
                 waterFlow.message, waterWaves.message, cursorRipple.message,
                 foliageSway.message, waterRipple.message,
@@ -334,45 +344,4 @@ enum SceneLayerEffectTextureLoader {
         return nil
     }
 
-    static func loadTexture(
-        url: URL?,
-        label: String,
-        purpose: SceneTextureLoadPurpose,
-        loader: SceneTextureLoader,
-        device: MTLDevice
-    ) -> (texture: MTLTexture?, message: String) {
-        guard let url else { return (nil, "") }
-        switch loader.load(from: url, purpose: purpose, device: device) {
-        case .loaded(let texture):
-            return (texture, "; \(label) OK \(url.lastPathComponent) → \(texture.width)×\(texture.height)")
-        case .unsupportedFormat(let ext):
-            return (nil, "; \(label) unsupported \(ext) (\(url.lastPathComponent))")
-        case .unsupportedTexFormat(let code):
-            return (nil, "; \(label) unsupported .tex format \(code) (\(url.lastPathComponent))")
-        case .texNoEmbeddedImage:
-            return (nil, "; \(label) has no embedded JPEG/PNG (\(url.lastPathComponent))")
-        case .texContainsVideoPayload:
-            return (nil, "; \(label) is mp4 payload (\(url.lastPathComponent))")
-        case .decodeFailed(let message):
-            return (nil, "; \(label) decode failed (\(message))")
-        case .textureAllocationFailed(let width, let height):
-            return (nil, "; \(label) allocation failed at \(width)×\(height)")
-        }
-    }
-
-    static func mappedUVScale(for url: URL?, texture: MTLTexture?) -> SIMD2<Float> {
-        guard let url, url.pathExtension.localizedLowercase == "tex",
-              let data = try? Data(contentsOf: url),
-              let container = try? SceneTexContainerReader().read(data: data) else {
-            return SIMD2(repeating: 1)
-        }
-        return SceneTextureMappedUVScale.resolve(
-            physicalWidth: container.textureWidth,
-            physicalHeight: container.textureHeight,
-            mappedWidth: container.imageWidth,
-            mappedHeight: container.imageHeight,
-            sampledWidth: texture?.width,
-            sampledHeight: texture?.height
-        )
-    }
 }

@@ -5,6 +5,8 @@ struct SceneWaterFlowEffectTextures {
     let flow: MTLTexture?
     let phase: MTLTexture?
     let flowUVScale: SIMD2<Float>
+    let flowSampling: SceneTextureSampling
+    let phaseSampling: SceneTextureSampling
     let flowPath: String
     let phasePath: String
 
@@ -62,10 +64,11 @@ enum SceneWaterFlowEffectTextureLoader {
             textures[effect.id] = SceneWaterFlowEffectTextures(
                 flow: flow.texture,
                 phase: phase.texture ?? builtInPhase,
-                flowUVScale: SceneLayerEffectTextureLoader.mappedUVScale(
-                    for: flowURL,
-                    texture: flow.texture
-                ),
+                flowUVScale: flow.mappedUVScale,
+                flowSampling: flow.sampling,
+                phaseSampling: phase.texture == nil && builtInPhase != nil
+                    ? .linearClamp
+                    : phase.sampling,
                 flowPath: flowPath,
                 phasePath: phasePath
             )

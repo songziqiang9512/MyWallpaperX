@@ -21,6 +21,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneTexDataReader.swift",
     SCENE_ROOT / "Format/SceneTexContainer.swift",
     SCENE_ROOT / "Format/SceneBCTextureDecoder.swift",
+    SCENE_ROOT / "Resources/SceneTextureSampling.swift",
     SCENE_ROOT / "Resources/SceneImageTextureUploader.swift",
     SCENE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
     SCENE_ROOT / "Resources/SceneTextureMipUploader.swift",
@@ -84,15 +85,30 @@ enum SceneLayerEffectTextureLoader {
         purpose: SceneTextureLoadPurpose,
         loader: SceneTextureLoader,
         device: MTLDevice
-    ) -> (texture: MTLTexture?, message: String) {
-        guard let url else { return (nil, "") }
+    ) -> (
+        texture: MTLTexture?,
+        message: String,
+        mappedUVScale: SIMD2<Float>,
+        sampling: SceneTextureSampling
+    ) {
+        guard let url else {
+            return (nil, "", SIMD2(repeating: 1), .directImageFallback)
+        }
+        let sampling = loader.texContainer(from: url)
+            .map { SceneTextureSampling(texFlags: $0.flags) }
+            ?? .directImageFallback
         switch loader.load(from: url, purpose: purpose, device: device) {
         case .loaded(let texture):
-            return (texture, "; \(label) OK")
+            return (texture, "; \(label) OK", SIMD2(repeating: 1), sampling)
         case .decodeFailed(let message):
-            return (nil, "; \(label) decode failed (\(message))")
+            return (
+                nil,
+                "; \(label) decode failed (\(message))",
+                SIMD2(repeating: 1),
+                sampling
+            )
         default:
-            return (nil, "; \(label) failed")
+            return (nil, "; \(label) failed", SIMD2(repeating: 1), sampling)
         }
     }
 
@@ -159,9 +175,12 @@ enum Harness {
             "validPhaseLoaded": validTextures?.phase != nil,
             "validPhasePreservedMips": (validTextures?.phase?.mipmapLevelCount ?? 0) > 1,
             "validMatches": validTextures?.matches(plan(phasePath: stockPhasePath)) ?? false,
+            "validPhaseAddress": validTextures?.phaseSampling.addressMode.rawValue ?? "",
+            "validFlowAddress": validTextures?.flowSampling.addressMode.rawValue ?? "",
             "missingUsesBuiltIn": missingTextures?.phase?.label
                 == "Scene Water Flow built-in normal_ring_smooth",
             "missingMatches": missingTextures?.matches(plan(phasePath: stockPhasePath)) ?? false,
+            "missingPhaseAddress": missingTextures?.phaseSampling.addressMode.rawValue ?? "",
             "corruptStayedFailed": corruptTextures?.phase == nil,
             "corruptDoesNotMatch": !(corruptTextures?.matches(
                 plan(phasePath: stockPhasePath)
@@ -287,9 +306,12 @@ class SceneWaterFlowEffectTextureLoaderTests(unittest.TestCase):
                 "corruptReported": True,
                 "corruptStayedFailed": True,
                 "missingMatches": True,
+                "missingPhaseAddress": "clampToEdge",
                 "missingUsesBuiltIn": True,
                 "unknownStayedFailed": True,
+                "validFlowAddress": "clampToEdge",
                 "validMatches": True,
+                "validPhaseAddress": "clampToEdge",
                 "validPhaseLoaded": True,
                 "validPhasePreservedMips": True,
             },

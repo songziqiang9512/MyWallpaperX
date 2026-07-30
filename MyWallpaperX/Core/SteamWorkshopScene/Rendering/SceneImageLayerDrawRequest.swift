@@ -14,6 +14,7 @@ struct SceneImageLayerMasks {
     let blendEffects: [String: SceneBlendEffectTextures]
     let shakeEffects: [String: SceneShakeEffectTextures]
     let filmGrainEffects: [String: SceneFilmGrainEffectTextures]
+    let standardBlurEffects: [String: SceneStandardBlurEffectTextures]
     let waterFlowEffects: [String: SceneWaterFlowEffectTextures]
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
     let cursorRippleEffects: [String: SceneCursorRippleEffectTextures]
@@ -38,6 +39,7 @@ struct SceneImageLayerMasks {
             blendEffects: blendEffects,
             shakeEffects: shakeEffects,
             filmGrainEffects: filmGrainEffects,
+            standardBlurEffects: standardBlurEffects,
             waterFlowEffects: waterFlowEffects,
             waterWavesEffects: waterWavesEffects,
             cursorRippleEffects: cursorRippleEffects,
@@ -63,6 +65,7 @@ struct SceneImageLayerMasks {
         blendEffects: [:],
         shakeEffects: [:],
         filmGrainEffects: [:],
+        standardBlurEffects: [:],
         waterFlowEffects: [:],
         waterWavesEffects: [:],
         cursorRippleEffects: [:],
@@ -88,6 +91,7 @@ struct SceneImageLayerMasks {
             blendEffects: [:],
             shakeEffects: [:],
             filmGrainEffects: [:],
+            standardBlurEffects: [:],
             waterFlowEffects: [:],
             waterWavesEffects: [:],
             cursorRippleEffects: [:],

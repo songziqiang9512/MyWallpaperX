@@ -4,10 +4,30 @@ nonisolated struct SceneStandardBlurPlan {
     let horizontalStep: Float
     let verticalStep: Float
     let renderTargetScale: Int
+    let effectDescriptorID: String
+    let maskTexturePath: String?
+
+    init(
+        horizontalStep: Float,
+        verticalStep: Float,
+        renderTargetScale: Int,
+        effectDescriptorID: String = "",
+        maskTexturePath: String? = nil
+    ) {
+        self.horizontalStep = horizontalStep
+        self.verticalStep = verticalStep
+        self.renderTargetScale = renderTargetScale
+        self.effectDescriptorID = effectDescriptorID
+        self.maskTexturePath = maskTexturePath
+    }
 }
 
 enum SceneAuthoredStandardBlurPlanner {
     typealias Graph = SceneAuthoredEffectRenderPlan
+
+    private nonisolated struct CombineProfile {
+        let maskTexturePath: String?
+    }
 
     nonisolated static func plan(
         graph: Graph,
@@ -61,7 +81,11 @@ enum SceneAuthoredStandardBlurPlanner {
               supportedDownsample(materials[0], source: effect.input),
               supportedGaussian(materials[1], source: quarterA, vertical: false),
               supportedGaussian(materials[2], source: quarterB, vertical: true),
-              supportedCombine(materials[3], blurred: quarterA, previous: effect.input),
+              let combine = supportedCombine(
+                  materials[3],
+                  blurred: quarterA,
+                  previous: effect.input
+              ),
               let horizontalScale = scalePair(materials[1].constants),
               let verticalScale = scalePair(materials[2].constants),
               approximatelyEqual(horizontalScale.x, verticalScale.x),
@@ -75,7 +99,9 @@ enum SceneAuthoredStandardBlurPlanner {
             backend: .standardBlur(SceneStandardBlurPlan(
                 horizontalStep: Float(horizontalScale.x),
                 verticalStep: Float(verticalScale.y),
-                renderTargetScale: 4
+                renderTargetScale: 4,
+                effectDescriptorID: effect.key.descriptorID,
+                maskTexturePath: combine.maskTexturePath
             )),
             materialNodeCount: 4,
             logicalRenderTargetCount: 2,
@@ -170,7 +196,7 @@ enum SceneAuthoredStandardBlurPlanner {
         _ material: SceneResolvedMaterialNode,
         blurred: Graph.TextureIdentity,
         previous: Graph.TextureIdentity
-    ) -> Bool {
+    ) -> CombineProfile? {
         guard let combos = normalizedCombos(material.combos),
               combos.keys.allSatisfy({
                   ["COMPOSITE", "BLENDMODE", "COMPOSITEMONO", "BLURALPHA", "MASK"]
@@ -180,7 +206,7 @@ enum SceneAuthoredStandardBlurPlanner {
               combos["BLENDMODE", default: 0] == 0,
               combos["COMPOSITEMONO", default: 0] == 0,
               combos["BLURALPHA", default: 1] == 1,
-              combos["MASK", default: 0] == 0,
+              [0, 1].contains(combos["MASK", default: 0]),
               let constants = normalizedConstants(material.constants),
               constants.keys.allSatisfy({
                   ["compositealpha", "compositeoffset", "compositecolor"].contains($0)
@@ -188,17 +214,42 @@ enum SceneAuthoredStandardBlurPlanner {
               defaultScalar(constants["compositealpha"], fallback: 1) == 1,
               defaultVector(constants["compositeoffset"], fallback: [0, 0]) == [0, 0],
               defaultVector(constants["compositecolor"], fallback: [1, 1, 1]) == [1, 1, 1] else {
-            return false
+            return nil
         }
-        return textureSlots(material.textureSlots, equal: [0: blurred, 2: previous])
+        guard textureSlots(
+            material.textureSlots,
+            equal: [0: blurred, 2: previous],
+            allowingAssetAt: 1
+        ) else {
+            return nil
+        }
+        guard let maskSlot = material.textureSlots[1] else {
+            return combos["MASK", default: 0] == 0
+                ? CombineProfile(maskTexturePath: nil)
+                : nil
+        }
+        guard maskSlot.provenance == .instance,
+              case .asset(let maskPath) = maskSlot.source,
+              !maskPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        return CombineProfile(maskTexturePath: maskPath)
     }
 
     private nonisolated static func textureSlots(
         _ slots: [SceneResolvedMaterialNode.TextureSlot?],
-        equal expected: [Int: Graph.TextureIdentity]
+        equal expected: [Int: Graph.TextureIdentity],
+        allowingAssetAt allowedAssetIndex: Int? = nil
     ) -> Bool {
         for index in slots.indices {
             guard let expectedTexture = expected[index] else {
+                if index == allowedAssetIndex,
+                   let slot = slots[index],
+                   slot.provenance == .instance,
+                   case .asset(let path) = slot.source,
+                   !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    continue
+                }
                 if slots[index] != nil { return false }
                 continue
             }

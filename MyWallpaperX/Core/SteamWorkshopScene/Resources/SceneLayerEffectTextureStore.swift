@@ -33,6 +33,7 @@ struct SceneLayerEffectTextures {
     let blendEffects: [String: SceneBlendEffectTextures]
     let shakeEffects: [String: SceneShakeEffectTextures]
     let filmGrainEffects: [String: SceneFilmGrainEffectTextures]
+    let standardBlurEffects: [String: SceneStandardBlurEffectTextures]
     let lightShaftsEffects: [String: SceneLightShaftsEffectTextures]
     let waterFlowEffects: [String: SceneWaterFlowEffectTextures]
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
@@ -59,6 +60,7 @@ struct SceneLayerEffectTextureStore {
     var blendEffects: [String: SceneBlendEffectTextures] = [:]
     var shakeEffects: [String: SceneShakeEffectTextures] = [:]
     var filmGrainEffects: [String: SceneFilmGrainEffectTextures] = [:]
+    var standardBlurEffects: [String: SceneStandardBlurEffectTextures] = [:]
     var lightShaftsEffects: [String: SceneLightShaftsEffectTextures] = [:]
     var waterFlowEffects: [String: SceneWaterFlowEffectTextures] = [:]
     var waterWavesEffects: [String: SceneWaterWavesEffectTextures] = [:]
@@ -83,6 +85,7 @@ struct SceneLayerEffectTextureStore {
         blendEffects.merge(textures.blendEffects) { _, incoming in incoming }
         shakeEffects.merge(textures.shakeEffects) { _, incoming in incoming }
         filmGrainEffects.merge(textures.filmGrainEffects) { _, incoming in incoming }
+        standardBlurEffects.merge(textures.standardBlurEffects) { _, incoming in incoming }
         lightShaftsEffects.merge(textures.lightShaftsEffects) { _, incoming in incoming }
         waterFlowEffects.merge(textures.waterFlowEffects) { _, incoming in incoming }
         waterWavesEffects.merge(textures.waterWavesEffects) { _, incoming in incoming }
