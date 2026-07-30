@@ -35,8 +35,8 @@ HostFrameInputs(time, properties, audio, media)
 | 能力 | 等级 | 当前证据 | 当前边界 / 下一门 |
 |---|---|---|---|
 | 宿主单一 frame driver | `L3` | [`SceneDesktopWallpaperHost.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift)、[`test_scene_frame_context.py`](../../../script/tests/test_scene_frame_context.py)、[E-FRAME](runtime-evidence-index.md#e-frame) | 固定 60 Hz Timer；补屏幕刷新率/目标 FPS |
-| 同帧 host/scene/wall time | `L3` | [`SceneFrameContext.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneFrameContext.swift)、[E-FRAME](runtime-evidence-index.md#e-frame) | 未排除暂停时间，未标 discontinuity |
-| shader/video/particle/parallax 共用 timing | `L3` | [`SceneMetalView.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView.swift)、[E-FRAME](runtime-evidence-index.md#e-frame) | 补 pause、delta clamp、fixed step |
+| 同帧 host/scene/wall time | `L3` | [`SceneFrameContext.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneFrameContext.swift)、[E-FRAME](runtime-evidence-index.md#e-frame)；pause 冻结 scene time，resume 首帧丢弃 host gap | 尚无通用 discontinuity 标记 |
+| shader/video/particle/parallax 共用 timing | `L3` | [`SceneMetalView.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView.swift)、[E-FRAME](runtime-evidence-index.md#e-frame)；视频 item time 也从同一 timing 映射 | 补 delta clamp、fixed step 和真实系统 pause 门 |
 | typed value 六类 | `L2` | `bool/scalar/vector2/vector3/vector4/string`；[`SceneDynamicSnapshot.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneDynamicSnapshot.swift) | texture/provider 不属于普通值；新增类型仍需 wire/type/finite 门 |
 | typed target 族 | `L2` | scene/camera/layer/effect/text/particle/script instance 已定义；layer alpha/color、exact stock Local Contrast strength 与 exact stock Opacity alpha 进入 compiler | 其他 effect target 不得直接开放 live；SceneScript 值必须与 direct binding 分开 |
 | 固定 source priority | `L3` | authored -> property -> Timeline -> SceneScript；property 与受限 Timeline producer 已执行，`.timeline` 覆盖同 target 的 property 值 | SceneScript 尚无 producer，接入后必须复用同一 resolver |
@@ -46,7 +46,7 @@ HostFrameInputs(time, properties, audio, media)
 | per-surface evaluation transaction | `L3` | property 与 Timeline evaluation、validation、同帧合并及 atomic commit 已闭环；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property)、[E-TIMELINE](runtime-evidence-index.md#e-timeline) | event/SceneScript mutation 尚未接入 |
 | changed-target generation | `L3` | 每 surface 持有 generation，相同 payload 不增加；跨 surface 不共享 owner | local input/script/provider 接入后继续验证独立 diff |
 | live consumer | `L3` | layer alpha、solid-only color、visible direct text content/point-size/color、strict Local Contrast/Opacity 与 23 处 Timeline effect constant 读取 snapshot；[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property)、[E-TIMELINE](runtime-evidence-index.md#e-timeline) | hidden/no-consumer text、particle/container/non-solid color、SceneScript 与 unsupported Timeline target 仍重建或 fail closed |
-| Scene pause/resume | `L0` | 播放控制未控制 Scene clock | pause 冻结 scene time；resume 不补长帧 |
+| Scene pause/resume | `L3 bounded` | 统一播放控制冻结 SceneClock、停止 frame driver 并暂停 video provider；重复 pause/resume 幂等，resume 首帧 `frameTime=0`、scene time 连续；[E-FRAME](runtime-evidence-index.md#e-frame)、[E-VIDEO](runtime-evidence-index.md#e-video) | 系统 focus/fullscreen/sleep/lock 的真实运行门、粒子 fixed-step pause 视觉门和 seek/discontinuity |
 | delta clamp / dropped-time | `L0` | `frameTime` 只做单调差值 | 同时保留 raw delta 和 simulation delta |
 | offline fixed-time adapter | `L0` | Debug PNG readback 不是离线 adapter | 注入 frame index/time/seed/provider replay |
 
@@ -119,7 +119,7 @@ Timeline 是带预定义时长的 component-property 动画，不是 Effect anim
 | duration seconds / authored frame slots | `L2` | `fps`/`length` 原样保存，时长按 `length / fps` 换算（随包三例交叉验证 1.0s / 0.5s / 0.5s）；`smoothing`/`stiffness` 随包 16 处全为 null，只保真不解释 | 异常值（`length` 与末帧不符）无反例可依 |
 | component/property/axis target | `L3` | lane 以 `c0/c1/c2` 对应 component 下标，必须从 `c0` 起连续否则 fail-closed；已 typed 编译为 `.layer(.alpha)` 与 `.effectConstant`，lane 数与值类型不符报 `componentMismatch` | `origin`/`angles`/`scale` 因 `relative` 未执行；`maxwidth`/`zoom` 无 target |
 | keyframe frame/time/value | `L2` | `frame`/`value`/`front`/`back`/`lockangle`/`locklength` 六个键在 180 个真实 keyframe 上全部保真；帧号必须严格递增 | 同 frame 多 lane 与异常顺序目前只有负例门，无 Windows 对照 |
-| scene-time evaluation | `L3` | 纯函数 evaluator，同一 `sceneTime` 必得同一结果，不持播放状态、不逐帧累加；host 每帧算一次后经 per-surface transaction 写回 | 未接 pause/resume 与 seek |
+| scene-time evaluation | `L3` | 纯函数 evaluator，同一 `sceneTime` 必得同一结果，不持播放状态、不逐帧累加；host 每帧算一次后经 per-surface transaction 写回；Scene pause 通过冻结共享 scene time 保持结果 | 未接 seek/discontinuity |
 | wrap-loop frames | `L1` | `wraploop` 已保真（随包 9 处），执行按普通 loop 降级并记 `wrapLoopIgnored` | 官方未公开首尾平滑算法，需合法 fixture |
 
 <a id="op-timeline-combined"></a>
@@ -141,7 +141,7 @@ Combined Animation 会把新的 property lane 加入一个已有 animation，并
 | Loop | `L3` | 按 `length` 取模，跨周期同相位；真实执行 7 处 | 与 wrap-loop 平滑开关的联合门待 `wraploop` 落地 |
 | Mirror | `L2` | 周期 `2*length` 的三角波，端点不重复采样；单测覆盖折返段与上行段同值 | 随包 6 处 mirror 全落在被 `relative` 拒绝的 layer transform 上，真实样本 0 处执行；端点是否重复采样官方未定义 |
 | Single | `L3` | 到末帧后保持末值不回绕；真实执行 21 处 | — |
-| start paused | `L3` | 恒停首帧，真实执行 6 处；`2067939514` 为负门（同级脚本在 `mediaThumbnailChanged` 里调 `play()`，无 VM 时不得自动播放） | 与 Scene pause 的分离待 pause/resume 落地 |
+| start paused | `L3` | 恒停首帧，真实执行 6 处；`2067939514` 为负门（同级脚本在 `mediaThumbnailChanged` 里调 `play()`，无 VM 时不得自动播放）；Scene pause 只冻结全局 clock，不改变 animation-local start-paused 状态 | animation-local play/stop/seek 仍需 VM/API |
 | Bézier `both/left/right/none` | `L1` | 每 keyframe 的左右 handle 与 `enabled` 已独立保真 | **求值不消费 tangent，一律线性**：handle 的 `x` 是「帧偏移」还是「归一化段长比例」两种解释不等价（`2067939514` 的 `0→15` 帧段在 frame=3.75 处分别约 0.767 与 0.970，线性 0.5，仅中点因对称巧合相同），需视觉定标后才能宣称 Bézier parity |
 
 <a id="op-timeline-events"></a>
@@ -359,11 +359,11 @@ Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选
 
 | provider 能力 | 等级 | 当前能力 | 下一门 |
 |---|---|---|---|
-| layer/named/property identity/status/generation | `L3` | 受限 provider 有 ready/pending/unavailable；静态 resource generation 与 named frame epoch 分离；[E-PROVIDER](runtime-evidence-index.md#e-provider) | 显式 dynamic generation、metadata 与通用 producer/consumer 生命周期 |
+| layer/named/property identity/status/generation | `L3` | 受限 provider 有 ready/pending/unavailable；静态 resource generation 与 named frame epoch 分离；direct text/embedded MP4 以显式 content generation publication 进入 frame registry，stale generation、同代换纹理和 publication/texture 不匹配均拒绝；[E-PROVIDER](runtime-evidence-index.md#e-provider) | system/media/variant 的显式 generation、metadata 与通用 producer/consumer 生命周期 |
 | authored fallback chain | `L3` | 受限 static image blend；[E-PROVIDER](runtime-evidence-index.md#e-provider) | 推广至 material/effect/nested consumer |
 | property PNG/JPEG | `L3` | bookmark/security scope/decode/per-screen upload；[E-PROVIDER](runtime-evidence-index.md#e-provider) | cancellation、更多格式、通用 material |
-| embedded MP4 image layer | `L3` | TEX payload 播放并消费共享 host time；[E-VIDEO](runtime-evidence-index.md#e-video) | pause/seek/loop/switch 精确合同 |
-| video as generic material provider | `L0` | 无 slot consumer | typed frame provider 与 generation |
+| embedded MP4 image layer | `L3 bounded` | TEX payload 由 launch-scoped registry 管理，按共享 SceneClock 映射 item time；同 frame 去重、成功帧换代，pause 保帧、resume/rebuild 连续、stop 释放；[E-VIDEO](runtime-evidence-index.md#e-video) | 真实系统 pause/hot-plug、seek、loop 首帧/黑场、codec/device-loss 与 Windows parity |
+| video as generic material provider | `L0` | typed frame publication 已有，但没有 material/effect slot consumer | slot purpose/UV/sampler/format、fallback、动态尺寸与 generation 原子绑定 |
 | named primary variant producer | `L3` | bounded `_a` current-frame publication；[E-UTILITY](runtime-evidence-index.md#e-utility) | 通用 target/extent/format |
 | named secondary variant identity | `L2` | registry identity 保留 `_b` | producer/consumer flow 尚未执行 |
 | Texture Variant provider | `L0` | 无 variant schema/selection | property selection + authored fallback |

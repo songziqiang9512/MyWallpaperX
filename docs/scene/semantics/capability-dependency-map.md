@@ -58,10 +58,10 @@ D3 + D4 + D5 + D6 + D7 + D8
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| host/frame/scene/wall time | `L3` 子集 | pause/resume、delta clamp、dropped time、目标 FPS |
+| host/frame/scene/wall time | `L3` 子集；pause 冻结 scene time/frame index，resume 首帧丢弃 host gap | delta clamp、dropped-time/discontinuity、目标 FPS 与系统 pause 真实门 |
 | host-shared vs surface-local scope | property 输入 host-shared；每个 surface 独立 transaction/snapshot/generation，B0 live alpha/solid color/strict Local Contrast strength 已有运行门 | pointer/matrix/provider/script 接入时继续证明 local state 不串屏 |
 | fixed simulation step and seed policy | particle 子集 | effect/particle/script/offline 共用 discontinuity 和 seed 合同 |
-| resize/switch/stop teardown | surface 子集 `L3` | VM、provider、RT、timer、media、GPU 资源全部归零或稳定复用 |
+| resize/switch/stop teardown | surface 子集 `L3`；embedded video registry 为 launch-scoped，按 layer/source/device 跨 surface rebuild 复用并在 stop 释放 | VM、system/media provider、RT 与 GPU 资源精确计数；真实 hot-plug/反复切换 soak |
 
 <a id="d3"></a>
 ### D3 Typed values, binding program and per-surface evaluation
@@ -102,9 +102,9 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| provider identity/status/generation/fallback | layer/named/property 子集 `L3`；静态 resource generation 与 named frame epoch 已分离；Water Flow 2 槽、Standard Blur 1 槽、plain base image 与 bounded REFRACT normal 的静态 candidate 已原子携带 generation/metadata；Shake 1/2/3、Foliage Sway 1/2、Water Ripple 1/2 七个 bounded 槽进一步消费共享 slot-binding atom | 显式 dynamic generation、stale cancellation、video/system/media/variant、nested/effectful/child producer |
+| provider identity/status/generation/fallback | layer/named/property 子集 `L3`；静态 resource generation 与 named frame epoch 已分离；direct text/embedded MP4 以显式 content generation publication 进入 frame registry并拒绝 stale/mismatched publication；Water Flow 2 槽、Standard Blur 1 槽、plain base image 与 bounded REFRACT normal 的静态 candidate 已原子携带 generation/metadata；Shake 1/2/3、Foliage Sway 1/2、Water Ripple 1/2 七个 bounded 槽进一步消费共享 slot-binding atom | system/media/variant、通用异步取消、nested/effectful/child producer |
 | candidate selection | 受限 static image blend；Particle slot 0 先取样本本地资源，再按官方相对路径直接取 stock bundle TEX；既有 candidate 携带 purpose、actual physical/mapped、UV、sampler、pixel format，authored `0...7` binding carrier 再原子携带 index、identity/generation、mip/resolution/texel。当前只拆给三个 bounded backend 的七槽 | authored 索引载体已覆盖 `0...7`，但其余 Effect 与 generic material 的 slot population/provider readiness、annotation/combo/state、dynamic generation 仍未开放；effectful base、stock placeholder 的尺寸/通道/mip/atlas metadata；pending/unavailable 不截断 authored fallback |
-| upload/cancel/teardown | PNG/JPEG property 子集 | video frame、thumbnail、device rebuild、stale generation 和 budget |
+| upload/cancel/teardown | PNG/JPEG property 子集；embedded video 有按帧 publication、pause/rebuild/stop 状态合同和临时文件清理 | thumbnail、异步 decode 取消、device loss/rebuild、budget 与真实 lifecycle 门 |
 
 <a id="d6"></a>
 ### D6 Render-target graph and resource lifetime
@@ -150,7 +150,7 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 | Generic SceneScript | D2 + D3 + D4 + D5 | 顶层 layer wrapper partial IR 已有；仍需 generic source/module/value IR、sandbox VM、lifecycle、typed handles/writes、events、budget |
 | dynamic text | D3 + D5 + D9 | direct property 子集已完成 per-layer generation、stale cancellation、last-ready；SceneScript/system/media producer 与 layout fidelity仍待推进 |
 | particle breadth | D2 + D3 + D4 + D5 + D8 + D9 | control point、child/event、world space、rope、audio、collision |
-| audio/media | D4 + D5 | audio 侧已闭合 consumer-driven 16/32/64 host input、既有 effect consumers 与两个 native 64-band consumers；通用 SceneScript bridge/Sound/particle audio 未闭合，media event ordering 与 provider generation 仍未开始 |
+| audio/media | D4 + D5 | audio 侧已闭合 consumer-driven 16/32/64 host input、既有 effect consumers 与两个 native 64-band consumers；embedded MP4 image-layer 已有受限 SceneClock/provider generation/lifecycle；通用 SceneScript bridge/Sound/particle audio、system media event ordering 与 thumbnail generation 仍未闭合 |
 
 <a id="d11"></a>
 ### D11 Fidelity and advanced runtimes

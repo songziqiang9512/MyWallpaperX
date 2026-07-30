@@ -219,12 +219,12 @@ Puppet、3D 和 lighting 必须复用同一 target/provider/render-graph 基础�
 |---|---|---|---|
 | stop 后 surface teardown | `L3` | 固定矩阵要求 `surface=0`；[E-LIFECYCLE](runtime-evidence-index.md#e-lifecycle) | GPU texture/heap/VM/provider 全资源计数 |
 | wallpaper switch lifecycle | `L3` | Host 重建与资源释放有运行门；[E-LIFECYCLE](runtime-evidence-index.md#e-lifecycle) | 反复切换 soak、峰值内存门 |
-| screen resize/reconfigure | `L2` | surface 可重建且共享 clock 不重置 | display hot-plug/Space/scale transition |
-| pause/sleep/lock | `L0` | Scene clock 与 simulation 未接系统暂停 | 冻结/恢复、无补帧、provider suspend |
+| screen resize/reconfigure | `L2` | surface 可重建且共享 clock 不重置；embedded video registry 按 launch/device/source 保留连续 provider，过期 source 在 rebuild 后停止 | display hot-plug/Space/scale transition 真实运行门 |
+| pause/sleep/lock | `L2` | 统一播放控制已接 Scene clock/frame driver/video provider；纯状态门证明冻结、resume 不补长帧和 provider suspend/resume | focus/fullscreen/sleep/lock 的真实系统事件门，粒子/effect/video 可见连续性 |
 | target FPS / refresh-rate driver | `L0` | 固定 60 Hz Timer | per-display refresh、frame pacing、low power |
 | quality tiers | `L0` | 无统一 policy | effect/particle/RT 降级必须可诊断 |
 | texture resolution policy | `L1` | 有有限 decode/RT budget，但无产品级统一策略 | logical/mapped/physical size、POT padding、mip、memory pressure |
-| shared decode/GPU resource reuse | `L1` | 多屏仍重复 renderer/decode/upload | immutable asset cache + per-device ownership |
+| shared decode/GPU resource reuse | `L1` | 同 Metal device 的 embedded video source 可跨 surface 复用；普通 image/renderer/decode/upload 仍多屏重复 | immutable asset cache + 完整 per-device ownership |
 | CPU/GPU/frame-time budget | `L0` | 无长期阈值 | representative matrix + 30 min interaction + 2 h soak |
 | memory/VRAM/leak budget | `L0` | 只有部分释放结果 | peak/steady/recovery metrics |
 | diagnostics/fail-closed | `L3` | unsupported/resource/graph/runtime 报告存在；[E-LIFECYCLE](runtime-evidence-index.md#e-lifecycle) | 所有新增系统沿用统一 code/count/evidence |

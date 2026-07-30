@@ -26,11 +26,11 @@ HostFrameInputs
 
 实时播放使用 display timing 和真实 provider；离线烘焙使用固定 timestep、可重放 provider 与固定 seed。二者必须走同一 simulation/update/render 入口。
 
-MyWallpaperX 当前已落地第一阶段 `SceneFrameTiming` / `SceneFrameContext`：桌面宿主每帧只采样一次 monotonic host time 与 wall date，并把相同的 frame index、scene time 和 frame delta 广播给所有屏幕；shader time、视频 host time、粒子推进和相机视差平滑已消费该快照。各屏仍保留自己的 viewport、pointer 和 particle simulation。
+MyWallpaperX 当前已落地第一阶段 `SceneFrameTiming` / `SceneFrameContext`：桌面宿主每帧只采样一次 monotonic host time 与 wall date，并把相同的 frame index、scene time 和 frame delta 广播给所有屏幕；shader time、内嵌视频 item-time 映射、粒子推进和相机视差平滑已消费该快照。各屏仍保留自己的 viewport、pointer 和 particle simulation。
 
 `36bfef0` 建立了六类 `SceneDynamicValue`、主要 target、固定覆盖顺序和不可变 snapshot。当前 v22 已完成 property binding program、per-surface transaction/generation，以及 layer alpha、solid color、direct text content/point-size/color、Local Contrast/Opacity producer/consumer。`1762743` 的 dynamic text 按 layer signature 异步生成并拒绝 stale completion；Timeline 有 bounded typed producer，SceneScript 也只有 exact native text/audio profiles，均不能外推为通用脚本、particle、system/media text 或其他 effect constant。
 
-这仍不等于完整时钟和动态系统合同。16/32/64 host audio 与 bounded consumers 已接入；pause/resume、delta clamp、fixed timestep、buttons、media producer、deterministic seed、离线 adapter、通用 SceneScript 与其余 Timeline/particle target 仍未闭合。
+这仍不等于完整时钟和动态系统合同。16/32/64 host audio 与 bounded consumers 已接入；Scene pause/resume 已在共享 clock、frame driver 与 embedded video provider 上形成受限状态合同。真实系统 pause/hot-plug、delta clamp、fixed timestep、buttons、media producer、deterministic seed、离线 adapter、通用 SceneScript 与其余 Timeline/particle target 仍未闭合。
 
 ### 1.1 Frame timing、wall date 与 readiness 分离
 
@@ -443,19 +443,19 @@ Realtime Adapter              Offline Adapter
 
 ## 10. 当前实现映射
 
-当前事实仍以 [Scene 开发计划](../scene-capability-development-plan-2026-07-22.md) 为准。这里仅列语义边界：
+当前事实以 [总覆盖台账](coverage-ledger.md) 与 [运行证据索引](runtime-evidence-index.md) 为准。这里仅列语义边界：
 
 | 系统 | 当前实现状态 | 不能据此宣称 |
 |---|---|---|
 | Particle | 作者 2D sprite、部分 emitter/initializer/operator、Sprite Trail 与 strict child 子集；Particle slot 0 可按 exact identity 消费 bundle 内 164 项 TEX，22-key 程序纹理只作缺失回退；固定门 `66/76`、完整门 `110/131` | 路径存在或程序 fallback 等于官方视觉资产，或 child/rope/world-space/control point/collision/audio/全部 preset 完整；粒子 audio 声明虽已保真解析，simulation 仍不消费 |
 | Text | CoreText 静态纹理、direct property 动态重栅格、部分 font/pointsize/padding/scale | 动态时间、system/media、完整 alignment/effects/SceneScript |
 | Effect graph | 内存 `SceneRuntimeInput` 保存 EffectDefinition/authored graph/provider metadata、ShaderContract 与 binding program；十四类 strict backend 及 ordered chain 已执行，包含 stock Radial God Rays 五 pass / 双 half RT。Debug evidence schema 1 只作结构验证 | dynamic effect、generic compose/history、通用 material/pass、authored shader 语义等价、未知/Directional God Rays 或官方 Shadow/lighting；精确当前门见 [运行证据索引](runtime-evidence-index.md) |
-| Frame Context | 宿主单一 60 Hz driver；所有屏幕共享 frame index/host/scene/wall time；shader、video、particle、parallax 已迁移 | pause/resume、delta clamp、固定 timestep、离线实时等价已闭环 |
+| Frame Context | 宿主单一 60 Hz driver；所有屏幕共享 frame index/host/scene/wall time；shader、video、particle、parallax 已迁移；pause 冻结 scene time/frame index，resume 首帧不补 host gap | 真实系统 pause、delta clamp、固定 timestep、离线实时等价已闭环 |
 | Dynamic target snapshot | 六类 typed value、主要 target 族、固定优先级、binding program、per-surface evaluation transaction/snapshot/generation；layer alpha、纯 solid color、direct text、exact Local Contrast/Opacity、受限 X-Ray target 与 Timeline 的 effect constant/layer alpha 子集有真实 producer/consumer | Timeline 的 `relative`/Combined/tangent/其他 target、SceneScript 与 particle dynamic target 仍未 live；unsupported host 留诊断 |
 | Timeline | IR、绝对 scene-time evaluator 与 28/48 typed target 子集已执行，覆盖 Loop/Single/start-paused 及 effect constant/layer alpha | Mirror 尚无真实语料正门；`relative`、wrap-loop、Combined、tangent、其余 target 与 event crossing 未完成，不能宣称任意动画模式可用 |
 | SceneScript | 顶层 layer binding IR 为 `L1`；三个 text 与两个 64-band audio exact native profiles 为 `L3 bounded` | ECMAScript VM/API、`registerAudioBuffers`/`AudioBuffers`、`createLayer`/`ILayer` handles 可用 |
 | User Properties | 独立窗口、条件、默认/override、部分 target 与持久化；`texture`/`scenetexture` 内部归一；受限静态 consumer 可选择 PNG/JPEG；已注册 B0/direct text/X-Ray target 可无重建更新 | 全部样本属性可调、所有 texture target/variant/live value 已闭环 |
-| Texture Provider | frame identity/status/generation、named variant 隔离、property absent -> authored fallback、受限 file-backed property source | system media、Texture Variants、视频、通用 material 与 effectful/nested provider 已闭环 |
+| Texture Provider | frame identity/status/generation、named variant 隔离、property absent -> authored fallback、受限 file-backed property source；direct text/embedded MP4 使用显式 content generation，视频有 launch-scoped pause/rebuild/stop 合同 | system media、Texture Variants、generic video/material 与 effectful/nested provider 已闭环 |
 | Audio | Scene 16/32/64 host left/right、既有 effect consumers 与两个 native 64-band average profiles 已闭合 | JS `AudioBuffers`、Sound/self-play、粒子 audio 或任何数值/视觉 parity |
 | Media | Web 侧已有服务，Scene consumer 未开始 | Scene 媒体可用 |
 
