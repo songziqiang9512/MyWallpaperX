@@ -2,7 +2,7 @@
 
 > 初次审查：2026-07-30
 >
-> 32/64 位交叉复核：2026-07-31
+> 32/64 位交叉复核与 64 位机制深挖：2026-07-31
 >
 > 取证快照：Wallpaper Engine 2.8.42 / Steam build `23967692`
 >
@@ -95,6 +95,12 @@ sidecar / authoring input
   -> TEXS frame metadata
 ```
 
+对 compiler 策略入口的有界反编译进一步确认，同一入口按类型读取 `format`、`nointerpolation`、`clampuvs`、`nomip` / `halfmip`、`imagesequence`、`spritesheetsequences`、crop/resize 与 `slice3d`。字段名不能直接按位照搬：例如 `nomip` 会被转换成内部“是否生成 mip”的反向状态，错误类型也会进入不同分支。
+
+writer 的 V5 输出固定按 `TEXV0005 -> TEXI0001 -> TEXB0004` 组织，只有存在序列元数据时才追加 `TEXS0003`。64 位主程序 consumer 对 V5 走分块循环并按 `TEXI/TEXB/TEXS` marker 分派，对 V4 则走旧式直接 handler 组合。这个分支形状可以指导自有 reader 做 versioned dispatch，但不提供各 payload 的私有解码算法。
+
+运行中另有一条与 sidecar parser 分离的图层属性注册路径：`nointerpolation` 与 `clampuvs` 各自接受布尔值或 `{value: ...}` 包装，写入不同状态位后触发统一属性变更回调。这证明两项是可动态改变的采样状态；静态路径尚未闭合到最终 D3D sampler descriptor，因此不能仅凭状态位推导 Metal filter/address 的全部映射。
+
 关键反例是：
 
 - `dxt5` 与 `dxt5n` 都映射 numeric format 4；
@@ -120,6 +126,15 @@ sidecar / authoring input
 
 内部 resolver/built-in registry 为 `g_Texture0...9` 保留 resolution、mapped size、texel/mipmap、rotation 与 translation 家族。官方 authored shader 公开合同仍是 0...7；内部 8/9 的存在不是扩写作者 schema 的许可，只要求 IR 不应无声压缩或误绑这些身份。
 
+第二轮对 64 位 effect parser 的局部恢复把字段归属收窄为：
+
+- FBO：`format/scale/width/height/unique/clear`；
+- pass：`conditions/command/source/target/compose/material`；
+- function：`action/repeat/index/conditions`；
+- typed backbuffer：`rgb_backbuffer/rgba_backbuffer`。
+
+condition 在 FBO、pass 或 function 纳入结构前求值；`command` 与可选 `source/target` 保持独立字段；`compose:true` 设置独立状态并增加 compose 参与计数。`copy` / `swap` literal 也汇入该 parser，但本轮没有无歧义闭合到实际执行函数，所以这里只能确认它们是 authored command 身份，不能把像素 copy、handle swap 或跨帧可见顺序写成已由反编译证明的事实。
+
 ### 5.2 32/64 位主程序交叉结果
 
 2026-07-31 使用同一 Ghidra 探针对两份主程序独立恢复。下表只比较结构，不比较函数地址或数量：
@@ -129,7 +144,7 @@ sidecar / authoring input
 | RenderGraph admission | `conditions/compose/target/unique/clear/rgb_backbuffer/rgba_backbuffer` 的核心共现集合一致；condition 与 graph 字段汇入同一 parser 邻域 | `clear` xref function 为 64 位 4、32 位 3；不能写逐函数等价 |
 | Material values/state | `constantshadervalues/usershadervalues/usertextures` 共址；`alphawriting/depthtest/depthwrite/cullmode` 共址 | 只证明读取与汇合，不给出 blend factor、write mask 或 override 完整优先级 |
 | TEX/built-ins | `TEXI/TEXB/TEXS` 与 resolution/mipmap/rotation/translation 家族对应 | 32 位未恢复到 64 位可见的独立 `TEXV`、`clampuvs` literal；不能用 literal 缺失否定代码路径 |
-| Particle graph | `controlpoints/children/maxcount/starttime` 的全部 pair 共现集合一致 | factory 名称、数值公式、random seed 与逐帧阶段顺序仍未知 |
+| Particle graph | `controlpoints/children/maxcount/starttime` 的全部 pair 共现集合一致 | 64 位 factory/variant/lifecycle 已进一步恢复；32 位未做同深度复核，数值公式、random seed 与 dispatcher 内部阶段顺序仍未知 |
 | Final output | `hdr/bloom/downsample/upsample/srgb/display` 的核心共现关系对应 | `hdr+downsample` xref 数不同；不证明 tone-map 数学或 HDR 像素结果 |
 | GPU/text/media | 两边 `D3D11CreateDevice` 6 refs、`DWriteCreateFactory` 2 refs；URL/byte-stream source、media session、DXGI device manager 同时存在 | topology/renderer activation ref 数有 ABI/恢复差异；COM 间接调用未完整计入 |
 
@@ -142,6 +157,24 @@ sidecar / authoring input
 device loss 或 scene rebuild 会按资源族释放并重建 render target、material/shader cache、texture/provider 与 scene state。这个形状要求项目使用 `reset(reason, generation)` 式跨资源事务，不能只依赖对象各自 deinit。
 
 最终输出按 LDR、HDR、video-HDR 与 display-HDR 选择不同 combine/downsample/bloom/blur/upsample 参与者。静态证据确认 typed output-mode graph 的必要性，但没有给出 transfer function、色域、tone-map、bloom 数学或 Metal 等价参数。
+
+### 5.4 Particle factory、frame 与 teardown
+
+64 位粒子 definition factory 的字段/组件引用集合覆盖 168 项标识，包括 emitter、initializer、operator、renderer、children、event spawn/death/follow、control point、collision、Rope/RopeTrail/SpriteTrail、turbulence 与 boids；initializer/operator 数组另由专门 helper 解析。这个数字表示 factory surface 的静态宽度，不表示 168 项都能执行，也不等于粒子能力台账的行数。
+
+definition bitfield 会直接选择 renderer variant。可识别的 variant 维度包括 `TEX0FORMAT`、`THICKFORMAT`、`ORIENTATION`、sprite sheet、blend、NPOT、trail renderer、fade alpha/size、scroll 与 subdivision；`genericropeparticle` 进入独立 shader/material 分支。CP0...7 及 angle0...7 另有独立动态属性注册入口，证明 control point position 与 angle 都属于 live property surface，而不是只在加载时读取一次。
+
+帧更新的外围顺序可恢复为：
+
+1. active/pause/reset gating；
+2. 必要时清空活动缓冲与 child runtime；
+3. frame delta 乘 timescale 后累计 system time；
+4. 取得 host transform/frame state；
+5. 准备 control-point/transform context；
+6. 进入 simulation dispatcher；
+7. 标记输出缓冲 dirty。
+
+reset/teardown 会归零活动计数和 CPU buffer，遍历 root 与分组 child，递归析构嵌套 child，并清空 vector/hash/index 容器。这支持项目为 particle runtime 建立显式递归 owner/reset 合同，但 simulation dispatcher 内 emitter、initializer、operator、collision/event/child 的精确同帧顺序、随机公式和 renderer 数学仍未恢复。
 
 ## 6. SceneScript 的 module/engine/owner 机制
 
@@ -238,7 +271,8 @@ media generation N
 5. **Reset**：scene switch/device/surface/provider completion 受同一 generation 事务治理；
 6. **SceneScript**：module、engine、owner 和 event bridge 分层，timer/audio/storage 与 owner 同寿命；
 7. **Video/Sound/Media**：三者各有独立状态机，异步结果不能跨 generation 注入；
-8. **跨架构结论**：结构对应只用于确认合同不是单一 ABI 偶然，不能替代 Windows dynamic trace 或 pixel golden。
+8. **Particle**：definition、dynamic CP、simulation context、child owner、renderer variant 与递归 teardown 分层，不能把 factory 识别当成执行支持；
+9. **跨架构结论**：结构对应只用于确认合同不是单一 ABI 偶然，不能替代 Windows dynamic trace 或 pixel golden。
 
 当前实现、测试和真实样本证据分别以覆盖台账与运行证据索引为准；本文不证明 MyWallpaperX 已实现上述全部合同。
 
@@ -246,9 +280,9 @@ media generation N
 
 32/64 位主程序与 SceneScript 的第一轮结构差分已经完成。下一批静态分析仍可回答：
 
-1. TEX flags/尺寸/mip 如何参与 sampler 与 fallback 的更多局部路径；
-2. copy/swap/history/clear/unique/compose 的局部资源生命周期；
-3. particle factory、child/control-point 与释放入口的阶段边界；
+1. TEX 动态状态如何映射到最终 sampler descriptor、mip/fallback 与 resource rebuild；
+2. copy/swap/history/clear/unique/compose 的实际执行入口、alias 与跨帧资源生命周期；
+3. particle simulation dispatcher 内部阶段、event/collision/child 时序与随机状态；
 4. SceneScript 全部 host binding 的可恢复子集与 owner 类型；
 5. video/Sound 主程序实际使用的状态参与者；
 6. material authored/default/user/system/provider 的更多来源集合。
@@ -257,7 +291,7 @@ media generation N
 
 - shader/effect 数学、blend factor、write mask、alpha/color-space 与 HDR transfer；
 - history 的完整跨帧顺序、alias/clear 值与 device-loss 可见结果；
-- 粒子公式、随机种子、fixed-step 和视觉轨迹；
+- 粒子 dispatcher 内部顺序、公式、随机种子、fixed-step 和视觉轨迹；
 - SceneScript event order、重入、完整 API 副作用和销毁顺序；
 - 视频 A/V 同步、颜色空间、首帧/loop/seek；
 - 多显示器策略在所有 Windows 模式下的实际选择。

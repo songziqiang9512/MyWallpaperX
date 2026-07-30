@@ -64,6 +64,17 @@
 | T-TRAIL | [script/tests/test_scene_particle_trail_plan.py](../../../script/tests/test_scene_particle_trail_plan.py) |
 | T-ROPE | [script/tests/test_scene_particle_rope_trail.py](../../../script/tests/test_scene_particle_rope_trail.py) |
 | T-TEX | [script/tests/test_scene_particle_builtin_textures.py](../../../script/tests/test_scene_particle_builtin_textures.py) |
+| CLIENT-STATIC | [官方客户端运行机制静态取证](client-runtime-static-forensics.md) |
+
+### 2.1 官方客户端静态锚点
+
+Wallpaper Engine 2.8.42 的 64 位粒子 definition factory 静态引用集合覆盖 168 项字段或组件标识，包括 emitter、initializer、operator、renderer、children、event spawn/death/follow、control point、collision、Rope/RopeTrail/SpriteTrail、turbulence 与 boids；initializer/operator 数组另由专门 helper 解析。这个数字描述 parser/factory surface，不是执行覆盖率，也不与本文 171 个能力行一一对应。
+
+definition bitfield 直接参与 renderer variant 选择，静态可识别维度包括 `TEX0FORMAT`、`THICKFORMAT`、`ORIENTATION`、sprite sheet、blend、NPOT、trail renderer、fade alpha/size、scroll 与 subdivision；`genericropeparticle` 另有独立 shader/material 分支。CP0...7 与 angle0...7 还各有动态属性注册入口，说明 control-point position/angle 是 live property surface，而不只是 definition load-time 数据。
+
+外围 frame/lifecycle 路径可恢复为 active/pause/reset gating，必要时清空 active buffer 与 child runtime，delta 乘 timescale 并累计 system time，取得 host transform/frame state，准备 control-point/transform context，进入大型 simulation dispatcher，最后标记输出 buffer dirty。reset/teardown 会归零 active count 与 CPU buffer，遍历 root 和分组 child，递归析构嵌套 child，再清空 vector/hash/index 容器。
+
+这些静态锚点支持 parser、dynamic property、simulation context、renderer variant、child owner 与递归 reset 分层，但没有恢复 dispatcher 内 emitter -> initializer -> operator、collision/event/children 的精确同帧顺序，也没有恢复随机、力场或 renderer 数学。依据 [CLIENT-STATIC] 不更新本文任何 `L0-L4` 等级；等级仍只由项目当前代码、测试、隔离样本和合法 Windows golden 决定。
 
 ## 3. General
 

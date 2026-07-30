@@ -133,13 +133,22 @@ EffectDefinition
     source?
     target?
     conditions?
-  functions? / gizmos? / extraFields
+  functions[]?
+    action
+    repeat?
+    index?
+    conditions?
+  gizmos? / extraFields
   unknownFieldPaths[]
 ```
 
 实例 material pass 只与 definition 中的 material pass 按 ordinal 对齐；copy/swap 等 command 不消耗该 ordinal。v15 按上述合同保真保存定义，v16 在不猜测未知字段的前提下把它编译成 authored graph。
 
 `Almamu/linux-wallpaperengine` 的 `EffectParser.cpp:19-114` 可交叉确认 `name/description/group/preview`、dependencies、ordered passes、material/bind/command/source/target，以及 FBO `name/format/scale/unique` 这一通用子集。它不解析 `compose`、conditions、functions、gizmos、clear、fit、absolute extent 或 UV；这些扩展字段仍来自合法样本/WE-compatible assets 的 B/C 级观察，不能因第三方 parser 缺失而从 IR 删除。该源码树也不附带 stock effect definitions，因此不能校验每个 effect 的具体参数和 pass 数。
+
+Wallpaper Engine 2.8.42 的 64 位官方客户端静态 parser 进一步确认：FBO 集中读取 `format/scale/width/height/unique/clear`，pass 集中读取 `conditions/command/source/target/compose/material`，function 集中读取 `action/repeat/index/conditions`，并区分 `rgb_backbuffer/rgba_backbuffer`。condition 在对应 FBO、pass 或 function 纳入结构前求值；`command` 与可选 `source/target` 保持独立字段；`compose:true` 设置独立状态并增加 compose 参与计数。该证据只闭合 parser/admission，不闭合 executor 的像素、alias 或跨帧语义，方法与限制见 [官方客户端运行机制静态取证](client-runtime-static-forensics.md)。
+
+对安装目录 `assets/effects` 的结构化交叉扫描按“含字段的 `effect.json` 文件数”统计（包含 preview 副本）：`copy` 3、`swap` 2、`compose:true` 2、`unique:true` 5、`clear` 2、`previous` 22。Motion Blur 提供 `copy source -> target` 与 unique FBO 的代表形状，Fluid Simulation 提供 velocity/dye RT 的 swap 及多个 unique/clear RT，Refraction 提供 `compose:true`；这些资产可约束 authored graph 保真，但 preview 重复项不能当成独立实现样本。
 
 ### 5.1 显式启用
 
@@ -172,9 +181,11 @@ pass 顺序是执行合同。典型类型：
 
 官方 Refraction 行为明确需要先捕获 layer 后面的场景，再用 normal map 折射；但私有 definition 中 raw `compose:true` 是否在所有 effect 上都等价于这一输入，当前证据不足。v16 保留 raw compose 并阻断通用执行，不能仅看到 `compose:true` 就绑定 scene background；经逐 definition 验证后再映射具体 provider。
 
+官方客户端 parser 证明 `compose` 是独立状态而非 material 名称的别名，并维护 compose 参与计数；它没有给出捕获对象、发生时点或多 compose 节点的像素语义。
+
 ### 5.5 copy 与 swap
 
-Motion Blur 等定义含显式 copy，用来复制 source 像素到 target；省略 copy 或把它当 material pass，会改变 read/write 顺序。观察到的 swap command 则交换资源 identity/handle，不是像素 copy。两者都不消耗 material ordinal；swap 还必须验证 allocation scope、UV、clear/reset 和 condition 合同兼容后才能执行。
+Motion Blur 等定义含显式 `copy source -> target`，Fluid Simulation 定义含成对 `swap`；项目当前 typed command 合同分别按像素复制与 logical resource identity 交换执行，且两者都不消耗 material ordinal。官方客户端 parser 静态路径只确认 `copy/swap` literal、独立 command/source/target 字段与 graph admission，尚未闭合实际 executor；因此项目解释仍须以自有正反 fixture 验证 read/write 顺序、allocation scope、UV、clear/reset、condition 与 alias hazard，不能表述为官方反编译已经证明完整 copy/swap 语义。
 
 ### 5.6 Condition 是图准入条件
 
@@ -326,8 +337,9 @@ HDR、video HDR 和 display-output 等最终路径应拥有 typed output-mode/tr
 
 ## 11. 二进制资产合同（TEX BC 与 Puppet MDL）
 
-序列化细节均属"真实样本 + 第三方播放器解释"证据，不是官方 schema；任何超出已验证形状的数据必须 fail closed。
+除下述明确标为官方客户端静态路径的项目外，序列化细节均属“真实样本 + 第三方播放器解释”证据，不是官方 schema；任何超出已验证形状的数据必须 fail closed。
 
+- **TEX V5 writer/consumer 与动态采样状态**（2.8.42 官方客户端静态路径）：`resourcecompiler64.exe` 的同一策略入口按类型读取 `format`、`nointerpolation`、`clampuvs`、`nomip` / `halfmip`、image/sprite sequence、crop/resize 与 `slice3d`；`nomip` 会转换成内部“生成 mip”的反向状态，字段名不能直接映射成 container bit。writer 固定组织 `TEXV0005 -> TEXI0001 -> TEXB0004`，仅有序列元数据时追加 `TEXS0003`。64 位主程序 V5 consumer 走 chunk loop 并按 TEXI/TEXB/TEXS marker 分派，V4 走旧式直接 handler。运行中的 `nointerpolation/clampuvs` 另由动态 layer property 注册，支持 bool 与 `{value: ...}`，分别写状态并触发统一变更回调；最终 D3D sampler descriptor 映射仍未闭合，项目现有 filter/address bit 合同仍需 container corpus、自有 fixture 和 Windows sampling golden 共同约束。
 - **TEX BC 存储与用途**（`8bac86e` + 2.8.42 sidecar/TEX 相关性）：TEXI format 4/6/7 分别描述 BC3/BC2/BC1 存储，块网格按存储尺寸（4 对齐 padding）持有，作者内容尺寸在 TEXB `imageWidth/imageHeight`。但 numeric format 4 同时承载普通 `dxt5` 颜色与 packed-normal `dxt5n`，所以格式不能单独决定处理。明确为 **color** 的 BC 块存 straight alpha，在当前 premultiplied source-over 合同下需要解码、裁剪并按 color purpose premultiply；**data/normal** consumer 必须保留 packed 通道并跳过颜色预乘/色彩转换。BC5（format 5）也是法线存储候选，但不能据此反推所有法线只会使用 format 5。cache key、upload、sampler 与 shader variant 都必须包含 resource purpose 和 physical/mapped metadata。
 - `b9bdbd5e` / `226ea5f7` 把 `8b06538d` 只服务 strict REFRACT 的用途合同扩展到共享 `SceneTextureLoader` 并让 data image 严格 fail closed；`d432d4d5` 再把 cache/upload identity 穷举为 `premultipliedColor`、`straightAlbedo`、generic `preservedChannels`、`mask`、`noise`、`flow`、`phase`、`normal`，`b623f421` 新增 Depth Parallax 专用 `depth`。全部 33 个 Effect 辅助纹理调用显式传入 purpose：mask 16、noise 6、flow 2、phase 2、normal 2、depth 1、generic preserved 3、premultiplied Blend color 1；此前手列 loader 的门漏掉 Standard Blur，当前 glob 全部 production helper。八类非预乘语义各自 cache 稳定、跨 purpose identity 分离，但当前都按严格 source-channel policy 上传；direct/embedded data image 仍只在原尺寸、无 decode 映射、integer packed、明确非预乘 alpha 或无 alpha（skip）且 32-bit byte order 受控的 RGB(A/X) provider 可归一为 RGBA 时直通。`378e68e7` 为 Water Flow flow/phase 与 Standard Blur mask 建立共享 `SceneTextureCandidate`；`de5f01b6` 又接入 static plain base image 与 bounded distinct REFRACT normal；`d87de042` 再让同一 static base candidate 在 direct、inline、offscreen 与 authored-effect 路由都经过最终原子校验；`b623f421` 复用同一原子携带 slot 1 R8 depth。尺寸模型明确区分 header extent、首 mip/encoded physical、实际 Metal texture 与 mapped content：raw/BC 仍要求首 mip对齐 header；已验证 TEXB0003 embedded PNG/JPEG 可为 encoded=decoded=mapped、同时不同于 header，且全部 mip/payload/format 必须逐项对账。candidate physical 始终记录实际 Metal texture；base 只消费 static single-image non-sprite、identity RGBA8 linear-clamp candidate，但可作为已支持 Effect/offscreen 的 base 输入；REFRACT normal 只消费 distinct static single-image non-sprite format 0/4，Depth Parallax 只消费 R8 `.depth` 与 axis-aligned mapped UV，其他形态保持 legacy 或失败关闭。自动门覆盖 Water Flow 0.5 UV、Standard Blur padding、fractional premultiplied base、effectful base 正负 GPU split、mapped REFRACT normal、Depth mapped R8、错误 purpose/identity/UV/sampler/Metal contract、BC/raw purpose 与 particle coverage；定向门见 [E-EFFECT-TEXTURE-PURPOSE](runtime-evidence-index.md#e-effect-texture-purpose)、[E-TEXTURE-CANDIDATE](runtime-evidence-index.md#e-texture-candidate)、[E-EFFECT-DEPTH-PARALLAX](runtime-evidence-index.md#e-effect-depth-parallax) 与 [E-PARTICLE](runtime-evidence-index.md#e-particle)。format 5 / BC5、effectful/nested/child provider、generic Effect/material DXT5n、Windows golden、动态 generation/cancel、sprite rotation、clamp-border 与通用 material slot 仍未闭合。
 - **Puppet MDL mesh block**（`8bac86e`）：MDLV0021/0023，marker 9 字节；首个 `MDLS` 偏移为 mesh 搜索上界。块形状为 `u32 vertexBytes` + 顶点 + `u32 indexBytes` + uint16 三角形索引；已核验 stride 80（tail/arm 类）与 84（skinned base 类），position 是块内偏移 0 的 3 个 float（模型中心原点、y 向上），UV 是 stride 尾部 8 字节（v=0 为图集顶部，与项目纹理 UV 约定一致）。判定条件 `max(index) == vertexCount - 1` 对不同 stride 数学互斥，天然唯一。加载时按层声明 size 归一化顶点并一次性重组图集为 bind-pose 纹理。
