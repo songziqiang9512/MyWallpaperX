@@ -1,8 +1,15 @@
 import Metal
 
 extension SceneGodraysPipeline {
+    struct States {
+        let downsample: MTLRenderPipelineState
+        let cast: MTLRenderPipelineState
+        let gaussian: MTLRenderPipelineState
+        let combine: MTLRenderPipelineState
+    }
+
     func draw<Uniforms>(
-        state: MTLRenderPipelineState,
+        state: MTLRenderPipelineState?,
         textures: [MTLTexture],
         uniforms: inout Uniforms,
         length: Int,
@@ -14,7 +21,8 @@ extension SceneGodraysPipeline {
         descriptor.colorAttachments[0].loadAction = .clear
         descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
         descriptor.colorAttachments[0].storeAction = .store
-        guard commandBuffer.commandQueue.device.registryID == deviceRegistryID,
+        guard let state,
+              commandBuffer.commandQueue.device.registryID == deviceRegistryID,
               let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
         else {
             return false
@@ -40,5 +48,16 @@ extension SceneGodraysPipeline {
             && texture.sampleCount == 1
             && texture.usage.contains(usage)
             && texture.device.registryID == deviceRegistryID
+    }
+
+    func states(for target: MTLTexture) -> States? {
+        switch target.pixelFormat {
+        case .bgra8Unorm:
+            return bgraStates
+        case .rgba8Unorm:
+            return rgbaStates
+        default:
+            return nil
+        }
     }
 }

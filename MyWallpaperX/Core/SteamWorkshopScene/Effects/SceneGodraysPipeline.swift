@@ -213,15 +213,12 @@ struct SceneGodraysPipeline {
         var blendMode: Int32
     }
 
-    private let downsampleState: MTLRenderPipelineState
-    private let castState: MTLRenderPipelineState
-    private let gaussianState: MTLRenderPipelineState
-    private let combineState: MTLRenderPipelineState
+    let bgraStates: States
+    let rgbaStates: States
     let deviceRegistryID: UInt64
 
-    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {
-        guard pixelFormat == .bgra8Unorm,
-              let library = try? device.makeLibrary(
+    init?(device: MTLDevice) {
+        guard let library = try? device.makeLibrary(
                   source: sceneGodraysShaderSource,
                   options: MTLCompileOptions()
               ),
@@ -229,7 +226,10 @@ struct SceneGodraysPipeline {
         else {
             return nil
         }
-        func state(_ fragmentName: String) -> MTLRenderPipelineState? {
+        func state(
+            _ fragmentName: String,
+            pixelFormat: MTLPixelFormat
+        ) -> MTLRenderPipelineState? {
             guard let fragment = library.makeFunction(name: fragmentName) else { return nil }
             let descriptor = MTLRenderPipelineDescriptor()
             descriptor.vertexFunction = vertex
@@ -237,17 +237,29 @@ struct SceneGodraysPipeline {
             descriptor.colorAttachments[0].pixelFormat = pixelFormat
             return try? device.makeRenderPipelineState(descriptor: descriptor)
         }
-        guard let downsampleState = state("sceneGodraysDownsampleFrag"),
-              let castState = state("sceneGodraysCastFrag"),
-              let gaussianState = state("sceneGodraysGaussianFrag"),
-              let combineState = state("sceneGodraysCombineFrag")
+        func states(pixelFormat: MTLPixelFormat) -> States? {
+            guard let downsample = state(
+                "sceneGodraysDownsampleFrag", pixelFormat: pixelFormat
+            ), let cast = state("sceneGodraysCastFrag", pixelFormat: pixelFormat),
+                let gaussian = state("sceneGodraysGaussianFrag", pixelFormat: pixelFormat),
+                let combine = state("sceneGodraysCombineFrag", pixelFormat: pixelFormat)
+            else {
+                return nil
+            }
+            return States(
+                downsample: downsample,
+                cast: cast,
+                gaussian: gaussian,
+                combine: combine
+            )
+        }
+        guard let bgraStates = states(pixelFormat: .bgra8Unorm),
+              let rgbaStates = states(pixelFormat: .rgba8Unorm)
         else {
             return nil
         }
-        self.downsampleState = downsampleState
-        self.castState = castState
-        self.gaussianState = gaussianState
-        self.combineState = combineState
+        self.bgraStates = bgraStates
+        self.rgbaStates = rgbaStates
         deviceRegistryID = device.registryID
     }
 
@@ -281,7 +293,7 @@ struct SceneGodraysPipeline {
             )
         )
         return draw(
-            state: downsampleState,
+            state: states(for: target)?.downsample,
             textures: [source, mask ?? source, noise ?? source],
             uniforms: &uniforms,
             length: MemoryLayout<DownsampleUniforms>.stride,
@@ -315,7 +327,7 @@ struct SceneGodraysPipeline {
             )
         )
         return draw(
-            state: castState,
+            state: states(for: target)?.cast,
             textures: [source],
             uniforms: &uniforms,
             length: MemoryLayout<CastUniforms>.stride,
@@ -347,7 +359,7 @@ struct SceneGodraysPipeline {
             legacyWeights: plan.legacyGaussianWeights ? 1 : 0
         )
         return draw(
-            state: gaussianState,
+            state: states(for: target)?.gaussian,
             textures: [source],
             uniforms: &uniforms,
             length: MemoryLayout<GaussianUniforms>.stride,
@@ -374,7 +386,7 @@ struct SceneGodraysPipeline {
         }
         var uniforms = CombineUniforms(blendMode: Int32(plan.blendMode))
         return draw(
-            state: combineState,
+            state: states(for: target)?.combine,
             textures: [rays, source],
             uniforms: &uniforms,
             length: MemoryLayout<CombineUniforms>.stride,

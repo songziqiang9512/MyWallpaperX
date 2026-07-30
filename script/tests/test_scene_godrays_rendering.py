@@ -48,10 +48,11 @@ enum Harness {
 
     static func texture(
         device: MTLDevice,
-        usage: MTLTextureUsage
+        usage: MTLTextureUsage,
+        pixelFormat: MTLPixelFormat = .bgra8Unorm
     ) -> MTLTexture {
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .bgra8Unorm,
+            pixelFormat: pixelFormat,
             width: size,
             height: size,
             mipmapped: false
@@ -224,6 +225,44 @@ enum Harness {
         )
     }
 
+    static func renderLegacyRGBAChain(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneGodraysPipeline,
+        source: MTLTexture
+    ) -> Bool {
+        let half = texture(
+            device: device, usage: [.shaderRead, .renderTarget], pixelFormat: .rgba8Unorm
+        )
+        let otherHalf = texture(
+            device: device, usage: [.shaderRead, .renderTarget], pixelFormat: .rgba8Unorm
+        )
+        let output = texture(
+            device: device, usage: [.shaderRead, .renderTarget], pixelFormat: .bgra8Unorm
+        )
+        let command = queue.makeCommandBuffer()!
+        guard pipeline.encodeDownsample(
+            source: source, mask: nil, maskUVScale: SIMD2(repeating: 1), noise: nil,
+            target: half, plan: plan(direction: 0), time: 0, commandBuffer: command
+        ), pipeline.encodeCast(
+            source: half, target: otherHalf, plan: plan(direction: 0), commandBuffer: command
+        ), pipeline.encodeGaussian(
+            source: otherHalf, target: half, plan: plan(direction: 0), vertical: false,
+            commandBuffer: command
+        ), pipeline.encodeGaussian(
+            source: half, target: otherHalf, plan: plan(direction: 0), vertical: true,
+            commandBuffer: command
+        ), pipeline.encodeCombine(
+            rays: otherHalf, source: source, target: output, plan: plan(direction: 0),
+            commandBuffer: command
+        ) else {
+            return false
+        }
+        command.commit()
+        command.waitUntilCompleted()
+        return command.status == .completed
+    }
+
     static func main() throws {
         guard let device = MTLCreateSystemDefaultDevice(),
               let queue = device.makeCommandQueue(),
@@ -275,6 +314,9 @@ enum Harness {
             "edgeGaussianInnerSum": channelRowSum(edgeGaussian, row: 30),
             "edgeGaussianBoundarySum": channelRowSum(edgeGaussian, row: 31),
             "invalidDirectionRejected": invalidDirectionRejected(
+                device: device, queue: queue, pipeline: pipeline, source: source
+            ),
+            "legacyRGBAChainCompleted": renderLegacyRGBAChain(
                 device: device, queue: queue, pipeline: pipeline, source: source
             ),
         ]
@@ -372,6 +414,9 @@ class SceneGodraysRenderingTests(unittest.TestCase):
 
     def test_nonfinite_direction_fails_closed(self) -> None:
         self.assertTrue(self.result["invalidDirectionRejected"])
+
+    def test_legacy_rgba_half_targets_complete_without_pipeline_mismatch(self) -> None:
+        self.assertTrue(self.result["legacyRGBAChainCompleted"])
 
 
 if __name__ == "__main__":
