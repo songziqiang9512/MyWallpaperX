@@ -28,6 +28,7 @@ struct SceneRenderDescriptor {
 enum SceneTextureLoadPurpose: String {
     case premultipliedColor
     case preservedChannels
+    case mask
 }
 
 final class SceneTextureLoader {}
@@ -237,13 +238,13 @@ class SceneXRayTextureLoaderTests(unittest.TestCase):
     def test_missing_required_halo_fails_closed(self) -> None:
         self.assertTrue(self.result["missingHaloRejected"])
 
-    def test_every_xray_slot_requests_preserved_channels(self) -> None:
+    def test_every_xray_slot_requests_its_channel_purpose(self) -> None:
         self.assertEqual(
             self.result["purposes"],
             {
                 "xray blend": "preservedChannels",
                 "xray halo": "preservedChannels",
-                "xray opacity": "preservedChannels",
+                "xray opacity": "mask",
             },
         )
 

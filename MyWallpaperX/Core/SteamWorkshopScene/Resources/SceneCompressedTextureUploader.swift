@@ -33,7 +33,7 @@ struct SceneCompressedTextureUploader {
                     device: device
                 )
             }
-            guard purpose == .premultipliedColor else {
+            guard !purpose.preservesSourceChannels else {
                 return uploadDirect(
                     container: container,
                     mips: container.imageCount == 1 ? container.mips : [firstMip],
@@ -63,12 +63,12 @@ struct SceneCompressedTextureUploader {
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
         let decoded = container.mips.enumerated().compactMap { level, mip in
-            let imageWidth = purpose == .premultipliedColor
-                ? max(1, container.imageWidth >> level)
-                : mip.width
-            let imageHeight = purpose == .premultipliedColor
-                ? max(1, container.imageHeight >> level)
-                : mip.height
+            let imageWidth = purpose.preservesSourceChannels
+                ? mip.width
+                : max(1, container.imageWidth >> level)
+            let imageHeight = purpose.preservesSourceChannels
+                ? mip.height
+                : max(1, container.imageHeight >> level)
             return SceneBCTextureDecoder.decode(
                 blockData: mip.data,
                 storedWidth: mip.width,
@@ -98,9 +98,9 @@ struct SceneCompressedTextureUploader {
         }
 
         for (level, image) in decoded.enumerated() {
-            let rgba = purpose == .premultipliedColor
-                ? premultiplyStraightAlphaRGBA(image.rgba)
-                : image.rgba
+            let rgba = purpose.preservesSourceChannels
+                ? image.rgba
+                : premultiplyStraightAlphaRGBA(image.rgba)
             rgba.withUnsafeBytes { rawBuffer in
                 texture.replace(
                     region: MTLRegionMake2D(0, 0, image.width, image.height),

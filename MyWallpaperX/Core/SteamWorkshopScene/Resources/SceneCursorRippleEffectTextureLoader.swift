@@ -48,7 +48,7 @@ enum SceneCursorRippleEffectTextureLoader {
             let loaded = SceneLayerEffectTextureLoader.loadTexture(
                 url: maskURL,
                 label: "cursor ripple collision mask",
-                purpose: .preservedChannels,
+                purpose: .mask,
                 loader: loader,
                 device: device
             )

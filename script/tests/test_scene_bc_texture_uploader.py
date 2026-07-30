@@ -142,6 +142,43 @@ enum Harness {
         result["sameColorCacheIdentity"] = color1 === color2
         result["sameDataCacheIdentity"] = data1 === data2
         result["differentPurposeIdentity"] = color1 !== data1
+        let semanticPurposes: [(String, SceneTextureLoadPurpose)] = [
+            ("straightAlbedo", .straightAlbedo),
+            ("preservedChannels", .preservedChannels),
+            ("mask", .mask),
+            ("noise", .noise),
+            ("flow", .flow),
+            ("phase", .phase),
+            ("normal", .normal),
+        ]
+        var semanticTextures: [MTLTexture] = []
+        var semanticPixels: [String: [UInt8]] = [:]
+        var semanticCacheStable = true
+        for (label, purpose) in semanticPurposes {
+            let first = try loaded(loader.load(
+                from: textureURL,
+                purpose: purpose,
+                device: device
+            ))
+            let second = try loaded(loader.load(
+                from: textureURL,
+                purpose: purpose,
+                device: device
+            ))
+            semanticTextures.append(first)
+            semanticPixels[label] = try readFirstPixel(texture: first, device: device)
+            semanticCacheStable = semanticCacheStable && first === second
+        }
+        var semanticIdentitiesDistinct = true
+        for left in semanticTextures.indices {
+            for right in semanticTextures.indices where left < right {
+                semanticIdentitiesDistinct =
+                    semanticIdentitiesDistinct && semanticTextures[left] !== semanticTextures[right]
+            }
+        }
+        result["semanticPurposePixels"] = semanticPixels
+        result["semanticPurposeCacheStable"] = semanticCacheStable
+        result["semanticPurposeIdentitiesDistinct"] = semanticIdentitiesDistinct
 
         let dataFirstLoader = SceneTextureLoader()
         let dataFirst = try loaded(dataFirstLoader.loadDataTexture(from: textureURL, device: device))
@@ -359,6 +396,20 @@ class SceneBCTextureUploaderTests(unittest.TestCase):
         self.assertTrue(self.result["sameColorCacheIdentity"])
         self.assertTrue(self.result["sameDataCacheIdentity"])
         self.assertTrue(self.result["differentPurposeIdentity"])
+        self.assertTrue(self.result["semanticPurposeCacheStable"])
+        self.assertTrue(self.result["semanticPurposeIdentitiesDistinct"])
+        self.assertEqual(
+            self.result["semanticPurposePixels"],
+            {
+                "straightAlbedo": [0, 255, 0, 64],
+                "preservedChannels": [0, 255, 0, 64],
+                "mask": [0, 255, 0, 64],
+                "noise": [0, 255, 0, 64],
+                "flow": [0, 255, 0, 64],
+                "phase": [0, 255, 0, 64],
+                "normal": [0, 255, 0, 64],
+            },
+        )
 
     def test_preserved_channels_keep_physical_extent_for_mapped_uvs(self) -> None:
         self.assertEqual(self.result["paddedColorSize"], [4, 4])

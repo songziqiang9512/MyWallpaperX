@@ -61,7 +61,7 @@ enum SceneShineEffectTextureLoader {
                 let loaded = SceneLayerEffectTextureLoader.loadTexture(
                     url: noiseURL,
                     label: "shine noise",
-                    purpose: .preservedChannels,
+                    purpose: .noise,
                     loader: loader,
                     device: device
                 )
@@ -79,7 +79,7 @@ enum SceneShineEffectTextureLoader {
                 let loaded = SceneLayerEffectTextureLoader.loadTexture(
                     url: maskURL,
                     label: "shine effect mask",
-                    purpose: .preservedChannels,
+                    purpose: .mask,
                     loader: loader,
                     device: device
                 )

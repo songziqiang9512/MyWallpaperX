@@ -22,8 +22,9 @@ enum SceneParticleRefractionTextureLoader {
               let normalContainer = textureLoader.texContainer(from: normalURL),
               [UInt32(0), 4, 8].contains(colorContainer.format),
               [UInt32(0), 4].contains(normalContainer.format),
-              case let .loaded(color) = textureLoader.loadDataTexture(
+              case let .loaded(color) = textureLoader.load(
                   from: colorURL,
+                  purpose: .straightAlbedo,
                   device: device
               ) else {
             return nil
@@ -31,10 +32,13 @@ enum SceneParticleRefractionTextureLoader {
 
         let normal: MTLTexture
         if colorURL.standardizedFileURL == normalURL.standardizedFileURL {
+            // Both semantic roles preserve the source channels, so an authored
+            // same-file binding can safely reuse its physical upload.
             normal = color
         } else {
-            guard case let .loaded(value) = textureLoader.loadDataTexture(
+            guard case let .loaded(value) = textureLoader.load(
                 from: normalURL,
+                purpose: .normal,
                 device: device
             ) else { return nil }
             normal = value

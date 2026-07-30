@@ -49,7 +49,7 @@ enum SceneTintEffectTextureLoader {
             let loaded = SceneLayerEffectTextureLoader.loadTexture(
                 url: maskURL,
                 label: "tint effect mask",
-                purpose: .preservedChannels,
+                purpose: .mask,
                 loader: loader,
                 device: device
             )

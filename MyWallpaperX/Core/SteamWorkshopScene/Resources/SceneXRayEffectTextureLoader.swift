@@ -84,7 +84,7 @@ enum SceneXRayEffectTextureLoader {
         let opacity = SceneLayerEffectTextureLoader.loadTexture(
             url: opacityURL,
             label: "xray opacity",
-            purpose: .preservedChannels,
+            purpose: .mask,
             loader: loader,
             device: device
         )

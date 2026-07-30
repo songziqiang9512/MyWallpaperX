@@ -56,7 +56,7 @@ enum SceneFoliageSwayEffectTextureLoader {
                 let loadedMask = SceneLayerEffectTextureLoader.loadTexture(
                     url: maskURL,
                     label: "foliagesway effect mask",
-                    purpose: .preservedChannels,
+                    purpose: .mask,
                     loader: loader,
                     device: device
                 )
@@ -74,7 +74,7 @@ enum SceneFoliageSwayEffectTextureLoader {
                 let loadedNoise = SceneLayerEffectTextureLoader.loadTexture(
                     url: noiseURL,
                     label: "foliagesway noise",
-                    purpose: .preservedChannels,
+                    purpose: .noise,
                     loader: loader,
                     device: device
                 )

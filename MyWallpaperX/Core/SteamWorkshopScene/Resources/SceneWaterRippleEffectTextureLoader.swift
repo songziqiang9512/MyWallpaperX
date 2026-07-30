@@ -46,7 +46,7 @@ enum SceneWaterRippleEffectTextureLoader {
             let loadedMask = SceneLayerEffectTextureLoader.loadTexture(
                 url: maskURL,
                 label: "waterripple effect mask",
-                purpose: .preservedChannels,
+                purpose: .mask,
                 loader: loader,
                 device: device
             )
@@ -61,7 +61,7 @@ enum SceneWaterRippleEffectTextureLoader {
                 let loadedNormal = SceneLayerEffectTextureLoader.loadTexture(
                     url: normalURL,
                     label: "waterripple effect normal",
-                    purpose: .preservedChannels,
+                    purpose: .normal,
                     loader: loader,
                     device: device
                 )

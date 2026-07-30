@@ -26,14 +26,14 @@ enum SceneLayerEffectTextureLoader {
         let iris = loadTexture(
             url: resolveFirstTexture(for: layer, effectFragment: "iris", resolver: resolver),
             label: "iris mask",
-            purpose: .preservedChannels,
+            purpose: .mask,
             loader: loader,
             device: device
         )
         let opacity = loadTexture(
             url: resolveFirstTexture(for: layer, effectFragment: "opacity", resolver: resolver),
             label: "opacity mask",
-            purpose: .preservedChannels,
+            purpose: .mask,
             loader: loader,
             device: device
         )
@@ -48,7 +48,7 @@ enum SceneLayerEffectTextureLoader {
         let water = loadTexture(
             url: waterURL,
             label: "water mask",
-            purpose: .preservedChannels,
+            purpose: .mask,
             loader: loader,
             device: device
         )
@@ -60,7 +60,7 @@ enum SceneLayerEffectTextureLoader {
         let foliage = loadTexture(
             url: foliageURL,
             label: "foliage mask",
-            purpose: .preservedChannels,
+            purpose: .mask,
             loader: loader,
             device: device
         )
@@ -72,7 +72,7 @@ enum SceneLayerEffectTextureLoader {
                 resolver: resolver
             ),
             label: "waterripple normal",
-            purpose: .preservedChannels,
+            purpose: .normal,
             loader: loader,
             device: device
         )
@@ -267,21 +267,21 @@ enum SceneLayerEffectTextureLoader {
             let flow = loadTexture(
                 url: flowURL,
                 label: "shake flow",
-                purpose: .preservedChannels,
+                purpose: .flow,
                 loader: loader,
                 device: device
             )
             let phase = loadTexture(
                 url: phaseURL,
                 label: "shake phase",
-                purpose: .preservedChannels,
+                purpose: .phase,
                 loader: loader,
                 device: device
             )
             let mask = loadTexture(
                 url: maskURL,
                 label: "shake mask",
-                purpose: .preservedChannels,
+                purpose: .mask,
                 loader: loader,
                 device: device
             )

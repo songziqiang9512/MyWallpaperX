@@ -38,7 +38,7 @@ enum SceneStandardBlurEffectTextureLoader {
             let loaded = SceneLayerEffectTextureLoader.loadTexture(
                 url: maskURL,
                 label: "standard blur mask",
-                purpose: .preservedChannels,
+                purpose: .mask,
                 loader: loader,
                 device: device
             )

@@ -54,7 +54,7 @@ enum ScenePulseEffectTextureLoader {
                 let loaded = SceneLayerEffectTextureLoader.loadTexture(
                     url: noiseURL,
                     label: "pulse noise",
-                    purpose: .preservedChannels,
+                    purpose: .noise,
                     loader: loader,
                     device: device
                 )
@@ -73,7 +73,7 @@ enum ScenePulseEffectTextureLoader {
                 let loaded = SceneLayerEffectTextureLoader.loadTexture(
                     url: maskURL,
                     label: "pulse effect mask",
-                    purpose: .preservedChannels,
+                    purpose: .mask,
                     loader: loader,
                     device: device
                 )

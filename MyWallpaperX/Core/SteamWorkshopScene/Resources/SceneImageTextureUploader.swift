@@ -4,7 +4,22 @@ import Metal
 
 enum SceneTextureLoadPurpose: Hashable {
     case premultipliedColor
+    case straightAlbedo
     case preservedChannels
+    case mask
+    case noise
+    case flow
+    case phase
+    case normal
+
+    var preservesSourceChannels: Bool {
+        switch self {
+        case .premultipliedColor:
+            false
+        case .straightAlbedo, .preservedChannels, .mask, .noise, .flow, .phase, .normal:
+            true
+        }
+    }
 }
 
 enum SceneImageTextureUploader {
@@ -61,13 +76,12 @@ enum SceneImageTextureUploader {
         height: Int,
         purpose: SceneTextureLoadPurpose
     ) -> Data? {
-        switch purpose {
-        case .preservedChannels:
-            // Data consumers (normal/flow/mask) cannot safely reconstruct
-            // straight channels from a premultiplied representation: RGB at
-            // alpha zero is already irrecoverable and fractional alpha loses
-            // precision. Raster fallback also creates that representation.
-            // Refuse either case instead of silently rewriting data.
+        if purpose.preservesSourceChannels {
+            // Straight/data consumers cannot safely reconstruct source
+            // channels from a premultiplied representation: RGB at alpha zero
+            // is already irrecoverable and fractional alpha loses precision.
+            // Raster fallback also creates that representation. Refuse either
+            // case instead of silently rewriting data.
             guard width == image.width,
                   height == image.height,
                   let source = sourceRGBA(image),
@@ -75,13 +89,12 @@ enum SceneImageTextureUploader {
                 return nil
             }
             return source.data
-        case .premultipliedColor:
-            return rasterizedRGBA(
-                image,
-                width: width,
-                height: height
-            )
         }
+        return rasterizedRGBA(
+            image,
+            width: width,
+            height: height
+        )
     }
 
     private static func sourceRGBA(

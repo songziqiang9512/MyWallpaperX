@@ -224,12 +224,12 @@ final class SceneTextureLoader {
         }
 
         if Self.isEmbeddedImagePayload(firstMip.data) {
-            let uploaded = purpose == .premultipliedColor
-                ? SceneTextureMipUploader.uploadEmbeddedImages(
+            let uploaded = purpose.preservesSourceChannels
+                ? SceneTextureMipUploader.uploadEmbeddedDataImages(
                     container.mips,
                     device: device
                 )
-                : SceneTextureMipUploader.uploadEmbeddedDataImages(
+                : SceneTextureMipUploader.uploadEmbeddedImages(
                     container.mips,
                     device: device
                 )
@@ -242,16 +242,16 @@ final class SceneTextureLoader {
 
         let expectedRawByteCount = firstMip.width * firstMip.height * 4
         if firstMip.data.count == expectedRawByteCount {
-            if purpose == .premultipliedColor {
-                return SceneTextureMipUploader.uploadRawRGBA(
+            if purpose.preservesSourceChannels {
+                return SceneTextureMipUploader.uploadRaw(
                     container: container,
+                    pixelFormat: .rgba8Unorm,
+                    bytesPerPixel: 4,
                     device: device
                 )
             }
-            return SceneTextureMipUploader.uploadRaw(
+            return SceneTextureMipUploader.uploadRawRGBA(
                 container: container,
-                pixelFormat: .rgba8Unorm,
-                bytesPerPixel: 4,
                 device: device
             )
         }
