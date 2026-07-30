@@ -18,7 +18,7 @@ enum SceneTextureLoadOutcome {
 }
 
 final class SceneTextureLoader {
-    private struct SourceKey: Hashable {
+    struct SourceKey: Hashable {
         let path: String
         let size: UInt64
         let modifiedAtBits: UInt64
@@ -59,8 +59,22 @@ final class SceneTextureLoader {
         purpose: SceneTextureLoadPurpose,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
-        let key = TextureKey(
+        load(
+            from: url,
             source: sourceKey(for: url),
+            purpose: purpose,
+            device: device
+        )
+    }
+
+    func load(
+        from url: URL,
+        source: SourceKey,
+        purpose: SceneTextureLoadPurpose,
+        device: MTLDevice
+    ) -> SceneTextureLoadOutcome {
+        let key = TextureKey(
+            source: source,
             deviceRegistryID: device.registryID,
             purpose: purpose
         )
@@ -70,7 +84,12 @@ final class SceneTextureLoader {
         if Self.directImageExtensions.contains(ext) {
             outcome = loadDirectImage(url: url, purpose: purpose, device: device)
         } else if ext == Self.texExtension {
-            outcome = loadWallpaperEngineTex(url: url, purpose: purpose, device: device)
+            outcome = loadWallpaperEngineTex(
+                url: url,
+                source: source,
+                purpose: purpose,
+                device: device
+            )
         } else {
             outcome = .unsupportedFormat(extension: ext)
         }
@@ -90,7 +109,7 @@ final class SceneTextureLoader {
         device: MTLDevice
     ) -> SceneVideoTextureSource? {
         guard url.pathExtension.lowercased() == Self.texExtension,
-              let resource = texResource(from: url),
+              let resource = texResource(from: url, source: sourceKey(for: url)),
               let container = resource.container,
               container.format == 0,
               let payload = container.mips.first?.data,
@@ -106,8 +125,12 @@ final class SceneTextureLoader {
     }
 
     func texContainer(from url: URL) -> SceneTexContainer? {
+        texContainer(from: url, source: sourceKey(for: url))
+    }
+
+    func texContainer(from url: URL, source: SourceKey) -> SceneTexContainer? {
         guard url.pathExtension.lowercased() == Self.texExtension else { return nil }
-        return texResource(from: url)?.container
+        return texResource(from: url, source: source)?.container
     }
 
     private func loadDirectImage(
@@ -134,10 +157,11 @@ final class SceneTextureLoader {
     // are reported as such for diagnosis.
     private func loadWallpaperEngineTex(
         url: URL,
+        source: SourceKey,
         purpose: SceneTextureLoadPurpose,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
-        guard let resource = texResource(from: url) else {
+        guard let resource = texResource(from: url, source: source) else {
             return .decodeFailed("read failed: \(url.lastPathComponent)")
         }
         let data = resource.data
@@ -176,9 +200,8 @@ final class SceneTextureLoader {
         )
     }
 
-    private func texResource(from url: URL) -> TexResource? {
-        let key = sourceKey(for: url)
-        if let cached = texResources[key] { return cached }
+    private func texResource(from url: URL, source: SourceKey) -> TexResource? {
+        if let cached = texResources[source] { return cached }
         guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return nil }
         let resource: TexResource
         do {
@@ -194,11 +217,11 @@ final class SceneTextureLoader {
                 parseError: error.localizedDescription
             )
         }
-        texResources[key] = resource
+        texResources[source] = resource
         return resource
     }
 
-    private func sourceKey(for url: URL) -> SourceKey {
+    func sourceKey(for url: URL) -> SourceKey {
         let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
         let size = (attributes?[.size] as? NSNumber)?.uint64Value ?? 0
         let modifiedAt = (attributes?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0

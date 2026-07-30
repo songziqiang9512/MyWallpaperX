@@ -27,6 +27,12 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneTextureMipUploader.swift",
     SCENE_ROOT / "Resources/SceneTextureLoader.swift",
     SCENE_ROOT / "Resources/SceneWaterFlowBuiltInPhaseTexture.swift",
+    SCENE_ROOT / "Resources/SceneTextureUVTransform.swift",
+    SCENE_ROOT / "Resources/SceneTextureCandidate.swift",
+    SCENE_ROOT / "Resources/SceneTextureLoader+Candidate.swift",
+    SCENE_ROOT / "Resources/SceneEffectTextureLoadResult.swift",
+    SCENE_ROOT / "Rendering/SceneTextureMappedUVScale.swift",
+    SCENE_ROOT / "Resources/SceneLayerEffectTextureLoader+TextureLoading.swift",
     SCENE_ROOT / "Resources/SceneWaterFlowEffectTextureLoader.swift",
 ]
 
@@ -78,44 +84,7 @@ struct SceneRenderDescriptor {
     }
 }
 
-enum SceneLayerEffectTextureLoader {
-    static func loadTexture(
-        url: URL?,
-        label: String,
-        purpose: SceneTextureLoadPurpose,
-        loader: SceneTextureLoader,
-        device: MTLDevice
-    ) -> (
-        texture: MTLTexture?,
-        message: String,
-        mappedUVScale: SIMD2<Float>,
-        sampling: SceneTextureSampling
-    ) {
-        guard let url else {
-            return (nil, "", SIMD2(repeating: 1), .directImageFallback)
-        }
-        let sampling = loader.texContainer(from: url)
-            .map { SceneTextureSampling(texFlags: $0.flags) }
-            ?? .directImageFallback
-        switch loader.load(from: url, purpose: purpose, device: device) {
-        case .loaded(let texture):
-            return (texture, "; \(label) OK", SIMD2(repeating: 1), sampling)
-        case .decodeFailed(let message):
-            return (
-                nil,
-                "; \(label) decode failed (\(message))",
-                SIMD2(repeating: 1),
-                sampling
-            )
-        default:
-            return (nil, "; \(label) failed", SIMD2(repeating: 1), sampling)
-        }
-    }
-
-    static func mappedUVScale(for: URL?, texture: MTLTexture?) -> SIMD2<Float> {
-        SIMD2(repeating: 1)
-    }
-}
+enum SceneLayerEffectTextureLoader {}
 
 @main
 enum Harness {
@@ -123,7 +92,9 @@ enum Harness {
     static let flowPath = "workshop/water_flow"
     static let embeddedFlowPath = "workshop/water_flow_embedded"
     static let oversizedFlowPath = "workshop/water_flow_oversized"
+    static let paddedFlowPath = "workshop/padded_flow"
     static let stockPhasePath = "particle/normal_ring_smooth"
+    static let paddedPhasePath = "workshop/padded_phase"
     static let flowPixels: [UInt8] = [
         231, 17, 149, 0, 200, 100, 50, 64,
         17, 203, 41, 255, 89, 7, 211, 128,
@@ -147,6 +118,8 @@ enum Harness {
         let embeddedFlowURL = temporary.appendingPathComponent("flow.tex")
         let oversizedFlowURL = temporary.appendingPathComponent("oversized-flow.png")
         let corruptURL = temporary.appendingPathComponent("corrupt.png")
+        let paddedPhaseURL = temporary.appendingPathComponent("padded-phase.tex")
+        let paddedFlowURL = temporary.appendingPathComponent("padded-flow.tex")
         try writeImage(flowURL, width: 2, height: 2, pixels: flowPixels)
         try writeEmbeddedTex(
             embeddedFlowURL,
@@ -161,6 +134,16 @@ enum Harness {
             pixels: (0 ..< 4097).flatMap { _ in [231, 17, 149, 0] }
         )
         try Data("not an image".utf8).write(to: corruptURL)
+        try writeRawR8Tex(
+            paddedPhaseURL,
+            textureWidth: 4,
+            imageWidth: 2
+        )
+        try writeRawR8Tex(
+            paddedFlowURL,
+            textureWidth: 4,
+            imageWidth: 2
+        )
 
         let loader = SceneTextureLoader()
         let valid = load(
@@ -207,40 +190,86 @@ enum Harness {
             loader: loader,
             device: device
         )
+        let paddedPhase = load(
+            phasePath: paddedPhasePath,
+            urlsByPath: [flowPath: flowURL, paddedPhasePath: paddedPhaseURL],
+            loader: loader,
+            device: device
+        )
+        let paddedFlow = load(
+            flowPath: paddedFlowPath,
+            phasePath: stockPhasePath,
+            urlsByPath: [
+                paddedFlowPath: paddedFlowURL,
+                stockPhasePath: stockPhase,
+            ],
+            loader: loader,
+            device: device
+        )
 
         let validTextures = valid.textures[effectID]
         let embeddedTextures = embedded.textures[effectID]
         let oversizedTextures = oversized.textures[effectID]
         let missingTextures = missing.textures[effectID]
         let corruptTextures = corrupt.textures[effectID]
+        let paddedPhaseTextures = paddedPhase.textures[effectID]
+        let paddedFlowTextures = paddedFlow.textures[effectID]
+        let paddedFlowScale = paddedFlowTextures?.flowCandidate?
+            .axisAlignedMappedUVScale(expectedPurpose: .flow)
+        let validFlowScale = validTextures?.flowCandidate?.axisAlignedMappedUVScale(
+            expectedPurpose: .flow
+        )
         let result: [String: Any] = [
-            "validFlowPixels": try pixels(validTextures?.flow),
-            "validPhaseLoaded": validTextures?.phase != nil,
-            "validPhasePreservedMips": (validTextures?.phase?.mipmapLevelCount ?? 0) > 1,
+            "validFlowPixels": try pixels(validTextures?.flowCandidate?.texture),
+            "validPhaseLoaded": validTextures?.phaseCandidate != nil,
+            "validPhasePreservedMips":
+                (validTextures?.phaseCandidate?.texture.mipmapLevelCount ?? 0) > 1,
             "validMatches": validTextures?.matches(plan(phasePath: stockPhasePath)) ?? false,
-            "validPhaseAddress": validTextures?.phaseSampling.addressMode.rawValue ?? "",
-            "validFlowAddress": validTextures?.flowSampling.addressMode.rawValue ?? "",
-            "embeddedFlowPixels": try pixels(embeddedTextures?.flow),
+            "validPhaseAddress":
+                validTextures?.phaseCandidate?.sampling.addressMode.rawValue ?? "",
+            "validFlowAddress":
+                validTextures?.flowCandidate?.sampling.addressMode.rawValue ?? "",
+            "validFlowPurpose": validTextures?.flowCandidate?.purpose == .flow,
+            "validPhasePurpose": validTextures?.phaseCandidate?.purpose == .phase,
+            "validFlowScale": [validFlowScale?.x ?? -1, validFlowScale?.y ?? -1],
+            "validFlowIdentity": identityKind(validTextures?.flowCandidate),
+            "validPhaseIdentity": identityKind(validTextures?.phaseCandidate),
+            "embeddedFlowPixels": try pixels(embeddedTextures?.flowCandidate?.texture),
             "embeddedMatches": embeddedTextures?.matches(plan(
                 flowPath: embeddedFlowPath,
                 phasePath: stockPhasePath
             )) ?? false,
-            "oversizedStayedFailed": oversizedTextures?.flow == nil,
+            "oversizedStayedFailed": oversizedTextures?.flowCandidate == nil,
             "oversizedDoesNotMatch": !(oversizedTextures?.matches(plan(
                 flowPath: oversizedFlowPath,
                 phasePath: stockPhasePath
             )) ?? false),
             "oversizedReported": oversized.message.contains("decode failed"),
-            "missingUsesBuiltIn": missingTextures?.phase?.label
+            "missingUsesBuiltIn": missingTextures?.phaseCandidate?.texture.label
                 == "Scene Water Flow built-in normal_ring_smooth",
             "missingMatches": missingTextures?.matches(plan(phasePath: stockPhasePath)) ?? false,
-            "missingPhaseAddress": missingTextures?.phaseSampling.addressMode.rawValue ?? "",
-            "corruptStayedFailed": corruptTextures?.phase == nil,
+            "missingPhaseAddress":
+                missingTextures?.phaseCandidate?.sampling.addressMode.rawValue ?? "",
+            "missingPhaseIdentity": identityKind(missingTextures?.phaseCandidate),
+            "missingPhaseGeneration": generationKind(missingTextures?.phaseCandidate),
+            "corruptStayedFailed": corruptTextures?.phaseCandidate == nil,
             "corruptDoesNotMatch": !(corruptTextures?.matches(
                 plan(phasePath: stockPhasePath)
             ) ?? false),
             "corruptReported": corrupt.message.contains("decode failed"),
-            "unknownStayedFailed": unknown.textures[effectID]?.phase == nil,
+            "unknownStayedFailed": unknown.textures[effectID]?.phaseCandidate == nil,
+            "paddedPhaseLoaded": paddedPhaseTextures?.phaseCandidate != nil,
+            "paddedPhaseRejected": !(paddedPhaseTextures?.matches(
+                plan(phasePath: paddedPhasePath)
+            ) ?? false),
+            "paddedFlowMatches": paddedFlowTextures?.matches(plan(
+                flowPath: paddedFlowPath,
+                phasePath: stockPhasePath
+            )) ?? false,
+            "paddedFlowScale": [
+                paddedFlowScale?.x ?? -1,
+                paddedFlowScale?.y ?? -1,
+            ],
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -283,6 +312,22 @@ enum Harness {
             mipmapLevel: 0
         )
         return bytes
+    }
+
+    static func identityKind(_ candidate: SceneTextureCandidate?) -> String {
+        guard let candidate else { return "none" }
+        switch candidate.identity {
+        case .file: return "file"
+        case .builtIn: return "builtIn"
+        }
+    }
+
+    static func generationKind(_ candidate: SceneTextureCandidate?) -> String {
+        guard let candidate else { return "none" }
+        switch candidate.generation {
+        case .file: return "file"
+        case .immutable: return "immutable"
+        }
     }
 
     static func writeImage(
@@ -344,6 +389,32 @@ enum Harness {
         append(0, to: &data)
         append(UInt32(imageData.count), to: &data)
         data.append(imageData)
+        try data.write(to: url)
+    }
+
+    static func writeRawR8Tex(
+        _ url: URL,
+        textureWidth: UInt32,
+        imageWidth: UInt32
+    ) throws {
+        var data = Data("TEXV0005\0TEXI0001\0".utf8)
+        append(9, to: &data)
+        append(0, to: &data)
+        append(textureWidth, to: &data)
+        append(4, to: &data)
+        append(imageWidth, to: &data)
+        append(4, to: &data)
+        append(0, to: &data)
+        data.append(Data("TEXB0002\0".utf8))
+        append(1, to: &data)
+        append(1, to: &data)
+        append(textureWidth, to: &data)
+        append(4, to: &data)
+        append(0, to: &data)
+        append(0, to: &data)
+        let payload = Data(repeating: 128, count: Int(textureWidth) * 4)
+        append(UInt32(payload.count), to: &data)
+        data.append(payload)
         try data.write(to: url)
     }
 
@@ -416,20 +487,31 @@ class SceneWaterFlowEffectTextureLoaderTests(unittest.TestCase):
                 "embeddedMatches": True,
                 "missingMatches": True,
                 "missingPhaseAddress": "clampToEdge",
+                "missingPhaseGeneration": "immutable",
+                "missingPhaseIdentity": "builtIn",
                 "missingUsesBuiltIn": True,
                 "oversizedDoesNotMatch": True,
                 "oversizedReported": True,
                 "oversizedStayedFailed": True,
+                "paddedPhaseLoaded": True,
+                "paddedPhaseRejected": True,
+                "paddedFlowMatches": True,
+                "paddedFlowScale": [0.5, 1],
                 "unknownStayedFailed": True,
                 "validFlowAddress": "clampToEdge",
+                "validFlowIdentity": "file",
                 "validFlowPixels": [
                     231, 17, 149, 0, 200, 100, 50, 64,
                     17, 203, 41, 255, 89, 7, 211, 128,
                 ],
+                "validFlowPurpose": True,
+                "validFlowScale": [1, 1],
                 "validMatches": True,
                 "validPhaseAddress": "clampToEdge",
+                "validPhaseIdentity": "file",
                 "validPhaseLoaded": True,
                 "validPhasePreservedMips": True,
+                "validPhasePurpose": True,
             },
         )
 

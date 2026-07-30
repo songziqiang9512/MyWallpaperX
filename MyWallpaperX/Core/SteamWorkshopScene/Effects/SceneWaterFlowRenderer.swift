@@ -47,18 +47,24 @@ enum SceneWaterFlowRenderer {
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         guard resources.matches(plan),
-              let flowTexture = resources.flow,
-              let phaseTexture = resources.phase,
+              let flowCandidate = resources.flowCandidate,
+              let phaseCandidate = resources.phaseCandidate,
+              let flowUVScale = flowCandidate.axisAlignedMappedUVScale(
+                  expectedPurpose: .flow
+              ),
+              phaseCandidate.axisAlignedMappedUVScale(
+                  expectedPurpose: .phase
+              ) == SIMD2(repeating: 1),
               pipeline.encode(
                   source: inputTexture,
-                  flowTexture: flowTexture,
-                  phaseTexture: phaseTexture,
+                  flowTexture: flowCandidate.texture,
+                  phaseTexture: phaseCandidate.texture,
                   target: outputTexture,
                   plan: plan,
                   time: time,
-                  maskUVScale: resources.flowUVScale,
-                  flowSampling: resources.flowSampling,
-                  phaseSampling: resources.phaseSampling,
+                  maskUVScale: flowUVScale,
+                  flowSampling: flowCandidate.sampling,
+                  phaseSampling: phaseCandidate.sampling,
                   commandBuffer: commandBuffer
               ) else {
             return nil

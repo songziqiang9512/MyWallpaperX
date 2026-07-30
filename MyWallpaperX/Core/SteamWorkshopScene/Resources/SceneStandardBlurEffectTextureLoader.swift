@@ -2,13 +2,11 @@ import Metal
 import simd
 
 struct SceneStandardBlurEffectTextures {
-    let mask: MTLTexture?
-    let maskUVScale: SIMD2<Float>
-    let maskSampling: SceneTextureSampling
+    let maskCandidate: SceneTextureCandidate?
     let maskPath: String
 
     func matches(_ plan: SceneStandardBlurPlan) -> Bool {
-        mask != nil
+        maskCandidate?.axisAlignedMappedUVScale(expectedPurpose: .mask) != nil
             && normalized(maskPath) == plan.maskTexturePath.map(normalized)
     }
 
@@ -35,7 +33,7 @@ enum SceneStandardBlurEffectTextureLoader {
                 continue
             }
             let maskURL = resolver.resolveTextureFile(named: maskPath)
-            let loaded = SceneLayerEffectTextureLoader.loadTexture(
+            let loaded = SceneLayerEffectTextureLoader.loadTextureCandidate(
                 url: maskURL,
                 label: "standard blur mask",
                 purpose: .mask,
@@ -43,9 +41,7 @@ enum SceneStandardBlurEffectTextureLoader {
                 device: device
             )
             textures[effect.id] = SceneStandardBlurEffectTextures(
-                mask: loaded.texture,
-                maskUVScale: loaded.mappedUVScale,
-                maskSampling: loaded.sampling,
+                maskCandidate: loaded.candidate,
                 maskPath: maskPath
             )
             messages.append(maskURL == nil

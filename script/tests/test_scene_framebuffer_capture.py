@@ -22,12 +22,14 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneGraphNodeScheduler.swift",
     SOURCE_ROOT / "Rendering/SceneMatrix.swift",
     SOURCE_ROOT / "Rendering/SceneMetalPipeline.swift",
+    SOURCE_ROOT / "Resources/SceneTextureUVTransform.swift",
     SOURCE_ROOT / "Rendering/SceneSpriteAnimation.swift",
     SOURCE_ROOT / "Rendering/SceneMainPassEncoder.swift",
     SOURCE_ROOT / "Rendering/SceneFramebufferSnapshot.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenResolutionPolicy.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTexturePool.swift",
     SOURCE_ROOT / "Resources/SceneTextureSampling.swift",
+    SOURCE_ROOT / "Resources/SceneTextureCandidate.swift",
     SOURCE_ROOT / "Effects/SceneGaussianBlurPipeline.swift",
     SOURCE_ROOT / "Effects/SceneStandardBlurPipeline.swift",
     SOURCE_ROOT / "Effects/SceneStandardBlurRenderer.swift",
@@ -965,14 +967,26 @@ struct SceneStandardBlurPlan {
     }
 }
 
+enum SceneTextureLoadPurpose {
+    case premultipliedColor
+    case straightAlbedo
+    case preservedChannels
+    case mask
+    case noise
+    case flow
+    case phase
+    case normal
+}
+
 struct SceneStandardBlurEffectTextures {
-    let mask: MTLTexture?
-    let maskUVScale: SIMD2<Float>
-    let maskSampling: SceneTextureSampling
+    let maskCandidate: SceneTextureCandidate?
     let maskPath: String
 
     func matches(_ plan: SceneStandardBlurPlan) -> Bool {
-        mask != nil && maskPath == plan.maskTexturePath
+        // Keep this harness gate deliberately weaker than production so a
+        // wrong-purpose candidate reaches the production Offscreen renderer's
+        // own typed-purpose guard.
+        maskCandidate != nil && maskPath == plan.maskTexturePath
     }
 }
 
@@ -1439,6 +1453,12 @@ enum Harness {
             pipeline: pipeline,
             compositor: compositor
         )
+        let authoredStandardCandidate = try authoredStandardBlurCandidateEvidence(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor
+        )
         let authoredTwoStageChain = try authoredTwoStageChainEvidence(
             device: device,
             queue: queue,
@@ -1593,6 +1613,7 @@ enum Harness {
             "authoredLegacyComposeScaled": authoredLegacyComposeScaled,
             "authoredPreciseInterleave": authoredPreciseInterleave,
             "authoredStandardCheckerboard": authoredStandardCheckerboard,
+            "authoredStandardCandidate": authoredStandardCandidate,
             "authoredTwoStageChain": authoredTwoStageChain,
             "authoredOpacityLivePixels": authoredOpacityLivePixels,
             "authoredOpacityMaskPixel": authoredOpacityMaskPixel,
@@ -2552,6 +2573,152 @@ enum Harness {
         ]
     }
 
+    static func authoredStandardBlurCandidateEvidence(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor
+    ) throws -> [String: Any] {
+        let size = 16
+        let maskPath = "materials/test/standard_blur_mask.tex"
+        guard let source = makeTexture(device: device, size: size, usage: .shaderRead),
+              let mask = makeTexture(device: device, size: size, usage: .shaderRead),
+              let acceptedTarget = makeTexture(
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
+              ),
+              let rejectedTarget = makeTexture(
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
+              ) else {
+            throw HarnessError.metalUnavailable
+        }
+        fillPremultipliedCheckerboard(source)
+        fillPixels(mask) { x, _ in
+            x < 10 ? [0, 0, 0, 255] : [0, 0, 255, 255]
+        }
+        let plan = authoredStandardBlurPlan(maskTexturePath: maskPath)
+        let acceptedCandidate = textureCandidate(
+            texture: mask,
+            purpose: .mask,
+            name: "standard-blur-mask",
+            mappedWidth: size / 2
+        )
+        try drawAuthoredBlur(
+            source: source,
+            target: acceptedTarget,
+            layer: standardBlurLayer(),
+            plan: plan,
+            pool: SceneOffscreenTexturePool(device: device, maxDimension: size),
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor,
+            masks: standardBlurMasks(
+                candidate: acceptedCandidate,
+                path: maskPath,
+                descriptorID: plan.standardBlur?.effectDescriptorID ?? ""
+            )
+        )
+
+        let wrongPurposeCandidate = textureCandidate(
+            texture: mask,
+            purpose: .flow,
+            name: "wrong-purpose-standard-blur-mask"
+        )
+        let wrongPurposeRejected: Bool
+        do {
+            try drawAuthoredBlur(
+                source: source,
+                target: rejectedTarget,
+                layer: standardBlurLayer(),
+                plan: plan,
+                pool: SceneOffscreenTexturePool(device: device, maxDimension: size),
+                queue: queue,
+                pipeline: pipeline,
+                compositor: compositor,
+                masks: standardBlurMasks(
+                    candidate: wrongPurposeCandidate,
+                    path: maskPath,
+                    descriptorID: plan.standardBlur?.effectDescriptorID ?? ""
+                )
+            )
+            wrongPurposeRejected = false
+        } catch HarnessError.drawRefused {
+            wrongPurposeRejected = true
+        }
+
+        let sourceBytes = try textureBytes(source, queue: queue)
+        let acceptedBytes = try textureBytes(acceptedTarget, queue: queue)
+        return [
+            "accepted": true,
+            "paddedZeroMaskPreservedSource":
+                maxDifference(sourceBytes, acceptedBytes) <= 2,
+            "wrongPurposeRejected": wrongPurposeRejected,
+        ]
+    }
+
+    static func textureCandidate(
+        texture: MTLTexture,
+        purpose: SceneTextureLoadPurpose,
+        name: String,
+        mappedWidth: Int? = nil
+    ) -> SceneTextureCandidate {
+        let physicalSize = CGSize(width: texture.width, height: texture.height)
+        let mappedSize = CGSize(
+            width: mappedWidth ?? texture.width,
+            height: texture.height
+        )
+        let scale = Float(mappedSize.width / physicalSize.width)
+        return SceneTextureCandidate(
+            texture: texture,
+            identity: .builtIn(name: name),
+            generation: .immutable(revision: 1),
+            purpose: purpose,
+            physicalSize: physicalSize,
+            mappedSize: mappedSize,
+            uvTransform: SceneTextureUVTransform(
+                origin: .zero,
+                xAxis: SIMD2(scale, 0),
+                yAxis: SIMD2(0, 1)
+            ),
+            sampling: .linearClamp
+        )
+    }
+
+    static func standardBlurMasks(
+        candidate: SceneTextureCandidate,
+        path: String,
+        descriptorID: String
+    ) -> SceneImageLayerMasks {
+        SceneImageLayerMasks(
+            iris: nil,
+            opacity: nil,
+            water: nil,
+            waterUVScale: SIMD2(repeating: 1),
+            foliage: nil,
+            foliageUVScale: SIMD2(repeating: 1),
+            waterRippleNormal: nil,
+            foliageSwayEffects: [:],
+            waterRippleEffects: [:],
+            blendEffects: [:],
+            shakeEffects: [:],
+            filmGrainEffects: [:],
+            standardBlurEffects: [
+                descriptorID: SceneStandardBlurEffectTextures(
+                    maskCandidate: candidate,
+                    maskPath: path
+                ),
+            ],
+            waterFlowEffects: [:],
+            waterWavesEffects: [:],
+            cursorRippleEffects: [:],
+            opacityEffects: [:],
+            pulseEffects: [:],
+            tintEffects: [:],
+            godraysEffects: [:],
+            shineEffects: [:],
+            xRay: nil
+        )
+    }
+
     static func authoredTwoStageChainEvidence(
         device: MTLDevice,
         queue: MTLCommandQueue,
@@ -3280,7 +3447,8 @@ enum Harness {
         pool: SceneOffscreenTexturePool,
         queue: MTLCommandQueue,
         pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor
+        compositor: SceneImageLayerCompositor,
+        masks: SceneImageLayerMasks = .empty
     ) throws {
         guard let commandBuffer = queue.makeCommandBuffer() else {
             throw HarnessError.metalUnavailable
@@ -3294,7 +3462,7 @@ enum Harness {
             SceneImageLayerDrawRequest(
                 layer: layer,
                 texture: source,
-                masks: .empty,
+                masks: masks,
                 textureFrame: .identity,
                 mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
                 uniforms: SceneImageLayerUniformValues(
@@ -3460,7 +3628,8 @@ enum Harness {
     static func authoredStandardBlurPlan(
         layerID: Int = 530,
         effectIndex: Int = 0,
-        input: Graph.TextureIdentity? = nil
+        input: Graph.TextureIdentity? = nil,
+        maskTexturePath: String? = nil
     ) -> SceneAuthoredEffectExecutionPlan {
         let graph = standardBlurGraph(
             layerID: layerID,
@@ -3473,7 +3642,9 @@ enum Harness {
             backend: .standardBlur(SceneStandardBlurPlan(
                 horizontalStep: 0.6,
                 verticalStep: 0.6,
-                renderTargetScale: 4
+                renderTargetScale: 4,
+                effectDescriptorID: "\(layerID)#effect#\(effectIndex)",
+                maskTexturePath: maskTexturePath
             )),
             materialNodeCount: 4,
             logicalRenderTargetCount: 2,
@@ -4338,6 +4509,14 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertGreater(evidence["horizontalToVerticalDelta"], 2, evidence)
         self.assertGreater(evidence["inputToOutputDelta"], 20, evidence)
         self.assertTrue(self.result["authoredStandardBlurOverridesLegacy"])
+
+    def test_standard_blur_consumes_typed_mask_candidate_and_rejects_wrong_purpose(
+        self,
+    ) -> None:
+        evidence = self.result["authoredStandardCandidate"]
+        self.assertTrue(evidence["accepted"], evidence)
+        self.assertTrue(evidence["paddedZeroMaskPreservedSource"], evidence)
+        self.assertTrue(evidence["wrongPurposeRejected"], evidence)
 
     def test_standard_blur_combine_uses_red_mask_in_premultiplied_space(self) -> None:
         mask_zero, mask_half, mask_one = self.result["standardBlurMaskPixels"]

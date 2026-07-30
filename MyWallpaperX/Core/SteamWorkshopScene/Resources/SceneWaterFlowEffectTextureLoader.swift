@@ -1,18 +1,25 @@
+import CoreGraphics
 import Metal
 import simd
 
 struct SceneWaterFlowEffectTextures {
-    let flow: MTLTexture?
-    let phase: MTLTexture?
-    let flowUVScale: SIMD2<Float>
-    let flowSampling: SceneTextureSampling
-    let phaseSampling: SceneTextureSampling
+    let flowCandidate: SceneTextureCandidate?
+    let phaseCandidate: SceneTextureCandidate?
     let flowPath: String
     let phasePath: String
 
     func matches(_ plan: SceneWaterFlowExecutionPlan) -> Bool {
-        flow != nil
-            && phase != nil
+        guard let flowCandidate,
+              let phaseCandidate,
+              flowCandidate.axisAlignedMappedUVScale(expectedPurpose: .flow) != nil,
+              let phaseUVScale = phaseCandidate.axisAlignedMappedUVScale(
+                  expectedPurpose: .phase
+              ),
+              phaseUVScale == SIMD2(repeating: 1) else {
+            return false
+        }
+        return flowCandidate.texture.width > 0
+            && phaseCandidate.texture.width > 0
             && normalized(flowPath) == normalized(plan.flowTexturePath)
             && normalized(phasePath) == normalized(plan.phaseTexturePath)
     }
@@ -44,14 +51,14 @@ enum SceneWaterFlowEffectTextureLoader {
             }
             let flowURL = resolver.resolveTextureFile(named: flowPath)
             let phaseURL = resolver.resolveTextureFile(named: phasePath)
-            let flow = SceneLayerEffectTextureLoader.loadTexture(
+            let flow = SceneLayerEffectTextureLoader.loadTextureCandidate(
                 url: flowURL,
                 label: "waterflow flow",
                 purpose: .flow,
                 loader: loader,
                 device: device
             )
-            let phase = SceneLayerEffectTextureLoader.loadTexture(
+            let phase = SceneLayerEffectTextureLoader.loadTextureCandidate(
                 url: phaseURL,
                 label: "waterflow phase",
                 purpose: .phase,
@@ -61,14 +68,21 @@ enum SceneWaterFlowEffectTextureLoader {
             let builtInPhase = phaseURL == nil
                 ? SceneWaterFlowBuiltInPhaseTexture.make(path: phasePath, device: device)
                 : nil
+            let builtInPhaseCandidate = builtInPhase.map {
+                SceneTextureCandidate(
+                    texture: $0,
+                    identity: .builtIn(name: phasePath),
+                    generation: .immutable(revision: 1),
+                    purpose: .phase,
+                    physicalSize: CGSize(width: $0.width, height: $0.height),
+                    mappedSize: CGSize(width: $0.width, height: $0.height),
+                    uvTransform: .identity,
+                    sampling: .linearClamp
+                )
+            }
             textures[effect.id] = SceneWaterFlowEffectTextures(
-                flow: flow.texture,
-                phase: phase.texture ?? builtInPhase,
-                flowUVScale: flow.mappedUVScale,
-                flowSampling: flow.sampling,
-                phaseSampling: phase.texture == nil && builtInPhase != nil
-                    ? .linearClamp
-                    : phase.sampling,
+                flowCandidate: flow.candidate,
+                phaseCandidate: phase.candidate ?? builtInPhaseCandidate,
                 flowPath: flowPath,
                 phasePath: phasePath
             )

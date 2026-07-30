@@ -244,15 +244,24 @@ enum SceneOffscreenEffectRenderer {
         ) else {
             return nil
         }
+        let maskCandidate = plan.maskTexturePath == nil
+            ? nil
+            : combineMask?.maskCandidate
+        let maskUVScale = maskCandidate?.axisAlignedMappedUVScale(
+            expectedPurpose: .mask
+        )
+        guard maskCandidate == nil || maskUVScale != nil else {
+            return nil
+        }
         return SceneStandardBlurRenderer.render(
             plan: plan,
             inputTexture: targets.inputTexture,
             quarterA: quarterA,
             quarterB: quarterB,
             outputTexture: targets.outputTexture,
-            maskTexture: combineMask?.mask,
-            maskUVScale: combineMask?.maskUVScale ?? SIMD2(repeating: 1),
-            maskSampling: combineMask?.maskSampling ?? .linearClamp,
+            maskTexture: maskCandidate?.texture,
+            maskUVScale: maskUVScale ?? SIMD2(repeating: 1),
+            maskSampling: maskCandidate?.sampling ?? .linearClamp,
             pipeline: standardBlurPipeline,
             commandBuffer: commandBuffer
         )

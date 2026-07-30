@@ -74,6 +74,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
     SOURCE_ROOT / "Resources/SceneTextureMipUploader.swift",
     SOURCE_ROOT / "Resources/SceneTextureLoader.swift",
+    SOURCE_ROOT / "Resources/SceneTextureUVTransform.swift",
     SOURCE_ROOT / "Rendering/SceneSpriteAnimation.swift",
     SOURCE_ROOT / "Rendering/SceneLayerVisibility.swift",
     SOURCE_ROOT / "Particles/SceneParticleChildGraphExpansion.swift",

@@ -14,6 +14,19 @@ TEXTURE_LOADING = (
     RESOURCE_ROOT / "SceneLayerEffectTextureLoader+TextureLoading.swift"
 )
 XRAY_LOADER = RESOURCE_ROOT / "SceneXRayEffectTextureLoader.swift"
+TEXTURE_CANDIDATE = RESOURCE_ROOT / "SceneTextureCandidate.swift"
+WATER_FLOW_LOADER = RESOURCE_ROOT / "SceneWaterFlowEffectTextureLoader.swift"
+STANDARD_BLUR_LOADER = RESOURCE_ROOT / "SceneStandardBlurEffectTextureLoader.swift"
+EFFECT_ROOT = (
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Effects"
+)
+WATER_FLOW_RENDERER = EFFECT_ROOT / "SceneWaterFlowRenderer.swift"
+OFFSCREEN_RENDERER = EFFECT_ROOT / "SceneOffscreenEffectRenderer.swift"
+AUTHORED_SHADER_PLANNER = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph"
+    / "SceneAuthoredShaderExecutionPlanner.swift"
+)
 METAL_VIEW = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView.swift"
@@ -54,7 +67,7 @@ EXPECTED_PURPOSES = {
     "xray opacity": "mask",
 }
 CALL_PATTERN = re.compile(
-    r"(?:SceneLayerEffectTextureLoader\.)?loadTexture\("
+    r"(?:SceneLayerEffectTextureLoader\.)?loadTexture(?:Candidate)?\("
     r"\s*url:.*?"
     r"\s*label:\s*\"([^\"]+)\".*?"
     r"\s*purpose:\s*\.(\w+),",
@@ -72,10 +85,34 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
 
     def test_effect_helper_has_no_default_purpose(self) -> None:
         source = TEXTURE_LOADING.read_text(encoding="utf-8")
-        signature = source.split("static func loadTexture(", maxsplit=1)[1]
-        signature = signature.split(") ->", maxsplit=1)[0]
-        self.assertIn("purpose: SceneTextureLoadPurpose", signature)
-        self.assertNotIn("purpose: SceneTextureLoadPurpose =", signature)
+        for function in ("loadTexture", "loadTextureCandidate"):
+            signature = source.split(f"static func {function}(", maxsplit=1)[1]
+            signature = signature.split(") ->", maxsplit=1)[0]
+            self.assertIn("purpose: SceneTextureLoadPurpose", signature)
+            self.assertNotIn("purpose: SceneTextureLoadPurpose =", signature)
+
+    def test_candidate_admission_is_limited_to_proven_consumers(self) -> None:
+        candidate_callers = {
+            path.name: path.read_text(encoding="utf-8").count(
+                "loadTextureCandidate("
+            )
+            for path in LOADER_SOURCES
+            if path != TEXTURE_LOADING
+            if "loadTextureCandidate(" in path.read_text(encoding="utf-8")
+        }
+        self.assertEqual(
+            candidate_callers,
+            {
+                "SceneStandardBlurEffectTextureLoader.swift": 1,
+                "SceneWaterFlowEffectTextureLoader.swift": 2,
+            },
+        )
+        helper = TEXTURE_LOADING.read_text(encoding="utf-8")
+        legacy_body = helper.split("static func loadTexture(", maxsplit=1)[1]
+        legacy_body = legacy_body.split(
+            "static func loadTextureCandidate(", maxsplit=1
+        )[0]
+        self.assertNotIn("loadCandidate(", legacy_body)
 
     def test_xray_property_inputs_use_the_preserved_texture_map(self) -> None:
         xray = XRAY_LOADER.read_text(encoding="utf-8")
@@ -87,6 +124,38 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
         self.assertIn(
             "preservedUserPropertyTextures: userPropertyTextureLoad.preservedTextures",
             view,
+        )
+
+    def test_typed_candidate_reaches_two_existing_consumers(self) -> None:
+        candidate = TEXTURE_CANDIDATE.read_text(encoding="utf-8")
+        helper = TEXTURE_LOADING.read_text(encoding="utf-8")
+        water_loader = WATER_FLOW_LOADER.read_text(encoding="utf-8")
+        water_renderer = WATER_FLOW_RENDERER.read_text(encoding="utf-8")
+        blur_loader = STANDARD_BLUR_LOADER.read_text(encoding="utf-8")
+        offscreen = OFFSCREEN_RENDERER.read_text(encoding="utf-8")
+        planner = AUTHORED_SHADER_PLANNER.read_text(encoding="utf-8")
+
+        for field in (
+            "let texture: MTLTexture",
+            "let identity: SceneTextureResourceIdentity",
+            "let generation: SceneTextureResourceGeneration",
+            "let purpose: SceneTextureLoadPurpose",
+            "let physicalSize: CGSize",
+            "let mappedSize: CGSize",
+            "let uvTransform: SceneTextureUVTransform",
+            "let sampling: SceneTextureSampling",
+        ):
+            self.assertIn(field, candidate)
+        self.assertIn("loader.loadCandidate(", helper)
+        self.assertIn("let flowCandidate: SceneTextureCandidate?", water_loader)
+        self.assertIn("let phaseCandidate: SceneTextureCandidate?", water_loader)
+        self.assertIn("expectedPurpose: .flow", water_renderer)
+        self.assertIn("expectedPurpose: .phase", water_renderer)
+        self.assertIn("let maskCandidate: SceneTextureCandidate?", blur_loader)
+        self.assertIn("expectedPurpose: .mask", offscreen)
+        self.assertIn(
+            "material.textureSlots.allSatisfy { $0 == nil }",
+            planner,
         )
 
 

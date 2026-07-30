@@ -15,7 +15,10 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneTextureSampling.swift",
+    SOURCE_ROOT / "Resources/SceneTextureUVTransform.swift",
+    SOURCE_ROOT / "Resources/SceneTextureCandidate.swift",
     SOURCE_ROOT / "Effects/SceneWaterFlowPipeline.swift",
+    SOURCE_ROOT / "Effects/SceneWaterFlowRenderer.swift",
 ]
 
 
@@ -24,11 +27,79 @@ import Foundation
 import Metal
 import simd
 
+enum SceneTextureLoadPurpose: Hashable {
+    case premultipliedColor
+    case straightAlbedo
+    case preservedChannels
+    case mask
+    case noise
+    case flow
+    case phase
+    case normal
+}
+
 struct SceneWaterFlowExecutionPlan {
+    struct EffectKey {
+        let descriptorID: String
+    }
+
+    let effectKey: EffectKey
     let speed: Float
     let strength: Float
     let phaseScale: Float
     let phaseFeather: Float?
+    let flowTexturePath: String
+    let phaseTexturePath: String
+}
+
+struct SceneWaterFlowEffectTextures {
+    let flowCandidate: SceneTextureCandidate?
+    let phaseCandidate: SceneTextureCandidate?
+    let flowPath: String
+    let phasePath: String
+
+    func matches(_ plan: SceneWaterFlowExecutionPlan) -> Bool {
+        flowCandidate != nil
+            && phaseCandidate != nil
+            && flowPath == plan.flowTexturePath
+            && phasePath == plan.phaseTexturePath
+    }
+}
+
+struct SceneImageLayerMasks {
+    let waterFlowEffects: [String: SceneWaterFlowEffectTextures]
+    let water: MTLTexture?
+    let foliage: MTLTexture?
+    let iris: MTLTexture?
+    let opacity: MTLTexture?
+}
+
+struct SceneGraphRenderTargetTable {
+    struct Plan {
+        let logicalTargets: [Int]
+    }
+
+    let plan: Plan
+    let inputTexture: MTLTexture
+    let outputTexture: MTLTexture
+}
+
+struct SceneLayerFragmentUniforms {}
+struct SceneImageLayerPipeline {}
+
+enum SceneOffscreenEffectRenderer {
+    static func captureSource(
+        sourceTexture: MTLTexture,
+        waterMaskTexture: MTLTexture?,
+        foliageMaskTexture: MTLTexture?,
+        auxMaskTexture: MTLTexture?,
+        target: MTLTexture,
+        sourceUniforms: SceneLayerFragmentUniforms,
+        pipeline: SceneImageLayerPipeline,
+        commandBuffer: MTLCommandBuffer
+    ) -> Bool {
+        false
+    }
 }
 
 @main
@@ -100,21 +171,23 @@ enum Harness {
 
     static func render(
         phaseSampling: SceneTextureSampling,
+        mappedFlowWidth: Int = 1,
+        flowPurpose: SceneTextureLoadPurpose = .flow,
         device: MTLDevice,
         queue: MTLCommandQueue,
         pipeline: SceneWaterFlowPipeline
     ) -> (Bool, [UInt8]) {
         let source = colorTexture(device: device)
         let target = colorTexture(device: device, renderTarget: true)
-        let flow = dataTexture(device: device, format: .rg8Unorm, width: 1, height: 1)
+        let flow = dataTexture(device: device, format: .rg8Unorm, width: 2, height: 1)
         let phase = dataTexture(device: device, format: .r8Unorm, width: 2, height: 2)
         uploadSource(source)
-        var flowBytes: [UInt8] = [255, 127]
+        var flowBytes: [UInt8] = [255, 127, 0, 127]
         flow.replace(
-            region: MTLRegionMake2D(0, 0, 1, 1),
+            region: MTLRegionMake2D(0, 0, 2, 1),
             mipmapLevel: 0,
             withBytes: &flowBytes,
-            bytesPerRow: 2
+            bytesPerRow: 4
         )
         var phaseBytes: [UInt8] = [0, 255, 0, 255]
         phase.replace(
@@ -124,23 +197,54 @@ enum Harness {
             bytesPerRow: 2
         )
         let command = queue.makeCommandBuffer()!
-        let encoded = pipeline.encode(
-            source: source,
-            flowTexture: flow,
-            phaseTexture: phase,
-            target: target,
-            plan: .init(
-                speed: 0.4,
-                strength: 1,
-                phaseScale: 2,
-                phaseFeather: nil
+        let scale = Float(mappedFlowWidth) / Float(flow.width)
+        let flowCandidate = SceneTextureCandidate(
+            texture: flow,
+            identity: .builtIn(name: "flow"),
+            generation: .immutable(revision: 1),
+            purpose: flowPurpose,
+            physicalSize: CGSize(width: flow.width, height: flow.height),
+            mappedSize: CGSize(width: mappedFlowWidth, height: flow.height),
+            uvTransform: SceneTextureUVTransform(
+                origin: .zero,
+                xAxis: SIMD2(scale, 0),
+                yAxis: SIMD2(0, 1)
+            ),
+            sampling: SceneTextureSampling(texFlags: 3)
+        )
+        let phaseCandidate = SceneTextureCandidate(
+            texture: phase,
+            identity: .builtIn(name: "phase"),
+            generation: .immutable(revision: 1),
+            purpose: .phase,
+            physicalSize: CGSize(width: phase.width, height: phase.height),
+            mappedSize: CGSize(width: phase.width, height: phase.height),
+            uvTransform: .identity,
+            sampling: phaseSampling
+        )
+        let plan = SceneWaterFlowExecutionPlan(
+            effectKey: .init(descriptorID: "water-flow"),
+            speed: 0.4,
+            strength: 1,
+            phaseScale: 2,
+            phaseFeather: nil,
+            flowTexturePath: "flow",
+            phaseTexturePath: "phase"
+        )
+        let encoded = SceneWaterFlowRenderer.render(
+            plan: plan,
+            resources: SceneWaterFlowEffectTextures(
+                flowCandidate: flowCandidate,
+                phaseCandidate: phaseCandidate,
+                flowPath: "flow",
+                phasePath: "phase"
             ),
             time: 0.73,
-            maskUVScale: SIMD2(repeating: 1),
-            flowSampling: .linearClamp,
-            phaseSampling: phaseSampling,
+            inputTexture: source,
+            outputTexture: target,
+            pipeline: pipeline,
             commandBuffer: command
-        )
+        ) != nil
         command.commit()
         command.waitUntilCompleted()
         return (encoded && command.status == .completed, read(target))
@@ -165,13 +269,34 @@ enum Harness {
             queue: queue,
             pipeline: pipeline
         )
+        let identityMappedFlow = render(
+            phaseSampling: .linearClamp,
+            mappedFlowWidth: 2,
+            device: device,
+            queue: queue,
+            pipeline: pipeline
+        )
+        let wrongPurpose = render(
+            phaseSampling: .linearClamp,
+            flowPurpose: .mask,
+            device: device,
+            queue: queue,
+            pipeline: pipeline
+        )
         let changed = (0..<(size * size)).filter { pixel in
             let offset = pixel * 4
             return clamp.1[offset..<(offset + 4)] != repeating.1[offset..<(offset + 4)]
         }.count
+        let mappedChanged = (0..<(size * size)).filter { pixel in
+            let offset = pixel * 4
+            return clamp.1[offset..<(offset + 4)]
+                != identityMappedFlow.1[offset..<(offset + 4)]
+        }.count
         let result: [String: Any] = [
-            "encoded": clamp.0 && repeating.0,
+            "encoded": clamp.0 && repeating.0 && identityMappedFlow.0,
             "changedPixels": changed,
+            "mappedChangedPixels": mappedChanged,
+            "wrongPurposeRejected": !wrongPurpose.0,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -219,6 +344,8 @@ class SceneWaterFlowTextureSamplingTests(unittest.TestCase):
         result = json.loads(completed.stdout)
         self.assertTrue(result["encoded"], result)
         self.assertGreater(result["changedPixels"], 128, result)
+        self.assertGreater(result["mappedChangedPixels"], 128, result)
+        self.assertTrue(result["wrongPurposeRejected"], result)
 
 
 if __name__ == "__main__":
