@@ -15,12 +15,19 @@ TEXTURE_LOADING = (
 )
 XRAY_LOADER = RESOURCE_ROOT / "SceneXRayEffectTextureLoader.swift"
 TEXTURE_CANDIDATE = RESOURCE_ROOT / "SceneTextureCandidate.swift"
+SLOT_BINDING = RESOURCE_ROOT / "SceneTextureSlotBinding.swift"
 WATER_FLOW_LOADER = RESOURCE_ROOT / "SceneWaterFlowEffectTextureLoader.swift"
 STANDARD_BLUR_LOADER = RESOURCE_ROOT / "SceneStandardBlurEffectTextureLoader.swift"
+SHAKE_LOADER = RESOURCE_ROOT / "SceneShakeEffectTextureLoader.swift"
+FOLIAGE_LOADER = RESOURCE_ROOT / "SceneFoliageSwayEffectTextureLoader.swift"
+RIPPLE_LOADER = RESOURCE_ROOT / "SceneWaterRippleEffectTextureLoader.swift"
 EFFECT_ROOT = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Effects"
 )
 WATER_FLOW_RENDERER = EFFECT_ROOT / "SceneWaterFlowRenderer.swift"
+SHAKE_RENDERER = EFFECT_ROOT / "SceneShakeRenderer.swift"
+FOLIAGE_RENDERER = EFFECT_ROOT / "SceneFoliageSwayRenderer.swift"
+RIPPLE_RENDERER = EFFECT_ROOT / "SceneWaterRippleRenderer.swift"
 OFFSCREEN_RENDERER = EFFECT_ROOT / "SceneOffscreenEffectRenderer.swift"
 AUTHORED_SHADER_PLANNER = (
     REPOSITORY_ROOT
@@ -103,8 +110,11 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
         self.assertEqual(
             candidate_callers,
             {
+                "SceneFoliageSwayEffectTextureLoader.swift": 2,
+                "SceneShakeEffectTextureLoader.swift": 3,
                 "SceneStandardBlurEffectTextureLoader.swift": 1,
                 "SceneWaterFlowEffectTextureLoader.swift": 2,
+                "SceneWaterRippleEffectTextureLoader.swift": 2,
             },
         )
         helper = TEXTURE_LOADING.read_text(encoding="utf-8")
@@ -126,13 +136,24 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
             view,
         )
 
-    def test_typed_candidate_reaches_two_existing_consumers(self) -> None:
+    def test_typed_candidate_and_slot_binding_reach_bounded_consumers(self) -> None:
         candidate = TEXTURE_CANDIDATE.read_text(encoding="utf-8")
+        slot_binding = SLOT_BINDING.read_text(encoding="utf-8")
         helper = TEXTURE_LOADING.read_text(encoding="utf-8")
         water_loader = WATER_FLOW_LOADER.read_text(encoding="utf-8")
         water_renderer = WATER_FLOW_RENDERER.read_text(encoding="utf-8")
         blur_loader = STANDARD_BLUR_LOADER.read_text(encoding="utf-8")
         offscreen = OFFSCREEN_RENDERER.read_text(encoding="utf-8")
+        strict_loaders = {
+            SHAKE_LOADER: ("expectedSlotIndex: 1", "expectedSlotIndex: 3"),
+            FOLIAGE_LOADER: ("expectedSlotIndex: 1", "expectedSlotIndex: 2"),
+            RIPPLE_LOADER: ("expectedSlotIndex: 1", "expectedSlotIndex: 2"),
+        }
+        strict_renderers = (
+            SHAKE_RENDERER,
+            FOLIAGE_RENDERER,
+            RIPPLE_RENDERER,
+        )
         planner = AUTHORED_SHADER_PLANNER.read_text(encoding="utf-8")
 
         for field in (
@@ -146,6 +167,16 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
             "let sampling: SceneTextureSampling",
         ):
             self.assertIn(field, candidate)
+        for field in (
+            "static let authoredSlotRange = 0..<8",
+            "let slotIndex: Int",
+            "let candidate: SceneTextureCandidate",
+            "var physicalMappedResolution: SIMD4<Float>",
+            "var physicalTexelSize: SIMD2<Float>",
+            "var mappedTexelSize: SIMD2<Float>",
+            "!sampling.usesClampBorderFallback",
+        ):
+            self.assertIn(field, slot_binding)
         self.assertIn("loader.loadCandidate(", helper)
         self.assertIn("let flowCandidate: SceneTextureCandidate?", water_loader)
         self.assertIn("let phaseCandidate: SceneTextureCandidate?", water_loader)
@@ -153,6 +184,15 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
         self.assertIn("expectedPurpose: .phase", water_renderer)
         self.assertIn("let maskCandidate: SceneTextureCandidate?", blur_loader)
         self.assertIn("expectedPurpose: .mask", offscreen)
+        for path, markers in strict_loaders.items():
+            source = path.read_text(encoding="utf-8")
+            self.assertIn("SceneTextureSlotBinding(", source)
+            for marker in markers:
+                self.assertIn(marker, source)
+        for path in strict_renderers:
+            source = path.read_text(encoding="utf-8")
+            self.assertIn("resolvedArguments(for: plan)", source)
+            self.assertIn(".sampling", source)
         self.assertIn(
             "material.textureSlots.allSatisfy { $0 == nil }",
             planner,

@@ -12,6 +12,10 @@ from pathlib import Path
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+SAMPLING_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneTextureSampling.swift"
+)
 PIPELINE_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Effects/SceneFoliageSwayPipeline.swift"
@@ -202,7 +206,9 @@ enum Harness {
         source: MTLTexture,
         mask: MTLTexture?,
         noise: MTLTexture,
-        plan: SceneFoliageSwayPlan
+        plan: SceneFoliageSwayPlan,
+        maskSampling: SceneTextureSampling = .linearClamp,
+        noiseSampling: SceneTextureSampling = .linearRepeat
     ) -> (Bool, [UInt8]) {
         let target = outputTexture(device: source.device)
         guard let commandBuffer = queue.makeCommandBuffer() else {
@@ -215,6 +221,8 @@ enum Harness {
             target: target,
             plan: plan,
             maskUVScale: SIMD2(repeating: 1),
+            maskSampling: maskSampling,
+            noiseSampling: noiseSampling,
             time: 0.37,
             commandBuffer: commandBuffer
         )
@@ -317,6 +325,33 @@ enum Harness {
         let redChannelOnly = difference(unmasked.1, redZero.1)
         let greenChannel = difference(unmasked.1, greenChanged.1)
         let authoredScale = difference(scaleReference.1, scalePatterned.1)
+        let nearestRepeat = render(
+            pipeline: pipeline,
+            queue: queue,
+            source: source,
+            mask: nil,
+            noise: redThreeQuarterGreenQuarter,
+            plan: channelPlan,
+            noiseSampling: SceneTextureSampling(texFlags: 1)
+        )
+        let noiseClampBorder = render(
+            pipeline: pipeline,
+            queue: queue,
+            source: source,
+            mask: nil,
+            noise: redThreeQuarterGreenQuarter,
+            plan: channelPlan,
+            noiseSampling: SceneTextureSampling(texFlags: 8)
+        )
+        let maskClampBorder = render(
+            pipeline: pipeline,
+            queue: queue,
+            source: source,
+            mask: whiteMask,
+            noise: redThreeQuarterGreenQuarter,
+            plan: channelPlan,
+            maskSampling: SceneTextureSampling(texFlags: 8)
+        )
 
         let result: [String: Any] = [
             "available": true,
@@ -341,6 +376,9 @@ enum Harness {
             "greenChangedBytes": greenChannel.changedBytes,
             "scaleDifferenceSum": authoredScale.sum,
             "scaleDifferenceMax": authoredScale.maximum,
+            "nearestRepeatAccepted": nearestRepeat.0,
+            "noiseClampBorderRejected": !noiseClampBorder.0,
+            "maskClampBorderRejected": !maskClampBorder.0,
         ]
         let data = try JSONSerialization.data(
             withJSONObject: result,
@@ -371,6 +409,7 @@ class SceneFoliageSwayPipelineTests(unittest.TestCase):
                 "--sdk",
                 "macosx",
                 "swiftc",
+                str(SAMPLING_SOURCE),
                 str(PIPELINE_SOURCE),
                 str(harness),
                 "-framework",
@@ -413,6 +452,11 @@ class SceneFoliageSwayPipelineTests(unittest.TestCase):
 
     def test_noise_uv_uses_authored_scale_without_legacy_multiplier(self) -> None:
         self.assertLessEqual(self.result["scaleDifferenceMax"], 1)
+
+    def test_sampler_contract_accepts_nearest_and_rejects_clamp_border(self) -> None:
+        self.assertTrue(self.result["nearestRepeatAccepted"])
+        self.assertTrue(self.result["noiseClampBorderRejected"])
+        self.assertTrue(self.result["maskClampBorderRejected"])
 
 
 if __name__ == "__main__":

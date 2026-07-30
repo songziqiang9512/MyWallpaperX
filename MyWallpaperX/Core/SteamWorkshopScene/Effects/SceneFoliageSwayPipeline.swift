@@ -42,15 +42,16 @@ fragment float4 sceneFoliageSwayFrag(
     texture2d<float> source [[texture(0)]],
     texture2d<float> maskTexture [[texture(1)]],
     texture2d<float> noiseTexture [[texture(2)]],
+    sampler maskSampler [[sampler(0)]],
+    sampler noiseSampler [[sampler(1)]],
     constant FoliageUniforms &u [[buffer(0)]]
 ) {
     constexpr sampler linearClamp(filter::linear, address::clamp_to_edge);
-    constexpr sampler linearRepeat(filter::linear, address::repeat);
     float2 uv = input.uv;
     float mask = 1.0;
     if (u.hasMask > 0.5) {
         mask = maskTexture.sample(
-            linearClamp,
+            maskSampler,
             clamp(uv * u.maskUVScale, 0.0, 1.0)
         ).r;
     }
@@ -67,7 +68,7 @@ fragment float4 sceneFoliageSwayFrag(
         sine * uv.x + cosine * uv.y
     );
     float sampledNoise = noiseTexture.sample(
-        linearRepeat,
+        noiseSampler,
         uv * u.noise.x
     ).g;
     float phase = (
@@ -101,15 +102,16 @@ struct SceneFoliageSwayPipeline {
     }
 
     private let state: MTLRenderPipelineState
+    private let samplerStates: SceneTextureSamplerStateSet
 
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {
-        guard let library = try? device.makeLibrary(
-            source: sceneFoliageSwayShader,
-            options: MTLCompileOptions()
-        ),
-        let vertex = library.makeFunction(name: "sceneFoliageSwayVert"),
-        let fragment = library.makeFunction(name: "sceneFoliageSwayFrag")
-        else {
+        guard let samplerStates = SceneTextureSamplerStateSet(device: device),
+              let library = try? device.makeLibrary(
+                  source: sceneFoliageSwayShader,
+                  options: MTLCompileOptions()
+              ),
+              let vertex = library.makeFunction(name: "sceneFoliageSwayVert"),
+              let fragment = library.makeFunction(name: "sceneFoliageSwayFrag") else {
             return nil
         }
         let descriptor = MTLRenderPipelineDescriptor()
@@ -120,6 +122,7 @@ struct SceneFoliageSwayPipeline {
             return nil
         }
         self.state = state
+        self.samplerStates = samplerStates
     }
 
     func encode(
@@ -129,12 +132,16 @@ struct SceneFoliageSwayPipeline {
         target: MTLTexture,
         plan: SceneFoliageSwayPlan,
         maskUVScale: SIMD2<Float>,
+        maskSampling: SceneTextureSampling = .linearClamp,
+        noiseSampling: SceneTextureSampling = .linearRepeat,
         time: Float,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
-        guard source !== target,
+        guard !noiseSampling.usesClampBorderFallback,
+              mask == nil || !maskSampling.usesClampBorderFallback,
+              source !== target,
               time.isFinite,
-              validMask(mask, uvScale: maskUVScale) else {
+              validMaskScale(mask, uvScale: maskUVScale) else {
             return false
         }
         let descriptor = MTLRenderPassDescriptor()
@@ -162,12 +169,26 @@ struct SceneFoliageSwayPipeline {
         encoder.setFragmentTexture(source, index: 0)
         encoder.setFragmentTexture(mask ?? source, index: 1)
         encoder.setFragmentTexture(noise, index: 2)
-        encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        encoder.setFragmentSamplerState(
+            samplerStates.state(
+                for: mask == nil ? .linearClamp : maskSampling
+            ),
+            index: 0
+        )
+        encoder.setFragmentSamplerState(
+            samplerStates.state(for: noiseSampling),
+            index: 1
+        )
+        encoder.drawPrimitives(
+            type: .triangleStrip,
+            vertexStart: 0,
+            vertexCount: 4
+        )
         encoder.endEncoding()
         return true
     }
 
-    private func validMask(
+    private func validMaskScale(
         _ mask: MTLTexture?,
         uvScale: SIMD2<Float>
     ) -> Bool {
@@ -176,5 +197,7 @@ struct SceneFoliageSwayPipeline {
             && uvScale.y.isFinite
             && uvScale.x > 0
             && uvScale.y > 0
+            && uvScale.x <= 1
+            && uvScale.y <= 1
     }
 }

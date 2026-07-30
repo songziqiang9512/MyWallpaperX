@@ -53,6 +53,9 @@ DRAW_REQUEST_SOURCE = SOURCE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift"
 EFFECT_TEXTURE_LOADER_SOURCE = (
     SOURCE_ROOT / "Resources/SceneLayerEffectTextureLoader.swift"
 )
+SHAKE_TEXTURE_LOADER_SOURCE = (
+    SOURCE_ROOT / "Resources/SceneShakeEffectTextureLoader.swift"
+)
 
 SAMPLE_STAGE_FIXTURES = {
     "2998757800": (
@@ -1698,15 +1701,20 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
             self.assertIn(f"{resource}: {resource}", resources_only)
             self.assertNotIn(f"{resource}: nil", resources_only)
 
-        loader = EFFECT_TEXTURE_LOADER_SOURCE.read_text(encoding="utf-8")
+        layer_loader = EFFECT_TEXTURE_LOADER_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            "SceneShakeEffectTextureLoader.load(",
+            layer_loader,
+        )
+        loader = SHAKE_TEXTURE_LOADER_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
             "(2 ... 4).contains(pass.textureSlots.count)",
             loader,
         )
         for marker in (
             'label: "shake mask"',
-            "mask: mask.texture",
-            "maskUVScale: mappedUVScale(for: maskURL, texture: mask.texture)",
+            "maskBinding: mask.candidate.flatMap",
+            "SceneTextureSlotBinding(slotIndex: 3, candidate: $0)",
             "maskPath: maskPath",
         ):
             self.assertIn(marker, loader)

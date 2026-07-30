@@ -21,6 +21,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneTextureSampling.swift",
     SCENE_ROOT / "Resources/SceneTextureUVTransform.swift",
     SCENE_ROOT / "Resources/SceneTextureCandidate.swift",
+    SCENE_ROOT / "Resources/SceneTextureSlotBinding.swift",
     SCENE_ROOT / "Resources/SceneImageTextureUploader.swift",
     SCENE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
     SCENE_ROOT / "Resources/SceneTextureMipUploader.swift",
@@ -487,6 +488,21 @@ enum Harness {
                 height: first.mappedSize.height
             )
         )
+        let oversizedPhysical = copy(
+            first,
+            physicalSize: CGSize(
+                width: CGFloat.greatestFiniteMagnitude,
+                height: first.physicalSize.height
+            )
+        )
+        let overflowingTransform = copy(
+            first,
+            uvTransform: SceneTextureUVTransform(
+                origin: .zero,
+                xAxis: SIMD2(Float.greatestFiniteMagnitude, 0),
+                yAxis: SIMD2(0, Float.greatestFiniteMagnitude)
+            )
+        )
         let translated = copy(
             first,
             uvTransform: SceneTextureUVTransform(
@@ -502,6 +518,31 @@ enum Harness {
                 xAxis: SIMD2(0, first.uvTransform.xAxis.x),
                 yAxis: SIMD2(first.uvTransform.yAxis.y, 0)
             )
+        )
+        let clampBorder = copy(
+            first,
+            sampling: SceneTextureSampling(texFlags: 8)
+        )
+        let firstBinding = SceneTextureSlotBinding(
+            slotIndex: 0,
+            candidate: first
+        )
+        let lastBinding = SceneTextureSlotBinding(
+            slotIndex: 7,
+            candidate: first
+        )
+        let rotatedBinding = SceneTextureSlotBinding(
+            slotIndex: 1,
+            candidate: rotated
+        )
+        let clampBorderBinding = SceneTextureSlotBinding(
+            slotIndex: 1,
+            candidate: clampBorder
+        )
+        let firstBindingScale = firstBinding?.axisAlignedUVScale(
+            expectedSlotIndex: 0,
+            expectedPurpose: .mask,
+            allowedPixelFormats: [.r8Unorm]
         )
 
         let originalGeneration = first.generation
@@ -542,6 +583,82 @@ enum Harness {
             "sameGenerationAcrossPurpose": first.generation == flow.generation,
             "purposeCacheSeparated": first.texture !== flow.texture,
             "wrongPurposeRejected": wrongPurposeRejected,
+            "slotBindingRangeAccepted":
+                firstBinding != nil && lastBinding != nil,
+            "slotBindingRangeRejected":
+                SceneTextureSlotBinding(slotIndex: -1, candidate: first) == nil
+                    && SceneTextureSlotBinding(
+                        slotIndex: 8,
+                        candidate: first
+                    ) == nil,
+            "slotBindingMetadataAtomic":
+                firstBinding?.texture === first.texture
+                    && firstBinding?.identity == first.identity
+                    && firstBinding?.generation == first.generation
+                    && firstBinding?.purpose == first.purpose
+                    && firstBinding?.physicalMappedResolution
+                        == SIMD4(8, 4, 4, 4)
+                    && firstBinding?.physicalTexelSize == SIMD2(0.125, 0.25)
+                    && firstBinding?.mappedTexelSize == SIMD2(0.25, 0.25)
+                    && firstBinding?.mipmapLevelCount == 1,
+            "slotBindingScale": [
+                firstBindingScale?.x ?? -1,
+                firstBindingScale?.y ?? -1,
+            ],
+            "slotBindingWrongSlotRejected":
+                firstBinding?.axisAlignedUVScale(
+                    expectedSlotIndex: 1,
+                    expectedPurpose: .mask,
+                    allowedPixelFormats: [.r8Unorm]
+                ) == nil,
+            "slotBindingWrongPurposeRejected":
+                firstBinding?.axisAlignedUVScale(
+                    expectedSlotIndex: 0,
+                    expectedPurpose: .flow,
+                    allowedPixelFormats: [.r8Unorm]
+                ) == nil,
+            "slotBindingWrongFormatRejected":
+                firstBinding?.axisAlignedUVScale(
+                    expectedSlotIndex: 0,
+                    expectedPurpose: .mask,
+                    allowedPixelFormats: [.rg8Unorm]
+                ) == nil,
+            "slotBindingIdentityRequirementRejected":
+                firstBinding?.axisAlignedUVScale(
+                    expectedSlotIndex: 0,
+                    expectedPurpose: .mask,
+                    allowedPixelFormats: [.r8Unorm],
+                    requiresIdentityUV: true
+                ) == nil,
+            "slotBindingInvalidCandidateRejected":
+                SceneTextureSlotBinding(
+                    slotIndex: 0,
+                    candidate: invalidPhysical
+                ) == nil,
+            "slotBindingOversizedPhysicalRejected":
+                SceneTextureSlotBinding(
+                    slotIndex: 0,
+                    candidate: oversizedPhysical
+                ) == nil,
+            "slotBindingOverflowingTransformRejected":
+                SceneTextureSlotBinding(
+                    slotIndex: 0,
+                    candidate: overflowingTransform
+                ) == nil,
+            "slotBindingPreservesRotatedUV":
+                rotatedBinding?.uvTransform.xAxis
+                    == rotated.uvTransform.xAxis
+                    && rotatedBinding?.axisAlignedUVScale(
+                        expectedSlotIndex: 1,
+                        expectedPurpose: .mask,
+                        allowedPixelFormats: [.r8Unorm]
+                    ) == nil,
+            "slotBindingClampBorderRejected":
+                clampBorderBinding?.axisAlignedUVScale(
+                    expectedSlotIndex: 1,
+                    expectedPurpose: .mask,
+                    allowedPixelFormats: [.r8Unorm]
+                ) == nil,
             "invalidPhysicalRejected": invalidPhysical
                 .axisAlignedMappedUVScale(expectedPurpose: .mask) == nil,
             "invalidMappedRejected": invalidMapped
@@ -668,7 +785,8 @@ enum Harness {
         _ source: SceneTextureCandidate,
         physicalSize: CGSize? = nil,
         mappedSize: CGSize? = nil,
-        uvTransform: SceneTextureUVTransform? = nil
+        uvTransform: SceneTextureUVTransform? = nil,
+        sampling: SceneTextureSampling? = nil
     ) -> SceneTextureCandidate {
         SceneTextureCandidate(
             texture: source.texture,
@@ -678,7 +796,7 @@ enum Harness {
             physicalSize: physicalSize ?? source.physicalSize,
             mappedSize: mappedSize ?? source.mappedSize,
             uvTransform: uvTransform ?? source.uvTransform,
-            sampling: source.sampling
+            sampling: sampling ?? source.sampling
         )
     }
 
@@ -1056,6 +1174,19 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "sameGenerationAcrossPurpose": True,
                 "sameResourceIdentityAcrossPurpose": True,
                 "spriteRejected": True,
+                "slotBindingClampBorderRejected": True,
+                "slotBindingIdentityRequirementRejected": True,
+                "slotBindingInvalidCandidateRejected": True,
+                "slotBindingMetadataAtomic": True,
+                "slotBindingOverflowingTransformRejected": True,
+                "slotBindingOversizedPhysicalRejected": True,
+                "slotBindingPreservesRotatedUV": True,
+                "slotBindingRangeAccepted": True,
+                "slotBindingRangeRejected": True,
+                "slotBindingScale": [0.5, 1],
+                "slotBindingWrongFormatRejected": True,
+                "slotBindingWrongPurposeRejected": True,
+                "slotBindingWrongSlotRejected": True,
                 "textureChangedAfterRewrite": True,
                 "translatedRejected": True,
                 "unparsedFallbackRejected": True,

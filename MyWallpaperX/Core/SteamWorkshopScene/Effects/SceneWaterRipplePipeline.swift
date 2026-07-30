@@ -58,10 +58,11 @@ fragment float4 sceneWaterRippleFrag(
     texture2d<float> source [[texture(0)]],
     texture2d<float> normalMap [[texture(1)]],
     texture2d<float> maskTexture [[texture(2)]],
+    sampler normalSampler [[sampler(0)]],
+    sampler maskSampler [[sampler(1)]],
     constant WaterRippleUniforms &u [[buffer(0)]]
 ) {
     constexpr sampler sourceSampler(filter::linear, address::clamp_to_edge);
-    constexpr sampler normalSampler(filter::linear, address::repeat);
     float animation = u.time * u.animationSpeed * u.animationSpeed;
     float2 scrollDirection = float2(-sin(u.direction), cos(u.direction));
     float2 scroll = scrollDirection * u.scrollSpeed * u.scrollSpeed * u.time;
@@ -78,7 +79,7 @@ fragment float4 sceneWaterRippleFrag(
     float mask = 1.0;
     if (u.hasMask != 0u) {
         mask = maskTexture.sample(
-            sourceSampler,
+            maskSampler,
             clamp(in.uv * u.maskUVScale, 0.0, 1.0)
         ).r;
     }
@@ -88,6 +89,7 @@ fragment float4 sceneWaterRippleFrag(
 
 struct SceneWaterRipplePipeline {
     private let state: MTLRenderPipelineState
+    private let samplerStates: SceneTextureSamplerStateSet
     private let vertices: [SceneQuadVertex] = [
         .init(position: SIMD2(-0.5, -0.5), texcoord: SIMD2(0, 1)),
         .init(position: SIMD2(0.5, -0.5), texcoord: SIMD2(1, 1)),
@@ -96,7 +98,11 @@ struct SceneWaterRipplePipeline {
     ]
 
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {
-        guard let library = try? device.makeLibrary(source: sceneWaterRippleShader, options: nil),
+        guard let samplerStates = SceneTextureSamplerStateSet(device: device),
+              let library = try? device.makeLibrary(
+                  source: sceneWaterRippleShader,
+                  options: nil
+              ),
               let vertex = library.makeFunction(name: "sceneWaterRippleVert"),
               let fragment = library.makeFunction(name: "sceneWaterRippleFrag") else {
             return nil
@@ -105,8 +111,13 @@ struct SceneWaterRipplePipeline {
         descriptor.vertexFunction = vertex
         descriptor.fragmentFunction = fragment
         descriptor.colorAttachments[0].pixelFormat = pixelFormat
-        guard let state = try? device.makeRenderPipelineState(descriptor: descriptor) else { return nil }
+        guard let state = try? device.makeRenderPipelineState(
+            descriptor: descriptor
+        ) else {
+            return nil
+        }
         self.state = state
+        self.samplerStates = samplerStates
     }
 
     func encode(
@@ -117,14 +128,27 @@ struct SceneWaterRipplePipeline {
         time: Float,
         maskTexture: MTLTexture? = nil,
         maskUVScale: SIMD2<Float> = SIMD2(repeating: 1),
+        normalSampling: SceneTextureSampling = .linearRepeat,
+        maskSampling: SceneTextureSampling = .linearClamp,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
+        guard !normalSampling.usesClampBorderFallback,
+              maskTexture == nil || !maskSampling.usesClampBorderFallback,
+              source !== target,
+              time.isFinite,
+              validMaskScale(maskTexture, uvScale: maskUVScale) else {
+            return false
+        }
         let descriptor = MTLRenderPassDescriptor()
         descriptor.colorAttachments[0].texture = target
         descriptor.colorAttachments[0].loadAction = .clear
         descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
         descriptor.colorAttachments[0].storeAction = .store
-        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor) else { return false }
+        guard let encoder = commandBuffer.makeRenderCommandEncoder(
+            descriptor: descriptor
+        ) else {
+            return false
+        }
         var vertexCopy = vertices
         var uniforms = SceneWaterRippleUniforms(
             time: time,
@@ -139,13 +163,48 @@ struct SceneWaterRipplePipeline {
             hasMask: maskTexture == nil ? 0 : 1
         )
         encoder.setRenderPipelineState(state)
-        encoder.setVertexBytes(&vertexCopy, length: MemoryLayout<SceneQuadVertex>.stride * vertexCopy.count, index: 0)
-        encoder.setFragmentBytes(&uniforms, length: MemoryLayout<SceneWaterRippleUniforms>.stride, index: 0)
+        encoder.setVertexBytes(
+            &vertexCopy,
+            length: MemoryLayout<SceneQuadVertex>.stride * vertexCopy.count,
+            index: 0
+        )
+        encoder.setFragmentBytes(
+            &uniforms,
+            length: MemoryLayout<SceneWaterRippleUniforms>.stride,
+            index: 0
+        )
         encoder.setFragmentTexture(source, index: 0)
         encoder.setFragmentTexture(normalMap, index: 1)
         encoder.setFragmentTexture(maskTexture ?? normalMap, index: 2)
-        encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: vertexCopy.count)
+        encoder.setFragmentSamplerState(
+            samplerStates.state(for: normalSampling),
+            index: 0
+        )
+        encoder.setFragmentSamplerState(
+            samplerStates.state(
+                for: maskTexture == nil ? .linearClamp : maskSampling
+            ),
+            index: 1
+        )
+        encoder.drawPrimitives(
+            type: .triangleStrip,
+            vertexStart: 0,
+            vertexCount: vertexCopy.count
+        )
         encoder.endEncoding()
         return true
+    }
+
+    private func validMaskScale(
+        _ mask: MTLTexture?,
+        uvScale: SIMD2<Float>
+    ) -> Bool {
+        guard mask != nil else { return true }
+        return uvScale.x.isFinite
+            && uvScale.y.isFinite
+            && uvScale.x > 0
+            && uvScale.y > 0
+            && uvScale.x <= 1
+            && uvScale.y <= 1
     }
 }

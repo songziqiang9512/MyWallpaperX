@@ -706,6 +706,20 @@ struct SceneWaterRippleEffectTextures {
     func matches(_ plan: SceneWaterRippleExecutionPlan) -> Bool { true }
 }
 
+enum SceneWaterRippleRenderer {
+    static func render(
+        plan: SceneWaterRippleExecutionPlan,
+        sourceTexture: MTLTexture,
+        resources: SceneWaterRippleEffectTextures,
+        target: MTLTexture,
+        time: Float,
+        pipeline: SceneWaterRipplePipeline,
+        commandBuffer: MTLCommandBuffer
+    ) -> MTLTexture? {
+        nil
+    }
+}
+
 struct SceneTintShaderProfile {
     let maskMultipliesBlendAlpha: Bool
 

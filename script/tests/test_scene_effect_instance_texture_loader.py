@@ -17,10 +17,16 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneTexDataReader.swift",
     SCENE_ROOT / "Format/SceneTexContainer.swift",
     SCENE_ROOT / "Format/SceneBCTextureDecoder.swift",
+    SCENE_ROOT / "Resources/SceneTextureSampling.swift",
+    SCENE_ROOT / "Resources/SceneTextureUVTransform.swift",
+    SCENE_ROOT / "Resources/SceneTextureCandidate.swift",
+    SCENE_ROOT / "Resources/SceneTextureSlotBinding.swift",
     SCENE_ROOT / "Resources/SceneImageTextureUploader.swift",
     SCENE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
     SCENE_ROOT / "Resources/SceneTextureMipUploader.swift",
     SCENE_ROOT / "Resources/SceneTextureLoader.swift",
+    SCENE_ROOT / "Resources/SceneTextureLoader+Candidate.swift",
+    SCENE_ROOT / "Resources/SceneShakeEffectTextureLoader.swift",
     SCENE_ROOT / "Resources/SceneFoliageSwayEffectTextureLoader.swift",
     SCENE_ROOT / "Resources/SceneWaterRippleEffectTextureLoader.swift",
 ]
@@ -52,6 +58,12 @@ struct SceneFoliageSwayExecutionPlan {
 struct SceneWaterRippleExecutionPlan {
     let maskTexturePath: String
     let normalTexturePath: String
+}
+
+struct SceneShakeExecutionPlan {
+    let flowTexturePath: String
+    let phaseTexturePath: String?
+    let maskTexturePath: String?
 }
 
 enum SceneAuthoredFoliageSwayPlanner {
@@ -109,34 +121,25 @@ enum SceneEffectMaskSemantics {
 }
 
 struct SceneEffectTextureLoadResult {
-    let texture: MTLTexture?
+    let candidate: SceneTextureCandidate?
     let message: String
 }
 
 enum SceneLayerEffectTextureLoader {
-    static func loadTexture(
+    static func loadTextureCandidate(
         url: URL?,
         label: String,
         purpose: SceneTextureLoadPurpose,
         loader: SceneTextureLoader,
         device: MTLDevice
     ) -> SceneEffectTextureLoadResult {
-        guard let url else { return .init(texture: nil, message: "") }
-        switch loader.load(from: url, purpose: purpose, device: device) {
-        case .loaded(let texture):
-            return .init(texture: texture, message: "; \(label) OK")
-        case .decodeFailed(let message):
-            return .init(
-                texture: nil,
-                message: "; \(label) decode failed (\(message))"
-            )
-        default:
-            return .init(texture: nil, message: "; \(label) failed")
+        guard let url else { return .init(candidate: nil, message: "") }
+        switch loader.loadCandidate(from: url, purpose: purpose, device: device) {
+        case .loaded(let candidate):
+            return .init(candidate: candidate, message: "; \(label) OK")
+        case .failed:
+            return .init(candidate: nil, message: "; \(label) failed")
         }
-    }
-
-    static func mappedUVScale(for: URL?, texture: MTLTexture?) -> SIMD2<Float> {
-        SIMD2(repeating: 1)
     }
 }
 
@@ -148,11 +151,13 @@ enum Harness {
     static let rippleA = "9#effect#3"
     static let rippleB = "9#effect#4"
     static let foliageUnmasked = "9#effect#5"
+    static let shakeMasked = "9#effect#6"
     static let maskA = "masks/a"
     static let maskB = "masks/b"
     static let missingMask = "masks/missing"
     static let noise = "util/noise"
     static let normal = "effects/waterripplenormal"
+    static let flow = "masks/flow"
 
     static func main() throws {
         guard CommandLine.arguments.count == 2 else {
@@ -171,6 +176,7 @@ enum Harness {
         let maskBURL = root.appendingPathComponent("mask-b.png")
         let noiseURL = root.appendingPathComponent("materials/util/noise.png")
         let normalURL = root.appendingPathComponent("normal.png")
+        let flowURL = root.appendingPathComponent("flow.png")
         try FileManager.default.createDirectory(
             at: noiseURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
@@ -179,10 +185,12 @@ enum Harness {
         try writeImage(maskBURL, red: 224)
         try writeImage(noiseURL, red: 128)
         try writeImage(normalURL, red: 192)
+        try writeImage(flowURL, red: 127)
         let resolver = SceneTexturePathResolver(urlsByPath: [
             maskA: maskAURL,
             maskB: maskBURL,
             normal: normalURL,
+            flow: flowURL,
         ])
         let layer = SceneRenderDescriptor.Layer(effects: [
             foliage(foliageA, mask: maskA),
@@ -191,6 +199,7 @@ enum Harness {
             foliage(foliageUnmasked, mask: nil),
             ripple(rippleA, mask: maskA),
             ripple(rippleB, mask: maskB),
+            shake(shakeMasked, mask: maskA),
         ])
         let loader = SceneTextureLoader()
         let foliageLoaded = SceneFoliageSwayEffectTextureLoader.load(
@@ -214,43 +223,84 @@ enum Harness {
             loader: loader,
             device: device
         )
+        let shakeLoaded = SceneShakeEffectTextureLoader.load(
+            for: layer,
+            effectIDs: [shakeMasked],
+            resolver: resolver,
+            loader: loader,
+            device: device
+        )
         let foliageAResources = foliageLoaded.textures[foliageA]
         let foliageBResources = foliageLoaded.textures[foliageB]
         let foliageUnmaskedResources = foliageLoaded.textures[foliageUnmasked]
         let rippleAResources = rippleLoaded.textures[rippleA]
         let rippleBResources = rippleLoaded.textures[rippleB]
+        let shakeResources = shakeLoaded.textures[shakeMasked]
         let result: [String: Any] = [
             "foliageKeys": foliageLoaded.textures.keys.sorted(),
-            "foliageAMatches": foliageAResources?.matches(.init(
+            "foliageAMatches": foliageAResources?.resolvedArguments(for: .init(
                 maskTexturePath: maskA, noiseTexturePath: noise
-            )) ?? false,
-            "foliageBMatches": foliageBResources?.matches(.init(
+            )) != nil,
+            "foliageBMatches": foliageBResources?.resolvedArguments(for: .init(
                 maskTexturePath: maskB, noiseTexturePath: noise
-            )) ?? false,
-            "foliageUnmaskedMatches": foliageUnmaskedResources?.matches(.init(
+            )) != nil,
+            "foliageUnmaskedMatches": foliageUnmaskedResources?
+                .resolvedArguments(for: .init(
                 maskTexturePath: nil, noiseTexturePath: noise
-            )) ?? false,
+            )) != nil,
             "foliageUnmaskedMaskIsNil": foliageUnmaskedResources.map {
-                $0.mask == nil
+                $0.maskBinding == nil
             } ?? false,
             "foliageUnmaskedMaskPathIsNil": foliageUnmaskedResources.map {
                 $0.maskPath == nil
             } ?? false,
-            "foliageUnmaskedStockNoiseLoaded": foliageUnmaskedResources?.noise != nil,
-            "foliageMasksDistinct": foliageAResources?.mask !== foliageBResources?.mask,
-            "foliageNoiseShared": foliageAResources?.noise === foliageBResources?.noise,
-            "missingFoliageFailsClosed": !(foliageMissing.textures[foliageExcluded]?
-                .matches(.init(maskTexturePath: missingMask, noiseTexturePath: noise))
-                ?? false),
+            "foliageUnmaskedStockNoiseLoaded":
+                foliageUnmaskedResources?.noiseBinding != nil,
+            "foliageMasksDistinct":
+                foliageAResources?.maskBinding?.texture
+                    !== foliageBResources?.maskBinding?.texture,
+            "foliageNoiseShared":
+                foliageAResources?.noiseBinding?.texture
+                    === foliageBResources?.noiseBinding?.texture,
+            "foliageSlotsTyped":
+                foliageAResources?.maskBinding?.slotIndex == 1
+                    && foliageAResources?.noiseBinding?.slotIndex == 2,
+            "missingFoliageFailsClosed":
+                foliageMissing.textures[foliageExcluded]?
+                    .resolvedArguments(for: .init(
+                        maskTexturePath: missingMask,
+                        noiseTexturePath: noise
+                    )) == nil,
             "rippleKeys": rippleLoaded.textures.keys.sorted(),
-            "rippleAMatches": rippleAResources?.matches(.init(
+            "rippleAMatches": rippleAResources?.resolvedArguments(for: .init(
                 maskTexturePath: maskA, normalTexturePath: normal
-            )) ?? false,
-            "rippleBMatches": rippleBResources?.matches(.init(
+            )) != nil,
+            "rippleBMatches": rippleBResources?.resolvedArguments(for: .init(
                 maskTexturePath: maskB, normalTexturePath: normal
-            )) ?? false,
-            "rippleMasksDistinct": rippleAResources?.mask !== rippleBResources?.mask,
-            "rippleNormalShared": rippleAResources?.normal === rippleBResources?.normal,
+            )) != nil,
+            "rippleMasksDistinct":
+                rippleAResources?.maskBinding?.texture
+                    !== rippleBResources?.maskBinding?.texture,
+            "rippleNormalShared":
+                rippleAResources?.normalBinding?.texture
+                    === rippleBResources?.normalBinding?.texture,
+            "rippleSlotsTyped":
+                rippleAResources?.maskBinding?.slotIndex == 1
+                    && rippleAResources?.normalBinding?.slotIndex == 2,
+            "shakeWhitePhaseFallback":
+                shakeResources?.phaseBinding == nil
+                    && shakeResources?.phasePath == nil,
+            "shakeMatches":
+                shakeResources?.resolvedArguments(for: .init(
+                    flowTexturePath: flow,
+                    phaseTexturePath: nil,
+                    maskTexturePath: maskA
+                )) != nil,
+            "shakeSlotsTyped":
+                shakeResources?.flowBinding?.slotIndex == 1
+                    && shakeResources?.flowBinding?.purpose == .flow
+                    && shakeResources?.maskBinding?.slotIndex == 3
+                    && shakeResources?.maskBinding?.purpose == .mask,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -275,6 +325,17 @@ enum Harness {
             id: id,
             file: "effects/waterripple/effect.json",
             passes: [.init(textureSlots: [nil, mask, normal])]
+        )
+    }
+
+    static func shake(
+        _ id: String,
+        mask: String
+    ) -> SceneRenderDescriptor.EffectDescriptor {
+        .init(
+            id: id,
+            file: "effects/shake/effect.json",
+            passes: [.init(textureSlots: [nil, flow, "util/white", mask])]
         )
     }
 
@@ -368,6 +429,7 @@ class SceneEffectInstanceTextureLoaderTests(unittest.TestCase):
                 "foliageKeys": ["9#effect#0", "9#effect#1", "9#effect#5"],
                 "foliageMasksDistinct": True,
                 "foliageNoiseShared": True,
+                "foliageSlotsTyped": True,
                 "foliageUnmaskedMaskIsNil": True,
                 "foliageUnmaskedMaskPathIsNil": True,
                 "foliageUnmaskedMatches": True,
@@ -378,6 +440,10 @@ class SceneEffectInstanceTextureLoaderTests(unittest.TestCase):
                 "rippleKeys": ["9#effect#3", "9#effect#4"],
                 "rippleMasksDistinct": True,
                 "rippleNormalShared": True,
+                "rippleSlotsTyped": True,
+                "shakeMatches": True,
+                "shakeSlotsTyped": True,
+                "shakeWhitePhaseFallback": True,
             },
         )
 

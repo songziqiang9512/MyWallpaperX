@@ -24,6 +24,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneEffectMaskSemantics.swift",
     SOURCE_ROOT / "Effects/SceneWaterRippleRuntimePlan.swift",
     SOURCE_ROOT / "Resources/SceneImageTextureUploader.swift",
+    SOURCE_ROOT / "Resources/SceneTextureSampling.swift",
     SOURCE_ROOT / "Effects/SceneWaterRipplePipeline.swift",
 ]
 
@@ -188,7 +189,9 @@ enum Harness {
         plan: SceneWaterRippleNormalPlan,
         device: MTLDevice,
         queue: MTLCommandQueue,
-        pipeline: SceneWaterRipplePipeline
+        pipeline: SceneWaterRipplePipeline,
+        normalSampling: SceneTextureSampling = .linearRepeat,
+        maskSampling: SceneTextureSampling = .linearClamp
     ) -> (encoded: Bool, bytes: [UInt8]) {
         let source = texture(device: device)
         let normal = dataTexture(
@@ -213,6 +216,8 @@ enum Harness {
             plan: plan,
             time: time,
             maskTexture: mask,
+            normalSampling: normalSampling,
+            maskSampling: maskSampling,
             commandBuffer: command
         )
         command.commit()
@@ -288,6 +293,30 @@ enum Harness {
             queue: queue,
             pipeline: pipeline
         )
+        let nearestRepeat = render(
+            time: 1,
+            plan: animatedPlan,
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            normalSampling: SceneTextureSampling(texFlags: 1)
+        )
+        let normalClampBorder = render(
+            time: 1,
+            plan: animatedPlan,
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            normalSampling: SceneTextureSampling(texFlags: 8)
+        )
+        let maskClampBorder = render(
+            time: 1,
+            plan: animatedPlan,
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            maskSampling: SceneTextureSampling(texFlags: 8)
+        )
         let result: [String: Any] = [
             "animatedEncoded": animatedStart.encoded && animatedLater.encoded,
             "animatedChangedPixels": changedPixels(
@@ -298,6 +327,9 @@ enum Harness {
             "zeroSpeedStable": staticStart.encoded
                 && staticLater.encoded
                 && changedPixels(staticStart.bytes, staticLater.bytes) == 0,
+            "nearestRepeatAccepted": nearestRepeat.encoded,
+            "normalClampBorderRejected": !normalClampBorder.encoded,
+            "maskClampBorderRejected": !maskClampBorder.encoded,
         ]
         let data = try! JSONSerialization.data(withJSONObject: result)
         print(String(data: data, encoding: .utf8)!)
@@ -348,6 +380,9 @@ class SceneWaterRippleRenderingTests(unittest.TestCase):
         self.assertGreater(output["animatedChangedPixels"], 100, output)
         self.assertTrue(output["maskPreservesLeftHalf"], output)
         self.assertTrue(output["zeroSpeedStable"], output)
+        self.assertTrue(output["nearestRepeatAccepted"], output)
+        self.assertTrue(output["normalClampBorderRejected"], output)
+        self.assertTrue(output["maskClampBorderRejected"], output)
 
 
 if __name__ == "__main__":

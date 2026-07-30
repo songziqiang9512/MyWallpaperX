@@ -13,6 +13,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
+    SOURCE_ROOT / "Resources/SceneTextureSampling.swift",
     SOURCE_ROOT / "Effects/SceneShakePipeline.swift",
     SOURCE_ROOT / "Effects/SceneShakeRenderer.swift",
 ]
@@ -40,6 +41,19 @@ struct SceneShakeExecutionPlan {
 }
 
 struct SceneShakeEffectTextures {
+    struct Binding {
+        let texture: MTLTexture
+        let sampling: SceneTextureSampling
+    }
+
+    struct ResolvedArguments {
+        let flow: Binding
+        let phase: Binding?
+        let mask: Binding?
+        let flowUVScale: SIMD2<Float>
+        let maskUVScale: SIMD2<Float>
+    }
+
     let flow: MTLTexture?
     let phase: MTLTexture?
     let mask: MTLTexture?
@@ -48,13 +62,31 @@ struct SceneShakeEffectTextures {
     let flowPath: String
     let phasePath: String?
     let maskPath: String?
+    var flowSampling: SceneTextureSampling = .linearClamp
+    var phaseSampling: SceneTextureSampling = .linearClamp
+    var maskSampling: SceneTextureSampling = .linearClamp
 
-    func matches(_ plan: SceneShakeExecutionPlan) -> Bool {
-        flow != nil
-            && flowPath == "masks/flow"
-            && phasePath == (phase == nil ? nil : "masks/phase")
-            && maskPath == plan.maskTexturePath
-            && (plan.maskTexturePath == nil || mask != nil)
+    func resolvedArguments(
+        for plan: SceneShakeExecutionPlan
+    ) -> ResolvedArguments? {
+        guard let flow,
+              flowPath == "masks/flow",
+              phasePath == (phase == nil ? nil : "masks/phase"),
+              maskPath == plan.maskTexturePath,
+              plan.maskTexturePath == nil || mask != nil else {
+            return nil
+        }
+        return .init(
+            flow: .init(texture: flow, sampling: flowSampling),
+            phase: phase.map {
+                .init(texture: $0, sampling: phaseSampling)
+            },
+            mask: mask.map {
+                .init(texture: $0, sampling: maskSampling)
+            },
+            flowUVScale: flowUVScale,
+            maskUVScale: maskUVScale
+        )
     }
 }
 
@@ -228,7 +260,10 @@ enum Harness {
         time: Float,
         audioPulse: Float? = nil,
         flowUVScale: SIMD2<Float> = SIMD2(1, 1),
-        maskUVScale: SIMD2<Float> = SIMD2(1, 1)
+        maskUVScale: SIMD2<Float> = SIMD2(1, 1),
+        flowSampling: SceneTextureSampling = .linearClamp,
+        phaseSampling: SceneTextureSampling = .linearClamp,
+        maskSampling: SceneTextureSampling = .linearClamp
     ) -> (bytes: [UInt8], returnedOutput: Bool, completed: Bool) {
         let target = texture(device: device)
         let command = queue.makeCommandBuffer()!
@@ -240,7 +275,10 @@ enum Harness {
             maskUVScale: maskUVScale,
             flowPath: "masks/flow",
             phasePath: phase == nil ? nil : "masks/phase",
-            maskPath: mask == nil ? nil : "masks/mask"
+            maskPath: mask == nil ? nil : "masks/mask",
+            flowSampling: flowSampling,
+            phaseSampling: phaseSampling,
+            maskSampling: maskSampling
         )
         let rendered = SceneShakeRenderer.render(
             plan: plan,
@@ -326,7 +364,10 @@ enum Harness {
             maskUVScale: SIMD2<Float> = SIMD2(1, 1),
             plan candidatePlan: SceneShakeExecutionPlan = plan(),
             time: Float = 1.5707963,
-            audioPulse: Float? = nil
+            audioPulse: Float? = nil,
+            flowSampling: SceneTextureSampling = .linearClamp,
+            phaseSampling: SceneTextureSampling = .linearClamp,
+            maskSampling: SceneTextureSampling = .linearClamp
         ) -> Bool {
             pipeline.encode(
                 source: candidateSource,
@@ -335,6 +376,9 @@ enum Harness {
                 flowUVScale: flowUVScale,
                 maskMap: candidateMask,
                 maskUVScale: maskUVScale,
+                flowSampling: flowSampling,
+                phaseSampling: phaseSampling,
+                maskSampling: maskSampling,
                 target: candidateTarget,
                 plan: candidatePlan,
                 time: time,
@@ -368,6 +412,19 @@ enum Harness {
             "invalidStrength": !encoded(plan: plan(strength: 0)),
             "nanTime": !encoded(time: .nan),
             "nanAudioPulse": !encoded(audioPulse: .nan),
+            "nearestRepeatSamplingAccepted": encoded(
+                flowSampling: SceneTextureSampling(texFlags: 1)
+            ),
+            "clampBorderSamplingRejected": !encoded(
+                flowSampling: SceneTextureSampling(texFlags: 8)
+            ),
+            "clampBorderPhaseSamplingRejected": !encoded(
+                phaseSampling: SceneTextureSampling(texFlags: 8)
+            ),
+            "clampBorderMaskSamplingRejected": !encoded(
+                mask: maskTexture(device: device),
+                maskSampling: SceneTextureSampling(texFlags: 8)
+            ),
             "wrongPipelineFormat": SceneShakePipeline(
                 device: device,
                 pixelFormat: .rgba8Unorm

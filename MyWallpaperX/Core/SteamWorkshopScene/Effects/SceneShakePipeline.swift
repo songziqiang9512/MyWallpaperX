@@ -42,13 +42,16 @@ fragment float4 sceneShakeFrag(
     texture2d<float> flowMap [[texture(1)]],
     texture2d<float> phaseMap [[texture(2)]],
     texture2d<float> maskMap [[texture(3)]],
+    sampler flowSampler [[sampler(0)]],
+    sampler phaseSampler [[sampler(1)]],
+    sampler maskSampler [[sampler(2)]],
     constant ShakeUniforms &uniforms [[buffer(0)]]
 ) {
     constexpr sampler linearClamp(filter::linear, address::clamp_to_edge);
     constexpr float twoPi = 6.28318530717958647692;
     float2 flowUV = input.texcoord * uniforms.flowUVScale.xy;
-    float flowPhase = phaseMap.sample(linearClamp, flowUV).r * twoPi;
-    float2 flowMask = (flowMap.sample(linearClamp, flowUV).rg - float2(0.498)) * 2.0;
+    float flowPhase = phaseMap.sample(phaseSampler, flowUV).r * twoPi;
+    float2 flowMask = (flowMap.sample(flowSampler, flowUV).rg - float2(0.498)) * 2.0;
 
     // 官方 shake.frag 把整段时间驱动计算包在 `#if AUDIOPROCESSING == 0` 内：
     // 启用 audio 后 speed / friction / bounds / flowPhase 都不参与，
@@ -77,7 +80,7 @@ fragment float4 sceneShakeFrag(
     if (uniforms.maskUVScale.z > 0.5) {
         // 官方 MASK 分支在位移后的坐标采样遮罩，防止从遮罩区域外卷入像素。
         float mask = maskMap.sample(
-            linearClamp,
+            maskSampler,
             displacedUV * uniforms.maskUVScale.xy
         ).r;
         return mix(source.sample(linearClamp, input.texcoord), displaced, mask);
@@ -96,12 +99,14 @@ private struct SceneShakeUniforms {
 
 struct SceneShakePipeline {
     private let state: MTLRenderPipelineState
+    private let samplerStates: SceneTextureSamplerStateSet
     private let whitePhaseTexture: MTLTexture
     private let deviceRegistryID: UInt64
 
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {
         let options = MTLCompileOptions()
         guard pixelFormat == .bgra8Unorm,
+              let samplerStates = SceneTextureSamplerStateSet(device: device),
               let library = try? device.makeLibrary(
                 source: sceneShakeShaderSource,
                 options: options
@@ -119,6 +124,7 @@ struct SceneShakePipeline {
             return nil
         }
         self.state = state
+        self.samplerStates = samplerStates
         self.whitePhaseTexture = whitePhaseTexture
         deviceRegistryID = device.registryID
     }
@@ -130,6 +136,9 @@ struct SceneShakePipeline {
         flowUVScale: SIMD2<Float>,
         maskMap: MTLTexture?,
         maskUVScale: SIMD2<Float>,
+        flowSampling: SceneTextureSampling = .linearClamp,
+        phaseSampling: SceneTextureSampling = .linearClamp,
+        maskSampling: SceneTextureSampling = .linearClamp,
         target: MTLTexture,
         plan: SceneShakeExecutionPlan,
         time: Float,
@@ -137,19 +146,25 @@ struct SceneShakePipeline {
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
         let phase = phaseMap ?? whitePhaseTexture
-        guard valid(
-            source: source,
-            flowMap: flowMap,
-            phaseMap: phase,
-            target: target,
-            flowUVScale: flowUVScale,
-            maskMap: maskMap,
-            maskUVScale: maskUVScale,
-            plan: plan,
-            time: time,
-            audioPulse: audioPulse,
-            commandBuffer: commandBuffer
-        ) else {
+        let effectivePhaseSampling = phaseMap == nil
+            ? SceneTextureSampling.linearClamp
+            : phaseSampling
+        guard !flowSampling.usesClampBorderFallback,
+              phaseMap == nil || !phaseSampling.usesClampBorderFallback,
+              maskMap == nil || !maskSampling.usesClampBorderFallback,
+              valid(
+                  source: source,
+                  flowMap: flowMap,
+                  phaseMap: phase,
+                  target: target,
+                  flowUVScale: flowUVScale,
+                  maskMap: maskMap,
+                  maskUVScale: maskUVScale,
+                  plan: plan,
+                  time: time,
+                  audioPulse: audioPulse,
+                  commandBuffer: commandBuffer
+              ) else {
             return false
         }
         let descriptor = MTLRenderPassDescriptor()
@@ -165,6 +180,20 @@ struct SceneShakePipeline {
         encoder.setFragmentTexture(flowMap, index: 1)
         encoder.setFragmentTexture(phase, index: 2)
         encoder.setFragmentTexture(maskMap ?? flowMap, index: 3)
+        encoder.setFragmentSamplerState(
+            samplerStates.state(for: flowSampling),
+            index: 0
+        )
+        encoder.setFragmentSamplerState(
+            samplerStates.state(for: effectivePhaseSampling),
+            index: 1
+        )
+        encoder.setFragmentSamplerState(
+            samplerStates.state(
+                for: maskMap == nil ? .linearClamp : maskSampling
+            ),
+            index: 2
+        )
         var uniforms = SceneShakeUniforms(
             boundsAndFriction: SIMD4(
                 plan.bounds.x,

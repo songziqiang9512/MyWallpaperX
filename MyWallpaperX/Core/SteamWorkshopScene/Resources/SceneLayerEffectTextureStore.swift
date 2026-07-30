@@ -1,30 +1,6 @@
 import Metal
 import simd
 
-struct SceneShakeEffectTextures {
-    let flow: MTLTexture?
-    let phase: MTLTexture?
-    let mask: MTLTexture?
-    let flowUVScale: SIMD2<Float>
-    let maskUVScale: SIMD2<Float>
-    let flowPath: String
-    let phasePath: String?
-    let maskPath: String?
-
-    func matches(_ plan: SceneShakeExecutionPlan) -> Bool {
-        flow != nil
-            && normalized(flowPath) == normalized(plan.flowTexturePath)
-            && normalized(phasePath) == normalized(plan.phaseTexturePath)
-            && (plan.phaseTexturePath == nil || phase != nil)
-            && normalized(maskPath) == normalized(plan.maskTexturePath)
-            && (plan.maskTexturePath == nil || mask != nil)
-    }
-
-    private func normalized(_ path: String?) -> String? {
-        path?.replacingOccurrences(of: "\\", with: "/").lowercased()
-    }
-}
-
 struct SceneLayerEffectTextures {
     let irisMask: MTLTexture?
     let opacityMask: MTLTexture?

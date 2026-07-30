@@ -1,27 +1,26 @@
 import Metal
-import simd
 
-enum SceneFoliageSwayRenderer {
+enum SceneWaterRippleRenderer {
     static func render(
-        plan: SceneFoliageSwayExecutionPlan,
+        plan: SceneWaterRippleExecutionPlan,
         sourceTexture: MTLTexture,
-        resources: SceneFoliageSwayEffectTextures,
+        resources: SceneWaterRippleEffectTextures,
         target: MTLTexture,
         time: Float,
-        pipeline: SceneFoliageSwayPipeline,
+        pipeline: SceneWaterRipplePipeline,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         guard let arguments = resources.resolvedArguments(for: plan),
               pipeline.encode(
                   source: sourceTexture,
-                  mask: arguments.mask?.texture,
-                  noise: arguments.noise.texture,
+                  normalMap: arguments.normal.texture,
                   target: target,
                   plan: plan.runtimePlan,
-                  maskUVScale: arguments.maskUVScale,
-                  maskSampling: arguments.mask?.sampling ?? .linearClamp,
-                  noiseSampling: arguments.noise.sampling,
                   time: time,
+                  maskTexture: arguments.mask.texture,
+                  maskUVScale: arguments.maskUVScale,
+                  normalSampling: arguments.normal.sampling,
+                  maskSampling: arguments.mask.sampling,
                   commandBuffer: commandBuffer
               ) else {
             return nil

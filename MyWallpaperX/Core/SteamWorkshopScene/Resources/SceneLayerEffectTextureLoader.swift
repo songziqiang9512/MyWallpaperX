@@ -80,7 +80,7 @@ enum SceneLayerEffectTextureLoader {
             for: layer, effectIDs: blendEffectIDs, resolver: resolver, loader: loader,
             device: device, userPropertyTextures: userPropertyTextures
         )
-        let shake = loadShakeEffects(
+        let shake = SceneShakeEffectTextureLoader.load(
             for: layer,
             effectIDs: shakeEffectIDs,
             resolver: resolver,
@@ -228,90 +228,6 @@ enum SceneLayerEffectTextureLoader {
                 xRay.message,
             ].joined()
         )
-    }
-
-    private static func loadShakeEffects(
-        for layer: SceneRenderDescriptor.Layer,
-        effectIDs: Set<String>,
-        resolver: SceneTexturePathResolver,
-        loader: SceneTextureLoader,
-        device: MTLDevice
-    ) -> (textures: [String: SceneShakeEffectTextures], message: String) {
-        var textures: [String: SceneShakeEffectTextures] = [:]
-        var messages: [String] = []
-        for effect in layer.effects where effectIDs.contains(effect.id) {
-            guard effect.file.replacingOccurrences(of: "\\", with: "/").lowercased()
-                    == "effects/shake/effect.json",
-                  effect.passes.count == 1,
-                  let pass = effect.passes.first,
-                  (2 ... 4).contains(pass.textureSlots.count),
-                  pass.textureSlots[0] == nil,
-                  let flowPath = pass.textureSlots[1] else {
-                continue
-            }
-            // legacy 实例显式写 shader 默认 `util/white` 时按缺省处理（等价 nil，
-            // 走 pipeline 内置 R8 白回退），与 planner 的归一保持一致。
-            let rawPhasePath = pass.textureSlots.indices.contains(2)
-                ? pass.textureSlots[2]
-                : nil
-            let phasePath = rawPhasePath.flatMap { path -> String? in
-                path.replacingOccurrences(of: "\\", with: "/").lowercased()
-                    == "util/white" ? nil : path
-            }
-            let maskPath = pass.textureSlots.indices.contains(3)
-                ? pass.textureSlots[3]
-                : nil
-            let flowURL = resolver.resolveTextureFile(named: flowPath)
-            let phaseURL = phasePath.flatMap(resolver.resolveTextureFile(named:))
-            let maskURL = maskPath.flatMap(resolver.resolveTextureFile(named:))
-            let flow = loadTexture(
-                url: flowURL,
-                label: "shake flow",
-                purpose: .flow,
-                loader: loader,
-                device: device
-            )
-            let phase = loadTexture(
-                url: phaseURL,
-                label: "shake phase",
-                purpose: .phase,
-                loader: loader,
-                device: device
-            )
-            let mask = loadTexture(
-                url: maskURL,
-                label: "shake mask",
-                purpose: .mask,
-                loader: loader,
-                device: device
-            )
-            textures[effect.id] = SceneShakeEffectTextures(
-                flow: flow.texture,
-                phase: phase.texture,
-                mask: mask.texture,
-                flowUVScale: mappedUVScale(for: flowURL, texture: flow.texture),
-                maskUVScale: mappedUVScale(for: maskURL, texture: mask.texture),
-                flowPath: flowPath,
-                phasePath: phasePath,
-                maskPath: maskPath
-            )
-            messages.append(flowURL == nil
-                ? "; shake flow missing \(flowPath)"
-                : flow.message)
-            if let phasePath {
-                messages.append(phaseURL == nil
-                    ? "; shake phase missing \(phasePath)"
-                    : phase.message)
-            } else {
-                messages.append("; shake phase authored-white fallback")
-            }
-            if let maskPath {
-                messages.append(maskURL == nil
-                    ? "; shake mask missing \(maskPath)"
-                    : mask.message)
-            }
-        }
-        return (textures, messages.joined())
     }
 
     private static func resolveFirstTexture(

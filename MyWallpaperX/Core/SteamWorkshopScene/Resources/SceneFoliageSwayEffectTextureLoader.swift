@@ -2,26 +2,60 @@ import Metal
 import simd
 
 struct SceneFoliageSwayEffectTextures {
-    let mask: MTLTexture?
-    let maskUVScale: SIMD2<Float>
+    struct ResolvedArguments {
+        let mask: SceneTextureSlotBinding?
+        let noise: SceneTextureSlotBinding
+        let maskUVScale: SIMD2<Float>
+    }
+
+    let maskBinding: SceneTextureSlotBinding?
     let maskPath: String?
-    let noise: MTLTexture?
+    let noiseBinding: SceneTextureSlotBinding?
     let noisePath: String
 
-    func matches(_ plan: SceneFoliageSwayExecutionPlan) -> Bool {
-        noise != nil
-            && maskMatches(plan.maskTexturePath)
-            && normalized(noisePath) == normalized(plan.noiseTexturePath)
+    func resolvedArguments(
+        for plan: SceneFoliageSwayExecutionPlan
+    ) -> ResolvedArguments? {
+        guard normalized(maskPath) == normalized(plan.maskTexturePath),
+              normalized(noisePath) == normalized(plan.noiseTexturePath),
+              let noiseBinding,
+              noiseBinding.axisAlignedUVScale(
+                  expectedSlotIndex: 2,
+                  expectedPurpose: .noise,
+                  allowedPixelFormats: [
+                      .rg8Unorm, .rgba8Unorm, .bgra8Unorm,
+                  ],
+                  requiresIdentityUV: true
+              ) != nil else {
+            return nil
+        }
+
+        let maskUVScale: SIMD2<Float>
+        if plan.maskTexturePath == nil {
+            guard maskBinding == nil else { return nil }
+            maskUVScale = SIMD2(repeating: 1)
+        } else {
+            guard let maskBinding,
+                  let scale = maskBinding.axisAlignedUVScale(
+                      expectedSlotIndex: 1,
+                      expectedPurpose: .mask,
+                      allowedPixelFormats: [
+                          .r8Unorm, .rg8Unorm, .rgba8Unorm, .bgra8Unorm,
+                      ]
+                  ) else {
+                return nil
+            }
+            maskUVScale = scale
+        }
+        return ResolvedArguments(
+            mask: maskBinding,
+            noise: noiseBinding,
+            maskUVScale: maskUVScale
+        )
     }
 
-    private func maskMatches(_ planPath: String?) -> Bool {
-        guard let planPath else { return mask == nil && maskPath == nil }
-        guard let maskPath else { return false }
-        return mask != nil && normalized(maskPath) == normalized(planPath)
-    }
-
-    private func normalized(_ path: String) -> String {
-        path.replacingOccurrences(of: "\\", with: "/").lowercased()
+    private func normalized(_ path: String?) -> String? {
+        path?.replacingOccurrences(of: "\\", with: "/").lowercased()
     }
 }
 
@@ -35,7 +69,7 @@ enum SceneFoliageSwayEffectTextureLoader {
     ) -> (textures: [String: SceneFoliageSwayEffectTextures], message: String) {
         var textures: [String: SceneFoliageSwayEffectTextures] = [:]
         var messages: [String] = []
-        var noiseCache: [String: MTLTexture] = [:]
+        var noiseCache: [String: SceneTextureSlotBinding] = [:]
 
         for effect in layer.effects where effectIDs.contains(effect.id) {
             guard normalized(effect.file) == "effects/foliagesway/effect.json",
@@ -50,52 +84,50 @@ enum SceneFoliageSwayEffectTextureLoader {
                 : SceneAuthoredFoliageSwayPlanner.noiseAssetPath
 
             let maskURL = maskPath.flatMap(resolver.resolveTextureFile)
-            var maskTexture: MTLTexture?
+            var maskBinding: SceneTextureSlotBinding?
             var maskMessage = ""
             if maskPath != nil {
-                let loadedMask = SceneLayerEffectTextureLoader.loadTexture(
+                let loadedMask = SceneLayerEffectTextureLoader.loadTextureCandidate(
                     url: maskURL,
                     label: "foliagesway effect mask",
                     purpose: .mask,
                     loader: loader,
                     device: device
                 )
-                maskTexture = loadedMask.texture
+                maskBinding = loadedMask.candidate.flatMap {
+                    SceneTextureSlotBinding(slotIndex: 1, candidate: $0)
+                }
                 maskMessage = loadedMask.message
             }
-            let noiseTexture: MTLTexture?
+            let noiseBinding: SceneTextureSlotBinding?
             if let cached = noiseCache[noisePath] {
-                noiseTexture = cached
+                noiseBinding = cached
             } else {
                 let noiseURL = resolver.resolveTextureFile(named: noisePath)
                     ?? SceneStockTextureResolver.defaultBundleRoot()
                     .flatMap { SceneStockTextureResolver(bundleRoot: $0) }?
                     .textureURL(for: "materials/" + noisePath)
-                let loadedNoise = SceneLayerEffectTextureLoader.loadTexture(
+                let loadedNoise = SceneLayerEffectTextureLoader.loadTextureCandidate(
                     url: noiseURL,
                     label: "foliagesway noise",
                     purpose: .noise,
                     loader: loader,
                     device: device
                 )
-                noiseTexture = loadedNoise.texture
-                if let texture = loadedNoise.texture {
-                    noiseCache[noisePath] = texture
+                noiseBinding = loadedNoise.candidate.flatMap {
+                    SceneTextureSlotBinding(slotIndex: 2, candidate: $0)
+                }
+                if let noiseBinding {
+                    noiseCache[noisePath] = noiseBinding
                 }
                 messages.append(noiseURL == nil
                     ? "; foliagesway noise missing \(noisePath)"
                     : loadedNoise.message)
             }
             textures[effect.id] = SceneFoliageSwayEffectTextures(
-                mask: maskTexture,
-                maskUVScale: maskPath == nil
-                    ? .zero
-                    : SceneLayerEffectTextureLoader.mappedUVScale(
-                        for: maskURL,
-                        texture: maskTexture
-                    ),
+                maskBinding: maskBinding,
                 maskPath: maskPath,
-                noise: noiseTexture,
+                noiseBinding: noiseBinding,
                 noisePath: noisePath
             )
             if let maskPath {
