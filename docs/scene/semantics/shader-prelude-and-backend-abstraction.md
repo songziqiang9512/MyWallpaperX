@@ -195,6 +195,8 @@ common_vertex.h   ── base/model_vertex_v1.h
 
 `8b06538d` 已落地第一层公共合同：loader cache 与 compressed uploader 共用 typed `.premultipliedColor` / `.preservedChannels` identity。小型单 image BC1/2/3 的 preserved-channel 路径仍执行有界 CPU decode，但不 premultiply 且保留物理 mip extent；大型或多 image 则保留 native BC。自建 BC3 fixture 锁定 `G/A=255/64` 在 color 路径变为 `64/64`、在 data 路径保持 `255/64`，并锁定两种调用顺序、跨用途 cache 隔离与 padding/mapped extent。该实现只证明项目内部用途不会在上传阶段丢失；它没有证明 DXT5n 恢复公式、颜色空间或 Windows 像素等价。
 
+`d432d4d5` 将上述两类扩展为八类穷举 identity：premultiplied color、straight albedo、generic preserved、mask、noise、flow、phase、normal。32 个 Effect helper 调用按实际 slot 角色拆分；七类非预乘 identity 当前仍共享严格 source-channel policy，但 cache 不再混用。strict Particle REFRACT 的自建 GPU 门让同一 format-4 packed-normal 内容分别走 single-image CPU BC3 decode 与 multi-image native BC3 直传，并与 decoded-byte-equivalent format-0 RGBA 经真实 loader/shader 比较；两条 BC 路径分别与 RGBA 在 2 个字节内一致，G/A swapped 与 neutral normal 均为有效负对照。该门闭合的是项目内部 storage equivalence，不定义官方 DXT5n 恢复公式；format 5 / BC5、generic Effect/material normal 与 Windows golden 继续在已证合同外。
+
 ## 5. 灰度权重冲突
 
 两个函数计算灰度，权重向量的 R/B 分量相反：
