@@ -2,6 +2,7 @@
 """WaterRipple pipeline 的跨时间 GPU 像素门。
 
 使用项目自有的合成网格、法线和遮罩验证：
+- alpha=0 的 straight RGBA data 仍能经公共 uploader 驱动 normal/mask；
 - 非零 animationSpeed 会让受遮罩区域跨时间变化；
 - 遮罩外像素保持原样；
 - animationSpeed 与 scrollSpeed 都为零时跨时间稳定。
@@ -22,14 +23,22 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneEffectMaskSemantics.swift",
     SOURCE_ROOT / "Effects/SceneWaterRippleRuntimePlan.swift",
+    SOURCE_ROOT / "Resources/SceneImageTextureUploader.swift",
     SOURCE_ROOT / "Effects/SceneWaterRipplePipeline.swift",
 ]
 
 
 HARNESS = r'''
+import CoreGraphics
 import Foundation
 import Metal
 import simd
+
+enum SceneTextureLoadOutcome {
+    case loaded(MTLTexture)
+    case decodeFailed(String)
+    case textureAllocationFailed(width: Int, height: Int)
+}
 
 struct SceneQuadVertex {
     let position: SIMD2<Float>
@@ -128,7 +137,7 @@ enum Harness {
             (0 ..< 8).flatMap { x -> [UInt8] in
                 let red: UInt8 = (x + y).isMultiple(of: 2) ? 230 : 26
                 let green: UInt8 = (x / 2 + y).isMultiple(of: 2) ? 210 : 46
-                return [red, green, 220, 255]
+                return [red, green, 220, 0]
             }
         }
     }
@@ -137,9 +146,41 @@ enum Harness {
         (0 ..< size).flatMap { _ in
             (0 ..< size).flatMap { x -> [UInt8] in
                 let value: UInt8 = x < size / 2 ? 0 : 255
-                return [value, value, value, 255]
+                return [value, value, value, 0]
             }
         }
+    }
+
+    static func dataTexture(
+        device: MTLDevice,
+        width: Int,
+        height: Int,
+        pixels: [UInt8]
+    ) -> MTLTexture {
+        precondition(pixels.count == width * height * 4)
+        let provider = CGDataProvider(data: Data(pixels) as CFData)!
+        let image = CGImage(
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bitsPerPixel: 32,
+            bytesPerRow: width * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
+            provider: provider,
+            decode: nil,
+            shouldInterpolate: false,
+            intent: .defaultIntent
+        )!
+        guard case let .loaded(texture) = SceneImageTextureUploader.upload(
+            image: image,
+            purpose: .preservedChannels,
+            maxDimension: 4096,
+            device: device
+        ) else {
+            preconditionFailure("straight RGBA data upload failed")
+        }
+        return texture
     }
 
     static func render(
@@ -150,12 +191,20 @@ enum Harness {
         pipeline: SceneWaterRipplePipeline
     ) -> (encoded: Bool, bytes: [UInt8]) {
         let source = texture(device: device)
-        let normal = texture(device: device, width: 8, height: 8)
-        let mask = texture(device: device)
+        let normal = dataTexture(
+            device: device,
+            width: 8,
+            height: 8,
+            pixels: normalPixels()
+        )
+        let mask = dataTexture(
+            device: device,
+            width: size,
+            height: size,
+            pixels: maskPixels()
+        )
         let target = texture(device: device)
         uploadRGBA(sourcePixels(), to: source)
-        uploadRGBA(normalPixels(), to: normal)
-        uploadRGBA(maskPixels(), to: mask)
         let command = queue.makeCommandBuffer()!
         let encoded = pipeline.encode(
             source: source,

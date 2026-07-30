@@ -121,7 +121,13 @@ enum SceneLayerEffectTextureLoader {
 enum Harness {
     static let effectID = "86#effect#1"
     static let flowPath = "workshop/water_flow"
+    static let embeddedFlowPath = "workshop/water_flow_embedded"
+    static let oversizedFlowPath = "workshop/water_flow_oversized"
     static let stockPhasePath = "particle/normal_ring_smooth"
+    static let flowPixels: [UInt8] = [
+        231, 17, 149, 0, 200, 100, 50, 64,
+        17, 203, 41, 255, 89, 7, 211, 128,
+    ]
 
     static func main() throws {
         guard CommandLine.arguments.count == 3 else {
@@ -138,14 +144,48 @@ enum Harness {
             withIntermediateDirectories: true
         )
         let flowURL = temporary.appendingPathComponent("flow.png")
+        let embeddedFlowURL = temporary.appendingPathComponent("flow.tex")
+        let oversizedFlowURL = temporary.appendingPathComponent("oversized-flow.png")
         let corruptURL = temporary.appendingPathComponent("corrupt.png")
-        try writeImage(flowURL)
+        try writeImage(flowURL, width: 2, height: 2, pixels: flowPixels)
+        try writeEmbeddedTex(
+            embeddedFlowURL,
+            imageData: Data(contentsOf: flowURL),
+            width: 2,
+            height: 2
+        )
+        try writeImage(
+            oversizedFlowURL,
+            width: 4097,
+            height: 1,
+            pixels: (0 ..< 4097).flatMap { _ in [231, 17, 149, 0] }
+        )
         try Data("not an image".utf8).write(to: corruptURL)
 
         let loader = SceneTextureLoader()
         let valid = load(
             phasePath: stockPhasePath,
             urlsByPath: [flowPath: flowURL, stockPhasePath: stockPhase],
+            loader: loader,
+            device: device
+        )
+        let embedded = load(
+            flowPath: embeddedFlowPath,
+            phasePath: stockPhasePath,
+            urlsByPath: [
+                embeddedFlowPath: embeddedFlowURL,
+                stockPhasePath: stockPhase,
+            ],
+            loader: loader,
+            device: device
+        )
+        let oversized = load(
+            flowPath: oversizedFlowPath,
+            phasePath: stockPhasePath,
+            urlsByPath: [
+                oversizedFlowPath: oversizedFlowURL,
+                stockPhasePath: stockPhase,
+            ],
             loader: loader,
             device: device
         )
@@ -169,14 +209,28 @@ enum Harness {
         )
 
         let validTextures = valid.textures[effectID]
+        let embeddedTextures = embedded.textures[effectID]
+        let oversizedTextures = oversized.textures[effectID]
         let missingTextures = missing.textures[effectID]
         let corruptTextures = corrupt.textures[effectID]
         let result: [String: Any] = [
+            "validFlowPixels": try pixels(validTextures?.flow),
             "validPhaseLoaded": validTextures?.phase != nil,
             "validPhasePreservedMips": (validTextures?.phase?.mipmapLevelCount ?? 0) > 1,
             "validMatches": validTextures?.matches(plan(phasePath: stockPhasePath)) ?? false,
             "validPhaseAddress": validTextures?.phaseSampling.addressMode.rawValue ?? "",
             "validFlowAddress": validTextures?.flowSampling.addressMode.rawValue ?? "",
+            "embeddedFlowPixels": try pixels(embeddedTextures?.flow),
+            "embeddedMatches": embeddedTextures?.matches(plan(
+                flowPath: embeddedFlowPath,
+                phasePath: stockPhasePath
+            )) ?? false,
+            "oversizedStayedFailed": oversizedTextures?.flow == nil,
+            "oversizedDoesNotMatch": !(oversizedTextures?.matches(plan(
+                flowPath: oversizedFlowPath,
+                phasePath: stockPhasePath
+            )) ?? false),
+            "oversizedReported": oversized.message.contains("decode failed"),
             "missingUsesBuiltIn": missingTextures?.phase?.label
                 == "Scene Water Flow built-in normal_ring_smooth",
             "missingMatches": missingTextures?.matches(plan(phasePath: stockPhasePath)) ?? false,
@@ -193,6 +247,7 @@ enum Harness {
     }
 
     static func load(
+        flowPath: String = flowPath,
         phasePath: String,
         urlsByPath: [String: URL],
         loader: SceneTextureLoader,
@@ -211,23 +266,40 @@ enum Harness {
         )
     }
 
-    static func plan(phasePath: String) -> SceneWaterFlowExecutionPlan {
+    static func plan(
+        flowPath: String = flowPath,
+        phasePath: String
+    ) -> SceneWaterFlowExecutionPlan {
         .init(flowTexturePath: flowPath, phaseTexturePath: phasePath)
     }
 
-    static func writeImage(_ url: URL) throws {
+    static func pixels(_ texture: MTLTexture?) throws -> [UInt8] {
+        guard let texture else { throw HarnessError.textureReadFailed }
+        var bytes = [UInt8](repeating: 0, count: texture.width * texture.height * 4)
+        texture.getBytes(
+            &bytes,
+            bytesPerRow: texture.width * 4,
+            from: MTLRegionMake2D(0, 0, texture.width, texture.height),
+            mipmapLevel: 0
+        )
+        return bytes
+    }
+
+    static func writeImage(
+        _ url: URL,
+        width: Int,
+        height: Int,
+        pixels: [UInt8]
+    ) throws {
         let colorSpace = CGColorSpaceCreateDeviceRGB()
-        let bytes: [UInt8] = [
-            255, 0, 0, 255, 0, 255, 0, 255,
-            0, 0, 255, 255, 255, 255, 255, 255,
-        ]
-        guard let provider = CGDataProvider(data: Data(bytes) as CFData),
+        guard pixels.count == width * height * 4,
+              let provider = CGDataProvider(data: Data(pixels) as CFData),
               let image = CGImage(
-                  width: 2,
-                  height: 2,
+                  width: width,
+                  height: height,
                   bitsPerComponent: 8,
                   bitsPerPixel: 32,
-                  bytesPerRow: 8,
+                  bytesPerRow: width * 4,
                   space: colorSpace,
                   bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
                   provider: provider,
@@ -249,9 +321,41 @@ enum Harness {
         }
     }
 
+    static func writeEmbeddedTex(
+        _ url: URL,
+        imageData: Data,
+        width: UInt32,
+        height: UInt32
+    ) throws {
+        var data = Data("TEXV0005\0TEXI0001\0".utf8)
+        append(0, to: &data)
+        append(0, to: &data)
+        append(width, to: &data)
+        append(height, to: &data)
+        append(width, to: &data)
+        append(height, to: &data)
+        append(0, to: &data)
+        data.append(Data("TEXB0002\0".utf8))
+        append(1, to: &data)
+        append(1, to: &data)
+        append(width, to: &data)
+        append(height, to: &data)
+        append(0, to: &data)
+        append(0, to: &data)
+        append(UInt32(imageData.count), to: &data)
+        data.append(imageData)
+        try data.write(to: url)
+    }
+
+    static func append(_ value: UInt32, to data: inout Data) {
+        var littleEndian = value.littleEndian
+        withUnsafeBytes(of: &littleEndian) { data.append(contentsOf: $0) }
+    }
+
     enum HarnessError: Error {
         case invalidArguments
         case imageCreationFailed
+        case textureReadFailed
     }
 }
 '''
@@ -305,11 +409,23 @@ class SceneWaterFlowEffectTextureLoaderTests(unittest.TestCase):
                 "corruptDoesNotMatch": True,
                 "corruptReported": True,
                 "corruptStayedFailed": True,
+                "embeddedFlowPixels": [
+                    231, 17, 149, 0, 200, 100, 50, 64,
+                    17, 203, 41, 255, 89, 7, 211, 128,
+                ],
+                "embeddedMatches": True,
                 "missingMatches": True,
                 "missingPhaseAddress": "clampToEdge",
                 "missingUsesBuiltIn": True,
+                "oversizedDoesNotMatch": True,
+                "oversizedReported": True,
+                "oversizedStayedFailed": True,
                 "unknownStayedFailed": True,
                 "validFlowAddress": "clampToEdge",
+                "validFlowPixels": [
+                    231, 17, 149, 0, 200, 100, 50, 64,
+                    17, 203, 41, 255, 89, 7, 211, 128,
+                ],
                 "validMatches": True,
                 "validPhaseAddress": "clampToEdge",
                 "validPhaseLoaded": True,

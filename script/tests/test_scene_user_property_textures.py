@@ -76,6 +76,54 @@ enum Harness {
             device: device
         )
         let sharedLoader = SceneTextureLoader()
+        let embeddedDataOutcome = SceneTextureMipUploader.uploadEmbeddedDataImages(
+            [.init(width: 2, height: 1, data: try Data(contentsOf: pngURL))],
+            device: device
+        )
+        guard let embeddedDataOutcome else { throw HarnessError.textureRead }
+        let premultipliedDataRejected = SceneImageTextureUploader.rgbaData(
+            image: try makePremultipliedImage(),
+            width: 1,
+            height: 1,
+            purpose: .preservedChannels
+        ) == nil
+        let resizedDataRejected = SceneImageTextureUploader.rgbaData(
+            image: try makeStraightImage(),
+            width: 2,
+            height: 1,
+            purpose: .preservedChannels
+        ) == nil
+        let decodedDataRejected = SceneImageTextureUploader.rgbaData(
+            image: try makeImage(
+                pixels: [231, 17, 149, 0],
+                alphaInfo: .last,
+                decode: [1, 0, 1, 0, 1, 0]
+            ),
+            width: 1,
+            height: 1,
+            purpose: .preservedChannels
+        ) == nil
+        guard let explicitBigData = SceneImageTextureUploader.rgbaData(
+            image: try makeImage(
+                pixels: [231, 17, 149, 0],
+                alphaInfo: .last,
+                byteOrder: .byteOrder32Big
+            ),
+            width: 1,
+            height: 1,
+            purpose: .preservedChannels
+        ), let explicitLittleData = SceneImageTextureUploader.rgbaData(
+            image: try makeImage(
+                pixels: [149, 17, 231, 0],
+                alphaInfo: .first,
+                byteOrder: .byteOrder32Little
+            ),
+            width: 1,
+            height: 1,
+            purpose: .preservedChannels
+        ) else {
+            throw HarnessError.textureRead
+        }
         let firstCached = sharedLoader.load(from: pngURL, device: device)
         let secondCached = sharedLoader.load(from: pngURL, device: device)
         let firstPreserved = sharedLoader.load(
@@ -135,6 +183,7 @@ enum Harness {
             "preservedPixels": try pixels(result.preservedTextures["png"]),
             "reversedColorPixels": try pixels(reversedColor),
             "reversedPreservedPixels": try pixels(reversedPreserved),
+            "embeddedDataPixels": try pixels(embeddedDataOutcome),
             "reportLines": result.reportLines,
             "retryLoadedKeys": retry.textures.keys.sorted(),
             "retryPreservedLoadedKeys": retry.preservedTextures.keys.sorted(),
@@ -146,6 +195,11 @@ enum Harness {
             "reusedPreservedTexture": reusedPreservedTexture,
             "differentPurposeTexture": differentPurposeTexture,
             "changedFileInvalidatedCache": changedFileInvalidatedCache,
+            "premultipliedDataRejected": premultipliedDataRejected,
+            "resizedDataRejected": resizedDataRejected,
+            "decodedDataRejected": decodedDataRejected,
+            "explicitBigPixels": [UInt8](explicitBigData),
+            "explicitLittlePixels": [UInt8](explicitLittleData),
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -153,7 +207,7 @@ enum Harness {
 
     private static func writeStraightPNG(_ url: URL) throws {
         let pixels = Data([
-            255, 128, 64, 0,
+            231, 17, 149, 0,
             200, 100, 50, 64,
         ])
         guard let provider = CGDataProvider(data: pixels as CFData),
@@ -205,6 +259,47 @@ enum Harness {
         }
         CGImageDestinationAddImage(destination, image, nil)
         guard CGImageDestinationFinalize(destination) else { throw HarnessError.imageWrite }
+    }
+
+    private static func makePremultipliedImage() throws -> CGImage {
+        try makeImage(
+            pixels: [12, 8, 4, 16],
+            alphaInfo: .premultipliedLast
+        )
+    }
+
+    private static func makeStraightImage() throws -> CGImage {
+        try makeImage(
+            pixels: [231, 17, 149, 0],
+            alphaInfo: .last
+        )
+    }
+
+    private static func makeImage(
+        pixels: [UInt8],
+        alphaInfo: CGImageAlphaInfo,
+        byteOrder: CGBitmapInfo = .byteOrderDefault,
+        decode: [CGFloat]? = nil
+    ) throws -> CGImage {
+        guard let provider = CGDataProvider(data: Data(pixels) as CFData),
+              let image = CGImage(
+                width: 1,
+                height: 1,
+                bitsPerComponent: 8,
+                bitsPerPixel: 32,
+                bytesPerRow: 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGBitmapInfo(
+                    rawValue: alphaInfo.rawValue | byteOrder.rawValue
+                ),
+                provider: provider,
+                decode: decode,
+                shouldInterpolate: false,
+                intent: .defaultIntent
+              ) else {
+            throw HarnessError.imageWrite
+        }
+        return image
     }
 
     private static func pixels(_ texture: MTLTexture?) throws -> [UInt8] {
@@ -306,7 +401,7 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
     def test_png_channel_purpose_preserves_hidden_and_straight_rgb(self) -> None:
         self.assertEqual(
             self.result["preservedPixels"],
-            [255, 128, 64, 0, 200, 100, 50, 64],
+            [231, 17, 149, 0, 200, 100, 50, 64],
         )
         self.assertEqual(
             self.result["colorPixels"],
@@ -320,6 +415,20 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
             self.result["reversedColorPixels"],
             self.result["colorPixels"],
         )
+        self.assertEqual(
+            self.result["embeddedDataPixels"],
+            self.result["preservedPixels"],
+        )
+
+    def test_premultiplied_data_input_fails_closed(self) -> None:
+        self.assertTrue(self.result["premultipliedDataRejected"])
+        self.assertTrue(self.result["resizedDataRejected"])
+        self.assertTrue(self.result["decodedDataRejected"])
+
+    def test_explicit_32_bit_byte_orders_preserve_rgba_channels(self) -> None:
+        expected = [231, 17, 149, 0]
+        self.assertEqual(self.result["explicitBigPixels"], expected)
+        self.assertEqual(self.result["explicitLittlePixels"], expected)
 
     def test_corrupt_and_unsupported_files_fail_closed(self) -> None:
         report = "\n".join(self.result["reportLines"])

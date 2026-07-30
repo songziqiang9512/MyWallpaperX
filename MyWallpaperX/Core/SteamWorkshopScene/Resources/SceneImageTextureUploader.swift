@@ -61,24 +61,27 @@ enum SceneImageTextureUploader {
         height: Int,
         purpose: SceneTextureLoadPurpose
     ) -> Data? {
-        if purpose == .preservedChannels,
-           width == image.width,
-           height == image.height,
-           let source = sourceRGBA(image) {
-            return source.premultiplied
-                ? unpremultipliedRGBA(source.data)
-                : source.data
+        switch purpose {
+        case .preservedChannels:
+            // Data consumers (normal/flow/mask) cannot safely reconstruct
+            // straight channels from a premultiplied representation: RGB at
+            // alpha zero is already irrecoverable and fractional alpha loses
+            // precision. Raster fallback also creates that representation.
+            // Refuse either case instead of silently rewriting data.
+            guard width == image.width,
+                  height == image.height,
+                  let source = sourceRGBA(image),
+                  !source.premultiplied else {
+                return nil
+            }
+            return source.data
+        case .premultipliedColor:
+            return rasterizedRGBA(
+                image,
+                width: width,
+                height: height
+            )
         }
-        guard let rasterized = rasterizedRGBA(
-            image,
-            width: width,
-            height: height
-        ) else {
-            return nil
-        }
-        return purpose == .premultipliedColor
-            ? rasterized
-            : unpremultipliedRGBA(rasterized)
     }
 
     private static func sourceRGBA(
@@ -88,6 +91,9 @@ enum SceneImageTextureUploader {
               image.bitsPerPixel == 32,
               image.bytesPerRow >= image.width * 4,
               image.colorSpace?.model == .rgb,
+              image.pixelFormatInfo == .packed,
+              image.decode == nil,
+              !image.bitmapInfo.contains(.floatComponents),
               let providerData = image.dataProvider?.data else {
             return nil
         }
@@ -101,7 +107,19 @@ enum SceneImageTextureUploader {
         let source = providerData as Data
         guard source.count >= image.bytesPerRow * image.height else { return nil }
         let order = image.bitmapInfo.rawValue & CGBitmapInfo.byteOrderMask.rawValue
-        let littleEndian = order == CGBitmapInfo.byteOrder32Little.rawValue
+        let littleEndian: Bool
+        switch order {
+        case CGBitmapInfo.byteOrderDefault.rawValue,
+             CGBitmapInfo.byteOrder32Big.rawValue:
+            littleEndian = false
+        case CGBitmapInfo.byteOrder32Little.rawValue:
+            littleEndian = true
+        default:
+            return nil
+        }
+        guard image.bitmapInfo.rawValue == alphaInfo.rawValue | order else {
+            return nil
+        }
         var output = Data(count: image.width * image.height * 4)
         output.withUnsafeMutableBytes { outputRaw in
             source.withUnsafeBytes { sourceRaw in
@@ -185,25 +203,4 @@ enum SceneImageTextureUploader {
         return rendered ? data : nil
     }
 
-    private static func unpremultipliedRGBA(_ data: Data) -> Data {
-        var output = data
-        output.withUnsafeMutableBytes { raw in
-            guard let bytes = raw.bindMemory(to: UInt8.self).baseAddress else { return }
-            var offset = 0
-            while offset + 3 < raw.count {
-                let alpha = UInt16(bytes[offset + 3])
-                if alpha > 0 {
-                    bytes[offset] = UInt8(min(255, (UInt16(bytes[offset]) * 255) / alpha))
-                    bytes[offset + 1] = UInt8(
-                        min(255, (UInt16(bytes[offset + 1]) * 255) / alpha)
-                    )
-                    bytes[offset + 2] = UInt8(
-                        min(255, (UInt16(bytes[offset + 2]) * 255) / alpha)
-                    )
-                }
-                offset += 4
-            }
-        }
-        return output
-    }
 }
