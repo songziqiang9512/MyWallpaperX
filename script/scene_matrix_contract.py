@@ -108,6 +108,11 @@ AUTHORED_EFFECT_RUNTIME_EXPECTATIONS = (
         "authored effect graph Water Ripple count mismatch",
     ),
     RuntimeExpectation(
+        "expected_authored_effect_graph_depth_parallax_count",
+        "depth_parallax_count",
+        "authored effect graph Depth Parallax count mismatch",
+    ),
+    RuntimeExpectation(
         "expected_authored_effect_graph_iris_inline_suffix_count",
         "iris_inline_suffix_count",
         "authored effect graph Iris inline suffix count mismatch",

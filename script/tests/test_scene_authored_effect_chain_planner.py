@@ -351,6 +351,19 @@ enum SceneAuthoredWaterRipplePlanner {
     }
 }
 
+struct SceneDepthParallaxExecutionPlan {}
+
+enum SceneAuthoredDepthParallaxPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneDepthParallaxExecutionPlan? {
+        nil
+    }
+}
+
 struct SceneXRayExecutionPlan {
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }

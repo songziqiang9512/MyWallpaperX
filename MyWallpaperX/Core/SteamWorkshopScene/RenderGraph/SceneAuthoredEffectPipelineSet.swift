@@ -25,6 +25,7 @@ struct SceneAuthoredEffectPipelineSet {
     var cursorRipple: SceneCursorRipplePipeline? { repository.cursorRipple() }
     var foliageSway: SceneFoliageSwayPipeline? { repository.foliageSway() }
     var waterRipple: SceneWaterRipplePipeline? { repository.waterRipple() }
+    var depthParallax: SceneDepthParallaxPipeline? { repository.depthParallax() }
     var xRay: SceneXRayPipeline? { repository.xRay() }
     var blend: SceneBlendPipeline? { repository.blend() }
     var tint: SceneTintPipeline? { repository.tint() }

@@ -113,6 +113,10 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         stages.filter { $0.waterRipple != nil }.count
     }
 
+    var depthParallaxCount: Int {
+        stages.filter { $0.depthParallax != nil }.count
+    }
+
     var irisInlineSuffixCount: Int {
         irisInlineSuffix == nil ? 0 : 1
     }

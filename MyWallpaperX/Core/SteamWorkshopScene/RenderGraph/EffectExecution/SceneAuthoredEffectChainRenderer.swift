@@ -282,20 +282,23 @@ enum SceneAuthoredEffectChainRenderer {
                 commandBuffer: commandBuffer
             )
         case .waterRipple(let ripple):
-            guard targets.plan.logicalTargets.isEmpty,
-                  let resources = masks.waterRippleEffects[
-                      ripple.effectKey.descriptorID
-                  ],
-                  let waterRipplePipeline = pipelines.waterRipple else {
-                return nil
-            }
-            return SceneWaterRippleRenderer.render(
-                plan: ripple,
+            return renderWaterRipple(
+                ripple,
                 sourceTexture: sourceTexture,
-                resources: resources,
-                target: targets.outputTexture,
+                masks: masks,
+                targets: targets,
+                pipelines: pipelines,
                 time: time,
-                pipeline: waterRipplePipeline,
+                commandBuffer: commandBuffer
+            )
+        case .depthParallax(let depthParallax):
+            return renderDepthParallax(
+                depthParallax, sourceTexture: sourceTexture, masks: masks,
+                auxMask: auxMask, targets: targets,
+                sourceUniforms: sourceUniforms, pipeline: pipeline,
+                pipelines: pipelines,
+                cursorUV: cursorUV,
+                pointerIsInside: pointerIsInside,
                 commandBuffer: commandBuffer
             )
         case .xRay(let xRay):

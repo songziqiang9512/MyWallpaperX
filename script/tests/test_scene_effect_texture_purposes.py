@@ -21,6 +21,9 @@ STANDARD_BLUR_LOADER = RESOURCE_ROOT / "SceneStandardBlurEffectTextureLoader.swi
 SHAKE_LOADER = RESOURCE_ROOT / "SceneShakeEffectTextureLoader.swift"
 FOLIAGE_LOADER = RESOURCE_ROOT / "SceneFoliageSwayEffectTextureLoader.swift"
 RIPPLE_LOADER = RESOURCE_ROOT / "SceneWaterRippleEffectTextureLoader.swift"
+DEPTH_PARALLAX_LOADER = (
+    RESOURCE_ROOT / "SceneDepthParallaxEffectTextureLoader.swift"
+)
 EFFECT_ROOT = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Effects"
 )
@@ -68,6 +71,7 @@ EXPECTED_PURPOSES = {
     "waterflow phase": "phase",
     "waterripple effect mask": "mask",
     "waterripple effect normal": "normal",
+    "depthparallax depth": "depth",
     "waterwaves mask": "mask",
     "xray blend": "preservedChannels",
     "xray halo": "preservedChannels",
@@ -111,6 +115,7 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
             candidate_callers,
             {
                 "SceneBlendEffectTextureLoader.swift": 1,
+                "SceneDepthParallaxEffectTextureLoader.swift": 1,
                 "SceneFoliageSwayEffectTextureLoader.swift": 2,
                 "SceneShakeEffectTextureLoader.swift": 3,
                 "SceneStandardBlurEffectTextureLoader.swift": 1,
@@ -149,6 +154,7 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
             SHAKE_LOADER: ("expectedSlotIndex: 1", "expectedSlotIndex: 3"),
             FOLIAGE_LOADER: ("expectedSlotIndex: 1", "expectedSlotIndex: 2"),
             RIPPLE_LOADER: ("expectedSlotIndex: 1", "expectedSlotIndex: 2"),
+            DEPTH_PARALLAX_LOADER: ("expectedSlotIndex: 1",),
         }
         strict_renderers = (
             SHAKE_RENDERER,

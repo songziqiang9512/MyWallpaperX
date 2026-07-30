@@ -11,6 +11,7 @@ struct SceneImageLayerMasks {
     let waterRippleNormal: MTLTexture?
     let foliageSwayEffects: [String: SceneFoliageSwayEffectTextures]
     let waterRippleEffects: [String: SceneWaterRippleEffectTextures]
+    let depthParallaxEffects: [String: SceneDepthParallaxEffectTextures]
     let blendEffects: [String: SceneBlendEffectTextures]
     let shakeEffects: [String: SceneShakeEffectTextures]
     let filmGrainEffects: [String: SceneFilmGrainEffectTextures]
@@ -36,6 +37,7 @@ struct SceneImageLayerMasks {
             waterRippleNormal: waterRippleNormal,
             foliageSwayEffects: foliageSwayEffects,
             waterRippleEffects: waterRippleEffects,
+            depthParallaxEffects: depthParallaxEffects,
             blendEffects: blendEffects,
             shakeEffects: shakeEffects,
             filmGrainEffects: filmGrainEffects,
@@ -62,6 +64,7 @@ struct SceneImageLayerMasks {
         waterRippleNormal: nil,
         foliageSwayEffects: [:],
         waterRippleEffects: [:],
+        depthParallaxEffects: [:],
         blendEffects: [:],
         shakeEffects: [:],
         filmGrainEffects: [:],
@@ -88,6 +91,7 @@ struct SceneImageLayerMasks {
             waterRippleNormal: nil,
             foliageSwayEffects: [:],
             waterRippleEffects: [:],
+            depthParallaxEffects: [:],
             blendEffects: [:],
             shakeEffects: [:],
             filmGrainEffects: [:],

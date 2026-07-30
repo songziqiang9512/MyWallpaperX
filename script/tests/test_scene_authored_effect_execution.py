@@ -424,6 +424,22 @@ enum SceneAuthoredWaterRipplePlanner {
     }
 }
 
+struct SceneDepthParallaxExecutionPlan {}
+
+enum SceneAuthoredDepthParallaxPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneDepthParallaxExecutionPlan? {
+        graph.effects.first?.definitionPath.lowercased()
+            == "effects/depthparallax/effect.json"
+            ? SceneDepthParallaxExecutionPlan()
+            : nil
+    }
+}
+
 struct SceneXRayExecutionPlan {
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
@@ -1148,6 +1164,7 @@ enum Harness {
             case .cursorRipple: backend = "cursorRipple"
             case .foliageSway: backend = "foliageSway"
             case .waterRipple: backend = "waterRipple"
+            case .depthParallax: backend = "depthParallax"
             case .xRay: backend = "xRay"
             case .clippingMask: backend = "clippingMask"
             case .blend: backend = "blend"

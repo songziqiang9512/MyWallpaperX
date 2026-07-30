@@ -15,6 +15,7 @@ extension SceneMetalRenderer {
             waterRippleNormal: store.waterRippleNormals[layerID],
             foliageSwayEffects: store.foliageSwayEffects,
             waterRippleEffects: store.waterRippleEffects,
+            depthParallaxEffects: store.depthParallaxEffects,
             blendEffects: store.blendEffects,
             shakeEffects: store.shakeEffects,
             filmGrainEffects: store.filmGrainEffects,

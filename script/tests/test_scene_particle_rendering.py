@@ -47,6 +47,7 @@ enum SceneTextureLoadPurpose: Hashable {
     case flow
     case phase
     case normal
+    case depth
 }
 
 @main

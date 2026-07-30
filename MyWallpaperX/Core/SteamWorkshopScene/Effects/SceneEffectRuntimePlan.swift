@@ -137,6 +137,10 @@ enum SceneEffectRuntimePlanner {
         if authoredEffectPlan?.blend != nil {
             return "\(foliage)effect runtime blend-authored; \(passCount) declared pass(es)"
         }
+        if authoredEffectPlan?.depthParallax != nil {
+            return "\(foliage)effect runtime depth-parallax-authored; "
+                + "\(passCount) declared pass(es)"
+        }
         if authoredEffectPlan?.clippingMask != nil {
             return "\(foliage)effect runtime clipping-mask-authored; "
                 + "\(passCount) declared pass(es)"

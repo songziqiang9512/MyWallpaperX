@@ -16,6 +16,7 @@ enum SceneLayerEffectTextureLoader {
         waterWavesEffectIDs: Set<String> = [],
         foliageSwayEffectIDs: Set<String> = [],
         waterRippleEffectIDs: Set<String> = [],
+        depthParallaxEffectIDs: Set<String> = [],
         cursorRippleEffectIDs: Set<String> = [],
         tintEffectIDs: Set<String> = [],
         godraysEffectIDs: Set<String> = [],
@@ -145,6 +146,13 @@ enum SceneLayerEffectTextureLoader {
             loader: loader,
             device: device
         )
+        let depthParallax = SceneDepthParallaxEffectTextureLoader.load(
+            for: layer,
+            effectIDs: depthParallaxEffectIDs,
+            resolver: resolver,
+            loader: loader,
+            device: device
+        )
         let xRay = SceneXRayEffectTextureLoader.load(
             for: layer,
             resolver: resolver,
@@ -203,6 +211,7 @@ enum SceneLayerEffectTextureLoader {
             waterRippleNormal: normal.texture,
             foliageSwayEffects: foliageSway.textures,
             waterRippleEffects: waterRipple.textures,
+            depthParallaxEffects: depthParallax.textures,
             blendEffects: blend.textures,
             shakeEffects: shake.textures,
             filmGrainEffects: filmGrain.textures,
@@ -223,7 +232,7 @@ enum SceneLayerEffectTextureLoader {
                 standardBlur.message,
                 lightShafts.message,
                 waterFlow.message, waterWaves.message, cursorRipple.message,
-                foliageSway.message, waterRipple.message,
+                foliageSway.message, waterRipple.message, depthParallax.message,
                 opacityEffects.message,
                 pulseEffects.message, tintEffects.message, godraysEffects.message,
                 shineEffects.message,

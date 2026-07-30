@@ -11,6 +11,7 @@ struct SceneLayerEffectTextures {
     let waterRippleNormal: MTLTexture?
     let foliageSwayEffects: [String: SceneFoliageSwayEffectTextures]
     let waterRippleEffects: [String: SceneWaterRippleEffectTextures]
+    let depthParallaxEffects: [String: SceneDepthParallaxEffectTextures]
     let blendEffects: [String: SceneBlendEffectTextures]
     let shakeEffects: [String: SceneShakeEffectTextures]
     let filmGrainEffects: [String: SceneFilmGrainEffectTextures]
@@ -38,6 +39,7 @@ struct SceneLayerEffectTextureStore {
     var waterRippleNormals: [Int: MTLTexture] = [:]
     var foliageSwayEffects: [String: SceneFoliageSwayEffectTextures] = [:]
     var waterRippleEffects: [String: SceneWaterRippleEffectTextures] = [:]
+    var depthParallaxEffects: [String: SceneDepthParallaxEffectTextures] = [:]
     var blendEffects: [String: SceneBlendEffectTextures] = [:]
     var shakeEffects: [String: SceneShakeEffectTextures] = [:]
     var filmGrainEffects: [String: SceneFilmGrainEffectTextures] = [:]
@@ -63,6 +65,9 @@ struct SceneLayerEffectTextureStore {
         waterRippleNormals[layerID] = textures.waterRippleNormal
         foliageSwayEffects.merge(textures.foliageSwayEffects) { _, incoming in incoming }
         waterRippleEffects.merge(textures.waterRippleEffects) { _, incoming in incoming }
+        depthParallaxEffects.merge(textures.depthParallaxEffects) { _, incoming in
+            incoming
+        }
         blendEffects.merge(textures.blendEffects) { _, incoming in incoming }
         shakeEffects.merge(textures.shakeEffects) { _, incoming in incoming }
         filmGrainEffects.merge(textures.filmGrainEffects) { _, incoming in incoming }

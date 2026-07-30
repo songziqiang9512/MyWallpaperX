@@ -84,6 +84,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneLightShaftsExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+CursorRipple.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+WaterRipple.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Rays.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Blend.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+AuthoredShader.swift",
@@ -448,6 +449,7 @@ struct SceneAuthoredEffectExecutionPlan {
         case cursorRipple(SceneCursorRippleExecutionPlan)
         case foliageSway(SceneFoliageSwayExecutionPlan)
         case waterRipple(SceneWaterRippleExecutionPlan)
+        case depthParallax(SceneDepthParallaxExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
         case clippingMask(SceneClippingMaskExecutionPlan)
         case blend(SceneBlendExecutionPlan)
@@ -508,6 +510,11 @@ struct SceneAuthoredEffectExecutionPlan {
 
     var cursorRipple: SceneCursorRippleExecutionPlan? {
         guard case .cursorRipple(let plan) = backend else { return nil }
+        return plan
+    }
+
+    var depthParallax: SceneDepthParallaxExecutionPlan? {
+        guard case .depthParallax(let plan) = backend else { return nil }
         return plan
     }
 
@@ -702,6 +709,32 @@ enum SceneFoliageSwayRenderer {
         target: MTLTexture,
         time: Float,
         pipeline: SceneFoliageSwayPipeline,
+        commandBuffer: MTLCommandBuffer
+    ) -> MTLTexture? {
+        nil
+    }
+}
+
+struct SceneDepthParallaxExecutionPlan {
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+}
+struct SceneDepthParallaxEffectTextures {}
+struct SceneDepthParallaxPipeline {
+    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
+}
+
+extension SceneAuthoredEffectChainRenderer {
+    static func renderDepthParallax(
+        _ depthParallax: SceneDepthParallaxExecutionPlan,
+        sourceTexture: MTLTexture,
+        masks: SceneImageLayerMasks,
+        auxMask: MTLTexture?,
+        targets: SceneGraphRenderTargetTable,
+        sourceUniforms: SceneLayerFragmentUniforms,
+        pipeline: SceneImageLayerPipeline,
+        pipelines: SceneAuthoredEffectPipelineSet,
+        cursorUV: SIMD2<Float>,
+        pointerIsInside: Bool,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         nil
@@ -1005,6 +1038,7 @@ enum SceneTextureLoadPurpose {
     case flow
     case phase
     case normal
+    case depth
 }
 
 struct SceneStandardBlurEffectTextures {
@@ -2972,6 +3006,7 @@ enum Harness {
             waterRippleNormal: nil,
             foliageSwayEffects: [:],
             waterRippleEffects: [:],
+            depthParallaxEffects: [:],
             blendEffects: [:],
             shakeEffects: [:],
             filmGrainEffects: [:],
@@ -3188,6 +3223,7 @@ enum Harness {
                         waterRippleNormal: nil,
                         foliageSwayEffects: [:],
                         waterRippleEffects: [:],
+                        depthParallaxEffects: [:],
                         blendEffects: [:],
                         shakeEffects: [:],
                         filmGrainEffects: [:],
@@ -3593,6 +3629,7 @@ enum Harness {
             waterRippleNormal: nil,
             foliageSwayEffects: [:],
             waterRippleEffects: [:],
+            depthParallaxEffects: [:],
             blendEffects: [:],
             shakeEffects: [:],
             filmGrainEffects: [:],
@@ -4297,6 +4334,7 @@ enum Harness {
             waterRippleNormal: nil,
             foliageSwayEffects: [:],
             waterRippleEffects: [:],
+            depthParallaxEffects: [:],
             blendEffects: blendEffects,
             shakeEffects: [:],
             filmGrainEffects: [:],

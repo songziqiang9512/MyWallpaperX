@@ -227,6 +227,18 @@ extension SceneAuthoredEffectChainPlanner {
                 inputRole: inputRole
             )
         }
+        if let depthParallax = SceneAuthoredDepthParallaxPlanner.plan(
+            graph: stageGraph,
+            descriptor: descriptor,
+            shaderContracts: shaderContracts,
+            inputRole: inputRole
+        ) {
+            return stage(
+                .depthParallax(depthParallax),
+                stageGraph: stageGraph,
+                inputRole: inputRole
+            )
+        }
         if let xRay = SceneAuthoredXRayPlanner.plan(
             graph: stageGraph,
             descriptor: descriptor,

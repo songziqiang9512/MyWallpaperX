@@ -54,6 +54,7 @@ final class SceneImageEffectPipelineRepository {
     private let cursorRippleSlot: ScenePipelineSlot<SceneCursorRipplePipeline>
     private let foliageSwaySlot: ScenePipelineSlot<SceneFoliageSwayPipeline>
     private let waterRippleSlot: ScenePipelineSlot<SceneWaterRipplePipeline>
+    private let depthParallaxSlot: ScenePipelineSlot<SceneDepthParallaxPipeline>
     private let xRaySlot: ScenePipelineSlot<SceneXRayPipeline>
     private let blendSlot: ScenePipelineSlot<SceneBlendPipeline>
     private let tintSlot: ScenePipelineSlot<SceneTintPipeline>
@@ -89,6 +90,7 @@ final class SceneImageEffectPipelineRepository {
         cursorRippleSlot = .init { SceneCursorRipplePipeline(device: device) }
         foliageSwaySlot = .init { SceneFoliageSwayPipeline(device: device) }
         waterRippleSlot = .init { SceneWaterRipplePipeline(device: device) }
+        depthParallaxSlot = .init { SceneDepthParallaxPipeline(device: device) }
         xRaySlot = .init { SceneXRayPipeline(device: device) }
         blendSlot = .init { SceneBlendPipeline(device: device) }
         tintSlot = .init { SceneTintPipeline(device: device) }
@@ -130,6 +132,9 @@ final class SceneImageEffectPipelineRepository {
     func cursorRipple() -> SceneCursorRipplePipeline? { cursorRippleSlot.resolve() }
     func foliageSway() -> SceneFoliageSwayPipeline? { foliageSwaySlot.resolve() }
     func waterRipple() -> SceneWaterRipplePipeline? { waterRippleSlot.resolve() }
+    func depthParallax() -> SceneDepthParallaxPipeline? {
+        depthParallaxSlot.resolve()
+    }
     func xRay() -> SceneXRayPipeline? { xRaySlot.resolve() }
     func blend() -> SceneBlendPipeline? { blendSlot.resolve() }
     func tint() -> SceneTintPipeline? { tintSlot.resolve() }

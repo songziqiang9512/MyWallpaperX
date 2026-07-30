@@ -36,6 +36,7 @@ struct SceneTextureLoader {}
 enum SceneTextureLoadPurpose {
     case premultipliedColor
     case preservedChannels
+    case depth
 }
 
 struct SceneTextureCandidate {

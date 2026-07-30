@@ -11,12 +11,14 @@ enum SceneTextureLoadPurpose: Hashable {
     case flow
     case phase
     case normal
+    case depth
 
     var preservesSourceChannels: Bool {
         switch self {
         case .premultipliedColor:
             false
-        case .straightAlbedo, .preservedChannels, .mask, .noise, .flow, .phase, .normal:
+        case .straightAlbedo, .preservedChannels, .mask, .noise, .flow, .phase,
+             .normal, .depth:
             true
         }
     }

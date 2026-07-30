@@ -22,6 +22,7 @@ extension SceneAuthoredEffectExecutionPlan {
         case cursorRipple(SceneCursorRippleExecutionPlan)
         case foliageSway(SceneFoliageSwayExecutionPlan)
         case waterRipple(SceneWaterRippleExecutionPlan)
+        case depthParallax(SceneDepthParallaxExecutionPlan)
         case xRay(SceneXRayExecutionPlan)
         case clippingMask(SceneClippingMaskExecutionPlan)
         case blend(SceneBlendExecutionPlan)
@@ -131,6 +132,11 @@ extension SceneAuthoredEffectExecutionPlan {
 
     nonisolated var waterRipple: SceneWaterRippleExecutionPlan? {
         guard case .waterRipple(let plan) = backend else { return nil }
+        return plan
+    }
+
+    nonisolated var depthParallax: SceneDepthParallaxExecutionPlan? {
+        guard case .depthParallax(let plan) = backend else { return nil }
         return plan
     }
 

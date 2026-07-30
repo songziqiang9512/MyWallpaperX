@@ -29,6 +29,7 @@ enum SceneTextureLoadPurpose: String {
     case premultipliedColor
     case preservedChannels
     case mask
+    case depth
 }
 
 final class SceneTextureLoader {}

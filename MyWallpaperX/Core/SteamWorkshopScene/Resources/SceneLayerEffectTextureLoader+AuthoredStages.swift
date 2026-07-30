@@ -34,6 +34,9 @@ extension SceneLayerEffectTextureLoader {
             waterRippleEffectIDs: Set(
                 stages.compactMap { $0.waterRipple?.effectKey.descriptorID }
             ),
+            depthParallaxEffectIDs: Set(
+                stages.compactMap { $0.depthParallax?.effectKey.descriptorID }
+            ),
             cursorRippleEffectIDs: Set(
                 stages.compactMap { $0.cursorRipple?.effectKey.descriptorID }
             ),

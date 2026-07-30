@@ -99,6 +99,7 @@ private extension SceneTextureLoadPurpose {
         case .flow: "flow"
         case .phase: "phase"
         case .normal: "normal"
+        case .depth: "depth"
         }
     }
 }

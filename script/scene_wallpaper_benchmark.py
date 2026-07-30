@@ -241,6 +241,10 @@ AUTHORED_EFFECT_GRAPH_WATER_RIPPLE_COUNT_RE = re.compile(
     r"^authoredEffectGraphWaterRippleCount: (?P<count>\d+)$",
     re.MULTILINE,
 )
+AUTHORED_EFFECT_GRAPH_DEPTH_PARALLAX_COUNT_RE = re.compile(
+    r"^authoredEffectGraphDepthParallaxCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
 AUTHORED_EFFECT_GRAPH_IRIS_INLINE_SUFFIX_COUNT_RE = re.compile(
     r"^authoredEffectGraphIrisInlineSuffixCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -1529,6 +1533,13 @@ def authored_effect_graph_water_ripple_count(preview_text: str) -> int | None:
     return int(match.group("count")) if match is not None else None
 
 
+def authored_effect_graph_depth_parallax_count(
+    preview_text: str,
+) -> int | None:
+    match = AUTHORED_EFFECT_GRAPH_DEPTH_PARALLAX_COUNT_RE.search(preview_text)
+    return int(match.group("count")) if match is not None else None
+
+
 def authored_effect_graph_iris_inline_suffix_count(
     preview_text: str,
 ) -> int | None:
@@ -1727,6 +1738,7 @@ def authored_effect_graph_failures(
     water_waves_count: int | None = None,
     foliage_sway_count: int | None = None,
     water_ripple_count: int | None = None,
+    depth_parallax_count: int | None = None,
     iris_inline_suffix_count: int | None = None,
     cursor_ripple_count: int | None = None,
     cursor_ripple_isolated_count: int | None = None,
@@ -1784,6 +1796,7 @@ def authored_effect_graph_failures(
         "water_waves_count": water_waves_count,
         "foliage_sway_count": foliage_sway_count,
         "water_ripple_count": water_ripple_count,
+        "depth_parallax_count": depth_parallax_count,
         "iris_inline_suffix_count": iris_inline_suffix_count,
         "cursor_ripple_count": cursor_ripple_count,
         "cursor_ripple_isolated_count": cursor_ripple_isolated_count,
@@ -2148,6 +2161,9 @@ def run_sample(
     authored_effect_graph_water_ripple = authored_effect_graph_water_ripple_count(
         preview_text
     )
+    authored_effect_graph_depth_parallax = (
+        authored_effect_graph_depth_parallax_count(preview_text)
+    )
     authored_effect_graph_iris_inline_suffix = (
         authored_effect_graph_iris_inline_suffix_count(preview_text)
     )
@@ -2307,6 +2323,7 @@ def run_sample(
         water_waves_count=authored_effect_graph_water_waves,
         foliage_sway_count=authored_effect_graph_foliage_sway,
         water_ripple_count=authored_effect_graph_water_ripple,
+        depth_parallax_count=authored_effect_graph_depth_parallax,
         iris_inline_suffix_count=authored_effect_graph_iris_inline_suffix,
         cursor_ripple_count=authored_effect_graph_cursor_ripple,
         cursor_ripple_isolated_count=authored_effect_graph_cursor_ripple_isolated,
@@ -2670,6 +2687,7 @@ def run_sample(
             "authored_effect_graph_water_waves_count": authored_effect_graph_water_waves,
             "authored_effect_graph_foliage_sway_count": authored_effect_graph_foliage_sway,
             "authored_effect_graph_water_ripple_count": authored_effect_graph_water_ripple,
+            "authored_effect_graph_depth_parallax_count": authored_effect_graph_depth_parallax,
             "authored_effect_graph_iris_inline_suffix_count": authored_effect_graph_iris_inline_suffix,
             "authored_effect_graph_cursor_ripple_count": authored_effect_graph_cursor_ripple,
             "authored_effect_graph_cursor_ripple_isolated_count": authored_effect_graph_cursor_ripple_isolated,

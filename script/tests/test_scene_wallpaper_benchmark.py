@@ -1622,10 +1622,11 @@ utility layer 763: skippedHidden kind=composition
             benchmark.authored_effect_graph_shine_omitted_effects("")
         )
 
-    def test_foliage_sway_and_water_ripple_counts_are_exact_gates(self) -> None:
+    def test_interactive_effect_counts_are_exact_gates(self) -> None:
         preview = (
             "authoredEffectGraphFoliageSwayCount: 3\n"
             "authoredEffectGraphWaterRippleCount: 2\n"
+            "authoredEffectGraphDepthParallaxCount: 4\n"
             "authoredEffectGraphIrisInlineSuffixCount: 1\n"
         )
         self.assertEqual(
@@ -1635,6 +1636,9 @@ utility layer 763: skippedHidden kind=composition
             benchmark.authored_effect_graph_water_ripple_count(preview), 2
         )
         self.assertEqual(
+            benchmark.authored_effect_graph_depth_parallax_count(preview), 4
+        )
+        self.assertEqual(
             benchmark.authored_effect_graph_iris_inline_suffix_count(preview), 1
         )
         self.assertEqual(
@@ -1642,6 +1646,7 @@ utility layer 763: skippedHidden kind=composition
                 {
                     "expected_authored_effect_graph_foliage_sway_count": 3,
                     "expected_authored_effect_graph_water_ripple_count": 2,
+                    "expected_authored_effect_graph_depth_parallax_count": 4,
                     "expected_authored_effect_graph_iris_inline_suffix_count": 1,
                 },
                 {"succeeded_layer_ids": [], "failed_layer_ids": []},
@@ -1649,6 +1654,7 @@ utility layer 763: skippedHidden kind=composition
                 None,
                 foliage_sway_count=3,
                 water_ripple_count=2,
+                depth_parallax_count=4,
                 iris_inline_suffix_count=1,
             ),
             [],
@@ -1657,6 +1663,7 @@ utility layer 763: skippedHidden kind=composition
             {
                 "expected_authored_effect_graph_foliage_sway_count": 0,
                 "expected_authored_effect_graph_water_ripple_count": 0,
+                "expected_authored_effect_graph_depth_parallax_count": 0,
                 "expected_authored_effect_graph_iris_inline_suffix_count": 0,
             },
             {"succeeded_layer_ids": [], "failed_layer_ids": []},
@@ -1664,15 +1671,23 @@ utility layer 763: skippedHidden kind=composition
             None,
             foliage_sway_count=3,
             water_ripple_count=2,
+            depth_parallax_count=4,
             iris_inline_suffix_count=1,
         )
         self.assertIn("authored effect graph Foliage Sway count mismatch", failures)
         self.assertIn("authored effect graph Water Ripple count mismatch", failures)
         self.assertIn(
+            "authored effect graph Depth Parallax count mismatch",
+            failures,
+        )
+        self.assertIn(
             "authored effect graph Iris inline suffix count mismatch", failures
         )
         self.assertIsNone(benchmark.authored_effect_graph_foliage_sway_count(""))
         self.assertIsNone(benchmark.authored_effect_graph_water_ripple_count(""))
+        self.assertIsNone(
+            benchmark.authored_effect_graph_depth_parallax_count("")
+        )
         self.assertIsNone(
             benchmark.authored_effect_graph_iris_inline_suffix_count("")
         )
