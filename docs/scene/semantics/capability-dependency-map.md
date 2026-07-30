@@ -102,8 +102,8 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| provider identity/status/generation/fallback | layer/named/property 子集 `L3`；静态 resource generation 与 named frame epoch 已分离；三个 Effect 槽、plain base image 与 bounded REFRACT normal 的静态 candidate 已原子携带 generation/metadata | 显式 dynamic generation、stale cancellation、video/system/media/variant、nested/effectful/child producer |
-| candidate selection | 受限 static image blend；Particle slot 0 先取样本本地资源，再按官方相对路径直接取 stock bundle TEX；三个已证 Effect 槽、static plain base image 与 distinct static REFRACT normal 共享 typed candidate（purpose、actual physical/mapped、UV、sampler、pixel format） | 其余 Effect 与通用 material slots 0...7、effectful base；stock placeholder 的尺寸/通道/mip/atlas metadata；pending/unavailable 不截断 authored fallback |
+| provider identity/status/generation/fallback | layer/named/property 子集 `L3`；静态 resource generation 与 named frame epoch 已分离；Water Flow 2 槽、Standard Blur 1 槽、plain base image 与 bounded REFRACT normal 的静态 candidate 已原子携带 generation/metadata；Shake 1/2/3、Foliage Sway 1/2、Water Ripple 1/2 七个 bounded 槽进一步消费共享 slot-binding atom | 显式 dynamic generation、stale cancellation、video/system/media/variant、nested/effectful/child producer |
+| candidate selection | 受限 static image blend；Particle slot 0 先取样本本地资源，再按官方相对路径直接取 stock bundle TEX；既有 candidate 携带 purpose、actual physical/mapped、UV、sampler、pixel format，authored `0...7` binding carrier 再原子携带 index、identity/generation、mip/resolution/texel。当前只拆给三个 bounded backend 的七槽 | authored 索引载体已覆盖 `0...7`，但其余 Effect 与 generic material 的 slot population/provider readiness、annotation/combo/state、dynamic generation 仍未开放；effectful base、stock placeholder 的尺寸/通道/mip/atlas metadata；pending/unavailable 不截断 authored fallback |
 | upload/cancel/teardown | PNG/JPEG property 子集 | video frame、thumbnail、device rebuild、stale generation 和 budget |
 
 <a id="d6"></a>
