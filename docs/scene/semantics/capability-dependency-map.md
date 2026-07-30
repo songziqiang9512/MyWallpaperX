@@ -102,8 +102,8 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| provider identity/status/generation/fallback | layer/named/property 子集 `L3`；静态 resource generation 与 named frame epoch 已分离 | 显式 dynamic generation、metadata、video/system/media/variant、nested/effectful/child producer |
-| candidate selection | 受限 static image blend；Particle slot 0 先取样本本地资源，再按官方相对路径直接取 stock bundle TEX | 通用 material slots 0...7；stock placeholder 的尺寸/通道/mip/atlas metadata；pending/unavailable 不截断 authored fallback |
+| provider identity/status/generation/fallback | layer/named/property 子集 `L3`；静态 resource generation 与 named frame epoch 已分离；Water Flow flow/phase 与 Standard Blur mask 的静态 file/built-in candidate 已原子携带 generation/metadata | 显式 dynamic generation、stale cancellation、video/system/media/variant、nested/effectful/child producer |
+| candidate selection | 受限 static image blend；Particle slot 0 先取样本本地资源，再按官方相对路径直接取 stock bundle TEX；三个已证 Effect 槽位共享 typed candidate（purpose、physical/mapped、UV、sampler、pixel format） | 其余 Effect 与通用 material slots 0...7；stock placeholder 的尺寸/通道/mip/atlas metadata；pending/unavailable 不截断 authored fallback |
 | upload/cancel/teardown | PNG/JPEG property 子集 | video frame、thumbnail、device rebuild、stale generation 和 budget |
 
 <a id="d6"></a>
@@ -131,7 +131,7 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 |---|---|---|
 | canvas/view/world/layer/effect/particle/control-point spaces | 2D 子集 | parent/rotation/scale/parallax inverse、mapped UV、3D handedness |
 | cover/crop/extent/aspect | cover 子集 `L3` | 多比例、多屏、Retina、oversized image 和 Windows golden |
-| mask/flow/normal/local region | effect-specific 子集；exact Shake 已消费 RG8 flow、可选 R8 phase/white fallback 与映射 UV | 不得降成整层 transform；Shake MASK1/direction/noise、每种坐标和 sampler 独立验证 |
+| mask/flow/normal/local region | effect-specific 子集；exact Shake 已消费 RG8 flow、可选 R8 phase/white fallback 与映射 UV；Water Flow flow 与 Standard Blur mask 已从 typed candidate 消费 axis-aligned mapped UV，Water Flow phase 仍只接受 identity | 不得降成整层 transform；其余槽位、phase transform、Shake MASK1/direction/noise、每种坐标和 sampler 独立验证 |
 
 ## 3. 消费层
 
