@@ -21,6 +21,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneShaderContract.swift",
     SOURCE_ROOT / "RenderGraph/SceneShaderContractLoader.swift",
     SOURCE_ROOT / "RenderGraph/SceneShakeShaderProfile.swift",
+    SOURCE_ROOT / "RenderGraph/SceneShakeTextureAdmission.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredShakePlanner.swift",
     SOURCE_ROOT / "Runtime/SceneAudioSpectrum.swift",
     SOURCE_ROOT / "Runtime/SceneAudioResponse.swift",
@@ -230,6 +231,7 @@ enum Harness {
     static let shaderIdentity = "effects/shake"
     static let flowPath = "masks/flow"
     static let phasePath = "masks/phase"
+    static let maskPath = "masks/mask"
 
     struct Options {
         var contentKind = "image"
@@ -238,6 +240,7 @@ enum Harness {
         var trimOmittedPhase = false
         var missingFlow = false
         var texturePathMismatch = false
+        var includeMask = false
         var extraTextureSlot = false
         var instanceCombos: [String: Int] = [:]
         var materialCombos: [String: Int] = [:]
@@ -386,7 +389,11 @@ enum Harness {
             options.includePhase ? phasePath : nil,
         ]
         if options.trimOmittedPhase { slots.removeLast() }
-        if options.extraTextureSlot { slots.append("extra") }
+        if options.includeMask { slots.append(maskPath) }
+        if options.extraTextureSlot {
+            slots.append(nil)
+            slots.append("extra")
+        }
         var paths = slots.compactMap { $0 }
         if options.texturePathMismatch { paths.reverse() }
         let shake = SceneRenderDescriptor.EffectDescriptor(
@@ -618,6 +625,10 @@ enum Harness {
         var badStrength = Options(); badStrength.strength = 0
         var missingFlow = Options(); missingFlow.missingFlow = true
         var pathMismatch = Options(); pathMismatch.texturePathMismatch = true
+        var masked = Options(); masked.includeMask = true
+        var timeOffsetMasked = Options()
+        timeOffsetMasked.includePhase = false
+        timeOffsetMasked.includeMask = true
         var extraSlot = Options(); extraSlot.extraTextureSlot = true
         var badHash = Options(); badHash.materialHash = String(repeating: "0", count: 64)
         var badShader = Options(); badShader.shader = "effects/other"
@@ -681,6 +692,8 @@ enum Harness {
         let audioPartialPlan = planned(descriptorOptions: audioPartial, contracts: contracts)
         let audioDefaultsPlan = planned(descriptorOptions: audioDefaults, contracts: contracts)
         let nonAudioPlan = planned(contracts: contracts)
+        let maskedPlan = planned(descriptorOptions: masked, contracts: contracts)
+        let timeOffsetPass = descriptor(timeOffsetMasked).layers[0].effects[0].passes[0]
         var legacyTimeOffset = Options(); legacyTimeOffset.instanceCombos = ["TIMEOFFSET": 1]
         let legacyPlan = planned(contracts: legacyContracts)
         let legacyEmptyPlan = planned(
@@ -725,11 +738,23 @@ enum Harness {
             "exactAccepted": plan.layerID == layerID
                 && plan.flowTexturePath == flowPath
                 && plan.phaseTexturePath == phasePath
+                && plan.maskTexturePath == nil
                 && plan.bounds == SIMD2(0, 1)
                 && plan.friction == SIMD2(1, 1)
                 && plan.speed == 1
                 && plan.strength == 0.1,
             "whitePhaseAccepted": accepted(descriptorOptions: noPhase, contracts: contracts),
+            "maskedAccepted": maskedPlan.map {
+                $0.flowTexturePath == flowPath
+                    && $0.phaseTexturePath == phasePath
+                    && $0.maskTexturePath == maskPath
+            } ?? false,
+            "timeOffsetMaskedSlotAccepted": SceneShakeTextureAdmission.paths(
+                from: timeOffsetPass,
+                profile: .timeOffsetCombo
+            ).map {
+                $0.flow == flowPath && $0.phase == nil && $0.mask == maskPath
+            } ?? false,
             "candidateDetected": SceneAuthoredShakePlanner.containsCandidate(graph: graph()),
             "priorInputAccepted": accepted(
                 graphOptions: prior,

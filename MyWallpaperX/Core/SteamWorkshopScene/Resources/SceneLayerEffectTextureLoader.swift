@@ -244,7 +244,7 @@ enum SceneLayerEffectTextureLoader {
                     == "effects/shake/effect.json",
                   effect.passes.count == 1,
                   let pass = effect.passes.first,
-                  pass.textureSlots.count == 2 || pass.textureSlots.count == 3,
+                  (2 ... 4).contains(pass.textureSlots.count),
                   pass.textureSlots[0] == nil,
                   let flowPath = pass.textureSlots[1] else {
                 continue
@@ -258,8 +258,12 @@ enum SceneLayerEffectTextureLoader {
                 path.replacingOccurrences(of: "\\", with: "/").lowercased()
                     == "util/white" ? nil : path
             }
+            let maskPath = pass.textureSlots.indices.contains(3)
+                ? pass.textureSlots[3]
+                : nil
             let flowURL = resolver.resolveTextureFile(named: flowPath)
             let phaseURL = phasePath.flatMap(resolver.resolveTextureFile(named:))
+            let maskURL = maskPath.flatMap(resolver.resolveTextureFile(named:))
             let flow = loadTexture(
                 url: flowURL,
                 label: "shake flow",
@@ -274,12 +278,22 @@ enum SceneLayerEffectTextureLoader {
                 loader: loader,
                 device: device
             )
+            let mask = loadTexture(
+                url: maskURL,
+                label: "shake mask",
+                purpose: .preservedChannels,
+                loader: loader,
+                device: device
+            )
             textures[effect.id] = SceneShakeEffectTextures(
                 flow: flow.texture,
                 phase: phase.texture,
+                mask: mask.texture,
                 flowUVScale: mappedUVScale(for: flowURL, texture: flow.texture),
+                maskUVScale: mappedUVScale(for: maskURL, texture: mask.texture),
                 flowPath: flowPath,
-                phasePath: phasePath
+                phasePath: phasePath,
+                maskPath: maskPath
             )
             messages.append(flowURL == nil
                 ? "; shake flow missing \(flowPath)"
@@ -290,6 +304,11 @@ enum SceneLayerEffectTextureLoader {
                     : phase.message)
             } else {
                 messages.append("; shake phase authored-white fallback")
+            }
+            if let maskPath {
+                messages.append(maskURL == nil
+                    ? "; shake mask missing \(maskPath)"
+                    : mask.message)
             }
         }
         return (textures, messages.joined())

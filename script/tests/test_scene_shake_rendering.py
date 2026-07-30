@@ -36,19 +36,25 @@ struct SceneShakeExecutionPlan {
     let friction: SIMD2<Float>
     let speed: Float
     let strength: Float
+    let maskTexturePath: String?
 }
 
 struct SceneShakeEffectTextures {
     let flow: MTLTexture?
     let phase: MTLTexture?
+    let mask: MTLTexture?
     let flowUVScale: SIMD2<Float>
+    let maskUVScale: SIMD2<Float>
     let flowPath: String
     let phasePath: String?
+    let maskPath: String?
 
     func matches(_ plan: SceneShakeExecutionPlan) -> Bool {
         flow != nil
             && flowPath == "masks/flow"
             && phasePath == (phase == nil ? nil : "masks/phase")
+            && maskPath == plan.maskTexturePath
+            && (plan.maskTexturePath == nil || mask != nil)
     }
 }
 
@@ -65,14 +71,16 @@ enum Harness {
         bounds: SIMD2<Float> = SIMD2(0, 1),
         friction: SIMD2<Float> = SIMD2(1, 1),
         speed: Float = 1,
-        strength: Float = 0.5
+        strength: Float = 0.5,
+        maskTexturePath: String? = nil
     ) -> SceneShakeExecutionPlan {
         .init(
             effectKey: effectKey,
             bounds: bounds,
             friction: friction,
             speed: speed,
-            strength: strength
+            strength: strength,
+            maskTexturePath: maskTexturePath
         )
     }
 
@@ -185,6 +193,29 @@ enum Harness {
         return texture
     }
 
+    static func maskTexture(device: MTLDevice) -> MTLTexture {
+        let texture = self.texture(
+            device: device,
+            format: .r8Unorm,
+            usage: .shaderRead
+        )
+        var bytes = [UInt8](repeating: 0, count: size * size)
+        for y in 4...11 {
+            for x in 4...11 {
+                bytes[y * size + x] = 255
+            }
+        }
+        bytes.withUnsafeBytes { raw in
+            texture.replace(
+                region: MTLRegionMake2D(0, 0, size, size),
+                mipmapLevel: 0,
+                withBytes: raw.baseAddress!,
+                bytesPerRow: size
+            )
+        }
+        return texture
+    }
+
     static func render(
         device: MTLDevice,
         queue: MTLCommandQueue,
@@ -192,19 +223,24 @@ enum Harness {
         source: MTLTexture,
         flow: MTLTexture,
         phase: MTLTexture?,
+        mask: MTLTexture? = nil,
         plan: SceneShakeExecutionPlan = plan(),
         time: Float,
         audioPulse: Float? = nil,
-        flowUVScale: SIMD2<Float> = SIMD2(1, 1)
+        flowUVScale: SIMD2<Float> = SIMD2(1, 1),
+        maskUVScale: SIMD2<Float> = SIMD2(1, 1)
     ) -> (bytes: [UInt8], returnedOutput: Bool, completed: Bool) {
         let target = texture(device: device)
         let command = queue.makeCommandBuffer()!
         let resources = SceneShakeEffectTextures(
             flow: flow,
             phase: phase,
+            mask: mask,
             flowUVScale: flowUVScale,
+            maskUVScale: maskUVScale,
             flowPath: "masks/flow",
-            phasePath: phase == nil ? nil : "masks/phase"
+            phasePath: phase == nil ? nil : "masks/phase",
+            maskPath: mask == nil ? nil : "masks/mask"
         )
         let rendered = SceneShakeRenderer.render(
             plan: plan,
@@ -273,14 +309,21 @@ enum Harness {
             format: .rg8Unorm,
             usage: .shaderRead
         )
+        let wrongMaskFormat = texture(
+            device: device,
+            format: .r16Float,
+            usage: .shaderRead
+        )
         let non2D = texture(device: device, type: .type2DArray)
         let command = queue.makeCommandBuffer()!
         func encoded(
             source candidateSource: MTLTexture = source,
             flow candidateFlow: MTLTexture = flow,
             phase candidatePhase: MTLTexture = phase,
+            mask candidateMask: MTLTexture? = nil,
             target candidateTarget: MTLTexture = target,
             flowUVScale: SIMD2<Float> = SIMD2(1, 1),
+            maskUVScale: SIMD2<Float> = SIMD2(1, 1),
             plan candidatePlan: SceneShakeExecutionPlan = plan(),
             time: Float = 1.5707963,
             audioPulse: Float? = nil
@@ -290,6 +333,8 @@ enum Harness {
                 flowMap: candidateFlow,
                 phaseMap: candidatePhase,
                 flowUVScale: flowUVScale,
+                maskMap: candidateMask,
+                maskUVScale: maskUVScale,
                 target: candidateTarget,
                 plan: candidatePlan,
                 time: time,
@@ -309,11 +354,14 @@ enum Harness {
             "targetWrongUsage": !encoded(target: targetWrongUsage),
             "wrongFlowFormat": !encoded(flow: wrongFlowFormat),
             "wrongPhaseFormat": !encoded(phase: wrongPhaseFormat),
+            "wrongMaskFormat": !encoded(mask: wrongMaskFormat),
             "sourceNon2D": !encoded(source: non2D),
             "targetNon2D": !encoded(target: non2D),
             "zeroUVScale": !encoded(flowUVScale: SIMD2(0, 1)),
             "overflowUVScale": !encoded(flowUVScale: SIMD2(1.01, 1)),
             "nanUVScale": !encoded(flowUVScale: SIMD2(.nan, 1)),
+            "zeroMaskUVScale": !encoded(maskUVScale: SIMD2(0, 1)),
+            "overflowMaskUVScale": !encoded(maskUVScale: SIMD2(1.01, 1)),
             "invalidBounds": !encoded(plan: badBounds),
             "invalidFriction": !encoded(plan: plan(friction: SIMD2(0, 1))),
             "invalidSpeed": !encoded(plan: plan(speed: 10.1)),
@@ -336,10 +384,14 @@ enum Harness {
         let source = texture(device: device)
         let target = texture(device: device)
         let flow = flowTexture(device: device)
+        let mask = maskTexture(device: device)
         let command = queue.makeCommandBuffer()!
-        func rendered(_ resources: SceneShakeEffectTextures) -> Bool {
+        func rendered(
+            _ resources: SceneShakeEffectTextures,
+            plan candidatePlan: SceneShakeExecutionPlan = plan()
+        ) -> Bool {
             SceneShakeRenderer.render(
-                plan: plan(),
+                plan: candidatePlan,
                 resources: resources,
                 time: 1,
                 audioPulse: nil,
@@ -353,17 +405,53 @@ enum Harness {
             "missingFlow": !rendered(.init(
                 flow: nil,
                 phase: nil,
+                mask: nil,
                 flowUVScale: SIMD2(1, 1),
+                maskUVScale: SIMD2(1, 1),
                 flowPath: "masks/flow",
-                phasePath: nil
+                phasePath: nil,
+                maskPath: nil
             )),
             "wrongFlowPath": !rendered(.init(
                 flow: flow,
                 phase: nil,
+                mask: nil,
                 flowUVScale: SIMD2(1, 1),
+                maskUVScale: SIMD2(1, 1),
                 flowPath: "masks/other",
-                phasePath: nil
+                phasePath: nil,
+                maskPath: nil
             )),
+            "missingMask": !rendered(.init(
+                flow: flow,
+                phase: nil,
+                mask: nil,
+                flowUVScale: SIMD2(1, 1),
+                maskUVScale: SIMD2(1, 1),
+                flowPath: "masks/flow",
+                phasePath: nil,
+                maskPath: "masks/mask"
+            ), plan: plan(maskTexturePath: "masks/mask")),
+            "wrongMaskPath": !rendered(.init(
+                flow: flow,
+                phase: nil,
+                mask: mask,
+                flowUVScale: SIMD2(1, 1),
+                maskUVScale: SIMD2(1, 1),
+                flowPath: "masks/flow",
+                phasePath: nil,
+                maskPath: "masks/other"
+            ), plan: plan(maskTexturePath: "masks/mask")),
+            "maskAccepted": rendered(.init(
+                flow: flow,
+                phase: nil,
+                mask: mask,
+                flowUVScale: SIMD2(1, 1),
+                maskUVScale: SIMD2(1, 1),
+                flowPath: "masks/flow",
+                phasePath: nil,
+                maskPath: "masks/mask"
+            ), plan: plan(maskTexturePath: "masks/mask"))
         ]
     }
 
@@ -378,20 +466,23 @@ enum Harness {
         let primaryCommand = primaryQueue.makeCommandBuffer(),
         let alternateCommand = alternateQueue.makeCommandBuffer() else {
             return ["available": false, "source": true, "flow": true, "phase": true,
-                    "target": true, "queue": true]
+                    "mask": true, "target": true, "queue": true]
         }
         let primarySource = texture(device: device)
         let primaryFlow = flowTexture(device: device)
         let primaryPhase = phaseTexture(device: device)
+        let primaryMask = maskTexture(device: device)
         let primaryTarget = texture(device: device)
         let alternateSource = texture(device: alternate)
         let alternateFlow = flowTexture(device: alternate)
         let alternatePhase = phaseTexture(device: alternate)
+        let alternateMask = maskTexture(device: alternate)
         let alternateTarget = texture(device: alternate)
         func encoded(
             source: MTLTexture = primarySource,
             flow: MTLTexture = primaryFlow,
             phase: MTLTexture = primaryPhase,
+            mask: MTLTexture? = primaryMask,
             target: MTLTexture = primaryTarget,
             command: MTLCommandBuffer = primaryCommand
         ) -> Bool {
@@ -400,6 +491,8 @@ enum Harness {
                 flowMap: flow,
                 phaseMap: phase,
                 flowUVScale: SIMD2(1, 1),
+                maskMap: mask,
+                maskUVScale: SIMD2(1, 1),
                 target: target,
                 plan: plan(),
                 time: 1,
@@ -412,6 +505,7 @@ enum Harness {
             "source": !encoded(source: alternateSource),
             "flow": !encoded(flow: alternateFlow),
             "phase": !encoded(phase: alternatePhase),
+            "mask": !encoded(mask: alternateMask),
             "target": !encoded(target: alternateTarget),
             "queue": !encoded(command: alternateCommand),
         ]
@@ -476,12 +570,40 @@ enum Harness {
             time: 1.5707963,
             audioPulse: 1
         )
+        let fullFlow = flowTexture(device: device, localized: false)
+        let authoredMask = maskTexture(device: device)
+        let unmasked = render(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            source: source,
+            flow: fullFlow,
+            phase: nil,
+            time: 1.5707963
+        )
+        let masked = render(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            source: source,
+            flow: fullFlow,
+            phase: nil,
+            mask: authoredMask,
+            plan: plan(maskTexturePath: "masks/mask"),
+            time: 1.5707963
+        )
+        let unmaskedChanges = changedPixels(input, unmasked.bytes)
+        let maskedChanges = changedPixels(input, masked.bytes)
         let result: [String: Any] = [
             "metalUnavailable": false,
             "changedPixels": changedPixels(input, fallback.bytes),
             "cornerChangedPixels": cornerChangedPixels(input, fallback.bytes),
             "timeChangedPixels": changedPixels(fallback.bytes, later.bytes),
             "audioChangedPixels": changedPixels(silentAudio.bytes, activeAudio.bytes),
+            "unmaskedChangedPixels": unmaskedChanges,
+            "maskedChangedPixels": maskedChanges,
+            "maskedCornerChangedPixels": cornerChangedPixels(input, masked.bytes),
+            "maskLimitsDisplacement": maskedChanges > 0 && maskedChanges < unmaskedChanges,
             "whiteFallbackMatches": fallback.bytes == explicitWhite.bytes,
             "rendererReturnedOutput": fallback.returnedOutput,
             "commandsCompleted": fallback.completed && explicitWhite.completed && later.completed,
@@ -558,6 +680,10 @@ class SceneShakeRenderingTests(unittest.TestCase):
 
     def test_nonzero_audio_pulse_changes_the_displacement(self) -> None:
         self.assertGreater(self.result["audioChangedPixels"], 20)
+
+    def test_mask_confines_displacement_to_the_authored_region(self) -> None:
+        self.assertTrue(self.result["maskLimitsDisplacement"])
+        self.assertEqual(self.result["maskedCornerChangedPixels"], 0)
 
     def test_invalid_textures_uniforms_and_resources_fail_closed(self) -> None:
         self.assertTrue(all(self.result["rejections"].values()))

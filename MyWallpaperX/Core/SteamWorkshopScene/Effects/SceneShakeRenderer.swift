@@ -18,6 +18,8 @@ enum SceneShakeRenderer {
                   flowMap: flowTexture,
                   phaseMap: resources.phase,
                   flowUVScale: resources.flowUVScale,
+                  maskMap: resources.mask,
+                  maskUVScale: resources.maskUVScale,
                   target: outputTexture,
                   plan: plan,
                   time: time,

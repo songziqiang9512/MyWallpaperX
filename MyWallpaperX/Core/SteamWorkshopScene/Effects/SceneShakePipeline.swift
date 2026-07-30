@@ -14,6 +14,8 @@ struct ShakeUniforms {
     float4 boundsAndFriction;
     float4 motion;
     float4 flowUVScale;
+    // xy: mask mapped UV scale; z: hasMask
+    float4 maskUVScale;
     // x: 已在 CPU 侧按官方 CreateAudioResponse 求出的 audio pulse
     // y: 作者是否启用 AUDIOPROCESSING（0/1）
     float4 audio;
@@ -39,6 +41,7 @@ fragment float4 sceneShakeFrag(
     texture2d<float> source [[texture(0)]],
     texture2d<float> flowMap [[texture(1)]],
     texture2d<float> phaseMap [[texture(2)]],
+    texture2d<float> maskMap [[texture(3)]],
     constant ShakeUniforms &uniforms [[buffer(0)]]
 ) {
     constexpr sampler linearClamp(filter::linear, address::clamp_to_edge);
@@ -68,9 +71,18 @@ fragment float4 sceneShakeFrag(
         offset = offset * 2.0 - 1.0;
     }
 
-    float2 displacedUV = input.texcoord
-        + offset * uniforms.motion.y * uniforms.motion.y * flowMask;
-    return source.sample(linearClamp, displacedUV);
+    float2 textureOffset = offset * uniforms.motion.y * uniforms.motion.y * flowMask;
+    float2 displacedUV = input.texcoord + textureOffset;
+    float4 displaced = source.sample(linearClamp, displacedUV);
+    if (uniforms.maskUVScale.z > 0.5) {
+        // 官方 MASK 分支在位移后的坐标采样遮罩，防止从遮罩区域外卷入像素。
+        float mask = maskMap.sample(
+            linearClamp,
+            displacedUV * uniforms.maskUVScale.xy
+        ).r;
+        return mix(source.sample(linearClamp, input.texcoord), displaced, mask);
+    }
+    return displaced;
 }
 """
 
@@ -78,6 +90,7 @@ private struct SceneShakeUniforms {
     let boundsAndFriction: SIMD4<Float>
     let motion: SIMD4<Float>
     let flowUVScale: SIMD4<Float>
+    let maskUVScale: SIMD4<Float>
     let audio: SIMD4<Float>
 }
 
@@ -115,6 +128,8 @@ struct SceneShakePipeline {
         flowMap: MTLTexture,
         phaseMap: MTLTexture?,
         flowUVScale: SIMD2<Float>,
+        maskMap: MTLTexture?,
+        maskUVScale: SIMD2<Float>,
         target: MTLTexture,
         plan: SceneShakeExecutionPlan,
         time: Float,
@@ -128,6 +143,8 @@ struct SceneShakePipeline {
             phaseMap: phase,
             target: target,
             flowUVScale: flowUVScale,
+            maskMap: maskMap,
+            maskUVScale: maskUVScale,
             plan: plan,
             time: time,
             audioPulse: audioPulse,
@@ -147,6 +164,7 @@ struct SceneShakePipeline {
         encoder.setFragmentTexture(source, index: 0)
         encoder.setFragmentTexture(flowMap, index: 1)
         encoder.setFragmentTexture(phase, index: 2)
+        encoder.setFragmentTexture(maskMap ?? flowMap, index: 3)
         var uniforms = SceneShakeUniforms(
             boundsAndFriction: SIMD4(
                 plan.bounds.x,
@@ -156,6 +174,12 @@ struct SceneShakePipeline {
             ),
             motion: SIMD4(plan.speed, plan.strength, time, 0),
             flowUVScale: SIMD4(flowUVScale.x, flowUVScale.y, 0, 0),
+            maskUVScale: SIMD4(
+                maskUVScale.x,
+                maskUVScale.y,
+                maskMap == nil ? 0 : 1,
+                0
+            ),
             audio: SIMD4(audioPulse ?? 0, audioPulse == nil ? 0 : 1, 0, 0)
         )
         encoder.setFragmentBytes(
@@ -174,6 +198,8 @@ struct SceneShakePipeline {
         phaseMap: MTLTexture,
         target: MTLTexture,
         flowUVScale: SIMD2<Float>,
+        maskMap: MTLTexture?,
+        maskUVScale: SIMD2<Float>,
         plan: SceneShakeExecutionPlan,
         time: Float,
         audioPulse: Float?,
@@ -188,6 +214,7 @@ struct SceneShakePipeline {
                 usage: .shaderRead
             )
             && validTexture(phaseMap, format: .r8Unorm, usage: .shaderRead)
+            && validMask(maskMap)
             && validTexture(target, format: .bgra8Unorm, usage: .renderTarget)
             && target.mipmapLevelCount == 1
             && source.width == target.width
@@ -199,6 +226,12 @@ struct SceneShakePipeline {
             && (0...1).contains(flowUVScale.y)
             && flowUVScale.x > 0
             && flowUVScale.y > 0
+            && maskUVScale.x.isFinite
+            && maskUVScale.y.isFinite
+            && (0...1).contains(maskUVScale.x)
+            && (0...1).contains(maskUVScale.y)
+            && maskUVScale.x > 0
+            && maskUVScale.y > 0
             && plan.bounds.x.isFinite
             && plan.bounds.y.isFinite
             && plan.bounds.y > plan.bounds.x
@@ -213,9 +246,18 @@ struct SceneShakePipeline {
             && time.isFinite
             && (audioPulse?.isFinite ?? true)
             && commandBuffer.commandQueue.device.registryID == deviceRegistryID
-            && [source, flowMap, phaseMap, target].allSatisfy {
+            && ([source, flowMap, phaseMap, target] + (maskMap.map { [$0] } ?? [])).allSatisfy {
                 $0.device.registryID == deviceRegistryID
             }
+    }
+
+    private func validMask(_ texture: MTLTexture?) -> Bool {
+        guard let texture else { return true }
+        return validTexture(
+            texture,
+            formats: [.r8Unorm, .rg8Unorm, .rgba8Unorm, .bgra8Unorm],
+            usage: .shaderRead
+        )
     }
 
     private func validTexture(

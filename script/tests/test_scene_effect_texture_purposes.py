@@ -43,6 +43,7 @@ EXPECTED_PURPOSES = {
     "waterripple normal": "preservedChannels",
     "shake flow": "preservedChannels",
     "shake phase": "preservedChannels",
+    "shake mask": "preservedChannels",
     "blend effect texture": "premultipliedColor",
     "cursor ripple collision mask": "preservedChannels",
     "film grain noise": "preservedChannels",

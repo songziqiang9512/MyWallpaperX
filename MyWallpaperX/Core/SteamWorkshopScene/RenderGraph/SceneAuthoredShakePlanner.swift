@@ -10,6 +10,7 @@ nonisolated struct SceneShakeExecutionPlan {
     let strength: Float
     let flowTexturePath: String
     let phaseTexturePath: String?
+    let maskTexturePath: String?
     let audio: SceneAudioResponse.Parameters?
 }
 
@@ -59,7 +60,10 @@ enum SceneAuthoredShakePlanner {
                   layer: layer,
                   profile: shaderProfile
               ),
-              let paths = texturePaths(from: instance, profile: shaderProfile),
+              let paths = SceneShakeTextureAdmission.paths(
+                  from: instance,
+                  profile: shaderProfile
+              ),
               let parameters = parameters(
                   from: instance.constantShaderValues
               ),
@@ -69,10 +73,11 @@ enum SceneAuthoredShakePlanner {
                 graph: graph,
                 descriptor: descriptor
               ).node,
-              validResolvedMaterial(
+              SceneShakeTextureAdmission.validResolvedMaterial(
                 resolved,
                 flowPath: paths.flow,
                 phasePath: paths.phase,
+                maskPath: paths.mask,
                 profile: shaderProfile
               ) else {
             return nil
@@ -88,6 +93,7 @@ enum SceneAuthoredShakePlanner {
             strength: parameters.strength,
             flowTexturePath: paths.flow,
             phaseTexturePath: paths.phase,
+            maskTexturePath: paths.mask,
             audio: audio.parameters
         )
     }
@@ -197,79 +203,6 @@ enum SceneAuthoredShakePlanner {
         return pass
     }
 
-    private nonisolated static func texturePaths(
-        from pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor,
-        profile: SceneShakeShaderProfile
-    ) -> (flow: String, phase: String?)? {
-        let supportsOmittedPhase = profile == .legacyUnconditionalPhase
-            || (profile == .timeOffsetCombo
-                && normalizedComboValue("TIMEOFFSET", in: pass.combos) != 1)
-        guard pass.textureSlots.count == 3
-                || (supportsOmittedPhase && pass.textureSlots.count == 2),
-              pass.textureSlots[0] == nil,
-              let flow = pass.textureSlots[1],
-              !flow.isEmpty else {
-            return nil
-        }
-        let phase = pass.textureSlots.indices.contains(2) ? pass.textureSlots[2] : nil
-        guard phase?.isEmpty != true else { return nil }
-        if profile == .timeOffsetCombo {
-            let usesPhase = normalizedComboValue("TIMEOFFSET", in: pass.combos) == 1
-            guard usesPhase == (phase != nil) else { return nil }
-        }
-        let expected = [flow] + (phase.map { [$0] } ?? [])
-        guard pass.texturePaths == expected else { return nil }
-        // legacy 实例会省略 phase，或显式写成 shader 注解默认 `util/white`
-        //（stock 资产，白=2π≡0）。显式默认与缺省语义相同，归一为 nil 走内置 R8 白回退，
-        // 避免解码 BGRA white.tex 撞 pipeline 的 R8 phase 格式合同。
-        if profile == .legacyUnconditionalPhase,
-           let explicitPhase = phase,
-           normalized(explicitPhase) == "util/white" {
-            return (flow, nil)
-        }
-        return (flow, phase)
-    }
-
-    private nonisolated static func validResolvedMaterial(
-        _ material: SceneResolvedMaterialNode,
-        flowPath: String,
-        phasePath: String?,
-        profile: SceneShakeShaderProfile
-    ) -> Bool {
-        // 归一后的 nil phase 在 resolved material 侧仍可能是显式 `util/white` 槽。
-        let resolvedPhase = assetPath(material.textureSlots[2])
-        let phaseMatches = resolvedPhase == phasePath
-            || (profile == .legacyUnconditionalPhase
-                && phasePath == nil
-                && resolvedPhase.map(normalized) == "util/white")
-        guard normalized(material.shaderPath) == shaderIdentity,
-              material.textureSlots.count == 8,
-              assetPath(material.textureSlots[1]) == flowPath,
-              phaseMatches,
-              material.textureSlots.enumerated().allSatisfy({
-                  [1, 2].contains($0.offset) || $0.element == nil
-              }),
-              validCombos(material.combos, profile: profile),
-              parameters(from: material.constants) != nil else {
-            return false
-        }
-        return material.renderState.blending?.lowercased() == "normal"
-            && material.renderState.depthTest?.lowercased() == "disabled"
-            && material.renderState.depthWrite?.lowercased() == "disabled"
-            && material.renderState.cullMode?.lowercased() == "nocull"
-    }
-
-    private nonisolated static func assetPath(
-        _ slot: SceneResolvedMaterialNode.TextureSlot?
-    ) -> String? {
-        guard let slot, slot.candidates.count == 1,
-              slot.provenance == .instance,
-              case .asset(let path) = slot.source else {
-            return nil
-        }
-        return path
-    }
-
     private nonisolated static func parameters(
         from authored: [String: SceneDocument.ShaderValue]
     ) -> Parameters? {
@@ -311,6 +244,12 @@ enum SceneAuthoredShakePlanner {
         )
     }
 
+    nonisolated static func hasValidParameters(
+        _ authored: [String: SceneDocument.ShaderValue]
+    ) -> Bool {
+        parameters(from: authored) != nil
+    }
+
     private nonisolated static func vector(
         _ value: SceneDocument.ShaderValue?,
         range: ClosedRange<Double>,
@@ -345,7 +284,7 @@ enum SceneAuthoredShakePlanner {
         return Float(component)
     }
 
-    private nonisolated static func validCombos(
+    nonisolated static func validCombos(
         _ authored: [String: Int],
         profile: SceneShakeShaderProfile
     ) -> Bool {
@@ -364,13 +303,6 @@ enum SceneAuthoredShakePlanner {
                 && profile == .timeOffsetCombo
                 && (value == 0 || value == 1)
         }
-    }
-
-    private nonisolated static func normalizedComboValue(
-        _ key: String,
-        in authored: [String: Int]
-    ) -> Int? {
-        authored.first { $0.key.uppercased() == key }?.value
     }
 
     private nonisolated static func effectOutput(

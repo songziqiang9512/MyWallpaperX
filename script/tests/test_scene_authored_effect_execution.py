@@ -1700,9 +1700,16 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
 
         loader = EFFECT_TEXTURE_LOADER_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
-            "pass.textureSlots.count == 2 || pass.textureSlots.count == 3",
+            "(2 ... 4).contains(pass.textureSlots.count)",
             loader,
         )
+        for marker in (
+            'label: "shake mask"',
+            "mask: mask.texture",
+            "maskUVScale: mappedUVScale(for: maskURL, texture: mask.texture)",
+            "maskPath: maskPath",
+        ):
+            self.assertIn(marker, loader)
 
     def test_iris_inline_suffix_is_terminal_strict_and_keeps_exact_prefix(self) -> None:
         suffix = IRIS_SUFFIX_SOURCE.read_text(encoding="utf-8")
