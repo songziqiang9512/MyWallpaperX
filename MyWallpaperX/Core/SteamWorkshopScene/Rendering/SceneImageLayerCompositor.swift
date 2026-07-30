@@ -75,10 +75,9 @@ struct SceneImageLayerCompositor {
         let sourceEffectInputs = request.authoredEffectChain == nil
             ? effectPlan.inputs
             : .neutral
-        guard let sourceTextureFrame = request.resolvedBaseTextureFrame(
-            routesOffscreen: routesOffscreen,
-            hasInlineEffects: !sourceEffectInputs.flags.isEmpty
-        ) else { return false }
+        guard let sourceTextureFrame = request.resolvedBaseTextureFrame() else {
+            return false
+        }
         // 作者 `brightness` 是 layer 颜色乘数（随包 wave layer 用 3.0/4.0 做过曝发光），
         // 超过 1 的部分由 render target 精度裁剪。`contentKind == "text"` 的 layer 纹理来自
         // CoreText 栅格化，那一步已经乘过同一个 key（见 SceneTextTextureLoader），这里必须跳过。

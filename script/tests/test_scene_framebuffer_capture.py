@@ -1807,6 +1807,15 @@ enum Harness {
               ),
               let rejected = makeTexture(
                   device: device, size: size, usage: [.renderTarget, .shaderRead]
+              ),
+              let effectfulReference = makeTexture(
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
+              ),
+              let effectfulAccepted = makeTexture(
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
+              ),
+              let effectfulRejected = makeTexture(
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
               ) else {
             throw HarnessError.metalUnavailable
         }
@@ -1878,8 +1887,44 @@ enum Harness {
             ),
             target: rejected, queue: queue, pipeline: pipeline, compositor: compositor
         )
+        let effectfulReferenceEncoded = try drawBaseColor(
+            source: source, candidate: nil, target: effectfulReference,
+            queue: queue, pipeline: pipeline, compositor: compositor,
+            effectful: true
+        )
+        let effectfulCandidateEncoded = try drawBaseColor(
+            source: source, candidate: candidate, target: effectfulAccepted,
+            queue: queue, pipeline: pipeline, compositor: compositor,
+            effectful: true
+        )
+        let effectfulWrongPurposeRejected = try !drawBaseColor(
+            source: source,
+            candidate: textureCandidate(
+                texture: source, purpose: .normal, name: "effectful-wrong-purpose"
+            ),
+            target: effectfulRejected,
+            queue: queue, pipeline: pipeline, compositor: compositor,
+            effectful: true
+        )
+        let effectfulMismatchedTextureRejected = try !drawBaseColor(
+            source: source,
+            candidate: textureCandidate(
+                texture: other,
+                purpose: .premultipliedColor,
+                name: "effectful-wrong-texture"
+            ),
+            target: effectfulRejected,
+            queue: queue, pipeline: pipeline, compositor: compositor,
+            effectful: true
+        )
         let referenceBytes = try textureBytes(reference, queue: queue)
         let acceptedBytes = try textureBytes(accepted, queue: queue)
+        let effectfulReferenceBytes = try textureBytes(
+            effectfulReference, queue: queue
+        )
+        let effectfulAcceptedBytes = try textureBytes(
+            effectfulAccepted, queue: queue
+        )
         let pixels = stride(from: 0, to: acceptedBytes.count, by: 4).map {
             Array(acceptedBytes[$0 ..< ($0 + 4)])
         }
@@ -1896,6 +1941,13 @@ enum Harness {
             "nearestRejected": nearestRejected,
             "repeatRejected": repeatRejected,
             "clampBorderRejected": clampBorderRejected,
+            "effectfulReferenceEncoded": effectfulReferenceEncoded,
+            "effectfulCandidateEncoded": effectfulCandidateEncoded,
+            "effectfulMatchesLegacyPixels":
+                maxDifference(effectfulReferenceBytes, effectfulAcceptedBytes) <= 1,
+            "effectfulWrongPurposeRejected": effectfulWrongPurposeRejected,
+            "effectfulMismatchedTextureRejected":
+                effectfulMismatchedTextureRejected,
         ]
     }
 
@@ -1905,11 +1957,16 @@ enum Harness {
         target: MTLTexture,
         queue: MTLCommandQueue,
         pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor
+        compositor: SceneImageLayerCompositor,
+        effectful: Bool = false
     ) throws -> Bool {
         guard let commandBuffer = queue.makeCommandBuffer() else {
             throw HarnessError.metalUnavailable
         }
+        let effectPlan = effectful ? authoredPreciseBlurPlan() : nil
+        let offscreenPool = effectful
+            ? SceneOffscreenTexturePool(device: source.device)
+            : nil
         let mainPass = SceneMainPassEncoder(
             commandBuffer: commandBuffer,
             target: target,
@@ -1931,12 +1988,12 @@ enum Harness {
                 uniforms: SceneImageLayerUniformValues(
                     time: 0, alpha: 1, cursorUV: .zero
                 ),
-                offscreenTexturePool: nil,
+                offscreenTexturePool: offscreenPool,
                 offscreenSize: nil,
                 requiresSourceCopy: false,
                 finalCompositeAlpha: nil,
                 dependencyEffect: nil,
-                authoredEffectPlan: nil,
+                authoredEffectPlan: effectPlan,
                 blocksLegacyGaussianBlur: false
             ),
             pipeline: pipeline,
@@ -4628,12 +4685,15 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertGreater(evidence["animatedRGB"], 4, evidence)
         self.assertTrue(evidence["invalidRejected"], evidence)
 
-    def test_static_base_color_candidate_is_atomic_at_direct_gpu_split(self) -> None:
+    def test_static_base_color_candidate_is_atomic_at_final_gpu_split(self) -> None:
         evidence = self.result["baseColorCandidate"]
         self.assertTrue(evidence["referenceEncoded"], evidence)
         self.assertTrue(evidence["candidateEncoded"], evidence)
         self.assertTrue(evidence["matchesLegacyPixels"], evidence)
         self.assertTrue(evidence["fractionalPremultipliedPixelPreserved"], evidence)
+        self.assertTrue(evidence["effectfulReferenceEncoded"], evidence)
+        self.assertTrue(evidence["effectfulCandidateEncoded"], evidence)
+        self.assertTrue(evidence["effectfulMatchesLegacyPixels"], evidence)
         for key in (
             "wrongPurposeRejected",
             "mismatchedTextureRejected",
@@ -4641,6 +4701,8 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             "nearestRejected",
             "repeatRejected",
             "clampBorderRejected",
+            "effectfulWrongPurposeRejected",
+            "effectfulMismatchedTextureRejected",
         ):
             self.assertTrue(evidence[key], (key, evidence))
 

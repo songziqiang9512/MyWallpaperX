@@ -173,22 +173,11 @@ struct SceneImageLayerDrawRequest {
         return authoredEffectChain?.authoredShaderOffscreenSize(for: desired) ?? offscreenSize
     }
 
-    func resolvedBaseTextureFrame(
-        routesOffscreen: Bool,
-        hasInlineEffects: Bool
-    ) -> SceneTextureUVTransform? {
+    func resolvedBaseTextureFrame() -> SceneTextureUVTransform? {
         guard let baseTextureCandidate else {
             return textureFrame
         }
-        guard layer.contentKind == "image",
-              !routesOffscreen,
-              !hasInlineEffects,
-              dependencyEffect == nil,
-              authoredEffectPlan == nil,
-              authoredEffectChain == nil,
-              !requiresSourceCopy else {
-            return textureFrame
-        }
+        guard layer.contentKind == "image" else { return nil }
         return SceneBaseImageTextureCandidateResolver.textureFrame(
             candidate: baseTextureCandidate,
             sourceTexture: texture
