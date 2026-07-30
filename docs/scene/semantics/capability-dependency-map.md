@@ -120,7 +120,7 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| material pass/slot hole/combo/constant/render state | IR `L2`；Blur、stock Local Contrast、exact Workshop Shadow、exact stock Opacity、Shake、Water Waves 与 Water Flow profile 子集 `L3`，exact stock/Workshop profile 用完整 authored fingerprint 约束 | annotation defaults、variant key、typed uniform layout 与通用 executor 仍未完成 |
+| material pass/slot hole/combo/constant/render state | IR `L2` 已增加 loss-preserving 五项 raw state 与 observed-enum typed compiler；exact Cursor Ripple、受限 authored shader 和 particle admission 已各自消费固定 tuple，unknown/incomplete state 失败关闭。Blur、stock Local Contrast、exact Workshop Shadow、exact stock Opacity、Shake、Water Waves 与 Water Flow 等既有 profile 子集仍为 `L3`，并继续用完整 authored fingerprint 约束 | generic Metal state translator/cache、`alphawriting=default`、arbitrary blend/depth/cull/alpha、annotation defaults、variant key、typed uniform layout 与通用 executor 仍未完成 |
 | shader source/include/annotation/declaration | `8474ace` 已以 ShaderContract v1 达到 `L1`：安全保存完整 source/raw hash、stage、include reference、annotation、uniform/attribute/varying declaration、diagnostic 与 canonical identity；Local Contrast 只把 exact identity/fingerprint 用作 strict admission gate，仍调用手写 MSL | typed annotation/default schema、include expansion、macro/permutation preprocessor、stage link/translation/compile 与 executor |
 | built-in uniforms | time/pointer/matrix 子集 | per-slot resolution、audio、effect/local matrices、color/alpha contract |
 
