@@ -1,6 +1,6 @@
 # SceneScript 运行时实现层合同（2.8.42 客户端取证）
 
-审查日期：2026-07-25；Ghidra engine 增补：2026-07-30
+审查日期：2026-07-25；Ghidra engine 增补：2026-07-30；32/64 位交叉复核：2026-07-31
 取证快照：Wallpaper Engine 2.8.42 随包文件
 审查方式：静态检查
 
@@ -27,7 +27,7 @@
 | `JM` | `assets/scripts/jsmodules/{wemath,wevector,wecolor}.js` | 13/15/47 行 | A |
 | `DT` | `ui/dist/monaco/autocomplete/lib.sceneScript.d.ts` | 2570 行 | A |
 | `LB` | `ui/dist/monaco/autocomplete/lib.es*.d.ts` 清单 | 23 个文件 | A |
-| `GB` | `wallpaper64.exe` + `scenescript64.dll` 的 Ghidra 有界静态路径 | module/engine/event/timer/teardown 邻域 | B |
+| `GB` | 32/64 位 `wallpaper` + `scenescript` 的 Ghidra 有界静态路径 | module/engine/event/timer/teardown 与跨 ABI 结构邻域 | B |
 
 等级沿用 [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md)：A = 客户端快照中的结构化文件直接确认。
 
@@ -283,6 +283,8 @@ Mat3/Mat4 的乘法索引和向量变换直接确认其数组为 column-major �
 - 每个 engine 有独立 watchdog。连续执行长时间不退出会使该实例进入永久中断并跳过后续 event/timer，不是“下一帧自动恢复”。
 - event 与 timer callback 会累计真实执行耗时，宿主可读取并清零。项目可据此设计分级预算，但不能把观察到的客户端 watchdog 阈值直接复制为 MyWallpaperX policy。
 
+2026-07-31 的独立 32/64 位 Ghidra 交叉进一步确认：两份 DLL 共同公开上述四个宿主入口；`thisLayer`、`engine`、`localStorage`、`registerAudioBuffers`、`setTimeout` 与 `setInterval` 在两个架构中形成相同的共址集合，并可达独立 worker 与同步参与者。它支持这些能力属于 per-engine owner bridge，而不是 64 位特例或互不相关的全局 helper；函数数、xref、TLS/异常导出与 CRT 细节不同，因此不证明逐函数或 ABI 等价。完整输入身份和方法见 [官方客户端运行机制静态取证](client-runtime-static-forensics.md)。
+
 ### 8.2 Event、timer 与 audio tick
 
 - 每个 script record 固定保存 19 个 event slot：init/update/resize/destroy、用户属性、通用设置、animation、六个 cursor 与五个 media。
@@ -332,3 +334,4 @@ property return 通过集中式 typed conversion 写回 number、bool、string �
 - [资料来源与证据索引](source-index.md) —— 本文来源应登记于此
 - [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) —— 证据等级出处
 - [运行时系统语义](runtime-systems-reference.md) —— 运行系统执行顺序
+- [官方客户端运行机制静态取证](client-runtime-static-forensics.md) —— Ghidra 方法、输入身份与 32/64 位结构交叉

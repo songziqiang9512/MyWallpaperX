@@ -317,13 +317,14 @@ Timeline 由 runtime time 求值，不应按“每渲染帧加一个 keyframe st
 
 ### 5.5 SceneScript 模块边界静态互证
 
-2.8.42 主程序与 `scenescript64.dll` 的有界 Ghidra 路径补充确认：
+2.8.42 的 32/64 位主程序与 SceneScript module 的有界 Ghidra 路径补充确认：
 
 - 主程序先做精确版本握手，匹配后才执行 module init 和 engine creation；版本不符失败关闭；
 - engine 使用固定事件槽、timer、watchdog 与每回调耗时统计，不是 renderer draw 中的一次无预算 `eval`；
 - host 侧两条独立 lifecycle path 都会主动派发 `destroy` 事件；DLL 的 record/engine 清理不会自行合成该事件；
 - 因此 owner removal 前 exactly-once `destroy` 是宿主职责。`destroy -> record removal -> engine teardown` 的完整相对顺序仍不能由静态 vtable 无歧义恢复，需最小 fake-VM fixture 或 Windows dynamic trace；
 - interval 由 frame delta 驱动，到期每帧至多执行一次，不追补积压周期；项目应把 drift/catch-up 行为写成显式 timer policy。
+- 两个架构的 module 都公开 init/factory/version/shutdown；`thisLayer`、engine、scoped storage、audio registration 和 timeout/interval 形成相同 host registration 邻域。它证明关键 owner bridge 结构对应，不证明逐函数、ABI、事件顺序或性能等价；输入身份与限制见 [官方客户端运行机制静态取证](client-runtime-static-forensics.md)。
 
 独立 module、engine instance、owner script instance 与 host event bridge 是四个生命周期层。官方 API、事件与 ECMAScript 版本仍以 §5.1–5.3 的公开资料为准；本节不改变当前 Generic VM/Event 的覆盖等级。
 

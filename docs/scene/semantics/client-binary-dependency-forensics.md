@@ -1,6 +1,6 @@
 # 官方客户端二进制与第三方依赖取证
 
-审查日期：2026-07-26；Ghidra 深层增补：2026-07-30
+审查日期：2026-07-26；Ghidra 深层增补：2026-07-30；32/64 位交叉复核：2026-07-31
 取证快照：Wallpaper Engine 2.8.42 的 `bin/`、`ui/dist/videos/`、`assets/shaders/{base,editor,HLSL}`、`distribution/`
 审查方式：静态检查
 
@@ -112,11 +112,10 @@ PyTorch、Torch Vision、Torch Audio、timm、**MiDaS**、**DPT**、OpenCV（含
 
 ### 3.3 仍未闭合的静态研究队列
 
-当前完成的是 `wallpaper64.exe`、`scenescript64.dll`、`resourceutil64.dll`、`resourcecompiler64.exe`、`mediaextensions64.dll`、`winrtutil64.exe`、`wallpaperservice64.exe`、`cloneextensions64.dll` 八个模块的**有界深挖**，不是客户端全量分析。每项只归纳可迁移的结构事实；地址、伪代码、函数体、私有算法表达和客户端 payload 均不进入项目。
+当前完成的是 32/64 位 `wallpaper` 与 `scenescript` 的第一轮结构交叉，以及 `resourceutil64.dll`、`resourcecompiler64.exe`、`mediaextensions64.dll`、`winrtutil64.exe`、`wallpaperservice64.exe`、`cloneextensions64.dll` 六个模块的**有界深挖**，不是客户端全量分析。交叉结果、输入哈希与证据边界统一见 [官方客户端运行机制静态取证](client-runtime-static-forensics.md)。每项只归纳可迁移的结构事实；地址、伪代码、函数体、私有算法表达和客户端 payload 均不进入项目。
 
 | 优先级 | 后续主题 | Ghidra 仍可回答 | 必须由动态/自有 fixture 回答 |
 |---|---|---|---|
-| 高 | `wallpaper32.exe` / `scenescript32.dll` 对 64 位结构差分 | 可识别 parser/binder/event/factory/lifecycle 入口和直接可达结构是否对应 | 完整内部等价、启动器何时选择 32/64 位、同场景像素/时序/性能 |
 | 高 | TEX / slot / sampler 链 | `TEXV/TEXI/TEXB/TEXS` 分支及 flags/尺寸/mip 参与 slot metadata、sampler、fallback 的可达路径 | 完整路径、UV、padding、sRGB、alpha、swizzle、DXT5n/BC5 解包与 GPU 像素 |
 | 高 | RenderGraph / FBO / history / render state | copy/swap/history/clear/unique/format/target/compose 的已识别参与者、局部顺序与资源生命周期线索 | 全局所有权/顺序、跨帧 history、alias/clear 值及 blend/depth/cull/write-mask 输出 |
 | 高 | Particle factory 与生命周期 | 可识别 factory、initializer/operator/renderer 阶段、child/control-point、排序/批次/释放入口 | 完整所有权、数值公式、随机种子、fixed-step、逐帧阶段顺序和视觉轨迹 |
@@ -124,7 +123,7 @@ PyTorch、Torch Vision、Torch Audio、timm、**MiDaS**、**DPT**、OpenCV（含
 | 高 | Video / Sound 实际宿主调用 | 可识别 Media Foundation 状态参与者、Scene clock/seek/loop/reset 调用点与主程序使用的 OpenAL 子集 | 完整 state machine/所有权、A/V 同步、设备中断、事件顺序、视频颜色空间和 frame readiness |
 | 高 | Material override / variant | 可识别 authored/default/user/system/provider 参与者、variant key 与 render-state 注入点 | 完整来源集合、优先级和最终输出；继续用项目自有 fixture 验证，不复刻内部算法 |
 
-优先顺序从 32 位结构差分开始，因为现有 Parallels 运行记录实际加载 `wallpaper32.exe`、`scenescript32.dll` 与 `d3dcompiler_47_x32.dll`；目前只确认公开导入/API 基本同构，不能据此推出内部等价。随后依次处理 TEX/sampler、FBO/history/state、particle、SceneScript host binding 与 video/Sound；text/MSDF、3D/Lighting/Puppet、HDR/final combine、GIF 与 resource compiler 的 trim/rotation/mip 属中收益缺口。
+32 位结构差分已确认关键 parser/resolver/particle/final-output 与 SceneScript host bridge 在两条 ABI 路径中对应，但函数数量、xref 与 CRT/API 细节不同，不能推出内部、像素、时序或性能等价。后续优先处理 TEX/sampler、FBO/history/state、particle、SceneScript host binding 与 video/Sound；text/MSDF、3D/Lighting/Puppet、HDR/final combine、GIF 与 resource compiler 的 trim/rotation/mip 属中收益缺口。
 
 FreeImage、Assimp、OpenAL Soft、DXC/DXIL、CEF、ANGLE、SwiftShader、Vulkan 与设备 SDK 已有公开源码或正式 API，原则上研究官方客户端如何调用它们，不继续反编译第三方库本身。`wallpaperui.exe` 的作者字段优先取结构化 UI/locale/default project；`webwallpaper64.exe`、注入器、screensaver、installer、launcher 等不混入当前 Scene 播放链批次。任何静态结果都不能代替 Windows 同步像素、事件顺序和生命周期证据。
 
