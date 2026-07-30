@@ -38,15 +38,15 @@
 | parent transform | `L3` | origin/size/scale/angles 合成；[E-BASE](runtime-evidence-index.md#e-base) | 3D、shear、动态 target 和数值 golden |
 | effective visibility | `L3` | parent/child/effect/particle gating；[E-BASE](runtime-evidence-index.md#e-base) | live topology invalidation |
 | layer alpha/color/blend mode | `L3` | 静态 descriptor/compositor 子集；layer alpha 与纯 solid color 已由 B0 per-surface snapshot live 消费；[E-BASE](runtime-evidence-index.md#e-base)、[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | visibility/topology、non-solid/mixed color、完整 blend/premultiply/color space |
-| dependency layer IDs | `L2` | 可保留并进入 dependency plan | 通用 nested/effectful/child provider |
-| typed composition/project/fullscreen layer | `L3` | 有限 current-frame prefix capture 与 geometry；[E-UTILITY](runtime-evidence-index.md#e-utility) | 完整子场景边界、嵌套和 target ordering |
-| current-frame capture | `L3` | bounded provider、clipping、GPU completion；[E-UTILITY](runtime-evidence-index.md#e-utility) | 通用 capture mask/format/extent |
-| named primary `_a` target | `L3` | bounded producer/consumer 和预算池；[E-UTILITY](runtime-evidence-index.md#e-utility) | 通用 authored identity、copy/swap/compose |
+| dependency layer IDs | `L2` | 可保留并进入 dependency plan；exact composition Clipping Mask 的单 backward dependency 可执行 | 通用 nested/effectful/child provider 与更多 consumer topology |
+| typed composition/project/fullscreen layer | `L3` | 有限 current-frame prefix capture、geometry，以及 exact composition `Clipping Mask` / `Clipping Mask -> static Opacity`；[E-UTILITY](runtime-evidence-index.md#e-utility) | 完整子场景边界、嵌套和 target ordering |
+| current-frame capture | `L3` | bounded provider、clipping、GPU completion；composition dependency capture 与 named binding 共用完整-chain consumer 集合；[E-UTILITY](runtime-evidence-index.md#e-utility) | 通用 capture mask/format/extent 与 SceneScript/dynamic alpha |
+| named primary `_a` target | `L3` | bounded producer/consumer 和预算池；`2974757317` 只捕获 `912/57382` 并绑定 `956/57098`；[E-UTILITY](runtime-evidence-index.md#e-utility) | 通用 authored identity、copy/swap/compose |
 | named secondary `_b` identity | `L2` | registry 区分完整 variant | producer/consumer 数据流 |
 | RGB composition semantics | `L0` | current-frame capture 不能冒充 RGB camera | 独立 subtree capture、device output 和 author-off |
 | nested/effectful provider | `L0` | 当前拒绝或缺失 | 同一 graph/provider contract 与循环检测 |
 
-Utility composition 已是极窄的 `L3` 子集，不再写成完全缺失；但这不代表任意 composition、RGB Composition 或 `_b` history 已闭合。
+Utility composition 已是极窄的 `L3` 子集，不再写成完全缺失；`2974757317:914` 的 SceneScript alpha、`3768229922` 的 9 个隐藏 weighted profile、effectful/nested/child provider、任意 composition、RGB Composition 与 `_b` history 都没有因此闭合。
 
 ## 3. Puppet Warp 官方页面覆盖（13）
 
