@@ -147,6 +147,7 @@ struct SceneDependencyEffectInput {
 struct SceneImageLayerDrawRequest {
     let layer: SceneRenderDescriptor.Layer
     let texture: MTLTexture
+    var baseTextureCandidate: SceneTextureCandidate? = nil
     let masks: SceneImageLayerMasks
     let textureFrame: SceneTextureUVTransform
     let mvp: simd_float4x4
@@ -170,5 +171,27 @@ struct SceneImageLayerDrawRequest {
             height: CGFloat(texture.height)
         )
         return authoredEffectChain?.authoredShaderOffscreenSize(for: desired) ?? offscreenSize
+    }
+
+    func resolvedBaseTextureFrame(
+        routesOffscreen: Bool,
+        hasInlineEffects: Bool
+    ) -> SceneTextureUVTransform? {
+        guard let baseTextureCandidate else {
+            return textureFrame
+        }
+        guard layer.contentKind == "image",
+              !routesOffscreen,
+              !hasInlineEffects,
+              dependencyEffect == nil,
+              authoredEffectPlan == nil,
+              authoredEffectChain == nil,
+              !requiresSourceCopy else {
+            return textureFrame
+        }
+        return SceneBaseImageTextureCandidateResolver.textureFrame(
+            candidate: baseTextureCandidate,
+            sourceTexture: texture
+        )
     }
 }

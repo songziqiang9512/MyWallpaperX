@@ -75,6 +75,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneTextureMipUploader.swift",
     SOURCE_ROOT / "Resources/SceneTextureLoader.swift",
     SOURCE_ROOT / "Resources/SceneTextureUVTransform.swift",
+    SOURCE_ROOT / "Resources/SceneTextureCandidate.swift",
+    SOURCE_ROOT / "Resources/SceneTextureLoader+Candidate.swift",
     SOURCE_ROOT / "Rendering/SceneSpriteAnimation.swift",
     SOURCE_ROOT / "Rendering/SceneLayerVisibility.swift",
     SOURCE_ROOT / "Particles/SceneParticleChildGraphExpansion.swift",
@@ -381,8 +383,12 @@ enum Harness {
             "batchLayerIDs": batches.map(\.layerID),
             "refractionLayerIDs": batches.filter { $0.refraction != nil }.map(\.layerID),
             "sameTextureIdentity": batches.filter { $0.refraction != nil }.allSatisfy {
-                $0.texture === $0.refraction?.normalTexture
+                $0.texture === $0.refraction?
+                    .resolvedNormalArguments()?.texture
             },
+            "staticCandidateLayerIDs": batches.filter {
+                $0.refraction?.usesStaticNormalCandidate == true
+            }.map(\.layerID),
             "amounts": batches.compactMap { $0.refraction?.amount },
             "diagnostics": runtime.diagnostics.map(\.kind.rawValue),
             "diagnosticDetails": runtime.diagnostics.map { $0.detail ?? "" },
@@ -405,6 +411,8 @@ enum Harness {
             )
         )
         var paths = Set<String>()
+        var candidatePaths = Set<String>()
+        var legacyPaths = Set<String>()
         var firstFrame = -1
         for frame in 0..<(7 * 60) {
             let refractive = runtime.advance(by: 1.0 / 60.0).filter {
@@ -412,10 +420,18 @@ enum Harness {
             }
             if !refractive.isEmpty && firstFrame < 0 { firstFrame = frame }
             paths.formUnion(refractive.map(\.particlePath))
+            candidatePaths.formUnion(refractive.filter {
+                $0.refraction?.usesStaticNormalCandidate == true
+            }.map(\.particlePath))
+            legacyPaths.formUnion(refractive.filter {
+                $0.refraction?.usesStaticNormalCandidate == false
+            }.map(\.particlePath))
         }
         return [
             "firstFrame": firstFrame,
             "paths": paths.sorted(),
+            "candidatePaths": candidatePaths.sorted(),
+            "legacyPaths": legacyPaths.sorted(),
             "refractionUnsupported": runtime.diagnostics.filter {
                 $0.kind == .refractionUnsupported
             }.map { $0.detail ?? "" },
@@ -440,16 +456,24 @@ enum Harness {
         let targetLayers = Set([239, 245, 248])
         var activeFrames: [Int: Int] = [:]
         var maximumInstances: [Int: Int] = [:]
+        var candidateLayers = Set<Int>()
+        var legacyLayers = Set<Int>()
         for _ in 0..<(8 * 60) {
-            for batch in runtime.advance(by: 1.0 / 60.0)
-            where targetLayers.contains(batch.layerID)
-                && batch.refraction != nil
-                && !batch.instances.isEmpty {
-                activeFrames[batch.layerID, default: 0] += 1
-                maximumInstances[batch.layerID] = max(
-                    maximumInstances[batch.layerID, default: 0],
-                    batch.instances.count
-                )
+            for batch in runtime.advance(by: 1.0 / 60.0) {
+                if batch.refraction?.usesStaticNormalCandidate == true {
+                    candidateLayers.insert(batch.layerID)
+                } else if batch.refraction != nil {
+                    legacyLayers.insert(batch.layerID)
+                }
+                if targetLayers.contains(batch.layerID)
+                    && batch.refraction != nil
+                    && !batch.instances.isEmpty {
+                    activeFrames[batch.layerID, default: 0] += 1
+                    maximumInstances[batch.layerID] = max(
+                        maximumInstances[batch.layerID, default: 0],
+                        batch.instances.count
+                    )
+                }
             }
         }
         return [
@@ -459,6 +483,8 @@ enum Harness {
             "maximumInstances": Dictionary(uniqueKeysWithValues: targetLayers.sorted().map {
                 (String($0), maximumInstances[$0, default: 0])
             }),
+            "candidateLayers": candidateLayers.sorted(),
+            "legacyLayers": legacyLayers.sorted(),
             "refractionUnsupported": runtime.diagnostics.filter {
                 $0.kind == .refractionUnsupported
             }.map { $0.detail ?? "" },
@@ -1072,7 +1098,9 @@ enum Harness {
            ) {
             refractionSampling = [
                 "color": sampling(loaded.colorSampling),
-                "normal": sampling(loaded.binding.normalSampling),
+                "normal": loaded.binding.resolvedNormalArguments().map {
+                    sampling($0.sampling)
+                } ?? [:],
             ]
         } else {
             refractionSampling = [:]
@@ -1960,6 +1988,7 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             sorted(result["refractionLayerIDs"]), [1103, 1144], result
         )
         self.assertTrue(result["sameTextureIdentity"])
+        self.assertEqual(result["staticCandidateLayerIDs"], [])
         self.assertEqual(result["amounts"], [0.5, 0.5])
         self.assertNotIn("refractionUnsupported", result["diagnostics"])
 
@@ -1975,6 +2004,10 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertIn(
             "particles/presets/fireworkshitdistort.json",
             result["paths"],
+        )
+        self.assertIn(
+            "particles/presets/fireworkshitdistort.json",
+            result["candidatePaths"],
         )
         self.assertEqual(result["refractionUnsupported"], [])
 
@@ -1993,6 +2026,9 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             self.assertGreater(result["activeFrames"][layer_id], 0, result)
             self.assertGreater(result["maximumInstances"][layer_id], 0, result)
         self.assertEqual(result["refractionUnsupported"], [])
+        self.assertIn(48, result["candidateLayers"], result)
+        for layer_id in (239, 245, 248):
+            self.assertIn(layer_id, result["legacyLayers"], result)
 
 
 if __name__ == "__main__":

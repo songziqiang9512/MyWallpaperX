@@ -26,6 +26,9 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneTextureMipUploader.swift",
     SCENE_ROOT / "Resources/SceneTextureLoader.swift",
     SCENE_ROOT / "Resources/SceneTextureLoader+Candidate.swift",
+    SCENE_ROOT / "Rendering/SceneMetalPipeline.swift",
+    SCENE_ROOT / "Rendering/SceneSpriteAnimation.swift",
+    SCENE_ROOT / "Rendering/SceneBaseImageTextureLoad.swift",
 ]
 
 
@@ -75,6 +78,39 @@ enum Harness {
         let unparsedFallbackURL = directory.appendingPathComponent(
             "unparsed-fallback-mask.tex"
         )
+        let croppedColorURL = directory.appendingPathComponent(
+            "cropped-color.tex"
+        )
+        let normalizedColorURL = directory.appendingPathComponent(
+            "normalized-color.tex"
+        )
+        let wrongOutputURL = directory.appendingPathComponent(
+            "wrong-output-color.tex"
+        )
+        let mappedEmbeddedURL = directory.appendingPathComponent(
+            "mapped-embedded-color.tex"
+        )
+        let mappedTexb3EmbeddedURL = directory.appendingPathComponent(
+            "mapped-texb3-embedded-color.tex"
+        )
+        let malformedTexb3EmbeddedURL = directory.appendingPathComponent(
+            "malformed-texb3-embedded-color.tex"
+        )
+        let decodedMismatchTexb3URL = directory.appendingPathComponent(
+            "decoded-mismatch-texb3-embedded-color.tex"
+        )
+        let lowerMipMismatchTexb3URL = directory.appendingPathComponent(
+            "lower-mip-mismatch-texb3-embedded-color.tex"
+        )
+        let freeFormatMismatchTexb3URL = directory.appendingPathComponent(
+            "free-format-mismatch-texb3-embedded-color.tex"
+        )
+        let mappedTexb3JPEGURL = directory.appendingPathComponent(
+            "mapped-texb3-embedded-color-jpeg.tex"
+        )
+        let mappedTexb2MipURL = directory.appendingPathComponent(
+            "mapped-texb2-mip-color.tex"
+        )
         try rawR8Tex(
             textureWidth: 8,
             textureHeight: 4,
@@ -111,6 +147,114 @@ enum Harness {
         var unparsedFallback = Data("invalid TEX header ".utf8)
         unparsedFallback.append(try Data(contentsOf: fallbackPNGURL))
         try unparsedFallback.write(to: unparsedFallbackURL)
+        try rawRGBA8Tex(
+            textureWidth: 8,
+            textureHeight: 4,
+            imageWidth: 4,
+            imageHeight: 4
+        ).write(to: croppedColorURL)
+        try embeddedImageTex(
+            textureWidth: 8192,
+            textureHeight: 4,
+            imageWidth: 4097,
+            imageHeight: 2,
+            payload: try pngData(width: 4097, height: 2)
+        ).write(to: normalizedColorURL)
+        try embeddedImageTex(
+            textureWidth: 8,
+            textureHeight: 4,
+            imageWidth: 4,
+            imageHeight: 4,
+            payload: try pngData(width: 4, height: 3)
+        ).write(to: wrongOutputURL)
+        try embeddedImageTex(
+            textureWidth: 8,
+            textureHeight: 4,
+            imageWidth: 4,
+            imageHeight: 4,
+            payload: try pngData(width: 4, height: 4)
+        ).write(to: mappedEmbeddedURL)
+        try embeddedImageTex(
+            textureWidth: 8,
+            textureHeight: 4,
+            imageWidth: 4,
+            imageHeight: 4,
+            payload: try pngData(width: 4, height: 4),
+            containerVersion: "TEXB0003",
+            mipWidth: 4,
+            mipHeight: 4,
+            additionalMips: [
+                (2, 2, try pngData(width: 2, height: 2)),
+            ]
+        ).write(to: mappedTexb3EmbeddedURL)
+        try embeddedImageTex(
+            textureWidth: 8,
+            textureHeight: 4,
+            imageWidth: 4,
+            imageHeight: 4,
+            payload: try pngData(width: 4, height: 4),
+            containerVersion: "TEXB0003",
+            mipWidth: 5,
+            mipHeight: 4
+        ).write(to: malformedTexb3EmbeddedURL)
+        try embeddedImageTex(
+            textureWidth: 8,
+            textureHeight: 4,
+            imageWidth: 4,
+            imageHeight: 4,
+            payload: try pngData(width: 3, height: 4),
+            containerVersion: "TEXB0003",
+            mipWidth: 4,
+            mipHeight: 4
+        ).write(to: decodedMismatchTexb3URL)
+        try embeddedImageTex(
+            textureWidth: 8,
+            textureHeight: 4,
+            imageWidth: 4,
+            imageHeight: 4,
+            payload: try pngData(width: 4, height: 4),
+            containerVersion: "TEXB0003",
+            mipWidth: 4,
+            mipHeight: 4,
+            additionalMips: [
+                (2, 2, try pngData(width: 1, height: 2)),
+            ]
+        ).write(to: lowerMipMismatchTexb3URL)
+        try embeddedImageTex(
+            textureWidth: 8,
+            textureHeight: 4,
+            imageWidth: 4,
+            imageHeight: 4,
+            payload: try pngData(width: 4, height: 4),
+            containerVersion: "TEXB0003",
+            freeImageFormat: 2,
+            mipWidth: 4,
+            mipHeight: 4
+        ).write(to: freeFormatMismatchTexb3URL)
+        try embeddedImageTex(
+            textureWidth: 8,
+            textureHeight: 4,
+            imageWidth: 4,
+            imageHeight: 4,
+            payload: try jpegData(width: 4, height: 4),
+            containerVersion: "TEXB0003",
+            freeImageFormat: 2,
+            mipWidth: 4,
+            mipHeight: 4,
+            additionalMips: [
+                (2, 2, try jpegData(width: 2, height: 2)),
+            ]
+        ).write(to: mappedTexb3JPEGURL)
+        try embeddedImageTex(
+            textureWidth: 8,
+            textureHeight: 4,
+            imageWidth: 4,
+            imageHeight: 4,
+            payload: try pngData(width: 4, height: 4),
+            containerVersion: "TEXB0002",
+            mipWidth: 4,
+            mipHeight: 4
+        ).write(to: mappedTexb2MipURL)
 
         let loader = SceneTextureLoader()
         let first = try candidate(loader.loadCandidate(
@@ -174,7 +318,158 @@ enum Harness {
                 device: device
             )
         )
+        let croppedColor = try candidate(loader.loadCandidate(
+            from: croppedColorURL,
+            purpose: .premultipliedColor,
+            device: device
+        ))
+        let normalizedColor = try candidate(loader.loadCandidate(
+            from: normalizedColorURL,
+            purpose: .premultipliedColor,
+            device: device
+        ))
+        let wrongOutputRejected = rejectedDimensions(
+            loader.loadCandidate(
+                from: wrongOutputURL,
+                purpose: .premultipliedColor,
+                device: device
+            )
+        )
+        let mappedEmbeddedColor = try candidate(loader.loadCandidate(
+            from: mappedEmbeddedURL,
+            purpose: .premultipliedColor,
+            device: device
+        ))
+        let mappedEmbeddedNormalRejected = rejectedDimensions(
+            loader.loadCandidate(
+                from: mappedEmbeddedURL,
+                purpose: .normal,
+                device: device
+            )
+        )
+        let mappedTexb3EmbeddedColor = try candidate(loader.loadCandidate(
+            from: mappedTexb3EmbeddedURL,
+            purpose: .premultipliedColor,
+            device: device
+        ))
+        let mappedTexb3EmbeddedNormal = try candidate(loader.loadCandidate(
+            from: mappedTexb3EmbeddedURL,
+            purpose: .normal,
+            device: device
+        ))
+        let malformedTexb3EmbeddedRejected = rejectedDimensions(
+            loader.loadCandidate(
+                from: malformedTexb3EmbeddedURL,
+                purpose: .premultipliedColor,
+                device: device
+            )
+        )
+        let decodedMismatchTexb3Rejected = rejectedDimensions(
+            loader.loadCandidate(
+                from: decodedMismatchTexb3URL,
+                purpose: .premultipliedColor,
+                device: device
+            )
+        )
+        let lowerMipMismatchTexb3Rejected = rejectedDimensions(
+            loader.loadCandidate(
+                from: lowerMipMismatchTexb3URL,
+                purpose: .premultipliedColor,
+                device: device
+            )
+        )
+        let freeFormatMismatchTexb3Rejected = rejectedDimensions(
+            loader.loadCandidate(
+                from: freeFormatMismatchTexb3URL,
+                purpose: .premultipliedColor,
+                device: device
+            )
+        )
+        let mappedTexb3JPEG = try candidate(loader.loadCandidate(
+            from: mappedTexb3JPEGURL,
+            purpose: .premultipliedColor,
+            device: device
+        ))
+        let mappedTexb2MipRejected = rejectedDimensions(
+            loader.loadCandidate(
+                from: mappedTexb2MipURL,
+                purpose: .premultipliedColor,
+                device: device
+            )
+        )
+        let baseDirect = try baseLoaded(SceneBaseImageTextureLoad.load(
+            from: fallbackPNGURL,
+            usesPuppet: false,
+            loader: loader,
+            device: device
+        ))
+        let baseCropped = try baseLoaded(SceneBaseImageTextureLoad.load(
+            from: croppedColorURL,
+            usesPuppet: false,
+            loader: loader,
+            device: device
+        ))
+        let basePaddedLegacy = try baseLoaded(SceneBaseImageTextureLoad.load(
+            from: url,
+            usesPuppet: false,
+            loader: loader,
+            device: device
+        ))
+        let baseSpriteLegacy = try baseLoaded(SceneBaseImageTextureLoad.load(
+            from: spriteURL,
+            usesPuppet: false,
+            loader: loader,
+            device: device
+        ))
+        let basePuppetLegacy = try baseLoaded(SceneBaseImageTextureLoad.load(
+            from: croppedColorURL,
+            usesPuppet: true,
+            loader: loader,
+            device: device
+        ))
+        let baseUnparsedLegacy = try baseLoaded(SceneBaseImageTextureLoad.load(
+            from: unparsedFallbackURL,
+            usesPuppet: false,
+            loader: loader,
+            device: device
+        ))
+        let baseCandidateFailureTerminal = baseRejectedDimensions(
+            SceneBaseImageTextureLoad.load(
+                from: mismatchedPhysicalURL,
+                usesPuppet: false,
+                loader: loader,
+                device: device
+            )
+        )
+        var baseStore = SceneBaseImageTextureStore()
+        baseStore.set(
+            baseDirect.texture,
+            candidate: baseDirect.candidate,
+            layerID: 7
+        )
+        baseStore[7] = baseCropped.texture
+        let baseStoreReplacementClearsCandidate =
+            baseStore.candidates[7] == nil
+        baseStore.set(
+            baseDirect.texture,
+            candidate: baseDirect.candidate,
+            layerID: 7
+        )
+        let mismatchedSnapshot = baseStore.snapshot(
+            textures: [7: baseCropped.texture]
+        )
+        let baseSnapshotDropsMismatchedCandidate =
+            mismatchedSnapshot.candidate(
+                for: 7,
+                matching: baseCropped.texture
+            ) == nil
         let firstScale = first.axisAlignedMappedUVScale(expectedPurpose: .mask)
+        let croppedColorScale = croppedColor.axisAlignedMappedUVScale(
+            expectedPurpose: .premultipliedColor
+        )
+        let normalizedColorScale = normalizedColor.axisAlignedMappedUVScale(
+            expectedPurpose: .premultipliedColor
+        )
 
         let wrongPurposeRejected =
             first.axisAlignedMappedUVScale(expectedPurpose: .flow) == nil
@@ -261,6 +556,73 @@ enum Harness {
             "mismatchedPhysicalRejected": mismatchedPhysicalRejected,
             "emptySpriteRejected": emptySpriteRejected,
             "unparsedFallbackRejected": unparsedFallbackRejected,
+            "croppedColorPhysical": [
+                Int(croppedColor.physicalSize.width),
+                Int(croppedColor.physicalSize.height),
+            ],
+            "croppedColorMapped": [
+                Int(croppedColor.mappedSize.width),
+                Int(croppedColor.mappedSize.height),
+            ],
+            "croppedColorScale": [
+                croppedColorScale?.x ?? -1,
+                croppedColorScale?.y ?? -1,
+            ],
+            "normalizedColorPhysical": [
+                Int(normalizedColor.physicalSize.width),
+                Int(normalizedColor.physicalSize.height),
+            ],
+            "normalizedColorMapped": [
+                Int(normalizedColor.mappedSize.width),
+                Int(normalizedColor.mappedSize.height),
+            ],
+            "normalizedColorScale": [
+                normalizedColorScale?.x ?? -1,
+                normalizedColorScale?.y ?? -1,
+            ],
+            "wrongOutputRejected": wrongOutputRejected,
+            "mappedEmbeddedColorIdentity":
+                mappedEmbeddedColor.axisAlignedMappedUVScale(
+                    expectedPurpose: .premultipliedColor
+                ) == SIMD2(repeating: 1),
+            "mappedEmbeddedNormalRejected": mappedEmbeddedNormalRejected,
+            "mappedTexb3EmbeddedColorIdentity":
+                mappedTexb3EmbeddedColor.axisAlignedMappedUVScale(
+                    expectedPurpose: .premultipliedColor
+                ) == SIMD2(repeating: 1),
+            "mappedTexb3EmbeddedNormalIdentity":
+                mappedTexb3EmbeddedNormal.axisAlignedMappedUVScale(
+                    expectedPurpose: .normal
+                ) == SIMD2(repeating: 1),
+            "malformedTexb3EmbeddedRejected": malformedTexb3EmbeddedRejected,
+            "decodedMismatchTexb3Rejected": decodedMismatchTexb3Rejected,
+            "lowerMipMismatchTexb3Rejected": lowerMipMismatchTexb3Rejected,
+            "freeFormatMismatchTexb3Rejected":
+                freeFormatMismatchTexb3Rejected,
+            "mappedTexb3JPEGIdentity":
+                mappedTexb3JPEG.axisAlignedMappedUVScale(
+                    expectedPurpose: .premultipliedColor
+                ) == SIMD2(repeating: 1),
+            "mappedTexb2MipRejected": mappedTexb2MipRejected,
+            "baseDirectCandidate": baseDirect.candidate != nil,
+            "baseCroppedCandidate": baseCropped.candidate != nil,
+            "basePaddedR8Legacy":
+                basePaddedLegacy.candidate == nil
+                    && basePaddedLegacy.message.contains("legacy binding"),
+            "baseSpriteLegacy":
+                baseSpriteLegacy.candidate == nil
+                    && baseSpriteLegacy.animation != nil,
+            "basePuppetLegacy":
+                basePuppetLegacy.candidate == nil
+                    && basePuppetLegacy.message.contains("puppet atlas"),
+            "baseUnparsedLegacy":
+                baseUnparsedLegacy.candidate == nil
+                    && baseUnparsedLegacy.message.contains("unparsed TEX"),
+            "baseCandidateFailureTerminal": baseCandidateFailureTerminal,
+            "baseStoreReplacementClearsCandidate":
+                baseStoreReplacementClearsCandidate,
+            "baseSnapshotDropsMismatchedCandidate":
+                baseSnapshotDropsMismatchedCandidate,
             "generationChangedAfterRewrite": originalGeneration != refreshed.generation,
             "textureChangedAfterRewrite": first.texture !== refreshed.texture,
             "refreshedPhysical": [
@@ -291,6 +653,15 @@ enum Harness {
             throw HarnessError.loadFailed
         }
         return candidate
+    }
+
+    static func baseLoaded(
+        _ outcome: SceneBaseImageTextureLoad.Outcome
+    ) throws -> SceneBaseImageTextureLoad.Loaded {
+        guard case .loaded(let loaded) = outcome else {
+            throw HarnessError.loadFailed
+        }
+        return loaded
     }
 
     static func copy(
@@ -325,6 +696,15 @@ enum Harness {
 
     static func rejectedDimensions(
         _ outcome: SceneTextureCandidateLoadOutcome
+    ) -> Bool {
+        guard case .failed(.decodeFailed(let message)) = outcome else {
+            return false
+        }
+        return message.contains("inconsistent physical/mapped dimensions")
+    }
+
+    static func baseRejectedDimensions(
+        _ outcome: SceneBaseImageTextureLoad.Outcome
     ) -> Bool {
         guard case .failed(.decodeFailed(let message)) = outcome else {
             return false
@@ -414,6 +794,119 @@ enum Harness {
         data.append(Data("TEXS0002\0".utf8))
         append(0, to: &data)
         return data
+    }
+
+    static func rawRGBA8Tex(
+        textureWidth: UInt32,
+        textureHeight: UInt32,
+        imageWidth: UInt32,
+        imageHeight: UInt32
+    ) -> Data {
+        let payload = Data(
+            repeating: 127,
+            count: Int(textureWidth * textureHeight * 4)
+        )
+        return embeddedImageTex(
+            textureWidth: textureWidth,
+            textureHeight: textureHeight,
+            imageWidth: imageWidth,
+            imageHeight: imageHeight,
+            payload: payload
+        )
+    }
+
+    static func embeddedImageTex(
+        textureWidth: UInt32,
+        textureHeight: UInt32,
+        imageWidth: UInt32,
+        imageHeight: UInt32,
+        payload: Data,
+        containerVersion: String = "TEXB0002",
+        freeImageFormat: UInt32 = 13,
+        mipWidth: UInt32? = nil,
+        mipHeight: UInt32? = nil,
+        additionalMips: [(UInt32, UInt32, Data)] = []
+    ) -> Data {
+        var data = Data("TEXV0005\0TEXI0001\0".utf8)
+        append(0, to: &data)
+        append(2, to: &data)
+        append(textureWidth, to: &data)
+        append(textureHeight, to: &data)
+        append(imageWidth, to: &data)
+        append(imageHeight, to: &data)
+        append(0, to: &data)
+        data.append(Data("\(containerVersion)\0".utf8))
+        append(1, to: &data)
+        if containerVersion == "TEXB0003" {
+            append(freeImageFormat, to: &data)
+        }
+        let mips = [
+            (mipWidth ?? textureWidth, mipHeight ?? textureHeight, payload),
+        ] + additionalMips
+        append(UInt32(mips.count), to: &data)
+        for (width, height, mipPayload) in mips {
+            append(width, to: &data)
+            append(height, to: &data)
+            append(0, to: &data)
+            append(0, to: &data)
+            append(UInt32(mipPayload.count), to: &data)
+            data.append(mipPayload)
+        }
+        return data
+    }
+
+    static func pngData(width: Int, height: Int) throws -> Data {
+        try encodedImageData(
+            width: width,
+            height: height,
+            type: "public.png" as CFString
+        )
+    }
+
+    static func jpegData(width: Int, height: Int) throws -> Data {
+        try encodedImageData(
+            width: width,
+            height: height,
+            type: "public.jpeg" as CFString
+        )
+    }
+
+    static func encodedImageData(
+        width: Int,
+        height: Int,
+        type: CFString
+    ) throws -> Data {
+        let pixels = Data(repeating: 127, count: width * height * 4)
+        guard let provider = CGDataProvider(data: pixels as CFData),
+              let image = CGImage(
+                  width: width,
+                  height: height,
+                  bitsPerComponent: 8,
+                  bitsPerPixel: 32,
+                  bytesPerRow: width * 4,
+                  space: CGColorSpaceCreateDeviceRGB(),
+                  bitmapInfo: CGBitmapInfo(
+                      rawValue: CGImageAlphaInfo.last.rawValue
+                  ),
+                  provider: provider,
+                  decode: nil,
+                  shouldInterpolate: false,
+                  intent: .defaultIntent
+              ),
+              let data = CFDataCreateMutable(nil, 0),
+              let destination = CGImageDestinationCreateWithData(
+                  data,
+                  type,
+                  1,
+                  nil
+              ) else {
+            throw HarnessError.imageCreationFailed
+        }
+        CGImageDestinationAddImage(destination, image, nil)
+        guard CGImageDestinationFinalize(destination) else {
+            throw HarnessError.imageCreationFailed
+        }
+        return data as Data
     }
 
     static func writeImage(_ url: URL) throws {
@@ -515,6 +1008,19 @@ class SceneTextureCandidateTests(unittest.TestCase):
             result,
             {
                 "available": True,
+                "baseCandidateFailureTerminal": True,
+                "baseCroppedCandidate": True,
+                "baseDirectCandidate": True,
+                "basePaddedR8Legacy": True,
+                "basePuppetLegacy": True,
+                "baseSpriteLegacy": True,
+                "baseSnapshotDropsMismatchedCandidate": True,
+                "baseStoreReplacementClearsCandidate": True,
+                "baseUnparsedLegacy": True,
+                "croppedColorMapped": [4, 4],
+                "croppedColorPhysical": [4, 4],
+                "croppedColorScale": [1, 1],
+                "decodedMismatchTexb3Rejected": True,
                 "diagnosticCarriesContract": True,
                 "emptySpriteRejected": True,
                 "firstMapped": [4, 4],
@@ -528,6 +1034,18 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "invalidMappedRejected": True,
                 "invalidPhysicalRejected": True,
                 "mismatchedPhysicalRejected": True,
+                "mappedEmbeddedColorIdentity": True,
+                "mappedEmbeddedNormalRejected": True,
+                "freeFormatMismatchTexb3Rejected": True,
+                "lowerMipMismatchTexb3Rejected": True,
+                "malformedTexb3EmbeddedRejected": True,
+                "mappedTexb2MipRejected": True,
+                "mappedTexb3EmbeddedColorIdentity": True,
+                "mappedTexb3EmbeddedNormalIdentity": True,
+                "mappedTexb3JPEGIdentity": True,
+                "normalizedColorMapped": [4096, 1],
+                "normalizedColorPhysical": [4096, 1],
+                "normalizedColorScale": [1, 1],
                 "oversizedMappedRejected": True,
                 "purposeCacheSeparated": True,
                 "refreshedGenerationMatchesFileSize": True,
@@ -542,6 +1060,7 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "translatedRejected": True,
                 "unparsedFallbackRejected": True,
                 "wrongPurposeRejected": True,
+                "wrongOutputRejected": True,
                 "zeroMappedRejected": True,
             },
         )

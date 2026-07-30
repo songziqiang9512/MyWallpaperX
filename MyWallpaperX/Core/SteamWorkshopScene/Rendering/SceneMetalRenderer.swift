@@ -77,7 +77,7 @@ struct SceneMetalRenderer {
     }
 
     func renderFrame(
-        imageTextures: [Int: MTLTexture],
+        imageTextures: SceneBaseImageTextureSnapshot,
         dynamicTextRenderSizes: [Int: [Float]] = [:],
         userPropertyTextures: [String: MTLTexture] = [:],
         spriteAnimations: [Int: SceneSpriteAnimation],
@@ -124,7 +124,7 @@ struct SceneMetalRenderer {
         )
 
         textureRegistry.beginFrame(
-            layerSources: imageTextures,
+            layerSources: imageTextures.textures,
             userPropertyTextures: userPropertyTextures
         )
         for layer in orderedLayers {
@@ -215,6 +215,7 @@ struct SceneMetalRenderer {
                 let request = SceneImageLayerDrawRequest(
                     layer: layer,
                     texture: preparedTexture,
+                    baseTextureCandidate: imageTextures.candidate(for: layer.id, matching: preparedTexture),
                     masks: effectMasks(for: layer.id, in: effectTextures),
                     textureFrame: spriteAnimations[layer.id]?.transform(at: time) ?? .identity,
                     mvp: mvp,

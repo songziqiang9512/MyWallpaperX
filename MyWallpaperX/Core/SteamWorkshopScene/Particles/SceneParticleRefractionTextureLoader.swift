@@ -30,11 +30,29 @@ enum SceneParticleRefractionTextureLoader {
             return nil
         }
 
+        let sameSource = colorURL.standardizedFileURL
+            == normalURL.standardizedFileURL
+        let normalSampling = SceneParticleTextureSampling(
+            texFlags: normalContainer.flags
+        )
+        let normalCandidate: SceneTextureCandidate?
         let normal: MTLTexture
-        if colorURL.standardizedFileURL == normalURL.standardizedFileURL {
+        if sameSource {
             // Both semantic roles preserve the source channels, so an authored
             // same-file binding can safely reuse its physical upload.
             normal = color
+            normalCandidate = nil
+        } else if normalContainer.imageCount == 1,
+                  !normalContainer.isAnimated,
+                  normalContainer.spriteFrames.isEmpty,
+                  !normalSampling.usesClampBorderFallback {
+            guard case let .loaded(candidate) = textureLoader.loadCandidate(
+                from: normalURL,
+                purpose: .normal,
+                device: device
+            ) else { return nil }
+            normal = candidate.texture
+            normalCandidate = candidate
         } else {
             guard case let .loaded(value) = textureLoader.load(
                 from: normalURL,
@@ -42,6 +60,7 @@ enum SceneParticleRefractionTextureLoader {
                 device: device
             ) else { return nil }
             normal = value
+            normalCandidate = nil
         }
 
         let colorFrames = colorContainer.spriteFrames
@@ -54,26 +73,38 @@ enum SceneParticleRefractionTextureLoader {
             normalUsesParticleFrames = true
         }
 
+        let colorEncoding: SceneParticleRefractionBinding.ColorEncoding =
+            colorContainer.format == 8 ? .luminanceAlpha : .rgba
+        let binding: SceneParticleRefractionBinding
+        if let normalCandidate {
+            guard let candidateBinding = SceneParticleRefractionBinding(
+                normalCandidate: normalCandidate,
+                amount: declaration.amount,
+                overbright: declaration.overbright,
+                colorEncoding: colorEncoding
+            ) else { return nil }
+            binding = candidateBinding
+        } else {
+            binding = SceneParticleRefractionBinding(
+                normalTexture: normal,
+                amount: declaration.amount,
+                overbright: declaration.overbright,
+                colorEncoding: colorEncoding,
+                normalUsesParticleFrames: normalUsesParticleFrames,
+                normalUVScale: uvScale(
+                    for: normalContainer,
+                    usesFrames: normalUsesParticleFrames
+                ),
+                normalSampling: normalSampling
+            )
+        }
         return Loaded(
             color: color,
             colorAnimation: colorFrames.isEmpty
                 ? nil : SceneSpriteAnimation(frames: colorFrames),
             colorUVScale: uvScale(for: colorContainer, usesFrames: !colorFrames.isEmpty),
             colorSampling: SceneParticleTextureSampling(texFlags: colorContainer.flags),
-            binding: SceneParticleRefractionBinding(
-                normalTexture: normal,
-                amount: declaration.amount,
-                overbright: declaration.overbright,
-                colorEncoding: colorContainer.format == 8 ? .luminanceAlpha : .rgba,
-                normalUsesParticleFrames: normalUsesParticleFrames,
-                normalUVScale: uvScale(
-                    for: normalContainer,
-                    usesFrames: normalUsesParticleFrames
-                ),
-                normalSampling: SceneParticleTextureSampling(
-                    texFlags: normalContainer.flags
-                )
-            )
+            binding: binding
         )
     }
 

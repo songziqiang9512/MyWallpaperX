@@ -23,6 +23,9 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneTextureMipUploader.swift",
     SCENE_ROOT / "Resources/SceneTextureLoader.swift",
     SCENE_ROOT / "Resources/SceneTextureSampling.swift",
+    SCENE_ROOT / "Resources/SceneTextureUVTransform.swift",
+    SCENE_ROOT / "Resources/SceneTextureCandidate.swift",
+    SCENE_ROOT / "Resources/SceneTextureLoader+Candidate.swift",
     SCENE_ROOT / "Rendering/SceneMatrix.swift",
     SCENE_ROOT / "Rendering/SceneFramebufferSnapshot.swift",
     SCENE_ROOT / "Particles/SceneParticleDefinition.swift",
@@ -153,12 +156,127 @@ enum Harness {
             loader: loader,
             device: device
         )
+        let paddedURL = directory.appendingPathComponent("padded-normal.tex")
+        try makePaddedRawNormalTex().write(to: paddedURL)
+        let padded = try refraction(
+            colorURL: opaqueURL,
+            normalURL: paddedURL,
+            amount: 0.25,
+            loader: loader,
+            device: device
+        )
+        let clampBorderURL = directory.appendingPathComponent(
+            "clamp-border-normal.tex"
+        )
+        try makeRawTex(
+            pixel: [255, 128, 0, 128],
+            flags: 8
+        ).write(to: clampBorderURL)
+        let clampBorder = try refraction(
+            colorURL: opaqueURL,
+            normalURL: clampBorderURL,
+            amount: 0.25,
+            loader: loader,
+            device: device
+        )
+        let sameFile = try refraction(
+            colorURL: opaqueURL,
+            normalURL: opaqueURL,
+            amount: 0.25,
+            loader: loader,
+            device: device
+        )
+        let invalidMappedURL = directory.appendingPathComponent(
+            "invalid-mapped-normal.tex"
+        )
+        try makeRawTex(
+            pixel: [255, 128, 0, 128],
+            textureWidth: 4,
+            textureHeight: 4,
+            imageWidth: 8,
+            imageHeight: 4
+        ).write(to: invalidMappedURL)
+        let invalidMappedRejected = SceneParticleRefractionTextureLoader.load(
+            colorSource: .file(opaqueURL),
+            declaration: SceneParticleRefractionDeclaration(
+                normalTextureSource: .file(invalidMappedURL),
+                amount: 0.25,
+                overbright: 1
+            ),
+            textureLoader: loader,
+            device: device
+        ) == nil
+        let dxt5nNormal = try normalArguments(dxt5n.binding)
+        let paddedNormal = try normalArguments(padded.binding)
+        let sameFileNormal = try normalArguments(sameFile.binding)
+        let clampBorderNormal = try normalArguments(clampBorder.binding)
+        let wrongPurposeRejected = SceneParticleRefractionBinding(
+            normalCandidate: candidate(
+                texture: dxt5nNormal.texture,
+                purpose: .flow
+            ),
+            amount: 0.25,
+            overbright: 1,
+            colorEncoding: .rgba
+        ) == nil
+        let clampBorderCandidateRejected = SceneParticleRefractionBinding(
+            normalCandidate: candidate(
+                texture: dxt5nNormal.texture,
+                purpose: .normal,
+                sampling: SceneTextureSampling(texFlags: 8)
+            ),
+            amount: 0.25,
+            overbright: 1,
+            colorEncoding: .rgba
+        ) == nil
+        let wrongUsageDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm,
+            width: 4,
+            height: 4,
+            mipmapped: false
+        )
+        wrongUsageDescriptor.usage = .renderTarget
+        let wrongTypeDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm,
+            width: 4,
+            height: 4,
+            mipmapped: false
+        )
+        wrongTypeDescriptor.textureType = .type2DArray
+        wrongTypeDescriptor.arrayLength = 2
+        wrongTypeDescriptor.usage = .shaderRead
+        guard let wrongUsageTexture = device.makeTexture(
+                  descriptor: wrongUsageDescriptor
+              ),
+              let wrongTypeTexture = device.makeTexture(
+                  descriptor: wrongTypeDescriptor
+              ) else {
+            throw HarnessError.texture
+        }
+        let wrongUsageRejected = SceneParticleRefractionBinding(
+            normalCandidate: candidate(
+                texture: wrongUsageTexture,
+                purpose: .normal
+            ),
+            amount: 0.25,
+            overbright: 1,
+            colorEncoding: .rgba
+        ) == nil
+        let wrongTypeRejected = SceneParticleRefractionBinding(
+            normalCandidate: candidate(
+                texture: wrongTypeTexture,
+                purpose: .normal
+            ),
+            amount: 0.25,
+            overbright: 1,
+            colorEncoding: .rgba
+        ) == nil
 
         let result: [String: Any] = [
             "available": true,
             "decodedDXT5n": decoded.map(Int.init),
             "loadedDXT5nNormal": readPixel(
-                dxt5n.binding.normalTexture
+                dxt5nNormal.texture
             ).map(Int.init),
             "normalPixels": [
                 "dxt5n": try draw(
@@ -196,6 +314,40 @@ enum Harness {
                     blendMode: .translucent,
                     gradientBackground: true
                 ),
+                "padded": try draw(
+                    device: device,
+                    refraction: padded,
+                    particleAlpha: 1,
+                    blendMode: .translucent,
+                    gradientBackground: true
+                ),
+            ],
+            "normalRoutes": [
+                "dxt5nStaticCandidate":
+                    dxt5n.binding.usesStaticNormalCandidate,
+                "rgbaStaticCandidate":
+                    rgba.binding.usesStaticNormalCandidate,
+                "paddedStaticCandidate":
+                    padded.binding.usesStaticNormalCandidate,
+                "paddedUVScale": [
+                    paddedNormal.uvScale.x,
+                    paddedNormal.uvScale.y,
+                ],
+                "multiImageLegacy":
+                    !directDXT5n.binding.usesStaticNormalCandidate,
+                "sameFileLegacy":
+                    !sameFile.binding.usesStaticNormalCandidate,
+                "sameFileSharesUpload":
+                    sameFile.color === sameFileNormal.texture,
+                "clampBorderLegacy":
+                    !clampBorder.binding.usesStaticNormalCandidate
+                        && clampBorderNormal.sampling.usesClampBorderFallback,
+                "invalidMappedRejected": invalidMappedRejected,
+                "wrongPurposeRejected": wrongPurposeRejected,
+                "clampBorderCandidateRejected":
+                    clampBorderCandidateRejected,
+                "wrongUsageRejected": wrongUsageRejected,
+                "wrongTypeRejected": wrongTypeRejected,
             ],
             "coveragePixels": [
                 "translucent": try draw(
@@ -402,14 +554,54 @@ enum Harness {
         ])
     }
 
-    private static func makeRawTex(pixel: [UInt8]) -> Data {
+    private static func makeRawTex(
+        pixel: [UInt8],
+        flags: UInt32 = 0,
+        textureWidth: UInt32 = 4,
+        textureHeight: UInt32 = 4,
+        imageWidth: UInt32 = 4,
+        imageHeight: UInt32 = 4
+    ) -> Data {
         makeTex(
             format: 0,
-            payload: Data((0 ..< 16).flatMap { _ in pixel })
+            flags: flags,
+            textureWidth: textureWidth,
+            textureHeight: textureHeight,
+            imageWidth: imageWidth,
+            imageHeight: imageHeight,
+            payload: Data(
+                (0 ..< Int(textureWidth * textureHeight)).flatMap { _ in pixel }
+            )
         )
     }
 
-    private static func makeTex(format: UInt32, payload: Data) -> Data {
+    private static func makePaddedRawNormalTex() -> Data {
+        let mapped: [UInt8] = [255, 128, 0, 128]
+        let padding: [UInt8] = [255, 255, 0, 0]
+        let payload = Data((0 ..< 4).flatMap { _ in
+            (0 ..< 4).flatMap { _ in mapped }
+                + (0 ..< 4).flatMap { _ in padding }
+        })
+        return makeTex(
+            format: 0,
+            flags: 2,
+            textureWidth: 8,
+            textureHeight: 4,
+            imageWidth: 4,
+            imageHeight: 4,
+            payload: payload
+        )
+    }
+
+    private static func makeTex(
+        format: UInt32,
+        flags: UInt32 = 0,
+        textureWidth: UInt32 = 4,
+        textureHeight: UInt32 = 4,
+        imageWidth: UInt32 = 4,
+        imageHeight: UInt32 = 4,
+        payload: Data
+    ) -> Data {
         var data = Data("TEXV0005\0TEXI0001\0".utf8)
         func append(_ value: UInt32) {
             var littleEndian = value.littleEndian
@@ -418,22 +610,49 @@ enum Harness {
             }
         }
         append(format)
-        append(0)
-        append(4)
-        append(4)
-        append(4)
-        append(4)
+        append(flags)
+        append(textureWidth)
+        append(textureHeight)
+        append(imageWidth)
+        append(imageHeight)
         append(0)
         data.append(Data("TEXB0002\0".utf8))
         append(1)
         append(1)
-        append(4)
-        append(4)
+        append(textureWidth)
+        append(textureHeight)
         append(0)
         append(0)
         append(UInt32(payload.count))
         data.append(payload)
         return data
+    }
+
+    private static func candidate(
+        texture: MTLTexture,
+        purpose: SceneTextureLoadPurpose,
+        sampling: SceneTextureSampling = .linearClamp
+    ) -> SceneTextureCandidate {
+        let size = CGSize(width: texture.width, height: texture.height)
+        return SceneTextureCandidate(
+            texture: texture,
+            identity: .builtIn(name: "refraction-test"),
+            generation: .immutable(revision: 1),
+            purpose: purpose,
+            physicalSize: size,
+            mappedSize: size,
+            uvTransform: .identity,
+            sampling: sampling
+        )
+    }
+
+    private static func normalArguments(
+        _ binding: SceneParticleRefractionBinding
+    ) throws -> SceneParticleRefractionBinding.NormalArguments {
+        guard let arguments = binding.resolvedNormalArguments() else {
+            throw HarnessError.texture
+        }
+        return arguments
     }
 
     private static func loaded(
@@ -529,6 +748,31 @@ class SceneParticleRefractionPixelTests(unittest.TestCase):
             )),
             8,
         )
+        self.assertLessEqual(
+            max(abs(left - right) for left, right in zip(
+                pixels["padded"], pixels["neutral"]
+            )),
+            2,
+        )
+
+    def test_static_normal_candidate_is_atomic_and_legacy_routes_stay_closed(
+        self,
+    ) -> None:
+        self.require_metal()
+        routes = self.result["normalRoutes"]
+        self.assertTrue(routes["dxt5nStaticCandidate"], routes)
+        self.assertTrue(routes["rgbaStaticCandidate"], routes)
+        self.assertTrue(routes["paddedStaticCandidate"], routes)
+        self.assertEqual(routes["paddedUVScale"], [0.5, 1])
+        self.assertTrue(routes["multiImageLegacy"], routes)
+        self.assertTrue(routes["sameFileLegacy"], routes)
+        self.assertTrue(routes["sameFileSharesUpload"], routes)
+        self.assertTrue(routes["clampBorderLegacy"], routes)
+        self.assertTrue(routes["invalidMappedRejected"], routes)
+        self.assertTrue(routes["wrongPurposeRejected"], routes)
+        self.assertTrue(routes["clampBorderCandidateRejected"], routes)
+        self.assertTrue(routes["wrongUsageRejected"], routes)
+        self.assertTrue(routes["wrongTypeRejected"], routes)
 
     def test_refraction_composite_coverage_is_applied_once(self) -> None:
         self.require_metal()

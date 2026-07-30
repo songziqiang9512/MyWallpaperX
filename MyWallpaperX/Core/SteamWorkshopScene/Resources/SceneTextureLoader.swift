@@ -45,7 +45,7 @@ final class SceneTextureLoader {
     // 192 MB), and Apple Silicon's maxTexture2DLimit is 16384 but actual
     // allocation can still fail under memory pressure. Cap source images so
     // we always have headroom for several layers worth of textures.
-    private static let maxTextureDimension = 4096
+    static let maxTextureDimension = 4096
 
     func load(from url: URL, device: MTLDevice) -> SceneTextureLoadOutcome {
         load(from: url, purpose: .premultipliedColor, device: device)

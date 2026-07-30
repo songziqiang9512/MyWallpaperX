@@ -30,6 +30,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTexturePool.swift",
     SOURCE_ROOT / "Resources/SceneTextureSampling.swift",
     SOURCE_ROOT / "Resources/SceneTextureCandidate.swift",
+    SOURCE_ROOT / "Rendering/SceneBaseImageTextureCandidateSupport.swift",
     SOURCE_ROOT / "Effects/SceneGaussianBlurPipeline.swift",
     SOURCE_ROOT / "Effects/SceneStandardBlurPipeline.swift",
     SOURCE_ROOT / "Effects/SceneStandardBlurRenderer.swift",
@@ -1573,6 +1574,12 @@ enum Harness {
             compositor: compositor
         )
         let filmGrain = try filmGrainEvidence(device: device, queue: queue)
+        let baseColorCandidate = try baseColorCandidateEvidence(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor
+        )
 
         let result: [String: Any] = [
             "drew": drew,
@@ -1644,6 +1651,7 @@ enum Harness {
             "solidMappedEffectExtent": solidMappedEffectExtent,
             "xRayThreeTextureRoute": xRayThreeTextureRoute,
             "filmGrain": filmGrain,
+            "baseColorCandidate": baseColorCandidate,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -1742,6 +1750,177 @@ enum Harness {
             "animatedRGB": animatedRGB,
             "invalidRejected": invalidRejected,
         ]
+    }
+
+    static func baseColorCandidateEvidence(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor
+    ) throws -> [String: Any] {
+        let size = 8
+        guard let source = makeTexture(
+                  device: device,
+                  size: size,
+                  usage: .shaderRead,
+                  pixelFormat: .rgba8Unorm
+              ),
+              let other = makeTexture(
+                  device: device,
+                  size: size,
+                  usage: .shaderRead,
+                  pixelFormat: .rgba8Unorm
+              ),
+              let reference = makeTexture(
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
+              ),
+              let accepted = makeTexture(
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
+              ),
+              let rejected = makeTexture(
+                  device: device, size: size, usage: [.renderTarget, .shaderRead]
+              ) else {
+            throw HarnessError.metalUnavailable
+        }
+        fillPixels(source) { x, y in
+            switch (x >= size / 2, y >= size / 2) {
+            case (false, false): [64, 32, 16, 128]
+            case (true, false): [0, 255, 0, 255]
+            case (false, true): [255, 0, 0, 255]
+            case (true, true): [0, 0, 255, 255]
+            }
+        }
+        fillPixels(other) { _, _ in [255, 255, 255, 255] }
+        let candidate = textureCandidate(
+            texture: source,
+            purpose: .premultipliedColor,
+            name: "base-color"
+        )
+        let referenceEncoded = try drawBaseColor(
+            source: source, candidate: nil, target: reference,
+            queue: queue, pipeline: pipeline, compositor: compositor
+        )
+        let candidateEncoded = try drawBaseColor(
+            source: source, candidate: candidate, target: accepted,
+            queue: queue, pipeline: pipeline, compositor: compositor
+        )
+        let wrongPurposeRejected = try !drawBaseColor(
+            source: source,
+            candidate: textureCandidate(
+                texture: source, purpose: .normal, name: "wrong-purpose"
+            ),
+            target: rejected, queue: queue, pipeline: pipeline, compositor: compositor
+        )
+        let mismatchedTextureRejected = try !drawBaseColor(
+            source: source,
+            candidate: textureCandidate(
+                texture: other, purpose: .premultipliedColor, name: "wrong-texture"
+            ),
+            target: rejected, queue: queue, pipeline: pipeline, compositor: compositor
+        )
+        let nonIdentityRejected = try !drawBaseColor(
+            source: source,
+            candidate: textureCandidate(
+                texture: source, purpose: .premultipliedColor,
+                name: "non-identity", mappedWidth: size / 2
+            ),
+            target: rejected, queue: queue, pipeline: pipeline, compositor: compositor
+        )
+        let nearestRejected = try !drawBaseColor(
+            source: source,
+            candidate: textureCandidate(
+                texture: source, purpose: .premultipliedColor,
+                name: "nearest", sampling: SceneTextureSampling(texFlags: 3)
+            ),
+            target: rejected, queue: queue, pipeline: pipeline, compositor: compositor
+        )
+        let repeatRejected = try !drawBaseColor(
+            source: source,
+            candidate: textureCandidate(
+                texture: source, purpose: .premultipliedColor,
+                name: "repeat", sampling: SceneTextureSampling(texFlags: 0)
+            ),
+            target: rejected, queue: queue, pipeline: pipeline, compositor: compositor
+        )
+        let clampBorderRejected = try !drawBaseColor(
+            source: source,
+            candidate: textureCandidate(
+                texture: source, purpose: .premultipliedColor,
+                name: "clamp-border", sampling: SceneTextureSampling(texFlags: 8)
+            ),
+            target: rejected, queue: queue, pipeline: pipeline, compositor: compositor
+        )
+        let referenceBytes = try textureBytes(reference, queue: queue)
+        let acceptedBytes = try textureBytes(accepted, queue: queue)
+        let pixels = stride(from: 0, to: acceptedBytes.count, by: 4).map {
+            Array(acceptedBytes[$0 ..< ($0 + 4)])
+        }
+        return [
+            "referenceEncoded": referenceEncoded,
+            "candidateEncoded": candidateEncoded,
+            "matchesLegacyPixels":
+                maxDifference(referenceBytes, acceptedBytes) <= 1,
+            "fractionalPremultipliedPixelPreserved":
+                pixels.contains([16, 32, 64, 128]),
+            "wrongPurposeRejected": wrongPurposeRejected,
+            "mismatchedTextureRejected": mismatchedTextureRejected,
+            "nonIdentityRejected": nonIdentityRejected,
+            "nearestRejected": nearestRejected,
+            "repeatRejected": repeatRejected,
+            "clampBorderRejected": clampBorderRejected,
+        ]
+    }
+
+    static func drawBaseColor(
+        source: MTLTexture,
+        candidate: SceneTextureCandidate?,
+        target: MTLTexture,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor
+    ) throws -> Bool {
+        guard let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.metalUnavailable
+        }
+        let mainPass = SceneMainPassEncoder(
+            commandBuffer: commandBuffer,
+            target: target,
+            clearColor: MTLClearColorMake(0, 0, 0, 0)
+        )
+        let encoded = compositor.draw(
+            SceneImageLayerDrawRequest(
+                layer: SceneRenderDescriptor.Layer(
+                    contentKind: "image",
+                    colorRGB: nil,
+                    colorBlendMode: nil,
+                    effects: []
+                ),
+                texture: source,
+                baseTextureCandidate: candidate,
+                masks: .empty,
+                textureFrame: .identity,
+                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+                uniforms: SceneImageLayerUniformValues(
+                    time: 0, alpha: 1, cursorUV: .zero
+                ),
+                offscreenTexturePool: nil,
+                offscreenSize: nil,
+                requiresSourceCopy: false,
+                finalCompositeAlpha: nil,
+                dependencyEffect: nil,
+                authoredEffectPlan: nil,
+                blocksLegacyGaussianBlur: false
+            ),
+            pipeline: pipeline,
+            mainPass: mainPass
+        )
+        mainPass.finishEnsuringClear()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else {
+            throw HarnessError.commandFailed
+        }
+        return encoded
     }
 
     static func dependencyBlendPixel(
@@ -2659,7 +2838,8 @@ enum Harness {
         texture: MTLTexture,
         purpose: SceneTextureLoadPurpose,
         name: String,
-        mappedWidth: Int? = nil
+        mappedWidth: Int? = nil,
+        sampling: SceneTextureSampling = .linearClamp
     ) -> SceneTextureCandidate {
         let physicalSize = CGSize(width: texture.width, height: texture.height)
         let mappedSize = CGSize(
@@ -2679,7 +2859,7 @@ enum Harness {
                 xAxis: SIMD2(scale, 0),
                 yAxis: SIMD2(0, 1)
             ),
-            sampling: .linearClamp
+            sampling: sampling
         )
     }
 
@@ -4160,10 +4340,11 @@ enum Harness {
     static func makeTexture(
         device: MTLDevice,
         size: Int,
-        usage: MTLTextureUsage
+        usage: MTLTextureUsage,
+        pixelFormat: MTLPixelFormat = .bgra8Unorm
     ) -> MTLTexture? {
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .bgra8Unorm,
+            pixelFormat: pixelFormat,
             width: size,
             height: size,
             mipmapped: false
@@ -4406,6 +4587,22 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertGreater(evidence["changedRGB"], 16, evidence)
         self.assertGreater(evidence["animatedRGB"], 4, evidence)
         self.assertTrue(evidence["invalidRejected"], evidence)
+
+    def test_static_base_color_candidate_is_atomic_at_direct_gpu_split(self) -> None:
+        evidence = self.result["baseColorCandidate"]
+        self.assertTrue(evidence["referenceEncoded"], evidence)
+        self.assertTrue(evidence["candidateEncoded"], evidence)
+        self.assertTrue(evidence["matchesLegacyPixels"], evidence)
+        self.assertTrue(evidence["fractionalPremultipliedPixelPreserved"], evidence)
+        for key in (
+            "wrongPurposeRejected",
+            "mismatchedTextureRejected",
+            "nonIdentityRejected",
+            "nearestRejected",
+            "repeatRejected",
+            "clampBorderRejected",
+        ):
+            self.assertTrue(evidence[key], (key, evidence))
 
     def test_capture_telemetry_waits_for_gpu_completion(self) -> None:
         self.assertIn("phase=utility-capture layer=701 status=succeeded", self.stderr)

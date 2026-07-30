@@ -149,7 +149,8 @@ struct SceneParticleMetalPipeline {
         colorSampling: SceneParticleTextureSampling,
         encoder: MTLRenderCommandEncoder
     ) {
-        guard let drawState = instances.currentDrawState() else { return }
+        guard let drawState = instances.currentDrawState(),
+              let normal = binding.resolvedNormalArguments() else { return }
         encoder.setRenderPipelineState(
             blendMode == .additive ? refractAdditiveState : refractTranslucentState
         )
@@ -159,28 +160,28 @@ struct SceneParticleMetalPipeline {
             encoder: encoder
         )
         encoder.setFragmentTexture(texture, index: 0)
-        encoder.setFragmentTexture(binding.normalTexture, index: 1)
+        encoder.setFragmentTexture(normal.texture, index: 1)
         encoder.setFragmentTexture(background, index: 2)
         encoder.setFragmentSamplerState(
             samplerStates.state(for: colorSampling),
             index: 0
         )
         encoder.setFragmentSamplerState(
-            samplerStates.state(for: binding.normalSampling),
+            samplerStates.state(for: normal.sampling),
             index: 1
         )
         var parameters = SIMD4<Float>(
             binding.amount,
             binding.overbright,
             Float(binding.colorEncoding.rawValue),
-            (binding.normalUsesParticleFrames ? 1 : 0)
+            (normal.usesParticleFrames ? 1 : 0)
                 + (blendMode == .additive ? 2 : 0)
         )
         var scales = SIMD4<Float>(
             colorUVScale.x,
             colorUVScale.y,
-            binding.normalUVScale.x,
-            binding.normalUVScale.y
+            normal.uvScale.x,
+            normal.uvScale.y
         )
         encoder.setFragmentBytes(
             &parameters,

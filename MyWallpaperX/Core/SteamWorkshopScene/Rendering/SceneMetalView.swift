@@ -8,7 +8,7 @@ class SceneMetalView: NSView {
     let metalLayer: CAMetalLayer
     private let solidLayerTexture: MTLTexture?
     private let userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
-    private var imageTextures: [Int: MTLTexture] = [:]
+    private var imageTextures = SceneBaseImageTextureStore()
     private var spriteAnimations: [Int: SceneSpriteAnimation] = [:]
     private var videoTextureSources: [Int: SceneVideoTextureSource] = [:]
     private var puppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
@@ -111,7 +111,7 @@ class SceneMetalView: NSView {
             descriptor: renderer.renderDescriptor
         )
         var report: [String] = []
-        var loaded: [Int: MTLTexture] = [:]
+        var loaded = SceneBaseImageTextureStore()
         var loadedSpriteAnimations: [Int: SceneSpriteAnimation] = [:]
         var loadedVideoSources: [Int: SceneVideoTextureSource] = [:]
         var loadedPuppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
@@ -154,7 +154,7 @@ class SceneMetalView: NSView {
                     report.append("layer \(layer.id) \"\(name)\": procedural solid texture unavailable; \(placementSummary)")
                     continue
                 }
-                loaded[layer.id] = texture
+                loaded.set(texture, candidate: nil, layerID: layer.id)
                 let effectTextures = loadEffectTextures(for: layer)
                 let color = SIMD3(layer.colorRGB ?? [], fill: 1)
                 var message = String(
@@ -194,8 +194,14 @@ class SceneMetalView: NSView {
                 report.append(message)
                 continue
             }
-            switch loader.load(from: url, device: metalDevice) {
-            case .loaded(let texture):
+            switch SceneBaseImageTextureLoad.load(
+                from: url,
+                usesPuppet: layer.puppetMeshPath != nil,
+                loader: loader,
+                device: metalDevice
+            ) {
+            case .loaded(let baseLoad):
+                let texture = baseLoad.texture
                 var effectiveTexture = texture
                 var puppetMessage = ""
                 if let imagePipeline,
@@ -218,10 +224,15 @@ class SceneMetalView: NSView {
                     }
                     puppetMessage = "; \(puppetOutcome.message)"
                 }
-                loaded[layer.id] = effectiveTexture
+                loaded.set(
+                    effectiveTexture,
+                    candidate: baseLoad.candidate,
+                    layerID: layer.id
+                )
                 var message = "layer \(layer.id) \"\(name)\": OK \(url.lastPathComponent) → \(texture.width)×\(texture.height) [\(resourceView.displayPath(for: url))]"
+                message += baseLoad.message
                 message += puppetMessage
-                if let animation = loader.texContainer(from: url).flatMap({ SceneSpriteAnimation(frames: $0.spriteFrames) }) {
+                if let animation = baseLoad.animation {
                     loadedSpriteAnimations[layer.id] = animation
                     message += String(
                         format: "; sprite animation frames=%d duration=%.3fs",
@@ -250,18 +261,13 @@ class SceneMetalView: NSView {
                 }
                 message += "; \(placementSummary)"
                 report.append(message)
-            case .unsupportedFormat(let ext):
-                report.append("layer \(layer.id) \"\(name)\": unsupported \(ext) (\(url.lastPathComponent)); \(placementSummary)")
-            case .unsupportedTexFormat(let code):
-                report.append("layer \(layer.id) \"\(name)\": unsupported .tex format \(code) (\(url.lastPathComponent)); \(placementSummary)")
-            case .texNoEmbeddedImage:
-                report.append("layer \(layer.id) \"\(name)\": .tex has no embedded JPEG/PNG (likely DXT) — \(url.lastPathComponent); \(placementSummary)")
-            case .texContainsVideoPayload:
-                report.append("layer \(layer.id) \"\(name)\": .tex is mp4 payload (animated/video) — \(url.lastPathComponent); \(placementSummary)")
-            case .decodeFailed(let msg):
-                report.append("layer \(layer.id) \"\(name)\": decode failed (\(msg)); \(placementSummary)")
-            case .textureAllocationFailed(let w, let h):
-                report.append("layer \(layer.id) \"\(name)\": texture allocation failed at \(w)×\(h); \(placementSummary)")
+            case .failed(let failure):
+                report.append(SceneBaseImageTextureLoad.failureReportLine(
+                    failure,
+                    layer: .init(id: layer.id, name: name),
+                    url: url,
+                    placementSummary: placementSummary
+                ))
             }
         }
         let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(
@@ -288,7 +294,7 @@ class SceneMetalView: NSView {
             device: metalDevice,
             effectSummary: { [renderer] in renderer.effectRuntimeSummary(for: $0) }
         )
-        imageTextures.merge(textLoad.textures) { _, incoming in incoming }
+        imageTextures.merge(textLoad.textures)
         // text layer 纹理走 CoreText 栅格化，不经过上面的 image 循环；带 authored effect 的
         // text 层同样要装载 per-effect 贴图，否则链在执行期取不到整段失败（同 mp4 视频层先例）。
         for layer in renderer.renderDescriptor.layers
@@ -322,7 +328,7 @@ class SceneMetalView: NSView {
             report.append("particle runtime: pipeline unavailable")
         }
         report.append("")
-        let loadedLayerCount = Set(loaded.keys).union(loadedVideoSources.keys).count
+        let loadedLayerCount = Set(loaded.textures.keys).union(loadedVideoSources.keys).count
         report.append("loaded: \(loadedLayerCount) / \(report.filter { $0.starts(with: "layer ") }.count)")
         if let logURL {
             try? report.joined(separator: "\n").write(to: logURL, atomically: true, encoding: .utf8)
@@ -351,7 +357,7 @@ class SceneMetalView: NSView {
         pointerState.previous = pointerState.current
         let particleBatches = particlePlayback?.advance(by: timing.frameTime) ?? []
         dynamicTextTextures?.update(from: dynamicValues)
-        var currentImageTextures = imageTextures
+        var currentImageTextures = imageTextures.textures
         let dynamicTextSnapshot = dynamicTextTextures?.snapshot()
         currentImageTextures.merge(dynamicTextSnapshot?.textures ?? [:]) { _, incoming in incoming }
         for (layerID, videoSource) in videoTextureSources {
@@ -371,7 +377,7 @@ class SceneMetalView: NSView {
             )
         }
         renderer.renderFrame(
-            imageTextures: currentImageTextures,
+            imageTextures: imageTextures.snapshot(textures: currentImageTextures),
             dynamicTextRenderSizes: dynamicTextSnapshot?.renderSizes ?? [:],
             userPropertyTextures: userPropertyTextureLoad.textures,
             spriteAnimations: spriteAnimations,

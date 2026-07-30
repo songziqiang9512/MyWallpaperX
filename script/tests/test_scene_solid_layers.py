@@ -541,7 +541,8 @@ class SceneSolidLayerTests(unittest.TestCase):
             re.compile(
                 r'if layer\.contentKind\s*==\s*"solid"'
                 r"[\s\S]{0,400}guard let texture\s*=\s*solidLayerTexture"
-                r"[\s\S]{0,400}loaded\[layer\.id\]\s*=\s*texture"
+                r"[\s\S]{0,400}loaded\.set\("
+                r"\s*texture,\s*candidate:\s*nil,\s*layerID:\s*layer\.id\s*\)"
             ),
         )
         self.assertNotRegex(view, r"SceneSolidLayerTexture\.make\([^)]*color")
