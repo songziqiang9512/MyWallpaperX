@@ -3,9 +3,9 @@
 
 与 opacity 的差别有两处刻意的偏离，这里各有一条专门断言：
 - `色值` 是 vec3 用户绑定，走 `.vector3` 动态目标；
-- 任何挂在 `g_Texture1` 上的遮罩贴图整条拒绝（opacity 是接受后按无遮罩渲染）。
+- 槽位 1 的遮罩只调整 Tint 混合权重，不改输出 alpha。
 
-shader 源按 SceneTintShaderProfile 双指纹白名单准入：stock 2.8.42 与 legacy 注解
+shader 源按 SceneTintShaderProfile 精确指纹白名单准入：stock 2.8.42、legacy 注解
 变体（frag `98f97e9e9ed0…`，vert 与 stock 相同，样本 1937925563 / 2131872317）各自
 resolve；legacy 的 `#if MASK` 分支是 mask 覆盖而非相乘，`MASK == 1` 与遮罩贴图在
 两指纹下都整条拒绝。
@@ -33,6 +33,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "Effects/SceneBlendModeShaderSource.swift",
     SOURCE_ROOT / "RenderGraph/SceneTintShaderProfile.swift",
+    SOURCE_ROOT / "RenderGraph/SceneTintAssetProfile.swift",
     SOURCE_ROOT / "RenderGraph/SceneTintExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredTintPlanner.swift",
 ]
@@ -151,11 +152,12 @@ struct SceneRenderDescriptor {
         let userTextureInputs: [SceneEffectTextureInput?]
         let combos: [String: Int]
         let constantShaderValues: [String: SceneDocument.ShaderValue]
+        let userShaderValues: [String: String]
         let blending: String?
         let depthTest: String?
         let depthWrite: String?
         let cullMode: String?
-        let alphaWriting: String? = nil
+        let alphaWriting: String?
     }
     let layers: [Layer]
     let materialPasses: [MaterialPassDescriptor]
@@ -171,6 +173,7 @@ enum Harness {
 
     struct Options {
         var contentKind = "image"
+        var definitionPath = Harness.definitionPath
         var color: [Double] = [0.25, 0.6, 0.9]
         var colorKind = "vector"
         var colorBinding: String?
@@ -188,6 +191,8 @@ enum Harness {
         var materialTexture = false
         var materialUserTexture = false
         var materialConstant = false
+        var materialUserShaderValue = false
+        var alphaWriting: String?
         var blending = "normal"
         var depthTest = "disabled"
         var materialPath = Harness.materialPath
@@ -250,10 +255,12 @@ enum Harness {
         return result
     }
 
-    static func definition(_ mutation: String) -> SceneEffectDefinition {
+    static func definition(_ options: Options) -> SceneEffectDefinition {
+        let mutation = options.definitionMutation
         let pass = SceneEffectDefinition.Pass(
             passIndex: 0,
-            materialPath: mutation == "passMaterial" ? "materials/other.json" : materialPath,
+            materialPath: mutation == "passMaterial"
+                ? "materials/other.json" : options.materialPath,
             target: mutation == "passTarget" ? "other" : nil,
             bindings: mutation == "passBinding" ? [
                 .init(name: "previous", index: 0, conditions: nil, extraFields: [:])
@@ -265,12 +272,12 @@ enum Harness {
             extraFields: mutation == "passExtra" ? ["extra": .bool(true)] : [:]
         )
         let dependencies = [
-            materialPath,
-            "shaders/effects/tint.frag",
-            "shaders/effects/tint.vert",
+            options.materialPath,
+            "shaders/\(options.shaderIdentity).frag",
+            "shaders/\(options.shaderIdentity).vert",
         ]
         return SceneEffectDefinition(
-            relativePath: definitionPath,
+            relativePath: options.definitionPath,
             version: mutation == "version" ? 2 : 1,
             replacementKey: mutation == "replacement"
                 ? "other"
@@ -319,7 +326,7 @@ enum Harness {
         )
         let tint = SceneRenderDescriptor.EffectDescriptor(
             id: priorInput ? "20#effect#305" : "20#effect#21",
-            file: definitionPath,
+            file: options.definitionPath,
             visible: options.visible,
             passes: [pass]
         )
@@ -342,16 +349,19 @@ enum Harness {
             constantShaderValues: options.materialConstant
                 ? ["extra": value([1], kind: "number")]
                 : [:],
+            userShaderValues: options.materialUserShaderValue
+                ? ["color": "property"] : [:],
             blending: options.blending,
             depthTest: options.depthTest,
             depthWrite: "disabled",
-            cullMode: "nocull"
+            cullMode: "nocull",
+            alphaWriting: options.alphaWriting
         )
         var materials = [material]
         if options.duplicateMaterial { materials.append(material) }
         let definitions = options.definitionMutation == "missing"
             ? []
-            : [definition(options.definitionMutation)]
+            : [definition(options)]
         return .init(
             layers: [.init(
                 id: 20,
@@ -576,6 +586,12 @@ enum Harness {
         var workshop = GraphOptions()
         workshop.definitionPath = "effects/workshop/123/tint/effect.json"
         var graphMaterial = GraphOptions(); graphMaterial.materialPath = "materials/other.json"
+        var relocatedGraph = GraphOptions()
+        relocatedGraph.definitionPath = "effects/authored-copy/tint/effect.json"
+        relocatedGraph.materialPath = "materials/authored-copy/tint.json"
+        var relocatedAssets = Options()
+        relocatedAssets.definitionPath = relocatedGraph.definitionPath
+        relocatedAssets.materialPath = relocatedGraph.materialPath
 
         var missingAlpha = Options(); missingAlpha.includesAlpha = false
         var alphaZero = Options(); alphaZero.alpha = 0
@@ -623,6 +639,8 @@ enum Harness {
         var materialUserTexture = Options(); materialUserTexture.materialUserTexture = true
 
         var materialConstant = Options(); materialConstant.materialConstant = true
+        var materialUserShader = Options(); materialUserShader.materialUserShaderValue = true
+        var materialAlphaWriting = Options(); materialAlphaWriting.alphaWriting = "default"
         var state = Options(); state.blending = "additive"
         var depth = Options(); depth.depthTest = "enabled"
         var materialPathOption = Options()
@@ -724,11 +742,15 @@ enum Harness {
                 && boundPlan.resolvedAlpha(in: liveSnapshot) == 0.75,
             "snapshotFallback": fallbackColor == SIMD3<Float>(0.25, 0.6, 0.9)
                 && boundPlan.resolvedAlpha(in: invalidSnapshot) == 0.4,
-            "candidateDetected": SceneAuthoredTintPlanner.containsCandidate(graph: graph()),
             "priorInputAccepted": accepted(
                 graphOptions: prior, contracts: contracts, role: .priorEffectOutput
             ),
             "roleMismatchRejected": !accepted(graphOptions: prior, contracts: contracts),
+            "contentDerivedPathsAccepted": accepted(
+                graphOptions: relocatedGraph,
+                descriptorOptions: relocatedAssets,
+                contracts: contracts
+            ),
             "workshopVariantRejected": !accepted(graphOptions: workshop, contracts: contracts),
             "graphShapeRejected": [blocker, targetGraph, binding, command, condition, copy,
                                    output, effectCount, nodeCount, graphMaterial]
@@ -762,8 +784,9 @@ enum Harness {
             "textureRejected": [instanceTexture, instanceUserTexture, materialTexture,
                                 materialUserTexture]
                 .allSatisfy { !accepted(descriptorOptions: $0, contracts: contracts) },
-            "materialRejected": [materialConstant, state, depth, materialPathOption, materialHash,
-                                 materialPass, shader, duplicateMaterial]
+            "materialRejected": [materialConstant, materialUserShader, materialAlphaWriting,
+                                 state, depth, materialPathOption, materialHash, materialPass,
+                                 shader, duplicateMaterial]
                 .allSatisfy { !accepted(descriptorOptions: $0, contracts: contracts) },
             "layerRejected": !accepted(descriptorOptions: hidden, contracts: contracts)
                 && !accepted(descriptorOptions: content, contracts: contracts),

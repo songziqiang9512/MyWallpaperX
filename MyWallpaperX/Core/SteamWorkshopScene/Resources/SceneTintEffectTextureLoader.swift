@@ -1,3 +1,4 @@
+import Foundation
 import Metal
 import simd
 
@@ -30,19 +31,29 @@ enum SceneTintEffectTextureLoader {
         var textures: [String: SceneTintEffectTextures] = [:]
         var messages: [String] = []
         for effect in layer.effects where effectIDs.contains(effect.id) {
-            guard effect.file.replacingOccurrences(of: "\\", with: "/").lowercased()
-                == "effects/tint/effect.json",
-                effect.passes.count == 1,
-                let pass = effect.passes.first
+            // `effectIDs` only contains stages accepted by SceneAuthoredTintPlanner. Do not
+            // reclassify the asset by a stock path here; only revalidate the exact instance
+            // pass shape before loading its optional mask.
+            guard effect.passes.count == 1,
+                let pass = effect.passes.first,
+                pass.passIndex == 0,
+                pass.userTextureInputs.isEmpty
             else {
                 continue
             }
-            guard let maskPath = SceneEffectMaskSemantics.maskPath(in: pass) else {
+            if pass.texturePaths.isEmpty && pass.textureSlots.isEmpty {
                 textures[effect.id] = SceneTintEffectTextures(
                     mask: nil,
                     maskUVScale: SIMD2(repeating: 1),
                     maskPath: nil
                 )
+                continue
+            }
+            guard pass.textureSlots.count == 2,
+                  pass.textureSlots[0] == nil,
+                  let maskPath = pass.textureSlots[1],
+                  !maskPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  pass.texturePaths == [maskPath] else {
                 continue
             }
             let maskURL = resolver.resolveTextureFile(named: maskPath)

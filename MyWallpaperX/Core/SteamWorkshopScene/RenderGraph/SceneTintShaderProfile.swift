@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
 
-/// 官方 `effects/tint` 的逐指纹 shader profile。
+/// Tint 的逐指纹 shader profile。
 ///
 /// 语料 45 样本携带 2 种 tint shader 源，vert 完全相同（`62b2f585…`），frag 两个版本：
 /// - `stock2842`：2.8.42 原版；
@@ -16,6 +16,8 @@ import Foundation
 /// 数学逐行相同（`mask = g_BlendAlpha` → `ApplyBlending` → `BLENDMODE == 0` 置 alpha=1，
 /// 无输出 clamp）。槽位 1 绑图（编辑器在编译期自动置 `MASK=1`，语料 0 次显式声明）时
 /// 两版 mask 语义分流：stock `mask = g_BlendAlpha * tex.r`，legacy `mask = tex.r` 覆盖。
+/// 另一个已验证的 authored revision 只调整了注解/排版，执行语义仍归入 stock；shader
+/// identity 由 definition -> material 链推导，不用 Workshop ID 或资源名选择 profile。
 nonisolated enum SceneTintShaderProfile: Equatable {
     case stock2842
     case legacyMaskOverride
@@ -40,26 +42,36 @@ nonisolated enum SceneTintShaderProfile: Equatable {
 
     private struct Fingerprint {
         let profile: SceneTintShaderProfile
-        let canonicalSHA256: String
         let fragmentSHA256: String
     }
 
     static func resolve(_ contracts: [SceneShaderContract]) -> SceneTintShaderProfile? {
-        let matches = contracts.filter { normalized($0.identity) == shaderIdentity }
+        resolve(contracts, shaderIdentity: stockShaderIdentity)
+    }
+
+    /// Shader identity comes from the exact definition -> material chain. The executable
+    /// source bytes remain allow-listed, while a byte-identical authored copy may live below
+    /// another package-relative shader directory.
+    static func resolve(
+        _ contracts: [SceneShaderContract],
+        shaderIdentity: String
+    ) -> SceneTintShaderProfile? {
+        let identity = normalized(shaderIdentity)
+        let matches = contracts.filter { normalized($0.identity) == identity }
         guard matches.count == 1, let contract = matches.first,
               contract.sourceKind == .authoredSource,
               contract.diagnostics.isEmpty,
               contract.stages.count == 2,
               let fingerprint = fingerprints.first(where: {
-                  $0.canonicalSHA256 == contract.canonicalSHA256
+                  $0.fragmentSHA256 == contract.stages[1].rawSHA256
               }),
-              canonicalHash(contract) == fingerprint.canonicalSHA256
+              canonicalHash(contract) == contract.canonicalSHA256
         else {
             return nil
         }
         let expected: [(SceneShaderContract.StageKind, String, String)] = [
-            (.vertex, vertexPath, vertexSHA256),
-            (.fragment, fragmentPath, fingerprint.fragmentSHA256),
+            (.vertex, "shaders/\(identity).vert", vertexSHA256),
+            (.fragment, "shaders/\(identity).frag", fingerprint.fragmentSHA256),
         ]
         guard zip(contract.stages, expected).allSatisfy({ stage, expected in
             stage.kind == expected.0
@@ -93,21 +105,22 @@ nonisolated enum SceneTintShaderProfile: Equatable {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
-    private static let shaderIdentity = "effects/tint"
-    private static let vertexPath = "shaders/effects/tint.vert"
+    private static let stockShaderIdentity = "effects/tint"
     private static let vertexSHA256 =
         "62b2f5853fc565d706c1b6c789981385254f8195e0e1579c3d737796b41ddf2a"
-    private static let fragmentPath = "shaders/effects/tint.frag"
     private static let fingerprints = [
         Fingerprint(
             profile: .stock2842,
-            canonicalSHA256: "606ea00aef226fc0d7d1360f9bb4750af3c323831bc94399c64327084c9f5b36",
             fragmentSHA256: "02b9397cec32de6f0d8caa2e1af7c07510752d474bd64048c9d78f55926973f1"
         ),
         Fingerprint(
             profile: .legacyMaskOverride,
-            canonicalSHA256: "3c418471e512703771cdf2bd3ffbfeda024113fa6edd426ddd37267605e087ee",
             fragmentSHA256: "98f97e9e9ed0c22e2216ccdfb50012274f7e9c944a9ea014eaddc45d606ea63a"
+        ),
+        // Verified Workshop revision: executable mask semantics match stock (`mask *= tex.r`).
+        Fingerprint(
+            profile: .stock2842,
+            fragmentSHA256: "887d9dbc05f5d55e4a0dc8a87820e19896bf61622faffbb212326aa23ae30b3c"
         ),
     ]
 }

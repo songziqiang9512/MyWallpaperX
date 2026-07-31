@@ -1750,6 +1750,7 @@
         33,
         37,
         41,
+        44,
         49,
         162,
         181,
@@ -1768,9 +1769,10 @@
       "expected_authored_effect_graph_shake_count": 0,
       "expected_authored_effect_graph_water_flow_count": 0,
       "expected_authored_effect_graph_water_waves_count": 4,
+      "expected_authored_effect_graph_tint_count": 1,
       "expected_authored_effect_graph_chain_count": 1,
-      "expected_authored_effect_graph_stage_count": 12,
-      "expected_route_only_effect_count": 0
+      "expected_authored_effect_graph_stage_count": 13,
+      "expected_route_only_effect_count": 1
     },
     {
       "id": "3769688830",

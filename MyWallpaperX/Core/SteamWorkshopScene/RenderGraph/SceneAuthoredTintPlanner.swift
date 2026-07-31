@@ -1,19 +1,14 @@
 import Foundation
 import simd
 
-/// 官方 `effects/tint` 的 fail-closed 准入器。
+/// Tint 的 fail-closed 准入器。
 ///
-/// shader 源按 [SceneTintShaderProfile](SceneTintShaderProfile.swift) 的逐指纹白名单准入
-/// （stock 2.8.42 + legacy 注解变体，`MASK == 0` 下两版执行语义一致）。
+/// definition -> material -> shader 的路径由作者资产自身推导；material 与 shader 源仍按
+/// [SceneTintAssetProfile](SceneTintAssetProfile.swift) / [SceneTintShaderProfile]
+/// 的精确内容指纹准入。
 ///
-/// v1 只接受未绑定遮罩贴图的实例：去重语料（52 包 / 54 份 scene.json）里 224 个 tint pass
-/// 有 30 个把遮罩贴到 `g_Texture1`，这些实例整条拒绝而不是按无遮罩渲染。
-///
-/// 这条拒绝是**待办欠账**，不是证据边界：`SceneEffectMaskSemantics` 与 E-MASK-SLOT-COMBO
-/// 已经证明 texture-slot combo 由编辑器按槽位是否绑图在编译期自动设置（官方 59 份 shader
-/// 声明 `"combo":"MASK"`，语料 0 次声明），Opacity 已按该证据执行 per-effect 遮罩。Tint
-/// 跟进时官方语义是 `mask = g_BlendAlpha` 再 `mask *= tex(g_Texture1).r`，遮罩当混合权重
-/// 传给 `ApplyBlending`，不动 alpha 通道。
+/// 槽位 1 遮罩按 shader 指纹分流：stock 语义先用 `g_BlendAlpha`，再乘遮罩 R；legacy
+/// 语义由遮罩 R 覆盖。遮罩只作为 `ApplyBlending` 权重，不改 alpha 通道。
 enum SceneAuthoredTintPlanner {
     typealias Graph = SceneAuthoredEffectRenderPlan
 
@@ -47,9 +42,12 @@ enum SceneAuthoredTintPlanner {
 
         let effect = graph.effects[0]
         let node = graph.nodes[0]
-        guard normalized(effect.definitionPath) == definitionPath,
-              let profile = SceneTintShaderProfile.resolve(shaderContracts),
-              validDefinition(in: descriptor, path: effect.definitionPath, profile: profile),
+        guard let assets = SceneTintAssetProfile.resolve(
+                  descriptor: descriptor,
+                  definitionPath: effect.definitionPath,
+                  shaderContracts: shaderContracts
+              ),
+              validDefinition(in: descriptor, assets: assets),
               effect.nodeIndices == [node.nodeIndex],
               SceneAuthoredEffectInputValidator.accepts(
                   effect.input,
@@ -58,15 +56,15 @@ enum SceneAuthoredTintPlanner {
               ),
               effect.output == effectOutput(effect.key),
               graph.finalOutput == effect.output,
-              validNode(node, effect: effect),
-              validMaterialDescriptor(in: descriptor),
-              let maskPath = maskTexturePath(effect: effect, layer: layer),
+              validNode(node, effect: effect, assets: assets),
+              validMaterialDescriptor(in: descriptor, assets: assets),
+              let maskPath = maskTexturePath(effect: effect, layer: layer, assets: assets),
               let resolved = SceneAuthoredMaterialResolver.resolve(
                   node: node,
                   graph: graph,
                   descriptor: descriptor
               ).node,
-              validResolvedMaterial(resolved, maskPath: maskPath.path),
+              validResolvedMaterial(resolved, maskPath: maskPath.path, assets: assets),
               let blendMode = blendMode(from: resolved.combos),
               let color = color(from: resolved.constants, effect: effect.key),
               let alpha = alpha(from: resolved.constants, effect: effect.key)
@@ -78,7 +76,7 @@ enum SceneAuthoredTintPlanner {
             layerID: graph.layerID,
             effectKey: effect.key,
             renderGraph: graph,
-            shaderProfile: profile,
+            shaderProfile: assets.shaderProfile,
             blendMode: blendMode,
             staticOrFallbackColor: color.value,
             staticOrFallbackAlpha: alpha.value,
@@ -88,19 +86,14 @@ enum SceneAuthoredTintPlanner {
         )
     }
 
-    nonisolated static func containsCandidate(graph: Graph) -> Bool {
-        graph.effects.contains { normalized($0.definitionPath) == definitionPath }
-    }
-
     private nonisolated static func validDefinition(
         in descriptor: SceneRenderDescriptor,
-        path: String,
-        profile: SceneTintShaderProfile
+        assets: SceneTintAssetProfile
     ) -> Bool {
         let matches = descriptor.effectDefinitions.filter {
-            normalized($0.relativePath) == normalized(path)
+            normalized($0.relativePath) == assets.definitionPath
         }
-        let validReplacementKeys: [String?] = profile.acceptsMissingReplacementKey
+        let validReplacementKeys: [String?] = assets.shaderProfile.acceptsMissingReplacementKey
             ? ["tint", nil]
             : ["tint"]
         guard matches.count == 1, let definition = matches.first,
@@ -113,7 +106,7 @@ enum SceneAuthoredTintPlanner {
               definition.previewPath == "preview/project.json",
               definition.editable == nil,
               definition.framebuffers.isEmpty,
-              definition.dependencies.map(normalized) == dependencies,
+              definition.dependencies.map(normalized) == assets.dependencies,
               definition.functions == nil,
               definition.gizmos == nil,
               definition.extraFields.isEmpty,
@@ -124,7 +117,7 @@ enum SceneAuthoredTintPlanner {
             return false
         }
         return pass.passIndex == 0
-            && normalized(pass.materialPath ?? "") == materialPath
+            && normalized(pass.materialPath ?? "") == assets.materialPath
             && pass.target == nil
             && pass.bindings.isEmpty
             && pass.compose == nil
@@ -136,15 +129,16 @@ enum SceneAuthoredTintPlanner {
 
     private nonisolated static func validNode(
         _ node: Graph.Node,
-        effect: Graph.Effect
+        effect: Graph.Effect,
+        assets: SceneTintAssetProfile
     ) -> Bool {
         node.effect == effect.key
             && node.definitionPassIndex == 0
             && node.materialOrdinal == 0
             && node.instancePassIndex == 0
             && node.kind == .material
-            && normalized(node.materialPath ?? "") == materialPath
-            && normalized(node.materialPassID ?? "") == materialPassID
+            && normalized(node.materialPath ?? "") == assets.materialPath
+            && normalized(node.materialPassID ?? "") == assets.materialPassID
             && node.target == effect.output
             && node.bindings.isEmpty
             && node.commandSource == nil
@@ -154,25 +148,28 @@ enum SceneAuthoredTintPlanner {
     }
 
     private nonisolated static func validMaterialDescriptor(
-        in descriptor: SceneRenderDescriptor
+        in descriptor: SceneRenderDescriptor,
+        assets: SceneTintAssetProfile
     ) -> Bool {
         let matches = descriptor.materialPasses.filter {
-            normalized($0.id) == materialPassID
+            normalized($0.id) == assets.materialPassID
         }
         guard matches.count == 1, let material = matches.first else { return false }
-        return normalized(material.materialPath) == materialPath
-            && material.materialRawSHA256 == materialSHA256
+        return normalized(material.materialPath) == assets.materialPath
+            && material.materialRawSHA256 == assets.materialSHA256
             && material.passIndex == 0
-            && normalized(material.shaderPath ?? "") == shaderIdentity
+            && normalized(material.shaderPath ?? "") == assets.shaderIdentity
             && material.texturePaths.isEmpty
             && material.textureSlots.isEmpty
             && material.userTextureInputs.isEmpty
             && validCombos(material.combos)
             && material.constantShaderValues.isEmpty
+            && material.userShaderValues.isEmpty
             && material.blending?.lowercased() == "normal"
             && material.depthTest?.lowercased() == "disabled"
             && material.depthWrite?.lowercased() == "disabled"
             && material.cullMode?.lowercased() == "nocull"
+            && material.alphaWriting == nil
     }
 
     /// 区分「拒绝」（nil）与「合法无遮罩」（`.path == nil`）。官方 tint.frag 的遮罩挂在
@@ -185,12 +182,13 @@ enum SceneAuthoredTintPlanner {
 
     private nonisolated static func maskTexturePath(
         effect: Graph.Effect,
-        layer: SceneRenderDescriptor.Layer
+        layer: SceneRenderDescriptor.Layer,
+        assets: SceneTintAssetProfile
     ) -> MaskResolution? {
         guard layer.effects.indices.contains(effect.key.effectIndex) else { return nil }
         let descriptor = layer.effects[effect.key.effectIndex]
         guard descriptor.id == effect.key.descriptorID,
-              normalized(descriptor.file) == definitionPath,
+              normalized(descriptor.file) == assets.definitionPath,
               descriptor.visible != false,
               descriptor.passes.count == 1,
               let pass = descriptor.passes.first,
@@ -216,9 +214,10 @@ enum SceneAuthoredTintPlanner {
 
     private nonisolated static func validResolvedMaterial(
         _ material: SceneResolvedMaterialNode,
-        maskPath: String?
+        maskPath: String?,
+        assets: SceneTintAssetProfile
     ) -> Bool {
-        guard normalized(material.shaderPath) == shaderIdentity,
+        guard normalized(material.shaderPath) == assets.shaderIdentity,
               validCombos(material.combos),
               material.renderState.blending?.lowercased() == "normal",
               material.renderState.depthTest?.lowercased() == "disabled",
@@ -353,17 +352,6 @@ enum SceneAuthoredTintPlanner {
         value.replacingOccurrences(of: "\\", with: "/").lowercased()
     }
 
-    private nonisolated static let definitionPath = "effects/tint/effect.json"
-    private nonisolated static let materialPath = "materials/effects/tint.json"
-    private nonisolated static let materialSHA256 =
-        "d5a190abf6ebc13981b7e26ca623577d2cfe0783a343e05fc1a46dcce7cb5016"
-    private nonisolated static let materialPassID = "\(materialPath)#0"
-    private nonisolated static let shaderIdentity = "effects/tint"
-    private nonisolated static let dependencies = [
-        materialPath,
-        "shaders/effects/tint.frag",
-        "shaders/effects/tint.vert",
-    ]
     /// stock 与 legacy 两个指纹的 `[COMBO]` 注解逐字符一致，默认值不按 profile 分流。
     private nonisolated static let defaultBlendMode = 30
     private nonisolated static let defaultAlpha: Float = 1
