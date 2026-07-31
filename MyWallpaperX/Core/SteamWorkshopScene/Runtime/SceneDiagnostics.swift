@@ -47,12 +47,18 @@ struct SceneDiagnosticsBuilder {
             projectRootURL: rootURL,
             packageRootURL: packageReport?.outputURL
         )
-        let sceneDocument = project.flatMap {
-            try? SceneDocumentLoader().load(
-                project: $0,
-                packageReport: packageReport,
-                propertyOverrides: propertyOverrides
-            )
+        var sceneDocumentLoadError: Error?
+        let sceneDocument = project.flatMap { project -> SceneDocument? in
+            do {
+                return try SceneDocumentLoader().load(
+                    project: project,
+                    packageReport: packageReport,
+                    propertyOverrides: propertyOverrides
+                )
+            } catch {
+                sceneDocumentLoadError = error
+                return nil
+            }
         }
         let assetCatalog = project.flatMap { project in
             try? SceneAssetCatalogLoader().load(
@@ -124,7 +130,11 @@ struct SceneDiagnosticsBuilder {
         if let sceneDocument {
             issues.append(.init(severity: .info, message: "已解析 scene.json：对象 \(sceneDocument.objectCount) 个，effect \(sceneDocument.effectCount) 个，资源引用 \(sceneDocument.referencedResourcePaths.count) 个。"))
         } else if project != nil {
-            issues.append(.init(severity: .blocking, message: "scene.json 尚未解析成功。"))
+            issues.append(.init(
+                severity: .blocking,
+                message: sceneDocumentLoadError?.localizedDescription
+                    ?? "scene.json 尚未解析成功。"
+            ))
         }
 
         if let assetCatalog {

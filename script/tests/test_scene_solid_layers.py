@@ -267,9 +267,17 @@ struct SceneDiagnosticsReport {
 @main
 enum Harness {
     static func main() throws {
-        guard CommandLine.arguments.count == 2 else { throw HarnessError.missingFixture }
+        guard CommandLine.arguments.count == 3 else { throw HarnessError.missingFixture }
         let sceneURL = URL(fileURLWithPath: CommandLine.arguments[1])
+        let duplicateSceneURL = URL(fileURLWithPath: CommandLine.arguments[2])
         let document = try SceneDocumentLoader().load(from: sceneURL)
+        let duplicateIdentityError: String
+        do {
+            _ = try SceneDocumentLoader().load(from: duplicateSceneURL)
+            duplicateIdentityError = ""
+        } catch {
+            duplicateIdentityError = error.localizedDescription
+        }
         let project = SceneProject(
             rootURL: sceneURL.deletingLastPathComponent(),
             entryPath: sceneURL.lastPathComponent,
@@ -364,6 +372,7 @@ enum Harness {
             "uniformTint": [uniform.tint.x, uniform.tint.y, uniform.tint.z, uniform.tint.w],
             "textureSize": [solidTexture.width, solidTexture.height],
             "texturePixel": pixel,
+            "duplicateIdentityError": duplicateIdentityError,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -394,6 +403,16 @@ class SceneSolidLayerTests(unittest.TestCase):
         directory = Path(cls.temporary_directory.name)
         fixture = directory / "scene.json"
         fixture.write_text(json.dumps(SCENE_FIXTURE), encoding="utf-8")
+        duplicate_fixture = directory / "duplicate-scene.json"
+        duplicate_scene = {
+            "objects": [
+                {"id": 10, "image": "models/user/first.json"},
+                {"id": 10, "image": "models/user/second.json"},
+                {"id": 20, "image": "models/user/third.json"},
+                {"id": 20, "image": "models/user/fourth.json"},
+            ]
+        }
+        duplicate_fixture.write_text(json.dumps(duplicate_scene), encoding="utf-8")
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
         cls.binary = directory / "scene-solid-layers"
@@ -416,7 +435,7 @@ class SceneSolidLayerTests(unittest.TestCase):
         if compilation.returncode != 0:
             raise RuntimeError(compilation.stderr)
         completed = subprocess.run(
-            [str(cls.binary), str(fixture)],
+            [str(cls.binary), str(fixture), str(duplicate_fixture)],
             check=True,
             capture_output=True,
             text=True,
@@ -431,6 +450,11 @@ class SceneSolidLayerTests(unittest.TestCase):
     def test_solid_layer_classification_and_renderability(self) -> None:
         self.assertEqual(self.result["contentKinds"], ["solid", "solid", "solid", "image"])
         self.assertEqual(self.result["imageRenderable"], [True, True, True, True])
+
+    def test_duplicate_object_ids_fail_before_descriptor_construction(self) -> None:
+        error = self.result["duplicateIdentityError"]
+        self.assertIn("重复对象 ID（10, 20）", error)
+        self.assertIn("duplicate-scene.json", error)
 
     def test_plain_wrapped_and_missing_colors_resolve_to_rgb(self) -> None:
         document_expected = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], []]

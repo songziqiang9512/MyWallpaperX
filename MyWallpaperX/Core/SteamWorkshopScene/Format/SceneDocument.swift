@@ -55,6 +55,7 @@ struct SceneDocumentLoader {
     enum LoadError: LocalizedError {
         case missingSceneJSON
         case invalidSceneJSON(URL)
+        case duplicateObjectIDs(URL, [Int])
 
         var errorDescription: String? {
             switch self {
@@ -62,6 +63,9 @@ struct SceneDocumentLoader {
                 return "未找到可解析的 scene.json。"
             case let .invalidSceneJSON(url):
                 return "无法解析 Scene 入口文件：\(url.path)"
+            case let .duplicateObjectIDs(url, ids):
+                let values = ids.map(String.init).joined(separator: ", ")
+                return "Scene 入口包含重复对象 ID（\(values)）：\(url.path)"
             }
         }
     }
@@ -100,6 +104,12 @@ struct SceneDocumentLoader {
 
         let rawObjects = root["objects"] as? [[String: Any]] ?? []
         let objects = rawObjects.compactMap(Self.parseObject)
+        let duplicateObjectIDs = Dictionary(grouping: objects, by: \.id)
+            .compactMap { id, matches in matches.count > 1 ? id : nil }
+            .sorted()
+        guard duplicateObjectIDs.isEmpty else {
+            throw LoadError.duplicateObjectIDs(sourceURL, duplicateObjectIDs)
+        }
         let referencedPaths = Set(objects.flatMap { object in
             [object.imagePath, object.particlePath].compactMap { $0 } + object.effectFiles + object.texturePaths
         })

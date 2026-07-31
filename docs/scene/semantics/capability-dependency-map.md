@@ -49,7 +49,7 @@ D3 + D4 + D5 + D6 + D7 + D8
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| scene/object/layer/effect/pass/material/target identity | 部分 `L2-L3` | authored ID 优先、ordinal fallback、跨屏/跨帧作用域明确 |
+| scene/object/layer/effect/pass/material/target identity | 部分 `L2-L3`；Scene loader 在 descriptor 构造前拒绝重复 authored object ID，并报告排序后的冲突 ID，避免下游 identity dictionary runtime trap | authored ID 优先、合法缺失时的 ordinal fallback、跨屏/跨帧作用域明确；effect/pass/material/target duplicate 继续逐类补门 |
 | source order、parent、dependency、provider、read/write edges | 部分 `L2-L3` | cycle、missing、duplicate、read-before-write 和 topology invalidation |
 | named/effect/history target identity | `_a` 子集 `L3`、`_b` `L2`、history `L0` | primary/secondary/history 不混用，resize/switch/reset 可测 |
 
