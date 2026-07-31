@@ -1751,6 +1751,7 @@
         37,
         41,
         49,
+        162,
         181,
         188,
         202,
@@ -1763,11 +1764,12 @@
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
       "expected_authored_effect_graph_workshop_shadow_count": 0,
+      "expected_authored_effect_graph_light_shafts_count": 1,
       "expected_authored_effect_graph_shake_count": 0,
       "expected_authored_effect_graph_water_flow_count": 0,
       "expected_authored_effect_graph_water_waves_count": 4,
       "expected_authored_effect_graph_chain_count": 1,
-      "expected_authored_effect_graph_stage_count": 11,
+      "expected_authored_effect_graph_stage_count": 12,
       "expected_route_only_effect_count": 0
     },
     {

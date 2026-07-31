@@ -39,9 +39,19 @@ struct SceneLightShaftsPerspectiveTransform {
     }
 }
 
+enum SceneLightShaftsProfile: Float {
+    case linearGradient = 0
+    case radialColor = 1
+
+    var requiresGradientTexture: Bool { self == .linearGradient }
+}
+
 struct SceneLightShaftsExecutionPlan {
+    let profile: SceneLightShaftsProfile
     let points: (SIMD2<Float>, SIMD2<Float>, SIMD2<Float>, SIMD2<Float>)
     let effectUVTransform: SceneLightShaftsPerspectiveTransform
+    let startColor: SIMD3<Float>
+    let endColor: SIMD3<Float>
     let feather: SIMD2<Float>
     let scale: SIMD2<Float>
     let radius: Float
@@ -51,6 +61,8 @@ struct SceneLightShaftsExecutionPlan {
     let speed: Float
     let intensity: Float
     let exponent: Float
+    let startAngle: Float
+    let endAngle: Float
     let noiseTexturePath: String
     let gradientTexturePath: String
 }
@@ -63,9 +75,11 @@ struct SceneLightShaftsEffectTextures {
 
     func matches(_ plan: SceneLightShaftsExecutionPlan) -> Bool {
         noise != nil
-            && gradient != nil
             && noisePath == plan.noiseTexturePath
-            && gradientPath == plan.gradientTexturePath
+            && (
+                !plan.profile.requiresGradientTexture
+                    || (gradient != nil && gradientPath == plan.gradientTexturePath)
+            )
     }
 }
 
@@ -106,7 +120,10 @@ enum Harness {
         )
     }
 
-    static func makeResources(device: MTLDevice) -> SceneLightShaftsEffectTextures {
+    static func makeResources(
+        device: MTLDevice,
+        includeGradient: Bool = true
+    ) -> SceneLightShaftsEffectTextures {
         let noise = texture(
             device: device,
             width: 8,
@@ -140,13 +157,14 @@ enum Harness {
         )
         return .init(
             noise: noise,
-            gradient: gradient,
+            gradient: includeGradient ? gradient : nil,
             noisePath: "materials/util/noise",
             gradientPath: "materials/gradient/gradient_iridescent"
         )
     }
 
     static func plan(
+        profile: SceneLightShaftsProfile = .linearGradient,
         transform: SceneLightShaftsPerspectiveTransform = .init(
             row0: SIMD3<Float>(1.6666667, 0, -0.33333334),
             row1: SIMD3<Float>(0, 1.6666667, -0.33333334),
@@ -154,9 +172,18 @@ enum Harness {
         ),
         radius: Float = 0.14,
         noiseAmount: Float = 0.33,
-        noiseScale: Float = 1.17
+        noiseScale: Float = 1.17,
+        scale: SIMD2<Float> = SIMD2(0.8, 0.5),
+        feather: SIMD2<Float> = SIMD2(0.12, 0.12),
+        startColor: SIMD3<Float> = SIMD3(1, 1, 1),
+        endColor: SIMD3<Float> = SIMD3(0.435294, 0.886274, 1),
+        intensity: Float = 2.5,
+        exponent: Float = 0.6,
+        startAngle: Float = 0,
+        endAngle: Float = 1
     ) -> SceneLightShaftsExecutionPlan {
         .init(
+            profile: profile,
             points: (
                 SIMD2<Float>(0.2, 0.2),
                 SIMD2<Float>(0.8, 0.2),
@@ -164,15 +191,19 @@ enum Harness {
                 SIMD2<Float>(0.2, 0.8)
             ),
             effectUVTransform: transform,
-            feather: SIMD2<Float>(0.12, 0.12),
-            scale: SIMD2<Float>(0.8, 0.5),
+            startColor: startColor,
+            endColor: endColor,
+            feather: feather,
+            scale: scale,
             radius: radius,
             noiseAmount: noiseAmount,
             noiseScale: noiseScale,
             smoothness: 0.85,
             speed: 0.7,
-            intensity: 2.5,
-            exponent: 0.6,
+            intensity: intensity,
+            exponent: exponent,
+            startAngle: startAngle,
+            endAngle: endAngle,
             noiseTexturePath: "materials/util/noise",
             gradientTexturePath: "materials/gradient/gradient_iridescent"
         )
@@ -232,6 +263,34 @@ enum Harness {
         return total
     }
 
+    static func visibleRuns(_ bytes: [UInt8], y: Int, threshold: UInt8) -> Int {
+        var runs = 0
+        var inside = false
+        for x in 0..<size {
+            let visible = bytes[(y * size + x) * 4 + 3] > threshold
+            if visible && !inside { runs += 1 }
+            inside = visible
+        }
+        return runs
+    }
+
+    static func supportWidth(_ bytes: [UInt8], y: Int) -> Int {
+        (0..<size).filter { bytes[(y * size + $0) * 4 + 3] > 3 }.count
+    }
+
+    static func alphaCentroidX(_ bytes: [UInt8]) -> Double {
+        var weighted = 0
+        var total = 0
+        for y in 8..<40 {
+            for x in 0..<size {
+                let alpha = Int(bytes[(y * size + x) * 4 + 3])
+                weighted += x * alpha
+                total += alpha
+            }
+        }
+        return total > 0 ? Double(weighted) / Double(total) : 0
+    }
+
     static func main() throws {
         guard let device = MTLCreateSystemDefaultDevice(),
               let queue = device.makeCommandQueue(),
@@ -240,6 +299,7 @@ enum Harness {
             return
         }
         let resources = makeResources(device: device)
+        let noGradientResources = makeResources(device: device, includeGradient: false)
         let authoredPlan = plan()
         let first = render(
             device: device,
@@ -337,6 +397,42 @@ enum Harness {
             time: 0,
             alpha: 1
         )
+        let radialPlan = plan(
+            profile: .radialColor,
+            transform: .init(
+                row0: SIMD3<Float>(1, 0, 0),
+                row1: SIMD3<Float>(0, 1, 0),
+                row2: SIMD3<Float>(0, 0, 1)
+            ),
+            scale: SIMD2(0.66, 1.01),
+            feather: SIMD2(0, 0.07),
+            startColor: SIMD3(0.509804, 0.447059, 0.580392),
+            endColor: SIMD3(0.603922, 0.176471, 0.603922),
+            intensity: 1.16,
+            exponent: 0,
+            startAngle: 0,
+            endAngle: 1
+        )
+        let radialFrames = [Float(0), 2, 4, 6].map { phaseTime in
+            render(
+                device: device,
+                queue: queue,
+                pipeline: pipeline,
+                resources: noGradientResources,
+                plan: radialPlan,
+                time: phaseTime,
+                alpha: 1
+            )
+        }
+        let missingLinearGradient = render(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            resources: noGradientResources,
+            plan: authoredPlan,
+            time: 0,
+            alpha: 1
+        )
         let alphaValues = stride(from: 3, to: first.bytes.count, by: 4).map {
             first.bytes[$0]
         }
@@ -387,6 +483,45 @@ enum Harness {
                 SIMD2<Float>(0, 1), SIMD2<Float>(1, 1),
                 SIMD2<Float>(0, 0), SIMD2<Float>(1, 0),
             ]
+        let radialAlphas = radialFrames.map { frame in
+            stride(from: 3, to: frame.bytes.count, by: 4).map { frame.bytes[$0] }
+        }
+        let radialPremultiplied = radialFrames.allSatisfy { frame in
+            stride(from: 0, to: frame.bytes.count, by: 4).allSatisfy { offset in
+                max(
+                    frame.bytes[offset],
+                    frame.bytes[offset + 1],
+                    frame.bytes[offset + 2]
+                ) <= frame.bytes[offset + 3]
+            }
+        }
+        let radialSustained = radialAlphas.allSatisfy {
+            $0.filter { $0 > 3 }.count > 120
+        }
+        let radialBilateral = radialFrames.allSatisfy { frame in
+            alphaTotal(frame.bytes, xRange: 4..<32) > 500
+                && alphaTotal(frame.bytes, xRange: 32..<60) > 500
+        }
+        let radialBeamRuns = radialFrames.map {
+            visibleRuns($0.bytes, y: 18, threshold: 8)
+        }.min() ?? 0
+        let radialCentroids = radialFrames.map { alphaCentroidX($0.bytes) }
+        let radialMoves = (radialCentroids.max() ?? 0) - (radialCentroids.min() ?? 0) > 0.15
+        let radialFansUp = radialFrames.allSatisfy {
+            supportWidth($0.bytes, y: 14) > supportWidth($0.bytes, y: 54) + 4
+        }
+        let radialVisibleOffsets = stride(
+            from: 0,
+            to: radialFrames[0].bytes.count,
+            by: 4
+        ).filter { radialFrames[0].bytes[$0 + 3] > 3 }
+        let radialUsesAuthoredPurple = radialVisibleOffsets.reduce(
+            into: (blue: 0, green: 0, red: 0)
+        ) { totals, offset in
+            totals.blue += Int(radialFrames[0].bytes[offset])
+            totals.green += Int(radialFrames[0].bytes[offset + 1])
+            totals.red += Int(radialFrames[0].bytes[offset + 2])
+        }
         let result: [String: Any] = [
             "metalUnavailable": false,
             "accepted": first.accepted && second.accepted && half.accepted,
@@ -407,6 +542,18 @@ enum Harness {
             "halfAlphaLower": (halfAlpha.max() ?? 0) < (alphaValues.max() ?? 0),
             "fixedUnitGeometry": fixedUnitGeometry,
             "perspectiveChangesOutput": first.bytes != alternate.bytes,
+            "linearNeedsGradient": !missingLinearGradient.accepted,
+            "radialAcceptedWithoutGradient": radialFrames.allSatisfy(\.accepted),
+            "radialPremultiplied": radialPremultiplied,
+            "radialSustained": radialSustained,
+            "radialBilateral": radialBilateral,
+            "radialBeamRuns": radialBeamRuns,
+            "radialMoves": radialMoves,
+            "radialFansUp": radialFansUp,
+            "radialSemiTransparent": radialAlphas.flatMap { $0 }.max() ?? 255 <= 128,
+            "radialUsesAuthoredPurple":
+                radialUsesAuthoredPurple.blue > radialUsesAuthoredPurple.green
+                    && radialUsesAuthoredPurple.red > radialUsesAuthoredPurple.green,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -468,6 +615,16 @@ class SceneLightShaftsRenderingTests(unittest.TestCase):
         self.assertTrue(result["halfAlphaLower"], result)
         self.assertTrue(result["fixedUnitGeometry"], result)
         self.assertTrue(result["perspectiveChangesOutput"], result)
+        self.assertTrue(result["linearNeedsGradient"], result)
+        self.assertTrue(result["radialAcceptedWithoutGradient"], result)
+        self.assertTrue(result["radialPremultiplied"], result)
+        self.assertTrue(result["radialSustained"], result)
+        self.assertTrue(result["radialBilateral"], result)
+        self.assertGreaterEqual(result["radialBeamRuns"], 3, result)
+        self.assertTrue(result["radialMoves"], result)
+        self.assertTrue(result["radialFansUp"], result)
+        self.assertTrue(result["radialSemiTransparent"], result)
+        self.assertTrue(result["radialUsesAuthoredPurple"], result)
 
 
 if __name__ == "__main__":

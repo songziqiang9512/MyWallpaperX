@@ -7,10 +7,15 @@ struct SceneLightShaftsEffectTextures {
     let gradientPath: String
 
     func matches(_ plan: SceneLightShaftsExecutionPlan) -> Bool {
-        noise != nil
-            && gradient != nil
-            && normalized(noisePath) == normalized(plan.noiseTexturePath)
-            && normalized(gradientPath) == normalized(plan.gradientTexturePath)
+        guard noise != nil,
+              normalized(noisePath) == normalized(plan.noiseTexturePath) else {
+            return false
+        }
+        return !plan.profile.requiresGradientTexture
+            || (
+                gradient != nil
+                    && normalized(gradientPath) == normalized(plan.gradientTexturePath)
+            )
     }
 
     private func normalized(_ path: String) -> String {

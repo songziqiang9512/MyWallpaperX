@@ -1,5 +1,14 @@
 import simd
 
+nonisolated enum SceneLightShaftsProfile: Float {
+    case linearGradient = 0
+    case radialColor = 1
+
+    var requiresGradientTexture: Bool {
+        self == .linearGradient
+    }
+}
+
 nonisolated struct SceneLightShaftsPerspectiveTransform {
     let row0: SIMD3<Float>
     let row1: SIMD3<Float>
@@ -119,8 +128,11 @@ nonisolated struct SceneLightShaftsExecutionPlan {
     let layerID: Int
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
     let renderGraph: SceneAuthoredEffectRenderPlan
+    let profile: SceneLightShaftsProfile
     let points: (SIMD2<Float>, SIMD2<Float>, SIMD2<Float>, SIMD2<Float>)
     let effectUVTransform: SceneLightShaftsPerspectiveTransform
+    let startColor: SIMD3<Float>
+    let endColor: SIMD3<Float>
     let feather: SIMD2<Float>
     let scale: SIMD2<Float>
     let radius: Float
@@ -130,6 +142,8 @@ nonisolated struct SceneLightShaftsExecutionPlan {
     let speed: Float
     let intensity: Float
     let exponent: Float
+    let startAngle: Float
+    let endAngle: Float
     let noiseTexturePath: String
     let gradientTexturePath: String
 }

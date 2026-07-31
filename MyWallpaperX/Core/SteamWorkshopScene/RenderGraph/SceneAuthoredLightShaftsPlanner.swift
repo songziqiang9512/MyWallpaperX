@@ -1,22 +1,15 @@
-import CryptoKit
 import Foundation
 import simd
 
-/// Strict stock profile for a standalone quad using linear, direct-draw,
-/// gradient Light Shafts. Radial/corner, color rendering, masks, bindings,
-/// alternate assets, and chained effects remain closed.
+/// Strict stock profiles for standalone direct-draw Light Shafts quads.
 enum SceneAuthoredLightShaftsPlanner {
     typealias Graph = SceneAuthoredEffectRenderPlan
 
-    private nonisolated struct CanonicalShaderPayload: Encodable {
-        let identity: String
-        let sourceKind: SceneShaderContract.SourceKind
-        let stages: [SceneShaderContract.Stage]
-        let diagnostics: [SceneShaderContract.Diagnostic]
-    }
-
     private nonisolated struct Parameters {
+        let profile: SceneLightShaftsProfile
         let points: (SIMD2<Float>, SIMD2<Float>, SIMD2<Float>, SIMD2<Float>)
+        let startColor: SIMD3<Float>
+        let endColor: SIMD3<Float>
         let feather: SIMD2<Float>
         let scale: SIMD2<Float>
         let radius: Float
@@ -26,6 +19,8 @@ enum SceneAuthoredLightShaftsPlanner {
         let speed: Float
         let intensity: Float
         let exponent: Float
+        let startAngle: Float
+        let endAngle: Float
     }
 
     nonisolated static func plan(
@@ -71,7 +66,8 @@ enum SceneAuthoredLightShaftsPlanner {
                   descriptor: descriptor
               ).node,
               validResolvedMaterial(resolved),
-              let parameters = parameters(from: resolved.constants),
+              let profile = profile(from: resolved.combos),
+              let parameters = parameters(from: resolved.constants, profile: profile),
               let effectUVTransform = SceneLightShaftsPerspectiveTransform.make(
                   points: parameters.points
               ) else {
@@ -82,8 +78,11 @@ enum SceneAuthoredLightShaftsPlanner {
             layerID: graph.layerID,
             effectKey: effect.key,
             renderGraph: graph,
+            profile: parameters.profile,
             points: parameters.points,
             effectUVTransform: effectUVTransform,
+            startColor: parameters.startColor,
+            endColor: parameters.endColor,
             feather: parameters.feather,
             scale: parameters.scale,
             radius: parameters.radius,
@@ -93,6 +92,8 @@ enum SceneAuthoredLightShaftsPlanner {
             speed: parameters.speed,
             intensity: parameters.intensity,
             exponent: parameters.exponent,
+            startAngle: parameters.startAngle,
+            endAngle: parameters.endAngle,
             noiseTexturePath: noiseTexturePath,
             gradientTexturePath: gradientTexturePath
         )
@@ -100,85 +101,6 @@ enum SceneAuthoredLightShaftsPlanner {
 
     nonisolated static func containsCandidate(graph: Graph) -> Bool {
         graph.effects.contains { normalized($0.definitionPath) == definitionPath }
-    }
-
-    private nonisolated static func validDefinition(
-        in descriptor: SceneRenderDescriptor,
-        path: String
-    ) -> Bool {
-        let matches = descriptor.effectDefinitions.filter {
-            normalized($0.relativePath) == normalized(path)
-        }
-        guard matches.count == 1,
-              let definition = matches.first,
-              definition.version == 1,
-              definition.replacementKey == "lightshafts",
-              definition.name == "ui_editor_effect_light_shafts_title",
-              definition.description == "ui_editor_effect_light_shafts_description",
-              definition.group == "colorize",
-              definition.performance == nil,
-              definition.previewPath == "preview/project.json",
-              definition.editable == nil,
-              definition.framebuffers.isEmpty,
-              definition.dependencies.map(normalized) == dependencies,
-              definition.functions == nil,
-              definition.gizmos == expectedGizmos,
-              definition.extraFields.isEmpty,
-              definition.unknownFieldPaths.isEmpty,
-              definition.passes.count == 1,
-              let pass = definition.passes.first else {
-            return false
-        }
-        return pass.passIndex == 0
-            && normalized(pass.materialPath ?? "") == materialPath
-            && pass.target == nil
-            && pass.bindings.isEmpty
-            && pass.compose == nil
-            && pass.command == nil
-            && pass.source == nil
-            && pass.conditions == nil
-            && pass.extraFields.isEmpty
-    }
-
-    private nonisolated static func validNode(
-        _ node: Graph.Node,
-        effect: Graph.Effect
-    ) -> Bool {
-        node.effect == effect.key
-            && node.definitionPassIndex == 0
-            && node.materialOrdinal == 0
-            && node.instancePassIndex == 0
-            && node.kind == .material
-            && normalized(node.materialPath ?? "") == materialPath
-            && normalized(node.materialPassID ?? "") == materialPassID
-            && node.target == effect.output
-            && node.bindings.isEmpty
-            && node.commandSource == nil
-            && node.commandTarget == nil
-            && node.compose == nil
-            && node.conditions == nil
-    }
-
-    private nonisolated static func validMaterialDescriptor(
-        in descriptor: SceneRenderDescriptor
-    ) -> Bool {
-        let matches = descriptor.materialPasses.filter { normalized($0.id) == materialPassID }
-        guard matches.count == 1, let material = matches.first else { return false }
-        return normalized(material.materialPath) == materialPath
-            && material.materialRawSHA256 == materialSHA256
-            && material.passIndex == 0
-            && normalized(material.shaderPath ?? "") == shaderIdentity
-            && material.texturePaths.isEmpty
-            && material.textureSlots.isEmpty
-            && material.userTextureInputs.isEmpty
-            && material.combos.isEmpty
-            && material.constantShaderValues.isEmpty
-            && material.userShaderValues.isEmpty
-            && material.blending?.lowercased() == "normal"
-            && material.depthTest?.lowercased() == "disabled"
-            && material.depthWrite?.lowercased() == "disabled"
-            && material.cullMode?.lowercased() == "nocull"
-            && material.alphaWriting == nil
     }
 
     private nonisolated static func validInstance(
@@ -191,48 +113,59 @@ enum SceneAuthoredLightShaftsPlanner {
               normalized(descriptor.file) == definitionPath,
               descriptor.visible != false,
               descriptor.passes.count == 1,
-              let pass = descriptor.passes.first else {
+              let pass = descriptor.passes.first,
+              let profile = profile(from: pass.combos) else {
             return false
         }
         return pass.passIndex == 0
             && pass.texturePaths.isEmpty
             && pass.textureSlots.isEmpty
             && pass.userTextureInputs.isEmpty
-            && validCombos(pass.combos)
-            && parameters(from: pass.constantShaderValues) != nil
+            && parameters(from: pass.constantShaderValues, profile: profile) != nil
     }
 
     private nonisolated static func validResolvedMaterial(
         _ material: SceneResolvedMaterialNode
     ) -> Bool {
-        normalized(material.shaderPath) == shaderIdentity
+        guard let profile = profile(from: material.combos) else { return false }
+        return normalized(material.shaderPath) == shaderIdentity
             && material.textureSlots.allSatisfy { $0 == nil }
-            && validCombos(material.combos)
-            && parameters(from: material.constants) != nil
+            && parameters(from: material.constants, profile: profile) != nil
             && material.renderState.blending?.lowercased() == "normal"
             && material.renderState.depthTest?.lowercased() == "disabled"
             && material.renderState.depthWrite?.lowercased() == "disabled"
             && material.renderState.cullMode?.lowercased() == "nocull"
     }
 
-    private nonisolated static func validCombos(_ authored: [String: Int]) -> Bool {
+    private nonisolated static func profile(
+        from authored: [String: Int]
+    ) -> SceneLightShaftsProfile? {
         var values: [String: Int] = [:]
         for (key, value) in authored {
-            guard values.updateValue(value, forKey: key.uppercased()) == nil else { return false }
+            guard values.updateValue(value, forKey: key.uppercased()) == nil else { return nil }
         }
-        return values == ["DIRECTDRAW": 1, "RENDERING": 1]
+        if values == ["DIRECTDRAW": 1, "RENDERING": 1] { return .linearGradient }
+        if values == ["DIRECTDRAW": 1, "RAYMODE": 1] { return .radialColor }
+        return nil
     }
 
     private nonisolated static func parameters(
-        from authored: [String: SceneDocument.ShaderValue]
+        from authored: [String: SceneDocument.ShaderValue],
+        profile: SceneLightShaftsProfile
     ) -> Parameters? {
         var values: [String: SceneDocument.ShaderValue] = [:]
         for (key, value) in authored {
             guard values.updateValue(value, forKey: key.lowercased()) == nil else { return nil }
         }
-        guard Set(values.keys) == constantKeys,
-              vector(values["colorastart"], count: 3, range: 0...1) != nil,
-              vector(values["colorend"], count: 3, range: 0...1) != nil,
+        var expectedKeys = constantKeys
+        if profile == .radialColor {
+            expectedKeys.formUnion(["rayzstartangle", "rayzzendangle"])
+        }
+        let exponentRange: ClosedRange<Double> =
+            profile == .radialColor ? 0...10 : 0.01...10
+        guard Set(values.keys) == expectedKeys,
+              let startColor = vector(values["colorastart"], count: 3, range: 0...1),
+              let endColor = vector(values["colorend"], count: 3, range: 0...1),
               let noiseAmount = scalar(values["noiseamount"], range: 0...1),
               let noiseScale = scalar(values["noisescale"], range: 0...10),
               let radius = scalar(values["rayradius"], range: 0...2),
@@ -245,11 +178,29 @@ enum SceneAuthoredLightShaftsPlanner {
               let smoothness = scalar(values["raysmoothness"], range: 0...1),
               let speed = scalar(values["rayspeed"], range: -10...10),
               let intensity = scalar(values["colorwintensity"], range: 0...10),
-              let exponent = scalar(values["colorwexponent"], range: 0.01...10) else {
+              let exponent = scalar(values["colorwexponent"], range: exponentRange) else {
             return nil
         }
+        let angles: SIMD2<Float>
+        if profile == .radialColor {
+            guard let start = scalar(values["rayzstartangle"], range: 0...1),
+                  let end = scalar(values["rayzzendangle"], range: 0...1),
+                  start <= end else {
+                return nil
+            }
+            angles = SIMD2(start, end)
+        } else {
+            angles = SIMD2(0, 1)
+        }
         return .init(
+            profile: profile,
             points: (point0, point1, point2, point3),
+            startColor: SIMD3(
+                Float(startColor[0]), Float(startColor[1]), Float(startColor[2])
+            ),
+            endColor: SIMD3(
+                Float(endColor[0]), Float(endColor[1]), Float(endColor[2])
+            ),
             feather: feather,
             scale: scale,
             radius: radius,
@@ -258,7 +209,9 @@ enum SceneAuthoredLightShaftsPlanner {
             smoothness: smoothness,
             speed: speed,
             intensity: intensity,
-            exponent: exponent
+            exponent: exponent,
+            startAngle: angles.x,
+            endAngle: angles.y
         )
     }
 
@@ -294,90 +247,18 @@ enum SceneAuthoredLightShaftsPlanner {
         return components
     }
 
-    private nonisolated static func shaderContractMatches(
-        _ contracts: [SceneShaderContract]
-    ) -> Bool {
-        let matches = contracts.filter { normalized($0.identity) == shaderIdentity }
-        guard matches.count == 1,
-              let contract = matches.first,
-              contract.sourceKind == .authoredSource,
-              contract.diagnostics.isEmpty,
-              contract.canonicalSHA256 == shaderCanonicalSHA256,
-              canonicalHash(contract) == shaderCanonicalSHA256,
-              contract.stages.count == 2 else {
-            return false
-        }
-        let expected: [(SceneShaderContract.StageKind, String, String)] = [
-            (.vertex, vertexPath, vertexSHA256),
-            (.fragment, fragmentPath, fragmentSHA256),
-        ]
-        return zip(contract.stages, expected).allSatisfy { stage, fingerprint in
-            stage.kind == fingerprint.0
-                && normalized(stage.relativePath) == fingerprint.1
-                && stage.rawSHA256 == fingerprint.2
-                && sha256(Data(stage.source.utf8)) == fingerprint.2
-        }
-    }
-
-    private nonisolated static func canonicalHash(_ contract: SceneShaderContract) -> String {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        let payload = CanonicalShaderPayload(
-            identity: contract.identity,
-            sourceKind: contract.sourceKind,
-            stages: contract.stages,
-            diagnostics: contract.diagnostics
-        )
-        guard let data = try? encoder.encode(payload) else { return "" }
-        return sha256(data)
-    }
-
     private nonisolated static func effectOutput(_ effect: Graph.EffectKey) -> Graph.TextureIdentity {
         .init(kind: .effectOutput, layerID: effect.layerID, effect: effect, name: nil)
     }
 
-    private nonisolated static func normalized(_ value: String) -> String {
+    nonisolated static func normalized(_ value: String) -> String {
         value.replacingOccurrences(of: "\\", with: "/").lowercased()
     }
 
-    private nonisolated static func sha256(_ data: Data) -> String {
-        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-    }
-
-    private nonisolated static let definitionPath = "effects/lightshafts/effect.json"
-    private nonisolated static let materialPath = "materials/effects/lightshafts.json"
-    private nonisolated static let materialPassID = "\(materialPath)#0"
-    private nonisolated static let materialSHA256 =
-        "87c0abe860543b15dbc04606034484c7d1061e526af08388bd6945869985a078"
-    private nonisolated static let shaderIdentity = "effects/lightshafts"
-    private nonisolated static let dependencies = [
-        materialPath,
-        "shaders/effects/lightshafts.frag",
-        "shaders/effects/lightshafts.vert",
-    ]
-    private nonisolated static let shaderCanonicalSHA256 =
-        "0d833edfb2b35e86cba517f392d2d28ca0d9fd52fbfb136632ce23f1ce2ce58a"
-    private nonisolated static let vertexPath = "shaders/effects/lightshafts.vert"
-    private nonisolated static let vertexSHA256 =
-        "fc65a0011fcae963679c3411c017da95c3c5ddcc9808b0777196f0334547e471"
-    private nonisolated static let fragmentPath = "shaders/effects/lightshafts.frag"
-    private nonisolated static let fragmentSHA256 =
-        "3e03ff559af5a8eb7951d1be590c48976a78f2e159bcc6778a9e48923d48d940"
     private nonisolated static let constantKeys = Set([
         "colorastart", "colorend", "colorwexponent", "colorwintensity",
         "noiseamount", "noisescale", "point0", "point1", "point2", "point3",
         "rayfeather", "rayradius", "rayscale", "raysmoothness", "rayspeed",
-    ])
-    private nonisolated static let expectedGizmos = SceneJSONValue.array([
-        .object([
-            "type": .string("EffectPerspectiveUV"),
-            "vars": .object([
-                "p0": .string("point0"),
-                "p1": .string("point1"),
-                "p2": .string("point2"),
-                "p3": .string("point3"),
-            ]),
-        ]),
     ])
     nonisolated static let noiseTexturePath = "materials/util/noise"
     nonisolated static let gradientTexturePath =

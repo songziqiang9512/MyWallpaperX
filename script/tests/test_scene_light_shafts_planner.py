@@ -24,6 +24,7 @@ SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneShaderContractLoader.swift",
     SCENE_ROOT / "RenderGraph/SceneLightShaftsExecutionPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredLightShaftsPlanner.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredLightShaftsPlanner+AssetValidation.swift",
 ]
 
 
@@ -100,7 +101,8 @@ enum Harness {
         var materialHash =
             "87c0abe860543b15dbc04606034484c7d1061e526af08388bd6945869985a078"
         var directDraw = 1
-        var rendering = 1
+        var rendering: Int? = 1
+        var rayMode: Int?
         var extraCombo = false
         var extraConstant = false
         var texture = false
@@ -113,6 +115,8 @@ enum Harness {
         var radius = 0.14
         var noiseAmount = 0.33
         var noiseScale = 1.17
+        var startAngle = 0.0
+        var endAngle = 1.0
         var degeneratePoints = false
     }
 
@@ -138,10 +142,10 @@ enum Harness {
         let points = options.degeneratePoints
             ? Array(repeating: [0.5, 0.5], count: 4)
             : [[0.4, 0.25], [0.6, 0.25], [0.8, 0.8], [0.2, 0.8]]
-        var values = [
+        var values: [String: SceneDocument.ShaderValue] = [
             "colorastart": vector([1, 1, 1]),
             "colorend": vector([0.435294, 0.886274, 1]),
-            "colorwexponent": scalar(0.49),
+            "colorwexponent": scalar(options.rayMode == 1 ? 0 : 0.49),
             "colorwintensity": scalar(options.intensity, binding: options.binding),
             "noiseamount": scalar(options.noiseAmount),
             "noisescale": scalar(options.noiseScale),
@@ -155,16 +159,19 @@ enum Harness {
             "raysmoothness": scalar(0.68),
             "rayspeed": scalar(0.39),
         ]
+        if options.rayMode == 1 {
+            values["rayzstartangle"] = scalar(options.startAngle)
+            values["rayzzendangle"] = scalar(options.endAngle)
+        }
         if options.extraConstant { values["other"] = scalar(1) }
         return values
     }
 
     static func combos(_ options: Options) -> [String: Int] {
-        var values = [
-            "DIRECTDRAW": options.directDraw,
-            "RENDERING": options.rendering,
-        ]
-        if options.extraCombo { values["RAYMODE"] = 1 }
+        var values = ["DIRECTDRAW": options.directDraw]
+        if let rendering = options.rendering { values["RENDERING"] = rendering }
+        if let rayMode = options.rayMode { values["RAYMODE"] = rayMode }
+        if options.extraCombo { values["UNKNOWN"] = 1 }
         return values
     }
 
@@ -364,9 +371,15 @@ enum Harness {
         let plan = SceneAuthoredLightShaftsPlanner.plan(
             graph: graph(), descriptor: descriptor(), shaderContracts: contracts
         )
-        var radial = Options(); radial.extraCombo = true
+        var radial = Options(); radial.rendering = nil; radial.rayMode = 1
+        let radialPlan = SceneAuthoredLightShaftsPlanner.plan(
+            graph: graph(), descriptor: descriptor(radial), shaderContracts: contracts
+        )
         var notDirect = Options(); notDirect.directDraw = 0
         var colorMode = Options(); colorMode.rendering = 0
+        var radialGradient = radial; radialGradient.rendering = 1
+        var corner = radial; corner.rayMode = 2
+        var unknownCombo = Options(); unknownCombo.extraCombo = true
         var texture = Options(); texture.texture = true
         var binding = Options(); binding.binding = true
         var image = Options(); image.contentKind = "image"
@@ -381,16 +394,21 @@ enum Harness {
         var noiseScale = Options(); noiseScale.noiseScale = 10.01
         var hidden = Options(); hidden.visible = false
         var degenerate = Options(); degenerate.degeneratePoints = true
+        var reversedAngles = radial; reversedAngles.startAngle = 0.8
+        reversedAngles.endAngle = 0.2
         let rejected = [
-            radial, notDirect, colorMode, texture, binding, image, child,
-            dependency, script, hash, extra, intensity, radius, noiseAmount,
-            noiseScale, hidden, degenerate,
+            notDirect, colorMode, radialGradient, corner, unknownCombo, texture,
+            binding, image, child, dependency, script, hash, extra, intensity,
+            radius, noiseAmount, noiseScale, hidden, degenerate, reversedAngles,
         ].allSatisfy { !accepted(options: $0, contracts: contracts) }
         let result: [String: Bool] = [
             "accepted": plan != nil,
             "parametersPreserved": plan.map {
-                $0.points.0 == SIMD2<Float>(0.4, 0.25)
+                $0.profile == .linearGradient
+                    && $0.points.0 == SIMD2<Float>(0.4, 0.25)
                     && $0.points.2 == SIMD2<Float>(0.8, 0.8)
+                    && $0.startColor == SIMD3<Float>(1, 1, 1)
+                    && $0.endColor == SIMD3<Float>(0.435294, 0.886274, 1)
                     && $0.feather == SIMD2<Float>(0.31, 0.31)
                     && $0.scale == SIMD2<Float>(0.8, 0.2)
                     && $0.radius == Float(0.14)
@@ -412,6 +430,14 @@ enum Harness {
                     && $0.noiseTexturePath == "materials/util/noise"
                     && $0.gradientTexturePath
                         == "materials/gradient/gradient_iridescent"
+            } ?? false,
+            "radialColorAccepted": radialPlan.map {
+                $0.profile == .radialColor
+                    && $0.exponent == 0
+                    && $0.startAngle == 0
+                    && $0.endAngle == 1
+                    && $0.startColor == SIMD3<Float>(1, 1, 1)
+                    && $0.endColor == SIMD3<Float>(0.435294, 0.886274, 1)
             } ?? false,
             "profileRejected": rejected,
             "priorInputRejected": !accepted(

@@ -22,6 +22,8 @@ struct LightShaftsPerspectiveUniforms {
 };
 
 struct LightShaftsUniforms {
+    float4 startColor;
+    float4 endColor;
     float2 scale;
     float2 feather;
     float radius;
@@ -31,6 +33,9 @@ struct LightShaftsUniforms {
     float speed;
     float intensity;
     float exponent;
+    float startAngle;
+    float endAngle;
+    float profileMode;
     float time;
     float alpha;
 };
@@ -61,6 +66,62 @@ fragment float4 sceneLightShaftsFrag(
     constexpr sampler repeatSampler(filter::linear, address::repeat);
     constexpr sampler clampSampler(filter::linear, address::clamp_to_edge);
     float2 uv = input.effectCoord.xy / input.effectCoord.z;
+    if (u.profileMode > 0.5) {
+        float2 ray = float2(
+            (uv.x - 0.5) / max(u.scale.x, 0.1),
+            (1.0 - uv.y) / max(u.scale.y, 0.1)
+        );
+        float distanceFromOrigin = length(ray);
+        float angle = atan2(ray.x, max(ray.y, 0.0001));
+        float fanStart = mix(-0.62, 0.62, saturate(u.startAngle));
+        float fanEnd = mix(-0.62, 0.62, saturate(u.endAngle));
+        float angularWidth = 0.012 + saturate(u.radius) * 0.07
+            + saturate(u.smoothness) * 0.008;
+        float phase = u.time * u.speed;
+        float profile = 0.0;
+        for (uint index = 0; index < 7; ++index) {
+            float beam = float(index);
+            float2 seedCoord = fract(float2(
+                0.19 + beam * 0.157 * max(u.noiseScale, 0.01),
+                0.31 + beam * 0.271 + u.noiseScale * 0.083
+            ));
+            float3 seed = noiseTexture.sample(repeatSampler, seedCoord).rgb;
+            float center = mix(fanStart, fanEnd, (beam + 0.5) / 7.0);
+            center += sin(
+                phase * (0.72 + beam * 0.05) + beam * 1.71 + seed.b * 6.2831853
+            ) * mix(0.025, 0.075, saturate(u.noiseAmount));
+            float width = angularWidth * mix(0.76, 1.24, seed.g);
+            float delta = (angle - center) / max(width, 0.001);
+            float band = exp(-0.5 * delta * delta);
+            float strength = 0.72 + 0.18 * sin(phase * 0.41 + beam * 2.11);
+            profile += band * strength * mix(0.82, 1.12, seed.r);
+        }
+        float shafts = pow(
+            saturate(profile * 0.82),
+            mix(1.45, 0.82, saturate(u.smoothness))
+        );
+        if (u.exponent > 0.001) {
+            shafts = pow(max(shafts, 0.0), u.exponent);
+        }
+        float originFade = smoothstep(
+            0.01,
+            0.055 + saturate(u.feather.y) * 0.3,
+            distanceFromOrigin
+        );
+        float reach = 1.0 - smoothstep(0.62, 1.38, distanceFromOrigin);
+        float edgeWidth = max(u.feather.x, 0.02);
+        float horizontal = smoothstep(0.0, edgeWidth, uv.x)
+            * smoothstep(0.0, edgeWidth, 1.0 - uv.x);
+        float opacity = min(
+            shafts * originFade * reach * horizontal
+                * min(max(u.intensity, 0.0), 1.4) * 0.32,
+            0.48
+        ) * u.alpha;
+        float colorMix = saturate(distanceFromOrigin * 0.85);
+        float3 color = mix(u.startColor.rgb, u.endColor.rgb, colorMix);
+        return float4(saturate(color * max(u.intensity, 1.0)) * opacity, opacity);
+    }
+
     float profile = 0.0;
     float baseWidth = (
         0.015 + saturate(u.radius) * 0.09 + saturate(u.smoothness) * 0.006
@@ -118,6 +179,8 @@ final class SceneLightShaftsPipeline {
     }
 
     private struct Uniforms {
+        var startColor: SIMD4<Float>
+        var endColor: SIMD4<Float>
         var scale: SIMD2<Float>
         var feather: SIMD2<Float>
         var radius: Float
@@ -127,6 +190,9 @@ final class SceneLightShaftsPipeline {
         var speed: Float
         var intensity: Float
         var exponent: Float
+        var startAngle: Float
+        var endAngle: Float
+        var profileMode: Float
         var time: Float
         var alpha: Float
     }
@@ -176,12 +242,10 @@ final class SceneLightShaftsPipeline {
     ) -> Bool {
         guard resources.matches(plan),
               let noise = resources.noise,
-              let gradient = resources.gradient,
               valid(texture: noise),
-              valid(texture: gradient),
               valid(plan: plan, time: time, alpha: alpha),
               noise.device.registryID == deviceRegistryID,
-              gradient.device.registryID == deviceRegistryID else {
+              validGradient(resources.gradient, for: plan) else {
             return false
         }
         var vertices = Self.unitQuadVertices
@@ -192,6 +256,8 @@ final class SceneLightShaftsPipeline {
             effectUVRow2: SIMD4(plan.effectUVTransform.row2, 0)
         )
         var uniforms = Uniforms(
+            startColor: SIMD4(plan.startColor, 1),
+            endColor: SIMD4(plan.endColor, 1),
             scale: plan.scale,
             feather: plan.feather,
             radius: plan.radius,
@@ -201,6 +267,9 @@ final class SceneLightShaftsPipeline {
             speed: plan.speed,
             intensity: plan.intensity,
             exponent: plan.exponent,
+            startAngle: plan.startAngle,
+            endAngle: plan.endAngle,
+            profileMode: plan.profile.rawValue,
             time: time,
             alpha: alpha
         )
@@ -226,7 +295,7 @@ final class SceneLightShaftsPipeline {
             index: 0
         )
         encoder.setFragmentTexture(noise, index: 0)
-        encoder.setFragmentTexture(gradient, index: 1)
+        encoder.setFragmentTexture(resources.gradient, index: 1)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         return true
     }
@@ -239,6 +308,12 @@ final class SceneLightShaftsPipeline {
         let points = [plan.points.0, plan.points.1, plan.points.2, plan.points.3]
         return points.allSatisfy { $0.x.isFinite && $0.y.isFinite }
             && plan.effectUVTransform.isFinite
+            && plan.startColor.x.isFinite
+            && plan.startColor.y.isFinite
+            && plan.startColor.z.isFinite
+            && plan.endColor.x.isFinite
+            && plan.endColor.y.isFinite
+            && plan.endColor.z.isFinite
             && plan.feather.x.isFinite && plan.feather.y.isFinite
             && plan.scale.x.isFinite && plan.scale.y.isFinite
             && plan.radius.isFinite
@@ -248,9 +323,21 @@ final class SceneLightShaftsPipeline {
             && plan.speed.isFinite
             && plan.intensity.isFinite
             && plan.exponent.isFinite
+            && plan.startAngle.isFinite
+            && plan.endAngle.isFinite
             && time.isFinite
             && alpha.isFinite
             && (0...1).contains(alpha)
+    }
+
+    private func validGradient(
+        _ gradient: MTLTexture?,
+        for plan: SceneLightShaftsExecutionPlan
+    ) -> Bool {
+        guard plan.profile.requiresGradientTexture else { return true }
+        guard let gradient else { return false }
+        return valid(texture: gradient)
+            && gradient.device.registryID == deviceRegistryID
     }
 
     private func valid(texture: MTLTexture) -> Bool {

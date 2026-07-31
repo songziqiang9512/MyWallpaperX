@@ -43,7 +43,15 @@ final class SceneVideoTextureSource {
     }
 }
 
+enum SceneLightShaftsProfile {
+    case linearGradient
+    case radialColor
+
+    var requiresGradientTexture: Bool { self == .linearGradient }
+}
+
 struct SceneLightShaftsExecutionPlan {
+    let profile: SceneLightShaftsProfile
     let noiseTexturePath: String
     let gradientTexturePath: String
 }
@@ -149,8 +157,20 @@ enum Harness {
             stockResolver: nil
         )
         let plan = SceneLightShaftsExecutionPlan(
+            profile: .linearGradient,
             noiseTexturePath: "materials/util/noise",
             gradientTexturePath: "materials/gradient/gradient_iridescent"
+        )
+        let radialPlan = SceneLightShaftsExecutionPlan(
+            profile: .radialColor,
+            noiseTexturePath: "materials/util/noise",
+            gradientTexturePath: "materials/gradient/gradient_iridescent"
+        )
+        let radialWithoutGradient = SceneLightShaftsEffectTextures(
+            noise: stockResult.textures[id]?.noise,
+            gradient: nil,
+            noisePath: "materials/util/noise",
+            gradientPath: ""
         )
         let result: [String: Any] = [
             "stockMatches": stockResult.textures[id]?.matches(plan) ?? false,
@@ -161,6 +181,8 @@ enum Harness {
             "missingRejected": !(missingResult.textures[id]?.matches(plan) ?? false),
             "missingReported": missingResult.message.contains("light shafts noise missing")
                 && missingResult.message.contains("light shafts gradient missing"),
+            "radialDoesNotRequireGradient": radialWithoutGradient.matches(radialPlan),
+            "linearStillRequiresGradient": !radialWithoutGradient.matches(plan),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -253,6 +275,8 @@ class SceneLightShaftsTextureLoaderTests(unittest.TestCase):
         self.assertTrue(result["corruptRejected"], result)
         self.assertTrue(result["missingRejected"], result)
         self.assertTrue(result["missingReported"], result)
+        self.assertTrue(result["radialDoesNotRequireGradient"], result)
+        self.assertTrue(result["linearStillRequiresGradient"], result)
 
 
 if __name__ == "__main__":
