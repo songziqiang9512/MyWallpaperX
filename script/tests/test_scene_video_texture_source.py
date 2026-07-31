@@ -339,6 +339,27 @@ class SceneVideoProviderOwnershipContractTests(unittest.TestCase):
         self.assertNotIn("currentTexture(forHostTime:", view)
         self.assertIn("source.currentFrame(for: timing)", assembly)
 
+    def test_registry_fails_closed_without_stable_file_metadata(self) -> None:
+        registry = REGISTRY_SOURCE.read_text(encoding="utf-8")
+        source_method = swift_block(registry, "func source(")
+        self.assertIsNotNone(source_method)
+        assert source_method is not None
+        self.assertIn(
+            "guard let sourceKey = loader.sourceKey(for: url)",
+            source_method,
+        )
+        self.assertIn("source: sourceKey", source_method)
+        self.assertGreaterEqual(
+            source_method.count("loader.sourceKey(for: url) == sourceKey"),
+            2,
+            "cached and newly created video sources must revalidate metadata",
+        )
+        self.assertLess(
+            source_method.index("guard let sourceKey"),
+            source_method.index("let identity = SourceIdentity("),
+            "unavailable metadata must not form a video registry identity",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

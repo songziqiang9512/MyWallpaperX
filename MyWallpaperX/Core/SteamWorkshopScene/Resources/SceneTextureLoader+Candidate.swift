@@ -15,7 +15,11 @@ extension SceneTextureLoader {
         purpose: SceneTextureLoadPurpose,
         device: MTLDevice
     ) -> SceneTextureCandidateLoadOutcome {
-        let source = sourceKey(for: url)
+        guard let source = sourceKey(for: url) else {
+            return .failed(.decodeFailed(
+                "file metadata unavailable: \(url.lastPathComponent)"
+            ))
+        }
         let outcome = load(
             from: url,
             source: source,
@@ -75,12 +79,23 @@ extension SceneTextureLoader {
             Float(mappedSize.width / physicalSize.width),
             Float(mappedSize.height / physicalSize.height)
         )
+        guard sourceKey(for: url) == source else {
+            return .failed(.decodeFailed(
+                "file changed while loading: \(url.lastPathComponent)"
+            ))
+        }
         return .loaded(SceneTextureCandidate(
             texture: texture,
             identity: .file(path: source.path),
             generation: .file(
                 byteCount: source.size,
-                modifiedAtBits: source.modifiedAtBits
+                modifiedAtBits: source.modifiedAtBits,
+                revision: SceneTextureFileRevision(
+                    fileSystemID: source.fileSystemID,
+                    fileID: source.fileID,
+                    statusChangedAtSeconds: source.statusChangedAtSeconds,
+                    statusChangedAtNanoseconds: source.statusChangedAtNanoseconds
+                )
             ),
             purpose: purpose,
             physicalSize: physicalSize,

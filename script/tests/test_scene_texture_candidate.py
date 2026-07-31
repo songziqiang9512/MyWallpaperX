@@ -37,6 +37,7 @@ SWIFT_SOURCES = [
 HARNESS = r'''
 import Foundation
 import CoreGraphics
+import Darwin
 import ImageIO
 import Metal
 import simd
@@ -67,6 +68,7 @@ enum Harness {
         )
         defer { try? FileManager.default.removeItem(at: directory) }
         let url = directory.appendingPathComponent("padded-mask.tex")
+        let missingURL = directory.appendingPathComponent("missing-mask.tex")
         let spriteURL = directory.appendingPathComponent("sprite-mask.tex")
         let zeroMappedURL = directory.appendingPathComponent("zero-mapped-mask.tex")
         let oversizedMappedURL = directory.appendingPathComponent(
@@ -259,6 +261,18 @@ enum Harness {
         ).write(to: mappedTexb2MipURL)
 
         let loader = SceneTextureLoader()
+        let missingSourceKeyUnavailable = loader.sourceKey(for: missingURL) == nil
+        let missingMetadataRejected: Bool
+        switch loader.loadCandidate(
+            from: missingURL,
+            purpose: .mask,
+            device: device
+        ) {
+        case .failed(.decodeFailed(let message)):
+            missingMetadataRejected = message.contains("file metadata unavailable")
+        default:
+            missingMetadataRejected = false
+        }
         let first = try candidate(loader.loadCandidate(
             from: url,
             purpose: .mask,
@@ -558,7 +572,61 @@ enum Harness {
             allowedPixelFormats: [.r8Unorm]
         )
 
+        guard let originalSource = loader.sourceKey(for: url) else {
+            throw HarnessError.loadFailed
+        }
+        let originalStatus = try fileStatus(url)
         let originalGeneration = first.generation
+        Thread.sleep(forTimeInterval: 0.01)
+        try rawR8Tex(
+            textureWidth: 8,
+            textureHeight: 4,
+            imageWidth: 4,
+            imageHeight: 4,
+            flags: 3,
+            payloadByte: 64
+        ).write(to: url)
+        try restoreTimestamps(originalStatus, at: url)
+        guard let inPlaceSource = loader.sourceKey(for: url) else {
+            throw HarnessError.loadFailed
+        }
+        let inPlaceStableMetadata =
+            inPlaceSource.size == originalSource.size
+                && inPlaceSource.modifiedAtBits == originalSource.modifiedAtBits
+                && inPlaceSource.fileSystemID == originalSource.fileSystemID
+                && inPlaceSource.fileID == originalSource.fileID
+        let inPlaceStatusChangeDetected =
+            inPlaceSource.statusChangedAtSeconds
+                != originalSource.statusChangedAtSeconds
+                || inPlaceSource.statusChangedAtNanoseconds
+                    != originalSource.statusChangedAtNanoseconds
+        let restoredMetadata = try candidate(loader.loadCandidate(
+            from: url,
+            purpose: .mask,
+            device: device
+        ))
+        try rawR8Tex(
+            textureWidth: 8,
+            textureHeight: 4,
+            imageWidth: 4,
+            imageHeight: 4,
+            flags: 3,
+            payloadByte: 32
+        ).write(to: url, options: .atomic)
+        try restoreTimestamps(originalStatus, at: url)
+        guard let atomicSource = loader.sourceKey(for: url) else {
+            throw HarnessError.loadFailed
+        }
+        let atomicReplaceMetadataPreconditions =
+            atomicSource.size == inPlaceSource.size
+                && atomicSource.modifiedAtBits == inPlaceSource.modifiedAtBits
+                && atomicSource.fileSystemID == inPlaceSource.fileSystemID
+                && atomicSource.fileID != inPlaceSource.fileID
+        let atomicReplacement = try candidate(loader.loadCandidate(
+            from: url,
+            purpose: .mask,
+            device: device
+        ))
         try rawR8Tex(
             textureWidth: 8,
             textureHeight: 8,
@@ -757,6 +825,20 @@ enum Harness {
                 baseSnapshotRejectsMismatchedPublication,
             "generationChangedAfterRewrite": originalGeneration != refreshed.generation,
             "textureChangedAfterRewrite": first.texture !== refreshed.texture,
+            "generationChangedWithRestoredSizeAndMTime":
+                originalGeneration != restoredMetadata.generation,
+            "textureChangedWithRestoredSizeAndMTime":
+                first.texture !== restoredMetadata.texture,
+            "inPlaceStableMetadata": inPlaceStableMetadata,
+            "inPlaceStatusChangeDetected": inPlaceStatusChangeDetected,
+            "atomicReplaceMetadataPreconditions":
+                atomicReplaceMetadataPreconditions,
+            "generationChangedAfterAtomicReplace":
+                restoredMetadata.generation != atomicReplacement.generation,
+            "textureChangedAfterAtomicReplace":
+                restoredMetadata.texture !== atomicReplacement.texture,
+            "missingSourceKeyUnavailable": missingSourceKeyUnavailable,
+            "missingMetadataRejected": missingMetadataRejected,
             "refreshedPhysical": [
                 Int(refreshed.physicalSize.width), Int(refreshed.physicalSize.height),
             ],
@@ -823,7 +905,7 @@ enum Harness {
     static func generationByteCount(
         _ generation: SceneTextureResourceGeneration
     ) -> UInt64? {
-        guard case .file(let byteCount, _) = generation else { return nil }
+        guard case .file(let byteCount, _, _) = generation else { return nil }
         return byteCount
     }
 
@@ -870,7 +952,8 @@ enum Harness {
         imageHeight: UInt32,
         flags: UInt32,
         mipWidth: UInt32? = nil,
-        mipHeight: UInt32? = nil
+        mipHeight: UInt32? = nil,
+        payloadByte: UInt8 = 127
     ) -> Data {
         let storedWidth = mipWidth ?? textureWidth
         let storedHeight = mipHeight ?? textureHeight
@@ -890,7 +973,7 @@ enum Harness {
         append(0, to: &data)
         append(0, to: &data)
         let payload = Data(
-            repeating: 127,
+            repeating: payloadByte,
             count: Int(storedWidth * storedHeight)
         )
         append(UInt32(payload.count), to: &data)
@@ -1089,9 +1172,31 @@ enum Harness {
         withUnsafeBytes(of: &littleEndian) { data.append(contentsOf: $0) }
     }
 
+    static func fileStatus(_ url: URL) throws -> Darwin.stat {
+        var status = Darwin.stat()
+        guard url.path.withCString({ Darwin.lstat($0, &status) }) == 0 else {
+            throw HarnessError.metadataFailed
+        }
+        return status
+    }
+
+    static func restoreTimestamps(
+        _ status: Darwin.stat,
+        at url: URL
+    ) throws {
+        let timestamps = [status.st_atimespec, status.st_mtimespec]
+        let result = timestamps.withUnsafeBufferPointer { buffer in
+            url.path.withCString {
+                Darwin.utimensat(AT_FDCWD, $0, buffer.baseAddress, 0)
+            }
+        }
+        guard result == 0 else { throw HarnessError.metadataFailed }
+    }
+
     enum HarnessError: Error {
         case loadFailed
         case imageCreationFailed
+        case metadataFailed
     }
 }
 '''
@@ -1163,11 +1268,17 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "firstSampling": ["nearest", "clampToEdge"],
                 "firstScale": [0.5, 1],
                 "generationChangedAfterRewrite": True,
+                "generationChangedWithRestoredSizeAndMTime": True,
+                "generationChangedAfterAtomicReplace": True,
                 "generationIsFile": True,
                 "identityIsCanonicalFile": True,
+                "inPlaceStableMetadata": True,
+                "inPlaceStatusChangeDetected": True,
                 "invalidMappedRejected": True,
                 "invalidPhysicalRejected": True,
                 "mismatchedPhysicalRejected": True,
+                "missingMetadataRejected": True,
+                "missingSourceKeyUnavailable": True,
                 "mappedEmbeddedColorIdentity": True,
                 "mappedEmbeddedNormalRejected": True,
                 "freeFormatMismatchTexb3Rejected": True,
@@ -1204,6 +1315,9 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "slotBindingWrongPurposeRejected": True,
                 "slotBindingWrongSlotRejected": True,
                 "textureChangedAfterRewrite": True,
+                "textureChangedAfterAtomicReplace": True,
+                "textureChangedWithRestoredSizeAndMTime": True,
+                "atomicReplaceMetadataPreconditions": True,
                 "translatedRejected": True,
                 "unparsedFallbackRejected": True,
                 "wrongPurposeRejected": True,

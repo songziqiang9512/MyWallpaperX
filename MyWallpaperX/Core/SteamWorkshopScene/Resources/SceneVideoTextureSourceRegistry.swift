@@ -1,6 +1,32 @@
 import Foundation
 import Metal
 
+extension SceneTextureLoader {
+    func makeVideoTextureSourceIfNeeded(
+        from url: URL,
+        source: SourceKey,
+        layerID: Int,
+        cacheDirectory: URL,
+        device: MTLDevice
+    ) -> SceneVideoTextureSource? {
+        guard url.pathExtension.lowercased() == "tex",
+              sourceKey(for: url) == source,
+              let container = texContainer(from: url, source: source),
+              container.format == 0,
+              let payload = container.mips.first?.data,
+              container.isVideoMp4 || Self.isMP4Payload(payload),
+              sourceKey(for: url) == source else {
+            return nil
+        }
+        return SceneVideoTextureSource(
+            layerID: layerID,
+            mp4PayloadData: payload,
+            cacheDirectory: cacheDirectory,
+            device: device
+        )
+    }
+}
+
 final class SceneVideoTextureSourceRegistry {
     private struct SourceIdentity: Hashable {
         let layerID: Int
@@ -23,23 +49,30 @@ final class SceneVideoTextureSourceRegistry {
         device: MTLDevice,
         loader: SceneTextureLoader
     ) -> SceneVideoTextureSource? {
+        guard let sourceKey = loader.sourceKey(for: url) else {
+            return nil
+        }
         let identity = SourceIdentity(
             layerID: layerID,
-            source: loader.sourceKey(for: url),
+            source: sourceKey,
             deviceRegistryID: device.registryID
         )
-        rebuildingSourceIdentities?.insert(identity)
         if let source = sources[identity] {
+            guard loader.sourceKey(for: url) == sourceKey else { return nil }
+            rebuildingSourceIdentities?.insert(identity)
             return source
         }
         guard let source = loader.makeVideoTextureSourceIfNeeded(
             from: url,
+            source: sourceKey,
             layerID: layerID,
             cacheDirectory: cacheDirectory,
             device: device
-        ) else {
+        ),
+              loader.sourceKey(for: url) == sourceKey else {
             return nil
         }
+        rebuildingSourceIdentities?.insert(identity)
         source.adoptLifecycleEpoch(epoch)
         sources[identity] = source
         return source

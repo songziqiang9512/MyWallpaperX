@@ -1,6 +1,7 @@
 import Foundation
 import Metal
 import CoreGraphics
+import Darwin
 import ImageIO
 
 // Outcome of attempting to load a layer texture. Captured so the preview can
@@ -22,6 +23,10 @@ final class SceneTextureLoader {
         let path: String
         let size: UInt64
         let modifiedAtBits: UInt64
+        let fileSystemID: UInt64
+        let fileID: UInt64
+        let statusChangedAtSeconds: Int64
+        let statusChangedAtNanoseconds: Int64
     }
 
     private struct TextureKey: Hashable {
@@ -59,9 +64,12 @@ final class SceneTextureLoader {
         purpose: SceneTextureLoadPurpose,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
-        load(
+        guard let source = sourceKey(for: url) else {
+            return .decodeFailed("file metadata unavailable: \(url.lastPathComponent)")
+        }
+        return load(
             from: url,
-            source: sourceKey(for: url),
+            source: source,
             purpose: purpose,
             device: device
         )
@@ -78,7 +86,12 @@ final class SceneTextureLoader {
             deviceRegistryID: device.registryID,
             purpose: purpose
         )
-        if let cached = textureOutcomes[key] { return cached }
+        if let cached = textureOutcomes[key] {
+            guard sourceKey(for: url) == source else {
+                return .decodeFailed("file changed while loading: \(url.lastPathComponent)")
+            }
+            return cached
+        }
         let ext = url.pathExtension.lowercased()
         let outcome: SceneTextureLoadOutcome
         if Self.directImageExtensions.contains(ext) {
@@ -93,6 +106,9 @@ final class SceneTextureLoader {
         } else {
             outcome = .unsupportedFormat(extension: ext)
         }
+        guard sourceKey(for: url) == source else {
+            return .decodeFailed("file changed while loading: \(url.lastPathComponent)")
+        }
         textureOutcomes[key] = outcome
         return outcome
     }
@@ -102,30 +118,9 @@ final class SceneTextureLoader {
         load(from: url, purpose: .preservedChannels, device: device)
     }
 
-    func makeVideoTextureSourceIfNeeded(
-        from url: URL,
-        layerID: Int,
-        cacheDirectory: URL,
-        device: MTLDevice
-    ) -> SceneVideoTextureSource? {
-        guard url.pathExtension.lowercased() == Self.texExtension,
-              let resource = texResource(from: url, source: sourceKey(for: url)),
-              let container = resource.container,
-              container.format == 0,
-              let payload = container.mips.first?.data,
-              container.isVideoMp4 || Self.isMP4Payload(payload) else {
-            return nil
-        }
-        return SceneVideoTextureSource(
-            layerID: layerID,
-            mp4PayloadData: payload,
-            cacheDirectory: cacheDirectory,
-            device: device
-        )
-    }
-
     func texContainer(from url: URL) -> SceneTexContainer? {
-        texContainer(from: url, source: sourceKey(for: url))
+        guard let source = sourceKey(for: url) else { return nil }
+        return texContainer(from: url, source: source)
     }
 
     func texContainer(from url: URL, source: SourceKey) -> SceneTexContainer? {
@@ -201,8 +196,10 @@ final class SceneTextureLoader {
     }
 
     private func texResource(from url: URL, source: SourceKey) -> TexResource? {
+        guard sourceKey(for: url) == source else { return nil }
         if let cached = texResources[source] { return cached }
         guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return nil }
+        guard sourceKey(for: url) == source else { return nil }
         let resource: TexResource
         do {
             resource = TexResource(
@@ -221,14 +218,26 @@ final class SceneTextureLoader {
         return resource
     }
 
-    func sourceKey(for url: URL) -> SourceKey {
-        let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
-        let size = (attributes?[.size] as? NSNumber)?.uint64Value ?? 0
-        let modifiedAt = (attributes?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+    func sourceKey(for url: URL) -> SourceKey? {
+        let canonicalPath = url.resolvingSymlinksInPath().standardizedFileURL.path
+        var status = Darwin.stat()
+        guard canonicalPath.withCString({
+            Darwin.lstat($0, &status)
+        }) == 0,
+              (status.st_mode & S_IFMT) == S_IFREG,
+              status.st_size >= 0 else {
+            return nil
+        }
+        let modifiedAt = Double(status.st_mtimespec.tv_sec)
+            + Double(status.st_mtimespec.tv_nsec) / 1_000_000_000
         return SourceKey(
-            path: url.resolvingSymlinksInPath().standardizedFileURL.path,
-            size: size,
-            modifiedAtBits: modifiedAt.bitPattern
+            path: canonicalPath,
+            size: UInt64(status.st_size),
+            modifiedAtBits: modifiedAt.bitPattern,
+            fileSystemID: UInt64(bitPattern: Int64(status.st_dev)),
+            fileID: UInt64(status.st_ino),
+            statusChangedAtSeconds: Int64(status.st_ctimespec.tv_sec),
+            statusChangedAtNanoseconds: Int64(status.st_ctimespec.tv_nsec)
         )
     }
 
@@ -372,7 +381,7 @@ final class SceneTextureLoader {
         return nil
     }
 
-    private static func isMP4Payload(_ data: Data?) -> Bool {
+    static func isMP4Payload(_ data: Data?) -> Bool {
         guard let data, data.count >= 12 else { return false }
         return data[4...7].elementsEqual(Data("ftyp".utf8))
     }

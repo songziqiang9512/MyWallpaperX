@@ -7,8 +7,19 @@ nonisolated enum SceneTextureResourceIdentity: Hashable, Sendable {
     case builtIn(name: String)
 }
 
+nonisolated struct SceneTextureFileRevision: Hashable, Sendable {
+    let fileSystemID: UInt64
+    let fileID: UInt64
+    let statusChangedAtSeconds: Int64
+    let statusChangedAtNanoseconds: Int64
+}
+
 nonisolated enum SceneTextureResourceGeneration: Hashable, Sendable {
-    case file(byteCount: UInt64, modifiedAtBits: UInt64)
+    case file(
+        byteCount: UInt64,
+        modifiedAtBits: UInt64,
+        revision: SceneTextureFileRevision
+    )
     case immutable(revision: UInt64)
 }
 
