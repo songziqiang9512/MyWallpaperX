@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-08-01
 >
-> Scene 实现基线：`d5bff76e`（普通 image/solid 已消费作者 `color × brightness`；另为精确 source 与完整 wrapper/property shape 命中的多 image texture script 建立实例级 stop/play 时钟。`3768903841` 已从全局锁相恢复逐层初始延迟和跨周期独立随机等待；整体曝光、天空后处理、云形与底部光束视觉仍未闭合）
+> Scene 实现基线：`30751240`（普通 image/solid 已消费作者 `color × brightness`；精确 delayed-loop texture script 已建立实例级 stop/play 时钟；Tint 现可从 definition/material 推导资产身份，并对精确 material/shader 内容命中的 authored relocation 执行槽位 1 遮罩。`3768903841` 已恢复暖桃色、烟花错峰与 masked Tint 天空压暗；全屏 Color Grading、Worley 云形与底部光束视觉仍未闭合）
 >
 > 最近完整快照门：`4622b8bb` 的最终签名 Debug App 在 2026-08-01 对 45 样本隔离副本运行 `.codex/scene-light-shafts-radial-full45-20260801-v1/report.json`，**45/45 PASS**、image texture **451/451**、particle **126/130**、strict stage/chain **318/57**、authored shader **2**、Procedural Noise **5**、Light Shafts **3**、Foliage Sway **17**、Water Flow **14**、Water Waves **25**、Water Ripple **11**、Godrays **16**，graph succeeded/failed layer **166/0**、failed frame、drawable miss 与 sample residue 均为 0。报告/full matrix SHA-256 为 `39fa4f12f95866c4117f269e3f6d6b4319b65e4afa9bd50b4c58d6cf5ae49d9a` / `e214f59520c373b2623fcdb84d9b9fd0948c4a30d5f0ad2385083db1d1363e0b`。四个 particle 缺口为 `2974757317:85705` 的显式空 renderer 沿 `missingSpriteRenderer` 失败关闭，以及 `3088601835:550/558`、`3750813609:200` 的 `cullmode=normal` 被 typed-state 合同拒绝。当前 fixed13 `.codex/scene-light-shafts-radial-fixed13-20260801-v1/report.json` 另为 **13/13 PASS**、stage/chain **135/18**；报告/fixed matrix SHA-256 为 `1b8855fe7b7adf547e82f3be5e300f00c94e852a28f7a5f7fe23decf55584674` / `f2f0b6c528878d5a71542cb73adcae5b23c016b42400515de2b5d5d41625b526`，两门互不替代。
 >
@@ -14,7 +14,9 @@
 >
 > 最新 texture-animation 聚焦门：`d5bff76e` 的最终签名 Debug App 对隔离 `3768903841` 运行 `.codex/scene-texture-animation-3768903841-20260801-v2/report.json`，**1/1 PASS**；五个 140-frame/4.9 s BC3 playback 全部记录 `bounded texture-animation lifecycle`，submitted/completed/failed frame 为 `766/765/0`、drawable miss 0。约 1 秒 ready 显示左侧盛放与右下升空并存，15 秒 after 显示左侧残落、中央升空与右侧单组盛放，不再整体锁相；爆炸核心仍偏亮，不能替代后续色彩链。报告 SHA-256 `c7193677b72ed9536face8b38e5e71b00670085eef5f644d579eba0cb2d950c2`；App executable SHA-256 `d2e4dcdddfba8b416b5bd506e391cd3961327b71b06c8314628209afb917fba8`、CDHash `b2cec6ce4100bce98c0e02ad5d7aad198b3571f8`，签名前后 verified。没有运行 fixed13/full45。
 >
-> 最新公共合同门：`d5bff76e` 的 texture-animation lifecycle fixture **1/1 PASS**、binding parser **7/7**、BC sprite GPU **13/13**、texture candidate **1/1**；代码健康 686 Swift files / 44 locked legacy / 400-line limit，`script/build_and_run.sh --verify` 通过。上一 `4622b8bb` Light Shafts 聚焦门 **38/38 PASS**、benchmark/layout **61/61 PASS** 与 Scene **150 modules ALL OK** 仍是对应能力的最近证据，不能外推到本批。
+> 最新 Tint 聚焦门：`30751240` 的最终签名 Debug App 对隔离 `3768903841` 仅运行一次 `.codex/scene-tint-workshop-3768903841-20260801-v1/report.json`；实际 layer 44 graph succeeded、Tint 1、stage 13，`tint_mask_3c5777d1.tex` 以 480×270 mask 装载，submitted/completed/failed frame `748/748/0`、drawable miss 0。报告因运行时两份矩阵仍锁旧 `layer/stage/route-only` 三项而标 **FAIL**；随后只同步矩阵合同并通过静态合同门，未重跑样本，不能写成 1/1 PASS。ready/15 秒截图显示天空明显压暗、烟花仍错峰；用户确认动态已较正常但整体仍发灰，layer 263 Color Grading 继续 `unsupported-stage`。报告 SHA-256 `56dcdf1f987cec2094c117d3eb572cf2a56dbb6160957db8ff1b940ffe66d45d`；App executable SHA-256 `e195b979bebcf1e99fa582a2c4c1f77e3c5d3fe36c01add7baadc440fee727cf`、CDHash `34dc74cfefd79a333f79032bf60850c0ee424415`。没有运行 fixed13/full45。
+>
+> 最新公共合同门：`30751240` 的 Tint planner **1/1 PASS**、Tint rendering **2/2**、blend table **6/6**、texture purpose **5/5**、framebuffer **35/35**、chain planner **5/5**、matrix contract **4/4**、benchmark contract **59/59**；代码健康 687 Swift files / 44 locked legacy / 400-line limit，目录门与 `script/build_and_run.sh --verify` 通过。上一 `4622b8bb` Light Shafts 聚焦门 **38/38 PASS** 与 Scene **150 modules ALL OK** 仍是对应能力的最近证据，不能外推到本批。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
