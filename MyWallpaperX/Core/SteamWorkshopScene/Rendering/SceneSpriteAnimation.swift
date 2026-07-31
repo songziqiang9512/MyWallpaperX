@@ -1,16 +1,27 @@
 import Foundation
+import Metal
 import simd
+
+protocol SceneSpriteTexturePlayback: AnyObject {
+    func encode(sceneTime: Float, commandBuffer: MTLCommandBuffer)
+}
 
 struct SceneSpriteAnimation {
     let frames: [SceneTexContainer.SpriteFrame]
     let duration: Float
+    private let texturePlayback: SceneSpriteTexturePlayback?
 
-    init?(frames: [SceneTexContainer.SpriteFrame]) {
-        guard !frames.isEmpty, frames.allSatisfy({ $0.imageIndex == 0 }) else {
+    init?(
+        frames: [SceneTexContainer.SpriteFrame],
+        texturePlayback: SceneSpriteTexturePlayback? = nil
+    ) {
+        guard !frames.isEmpty,
+              texturePlayback != nil || frames.allSatisfy({ $0.imageIndex == 0 }) else {
             return nil
         }
         self.frames = frames
         self.duration = frames.reduce(0) { $0 + Self.effectiveDuration($1.duration) }
+        self.texturePlayback = texturePlayback
     }
 
     static func load(from url: URL) -> SceneSpriteAnimation? {
@@ -23,6 +34,7 @@ struct SceneSpriteAnimation {
     }
 
     func transform(at elapsed: Float) -> SceneTextureUVTransform {
+        guard texturePlayback == nil else { return .identity }
         guard frames.count > 1, duration > 0 else {
             return transform(for: frames[0])
         }
@@ -36,6 +48,18 @@ struct SceneSpriteAnimation {
             remaining -= frameDuration
         }
         return transform(for: frames[frames.count - 1])
+    }
+
+    func encode(sceneTime: Float, commandBuffer: MTLCommandBuffer) {
+        texturePlayback?.encode(sceneTime: sceneTime, commandBuffer: commandBuffer)
+    }
+
+    var reportSummary: String {
+        String(
+            format: "; sprite animation frames=%d duration=%.3fs",
+            frames.count,
+            duration
+        )
     }
 
     private func transform(for frame: SceneTexContainer.SpriteFrame) -> SceneTextureUVTransform {

@@ -35,7 +35,6 @@ struct SceneCompressedTextureUploader {
             }
             guard !purpose.preservesSourceChannels else {
                 return uploadDirect(
-                    container: container,
                     mips: container.imageCount == 1 ? container.mips : [firstMip],
                     pixelFormat: pixelFormat,
                     device: device
@@ -49,8 +48,22 @@ struct SceneCompressedTextureUploader {
             )
         }
         return uploadDirect(
-            container: container,
             mips: container.imageCount == 1 ? container.mips : [firstMip],
+            pixelFormat: pixelFormat,
+            device: device
+        )
+    }
+
+    static func uploadNativeImage(
+        _ image: SceneTexContainer.Image,
+        pixelFormat: MTLPixelFormat,
+        device: MTLDevice
+    ) -> SceneTextureLoadOutcome {
+        guard let firstMip = image.mips.first else {
+            return .decodeFailed("TEX image has no mip data")
+        }
+        return uploadDirect(
+            mips: [firstMip],
             pixelFormat: pixelFormat,
             device: device
         )
@@ -127,7 +140,6 @@ struct SceneCompressedTextureUploader {
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
         let direct = uploadDirect(
-            container: container,
             mips: [mip],
             pixelFormat: pixelFormat,
             device: device
@@ -216,7 +228,6 @@ struct SceneCompressedTextureUploader {
     // Large preserved-channel payloads and formats without a CPU decoder keep
     // their native block upload.
     private static func uploadDirect(
-        container: SceneTexContainer,
         mips: [SceneTexContainer.Mip],
         pixelFormat: MTLPixelFormat,
         device: MTLDevice

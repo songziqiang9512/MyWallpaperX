@@ -28,6 +28,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneTextureMipUploader.swift",
     SCENE_ROOT / "Resources/SceneTextureLoader.swift",
     SCENE_ROOT / "Resources/SceneTextureLoader+Candidate.swift",
+    SCENE_ROOT / "Resources/SceneMultiImageSpriteResidentBudget.swift",
+    SCENE_ROOT / "Resources/SceneMultiImageSpritePlayback.swift",
     SCENE_ROOT / "Rendering/SceneMetalPipeline.swift",
     SCENE_ROOT / "Rendering/SceneSpriteAnimation.swift",
     SCENE_ROOT / "Rendering/SceneBaseImageTextureLoad.swift",
@@ -70,6 +72,12 @@ enum Harness {
         let url = directory.appendingPathComponent("padded-mask.tex")
         let missingURL = directory.appendingPathComponent("missing-mask.tex")
         let spriteURL = directory.appendingPathComponent("sprite-mask.tex")
+        let crossImageSpriteURL = directory.appendingPathComponent(
+            "cross-image-sprite.tex"
+        )
+        let rotatedCrossImageSpriteURL = directory.appendingPathComponent(
+            "rotated-cross-image-sprite.tex"
+        )
         let zeroMappedURL = directory.appendingPathComponent("zero-mapped-mask.tex")
         let oversizedMappedURL = directory.appendingPathComponent(
             "oversized-mapped-mask.tex"
@@ -123,6 +131,9 @@ enum Harness {
             flags: 3
         ).write(to: url)
         try spriteR8Tex().write(to: spriteURL)
+        try crossImageSpriteBC3Tex().write(to: crossImageSpriteURL)
+        try crossImageSpriteBC3Tex(rotatedSecondFrame: true)
+            .write(to: rotatedCrossImageSpriteURL)
         try rawR8Tex(
             textureWidth: 4,
             textureHeight: 4,
@@ -261,6 +272,7 @@ enum Harness {
         ).write(to: mappedTexb2MipURL)
 
         let loader = SceneTextureLoader()
+        let spriteTextureLoader = SceneMultiImageSpriteTextureLoader()
         let missingSourceKeyUnavailable = loader.sourceKey(for: missingURL) == nil
         let missingMetadataRejected: Bool
         switch loader.loadCandidate(
@@ -417,36 +429,98 @@ enum Harness {
             from: fallbackPNGURL,
             usesPuppet: false,
             loader: loader,
+            spriteTextureLoader: spriteTextureLoader,
             device: device
         ))
         let baseCropped = try baseLoaded(SceneBaseImageTextureLoad.load(
             from: croppedColorURL,
             usesPuppet: false,
             loader: loader,
+            spriteTextureLoader: spriteTextureLoader,
             device: device
         ))
         let basePaddedLegacy = try baseLoaded(SceneBaseImageTextureLoad.load(
             from: url,
             usesPuppet: false,
             loader: loader,
+            spriteTextureLoader: spriteTextureLoader,
             device: device
         ))
         let baseSpriteLegacy = try baseLoaded(SceneBaseImageTextureLoad.load(
             from: spriteURL,
             usesPuppet: false,
             loader: loader,
+            spriteTextureLoader: spriteTextureLoader,
             device: device
         ))
+        let baseCrossImageSprite = try baseLoaded(
+            SceneBaseImageTextureLoad.load(
+                from: crossImageSpriteURL,
+                usesPuppet: false,
+                loader: loader,
+                spriteTextureLoader: spriteTextureLoader,
+                device: device
+            )
+        )
+        let baseRotatedCrossImageSprite = try baseLoaded(
+            SceneBaseImageTextureLoad.load(
+                from: rotatedCrossImageSpriteURL,
+                usesPuppet: false,
+                loader: loader,
+                spriteTextureLoader: spriteTextureLoader,
+                device: device
+            )
+        )
+        let baseBudgetLimitedCrossImageSprite = try baseLoaded(
+            SceneBaseImageTextureLoad.load(
+                from: crossImageSpriteURL,
+                usesPuppet: false,
+                loader: loader,
+                spriteTextureLoader: SceneMultiImageSpriteTextureLoader(
+                    residentByteBudget: 1
+                ),
+                device: device
+            )
+        )
+        guard let crossImageAnimation = baseCrossImageSprite.animation,
+              let commandQueue = device.makeCommandQueue() else {
+            throw HarnessError.loadFailed
+        }
+        let firstFrameCommandBuffer = commandQueue.makeCommandBuffer()!
+        crossImageAnimation.encode(
+            sceneTime: 0,
+            commandBuffer: firstFrameCommandBuffer
+        )
+        firstFrameCommandBuffer.commit()
+        firstFrameCommandBuffer.waitUntilCompleted()
+        let crossImageFrame0Pixel = try readFirstPixel(
+            texture: baseCrossImageSprite.texture,
+            device: device
+        )
+        let secondFrameCommandBuffer = commandQueue.makeCommandBuffer()!
+        crossImageAnimation.encode(
+            sceneTime: 0.04,
+            commandBuffer: secondFrameCommandBuffer
+        )
+        secondFrameCommandBuffer.commit()
+        secondFrameCommandBuffer.waitUntilCompleted()
+        let crossImageFrame1Pixel = try readFirstPixel(
+            texture: baseCrossImageSprite.texture,
+            device: device
+        )
+        let crossImageTransform = crossImageAnimation.transform(at: 0.04)
         let basePuppetLegacy = try baseLoaded(SceneBaseImageTextureLoad.load(
             from: croppedColorURL,
             usesPuppet: true,
             loader: loader,
+            spriteTextureLoader: spriteTextureLoader,
             device: device
         ))
         let baseUnparsedLegacy = try baseLoaded(SceneBaseImageTextureLoad.load(
             from: unparsedFallbackURL,
             usesPuppet: false,
             loader: loader,
+            spriteTextureLoader: spriteTextureLoader,
             device: device
         ))
         let baseCandidateFailureTerminal = baseRejectedDimensions(
@@ -454,6 +528,7 @@ enum Harness {
                 from: mismatchedPhysicalURL,
                 usesPuppet: false,
                 loader: loader,
+                spriteTextureLoader: spriteTextureLoader,
                 device: device
             )
         )
@@ -810,6 +885,31 @@ enum Harness {
             "baseSpriteLegacy":
                 baseSpriteLegacy.candidate == nil
                     && baseSpriteLegacy.animation != nil,
+            "baseCrossImageSpritePlayback":
+                baseCrossImageSprite.candidate == nil
+                    && baseCrossImageSprite.animation != nil
+                    && baseCrossImageSprite.message.contains(
+                        "cross-image sprite playback"
+                    )
+                    && baseCrossImageSprite.texture.width == 4
+                    && baseCrossImageSprite.texture.height == 4
+                    && crossImageTransform.origin == .zero
+                    && crossImageTransform.xAxis == SIMD2(1, 0)
+                    && crossImageTransform.yAxis == SIMD2(0, 1),
+            "baseCrossImageFrame0Pixel": crossImageFrame0Pixel,
+            "baseCrossImageFrame1Pixel": crossImageFrame1Pixel,
+            "baseRotatedCrossImageSpriteFailsClosed":
+                baseRotatedCrossImageSprite.candidate == nil
+                    && baseRotatedCrossImageSprite.animation == nil
+                    && baseRotatedCrossImageSprite.message.contains(
+                        "legacy route (multi-image TEX)"
+                    ),
+            "baseBudgetLimitedCrossImageSpriteFailsClosed":
+                baseBudgetLimitedCrossImageSprite.candidate == nil
+                    && baseBudgetLimitedCrossImageSprite.animation == nil
+                    && baseBudgetLimitedCrossImageSprite.message.contains(
+                        "resident budget exceeded"
+                    ),
             "basePuppetLegacy":
                 basePuppetLegacy.candidate == nil
                     && basePuppetLegacy.message.contains("puppet atlas"),
@@ -997,6 +1097,74 @@ enum Harness {
             appendFloat(value, to: &data)
         }
         return data
+    }
+
+    static func crossImageSpriteBC3Tex(
+        rotatedSecondFrame: Bool = false
+    ) -> Data {
+        func block(
+            alpha: UInt8,
+            colorLow: UInt8,
+            colorHigh: UInt8
+        ) -> Data {
+            Data([
+                alpha, alpha, 0, 0, 0, 0, 0, 0,
+                colorLow, colorHigh, 0, 0, 0, 0, 0, 0,
+            ])
+        }
+
+        var data = Data("TEXV0005\0TEXI0001\0".utf8)
+        append(4, to: &data)
+        append(4, to: &data)
+        append(4, to: &data)
+        append(4, to: &data)
+        append(4, to: &data)
+        append(4, to: &data)
+        append(0, to: &data)
+        data.append(Data("TEXB0002\0".utf8))
+        append(2, to: &data)
+        for payload in [
+            block(alpha: 128, colorLow: 0x00, colorHigh: 0xF8),
+            block(alpha: 64, colorLow: 0xE0, colorHigh: 0x07),
+        ] {
+            append(1, to: &data)
+            append(4, to: &data)
+            append(4, to: &data)
+            append(0, to: &data)
+            append(0, to: &data)
+            append(UInt32(payload.count), to: &data)
+            data.append(payload)
+        }
+        data.append(Data("TEXS0002\0".utf8))
+        append(2, to: &data)
+        appendSpriteFrame(
+            imageIndex: 0,
+            duration: 0.035,
+            coordinates: [0, 0, 4, 0, 0, 4],
+            to: &data
+        )
+        appendSpriteFrame(
+            imageIndex: 1,
+            duration: 0.035,
+            coordinates: rotatedSecondFrame
+                ? [0, 0, 0, 4, 4, 0]
+                : [0, 0, 4, 0, 0, 4],
+            to: &data
+        )
+        return data
+    }
+
+    static func appendSpriteFrame(
+        imageIndex: UInt32,
+        duration: Float,
+        coordinates: [Float],
+        to data: inout Data
+    ) {
+        append(imageIndex, to: &data)
+        appendFloat(duration, to: &data)
+        for coordinate in coordinates {
+            appendFloat(coordinate, to: &data)
+        }
     }
 
     static func emptySpriteR8Tex() -> Data {
@@ -1193,6 +1361,55 @@ enum Harness {
         guard result == 0 else { throw HarnessError.metadataFailed }
     }
 
+    static func readFirstPixel(
+        texture: MTLTexture,
+        device: MTLDevice
+    ) throws -> [Int] {
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm,
+            width: texture.width,
+            height: texture.height,
+            mipmapped: false
+        )
+        descriptor.storageMode = .shared
+        descriptor.usage = [.shaderRead, .shaderWrite]
+        guard let staging = device.makeTexture(descriptor: descriptor),
+              let queue = device.makeCommandQueue(),
+              let commandBuffer = queue.makeCommandBuffer(),
+              let blit = commandBuffer.makeBlitCommandEncoder() else {
+            throw HarnessError.loadFailed
+        }
+        blit.copy(
+            from: texture,
+            sourceSlice: 0,
+            sourceLevel: 0,
+            sourceOrigin: .init(x: 0, y: 0, z: 0),
+            sourceSize: .init(
+                width: texture.width,
+                height: texture.height,
+                depth: 1
+            ),
+            to: staging,
+            destinationSlice: 0,
+            destinationLevel: 0,
+            destinationOrigin: .init(x: 0, y: 0, z: 0)
+        )
+        blit.endEncoding()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else {
+            throw HarnessError.loadFailed
+        }
+        var bytes = [UInt8](repeating: 0, count: 4)
+        staging.getBytes(
+            &bytes,
+            bytesPerRow: 4,
+            from: MTLRegionMake2D(0, 0, 1, 1),
+            mipmapLevel: 0
+        )
+        return bytes.map(Int.init)
+    }
+
     enum HarnessError: Error {
         case loadFailed
         case imageCreationFailed
@@ -1221,6 +1438,8 @@ class SceneTextureCandidateTests(unittest.TestCase):
                     "-framework",
                     "Metal",
                     "-framework",
+                    "MetalPerformanceShaders",
+                    "-framework",
                     "ImageIO",
                     "-framework",
                     "CoreGraphics",
@@ -1246,11 +1465,16 @@ class SceneTextureCandidateTests(unittest.TestCase):
             result,
             {
                 "available": True,
+                "baseBudgetLimitedCrossImageSpriteFailsClosed": True,
                 "baseCandidateFailureTerminal": True,
+                "baseCrossImageFrame0Pixel": [128, 0, 0, 128],
+                "baseCrossImageFrame1Pixel": [0, 64, 0, 64],
+                "baseCrossImageSpritePlayback": True,
                 "baseCroppedCandidate": True,
                 "baseDirectCandidate": True,
                 "basePaddedR8Legacy": True,
                 "basePuppetLegacy": True,
+                "baseRotatedCrossImageSpriteFailsClosed": True,
                 "baseSpriteLegacy": True,
                 "baseSnapshotDropsMismatchedCandidate": True,
                 "baseSnapshotRejectsMismatchedPublication": True,

@@ -104,7 +104,8 @@ class SceneMetalView: NSView {
     // black previews can be debugged without attaching a debugger.
     func loadImageLayers(
         from cacheDirectory: URL, resourceView: SceneResourceView,
-        videoSourceRegistry: SceneVideoTextureSourceRegistry, logURL: URL? = nil
+        videoSourceRegistry: SceneVideoTextureSourceRegistry,
+        spriteTextureLoader: SceneMultiImageSpriteTextureLoader, logURL: URL? = nil
     ) {
         let loader = SceneTextureLoader()
         let resolver = SceneTexturePathResolver(
@@ -198,6 +199,7 @@ class SceneMetalView: NSView {
                 from: url,
                 usesPuppet: layer.puppetMeshPath != nil,
                 loader: loader,
+                spriteTextureLoader: spriteTextureLoader,
                 device: metalDevice
             ) {
             case .loaded(let baseLoad):
@@ -234,11 +236,7 @@ class SceneMetalView: NSView {
                 message += puppetMessage
                 if let animation = baseLoad.animation {
                     loadedSpriteAnimations[layer.id] = animation
-                    message += String(
-                        format: "; sprite animation frames=%d duration=%.3fs",
-                        animation.frames.count,
-                        animation.duration
-                    )
+                    message += animation.reportSummary
                 }
                 let effectTextures = loadEffectTextures(for: layer)
                 message += effectTextures.message
@@ -384,7 +382,12 @@ class SceneMetalView: NSView {
             particlePipeline: particlePlayback?.pipeline,
             offscreenTexturePool: offscreenTexturePool,
             frameContext: frameContext,
-            encodeSourceUpdates: { [puppetPlaybackStates] commandBuffer in
+            encodeSourceUpdates: { [puppetPlaybackStates, spriteAnimations] commandBuffer in
+                for animation in spriteAnimations.values {
+                    animation.encode(
+                        sceneTime: Float(frameContext.sceneTime), commandBuffer: commandBuffer
+                    )
+                }
                 for playback in puppetPlaybackStates.values {
                     playback.encode(sceneTime: frameContext.sceneTime, commandBuffer: commandBuffer)
                 }

@@ -14,6 +14,9 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+HOST_SOURCE = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost.swift"
+HOST_LAUNCH_SOURCE = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
+METAL_VIEW_SOURCE = SCENE_ROOT / "Rendering/SceneMetalView.swift"
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneTexDataReader.swift",
     SCENE_ROOT / "Format/SceneTexContainer.swift",
@@ -22,6 +25,11 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
     SCENE_ROOT / "Resources/SceneTextureMipUploader.swift",
     SCENE_ROOT / "Resources/SceneTextureLoader.swift",
+    SCENE_ROOT / "Resources/SceneMultiImageSpriteResidentBudget.swift",
+    SCENE_ROOT / "Resources/SceneMultiImageSpritePlayback.swift",
+    SCENE_ROOT / "Resources/SceneTextureUVTransform.swift",
+    SCENE_ROOT / "Rendering/SceneMetalPipeline.swift",
+    SCENE_ROOT / "Rendering/SceneSpriteAnimation.swift",
 ]
 
 HARNESS = r'''
@@ -125,6 +133,228 @@ enum Harness {
         result["parsedImageCount"] = parsed.images.count
         result["parsedMipCounts"] = parsed.images.map { $0.mips.count }
         result["parsedFirstBytes"] = parsed.images.map { Int($0.mips[0].data[0]) }
+
+        let animated = makeAnimatedColorContainer()
+        let source = SceneTextureLoader.SourceKey(
+            path: "/fixture/cross-image-sprite.tex",
+            size: 32,
+            modifiedAtBits: 1,
+            fileSystemID: 2,
+            fileID: 3,
+            statusChangedAtSeconds: 4,
+            statusChangedAtNanoseconds: 5
+        )
+        let animationLoader = SceneMultiImageSpriteTextureLoader()
+        if case let .loaded(playback) = animationLoader.playback(
+            source: source,
+            container: animated,
+            device: device,
+            sourceIsCurrent: { true }
+        ) {
+            result["crossImageAnimationAccepted"] = true
+            let queue = device.makeCommandQueue()!
+            let firstBuffer = queue.makeCommandBuffer()!
+            playback.encode(sceneTime: 0, commandBuffer: firstBuffer)
+            firstBuffer.commit()
+            firstBuffer.waitUntilCompleted()
+            result["crossImageFrame0Pixel"] = try readFirstPixel(
+                texture: playback.texture,
+                device: device
+            )
+            let secondBuffer = queue.makeCommandBuffer()!
+            playback.encode(sceneTime: 0.04, commandBuffer: secondBuffer)
+            secondBuffer.commit()
+            secondBuffer.waitUntilCompleted()
+            result["crossImageFrame1Pixel"] = try readFirstPixel(
+                texture: playback.texture,
+                device: device
+            )
+        } else {
+            result["crossImageAnimationAccepted"] = false
+        }
+
+        let submissionTracker = SceneSpriteFrameSubmissionTracker()
+        let firstSubmission = submissionTracker.begin(frameIndex: 0)
+        result["sameFrameSubmissionDeduplicated"] =
+            firstSubmission != nil
+                && submissionTracker.begin(frameIndex: 0) == nil
+        if let firstSubmission {
+            submissionTracker.complete(firstSubmission, succeeded: false)
+        }
+        let retriedSubmission = submissionTracker.begin(frameIndex: 0)
+        result["failedSubmissionCanRetry"] = retriedSubmission != nil
+        let newerSubmission = submissionTracker.begin(frameIndex: 1)
+        if let retriedSubmission {
+            submissionTracker.complete(retriedSubmission, succeeded: false)
+        }
+        result["staleFailureKeepsNewerSubmission"] =
+            newerSubmission != nil
+                && submissionTracker.begin(frameIndex: 1) == nil
+
+        guard let residentCosts = SceneMultiImageSpriteTextureCost.estimate(
+            container: animated,
+            pixelFormat: .bc3_rgba,
+            outputWidth: 4,
+            outputHeight: 4,
+            device: device
+        ) else {
+            throw HarnessError.load
+        }
+        result["usesDeviceAllocationCost"] =
+            residentCosts.source + residentCosts.destination > 96
+        let boundedLoader = SceneMultiImageSpriteTextureLoader(
+            residentByteBudget: residentCosts.source
+                + residentCosts.destination * 2
+        )
+        var boundedFirst: SceneMultiImageSpritePlayback? = try playback(
+            boundedLoader.playback(
+            source: source,
+            container: animated,
+            device: device,
+            sourceIsCurrent: { true }
+        ))
+        let boundedSecond = try playback(boundedLoader.playback(
+            source: source,
+            container: animated,
+            device: device,
+            sourceIsCurrent: { true }
+        ))
+        let boundedThird = boundedLoader.playback(
+            source: source,
+            container: animated,
+            device: device,
+            sourceIsCurrent: { true }
+        )
+        if case let .unsupported(detail) = boundedThird {
+            result["residentBudgetDeduplicatesSource"] =
+                boundedFirst?.texture !== boundedSecond.texture
+                    && detail.contains("resident budget exceeded")
+        } else {
+            result["residentBudgetDeduplicatesSource"] = false
+        }
+        boundedFirst = nil
+        if case .loaded = boundedLoader.playback(
+            source: source,
+            container: animated,
+            device: device,
+            sourceIsCurrent: { true }
+        ) {
+            result["releasedDestinationRestoresBudget"] = true
+        } else {
+            result["releasedDestinationRestoresBudget"] = false
+        }
+
+        let revisionLoader = SceneMultiImageSpriteTextureLoader(
+            residentByteBudget: residentCosts.source
+                + residentCosts.destination
+        )
+        var revisionChecks = 0
+        let staleRevision = revisionLoader.playback(
+            source: source,
+            container: animated,
+            device: device,
+            sourceIsCurrent: {
+                revisionChecks += 1
+                return revisionChecks == 1
+            }
+        )
+        let stableRevision = revisionLoader.playback(
+            source: source,
+            container: animated,
+            device: device,
+            sourceIsCurrent: { true }
+        )
+        if case let .unsupported(detail) = staleRevision,
+           case .loaded = stableRevision {
+            result["revisionChangeFailsWithoutConsumingBudget"] =
+                detail.contains("file changed while loading")
+        } else {
+            result["revisionChangeFailsWithoutConsumingBudget"] = false
+        }
+
+        result["bc1AnimationAccepted"] = accepts(
+            makeAnimatedColorContainer(format: 7),
+            sourcePath: "/fixture/cross-image-bc1.tex",
+            device: device
+        )
+        result["bc2AnimationAccepted"] = accepts(
+            makeAnimatedColorContainer(format: 6),
+            sourcePath: "/fixture/cross-image-bc2.tex",
+            device: device
+        )
+        let defaultFrames = animated.spriteFrames
+        let fractionalFrame = SceneTexContainer.SpriteFrame(
+            imageIndex: 0,
+            duration: 0.035,
+            origin: SIMD2(0.125, 0),
+            xAxis: SIMD2(0.5, 0),
+            yAxis: SIMD2(0, 1)
+        )
+        let outOfRangeFrame = SceneTexContainer.SpriteFrame(
+            imageIndex: 2,
+            duration: 0.035,
+            origin: .zero,
+            xAxis: SIMD2(1, 0),
+            yAxis: SIMD2(0, 1)
+        )
+        let nonFiniteFrame = SceneTexContainer.SpriteFrame(
+            imageIndex: 0,
+            duration: 0.035,
+            origin: SIMD2(.nan, 0),
+            xAxis: SIMD2(1, 0),
+            yAxis: SIMD2(0, 1)
+        )
+        result["fractionalFrameRejected"] = rejectsAdmission(
+            makeAnimatedColorContainer(
+                frames: [fractionalFrame, defaultFrames[1]]
+            ),
+            device: device
+        )
+        result["outOfRangeImageRejected"] = rejectsAdmission(
+            makeAnimatedColorContainer(
+                frames: [outOfRangeFrame, defaultFrames[1]]
+            ),
+            device: device
+        )
+        result["nonFiniteFrameRejected"] = rejectsAdmission(
+            makeAnimatedColorContainer(
+                frames: [nonFiniteFrame, defaultFrames[1]]
+            ),
+            device: device
+        )
+        result["seventeenImagesRejected"] = rejectsAdmission(
+            makeAnimatedColorContainer(
+                images: Array(repeating: animated.images[0], count: 17)
+            ),
+            device: device
+        )
+        let differentSizeImage = SceneTexContainer.Image(mips: [
+            .init(width: 8, height: 4, data: Data(repeating: 0, count: 32))
+        ])
+        result["differentFrameSizesRejected"] = rejectsAdmission(
+            makeAnimatedColorContainer(
+                images: [animated.images[0], differentSizeImage]
+            ),
+            device: device
+        )
+        let oversizedSourceImage = SceneTexContainer.Image(mips: [
+            .init(width: 16_385, height: 4, data: Data())
+        ])
+        result["oversizedSourceRejected"] = rejectsAdmission(
+            makeAnimatedColorContainer(
+                images: [oversizedSourceImage, oversizedSourceImage]
+            ),
+            device: device
+        )
+        let oversizedOutputImage = SceneTexContainer.Image(mips: [
+            .init(width: 8_192, height: 4, data: Data())
+        ])
+        result["oversizedOutputRejected"] = rejectsAdmission(
+            makeAnimatedColorContainer(
+                images: [oversizedOutputImage, oversizedOutputImage]
+            ),
+            device: device
+        )
 
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("mwx-bc-purpose-\(UUID().uuidString)", isDirectory: true)
@@ -237,6 +467,100 @@ enum Harness {
         )
     }
 
+    static func makeAnimatedColorContainer(
+        format: UInt32 = 4,
+        images authoredImages: [SceneTexContainer.Image]? = nil,
+        frames authoredFrames: [SceneTexContainer.SpriteFrame]? = nil
+    ) -> SceneTexContainer {
+        func block(
+            alpha: UInt8,
+            colorLow: UInt8,
+            colorHigh: UInt8
+        ) -> Data {
+            let bc3 = Data([
+                alpha, alpha, 0, 0, 0, 0, 0, 0,
+                colorLow, colorHigh, 0, 0, 0, 0, 0, 0,
+            ])
+            return format == 7 ? bc3.suffix(8) : bc3
+        }
+        let red = SceneTexContainer.Mip(
+            width: 4, height: 4, data: block(alpha: 128, colorLow: 0x00, colorHigh: 0xF8)
+        )
+        let green = SceneTexContainer.Mip(
+            width: 4, height: 4, data: block(alpha: 64, colorLow: 0xE0, colorHigh: 0x07)
+        )
+        let frame0 = SceneTexContainer.SpriteFrame(
+            imageIndex: 0, duration: 0.035, origin: .zero,
+            xAxis: SIMD2(1, 0), yAxis: SIMD2(0, 1)
+        )
+        let frame1 = SceneTexContainer.SpriteFrame(
+            imageIndex: 1, duration: 0.035, origin: .zero,
+            xAxis: SIMD2(1, 0), yAxis: SIMD2(0, 1)
+        )
+        let images = authoredImages ?? [
+            .init(mips: [red]),
+            .init(mips: [green]),
+        ]
+        let frames = authoredFrames ?? [frame0, frame1]
+        return SceneTexContainer(
+            format: format, flags: 4, textureWidth: 4, textureHeight: 4,
+            imageWidth: 4, imageHeight: 4, containerVersion: .texb0002,
+            freeImageFormat: -1, isVideoMp4: false,
+            images: images,
+            spriteFrames: frames
+        )
+    }
+
+    static func accepts(
+        _ container: SceneTexContainer,
+        sourcePath: String,
+        device: MTLDevice
+    ) -> Bool {
+        let source = SceneTextureLoader.SourceKey(
+            path: sourcePath,
+            size: 32,
+            modifiedAtBits: 1,
+            fileSystemID: 2,
+            fileID: 3,
+            statusChangedAtSeconds: 4,
+            statusChangedAtNanoseconds: 5
+        )
+        if case .loaded = SceneMultiImageSpriteTextureLoader().playback(
+            source: source,
+            container: container,
+            device: device,
+            sourceIsCurrent: { true }
+        ) {
+            return true
+        }
+        return false
+    }
+
+    static func rejectsAdmission(
+        _ container: SceneTexContainer,
+        device: MTLDevice
+    ) -> Bool {
+        let source = SceneTextureLoader.SourceKey(
+            path: "/fixture/rejected-\(UUID().uuidString).tex",
+            size: 32,
+            modifiedAtBits: 1,
+            fileSystemID: 2,
+            fileID: 3,
+            statusChangedAtSeconds: 4,
+            statusChangedAtNanoseconds: 5
+        )
+        if case let .unsupported(detail) =
+            SceneMultiImageSpriteTextureLoader().playback(
+                source: source,
+                container: container,
+                device: device,
+                sourceIsCurrent: { true }
+            ) {
+            return detail.contains("unsupported image, codec, or frame layout")
+        }
+        return false
+    }
+
     static func makeTwoImageTex() -> Data {
         var data = Data("TEXV0005\0TEXI0001\0".utf8)
         func append(_ value: UInt32) {
@@ -300,6 +624,13 @@ enum Harness {
     static func loaded(_ outcome: SceneTextureLoadOutcome) throws -> MTLTexture {
         guard case let .loaded(texture) = outcome else { throw HarnessError.load }
         return texture
+    }
+
+    static func playback(
+        _ outcome: SceneMultiImageSpriteTextureLoader.Outcome
+    ) throws -> SceneMultiImageSpritePlayback {
+        guard case let .loaded(playback) = outcome else { throw HarnessError.load }
+        return playback
     }
 
     static func readFirstPixel(
@@ -381,6 +712,61 @@ class SceneBCTextureUploaderTests(unittest.TestCase):
         self.assertEqual(self.result["parsedImageCount"], 2)
         self.assertEqual(self.result["parsedMipCounts"], [1, 1])
         self.assertEqual(self.result["parsedFirstBytes"], [17, 29])
+
+    def test_cross_image_sprite_animation_selects_and_premultiplies_each_image(self) -> None:
+        self.assertTrue(self.result["crossImageAnimationAccepted"])
+        self.assertEqual(self.result["crossImageFrame0Pixel"], [128, 0, 0, 128])
+        self.assertEqual(self.result["crossImageFrame1Pixel"], [0, 64, 0, 64])
+
+    def test_failed_frame_submission_can_retry_without_overriding_newer_work(self) -> None:
+        self.assertTrue(self.result["sameFrameSubmissionDeduplicated"])
+        self.assertTrue(self.result["failedSubmissionCanRetry"])
+        self.assertTrue(self.result["staleFailureKeepsNewerSubmission"])
+
+    def test_resident_budget_shares_sources_but_counts_each_output(self) -> None:
+        self.assertTrue(self.result["residentBudgetDeduplicatesSource"])
+        self.assertTrue(self.result["releasedDestinationRestoresBudget"])
+        self.assertTrue(self.result["usesDeviceAllocationCost"])
+
+    def test_revision_change_rejects_publication_without_leaking_budget(self) -> None:
+        self.assertTrue(self.result["revisionChangeFailsWithoutConsumingBudget"])
+
+    def test_bounded_admission_covers_supported_codecs_and_layout_limits(self) -> None:
+        self.assertTrue(self.result["bc1AnimationAccepted"])
+        self.assertTrue(self.result["bc2AnimationAccepted"])
+        for key in (
+            "differentFrameSizesRejected",
+            "fractionalFrameRejected",
+            "nonFiniteFrameRejected",
+            "outOfRangeImageRejected",
+            "oversizedOutputRejected",
+            "oversizedSourceRejected",
+            "seventeenImagesRejected",
+        ):
+            self.assertTrue(self.result[key], key)
+
+    def test_launch_context_shares_one_sprite_budget_across_surfaces(self) -> None:
+        launch = HOST_LAUNCH_SOURCE.read_text(encoding="utf-8")
+        host = HOST_SOURCE.read_text(encoding="utf-8")
+        view = METAL_VIEW_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            "let spriteTextureLoader: SceneMultiImageSpriteTextureLoader",
+            launch,
+        )
+        rebuild = host.split("private func rebuildSurfaces(", maxsplit=1)[1]
+        rebuild = rebuild.split("private func teardownSurfaces", maxsplit=1)[0]
+        self.assertEqual(
+            rebuild.count(
+                "spriteTextureLoader: launchContext.spriteTextureLoader"
+            ),
+            2,
+        )
+        load = view.split("func loadImageLayers(", maxsplit=1)[1]
+        load = load.split("// MARK:", maxsplit=1)[0]
+        self.assertNotIn(
+            "let spriteTextureLoader = SceneMultiImageSpriteTextureLoader()",
+            load,
+        )
 
     def test_bc3_purpose_preserves_independent_green_and_alpha_channels(self) -> None:
         self.assertEqual(self.result["colorPurposePixel"], [0, 64, 0, 64])

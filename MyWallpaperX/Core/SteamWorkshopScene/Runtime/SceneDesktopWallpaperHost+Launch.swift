@@ -5,6 +5,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let runtimeInput: SceneRuntimeInput
     let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
     let pipelineRepository: SceneImageEffectPipelineRepository
+    let spriteTextureLoader: SceneMultiImageSpriteTextureLoader
     let timelineProgram: SceneTimelineProgram
     let textScriptProgram: SceneTextScriptProgram
     let sceneScriptAudioBarsProgram: SceneScriptAudioBarsProgram
@@ -59,6 +60,7 @@ extension SceneDesktopWallpaperHost {
             runtimeInput: runtimeInput,
             authoredEffectCatalog: authoredEffectCatalog,
             pipelineRepository: SceneImageEffectPipelineRepository(device: device),
+            spriteTextureLoader: SceneMultiImageSpriteTextureLoader(),
             timelineProgram: SceneTimelineTargetCompiler.compile(
                 descriptor: runtimeInput.renderDescriptor
             ),

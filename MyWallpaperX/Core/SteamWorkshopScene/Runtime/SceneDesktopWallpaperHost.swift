@@ -256,13 +256,15 @@ final class SceneDesktopWallpaperHost {
                 metalView.loadImageLayers(
                     from: launchContext.cacheDirectory,
                     resourceView: launchContext.resourceView,
-                    videoSourceRegistry: videoTextureSourceRegistry
+                    videoSourceRegistry: videoTextureSourceRegistry,
+                    spriteTextureLoader: launchContext.spriteTextureLoader
                 )
             } else {
                 metalView.loadImageLayers(
                     from: launchContext.cacheDirectory,
                     resourceView: launchContext.resourceView,
                     videoSourceRegistry: videoTextureSourceRegistry,
+                    spriteTextureLoader: launchContext.spriteTextureLoader,
                     logURL: launchContext.logURL
                 )
                 Self.appendTimelineReport(

@@ -137,9 +137,13 @@ enum SceneBaseImageTextureLoad {
         from url: URL,
         usesPuppet: Bool,
         loader: SceneTextureLoader,
+        spriteTextureLoader: SceneMultiImageSpriteTextureLoader,
         device: MTLDevice
     ) -> Outcome {
-        let container = loader.texContainer(from: url)
+        let source = loader.sourceKey(for: url)
+        let container = source.flatMap {
+            loader.texContainer(from: url, source: $0)
+        }
         if let legacyReason = legacyReason(
             url: url,
             container: container,
@@ -147,9 +151,11 @@ enum SceneBaseImageTextureLoad {
         ) {
             return legacyLoad(
                 from: url,
+                source: source,
                 container: container,
                 reason: legacyReason,
                 loader: loader,
+                spriteTextureLoader: spriteTextureLoader,
                 device: device
             )
         }
@@ -220,13 +226,50 @@ enum SceneBaseImageTextureLoad {
 
     private static func legacyLoad(
         from url: URL,
+        source: SceneTextureLoader.SourceKey?,
         container: SceneTexContainer?,
         reason: String,
         loader: SceneTextureLoader,
+        spriteTextureLoader: SceneMultiImageSpriteTextureLoader,
         device: MTLDevice
     ) -> Outcome {
+        var crossImageFallbackMessage = ""
+        if reason == "multi-image TEX",
+           let source, let container, container.imageCount > 1 {
+            switch spriteTextureLoader.playback(
+                source: source,
+                container: container,
+                device: device,
+                sourceIsCurrent: {
+                    loader.sourceKey(for: url) == source
+                }
+            ) {
+            case .loaded(let playback):
+                guard let animation = SceneSpriteAnimation(
+                    frames: container.spriteFrames,
+                    texturePlayback: playback
+                ) else {
+                    break
+                }
+                return .loaded(Loaded(
+                    texture: playback.texture,
+                    candidate: nil,
+                    animation: animation,
+                    message: "; base color cross-image sprite playback"
+                ))
+            case .unsupported(let detail):
+                crossImageFallbackMessage =
+                    "; cross-image sprite playback unavailable (\(detail))"
+            }
+        }
+        guard let source else {
+            return .failed(.decodeFailed(
+                "file metadata unavailable: \(url.lastPathComponent)"
+            ))
+        }
         switch loader.load(
             from: url,
+            source: source,
             purpose: .premultipliedColor,
             device: device
         ) {
@@ -238,6 +281,7 @@ enum SceneBaseImageTextureLoad {
                     SceneSpriteAnimation(frames: $0.spriteFrames)
                 },
                 message: "; base color legacy route (\(reason))"
+                    + crossImageFallbackMessage
             ))
         case let failure:
             return .failed(failure)
