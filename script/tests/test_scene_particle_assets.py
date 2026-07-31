@@ -88,6 +88,14 @@ enum Harness {
             "material": "materials/particle/unsupported-state.json",
             "emitter": [["name": "sphereRandom"]]
         ], relativePath: "particles/unsupported-state.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/custom-shader.json",
+            "emitter": [["name": "sphereRandom"]]
+        ], relativePath: "particles/custom-shader.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/missing-shader.json",
+            "emitter": [["name": "sphereRandom"]]
+        ], relativePath: "particles/missing-shader.json", under: directory)
         try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/root.tex", under: directory)
         try write(Data([0x89, 0x50, 0x4e, 0x47]), relativePath: "materials/particle/child.png", under: directory)
         try writeJSON(["passes": []], relativePath: "materials/particle/halo.json", under: directory)
@@ -144,6 +152,18 @@ enum Harness {
                 texturePaths: ["particle/root"],
                 blending: "additive",
                 alphaWriting: "enabled"
+            ),
+            SceneParticleMaterialPass(
+                materialPath: "materials/particle/custom-shader.json",
+                shaderPath: "shaders/customparticle.json",
+                texturePaths: ["particle/root"],
+                blending: "additive"
+            ),
+            SceneParticleMaterialPass(
+                materialPath: "materials/particle/missing-shader.json",
+                shaderPath: nil,
+                texturePaths: ["particle/root"],
+                blending: "additive"
             )
         ]
         let resourceView = SceneResourceView(
@@ -161,6 +181,8 @@ enum Harness {
                 "particles/refract.json",
                 "particles/unknown-blend.json",
                 "particles/unsupported-state.json",
+                "particles/custom-shader.json",
+                "particles/missing-shader.json",
                 "particles/missing-definition.json"
             ],
             materialPasses: passes,
@@ -173,6 +195,8 @@ enum Harness {
         let refract = graph.assetsByPath["particles/refract.json"]
         let unknownBlend = graph.assetsByPath["particles/unknown-blend.json"]
         let unsupportedState = graph.assetsByPath["particles/unsupported-state.json"]
+        let customShader = graph.assetsByPath["particles/custom-shader.json"]
+        let missingShader = graph.assetsByPath["particles/missing-shader.json"]
         try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/drop.tex", under: directory)
         let localDropGraph = SceneParticleAssetGraphLoader().load(
             rootPaths: ["particles/drop-texture.json"],
@@ -206,6 +230,8 @@ enum Harness {
             "unknownBlendStateRejected": unknownBlend?.renderState == nil,
             "unsupportedStateRejected": unsupportedState?.blendMode == nil
                 && unsupportedState?.renderState == nil,
+            "customShaderRejected": customShader?.supportsBuiltInShaderExecution == false,
+            "missingShaderRejected": missingShader?.supportsBuiltInShaderExecution == false,
             "unknownEnabledComboRejected": SceneParticleRefractionPlanner.plan(
                 for: SceneParticleMaterialPass(
                     materialPath: "materials/particle/refract.json",
@@ -527,7 +553,7 @@ class SceneParticleAssetTests(unittest.TestCase):
 
     def test_synthetic_asset_graph(self) -> None:
         result = self.run_harness("synthetic")
-        self.assertEqual(result["assetCount"], 9)
+        self.assertEqual(result["assetCount"], 11)
         self.assertEqual(
             result["rootPaths"],
             [
@@ -539,6 +565,8 @@ class SceneParticleAssetTests(unittest.TestCase):
                 "particles/refract.json",
                 "particles/unknown-blend.json",
                 "particles/unsupported-state.json",
+                "particles/custom-shader.json",
+                "particles/missing-shader.json",
                 "particles/missing-definition.json",
             ],
         )
@@ -558,6 +586,8 @@ class SceneParticleAssetTests(unittest.TestCase):
         self.assertTrue(result["unknownBlendRejected"])
         self.assertTrue(result["unknownBlendStateRejected"])
         self.assertTrue(result["unsupportedStateRejected"])
+        self.assertTrue(result["customShaderRejected"])
+        self.assertTrue(result["missingShaderRejected"])
         self.assertTrue(result["unknownEnabledComboRejected"])
         self.assertEqual(
             result["diagnostics"],
@@ -569,6 +599,7 @@ class SceneParticleAssetTests(unittest.TestCase):
                 "missingTextureReference": 1,
                 "unsupportedBlendMode": 1,
                 "unsupportedRenderState": 1,
+                "unsupportedShader": 2,
             },
         )
 

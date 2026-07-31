@@ -114,7 +114,7 @@ final class SceneParticleRuntime {
         for layer in particleLayers {
             guard let rawPath = layer.particlePath else { continue }
             let path = SceneParticleAssetGraphLoader.normalizedPath(rawPath)
-            guard let asset = graph.assetsByPath[path], let blendMode = asset.blendMode else { continue }
+            guard let asset = graph.assetsByPath[path], asset.supportsBuiltInShaderExecution, let blendMode = asset.blendMode else { continue }
             guard let render = supportedRenderer(
                 in: asset.definition,
                 layerID: layer.id,

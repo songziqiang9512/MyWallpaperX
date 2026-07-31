@@ -59,6 +59,7 @@ nonisolated struct SceneParticleAsset: Sendable {
     let definitionURL: URL
     let definition: SceneParticleDefinition
     let materialPass: SceneParticleMaterialPass?
+    let supportsBuiltInShaderExecution: Bool
     let textureSource: SceneParticleTextureSource?
     let refraction: SceneParticleRefractionDeclaration?
     let renderState: SceneMaterialRenderState?
@@ -152,9 +153,10 @@ nonisolated struct SceneParticleAssetGraphLoader {
             let materialPass = materialPath.flatMap { path in
                 Self.preferredPass(in: passesByMaterial[path] ?? [])
             }
+            let supportsShader = Self.isGenericParticleShader(materialPass?.shaderPath)
             if materialPass == nil {
                 diagnose(.missingMaterial, path, materialPath)
-            } else if !Self.isGenericParticleShader(materialPass?.shaderPath) {
+            } else if !supportsShader {
                 diagnose(.unsupportedShader, path, materialPass?.shaderPath)
             }
 
@@ -256,6 +258,7 @@ nonisolated struct SceneParticleAssetGraphLoader {
                 definitionURL: definitionURL,
                 definition: definition,
                 materialPass: materialPass,
+                supportsBuiltInShaderExecution: supportsShader,
                 textureSource: textureSource,
                 refraction: refraction,
                 renderState: renderState,

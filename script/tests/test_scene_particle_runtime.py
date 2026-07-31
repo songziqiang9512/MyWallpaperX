@@ -1342,6 +1342,7 @@ enum Harness {
                 ["name": "particles/event-origin-child.json", "type": "eventspawn", "origin": "1 2 3"],
                 ["name": "particles/nan-origin-child.json", "type": "static", "origin": "nan 0 0"],
                 ["name": "particles/probability-child.json", "type": "static", "probability": 0.5],
+                ["name": "particles/custom-shader.json", "type": "static"],
             ], under: directory
         )
         for path in [
@@ -1357,6 +1358,10 @@ enum Harness {
         try writeParticle("particles/drop.json", material: "materials/drop.json", under: directory)
         try writeParticle("particles/halo.json", material: "materials/halo.json", under: directory)
         try writeParticle("particles/unknown.json", material: "materials/unknown.json", under: directory)
+        try writeParticle(
+            "particles/custom-shader.json", material: "materials/custom-shader.json",
+            under: directory
+        )
 
         let descriptor = SceneRenderDescriptor(
             layers: [
@@ -1374,8 +1379,9 @@ enum Harness {
                 layer(12, "particles/world-dynamic.json"),
                 layer(13, "particles/renderer-world.json"),
                 layer(14, "particles/movement-world.json"),
+                layer(15, "particles/custom-shader.json"),
             ],
-            renderOrderLayerIDs: Array(1 ... 14),
+            renderOrderLayerIDs: Array(1 ... 15),
             materialPasses: [
                 .init(
                     materialPath: "materials/no-texture.json",
@@ -1396,6 +1402,10 @@ enum Harness {
                 .init(
                     materialPath: "materials/unknown.json",
                     shaderPath: "genericparticle", texturePaths: ["particle/not-supported"], blending: "additive"
+                ),
+                .init(
+                    materialPath: "materials/custom-shader.json",
+                    shaderPath: "customparticle", texturePaths: ["shared.png"], blending: "additive"
                 ),
             ]
         )
@@ -1746,6 +1756,9 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertNotIn("trailRendererUnsupported", kinds)
         self.assertNotIn("missingSpriteRenderer", kinds)
         self.assertIn("childSystemsUnsupported", kinds)
+        self.assertIn("unsupportedShader", kinds)
+        self.assertNotIn(15, result["activeLayerIDs"])
+        self.assertNotIn(15, result["batchLayerIDs"])
         for path in [
             "particles/angles-child.json",
             "particles/scale-child.json",
@@ -1758,6 +1771,10 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             )
         self.assertIn(
             "particles/probability-child.json:unsupportedStaticProbability",
+            result["staticChildUnsupportedDetails"],
+        )
+        self.assertIn(
+            "particles/custom-shader.json:unsupportedShader",
             result["staticChildUnsupportedDetails"],
         )
         self.assertIn("builtInTextureUnavailable", kinds)

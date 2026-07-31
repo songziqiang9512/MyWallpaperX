@@ -181,6 +181,9 @@ enum SceneParticleChildGraphExpansion {
         guard let asset = graph.assetsByPath[path] else {
             return .rejected("\(path):missingAsset")
         }
+        guard asset.supportsBuiltInShaderExecution else {
+            return .rejected("\(path):unsupportedShader")
+        }
         guard let blendMode = asset.blendMode else {
             return .rejected("\(path):unsupportedRenderState")
         }
