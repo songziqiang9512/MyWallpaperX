@@ -24,7 +24,7 @@ enum SceneAuthoredEffectChainRenderer {
               chain.stages.count == targets.count,
               validTopology(chain: chain, targets: targets),
               targets.allSatisfy({
-                  $0.encodeInitialHistoryClear(commandBuffer: commandBuffer)
+                  $0.encodeInitialTargetClear(commandBuffer: commandBuffer)
               }) else {
             return nil
         }

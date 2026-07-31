@@ -16,6 +16,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Clear.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetTable.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphCommandRuntime.swift",

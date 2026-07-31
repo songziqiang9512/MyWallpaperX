@@ -16,6 +16,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Clear.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
 ]
 
@@ -65,14 +66,15 @@ enum Harness {
         _ identity: Graph.TextureIdentity,
         extent: Graph.TargetExtent,
         format: String = "rgba_backbuffer",
-        unique: Bool = false
+        unique: Bool = false,
+        clear: SceneJSONValue? = nil
     ) -> Graph.RenderTarget {
         .init(
             texture: identity,
             extent: extent,
             format: format,
             declaredUnique: unique,
-            clear: nil,
+            clear: clear,
             uvs: nil,
             conditions: nil
         )
@@ -178,6 +180,26 @@ enum Harness {
         }
     }
 
+    static func requirePlan(
+        _ graph: Graph,
+        materialNodeCount: Int
+    ) -> SceneGraphRenderTargetPlan {
+        let result = SceneGraphRenderTargetPlan.make(
+            executionPlan: .init(
+                layerID: graph.layerID,
+                materialNodeCount: materialNodeCount,
+                logicalRenderTargetCount: graph.renderTargets.count
+            ),
+            graph: graph,
+            inputWidth: 1920,
+            inputHeight: 1080
+        )
+        guard case .success(let plan) = result else {
+            fatalError("expected render target plan")
+        }
+        return plan
+    }
+
     static func targetSummary(_ plan: SceneGraphRenderTargetPlan) -> [[String: Any]] {
         plan.logicalTargets.map { target in
             [
@@ -191,6 +213,14 @@ enum Harness {
                 "persistent": target.lifetime.requiresHistorySeed,
                 "historySeed": target.lifetime.requiresHistorySeed,
             ]
+        }
+    }
+
+    static func clearSummary(_ plan: SceneGraphRenderTargetPlan) -> [[Double]] {
+        plan.logicalTargets.map { target in
+            target.initialClear.map {
+                [$0.red, $0.green, $0.blue, $0.alpha]
+            } ?? []
         }
     }
 
@@ -324,6 +354,58 @@ enum Harness {
         guard case .success(let precisePlan) = preciseResult else {
             fatalError("precise fixture rejected")
         }
+        let zeroClearArray = graph(
+            targets: [
+                target(
+                    q1,
+                    extent: scaleFour,
+                    clear: .array([.number(0), .number(0), .number(0), .number(0)])
+                ),
+                target(q2, extent: scaleFour),
+            ],
+            nodes: standard.nodes,
+            key: key,
+            input: input,
+            output: output
+        )
+        let zeroClearString = graph(
+            targets: [
+                target(q1, extent: scaleFour, clear: .string("0 0 0 0")),
+                target(q2, extent: scaleFour),
+            ],
+            nodes: standard.nodes,
+            key: key,
+            input: input,
+            output: output
+        )
+        let nonZeroClear = graph(
+            targets: [
+                target(
+                    q1,
+                    extent: scaleFour,
+                    clear: .array([.number(0.1), .number(0), .number(0), .number(0)])
+                ),
+                target(q2, extent: scaleFour),
+            ],
+            nodes: standard.nodes,
+            key: key,
+            input: input,
+            output: output
+        )
+        let malformedClear = graph(
+            targets: [
+                target(
+                    q1,
+                    extent: scaleFour,
+                    clear: .array([.number(0), .number(0), .number(0)])
+                ),
+                target(q2, extent: scaleFour),
+            ],
+            nodes: standard.nodes,
+            key: key,
+            input: input,
+            output: output
+        )
         let commands = graph(
             targets: [target(q1, extent: inputExtent), target(q2, extent: inputExtent)],
             nodes: [
@@ -492,6 +574,14 @@ enum Harness {
                 precisePlan.inputExtent.width, precisePlan.inputExtent.height,
             ],
             "preciseTargets": targetSummary(precisePlan),
+            "zeroClearArray": clearSummary(
+                requirePlan(zeroClearArray, materialNodeCount: 4)
+            ),
+            "zeroClearString": clearSummary(
+                requirePlan(zeroClearString, materialNodeCount: 4)
+            ),
+            "nonZeroClearFailure": failure(nonZeroClear),
+            "malformedClearFailure": failure(malformedClear),
             "commandTargets": targetSummary(commandsPlan),
             "persistentHistoryTargets": targetSummary(persistentHistoryPlan),
             "cursorHistoryTargets": targetSummary(cursorHistoryPlan),
@@ -766,6 +856,24 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
         )
         self.assertEqual(self.result["countMismatchFailure"], "executionMismatch")
         self.assertEqual(self.result["roleMismatchFailure"], "executionMismatch")
+
+    def test_only_transparent_zero_authored_clear_is_admitted(self) -> None:
+        self.assertEqual(
+            self.result["zeroClearArray"],
+            [[0.0, 0.0, 0.0, 0.0], []],
+        )
+        self.assertEqual(
+            self.result["zeroClearString"],
+            [[0.0, 0.0, 0.0, 0.0], []],
+        )
+        self.assertEqual(
+            self.result["nonZeroClearFailure"],
+            "unsupportedTargetDescriptor",
+        )
+        self.assertEqual(
+            self.result["malformedClearFailure"],
+            "unsupportedTargetDescriptor",
+        )
 
 
 if __name__ == "__main__":

@@ -13,6 +13,13 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         let height: Int
     }
 
+    struct ClearColor: Equatable {
+        let red: Double
+        let green: Double
+        let blue: Double
+        let alpha: Double
+    }
+
     struct Lifetime: Equatable {
         let firstWriteNodeIndex: Int
         let lastWriteNodeIndex: Int
@@ -26,6 +33,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         let extent: PixelExtent
         let format: TextureFormat
         let lifetime: Lifetime
+        let initialClear: ClearColor?
     }
 
     enum CommandKind: String, Equatable {
@@ -302,7 +310,8 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
                 identity: target.texture,
                 extent: descriptor.extent,
                 format: descriptor.format,
-                lifetime: lifetime
+                lifetime: lifetime,
+                initialClear: descriptor.initialClear
             ))
         }
 
@@ -320,6 +329,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
     private struct TargetDescriptor: Equatable {
         let extent: PixelExtent
         let format: TextureFormat
+        let initialClear: ClearColor?
     }
 
     private static func targetDescriptor(
@@ -332,12 +342,22 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             inputWidth: inputWidth,
             inputHeight: inputHeight
         ), let format = textureFormat(target.format),
-              target.clear == nil,
               target.uvs == nil,
               target.conditions == nil else {
             return nil
         }
-        return TargetDescriptor(extent: extent, format: format)
+        let initialClear: ClearColor?
+        if let authoredClear = target.clear {
+            guard let zeroClear = zeroClear(authoredClear) else { return nil }
+            initialClear = zeroClear
+        } else {
+            initialClear = nil
+        }
+        return TargetDescriptor(
+            extent: extent,
+            format: format,
+            initialClear: initialClear
+        )
     }
 
     private static func textureFormat(_ authored: String?) -> TextureFormat? {

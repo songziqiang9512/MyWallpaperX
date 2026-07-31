@@ -20,10 +20,10 @@ struct SceneGraphRenderTargetTable {
     let residentByteCost: Int
 
     private let texturesByIdentity: [Graph.TextureIdentity: MTLTexture]
-    private let historyState: HistoryState
+    private let initializationState: InitializationState
 
-    private final class HistoryState {
-        var needsInitialClear = true
+    private final class InitializationState {
+        var needsInitialInitialization = true
         var clearInFlight = false
     }
 
@@ -39,10 +39,15 @@ struct SceneGraphRenderTargetTable {
         SceneGraphCommandRuntime(plan: plan, texturesByIdentity: texturesByIdentity)
     }
 
-    func encodeInitialHistoryClear(commandBuffer: MTLCommandBuffer) -> Bool {
-        let targets = plan.logicalTargets.filter(\.lifetime.requiresHistorySeed)
+    func encodeInitialTargetClear(commandBuffer: MTLCommandBuffer) -> Bool {
+        let targets = plan.logicalTargets.filter {
+            $0.lifetime.requiresHistorySeed || $0.initialClear != nil
+        }
         guard !targets.isEmpty else { return true }
-        guard historyState.needsInitialClear, !historyState.clearInFlight else { return true }
+        guard initializationState.needsInitialInitialization,
+              !initializationState.clearInFlight else {
+            return true
+        }
 
         for target in targets {
             guard let texture = texturesByIdentity[target.identity] else { return false }
@@ -50,17 +55,23 @@ struct SceneGraphRenderTargetTable {
             descriptor.colorAttachments[0].texture = texture
             descriptor.colorAttachments[0].loadAction = .clear
             descriptor.colorAttachments[0].storeAction = .store
-            descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+            let clear = target.initialClear ?? .init(red: 0, green: 0, blue: 0, alpha: 0)
+            descriptor.colorAttachments[0].clearColor = MTLClearColorMake(
+                clear.red,
+                clear.green,
+                clear.blue,
+                clear.alpha
+            )
             guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor) else {
                 return false
             }
             encoder.endEncoding()
         }
-        historyState.clearInFlight = true
-        commandBuffer.addCompletedHandler { [historyState] buffer in
-            historyState.clearInFlight = false
+        initializationState.clearInFlight = true
+        commandBuffer.addCompletedHandler { [initializationState] buffer in
+            initializationState.clearInFlight = false
             if buffer.status == .completed {
-                historyState.needsInitialClear = false
+                initializationState.needsInitialInitialization = false
             }
         }
         return true
@@ -118,7 +129,7 @@ struct SceneGraphRenderTargetTable {
             outputTexture: outputTexture,
             residentByteCost: totalByteCost,
             texturesByIdentity: textures,
-            historyState: HistoryState()
+            initializationState: InitializationState()
         ))
     }
 
@@ -146,7 +157,7 @@ struct SceneGraphRenderTargetTable {
                 plan.input: inputTexture,
                 plan.output: outputTexture,
             ],
-            historyState: HistoryState()
+            initializationState: InitializationState()
         ))
     }
 

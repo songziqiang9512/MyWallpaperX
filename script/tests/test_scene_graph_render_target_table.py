@@ -16,6 +16,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Clear.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetTable.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphCommandRuntime.swift",
@@ -63,7 +64,8 @@ enum Harness {
         lastWrite: Int,
         firstRead: Int?,
         lastRead: Int?,
-        historySeed: Bool = false
+        historySeed: Bool = false,
+        initialClear: TargetPlan.ClearColor? = nil
     ) -> TargetPlan.LogicalTarget {
         var lifetime = TargetPlan.Lifetime(
             firstWriteNodeIndex: firstWrite,
@@ -76,7 +78,8 @@ enum Harness {
             identity: identity,
             extent: .init(width: width, height: height),
             format: format,
-            lifetime: lifetime
+            lifetime: lifetime,
+            initialClear: initialClear
         )
     }
 
@@ -133,7 +136,7 @@ enum Harness {
         ), let upload = device.makeBuffer(length: 16, options: .storageModeShared),
         let readback = device.makeBuffer(length: 16, options: .storageModeShared),
         let commandBuffer = queue.makeCommandBuffer(),
-        table.encodeInitialHistoryClear(commandBuffer: commandBuffer),
+        table.encodeInitialTargetClear(commandBuffer: commandBuffer),
         let uploadEncoder = commandBuffer.makeBlitCommandEncoder() else {
             fatalError("scheduler setup failed")
         }
@@ -311,6 +314,20 @@ enum Harness {
                 )
             ]
         )
+        let authoredClearPlan = TargetPlan(
+            layerID: 10,
+            input: input,
+            output: output,
+            inputExtent: .init(width: 1, height: 1),
+            logicalTargets: [
+                logicalTarget(
+                    quarterA, width: 1, height: 1,
+                    format: .rgba8888,
+                    firstWrite: 0, lastWrite: 0, firstRead: nil, lastRead: nil,
+                    initialClear: .init(red: 0, green: 0, blue: 0, alpha: 0)
+                )
+            ]
+        )
 
         let exactBudget = 520
         guard case .success(let table) = TargetTable.make(
@@ -333,7 +350,7 @@ enum Harness {
         let historyQueue = device.makeCommandQueue(),
         let historyReadback = device.makeBuffer(length: 16, options: .storageModeShared),
         let historyCommandBuffer = historyQueue.makeCommandBuffer(),
-        historyTable.encodeInitialHistoryClear(commandBuffer: historyCommandBuffer),
+        historyTable.encodeInitialTargetClear(commandBuffer: historyCommandBuffer),
         let historyReadbackEncoder = historyCommandBuffer.makeBlitCommandEncoder() else {
             fatalError("history initialization setup failed")
         }
@@ -355,6 +372,78 @@ enum Harness {
             UnsafeBufferPointer(
                 start: historyReadback.contents().assumingMemoryBound(to: UInt8.self),
                 count: 16
+            )
+        )
+        guard case .success(let authoredClearTable) = TargetTable.make(
+            plan: authoredClearPlan,
+            device: device,
+            byteBudget: 12
+        ), let authoredClearTexture = authoredClearTable.texture(for: quarterA),
+        let authoredClearQueue = device.makeCommandQueue(),
+        let initialReadback = device.makeBuffer(length: 4, options: .storageModeShared),
+        let initialCommandBuffer = authoredClearQueue.makeCommandBuffer(),
+        authoredClearTable.encodeInitialTargetClear(commandBuffer: initialCommandBuffer),
+        let initialReadbackEncoder = initialCommandBuffer.makeBlitCommandEncoder() else {
+            fatalError("authored clear initialization setup failed")
+        }
+        initialReadbackEncoder.copy(
+            from: authoredClearTexture,
+            sourceSlice: 0,
+            sourceLevel: 0,
+            sourceOrigin: .init(x: 0, y: 0, z: 0),
+            sourceSize: .init(width: 1, height: 1, depth: 1),
+            to: initialReadback,
+            destinationOffset: 0,
+            destinationBytesPerRow: 4,
+            destinationBytesPerImage: 4
+        )
+        initialReadbackEncoder.endEncoding()
+        initialCommandBuffer.commit()
+        initialCommandBuffer.waitUntilCompleted()
+        let initialClearBytes = [UInt8](
+            UnsafeBufferPointer(
+                start: initialReadback.contents().assumingMemoryBound(to: UInt8.self),
+                count: 4
+            )
+        )
+
+        guard let secondReadback = device.makeBuffer(length: 4, options: .storageModeShared),
+              let secondCommandBuffer = authoredClearQueue.makeCommandBuffer() else {
+            fatalError("authored clear one-shot setup failed")
+        }
+        let overwriteDescriptor = MTLRenderPassDescriptor()
+        overwriteDescriptor.colorAttachments[0].texture = authoredClearTexture
+        overwriteDescriptor.colorAttachments[0].loadAction = .clear
+        overwriteDescriptor.colorAttachments[0].storeAction = .store
+        overwriteDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(1, 0, 0, 1)
+        guard let overwriteEncoder = secondCommandBuffer.makeRenderCommandEncoder(
+            descriptor: overwriteDescriptor
+        ) else {
+            fatalError("authored clear overwrite encoder failed")
+        }
+        overwriteEncoder.endEncoding()
+        guard authoredClearTable.encodeInitialTargetClear(commandBuffer: secondCommandBuffer),
+              let secondReadbackEncoder = secondCommandBuffer.makeBlitCommandEncoder() else {
+            fatalError("authored clear repeated initialization failed")
+        }
+        secondReadbackEncoder.copy(
+            from: authoredClearTexture,
+            sourceSlice: 0,
+            sourceLevel: 0,
+            sourceOrigin: .init(x: 0, y: 0, z: 0),
+            sourceSize: .init(width: 1, height: 1, depth: 1),
+            to: secondReadback,
+            destinationOffset: 0,
+            destinationBytesPerRow: 4,
+            destinationBytesPerImage: 4
+        )
+        secondReadbackEncoder.endEncoding()
+        secondCommandBuffer.commit()
+        secondCommandBuffer.waitUntilCompleted()
+        let repeatedClearBytes = [UInt8](
+            UnsafeBufferPointer(
+                start: secondReadback.contents().assumingMemoryBound(to: UInt8.self),
+                count: 4
             )
         )
 
@@ -607,6 +696,8 @@ enum Harness {
             "historyClearBytesZero": historyBytes.allSatisfy { $0 == 0 },
             "historyTargetPersistent":
                 historyTable.plan.logicalTargets[0].lifetime.requiresHistorySeed,
+            "authoredClearBytesZero": initialClearBytes.allSatisfy { $0 == 0 },
+            "authoredClearOneShot": repeatedClearBytes == [255, 0, 0, 255],
             "textureContract": textures.allSatisfy {
                 $0.storageMode == .private
                     && $0.usage.contains(.renderTarget)
@@ -706,6 +797,8 @@ class SceneGraphRenderTargetTableTests(unittest.TestCase):
         self.assertTrue(self.result["textureContract"])
         self.assertTrue(self.result["historyClearBytesZero"])
         self.assertTrue(self.result["historyTargetPersistent"])
+        self.assertTrue(self.result["authoredClearBytesZero"])
+        self.assertTrue(self.result["authoredClearOneShot"])
 
     def test_copy_blits_bytes_and_swap_exchanges_logical_bindings(self) -> None:
         self.assertTrue(self.result["copyBytesMatch"])

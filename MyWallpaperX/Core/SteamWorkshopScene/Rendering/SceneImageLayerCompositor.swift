@@ -136,7 +136,7 @@ struct SceneImageLayerCompositor {
                     return false
                 }
                 renderedTexture = mainPass.encodeOffscreen { commandBuffer -> MTLTexture? in
-                    guard targets.encodeInitialHistoryClear(commandBuffer: commandBuffer) else {
+                    guard targets.encodeInitialTargetClear(commandBuffer: commandBuffer) else {
                         return nil
                     }
                     switch authoredPlan.backend {
