@@ -21,6 +21,7 @@ struct SceneDiagnosticsReport {
     let packageReport: ScenePkgExtractionReport?
     let resourceView: SceneResourceView
     let issues: [Issue]
+    let sceneDocumentLoadErrorDescription: String?
     let capabilityProfile: SceneCapabilityProfile?
     let renderDescriptor: SceneRenderDescriptor?
 
@@ -184,6 +185,7 @@ struct SceneDiagnosticsBuilder {
             packageReport: packageReport,
             resourceView: resourceView,
             issues: issues,
+            sceneDocumentLoadErrorDescription: sceneDocumentLoadError?.localizedDescription,
             capabilityProfile: capabilityProfile,
             renderDescriptor: renderDescriptor
         )

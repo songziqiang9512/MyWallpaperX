@@ -51,7 +51,10 @@ struct SceneRenderDescriptorBuilder {
         assetCatalog: SceneAssetCatalog,
         resourceReferences: SceneResourceReferenceIndex,
         capabilityProfile: SceneCapabilityProfile
-    ) -> SceneRenderDescriptor {
+    ) -> SceneRenderDescriptor? {
+        guard Set(sceneDocument.objects.map(\.id)).count == sceneDocument.objects.count else {
+            return nil
+        }
         let modelCropOffsetsByPath = Dictionary(
             uniqueKeysWithValues: assetCatalog.models.map { ($0.relativePath, $0.cropOffsetXY) }
         )

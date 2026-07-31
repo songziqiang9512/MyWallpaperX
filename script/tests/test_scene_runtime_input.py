@@ -141,10 +141,16 @@ class SceneRuntimeInputTests(unittest.TestCase):
 
     def test_builder_compiles_runtime_input_without_file_round_trip(self) -> None:
         source = RUNTIME_MODEL_SOURCE.read_text(encoding="utf-8")
+        diagnostics = DIAGNOSTICS_SOURCE.read_text(encoding="utf-8")
         self.assertIn("let runtimeInput: SceneRuntimeInput", source)
         self.assertIn("runtimeInput: runtimeInput", source)
         self.assertIn("sceneDocument.userPropertyResolution.bindingReport", source)
         self.assertIn("shaderContracts: assetCatalog.shaderContracts", source)
+        self.assertIn("sceneDocumentLoadErrorDescription", diagnostics)
+        self.assertIn(
+            "diagnostics.sceneDocumentLoadErrorDescription",
+            source,
+        )
         self.assertNotIn("SceneInterpretation", source)
 
     def test_production_playback_passes_the_original_project_root(self) -> None:

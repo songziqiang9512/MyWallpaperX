@@ -291,7 +291,7 @@ enum Harness {
             entryPath: sceneURL.lastPathComponent,
             userProperties: .empty
         )
-        let descriptor = SceneRenderDescriptorBuilder().build(
+        guard let descriptor = SceneRenderDescriptorBuilder().build(
             project: project,
             sceneDocument: document,
             assetCatalog: SceneAssetCatalog(
@@ -307,7 +307,9 @@ enum Harness {
                 runtimeProvidedReferenceCount: 0
             ),
             capabilityProfile: SceneCapabilityProfile(firstStageRendererGaps: [])
-        )
+        ) else {
+            throw HarnessError.descriptorRejected
+        }
         guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
         let cacheDirectory = sceneURL.deletingLastPathComponent()
 
@@ -453,6 +455,7 @@ enum Harness {
     enum HarnessError: Error {
         case missingFixture
         case noMetal
+        case descriptorRejected
     }
 }
 '''

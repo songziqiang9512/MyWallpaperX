@@ -16,7 +16,7 @@ struct SceneRuntimeModel {
 struct SceneRuntimeModelBuilder {
     enum BuildError: LocalizedError {
         case missingProject
-        case missingSceneDocument
+        case missingSceneDocument(String?)
         case missingAssetCatalog
         case missingResourceReferences
         case missingRenderDescriptor
@@ -25,7 +25,10 @@ struct SceneRuntimeModelBuilder {
             switch self {
             case .missingProject:
                 return "无法构建 Scene runtime：项目未解析。"
-            case .missingSceneDocument:
+            case let .missingSceneDocument(detail):
+                if let detail, !detail.isEmpty {
+                    return "无法构建 Scene runtime：\(detail)"
+                }
                 return "无法构建 Scene runtime：scene.json 未解析。"
             case .missingAssetCatalog:
                 return "无法构建 Scene runtime：资产摘要未解析。"
@@ -49,7 +52,9 @@ struct SceneRuntimeModelBuilder {
             throw BuildError.missingProject
         }
         guard let sceneDocument = diagnostics.sceneDocument else {
-            throw BuildError.missingSceneDocument
+            throw BuildError.missingSceneDocument(
+                diagnostics.sceneDocumentLoadErrorDescription
+            )
         }
         guard let assetCatalog = diagnostics.assetCatalog else {
             throw BuildError.missingAssetCatalog

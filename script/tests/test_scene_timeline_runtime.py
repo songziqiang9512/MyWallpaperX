@@ -213,7 +213,7 @@ struct SceneDiagnosticsReport {
     let capabilityProfile: SceneCapabilityProfile?
 }
 
-enum HarnessError: Error { case missingFixture }
+enum HarnessError: Error { case missingFixture, descriptorRejected }
 
 @main
 enum Harness {
@@ -221,7 +221,7 @@ enum Harness {
         guard CommandLine.arguments.count == 2 else { throw HarnessError.missingFixture }
         let sceneURL = URL(fileURLWithPath: CommandLine.arguments[1])
         let document = try SceneDocumentLoader().load(from: sceneURL)
-        let descriptor = SceneRenderDescriptorBuilder().build(
+        guard let descriptor = SceneRenderDescriptorBuilder().build(
             project: SceneProject(
                 rootURL: sceneURL.deletingLastPathComponent(),
                 entryPath: sceneURL.lastPathComponent,
@@ -237,7 +237,9 @@ enum Harness {
                 runtimeProvidedReferenceCount: 0
             ),
             capabilityProfile: SceneCapabilityProfile(firstStageRendererGaps: [])
-        )
+        ) else {
+            throw HarnessError.descriptorRejected
+        }
         let program = SceneTimelineTargetCompiler.compile(descriptor: descriptor)
 
         // 模拟 host：一个已有的 property definition 与 layer 10 的 alpha 撞 target。

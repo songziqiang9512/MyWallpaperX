@@ -271,35 +271,49 @@ enum Harness {
         let sceneURL = URL(fileURLWithPath: CommandLine.arguments[1])
         let duplicateSceneURL = URL(fileURLWithPath: CommandLine.arguments[2])
         let document = try SceneDocumentLoader().load(from: sceneURL)
-        let duplicateIdentityError: String
-        do {
-            _ = try SceneDocumentLoader().load(from: duplicateSceneURL)
-            duplicateIdentityError = ""
-        } catch {
-            duplicateIdentityError = error.localizedDescription
-        }
         let project = SceneProject(
             rootURL: sceneURL.deletingLastPathComponent(),
             entryPath: sceneURL.lastPathComponent,
             userProperties: .empty
         )
-        let descriptor = SceneRenderDescriptorBuilder().build(
+        let assetCatalog = SceneAssetCatalog(
+            models: [],
+            materials: [],
+            effectDefinitions: [],
+            effectDefinitionDiagnostics: [],
+            shaderReferences: [],
+            textureReferences: []
+        )
+        let resourceReferences = SceneResourceReferenceIndex(
+            missingReferences: [], builtInReferenceCount: 3,
+            runtimeProvidedReferenceCount: 0
+        )
+        let capabilityProfile = SceneCapabilityProfile(firstStageRendererGaps: [])
+        let duplicateIdentityError: String
+        var duplicateDescriptorReached = false
+        do {
+            let duplicateDocument = try SceneDocumentLoader().load(from: duplicateSceneURL)
+            _ = SceneRenderDescriptorBuilder().build(
+                project: project,
+                sceneDocument: duplicateDocument,
+                assetCatalog: assetCatalog,
+                resourceReferences: resourceReferences,
+                capabilityProfile: capabilityProfile
+            )
+            duplicateDescriptorReached = true
+            duplicateIdentityError = ""
+        } catch {
+            duplicateIdentityError = error.localizedDescription
+        }
+        guard let descriptor = SceneRenderDescriptorBuilder().build(
             project: project,
             sceneDocument: document,
-            assetCatalog: SceneAssetCatalog(
-                models: [],
-                materials: [],
-                effectDefinitions: [],
-                effectDefinitionDiagnostics: [],
-                shaderReferences: [],
-                textureReferences: []
-            ),
-            resourceReferences: SceneResourceReferenceIndex(
-                missingReferences: [], builtInReferenceCount: 3,
-                runtimeProvidedReferenceCount: 0
-            ),
-            capabilityProfile: SceneCapabilityProfile(firstStageRendererGaps: [])
-        )
+            assetCatalog: assetCatalog,
+            resourceReferences: resourceReferences,
+            capabilityProfile: capabilityProfile
+        ) else {
+            throw HarnessError.descriptorRejected
+        }
 
         guard let device = MTLCreateSystemDefaultDevice(),
               let solidTexture = SceneSolidLayerTexture.make(device: device) else {
@@ -373,6 +387,7 @@ enum Harness {
             "textureSize": [solidTexture.width, solidTexture.height],
             "texturePixel": pixel,
             "duplicateIdentityError": duplicateIdentityError,
+            "duplicateDescriptorReached": duplicateDescriptorReached,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -381,6 +396,7 @@ enum Harness {
     enum HarnessError: Error {
         case missingFixture
         case noMetal
+        case descriptorRejected
     }
 }
 '''
@@ -455,6 +471,7 @@ class SceneSolidLayerTests(unittest.TestCase):
         error = self.result["duplicateIdentityError"]
         self.assertIn("重复对象 ID（10, 20）", error)
         self.assertIn("duplicate-scene.json", error)
+        self.assertFalse(self.result["duplicateDescriptorReached"])
 
     def test_plain_wrapped_and_missing_colors_resolve_to_rgb(self) -> None:
         document_expected = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], []]
