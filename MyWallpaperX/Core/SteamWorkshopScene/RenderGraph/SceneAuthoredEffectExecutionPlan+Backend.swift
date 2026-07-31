@@ -7,6 +7,7 @@ extension SceneAuthoredEffectExecutionPlan {
         case localContrast(SceneLocalContrastPlan)
         case opacity(SceneOpacityExecutionPlan)
         case colorKey(SceneColorKeyExecutionPlan)
+        case colorGrading(SceneColorGradingExecutionPlan)
         case workshopShiftHue(SceneWorkshopShiftHueExecutionPlan)
         case workshopAudioBars(SceneWorkshopAudioBarsExecutionPlan)
         case workshopGradient(SceneWorkshopGradientExecutionPlan)
@@ -57,6 +58,11 @@ extension SceneAuthoredEffectExecutionPlan {
 
     nonisolated var colorKey: SceneColorKeyExecutionPlan? {
         guard case .colorKey(let plan) = backend else { return nil }
+        return plan
+    }
+
+    nonisolated var colorGrading: SceneColorGradingExecutionPlan? {
+        guard case .colorGrading(let plan) = backend else { return nil }
         return plan
     }
 
@@ -205,6 +211,8 @@ extension SceneAuthoredEffectExecutionPlan {
 
     nonisolated var supportsUtilityCapture: Bool {
         switch backend {
+        case .colorGrading:
+            return true
         case .foliageSway:
             return true
         case .clippingMask, .opacity:

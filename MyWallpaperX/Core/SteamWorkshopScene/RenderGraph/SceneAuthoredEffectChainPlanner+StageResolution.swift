@@ -53,6 +53,18 @@ extension SceneAuthoredEffectChainPlanner {
         ) {
             return stage(.colorKey(colorKey), stageGraph: stageGraph, inputRole: inputRole)
         }
+        if let colorGrading = SceneAuthoredColorGradingPlanner.plan(
+            graph: stageGraph,
+            descriptor: descriptor,
+            shaderContracts: shaderContracts,
+            inputRole: inputRole
+        ) {
+            return stage(
+                .colorGrading(colorGrading),
+                stageGraph: stageGraph,
+                inputRole: inputRole
+            )
+        }
         if let shiftHue = SceneAuthoredWorkshopShiftHuePlanner.plan(
             graph: stageGraph,
             descriptor: descriptor,

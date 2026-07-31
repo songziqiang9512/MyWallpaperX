@@ -5192,14 +5192,15 @@
       ],
       "expected_camera_parallax": false,
       "expected_utility_candidates": 2,
-      "expected_utility_capture_planned": 1,
+      "expected_utility_capture_planned": 2,
       "expected_utility_dependency_edges": 1,
       "expected_utility_named_consumers": 1,
       "expected_utility_named_target_planned": 1,
       "expected_utility_named_binding_planned": 1,
       "expected_utility_named_target_gaps": 0,
       "required_utility_capture_succeeded_layer_ids": [
-        49
+        49,
+        263
       ],
       "required_named_target_capture_succeeded_layer_ids": [
         42
@@ -5221,7 +5222,8 @@
         202,
         211,
         220,
-        232
+        232,
+        263
       ],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
@@ -5237,13 +5239,14 @@
       "expected_authored_effect_graph_water_flow_count": 0,
       "expected_authored_effect_graph_water_waves_count": 4,
       "expected_authored_effect_graph_tint_count": 1,
+      "expected_authored_effect_graph_color_grading_count": 1,
       "expected_authored_effect_graph_blend_count": 0,
       "expected_authored_effect_graph_transform_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
       "expected_authored_effect_graph_chain_count": 1,
-      "expected_authored_effect_graph_stage_count": 13,
+      "expected_authored_effect_graph_stage_count": 14,
       "expected_route_only_effect_count": 1,
       "expected_authored_effect_graph_foliage_sway_count": 0,
       "expected_authored_effect_graph_water_ripple_count": 0

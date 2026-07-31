@@ -30,6 +30,7 @@ extension SceneAuthoredEffectExecutionCatalog {
             "authoredEffectGraphLocalContrastCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.localContrastCount })",
             "authoredEffectGraphOpacityCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.opacityCount })",
             "authoredEffectGraphColorKeyCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.colorKeyCount })",
+            "authoredEffectGraphColorGradingCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.colorGradingCount })",
             "authoredEffectGraphWorkshopShiftHueCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.workshopShiftHueCount })",
             "authoredEffectGraphWorkshopAudioBarsCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.workshopAudioBarsCount })",
             "authoredEffectGraphWorkshopGradientCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.workshopGradientCount })",

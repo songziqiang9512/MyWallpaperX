@@ -2249,22 +2249,28 @@ utility layer 763: skippedHidden kind=composition
             ),
         )
 
-    def test_authored_tint_pulse_and_godrays_counts_are_exact_gates(self) -> None:
+    def test_authored_color_and_godrays_counts_are_exact_gates(self) -> None:
         preview = (
             "authoredEffectGraphTintCount: 24\n"
+            "authoredEffectGraphColorGradingCount: 1\n"
             "authoredEffectGraphPulseCount: 1\n"
             "authoredEffectGraphGodraysCount: 12\n"
         )
         tint_count = benchmark.authored_effect_graph_tint_count(preview)
+        color_grading_count = (
+            benchmark.authored_effect_graph_color_grading_count(preview)
+        )
         pulse_count = benchmark.authored_effect_graph_pulse_count(preview)
         godrays_count = benchmark.authored_effect_graph_godrays_count(preview)
         self.assertEqual(tint_count, 24)
+        self.assertEqual(color_grading_count, 1)
         self.assertEqual(pulse_count, 1)
         self.assertEqual(godrays_count, 12)
         self.assertEqual(
             benchmark.authored_effect_graph_failures(
                 {
                     "expected_authored_effect_graph_tint_count": 24,
+                    "expected_authored_effect_graph_color_grading_count": 1,
                     "expected_authored_effect_graph_pulse_count": 1,
                     "expected_authored_effect_graph_godrays_count": 12,
                 },
@@ -2272,6 +2278,7 @@ utility layer 763: skippedHidden kind=composition
                 [],
                 None,
                 tint_count=tint_count,
+                color_grading_count=color_grading_count,
                 pulse_count=pulse_count,
                 godrays_count=godrays_count,
             ),
@@ -2280,6 +2287,7 @@ utility layer 763: skippedHidden kind=composition
         failures = benchmark.authored_effect_graph_failures(
             {
                 "expected_authored_effect_graph_tint_count": 0,
+                "expected_authored_effect_graph_color_grading_count": 0,
                 "expected_authored_effect_graph_pulse_count": 0,
                 "expected_authored_effect_graph_godrays_count": 0,
             },
@@ -2287,13 +2295,16 @@ utility layer 763: skippedHidden kind=composition
             [],
             None,
             tint_count=tint_count,
+            color_grading_count=color_grading_count,
             pulse_count=pulse_count,
             godrays_count=godrays_count,
         )
         self.assertIn("authored effect graph Tint count mismatch", failures)
+        self.assertIn("authored effect graph Color Grading count mismatch", failures)
         self.assertIn("authored effect graph Pulse count mismatch", failures)
         self.assertIn("authored effect graph Godrays count mismatch", failures)
         self.assertIsNone(benchmark.authored_effect_graph_tint_count(""))
+        self.assertIsNone(benchmark.authored_effect_graph_color_grading_count(""))
         self.assertIsNone(benchmark.authored_effect_graph_pulse_count(""))
         self.assertIsNone(benchmark.authored_effect_graph_godrays_count(""))
 

@@ -140,17 +140,11 @@ enum SceneAuthoredEffectChainRenderer {
                 sourceUniforms: sourceUniforms, pipeline: pipeline,
                 opacityPipeline: opacityPipeline, commandBuffer: commandBuffer
             )
-        case .colorKey(let colorKey):
-            guard let colorKeyPipeline = pipelines.colorKey else { return nil }
-            return renderColorKey(
-                colorKey,
-                sourceTexture: sourceTexture,
-                masks: masks,
-                auxMask: auxMask,
-                targets: targets,
-                sourceUniforms: sourceUniforms,
-                pipeline: pipeline,
-                colorKeyPipeline: colorKeyPipeline,
+        case .colorKey, .colorGrading:
+            return renderColorStage(
+                stage, sourceTexture: sourceTexture, masks: masks, auxMask: auxMask,
+                targets: targets, sourceUniforms: sourceUniforms,
+                sourcePipeline: pipeline, pipelines: pipelines,
                 commandBuffer: commandBuffer
             )
         case .workshopShiftHue, .workshopAudioBars, .workshopGradient,

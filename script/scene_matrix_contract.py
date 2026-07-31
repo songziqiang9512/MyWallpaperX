@@ -172,6 +172,11 @@ AUTHORED_EFFECT_RUNTIME_EXPECTATIONS = (
         "authored effect graph Tint count mismatch",
     ),
     RuntimeExpectation(
+        "expected_authored_effect_graph_color_grading_count",
+        "color_grading_count",
+        "authored effect graph Color Grading count mismatch",
+    ),
+    RuntimeExpectation(
         "expected_authored_effect_graph_pulse_count",
         "pulse_count",
         "authored effect graph Pulse count mismatch",

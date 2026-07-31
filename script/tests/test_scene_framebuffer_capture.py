@@ -42,6 +42,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneOpacityRenderer.swift",
     SOURCE_ROOT / "Effects/SceneColorKeyPipeline.swift",
     SOURCE_ROOT / "Effects/SceneColorKeyRenderer.swift",
+    SOURCE_ROOT / "Effects/SceneColorGradingPipeline.swift",
     SOURCE_ROOT / "Effects/SceneFisheyeZeroDistortionPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShiftHuePipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShiftHueRenderer.swift",
@@ -96,6 +97,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+AudioHueShift.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+WorkshopGradient.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+ColorKey.swift",
+    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+ColorGrading.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Pulse.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+ShiftHue.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Spin.swift",
@@ -251,6 +253,14 @@ struct SceneColorKeyExecutionPlan: Sendable {
     let keyColor: SIMD3<Float>
     let invert: Bool
     let flatten: Bool
+}
+
+struct SceneColorGradingExecutionPlan: Sendable {
+    let luminance: Float
+    let saturation: Float
+    let vibrance: Float
+    let opacity: Float
+    let channelInfluence: SIMD3<Float>
 }
 
 struct SceneWorkshopShiftHueExecutionPlan: Sendable {
@@ -441,6 +451,7 @@ struct SceneAuthoredEffectExecutionPlan {
         case localContrast(SceneLocalContrastPlan)
         case opacity(SceneOpacityExecutionPlan)
         case colorKey(SceneColorKeyExecutionPlan)
+        case colorGrading(SceneColorGradingExecutionPlan)
         case workshopShiftHue(SceneWorkshopShiftHueExecutionPlan)
         case workshopAudioBars(SceneWorkshopAudioBarsExecutionPlan)
         case workshopGradient(SceneWorkshopGradientExecutionPlan)

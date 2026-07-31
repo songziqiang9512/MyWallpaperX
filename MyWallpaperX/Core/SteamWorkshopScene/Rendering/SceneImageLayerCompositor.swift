@@ -290,7 +290,8 @@ struct SceneImageLayerCompositor {
                          .blend, .tint, .transform, .fisheyeZeroDistortion,
                          .pulse, .godrays, .shine, .spin,
                          .proceduralNoise, .filmGrain, .lightShafts,
-                         .colorKey, .workshopShiftHue, .workshopAudioBars, .workshopGradient,
+                         .colorKey, .colorGrading,
+                         .workshopShiftHue, .workshopAudioBars, .workshopGradient,
                          .workshopAudioHueShift, .authoredShader:
                         return nil
                     }

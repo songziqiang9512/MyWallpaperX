@@ -39,6 +39,7 @@ final class SceneImageEffectPipelineRepository {
     private let localContrastSlot: ScenePipelineSlot<SceneLocalContrastPipeline>
     private let opacitySlot: ScenePipelineSlot<SceneOpacityPipeline>
     private let colorKeySlot: ScenePipelineSlot<SceneColorKeyPipeline>
+    private let colorGradingSlot: ScenePipelineSlot<SceneColorGradingPipeline>
     private let shiftHueSlot: ScenePipelineSlot<SceneWorkshopShiftHuePipeline>
     private let audioBarsSlot: ScenePipelineSlot<SceneWorkshopAudioBarsPipeline>
     private let simpleAudioBarsSlot: ScenePipelineSlot<SceneWorkshopSimpleAudioBarsPipeline>
@@ -75,6 +76,7 @@ final class SceneImageEffectPipelineRepository {
         localContrastSlot = .init { SceneLocalContrastPipeline(device: device) }
         opacitySlot = .init { SceneOpacityPipeline(device: device) }
         colorKeySlot = .init { SceneColorKeyPipeline(device: device) }
+        colorGradingSlot = .init { SceneColorGradingPipeline(device: device) }
         shiftHueSlot = .init { SceneWorkshopShiftHuePipeline(device: device) }
         audioBarsSlot = .init { SceneWorkshopAudioBarsPipeline(device: device) }
         simpleAudioBarsSlot = .init { SceneWorkshopSimpleAudioBarsPipeline(device: device) }
@@ -111,6 +113,7 @@ final class SceneImageEffectPipelineRepository {
     func localContrast() -> SceneLocalContrastPipeline? { localContrastSlot.resolve() }
     func opacity() -> SceneOpacityPipeline? { opacitySlot.resolve() }
     func colorKey() -> SceneColorKeyPipeline? { colorKeySlot.resolve() }
+    func colorGrading() -> SceneColorGradingPipeline? { colorGradingSlot.resolve() }
     func shiftHue() -> SceneWorkshopShiftHuePipeline? { shiftHueSlot.resolve() }
     func audioBars() -> SceneWorkshopAudioBarsPipeline? { audioBarsSlot.resolve() }
     func simpleAudioBars() -> SceneWorkshopSimpleAudioBarsPipeline? {

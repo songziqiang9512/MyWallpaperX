@@ -79,6 +79,7 @@ struct SceneOpacityExecutionPlan: Sendable {
 }
 
 struct SceneColorKeyExecutionPlan: Sendable {}
+struct SceneColorGradingExecutionPlan: Sendable {}
 struct SceneWorkshopShiftHueExecutionPlan: Sendable {}
 struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
     enum Profile: Sendable {
@@ -143,6 +144,17 @@ enum SceneAuthoredColorKeyPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneColorKeyExecutionPlan? {
+        nil
+    }
+}
+
+enum SceneAuthoredColorGradingPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole = .layerSource
+    ) -> SceneColorGradingExecutionPlan? {
         nil
     }
 }
