@@ -1,13 +1,14 @@
 extension SceneMetalRenderer {
-    func authoredEffectRuntimeReportLines() -> [String] {
-        authoredEffectCatalog.reportLines
-    }
-
-    func utilityRuntimeReportLines() -> [String] {
-        SceneUtilityLayerRuntimePlanner.reportLines(
+    func runtimeReportLines() -> [String] {
+        let utilityLines = SceneUtilityLayerRuntimePlanner.reportLines(
             descriptor: renderDescriptor,
             authoredEffectCatalog: authoredEffectCatalog
         )
+        let candidateCount = renderDescriptor.layers.filter {
+            $0.contentKind == "spotLight"
+        }.count
+        return utilityLines + authoredEffectCatalog.reportLines
+            + spotLightRuntime.reportLines(candidateCount: candidateCount)
     }
 
     func authoredEffectPlan(for layerID: Int) -> SceneAuthoredEffectExecutionPlan? {

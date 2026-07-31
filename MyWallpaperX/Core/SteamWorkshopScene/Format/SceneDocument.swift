@@ -181,6 +181,7 @@ struct SceneDocumentLoader {
             name: root["name"] as? String,
             imagePath: imagePath,
             particlePath: normalizedPath(root["particle"] as? String),
+            spotLight: SceneSpotLightDefinition.parse(root),
             particleInstanceOverride: SceneParticleDefinitionParser().parseInstanceOverride(
                 root["instanceoverride"]
             ),

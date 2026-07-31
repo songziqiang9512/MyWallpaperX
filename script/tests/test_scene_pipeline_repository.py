@@ -43,6 +43,7 @@ final class SceneStandardBlurPipeline { init?(device: MTLDevice) {} }
 final class SceneLocalContrastPipeline { init?(device: MTLDevice) {} }
 final class SceneOpacityPipeline { init?(device: MTLDevice) {} }
 final class SceneColorKeyPipeline { init?(device: MTLDevice) {} }
+final class SceneColorGradingPipeline { init?(device: MTLDevice) {} }
 final class SceneWorkshopShiftHuePipeline { init?(device: MTLDevice) {} }
 final class SceneWorkshopAudioBarsPipeline { init?(device: MTLDevice) {} }
 final class SceneWorkshopSimpleAudioBarsPipeline { init?(device: MTLDevice) {} }
@@ -52,6 +53,7 @@ final class SceneSpinPipeline { init?(device: MTLDevice) {} }
 final class SceneProceduralNoisePipeline { init?(device: MTLDevice) {} }
 final class SceneFilmGrainPipeline { init?(device: MTLDevice) {} }
 final class SceneLightShaftsPipeline { init?(device: MTLDevice) {} }
+final class SceneSpotLightPipeline { init?(device: MTLDevice) {} }
 final class SceneShakePipeline { init?(device: MTLDevice) {} }
 final class SceneWaterFlowPipeline { init?(device: MTLDevice) {} }
 final class SceneWaterWavesPipeline { init?(device: MTLDevice) {} }

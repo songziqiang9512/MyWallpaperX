@@ -8,6 +8,7 @@ extension SceneRenderDescriptor {
         let contentKind: String
         let imagePath: String?
         let particlePath: String?
+        var spotLight: SceneSpotLightDefinition? = nil
         let particleInstanceOverride: SceneParticleInstanceOverride?
         let utilityLayer: SceneUtilityLayer?
         let dependencyLayerIDs: [Int]

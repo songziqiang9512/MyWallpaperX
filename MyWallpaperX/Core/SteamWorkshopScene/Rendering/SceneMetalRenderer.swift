@@ -15,6 +15,7 @@ struct SceneMetalRenderer {
     private let utilityPlansByTriggerLayerID: [Int: [SceneUtilityLayerRuntimePlan]]
     let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
     let sceneScriptAudioBarsPlansByLayerID: [Int: SceneScriptAudioBarsPlan]
+    let spotLightRuntime: SceneSpotLightRuntime
     private let dependencyRuntime: SceneDependencyFrameRuntime
     private let textureRegistry = SceneFrameTextureRegistry()
     private let utilityCaptureTelemetry = SceneGPUCompletionTelemetry(phase: "utility-capture")
@@ -41,6 +42,7 @@ struct SceneMetalRenderer {
         self.visibleLayerIDs = visibleLayerIDs
         self.authoredEffectCatalog = authoredEffectCatalog
         self.sceneScriptAudioBarsPlansByLayerID = Dictionary(uniqueKeysWithValues: sceneScriptAudioBarsProgram.plans.map { ($0.layerID, $0) })
+        self.spotLightRuntime = SceneSpotLightRuntime(descriptor: renderDescriptor, pipeline: pipelineRepository.spotLight())
         let executableUtilityConsumerLayerIDs = SceneUtilityLayerRuntimePlanner
             .executableUtilityConsumerLayerIDs(in: renderDescriptor, authoredEffectCatalog: authoredEffectCatalog)
         self.dependencyRuntime = SceneDependencyFrameRuntime(
@@ -62,20 +64,9 @@ struct SceneMetalRenderer {
             by: \.triggerLayerID
         )
         self.worldFramesByLayerID = SceneLayerWorldFrameResolver.compute(
-            layers: renderDescriptor.layers,
-            byID: byID,
-            sceneOrthoHeight: renderDescriptor.camera.orthoHeight
+            descriptor: renderDescriptor, byID: byID
         )
-        let parallaxNodes = byID.mapValues { layer in
-            SceneLayerParallax.Node(
-                id: layer.id, parentID: layer.parentID,
-                depth: SIMD2(layer.parallaxDepthXY ?? [], fill: 0),
-                propagatesToChildren: !layer.disablesParallaxPropagation
-            )
-        }
-        self.parallaxByLayerID = Dictionary(uniqueKeysWithValues: byID.keys.compactMap { id in
-            SceneLayerParallax.resolve(layerID: id, nodesByID: parallaxNodes).map { (id, $0) }
-        })
+        self.parallaxByLayerID = SceneLayerParallax.resolveAll(layersByID: byID)
     }
 
     func renderFrame(
@@ -289,6 +280,14 @@ struct SceneMetalRenderer {
                     layerID: layer.id,
                     encoded: encoded,
                     on: commandBuffer
+                )
+            case "spotLight":
+                spotLightRuntime.render(
+                    layerID: layer.id, worldFrame: worldFramesByLayerID[layer.id],
+                    frame: .init(
+                        frameContext: frameContext, cameraFrame: cameraFrame,
+                        mainPass: mainPass, commandBuffer: commandBuffer
+                    )
                 )
             case "particle":
                 guard let particlePipeline,

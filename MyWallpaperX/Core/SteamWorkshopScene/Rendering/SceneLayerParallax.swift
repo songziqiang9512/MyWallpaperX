@@ -20,6 +20,21 @@ nonisolated enum SceneLayerParallax {
         let orthoSize: SIMD2<Float>
     }
 
+    nonisolated static func resolveAll(
+        layersByID: [Int: SceneRenderDescriptor.Layer]
+    ) -> [Int: Resolution] {
+        let nodesByID = layersByID.mapValues { layer in
+            Node(
+                id: layer.id, parentID: layer.parentID,
+                depth: SIMD2(layer.parallaxDepthXY ?? [], fill: 0),
+                propagatesToChildren: !layer.disablesParallaxPropagation
+            )
+        }
+        return Dictionary(uniqueKeysWithValues: layersByID.keys.compactMap { id in
+            resolve(layerID: id, nodesByID: nodesByID).map { (id, $0) }
+        })
+    }
+
     nonisolated static func resolve(
         layerID: Int,
         nodesByID: [Int: Node]

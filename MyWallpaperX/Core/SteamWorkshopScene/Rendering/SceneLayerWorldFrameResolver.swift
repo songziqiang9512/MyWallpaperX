@@ -2,6 +2,17 @@ import simd
 
 nonisolated enum SceneLayerWorldFrameResolver {
     nonisolated static func compute(
+        descriptor: SceneRenderDescriptor,
+        byID: [Int: SceneRenderDescriptor.Layer]
+    ) -> [Int: simd_float4x4] {
+        compute(
+            layers: descriptor.layers,
+            byID: byID,
+            sceneOrthoHeight: descriptor.camera.orthoHeight
+        )
+    }
+
+    nonisolated static func compute(
         layers: [SceneRenderDescriptor.Layer],
         byID: [Int: SceneRenderDescriptor.Layer],
         sceneOrthoHeight: Float?

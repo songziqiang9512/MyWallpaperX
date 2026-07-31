@@ -140,8 +140,7 @@ class SceneMetalView: NSView {
         let imageLayers = renderer.renderDescriptor.layers.filter(\.isImageRenderable)
         report.append("imageLayerCount: \(imageLayers.count)")
         report.append("solidLayerCount: \(imageLayers.filter { $0.contentKind == "solid" }.count)")
-        report.append(contentsOf: renderer.utilityRuntimeReportLines())
-        report.append(contentsOf: renderer.authoredEffectRuntimeReportLines())
+        report.append(contentsOf: renderer.runtimeReportLines())
         report.append(contentsOf: SceneImageBlendRenderPlan(
             descriptor: renderer.renderDescriptor,
             visibleLayerIDs: SceneLayerVisibility.visibleLayerIDs(in: renderer.renderDescriptor)

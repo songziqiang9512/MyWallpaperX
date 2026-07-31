@@ -98,6 +98,7 @@ struct SceneRenderDescriptorBuilder {
                     contentKind: contentKind,
                     imagePath: object.imagePath,
                     particlePath: object.particlePath,
+                    spotLight: object.spotLight,
                     particleInstanceOverride: object.particleInstanceOverride,
                     utilityLayer: object.utilityLayer,
                     dependencyLayerIDs: object.dependencyLayerIDs,
@@ -241,6 +242,9 @@ struct SceneRenderDescriptorBuilder {
         }
         if object.particlePath != nil {
             return "particle"
+        }
+        if object.spotLight != nil {
+            return "spotLight"
         }
         if object.text != nil {
             return "text"

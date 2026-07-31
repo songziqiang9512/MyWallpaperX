@@ -17,6 +17,7 @@ DOCUMENT_SOURCES = [
     SOURCE_ROOT / "Format/SceneDocument+ShaderValue.swift",
     SOURCE_ROOT / "Format/SceneDocument+Timeline.swift",
     SOURCE_ROOT / "Format/SceneDocumentObject.swift",
+    SOURCE_ROOT / "Format/SceneSpotLightDefinition.swift",
     SOURCE_ROOT / "Text/SceneTextScriptDefinition.swift",
     SOURCE_ROOT / "Format/SceneDocument+NumericParsing.swift",
     SOURCE_ROOT / "Format/ScenePuppetAnimationLayer.swift",
@@ -29,6 +30,7 @@ DOCUMENT_SOURCES = [
 LAYER_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
+    SOURCE_ROOT / "Format/SceneSpotLightDefinition.swift",
     SOURCE_ROOT / "Runtime/SceneRenderDescriptor+Layer.swift",
 ]
 
