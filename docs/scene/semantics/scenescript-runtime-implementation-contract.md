@@ -38,7 +38,7 @@
 | 能力面 | 当前边界 | 当前状态入口 |
 |---|---|---|
 | 通用 ECMAScript VM、module、owner/handle、event 与 timer | 未实现，保持 `L0` | [SceneScript API 覆盖表](scenescript-api-coverage.md) |
-| layer 顶层 property wrapper | 可保真保存 host/inline source/properties/authored fallback，局部 `L1` | [SceneScript API 覆盖表 §2](scenescript-api-coverage.md#2-property-bound-核心合同) |
+| 文档级 inline property wrapper | 正式取证五类位置可保真保存 scene/object/effect/pass owner、完整 target path、source/properties/authored fallback/JSON value type，局部 `L1`；nested/未知 owner 不提升，`script + user` 冲突 fail-closed | [SceneScript API 覆盖表 §2](scenescript-api-coverage.md#2-property-bound-核心合同) |
 | exact native text/audio profiles | 受完整指纹约束的 `L3 bounded`，不执行 JavaScript、不开放 API | [运行证据索引](runtime-evidence-index.md) |
 | Timeline | 已有部分 target/evaluator 的 `L2-L3`，不能由此推导 SceneScript runtime | [覆盖台账 §6.1](coverage-ledger.md#61-timeline-与-scenescript) |
 

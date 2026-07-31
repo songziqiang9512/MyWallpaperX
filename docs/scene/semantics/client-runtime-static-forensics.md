@@ -44,7 +44,7 @@
 截至 2026-07-31，与本文最相关的项目现状是：
 
 - RenderGraph 已有保真 IR、typed command 基础和多个 strict/bounded executor，但仍没有通用 authored command-graph 或通用 shader executor；
-- 通用 SceneScript runtime 仍为 `L0`，顶层 wrapper 保真为局部 `L1`；exact native text/audio profiles 不执行 JavaScript，也不升级任何通用 API；
+- 通用 SceneScript runtime 仍为 `L0`，正式取证五类 inline binding 的 owner/完整 target path/authored fallback/JSON value type 保真为局部 `L1`；exact native text/audio profiles 不执行 JavaScript，也不升级任何通用 API；
 - 粒子已有多项受限 `L3` 子集，但 factory/dispatcher 的静态宽度不代表 component 数学、随机状态或视觉轨迹已兼容；
 - 内嵌 MP4 image-layer 是受限 `L3`；Sound、系统媒体和 SceneScript video handle 仍是独立缺口。
 

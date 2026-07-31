@@ -48,6 +48,8 @@ struct SceneDocument {
     let effectCount: Int
     let referencedResourcePaths: [String]
     let objects: [SceneObject]
+    let scriptBindings: [SceneScriptBindingIR]
+    let scriptBindingDiagnostics: [SceneScriptBindingDiagnostic]
     let userPropertyResolution: SceneUserPropertyResolution
 }
 
@@ -95,6 +97,9 @@ struct SceneDocumentLoader {
         guard let sourceRoot = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw LoadError.invalidSceneJSON(sourceURL)
         }
+        // Script IR 必须读取作者原始 wrapper；property resolver 会按运行覆盖改写 `value`，
+        // 不能让当前用户值冒充 authored fallback。
+        let scriptBindings = SceneScriptBindingIRParser.parse(document: sourceRoot)
         let propertyResolution = SceneUserPropertyDocumentResolver().resolve(
             root: sourceRoot,
             catalog: propertyCatalog,
@@ -125,6 +130,8 @@ struct SceneDocumentLoader {
                 $0.localizedStandardCompare($1) == .orderedAscending
             },
             objects: objects,
+            scriptBindings: scriptBindings.bindings,
+            scriptBindingDiagnostics: scriptBindings.diagnostics,
             userPropertyResolution: propertyResolution
         )
     }

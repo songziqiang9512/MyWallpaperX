@@ -114,6 +114,14 @@
 - 运行门：`.codex/scene-timeline-t2-20260727/report.json` 5/5，preview 日志同目录。确定性求值证据（首帧与半程各一次，不依赖像素归因）：`3769688830` 六条 loop effect alpha 均 `value@0=0.00000 → value@half=0.59646`；`3769364482` 的 `rayintensity` `-0.02653 → -0.08842`，与作者关键帧 `(0, -0.026534296)`、`(189, -0.10451264)` 的线性插值手算吻合（负值是作者数据本身）；`3028090166` 三条 layer alpha 生效且 layer 23 的 `scale` 因 `relative` 留诊断；负门 `2067939514` 的 `startpaused` 动画 `value@0 == value@half == 1.00000`，确实停在首帧。
 - 边界：真实执行只覆盖 single 21 + loop 7，**Mirror 真实样本 0 处执行**（6 处全在被 `relative` 拒绝的 layer transform 上）；tangent 只保真不消费、插值走线性；`relative`、Combined Animation、Animation Event 与粒子 `instanceoverride` 均未执行；无 Windows golden。
 
+<a id="e-scenescript-ir"></a>
+### E-SCENESCRIPT-IR: inline property binding 文档级 IR
+
+- 代码：[SceneScriptBindingDefinition.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneScriptBindingDefinition.swift)、[SceneDocument.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift)。
+- 静态输入合同：[SceneScript binding target 取证](scenescript-binding-target-forensics.md) 确认随包 13 处覆盖 scene general、object transform、layer visibility、effect visibility、effect-pass constant 五类位置；wrapper 的 `script` 与 authored `value` 同处，`script`/`user` 在已见语料中互斥。
+- 自动门：[test_scene_script_binding_parser.py](../../../script/tests/test_scene_script_binding_parser.py) 用项目自有 source/fixture 锁定 13-shape owner/path/value-type round-trip、完整 `scriptproperties`、float32 展开 number、两种 Vec3 字符串字面量原样保真、`script + user` 冲突拒绝、nested/未知 owner 不误挂，以及旧 descriptor layer cache 缺 key 仍可解码。
+- 边界：这是静态 `L1` IR，不解析导出 hook、不执行 JavaScript，也不建立 file/module graph、schema-resolved Vec/value type、runtime handle、事件、timer 或 owner lifecycle；exact native text/audio profiles 的执行证据仍分别见 [E-TEXT-SCRIPT](#e-text-script) 与 [E-SCENESCRIPT-AUDIO-BARS](#e-scenescript-audio-bars)。
+
 <a id="e-parallax"></a>
 ### E-PARALLAX: Camera Parallax 与受限 pointer 投影
 

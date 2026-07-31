@@ -41,7 +41,7 @@ D3 + D4 + D5 + D6 + D7 + D8
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
 | project/scene/PKG/TEX/resource ingest | 常见子集 `L3` | version、case、duplicate、symlink、损坏和 VFS golden |
-| object/content/effect/material/particle/script source preservation | 混合 `L0-L3`；layer 顶层 property wrapper 的 host/inline source/properties/authored fallback 为 `L1` | raw + typed round-trip；generic file/module/value type 与未知字段可诊断，不静默丢失 |
+| object/content/effect/material/particle/script source preservation | 混合 `L0-L3`；SceneScript 文档级 inline binding 已保真五类 owner/完整 target path/properties/authored fallback/JSON value type，局部 `L1` | raw + typed round-trip；file/module、schema-resolved value type、handle 与未知 owner 可诊断，不静默丢失 |
 | typed renderer input | `a77b875` 起宿主接收原始项目目录与属性覆盖，解析后直接构建内存 `SceneRuntimeInput`；生产播放不再生成或读取私有解释 JSON/preview log | 已闭合：Debug 结构证据只写入显式 evidence directory 的 `scene-runtime-evidence.json`（schema 1），不作为播放输入；固定 13 样本 raw-root 门 13/13 |
 
 <a id="d1"></a>

@@ -305,7 +305,7 @@ Timeline 由 runtime time 求值，不应按“每渲染帧加一个 keyframe st
 
 实现不能只嵌入一个通用 JavaScript VM。必须先有 typed layer/effect/text/particle/material target 和确定生命周期，否则大部分脚本即使能执行也没有可写对象。
 
-当前实现只把 layer 顶层 property wrapper 的 `host`、inline source、properties 与 authored fallback 保真进 IR（`L1`），并将三个 text source profile 与两个 64-band audio source profile 编译为严格失败关闭的 native `L3 bounded` consumer。audio profile 的 64 次 Metal draw 是 renderer instance，不产生动态 Scene layer、`ILayer` handle 或 topology；ECMAScript VM、`registerAudioBuffers`、`AudioBuffers` object、`createLayer`、事件和生命周期仍全部为 `L0`。
+当前实现把文档级 inline property binding 的 scene/object/effect/pass owner、完整 JSON target path、source、properties、authored fallback 与 JSON value type 保真进 IR（`L1`），正式取证五类位置有 13-shape 自建门；nested/未知 owner 不提升，`script + user` 冲突 fail-closed。三个 text source profile与两个 64-band audio source profile另被编译为严格失败关闭的 native `L3 bounded` consumer。audio profile 的 64 次 Metal draw 是 renderer instance，不产生动态 Scene layer、`ILayer` handle 或 topology；file/module、schema-resolved value type、ECMAScript VM、`registerAudioBuffers`、`AudioBuffers` object、`createLayer`、事件和生命周期仍全部为 `L0`。
 
 ### 5.4 安全和资源边界
 
