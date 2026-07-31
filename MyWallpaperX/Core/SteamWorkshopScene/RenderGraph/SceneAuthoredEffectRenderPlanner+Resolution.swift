@@ -154,21 +154,25 @@ extension SceneAuthoredEffectRenderPlanner {
     nonisolated static func targetExtent(
         _ framebuffer: SceneEffectDefinition.Framebuffer
     ) -> Plan.TargetExtent {
-        let scale = framebuffer.scale?.numberValue
-        let fit = framebuffer.fit?.numberValue
-        let width = framebuffer.width?.numberValue
-        let height = framebuffer.height?.numberValue
-        let declared = [scale != nil, fit != nil, width != nil || height != nil].filter { $0 }.count
-        guard declared <= 1 else { return .init(kind: .unsupported, first: nil, second: nil) }
-        if let scale, scale > 0 { return .init(kind: .scale, first: scale, second: nil) }
-        if let fit, fit > 0 { return .init(kind: .fit, first: fit, second: nil) }
-        if let width, let height, width > 0, height > 0 {
-            return .init(kind: .absolute, first: width, second: height)
+        let authoredValues = [
+            framebuffer.width,
+            framebuffer.height,
+            framebuffer.fit,
+            framebuffer.scale,
+        ]
+        guard authoredValues.allSatisfy({ value in
+            guard let value else { return true }
+            guard let number = value.numberValue else { return false }
+            return number.isFinite && number > 0
+        }) else {
+            return .init(kind: .unsupported, first: nil, second: nil)
         }
-        if scale == nil, fit == nil, width == nil, height == nil {
-            return .init(kind: .input, first: nil, second: nil)
-        }
-        return .init(kind: .unsupported, first: nil, second: nil)
+        return .init(
+            width: framebuffer.width?.numberValue,
+            height: framebuffer.height?.numberValue,
+            fit: framebuffer.fit?.numberValue,
+            scale: framebuffer.scale?.numberValue
+        )
     }
 
     nonisolated static func commandCompatible(

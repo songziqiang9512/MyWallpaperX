@@ -194,6 +194,27 @@ enum Harness {
         }
     }
 
+    static func extentSummary(
+        _ extent: Graph.TargetExtent,
+        inputWidth: Int = 1920,
+        inputHeight: Int = 1080
+    ) -> [Int] {
+        guard let resolved = SceneGraphRenderTargetPlan.pixelExtent(
+            extent,
+            inputWidth: inputWidth,
+            inputHeight: inputHeight
+        ) else {
+            return [-1, -1]
+        }
+        return [resolved.width, resolved.height]
+    }
+
+    static func encodedExtentKeys(_ extent: Graph.TargetExtent) throws -> [String] {
+        let data = try JSONEncoder().encode(extent)
+        let object = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        return object.keys.sorted()
+    }
+
     static func main() throws {
         let key = Graph.EffectKey(layerID: 10, effectIndex: 0, descriptorID: "10#effect#1")
         let input = texture(.layerSource)
@@ -202,6 +223,45 @@ enum Harness {
         let q2 = texture(.framebuffer, key: key, name: "q2")
         let scaleFour = Graph.TargetExtent(kind: .scale, first: 4, second: nil)
         let inputExtent = Graph.TargetExtent(kind: .input, first: nil, second: nil)
+        let composedExtent = Graph.TargetExtent(
+            width: 1000,
+            height: nil,
+            fit: 600,
+            scale: 2
+        )
+        let oneAxisNoUpscale = Graph.TargetExtent(
+            width: nil,
+            height: 720,
+            fit: 2000,
+            scale: nil
+        )
+        let absoluteExtent = Graph.TargetExtent(
+            width: 640,
+            height: 480,
+            fit: nil,
+            scale: nil
+        )
+        let upscaleDivisor = Graph.TargetExtent(
+            width: nil,
+            height: nil,
+            fit: nil,
+            scale: 0.5
+        )
+        let minimumExtent = Graph.TargetExtent(
+            width: nil,
+            height: nil,
+            fit: nil,
+            scale: 10_000
+        )
+        let encodedComposedExtent = try JSONEncoder().encode(composedExtent)
+        let decodedComposedExtent = try JSONDecoder().decode(
+            Graph.TargetExtent.self,
+            from: encodedComposedExtent
+        )
+        let decodedLegacyScaleExtent = try JSONDecoder().decode(
+            Graph.TargetExtent.self,
+            from: Data(#"{"kind":"scale","first":4}"#.utf8)
+        )
 
         let standard = graph(
             targets: [target(q1, extent: scaleFour), target(q2, extent: scaleFour)],
@@ -456,6 +516,27 @@ enum Harness {
             "unsupportedFormatFailure": failure(unsupportedFormat),
             "countMismatchFailure": failure(standard, materialNodeCount: 3),
             "roleMismatchFailure": failure(roleMismatch),
+            "composedExtent": extentSummary(composedExtent),
+            "oneAxisNoUpscale": extentSummary(oneAxisNoUpscale),
+            "absoluteExtent": extentSummary(absoluteExtent),
+            "upscaleDivisor": extentSummary(upscaleDivisor),
+            "minimumExtent": extentSummary(
+                minimumExtent,
+                inputWidth: 3,
+                inputHeight: 2
+            ),
+            "composedExtentEncodedKeys": try encodedExtentKeys(composedExtent),
+            "legacyScaleEncodedKeys": try encodedExtentKeys(scaleFour),
+            "composedExtentRoundTrip": extentSummary(decodedComposedExtent),
+            "legacyScaleExtent": extentSummary(decodedLegacyScaleExtent),
+            "invalidExtentsRejected": [
+                Graph.TargetExtent(width: 0, height: nil, fit: nil, scale: nil),
+                Graph.TargetExtent(width: nil, height: nil, fit: nil, scale: 0),
+                Graph.TargetExtent(width: .nan, height: nil, fit: nil, scale: nil),
+                Graph.TargetExtent(width: nil, height: .infinity, fit: nil, scale: nil),
+            ].allSatisfy {
+                extentSummary($0) == [-1, -1]
+            },
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -656,6 +737,23 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
             self.result["incompatibleCommandFailure"],
             "unsupportedTargetDescriptor",
         )
+
+    def test_extent_operations_are_composed_in_authored_order(self) -> None:
+        self.assertEqual(self.result["composedExtent"], [277, 300])
+        self.assertEqual(self.result["oneAxisNoUpscale"], [1920, 720])
+        self.assertEqual(self.result["absoluteExtent"], [640, 480])
+        self.assertEqual(self.result["upscaleDivisor"], [3840, 2160])
+        self.assertEqual(self.result["minimumExtent"], [1, 1])
+        self.assertEqual(
+            self.result["composedExtentEncodedKeys"],
+            ["fit", "kind", "scale", "width"],
+        )
+        self.assertEqual(self.result["legacyScaleEncodedKeys"], ["first", "kind"])
+        self.assertEqual(self.result["composedExtentRoundTrip"], [277, 300])
+        self.assertEqual(self.result["legacyScaleExtent"], [480, 270])
+
+    def test_invalid_extent_values_fail_closed(self) -> None:
+        self.assertTrue(self.result["invalidExtentsRejected"])
 
     def test_duplicate_and_incomplete_identities_fail_closed(self) -> None:
         self.assertEqual(self.result["duplicateFailure"], "duplicateTarget")

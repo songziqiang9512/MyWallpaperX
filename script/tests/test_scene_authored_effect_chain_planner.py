@@ -17,6 +17,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneShaderContract.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredLocalContrastPlanner.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionChain.swift",
@@ -289,7 +291,9 @@ enum SceneAuthoredWaterWavesPlanner {
     }
 }
 
-struct SceneCursorRippleExecutionPlan {}
+struct SceneCursorRippleExecutionPlan {
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+}
 struct SceneIrisInlineSuffixPlan {}
 
 enum SceneAuthoredCursorRipplePlanner {
@@ -922,6 +926,70 @@ enum Harness {
             materialNodeCount: identityGraph.nodes.count,
             logicalRenderTargetCount: 0
         )
+        func budgetStage(
+            _ extent: Graph.TargetExtent,
+            logicalTargetCount: Int = 1
+        ) -> SceneAuthoredEffectExecutionPlan {
+            let key = Graph.EffectKey(
+                layerID: layerID,
+                effectIndex: 0,
+                descriptorID: "42#budget"
+            )
+            let target = texture(.framebuffer, effect: key, name: "budget")
+            let graph = Graph(
+                layerID: layerID,
+                effects: [],
+                renderTargets: [.init(
+                    texture: target,
+                    extent: extent,
+                    format: "rgba_backbuffer",
+                    declaredUnique: false,
+                    clear: nil,
+                    uvs: nil,
+                    conditions: nil
+                )],
+                nodes: [],
+                finalOutput: texture(.effectOutput, effect: key),
+                blockers: []
+            )
+            return SceneAuthoredEffectExecutionPlan(
+                layerID: layerID,
+                renderGraph: graph,
+                backend: .tint(SceneTintExecutionPlan()),
+                materialNodeCount: 0,
+                logicalRenderTargetCount: logicalTargetCount
+            )
+        }
+        let absoluteExpanded = budgetStage(.init(
+            width: 4096,
+            height: 4096,
+            fit: nil,
+            scale: nil
+        ))
+        let singleAxisExpanded = budgetStage(.init(
+            width: 8192,
+            height: nil,
+            fit: nil,
+            scale: nil
+        ))
+        let scaleExpanded = budgetStage(.init(
+            width: nil,
+            height: nil,
+            fit: nil,
+            scale: 0.5
+        ))
+        let composedReduced = budgetStage(.init(
+            width: 4096,
+            height: nil,
+            fit: 1024,
+            scale: 2
+        ))
+        let invalidExtents = [
+            Graph.TargetExtent(width: 0, height: nil, fit: nil, scale: nil),
+            Graph.TargetExtent(width: nil, height: nil, fit: nil, scale: 0),
+            Graph.TargetExtent(width: .nan, height: nil, fit: nil, scale: nil),
+            Graph.TargetExtent(width: nil, height: .infinity, fit: nil, scale: nil),
+        ]
         let catalog = SceneAuthoredEffectExecutionCatalog(
             descriptor: validDescriptor,
             authoredPlans: [validGraph]
@@ -1002,6 +1070,34 @@ enum Harness {
                     !SceneAuthoredEffectChainPlanner.fitsDefaultTextureBudget(
                         chain.stages + [chain.stages[0]]
                     ),
+                "absoluteBoundaryFits":
+                    SceneAuthoredEffectChainPlanner.fitsDefaultTextureBudget(
+                        [identityStage, absoluteExpanded]
+                    ),
+                "absoluteOnePastRejected":
+                    !SceneAuthoredEffectChainPlanner.fitsDefaultTextureBudget(
+                        [identityStage, absoluteExpanded, identityStage]
+                    ),
+                "singleAxisExpandedRejected":
+                    !SceneAuthoredEffectChainPlanner.fitsDefaultTextureBudget(
+                        [identityStage, singleAxisExpanded, identityStage]
+                    ),
+                "scaleBelowOneExpandedRejected":
+                    !SceneAuthoredEffectChainPlanner.fitsDefaultTextureBudget(
+                        [identityStage, scaleExpanded, identityStage]
+                    ),
+                "composedReducedFits":
+                    SceneAuthoredEffectChainPlanner.fitsDefaultTextureBudget(
+                        [identityStage, composedReduced, identityStage]
+                    ),
+                "invalidExtentsRejected": invalidExtents.allSatisfy {
+                    !SceneAuthoredEffectChainPlanner.fitsDefaultTextureBudget([
+                        budgetStage($0)
+                    ])
+                        && !SceneAuthoredEffectChainPlanner.fitsDefaultTextureBudget([
+                            budgetStage($0, logicalTargetCount: 0)
+                        ])
+                },
             ],
             "catalog": [
                 "chainLayers": catalog.chainsByLayerID.keys.sorted(),
@@ -1123,6 +1219,12 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         self.assertTrue(success["fitsDefaultTextureBudget"])
         self.assertTrue(success["mixedSevenUnitChainFitsBudget"])
         self.assertTrue(success["oversizedChainRejected"])
+        self.assertTrue(success["absoluteBoundaryFits"])
+        self.assertTrue(success["absoluteOnePastRejected"])
+        self.assertTrue(success["singleAxisExpandedRejected"])
+        self.assertTrue(success["scaleBelowOneExpandedRejected"])
+        self.assertTrue(success["composedReducedFits"])
+        self.assertTrue(success["invalidExtentsRejected"])
 
     def test_catalog_reports_chain_counts_without_exposing_single_stage_plan(self) -> None:
         catalog = self.result["catalog"]

@@ -94,6 +94,29 @@ LEGACY_COMPOSE = {
     "fbos": [],
 }
 
+COMPOSED_EXTENT = {
+    "passes": [
+        {
+            "material": "materials/composed-x.json",
+            "target": "composed",
+            "bind": [{"name": "previous", "index": 0}],
+        },
+        {
+            "material": "materials/composed-y.json",
+            "bind": [{"name": "composed", "index": 0}],
+        },
+    ],
+    "fbos": [
+        {
+            "name": "composed",
+            "width": 1000,
+            "fit": 600,
+            "scale": 2,
+            "format": "rgba_backbuffer",
+        }
+    ],
+}
+
 MALFORMED = {
     "passes": [
         {
@@ -117,6 +140,8 @@ MALFORMED = {
         },
         {"name": "left", "scale": 1, "format": "rgba_backbuffer", "unique": True},
         {"name": "right", "scale": 1, "format": "rgba_backbuffer"},
+        {"name": "bad-scale", "scale": "2", "format": "rgba_backbuffer"},
+        {"name": "bad-width", "width": 0, "format": "rgba_backbuffer"},
     ],
 }
 
@@ -177,7 +202,10 @@ enum Harness {
 
     static func main() throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
-        let names = ["blur", "motion", "legacy-compose", "fluid", "compose", "malformed"]
+        let names = [
+            "blur", "motion", "legacy-compose", "composed-extent",
+            "fluid", "compose", "malformed",
+        ]
         let definitions = try names.map { name in
             try SceneEffectDefinitionLoader().load(
                 from: root.appendingPathComponent("\(name).json"),
@@ -207,6 +235,9 @@ enum Harness {
                 effect("blur-second", "effects/blur/effect.json", passCount: 4),
             ]),
             .init(id: 60, effects: [effect("bad-a", "effects/malformed/effect.json", passCount: 1)]),
+            .init(id: 70, effects: [
+                effect("composed-a", "effects/composed-extent/effect.json", passCount: 2),
+            ]),
         ]
         let plans = SceneAuthoredEffectRenderPlanner.plans(for: .init(
             layers: layers,
@@ -221,9 +252,11 @@ enum Harness {
         let legacyCompose = byLayer[45]!
         let scoped = byLayer[50]!
         let malformed = byLayer[60]!
+        let composed = byLayer[70]!
         let motionTargets = Dictionary(uniqueKeysWithValues: motion.renderTargets.map {
             ($0.texture.name ?? "", $0)
         })
+        let composedExtent = composed.renderTargets[0].extent
 
         let result: [String: Any] = [
             "blurKinds": blur.nodes.map { $0.kind.rawValue },
@@ -277,6 +310,14 @@ enum Harness {
             "firstOutput": textureKey(scoped.effects[0].output),
             "malformedBlockers": malformed.blockers.map { $0.reason.rawValue },
             "malformedStructural": malformed.isStructurallyResolved,
+            "composedStructural": composed.isStructurallyResolved,
+            "composedExtent": [
+                composedExtent.kind.rawValue,
+                String(composedExtent.width ?? -1),
+                String(composedExtent.height ?? -1),
+                String(composedExtent.fit ?? -1),
+                String(composedExtent.scale ?? -1),
+            ],
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -298,6 +339,7 @@ class SceneEffectRenderGraphTests(unittest.TestCase):
             "fluid": FLUID,
             "compose": COMPOSE,
             "legacy-compose": LEGACY_COMPOSE,
+            "composed-extent": COMPOSED_EXTENT,
             "malformed": MALFORMED,
         }.items():
             (root / f"{name}.json").write_text(json.dumps(fixture), encoding="utf-8")
@@ -383,6 +425,13 @@ class SceneEffectRenderGraphTests(unittest.TestCase):
         self.assertEqual(self.result["secondInput"], self.result["firstOutput"])
         self.assertEqual(self.result["secondInput"], "effectOutput:50:0:-")
 
+    def test_composed_extent_preserves_each_authored_operation(self) -> None:
+        self.assertTrue(self.result["composedStructural"])
+        self.assertEqual(
+            self.result["composedExtent"],
+            ["composed", "1000.0", "-1.0", "600.0", "2.0"],
+        )
+
     def test_malformed_graph_is_diagnostic_and_ineligible(self) -> None:
         self.assertFalse(self.result["malformedStructural"])
         reasons = self.result["malformedBlockers"]
@@ -392,6 +441,7 @@ class SceneEffectRenderGraphTests(unittest.TestCase):
         self.assertIn("incompatibleCommand", reasons)
         self.assertIn("invalidFramebufferUnique", reasons)
         self.assertIn("invalidFramebufferClear", reasons)
+        self.assertIn("unsupportedFramebufferExtent", reasons)
 
 
 if __name__ == "__main__":

@@ -278,25 +278,23 @@ enum SceneAuthoredEffectChainPlanner {
     nonisolated static func fitsDefaultTextureBudget(
         _ stages: [SceneAuthoredEffectExecutionPlan]
     ) -> Bool {
-        if stages.allSatisfy({ $0.logicalRenderTargetCount == 0 }) {
+        if stages.allSatisfy({
+            $0.logicalRenderTargetCount == 0 && $0.renderGraph.renderTargets.isEmpty
+        }) {
             return !stages.isEmpty
         }
-        // 与运行时 SceneGraphRenderTargetTable 的字节口径一致：混合链每 stage
-        // 独立分配 input/output 各 1 个全尺寸单位，logical RT 按 extent 折算
-        // （scale=s → 1/s²）；运行时不支持或声明数不符的形态按整张保守计。
+        // 混合链每 stage 独立计 input/output 两张全尺寸纹理；已声明 RT
+        // 按完整 extent 折算，缺失声明按整张补足，非法 extent 直接拒绝。
         var textureUnits = 0.0
         for stage in stages {
             var stageUnits = 2.0
             let declaredTargets = stage.renderGraph.renderTargets
-            if declaredTargets.count == stage.logicalRenderTargetCount {
-                for target in declaredTargets {
-                    stageUnits += renderTargetUnitCost(target.extent)
-                }
-            } else {
-                stageUnits += Double(
-                    max(declaredTargets.count, stage.logicalRenderTargetCount)
-                )
-            }
+            let targetCosts = declaredTargets.map { renderTargetUnitCost($0.extent) }
+            guard targetCosts.allSatisfy(\.isFinite) else { return false }
+            stageUnits += targetCosts.reduce(0, +)
+            stageUnits += Double(max(
+                0, stage.logicalRenderTargetCount - declaredTargets.count
+            ))
             textureUnits += stageUnits
             guard textureUnits <= Double(maximumResidentTextureUnits) else { return false }
         }
@@ -306,23 +304,16 @@ enum SceneAuthoredEffectChainPlanner {
     private nonisolated static func renderTargetUnitCost(
         _ extent: SceneAuthoredEffectRenderPlan.TargetExtent
     ) -> Double {
-        if extent.kind == .fit,
-           let maximumSide = extent.first,
-           maximumSide.isFinite,
-           maximumSide > 0,
-           extent.second == nil {
-            // Offscreen admission runs before the concrete input extent is known.
-            // The pool's documented 2048² unit is therefore the conservative
-            // denominator; smaller inputs cost less at allocation time.
-            return min(1, (maximumSide * maximumSide) / (2048 * 2048))
+        // Resolve against the same documented 2048² reference used by this
+        // admission gate, preserving override -> fit -> scale -> floor order.
+        guard let resolved = SceneGraphRenderTargetPlan.pixelExtent(
+            extent,
+            inputWidth: 2048,
+            inputHeight: 2048
+        ) else {
+            return .infinity
         }
-        guard extent.kind == .scale,
-              let scale = extent.first,
-              scale.isFinite,
-              scale >= 1 else {
-            return 1
-        }
-        return 1 / (scale * scale)
+        return (Double(resolved.width) * Double(resolved.height)) / (2048 * 2048)
     }
 
     private nonisolated static func validOuterChain(_ graph: Graph) -> Bool {

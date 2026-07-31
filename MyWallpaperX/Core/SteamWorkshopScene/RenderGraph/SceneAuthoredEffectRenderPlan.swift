@@ -26,13 +26,145 @@ nonisolated struct SceneAuthoredEffectRenderPlan: Codable {
         case scale
         case fit
         case absolute
+        case composed
         case unsupported
     }
 
     struct TargetExtent: Codable, Equatable {
+        private enum CodingKeys: String, CodingKey {
+            case kind
+            case first
+            case second
+            case width
+            case height
+            case fit
+            case scale
+        }
+
         let kind: TargetExtentKind
         let first: Double?
         let second: Double?
+        let width: Double?
+        let height: Double?
+        let fit: Double?
+        let scale: Double?
+
+        init(kind: TargetExtentKind, first: Double?, second: Double?) {
+            self.kind = kind
+            self.first = first
+            self.second = second
+            switch kind {
+            case .input, .composed, .unsupported:
+                width = nil
+                height = nil
+                fit = nil
+                scale = nil
+            case .scale:
+                width = nil
+                height = nil
+                fit = nil
+                scale = first
+            case .fit:
+                width = nil
+                height = nil
+                fit = first
+                scale = nil
+            case .absolute:
+                width = first
+                height = second
+                fit = nil
+                scale = nil
+            }
+        }
+
+        init(width: Double?, height: Double?, fit: Double?, scale: Double?) {
+            self.width = width
+            self.height = height
+            self.fit = fit
+            self.scale = scale
+
+            let values = [width, height, fit, scale].compactMap { $0 }
+            guard values.allSatisfy({ $0.isFinite && $0 > 0 }) else {
+                kind = .unsupported
+                first = nil
+                second = nil
+                return
+            }
+
+            switch (width, height, fit, scale) {
+            case (nil, nil, nil, nil):
+                kind = .input
+                first = nil
+                second = nil
+            case (nil, nil, nil, let scale?):
+                kind = .scale
+                first = scale
+                second = nil
+            case (nil, nil, let fit?, nil):
+                kind = .fit
+                first = fit
+                second = nil
+            case (let width?, let height?, nil, nil):
+                kind = .absolute
+                first = width
+                second = height
+            default:
+                kind = .composed
+                first = nil
+                second = nil
+            }
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            let decodedKind = try container.decode(TargetExtentKind.self, forKey: .kind)
+            let decodedFirst = try container.decodeIfPresent(Double.self, forKey: .first)
+            let decodedSecond = try container.decodeIfPresent(Double.self, forKey: .second)
+            let hasExpandedFields = [
+                CodingKeys.width,
+                .height,
+                .fit,
+                .scale,
+            ].contains(where: container.contains)
+
+            guard hasExpandedFields else {
+                self.init(
+                    kind: decodedKind,
+                    first: decodedFirst,
+                    second: decodedSecond
+                )
+                return
+            }
+
+            let decoded = Self(
+                width: try container.decodeIfPresent(Double.self, forKey: .width),
+                height: try container.decodeIfPresent(Double.self, forKey: .height),
+                fit: try container.decodeIfPresent(Double.self, forKey: .fit),
+                scale: try container.decodeIfPresent(Double.self, forKey: .scale)
+            )
+            guard decoded.kind == decodedKind,
+                  decoded.first == decodedFirst,
+                  decoded.second == decodedSecond else {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .kind,
+                    in: container,
+                    debugDescription: "Target extent fields do not describe one normalized value."
+                )
+            }
+            self = decoded
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(kind, forKey: .kind)
+            try container.encodeIfPresent(first, forKey: .first)
+            try container.encodeIfPresent(second, forKey: .second)
+            guard kind == .composed else { return }
+            try container.encodeIfPresent(width, forKey: .width)
+            try container.encodeIfPresent(height, forKey: .height)
+            try container.encodeIfPresent(fit, forKey: .fit)
+            try container.encodeIfPresent(scale, forKey: .scale)
+        }
     }
 
     struct RenderTarget: Codable {
