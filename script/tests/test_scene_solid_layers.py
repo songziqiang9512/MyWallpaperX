@@ -522,8 +522,9 @@ class SceneSolidLayerTests(unittest.TestCase):
         self.assertRegex(
             compositor,
             re.compile(
-                r'baseTint[^=]{0,40}=\s*request\.layer\.contentKind\s*==\s*"solid"'
-                r"[\s\S]{0,200}request\.uniforms\.tint"
+                r'usesAuthoredColor[^=]{0,40}=\s*request\.layer\.contentKind\s*==\s*"image"'
+                r'[\s\S]{0,120}request\.layer\.contentKind\s*==\s*"solid"'
+                r"[\s\S]{0,160}request\.uniforms\.tint"
             ),
         )
         self.assertRegex(

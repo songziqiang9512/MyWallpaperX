@@ -1469,15 +1469,23 @@ enum Harness {
         )
         let imageBrightness = try layerTintPixel(
             device: device, queue: queue, pipeline: pipeline, compositor: compositor,
-            contentKind: "image", brightness: 0.5
+            contentKind: "image", brightness: 0.5, tint: SIMD3(repeating: 1)
         )
         let textBrightness = try layerTintPixel(
             device: device, queue: queue, pipeline: pipeline, compositor: compositor,
-            contentKind: "text", brightness: 0.5
+            contentKind: "text", brightness: 0.5, tint: SIMD3(repeating: 1)
         )
         let vividLayerBlend = try layerColorBlendPixel(
             device: device, queue: queue, pipeline: pipeline, compositor: compositor,
             blendMode: 14
+        )
+        let warmAdditiveLayerBlend = try layerColorBlendPixel(
+            device: device, queue: queue, pipeline: pipeline, compositor: compositor,
+            blendMode: 31,
+            sourceBGRA: [204, 204, 204, 255],
+            background: MTLClearColorMake(0.05, 0.05, 0.05, 1),
+            tint: SIMD3<Float>(0.94902, 0.76471, 0.6),
+            brightness: 1.25
         )
         let invalidLayerBlendRefused = try layerColorBlendPixel(
             device: device, queue: queue, pipeline: pipeline, compositor: compositor,
@@ -1673,6 +1681,7 @@ enum Harness {
             "imageBrightnessBGRA": imageBrightness,
             "textBrightnessBGRA": textBrightness,
             "vividLayerBlendBGRA": vividLayerBlend as Any,
+            "warmAdditiveLayerBlendBGRA": warmAdditiveLayerBlend as Any,
             "invalidLayerBlendRefused": invalidLayerBlendRefused,
             "fragmentUniformSize": MemoryLayout<SceneLayerFragmentUniforms>.size,
             "dependencyBlendModeOffset": MemoryLayout<SceneLayerFragmentUniforms>.offset(
@@ -2178,7 +2187,8 @@ enum Harness {
         pipeline: SceneImageLayerPipeline,
         compositor: SceneImageLayerCompositor,
         contentKind: String,
-        brightness: Double? = nil
+        brightness: Double? = nil,
+        tint: SIMD3<Float> = SIMD3(0.25, 0.5, 0.75)
     ) throws -> [UInt8] {
         guard let source = makeTexture(device: device, size: 1, usage: .shaderRead),
               let target = makeTexture(
@@ -2210,7 +2220,7 @@ enum Harness {
                     time: 0,
                     alpha: 1,
                     cursorUV: .zero,
-                    tint: SIMD3<Float>(0.25, 0.5, 0.75)
+                    tint: tint
                 ),
                 offscreenTexturePool: nil,
                 offscreenSize: nil,
@@ -2236,7 +2246,11 @@ enum Harness {
         queue: MTLCommandQueue,
         pipeline: SceneImageLayerPipeline,
         compositor: SceneImageLayerCompositor,
-        blendMode: Int
+        blendMode: Int,
+        sourceBGRA: [UInt8] = [64, 96, 128, 128],
+        background: MTLClearColor = MTLClearColorMake(0.2, 0.4, 0.6, 1),
+        tint: SIMD3<Float> = SIMD3(repeating: 1),
+        brightness: Double? = nil
     ) throws -> [UInt8]? {
         guard let source = makeTexture(device: device, size: 1, usage: .shaderRead),
               let target = makeTexture(
@@ -2245,11 +2259,11 @@ enum Harness {
               let commandBuffer = queue.makeCommandBuffer() else {
             throw HarnessError.metalUnavailable
         }
-        fill(source, bgra: [64, 96, 128, 128])
+        fill(source, bgra: sourceBGRA)
         let mainPass = SceneMainPassEncoder(
             commandBuffer: commandBuffer,
             target: target,
-            clearColor: MTLClearColorMake(0.2, 0.4, 0.6, 1)
+            clearColor: background
         )
         let drew = compositor.draw(
             SceneImageLayerDrawRequest(
@@ -2257,6 +2271,7 @@ enum Harness {
                     contentKind: "image",
                     colorRGB: nil,
                     colorBlendMode: blendMode,
+                    brightness: brightness,
                     effects: []
                 ),
                 texture: source,
@@ -2264,7 +2279,7 @@ enum Harness {
                 textureFrame: .identity,
                 mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
                 uniforms: SceneImageLayerUniformValues(
-                    time: 0, alpha: 1, cursorUV: .zero
+                    time: 0, alpha: 1, cursorUV: .zero, tint: tint
                 ),
                 offscreenTexturePool: SceneOffscreenTexturePool(device: device),
                 offscreenSize: nil,
@@ -4780,9 +4795,9 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             self.result["normalDependencyBGRA"],
         )
 
-    def test_layer_tint_is_applied_only_to_solid_content_on_gpu(self) -> None:
+    def test_layer_tint_is_applied_to_image_and_solid_content_on_gpu(self) -> None:
         self.assert_pixel_close(self.result["solidTintBGRA"], [191, 128, 64, 255])
-        self.assert_pixel_close(self.result["imageTintBGRA"], [255, 255, 255, 255])
+        self.assert_pixel_close(self.result["imageTintBGRA"], [191, 128, 64, 255])
 
     def test_authored_brightness_multiplies_image_layers_but_not_rasterized_text(self) -> None:
         # 白色源 × brightness 0.5：image 通道必须在 GPU 上真的变暗，alpha 不受影响。
@@ -4792,6 +4807,12 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
 
     def test_layer_color_blend_reads_the_framebuffer_and_rejects_unknown_modes(self) -> None:
         self.assert_pixel_close(self.result["vividLayerBlendBGRA"], [153, 153, 153, 255], 2)
+        # 0.8 image color * warm g_Color4 * 1.25 brightness enters mode 31 before
+        # BGRA8Unorm clamps the red output. Green/blue remain below red instead of
+        # the old all-white input clipping.
+        self.assert_pixel_close(
+            self.result["warmAdditiveLayerBlendBGRA"], [166, 208, 255, 255], 2
+        )
         self.assertTrue(self.result["invalidLayerBlendRefused"])
 
     def test_blur_scales_remain_authored_pixels_until_target_normalization(self) -> None:

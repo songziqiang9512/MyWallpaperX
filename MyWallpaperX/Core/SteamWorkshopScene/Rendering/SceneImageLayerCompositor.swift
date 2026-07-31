@@ -86,9 +86,8 @@ struct SceneImageLayerCompositor {
         let brightness = request.layer.contentKind == "text"
             ? 1
             : max(0, Float(request.layer.brightness ?? 1))
-        let baseTint: SIMD3<Float> = request.layer.contentKind == "solid"
-            ? request.uniforms.tint
-            : SIMD3(repeating: 1)
+        let usesAuthoredColor = request.layer.contentKind == "image" || request.layer.contentKind == "solid"
+        let baseTint = usesAuthoredColor ? request.uniforms.tint : SIMD3<Float>(repeating: 1)
         let directUniforms = makeFragmentUniforms(
             values: request.uniforms,
             effectInputs: sourceEffectInputs,
