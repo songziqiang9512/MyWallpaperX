@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-07-31
 >
-> 实现基线：`0fc38b59`
+> 实现基线：`fbed3897`
 
 本页给覆盖表中的 `L3` 子集提供可追溯证据包。每个证据包至少包含代码、自动测试和真实运行或 GPU 证据；缺少任一项的能力只能标 `L0-L2`，或在专项表中明确写 `gate incomplete`。`.codex` 报告是本机隔离运行产物，不提交 Git；报告路径、App 身份和摘要写入现役文档，避免将其误当源码 fixture。
 
@@ -76,7 +76,7 @@
 
 - 代码：[SceneDocument.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift)、[SceneDiagnostics.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDiagnostics.swift)、[SceneRenderDescriptor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneRenderDescriptor.swift)、[SceneImageLayerPivot.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneImageLayerPivot.swift)、[SceneMetalRenderer+LayerTransforms.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalRenderer+LayerTransforms.swift)、[SceneImageLayerCompositor.swift](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneImageLayerCompositor.swift)。
 - 作者合同与语料：[官方本地声明](../reference/official/lib.sceneScript-v2.8.d.ts) 的 `IImageLayer.alignment` 支持 center/top/right/bottom/left 与四角。44 份已解包真实 `scene.json` 中 16 个样本共 135 次 image/solid alignment 声明，center 83、非中心 52；非中心分布为 left 22、right 2、bottom 1、topleft 24、bottomleft 3，其中 35 次位于 parented layer。修复前 parser 丢弃该字段，renderer 因而把所有 image/solid origin 当作几何中心；`88510a6` 将字段完整保留到 layer descriptor，并在 `sizeScale` 后、layer rotation 内应用独立 quad pivot，缺省或未知值退回中心，text layer 继续只用自己的 horizontal/vertical alignment。
-- 自动门：[test_scene_image_layer_alignment.py](../../../script/tests/test_scene_image_layer_alignment.py)、[test_scene_solid_layers.py](../../../script/tests/test_scene_solid_layers.py)、[test_scene_capture_geometry.py](../../../script/tests/test_scene_capture_geometry.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)。solid/document 门另锁定两个重复 authored object ID 集合在 loader 阶段 fail-closed，诊断同时包含排序后的冲突 ID 和源文件；合法 Scene 继续完成 document 到 descriptor round-trip。alignment 门锁定全部九种官方取值、大小写归一、缺省/未知负例、text/image 路由隔离、pivot 位于 `sizeScale` 之后，以及 root/parented 两种几何 fixture。当前 Scene suite 共运行 622 项并通过，2 项按既有环境条件跳过。
+- 自动门：[test_scene_image_layer_alignment.py](../../../script/tests/test_scene_image_layer_alignment.py)、[test_scene_solid_layers.py](../../../script/tests/test_scene_solid_layers.py)、[test_scene_capture_geometry.py](../../../script/tests/test_scene_capture_geometry.py)、[test_scene_wallpaper_benchmark.py](../../../script/tests/test_scene_wallpaper_benchmark.py)。`b4d6a1ae`/`e57f79c7` 的 object identity 负门锁定两个重复 authored ID 集合在 loader 阶段 fail-closed、冲突 ID 排序与源文件诊断、descriptor admission 二次拒绝，以及 launch error 保留同一具体原因；合法 Scene 继续完成 document 到 descriptor round-trip。本批实际重跑 solid/runtime-input/text-row/Timeline compiler/runtime **39/39**、代码健康与 `script/build_and_run.sh verify`；没有重跑完整 Scene suite、post-fix 真实样本、fixed13 或 full45。alignment 门的历史 622 项全量数字不作为本批证据。
 - 运行门：alignment 定向 `.codex/scene-image-alignment-targeted-20260728-v1/report.json` 为 2/2，fixed13 `.codex/scene-image-alignment-fixed13-20260728-v1/report.json` 为 13/13；签名 App identity 为 team `H9QWU9XN8R`、CDHash `2db431064c38159153fde7486147134a8eaa4ae9`、executable SHA-256 `bbbdba7831c8dc8f919061c62619aeda2b8a1d0ee112ff5a26dd37a383bf2821`，运行前后验证不变。当前 `e698c18` full45 也包含该实现并 45/45 通过，但完整门只证明矩阵合同没有回归，不替代两样本人工锚点核对。
 - 视觉边界：`3122339805` 仍缺作者脚本驱动的窗口标题、日志/时钟/日历内容和部分窗口显隐；`3767460992` 的动态背景相位不能用单帧逐像素对齐。当前证据证明公共锚点字段被接受并产生正确方向的共享可见修正，不证明 Windows 像素等价或两个样本完整兼容。
 
