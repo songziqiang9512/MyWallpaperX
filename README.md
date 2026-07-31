@@ -64,13 +64,13 @@ MyWallpaperX 深度利用 macOS 原生能力，围绕**素材管理 → 资源�
 | **Steam Workshop 浏览** | ✅ | 完全原生的 AppKit NSCollectionView 网格浏览 Wallpaper Engine 创意工坊，内置 SteamCMD Runtime |
 | **视频壁纸播放** | ✅ | 独立守护进程承载视频播放，支持切换、音量、播放速率、音量控制，DaemonProtocol 跨进程通信 |
 | **Web 壁纸支持** | ✅ | `project.json → descriptor → runtime model → playback context` 四层解析管线；已知样本功能主链通过门禁，发布级生命周期和长期稳定性仍在验收 |
-| **Scene 壁纸渲染** | 🚧 | 已具备 Scene/PKG/TEX 解析、Metal 桌面宿主、基础层级、受限 graph/provider/effect、静态文字、声明驱动视差、属性窗口和粒子子集；Timeline、SceneScript、动态输入与高级对象仍在开发 |
+| **Scene 壁纸渲染** | 🚧 | 已具备 Scene/PKG/TEX 解析、Metal 桌面宿主、基础层级，以及受限 graph/provider/effect、Timeline、动态输入、文字和粒子子集；SceneScript 与高级对象仍只有局部识别或严格受限 profile |
 | **系统音频频谱** | 🚧 | 已验证真实音源相关性、Wallpaper Engine 64+64 双声道布局和兼容幅度响应；设备切换、系统静音和睡眠恢复仍待发布验收 |
 | **菜单栏控制** | ✅ | 状态栏入口，GPU 占用实时显示，快速访问播放控制与模块切换 |
 
-> **Scene 壁纸说明**：当前 13 个固定隔离样本通过签名 App 运行门，正式可见粒子为 15/27；这只证明受限子集可运行，不代表 Wallpaper Engine 视觉等价。45 类官方 Effect 和各运行系统的当前等级、证据与缺口见 [Scene 官方语义与实现覆盖台账](docs/scene/semantics/coverage-ledger.md)。
+> **Scene 壁纸说明**：Scene 采用分级、fail-closed 的兼容路线。固定或完整样本门通过只证明对应输入和构建未回归，不代表通用格式支持或 Wallpaper Engine 视觉等价。当前等级与缺口见 [Scene 官方语义与实现覆盖台账](docs/scene/semantics/coverage-ledger.md)，最新构建、样本和签名证据见 [运行证据索引](docs/scene/semantics/runtime-evidence-index.md)。
 
-> Web / Scene 的当前验证数据、明确边界和后续路线见 [现状评估与演进路线](docs/reviews/web-scene-current-state-roadmap-2026-07-19.md)。
+> 文档导航见 [项目文档入口](docs/README.md)；带日期的 roadmap、plan 和 review 只保留对应批次的历史结论。
 
 ---
 

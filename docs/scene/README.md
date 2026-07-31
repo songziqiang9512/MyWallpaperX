@@ -7,12 +7,13 @@
 - [语义与实现覆盖台账](semantics/coverage-ledger.md)：系统级能力、当前边界和下一升级门。
 - [运行证据索引](semantics/runtime-evidence-index.md)：当前生产输入边界、签名运行门和可复现证据。
 - [Scene 语义手册](semantics/README.md)：按格式、渲染图、属性、粒子、SceneScript 等问题进入专项合同。
+- [能力依赖图](semantics/capability-dependency-map.md)：公共前置能力和当前开发顺序。
 
-## 实施计划
+## 历史实施快照
 
-- [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md)：现役实施顺序、样本和测试门。
-- [音频频谱专项计划](scene-audio-spectrum-development-plan-2026-07-27.md)：音频输入、声明 census 和分批验收。
-- [时间轴专项计划](scene-timeline-development-plan-2026-07-27.md)：Timeline 语义、目标分层和验收路径。
+- [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md)：2026-07-22 至 2026-07-27 的实施顺序、样本和测试门。
+
+该文件用于追溯早期总体实施顺序，不用于选择下一项任务；Timeline 与 Audio 的现役合同、语料结论和剩余缺口已经分别进入运行输入专项表、Effect/粒子覆盖表、总台账和运行证据索引。下一步统一从专项覆盖表和能力依赖图选择。
 
 ## 公开参考
 
@@ -22,10 +23,9 @@
 ## 历史资料
 
 - [样本评估](scene-sample-assessment-2026-07-22.md)：2026-07-22 的视觉基线；当前等级以覆盖台账为准。
-- [Scene 兼容能力综述](wallpaper_engine_scene_compatibility.md)：上层能力地图和长期背景，具体实现状态以语义手册和运行证据为准。
 
 ## 使用规则
 
 - 新的稳定语义、实现边界和证据更新进入 `semantics/` 的权威入口，不在历史报告中追加当前结论。
 - 新的官方公开文本或声明放入 `reference/` 时，必须在来源索引记录官方 URL、版本、校验值和可使用边界。
-- 带日期的计划、样本评估和取证报告保留原路径，避免破坏可追溯引用；需要新入口时优先补链接，不迁移历史文件。
+- 删除或合并带日期的计划前，先把仍独有的合同迁入专项表并修复反向引用；未经确认保留原路径，不让历史文件继续承担现役状态。

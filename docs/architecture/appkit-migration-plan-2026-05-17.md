@@ -1,17 +1,24 @@
 # MyWallpaperX AppKit 全量迁移计划
 
+> 状态：现役迁移目标与剩余工作入口
+>
+> 最近核对：2026-07-31。下文各阶段的“当前进展”保留 2026-05-17 批次记录；当前残留以本节清单和代码扫描为准。
+
 目标：最终交付一个 0 SwiftUI 的 macOS 原生 AppKit 应用。应用结构以邮件类客户端为参照：左侧原生 source list，右侧模块内容区，顶部统一 NSToolbar，详情/信息面板由 AppKit inspector overlay 或 panel 承载。
 
 ## 当前判断
 
-截至 2026-05-17，本轮迁移已经切断 SwiftUI App 生命周期与大部分 Shell / 模块入口依赖，项目仍处在 SwiftUI 清零的中间态：
+截至 2026-07-31，App 生命周期、主窗口 Shell、主菜单和主要网格均已由 AppKit 承担，但 SwiftUI 尚未清零。当前 `import SwiftUI` 只剩 7 个文件：
 
-- 主窗口、状态栏、工具栏、菜单校验、Quick Look、弹窗、网格主体均已有 AppKit 实现或 AppKit 容器。
-- 视频库、图片库、在线库、Steam 下载/浏览网格已经主要由 `NSCollectionView` 承载。
-- SwiftUI 已不再承担 App 生命周期、Commands 菜单声明、主窗口根视图和视频库/图片库/在线库入口。
-- SwiftUI 仍承担统一 `InspectorHost` 外壳、Steam 入口、Steam 详情 / Web inspector、少量 sheet/alert/overlay，以及 Shell 内用于临时承载这些残留的 hosting 边界。
+- `App/ScenePropertyWindowController.swift`
+- `Shared/UI/InspectorHostBridge.swift`
+- `Modules/SteamWorkshop/Scene/SteamWorkshopSceneDetailSection.swift`
+- `Modules/SteamWorkshop/Scene/SteamWorkshopScenePropertyEditorView.swift`
+- `Modules/SteamWorkshop/UI/SteamWorkshopItemDetailPreviewSupport.swift`
+- `Modules/SteamWorkshop/UI/SteamWorkshopItemDetailSheet.swift`
+- `Modules/SteamWorkshop/UI/SteamWorkshopItemDetailSupportViews.swift`
 
-这意味着迁移不需要推倒重写。正确路径是先切断 SwiftUI 生命周期与 Shell 依赖，再逐步替换模块入口和 inspector。
+剩余工作已经集中在 Scene 属性窗口、共享 inspector bridge 和 Steam Workshop 详情/属性 UI；迁移仍应按这些边界逐项替换并验证，不需要重写已完成的 AppKit Shell 或网格。
 
 ## 最终结构
 
@@ -170,7 +177,7 @@ UI 保真要求：
 
 验收：
 
-- `rg -n "SwiftUI|NSHosting|NSViewRepresentable|ViewModifier|@State|@ObservedObject|@EnvironmentObject|@Binding|some View" MyWallpaperX README.md MyWallpaperXHelp docs/architecture/framework-architecture-memo.md docs/architecture/project-working-memory.md` 仅允许历史迁移文档中出现。
+- `rg -n "SwiftUI|NSHosting|NSViewRepresentable|ViewModifier|@State|@ObservedObject|@EnvironmentObject|@Binding|some View" MyWallpaperX README.md MyWallpaperXHelp docs/architecture/framework-architecture-memo.md` 仅允许历史迁移文档中出现。
 - Debug 构建通过。
 - 手工走查：启动、主窗口、菜单、设置、四个模块入口、Inspector、Quick Look、状态栏、关闭/重开主窗口。
 

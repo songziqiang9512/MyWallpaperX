@@ -22,6 +22,8 @@ Scene 事实按类型使用唯一入口，历史计划或低层材料不得覆�
 
 带日期的 plan、roadmap 和 review 是批次快照，不是当前能力或运行基线的权威入口。
 
+开始 Scene 任务时，先从 `docs/scene/semantics/README.md` 按问题类型进入专项表，再核对总覆盖台账与运行证据索引；排开发顺序时补读能力依赖图，涉及官方客户端或公开资料时补读 `source-index.md`。不得全量扫描文档库后凭文件名选任务，也不得从静态取证直接推导“已支持”。
+
 不得将 `recognized`、`wired`、`executed-degraded`、固定 strict profile、固定样本通过或静态参考材料表述为完整兼容或 Wallpaper Engine 视觉等价。官方/参考材料只可作为 clean-room 证据；不得复制其 payload、shader、纹理、JSON、二进制或算法表达，新增断言使用项目自有 fixture。
 
 ## 3. 实现流程

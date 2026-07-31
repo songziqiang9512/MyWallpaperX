@@ -4,6 +4,8 @@
 >
 > 文档状态：截至 2026-07-27 的实施批次快照；当前 baseline、矩阵报告、签名身份和运行边界只查 [`semantics/runtime-evidence-index.md`](semantics/runtime-evidence-index.md)。
 >
+> 阅读约定：正文中的“当前”“已完成”和待办均以 2026-07-27 收口时点为准，不代表当前 HEAD；下一任务从专项覆盖表和 [`semantics/capability-dependency-map.md`](semantics/capability-dependency-map.md) 选择。
+>
 > 最近更新：2026-07-27（实现基线 `a77b875`；生产播放把原始项目目录交给宿主并在内存构建 `SceneRuntimeInput`，Debug runtime evidence schema 1 不参与播放；`0ff96e0` 的十四类 strict effect backend、stock Radial God Rays、Timeline 28/48 typed target 与 Scene audio 16 档 consumer 均保留。当前完整门 `.codex/scene-runtime-input-full45-20260727/results/report.json` 为 45/45，固定门 `/private/tmp/mwx-scene-runtime-input-fixed13-20260727-v1/report.json` 为 13/13；58 份 runtime evidence 均为 schema 1，旧解释 JSON/preview log residue 0。精确哈希、App 身份和边界见运行证据索引。）
 >
 > 作用：保留该批次从可审计子集向 Wallpaper Engine 常用能力逼近的实施顺序、样本门和验收标准。作者/执行语义先查 [`semantics/README.md`](semantics/README.md)，当前能力结论只以专项表与 [运行证据索引](semantics/runtime-evidence-index.md) 为准。
@@ -29,7 +31,7 @@
 - 不执行未知 SceneScript，也不直接加载来源不明的预编译 DirectX shader；
 - 不直接修改真实 Workshop 样本。
 
-## 2. 2026-07-25 当前代码事实
+## 2. 2026-07-25 批次代码事实
 
 ### 已真实进入运行链
 
@@ -67,7 +69,7 @@
 
 ## 3. 官方资料核验后的契约边界
 
-[Wallpaper Engine Scene 能力参考](wallpaper_engine_scene_compatibility.md) 的能力地图总体成立；底层开发合同现统一放在 [Scene 语义手册](semantics/README.md)。官方资料描述编辑器/官方运行时行为，没有公开稳定的 Workshop 序列化格式。实现必须标注"官方行为、样本实例、WE-compatible asset 观察、第三方播放器解释、MyWallpaperX 现状"五类证据，不能把后两类反向写成官方规则。
+官方能力全景现由[官方页面逐页表](semantics/official-page-map.md)、[分组映射](semantics/official-page-crosswalk.md)和 [Scene 语义手册](semantics/README.md)共同维护。官方资料描述编辑器/官方运行时行为，没有公开稳定的 Workshop 序列化格式。实现必须标注"官方行为、样本实例、WE-compatible asset 观察、第三方播放器解释、MyWallpaperX 现状"五类证据，不能把后两类反向写成官方规则。
 
 当前直接影响架构与验收的官方契约：
 
