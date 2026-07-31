@@ -60,6 +60,7 @@ extension SceneDocument {
         let textStyle: SceneTextDescriptor?
         let textScript: SceneTextScriptDefinition?
         let scriptBindings: [SceneScriptBindingDefinition]
+        let textureAnimationScripts: [SceneTextureAnimationScriptDefinition]
         let hasInlineScript: Bool
         let effects: [SceneEffect]
         let effectFiles: [String]

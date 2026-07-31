@@ -26,6 +26,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneTextureMipUploader.swift",
     SCENE_ROOT / "Resources/SceneTextureLoader.swift",
     SCENE_ROOT / "Resources/SceneMultiImageSpriteResidentBudget.swift",
+    SCENE_ROOT / "Runtime/SceneTextureAnimationPlaybackPlan.swift",
+    SCENE_ROOT / "Resources/SceneTextureAnimationPlaybackClock.swift",
     SCENE_ROOT / "Resources/SceneMultiImageSpritePlayback.swift",
     SCENE_ROOT / "Resources/SceneTextureUVTransform.swift",
     SCENE_ROOT / "Rendering/SceneMetalPipeline.swift",

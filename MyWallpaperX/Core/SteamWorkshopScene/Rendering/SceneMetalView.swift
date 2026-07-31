@@ -99,9 +99,7 @@ class SceneMetalView: NSView {
     override func mouseUp(with event: NSEvent) { handlePointerEvent(event) }
 
     // MARK: - Texture loading
-    // Loads textures for every image layer and, when `logURL` is provided,
-    // writes a human-readable per-layer load report next to the sample so
-    // black previews can be debugged without attaching a debugger.
+    // Loads image layers and optionally writes a report for black-preview diagnosis.
     func loadImageLayers(
         from cacheDirectory: URL, resourceView: SceneResourceView,
         videoSourceRegistry: SceneVideoTextureSourceRegistry,
@@ -119,8 +117,7 @@ class SceneMetalView: NSView {
         var loadedPuppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
         var loadedEffectTextures = SceneLayerEffectTextureStore()
         var puppetRecomposeBytes = 0
-        // 每个会真正参与渲染的层都要走这里；mp4 payload 视频层也带 effect 实例资源，
-        // 漏掉会让 authored effect 在执行期取不到贴图而整段失败。
+        // 所有渲染层都要装载 effect 实例资源，mp4 payload 视频层也不能遗漏。
         func loadEffectTextures(for layer: SceneRenderDescriptor.Layer) -> SceneLayerEffectTextures {
             let stages = renderer.authoredEffectChain(for: layer.id)?.stages ?? []
             let textures = SceneLayerEffectTextureLoader.load(
@@ -200,6 +197,9 @@ class SceneMetalView: NSView {
                 usesPuppet: layer.puppetMeshPath != nil,
                 loader: loader,
                 spriteTextureLoader: spriteTextureLoader,
+                textureAnimationPlan: SceneTextureAnimationScriptCompiler.compile(
+                    layerID: layer.id, definitions: layer.textureAnimationScripts ?? []
+                ),
                 device: metalDevice
             ) {
             case .loaded(let baseLoad):
