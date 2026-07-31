@@ -12,6 +12,12 @@ nonisolated enum SceneTextScriptCompiler {
         "dca4b368c3630dec922fd4015afec4962069827b2d45d18af83ff3ab80608f67"
     private static let dateSHA256 =
         "2bca0f3a950267440fe733611caee5481f7d60617b318a78ffd60235e29ce1bb"
+    private static let compactDaySHA256 =
+        "2fd0e22672675527167908de5535719726f8f07af5b24892ef31adfd412590a7"
+    private static let longMonthDateSHA256 =
+        "8420e0f255e350654503e24d87a8257dbec560a64ae09524966a5659f5b538cb"
+    private static let clockWithPeriodSHA256 =
+        "ef8b5597f44146180b337c0c0c732ea2e2d1238a7db561cdeab6ed9106599592"
 
     nonisolated static func compile(descriptor: SceneRenderDescriptor) -> SceneTextScriptProgram {
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
@@ -96,6 +102,9 @@ nonisolated enum SceneTextScriptCompiler {
         case clockSHA256: .workshop2981960200Clock
         case spacedDaySHA256: .workshop2981960200SpacedDay
         case dateSHA256: .workshop2981960200Date
+        case compactDaySHA256: .workshop3732231168CompactDay
+        case longMonthDateSHA256: .workshop3732231168LongMonthDate
+        case clockWithPeriodSHA256: .workshop3732231168Clock
         default: nil
         }
     }
@@ -117,7 +126,26 @@ nonisolated enum SceneTextScriptCompiler {
                 showSeconds: showSeconds,
                 delimiter: delimiter
             )
-        case .workshop2981960200SpacedDay, .workshop2981960200Date:
+        case .workshop3732231168Clock:
+            guard Set(properties.keys) == [
+                "use24hFormat", "showSeconds", "displayDate", "delimiter",
+            ],
+                  let use24Hour = bool(properties["use24hFormat"]),
+                  let showSeconds = bool(properties["showSeconds"]),
+                  let displayDate = bool(properties["displayDate"]),
+                  let delimiter = string(properties["delimiter"]) else {
+                return nil
+            }
+            return .clockWithPeriod(
+                use24Hour: use24Hour,
+                showSeconds: showSeconds,
+                displayDate: displayDate,
+                delimiter: delimiter
+            )
+        case .workshop2981960200SpacedDay,
+             .workshop2981960200Date,
+             .workshop3732231168CompactDay,
+             .workshop3732231168LongMonthDate:
             let keys = Set([
                 "monthFormat", "dayFormat", "showDay",
                 "alignVertical", "useDelimiter", "addDelimiter",

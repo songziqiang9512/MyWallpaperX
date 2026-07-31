@@ -55,6 +55,12 @@ enum Harness {
         "dca4b368c3630dec922fd4015afec4962069827b2d45d18af83ff3ab80608f67"
     static let dateHash =
         "2bca0f3a950267440fe733611caee5481f7d60617b318a78ffd60235e29ce1bb"
+    static let compactDayHash =
+        "2fd0e22672675527167908de5535719726f8f07af5b24892ef31adfd412590a7"
+    static let longMonthDateHash =
+        "8420e0f255e350654503e24d87a8257dbec560a64ae09524966a5659f5b538cb"
+    static let clockWithPeriodHash =
+        "ef8b5597f44146180b337c0c0c732ea2e2d1238a7db561cdeab6ed9106599592"
 
     static func main() throws {
         let parsed = SceneTextScriptDefinition.parse([
@@ -94,6 +100,89 @@ enum Harness {
             sourceSHA256: dateHash,
             properties: dateProperties(showDay: false, month: "2", day: "2", delimiter: "")
         )
+        let compactDay = SceneTextScriptCompiler.compileVerifiedProfile(
+            layerID: 501,
+            authoredText: "DAY",
+            sourceSHA256: compactDayHash,
+            properties: dateProperties(
+                showDay: true, month: "1", day: "1", delimiter: "/"
+            )
+        )
+        let longMonthDate = SceneTextScriptCompiler.compileVerifiedProfile(
+            layerID: 502,
+            authoredText: "<Date>",
+            sourceSHA256: longMonthDateHash,
+            properties: dateProperties(
+                showDay: false, month: "2", day: "1", delimiter: "",
+                useDelimiter: false
+            )
+        )
+        let clockWithPeriod = SceneTextScriptCompiler.compileVerifiedProfile(
+            layerID: 503,
+            authoredText: "12:34:56 am",
+            sourceSHA256: clockWithPeriodHash,
+            properties: [
+                "delimiter": .string(":"),
+                "displayDate": .bool(false),
+                "showSeconds": .bool(false),
+                "use24hFormat": .bool(false),
+            ]
+        )
+        let clockWithDate = SceneTextScriptCompiler.compileVerifiedProfile(
+            layerID: 504,
+            authoredText: "fallback",
+            sourceSHA256: clockWithPeriodHash,
+            properties: [
+                "delimiter": .string(":"),
+                "displayDate": .bool(true),
+                "showSeconds": .bool(true),
+                "use24hFormat": .bool(true),
+            ]
+        )
+        let compactDayMissingProperty = SceneTextScriptCompiler.compileVerifiedProfile(
+            layerID: 601,
+            authoredText: "fallback",
+            sourceSHA256: compactDayHash,
+            properties: [
+                "monthFormat": .string("1"),
+                "dayFormat": .string("1"),
+                "showDay": .bool(true),
+                "alignVertical": .bool(false),
+                "useDelimiter": .bool(true),
+            ]
+        )
+        var longMonthDateExtraProperties = dateProperties(
+            showDay: false, month: "2", day: "1", delimiter: ""
+        )
+        longMonthDateExtraProperties["unexpected"] = .bool(true)
+        let longMonthDateExtraProperty = SceneTextScriptCompiler.compileVerifiedProfile(
+            layerID: 602,
+            authoredText: "fallback",
+            sourceSHA256: longMonthDateHash,
+            properties: longMonthDateExtraProperties
+        )
+        let clockWithPeriodMissingProperty = SceneTextScriptCompiler.compileVerifiedProfile(
+            layerID: 603,
+            authoredText: "fallback",
+            sourceSHA256: clockWithPeriodHash,
+            properties: [
+                "delimiter": .string(":"),
+                "showSeconds": .bool(false),
+                "use24hFormat": .bool(false),
+            ]
+        )
+        let clockWithPeriodExtraProperty = SceneTextScriptCompiler.compileVerifiedProfile(
+            layerID: 604,
+            authoredText: "fallback",
+            sourceSHA256: clockWithPeriodHash,
+            properties: [
+                "delimiter": .string(":"),
+                "displayDate": .bool(false),
+                "showSeconds": .bool(false),
+                "use24hFormat": .bool(false),
+                "unexpected": .bool(true),
+            ]
+        )
         let invalid = SceneTextScriptCompiler.compileVerifiedProfile(
             layerID: 90,
             authoredText: "fallback",
@@ -131,7 +220,9 @@ enum Harness {
         ]))
 
         let program = SceneTextScriptProgram(
-            bindings: clock.bindings + clock12.bindings + spacedDay.bindings + date.bindings,
+            bindings: clock.bindings + clock12.bindings + spacedDay.bindings + date.bindings
+                + compactDay.bindings + longMonthDate.bindings
+                + clockWithPeriod.bindings + clockWithDate.bindings,
             diagnostics: []
         )
         let values = SceneTextScriptRuntime.values(
@@ -163,6 +254,16 @@ enum Harness {
             "clock12": string(values[.text(layerID: 69, field: .content)]),
             "day": string(values[.text(layerID: 76, field: .content)]),
             "date": string(values[.text(layerID: 82, field: .content)]),
+            "compactDay": string(values[.text(layerID: 501, field: .content)]),
+            "longMonthDate": string(values[.text(layerID: 502, field: .content)]),
+            "clockWithPeriod": string(values[.text(layerID: 503, field: .content)]),
+            "clockWithDate": string(values[.text(layerID: 504, field: .content)]),
+            "newProfileInvalid": [
+                compactDayMissingProperty,
+                longMonthDateExtraProperty,
+                clockWithPeriodMissingProperty,
+                clockWithPeriodExtraProperty,
+            ].flatMap { $0.diagnostics.map { $0.code.rawValue } },
             "invalid": invalid.diagnostics.map { $0.code.rawValue },
             "unknown": unknown.diagnostics.map { $0.code.rawValue },
             "directUnknown": directUnknown.diagnostics.map { "\($0.layerID):\($0.code.rawValue)" },
@@ -179,14 +280,15 @@ enum Harness {
         showDay: Bool,
         month: String,
         day: String,
-        delimiter: String
+        delimiter: String,
+        useDelimiter: Bool = true
     ) -> [String: SceneJSONValue] {
         [
             "monthFormat": .string(month),
             "dayFormat": .string(day),
             "showDay": .bool(showDay),
             "alignVertical": .bool(false),
-            "useDelimiter": .bool(true),
+            "useDelimiter": .bool(useDelimiter),
             "addDelimiter": .string(delimiter),
         ]
     }
@@ -246,20 +348,28 @@ class SceneTextScriptRuntimeTests(unittest.TestCase):
         cls.temporary_directory.cleanup()
 
     def test_verified_profiles_produce_expected_local_calendar_text(self) -> None:
-        self.assertEqual(self.payload["bindingCount"], 4)
+        self.assertEqual(self.payload["bindingCount"], 8)
         self.assertEqual(self.payload["clock"], "-23:07-")
         self.assertEqual(self.payload["clock12"], "-11:07-:05")
         self.assertEqual(self.payload["day"], "T U E S D A Y")
         self.assertEqual(self.payload["date"], "28 JUL 2026")
+        self.assertEqual(self.payload["compactDay"], "TUE")
+        self.assertEqual(self.payload["longMonthDate"], "28  JULY  2026")
+        self.assertEqual(self.payload["clockWithPeriod"], "11:07 PM")
+        self.assertEqual(self.payload["clockWithDate"], "23:07:05\n07/28/2026")
 
     def test_source_and_complete_property_shape_fail_closed(self) -> None:
         self.assertEqual(self.payload["parsedSource"], "unknown source")
         self.assertEqual(self.payload["invalid"], ["invalidProperties"])
+        self.assertEqual(
+            self.payload["newProfileInvalid"],
+            ["invalidProperties", "invalidProperties", "invalidProperties", "invalidProperties"],
+        )
         self.assertEqual(self.payload["unknown"], ["unknownProfile"])
         self.assertEqual(self.payload["directUnknown"], ["92:unknownProfile"])
 
     def test_scene_script_value_wins_without_duplicate_definition(self) -> None:
-        self.assertEqual(self.payload["definitionCount"], 4)
+        self.assertEqual(self.payload["definitionCount"], 8)
         self.assertEqual(self.payload["resolved"], "-23:07-")
         self.assertEqual(self.payload["source"], "sceneScript")
         self.assertEqual(self.payload["runtimeDiagnostics"], 0)

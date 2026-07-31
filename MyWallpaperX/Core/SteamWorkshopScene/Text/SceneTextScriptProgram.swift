@@ -5,10 +5,19 @@ nonisolated struct SceneTextScriptProgram: Equatable, Sendable {
         case workshop2981960200Clock
         case workshop2981960200SpacedDay
         case workshop2981960200Date
+        case workshop3732231168CompactDay
+        case workshop3732231168LongMonthDate
+        case workshop3732231168Clock
     }
 
     nonisolated enum Configuration: Equatable, Sendable {
         case clock(use24Hour: Bool, showSeconds: Bool, delimiter: String)
+        case clockWithPeriod(
+            use24Hour: Bool,
+            showSeconds: Bool,
+            displayDate: Bool,
+            delimiter: String
+        )
         case date(
             monthFormat: Int,
             dayFormat: Int,

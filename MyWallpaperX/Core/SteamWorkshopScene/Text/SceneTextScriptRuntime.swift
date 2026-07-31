@@ -38,6 +38,14 @@ nonisolated enum SceneTextScriptRuntime {
                 value += "\(delimiter)\(twoDigits(second))"
             }
             return value
+        case let .clockWithPeriod(use24Hour, showSeconds, displayDate, delimiter):
+            return clockWithPeriodContent(
+                components: components,
+                use24Hour: use24Hour,
+                showSeconds: showSeconds,
+                displayDate: displayDate,
+                delimiter: delimiter
+            )
         case let .date(
             monthFormat,
             dayFormat,
@@ -58,6 +66,39 @@ nonisolated enum SceneTextScriptRuntime {
         }
     }
 
+    private nonisolated static func clockWithPeriodContent(
+        components: DateComponents,
+        use24Hour: Bool,
+        showSeconds: Bool,
+        displayDate: Bool,
+        delimiter: String
+    ) -> String? {
+        guard var hour = components.hour,
+              let minute = components.minute,
+              let second = components.second,
+              let year = components.year,
+              let month = components.month,
+              let day = components.day else {
+            return nil
+        }
+        let period = hour >= 12 ? "PM" : "AM"
+        if !use24Hour {
+            hour %= 12
+            if hour == 0 { hour = 12 }
+        }
+        var value = "\(twoDigits(hour))\(delimiter)\(twoDigits(minute))"
+        if showSeconds {
+            value += "\(delimiter)\(twoDigits(second))"
+        }
+        if !use24Hour {
+            value += " \(period)"
+        }
+        if displayDate {
+            value += "\n\(twoDigits(month))/\(twoDigits(day))/\(fourDigits(year))"
+        }
+        return value
+    }
+
     private nonisolated static func dateContent(
         profile: SceneTextScriptProgram.Profile,
         components: DateComponents,
@@ -76,7 +117,7 @@ nonisolated enum SceneTextScriptRuntime {
             return nil
         }
         switch profile {
-        case .workshop2981960200Clock:
+        case .workshop2981960200Clock, .workshop3732231168Clock:
             return nil
         case .workshop2981960200SpacedDay:
             if showDay {
@@ -106,7 +147,62 @@ nonisolated enum SceneTextScriptRuntime {
             ]
             let dayName = (dayFormat == 1 ? abbreviatedDays : fullDays)[weekday - 1]
             return dayName + (alignVertical ? "\n" : "") + " " + date
+        case .workshop3732231168CompactDay:
+            if showDay {
+                let abbreviatedDays = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
+                let fullDays = [
+                    "| S U N D A Y |", "| M O N D A Y |", "| T U E S D A Y |",
+                    "| W E D N E S D A Y |", "| T H U R S D A Y |",
+                    "| F R I D A Y |", "| S A T U R D A Y |",
+                ]
+                return (dayFormat == 1 ? abbreviatedDays : fullDays)[weekday - 1]
+            }
+            return "\(dayOfMonth)\(delimiter)\(compactMonthName(month, format: monthFormat))"
+                + "\(delimiter)\(year)"
+        case .workshop3732231168LongMonthDate:
+            let monthName = longMonthName(month, format: monthFormat)
+            let date = "\(dayOfMonth)\(delimiter)\(monthName)\(delimiter)\(year)"
+            guard showDay else { return date }
+            let abbreviatedDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "\nSat"]
+            let fullDays = [
+                "Sunday", "Monday", "Tuesday", "Wednesday",
+                "Thursday", "Friday", "\nSaturday",
+            ]
+            let dayName = (dayFormat == 1 ? abbreviatedDays : fullDays)[weekday - 1]
+            return dayName + (alignVertical ? "\n" : "") + " " + date
         }
+    }
+
+    private nonisolated static func compactMonthName(_ month: Int, format: Int) -> String {
+        switch format {
+        case 1:
+            return String(month)
+        case 2:
+            return [
+                "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+                "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
+            ][month - 1]
+        default:
+            return titleCaseMonthName(month)
+        }
+    }
+
+    private nonisolated static func longMonthName(_ month: Int, format: Int) -> String {
+        switch format {
+        case 1:
+            return String(month)
+        case 2:
+            return " \(titleCaseMonthName(month).uppercased()) "
+        default:
+            return titleCaseMonthName(month)
+        }
+    }
+
+    private nonisolated static func titleCaseMonthName(_ month: Int) -> String {
+        [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December",
+        ][month - 1]
     }
 
     private nonisolated static func monthName(
@@ -134,5 +230,9 @@ nonisolated enum SceneTextScriptRuntime {
 
     private nonisolated static func twoDigits(_ value: Int) -> String {
         String(format: "%02d", value)
+    }
+
+    private nonisolated static func fourDigits(_ value: Int) -> String {
+        String(format: "%04d", value)
     }
 }
