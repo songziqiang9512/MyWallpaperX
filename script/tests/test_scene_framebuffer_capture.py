@@ -50,6 +50,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneWorkshopGradientPipeline.swift",
     SOURCE_ROOT / "Effects/SceneSpinPipeline.swift",
     SOURCE_ROOT / "Effects/SceneProceduralNoisePipeline.swift",
+    SOURCE_ROOT / "Effects/SceneProceduralNoisePipeline+Support.swift",
     SOURCE_ROOT / "Effects/SceneFilmGrainPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShadowPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShadowRenderer.swift",

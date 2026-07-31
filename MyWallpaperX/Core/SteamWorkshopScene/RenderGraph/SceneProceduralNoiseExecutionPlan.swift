@@ -5,6 +5,7 @@ nonisolated struct SceneProceduralNoiseExecutionPlan {
         case colorPerlinRGB
         case uvCurl
         case uvWorleyMix
+        case legacyWorleyColor
     }
 
     let layerID: Int
@@ -29,4 +30,8 @@ nonisolated struct SceneProceduralNoiseExecutionPlan {
     let scrollSpeed: Float
     let thresholdOffset: Float
     let shiftAmount: Float
+    let depthFade: Float
+    let perspective01: SIMD4<Float>
+    let perspective23: SIMD4<Float>
+    let dependencySlotIndex: Int?
 }

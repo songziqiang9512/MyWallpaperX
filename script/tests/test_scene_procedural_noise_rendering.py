@@ -11,7 +11,11 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Effects/SceneProceduralNoisePipeline.swift"
+SOURCES = [
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Effects/SceneProceduralNoisePipeline.swift",
+    ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Effects/SceneProceduralNoisePipeline+Support.swift",
+]
 
 HARNESS = r'''
 import Foundation
@@ -58,14 +62,24 @@ enum Harness {
 
     static func uniforms(variant: UInt32, time: Float) -> SceneProceduralNoisePipeline.Uniforms {
         SceneProceduralNoisePipeline.Uniforms(
-            scale: variant == 0 ? SIMD2(repeating: 0.27) : SIMD2(repeating: 1),
+            scale: variant == 0 ? SIMD2(repeating: 0.27)
+                : (variant == 3 ? SIMD2(0.25, 1) : SIMD2(repeating: 1)),
             offset: variant == 2 ? SIMD2(repeating: 0.93) : .zero,
             magnitude: SIMD2(repeating: 1), thresholds: SIMD2(0, 1),
-            colorsMin: SIMD4(0, 0, 0, 0), colorsMax: SIMD4(1, 1, 1, 0),
-            params0: SIMD4(1, variant == 2 ? 0.1 : 1, 2, variant == 0 ? 0.05 : 0.5),
-            params1: SIMD4(1, 0, variant == 0 ? 2 : 1, 0),
-            params2: SIMD4(0, 0, 1, time), variant: variant,
-            fractals: variant == 2 ? 5 : 1
+            colorsMin: variant == 3 ? SIMD4(0.20, 0.22, 0.26, 0) : .zero,
+            colorsMax: variant == 3 ? SIMD4(0.22, 0.23, 0.27, 0) : .one,
+            params0: variant == 3
+                ? SIMD4(0.97, 0.63, 1.6, 0.68)
+                : SIMD4(1, variant == 2 ? 0.1 : 1, 2, variant == 0 ? 0.05 : 0.5),
+            params1: variant == 3
+                ? SIMD4(0.05, 0, 0.005, -0.83816302)
+                : SIMD4(1, 0, variant == 0 ? 2 : 1, 0),
+            params2: variant == 3 ? SIMD4(0.001, -0.2, 1, time) : SIMD4(0, 0, 1, time),
+            perspective01: SIMD4(-0.5, 0.1, 1.5, 0.1),
+            perspective23: SIMD4(1, 0.7, 0, 0.7),
+            params3: SIMD4(0.45, 0, 0, 0),
+            variant: variant,
+            fractals: variant == 3 ? 8 : (variant == 2 ? 5 : 1)
         )
     }
 
@@ -77,7 +91,7 @@ enum Harness {
         let target = texture(device)
         let command = queue.makeCommandBuffer()!
         guard pipeline.encode(
-            source: source, target: target,
+            source: source, layerTexture: variant == 3 ? source : nil, target: target,
             uniforms: uniforms(variant: variant, time: time), commandBuffer: command
         ) else { fatalError("valid noise render rejected") }
         command.commit()
@@ -115,11 +129,13 @@ enum Harness {
         let valid = uniforms(variant: 0, time: 1)
         func accepted(
             source candidateSource: MTLTexture = source,
+            layerTexture candidateLayerTexture: MTLTexture? = nil,
             target candidateTarget: MTLTexture = target,
             uniforms candidateUniforms: SceneProceduralNoisePipeline.Uniforms = valid
         ) -> Bool {
             pipeline.encode(
-                source: candidateSource, target: candidateTarget,
+                source: candidateSource, layerTexture: candidateLayerTexture,
+                target: candidateTarget,
                 uniforms: candidateUniforms, commandBuffer: command
             )
         }
@@ -127,6 +143,8 @@ enum Harness {
         var badFractals = valid; badFractals.fractals = 0
         var badScale = valid; badScale.scale.x = 0
         var badTime = valid; badTime.params2.w = .nan
+        var legacy = uniforms(variant: 3, time: 1)
+        var tooManyLegacyFractals = legacy; tooManyLegacyFractals.fractals = 11
         return [
             "same": !accepted(source: source, target: source),
             "format": !accepted(source: texture(device, format: .rgba8Unorm)),
@@ -138,6 +156,15 @@ enum Harness {
             "fractals": !accepted(uniforms: badFractals),
             "scale": !accepted(uniforms: badScale),
             "time": !accepted(uniforms: badTime),
+            "legacyMissingLayer": !accepted(uniforms: legacy),
+            "legacyFractals": !accepted(
+                source: source, layerTexture: source, target: target,
+                uniforms: tooManyLegacyFractals
+            ),
+            "unexpectedLayer": !pipeline.encode(
+                source: source, layerTexture: source, target: target,
+                uniforms: valid, commandBuffer: command
+            ),
             "formatInit": SceneProceduralNoisePipeline(
                 device: device, pixelFormat: .rgba8Unorm
             ) == nil,
@@ -159,6 +186,8 @@ enum Harness {
         let curl1 = render(device: device, queue: queue, pipeline: pipeline, source: source, variant: 1, time: 0.75)
         let worley0 = render(device: device, queue: queue, pipeline: pipeline, source: source, variant: 2, time: 0)
         let worley1 = render(device: device, queue: queue, pipeline: pipeline, source: source, variant: 2, time: 0.75)
+        let legacy0 = render(device: device, queue: queue, pipeline: pipeline, source: source, variant: 3, time: 0)
+        let legacy1 = render(device: device, queue: queue, pipeline: pipeline, source: source, variant: 3, time: 120)
         let result: [String: Any] = [
             "metalUnavailable": false,
             "colorChanged": changed(original, color0),
@@ -168,7 +197,11 @@ enum Harness {
             "worleyChanged": changed(original, worley0),
             "worleyMotion": changed(worley0, worley1),
             "variantsDiffer": changed(curl0, worley0),
-            "premultiplied": [color0, color1, curl0, curl1, worley0, worley1]
+            "legacyChanged": changed(original, legacy0),
+            "legacyMotion": changed(legacy0, legacy1),
+            "premultiplied": [
+                color0, color1, curl0, curl1, worley0, worley1, legacy0, legacy1,
+            ]
                 .allSatisfy(isPremultiplied),
             "rejections": rejections(device: device, queue: queue, pipeline: pipeline),
         ]
@@ -191,7 +224,8 @@ class SceneProceduralNoiseRenderingTests(unittest.TestCase):
         harness.write_text(HARNESS, encoding="utf-8")
         completed = subprocess.run(
             [
-                "xcrun", "--sdk", "macosx", "swiftc", str(SOURCE), str(harness),
+                "xcrun", "--sdk", "macosx", "swiftc",
+                *(str(path) for path in SOURCES), str(harness),
                 "-framework", "Metal", "-o", str(binary),
             ],
             capture_output=True,
@@ -214,6 +248,7 @@ class SceneProceduralNoiseRenderingTests(unittest.TestCase):
         for key in (
             "colorChanged", "colorMotion", "curlChanged", "curlMotion",
             "worleyChanged", "worleyMotion", "variantsDiffer",
+            "legacyChanged", "legacyMotion",
         ):
             self.assertGreater(self.result[key], 600, (key, self.result))
 
@@ -224,7 +259,7 @@ class SceneProceduralNoiseRenderingTests(unittest.TestCase):
         self.assertTrue(self.result["premultiplied"], self.result)
 
     def test_rgb_perlin_channels_share_xy_cells(self) -> None:
-        source = SOURCE.read_text(encoding="utf-8")
+        source = SOURCES[0].read_text(encoding="utf-8")
         self.assertIn(
             "return float4(cell, depth + channel, seed + channel);",
             source,

@@ -13,6 +13,7 @@ extension SceneAuthoredEffectChainRenderer {
     ) -> MTLTexture? {
         guard targets.plan.logicalTargets.isEmpty,
               let dependencyEffect,
+              dependencyEffect.slotIndex == 1,
               dependencyEffect.blendMode == plan.blendMode,
               dependencyEffect.blendMode == 0 || dependencyEffect.blendMode == 5,
               let encoder = SceneOffscreenEffectRenderer.beginEncoder(

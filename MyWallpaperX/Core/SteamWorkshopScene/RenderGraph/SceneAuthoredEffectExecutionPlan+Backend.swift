@@ -214,6 +214,9 @@ extension SceneAuthoredEffectExecutionPlan {
         case .workshopAudioBars(let plan):
             guard case .simple = plan.profile else { return false }
             return true
+        case .proceduralNoise(let plan):
+            return plan.variant == .legacyWorleyColor
+                && plan.dependencySlotIndex == 3
         default:
             return false
         }

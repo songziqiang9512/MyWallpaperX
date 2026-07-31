@@ -849,16 +849,14 @@
       "expected_solid_candidates": 0,
       "required_solid_loaded_layer_ids": [],
       "expected_particle_candidates": 19,
-      "minimum_particle_loaded": 19,
+      "minimum_particle_loaded": 17,
       "expected_particle_authored": 19,
       "expected_particle_visible": 19,
       "expected_particle_skipped_hidden": 0,
       "required_particle_loaded_layer_ids": [
         534,
-        558,
         569,
         513,
-        550,
         564,
         572,
         576,
@@ -1473,13 +1471,12 @@
         199
       ],
       "expected_particle_candidates": 9,
-      "minimum_particle_loaded": 9,
+      "minimum_particle_loaded": 8,
       "expected_particle_authored": 9,
       "expected_particle_visible": 9,
       "expected_particle_skipped_hidden": 0,
       "required_particle_loaded_layer_ids": [
         121,
-        200,
         90,
         504,
         511,
@@ -1732,21 +1729,28 @@
       ],
       "expected_camera_parallax": false,
       "expected_utility_candidates": 2,
-      "expected_utility_capture_planned": 0,
+      "expected_utility_capture_planned": 1,
       "expected_utility_dependency_edges": 1,
       "expected_utility_named_consumers": 1,
-      "expected_utility_named_target_planned": 0,
-      "expected_utility_named_binding_planned": 0,
+      "expected_utility_named_target_planned": 1,
+      "expected_utility_named_binding_planned": 1,
       "expected_utility_named_target_gaps": 0,
-      "required_utility_capture_succeeded_layer_ids": [],
-      "required_named_target_capture_succeeded_layer_ids": [],
-      "required_named_target_binding_succeeded_layer_ids": [],
+      "required_utility_capture_succeeded_layer_ids": [
+        49
+      ],
+      "required_named_target_capture_succeeded_layer_ids": [
+        42
+      ],
+      "required_named_target_binding_succeeded_layer_ids": [
+        49
+      ],
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
       "expected_authored_effect_graph_succeeded_layer_ids": [
         33,
         37,
         41,
+        49,
         181,
         188,
         202,
@@ -1763,7 +1767,7 @@
       "expected_authored_effect_graph_water_flow_count": 0,
       "expected_authored_effect_graph_water_waves_count": 4,
       "expected_authored_effect_graph_chain_count": 1,
-      "expected_authored_effect_graph_stage_count": 10,
+      "expected_authored_effect_graph_stage_count": 11,
       "expected_route_only_effect_count": 0
     },
     {

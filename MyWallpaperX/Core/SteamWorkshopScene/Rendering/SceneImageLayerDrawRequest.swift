@@ -146,6 +146,13 @@ struct SceneImageLayerUniformValues {
 struct SceneDependencyEffectInput {
     let texture: MTLTexture
     let blendMode: Int
+    let slotIndex: Int
+
+    init(texture: MTLTexture, blendMode: Int, slotIndex: Int = 1) {
+        self.texture = texture
+        self.blendMode = blendMode
+        self.slotIndex = slotIndex
+    }
 }
 
 struct SceneImageLayerDrawRequest {

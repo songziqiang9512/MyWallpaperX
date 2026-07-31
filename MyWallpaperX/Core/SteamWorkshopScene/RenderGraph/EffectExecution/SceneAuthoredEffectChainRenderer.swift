@@ -208,6 +208,7 @@ enum SceneAuthoredEffectChainRenderer {
                 sourceUniforms: sourceUniforms,
                 pipeline: pipeline,
                 noisePipeline: noisePipeline,
+                dependencyEffect: dependencyEffect,
                 time: time,
                 commandBuffer: commandBuffer
             )

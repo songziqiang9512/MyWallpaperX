@@ -92,7 +92,14 @@ struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
 struct SceneWorkshopGradientExecutionPlan: Sendable {}
 struct SceneWorkshopAudioHueShiftExecutionPlan: Sendable {}
 struct SceneSpinExecutionPlan: Sendable {}
-struct SceneProceduralNoiseExecutionPlan: Sendable {}
+struct SceneProceduralNoiseExecutionPlan: Sendable {
+    enum Variant: Sendable {
+        case legacyWorleyColor
+    }
+
+    let variant: Variant
+    let dependencySlotIndex: Int?
+}
 struct SceneFilmGrainExecutionPlan: Sendable {}
 struct SceneLightShaftsExecutionPlan: Sendable {}
 struct SceneAuthoredShaderExecutionPlan {

@@ -20,10 +20,15 @@ struct NoiseUniforms {
     float4 params0; // opacity, exponent, fractal scale, fractal influence
     float4 params1; // gradient, seed, animation speed, scroll direction
     float4 params2; // scroll speed, threshold offset, shift amount, time
+    float4 perspective01; // p0.xy, p1.xy
+    float4 perspective23; // p2.xy, p3.xy
+    float4 params3; // depth fade
     uint variant;
     uint fractals;
     uint2 padding;
 };
+
+\(sceneProceduralNoiseShaderSupportSource)
 
 vertex NoiseVaryings proceduralNoiseVertex(uint vertexID [[vertex_id]]) {
     const float2 positions[4] = {
@@ -35,18 +40,6 @@ vertex NoiseVaryings proceduralNoiseVertex(uint vertexID [[vertex_id]]) {
         float2(0.0, 0.0), float2(1.0, 0.0)
     };
     return NoiseVaryings { float4(positions[vertexID], 0.0, 1.0), texcoords[vertexID] };
-}
-
-float4 noiseHash44(float4 value) {
-    value = fract(value * float4(0.1031, 0.1030, 0.0973, 444.129));
-    value += dot(value, value.wzxy + 19.19);
-    return fract((value.xxyz + value.yzzw) * value.zywx);
-}
-
-float2 noiseHash23(float3 value) {
-    value = fract(value * float3(0.1031, 0.1030, 437.195));
-    value += dot(value, value.yzx + 19.19);
-    return fract((value.xx + value.yz) * value.zy);
 }
 
 float4 noisePerlinHashCoordinate(
@@ -166,6 +159,7 @@ float2 noiseWorleyMix(
 fragment float4 proceduralNoiseFragment(
     NoiseVaryings input [[stage_in]],
     texture2d<float> source [[texture(0)]],
+    texture2d<float> layerTexture [[texture(1)]],
     constant NoiseUniforms &uniforms [[buffer(0)]]
 ) {
     constexpr sampler linearClamp(filter::linear, address::clamp_to_edge);
@@ -174,14 +168,54 @@ fragment float4 proceduralNoiseFragment(
         ? clamp(albedo.rgb / albedo.a, 0.0, 1.0)
         : float3(0.0);
     float2 aspect = float2(1.0, float(source.get_height()) / float(source.get_width()));
+    float2 profileUV = input.uv;
+    if (uniforms.variant == 3) {
+        float2 top = mix(uniforms.perspective01.xy, uniforms.perspective01.zw, input.uv.x);
+        float2 bottom = mix(uniforms.perspective23.zw, uniforms.perspective23.xy, input.uv.x);
+        profileUV = mix(top, bottom, input.uv.y);
+    }
     float2 transformScale = max(1e-6, uniforms.scale * 10.0 * aspect);
     float2 scroll = float2(
         sin(-uniforms.params1.w), cos(uniforms.params1.w)
     ) * uniforms.params2.w * uniforms.params2.x * 10.0;
     float2 transformedOffset = (uniforms.offset + scroll) * aspect * transformScale;
-    float2 coordinate = input.uv * transformScale + transformedOffset;
+    float2 coordinate = profileUV * transformScale + transformedOffset;
     float animateScale = uniforms.variant == 2 ? 4.0 : 1.0;
     float animate = uniforms.params2.w * uniforms.params1.z * animateScale + uniforms.params1.y;
+
+    if (uniforms.variant == 3) {
+        float value = 0.0;
+        float influence = 0.5;
+        float influenceSum = 0.0;
+        float2 animatedCoordinate = float2(coordinate.x * 0.55, coordinate.y * 2.4);
+        float2 warpCoordinate = float2(
+            animatedCoordinate.x * 0.45 + animate * 0.03,
+            uniforms.params1.y + 17.0
+        );
+        float horizontalWarp = noiseValue2D(warpCoordinate, uniforms.params1.y + 29.0) - 0.5;
+        animatedCoordinate += float2(animate * 0.19, horizontalWarp * 1.4 + animate * 0.11);
+        for (uint index = 0; index < 10; ++index) {
+            if (index >= uniforms.fractals) { break; }
+            value += noiseValue2D(animatedCoordinate, uniforms.params1.y + float(index)) * influence;
+            influenceSum += influence;
+            animatedCoordinate *= uniforms.params0.z;
+            influence *= uniforms.params0.w;
+        }
+        value = saturate(value / max(1e-6, influenceSum));
+        float shaped = pow(value, uniforms.params0.y);
+        shaped = saturate(
+            (shaped - uniforms.thresholds.x)
+                / (uniforms.thresholds.y - uniforms.thresholds.x)
+                + uniforms.params2.y
+        );
+        float edge = max(0.005, uniforms.params1.x * 0.35);
+        float coverage = smoothstep(0.50 - edge, 0.50 + edge, shaped);
+        coverage *= uniforms.params0.x * uniforms.magnitude.x;
+        coverage *= layerTexture.get_width() > 0 ? 1.0 : 0.0;
+        float3 cloud = mix(uniforms.colorsMin.rgb, uniforms.colorsMax.rgb, value);
+        float3 result = mix(albedoStraight, cloud, coverage);
+        return float4(result * albedo.a, albedo.a);
+    }
 
     if (uniforms.variant == 0) {
         float influence = 0.5;
@@ -248,21 +282,6 @@ fragment float4 proceduralNoiseFragment(
 """
 
 struct SceneProceduralNoisePipeline {
-    struct Uniforms {
-        var scale: SIMD2<Float>
-        var offset: SIMD2<Float>
-        var magnitude: SIMD2<Float>
-        var thresholds: SIMD2<Float>
-        var colorsMin: SIMD4<Float>
-        var colorsMax: SIMD4<Float>
-        var params0: SIMD4<Float>
-        var params1: SIMD4<Float>
-        var params2: SIMD4<Float>
-        var variant: UInt32
-        var fractals: UInt32
-        var padding: SIMD2<UInt32> = .zero
-    }
-
     private let state: MTLRenderPipelineState
     private let deviceRegistryID: UInt64
 
@@ -288,11 +307,18 @@ struct SceneProceduralNoisePipeline {
 
     func encode(
         source: MTLTexture,
+        layerTexture: MTLTexture? = nil,
         target: MTLTexture,
         uniforms: Uniforms,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
-        guard valid(source: source, target: target, uniforms: uniforms, commandBuffer: commandBuffer)
+        guard valid(
+            source: source,
+            layerTexture: layerTexture,
+            target: target,
+            uniforms: uniforms,
+            commandBuffer: commandBuffer
+        )
         else { return false }
         let descriptor = MTLRenderPassDescriptor()
         descriptor.colorAttachments[0].texture = target
@@ -304,6 +330,7 @@ struct SceneProceduralNoisePipeline {
         var uniforms = uniforms
         encoder.setRenderPipelineState(state)
         encoder.setFragmentTexture(source, index: 0)
+        encoder.setFragmentTexture(layerTexture ?? source, index: 1)
         encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 0)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         encoder.endEncoding()
@@ -312,6 +339,7 @@ struct SceneProceduralNoisePipeline {
 
     private func valid(
         source: MTLTexture,
+        layerTexture: MTLTexture?,
         target: MTLTexture,
         uniforms: Uniforms,
         commandBuffer: MTLCommandBuffer
@@ -322,7 +350,19 @@ struct SceneProceduralNoisePipeline {
                       uniforms.params0.z, uniforms.params0.w, uniforms.params1.x,
                       uniforms.params1.y, uniforms.params1.z, uniforms.params1.w,
                       uniforms.params2.x, uniforms.params2.y, uniforms.params2.z,
-                      uniforms.params2.w].allSatisfy(\.isFinite)
+                      uniforms.params2.w, uniforms.perspective01.x,
+                      uniforms.perspective01.y, uniforms.perspective01.z,
+                      uniforms.perspective01.w, uniforms.perspective23.x,
+                      uniforms.perspective23.y, uniforms.perspective23.z,
+                      uniforms.perspective23.w, uniforms.params3.x].allSatisfy(\.isFinite)
+        let validLayerTexture = uniforms.variant == 3
+            ? layerTexture.map {
+                $0.textureType == .type2D && $0.pixelFormat == .bgra8Unorm
+                    && $0.width > 0 && $0.height > 0 && $0.mipmapLevelCount == 1
+                    && $0.sampleCount == 1 && $0.usage.contains(.shaderRead)
+                    && $0.device.registryID == deviceRegistryID
+            } == true
+            : layerTexture == nil
         return source.textureType == .type2D && target.textureType == .type2D
             && source.pixelFormat == .bgra8Unorm && target.pixelFormat == .bgra8Unorm
             && source.width > 0 && source.width == target.width
@@ -333,7 +373,9 @@ struct SceneProceduralNoisePipeline {
             && ObjectIdentifier(source) != ObjectIdentifier(target)
             && uniforms.scale.x > 0 && uniforms.scale.y > 0
             && uniforms.thresholds.y > uniforms.thresholds.x
-            && uniforms.variant <= 2 && (1...5).contains(uniforms.fractals) && finite
+            && uniforms.variant <= 3
+            && (1...(uniforms.variant == 3 ? 10 : 5)).contains(uniforms.fractals)
+            && validLayerTexture && finite
             && commandBuffer.commandQueue.device.registryID == deviceRegistryID
             && source.device.registryID == deviceRegistryID
             && target.device.registryID == deviceRegistryID

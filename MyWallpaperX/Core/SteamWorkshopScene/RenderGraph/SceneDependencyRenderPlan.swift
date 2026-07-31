@@ -9,10 +9,16 @@ nonisolated struct SceneDependencyRenderPlan {
     }
 
     nonisolated struct Binding: Hashable {
+        enum Kind: Hashable {
+            case clippingMask
+            case proceduralNoiseLayer
+        }
+
         let consumerLayerID: Int
         let providerLayerID: Int
         let slot: SceneEffectPassSlot
         let blendMode: Int
+        let kind: Kind
     }
 
     nonisolated enum IssueKind: String {
@@ -93,7 +99,10 @@ nonisolated struct SceneDependencyRenderPlan {
                       executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
                   ),
                   references.contains(where: { $0.consumerLayerID == layer.id }),
-                  layer.effects.compactMap(SceneClippingMaskContract.declaration).count == 1 else {
+                  Self.requiresNamedEffect(
+                      layer,
+                      executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
+                  ) else {
                 return nil
             }
             return layer.id
@@ -197,20 +206,38 @@ nonisolated struct SceneDependencyRenderPlan {
         issues: inout [Issue]
     ) -> Binding? {
         let visibleEffects = layer.effects.filter { $0.visible != false }
+        let contract: (
+            reference: Reference,
+            blendMode: Int,
+            kind: Binding.Kind
+        )?
+        if let clipping = supportedClippingEffect(in: visibleEffects),
+           references.count == 1,
+           let reference = references.first,
+           reference.slot.effectID == clipping.declaration.effectID,
+           reference.slot.passIndex == clipping.declaration.passIndex,
+           reference.slot.slotIndex == 1,
+           reference.providerLayerID == clipping.declaration.providerLayerID {
+            contract = (reference, clipping.declaration.blendMode, .clippingMask)
+        } else if let reference = supportedProceduralNoiseReference(
+            layer: layer,
+            visibleEffects: visibleEffects,
+            references: references,
+            executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
+        ) {
+            contract = (reference, 0, .proceduralNoiseLayer)
+        } else {
+            contract = nil
+        }
         guard supportsEffectConsumer(
                   layer,
                   executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
               ),
-              let clipping = supportedClippingEffect(in: visibleEffects),
-              references.count == 1,
-              let reference = references.first,
-              reference.slot.effectID == clipping.declaration.effectID,
-              reference.slot.passIndex == clipping.declaration.passIndex,
-              reference.slot.slotIndex == 1,
-              reference.providerLayerID == clipping.declaration.providerLayerID else {
+              let contract else {
             issues.append(Issue(kind: .unsupportedConsumer, layerID: layer.id, providerLayerID: nil))
             return nil
         }
+        let reference = contract.reference
         if case .some = layer.utilityLayer,
            layer.dependencyLayerIDs != [reference.providerLayerID] {
             issues.append(Issue(
@@ -237,7 +264,12 @@ nonisolated struct SceneDependencyRenderPlan {
             ))
             return nil
         }
-        guard provider.utilityLayer?.kind == .composition,
+        let providerKindIsSupported = contract.kind == .clippingMask
+            ? provider.utilityLayer?.kind == .composition
+            : provider.contentKind == "solid"
+                && hasNoUtilityLayer(provider)
+                && provider.visible == false
+        guard providerKindIsSupported,
               provider.effects.allSatisfy({ $0.visible == false }),
               provider.childLayerIDs.isEmpty,
               provider.dependencyLayerIDs.isEmpty,
@@ -253,7 +285,8 @@ nonisolated struct SceneDependencyRenderPlan {
             consumerLayerID: layer.id,
             providerLayerID: provider.id,
             slot: reference.slot,
-            blendMode: clipping.declaration.blendMode
+            blendMode: contract.blendMode,
+            kind: contract.kind
         )
     }
 
@@ -282,4 +315,67 @@ nonisolated struct SceneDependencyRenderPlan {
         }
         return matches.count == 1 ? matches[0] : nil
     }
+
+    private nonisolated static func requiresNamedEffect(
+        _ layer: SceneRenderDescriptor.Layer,
+        executableUtilityConsumerLayerIDs: Set<Int>
+    ) -> Bool {
+        let visibleEffects = layer.effects.filter { $0.visible != false }
+        if visibleEffects.compactMap(SceneClippingMaskContract.declaration).count == 1 {
+            return true
+        }
+        return supportedProceduralNoiseReference(
+            layer: layer,
+            visibleEffects: visibleEffects,
+            references: references(in: [layer]),
+            executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
+        ) != nil
+    }
+
+    private nonisolated static func supportedProceduralNoiseReference(
+        layer: SceneRenderDescriptor.Layer,
+        visibleEffects: [SceneRenderDescriptor.EffectDescriptor],
+        references: [Reference],
+        executableUtilityConsumerLayerIDs: Set<Int>
+    ) -> Reference? {
+        guard executableUtilityConsumerLayerIDs.contains(layer.id),
+              visibleEffects.count == 1,
+              let effect = visibleEffects.first,
+              normalized(effect.file) == legacyProceduralNoisePath,
+              effect.passes.count == 1,
+              let pass = effect.passes.first,
+              pass.passIndex == 0,
+              pass.combos == [
+                  "AB_TYPECOLOR": 3,
+                  "PERSPSWITCH": 1,
+                  "WRITEALPHA": 1,
+              ],
+              pass.textureSlots.count == 4,
+              pass.textureSlots[0...2].allSatisfy({ $0 == nil }),
+              let path = pass.textureSlots[3],
+              pass.texturePaths == [path],
+              references.count == 1,
+              let reference = references.first,
+              reference.slot.effectID == effect.id,
+              reference.slot.passIndex == 0,
+              reference.slot.slotIndex == 3,
+              layer.dependencyLayerIDs == [reference.providerLayerID] else {
+            return nil
+        }
+        return reference
+    }
+
+    private nonisolated static func normalized(_ value: String) -> String {
+        value.replacingOccurrences(of: "\\", with: "/").lowercased()
+    }
+
+    private nonisolated static func hasNoUtilityLayer(
+        _ layer: SceneRenderDescriptor.Layer
+    ) -> Bool {
+        if case nil = layer.utilityLayer { return true }
+        return false
+    }
+
+    private nonisolated static let legacyProceduralNoisePath =
+        "effects/workshop/2924967132/procedural_noise/effect.json"
 }

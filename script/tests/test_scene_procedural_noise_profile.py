@@ -32,7 +32,10 @@ import Foundation
 
 @main
 enum Harness {
-    static let identity = "workshop/2906937488/effects/procedural_noise"
+    static let identities = [
+        "workshop/2906937488/effects/procedural_noise",
+        "workshop/2924967132/effects/procedural_noise",
+    ]
 
     static func mutate(
         _ contracts: [SceneShaderContract], mode: String
@@ -74,18 +77,33 @@ enum Harness {
 
     static func main() throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
-        let contracts = SceneShaderContractLoader().load(
-            shaderReferences: [identity], rootURL: root
-        )
         let mutationModes = [
             "source", "raw", "path", "identity", "sourceKind",
             "diagnostic", "canonical", "duplicate",
         ]
-        let result: [String: Bool] = [
-            "accepted": SceneProceduralNoiseShaderProfile.matches(contracts),
-            "mutationsRejected": mutationModes.allSatisfy {
-                !SceneProceduralNoiseShaderProfile.matches(mutate(contracts, mode: $0))
-            },
+        let profiles = identities.map { identity -> [String: Bool] in
+            let contracts = SceneShaderContractLoader().load(
+                shaderReferences: [identity], rootURL: root
+            )
+            return [
+                "accepted": SceneProceduralNoiseShaderProfile.matches(contracts),
+                "mutationsRejected": mutationModes.allSatisfy {
+                    !SceneProceduralNoiseShaderProfile.matches(
+                        mutate(contracts, mode: $0)
+                    )
+                },
+            ]
+        }
+        let expectedDefinitionPaths = [
+            "effects/workshop/2906937488/procedural_noise/effect.json",
+            "effects/workshop/2924967132/procedural_noise/effect.json",
+        ]
+        let result: [String: Any] = [
+            "profiles": profiles,
+            "definitionPathsAccepted": zip(
+                SceneProceduralNoiseShaderProfile.Profile.allCases,
+                expectedDefinitionPaths
+            ).allSatisfy { $0.definitionPath == $1 },
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -98,12 +116,20 @@ class SceneProceduralNoiseProfileTests(unittest.TestCase):
     def test_real_shader_is_admitted_and_mutations_fail_closed(self) -> None:
         if shutil.which("swiftc") is None:
             self.skipTest("swiftc is unavailable")
-        shader = (
-            REAL_SAMPLE_CACHE
-            / "shaders/workshop/2906937488/effects/procedural_noise.frag"
-        )
-        if not shader.is_file():
-            self.skipTest(f"real Procedural Noise fixture unavailable: {shader}")
+        legacy_cache = sample_cache_root("3768903841")
+        required = [
+            (
+                REAL_SAMPLE_CACHE
+                / "shaders/workshop/2906937488/effects/procedural_noise.frag"
+            ),
+            (
+                legacy_cache
+                / "shaders/workshop/2924967132/effects/procedural_noise.frag"
+            ),
+        ]
+        missing = [path for path in required if not path.is_file()]
+        if missing:
+            self.skipTest(f"real Procedural Noise fixture unavailable: {missing}")
         with tempfile.TemporaryDirectory(prefix="scene-procedural-noise-profile-") as directory:
             root = Path(directory)
             harness = root / "Harness.swift"
@@ -119,14 +145,23 @@ class SceneProceduralNoiseProfileTests(unittest.TestCase):
                 text=True,
             )
             self.assertEqual(compilation.returncode, 0, compilation.stderr)
+            fixture_root = root / "fixture"
+            fixture_root.mkdir()
+            for cache in (REAL_SAMPLE_CACHE, legacy_cache):
+                shutil.copytree(cache / "shaders", fixture_root / "shaders", dirs_exist_ok=True)
             completed = subprocess.run(
-                [str(binary), str(REAL_SAMPLE_CACHE)],
+                [str(binary), str(fixture_root)],
                 check=True,
                 capture_output=True,
                 text=True,
             )
         result = json.loads(completed.stdout)
-        self.assertTrue(all(result.values()), result)
+        self.assertEqual(len(result["profiles"]), 2, result)
+        self.assertTrue(
+            all(all(item.values()) for item in result["profiles"]),
+            result,
+        )
+        self.assertTrue(result["definitionPathsAccepted"], result)
 
 
 if __name__ == "__main__":

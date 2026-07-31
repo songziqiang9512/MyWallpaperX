@@ -149,6 +149,24 @@ enum Harness {
             visible: true,
             effects: [effect(id: 19, provider: 1)]
         )
+        let legacyNoiseProvider = SceneRenderDescriptor.Layer(
+            id: 30,
+            contentKind: "solid",
+            utilityLayer: nil,
+            dependencyLayerIDs: [],
+            childLayerIDs: [],
+            visible: false,
+            effects: []
+        )
+        let legacyNoiseConsumer = SceneRenderDescriptor.Layer(
+            id: 31,
+            contentKind: "composition",
+            utilityLayer: .init(kind: .composition),
+            dependencyLayerIDs: [30],
+            childLayerIDs: [],
+            visible: true,
+            effects: [proceduralNoiseEffect(id: 31, provider: 30)]
+        )
         let descriptor = SceneRenderDescriptor(
             layers: [
                 provider, visibleConsumer, hiddenConsumer,
@@ -157,18 +175,20 @@ enum Harness {
                 supportedGradientConsumer, reversedGradientConsumer, invalidGradientConsumer,
                 utilityConsumer, lookalikeConsumer, projectUtilityConsumer,
                 childUtilityConsumer, extraDependencyUtilityConsumer,
+                legacyNoiseProvider, legacyNoiseConsumer,
             ],
             renderOrderLayerIDs: [
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+                30, 31,
             ]
         )
         let visibleLayerIDs: Set<Int> = [
-            1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+            1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 31,
         ]
         let plan = SceneDependencyRenderPlan(
             descriptor: descriptor,
             visibleLayerIDs: visibleLayerIDs,
-            executableUtilityConsumerLayerIDs: [15]
+            executableUtilityConsumerLayerIDs: [15, 31]
         )
         let defaultPlan = SceneDependencyRenderPlan(
             descriptor: descriptor,
@@ -316,6 +336,29 @@ enum Harness {
             effects: reversed ? [clipping, gradient] : [gradient, clipping]
         )
     }
+
+    static func proceduralNoiseEffect(
+        id: Int,
+        provider: Int
+    ) -> SceneRenderDescriptor.EffectDescriptor {
+        let path = "_rt_imageLayerComposite_\(provider)_a"
+        return .init(
+            id: "\(id)#effect#noise",
+            file: "effects/workshop/2924967132/procedural_noise/effect.json",
+            visible: true,
+            passes: [.init(
+                passIndex: 0,
+                texturePaths: [path],
+                textureSlots: [nil, nil, nil, path],
+                combos: [
+                    "AB_TYPECOLOR": 3,
+                    "PERSPSWITCH": 1,
+                    "WRITEALPHA": 1,
+                ],
+                constantShaderValues: [:]
+            )]
+        )
+    }
 }
 '''
 
@@ -355,22 +398,22 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         self.assertTrue(self.result["invalidReference"])
 
     def test_image_and_composition_clipping_consumers_share_backward_binding(self) -> None:
-        self.assertEqual(self.result["referenceCount"], 15)
+        self.assertEqual(self.result["referenceCount"], 16)
         self.assertEqual(
             self.result["namedConsumers"],
-            [2, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+            [2, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 31],
         )
         self.assertEqual(
             self.result["requiredEffectConsumers"],
-            [2, 6, 8, 9, 12, 13, 14, 15],
+            [2, 6, 8, 9, 12, 13, 14, 15, 31],
         )
-        self.assertEqual(self.result["executableUtilityConsumers"], [15])
+        self.assertEqual(self.result["executableUtilityConsumers"], [15, 31])
         self.assertEqual(
             self.result["bindingConsumers"],
-            [2, 8, 9, 12, 13, 14, 15],
+            [2, 8, 9, 12, 13, 14, 15, 31],
         )
         self.assertFalse(self.result["defaultUtilityBinding"])
-        self.assertEqual(self.result["requiredProviders"], [1])
+        self.assertEqual(self.result["requiredProviders"], [1, 30])
 
     def test_cycle_forward_and_invalid_clipping_contracts_fail_closed(self) -> None:
         self.assertEqual(self.result["cycles"], [4, 5])

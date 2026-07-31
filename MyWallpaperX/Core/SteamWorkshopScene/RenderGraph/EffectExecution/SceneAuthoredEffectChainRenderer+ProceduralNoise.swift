@@ -10,9 +10,22 @@ extension SceneAuthoredEffectChainRenderer {
         sourceUniforms: SceneLayerFragmentUniforms,
         pipeline: SceneImageLayerPipeline,
         noisePipeline: SceneProceduralNoisePipeline,
+        dependencyEffect: SceneDependencyEffectInput?,
         time: Float,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
+        let layerTexture: MTLTexture?
+        if let slotIndex = noise.dependencySlotIndex {
+            guard slotIndex == 3,
+                  dependencyEffect?.slotIndex == slotIndex,
+                  dependencyEffect?.blendMode == 0 else {
+                return nil
+            }
+            layerTexture = dependencyEffect?.texture
+        } else {
+            guard dependencyEffect == nil else { return nil }
+            layerTexture = nil
+        }
         guard noise.layerID == noise.renderGraph.layerID,
               targets.plan.logicalTargets.isEmpty,
               SceneOffscreenEffectRenderer.captureSource(
@@ -27,6 +40,7 @@ extension SceneAuthoredEffectChainRenderer {
               ),
               noisePipeline.encode(
                   source: targets.inputTexture,
+                  layerTexture: layerTexture,
                   target: targets.outputTexture,
                   uniforms: .init(
                       scale: noise.scale,
@@ -47,6 +61,9 @@ extension SceneAuthoredEffectChainRenderer {
                           noise.scrollSpeed, noise.thresholdOffset,
                           noise.shiftAmount, time
                       ),
+                      perspective01: noise.perspective01,
+                      perspective23: noise.perspective23,
+                      params3: SIMD4(noise.depthFade, 0, 0, 0),
                       variant: UInt32(noise.variant.rawValue),
                       fractals: UInt32(noise.fractals)
                   ),

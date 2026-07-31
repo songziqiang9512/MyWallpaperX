@@ -49,7 +49,11 @@ final class SceneDependencyFrameRuntime {
               ))) else {
             return nil
         }
-        return SceneDependencyEffectInput(texture: texture, blendMode: binding.blendMode)
+        return SceneDependencyEffectInput(
+            texture: texture,
+            blendMode: binding.blendMode,
+            slotIndex: binding.slot.slotIndex
+        )
     }
 
     func preparedSourceTexture(
@@ -95,9 +99,9 @@ final class SceneDependencyFrameRuntime {
             variant: .primary
         ))
         guard textureRegistry.texture(for: identity) == nil else { return true }
-        guard let utility = layer.utilityLayer,
-              let geometry = SceneCaptureGeometryResolver.resolve(
-                  kind: utility.kind,
+        let captureKind = layer.utilityLayer?.kind ?? .composition
+        guard let geometry = SceneCaptureGeometryResolver.resolve(
+                  kind: captureKind,
                   layerMVP: layerMVP,
                   viewportSize: viewportSize
               ),

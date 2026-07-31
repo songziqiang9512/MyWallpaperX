@@ -25,9 +25,10 @@ struct SceneImageLayerCompositor {
         pipeline: SceneImageLayerPipeline,
         mainPass: SceneMainPassEncoder
     ) -> Bool {
-        guard request.dependencyEffect.map({ $0.blendMode == 0 || $0.blendMode == 5 }) ?? true else {
-            return false
-        }
+        guard (request.dependencyEffect.map {
+            ($0.slotIndex == 1 && ($0.blendMode == 0 || $0.blendMode == 5))
+                || ($0.slotIndex == 3 && $0.blendMode == 0)
+        } ?? true) else { return false }
         let masks = request.masks
         let layerColorBlendMode = request.layer.colorBlendMode ?? 0
         guard SceneLayerColorBlendRenderer.supports(layerColorBlendMode) else { return false }
@@ -70,7 +71,8 @@ struct SceneImageLayerCompositor {
             1,
             Int((requestedOffscreenSize?.height ?? CGFloat(request.texture.height)).rounded(.up))
         )
-        let chainConsumesDependency = request.authoredEffectChain?.clippingMaskCount == 1
+        let chainConsumesDependency =
+            request.authoredEffectChain != nil && request.dependencyEffect != nil
 
         let sourceEffectInputs = request.authoredEffectChain == nil
             ? effectPlan.inputs
