@@ -2,7 +2,7 @@
 
 > 事实快照：Wallpaper Engine `2.8.42` / Steam build `23967692`
 >
-> 路径清单来源：Wallpaper Engine `2.8.42` 的历史静态取证
+> 路径清单来源：Wallpaper Engine `2.8.42` 固定客户端快照的静态取证
 >
 > 项目目录：[SceneStockAssets.bundle](../../../MyWallpaperX/Resources/SceneStockAssets.bundle)
 
@@ -24,6 +24,6 @@ bundle 不设目录级的文件清单、文件数量或 preview 排除门禁。�
 
 ## 3. 证据等级
 
-- A 级：历史 2.8.42 静态取证记录了 3,113 个相对路径、扩展名及目录归属。
+- A 级：2.8.42 固定客户端快照静态取证记录了 3,113 个相对路径、扩展名及目录归属。
 - 项目事实：Particle slot 0 可直接解码并上传包内 `particle/debris/debris1` 的 1024x128 R8 spritesheet；字体 consumer 可由 CoreText 打开官方命名字体。Particle slot 0 与字体 consumer 已进入 runtime。
 - 未证明：未接入文件的官方加载时机、JSON/shader/sidecar 语义、TEX codec/尺寸/通道/mip/atlas/颜色空间和像素等价；这些仍需自有 fixture 与 Windows golden。

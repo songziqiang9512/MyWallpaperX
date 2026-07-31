@@ -30,6 +30,26 @@
 
 “未找到”不能证明能力不存在。D3D11、Media Foundation、WinRT 和宿主 adapter 大量使用 COM/vtable/函数指针，普通直接调用图无法覆盖全部路径。
 
+### 1.1 阅读顺序与当前项目边界
+
+本文是证据记录，不是能力台账。后续开发按以下路径使用：
+
+| 先回答 | 权威入口 |
+|---|---|
+| MyWallpaperX 当前是否实现、实现到哪一级 | [覆盖台账](coverage-ledger.md) 与对应专项覆盖表 |
+| 当前等级由哪些代码、测试、隔离样本和 GPU 结果支撑 | [运行证据索引](runtime-evidence-index.md) |
+| 下一步需要保真的公共结构与失败边界 | 本文 §8，以及 [场景格式与 RenderGraph](scene-format-and-render-graph.md)、[SceneScript 运行时实现层合同](scenescript-runtime-implementation-contract.md) |
+| 某个结论的输入身份、方法和静态限制 | 本文 §2–§7 |
+
+截至 2026-07-31，与本文最相关的项目现状是：
+
+- RenderGraph 已有保真 IR、typed command 基础和多个 strict/bounded executor，但仍没有通用 authored command-graph 或通用 shader executor；
+- 通用 SceneScript runtime 仍为 `L0`，顶层 wrapper 保真为局部 `L1`；exact native text/audio profiles 不执行 JavaScript，也不升级任何通用 API；
+- 粒子已有多项受限 `L3` 子集，但 factory/dispatcher 的静态宽度不代表 component 数学、随机状态或视觉轨迹已兼容；
+- 内嵌 MP4 image-layer 是受限 `L3`；Sound、系统媒体和 SceneScript video handle 仍是独立缺口。
+
+这些状态会继续变化，因此只在当前状态入口维护；本文不复制提交号、矩阵计数或能力等级明细。
+
 ## 2. 输入身份
 
 本轮重新计算的关键输入身份如下：
@@ -99,7 +119,29 @@ sidecar / authoring input
 
 writer 的 V5 输出固定按 `TEXV0005 -> TEXI0001 -> TEXB0004` 组织，只有存在序列元数据时才追加 `TEXS0003`。64 位主程序 consumer 对 V5 走分块循环并按 `TEXI/TEXB/TEXS` marker 分派，对 V4 则走旧式直接 handler 组合。这个分支形状可以指导自有 reader 做 versioned dispatch，但不提供各 payload 的私有解码算法。
 
-运行中另有一条与 sidecar parser 分离的图层属性注册路径：`nointerpolation` 与 `clampuvs` 各自接受布尔值或 `{value: ...}` 包装，写入不同状态位后触发统一属性变更回调。这证明两项是可动态改变的采样状态；静态路径尚未闭合到最终 D3D sampler descriptor，因此不能仅凭状态位推导 Metal filter/address 的全部映射。
+运行中另有一条与 sidecar parser 分离的 image-layer 属性注册路径：`nointerpolation` 与 `clampuvs` 各自接受布尔值或 `{value: ...}` 包装，分别写入 layer 状态位 `0x4000` 与 `0x8000`。image-layer 的构造默认状态含 `0x8000`，但 authored loader 仍可覆盖。两项 descriptor 的直接 property callback 都是 null，因此这里能确认“setter 会更新状态”，不能把“setter 自身立即触发 sampler 重建”写成事实。
+
+resource preparation 到 D3D11 backend 的链已恢复为：
+
+```text
+TEX subtype + image-layer state
+  -> two sampler policy bits
+  -> material sampler cache lookup/create
+  -> slot-indexed sampler bind
+```
+
+其中 sampler bit 0 由 TEX subtype 的 `nointerpolation` 或 layer `0x4000` 任一来源置位，bit 1 来自 layer `0x8000`。最终 D3D11 descriptor 对这两位的映射为：
+
+| 状态 | D3D11 sampler |
+| --- | --- |
+| bit 0 = 0 | min/mag/mip linear |
+| bit 0 = 1 | min/mag/mip point |
+| bit 1 = 0 | U/V/W wrap |
+| bit 1 = 1 | U/V/W clamp |
+
+sampler cache key 保留完整状态字及额外 comparison/admission 位，cache miss 才由 device 创建 sampler；结果进入 material sampler state，并按低四位 slot index 绑定。另一 binding flag 会在两个 backend 入口之间选择，但静态路径尚不能无歧义命名为具体 shader stage。完整状态还存在超出上述两位的 filter/address 分支，所以该表只闭合 `nointerpolation/clampuvs`，不是完整 sampler schema。
+
+image-layer 的资源准备方法会重新折叠这些状态并取得 sampler；现有静态调用点集中在初始资源准备、尺寸变化或 effect 重建邻域。运行期 property 写入如何保证该方法再次执行仍未闭合，因而不能据此宣称动态 sampling 已被端到端证明。另一个归属风险是：同一 accessor、对象偏移或位会被不同 property registry 复用；结论必须同时受 image/renderable registry、vtable family 和调用阶段约束，不能只凭 `+0x304` 或单个位值归因。
 
 关键反例是：
 
@@ -128,12 +170,36 @@ writer 的 V5 输出固定按 `TEXV0005 -> TEXI0001 -> TEXB0004` 组织，只有
 
 第二轮对 64 位 effect parser 的局部恢复把字段归属收窄为：
 
-- FBO：`format/scale/width/height/unique/clear`；
+- FBO：`format/scale/width/height/fit/unique/clear/uvs`；
 - pass：`conditions/command/source/target/compose/material`；
 - function：`action/repeat/index/conditions`；
 - typed backbuffer：`rgb_backbuffer/rgba_backbuffer`。
 
-condition 在 FBO、pass 或 function 纳入结构前求值；`command` 与可选 `source/target` 保持独立字段；`compose:true` 设置独立状态并增加 compose 参与计数。`copy` / `swap` literal 也汇入该 parser，但本轮没有无歧义闭合到实际执行函数，所以这里只能确认它们是 authored command 身份，不能把像素 copy、handle swap 或跨帧可见顺序写成已由反编译证明的事实。
+condition 在 FBO、pass 或 function 纳入结构前求值；`command` 与可选 `source/target` 保持独立字段；`compose:true` 设置独立状态并增加 compose 参与计数。`copy` / `swap` 被编译成与普通 material pass 不同的两个 command enum；未知 command literal 不产生新 enum，而落回 ordinary-pass shape，项目应对未知值 fail closed并报告诊断。
+
+executor 又把三类节点的结构区别闭合：
+
+- ordinary pass 按已解析 bind index 取得 texture，绑定 target，执行 material，再释放 target；
+- `copy` 先激活 source render target，再对 target 调用专用 copy operation，随后恢复 source；它不进入 material/bind 执行；
+- `swap` 要求 source/target 都已解析，随后交换持久 runtime pass records 中所有非-swap pass 的 source、target 与 bind resource index。它不复制像素，也不执行 GPU material；同一 effect 后续节点和后续帧会观察到交换后的 logical identity，重复执行可形成 ping-pong/history rotation；
+- `compose:true` 的 pass 执行完成后，外层按 authored pass 顺序推进 full-frame 输出对的当前 identity；它是 composition boundary，不是 material 名称或普通 blend flag。
+
+FBO definition 到运行资源的准备链又闭合了以下合同：
+
+- 缺省 `width/height` 取 layer 当前 extent，显式值覆盖对应轴；`fit` 在不放大原 extent 的前提下限制长边并保持宽高比；`scale` 作为后续 extent divisor，底层至少保留一个非零最小 target。项目应把 authored extent、fit 与 allocation scale 分开，不能把三者压成一个百分比；
+- 非 `unique` FBO 通过 authored name、resolved extent、format 等组成的 key 查询共享 render-target cache；`unique:true` 改走追加 effect identity 的 key。effect identity 优先使用实例 JSON 的 `id`，缺失时由 owner registry 分配，因此 unique 是实例隔离合同，不只是禁止同名；
+- `uvs` 只有字符串精确为 `repeat` 时切换一项底层创建 policy，其他值保留默认 policy；静态路径尚未把这项 policy 闭合到最终 D3D/Metal sampler address mode；
+- `clear` 只有成功解析四个分量时才置位。resource prepare 在 target 创建或尺寸更新后设置这四个分量并执行一次 clear；frame executor 不会因为 FBO 声明带 `clear` 而逐帧自动清屏。clear 的颜色空间、alpha 解释和共享非-unique target 的跨 owner 可见性仍需 dynamic golden；
+- 已存在的 target 在 resolved extent 变化时原位触发资源重建并更新依赖 descriptor；这条资源准备路径不会重写 pass records 中被 `swap` 改过的 index。effect list reload 则先释放全部 pass/FBO records，再从 authored JSON 重建，所以 logical swap mapping 在资源 resize/reprepare 中保留，在 effect reparse 时复位；device-loss 是否同时触发 effect reparse 仍未闭合。
+
+command 的负向路径也不是统一的“缺字段即 no-op”：
+
+- 未解析 target 时 `copy` 不调用 target operation；未解析 source 时它跳过 source activation，但若 target 已解析仍会调用 target operation，因此会依赖当时的 ambient input。source/target 指向同一 identity 时也没有 alias guard；
+- `swap` 在任一 identity 未解析时直接返回；两个 identity 相同时 logical rewrite 为 no-op。两个不同 identity 最终若因非-unique cache 指向同一底层 target，静态路径没有额外 hazard 保护证据。
+
+compose 的 capture 对象也已收窄：layer 根据 compose 参与量准备最多两个 full-frame render target；ordinary pass 的默认 full-frame bind 读取当前 identity，外层在 compose pass 后切到另一 identity，后续 pass/effect 立即观察新成员。这说明 compose 是 layer-local full-frame pair 的推进，而不是任意 FBO copy。
+
+这些结果证明项目必须保留 typed command、FBO allocation policy 和 mutable logical-resource mapping，不能把 swap 实现为像素 blit，也不能让 command 消耗 material ordinal。静态路径仍未给出 copy 的 exact D3D primitive、颜色/采样转换、同资源 copy 结果、device-loss 后 history 可见结果或 clear 的像素解释。
 
 ### 5.2 32/64 位主程序交叉结果
 
@@ -144,7 +210,7 @@ condition 在 FBO、pass 或 function 纳入结构前求值；`command` 与可�
 | RenderGraph admission | `conditions/compose/target/unique/clear/rgb_backbuffer/rgba_backbuffer` 的核心共现集合一致；condition 与 graph 字段汇入同一 parser 邻域 | `clear` xref function 为 64 位 4、32 位 3；不能写逐函数等价 |
 | Material values/state | `constantshadervalues/usershadervalues/usertextures` 共址；`alphawriting/depthtest/depthwrite/cullmode` 共址 | 只证明读取与汇合，不给出 blend factor、write mask 或 override 完整优先级 |
 | TEX/built-ins | `TEXI/TEXB/TEXS` 与 resolution/mipmap/rotation/translation 家族对应 | 32 位未恢复到 64 位可见的独立 `TEXV`、`clampuvs` literal；不能用 literal 缺失否定代码路径 |
-| Particle graph | `controlpoints/children/maxcount/starttime` 的全部 pair 共现集合一致 | 64 位 factory/variant/lifecycle 已进一步恢复；32 位未做同深度复核，数值公式、random seed 与 dispatcher 内部阶段顺序仍未知 |
+| Particle graph | `controlpoints/children/maxcount/starttime` 的全部 pair 共现集合一致 | 64 位 factory/variant/lifecycle 与 dispatcher 编排已进一步恢复；32 位未做同深度复核，component 数学、random seed 与视觉轨迹仍未知 |
 | Final output | `hdr/bloom/downsample/upsample/srgb/display` 的核心共现关系对应 | `hdr+downsample` xref 数不同；不证明 tone-map 数学或 HDR 像素结果 |
 | GPU/text/media | 两边 `D3D11CreateDevice` 6 refs、`DWriteCreateFactory` 2 refs；URL/byte-stream source、media session、DXGI device manager 同时存在 | topology/renderer activation ref 数有 ABI/恢复差异；COM 间接调用未完整计入 |
 
@@ -152,19 +218,55 @@ condition 在 FBO、pass 或 function 纳入结构前求值；`command` 与可�
 
 ### 5.3 Frame、readiness、reset 与 final output
 
-主 render thread 使用高分辨率 counter 计算连续 frame delta，并把 local date/time 与 frame progression 分开；资源/视频 readiness 会影响 active/wait 路径。它不是每次循环固定加一帧的执行器。
+主 render thread 使用高分辨率 counter 计算连续 frame delta，并把 local date/time 与 frame progression 分开；资源/视频 readiness 会影响 active/wait 路径。恢复出的 scene 时间链为：
+
+```text
+raw elapsed
+  -> FPS / pause admission
+  -> smoothed time scale
+  -> authored playback scale
+  -> clamp
+  -> effective scene delta
+```
+
+`engine.frametime`、scene `runtime` 累计、SceneScript tick 与 timer 共用这个 effective-delta 时间域。pause 渐变阶段会随 time scale 同步减速；完全暂停后不再 tick 或累计。恢复时先重置性能计时基线，暂停期间的 wall time 不会进入首个恢复帧，也不会触发 timer catch-up。`engine.timeOfDay` 则每帧重新采样本地系统时间，不属于累计 scene runtime。静态路径没有给出跨平台应复制的 smoothing/clamp 数值；项目应把它们作为自有 policy，而不是硬编码客户端常量。
 
 device loss 或 scene rebuild 会按资源族释放并重建 render target、material/shader cache、texture/provider 与 scene state。这个形状要求项目使用 `reset(reason, generation)` 式跨资源事务，不能只依赖对象各自 deinit。
 
 最终输出按 LDR、HDR、video-HDR 与 display-HDR 选择不同 combine/downsample/bloom/blur/upsample 参与者。静态证据确认 typed output-mode graph 的必要性，但没有给出 transfer function、色域、tone-map、bloom 数学或 Metal 等价参数。
 
-### 5.4 Particle factory、frame 与 teardown
+### 5.4 Pause/mute 与 renderer policy
+
+pause 与 mute 是独立的 renderer 状态，不是同一个“不可见”开关。集中策略更新会遍历现有 renderer：pause 由全局 interruption reasons 与显示器 mask 联合计算，mute 由全局静音 reasons 集合计算；新建 renderer 立即继承当时的策略。renderer window 已存在时，状态会同步投递到 renderer thread；window 尚未建立时先保存为初始状态，待创建后生效。
+
+因此跨平台应先把 lock/sleep/display sleep/user pause、静音和 per-display eligibility 归一为显式 reasons，再计算每个 renderer 的 pause/mute snapshot。外部 UI 到主命令窗口的最终 IPC wire format 尚未闭合，本文不记录或推断消息号。
+
+### 5.5 Particle factory、frame 与 teardown
 
 64 位粒子 definition factory 的字段/组件引用集合覆盖 168 项标识，包括 emitter、initializer、operator、renderer、children、event spawn/death/follow、control point、collision、Rope/RopeTrail/SpriteTrail、turbulence 与 boids；initializer/operator 数组另由专门 helper 解析。这个数字表示 factory surface 的静态宽度，不表示 168 项都能执行，也不等于粒子能力台账的行数。
 
 definition bitfield 会直接选择 renderer variant。可识别的 variant 维度包括 `TEX0FORMAT`、`THICKFORMAT`、`ORIENTATION`、sprite sheet、blend、NPOT、trail renderer、fade alpha/size、scroll 与 subdivision；`genericropeparticle` 进入独立 shader/material 分支。CP0...7 及 angle0...7 另有独立动态属性注册入口，证明 control point position 与 angle 都属于 live property surface，而不是只在加载时读取一次。
 
-帧更新的外围顺序可恢复为：
+definition 初始化会先递归实例化直接 child，并分别保存普通 child 与 event-follow/event-spawn/event-death group。非零 `starttime` 不是首次 frame 的时间偏移：runtime 会暂时切换运行标志，按粒子规模选择离散步长，反复调用正常的 per-runtime simulation dispatcher 覆盖预热区间，再恢复标志并刷新输出 buffer。具体步长和阈值不归档为跨平台参数。
+
+单个 runtime 的 simulation dispatcher 已恢复为以下有序阶段：
+
+1. 处理死亡/回收索引，并完成 event-death child 的创建或复用与 parent-state handoff；
+2. 准备 transform、control-point 与 simulation context；
+3. 在允许 emission 时，按 authored 顺序执行 emitter record stream；
+4. 每个新粒子先写默认 channel，随后立即按 authored 顺序执行 initializer record stream；
+5. 一个 emitter batch 完成后，再处理 event-follow/event-spawn child handoff；
+6. operator 前复制需要 previous-state 的 channel；
+7. 按 authored 顺序执行变长 operator record stream；
+8. 保存本轮状态快照。
+
+collision plane/sphere/box/bounds/quad/model 均编译为同一个 operator stream 内的变长 record，运行时与其他 operator 共用 type dispatch 和 record-size 前进合同；它们不是 operator 之外的独立末端阶段。这个结论只确定编排，不确定碰撞数学、反弹结果或与所有 event 的视觉等价。
+
+operator dispatcher 还存在 mode-dependent substep policy：普通模式执行一个整步，另一组 host mode 把 frame delta 与相关 time scale 一致缩放后执行两个子步。MyWallpaperX 因而需要让 operator stage 显式接收 substep context，不能只在外层重复调用而仍把完整 delta 传给每个 operator。
+
+root/child 的普通帧顺序也已闭合：父 runtime 先完成上述 simulation 与 snapshot，再按 definition 容器顺序递归更新直接 child，随后按 event group 和组内活动实例顺序更新 event child；递归调用继承同一 frame delta 与更新标志。父 dispatcher 本帧新插入且通过 probability/capacity 等门的 event child 会进入稍后的 child 遍历，其中 event-death 的新建/复用路径得到直接确认。
+
+更外层的 frame 顺序为：
 
 1. active/pause/reset gating；
 2. 必要时清空活动缓冲与 child runtime；
@@ -174,7 +276,30 @@ definition bitfield 会直接选择 renderer variant。可识别的 variant 维�
 6. 进入 simulation dispatcher；
 7. 标记输出缓冲 dirty。
 
-reset/teardown 会归零活动计数和 CPU buffer，遍历 root 与分组 child，递归析构嵌套 child，并清空 vector/hash/index 容器。这支持项目为 particle runtime 建立显式递归 owner/reset 合同，但 simulation dispatcher 内 emitter、initializer、operator、collision/event/child 的精确同帧顺序、随机公式和 renderer 数学仍未恢复。
+reset/teardown 会归零活动计数和 CPU buffer，遍历 root 与分组 child，递归析构嵌套 child，并清空 vector/hash/index 容器。这支持项目为 particle runtime 建立显式递归 owner/reset 合同。仍未恢复的是随机状态/种子、各 component 的数学表达、所有 probability/capacity 边界、renderer 数学和视觉轨迹。
+
+### 5.6 官方 effect/particle corpus 对开发排序的约束
+
+本节只做字段与组合频率统计，不复制 payload。粒子范围与既有 corpus 一致：`assets/presets`、`assets/scenes/particleelementpreviews`、`assets/particles` 和默认 Scene，共 295 个路径、215 个不同 JSON payload。
+
+去重后的 215 个 definition 显示：
+
+- 212 个只有一个 emitter，3 个有两个 emitter；这与运行时 ordered emitter stream 互证，多 emitter 不能被合并成无序配置；
+- 202 个使用 `movement`，184 个使用 `alphafade`，69 个使用 `sizechange`；公共 operator pipeline 的收益远高于为低频 component 建立旁路；
+- 67 个具有正的 `starttime`，离散 prewarm 是常见 authored 合同，不是极端兼容项；
+- 50 个含 child，共出现 static 36、event-death 17、event-follow 12、event-spawn 4 次；child graph、event owner 和递归 teardown 应作为同一能力族实现；
+- 五类实际出现的 collision definition 都来自各自的官方 element preview，且未与 event child 共现；它们为隔离正向 fixture 提供输入，但不能据此推断真实复杂作品中的 collision/event 组合顺序；
+- 204 个显式声明 renderer，11 个没有 renderer record；loader 必须保留“缺省 renderer”与“显式 renderer”差异，不能在 parse IR 中静默补成同一形态。
+
+46 个根 effect definition 另显示：
+
+- 36 个为单 pass，10 个为多 pass；多 pass 中包含 3 条独立 command pass（1 次 copy、2 次 swap）；
+- 9 个声明 offscreen buffer，39 个 pass 写显式 target；部分 target 在同一 effect 中重复写入，证明资源 identity 与 pass identity 不能合并；
+- pass-level 与 bind-level `conditions` 都实际出现，bind slot 使用到稀疏 index 4；condition 必须先于 admission，slot 也不得压缩；
+- `compose` 是独立 pass flag，不等于普通 material pass；
+- 其中一个随包 effect 文件带单个 trailing comma，严格 JSON parser 会拒绝；这是输入兼容候选，不足以单独证明客户端所有 JSON 都宽松。项目若支持，应在 bounded normalization 后保留诊断与原始 source identity，不能全局吞掉任意语法错误。
+
+这些频率只用于开发排序和 fixture 选择，不把静态文件存在性提升为 MyWallpaperX 的执行等级，也不证明官方视觉结果。
 
 ## 6. SceneScript 的 module/engine/owner 机制
 
@@ -187,7 +312,7 @@ reset/teardown 会归零活动计数和 CPU buffer，遍历 root 与分组 child
 - `GetSceneScriptVersion`
 - `Shutdown`
 
-64 位主程序深挖确认：主程序动态装载 DLL，先要求 `GetSceneScriptVersion()` 与 `2.8.42.SceneScript` 精确匹配，再取得 init/engine factory；版本不符失败关闭。module 使用进程级 init/shutdown，engine 实例另有 isolate、script/timer/property/audio 表和宿主桥。
+64 位主程序深挖确认：主程序动态装载 DLL，先要求 `GetSceneScriptVersion()` 与 `2.8.42.SceneScript` 精确匹配，再取得 init/engine factory；版本不符失败关闭。module 使用进程级 init/shutdown。主程序在 scene 第一次准入脚本时按 scene 创建一次 engine，并把它保存在 scene owner 中；engine 实例另有 isolate、script/timer/property/audio 表和宿主桥，不是跨 scene 的进程单例。
 
 engine 还具有：
 
@@ -218,17 +343,109 @@ engine 还具有：
 
 64 位额外出现一个运行库异常导出和一个 TLS callback；函数数、xref 数与 CRT/API 细节也不同。这些差异不改变四个公开宿主导出的对应关系，但禁止宣称逐函数、ABI、异常或 GC 行为完全相同。
 
-### 6.3 仍需动态或自有 fixture 的部分
+### 6.3 Frame tick、timer 与 owner teardown
+
+主程序的 scene frame 路径给出了一个可迁移的有序合同：
+
+1. 先消费已经排队的 media/provider 变化并派发对应事件；
+2. 处理本帧 animation crossing，并派发 `animationEvent`；
+3. 调用一次 engine frame tick；
+4. engine tick 内先原地刷新 audio arrays，再遍历 timer 快照；
+5. tick 返回后，主程序沿 script-record 双向链表直接向仍存活的 record 派发普通 `update`；
+6. 普通 `update` 结束后，宿主才 drain pending destroy，再进入本帧后续 render preparation。
+
+这闭合了 audio/timer 与普通 `update` 的相对顺序，但不代表所有 cursor、resize、user property 与 media producer 都在同一个函数中产生。
+
+timer 是 owner-scoped record。每轮 scheduler 会先复制当前 timer 指针快照，因此回调中新建的 timer 不会在同一轮获得第二次执行机会，取消或删除也不会破坏当前遍历。one-shot 回调结束后按 record identity 删除；interval 到期后每帧最多触发一次，并从完整周期重新计时，不追补长帧遗漏的周期，也不累积 overshoot。owner removal 会逐条释放其 timer。
+
+timer 接收的是 §5.3 的 effective scene delta，而不是独立 wall clock。完全暂停时 scene engine 不 tick，timer 也不累计；恢复时重置计时基线，不追补暂停期间的 interval 或 timeout。
+
+`registerAudioBuffers` 只允许在 global evaluation phase。分辨率只接受 16/32/64，未提供时走 16；首次注册建立三档 left/right/average backing arrays，后续 tick 在原数组上更新，因此 VM 所见 array identity 跨帧稳定。静态证据没有给出项目应采用的音频归一化、平滑或缺设备 policy。
+
+普通 `update` 与 timer 不使用同一种 mutation admission。新 owner 的 script record 在创建时尾插到 live 链表，且 `init` 同步执行：
+
+- cursor/media/timer 阶段创建的 owner 会在稍后的同帧普通 `update` 中被访问；
+- 普通 `update` callback 创建的 owner 会同步取得 `init`，并因 live traversal 继续前进而在本轮后段获得第一次 `update`；
+- callback 请求 destroy 只进入 pending queue，不会在当前 callback 中释放 record；
+- destroy drain 中的 `destroy` callback 再创建 owner时，普通 `update` 已经结束，因此新 owner 要到下一帧才第一次 `update`。
+
+最后一种 owner 在同步 `init` 前已经加入 native/render registry。destroy drain 后仍会运行 render preparation，因此只要类型和 effective visibility 满足，它可能在创建帧已经显示，而首次普通 `update` 位于下一帧。这是官方宿主的可观察 admission 边界，不是建议项目允许 callback 无限扩张工作量。
+
+主程序的公共 owner removal 路径会在一个 engine batch 中先派发存在的 `destroy`，再从 engine 删除对应 script record，最后释放宿主 record。scene teardown 又先释放各类 owner，再释放 scene engine；因此当前路径的顺序已经闭合为：
+
+```text
+destroy callback
+  -> engine record removal
+  -> host owner record release
+  -> after all scene owners: engine release
+```
+
+DLL 的 record removal 与 engine 析构本身仍不会替宿主派发 `destroy`；exactly-once 取决于宿主只让 owner 进入一次公共 removal 路径。
+
+### 6.4 已恢复的 host binding 合同
+
+以下事实只用于实现自有 contract/fixture，不公开客户端内部 ABI：
+
+- **asset registry**：`registerAsset` 只允许 global phase，按传入路径去重；重复注册不改写第一次的 precache 选择。VM 边界能取得路径值，但 v2.8 公共接口仍应保持 opaque `IAssetHandle`。registry 随 owner 释放；路径 canonicalization、大小写、依赖展开与真实 precache 时点仍未知。
+- **dynamic layer**：`createLayer` 同步进入宿主并立即取得 native identity；wrapper cache 按 native identity 复用 handle。bridge-managed identity vector 每项 8 bytes，已有字节长度大于 `0x3fff` 时创建返回空值，因此 2047 项可再创建一项，已有 2048 项时拒绝；该上限不能被解释为“只统计动态 layer”。`getLayerIndex` 对未知 identity 返回 `-1`，`sortLayer` 对未知 identity 返回失败；native sort 会把超过当前长度的目标 index 夹到尾部，负数在 VM 边界是否先被拒绝仍未闭合。sort 只改变 native/render topology，不改变 script-record 注册顺序。`destroyLayer` 同步返回请求结果，实际 removal 在普通 `update` 后的 pending-destroy drain 执行。wrapper 创建时还向 native object 注册 lifetime callback；对象真正销毁时 callback 同时清除 identity/index 两张表并释放 wrapper，旧 handle 不能继续命中 cache。`getInitialLayerConfig` 是宿主配置序列化后重新解析出的 detached object，不是 live alias。
+- **layer parenting**：`setParent` 先把 string/number/handle 统一解析为 native parent identity，并把 attachment number 或 name 解析为 index；缺少 parent 表示解除父子关系。native core 同步从旧 parent 的 child vector 摘除并写入新 parent/attachment，不经过 pending-destroy queue。`adjustTransforms=false` 直接切换关系；`true` 会以切换前的 world transform 和新 parent/attachment transform 重算 local origin/angles/scale。相同 parent 与 attachment 是成功 no-op；显式 self-parent 或内部 flag/child complexity guard 失败时不会恢复旧 parent，而是保持 unparented 并报告 invalid configuration。`getParent` 直接返回当前 identity，`getChildren` 复制调用时 child vector 的 `[begin,end)`，不是 live collection。descendant cycle、缺失 parent/attachment 的 VM 负向行为以及 guard 的跨平台含义尚未闭合。
+- **model data**：`createModelData` 返回带 token 的 VM handle；`applyData` / `replaceData` 共用一个 native update bridge，以 mode 区分，且 update phase 明确拒绝 `replaceData`。负向路径分别拒绝 buffer 增长、非 dynamic 更新、shape/buffer 增删、material 或 vertex-format 改变，以及 index type/lock/layout 不兼容。destroy 使用 token/handle；仍被 layer 引用时只登记销毁请求，释放延后到引用解除。
+- **local storage**：set/get/delete/clear 均禁止 global evaluation phase。默认域是 screen，只有字符串精确等于 `global` 才切到 global，其他值回落 screen。key 必须为 string；`set(key, undefined)` 转为 delete。value 先经 VM 序列化再写入带版本 envelope，get 遇到 envelope/反序列化失败返回 `undefined`；delete/clear 透传宿主成功状态。namespace、quota、原子性与跨重启结果仍未知。
+
+二进制内部注册了名为 `clearTimeout` 的 binding，但 v2.8 公共声明仍明确要求调用 `setTimeout`/`setInterval` 返回的 cancel function。项目不能因内部兼容入口存在而扩张公开 API。
+
+### 6.5 Cursor 命中、传播与输入状态
+
+cursor traversal 使用当前帧收集出的候选快照，并只对 layer flag word 中 `solid` bit 置位的对象调用 native layer hit-box/detail virtual。这里的 hit test 是宿主内部 layer 几何接口，不是 v2.8 SceneScript 公共 hook；官方声明中不存在 `cursorHitTest`。
+
+同一 flag word 已闭合三项独立状态：
+
+| 字段 | bit | 对 cursor 的作用 |
+|---|---:|---|
+| `visible` | 0 / `0x0001` | 不决定是否参加 solid hit test；只参与 effective-visible 与 propagation 判断 |
+| `solid` | 13 / `0x2000` | 决定 layer 是否参加 hit test |
+| `disablepropagation` | 14 / `0x4000` | 只有当前 layer 与祖先都可见时，命中后才阻断后续传播 |
+
+由此得到以下高置信状态合同：
+
+- `visible=false` 不会使 `solid=true` 的 layer 退出命中测试；隐藏 solid 仍可取得 enter/move/down/up/click，并保留 hover 与 pressed/capture 状态；
+- 隐藏 solid 因不满足 propagation gate，不会挡住候选快照中后续命中对象，因此可形成透明交互区；
+- visible setter 只改可见状态并触发常规属性变更，没有清除 hover、pressed/capture 的副作用；
+- native object 真正销毁时会静默清除 hover 与 pressed/capture 引用，不为失效对象补发 leave/up/click；
+- click 依赖同一 pressed/capture identity 完成 down/up 配对；销毁导致的 silent invalidation 必须先于后续 dispatch。
+
+三个轮询 getter 也已闭合到主程序 host：
+
+- `input.cursorWorldPosition` 从 scene 保存的 cursor pixel snapshot 经当前 view/projection 的逆变换得到 Vec3；2D policy 可把 z 强制为 0；
+- `input.cursorScreenPosition` 使用同一 snapshot，按当前 canvas/viewport scale 输出像素坐标并根据当前坐标 policy 处理 Y 方向；
+- `input.cursorLeftDown` 固定查询 left-button identity，读取 scene 输入记录中的当前布尔状态，其他 button identity 返回 false。
+
+getter 都禁止 global phase，并读取调用时 host state；`CursorEvent` 的 world/local/hit-box 则在 native dispatch 前构造成独立事件快照，二者不能共用一个可变 JS object。当前静态证据仍没有把 event local 坐标的全部 parent/puppet 逆变换、边界容差、多按钮事件或候选快照内的完整前后顺序闭合为跨平台数值合同。
+
+### 6.6 Camera、material、particle、video 与 animation handle
+
+- **camera transforms**：`getCameraTransforms` / `setCameraTransforms` 都拒绝 global evaluation phase。DTO 固定为 `eye`、`center`、`up` 三个 Vec3 和 `zoom`；getter 读取 scene 保存的 base camera record，setter 对四项分别接受缺省，只覆盖实际提供的成员。构造默认是 `eye=(2,2,2)`、`center=(0,0,0)`、`up=(0,1,0)`、`zoom=1`；正交且没有 authored camera 时使用 `eye=(0,0,0)`、`center=(0,0,-1)`、`up=(0,1,0)`，authored camera 字段会覆盖同一 base record。finite/type 错误的 VM 边界和 2D/3D 冲突仍需自有 fixture。
+- **material property**：`setMaterialProperty` 按存储顺序遍历 effect 的 material instance record，每个 instance 以 property name 查询自身 metadata，再执行 scalar、Vec2、Vec3 或 Vec4 typed write。scalar 可按 metadata 选择 int/float 转换，带角度单位的字段还会执行 degree-to-radian；缺失或不兼容 property 只使该 instance no-op，不阻断其他匹配 instance。
+- **material function**：`executeMaterialFunction` 对缺失名称或空 descriptor no-op；否则按 descriptor-defined ordered record set 依次切换每条 material render record 的 active material/state，立即执行 function，再恢复此前状态。它不是无序广播或跨帧任务。descriptor index 与 authored pass 的完整映射尚未闭合。
+- **particle emission**：`emitParticles()` 与 `emitParticles(0)` 都规范为一次 emission，正整数原样传入，负数 no-op；调用使用零时间偏移并进入正常 runtime 共用的 emitter/default-channel/initializer dispatcher，不建立脚本专用粒子路径。静态证据能确认调用时完成 CPU 侧分配与 initializer 流程，不能确认最终 GPU buffer 是否在同一 draw 可见。
+- **video handle**：provider 缺失时操作 no-op、getter 返回默认值。`play` 遇到 ended 会先 seek 到 0 再播放，`pause` 只暂停，`stop` 暂停并 seek 到 0；`isPlaying` 同时要求 provider active/playing 且未 ended。非 loop 模式先观察到未结束才 arm，随后首次 ended 只派发一次并解除，重播后可再次 arm；loop 模式以当前时间小于上一帧识别自然回绕并派发 ended。主动 `setCurrentTime` 会清除待派发状态，避免把 seek 误报为 loop end。callback 由 owner 有序保存，经 scene engine 批量派发，owner teardown 后不得存活。
+- **animation layer**：`playSingleAnimation` 与普通 `createAnimationLayer` 共用创建/验证/排序路径；配置未解析到已有 animation 时返回空 handle，成功后按 `autosort` / `index` 插入有序容器，再追加 one-shot 标记。evaluator 到达 end 的 frame 先派发该 layer 的全部 ended callbacks，此时 handle 仍存活；同一 frame 的第二遍遍历才移除已标记 layer。显式 `destroyAnimationLayer` 接受 handle identity、非负 index 或 name，name 会删除全部同名匹配；无效 identity、越界 index 和空 name 均 no-op/false，显式 destroy 不冒充自然 ended。
+
+这些都是中性生命周期和顺序合同，不证明 MyWallpaperX 已有相应 VM/handle，也不证明动画混合、视频像素、粒子轨迹或 material function 的视觉等价。
+
+### 6.7 仍需动态或自有 fixture 的部分
 
 静态路径不能无歧义确认：
 
-- 全部 19 个事件的实际派发顺序、重入与跨帧可见性；
-- `destroy -> record removal -> engine teardown` 的完整相对顺序；
-- timer 在 pause/seek/长帧与 wall-clock 跳变下的运行结果；
+- 全部 19 个事件的全局派发顺序、回调重入与跨帧可见性；
+- timer 取消函数是否幂等、delay 下限以及 scene seek 是否影响 scheduler；
 - watchdog 阈值、预算与错误传播应如何跨平台取值；
-- 全部 handle/API 的副作用、identity 与销毁语义。
+- storage namespace/quota/原子性、asset canonicalization/precache、model-data 精确引用计数；
+- camera finite/type 负向行为、material descriptor/pass 完整映射、particle 同 draw 可见性、video provider/error/多屏时钟以及 animation blend/root-motion；
+- cursor event-local/puppet 坐标、候选顺序、边界容差、多按钮与 visible/solid/parent mutation 的同帧冲突；
+- 未在 §6.4–§6.6 闭合的 handle/API 副作用与同帧冲突语义。
 
-MyWallpaperX 应先用自有 fake VM 锁定 owner lifecycle、事件队列、typed writeback、timer policy、budget 和 exactly-once destroy，再选择通用 VM。
+MyWallpaperX 应先用自有 fake VM 锁定 owner lifecycle、事件队列、typed writeback、timer policy、mutation/callback budget 和 exactly-once destroy，再选择通用 VM。官方 live update traversal 允许 callback 不断尾插新 owner并延长同一轮；项目应采用明确的有界队列或总预算。若选择“下一帧准入”，这是安全 policy 差异，必须写入能力合同，不能表述为官方等价。
 
 ## 7. 视频、声音、系统媒体与 surface
 
@@ -236,7 +453,37 @@ MyWallpaperX 应先用自有 fake VM 锁定 owner lifecycle、事件队列、typ
 
 `wallpaper32/64.exe` 都具有 Media Foundation URL/byte-stream source、media session/topology、audio/video renderer activation 与 DXGI device manager 参与者。这支持视频 provider 需要 scene clock、readiness、seek/loop/reset、generation 和 GPU frame 互操作边界，但不提供 A/V 同步、颜色矩阵、range、rotation 或首帧规则。
 
-`mediaextensions64.dll` 经主程序 factory 动态取得，公开/静态边界覆盖 audio device/context、source play/pause/stop/rewind、buffer queue、capture、device pause/resume 和线程化 teardown。它更接近 Sound/device lifecycle，不是通用视频解码器。项目无需复制 OpenAL API，但 owner-scoped Sound 必须有 prepare/play/pause/resume/stop/dispose、loop/volume、预算和 device reset。
+64 位主程序的 controller 创建与析构路径把视频 producer 的 owner 边界进一步闭合：
+
+- controller 创建时保存宿主 manager，并登记到 manager-owned pointer registry；它不是附着在某张 texture 上、随一次 draw 临时创建的 decoder；
+- 初始化链同时建立 D3D11 device、Media Foundation、DXGI device manager 和媒体 engine，预探测 byte stream/source reader 的尺寸、帧率与媒体类型；
+- requested-playing、实际 running、frame-ready/dirty 是分开的状态；seek 走 stop → seek → restart，stall recovery 会从当前时间重启并退避；
+- controller 的输出侧方法分别承担媒体帧取得/发布、音量同步、原子 take-and-clear 状态和 provider pump/recovery；
+- teardown 先停止并等待 worker，再从宿主 registry 退注册，随后释放 output、media engine、DXGI/D3D/MF 资源并执行 Media Foundation shutdown。
+
+这把跨平台公共形状收窄为 **host-owned producer registry + retained playback intent + 独立 frame publication**。项目应分别记录 provider generation 与 device generation，并保证 teardown 的 `stop worker -> deregister -> release GPU/media` 顺序。最后一轮静态扫描没有无歧义闭合宿主每帧如何遍历 registry，也没有证明 device reset 后由谁恢复 play/rate/loop/seek intent；这两项继续保持未验证。
+
+`mediaextensions64.dll` 经主程序 factory 动态取得，公开/静态边界覆盖 audio device/context、source play/pause/stop/rewind、buffer queue、capture、device pause/resume 和线程化 teardown。它更接近 Sound/device lifecycle，不是通用视频解码器。
+
+对 factory vtable 的完整恢复进一步闭合了资源与播放实例的分层：
+
+```text
+resource identity / bytes
+  -> reference-counted cached payload
+  -> source handle
+  -> playing / paused / stopped
+  -> stop-if-needed + dispose
+```
+
+- payload 按资源 identity/bytes 建立并缓存，释放最后一个引用时才从 cache 移除；
+- source handle 由 payload 创建，独立保存 source、duration 与播放状态；状态检查分别对应 playing、paused、stopped，而不是用一个布尔值表达；
+- play、pause、stop 显式改写三态；dispose 遇到非 stopped source 时先停止再释放；
+- source 参数入口覆盖经全局缩放后的 gain、rolloff factor、reference distance、单 source position 与批量 position；clone 会复制 pitch、gain、position、source-relative、reference distance 和 rolloff factor；
+- 这些 cache/source/parameter 操作共享递归 SRW lock、device/context sentinel 和空 source no-op 边界。
+
+主程序的 Sound 参数链还确认，某个 Sound owner 的 `+0x304` 最终写入 source 的 rolloff factor；它与 image-layer 同偏移的 clamp 位没有语义关系。这再次说明偏移只能在明确 owner/vtable/call chain 内解释。
+
+项目无需复制 OpenAL API，但 owner-scoped Sound 应把 immutable/cached audio payload、mutable source/voice、显式三态、参数快照和 device generation 分开；prepare/play/pause/resume/stop/dispose、loop/volume、预算、锁保护更新与 reset 必须有清晰边界。静态路径仍没有闭合主程序的完整 provider admission、全局 gain 来源、设备重建时 source 状态恢复或声音 golden。
 
 ### 7.2 系统媒体是带 generation 的异步 producer
 
@@ -260,39 +507,40 @@ media generation N
 
 `cloneextensions64.dll` 由主程序动态解析 clone/composition 入口，并维护独立 surface/window/swapchain create/update/destroy 边界。它支持稳定 surface identity、per-display policy 与 display hot-plug transaction，不能证明所有场景都走 clone，也不要求 macOS 复制 DirectComposition。
 
-## 8. 对项目的直接约束
+## 8. 从静态证据导出的目标合同（非实现状态）
 
 本取证只收窄公共设计，不更新任何 `L0-L4` 等级：
 
-1. **纹理**：format、purpose、physical/mapped、UV、sampler、alpha/color 与 generation 必须共同进入 identity；
-2. **RenderGraph**：condition 先于 admission；pass、command、target、copy/swap/history 保持不同身份；
+1. **纹理**：format、purpose、physical/mapped、UV、sampler、alpha/color 与 generation 必须共同进入 identity；`nointerpolation/clampuvs` 分别进入 filter/address policy，cache key 不得只取这两个布尔位；动态写入必须由显式 generation/reprepare 合同承接；
+2. **RenderGraph**：condition 先于 admission；ordinary/copy/swap/compose 保持 typed node；copy 是 target operation，swap 改 logical mapping，compose 推进 layer-local full-frame pair；FBO 的 authored extent、fit、scale、unique、clear 与 UV policy 必须分别保真，resource mapping 必须受 effect/reset generation 治理；
 3. **Material/shader**：indexed slot 不压缩；default/user/provider/state/variant 有来源可追踪的合并结果；
 4. **Frame/output**：frame delta、wall date、readiness、surface 与 output mode 分离；
 5. **Reset**：scene switch/device/surface/provider completion 受同一 generation 事务治理；
-6. **SceneScript**：module、engine、owner 和 event bridge 分层，timer/audio/storage 与 owner 同寿命；
-7. **Video/Sound/Media**：三者各有独立状态机，异步结果不能跨 generation 注入；
+6. **SceneScript**：module、engine、owner 和 event bridge 分层；frametime/runtime/timer 共用 effective delta，timer/audio/storage/callback 与 owner 同寿命；script-record 注册顺序与 render topology 分离，并对 callback mutation 设置预算；
+7. **Video/Sound/Media**：三者各有独立状态机，异步结果不能跨 generation 注入；Video 使用 host-owned producer registry，播放意图、实际 running、frame publication 与 device/provider generation 分离，teardown 先停 worker、退注册再释放 GPU/media；Sound 的 cached payload、source handle、playing/paused/stopped 与 device owner 分层，dispose/reset 不能依赖对象析构碰运气；
 8. **Particle**：definition、dynamic CP、simulation context、child owner、renderer variant 与递归 teardown 分层，不能把 factory 识别当成执行支持；
-9. **跨架构结论**：结构对应只用于确认合同不是单一 ABI 偶然，不能替代 Windows dynamic trace 或 pixel golden。
+9. **Pause/mute**：先按 reasons 与 display eligibility 计算 per-renderer state，再投递线程；两者不能合并为 visibility；
+10. **跨架构结论**：结构对应只用于确认合同不是单一 ABI 偶然，不能替代 Windows dynamic trace 或 pixel golden。
 
 当前实现、测试和真实样本证据分别以覆盖台账与运行证据索引为准；本文不证明 MyWallpaperX 已实现上述全部合同。
 
-## 9. 后续证据队列
+## 9. 静态深挖收口与后续证据队列
 
-32/64 位主程序与 SceneScript 的第一轮结构差分已经完成。下一批静态分析仍可回答：
+截至 2026-07-31，能直接改变公共架构选择的高价值静态链已经闭合到 parser/resolver/graph、sampler、frame/reset、SceneScript owner/timer/handle、particle dispatcher、Sound source 与 Video host/provider 生命周期。继续逐个追 Media Foundation COM 常量、私有 vtable slot、shader/particle 数学或宽泛标量命中，预期只会增加 Windows 私有实现细节，不能可靠提升项目合同或视觉证据，因此本轮停止扩大 Ghidra 扫描。
 
-1. TEX 动态状态如何映射到最终 sampler descriptor、mip/fallback 与 resource rebuild；
-2. copy/swap/history/clear/unique/compose 的实际执行入口、alias 与跨帧资源生命周期；
-3. particle simulation dispatcher 内部阶段、event/collision/child 时序与随机状态；
-4. SceneScript 全部 host binding 的可恢复子集与 owner 类型；
-5. video/Sound 主程序实际使用的状态参与者；
-6. material authored/default/user/system/provider 的更多来源集合。
+仍值得保留、但只有出现具体实现决策或可验证 fixture 时才重新开启的静态问题是：
+
+1. TEX 动态 property 写入到 resource reprepare 的完整触发链，以及其他 sampler 位如何汇入最终 descriptor；
+2. copy/swap/history 在 device loss 前后的资源 identity 与持久范围；
+3. SceneScript 未闭合高级 handle 的明确冲突顺序；
+4. Video 的宿主 registry pump 顺序、device reset 后 retained intent 的恢复 owner，以及 Sound reset 后 source 状态恢复。
 
 以下问题必须由项目自有 fixture、隔离 Windows trace 或像素/声音 golden 回答，不能继续靠反汇编猜测：
 
 - shader/effect 数学、blend factor、write mask、alpha/color-space 与 HDR transfer；
-- history 的完整跨帧顺序、alias/clear 值与 device-loss 可见结果；
-- 粒子 dispatcher 内部顺序、公式、随机种子、fixed-step 和视觉轨迹；
-- SceneScript event order、重入、完整 API 副作用和销毁顺序；
+- history 的完整跨帧顺序、copy/共享 target alias 结果、clear 的像素解释与 device-loss 可见结果；
+- 粒子 component 公式、随机种子与视觉轨迹；
+- SceneScript 全局 event order、预算后的 mutation admission、cursor 精确坐标/顺序、scene-seek timer、storage 持久性与未闭合 API 副作用；
 - 视频 A/V 同步、颜色空间、首帧/loop/seek；
 - 多显示器策略在所有 Windows 模式下的实际选择。
 

@@ -39,14 +39,21 @@ Scene host 已有 16/32/64 档 left/right 频谱 snapshot，并由 stock effect�
 | `W` | [`SceneParticleDefinitionParser.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleDefinitionParser.swift)、[`test_scene_particle_definitions.py`](../../../script/tests/test_scene_particle_definitions.py) | 动态 wrapper 的 `hasScript` presence 可诊断 | wrapper script 的源码或求值 |
 | `D` | [`SceneDynamicSnapshot.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneDynamicSnapshot.swift)、[`SceneTextScriptCompiler.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextScriptCompiler.swift)、[`test_scene_text_script_runtime.py`](../../../script/tests/test_scene_text_script_runtime.py) | typed target、固定优先级与三个 exact native text profile 的 `.sceneScript` 值 | JavaScript、通用 source/property binding compiler、API bridge |
 | `F` | [`SceneFrameContext.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneFrameContext.swift)、[`SceneTextScriptRuntime.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Text/SceneTextScriptRuntime.swift)、[`SceneDesktopWallpaperHost+FrameDriver.swift`](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift) | 同帧 wall date、per-surface evaluation/snapshot 与 exact text 输出提交 | 脚本实例、事件、官方 `Date`/timer API、任意 JS |
-| `G` | 2.8.42 主程序与 SceneScript module 的 Ghidra 有界静态证据，详见 [实现层合同 §8](scenescript-runtime-implementation-contract.md#8-engine-与宿主生命周期静态互证gb) | 版本握手、固定事件槽、watchdog/timer/audio tick、typed return、host-owned destroy 与 teardown 结构 | MyWallpaperX 已实现、动态事件顺序、完整 ABI、官方性能/视觉等价 |
+| `G` | 2.8.42 主程序与 SceneScript module 的 Ghidra 有界静态证据，详见 [实现层合同 §8](scenescript-runtime-implementation-contract.md#8-engine-与宿主生命周期静态互证gb) | 版本握手、effective time/pause、固定事件槽、watchdog/timer/audio tick、typed return、camera/material/particle/video/animation handle 与 host-owned teardown 结构 | MyWallpaperX 已实现、未闭合事件/冲突顺序、完整 ABI、官方性能/视觉等价 |
 | `N` | 全仓 `SceneScript`/VM/API 搜索及现有 Scene 测试 | 没有 VM、handle bridge 或任一官方 API 执行测试；exact native formatter 不冒充 API | 不能把其他 Swift renderer 的同名能力算成脚本 API |
 
-## 2. 执行模型与求值顺序（官方合同，2026-07-25 补充）
+### 1.2 目标执行模型与来源边界
 
-SceneScript 不是孤立的脚本引擎，而是与 Timeline、用户属性和作者默认值共同组成的**声明式属性绑定系统**。官方明确的求值顺序和覆盖规则决定了 VM 设计、事件队列和 snapshot 合同。
+SceneScript 不是孤立的脚本引擎，而是与 Timeline、用户属性和作者默认值共同组成的属性绑定系统。本节同时使用多类证据，必须分开理解：
 
-### 2.1 求值优先级（从低到高）
+| 内容 | 来源 | 用法 |
+|---|---|---|
+| API、global、hook 签名和作者可见类型 | 官方 v2.8 declaration 与公开页面 | 定义兼容表面 |
+| engine tick、owner、timer、cursor 和 teardown 结构 | 2.8.42 客户端有界静态取证 | 收窄实现顺序与 fixture；不代表 MyWallpaperX 已实现 |
+| immutable snapshot、generation、预算和失败关闭 | MyWallpaperX 目标合同 | 项目安全与跨平台 policy；与官方实现不同处必须明确标注 |
+| 当前等级 | 本表、总覆盖台账与运行证据索引 | 唯一实现状态 |
+
+#### 1.2.1 求值优先级（从低到高）
 
 ```
 authored default → userProperty → Timeline → SceneScript
@@ -65,19 +72,20 @@ authored default → userProperty → Timeline → SceneScript
 
 **实施约束**：
 - 当前 `SceneDynamicSnapshot` 已预留 `.sceneScript` 优先级槽位（v22）
-- Timeline 和 SceneScript 均为 `L0`，实施时必须遵守上述顺序
+- Timeline 已有受限 `L2-L3` target/evaluator，通用 SceneScript 仍为 `L0`；精确现状见 [总覆盖台账](coverage-ledger.md#61-timeline-与-scenescript)
 - 不得让 SceneScript 提前执行后被 Timeline 覆盖
 - 不得让用户属性在脚本后才生效
 
-### 2.2 生命周期钩子
+#### 1.2.2 生命周期钩子
 
 | 钩子 | 调用时机 | 返回值语义 | 当前等级 |
 |---|---|---|---|
 | `init(value)` | owner 创建后调用**一次** | 返回绑定 property 的初值 | `L0` |
-| `update(value)` | **每个渲染帧**调用 | 返回当前帧的 property 值；动画应乘 `engine.frametime` | `L0` |
+| `update(value)` | 脚本导出该 hook 时进入有效帧更新 | 返回当前帧的 property 值；动画应乘 `engine.frametime` | `L0` |
 | `destroy()` | owner 销毁前调用 | 无返回值，用于清理 | `L0` |
 
-**执行时序**（每帧）：
+目标求值时序：
+
 ```
 1. Timeline evaluator 计算当前帧所有动画值
 2. SceneScript `update(value)` 接收 Timeline 结果作为入参
@@ -86,54 +94,44 @@ authored default → userProperty → Timeline → SceneScript
 5. Renderer 消费 snapshot
 ```
 
-### 2.3 六大全局对象
+静态取证确认没有导出 `update` 的 script record 不应被当成通用逐帧 consumer；初次调用、事件批处理和同帧 mutation 的完整边界仍按 §3 的逐项证据处理。
 
-每个 SceneScript 实例运行在受控 ECMAScript 环境中，可访问以下全局对象：
+#### 1.2.3 八个官方全局对象
+
+v2.8 declaration 顶层明确声明八个 global：
 
 | 全局对象 | 接口 | 用途 |
 |---|---|---|
-| `engine` | `IEngine` | 应用级功能：时间、分辨率、用户属性、音频注册、资源注册 |
-| `input` | `IInput` | 光标位置和按键状态 |
-| `thisScene` | `IScene` | 当前场景：查找/创建/销毁 layer、camera 控制 |
 | `thisLayer` | `ILayer` | 脚本所属 layer 的句柄 |
-| `thisObject` | `IThisPropertyObject` | 脚本 owner 对象（类型由绑定 property 决定） |
+| `thisScene` | `IScene` | 当前场景：查找/创建/销毁 layer、camera 控制 |
 | `console` | `IConsole` | 调试日志：`log(...)`、`error(...)` |
-| `shared` | `Shared` | 同场景脚本间的共享数据对象 |
+| `renderContext` | `IRenderContext` | 当前渲染上下文 |
+| `input` | `IInput` | 光标位置和按键状态 |
+| `localStorage` | `ILocalStorage` | screen/global 作用域持久化 |
+| `engine` | `IEngine` | 时间、分辨率、用户属性、音频与资源注册 |
+| `shared` | `Object` | 同一 SceneScript 环境共享对象 |
 
-**安全边界**：
-- 无 DOM/Web/Node.js/shell/任意文件系统访问
-- 无网络请求能力
-- `Date` 和 `Math.random()` 必须由 host 控制以保证确定性
-- 每实例/每帧必须有时间、指令、内存预算
+property-bound owner 通过 JavaScript 的 `this` 和 hook 参数暴露，不存在名为 `thisObject` 的第九个 global。随包 authoring type surface 明确没有 DOM/Node/WebWorker 声明，但类型缺席不单独证明官方 VM 的全部运行时负能力。MyWallpaperX 的目标 VM 必须使用 global allowlist，不暴露网络、任意文件、进程或 shell；`Date`、随机数和预算策略需要项目自有正反门，并将与官方行为的差异单独记录。
 
-### 2.4 事件系统
+#### 1.2.4 事件系统
 
-SceneScript 采用**事件驱动模型**，而非轮询。支持 10+ 事件类型：
+2.8.42 客户端静态路径确认每个 script record 有 19 个固定 event slot：
 
-**生命周期事件**：`init`、`update`、`destroy`
-
-**用户交互事件**：
-- `resizeScreen(size)` — 分辨率变化
-- `applyUserProperties(changed)` — 属性变化（首次全量，后续增量）
-- `applyGeneralSettings(changed)` — 应用设置变化
-
-**光标事件**：
-- `cursorEnter/cursorLeave/cursorMove` — 进入/离开/移动
-- `cursorDown/cursorUp/cursorClick` — 按下/释放/点击
-
-**媒体事件**：
-- `mediaStatusChanged/mediaPlaybackChanged/mediaPropertiesChanged`
-- `mediaThumbnailChanged/mediaTimelineChanged`
-
-**动画事件**：
-- `animationEvent(name, frame)` — Timeline/puppet 指定帧触发
+| 组 | slot |
+|---|---|
+| 生命周期与屏幕 | `init`、`update`、`resizeScreen`、`destroy` |
+| 设置与动画 | `applyUserProperties`、`applyGeneralSettings`、`animationEvent` |
+| cursor | `cursorEnter`、`cursorLeave`、`cursorMove`、`cursorDown`、`cursorUp`、`cursorClick` |
+| media | `mediaStatusChanged`、`mediaPlaybackChanged`、`mediaPropertiesChanged`、`mediaThumbnailChanged`、`mediaTimelineChanged` |
 
 **实施要求**：
 - 事件按 generation 排队，旧事件不得覆盖新状态
 - 事件回调中的异常必须隔离，不能终止 renderer
 - `applyUserProperties` 首次调用传全部键，后续只传变化键（需 `hasOwnProperty` 检查）
 
-### 2.5 实施前置依赖
+事件 slot、客户端观察到的派发顺序和 MyWallpaperX 的 generation/error policy 是三种不同事实。逐事件的当前等级、静态边界和验收门见 §3。
+
+#### 1.2.5 实施前置依赖
 
 SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正确顺序：
 
@@ -146,7 +144,7 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 7. **广度 API**：effect/material、particle、animation、storage/timers、dynamic layer
 8. **高级 API**：Puppet/model/physics 只能在对应 renderer 已有 runtime 后开放
 
-## 3. Property-bound 核心合同
+## 2. Property-bound 核心合同
 
 | API/合同 | 官方含义 | 等级 | 当前代码/测试证据 | 缺口与升级验收门 |
 |---|---|---:|---|---|
@@ -162,15 +160,15 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 
 | 事件/API | 官方含义 | 等级 | 当前证据 | 缺口与验收门 |
 |---|---|---:|---|---|
-| `init(value)` | owner 创建后调用一次，返回绑定 property 初值 | `L0` | `I/D/N` | 每实例恰好一次；先后顺序、typed return、异常降级可测 |
-| `update(value)` | 每个渲染帧调用；动画应乘 `engine.frametime` | `L0` | `F/N` | 与 frame context 同帧；0 delta、长帧 clamp、暂停和预算门 |
-| `destroy()` | owner 销毁前调用 | `L0` | `G` 确认 host 显式派发、VM/engine 析构不代发；项目仍无实例，`N` | switch/stop/动态删 layer 均恰好一次；先允许脚本清理、再失效 handle/移除 record 的顺序用 fixture/动态 trace 校准 |
+| `init(value)` | owner 创建后调用一次，返回绑定 property 初值 | `L0` | `G` 确认新 script record 尾插、`init` 同步执行；项目仍无实例，`N` | 每实例恰好一次；typed return、异常降级、callback mutation 与 budget |
+| `update(value)` | 每个渲染帧调用；动画应乘 `engine.frametime` | `L0` | `G` 确认普通 update live 遍历双向 record 链表：update callback 创建的 owner 同步 init 且可在本轮后段首次 update；项目仍无实例，`N` | 与 frame context 同帧；0 delta、长帧 clamp、暂停、callback/owner budget 与达到预算后的准入 policy |
+| `destroy()` | owner 销毁前调用 | `L0` | `G` 确认 destroy 请求排队，普通 update 后 drain，并按 `destroy → engine record removal → host record release` 执行；destroy callback 新 owner 已错过本轮 update但可能进入本帧 render preparation；项目仍无实例，`N` | switch/stop/动态删 layer 均恰好一次；destroy 内创建/timer/跨 handle/异常重入与 stop 后 residue |
 | `resizeScreen(size)` | 分辨率变化时调用；首次创建不会自动调用 | `L0` | `N` | resize 正例和 startup 反例；每屏 size、去重和事件顺序 |
 | `applyUserProperties(changed)` | 首次加载调用，之后只含变化键；使用 `hasOwnProperty` | `L0` | 现有属性系统不派发脚本事件；`D/N` | generation queue；初次全量/后续 delta、批量改动、类型和顺序测试 |
 | `applyGeneralSettings(changed)` | 首次及 app general setting 改变时调用，v2.8 当前主要是 language | `L0` | `N` | typed settings snapshot；初次/增量、未知键和多屏一致性 |
-| `cursorEnter` / `cursorLeave` | 指针进入/离开对象边界 | `L0` | renderer 有 pointer，不存在 script hit-test dispatch；`N` | 可见/隐藏/solid、parent transform、遮挡、边界抖动和成对事件门 |
-| `cursorMove` | 指针移动时传 `CursorEvent` | `L0` | `N` | world/local 坐标、帧内合并、不同 owner 事件顺序 |
-| `cursorDown` / `cursorUp` / `cursorClick` | 对象上按下、释放和同对象完整点击 | `L0` | `N` | capture、拖出、隐藏/销毁中断、puppet hitBox、按钮限制门 |
+| `cursorEnter` / `cursorLeave` | 指针进入/离开对象边界 | `L0` | `G` 确认 candidate snapshot、solid-only native hit test、hidden-solid 仍可 hover；visible toggle 不清状态，destroy 静默失效；项目无 dispatch，`N` | world/local/puppet transform、候选顺序、边界抖动、parent/visible mutation 与成对事件门 |
+| `cursorMove` | 指针移动时传 `CursorEvent` | `L0` | `G` 确认命中 owner 可接收 move，hidden-solid 仍参与；项目无 dispatch，`N` | world/local 坐标、帧内合并、不同 owner 事件顺序和多按钮 |
+| `cursorDown` / `cursorUp` / `cursorClick` | 对象上按下、释放和同对象完整点击 | `L0` | `G` 确认 pressed/capture identity、同 identity down/up 才完成 click；visible toggle 保留状态，destroy 静默清除且不补事件；项目无 dispatch，`N` | drag-out、候选顺序、parent mutation、puppet hitBox、多按钮和预算门 |
 | 五个 media events | status/playback/properties/thumbnail/timeline 变化事件 | `L0` | Scene 没有 media snapshot 或 script queue；`N` | generation 原子更新、缺字段、乱序/旧封面取消、无 provider 稳定事件 |
 | `animationEvent` | Timeline/puppet 指定帧向同 layer script 派发 name/frame | `L0` | `G` 确认它属于可回写绑定 property 的三个 event 之一；项目仍无 dispatch，`N` | typed return、crossing、loop/mirror、seek、低 FPS 跨多帧和一次性派发 |
 
@@ -185,13 +183,13 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 | `IObject` | `getAnimation(name?)` 取当前 property 或命名动画 | `L0` | `N` | typed animation handle；缺失/重名/owner 销毁语义 |
 | `IThisPropertyObjectBase` | v2.8 中是只继承 `IObject` 的空 property-owner 基类 | `L0` | `I` 没有保留 owner 类型或绑定 property | binding compiler 根据 owner/property 生成具体 typed handle；不自行添加声明外成员 |
 | `thisLayer: ILayer` | 当前脚本 owner 的 layer handle | `L0` | `D` 只有整数 layer target；native Audio Bars renderer 不创建 handle | VM host identity、每实例 owner、跨层访问权限和失效门 |
-| `ILayer` transform | `origin`, `angles`, `scale`, `parallaxDepth`, `name`, `visible` | `L0` | renderer 静态字段不是脚本 API；`D/N` | getter/setter 类型、local/world 语义、同帧写回、只支持类型的 fail closed |
+| `ILayer` transform | `origin`, `angles`, `scale`, `parallaxDepth`, `name`, `visible` | `L0` | `G` 确认 native visible setter 与 cursor state 分离：隐藏不会让 solid 退出 hit test，也不清 hover/capture；项目静态 renderer 字段仍无 JS bridge，`D/N` | getter/setter 类型、local/world 语义、同帧写回、parent effective visibility、只支持类型的 fail closed |
 | `ILayer` orientation | `getTransformMatrix`, `rotateObjectSpace`, `lookAt`, `lookAtYaw` | `L0` | `N` | 数学/坐标合同、parent 情况和 2D/3D fixture |
-| `ILayer` parenting | 两个 `setParent` overload、`getParent`, `getChildren` | `L0` | 静态 parent graph 不等于动态 API；`N` | 调整 transform、attachment、循环拒绝、frame-end mutation 和销毁门 |
+| `ILayer` parenting | 两个 `setParent` overload、`getParent`, `getChildren` | `L0` | `G` 确认同步 parent/attachment resolution 与 mutation、adjustTransforms 的 world-to-new-local 重算、相同关系 no-op、parent getter 与 children snapshot；self/complexity guard 失败会解除旧 parent而不回滚；项目无 bridge，`N` | descendant cycle、缺失 identity/attachment、guard 含义、transactional safety policy、effective visibility/propagation 和销毁门 |
 | `ILayer` attachment | `getAttachmentIndex/Matrix/Origin/Angles` | `L0` | `N` | puppet/model attachment identity、缺失返回和 world transform golden |
 | `thisScene` lookup | `getLayer(name|index)`, `getLayerByID`, `getLayerCount`, `enumerateLayers` | `L0` | 静态 descriptor 不暴露 JS handles；`N` | source order、重名、字符串 ID、动态 layer 和失效 handle tests |
-| `thisScene` layer mutation | `createLayer`, `destroyLayer`, `sortLayer`, `getLayerIndex`, `getInitialLayerConfig` | `L0` | native Audio Bars 的 64 次 draw 是 renderer instance，不产生 scene topology、handle 或 dynamic-layer lifecycle；`N` | frame-end mutation queue、资产授权、排序、回收、预算和 initial config 深拷贝 |
-| scene camera handles | `getCameraTransforms`, `setCameraTransforms`, `getAnimation` | `L0` | renderer 有静态 camera；无 JS bridge | 2D/3D camera、screen resize、动态 target 冲突和可逆测试 |
+| `thisScene` layer mutation | `createLayer`, `destroyLayer`, `sortLayer`, `getLayerIndex`, `getInitialLayerConfig` | `L0` | `G` 确认同步 create/init、2048 bridge identity cap、未知 index=`-1`/sort 失败、超长 sort 夹到尾部、render sort 不改 script record 顺序、普通 update 后 destroy drain、native lifetime 使 wrapper 失效、initial config detached；项目仍无 bridge，`N` | 负 index VM 边界、资产授权、有界 mutation、destroy callback 同帧 render/下帧 update、stale handle 与 create/destroy/sort 冲突 fixture |
+| scene camera handles | `getCameraTransforms`, `setCameraTransforms`, `getAnimation` | `L0` | `G` 确认 getter/setter 禁止 global phase、读取同一 base record，setter 对 `eye/center/up/zoom` 做 typed partial update；项目仍无 JS bridge，`N` | finite/type 负门、2D/3D camera、screen resize、同帧 authored/animation 冲突和 round-trip |
 
 ### 4.2 内容、effect、动画和高级句柄
 
@@ -200,22 +198,22 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 | `IImageLayer` 基础 | `alpha`, `color`, `alignment` | `L0` | `D` 有部分 Swift layer target，VM 不可调用 | JS getter/setter、颜色类型、每帧合成和无重建门 |
 | `ITextLayer` | `text`, `color`, `alpha`, `opaquebackground`, `backgroundcolor`, `pointsize`, `font`, `padding`, `horizontalalign`, `verticalalign`, `anchor`, row/width limits | `L0` | 当前仅静态 CoreText；`D/N` | 全字段 typed setter、纹理 generation、layout/effect invalidation 和 text golden |
 | `ISoundLayer` | `play`, `pause`, `stop`, `isPlaying`, `volume` | `L0` | Scene 无 sound-layer runtime | 音频解码、状态机、音量、pause/switch/stop 和无设备门 |
-| `IEffectLayer` | `getEffect`, `getEffectCount`, `transformAttachmentToTexture`, `size`(只读), `perspective`, `solid` | `L0` | effect renderer 不暴露 JS handle；`N` | name/index identity、effect-local transform、只读 enforcement、hit-test 更新 |
-| `IEffect` | material 枚举、`setMaterialProperty`, `executeMaterialFunction`, `visible`, `name` | `L0` | 现有 material/effect IR 不是 script bridge | material slot/property schema、function allowlist、同帧 graph update、未知值 fail closed |
+| `IEffectLayer` | `getEffect`, `getEffectCount`, `transformAttachmentToTexture`, `size`(只读), `perspective`, `solid` | `L0` | `G` 确认 native solid 为 layer flag bit 13，决定是否参加 cursor hit test；visible=false 不覆盖 solid；项目 effect renderer 不暴露 JS handle，`N` | name/index identity、effect-local transform、只读 enforcement、solid 同帧更新与候选顺序 |
+| `IEffect` | material 枚举、`setMaterialProperty`, `executeMaterialFunction`, `visible`, `name` | `L0` | `G` 确认 property 按有序 instance records 分别查 metadata 并 typed 写 scalar/Vec2/3/4，缺失/错型只对该 instance no-op；function 按 descriptor-defined ordered record set 同步执行并恢复 active state；项目无 bridge，`N` | descriptor/pass 完整映射、function allowlist、同帧 graph update、未知值/单位/finite 负门 |
 | `IMaterial` | v2.8 仅继承 `IObject`；具体 shader property 通过 effect 方法访问 | `L0` | `N` | opaque handle identity/lifetime；不可伪造任意 shader API |
-| `IParticleSystem` | `play`, `pause`, `stop`, `isPlaying`, `emitParticles(count?)`, `instance` | `L0` | 粒子模拟器无 JS commands；`W/N` | fixed-step command queue、emit 边界、暂停/停止区别和 teardown |
+| `IParticleSystem` | `play`, `pause`, `stop`, `isPlaying`, `emitParticles(count?)`, `instance` | `L0` | `G` 确认 emit 缺省或 0 → 1、正整数原样、负数 no-op，并以零时间偏移进入共用 emitter/default/initializer dispatcher；项目仍无 JS commands，`W/N` | command queue、GPU 同 draw 可见性、暂停/停止区别、容量/预算和 teardown |
 | particle instance | `alpha`, `size`, `count`, `speed`, `lifetime`, `rate`, `colorn`, `controlpoint0...7` | `L0` | `D` 仅预留 typed target；无 JS setter/consumer | 逐帧 override、control-point 坐标、generation 和数值边界门 |
 | texture animation | `frameCount`, `duration`, `rate`, `play/pause/stop`, `isPlaying`, `get/setFrame`, `join` | `L0` | sprite-sheet runtime 不暴露 handle | shared timer/join、frame clamp、暂停/停止、layer 销毁 |
-| video texture | `duration`, `rate`, `loop`, `play/pause/stop`, `isPlaying`, `get/setCurrentTime`, `addEndedCallback` | `L0` | 内嵌 MP4 播放不等于 JS API | seek/loop/rate/end callback、取消、错误和多屏时钟门 |
+| video texture | `duration`, `rate`, `loop`, `play/pause/stop`, `isPlaying`, `get/setCurrentTime`, `addEndedCallback` | `L0` | `G` 确认缺 provider no-op/default、ended 后 play 先 seek 0、stop=pause+seek 0、非 loop 一次性 edge、loop 以时间回绕派发且主动 seek 不误报；callback owner-scoped 并经 engine batch 派发；底层 controller 为 host-owned registry producer，teardown 先停 worker、退注册再释放 media/GPU；项目无 handle，`N` | rate/loop setter 边界、callback 取消/重入、provider error、registry pump、device-reset retained intent、A/V/颜色和多屏时钟门 |
 | `IAnimation` | `fps`, `frameCount`, `duration`, `name`, `rate`, playback 和 frame seek | `L0` | Timeline runtime 未实现 | evaluator/handle、loop mode、seek/event crossing 和 pause lifecycle |
-| `IAnimationLayer` | animation metadata；`name/rate/blend/visible`；playback/frame/end callback | `L0` | `N` | puppet/model layer stack、blend、autosort、callback 和销毁门 |
-| image animation-layer management | count/get/create/playSingle/destroy animation layer | `L0` | `N` | config validation、single-shot auto-remove、callback order、budget |
+| `IAnimationLayer` | animation metadata；`name/rate/blend/visible`；playback/frame/end callback | `L0` | `G` 确认 ended frame 先派发 layer callbacks、第二遍才移除 one-shot，callback 期间 handle 仍存活；项目无 layer stack，`N` | evaluator/seek crossing、blend、callback 重入/预算和 owner teardown |
+| image animation-layer management | count/get/create/playSingle/destroy animation layer | `L0` | `G` 确认 create/playSingle 共用 config 验证与 autosort/index 插入，playSingle 只追加 one-shot；destroy 接受 handle/nonnegative index/name，name 删除全部同名，无效值 no-op，显式 destroy 不冒充 ended；项目无实现，`N` | animation identity、同帧 create/destroy/sort 冲突、blend/root-motion 和 lifecycle golden |
 | model animation-layer management | `rootmotion`, perspective 和 count/get/create/playSingle/destroy | `L0` | 无 3D runtime | root motion、blend/attachment、2D/3D scene 和 lifecycle golden |
 | image bones/physics | bone count/index/parent；world/local transform/angles/origin；impulse/reset | `L0` | Puppet assets 可发现，runtime/API 均无 | mesh/bone solver、local/world round-trip、physics fixed step 和 reset |
 | image blend shapes | index、get/set weight | `L0` | `N` | shape identity、range、missing shape、per-frame deformation |
 | `ICamera` | `fov`(3D) 和 `zoom`(2D) | `L0` | 静态 camera 与 JS handle 未连接 | 2D/3D 类型约束、projection update 和 invalid value 门 |
-| `IModelData` | `applyData` 高频兼容更新；`replaceData` 只能事件驱动；POSITION/NORMAL/TANGENT_SIGNED/UV/COLOR 格式常量 | `L0` | 无动态 model buffer runtime | buffer schema/size/type/CCW、update 禁止 replace、GPU budget 和销毁门 |
-| scene model-data lifecycle | `createModelData`, `destroyModelData`, `createLayer(model)` | `L0` | `N` | handle ownership、共享引用、最后 layer 后释放、坏 buffer 负向门 |
+| `IModelData` | `applyData` 高频兼容更新；`replaceData` 只能事件驱动；POSITION/NORMAL/TANGENT_SIGNED/UV/COLOR 格式常量 | `L0` | `G` 确认两者共用 mode bridge，update phase 拒绝 replace；项目无动态 model buffer runtime | 自有 buffer schema/size/type/CCW；buffer 增长、非 dynamic、shape/buffer 增删、material/vertex format/index/layout 变化逐项负门；GPU budget |
+| scene model-data lifecycle | `createModelData`, `destroyModelData`, `createLayer(model)` | `L0` | `G` 确认 tokenized handle 与仍被 layer 引用时延迟销毁；项目仍无实现，`N` | handle ownership、共享引用计数、最后 layer 后释放、重复 destroy/stale token 和坏 buffer 负向门 |
 
 ## 5. Globals 与 engine 状态
 
@@ -225,25 +223,25 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 | `console` | `log(...any)`、`error(...any)` | `L0` | `N` | per-script tag、速率限制、值序列化、错误不递归 |
 | `renderContext` | v2.8 声明 `IRenderContext` 为空 | `L0` | `N` | 保留空 host object；未来声明升级前不得自创成员 |
 | `input` | 全局输入快照 | `L0` | renderer pointer 不等于 JS global | 同帧不可变 snapshot、多屏坐标和权限降级 |
-| `localStorage` | screen/global 两个持久化域 | `L0` | `N` | namespace、配额、序列化、原子写、跨屏/重启和清理策略 |
+| `localStorage` | screen/global 两个持久化域 | `L0` | `G` 确认默认 screen、仅精确字符串 `global` 切域，其他值回落 screen；项目无 bridge，`N` | wallpaper/scene/screen namespace、配额、原子写、跨屏/重启和迁移策略 |
 | `engine` environment queries | editor、portrait/landscape、desktop/mobile、wallpaper/screensaver | `L0` | `N` | macOS 模式映射和稳定 fixture；不伪装未支持平台 |
 | `engine.screenResolution` / `canvasSize` | 每屏物理分辨率与 2D canvas/full wallpaper 尺寸 | `L0` | frame context 有 viewport，但无 JS bridge | scale factor、跨屏 canvas、resize 顺序和 pixel/point 门 |
 | `engine.userProperties` | 当前用户属性对象 | `L0` | 属性系统不暴露 VM object | typed snapshot、key normalization、首次/增量一致性 |
-| `engine.timeOfDay` | 24 小时归一化到 `[0,1]` | `L0` | `N` | 可注入 wall clock、时区/DST、离线确定性 fixture |
-| `engine.frametime` / `runtime` | 上帧秒数（重绘可为 0）和 scene 累计运行时间 | `L0` | `F` 有 Swift timing，无 JS global | pause/resume、0 delta、switch reset、同帧一致性 |
+| `engine.timeOfDay` | 24 小时归一化到 `[0,1]` | `L0` | `G` 确认每帧从本地系统时间采样，与累计 scene runtime 分离；项目 `F` 只采样 wall date，无 JS global | 可注入 wall clock、时区/DST、同帧 Date 一致性和离线确定性 fixture |
+| `engine.frametime` / `runtime` | 上帧秒数（重绘可为 0）和 scene 累计运行时间 | `L0` | `G` 确认两者与 engine tick/timer 共用 admitted/scaled/clamped effective delta；完全暂停不 tick/累计，恢复重置基线且不 catch-up；项目 `F` 无 JS global | 0 delta、switch/seek reset、smoothing/clamp 自有 policy、同帧多屏一致性 |
 | `shared` | 同 scene 脚本共享的 global object | `L0` | `N` | 每 scene/屏隔离、初始化顺序、销毁和并发 mutation 规则 |
 
 ## 6. Input、Audio 与 Media
 
 | API | 官方含义 | 等级 | 当前证据 | 缺口与验收门 |
 |---|---|---:|---|---|
-| `input.cursorWorldPosition` | 当前 cursor 世界坐标，当前主要 X/Y | `L0` | renderer 已算部分坐标但未桥接；`N` | camera/parent transform 后的 world golden |
-| `input.cursorScreenPosition` | 屏幕像素坐标 | `L0` | `N` | Retina、多屏 origin、屏外和 resize fixture |
-| `input.cursorLeftDown` | 左键当前状态 | `L0` | `N` | down/up/capture 与 event snapshot 同帧 |
-| `CursorEvent.worldPosition/localPosition/hitBox?` | 事件时 world/local 坐标与 puppet hit box；声明明确 screenPosition/button 未使用 | `L0` | `N` | hit-test、坐标变换、未使用字段不得伪造 |
+| `input.cursorWorldPosition` | 当前 cursor 世界坐标，当前主要 X/Y | `L0` | `G` 确认 global-phase 拒绝、scene cursor pixel snapshot 经当前 view/projection 逆变换为 Vec3，2D policy 可把 z 置 0；项目无 JS bridge，`N` | camera/viewport 数值、屏外、resize 与 event snapshot 同帧 golden |
+| `input.cursorScreenPosition` | 屏幕像素坐标 | `L0` | `G` 确认 global-phase 拒绝、与 world getter 共用 snapshot并按 canvas/viewport scale 与 Y policy输出像素坐标；项目无 bridge，`N` | Retina、多屏 origin、屏外、resize 和坐标取整 fixture |
+| `input.cursorLeftDown` | 左键当前状态 | `L0` | `G` 确认 getter 固定查询 left-button identity并读取 scene input bool，其他 identity false；项目无 bridge，`N` | down/up/capture、失焦与 event snapshot 同帧 |
+| `CursorEvent.worldPosition/localPosition/hitBox?` | 事件时 world/local 坐标与 puppet hit box；声明明确 screenPosition/button 未使用 | `L0` | `G` 确认六个事件共用 native cursor record builder，world/local/hit-box 为 dispatch 前独立 snapshot，并从 layer hit-box/detail virtual 取得可选 detail；这不是公开 `cursorHitTest` hook；项目无 DTO bridge，`N` | event-local/parent/puppet 数值、detail identity、未使用字段不得伪造 |
 | [audio resolution constants](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html) | `AUDIO_RESOLUTION_16/32/64` | `L0` | renderer host 已有三档 typed snapshot，native plan 内部严格验证 64；没有 JS global/constant bridge | 只接受三个常量；错误分辨率 fail closed |
-| [`engine.registerAudioBuffers(resolution)`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html) | 必须在 script global context 注册，返回逐帧频谱 | `L0` | `G` 确认 global-phase 限制和 engine teardown 注销；exact source compiler 仅声明 native demand，没有 VM/API bridge | global-only enforcement、consumer generation、重复注册/取消订阅与 stop 生命周期 |
-| [`AudioBuffers`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AudioBuffers.html) | 同长度 `left`, `right`, `average` Float32Array，每帧自动更新；低频到高频，通常 0...1 但可大于 1 | `L0` | `G` 确认 16/32/64 × left/right/average 稳定数组在 timer 前刷新；项目 host 只有 left/right，仍无 JS object/identity/订阅 | 数组 identity、更新时点、平均值数值、跨帧对象语义与受控脚本输入 |
+| [`engine.registerAudioBuffers(resolution)`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html) | 必须在 script global context 注册，返回逐帧频谱 | `L0` | `G` 确认 global-phase 限制、仅 16/32/64、默认 16 和 engine teardown 注销；exact source compiler 仅声明 native demand，没有 VM/API bridge | global-only enforcement、错误 resolution、重复注册/取消订阅与 stop 生命周期 |
+| [`AudioBuffers`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AudioBuffers.html) | 同长度 `left`, `right`, `average` Float32Array，每帧自动更新；低频到高频，通常 0...1 但可大于 1 | `L0` | `G` 确认三档 left/right/average backing arrays identity 跨帧稳定，并在 timer 与普通 update 前原地刷新；项目 host 只有 left/right，仍无 JS object/订阅 | 平均值数值、无设备 policy、跨屏 consumer generation 与受控脚本输入 |
 | `MediaStatusEvent` | `enabled` 表示媒体集成可用/启用 | `L0` | `N` | enable/disable、无 provider 和订阅生命周期 |
 | `MediaPlaybackEvent` | state 0 stopped / 1 playing / 2 paused | `L0` | `N` | 状态映射、重复事件去重和 app 切换 |
 | `MediaPropertiesEvent` | title/artist/subTitle/albumTitle/albumArtist/genres/contentType | `L0` | `N` | 缺字段、Unicode、原子曲目切换和 stale generation |
@@ -261,18 +259,18 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 | camera fade | `camerafade` | `L0` | `N` | 定义行为、场景 fixture 和生命周期门 |
 | camera shake | enable/speed/amplitude/roughness | `L0` | 当前不消费 shake 属性 | seeded evaluator、作者默认关闭、四参数和暂停测试 |
 | camera parallax | enable/amount/delay/mouseInfluence | `L0` | 静态作者参数的 renderer 子集不是 JS API | JS 动态写、同帧 pointer、关闭反例、WE 幅度/delay golden |
-| `CameraTransforms` | `eye`, `center`, `up`, `zoom` 的 scene camera DTO | `L0` | `N` | getter/setter round-trip、finite/type validation 和 2D/3D 门 |
-| material property/function | effect 的 `setMaterialProperty` 和 `executeMaterialFunction` | `L0` | authored material graph 无脚本 bridge | shader property registry、function side effect、unsupported fail closed |
+| `CameraTransforms` | `eye`, `center`, `up`, `zoom` 的 scene camera DTO | `L0` | `G` 确认四成员 native DTO、base getter 与逐成员 partial setter；默认 `(eye 2,2,2 / center 0,0,0 / up 0,1,0 / zoom 1)`，无 authored camera 的正交 fallback 为 `(eye 0,0,0 / center 0,0,-1 / up 0,1,0)`；项目无 bridge，`N` | getter/setter round-trip、finite/type validation、authored/animation conflict 和 2D/3D 门 |
+| material property/function | effect 的 `setMaterialProperty` 和 `executeMaterialFunction` | `L0` | `G` 确认 ordered instance metadata lookup、scalar/Vec2/3/4 typed write、int/float 与 degree-to-radian metadata，以及 descriptor-defined ordered synchronous function execution；项目无 bridge，`N` | descriptor/pass identity、同帧 graph invalidation、function side effect 和 unsupported fail closed |
 
 ## 8. Storage 与 timers
 
 | API | 官方含义 | 等级 | 当前证据 | 缺口与验收门 |
 |---|---|---:|---|---|
-| `LOCATION_SCREEN` / `LOCATION_GLOBAL` | 默认 screen 域；global 在同 wallpaper 实例间共享 | `L0` | `N` | wallpaper/scene/screen namespace 和迁移策略 |
-| `localStorage.set/get/delete/clear` | 保存、读取、删除键或清空指定域 | `L0` | `N` | 可序列化值、配额、损坏恢复、跨重启/多屏、stop 不误删 |
-| `engine.setTimeout` | 毫秒延迟，一次性 callback；返回函数可提前取消 | `L0` | `N` | scene-time scheduler、最小延迟、同帧顺序、pause/resume、取消幂等 |
-| `engine.setInterval` | 毫秒周期 callback；返回函数用于停止 | `L0` | `N` | drift/catch-up policy、回调预算、自取消和 stop teardown |
-| `clearTimeout` | v2.8 声明明确“未实现”，应调用返回的 cancel function | `L0` | `N` | 不暴露虚假 `clearTimeout`；兼容 fixture 锁定返回函数取消 |
+| `LOCATION_SCREEN` / `LOCATION_GLOBAL` | 默认 screen 域；global 在同 wallpaper 实例间共享 | `L0` | `G` 确认默认 screen、仅精确字符串 `global` 切域，其他值回落 screen；项目无实现，`N` | wallpaper/scene/screen namespace、跨屏隔离和迁移策略 |
+| `localStorage.set/get/delete/clear` | 保存、读取、删除键或清空指定域 | `L0` | `G` 确认四者拒绝 global phase、key 必须 string、undefined 转 delete、版本 envelope 与损坏返回 undefined；项目无实现，`N` | 可序列化值边界、配额、原子写、跨重启/多屏、delete/clear 失败与 stop 不误删 |
+| `engine.setTimeout` | 毫秒延迟，一次性 callback；返回函数可提前取消 | `L0` | `G` 确认 owner record、effective-delta scheduler、轮前 snapshot、新建 timer 不同轮执行、按 identity 删除；完全暂停不累计，恢复不 catch-up；项目无实现，`N` | 最小延迟、scene seek、cancel 幂等、callback throw/self-cancel 与 stop residue |
+| `engine.setInterval` | 毫秒周期 callback；返回函数用于停止 | `L0` | `G` 确认每帧最多一次、完整周期重置、不 catch-up/不保留 overshoot；完全暂停不累计，owner teardown 逐条释放；项目无实现，`N` | scene seek、自取消/交叉取消、callback 预算和长帧/恢复 fixture |
+| `clearTimeout` | v2.8 声明明确“未实现”，应调用返回的 cancel function | `L0` | `G` 发现内部同名兼容 binding，但公开声明仍是唯一公共合同 | 不公开该入口；兼容 fixture 锁定返回函数取消 |
 
 ## 9. Math、颜色与 ECMAScript 基础
 
@@ -293,7 +291,7 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 | property input union | `Number | Boolean | String | Vec2 | Vec3 | Vec4 | Mat3 | Mat4` | `L0` | `D` 的 Swift type 集不含 matrix VM values | JS boxing/unboxing、exact property schema、finite validation |
 | property return union | v2.8 声明返回 `Number | Boolean | String | Vec2 | Vec3 | Vec4`，没有 Mat3/Mat4 | `L0` | `N` | 返回类型严格按声明；matrix 输入/不可返回差异要有负向门 |
 | `AnimationEvent` | `name`, `frame` | `L0` | `N` | Timeline/puppet source、crossing 和 frame 数值测试 |
-| media/cursor DTO | 本文 Input/Media 表列出的 typed event object | `L0` | `N` | immutable event object、generation 和 owner isolation |
+| media/cursor DTO | 本文 Input/Media 表列出的 typed event object | `L0` | cursor record/event slot 有 `G` 静态证据，media DTO 仍为 `N`；项目均无 VM object | immutable event object、cursor 坐标/detail、media generation 和 owner isolation |
 
 ### 10.2 Vectors
 
@@ -314,10 +312,10 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 
 | API | 官方含义 | 等级 | 当前证据 | 缺口与验收门 |
 |---|---|---:|---|---|
-| `engine.registerAsset(file, precache)` | 必须在脚本 global/root 执行；注册动态 layer 所需资产并确保发布包含；可预缓存 | `L0` | `P` 只索引现有资源；无 script asset registry | global-only 静态/运行时门、规范化路径、越界拒绝、precache budget、缺失/循环依赖 |
-| `IAssetHandle` | `registerAsset` 返回并可传给 `createLayer` 的 opaque handle | `L0` | `N` | v2.8 声明引用但未给 interface body；先按 opaque identity/lifetime 实现，不猜成员 |
-| `thisScene.createLayer(asset)` | 由 path/config/asset handle/model data 创建动态 layer | `L0` | native Audio Bars 的 64 次 renderer draw 不产生动态 layer 或 handle；`N` | asset ownership、初始化配置、动态排序、publisher/resource dependency 和 teardown |
-| texture/video animation handles | 从 image layer albedo 获取 animation/video handle | `L0` | 现有纹理/视频 renderer 不暴露 JS handle | provider generation、seek/playback、asset unload 后失效和 callback cleanup |
+| `engine.registerAsset(file, precache)` | 必须在脚本 global/root 执行；注册动态 layer 所需资产并确保发布包含；可预缓存 | `L0` | `G` 确认 global-only、按传入路径去重且首次 precache 选择 sticky；项目 `P` 只索引现有资源，无 script registry | 规范化/大小写、越界拒绝、precache 时点/预算、缺失/循环依赖和 owner teardown |
+| `IAssetHandle` | `registerAsset` 返回并可传给 `createLayer` 的 opaque handle | `L0` | `G` 显示 VM 边界可携带路径值，但 v2.8 未声明成员；项目无 handle，`N` | 公共层保持 opaque identity/lifetime，不把内部路径表示扩张为可访问成员 |
+| `thisScene.createLayer(asset)` | 由 path/config/asset handle/model data 创建动态 layer | `L0` | `G` 确认同步 host create/init、立即取得 native identity 并复用 wrapper、2048 bridge identity cap；update callback 新 owner可同轮 update，destroy callback 新 owner可能同帧 render/下帧 update；项目仍无动态 layer，`N` | asset ownership、初始化配置、有界 mutation、排序、publisher/resource dependency、预算和 teardown |
+| texture/video animation handles | 从 image layer albedo 获取 animation/video handle | `L0` | `G` 已闭合 video 的 provider-missing、play/pause/stop、seek/loop ended edge 与 owner callback cleanup；现有纹理/视频 renderer仍不暴露 JS handle，`N` | wrapper identity、provider generation、rate/error、asset unload 后失效和 callback 重入 |
 | custom model asset/material | model shape 的 `material` 使用已注册 `IAssetHandle`；model data 可共享 | `L0` | 无 model runtime；`N` | material precache、buffer/handle compatibility、共享引用计数和资源预算 |
 | user shortcut | `engine.openUserShortcut(userPropertyName)` 打开已注册 shortcut | `L0` | 属性 UI 有类型占位，无脚本 API | macOS 产品授权/安全降级、未知 property、用户取消和非交互环境门 |
 

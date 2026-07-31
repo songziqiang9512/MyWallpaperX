@@ -27,6 +27,22 @@ Scene 兼容的核心不是不断增加“看起来差不多”的效果分支�
 
 ## 2. 查阅入口
 
+Scene 文档按四层使用，后续开发不要从取证记录直接跳到“已支持”：
+
+```text
+当前状态（覆盖台账 / 专项覆盖表）
+  -> 当前证据（运行证据索引）
+  -> 目标合同（格式、运行系统、SceneScript 等语义文档）
+  -> 来源与边界（source-index / 客户端静态取证）
+```
+
+| 文档层 | 回答的问题 | 不回答的问题 |
+|---|---|---|
+| 覆盖台账与专项覆盖表 | MyWallpaperX 现在实现到哪一级、下一门是什么 | 官方客户端内部为什么这样组织 |
+| 运行证据索引 | 哪些代码、测试、隔离样本和 GPU 结果支撑当前等级 | 未运行能力的目标设计 |
+| 语义与实现合同 | 下一步需要保真的 IR、顺序、生命周期和失败边界 | 当前代码是否已经完成 |
+| 资料来源与静态取证 | 结论来自官方声明、结构化资产、Ghidra、样本还是第三方 | MyWallpaperX 能力等级或 Windows 像素等价 |
+
 | 问题 | 先看 |
 |---|---|
 | 当前系统大盘、主要缺口和下一批次是什么 | [官方语义与实现覆盖台账](coverage-ledger.md) |
@@ -50,13 +66,12 @@ Scene 兼容的核心不是不断增加“看起来差不多”的效果分支�
 | 随包 `zcompat` 有哪些 patch record、哪些 matcher/runtime 语义尚未确认 | [zcompat 向后兼容机制取证](zcompat-backward-compatibility-forensics.md) |
 | 官方某能力哪个版本引入、改过什么、VM/字体/FBO 条件等实现事实 | [官方客户端 changelog 取证](client-changelog-forensics.md) |
 | 某个 wire 字段在编辑器叫什么、粒子组件/blend/Timeline/scene options 的官方名称与定义 | [编辑器字符串表取证](editor-string-table-forensics.md) |
-| 官方各系统的实现库来源、bin 模块清单、官方元素预览视频在哪 | [客户端二进制与第三方依赖取证](client-binary-dependency-forensics.md) |
-| 官方客户端的资源、resolver、RenderGraph、SceneScript、媒体与 surface 如何分层，32/64 位结构是否对应 | [官方客户端运行机制静态取证](client-runtime-static-forensics.md) |
+| 官方各系统的实现库来源、bin 模块清单、官方元素预览视频在哪 | [客户端二进制与第三方依赖取证](client-binary-dependency-forensics.md)，只作模块/来源导航 |
+| 官方客户端的资源、resolver、RenderGraph、SceneScript、媒体与 surface 如何分层，32/64 位结构是否对应 | [官方客户端运行机制静态取证](client-runtime-static-forensics.md)，只作 clean-room 结构证据 |
 | 官方站当前有哪些 Scene 页面、某个 API 专页在哪里 | [官方页面全目录](official-page-catalog.md) |
 | 某条结论来自官方、样本还是第三方实现 | [资料来源与证据索引](source-index.md) |
 | 某条 `L3` 到底由哪些代码、自动测试和运行/GPU 结果支撑 | [运行证据索引](runtime-evidence-index.md) |
 | 已选批次的详细实施顺序、样本和测试门 | [Scene 播放能力开发计划](../scene-capability-development-plan-2026-07-22.md) |
-| Wallpaper Engine 的上层能力地图 | [Scene 兼容能力综述](../wallpaper_engine_scene_compatibility.md) |
 
 ### 2.1 源码目录导航
 
@@ -88,7 +103,7 @@ Wallpaper Engine 没有公开稳定、完整的 Workshop Scene 序列化规范�
 | `D` | `Almamu/linux-wallpaperengine` 等开源播放器 | 一种可审计解释路径、常见陷阱、字段间关系 | 官方真值；项目中的 TODO、启发式和 bug 不能反向成为规范 |
 | `E` | MyWallpaperX 当前代码、测试和样本矩阵 | 当前真实支持范围、已知降级和回归证据 | Wallpaper Engine parity 或未覆盖样本的正确性 |
 
-冲突时按 `A -> 历史 2.8.42 客户端静态取证 -> B -> C -> D -> E` 排查。该历史快照的逐篇取证入口见 [资料来源与证据索引](source-index.md) §1.11；它优先于 B/C，但仍不能证明运行时事件顺序、shader 数学与 Windows 像素 parity。WaifuX 的资源包仍留在 `C`。
+冲突时按 `A -> 2.8.42 客户端快照静态取证 -> B -> C -> D -> E` 排查。客户端静态取证是单独标注版本和方法的证据通道，不占用本表字母等级；其逐篇入口见 [资料来源与证据索引](source-index.md) §1.11。它可收窄结构和生命周期假设，但仍不能证明完整运行时事件顺序、shader 数学或 Windows 像素 parity。WaifuX 的资源包仍留在 `C`。
 
 注意本表的 `A`-`E` 与 [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) 的 `A`/`B`/`C` 是**两套不同的标度**：后者的 `C` 指“根据字段名或常量作出的解释”，不是本表的 WaifuX payload。§1.11 中以该审计为等级源的随包取证文档使用后者。引用“等级 C”时必须指明出处标度。
 

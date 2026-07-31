@@ -17,7 +17,7 @@
 - 用户属性怎么跨 native/JS 边界传递、怎么反序列化成 `Vec3`，声明里完全没有；
 - SceneScript 自定义属性 UI（slider/combo/color）的构建协议，声明里**一个字都没有**。
 
-这些都是 pixel-exact 对齐和 conformance test 必需的。客户端取证提供了它们。
+这些都是行为 conformance test 和后续视觉对齐需要的输入。客户端取证提供的是数值、桥接与生命周期规格，不单独证明最终像素等价。
 
 ## 2. 证据来源与等级
 
@@ -30,6 +30,19 @@
 | `GB` | 32/64 位 `wallpaper` + `scenescript` 的 Ghidra 有界静态路径 | module/engine/event/timer/teardown 与跨 ABI 结构邻域 | B |
 
 等级沿用 [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md)：A = 客户端快照中的结构化文件直接确认。
+
+### 2.1 与当前项目状态的关系
+
+本文把结构化随包文件和 Ghidra 证据提炼为**待实现合同**，不维护 MyWallpaperX 的能力等级。2026-07-31 的相关状态只作导航：
+
+| 能力面 | 当前边界 | 当前状态入口 |
+|---|---|---|
+| 通用 ECMAScript VM、module、owner/handle、event 与 timer | 未实现，保持 `L0` | [SceneScript API 覆盖表](scenescript-api-coverage.md) |
+| layer 顶层 property wrapper | 可保真保存 host/inline source/properties/authored fallback，局部 `L1` | [SceneScript API 覆盖表 §2](scenescript-api-coverage.md#2-property-bound-核心合同) |
+| exact native text/audio profiles | 受完整指纹约束的 `L3 bounded`，不执行 JavaScript、不开放 API | [运行证据索引](runtime-evidence-index.md) |
+| Timeline | 已有部分 target/evaluator 的 `L2-L3`，不能由此推导 SceneScript runtime | [覆盖台账 §6.1](coverage-ledger.md#61-timeline-与-scenescript) |
+
+后续实现时先从 API 覆盖表选择一个仍为 `L0/L1` 的能力，再使用本文相应合同建立自有 fixture；完成代码、测试和隔离运行证据后，才在覆盖表和运行证据索引升级状态。
 
 ## 3. 编辑器 authoring/type surface（`LB`）
 
@@ -285,29 +298,72 @@ Mat3/Mat4 的乘法索引和向量变换直接确认其数组为 column-major �
 
 2026-07-31 的独立 32/64 位 Ghidra 交叉进一步确认：两份 DLL 共同公开上述四个宿主入口；`thisLayer`、`engine`、`localStorage`、`registerAudioBuffers`、`setTimeout` 与 `setInterval` 在两个架构中形成相同的共址集合，并可达独立 worker 与同步参与者。它支持这些能力属于 per-engine owner bridge，而不是 64 位特例或互不相关的全局 helper；函数数、xref、TLS/异常导出与 CRT 细节不同，因此不证明逐函数或 ABI 等价。完整输入身份和方法见 [官方客户端运行机制静态取证](client-runtime-static-forensics.md)。
 
-### 8.2 Event、timer 与 audio tick
+### 8.2 Event、effective time、timer 与 audio tick
 
 - 每个 script record 固定保存 19 个 event slot：init/update/resize/destroy、用户属性、通用设置、animation、六个 cursor 与五个 media。
 - 每个 slot 有独立存在/禁用位；单一 handler 被禁用不等于停掉整份脚本。
 - init、update 与 animationEvent 的返回值进入绑定 property writeback；其他 event 只产生副作用。
-- frame tick 先刷新 16/32/64 的 left/right/average 稳定数组，再处理 timer。
-- timer 由 frame delta 驱动；interval 到期每帧至多执行一次，执行后从完整周期重新计时，不追补长帧漏掉的周期。
-- `registerAudioBuffers` / `registerAsset` 与 timer/storage 等操作存在不同求值阶段约束；公开取消合同仍以注册函数返回的 cancel function 为准。
+- 主程序在恢复出的 frame 路径中先派发已排队的 media 与 animation 事件，再调用 engine tick；tick 内先刷新 audio arrays、后遍历 timer，tick 返回后才派发普通 `update`。
+- scene 时间先后经过 FPS/pause admission、smoothed time scale、authored playback scale 与 clamp，输出 effective delta。`frametime`、`runtime` 累计、engine tick 与 timer 都使用这一个时间域；具体 smoothing/clamp 数值不是跨平台兼容常量。
+- pause 渐变阶段随 effective delta 同步减速；完全暂停后不 tick、不累计。恢复时先重置性能计时基线，暂停 wall time 不进入首帧，也不产生 timer catch-up。`timeOfDay` 每帧采样本地 wall clock，与累计 runtime 分离。
+- `registerAudioBuffers` 只允许 global phase，只接受 16/32/64，默认 16；首次注册建立三档 left/right/average backing arrays，后续 tick 原地刷新，VM object/array identity 跨帧稳定。
+- timer 属于 owner。scheduler 每轮先复制 timer pointer snapshot，因此回调中新建 timer 不会同轮执行，取消/删除不破坏当前遍历。one-shot 执行后按 identity 删除；interval 每帧至多执行一次，执行后从完整周期重新计时，不追补也不累积 overshoot；owner removal 逐条释放 timer。
+- 普通 `update` 则直接 live 遍历 script-record 双向链表。新 record 尾插且同步执行 `init`：cursor/media/timer 阶段创建的 owner 会获得同帧 `update`，`update` callback 创建的 owner 会在本轮后段首次 `update`。destroy 只排队，pending destroy 在普通 `update` 后 drain；destroy callback 创建的 owner 已错过本轮 `update`。
+- DLL 内部虽注册 `clearTimeout` 名称，公开取消合同仍以注册函数返回的 cancel function 为准，不能据此扩张 v2.8 公共 API。
 
-### 8.3 Property return 与反射
+### 8.3 Cursor hit、传播与状态失效
+
+- cursor 先使用当前帧候选快照遍历，再对 `solid=true` 的 layer 调用 native hit-box/detail virtual；这不是公开 SceneScript `cursorHitTest` hook，v2.8 声明也没有该成员。
+- layer flag word 中 `visible=bit 0`、`solid=bit 13`、`disablepropagation=bit 14`。`visible=false` 不会让 solid layer 退出 hit test；隐藏 solid 仍可接收 enter/move/down/up/click 并保留 hover 与 pressed/capture。
+- `disablepropagation` 只有当前 layer 与祖先都 effective-visible 时才阻断后续候选。因此隐藏 solid 可以作为透明交互区，但不会遮断后续命中对象。
+- visible setter 不清理输入状态。native object 真正销毁时才静默清除 hover 和 pressed/capture identity，不补发 leave/up/click；click 必须由仍有效的同一 pressed identity 完成 down/up 配对。
+- `input.cursorWorldPosition` 与 `cursorScreenPosition` 共用 scene 的 cursor pixel snapshot；前者经当前 view/projection 逆变换为 Vec3并可按 2D policy 把 z 置 0，后者按 canvas/viewport scale 与 Y-axis policy 输出像素坐标。`cursorLeftDown` 固定查询 left-button identity并读取当前 input bool。三个 getter 都拒绝 global phase。
+- `CursorEvent` 在 dispatch 前把 world/local/hit-box 构造成独立 snapshot，不应在 JS callback 中再次读取轮询 getter来拼事件。
+- 项目 fixture 必须分别覆盖 visible、solid、parent visibility、propagation、hover/capture 与销毁失效；event-local/puppet 坐标、候选前后顺序和多按钮仍需自有 golden。
+
+### 8.4 Asset、dynamic layer、model data 与 storage
+
+- `registerAsset` 只允许 global phase，按传入路径去重；重复注册不会改写首次 precache 选择。VM 边界可得到路径值，但项目公共 API 应继续使用 opaque `IAssetHandle`。
+- `createLayer` 同步请求宿主并立即取得 native identity；wrapper cache 按该 identity 复用 handle。bridge-managed identity vector 最多 2048 项：2047 项时可再创建，已有 2048 项时返回空值；不能假定该容器只统计动态 layer。
+- `getLayerIndex` 对未知 identity 返回 `-1`，`sortLayer` 对未知 identity 返回失败；native sort 把超过当前长度的 index 夹到尾部，负数是否在 VM boundary 被拒绝仍待闭合。sort 只改变 native/render topology，不改变 script-record 注册顺序。
+- `destroyLayer` 同步返回请求状态，实际 topology removal 在普通 `update` 后的 pending-destroy drain 执行。destroy callback 创建的新 layer 已加入 native/render registry；若满足类型与 effective-visible 门，可能在本帧 render preparation 中出现，但到下一帧才第一次普通 `update`。
+- `setParent` 不是 pending-destroy mutation：宿主同步解析 parent identity 与可选 attachment name/index，从旧 parent 的 child vector 摘除，再切换 parent/attachment。`adjustTransforms=true` 以旧 world transform 和新 parent/attachment transform 重算 local origin/angles/scale；false 直接切换关系。相同 parent+attachment 是 no-op success，`getParent` 读取当前 identity，`getChildren` 返回调用时 child vector snapshot。
+- self-parent 或 native flag/child complexity guard 失败时，旧 parent 已被摘除且不会自动回滚；宿主保持 unparented 并报告 invalid configuration。项目可以用事务式“验证成功后再提交”避免半完成 mutation，但必须将其标为安全 policy 差异。descendant cycle、缺失 identity/attachment 与 guard 的准确公共含义仍需负向 fixture。
+- 每个新 layer wrapper 会向 native object 注册 lifetime callback。native object 真正销毁时 callback 清除 identity/index 两张 wrapper 索引并释放 wrapper；这给失效 handle 提供了明确通知边界。
+- `getInitialLayerConfig` 是宿主配置 serialize 后再 parse 得到的 detached object，不是 live alias。
+- `createModelData` 返回 tokenized handle；`applyData` 与 `replaceData` 共用 native bridge，以 mode 区分，update phase 拒绝 `replaceData`。buffer 增长、非 dynamic 更新、shape/buffer 增删、material/vertex format 改变及 index/layout 不兼容分别 fail closed。仍被 layer 引用的 model-data destroy 请求延迟到引用解除。
+- local storage 的四个操作都拒绝 global evaluation phase。默认 screen，只有字符串精确等于 `global` 才进入 global 域；key 必须是 string，`set(key, undefined)` 转 delete。value 经 VM 序列化并加版本 envelope；get 验证或反序列化失败返回 `undefined`，delete/clear 返回宿主状态。
+
+官方 live traversal 允许 `update` callback 持续创建 owner 并继续延长同一轮。MyWallpaperX 必须为每帧 callback、owner mutation 和动态 identity 设置明确 budget；可选择达到预算后排到下一帧，但必须把该差异标为项目安全 policy，不能伪称官方等价。
+
+这些结论不闭合 asset canonicalization/precache 时点、负 index VM 行为、model-data 精确引用计数，也不闭合 storage namespace/quota/原子性/跨重启行为。
+
+### 8.5 Camera、material、particle、video 与 animation handle
+
+- `getCameraTransforms` / `setCameraTransforms` 都拒绝 global phase。DTO 是 `eye`、`center`、`up` 三个 Vec3 与 `zoom`；getter 返回 scene 保存的 base record，setter 将缺失成员保留为空指示，只更新实际提供的成员。构造默认为 `eye=(2,2,2)`、`center=(0,0,0)`、`up=(0,1,0)`、`zoom=1`；无 authored camera 的正交 fallback 使用 `eye=(0,0,0)`、`center=(0,0,-1)`、`up=(0,1,0)`，authored camera 覆盖同一 record。
+- `setMaterialProperty` 按存储顺序遍历 effect 的 material instance records。每条 record 用 property name 查询自己的 metadata，再执行 scalar/Vec2/Vec3/Vec4 typed write；scalar 可由 metadata 控制 int/float 转换，单位 metadata 可触发 degree-to-radian。某个 instance 缺字段或类型不兼容只使它自身 no-op。
+- `executeMaterialFunction` 对缺失名称或空 descriptor no-op；否则按 descriptor-defined ordered record set 逐条切换 active material/state、立即执行 function、再恢复原状态。它不是无序广播或跨帧队列；descriptor 到 authored pass 的完整映射仍待闭合。
+- `emitParticles()` 与 count 0 规范为 1，正整数原样转交，负数 no-op；调用以零时间偏移进入正常 particle runtime 共用的 emitter/default-channel/initializer dispatcher。最终 GPU buffer 是否同 draw 可见仍需自有 fixture。
+- video provider 缺失时 method no-op、getter 返回默认值。`play` 在 ended 时先 seek 0，`pause` 只暂停，`stop` 暂停并 seek 0；`isPlaying` 同时要求 active/playing 且未 ended。非 loop 以 arm 后首次 ended 为一次性边沿，loop 以 current time 小于上一帧识别自然回绕；主动 seek 清除待派发状态。ended callback 在 owner 内有序保存，经 scene engine batch 派发，owner teardown 后不得存活。底层媒体 controller 登记在宿主 manager-owned registry 中，并把 requested-playing、实际 running 与 frame-ready/dirty 分开；析构先停并等待 worker、退注册，再释放 output/media/GPU。该结构支持 host-owned provider generation，但 registry pump 顺序和 device reset 后 retained play/rate/loop/seek intent 的恢复 owner 仍未验证。
+- `playSingleAnimation` 复用普通 animation-layer 创建、验证和 `autosort` / `index` 插入路径，只在成功创建后追加 one-shot marker。evaluator 到达 end 的 frame 先派发全部 ended callbacks，第二遍遍历才移除 layer，因此 callback 期间 handle 仍有效。显式 destroy 接受 handle、非负 index 或 name；name 删除全部同名项，无效输入 no-op/false，显式 destroy 不生成自然 ended。
+
+这些结论只定义自有 host bridge 的类型、顺序与生命周期 fixture，不改变 API 覆盖等级，也不闭合视频像素、动画 blend/root-motion、粒子轨迹或 material function 的视觉结果。
+
+### 8.6 Property return 与反射
 
 property return 通过集中式 typed conversion 写回 number、bool、string 和 vector；标量可广播到向量，错类型、不完整向量或非法数值不得覆盖旧值。原生 property reflection 还保留 name、label、顺序、类型、数值范围、bool、归一化颜色、文本和 combo option。带单位字段的精确转换与全部异常边界仍需项目自有 fixture。
 
-### 8.4 Destroy 与 teardown
+### 8.7 Destroy 与 teardown
 
 - engine teardown 会先停止/唤醒 watchdog 并等待监督线程退出，再释放 script record、timer、音频注册、host wrapper 与 isolate。
 - DLL 的 record removal / engine 析构不会替宿主调用用户 `destroy`。
-- 主程序两条独立 lifecycle path 都会主动派发 destroy，因此 owner removal 前 exactly-once destroy 是 host 职责。
-- adapter/多接口间接层使 `destroy -> record removal -> engine teardown` 的完整相对顺序仍无法由静态路径无歧义确认，应保留 fake-VM fixture 或 Windows dynamic trace 门。
+- 主程序的公共 owner removal path 在同一 engine batch 中先派发存在的 `destroy`，再删除 engine script record，最后释放 host record。多类 layer/object owner 都调用这一路径。
+- scene teardown 先释放这些 owner，再释放 scene engine；因此恢复出的完整顺序是 `destroy -> engine record removal -> host record release -> all owners complete -> engine release`。
+- exactly-once 仍是宿主合同：必须保证同一 owner 只进入一次 removal path。项目 fixture 还应覆盖 destroy 内自取消 timer、跨 handle 访问和异常，不把静态顺序本身当成重入安全证明。
 
 ## 9. 对 MyWallpaperX 的验收门
 
-按 [SceneScript API 覆盖表](scenescript-api-coverage.md) 的分级口径，本文可支撑以下项从「无依据」升级为「有 A 级规格、待实现」：
+按 [SceneScript API 覆盖表](scenescript-api-coverage.md) 的分级口径，本文把结构化文件的 A 级证据与 executable 静态路径的 B 级证据整理为分层规格；它们仍处于“待实现/待验证”，不会自动升级 API 等级：
 
 | 能力 | 本文提供的规格 | 建议验收门 |
 |---|---|---|
@@ -317,14 +373,20 @@ property return 通过集中式 typed conversion 写回 number、bool、string �
 | 自定义属性 UI | §6 完整 builder 协议 | 双键命名；combo 取 `options[0].value`；`order` 自增即渲染序 |
 | 官方模块 | §7 三模块行为 | `mix` 不 clamp；角度制；`rgb2hsv` 三分量归一化 |
 | 序列化 | §4.3 replacer + §5.3 格式 | 含向量的对象经 `stringifyConfig` 后向量为空格分隔字符串 |
-| engine lifecycle | §8 版本、事件、timer、watchdog、teardown | 版本不符失败；19 slot；单事件隔离；实例熔断；destroy exactly-once；stop 后 timer/audio/handle 为 0 |
-| typed return/reflection | §8.3 conversion 与 metadata 通道 | scalar/Vec/bool/string/错类型/NaN/Inf；order/label/range/combo/color round-trip |
+| engine lifecycle | §8 版本、事件、timer、watchdog、teardown | 版本不符失败；19 slot；media/animation → audio/timer tick → live update → destroy drain；单事件隔离；实例熔断；destroy → record removal → engine release；stop 后 timer/audio/handle 为 0 |
+| effective time / timer / audio | §8.2 单一 delta、pause/resume、timer snapshot 与 live update、稳定 arrays | frametime/runtime/timer 同 delta；完全暂停不累计，恢复不 catch-up；timer callback 新建 timer 下一轮执行；update callback 新建 owner 有界准入；16/32/64 arrays identity 不变且先于 update 刷新 |
+| cursor state | §8.3 candidate、solid/visible/propagation、getter/event snapshot、hover/capture 与销毁失效 | hidden-solid 正例、后续候选不被遮断、world/screen/left-down snapshot、event object 独立、visible toggle 状态保留、destroy silent invalidation、同 identity click |
+| host resources | §8.4 asset/layer/parent/model-data/storage | asset 首次 precache sticky；2048 identity cap；sort 与 script 顺序分离；destroy 后 render/update 边界；parent adjust/no-op/failure；wrapper 失效；replaceData 负门；storage 损坏恢复 |
+| scene handles | §8.5 camera/material/particle/video/animation | camera typed partial update/default；ordered material execution；emit count；seek 不误报 loop end；ended callback 先于 one-shot removal；teardown 后 callback 为 0 |
+| typed return/reflection | §8.6 conversion 与 metadata 通道 | scalar/Vec/bool/string/错类型/NaN/Inf；order/label/range/combo/color round-trip |
 
 均**不需要**复制官方源码即可实现与验证。
 
 ## 10. 未覆盖与后续
 
-- `CameraTransforms` 是唯一确认由引擎原生提供的类，其 4 个成员的实际行为**无本地证据**，仍需运行时观测。
+- `CameraTransforms` 的四成员、base defaults、authored override 与 typed partial update 已有主程序/DLL 静态互证；仍未闭合的是 VM finite/type 负向行为、2D/3D 冲突和脚本 camera 与同帧 authored/animation mutation 的优先级。
+- cursor event-local/puppet 坐标、候选前后顺序、边界容差、多按钮与 parent/visibility 同帧 mutation 仍需自有 fixture；`cursorHitTest` 不属于 v2.8 公共 API。
+- material descriptor 到完整 authored pass 的映射、particle GPU 同 draw 可见性、video registry pump/device-reset retained intent/provider error/多屏时钟以及 animation blend/root-motion 仍需自有 fixture、Windows trace 或视觉/声音 golden。
 - prototype 导出（§4.1）与 token 机制（§4.2）的原生侧用法为等级 C 推断，只能指导实现，不能写成兼容承诺。
 - `ui/dist/scripts/scripts.js`（1.2 MB 编辑器逻辑）已于 2026-07-26 展开：其中**不含** Scene wire 字段的 schema 校验或默认值表（`depthtest`/`pointsize`/`maxrows` 等命中 0 次），此前「可能含属性 schema 校验与默认值」的推测不成立；其真实价值是内嵌的官方 changelog（含 10 条 V8 证据，把 §3 的 VM 选型目标从推断收窄为官方事实），见 [官方客户端 changelog 取证](client-changelog-forensics.md)。
 

@@ -176,21 +176,25 @@ https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/<Name>.htm
 
 本轮只建立能力边界，没有把这些高级模块错误提升为当前 P0。
 
-### 1.11 2.8.42 客户端历史静态取证
+### 1.11 2.8.42 客户端快照静态取证资料组
 
-Wallpaper Engine 2.8.42 / Steam build `23967692` 的历史结构化取证记录在：
+Wallpaper Engine 2.8.42 / Steam build `23967692` 是一个固定版本证据快照。文档会继续维护，但结论不能自动外推到其他客户端版本。按下面顺序查阅，避免把旧审计快照、深层静态证据和项目现状混为一体：
 
-- [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md)：stock Effect、Material、TEX/3D LUT、MDL、粒子预览/预设、默认项目和 compiled blob census。
-- [stock 资产包](stock-asset-bundle.md)：`SceneStockAssets.bundle` 按官方相对路径保存 Scene 资源，不区分播放、编辑器或 preview 资产，也不设目录级库存门。Particle slot 0 与字体 consumer 已直接按路径接入；其余 consumer 不因物理文件存在而升级。
-- [SceneScript 运行时实现层合同](scenescript-runtime-implementation-contract.md)：随包 Vec/Mat、宿主桥、用户属性转换、自定义 script property builder 和官方 JS module 行为。
-- [SceneScript binding target 取证](scenescript-binding-target-forensics.md)：13 处内联脚本 wrapper、owner/target、authored value 与导出 hook 的静态输入合同。
-- [官方默认工程 corpus](official-default-projects-fixture-inventory.md)：19 个随包工程的入口形态，以及 16 个 scene-shaped 工程的对象、相机、Effect、纹理、模型、粒子与 shader cache 输入清单。
-- [Shader source 前置合同与跨后端假设审查](shader-prelude-and-backend-abstraction.md)：随包 source token、format branch 与 uniform census；token 缺席为 A 级，注入者、矩阵/NDC/Metal 映射为 C 级。
-- [zcompat 向后兼容机制取证](zcompat-backward-compatibility-forensics.md)：随包 scene shader 候选与 Web patch record schema；匹配方向、应用时机、失败策略和音频填充行为仍是待运行确认项。
-- [官方客户端 changelog 取证](client-changelog-forensics.md)：`ui/dist/scripts/scripts.js` 内嵌 REV 3943-4401 共 459 版 / 741 条变更；V8 VM、MSDF 字体、FBO condition 运算符、默认值裁剪与粒子/child/CP 语义的版本事实。
-- [编辑器字符串表取证](editor-string-table-forensics.md)：`locale/ui_en-us.json` 3,332 keys 的 Scene 子集；45 Effect、粒子组件、blend mode、Timeline、scene options 与 utility 层的官方名称与一句话定义。
-- [客户端二进制与第三方依赖取证](client-binary-dependency-forensics.md)：`bin/` 62 文件模块清单、`bin/licenses` 官方自认的 34+14 项第三方库及其到 Scene 系统的映射、`assets/shaders/{base,editor,HLSL}` 子目录补漏与 165 个官方元素预览视频登记。
-- [官方客户端运行机制静态取证](client-runtime-static-forensics.md)：Wallpaper Engine 2.8.42，Ghidra 12.1.2；覆盖 32/64 位 Scene 主程序与 SceneScript，以及 `resourceutil`、`resourcecompiler`、`mediaextensions`、`winrtutil`、service 和 clone/composition 模块。方法为 import/export、RTTI/string xref、命名入口有限可达性、选择性反编译、32/64 位结构交叉和 sidecar/TEX/公开文档互证。`.codex` 中 2026-07-30 草稿已被该正式文档取代，不是长期证据入口；原始 Ghidra project、地址、伪代码、函数体、字节、一次性脚本与日志不进入仓库。
+| 需要回答的问题 | 维护入口 | 定位 |
+|---|---|---|
+| 当时检查了哪些随包资产、默认工程和格式缺口 | [Windows 官方客户端取证记录](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) | 2026-07-25 的版本化审计快照；保留 census 和当时的开发映射，不是当前能力入口 |
+| 二进制模块、第三方库和官方动态预览来自哪里 | [客户端二进制与第三方依赖取证](client-binary-dependency-forensics.md) | 模块与公开上游导航；依赖存在不等于数值或视觉等价 |
+| resolver、RenderGraph、SceneScript、媒体和 surface 的内部结构如何分层 | [官方客户端运行机制静态取证](client-runtime-static-forensics.md) | Ghidra clean-room 结构证据的正式维护入口；不记录地址、伪代码或私有算法表达 |
+| MyWallpaperX 当前实现到哪一级 | [覆盖台账](coverage-ledger.md)、各专项覆盖表与 [运行证据索引](runtime-evidence-index.md) | 唯一当前状态入口；静态取证本身不升级 `L0-L4` |
+
+按专题继续查：
+
+- **SceneScript**：[运行时实现层合同](scenescript-runtime-implementation-contract.md) 记录 Vec/Mat、宿主桥、用户属性转换、自定义 script property builder、官方 JS module 和 engine/owner 生命周期；[binding target 取证](scenescript-binding-target-forensics.md) 记录 13 处内联脚本 wrapper、owner/target、authored value 与导出 hook。
+- **随包输入 corpus**：[官方默认工程 corpus](official-default-projects-fixture-inventory.md) 记录 19 个工程入口与 16 个 scene-shaped 工程；[stock 资产包](stock-asset-bundle.md) 记录项目自有资源对应关系。物理文件存在不升级 consumer 等级。
+- **Shader 与兼容记录**：[Shader source 前置合同](shader-prelude-and-backend-abstraction.md) 记录 source token、format branch 与 uniform census；[zcompat 取证](zcompat-backward-compatibility-forensics.md) 记录 patch record schema。未闭合的注入者、矩阵/NDC/Metal 映射、匹配方向和运行时机继续保持 unknown。
+- **编辑器与版本线索**：[客户端 changelog 取证](client-changelog-forensics.md) 记录内嵌 REV 3943-4401 的版本事实；[编辑器字符串表取证](editor-string-table-forensics.md) 记录 Scene wire 字段对应的官方名称和说明。
+
+`.codex` 中 2026-07-30 的草稿已经由上述正式文档取代，不是长期维护入口。原始 Ghidra project、地址、伪代码、函数体、字节、一次性脚本与日志不进入仓库。
 
 结构化客户端文档可由 `script/extract_wallpaper_engine_client_evidence.py` 针对同版本输入重新提取 changelog、locale 与 binary manifest；Ghidra 结论则按运行机制文档登记的方法和输入哈希独立复核。历史证据覆盖 `assets`、default projects/templates、声明文件、`locale` 字符串表、`ui/dist` 类型库与 `bin` 模块清单；不覆盖用户项目、配置或缓存。静态取证可以作为结构证据，但仍不能代替运行时 event order、history lifecycle、shader 数学或 Windows pixel golden。
 
@@ -291,7 +295,7 @@ Reference Project/WaifuX-main
 
 不可借鉴：二进制、内嵌资源、未说明的 DXC/FFmpeg 打包、无 bookmark 的 file property、Workshop ID heuristic 和不透明兼容声明。
 
-## 5. 本轮安全记录
+## 5. 研究安全边界
 
 前一轮为了查看 WaifuX `--pipeline-debug`，fresh shader cache 曾尝试启动未签名/未公证的 `dxc`，触发 macOS Gatekeeper 弹窗。本轮已终止相关进程，并执行以下约束：
 
@@ -306,19 +310,19 @@ Reference Project/WaifuX-main
 
 1. `project.json`、`scene.json`、`effect.json`、material/model/particle JSON 的完整、版本化 schema；官方 UI 类型 `texture` 与样本 raw type `scenetexture` 需兼容但不能无证据视作全版本同义；Texture Variants 的原始序列化形状、匹配优先级和混合细节也未公开；
 2. `previous`、`original`、named RT、full-frame aliases 的全部内部命名和默认 binding precedence；
-3. FBO `unique/fit/uv/conditions` 在所有版本中的精确生命周期；
+3. FBO `unique/fit/uv/conditions` 的跨版本稳定性，以及 alias、clear 颜色解释和 device-loss/history 的完整生命周期；
 4. PKG/TEX/TEXB/MDL/Puppet 的完整版本矩阵；
 5. 内置 shader 数学、浮点/颜色空间和 DirectX sampling edge behavior；官方公开 `[COMBO]`，但没有给出 stock asset 中 `[COMBO_OFF]` / `[OFF_COMBO]` / `[COMBO_DISABLED]` 三种拼写与 `[PASS]` 的合同，随包普查见 [Shader source 前置合同审查](shader-prelude-and-backend-abstraction.md) §8；
-6. SceneScript VM 的全部 ECMAScript edge cases、module loader、timer/re-entrancy、event ordering、异常策略和 resource limits；
+6. SceneScript VM 的全部 ECMAScript edge cases、module runtime、全局 event order、未闭合的同帧冲突、异常传播和 resource limits；2.8.42 已恢复的 timer/owner 局部顺序见实现层合同，不能外推为全部运行语义；
 7. 粒子每个 component 的随机分布、seed、重复 module order、spawn debt、默认值和精确 integration method；
-8. text renderer 的 300 DPI point 到 scene/raster unit 换算、系统字体 fallback、hinting、layout、ellipsis 与 color-font 行为；
+8. text renderer 的 Windows 栅格化、系统字体 fallback、hinting、复杂 layout、ellipsis 与 color-font 行为；300 DPI point 的公开声明和当前受限换算已记录在运行输入覆盖表，但仍不是 Windows 像素 golden；
 9. 官方实时与屏保/移动端/低质量模式的降级策略；
 10. `displaycondition` 的完整表达式语法、类型转换和跨版本兼容规则；
 11. 离线 bake 不是 Wallpaper Engine 官方公开能力，必须作为 MyWallpaperX 自有合同设计。
 
 未知项进入实现时必须先建最小 fixture 和证据，不得从第三方 TODO 或当前视觉结果猜默认值。
 
-## 8. 下次会话的资料刷新命令
+## 7. 资料刷新命令
 
 只读刷新官方页面列表：
 

@@ -4,6 +4,8 @@
 取证快照：Wallpaper Engine 2.8.42 的 `bin/`、`ui/dist/videos/`、`assets/shaders/{base,editor,HLSL}`、`distribution/`
 审查方式：静态检查
 
+> 文档角色：模块、第三方来源和动态预览的证据导航。依赖或文件存在只说明候选实现来源，不证明 MyWallpaperX 已采用同一算法，也不升级当前能力等级；现状统一查 [覆盖台账](coverage-ledger.md) 和 [运行证据索引](runtime-evidence-index.md)。
+
 ## 1. 结论先行
 
 1. **官方音频频谱的 FFT 实现依赖 FFTS**（Anthony M. Blake，BSD）。项目当前已有 `L3 bounded` 的 16/32/64 host 输入与严格 consumers，但频段、归一化和平滑仍是项目工程选择；识别上游库不构成数值 parity。

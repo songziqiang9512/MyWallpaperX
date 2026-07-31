@@ -4,7 +4,7 @@
 审查方式：Parallels Windows 11 静态检查、进程检查和有限 UI 验证
 MyWallpaperX 审查基线：`678a0525c2adaa1eaed8be886aa68e7f3f680c4c`
 
-> 本文是 2.8.42 客户端静态取证记录，不是 MyWallpaperX 当前能力状态入口。当前实现等级仍以 [Scene 能力总账](../scene/semantics/coverage-ledger.md)、[能力依赖图](../scene/semantics/capability-dependency-map.md) 和 [Scene 开发计划](../scene/scene-capability-development-plan-2026-07-22.md) 为准。
+> 本文是 2.8.42 客户端静态取证的版本化审计快照，不是 MyWallpaperX 当前能力或开发优先级入口。当前实现等级以 [Scene 能力总账](../scene/semantics/coverage-ledger.md)、对应专项覆盖表和 [运行证据索引](../scene/semantics/runtime-evidence-index.md) 为准；后续 Ghidra 结构结论统一维护在 [官方客户端运行机制静态取证](../scene/semantics/client-runtime-static-forensics.md)。
 
 ## 1. 目的与结论
 
@@ -504,6 +504,7 @@ ROBOCOPY_RC:0
 - [Scene 参考项目只读审查](scene-reference-project-audit-2026-07-24.md)：第三方参考项目和架构线索。
 - [Scene 参考项目与官方语义证据审查](scene-reference-audit-effects-runtime-2026-07-24.md)：Effect/runtime 专项交叉审查。
 - [Scene 资料来源与证据索引](../scene/semantics/source-index.md)：官方网页、真实样本和证据入口。
+- [官方客户端运行机制静态取证](../scene/semantics/client-runtime-static-forensics.md)：2026-07-30/31 的 Ghidra clean-room 结构证据与后续维护入口。
 - [Effect 执行覆盖表](../scene/semantics/effect-execution-coverage.md)：MyWallpaperX 当前逐项实现等级。
 - [粒子组件覆盖表](../scene/semantics/particle-component-coverage.md)：MyWallpaperX 当前粒子 parser/runtime/visual 等级。
 
