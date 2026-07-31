@@ -29,7 +29,7 @@ nonisolated struct SceneParticleDefinitionParser {
         let operators = parseComponents(
             root["operator"], section: "operator", diagnostics: &diagnostics
         ) { parseOperator($0, diagnostics: &$1) }
-        let rendererWasImplicit = root["renderer"] == nil || (root["renderer"] as? [Any])?.isEmpty == true
+        let rendererWasImplicit = root["renderer"] == nil
         var renderers = parseComponents(
             root["renderer"], section: "renderer", diagnostics: &diagnostics
         ) { parseRenderer($0, diagnostics: &$1) }

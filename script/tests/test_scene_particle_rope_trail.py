@@ -215,9 +215,8 @@ enum Harness {
                 && onlyMalformedRenderer.diagnostics.contains {
                     $0.kind == .malformedComponent && $0.path == "renderer[0]"
                 },
-            "explicitEmptyRendererDefaultsToSprite": explicitEmptyRenderer.rendererWasImplicit
-                && explicitEmptyRenderer.renderers.count == 1
-                && explicitEmptyRenderer.renderers.first?.kind == .sprite,
+            "explicitEmptyRendererRejected": !explicitEmptyRenderer.rendererWasImplicit
+                && explicitEmptyRenderer.renderers.isEmpty,
         ]
     }
 
@@ -546,7 +545,7 @@ class SceneParticleRopeTrailTests(unittest.TestCase):
         self.assertTrue(profiles["multipleRendererRejected"])
         self.assertTrue(profiles["explicitObjectRendererRejected"])
         self.assertTrue(profiles["onlyMalformedRendererRejected"])
-        self.assertTrue(profiles["explicitEmptyRendererDefaultsToSprite"])
+        self.assertTrue(profiles["explicitEmptyRendererRejected"])
 
     def test_history_builds_bounded_segments_with_continuous_uv(self) -> None:
         history = self.result["history"]

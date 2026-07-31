@@ -1195,6 +1195,10 @@ enum Harness {
             "particles/rope-trail-only-malformed-renderer.json",
             renderer: [NSNull()]
         )
+        try writeMalformedRendererParticle(
+            "particles/rope-trail-empty-renderer.json",
+            renderer: []
+        )
         let descriptor = SceneRenderDescriptor(
             layers: [
                 layer(31, "particles/rope-trail.json"),
@@ -1204,8 +1208,9 @@ enum Harness {
                 layer(35, "particles/rope-trail-malformed-renderers.json"),
                 layer(36, "particles/rope-trail-object-renderer.json"),
                 layer(37, "particles/rope-trail-only-malformed-renderer.json"),
+                layer(38, "particles/rope-trail-empty-renderer.json"),
             ],
-            renderOrderLayerIDs: [31, 32, 33, 34, 35, 36, 37],
+            renderOrderLayerIDs: [31, 32, 33, 34, 35, 36, 37, 38],
             materialPasses: [
                 .init(
                     materialPath: "materials/shared.json",
@@ -1270,6 +1275,7 @@ enum Harness {
             "malformedRendererLoaded": coarseRuntime.activeLayerIDs.contains(35),
             "objectRendererLoaded": coarseRuntime.activeLayerIDs.contains(36),
             "onlyMalformedRendererLoaded": coarseRuntime.activeLayerIDs.contains(37),
+            "emptyRendererLoaded": coarseRuntime.activeLayerIDs.contains(38),
             "diagnosticDetails": diagnosticDetails,
             "missingSpriteRenderer": coarseRuntime.diagnostics.contains {
                 $0.kind == .missingSpriteRenderer
@@ -1820,6 +1826,11 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         )
         self.assertIn(
             "missingSpriteRenderer:37:",
+            result["diagnosticDetails"],
+        )
+        self.assertFalse(result["emptyRendererLoaded"])
+        self.assertIn(
+            "missingSpriteRenderer:38:",
             result["diagnosticDetails"],
         )
 
