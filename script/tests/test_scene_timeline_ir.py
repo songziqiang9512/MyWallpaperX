@@ -245,6 +245,65 @@ CASES = {
         "value": 1,
         "animation": {"options": {"fps": 30, "length": 30, "mode": "loop"}},
     },
+    "null_tangent_and_group_links": {
+        "value": 1,
+        "animation": {
+            "c0": [
+                {
+                    "back": None,
+                    "frame": 0,
+                    "front": None,
+                    "value": 0,
+                },
+                keyframe(30, 1),
+            ],
+            "options": {
+                "fps": 30,
+                "length": 30,
+                "mode": "loop",
+                "parent": None,
+                "children": None,
+            },
+        },
+    },
+    "malformed_tangent": {
+        "value": 1,
+        "animation": {
+            "c0": [
+                {
+                    "back": {"enabled": True, "x": -1, "y": 0},
+                    "frame": 0,
+                    "front": "1 0",
+                    "value": 0,
+                }
+            ],
+            "options": {"fps": 30, "length": 30, "mode": "loop"},
+        },
+    },
+    "malformed_group_parent": {
+        "value": 1,
+        "animation": {
+            "c0": [keyframe(0, 0)],
+            "options": {
+                "fps": 30,
+                "length": 30,
+                "mode": "single",
+                "parent": "origin",
+            },
+        },
+    },
+    "malformed_group_child": {
+        "value": 1,
+        "animation": {
+            "c0": [keyframe(0, 0)],
+            "options": {
+                "fps": 30,
+                "length": 30,
+                "mode": "single",
+                "children": [{"name": "zoom"}],
+            },
+        },
+    },
 }
 
 
@@ -357,6 +416,14 @@ class SceneTimelineIRTests(unittest.TestCase):
         self.assertEqual(options["smoothing"], "-")
         self.assertEqual(options["stiffness"], "-")
 
+    def test_null_tangent_and_group_links_remain_valid_absence(self) -> None:
+        animation = self.animation("null_tangent_and_group_links")
+        first = animation["lanes"][0][0]
+        self.assertEqual(first["front"], "-")
+        self.assertEqual(first["back"], "-")
+        self.assertEqual(animation["options"]["parent"], "-")
+        self.assertEqual(animation["options"]["children"], [])
+
     def test_absent_animation_is_not_a_diagnostic(self) -> None:
         self.assertNotIn("animation", self.result["no_animation"])
         self.assertEqual(self.diagnostic_codes("no_animation"), [])
@@ -370,6 +437,9 @@ class SceneTimelineIRTests(unittest.TestCase):
             "lane_gap": "laneGap",
             "empty_lane": "emptyLane",
             "missing_lanes": "missingLanes",
+            "malformed_tangent": "invalidTangent",
+            "malformed_group_parent": "invalidGroupReference",
+            "malformed_group_child": "invalidGroupReference",
         }
         for name, code in expected.items():
             with self.subTest(case=name):

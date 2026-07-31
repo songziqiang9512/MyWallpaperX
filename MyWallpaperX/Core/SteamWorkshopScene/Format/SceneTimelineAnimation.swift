@@ -92,6 +92,8 @@ nonisolated struct SceneTimelineDiagnostic: Equatable {
         case emptyLane
         case unorderedFrames
         case nonFiniteValue
+        case invalidTangent
+        case invalidGroupReference
     }
 
     let code: Code
@@ -176,6 +178,13 @@ nonisolated enum SceneTimelineAnimationParser {
             diagnostics.append(.init(code: .invalidLength, laneIndex: nil))
             return nil
         }
+        guard let parent = parseGroupReference(
+            root["parent"], diagnostics: &diagnostics
+        ), let children = parseGroupReferences(
+            root["children"], diagnostics: &diagnostics
+        ) else {
+            return nil
+        }
         return SceneTimelineOptions(
             fps: fps,
             length: length,
@@ -184,8 +193,8 @@ nonisolated enum SceneTimelineAnimationParser {
             wrapsLoop: root["wraploop"] as? Bool ?? false,
             smoothing: doubleValue(root["smoothing"]),
             stiffness: doubleValue(root["stiffness"]),
-            parent: groupReference(root["parent"]),
-            children: (root["children"] as? [Any] ?? []).compactMap(groupReference)
+            parent: parent.reference,
+            children: children
         )
     }
 
@@ -265,7 +274,11 @@ nonisolated enum SceneTimelineAnimationParser {
         laneIndex: Int,
         diagnostics: inout [SceneTimelineDiagnostic]
     ) -> (tangent: SceneTimelineTangent?, Void)? {
-        guard let root = value as? [String: Any] else { return (nil, ()) }
+        guard let value, !(value is NSNull) else { return (nil, ()) }
+        guard let root = value as? [String: Any] else {
+            diagnostics.append(.init(code: .invalidTangent, laneIndex: laneIndex))
+            return nil
+        }
         let x = doubleValue(root["x"]) ?? 0
         let y = doubleValue(root["y"]) ?? 0
         guard x.isFinite, y.isFinite else {
@@ -279,10 +292,42 @@ nonisolated enum SceneTimelineAnimationParser {
         ), ())
     }
 
-    private nonisolated static func groupReference(_ value: Any?) -> SceneTimelineGroupReference? {
+    /// Combined 引用同样区分缺省与非法，避免坏 `parent`/`children` 被静默丢弃后
+    /// 让成员动画作为独立动画继续执行。
+    private nonisolated static func parseGroupReference(
+        _ value: Any?,
+        diagnostics: inout [SceneTimelineDiagnostic]
+    ) -> (reference: SceneTimelineGroupReference?, Void)? {
+        guard let value, !(value is NSNull) else { return (nil, ()) }
         guard let root = value as? [String: Any],
-              let key = root["key"] as? String, !key.isEmpty else { return nil }
-        return SceneTimelineGroupReference(key: key)
+              let key = root["key"] as? String, !key.isEmpty
+        else {
+            diagnostics.append(.init(code: .invalidGroupReference, laneIndex: nil))
+            return nil
+        }
+        return (SceneTimelineGroupReference(key: key), ())
+    }
+
+    private nonisolated static func parseGroupReferences(
+        _ value: Any?,
+        diagnostics: inout [SceneTimelineDiagnostic]
+    ) -> [SceneTimelineGroupReference]? {
+        guard let value, !(value is NSNull) else { return [] }
+        guard let values = value as? [Any] else {
+            diagnostics.append(.init(code: .invalidGroupReference, laneIndex: nil))
+            return nil
+        }
+        var references: [SceneTimelineGroupReference] = []
+        references.reserveCapacity(values.count)
+        for value in values {
+            guard let parsed = parseGroupReference(value, diagnostics: &diagnostics),
+                  let reference = parsed.reference
+            else {
+                return nil
+            }
+            references.append(reference)
+        }
+        return references
     }
 
     private nonisolated static func doubleValue(_ value: Any?) -> Double? {

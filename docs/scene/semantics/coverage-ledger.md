@@ -156,13 +156,13 @@
 |---|---|---|
 | Particle `animation` wrapper presence | `L1` | 与正式 Timeline IR 分开，只作为动态值诊断 |
 | Timeline object/property target | `L3` | layer `alpha` 与 effect constant 已 typed 编译并写回（28 处）；`origin`/`angles`/`scale` 有 target 但随包 10 处全带 `relative`，整批 fail-closed；`maxwidth`/`zoom` 与粒子 `instanceoverride` 无对应 target |
-| Keyframe/value/tangent | `L2` | 帧号/值/双侧 handle/`lockangle`/`locklength` 已无损保真；求值只走线性，tangent 未消费——handle 的「帧偏移」与「归一化段长」两种解释不等价（`2067939514` 段在 frame=3.75 处分别约 0.767 / 0.970，线性 0.5），需视觉定标后才能宣称 Bézier |
+| Keyframe/value/tangent | `L2` | 帧号/值/双侧 handle/`lockangle`/`locklength` 已无损保真；缺失/`null` handle 合法，存在但非 object 的 handle 报 `invalidTangent` 并整条 fail-closed；求值只走线性，tangent 未消费——handle 的「帧偏移」与「归一化段长」两种解释不等价（`2067939514` 段在 frame=3.75 处分别约 0.767 / 0.970，线性 0.5），需视觉定标后才能宣称 Bézier |
 | Loop/Single | `L3` | 按绝对 scene time 求值，真实执行 loop 7、single 21；single 到末帧保持末值不回绕，loop 跨周期同相位，有单测与真实样本双证 |
 | Mirror | `L2` | evaluator 与单测已覆盖三角波折返，但随包 6 处 mirror 全落在被 `relative` 拒绝的 layer transform 上，真实样本 0 处执行 |
 | start paused | `L3` | 6 处执行且恒停首帧；`2067939514` 为负门——无 VM 时不存在能调 `play()` 的主体，自动播放会偏离作者意图 |
 | wrap-loop | `L1` | IR 保真（随包 9 处声明），执行时按普通 loop 降级并记 `wrapLoopIgnored`（7 处）；官方未公开首尾平滑算法 |
 | `relative` 合成 | `L1` | IR 保真（10 处），编译期整条拒绝；推断语义为「作者基值 + 动画值」，未取得官方定义也未做视觉验证 |
-| Combined Animations | `L1` | `options.parent`/`children` 的双向 key 引用已保真（随包唯一实例为 `3768229922` object 55 的 `origin`↔`zoom`）；组内成员须共用持有方 clock，分组语义未实现，整组 fail-closed |
+| Combined Animations | `L1` | `options.parent`/`children` 的双向 key 引用已保真（随包唯一实例为 `3768229922` object 55 的 `origin`↔`zoom`）；坏 parent/children 引用报 `invalidGroupReference` 并在 IR 阶段整条拒绝，不会脱组执行；组内成员须共用持有方 clock，分组语义未实现，整组 fail-closed |
 | Animation Events | `L0` | frame crossing、loop、同 layer script dispatch |
 | Layer property binding IR | `L1` | 顶层 wrapper 保存 host/inline source/properties/authored fallback；nested wrapper 不提升，generic file/module/value type/handle IR 仍缺 |
 | Exact native text profile | `L3 bounded` | 三个 exact source/property profile 直接编译为 typed text target；不执行 JavaScript |

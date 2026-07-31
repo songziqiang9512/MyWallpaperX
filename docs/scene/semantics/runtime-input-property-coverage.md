@@ -118,7 +118,7 @@ Timeline 是带预定义时长的 component-property 动画，不是 Effect anim
 | animation identity / optional name | `L1` | 身份由宿主 JSON 路径（layer + host 属性名，或 layer/effect/pass/constant 名）决定；官方 optional name 在随包 48 处中未出现，未保存 | 出现合法 fixture 后补 name 与 owner scope |
 | duration seconds / authored frame slots | `L2` | `fps`/`length` 原样保存，时长按 `length / fps` 换算（随包三例交叉验证 1.0s / 0.5s / 0.5s）；`smoothing`/`stiffness` 随包 16 处全为 null，只保真不解释 | 异常值（`length` 与末帧不符）无反例可依 |
 | component/property/axis target | `L3` | lane 以 `c0/c1/c2` 对应 component 下标，必须从 `c0` 起连续否则 fail-closed；已 typed 编译为 `.layer(.alpha)` 与 `.effectConstant`，lane 数与值类型不符报 `componentMismatch` | `origin`/`angles`/`scale` 因 `relative` 未执行；`maxwidth`/`zoom` 无 target |
-| keyframe frame/time/value | `L2` | `frame`/`value`/`front`/`back`/`lockangle`/`locklength` 六个键在 180 个真实 keyframe 上全部保真；帧号必须严格递增 | 同 frame 多 lane 与异常顺序目前只有负例门，无 Windows 对照 |
+| keyframe frame/time/value | `L2` | `frame`/`value`/`front`/`back`/`lockangle`/`locklength` 六个键在 180 个真实 keyframe 上全部保真；帧号必须严格递增；缺失/`null` tangent 合法，存在但不是 object 的 tangent 报 `invalidTangent` 并整条 fail-closed | 同 frame 多 lane 与异常顺序目前只有负例门，无 Windows 对照 |
 | scene-time evaluation | `L3` | 纯函数 evaluator，同一 `sceneTime` 必得同一结果，不持播放状态、不逐帧累加；host 每帧算一次后经 per-surface transaction 写回；Scene pause 通过冻结共享 scene time 保持结果 | 未接 seek/discontinuity |
 | wrap-loop frames | `L1` | `wraploop` 已保真（随包 9 处），执行按普通 loop 降级并记 `wrapLoopIgnored` | 官方未公开首尾平滑算法，需合法 fixture |
 
@@ -129,7 +129,7 @@ Combined Animation 会把新的 property lane 加入一个已有 animation，并
 
 | 官方能力 | 等级 | 当前事实 | 最小实现门 |
 |---|---|---|---|
-| existing-animation membership | `L1` | `options.parent`/`options.children` 的双向 key 引用已保真；随包唯一实例是 `3768229922` object 55 的 `origin`（`children: [{"key": "zoom"}]`）与 `zoom`（`parent: {"key": "origin"}`），两者共享同一份 options | 组内成员必须共用持有方 clock，分组语义未实现，编译期整组报 `combinedAnimationUnsupported` |
+| existing-animation membership | `L1` | `options.parent`/`options.children` 的双向 key 引用已保真；随包唯一实例是 `3768229922` object 55 的 `origin`（`children: [{"key": "zoom"}]`）与 `zoom`（`parent: {"key": "origin"}`），两者共享同一份 options；存在但非 object、空 key 或坏 children 容器均报 `invalidGroupReference` 并整条 fail-closed，不会脱组执行 | 组内成员必须共用持有方 clock，分组语义未实现，编译期整组报 `combinedAnimationUnsupported` |
 | authored lane order | `L2` | lane 按 `c0/c1/c2` 下标顺序保真；同一 target 被多条 Timeline 写入时全部拒绝并报 `duplicateTarget`，不按声明序或字典序猜 | 官方未定义冲突优先级，维持 fail closed |
 | atomic multi-target commit | `L3` | 全部 Timeline 值在同一帧算出后一次性送进 `SceneSurfaceEvaluationTransaction`，与 property 输入同一次原子提交 | 分组语义落地后需补组内同帧一致性门 |
 
