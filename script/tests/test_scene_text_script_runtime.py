@@ -107,6 +107,49 @@ enum Harness {
             return previousText;
         }
         """
+        let calendarSubsetSource = """
+        let monthLabels;
+        var separator;
+
+        export function update(originalText) {
+            if (scriptProperties.monthMode === 2) {
+                return "strict equality must not coerce";
+            }
+            if (scriptProperties.monthMode == 2) {
+                monthLabels = [
+                    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+                ]
+            } else if (scriptProperties.monthMode == 1) {
+                monthLabels = [
+                    "01", "02", "03", "04", "05", "06",
+                    "07", "08", "09", "10", "11", "12"
+                ]
+            } else {
+                monthLabels = [
+                    "January", "February", "March", "April", "May", "June",
+                    "July", "August", "September", "October", "November", "December"
+                ]
+            }
+            if (scriptProperties.useSlash == true) {
+                separator = ["/"]
+            }
+            if (scriptProperties.useSlash == false) {
+                separator = ["-"]
+            }
+            let current = new Date(); {
+                var dayNumber = current.getDate();
+                if (current.getDate() < 10 && scriptProperties.padDay) {
+                    dayNumber = "0" + current.getDate()
+                }
+                if (scriptProperties.dayFirst) {
+                    return dayNumber + separator + monthLabels[current.getMonth()];
+                } else if (scriptProperties.dayFirst == false) {
+                    return monthLabels[current.getMonth()] + separator + dayNumber;
+                }
+            }
+        }
+        """
         let subsetDefinition = SceneTextScriptDefinition(
             source: subsetSource,
             properties: [
@@ -145,6 +188,36 @@ enum Harness {
                 )
             ),
         ]))
+        let calendarSubsetProgram = calendarProgram(
+            id: 508,
+            source: calendarSubsetSource,
+            properties: [
+                "dayFirst": .bool(false),
+                "monthMode": .string("2"),
+                "padDay": .bool(true),
+                "useSlash": .bool(false),
+            ]
+        )
+        let numericCalendarSubsetProgram = calendarProgram(
+            id: 509,
+            source: calendarSubsetSource,
+            properties: [
+                "dayFirst": .bool(true),
+                "monthMode": .string("1"),
+                "padDay": .bool(true),
+                "useSlash": .bool(true),
+            ]
+        )
+        let unpaddedCalendarSubsetProgram = calendarProgram(
+            id: 510,
+            source: calendarSubsetSource,
+            properties: [
+                "dayFirst": .bool(true),
+                "monthMode": .string("1"),
+                "padDay": .bool(false),
+                "useSlash": .bool(true),
+            ]
+        )
         let unsupportedLoop = SceneTextScriptCompiler.compile(descriptor: .init(layers: [
             .init(
                 id: 606,
@@ -332,7 +405,9 @@ enum Harness {
             bindings: clock.bindings + clock12.bindings + spacedDay.bindings + date.bindings
                 + compactDay.bindings + longMonthDate.bindings
                 + clockWithPeriod.bindings + clockWithDate.bindings + greeting.bindings
-                + subsetProgram.bindings + subset12HourProgram.bindings,
+                + subsetProgram.bindings + subset12HourProgram.bindings
+                + calendarSubsetProgram.bindings + numericCalendarSubsetProgram.bindings
+                + unpaddedCalendarSubsetProgram.bindings,
             diagnostics: []
         )
         let values = SceneTextScriptRuntime.values(
@@ -343,6 +418,15 @@ enum Harness {
         let morningValues = SceneTextScriptRuntime.values(
             program: greeting,
             wallDate: utcDate(year: 2026, month: 7, day: 28, hour: 7, minute: 0, second: 0),
+            timeZone: TimeZone(secondsFromGMT: 0)!
+        )
+        let earlyMonthValues = SceneTextScriptRuntime.values(
+            program: SceneTextScriptProgram(
+                bindings: numericCalendarSubsetProgram.bindings
+                    + unpaddedCalendarSubsetProgram.bindings,
+                diagnostics: []
+            ),
+            wallDate: utcDate(year: 2026, month: 7, day: 8, hour: 7, minute: 0, second: 0),
             timeZone: TimeZone(secondsFromGMT: 0)!
         )
         let definitions = SceneDynamicDefinitionMerger.merge(
@@ -379,6 +463,13 @@ enum Harness {
             ),
             "subsetClock": string(values[.text(layerID: 506, field: .content)]),
             "subsetClock12": string(values[.text(layerID: 507, field: .content)]),
+            "subsetCalendar": string(values[.text(layerID: 508, field: .content)]),
+            "subsetNumericCalendar": string(
+                earlyMonthValues[.text(layerID: 509, field: .content)]
+            ),
+            "subsetUnpaddedCalendar": string(
+                earlyMonthValues[.text(layerID: 510, field: .content)]
+            ),
             "subsetProfile": subsetProgram.bindings.first?.profile.rawValue,
             "unsupportedLoop": unsupportedLoop.diagnostics.map { $0.code.rawValue },
             "greetingMissingSharedState": greetingMissingSharedState.diagnostics.map {
@@ -417,6 +508,23 @@ enum Harness {
             "useDelimiter": .bool(useDelimiter),
             "addDelimiter": .string(delimiter),
         ]
+    }
+
+    static func calendarProgram(
+        id: Int,
+        source: String,
+        properties: [String: SceneJSONValue]
+    ) -> SceneTextScriptProgram {
+        SceneTextScriptCompiler.compile(descriptor: .init(layers: [
+            .init(
+                id: id,
+                contentKind: "text",
+                parentID: nil,
+                visible: true,
+                text: "fallback",
+                textScript: .init(source: source, properties: properties)
+            ),
+        ]))
     }
 
     static func utcDate(
@@ -474,7 +582,7 @@ class SceneTextScriptRuntimeTests(unittest.TestCase):
         cls.temporary_directory.cleanup()
 
     def test_verified_profiles_produce_expected_local_calendar_text(self) -> None:
-        self.assertEqual(self.payload["bindingCount"], 11)
+        self.assertEqual(self.payload["bindingCount"], 14)
         self.assertEqual(self.payload["clock"], "-23:07-")
         self.assertEqual(self.payload["clock12"], "-11:07-:05")
         self.assertEqual(self.payload["day"], "T U E S D A Y")
@@ -485,6 +593,9 @@ class SceneTextScriptRuntimeTests(unittest.TestCase):
         self.assertEqual(self.payload["clockWithDate"], "23:07:05\n07/28/2026")
         self.assertEqual(self.payload["subsetClock"], "23:07:05")
         self.assertEqual(self.payload["subsetClock12"], "11:07:05")
+        self.assertEqual(self.payload["subsetCalendar"], "Jul-28")
+        self.assertEqual(self.payload["subsetNumericCalendar"], "08/07")
+        self.assertEqual(self.payload["subsetUnpaddedCalendar"], "8/07")
         self.assertEqual(self.payload["subsetProfile"], "ecmaTextUpdateSubset")
         self.assertEqual(self.payload["greetingMorning"], "GOOD\nMORNING")
         self.assertEqual(self.payload["greetingNight"], "GOOD\nEVENING")
@@ -502,7 +613,7 @@ class SceneTextScriptRuntimeTests(unittest.TestCase):
         self.assertEqual(self.payload["directUnknown"], ["92:unknownProfile"])
 
     def test_scene_script_value_wins_without_duplicate_definition(self) -> None:
-        self.assertEqual(self.payload["definitionCount"], 11)
+        self.assertEqual(self.payload["definitionCount"], 14)
         self.assertEqual(self.payload["resolved"], "-23:07-")
         self.assertEqual(self.payload["source"], "sceneScript")
         self.assertEqual(self.payload["runtimeDiagnostics"], 0)

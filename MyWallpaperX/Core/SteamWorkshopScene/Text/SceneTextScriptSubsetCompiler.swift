@@ -20,7 +20,9 @@ nonisolated enum SceneTextScriptSubsetCompiler {
                 && tokens[index + 3] == .symbol("(")
         }
         guard starts.count == 1 else { return nil }
-        var parser = Parser(tokens: tokens, index: starts[0] + 4)
+        let updateStart = starts[0]
+        let outerVariableNames = outerVariableNames(in: tokens, before: updateStart)
+        var parser = Parser(tokens: tokens, index: updateStart + 4)
         guard case let .identifier(parameter)? = parser.consume(),
               parser.consume(.symbol(")")),
               parser.consume(.symbol("{")),
@@ -31,8 +33,29 @@ nonisolated enum SceneTextScriptSubsetCompiler {
         }
         return SceneTextScriptSubsetProgram(
             parameterName: parameter,
+            outerVariableNames: outerVariableNames,
             statements: statements
         )
+    }
+
+    private static func outerVariableNames(in tokens: [Token], before end: Int) -> [String] {
+        var depth = 0
+        var names: Set<String> = []
+        for index in 0..<end {
+            if tokens[index] == .symbol("{") { depth += 1; continue }
+            if tokens[index] == .symbol("}") { depth -= 1; continue }
+            guard depth == 0,
+                  index + 1 < end,
+                  tokens[index] == .identifier("let")
+                    || tokens[index] == .identifier("var")
+                    || tokens[index] == .identifier("const"),
+                  case let .identifier(name) = tokens[index + 1],
+                  name != "scriptProperties" else {
+                continue
+            }
+            names.insert(name)
+        }
+        return names.sorted()
     }
 
     private struct Parser {
@@ -69,13 +92,20 @@ nonisolated enum SceneTextScriptSubsetCompiler {
         }
 
         mutating func parseStatement() -> SceneTextScriptSubsetProgram.Statement? {
+            if consume(.symbol("{")) {
+                guard let statements = parseStatements(until: "}"),
+                      consume(.symbol("}")) else {
+                    return nil
+                }
+                return .block(statements)
+            }
             if peek() == .identifier("let")
                 || peek() == .identifier("var")
                 || peek() == .identifier("const") {
                 _ = consume()
                 guard case let .identifier(name)? = consume() else { return nil }
                 let value = consume(.symbol("=")) ? parseExpression() : nil
-                guard consume(.symbol(";")) else { return nil }
+                guard consumeStatementEnd() else { return nil }
                 return .declare(name, value)
             }
             if consume(.identifier("if")) {
@@ -89,17 +119,23 @@ nonisolated enum SceneTextScriptSubsetCompiler {
                 }
                 var elseStatements: [SceneTextScriptSubsetProgram.Statement] = []
                 if consume(.identifier("else")) {
-                    guard consume(.symbol("{")),
-                          let parsed = parseStatements(until: "}"),
-                          consume(.symbol("}")) else {
-                        return nil
+                    if peek() == .identifier("if") {
+                        guard let nested = parseStatement() else { return nil }
+                        elseStatements = [nested]
+                    } else {
+                        guard consume(.symbol("{")),
+                              let parsed = parseStatements(until: "}"),
+                              consume(.symbol("}")) else {
+                            return nil
+                        }
+                        elseStatements = parsed
                     }
-                    elseStatements = parsed
                 }
                 return .conditional(condition, thenStatements, elseStatements)
             }
             if consume(.identifier("return")) {
-                guard let value = parseExpression(), consume(.symbol(";")) else { return nil }
+                guard let value = parseExpression() else { return nil }
+                guard consumeStatementEnd() else { return nil }
                 return .returnValue(value)
             }
             guard case let .identifier(name)? = consume() else { return nil }
@@ -113,27 +149,56 @@ nonisolated enum SceneTextScriptSubsetCompiler {
             } else {
                 return nil
             }
-            guard let value = parseExpression(), consume(.symbol(";")) else { return nil }
+            guard let value = parseExpression() else { return nil }
+            guard consumeStatementEnd() else { return nil }
             return .assign(name, operation, value)
         }
 
+        mutating func consumeStatementEnd() -> Bool {
+            consume(.symbol(";")) || peek() == .symbol("}")
+        }
+
         mutating func parseExpression() -> SceneTextScriptSubsetProgram.Expression? {
-            parseEquality()
+            parseLogicalAnd()
+        }
+
+        mutating func parseLogicalAnd() -> SceneTextScriptSubsetProgram.Expression? {
+            guard var expression = parseEquality() else { return nil }
+            while consume(.symbol("&&")) {
+                guard let right = parseEquality() else { return nil }
+                expression = .logicalAnd(expression, right)
+            }
+            return expression
         }
 
         mutating func parseEquality() -> SceneTextScriptSubsetProgram.Expression? {
-            guard var expression = parseAdditive() else { return nil }
+            guard var expression = parseComparison() else { return nil }
             while true {
-                if consume(.symbol("==")) || consume(.symbol("===")) {
-                    guard let right = parseAdditive() else { return nil }
-                    expression = .equal(expression, right, negated: false)
-                } else if consume(.symbol("!=")) || consume(.symbol("!==")) {
-                    guard let right = parseAdditive() else { return nil }
-                    expression = .equal(expression, right, negated: true)
+                if consume(.symbol("===")) {
+                    guard let right = parseComparison() else { return nil }
+                    expression = .equal(expression, right, negated: false, coerces: false)
+                } else if consume(.symbol("==")) {
+                    guard let right = parseComparison() else { return nil }
+                    expression = .equal(expression, right, negated: false, coerces: true)
+                } else if consume(.symbol("!==")) {
+                    guard let right = parseComparison() else { return nil }
+                    expression = .equal(expression, right, negated: true, coerces: false)
+                } else if consume(.symbol("!=")) {
+                    guard let right = parseComparison() else { return nil }
+                    expression = .equal(expression, right, negated: true, coerces: true)
                 } else {
                     return expression
                 }
             }
+        }
+
+        mutating func parseComparison() -> SceneTextScriptSubsetProgram.Expression? {
+            guard var expression = parseAdditive() else { return nil }
+            while consume(.symbol("<")) {
+                guard let right = parseAdditive() else { return nil }
+                expression = .lessThan(expression, right)
+            }
+            return expression
         }
 
         mutating func parseAdditive() -> SceneTextScriptSubsetProgram.Expression? {
@@ -170,6 +235,11 @@ nonisolated enum SceneTextScriptSubsetCompiler {
                 if consume(.symbol(".")) {
                     guard case let .identifier(name)? = consume() else { return nil }
                     expression = .member(expression, name)
+                } else if consume(.symbol("[")) {
+                    guard let index = parseExpression(), consume(.symbol("]")) else {
+                        return nil
+                    }
+                    expression = .subscriptValue(expression, index)
                 } else if consume(.symbol("(")) {
                     var arguments: [SceneTextScriptSubsetProgram.Expression] = []
                     if !consume(.symbol(")")) {
@@ -195,6 +265,18 @@ nonisolated enum SceneTextScriptSubsetCompiler {
                     return nil
                 }
                 return .newDate
+            }
+            if consume(.symbol("[")) {
+                var values: [SceneTextScriptSubsetProgram.Expression] = []
+                if !consume(.symbol("]")) {
+                    while true {
+                        guard let value = parseExpression() else { return nil }
+                        values.append(value)
+                        if consume(.symbol("]")) { break }
+                        guard consume(.symbol(",")) else { return nil }
+                    }
+                }
+                return .array(values)
             }
             guard let token = consume() else { return nil }
             switch token {
@@ -289,7 +371,7 @@ nonisolated enum SceneTextScriptSubsetCompiler {
                 tokens.append(.string(value))
                 continue
             }
-            let candidates = ["===", "!==", "+=", "%=", "==", "!="]
+            let candidates = ["===", "!==", "+=", "%=", "==", "!=", "&&"]
             if let matched = candidates.first(where: {
                 index + $0.count <= characters.count
                     && String(characters[index..<(index + $0.count)]) == $0
@@ -298,7 +380,7 @@ nonisolated enum SceneTextScriptSubsetCompiler {
                 index += matched.count
                 continue
             }
-            if "(){}[];,:.!=+%-".contains(character) {
+            if "(){}[];,:.!=+%-<".contains(character) {
                 tokens.append(.symbol(String(character)))
                 index += 1
                 continue

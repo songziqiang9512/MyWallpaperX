@@ -7,6 +7,7 @@ nonisolated enum SceneTextScriptSubsetRuntime {
         case bool(Bool)
         case number(Double)
         case string(String)
+        case array([Value])
         case date(DateComponents)
         case scriptProperties([String: SceneJSONValue])
         case undefined
@@ -31,11 +32,15 @@ nonisolated enum SceneTextScriptSubsetRuntime {
             [.year, .month, .day, .weekday, .hour, .minute, .second],
             from: wallDate
         )
-        var evaluator = Evaluator(
-            variables: [
+        var variables: [String: Value] = [
                 program.parameterName: .string(authoredValue),
                 "scriptProperties": .scriptProperties(properties),
-            ],
+            ]
+        for name in program.outerVariableNames where variables[name] == nil {
+            variables[name] = .undefined
+        }
+        var evaluator = Evaluator(
+            variables: variables,
             wallDate: components,
             remainingSteps: 512
         )
@@ -82,6 +87,12 @@ nonisolated enum SceneTextScriptSubsetRuntime {
                         }
                         variables[name] = value
                     }
+                case let .block(statements):
+                    switch execute(statements) {
+                    case .completed: break
+                    case let .returned(value): return .returned(value)
+                    case .failed: return .failed
+                    }
                 case let .conditional(condition, thenStatements, elseStatements):
                     guard let value = evaluate(condition), let flag = truthy(value) else {
                         return .failed
@@ -107,6 +118,9 @@ nonisolated enum SceneTextScriptSubsetRuntime {
             case let .bool(value): return .bool(value)
             case let .number(value): return value.isFinite ? .number(value) : nil
             case let .string(value): return .string(value)
+            case let .array(values):
+                let evaluated = values.compactMap { evaluate($0) }
+                return evaluated.count == values.count ? .array(evaluated) : nil
             case let .identifier(name): return variables[name]
             case .newDate: return .date(wallDate)
             case let .member(base, name):
@@ -115,6 +129,15 @@ nonisolated enum SceneTextScriptSubsetRuntime {
                     return propertyValue(properties[name])
                 }
                 return .undefined
+            case let .subscriptValue(base, index):
+                guard case let .array(values)? = evaluate(base),
+                      case let .number(number)? = evaluate(index),
+                      number.isFinite,
+                      number.rounded(.towardZero) == number,
+                      values.indices.contains(Int(number)) else {
+                    return nil
+                }
+                return values[Int(number)]
             case let .call(callee, arguments):
                 return call(callee, arguments: arguments)
             case let .unaryNot(value):
@@ -131,9 +154,18 @@ nonisolated enum SceneTextScriptSubsetRuntime {
             case let .remainder(left, right):
                 guard let left = evaluate(left), let right = evaluate(right) else { return nil }
                 return remainder(left, right)
-            case let .equal(left, right, negated):
+            case let .lessThan(left, right):
+                guard case let .number(lhs)? = evaluate(left),
+                      case let .number(rhs)? = evaluate(right) else {
+                    return nil
+                }
+                return .bool(lhs < rhs)
+            case let .logicalAnd(left, right):
+                guard let left = evaluate(left), let flag = truthy(left) else { return nil }
+                return flag ? evaluate(right) : left
+            case let .equal(left, right, negated, coerces):
                 guard let left = evaluate(left), let right = evaluate(right) else { return nil }
-                let equal = looseEqual(left, right)
+                let equal = coerces ? looseEqual(left, right) : strictEqual(left, right)
                 return .bool(negated ? !equal : equal)
             }
         }
@@ -202,7 +234,7 @@ nonisolated enum SceneTextScriptSubsetRuntime {
         case let .bool(value): return value
         case let .number(value): return value != 0 && !value.isNaN
         case let .string(value): return !value.isEmpty
-        case .date, .scriptProperties: return true
+        case .array, .date, .scriptProperties: return true
         case .undefined: return false
         }
     }
@@ -213,6 +245,14 @@ nonisolated enum SceneTextScriptSubsetRuntime {
         }
         if case let .string(value) = right {
             return stringValue(left).map { .string($0 + value) }
+        }
+        if case .array = left {
+            guard let lhs = stringValue(left), let rhs = stringValue(right) else { return nil }
+            return .string(lhs + rhs)
+        }
+        if case .array = right {
+            guard let lhs = stringValue(left), let rhs = stringValue(right) else { return nil }
+            return .string(lhs + rhs)
         }
         guard case let .number(lhs) = left, case let .number(rhs) = right else { return nil }
         return .number(lhs + rhs)
@@ -228,12 +268,28 @@ nonisolated enum SceneTextScriptSubsetRuntime {
     }
 
     private static func looseEqual(_ left: Value, _ right: Value) -> Bool {
+        if case let .number(number) = left, case let .string(string) = right {
+            return numericString(string) == number
+        }
+        if case let .string(string) = left, case let .number(number) = right {
+            return numericString(string) == number
+        }
+        return strictEqual(left, right)
+    }
+
+    private static func strictEqual(_ left: Value, _ right: Value) -> Bool {
         switch (left, right) {
         case let (.bool(lhs), .bool(rhs)): return lhs == rhs
         case let (.number(lhs), .number(rhs)): return lhs == rhs
         case let (.string(lhs), .string(rhs)): return lhs == rhs
         default: return false
         }
+    }
+
+    private static func numericString(_ value: String) -> Double? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let number = Double(trimmed), number.isFinite else { return nil }
+        return number
     }
 
     private static func stringValue(_ value: Value) -> String? {
@@ -244,6 +300,8 @@ nonisolated enum SceneTextScriptSubsetRuntime {
             if value.rounded(.towardZero) == value { return String(Int(value)) }
             return String(value)
         case let .bool(value): return value ? "true" : "false"
+        case let .array(values):
+            return values.map { stringValue($0) ?? "" }.joined(separator: ",")
         case .date, .scriptProperties, .undefined: return nil
         }
     }
