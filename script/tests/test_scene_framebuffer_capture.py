@@ -59,6 +59,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneWorkshopShadowRenderer.swift",
     SOURCE_ROOT / "Rendering/SceneImageBlendPipeline.swift",
     SOURCE_ROOT / "Effects/SceneBlendPipeline.swift",
+    SOURCE_ROOT / "Effects/SceneMediaThumbnailTransitionPipeline.swift",
     SOURCE_ROOT / "Effects/SceneGradientColorPipeline.swift",
     SOURCE_ROOT / "Effects/SceneBloomPipeline.swift",
     SOURCE_ROOT / "Effects/SceneLightShaftsPipeline.swift",
@@ -124,6 +125,14 @@ HARNESS_SOURCE = r'''
 import Foundation
 import Metal
 import simd
+
+enum SceneMediaThumbnailTransitionTexture {
+    struct Arguments {
+        let texture: MTLTexture
+        let uvScale: SIMD2<Float>
+        let sampling: SceneTextureSampling
+    }
+}
 
 struct SceneDocument {
     struct ShaderValue {
