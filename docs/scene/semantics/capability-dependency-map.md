@@ -145,7 +145,7 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 
 | Runtime | 前置依赖 | 最小闭环 |
 |---|---|---|
-| Timeline | D2 + D3 | lossless IR、绝对 scene-time evaluator（Loop/Single 已真实执行，Mirror 有 evaluator 但语料 0 命中）与 typed writes 已完成，真实执行 28/48（effect constant + layer alpha，经既有 per-surface transaction 与 `.timeline` 优先级写回）；tangent 只保真不消费、插值走线性，`relative`/wrap-loop/Combined 分组/event crossing 与 layer transform、粒子 `instanceoverride` 目标仍待推进 |
+| Timeline | D2 + D3 | lossless IR、绝对 scene-time evaluator 与 typed writes 已完成，真实执行 38/48：effect constant 23、layer alpha 5、bounded relative layer transform 10，经既有 per-surface transaction 与 `.timeline` 优先级写回。6 条 ordinary `origin`/`angles`/`scale` 由共享 hierarchy-aware world-frame 消费，4 条 `lspot` Mirror angles 保持既有 strict consumer；Loop/Single/Mirror 均有真实门。tangent 只保真不消费、插值走线性；wrap-loop、Combined 分组、event crossing、`maxwidth`/`zoom` 与 particle scalar override 仍待推进，非 layer-transform relative 继续 fail closed |
 | Exact native property-script profiles | D0 + D4 + D7 + D8 + D9 | text 七 profile 与 audio bars 两 profile 已形成 bounded native `L3`；完整指纹准入、失败关闭，不开放 API |
 | Bounded property-bound text update | D2 + D3 + D4 + D5 + D9 | 唯一 `update(value)` 的无循环 Date/string AST 以语法和三层预算准入，复用 typed snapshot/dynamic text consumer；无 sample/layer/hash 旁路，但不等于 VM |
 | Generic SceneScript | D2 + D3 + D4 + D5 | 顶层 layer wrapper partial IR 与 bounded String update 子集已有；仍需 generic source/module/value IR、sandbox VM、lifecycle、typed handles/writes、events及 VM 级时间/内存预算 |

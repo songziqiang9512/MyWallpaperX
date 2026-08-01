@@ -100,6 +100,8 @@
 - https://docs.wallpaperengine.io/en/scene/timeline/modes.html
 - https://docs.wallpaperengine.io/en/scene/timeline/animationevents.html
 
+2026-08-01 复核 Timeline Introduction、Modes 与 SceneScript [`ILayer`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/ILayer.html)：公开页确认 Timeline 动画实际 component property、Loop/Mirror/Single 播放方式，以及 layer 的 origin/angles/scale 属性；它们没有公开私有 serialized `relative` wire，也没有定义 relative value 与作者基值的合成公式。项目当前只把合法语料、既有 black-box 校准与自有正反门支持的 layer `origin`/`angles`/`scale` 解释为 additive composition；其他 host 的 relative 继续 fail closed，不能把该 clean-room 合同表述成官方内部实现。
+
 ### 1.7 User Properties
 
 - Overview：https://docs.wallpaperengine.io/en/scene/userproperties/overview.html
