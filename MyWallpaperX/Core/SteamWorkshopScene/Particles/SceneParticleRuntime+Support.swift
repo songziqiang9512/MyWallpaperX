@@ -76,27 +76,32 @@ extension SceneParticleRuntime {
     ) -> (
         renderer: SceneParticleRenderer,
         trail: SceneParticleTrailRenderPlan?,
+        rope: SceneParticleRopePlan?,
         ropeTrail: SceneParticleRopeTrailPlan?
     )? {
+        let containsRope = definition.renderers.contains {
+            $0.kind == .rope
+        }
         let containsRopeTrail = definition.renderers.contains {
             $0.kind == .ropeTrail
         }
         let malformedRendererCollection = definition.diagnostics.contains {
             $0.kind == .malformedComponent && $0.path.hasPrefix("renderer[")
         }
-        if containsRopeTrail,
+        if containsRope || containsRopeTrail,
            definition.renderers.count != 1 || malformedRendererCollection {
             addDiagnostic(
-                kind: .trailRendererUnsupported,
+                kind: containsRope ? .ropeRendererUnsupported : .trailRendererUnsupported,
                 layerID: layerID,
                 path: path,
-                detail: "ropetrail:unsupportedProfile"
+                detail: containsRope ? "rope:unsupportedProfile" : "ropetrail:unsupportedProfile"
             )
             return nil
         }
         var supported: (
             SceneParticleRenderer,
             SceneParticleTrailRenderPlan?,
+            SceneParticleRopePlan?,
             SceneParticleRopeTrailPlan?
         )?
         var sawKnownRenderer = false
@@ -104,7 +109,7 @@ extension SceneParticleRuntime {
             switch renderer.kind {
             case .sprite:
                 sawKnownRenderer = true
-                if supported == nil { supported = (renderer, nil, nil) }
+                if supported == nil { supported = (renderer, nil, nil, nil) }
             case .spriteTrail:
                 sawKnownRenderer = true
                 if let trail = SceneParticleTrailRenderPlan(
@@ -112,7 +117,7 @@ extension SceneParticleRuntime {
                     minimumLength: renderer.minimumLength,
                     maximumLength: renderer.maximumLength
                 ) {
-                    if supported == nil { supported = (renderer, trail, nil) }
+                    if supported == nil { supported = (renderer, trail, nil, nil) }
                 } else {
                     addDiagnostic(
                         kind: .trailRendererUnsupported,
@@ -123,7 +128,20 @@ extension SceneParticleRuntime {
                 }
             case .rope:
                 sawKnownRenderer = true
-                addDiagnostic(kind: .ropeRendererUnsupported, layerID: layerID, path: path, detail: "rope")
+                if let rope = SceneParticleRopePlan(
+                    renderer: renderer,
+                    rendererCount: definition.renderers.count,
+                    maximumParticleCount: definition.maximumCount ?? 1
+                ) {
+                    if supported == nil { supported = (renderer, nil, rope, nil) }
+                } else {
+                    addDiagnostic(
+                        kind: .ropeRendererUnsupported,
+                        layerID: layerID,
+                        path: path,
+                        detail: "rope:unsupportedProfile"
+                    )
+                }
             case .ropeTrail:
                 sawKnownRenderer = true
                 if let ropeTrail = SceneParticleRopeTrailPlan(
@@ -131,7 +149,7 @@ extension SceneParticleRuntime {
                     rendererCount: definition.renderers.count,
                     maximumParticleCount: definition.maximumCount ?? 1
                 ) {
-                    if supported == nil { supported = (renderer, nil, ropeTrail) }
+                    if supported == nil { supported = (renderer, nil, nil, ropeTrail) }
                 } else {
                     addDiagnostic(
                         kind: .trailRendererUnsupported,
@@ -150,13 +168,24 @@ extension SceneParticleRuntime {
         return supported
     }
 
-    func supportsRopeTrailTexture(
-        plan: SceneParticleRopeTrailPlan?,
+    func supportsPathRendererTexture(
+        rope: SceneParticleRopePlan?,
+        ropeTrail: SceneParticleRopeTrailPlan?,
         animation: SceneSpriteAnimation?,
         layerID: Int,
         path: String
     ) -> Bool {
-        guard plan != nil, animation != nil else { return true }
+        guard animation != nil else { return true }
+        if rope != nil {
+            addDiagnostic(
+                kind: .ropeRendererUnsupported,
+                layerID: layerID,
+                path: path,
+                detail: "rope:animatedTexture"
+            )
+            return false
+        }
+        guard ropeTrail != nil else { return true }
         addDiagnostic(
             kind: .trailRendererUnsupported,
             layerID: layerID,

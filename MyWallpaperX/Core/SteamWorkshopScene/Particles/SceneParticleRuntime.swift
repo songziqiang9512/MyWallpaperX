@@ -5,30 +5,8 @@ import Metal
 /// Particle positions and sizes stay in the author-defined layer-local coordinate system.
 /// The renderer applies the layer world frame, Y-axis convention, and layer scale once.
 final class SceneParticleRuntime {
-    private struct LayerRuntime {
-        let layerID: Int
-        let particlePath: String
-        let definition: SceneParticleDefinition
-        let trail: SceneParticleTrailRenderPlan?
-        let texture: MTLTexture
-        let colorUVScale: SIMD2<Float>
-        let colorSampling: SceneParticleTextureSampling
-        let refraction: SceneParticleRefractionBinding?
-        let renderState: SceneParticlePipelineRenderState
-        let spriteAnimation: SceneSpriteAnimation?
-        let orientation: SceneParticleOrientation
-        let orientationAxis: SIMD3<Float>?
-        let usesPerspective: Bool
-        let layerAlpha: Float
-        let instanceBuffer = SceneParticleMetalInstanceBuffer()
-        var instances: [SceneParticleGPUInstance] = []
-        var simulator: SceneParticleSimulator
-        var ropeTrailHistory: SceneParticleRopeTrailHistory?
-        var childRuntime: SceneParticleChildRuntime?
-    }
-
     private let device: MTLDevice
-    private var layers: [LayerRuntime] = []
+    private var layers: [SceneParticleLayerRuntime] = []
     private(set) var diagnostics: [SceneParticleRuntimeDiagnostic] = []
 
     var activeLayerIDs: [Int] { layers.map(\.layerID) }
@@ -212,8 +190,9 @@ final class SceneParticleRuntime {
                 colorUVScale = SIMD2(repeating: 1)
                 refraction = nil
             }
-            guard supportsRopeTrailTexture(
-                plan: render.ropeTrail, animation: spriteAnimation,
+            guard supportsPathRendererTexture(
+                rope: render.rope, ropeTrail: render.ropeTrail,
+                animation: spriteAnimation,
                 layerID: layer.id, path: path
             ) else { continue }
 
@@ -257,11 +236,12 @@ final class SceneParticleRuntime {
                 path: path,
                 handlesAllChildren: childRuntime.handlesAllChildren
             )
-            layers.append(LayerRuntime(
+            layers.append(SceneParticleLayerRuntime(
                 layerID: layer.id,
                 particlePath: path,
                 definition: asset.definition,
                 trail: render.trail,
+                rope: render.rope,
                 texture: texture,
                 colorUVScale: colorUVScale,
                 colorSampling: colorSampling,
@@ -354,6 +334,12 @@ final class SceneParticleRuntime {
         let definition = layers[index].definition
         let layerAlpha = layers[index].layerAlpha
         let trail = layers[index].trail
+        if let rope = layers[index].rope {
+            layers[index].instances = rope.instances(
+                particles: particles, layerAlpha: layerAlpha
+            )
+            return
+        }
         if var history = layers[index].ropeTrailHistory {
             layers[index].instances = history.advance(
                 snapshots: stepSnapshots, currentParticles: particles,
