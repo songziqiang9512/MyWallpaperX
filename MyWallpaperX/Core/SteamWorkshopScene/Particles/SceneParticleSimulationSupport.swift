@@ -1,10 +1,10 @@
 import Foundation
-
 nonisolated enum SceneParticleSimulationDiagnosticKind: String, Hashable, Sendable {
     case unsupportedEmitter
     case unsupportedInitializer
     case unsupportedOperator
-    case controlPointForceIgnored
+    case controlPointForceBounded
+    case controlPointForceUnsupported
     case unsupportedRenderer
     case trailRendererIgnored
     case childSystemsIgnored
@@ -18,9 +18,9 @@ nonisolated enum SceneParticleSimulationDiagnosticKind: String, Hashable, Sendab
     case emitterSpeedUnsupported
     case emitterShapeBounded
     case emitterShapeUnsupported
-    case pointerControlPointIgnored
+    case pointerControlPointBounded
+    case pointerControlPointUnsupported
 }
-
 nonisolated struct SceneParticleSimulationDiagnostic: Hashable, Sendable {
     let kind: SceneParticleSimulationDiagnosticKind
     let componentName: String?
@@ -259,7 +259,6 @@ nonisolated enum SceneParticleSimulationMath {
         guard end > start else { return life > end ? 1 : 0 }
         return min(max((life - start) / (end - start), 0), 1)
     }
-
     static func diagnostics(
         _ definition: SceneParticleDefinition,
         _ instanceOverride: SceneParticleInstanceOverride?
@@ -336,7 +335,7 @@ nonisolated enum SceneParticleSimulationMath {
         for value in definition.operators {
             switch value.kind {
             case .controlPointAttract:
-                add(.controlPointForceIgnored, "controlpointattract")
+                add(definition.supportsBoundedControlPointForce(value) ? .controlPointForceBounded : .controlPointForceUnsupported, "controlpointattract")
             case .turbulence:
                 if value.audioResponse.isEnabled {
                     add(.unsupportedOperator, "turbulence")
@@ -344,7 +343,7 @@ nonisolated enum SceneParticleSimulationMath {
             case .vortex:
                 add(.unsupportedOperator, "vortex")
             case let .unsupported(name):
-                add(name.contains("controlpoint") ? .controlPointForceIgnored : .unsupportedOperator, name)
+                add(name.contains("controlpoint") ? .controlPointForceUnsupported : .unsupportedOperator, name)
             default:
                 break
             }
@@ -364,8 +363,9 @@ nonisolated enum SceneParticleSimulationMath {
             }
         }
         if !definition.children.isEmpty { add(.childSystemsIgnored, "children") }
-        if definition.controlPoints.contains(where: \.followsPointer) {
-            add(.pointerControlPointIgnored, "controlpoint")
+        let pointerPoints = definition.controlPoints.filter(\.followsPointer)
+        if !pointerPoints.isEmpty {
+            add(pointerPoints.allSatisfy(\.hasBoundedPointerInput) ? .pointerControlPointBounded : .pointerControlPointUnsupported, "sources=\(pointerPoints.count)")
         }
 
         let unsupportedBoundValues = [instanceOverride?.alpha, instanceOverride?.size,

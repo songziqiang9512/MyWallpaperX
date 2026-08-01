@@ -15,6 +15,7 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "SceneMatrix.swift",
     SOURCE_ROOT / "SceneLayerCursorGeometry.swift",
+    SOURCE_ROOT / "SceneParticlePointerProjection.swift",
 ]
 
 HARNESS_SOURCE = r'''
@@ -26,6 +27,11 @@ enum Harness {
     static func pair(_ value: SIMD2<Float>?) -> [Float] {
         guard let value else { return [] }
         return [value.x, value.y]
+    }
+
+    static func triple(_ value: SIMD3<Double>?) -> [Double] {
+        guard let value else { return [] }
+        return [value.x, value.y, value.z]
     }
 
     static func main() throws {
@@ -53,6 +59,16 @@ enum Harness {
             "singularRejected": SceneLayerCursorGeometry.layerUV(
                 mouseNormalized: .zero,
                 modelViewProjection: singular
+            ) == nil,
+            "particleLocalPosition": triple(SceneParticlePointerProjection.localPosition(
+                mouseNormalized: normalized,
+                isInside: true,
+                modelViewProjection: transformedMVP
+            )),
+            "particleOutsideRejected": SceneParticlePointerProjection.localPosition(
+                mouseNormalized: normalized,
+                isInside: false,
+                modelViewProjection: transformedMVP
             ) == nil,
         ]
         let data = try JSONSerialization.data(
@@ -113,6 +129,14 @@ class SceneLayerCursorGeometryTests(unittest.TestCase):
 
     def test_identity_maps_surface_center_to_layer_center(self) -> None:
         self.assert_pair_almost_equal(self.result["identityCenter"], [0.5, 0.5])
+
+    def test_particle_pointer_uses_layer_local_plane_and_rejects_outside(self) -> None:
+        self.assertEqual(len(self.result["particleLocalPosition"]), 3)
+        for actual, expected in zip(
+            self.result["particleLocalPosition"], [0.1, -0.2, 0]
+        ):
+            self.assertAlmostEqual(actual, expected, places=5)
+        self.assertTrue(self.result["particleOutsideRejected"])
 
     def test_rotated_scaled_layer_uses_inverse_projected_hit(self) -> None:
         self.assert_pair_almost_equal(

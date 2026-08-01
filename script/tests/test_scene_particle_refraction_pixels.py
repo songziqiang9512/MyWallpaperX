@@ -32,6 +32,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SCENE_ROOT / "Particles/SceneParticleRenderSupport.swift",
     SCENE_ROOT / "Particles/SceneParticleSimulationSupport.swift",
+    SCENE_ROOT / "Particles/SceneParticleControlPointForce.swift",
     SCENE_ROOT / "Particles/SceneParticlePeriodicEmission.swift",
     SCENE_ROOT / "Particles/SceneParticleStepSnapshotRecorder.swift",
     SCENE_ROOT / "Particles/SceneParticleRopeTrailPlan.swift",

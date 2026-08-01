@@ -351,7 +351,7 @@ class SceneMetalView: NSView {
             audioSpectrum: audioSpectrum
         )
         pointerState.previous = pointerState.current
-        let particleBatches = particlePlayback?.advance(by: timing.frameTime, dynamicValues: dynamicValues) ?? []
+        let particleBatches = particlePlayback?.advance(by: timing.frameTime, dynamicValues: dynamicValues, pointerLocalPositions: renderer.particlePointerLocalPositions(frameContext: frameContext)) ?? []
         dynamicTextTextures?.update(from: dynamicValues)
         let dynamicTextSnapshot = dynamicTextTextures?.snapshot()
         let frameImageTextures = SceneFrameLayerTextureAssembly.make(

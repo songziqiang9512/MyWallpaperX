@@ -285,10 +285,12 @@ final class SceneParticleRuntime {
     }
 
     /// Advances every active layer by the frame delta and returns batches in scene render order.
-    func advance(by frameDelta: TimeInterval, dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0)) -> [SceneParticleDrawBatch] {
+    func advance(by frameDelta: TimeInterval, dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0), pointerLocalPositions: [Int: SIMD3<Double>] = [:]) -> [SceneParticleDrawBatch] {
         var batches: [SceneParticleDrawBatch] = []
         for index in layers.indices {
-            layers[index].simulator.advance(by: frameDelta, dynamicControlPoints: dynamicValues.particleControlPoints(layerID: layers[index].layerID))
+            let pointerValues = layers[index].definition.pointerControlPointValues(at: pointerLocalPositions[layers[index].layerID])
+            let controlPoints = dynamicValues.particleControlPoints(layerID: layers[index].layerID).merging(pointerValues) { _, pointer in pointer }
+            layers[index].simulator.advance(by: frameDelta, dynamicControlPoints: controlPoints)
             let births = layers[index].simulator.consumeBirthEvents()
             let deaths = layers[index].simulator.consumeDeathEvents()
             if let childRuntime = layers[index].childRuntime {

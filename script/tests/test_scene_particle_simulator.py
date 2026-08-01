@@ -17,6 +17,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Particles/SceneParticleWorldSpacePlan.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulationSupport.swift",
+    SOURCE_ROOT / "Particles/SceneParticleControlPointForce.swift",
+    SOURCE_ROOT / "Particles/SceneParticleSimulator+ControlPointForce.swift",
     SOURCE_ROOT / "Particles/SceneParticlePeriodicEmission.swift",
     SOURCE_ROOT / "Particles/SceneParticleLayerImageEmissionMap.swift",
     SOURCE_ROOT / "Particles/SceneParticleOscillationCache.swift",
@@ -232,6 +234,52 @@ enum Harness {
         ].map { fields -> SceneParticleSimulator in
             var simulator = simulator(emitterShapeJSON(fields), seed: 3, step: 1)
             simulator.advance(by: 1)
+            return simulator
+        }
+        var pointerPull = simulator(
+            controlPointForceJSON(scale: "2", threshold: "20"), seed: 1, step: 1
+        )
+        pointerPull.advance(by: 1, dynamicControlPoints: [1: SIMD3(10, 0, 0)])
+        var pointerPush = simulator(
+            controlPointForceJSON(scale: "-2", threshold: "20"), seed: 1, step: 1
+        )
+        pointerPush.advance(by: 1, dynamicControlPoints: [1: SIMD3(10, 0, 0)])
+        var pointerOutside = simulator(
+            controlPointForceJSON(scale: "2", threshold: "5"), seed: 1, step: 1
+        )
+        pointerOutside.advance(by: 1, dynamicControlPoints: [1: SIMD3(10, 0, 0)])
+        var pointerAtCenter = simulator(
+            controlPointForceJSON(scale: "2", threshold: "20"), seed: 1, step: 1
+        )
+        pointerAtCenter.advance(by: 1, dynamicControlPoints: [1: .zero])
+        let pointerDefinition = SceneParticleDefinitionParser().parse(
+            root: try! object(controlPointForceJSON(scale: "2", threshold: "20"))
+        )
+        let pointerMapped = pointerDefinition.pointerControlPointValues(
+            at: SIMD3(3, 4, 0)
+        )[1]
+        let pointerOutsideMapped = pointerDefinition.pointerControlPointValues(at: nil)[1]
+        let duplicatePointerDefinition = SceneParticleDefinitionParser().parse(
+            root: try! object(controlPointForceJSON(
+                scale: "2",
+                threshold: "20",
+                controlPointSuffix: #",{"id":1,"flags":1,"offset":"0 0 0"}"#
+            ))
+        )
+        let invalidControlPointForces = [
+            controlPointForceJSON(scale: #""nan""#, threshold: "20"),
+            controlPointForceJSON(scale: "2", threshold: "-1"),
+            controlPointForceJSON(scale: #""1 2 3""#, threshold: "20"),
+            controlPointForceJSON(scale: "2", threshold: "20", flags: 3),
+            controlPointForceJSON(scale: "2", threshold: "20", extra: #", "blendinstart":0"#),
+            controlPointForceJSON(scale: "2", threshold: "20", controlPoint: 8),
+            controlPointForceJSON(scale: "2", threshold: "20", pointOffset: "0 0"),
+            controlPointForceJSON(scale: "2", threshold: "20", systemFlags: 1),
+            controlPointForceJSON(scale: "2", threshold: "20", systemFlags: 4),
+            controlPointForceJSON(scale: "2", threshold: "20", movementFlags: 1),
+        ].map { source -> SceneParticleSimulator in
+            var simulator = simulator(source, seed: 1, step: 1)
+            simulator.advance(by: 1, dynamicControlPoints: [1: SIMD3(10, 0, 0)])
             return simulator
         }
 
@@ -566,6 +614,23 @@ enum Harness {
             "invalidEmitterShapeDiagnostics": invalidEmitterShapes.map {
                 $0.diagnostics.map(\.kind.rawValue)
             },
+            "pointerPullVelocity": vector(pointerPull.particles[0].velocity),
+            "pointerPushVelocity": vector(pointerPush.particles[0].velocity),
+            "pointerOutsideVelocity": vector(pointerOutside.particles[0].velocity),
+            "pointerAtCenterVelocity": vector(pointerAtCenter.particles[0].velocity),
+            "pointerMapped": pointerMapped.map(vector) ?? [],
+            "pointerOutsideInactive": pointerOutsideMapped?.x.isNaN == true
+                && pointerOutsideMapped?.y.isNaN == true
+                && pointerOutsideMapped?.z.isNaN == true,
+            "duplicatePointerRejected": duplicatePointerDefinition
+                .pointerControlPointValues(at: SIMD3(3, 4, 0)).isEmpty,
+            "pointerPullDiagnostics": pointerPull.diagnostics.map(\.kind.rawValue).sorted(),
+            "invalidControlPointForceVelocities": invalidControlPointForces.map {
+                vector($0.particles[0].velocity)
+            },
+            "invalidControlPointForceDiagnostics": invalidControlPointForces.map {
+                $0.diagnostics.map(\.kind.rawValue)
+            },
             "overrideDiagnostics": overridden.diagnostics.map(\.kind.rawValue),
             "operatorAlpha": operatorParticle.alpha,
             "operatorSize": operatorParticle.size,
@@ -812,6 +877,27 @@ enum Harness {
          "emitter":[{\(fields),"instantaneous":\(count)}],
          "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
          "renderer":[{"name":"sprite"}]}
+        """
+    }
+
+    private static func controlPointForceJSON(
+        scale: String,
+        threshold: String,
+        flags: Int = 1,
+        extra: String = "",
+        controlPoint: Int = 1,
+        pointOffset: String = "0 0 0",
+        systemFlags: Int = 0,
+        movementFlags: Int = 0,
+        controlPointSuffix: String = ""
+    ) -> String {
+        """
+        {"material":"p.json","maxcount":1,"flags":\(systemFlags),
+         "emitter":[{"name":"boxrandom","instantaneous":1,"distancemax":0}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "operator":[{"name":"movement","flags":\(movementFlags)},{"name":"controlpointattract","controlpoint":\(controlPoint),"origin":"0 0 0","scale":\(scale),"threshold":\(threshold)\(extra)}],
+         "renderer":[{"name":"sprite"}],
+         "controlpoint":[{"id":1,"flags":\(flags),"offset":"\(pointOffset)"}\(controlPointSuffix)]}
         """
     }
 
@@ -1227,6 +1313,25 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["layerImagePosition"], [-15, 5, 0])
         self.assertEqual(self.results["layerImageMissingMapCount"], 0)
 
+    def test_pointer_control_point_force_is_bounded_and_directional(self) -> None:
+        self.assertEqual(self.results["pointerPullVelocity"], [2, 0, 0])
+        self.assertEqual(self.results["pointerPushVelocity"], [-2, 0, 0])
+        self.assertEqual(self.results["pointerOutsideVelocity"], [0, 0, 0])
+        self.assertEqual(self.results["pointerAtCenterVelocity"], [0, 0, 0])
+        self.assertEqual(self.results["pointerMapped"], [3, 4, 0])
+        self.assertTrue(self.results["pointerOutsideInactive"])
+        self.assertTrue(self.results["duplicatePointerRejected"])
+        self.assertEqual(
+            self.results["pointerPullDiagnostics"],
+            ["controlPointForceBounded", "pointerControlPointBounded"],
+        )
+        self.assertEqual(
+            self.results["invalidControlPointForceVelocities"],
+            [[0, 0, 0]] * 10,
+        )
+        for diagnostics in self.results["invalidControlPointForceDiagnostics"]:
+            self.assertIn("controlPointForceUnsupported", diagnostics)
+
     def test_random_periodic_emission_uses_bounded_active_and_delay_windows(self) -> None:
         self.assertEqual(self.results["periodicFirstWindowCount"], 2)
         self.assertEqual(self.results["periodicDelayCount"], 2)
@@ -1451,9 +1556,9 @@ class SceneParticleSimulatorTests(unittest.TestCase):
                 "audioResponseIgnored",
                 "audioResponseIgnored",
                 "childSystemsIgnored",
-                "controlPointForceIgnored",
+                "controlPointForceUnsupported",
                 "dynamicOverrideIgnored",
-                "pointerControlPointIgnored",
+                "pointerControlPointUnsupported",
                 "unsupportedInitializer",
                 "unsupportedOperator",
             ],

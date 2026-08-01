@@ -31,12 +31,14 @@ final class SceneParticlePlaybackState {
 
     func advance(
         by frameDelta: TimeInterval,
-        dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0)
+        dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
+        pointerLocalPositions: [Int: SIMD3<Double>] = [:]
     ) -> [SceneParticleDrawBatch] {
         batches.removeAll(keepingCapacity: true)
         batches = runtime.advance(
             by: min(max(frameDelta, 0), 0.25),
-            dynamicValues: dynamicValues
+            dynamicValues: dynamicValues,
+            pointerLocalPositions: pointerLocalPositions
         )
         return batches
     }

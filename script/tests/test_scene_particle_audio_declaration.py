@@ -23,6 +23,7 @@ PARTICLES_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Particl
 DEFINITION_SOURCE = PARTICLES_ROOT / "SceneParticleDefinition.swift"
 PARSER_SOURCE = PARTICLES_ROOT / "SceneParticleDefinitionParser.swift"
 SIMULATION_SOURCE = PARTICLES_ROOT / "SceneParticleSimulationSupport.swift"
+CONTROL_POINT_FORCE_SOURCE = PARTICLES_ROOT / "SceneParticleControlPointForce.swift"
 PERIODIC_SOURCE = PARTICLES_ROOT / "SceneParticlePeriodicEmission.swift"
 
 # 真实语料中出现过的三个字段（45 样本、11 处启用 audio 的组件）。
@@ -178,6 +179,7 @@ class SceneParticleAudioDeclarationTests(unittest.TestCase):
             DEFINITION_SOURCE,
             PARSER_SOURCE,
             SIMULATION_SOURCE,
+            CONTROL_POINT_FORCE_SOURCE,
             PERIODIC_SOURCE,
         ]
         compilation = subprocess.run(

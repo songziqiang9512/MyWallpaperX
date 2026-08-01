@@ -4,11 +4,11 @@ nonisolated struct SceneParticleSimulator: Sendable {
     let fixedTimeStep: Double
     let maximumParticleCount: Int
     let diagnostics: [SceneParticleSimulationDiagnostic]
-    private(set) var particles: [SceneParticleState] = []
+    var particles: [SceneParticleState] = []
     private(set) var birthEvents: [SceneParticleState] = []
     private(set) var deathEvents: [SceneParticleState] = []
     private(set) var simulationTime = 0.0
-    private let definition: SceneParticleDefinition
+    let definition: SceneParticleDefinition
     let instanceOverride: SceneParticleInstanceOverride?
     private let emissionDeadline: Double?
     private let layerImageEmissionMap: SceneParticleLayerImageEmissionMap?
@@ -20,7 +20,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
     private var accumulator = 0.0
     private var nextParticleID: UInt64 = 0
     private var normalizedLives: [Double] = []
-    private var dynamicControlPoints: [Int: SIMD3<Double>] = [:]
+    var dynamicControlPoints: [Int: SIMD3<Double>] = [:]
     private var stepSnapshotRecorder: SceneParticleStepSnapshotRecorder?
     var positionOscillationCache: [SceneParticleOscillationCacheKey: SceneParticlePositionOscillation] = [:]
 
@@ -363,21 +363,11 @@ nonisolated struct SceneParticleSimulator: Sendable {
                     * oscillationBlend(value, normalizedLives[index])
                 SceneParticleSimulationMath.addFinite(delta, to: &particles[index].velocity)
             }
-        case .controlPointAttract, .vortex, .unsupported:
+        case .controlPointAttract:
+            applyControlPointForce(value, duration: duration)
+        case .vortex, .unsupported:
             break
         }
-    }
-
-    private nonisolated func changeFactor(
-        _ value: SceneParticleOperator,
-        life: Double,
-        fallback: (Double, Double)
-    ) -> Double {
-        let start = SceneParticleSimulationMath.scalar(value.startValue, fallback: fallback.0)
-        let end = SceneParticleSimulationMath.scalar(value.endValue, fallback: fallback.1)
-        return start + (end - start) * SceneParticleSimulationMath.changeAmount(
-            life, value.startTime, value.endTime
-        )
     }
 
     private nonisolated func emitterOrigin(_ emitter: SceneParticleEmitter) -> SIMD3<Double>? {
