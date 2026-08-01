@@ -85,7 +85,7 @@ enum Harness {
             {"id":33,"name":"ropeTrail","length":3,"segments":6,"fadealpha":true},
             {"id":34,"name":"futureRenderer"}
           ],
-          "controlpoint":[{"id":1,"flags":3,"offset":"10 20 0"}],
+          "controlpoint":[{"id":1,"flags":7,"offset":"10 20 0","parentcontrolpoint":2}],
           "children":[{"id":40,"name":"Particles\\Child.json","type":"eventSpawn","maxcount":80,"controlpointstartindex":2,"probability":0.75,"origin":"1 2 3","scale":"2 2 1","angles":"0 0 1","flags":1}],
           "override":{
             "id":99,
@@ -181,6 +181,8 @@ enum Harness {
             "ropeTrailFadesAlpha": definition.renderers[3].fadesAlpha ?? false,
             "controlPointFollowsPointer": definition.controlPoints[0].followsPointer,
             "controlPointWorldSpace": definition.controlPoints[0].isWorldSpace,
+            "controlPointCopiesRawParent": definition.controlPoints[0].copiesRawParentValue,
+            "controlPointParent": definition.controlPoints[0].parentControlPoint ?? -1,
             "childPath": definition.children[0].path ?? "",
             "childType": definition.children[0].type ?? "",
             "diagnostics": diagnostics,
@@ -561,6 +563,8 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         self.assertTrue(result["ropeTrailFadesAlpha"])
         self.assertTrue(result["controlPointFollowsPointer"])
         self.assertTrue(result["controlPointWorldSpace"])
+        self.assertTrue(result["controlPointCopiesRawParent"])
+        self.assertEqual(result["controlPointParent"], 2)
         self.assertEqual(result["childPath"], "particles/child.json")
         self.assertEqual(result["childType"], "eventspawn")
         self.assertEqual(

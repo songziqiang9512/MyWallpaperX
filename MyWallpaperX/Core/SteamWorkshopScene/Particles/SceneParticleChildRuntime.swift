@@ -34,7 +34,8 @@ final class SceneParticleChildRuntime {
         textureLoader: SceneTextureLoader,
         builtInTextureRegistry: SceneParticleBuiltInTextureRegistry,
         device: MTLDevice,
-        worldSpaceFrame: SceneParticleWorldSpaceFrame?
+        worldSpaceFrame: SceneParticleWorldSpaceFrame?,
+        rootInstanceOverride: SceneParticleInstanceOverride?
     ) {
         self.layerID = layerID
         self.layerAlpha = layerAlpha
@@ -45,7 +46,8 @@ final class SceneParticleChildRuntime {
             textureLoader: textureLoader,
             builtInTextureRegistry: builtInTextureRegistry,
             device: device,
-            worldSpaceFrame: worldSpaceFrame
+            worldSpaceFrame: worldSpaceFrame,
+            rootInstanceOverride: rootInstanceOverride
         )
         templates = expansion.templates
         unsupportedDetails = expansion.unsupportedDetails

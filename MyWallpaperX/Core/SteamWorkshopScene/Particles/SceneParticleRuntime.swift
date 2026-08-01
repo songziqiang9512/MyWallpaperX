@@ -232,7 +232,8 @@ final class SceneParticleRuntime {
                 textureLoader: textureLoader,
                 builtInTextureRegistry: builtInTextureRegistry,
                 device: device,
-                worldSpaceFrame: worldSpaceFrame
+                worldSpaceFrame: worldSpaceFrame,
+                rootInstanceOverride: layer.particleInstanceOverride
             )
             for detail in childRuntime.unsupportedDetails {
                 addDiagnostic(

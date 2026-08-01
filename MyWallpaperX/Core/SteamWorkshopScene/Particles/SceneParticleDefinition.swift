@@ -256,9 +256,11 @@ nonisolated struct SceneParticleControlPoint: Equatable, Sendable {
     let rawFlags: Int
     let offset: SceneParticleNumericValue?
     let angles: SceneParticleNumericValue?
+    let parentControlPoint: Int?
 
     nonisolated var followsPointer: Bool { rawFlags & 1 != 0 }
     nonisolated var isWorldSpace: Bool { rawFlags & 2 != 0 }
+    nonisolated var copiesRawParentValue: Bool { rawFlags & 4 != 0 }
 }
 
 nonisolated struct SceneParticleChild: Equatable, Sendable {

@@ -30,6 +30,7 @@ struct SceneParticleChildTemplate {
     let particleBudget: Int
     let depth: Int
     let parentAssetPath: String?
+    let instanceOverride: SceneParticleInstanceOverride?
     let instanceBuffer = SceneParticleMetalInstanceBuffer()
 }
 
@@ -59,7 +60,8 @@ enum SceneParticleChildGraphExpansion {
         textureLoader: SceneTextureLoader,
         builtInTextureRegistry: SceneParticleBuiltInTextureRegistry,
         device: MTLDevice,
-        worldSpaceFrame: SceneParticleWorldSpaceFrame?
+        worldSpaceFrame: SceneParticleWorldSpaceFrame?,
+        rootInstanceOverride: SceneParticleInstanceOverride?
     ) -> Expansion {
         var templates: [SceneParticleChildTemplate] = []
         var unsupported: [String] = []
@@ -74,6 +76,8 @@ enum SceneParticleChildGraphExpansion {
                 declarationIndex: index,
                 depth: 1,
                 parentAssetPath: nil,
+                rootDefinition: rootAsset.definition,
+                rootInstanceOverride: rootInstanceOverride,
                 templateIndex: nextTemplateIndex,
                 graph: graph,
                 textureLoader: textureLoader,
@@ -98,6 +102,8 @@ enum SceneParticleChildGraphExpansion {
                             declarationIndex: nestedIndex,
                             depth: 2,
                             parentAssetPath: template.path,
+                            rootDefinition: rootAsset.definition,
+                            rootInstanceOverride: rootInstanceOverride,
                             templateIndex: nextTemplateIndex,
                             graph: graph,
                             textureLoader: textureLoader,
@@ -135,6 +141,8 @@ enum SceneParticleChildGraphExpansion {
         declarationIndex: Int,
         depth: Int,
         parentAssetPath: String?,
+        rootDefinition: SceneParticleDefinition,
+        rootInstanceOverride: SceneParticleInstanceOverride?,
         templateIndex: Int,
         graph: SceneParticleAssetGraph,
         textureLoader: SceneTextureLoader,
@@ -198,6 +206,21 @@ enum SceneParticleChildGraphExpansion {
             let profile = trigger == .staticChild
                 ? "outsideStrictStaticProfile" : "outsideStrictEventProfile"
             return .rejected("\(path):\(profile)")
+        }
+        let instanceOverride: SceneParticleInstanceOverride?
+        switch SceneParticleChildTemplateSupport.rawParentControlPointOverride(
+            childDefinition: asset.definition,
+            rootDefinition: rootDefinition,
+            rootOverride: rootInstanceOverride,
+            allowsCopy: depth == 1 && trigger == .staticChild
+        ) {
+        case .disabled:
+            instanceOverride = nil
+        case let .supported(value, count):
+            instanceOverride = value
+            performance.append("\(path):rawParentControlPointCopyBounded:mappings=\(count)")
+        case let .unsupported(detail):
+            return .rejected("\(path):\(detail)")
         }
         let needsStaticFrame = asset.definition.flags.isWorldSpace
             || asset.definition.operators.contains(where: \.isWorldSpaceMovement)
@@ -280,7 +303,8 @@ enum SceneParticleChildGraphExpansion {
                 maximumSystemCount: maximum,
                 particleBudget: particleBudget,
                 depth: depth,
-                parentAssetPath: parentAssetPath
+                parentAssetPath: parentAssetPath,
+                instanceOverride: instanceOverride
             ),
             asset
         )
@@ -294,6 +318,7 @@ extension SceneParticleChildTemplate {
     ) -> SceneParticleSimulator {
         SceneParticleSimulator(
             definition: definition,
+            instanceOverride: instanceOverride,
             seed: seed,
             particleBudget: particleBudget,
             emissionDeadline: emissionDeadline,

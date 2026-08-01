@@ -1457,6 +1457,41 @@ enum Harness {
                 path, material: "materials/shared.json", rate: 0, instantaneous: 1,
                 under: directory
             )
+        try writeParticle(
+            "particles/control-point-copy-root.json", material: "materials/shared.json",
+            emitterControlPoint: 1, controlPointOffset: [0, 0, 0],
+            children: [
+                ["name": "particles/raw-copy-child.json", "type": "static"],
+                ["name": "particles/adjusted-copy-child.json", "type": "static"],
+                ["name": "particles/malformed-copy-child.json", "type": "static"],
+                ["name": "particles/raw-copy-child.json", "type": "eventspawn"],
+            ], under: directory
+        )
+        for (path, flags) in [
+            ("particles/raw-copy-child.json", 4),
+            ("particles/adjusted-copy-child.json", 0),
+        ] {
+            try writeJSON([
+                "material": "materials/shared.json", "maxcount": 10,
+                "emitter": [[
+                    "name": "sphererandom", "rate": 0, "instantaneous": 1,
+                    "controlpoint": 1, "distancemin": 0, "distancemax": 0,
+                ]],
+                "initializer": [["name": "lifetimerandom", "min": 10, "max": 10]],
+                "renderer": [["name": "sprite"]],
+                "controlpoint": [[
+                    "id": 1, "flags": flags, "offset": [0, 0, 0],
+                    "parentcontrolpoint": 1,
+                ]],
+            ], to: directory.appendingPathComponent(path))
+        }
+        try writeJSON([
+            "material": "materials/shared.json", "maxcount": 10,
+            "emitter": [["name": "sphererandom", "rate": 0, "instantaneous": 1]],
+            "initializer": [["name": "lifetimerandom", "min": 10, "max": 10]],
+            "renderer": [["name": "sprite"]],
+            "controlpoint": [["id": 1, "flags": 4, "offset": [0, 0, 0]]],
+        ], to: directory.appendingPathComponent("particles/malformed-copy-child.json"))
         }
         try writeParticle("particles/drop.json", material: "materials/drop.json", under: directory)
         try writeParticle("particles/halo.json", material: "materials/halo.json", under: directory)
@@ -1488,8 +1523,16 @@ enum Harness {
                 layer(14, "particles/movement-world.json"),
                 layer(15, "particles/custom-shader.json"),
                 layer(16, "particles/normal-cull.json"),
+                layer(
+                    17, "particles/control-point-copy-root.json",
+                    controlPoint: SIMD3(22, 0, 0)
+                ),
+                layer(
+                    18, "particles/control-point-copy-root.json",
+                    controlPoint: SIMD3(22, 0, 0), controlPointHasAnimation: true
+                ),
             ],
-            renderOrderLayerIDs: Array(1 ... 16),
+            renderOrderLayerIDs: Array(1 ... 18),
             materialPasses: [
                 .init(
                     materialPath: "materials/no-texture.json",
@@ -1571,6 +1614,20 @@ enum Harness {
             "movementWorldLayerLoaded": batches.contains { $0.layerID == 14 },
             "normalCullState": batches.first(where: { $0.layerID == 16 })?
                 .renderState.cullMode.rawValue ?? "",
+            "rawControlPointCopyPositions": batches.first {
+                $0.particlePath == "particles/raw-copy-child.json"
+            }?.instances.map {
+                [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
+            } ?? [],
+            "adjustedControlPointCopyLoaded": batches.contains {
+                $0.particlePath == "particles/adjusted-copy-child.json"
+            },
+            "rawControlPointCopyBounded": runtime.diagnostics.contains {
+                $0.detail == "particles/raw-copy-child.json:rawParentControlPointCopyBounded:mappings=1"
+            },
+            "rawControlPointCopyLayerIDs": batches.filter {
+                $0.particlePath == "particles/raw-copy-child.json"
+            }.map(\.layerID),
             "diagnostics": runtime.diagnostics.map {
                 [
                     "kind": $0.kind.rawValue,
@@ -1591,7 +1648,8 @@ enum Harness {
         visible: Bool = true,
         particleAlpha: Double? = nil,
         alphaHasScript: Bool = false,
-        controlPoint: SIMD3<Double>? = nil
+        controlPoint: SIMD3<Double>? = nil,
+        controlPointHasAnimation: Bool = false
     ) -> SceneRenderDescriptor.Layer {
         .init(
             id: id, name: nil, contentKind: "particle", particlePath: path,
@@ -1617,7 +1675,7 @@ enum Harness {
                             value: .vector([value.x, value.y, value.z]),
                             userPropertyKey: nil,
                             hasScript: false,
-                            hasAnimation: false
+                            hasAnimation: controlPointHasAnimation
                         )
                     ] } ?? [:],
                     controlPointAngles: [:]
@@ -1865,10 +1923,12 @@ class SceneParticleRuntimeTests(unittest.TestCase):
 
     def test_synthetic_rejects_unsupported_roots_and_keeps_diagnostics(self) -> None:
         result = self.run_harness("synthetic")
-        self.assertEqual(result["activeLayerIDs"], [2, 3, 4, 6, 7, 9, 11, 13, 14, 16])
+        self.assertEqual(
+            result["activeLayerIDs"], [2, 3, 4, 6, 7, 9, 11, 13, 14, 16, 17, 18]
+        )
         self.assertEqual(
             result["batchLayerIDs"],
-            [2, 3, 4, 4, 6, 7, 9, 9, 9, 9, 11, 13, 14, 16],
+            [2, 3, 4, 4, 6, 7, 9, 9, 9, 9, 11, 13, 14, 16, 17, 17, 18],
         )
         self.assertGreater(result["activeParticleCount"], 0)
         self.assertGreater(result["childInstanceCount"], 0)
@@ -1884,6 +1944,10 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertTrue(result["rendererWorldOrientation"])
         self.assertTrue(result["movementWorldLayerLoaded"])
         self.assertEqual(result["normalCullState"], "back")
+        self.assertEqual(result["rawControlPointCopyPositions"], [[22, 0, 0]])
+        self.assertFalse(result["adjustedControlPointCopyLoaded"])
+        self.assertTrue(result["rawControlPointCopyBounded"])
+        self.assertEqual(result["rawControlPointCopyLayerIDs"], [17])
         self.assertFalse(result["hiddenMentioned"])
         self.assertNotIn(10, result["activeLayerIDs"])
         self.assertIn(11, result["activeLayerIDs"])
@@ -1914,6 +1978,23 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertIn(
             "particles/custom-shader.json:unsupportedShader",
             result["staticChildUnsupportedDetails"],
+        )
+        self.assertIn(
+            "particles/adjusted-copy-child.json:rawParentControlPointCopyMalformed",
+            [value["detail"] for value in diagnostics if value["detail"] is not None],
+        )
+        details = [value["detail"] for value in diagnostics if value["detail"] is not None]
+        self.assertIn(
+            "particles/malformed-copy-child.json:rawParentControlPointCopyMalformed",
+            details,
+        )
+        self.assertIn(
+            "particles/raw-copy-child.json:rawParentControlPointCopyOutsideStaticDepthOne",
+            details,
+        )
+        self.assertIn(
+            "particles/raw-copy-child.json:rawParentControlPointSourceDynamic",
+            details,
         )
         self.assertIn("builtInTextureUnavailable", kinds)
 

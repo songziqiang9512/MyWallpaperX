@@ -285,7 +285,7 @@ nonisolated struct SceneParticleDefinitionParser {
     private nonisolated func parseControlPoint(_ root: [String: Any]) -> SceneParticleControlPoint {
         .init(
             id: Self.integer(root["id"]), rawFlags: Self.integer(root["flags"]) ?? 0,
-            offset: Self.numericValue(root["offset"]), angles: Self.numericValue(root["angles"])
+            offset: Self.numericValue(root["offset"]), angles: Self.numericValue(root["angles"]), parentControlPoint: Self.integer(root["parentcontrolpoint"])
         )
     }
 
