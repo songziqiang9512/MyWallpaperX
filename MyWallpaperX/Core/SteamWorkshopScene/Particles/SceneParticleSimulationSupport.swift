@@ -10,6 +10,8 @@ nonisolated enum SceneParticleSimulationDiagnosticKind: String, Hashable, Sendab
     case childSystemsIgnored
     case dynamicOverrideIgnored
     case audioResponseIgnored
+    case periodicEmissionBounded
+    case periodicEmissionUnsupported
     case pointerControlPointIgnored
 }
 
@@ -265,6 +267,16 @@ nonisolated enum SceneParticleSimulationMath {
         for emitter in definition.emitters {
             if case let .unsupported(name) = emitter.kind { add(.unsupportedEmitter, name) }
             if emitter.audioResponse.isEnabled { add(.audioResponseIgnored, "emitter") }
+            switch emitter.periodicEmissionAdmission {
+            case .supported where instanceOverride?.rate != nil || instanceOverride?.count != nil:
+                add(.periodicEmissionUnsupported, "instanceoverride")
+            case .supported:
+                add(.periodicEmissionBounded, "randomperiodic")
+            case .unsupported:
+                add(.periodicEmissionUnsupported, "randomperiodic")
+            case .disabled:
+                break
+            }
         }
         for `operator` in definition.operators {
             // operator 的 audio 调制此前不产生诊断，启用后会静默按无音频路径模拟。

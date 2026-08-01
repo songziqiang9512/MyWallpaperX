@@ -49,7 +49,7 @@ enum Harness {
           "sequencemultiplier":3,
           "emitter":[
             {"id":1,"name":"sphereRandom","origin":"1 2 3","directions":"1 0 1","sign":"-1 0 1","distancemin":"2 3 4","distancemax":"20 30 40","rate":15,"instantaneous":4,"speedmin":5,"speedmax":9,"duration":2,"controlpoint":3,"audioprocessingmode":1,"audioprocessingexponent":0.5,"audioprocessingfrequencystart":2,"audioprocessingfrequencyend":12,"audioprocessingbounds":"0.1 0.9","flags":1},
-            {"id":2,"name":"boxRandom","origin":"4 5 6","distancemax":"100 200 0","rate":30},
+            {"id":2,"name":"boxRandom","origin":"4 5 6","distancemax":"100 200 0","rate":30,"flags":4,"delay":0,"minperiodicduration":0.5,"maxperiodicduration":1,"minperiodicdelay":1.5,"maxperiodicdelay":2,"maxtoemitperperiod":32},
             {"id":3,"name":"layerImage"}
           ],
           "initializer":[
@@ -139,6 +139,19 @@ enum Harness {
             "sphereAudioFrequencyStart": definition.emitters[0].audioResponse.frequencyStart ?? -1,
             "sphereAudioFrequencyEnd": definition.emitters[0].audioResponse.frequencyEnd ?? -1,
             "sphereAudioBounds": definition.emitters[0].audioResponse.bounds?.vectorValue ?? [],
+            "boxUsesPeriodicEmission": definition.emitters[1].usesRandomPeriodicEmission,
+            "boxInitialDelay": definition.emitters[1].periodicEmission.initialDelay ?? -1,
+            "boxPeriodicDuration": [
+                definition.emitters[1].periodicEmission.minimumDuration ?? -1,
+                definition.emitters[1].periodicEmission.maximumDuration ?? -1
+            ],
+            "boxPeriodicDelay": [
+                definition.emitters[1].periodicEmission.minimumDelay ?? -1,
+                definition.emitters[1].periodicEmission.maximumDelay ?? -1
+            ],
+            "boxMaximumEmissionCount":
+                definition.emitters[1].periodicEmission.maximumEmissionCount ?? -1,
+            "boxPeriodicMalformed": definition.emitters[1].periodicEmission.hasMalformedFields,
             "initializerKinds": definition.initializers.map { initializerName($0.kind) },
             "turbulentPhaseMinimum": definition.initializers[7].turbulentVelocity?.phaseMinimum ?? -1,
             "turbulentTimeScale": definition.initializers[7].turbulentVelocity?.timeScale ?? -1,
@@ -510,6 +523,12 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         self.assertEqual(result["sphereAudioFrequencyStart"], 2)
         self.assertEqual(result["sphereAudioFrequencyEnd"], 12)
         self.assertEqual(result["sphereAudioBounds"], [0.1, 0.9])
+        self.assertTrue(result["boxUsesPeriodicEmission"])
+        self.assertEqual(result["boxInitialDelay"], 0)
+        self.assertEqual(result["boxPeriodicDuration"], [0.5, 1])
+        self.assertEqual(result["boxPeriodicDelay"], [1.5, 2])
+        self.assertEqual(result["boxMaximumEmissionCount"], 32)
+        self.assertFalse(result["boxPeriodicMalformed"])
         self.assertEqual(result["turbulentPhaseMinimum"], 0.25)
         self.assertEqual(len(result["initializerKinds"]), 9)
         self.assertEqual(result["turbulentTimeScale"], 0.1)

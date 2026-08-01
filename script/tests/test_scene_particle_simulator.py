@@ -17,6 +17,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Particles/SceneParticleWorldSpacePlan.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulationSupport.swift",
+    SOURCE_ROOT / "Particles/SceneParticlePeriodicEmission.swift",
     SOURCE_ROOT / "Particles/SceneParticleLayerImageEmissionMap.swift",
     SOURCE_ROOT / "Particles/SceneParticleOscillationCache.swift",
     SOURCE_ROOT / "Particles/SceneParticleStepSnapshotRecorder.swift",
@@ -320,6 +321,32 @@ enum Harness {
         )
         overflowTurbulence.advance(by: 0.1)
 
+        var periodic = simulator(periodicJSON, seed: 101, step: 0.25)
+        periodic.advance(by: 0.5)
+        let periodicFirstWindowCount = periodic.particles.count
+        periodic.advance(by: 0.5)
+        let periodicDelayCount = periodic.particles.count
+        periodic.advance(by: 0.5)
+        let periodicSecondWindowCount = periodic.particles.count
+        var periodicPartitioned = simulator(periodicJSON, seed: 101, step: 0.25)
+        periodicPartitioned.advance(by: 0.25)
+        periodicPartitioned.advance(by: 1.25)
+        var periodicAuthorOff = simulator(periodicAuthorOffJSON, seed: 101, step: 0.25)
+        periodicAuthorOff.advance(by: 1.5)
+        var periodicMalformed = simulator(periodicMalformedJSON, seed: 101, step: 0.25)
+        periodicMalformed.advance(by: 1.5)
+        var periodicBurst = simulator(periodicBurstJSON, seed: 101, step: 0.25)
+        periodicBurst.advance(by: 1.5)
+        var periodicLimited = simulator(periodicLimitedJSON, seed: 101, step: 0.25)
+        periodicLimited.advance(by: 1.5)
+        let periodicOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"rate":2}"#)
+        )
+        var periodicOverridden = simulator(
+            periodicJSON, override: periodicOverride, seed: 101, step: 0.25
+        )
+        periodicOverridden.advance(by: 1.5)
+
         let layerImageDefinition = SceneParticleDefinitionParser().parse(
             root: try object(layerImageJSON)
         )
@@ -454,6 +481,20 @@ enum Harness {
             "movementBeforeTurbulencePosition":
                 vector(movementBeforeTurbulence.particles[0].position),
             "overflowTurbulenceVelocity": vector(overflowTurbulence.particles[0].velocity),
+            "periodicFirstWindowCount": periodicFirstWindowCount,
+            "periodicDelayCount": periodicDelayCount,
+            "periodicSecondWindowCount": periodicSecondWindowCount,
+            "periodicDeterministic": periodic.particles == periodicPartitioned.particles,
+            "periodicDiagnostics": periodic.diagnostics.map(\.kind.rawValue),
+            "periodicAuthorOffCount": periodicAuthorOff.particles.count,
+            "periodicMalformedCount": periodicMalformed.particles.count,
+            "periodicMalformedDiagnostics": periodicMalformed.diagnostics.map(\.kind.rawValue),
+            "periodicBurstCount": periodicBurst.particles.count,
+            "periodicBurstDiagnostics": periodicBurst.diagnostics.map(\.kind.rawValue),
+            "periodicLimitedCount": periodicLimited.particles.count,
+            "periodicLimitedDiagnostics": periodicLimited.diagnostics.map(\.kind.rawValue),
+            "periodicOverriddenCount": periodicOverridden.particles.count,
+            "periodicOverriddenDiagnostics": periodicOverridden.diagnostics.map(\.kind.rawValue),
             "layerImagePosition": layerImage.particles.first.map { vector($0.position) } ?? [],
             "layerImageMissingMapCount": layerImageMissingMap.particles.count,
             "diagnostics": diagnosticSimulator.diagnostics.map(\.kind.rawValue).sorted()
@@ -588,6 +629,35 @@ enum Harness {
      "renderer":[{"name":"sprite"}],
      "controlpoint":[{"id":1,"offset":"1 1 1"}]}
     """#
+
+    private static let periodicJSON = #"""
+    {"material":"p.json","maxcount":100,
+     "emitter":[{"name":"sphererandom","flags":4,"rate":4,"distancemax":0,
+       "minperiodicduration":0.5,"maxperiodicduration":0.5,
+       "minperiodicdelay":0.5,"maxperiodicdelay":0.5}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let periodicAuthorOffJSON = periodicJSON.replacingOccurrences(
+        of: #""flags":4"#,
+        with: #""flags":0"#
+    )
+
+    private static let periodicMalformedJSON = periodicJSON.replacingOccurrences(
+        of: #""maxperiodicdelay":0.5"#,
+        with: #""maxperiodicdelay":"bad""#
+    )
+
+    private static let periodicBurstJSON = periodicJSON.replacingOccurrences(
+        of: #""rate":4"#,
+        with: #""rate":4,"instantaneous":1"#
+    )
+
+    private static let periodicLimitedJSON = periodicJSON.replacingOccurrences(
+        of: #""rate":4"#,
+        with: #""rate":4,"maxtoemitperperiod":2"#
+    )
 
     private static let operatorJSON = #"""
     {"material":"p.json","maxcount":1,
@@ -971,6 +1041,22 @@ class SceneParticleSimulatorTests(unittest.TestCase):
     def test_layer_image_emitter_uses_injected_alpha_bitmap_position(self) -> None:
         self.assertEqual(self.results["layerImagePosition"], [-15, 5, 0])
         self.assertEqual(self.results["layerImageMissingMapCount"], 0)
+
+    def test_random_periodic_emission_uses_bounded_active_and_delay_windows(self) -> None:
+        self.assertEqual(self.results["periodicFirstWindowCount"], 2)
+        self.assertEqual(self.results["periodicDelayCount"], 2)
+        self.assertEqual(self.results["periodicSecondWindowCount"], 4)
+        self.assertTrue(self.results["periodicDeterministic"])
+        self.assertEqual(self.results["periodicDiagnostics"], ["periodicEmissionBounded"])
+        self.assertEqual(self.results["periodicAuthorOffCount"], 6)
+        for prefix in [
+            "periodicMalformed", "periodicBurst", "periodicLimited", "periodicOverridden"
+        ]:
+            self.assertEqual(self.results[f"{prefix}Count"], 0)
+            self.assertEqual(
+                self.results[f"{prefix}Diagnostics"],
+                ["periodicEmissionUnsupported"],
+            )
 
     def test_movement_gravity_drag_and_alpha_fade(self) -> None:
         self.assertEqual(self.results["movementPosition"], [0.65625, -0.34375, 0])

@@ -35,6 +35,50 @@ nonisolated enum SceneParticleEmitterKind: Equatable, Sendable {
     case unsupported(String)
 }
 
+nonisolated struct SceneParticlePeriodicEmission: Equatable, Sendable {
+    let initialDelay: Double?
+    let minimumDuration: Double?
+    let maximumDuration: Double?
+    let minimumDelay: Double?
+    let maximumDelay: Double?
+    let maximumEmissionCount: Int?
+    let hasMalformedFields: Bool
+
+    nonisolated init(root: [String: Any]) {
+        let scalarKeys = [
+            "delay", "minperiodicduration", "maxperiodicduration",
+            "minperiodicdelay", "maxperiodicdelay"
+        ]
+        initialDelay = Self.number(root["delay"])
+        minimumDuration = Self.number(root["minperiodicduration"])
+        maximumDuration = Self.number(root["maxperiodicduration"])
+        minimumDelay = Self.number(root["minperiodicdelay"])
+        maximumDelay = Self.number(root["maxperiodicdelay"])
+        maximumEmissionCount = Self.integer(root["maxtoemitperperiod"])
+        hasMalformedFields = scalarKeys.contains {
+            root[$0] != nil && !(root[$0] is NSNull) && Self.number(root[$0]) == nil
+        } || (root["maxtoemitperperiod"] != nil
+            && !(root["maxtoemitperperiod"] is NSNull)
+            && maximumEmissionCount == nil)
+    }
+
+    private nonisolated static func number(_ rawValue: Any?) -> Double? {
+        if let value = rawValue as? NSNumber,
+           CFGetTypeID(value) != CFBooleanGetTypeID() {
+            return value.doubleValue
+        }
+        if let value = rawValue as? String {
+            return Double(value.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        return nil
+    }
+
+    private nonisolated static func integer(_ rawValue: Any?) -> Int? {
+        guard let value = number(rawValue), value.isFinite else { return nil }
+        return Int(exactly: value)
+    }
+}
+
 /// 粒子组件的 audio response 声明。
 ///
 /// 粒子与 effect 是两套独立 schema，不能混用字段名：effect 侧走
@@ -81,9 +125,11 @@ nonisolated struct SceneParticleEmitter: Equatable, Sendable {
     let duration: Double?
     let controlPoint: Int?
     let audioResponse: SceneParticleAudioResponse
+    let periodicEmission: SceneParticlePeriodicEmission
     let rawFlags: Int
 
     nonisolated var limitsToOnePerFrame: Bool { rawFlags & 1 != 0 }
+    nonisolated var usesRandomPeriodicEmission: Bool { rawFlags & 4 != 0 }
 }
 
 nonisolated enum SceneParticleInitializerKind: Equatable, Sendable {

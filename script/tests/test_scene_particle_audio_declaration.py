@@ -23,6 +23,7 @@ PARTICLES_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Particl
 DEFINITION_SOURCE = PARTICLES_ROOT / "SceneParticleDefinition.swift"
 PARSER_SOURCE = PARTICLES_ROOT / "SceneParticleDefinitionParser.swift"
 SIMULATION_SOURCE = PARTICLES_ROOT / "SceneParticleSimulationSupport.swift"
+PERIODIC_SOURCE = PARTICLES_ROOT / "SceneParticlePeriodicEmission.swift"
 
 # 真实语料中出现过的三个字段（45 样本、11 处启用 audio 的组件）。
 OFFICIAL_PARTICLE_AUDIO_KEYS = (
@@ -173,7 +174,12 @@ class SceneParticleAudioDeclarationTests(unittest.TestCase):
         harness.write_text(HARNESS, encoding="utf-8")
         binary = directory / "scene-particle-audio"
         # 只编译声明、解析与诊断三段，避免拖入渲染/资源图等无关依赖。
-        sources = [DEFINITION_SOURCE, PARSER_SOURCE, SIMULATION_SOURCE]
+        sources = [
+            DEFINITION_SOURCE,
+            PARSER_SOURCE,
+            SIMULATION_SOURCE,
+            PERIODIC_SOURCE,
+        ]
         compilation = subprocess.run(
             ["swiftc", *[str(path) for path in sources], str(harness), "-o", str(binary)],
             capture_output=True,

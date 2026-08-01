@@ -111,7 +111,7 @@ nonisolated struct SceneParticleDefinitionParser {
             speedMaximum: Self.number(root["speedmax"]),
             duration: Self.number(root["duration"]),
             controlPoint: Self.integer(root["controlpoint"]),
-            audioResponse: Self.audioResponse(root),
+            audioResponse: Self.audioResponse(root), periodicEmission: .init(root: root),
             rawFlags: Self.integer(root["flags"]) ?? 0
         )
     }

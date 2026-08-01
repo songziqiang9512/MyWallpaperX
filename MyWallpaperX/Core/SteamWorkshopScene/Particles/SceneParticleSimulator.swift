@@ -1,12 +1,6 @@
 import Foundation
 
 nonisolated struct SceneParticleSimulator: Sendable {
-    private struct EmitterState: Sendable {
-        var elapsed = 0.0
-        var remainder = 0.0
-        var emittedInstantaneous = false
-    }
-
     let fixedTimeStep: Double
     let maximumParticleCount: Int
     let diagnostics: [SceneParticleSimulationDiagnostic]
@@ -22,7 +16,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
     private let worldSpaceFrame: SceneParticleWorldSpaceFrame?
     private let hasWorldSpaceMovement: Bool
     let simulationSeed: UInt64
-    private var emitters: [EmitterState]
+    private var emitters: [SceneParticleEmitterState]
     var random: SceneParticleRandomGenerator
     private var accumulator = 0.0
     private var nextParticleID: UInt64 = 0
@@ -58,7 +52,9 @@ nonisolated struct SceneParticleSimulator: Sendable {
         let authoredMaximum = min(max(definition.maximumCount ?? 1, 0), 20_000)
         maximumParticleCount = min(authoredMaximum, max(particleBudget ?? authoredMaximum, 0))
         diagnostics = SceneParticleSimulationMath.diagnostics(definition, instanceOverride)
-        emitters = Array(repeating: EmitterState(), count: definition.emitters.count)
+        emitters = definition.emitters.indices.map {
+            SceneParticleEmitterState(seed: seed, emitterIndex: $0)
+        }
         random = SceneParticleRandomGenerator(state: seed)
         warmUp(duration: max(0, definition.startTime ?? 0))
         birthEvents.removeAll(keepingCapacity: true)
@@ -133,9 +129,15 @@ nonisolated struct SceneParticleSimulator: Sendable {
     private nonisolated mutating func emit(index: Int, duration: Double) {
         let emitter = definition.emitters[index]
         if case .unsupported = emitter.kind { return }
+        if emitter.usesRandomPeriodicEmission,
+           instanceOverride?.rate != nil || instanceOverride?.count != nil { return }
         let rateScale = max(0, overrideScalar(instanceOverride?.rate))
         emitters[index].elapsed += duration * rateScale
         if let limit = emitter.duration, limit > 0, emitters[index].elapsed > limit + 1e-12 { return }
+        let activeDuration = emitters[index].activeDuration(
+            for: emitter, stepDuration: duration
+        )
+        guard activeDuration > 0 else { return }
 
         var count = 0
         if !emitters[index].emittedInstantaneous, (emitter.instantaneousCount ?? 0) > 0 {
@@ -151,7 +153,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
             let scaledRate = (authoredRate.isFinite ? authoredRate : 0)
                 * countScale * rateScale
             let rate = scaledRate.isFinite ? max(0, scaledRate) : 0
-            emitters[index].remainder += rate * duration
+            emitters[index].remainder += rate * activeDuration
             let integral = floor(emitters[index].remainder + 1e-12)
             emitters[index].remainder -= integral
             count = Int(min(integral, Double(maximumParticleCount)))

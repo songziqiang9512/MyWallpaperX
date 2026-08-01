@@ -15,6 +15,7 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulationSupport.swift",
+    SOURCE_ROOT / "Particles/SceneParticlePeriodicEmission.swift",
     SOURCE_ROOT / "Particles/SceneParticleLayerImageEmissionMap.swift",
 ]
 
