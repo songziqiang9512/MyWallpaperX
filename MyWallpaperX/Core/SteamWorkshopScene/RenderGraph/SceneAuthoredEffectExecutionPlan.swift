@@ -189,16 +189,17 @@ enum SceneAuthoredEffectExecutionPlanner {
                 == normalizedShaderPath(verticalMaterial.shaderPath),
               supportedState(horizontalMaterial.renderState),
               supportedState(verticalMaterial.renderState),
-              supportedCombos(
+              let horizontalKernel = supportedKernel(
                   horizontalMaterial.combos,
                   vertical: false,
                   legacyCompose: usesLegacyComposeNormalization
               ),
-              supportedCombos(
+              let verticalKernel = supportedKernel(
                   verticalMaterial.combos,
                   vertical: true,
                   legacyCompose: usesLegacyComposeNormalization
               ),
+              horizontalKernel == verticalKernel,
               validMaterialSlots(
                   horizontal: horizontalMaterial,
                   vertical: verticalMaterial,
@@ -220,7 +221,8 @@ enum SceneAuthoredEffectExecutionPlanner {
                 horizontalStep: horizontalScale,
                 verticalStep: verticalScale,
                 sampleResolutionScale: 1,
-                isPrecise: true
+                isPrecise: true,
+                kernel: horizontalKernel
             )),
             materialNodeCount: 2,
             logicalRenderTargetCount: graph.renderTargets.count,
@@ -286,15 +288,15 @@ enum SceneAuthoredEffectExecutionPlanner {
             && state.cullMode?.lowercased() == "nocull"
     }
 
-    private nonisolated static func supportedCombos(
+    private nonisolated static func supportedKernel(
         _ combos: [String: Int],
         vertical: Bool,
         legacyCompose: Bool
-    ) -> Bool {
+    ) -> SceneGaussianBlurKernel? {
         var normalized: [String: Int] = [:]
         for (key, value) in combos {
             guard normalized.updateValue(value, forKey: key.uppercased()) == nil else {
-                return false
+                return nil
             }
         }
         guard normalized.keys.allSatisfy({
@@ -303,11 +305,12 @@ enum SceneAuthoredEffectExecutionPlanner {
               normalized["VERTICAL", default: 0] == (vertical ? 1 : 0),
               normalized["ENABLEMASK", default: 0]
                 == (vertical && !legacyCompose ? 1 : 0),
-              normalized["KERNEL", default: 0] == 0,
-              normalized["MASK", default: 0] == 0 else {
-            return false
+              let kernel = SceneGaussianBlurKernel(
+                  rawValue: normalized["KERNEL", default: 0]
+              ) else {
+            return nil
         }
-        return true
+        return kernel
     }
 
     private nonisolated static func scale(

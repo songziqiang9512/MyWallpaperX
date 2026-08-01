@@ -1535,6 +1535,10 @@ enum Harness {
             pipeline: pipeline,
             compositor: compositor
         )
+        let gaussianKernelPixels = try gaussianKernelEvidence(
+            device: device,
+            queue: queue
+        )
         let authoredLegacyComposeImpulse = try authoredPreciseBlurImpulseEvidence(
             device: device,
             queue: queue,
@@ -1735,6 +1739,7 @@ enum Harness {
             "blockedPreciseBlurIsNil": blockedPreciseBlur == nil,
             "authoredExtentMismatchRefused": authoredExtentMismatchRefused,
             "authoredPreciseImpulse": authoredPreciseImpulse,
+            "gaussianKernelPixels": gaussianKernelPixels,
             "authoredLegacyComposeImpulse": authoredLegacyComposeImpulse,
             "authoredLegacyComposeScaled": authoredLegacyComposeScaled,
             "authoredPreciseInterleave": authoredPreciseInterleave,
@@ -4566,6 +4571,63 @@ enum Harness {
         return device.makeTexture(descriptor: descriptor)
     }
 
+    static func gaussianKernelEvidence(
+        device: MTLDevice,
+        queue: MTLCommandQueue
+    ) throws -> [String: Any] {
+        let size = 9
+        guard let pipeline = SceneGaussianBlurPipeline(device: device),
+              let source = makeTexture(
+                  device: device,
+                  size: size,
+                  usage: [.shaderRead, .renderTarget]
+              ) else {
+            throw HarnessError.drawRefused
+        }
+        fillPixels(source) { x, y in
+            x == size / 2 && y == size / 2
+                ? [255, 255, 255, 255]
+                : [0, 0, 0, 0]
+        }
+        func render(_ kernel: SceneGaussianBlurKernel) throws -> [UInt8] {
+            guard let target = makeTexture(
+                      device: device,
+                      size: size,
+                      usage: [.shaderRead, .renderTarget]
+                  ),
+                  let commandBuffer = queue.makeCommandBuffer(),
+                  pipeline.encode(
+                      source: source,
+                      target: target,
+                      step: SIMD2(1 / Float(size), 0),
+                      kernel: kernel,
+                      commandBuffer: commandBuffer
+                  ) else {
+                throw HarnessError.drawRefused
+            }
+            commandBuffer.commit()
+            commandBuffer.waitUntilCompleted()
+            guard commandBuffer.status == .completed else {
+                throw HarnessError.commandFailed
+            }
+            return try textureBytes(target, queue: queue)
+        }
+        let large = try render(.large)
+        let medium = try render(.medium)
+        let small = try render(.small)
+        func alphaRow(_ bytes: [UInt8]) -> [UInt8] {
+            (0..<size).map { x in
+                bytes[(((size / 2) * size + x) * 4) + 3]
+            }
+        }
+        return [
+            "largeAlpha": alphaRow(large),
+            "mediumAlpha": alphaRow(medium),
+            "smallAlpha": alphaRow(small),
+            "allPremultiplied": [large, medium, small].allSatisfy(isPremultiplied),
+        ]
+    }
+
     static func fillPremultipliedImpulse(_ texture: MTLTexture) {
         fillPixels(texture) { x, y in
             switch (x, y) {
@@ -4881,6 +4943,14 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertLessEqual(evidence["mainMaxDelta"], 2, evidence)
         self.assertGreater(evidence["horizontalToOutputDelta"], 2, evidence)
         self.assertGreater(evidence["sourceToOutputDelta"], 20, evidence)
+
+    def test_gaussian_kernel_variants_use_distinct_bounded_support(self) -> None:
+        evidence = self.result["gaussianKernelPixels"]
+        self.assertTrue(evidence["allPremultiplied"], evidence)
+        self.assertEqual(evidence["mediumAlpha"], [0, 4, 24, 60, 80, 60, 24, 4, 0])
+        self.assertEqual(evidence["smallAlpha"], [0, 0, 0, 64, 128, 64, 0, 0, 0])
+        self.assertNotEqual(evidence["largeAlpha"], evidence["mediumAlpha"])
+        self.assertNotEqual(evidence["largeAlpha"], evidence["smallAlpha"])
 
     def test_legacy_compose_precise_blur_matches_explicit_fbo_gpu_path(self) -> None:
         explicit = self.result["authoredPreciseImpulse"]

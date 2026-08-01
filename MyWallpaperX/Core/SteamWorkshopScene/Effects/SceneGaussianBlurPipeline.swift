@@ -1,6 +1,12 @@
 import Metal
 import simd
 
+enum SceneGaussianBlurKernel: Int {
+    case large = 0
+    case medium = 1
+    case small = 2
+}
+
 private let sceneGaussianBlurShaderSource = """
 #include <metal_stdlib>
 using namespace metal;
@@ -32,6 +38,22 @@ fragment float4 sceneGaussianBlurFrag(
 ) {
     constexpr sampler s(filter::linear, address::clamp_to_edge);
     float2 offset = step.xy;
+    uint kernelIndex = uint(step.z + 0.5);
+    if (kernelIndex == 1) {
+        float4 color = source.sample(s, in.texcoord) * 0.3125;
+        color += source.sample(s, in.texcoord + offset) * 0.234375;
+        color += source.sample(s, in.texcoord - offset) * 0.234375;
+        color += source.sample(s, in.texcoord + offset * 2.0) * 0.09375;
+        color += source.sample(s, in.texcoord - offset * 2.0) * 0.09375;
+        color += source.sample(s, in.texcoord + offset * 3.0) * 0.015625;
+        color += source.sample(s, in.texcoord - offset * 3.0) * 0.015625;
+        return color;
+    }
+    if (kernelIndex == 2) {
+        return source.sample(s, in.texcoord) * 0.5
+            + source.sample(s, in.texcoord + offset) * 0.25
+            + source.sample(s, in.texcoord - offset) * 0.25;
+    }
     float4 color = source.sample(s, in.texcoord) * 0.2270270270;
     color += source.sample(s, in.texcoord + offset * 1.3846153846) * 0.3162162162;
     color += source.sample(s, in.texcoord - offset * 1.3846153846) * 0.3162162162;
@@ -65,6 +87,7 @@ struct SceneGaussianBlurPipeline {
         source: MTLTexture,
         target: MTLTexture,
         step: SIMD2<Float>,
+        kernel: SceneGaussianBlurKernel = .large,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
         let descriptor = MTLRenderPassDescriptor()
@@ -77,7 +100,7 @@ struct SceneGaussianBlurPipeline {
         }
         encoder.setRenderPipelineState(state)
         encoder.setFragmentTexture(source, index: 0)
-        var stepUniform = SIMD4<Float>(step.x, step.y, 0, 0)
+        var stepUniform = SIMD4<Float>(step.x, step.y, Float(kernel.rawValue), 0)
         encoder.setFragmentBytes(&stepUniform, length: MemoryLayout<SIMD4<Float>>.size, index: 0)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         encoder.endEncoding()

@@ -58,11 +58,18 @@ struct SceneEffectTextureInput {
     let name: String
 }
 
+enum SceneGaussianBlurKernel: Int {
+    case large = 0
+    case medium = 1
+    case small = 2
+}
+
 struct SceneGaussianBlurPlan {
     let horizontalStep: Float
     let verticalStep: Float
     let sampleResolutionScale: Float
     let isPrecise: Bool
+    let kernel: SceneGaussianBlurKernel
 }
 
 struct SceneWorkshopShadowExecutionPlan: Equatable, Sendable {
@@ -607,9 +614,15 @@ enum Harness {
 
     static func effectDescriptor(
         index: Int,
+        kernel: Int = 0,
         verticalCombos: [String: Int] = ["VERTICAL": 1, "ENABLEMASK": 1]
     ) -> SceneRenderDescriptor.EffectDescriptor {
         let scale = SceneDocument.ShaderValue(components: [0.75, 0.75])
+        let horizontalCombos = kernel == 0 ? [:] : ["KERNEL": kernel]
+        var resolvedVerticalCombos = verticalCombos
+        if kernel != 0 {
+            resolvedVerticalCombos["KERNEL"] = kernel
+        }
         return .init(
             id: "42#effect#\(index)",
             visible: true,
@@ -618,14 +631,14 @@ enum Harness {
                     passIndex: 0,
                     textureSlots: [],
                     userTextureInputs: [],
-                    combos: [:],
+                    combos: horizontalCombos,
                     constantShaderValues: ["scale": scale]
                 ),
                 .init(
                     passIndex: 1,
                     textureSlots: [],
                     userTextureInputs: [],
-                    combos: verticalCombos,
+                    combos: resolvedVerticalCombos,
                     constantShaderValues: ["scale": scale]
                 ),
             ]
@@ -678,7 +691,7 @@ enum Harness {
                     contentKind: "text",
                     effects: [
                         effectDescriptor(index: 0),
-                        effectDescriptor(index: 1, verticalCombos: secondCombos),
+                        effectDescriptor(index: 1, kernel: 1, verticalCombos: secondCombos),
                     ]
                 ),
             ],
@@ -1081,6 +1094,7 @@ enum Harness {
                 "localContrastCount": chain.localContrastCount,
                 "liveTargetCount": chain.liveConsumerTargets.count,
                 "bothPrecise": chain.stages.allSatisfy { $0.gaussianBlur != nil },
+                "kernels": chain.stages.map { $0.gaussianBlur?.kernel.rawValue ?? -1 },
                 "fitsDefaultTextureBudget":
                     SceneAuthoredEffectChainPlanner.fitsDefaultTextureBudget(chain.stages),
                 "mixedSevenUnitChainFitsBudget":
@@ -1232,6 +1246,7 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         self.assertTrue(success["secondInputIsPriorOutput"])
         self.assertTrue(success["secondPreviousBindingIsPriorOutput"])
         self.assertTrue(success["bothPrecise"])
+        self.assertEqual(success["kernels"], [0, 1])
         self.assertEqual(success["stageCount"], 2)
         self.assertEqual(success["materialNodeCount"], 4)
         self.assertEqual(success["logicalTargetCount"], 2)

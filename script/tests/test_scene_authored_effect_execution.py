@@ -122,11 +122,18 @@ struct SceneEffectTextureInput {
     let name: String
 }
 
+enum SceneGaussianBlurKernel: Int {
+    case large = 0
+    case medium = 1
+    case small = 2
+}
+
 struct SceneGaussianBlurPlan {
     let horizontalStep: Float
     let verticalStep: Float
     let sampleResolutionScale: Float
     let isPrecise: Bool
+    let kernel: SceneGaussianBlurKernel
 }
 
 struct SceneWorkshopShadowExecutionPlan: Equatable, Sendable {
@@ -690,7 +697,11 @@ enum Harness {
         valueKind: String = "vector",
         userBinding: String? = nil,
         duplicateScaleKey: Bool = false,
-        legacyCompose: Bool = false
+        legacyCompose: Bool = false,
+        kernel: Int = 0,
+        verticalKernel: Int? = nil,
+        horizontalExtraCombos: [String: Int] = [:],
+        verticalExtraCombos: [String: Int] = [:]
     ) -> SceneRenderDescriptor.EffectDescriptor {
         var scaleValues = [
             "scale": SceneDocument.ShaderValue(
@@ -702,19 +713,28 @@ enum Harness {
         if duplicateScaleKey {
             scaleValues["Scale"] = .init(components: [scale, scale])
         }
+        var horizontalCombos = kernel == 0 ? [:] : ["KERNEL": kernel]
+        horizontalCombos.merge(horizontalExtraCombos) { _, replacement in replacement }
+        var verticalCombos = legacyCompose
+            ? ["VERTICAL": 1]
+            : ["VERTICAL": 1, "ENABLEMASK": 1]
+        let resolvedVerticalKernel = verticalKernel ?? kernel
+        if resolvedVerticalKernel != 0 {
+            verticalCombos["KERNEL"] = resolvedVerticalKernel
+        }
+        verticalCombos.merge(verticalExtraCombos) { _, replacement in replacement }
         return .init(
             id: "\(layerID)#effect#1",
             visible: true,
             passes: [
                 .init(
-                    passIndex: 0, textureSlots: [], userTextureInputs: [], combos: [:],
+                    passIndex: 0, textureSlots: [], userTextureInputs: [],
+                    combos: horizontalCombos,
                     constantShaderValues: scaleValues
                 ),
                 .init(
                     passIndex: 1, textureSlots: [], userTextureInputs: [],
-                    combos: legacyCompose
-                        ? ["VERTICAL": 1]
-                        : ["VERTICAL": 1, "ENABLEMASK": 1],
+                    combos: verticalCombos,
                     constantShaderValues: scaleValues
                 ),
             ]
@@ -1357,12 +1377,62 @@ enum Harness {
             ) else { return nil }
             return plan
         }
-        let legacyKernelRejected = SceneAuthoredEffectExecutionPlanner.plan(
+        let legacySmallPlan = SceneAuthoredEffectExecutionPlanner.plan(
             graph: graph(layerID: 10, legacyCompose: true),
             descriptor: SceneRenderDescriptor(
-                layers: legacyComposeDescriptor.layers,
-                materialPasses: materials(
-                    verticalCombos: ["VERTICAL": 1, "KERNEL": 2]
+                layers: [
+                    .init(
+                        id: 10, parentID: nil, visible: true, contentKind: "text",
+                        effects: [
+                            instanceEffect(
+                                layerID: 10, scale: 1.28,
+                                legacyCompose: true, kernel: 2
+                            ),
+                        ]
+                    ),
+                ],
+                materialPasses: materials(verticalCombos: ["VERTICAL": 1])
+            )
+        )
+        let mediumPlan = SceneAuthoredEffectExecutionPlanner.plan(
+            graph: graph(layerID: 10),
+            descriptor: descriptorForLayer10(
+                effect: instanceEffect(layerID: 10, kernel: 1)
+            )
+        )
+        let smallPlan = SceneAuthoredEffectExecutionPlanner.plan(
+            graph: graph(layerID: 10),
+            descriptor: descriptorForLayer10(
+                effect: instanceEffect(layerID: 10, kernel: 2)
+            )
+        )
+        let mismatchedKernelRejected = SceneAuthoredEffectExecutionPlanner.plan(
+            graph: graph(layerID: 10),
+            descriptor: descriptorForLayer10(
+                effect: instanceEffect(layerID: 10, kernel: 1, verticalKernel: 2)
+            )
+        ) == nil
+        let invalidKernelRejected = SceneAuthoredEffectExecutionPlanner.plan(
+            graph: graph(layerID: 10),
+            descriptor: descriptorForLayer10(
+                effect: instanceEffect(layerID: 10, kernel: 3)
+            )
+        ) == nil
+        let actualMaskRejected = SceneAuthoredEffectExecutionPlanner.plan(
+            graph: graph(layerID: 10),
+            descriptor: descriptorForLayer10(
+                effect: instanceEffect(
+                    layerID: 10,
+                    verticalExtraCombos: ["MASK": 1]
+                )
+            )
+        ) == nil
+        let blurAlphaRejected = SceneAuthoredEffectExecutionPlanner.plan(
+            graph: graph(layerID: 10),
+            descriptor: descriptorForLayer10(
+                effect: instanceEffect(
+                    layerID: 10,
+                    horizontalExtraCombos: ["BLURALPHA": 1]
                 )
             )
         ) == nil
@@ -1439,7 +1509,15 @@ enum Harness {
             "legacyComposePlanned": legacyComposePlan?.usesLegacyComposeNormalization == true
                 && legacyComposeTargetPlan?.logicalTargets.map(\.extent)
                     == [.init(width: 1920, height: 1080)],
-            "legacyKernelRejected": legacyKernelRejected,
+            "preciseKernels": [
+                preciseBlur.kernel.rawValue,
+                mediumPlan?.gaussianBlur?.kernel.rawValue ?? -1,
+                smallPlan?.gaussianBlur?.kernel.rawValue ?? -1,
+                legacySmallPlan?.gaussianBlur?.kernel.rawValue ?? -1,
+            ],
+            "mismatchedKernelRejected": mismatchedKernelRejected,
+            "invalidKernelRejected": invalidKernelRejected,
+            "maskAndBlurAlphaRejected": actualMaskRejected && blurAlphaRejected,
             "lateCommandRejected": SceneAuthoredEffectExecutionPlanner.plan(
                 graph: interleavedGraph(commandKind: .copy, commandAfterVertical: true),
                 descriptor: descriptor
@@ -1579,9 +1657,12 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertTrue(self.result["lateCommandRejected"])
         self.assertTrue(self.result["composedCommandRejected"])
 
-    def test_precise_blur_accepts_exact_legacy_compose_profile(self) -> None:
+    def test_precise_blur_accepts_all_bounded_kernel_sizes(self) -> None:
         self.assertTrue(self.result["legacyComposePlanned"])
-        self.assertTrue(self.result["legacyKernelRejected"])
+        self.assertEqual(self.result["preciseKernels"], [0, 1, 2, 2])
+        self.assertTrue(self.result["mismatchedKernelRejected"])
+        self.assertTrue(self.result["invalidKernelRejected"])
+        self.assertTrue(self.result["maskAndBlurAlphaRejected"])
 
     def test_default_standard_blur_graph_is_planned(self) -> None:
         self.assertEqual(self.result["standardPlanned"], [530])

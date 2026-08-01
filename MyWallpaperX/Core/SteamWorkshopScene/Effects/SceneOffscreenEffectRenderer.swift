@@ -191,6 +191,7 @@ enum SceneOffscreenEffectRenderer {
                     source: input,
                     target: target,
                     step: SIMD2(horizontalStep, 0),
+                    kernel: plan.kernel,
                     commandBuffer: commandBuffer
                 )
             case 1:
@@ -202,6 +203,7 @@ enum SceneOffscreenEffectRenderer {
                     source: source,
                     target: target,
                     step: SIMD2(0, verticalStep),
+                    kernel: plan.kernel,
                     commandBuffer: commandBuffer
                 )
             default:
