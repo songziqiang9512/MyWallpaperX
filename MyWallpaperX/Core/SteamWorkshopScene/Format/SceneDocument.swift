@@ -367,7 +367,8 @@ struct SceneDocumentLoader {
                 userBinding: keyed["user"] as? String,
                 components: components.isEmpty ? nil : components,
                 timeline: timeline.animation,
-                timelineDiagnostics: timeline.diagnostics.map(\.token)
+                timelineDiagnostics: timeline.diagnostics.map(\.token),
+                scriptSource: keyed["script"] as? String, bindingKeys: uniqueSorted(Array(keyed.keys))
             )
         }
         return SceneDocument.ShaderValue(

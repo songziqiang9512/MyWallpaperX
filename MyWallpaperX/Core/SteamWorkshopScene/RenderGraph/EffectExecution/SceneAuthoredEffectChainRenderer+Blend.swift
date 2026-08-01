@@ -7,6 +7,7 @@ extension SceneAuthoredEffectChainRenderer {
         masks: SceneImageLayerMasks,
         auxMask: MTLTexture?,
         targets: SceneGraphRenderTargetTable,
+        dynamicValues: SceneDynamicSnapshot,
         sourceUniforms: SceneLayerFragmentUniforms,
         sourcePipeline: SceneImageLayerPipeline,
         blendPipeline: SceneBlendPipeline,
@@ -29,7 +30,7 @@ extension SceneAuthoredEffectChainRenderer {
                   source: targets.inputTexture,
                   blend: arguments.blend.texture,
                   target: targets.outputTexture,
-                  multiply: blend.multiply,
+                  multiply: blend.resolvedMultiply(in: dynamicValues),
                   blendUVScale: arguments.uvScale,
                   blendSampling: arguments.blend.sampling,
                   commandBuffer: commandBuffer

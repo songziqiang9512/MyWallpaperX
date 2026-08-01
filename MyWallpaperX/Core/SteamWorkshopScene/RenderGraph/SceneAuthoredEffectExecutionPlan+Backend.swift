@@ -200,6 +200,7 @@ extension SceneAuthoredEffectExecutionPlan {
         var targets = Set<SceneDynamicTarget>()
         if let target = localContrast?.liveStrengthTarget { targets.insert(target) }
         if let target = opacity?.liveAlphaTarget { targets.insert(target) }
+        if let target = blend?.liveMultiplyTarget { targets.insert(target) }
         if let xRay { targets.formUnion(xRay.liveConsumerTargets) }
         if let tint { targets.formUnion(tint.liveConsumerTargets) }
         if let pulse { targets.formUnion(pulse.liveConsumerTargets) }

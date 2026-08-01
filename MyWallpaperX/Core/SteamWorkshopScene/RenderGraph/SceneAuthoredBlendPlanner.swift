@@ -9,6 +9,11 @@ enum SceneAuthoredBlendPlanner {
         let propertyKey: String?
     }
 
+    private struct Multiply {
+        let authoredValue: Float
+        let dynamicBinding: SceneTimeOfDayEffectScriptBinding?
+    }
+
     nonisolated static func plan(
         graph: Graph,
         descriptor: SceneRenderDescriptor,
@@ -48,7 +53,10 @@ enum SceneAuthoredBlendPlanner {
               ).node,
               validRenderState(resolved.renderState),
               validCombos(resolved.combos),
-              let multiply = multiply(from: resolved.constants),
+              let multiply = multiply(
+                  from: resolved.constants,
+                  target: multiplyTarget(for: effect.key)
+              ),
               let selection = textureSelection(
                   from: resolved.textureSlots,
                   texturePropertyKeys: Set(descriptor.texturePropertyKeys)
@@ -62,7 +70,8 @@ enum SceneAuthoredBlendPlanner {
             renderGraph: graph,
             shaderProfile: shaderProfile,
             blendMode: 0,
-            multiply: multiply,
+            multiply: multiply.authoredValue,
+            dynamicMultiplyBinding: multiply.dynamicBinding,
             assetTexturePath: selection.assetPath,
             userPropertyKey: selection.propertyKey
         )
@@ -169,7 +178,10 @@ enum SceneAuthoredBlendPlanner {
               pass.texturePaths == [path],
               validUserTextureInputs(pass.userTextureInputs),
               validCombos(pass.combos),
-              multiply(from: pass.constantShaderValues) != nil else {
+              multiply(
+                  from: pass.constantShaderValues,
+                  target: multiplyTarget(for: effect.key)
+              ) != nil else {
             return false
         }
         return SceneNamedTextureReference.parse(path) == nil
@@ -239,22 +251,43 @@ enum SceneAuthoredBlendPlanner {
     }
 
     private nonisolated static func multiply(
-        from constants: [String: SceneDocument.ShaderValue]
-    ) -> Float? {
+        from constants: [String: SceneDocument.ShaderValue],
+        target: SceneDynamicTarget
+    ) -> Multiply? {
         var normalized: [String: SceneDocument.ShaderValue] = [:]
         for (key, value) in constants {
             guard normalized.updateValue(value, forKey: key.lowercased()) == nil else { return nil }
         }
         let allowed = Set(["multiply", "alpha", "blendangle", "blendoffset", "blendscale"])
         guard normalized.keys.allSatisfy(allowed.contains),
-              let multiply = number(normalized["multiply"], range: 0...2),
               number(normalized["alpha"], range: 1...1, default: 1) != nil,
               number(normalized["blendangle"], range: 0...0, default: 0) != nil,
               number(normalized["blendscale"], range: 1...1, default: 1) != nil,
               validNeutralOffset(normalized["blendoffset"]) else {
             return nil
         }
-        return multiply
+        if let multiply = number(normalized["multiply"], range: 0...2) {
+            return Multiply(authoredValue: multiply, dynamicBinding: nil)
+        }
+        guard let value = normalized["multiply"],
+              let binding = SceneTimeOfDayEffectScriptCompiler.compile(
+                  value: value, target: target
+              ),
+              case let .scalar(authored) = binding.definition.authoredValue else {
+            return nil
+        }
+        return Multiply(authoredValue: Float(authored), dynamicBinding: binding)
+    }
+
+    private nonisolated static func multiplyTarget(
+        for effect: Graph.EffectKey
+    ) -> SceneDynamicTarget {
+        .effectConstant(
+            layerID: effect.layerID,
+            effectIndex: effect.effectIndex,
+            passIndex: 0,
+            name: "multiply"
+        )
     }
 
     private nonisolated static func number(

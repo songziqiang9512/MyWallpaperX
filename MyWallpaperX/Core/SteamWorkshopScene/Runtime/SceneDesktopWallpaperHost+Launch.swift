@@ -8,6 +8,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let spriteTextureLoader: SceneMultiImageSpriteTextureLoader
     let timelineProgram: SceneTimelineProgram
     let textScriptProgram: SceneTextScriptProgram
+    let timeOfDayEffectScriptProgram: SceneTimeOfDayEffectScriptProgram
     let sceneScriptAudioBarsProgram: SceneScriptAudioBarsProgram
     var liveState: ScenePropertyLiveUpdateState
     let userPropertyTextureURLs: [String: URL]
@@ -53,6 +54,13 @@ extension SceneDesktopWallpaperHost {
             authoredPlans: runtimeInput.authoredEffectRenderPlans,
             shaderContracts: runtimeInput.shaderContracts
         )
+        let timeOfDayEffectScriptProgram = SceneTimeOfDayEffectScriptProgram(
+            bindings: authoredEffectCatalog.chainsByLayerID.keys.sorted().flatMap { layerID in
+                authoredEffectCatalog.chainsByLayerID[layerID]?.stages.compactMap {
+                    $0.blend?.dynamicMultiplyBinding
+                } ?? []
+            }
+        )
         guard let device = MTLCreateSystemDefaultDevice() else {
             throw SceneDesktopWallpaperHostLaunchError.noSurface
         }
@@ -67,6 +75,7 @@ extension SceneDesktopWallpaperHost {
             textScriptProgram: SceneTextScriptCompiler.compile(
                 descriptor: runtimeInput.renderDescriptor
             ),
+            timeOfDayEffectScriptProgram: timeOfDayEffectScriptProgram,
             sceneScriptAudioBarsProgram: SceneScriptAudioBarsCompiler.compile(
                 descriptor: runtimeInput.renderDescriptor,
                 shaderContracts: runtimeInput.shaderContracts

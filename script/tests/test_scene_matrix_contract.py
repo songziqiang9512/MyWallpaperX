@@ -87,6 +87,13 @@ class SceneMatrixContractTests(unittest.TestCase):
         runtime["particle_skipped_transparent"] = 2
         runtime["text_script_binding_count"] = 1
         runtime["text_script_binding_layer_ids"] = [42]
+        runtime["time_of_day_effect_script_binding_count"] = 1
+        runtime["time_of_day_effect_script_bindings"] = [{
+            "layer_id": 42,
+            "effect_index": 0,
+            "pass_index": 0,
+            "constant": "multiply",
+        }]
         sample = matrix_generator.matrix_sample(
             result,
             {
@@ -94,6 +101,8 @@ class SceneMatrixContractTests(unittest.TestCase):
                 "expected_particle_skipped_transparent": 0,
                 "expected_text_script_binding_count": 0,
                 "required_text_script_binding_layer_ids": [],
+                "expected_time_of_day_effect_script_binding_count": 0,
+                "required_time_of_day_effect_script_bindings": [],
             },
         )
         self.assertEqual(sample["expected_particle_refract_loaded"], 3)
@@ -102,6 +111,13 @@ class SceneMatrixContractTests(unittest.TestCase):
         self.assertEqual(
             sample["required_text_script_binding_layer_ids"],
             [42],
+        )
+        self.assertEqual(
+            sample["expected_time_of_day_effect_script_binding_count"], 1
+        )
+        self.assertEqual(
+            sample["required_time_of_day_effect_script_bindings"],
+            runtime["time_of_day_effect_script_bindings"],
         )
 
 

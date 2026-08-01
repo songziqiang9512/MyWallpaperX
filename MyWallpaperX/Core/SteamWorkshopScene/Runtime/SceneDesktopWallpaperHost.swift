@@ -275,6 +275,10 @@ final class SceneDesktopWallpaperHost {
                     to: launchContext.logURL,
                     program: launchContext.textScriptProgram
                 )
+                Self.appendTimeOfDayEffectScriptReport(
+                    to: launchContext.logURL,
+                    program: launchContext.timeOfDayEffectScriptProgram
+                )
                 Self.appendSceneScriptAudioBarsReport(
                     to: launchContext.logURL,
                     program: launchContext.sceneScriptAudioBarsProgram

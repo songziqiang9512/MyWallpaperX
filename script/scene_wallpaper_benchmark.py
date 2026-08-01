@@ -66,6 +66,19 @@ TEXT_SCRIPT_BINDING_RE = re.compile(
     r"value@fixture=(?P<value>.+)$",
     re.MULTILINE,
 )
+TIME_OF_DAY_EFFECT_SCRIPT_BINDING_COUNT_RE = re.compile(
+    r"^timeOfDayEffectScriptBindingCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
+TIME_OF_DAY_EFFECT_SCRIPT_DEBUG_WALL_DATE_RE = re.compile(
+    r"^timeOfDayEffectScriptDebugWallDate: (?P<value>\S+)$",
+    re.MULTILINE,
+)
+TIME_OF_DAY_EFFECT_SCRIPT_BINDING_RE = re.compile(
+    r"^time-of-day effect script: layer=(?P<layer>\d+) "
+    r"effect=(?P<effect>\d+) pass=(?P<pass>\d+) constant=(?P<constant>\S+)$",
+    re.MULTILINE,
+)
 SCENE_SCRIPT_AUDIO_BARS_PLAN_COUNT_RE = re.compile(
     r"^sceneScriptAudioBarsPlanCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -1070,6 +1083,25 @@ def text_script_runtime_metrics(preview_text: str) -> dict[str, Any]:
             int(diagnostic_match.group("count")) if diagnostic_match else None
         ),
         "binding_layer_ids": sorted(binding["layer_id"] for binding in bindings),
+        "bindings": bindings,
+    }
+
+
+def time_of_day_effect_script_runtime_metrics(preview_text: str) -> dict[str, Any]:
+    count_match = TIME_OF_DAY_EFFECT_SCRIPT_BINDING_COUNT_RE.search(preview_text)
+    wall_date_match = TIME_OF_DAY_EFFECT_SCRIPT_DEBUG_WALL_DATE_RE.search(preview_text)
+    bindings = [
+        {
+            "layer_id": int(match.group("layer")),
+            "effect_index": int(match.group("effect")),
+            "pass_index": int(match.group("pass")),
+            "constant": match.group("constant"),
+        }
+        for match in TIME_OF_DAY_EFFECT_SCRIPT_BINDING_RE.finditer(preview_text)
+    ]
+    return {
+        "binding_count": int(count_match.group("count")) if count_match else None,
+        "debug_wall_date": wall_date_match.group("value") if wall_date_match else None,
         "bindings": bindings,
     }
 
@@ -2127,6 +2159,9 @@ def run_sample(
     text_total = int(text_loaded_match.group("total")) if text_loaded_match else 0
     text_loaded_layer_ids = [int(match.group("id")) for match in TEXT_LAYER_OK_RE.finditer(preview_text)]
     text_script_runtime = text_script_runtime_metrics(preview_text)
+    time_of_day_effect_script_runtime = time_of_day_effect_script_runtime_metrics(
+        preview_text
+    )
     scene_script_audio_bars_runtime = scene_script_audio_bars_runtime_metrics(
         preview_text
     )
@@ -2531,6 +2566,20 @@ def run_sample(
     if required_text_script_binding_layer_ids:
         if text_script_runtime["binding_layer_ids"] != required_text_script_binding_layer_ids:
             failures.append("text script binding layer IDs mismatch")
+    expected_time_of_day_binding_count = sample.get(
+        "expected_time_of_day_effect_script_binding_count"
+    )
+    if expected_time_of_day_binding_count is not None:
+        if time_of_day_effect_script_runtime["binding_count"] != int(
+            expected_time_of_day_binding_count
+        ):
+            failures.append("time-of-day effect script binding count mismatch")
+    required_time_of_day_bindings = sample.get(
+        "required_time_of_day_effect_script_bindings", []
+    )
+    if required_time_of_day_bindings:
+        if time_of_day_effect_script_runtime["bindings"] != required_time_of_day_bindings:
+            failures.append("time-of-day effect script bindings mismatch")
     failures.extend(
         scene_script_audio_bars_runtime_failures(
             sample,
@@ -2655,6 +2704,15 @@ def run_sample(
             "text_script_diagnostic_count": text_script_runtime["diagnostic_count"],
             "text_script_binding_layer_ids": text_script_runtime["binding_layer_ids"],
             "text_script_bindings": text_script_runtime["bindings"],
+            "time_of_day_effect_script_binding_count": (
+                time_of_day_effect_script_runtime["binding_count"]
+            ),
+            "time_of_day_effect_script_debug_wall_date": (
+                time_of_day_effect_script_runtime["debug_wall_date"]
+            ),
+            "time_of_day_effect_script_bindings": (
+                time_of_day_effect_script_runtime["bindings"]
+            ),
             "scene_script_audio_bars_plan_count": (
                 scene_script_audio_bars_runtime["plan_count"]
             ),

@@ -26,6 +26,11 @@ HOST_FRAME_DRIVER_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
 )
+HOST_TIME_OF_DAY_REPORT_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
+    / "SceneDesktopWallpaperHost+TimeOfDayEffectScriptReport.swift"
+)
 HOST_VIDEO_PROVIDERS_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
@@ -367,6 +372,20 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("dynamicValues: dynamicValues", view)
         self.assertNotIn("displayTimer", view)
         self.assertNotIn("renderStartTime", view)
+
+    def test_debug_wall_date_override_is_bounded_to_evidence_runs(self) -> None:
+        report = HOST_TIME_OF_DAY_REPORT_SOURCE.read_text(encoding="utf-8")
+        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        override = swift_body(report, "static let debugWallDateOverride: Date?")
+        self.assertIn("usesDebugEvidenceWindow", override)
+        self.assertIn("MYWALLPAPERX_SCENE_DEBUG_WALL_DATE", override)
+        self.assertIn("ISO8601DateFormatter().date", override)
+        self.assertIn(
+            "#if DEBUG", report[:report.index("static let debugWallDateOverride")]
+        )
+        self.assertIn("Self.debugWallDateOverride ?? Date()", frame_driver)
+        self.assertEqual(frame_driver.count("sceneClock.advance("), 1)
+        self.assertIn("wallDate: wallDate", frame_driver)
 
     def test_host_pause_state_controls_clock_and_frame_driver(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")

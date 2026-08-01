@@ -323,6 +323,7 @@ enum SceneAuthoredEffectChainRenderer {
                 masks: masks,
                 auxMask: auxMask,
                 targets: targets,
+                dynamicValues: dynamicValues,
                 sourceUniforms: sourceUniforms,
                 sourcePipeline: pipeline,
                 blendPipeline: blendPipeline,

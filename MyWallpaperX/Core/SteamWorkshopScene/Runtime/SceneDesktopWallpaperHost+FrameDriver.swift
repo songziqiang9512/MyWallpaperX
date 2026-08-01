@@ -40,11 +40,19 @@ extension SceneDesktopWallpaperHost {
         }
 #endif
         updateMouseLocations()
-        let timing = sceneClock.advance(hostTime: CACurrentMediaTime(), wallDate: Date())
+#if DEBUG
+        let wallDate = Self.debugWallDateOverride ?? Date()
+#else
+        let wallDate = Date()
+#endif
+        let timing = sceneClock.advance(hostTime: CACurrentMediaTime(), wallDate: wallDate)
         let definitions = SceneDynamicDefinitionMerger.merge(
             propertyDefinitions: launchContext.runtimeInput.propertyBindingProgram.definitions,
             timelineProgram: launchContext.timelineProgram,
-            textScriptProgram: launchContext.textScriptProgram
+            textScriptProgram: launchContext.textScriptProgram,
+            additionalDefinitions: launchContext.timeOfDayEffectScriptProgram.bindings.map(
+                \.definition
+            )
         )
         let audioSpectrum = SceneAudioSpectrumInbox.shared.latest()
         let timelineValues = SceneTimelineRuntime.values(
@@ -52,6 +60,10 @@ extension SceneDesktopWallpaperHost {
         )
         let textScriptValues = SceneTextScriptRuntime.values(
             program: launchContext.textScriptProgram,
+            wallDate: timing.wallDate
+        )
+        let timeOfDayEffectScriptValues = SceneTimeOfDayEffectScriptRuntime.values(
+            program: launchContext.timeOfDayEffectScriptProgram,
             wallDate: timing.wallDate
         )
         for surface in surfaces.values {
@@ -62,7 +74,10 @@ extension SceneDesktopWallpaperHost {
                 frameIndex: timing.frameIndex, definitions: definitions,
                 userValues: launchContext.liveState.userValues,
                 timelineValues: timelineValues,
-                sceneScriptValues: textScriptValues
+                sceneScriptValues: textScriptValues.merging(
+                    timeOfDayEffectScriptValues,
+                    uniquingKeysWith: { textValue, _ in textValue }
+                )
             ).snapshot
             surface.metalView.renderFrame(
                 timing: timing, dynamicValues: dynamicValues, audioSpectrum: audioSpectrum,

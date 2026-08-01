@@ -45,6 +45,32 @@ def runtime_evidence(runtime_input: dict[str, object]) -> dict[str, object]:
 
 
 class SceneWallpaperBenchmarkTests(unittest.TestCase):
+    def test_time_of_day_effect_script_metrics_keep_typed_targets(self) -> None:
+        metrics = benchmark.time_of_day_effect_script_runtime_metrics(
+            "\n".join([
+                "timeOfDayEffectScriptBindingCount: 2",
+                "timeOfDayEffectScriptDebugWallDate: 2026-07-31T22:00:00Z",
+                "time-of-day effect script: layer=301 effect=0 pass=0 constant=multiply",
+                "time-of-day effect script: layer=301 effect=1 pass=0 constant=multiply",
+            ])
+        )
+        self.assertEqual(metrics["binding_count"], 2)
+        self.assertEqual(metrics["debug_wall_date"], "2026-07-31T22:00:00Z")
+        self.assertEqual(metrics["bindings"], [
+            {
+                "layer_id": 301,
+                "effect_index": 0,
+                "pass_index": 0,
+                "constant": "multiply",
+            },
+            {
+                "layer_id": 301,
+                "effect_index": 1,
+                "pass_index": 0,
+                "constant": "multiply",
+            },
+        ])
+
     def test_project_preview_path_stays_inside_isolated_sample(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-preview-path-") as directory:
             root = Path(directory)

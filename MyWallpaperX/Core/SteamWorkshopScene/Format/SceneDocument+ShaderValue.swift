@@ -13,6 +13,10 @@ extension SceneDocument {
         /// Timeline fail-closed 的原因。非空即表示作者声明了 animation 但被拒绝，
         /// 不能当作「作者没写」静默丢弃。
         let timelineDiagnostics: [String]
+        /// Property-bound SceneScript source. Execution remains gated by a bounded compiler.
+        let scriptSource: String?
+        /// Full wrapper shape used to reject omitted or additional binding fields.
+        let bindingKeys: [String]
 
         /// 两个 Timeline 字段有默认值：官方 Timeline 挂在 scene object 的属性上，
         /// material pass 的 constant 不是它的宿主，那条通路（`SceneAssetCatalog`）
@@ -23,7 +27,9 @@ extension SceneDocument {
             userBinding: String?,
             components: [Double]?,
             timeline: SceneTimelineAnimation? = nil,
-            timelineDiagnostics: [String] = []
+            timelineDiagnostics: [String] = [],
+            scriptSource: String? = nil,
+            bindingKeys: [String] = []
         ) {
             self.rawValue = rawValue
             self.valueKind = valueKind
@@ -31,6 +37,8 @@ extension SceneDocument {
             self.components = components
             self.timeline = timeline
             self.timelineDiagnostics = timelineDiagnostics
+            self.scriptSource = scriptSource
+            self.bindingKeys = bindingKeys
         }
     }
 }

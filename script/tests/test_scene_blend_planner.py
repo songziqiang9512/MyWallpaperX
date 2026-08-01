@@ -20,10 +20,8 @@ from scene_real_test_fixtures import sample_cache_root
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 LEGACY_SAMPLE = sample_cache_root("2067939514")
-SIBLING_SAMPLES = [
-    sample_cache_root("2134765860"),
-    sample_cache_root("2419444134"),
-]
+CURRENT_STOCK_SAMPLE = sample_cache_root("2134765860")
+SIBLING_SAMPLE = sample_cache_root("2419444134")
 BUNDLE_STOCK = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Resources/SceneStockAssets.bundle/assets/effects/blend"
@@ -37,6 +35,9 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneShaderContract.swift",
     SOURCE_ROOT / "RenderGraph/SceneShaderContractLoader.swift",
     SOURCE_ROOT / "Resources/SceneNamedTextureReference.swift",
+    SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
+    SOURCE_ROOT / "Properties/SceneTimeOfDayEffectScriptProgram.swift",
+    SOURCE_ROOT / "Properties/SceneTimeOfDayEffectScriptCompiler.swift",
     SOURCE_ROOT / "RenderGraph/SceneBlendShaderProfile.swift",
     SOURCE_ROOT / "RenderGraph/SceneBlendExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredBlendPlanner.swift",
@@ -52,6 +53,26 @@ struct SceneDocument {
         let valueKind: String
         let userBinding: String?
         let components: [Double]?
+        let timeline: Int?
+        let timelineDiagnostics: [String]
+        let scriptSource: String?
+        let bindingKeys: [String]
+
+        init(
+            rawValue: String, valueKind: String, userBinding: String?,
+            components: [Double]?, timeline: Int? = nil,
+            timelineDiagnostics: [String] = [], scriptSource: String? = nil,
+            bindingKeys: [String] = []
+        ) {
+            self.rawValue = rawValue
+            self.valueKind = valueKind
+            self.userBinding = userBinding
+            self.components = components
+            self.timeline = timeline
+            self.timelineDiagnostics = timelineDiagnostics
+            self.scriptSource = scriptSource
+            self.bindingKeys = bindingKeys
+        }
     }
 }
 
@@ -131,6 +152,7 @@ enum Harness {
         var scale = 1.0
         var offset = [0.0, 0.0]
         var boundMultiply = false
+        var timeOfDayMultiply = false
         var extraCombo = false
         var extraConstant = false
         var renderState = "normal"
@@ -170,6 +192,13 @@ enum Harness {
             "blendoffset": value(options.offset, kind: "vector"),
             "blendscale": value([options.scale]),
         ]
+        if options.timeOfDayMultiply {
+            result["multiply"] = .init(
+                rawValue: "1", valueKind: "binding", userBinding: nil, components: [1],
+                scriptSource: timeOfDaySource,
+                bindingKeys: ["script", "user", "value"]
+            )
+        }
         if options.extraConstant { result["other"] = value([1]) }
         return result
     }
@@ -382,13 +411,16 @@ enum Harness {
             shaderReferences: [shaderIdentity],
             rootURL: roots[0]
         )
-        let siblings = roots.dropFirst().map {
-            loader.load(shaderReferences: [shaderIdentity], rootURL: $0)
-        }
+        let currentStock = loader.load(shaderReferences: [shaderIdentity], rootURL: roots[1])
+        let sibling = loader.load(shaderReferences: [shaderIdentity], rootURL: roots[2])
         let plan = SceneAuthoredBlendPlanner.plan(
             graph: graph(),
             descriptor: descriptor(),
             shaderContracts: contracts
+        )
+        var dynamic = Options(); dynamic.timeOfDayMultiply = true
+        let dynamicPlan = SceneAuthoredBlendPlanner.plan(
+            graph: graph(), descriptor: descriptor(dynamic), shaderContracts: contracts
         )
 
         var badHash = Options(); badHash.materialHash = String(repeating: "0", count: 64)
@@ -424,6 +456,9 @@ enum Harness {
         let result: [String: Bool] = [
             "profileResolved": SceneBlendShaderProfile.resolve(contracts)
                 == .legacySingleTexture,
+            "currentStockProfileResolved": SceneBlendShaderProfile.resolve(currentStock)
+                == .transformRepeatRequirementSingleTexture,
+            "currentStockProfileAccepted": accepted(contracts: currentStock),
             "parametersPreserved": plan.map {
                 $0.layerID == layerID
                     && $0.effectKey.descriptorID == descriptorID
@@ -432,6 +467,13 @@ enum Harness {
                     && $0.assetTexturePath == assetPath
                     && $0.userPropertyKey == "custombackground"
                     && $0.executedUserPropertyKeys == ["custombackground"]
+            } ?? false,
+            "timeOfDayMultiplyAccepted": dynamicPlan.map {
+                $0.dynamicMultiplyBinding?.definition.target
+                    == .effectConstant(
+                        layerID: layerID, effectIndex: 0, passIndex: 0, name: "multiply"
+                    )
+                    && $0.liveMultiplyTarget == $0.dynamicMultiplyBinding?.definition.target
             } ?? false,
             "assetFallbackAccepted": accepted(options: assetOnly, contracts: contracts),
             "priorAccepted": accepted(
@@ -447,10 +489,8 @@ enum Harness {
             "profileMutationsRejected": contractMutations.allSatisfy {
                 !accepted(contracts: mutate(contracts, $0))
             },
-            "siblingProfilesRejected": siblings.allSatisfy {
-                SceneBlendShaderProfile.resolve($0) == nil
-                    && !accepted(contracts: $0)
-            },
+            "siblingProfileRejected": SceneBlendShaderProfile.resolve(sibling) == nil
+                && !accepted(contracts: sibling),
             "descriptorMutationsRejected": [
                 badHash, badVersion, hidden, text, video, system, undeclared,
                 named, paths, mode, alpha, transform, repeatUV, mask, count,
@@ -464,6 +504,19 @@ enum Harness {
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }
+
+    static let timeOfDaySource = """
+    'use strict';
+    import * as WEMath from 'WEMath';
+    const START_HOUR = 7;
+    const END_HOUR = 18;
+    export function update(value) {
+        return Math.max(
+            WEMath.smoothStep(START_HOUR / 24, (START_HOUR - 0.004) / 24, engine.timeOfDay),
+            WEMath.smoothStep((END_HOUR - 0.004) / 24, END_HOUR / 24, engine.timeOfDay)
+        );
+    }
+    """
 }
 '''
 
@@ -472,7 +525,7 @@ class SceneBlendPlannerTests(unittest.TestCase):
     def test_exact_legacy_profile_is_admitted_and_siblings_fail_closed(self) -> None:
         if shutil.which("swiftc") is None:
             self.skipTest("swiftc is unavailable")
-        roots = [LEGACY_SAMPLE, *SIBLING_SAMPLES, BUNDLE_STOCK]
+        roots = [LEGACY_SAMPLE, CURRENT_STOCK_SAMPLE, SIBLING_SAMPLE, BUNDLE_STOCK]
         for root in roots:
             shader = root / "shaders/effects/blend.frag"
             if not shader.is_file():
