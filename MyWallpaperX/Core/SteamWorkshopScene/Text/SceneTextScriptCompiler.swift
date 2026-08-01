@@ -39,6 +39,22 @@ nonisolated enum SceneTextScriptCompiler {
             guard let script = layer.textScript else { continue }
             let sourceSHA256 = sha256(script.source)
             guard let profile = profile(sourceSHA256: sourceSHA256) else {
+                if let program = SceneTextScriptSubsetCompiler.compile(script.source) {
+                    bindings.append(.init(
+                        layerID: layer.id,
+                        profile: .ecmaTextUpdateSubset,
+                        configuration: .scriptSubset(
+                            program: program,
+                            properties: script.properties
+                        ),
+                        definition: .init(
+                            target: .text(layerID: layer.id, field: .content),
+                            valueType: .string,
+                            authoredValue: .string(layer.text ?? "")
+                        )
+                    ))
+                    continue
+                }
                 diagnostics.append(.init(
                     layerID: layer.id,
                     code: .unknownProfile,
@@ -147,6 +163,8 @@ nonisolated enum SceneTextScriptCompiler {
         timeOfDaySchedule: SceneTimeOfDaySchedule?
     ) -> SceneTextScriptProgram.Configuration? {
         switch profile {
+        case .ecmaTextUpdateSubset:
+            return nil
         case .workshop2981960200Clock:
             guard Set(properties.keys) == ["use24hFormat", "showSeconds", "delimiter"],
                   let use24Hour = bool(properties["use24hFormat"]),

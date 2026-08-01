@@ -20,6 +20,9 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Runtime/SceneTextureAnimationScriptCompiler.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "Text/SceneTextScriptDefinition.swift",
+    SOURCE_ROOT / "Text/SceneTextScriptSubsetProgram.swift",
+    SOURCE_ROOT / "Text/SceneTextScriptSubsetCompiler.swift",
+    SOURCE_ROOT / "Text/SceneTextScriptSubsetRuntime.swift",
     SOURCE_ROOT / "Text/SceneTextScriptProgram.swift",
     SOURCE_ROOT / "Text/SceneTextScriptCompiler.swift",
     SOURCE_ROOT / "Text/SceneTextScriptRuntime.swift",
@@ -78,6 +81,83 @@ enum Harness {
                 "use24hFormat": true,
             ],
         ])
+        let subsetSource = """
+        export var scriptProperties = createScriptProperties()
+            .addCheckbox({ name: 'twentyFourHours', value: true })
+            .addCheckbox({ name: 'includeSeconds', value: false })
+            .addText({ name: 'separator', value: ':' })
+            .finish();
+
+        export function update(previousText) {
+            const now = new Date();
+            var hours = now.getHours();
+            if (!scriptProperties.twentyFourHours) {
+                hours %= 12;
+                if (hours == 0) {
+                    hours = 12;
+                }
+            }
+            hours = ("00" + hours).slice(-2);
+            let minutes = ("00" + now.getMinutes()).slice(-2);
+            previousText = hours + scriptProperties.separator + minutes;
+            if (scriptProperties.includeSeconds) {
+                let seconds = ("00" + now.getSeconds()).slice(-2);
+                previousText += scriptProperties.separator + seconds;
+            }
+            return previousText;
+        }
+        """
+        let subsetDefinition = SceneTextScriptDefinition(
+            source: subsetSource,
+            properties: [
+                "separator": .string(":"),
+                "includeSeconds": .object([
+                    "user": .string("seconds"),
+                    "value": .bool(true),
+                ]),
+                "twentyFourHours": .bool(true),
+            ]
+        )
+        let subsetProgram = SceneTextScriptCompiler.compile(descriptor: .init(layers: [
+            .init(
+                id: 506,
+                contentKind: "text",
+                parentID: nil,
+                visible: true,
+                text: "fallback",
+                textScript: subsetDefinition
+            ),
+        ]))
+        let subset12HourProgram = SceneTextScriptCompiler.compile(descriptor: .init(layers: [
+            .init(
+                id: 507,
+                contentKind: "text",
+                parentID: nil,
+                visible: true,
+                text: "fallback",
+                textScript: .init(
+                    source: subsetSource,
+                    properties: [
+                        "separator": .string(":"),
+                        "includeSeconds": .bool(true),
+                        "twentyFourHours": .bool(false),
+                    ]
+                )
+            ),
+        ]))
+        let unsupportedLoop = SceneTextScriptCompiler.compile(descriptor: .init(layers: [
+            .init(
+                id: 606,
+                contentKind: "text",
+                parentID: nil,
+                visible: true,
+                text: "fallback",
+                textScript: .init(
+                    source: "export function update(value) { while (true) {} return value; }",
+                    properties: [:]
+                )
+            ),
+        ]))
         let clock = SceneTextScriptCompiler.compileVerifiedProfile(
             layerID: 68,
             authoredText: "12:34",
@@ -251,7 +331,8 @@ enum Harness {
         let program = SceneTextScriptProgram(
             bindings: clock.bindings + clock12.bindings + spacedDay.bindings + date.bindings
                 + compactDay.bindings + longMonthDate.bindings
-                + clockWithPeriod.bindings + clockWithDate.bindings + greeting.bindings,
+                + clockWithPeriod.bindings + clockWithDate.bindings + greeting.bindings
+                + subsetProgram.bindings + subset12HourProgram.bindings,
             diagnostics: []
         )
         let values = SceneTextScriptRuntime.values(
@@ -296,6 +377,10 @@ enum Harness {
             "greetingMorning": string(
                 morningValues[.text(layerID: 505, field: .content)]
             ),
+            "subsetClock": string(values[.text(layerID: 506, field: .content)]),
+            "subsetClock12": string(values[.text(layerID: 507, field: .content)]),
+            "subsetProfile": subsetProgram.bindings.first?.profile.rawValue,
+            "unsupportedLoop": unsupportedLoop.diagnostics.map { $0.code.rawValue },
             "greetingMissingSharedState": greetingMissingSharedState.diagnostics.map {
                 $0.code.rawValue
             },
@@ -389,7 +474,7 @@ class SceneTextScriptRuntimeTests(unittest.TestCase):
         cls.temporary_directory.cleanup()
 
     def test_verified_profiles_produce_expected_local_calendar_text(self) -> None:
-        self.assertEqual(self.payload["bindingCount"], 9)
+        self.assertEqual(self.payload["bindingCount"], 11)
         self.assertEqual(self.payload["clock"], "-23:07-")
         self.assertEqual(self.payload["clock12"], "-11:07-:05")
         self.assertEqual(self.payload["day"], "T U E S D A Y")
@@ -398,6 +483,9 @@ class SceneTextScriptRuntimeTests(unittest.TestCase):
         self.assertEqual(self.payload["longMonthDate"], "28  JULY  2026")
         self.assertEqual(self.payload["clockWithPeriod"], "11:07 PM")
         self.assertEqual(self.payload["clockWithDate"], "23:07:05\n07/28/2026")
+        self.assertEqual(self.payload["subsetClock"], "23:07:05")
+        self.assertEqual(self.payload["subsetClock12"], "11:07:05")
+        self.assertEqual(self.payload["subsetProfile"], "ecmaTextUpdateSubset")
         self.assertEqual(self.payload["greetingMorning"], "GOOD\nMORNING")
         self.assertEqual(self.payload["greetingNight"], "GOOD\nEVENING")
 
@@ -410,10 +498,11 @@ class SceneTextScriptRuntimeTests(unittest.TestCase):
             ["invalidProperties", "invalidProperties", "invalidProperties", "invalidProperties"],
         )
         self.assertEqual(self.payload["unknown"], ["unknownProfile"])
+        self.assertEqual(self.payload["unsupportedLoop"], ["unknownProfile"])
         self.assertEqual(self.payload["directUnknown"], ["92:unknownProfile"])
 
     def test_scene_script_value_wins_without_duplicate_definition(self) -> None:
-        self.assertEqual(self.payload["definitionCount"], 9)
+        self.assertEqual(self.payload["definitionCount"], 11)
         self.assertEqual(self.payload["resolved"], "-23:07-")
         self.assertEqual(self.payload["source"], "sceneScript")
         self.assertEqual(self.payload["runtimeDiagnostics"], 0)

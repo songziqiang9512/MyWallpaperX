@@ -9,6 +9,7 @@ nonisolated struct SceneTextScriptProgram: Equatable, Sendable {
         case workshop3732231168LongMonthDate
         case workshop3732231168Clock
         case workshop3732231168Greeting
+        case ecmaTextUpdateSubset
     }
 
     nonisolated enum Configuration: Equatable, Sendable {
@@ -31,6 +32,10 @@ nonisolated struct SceneTextScriptProgram: Equatable, Sendable {
             alignVertical: Bool,
             useDelimiter: Bool,
             delimiter: String
+        )
+        case scriptSubset(
+            program: SceneTextScriptSubsetProgram,
+            properties: [String: SceneJSONValue]
         )
     }
 

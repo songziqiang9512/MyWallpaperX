@@ -30,6 +30,17 @@ nonisolated enum SceneTextScriptRuntime {
         timeZone: TimeZone
     ) -> String? {
         switch binding.configuration {
+        case let .scriptSubset(program, properties):
+            guard case let .string(authoredValue) = binding.definition.authoredValue else {
+                return nil
+            }
+            return SceneTextScriptSubsetRuntime.evaluate(
+                program: program,
+                authoredValue: authoredValue,
+                properties: properties,
+                wallDate: wallDate,
+                timeZone: timeZone
+            )
         case let .clock(use24Hour, showSeconds, delimiter):
             guard var hour = components.hour,
                   let minute = components.minute,
@@ -129,6 +140,8 @@ nonisolated enum SceneTextScriptRuntime {
             return nil
         }
         switch profile {
+        case .ecmaTextUpdateSubset:
+            return nil
         case .workshop2981960200Clock,
              .workshop3732231168Clock,
              .workshop3732231168Greeting:
