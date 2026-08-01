@@ -410,7 +410,7 @@ Scene `Sound` 对象与 host spectrum provider 是两条合同。`mediaextension
 - color/alpha/format；
 - consumer slots。
 
-当前 v22 继承 typed registry 的 identity/status/resource generation/frame epoch。文件型第一切片仍只服务静态 image-blend；dynamic text 另以 per-layer signature/generation、串行异步 raster、stale cancellation 和 last-ready fallback 验证首个动态内容 lifecycle。它尚未抽成所有 provider 共用的 status/metadata/teardown，也不证明 `$mediaThumbnail`、Texture Variants、video generation、通用 material consumer 或 SceneScript 可用。
+当前 v22 继承 typed registry 的 identity/status/resource generation/frame epoch。文件型第一切片仍只服务静态 image-blend；dynamic text 以 per-layer signature/generation、串行异步 raster、stale cancellation 和 last-ready fallback 消费同一生命周期边界。embedded MP4 已有 launch-scoped publication generation；bounded media cover 另以 current/previous content generation、旧 request 协作取消、pending last-ready、clear/failure fallback 和严格 transition consumer 验证动态 provider。它们尚未抽成所有 provider 共用的 status/metadata/cancel/teardown，也不证明 Texture Variants、通用 video/material consumer、live system-media adapter 或 SceneScript 可用。
 
 ## 8. Puppet、3D 和 Lighting
 
@@ -458,16 +458,16 @@ Realtime Adapter              Offline Adapter
 | Timeline | IR、绝对 scene-time evaluator 与 38/48 typed target 子集已执行，覆盖 Loop/Single/Mirror/start-paused、effect constant/layer alpha 及 10 条 relative layer transform；其中 6 条普通图层走共享 world-frame，4 条 `lspot` 保持 strict consumer | 公开资料未定义私有 `relative` wire/合成公式，当前 additive 合同仍是 bounded clean-room 校准；wrap-loop、Combined、tangent、`maxwidth`/`zoom`、particle scalar override 与 event crossing 未完成，不能宣称任意动画模式可用 |
 | SceneScript | 顶层 layer binding IR 为 `L1`；七个 exact text、两个 exact 64-band audio profile和 property-bound text Date/string update subset 为 `L3 bounded` | 通用 ECMAScript VM/API、`registerAudioBuffers`/`AudioBuffers`、`createLayer`/`ILayer` handles 可用 |
 | User Properties | 独立窗口、条件、默认/override、部分 target 与持久化；`texture`/`scenetexture` 内部归一；受限静态 consumer 可选择 PNG/JPEG；已注册 B0/direct text/X-Ray target 可无重建更新 | 全部样本属性可调、所有 texture target/variant/live value 已闭环 |
-| Texture Provider | frame identity/status/generation、named variant 隔离、property absent -> authored fallback、受限 file-backed property source；direct text/embedded MP4 使用显式 content generation，视频有 launch-scoped pause/rebuild/stop 合同 | system media、Texture Variants、generic video/material 与 effectful/nested provider 已闭环 |
+| Texture Provider | frame identity/status/generation、named variant 隔离、property absent -> authored fallback、受限 file-backed property source；direct text/embedded MP4 使用显式 content generation，视频有 launch-scoped pause/rebuild/stop 合同；bounded current/previous media cover 还有旧 request 协作取消、last-ready/fallback 与一个严格 transition consumer | live system-media adapter、Texture Variants、generic video/material、effectful/nested provider、其余 provider cancellation 与单次 decode 抢占尚未闭环 |
 | Audio | Scene 16/32/64 host left/right、既有 effect consumers 与两个 native 64-band average profiles 已闭合 | JS `AudioBuffers`、Sound/self-play、粒子 audio 或任何数值/视觉 parity |
-| Media | Web 侧已有服务，Scene consumer 未开始 | Scene 媒体可用 |
+| Media | Scene 已有 bounded current/previous cover provider、严格 current Blend 与 previous gradient transition consumer；只有隔离 debug producer | live macOS producer、metadata/status/timeline snapshot、通用 event/SceneScript、其他 transition/variant 与真实切歌 lifecycle |
 
 ## 11. 实施顺序
 
 1. D1-D4 的 property 子集已完成：稳定 target、v22 binding program、per-surface evaluation transaction/snapshot、原子 generation，以及 B0/direct text/X-Ray 真实 consumer；未迁移 target 继续使用 rebuild fallback。
 2. D6 ordered strict effect-chain 与十四类 strict backend 已完成受限执行，包含 `Blur Precise -> Shadow`、Water chain、pointer-driven X-Ray 与 `[Blur Precise, God Rays]` 正门；这些 profile 不升级通用 graph、Directional/COPYBG God Rays、官方 Shadow/lighting 或 authored shader。
-3. Provider Core 并行补 dynamic generation、metadata/cancellation；nested/effectful provider 和通用 material consumer 放在 B1/B2 集成层，不能互相形成前置环。
-4. Direct dynamic text、X-Ray pointer、Timeline 的 38/48 typed target 子集、16/32/64 audio 输入与两个 exact native 64-band profiles 已完成；SceneScript core、Sound、media、其余 Timeline/particle 动态能力继续按 D10 的真实依赖接入。粒子 audio 在拿到官方求值公式证据前不接执行。
+3. Provider Core 已为 dynamic text 与 bounded media cover闭合局部 generation/cancellation/last-ready；继续补通用 metadata/cancellation/teardown。nested/effectful provider 和通用 material consumer 放在 B1/B2 集成层，不能互相形成前置环。
+4. Direct dynamic text、X-Ray pointer、Timeline 的 38/48 typed target 子集、16/32/64 audio 输入、两个 exact native 64-band profiles 与 bounded media cover 已完成；SceneScript core、Sound、通用 media、其余 Timeline/particle 动态能力继续按 D10 的真实依赖接入。粒子 audio 在拿到官方求值公式证据前不接执行。
 5. exact stock Opacity、Tint mask 与 stock Radial God Rays 子集已完成；下一批从能力开发计划按公共依赖、真实样本收益和 fail-closed 边界重新选择，不新增 effect-name 或样本 ID 近似。
 6. 广度闭合后用固定、扩展和新下载样本矩阵暴露冲突，再用 Windows golden 校准 effect、text、particle 和动态值精度；最后扩 Puppet/3D/Lighting 与离线编码产品层。
 
