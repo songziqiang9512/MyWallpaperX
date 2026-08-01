@@ -149,7 +149,7 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 | Exact native property-script profiles | D0 + D4 + D7 + D8 + D9 | text 三 profile 与 audio bars 两 profile 已形成 bounded native `L3`；完整指纹准入、失败关闭，不开放 API |
 | Generic SceneScript | D2 + D3 + D4 + D5 | 顶层 layer wrapper partial IR 已有；仍需 generic source/module/value IR、sandbox VM、lifecycle、typed handles/writes、events、budget |
 | dynamic text | D3 + D5 + D9 | direct property 子集已完成 per-layer generation、stale cancellation、last-ready；SceneScript/system/media producer 与 layout fidelity仍待推进 |
-| particle breadth | D2 + D3 + D4 + D5 + D8 + D9 | control point、child/event、world space、rope、audio、collision |
+| particle breadth | D2 + D3 + D4 + D5 + D8 + D9 | 静态 plain-image Layer Image 已复用 typed object dependency、base image texture 与 simulator；动态/text/puppet Layer Image、control point angle/space consumer、child/event、rope、audio、collision 仍待闭合 |
 | audio/media | D4 + D5 | audio 侧已闭合 consumer-driven 16/32/64 host input、既有 effect consumers 与两个 native 64-band consumers；embedded MP4 image-layer 已有受限 SceneClock/provider generation/lifecycle；通用 SceneScript bridge/Sound/particle audio、system media event ordering 与 thumbnail generation 仍未闭合 |
 
 <a id="d11"></a>

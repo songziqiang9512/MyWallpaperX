@@ -1,6 +1,6 @@
 # Scene 资料来源与证据索引
 
-> 核验日期：2026-07-31
+> 核验日期：2026-08-01
 >
 > 网络核验使用系统代理 `http://127.0.0.1:7897`。
 >
@@ -89,7 +89,7 @@
 - https://docs.wallpaperengine.io/en/scene/particles/tutorial/getting_started.html
 - https://docs.wallpaperengine.io/en/scene/particles/tutorial/spritesheet.html
 
-组件目录和关键参数已经进入 [运行时系统语义](runtime-systems-reference.md)。
+2026-08-01 复核 Emitter 页：官方明确列出 Sphere Random、Box Random 与 Layer Image 三类 emitter；Layer Image 可使用普通纹理、text 或 puppet source，并另有复制 layer color、周期 bitmap update、继承 layer motion 与 random offset 选项。公开页不定义私有 JSON dependency wire、像素采样中心、alpha threshold、更新 generation 或随机分布公式，因此当前 bounded executor 只把这些公开事实用于准入边界，不据此宣称数值等价。组件目录和关键参数已经进入 [运行时系统语义](runtime-systems-reference.md)。
 
 ### 1.6 Timeline
 
