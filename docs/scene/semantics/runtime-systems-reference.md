@@ -140,6 +140,8 @@ Movement 的 gravity、worldspace、drag；Vortex/Boids 的邻域；Collision �
 
 只解析第一个 renderer 或把 Rope 映射成 Sprite Trail 都不是兼容实现。Rope 的连接拓扑、UV continuity 和 lifetime 约束需要单独 simulation/render data。
 
+当前 `9a098351` 只开放 strict basic Rope：单一 Rope renderer、Screen/nil orientation、静态纹理、默认 raw flags、`maxcount 2...512`，按单调 birth ID 连接相邻存活粒子，生成至多 `N-1` 个 segment，并在整条 rope 上给出连续归一化 `0...1` UV。实现复用 fixed-step simulation 与既有 trail quad GPU 提交路径，但 topology/预算由独立 Rope plan 建立；subdivision、UV scale/smoothing/scroll、animated texture、world orientation、多个 renderer 和其他高级字段仍失败关闭。这个边界证明的是基础 Rope 公共执行子集，不是完整 Rope 或官方视觉等价。
+
 ### 2.6 Control Points
 
 官方支持索引 0...7。Control Point 可配置：
@@ -450,7 +452,7 @@ Realtime Adapter              Offline Adapter
 
 | 系统 | 当前实现状态 | 不能据此宣称 |
 |---|---|---|
-| Particle | 作者 2D sprite、部分 emitter/initializer/operator、Sprite Trail 与 strict child 子集；exact pointer-lock CP 1...7 可驱动 bounded local Control Point Force；Particle slot 0 可按 exact identity 消费 bundle 内 164 项 TEX，22-key 程序纹理只作缺失回退 | 路径存在或程序 fallback 等于官方视觉资产，或 child/rope/world-space/control point/collision/audio/全部 preset 完整；pointer force 没有 previous pointer、其他 consumer、world/perspective、官方 falloff/轨迹 golden，粒子 audio 声明虽已保真解析但 simulation 仍不消费 |
+| Particle | 作者 2D sprite、部分 emitter/initializer/operator、Sprite Trail、strict basic Rope 与 strict child 子集；basic Rope 按 birth ID 连接相邻存活粒子并提交连续归一 UV 的 bounded segment；exact pointer-lock CP 1...7 可驱动 bounded local Control Point Force；Particle slot 0 可按 exact identity 消费 bundle 内 164 项 TEX，22-key 程序纹理只作缺失回退 | 路径存在或程序 fallback 等于官方视觉资产，或 child/高级 Rope/world-space/control point/collision/audio/全部 preset 完整；basic Rope 不含 subdivision、UV modifiers、animated/world/multi-renderer 等高级语义；pointer force 没有 previous pointer、其他 consumer、world/perspective、官方 falloff/轨迹 golden，粒子 audio 声明虽已保真解析但 simulation 仍不消费 |
 | Text | CoreText 静态纹理、direct property 动态重栅格、部分 font/pointsize/padding/scale | 动态时间、system/media、完整 alignment/effects/SceneScript |
 | Effect graph | 内存 `SceneRuntimeInput` 保存 EffectDefinition/authored graph/provider metadata、ShaderContract 与 binding program；十四类 strict backend 及 ordered chain 已执行，包含 stock Radial God Rays 五 pass / 双 half RT。Debug evidence schema 1 只作结构验证 | dynamic effect、generic compose/history、通用 material/pass、authored shader 语义等价、未知/Directional God Rays 或官方 Shadow/lighting；精确当前门见 [运行证据索引](runtime-evidence-index.md) |
 | Frame Context | 宿主单一 60 Hz driver；所有屏幕共享 frame index/host/scene/wall time 及 raw/simulation/dropped delta/discontinuity；particle/parallax 消费受控 simulation delta，shader/video/Timeline 保持 raw/absolute time；pause 冻结 scene time/frame index，resume 首帧不补 host gap | 真实系统 pause/sleep、seek/history、其他 simulation consumer、不同 FPS、离线实时等价或 Windows timing 已闭环 |
