@@ -51,7 +51,6 @@ struct SceneMetalRenderer {
             executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,
             device: device
         )
-
         let byID = Dictionary(uniqueKeysWithValues: renderDescriptor.layers.map { ($0.id, $0) })
         self.layersByID = byID
         let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(
@@ -82,6 +81,7 @@ struct SceneMetalRenderer {
         offscreenTexturePool: SceneOffscreenTexturePool?,
         frameContext: SceneFrameContext,
         encodeSourceUpdates: ((MTLCommandBuffer) -> Void)? = nil,
+        encodeLayerSourceUpdates: ((MTLCommandBuffer) -> [Int: SceneTextureProviderPublication])? = nil,
         encodeFrameReadback: ((MTLTexture, MTLCommandBuffer) -> Void)? = nil,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
         to drawable: CAMetalDrawable
@@ -92,6 +92,9 @@ struct SceneMetalRenderer {
             return
         }
         encodeSourceUpdates?(commandBuffer)
+        let imageTextures = imageTextures.replacingLayerSources(
+            encodeLayerSourceUpdates?(commandBuffer) ?? [:]
+        )
         let frameWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(descriptor: renderDescriptor,
             byID: layersByID, snapshot: frameContext.dynamicValues, staticFrames: worldFramesByLayerID)
         let viewportSize = frameContext.screenSize

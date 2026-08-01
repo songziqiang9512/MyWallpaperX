@@ -50,10 +50,14 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "\n".join([
                 "mediaThumbnailCurrentBindingCount: 3",
                 "mediaThumbnailCurrentBindingLayerIDs: 10,20,30",
+                "mediaThumbnailPreviousTransitionCount: 2",
+                "mediaThumbnailPreviousTransitionLayerIDs: 10,30",
             ])
         )
         self.assertEqual(metrics["current_binding_count"], 3)
         self.assertEqual(metrics["current_binding_layer_ids"], [10, 20, 30])
+        self.assertEqual(metrics["previous_transition_count"], 2)
+        self.assertEqual(metrics["previous_transition_layer_ids"], [10, 30])
 
     def test_time_of_day_effect_script_metrics_keep_typed_targets(self) -> None:
         metrics = benchmark.time_of_day_effect_script_runtime_metrics(
@@ -911,6 +915,61 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                     invalid_failures,
                     ["invalid isolated media thumbnail path"],
                 )
+
+    def test_media_thumbnail_sequence_stays_inside_isolated_sample(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-media-thumbnail-sequence-") as directory:
+            runtime_sample = Path(directory)
+            (runtime_sample / "next.png").write_bytes(b"fixture")
+            command = ["MyWallpaperX"]
+            failures: list[str] = []
+            benchmark.append_media_thumbnail_sequence_argument(
+                command,
+                [{"path": "next.png", "delay": 1.5}],
+                runtime_sample,
+                failures,
+            )
+            self.assertEqual(failures, [])
+            self.assertEqual(command[:2], [
+                "MyWallpaperX",
+                "--mwx-debug-scene-media-thumbnail-sequence-json",
+            ])
+            self.assertEqual(
+                json.loads(command[2]),
+                [{"path": "next.png", "delay": 1.5}],
+            )
+            for invalid in (
+                [{"path": "../next.png", "delay": 1.5}],
+                [{"path": "next.png", "delay": 0}],
+                [{"path": "next.png", "delay": True}],
+                [{"path": "missing.png", "delay": 1.5}],
+            ):
+                invalid_failures: list[str] = []
+                benchmark.append_media_thumbnail_sequence_argument(
+                    [], invalid, runtime_sample, invalid_failures
+                )
+                self.assertEqual(
+                    invalid_failures,
+                    ["invalid isolated media thumbnail sequence"],
+                )
+
+    def test_media_thumbnail_transition_execution_metrics_collect_exact_phases(self) -> None:
+        log = """
+MWX media thumbnail transition: layer=526 generation=2 phase=started duration=1.0
+MWX media thumbnail transition: layer=642 generation=2 phase=started duration=1.0
+MWX media thumbnail transition: layer=526 generation=2 phase=midpoint
+MWX media thumbnail transition: layer=642 generation=2 phase=midpoint
+X media thumbnail transition: layer=526 generation=2 phase=completed
+MWX media thumbnail transition: layer=642 generation=2 phase=completed
+"""
+        self.assertEqual(
+            benchmark.media_thumbnail_transition_execution_metrics(log),
+            {
+                "generation_ids": [2],
+                "started_layer_ids": [526, 642],
+                "midpoint_layer_ids": [526, 642],
+                "completed_layer_ids": [526, 642],
+            },
+        )
 
     def test_live_property_output_requires_a_visible_post_update_change(self) -> None:
         sample = {"minimum_live_changed_ratio": 0.01}

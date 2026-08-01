@@ -87,6 +87,18 @@ MEDIA_THUMBNAIL_CURRENT_BINDING_LAYER_IDS_RE = re.compile(
     r"^mediaThumbnailCurrentBindingLayerIDs: (?P<ids>[\d,]*)$",
     re.MULTILINE,
 )
+MEDIA_THUMBNAIL_PREVIOUS_TRANSITION_COUNT_RE = re.compile(
+    r"^mediaThumbnailPreviousTransitionCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
+MEDIA_THUMBNAIL_PREVIOUS_TRANSITION_LAYER_IDS_RE = re.compile(
+    r"^mediaThumbnailPreviousTransitionLayerIDs: (?P<ids>[\d,]*)$",
+    re.MULTILINE,
+)
+MEDIA_THUMBNAIL_TRANSITION_EXECUTION_RE = re.compile(
+    r"media thumbnail transition: layer=(?P<id>\d+) "
+    r"generation=(?P<generation>\d+) phase=(?P<phase>started|midpoint|completed)"
+)
 SCENE_SCRIPT_AUDIO_BARS_PLAN_COUNT_RE = re.compile(
     r"^sceneScriptAudioBarsPlanCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -1117,6 +1129,12 @@ def time_of_day_effect_script_runtime_metrics(preview_text: str) -> dict[str, An
 def media_thumbnail_runtime_metrics(preview_text: str) -> dict[str, Any]:
     count_match = MEDIA_THUMBNAIL_CURRENT_BINDING_COUNT_RE.search(preview_text)
     layer_ids_match = MEDIA_THUMBNAIL_CURRENT_BINDING_LAYER_IDS_RE.search(preview_text)
+    transition_count_match = MEDIA_THUMBNAIL_PREVIOUS_TRANSITION_COUNT_RE.search(
+        preview_text
+    )
+    transition_layer_ids_match = (
+        MEDIA_THUMBNAIL_PREVIOUS_TRANSITION_LAYER_IDS_RE.search(preview_text)
+    )
     layer_ids = []
     if layer_ids_match:
         layer_ids = [
@@ -1129,6 +1147,33 @@ def media_thumbnail_runtime_metrics(preview_text: str) -> dict[str, Any]:
             int(count_match.group("count")) if count_match else None
         ),
         "current_binding_layer_ids": layer_ids,
+        "previous_transition_count": (
+            int(transition_count_match.group("count"))
+            if transition_count_match else None
+        ),
+        "previous_transition_layer_ids": [
+            int(value)
+            for value in transition_layer_ids_match.group("ids").split(",")
+            if value
+        ] if transition_layer_ids_match else [],
+    }
+
+
+def media_thumbnail_transition_execution_metrics(log_text: str) -> dict[str, Any]:
+    phases: dict[str, set[int]] = {
+        "started": set(),
+        "midpoint": set(),
+        "completed": set(),
+    }
+    generations: set[int] = set()
+    for match in MEDIA_THUMBNAIL_TRANSITION_EXECUTION_RE.finditer(log_text):
+        phases[match.group("phase")].add(int(match.group("id")))
+        generations.add(int(match.group("generation")))
+    return {
+        "generation_ids": sorted(generations),
+        "started_layer_ids": sorted(phases["started"]),
+        "midpoint_layer_ids": sorted(phases["midpoint"]),
+        "completed_layer_ids": sorted(phases["completed"]),
     }
 
 
@@ -2050,6 +2095,43 @@ def append_media_thumbnail_argument(
     ])
 
 
+def append_media_thumbnail_sequence_argument(
+    command: list[str],
+    sequence: Any,
+    runtime_sample: Path,
+    failures: list[str],
+) -> None:
+    if sequence is None:
+        return
+    if not isinstance(sequence, list) or not 1 <= len(sequence) <= 8:
+        failures.append("invalid isolated media thumbnail sequence")
+        return
+    normalized: list[dict[str, Any]] = []
+    for entry in sequence:
+        if not isinstance(entry, dict) or set(entry) != {"path", "delay"}:
+            failures.append("invalid isolated media thumbnail sequence")
+            return
+        path = Path(str(entry["path"]))
+        delay = entry["delay"]
+        if (
+            path.is_absolute()
+            or ".." in path.parts
+            or path.suffix.lower() not in {".png", ".jpg", ".jpeg"}
+            or not (runtime_sample / path).is_file()
+            or isinstance(delay, bool)
+            or not isinstance(delay, (int, float))
+            or not math.isfinite(delay)
+            or not 0.1 <= delay <= 60
+        ):
+            failures.append("invalid isolated media thumbnail sequence")
+            return
+        normalized.append({"path": str(path), "delay": float(delay)})
+    command.extend([
+        "--mwx-debug-scene-media-thumbnail-sequence-json",
+        json.dumps(normalized, ensure_ascii=False, separators=(",", ":")),
+    ])
+
+
 def live_property_update_metrics(log_text: str) -> dict[str, Any] | None:
     match = LIVE_PROPERTY_UPDATE_RE.search(log_text)
     if match is None:
@@ -2158,6 +2240,12 @@ def run_sample(
         runtime_sample,
         failures,
     )
+    append_media_thumbnail_sequence_argument(
+        command,
+        sample.get("media_thumbnail_sequence"),
+        runtime_sample,
+        failures,
+    )
     hover_pointer = hover_pointer_normalized(sample)
     if hover_pointer is not None:
         command.extend([
@@ -2218,6 +2306,9 @@ def run_sample(
         preview_text
     )
     media_thumbnail_runtime = media_thumbnail_runtime_metrics(preview_text)
+    media_thumbnail_transition_execution = (
+        media_thumbnail_transition_execution_metrics(log_text)
+    )
     scene_script_audio_bars_runtime = scene_script_audio_bars_runtime_metrics(
         preview_text
     )
@@ -2657,6 +2748,44 @@ def run_sample(
             != required_media_thumbnail_layer_ids
         ):
             failures.append("media thumbnail current binding layer IDs mismatch")
+    expected_media_transition_count = sample.get(
+        "expected_media_thumbnail_previous_transition_count"
+    )
+    if expected_media_transition_count is not None:
+        if media_thumbnail_runtime["previous_transition_count"] != int(
+            expected_media_transition_count
+        ):
+            failures.append("media thumbnail previous transition count mismatch")
+    required_media_transition_layer_ids = sorted(
+        int(layer_id)
+        for layer_id in sample.get(
+            "required_media_thumbnail_previous_transition_layer_ids", []
+        )
+    )
+    if required_media_transition_layer_ids:
+        if (
+            media_thumbnail_runtime["previous_transition_layer_ids"]
+            != required_media_transition_layer_ids
+        ):
+            failures.append("media thumbnail previous transition layer IDs mismatch")
+    for expectation, metric in (
+        (
+            "required_media_thumbnail_transition_started_layer_ids",
+            "started_layer_ids",
+        ),
+        (
+            "required_media_thumbnail_transition_midpoint_layer_ids",
+            "midpoint_layer_ids",
+        ),
+        (
+            "required_media_thumbnail_transition_completed_layer_ids",
+            "completed_layer_ids",
+        ),
+    ):
+        required_layer_ids = sorted(int(value) for value in sample.get(expectation, []))
+        if required_layer_ids:
+            if media_thumbnail_transition_execution[metric] != required_layer_ids:
+                failures.append(f"media thumbnail transition {metric} mismatch")
     failures.extend(
         scene_script_audio_bars_runtime_failures(
             sample,
@@ -2795,6 +2924,24 @@ def run_sample(
             ),
             "media_thumbnail_current_binding_layer_ids": (
                 media_thumbnail_runtime["current_binding_layer_ids"]
+            ),
+            "media_thumbnail_previous_transition_count": (
+                media_thumbnail_runtime["previous_transition_count"]
+            ),
+            "media_thumbnail_previous_transition_layer_ids": (
+                media_thumbnail_runtime["previous_transition_layer_ids"]
+            ),
+            "media_thumbnail_transition_generation_ids": (
+                media_thumbnail_transition_execution["generation_ids"]
+            ),
+            "media_thumbnail_transition_started_layer_ids": (
+                media_thumbnail_transition_execution["started_layer_ids"]
+            ),
+            "media_thumbnail_transition_midpoint_layer_ids": (
+                media_thumbnail_transition_execution["midpoint_layer_ids"]
+            ),
+            "media_thumbnail_transition_completed_layer_ids": (
+                media_thumbnail_transition_execution["completed_layer_ids"]
             ),
             "scene_script_audio_bars_plan_count": (
                 scene_script_audio_bars_runtime["plan_count"]

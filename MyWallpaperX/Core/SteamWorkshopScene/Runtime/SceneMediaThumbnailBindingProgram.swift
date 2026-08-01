@@ -1,25 +1,47 @@
 import Foundation
 
-/// A fail-closed projection of authored current-album-cover bindings onto a
-/// layer source. This is intentionally narrower than general SceneScript or
-/// Blend execution: only a normal, full-strength current-thumbnail binding is
-/// admitted, so the source texture can be replaced without changing the
-/// authored result. Previous-thumbnail transitions remain a separate contract.
+nonisolated struct SceneMediaThumbnailTransitionPlan: Equatable, Sendable {
+    let layerID: Int
+    let effectDescriptorID: String
+    let gradientTexturePath: String
+    let gradientScale: Float
+    let durationSeconds: Double
+}
+
+/// A fail-closed projection of authored album-cover bindings onto layer sources.
+/// Current covers use a normal full-strength replacement. Previous-cover plans
+/// are compiled separately because they also require an event-local timeline
+/// and an authored gradient mask.
 nonisolated struct SceneMediaThumbnailBindingProgram {
     static let currentIdentity = "$mediaThumbnail"
     static let previousIdentity = "$mediaPreviousThumbnail"
 
     let currentLayerIDs: Set<Int>
+    let previousTransitionsByLayerID: [Int: SceneMediaThumbnailTransitionPlan]
+
+    nonisolated init(
+        currentLayerIDs: Set<Int>,
+        previousTransitionsByLayerID: [Int: SceneMediaThumbnailTransitionPlan] = [:]
+    ) {
+        self.currentLayerIDs = currentLayerIDs
+        self.previousTransitionsByLayerID = previousTransitionsByLayerID
+    }
 
     static let empty = SceneMediaThumbnailBindingProgram(currentLayerIDs: [])
 
-    var hasConsumers: Bool { !currentLayerIDs.isEmpty }
+    var hasConsumers: Bool {
+        !currentLayerIDs.isEmpty || !previousTransitionsByLayerID.isEmpty
+    }
 
     func reportLines() -> [String] {
         [
             "mediaThumbnailCurrentBindingCount: \(currentLayerIDs.count)",
             "mediaThumbnailCurrentBindingLayerIDs: "
                 + currentLayerIDs.sorted().map(String.init).joined(separator: ","),
+            "mediaThumbnailPreviousTransitionCount: \(previousTransitionsByLayerID.count)",
+            "mediaThumbnailPreviousTransitionLayerIDs: "
+                + previousTransitionsByLayerID.keys.sorted().map(String.init)
+                    .joined(separator: ","),
         ]
     }
 }
@@ -59,7 +81,7 @@ enum SceneMediaThumbnailBindingCompiler {
         return SceneMediaThumbnailBindingProgram(currentLayerIDs: layerIDs)
     }
 
-    private struct EffectOwner: Hashable {
+    private nonisolated struct EffectOwner: Hashable {
         let layerID: Int
         let effectIndex: Int
     }

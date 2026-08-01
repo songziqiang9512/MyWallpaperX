@@ -1,7 +1,6 @@
 import AppKit
 import Metal
 import QuartzCore
-// Layer-hosting NSView that drives SceneMetalRenderer through a CAMetalLayer.
 class SceneMetalView: NSView {
     private let metalDevice: MTLDevice
     let renderer: SceneMetalRenderer
@@ -16,8 +15,7 @@ class SceneMetalView: NSView {
     private var imagePipeline: SceneImageLayerPipeline?
     private var particlePlayback: SceneParticlePlaybackState?
     private var dynamicTextTextures: SceneDynamicTextTextureStore?
-    private let mediaThumbnailBindings: SceneMediaThumbnailBindingProgram
-    private let mediaThumbnailTextures: SceneMediaThumbnailTextureStore
+    private let mediaThumbnailCoordinator: SceneMediaThumbnailCoordinator
     private let offscreenTexturePool: SceneOffscreenTexturePool
     var pointerState = SceneSurfacePointerState()
     var parallaxPointerSmoother: SceneParallaxPointerSmoother
@@ -26,8 +24,7 @@ class SceneMetalView: NSView {
     let debugFrameCapture = SceneDebugFrameCapture()
 #endif
     init?(
-        renderDescriptor: SceneRenderDescriptor,
-        authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog,
+        renderDescriptor: SceneRenderDescriptor, authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog,
         sceneScriptAudioBarsProgram: SceneScriptAudioBarsProgram = .empty,
         mediaThumbnailBindings: SceneMediaThumbnailBindingProgram = .empty,
         pipelineRepository: SceneImageEffectPipelineRepository,
@@ -42,8 +39,10 @@ class SceneMetalView: NSView {
         ) else { return nil }
         self.metalDevice = renderer.device
         self.renderer = renderer
-        self.mediaThumbnailBindings = mediaThumbnailBindings
-        self.mediaThumbnailTextures = SceneMediaThumbnailTextureStore(device: renderer.device)
+        self.mediaThumbnailCoordinator = .init(
+            program: mediaThumbnailBindings, device: renderer.device,
+            pipelineRepository: pipelineRepository
+        )
         self.solidLayerTexture = SceneSolidLayerTexture.make(device: renderer.device)
         let preservedPropertyKeys = Set(renderDescriptor.layers.flatMap { layer -> [String] in
             guard let declaration = SceneXRayRuntimePlanner.declaration(for: layer) else {
@@ -80,15 +79,13 @@ class SceneMetalView: NSView {
             delay: renderDescriptor.camera.parallaxDelay
         )
         super.init(frame: frame)
-        // Layer-hosting view: set layer before wantsLayer = true.
         self.layer = layer
         self.wantsLayer = true
         self.imagePipeline = SceneImageLayerPipeline(device: metalDevice)
     }
     @available(*, unavailable)
     required init?(coder: NSCoder) { nil }
-    // MARK: - Texture loading
-    // Loads image layers and optionally writes a report for black-preview diagnosis.
+    // MARK: - Texture loading and diagnostics
     func loadImageLayers(
         from cacheDirectory: URL, resourceView: SceneResourceView,
         videoSourceRegistry: SceneVideoTextureSourceRegistry,
@@ -100,6 +97,9 @@ class SceneMetalView: NSView {
             descriptor: renderer.renderDescriptor
         )
         var report: [String] = []
+        report.append(contentsOf: mediaThumbnailCoordinator.loadTransitionTextures(
+            resolver: resolver, loader: loader, device: metalDevice
+        ))
         var loaded = SceneBaseImageTextureStore()
         var loadedSpriteAnimations: [Int: SceneSpriteAnimation] = [:]
         var loadedVideoSources: [Int: SceneVideoTextureSource] = [:]
@@ -130,10 +130,10 @@ class SceneMetalView: NSView {
         report.append("imageLayerCount: \(imageLayers.count)")
         report.append("solidLayerCount: \(imageLayers.filter { $0.contentKind == "solid" }.count)")
         report.append(contentsOf: renderer.runtimeReportLines())
-        report.append(contentsOf: mediaThumbnailBindings.reportLines())
+        report.append(contentsOf: mediaThumbnailCoordinator.program.reportLines())
         report.append(contentsOf: SceneImageBlendRenderPlan(
-            descriptor: renderer.renderDescriptor,
-            visibleLayerIDs: SceneLayerVisibility.visibleLayerIDs(in: renderer.renderDescriptor)
+            descriptor: renderer.renderDescriptor, visibleLayerIDs:
+                SceneLayerVisibility.visibleLayerIDs(in: renderer.renderDescriptor)
         ).reportLines())
         for layer in imageLayers {
             let name = layer.name ?? "(unnamed)"
@@ -282,8 +282,7 @@ class SceneMetalView: NSView {
             effectSummary: { [renderer] in renderer.effectRuntimeSummary(for: $0) }
         )
         imageTextures.merge(textLoad.textures)
-        // text layer 纹理走 CoreText 栅格化，不经过上面的 image 循环；带 authored effect 的
-        // text 层同样要装载 per-effect 贴图，否则链在执行期取不到整段失败（同 mp4 视频层先例）。
+        // CoreText text layers also load per-effect textures before authored-chain execution.
         for layer in renderer.renderDescriptor.layers
         where layer.contentKind == "text" && renderer.authoredEffectChain(for: layer.id) != nil {
             let effectTextures = loadEffectTextures(for: layer)
@@ -305,8 +304,8 @@ class SceneMetalView: NSView {
         puppetPlaybackStates = loadedPuppetPlaybackStates
         effectTextures = loadedEffectTextures
         particlePlayback = SceneParticlePlaybackState(
-            descriptor: renderer.renderDescriptor, cacheDirectory: cacheDirectory, device: metalDevice,
-            resourceView: resourceView, textureLoader: loader,
+            descriptor: renderer.renderDescriptor, cacheDirectory: cacheDirectory,
+            device: metalDevice, resourceView: resourceView, textureLoader: loader,
             layerImage: SceneParticleLayerImageEmitterCompiler.compile(
                 descriptor: renderer.renderDescriptor, texturesByLayerID: imageTextures.textures,
                 animatedSourceLayerIDs: Set(loadedSpriteAnimations.keys)
@@ -326,8 +325,7 @@ class SceneMetalView: NSView {
     }
 
     func renderFrame(
-        timing: SceneFrameTiming,
-        dynamicValues: SceneDynamicSnapshot,
+        timing: SceneFrameTiming, dynamicValues: SceneDynamicSnapshot,
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil
     ) {
@@ -347,13 +345,11 @@ class SceneMetalView: NSView {
         pointerState.previous = pointerState.current
         let particleBatches = particlePlayback?.advance(by: timing.frameTime, dynamicValues: dynamicValues, pointerLocalPositions: renderer.particlePointerLocalPositions(frameContext: frameContext)) ?? []
         dynamicTextTextures?.update(from: dynamicValues)
-        mediaThumbnailTextures.update(from: SceneMediaThumbnailInbox.shared.latest())
         let dynamicTextSnapshot = dynamicTextTextures?.snapshot()
-        let mediaThumbnailSnapshot = mediaThumbnailTextures.snapshot()
+        let mediaThumbnailSnapshot = mediaThumbnailCoordinator.update()
         let frameImageTextures = SceneFrameLayerTextureAssembly.make(
             base: imageTextures, dynamicText: dynamicTextSnapshot,
-            mediaThumbnail: mediaThumbnailSnapshot,
-            mediaBindings: mediaThumbnailBindings,
+            mediaThumbnail: mediaThumbnailSnapshot, mediaBindings: mediaThumbnailCoordinator.program,
             videoSources: videoTextureSources, timing: timing
         )
 #if DEBUG
@@ -389,6 +385,12 @@ class SceneMetalView: NSView {
                 for playback in puppetPlaybackStates.values {
                     playback.encode(sceneTime: frameContext.sceneTime, commandBuffer: commandBuffer)
                 }
+            },
+            encodeLayerSourceUpdates: { [mediaThumbnailCoordinator] commandBuffer in
+                mediaThumbnailCoordinator.encodeTransition(
+                    media: mediaThumbnailSnapshot, sceneTime: frameContext.sceneTime,
+                    commandBuffer: commandBuffer
+                )
             },
             encodeFrameReadback: frameReadback,
             performanceTelemetry: performanceTelemetry,

@@ -62,9 +62,14 @@ extension SceneDesktopWallpaperHost {
                 } ?? []
             }
         )
-        let mediaThumbnailBindings = SceneMediaThumbnailBindingCompiler.compile(
+        let currentMediaThumbnailBindings = SceneMediaThumbnailBindingCompiler.compile(
             descriptor: runtimeInput.renderDescriptor,
             scriptBindings: model.sceneDocument.scriptBindings
+        )
+        let mediaThumbnailBindings = SceneMediaThumbnailTransitionCompiler.compile(
+            descriptor: runtimeInput.renderDescriptor,
+            shaderContracts: runtimeInput.shaderContracts,
+            currentProgram: currentMediaThumbnailBindings
         )
         guard let device = MTLCreateSystemDefaultDevice() else {
             throw SceneDesktopWallpaperHostLaunchError.noSurface

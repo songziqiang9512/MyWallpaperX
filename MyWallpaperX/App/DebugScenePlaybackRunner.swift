@@ -79,6 +79,7 @@ enum DebugScenePlaybackRunner {
                 logURL: previewLogURL,
                 recordID: debugRecordID
             )
+            scheduleRequestedMediaThumbnailSequence(rootURL: rootURL)
             // 隔离证据进程必须显式解除宿主在首个窗口出现前捕获的 focus pause。
             WallpaperEngine.shared.resumeAllPlayers()
             let runtimeEvidenceURL = try writeRuntimeEvidence(
