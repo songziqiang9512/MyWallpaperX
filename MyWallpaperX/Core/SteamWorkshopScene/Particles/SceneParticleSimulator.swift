@@ -26,6 +26,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
     private var accumulator = 0.0
     private var nextParticleID: UInt64 = 0
     private var normalizedLives: [Double] = []
+    private var dynamicControlPoints: [Int: SIMD3<Double>] = [:]
     private var stepSnapshotRecorder: SceneParticleStepSnapshotRecorder?
     var positionOscillationCache: [SceneParticleOscillationCacheKey: SceneParticlePositionOscillation] = [:]
 
@@ -61,7 +62,11 @@ nonisolated struct SceneParticleSimulator: Sendable {
         deathEvents.removeAll(keepingCapacity: true)
     }
 
-    nonisolated mutating func advance(by duration: Double) {
+    nonisolated mutating func advance(
+        by duration: Double,
+        dynamicControlPoints: [Int: SIMD3<Double>] = [:]
+    ) {
+        self.dynamicControlPoints = dynamicControlPoints
         guard duration.isFinite, duration > 0 else { return }
         accumulator += duration
         while accumulator + 1e-12 >= fixedTimeStep {
@@ -376,7 +381,9 @@ nonisolated struct SceneParticleSimulator: Sendable {
         if let point {
             result += SceneParticleSimulationMath.vector(point.offset, fallback: .zero)
         }
-        if let override = instanceOverride?.controlPoints[source] {
+        if let dynamic = dynamicControlPoints[source] {
+            result += dynamic
+        } else if let override = instanceOverride?.controlPoints[source] {
             result += SceneParticleSimulationMath.vector(override.value, fallback: .zero)
         }
         return result

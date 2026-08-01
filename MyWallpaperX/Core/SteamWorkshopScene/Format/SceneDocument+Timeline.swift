@@ -17,4 +17,32 @@ extension SceneDocumentLoader {
         }
         return (animations, diagnostics)
     }
+
+    /// 保真 particle instance control-point Timeline。这里只识别 0...7 的公开索引，
+    /// absolute/relative、lane 数和 Combined Animation 的执行准入留给 target compiler。
+    nonisolated static func particleTimelines(
+        _ rawValue: Any?
+    ) -> (animations: [SceneDocument.SceneParticleTimeline], diagnostics: [String]) {
+        guard let root = rawValue as? [String: Any] else {
+            return ([], [])
+        }
+        var animations: [SceneDocument.SceneParticleTimeline] = []
+        var diagnostics: [String] = []
+        for index in 0 ..< 8 {
+            let hosts: [(String, SceneDocument.SceneParticleTimeline.Field)] = [
+                ("controlpoint\(index)", .position),
+                ("controlpointangle\(index)", .angles),
+            ]
+            for (host, field) in hosts {
+                let result = SceneTimelineAnimationParser.parse(host: root[host])
+                if let animation = result.animation {
+                    animations.append(.init(index: index, field: field, animation: animation))
+                }
+                diagnostics.append(contentsOf: result.diagnostics.map {
+                    "instanceoverride.\(host):\($0.token)"
+                })
+            }
+        }
+        return (animations, diagnostics)
+    }
 }

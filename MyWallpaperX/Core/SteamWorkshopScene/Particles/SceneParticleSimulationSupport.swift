@@ -318,16 +318,18 @@ nonisolated enum SceneParticleSimulationMath {
             add(.pointerControlPointIgnored, "controlpoint")
         }
 
-        var boundValues = [instanceOverride?.alpha, instanceOverride?.size,
-                           instanceOverride?.lifetime, instanceOverride?.rate,
-                           instanceOverride?.speed, instanceOverride?.count,
-                           instanceOverride?.brightness, instanceOverride?.color,
-                           instanceOverride?.normalizedColor].compactMap { $0 }
-        boundValues += instanceOverride?.controlPoints.values.map { $0 } ?? []
-        boundValues += instanceOverride?.controlPointAngles.values.map { $0 } ?? []
-        if boundValues.contains(where: {
+        let unsupportedBoundValues = [instanceOverride?.alpha, instanceOverride?.size,
+                                      instanceOverride?.lifetime, instanceOverride?.rate,
+                                      instanceOverride?.speed, instanceOverride?.count,
+                                      instanceOverride?.brightness, instanceOverride?.color,
+                                      instanceOverride?.normalizedColor].compactMap { $0 }
+            + (instanceOverride?.controlPointAngles.values.map { $0 } ?? [])
+        let unsupportedControlPointBindings = instanceOverride?.controlPoints.values.contains {
+            $0.userPropertyKey != nil || $0.hasScript
+        } ?? false
+        if unsupportedBoundValues.contains(where: {
             $0.userPropertyKey != nil || $0.hasScript || $0.hasAnimation
-        }) {
+        }) || unsupportedControlPointBindings {
             add(.dynamicOverrideIgnored, "instanceoverride")
         }
         return result

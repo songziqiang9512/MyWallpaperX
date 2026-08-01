@@ -28,6 +28,28 @@ extension SceneDocument {
         let animation: SceneTimelineAnimation
     }
 
+    /// Particle `instanceoverride.controlpoint*` 上的作者 Timeline。
+    ///
+    /// position 与 angles 共用同一三 lane Timeline wire shape，但执行能力不同：
+    /// position 可由现有 emitter origin 消费，angles 目前只保真到 typed snapshot。
+    struct SceneParticleTimeline: Codable, Equatable {
+        enum Field: String, Codable {
+            case position
+            case angles
+        }
+
+        let index: Int
+        let field: Field
+        let animation: SceneTimelineAnimation
+
+        nonisolated var hostLabel: String {
+            switch field {
+            case .position: "controlpoint\(index)"
+            case .angles: "controlpointangle\(index)"
+            }
+        }
+    }
+
     struct SceneObject: Identifiable {
         let id: Int
         let name: String?
@@ -70,5 +92,8 @@ extension SceneDocument {
         let timelines: [SceneObjectTimeline]
         /// layer 级 Timeline fail-closed 的原因，形如 `alpha:unknownMode`。
         let timelineDiagnostics: [String]
+        /// Particle instance control-point Timeline，按 index、position/angles 排序。
+        let particleTimelines: [SceneParticleTimeline]
+        let particleTimelineDiagnostics: [String]
     }
 }

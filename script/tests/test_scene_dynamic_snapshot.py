@@ -129,6 +129,35 @@ enum Harness {
             definitions: [],
             userValues: dictionary([(splitPath, .scalar(1)), (dottedPath, .scalar(1))])
         )
+        let controlPoint = SceneDynamicTarget.particle(
+            layerID: 12,
+            field: .controlPoint(3)
+        )
+        let otherLayerControlPoint = SceneDynamicTarget.particle(
+            layerID: 13,
+            field: .controlPoint(3)
+        )
+        let controlPointSnapshot = resolver.resolve(
+            frameIndex: 8,
+            generation: 2,
+            definitions: [
+                .init(
+                    target: controlPoint,
+                    valueType: .vector3,
+                    authoredValue: .vector3(1, 2, 3)
+                ),
+                .init(
+                    target: otherLayerControlPoint,
+                    valueType: .vector3,
+                    authoredValue: .vector3(4, 5, 6)
+                ),
+            ],
+            timelineValues: [
+                controlPoint: .vector3(10, 20, 30),
+                otherLayerControlPoint: .vector3(40, 50, 60),
+            ]
+        ).snapshot
+        let layer12ControlPoints = controlPointSnapshot.particleControlPoints(layerID: 12)
         let empty = SceneDynamicSnapshot.empty(frameIndex: 9, generation: 4)
         let payload: [String: Any] = [
             "coderRoundTrip": coderRoundTrip,
@@ -147,6 +176,8 @@ enum Harness {
             "deterministic": first == second,
             "collisionDeterministic": collisionForward == collisionReverse,
             "collisionOrder": collisionForward.diagnostics.map { targetPath($0.target) },
+            "layer12ControlPoint3": layer12ControlPoints[3].map { [$0.x, $0.y, $0.z] } ?? [],
+            "layer12ControlPointCount": layer12ControlPoints.count,
             "empty": [empty.frameIndex, empty.generation, UInt64(empty.count)],
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
@@ -247,6 +278,10 @@ class SceneDynamicSnapshotTests(unittest.TestCase):
 
     def test_empty_snapshot_preserves_frame_identity(self) -> None:
         self.assertEqual(self.result["empty"], [9, 4, 0])
+
+    def test_particle_control_point_snapshot_is_scoped_to_one_layer(self) -> None:
+        self.assertEqual(self.result["layer12ControlPoint3"], [10, 20, 30])
+        self.assertEqual(self.result["layer12ControlPointCount"], 1)
 
 
 if __name__ == "__main__":

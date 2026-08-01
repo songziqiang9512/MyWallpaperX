@@ -138,9 +138,9 @@
 | Rope declaration | `L1` | typed kind/字段可见，runtime 明确拒绝 | topology、constraint、material IR 和 lifecycle |
 | Rope execution | `L0` | 无 renderer | geometry/topology/连续 UV/lifecycle |
 | Rope Trail strict execution | `L3` | 严格 Screen 单 renderer 子集以有界历史生成 quad 段；非准入字段、组合和预算全部 fail closed | 官方数值/UV/接缝/死亡尾迹/暂停恢复语义与 Windows golden |
-| Static control-point subset | `L2` | static local offset/instance override 有分支；缺最终位置断言 | emitter 位置、空间与 parent golden |
-| Dynamic control-point declaration | `L1` | 可识别或诊断 object/cursor/script 需求 | typed target 和 binding IR |
-| Dynamic control-point execution | `L0` | 无 object/cursor/script runtime | 坐标转换与每帧更新 |
+| Static control-point subset | `L3` | static definition offset/instance position 在 root Sphere/Box emitter local origin 有最终数值门 | operator/child consumer、空间与 parent golden |
+| Dynamic control-point declaration | `L2` | CP position/angles nested Timeline 进入 typed IR/target；user/script/pointer 仍只诊断 | 其他 binding producer 与坐标空间 IR |
+| Dynamic control-point execution | `L3 bounded` | 仅 absolute Timeline position 经 per-surface snapshot 每帧驱动 root emitter；缺值回退 static | angles、relative、property/script/pointer、operator/child 与 cross-space golden |
 | Child asset graph | `L3` | 可递归发现并为 strict child 建立 runtime template 至层级 2：depth-one 每声明一个 template，depth-two 仅 event 触发且按 parent asset path 去重展开一次；missing/cycle/depth-three/nested-static fail closed | runtime cycle lifecycle、depth-two static 语义与 teardown 压力门 |
 | Child execution/events | `L3` | deterministic birth/natural-death queue；strict static/default-static child 在有限 authored local origin 创建一次，仍要求零 angles、单位 scale、无 CP、probability=1，且目标定义自身含 event children 时不再被 nested 阻断；`eventspawn`、natural-`eventdeath` 与 identity/no-CP `eventfollow` strict child 独立模拟、绘制、跟随和回收，depth-two event child 以 (parent system, 粒子) 为 owner、事件跨层按帧串行传播；spawn/death 系统的 rate 发射窗口有界（authored duration 优先，否则以 child 粒子最大寿命为本地近似窗口），rate-only event child 不再无限累积；每 system 1,024 粒子，每 root runtime 每深度 64 systems、跨两层 128 systems/131,072 capacity | static angles/scale、event transform、collision/delete、CP/value inheritance、depth-two static、stop/switch 压力门 |
 | Built-in textures | `L3` | 20 个精确 key；`particle/fire/fire1`、`particle/light/light_shafts_0`、Flare 三纹理、`particle/nature/snow` 与 `particle/smoke/smoke2` 等为项目自建确定性遮罩，不等于官方资产 | `rain_drops_sheet` 等剩余高频 key、atlas metadata、多纹理 material |
@@ -152,8 +152,8 @@
 | Audio-response execution | `L0` | frame snapshot 已可用，但**求值公式与调制目标无证据**：粒子侧无 shader 源码，第三方参考实现对应代码是 `audioAmplitude = 0.0` 的 TODO 占位，其默认值在 emitter/initializer 两处自相矛盾 | 需 Windows golden 或官方公开算法；在此之前不得按推测实现 |
 | Sprite Sheet | `L3` | Sequence/Random frame/frame blend 子集可执行；repeat sampler 不再把超 1 UV 拉成边缘条；可信单 sequence sidecar nominal aspect 优先，raw TEX axes 像素长度回退，并随 current/next frame blend 插值普通 Sprite 几何 | trim pivot、多 sequence/multi-image 异尺寸、loop/edge、多纹理 material 与 Windows atlas golden |
 | Static instance overrides | `L3` | alpha/size/lifetime/rate/speed/count/brightness/normalizedColor 有运行断言，五种 General gate 有逐项 allow/deny 门 | direct color、完整类型/range 与 Windows 状态门 |
-| Direct color/control-point position override | `L2` | parser/simulation 分支已接线，最终值门不足 | direct color 与 CP position/angle 断言 |
-| Dynamic instance overrides | `L1` | wrapper 只诊断 | typed live target、generation 和逐帧应用 |
+| Direct color/control-point position override | `L2` | CP position 的 static/absolute-Timeline root-emitter 子集已有数值门；本聚合行仍受 direct color 与 angle 无执行门限制 | direct color、CP angle 与其他 consumer 断言 |
+| Dynamic instance overrides | `L2` | CP position/angles nested Timeline 已 typed；仅 absolute position 每帧应用到 root emitter，其他 field/source 保持诊断或 fail closed | 其他 typed live target、generation 和 consumer |
 | Material/blend | `L3` | `genericparticle` slot 0、additive/translucent 子集；共享 typed state 只准入 `disabled/disabled/nocull` 与 alpha unspecified/default，未知 blend/state 产生 `unsupportedBlendMode`/`unsupportedRenderState`，root 不执行、child graph 拒绝，不再静默回退 translucent；color TEX sampler 显式传到 renderer，strict REFRACT 的 slot 0 使用 `.straightAlbedo`、slot 1 使用 `.normal` typed identity，各自使用独立 sampler，background 固定 linear-clamp；同一 authored 文件仅因两者当前都逐字节保留通道而复用物理上传；普通 color/additive 的既有 premultiply 合同不变。项目自建 GPU 门已锁定 format-4 packed normal 的 CPU decode/native BC 两路径与 byte-equivalent format-0 RGBA 位移一致，并锁定 translucent/additive 的 fractional albedo × particle alpha coverage 只作用一次 | `alphawriting=default` 目前只是 bounded admission，不控制固定粒子 pipeline 的 Metal write mask；unsupported custom shader 仍可能误走自有 pipeline；官方/Windows DXT5n 恢复公式与法线数值/像素 golden、多纹理/combo、其他 render state、HDR/Lighting/Cutout、clamp-border 与 Windows 像素标定仍缺 |
 | Fixed step/seed/maxcount | `L3` | fixed simulation step、deterministic seed、maxcount 有运行门 | pause/discontinuity 与 WE 数值 golden |
 | Turbulent velocity initializer | `L3` | 非音频 profile 消费 forward/right/up、phase、scale、time、speed range；finite offset 作为 forward→tangent 平面方向旋转，`scale=0` 仍保留 offset；audio profile 继续 fail closed | right/up/noise mapping 与 offset 弧度解释仍属 clean-room；Windows 固定 seed 数值/视觉 golden 与 audio 公式 |
@@ -175,8 +175,8 @@
 
 | 能力 | 当前级别 | 升级门 |
 |---|---|---|
-| Particle `animation` wrapper presence | `L1` | 与正式 Timeline IR 分开，只作为动态值诊断 |
-| Timeline object/property target | `L3` | layer `alpha` 与 effect constant 已 typed 编译并写回（28 处）；`origin`/`angles`/`scale` 有 target 但随包 10 处全带 `relative`，整批 fail-closed；`maxwidth`/`zoom` 与粒子 `instanceoverride` 无对应 target |
+| Particle `animation` wrapper presence | `L2` | CP position/angles 的 nested wrapper 已进正式 Timeline IR；其他 particle instance field 仍只保留 presence/诊断 |
+| Timeline object/property target | `L3` | 现役 Workshop census 仍是 layer `alpha` 与 effect constant 28/48 条 typed 执行；CP position/angles 另有 stock-wire/project-fixture typed target，只有 absolute position 的 root-emitter consumer；Workshop 7 条 particle Timeline 是其他 scalar override，仍未执行 |
 | Keyframe/value/tangent | `L2` | 帧号/值/双侧 handle/`lockangle`/`locklength` 已无损保真；缺失/`null` handle 合法，存在但非 object 的 handle 报 `invalidTangent` 并整条 fail-closed；求值只走线性，tangent 未消费——handle 的「帧偏移」与「归一化段长」两种解释不等价（`2067939514` 段在 frame=3.75 处分别约 0.767 / 0.970，线性 0.5），需视觉定标后才能宣称 Bézier |
 | Loop/Single | `L3` | 按绝对 scene time 求值，真实执行 loop 7、single 21；single 到末帧保持末值不回绕，loop 跨周期同相位，有单测与真实样本双证 |
 | Mirror | `L2` | evaluator 与单测已覆盖三角波折返，但随包 6 处 mirror 全落在被 `relative` 拒绝的 layer transform 上，真实样本 0 处执行 |

@@ -26,9 +26,15 @@ final class SceneParticlePlaybackState {
         self.batches = runtime.advance(by: 0)
     }
 
-    func advance(by frameDelta: TimeInterval) -> [SceneParticleDrawBatch] {
+    func advance(
+        by frameDelta: TimeInterval,
+        dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0)
+    ) -> [SceneParticleDrawBatch] {
         batches.removeAll(keepingCapacity: true)
-        batches = runtime.advance(by: min(max(frameDelta, 0), 0.25))
+        batches = runtime.advance(
+            by: min(max(frameDelta, 0), 0.25),
+            dynamicValues: dynamicValues
+        )
         return batches
     }
 

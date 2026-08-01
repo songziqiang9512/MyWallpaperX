@@ -38,6 +38,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Runtime/SceneRenderDescriptor+AuthoredAssets.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "Properties/SceneTimelineTargetCompiler.swift",
+    SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
+    SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
 ]
 
 
@@ -187,16 +189,65 @@ SCENE_FIXTURE = {
                 ),
             },
         },
+        {
+            "id": 80,
+            "name": "Particle control points",
+            "particle": "particles/cp.json",
+            "instanceoverride": {
+                "controlpoint1": {
+                    "value": "10 20 30",
+                    "animation": animation(
+                        [
+                            [keyframe(0, 10), keyframe(30, 40)],
+                            [keyframe(0, 20), keyframe(30, 50)],
+                            [keyframe(0, 30), keyframe(30, 60)],
+                        ]
+                    ),
+                },
+                "controlpointangle1": {
+                    "value": "0 0 1",
+                    "animation": animation(
+                        [
+                            [keyframe(0, 0), keyframe(30, 0)],
+                            [keyframe(0, 0), keyframe(30, 0)],
+                            [keyframe(0, 1), keyframe(30, 2)],
+                        ],
+                        relative=True,
+                    ),
+                },
+                "controlpoint2": {
+                    "value": "1 2 3",
+                    "animation": animation([[keyframe(0, 1), keyframe(30, 2)]]),
+                },
+                "controlpoint3": {
+                    "value": "1 2",
+                    "animation": animation(
+                        [
+                            [keyframe(0, 1), keyframe(30, 2)],
+                            [keyframe(0, 2), keyframe(30, 3)],
+                            [keyframe(0, 3), keyframe(30, 4)],
+                        ]
+                    ),
+                },
+                "controlpoint4": {
+                    "value": "4 5 6",
+                    "user": "conflictingProperty",
+                    "animation": animation(
+                        [
+                            [keyframe(0, 4), keyframe(30, 5)],
+                            [keyframe(0, 5), keyframe(30, 6)],
+                            [keyframe(0, 6), keyframe(30, 7)],
+                        ]
+                    ),
+                },
+            },
+        },
     ],
 }
 
 HARNESS_SOURCE = r'''
 import Foundation
 
-struct SceneParticleInstanceOverride: Codable {}
-struct SceneParticleDefinitionParser {
-    func parseInstanceOverride(_ raw: Any?) -> SceneParticleInstanceOverride? { nil }
-}
 struct SceneTextDescriptor: Codable {
     let padding: Float
     init(padding: Float = 0) { self.padding = padding }
@@ -334,6 +385,12 @@ enum Harness {
         case let .layer(layerID, field): "layer:\(layerID):\(field.rawValue)"
         case let .effectConstant(layerID, effectIndex, passIndex, name):
             "constant:\(layerID):\(effectIndex):\(passIndex):\(name)"
+        case let .particle(layerID, field):
+            switch field {
+            case let .controlPoint(index): "particle:\(layerID):controlpoint:\(index)"
+            case let .controlPointAngles(index): "particle:\(layerID):angles:\(index)"
+            default: "particle:\(layerID):other"
+            }
         default: "other"
         }
     }
@@ -440,10 +497,43 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
         self.assertEqual(binding["mode"], "loop")
         self.assertIn("layer 70 alpha: wrapLoopIgnored", self.result["diagnostics"])
 
+    def test_absolute_particle_position_compiles_and_angle_stays_fail_closed(self) -> None:
+        binding = self.binding("particle:80:controlpoint:1")
+        self.assertEqual(binding["valueType"], "vector3")
+        self.assertEqual(binding["authored"], "vector3(10.0,20.0,30.0)")
+        self.assertNotIn("particle:80:angles:1", self.targets())
+        self.assertIn(
+            "layer 80 instanceoverride.controlpointangle1: relativeUnsupported",
+            self.result["diagnostics"],
+        )
+
+    def test_particle_timeline_rejects_lane_mismatch_and_invalid_authored_vector(self) -> None:
+        self.assertNotIn("particle:80:controlpoint:2", self.targets())
+        self.assertNotIn("particle:80:controlpoint:3", self.targets())
+        self.assertNotIn("particle:80:controlpoint:4", self.targets())
+        self.assertIn(
+            "layer 80 instanceoverride.controlpoint2: componentMismatch",
+            self.result["diagnostics"],
+        )
+        self.assertIn(
+            "layer 80 instanceoverride.controlpoint3: invalidAuthoredValue",
+            self.result["diagnostics"],
+        )
+        self.assertIn(
+            "layer 80 instanceoverride.controlpoint4: invalidAuthoredValue",
+            self.result["diagnostics"],
+        )
+
     def test_only_expected_targets_are_produced(self) -> None:
         self.assertEqual(
             self.targets(),
-            {"layer:10:alpha", "layer:20:angles", "constant:30:1:1:multiply", "layer:70:alpha"},
+            {
+                "layer:10:alpha",
+                "layer:20:angles",
+                "constant:30:1:1:multiply",
+                "layer:70:alpha",
+                "particle:80:controlpoint:1",
+            },
         )
 
 

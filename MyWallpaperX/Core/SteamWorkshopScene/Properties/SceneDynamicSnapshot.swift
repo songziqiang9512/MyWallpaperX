@@ -177,6 +177,17 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
         values[target]
     }
 
+    nonisolated func particleControlPoints(layerID: Int) -> [Int: SIMD3<Double>] {
+        var result: [Int: SIMD3<Double>] = [:]
+        for index in 0 ..< 8 {
+            guard let resolved = self[.particle(layerID: layerID, field: .controlPoint(index))],
+                  case let .vector3(x, y, z) = resolved.value,
+                  x.isFinite, y.isFinite, z.isFinite else { continue }
+            result[index] = SIMD3(x, y, z)
+        }
+        return result
+    }
+
     nonisolated func hasSameValuePayload(as other: SceneDynamicSnapshot) -> Bool {
         guard values.count == other.values.count else { return false }
         return values.allSatisfy { target, resolved in

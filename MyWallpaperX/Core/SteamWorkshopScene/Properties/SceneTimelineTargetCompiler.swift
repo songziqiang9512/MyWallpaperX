@@ -33,6 +33,8 @@ nonisolated enum SceneTimelineTargetCompiler {
         case combinedAnimationUnsupported
         /// lane 数与 target 的值类型不符（例如 3 lane 写 scalar）。
         case componentMismatch
+        /// instance override 缺少可用、无冲突的三分量作者基值。
+        case invalidAuthoredValue
         /// 同一 target 被多条 Timeline 写入，官方未定义优先级，全部拒绝。
         case duplicateTarget
         /// 非阻断：`wraploop` 的首尾平滑算法未实现，按普通 loop 执行。
@@ -58,6 +60,32 @@ nonisolated enum SceneTimelineTargetCompiler {
                     target: resolved.target,
                     valueType: resolved.valueType,
                     authoredValue: resolved.authoredValue,
+                    label: label,
+                    into: &candidates,
+                    diagnostics: &diagnostics
+                )
+            }
+            diagnostics.append(contentsOf: layer.particleTimelineDiagnostics.map {
+                "layer \(layer.id) \($0)"
+            })
+            for timeline in layer.particleTimelines {
+                let label = "layer \(layer.id) instanceoverride.\(timeline.hostLabel)"
+                guard let authoredValue = particleAuthoredValue(
+                    timeline: timeline,
+                    override: layer.particleInstanceOverride
+                ) else {
+                    diagnostics.append("\(label): \(Diagnostic.invalidAuthoredValue.rawValue)")
+                    continue
+                }
+                let field: SceneDynamicParticleField = switch timeline.field {
+                case .position: .controlPoint(timeline.index)
+                case .angles: .controlPointAngles(timeline.index)
+                }
+                append(
+                    animation: timeline.animation,
+                    target: .particle(layerID: layer.id, field: field),
+                    valueType: .vector3,
+                    authoredValue: authoredValue,
                     label: label,
                     into: &candidates,
                     diagnostics: &diagnostics
@@ -116,6 +144,27 @@ nonisolated enum SceneTimelineTargetCompiler {
                 }
             }
         }
+    }
+
+    private nonisolated static func particleAuthoredValue(
+        timeline: SceneDocument.SceneParticleTimeline,
+        override: SceneParticleInstanceOverride?
+    ) -> SceneDynamicValue? {
+        let boundValue: SceneParticleBoundValue?
+        switch timeline.field {
+        case .position:
+            boundValue = override?.controlPoints[timeline.index]
+        case .angles:
+            boundValue = override?.controlPointAngles[timeline.index]
+        }
+        guard boundValue?.userPropertyKey == nil,
+              boundValue?.hasScript == false,
+              case let .vector(values)? = boundValue?.value,
+              values.count == 3,
+              values.allSatisfy({ $0.isFinite }) else {
+            return nil
+        }
+        return .vector3(values[0], values[1], values[2])
     }
 
     private nonisolated static func append(

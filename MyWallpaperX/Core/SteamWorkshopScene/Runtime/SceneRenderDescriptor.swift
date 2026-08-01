@@ -129,6 +129,8 @@ struct SceneRenderDescriptorBuilder {
                     disablesParallaxPropagation: object.disablesParallaxPropagation,
                     timelines: object.timelines,
                     timelineDiagnostics: object.timelineDiagnostics,
+                    particleTimelines: object.particleTimelines,
+                    particleTimelineDiagnostics: object.particleTimelineDiagnostics,
                     modelCropOffsetXY: object.imagePath.flatMap { modelCropOffsetsByPath[$0] } ?? nil,
                     puppetMeshPath: object.imagePath.flatMap { puppetMeshPathsByModelPath[$0] } ?? nil,
                     text: object.text,

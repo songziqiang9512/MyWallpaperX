@@ -44,6 +44,8 @@ extension SceneRenderDescriptor {
         // `effects[].passes[].constantShaderValues[].timeline` 携带。
         let timelines: [SceneDocument.SceneObjectTimeline]
         let timelineDiagnostics: [String]
+        var particleTimelines: [SceneDocument.SceneParticleTimeline] = []
+        var particleTimelineDiagnostics: [String] = []
         let modelCropOffsetXY: [Float]?
         // Puppet `.mdl` path plus the authored animation layer declarations.
         let puppetMeshPath: String?

@@ -89,6 +89,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleRuntime.swift",
     SOURCE_ROOT / "Particles/SceneParticleRuntime+Support.swift",
     SOURCE_ROOT / "Particles/SceneParticlePlaybackState.swift",
+    SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
 ]
 
 
@@ -298,6 +299,8 @@ enum Harness {
             try printJSON(stockSynthetic(bundlePath: CommandLine.arguments[2]))
         case "rope-trail-synthetic":
             try printJSON(syntheticRopeTrail())
+        case "dynamic-control-point-synthetic":
+            try printJSON(syntheticDynamicControlPoint())
         case "synthetic":
             try printJSON(synthetic())
         default:
@@ -1323,6 +1326,75 @@ enum Harness {
         } ?? []
     }
 
+    private static func syntheticDynamicControlPoint() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "mwx-particle-dynamic-cp-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        try writeParticle(
+            "particles/control-point.json",
+            material: "materials/shared.json",
+            lifetime: 10,
+            rate: 1,
+            emitterControlPoint: 1,
+            controlPointOffset: [1, 1, 1],
+            under: directory
+        )
+        let descriptor = SceneRenderDescriptor(
+            layers: [layer(
+                90,
+                "particles/control-point.json",
+                controlPoint: SIMD3(2, 3, 4)
+            )],
+            renderOrderLayerIDs: [90],
+            materialPasses: [.init(
+                materialPath: "materials/shared.json",
+                shaderPath: "genericparticle",
+                texturePaths: ["shared.png"],
+                blending: "additive"
+            )]
+        )
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let runtime = SceneParticleRuntime(
+            descriptor: descriptor,
+            cacheDirectory: directory,
+            device: device
+        )
+        let target = SceneDynamicTarget.particle(layerID: 90, field: .controlPoint(1))
+        let definition = SceneDynamicTargetDefinition(
+            target: target,
+            valueType: .vector3,
+            authoredValue: .vector3(2, 3, 4)
+        )
+        let resolver = SceneDynamicSnapshotResolver()
+        func snapshot(_ value: SceneDynamicValue, frame: UInt64) -> SceneDynamicSnapshot {
+            resolver.resolve(
+                frameIndex: frame,
+                generation: frame,
+                definitions: [definition],
+                timelineValues: [target: value]
+            ).snapshot
+        }
+        _ = runtime.advance(
+            by: 1,
+            dynamicValues: snapshot(.vector3(10, 20, 30), frame: 1)
+        )
+        _ = runtime.advance(
+            by: 1,
+            dynamicValues: snapshot(.vector3(-5, 6, 7), frame: 2)
+        )
+        let fallback = runtime.advance(by: 1)
+        return [
+            "positions": fallback.first?.instances.map {
+                [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
+            } ?? [],
+            "activeLayerIDs": runtime.activeLayerIDs,
+        ]
+    }
+
     private static func synthetic() throws -> [String: Any] {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("mwx-particle-runtime-\(UUID().uuidString)", isDirectory: true)
@@ -1516,19 +1588,20 @@ enum Harness {
         _ path: String,
         visible: Bool = true,
         particleAlpha: Double? = nil,
-        alphaHasScript: Bool = false
+        alphaHasScript: Bool = false,
+        controlPoint: SIMD3<Double>? = nil
     ) -> SceneRenderDescriptor.Layer {
         .init(
             id: id, name: nil, contentKind: "particle", particlePath: path,
-            particleInstanceOverride: particleAlpha.map {
+            particleInstanceOverride: (particleAlpha != nil || controlPoint != nil) ?
                 SceneParticleInstanceOverride(
                     id: nil,
-                    alpha: SceneParticleBoundValue(
-                        value: .scalar($0),
+                    alpha: particleAlpha.map { value in SceneParticleBoundValue(
+                        value: .scalar(value),
                         userPropertyKey: "foreground",
                         hasScript: alphaHasScript,
                         hasAnimation: false
-                    ),
+                    ) },
                     size: nil,
                     lifetime: nil,
                     rate: nil,
@@ -1537,10 +1610,17 @@ enum Harness {
                     brightness: nil,
                     color: nil,
                     normalizedColor: nil,
-                    controlPoints: [:],
+                    controlPoints: controlPoint.map { value in [
+                        1: SceneParticleBoundValue(
+                            value: .vector([value.x, value.y, value.z]),
+                            userPropertyKey: nil,
+                            hasScript: false,
+                            hasAnimation: false
+                        )
+                    ] } ?? [:],
                     controlPointAngles: [:]
                 )
-            },
+                : nil,
             parentID: nil, visible: visible, alpha: 1
         )
     }
@@ -1564,6 +1644,8 @@ enum Harness {
         emitterDuration: Double? = nil,
         audioProcessingMode: Int? = nil,
         instantaneous: Int? = nil,
+        emitterControlPoint: Int? = nil,
+        controlPointOffset: [Double]? = nil,
         children: [[String: Any]] = [],
         under root: URL
     ) throws {
@@ -1591,6 +1673,7 @@ enum Harness {
         if let emitterDuration { emitter["duration"] = emitterDuration }
         if let audioProcessingMode { emitter["audioprocessingmode"] = audioProcessingMode }
         if let instantaneous { emitter["instantaneous"] = instantaneous }
+        if let emitterControlPoint { emitter["controlpoint"] = emitterControlPoint }
         var definition: [String: Any] = [
             "material": material,
             "maxcount": 100,
@@ -1601,6 +1684,12 @@ enum Harness {
             "children": children,
         ]
         if let startTime { definition["starttime"] = startTime }
+        if let emitterControlPoint, let controlPointOffset {
+            definition["controlpoint"] = [[
+                "id": emitterControlPoint,
+                "offset": controlPointOffset,
+            ]]
+        }
         if moves {
             definition["operator"] = [[
                 "name": "movement",
@@ -1825,6 +1914,14 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             result["staticChildUnsupportedDetails"],
         )
         self.assertIn("builtInTextureUnavailable", kinds)
+
+    def test_runtime_consumes_each_surface_snapshot_then_restores_authored_fallback(self) -> None:
+        result = self.run_harness("dynamic-control-point-synthetic")
+        self.assertEqual(result["activeLayerIDs"], [90])
+        self.assertEqual(
+            result["positions"],
+            [[11, 21, 31], [-4, 7, 8], [3, 4, 5]],
+        )
 
     def test_rope_trail_runtime_builds_multisegment_batches_and_fails_closed(self) -> None:
         result = self.run_harness("rope-trail-synthetic")

@@ -32,6 +32,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneTimelineEvaluator.swift",
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
+    SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
+    SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
     SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift",
@@ -124,10 +126,6 @@ SCENE_FIXTURE = {
 HARNESS_SOURCE = r'''
 import Foundation
 
-struct SceneParticleInstanceOverride: Codable {}
-struct SceneParticleDefinitionParser {
-    func parseInstanceOverride(_ raw: Any?) -> SceneParticleInstanceOverride? { nil }
-}
 struct SceneTextDescriptor: Codable {
     let padding: Float
     init(padding: Float = 0) { self.padding = padding }

@@ -128,6 +128,24 @@ enum Harness {
             overrideDefinition(flags: 128), override: parsedOverride, seed: 1, step: 0.25
         )
         sizeDenied.advance(by: 0.25)
+        let controlPointOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"controlpoint1":"2 3 4"}"#)
+        )
+        var dynamicControlPoint = simulator(
+            dynamicControlPointJSON,
+            override: controlPointOverride,
+            seed: 1,
+            step: 1
+        )
+        dynamicControlPoint.advance(
+            by: 1,
+            dynamicControlPoints: [1: SIMD3(10, 20, 30)]
+        )
+        dynamicControlPoint.advance(
+            by: 1,
+            dynamicControlPoints: [1: SIMD3(-5, 6, 7)]
+        )
+        dynamicControlPoint.advance(by: 1)
 
         var operators = simulator(operatorJSON, seed: 1, step: 0.25)
         operators.advance(by: 0.25)
@@ -356,6 +374,9 @@ enum Harness {
             "countDeniedEmissionCount": countDenied.particles.count,
             "lifetimeDeniedLifetime": lifetimeDenied.particles[0].lifetime,
             "sizeDeniedSize": sizeDenied.particles[0].size,
+            "dynamicControlPointPositions": dynamicControlPoint.particles.map {
+                vector($0.position)
+            },
             "overrideDiagnostics": overridden.diagnostics.map(\.kind.rawValue),
             "operatorAlpha": operatorParticle.alpha,
             "operatorSize": operatorParticle.size,
@@ -532,6 +553,14 @@ enum Harness {
 
     private static let overrideJSON = #"""
     {"alpha":0.5,"size":{"user":"size_prop","value":3},"lifetime":2,"rate":2,"speed":4,"count":0.5,"brightness":2,"colorn":"0.5 0.25 1"}
+    """#
+
+    private static let dynamicControlPointJSON = #"""
+    {"material":"p.json","maxcount":4,
+     "emitter":[{"name":"boxrandom","controlpoint":1,"rate":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+     "renderer":[{"name":"sprite"}],
+     "controlpoint":[{"id":1,"offset":"1 1 1"}]}
     """#
 
     private static let operatorJSON = #"""
@@ -935,6 +964,12 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["countDeniedEmissionCount"], 9)
         self.assertEqual(self.results["lifetimeDeniedLifetime"], 2)
         self.assertEqual(self.results["sizeDeniedSize"], 2)
+
+    def test_dynamic_control_point_replaces_only_the_current_frame_override(self) -> None:
+        self.assertEqual(
+            self.results["dynamicControlPointPositions"],
+            [[11, 21, 31], [-4, 7, 8], [3, 4, 5]],
+        )
 
     def test_change_angular_and_oscillation_operators_execute(self) -> None:
         self.assertAlmostEqual(self.results["operatorAlpha"], 0.49375)

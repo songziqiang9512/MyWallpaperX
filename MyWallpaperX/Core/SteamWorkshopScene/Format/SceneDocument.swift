@@ -175,6 +175,7 @@ struct SceneDocumentLoader {
         let text = textValue(root["text"])
         let imagePath = normalizedPath(root["image"] as? String)
         let timelines = objectTimelines(root)
+        let particleTimelines = particleTimelines(root["instanceoverride"])
 
         return SceneDocument.SceneObject(
             id: id,
@@ -214,7 +215,9 @@ struct SceneDocumentLoader {
             effectFiles: uniqueSorted(effectFiles),
             texturePaths: uniqueSorted(texturePaths),
             timelines: timelines.animations,
-            timelineDiagnostics: timelines.diagnostics
+            timelineDiagnostics: timelines.diagnostics,
+            particleTimelines: particleTimelines.animations,
+            particleTimelineDiagnostics: particleTimelines.diagnostics
         )
     }
 

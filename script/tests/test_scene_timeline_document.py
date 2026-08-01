@@ -35,6 +35,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
     SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift",
+    SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
+    SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
 ]
 
 
@@ -135,17 +137,44 @@ SCENE_FIXTURE = {
                 },
             },
         },
+        {
+            "id": 60,
+            "name": "Particle control-point timelines",
+            "particle": "particles/cp.json",
+            "instanceoverride": {
+                "controlpoint1": {
+                    "value": "10 20 30",
+                    "animation": {
+                        "c0": [keyframe(0, 10), keyframe(30, 40)],
+                        "c1": [keyframe(0, 20), keyframe(30, 50)],
+                        "c2": [keyframe(0, 30), keyframe(30, 60)],
+                        "options": {"fps": 30, "length": 30, "mode": "loop"},
+                    },
+                },
+                "controlpointangle1": {
+                    "value": "0 0 1",
+                    "animation": {
+                        "c0": [keyframe(0, 0), keyframe(30, 0)],
+                        "c1": [keyframe(0, 0), keyframe(30, 0)],
+                        "c2": [keyframe(0, 1), keyframe(30, 2)],
+                        "options": {"fps": 30, "length": 30, "mode": "loop"},
+                        "relative": True,
+                    },
+                },
+                "controlpoint2": {
+                    "value": "1 2 3",
+                    "animation": {
+                        "c0": [keyframe(0, 0), keyframe(30, 1)],
+                        "options": {"fps": 30, "length": 30, "mode": "invalid"},
+                    },
+                },
+            },
+        },
     ],
 }
 
 HARNESS_SOURCE = r'''
 import Foundation
-
-struct SceneParticleInstanceOverride: Codable {}
-
-struct SceneParticleDefinitionParser {
-    func parseInstanceOverride(_ raw: Any?) -> SceneParticleInstanceOverride? { nil }
-}
 
 struct SceneTextDescriptor: Codable {
     let padding: Float
@@ -226,6 +255,14 @@ enum Harness {
                     "lastValues": timeline.animation.lanes.map { $0.last?.value ?? 0 },
                 ]
             }
+            entry["particleTimelines"] = object.particleTimelines.map { timeline in
+                [
+                    "host": timeline.hostLabel,
+                    "componentCount": timeline.animation.componentCount,
+                    "isRelative": timeline.animation.isRelative,
+                ]
+            }
+            entry["particleTimelineDiagnostics"] = object.particleTimelineDiagnostics
             var constants: [String: Any] = [:]
             for effect in object.effects {
                 for pass in effect.passes {
@@ -332,6 +369,20 @@ class SceneTimelineDocumentTests(unittest.TestCase):
         entry = self.result["50"]
         self.assertEqual(entry["timelineHosts"], [])
         self.assertEqual(entry["timelineDiagnostics"], ["alpha:unknownMode"])
+
+    def test_particle_control_point_timelines_keep_host_identity_and_relative_flag(self) -> None:
+        entry = self.result["60"]
+        self.assertEqual(
+            entry["particleTimelines"],
+            [
+                {"host": "controlpoint1", "componentCount": 3, "isRelative": False},
+                {"host": "controlpointangle1", "componentCount": 3, "isRelative": True},
+            ],
+        )
+        self.assertEqual(
+            entry["particleTimelineDiagnostics"],
+            ["instanceoverride.controlpoint2:unknownMode"],
+        )
 
 
 if __name__ == "__main__":
