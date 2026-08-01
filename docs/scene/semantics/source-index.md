@@ -91,6 +91,8 @@
 
 2026-08-01 复核 Emitter 页：官方明确列出 Sphere Random、Box Random 与 Layer Image 三类 emitter；Random periodic emission 会周期性停止并重新开始发射，公开参数为最小/最大 periodic duration 与最小/最大 periodic delay。Layer Image 可使用普通纹理、text 或 puppet source，并另有复制 layer color、周期 bitmap update、继承 layer motion 与 random offset 选项。公开页不定义私有 JSON dependency wire、像素采样中心、alpha threshold、更新 generation、周期 RNG/边界 fixed-step 规则或随机分布公式，因此当前 bounded executor 只把这些公开事实用于准入边界，不据此宣称数值或时序等价。组件目录和关键参数已经进入 [运行时系统语义](runtime-systems-reference.md)。
 
+2026-08-01 复核 Control Point 页：官方公开 CP 索引为 0...7，CP 0 固定代表 system origin；Control Point 可提供 position、angles、pointer/world-space 行为，child 可选择 Copy from parent，Raw value 会跳过 child coordinate adjustment。Emitter 页另明确 Sphere/Box emitter 可附着到 Control Point。公开页不定义 `parentcontrolpoint`、raw-copy flag 等私有 JSON wire，也不公开 parent/child 坐标变换顺序、动态更新时相或角度复制细节；项目只用公开行为约束能力边界，wire identity 由合法 authored 资产交叉确认，执行与负例使用项目自有 fixture。
+
 ### 1.6 Timeline
 
 - https://docs.wallpaperengine.io/en/scene/timeline/introduction.html
