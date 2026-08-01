@@ -1,6 +1,12 @@
 import simd
 
 nonisolated enum SceneLayerWorldFrameResolver {
+    nonisolated struct TransformOverride {
+        let origin: SIMD3<Float>?
+        let scale: SIMD3<Float>?
+        let angles: SIMD3<Float>?
+    }
+
     nonisolated static func compute(
         descriptor: SceneRenderDescriptor,
         byID: [Int: SceneRenderDescriptor.Layer]
@@ -17,12 +23,27 @@ nonisolated enum SceneLayerWorldFrameResolver {
         byID: [Int: SceneRenderDescriptor.Layer],
         sceneOrthoHeight: Float?
     ) -> [Int: simd_float4x4] {
+        compute(
+            layers: layers,
+            byID: byID,
+            sceneOrthoHeight: sceneOrthoHeight,
+            transformOverrides: [:]
+        )
+    }
+
+    nonisolated static func compute(
+        layers: [SceneRenderDescriptor.Layer],
+        byID: [Int: SceneRenderDescriptor.Layer],
+        sceneOrthoHeight: Float?,
+        transformOverrides: [Int: TransformOverride]
+    ) -> [Int: simd_float4x4] {
         var cache: [Int: simd_float4x4] = [:]
 
         func localFrame(_ layer: SceneRenderDescriptor.Layer) -> simd_float4x4 {
-            var origin = SIMD3(layer.originXYZ ?? [], fill: 0)
-            let scale = SIMD3(layer.scaleXYZ ?? [], fill: 1)
-            var angles = SIMD3(layer.anglesXYZ ?? [], fill: 0)
+            let transform = transformOverrides[layer.id]
+            var origin = transform?.origin ?? SIMD3(layer.originXYZ ?? [], fill: 0)
+            let scale = transform?.scale ?? SIMD3(layer.scaleXYZ ?? [], fill: 1)
+            var angles = transform?.angles ?? SIMD3(layer.anglesXYZ ?? [], fill: 0)
             if layer.parentID == nil {
                 if let sceneOrthoHeight, sceneOrthoHeight > 0 {
                     origin.y = sceneOrthoHeight - origin.y

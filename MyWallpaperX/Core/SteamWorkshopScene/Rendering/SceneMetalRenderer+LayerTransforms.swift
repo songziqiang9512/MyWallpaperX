@@ -3,6 +3,7 @@ import simd
 extension SceneMetalRenderer {
     func imageModelMatrix(
         for layer: SceneRenderDescriptor.Layer,
+        worldFramesByLayerID: [Int: simd_float4x4],
         renderSizeOverride: [Float]? = nil,
         parallaxMouseNormalized: SIMD2<Float>,
         configuration: SceneLayerParallax.Configuration,
@@ -42,6 +43,7 @@ extension SceneMetalRenderer {
 
     func particleModelMatrix(
         for layer: SceneRenderDescriptor.Layer,
+        worldFramesByLayerID: [Int: simd_float4x4],
         parallaxMouseNormalized: SIMD2<Float>,
         configuration: SceneLayerParallax.Configuration
     ) -> simd_float4x4 {
@@ -60,6 +62,7 @@ extension SceneMetalRenderer {
 
     func lightShaftsModelMatrix(
         for layer: SceneRenderDescriptor.Layer,
+        worldFramesByLayerID: [Int: simd_float4x4],
         parallaxMouseNormalized: SIMD2<Float>,
         configuration: SceneLayerParallax.Configuration
     ) -> simd_float4x4? {

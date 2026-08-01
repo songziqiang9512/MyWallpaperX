@@ -23,6 +23,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneDocument+ShaderValue.swift",
     SOURCE_ROOT / "Format/SceneDocument+Timeline.swift",
     SOURCE_ROOT / "Format/SceneDocumentObject.swift",
+    SOURCE_ROOT / "Format/SceneObjectDependency.swift",
     SOURCE_ROOT / "Format/SceneSpotLightDefinition.swift",
     SOURCE_ROOT / "Text/SceneTextScriptDefinition.swift",
     SOURCE_ROOT / "Format/SceneTimelineAnimation.swift",
@@ -123,7 +124,7 @@ SCENE_FIXTURE = {
         },
         {
             "id": 40,
-            "name": "Relative is rejected",
+            "name": "Relative angles",
             "image": "models/user/d.json",
             "size": "100 100",
             "angles": {
@@ -133,6 +134,40 @@ SCENE_FIXTURE = {
                         [keyframe(0, 0), keyframe(60, 1)],
                         [keyframe(0, 0), keyframe(60, 1)],
                         [keyframe(0, 0), keyframe(60, 1)],
+                    ],
+                    relative=True,
+                ),
+            },
+        },
+        {
+            "id": 41,
+            "name": "Relative origin",
+            "image": "models/user/origin.json",
+            "size": "100 100",
+            "origin": {
+                "value": "10 20 30",
+                "animation": animation(
+                    [
+                        [keyframe(0, 0), keyframe(60, 1)],
+                        [keyframe(0, 0), keyframe(60, 2)],
+                        [keyframe(0, 0), keyframe(60, 3)],
+                    ],
+                    relative=True,
+                ),
+            },
+        },
+        {
+            "id": 42,
+            "name": "Relative scale",
+            "image": "models/user/scale.json",
+            "size": "100 100",
+            "scale": {
+                "value": "1 1 1",
+                "animation": animation(
+                    [
+                        [keyframe(0, 0), keyframe(60, 0.2)],
+                        [keyframe(0, 0), keyframe(60, 0.2)],
+                        [keyframe(0, 0), keyframe(60, 0)],
                     ],
                     relative=True,
                 ),
@@ -372,6 +407,7 @@ enum Harness {
                     "authored": describe(binding.definition.authoredValue),
                     "mode": binding.animation.options.mode.rawValue,
                     "componentCount": binding.animation.componentCount,
+                    "composition": binding.composition.rawValue,
                 ]
             },
         ]
@@ -460,6 +496,7 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
         self.assertEqual(binding["authored"], "vector3(0.5,1.5,2.5)")
         self.assertEqual(binding["componentCount"], 3)
         self.assertEqual(binding["mode"], "mirror")
+        self.assertEqual(binding["composition"], "absolute")
 
     def test_effect_constant_uses_array_index_and_pass_index(self) -> None:
         # effects[1].passes[1] —— effectIndex 是数组下标，passIndex 取 pass 自身
@@ -468,9 +505,18 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
         self.assertEqual(binding["authored"], "scalar(0.75)")
         self.assertEqual(binding["mode"], "single")
 
-    def test_relative_animation_is_rejected(self) -> None:
-        self.assertNotIn("layer:40:angles", self.targets())
-        self.assertIn("layer 40 angles: relativeUnsupported", self.result["diagnostics"])
+    def test_relative_layer_transform_uses_additive_composition(self) -> None:
+        expected = {
+            "layer:40:angles": "vector3(0.0,0.0,0.0)",
+            "layer:41:origin": "vector3(10.0,20.0,30.0)",
+            "layer:42:scale": "vector3(1.0,1.0,1.0)",
+        }
+        for target, authored in expected.items():
+            with self.subTest(target=target):
+                binding = self.binding(target)
+                self.assertEqual(binding["authored"], authored)
+                self.assertEqual(binding["composition"], "additive")
+        self.assertNotIn("layer 40 angles: relativeUnsupported", self.result["diagnostics"])
 
     def test_component_count_must_match_target_value_type(self) -> None:
         self.assertNotIn("layer:50:angles", self.targets())
@@ -530,6 +576,9 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
             {
                 "layer:10:alpha",
                 "layer:20:angles",
+                "layer:40:angles",
+                "layer:41:origin",
+                "layer:42:scale",
                 "constant:30:1:1:multiply",
                 "layer:70:alpha",
                 "particle:80:controlpoint:1",

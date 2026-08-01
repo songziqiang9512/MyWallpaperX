@@ -24,6 +24,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneDocument+ShaderValue.swift",
     SOURCE_ROOT / "Format/SceneDocument+Timeline.swift",
     SOURCE_ROOT / "Format/SceneDocumentObject.swift",
+    SOURCE_ROOT / "Format/SceneObjectDependency.swift",
     SOURCE_ROOT / "Format/SceneSpotLightDefinition.swift",
     SOURCE_ROOT / "Text/SceneTextScriptDefinition.swift",
     SOURCE_ROOT / "Format/SceneDocument+NumericParsing.swift",
@@ -117,6 +118,22 @@ SCENE_FIXTURE = {
                         "mode": "single",
                         "startpaused": True,
                     },
+                },
+            },
+        },
+        {
+            "id": 40,
+            "name": "Relative angles",
+            "image": "models/user/d.json",
+            "size": "100 100",
+            "angles": {
+                "value": "0.5 1.5 2.5",
+                "animation": {
+                    "c0": [keyframe(0, 0), keyframe(60, 1)],
+                    "c1": [keyframe(0, 0), keyframe(60, 2)],
+                    "c2": [keyframe(0, 0), keyframe(60, 3)],
+                    "options": {"fps": 30, "length": 60, "mode": "loop"},
+                    "relative": True,
                 },
             },
         },
@@ -284,6 +301,13 @@ enum Harness {
                     entry[name] = ["value": v, "source": resolved.source.rawValue]
                 }
             }
+            let relativeTarget = SceneDynamicTarget.layer(layerID: 40, field: .angles)
+            if let resolved = resolution.snapshot[relativeTarget],
+               case let .vector3(x, y, z) = resolved.value {
+                entry["relativeAngles"] = [
+                    "value": [x, y, z], "source": resolved.source.rawValue,
+                ]
+            }
             samples[label] = entry
         }
         payload["samples"] = samples
@@ -330,12 +354,12 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
         cls.temporary_directory.cleanup()
 
     def test_shared_target_is_not_duplicated_in_definitions(self) -> None:
-        # 三条 binding：layer10 alpha、layer30 alpha、layer20 constant
-        self.assertEqual(self.result["bindingCount"], 3)
+        # 四条 binding：两个 alpha、一个 constant、一个 relative transform
+        self.assertEqual(self.result["bindingCount"], 4)
         # layer10 alpha 两边都声明，合并后只能有一份，否则 resolver 会整个丢弃
         self.assertEqual(self.result["sharedTargetDefinitionCount"], 1)
-        # 1 条 property + 2 条 timeline 独有
-        self.assertEqual(self.result["definitionCount"], 3)
+        # 1 条 property + 3 条 timeline 独有
+        self.assertEqual(self.result["definitionCount"], 4)
 
     def test_resolver_accepts_every_timeline_value(self) -> None:
         for label in ("t0", "half", "late"):
@@ -365,6 +389,20 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
                 self.assertAlmostEqual(entry["value"], 1.0)
                 # 仍然由 timeline 提供，只是值恒定——不是回落到 authored
                 self.assertEqual(entry["source"], "timeline")
+
+    def test_relative_transform_adds_lane_values_to_authored_base(self) -> None:
+        self.assertEqual(
+            self.result["samples"]["t0"]["relativeAngles"]["value"],
+            [0.5, 1.5, 2.5],
+        )
+        self.assertEqual(
+            self.result["samples"]["half"]["relativeAngles"]["value"],
+            [1.0, 2.5, 4.0],
+        )
+        self.assertEqual(
+            self.result["samples"]["half"]["relativeAngles"]["source"],
+            "timeline",
+        )
 
 
 if __name__ == "__main__":

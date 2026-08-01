@@ -11,7 +11,7 @@ struct SceneMetalRenderer {
     // Cached transforms propagate parent pivot/orientation without double-scaling child quads.
     let worldFramesByLayerID: [Int: simd_float4x4]
     let parallaxByLayerID: [Int: SceneLayerParallax.Resolution]
-    private let layersByID: [Int: SceneRenderDescriptor.Layer]
+    let layersByID: [Int: SceneRenderDescriptor.Layer]
     private let utilityPlansByTriggerLayerID: [Int: [SceneUtilityLayerRuntimePlan]]
     let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
     let sceneScriptAudioBarsPlansByLayerID: [Int: SceneScriptAudioBarsPlan]
@@ -91,7 +91,8 @@ struct SceneMetalRenderer {
             return
         }
         encodeSourceUpdates?(commandBuffer)
-
+        let frameWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(descriptor: renderDescriptor,
+            byID: layersByID, snapshot: frameContext.dynamicValues, staticFrames: worldFramesByLayerID)
         let viewportSize = frameContext.screenSize
         let time = Float(frameContext.sceneTime)
         let parallaxMouseNormalized = frameContext.cameraParallaxPosition
@@ -127,7 +128,7 @@ struct SceneMetalRenderer {
                     effectTextures: effectTextures,
                     imagePipeline: imagePipeline,
                     offscreenTexturePool: offscreenTexturePool,
-                    frameContext: frameContext,
+                    frameContext: frameContext, worldFramesByLayerID: frameWorldFrames,
                     cameraFrame: cameraFrame,
                     parallaxConfiguration: parallaxConfiguration,
                     viewportSize: viewportSize,
@@ -138,7 +139,7 @@ struct SceneMetalRenderer {
             }
             if let imagePipeline, dependencyRuntime.requiresCapture(for: layer.id) {
                 let providerModel = imageModelMatrix(
-                    for: layer,
+                    for: layer, worldFramesByLayerID: frameWorldFrames,
                     renderSizeOverride: dynamicTextRenderSizes[layer.id],
                     parallaxMouseNormalized: parallaxMouseNormalized,
                     configuration: parallaxConfiguration,
@@ -190,7 +191,7 @@ struct SceneMetalRenderer {
                     snapshot: frameContext.dynamicValues
                 )
                 let model = imageModelMatrix(
-                    for: layer,
+                    for: layer, worldFramesByLayerID: frameWorldFrames,
                     renderSizeOverride: dynamicTextRenderSizes[layer.id],
                     parallaxMouseNormalized: parallaxMouseNormalized,
                     configuration: parallaxConfiguration,
@@ -257,7 +258,7 @@ struct SceneMetalRenderer {
                       ],
                       let pipeline = pipelineRepository.lightShafts(),
                       let model = lightShaftsModelMatrix(
-                          for: layer,
+                          for: layer, worldFramesByLayerID: frameWorldFrames,
                           parallaxMouseNormalized: parallaxMouseNormalized,
                           configuration: parallaxConfiguration
                       ),
@@ -283,7 +284,7 @@ struct SceneMetalRenderer {
                 )
             case "spotLight":
                 spotLightRuntime.render(
-                    layerID: layer.id, worldFrame: worldFramesByLayerID[layer.id],
+                    layerID: layer.id, worldFrame: frameWorldFrames[layer.id],
                     frame: .init(
                         frameContext: frameContext, cameraFrame: cameraFrame,
                         mainPass: mainPass, commandBuffer: commandBuffer
@@ -293,7 +294,7 @@ struct SceneMetalRenderer {
                 guard let particlePipeline,
                       let layerBatches = particleBatchesByID[layer.id] else { continue }
                 let model = particleModelMatrix(
-                    for: layer,
+                    for: layer, worldFramesByLayerID: frameWorldFrames,
                     parallaxMouseNormalized: parallaxMouseNormalized,
                     configuration: parallaxConfiguration
                 )
@@ -331,7 +332,7 @@ struct SceneMetalRenderer {
         effectTextures: SceneLayerEffectTextureStore,
         imagePipeline: SceneImageLayerPipeline?,
         offscreenTexturePool: SceneOffscreenTexturePool?,
-        frameContext: SceneFrameContext,
+        frameContext: SceneFrameContext, worldFramesByLayerID: [Int: simd_float4x4],
         cameraFrame: SceneParticleCameraFrame,
         parallaxConfiguration: SceneLayerParallax.Configuration,
         viewportSize: CGSize,
@@ -346,7 +347,7 @@ struct SceneMetalRenderer {
         for plan in plans {
             guard let layer = layersByID[plan.layerID] else { continue }
             let model = imageModelMatrix(
-                for: layer,
+                for: layer, worldFramesByLayerID: worldFramesByLayerID,
                 parallaxMouseNormalized: frameContext.cameraParallaxPosition,
                 configuration: parallaxConfiguration,
                 visibleHalfExtents: cameraFrame.coverHalfExtents

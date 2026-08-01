@@ -38,8 +38,14 @@ nonisolated enum SceneTimelineRuntime {
         of binding: SceneTimelineBinding,
         sceneTime: Double
     ) -> SceneDynamicValue? {
-        let lanes = SceneTimelineEvaluator.values(of: binding.animation, sceneTime: sceneTime)
+        var lanes = SceneTimelineEvaluator.values(of: binding.animation, sceneTime: sceneTime)
         guard lanes.allSatisfy(\.isFinite) else { return nil }
+        if binding.composition == .additive {
+            guard let authored = components(of: binding.definition.authoredValue),
+                  authored.count == lanes.count else { return nil }
+            lanes = zip(authored, lanes).map { $0 + $1 }
+            guard lanes.allSatisfy(\.isFinite) else { return nil }
+        }
         switch binding.definition.valueType {
         case .scalar:
             guard lanes.count == 1 else { return nil }
@@ -55,6 +61,18 @@ nonisolated enum SceneTimelineRuntime {
             return .vector4(lanes[0], lanes[1], lanes[2], lanes[3])
         case .bool, .string:
             return nil
+        }
+    }
+
+    private nonisolated static func components(
+        of value: SceneDynamicValue
+    ) -> [Double]? {
+        switch value {
+        case let .scalar(value): [value]
+        case let .vector2(x, y): [x, y]
+        case let .vector3(x, y, z): [x, y, z]
+        case let .vector4(x, y, z, w): [x, y, z, w]
+        case .bool, .string: nil
         }
     }
 }

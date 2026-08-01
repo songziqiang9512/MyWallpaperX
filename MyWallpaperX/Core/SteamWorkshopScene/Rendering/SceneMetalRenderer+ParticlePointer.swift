@@ -21,11 +21,16 @@ extension SceneMetalRenderer {
                 camera.orthoHeight ?? Float(viewportSize.height)
             )
         )
+        let frameWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(
+            descriptor: renderDescriptor, byID: layersByID,
+            snapshot: frameContext.dynamicValues, staticFrames: worldFramesByLayerID
+        )
         return Dictionary(uniqueKeysWithValues: renderDescriptor.layers.compactMap {
             layer -> (Int, SIMD3<Double>)? in
             guard layer.contentKind == "particle" else { return nil }
             let model = particleModelMatrix(
                 for: layer,
+                worldFramesByLayerID: frameWorldFrames,
                 parallaxMouseNormalized: frameContext.cameraParallaxPosition,
                 configuration: configuration
             )

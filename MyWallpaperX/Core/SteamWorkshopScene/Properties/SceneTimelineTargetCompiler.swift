@@ -2,8 +2,14 @@ import Foundation
 
 /// 一条已定型的 Timeline：写哪个 target、值是什么类型、作者基值是多少，以及驱动它的动画。
 nonisolated struct SceneTimelineBinding: Codable, Equatable {
+    nonisolated enum Composition: String, Codable, Equatable {
+        case absolute
+        case additive
+    }
+
     let definition: SceneDynamicTargetDefinition
     let animation: SceneTimelineAnimation
+    let composition: Composition
 
     nonisolated var target: SceneDynamicTarget {
         definition.target
@@ -27,7 +33,7 @@ nonisolated enum SceneTimelineTargetCompiler {
     private nonisolated enum Diagnostic: String {
         /// 宿主属性没有对应的 `SceneDynamicTarget`，或本批未接该 target。
         case unsupportedHost
-        /// `relative` 的合成语义尚未定标，先整条拒绝而不是猜一个基准。
+        /// 当前只为 layer transform 定标了作者基值加动画偏移；其他 relative 仍拒绝。
         case relativeUnsupported
         /// Combined Animation：同组成员共享持有方的 clock/settings，分组语义未实现。
         case combinedAnimationUnsupported
@@ -176,9 +182,15 @@ nonisolated enum SceneTimelineTargetCompiler {
         into candidates: inout [(binding: SceneTimelineBinding, label: String)],
         diagnostics: inout [String]
     ) {
-        guard !animation.isRelative else {
-            diagnostics.append("\(label): \(Diagnostic.relativeUnsupported.rawValue)")
-            return
+        let composition: SceneTimelineBinding.Composition
+        if animation.isRelative {
+            guard supportsAdditiveComposition(target) else {
+                diagnostics.append("\(label): \(Diagnostic.relativeUnsupported.rawValue)")
+                return
+            }
+            composition = .additive
+        } else {
+            composition = .absolute
         }
         // 组内成员必须共用持有方的 clock，独立求值会让两条 lane 逐渐错相。
         guard animation.options.parent == nil, animation.options.children.isEmpty else {
@@ -199,10 +211,18 @@ nonisolated enum SceneTimelineTargetCompiler {
                     valueType: valueType,
                     authoredValue: authoredValue
                 ),
-                animation: animation
+                animation: animation,
+                composition: composition
             ),
             label
         ))
+    }
+
+    private nonisolated static func supportsAdditiveComposition(
+        _ target: SceneDynamicTarget
+    ) -> Bool {
+        guard case let .layer(_, field) = target else { return false }
+        return field == .origin || field == .angles || field == .scale
     }
 
     private nonisolated static func layerTarget(

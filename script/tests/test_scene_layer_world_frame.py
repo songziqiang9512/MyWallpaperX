@@ -13,14 +13,17 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
+    SCENE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SCENE_ROOT / "Rendering/SceneMatrix.swift",
     SCENE_ROOT / "Rendering/SceneLayerWorldFrameResolver.swift",
+    SCENE_ROOT / "Rendering/SceneLayerDynamicWorldFrameResolver.swift",
 ]
 
 HARNESS = r'''
 import Foundation
 
 struct SceneRenderDescriptor {
+    struct Camera { let orthoHeight: Float? }
     struct Layer {
         let id: Int
         let parentID: Int?
@@ -29,6 +32,8 @@ struct SceneRenderDescriptor {
         let anglesXYZ: [Float]?
         let parentAttachmentBindFrame: [Float]?
     }
+    let layers: [Layer]
+    let camera: Camera
 }
 
 func attachmentFrame(x: Float, y: Float) -> [Float] {
@@ -73,6 +78,42 @@ func result(
     })
 }
 
+func dynamicResult() -> [String: [Double]] {
+    let parent = SceneRenderDescriptor.Layer(
+        id: 1, parentID: nil, originXYZ: [100, 50, 0], scaleXYZ: nil,
+        anglesXYZ: [0, 0, 0], parentAttachmentBindFrame: nil
+    )
+    let child = SceneRenderDescriptor.Layer(
+        id: 2, parentID: 1, originXYZ: [10, 0, 0], scaleXYZ: nil,
+        anglesXYZ: nil, parentAttachmentBindFrame: nil
+    )
+    let descriptor = SceneRenderDescriptor(
+        layers: [parent, child], camera: .init(orthoHeight: 1_000)
+    )
+    let byID = [1: parent, 2: child]
+    let staticFrames = SceneLayerWorldFrameResolver.compute(
+        layers: descriptor.layers, byID: byID, sceneOrthoHeight: 1_000
+    )
+    let target = SceneDynamicTarget.layer(layerID: 1, field: .angles)
+    let snapshot = SceneDynamicSnapshotResolver().resolve(
+        frameIndex: 1,
+        generation: 1,
+        definitions: [.init(
+            target: target, valueType: .vector3, authoredValue: .vector3(0, 0, 0)
+        )],
+        timelineValues: [target: .vector3(0, 0, Double.pi / 2)]
+    ).snapshot
+    let frames = SceneLayerDynamicWorldFrameResolver.resolve(
+        descriptor: descriptor, byID: byID, snapshot: snapshot, staticFrames: staticFrames
+    )
+    return Dictionary(uniqueKeysWithValues: frames.map { id, frame in
+        (String(id), [
+            Double(frame.columns.0.x), Double(frame.columns.0.y),
+            Double(frame.columns.3.x), Double(frame.columns.3.y),
+        ])
+    })
+}
+
 @main
 enum Harness {
     static func main() throws {
@@ -84,6 +125,7 @@ enum Harness {
                 attachment: attachmentFrame(x: 30, y: 40)
             ),
             "invalidFrame": result(attachment: [1, 2, 3]),
+            "dynamic": dynamicResult(),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -137,6 +179,14 @@ class SceneLayerWorldFrameTests(unittest.TestCase):
 
     def test_invalid_attachment_frame_falls_back_to_normal_parenting(self) -> None:
         self.assertEqual(self.result["invalidFrame"]["2"], [110, 930])
+
+    def test_dynamic_parent_rotation_updates_its_basis_and_child_world_frame(self) -> None:
+        parent = self.result["dynamic"]["1"]
+        child = self.result["dynamic"]["2"]
+        self.assertAlmostEqual(parent[0], 0, places=5)
+        self.assertAlmostEqual(parent[1], -1, places=5)
+        self.assertAlmostEqual(child[2], 100, places=5)
+        self.assertAlmostEqual(child[3], 940, places=5)
 
 
 if __name__ == "__main__":

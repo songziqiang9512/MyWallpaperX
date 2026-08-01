@@ -20,10 +20,11 @@ extension SceneDesktopWallpaperHost {
             // 变化」的最小证据；startPaused 的则两点同值。
             let half = options.durationSeconds / 2
             lines.append(String(
-                format: "timeline %@: mode=%@ duration=%.3fs startPaused=%@ lanes=%d"
+                format: "timeline %@: mode=%@ composition=%@ duration=%.3fs startPaused=%@ lanes=%d"
                     + " value@0=%@ value@half=%@",
                 describe(binding.target),
                 options.mode.rawValue,
+                binding.composition.rawValue,
                 options.durationSeconds,
                 options.startsPaused ? "true" : "false",
                 binding.animation.componentCount,
@@ -56,9 +57,21 @@ extension SceneDesktopWallpaperHost {
         _ binding: SceneTimelineBinding,
         sceneTime: Double
     ) -> String {
-        SceneTimelineEvaluator.values(of: binding.animation, sceneTime: sceneTime)
-            .map { String(format: "%.5f", $0) }
-            .joined(separator: ",")
+        SceneTimelineRuntime.values(
+            program: SceneTimelineProgram(bindings: [binding], diagnostics: []),
+            sceneTime: sceneTime
+        )[binding.target].map(Self.format) ?? "invalid"
+    }
+
+    private nonisolated static func format(_ value: SceneDynamicValue) -> String {
+        let values: [Double] = switch value {
+        case let .scalar(value): [value]
+        case let .vector2(x, y): [x, y]
+        case let .vector3(x, y, z): [x, y, z]
+        case let .vector4(x, y, z, w): [x, y, z, w]
+        case .bool, .string: []
+        }
+        return values.map { String(format: "%.5f", $0) }.joined(separator: ",")
     }
 
     private nonisolated static func describe(_ target: SceneDynamicTarget) -> String {
