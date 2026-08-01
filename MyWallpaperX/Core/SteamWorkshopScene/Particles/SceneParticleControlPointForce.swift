@@ -1,5 +1,20 @@
 import Foundation
 
+nonisolated extension SceneParticleSimulationMath {
+    static func supportsControlPointSource(
+        _ source: Int,
+        in definition: SceneParticleDefinition
+    ) -> Bool {
+        guard (0 ... 7).contains(source) else { return false }
+        var identities: Set<Int> = []
+        for point in definition.controlPoints {
+            guard let id = point.id, (0 ... 7).contains(id),
+                  identities.insert(id).inserted else { return false }
+        }
+        return true
+    }
+}
+
 nonisolated enum SceneParticleControlPointForceAdmission {
     case supported(SceneParticleControlPointForcePlan)
     case unsupported

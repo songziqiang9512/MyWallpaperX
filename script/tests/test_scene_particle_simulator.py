@@ -15,10 +15,13 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
+    SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
     SOURCE_ROOT / "Particles/SceneParticleWorldSpacePlan.swift",
+    SOURCE_ROOT / "Particles/SceneParticleBoids.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulationSupport.swift",
     SOURCE_ROOT / "Particles/SceneParticleControlPointForce.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+ControlPointForce.swift",
+    SOURCE_ROOT / "Particles/SceneParticleSimulator+Boids.swift",
     SOURCE_ROOT / "Particles/SceneParticlePeriodicEmission.swift",
     SOURCE_ROOT / "Particles/SceneParticleLayerImageEmissionMap.swift",
     SOURCE_ROOT / "Particles/SceneParticleOscillationCache.swift",

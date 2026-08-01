@@ -3,6 +3,8 @@ nonisolated enum SceneParticleSimulationDiagnosticKind: String, Hashable, Sendab
     case unsupportedEmitter
     case unsupportedInitializer
     case unsupportedOperator
+    case boidsBounded
+    case boidsUnsupported
     case controlPointForceBounded
     case controlPointForceUnsupported
     case unsupportedRenderer
@@ -340,6 +342,8 @@ nonisolated enum SceneParticleSimulationMath {
                 if value.audioResponse.isEnabled {
                     add(.unsupportedOperator, "turbulence")
                 }
+            case .boids:
+                add(definition.boidsPlan(for: value) == nil ? .boidsUnsupported : .boidsBounded, "boids")
             case .vortex:
                 add(.unsupportedOperator, "vortex")
             case let .unsupported(name):
@@ -385,16 +389,4 @@ nonisolated enum SceneParticleSimulationMath {
         return result
     }
 
-    static func supportsControlPointSource(
-        _ source: Int,
-        in definition: SceneParticleDefinition
-    ) -> Bool {
-        guard (0 ... 7).contains(source) else { return false }
-        var identities: Set<Int> = []
-        for point in definition.controlPoints {
-            guard let id = point.id, (0 ... 7).contains(id),
-                  identities.insert(id).inserted else { return false }
-        }
-        return true
-    }
 }

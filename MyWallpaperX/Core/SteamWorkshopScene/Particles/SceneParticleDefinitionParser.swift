@@ -60,30 +60,6 @@ nonisolated struct SceneParticleDefinitionParser {
         )
     }
 
-    nonisolated func parseInstanceOverride(_ rawValue: Any?) -> SceneParticleInstanceOverride? {
-        guard let root = rawValue as? [String: Any] else { return nil }
-        var controlPoints: [Int: SceneParticleBoundValue] = [:]
-        var controlPointAngles: [Int: SceneParticleBoundValue] = [:]
-        for index in 0..<8 {
-            controlPoints[index] = Self.boundValue(root["controlpoint\(index)"])
-            controlPointAngles[index] = Self.boundValue(root["controlpointangle\(index)"])
-        }
-        return SceneParticleInstanceOverride(
-            id: Self.integer(root["id"]),
-            alpha: Self.boundValue(root["alpha"]),
-            size: Self.boundValue(root["size"]),
-            lifetime: Self.boundValue(root["lifetime"]),
-            rate: Self.boundValue(root["rate"]),
-            speed: Self.boundValue(root["speed"]),
-            count: Self.boundValue(root["count"]),
-            brightness: Self.boundValue(root["brightness"]),
-            color: Self.boundValue(root["color"]),
-            normalizedColor: Self.boundValue(root["colorn"]),
-            controlPoints: controlPoints,
-            controlPointAngles: controlPointAngles
-        )
-    }
-
     private nonisolated func parseEmitter(
         _ root: [String: Any],
         diagnostics: inout [SceneParticleDiagnostic]
@@ -175,6 +151,24 @@ nonisolated struct SceneParticleDefinitionParser {
         case "oscillatesize": kind = .oscillateSize
         case "controlpointattract": kind = .controlPointAttract
         case "turbulence": kind = .turbulence
+        case "boids":
+            let scalarFields = [
+                "neighborthreshold", "separationfactor", "cohesionfactor", "alignmentfactor"
+            ]
+            let supportedFields = Set([
+                "id", "name", "flags", "neighborthreshold", "separationfactor",
+                "cohesionfactor", "alignmentfactor"
+            ])
+            kind = .boids(.init(
+                neighborThreshold: Self.number(root["neighborthreshold"]),
+                separationFactor: Self.number(root["separationfactor"]),
+                cohesionFactor: Self.number(root["cohesionfactor"]),
+                alignmentFactor: Self.number(root["alignmentfactor"]),
+                hasMalformedFields: scalarFields.contains {
+                    root[$0] != nil && !(root[$0] is NSNull) && Self.number(root[$0]) == nil
+                } || (root["flags"] != nil && Self.integer(root["flags"]) == nil),
+                unsupportedFieldNames: root.keys.filter { !supportedFields.contains($0) }.sorted()
+            ))
         case "vortex": kind = .vortex
         default:
             kind = .unsupported(name)
@@ -331,7 +325,7 @@ nonisolated struct SceneParticleDefinitionParser {
         trimmed(root["name"] as? String)?.lowercased() ?? ""
     }
 
-    private nonisolated static func boundValue(_ rawValue: Any?) -> SceneParticleBoundValue? {
+    nonisolated static func boundValue(_ rawValue: Any?) -> SceneParticleBoundValue? {
         guard rawValue != nil, !(rawValue is NSNull) else { return nil }
         let wrapper = rawValue as? [String: Any]
         let userValue = wrapper?["user"]
@@ -376,7 +370,7 @@ nonisolated struct SceneParticleDefinitionParser {
         numericValue(rawValue)?.scalarValue
     }
 
-    private nonisolated static func integer(_ rawValue: Any?) -> Int? {
+    nonisolated static func integer(_ rawValue: Any?) -> Int? {
         guard let value = number(rawValue), value.isFinite else { return nil }
         return Int(exactly: value)
     }

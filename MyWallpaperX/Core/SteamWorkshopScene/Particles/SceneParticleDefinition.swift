@@ -213,8 +213,18 @@ nonisolated enum SceneParticleOperatorKind: Equatable, Sendable {
     case oscillateSize
     case controlPointAttract
     case turbulence
+    case boids(SceneParticleBoids)
     case vortex
     case unsupported(String)
+}
+
+nonisolated struct SceneParticleBoids: Equatable, Sendable {
+    let neighborThreshold: Double?
+    let separationFactor: Double?
+    let cohesionFactor: Double?
+    let alignmentFactor: Double?
+    let hasMalformedFields: Bool
+    let unsupportedFieldNames: [String]
 }
 
 nonisolated struct SceneParticleOperator: Equatable, Sendable {

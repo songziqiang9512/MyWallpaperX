@@ -14,6 +14,7 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
+    SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
     SOURCE_ROOT / "Format/ScenePkgReader.swift",
 ]
 
@@ -423,6 +424,7 @@ enum Harness {
         case .oscillateSize: "oscillatesize"
         case .controlPointAttract: "controlpointattract"
         case .turbulence: "turbulence"
+        case .boids: "boids"
         case .vortex: "vortex"
         case let .unsupported(name): name
         }

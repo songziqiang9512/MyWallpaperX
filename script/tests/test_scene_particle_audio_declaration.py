@@ -23,6 +23,7 @@ PARTICLES_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Particl
 DEFINITION_SOURCE = PARTICLES_ROOT / "SceneParticleDefinition.swift"
 PARSER_SOURCE = PARTICLES_ROOT / "SceneParticleDefinitionParser.swift"
 SIMULATION_SOURCE = PARTICLES_ROOT / "SceneParticleSimulationSupport.swift"
+BOIDS_SOURCE = PARTICLES_ROOT / "SceneParticleBoids.swift"
 CONTROL_POINT_FORCE_SOURCE = PARTICLES_ROOT / "SceneParticleControlPointForce.swift"
 PERIODIC_SOURCE = PARTICLES_ROOT / "SceneParticlePeriodicEmission.swift"
 
@@ -178,6 +179,7 @@ class SceneParticleAudioDeclarationTests(unittest.TestCase):
         sources = [
             DEFINITION_SOURCE,
             PARSER_SOURCE,
+            BOIDS_SOURCE,
             SIMULATION_SOURCE,
             CONTROL_POINT_FORCE_SOURCE,
             PERIODIC_SOURCE,

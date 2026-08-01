@@ -365,6 +365,8 @@ nonisolated struct SceneParticleSimulator: Sendable {
             }
         case .controlPointAttract:
             applyControlPointForce(value, duration: duration)
+        case .boids:
+            applyBoids(value, duration: duration)
         case .vortex, .unsupported:
             break
         }
