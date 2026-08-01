@@ -58,6 +58,8 @@
 
 2026-08-02 复核官方 [Blur Precise effect](https://docs.wallpaperengine.io/en/scene/effects/effect/blurprecise.html) 与 [Effects overview](https://docs.wallpaperengine.io/en/scene/effects/overview.html)：公开页把它定义为作用于完整 layer 的精确 Gaussian blur，并允许作者调整 kernel size 与 X/Y scale；更大的 kernel 增加模糊范围和性能成本，overview 只把其更清晰的轮廓/光束表现作为选择方向。页面不公开私有 `KERNEL` 数值映射、采样权重、`ENABLEMASK`/`MASK` wire、pass/RT 结构或跨后端舍入。项目当前 `KERNEL=0/1/2` identity 来自合法 authored 语料与 stock 结构研究，GPU 使用项目自有 large/7-tap binomial/3-tap binomial profile；不得把这些系数写成官方算法或 Windows 像素等价。
 
+2026-08-02 复核官方 [Blend Gradient effect](https://docs.wallpaperengine.io/en/scene/effects/effect/blendgradient.html)、[Album Cover](https://docs.wallpaperengine.io/en/scene/audiovisualizer/albumcover.html) 与 [Timeline modes](https://docs.wallpaperengine.io/en/scene/timeline/modes.html)：公开页确认 Blend Gradient 用 gradient 控制两张纹理的混合，Album Cover 配方把 previous cover 绑定到该输入，并以 `Single`、`Start paused` Timeline 和 `mediaThumbnailChanged` stop/play 重启过渡。页面不公开私有 JSON、shader 数学、edge 公式或 Windows 事件时序；项目 bounded profile 的内容指纹、slot/constant/wire 准入和项目自有 Metal wipe 来自合法 authored 语料与正反门，不能表述成 generic Blend Gradient 或 Windows 像素等价。
+
 ### 1.3 Parallax
 
 - Camera Parallax：https://docs.wallpaperengine.io/en/scene/parallax/introduction.html
@@ -130,6 +132,8 @@ Group 与 display condition 在 Overview 中定义。Texture Variants 不能由 
 - SceneScript Audio tutorial：https://docs.wallpaperengine.io/en/scene/scenescript/tutorial/audio.html
 - AudioBuffers：https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AudioBuffers.html
 - Media event：https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/media.html
+
+2026-08-02 复核 Apple [MPNowPlayingInfoCenter](https://developer.apple.com/documentation/mediaplayer/mpnowplayinginfocenter)：公开 API 的合同是让应用发布“该应用当前播放”的媒体信息，不是读取其他应用当前媒体的系统级 observer。项目可以继续保留 producer-agnostic inbox，但在找到公开、可授权并能处理多播放器仲裁的 macOS 输入来源前，不把 Debug 图片序列或私有 MediaRemote 接口包装成产品 live producer。
 
 ### 1.9 SceneScript API
 

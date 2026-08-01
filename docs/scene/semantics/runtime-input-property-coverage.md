@@ -318,7 +318,7 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 | audio consumer registration/lifecycle | `L3` | 采集由 consumer 存在性驱动，launch 声明/teardown 撤销，暂停/锁屏/休眠停采并归零；native 64-band Audio Bars program 与既有 effect consumer 共用同一次 host snapshot | 新增 consumer 必须同批扩充判定，否则采集不会启动 |
 | Scene Sound layer / self-playback | `L0` | `3743305891` authored FLAC 尚未解码/播放；当前 system tap 排除本进程，不会把该声音回送成 Scene 频谱 | sound content IR、提取/解码、状态/volume/teardown，以及 wallpaper-local 频谱源的独立合同 |
 | media status/playback/properties/timeline | `L0` | 无 snapshot | 可注入 provider 和原子 generation |
-| generic media thumbnail identity | `L3 bounded current` | `$mediaThumbnail` 与 `$mediaPreviousThumbnail` 已分成独立 system identity；current 有严格 consumer，previous 只有 provider/history publication | live platform producer、previous Blend Gradient consumer、media event 与 transition lifecycle |
+| generic media thumbnail identity | `L3 bounded cover` | `$mediaThumbnail` 与 `$mediaPreviousThumbnail` 已分成独立 system identity；current 有严格 Blend consumer，previous 有原子 history 和一个结构/内容严格准入的 gradient transition consumer | live platform producer、generic Blend Gradient/variant、通用 media event 与 SceneScript lifecycle |
 | media events | `L0` | 无 SceneScript dispatch | 每屏队列、顺序和异常隔离 |
 
 Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选择 16、32 或 64 bins，并在 render frame 更新。
@@ -352,11 +352,11 @@ Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选
 
 | 官方能力 | 等级 | 当前事实 | 最小实现门 |
 |---|---|---|---|
-| `$mediaThumbnail` generic reference | `L3 bounded` | current/previous 是独立 system identity；frame registry 对显式 publication 执行 generation 前进、同代换纹理和 stale 拒绝 | generic material、variant 与 previous transition consumer |
+| `$mediaThumbnail` generic reference | `L3 bounded` | current/previous 是独立 system identity；frame registry 对显式 publication 执行 generation 前进、同代换纹理和 stale 拒绝；一个严格 album-cover profile 可同时消费两者 | generic material、其他 Blend Gradient/variant 与通用 event consumer |
 | current cover identity/provider | `L3 bounded` | producer-agnostic inbox 原子发布 encoded current，异步 ImageIO decode 以 requested generation 拒绝过期完成，最长边限制为 256，再以显式 content generation 广播所有 surface；当前只有隔离 debug producer，见 [E-MEDIA-THUMBNAIL](runtime-evidence-index.md#e-media-thumbnail) | macOS live Now Playing producer、权限/播放器 lifecycle、decode status telemetry 与真实切歌门 |
-| previous cover identity/provider | `L2` | 每次不同 current 提交时原 current 原子移入 previous，clear 同时清空；自动门证明 A→B→C 后 current=C、previous=B，texture registry 可解析 previous identity | authored Blend Gradient consumer、事件/Timeline 重启与真实样本转场门 |
+| previous cover identity/provider | `L3 bounded` | 每次不同 current 提交时原 current 原子移入 previous，clear 同时清空；A→B→C 后 current=C、previous=B。严格 profile 由各 surface 观察同一 content generation 并启动 per-layer transition，重建只观察当前代，不重复播放 | live producer、clear/缺封面真实生命周期、多 surface/hot-plug 与其他 consumer |
 | authored placeholder fallback | `L3 bounded` | 无 current、decode 未完成或失败时不覆盖作者 image/solid；只为 normal/full-strength、单纹理 current Blend 和通用 `mediaThumbnailChanged(event){ thisObject.visible=event.hasThumbnail; }` 可见性合同准入 layer-source replacement | 其他 Blend mode/强度/transform/mask、多纹理、任意脚本或 generic effect consumer |
-| authored cover transition graph | `L0` | current/previous provider identity 已分离，通用 Timeline evaluator 也已有；仍缺 previous Blend Gradient consumer、media event 与 SceneScript restart | 新 thumbnail event -> restart Single animation；缺封面不误触发 |
+| authored cover transition graph | `L3 bounded` | 只接受内容指纹、effect/material/shader、三槽/previous identity、常量、两关键帧 `Single + Start paused` 和 `mediaThumbnailChanged` stop/play 结构完整匹配的 profile；媒体 generation 变化触发 per-surface pause-safe 项目自有 gradient wipe。缺 gradient/脚本、重复/loop/未知 profile 或没有 current consumer 均失败关闭；见 [E-MEDIA-THUMBNAIL](runtime-evidence-index.md#e-media-thumbnail) | generic Blend Gradient、edge glow/其他常量/曲线、通用 SceneScript event dispatch、真实平台切歌与 Windows timing/pixel golden |
 | recommended cover extent policy | `L2` | encoded input 限 16 MiB，ImageIO thumbnail 保持比例且最长边限 256；只接受可解码 PNG/JPEG 路径作为隔离证据输入 | 非方形/异常 profile 的 GPU 几何门、色彩空间/orientation 与 Windows decode golden |
 | live platform media producer | `L0` | 公共 inbox 已提供 producer 边界，但产品没有读取其他 macOS app 当前播放封面的系统 adapter | 选择可公开/可授权的系统来源，定义 start/pause/stop、缺封面、切歌和多播放器仲裁 |
 
@@ -364,7 +364,7 @@ Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选
 
 | provider 能力 | 等级 | 当前能力 | 下一门 |
 |---|---|---|---|
-| layer/named/property identity/status/generation | `L3` | 受限 provider 有 ready/pending/unavailable；静态 resource generation 与 named frame epoch 分离；direct text、embedded MP4 和 bounded current media thumbnail 以显式 content generation publication 进入 frame registry，stale generation、同代换纹理和 publication/texture 不匹配均拒绝；[E-PROVIDER](runtime-evidence-index.md#e-provider) / [E-MEDIA-THUMBNAIL](runtime-evidence-index.md#e-media-thumbnail) | previous transition、variant、通用 metadata 与 platform producer/consumer 生命周期 |
+| layer/named/property identity/status/generation | `L3` | 受限 provider 有 ready/pending/unavailable；静态 resource generation 与 named frame epoch 分离；direct text、embedded MP4 和 bounded current/previous cover 以显式 content generation publication 进入 frame registry，stale generation、同代换纹理和 publication/texture 不匹配均拒绝；[E-PROVIDER](runtime-evidence-index.md#e-provider) / [E-MEDIA-THUMBNAIL](runtime-evidence-index.md#e-media-thumbnail) | 其他 media transition/variant、通用 metadata 与 platform producer/consumer 生命周期 |
 | authored fallback chain | `L3` | 受限 static image blend；[E-PROVIDER](runtime-evidence-index.md#e-provider) | 推广至 material/effect/nested consumer |
 | property PNG/JPEG | `L3` | bookmark/security scope/decode/per-screen upload；[E-PROVIDER](runtime-evidence-index.md#e-provider) | cancellation、更多格式、通用 material |
 | multi-image TEX sprite playback | `L3 bounded` | BC1/2/3、axis-aligned/integer/same-extent frame 的 launch-scoped native autoplay；source 按 file generation/device 跨 surface 去重，destination 按实例计费并随 playback 释放，设备 allocation 聚合预算 384 MiB；SceneClock pause/resume/rebuild 保持同一 scene-time 映射，完整 stop 随 launch context 释放。精确 delayed-loop script profile 另使用实例级、timer-free 状态机执行 initial delay、末帧 reset 与独立随机等待；[E-PUPPET-BC](runtime-evidence-index.md#e-puppet-bc) | dynamic replacement、旋转/trimmed/fractional/异尺寸 frame、通用 SceneScript handle/detach/join/rate/pause/seek/command/timer、Windows timing/color/alpha golden |
