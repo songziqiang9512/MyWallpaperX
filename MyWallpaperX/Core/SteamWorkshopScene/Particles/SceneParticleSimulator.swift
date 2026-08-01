@@ -171,7 +171,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
     private nonisolated mutating func makeParticle(
         _ emitter: SceneParticleEmitter
     ) -> SceneParticleState? {
-        var position = emitterOrigin(emitter)
+        guard var position = emitterOrigin(emitter) else { return nil }
         var velocity = SIMD3<Double>.zero
         let relative: SIMD3<Double>
         switch emitter.kind {
@@ -380,13 +380,13 @@ nonisolated struct SceneParticleSimulator: Sendable {
         )
     }
 
-    private nonisolated func emitterOrigin(_ emitter: SceneParticleEmitter) -> SIMD3<Double> {
+    private nonisolated func emitterOrigin(_ emitter: SceneParticleEmitter) -> SIMD3<Double>? {
         var result = SceneParticleSimulationMath.vector(emitter.origin, fallback: .zero)
-        guard let source = emitter.controlPoint, source >= 0 else { return result }
-        let point = definition.controlPoints.indices.contains(source)
-            ? definition.controlPoints[source]
-            : definition.controlPoints.first(where: { $0.id == source })
-        if let point {
+        guard let source = emitter.controlPoint else { return result }
+        guard SceneParticleSimulationMath.supportsControlPointSource(
+            source, in: definition
+        ) else { return nil }
+        if let point = definition.controlPoints.first(where: { $0.id == source }) {
             result += SceneParticleSimulationMath.vector(point.offset, fallback: .zero)
         }
         if let dynamic = dynamicControlPoints[source] {

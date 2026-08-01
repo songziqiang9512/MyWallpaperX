@@ -148,6 +148,33 @@ enum Harness {
             dynamicControlPoints: [1: SIMD3(-5, 6, 7)]
         )
         dynamicControlPoint.advance(by: 1)
+        var authoredControlPoint = simulator(
+            authoredControlPointIdentityJSON, seed: 1, step: 1
+        )
+        authoredControlPoint.advance(by: 1)
+        var implicitControlPoint = simulator(
+            implicitControlPointJSON, seed: 1, step: 1
+        )
+        implicitControlPoint.advance(by: 1)
+        var duplicateControlPoint = simulator(
+            malformedControlPointJSON(#"[{"id":0},{"id":1},{"id":1}]"#),
+            seed: 1, step: 1
+        )
+        duplicateControlPoint.advance(by: 1)
+        var outOfRangeControlPoint = simulator(
+            malformedControlPointJSON(#"[{"id":8}]"#), seed: 1, step: 1
+        )
+        outOfRangeControlPoint.advance(by: 1)
+        var missingControlPointID = simulator(
+            malformedControlPointJSON(#"[{"offset":"1 0 0"}]"#), seed: 1, step: 1
+        )
+        missingControlPointID.advance(by: 1)
+        var outOfRangeControlPointSource = simulator(
+            implicitControlPointJSON.replacingOccurrences(
+                of: #""controlpoint":3"#, with: #""controlpoint":8"#
+            ), seed: 1, step: 1
+        )
+        outOfRangeControlPointSource.advance(by: 1)
 
         var operators = simulator(operatorJSON, seed: 1, step: 0.25)
         operators.advance(by: 0.25)
@@ -421,6 +448,24 @@ enum Harness {
             "dynamicControlPointPositions": dynamicControlPoint.particles.map {
                 vector($0.position)
             },
+            "authoredControlPointPosition":
+                authoredControlPoint.particles.first.map { vector($0.position) } ?? [],
+            "authoredControlPointDiagnostics":
+                authoredControlPoint.diagnostics.map(\.kind.rawValue),
+            "implicitControlPointPosition":
+                implicitControlPoint.particles.first.map { vector($0.position) } ?? [],
+            "implicitControlPointDiagnostics":
+                implicitControlPoint.diagnostics.map(\.kind.rawValue),
+            "invalidControlPointCounts": [
+                duplicateControlPoint.particles.count,
+                outOfRangeControlPoint.particles.count,
+                missingControlPointID.particles.count,
+                outOfRangeControlPointSource.particles.count,
+            ],
+            "invalidControlPointDiagnostics": [
+                duplicateControlPoint, outOfRangeControlPoint,
+                missingControlPointID, outOfRangeControlPointSource,
+            ].map { $0.diagnostics.map(\.kind.rawValue) },
             "overrideDiagnostics": overridden.diagnostics.map(\.kind.rawValue),
             "operatorAlpha": operatorParticle.alpha,
             "operatorSize": operatorParticle.size,
@@ -629,6 +674,28 @@ enum Harness {
      "renderer":[{"name":"sprite"}],
      "controlpoint":[{"id":1,"offset":"1 1 1"}]}
     """#
+
+    private static let authoredControlPointIdentityJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","controlpoint":1,"instantaneous":1,"distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+     "renderer":[{"name":"sprite"}],
+     "controlpoint":[{"id":2,"offset":"200 0 0"},{"id":0},{"id":1,"offset":"10 0 0"}]}
+    """#
+
+    private static let implicitControlPointJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","controlpoint":3,"instantaneous":1,"origin":"5 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static func malformedControlPointJSON(_ points: String) -> String {
+        let prefix = String(implicitControlPointJSON
+            .replacingOccurrences(of: #""controlpoint":3"#, with: #""controlpoint":1"#)
+            .dropLast())
+        return prefix + #", "controlpoint":"# + points + "}"
+    }
 
     private static let periodicJSON = #"""
     {"material":"p.json","maxcount":100,
@@ -1085,6 +1152,23 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(
             self.results["dynamicControlPointPositions"],
             [[11, 21, 31], [-4, 7, 8], [3, 4, 5]],
+        )
+
+    def test_control_point_emitters_bind_authored_ids_and_reject_invalid_identity(self) -> None:
+        self.assertEqual(self.results["authoredControlPointPosition"], [10, 0, 0])
+        self.assertEqual(
+            self.results["authoredControlPointDiagnostics"],
+            ["controlPointEmitterBounded"],
+        )
+        self.assertEqual(self.results["implicitControlPointPosition"], [5, 0, 0])
+        self.assertEqual(
+            self.results["implicitControlPointDiagnostics"],
+            ["controlPointEmitterBounded"],
+        )
+        self.assertEqual(self.results["invalidControlPointCounts"], [0, 0, 0, 0])
+        self.assertEqual(
+            self.results["invalidControlPointDiagnostics"],
+            [["controlPointEmitterUnsupported"]] * 4,
         )
 
     def test_change_angular_and_oscillation_operators_execute(self) -> None:

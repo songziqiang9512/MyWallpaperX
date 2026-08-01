@@ -12,6 +12,8 @@ nonisolated enum SceneParticleSimulationDiagnosticKind: String, Hashable, Sendab
     case audioResponseIgnored
     case periodicEmissionBounded
     case periodicEmissionUnsupported
+    case controlPointEmitterBounded
+    case controlPointEmitterUnsupported
     case pointerControlPointIgnored
 }
 
@@ -278,6 +280,18 @@ nonisolated enum SceneParticleSimulationMath {
                 break
             }
         }
+        let controlPointEmitters = definition.emitters.filter { $0.controlPoint != nil }
+        if !controlPointEmitters.isEmpty {
+            if controlPointEmitters.allSatisfy({ emitter in
+                emitter.controlPoint.map {
+                    supportsControlPointSource($0, in: definition)
+                } ?? true
+            }) {
+                add(.controlPointEmitterBounded, "sources=\(controlPointEmitters.count)")
+            } else {
+                add(.controlPointEmitterUnsupported, "identity")
+            }
+        }
         for `operator` in definition.operators {
             // operator 的 audio 调制此前不产生诊断，启用后会静默按无音频路径模拟。
             if `operator`.audioResponse.isEnabled { add(.audioResponseIgnored, "operator") }
@@ -345,5 +359,18 @@ nonisolated enum SceneParticleSimulationMath {
             add(.dynamicOverrideIgnored, "instanceoverride")
         }
         return result
+    }
+
+    static func supportsControlPointSource(
+        _ source: Int,
+        in definition: SceneParticleDefinition
+    ) -> Bool {
+        guard (0 ... 7).contains(source) else { return false }
+        var identities: Set<Int> = []
+        for point in definition.controlPoints {
+            guard let id = point.id, (0 ... 7).contains(id),
+                  identities.insert(id).inserted else { return false }
+        }
+        return true
     }
 }
