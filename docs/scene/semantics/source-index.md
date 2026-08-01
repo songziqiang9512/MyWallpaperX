@@ -1,6 +1,6 @@
 # Scene 资料来源与证据索引
 
-> 核验日期：2026-08-01
+> 核验日期：2026-08-02
 >
 > 网络核验使用系统代理 `http://127.0.0.1:7897`。
 >
@@ -53,6 +53,8 @@
 - https://docs.wallpaperengine.io/en/scene/effects/bloom.html
 
 45 个官方 effect 专页已逐项核验 HTTP 200，并整理在 [Effects 语义全集](effects-reference.md)。不要在这里复制第二份效果表。
+
+2026-08-02 复核官方 [Blend effect](https://docs.wallpaperengine.io/en/scene/effects/effect/blend.html)：公开参数说明 Write alpha 会依据 blended texture 的 opacity 修改底层 layer opacity；页面不公开私有 `WRITEALPHA` wire、输出 alpha 的逐项公式、颜色预乘边界或舍入规则。项目仅用该公开行为确定能力方向，exact stock/legacy combo、静态 alpha 准入与 premultiplied GPU 数学由合法 stock 语料和项目自有正反 fixture 锁定，不表述为官方内部算法或 Windows 像素等价。
 
 ### 1.3 Parallax
 
