@@ -5,8 +5,13 @@ nonisolated struct SceneFrameTiming: Equatable, Sendable {
     let frameIndex: UInt64
     let hostTime: TimeInterval
     let sceneTime: TimeInterval
-    let frameTime: TimeInterval
+    let rawFrameTime: TimeInterval
+    let simulationFrameTime: TimeInterval
+    let droppedFrameTime: TimeInterval
     let wallDate: Date
+
+    nonisolated var frameTime: TimeInterval { rawFrameTime }
+    nonisolated var isDiscontinuous: Bool { droppedFrameTime > 0 }
 }
 
 nonisolated struct SceneFrameContext: Equatable, Sendable {
@@ -25,10 +30,16 @@ nonisolated struct SceneFrameContext: Equatable, Sendable {
     nonisolated var hostTime: TimeInterval { timing.hostTime }
     nonisolated var sceneTime: TimeInterval { timing.sceneTime }
     nonisolated var frameTime: TimeInterval { timing.frameTime }
+    nonisolated var rawFrameTime: TimeInterval { timing.rawFrameTime }
+    nonisolated var simulationFrameTime: TimeInterval { timing.simulationFrameTime }
+    nonisolated var droppedFrameTime: TimeInterval { timing.droppedFrameTime }
+    nonisolated var isDiscontinuous: Bool { timing.isDiscontinuous }
     nonisolated var wallDate: Date { timing.wallDate }
 }
 
 nonisolated struct SceneClock {
+    nonisolated static let maximumSimulationFrameTime: TimeInterval = 0.25
+
     private var startHostTime: TimeInterval
     private var lastHostTime: TimeInterval
     private var nextFrameIndex: UInt64 = 0
@@ -39,13 +50,15 @@ nonisolated struct SceneClock {
     nonisolated var isPaused: Bool { pausedHostTime != nil }
 
     nonisolated init(hostTime: TimeInterval) {
-        startHostTime = hostTime
-        lastHostTime = hostTime
+        let normalizedHostTime = hostTime.isFinite ? hostTime : 0
+        startHostTime = normalizedHostTime
+        lastHostTime = normalizedHostTime
     }
 
     nonisolated mutating func reset(hostTime: TimeInterval) {
-        startHostTime = hostTime
-        lastHostTime = hostTime
+        let normalizedHostTime = hostTime.isFinite ? hostTime : 0
+        startHostTime = normalizedHostTime
+        lastHostTime = normalizedHostTime
         nextFrameIndex = 0
         pausedHostTime = nil
         pausedSceneTime = 0
@@ -54,7 +67,7 @@ nonisolated struct SceneClock {
 
     nonisolated mutating func pause(hostTime: TimeInterval) {
         guard pausedHostTime == nil else { return }
-        let monotonicHostTime = max(hostTime, lastHostTime)
+        let monotonicHostTime = self.monotonicHostTime(hostTime)
         pausedHostTime = monotonicHostTime
         pausedSceneTime = monotonicHostTime - startHostTime
         lastHostTime = monotonicHostTime
@@ -62,7 +75,9 @@ nonisolated struct SceneClock {
 
     nonisolated mutating func resume(hostTime: TimeInterval) {
         guard let pausedHostTime else { return }
-        let monotonicHostTime = max(hostTime, pausedHostTime)
+        let monotonicHostTime = hostTime.isFinite
+            ? max(hostTime, pausedHostTime)
+            : pausedHostTime
         startHostTime += monotonicHostTime - pausedHostTime
         lastHostTime = monotonicHostTime
         self.pausedHostTime = nil
@@ -76,7 +91,7 @@ nonisolated struct SceneClock {
         if anchorsFirstResumedFrame {
             return lastHostTime - startHostTime
         }
-        return max(hostTime, lastHostTime) - startHostTime
+        return monotonicHostTime(hostTime) - startHostTime
     }
 
     nonisolated mutating func advance(
@@ -86,30 +101,43 @@ nonisolated struct SceneClock {
         if pausedHostTime != nil {
             return SceneFrameTiming(
                 frameIndex: nextFrameIndex,
-                hostTime: max(hostTime, lastHostTime),
+                hostTime: monotonicHostTime(hostTime),
                 sceneTime: pausedSceneTime,
-                frameTime: 0,
+                rawFrameTime: 0,
+                simulationFrameTime: 0,
+                droppedFrameTime: 0,
                 wallDate: wallDate
             )
         }
 
-        let monotonicHostTime = max(hostTime, lastHostTime)
+        let monotonicHostTime = self.monotonicHostTime(hostTime)
         if anchorsFirstResumedFrame {
             startHostTime += monotonicHostTime - lastHostTime
         }
-        let frameTime = nextFrameIndex == 0 || anchorsFirstResumedFrame
+        let rawFrameTime = nextFrameIndex == 0 || anchorsFirstResumedFrame
             ? 0
             : monotonicHostTime - lastHostTime
+        let simulationFrameTime = min(
+            rawFrameTime,
+            Self.maximumSimulationFrameTime
+        )
         let timing = SceneFrameTiming(
             frameIndex: nextFrameIndex,
             hostTime: monotonicHostTime,
             sceneTime: monotonicHostTime - startHostTime,
-            frameTime: frameTime,
+            rawFrameTime: rawFrameTime,
+            simulationFrameTime: simulationFrameTime,
+            droppedFrameTime: rawFrameTime - simulationFrameTime,
             wallDate: wallDate
         )
         lastHostTime = monotonicHostTime
         anchorsFirstResumedFrame = false
         nextFrameIndex &+= 1
         return timing
+    }
+
+    nonisolated private func monotonicHostTime(_ hostTime: TimeInterval) -> TimeInterval {
+        guard hostTime.isFinite else { return lastHostTime }
+        return max(hostTime, lastHostTime)
     }
 }

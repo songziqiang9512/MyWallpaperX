@@ -51,6 +51,10 @@ LIVE_CONSUMERS_SOURCE = (
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+LiveConsumers.swift"
 )
 VIEW_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView.swift"
+PARTICLE_PLAYBACK_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticlePlaybackState.swift"
+)
 RENDERER_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalRenderer.swift"
@@ -82,6 +86,10 @@ enum Harness {
             hostTime: 10.5,
             wallDate: Date(timeIntervalSince1970: 1_001)
         )
+        let longFrame = clock.advance(
+            hostTime: 11.5,
+            wallDate: Date(timeIntervalSince1970: 1_001.5)
+        )
         let backwards = clock.advance(
             hostTime: 9,
             wallDate: Date(timeIntervalSince1970: 1_002)
@@ -108,11 +116,16 @@ enum Harness {
         let payload: [String: Any] = [
             "first": timing(first),
             "second": timing(second),
+            "longFrame": timing(longFrame),
             "backwards": timing(backwards),
             "reset": timing(reset),
             "context": [
                 "frameIndex": context.frameIndex,
                 "sceneTime": context.sceneTime,
+                "rawFrameTime": context.rawFrameTime,
+                "simulationFrameTime": context.simulationFrameTime,
+                "droppedFrameTime": context.droppedFrameTime,
+                "isDiscontinuous": context.isDiscontinuous,
                 "dynamicFrameIndex": context.dynamicValues.frameIndex,
                 "dynamicGeneration": context.dynamicValues.generation,
                 "dynamicCount": context.dynamicValues.count,
@@ -132,6 +145,10 @@ enum Harness {
             "hostTime": value.hostTime,
             "sceneTime": value.sceneTime,
             "frameTime": value.frameTime,
+            "rawFrameTime": value.rawFrameTime,
+            "simulationFrameTime": value.simulationFrameTime,
+            "droppedFrameTime": value.droppedFrameTime,
+            "isDiscontinuous": value.isDiscontinuous,
             "wallTime": value.wallDate.timeIntervalSince1970,
         ]
     }
@@ -207,6 +224,10 @@ enum PauseHarness {
             "frameIndex": value.frameIndex,
             "sceneTime": value.sceneTime,
             "frameTime": value.frameTime,
+            "rawFrameTime": value.rawFrameTime,
+            "simulationFrameTime": value.simulationFrameTime,
+            "droppedFrameTime": value.droppedFrameTime,
+            "isDiscontinuous": value.isDiscontinuous,
         ]
     }
 }
@@ -264,17 +285,30 @@ class SceneFrameContextTests(unittest.TestCase):
     def test_clock_is_monotonic_and_uses_one_wall_date_per_frame(self) -> None:
         self.assertEqual(self.result["first"], {
             "frameIndex": 0, "frameTime": 0, "hostTime": 10.25,
-            "sceneTime": 0.25, "wallTime": 1000,
+            "sceneTime": 0.25, "wallTime": 1000, "rawFrameTime": 0,
+            "simulationFrameTime": 0, "droppedFrameTime": 0,
+            "isDiscontinuous": False,
         })
         self.assertEqual(self.result["second"]["frameIndex"], 1)
         self.assertEqual(self.result["second"]["frameTime"], 0.25)
-        self.assertEqual(self.result["backwards"]["hostTime"], 10.5)
+        self.assertEqual(self.result["second"]["simulationFrameTime"], 0.25)
+        self.assertEqual(self.result["backwards"]["hostTime"], 11.5)
         self.assertEqual(self.result["backwards"]["frameTime"], 0)
+
+    def test_clock_preserves_raw_and_bounded_simulation_delta(self) -> None:
+        long_frame = self.result["longFrame"]
+        self.assertEqual(long_frame["rawFrameTime"], 1)
+        self.assertEqual(long_frame["frameTime"], 1)
+        self.assertEqual(long_frame["simulationFrameTime"], 0.25)
+        self.assertEqual(long_frame["droppedFrameTime"], 0.75)
+        self.assertTrue(long_frame["isDiscontinuous"])
 
     def test_reset_starts_a_new_generation(self) -> None:
         self.assertEqual(self.result["reset"], {
             "frameIndex": 0, "frameTime": 0, "hostTime": 20,
-            "sceneTime": 0, "wallTime": 2000,
+            "sceneTime": 0, "wallTime": 2000, "rawFrameTime": 0,
+            "simulationFrameTime": 0, "droppedFrameTime": 0,
+            "isDiscontinuous": False,
         })
 
     def test_clock_pause_freezes_scene_time_and_resume_drops_the_gap(self) -> None:
@@ -331,9 +365,13 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertFalse(result["pausedAfterReset"])
         self.assertEqual(result["resetFirst"], {
             "frameIndex": 0, "frameTime": 0, "sceneTime": 0,
+            "rawFrameTime": 0, "simulationFrameTime": 0,
+            "droppedFrameTime": 0, "isDiscontinuous": False,
         })
         self.assertEqual(result["resetSecond"], {
             "frameIndex": 1, "frameTime": 0.25, "sceneTime": 0.25,
+            "rawFrameTime": 0.25, "simulationFrameTime": 0.25,
+            "droppedFrameTime": 0, "isDiscontinuous": False,
         })
 
     def test_context_keeps_per_surface_inputs_with_shared_timing(self) -> None:
@@ -341,6 +379,10 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertEqual(self.result["context"]["dynamicFrameIndex"], 1)
         self.assertEqual(self.result["context"]["dynamicGeneration"], 4)
         self.assertEqual(self.result["context"]["dynamicCount"], 0)
+        self.assertEqual(self.result["context"]["rawFrameTime"], 0.25)
+        self.assertEqual(self.result["context"]["simulationFrameTime"], 0.25)
+        self.assertEqual(self.result["context"]["droppedFrameTime"], 0)
+        self.assertFalse(self.result["context"]["isDiscontinuous"])
         self.assertEqual(self.result["context"]["pointerCurrent"], [0.5, -0.25])
         self.assertEqual(self.result["context"]["pointerPrevious"], [0.25, -0.5])
         self.assertEqual(self.result["context"]["canvas"], [1920, 1080])
@@ -350,6 +392,7 @@ class SceneFrameContextTests(unittest.TestCase):
         host = HOST_SOURCE.read_text(encoding="utf-8")
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         view = VIEW_SOURCE.read_text(encoding="utf-8")
+        particle_playback = PARTICLE_PLAYBACK_SOURCE.read_text(encoding="utf-8")
         self.assertIn("var frameTimer: Timer?", host)
         self.assertIn("final class Surface", host)
         self.assertIn(
@@ -370,6 +413,8 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("dynamicValues: dynamicValues", frame_driver)
         self.assertIn("dynamicValues: SceneDynamicSnapshot", view)
         self.assertIn("dynamicValues: dynamicValues", view)
+        self.assertGreaterEqual(view.count("timing.simulationFrameTime"), 2)
+        self.assertNotIn("min(max(frameDelta, 0), 0.25)", particle_playback)
         self.assertNotIn("displayTimer", view)
         self.assertNotIn("renderStartTime", view)
 

@@ -14,6 +14,9 @@ nonisolated struct SceneFramePerformanceSnapshot: Sendable {
     let callbackIntervalMax: TimeInterval
     let callbackOverBudget: Int
     let callbackOverDoubleBudget: Int
+    let discontinuityCount: Int
+    let droppedFrameTime: TimeInterval
+    let maximumRawFrameTime: TimeInterval
     let drawableMissed: Int
     let drawableWaitP95: TimeInterval
     let drawableWaitMax: TimeInterval
@@ -47,6 +50,9 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
     private var failed = 0
     private var drawableMissed = 0
     private var callbackIntervals: [TimeInterval] = []
+    private var discontinuityCount = 0
+    private var droppedFrameTime: TimeInterval = 0
+    private var maximumRawFrameTime: TimeInterval = 0
     private var cpuFrameDurations: [TimeInterval] = []
     private var gpuFrameDurations: [TimeInterval] = []
     private var drawableWaitDurations: [TimeInterval] = []
@@ -64,6 +70,9 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
             failed = 0
             drawableMissed = 0
             callbackIntervals.removeAll(keepingCapacity: true)
+            discontinuityCount = 0
+            droppedFrameTime = 0
+            maximumRawFrameTime = 0
             cpuFrameDurations.removeAll(keepingCapacity: true)
             gpuFrameDurations.removeAll(keepingCapacity: true)
             drawableWaitDurations.removeAll(keepingCapacity: true)
@@ -85,6 +94,17 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
     func recordCPUFrame(duration: TimeInterval) {
         withLock {
             cpuFrameDurations.append(max(0, duration))
+        }
+    }
+
+    func recordFrameDelta(raw: TimeInterval, dropped: TimeInterval) {
+        guard raw.isFinite, dropped.isFinite, raw >= 0, dropped >= 0 else { return }
+        withLock {
+            maximumRawFrameTime = max(maximumRawFrameTime, raw)
+            droppedFrameTime += dropped
+            if dropped > 0 {
+                discontinuityCount += 1
+            }
         }
     }
 
@@ -134,6 +154,9 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
                 callbackIntervalMax: callbackIntervals.max() ?? 0,
                 callbackOverBudget: Self.countOverBudget(callbackIntervals, multiplier: 1),
                 callbackOverDoubleBudget: Self.countOverBudget(callbackIntervals, multiplier: 2),
+                discontinuityCount: discontinuityCount,
+                droppedFrameTime: droppedFrameTime,
+                maximumRawFrameTime: maximumRawFrameTime,
                 drawableMissed: drawableMissed,
                 drawableWaitP95: Self.percentile(drawableWaitDurations, 0.95),
                 drawableWaitMax: drawableWaitDurations.max() ?? 0,

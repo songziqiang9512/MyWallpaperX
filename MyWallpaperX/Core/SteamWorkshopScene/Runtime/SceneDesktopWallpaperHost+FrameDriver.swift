@@ -46,6 +46,14 @@ extension SceneDesktopWallpaperHost {
         let wallDate = Date()
 #endif
         let timing = sceneClock.advance(hostTime: CACurrentMediaTime(), wallDate: wallDate)
+#if DEBUG
+        if Self.usesDebugEvidenceWindow {
+            SceneFramePerformanceTelemetry.debugEvidence.recordFrameDelta(
+                raw: timing.rawFrameTime,
+                dropped: timing.droppedFrameTime
+            )
+        }
+#endif
         let definitions = SceneDynamicDefinitionMerger.merge(
             propertyDefinitions: launchContext.runtimeInput.propertyBindingProgram.definitions,
             timelineProgram: launchContext.timelineProgram,

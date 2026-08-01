@@ -335,7 +335,7 @@ class SceneMetalView: NSView {
             return
         }
         let drawableAcquired = performanceTelemetry.map { _ in ProcessInfo.processInfo.systemUptime }
-        let parallaxMouseNormalized = parallaxPointerSmoother.advance(delta: timing.frameTime)
+        let parallaxMouseNormalized = parallaxPointerSmoother.advance(delta: timing.simulationFrameTime)
         let frameContext = makeFrameContext(
             timing: timing,
             dynamicValues: dynamicValues,
@@ -343,7 +343,7 @@ class SceneMetalView: NSView {
             audioSpectrum: audioSpectrum
         )
         pointerState.previous = pointerState.current
-        let particleBatches = particlePlayback?.advance(by: timing.frameTime, dynamicValues: dynamicValues, pointerLocalPositions: renderer.particlePointerLocalPositions(frameContext: frameContext)) ?? []
+        let particleBatches = particlePlayback?.advance(by: timing.simulationFrameTime, dynamicValues: dynamicValues, pointerLocalPositions: renderer.particlePointerLocalPositions(frameContext: frameContext)) ?? []
         dynamicTextTextures?.update(from: dynamicValues)
         let dynamicTextSnapshot = dynamicTextTextures?.snapshot()
         let mediaThumbnailSnapshot = mediaThumbnailCoordinator.update()

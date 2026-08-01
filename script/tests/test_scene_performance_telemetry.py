@@ -52,6 +52,8 @@ enum Harness {
         telemetry.recordDriverCallback(at: 10)
         telemetry.recordDriverCallback(at: 10.02)
         telemetry.recordDriverCallback(at: 10.04)
+        telemetry.recordFrameDelta(raw: 0.5, dropped: 0.25)
+        telemetry.recordFrameDelta(raw: 0.02, dropped: 0)
         telemetry.recordCPUFrame(duration: 0.010)
         telemetry.recordCPUFrame(duration: 0.020)
         telemetry.recordPreparation(drawableWait: 0.003, preEncode: 0.007)
@@ -70,6 +72,9 @@ enum Harness {
             "completedFPS": value.completedFPS,
             "callbackP95": value.callbackIntervalP95,
             "callbackOver16": value.callbackOverBudget,
+            "discontinuities": value.discontinuityCount,
+            "droppedFrameTime": value.droppedFrameTime,
+            "maximumRawFrameTime": value.maximumRawFrameTime,
             "cpuP95": value.cpuFrameP95,
             "cpuOver16": value.cpuOverBudget,
             "cpuOver33": value.cpuOverDoubleBudget,
@@ -129,6 +134,9 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
         self.assertEqual(self.result["completedFPS"], 1)
         self.assertAlmostEqual(self.result["callbackP95"], 0.02)
         self.assertEqual(self.result["callbackOver16"], 2)
+        self.assertEqual(self.result["discontinuities"], 1)
+        self.assertEqual(self.result["droppedFrameTime"], 0.25)
+        self.assertEqual(self.result["maximumRawFrameTime"], 0.5)
         self.assertAlmostEqual(self.result["cpuP95"], 0.02)
         self.assertEqual(self.result["cpuOver16"], 1)
         self.assertEqual(self.result["cpuOver33"], 0)
@@ -145,6 +153,7 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
         runner = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
         performance_runner = PERFORMANCE_RUNNER_SOURCE.read_text(encoding="utf-8")
         self.assertIn("debugEvidence.recordDriverCallback()", frame_driver)
+        self.assertIn("debugEvidence.recordFrameDelta", frame_driver)
         self.assertIn("performanceTelemetry?.recordPreparation", view)
         self.assertIn("performanceTelemetry?.recordCPUFrame", renderer)
         self.assertIn("performanceTelemetry?.recordSubmitted", renderer)
@@ -152,6 +161,8 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
         self.assertIn("duration: requestedDuration", runner)
         self.assertIn("afterSnapshotDelay: requestedAfterSnapshotDelay", runner)
         self.assertIn("phase=performance", performance_runner)
+        self.assertIn("discontinuities=%d", performance_runner)
+        self.assertIn("droppedMS=%.3f", performance_runner)
         self.assertIn("debugEvidence.reset()", performance_runner)
 
 

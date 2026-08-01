@@ -776,12 +776,13 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(float(camera.group("delay")), 0.25)
         self.assertEqual(float(camera.group("influence")), -1.0)
 
-    def test_performance_metrics_parse_v6_evidence_and_normalize_surfaces(self) -> None:
+    def test_performance_metrics_parse_v7_evidence_and_normalize_surfaces(self) -> None:
         log = (
             "MWX DEBUG SCENE: phase=performance elapsed=6.833 callbacks=410 "
             "submitted=410 completed=409 failed=0 submittedFPS=60.004 "
             "completedFPS=59.857 callbackP50MS=16.666 callbackP95MS=16.698 "
             "callbackMaxMS=17.171 callbackOver16=199 callbackOver33=0 "
+            "discontinuities=1 droppedMS=750.000 maxRawFrameMS=1000.000 "
             "drawableMissed=0 drawableWaitP95MS=0.013 drawableWaitMaxMS=0.034 "
             "preEncodeP95MS=7.671 preEncodeMaxMS=7.868 mainFrameP95MS=8.097 "
             "mainFrameMaxMS=8.311 cpuP50MS=0.348 cpuP95MS=0.380 "
@@ -795,6 +796,9 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertAlmostEqual(metrics["driver_fps"], 410 / 6.833)
         self.assertEqual(metrics["completed_frames"], 409)
         self.assertEqual(metrics["callback_over_16_67_ms"], 199)
+        self.assertEqual(metrics["discontinuity_count"], 1)
+        self.assertEqual(metrics["dropped_frame_time_ms"], 750)
+        self.assertEqual(metrics["maximum_raw_frame_time_ms"], 1000)
         self.assertAlmostEqual(metrics["completed_fps_per_surface"], 59.857)
         self.assertAlmostEqual(metrics["pre_encode_p95_ms"], 7.671)
         self.assertAlmostEqual(metrics["gpu_frame_p95_ms"], 3.886)
