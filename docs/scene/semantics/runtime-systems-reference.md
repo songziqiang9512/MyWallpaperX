@@ -12,7 +12,7 @@
 
 ```text
 HostFrameInputs
-  frameIndex / runtime / daytime / frameTime
+  frameIndex / runtime / daytime / rawFrameTime / simulationFrameTime / droppedFrameTime / discontinuity
   audio16 / audio32 / audio64 (host left/right; bounded consumers may derive average)
   mediaSnapshot / thumbnail generation
   userPropertyGeneration / deterministicRandomSeed
@@ -26,11 +26,11 @@ HostFrameInputs
 
 实时播放使用 display timing 和真实 provider；离线烘焙使用固定 timestep、可重放 provider 与固定 seed。二者必须走同一 simulation/update/render 入口。
 
-MyWallpaperX 当前已落地第一阶段 `SceneFrameTiming` / `SceneFrameContext`：桌面宿主每帧只采样一次 monotonic host time 与 wall date，并把相同的 frame index、scene time 和 frame delta 广播给所有屏幕；shader time、内嵌视频 item-time 映射、粒子推进和相机视差平滑已消费该快照。各屏仍保留自己的 viewport、pointer 和 particle simulation。
+MyWallpaperX 当前已落地第一阶段 `SceneFrameTiming` / `SceneFrameContext`：桌面宿主每帧只采样一次 monotonic host time 与 wall date，并把相同的 frame index、scene time、raw/simulation/dropped delta 和 discontinuity 广播给所有屏幕。particle 与相机视差平滑消费最大 0.25 秒的 simulation delta；shader time、内嵌视频 item-time 与 Timeline 继续使用既有 raw/absolute time。0.25 秒是项目从旧 particle 私有保护上移的 clean-room policy，不是官方客户端常量。各屏仍保留自己的 viewport、pointer 和 particle simulation。
 
 `36bfef0` 建立了六类 `SceneDynamicValue`、主要 target、固定覆盖顺序和不可变 snapshot。当前 v22 已完成 property binding program、per-surface transaction/generation，以及 layer alpha、solid color、direct text content/point-size/color、Local Contrast/Opacity producer/consumer。`1762743` 的 dynamic text 按 layer signature 异步生成并拒绝 stale completion；Timeline 有 bounded typed producer。SceneScript 除 exact native text/audio profiles 外，现有 property-bound text `update(value)` 的无循环 Date/string AST 子集；它只产生 String target，不能外推为通用脚本、particle、system/media text 或其他 effect constant。
 
-这仍不等于完整时钟和动态系统合同。16/32/64 host audio 与 bounded consumers 已接入；Scene pause/resume 已在共享 clock、frame driver 与 embedded video provider 上形成受限状态合同。真实系统 pause/hot-plug、delta clamp、fixed timestep、buttons、media producer、deterministic seed、离线 adapter、通用 SceneScript 与其余 Timeline/particle target 仍未闭合。
+这仍不等于完整时钟和动态系统合同。16/32/64 host audio 与 bounded consumers 已接入；Scene pause/resume 已在共享 clock、frame driver 与 embedded video provider 上形成受限状态合同；共享 clock 已明确 raw/simulation/dropped delta 与 discontinuity。真实系统 pause/sleep/hot-plug、seek/history、其他 simulation consumer、不同 FPS、buttons、media producer、完整 seed、离线 adapter、通用 SceneScript 与其余 Timeline/particle target 仍未闭合。
 
 ### 1.1 Frame timing、wall date 与 readiness 分离
 
@@ -453,7 +453,7 @@ Realtime Adapter              Offline Adapter
 | Particle | 作者 2D sprite、部分 emitter/initializer/operator、Sprite Trail 与 strict child 子集；exact pointer-lock CP 1...7 可驱动 bounded local Control Point Force；Particle slot 0 可按 exact identity 消费 bundle 内 164 项 TEX，22-key 程序纹理只作缺失回退 | 路径存在或程序 fallback 等于官方视觉资产，或 child/rope/world-space/control point/collision/audio/全部 preset 完整；pointer force 没有 previous pointer、其他 consumer、world/perspective、官方 falloff/轨迹 golden，粒子 audio 声明虽已保真解析但 simulation 仍不消费 |
 | Text | CoreText 静态纹理、direct property 动态重栅格、部分 font/pointsize/padding/scale | 动态时间、system/media、完整 alignment/effects/SceneScript |
 | Effect graph | 内存 `SceneRuntimeInput` 保存 EffectDefinition/authored graph/provider metadata、ShaderContract 与 binding program；十四类 strict backend 及 ordered chain 已执行，包含 stock Radial God Rays 五 pass / 双 half RT。Debug evidence schema 1 只作结构验证 | dynamic effect、generic compose/history、通用 material/pass、authored shader 语义等价、未知/Directional God Rays 或官方 Shadow/lighting；精确当前门见 [运行证据索引](runtime-evidence-index.md) |
-| Frame Context | 宿主单一 60 Hz driver；所有屏幕共享 frame index/host/scene/wall time；shader、video、particle、parallax 已迁移；pause 冻结 scene time/frame index，resume 首帧不补 host gap | 真实系统 pause、delta clamp、固定 timestep、离线实时等价已闭环 |
+| Frame Context | 宿主单一 60 Hz driver；所有屏幕共享 frame index/host/scene/wall time 及 raw/simulation/dropped delta/discontinuity；particle/parallax 消费受控 simulation delta，shader/video/Timeline 保持 raw/absolute time；pause 冻结 scene time/frame index，resume 首帧不补 host gap | 真实系统 pause/sleep、seek/history、其他 simulation consumer、不同 FPS、离线实时等价或 Windows timing 已闭环 |
 | Dynamic target snapshot | 六类 typed value、主要 target 族、固定优先级、binding program、per-surface evaluation transaction/snapshot/generation；layer alpha、纯 solid color、direct text、exact Local Contrast/Opacity、受限 X-Ray target，以及 Timeline 的 effect constant/layer alpha/bounded relative layer transform 子集有真实 producer/consumer | 非 layer-transform `relative`、Combined/tangent/其他 target、SceneScript 与多数 particle dynamic target 仍未 live；unsupported host 留诊断 |
 | Timeline | IR、绝对 scene-time evaluator 与 38/48 typed target 子集已执行，覆盖 Loop/Single/Mirror/start-paused、effect constant/layer alpha 及 10 条 relative layer transform；其中 6 条普通图层走共享 world-frame，4 条 `lspot` 保持 strict consumer | 公开资料未定义私有 `relative` wire/合成公式，当前 additive 合同仍是 bounded clean-room 校准；wrap-loop、Combined、tangent、`maxwidth`/`zoom`、particle scalar override 与 event crossing 未完成，不能宣称任意动画模式可用 |
 | SceneScript | 顶层 layer binding IR 为 `L1`；七个 exact text、两个 exact 64-band audio profile和 property-bound text Date/string update subset 为 `L3 bounded` | 通用 ECMAScript VM/API、`registerAudioBuffers`/`AudioBuffers`、`createLayer`/`ILayer` handles 可用 |

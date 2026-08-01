@@ -108,10 +108,10 @@ definition bitfield 直接参与 renderer variant 选择，静态可识别维度
 | G12 Allow size override | General 可声明实例是否允许覆盖 size。 | `L3` | [DEF] [SIM] [T-DEF] [T-SIM] | `flags & 128` 禁止新粒子的静态 size scale；没有 Windows 像素标定。 | live update、operator 组合与 Windows geometry golden。 |
 | G13 Allow speed override | General 可声明实例是否允许覆盖 speed。 | `L3` | [DEF] [SIM] [T-DEF] [T-SIM] | `flags & 16` 禁止创建时 velocity scale；其他运动 operator 不被误关。 | emitter/operator 组合、live update 与 Windows 轨迹 golden。 |
 | G14 Component authored order | 多个 emitter/initializer/operator 按作者顺序组成一个系统。 | `L2` | [PAR] [SIM] [T-DEF] [T-SIM] | 数组顺序已路由，但没有顺序交换的定向断言；renderer 最终只选一个支持项。 | 重复同类 component、顺序交换与 Windows 状态 golden。 |
-| G15 Fixed simulation step | 模拟必须使用明确 dt，实时和离线才能稳定复现。 | `L3` | [SIM] [PLAY] [T-SIM] | 固定 1/60；外层 delta 夹到 0.25，但没有 dropped-time 统计。 | pause/resume、长卡顿、离线 fixed-clock 等价门。 |
+| G15 Fixed simulation step | 模拟必须使用明确 dt，实时和离线才能稳定复现。 | `L3` | [SIM] [PLAY] [T-SIM] | 固定 1/60；共享 clock 把 simulation delta 限为项目 policy 0.25 秒并记录 dropped-time/discontinuity，particle 不再私有 clamp。 | 真实 pause/sleep、长卡顿视觉、seek/history、离线 fixed-clock 等价门。 |
 | G16 Deterministic seed | 同 wallpaper/system/particle seed 应可重放随机结果。 | `L3` | [SUP] [SIM] [T-SIM] | 当前 seed 只来自 layer ID；未建立 wallpaper/system/component seed hierarchy。 | 明确 seed 合成合同并与 Windows 分布/序列核验。 |
 | G17 Visibility and parent gating | 不可见或被父级隐藏的粒子层不得继续当作可见输出。 | `L3` | [RUN] [PLAY] [T-RUN] | 初始化时过滤 visible layer；运行中 visibility 变化仍依赖 Scene 重建。 | typed live visibility、停止发射/恢复策略和资源代际门。 |
-| G18 Pause/resume | 暂停时不发射；恢复是否追帧由统一时钟合同决定。 | `L0` | [PLAY] [SIM] [T-SIM] | 只有 delta clamp，没有 particle pause state。 | 共享 SceneClock pause/seek/discontinuity fixture。 |
+| G18 Pause/resume | 暂停时不发射；恢复是否追帧由统一时钟合同决定。 | `L2` | [PLAY] [SIM] [T-SIM] | host pause 停止 frame driver，共享 clock resume 首帧 simulation delta 为 0；没有 particle-specific state/视觉运行门。 | 真实 pause/sleep、seek/history 与 particle count/time 负向门。 |
 
 ## 4. Emitters
 
@@ -319,7 +319,7 @@ definition bitfield 直接参与 renderer variant 选择，静态可识别维度
 | X04 Renderer-specific geometry | 最后按 Sprite/Trail/Rope 类型生成不同 geometry。 | `L3` | [RUN] [GPU] [TRAIL] [ROPE-TRAIL] [T-GPU] [T-ROPE] | 已有 Sprite、单 quad Sprite Trail 与 strict RopeTrail；Rope 和 renderer 多输出缺失。 | renderer 多输出和 Rope topology 门。 |
 | X05 Scene render order | 粒子 batch 应遵守 Scene layer render order。 | `L3` | [RUN] [T-RUN] | 初始化时固定排序；live reorder 依赖重建。 | 动态 visibility/order 和 effect 前后关系门。 |
 | X06 GPU instance-buffer lifecycle | 每帧更新实例数据，in-flight buffer 不得被覆盖。 | `L3` | [RUN] [GPU] [T-GPU] | 有 slot completion 门；没有长稳内存预算。 | 10 分钟压力、切换/resize 和峰值预算。 |
-| X07 Frame delta clamp | 实时卡顿时 catch-up 必须有上限，避免无限模拟。 | `L2` | [PLAY] [SIM] [T-SIM] | 外层夹 0.25 秒但没有 clamp 定向测试，也未记录 dropped time。 | clamp 数值断言、telemetry、pause/discontinuity 与不同 FPS 门。 |
+| X07 Frame delta clamp | 实时卡顿时 catch-up 必须有上限，避免无限模拟。 | `L3 bounded` | [PLAY] [SIM] [T-SIM] | shared clock 保留 raw delta、把 simulation delta 限为项目 policy 0.25 秒并发布 dropped/discontinuity；1 秒长帧数值 fixture 和 telemetry 门已锁定，particle 消费 simulation delta。 | 真实长卡顿、pause/sleep、seek/history、不同 FPS、离线与 Windows timing 门。 |
 | X08 Maximum budget | `max count` 与全局硬上限约束 CPU/GPU 粒子数。 | `L3` | [SIM] [CHILD] [CHILD-EXPAND] [ROPE-TRAIL] [RUN] [T-SIM] [T-ROPE] [T-RUN] | 普通系统有单系统上限；root child runtime 每深度 64 systems、跨两层共 128 systems/131,072 capacity 聚合上限。strict RopeTrail 另限制每层最多 512 粒子和 4,096 segment instances。仍没有 whole-scene RopeTrail 聚合、collision 阶段预算与 frame-time 退化策略。 | whole-scene 聚合、退化策略和 frame-time 压力门。 |
 | X09 Prewarm budget | prewarm 不能无界阻塞加载。 | `L2` | [SIM] [T-SIM] | 普通 prewarm 有测试，但 240-step 上限没有压力断言，大 duration 还会改变 step size。 | 固定 step + dropped prewarm 策略与加载耗时门。 |
 | X10 Pause/sleep/display change | 暂停、睡眠和屏幕变化不得继续发射或突然追帧。 | `L0` | [PLAY] [SIM] | 没有 particle-specific lifecycle 状态机。 | host lifecycle 注入和 count/time 负向测试。 |

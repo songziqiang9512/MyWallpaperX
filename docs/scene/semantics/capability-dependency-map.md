@@ -58,9 +58,9 @@ D3 + D4 + D5 + D6 + D7 + D8
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| host/frame/scene/wall time | `L3` 子集；pause 冻结 scene time/frame index，resume 首帧丢弃 host gap | delta clamp、dropped-time/discontinuity、目标 FPS 与系统 pause 真实门 |
+| host/frame/scene/wall time | `L3` 子集；共享 clock 发布 raw、最大 0.25 秒的 simulation、dropped delta/discontinuity；particle/parallax 消费 simulation，shader/video/Timeline 保持 raw/absolute time；pause 冻结 scene time/frame index，resume 首帧丢弃 host gap | 真实系统 pause/sleep、seek/history、其他 simulation consumer、目标/不同 FPS、离线与 Windows timing 门 |
 | host-shared vs surface-local scope | property 输入 host-shared；每个 surface 独立 transaction/snapshot/generation，B0 live alpha/solid color/strict Local Contrast strength 已有运行门 | pointer/matrix/provider/script 接入时继续证明 local state 不串屏 |
-| fixed simulation step and seed policy | particle 子集 | effect/particle/script/offline 共用 discontinuity 和 seed 合同 |
+| fixed simulation step and seed policy | particle fixed step 已消费共享 simulation delta，并保留自身 deterministic seed | effect/script/offline 共用 discontinuity、fixed-clock 和 seed 合同 |
 | resize/switch/stop teardown | surface 子集 `L3`；embedded video registry 为 launch-scoped，按 layer/source/device 跨 surface rebuild 复用并在 stop 释放 | VM、system/media provider、RT 与 GPU 资源精确计数；真实 hot-plug/反复切换 soak |
 
 <a id="d3"></a>
