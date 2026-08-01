@@ -38,13 +38,12 @@ enum Harness {
             maximumLength: 400
         )!
         let defaults = SceneParticleTrailRenderPlan(
-            length: 1,
+            length: nil,
             minimumLength: nil,
             maximumLength: nil
         )!
 
         let invalidPlans: [SceneParticleTrailRenderPlan?] = [
-            SceneParticleTrailRenderPlan(length: nil, minimumLength: nil, maximumLength: nil),
             SceneParticleTrailRenderPlan(length: .nan, minimumLength: nil, maximumLength: nil),
             SceneParticleTrailRenderPlan(length: .infinity, minimumLength: nil, maximumLength: nil),
             SceneParticleTrailRenderPlan(length: -1, minimumLength: nil, maximumLength: nil),
@@ -55,6 +54,10 @@ enum Harness {
             SceneParticleTrailRenderPlan(length: 1, minimumLength: 1, maximumLength: .infinity),
             SceneParticleTrailRenderPlan(length: 1, minimumLength: 1, maximumLength: -1),
             SceneParticleTrailRenderPlan(length: 1, minimumLength: 2, maximumLength: 1),
+            SceneParticleTrailRenderPlan(
+                length: nil, minimumLength: nil, maximumLength: nil,
+                hasMalformedFields: true
+            ),
         ]
         let result: [String: Any] = [
             "authored": authored.stretch(for: SIMD3(1_350, 0, 0)),
@@ -112,7 +115,7 @@ class SceneParticleTrailRenderPlanTests(unittest.TestCase):
         self.assertEqual(self.result["maximum"], 4)
         self.assertEqual(self.result["threeDimensional"], 3)
 
-    def test_large_authored_range_zero_speed_and_non_finite_speed_are_safe(self) -> None:
+    def test_large_authored_range_and_omitted_defaults_are_bounded(self) -> None:
         self.assertEqual(self.result["largeAuthoredMaximum"], 400)
         self.assertEqual(self.result["zeroSpeed"], 1)
         self.assertEqual(self.result["nonFiniteSpeed"], 2)

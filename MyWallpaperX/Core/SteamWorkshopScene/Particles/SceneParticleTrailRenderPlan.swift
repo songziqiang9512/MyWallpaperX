@@ -8,9 +8,13 @@ nonisolated struct SceneParticleTrailRenderPlan: Equatable, Sendable {
     nonisolated init?(
         length: Double?,
         minimumLength: Double?,
-        maximumLength: Double?
+        maximumLength: Double?,
+        hasMalformedFields: Bool = false
     ) {
-        guard let length,
+        // Stock Sprite Trail definitions can omit length; keep that form bounded
+        // to orientation-only scale when the min/max fields are omitted as well.
+        let length = length ?? 1
+        guard !hasMalformedFields,
               length.isFinite,
               length >= 0 else {
             return nil

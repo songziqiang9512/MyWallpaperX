@@ -112,7 +112,8 @@ enum SceneParticleChildTemplateSupport {
                 guard let trail = SceneParticleTrailRenderPlan(
                     length: renderer.length,
                     minimumLength: renderer.minimumLength,
-                    maximumLength: renderer.maximumLength
+                    maximumLength: renderer.maximumLength,
+                    hasMalformedFields: renderer.hasMalformedFields
                 ) else { continue }
                 return (renderer, trail, nil)
             case .rope:

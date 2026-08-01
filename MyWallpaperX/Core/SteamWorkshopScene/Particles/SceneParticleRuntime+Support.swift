@@ -115,7 +115,8 @@ extension SceneParticleRuntime {
                 if let trail = SceneParticleTrailRenderPlan(
                     length: renderer.length,
                     minimumLength: renderer.minimumLength,
-                    maximumLength: renderer.maximumLength
+                    maximumLength: renderer.maximumLength,
+                    hasMalformedFields: renderer.hasMalformedFields
                 ) {
                     if supported == nil { supported = (renderer, trail, nil, nil) }
                 } else {

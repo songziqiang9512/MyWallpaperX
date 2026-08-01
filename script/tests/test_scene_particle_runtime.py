@@ -473,6 +473,7 @@ enum Harness {
             "particles/presets/dripping_water_refract.json",
             "particles/presets/dripping_water_splash.json",
         ])
+        let trailChildPath = "particles/presets/water_impact_droplets.json"
         var activeFrames: [Int: Int] = [:]
         var maximumInstances: [Int: Int] = [:]
         var candidateLayers = Set<Int>()
@@ -480,6 +481,10 @@ enum Harness {
         var activeRopePaths = Set<String>()
         var maximumRopeInstances: [String: Int] = [:]
         var refractiveRopePaths = Set<String>()
+        var activeTrailChildLayers = Set<Int>()
+        var maximumTrailChildInstances: [Int: Int] = [:]
+        var minimumTrailStretch = Float.greatestFiniteMagnitude
+        var maximumTrailStretch: Float = 0
         for _ in 0..<(8 * 60) {
             for batch in runtime.advance(by: 1.0 / 60.0) {
                 if batch.refraction?.usesStaticNormalCandidate == true {
@@ -504,6 +509,17 @@ enum Harness {
                     )
                     if batch.refraction != nil { refractiveRopePaths.insert(batch.particlePath) }
                 }
+                if batch.particlePath == trailChildPath, !batch.instances.isEmpty {
+                    activeTrailChildLayers.insert(batch.layerID)
+                    maximumTrailChildInstances[batch.layerID] = max(
+                        maximumTrailChildInstances[batch.layerID, default: 0],
+                        batch.instances.count
+                    )
+                    for instance in batch.instances {
+                        minimumTrailStretch = min(minimumTrailStretch, instance.velocityAndTrail.w)
+                        maximumTrailStretch = max(maximumTrailStretch, instance.velocityAndTrail.w)
+                    }
+                }
             }
         }
         return [
@@ -518,6 +534,19 @@ enum Harness {
             "activeRopePaths": activeRopePaths.sorted(),
             "maximumRopeInstances": maximumRopeInstances,
             "refractiveRopePaths": refractiveRopePaths.sorted(),
+            "activeTrailChildLayers": activeTrailChildLayers.sorted(),
+            "maximumTrailChildInstances": Dictionary(uniqueKeysWithValues:
+                targetLayers.sorted().map {
+                    (String($0), maximumTrailChildInstances[$0, default: 0])
+                }
+            ),
+            "minimumTrailStretch": minimumTrailStretch.isFinite ? minimumTrailStretch : -1,
+            "maximumTrailStretch": maximumTrailStretch,
+            "trailChildUnsupported": runtime.diagnostics.compactMap { diagnostic in
+                diagnostic.kind == .childSystemsUnsupported
+                    && (diagnostic.detail ?? "").contains(trailChildPath)
+                    ? (diagnostic.detail ?? "") : nil
+            },
             "ropeUnsupported": runtime.diagnostics.compactMap { diagnostic in
                 diagnostic.kind == .childSystemsUnsupported
                     && ropePaths.contains(where: {
@@ -1648,14 +1677,30 @@ enum Harness {
             velocityX: 100, under: directory
         )
         try writeParticle(
+            "particles/default-trail.json", material: "materials/shared.json",
+            renderer: "spritetrail", rendererMaximumLength: 2,
+            velocityX: 100, under: directory
+        )
+        try writeParticle(
+            "particles/malformed-trail.json", material: "materials/shared.json",
+            renderer: "spritetrail", rendererLength: "invalid",
+            velocityX: 100, under: directory
+        )
+        try writeParticle(
             "particles/child-root.json", material: "materials/shared.json",
-            children: [[
-                "name": "particles/child.json", "type": "eventspawn", "maxcount": 500,
-            ]], under: directory
+            children: [
+                ["name": "particles/child.json", "type": "eventspawn", "maxcount": 500],
+                ["name": "particles/trail-child.json", "type": "eventspawn", "maxcount": 500],
+            ], under: directory
         )
         try writeParticle(
             "particles/child.json", material: "materials/normal-cull.json",
             rate: 0, instantaneous: 1, under: directory
+        )
+        try writeParticle(
+            "particles/trail-child.json", material: "materials/shared.json",
+            renderer: "spritetrail", rendererMaximumLength: 2,
+            velocityX: 100, rate: 0, instantaneous: 1, under: directory
         )
         try writeParticle(
             "particles/unsupported-child-root.json", material: "materials/shared.json",
@@ -1754,8 +1799,10 @@ enum Harness {
                     18, "particles/control-point-copy-root.json",
                     controlPoint: SIMD3(22, 0, 0), controlPointHasAnimation: true
                 ),
+                layer(19, "particles/default-trail.json"),
+                layer(20, "particles/malformed-trail.json"),
             ],
-            renderOrderLayerIDs: Array(1 ... 18),
+            renderOrderLayerIDs: Array(1 ... 20),
             materialPasses: [
                 .init(
                     materialPath: "materials/no-texture.json",
@@ -1832,6 +1879,11 @@ enum Harness {
                 .instances.first.map {
                     [$0.velocityAndTrail.x, $0.velocityAndTrail.y, $0.velocityAndTrail.z]
                 } ?? [],
+            "defaultTrailStretch": batches.first(where: { $0.layerID == 19 })?
+                .instances.first?.velocityAndTrail.w ?? -1,
+            "childTrailStretch": batches.first {
+                $0.particlePath == "particles/trail-child.json"
+            }?.instances.first?.velocityAndTrail.w ?? -1,
             "rendererWorldOrientation": batches.first(where: { $0.layerID == 13 })?
                 .orientation == .worldScreen,
             "movementWorldLayerLoaded": batches.contains { $0.layerID == 14 },
@@ -1914,7 +1966,7 @@ enum Harness {
         flags: Int = 0,
         renderer: String = "sprite",
         rendererFlags: Int = 0,
-        rendererLength: Double? = nil,
+        rendererLength: Any? = nil,
         rendererMinimumLength: Double? = nil,
         rendererMaximumLength: Double? = nil,
         additionalRenderers: [Any] = [],
@@ -2147,11 +2199,11 @@ class SceneParticleRuntimeTests(unittest.TestCase):
     def test_synthetic_rejects_unsupported_roots_and_keeps_diagnostics(self) -> None:
         result = self.run_harness("synthetic")
         self.assertEqual(
-            result["activeLayerIDs"], [2, 3, 4, 6, 7, 9, 11, 13, 14, 16, 17, 18]
+            result["activeLayerIDs"], [2, 3, 4, 6, 7, 9, 11, 13, 14, 16, 17, 18, 19]
         )
         self.assertEqual(
             result["batchLayerIDs"],
-            [2, 3, 4, 4, 6, 7, 9, 9, 9, 9, 11, 13, 14, 16, 17, 17, 18],
+            [2, 3, 4, 4, 4, 6, 7, 9, 9, 9, 9, 11, 13, 14, 16, 17, 17, 18, 19],
         )
         self.assertGreater(result["activeParticleCount"], 0)
         self.assertGreater(result["childInstanceCount"], 0)
@@ -2164,6 +2216,8 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertEqual(result["batchTextureSizes"]["7"], [64, 64])
         self.assertAlmostEqual(result["trailStretch"], 5)
         self.assertEqual(result["trailVelocity"], [100, 0, 0])
+        self.assertEqual(result["defaultTrailStretch"], 2)
+        self.assertEqual(result["childTrailStretch"], 2)
         self.assertTrue(result["rendererWorldOrientation"])
         self.assertTrue(result["movementWorldLayerLoaded"])
         self.assertEqual(result["normalCullState"], "back")
@@ -2178,12 +2232,20 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         kinds = {value["kind"] for value in diagnostics}
         self.assertIn("missingTextureReference", kinds)
         self.assertIn("worldSpaceUnsupported", kinds)
-        self.assertNotIn("trailRendererUnsupported", kinds)
+        self.assertFalse(any(
+            value["kind"] == "trailRendererUnsupported" and value["layer"] in (3, 4, 19)
+            for value in diagnostics
+        ))
         self.assertNotIn("missingSpriteRenderer", kinds)
         self.assertIn("childSystemsUnsupported", kinds)
         self.assertIn("unsupportedShader", kinds)
         self.assertNotIn(15, result["activeLayerIDs"])
         self.assertNotIn(15, result["batchLayerIDs"])
+        self.assertNotIn(20, result["activeLayerIDs"])
+        self.assertIn(
+            "spritetrail:invalidLength",
+            [value["detail"] for value in diagnostics if value["layer"] == 20],
+        )
         for path in [
             "particles/angles-child.json",
             "particles/scale-child.json",
@@ -2564,6 +2626,12 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             "particles/presets/dripping_water_refract.json",
         ])
         self.assertEqual(result["ropeUnsupported"], [])
+        self.assertEqual(result["activeTrailChildLayers"], [239, 245, 248], result)
+        for layer_id in ("239", "245", "248"):
+            self.assertGreater(result["maximumTrailChildInstances"][layer_id], 0, result)
+        self.assertGreaterEqual(result["minimumTrailStretch"], 1)
+        self.assertLessEqual(result["maximumTrailStretch"], 2)
+        self.assertEqual(result["trailChildUnsupported"], [])
         for layer_id in (239, 245, 248):
             self.assertIn(layer_id, result["legacyLayers"], result)
 
