@@ -7,7 +7,7 @@ nonisolated enum SceneParticleChildLifecycle {
         !definition.emitters.isEmpty && definition.emitters.allSatisfy { emitter in
             let supportedKind: Bool = switch emitter.kind {
             case .sphereRandom, .boxRandom: true
-            case .unsupported: false
+            case .layerImage, .unsupported: false
             }
             let rate = emitter.rate ?? 5
             let count = emitter.instantaneousCount ?? 0

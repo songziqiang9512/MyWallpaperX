@@ -54,7 +54,6 @@ class SceneMetalView: NSView {
             preservedPropertyKeys: preservedPropertyKeys,
             device: renderer.device
         )
-
         let layer = CAMetalLayer()
         layer.device = renderer.device
         layer.pixelFormat = .bgra8Unorm
@@ -76,16 +75,13 @@ class SceneMetalView: NSView {
             delay: renderDescriptor.camera.parallaxDelay
         )
         super.init(frame: frame)
-
         // Layer-hosting view: set layer before wantsLayer = true.
         self.layer = layer
         self.wantsLayer = true
         self.imagePipeline = SceneImageLayerPipeline(device: metalDevice)
     }
-
     @available(*, unavailable)
     required init?(coder: NSCoder) { nil }
-
     // MARK: - Pointer input
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -315,9 +311,12 @@ class SceneMetalView: NSView {
         puppetPlaybackStates = loadedPuppetPlaybackStates
         effectTextures = loadedEffectTextures
         particlePlayback = SceneParticlePlaybackState(
-            descriptor: renderer.renderDescriptor,
-            cacheDirectory: cacheDirectory,
-            device: metalDevice, resourceView: resourceView, textureLoader: loader
+            descriptor: renderer.renderDescriptor, cacheDirectory: cacheDirectory, device: metalDevice,
+            resourceView: resourceView, textureLoader: loader,
+            layerImage: SceneParticleLayerImageEmitterCompiler.compile(
+                descriptor: renderer.renderDescriptor, texturesByLayerID: imageTextures.textures,
+                animatedSourceLayerIDs: Set(loadedSpriteAnimations.keys)
+            )
         )
         if let particlePlayback {
             report.append(contentsOf: particlePlayback.loadReportLines(descriptor: renderer.renderDescriptor))

@@ -376,6 +376,7 @@ enum Harness {
         switch kind {
         case .sphereRandom: "sphererandom"
         case .boxRandom: "boxrandom"
+        case .layerImage: "layerimage"
         case let .unsupported(name): name
         }
     }
@@ -546,7 +547,6 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         self.assertEqual(
             result["diagnostics"],
             {
-                "unsupportedEmitter": 1,
                 "unsupportedInitializer": 1,
                 "unsupportedOperator": 1,
                 "unsupportedRenderer": 1,

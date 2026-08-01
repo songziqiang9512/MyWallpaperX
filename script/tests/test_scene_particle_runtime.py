@@ -53,6 +53,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleBuiltInTextureRegistry.swift",
     SOURCE_ROOT / "Particles/SceneParticleAssetGraph.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulationSupport.swift",
+    SOURCE_ROOT / "Particles/SceneParticleLayerImageEmissionMap.swift",
     SOURCE_ROOT / "Particles/SceneParticleOscillationCache.swift",
     SOURCE_ROOT / "Particles/SceneParticleStepSnapshotRecorder.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator.swift",

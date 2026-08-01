@@ -329,9 +329,3 @@ extension SceneParticleChildTemplate {
         )
     }
 }
-
-extension SIMD3 where Scalar == Double {
-    var particleFloatValue: SIMD3<Float> {
-        SIMD3<Float>(Float(x), Float(y), Float(z))
-    }
-}

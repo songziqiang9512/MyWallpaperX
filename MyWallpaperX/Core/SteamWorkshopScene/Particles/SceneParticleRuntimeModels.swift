@@ -16,6 +16,7 @@ enum SceneParticleRuntimeDiagnosticKind: String, Codable, Sendable {
     case missingSpriteRenderer
     case worldSpaceUnsupported
     case worldSpaceMovementUnsupported
+    case layerImageEmitterUnsupported
     case trailRendererUnsupported
     case ropeRendererUnsupported
     case childSystemsUnsupported
@@ -29,6 +30,15 @@ struct SceneParticleRuntimeDiagnostic: Codable, Equatable, Hashable, Sendable {
     let layerID: Int?
     let particlePath: String
     let detail: String?
+}
+
+struct SceneParticleLayerImageEmitterCompilation {
+    let mapsByLayerID: [Int: SceneParticleLayerImageEmissionMap]
+    let diagnostics: [SceneParticleRuntimeDiagnostic]
+
+    static let empty = SceneParticleLayerImageEmitterCompilation(
+        mapsByLayerID: [:], diagnostics: []
+    )
 }
 
 struct SceneParticleDrawBatch {

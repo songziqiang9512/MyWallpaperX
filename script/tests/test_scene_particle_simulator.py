@@ -17,6 +17,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Particles/SceneParticleWorldSpacePlan.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulationSupport.swift",
+    SOURCE_ROOT / "Particles/SceneParticleLayerImageEmissionMap.swift",
     SOURCE_ROOT / "Particles/SceneParticleOscillationCache.swift",
     SOURCE_ROOT / "Particles/SceneParticleStepSnapshotRecorder.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator.swift",
@@ -319,6 +320,22 @@ enum Harness {
         )
         overflowTurbulence.advance(by: 0.1)
 
+        let layerImageDefinition = SceneParticleDefinitionParser().parse(
+            root: try object(layerImageJSON)
+        )
+        let layerImageMap = SceneParticleLayerImageEmissionMap(
+            positions: [SIMD3(-15, 5, 0)]
+        )
+        var layerImage = SceneParticleSimulator(
+            definition: layerImageDefinition, seed: 1, fixedTimeStep: 0.1,
+            layerImageEmissionMap: layerImageMap
+        )
+        var layerImageMissingMap = SceneParticleSimulator(
+            definition: layerImageDefinition, seed: 1, fixedTimeStep: 0.1
+        )
+        layerImage.advance(by: 0.1)
+        layerImageMissingMap.advance(by: 0.1)
+
         return [
             "deterministic": first.particles == partitioned.particles,
             "differentSeed": first.particles != different.particles,
@@ -437,6 +454,8 @@ enum Harness {
             "movementBeforeTurbulencePosition":
                 vector(movementBeforeTurbulence.particles[0].position),
             "overflowTurbulenceVelocity": vector(overflowTurbulence.particles[0].velocity),
+            "layerImagePosition": layerImage.particles.first.map { vector($0.position) } ?? [],
+            "layerImageMissingMapCount": layerImageMissingMap.particles.count,
             "diagnostics": diagnosticSimulator.diagnostics.map(\.kind.rawValue).sorted()
         ]
     }
@@ -464,6 +483,13 @@ enum Harness {
     {"material":"p.json","maxcount":64,
      "emitter":[{"name":"sphererandom","instantaneous":2,"rate":8,"distancemin":1,"distancemax":2,"speedmin":1,"speedmax":3}],
      "initializer":[{"name":"lifetimerandom","min":5,"max":5},{"name":"sizerandom","min":1,"max":2},{"name":"velocityrandom","min":"-1 -1 0","max":"1 1 0"}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let layerImageJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"layerimage","instantaneous":1}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
      "renderer":[{"name":"sprite"}]}
     """#
 
@@ -941,6 +967,10 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertTrue(self.results["centeredBoxHasBothSigns"])
         self.assertTrue(self.results["explicitCenteredBoxHasBothSigns"])
         self.assertTrue(self.results["positiveBoxPreservesInterval"])
+
+    def test_layer_image_emitter_uses_injected_alpha_bitmap_position(self) -> None:
+        self.assertEqual(self.results["layerImagePosition"], [-15, 5, 0])
+        self.assertEqual(self.results["layerImageMissingMapCount"], 0)
 
     def test_movement_gravity_drag_and_alpha_fade(self) -> None:
         self.assertEqual(self.results["movementPosition"], [0.65625, -0.34375, 0])

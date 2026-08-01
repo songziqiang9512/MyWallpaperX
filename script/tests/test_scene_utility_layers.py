@@ -90,8 +90,9 @@ class SceneUtilityLayerTests(unittest.TestCase):
     def test_document_and_descriptor_preserve_generic_dependencies(self) -> None:
         document = (SOURCE_ROOT / "Format/SceneDocument.swift").read_text(encoding="utf-8")
         descriptor = (SOURCE_ROOT / "Runtime/SceneRenderDescriptor.swift").read_text(encoding="utf-8")
-        self.assertIn('root["dependencies"] as? [Int] ?? []', document)
+        self.assertIn('SceneObjectDependencies(rawValue: root["dependencies"])', document)
         self.assertIn("dependencyLayerIDs: object.dependencyLayerIDs", descriptor)
+        self.assertIn("authoredDependencies: object.authoredDependencies", descriptor)
         self.assertIn("if let utilityLayer = object.utilityLayer", descriptor)
 
     def test_complete_authored_capture_requires_every_visible_stage(self) -> None:

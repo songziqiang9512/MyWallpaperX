@@ -18,6 +18,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
     private let definition: SceneParticleDefinition
     let instanceOverride: SceneParticleInstanceOverride?
     private let emissionDeadline: Double?
+    private let layerImageEmissionMap: SceneParticleLayerImageEmissionMap?
     private let worldSpaceFrame: SceneParticleWorldSpaceFrame?
     private let hasWorldSpaceMovement: Bool
     let simulationSeed: UInt64
@@ -37,12 +38,14 @@ nonisolated struct SceneParticleSimulator: Sendable {
         fixedTimeStep: Double = 1.0 / 60.0,
         particleBudget: Int? = nil,
         emissionDeadline: Double? = nil,
+        layerImageEmissionMap: SceneParticleLayerImageEmissionMap? = nil,
         worldSpaceFrame: SceneParticleWorldSpaceFrame? = nil,
         stepSnapshotPolicy: SceneParticleStepSnapshotPolicy? = nil
     ) {
         self.definition = definition
         self.instanceOverride = instanceOverride
         self.emissionDeadline = emissionDeadline
+        self.layerImageEmissionMap = layerImageEmissionMap
         self.worldSpaceFrame = worldSpaceFrame
         self.hasWorldSpaceMovement = definition.operators.contains(
             where: \.isWorldSpaceMovement
@@ -174,6 +177,9 @@ nonisolated struct SceneParticleSimulator: Sendable {
             relative = randomSphereOffset(emitter)
         case .boxRandom:
             relative = randomBoxOffset(emitter)
+        case .layerImage:
+            guard let point = layerImageEmissionMap?.sample(using: &random) else { return nil }
+            relative = point
         case .unsupported:
             return nil
         }

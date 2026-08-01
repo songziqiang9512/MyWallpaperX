@@ -93,6 +93,7 @@ nonisolated struct SceneParticleDefinitionParser {
         switch name {
         case "sphererandom": kind = .sphereRandom
         case "boxrandom": kind = .boxRandom
+        case "layerimage": kind = .layerImage
         default:
             kind = .unsupported(name)
             diagnostics.append(.init(kind: .unsupportedEmitter, path: "emitter", componentName: name))
@@ -390,7 +391,6 @@ nonisolated struct SceneParticleDefinitionParser {
         while value.hasPrefix("./") { value.removeFirst(2) }
         return value.lowercased()
     }
-
     private nonisolated static func trimmed(_ rawValue: String?) -> String? {
         guard let value = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
             return nil

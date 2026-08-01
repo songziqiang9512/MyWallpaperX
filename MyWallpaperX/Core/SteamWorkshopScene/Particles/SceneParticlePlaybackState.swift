@@ -11,7 +11,8 @@ final class SceneParticlePlaybackState {
         cacheDirectory: URL,
         device: MTLDevice,
         resourceView: SceneResourceView? = nil,
-        textureLoader: SceneTextureLoader = SceneTextureLoader()
+        textureLoader: SceneTextureLoader = SceneTextureLoader(),
+        layerImage: SceneParticleLayerImageEmitterCompilation = .empty
     ) {
         guard let pipeline = SceneParticleMetalPipeline(device: device) else { return nil }
         self.pipeline = pipeline
@@ -21,6 +22,8 @@ final class SceneParticlePlaybackState {
             device: device,
             resourceView: resourceView,
             textureLoader: textureLoader,
+            layerImageEmissionMaps: layerImage.mapsByLayerID,
+            initialDiagnostics: layerImage.diagnostics,
             staticWorldSpaceFrames: descriptor.staticParticleWorldSpaceFrames
         )
         self.batches = runtime.advance(by: 0)

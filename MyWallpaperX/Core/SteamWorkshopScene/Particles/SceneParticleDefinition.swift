@@ -31,6 +31,7 @@ nonisolated struct SceneParticleSystemFlags: Equatable, Sendable {
 nonisolated enum SceneParticleEmitterKind: Equatable, Sendable {
     case sphereRandom
     case boxRandom
+    case layerImage
     case unsupported(String)
 }
 

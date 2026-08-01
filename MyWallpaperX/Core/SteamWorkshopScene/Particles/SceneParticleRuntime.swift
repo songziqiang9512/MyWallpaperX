@@ -40,9 +40,12 @@ final class SceneParticleRuntime {
         resourceView: SceneResourceView? = nil,
         stockTextureBundleURL: URL? = SceneStockTextureResolver.defaultBundleRoot(),
         textureLoader: SceneTextureLoader = SceneTextureLoader(),
+        layerImageEmissionMaps: [Int: SceneParticleLayerImageEmissionMap] = [:],
+        initialDiagnostics: [SceneParticleRuntimeDiagnostic] = [],
         staticWorldSpaceFrames: [Int: SceneParticleWorldSpaceFrame]? = nil
     ) {
         self.device = device
+        diagnostics = initialDiagnostics
         let staticWorldSpaceFrames = staticWorldSpaceFrames
             ?? descriptor.staticParticleWorldSpaceFrames
         let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
@@ -115,6 +118,10 @@ final class SceneParticleRuntime {
             guard let rawPath = layer.particlePath else { continue }
             let path = SceneParticleAssetGraphLoader.normalizedPath(rawPath)
             guard let asset = graph.assetsByPath[path], asset.supportsBuiltInShaderExecution, let renderState = asset.pipelineState else { continue }
+            let layerImageMap = layerImageEmissionMaps[layer.id]
+            guard admitsLayerImageEmitters(
+                asset.definition, map: layerImageMap, layerID: layer.id, path: path
+            ) else { continue }
             guard let render = supportedRenderer(
                 in: asset.definition,
                 layerID: layer.id,
@@ -214,6 +221,7 @@ final class SceneParticleRuntime {
                 definition: asset.definition,
                 instanceOverride: layer.particleInstanceOverride,
                 seed: UInt64(bitPattern: Int64(layer.id)),
+                layerImageEmissionMap: layerImageMap,
                 worldSpaceFrame: worldSpaceFrame, stepSnapshotPolicy: render.ropeTrail?.stepSnapshotPolicy
             )
             let childRuntime = SceneParticleChildRuntime(
@@ -264,7 +272,7 @@ final class SceneParticleRuntime {
                     isWorldSpace: render.renderer.isWorldSpace
                 ),
                 orientationAxis: render.renderer.axis.map {
-                    SceneParticleSimulationMath.vector($0, fallback: SIMD3(0, 0, 1)).floatValue
+                    SceneParticleSimulationMath.vector($0, fallback: SIMD3(0, 0, 1)).particleFloatValue
                 },
                 usesPerspective: asset.definition.flags.usesPerspective,
                 layerAlpha: Float(min(max(layer.alpha ?? 1, 0), 1)),
@@ -362,12 +370,12 @@ final class SceneParticleRuntime {
                 lifetime: Float(particle.lifetime)
             )
             layers[index].instances.append(SceneParticleGPUInstance(
-                position: particle.position.floatValue,
+                position: particle.position.particleFloatValue,
                 size: Float(particle.size),
-                rotation: particle.rotation.floatValue,
-                color: particle.color.floatValue,
+                rotation: particle.rotation.particleFloatValue,
+                color: particle.color.particleFloatValue,
                 alpha: Float(particle.alpha) * layerAlpha,
-                velocity: particle.velocity.floatValue,
+                velocity: particle.velocity.particleFloatValue,
                 trailStretch: trail?.stretch(for: particle.velocity),
                 currentFrame: frames.current.orientedForTrail(trail != nil),
                 nextFrame: frames.next?.orientedForTrail(trail != nil),
@@ -379,22 +387,11 @@ final class SceneParticleRuntime {
     }
 
     func addDiagnostic(
-        kind: SceneParticleRuntimeDiagnosticKind,
-        layerID: Int?,
-        path: String,
-        detail: String? = nil
+        kind: SceneParticleRuntimeDiagnosticKind, layerID: Int?, path: String, detail: String? = nil
     ) {
         let value = SceneParticleRuntimeDiagnostic(
-            kind: kind,
-            layerID: layerID,
-            particlePath: path,
-            detail: detail
+            kind: kind, layerID: layerID, particlePath: path, detail: detail
         )
         if !diagnostics.contains(value) { diagnostics.append(value) }
     }
-
-}
-
-private extension SIMD3 where Scalar == Double {
-    var floatValue: SIMD3<Float> { SIMD3<Float>(Float(x), Float(y), Float(z)) }
 }

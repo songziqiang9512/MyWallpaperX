@@ -102,6 +102,7 @@ struct SceneRenderDescriptorBuilder {
                     particleInstanceOverride: object.particleInstanceOverride,
                     utilityLayer: object.utilityLayer,
                     dependencyLayerIDs: object.dependencyLayerIDs,
+                    authoredDependencies: object.authoredDependencies,
                     parentID: object.parentID,
                     childLayerIDs: childIDsByParentID[object.id] ?? [],
                     attachmentName: object.attachmentName,

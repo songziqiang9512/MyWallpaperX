@@ -1,6 +1,40 @@
 import Foundation
 
 extension SceneParticleRuntime {
+    func admitsLayerImageEmitters(
+        _ definition: SceneParticleDefinition,
+        map: SceneParticleLayerImageEmissionMap?,
+        layerID: Int,
+        path: String
+    ) -> Bool {
+        guard definition.emitters.contains(where: { $0.kind == .layerImage }) else {
+            return true
+        }
+        let accepted = map != nil && Self.supportsLayerImageEmitterProfile(definition)
+        if !accepted && !diagnostics.contains(where: {
+            $0.kind == .layerImageEmitterUnsupported && $0.layerID == layerID
+        }) {
+            addDiagnostic(
+                kind: .layerImageEmitterUnsupported, layerID: layerID, path: path,
+                detail: map == nil ? "emissionMapUnavailable" : "unsupportedEmitterProfile"
+            )
+        }
+        return accepted
+    }
+
+    static func supportsLayerImageEmitterProfile(
+        _ definition: SceneParticleDefinition
+    ) -> Bool {
+        definition.emitters.allSatisfy { emitter in
+            guard emitter.kind == .layerImage else { return true }
+            return emitter.origin == nil && emitter.directions == nil && emitter.sign == nil
+                && emitter.distanceMinimum == nil && emitter.distanceMaximum == nil
+                && emitter.speedMinimum == nil && emitter.speedMaximum == nil
+                && emitter.controlPoint == nil && emitter.rawFlags == 0
+                && !emitter.audioResponse.isEnabled
+        }
+    }
+
     static func spriteFrames(
         animation: SceneSpriteAnimation?,
         definition: SceneParticleDefinition,

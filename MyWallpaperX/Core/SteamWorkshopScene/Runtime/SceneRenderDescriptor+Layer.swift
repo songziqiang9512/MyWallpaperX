@@ -12,6 +12,7 @@ extension SceneRenderDescriptor {
         let particleInstanceOverride: SceneParticleInstanceOverride?
         let utilityLayer: SceneUtilityLayer?
         let dependencyLayerIDs: [Int]
+        var authoredDependencies: [SceneObjectDependency] = []
         let parentID: Int?
         let childLayerIDs: [Int]
         let attachmentName: String?

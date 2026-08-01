@@ -176,6 +176,7 @@ struct SceneDocumentLoader {
         let imagePath = normalizedPath(root["image"] as? String)
         let timelines = objectTimelines(root)
         let particleTimelines = particleTimelines(root["instanceoverride"])
+        let dependencies = SceneObjectDependencies(rawValue: root["dependencies"])
 
         return SceneDocument.SceneObject(
             id: id,
@@ -188,7 +189,8 @@ struct SceneDocumentLoader {
             ),
             utilityLayer: SceneUtilityLayer.parse(imagePath: imagePath, object: root),
             shape: stringValue(root["shape"])?.lowercased(),
-            dependencyLayerIDs: root["dependencies"] as? [Int] ?? [],
+            dependencyLayerIDs: dependencies.legacyLayerIDs,
+            authoredDependencies: dependencies.authored,
             parentID: root["parent"] as? Int,
             attachmentName: stringValue(root["attachment"]).flatMap { $0.isEmpty ? nil : $0 },
             puppetAnimationLayers: ScenePuppetAnimationLayer.parse(root["animationlayers"]),

@@ -5,8 +5,8 @@ extension SceneDocument {
     ///
     /// 另外两条通路不走这里：effect constant 上的 Timeline 由 `ShaderValue.timeline`
     /// 携带（宿主身份是 effectIndex/passIndex/name）；粒子 `instanceoverride.*` 上的
-    /// Timeline 属于粒子通路，随包 45 样本中有 7 处（全在 `2998757800`），当前两条通路
-    /// 都不解析它。
+    /// Timeline 属于粒子通路，随包 45 样本中有 7 处（全在 `2998757800`），由下方
+    /// `SceneParticleTimeline` 单独保真，不走 layer Timeline target。
     struct SceneObjectTimeline: Codable, Equatable {
         /// 作者 JSON 中的宿主属性名，同时也是 target 身份的一部分。
         ///
@@ -60,6 +60,7 @@ extension SceneDocument {
         let utilityLayer: SceneUtilityLayer?
         let shape: String?
         let dependencyLayerIDs: [Int]
+        var authoredDependencies: [SceneObjectDependency] = []
         let parentID: Int?
         let attachmentName: String?
         let puppetAnimationLayers: [ScenePuppetAnimationLayer]
