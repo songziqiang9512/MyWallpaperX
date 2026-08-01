@@ -170,7 +170,7 @@ Wallpaper Engine 的 2D lighting 系统有明确的**性能约束和使用限制
 
 #### 实施约束
 
-当前 2D lighting 为 `L0`，下一批次实施时必须：
+Generic 2D lit-material lighting 仍为 `L0`；`b856f4ee` 的 bounded standalone `lspot` 不改变这一等级。下一批次扩展完整系统时必须：
 
 1. **硬编码 4 光源上限**：超过时拒绝或明确降级，记录诊断
 2. **Author enable gate**：只处理显式启用 lighting 的 image layers
@@ -190,9 +190,9 @@ Wallpaper Engine 的 2D lighting 系统有明确的**性能约束和使用限制
 | 官方页面 | 分类 | 官方合同与分类边界 | 当前等级 / 最小升级门 |
 |---|---|---|---|
 | <a id="op-light-introduction"></a>[Introduction](https://docs.wallpaperengine.io/en/scene/lighting/introduction.html) | `runtime-required` | 2D image material 只有作者启用 `Lighting` 或 `Reflection` 才响应；normal map 提供表面方向，metallic、roughness、reflection map/slider 控制反射。Scene ambient/background 参与结果，官方限制每 scene 最多四个 light。normal-map generator 与 mask painting 是 editor-only。 | `L0`：无 2D lit material/light IR；需 author enable/off、四灯上限、normal/metal/rough/reflection channel、ambient/background、color space 和 pixel fixture。 |
-| <a id="op-light-lights"></a>[Lights](https://docs.wallpaperengine.io/en/scene/lighting/lights.html) | `runtime-required` | Point 用 radius/intensity；Spot 用 height/direction/inner/outer cone；Tube 用可动画 start/end；Directional 无位置、只按方向覆盖全场。Spot 可投影 image/video/带完整 effects 的 layer；投影 source 在 2D Scene 可隐藏。Origin/intensity 可由 Timeline/SceneScript/audio 驱动，light Z/height 有意义，cursor script 只替换 X/Y 应保留 Z。 | `L0`：无 light/provider consumer；需四类 typed light、surface-local coordinates、projected provider/effect graph、live target/audio/cursor、hidden-source 与 author-off 门。 |
+| <a id="op-light-lights"></a>[Lights](https://docs.wallpaperengine.io/en/scene/lighting/lights.html) | `runtime-required` | Point 用 radius/intensity；Spot 用 height/direction/inner/outer cone；Tube 用可动画 start/end；Directional 无位置、只按方向覆盖全场。Spot 可投影 image/video/带完整 effects 的 layer；投影 source 在 2D Scene 可隐藏。Origin/intensity 可由 Timeline/SceneScript/audio 驱动，light Z/height 有意义，cursor script 只替换 X/Y 应保留 Z。 | 整体仍 `L0`。`b856f4ee` 仅把 standalone、无 provider/effect/script 的 exact volumetric `lspot` + relative Mirror angle Timeline 做成 `L3 bounded` direct draw；它不使 image material 响应光照。四类 typed light、surface-local coordinates、projected provider/effect graph、live target/audio/cursor、hidden-source 与 author-off 仍缺。 |
 
-2D lighting、3D lighting、official Scene Bloom/HDR、Workshop layer Bloom 与 exact Workshop image-effect Shadow 是彼此独立的执行链。当前 Workshop layer Bloom approximation 为 `L3`（[E-EFFECT-INLINE](runtime-evidence-index.md#e-effect-inline)），`809b75e` 另执行一个 exact Workshop single-pass Shadow profile；后者不是 light/object shadow map，也没有建立 lighting 或 generic shader。official Scene Bloom target identity 为 `L1`，其 HDR target、tone mapping、Ultra HDR、per-layer HDR brightness、lighting shadow/reflection/volumetric runtime 均为 `L0`。不得用现有 layer Bloom、Workshop Shadow 或 2D compositor 冒充上述官方系统。
+2D lighting、3D lighting、official Scene Bloom/HDR、Workshop layer Bloom 与 exact Workshop image-effect Shadow 是彼此独立的执行链。当前 Workshop layer Bloom approximation 为 `L3`（[E-EFFECT-INLINE](runtime-evidence-index.md#e-effect-inline)），`809b75e` 另执行一个 exact Workshop single-pass Shadow profile；后者不是 light/object shadow map，也没有建立 lighting 或 generic shader。`b856f4ee` 的 standalone volumetric `lspot` 同样只是无 lit-material interaction 的 bounded projector cone（[E-SPOT-LIGHT](runtime-evidence-index.md#e-spot-light)），不升级 generic 2D lighting。official Scene Bloom target identity 为 `L1`，其 HDR target、tone mapping、Ultra HDR、per-layer HDR brightness、lighting shadow/reflection runtime 均为 `L0`。不得用现有 layer Bloom、Workshop Shadow、standalone cone 或 2D compositor 冒充完整 lighting/HDR 系统。
 
 ## 6. Shader 与高级 Effect 边界
 

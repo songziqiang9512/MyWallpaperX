@@ -295,7 +295,8 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 | color/alpha | `L3` | 静态 descriptor 和 direct color generation consumer；[E-DYNAMIC-TEXT](runtime-evidence-index.md#e-dynamic-text) | premultiplied alpha 与 Windows golden |
 | outline/shadow/text effects | `L1` | 可见字段/effect 可能被保留 | 独立 style IR 与执行器 |
 | property-driven dynamic text | `L3` | 只更新变化 layer，重复值不生成，旧 generation/失败结果不覆盖 last-ready；真实 `2134765860` 三字段正门 | 长文本/emoji/多语言布局与多屏压力门 |
-| exact native clock/day/date text | `L3 bounded` | 三个 exact source/property profile 直接产生 typed text value；不执行 JavaScript | 同步 Windows 时间/locale 与像素 golden |
+| exact native clock/day/date/greeting text | `L3 bounded` | 七个 exact source/property profile 直接产生 typed text value；`3768903841` greeting 只消费唯一已验证 day/night schedule；不执行 JavaScript | 通用 Date/timeOfDay、同步 Windows 时间/locale 与像素 golden |
+| exact native day/night texture toggle | `L3 bounded` | 精确 source/wrapper/property profile 用 wall clock 驱动三帧 texture animation，并与 greeting 共用 schedule | cursor click、persisted manual override、跨午夜/DST/暂停长稳与 Windows timing golden |
 | generic SceneScript/media text | `L0` | 无 VM、通用 source/module loader 或 media snapshot | Date/media producer -> text target -> texture generation |
 | dynamic Layer Image particle source | `L0` | 无 emission bitmap refresh | 只在 text texture 变化时更新 emission source |
 

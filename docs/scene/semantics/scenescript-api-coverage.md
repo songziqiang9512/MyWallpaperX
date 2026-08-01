@@ -229,7 +229,7 @@ SceneScript 不能从"嵌入 JS VM"开始直接调用现有 renderer。最小正
 | `engine` environment queries | editor、portrait/landscape、desktop/mobile、wallpaper/screensaver | `L0` | `N` | macOS 模式映射和稳定 fixture；不伪装未支持平台 |
 | `engine.screenResolution` / `canvasSize` | 每屏物理分辨率与 2D canvas/full wallpaper 尺寸 | `L0` | frame context 有 viewport，但无 JS bridge | scale factor、跨屏 canvas、resize 顺序和 pixel/point 门 |
 | `engine.userProperties` | 当前用户属性对象 | `L0` | 属性系统不暴露 VM object | typed snapshot、key normalization、首次/增量一致性 |
-| `engine.timeOfDay` | 24 小时归一化到 `[0,1]` | `L0` | `G` 确认每帧从本地系统时间采样，与累计 scene runtime 分离；项目 `F` 只采样 wall date，无 JS global | 可注入 wall clock、时区/DST、同帧 Date 一致性和离线确定性 fixture |
+| `engine.timeOfDay` | 24 小时归一化到 `[0,1]` | `L0` | `G` 确认每帧从本地系统时间采样，与累计 scene runtime 分离；项目 `F` 现有 exact native day/night texture+greeting profile 共享 wall-clock schedule，但没有 JS global 或归一化数值 bridge | 可注入 wall clock、时区/DST、同帧 Date 一致性和离线确定性 fixture；bounded native profile 不替代本 API |
 | `engine.frametime` / `runtime` | 上帧秒数（重绘可为 0）和 scene 累计运行时间 | `L0` | `G` 确认两者与 engine tick/timer 共用 admitted/scaled/clamped effective delta；完全暂停不 tick/累计，恢复重置基线且不 catch-up；项目 `F` 无 JS global | 0 delta、switch/seek reset、smoothing/clamp 自有 policy、同帧多屏一致性 |
 | `shared` | 同 scene 脚本共享的 global object | `L0` | `N` | 每 scene/屏隔离、初始化顺序、销毁和并发 mutation 规则 |
 
