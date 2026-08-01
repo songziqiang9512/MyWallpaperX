@@ -17,6 +17,7 @@ DOCUMENT_SOURCES = [
     SOURCE_ROOT / "Format/SceneDocument+ShaderValue.swift",
     SOURCE_ROOT / "Format/SceneDocument+Timeline.swift",
     SOURCE_ROOT / "Format/SceneDocumentObject.swift",
+    SOURCE_ROOT / "Format/SceneObjectDependency.swift",
     SOURCE_ROOT / "Format/SceneSpotLightDefinition.swift",
     SOURCE_ROOT / "Text/SceneTextScriptDefinition.swift",
     SOURCE_ROOT / "Format/SceneDocument+NumericParsing.swift",
@@ -31,6 +32,7 @@ LAYER_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
     SOURCE_ROOT / "Format/SceneSpotLightDefinition.swift",
+    SOURCE_ROOT / "Format/SceneObjectDependency.swift",
     SOURCE_ROOT / "Runtime/SceneRenderDescriptor+Layer.swift",
 ]
 
@@ -444,6 +446,7 @@ struct SceneTextScriptDefinition: Codable {}
 
 struct SceneDocument {
     struct SceneObjectTimeline: Codable {}
+    struct SceneParticleTimeline: Codable {}
 }
 
 enum SceneTextGeometry {
@@ -465,11 +468,14 @@ enum Harness {
           "layerIndex": 0,
           "contentKind": "image",
           "dependencyLayerIDs": [],
+          "authoredDependencies": [],
           "childLayerIDs": [],
           "puppetAnimationLayers": [],
           "disablesParallaxPropagation": false,
           "timelines": [],
           "timelineDiagnostics": [],
+          "particleTimelines": [],
+          "particleTimelineDiagnostics": [],
           "hasInlineScript": false,
           "effects": [],
           "effectFiles": [],

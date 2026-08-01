@@ -216,11 +216,14 @@ class SceneDynamicLayerValuesTests(unittest.TestCase):
         self.assertNotIn("Float(layer.alpha ?? 1)", renderer)
 
         compositor = COMPOSITOR_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            'request.layer.contentKind == "image" || request.layer.contentKind == "solid"',
+            compositor,
+        )
         self.assertRegex(
             compositor,
-            r'baseTint[^=]{0,40}=\s*request\.layer\.contentKind\s*==\s*"solid"'
-            r"[\s\S]{0,120}\?\s*request\.uniforms\.tint"
-            r"[\s\S]{0,120}:\s*SIMD3\(repeating:\s*1\)",
+            r"baseTint\s*=\s*usesAuthoredColor\s*\?\s*request\.uniforms\.tint"
+            r"\s*:\s*SIMD3<Float>\(repeating:\s*1\)",
         )
 
     def test_utility_capture_keeps_source_neutral_and_applies_alpha_once(self) -> None:

@@ -24,6 +24,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Rendering/SceneMatrix.swift",
     SOURCE_ROOT / "Rendering/SceneMetalPipeline.swift",
     SOURCE_ROOT / "Resources/SceneTextureUVTransform.swift",
+    SOURCE_ROOT / "Runtime/SceneTextureAnimationPlaybackPlan.swift",
+    SOURCE_ROOT / "Resources/SceneTextureAnimationPlaybackClock.swift",
     SOURCE_ROOT / "Rendering/SceneSpriteAnimation.swift",
     SOURCE_ROOT / "Rendering/SceneMainPassEncoder.swift",
     SOURCE_ROOT / "Rendering/SceneFramebufferSnapshot.swift",
@@ -205,6 +207,8 @@ struct SceneTexContainer {
         let yAxis: SIMD2<Float>
     }
     let spriteFrames: [SpriteFrame]
+    let textureWidth: Int = 1
+    let textureHeight: Int = 1
 }
 
 struct SceneTexContainerReader {
@@ -380,6 +384,10 @@ struct SceneBlendExecutionPlan {
     let multiply: Float
     let assetTexturePath: String
     let userPropertyKey: String?
+
+    func resolvedMultiply(in snapshot: SceneDynamicSnapshot) -> Float {
+        multiply
+    }
 }
 
 struct SceneTransformExecutionPlan {
@@ -601,6 +609,10 @@ struct SceneShakeExecutionPlan {
 }
 
 struct SceneShakeEffectTextures {}
+
+struct SceneSpotLightPipeline {
+    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
+}
 
 struct SceneFilmGrainEffectTextures {
     let noise: MTLTexture?

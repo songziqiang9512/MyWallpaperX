@@ -12,9 +12,19 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneLayerParallax.swift"
+MATRIX_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMatrix.swift"
 
 HARNESS_SOURCE = r'''
 import Foundation
+
+struct SceneRenderDescriptor {
+    struct Layer {
+        let id: Int
+        let parentID: Int?
+        let parallaxDepthXY: [Float]?
+        let disablesParallaxPropagation: Bool
+    }
+}
 
 @main
 enum Harness {
@@ -106,7 +116,7 @@ class SceneLayerParallaxTests(unittest.TestCase):
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
         cls.binary = directory / "scene-layer-parallax"
         subprocess.run(
-            [swiftc, str(SOURCE), str(harness), "-o", str(cls.binary)],
+            [swiftc, str(MATRIX_SOURCE), str(SOURCE), str(harness), "-o", str(cls.binary)],
             check=True, capture_output=True, text=True,
         )
         cls.result = cls.run_harness()

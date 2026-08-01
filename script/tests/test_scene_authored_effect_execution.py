@@ -505,6 +505,7 @@ enum SceneAuthoredClippingMaskPlanner {
 
 struct SceneBlendExecutionPlan {
     var executedUserPropertyKeys: Set<String> { [] }
+    var liveMultiplyTarget: SceneDynamicTarget? { nil }
 }
 
 enum SceneAuthoredBlendPlanner {

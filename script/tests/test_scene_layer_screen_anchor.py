@@ -237,7 +237,10 @@ enum Harness {
             * SceneMatrix.scale(SIMD3(repeating: 0.057))
         let sizeScale = SceneMatrix.scale(SIMD3(780, -291, 1))
         // label_coins 的作者对齐是 horizontalalign right / verticalalign center。
-        let pivot = SceneTextLayerPivot.unitOffset(horizontal: "right", vertical: "center")
+        let pivot = SceneTextLayerPivot.unitOffset(
+            horizontal: "right", vertical: "center",
+            renderSize: SIMD2(780, 291), padding: 0
+        )
         let viewProjection = SceneCameraProjection.viewProjection(
             camera: camera, viewportSize: viewportSize
         )
