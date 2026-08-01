@@ -76,20 +76,66 @@ enum Harness {
         for horizontal in ["left", "center", "right", "Right"] {
             for vertical in ["top", "center", "bottom"] {
                 table["\(horizontal)-\(vertical)"] = vector(
-                    SceneTextLayerPivot.unitOffset(horizontal: horizontal, vertical: vertical)
+                    SceneTextLayerPivot.unitOffset(
+                        horizontal: horizontal, vertical: vertical,
+                        renderSize: SIMD2(100, 50), padding: 0
+                    )
                 )
             }
         }
         let result: [String: Any] = [
             "table": table,
-            "missing": vector(SceneTextLayerPivot.unitOffset(horizontal: nil, vertical: nil)),
-            "unknown": vector(SceneTextLayerPivot.unitOffset(
-                horizontal: "justify", vertical: "baseline"
+            "missing": vector(SceneTextLayerPivot.unitOffset(
+                horizontal: nil, vertical: nil, renderSize: SIMD2(100, 50), padding: 10
             )),
+            "unknown": vector(SceneTextLayerPivot.unitOffset(
+                horizontal: "justify", vertical: "baseline",
+                renderSize: SIMD2(100, 50), padding: 10
+            )),
+            "padded": paddedTable(),
+            "clockPair": clockPair(),
             "gpu": (try coverageTable()) ?? NSNull()
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
+    }
+
+    static func paddedTable() -> [String: [Float]] {
+        Dictionary(uniqueKeysWithValues: [
+            ("left", SceneTextLayerPivot.unitOffset(
+                horizontal: "left", vertical: "center",
+                renderSize: SIMD2(100, 50), padding: 10
+            )),
+            ("right", SceneTextLayerPivot.unitOffset(
+                horizontal: "right", vertical: "center",
+                renderSize: SIMD2(100, 50), padding: 10
+            )),
+            ("top", SceneTextLayerPivot.unitOffset(
+                horizontal: "center", vertical: "top",
+                renderSize: SIMD2(100, 50), padding: 10
+            )),
+            ("bottom", SceneTextLayerPivot.unitOffset(
+                horizontal: "center", vertical: "bottom",
+                renderSize: SIMD2(100, 50), padding: 10
+            )),
+        ].map { ($0.0, vector($0.1)) })
+    }
+
+    static func clockPair() -> [String: [Float]] {
+        Dictionary(uniqueKeysWithValues: [
+            ("shadow", contentEdges(size: SIMD2(202, 126), padding: 32)),
+            ("face", contentEdges(size: SIMD2(302, 226), padding: 82)),
+        ])
+    }
+
+    static func contentEdges(size: SIMD2<Float>, padding: Float) -> [Float] {
+        let pivot = SceneTextLayerPivot.unitOffset(
+            horizontal: "right", vertical: "center",
+            renderSize: size, padding: padding
+        )
+        let outerLeft = (-0.5 + pivot.x) * size.x
+        let outerRight = (0.5 + pivot.x) * size.x
+        return [outerLeft + padding, outerRight - padding]
     }
 
     // GPU 门：用真实 image layer pipeline 与真实 viewProjection 把两个记分标签的 quad
@@ -198,7 +244,10 @@ enum Harness {
             SIMD3(label.originX, ortho.y - label.authoredOriginY, 0)
         ) * SceneMatrix.scale(SIMD3(repeating: scale))
         let sizeScale = SceneMatrix.scale(SIMD3(label.sizeX, -label.sizeY, 1))
-        let pivot = SceneTextLayerPivot.unitOffset(horizontal: horizontal, vertical: vertical)
+        let pivot = SceneTextLayerPivot.unitOffset(
+            horizontal: horizontal, vertical: vertical,
+            renderSize: SIMD2(label.sizeX, label.sizeY), padding: 0
+        )
         let viewProjection = SceneCameraProjection.viewProjection(
             camera: camera, viewportSize: viewportSize
         )
@@ -298,6 +347,17 @@ class SceneTextLayerPivotTests(unittest.TestCase):
         self.assert_close(self.result["missing"], (0, 0))
         self.assert_close(self.result["unknown"], (0, 0))
 
+    def test_padding_keeps_the_named_content_edge_on_the_origin(self) -> None:
+        padded = self.result["padded"]
+        self.assert_close(padded["left"], (0.4, 0))
+        self.assert_close(padded["right"], (-0.4, 0))
+        self.assert_close(padded["top"], (0, -0.3))
+        self.assert_close(padded["bottom"], (0, 0.3))
+
+        clock_pair = self.result["clockPair"]
+        self.assert_close(clock_pair["shadow"], (-138, 0))
+        self.assert_close(clock_pair["face"], (-138, 0))
+
     def test_gpu_pass_lines_up_both_score_labels_on_the_authored_origin(self) -> None:
         # 真实 image layer pipeline + 真实 viewProjection 的离屏渲染门。256px 对应
         # 作者 343 宽，1 世界单位 = 0.74636 px；origin.x=341.42999 落在第 254 列。
@@ -350,6 +410,8 @@ class SceneTextLayerPivotTests(unittest.TestCase):
             r"SceneTextLayerPivot\.unitOffset\("
             r"[\s\S]{0,160}horizontal:\s*layer\.textStyle\?\.horizontalAlignment"
             r"[\s\S]{0,160}vertical:\s*layer\.textStyle\?\.verticalAlignment"
+            r"[\s\S]{0,160}renderSize:\s*size"
+            r"[\s\S]{0,160}padding:\s*layer\.textStyle\?\.padding"
         ))
         # pivot 必须排在 sizeScale 之后，否则不会被作者 size 与 layer scale 缩放。
         self.assertRegex(transforms, re.compile(

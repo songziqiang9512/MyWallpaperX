@@ -83,9 +83,7 @@ enum Harness {
             "point64": SceneTextGeometry.pointSizeInPixels(64),
             "point300": SceneTextGeometry.pointSizeInPixels(300),
             "pointZero": SceneTextGeometry.pointSizeInPixels(0),
-            "expandedSize": SceneTextGeometry.expandedSize(
-                authoredSize: [100, 50], padding: 10
-            ),
+            "rasterLayout": rasterLayout(),
             "vectorPadding": vectorPadding.padding,
             "wrappedPadding": wrappedPadding.padding,
             "wrappedPointSize": SceneTextGeometry.pointSizeInPixels(
@@ -97,6 +95,19 @@ enum Harness {
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
+    }
+
+    static func rasterLayout() -> [String: Any] {
+        let layout = SceneTextGeometry.rasterLayout(
+            renderSize: [100, 50], padding: 10, maxDimension: 2_048
+        )!
+        return [
+            "width": layout.width,
+            "height": layout.height,
+            "padding": layout.padding,
+            "contentWidth": layout.contentWidth,
+            "contentHeight": layout.contentHeight,
+        ]
     }
 }
 '''
@@ -160,8 +171,14 @@ class SceneTextGeometryTests(unittest.TestCase):
     def test_wrapped_property_point_size_keeps_we_pixel_scale(self) -> None:
         self.assertEqual(self.result["wrappedPointSize"], 175)
 
-    def test_text_geometry_adds_padding_outside_authored_bounds(self) -> None:
-        self.assertEqual(self.result["expandedSize"], [120, 70])
+    def test_authored_size_is_the_padded_outer_raster_frame(self) -> None:
+        self.assertEqual(self.result["rasterLayout"], {
+            "width": 100,
+            "height": 50,
+            "padding": 10,
+            "contentWidth": 80,
+            "contentHeight": 30,
+        })
 
     def test_screen_anchor_defaults_to_none_and_unwraps_property_values(self) -> None:
         self.assertEqual(self.result["defaultAnchor"], "none")

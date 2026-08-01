@@ -65,11 +65,7 @@ extension SceneRenderDescriptor {
         }
 
         nonisolated var renderSizeWH: [Float]? {
-            guard contentKind == "text", let textStyle else { return sizeWH }
-            return SceneTextGeometry.expandedSize(
-                authoredSize: sizeWH,
-                padding: textStyle.padding
-            ) ?? sizeWH
+            sizeWH
         }
 
     }

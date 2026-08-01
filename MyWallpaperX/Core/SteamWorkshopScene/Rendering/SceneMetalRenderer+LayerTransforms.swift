@@ -28,7 +28,9 @@ extension SceneMetalRenderer {
         let pivot = layer.contentKind == "text"
             ? SceneTextLayerPivot.unitOffset(
                 horizontal: layer.textStyle?.horizontalAlignment,
-                vertical: layer.textStyle?.verticalAlignment
+                vertical: layer.textStyle?.verticalAlignment,
+                renderSize: size,
+                padding: layer.textStyle?.padding ?? 0
             )
             : SceneImageLayerPivot.unitOffset(alignment: layer.imageAlignment)
         let shift = parallax + screenAnchor

@@ -150,6 +150,18 @@ SCENE_FIXTURE = {
             "maxwidth": {"animation": {"options": {"fps": 30}}, "value": 100},
             "limituseellipsis": {"value": True},
         },
+        {
+            "id": 90,
+            "name": "padded clock-sized frame",
+            "text": "20:06:35",
+            "font": "systemfont_arial",
+            "pointsize": 13,
+            "color": "1 1 1",
+            "size": "196 126",
+            "padding": 32,
+            "horizontalalign": "center",
+            "verticalalign": "center",
+        },
     ],
 }
 
@@ -321,7 +333,7 @@ enum Harness {
             device: device
         )
         let layers = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
-        let ids = [10, 20, 30, 40, 50, 60, 70, 80]
+        let ids = [10, 20, 30, 40, 50, 60, 70, 80, 90]
         var style: [String: Any] = [:]
         var ink: [String: Any] = [:]
         for id in ids {
@@ -584,6 +596,13 @@ class SceneTextRowLimitTests(unittest.TestCase):
         self.assertGreater(len(limited["rowRanges"]), 1)
         self.assertLessEqual(limited["maxX"], 100)
         self.assertGreater(unlimited["maxX"], 100)
+
+    def test_padded_authored_outer_frame_still_rasterizes_visible_text(self) -> None:
+        padded = self.result["ink"]["90"]
+        self.assertEqual(padded["size"], [196, 126])
+        self.assertGreater(padded["count"], 0)
+        self.assertGreaterEqual(padded["minX"], 32)
+        self.assertLessEqual(padded["maxX"], 163)
 
     def test_dynamic_text_expands_only_when_width_is_not_authored_limited(self) -> None:
         self.assertGreater(self.result["dynamicRenderSizes"]["auto"][0], 400)

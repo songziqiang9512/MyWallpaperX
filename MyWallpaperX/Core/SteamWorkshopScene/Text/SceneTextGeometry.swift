@@ -19,15 +19,6 @@ nonisolated enum SceneTextGeometry {
         min(max(authoredPointSize * 300 / 72, 1), 1_024)
     }
 
-    nonisolated static func expandedSize(
-        authoredSize: [Float]?,
-        padding: Float
-    ) -> [Float]? {
-        guard let authoredSize, authoredSize.count >= 2 else { return nil }
-        let inset = max(0, padding) * 2
-        return [max(0, authoredSize[0]) + inset, max(0, authoredSize[1]) + inset]
-    }
-
     nonisolated static func rasterLayout(
         renderSize: [Float]?,
         padding: Float,
