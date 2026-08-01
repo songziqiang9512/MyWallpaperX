@@ -323,6 +323,8 @@ extension SceneParticleChildTemplate {
             trailStretch: trail?.stretch(for: particle.velocity),
             currentFrame: frames.current.orientedForTrail(trail != nil),
             nextFrame: frames.next?.orientedForTrail(trail != nil),
+            currentFrameAspect: frames.currentAspect,
+            nextFrameAspect: frames.nextAspect,
             frameMix: frames.mix
         )
     }

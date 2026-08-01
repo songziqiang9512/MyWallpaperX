@@ -55,6 +55,11 @@ vertex Varyings sceneParticleVert(
     float3 local = float3(0.0);
     float3 trailWorld = float3(0.0);
     float3 trailAcrossWorld = float3(0.0);
+    float spriteAspect = max(mix(
+        particle.frame0B.z,
+        particle.frame0B.w,
+        saturate(particle.colorAndFrameMix.w)
+    ), 0.00001);
     if (isTrail) {
         bool usesDisplacement = particle.frame1B.z > 0.5;
         float velocityLength = length(particle.velocityAndTrail.xyz);
@@ -104,7 +109,11 @@ vertex Varyings sceneParticleVert(
         ) * particle.positionAndSize.w * layerScale.x;
     } else {
         local = rotateXYZ(
-            float3(quadVertex.position * particle.positionAndSize.w, 0.0),
+            float3(
+                quadVertex.position.x * particle.positionAndSize.w * spriteAspect,
+                quadVertex.position.y * particle.positionAndSize.w,
+                0.0
+            ),
             particle.rotationAndAlpha.xyz);
     }
     float3 normal = normalize(cross(uniforms.basisRight.xyz, uniforms.basisUp.xyz));
@@ -137,7 +146,7 @@ vertex Varyings sceneParticleVert(
         tangentWorldY = trailWorld / trailUVSpan;
     } else {
         float3 tangentLocalX = rotateXYZ(
-            float3(particle.positionAndSize.w, 0.0, 0.0),
+            float3(particle.positionAndSize.w * spriteAspect, 0.0, 0.0),
             particle.rotationAndAlpha.xyz);
         float3 tangentLocalY = rotateXYZ(
             float3(0.0, particle.positionAndSize.w, 0.0),

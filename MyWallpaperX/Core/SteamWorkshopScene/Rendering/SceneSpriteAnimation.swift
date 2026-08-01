@@ -1,3 +1,4 @@
+import CoreFoundation
 import Foundation
 import Metal
 import simd
@@ -24,13 +25,16 @@ private final class SceneSpriteAnimationPlaybackState {
 struct SceneSpriteAnimation {
     let frames: [SceneTexContainer.SpriteFrame]
     let duration: Float
+    private let frameAspectRatios: [Float]
     private let texturePlayback: SceneSpriteTexturePlayback?
     private let playbackState: SceneSpriteAnimationPlaybackState?
 
     init?(
         frames: [SceneTexContainer.SpriteFrame],
         texturePlayback: SceneSpriteTexturePlayback? = nil,
-        playbackPlan: SceneTextureAnimationPlaybackPlan? = nil
+        playbackPlan: SceneTextureAnimationPlaybackPlan? = nil,
+        textureSize: SIMD2<Int>? = nil,
+        nominalFrameSize: SIMD2<Float>? = nil
     ) {
         guard !frames.isEmpty,
               texturePlayback != nil || frames.allSatisfy({ $0.imageIndex == 0 }) else {
@@ -38,10 +42,28 @@ struct SceneSpriteAnimation {
         }
         self.frames = frames
         self.duration = frames.reduce(0) { $0 + Self.effectiveDuration($1.duration) }
+        frameAspectRatios = frames.map {
+            Self.frameAspectRatio(
+                for: $0,
+                textureSize: textureSize,
+                nominalFrameSize: nominalFrameSize
+            )
+        }
         self.texturePlayback = texturePlayback
         playbackState = texturePlayback == nil
             ? playbackPlan.map { SceneSpriteAnimationPlaybackState(plan: $0, frames: frames) }
             : nil
+    }
+
+    init?(container: SceneTexContainer, sourceURL: URL) {
+        self.init(
+            frames: container.spriteFrames,
+            textureSize: SIMD2(container.textureWidth, container.textureHeight),
+            nominalFrameSize: Self.nominalFrameSize(
+                from: sourceURL,
+                expectedFrameCount: container.spriteFrames.count
+            )
+        )
     }
 
     static func load(from url: URL) -> SceneSpriteAnimation? {
@@ -50,7 +72,7 @@ struct SceneSpriteAnimation {
               let container = try? SceneTexContainerReader().read(data: data) else {
             return nil
         }
-        return SceneSpriteAnimation(frames: container.spriteFrames)
+        return SceneSpriteAnimation(container: container, sourceURL: url)
     }
 
     func transform(at elapsed: Float) -> SceneTextureUVTransform {
@@ -88,6 +110,38 @@ struct SceneSpriteAnimation {
         )
     }
 
+    func aspectRatio(forFrameAt index: Int) -> Float {
+        guard frameAspectRatios.indices.contains(index) else { return 1 }
+        return frameAspectRatios[index]
+    }
+
+    static func nominalFrameSize(
+        from textureURL: URL,
+        expectedFrameCount: Int
+    ) -> SIMD2<Float>? {
+        guard expectedFrameCount > 0,
+              let data = try? Data(
+                  contentsOf: URL(fileURLWithPath: textureURL.path + "-json"),
+                  options: .mappedIfSafe
+              ),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let sequences = root["spritesheetsequences"] as? [[String: Any]],
+              sequences.count == 1,
+              let sequence = sequences.first,
+              let frameCount = finiteNumber(sequence["frames"]),
+              frameCount.rounded() == frameCount,
+              Int(frameCount) == expectedFrameCount,
+              let width = finiteNumber(sequence["width"]),
+              let height = finiteNumber(sequence["height"]),
+              width > 0, height > 0,
+              width <= Double(Float.greatestFiniteMagnitude),
+              height <= Double(Float.greatestFiniteMagnitude),
+              validAspect(width / height) else {
+            return nil
+        }
+        return SIMD2(Float(width), Float(height))
+    }
+
     var reportSummary: String {
         String(
             format: "; sprite animation frames=%d duration=%.3fs",
@@ -106,6 +160,34 @@ struct SceneSpriteAnimation {
 
     private static func effectiveDuration(_ duration: Float) -> Float {
         duration.isFinite && duration > 0 ? duration : 1.0 / 60.0
+    }
+
+    private static func frameAspectRatio(
+        for frame: SceneTexContainer.SpriteFrame,
+        textureSize: SIMD2<Int>?,
+        nominalFrameSize: SIMD2<Float>?
+    ) -> Float {
+        if let nominalFrameSize,
+           validAspect(Double(nominalFrameSize.x / nominalFrameSize.y)) {
+            return nominalFrameSize.x / nominalFrameSize.y
+        }
+        guard let textureSize, textureSize.x > 0, textureSize.y > 0 else { return 1 }
+        let pixels = SIMD2(Float(textureSize.x), Float(textureSize.y))
+        let width = simd_length(frame.xAxis * pixels)
+        let height = simd_length(frame.yAxis * pixels)
+        let aspect = width / height
+        return validAspect(Double(aspect)) ? aspect : 1
+    }
+
+    private static func finiteNumber(_ value: Any?) -> Double? {
+        guard let number = value as? NSNumber,
+              CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }
+        let result = number.doubleValue
+        return result.isFinite ? result : nil
+    }
+
+    private static func validAspect(_ aspect: Double) -> Bool {
+        aspect.isFinite && aspect >= 1.0 / 64.0 && aspect <= 64
     }
 }
 

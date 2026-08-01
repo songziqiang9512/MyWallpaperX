@@ -255,9 +255,14 @@ nonisolated struct SceneParticleGPUInstance: Sendable {
         usesTrailDisplacement: Bool = false,
         currentFrame: SceneParticleFrameTransform = .identity,
         nextFrame: SceneParticleFrameTransform? = nil,
+        currentFrameAspect: Float = 1,
+        nextFrameAspect: Float? = nil,
         frameMix: Float = 0
     ) {
         let following = nextFrame ?? currentFrame
+        let currentAspect = Self.validAspect(currentFrameAspect) ? currentFrameAspect : 1
+        let authoredNextAspect = nextFrameAspect ?? currentAspect
+        let followingAspect = Self.validAspect(authoredNextAspect) ? authoredNextAspect : currentAspect
         positionAndSize = SIMD4(position.x, position.y, position.z, size)
         rotationAndAlpha = SIMD4(rotation.x, rotation.y, rotation.z, alpha)
         colorAndFrameMix = SIMD4(color.x, color.y, color.z, min(max(frameMix, 0), 1))
@@ -268,7 +273,9 @@ nonisolated struct SceneParticleGPUInstance: Sendable {
             currentFrame.xAxis.y
         )
         let range = trailUVRange
-            ?? (trailStretch == nil ? .zero : SIMD2<Float>(0, 1))
+            ?? (trailStretch == nil
+                ? SIMD2(currentAspect, followingAspect)
+                : SIMD2<Float>(0, 1))
         frame0B = SIMD4(
             currentFrame.yAxis.x,
             currentFrame.yAxis.y,
@@ -293,6 +300,10 @@ nonisolated struct SceneParticleGPUInstance: Sendable {
             velocity.z,
             trailStretch.map { max($0, 0) } ?? -1
         )
+    }
+
+    private static func validAspect(_ value: Float) -> Bool {
+        value.isFinite && value >= 1.0 / 64.0 && value <= 64
     }
 }
 

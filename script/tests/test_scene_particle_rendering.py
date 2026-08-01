@@ -164,6 +164,12 @@ enum Harness {
                 additive.destinationAlpha == .oneMinusSourceAlpha,
             ],
             "metalDraw": renderSmokeTest(),
+            "spriteAspectBounds": spriteBounds(
+                currentAspect: 2, nextAspect: 2, frameMix: 0
+            ),
+            "blendedSpriteAspectBounds": spriteBounds(
+                currentAspect: 0.5, nextAspect: 2, frameMix: 0.5
+            ),
             "cullContract": cullContract(),
             "horizontalTrailBounds": trailBounds(velocity: SIMD3(1, 0, 0)),
             "verticalTrailBounds": trailBounds(velocity: SIMD3(0, 1, 0)),
@@ -928,6 +934,84 @@ enum Harness {
         ]
     }
 
+    private static func spriteBounds(
+        currentAspect: Float,
+        nextAspect: Float,
+        frameMix: Float
+    ) -> [String: Int] {
+        let size = 64
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let pipeline = SceneParticleMetalPipeline(device: device),
+              let queue = device.makeCommandQueue(),
+              let command = queue.makeCommandBuffer() else { return [:] }
+        let inputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false
+        )
+        inputDescriptor.usage = .shaderRead
+        let outputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm, width: size, height: size, mipmapped: false
+        )
+        outputDescriptor.usage = .renderTarget
+        outputDescriptor.storageMode = .shared
+        guard let input = device.makeTexture(descriptor: inputDescriptor),
+              let output = device.makeTexture(descriptor: outputDescriptor) else { return [:] }
+        var white = [UInt8](repeating: 255, count: 4)
+        input.replace(
+            region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
+            withBytes: &white, bytesPerRow: 4
+        )
+        let instances = SceneParticleMetalInstanceBuffer()
+        guard instances.update(device: device, instances: [
+            SceneParticleGPUInstance(
+                position: .zero,
+                size: 0.4,
+                rotation: .zero,
+                color: SIMD3(repeating: 1),
+                alpha: 1,
+                currentFrameAspect: currentAspect,
+                nextFrameAspect: nextAspect,
+                frameMix: frameMix
+            ),
+        ]) else { return [:] }
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = output
+        pass.colorAttachments[0].loadAction = .clear
+        pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+        pass.colorAttachments[0].storeAction = .store
+        guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return [:] }
+        pipeline.draw(
+            texture: input,
+            instances: instances,
+            uniforms: SceneParticleLayerUniforms(
+                viewProjection: SceneMatrix.identity(),
+                layerModel: SceneMatrix.identity(),
+                basis: SceneParticleOrientation.screen.basis(
+                    cameraRight: SIMD3(1, 0, 0), cameraUp: SIMD3(0, 1, 0),
+                    cameraForward: SIMD3(0, 0, -1)
+                )
+            ),
+            renderState: particleState(.translucent),
+            colorSampling: .directImageFallback,
+            encoder: encoder
+        )
+        encoder.endEncoding()
+        guard instances.markSubmitted(on: command), commitAndWait(command) else { return [:] }
+        var pixels = [UInt8](repeating: 0, count: size * size * 4)
+        output.getBytes(
+            &pixels,
+            bytesPerRow: size * 4,
+            from: MTLRegionMake2D(0, 0, size, size),
+            mipmapLevel: 0
+        )
+        let visible = (0..<(size * size)).filter { pixels[$0 * 4 + 3] > 0 }
+        let xs = visible.map { $0 % size }
+        let ys = visible.map { $0 / size }
+        return [
+            "width": (xs.max() ?? -1) - (xs.min() ?? 0) + 1,
+            "height": (ys.max() ?? -1) - (ys.min() ?? 0) + 1,
+        ]
+    }
+
     private static func colorContractTest() -> [String: Any] {
         guard let device = MTLCreateSystemDefaultDevice() else { return [:] }
         let r8Descriptor = MTLTextureDescriptor.texture2DDescriptor(
@@ -1554,6 +1638,15 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertEqual(self.result["translucentBlend"], [True, True, True, True])
         self.assertEqual(self.result["additiveBlend"], [True, True, True, True])
         self.assertTrue(self.result["metalDraw"])
+
+    def test_non_square_sprite_geometry_tracks_current_and_blended_frame_aspect(self) -> None:
+        wide = self.result["spriteAspectBounds"]
+        blended = self.result["blendedSpriteAspectBounds"]
+        if not wide or not blended:
+            self.skipTest("Metal offscreen draw is unavailable")
+        self.assertGreater(wide["width"], wide["height"] * 1.8)
+        self.assertGreater(blended["width"], blended["height"] * 1.1)
+        self.assertLess(blended["width"], blended["height"] * 1.4)
 
     def test_normal_cull_maps_to_back_faces_and_nocull_remains_two_sided(self) -> None:
         contract = self.result["cullContract"]

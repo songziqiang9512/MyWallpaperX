@@ -55,7 +55,7 @@ enum SceneParticleChildTemplateSupport {
             return (
                 SceneParticleColorTextureAdapter.adapt(texture, device: device),
                 container.flatMap {
-                    SceneSpriteAnimation(frames: $0.spriteFrames)
+                    SceneSpriteAnimation(container: $0, sourceURL: url)
                 },
                 container.map { SceneParticleTextureSampling(texFlags: $0.flags) }
                     ?? .directImageFallback

@@ -170,6 +170,66 @@ enum Harness {
             frames: atlasFrames,
             playbackPlan: timeOfDayPlan
         )!
+        let nominalAnimation = SceneSpriteAnimation(
+            frames: atlasFrames,
+            textureSize: SIMD2(400, 200),
+            nominalFrameSize: SIMD2(100, 50)
+        )!
+        let rotatedFrame = SceneTexContainer.SpriteFrame(
+            imageIndex: 0,
+            duration: 1,
+            origin: .zero,
+            xAxis: SIMD2(0, 0.5),
+            yAxis: SIMD2(0.125, 0)
+        )
+        let rawAxisAnimation = SceneSpriteAnimation(
+            frames: [rotatedFrame],
+            textureSize: SIMD2(400, 200)
+        )!
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "scene-sprite-aspect-\(UUID().uuidString)"
+        )
+        try FileManager.default.createDirectory(
+            at: temporary,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let textureURL = temporary.appendingPathComponent("atlas.tex")
+        let sidecarURL = URL(fileURLWithPath: textureURL.path + "-json")
+        let sidecar: [String: Any] = [
+            "spritesheetsequences": [["frames": 3, "width": 100, "height": 50]],
+        ]
+        try JSONSerialization.data(withJSONObject: sidecar).write(to: sidecarURL)
+        let acceptedSidecar = SceneSpriteAnimation.nominalFrameSize(
+            from: textureURL,
+            expectedFrameCount: 3
+        )
+        let mismatchedSidecar = SceneSpriteAnimation.nominalFrameSize(
+            from: textureURL,
+            expectedFrameCount: 2
+        )
+        let invalidURL = temporary.appendingPathComponent("invalid.tex")
+        let invalidSidecar: [String: Any] = [
+            "spritesheetsequences": [["frames": 3, "width": -100, "height": -50]],
+        ]
+        try JSONSerialization.data(withJSONObject: invalidSidecar).write(
+            to: URL(fileURLWithPath: invalidURL.path + "-json")
+        )
+        let invalidDimensionsRejected = SceneSpriteAnimation.nominalFrameSize(
+            from: invalidURL,
+            expectedFrameCount: 3
+        ) == nil
+        let booleanURL = temporary.appendingPathComponent("boolean.tex")
+        let booleanSidecar: [String: Any] = [
+            "spritesheetsequences": [["frames": true, "width": 100, "height": 50]],
+        ]
+        try JSONSerialization.data(withJSONObject: booleanSidecar).write(
+            to: URL(fileURLWithPath: booleanURL.path + "-json")
+        )
+        let booleanRejected = SceneSpriteAnimation.nominalFrameSize(
+            from: booleanURL,
+            expectedFrameCount: 1
+        ) == nil
         var atlasOrigins: [Float] = []
         atlasOrigins.append(atlasAnimation.transform(
             at: 0,
@@ -227,6 +287,14 @@ enum Harness {
             "timeOfDaySchedule": [schedule.dayStartHour, schedule.nightStartHour],
             "timeOfDayFrames": timeOfDayFrames,
             "atlasOrigins": atlasOrigins,
+            "nominalAspects": atlasFrames.indices.map {
+                nominalAnimation.aspectRatio(forFrameAt: $0)
+            },
+            "rotatedRawAspect": rawAxisAnimation.aspectRatio(forFrameAt: 0),
+            "sidecarAccepted": acceptedSidecar.map { [$0.x, $0.y] } ?? [],
+            "sidecarMismatchRejected": mismatchedSidecar == nil,
+            "sidecarInvalidDimensionsRejected": invalidDimensionsRejected,
+            "sidecarBooleanRejected": booleanRejected,
             "firstFrames": firstFrames,
             "secondFrames": secondFrames,
             "recreatedDeterministic": firstFrames == recreatedFrames,
@@ -326,6 +394,12 @@ class SceneTextureAnimationScriptTests(unittest.TestCase):
         self.assertEqual(payload["timeOfDaySchedule"], [0, 12])
         self.assertEqual(payload["timeOfDayFrames"], [0, 0, 2, 2, 1, 0])
         self.assertEqual(payload["atlasOrigins"], [0, 0.5, 0.5, 0.25, 0])
+        self.assertEqual(payload["nominalAspects"], [2, 2, 2])
+        self.assertEqual(payload["rotatedRawAspect"], 2)
+        self.assertEqual(payload["sidecarAccepted"], [100, 50])
+        self.assertTrue(payload["sidecarMismatchRejected"])
+        self.assertTrue(payload["sidecarInvalidDimensionsRejected"])
+        self.assertTrue(payload["sidecarBooleanRejected"])
         self.assertEqual(payload["firstFrames"][:3], [0, 0, 0])
         self.assertEqual(payload["secondFrames"][:7], [0, 0, 0, 0, 0, 0, 0])
         self.assertTrue(payload["recreatedDeterministic"])

@@ -1053,10 +1053,18 @@ enum Harness {
             material: "materials/repeat.json",
             under: directory
         )
+        try writeParticle(
+            "particles/wide.json",
+            material: "materials/wide.json",
+            under: directory
+        )
 
         let descriptor = SceneRenderDescriptor(
-            layers: [layer(21, "particles/stock.json")],
-            renderOrderLayerIDs: [21],
+            layers: [
+                layer(21, "particles/stock.json"),
+                layer(22, "particles/wide.json"),
+            ],
+            renderOrderLayerIDs: [21, 22],
             materialPasses: [
                 .init(
                     materialPath: "materials/stock.json",
@@ -1067,7 +1075,13 @@ enum Harness {
                 .init(
                     materialPath: "materials/repeat.json",
                     shaderPath: "genericparticle",
-                    texturePaths: ["particle/nature/rosepetals"],
+                    texturePaths: ["particle/nature/leaves7"],
+                    blending: "translucent"
+                ),
+                .init(
+                    materialPath: "materials/wide.json",
+                    shaderPath: "genericparticle",
+                    texturePaths: ["particle/lightning/lightning3"],
                     blending: "translucent"
                 ),
             ]
@@ -1085,6 +1099,7 @@ enum Harness {
         let child = batches.first {
             $0.particlePath == "particles/repeat-child.json"
         }
+        let wide = batches.first { $0.particlePath == "particles/wide.json" }
         let refractionSampling: [String: Any]
         if let resolver = SceneStockTextureResolver(bundleRoot: bundleURL),
            let colorURL = resolver.textureURL(for: "particle/misc/wave"),
@@ -1114,7 +1129,13 @@ enum Harness {
             "textureHeight": root?.texture.height ?? 0,
             "rootSampling": root.map { sampling($0.colorSampling) } ?? [:],
             "childTextureWidth": child?.texture.width ?? 0,
+            "childFrameAspects": child?.instances.first.map {
+                [$0.frame0B.z, $0.frame0B.w]
+            } ?? [],
             "childSampling": child.map { sampling($0.colorSampling) } ?? [:],
+            "wideFrameAspects": wide?.instances.first.map {
+                [$0.frame0B.z, $0.frame0B.w]
+            } ?? [],
             "refractionSampling": refractionSampling,
             "diagnosticKinds": runtime.diagnostics.map(\.kind.rawValue),
         ]
@@ -1857,7 +1878,7 @@ class SceneParticleRuntimeTests(unittest.TestCase):
     def test_stock_tex_reference_loads_through_particle_runtime(self) -> None:
         bundle = REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneStockAssets.bundle"
         result = self.run_harness("stock-synthetic", str(bundle))
-        self.assertEqual(result["activeLayerIDs"], [21])
+        self.assertEqual(result["activeLayerIDs"], [21, 22])
         # debris1.tex 是官方 8 帧 128×128 spritesheet，整张上传为 1024×128 纹理。
         self.assertEqual(result["textureWidth"], 1024)
         self.assertEqual(result["textureHeight"], 128)
@@ -1867,6 +1888,9 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             "clampBorderFallback": False,
         })
         self.assertEqual(result["childTextureWidth"], 512)
+        for aspect in result["childFrameAspects"]:
+            self.assertAlmostEqual(aspect, 85.334 / 102.4, places=5)
+        self.assertEqual(result["wideFrameAspects"], [2, 2])
         self.assertEqual(result["childSampling"], {
             "filter": "linear",
             "address": "repeatWrap",

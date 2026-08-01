@@ -101,7 +101,7 @@ enum SceneParticleRefractionTextureLoader {
         return Loaded(
             color: color,
             colorAnimation: colorFrames.isEmpty
-                ? nil : SceneSpriteAnimation(frames: colorFrames),
+                ? nil : SceneSpriteAnimation(container: colorContainer, sourceURL: colorURL),
             colorUVScale: uvScale(for: colorContainer, usesFrames: !colorFrames.isEmpty),
             colorSampling: SceneParticleTextureSampling(texFlags: colorContainer.flags),
             binding: binding

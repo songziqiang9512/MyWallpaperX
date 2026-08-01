@@ -184,9 +184,7 @@ final class SceneParticleRuntime {
                         device: device
                     )
                     let container = textureLoader.texContainer(from: textureURL)
-                    spriteAnimation = container.flatMap {
-                        SceneSpriteAnimation(frames: $0.spriteFrames)
-                    }
+                    spriteAnimation = container.flatMap { SceneSpriteAnimation(container: $0, sourceURL: textureURL) }
                     colorSampling = container.map {
                         SceneParticleTextureSampling(texFlags: $0.flags)
                     } ?? .directImageFallback
@@ -373,6 +371,8 @@ final class SceneParticleRuntime {
                 trailStretch: trail?.stretch(for: particle.velocity),
                 currentFrame: frames.current.orientedForTrail(trail != nil),
                 nextFrame: frames.next?.orientedForTrail(trail != nil),
+                currentFrameAspect: frames.currentAspect,
+                nextFrameAspect: frames.nextAspect,
                 frameMix: frames.mix
             ))
         }

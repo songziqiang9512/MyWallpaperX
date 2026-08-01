@@ -7,7 +7,13 @@ extension SceneParticleRuntime {
         particleID: UInt64,
         age: Float,
         lifetime: Float
-    ) -> (current: SceneParticleFrameTransform, next: SceneParticleFrameTransform?, mix: Float) {
+    ) -> (
+        current: SceneParticleFrameTransform,
+        next: SceneParticleFrameTransform?,
+        currentAspect: Float,
+        nextAspect: Float,
+        mix: Float
+    ) {
         guard let animation,
               let selection = SceneParticleSpriteFrameSelector.select(
                 mode: SceneParticleSpriteAnimationMode(authoredValue: definition.animationMode),
@@ -18,11 +24,13 @@ extension SceneParticleRuntime {
                 particleID: particleID,
                 blendsFrames: !definition.flags.disablesFrameBlending
               ) else {
-            return (.identity, nil, 0)
+            return (.identity, nil, 1, 1, 0)
         }
         return (
             frameTransform(animation.frames[selection.currentIndex]),
             frameTransform(animation.frames[selection.nextIndex]),
+            animation.aspectRatio(forFrameAt: selection.currentIndex),
+            animation.aspectRatio(forFrameAt: selection.nextIndex),
             selection.mix
         )
     }

@@ -64,7 +64,7 @@ nonisolated struct SceneParticleRefractionDeclaration {
 }
 
 struct SceneSpriteAnimation {
-    init(frames: [SceneTexContainer.SpriteFrame]) {}
+    init(container: SceneTexContainer, sourceURL: URL) {}
 }
 
 @main
