@@ -152,6 +152,8 @@ Movement 的 gravity、worldspace、drag；Vortex/Boids 的邻域；Collision �
 
 Emitter、Initializer、Operator、Collision 和 Children 都可能引用 control point。坐标必须在 scene/object/particle/child spaces 间显式转换；不能把 screen cursor 直接当世界坐标。
 
+官方 Control Point Force 允许正 scale 向 CP 吸引、负 scale 从 CP 排斥，并以 Maximum distance 限定范围；pointer 示例使用 CP 1 或更高索引并启用 Lock to pointer。官方把近中心减速与删除列为独立 operator，因此播放器不能把它们静默合并进 force。当前项目只执行 non-world、non-perspective、exact pointer-lock CP 与 bounded `controlpointattract` 的 local constant-radial-acceleration 子集；它是 clean-room 数值合同，不是官方 falloff 或轨迹公式。
+
 ### 2.7 Children 与事件
 
 官方 child type：
@@ -448,7 +450,7 @@ Realtime Adapter              Offline Adapter
 
 | 系统 | 当前实现状态 | 不能据此宣称 |
 |---|---|---|
-| Particle | 作者 2D sprite、部分 emitter/initializer/operator、Sprite Trail 与 strict child 子集；Particle slot 0 可按 exact identity 消费 bundle 内 164 项 TEX，22-key 程序纹理只作缺失回退；固定门 `66/76`、完整门 `110/131` | 路径存在或程序 fallback 等于官方视觉资产，或 child/rope/world-space/control point/collision/audio/全部 preset 完整；粒子 audio 声明虽已保真解析，simulation 仍不消费 |
+| Particle | 作者 2D sprite、部分 emitter/initializer/operator、Sprite Trail 与 strict child 子集；exact pointer-lock CP 1...7 可驱动 bounded local Control Point Force；Particle slot 0 可按 exact identity 消费 bundle 内 164 项 TEX，22-key 程序纹理只作缺失回退 | 路径存在或程序 fallback 等于官方视觉资产，或 child/rope/world-space/control point/collision/audio/全部 preset 完整；pointer force 没有 previous pointer、其他 consumer、world/perspective、官方 falloff/轨迹 golden，粒子 audio 声明虽已保真解析但 simulation 仍不消费 |
 | Text | CoreText 静态纹理、direct property 动态重栅格、部分 font/pointsize/padding/scale | 动态时间、system/media、完整 alignment/effects/SceneScript |
 | Effect graph | 内存 `SceneRuntimeInput` 保存 EffectDefinition/authored graph/provider metadata、ShaderContract 与 binding program；十四类 strict backend 及 ordered chain 已执行，包含 stock Radial God Rays 五 pass / 双 half RT。Debug evidence schema 1 只作结构验证 | dynamic effect、generic compose/history、通用 material/pass、authored shader 语义等价、未知/Directional God Rays 或官方 Shadow/lighting；精确当前门见 [运行证据索引](runtime-evidence-index.md) |
 | Frame Context | 宿主单一 60 Hz driver；所有屏幕共享 frame index/host/scene/wall time；shader、video、particle、parallax 已迁移；pause 冻结 scene time/frame index，resume 首帧不补 host gap | 真实系统 pause、delta clamp、固定 timestep、离线实时等价已闭环 |
