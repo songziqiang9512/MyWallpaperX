@@ -56,6 +56,8 @@
 
 2026-08-02 复核官方 [Blend effect](https://docs.wallpaperengine.io/en/scene/effects/effect/blend.html)：公开参数说明 Write alpha 会依据 blended texture 的 opacity 修改底层 layer opacity；页面不公开私有 `WRITEALPHA` wire、输出 alpha 的逐项公式、颜色预乘边界或舍入规则。项目仅用该公开行为确定能力方向，exact stock/legacy combo、静态 alpha 准入与 premultiplied GPU 数学由合法 stock 语料和项目自有正反 fixture 锁定，不表述为官方内部算法或 Windows 像素等价。
 
+2026-08-02 复核官方 [Blur Precise effect](https://docs.wallpaperengine.io/en/scene/effects/effect/blurprecise.html) 与 [Effects overview](https://docs.wallpaperengine.io/en/scene/effects/overview.html)：公开页把它定义为作用于完整 layer 的精确 Gaussian blur，并允许作者调整 kernel size 与 X/Y scale；更大的 kernel 增加模糊范围和性能成本，overview 只把其更清晰的轮廓/光束表现作为选择方向。页面不公开私有 `KERNEL` 数值映射、采样权重、`ENABLEMASK`/`MASK` wire、pass/RT 结构或跨后端舍入。项目当前 `KERNEL=0/1/2` identity 来自合法 authored 语料与 stock 结构研究，GPU 使用项目自有 large/7-tap binomial/3-tap binomial profile；不得把这些系数写成官方算法或 Windows 像素等价。
+
 ### 1.3 Parallax
 
 - Camera Parallax：https://docs.wallpaperengine.io/en/scene/parallax/introduction.html
