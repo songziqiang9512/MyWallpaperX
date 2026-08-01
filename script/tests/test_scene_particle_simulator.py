@@ -203,6 +203,37 @@ enum Harness {
             emitterSpeedJSON(#""speedmax":1000001"#), seed: 1, step: 1
         )
         overBudgetEmitterSpeed.advance(by: 1)
+        var sphereDirectionSign = simulator(
+            emitterShapeJSON(
+                #""name":"sphererandom","directions":"2 0 1","sign":"-1 0 1","distancemin":10,"distancemax":10"#
+            ), seed: 3, step: 1
+        )
+        sphereDirectionSign.advance(by: 1)
+        var zeroDirections = simulator(
+            emitterShapeJSON(
+                #""name":"sphererandom","origin":"7 8 9","directions":"0 0 0","sign":"0 0 0","distancemin":10,"distancemax":10"#,
+                count: 8
+            ), seed: 3, step: 1
+        )
+        zeroDirections.advance(by: 1)
+        var boxDirections = simulator(
+            emitterShapeJSON(
+                #""name":"boxrandom","directions":"2 -1 0","distancemin":"1 2 3","distancemax":"2 4 5""#
+            ), seed: 3, step: 1
+        )
+        boxDirections.advance(by: 1)
+        let invalidEmitterShapes = [
+            #""name":"sphererandom","directions":"nan 1 0""#,
+            #""name":"sphererandom","directions":"1000001 1 0""#,
+            #""name":"sphererandom","directions":"1 1 0","sign":"2 0 0""#,
+            #""name":"sphererandom","directions":"1 1""#,
+            #""name":"sphererandom","directions":"bad""#,
+            #""name":"boxrandom","directions":"1 1 0","sign":"1 0 0""#,
+        ].map { fields -> SceneParticleSimulator in
+            var simulator = simulator(emitterShapeJSON(fields), seed: 3, step: 1)
+            simulator.advance(by: 1)
+            return simulator
+        }
 
         var operators = simulator(operatorJSON, seed: 1, step: 0.25)
         operators.advance(by: 0.25)
@@ -511,6 +542,30 @@ enum Harness {
                 negativeEmitterSpeed, reversedEmitterSpeed,
                 minOnlyEmitterSpeed, nonfiniteEmitterSpeed, overBudgetEmitterSpeed,
             ].map { $0.diagnostics.map(\.kind.rawValue) },
+            "sphereDirectionSignBounded": sphereDirectionSign.particles.count == 64
+                && sphereDirectionSign.particles.allSatisfy { particle in
+                    let position = particle.position
+                    return position.x <= 0 && abs(position.y) < 1e-12 && position.z >= 0
+                        && abs(sqrt(position.x * position.x / 4 + position.z * position.z) - 10) < 1e-9
+                }
+                && sphereDirectionSign.particles.contains { $0.position.x < -1e-6 }
+                && sphereDirectionSign.particles.contains { $0.position.z > 1e-6 },
+            "sphereDirectionSignDiagnostics":
+                sphereDirectionSign.diagnostics.map(\.kind.rawValue),
+            "zeroDirectionsStayAtOrigin": zeroDirections.particles.count == 8
+                && zeroDirections.particles.allSatisfy { $0.position == SIMD3(7, 8, 9) },
+            "zeroDirectionsDiagnostics": zeroDirections.diagnostics.map(\.kind.rawValue),
+            "boxDirectionsBounded": boxDirections.particles.count == 64
+                && boxDirections.particles.allSatisfy { particle in
+                    let position = particle.position
+                    return (2 ... 4).contains(position.x)
+                        && (-4 ... -2).contains(position.y) && position.z == 0
+                },
+            "boxDirectionsDiagnostics": boxDirections.diagnostics.map(\.kind.rawValue),
+            "invalidEmitterShapeCounts": invalidEmitterShapes.map { $0.particles.count },
+            "invalidEmitterShapeDiagnostics": invalidEmitterShapes.map {
+                $0.diagnostics.map(\.kind.rawValue)
+            },
             "overrideDiagnostics": overridden.diagnostics.map(\.kind.rawValue),
             "operatorAlpha": operatorParticle.alpha,
             "operatorSize": operatorParticle.size,
@@ -745,9 +800,18 @@ enum Harness {
     private static func emitterSpeedJSON(_ fields: String, count: Int = 1) -> String {
         """
         {"material":"p.json","maxcount":\(count),
-         "emitter":[{"name":"sphererandom","instantaneous":\(count),"directions":"1 0 0","sign":"1 0 0","distancemin":2,"distancemax":2,\(fields)}],
+         "emitter":[{"name":"boxrandom","instantaneous":\(count),"distancemin":"2 0 0","distancemax":"2 0 0",\(fields)}],
          "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
          "operator":[{"name":"movement"}],"renderer":[{"name":"sprite"}]}
+        """
+    }
+
+    private static func emitterShapeJSON(_ fields: String, count: Int = 64) -> String {
+        """
+        {"material":"p.json","maxcount":\(count),
+         "emitter":[{\(fields),"instantaneous":\(count)}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "renderer":[{"name":"sprite"}]}
         """
     }
 
@@ -1242,6 +1306,25 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(
             self.results["invalidEmitterSpeedDiagnostics"],
             [["emitterSpeedUnsupported"]] * 5,
+        )
+
+    def test_emitter_directions_and_sign_are_bounded_and_fail_closed(self) -> None:
+        self.assertTrue(self.results["sphereDirectionSignBounded"])
+        self.assertEqual(
+            self.results["sphereDirectionSignDiagnostics"], ["emitterShapeBounded"]
+        )
+        self.assertTrue(self.results["zeroDirectionsStayAtOrigin"])
+        self.assertEqual(
+            self.results["zeroDirectionsDiagnostics"], ["emitterShapeBounded"]
+        )
+        self.assertTrue(self.results["boxDirectionsBounded"])
+        self.assertEqual(
+            self.results["boxDirectionsDiagnostics"], ["emitterShapeBounded"]
+        )
+        self.assertEqual(self.results["invalidEmitterShapeCounts"], [0, 0, 0, 0, 0, 0])
+        self.assertEqual(
+            self.results["invalidEmitterShapeDiagnostics"],
+            [["emitterShapeUnsupported"]] * 6,
         )
 
     def test_change_angular_and_oscillation_operators_execute(self) -> None:

@@ -170,7 +170,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
     private nonisolated mutating func makeParticle(
         _ emitter: SceneParticleEmitter
     ) -> SceneParticleState? {
-        guard var position = emitterOrigin(emitter) else { return nil }
+        guard var position = emitterOrigin(emitter), emitter.hasBoundedDirectionsAndSign else { return nil }
         var velocity = SIMD3<Double>.zero
         let relative: SIMD3<Double>
         switch emitter.kind {
@@ -185,7 +185,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
             return nil
         }
         position += relative
-        guard let speedRange = SceneParticleSimulationMath.boundedEmitterSpeedRange(emitter) else { return nil }
+        guard let speedRange = emitter.boundedSpeedRange else { return nil }
         let speed = random.value(speedRange.lowerBound, speedRange.upperBound)
         let length = SceneParticleSimulationMath.length(relative)
         if speed != 0, length > 1e-12 { velocity += relative / length * speed }

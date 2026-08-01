@@ -16,6 +16,8 @@ nonisolated enum SceneParticleSimulationDiagnosticKind: String, Hashable, Sendab
     case controlPointEmitterUnsupported
     case emitterSpeedBounded
     case emitterSpeedUnsupported
+    case emitterShapeBounded
+    case emitterShapeUnsupported
     case pointerControlPointIgnored
 }
 
@@ -298,10 +300,20 @@ nonisolated enum SceneParticleSimulationMath {
             $0.speedMinimum != nil || $0.speedMaximum != nil
         }
         if !speedEmitters.isEmpty {
-            if speedEmitters.allSatisfy({ boundedEmitterSpeedRange($0) != nil }) {
+            if speedEmitters.allSatisfy({ $0.boundedSpeedRange != nil }) {
                 add(.emitterSpeedBounded, "sources=\(speedEmitters.count)")
             } else {
                 add(.emitterSpeedUnsupported, "range")
+            }
+        }
+        let shapeEmitters = definition.emitters.filter {
+            $0.directions != nil || $0.sign != nil || $0.hasMalformedDirectionsOrSign
+        }
+        if !shapeEmitters.isEmpty {
+            if shapeEmitters.allSatisfy(\.hasBoundedDirectionsAndSign) {
+                add(.emitterShapeBounded, "sources=\(shapeEmitters.count)")
+            } else {
+                add(.emitterShapeUnsupported, "directionsOrSign")
             }
         }
         for `operator` in definition.operators {
@@ -384,15 +396,5 @@ nonisolated enum SceneParticleSimulationMath {
                   identities.insert(id).inserted else { return false }
         }
         return true
-    }
-
-    static func boundedEmitterSpeedRange(
-        _ emitter: SceneParticleEmitter
-    ) -> ClosedRange<Double>? {
-        let minimum = emitter.speedMinimum ?? 0
-        let maximum = emitter.speedMaximum ?? 0
-        guard minimum.isFinite, maximum.isFinite, minimum >= 0,
-              minimum <= maximum, maximum <= 1_000_000 else { return nil }
-        return minimum ... maximum
     }
 }

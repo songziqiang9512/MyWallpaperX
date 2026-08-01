@@ -112,10 +112,10 @@ nonisolated struct SceneParticleDefinitionParser {
             duration: Self.number(root["duration"]),
             controlPoint: Self.integer(root["controlpoint"]),
             audioResponse: Self.audioResponse(root), periodicEmission: .init(root: root),
+            hasMalformedDirectionsOrSign: ["directions", "sign"].contains { root[$0] != nil && !(root[$0] is NSNull) && Self.numericValue(root[$0]) == nil },
             rawFlags: Self.integer(root["flags"]) ?? 0
         )
     }
-
     private nonisolated func parseInitializer(
         _ root: [String: Any],
         diagnostics: inout [SceneParticleDiagnostic]

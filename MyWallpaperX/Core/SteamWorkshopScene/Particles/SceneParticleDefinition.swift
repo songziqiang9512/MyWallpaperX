@@ -126,10 +126,43 @@ nonisolated struct SceneParticleEmitter: Equatable, Sendable {
     let controlPoint: Int?
     let audioResponse: SceneParticleAudioResponse
     let periodicEmission: SceneParticlePeriodicEmission
+    let hasMalformedDirectionsOrSign: Bool
     let rawFlags: Int
 
     nonisolated var limitsToOnePerFrame: Bool { rawFlags & 1 != 0 }
     nonisolated var usesRandomPeriodicEmission: Bool { rawFlags & 4 != 0 }
+
+    nonisolated var boundedSpeedRange: ClosedRange<Double>? {
+        let minimum = speedMinimum ?? 0
+        let maximum = speedMaximum ?? 0
+        guard minimum.isFinite, maximum.isFinite, minimum >= 0,
+              minimum <= maximum, maximum <= 1_000_000 else { return nil }
+        return minimum ... maximum
+    }
+
+    nonisolated var hasBoundedDirectionsAndSign: Bool {
+        guard !hasMalformedDirectionsOrSign,
+              let directionValues = Self.vectorComponents(directions),
+              directionValues.allSatisfy({ $0.isFinite && abs($0) <= 1_000_000 }) else {
+            return false
+        }
+        guard sign != nil else { return true }
+        guard case .sphereRandom = kind, let signValues = Self.vectorComponents(sign) else {
+            return false
+        }
+        return signValues.allSatisfy { $0 == -1 || $0 == 0 || $0 == 1 }
+    }
+
+    private nonisolated static func vectorComponents(
+        _ value: SceneParticleNumericValue?
+    ) -> [Double]? {
+        switch value {
+        case let .scalar(number): [number, number, number]
+        case let .vector(values) where values.count == 3: values
+        case .vector: nil
+        case nil: [1, 1, 0]
+        }
+    }
 }
 
 nonisolated enum SceneParticleInitializerKind: Equatable, Sendable {
