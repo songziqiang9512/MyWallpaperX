@@ -175,6 +175,34 @@ enum Harness {
             ), seed: 1, step: 1
         )
         outOfRangeControlPointSource.advance(by: 1)
+        var fixedEmitterSpeed = simulator(
+            emitterSpeedJSON(#""speedmin":3,"speedmax":3"#), seed: 1, step: 1
+        )
+        fixedEmitterSpeed.advance(by: 1)
+        var maxOnlyEmitterSpeed = simulator(
+            emitterSpeedJSON(#""speedmax":4"#, count: 16), seed: 1, step: 1
+        )
+        maxOnlyEmitterSpeed.advance(by: 1)
+        var negativeEmitterSpeed = simulator(
+            emitterSpeedJSON(#""speedmin":-1,"speedmax":1"#), seed: 1, step: 1
+        )
+        negativeEmitterSpeed.advance(by: 1)
+        var reversedEmitterSpeed = simulator(
+            emitterSpeedJSON(#""speedmin":5,"speedmax":1"#), seed: 1, step: 1
+        )
+        reversedEmitterSpeed.advance(by: 1)
+        var minOnlyEmitterSpeed = simulator(
+            emitterSpeedJSON(#""speedmin":1"#), seed: 1, step: 1
+        )
+        minOnlyEmitterSpeed.advance(by: 1)
+        var nonfiniteEmitterSpeed = simulator(
+            emitterSpeedJSON(#""speedmin":"nan","speedmax":1"#), seed: 1, step: 1
+        )
+        nonfiniteEmitterSpeed.advance(by: 1)
+        var overBudgetEmitterSpeed = simulator(
+            emitterSpeedJSON(#""speedmax":1000001"#), seed: 1, step: 1
+        )
+        overBudgetEmitterSpeed.advance(by: 1)
 
         var operators = simulator(operatorJSON, seed: 1, step: 0.25)
         operators.advance(by: 0.25)
@@ -466,6 +494,23 @@ enum Harness {
                 duplicateControlPoint, outOfRangeControlPoint,
                 missingControlPointID, outOfRangeControlPointSource,
             ].map { $0.diagnostics.map(\.kind.rawValue) },
+            "fixedEmitterSpeedPosition":
+                fixedEmitterSpeed.particles.first.map { vector($0.position) } ?? [],
+            "fixedEmitterSpeedVelocity":
+                fixedEmitterSpeed.particles.first.map { vector($0.velocity) } ?? [],
+            "fixedEmitterSpeedDiagnostics":
+                fixedEmitterSpeed.diagnostics.map(\.kind.rawValue),
+            "maxOnlyEmitterSpeeds": maxOnlyEmitterSpeed.particles.map { $0.velocity.x },
+            "maxOnlyEmitterSpeedDiagnostics":
+                maxOnlyEmitterSpeed.diagnostics.map(\.kind.rawValue),
+            "invalidEmitterSpeedCounts": [
+                negativeEmitterSpeed, reversedEmitterSpeed,
+                minOnlyEmitterSpeed, nonfiniteEmitterSpeed, overBudgetEmitterSpeed,
+            ].map { $0.particles.count },
+            "invalidEmitterSpeedDiagnostics": [
+                negativeEmitterSpeed, reversedEmitterSpeed,
+                minOnlyEmitterSpeed, nonfiniteEmitterSpeed, overBudgetEmitterSpeed,
+            ].map { $0.diagnostics.map(\.kind.rawValue) },
             "overrideDiagnostics": overridden.diagnostics.map(\.kind.rawValue),
             "operatorAlpha": operatorParticle.alpha,
             "operatorSize": operatorParticle.size,
@@ -695,6 +740,15 @@ enum Harness {
             .replacingOccurrences(of: #""controlpoint":3"#, with: #""controlpoint":1"#)
             .dropLast())
         return prefix + #", "controlpoint":"# + points + "}"
+    }
+
+    private static func emitterSpeedJSON(_ fields: String, count: Int = 1) -> String {
+        """
+        {"material":"p.json","maxcount":\(count),
+         "emitter":[{"name":"sphererandom","instantaneous":\(count),"directions":"1 0 0","sign":"1 0 0","distancemin":2,"distancemax":2,\(fields)}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "operator":[{"name":"movement"}],"renderer":[{"name":"sprite"}]}
+        """
     }
 
     private static let periodicJSON = #"""
@@ -1169,6 +1223,25 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(
             self.results["invalidControlPointDiagnostics"],
             [["controlPointEmitterUnsupported"]] * 4,
+        )
+
+    def test_emitter_speed_uses_bounded_range_and_rejects_invalid_values(self) -> None:
+        self.assertEqual(self.results["fixedEmitterSpeedPosition"], [5, 0, 0])
+        self.assertEqual(self.results["fixedEmitterSpeedVelocity"], [3, 0, 0])
+        self.assertEqual(
+            self.results["fixedEmitterSpeedDiagnostics"], ["emitterSpeedBounded"]
+        )
+        speeds = self.results["maxOnlyEmitterSpeeds"]
+        self.assertEqual(len(speeds), 16)
+        self.assertTrue(all(0 <= value <= 4 for value in speeds))
+        self.assertTrue(any(value > 0 for value in speeds))
+        self.assertEqual(
+            self.results["maxOnlyEmitterSpeedDiagnostics"], ["emitterSpeedBounded"]
+        )
+        self.assertEqual(self.results["invalidEmitterSpeedCounts"], [0, 0, 0, 0, 0])
+        self.assertEqual(
+            self.results["invalidEmitterSpeedDiagnostics"],
+            [["emitterSpeedUnsupported"]] * 5,
         )
 
     def test_change_angular_and_oscillation_operators_execute(self) -> None:

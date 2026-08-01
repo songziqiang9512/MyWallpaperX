@@ -14,6 +14,8 @@ nonisolated enum SceneParticleSimulationDiagnosticKind: String, Hashable, Sendab
     case periodicEmissionUnsupported
     case controlPointEmitterBounded
     case controlPointEmitterUnsupported
+    case emitterSpeedBounded
+    case emitterSpeedUnsupported
     case pointerControlPointIgnored
 }
 
@@ -292,6 +294,16 @@ nonisolated enum SceneParticleSimulationMath {
                 add(.controlPointEmitterUnsupported, "identity")
             }
         }
+        let speedEmitters = definition.emitters.filter {
+            $0.speedMinimum != nil || $0.speedMaximum != nil
+        }
+        if !speedEmitters.isEmpty {
+            if speedEmitters.allSatisfy({ boundedEmitterSpeedRange($0) != nil }) {
+                add(.emitterSpeedBounded, "sources=\(speedEmitters.count)")
+            } else {
+                add(.emitterSpeedUnsupported, "range")
+            }
+        }
         for `operator` in definition.operators {
             // operator 的 audio 调制此前不产生诊断，启用后会静默按无音频路径模拟。
             if `operator`.audioResponse.isEnabled { add(.audioResponseIgnored, "operator") }
@@ -372,5 +384,15 @@ nonisolated enum SceneParticleSimulationMath {
                   identities.insert(id).inserted else { return false }
         }
         return true
+    }
+
+    static func boundedEmitterSpeedRange(
+        _ emitter: SceneParticleEmitter
+    ) -> ClosedRange<Double>? {
+        let minimum = emitter.speedMinimum ?? 0
+        let maximum = emitter.speedMaximum ?? 0
+        guard minimum.isFinite, maximum.isFinite, minimum >= 0,
+              minimum <= maximum, maximum <= 1_000_000 else { return nil }
+        return minimum ... maximum
     }
 }

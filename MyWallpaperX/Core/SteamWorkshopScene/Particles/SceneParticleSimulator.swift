@@ -8,7 +8,6 @@ nonisolated struct SceneParticleSimulator: Sendable {
     private(set) var birthEvents: [SceneParticleState] = []
     private(set) var deathEvents: [SceneParticleState] = []
     private(set) var simulationTime = 0.0
-
     private let definition: SceneParticleDefinition
     let instanceOverride: SceneParticleInstanceOverride?
     private let emissionDeadline: Double?
@@ -186,7 +185,8 @@ nonisolated struct SceneParticleSimulator: Sendable {
             return nil
         }
         position += relative
-        let speed = random.value(emitter.speedMinimum ?? 0, emitter.speedMaximum ?? 0)
+        guard let speedRange = SceneParticleSimulationMath.boundedEmitterSpeedRange(emitter) else { return nil }
+        let speed = random.value(speedRange.lowerBound, speedRange.upperBound)
         let length = SceneParticleSimulationMath.length(relative)
         if speed != 0, length > 1e-12 { velocity += relative / length * speed }
 
