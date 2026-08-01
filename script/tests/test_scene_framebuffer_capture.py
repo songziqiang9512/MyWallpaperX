@@ -382,6 +382,8 @@ struct SceneBlendExecutionPlan {
     let shaderProfile: SceneBlendShaderProfile
     let blendMode: Int
     let multiply: Float
+    let alphaMultiply: Float
+    let writesAlpha: Bool
     let assetTexturePath: String
     let userPropertyKey: String?
 
@@ -1591,6 +1593,14 @@ enum Harness {
             pipeline: pipeline,
             compositor: compositor
         )
+        let authoredWriteAlphaBlendChainPixel = try Self.authoredBlendChainPixel(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor,
+            writesAlpha: true,
+            alphaMultiply: 0.5
+        )
         let authoredTransformChainPixel = try authoredTransformChainPixel(
             device: device,
             queue: queue,
@@ -1734,6 +1744,7 @@ enum Harness {
             "authoredOpacityLivePixels": authoredOpacityLivePixels,
             "authoredOpacityMaskPixel": authoredOpacityMaskPixel,
             "authoredBlendChainPixel": authoredBlendChainPixel,
+            "authoredWriteAlphaBlendChainPixel": authoredWriteAlphaBlendChainPixel,
             "authoredTransformChainPixel": authoredTransformChainPixel,
             "authoredBlendRuntimeSummary": authoredBlendRuntimeSummary as Any,
             "authoredTintChainPixels": authoredTintChainPixels,
@@ -3325,7 +3336,9 @@ enum Harness {
         device: MTLDevice,
         queue: MTLCommandQueue,
         pipeline: SceneImageLayerPipeline,
-        compositor: SceneImageLayerCompositor
+        compositor: SceneImageLayerCompositor,
+        writesAlpha: Bool = false,
+        alphaMultiply: Float = 1
     ) throws -> [String: Any] {
         let sourceBGRA: [UInt8] = [40, 80, 160, 200]
         let blendBGRA: [UInt8] = [100, 20, 60, 128]
@@ -3349,7 +3362,11 @@ enum Harness {
             uvTransform: .identity,
             sampling: .linearClamp
         )
-        let chain = authoredBlendChain(multiply: multiply)
+        let chain = authoredBlendChain(
+            multiply: multiply,
+            alphaMultiply: alphaMultiply,
+            writesAlpha: writesAlpha
+        )
         let pool = SceneOffscreenTexturePool(device: device, maxDimension: 1)
         let mainPass = SceneMainPassEncoder(
             commandBuffer: commandBuffer,
@@ -3407,6 +3424,8 @@ enum Harness {
             "source": sourceBGRA,
             "blend": blendBGRA,
             "multiply": multiply,
+            "alphaMultiply": alphaMultiply,
+            "writesAlpha": writesAlpha,
             "capturedSourcePixel": pixel(stageTargets.inputTexture, x: 0, y: 0),
             "authoredPixel": pixel(stageTargets.outputTexture, x: 0, y: 0),
             "mainPixel": pixel(target, x: 0, y: 0),
@@ -4222,7 +4241,9 @@ enum Harness {
     }
 
     static func authoredBlendChain(
-        multiply: Float
+        multiply: Float,
+        alphaMultiply: Float = 1,
+        writesAlpha: Bool = false
     ) -> SceneAuthoredEffectExecutionChain {
         let layerID = authoredBlendLayerID
         let effectKey = Graph.EffectKey(
@@ -4270,6 +4291,8 @@ enum Harness {
             shaderProfile: .legacySingleTexture,
             blendMode: 0,
             multiply: multiply,
+            alphaMultiply: alphaMultiply,
+            writesAlpha: writesAlpha,
             assetTexturePath: authoredBlendAssetPath,
             userPropertyKey: nil
         )
@@ -5012,6 +5035,35 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         )
         self.assertEqual(evidence["authoredPixel"][3], source[3])
         self.assert_pixel_close(evidence["mainPixel"], expected, 1)
+
+    def test_authored_blend_write_alpha_uses_overlay_alpha_and_stays_premultiplied(
+        self,
+    ) -> None:
+        evidence = self.result["authoredWriteAlphaBlendChainPixel"]
+        source = evidence["source"]
+        blend = evidence["blend"]
+        output_alpha = round(blend[3] * evidence["alphaMultiply"])
+        weight = evidence["multiply"] * blend[3] / 255
+        expected = [
+            round(
+                (
+                    source[index] / source[3]
+                    + (blend[index] / blend[3] - source[index] / source[3])
+                    * weight
+                )
+                * output_alpha
+            )
+            for index in range(3)
+        ] + [output_alpha]
+        self.assertTrue(evidence["encoded"], evidence)
+        self.assertTrue(evidence["writesAlpha"], evidence)
+        self.assertEqual(expected, [22, 22, 46, 64])
+        self.assert_pixel_close(evidence["authoredPixel"], expected, 1)
+        self.assert_pixel_close(evidence["mainPixel"], expected, 1)
+        self.assertTrue(
+            all(channel <= evidence["authoredPixel"][3] for channel in evidence["authoredPixel"][:3]),
+            evidence,
+        )
 
     def test_authored_blend_runtime_summary_is_not_route_only(self) -> None:
         self.assertEqual(

@@ -31,6 +31,8 @@ extension SceneAuthoredEffectChainRenderer {
                   blend: arguments.blend.texture,
                   target: targets.outputTexture,
                   multiply: blend.resolvedMultiply(in: dynamicValues),
+                  alphaMultiply: blend.alphaMultiply,
+                  writesAlpha: blend.writesAlpha,
                   blendUVScale: arguments.uvScale,
                   blendSampling: arguments.blend.sampling,
                   commandBuffer: commandBuffer

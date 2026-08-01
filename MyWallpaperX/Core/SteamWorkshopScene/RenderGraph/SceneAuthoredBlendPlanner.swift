@@ -11,6 +11,7 @@ enum SceneAuthoredBlendPlanner {
 
     private struct Multiply {
         let authoredValue: Float
+        let alphaMultiply: Float
         let dynamicBinding: SceneTimeOfDayEffectScriptBinding?
     }
 
@@ -45,17 +46,22 @@ enum SceneAuthoredBlendPlanner {
               graph.finalOutput == effect.output,
               validNode(node, effect: effect),
               validMaterialDescriptor(in: descriptor),
-              validInstance(effect: effect, layer: layer),
               let resolved = SceneAuthoredMaterialResolver.resolve(
                   node: node,
                   graph: graph,
                   descriptor: descriptor
               ).node,
               validRenderState(resolved.renderState),
-              validCombos(resolved.combos),
+              let writesAlpha = writesAlpha(in: resolved.combos),
+              validInstance(
+                  effect: effect,
+                  layer: layer,
+                  writesAlpha: writesAlpha
+              ),
               let multiply = multiply(
                   from: resolved.constants,
-                  target: multiplyTarget(for: effect.key)
+                  target: multiplyTarget(for: effect.key),
+                  writesAlpha: writesAlpha
               ),
               let selection = textureSelection(
                   from: resolved.textureSlots,
@@ -71,6 +77,8 @@ enum SceneAuthoredBlendPlanner {
             shaderProfile: shaderProfile,
             blendMode: 0,
             multiply: multiply.authoredValue,
+            alphaMultiply: multiply.alphaMultiply,
+            writesAlpha: writesAlpha,
             dynamicMultiplyBinding: multiply.dynamicBinding,
             assetTexturePath: selection.assetPath,
             userPropertyKey: selection.propertyKey
@@ -161,7 +169,8 @@ enum SceneAuthoredBlendPlanner {
 
     private nonisolated static func validInstance(
         effect: Graph.Effect,
-        layer: SceneRenderDescriptor.Layer
+        layer: SceneRenderDescriptor.Layer,
+        writesAlpha expectedWritesAlpha: Bool
     ) -> Bool {
         guard layer.effects.indices.contains(effect.key.effectIndex) else { return false }
         let descriptor = layer.effects[effect.key.effectIndex]
@@ -177,10 +186,11 @@ enum SceneAuthoredBlendPlanner {
               !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               pass.texturePaths == [path],
               validUserTextureInputs(pass.userTextureInputs),
-              validCombos(pass.combos),
+              writesAlpha(in: pass.combos) == expectedWritesAlpha,
               multiply(
                   from: pass.constantShaderValues,
-                  target: multiplyTarget(for: effect.key)
+                  target: multiplyTarget(for: effect.key),
+                  writesAlpha: expectedWritesAlpha
               ) != nil else {
             return false
         }
@@ -232,42 +242,55 @@ enum SceneAuthoredBlendPlanner {
             && state.cullMode?.lowercased() == "nocull"
     }
 
-    private nonisolated static func validCombos(_ authored: [String: Int]) -> Bool {
+    private nonisolated static func writesAlpha(
+        in authored: [String: Int]
+    ) -> Bool? {
         var combos: [String: Int] = [:]
         for (key, value) in authored {
-            guard combos.updateValue(value, forKey: key.uppercased()) == nil else { return false }
+            guard combos.updateValue(value, forKey: key.uppercased()) == nil else { return nil }
         }
         let allowed = Set([
             "BLENDMODE", "TRANSFORMUV", "TRANSFORMREPEAT", "WRITEALPHA",
             "NUMBLENDTEXTURES", "OPACITYMASK",
         ])
-        return combos.keys.allSatisfy(allowed.contains)
+        guard combos.keys.allSatisfy(allowed.contains)
             && combos["BLENDMODE"] == 0
             && combos["TRANSFORMUV", default: 0] == 0
             && combos["TRANSFORMREPEAT", default: 0] == 0
-            && combos["WRITEALPHA", default: 0] == 0
+            && (0...1).contains(combos["WRITEALPHA", default: 0])
             && combos["NUMBLENDTEXTURES", default: 1] == 1
-            && combos["OPACITYMASK", default: 0] == 0
+            && combos["OPACITYMASK", default: 0] == 0 else {
+            return nil
+        }
+        return combos["WRITEALPHA", default: 0] == 1
     }
 
     private nonisolated static func multiply(
         from constants: [String: SceneDocument.ShaderValue],
-        target: SceneDynamicTarget
+        target: SceneDynamicTarget,
+        writesAlpha: Bool
     ) -> Multiply? {
         var normalized: [String: SceneDocument.ShaderValue] = [:]
         for (key, value) in constants {
             guard normalized.updateValue(value, forKey: key.lowercased()) == nil else { return nil }
         }
         let allowed = Set(["multiply", "alpha", "blendangle", "blendoffset", "blendscale"])
+        let alphaRange: ClosedRange<Float> = writesAlpha ? 0...1 : 1...1
         guard normalized.keys.allSatisfy(allowed.contains),
-              number(normalized["alpha"], range: 1...1, default: 1) != nil,
+              let alphaMultiply = number(
+                  normalized["alpha"], range: alphaRange, default: 1
+              ),
               number(normalized["blendangle"], range: 0...0, default: 0) != nil,
               number(normalized["blendscale"], range: 1...1, default: 1) != nil,
               validNeutralOffset(normalized["blendoffset"]) else {
             return nil
         }
         if let multiply = number(normalized["multiply"], range: 0...2) {
-            return Multiply(authoredValue: multiply, dynamicBinding: nil)
+            return Multiply(
+                authoredValue: multiply,
+                alphaMultiply: alphaMultiply,
+                dynamicBinding: nil
+            )
         }
         guard let value = normalized["multiply"],
               let binding = SceneTimeOfDayEffectScriptCompiler.compile(
@@ -276,7 +299,11 @@ enum SceneAuthoredBlendPlanner {
               case let .scalar(authored) = binding.definition.authoredValue else {
             return nil
         }
-        return Multiply(authoredValue: Float(authored), dynamicBinding: binding)
+        return Multiply(
+            authoredValue: Float(authored),
+            alphaMultiply: alphaMultiply,
+            dynamicBinding: binding
+        )
     }
 
     private nonisolated static func multiplyTarget(

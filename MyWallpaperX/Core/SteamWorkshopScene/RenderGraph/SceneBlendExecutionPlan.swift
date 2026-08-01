@@ -7,6 +7,8 @@ nonisolated struct SceneBlendExecutionPlan {
     let shaderProfile: SceneBlendShaderProfile
     let blendMode: Int
     let multiply: Float
+    let alphaMultiply: Float
+    let writesAlpha: Bool
     let dynamicMultiplyBinding: SceneTimeOfDayEffectScriptBinding?
     let assetTexturePath: String
     let userPropertyKey: String?

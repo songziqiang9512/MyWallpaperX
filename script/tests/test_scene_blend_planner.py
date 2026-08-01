@@ -148,6 +148,7 @@ enum Harness {
         var textureCount = 1
         var multiply = 1.0
         var alpha = 1.0
+        var boundAlpha = false
         var angle = 0.0
         var scale = 1.0
         var offset = [0.0, 0.0]
@@ -187,7 +188,7 @@ enum Harness {
     static func constants(_ options: Options) -> [String: SceneDocument.ShaderValue] {
         var result = [
             "multiply": value([options.multiply], binding: options.boundMultiply),
-            "alpha": value([options.alpha]),
+            "alpha": value([options.alpha], binding: options.boundAlpha),
             "blendangle": value([options.angle]),
             "blendoffset": value(options.offset, kind: "vector"),
             "blendscale": value([options.scale]),
@@ -422,6 +423,10 @@ enum Harness {
         let dynamicPlan = SceneAuthoredBlendPlanner.plan(
             graph: graph(), descriptor: descriptor(dynamic), shaderContracts: contracts
         )
+        var writeAlpha = Options(); writeAlpha.writeAlpha = 1; writeAlpha.alpha = 0.5
+        let writeAlphaPlan = SceneAuthoredBlendPlanner.plan(
+            graph: graph(), descriptor: descriptor(writeAlpha), shaderContracts: contracts
+        )
 
         var badHash = Options(); badHash.materialHash = String(repeating: "0", count: 64)
         var badVersion = Options(); badVersion.definitionVersion = 2
@@ -433,13 +438,14 @@ enum Harness {
         var named = Options(); named.asset = "_rt_imageLayerComposite_1_a"
         var paths = Options(); paths.texturePathsMatch = false
         var mode = Options(); mode.blendMode = 1
-        var alpha = Options(); alpha.writeAlpha = 1
+        var invalidWriteAlpha = Options(); invalidWriteAlpha.writeAlpha = 2
         var transform = Options(); transform.transformUV = 1
         var repeatUV = Options(); repeatUV.transformRepeat = 1
         var mask = Options(); mask.opacityMask = 1
         var count = Options(); count.textureCount = 2
         var multiply = Options(); multiply.multiply = 2.1
         var outputAlpha = Options(); outputAlpha.alpha = 0.5
+        var boundOutputAlpha = writeAlpha; boundOutputAlpha.boundAlpha = true
         var angle = Options(); angle.angle = 1
         var scale = Options(); scale.scale = 0.5
         var offset = Options(); offset.offset = [0.1, 0]
@@ -475,6 +481,9 @@ enum Harness {
                     )
                     && $0.liveMultiplyTarget == $0.dynamicMultiplyBinding?.definition.target
             } ?? false,
+            "writeAlphaAccepted": writeAlphaPlan.map {
+                $0.writesAlpha && $0.alphaMultiply == 0.5
+            } ?? false,
             "assetFallbackAccepted": accepted(options: assetOnly, contracts: contracts),
             "priorAccepted": accepted(
                 contracts: contracts,
@@ -493,8 +502,8 @@ enum Harness {
                 && !accepted(contracts: sibling),
             "descriptorMutationsRejected": [
                 badHash, badVersion, hidden, text, video, system, undeclared,
-                named, paths, mode, alpha, transform, repeatUV, mask, count,
-                multiply, outputAlpha, angle, scale, offset, bound, combo,
+                named, paths, mode, invalidWriteAlpha, transform, repeatUV, mask, count,
+                multiply, outputAlpha, boundOutputAlpha, angle, scale, offset, bound, combo,
                 constant, state,
             ].allSatisfy { !accepted(options: $0, contracts: contracts) },
             "graphMutationsRejected": !accepted(contracts: contracts, blocker: true)

@@ -11,9 +11,9 @@ struct BlendVaryings {
 };
 
 struct BlendUniforms {
-    float multiply;
+    float4 parameters;
     float2 blendUVScale;
-    float padding;
+    float2 padding;
 };
 
 vertex BlendVaryings sceneAuthoredBlendVert(uint vertexID [[vertex_id]]) {
@@ -55,18 +55,20 @@ fragment float4 sceneAuthoredBlendFrag(
     float3 blendedStraight = mix(
         sourceStraight,
         overlayStraight,
-        uniforms.multiply * overlay.a
+        uniforms.parameters.x * overlay.a
     );
-    albedo.rgb = clamp(blendedStraight, 0.0, 1.0) * albedo.a;
-    return albedo;
+    float outputAlpha = uniforms.parameters.z > 0.5
+        ? overlay.a * uniforms.parameters.y
+        : albedo.a;
+    return float4(clamp(blendedStraight, 0.0, 1.0) * outputAlpha, outputAlpha);
 }
 """
 
 struct SceneBlendPipeline {
     private struct Uniforms {
-        var multiply: Float
+        var parameters: SIMD4<Float>
         var blendUVScale: SIMD2<Float>
-        var padding: Float = 0
+        var padding: SIMD2<Float> = .zero
     }
 
     private let state: MTLRenderPipelineState
@@ -99,6 +101,8 @@ struct SceneBlendPipeline {
         blend: MTLTexture,
         target: MTLTexture,
         multiply: Float,
+        alphaMultiply: Float,
+        writesAlpha: Bool,
         blendUVScale: SIMD2<Float>,
         blendSampling: SceneTextureSampling = .linearClamp,
         commandBuffer: MTLCommandBuffer
@@ -109,6 +113,8 @@ struct SceneBlendPipeline {
             blend: blend,
             target: target,
             multiply: multiply,
+            alphaMultiply: alphaMultiply,
+            writesAlpha: writesAlpha,
             blendUVScale: blendUVScale,
             commandBuffer: commandBuffer
         ) else {
@@ -129,7 +135,15 @@ struct SceneBlendPipeline {
             samplerStates.state(for: blendSampling),
             index: 0
         )
-        var uniforms = Uniforms(multiply: multiply, blendUVScale: blendUVScale)
+        var uniforms = Uniforms(
+            parameters: SIMD4(
+                multiply,
+                alphaMultiply,
+                writesAlpha ? 1 : 0,
+                0
+            ),
+            blendUVScale: blendUVScale
+        )
         encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 0)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         encoder.endEncoding()
@@ -141,6 +155,8 @@ struct SceneBlendPipeline {
         blend: MTLTexture,
         target: MTLTexture,
         multiply: Float,
+        alphaMultiply: Float,
+        writesAlpha: Bool,
         blendUVScale: SIMD2<Float>,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
@@ -148,6 +164,9 @@ struct SceneBlendPipeline {
         let textures = [source, blend, target]
         return multiply.isFinite
             && (0...2).contains(multiply)
+            && alphaMultiply.isFinite
+            && (0...1).contains(alphaMultiply)
+            && (writesAlpha || alphaMultiply == 1)
             && blendUVScale.x.isFinite
             && blendUVScale.y.isFinite
             && blendUVScale.min() > 0
