@@ -133,6 +133,10 @@ Group 与 display condition 在 Overview 中定义。Texture Variants 不能由 
 - https://docs.wallpaperengine.io/en/scene/scenescript/reference.html
 - https://docs.wallpaperengine.io/reference/lib.sceneScript.d.ts
 - https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/ITextLayer.html（`padding` 增加字形周围 geometry，horizontal/vertical alignment 取值域）
+- https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html（`timeOfDay` 为本地 24 小时 `[0,1]`）
+- https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/WEMath.html（`smoothStep` 等数学 helper）
+- https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/update.html（property-bound `update(value)`）
+- https://docs.wallpaperengine.io/en/scene/scenescript/tutorial/timeofday.html（公开的 time-of-day + Blend amount 用法）
 
 官方类型文件当前列出的主要 class/interface：
 

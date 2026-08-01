@@ -68,11 +68,11 @@ D3 + D4 + D5 + D6 + D7 + D8
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| value types and target definitions | 六类 value 与主要 target 由 v22 持久化；direct text 与 strict Local Contrast/Opacity 已注册 typed target | 新类型继续执行 type/finite/default validation；SceneScript 计算值不冒充 direct binding |
-| source priority | `authored -> property -> Timeline -> SceneScript` 已定义；property producer 已执行 | Timeline/SceneScript 接入同一 resolver，不在 renderer 内重复求值 |
-| binding program | layer alpha/solid color、direct text、Local Contrast/Opacity 编译、验证和持久化已完成；mixed/invalid/SceneScript key 标记 rebuild | 下一 target 必须同批增加 compiler mapping、稳定 identity、snapshot consumer 和 fallback |
+| value types and target definitions | 六类 value 与主要 target 由 v22 持久化；direct text、strict Local Contrast/Opacity 与 bounded Blend multiply 已注册 typed target | 新类型继续执行 type/finite/default validation；SceneScript 计算值不冒充 direct binding |
+| source priority | `authored -> property -> Timeline -> SceneScript` 已定义；property、受限 Timeline 与 bounded text/time-of-day producer 已复用同一 resolver | generic SceneScript/event mutation 接入时不得在 renderer 内重复求值 |
+| binding program | layer alpha/solid color、direct text、Local Contrast/Opacity 与 bounded Blend multiply 编译、验证和持久化已完成；mixed/invalid/未知 SceneScript key 标记 rebuild | 下一 target 必须同批增加 compiler mapping、稳定 identity、snapshot consumer 和 fallback |
 | target scope and invalidation domain | direct text 使用 per-layer generation；alpha/color/effect scalar 为 value-only；mixed/hidden/no-consumer 统一 rebuild | topology/provider/simulation target 逐类登记失效域 |
-| evaluation transaction | property base evaluation、validation、atomic commit 已按 surface 执行 | events/Timeline/SceneScript mutation 依固定顺序接入同一 transaction |
+| evaluation transaction | property、Timeline 与 bounded text/time-of-day SceneScript evaluation、validation、atomic commit 已按 surface 执行 | generic events/mutation 依固定顺序接入同一 transaction |
 | immutable snapshot and generation | 每 surface 独立 snapshot/generation；相同 payload 不增 generation | 双屏 local input、script/provider 加入后继续验证不串用 |
 
 目标运行形态必须是：
