@@ -212,7 +212,7 @@ Text 不是播放器 UI overlay。真实样本中的 text object 同时具有：
 1. 根据作者 font family/file 建 CTFont，建立明确 fallback chain；
 2. 使用 shaping、glyph advances、baseline、ascent/descent/leading；
 3. 支持 CJK、combining marks、emoji/color glyph、缺字 fallback；
-4. 官方 `ITextLayer` 声明把 `pointsize` 定义为“300 DPI 下的 point”，`padding` 定义为 pixel；先保留这两个 authored 单位，再通过明确的 scene/text raster scale 转换，不能把 macOS 72 DPI point 直接当最终像素；
+4. 官方 `ITextLayer` 声明把 `pointsize` 定义为“300 DPI 下的 point”，并说明 pixel `padding` 会增加字形周围 geometry、供越界 effect 使用；真实语料进一步证明序列化 `size` 已是含 padding 的外框，不能再加一次 padding。边对齐时 origin 对齐去掉 padding 后的内容边，center 仍对齐外框/内容共同中心；
 5. 先在 text-local coordinate 生成 layout，再应用 layer scale 和 scene transform；
 6. 保留 authored alignment、background、width/line/ellipsis 等实际出现的 layout 约束和 texture resolution；
 7. text texture 作为正常 layer source 进入 effect graph；

@@ -132,6 +132,7 @@ Group 与 display condition 在 Overview 中定义。Texture Variants 不能由 
 - https://docs.wallpaperengine.io/en/scene/scenescript/introduction.html
 - https://docs.wallpaperengine.io/en/scene/scenescript/reference.html
 - https://docs.wallpaperengine.io/reference/lib.sceneScript.d.ts
+- https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/ITextLayer.html（`padding` 增加字形周围 geometry，horizontal/vertical alignment 取值域）
 
 官方类型文件当前列出的主要 class/interface：
 

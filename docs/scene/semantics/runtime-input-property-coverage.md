@@ -290,7 +290,8 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 | static content raster | `L3` | CoreText 启动时栅格；[E-TEXT](runtime-evidence-index.md#e-text) | dynamic layer texture store |
 | package/system font resolution | `L3` | 包内字体、8 个官方 `systemfont_*` 别名，15 个客户端 stock 名字全部随包真实字体（8 原版 `stockBundled` / 7 替代 `stockSubstituted`；stock 41/alias 19/包内 184/未知 0）；[E-TEXT-FONTREF](runtime-evidence-index.md#e-text-fontref) | 7 个替代字形非官方轮廓；原版无 Windows 栅格化逐像素对照；family/weight/CJK/emoji golden |
 | point size | `L3` | authored `pointsize * 300 / 72` 官方 300 DPI 换算；[E-TEXT-POINTSIZE](runtime-evidence-index.md#e-text-pointsize) | Windows 逐像素对照、去掉本地 1024 px 字号夹取 |
-| alignment/baseline/padding | `L2` | 部分字段/geometry 进入链路 | 每种 alignment 正反像素门 |
+| alignment/padding geometry | `L3` | left/center/right × center/top/bottom 同时进入 CoreText 和 quad pivot；作者 `size` 是含 padding 外框，边对齐以内容边钉住 origin，动态扩框使用当前 render size 归一化 padding；[E-TEXT-PIVOT](runtime-evidence-index.md#e-text-pivot) | Windows 字体/像素 golden、effect 越界裁剪对照 |
+| baseline/`blockalign` | `L1` | 字段可见但未形成独立 baseline/block alignment 执行合同 | parser + CoreText baseline/块对齐正反门 |
 | row/width overflow limits | `L3` | `limitrows`/`maxrows`/`limitwidth`/`maxwidth`/`limituseellipsis` 进 IR 并由 CoreText 消费，两个数值只在对应开关打开时生效（语料 393 个关闭态带默认 `maxwidth: 500`，79 个已超宽）；[E-TEXT-LIMITS](runtime-evidence-index.md#e-text-limits) | Windows 逐像素对照省略号回退与断点、按运行时文本重新测量外框 |
 | color/alpha | `L3` | 静态 descriptor 和 direct color generation consumer；[E-DYNAMIC-TEXT](runtime-evidence-index.md#e-dynamic-text) | premultiplied alpha 与 Windows golden |
 | outline/shadow/text effects | `L1` | 可见字段/effect 可能被保留 | 独立 style IR 与执行器 |
