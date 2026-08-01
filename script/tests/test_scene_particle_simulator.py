@@ -758,7 +758,7 @@ enum Harness {
 
     private static let durationJSON = #"""
     {"material":"p.json","maxcount":64,
-     "emitter":[{"name":"boxrandom","instantaneous":3,"rate":100,"duration":0.25,"flags":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "emitter":[{"name":"boxrandom","instantaneous":3,"rate":100,"duration":0.25,"flags":2,"distancemin":"0 0 0","distancemax":"0 0 0"}],
      "initializer":[{"name":"lifetimerandom","min":10,"max":10}],"renderer":[{"name":"sprite"}]}
     """#
 

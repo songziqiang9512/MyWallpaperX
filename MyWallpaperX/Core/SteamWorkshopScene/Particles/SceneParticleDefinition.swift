@@ -129,7 +129,8 @@ nonisolated struct SceneParticleEmitter: Equatable, Sendable {
     let hasMalformedDirectionsOrSign: Bool
     let rawFlags: Int
 
-    nonisolated var limitsToOnePerFrame: Bool { rawFlags & 1 != 0 }
+    /// Official stock Rope emitters wire the public one-per-frame option as bit 2.
+    nonisolated var limitsToOnePerFrame: Bool { rawFlags & 2 != 0 }
     nonisolated var usesRandomPeriodicEmission: Bool { rawFlags & 4 != 0 }
 
     nonisolated var boundedSpeedRange: ClosedRange<Double>? {

@@ -89,6 +89,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Rendering/SceneLayerVisibility.swift",
     SOURCE_ROOT / "Particles/SceneParticleChildGraphExpansion.swift",
     SOURCE_ROOT / "Particles/SceneParticleChildRuntimeModels.swift",
+    SOURCE_ROOT / "Particles/SceneParticleChildInstanceBuilder.swift",
     SOURCE_ROOT / "Particles/SceneParticleChildRuntime.swift",
     SOURCE_ROOT / "Particles/SceneParticleRuntimeModels.swift",
     SOURCE_ROOT / "Particles/SceneParticleLayerRuntime.swift",
@@ -468,10 +469,17 @@ enum Harness {
             )
         )
         let targetLayers = Set([239, 245, 248])
+        let ropePaths = Set([
+            "particles/presets/dripping_water_refract.json",
+            "particles/presets/dripping_water_splash.json",
+        ])
         var activeFrames: [Int: Int] = [:]
         var maximumInstances: [Int: Int] = [:]
         var candidateLayers = Set<Int>()
         var legacyLayers = Set<Int>()
+        var activeRopePaths = Set<String>()
+        var maximumRopeInstances: [String: Int] = [:]
+        var refractiveRopePaths = Set<String>()
         for _ in 0..<(8 * 60) {
             for batch in runtime.advance(by: 1.0 / 60.0) {
                 if batch.refraction?.usesStaticNormalCandidate == true {
@@ -488,6 +496,14 @@ enum Harness {
                         batch.instances.count
                     )
                 }
+                if ropePaths.contains(batch.particlePath), !batch.instances.isEmpty {
+                    activeRopePaths.insert(batch.particlePath)
+                    maximumRopeInstances[batch.particlePath] = max(
+                        maximumRopeInstances[batch.particlePath, default: 0],
+                        batch.instances.count
+                    )
+                    if batch.refraction != nil { refractiveRopePaths.insert(batch.particlePath) }
+                }
             }
         }
         return [
@@ -499,6 +515,16 @@ enum Harness {
             }),
             "candidateLayers": candidateLayers.sorted(),
             "legacyLayers": legacyLayers.sorted(),
+            "activeRopePaths": activeRopePaths.sorted(),
+            "maximumRopeInstances": maximumRopeInstances,
+            "refractiveRopePaths": refractiveRopePaths.sorted(),
+            "ropeUnsupported": runtime.diagnostics.compactMap { diagnostic in
+                diagnostic.kind == .childSystemsUnsupported
+                    && ropePaths.contains(where: {
+                        (diagnostic.detail ?? "").contains($0)
+                    })
+                    ? (diagnostic.detail ?? "") : nil
+            },
             "refractionUnsupported": runtime.diagnostics.filter {
                 $0.kind == .refractionUnsupported
             }.map { $0.detail ?? "" },
@@ -1365,13 +1391,70 @@ enum Harness {
         try writeJSON([
             "material": "materials/shared.json",
             "maxcount": 100,
+            "emitter": [[
+                "name": "sphererandom", "rate": 5,
+                "distancemin": 0, "distancemax": 0,
+                "flags": 2,
+            ]],
+            "initializer": [
+                ["name": "lifetimerandom", "min": 10, "max": 10],
+                ["name": "sizerandom", "min": 8, "max": 8],
+                ["name": "velocityrandom", "min": [100, 0, 0], "max": [100, 0, 0]],
+            ],
+            "operator": [["name": "movement"]],
+            "renderer": [["name": "rope", "subdivision": 1]],
+        ], to: directory.appendingPathComponent("particles/rope-subdivision.json"))
+        try writeJSON([
+            "material": "materials/shared.json",
+            "maxcount": 100,
+            "emitter": [["name": "sphererandom", "rate": 5]],
+            "initializer": [
+                ["name": "lifetimerandom", "min": 10, "max": 10],
+                ["name": "sizerandom", "min": 8, "max": 8],
+                ["name": "velocityrandom", "min": [100, 0, 0], "max": [100, 0, 0]],
+            ],
+            "operator": [["name": "movement"]],
+            "renderer": [["name": "rope", "uvscale": 2, "uvscrolling": true]],
+        ], to: directory.appendingPathComponent("particles/rope-scroll.json"))
+        try writeJSON([
+            "material": "materials/shared.json",
+            "maxcount": 100,
             "emitter": [["name": "sphererandom", "rate": 5]],
             "initializer": [
                 ["name": "lifetimerandom", "min": 10, "max": 10],
                 ["name": "sizerandom", "min": 8, "max": 8],
             ],
-            "renderer": [["name": "rope", "subdivision": 1]],
-        ], to: directory.appendingPathComponent("particles/rope-subdivision.json"))
+            "renderer": [["name": "rope", "uvscale": -1]],
+        ], to: directory.appendingPathComponent("particles/rope-invalid.json"))
+        try writeJSON([
+            "material": "materials/shared.json",
+            "maxcount": 20,
+            "controlpoint": [
+                ["id": 0, "parentcontrolpoint": 1],
+                ["id": 1, "parentcontrolpoint": 2],
+            ],
+            "emitter": [[
+                "name": "sphererandom", "rate": 5,
+                "distancemin": 0, "distancemax": 0,
+                "flags": 2,
+            ]],
+            "initializer": [
+                ["name": "lifetimerandom", "min": 10, "max": 10],
+                ["name": "sizerandom", "min": 8, "max": 8],
+                ["name": "velocityrandom", "min": [50, 20, 0], "max": [50, 20, 0]],
+            ],
+            "operator": [["name": "movement"]],
+            "renderer": [[
+                "name": "rope", "subdivision": 1, "uvscale": 2,
+                "uvscrolling": true, "uvsmoothing": false,
+            ]],
+        ], to: directory.appendingPathComponent("particles/rope-child.json"))
+        try writeParticle(
+            "particles/rope-parent.json",
+            material: "materials/shared.json",
+            children: [["name": "particles/rope-child.json", "origin": [40, 20, 0]]],
+            under: directory
+        )
         let descriptor = SceneRenderDescriptor(
             layers: [
                 layer(41, "particles/rope.json"),
@@ -1379,8 +1462,11 @@ enum Harness {
                 layer(43, "particles/rope-mixed.json"),
                 layer(44, "particles/rope-world.json"),
                 layer(45, "particles/rope-subdivision.json"),
+                layer(46, "particles/rope-scroll.json"),
+                layer(47, "particles/rope-invalid.json"),
+                layer(48, "particles/rope-parent.json"),
             ],
-            renderOrderLayerIDs: [41, 42, 43, 44, 45],
+            renderOrderLayerIDs: [41, 42, 43, 44, 45, 46, 47, 48],
             materialPasses: [
                 .init(
                     materialPath: "materials/shared.json",
@@ -1402,10 +1488,14 @@ enum Harness {
             cacheDirectory: directory,
             device: device
         )
-        var batch: SceneParticleDrawBatch?
-        for _ in 0..<120 {
-            batch = runtime.advance(by: 1.0 / 60.0).first { $0.layerID == 41 }
+        var batches: [SceneParticleDrawBatch] = []
+        for _ in 0..<90 {
+            batches = runtime.advance(by: 1.0 / 60.0)
         }
+        let batch = batches.first { $0.layerID == 41 }
+        let subdivisionBatch = batches.first { $0.layerID == 45 }
+        let scrollingBatch = batches.first { $0.layerID == 46 }
+        let childBatch = batches.first { $0.particlePath == "particles/rope-child.json" }
         let instances = batch?.instances ?? []
         let diagnosticDetails = runtime.diagnostics.map {
             "\($0.kind.rawValue):\($0.layerID ?? -1):\($0.detail ?? "")"
@@ -1430,6 +1520,16 @@ enum Harness {
                 abs($0.0.frame0B.w - $0.1.frame0B.z) < 0.0001
             },
             "usesDisplacement": instances.allSatisfy { $0.frame1B.z == 1 },
+            "subdivisionDoublesSegments": subdivisionBatch?.instances.count
+                == instances.count * 2,
+            "scrollUVStart": scrollingBatch?.instances.first?.frame0B.z ?? -1,
+            "scrollUVEnd": scrollingBatch?.instances.last?.frame0B.w ?? -1,
+            "childRopeCount": childBatch?.instances.count ?? 0,
+            "childRopeUsesSubdivision": (childBatch?.instances.count ?? 0) % 2 == 0,
+            "childRopeTranslated": childBatch?.instances.allSatisfy {
+                $0.positionAndSize.x >= 40 && $0.positionAndSize.y >= 20
+            } ?? false,
+            "childRopeUVStartsWithPhase": (childBatch?.instances.first?.frame0B.z ?? 0) > 0,
             "diagnosticDetails": diagnosticDetails,
         ]
     }
@@ -2180,7 +2280,7 @@ class SceneParticleRuntimeTests(unittest.TestCase):
 
     def test_rope_runtime_connects_live_particles_and_fails_closed(self) -> None:
         result = self.run_harness("rope-synthetic")
-        self.assertEqual(result["activeLayerIDs"], [41])
+        self.assertEqual(result["activeLayerIDs"], [41, 45, 46, 48])
         self.assertGreaterEqual(result["instanceCount"], 2)
         self.assertTrue(result["bufferMatches"])
         self.assertTrue(result["orientationScreen"])
@@ -2190,6 +2290,13 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertTrue(result["uvEndsAtOne"])
         self.assertTrue(result["uvContinuous"])
         self.assertTrue(result["usesDisplacement"])
+        self.assertTrue(result["subdivisionDoublesSegments"])
+        self.assertAlmostEqual(result["scrollUVStart"], 0.5, places=5)
+        self.assertAlmostEqual(result["scrollUVEnd"], 2.5, places=5)
+        self.assertGreater(result["childRopeCount"], 0)
+        self.assertTrue(result["childRopeUsesSubdivision"])
+        self.assertTrue(result["childRopeTranslated"])
+        self.assertTrue(result["childRopeUVStartsWithPhase"])
         self.assertIn(
             "ropeRendererUnsupported:42:rope:animatedTexture",
             result["diagnosticDetails"],
@@ -2203,7 +2310,16 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             result["diagnosticDetails"],
         )
         self.assertIn(
-            "ropeRendererUnsupported:45:rope:unsupportedProfile",
+            "ropeRendererUnsupported:47:rope:unsupportedProfile",
+            result["diagnosticDetails"],
+        )
+        self.assertFalse(any(
+            "rope-child.json:outsideStrictStaticProfile" in detail
+            for detail in result["diagnosticDetails"]
+        ))
+        self.assertIn(
+            "simulationLimitation:48:particles/rope-child.json:"
+            "unusedParentControlPointMappings:mappings=2",
             result["diagnosticDetails"],
         )
 
@@ -2432,6 +2548,22 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             self.assertGreater(result["maximumInstances"][layer_id], 0, result)
         self.assertEqual(result["refractionUnsupported"], [])
         self.assertIn(48, result["candidateLayers"], result)
+        self.assertEqual(result["activeRopePaths"], [
+            "particles/presets/dripping_water_refract.json",
+            "particles/presets/dripping_water_splash.json",
+        ], result)
+        self.assertGreater(
+            result["maximumRopeInstances"]["particles/presets/dripping_water_refract.json"],
+            0,
+        )
+        self.assertGreater(
+            result["maximumRopeInstances"]["particles/presets/dripping_water_splash.json"],
+            0,
+        )
+        self.assertEqual(result["refractiveRopePaths"], [
+            "particles/presets/dripping_water_refract.json",
+        ])
+        self.assertEqual(result["ropeUnsupported"], [])
         for layer_id in (239, 245, 248):
             self.assertIn(layer_id, result["legacyLayers"], result)
 

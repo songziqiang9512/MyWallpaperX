@@ -336,7 +336,9 @@ final class SceneParticleRuntime {
         let trail = layers[index].trail
         if let rope = layers[index].rope {
             layers[index].instances = rope.instances(
-                particles: particles, layerAlpha: layerAlpha
+                particles: particles,
+                layerAlpha: layerAlpha,
+                simulationTime: layers[index].simulator.simulationTime
             )
             return
         }

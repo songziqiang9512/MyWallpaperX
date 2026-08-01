@@ -14,6 +14,7 @@ struct SceneParticleChildTemplate {
     let definition: SceneParticleDefinition
     let trigger: SceneParticleChildTrigger
     let trail: SceneParticleTrailRenderPlan?
+    let rope: SceneParticleRopePlan?
     let texture: MTLTexture
     let colorUVScale: SIMD2<Float>
     let colorSampling: SceneParticleTextureSampling
@@ -216,6 +217,9 @@ enum SceneParticleChildGraphExpansion {
         ) {
         case .disabled:
             instanceOverride = nil
+        case let .ignoredUnused(count):
+            instanceOverride = nil
+            performance.append("\(path):unusedParentControlPointMappings:mappings=\(count)")
         case let .supported(value, count):
             instanceOverride = value
             performance.append("\(path):rawParentControlPointCopyBounded:mappings=\(count)")
@@ -276,6 +280,15 @@ enum SceneParticleChildGraphExpansion {
                 "\(path):particleBudget:max=\(authoredMaximum):instantaneous=\(instantaneous):effective=\(particleBudget)"
             )
         }
+        if animation != nil, render.rope != nil {
+            return .rejected("\(path):ropeAnimatedTextureUnsupported")
+        }
+        let systemBudget = trigger == .staticChild ? 1 : maximum
+        if let rope = render.rope,
+           systemBudget > 8_192 / max(rope.maximumGeneratedSegments, 1)
+        {
+            return .rejected("\(path):ropeAggregateSegmentBudget")
+        }
         return .accepted(
             SceneParticleChildTemplate(
                 index: templateIndex,
@@ -283,6 +296,7 @@ enum SceneParticleChildGraphExpansion {
                 definition: asset.definition,
                 trigger: trigger,
                 trail: render.trail,
+                rope: render.rope,
                 texture: texture,
                 colorUVScale: colorUVScale,
                 colorSampling: colorSampling,

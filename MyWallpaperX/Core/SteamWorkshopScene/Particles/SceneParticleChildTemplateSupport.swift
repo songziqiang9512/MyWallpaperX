@@ -3,6 +3,7 @@ import Metal
 
 enum SceneParticleChildControlPointCopyAdmission {
     case disabled
+    case ignoredUnused(count: Int)
     case supported(SceneParticleInstanceOverride, count: Int)
     case unsupported(String)
 }
@@ -18,6 +19,24 @@ enum SceneParticleChildTemplateSupport {
             $0.parentControlPoint != nil || $0.copiesRawParentValue
         }
         guard !mappings.isEmpty else { return .disabled }
+        let hasKnownConsumer = childDefinition.emitters.contains { $0.controlPoint != nil }
+            || childDefinition.operators.contains { $0.controlPoint != nil }
+        let hasUnknownConsumer = childDefinition.initializers.contains {
+            if case .unsupported = $0.kind { return true }
+            return false
+        } || childDefinition.operators.contains {
+            if case .unsupported = $0.kind { return true }
+            return false
+        }
+        let isInertMappingShape = mappings.allSatisfy {
+            $0.parentControlPoint != nil && $0.rawFlags == 0
+                && isZeroVector($0.offset) && isZeroVector($0.angles)
+        }
+        if isInertMappingShape, !hasKnownConsumer, !hasUnknownConsumer,
+           childDefinition.children.isEmpty
+        {
+            return .ignoredUnused(count: mappings.count)
+        }
         guard mappings.allSatisfy({ $0.parentControlPoint != nil }) else {
             return .unsupported("rawParentControlPointCopyMalformed")
         }
@@ -80,18 +99,29 @@ enum SceneParticleChildTemplateSupport {
 
     static func supportedRenderer(
         in definition: SceneParticleDefinition
-    ) -> (renderer: SceneParticleRenderer, trail: SceneParticleTrailRenderPlan?)? {
+    ) -> (
+        renderer: SceneParticleRenderer,
+        trail: SceneParticleTrailRenderPlan?,
+        rope: SceneParticleRopePlan?
+    )? {
         for renderer in definition.renderers {
             switch renderer.kind {
             case .sprite:
-                return (renderer, nil)
+                return (renderer, nil, nil)
             case .spriteTrail:
                 guard let trail = SceneParticleTrailRenderPlan(
                     length: renderer.length,
                     minimumLength: renderer.minimumLength,
                     maximumLength: renderer.maximumLength
                 ) else { continue }
-                return (renderer, trail)
+                return (renderer, trail, nil)
+            case .rope:
+                guard let rope = SceneParticleRopePlan(
+                    renderer: renderer,
+                    rendererCount: definition.renderers.count,
+                    maximumParticleCount: definition.maximumCount ?? 1
+                ) else { continue }
+                return (renderer, nil, rope)
             default:
                 continue
             }

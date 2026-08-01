@@ -353,22 +353,12 @@ final class SceneParticleChildRuntime {
         for template: SceneParticleChildTemplate,
         into instances: inout [SceneParticleGPUInstance]
     ) {
-        instances.removeAll(keepingCapacity: true)
-        let matchingSystems = systems.lazy.filter { $0.templateIndex == template.index }
-        instances.reserveCapacity(matchingSystems.reduce(0) {
-            $0 + $1.simulator.particles.count
-        })
-        for system in matchingSystems {
-            for particle in system.simulator.particles {
-                instances.append(template.instance(
-                    origin: template.definition.flags.isWorldSpace
-                        ? system.particleOrigins[particle.id] ?? system.origin
-                        : system.origin,
-                    particle: particle,
-                    layerAlpha: layerAlpha
-                ))
-            }
-        }
+        SceneParticleChildInstanceBuilder.rebuild(
+            template: template,
+            systems: systems,
+            layerAlpha: layerAlpha,
+            into: &instances
+        )
     }
 
     private func updateWorldSpaceOrigins(

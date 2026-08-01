@@ -52,6 +52,16 @@ enum Harness {
             "uvsmoothing": false,
             "uvscrolling": false,
         ], maximumCount: 512)
+        let uvProfile = plan([
+            "name": "rope", "uvscale": 2,
+            "uvscrolling": true, "uvsmoothing": false,
+        ], maximumCount: 50)
+        let subdivisionProfile = plan([
+            "name": "rope", "subdivision": 3,
+        ], maximumCount: 32)
+        let smoothingProfile = plan([
+            "name": "rope", "uvsmoothing": true,
+        ], maximumCount: 3)
         let rejected = [
             plan(["name": "rope", "orientation": "upright"], maximumCount: 3),
             plan(["name": "rope", "axis": "0 0 1"], maximumCount: 3),
@@ -60,12 +70,15 @@ enum Harness {
             plan(["name": "rope", "minlength": 1], maximumCount: 3),
             plan(["name": "rope", "maxlength": 1], maximumCount: 3),
             plan(["name": "rope", "segments": 2], maximumCount: 3),
-            plan(["name": "rope", "subdivision": 1], maximumCount: 3),
+            plan(["name": "rope", "subdivision": -1], maximumCount: 3),
+            plan(["name": "rope", "subdivision": 1.5], maximumCount: 3),
+            plan(["name": "rope", "subdivision": 8], maximumCount: 3),
+            plan(["name": "rope", "subdivision": 7], maximumCount: 513),
             plan(["name": "rope", "fadealpha": false], maximumCount: 3),
             plan(["name": "rope", "fadesize": false], maximumCount: 3),
-            plan(["name": "rope", "uvscale": 1], maximumCount: 3),
-            plan(["name": "rope", "uvsmoothing": true], maximumCount: 3),
-            plan(["name": "rope", "uvscrolling": true], maximumCount: 3),
+            plan(["name": "rope", "uvscale": 0], maximumCount: 3),
+            plan(["name": "rope", "uvscale": -1], maximumCount: 3),
+            plan(["name": "rope", "uvscale": 2048], maximumCount: 3),
             plan(["name": "rope", "futurefield": 1], maximumCount: 3),
             plan(["name": "rope"], maximumCount: 0),
             plan(["name": "rope"], maximumCount: 1),
@@ -94,7 +107,12 @@ enum Harness {
             "basicLimit": basic?.particleLimit ?? -1,
             "explicitDefaultsAccepted": explicitDefaults != nil,
             "budgetBoundary": explicitDefaults?.particleLimit ?? -1,
-            "allAdvancedRejected": rejected.allSatisfy { $0 == nil },
+            "uvProfileAccepted": uvProfile != nil,
+            "uvScale": uvProfile?.uvScale ?? -1,
+            "subdivisionProfileAccepted": subdivisionProfile != nil,
+            "subdivisionCount": subdivisionProfile?.subdivisionCount ?? -1,
+            "smoothingProfileAccepted": smoothingProfile != nil,
+            "allUnsupportedRejected": rejected.allSatisfy { $0 == nil },
             "malformedFlagged": malformed.renderers.first?.hasMalformedFields == true,
             "malformedRejected": planFromDefinition(malformed) == nil,
             "multipleRejected": multipleRejected,
@@ -131,6 +149,56 @@ enum Harness {
             },
             layerAlpha: 1
         )
+        let curved = plan(["name": "rope", "subdivision": 3], maximumCount: 3)!
+            .instances(
+                particles: [
+                    particle(id: 0, position: SIMD3(0, 0, 0)),
+                    particle(id: 1, position: SIMD3(10, 0, 0)),
+                    particle(id: 2, position: SIMD3(10, 10, 0)),
+                ],
+                layerAlpha: 1
+            )
+        let scrolling = plan([
+            "name": "rope", "uvscale": 2,
+            "uvscrolling": true, "uvsmoothing": true,
+        ], maximumCount: 3)!.instances(
+            particles: [
+                particle(id: 0, position: SIMD3(0, 0, 0), age: 0.8),
+                particle(id: 1, position: SIMD3(10, 0, 0), age: 0.4),
+                particle(id: 2, position: SIMD3(20, 0, 0), age: 0),
+            ],
+            layerAlpha: 1,
+            simulationTime: 2.25
+        )
+        let smoothed = plan([
+            "name": "rope", "uvsmoothing": true,
+        ], maximumCount: 3)!.instances(
+            particles: [
+                particle(id: 0, position: SIMD3(0, 0, 0), age: 0.8),
+                particle(id: 1, position: SIMD3(10, 0, 0), age: 0.4),
+                particle(id: 2, position: SIMD3(20, 0, 0), age: 0),
+            ],
+            layerAlpha: 1
+        )
+        let smoothingFallback = plan([
+            "name": "rope", "uvsmoothing": true,
+        ], maximumCount: 3)!.instances(
+            particles: [
+                particle(id: 0, position: SIMD3(0, 0, 0), age: 0.8, lifetime: 1),
+                particle(id: 1, position: SIMD3(10, 0, 0), age: 0.4, lifetime: 2),
+                particle(id: 2, position: SIMD3(20, 0, 0), age: 0, lifetime: 1),
+            ],
+            layerAlpha: 1
+        )
+        let translated = value.instances(
+            particles: [
+                particle(id: 0, position: SIMD3(0, 0, 0)),
+                particle(id: 1, position: SIMD3(10, 0, 0)),
+            ],
+            origin: SIMD3(100, 20, 0),
+            particleOrigins: [1: SIMD3(120, 20, 0)],
+            layerAlpha: 1
+        )
         return [
             "count": instances.count,
             "positions": instances.map {
@@ -148,6 +216,21 @@ enum Harness {
             "duplicateRejected": duplicateIDs.isEmpty,
             "nonfiniteRejected": nonfinite.isEmpty,
             "overBudgetRejected": overBudget.isEmpty,
+            "subdivisionCount": curved.count,
+            "subdivisionCurves": curved.contains {
+                abs($0.positionAndSize.y) > 0.0001
+                    && abs($0.velocityAndTrail.x) > 0.0001
+                    && abs($0.velocityAndTrail.y) > 0.0001
+            },
+            "subdivisionUVContinuous": zip(curved, curved.dropFirst()).allSatisfy {
+                abs($0.0.frame0B.w - $0.1.frame0B.z) < 0.0001
+            },
+            "scrollingUVRanges": scrolling.map { [$0.frame0B.z, $0.frame0B.w] },
+            "smoothedUVRanges": smoothed.map { [$0.frame0B.z, $0.frame0B.w] },
+            "fallbackUVRanges": smoothingFallback.map { [$0.frame0B.z, $0.frame0B.w] },
+            "translatedPosition": translated.first.map {
+                [$0.positionAndSize.x, $0.positionAndSize.y]
+            } ?? [],
         ]
     }
 
@@ -155,7 +238,9 @@ enum Harness {
         id: UInt64,
         position: SIMD3<Double>,
         size: Double = 2,
-        alpha: Double = 1
+        alpha: Double = 1,
+        age: Double = 0,
+        lifetime: Double = 1
     ) -> SceneParticleState {
         SceneParticleState(
             id: id,
@@ -166,8 +251,8 @@ enum Harness {
             size: size,
             rotation: .zero,
             angularVelocity: .zero,
-            age: 0,
-            lifetime: 1,
+            age: age,
+            lifetime: lifetime,
             initialColor: SIMD3(0.5, 0.75, 1),
             initialAlpha: alpha,
             initialSize: size
@@ -250,13 +335,18 @@ class SceneParticleRopeTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
 
-    def test_only_bounded_basic_profile_is_admitted(self) -> None:
+    def test_only_bounded_public_profiles_are_admitted(self) -> None:
         profiles = self.result["profiles"]
         self.assertTrue(profiles["basicAccepted"])
         self.assertEqual(profiles["basicLimit"], 3)
         self.assertTrue(profiles["explicitDefaultsAccepted"])
         self.assertEqual(profiles["budgetBoundary"], 512)
-        self.assertTrue(profiles["allAdvancedRejected"])
+        self.assertTrue(profiles["uvProfileAccepted"])
+        self.assertEqual(profiles["uvScale"], 2)
+        self.assertTrue(profiles["subdivisionProfileAccepted"])
+        self.assertEqual(profiles["subdivisionCount"], 3)
+        self.assertTrue(profiles["smoothingProfileAccepted"])
+        self.assertTrue(profiles["allUnsupportedRejected"])
         self.assertTrue(profiles["malformedFlagged"])
         self.assertTrue(profiles["malformedRejected"])
         self.assertTrue(profiles["multipleRejected"])
@@ -278,6 +368,20 @@ class SceneParticleRopeTests(unittest.TestCase):
         self.assertTrue(topology["duplicateRejected"])
         self.assertTrue(topology["nonfiniteRejected"])
         self.assertTrue(topology["overBudgetRejected"])
+
+    def test_subdivision_and_uv_options_are_bounded_and_continuous(self) -> None:
+        topology = self.result["topology"]
+        self.assertEqual(topology["subdivisionCount"], 8)
+        self.assertTrue(topology["subdivisionCurves"])
+        self.assertTrue(topology["subdivisionUVContinuous"])
+        self.assertEqual(topology["scrollingUVRanges"], [[0.25, 1.25], [1.25, 2.25]])
+        for actual, expected in zip(
+            topology["smoothedUVRanges"], [[0.2, 0.6], [0.6, 1]], strict=True
+        ):
+            self.assertAlmostEqual(actual[0], expected[0], places=6)
+            self.assertAlmostEqual(actual[1], expected[1], places=6)
+        self.assertEqual(topology["fallbackUVRanges"], [[0, 0.5], [0.5, 1]])
+        self.assertEqual(topology["translatedPosition"], [115, 20])
 
 
 if __name__ == "__main__":
