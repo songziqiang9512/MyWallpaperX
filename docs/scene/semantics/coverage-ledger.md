@@ -121,8 +121,8 @@
 
 | 官方组件 | 当前级别 | 当前边界 | 升级门 |
 |---|---|---|---|
-| General 字段 IR | `L2` | 常见 material、maxcount、starttime 与 world-space/perspective/frame-blend system flags 可保留 | 五种 author allow-override gate 仍为 `L0`；补显式 wire schema |
-| General 执行子集 | `L3` | max count、prewarm、perspective、frame blend 分支可消费 | runtime change、prewarm cap 定向门与 WE 数值门 |
+| General 字段 IR | `L2` | 常见 material、maxcount、starttime、world-space/perspective/frame-blend 与五种 author allow-override system flags 可保留 | 其余 General/material variant 与动态字段 |
+| General 执行子集 | `L3` | max count、prewarm、perspective、frame blend 与 color/speed/count/lifetime/size override gate 可消费 | runtime change、prewarm cap、live override 与 WE 数值门 |
 | Emitter schedule | `L3` | rate、instantaneous、duration、one-per-frame | delay/periodic 和 WE 时间门 |
 | Sphere Random emitter | `L3` | 可执行子集 | 全参数、distribution golden |
 | Box Random emitter | `L3` | zero/absent `distancemin` 的各轴按 `±abs(max)` 围绕 origin 采样；非零 min/max 保留作者区间路径 | directions/sign、反向范围与 Windows distribution golden |
@@ -151,7 +151,7 @@
 | Audio-response declaration | `L1` | 五字段按粒子 schema 保真进 IR，emitter/turbulent velocity/operator 三类共用同一声明类型；启用后一律报 `audioResponseIgnored`（operator 此前无诊断、会静默按无音频路径模拟） | 声明保真不等于可执行；默认值官方未公开，IR 层不内置 |
 | Audio-response execution | `L0` | frame snapshot 已可用，但**求值公式与调制目标无证据**：粒子侧无 shader 源码，第三方参考实现对应代码是 `audioAmplitude = 0.0` 的 TODO 占位，其默认值在 emitter/initializer 两处自相矛盾 | 需 Windows golden 或官方公开算法；在此之前不得按推测实现 |
 | Sprite Sheet | `L3` | Sequence/Random frame/frame blend 子集可执行；repeat sampler 不再把超 1 UV 拉成边缘条；可信单 sequence sidecar nominal aspect 优先，raw TEX axes 像素长度回退，并随 current/next frame blend 插值普通 Sprite 几何 | trim pivot、多 sequence/multi-image 异尺寸、loop/edge、多纹理 material 与 Windows atlas golden |
-| Static instance overrides | `L3` | alpha/size/lifetime/rate/speed/count/brightness/normalizedColor 有运行断言 | 完整类型/range 门 |
+| Static instance overrides | `L3` | alpha/size/lifetime/rate/speed/count/brightness/normalizedColor 有运行断言，五种 General gate 有逐项 allow/deny 门 | direct color、完整类型/range 与 Windows 状态门 |
 | Direct color/control-point position override | `L2` | parser/simulation 分支已接线，最终值门不足 | direct color 与 CP position/angle 断言 |
 | Dynamic instance overrides | `L1` | wrapper 只诊断 | typed live target、generation 和逐帧应用 |
 | Material/blend | `L3` | `genericparticle` slot 0、additive/translucent 子集；共享 typed state 只准入 `disabled/disabled/nocull` 与 alpha unspecified/default，未知 blend/state 产生 `unsupportedBlendMode`/`unsupportedRenderState`，root 不执行、child graph 拒绝，不再静默回退 translucent；color TEX sampler 显式传到 renderer，strict REFRACT 的 slot 0 使用 `.straightAlbedo`、slot 1 使用 `.normal` typed identity，各自使用独立 sampler，background 固定 linear-clamp；同一 authored 文件仅因两者当前都逐字节保留通道而复用物理上传；普通 color/additive 的既有 premultiply 合同不变。项目自建 GPU 门已锁定 format-4 packed normal 的 CPU decode/native BC 两路径与 byte-equivalent format-0 RGBA 位移一致，并锁定 translucent/additive 的 fractional albedo × particle alpha coverage 只作用一次 | `alphawriting=default` 目前只是 bounded admission，不控制固定粒子 pipeline 的 Metal write mask；unsupported custom shader 仍可能误走自有 pipeline；官方/Windows DXT5n 恢复公式与法线数值/像素 golden、多纹理/combo、其他 render state、HDR/Lighting/Cutout、clamp-border 与 Windows 像素标定仍缺 |

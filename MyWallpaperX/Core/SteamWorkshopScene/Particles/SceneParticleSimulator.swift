@@ -137,8 +137,11 @@ nonisolated struct SceneParticleSimulator: Sendable {
             // Event-child rate emission ends at the bounded window; bursts already fired.
             if let deadline = emissionDeadline, simulationTime + 1e-12 >= deadline { return }
             let authoredRate = emitter.rate ?? 5
+            let countScale = definition.flags.disablesCountOverrides
+                ? 1
+                : max(0, overrideScalar(instanceOverride?.count))
             let scaledRate = (authoredRate.isFinite ? authoredRate : 0)
-                * max(0, overrideScalar(instanceOverride?.count)) * rateScale
+                * countScale * rateScale
             let rate = scaledRate.isFinite ? max(0, scaledRate) : 0
             emitters[index].remainder += rate * duration
             let integral = floor(emitters[index].remainder + 1e-12)
@@ -182,7 +185,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
         )
         nextParticleID &+= 1
         applyInitializers(to: &particle)
-        applyInstanceOverride(to: &particle)
+        applyInstanceOverride(to: &particle, flags: definition.flags)
         if hasWorldSpaceMovement, let worldSpaceFrame {
             particle.velocity = worldSpaceFrame.localDirection(particle.velocity)
         }

@@ -247,6 +247,8 @@ pause 与 mute 是独立的 renderer 状态，不是同一个“不可见”开�
 
 definition bitfield 会直接选择 renderer variant。可识别的 variant 维度包括 `TEX0FORMAT`、`THICKFORMAT`、`ORIENTATION`、sprite sheet、blend、NPOT、trail renderer、fade alpha/size、scroll 与 subdivision；`genericropeparticle` 进入独立 shader/material 分支。CP0...7 及 angle0...7 另有独立动态属性注册入口，证明 control point position 与 angle 都属于 live property surface，而不是只在加载时读取一次。
 
+同版本官方编辑器的 Particle General 属性注册还把五个 instance-override 禁用项逐项绑定到 definition `flags`：color `0x08`、speed `0x10`、count `0x20`、lifetime `0x40`、size `0x80`。随包 fireworks refract 资产的 `flags=8` 与“禁用颜色覆盖”更新记录互证，lightning child spawner 的 `flags=248` 则是五个位的并集。这里记录的是公开 JSON wire bit 与编辑器控件的对应，不包含客户端执行算法；具体执行等级仍由粒子专项表和项目自有正反 fixture 决定。
+
 definition 初始化会先递归实例化直接 child，并分别保存普通 child 与 event-follow/event-spawn/event-death group。非零 `starttime` 不是首次 frame 的时间偏移：runtime 会暂时切换运行标志，按粒子规模选择离散步长，反复调用正常的 per-runtime simulation dispatcher 覆盖预热区间，再恢复标志并刷新输出 buffer。具体步长和阈值不归档为跨平台参数。
 
 单个 runtime 的 simulation dispatcher 已恢复为以下有序阶段：

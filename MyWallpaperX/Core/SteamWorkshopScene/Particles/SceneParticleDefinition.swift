@@ -21,6 +21,11 @@ nonisolated struct SceneParticleSystemFlags: Equatable, Sendable {
     nonisolated var isWorldSpace: Bool { rawValue & 1 != 0 }
     nonisolated var disablesFrameBlending: Bool { rawValue & 2 != 0 }
     nonisolated var usesPerspective: Bool { rawValue & 4 != 0 }
+    nonisolated var disablesColorOverrides: Bool { rawValue & 8 != 0 }
+    nonisolated var disablesSpeedOverrides: Bool { rawValue & 16 != 0 }
+    nonisolated var disablesCountOverrides: Bool { rawValue & 32 != 0 }
+    nonisolated var disablesLifetimeOverrides: Bool { rawValue & 64 != 0 }
+    nonisolated var disablesSizeOverrides: Bool { rawValue & 128 != 0 }
 }
 
 nonisolated enum SceneParticleEmitterKind: Equatable, Sendable {

@@ -108,6 +108,26 @@ enum Harness {
         overridden.advance(by: 0.25)
         let overriddenParticle = overridden.particles[0]
         overridden.advance(by: 1.0)
+        var colorDenied = simulator(
+            overrideDefinition(flags: 8), override: parsedOverride, seed: 1, step: 0.25
+        )
+        colorDenied.advance(by: 0.25)
+        var speedDenied = simulator(
+            overrideDefinition(flags: 16), override: parsedOverride, seed: 1, step: 0.25
+        )
+        speedDenied.advance(by: 0.25)
+        var countDenied = simulator(
+            overrideDefinition(flags: 32), override: parsedOverride, seed: 1, step: 0.25
+        )
+        countDenied.advance(by: 1.25)
+        var lifetimeDenied = simulator(
+            overrideDefinition(flags: 64), override: parsedOverride, seed: 1, step: 0.25
+        )
+        lifetimeDenied.advance(by: 0.25)
+        var sizeDenied = simulator(
+            overrideDefinition(flags: 128), override: parsedOverride, seed: 1, step: 0.25
+        )
+        sizeDenied.advance(by: 0.25)
 
         var operators = simulator(operatorJSON, seed: 1, step: 0.25)
         operators.advance(by: 0.25)
@@ -330,6 +350,12 @@ enum Harness {
             "overrideAlpha": overriddenParticle.alpha,
             "overrideColor": vector(overriddenParticle.color),
             "overrideEmissionCount": overridden.particles.count,
+            "colorDeniedColor": vector(colorDenied.particles[0].color),
+            "colorDeniedAlpha": colorDenied.particles[0].alpha,
+            "speedDeniedVelocity": vector(speedDenied.particles[0].velocity),
+            "countDeniedEmissionCount": countDenied.particles.count,
+            "lifetimeDeniedLifetime": lifetimeDenied.particles[0].lifetime,
+            "sizeDeniedSize": sizeDenied.particles[0].size,
             "overrideDiagnostics": overridden.diagnostics.map(\.kind.rawValue),
             "operatorAlpha": operatorParticle.alpha,
             "operatorSize": operatorParticle.size,
@@ -491,11 +517,18 @@ enum Harness {
     """#
 
     private static let overrideDefinitionJSON = #"""
-    {"material":"p.json","maxcount":32,
+    {"material":"p.json","maxcount":32,"flags":0,
      "emitter":[{"name":"boxrandom","instantaneous":1,"rate":4,"distancemin":"0 0 0","distancemax":"0 0 0"}],
      "initializer":[{"name":"lifetimerandom","min":2,"max":2},{"name":"sizerandom","min":2,"max":2},{"name":"velocityrandom","min":"1 0 0","max":"1 0 0"},{"name":"colorrandom","min":"255 255 255","max":"255 255 255"},{"name":"alpharandom","min":0.5,"max":0.5}],
      "renderer":[{"name":"sprite"}]}
     """#
+
+    private static func overrideDefinition(flags: Int) -> String {
+        overrideDefinitionJSON.replacingOccurrences(
+            of: #""flags":0"#,
+            with: #""flags":\#(flags)"#
+        )
+    }
 
     private static let overrideJSON = #"""
     {"alpha":0.5,"size":{"user":"size_prop","value":3},"lifetime":2,"rate":2,"speed":4,"count":0.5,"brightness":2,"colorn":"0.5 0.25 1"}
@@ -894,6 +927,14 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["overrideColor"], [0.5, 0.125, 2])
         self.assertEqual(self.results["overrideEmissionCount"], 5)
         self.assertIn("dynamicOverrideIgnored", self.results["overrideDiagnostics"])
+
+    def test_general_flags_deny_only_the_matching_instance_override(self) -> None:
+        self.assertEqual(self.results["colorDeniedColor"], [2, 2, 2])
+        self.assertEqual(self.results["colorDeniedAlpha"], 0.25)
+        self.assertEqual(self.results["speedDeniedVelocity"], [1, 0, 0])
+        self.assertEqual(self.results["countDeniedEmissionCount"], 9)
+        self.assertEqual(self.results["lifetimeDeniedLifetime"], 2)
+        self.assertEqual(self.results["sizeDeniedSize"], 2)
 
     def test_change_angular_and_oscillation_operators_execute(self) -> None:
         self.assertAlmostEqual(self.results["operatorAlpha"], 0.49375)

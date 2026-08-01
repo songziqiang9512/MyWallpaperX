@@ -44,7 +44,7 @@ enum Harness {
           "material":"Materials\\Particle\\Halo.json",
           "maxcount":1200,
           "starttime":12.5,
-          "flags":7,
+          "flags":255,
           "animationmode":"Sequence",
           "sequencemultiplier":3,
           "emitter":[
@@ -123,6 +123,11 @@ enum Harness {
             "worldSpace": definition.flags.isWorldSpace,
             "noFrameBlend": definition.flags.disablesFrameBlending,
             "perspective": definition.flags.usesPerspective,
+            "disablesColorOverrides": definition.flags.disablesColorOverrides,
+            "disablesSpeedOverrides": definition.flags.disablesSpeedOverrides,
+            "disablesCountOverrides": definition.flags.disablesCountOverrides,
+            "disablesLifetimeOverrides": definition.flags.disablesLifetimeOverrides,
+            "disablesSizeOverrides": definition.flags.disablesSizeOverrides,
             "animationMode": definition.animationMode ?? "",
             "sequenceMultiplier": definition.sequenceMultiplier ?? -1,
             "emitters": definition.emitters.map { emitterName($0.kind) },
@@ -487,6 +492,11 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         self.assertTrue(result["worldSpace"])
         self.assertTrue(result["noFrameBlend"])
         self.assertTrue(result["perspective"])
+        self.assertTrue(result["disablesColorOverrides"])
+        self.assertTrue(result["disablesSpeedOverrides"])
+        self.assertTrue(result["disablesCountOverrides"])
+        self.assertTrue(result["disablesLifetimeOverrides"])
+        self.assertTrue(result["disablesSizeOverrides"])
         self.assertEqual(result["animationMode"], "sequence")
         self.assertEqual(result["sequenceMultiplier"], 3)
         self.assertEqual(result["emitters"], ["sphererandom", "boxrandom", "layerimage"])
