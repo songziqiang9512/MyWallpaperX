@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-08-01
 >
-> Scene 实现基线：`69731707`（在既有 image color、delayed-loop texture animation、Tint、fullscreen Color Grading、standalone volumetric `lspot`、wall-clock text/time-of-day 与静态 plain-image Layer Image emitter 基础上，粒子 root Sphere/Box 新增仅 rate、完整有限 active/delay 区间的 Random periodic bounded schedule；initial delay、periodic burst/max-per-period、audio、额外 flag 与 rate/count override 仍失败关闭）
+> Scene 实现基线：`c6fc9c24`（在既有 bounded Particle runtime 上，root Sphere/Box emitter 的 Control Point source 只按 authored ID 0...7 绑定；显式 declaration 必须 identity 完整、唯一且范围内，非法形态零发射并留稳定诊断。angles、pointer、adjusted/world/cross-space 与其他 consumer 仍失败关闭）
 >
 > 最近完整快照门：`4622b8bb` 的最终签名 Debug App 在 2026-08-01 对 45 样本隔离副本运行 `.codex/scene-light-shafts-radial-full45-20260801-v1/report.json`，**45/45 PASS**、image texture **451/451**、particle **126/130**、strict stage/chain **318/57**、authored shader **2**、Procedural Noise **5**、Light Shafts **3**、Foliage Sway **17**、Water Flow **14**、Water Waves **25**、Water Ripple **11**、Godrays **16**，graph succeeded/failed layer **166/0**、failed frame、drawable miss 与 sample residue 均为 0。报告/full matrix SHA-256 为 `39fa4f12f95866c4117f269e3f6d6b4319b65e4afa9bd50b4c58d6cf5ae49d9a` / `e214f59520c373b2623fcdb84d9b9fd0948c4a30d5f0ad2385083db1d1363e0b`。四个 particle 缺口为 `2974757317:85705` 的显式空 renderer 沿 `missingSpriteRenderer` 失败关闭，以及 `3088601835:550/558`、`3750813609:200` 的 `cullmode=normal` 被 typed-state 合同拒绝。当前 fixed13 `.codex/scene-light-shafts-radial-fixed13-20260801-v1/report.json` 另为 **13/13 PASS**、stage/chain **135/18**；报告/fixed matrix SHA-256 为 `1b8855fe7b7adf547e82f3be5e300f00c94e852a28f7a5f7fe23decf55584674` / `f2f0b6c528878d5a71542cb73adcae5b23c016b42400515de2b5d5d41625b526`，两门互不替代。
 
@@ -141,7 +141,7 @@
 | Rope declaration | `L1` | typed kind/字段可见，runtime 明确拒绝 | topology、constraint、material IR 和 lifecycle |
 | Rope execution | `L0` | 无 renderer | geometry/topology/连续 UV/lifecycle |
 | Rope Trail strict execution | `L3` | 严格 Screen 单 renderer 子集以有界历史生成 quad 段；非准入字段、组合和预算全部 fail closed | 官方数值/UV/接缝/死亡尾迹/暂停恢复语义与 Windows golden |
-| Static control-point subset | `L3` | static definition offset/instance position 在 root Sphere/Box emitter local origin 有最终数值门；depth-one static child 可在 exact raw-copy profile 下复制 finite static parent CP position | adjusted/world/operator consumer、dynamic/angle copy 与 parent golden |
+| Static control-point subset | `L3` | root Sphere/Box emitter 只按 authored ID 0...7 绑定 static definition offset/instance position，显式 declaration identity 缺失/重复/越界或引用越界即零发射；合法未声明 CP 保持系统零位置。depth-one static child 可在 exact raw-copy profile 下复制 finite static parent CP position | angles、adjusted/world/operator consumer、dynamic/angle copy 与 Windows golden |
 | Dynamic control-point declaration | `L2` | CP position/angles nested Timeline 进入 typed IR/target；user/script/pointer 仍只诊断 | 其他 binding producer 与坐标空间 IR |
 | Dynamic control-point execution | `L3 bounded` | 仅 absolute Timeline position 经 per-surface snapshot 每帧驱动 root emitter；缺值回退 static | angles、relative、property/script/pointer、operator/child 与 cross-space golden |
 | Child asset graph | `L3` | 可递归发现并为 strict child 建立 runtime template 至层级 2：depth-one 每声明一个 template，depth-two 仅 event 触发且按 parent asset path 去重展开一次；missing/cycle/depth-three/nested-static fail closed | runtime cycle lifecycle、depth-two static 语义与 teardown 压力门 |
@@ -167,6 +167,8 @@
 `8b06538d` 修复 strict REFRACT 的 BC3 purpose 丢失；`d432d4d5` 再把 slot 0/1 分别绑定 `.straightAlbedo` / `.normal`，并以自建 GPU fixture 锁定单 image CPU BC3 decode、多 image native BC3 直传与 byte-equivalent format-0 RGBA 的位移一致、G/A swapped 与 neutral normal 负对照，以及 translucent/additive 的 coverage 单次作用。`3770444459` 的 8 秒固定步长历史门确认 layers 239/245/248 分别有 72/77/56 个非空 REFRACT 活动帧；当前隔离签名 App 门仍为 5/5 particle、REFRACT 4、failed frame/drawable miss 0。等级保持 `L3`：这只闭合项目内部存储/合成合同；当前没有官方/Windows DXT5n 恢复公式、法线位移 golden，也没有证明水花密度、生命周期或像素等价。
 
 `40768dfc` 为 child definition 保留 `parentcontrolpoint` 与 raw-copy flag，并只准 depth-one static、CP `0...7`、唯一 finite static root source、零 child offset/angles 的 exact raw-copy profile。动态、event/nested、adjusted、malformed 与越界形态均 fail closed。隔离真实 `3770444459` 的 layer 48 记录 `rawParentControlPointCopyBounded:mappings=2`，5/5 particle、425/425 completed frame、failed frame/drawable miss 0；全景截图正常且有运动，但不能隔离滴水位置、angles 或证明 Windows parity。
+
+`c6fc9c24` 修复 root emitter 把 authored CP identity 误当数组下标优先的问题，并在 emitter consumer 边界只准所有显式 declaration 都有唯一 0...7 identity；合法但未声明的 CP 仍使用 system zero，缺失/重复/越界 identity 与越界 source 均零发射并记录 `controlPointEmitterUnsupported`。隔离真实 `3770444459` 的 layer 48 记录 `controlPointEmitterBounded:sources=2`，particle 5/5、submitted/completed/failed `426/425/0`、drawable miss/sample residue `0/0`；ready/after 为完整彩色场景、changed ratio `0.301361`。这只证明真实多 emitter 链路与整景稳定，不隔离 CP angles、坐标转换、滴水轨迹或 Windows parity；未跑 fixed13/full45。
 
 `7b1d36f` 的 Turbulence 定向门为 5/5，覆盖旧 full45 日志中 19 条 `unsupportedOperator:turbulence` 的 14 条；另 3 个命中样本没有在新实现上复跑。该批没有改变 particle root loaded 计数，也没有重跑 fixed13/full45。
 
