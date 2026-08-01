@@ -28,7 +28,7 @@ HostFrameInputs
 
 MyWallpaperX 当前已落地第一阶段 `SceneFrameTiming` / `SceneFrameContext`：桌面宿主每帧只采样一次 monotonic host time 与 wall date，并把相同的 frame index、scene time 和 frame delta 广播给所有屏幕；shader time、内嵌视频 item-time 映射、粒子推进和相机视差平滑已消费该快照。各屏仍保留自己的 viewport、pointer 和 particle simulation。
 
-`36bfef0` 建立了六类 `SceneDynamicValue`、主要 target、固定覆盖顺序和不可变 snapshot。当前 v22 已完成 property binding program、per-surface transaction/generation，以及 layer alpha、solid color、direct text content/point-size/color、Local Contrast/Opacity producer/consumer。`1762743` 的 dynamic text 按 layer signature 异步生成并拒绝 stale completion；Timeline 有 bounded typed producer，SceneScript 也只有 exact native text/audio profiles，均不能外推为通用脚本、particle、system/media text 或其他 effect constant。
+`36bfef0` 建立了六类 `SceneDynamicValue`、主要 target、固定覆盖顺序和不可变 snapshot。当前 v22 已完成 property binding program、per-surface transaction/generation，以及 layer alpha、solid color、direct text content/point-size/color、Local Contrast/Opacity producer/consumer。`1762743` 的 dynamic text 按 layer signature 异步生成并拒绝 stale completion；Timeline 有 bounded typed producer。SceneScript 除 exact native text/audio profiles 外，现有 property-bound text `update(value)` 的无循环 Date/string AST 子集；它只产生 String target，不能外推为通用脚本、particle、system/media text 或其他 effect constant。
 
 这仍不等于完整时钟和动态系统合同。16/32/64 host audio 与 bounded consumers 已接入；Scene pause/resume 已在共享 clock、frame driver 与 embedded video provider 上形成受限状态合同。真实系统 pause/hot-plug、delta clamp、fixed timestep、buttons、media producer、deterministic seed、离线 adapter、通用 SceneScript 与其余 Timeline/particle target 仍未闭合。
 
@@ -307,7 +307,7 @@ Timeline 由 runtime time 求值，不应按“每渲染帧加一个 keyframe st
 
 实现不能只嵌入一个通用 JavaScript VM。必须先有 typed layer/effect/text/particle/material target 和确定生命周期，否则大部分脚本即使能执行也没有可写对象。
 
-当前实现把文档级 inline property binding 的 scene/object/effect/pass owner、完整 JSON target path、source、properties、authored fallback 与 JSON value type 保真进 IR（`L1`），正式取证五类位置有 13-shape 自建门；nested/未知 owner 不提升，`script + user` 冲突 fail-closed。三个 text source profile与两个 64-band audio source profile另被编译为严格失败关闭的 native `L3 bounded` consumer。audio profile 的 64 次 Metal draw 是 renderer instance，不产生动态 Scene layer、`ILayer` handle 或 topology；file/module、schema-resolved value type、ECMAScript VM、`registerAudioBuffers`、`AudioBuffers` object、`createLayer`、事件和生命周期仍全部为 `L0`。
+当前实现把文档级 inline property binding 的 scene/object/effect/pass owner、完整 JSON target path、source、properties、authored fallback 与 JSON value type 保真进 IR（`L1`），正式取证五类位置有 13-shape 自建门；nested/未知 owner 不提升，`script + user` 冲突 fail-closed。七个 exact text source profile与两个 64-band audio source profile被编译为严格失败关闭的 native `L3 bounded` consumer；property-bound text 另可按公共语法准入唯一 `update(value)` 的无循环 AST，以 primitive property、Date getter 与 string operations 产生 typed String。audio profile 的 64 次 Metal draw 是 renderer instance，不产生动态 Scene layer、`ILayer` handle 或 topology；file/module、schema-resolved non-String value type、通用 ECMAScript VM、`registerAudioBuffers`、`AudioBuffers` object、`createLayer`、事件和实例生命周期仍全部为 `L0`。
 
 ### 5.4 安全和资源边界
 
@@ -456,7 +456,7 @@ Realtime Adapter              Offline Adapter
 | Frame Context | 宿主单一 60 Hz driver；所有屏幕共享 frame index/host/scene/wall time；shader、video、particle、parallax 已迁移；pause 冻结 scene time/frame index，resume 首帧不补 host gap | 真实系统 pause、delta clamp、固定 timestep、离线实时等价已闭环 |
 | Dynamic target snapshot | 六类 typed value、主要 target 族、固定优先级、binding program、per-surface evaluation transaction/snapshot/generation；layer alpha、纯 solid color、direct text、exact Local Contrast/Opacity、受限 X-Ray target 与 Timeline 的 effect constant/layer alpha 子集有真实 producer/consumer | Timeline 的 `relative`/Combined/tangent/其他 target、SceneScript 与 particle dynamic target 仍未 live；unsupported host 留诊断 |
 | Timeline | IR、绝对 scene-time evaluator 与 28/48 typed target 子集已执行，覆盖 Loop/Single/start-paused 及 effect constant/layer alpha | Mirror 尚无真实语料正门；`relative`、wrap-loop、Combined、tangent、其余 target 与 event crossing 未完成，不能宣称任意动画模式可用 |
-| SceneScript | 顶层 layer binding IR 为 `L1`；三个 text 与两个 64-band audio exact native profiles 为 `L3 bounded` | ECMAScript VM/API、`registerAudioBuffers`/`AudioBuffers`、`createLayer`/`ILayer` handles 可用 |
+| SceneScript | 顶层 layer binding IR 为 `L1`；七个 exact text、两个 exact 64-band audio profile和 property-bound text Date/string update subset 为 `L3 bounded` | 通用 ECMAScript VM/API、`registerAudioBuffers`/`AudioBuffers`、`createLayer`/`ILayer` handles 可用 |
 | User Properties | 独立窗口、条件、默认/override、部分 target 与持久化；`texture`/`scenetexture` 内部归一；受限静态 consumer 可选择 PNG/JPEG；已注册 B0/direct text/X-Ray target 可无重建更新 | 全部样本属性可调、所有 texture target/variant/live value 已闭环 |
 | Texture Provider | frame identity/status/generation、named variant 隔离、property absent -> authored fallback、受限 file-backed property source；direct text/embedded MP4 使用显式 content generation，视频有 launch-scoped pause/rebuild/stop 合同 | system media、Texture Variants、generic video/material 与 effectful/nested provider 已闭环 |
 | Audio | Scene 16/32/64 host left/right、既有 effect consumers 与两个 native 64-band average profiles 已闭合 | JS `AudioBuffers`、Sound/self-play、粒子 audio 或任何数值/视觉 parity |

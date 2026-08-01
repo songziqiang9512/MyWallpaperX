@@ -1,10 +1,11 @@
 import CryptoKit
 import Foundation
 
-/// Compiles only independently verified text-script profiles.
+/// Compiles independently verified exact profiles or the bounded text-update AST.
 ///
-/// The raw source fingerprint and the complete property shape must both match.
-/// Unknown or edited scripts keep their authored fallback text.
+/// Exact profiles require both source fingerprint and complete property shape. The
+/// shared subset instead requires its bounded grammar and runtime value contract;
+/// unsupported scripts keep their authored fallback text.
 nonisolated enum SceneTextScriptCompiler {
     private static let clockSHA256 =
         "ebf5e5f476ec0a0e35c9dd5c77a9691e23468d24b58a465488157c9e026e4912"

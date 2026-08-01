@@ -4,7 +4,7 @@ import Foundation
 ///
 /// Keeping this separate from `SceneTextDescriptor` prevents unsupported scripts from
 /// silently changing the authored fallback text. Execution is decided later by the
-/// strict profile compiler.
+/// exact-profile or bounded-subset compiler.
 nonisolated struct SceneTextScriptDefinition: Codable, Equatable, Sendable {
     let source: String
     let properties: [String: SceneJSONValue]
