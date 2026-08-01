@@ -15,6 +15,9 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
+    SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
+    SOURCE_ROOT / "Runtime/SceneTextureAnimationPlaybackPlan.swift",
+    SOURCE_ROOT / "Runtime/SceneTextureAnimationScriptCompiler.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "Text/SceneTextScriptDefinition.swift",
     SOURCE_ROOT / "Text/SceneTextScriptProgram.swift",
@@ -35,6 +38,7 @@ struct SceneRenderDescriptor {
         let visible: Bool?
         let text: String?
         let textScript: SceneTextScriptDefinition?
+        let textureAnimationScripts: [SceneTextureAnimationScriptDefinition]? = nil
     }
     let layers: [Layer]
 }
@@ -61,6 +65,8 @@ enum Harness {
         "8420e0f255e350654503e24d87a8257dbec560a64ae09524966a5659f5b538cb"
     static let clockWithPeriodHash =
         "ef8b5597f44146180b337c0c0c732ea2e2d1238a7db561cdeab6ed9106599592"
+    static let timeOfDayGreetingHash =
+        "7d4275e4b3cbe9ff22cf4b21f694e121f803cebd230dea37c7269dd7a9de9c8c"
 
     static func main() throws {
         let parsed = SceneTextScriptDefinition.parse([
@@ -137,6 +143,29 @@ enum Harness {
                 "displayDate": .bool(true),
                 "showSeconds": .bool(true),
                 "use24hFormat": .bool(true),
+            ]
+        )
+        let timeOfDaySchedule = SceneTimeOfDaySchedule(
+            dayStartHour: 0,
+            nightStartHour: 12
+        )
+        let greeting = SceneTextScriptCompiler.compileVerifiedProfile(
+            layerID: 505,
+            authoredText: "fallback",
+            sourceSHA256: timeOfDayGreetingHash,
+            properties: [
+                "dayText": .string("GOOD\nMORNING"),
+                "nightText": .string("GOOD\nEVENING"),
+            ],
+            timeOfDaySchedule: timeOfDaySchedule
+        )
+        let greetingMissingSharedState = SceneTextScriptCompiler.compileVerifiedProfile(
+            layerID: 605,
+            authoredText: "fallback",
+            sourceSHA256: timeOfDayGreetingHash,
+            properties: [
+                "dayText": .string("GOOD\nMORNING"),
+                "nightText": .string("GOOD\nEVENING"),
             ]
         )
         let compactDayMissingProperty = SceneTextScriptCompiler.compileVerifiedProfile(
@@ -222,12 +251,17 @@ enum Harness {
         let program = SceneTextScriptProgram(
             bindings: clock.bindings + clock12.bindings + spacedDay.bindings + date.bindings
                 + compactDay.bindings + longMonthDate.bindings
-                + clockWithPeriod.bindings + clockWithDate.bindings,
+                + clockWithPeriod.bindings + clockWithDate.bindings + greeting.bindings,
             diagnostics: []
         )
         let values = SceneTextScriptRuntime.values(
             program: program,
             wallDate: utcDate(year: 2026, month: 7, day: 28, hour: 23, minute: 7, second: 5),
+            timeZone: TimeZone(secondsFromGMT: 0)!
+        )
+        let morningValues = SceneTextScriptRuntime.values(
+            program: greeting,
+            wallDate: utcDate(year: 2026, month: 7, day: 28, hour: 7, minute: 0, second: 0),
             timeZone: TimeZone(secondsFromGMT: 0)!
         )
         let definitions = SceneDynamicDefinitionMerger.merge(
@@ -258,6 +292,13 @@ enum Harness {
             "longMonthDate": string(values[.text(layerID: 502, field: .content)]),
             "clockWithPeriod": string(values[.text(layerID: 503, field: .content)]),
             "clockWithDate": string(values[.text(layerID: 504, field: .content)]),
+            "greetingNight": string(values[.text(layerID: 505, field: .content)]),
+            "greetingMorning": string(
+                morningValues[.text(layerID: 505, field: .content)]
+            ),
+            "greetingMissingSharedState": greetingMissingSharedState.diagnostics.map {
+                $0.code.rawValue
+            },
             "newProfileInvalid": [
                 compactDayMissingProperty,
                 longMonthDateExtraProperty,
@@ -348,7 +389,7 @@ class SceneTextScriptRuntimeTests(unittest.TestCase):
         cls.temporary_directory.cleanup()
 
     def test_verified_profiles_produce_expected_local_calendar_text(self) -> None:
-        self.assertEqual(self.payload["bindingCount"], 8)
+        self.assertEqual(self.payload["bindingCount"], 9)
         self.assertEqual(self.payload["clock"], "-23:07-")
         self.assertEqual(self.payload["clock12"], "-11:07-:05")
         self.assertEqual(self.payload["day"], "T U E S D A Y")
@@ -357,10 +398,13 @@ class SceneTextScriptRuntimeTests(unittest.TestCase):
         self.assertEqual(self.payload["longMonthDate"], "28  JULY  2026")
         self.assertEqual(self.payload["clockWithPeriod"], "11:07 PM")
         self.assertEqual(self.payload["clockWithDate"], "23:07:05\n07/28/2026")
+        self.assertEqual(self.payload["greetingMorning"], "GOOD\nMORNING")
+        self.assertEqual(self.payload["greetingNight"], "GOOD\nEVENING")
 
     def test_source_and_complete_property_shape_fail_closed(self) -> None:
         self.assertEqual(self.payload["parsedSource"], "unknown source")
         self.assertEqual(self.payload["invalid"], ["invalidProperties"])
+        self.assertEqual(self.payload["greetingMissingSharedState"], ["missingSharedState"])
         self.assertEqual(
             self.payload["newProfileInvalid"],
             ["invalidProperties", "invalidProperties", "invalidProperties", "invalidProperties"],
@@ -369,7 +413,7 @@ class SceneTextScriptRuntimeTests(unittest.TestCase):
         self.assertEqual(self.payload["directUnknown"], ["92:unknownProfile"])
 
     def test_scene_script_value_wins_without_duplicate_definition(self) -> None:
-        self.assertEqual(self.payload["definitionCount"], 8)
+        self.assertEqual(self.payload["definitionCount"], 9)
         self.assertEqual(self.payload["resolved"], "-23:07-")
         self.assertEqual(self.payload["source"], "sceneScript")
         self.assertEqual(self.payload["runtimeDiagnostics"], 0)

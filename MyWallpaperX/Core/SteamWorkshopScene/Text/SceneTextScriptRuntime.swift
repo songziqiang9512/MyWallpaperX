@@ -13,14 +13,21 @@ nonisolated enum SceneTextScriptRuntime {
             from: wallDate
         )
         return program.bindings.reduce(into: [:]) { values, binding in
-            guard let content = content(binding: binding, components: components) else { return }
+            guard let content = content(
+                binding: binding,
+                components: components,
+                wallDate: wallDate,
+                timeZone: timeZone
+            ) else { return }
             values[binding.target] = .string(content)
         }
     }
 
     private nonisolated static func content(
         binding: SceneTextScriptProgram.Binding,
-        components: DateComponents
+        components: DateComponents,
+        wallDate: Date,
+        timeZone: TimeZone
     ) -> String? {
         switch binding.configuration {
         case let .clock(use24Hour, showSeconds, delimiter):
@@ -46,6 +53,11 @@ nonisolated enum SceneTextScriptRuntime {
                 displayDate: displayDate,
                 delimiter: delimiter
             )
+        case let .timeOfDayGreeting(dayText, nightText, schedule):
+            guard let state = schedule.state(at: wallDate, timeZone: timeZone) else {
+                return nil
+            }
+            return state == .day ? dayText : nightText
         case let .date(
             monthFormat,
             dayFormat,
@@ -117,7 +129,9 @@ nonisolated enum SceneTextScriptRuntime {
             return nil
         }
         switch profile {
-        case .workshop2981960200Clock, .workshop3732231168Clock:
+        case .workshop2981960200Clock,
+             .workshop3732231168Clock,
+             .workshop3732231168Greeting:
             return nil
         case .workshop2981960200SpacedDay:
             if showDay {

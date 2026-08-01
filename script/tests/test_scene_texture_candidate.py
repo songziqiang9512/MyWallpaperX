@@ -491,6 +491,7 @@ enum Harness {
         let firstFrameCommandBuffer = commandQueue.makeCommandBuffer()!
         crossImageAnimation.encode(
             sceneTime: 0,
+            wallDate: Date(timeIntervalSince1970: 0),
             commandBuffer: firstFrameCommandBuffer
         )
         firstFrameCommandBuffer.commit()
@@ -502,6 +503,7 @@ enum Harness {
         let secondFrameCommandBuffer = commandQueue.makeCommandBuffer()!
         crossImageAnimation.encode(
             sceneTime: 0.04,
+            wallDate: Date(timeIntervalSince1970: 0),
             commandBuffer: secondFrameCommandBuffer
         )
         secondFrameCommandBuffer.commit()

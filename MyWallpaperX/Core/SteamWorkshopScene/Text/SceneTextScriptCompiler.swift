@@ -18,9 +18,19 @@ nonisolated enum SceneTextScriptCompiler {
         "8420e0f255e350654503e24d87a8257dbec560a64ae09524966a5659f5b538cb"
     private static let clockWithPeriodSHA256 =
         "ef8b5597f44146180b337c0c0c732ea2e2d1238a7db561cdeab6ed9106599592"
+    private static let timeOfDayGreetingSHA256 =
+        "7d4275e4b3cbe9ff22cf4b21f694e121f803cebd230dea37c7269dd7a9de9c8c"
 
     nonisolated static func compile(descriptor: SceneRenderDescriptor) -> SceneTextScriptProgram {
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
+        let timeOfDaySchedules = descriptor.layers.compactMap { layer in
+            SceneTextureAnimationScriptCompiler.timeOfDaySchedule(
+                definitions: layer.textureAnimationScripts ?? []
+            )
+        }
+        let timeOfDaySchedule = timeOfDaySchedules.count == 1
+            ? timeOfDaySchedules[0]
+            : nil
         var bindings: [SceneTextScriptProgram.Binding] = []
         var diagnostics: [SceneTextScriptProgram.Diagnostic] = []
 
@@ -36,9 +46,18 @@ nonisolated enum SceneTextScriptCompiler {
                 ))
                 continue
             }
+            if profile == .workshop3732231168Greeting && timeOfDaySchedule == nil {
+                diagnostics.append(.init(
+                    layerID: layer.id,
+                    code: .missingSharedState,
+                    sourceSHA256: sourceSHA256
+                ))
+                continue
+            }
             guard let configuration = configuration(
                 profile: profile,
-                properties: script.properties
+                properties: script.properties,
+                timeOfDaySchedule: timeOfDaySchedule
             ) else {
                 diagnostics.append(.init(
                     layerID: layer.id,
@@ -67,7 +86,8 @@ nonisolated enum SceneTextScriptCompiler {
         layerID: Int,
         authoredText: String,
         sourceSHA256: String,
-        properties: [String: SceneJSONValue]
+        properties: [String: SceneJSONValue],
+        timeOfDaySchedule: SceneTimeOfDaySchedule? = nil
     ) -> SceneTextScriptProgram {
         guard let profile = profile(sourceSHA256: sourceSHA256) else {
             return .init(bindings: [], diagnostics: [.init(
@@ -76,7 +96,18 @@ nonisolated enum SceneTextScriptCompiler {
                 sourceSHA256: sourceSHA256
             )])
         }
-        guard let configuration = configuration(profile: profile, properties: properties) else {
+        if profile == .workshop3732231168Greeting && timeOfDaySchedule == nil {
+            return .init(bindings: [], diagnostics: [.init(
+                layerID: layerID,
+                code: .missingSharedState,
+                sourceSHA256: sourceSHA256
+            )])
+        }
+        guard let configuration = configuration(
+            profile: profile,
+            properties: properties,
+            timeOfDaySchedule: timeOfDaySchedule
+        ) else {
             return .init(bindings: [], diagnostics: [.init(
                 layerID: layerID,
                 code: .invalidProperties,
@@ -105,13 +136,15 @@ nonisolated enum SceneTextScriptCompiler {
         case compactDaySHA256: .workshop3732231168CompactDay
         case longMonthDateSHA256: .workshop3732231168LongMonthDate
         case clockWithPeriodSHA256: .workshop3732231168Clock
+        case timeOfDayGreetingSHA256: .workshop3732231168Greeting
         default: nil
         }
     }
 
     private nonisolated static func configuration(
         profile: SceneTextScriptProgram.Profile,
-        properties: [String: SceneJSONValue]
+        properties: [String: SceneJSONValue],
+        timeOfDaySchedule: SceneTimeOfDaySchedule?
     ) -> SceneTextScriptProgram.Configuration? {
         switch profile {
         case .workshop2981960200Clock:
@@ -141,6 +174,18 @@ nonisolated enum SceneTextScriptCompiler {
                 showSeconds: showSeconds,
                 displayDate: displayDate,
                 delimiter: delimiter
+            )
+        case .workshop3732231168Greeting:
+            guard Set(properties.keys) == ["dayText", "nightText"],
+                  let dayText = string(properties["dayText"]),
+                  let nightText = string(properties["nightText"]),
+                  let timeOfDaySchedule else {
+                return nil
+            }
+            return .timeOfDayGreeting(
+                dayText: dayText,
+                nightText: nightText,
+                schedule: timeOfDaySchedule
             )
         case .workshop2981960200SpacedDay,
              .workshop2981960200Date,

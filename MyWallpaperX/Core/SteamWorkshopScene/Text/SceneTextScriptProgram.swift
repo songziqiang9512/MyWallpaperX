@@ -8,6 +8,7 @@ nonisolated struct SceneTextScriptProgram: Equatable, Sendable {
         case workshop3732231168CompactDay
         case workshop3732231168LongMonthDate
         case workshop3732231168Clock
+        case workshop3732231168Greeting
     }
 
     nonisolated enum Configuration: Equatable, Sendable {
@@ -17,6 +18,11 @@ nonisolated struct SceneTextScriptProgram: Equatable, Sendable {
             showSeconds: Bool,
             displayDate: Bool,
             delimiter: String
+        )
+        case timeOfDayGreeting(
+            dayText: String,
+            nightText: String,
+            schedule: SceneTimeOfDaySchedule
         )
         case date(
             monthFormat: Int,
@@ -41,6 +47,7 @@ nonisolated struct SceneTextScriptProgram: Equatable, Sendable {
         enum Code: String {
             case unknownProfile
             case invalidProperties
+            case missingSharedState
         }
 
         let layerID: Int

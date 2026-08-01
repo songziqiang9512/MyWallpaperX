@@ -384,7 +384,8 @@ class SceneMetalView: NSView {
             encodeSourceUpdates: { [puppetPlaybackStates, spriteAnimations] commandBuffer in
                 for animation in spriteAnimations.values {
                     animation.encode(
-                        sceneTime: Float(frameContext.sceneTime), commandBuffer: commandBuffer
+                        sceneTime: Float(frameContext.sceneTime), wallDate: frameContext.wallDate,
+                        commandBuffer: commandBuffer
                     )
                 }
                 for playback in puppetPlaybackStates.values {

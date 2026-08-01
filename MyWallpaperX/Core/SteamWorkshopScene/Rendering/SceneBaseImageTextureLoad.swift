@@ -284,10 +284,15 @@ enum SceneBaseImageTextureLoad {
                 texture: texture,
                 candidate: nil,
                 animation: container.flatMap {
-                    SceneSpriteAnimation(frames: $0.spriteFrames)
+                    SceneSpriteAnimation(
+                        frames: $0.spriteFrames,
+                        playbackPlan: textureAnimationPlan
+                    )
                 },
                 message: "; base color legacy route (\(reason))"
                     + crossImageFallbackMessage
+                    + (textureAnimationPlan == nil
+                        ? "" : "; bounded texture-animation lifecycle")
             ))
         case let failure:
             return .failed(failure)

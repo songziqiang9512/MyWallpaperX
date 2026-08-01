@@ -156,7 +156,11 @@ enum Harness {
             result["crossImageAnimationAccepted"] = true
             let queue = device.makeCommandQueue()!
             let firstBuffer = queue.makeCommandBuffer()!
-            playback.encode(sceneTime: 0, commandBuffer: firstBuffer)
+            playback.encode(
+                sceneTime: 0,
+                wallDate: Date(timeIntervalSince1970: 0),
+                commandBuffer: firstBuffer
+            )
             firstBuffer.commit()
             firstBuffer.waitUntilCompleted()
             result["crossImageFrame0Pixel"] = try readFirstPixel(
@@ -164,7 +168,11 @@ enum Harness {
                 device: device
             )
             let secondBuffer = queue.makeCommandBuffer()!
-            playback.encode(sceneTime: 0.04, commandBuffer: secondBuffer)
+            playback.encode(
+                sceneTime: 0.04,
+                wallDate: Date(timeIntervalSince1970: 0),
+                commandBuffer: secondBuffer
+            )
             secondBuffer.commit()
             secondBuffer.waitUntilCompleted()
             result["crossImageFrame1Pixel"] = try readFirstPixel(
