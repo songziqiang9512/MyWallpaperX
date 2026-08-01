@@ -78,14 +78,44 @@ func waitFor(_ store: SceneMediaThumbnailTextureStore, generation: UInt64) -> Sc
     return store.snapshot()
 }
 
+final class DecodeCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    func decode(_ data: Data) -> CGImage? {
+        lock.lock()
+        count += 1
+        lock.unlock()
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else {
+            return nil
+        }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 256,
+            kCGImageSourceShouldCacheImmediately: true,
+        ]
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+    }
+
+    var value: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
+    }
+}
+
 guard let device = MTLCreateSystemDefaultDevice() else {
     fatalError("Metal unavailable")
 }
 let inbox = SceneMediaThumbnailInbox()
 let decodingQueue = DispatchQueue(label: "fixture.media-thumbnail")
+decodingQueue.suspend()
+let decodeCounter = DecodeCounter()
 let store = SceneMediaThumbnailTextureStore(
     device: device,
-    decodingQueue: decodingQueue
+    decodingQueue: decodingQueue,
+    imageDecoder: decodeCounter.decode
 )
 let a = png(red: 255, green: 0, blue: 0)
 let b = png(red: 0, green: 255, blue: 0)
@@ -97,7 +127,9 @@ _ = inbox.publish(b)
 store.update(from: inbox.latest())
 _ = inbox.publish(c)
 store.update(from: inbox.latest())
+decodingQueue.resume()
 let third = waitFor(store, generation: 3)
+let rapidDecodeCount = decodeCounter.value
 let duplicateAccepted = inbox.publish(c)
 let duplicateGeneration = inbox.latest().generation
 let oversizedRejected = !inbox.publish(
@@ -126,6 +158,7 @@ let result: [String: Any] = [
     "generation": third.generation,
     "currentPixel": pixel(third.current?.texture),
     "previousPixel": pixel(third.publications["$mediaPreviousThumbnail"]?.texture),
+    "rapidDecodeCount": rapidDecodeCount,
     "duplicateAccepted": duplicateAccepted,
     "duplicateGenerationStable": duplicateGeneration == 3,
     "oversizedRejected": oversizedRejected,
@@ -173,6 +206,7 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         self.assertEqual(result["generation"], 3)
         self.assertEqual(result["currentPixel"], [0, 0, 255, 255])
         self.assertEqual(result["previousPixel"], [0, 255, 0, 255])
+        self.assertEqual(result["rapidDecodeCount"], 2)
         self.assertTrue(result["duplicateAccepted"])
         self.assertTrue(result["duplicateGenerationStable"])
         self.assertTrue(result["oversizedRejected"])

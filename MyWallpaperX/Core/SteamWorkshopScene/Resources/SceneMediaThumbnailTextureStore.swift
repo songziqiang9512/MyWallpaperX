@@ -3,6 +3,29 @@ import ImageIO
 import Metal
 
 final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
+    private final class DecodeRequest: @unchecked Sendable {
+        let input: SceneMediaThumbnailInbox.Snapshot
+
+        private let lock = NSLock()
+        private var cancelled = false
+
+        init(input: SceneMediaThumbnailInbox.Snapshot) {
+            self.input = input
+        }
+
+        func cancel() {
+            lock.lock()
+            cancelled = true
+            lock.unlock()
+        }
+
+        var isCancelled: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return cancelled
+        }
+    }
+
     struct Snapshot {
         let generation: UInt64
         let current: SceneTextureProviderPublication?
@@ -19,18 +42,23 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
 
     private let device: MTLDevice
     private let queue: DispatchQueue
+    private let imageDecoder: (Data) -> CGImage?
     private let lock = NSLock()
     private var requestedGeneration: UInt64 = 0
     private var readyGeneration: UInt64 = 0
     private var currentTexture: MTLTexture?
     private var previousTexture: MTLTexture?
     private var reportedPendingGeneration: UInt64?
+    private var pendingRequest: DecodeRequest?
 
     init(
         device: MTLDevice,
-        decodingQueue: DispatchQueue? = nil
+        decodingQueue: DispatchQueue? = nil,
+        imageDecoder: @escaping (Data) -> CGImage? =
+            SceneMediaThumbnailTextureStore.decodeImage
     ) {
         self.device = device
+        self.imageDecoder = imageDecoder
         self.queue = decodingQueue ?? DispatchQueue(
             label: "com.mywallpaperx.scene.media-thumbnail",
             qos: .userInitiated
@@ -44,10 +72,13 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
             return
         }
         requestedGeneration = input.generation
+        pendingRequest?.cancel()
+        let request = DecodeRequest(input: input)
+        pendingRequest = request
         lock.unlock()
 
         queue.async { [weak self] in
-            self?.decode(input)
+            self?.decode(request)
         }
     }
 
@@ -92,16 +123,26 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         )
     }
 
-    private func decode(_ input: SceneMediaThumbnailInbox.Snapshot) {
-        let current = input.current.flatMap(Self.decodeImage).flatMap(makeTexture)
-        let previous = input.previous.flatMap(Self.decodeImage).flatMap(makeTexture)
+    private func decode(_ request: DecodeRequest) {
+        guard shouldContinue(request) else { return }
+        let input = request.input
+        let currentImage = input.current.flatMap(imageDecoder)
+        guard shouldContinue(request) else { return }
+        let current = currentImage.flatMap(makeTexture)
+        guard shouldContinue(request) else { return }
+        let previousImage = input.previous.flatMap(imageDecoder)
+        guard shouldContinue(request) else { return }
+        let previous = previousImage.flatMap(makeTexture)
+        guard !request.isCancelled else { return }
         lock.lock()
         defer { lock.unlock() }
-        guard requestedGeneration == input.generation else { return }
+        guard pendingRequest === request,
+              requestedGeneration == input.generation else { return }
         currentTexture = current
         previousTexture = previous
         readyGeneration = input.generation
         reportedPendingGeneration = nil
+        pendingRequest = nil
 #if DEBUG
         print(
             "MWX media thumbnail store: phase=ready"
@@ -110,6 +151,14 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
                 + " hasPrevious=\(previous != nil)"
         )
 #endif
+    }
+
+    private func shouldContinue(_ request: DecodeRequest) -> Bool {
+        guard !request.isCancelled else { return false }
+        lock.lock()
+        defer { lock.unlock() }
+        return pendingRequest === request
+            && requestedGeneration == request.input.generation
     }
 
     private func makeTexture(_ image: CGImage) -> MTLTexture? {
