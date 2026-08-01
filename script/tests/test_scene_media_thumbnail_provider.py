@@ -82,7 +82,11 @@ guard let device = MTLCreateSystemDefaultDevice() else {
     fatalError("Metal unavailable")
 }
 let inbox = SceneMediaThumbnailInbox()
-let store = SceneMediaThumbnailTextureStore(device: device)
+let decodingQueue = DispatchQueue(label: "fixture.media-thumbnail")
+let store = SceneMediaThumbnailTextureStore(
+    device: device,
+    decodingQueue: decodingQueue
+)
 let a = png(red: 255, green: 0, blue: 0)
 let b = png(red: 0, green: 255, blue: 0)
 let c = png(red: 0, green: 0, blue: 255)
@@ -99,9 +103,24 @@ let duplicateGeneration = inbox.latest().generation
 let oversizedRejected = !inbox.publish(
     Data(count: SceneMediaThumbnailInbox.maximumEncodedByteCount + 1)
 )
+
+decodingQueue.suspend()
+_ = inbox.publish(a)
+store.update(from: inbox.latest())
+let retainedDuringPending = store.snapshot()
+decodingQueue.resume()
+let fourth = waitFor(store, generation: 4)
+
+decodingQueue.suspend()
+_ = inbox.publish(Data([0, 1, 2, 3]))
+store.update(from: inbox.latest())
+let retainedDuringDecodeFailure = store.snapshot()
+decodingQueue.resume()
+let failed = waitFor(store, generation: 5)
+
 inbox.clear()
 store.update(from: inbox.latest())
-let cleared = waitFor(store, generation: 4)
+let cleared = waitFor(store, generation: 6)
 
 let result: [String: Any] = [
     "generation": third.generation,
@@ -110,8 +129,22 @@ let result: [String: Any] = [
     "duplicateAccepted": duplicateAccepted,
     "duplicateGenerationStable": duplicateGeneration == 3,
     "oversizedRejected": oversizedRejected,
+    "pendingGeneration": retainedDuringPending.generation,
+    "pendingCurrentPixel": pixel(retainedDuringPending.current?.texture),
+    "fourthCurrentPixel": pixel(fourth.current?.texture),
+    "fourthPreviousPixel": pixel(
+        fourth.publications["$mediaPreviousThumbnail"]?.texture
+    ),
+    "failurePendingGeneration": retainedDuringDecodeFailure.generation,
+    "failurePendingCurrentPixel": pixel(retainedDuringDecodeFailure.current?.texture),
+    "failedGeneration": failed.generation,
+    "failedCurrent": failed.current == nil,
+    "failedPreviousPixel": pixel(
+        failed.publications["$mediaPreviousThumbnail"]?.texture
+    ),
     "clearedGeneration": cleared.generation,
     "clearedCurrent": cleared.current == nil,
+    "clearedPrevious": cleared.publications["$mediaPreviousThumbnail"] == nil,
 ]
 let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
 print(String(decoding: data, as: UTF8.self))
@@ -143,8 +176,18 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         self.assertTrue(result["duplicateAccepted"])
         self.assertTrue(result["duplicateGenerationStable"])
         self.assertTrue(result["oversizedRejected"])
-        self.assertEqual(result["clearedGeneration"], 4)
+        self.assertEqual(result["pendingGeneration"], 3)
+        self.assertEqual(result["pendingCurrentPixel"], [0, 0, 255, 255])
+        self.assertEqual(result["fourthCurrentPixel"], [255, 0, 0, 255])
+        self.assertEqual(result["fourthPreviousPixel"], [0, 0, 255, 255])
+        self.assertEqual(result["failurePendingGeneration"], 4)
+        self.assertEqual(result["failurePendingCurrentPixel"], [255, 0, 0, 255])
+        self.assertEqual(result["failedGeneration"], 5)
+        self.assertTrue(result["failedCurrent"])
+        self.assertEqual(result["failedPreviousPixel"], [255, 0, 0, 255])
+        self.assertEqual(result["clearedGeneration"], 6)
         self.assertTrue(result["clearedCurrent"])
+        self.assertTrue(result["clearedPrevious"])
 
 
 if __name__ == "__main__":

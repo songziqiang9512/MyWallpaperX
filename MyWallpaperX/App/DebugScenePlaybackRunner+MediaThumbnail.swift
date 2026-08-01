@@ -22,14 +22,40 @@ extension DebugScenePlaybackRunner {
         }
         for entry in entries {
             DispatchQueue.main.asyncAfter(deadline: .now() + entry.delay) {
-                publishMediaThumbnail(relativePath: entry.path, rootURL: rootURL)
+                if let path = entry.path {
+                    publishMediaThumbnail(relativePath: path, rootURL: rootURL)
+                } else {
+                    SceneMediaThumbnailInbox.shared.clear()
+                    NSLog("MWX DEBUG SCENE: phase=media-thumbnail-cleared")
+                }
             }
         }
     }
 
     private struct MediaSequenceEntry: Decodable {
-        let path: String
+        let path: String?
         let delay: TimeInterval
+
+        private enum CodingKeys: String, CodingKey {
+            case path
+            case clear
+            case delay
+        }
+
+        init(from decoder: Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            let path = try values.decodeIfPresent(String.self, forKey: .path)
+            let clear = try values.decodeIfPresent(Bool.self, forKey: .clear) ?? false
+            guard (path != nil) != clear else {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .path,
+                    in: values,
+                    debugDescription: "exactly one media sequence action is required"
+                )
+            }
+            self.path = path
+            self.delay = try values.decode(TimeInterval.self, forKey: .delay)
+        }
     }
 
     private static func publishMediaThumbnail(

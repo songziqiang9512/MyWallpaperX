@@ -99,6 +99,16 @@ MEDIA_THUMBNAIL_TRANSITION_EXECUTION_RE = re.compile(
     r"media thumbnail transition: layer=(?P<id>\d+) "
     r"generation=(?P<generation>\d+) phase=(?P<phase>started|midpoint|completed)"
 )
+MEDIA_THUMBNAIL_PENDING_RE = re.compile(
+    r"media thumbnail store: phase=pending-last-ready "
+    r"requestedGeneration=(?P<requested>\d+) "
+    r"readyGeneration=(?P<ready>\d+) hasCurrent=(?P<current>true|false)"
+)
+MEDIA_THUMBNAIL_READY_RE = re.compile(
+    r"media thumbnail store: phase=ready generation=(?P<generation>\d+) "
+    r"hasCurrent=(?P<current>true|false) hasPrevious=(?P<previous>true|false)"
+)
+MEDIA_THUMBNAIL_CLEAR_RE = re.compile(r"phase=media-thumbnail-cleared")
 SCENE_SCRIPT_AUDIO_BARS_PLAN_COUNT_RE = re.compile(
     r"^sceneScriptAudioBarsPlanCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -1177,6 +1187,28 @@ def media_thumbnail_transition_execution_metrics(log_text: str) -> dict[str, Any
     }
 
 
+def media_thumbnail_store_metrics(log_text: str) -> dict[str, Any]:
+    return {
+        "pending_last_ready": [
+            {
+                "requested_generation": int(match.group("requested")),
+                "ready_generation": int(match.group("ready")),
+                "has_current": match.group("current") == "true",
+            }
+            for match in MEDIA_THUMBNAIL_PENDING_RE.finditer(log_text)
+        ],
+        "ready_states": [
+            {
+                "generation": int(match.group("generation")),
+                "has_current": match.group("current") == "true",
+                "has_previous": match.group("previous") == "true",
+            }
+            for match in MEDIA_THUMBNAIL_READY_RE.finditer(log_text)
+        ],
+        "clear_count": len(MEDIA_THUMBNAIL_CLEAR_RE.findall(log_text)),
+    }
+
+
 def scene_script_audio_bars_runtime_metrics(preview_text: str) -> dict[str, Any]:
     plan_count_match = SCENE_SCRIPT_AUDIO_BARS_PLAN_COUNT_RE.search(preview_text)
     diagnostic_count_match = (
@@ -2108,20 +2140,34 @@ def append_media_thumbnail_sequence_argument(
         return
     normalized: list[dict[str, Any]] = []
     for entry in sequence:
-        if not isinstance(entry, dict) or set(entry) != {"path", "delay"}:
+        if not isinstance(entry, dict):
             failures.append("invalid isolated media thumbnail sequence")
             return
-        path = Path(str(entry["path"]))
+        keys = set(entry)
+        if keys not in ({"path", "delay"}, {"clear", "delay"}):
+            failures.append("invalid isolated media thumbnail sequence")
+            return
         delay = entry["delay"]
+        if (
+            isinstance(delay, bool)
+            or not isinstance(delay, (int, float))
+            or not math.isfinite(delay)
+            or not 0.1 <= delay <= 60
+        ):
+            failures.append("invalid isolated media thumbnail sequence")
+            return
+        if "clear" in entry:
+            if entry["clear"] is not True:
+                failures.append("invalid isolated media thumbnail sequence")
+                return
+            normalized.append({"clear": True, "delay": float(delay)})
+            continue
+        path = Path(str(entry["path"]))
         if (
             path.is_absolute()
             or ".." in path.parts
             or path.suffix.lower() not in {".png", ".jpg", ".jpeg"}
             or not (runtime_sample / path).is_file()
-            or isinstance(delay, bool)
-            or not isinstance(delay, (int, float))
-            or not math.isfinite(delay)
-            or not 0.1 <= delay <= 60
         ):
             failures.append("invalid isolated media thumbnail sequence")
             return
@@ -2309,6 +2355,7 @@ def run_sample(
     media_thumbnail_transition_execution = (
         media_thumbnail_transition_execution_metrics(log_text)
     )
+    media_thumbnail_store = media_thumbnail_store_metrics(log_text)
     scene_script_audio_bars_runtime = scene_script_audio_bars_runtime_metrics(
         preview_text
     )
@@ -2786,6 +2833,25 @@ def run_sample(
         if required_layer_ids:
             if media_thumbnail_transition_execution[metric] != required_layer_ids:
                 failures.append(f"media thumbnail transition {metric} mismatch")
+    expected_media_store_values = (
+        (
+            "required_media_thumbnail_pending_last_ready",
+            "pending_last_ready",
+        ),
+        (
+            "required_media_thumbnail_ready_states",
+            "ready_states",
+        ),
+    )
+    for expectation, metric in expected_media_store_values:
+        if expectation in sample:
+            if media_thumbnail_store[metric] != sample[expectation]:
+                failures.append(f"media thumbnail store {metric} mismatch")
+    if "expected_media_thumbnail_clear_count" in sample:
+        if media_thumbnail_store["clear_count"] != int(
+            sample["expected_media_thumbnail_clear_count"]
+        ):
+            failures.append("media thumbnail clear count mismatch")
     failures.extend(
         scene_script_audio_bars_runtime_failures(
             sample,
@@ -2943,6 +3009,11 @@ def run_sample(
             "media_thumbnail_transition_completed_layer_ids": (
                 media_thumbnail_transition_execution["completed_layer_ids"]
             ),
+            "media_thumbnail_pending_last_ready": (
+                media_thumbnail_store["pending_last_ready"]
+            ),
+            "media_thumbnail_ready_states": media_thumbnail_store["ready_states"],
+            "media_thumbnail_clear_count": media_thumbnail_store["clear_count"],
             "scene_script_audio_bars_plan_count": (
                 scene_script_audio_bars_runtime["plan_count"]
             ),

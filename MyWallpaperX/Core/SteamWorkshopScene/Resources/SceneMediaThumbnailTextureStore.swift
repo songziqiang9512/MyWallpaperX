@@ -18,18 +18,23 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
     }
 
     private let device: MTLDevice
-    private let queue = DispatchQueue(
-        label: "com.mywallpaperx.scene.media-thumbnail",
-        qos: .userInitiated
-    )
+    private let queue: DispatchQueue
     private let lock = NSLock()
     private var requestedGeneration: UInt64 = 0
     private var readyGeneration: UInt64 = 0
     private var currentTexture: MTLTexture?
     private var previousTexture: MTLTexture?
+    private var reportedPendingGeneration: UInt64?
 
-    init(device: MTLDevice) {
+    init(
+        device: MTLDevice,
+        decodingQueue: DispatchQueue? = nil
+    ) {
         self.device = device
+        self.queue = decodingQueue ?? DispatchQueue(
+            label: "com.mywallpaperx.scene.media-thumbnail",
+            qos: .userInitiated
+        )
     }
 
     func update(from input: SceneMediaThumbnailInbox.Snapshot) {
@@ -49,7 +54,19 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
     func snapshot() -> Snapshot {
         lock.lock()
         defer { lock.unlock() }
-        guard readyGeneration == requestedGeneration else { return .empty }
+#if DEBUG
+        if readyGeneration != requestedGeneration,
+           readyGeneration > 0,
+           reportedPendingGeneration != requestedGeneration {
+            reportedPendingGeneration = requestedGeneration
+            print(
+                "MWX media thumbnail store: phase=pending-last-ready"
+                    + " requestedGeneration=\(requestedGeneration)"
+                    + " readyGeneration=\(readyGeneration)"
+                    + " hasCurrent=\(currentTexture != nil)"
+            )
+        }
+#endif
         var textures: [String: MTLTexture] = [:]
         var publications: [String: SceneTextureProviderPublication] = [:]
         let current = currentTexture.map {
@@ -84,6 +101,15 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         currentTexture = current
         previousTexture = previous
         readyGeneration = input.generation
+        reportedPendingGeneration = nil
+#if DEBUG
+        print(
+            "MWX media thumbnail store: phase=ready"
+                + " generation=\(input.generation)"
+                + " hasCurrent=\(current != nil)"
+                + " hasPrevious=\(previous != nil)"
+        )
+#endif
     }
 
     private func makeTexture(_ image: CGImage) -> MTLTexture? {
