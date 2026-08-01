@@ -65,7 +65,8 @@ final class SceneFrameTextureRegistry {
         layerSources: [Int: MTLTexture],
         explicitLayerSources: [Int: SceneTextureProviderPublication] = [:],
         userPropertyTextures: [String: MTLTexture] = [:],
-        systemTextures: [String: MTLTexture] = [:]
+        systemTextures: [String: MTLTexture] = [:],
+        explicitSystemTextures: [String: SceneTextureProviderPublication] = [:]
     ) -> UInt64 {
         frameEpoch &+= 1
         entries.removeAll(keepingCapacity: true)
@@ -97,11 +98,22 @@ final class SceneFrameTextureRegistry {
             )
         }
         systemTextures.forEach { name, texture in
-            publishPersistent(
-                texture,
-                for: .system(name),
-                previousEntries: previousPersistentEntries
-            )
+            let identity = SceneFrameTextureIdentity.system(name)
+            if let publication = explicitSystemTextures[name] {
+                if publication.texture === texture {
+                    publishExplicit(
+                        publication,
+                        for: identity,
+                        previousEntries: previousPersistentEntries
+                    )
+                }
+            } else {
+                publishPersistent(
+                    texture,
+                    for: identity,
+                    previousEntries: previousPersistentEntries
+                )
+            }
         }
         return frameEpoch
     }

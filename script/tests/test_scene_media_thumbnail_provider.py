@@ -1,0 +1,151 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[2]
+SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+SOURCES = [
+    SCENE / "Runtime/SceneMediaThumbnailInbox.swift",
+    SCENE / "Resources/SceneTextureProviderPublication.swift",
+    SCENE / "Resources/SceneImageTextureUploader.swift",
+    SCENE / "Resources/SceneMediaThumbnailTextureStore.swift",
+]
+
+HARNESS = r'''
+import CoreGraphics
+import Foundation
+import ImageIO
+import Metal
+import UniformTypeIdentifiers
+
+struct SceneMediaThumbnailBindingProgram {
+    static let currentIdentity = "$mediaThumbnail"
+    static let previousIdentity = "$mediaPreviousThumbnail"
+}
+
+enum SceneTextureLoadOutcome {
+    case loaded(MTLTexture)
+    case decodeFailed(String)
+    case textureAllocationFailed(width: Int, height: Int)
+}
+
+func png(red: UInt8, green: UInt8, blue: UInt8) -> Data {
+    let bytes = [red, green, blue, 255]
+    let provider = CGDataProvider(data: Data(bytes) as CFData)!
+    let image = CGImage(
+        width: 1, height: 1, bitsPerComponent: 8, bitsPerPixel: 32,
+        bytesPerRow: 4, space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
+        provider: provider, decode: nil, shouldInterpolate: false,
+        intent: .defaultIntent
+    )!
+    let output = NSMutableData()
+    let destination = CGImageDestinationCreateWithData(
+        output, UTType.png.identifier as CFString, 1, nil
+    )!
+    CGImageDestinationAddImage(destination, image, nil)
+    precondition(CGImageDestinationFinalize(destination))
+    return output as Data
+}
+
+func pixel(_ texture: MTLTexture?) -> [UInt8] {
+    guard let texture else { return [] }
+    var bytes = [UInt8](repeating: 0, count: 4)
+    texture.getBytes(
+        &bytes,
+        bytesPerRow: 4,
+        from: MTLRegionMake2D(0, 0, 1, 1),
+        mipmapLevel: 0
+    )
+    return bytes
+}
+
+func waitFor(_ store: SceneMediaThumbnailTextureStore, generation: UInt64) -> SceneMediaThumbnailTextureStore.Snapshot {
+    for _ in 0..<200 {
+        let snapshot = store.snapshot()
+        if snapshot.generation == generation { return snapshot }
+        Thread.sleep(forTimeInterval: 0.005)
+    }
+    return store.snapshot()
+}
+
+guard let device = MTLCreateSystemDefaultDevice() else {
+    fatalError("Metal unavailable")
+}
+let inbox = SceneMediaThumbnailInbox()
+let store = SceneMediaThumbnailTextureStore(device: device)
+let a = png(red: 255, green: 0, blue: 0)
+let b = png(red: 0, green: 255, blue: 0)
+let c = png(red: 0, green: 0, blue: 255)
+
+_ = inbox.publish(a)
+store.update(from: inbox.latest())
+_ = inbox.publish(b)
+store.update(from: inbox.latest())
+_ = inbox.publish(c)
+store.update(from: inbox.latest())
+let third = waitFor(store, generation: 3)
+let duplicateAccepted = inbox.publish(c)
+let duplicateGeneration = inbox.latest().generation
+let oversizedRejected = !inbox.publish(
+    Data(count: SceneMediaThumbnailInbox.maximumEncodedByteCount + 1)
+)
+inbox.clear()
+store.update(from: inbox.latest())
+let cleared = waitFor(store, generation: 4)
+
+let result: [String: Any] = [
+    "generation": third.generation,
+    "currentPixel": pixel(third.current?.texture),
+    "previousPixel": pixel(third.publications["$mediaPreviousThumbnail"]?.texture),
+    "duplicateAccepted": duplicateAccepted,
+    "duplicateGenerationStable": duplicateGeneration == 3,
+    "oversizedRejected": oversizedRejected,
+    "clearedGeneration": cleared.generation,
+    "clearedCurrent": cleared.current == nil,
+]
+let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
+print(String(decoding: data, as: UTF8.self))
+'''
+
+
+class SceneMediaThumbnailProviderTests(unittest.TestCase):
+    def test_atomic_history_stale_rejection_and_clear(self) -> None:
+        if shutil.which("swiftc") is None:
+            self.skipTest("swiftc is unavailable")
+        with tempfile.TemporaryDirectory(prefix="mwx-media-provider-") as directory:
+            root = Path(directory)
+            harness = root / "main.swift"
+            harness.write_text(HARNESS, encoding="utf-8")
+            binary = root / "provider"
+            environment = os.environ.copy()
+            environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
+            environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-cache")
+            subprocess.run(
+                ["swiftc", *map(str, SOURCES), str(harness), "-o", str(binary)],
+                check=True,
+                cwd=ROOT,
+                env=environment,
+            )
+            result = json.loads(subprocess.check_output([str(binary)], text=True))
+        self.assertEqual(result["generation"], 3)
+        self.assertEqual(result["currentPixel"], [0, 0, 255, 255])
+        self.assertEqual(result["previousPixel"], [0, 255, 0, 255])
+        self.assertTrue(result["duplicateAccepted"])
+        self.assertTrue(result["duplicateGenerationStable"])
+        self.assertTrue(result["oversizedRejected"])
+        self.assertEqual(result["clearedGeneration"], 4)
+        self.assertTrue(result["clearedCurrent"])
+
+
+if __name__ == "__main__":
+    unittest.main()

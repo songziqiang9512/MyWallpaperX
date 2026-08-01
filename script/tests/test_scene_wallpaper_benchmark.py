@@ -45,6 +45,16 @@ def runtime_evidence(runtime_input: dict[str, object]) -> dict[str, object]:
 
 
 class SceneWallpaperBenchmarkTests(unittest.TestCase):
+    def test_media_thumbnail_metrics_keep_current_layer_identities(self) -> None:
+        metrics = benchmark.media_thumbnail_runtime_metrics(
+            "\n".join([
+                "mediaThumbnailCurrentBindingCount: 3",
+                "mediaThumbnailCurrentBindingLayerIDs: 10,20,30",
+            ])
+        )
+        self.assertEqual(metrics["current_binding_count"], 3)
+        self.assertEqual(metrics["current_binding_layer_ids"], [10, 20, 30])
+
     def test_time_of_day_effect_script_metrics_keep_typed_targets(self) -> None:
         metrics = benchmark.time_of_day_effect_script_runtime_metrics(
             "\n".join([
@@ -867,6 +877,40 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "live property update evidence missing",
             benchmark.live_property_update_failures(requested, None),
         )
+
+    def test_media_thumbnail_argument_stays_inside_isolated_sample(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-media-thumbnail-argument-") as directory:
+            runtime_sample = Path(directory)
+            (runtime_sample / "cover.png").write_bytes(b"fixture")
+            command = ["MyWallpaperX"]
+            failures: list[str] = []
+
+            benchmark.append_media_thumbnail_argument(
+                command,
+                "cover.png",
+                runtime_sample,
+                failures,
+            )
+
+            self.assertEqual(failures, [])
+            self.assertEqual(command, [
+                "MyWallpaperX",
+                "--mwx-debug-scene-media-thumbnail",
+                "cover.png",
+            ])
+
+            for invalid in ("../cover.png", "/tmp/cover.png", "cover.webp", "missing.png"):
+                invalid_failures: list[str] = []
+                benchmark.append_media_thumbnail_argument(
+                    [],
+                    invalid,
+                    runtime_sample,
+                    invalid_failures,
+                )
+                self.assertEqual(
+                    invalid_failures,
+                    ["invalid isolated media thumbnail path"],
+                )
 
     def test_live_property_output_requires_a_visible_post_update_change(self) -> None:
         sample = {"minimum_live_changed_ratio": 0.01}

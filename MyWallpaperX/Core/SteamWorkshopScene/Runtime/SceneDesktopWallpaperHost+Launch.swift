@@ -10,6 +10,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let textScriptProgram: SceneTextScriptProgram
     let timeOfDayEffectScriptProgram: SceneTimeOfDayEffectScriptProgram
     let sceneScriptAudioBarsProgram: SceneScriptAudioBarsProgram
+    let mediaThumbnailBindings: SceneMediaThumbnailBindingProgram
     var liveState: ScenePropertyLiveUpdateState
     let userPropertyTextureURLs: [String: URL]
     let cacheDirectory: URL
@@ -61,6 +62,10 @@ extension SceneDesktopWallpaperHost {
                 } ?? []
             }
         )
+        let mediaThumbnailBindings = SceneMediaThumbnailBindingCompiler.compile(
+            descriptor: runtimeInput.renderDescriptor,
+            scriptBindings: model.sceneDocument.scriptBindings
+        )
         guard let device = MTLCreateSystemDefaultDevice() else {
             throw SceneDesktopWallpaperHostLaunchError.noSurface
         }
@@ -80,6 +85,7 @@ extension SceneDesktopWallpaperHost {
                 descriptor: runtimeInput.renderDescriptor,
                 shaderContracts: runtimeInput.shaderContracts
             ),
+            mediaThumbnailBindings: mediaThumbnailBindings,
             liveState: ScenePropertyLiveUpdateState(
                 program: runtimeInput.propertyBindingProgram,
                 effectiveValues: runtimeInput.effectivePropertyValues,

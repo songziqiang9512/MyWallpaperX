@@ -79,6 +79,14 @@ TIME_OF_DAY_EFFECT_SCRIPT_BINDING_RE = re.compile(
     r"effect=(?P<effect>\d+) pass=(?P<pass>\d+) constant=(?P<constant>\S+)$",
     re.MULTILINE,
 )
+MEDIA_THUMBNAIL_CURRENT_BINDING_COUNT_RE = re.compile(
+    r"^mediaThumbnailCurrentBindingCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
+MEDIA_THUMBNAIL_CURRENT_BINDING_LAYER_IDS_RE = re.compile(
+    r"^mediaThumbnailCurrentBindingLayerIDs: (?P<ids>[\d,]*)$",
+    re.MULTILINE,
+)
 SCENE_SCRIPT_AUDIO_BARS_PLAN_COUNT_RE = re.compile(
     r"^sceneScriptAudioBarsPlanCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -1106,6 +1114,24 @@ def time_of_day_effect_script_runtime_metrics(preview_text: str) -> dict[str, An
     }
 
 
+def media_thumbnail_runtime_metrics(preview_text: str) -> dict[str, Any]:
+    count_match = MEDIA_THUMBNAIL_CURRENT_BINDING_COUNT_RE.search(preview_text)
+    layer_ids_match = MEDIA_THUMBNAIL_CURRENT_BINDING_LAYER_IDS_RE.search(preview_text)
+    layer_ids = []
+    if layer_ids_match:
+        layer_ids = [
+            int(value)
+            for value in layer_ids_match.group("ids").split(",")
+            if value
+        ]
+    return {
+        "current_binding_count": (
+            int(count_match.group("count")) if count_match else None
+        ),
+        "current_binding_layer_ids": layer_ids,
+    }
+
+
 def scene_script_audio_bars_runtime_metrics(preview_text: str) -> dict[str, Any]:
     plan_count_match = SCENE_SCRIPT_AUDIO_BARS_PLAN_COUNT_RE.search(preview_text)
     diagnostic_count_match = (
@@ -2001,6 +2027,29 @@ def append_property_arguments(
             ])
 
 
+def append_media_thumbnail_argument(
+    command: list[str],
+    media_thumbnail_path: Any,
+    runtime_sample: Path,
+    failures: list[str],
+) -> None:
+    if media_thumbnail_path is None:
+        return
+    media_thumbnail = Path(str(media_thumbnail_path))
+    if (
+        media_thumbnail.is_absolute()
+        or ".." in media_thumbnail.parts
+        or media_thumbnail.suffix.lower() not in {".png", ".jpg", ".jpeg"}
+        or not (runtime_sample / media_thumbnail).is_file()
+    ):
+        failures.append("invalid isolated media thumbnail path")
+        return
+    command.extend([
+        "--mwx-debug-scene-media-thumbnail",
+        str(media_thumbnail),
+    ])
+
+
 def live_property_update_metrics(log_text: str) -> dict[str, Any] | None:
     match = LIVE_PROPERTY_UPDATE_RE.search(log_text)
     if match is None:
@@ -2103,6 +2152,12 @@ def run_sample(
     property_overrides = sample.get("property_overrides")
     live_property_overrides = sample.get("live_property_overrides")
     append_property_arguments(command, property_overrides, live_property_overrides)
+    append_media_thumbnail_argument(
+        command,
+        sample.get("media_thumbnail_path"),
+        runtime_sample,
+        failures,
+    )
     hover_pointer = hover_pointer_normalized(sample)
     if hover_pointer is not None:
         command.extend([
@@ -2162,6 +2217,7 @@ def run_sample(
     time_of_day_effect_script_runtime = time_of_day_effect_script_runtime_metrics(
         preview_text
     )
+    media_thumbnail_runtime = media_thumbnail_runtime_metrics(preview_text)
     scene_script_audio_bars_runtime = scene_script_audio_bars_runtime_metrics(
         preview_text
     )
@@ -2580,6 +2636,27 @@ def run_sample(
     if required_time_of_day_bindings:
         if time_of_day_effect_script_runtime["bindings"] != required_time_of_day_bindings:
             failures.append("time-of-day effect script bindings mismatch")
+    expected_media_thumbnail_count = sample.get(
+        "expected_media_thumbnail_current_binding_count"
+    )
+    if expected_media_thumbnail_count is not None:
+        if media_thumbnail_runtime["current_binding_count"] != int(
+            expected_media_thumbnail_count
+        ):
+            failures.append("media thumbnail current binding count mismatch")
+    required_media_thumbnail_layer_ids = sorted(
+        int(layer_id)
+        for layer_id in sample.get(
+            "required_media_thumbnail_current_binding_layer_ids",
+            [],
+        )
+    )
+    if required_media_thumbnail_layer_ids:
+        if (
+            media_thumbnail_runtime["current_binding_layer_ids"]
+            != required_media_thumbnail_layer_ids
+        ):
+            failures.append("media thumbnail current binding layer IDs mismatch")
     failures.extend(
         scene_script_audio_bars_runtime_failures(
             sample,
@@ -2712,6 +2789,12 @@ def run_sample(
             ),
             "time_of_day_effect_script_bindings": (
                 time_of_day_effect_script_runtime["bindings"]
+            ),
+            "media_thumbnail_current_binding_count": (
+                media_thumbnail_runtime["current_binding_count"]
+            ),
+            "media_thumbnail_current_binding_layer_ids": (
+                media_thumbnail_runtime["current_binding_layer_ids"]
             ),
             "scene_script_audio_bars_plan_count": (
                 scene_script_audio_bars_runtime["plan_count"]

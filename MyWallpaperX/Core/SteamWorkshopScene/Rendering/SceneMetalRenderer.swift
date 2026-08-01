@@ -17,7 +17,7 @@ struct SceneMetalRenderer {
     let sceneScriptAudioBarsPlansByLayerID: [Int: SceneScriptAudioBarsPlan]
     let spotLightRuntime: SceneSpotLightRuntime
     private let dependencyRuntime: SceneDependencyFrameRuntime
-    private let textureRegistry = SceneFrameTextureRegistry()
+    let textureRegistry = SceneFrameTextureRegistry()
     private let utilityCaptureTelemetry = SceneGPUCompletionTelemetry(phase: "utility-capture")
     private let authoredEffectTelemetry = SceneGPUCompletionTelemetry(phase: "authored-effect-graph")
     private let sceneScriptAudioBarsTelemetry = SceneGPUCompletionTelemetry(phase: "scene-script-audio-bars")
@@ -73,6 +73,7 @@ struct SceneMetalRenderer {
         imageTextures: SceneBaseImageTextureSnapshot,
         dynamicTextRenderSizes: [Int: [Float]] = [:],
         userPropertyTextures: [String: MTLTexture] = [:],
+        mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot = .empty,
         spriteAnimations: [Int: SceneSpriteAnimation],
         effectTextures: SceneLayerEffectTextureStore,
         imagePipeline: SceneImageLayerPipeline?,
@@ -116,11 +117,7 @@ struct SceneMetalRenderer {
             target: drawable.texture,
             clearColor: sceneClearColor
         )
-        textureRegistry.beginFrame(
-            layerSources: imageTextures.textures,
-            explicitLayerSources: imageTextures.explicitLayerSources,
-            userPropertyTextures: userPropertyTextures
-        )
+        beginTextureFrame(imageTextures, userPropertyTextures, mediaThumbnail)
         for layer in orderedLayers {
             defer {
                 renderUtilityPlans(

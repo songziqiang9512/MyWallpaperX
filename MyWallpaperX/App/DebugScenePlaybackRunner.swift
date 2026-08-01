@@ -71,6 +71,7 @@ enum DebugScenePlaybackRunner {
             )
             let previewLogURL = evidenceDirectory?.appendingPathComponent("scene-preview.log")
             let userPropertyTextureURLs = requestedUserPropertyTextureURLs(rootURL: rootURL)
+            publishRequestedMediaThumbnail(rootURL: rootURL)
             let model = try SceneDesktopWallpaperHost.shared.launch(
                 rootURL: rootURL,
                 propertyOverrides: requestedPropertyOverrides,
@@ -318,7 +319,7 @@ enum DebugScenePlaybackRunner {
             && rootURL.path.hasPrefix(realWorkshopRoot + "/") == false
     }
 
-    private static func argumentValue(after flag: String) -> String? {
+    static func argumentValue(after flag: String) -> String? {
         let arguments = ProcessInfo.processInfo.arguments
         guard let index = arguments.firstIndex(of: flag),
               arguments.indices.contains(index + 1) else {

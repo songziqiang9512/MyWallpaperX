@@ -246,6 +246,7 @@ final class SceneDesktopWallpaperHost {
                 renderDescriptor: launchContext.runtimeInput.renderDescriptor,
                 authoredEffectCatalog: launchContext.authoredEffectCatalog,
                 sceneScriptAudioBarsProgram: launchContext.sceneScriptAudioBarsProgram,
+                mediaThumbnailBindings: launchContext.mediaThumbnailBindings,
                 pipelineRepository: launchContext.pipelineRepository,
                 userPropertyTextureURLs: launchContext.userPropertyTextureURLs,
                 frame: frame

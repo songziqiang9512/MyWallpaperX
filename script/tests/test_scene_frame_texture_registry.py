@@ -178,6 +178,59 @@ enum Harness {
             SceneFrameTextureSelection(candidates: [dynamic])
         ) == nil
 
+        registry.beginFrame(
+            layerSources: [:],
+            systemTextures: ["$mediaThumbnail": systemTexture],
+            explicitSystemTextures: [
+                "$mediaThumbnail": SceneTextureProviderPublication(
+                    texture: systemTexture,
+                    contentGeneration: 20
+                )
+            ]
+        )
+        let firstExplicitSystem = registry.resolve(
+            SceneFrameTextureSelection(candidates: [system])
+        )!
+        registry.beginFrame(
+            layerSources: [:],
+            systemTextures: ["$mediaThumbnail": systemTexture],
+            explicitSystemTextures: [
+                "$mediaThumbnail": SceneTextureProviderPublication(
+                    texture: systemTexture,
+                    contentGeneration: 21
+                )
+            ]
+        )
+        let secondExplicitSystem = registry.resolve(
+            SceneFrameTextureSelection(candidates: [system])
+        )!
+        registry.beginFrame(
+            layerSources: [:],
+            systemTextures: ["$mediaThumbnail": replacementSystemTexture],
+            explicitSystemTextures: [
+                "$mediaThumbnail": SceneTextureProviderPublication(
+                    texture: replacementSystemTexture,
+                    contentGeneration: 21
+                )
+            ]
+        )
+        let replacedSameGenerationSystem = registry.resolve(
+            SceneFrameTextureSelection(candidates: [system])
+        )!
+        registry.beginFrame(
+            layerSources: [:],
+            systemTextures: ["$mediaThumbnail": replacementSystemTexture],
+            explicitSystemTextures: [
+                "$mediaThumbnail": SceneTextureProviderPublication(
+                    texture: replacementSystemTexture,
+                    contentGeneration: 19
+                )
+            ]
+        )
+        let staleExplicitSystem = registry.resolve(
+            SceneFrameTextureSelection(candidates: [system])
+        )!
+
         let result: [String: Any] = [
             "frameEpochAdvanced": secondEpoch == firstEpoch + 1,
             "persistentGenerationsStable": secondFallback.generation == firstFallback.generation
@@ -208,6 +261,14 @@ enum Harness {
                 rejectedStaleDynamic.generation == sameGenerationDynamic.generation
                     && rejectedStaleDynamic.texture === dynamicTexture,
             "mismatchedPublicationRejected": mismatchedPublicationRejected,
+            "explicitSystemGenerationAdvanced":
+                secondExplicitSystem.generation > firstExplicitSystem.generation,
+            "sameExplicitSystemGenerationStable":
+                replacedSameGenerationSystem.generation == secondExplicitSystem.generation
+                    && replacedSameGenerationSystem.texture === systemTexture,
+            "staleExplicitSystemRejected":
+                staleExplicitSystem.generation == secondExplicitSystem.generation
+                    && staleExplicitSystem.texture === systemTexture,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -282,6 +343,9 @@ class SceneFrameTextureRegistryTests(unittest.TestCase):
             "sameExplicitGenerationStable",
             "staleExplicitGenerationRejected",
             "mismatchedPublicationRejected",
+            "explicitSystemGenerationAdvanced",
+            "sameExplicitSystemGenerationStable",
+            "staleExplicitSystemRejected",
         ):
             self.assertTrue(self.result[key], key)
 

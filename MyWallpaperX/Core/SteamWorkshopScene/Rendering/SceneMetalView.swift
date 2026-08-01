@@ -16,6 +16,8 @@ class SceneMetalView: NSView {
     private var imagePipeline: SceneImageLayerPipeline?
     private var particlePlayback: SceneParticlePlaybackState?
     private var dynamicTextTextures: SceneDynamicTextTextureStore?
+    private let mediaThumbnailBindings: SceneMediaThumbnailBindingProgram
+    private let mediaThumbnailTextures: SceneMediaThumbnailTextureStore
     private let offscreenTexturePool: SceneOffscreenTexturePool
     var pointerState = SceneSurfacePointerState()
     var parallaxPointerSmoother: SceneParallaxPointerSmoother
@@ -27,6 +29,7 @@ class SceneMetalView: NSView {
         renderDescriptor: SceneRenderDescriptor,
         authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog,
         sceneScriptAudioBarsProgram: SceneScriptAudioBarsProgram = .empty,
+        mediaThumbnailBindings: SceneMediaThumbnailBindingProgram = .empty,
         pipelineRepository: SceneImageEffectPipelineRepository,
         userPropertyTextureURLs: [String: URL] = [:],
         frame: NSRect
@@ -39,6 +42,8 @@ class SceneMetalView: NSView {
         ) else { return nil }
         self.metalDevice = renderer.device
         self.renderer = renderer
+        self.mediaThumbnailBindings = mediaThumbnailBindings
+        self.mediaThumbnailTextures = SceneMediaThumbnailTextureStore(device: renderer.device)
         self.solidLayerTexture = SceneSolidLayerTexture.make(device: renderer.device)
         let preservedPropertyKeys = Set(renderDescriptor.layers.flatMap { layer -> [String] in
             guard let declaration = SceneXRayRuntimePlanner.declaration(for: layer) else {
@@ -82,18 +87,6 @@ class SceneMetalView: NSView {
     }
     @available(*, unavailable)
     required init?(coder: NSCoder) { nil }
-    // MARK: - Pointer input
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        configurePointerTracking()
-    }
-
-    override func mouseMoved(with event: NSEvent) { handlePointerEvent(event) }
-    override func mouseEntered(with event: NSEvent) { handlePointerEvent(event) }
-    override func mouseExited(with event: NSEvent) { handlePointerExit() }
-    override func mouseDown(with event: NSEvent) { handlePointerEvent(event) }
-    override func mouseUp(with event: NSEvent) { handlePointerEvent(event) }
-
     // MARK: - Texture loading
     // Loads image layers and optionally writes a report for black-preview diagnosis.
     func loadImageLayers(
@@ -137,6 +130,7 @@ class SceneMetalView: NSView {
         report.append("imageLayerCount: \(imageLayers.count)")
         report.append("solidLayerCount: \(imageLayers.filter { $0.contentKind == "solid" }.count)")
         report.append(contentsOf: renderer.runtimeReportLines())
+        report.append(contentsOf: mediaThumbnailBindings.reportLines())
         report.append(contentsOf: SceneImageBlendRenderPlan(
             descriptor: renderer.renderDescriptor,
             visibleLayerIDs: SceneLayerVisibility.visibleLayerIDs(in: renderer.renderDescriptor)
@@ -353,9 +347,13 @@ class SceneMetalView: NSView {
         pointerState.previous = pointerState.current
         let particleBatches = particlePlayback?.advance(by: timing.frameTime, dynamicValues: dynamicValues, pointerLocalPositions: renderer.particlePointerLocalPositions(frameContext: frameContext)) ?? []
         dynamicTextTextures?.update(from: dynamicValues)
+        mediaThumbnailTextures.update(from: SceneMediaThumbnailInbox.shared.latest())
         let dynamicTextSnapshot = dynamicTextTextures?.snapshot()
+        let mediaThumbnailSnapshot = mediaThumbnailTextures.snapshot()
         let frameImageTextures = SceneFrameLayerTextureAssembly.make(
             base: imageTextures, dynamicText: dynamicTextSnapshot,
+            mediaThumbnail: mediaThumbnailSnapshot,
+            mediaBindings: mediaThumbnailBindings,
             videoSources: videoTextureSources, timing: timing
         )
 #if DEBUG
@@ -373,6 +371,7 @@ class SceneMetalView: NSView {
             imageTextures: frameImageTextures,
             dynamicTextRenderSizes: dynamicTextSnapshot?.renderSizes ?? [:],
             userPropertyTextures: userPropertyTextureLoad.textures,
+            mediaThumbnail: mediaThumbnailSnapshot,
             spriteAnimations: spriteAnimations,
             effectTextures: effectTextures,
             imagePipeline: imagePipeline,
