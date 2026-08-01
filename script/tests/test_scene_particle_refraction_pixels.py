@@ -464,7 +464,10 @@ enum Harness {
                 ),
                 viewportSize: SIMD2(repeating: Float(size))
             ),
-            blendMode: blendMode,
+            renderState: SceneParticlePipelineRenderState(
+                blendMode: blendMode,
+                cullMode: .none
+            ),
             colorUVScale: refraction.colorUVScale,
             colorSampling: refraction.colorSampling,
             encoder: encoder

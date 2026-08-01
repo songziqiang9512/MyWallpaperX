@@ -18,7 +18,7 @@ struct SceneParticleChildTemplate {
     let colorUVScale: SIMD2<Float>
     let colorSampling: SceneParticleTextureSampling
     let refraction: SceneParticleRefractionBinding?
-    let blendMode: SceneParticlePipelineBlendMode
+    let renderState: SceneParticlePipelineRenderState
     let spriteAnimation: SceneSpriteAnimation?
     let orientation: SceneParticleOrientation
     let orientationAxis: SIMD3<Float>?
@@ -184,7 +184,7 @@ enum SceneParticleChildGraphExpansion {
         guard asset.supportsBuiltInShaderExecution else {
             return .rejected("\(path):unsupportedShader")
         }
-        guard let blendMode = asset.blendMode else {
+        guard let renderState = asset.pipelineState else {
             return .rejected("\(path):unsupportedRenderState")
         }
         if depth >= maximumDepth, !asset.definition.children.isEmpty {
@@ -264,7 +264,7 @@ enum SceneParticleChildGraphExpansion {
                 colorUVScale: colorUVScale,
                 colorSampling: colorSampling,
                 refraction: refraction,
-                blendMode: blendMode == .additive ? .additive : .translucent,
+                renderState: renderState,
                 spriteAnimation: animation,
                 orientation: SceneParticleOrientation(
                     authoredValue: render.renderer.orientation,

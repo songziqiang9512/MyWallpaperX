@@ -19,6 +19,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneStockTextureResolver.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
+    SOURCE_ROOT / "Particles/SceneParticleRenderSupport.swift",
     SOURCE_ROOT / "Particles/SceneParticleTextureSource.swift",
     SOURCE_ROOT / "Particles/SceneParticleRefractionPlan.swift",
     SOURCE_ROOT / "Particles/SceneParticleAssetGraph.swift",
@@ -89,6 +90,21 @@ enum Harness {
             "emitter": [["name": "sphereRandom"]]
         ], relativePath: "particles/unsupported-state.json", under: directory)
         try writeJSON([
+            "material": "materials/particle/normal-cull.json",
+            "emitter": [["name": "sphereRandom"]],
+            "renderer": [["name": "sprite"]]
+        ], relativePath: "particles/normal-cull.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/normal-cull.json",
+            "emitter": [["name": "sphereRandom"]],
+            "renderer": [["name": "sprite", "orientation": "fixed"]]
+        ], relativePath: "particles/normal-cull-fixed.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/normal-cull.json",
+            "emitter": [["name": "sphereRandom"]],
+            "renderer": [["name": "spritetrail", "length": 0.1]]
+        ], relativePath: "particles/normal-cull-trail.json", under: directory)
+        try writeJSON([
             "material": "materials/particle/custom-shader.json",
             "emitter": [["name": "sphereRandom"]]
         ], relativePath: "particles/custom-shader.json", under: directory)
@@ -154,6 +170,14 @@ enum Harness {
                 alphaWriting: "enabled"
             ),
             SceneParticleMaterialPass(
+                materialPath: "materials/particle/normal-cull.json",
+                shaderPath: "shaders/genericparticle.json",
+                texturePaths: ["particle/root"],
+                blending: "translucent",
+                combos: ["REFRACT": 0],
+                cullMode: "normal"
+            ),
+            SceneParticleMaterialPass(
                 materialPath: "materials/particle/custom-shader.json",
                 shaderPath: "shaders/customparticle.json",
                 texturePaths: ["particle/root"],
@@ -181,6 +205,9 @@ enum Harness {
                 "particles/refract.json",
                 "particles/unknown-blend.json",
                 "particles/unsupported-state.json",
+                "particles/normal-cull.json",
+                "particles/normal-cull-fixed.json",
+                "particles/normal-cull-trail.json",
                 "particles/custom-shader.json",
                 "particles/missing-shader.json",
                 "particles/missing-definition.json"
@@ -195,6 +222,9 @@ enum Harness {
         let refract = graph.assetsByPath["particles/refract.json"]
         let unknownBlend = graph.assetsByPath["particles/unknown-blend.json"]
         let unsupportedState = graph.assetsByPath["particles/unsupported-state.json"]
+        let normalCull = graph.assetsByPath["particles/normal-cull.json"]
+        let normalCullFixed = graph.assetsByPath["particles/normal-cull-fixed.json"]
+        let normalCullTrail = graph.assetsByPath["particles/normal-cull-trail.json"]
         let customShader = graph.assetsByPath["particles/custom-shader.json"]
         let missingShader = graph.assetsByPath["particles/missing-shader.json"]
         try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/drop.tex", under: directory)
@@ -210,8 +240,8 @@ enum Harness {
             "assetCount": graph.assetsByPath.count,
             "rootPaths": graph.rootPaths,
             "rootChildren": root?.childPaths ?? [],
-            "rootBlend": root?.blendMode?.rawValue ?? "",
-            "childBlend": child?.blendMode?.rawValue ?? "",
+            "rootBlend": root?.pipelineState?.blendMode.rawValue ?? "",
+            "childBlend": child?.pipelineState?.blendMode.rawValue ?? "",
             "rootTexture": fileURL(root?.textureSource)?.lastPathComponent ?? "",
             "childTexture": fileURL(child?.textureSource)?.lastPathComponent ?? "",
             "rootTextureExists": fileURL(root?.textureSource).map {
@@ -226,10 +256,16 @@ enum Harness {
             "refractHasTextureSource": refract?.textureSource != nil,
             "refractHasPlan": refract?.refraction != nil,
             "refractDefaultAmount": refract?.refraction?.amount ?? -1,
-            "unknownBlendRejected": unknownBlend?.blendMode == nil,
+            "unknownBlendRejected": unknownBlend?.pipelineState == nil,
             "unknownBlendStateRejected": unknownBlend?.renderState == nil,
-            "unsupportedStateRejected": unsupportedState?.blendMode == nil
+            "unsupportedStateRejected": unsupportedState?.pipelineState == nil
                 && unsupportedState?.renderState == nil,
+            "rootCull": root?.pipelineState?.cullMode.rawValue ?? "",
+            "normalCull": normalCull?.pipelineState?.cullMode.rawValue ?? "",
+            "normalCullFixedRejected": normalCullFixed?.pipelineState == nil
+                && normalCullFixed?.renderState == nil,
+            "normalCullTrailRejected": normalCullTrail?.pipelineState == nil
+                && normalCullTrail?.renderState == nil,
             "customShaderRejected": customShader?.supportsBuiltInShaderExecution == false,
             "missingShaderRejected": missingShader?.supportsBuiltInShaderExecution == false,
             "unknownEnabledComboRejected": SceneParticleRefractionPlanner.plan(
@@ -239,6 +275,16 @@ enum Harness {
                     texturePaths: ["particle/refract-blank", "particle/refract-normal"],
                     blending: "translucent",
                     combos: ["REFRACT": 1, "LIGHTING": 1]
+                )
+            ) == nil,
+            "normalCullRefractionRejected": SceneParticleRefractionPlanner.plan(
+                for: SceneParticleMaterialPass(
+                    materialPath: "materials/particle/refract.json",
+                    shaderPath: "shaders/genericparticle.json",
+                    texturePaths: ["particle/refract-blank", "particle/refract-normal"],
+                    blending: "translucent",
+                    combos: ["REFRACT": 1],
+                    cullMode: "normal"
                 )
             ) == nil,
             "diagnostics": diagnostics
@@ -333,7 +379,7 @@ enum Harness {
             }
             reachableAssetCount += graph.assetsByPath.count
             for asset in graph.assetsByPath.values {
-                guard let blendMode = asset.blendMode else { continue }
+                guard let blendMode = asset.pipelineState?.blendMode else { continue }
                 blendCounts[blendMode.rawValue, default: 0] += 1
             }
             for diagnostic in graph.diagnostics {
@@ -553,7 +599,7 @@ class SceneParticleAssetTests(unittest.TestCase):
 
     def test_synthetic_asset_graph(self) -> None:
         result = self.run_harness("synthetic")
-        self.assertEqual(result["assetCount"], 11)
+        self.assertEqual(result["assetCount"], 14)
         self.assertEqual(
             result["rootPaths"],
             [
@@ -565,6 +611,9 @@ class SceneParticleAssetTests(unittest.TestCase):
                 "particles/refract.json",
                 "particles/unknown-blend.json",
                 "particles/unsupported-state.json",
+                "particles/normal-cull.json",
+                "particles/normal-cull-fixed.json",
+                "particles/normal-cull-trail.json",
                 "particles/custom-shader.json",
                 "particles/missing-shader.json",
                 "particles/missing-definition.json",
@@ -586,9 +635,14 @@ class SceneParticleAssetTests(unittest.TestCase):
         self.assertTrue(result["unknownBlendRejected"])
         self.assertTrue(result["unknownBlendStateRejected"])
         self.assertTrue(result["unsupportedStateRejected"])
+        self.assertEqual(result["rootCull"], "none")
+        self.assertEqual(result["normalCull"], "back")
+        self.assertTrue(result["normalCullFixedRejected"])
+        self.assertTrue(result["normalCullTrailRejected"])
         self.assertTrue(result["customShaderRejected"])
         self.assertTrue(result["missingShaderRejected"])
         self.assertTrue(result["unknownEnabledComboRejected"])
+        self.assertTrue(result["normalCullRefractionRejected"])
         self.assertEqual(
             result["diagnostics"],
             {
@@ -598,7 +652,7 @@ class SceneParticleAssetTests(unittest.TestCase):
                 "missingTextureFile": 1,
                 "missingTextureReference": 1,
                 "unsupportedBlendMode": 1,
-                "unsupportedRenderState": 1,
+                "unsupportedRenderState": 3,
                 "unsupportedShader": 2,
             },
         )

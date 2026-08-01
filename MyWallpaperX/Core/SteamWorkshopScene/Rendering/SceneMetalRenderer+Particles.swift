@@ -37,7 +37,7 @@ extension SceneMetalRenderer {
                     background: background,
                     instances: batch.instanceBuffer,
                     uniforms: uniforms,
-                    blendMode: batch.blendMode,
+                    renderState: batch.renderState,
                     colorUVScale: batch.colorUVScale,
                     colorSampling: batch.colorSampling,
                     encoder: encoder
@@ -47,7 +47,7 @@ extension SceneMetalRenderer {
                     texture: batch.texture,
                     instances: batch.instanceBuffer,
                     uniforms: uniforms,
-                    blendMode: batch.blendMode,
+                    renderState: batch.renderState,
                     colorUVScale: batch.colorUVScale,
                     colorSampling: batch.colorSampling,
                     encoder: encoder

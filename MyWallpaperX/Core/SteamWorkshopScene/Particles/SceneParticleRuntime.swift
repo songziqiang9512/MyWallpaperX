@@ -14,7 +14,7 @@ final class SceneParticleRuntime {
         let colorUVScale: SIMD2<Float>
         let colorSampling: SceneParticleTextureSampling
         let refraction: SceneParticleRefractionBinding?
-        let blendMode: SceneParticlePipelineBlendMode
+        let renderState: SceneParticlePipelineRenderState
         let spriteAnimation: SceneSpriteAnimation?
         let orientation: SceneParticleOrientation
         let orientationAxis: SIMD3<Float>?
@@ -114,7 +114,7 @@ final class SceneParticleRuntime {
         for layer in particleLayers {
             guard let rawPath = layer.particlePath else { continue }
             let path = SceneParticleAssetGraphLoader.normalizedPath(rawPath)
-            guard let asset = graph.assetsByPath[path], asset.supportsBuiltInShaderExecution, let blendMode = asset.blendMode else { continue }
+            guard let asset = graph.assetsByPath[path], asset.supportsBuiltInShaderExecution, let renderState = asset.pipelineState else { continue }
             guard let render = supportedRenderer(
                 in: asset.definition,
                 layerID: layer.id,
@@ -259,7 +259,7 @@ final class SceneParticleRuntime {
                 colorUVScale: colorUVScale,
                 colorSampling: colorSampling,
                 refraction: refraction,
-                blendMode: blendMode == .additive ? .additive : .translucent,
+                renderState: renderState,
                 spriteAnimation: spriteAnimation,
                 orientation: SceneParticleOrientation(
                     authoredValue: render.renderer.orientation,
@@ -327,7 +327,7 @@ final class SceneParticleRuntime {
                 colorUVScale: layers[index].colorUVScale,
                 colorSampling: layers[index].colorSampling,
                 refraction: layers[index].refraction,
-                blendMode: layers[index].blendMode,
+                renderState: layers[index].renderState,
                 instanceBuffer: layers[index].instanceBuffer,
                 instances: layers[index].instances,
                 orientation: layers[index].orientation,

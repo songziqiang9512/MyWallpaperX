@@ -90,15 +90,17 @@ struct SceneParticleMetalPipeline {
         texture: MTLTexture,
         instances: SceneParticleMetalInstanceBuffer,
         uniforms: SceneParticleLayerUniforms,
-        blendMode: SceneParticlePipelineBlendMode,
+        renderState: SceneParticlePipelineRenderState,
         colorUVScale: SIMD2<Float> = SIMD2(repeating: 1),
         colorSampling: SceneParticleTextureSampling,
         encoder: MTLRenderCommandEncoder
     ) {
         guard let drawState = instances.currentDrawState() else { return }
         encoder.setRenderPipelineState(
-            blendMode == .additive ? additiveState : translucentState
+            renderState.blendMode == .additive ? additiveState : translucentState
         )
+        configureCull(renderState.cullMode, encoder: encoder)
+        defer { encoder.setCullMode(.none) }
         var quad = Self.unitQuad
         encoder.setVertexBytes(
             &quad,
@@ -144,7 +146,7 @@ struct SceneParticleMetalPipeline {
         background: MTLTexture,
         instances: SceneParticleMetalInstanceBuffer,
         uniforms: SceneParticleLayerUniforms,
-        blendMode: SceneParticlePipelineBlendMode,
+        renderState: SceneParticlePipelineRenderState,
         colorUVScale: SIMD2<Float>,
         colorSampling: SceneParticleTextureSampling,
         encoder: MTLRenderCommandEncoder
@@ -152,8 +154,10 @@ struct SceneParticleMetalPipeline {
         guard let drawState = instances.currentDrawState(),
               let normal = binding.resolvedNormalArguments() else { return }
         encoder.setRenderPipelineState(
-            blendMode == .additive ? refractAdditiveState : refractTranslucentState
+            renderState.blendMode == .additive ? refractAdditiveState : refractTranslucentState
         )
+        configureCull(renderState.cullMode, encoder: encoder)
+        defer { encoder.setCullMode(.none) }
         bindGeometry(
             drawState: drawState,
             uniforms: uniforms,
@@ -175,7 +179,7 @@ struct SceneParticleMetalPipeline {
             binding.overbright,
             Float(binding.colorEncoding.rawValue),
             (normal.usesParticleFrames ? 1 : 0)
-                + (blendMode == .additive ? 2 : 0)
+                + (renderState.blendMode == .additive ? 2 : 0)
         )
         var scales = SIMD4<Float>(
             colorUVScale.x,
@@ -219,6 +223,14 @@ struct SceneParticleMetalPipeline {
             length: MemoryLayout<SceneParticleLayerUniforms>.stride,
             index: 2
         )
+    }
+
+    private func configureCull(
+        _ mode: SceneParticlePipelineCullMode,
+        encoder: MTLRenderCommandEncoder
+    ) {
+        encoder.setFrontFacing(.counterClockwise)
+        encoder.setCullMode(mode == .back ? .back : .none)
     }
 
     private static func makeState(

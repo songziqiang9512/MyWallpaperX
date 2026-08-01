@@ -120,7 +120,7 @@ final class SceneParticleChildRuntime {
                 colorUVScale: template.colorUVScale,
                 colorSampling: template.colorSampling,
                 refraction: template.refraction,
-                blendMode: template.blendMode,
+                renderState: template.renderState,
                 instanceBuffer: template.instanceBuffer,
                 instances: instances,
                 orientation: template.orientation,

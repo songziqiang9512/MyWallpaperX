@@ -61,7 +61,7 @@ final class SceneParticlePlaybackState {
             }
             lines.append(
                 "particle layer \(layer.id) \"\(name)\": OK \(batch.texture.width)x\(batch.texture.height) "
-                    + "blend=\(batch.blendMode == .additive ? "additive" : "translucent") "
+                    + "blend=\(batch.renderState.blendMode.rawValue) "
                     + "initial=\(batch.instances.count) perspective=\(batch.usesPerspective) "
                     + "refract=\(batch.refraction != nil)"
             )

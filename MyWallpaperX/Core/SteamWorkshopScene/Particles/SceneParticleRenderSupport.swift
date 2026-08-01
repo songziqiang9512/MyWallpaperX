@@ -1,8 +1,18 @@
 import simd
 
-nonisolated enum SceneParticlePipelineBlendMode: Equatable, Sendable {
+nonisolated enum SceneParticlePipelineBlendMode: String, Equatable, Sendable {
     case translucent
     case additive
+}
+
+nonisolated enum SceneParticlePipelineCullMode: String, Equatable, Sendable {
+    case none
+    case back
+}
+
+nonisolated struct SceneParticlePipelineRenderState: Equatable, Sendable {
+    let blendMode: SceneParticlePipelineBlendMode
+    let cullMode: SceneParticlePipelineCullMode
 }
 
 nonisolated enum SceneParticleSpriteAnimationMode: Equatable, Sendable {

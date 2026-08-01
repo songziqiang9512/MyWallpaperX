@@ -38,7 +38,7 @@ struct SceneParticleDrawBatch {
     let colorUVScale: SIMD2<Float>
     let colorSampling: SceneParticleTextureSampling
     let refraction: SceneParticleRefractionBinding?
-    let blendMode: SceneParticlePipelineBlendMode
+    let renderState: SceneParticlePipelineRenderState
     let instanceBuffer: SceneParticleMetalInstanceBuffer
     let instances: [SceneParticleGPUInstance]
     let orientation: SceneParticleOrientation

@@ -164,6 +164,7 @@ enum Harness {
                 additive.destinationAlpha == .oneMinusSourceAlpha,
             ],
             "metalDraw": renderSmokeTest(),
+            "cullContract": cullContract(),
             "horizontalTrailBounds": trailBounds(velocity: SIMD3(1, 0, 0)),
             "verticalTrailBounds": trailBounds(velocity: SIMD3(0, 1, 0)),
             "rotatedTrailBounds": trailBounds(
@@ -247,6 +248,16 @@ enum Harness {
         ]
     }
 
+    private static func particleState(
+        _ blendMode: SceneParticlePipelineBlendMode,
+        cullMode: SceneParticlePipelineCullMode = .none
+    ) -> SceneParticlePipelineRenderState {
+        SceneParticlePipelineRenderState(
+            blendMode: blendMode,
+            cullMode: cullMode
+        )
+    }
+
     private static func ndc(_ matrix: simd_float4x4, _ point: SIMD4<Float>) -> [Float] {
         let clip = matrix * point
         return [clip.x / clip.w, clip.y / clip.w, clip.z / clip.w]
@@ -303,7 +314,7 @@ enum Harness {
                 viewProjection: SceneMatrix.identity(),
                 layerModel: SceneMatrix.identity(), basis: basis
             ),
-            blendMode: .translucent,
+            renderState: particleState(.translucent),
             colorSampling: .directImageFallback,
             encoder: encoder
         )
@@ -313,7 +324,7 @@ enum Harness {
                 viewProjection: SceneMatrix.identity(),
                 layerModel: SceneMatrix.identity(), basis: basis
             ),
-            blendMode: .additive,
+            renderState: particleState(.additive),
             colorSampling: .directImageFallback,
             encoder: encoder
         )
@@ -490,7 +501,7 @@ enum Harness {
                     cameraForward: SIMD3(0, 0, -1)
                 )
             ),
-            blendMode: .translucent,
+            renderState: particleState(.translucent),
             colorSampling: .directImageFallback,
             encoder: encoder
         )
@@ -641,7 +652,7 @@ enum Harness {
                     cameraForward: SIMD3(0, 0, -1)
                 )
             ),
-            blendMode: .translucent,
+            renderState: particleState(.translucent),
             colorSampling: .directImageFallback,
             encoder: encoder
         )
@@ -777,7 +788,7 @@ enum Harness {
                 ),
                 viewportSize: SIMD2(Float(width), Float(height))
             ),
-            blendMode: .translucent,
+            renderState: particleState(.translucent),
             colorSampling: .directImageFallback,
             encoder: encoder
         )
@@ -886,7 +897,7 @@ enum Harness {
                     cameraForward: SIMD3(0, 0, -1)
                 )
             ),
-            blendMode: .translucent,
+            renderState: particleState(.translucent),
             colorSampling: .directImageFallback,
             encoder: encoder
         )
@@ -1157,7 +1168,7 @@ enum Harness {
                     cameraForward: SIMD3(0, 0, -1)
                 )
             ),
-            blendMode: .translucent,
+            renderState: particleState(.translucent),
             colorUVScale: SIMD2(repeating: 1),
             colorSampling: .directImageFallback,
             encoder: encoder
@@ -1277,7 +1288,7 @@ enum Harness {
                     cameraForward: SIMD3(0, 0, -1)
                 )
             ),
-            blendMode: .translucent,
+            renderState: particleState(.translucent),
             colorSampling: sampling,
             encoder: encoder
         )
@@ -1360,7 +1371,7 @@ enum Harness {
                     cameraForward: SIMD3(0, 0, -1)
                 )
             ),
-            blendMode: .translucent,
+            renderState: particleState(.translucent),
             colorSampling: sampling,
             encoder: encoder
         )
@@ -1377,9 +1388,36 @@ enum Harness {
         return pixel.map(Int.init)
     }
 
+    private static func cullContract() -> [String: [Int]] {
+        guard let device = MTLCreateSystemDefaultDevice() else { return [:] }
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false
+        )
+        descriptor.usage = .shaderRead
+        guard let texture = device.makeTexture(descriptor: descriptor) else { return [:] }
+        var white = [UInt8](repeating: 255, count: 4)
+        texture.replace(
+            region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
+            withBytes: &white, bytesPerRow: 4
+        )
+        return [
+            "frontBackCull": centerPixel(texture: texture, cullMode: .back),
+            "reversedBackCull": centerPixel(
+                texture: texture, cullMode: .back, reversesWinding: true
+            ),
+            "reversedNoCull": centerPixel(
+                texture: texture, cullMode: .none, reversesWinding: true
+            ),
+        ]
+    }
+
     /// Draws one full-alpha particle with the given texture and returns the
     /// blended BGRA center pixel, exercising the real sampler and swizzle.
-    private static func centerPixel(texture: MTLTexture) -> [Int] {
+    private static func centerPixel(
+        texture: MTLTexture,
+        cullMode: SceneParticlePipelineCullMode = .none,
+        reversesWinding: Bool = false
+    ) -> [Int] {
         let size = 8
         guard let device = MTLCreateSystemDefaultDevice(),
               let pipeline = SceneParticleMetalPipeline(device: device),
@@ -1408,12 +1446,12 @@ enum Harness {
             uniforms: SceneParticleLayerUniforms(
                 viewProjection: SceneMatrix.identity(),
                 layerModel: SceneMatrix.identity(),
-                basis: SceneParticleOrientation.screen.basis(
-                    cameraRight: SIMD3(1, 0, 0), cameraUp: SIMD3(0, 1, 0),
-                    cameraForward: SIMD3(0, 0, -1)
+                basis: SceneParticleOrientationBasis(
+                    right: SIMD3(reversesWinding ? -1 : 1, 0, 0),
+                    up: SIMD3(0, 1, 0)
                 )
             ),
-            blendMode: .translucent,
+            renderState: particleState(.translucent, cullMode: cullMode),
             colorSampling: .directImageFallback,
             encoder: encoder
         )
@@ -1516,6 +1554,14 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertEqual(self.result["translucentBlend"], [True, True, True, True])
         self.assertEqual(self.result["additiveBlend"], [True, True, True, True])
         self.assertTrue(self.result["metalDraw"])
+
+    def test_normal_cull_maps_to_back_faces_and_nocull_remains_two_sided(self) -> None:
+        contract = self.result["cullContract"]
+        if not contract.get("frontBackCull"):
+            self.skipTest("Metal offscreen draw is unavailable")
+        self.assertGreater(contract["frontBackCull"][3], 240)
+        self.assertEqual(contract["reversedBackCull"], [0, 0, 0, 0])
+        self.assertGreater(contract["reversedNoCull"][3], 240)
 
     def test_sprite_trails_align_and_stretch_along_velocity(self) -> None:
         horizontal = self.result["horizontalTrailBounds"]

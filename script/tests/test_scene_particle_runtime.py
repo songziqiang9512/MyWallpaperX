@@ -78,6 +78,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneTextureUVTransform.swift",
     SOURCE_ROOT / "Resources/SceneTextureCandidate.swift",
     SOURCE_ROOT / "Resources/SceneTextureLoader+Candidate.swift",
+    SOURCE_ROOT / "Runtime/SceneTextureAnimationPlaybackPlan.swift",
+    SOURCE_ROOT / "Resources/SceneTextureAnimationPlaybackClock.swift",
     SOURCE_ROOT / "Rendering/SceneSpriteAnimation.swift",
     SOURCE_ROOT / "Rendering/SceneLayerVisibility.swift",
     SOURCE_ROOT / "Particles/SceneParticleChildGraphExpansion.swift",
@@ -346,7 +348,7 @@ enum Harness {
             "advancedCount": advancedInstances.count,
             "stateChanged": firstPositions != secondPositions,
             "bufferMatchesData": initialBufferMatchesData,
-            "blend": initial.first?.blendMode == .additive ? "additive" : "translucent",
+            "blend": initial.first?.renderState.blendMode.rawValue ?? "",
             "usesPerspective": initial.first?.usesPerspective ?? false,
             "orientationScreen": initial.first?.orientation == .screen,
             "maximumLocalSize": initialInstances.map { $0.positionAndSize.w }.max() ?? 0,
@@ -629,7 +631,7 @@ enum Harness {
                     layerModel: model,
                     basis: basis
                 ),
-                blendMode: batch.blendMode,
+                renderState: batch.renderState,
                 colorSampling: batch.colorSampling,
                 encoder: encoder
             )
@@ -1334,7 +1336,7 @@ enum Harness {
             ]], under: directory
         )
         try writeParticle(
-            "particles/child.json", material: "materials/shared.json",
+            "particles/child.json", material: "materials/normal-cull.json",
             rate: 0, instantaneous: 1, under: directory
         )
         try writeParticle(
@@ -1368,6 +1370,10 @@ enum Harness {
             "particles/custom-shader.json", material: "materials/custom-shader.json",
             under: directory
         )
+        try writeParticle(
+            "particles/normal-cull.json", material: "materials/normal-cull.json",
+            under: directory
+        )
 
         let descriptor = SceneRenderDescriptor(
             layers: [
@@ -1386,8 +1392,9 @@ enum Harness {
                 layer(13, "particles/renderer-world.json"),
                 layer(14, "particles/movement-world.json"),
                 layer(15, "particles/custom-shader.json"),
+                layer(16, "particles/normal-cull.json"),
             ],
-            renderOrderLayerIDs: Array(1 ... 15),
+            renderOrderLayerIDs: Array(1 ... 16),
             materialPasses: [
                 .init(
                     materialPath: "materials/no-texture.json",
@@ -1413,6 +1420,11 @@ enum Harness {
                     materialPath: "materials/custom-shader.json",
                     shaderPath: "customparticle", texturePaths: ["shared.png"], blending: "additive"
                 ),
+                .init(
+                    materialPath: "materials/normal-cull.json",
+                    shaderPath: "genericparticle", texturePaths: ["shared.png"],
+                    blending: "translucent", combos: ["REFRACT": 0], cullMode: "normal"
+                ),
             ]
         )
         guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
@@ -1434,6 +1446,9 @@ enum Harness {
             "childInstanceCount": batches.first {
                 $0.particlePath == "particles/child.json"
             }?.instances.count ?? 0,
+            "childCullStates": batches.filter {
+                $0.particlePath == "particles/child.json"
+            }.map { $0.renderState.cullMode.rawValue },
             "staticChildInstanceCount": batches.filter {
                 $0.layerID == 9 && $0.particlePath != "particles/unsupported-child-root.json"
             }.reduce(0) { $0 + $1.instances.count },
@@ -1459,6 +1474,8 @@ enum Harness {
             "rendererWorldOrientation": batches.first(where: { $0.layerID == 13 })?
                 .orientation == .worldScreen,
             "movementWorldLayerLoaded": batches.contains { $0.layerID == 14 },
+            "normalCullState": batches.first(where: { $0.layerID == 16 })?
+                .renderState.cullMode.rawValue ?? "",
             "diagnostics": runtime.diagnostics.map {
                 [
                     "kind": $0.kind.rawValue,
@@ -1736,13 +1753,15 @@ class SceneParticleRuntimeTests(unittest.TestCase):
 
     def test_synthetic_rejects_unsupported_roots_and_keeps_diagnostics(self) -> None:
         result = self.run_harness("synthetic")
-        self.assertEqual(result["activeLayerIDs"], [2, 3, 4, 6, 7, 9, 11, 13, 14])
+        self.assertEqual(result["activeLayerIDs"], [2, 3, 4, 6, 7, 9, 11, 13, 14, 16])
         self.assertEqual(
             result["batchLayerIDs"],
-            [2, 3, 4, 4, 6, 7, 9, 9, 9, 9, 11, 13, 14],
+            [2, 3, 4, 4, 6, 7, 9, 9, 9, 9, 11, 13, 14, 16],
         )
         self.assertGreater(result["activeParticleCount"], 0)
         self.assertGreater(result["childInstanceCount"], 0)
+        self.assertTrue(result["childCullStates"])
+        self.assertEqual(set(result["childCullStates"]), {"back"})
         self.assertEqual(result["staticChildInstanceCount"], 3)
         self.assertEqual(result["staticChildOrigins"], [[0, 0, 0], [0, 0, 0], [1, 2, 3]])
         # 内置纹理尺寸已对齐官方 .tex 的 imageWidth/imageHeight，非方形纹理不再按方形近似。
@@ -1752,6 +1771,7 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertEqual(result["trailVelocity"], [100, 0, 0])
         self.assertTrue(result["rendererWorldOrientation"])
         self.assertTrue(result["movementWorldLayerLoaded"])
+        self.assertEqual(result["normalCullState"], "back")
         self.assertFalse(result["hiddenMentioned"])
         self.assertNotIn(10, result["activeLayerIDs"])
         self.assertIn(11, result["activeLayerIDs"])
