@@ -468,6 +468,7 @@ getter 都禁止 global phase，并读取调用时 host state；`CursorEvent` �
 - **particle emission**：`emitParticles()` 与 `emitParticles(0)` 都规范为一次 emission，正整数原样传入，负数 no-op；调用使用零时间偏移并进入正常 runtime 共用的 emitter/default-channel/initializer dispatcher，不建立脚本专用粒子路径。静态证据能确认调用时完成 CPU 侧分配与 initializer 流程，不能确认最终 GPU buffer 是否在同一 draw 可见。
 - **video handle**：provider 缺失时操作 no-op、getter 返回默认值。`play` 遇到 ended 会先 seek 到 0 再播放，`pause` 只暂停，`stop` 暂停并 seek 到 0；`isPlaying` 同时要求 provider active/playing 且未 ended。非 loop 模式先观察到未结束才 arm，随后首次 ended 只派发一次并解除，重播后可再次 arm；loop 模式以当前时间小于上一帧识别自然回绕并派发 ended。主动 `setCurrentTime` 会清除待派发状态，避免把 seek 误报为 loop end。callback 由 owner 有序保存，经 scene engine 批量派发，owner teardown 后不得存活。
 - **animation layer**：`playSingleAnimation` 与普通 `createAnimationLayer` 共用创建/验证/排序路径；配置未解析到已有 animation 时返回空 handle，成功后按 `autosort` / `index` 插入有序容器，再追加 one-shot 标记。evaluator 到达 end 的 frame 先派发该 layer 的全部 ended callbacks，此时 handle 仍存活；同一 frame 的第二遍遍历才移除已标记 layer。显式 `destroyAnimationLayer` 接受 handle identity、非负 index 或 name，name 会删除全部同名匹配；无效 identity、越界 index 和空 name 均 no-op/false，显式 destroy 不冒充自然 ended。
+- **Puppet animation layer records（2026-08-02 bounded clean-room 复核）**：现役文档与公开 Animation Mixing 页面只能确认同一 Puppet 可启用多个 animation，不能回答冲突 bone 的合并公式。仅在这一缺口下对 source-index 所列同哈希官方客户端做最小静态核对：loader 把 `animationlayers` 作为有序数组逐条交给 layer 创建路径，每条记录读取 `animation`、`autosort` 与 `index`；create/play 继续复用上述验证、排序和生命周期。静态路径没有恢复 pose conflict、blend weight 或矩阵公式，也没有把它们写入项目合同。`0892e74b` 因此只实现项目自有的 bind-referenced/disjoint-bone additive 子集，任何重叠 bone 或扩展 profile 继续 fail closed；本节不保存地址、伪代码、函数体、payload 或官方算法表达。
 
 这些都是中性生命周期和顺序合同，不证明 MyWallpaperX 已有相应 VM/handle，也不证明动画混合、视频像素、粒子轨迹或 material function 的视觉等价。
 
@@ -479,7 +480,7 @@ getter 都禁止 global phase，并读取调用时 host state；`CursorEvent` �
 - timer 取消函数是否幂等、delay 下限以及 scene seek 是否影响 scheduler；
 - watchdog 阈值、预算与错误传播应如何跨平台取值；
 - storage namespace/quota/原子性、asset canonicalization/precache、model-data 精确引用计数；
-- camera finite/type 负向行为、material descriptor/pass 完整映射、particle 同 draw 可见性、video provider/error/多屏时钟以及 animation blend/root-motion；
+- camera finite/type 负向行为、material descriptor/pass 完整映射、particle 同 draw 可见性、video provider/error/多屏时钟以及 animation conflict blend/root-motion；
 - cursor event-local/puppet 坐标、候选顺序、边界容差、多按钮与 visible/solid/parent mutation 的同帧冲突；
 - 未在 §6.4–§6.6 闭合的 handle/API 副作用与同帧冲突语义。
 

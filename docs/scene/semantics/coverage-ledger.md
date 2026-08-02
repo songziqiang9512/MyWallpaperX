@@ -112,6 +112,8 @@
 
 当前没有任何完整系统达到 `L4`。官方公开的作者能力已经建立完整索引，但 Wallpaper Engine 没有公开完整稳定的私有 Scene/PKG/TEX 序列化规范，也没有公开 Windows 渲染器实现；未知字段仍须用合法样本、官方 assets 或 Windows golden 继续核验。
 
+> 最新 Puppet disjoint-additive 公共门：`0892e74b` 在既有 MDLV0023/MDLS0004/MDLA0006、loop、blend/rate=1、无 blend-in/out 边界内，允许全部 clip 标记 additive、首帧逐 bone 与 bind pose 差值不超过 `0.001`，且实际驱动 bone 集两两不相交的组合；重叠 bone、重复 animation、非 bind reference 或混合 opaque/additive 继续整层 fail closed。property-bound `animationlayers[].visible` 编译为 typed bool target 并由每帧 snapshot 消费，不执行 SceneScript。Puppet/property/benchmark 等 **180 tests**、代码健康（744 Swift files / 44 locked legacy / 400-line limit）与签名 Debug verify 通过。最终签名 App 对隔离 Workshop 副本中的 `3769688830` 运行 `.codex/scene-puppet-disjoint-3769688830-20260802-v2/report.json` **1/1 PASS**：Puppet layer IDs `[21,44,50,53,56,59,157]`、disjoint-additive `[21,44,50,53,56,59]`、17 clips，submitted/completed/failed `107/106/0`、drawable miss/residue 0，ready/after `mean_delta=0.055279`、`changed_ratio=0.564666`；人工方向性核对确认头/发/脸/肩、手臂和尾巴均有骨骼动态。报告/App executable SHA-256 为 `e6c6cffa706a4051fd7cee8d35b3ee8d3e76236882db3009c53c5e1ca9b60ae6` / `896fdeea9c4c52e0e5f0c10bfaa6b32a144c08cd722d9979133cf2d65972c29c`，CDHash `e5120b4ad2d0b473297df646ff766a7ed4c1f031`、team `H9QWU9XN8R`，签名前后 verified。未跑 fixed13/full45；这不开放重叠骨骼冲突、权重/插值、independent rate、动态 attachment follow、constraints/IK/physics 或 Windows 数值/像素等价。
+
 ## 2. 官方资料覆盖
 
 | 资料面 | 收集状态 | 权威入口 | 仍未知 |
@@ -171,7 +173,7 @@
 | Shader source/include/annotation/declaration contract | `L2` | 完整 source/include/annotation/declaration 保真；受限 framebuffer-only frontend 已消费 stage link、静态循环预算、typed uniform layout、同一 capture source 的 `g_TextureNResolution.xy/zw`、time/pointer/matrix、静态常量及 uniform 同行 `material` constant-key 映射；这不是 typed annotation schema 或 material candidate 驱动的逐槽 binder | include expansion、macro/permutation、完整 GLSL、combo/default/condition、逐 material slot candidate 与任意 sampler/render-state consumer | B2 |
 | Arbitrary custom shader execution | `L0` | 上述严格 framebuffer-only 单 pass 子集不等于 arbitrary shader | 通用受控翻译/映射、安全、资源分级与产品门 | P3 |
 | Puppet asset identity | `L2` | MDLV0021/0023 mesh、受限 MDLV0023 + MDLS0004 + MDAT0001，以及三来源 MDLA0006/full-TRS/80+84-byte skin weights 已交叉核验并 fail closed；v25 保存 authored animation layers | 更多 MDL/MDLA 版本、完整辅助轨道与超出已验证形状的数据 | P2 |
-| Puppet runtime | `L3 executed-degraded` | bind-pose 重组（`8bac86e`）、静态 attachment（`49ee89a`）和严格单可见 clip 的 loop/fixed-step/LBS 播放（`f1ee79b`）；混合、动态 visibility 或畸形声明整层回退 bind pose | 插值、非 loop mode、rate/blend/mixing、动画 attachment follow、constraint/IK/physics/events、Windows golden | P2 |
+| Puppet runtime | `L3 executed-degraded` | bind-pose 重组（`8bac86e`）、静态 attachment（`49ee89a`）、严格单 clip（`f1ee79b`），以及 bind-referenced、驱动 bone 集两两不相交的 bounded additive 组合与 typed visibility（`0892e74b`）；冲突或畸形声明整层回退 bind pose | 插值、非 loop mode、非 1 rate/blend、重叠 bone mixing/权重、动画 attachment follow、constraint/IK/physics/events、Windows golden | P2 |
 | Bounded standalone volumetric `lspot` | `L3 bounded` | 无 parent/child/effect/dependency/script、`castvolumetrics=true`/`solid=true`、单 relative Mirror angles Timeline 的 2D projector cone；作者 color/intensity/radius/cone/density/exponents 进入 premultiplied additive direct draw | 不执行 normal/PBR lighting、shadow、projection image/video/effect provider、point/tube/directional、动态脚本/audio/cursor 或通用四灯合成；见 [E-SPOT-LIGHT](runtime-evidence-index.md#e-spot-light) | Advanced |
 | 2D lighting/Scene HDR | `L0` | 上述 standalone `lspot` 只画投影体，不使 image material 响应光照；layer Bloom 近似也不等于官方 lighting/HDR pipeline | PBR maps、author-enabled lit material、ambient、shadow/reflection、scene post | P2 |
 | 3D model/camera/physics | `L0` | 无 Scene 3D runtime | model/node/material/skeleton/attachment/camera/physics | P3 |
@@ -344,7 +346,7 @@
 | 能力族 | 当前级别 | 最小可用门 |
 |---|---|---|
 | Puppet asset identity | `L2` | 更多 MDL/MDLA 版本、辅助轨道和完整资源图 |
-| Puppet mesh/bones/weights runtime | `L3` bind pose + 静态 attachment + 严格单 clip CPU LBS | 插值/mixing、GPU skinning、动态 attachment follow、层级/遮罩 |
+| Puppet mesh/bones/weights runtime | `L3` bind pose + 静态 attachment + 严格单 clip / disjoint-bone additive CPU LBS | 插值、冲突 mixing/权重、GPU skinning、动态 attachment follow、层级/遮罩 |
 | Puppet spring/rigid/rope/wind | `L0` | fixed timestep solver、events、确定性 golden |
 | 2D PBR maps | `L0` | normal/roughness/metalness/emissive slot 与 color space |
 | Bounded standalone volumetric `lspot` | `L3 bounded` | 四束 authored cone 已按 source order、world origin 与 relative Mirror angle Timeline direct draw；无 lit-material interaction |

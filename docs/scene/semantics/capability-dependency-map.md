@@ -162,7 +162,7 @@ Particle breadth 的 bounded Position Offset Random 子集由 `968d86eb` 在同�
 <a id="d11"></a>
 ### D11 Fidelity and advanced runtimes
 
-Puppet、lighting/HDR、3D、RGB 和 offline 复用 D0-D10。Puppet 已有严格单 clip 的 fixed-step CPU LBS 子集，但仍必须复用统一 frame context、geometry、texture lifetime 和 fail-closed 路由；它不代表 animation mixing、动态 attachment 或完整高级对象支持。其他系统在 light/shader/fixed-time consumer 不存在时必须保持 `L0-L2`，不能用普通 image transform、layer Bloom 或 Debug PNG readback 冒充执行。
+Puppet、lighting/HDR、3D、RGB 和 offline 复用 D0-D10。Puppet 已有严格单 clip 与 bind-referenced/disjoint-bone additive clips 的 fixed-step CPU LBS 子集，typed animation visibility 复用 D2/D4 snapshot；它仍必须复用统一 frame context、geometry、texture lifetime 和 fail-closed 路由，不代表冲突 animation mixing/权重、动态 attachment 或完整高级对象支持。其他系统在 light/shader/fixed-time consumer 不存在时必须保持 `L0-L2`，不能用普通 image transform、layer Bloom 或 Debug PNG readback 冒充执行。
 
 ## 4. Coverage-first 实施波次
 

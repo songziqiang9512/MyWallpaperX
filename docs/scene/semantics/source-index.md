@@ -219,6 +219,8 @@ https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/<Name>.htm
 | RGB | https://docs.wallpaperengine.io/en/scene/rgb/introduction.html |
 | Texture performance | https://docs.wallpaperengine.io/en/scene/performance/texture.html |
 
+2026-08-02 复核 Puppet [Animation Mixing](https://docs.wallpaperengine.io/en/scene/puppet-warp/animationmixing.html)：官方公开行为只说明同一 Puppet 可同时启用多个 animation 并分别设置 duration/rate，运行时会合并结果；没有公开相同 bone/property 的冲突规则、blend weight、插值或矩阵算法。资料库既有 MDLA/full-TRS、严格单 clip 与 SceneScript handle 生命周期分析仍不足以界定多 clip 数值合同，因此仅对 source-index 已登记、哈希匹配的官方客户端做一次 bounded Ghidra clean-room 高层核对：`animationlayers` 按有序 records 创建，每条读取 `animation/autosort/index`，create/play 复用验证、排序与生命周期；没有恢复或复制 pose mixing 公式。项目 `0892e74b` 只据真实 MDLA 自有 fixture 开放 bind-referenced、driven-bone 集两两不相交、blend/rate=1、无 blend-in/out 的 additive 子集，并实时消费 typed User Property visibility；重叠 bone、权重/插值/independent rate 与其他 profile 继续 fail closed。详见 [客户端运行时静态取证 §6.6](client-runtime-static-forensics.md#66-cameramaterialparticlevideo-与-animation-handle) 与 [E-PUPPET-BC](runtime-evidence-index.md#e-puppet-bc)。
+
 本轮只建立能力边界，没有把这些高级模块错误提升为当前 P0。
 
 ### 1.11 2.8.42 客户端快照静态取证资料组
@@ -261,7 +263,7 @@ Wallpaper Engine 2.8.42 / Steam build `23967692` 是一个固定版本证据快�
 - [21 个用户样本首轮评估（历史截图基线）](../scene-sample-assessment-2026-07-22.md)
 - [Scene 开发计划](../scene-capability-development-plan-2026-07-22.md)
 - v16 结构基线：`.codex/scene-effect-graph-canonical-final-20260723/report.json`（canonical graph 身份，不等于 GPU 执行）
-- 运行证据分固定回归门与完整快照门；仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` 固定真实目录中 45 个具备 package 的可运行样本，`3770500543` 因缺 package 只记录在 source manifest。`.codex/scene-builtin-textures-full45-20260725/report.json` 与 `.codex/scene-builtin-textures-fixed13-v2-20260725/report.json` 只保留为 13-key built-in 阶段证据，不能覆盖现役结果。Puppet 定向正向门与 v24 对照分别为 `.codex/scene-puppet-animation-20260725/targeted-v1/report.json`、`.codex/scene-puppet-animation-20260725/control-v24-v1/report.json`。当前实现基线、两层报告/矩阵哈希、App 身份、聚合缺口与测试数统一见 [运行证据索引](runtime-evidence-index.md)。
+- 运行证据分固定回归门与完整快照门；仓库矩阵 `script/scene_wallpaper_full_sample_matrix.json` 固定真实目录中 45 个具备 package 的可运行样本，`3770500543` 因缺 package 只记录在 source manifest。`.codex/scene-builtin-textures-full45-20260725/report.json` 与 `.codex/scene-builtin-textures-fixed13-v2-20260725/report.json` 只保留为 13-key built-in 阶段证据，不能覆盖现役结果。Puppet 旧单 clip 正向门与 v24 对照分别为 `.codex/scene-puppet-animation-20260725/targeted-v1/report.json`、`.codex/scene-puppet-animation-20260725/control-v24-v1/report.json`；当前 disjoint-additive 定向门为 `.codex/scene-puppet-disjoint-3769688830-20260802-v2/report.json`。当前实现基线、报告/App 身份与能力边界统一见 [运行证据索引](runtime-evidence-index.md)。
 - ordered scheduler 的 Shadow 前阶段证据：`.codex/scene-effect-chain-gated-final13-20260723/report.json`（基线 `b541867`、8 stage、0 real chain、legacy blocked 3）。该报告只说明当时 all-or-nothing chain 负门，不能反向覆盖上述 current Shadow 正门。
 - `.codex/scene-user-texture-final13-r2-20260723/report.json` 降为 format 17 file-property 阶段证据，不能反向覆盖上述当前矩阵或 App 身份。
 - file-backed property 定向门：`.codex/scene-user-texture-293-20260723-r1/`（隔离 `2938612768` 向 `newproperty25/26` 注入 200×200 PNG；两张纹理加载、image 44/44、static image blend 5/5，截图变化证明进入 renderer；不证明 system media、动态 current/previous thumbnail 或 WE 像素 parity）
@@ -274,7 +276,7 @@ Wallpaper Engine 2.8.42 / Steam build `23967692` 是一个固定版本证据快�
 
 ## 3. 开源播放器对照
 
-本地参考项目的两份只读审查记录（研究记录，不是现役能力状态）：[全量参考项目审查](../../reviews/scene-reference-project-audit-2026-07-24.md)（HEAD `31ae557` 时）与 [effect/runtime 专题审查](../../reviews/scene-reference-audit-effects-runtime-2026-07-24.md)（有序 effect 链、X-Ray、water、时间/文字、视频纹理主题）。Puppet MDLV mesh、受限 MDLS/MDAT 静态 attachment、三来源 MDLA/full-TRS/skin weights 与严格单 clip LBS，以及 BC 解码的可执行合同已收敛到 [场景格式与 Render Graph](scene-format-and-render-graph.md) 第 11 节；第三方审查记录不再是这些现役能力的事实来源。
+本地参考项目的两份只读审查记录（研究记录，不是现役能力状态）：[全量参考项目审查](../../reviews/scene-reference-project-audit-2026-07-24.md)（HEAD `31ae557` 时）与 [effect/runtime 专题审查](../../reviews/scene-reference-audit-effects-runtime-2026-07-24.md)（有序 effect 链、X-Ray、water、时间/文字、视频纹理主题）。Puppet MDLV mesh、受限 MDLS/MDAT 静态 attachment、三来源 MDLA/full-TRS/skin weights、严格单 clip 与 disjoint-bone additive LBS，以及 BC 解码的可执行合同已收敛到 [场景格式与 Render Graph](scene-format-and-render-graph.md) 第 11 节；第三方审查记录不再是这些现役能力的事实来源。
 
 ### 3.1 `Almamu/linux-wallpaperengine`
 
