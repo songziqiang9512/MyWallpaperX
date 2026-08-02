@@ -14,6 +14,14 @@ extension SceneDesktopWallpaperHost {
             switch layer.contentKind {
             case "image":
                 targets.insert(.layer(layerID: layer.id, field: .alpha))
+                for animationLayer in layer.puppetAnimationLayers
+                    where animationLayer.visibilityBinding != nil {
+                    guard let animationLayerID = animationLayer.id else { continue }
+                    targets.insert(ScenePuppetAnimationPropertyTarget.visibility(
+                        layerID: layer.id,
+                        animationLayerID: animationLayerID
+                    ))
+                }
             case "text":
                 targets.insert(.layer(layerID: layer.id, field: .alpha))
                 guard layer.text != nil,

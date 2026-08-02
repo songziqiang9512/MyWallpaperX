@@ -32,10 +32,10 @@ final class ScenePuppetPlaybackState {
     }
 
     let layerID: Int
-    let animationID: Int
+    let animationIDs: [Int]
 
     private let mesh: SceneMdlPuppetMesh
-    private let animation: SceneMdlPuppetAnimation
+    private let selection: ScenePuppetAnimationSelection
     private let evaluator: ScenePuppetAnimationEvaluator
     private let atlasTexture: MTLTexture
     private let targetTexture: MTLTexture
@@ -45,13 +45,13 @@ final class ScenePuppetPlaybackState {
     private let layerWidth: Float
     private let layerHeight: Float
     private var nextVertexBufferIndex = 0
-    private var lastEncodedFrameIndex: Int?
+    private var lastEncodedFrameSignature: [Int]?
 
     static func make(
         layerID: Int,
         mesh: SceneMdlPuppetMesh,
         rig: SceneMdlPuppetRig,
-        animation: SceneMdlPuppetAnimation,
+        selection: ScenePuppetAnimationSelection,
         atlasTexture: MTLTexture,
         layerWidth: Float,
         layerHeight: Float,
@@ -76,7 +76,13 @@ final class ScenePuppetPlaybackState {
 
         let evaluator: ScenePuppetAnimationEvaluator
         do {
-            evaluator = try ScenePuppetAnimationEvaluator(mesh: mesh, rig: rig)
+            evaluator = try ScenePuppetAnimationEvaluator(
+                mesh: mesh,
+                rig: rig,
+                additiveAnimations: selection.composition == .disjointAdditive
+                    ? selection.clips.map(\.animation)
+                    : []
+            )
         } catch let failure as ScenePuppetAnimationEvaluationFailure {
             return .failure(.evaluation(failure))
         } catch {
@@ -104,9 +110,9 @@ final class ScenePuppetPlaybackState {
         }
         let state = ScenePuppetPlaybackState(
             layerID: layerID,
-            animationID: animation.id,
+            animationIDs: selection.clips.map(\.animation.id),
             mesh: mesh,
-            animation: animation,
+            selection: selection,
             evaluator: evaluator,
             atlasTexture: atlasTexture,
             targetTexture: targetTexture,
@@ -119,16 +125,24 @@ final class ScenePuppetPlaybackState {
         return .success(Output(state: state, texture: targetTexture, byteCost: byteCost))
     }
 
-    func encode(sceneTime: Double, commandBuffer: MTLCommandBuffer) {
-        let frameIndex = ScenePuppetAnimationEvaluator.frameIndex(
-            sceneTime: sceneTime,
-            rate: 1,
-            animation: animation
-        )
-        guard frameIndex != lastEncodedFrameIndex,
+    func encode(
+        sceneTime: Double,
+        dynamicValues: SceneDynamicSnapshot,
+        commandBuffer: MTLCommandBuffer
+    ) {
+        let frameIndices: [Int?] = selection.clips.map { clip in
+            guard isVisible(clip.layer, dynamicValues: dynamicValues) else { return nil }
+            return ScenePuppetAnimationEvaluator.frameIndex(
+                sceneTime: sceneTime,
+                rate: clip.layer.rate ?? 1,
+                animation: clip.animation
+            )
+        }
+        let signature = frameIndices.map { $0 ?? -1 }
+        guard signature != lastEncodedFrameSignature,
               let positions = try? evaluator.deformedPositions(
-                  animation: animation,
-                  frameIndex: frameIndex
+                  selection: selection,
+                  frameIndices: frameIndices
               ) else { return }
 
         let vertices = mesh.vertices.indices.map { index in
@@ -157,7 +171,7 @@ final class ScenePuppetPlaybackState {
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: passDescriptor) else {
             return
         }
-        encoder.label = "Puppet animation layer \(layerID) frame \(frameIndex)"
+        encoder.label = "Puppet animation layer \(layerID) frames \(signature)"
         encoder.setRenderPipelineState(renderPipelineState)
         encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
         var mvp = SceneMatrix.scale(SIMD3<Float>(2, 2, 1))
@@ -179,14 +193,28 @@ final class ScenePuppetPlaybackState {
             indexBufferOffset: 0
         )
         encoder.endEncoding()
-        lastEncodedFrameIndex = frameIndex
+        lastEncodedFrameSignature = signature
+    }
+
+    private func isVisible(
+        _ layer: ScenePuppetAnimationLayer,
+        dynamicValues: SceneDynamicSnapshot
+    ) -> Bool {
+        guard layer.visibilityBinding != nil else { return layer.visible == true }
+        guard let animationLayerID = layer.id,
+              let resolved = dynamicValues[ScenePuppetAnimationPropertyTarget.visibility(
+                  layerID: layerID,
+                  animationLayerID: animationLayerID
+              )],
+              case let .bool(visible) = resolved.value else { return false }
+        return visible
     }
 
     private init(
         layerID: Int,
-        animationID: Int,
+        animationIDs: [Int],
         mesh: SceneMdlPuppetMesh,
-        animation: SceneMdlPuppetAnimation,
+        selection: ScenePuppetAnimationSelection,
         evaluator: ScenePuppetAnimationEvaluator,
         atlasTexture: MTLTexture,
         targetTexture: MTLTexture,
@@ -197,9 +225,9 @@ final class ScenePuppetPlaybackState {
         layerHeight: Float
     ) {
         self.layerID = layerID
-        self.animationID = animationID
+        self.animationIDs = animationIDs
         self.mesh = mesh
-        self.animation = animation
+        self.selection = selection
         self.evaluator = evaluator
         self.atlasTexture = atlasTexture
         self.targetTexture = targetTexture

@@ -61,7 +61,9 @@ func selectionResult(
     set: SceneMdlPuppetAnimationSet
 ) -> String {
     switch ScenePuppetAnimationSelector.select(layers: layers, animationSet: set) {
-    case .success(let selection?): return "selected:\(selection.animation.id)"
+    case .success(let selection?):
+        return "selected:\(selection.composition.rawValue):"
+            + selection.clips.map { String($0.animation.id) }.joined(separator: ",")
     case .success(nil): return "inactive"
     case .failure(let failure): return failure.description
     }
@@ -81,7 +83,43 @@ enum Harness {
                 [transform(translationX: 2), transform(translationX: 5), transform(translationX: 2)],
             ]
         )
-        let set = SceneMdlPuppetAnimationSet(boneCount: 2, animations: [animation])
+        let rootAnimation = SceneMdlPuppetAnimation(
+            id: 200,
+            name: "Root",
+            mode: "loop",
+            framesPerSecond: 2,
+            frameCount: 2,
+            transformsByBone: [
+                [transform(translationX: 4), transform(translationX: 7), transform(translationX: 4)],
+                [transform(translationX: 2), transform(translationX: 2), transform(translationX: 2)],
+            ]
+        )
+        let overlappingAnimation = SceneMdlPuppetAnimation(
+            id: 300,
+            name: "Overlap",
+            mode: "loop",
+            framesPerSecond: 2,
+            frameCount: 2,
+            transformsByBone: [
+                [transform(translationX: 4), transform(translationX: 4), transform(translationX: 4)],
+                [transform(translationX: 2), transform(translationX: 3), transform(translationX: 2)],
+            ]
+        )
+        let nonBindAnimation = SceneMdlPuppetAnimation(
+            id: 400,
+            name: "NonBind",
+            mode: "loop",
+            framesPerSecond: 2,
+            frameCount: 2,
+            transformsByBone: [
+                [transform(translationX: 5), transform(translationX: 6), transform(translationX: 5)],
+                [transform(translationX: 2), transform(translationX: 2), transform(translationX: 2)],
+            ]
+        )
+        let set = SceneMdlPuppetAnimationSet(
+            boneCount: 2,
+            animations: [animation, rootAnimation]
+        )
         let mesh = SceneMdlPuppetMesh(
             version: "MDLV0023",
             vertexStride: 80,
@@ -114,6 +152,56 @@ enum Harness {
         let evaluator = try ScenePuppetAnimationEvaluator(mesh: mesh, rig: rig)
         let frame0 = try evaluator.deformedPositions(animation: animation, frameIndex: 0)[0]
         let frame1 = try evaluator.deformedPositions(animation: animation, frameIndex: 1)[0]
+        let additiveSelection: ScenePuppetAnimationSelection
+        switch ScenePuppetAnimationSelector.select(
+            layers: [
+                layer(id: 10, animationID: 100, additive: true),
+                layer(id: 20, animationID: 200, additive: true),
+            ],
+            animationSet: set
+        ) {
+        case .success(let selection?): additiveSelection = selection
+        default: fatalError("disjoint additive selection failed")
+        }
+        let additiveEvaluator = try ScenePuppetAnimationEvaluator(
+            mesh: mesh,
+            rig: rig,
+            additiveAnimations: additiveSelection.clips.map(\.animation)
+        )
+        let additiveBoth = try additiveEvaluator.deformedPositions(
+            selection: additiveSelection,
+            frameIndices: [1, 1]
+        )[0]
+        let additiveChildOnly = try additiveEvaluator.deformedPositions(
+            selection: additiveSelection,
+            frameIndices: [1, nil]
+        )[0]
+        let additiveRootOnly = try additiveEvaluator.deformedPositions(
+            selection: additiveSelection,
+            frameIndices: [nil, 1]
+        )[0]
+        let overlapError: String
+        do {
+            _ = try ScenePuppetAnimationEvaluator(
+                mesh: mesh,
+                rig: rig,
+                additiveAnimations: [animation, overlappingAnimation]
+            )
+            overlapError = "accepted"
+        } catch let failure as ScenePuppetAnimationEvaluationFailure {
+            overlapError = failure.description
+        }
+        let nonBindError: String
+        do {
+            _ = try ScenePuppetAnimationEvaluator(
+                mesh: mesh,
+                rig: rig,
+                additiveAnimations: [nonBindAnimation]
+            )
+            nonBindError = "accepted"
+        } catch let failure as ScenePuppetAnimationEvaluationFailure {
+            nonBindError = failure.description
+        }
         let missingNumbers = ScenePuppetAnimationLayer.parse([
             ["id": 10, "animation": 100]
         ])[0]
@@ -129,7 +217,10 @@ enum Harness {
         let payload: [String: Any] = [
             "selection": selectionResult([layer()], set: set),
             "inactive": selectionResult([layer(visible: false)], set: set),
-            "multi": selectionResult([layer(id: 10), layer(id: 11)], set: set),
+            "mixed": selectionResult([
+                layer(id: 10, animationID: 100),
+                layer(id: 11, animationID: 200, additive: true),
+            ], set: set),
             "additive": selectionResult([layer(additive: true)], set: set),
             "blend": selectionResult([layer(blend: 0.5)], set: set),
             "boundVisibility": selectionResult(
@@ -143,6 +234,11 @@ enum Harness {
             },
             "frame0": [frame0.x, frame0.y],
             "frame1": [frame1.x, frame1.y],
+            "additiveBoth": [additiveBoth.x, additiveBoth.y],
+            "additiveChildOnly": [additiveChildOnly.x, additiveChildOnly.y],
+            "additiveRootOnly": [additiveRootOnly.x, additiveRootOnly.y],
+            "overlapError": overlapError,
+            "nonBindError": nonBindError,
             "missingNumbersAreNil": missingNumbers.blend == nil
                 && missingNumbers.blendTime == nil
                 && missingNumbers.rate == nil,
@@ -184,14 +280,17 @@ class ScenePuppetPlaybackTests(unittest.TestCase):
         cls.temporary_directory.cleanup()
 
     def test_strict_single_clip_selection(self) -> None:
-        self.assertEqual(self.result["selection"], "selected:100")
+        self.assertEqual(self.result["selection"], "selected:single-absolute:100")
         self.assertEqual(self.result["inactive"], "inactive")
 
-    def test_unknown_mixing_and_dynamic_visibility_fail_closed(self) -> None:
-        self.assertIn("require unsupported mixing", self.result["multi"])
-        self.assertIn("outside the strict single-clip profile", self.result["additive"])
-        self.assertIn("outside the strict single-clip profile", self.result["blend"])
-        self.assertIn("property-bound visibility", self.result["boundVisibility"])
+    def test_bounded_additive_selection_and_unsupported_profiles(self) -> None:
+        self.assertEqual(self.result["additive"], "selected:disjoint-additive:100")
+        self.assertIn("mix opaque and additive", self.result["mixed"])
+        self.assertIn("outside the bounded playback profile", self.result["blend"])
+        self.assertEqual(
+            self.result["boundVisibility"],
+            "selected:single-absolute:100",
+        )
         self.assertIn("absent from MDLA0006", self.result["unknown"])
 
     def test_fixed_step_sampling_wraps_without_interpolation(self) -> None:
@@ -200,6 +299,15 @@ class ScenePuppetPlaybackTests(unittest.TestCase):
     def test_bind_identity_and_later_frame_movement(self) -> None:
         self.assertEqual(self.result["frame0"], [2, 1])
         self.assertEqual(self.result["frame1"], [5, 1])
+
+    def test_disjoint_additive_bones_compose_and_visibility_is_per_clip(self) -> None:
+        self.assertEqual(self.result["additiveBoth"], [8, 1])
+        self.assertEqual(self.result["additiveChildOnly"], [5, 1])
+        self.assertEqual(self.result["additiveRootOnly"], [5, 1])
+
+    def test_additive_overlap_and_non_bind_reference_fail_closed(self) -> None:
+        self.assertIn("both drive bone 1", self.result["overlapError"])
+        self.assertIn("does not start at bind pose", self.result["nonBindError"])
 
     def test_missing_and_malformed_optional_numbers_fail_closed(self) -> None:
         self.assertTrue(self.result["missingNumbersAreNil"])

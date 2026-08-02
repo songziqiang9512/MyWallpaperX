@@ -61,6 +61,10 @@ enum Harness {
           "objects":[{
             "id":10,
             "visible":{"user":"enabled","value":false},
+            "animationlayers":[{
+              "id":77,
+              "visible":{"user":"enabled","value":false}
+            }],
             "text":{"user":"caption","value":"fallback"},
             "pointsize":{"user":"size","value":12},
             "color":{"user":"tint","value":"0 0 0"},
@@ -108,6 +112,7 @@ enum Harness {
             .mapValues(\.count)
         let definitionsByKey = Dictionary(uniqueKeysWithValues: catalog.definitions.map { ($0.key, $0) })
         let particleOverride = object["instanceoverride"] as? [String: Any] ?? [:]
+        let animationLayer = ((object["animationlayers"] as? [[String: Any]]) ?? [])[0]
         return [
             "definitionCount": catalog.definitions.count,
             "definitionKinds": kinds,
@@ -125,10 +130,15 @@ enum Harness {
                 if case .particle = $0.target { return true }
                 return false
             }.count,
+            "puppetAnimationBindingCount": resolution.bindingReport.bindings.filter {
+                if case .puppetAnimationVisibility = $0.target { return true }
+                return false
+            }.count,
             "resolvedBindingCount": resolution.resolvedBindingCount,
             "diagnostics": diagnostics,
             "cameraParallax": wrapperValue(resolution.root["general"], key: "cameraparallax"),
             "layerVisible": wrapperValue(object, key: "visible"),
+            "puppetAnimationVisible": wrapperValue(animationLayer, key: "visible"),
             "text": wrapperValue(object, key: "text"),
             "pointSize": wrapperValue(object, key: "pointsize"),
             "color": wrapperValue(object, key: "color"),
@@ -215,6 +225,7 @@ enum Harness {
     private static func targetName(_ target: SceneUserPropertyBindingTarget) -> String {
         switch target {
         case .layerVisibility: "layerVisibility"
+        case .puppetAnimationVisibility: "puppetAnimationVisibility"
         case .layerAlpha: "layerAlpha"
         case .layerColor: "layerColor"
         case .effectVisibility: "effectVisibility"
@@ -332,13 +343,15 @@ class SceneUserPropertyTests(unittest.TestCase):
         self.assertEqual(result["officialTextureRuntimeType"], "texture")
         self.assertEqual(result["sceneTextureRuntimeType"], "scenetexture")
         self.assertTrue(result["unknownOverrideIgnored"])
-        self.assertEqual(result["bindingCount"], 13)
+        self.assertEqual(result["bindingCount"], 14)
         self.assertEqual(result["conditionalBindingCount"], 2)
         self.assertEqual(result["unsupportedBindingCount"], 3)
-        self.assertEqual(result["resolvedBindingCount"], 11)
+        self.assertEqual(result["resolvedBindingCount"], 12)
         self.assertEqual(result["particleBindingCount"], 2)
+        self.assertEqual(result["puppetAnimationBindingCount"], 1)
         self.assertEqual(result["cameraParallax"], True)
         self.assertEqual(result["layerVisible"], True)
+        self.assertEqual(result["puppetAnimationVisible"], True)
         self.assertEqual(result["text"], "Hello")
         self.assertEqual(result["pointSize"], 42)
         self.assertEqual(result["color"], "0.2 0.4 0.6")

@@ -383,7 +383,7 @@ class SceneMetalView: NSView {
                     )
                 }
                 for playback in puppetPlaybackStates.values {
-                    playback.encode(sceneTime: frameContext.sceneTime, commandBuffer: commandBuffer)
+                    playback.encode(sceneTime: frameContext.sceneTime, dynamicValues: frameContext.dynamicValues, commandBuffer: commandBuffer)
                 }
             },
             encodeLayerSourceUpdates: { [mediaThumbnailCoordinator] commandBuffer in

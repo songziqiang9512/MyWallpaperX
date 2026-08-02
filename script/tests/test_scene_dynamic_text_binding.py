@@ -16,6 +16,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Properties/SceneUserProperty.swift",
     SOURCE_ROOT / "Properties/SceneUserPropertyBindings.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
+    SOURCE_ROOT / "Properties/ScenePuppetAnimationPropertyTarget.swift",
     SOURCE_ROOT / "Properties/ScenePropertyBindingProgram.swift",
     SOURCE_ROOT / "Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
     SOURCE_ROOT / "Properties/ScenePropertyBindingProgramValidator.swift",

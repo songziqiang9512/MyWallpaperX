@@ -30,6 +30,7 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
     }
 
     case layerVisibility(layerID: Int)
+    case puppetAnimationVisibility(layerID: Int, animationLayerID: Int)
     case layerAlpha(layerID: Int)
     case layerColor(layerID: Int)
     case effectVisibility(layerID: Int, effectIndex: Int, effectPath: String?)
@@ -47,7 +48,7 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
 
     nonisolated var acceptsConditionalBoolean: Bool {
         switch self {
-        case .layerVisibility, .effectVisibility:
+        case .layerVisibility, .puppetAnimationVisibility, .effectVisibility:
             return true
         case let .camera(field):
             return field == "cameraparallax" || field == "camerashake"
@@ -173,6 +174,18 @@ nonisolated struct SceneUserPropertyBindingParser {
         }
         if components.count == 3, Self.key(components[2]) == "visible" {
             return .layerVisibility(layerID: layerID)
+        }
+        if components.count == 5,
+           Self.key(components[2]) == "animationlayers",
+           let animationLayerIndex = Self.index(components[3]),
+           Self.key(components[4]) == "visible",
+           let animationLayers = object["animationlayers"] as? [[String: Any]],
+           animationLayers.indices.contains(animationLayerIndex),
+           let animationLayerID = Self.integer(animationLayers[animationLayerIndex]["id"]) {
+            return .puppetAnimationVisibility(
+                layerID: layerID,
+                animationLayerID: animationLayerID
+            )
         }
         if components.count == 3, Self.key(components[2]) == "alpha" {
             return .layerAlpha(layerID: layerID)

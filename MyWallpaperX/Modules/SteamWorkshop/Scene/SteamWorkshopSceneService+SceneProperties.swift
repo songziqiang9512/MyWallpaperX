@@ -232,6 +232,12 @@ extension SteamWorkshopService {
         switch target {
         case .layerVisibility, .layerAlpha, .text:
             return true
+        case let .puppetAnimationVisibility(layerID, animationLayerID):
+            return renderDescriptor.layers.contains { layer in
+                layer.id == layerID && layer.puppetAnimationLayers.contains {
+                    $0.id == animationLayerID && $0.visibilityBinding != nil
+                }
+            }
         case let .particle(layerID, _):
             return renderDescriptor.layers.contains {
                 $0.id == layerID && $0.contentKind == "particle"

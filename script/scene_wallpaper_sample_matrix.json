@@ -1859,6 +1859,24 @@
         1427,
         761
       ],
+      "expected_puppet_animation_layer_ids": [
+        21,
+        44,
+        50,
+        53,
+        56,
+        59,
+        157
+      ],
+      "expected_puppet_disjoint_additive_layer_ids": [
+        21,
+        44,
+        50,
+        53,
+        56,
+        59
+      ],
+      "expected_puppet_animation_clip_count": 17,
       "expected_camera_parallax": false,
       "expected_utility_candidates": 0,
       "expected_utility_capture_planned": 0,

@@ -169,6 +169,11 @@ SOLID_LAYER_OK_RE = re.compile(
     r'^layer (?P<id>\d+) .*: OK procedural solid(?:\s|$)',
     re.MULTILINE,
 )
+PUPPET_ANIMATION_OK_RE = re.compile(
+    r'^layer (?P<id>\d+) .*?: .*puppet animation OK .*? '
+    r'mode=(?P<mode>[a-z-]+) ids=(?P<ids>[\d,]+) clips=(?P<clips>\d+)(?:\s|$)',
+    re.MULTILINE,
+)
 UTILITY_LAYER_COUNT_RE = re.compile(r"^utilityLayerCount: (?P<count>\d+)$", re.MULTILINE)
 UTILITY_CAPTURE_COUNT_RE = re.compile(
     r"^utilityCapturePlannedCount: (?P<count>\d+)$", re.MULTILINE
@@ -1097,6 +1102,56 @@ def solid_runtime_metrics(preview_text: str) -> dict[str, Any]:
         "loaded_ratio": len(loaded_layer_ids) / candidates if candidates else 0.0,
         "loaded_layer_ids": loaded_layer_ids,
     }
+
+
+def puppet_animation_runtime_metrics(preview_text: str) -> dict[str, Any]:
+    entries = [
+        {
+            "layer_id": int(match.group("id")),
+            "mode": match.group("mode"),
+            "animation_ids": [
+                int(animation_id)
+                for animation_id in match.group("ids").split(",")
+            ],
+            "clip_count": int(match.group("clips")),
+        }
+        for match in PUPPET_ANIMATION_OK_RE.finditer(preview_text)
+    ]
+    entries.sort(key=lambda entry: entry["layer_id"])
+    return {
+        "layer_ids": [entry["layer_id"] for entry in entries],
+        "disjoint_additive_layer_ids": [
+            entry["layer_id"]
+            for entry in entries
+            if entry["mode"] == "disjoint-additive"
+        ],
+        "clip_count": sum(entry["clip_count"] for entry in entries),
+        "entries": entries,
+    }
+
+
+def puppet_animation_runtime_failures(
+    sample: dict[str, Any],
+    metrics: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    expected_layer_ids = sample.get("expected_puppet_animation_layer_ids")
+    if expected_layer_ids is not None:
+        if metrics["layer_ids"] != sorted(int(value) for value in expected_layer_ids):
+            failures.append("puppet animation layer IDs mismatch")
+    expected_additive_layer_ids = sample.get(
+        "expected_puppet_disjoint_additive_layer_ids"
+    )
+    if expected_additive_layer_ids is not None:
+        if metrics["disjoint_additive_layer_ids"] != sorted(
+            int(value) for value in expected_additive_layer_ids
+        ):
+            failures.append("puppet disjoint-additive layer IDs mismatch")
+    expected_clip_count = sample.get("expected_puppet_animation_clip_count")
+    if expected_clip_count is not None:
+        if metrics["clip_count"] != int(expected_clip_count):
+            failures.append("puppet animation clip count mismatch")
+    return failures
 
 
 def text_script_runtime_metrics(preview_text: str) -> dict[str, Any]:
@@ -2369,6 +2424,7 @@ def run_sample(
         scene_script_audio_bars_execution_metrics(log_text)
     )
     solid_runtime = solid_runtime_metrics(preview_text)
+    puppet_animation_runtime = puppet_animation_runtime_metrics(preview_text)
     utility_runtime = utility_runtime_metrics(preview_text)
     utility_capture_execution = utility_capture_execution_metrics(log_text)
     authored_effect_graph_execution = authored_effect_graph_execution_metrics(log_text)
@@ -2567,6 +2623,9 @@ def run_sample(
         if layer_id not in text_loaded_layer_ids:
             failures.append(f"text layer {layer_id} should be loaded")
     failures.extend(solid_runtime_failures(sample, solid_runtime))
+    failures.extend(
+        puppet_animation_runtime_failures(sample, puppet_animation_runtime)
+    )
     failures.extend(utility_runtime_failures(sample, utility_runtime))
     failures.extend(authored_effect_graph_failures(
         sample,
@@ -3050,6 +3109,12 @@ def run_sample(
             "solid_candidates": solid_runtime["candidates"],
             "solid_loaded_ratio": round(solid_runtime["loaded_ratio"], 4),
             "solid_loaded_layer_ids": solid_runtime["loaded_layer_ids"],
+            "puppet_animation_layer_ids": puppet_animation_runtime["layer_ids"],
+            "puppet_disjoint_additive_layer_ids": (
+                puppet_animation_runtime["disjoint_additive_layer_ids"]
+            ),
+            "puppet_animation_clip_count": puppet_animation_runtime["clip_count"],
+            "puppet_animation_entries": puppet_animation_runtime["entries"],
             "utility_candidates": utility_runtime["candidates"],
             "utility_capture_planned": utility_runtime["capture_planned"],
             "utility_dependency_edges": utility_runtime["dependency_edges"],

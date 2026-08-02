@@ -1257,6 +1257,47 @@ layer 311 "Accent": OK procedural solid tint=(0.20000, 0.40000, 0.60000)
             ["solid layer count evidence missing"],
         )
 
+    def test_puppet_animation_runtime_metrics_and_exact_gates(self) -> None:
+        preview_log = """Scene preview texture load report
+layer 21 "Body": OK 1920x1080 puppet animation OK MDLV0023 mode=disjoint-additive ids=275,280,282 clips=3 rate=1.000
+layer 44 "Arm": OK 512x512 puppet animation OK MDLV0023 mode=disjoint-additive ids=271,356 clips=2 rate=1.000
+layer 157 "Tail": OK 1024x1024 puppet animation OK MDLV0023 mode=single-absolute ids=174 clips=1 rate=1.000
+"""
+        metrics = benchmark.puppet_animation_runtime_metrics(preview_log)
+        self.assertEqual(metrics["layer_ids"], [21, 44, 157])
+        self.assertEqual(metrics["disjoint_additive_layer_ids"], [21, 44])
+        self.assertEqual(metrics["clip_count"], 6)
+        self.assertEqual(metrics["entries"][0], {
+            "layer_id": 21,
+            "mode": "disjoint-additive",
+            "animation_ids": [275, 280, 282],
+            "clip_count": 3,
+        })
+        sample = {
+            "expected_puppet_animation_layer_ids": [157, 44, 21],
+            "expected_puppet_disjoint_additive_layer_ids": [44, 21],
+            "expected_puppet_animation_clip_count": 6,
+        }
+        self.assertEqual(
+            benchmark.puppet_animation_runtime_failures(sample, metrics),
+            [],
+        )
+        self.assertEqual(
+            benchmark.puppet_animation_runtime_failures(
+                {
+                    "expected_puppet_animation_layer_ids": [21, 157],
+                    "expected_puppet_disjoint_additive_layer_ids": [21],
+                    "expected_puppet_animation_clip_count": 5,
+                },
+                metrics,
+            ),
+            [
+                "puppet animation layer IDs mismatch",
+                "puppet disjoint-additive layer IDs mismatch",
+                "puppet animation clip count mismatch",
+            ],
+        )
+
     def test_particle_runtime_fixture_metrics_and_optional_gates(self) -> None:
         preview_log = """Scene preview texture load report
 loaded: 20 / 24

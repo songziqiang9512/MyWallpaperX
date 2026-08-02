@@ -2,7 +2,7 @@ import Foundation
 import Metal
 
 // Load-time bridge: resolves a layer's puppet `.mdl`, parses the bind-pose
-// mesh, and creates either a strict single-clip playback state or a static
+// mesh, and creates either a bounded playback state or a static
 // bind-pose image. Failure
 // keeps the existing atlas texture (current behavior) and reports why, so
 // unsupported puppets stay visible in diagnostics instead of silently
@@ -96,7 +96,7 @@ enum ScenePuppetLayerLoad {
                         layerID: layer.id,
                         mesh: mesh,
                         rig: rig,
-                        animation: selection.animation,
+                        selection: selection,
                         atlasTexture: atlasTexture,
                         layerWidth: layerWidth,
                         layerHeight: layerHeight,
@@ -110,11 +110,11 @@ enum ScenePuppetLayerLoad {
                             playback: output.state,
                             byteCost: output.byteCost,
                             message: String(
-                                format: "puppet animation OK %@ id=%d fps=%.3f frames=%d verts=%d tris=%d → %d×%d",
+                                format: "puppet animation OK %@ mode=%@ ids=%@ clips=%d verts=%d tris=%d → %d×%d",
                                 mesh.version,
-                                selection.animation.id,
-                                selection.animation.framesPerSecond,
-                                selection.animation.frameCount,
+                                selection.composition.rawValue,
+                                selection.clips.map { String($0.animation.id) }.joined(separator: ","),
+                                selection.clips.count,
                                 mesh.vertices.count,
                                 mesh.triangleCount,
                                 output.texture.width,

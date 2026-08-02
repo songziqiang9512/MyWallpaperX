@@ -413,7 +413,8 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("dynamicValues: dynamicValues", frame_driver)
         self.assertIn("dynamicValues: SceneDynamicSnapshot", view)
         self.assertIn("dynamicValues: dynamicValues", view)
-        self.assertGreaterEqual(view.count("timing.simulationFrameTime"), 2)
+        self.assertGreaterEqual(view.count("timing.simulationFrameTime"), 1)
+        self.assertIn("advanceParticles(timing: timing", view)
         self.assertNotIn("min(max(frameDelta, 0), 0.25)", particle_playback)
         self.assertNotIn("displayTimer", view)
         self.assertNotIn("renderStartTime", view)
@@ -574,7 +575,8 @@ class SceneFrameContextTests(unittest.TestCase):
             color_position,
             derivation.index('case "composition", "project", "fullscreen":'),
         )
-        self.assertNotIn('case "particle"', derivation)
+        self.assertIn('case "particle"', derivation)
+        self.assertIn(".particle(layerID: layer.id, field: $0)", derivation)
         self.assertIn("visibleLayerIDs.contains(layer.id)", derivation)
         self.assertIn(".text(layerID: layer.id, field: .content)", derivation)
         self.assertIn(".text(layerID: layer.id, field: .pointSize)", derivation)

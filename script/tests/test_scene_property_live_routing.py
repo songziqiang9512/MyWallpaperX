@@ -139,6 +139,17 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
             self.assertIn(field, consumers)
         self.assertIn(".particle(layerID: layer.id, field: $0)", consumers)
 
+    def test_puppet_animation_visibility_is_live_only_for_bound_layers(self) -> None:
+        support = method_body(self.service, "private func supportsScenePropertyTarget(")
+        self.assertIn(
+            "case let .puppetAnimationVisibility(layerID, animationLayerID):",
+            support,
+        )
+        self.assertIn("$0.id == animationLayerID && $0.visibilityBinding != nil", support)
+        consumers = method_body(self.live_consumers, "static func activeLiveConsumerTargets(")
+        self.assertIn("where animationLayer.visibilityBinding != nil", consumers)
+        self.assertIn("ScenePuppetAnimationPropertyTarget.visibility(", consumers)
+
     def test_local_contrast_controls_require_the_strict_execution_catalog(self) -> None:
         context = method_body(self.service, "func scenePropertyContext(")
         support = method_body(self.service, "private func supportsScenePropertyTarget(")

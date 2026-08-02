@@ -17,6 +17,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Properties/SceneUserProperty.swift",
     SOURCE_ROOT / "Properties/SceneUserPropertyBindings.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
+    SOURCE_ROOT / "Properties/ScenePuppetAnimationPropertyTarget.swift",
     PROGRAM_SOURCE,
     SOURCE_ROOT / "Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
     SOURCE_ROOT / "Properties/ScenePropertyBindingProgramValidator.swift",
@@ -533,6 +534,35 @@ enum Harness {
                 property("particleColor", .color, .string("1 1 1")),
             ])
         )
+        let puppetVisibilityTarget = ScenePuppetAnimationPropertyTarget.visibility(
+            layerID: 21,
+            animationLayerID: 756
+        )
+        let puppetVisibility = compiler.compile(
+            report: .init(bindings: [binding(
+                "blinking",
+                .bool(true),
+                21,
+                .puppetAnimationVisibility(layerID: 21, animationLayerID: 756)
+            )], diagnostics: []),
+            catalog: .init(definitions: [
+                property("blinking", .bool, .bool(true)),
+            ])
+        )
+        let puppetVisibilityAuthored = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 11,
+            generation: 11,
+            definitions: puppetVisibility.program.definitions
+        ).snapshot
+        let puppetVisibilityEvaluation = puppetVisibility.program.evaluate(
+            effectiveValues: ["blinking": .bool(false)]
+        )
+        let puppetVisibilityUser = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 12,
+            generation: 12,
+            definitions: puppetVisibility.program.definitions,
+            userValues: puppetVisibilityEvaluation.userValues
+        ).snapshot
 
         let alphaDefinition = compilation.program.definitions.first { $0.target == alphaTarget }!
         let alphaInstruction = compilation.program.instructions.first { $0.target == alphaTarget }!
@@ -672,6 +702,12 @@ enum Harness {
             "particleRuntimeCodes": codes(particleEvaluation.diagnostics),
             "directParticleColorCount": directParticleColor.program.instructions.count,
             "directParticleColorCodes": codes(directParticleColor.diagnostics),
+            "puppetVisibilityCount": puppetVisibility.program.instructions.count,
+            "puppetVisibilityCodes": codes(puppetVisibility.diagnostics),
+            "puppetVisibilityAuthored":
+                resolved(puppetVisibilityAuthored[puppetVisibilityTarget]),
+            "puppetVisibilityUser": resolved(puppetVisibilityUser[puppetVisibilityTarget]),
+            "puppetVisibilityRuntimeCodes": codes(puppetVisibilityEvaluation.diagnostics),
             "structureCodes": structureCodes,
             "structureInstructionCounts": structureInstructionCounts,
             "structureDecodeRejected": structureDecodeRejected,
@@ -912,6 +948,19 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
         self.assertEqual(self.result["particleRuntimeCodes"], [])
         self.assertEqual(self.result["directParticleColorCount"], 0)
         self.assertEqual(self.result["directParticleColorCodes"], ["unsupportedTarget"])
+
+    def test_puppet_animation_visibility_is_a_live_typed_target(self) -> None:
+        self.assertEqual(self.result["puppetVisibilityCount"], 1)
+        self.assertEqual(self.result["puppetVisibilityCodes"], [])
+        self.assertEqual(
+            self.result["puppetVisibilityAuthored"],
+            ["bool(true)", "authored"],
+        )
+        self.assertEqual(
+            self.result["puppetVisibilityUser"],
+            ["bool(false)", "userProperty"],
+        )
+        self.assertEqual(self.result["puppetVisibilityRuntimeCodes"], [])
 
     def test_direct_local_contrast_strength_compiles_as_scalar_target(self) -> None:
         self.assertEqual(self.result["localContrastCount"], 1)
