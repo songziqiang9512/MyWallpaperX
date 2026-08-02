@@ -299,7 +299,7 @@ python3 script/extract_wallpaper_engine_client_evidence.py --client-root ~/Downl
 | 4004 | Fixed particle child prerender coordinate system for world particles. | world 粒子的 child 预渲染坐标系 |
 | 4121 | Fixed child materials not reloading in main editor. | — |
 
-**当前落差**：项目 child 执行为 strict depth-one 子集，static 要求零 angles、单位 scale、无 CP、probability=1。REV 4120 是与当前批次最直接相关的一条：官方 static child 初始化计入父对象 transform，项目当前只允许「有限 authored local origin translation」。REV 4103 的 child config 结构变更说明跨版本样本可能存在两种结构。
+**当前落差**：项目 child 执行为 strict depth ≤ 2 子集；`3fd77125` 已让 static/spawn/death/follow Sprite profile 共用 bounded uniform screen-plane scale，但仍要求零 angles，event offset、XY 非均匀/镜像、Rope/nested/world-space-movement scale 与多数 CP 形态继续失败关闭。REV 4120 仍提示官方 static child 初始化会计入父对象 transform；项目当前只执行有限 authored local origin 与上述 bounded scale，不代表完整 parent/object transform。REV 4103 的 child config 结构变更说明跨版本样本可能存在两种结构。
 
 ### 7.9 Renderer
 

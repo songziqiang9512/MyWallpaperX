@@ -286,7 +286,13 @@ reset/teardown 会归零活动计数和 CPU buffer，遍历 root 与分组 child
 
 本次没有从二进制提取或归档 Euler 顺序、矩阵表达、随机/积分算法、覆盖规则或任何可移植 payload；也没有确认 32 位实现等价。Ghidra 原始地址、伪代码和临时 project 均未入库并在复核后清理。因此项目 `7cce5fde` 的 X→Y→Z authored-radian 顺序、有限预算、Sphere/Box consumer 范围和 instance-current 替换 default 的行为仍是项目自有 bounded 合同，只由自有 fixture、stock/Workshop 方向性运行证据支撑，不是官方算法或 Windows 数值/像素 truth。
 
-### 5.7 官方 effect/particle corpus 对开发排序的约束
+### 5.7 Particle child transform 配置帧复核
+
+2026-08-02 对同一哈希匹配的 2.8.42 `wallpaper64.exe` 做第二个单点 clean-room 复核。只保留高层结构结论：同一 child 配置归一化路径同时处理 `origin`、`angles`、`scale`、`probability`、`maxcount`、`type` 与 `controlpointstartindex`；缺省 transform 分别归一到零 origin、零 angles 与单位 scale。属性注册侧又把 origin/scale/angles 放入同类 typed property/accessor family。结合公开 Children 页同时列出 Offset、Angles 与 Scale，这支持项目先建立统一 child transform frame，再由各 renderer/profile 严格准入，而不是为特定 child 资源建立旁路。
+
+该复核不提供矩阵顺序、Euler 约定、scale 对 position/size/velocity 的精确传播、镜像规则、renderer 差异或 Windows 数值/像素 golden。Ghidra 原始地址、伪代码和临时 project 均未入库，临时目录已清理。项目 `3fd77125` 的 uniform screen-plane scale、有限预算和对 local position/size/velocity 的传播是项目自有 bounded 近似，只由合法 corpus、项目 fixture 与隔离样本门约束，不是官方算法。
+
+### 5.8 官方 effect/particle corpus 对开发排序的约束
 
 本节只做字段与组合频率统计，不复制 payload。粒子范围与既有 corpus 一致：`assets/presets`、`assets/scenes/particleelementpreviews`、`assets/particles` 和默认 Scene，共 295 个路径、215 个不同 JSON payload。
 
