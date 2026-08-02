@@ -26,7 +26,6 @@ nonisolated extension SceneParticleOperator {
         guard case let .vortex(value) = kind,
               !value.hasMalformedFields, value.unsupportedFieldNames.isEmpty,
               rawFlags == 0 || rawFlags == 1,
-              !audioResponse.isEnabled,
               blendInStart == nil, blendInEnd == nil,
               blendOutStart == nil, blendOutEnd == nil,
               controlPoint == nil,

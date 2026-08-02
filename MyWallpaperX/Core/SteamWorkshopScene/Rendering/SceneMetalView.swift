@@ -13,7 +13,7 @@ class SceneMetalView: NSView {
     private var puppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
     private var effectTextures = SceneLayerEffectTextureStore()
     private var imagePipeline: SceneImageLayerPipeline?
-    private var particlePlayback: SceneParticlePlaybackState?
+    var particlePlayback: SceneParticlePlaybackState?
     private var dynamicTextTextures: SceneDynamicTextTextureStore?
     private let mediaThumbnailCoordinator: SceneMediaThumbnailCoordinator
     private let offscreenTexturePool: SceneOffscreenTexturePool
@@ -343,7 +343,7 @@ class SceneMetalView: NSView {
             audioSpectrum: audioSpectrum
         )
         pointerState.previous = pointerState.current
-        let particleBatches = particlePlayback?.advance(by: timing.simulationFrameTime, dynamicValues: dynamicValues, pointerLocalPositions: renderer.particlePointerLocalPositions(frameContext: frameContext)) ?? []
+        let particleBatches = advanceParticles(timing: timing, dynamicValues: dynamicValues, frameContext: frameContext)
         dynamicTextTextures?.update(from: dynamicValues)
         let dynamicTextSnapshot = dynamicTextTextures?.snapshot()
         let mediaThumbnailSnapshot = mediaThumbnailCoordinator.update()

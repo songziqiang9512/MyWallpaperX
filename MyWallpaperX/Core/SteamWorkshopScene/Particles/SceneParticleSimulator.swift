@@ -22,6 +22,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
     private var nextParticleID: UInt64 = 0
     private var normalizedLives: [Double] = []
     var dynamicControlPoints: [Int: SIMD3<Double>] = [:]
+    var audioInput = SceneParticleAudioInput.silent
     private var stepSnapshotRecorder: SceneParticleStepSnapshotRecorder?
     var positionOscillationCache: [SceneParticleOscillationCacheKey: SceneParticlePositionOscillation] = [:]
 
@@ -65,10 +66,12 @@ nonisolated struct SceneParticleSimulator: Sendable {
     nonisolated mutating func advance(
         by duration: Double,
         dynamicControlPoints: [Int: SIMD3<Double>] = [:],
-        dynamicInstanceOverride: SceneParticleInstanceOverride? = nil
+        dynamicInstanceOverride: SceneParticleInstanceOverride? = nil,
+        audioInput: SceneParticleAudioInput = .silent
     ) {
         self.dynamicControlPoints = dynamicControlPoints
         activeInstanceOverride = dynamicInstanceOverride ?? instanceOverride
+        self.audioInput = audioInput
         guard duration.isFinite, duration > 0 else { return }
         accumulator += duration
         while accumulator + 1e-12 >= fixedTimeStep {
@@ -132,6 +135,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
     private nonisolated mutating func emit(index: Int, duration: Double) {
         let emitter = definition.emitters[index]
         if case .unsupported = emitter.kind { return }
+        guard let audioScale = emissionAudioScale(for: emitter) else { return }
         if emitter.usesRandomPeriodicEmission,
            activeInstanceOverride?.rate != nil || activeInstanceOverride?.count != nil { return }
         let rateScale = max(0, overrideScalar(activeInstanceOverride?.rate))
@@ -151,7 +155,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
                 ? 1
                 : max(0, overrideScalar(activeInstanceOverride?.count))
             let scaledRate = (authoredRate.isFinite ? authoredRate : 0)
-                * countScale * rateScale
+                * countScale * rateScale * audioScale
             let rate = scaledRate.isFinite ? max(0, scaledRate) : 0
             emitters[index].remainder += rate * activeDuration
             let integral = floor(emitters[index].remainder + 1e-12)
@@ -235,7 +239,10 @@ nonisolated struct SceneParticleSimulator: Sendable {
                     initializer, defaults: (SIMD3(0, 0, -5), SIMD3(0, 0, 5))
                 )
             case .turbulentVelocity:
-                particle.velocity += SceneParticleSimulationMath.turbulentVelocity(initializer.turbulentVelocity, particle.position, simulationTime, &random)
+                particle.velocity += SceneParticleSimulationMath.turbulentVelocity(
+                    initializer.turbulentVelocity, particle.position, simulationTime,
+                    &random, audioInput: audioInput
+                )
             case .unsupported:
                 break
             }
@@ -247,6 +254,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
         operatorIndex: Int,
         duration: Double
     ) {
+        guard admitsAudioExecution(value) else { return }
         switch value.kind {
         case .movement:
             let authoredGravity = SceneParticleSimulationMath.vector(
@@ -337,7 +345,6 @@ nonisolated struct SceneParticleSimulator: Sendable {
                 )
             }
         case .turbulence:
-            guard !value.audioResponse.isEnabled else { break }
             let scale = SceneParticleSimulationMath.scalar(value.scale, fallback: 0.005)
             let timeScale = value.timeScale ?? 0.01
             let mask = SceneParticleSimulationMath.vector(value.mask, fallback: SIMD3(1, 1, 0))
@@ -352,7 +359,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
                 let phase = turbulenceRandom(
                     value.phaseMinimum ?? 0, value.phaseMaximum ?? 0,
                     index, operatorIndex, 0
-                )
+                ) * audioPhaseFactor(value.audioResponse)
                 let speed = turbulenceRandom(
                     minimumSpeed, maximumSpeed, index, operatorIndex, 1
                 ) * speedOverride

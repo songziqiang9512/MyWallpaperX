@@ -10,6 +10,7 @@ final class SceneParticleRuntime {
     private(set) var diagnostics: [SceneParticleRuntimeDiagnostic] = []
 
     var activeLayerIDs: [Int] { layers.map(\.layerID) }
+    var hasAudioConsumer: Bool { layers.contains { $0.definition.hasBoundedAudioConsumer } }
 
     init(
         descriptor: SceneRenderDescriptor,
@@ -265,7 +266,8 @@ final class SceneParticleRuntime {
     }
 
     /// Advances every active layer by the frame delta and returns batches in scene render order.
-    func advance(by frameDelta: TimeInterval, dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0), pointerLocalPositions: [Int: SIMD3<Double>] = [:]) -> [SceneParticleDrawBatch] {
+    func advance(by frameDelta: TimeInterval, dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
+                 pointerLocalPositions: [Int: SIMD3<Double>] = [:], audioInput: SceneParticleAudioInput = .silent) -> [SceneParticleDrawBatch] {
         var batches: [SceneParticleDrawBatch] = []
         for index in layers.indices {
             let pointerValues = layers[index].definition.pointerControlPointValues(at: pointerLocalPositions[layers[index].layerID])
@@ -278,7 +280,8 @@ final class SceneParticleRuntime {
             )
             layers[index].simulator.advance(
                 by: frameDelta, dynamicControlPoints: controlPoints,
-                dynamicInstanceOverride: instanceOverride
+                dynamicInstanceOverride: instanceOverride,
+                audioInput: audioInput
             )
             let births = layers[index].simulator.consumeBirthEvents()
             let deaths = layers[index].simulator.consumeDeathEvents()

@@ -5,6 +5,7 @@ final class SceneParticlePlaybackState {
     let pipeline: SceneParticleMetalPipeline
     private let runtime: SceneParticleRuntime
     private(set) var batches: [SceneParticleDrawBatch]
+    var hasAudioConsumer: Bool { runtime.hasAudioConsumer }
 
     init?(
         descriptor: SceneRenderDescriptor,
@@ -32,13 +33,18 @@ final class SceneParticlePlaybackState {
     func advance(
         by simulationFrameDelta: TimeInterval,
         dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
-        pointerLocalPositions: [Int: SIMD3<Double>] = [:]
+        pointerLocalPositions: [Int: SIMD3<Double>] = [:],
+        audioSpectrum: SceneAudioSpectrumSnapshot = .silent
     ) -> [SceneParticleDrawBatch] {
         batches.removeAll(keepingCapacity: true)
         batches = runtime.advance(
             by: simulationFrameDelta.isFinite ? max(simulationFrameDelta, 0) : 0,
             dynamicValues: dynamicValues,
-            pointerLocalPositions: pointerLocalPositions
+            pointerLocalPositions: pointerLocalPositions,
+            audioInput: SceneParticleAudioInput(
+                left: audioSpectrum.left,
+                right: audioSpectrum.right
+            )
         )
         return batches
     }

@@ -2240,6 +2240,7 @@ def run_sample(
     runtime_root: Path,
     duration: float,
     after_snapshot_delay: float | None,
+    audio_spectrum_fixture: bool = False,
 ) -> dict[str, Any]:
     sample_id = str(sample["id"])
     source = sample_root / "Scene" / sample_id
@@ -2280,6 +2281,8 @@ def run_sample(
             "--mwx-debug-scene-after-snapshot-delay",
             str(after_snapshot_delay),
         ])
+    if audio_spectrum_fixture or sample.get("audio_spectrum_fixture") is True:
+        command.append("--mwx-debug-scene-audio-spectrum-fixture")
     property_overrides = sample.get("property_overrides")
     live_property_overrides = sample.get("live_property_overrides")
     append_property_arguments(command, property_overrides, live_property_overrides)
@@ -2929,6 +2932,8 @@ def run_sample(
         "id": sample_id,
         "title": sample.get("title"),
         "capabilities": sample.get("capabilities", []),
+        "audio_spectrum_fixture": audio_spectrum_fixture
+            or sample.get("audio_spectrum_fixture") is True,
         "property_overrides": property_overrides if isinstance(property_overrides, dict) else {},
         "live_property_overrides": (
             live_property_overrides if isinstance(live_property_overrides, dict) else {}
@@ -3204,6 +3209,11 @@ def parse_args() -> argparse.Namespace:
         type=float,
         help="seconds after launch to capture the non-hover after frame",
     )
+    parser.add_argument(
+        "--audio-spectrum-fixture",
+        action="store_true",
+        help="publish a varying asymmetric 16-band fixture through the shared Scene inbox",
+    )
     return parser.parse_args()
 
 
@@ -3246,6 +3256,7 @@ def main() -> int:
             runtime_root=runtime_root,
             duration=duration,
             after_snapshot_delay=args.after_snapshot_delay,
+            audio_spectrum_fixture=args.audio_spectrum_fixture,
         )
         for sample in matrix["samples"]
     ]

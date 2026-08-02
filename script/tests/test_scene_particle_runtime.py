@@ -38,12 +38,14 @@ NESTED_SAMPLE_EVIDENCE = sample_runtime_evidence_path("2974757317")
 NESTED_AUTHOR_OFF_SAMPLE_CACHE = sample_cache_root("2938612768")
 NESTED_AUTHOR_OFF_SAMPLE_EVIDENCE = sample_runtime_evidence_path("2938612768")
 SWIFT_SOURCES = [
+    SOURCE_ROOT / "Runtime/SceneAudioSpectrum.swift",
     SOURCE_ROOT / "RenderGraph/SceneMaterialRenderState.swift",
     SOURCE_ROOT / "Resources/SceneTextureSampling.swift",
     SOURCE_ROOT / "Resources/SceneResourceIndex.swift",
     SOURCE_ROOT / "Resources/SceneResourceView.swift",
     SOURCE_ROOT / "Resources/SceneStockTextureResolver.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
+    SOURCE_ROOT / "Particles/SceneParticleAudioResponsePlan.swift",
     SOURCE_ROOT / "Particles/SceneParticleVortex.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+Operator.swift",
@@ -61,6 +63,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleControlPointForce.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+ControlPointForce.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+Boids.swift",
+    SOURCE_ROOT / "Particles/SceneParticleSimulator+AudioResponse.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+Vortex.swift",
     SOURCE_ROOT / "Particles/SceneParticleCapVelocity.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+CapVelocity.swift",

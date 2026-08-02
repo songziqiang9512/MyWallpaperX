@@ -9,6 +9,15 @@ nonisolated extension SceneParticleSimulator {
         duration: Double
     ) {
         guard let plan = value.vortexPlan else { return }
+        let audioScale: Double
+        if value.audioResponse.isEnabled {
+            guard let audioPlan = SceneParticleAudioResponsePlan(value.audioResponse) else {
+                return
+            }
+            audioScale = audioPlan.evaluate(audioInput)
+        } else {
+            audioScale = 1
+        }
         let speedScale = definition.flags.disablesSpeedOverrides
             ? 1
             : overrideScalar(activeInstanceOverride?.speed)
@@ -34,7 +43,7 @@ nonisolated extension SceneParticleSimulator {
             let speed = plan.speedInner + (plan.speedOuter - plan.speedInner) * amount
             let tangent = cross(plan.axis, radial) / radialLength
             SceneParticleSimulationMath.addFinite(
-                tangent * speed * speedScale * duration,
+                tangent * speed * speedScale * audioScale * duration,
                 to: &particles[index].velocity
             )
         }

@@ -82,6 +82,7 @@ enum DebugScenePlaybackRunner {
             scheduleRequestedMediaThumbnailSequence(rootURL: rootURL)
             // 隔离证据进程必须显式解除宿主在首个窗口出现前捕获的 focus pause。
             WallpaperEngine.shared.resumeAllPlayers()
+            scheduleRequestedAudioSpectrumFixture()
             let runtimeEvidenceURL = try writeRuntimeEvidence(
                 model: model,
                 to: evidenceDirectory
@@ -272,7 +273,7 @@ enum DebugScenePlaybackRunner {
         }
     }
 
-    private static var requestedDuration: TimeInterval {
+    static var requestedDuration: TimeInterval {
         guard let raw = argumentValue(after: "--mwx-debug-scene-duration"),
               let duration = TimeInterval(raw) else {
             return 10

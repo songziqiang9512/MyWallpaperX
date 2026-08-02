@@ -80,10 +80,23 @@ nonisolated enum SceneParticleSimulationMath {
         _ value: SceneParticleTurbulentVelocity?,
         _ position: SIMD3<Double>,
         _ time: Double,
-        _ random: inout SceneParticleRandomGenerator
+        _ random: inout SceneParticleRandomGenerator,
+        audioInput: SceneParticleAudioInput = .silent
     ) -> SIMD3<Double> {
-        guard let value, !value.audioResponse.isEnabled else { return .zero }
-        let phase = random.value(value.phaseMinimum ?? 0, value.phaseMaximum ?? 2 * .pi)
+        guard let value else { return .zero }
+        let audioFactor: Double
+        if value.audioResponse.isEnabled {
+            guard let plan = SceneParticleAudioResponsePlan(value.audioResponse) else {
+                return .zero
+            }
+            audioFactor = 1 + plan.evaluate(audioInput)
+        } else {
+            audioFactor = 1
+        }
+        let phase = random.value(
+            value.phaseMinimum ?? 0,
+            value.phaseMaximum ?? 2 * .pi
+        ) * audioFactor
         let timeScale = value.timeScale ?? 1
         let directionalOffset = value.offset ?? 0
         guard phase.isFinite, time.isFinite, timeScale.isFinite,
@@ -237,7 +250,7 @@ nonisolated enum SceneParticleSimulationMath {
         _ definition: SceneParticleDefinition,
         _ instanceOverride: SceneParticleInstanceOverride?
     ) -> [SceneParticleSimulationDiagnostic] {
-        var result: [SceneParticleSimulationDiagnostic] = []
+        var result = audioDiagnostics(definition)
         func add(_ kind: SceneParticleSimulationDiagnosticKind, _ name: String? = nil) {
             let value = SceneParticleSimulationDiagnostic(kind: kind, componentName: name)
             if !result.contains(value) { result.append(value) }
@@ -245,7 +258,6 @@ nonisolated enum SceneParticleSimulationMath {
 
         for emitter in definition.emitters {
             if case let .unsupported(name) = emitter.kind { add(.unsupportedEmitter, name) }
-            if emitter.audioResponse.isEnabled { add(.audioResponseIgnored, "emitter") }
             switch emitter.initialDelayAdmission {
             case .supported:
                 add(.emitterDelayBounded, "initial")
@@ -312,17 +324,10 @@ nonisolated enum SceneParticleSimulationMath {
                 add(.emitterShapeUnsupported, "directionsOrSign")
             }
         }
-        for `operator` in definition.operators {
-            // operator 的 audio 调制此前不产生诊断，启用后会静默按无音频路径模拟。
-            if `operator`.audioResponse.isEnabled { add(.audioResponseIgnored, "operator") }
-        }
         for initializer in definition.initializers {
             switch initializer.kind {
             case .turbulentVelocity:
-                if initializer.turbulentVelocity?.audioResponse.isEnabled == true {
-                    add(.unsupportedInitializer, "turbulentvelocityrandom")
-                    add(.audioResponseIgnored, "turbulentvelocityrandom")
-                }
+                break
             case let .unsupported(name):
                 add(.unsupportedInitializer, name)
             default:
@@ -334,13 +339,12 @@ nonisolated enum SceneParticleSimulationMath {
             case .controlPointAttract:
                 add(definition.supportsBoundedControlPointForce(value) ? .controlPointForceBounded : .controlPointForceUnsupported, "controlpointattract")
             case .turbulence:
-                if value.audioResponse.isEnabled {
-                    add(.unsupportedOperator, "turbulence")
-                }
+                break
             case .boids:
                 add(definition.boidsPlan(for: value) == nil ? .boidsUnsupported : .boidsBounded, "boids")
             case .vortex:
-                add(value.vortexPlan == nil ? .vortexUnsupported : .vortexBounded, "vortex")
+                add(value.hasBoundedVortexExecution
+                    ? .vortexBounded : .vortexUnsupported, "vortex")
             case .capVelocity:
                 add(value.capVelocityPlan == nil
                     ? .capVelocityUnsupported : .capVelocityBounded, "capvelocity")

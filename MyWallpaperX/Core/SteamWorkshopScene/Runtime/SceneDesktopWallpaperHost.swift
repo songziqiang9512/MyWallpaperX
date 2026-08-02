@@ -329,6 +329,7 @@ final class SceneDesktopWallpaperHost {
                 sceneClock.pause(hostTime: hostTime)
             }
         }
+        updateAudioSpectrumDemand(launchContext, hasParticleAudioConsumer: surfaces.values.contains { $0.metalView.hasParticleAudioConsumer })
         screenTopology = SceneScreenTopology.capture()
         startFrameDriver()
         return true

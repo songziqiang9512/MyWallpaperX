@@ -49,6 +49,7 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
         self.assertIn("$0.workshopAudioBars != nil", source)
         self.assertIn("$0.workshopAudioHueShift != nil", source)
         self.assertIn("sceneScriptAudioBarsProgram.hasAudioConsumer", source)
+        self.assertIn("hasParticleAudioConsumer", source)
         self.assertIn(
             "plans.contains(where: \\.hasAudioConsumer)",
             SCRIPT_AUDIO_BARS_PLAN_SOURCE.read_text(encoding="utf-8"),
@@ -82,6 +83,11 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
             "SceneAudioSpectrumInbox.shared.setDemand(false)",
             source,
             "teardown 必须撤销需求，否则停止播放后仍在采集",
+        )
+        self.assertIn(
+            "updateAudioSpectrumDemand(launchContext, hasParticleAudioConsumer:",
+            source,
+            "particle graph 只有在 surface 装载并确认 bounded consumer 后才声明需求",
         )
 
     def test_host_samples_one_spectrum_per_frame_for_all_surfaces(self) -> None:

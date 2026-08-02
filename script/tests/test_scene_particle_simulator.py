@@ -14,6 +14,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
+    SOURCE_ROOT / "Particles/SceneParticleAudioResponsePlan.swift",
     SOURCE_ROOT / "Particles/SceneParticleVortex.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+Operator.swift",
@@ -25,6 +26,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleControlPointForce.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+ControlPointForce.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+Boids.swift",
+    SOURCE_ROOT / "Particles/SceneParticleSimulator+AudioResponse.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+Vortex.swift",
     SOURCE_ROOT / "Particles/SceneParticleCapVelocity.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+CapVelocity.swift",
@@ -585,7 +587,6 @@ enum Harness {
             vortexJSON(flags: 2),
             vortexJSON(extra: #", "future":1"#),
             vortexJSON(extra: #", "blendinstart":0"#),
-            vortexJSON(extra: #", "audioprocessingmode":1"#),
             vortexJSON(speedOuter: #""nan""#),
             vortexJSON(distanceInner: "10", distanceOuter: "10"),
         ].map { source -> SceneParticleSimulator in
@@ -2046,11 +2047,11 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertAlmostEqual(offset_velocity[2], 0, places=10)
         self.assertNotIn("unsupportedInitializer", self.results["turbulentDiagnostics"])
 
-    def test_audio_turbulent_velocity_remains_fail_closed(self) -> None:
-        self.assertEqual(self.results["audioTurbulentVelocity"], [0, 0, 0])
+    def test_audio_turbulent_velocity_uses_silent_base_phase(self) -> None:
+        self.assertNotEqual(self.results["audioTurbulentVelocity"], [0, 0, 0])
         self.assertEqual(
             self.results["audioTurbulentDiagnostics"],
-            ["audioResponseIgnored", "unsupportedInitializer"],
+            ["audioResponseBounded"],
         )
 
     def test_non_audio_turbulence_operator_executes_bounded_fixed_step_noise(self) -> None:
@@ -2069,11 +2070,11 @@ class SceneParticleSimulatorTests(unittest.TestCase):
             "unsupportedOperator", self.results["turbulenceOperatorDiagnostics"]
         )
 
-    def test_audio_turbulence_operator_remains_fail_closed(self) -> None:
-        self.assertEqual(self.results["audioOperatorTurbulenceVelocity"], [0, 0, 0])
+    def test_audio_turbulence_operator_uses_silent_base_phase(self) -> None:
+        self.assertNotEqual(self.results["audioOperatorTurbulenceVelocity"], [0, 0, 0])
         self.assertEqual(
             self.results["audioOperatorTurbulenceDiagnostics"],
-            ["audioResponseIgnored", "unsupportedOperator"],
+            ["audioResponseBounded"],
         )
 
     def test_turbulence_respects_authored_operator_order_and_rejects_overflow(self) -> None:
@@ -2099,7 +2100,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["overrideDeniedVortexVelocity"], [0, 100, 0])
 
     def test_classic_vortex_rejects_unknown_malformed_audio_and_unbounded_profiles(self) -> None:
-        self.assertEqual(self.results["invalidVortexVelocities"], [[0, 0, 0]] * 10)
+        self.assertEqual(self.results["invalidVortexVelocities"], [[0, 0, 0]] * 9)
         for diagnostics in self.results["invalidVortexDiagnostics"]:
             self.assertIn("vortexUnsupported", diagnostics)
 
@@ -2131,13 +2132,12 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(
             self.results["diagnostics"],
             [
-                "audioResponseIgnored",
-                "audioResponseIgnored",
+                "audioResponseBounded",
+                "audioResponseBounded",
                 "childSystemsIgnored",
                 "controlPointForceUnsupported",
                 "dynamicOverrideIgnored",
                 "pointerControlPointUnsupported",
-                "unsupportedInitializer",
                 "vortexUnsupported",
             ],
         )

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""粒子 audio response 声明门（A4 第一段：声明 IR 正确性）。
+"""粒子 audio response 声明与 bounded execution admission 门。
 
 背景：粒子与 effect 是两套独立 schema。effect 侧走 shader constant
 （`audiobounds`/`audioamount`/`audioexponent` + `frequencymin`/`frequencymax`），
 粒子侧只有 `audioprocessing*` 一套且没有 amount。此前 parser 误用 effect 字段名，
 导致解析出恒为 nil 的字段，同时漏掉真实存在的 `audioprocessingfrequencyend`。
 
-本门只覆盖声明的保真解析与诊断，不覆盖执行——粒子 audio 的求值公式与默认值
-官方均未公开，第三方参考实现同样是未接通的 TODO 占位，证据不足以实现执行。
+执行使用项目自有 clean-room 近似合同；本门锁定声明保真和准入诊断，数值与
+fixed-step consumer 行为由独立 simulator 门覆盖。
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 PARTICLES_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Particles"
 DEFINITION_SOURCE = PARTICLES_ROOT / "SceneParticleDefinition.swift"
 VORTEX_SOURCE = PARTICLES_ROOT / "SceneParticleVortex.swift"
+AUDIO_PLAN_SOURCE = PARTICLES_ROOT / "SceneParticleAudioResponsePlan.swift"
 PARSER_SOURCE = PARTICLES_ROOT / "SceneParticleDefinitionParser.swift"
 OPERATOR_PARSER_SOURCE = PARTICLES_ROOT / "SceneParticleDefinitionParser+Operator.swift"
 SIMULATION_SOURCE = PARTICLES_ROOT / "SceneParticleSimulationSupport.swift"
@@ -154,6 +155,10 @@ enum Harness {
                 $0.turbulentVelocity.map { describe($0.audioResponse) }
             },
             "operators": parsed.operators.map { describe($0.audioResponse) },
+            "audioBoundedComponents": diagnostics
+                .filter { $0.kind == .audioResponseBounded }
+                .compactMap { $0.componentName }
+                .sorted(),
             "audioIgnoredComponents": diagnostics
                 .filter { $0.kind == .audioResponseIgnored }
                 .compactMap { $0.componentName }
@@ -183,6 +188,7 @@ class SceneParticleAudioDeclarationTests(unittest.TestCase):
         sources = [
             DEFINITION_SOURCE,
             VORTEX_SOURCE,
+            AUDIO_PLAN_SOURCE,
             PARSER_SOURCE,
             OPERATOR_PARSER_SOURCE,
             BOIDS_SOURCE,
@@ -270,12 +276,15 @@ class SceneParticleAudioDeclarationTests(unittest.TestCase):
         self.assertTrue(self.result["operators"][0]["enabled"])
         self.assertEqual(self.result["operators"][0]["bounds"], [0.5, 1.0])
 
-    def test_every_enabled_component_reports_audio_ignored(self) -> None:
-        # 修正前 operator 的 audio 启用不产生任何诊断，会静默按无音频路径模拟。
-        components = self.result["audioIgnoredComponents"]
+    def test_admitted_components_report_bounded_audio(self) -> None:
+        components = self.result["audioBoundedComponents"]
         self.assertIn("emitter", components)
-        self.assertIn("operator", components)
         self.assertIn("turbulentvelocityrandom", components)
+        self.assertIn(
+            "operator",
+            self.result["audioIgnoredComponents"],
+            "缺省基础 Vortex distance/speed 仍须失败关闭",
+        )
 
 
 class SceneParticleAudioSchemaContractTests(unittest.TestCase):
@@ -317,14 +326,11 @@ class SceneParticleAudioSchemaContractTests(unittest.TestCase):
                 "粒子 audio 默认值官方未公开，不得在 IR 层内置",
             )
 
-    def test_simulation_still_refuses_to_execute_audio_response(self) -> None:
-        source = SIMULATION_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("audioResponseIgnored", source)
-        self.assertIn(
-            "guard let value, !value.audioResponse.isEnabled else { return .zero }",
-            source,
-            "turbulent velocity 的 audio profile 必须继续 fail closed",
-        )
+    def test_execution_plan_is_separate_from_effect_audio_formula(self) -> None:
+        source = AUDIO_PLAN_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("Project-owned clean-room approximation", source)
+        self.assertNotIn("SceneAudioResponse.evaluate", source)
+        self.assertIn("audioResponseBounded", source)
 
 
 if __name__ == "__main__":
