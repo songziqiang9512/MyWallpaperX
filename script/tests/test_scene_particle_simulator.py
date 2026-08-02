@@ -21,10 +21,13 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleWorldSpacePlan.swift",
     SOURCE_ROOT / "Particles/SceneParticleBoids.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulationSupport.swift",
+    SOURCE_ROOT / "Particles/SceneParticleSimulationDiagnostic.swift",
     SOURCE_ROOT / "Particles/SceneParticleControlPointForce.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+ControlPointForce.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+Boids.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+Vortex.swift",
+    SOURCE_ROOT / "Particles/SceneParticleCapVelocity.swift",
+    SOURCE_ROOT / "Particles/SceneParticleSimulator+CapVelocity.swift",
     SOURCE_ROOT / "Particles/SceneParticlePeriodicEmission.swift",
     SOURCE_ROOT / "Particles/SceneParticleLayerImageEmissionMap.swift",
     SOURCE_ROOT / "Particles/SceneParticleOscillationCache.swift",
@@ -531,6 +534,62 @@ enum Harness {
         var vortexV2 = simulator(vortexV2JSON, seed: 81, step: 1)
         vortexV2.advance(by: 1)
 
+        var capVelocity = simulator(capVelocityJSON(), seed: 91, step: 1)
+        capVelocity.advance(by: 1)
+        var capVelocityPartitioned = simulator(capVelocityJSON(), seed: 91, step: 0.25)
+        capVelocityPartitioned.advance(by: 0.5)
+        capVelocityPartitioned.advance(by: 0.5)
+        var zeroCapVelocity = simulator(
+            capVelocityJSON(maximumSpeed: "0"), seed: 91, step: 1
+        )
+        zeroCapVelocity.advance(by: 1)
+        var underCapVelocity = simulator(
+            capVelocityJSON(velocity: "30 40 0"), seed: 91, step: 1
+        )
+        underCapVelocity.advance(by: 1)
+        var blendedCapVelocity = simulator(
+            capVelocityJSON(blend: #", "blendinstart":0.1, "blendinend":0.3"#),
+            seed: 91,
+            step: 1
+        )
+        blendedCapVelocity.advance(by: 1)
+        let capVelocityBlendStart = blendedCapVelocity.particles[0].velocity
+        blendedCapVelocity.advance(by: 1)
+        let capVelocityBlendMiddle = blendedCapVelocity.particles[0].velocity
+        blendedCapVelocity.advance(by: 1)
+        let capVelocityBlendEnd = blendedCapVelocity.particles[0].velocity
+        let capVelocityOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"speed":2}"#)
+        )
+        var overriddenCapVelocity = simulator(
+            capVelocityJSON(), override: capVelocityOverride, seed: 91, step: 1
+        )
+        overriddenCapVelocity.advance(by: 1)
+        var overrideDeniedCapVelocity = simulator(
+            capVelocityJSON(systemFlags: 16),
+            override: capVelocityOverride,
+            seed: 91,
+            step: 1
+        )
+        overrideDeniedCapVelocity.advance(by: 1)
+        let invalidCapVelocities = [
+            capVelocityJSON(maximumSpeed: "null"),
+            capVelocityJSON(maximumSpeed: "-1"),
+            capVelocityJSON(maximumSpeed: #""nan""#),
+            capVelocityJSON(maximumSpeed: "1000001"),
+            capVelocityJSON(flags: 1),
+            capVelocityJSON(extra: #", "future":1"#),
+            capVelocityJSON(blend: #", "blendinstart":0.1"#),
+            capVelocityJSON(blend: #", "blendinstart":0.4, "blendinend":0.2"#),
+            capVelocityJSON(blend: #", "blendinstart":-0.1, "blendinend":0.2"#),
+            capVelocityJSON(blend: #", "blendinstart":0, "blendinend":0.8, "blendoutstart":0.7, "blendoutend":1"#),
+            capVelocityJSON(extra: #", "audioprocessingmode":1"#),
+        ].map { source -> SceneParticleSimulator in
+            var value = simulator(source, seed: 91, step: 1)
+            value.advance(by: 1)
+            return value
+        }
+
         var periodic = simulator(periodicJSON, seed: 101, step: 0.25)
         periodic.advance(by: 0.5)
         let periodicFirstWindowCount = periodic.particles.count
@@ -791,6 +850,24 @@ enum Harness {
             },
             "vortexV2Velocity": vector(vortexV2.particles[0].velocity),
             "vortexV2Diagnostics": vortexV2.diagnostics.map(\.kind.rawValue),
+            "capVelocity": vector(capVelocity.particles[0].velocity),
+            "capVelocityDiagnostics": capVelocity.diagnostics.map(\.kind.rawValue),
+            "capVelocityPartitioned":
+                capVelocity.particles == capVelocityPartitioned.particles,
+            "zeroCapVelocity": vector(zeroCapVelocity.particles[0].velocity),
+            "underCapVelocity": vector(underCapVelocity.particles[0].velocity),
+            "capVelocityBlendStart": vector(capVelocityBlendStart),
+            "capVelocityBlendMiddle": vector(capVelocityBlendMiddle),
+            "capVelocityBlendEnd": vector(capVelocityBlendEnd),
+            "overriddenCapVelocity": vector(overriddenCapVelocity.particles[0].velocity),
+            "overrideDeniedCapVelocity":
+                vector(overrideDeniedCapVelocity.particles[0].velocity),
+            "invalidCapVelocities": invalidCapVelocities.map {
+                vector($0.particles[0].velocity)
+            },
+            "invalidCapVelocityDiagnostics": invalidCapVelocities.map {
+                $0.diagnostics.map(\.kind.rawValue).sorted()
+            },
             "periodicFirstWindowCount": periodicFirstWindowCount,
             "periodicDelayCount": periodicDelayCount,
             "periodicSecondWindowCount": periodicSecondWindowCount,
@@ -1035,6 +1112,23 @@ enum Harness {
      "operator":[{"name":"vortex_v2","distance":10,"speed":100}],
      "renderer":[{"name":"sprite"}]}
     """#
+
+    private static func capVelocityJSON(
+        velocity: String = "300 400 0",
+        maximumSpeed: String = "100",
+        flags: Int = 0,
+        systemFlags: Int = 0,
+        blend: String = "",
+        extra: String = ""
+    ) -> String {
+        """
+        {"material":"p.json","maxcount":1,"flags":\(systemFlags),
+         "emitter":[{"name":"boxrandom","instantaneous":1,"distancemax":0}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"velocityrandom","min":"\(velocity)","max":"\(velocity)"}],
+         "operator":[{"name":"capvelocity","maxspeed":\(maximumSpeed),"flags":\(flags)\(blend)\(extra)}],
+         "renderer":[{"name":"sprite"}]}
+        """
+    }
 
     private static let periodicJSON = #"""
     {"material":"p.json","maxcount":100,
@@ -1720,6 +1814,26 @@ class SceneParticleSimulatorTests(unittest.TestCase):
     def test_vortex_v2_remains_distinct_and_fail_closed(self) -> None:
         self.assertEqual(self.results["vortexV2Velocity"], [0, 0, 0])
         self.assertIn("unsupportedOperator", self.results["vortexV2Diagnostics"])
+
+    def test_cap_velocity_executes_bounded_direction_preserving_clamp(self) -> None:
+        self.assertEqual(self.results["capVelocity"], [60, 80, 0])
+        self.assertEqual(self.results["capVelocityDiagnostics"], ["capVelocityBounded"])
+        self.assertTrue(self.results["capVelocityPartitioned"])
+        self.assertEqual(self.results["zeroCapVelocity"], [0, 0, 0])
+        self.assertEqual(self.results["underCapVelocity"], [30, 40, 0])
+        self.assertEqual(self.results["capVelocityBlendStart"], [300, 400, 0])
+        for actual, expected in zip(
+            self.results["capVelocityBlendMiddle"], [180, 240, 0]
+        ):
+            self.assertAlmostEqual(actual, expected)
+        self.assertEqual(self.results["capVelocityBlendEnd"], [60, 80, 0])
+        self.assertEqual(self.results["overriddenCapVelocity"], [120, 160, 0])
+        self.assertEqual(self.results["overrideDeniedCapVelocity"], [60, 80, 0])
+
+    def test_cap_velocity_rejects_malformed_unknown_and_unbounded_profiles(self) -> None:
+        self.assertEqual(self.results["invalidCapVelocities"], [[300, 400, 0]] * 11)
+        for diagnostics in self.results["invalidCapVelocityDiagnostics"]:
+            self.assertIn("capVelocityUnsupported", diagnostics)
 
     def test_unsupported_capabilities_are_reported(self) -> None:
         self.assertEqual(

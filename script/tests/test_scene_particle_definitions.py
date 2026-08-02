@@ -79,7 +79,8 @@ enum Harness {
             {"id":29,"name":"controlPointAttract","controlpoint":2,"origin":"4 5 0","scale":512,"threshold":256},
             {"id":30,"name":"turbulence","mask":"1 1 0","phasemin":0.1,"phasemax":0.5,"scale":0.02,"speedmin":50,"speedmax":100,"timescale":0.25},
             {"id":31,"name":"vortex","axis":"0 1 0","distanceinner":2,"distanceouter":8,"speedinner":10,"speedouter":20,"flags":1,"audioprocessingmode":1,"audioprocessingbounds":"0.3 0.7"},
-            {"id":32,"name":"futureOperator"}
+            {"id":32,"name":"capvelocity","maxspeed":100,"blendinstart":0.5,"blendinend":0.6},
+            {"id":33,"name":"futureOperator"}
           ],
           "renderer":[
             {"id":30,"name":"sprite","orientation":"fixed","axis":"0 0 1","flags":1},
@@ -120,6 +121,9 @@ enum Harness {
         let diagnostics = Dictionary(grouping: definition.diagnostics, by: { $0.kind.rawValue })
             .mapValues(\.count)
         guard case let .vortex(vortex) = definition.operators[11].kind else {
+            throw HarnessError.invalidJSON
+        }
+        guard case let .capVelocity(capVelocity) = definition.operators[12].kind else {
             throw HarnessError.invalidJSON
         }
         return [
@@ -179,6 +183,13 @@ enum Harness {
             "vortexSpeeds": [vortex.speedInner ?? -1, vortex.speedOuter ?? -1],
             "vortexMalformed": vortex.hasMalformedFields,
             "vortexUnsupportedFields": vortex.unsupportedFieldNames,
+            "capVelocityMaximum": capVelocity.maximumSpeed ?? -1,
+            "capVelocityBlend": [
+                definition.operators[12].blendInStart ?? -1,
+                definition.operators[12].blendInEnd ?? -1
+            ],
+            "capVelocityMalformed": capVelocity.hasMalformedFields,
+            "capVelocityUnsupportedFields": capVelocity.unsupportedFieldNames,
             "rendererKinds": definition.renderers.map { rendererName($0.kind) },
             "spriteWorldSpace": definition.renderers[0].isWorldSpace,
             "ropeSegments": definition.renderers[2].segments ?? -1,
@@ -439,6 +450,7 @@ enum Harness {
         case .turbulence: "turbulence"
         case .boids: "boids"
         case .vortex: "vortex"
+        case .capVelocity: "capvelocity"
         case let .unsupported(name): name
         }
     }
@@ -551,7 +563,7 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         self.assertEqual(result["turbulentTimeScale"], 0.1)
         self.assertEqual(result["turbulentAudioMode"], 1)
         self.assertEqual(result["turbulentAudioBounds"], [0.2, 0.8])
-        self.assertEqual(len(result["operatorKinds"]), 13)
+        self.assertEqual(len(result["operatorKinds"]), 14)
         self.assertEqual(result["movementGravity"], [0, -9.8, 0])
         self.assertEqual(result["movementDrag"], 0.2)
         self.assertEqual(result["fadeOut"], 0.9)
@@ -567,6 +579,10 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         self.assertEqual(result["vortexSpeeds"], [10, 20])
         self.assertFalse(result["vortexMalformed"])
         self.assertEqual(result["vortexUnsupportedFields"], [])
+        self.assertEqual(result["capVelocityMaximum"], 100)
+        self.assertEqual(result["capVelocityBlend"], [0.5, 0.6])
+        self.assertFalse(result["capVelocityMalformed"])
+        self.assertEqual(result["capVelocityUnsupportedFields"], [])
         self.assertEqual(
             result["rendererKinds"],
             ["sprite", "spritetrail", "rope", "ropetrail", "futurerenderer"],

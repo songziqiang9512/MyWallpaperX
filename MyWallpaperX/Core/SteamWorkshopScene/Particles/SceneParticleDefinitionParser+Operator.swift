@@ -21,6 +21,7 @@ extension SceneParticleDefinitionParser {
         case "turbulence": kind = .turbulence
         case "boids": kind = .boids(Self.boids(root))
         case "vortex": kind = .vortex(Self.vortex(root))
+        case "capvelocity": kind = .capVelocity(Self.capVelocity(root))
         default:
             kind = .unsupported(name)
             diagnostics.append(.init(
@@ -99,6 +100,26 @@ extension SceneParticleDefinitionParser {
                     root[$0] != nil && !(root[$0] is NSNull) && number(root[$0]) == nil
                 }
                 || (root["flags"] != nil && integer(root["flags"]) == nil),
+            unsupportedFieldNames: root.keys.filter { !supportedFields.contains($0) }.sorted()
+        )
+    }
+
+    private nonisolated static func capVelocity(
+        _ root: [String: Any]
+    ) -> SceneParticleCapVelocity {
+        let supportedFields = Set([
+            "id", "name", "flags", "maxspeed", "blendinstart", "blendinend",
+            "blendoutstart", "blendoutend"
+        ])
+        return .init(
+            maximumSpeed: number(root["maxspeed"]),
+            hasMalformedFields: (root["maxspeed"] != nil
+                && !(root["maxspeed"] is NSNull)
+                && number(root["maxspeed"]) == nil)
+                || (root["flags"] != nil && integer(root["flags"]) == nil)
+                || ["blendinstart", "blendinend", "blendoutstart", "blendoutend"].contains {
+                    root[$0] != nil && !(root[$0] is NSNull) && number(root[$0]) == nil
+                },
             unsupportedFieldNames: root.keys.filter { !supportedFields.contains($0) }.sorted()
         )
     }

@@ -25,6 +25,8 @@ VORTEX_SOURCE = PARTICLES_ROOT / "SceneParticleVortex.swift"
 PARSER_SOURCE = PARTICLES_ROOT / "SceneParticleDefinitionParser.swift"
 OPERATOR_PARSER_SOURCE = PARTICLES_ROOT / "SceneParticleDefinitionParser+Operator.swift"
 SIMULATION_SOURCE = PARTICLES_ROOT / "SceneParticleSimulationSupport.swift"
+SIMULATION_DIAGNOSTIC_SOURCE = PARTICLES_ROOT / "SceneParticleSimulationDiagnostic.swift"
+CAP_VELOCITY_SOURCE = PARTICLES_ROOT / "SceneParticleCapVelocity.swift"
 BOIDS_SOURCE = PARTICLES_ROOT / "SceneParticleBoids.swift"
 CONTROL_POINT_FORCE_SOURCE = PARTICLES_ROOT / "SceneParticleControlPointForce.swift"
 PERIODIC_SOURCE = PARTICLES_ROOT / "SceneParticlePeriodicEmission.swift"
@@ -185,6 +187,8 @@ class SceneParticleAudioDeclarationTests(unittest.TestCase):
             OPERATOR_PARSER_SOURCE,
             BOIDS_SOURCE,
             SIMULATION_SOURCE,
+            SIMULATION_DIAGNOSTIC_SOURCE,
+            CAP_VELOCITY_SOURCE,
             CONTROL_POINT_FORCE_SOURCE,
             PERIODIC_SOURCE,
         ]

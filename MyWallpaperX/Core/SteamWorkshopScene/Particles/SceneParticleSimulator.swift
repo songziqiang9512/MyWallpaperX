@@ -303,7 +303,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
                     life: normalizedLives[index]
                 )
                 particles[index].alpha *= 1 + (factor - 1)
-                    * oscillationBlend(value, normalizedLives[index])
+                    * operatorBlend(value, normalizedLives[index])
             }
         case .oscillateSize:
             for index in particles.indices {
@@ -315,7 +315,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
                     sizeDefaults: true
                 )
                 particles[index].size *= 1 + (factor - 1)
-                    * oscillationBlend(value, normalizedLives[index])
+                    * operatorBlend(value, normalizedLives[index])
             }
         case .oscillatePosition:
             let mask = SceneParticleSimulationMath.vector(value.mask, fallback: SIMD3(1, 1, 0))
@@ -364,7 +364,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
                     mask: mask
                 )
                 let delta = direction * speed * duration
-                    * oscillationBlend(value, normalizedLives[index])
+                    * operatorBlend(value, normalizedLives[index])
                 SceneParticleSimulationMath.addFinite(delta, to: &particles[index].velocity)
             }
         case .controlPointAttract:
@@ -373,6 +373,8 @@ nonisolated struct SceneParticleSimulator: Sendable {
             applyBoids(value, duration: duration)
         case .vortex:
             applyVortex(value, duration: duration)
+        case .capVelocity:
+            applyCapVelocity(value)
         case .unsupported:
             break
         }

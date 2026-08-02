@@ -215,6 +215,7 @@ nonisolated enum SceneParticleOperatorKind: Equatable, Sendable {
     case turbulence
     case boids(SceneParticleBoids)
     case vortex(SceneParticleVortex)
+    case capVelocity(SceneParticleCapVelocity)
     case unsupported(String)
 }
 
@@ -223,6 +224,12 @@ nonisolated struct SceneParticleBoids: Equatable, Sendable {
     let separationFactor: Double?
     let cohesionFactor: Double?
     let alignmentFactor: Double?
+    let hasMalformedFields: Bool
+    let unsupportedFieldNames: [String]
+}
+
+nonisolated struct SceneParticleCapVelocity: Equatable, Sendable {
+    let maximumSpeed: Double?
     let hasMalformedFields: Bool
     let unsupportedFieldNames: [String]
 }

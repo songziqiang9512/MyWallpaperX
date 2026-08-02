@@ -1,34 +1,4 @@
 import Foundation
-nonisolated enum SceneParticleSimulationDiagnosticKind: String, Hashable, Sendable {
-    case unsupportedEmitter
-    case unsupportedInitializer
-    case unsupportedOperator
-    case boidsBounded
-    case boidsUnsupported
-    case vortexBounded
-    case vortexUnsupported
-    case controlPointForceBounded
-    case controlPointForceUnsupported
-    case unsupportedRenderer
-    case trailRendererIgnored
-    case childSystemsIgnored
-    case dynamicOverrideIgnored
-    case audioResponseIgnored
-    case periodicEmissionBounded
-    case periodicEmissionUnsupported
-    case controlPointEmitterBounded
-    case controlPointEmitterUnsupported
-    case emitterSpeedBounded
-    case emitterSpeedUnsupported
-    case emitterShapeBounded
-    case emitterShapeUnsupported
-    case pointerControlPointBounded
-    case pointerControlPointUnsupported
-}
-nonisolated struct SceneParticleSimulationDiagnostic: Hashable, Sendable {
-    let kind: SceneParticleSimulationDiagnosticKind
-    let componentName: String?
-}
 
 nonisolated struct SceneParticleState: Equatable, Sendable {
     let id: UInt64
@@ -348,6 +318,9 @@ nonisolated enum SceneParticleSimulationMath {
                 add(definition.boidsPlan(for: value) == nil ? .boidsUnsupported : .boidsBounded, "boids")
             case .vortex:
                 add(value.vortexPlan == nil ? .vortexUnsupported : .vortexBounded, "vortex")
+            case .capVelocity:
+                add(value.capVelocityPlan == nil
+                    ? .capVelocityUnsupported : .capVelocityBounded, "capvelocity")
             case let .unsupported(name):
                 add(name.contains("controlpoint") ? .controlPointForceUnsupported : .unsupportedOperator, name)
             default:

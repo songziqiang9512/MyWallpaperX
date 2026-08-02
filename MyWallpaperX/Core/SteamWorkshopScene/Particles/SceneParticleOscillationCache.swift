@@ -45,7 +45,7 @@ extension SceneParticleSimulator {
         return minimum + (maximum - minimum) * wave
     }
 
-    nonisolated func oscillationBlend(
+    nonisolated func operatorBlend(
         _ value: SceneParticleOperator,
         _ life: Double
     ) -> Double {
@@ -134,8 +134,8 @@ extension SceneParticleSimulator {
         let previousLife = min(max(
             (age - duration) / max(lifetime, 1e-12), 0
         ), 1)
-        let currentBlend = oscillationBlend(value, currentLife)
-        let previousBlend = oscillationBlend(value, previousLife)
+        let currentBlend = operatorBlend(value, currentLife)
+        let previousBlend = operatorBlend(value, previousLife)
         var result = SIMD3<Double>.zero
         for component in 0..<3 where abs(mask[component]) > 1e-6 {
             let phase = oscillation.phase[component]
