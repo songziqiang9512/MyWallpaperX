@@ -246,6 +246,14 @@ nonisolated enum SceneParticleSimulationMath {
         for emitter in definition.emitters {
             if case let .unsupported(name) = emitter.kind { add(.unsupportedEmitter, name) }
             if emitter.audioResponse.isEnabled { add(.audioResponseIgnored, "emitter") }
+            switch emitter.initialDelayAdmission {
+            case .supported:
+                add(.emitterDelayBounded, "initial")
+            case .unsupported:
+                add(.emitterDelayUnsupported, "initial")
+            case .disabled:
+                break
+            }
             switch emitter.periodicEmissionAdmission {
             case .supported where instanceOverride?.rate != nil || instanceOverride?.count != nil:
                 add(.periodicEmissionUnsupported, "instanceoverride")

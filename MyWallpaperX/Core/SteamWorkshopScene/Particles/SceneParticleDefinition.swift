@@ -37,6 +37,7 @@ nonisolated enum SceneParticleEmitterKind: Equatable, Sendable {
 
 nonisolated struct SceneParticlePeriodicEmission: Equatable, Sendable {
     let initialDelay: Double?
+    let hasMalformedInitialDelay: Bool
     let minimumDuration: Double?
     let maximumDuration: Double?
     let minimumDelay: Double?
@@ -50,6 +51,8 @@ nonisolated struct SceneParticlePeriodicEmission: Equatable, Sendable {
             "minperiodicdelay", "maxperiodicdelay"
         ]
         initialDelay = Self.number(root["delay"])
+        hasMalformedInitialDelay = root["delay"] != nil
+            && !(root["delay"] is NSNull) && initialDelay == nil
         minimumDuration = Self.number(root["minperiodicduration"])
         maximumDuration = Self.number(root["maxperiodicduration"])
         minimumDelay = Self.number(root["minperiodicdelay"])

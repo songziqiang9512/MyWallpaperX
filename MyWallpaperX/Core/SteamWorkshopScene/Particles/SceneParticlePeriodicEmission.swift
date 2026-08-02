@@ -1,5 +1,11 @@
 import Foundation
 
+nonisolated enum SceneParticleInitialDelayAdmission {
+    case disabled
+    case supported(Double)
+    case unsupported
+}
+
 nonisolated enum SceneParticlePeriodicEmissionAdmission {
     case disabled
     case supported(SceneParticlePeriodicEmissionPlan)
@@ -18,6 +24,7 @@ nonisolated struct SceneParticleEmitterState: Sendable {
     var remainder = 0.0
     var emittedInstantaneous = false
 
+    private var initialDelayElapsed = 0.0
     private var periodicIsEmitting = true
     private var periodicRemaining: Double?
     private var periodicRandom: SceneParticleRandomGenerator
@@ -28,7 +35,42 @@ nonisolated struct SceneParticleEmitterState: Sendable {
         )
     }
 
-    nonisolated mutating func activeDuration(
+    nonisolated mutating func scheduledActiveDuration(
+        for emitter: SceneParticleEmitter,
+        stepDuration: Double,
+        rateScale: Double
+    ) -> Double? {
+        let scheduled = activeDurationAfterInitialDelay(
+            for: emitter, stepDuration: stepDuration
+        )
+        guard scheduled > 0 else { return nil }
+        elapsed += scheduled * rateScale
+        if let limit = emitter.duration,
+           limit > 0, elapsed > limit + 1e-12 { return nil }
+        let active = periodicActiveDuration(for: emitter, stepDuration: scheduled)
+        return active > 0 ? active : nil
+    }
+
+    private nonisolated mutating func activeDurationAfterInitialDelay(
+        for emitter: SceneParticleEmitter,
+        stepDuration: Double
+    ) -> Double {
+        switch emitter.initialDelayAdmission {
+        case .disabled:
+            return stepDuration
+        case .unsupported:
+            return 0
+        case let .supported(delay):
+            let remaining = max(delay - initialDelayElapsed, 0)
+            guard remaining > 1e-12 else { return stepDuration }
+            let waiting = min(stepDuration, remaining)
+            initialDelayElapsed = min(delay, initialDelayElapsed + waiting)
+            let active = stepDuration - waiting
+            return active > 1e-12 ? active : 0
+        }
+    }
+
+    private nonisolated mutating func periodicActiveDuration(
         for emitter: SceneParticleEmitter,
         stepDuration: Double
     ) -> Double {
@@ -62,14 +104,24 @@ nonisolated struct SceneParticleEmitterState: Sendable {
 }
 
 nonisolated extension SceneParticleEmitter {
+    var initialDelayAdmission: SceneParticleInitialDelayAdmission {
+        let value = periodicEmission
+        guard !value.hasMalformedInitialDelay else { return .unsupported }
+        guard let delay = value.initialDelay else { return .disabled }
+        guard delay.isFinite, delay >= 0, delay <= 3_600 else {
+            return .unsupported
+        }
+        return delay > 1e-12 ? .supported(delay) : .disabled
+    }
+
     var periodicEmissionAdmission: SceneParticlePeriodicEmissionAdmission {
         guard usesRandomPeriodicEmission else { return .disabled }
         let value = periodicEmission
         let minimumInterval = 1.0 / 240.0
         let maximumInterval = 3_600.0
+        if case .unsupported = initialDelayAdmission { return .unsupported }
         guard rawFlags & ~4 == 0,
               !value.hasMalformedFields,
-              value.initialDelay == nil || value.initialDelay == 0,
               value.maximumEmissionCount == nil,
               (instantaneousCount ?? 0) == 0,
               (duration ?? 0) == 0,

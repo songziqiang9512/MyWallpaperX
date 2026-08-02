@@ -52,7 +52,7 @@ enum Harness {
           "sequencemultiplier":3,
           "emitter":[
             {"id":1,"name":"sphereRandom","origin":"1 2 3","directions":"1 0 1","sign":"-1 0 1","distancemin":"2 3 4","distancemax":"20 30 40","rate":15,"instantaneous":4,"speedmin":5,"speedmax":9,"duration":2,"controlpoint":3,"audioprocessingmode":1,"audioprocessingexponent":0.5,"audioprocessingfrequencystart":2,"audioprocessingfrequencyend":12,"audioprocessingbounds":"0.1 0.9","flags":2},
-            {"id":2,"name":"boxRandom","origin":"4 5 6","distancemax":"100 200 0","rate":30,"flags":4,"delay":0,"minperiodicduration":0.5,"maxperiodicduration":1,"minperiodicdelay":1.5,"maxperiodicdelay":2,"maxtoemitperperiod":32},
+            {"id":2,"name":"boxRandom","origin":"4 5 6","distancemax":"100 200 0","rate":30,"flags":4,"delay":0.2,"minperiodicduration":0.5,"maxperiodicduration":1,"minperiodicdelay":1.5,"maxperiodicdelay":2,"maxtoemitperperiod":32},
             {"id":3,"name":"layerImage"}
           ],
           "initializer":[
@@ -553,7 +553,7 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         self.assertEqual(result["sphereAudioFrequencyEnd"], 12)
         self.assertEqual(result["sphereAudioBounds"], [0.1, 0.9])
         self.assertTrue(result["boxUsesPeriodicEmission"])
-        self.assertEqual(result["boxInitialDelay"], 0)
+        self.assertEqual(result["boxInitialDelay"], 0.2)
         self.assertEqual(result["boxPeriodicDuration"], [0.5, 1])
         self.assertEqual(result["boxPeriodicDelay"], [1.5, 2])
         self.assertEqual(result["boxMaximumEmissionCount"], 32)

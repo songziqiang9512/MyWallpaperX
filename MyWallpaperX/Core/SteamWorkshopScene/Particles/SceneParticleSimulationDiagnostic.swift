@@ -19,6 +19,8 @@ nonisolated enum SceneParticleSimulationDiagnosticKind: String, Hashable, Sendab
     case audioResponseIgnored
     case periodicEmissionBounded
     case periodicEmissionUnsupported
+    case emitterDelayBounded
+    case emitterDelayUnsupported
     case controlPointEmitterBounded
     case controlPointEmitterUnsupported
     case emitterSpeedBounded

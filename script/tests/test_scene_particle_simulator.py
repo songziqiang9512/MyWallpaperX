@@ -616,6 +616,46 @@ enum Harness {
         )
         periodicOverridden.advance(by: 1.5)
 
+        var delayedRate = simulator(delayJSON("0.5"), seed: 103, step: 0.25)
+        delayedRate.advance(by: 0.5)
+        let delayedRateBeforeCount = delayedRate.particles.count
+        delayedRate.advance(by: 0.25)
+        let delayedRateFirstCount = delayedRate.particles.count
+        delayedRate.advance(by: 0.25)
+        let delayedRateSecondCount = delayedRate.particles.count
+        var delayedRatePartitioned = simulator(delayJSON("0.5"), seed: 103, step: 0.25)
+        delayedRatePartitioned.advance(by: 0.25)
+        delayedRatePartitioned.advance(by: 0.75)
+        var delayedBoundary = simulator(delayJSON("0.375", rate: 8), seed: 103, step: 0.25)
+        delayedBoundary.advance(by: 0.5)
+        var delayedInstantaneous = simulator(
+            delayJSON("0.5", rate: 0, instantaneous: 1), seed: 103, step: 0.25
+        )
+        delayedInstantaneous.advance(by: 0.5)
+        let delayedInstantaneousBeforeCount = delayedInstantaneous.particles.count
+        delayedInstantaneous.advance(by: 0.25)
+        var delayedDuration = simulator(
+            delayJSON("0.5", duration: 0.5), seed: 103, step: 0.25
+        )
+        delayedDuration.advance(by: 2)
+        var delayedPeriodic = simulator(periodicDelayedJSON, seed: 101, step: 0.25)
+        delayedPeriodic.advance(by: 0.5)
+        let delayedPeriodicBeforeCount = delayedPeriodic.particles.count
+        delayedPeriodic.advance(by: 0.5)
+        let delayedPeriodicFirstWindowCount = delayedPeriodic.particles.count
+        delayedPeriodic.advance(by: 0.5)
+        let delayedPeriodicPauseCount = delayedPeriodic.particles.count
+        delayedPeriodic.advance(by: 0.5)
+        let delayedPeriodicSecondWindowCount = delayedPeriodic.particles.count
+        var zeroDelay = simulator(delayJSON("0"), seed: 103, step: 0.25)
+        zeroDelay.advance(by: 0.25)
+        let invalidDelays = [#""bad""#, "-1", #""nan""#, "3600.1"].map {
+            source -> SceneParticleSimulator in
+            var value = simulator(delayJSON(source), seed: 103, step: 0.25)
+            value.advance(by: 1)
+            return value
+        }
+
         let layerImageDefinition = SceneParticleDefinitionParser().parse(
             root: try object(layerImageJSON)
         )
@@ -631,6 +671,16 @@ enum Harness {
         )
         layerImage.advance(by: 0.1)
         layerImageMissingMap.advance(by: 0.1)
+        let delayedLayerImageDefinition = SceneParticleDefinitionParser().parse(
+            root: try object(delayedLayerImageJSON)
+        )
+        var delayedLayerImage = SceneParticleSimulator(
+            definition: delayedLayerImageDefinition, seed: 1, fixedTimeStep: 0.25,
+            layerImageEmissionMap: layerImageMap
+        )
+        delayedLayerImage.advance(by: 0.5)
+        let delayedLayerImageBeforeCount = delayedLayerImage.particles.count
+        delayedLayerImage.advance(by: 0.25)
 
         return [
             "deterministic": first.particles == partitioned.particles,
@@ -882,8 +932,30 @@ enum Harness {
             "periodicLimitedDiagnostics": periodicLimited.diagnostics.map(\.kind.rawValue),
             "periodicOverriddenCount": periodicOverridden.particles.count,
             "periodicOverriddenDiagnostics": periodicOverridden.diagnostics.map(\.kind.rawValue),
+            "delayedRateBeforeCount": delayedRateBeforeCount,
+            "delayedRateFirstCount": delayedRateFirstCount,
+            "delayedRateSecondCount": delayedRateSecondCount,
+            "delayedRatePartitioned": delayedRate.particles == delayedRatePartitioned.particles,
+            "delayedRateDiagnostics": delayedRate.diagnostics.map(\.kind.rawValue),
+            "delayedBoundaryCount": delayedBoundary.particles.count,
+            "delayedInstantaneousBeforeCount": delayedInstantaneousBeforeCount,
+            "delayedInstantaneousCount": delayedInstantaneous.particles.count,
+            "delayedDurationCount": delayedDuration.particles.count,
+            "delayedPeriodicBeforeCount": delayedPeriodicBeforeCount,
+            "delayedPeriodicFirstWindowCount": delayedPeriodicFirstWindowCount,
+            "delayedPeriodicPauseCount": delayedPeriodicPauseCount,
+            "delayedPeriodicSecondWindowCount": delayedPeriodicSecondWindowCount,
+            "delayedPeriodicDiagnostics": delayedPeriodic.diagnostics.map(\.kind.rawValue),
+            "zeroDelayCount": zeroDelay.particles.count,
+            "zeroDelayDiagnostics": zeroDelay.diagnostics.map(\.kind.rawValue),
+            "invalidDelayCounts": invalidDelays.map(\.particles.count),
+            "invalidDelayDiagnostics": invalidDelays.map {
+                $0.diagnostics.map(\.kind.rawValue)
+            },
             "layerImagePosition": layerImage.particles.first.map { vector($0.position) } ?? [],
             "layerImageMissingMapCount": layerImageMissingMap.particles.count,
+            "delayedLayerImageBeforeCount": delayedLayerImageBeforeCount,
+            "delayedLayerImageCount": delayedLayerImage.particles.count,
             "diagnostics": diagnosticSimulator.diagnostics.map(\.kind.rawValue).sorted()
         ]
     }
@@ -920,6 +992,11 @@ enum Harness {
      "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
      "renderer":[{"name":"sprite"}]}
     """#
+
+    private static let delayedLayerImageJSON = layerImageJSON.replacingOccurrences(
+        of: #""instantaneous":1"#,
+        with: #""delay":0.5,"instantaneous":1"#
+    )
 
     private static let maximumCountJSON = #"""
     {"material":"p.json","maxcount":3,
@@ -1158,6 +1235,27 @@ enum Harness {
         of: #""rate":4"#,
         with: #""rate":4,"maxtoemitperperiod":2"#
     )
+
+    private static let periodicDelayedJSON = periodicJSON.replacingOccurrences(
+        of: #""rate":4"#,
+        with: #""delay":0.5,"rate":4"#
+    )
+
+    private static func delayJSON(
+        _ delay: String,
+        rate: Int = 4,
+        instantaneous: Int = 0,
+        duration: Double? = nil
+    ) -> String {
+        let burst = instantaneous > 0 ? ",\"instantaneous\":\(instantaneous)" : ""
+        let lifetime = duration.map { ",\"duration\":\($0)" } ?? ""
+        return """
+        {"material":"p.json","maxcount":100,
+         "emitter":[{"name":"boxrandom","delay":\(delay),"rate":\(rate)\(burst)\(lifetime),"distancemax":0}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "renderer":[{"name":"sprite"}]}
+        """
+    }
 
     private static let operatorJSON = #"""
     {"material":"p.json","maxcount":1,
@@ -1576,6 +1674,32 @@ class SceneParticleSimulatorTests(unittest.TestCase):
                 self.results[f"{prefix}Diagnostics"],
                 ["periodicEmissionUnsupported"],
             )
+
+    def test_initial_emission_delay_gates_all_emission_and_composes_with_schedule(self) -> None:
+        self.assertEqual(self.results["delayedRateBeforeCount"], 0)
+        self.assertEqual(self.results["delayedRateFirstCount"], 1)
+        self.assertEqual(self.results["delayedRateSecondCount"], 2)
+        self.assertTrue(self.results["delayedRatePartitioned"])
+        self.assertEqual(self.results["delayedRateDiagnostics"], ["emitterDelayBounded"])
+        self.assertEqual(self.results["delayedBoundaryCount"], 1)
+        self.assertEqual(self.results["delayedInstantaneousBeforeCount"], 0)
+        self.assertEqual(self.results["delayedInstantaneousCount"], 1)
+        self.assertEqual(self.results["delayedDurationCount"], 2)
+        self.assertEqual(self.results["delayedPeriodicBeforeCount"], 0)
+        self.assertEqual(self.results["delayedPeriodicFirstWindowCount"], 2)
+        self.assertEqual(self.results["delayedPeriodicPauseCount"], 2)
+        self.assertEqual(self.results["delayedPeriodicSecondWindowCount"], 4)
+        self.assertEqual(
+            self.results["delayedPeriodicDiagnostics"],
+            ["emitterDelayBounded", "periodicEmissionBounded"],
+        )
+        self.assertEqual(self.results["zeroDelayCount"], 1)
+        self.assertEqual(self.results["zeroDelayDiagnostics"], [])
+        self.assertEqual(self.results["invalidDelayCounts"], [0, 0, 0, 0])
+        for diagnostics in self.results["invalidDelayDiagnostics"]:
+            self.assertEqual(diagnostics, ["emitterDelayUnsupported"])
+        self.assertEqual(self.results["delayedLayerImageBeforeCount"], 0)
+        self.assertEqual(self.results["delayedLayerImageCount"], 1)
 
     def test_movement_gravity_drag_and_alpha_fade(self) -> None:
         self.assertEqual(self.results["movementPosition"], [0.65625, -0.34375, 0])

@@ -135,12 +135,9 @@ nonisolated struct SceneParticleSimulator: Sendable {
         if emitter.usesRandomPeriodicEmission,
            activeInstanceOverride?.rate != nil || activeInstanceOverride?.count != nil { return }
         let rateScale = max(0, overrideScalar(activeInstanceOverride?.rate))
-        emitters[index].elapsed += duration * rateScale
-        if let limit = emitter.duration, limit > 0, emitters[index].elapsed > limit + 1e-12 { return }
-        let activeDuration = emitters[index].activeDuration(
-            for: emitter, stepDuration: duration
-        )
-        guard activeDuration > 0 else { return }
+        guard let activeDuration = emitters[index].scheduledActiveDuration(
+            for: emitter, stepDuration: duration, rateScale: rateScale
+        ) else { return }
 
         var count = 0
         if !emitters[index].emittedInstantaneous, (emitter.instantaneousCount ?? 0) > 0 {
