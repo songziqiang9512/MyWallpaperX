@@ -656,6 +656,33 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
         self.assertIn("layer 63 maxwidth: valueOutOfRange", self.result["diagnostics"])
         self.assertIn("layer 64 maxwidth: relativeUnsupported", self.result["diagnostics"])
 
+        text = copy.deepcopy(next(
+            item for item in SCENE_FIXTURE["objects"] if item["id"] == 61
+        ))
+        text["maxwidth"]["animation"]["c0"][0]["front"]["y"] = -800
+        unsafe_control = self.compile_fixture(
+            {"version": 3, "objects": [text]}, "unsafe-text-width-control"
+        )
+        self.assertEqual(unsafe_control["bindings"], [])
+        self.assertEqual(
+            unsafe_control["diagnostics"],
+            ["layer 61 maxwidth: valueOutOfRange"],
+        )
+
+        text = copy.deepcopy(next(
+            item for item in SCENE_FIXTURE["objects"] if item["id"] == 61
+        ))
+        text["maxwidth"]["animation"]["c0"][0]["back"]["y"] = -800
+        text["maxwidth"]["animation"]["c0"][-1]["front"]["y"] = 2000
+        unused_controls = self.compile_fixture(
+            {"version": 3, "objects": [text]}, "unused-text-width-controls"
+        )
+        self.assertEqual(len(unused_controls["bindings"]), 1)
+        self.assertEqual(
+            unused_controls["diagnostics"],
+            ["layer 61 maxwidth: wrapLoopIgnored"],
+        )
+
     def test_combined_animation_group_is_rejected(self) -> None:
         # 组内成员共享持有方的 clock，独立求值会让两条 lane 逐渐错相
         self.assertNotIn("layer:65:alpha", self.targets())
@@ -708,6 +735,33 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
                 "layer 66 zoom: valueOutOfRange",
             ],
         )
+
+        camera = copy.deepcopy(next(
+            item for item in SCENE_FIXTURE["objects"] if item["id"] == 66
+        ))
+        camera["zoom"]["animation"]["c0"][0]["front"]["y"] = -3
+        unsafe_control = self.compile_fixture(
+            {"version": 3, "objects": [camera]}, "unsafe-camera-control"
+        )
+        self.assertEqual(unsafe_control["bindings"], [])
+        self.assertEqual(
+            unsafe_control["diagnostics"],
+            [
+                "layer 66 origin: valueOutOfRange",
+                "layer 66 zoom: valueOutOfRange",
+            ],
+        )
+
+        camera = copy.deepcopy(next(
+            item for item in SCENE_FIXTURE["objects"] if item["id"] == 66
+        ))
+        camera["zoom"]["animation"]["c0"][0]["back"]["y"] = -3
+        camera["zoom"]["animation"]["c0"][-1]["front"]["y"] = -3
+        unused_controls = self.compile_fixture(
+            {"version": 3, "objects": [camera]}, "unused-camera-controls"
+        )
+        self.assertEqual(len(unused_controls["bindings"]), 2)
+        self.assertEqual(unused_controls["diagnostics"], [])
 
     def test_wrap_loop_is_downgraded_not_rejected(self) -> None:
         # wraploop 未实现，但不能因此丢掉整条动画

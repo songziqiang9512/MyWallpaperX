@@ -456,11 +456,11 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
         )
         self.assertAlmostEqual(
             self.result["samples"]["late"]["cameraOrigin"]["value"][0],
-            -16.6666666667,
+            -1.1481318114443,
         )
         self.assertAlmostEqual(
             self.result["samples"]["late"]["cameraZoom"]["value"],
-            1.2333333333,
+            1.0160738453602203,
         )
         for key in ("cameraOrigin", "cameraZoom"):
             self.assertEqual(

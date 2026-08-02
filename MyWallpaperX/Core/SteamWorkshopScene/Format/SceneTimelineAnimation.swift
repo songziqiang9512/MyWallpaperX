@@ -18,13 +18,9 @@ nonisolated enum SceneTimelineMode: String, Codable, Equatable {
 /// 单侧 Bézier handle。`isEnabled == false` 对应官方 tangent mode 的 `none`，该侧退化
 /// 为直线段。
 ///
-/// `x`/`y` 的单位尚无官方定义，随包数据恒为 `x=±1, y=0`。「x 为帧偏移」与「x 为归一化
-/// 段长比例」两种解释**不等价**：y 分量的控制点虽然相同，但 x 参数化不同，按 frame 反
-/// 求 t 会落在曲线的不同位置。以 `2067939514` 的 `0→15` 帧、值 `1→0` 段为例，frame=3.75
-/// 处前者约 0.767、后者约 0.970（线性为 0.5），只有中点因对称而巧合相同。
-///
-/// 因此 IR 只做保真，不在这里做任何归一化，也不由 IR 选择解释；消费方必须显式声明自己
-/// 采用哪一种，并以视觉定标为准。
+/// clean-room corpus 定标表明 `x` 是相对当前 keyframe segment span 的比例：多组自定义
+/// handle 乘回各自 span 后稳定得到整数或半帧；`y` 是当前 property value 空间中的偏移。
+/// front 只接受 `0...1`，back 只接受 `-1...0`，从而保证 frame -> curve parameter 唯一。
 nonisolated struct SceneTimelineTangent: Codable, Equatable {
     let isEnabled: Bool
     let x: Double
@@ -39,6 +35,18 @@ nonisolated struct SceneTimelineKeyframe: Codable, Equatable {
     /// 编辑器 handle 对称锁，运行时不消费，仅为无损往返保留。
     let locksAngle: Bool?
     let locksLength: Bool?
+
+    /// 当前 keyframe 到 `end` 这一段实际消费的端点与 control value。首帧的 back 和末帧
+    /// 的 front 不属于任何段，不能让编辑器遗留值导致无谓拒绝。
+    nonisolated func valuesIncludingEnabledControls(
+        to end: SceneTimelineKeyframe
+    ) -> [Double] {
+        var values = [value]
+        if let front, front.isEnabled { values.append(value + front.y) }
+        if let back = end.back, back.isEnabled { values.append(end.value + back.y) }
+        values.append(end.value)
+        return values
+    }
 }
 
 /// 官方 Combined Animation 的序列化形态：同组 animation 用 property key 互相引用，并
@@ -245,10 +253,13 @@ nonisolated enum SceneTimelineAnimationParser {
                 diagnostics.append(.init(code: .nonFiniteValue, laneIndex: laneIndex))
                 return nil
             }
-            guard let back = parseTangent(entry["back"], laneIndex: laneIndex,
-                                          diagnostics: &diagnostics),
-                let front = parseTangent(entry["front"], laneIndex: laneIndex,
-                                         diagnostics: &diagnostics)
+            guard let back = parseTangent(
+                entry["back"], allowedX: -1 ... 0,
+                laneIndex: laneIndex, diagnostics: &diagnostics
+            ), let front = parseTangent(
+                entry["front"], allowedX: 0 ... 1,
+                laneIndex: laneIndex, diagnostics: &diagnostics
+            )
             else {
                 return nil
             }
@@ -265,12 +276,19 @@ nonisolated enum SceneTimelineAnimationParser {
             diagnostics.append(.init(code: .unorderedFrames, laneIndex: laneIndex))
             return nil
         }
+        guard zip(keyframes, keyframes.dropFirst()).allSatisfy({
+            $0.valuesIncludingEnabledControls(to: $1).allSatisfy(\.isFinite)
+        }) else {
+            diagnostics.append(.init(code: .nonFiniteValue, laneIndex: laneIndex))
+            return nil
+        }
         return keyframes
     }
 
     /// 返回值区分「缺省」与「非法」：缺省是合法的（`tangent == nil`），非法要 fail closed。
     private nonisolated static func parseTangent(
         _ value: Any?,
+        allowedX: ClosedRange<Double>,
         laneIndex: Int,
         diagnostics: inout [SceneTimelineDiagnostic]
     ) -> (tangent: SceneTimelineTangent?, Void)? {
@@ -281,12 +299,17 @@ nonisolated enum SceneTimelineAnimationParser {
         }
         let x = doubleValue(root["x"]) ?? 0
         let y = doubleValue(root["y"]) ?? 0
+        let isEnabled = root["enabled"] as? Bool ?? false
         guard x.isFinite, y.isFinite else {
             diagnostics.append(.init(code: .nonFiniteValue, laneIndex: laneIndex))
             return nil
         }
+        guard !isEnabled || allowedX.contains(x) else {
+            diagnostics.append(.init(code: .invalidTangent, laneIndex: laneIndex))
+            return nil
+        }
         return (SceneTimelineTangent(
-            isEnabled: root["enabled"] as? Bool ?? false,
+            isEnabled: isEnabled,
             x: x,
             y: y
         ), ())

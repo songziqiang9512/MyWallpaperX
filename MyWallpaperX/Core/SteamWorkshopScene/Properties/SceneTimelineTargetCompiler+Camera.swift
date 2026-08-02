@@ -121,10 +121,12 @@ nonisolated enum Scene2DCameraTimelineCompiler {
         else { return false }
         for (index, lane) in animation.lanes.enumerated() {
             let base = Double(authored[index])
-            guard lane.allSatisfy({ keyframe in
-                let value = base + keyframe.value
-                let bounded = value.isFinite && abs(value) <= maximumOriginMagnitude
-                return index == 2 ? bounded && value > nearZ && value < farZ : bounded
+            guard zip(lane, lane.dropFirst()).allSatisfy({ segment in
+                segment.0.valuesIncludingEnabledControls(to: segment.1).allSatisfy { control in
+                    let value = base + control
+                    let bounded = value.isFinite && abs(value) <= maximumOriginMagnitude
+                    return index == 2 ? bounded && value > nearZ && value < farZ : bounded
+                }
             }) else { return false }
         }
         return true
@@ -135,8 +137,11 @@ nonisolated enum Scene2DCameraTimelineCompiler {
         animation: SceneTimelineAnimation
     ) -> Bool {
         guard authored.isFinite, minimumZoom ... maximumZoom ~= authored else { return false }
-        return animation.lanes[0].allSatisfy {
-            $0.value.isFinite && minimumZoom ... maximumZoom ~= $0.value
+        let lane = animation.lanes[0]
+        return zip(lane, lane.dropFirst()).allSatisfy { segment in
+            segment.0.valuesIncludingEnabledControls(to: segment.1).allSatisfy {
+                $0.isFinite && minimumZoom ... maximumZoom ~= $0
+            }
         }
     }
 

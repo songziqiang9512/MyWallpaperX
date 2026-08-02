@@ -292,9 +292,10 @@ nonisolated enum SceneTimelineTargetCompiler {
             return false
         }
         return animation.lanes.allSatisfy { lane in
-            lane.allSatisfy {
-                $0.value.isFinite && $0.value >= 1
-                    && $0.value <= maximumDynamicTextWidth
+            zip(lane, lane.dropFirst()).allSatisfy { segment in
+                segment.0.valuesIncludingEnabledControls(to: segment.1).allSatisfy {
+                    $0.isFinite && $0 >= 1 && $0 <= maximumDynamicTextWidth
+                }
             }
         }
     }

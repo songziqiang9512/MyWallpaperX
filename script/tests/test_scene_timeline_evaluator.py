@@ -10,8 +10,9 @@
 `mirror`、`three_keyframes` 与 `offset_lane` 是同结构派生 fixture，分别覆盖反向
 播放、多区间定位和关键帧范围不从 0 起的情况。
 
-本门只断言线性插值：tangent 的 handle 单位尚无官方定义，evaluator 按设计不消费
-它，因此这里也不断言任何 Bézier 形状。
+本门同时锁定默认、单侧关闭、双侧关闭与真实 camera 自定义 handle。X 以当前 segment
+span 归一化，Y 使用 property value offset；期望值由测试内独立常量锁定，不复用 Swift
+实现。
 """
 
 from __future__ import annotations
@@ -63,11 +64,19 @@ enum Harness {
 '''
 
 
-def keyframe(frame, value):
+def keyframe(
+    frame,
+    value,
+    *,
+    front_enabled=True,
+    back_enabled=True,
+    front=(1, 0),
+    back=(-1, 0),
+):
     return {
-        "back": {"enabled": True, "x": -1, "y": 0},
+        "back": {"enabled": back_enabled, "x": back[0], "y": back[1]},
         "frame": frame,
-        "front": {"enabled": True, "x": 1, "y": 0},
+        "front": {"enabled": front_enabled, "x": front[0], "y": front[1]},
         "lockangle": True,
         "locklength": True,
         "value": value,
@@ -125,6 +134,36 @@ CASES = {
         "animation": {
             "c0": [keyframe(10, 5), keyframe(20, 15)],
             "options": {"fps": 10, "length": 30, "mode": "single"},
+        },
+    },
+    "linear_disabled": {
+        "value": 0,
+        "animation": {
+            "c0": [
+                keyframe(0, 0, front_enabled=False, back_enabled=False),
+                keyframe(10, 1, front_enabled=False, back_enabled=False),
+            ],
+            "options": {"fps": 10, "length": 10, "mode": "single"},
+        },
+    },
+    "one_sided_text_width": {
+        "value": 730,
+        "animation": {
+            "c0": [
+                keyframe(0, 730, front_enabled=False),
+                keyframe(59, 888),
+            ],
+            "options": {"fps": 59, "length": 59, "mode": "single"},
+        },
+    },
+    "custom_camera": {
+        "value": -100,
+        "animation": {
+            "c0": [
+                keyframe(0, -100, front=(0.75, 10)),
+                keyframe(120, 0, back=(-0.75, 0)),
+            ],
+            "options": {"fps": 120, "length": 120, "mode": "single"},
         },
     },
 }
@@ -186,6 +225,10 @@ class SceneTimelineEvaluatorTests(unittest.TestCase):
             self.assertAlmostEqual(frame, 15.0)
             self.assertAlmostEqual(values[0], 0.0)
 
+    def test_default_handles_apply_bezier_ease_in_and_out(self) -> None:
+        self.assertAlmostEqual(self.at("single", 0.25)[1][0], 0.970275394488)
+        self.assertAlmostEqual(self.at("single", 0.75)[1][0], 0.029724605512)
+
     def test_single_starts_at_the_authored_first_value(self) -> None:
         frame, values = self.at("single", 0.0)
         self.assertAlmostEqual(frame, 0.0)
@@ -236,8 +279,26 @@ class SceneTimelineEvaluatorTests(unittest.TestCase):
         self.assertAlmostEqual(self.at("three_keyframes", 0.5)[1][0], 0.5)
         self.assertAlmostEqual(self.at("three_keyframes", 1.0)[1][0], 1.0)
         # 1.5s → 第 15 帧，落在第二段 1/4 处
-        self.assertAlmostEqual(self.at("three_keyframes", 1.5)[1][0], 0.75)
+        self.assertAlmostEqual(
+            self.at("three_keyframes", 1.5)[1][0], 0.970275394488
+        )
         self.assertAlmostEqual(self.at("three_keyframes", 2.0)[1][0], 0.5)
+
+    def test_disabled_handles_are_exactly_linear(self) -> None:
+        self.assertAlmostEqual(self.at("linear_disabled", 0.25)[1][0], 0.25)
+        self.assertAlmostEqual(self.at("linear_disabled", 0.75)[1][0], 0.75)
+
+    def test_one_sided_and_custom_real_wire_handles_are_consumed(self) -> None:
+        self.assertAlmostEqual(
+            self.at("one_sided_text_width", 0.25)[1][0], 839.107024658232
+        )
+        self.assertAlmostEqual(
+            self.at("custom_camera", 0.25)[1][0], -91.455796420255
+        )
+        self.assertAlmostEqual(self.at("custom_camera", 0.5)[1][0], -46.25)
+        self.assertAlmostEqual(
+            self.at("custom_camera", 0.75)[1][0], -4.905885405246
+        )
 
     def test_frames_before_and_after_the_lane_hold_the_endpoints(self) -> None:
         # lane 只覆盖第 10～20 帧，之前保持首值、之后保持末值，不外推

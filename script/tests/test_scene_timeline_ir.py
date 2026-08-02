@@ -169,6 +169,13 @@ CASES = {
             "options": {"fps": 1.2, "length": 144, "mode": "loop"},
         },
     },
+    "unused_boundary_tangents": {
+        "value": 1,
+        "animation": {
+            "c0": [keyframe(0, 1e308), keyframe(30, 1e308)],
+            "options": {"fps": 30, "length": 30, "mode": "single"},
+        },
+    },
     "combined_group_parent": {
         "value": "0 0 0",
         "animation": {
@@ -280,6 +287,41 @@ CASES = {
             "options": {"fps": 30, "length": 30, "mode": "loop"},
         },
     },
+    "out_of_segment_front_tangent": {
+        "value": 1,
+        "animation": {
+            "c0": [
+                {
+                    "back": {"enabled": True, "x": -1, "y": 0},
+                    "frame": 0,
+                    "front": {"enabled": True, "x": 1.01, "y": 0},
+                    "value": 0,
+                }
+            ],
+            "options": {"fps": 30, "length": 30, "mode": "loop"},
+        },
+    },
+    "out_of_segment_back_tangent": {
+        "value": 1,
+        "animation": {
+            "c0": [
+                {
+                    "back": {"enabled": True, "x": 0.01, "y": 0},
+                    "frame": 0,
+                    "front": {"enabled": True, "x": 1, "y": 0},
+                    "value": 0,
+                }
+            ],
+            "options": {"fps": 30, "length": 30, "mode": "loop"},
+        },
+    },
+    "overflowing_segment_control": {
+        "value": 1,
+        "animation": {
+            "c0": [keyframe(0, 1e308), keyframe(30, 1e308)],
+            "options": {"fps": 30, "length": 30, "mode": "single"},
+        },
+    },
     "malformed_group_parent": {
         "value": 1,
         "animation": {
@@ -305,6 +347,10 @@ CASES = {
         },
     },
 }
+
+CASES["unused_boundary_tangents"]["animation"]["c0"][0]["back"]["y"] = 1e308
+CASES["unused_boundary_tangents"]["animation"]["c0"][-1]["front"]["y"] = 1e308
+CASES["overflowing_segment_control"]["animation"]["c0"][0]["front"]["y"] = 1e308
 
 
 class SceneTimelineIRTests(unittest.TestCase):
@@ -391,6 +437,12 @@ class SceneTimelineIRTests(unittest.TestCase):
         self.assertEqual(animation["options"]["fps"], 1.2)
         self.assertAlmostEqual(animation["options"]["durationSeconds"], 120.0)
 
+    def test_unused_boundary_tangents_do_not_reject_the_lane(self) -> None:
+        animation = self.animation("unused_boundary_tangents")
+        self.assertEqual(animation["lanes"][0][0]["back"]["y"], 1e308)
+        self.assertEqual(animation["lanes"][0][-1]["front"]["y"], 1e308)
+        self.assertEqual(self.diagnostic_codes("unused_boundary_tangents"), [])
+
     def test_editor_only_handle_locks_round_trip(self) -> None:
         first = self.animation("single_start_paused")["lanes"][0][0]
         self.assertEqual(first["locksAngle"], "true")
@@ -438,6 +490,9 @@ class SceneTimelineIRTests(unittest.TestCase):
             "empty_lane": "emptyLane",
             "missing_lanes": "missingLanes",
             "malformed_tangent": "invalidTangent",
+            "out_of_segment_front_tangent": "invalidTangent",
+            "out_of_segment_back_tangent": "invalidTangent",
+            "overflowing_segment_control": "nonFiniteValue",
             "malformed_group_parent": "invalidGroupReference",
             "malformed_group_child": "invalidGroupReference",
         }

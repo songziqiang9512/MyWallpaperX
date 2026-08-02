@@ -6,9 +6,9 @@ import Foundation
 /// 变慢、多 surface 之间还会漂移。这里只做纯函数映射：给定同一个 `sceneTime` 必然得到
 /// 同一个结果，不持有任何播放状态。
 ///
-/// 本版**不消费 tangent**。`SceneTimelineTangent` 的 `x`/`y` 单位尚无官方定义，且
-/// 「帧偏移」与「归一化段长比例」两种解释给出的曲线明显不同（见 `SceneTimelineTangent`
-/// 的说明），在取得视觉定标前一律走线性插值，不冒充 Bézier parity。
+/// 每段按作者 front/back handle 构造 cubic Bézier。X 是 segment-span 比例，Y 是 value
+/// offset；按 frame progress 反求唯一 curve parameter 后再求 value。禁用或缺失的 handle
+/// 退化到对应 keyframe anchor；两侧都关闭时几何曲线严格为直线。
 ///
 /// `isRelative` 与 `wrapsLoop` 同样不在这里处理：前者是「动画值怎样与作者基值合成」的
 /// 写回语义，后者是首尾平滑整形，都属于消费方而不是求值器。
@@ -61,7 +61,7 @@ nonisolated enum SceneTimelineEvaluator {
         return animation.lanes.map { value(in: $0, atFrame: frame) }
     }
 
-    /// 关键帧区间定位 + 线性插值。
+    /// 关键帧区间定位 + 作者 Bézier 插值。
     ///
     /// 关键帧的帧范围不一定覆盖 `[0, length]`，落在首帧之前或末帧之后时保持端点值，
     /// 不外推。
@@ -83,6 +83,56 @@ nonisolated enum SceneTimelineEvaluator {
         // IR 已保证帧号严格递增，这里只兜底除零。
         guard span > 0 else { return end.value }
         let progress = (frame - start.frame) / span
-        return start.value + (end.value - start.value) * progress
+        return interpolatedValue(from: start, to: end, progress: progress)
+    }
+
+    private nonisolated static func interpolatedValue(
+        from start: SceneTimelineKeyframe,
+        to end: SceneTimelineKeyframe,
+        progress: Double
+    ) -> Double {
+        let front = start.front.flatMap { $0.isEnabled ? $0 : nil }
+        let back = end.back.flatMap { $0.isEnabled ? $0 : nil }
+        guard front != nil || back != nil else {
+            return start.value + (end.value - start.value) * progress
+        }
+        let x1 = front?.x ?? 0
+        let x2 = 1 + (back?.x ?? 0)
+        let y1 = start.value + (front?.y ?? 0)
+        let y2 = end.value + (back?.y ?? 0)
+
+        // Parser 把 enabled X 限在当前 segment 内，因此 x(t) 单调且可二分。固定轮数让
+        // realtime/offline 与不同 surface 对同一 frame 得到完全相同的求值路径。
+        var lower = 0.0
+        var upper = 1.0
+        for _ in 0 ..< 48 {
+            let parameter = (lower + upper) * 0.5
+            let curveProgress = cubic(0, x1, x2, 1, at: parameter)
+            if curveProgress == progress {
+                return cubic(start.value, y1, y2, end.value, at: parameter)
+            } else if curveProgress < progress {
+                lower = parameter
+            } else {
+                upper = parameter
+            }
+        }
+        return cubic(
+            start.value, y1, y2, end.value,
+            at: (lower + upper) * 0.5
+        )
+    }
+
+    private nonisolated static func cubic(
+        _ p0: Double,
+        _ p1: Double,
+        _ p2: Double,
+        _ p3: Double,
+        at t: Double
+    ) -> Double {
+        let oneMinusT = 1 - t
+        return oneMinusT * oneMinusT * oneMinusT * p0
+            + 3 * oneMinusT * oneMinusT * t * p1
+            + 3 * oneMinusT * t * t * p2
+            + t * t * t * p3
     }
 }
