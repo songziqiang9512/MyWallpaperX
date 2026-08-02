@@ -64,6 +64,7 @@ enum SceneTextTextureLoader {
         content: String,
         pointSize: Float,
         colorRGB: [Float],
+        maxWidth: Float? = nil,
         cacheDirectory: URL,
         device: MTLDevice
     ) -> DynamicTexture? {
@@ -72,6 +73,7 @@ enum SceneTextTextureLoader {
             content: content,
             pointSize: pointSize,
             colorRGB: colorRGB,
+            maxWidth: maxWidth,
             cacheDirectory: cacheDirectory,
             device: device
         ) else {
@@ -88,11 +90,16 @@ enum SceneTextTextureLoader {
         content: String? = nil,
         pointSize: Float? = nil,
         colorRGB: [Float]? = nil,
+        maxWidth: Float? = nil,
         cacheDirectory: URL,
         device: MTLDevice
     ) -> RenderedTexture? {
         guard let text = content ?? layer.text, let authoredStyle = layer.textStyle else { return nil }
-        let style = authoredStyle.replacing(pointSize: pointSize, colorRGB: colorRGB)
+        let style = authoredStyle.replacing(
+            pointSize: pointSize,
+            colorRGB: colorRGB,
+            maxWidth: maxWidth
+        )
         let baseRenderSize = layer.renderSizeWH
         let sourceFont = SceneTextFontResolver.resolve(
             path: style.fontPath,

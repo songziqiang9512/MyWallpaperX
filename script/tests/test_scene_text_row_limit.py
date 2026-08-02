@@ -407,6 +407,28 @@ enum Harness {
                 device: device
             )
         }
+        let timelineNarrow = layers[60].flatMap {
+            SceneTextTextureLoader.makeDynamicTexture(
+                for: $0,
+                content: "AAAA BBBB",
+                pointSize: $0.textStyle!.pointSize,
+                colorRGB: $0.textStyle!.colorRGB,
+                maxWidth: 100,
+                cacheDirectory: cacheDirectory,
+                device: device
+            )
+        }
+        let timelineWide = layers[60].flatMap {
+            SceneTextTextureLoader.makeDynamicTexture(
+                for: $0,
+                content: "AAAA BBBB",
+                pointSize: $0.textStyle!.pointSize,
+                colorRGB: $0.textStyle!.colorRGB,
+                maxWidth: 350,
+                cacheDirectory: cacheDirectory,
+                device: device
+            )
+        }
 
         let result: [String: Any] = [
             "style": style,
@@ -415,6 +437,10 @@ enum Harness {
             "dynamicRenderSizes": [
                 "auto": autoSized?.renderSizeWH ?? [],
                 "limited": widthLimited?.renderSizeWH ?? [],
+            ],
+            "timelineWidthInk": [
+                "narrow": timelineNarrow.map { inkStatistics($0.texture) } ?? [:],
+                "wide": timelineWide.map { inkStatistics($0.texture) } ?? [:],
             ],
             "messages": loaded.messages,
         ]
@@ -607,6 +633,14 @@ class SceneTextRowLimitTests(unittest.TestCase):
     def test_dynamic_text_expands_only_when_width_is_not_authored_limited(self) -> None:
         self.assertGreater(self.result["dynamicRenderSizes"]["auto"][0], 400)
         self.assertEqual(self.result["dynamicRenderSizes"]["limited"], [400, 140])
+
+    def test_dynamic_max_width_rerasterizes_the_wrap_geometry(self) -> None:
+        narrow = self.result["timelineWidthInk"]["narrow"]
+        wide = self.result["timelineWidthInk"]["wide"]
+        self.assertGreater(len(narrow["rowRanges"]), len(wide["rowRanges"]))
+        self.assertEqual(len(wide["rowRanges"]), 1)
+        self.assertLessEqual(narrow["maxX"], 100)
+        self.assertGreater(wide["maxX"], 100)
 
 
 if __name__ == "__main__":

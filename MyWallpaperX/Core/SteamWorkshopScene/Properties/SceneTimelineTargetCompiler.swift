@@ -41,11 +41,15 @@ nonisolated enum SceneTimelineTargetCompiler {
         case componentMismatch
         /// instance override 缺少可用、无冲突的三分量作者基值。
         case invalidAuthoredValue
+        /// target 有额外运行预算，作者 fallback 或任一 keyframe 越界。
+        case valueOutOfRange
         /// 同一 target 被多条 Timeline 写入，官方未定义优先级，全部拒绝。
         case duplicateTarget
         /// 非阻断：`wraploop` 的首尾平滑算法未实现，按普通 loop 执行。
         case wrapLoopIgnored
     }
+
+    private static let maximumDynamicTextWidth = 16_384.0
 
     nonisolated static func compile(descriptor: SceneRenderDescriptor) -> SceneTimelineProgram {
         var candidates: [(binding: SceneTimelineBinding, label: String)] = []
@@ -59,6 +63,11 @@ nonisolated enum SceneTimelineTargetCompiler {
                 let label = "layer \(layer.id) \(timeline.host.rawValue)"
                 guard let resolved = layerTarget(host: timeline.host, layer: layer) else {
                     diagnostics.append("\(label): \(Diagnostic.unsupportedHost.rawValue)")
+                    continue
+                }
+                if case .maxwidth = timeline.host,
+                   !isBoundedTextWidth(timeline.animation, layer: layer) {
+                    diagnostics.append("\(label): \(Diagnostic.valueOutOfRange.rawValue)")
                     continue
                 }
                 append(
@@ -254,10 +263,34 @@ nonisolated enum SceneTimelineTargetCompiler {
             return vector3(layer: layer, field: .angles, authored: layer.anglesXYZ, fill: 0)
         case .scale:
             return vector3(layer: layer, field: .scale, authored: layer.scaleXYZ, fill: 1)
-        // size/color 有 target 但随包没有 Timeline 样本，maxwidth/zoom 连 target 都没有；
-        // 两类都不接，等出现真实样本再单独定合同。
-        case .size, .color, .maxwidth, .zoom:
+        case .maxwidth:
+            guard layer.contentKind == "text", let style = layer.textStyle,
+                  style.limitWidth else { return nil }
+            return (
+                .text(layerID: layer.id, field: .maxWidth),
+                .scalar,
+                .scalar(Double(style.maxWidth))
+            )
+        // size/color 有 target 但随包没有 Timeline 样本；zoom 的唯一真实形态属于
+        // Camera origin↔zoom Combined Animation，不能脱组猜成普通 layer scalar。
+        case .size, .color, .zoom:
             return nil
+        }
+    }
+
+    private nonisolated static func isBoundedTextWidth(
+        _ animation: SceneTimelineAnimation,
+        layer: SceneRenderDescriptor.Layer
+    ) -> Bool {
+        guard let width = layer.textStyle.map({ Double($0.maxWidth) }),
+              width.isFinite, width >= 1, width <= maximumDynamicTextWidth else {
+            return false
+        }
+        return animation.lanes.allSatisfy { lane in
+            lane.allSatisfy {
+                $0.value.isFinite && $0.value >= 1
+                    && $0.value <= maximumDynamicTextWidth
+            }
         }
     }
 

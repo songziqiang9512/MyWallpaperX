@@ -22,6 +22,9 @@ extension SceneDesktopWallpaperHost {
                 targets.insert(.text(layerID: layer.id, field: .content))
                 targets.insert(.text(layerID: layer.id, field: .pointSize))
                 targets.insert(.text(layerID: layer.id, field: .color))
+                if layer.textStyle?.limitWidth == true {
+                    targets.insert(.text(layerID: layer.id, field: .maxWidth))
+                }
             case "solid":
                 targets.insert(.layer(layerID: layer.id, field: .alpha))
                 targets.insert(.layer(layerID: layer.id, field: .color))

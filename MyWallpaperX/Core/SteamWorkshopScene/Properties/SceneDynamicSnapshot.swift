@@ -71,6 +71,7 @@ nonisolated enum SceneDynamicTextField: String, Codable, Equatable, Hashable, Se
     case content
     case pointSize
     case color
+    case maxWidth
 }
 
 nonisolated enum SceneDynamicParticleField: Codable, Equatable, Hashable, Sendable {

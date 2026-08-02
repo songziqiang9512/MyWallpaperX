@@ -16,6 +16,9 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
     private var generationState = SceneDynamicTextGenerationState()
     private var currentTextures: [Int: MTLTexture]
     private var currentRenderSizes: [Int: [Float]]
+#if DEBUG
+    private var debugLoggedDynamicLayers: Set<Int> = []
+#endif
 
     init(
         descriptor: SceneRenderDescriptor,
@@ -50,12 +53,9 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         for layer in layersByID.values {
             let signature = Self.signature(for: layer, snapshot: snapshot)
             lock.lock()
-            let generation = generationState.request(layerID: layer.id, signature: signature)
+            let request = generationState.schedule(layerID: layer.id, signature: signature)
             lock.unlock()
-            guard let generation else { continue }
-            queue.async { [weak self] in
-                self?.render(layerID: layer.id, signature: signature, generation: generation)
-            }
+            if let request { schedule(request) }
         }
     }
 
@@ -87,29 +87,49 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         lock.unlock()
     }
 
-    private func render(
-        layerID: Int,
-        signature: SceneDynamicTextSignature,
-        generation: UInt64
-    ) {
-        guard let layer = layersByID[layerID] else { return }
+    private func schedule(_ request: SceneDynamicTextGenerationState.RenderRequest) {
+        queue.async { [weak self] in self?.render(request) }
+    }
+
+    private func render(_ request: SceneDynamicTextGenerationState.RenderRequest) {
+        guard let layer = layersByID[request.layerID] else { return }
         let rendered = SceneTextTextureLoader.makeDynamicTexture(
             for: layer,
-            content: signature.content,
-            pointSize: signature.pointSize,
-            colorRGB: signature.colorRGB,
+            content: request.signature.content,
+            pointSize: request.signature.pointSize,
+            colorRGB: request.signature.colorRGB,
+            maxWidth: request.signature.maxWidth,
             cacheDirectory: cacheDirectory,
             device: device
         )
+#if DEBUG
+        var debugPublication: (layerID: Int, generation: UInt64, maxWidth: Float)?
+#endif
         lock.lock()
-        defer { lock.unlock() }
-        guard generationState.complete(
-            layerID: layerID,
-            generation: generation,
-            succeeded: rendered != nil
-        ), let rendered else { return }
-        currentTextures[layerID] = rendered.texture
-        currentRenderSizes[layerID] = rendered.renderSizeWH
+        let completion = generationState.finish(request, succeeded: rendered != nil)
+        if completion.accepted, let rendered {
+            currentTextures[request.layerID] = rendered.texture
+            currentRenderSizes[request.layerID] = rendered.renderSizeWH
+#if DEBUG
+            if debugLoggedDynamicLayers.insert(request.layerID).inserted {
+                debugPublication = (
+                    request.layerID, request.generation, request.signature.maxWidth
+                )
+            }
+#endif
+        }
+        lock.unlock()
+#if DEBUG
+        if let debugPublication {
+            NSLog(
+                "MWX DEBUG SCENE: phase=dynamic-text-published layer=%d generation=%llu maxWidth=%.3f",
+                debugPublication.layerID,
+                debugPublication.generation,
+                debugPublication.maxWidth
+            )
+        }
+#endif
+        if let next = completion.next { schedule(next) }
     }
 
     private static func signature(
@@ -126,7 +146,16 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         let color = colorValue(
             snapshot?[.text(layerID: layer.id, field: .color)]?.value
         ) ?? authoredStyle.colorRGB
-        return .init(content: content, pointSize: pointSize, colorRGB: color)
+        let maxWidth = authoredStyle.limitWidth
+            ? scalarValue(snapshot?[.text(layerID: layer.id, field: .maxWidth)]?.value)
+                .map { Float(max(1, min($0, 16_384))) } ?? authoredStyle.maxWidth
+            : authoredStyle.maxWidth
+        return .init(
+            content: content,
+            pointSize: pointSize,
+            colorRGB: color,
+            maxWidth: maxWidth
+        )
     }
 
     private static func stringValue(_ value: SceneDynamicValue?) -> String? {

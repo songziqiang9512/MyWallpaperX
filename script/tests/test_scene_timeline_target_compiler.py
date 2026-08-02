@@ -37,6 +37,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Runtime/SceneRenderDescriptor.swift",
     SOURCE_ROOT / "Runtime/SceneRenderDescriptor+Layer.swift",
     SOURCE_ROOT / "Runtime/SceneRenderDescriptor+AuthoredAssets.swift",
+    SOURCE_ROOT / "Text/SceneTextDescriptor.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "Properties/SceneTimelineTargetCompiler.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
@@ -213,6 +214,55 @@ SCENE_FIXTURE = {
             },
         },
         {
+            "id": 61,
+            "name": "Bounded text width",
+            "text": "AAAA BBBB CCCC DDDD",
+            "size": "900 140",
+            "limitwidth": True,
+            "maxwidth": {
+                "value": 739,
+                "animation": animation(
+                    [[keyframe(0, 730), keyframe(60, 888)]],
+                    options={"wraploop": True},
+                ),
+            },
+        },
+        {
+            "id": 62,
+            "name": "Disabled text width",
+            "text": "AAAA BBBB",
+            "size": "900 140",
+            "limitwidth": False,
+            "maxwidth": {
+                "value": 739,
+                "animation": animation([[keyframe(0, 730), keyframe(60, 888)]]),
+            },
+        },
+        {
+            "id": 63,
+            "name": "Invalid text width",
+            "text": "AAAA BBBB",
+            "size": "900 140",
+            "limitwidth": True,
+            "maxwidth": {
+                "value": 739,
+                "animation": animation([[keyframe(0, 0), keyframe(60, 888)]]),
+            },
+        },
+        {
+            "id": 64,
+            "name": "Relative text width",
+            "text": "AAAA BBBB",
+            "size": "900 140",
+            "limitwidth": True,
+            "maxwidth": {
+                "value": 739,
+                "animation": animation(
+                    [[keyframe(0, 730), keyframe(60, 888)]], relative=True
+                ),
+            },
+        },
+        {
             "id": 70,
             "name": "Wrap loop is downgraded not rejected",
             "image": "models/user/g.json",
@@ -301,11 +351,6 @@ SCENE_FIXTURE = {
 HARNESS_SOURCE = r'''
 import Foundation
 
-struct SceneTextDescriptor: Codable {
-    let padding: Float
-    init(padding: Float = 0) { self.padding = padding }
-    static func parse(_ root: [String: Any]) -> SceneTextDescriptor { .init() }
-}
 enum SceneTextGeometry {
     static func expandedSize(authoredSize: [Float]?, padding: Float) -> [Float]? { authoredSize }
 }
@@ -448,6 +493,7 @@ enum Harness {
             case let .controlPointAngles(index): "particle:\(layerID):angles:\(index)"
             default: "particle:\(layerID):other"
             }
+        case let .text(layerID, field): "text:\(layerID):\(field.rawValue)"
         default: "other"
         }
     }
@@ -551,6 +597,21 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
                 )
         self.assertNotIn("layer:60:maxwidth", self.targets())
 
+    def test_bounded_text_width_compiles_to_dynamic_text_scalar(self) -> None:
+        binding = self.binding("text:61:maxWidth")
+        self.assertEqual(binding["valueType"], "scalar")
+        self.assertEqual(binding["authored"], "scalar(739.0)")
+        self.assertEqual(binding["composition"], "absolute")
+        self.assertIn("layer 61 maxwidth: wrapLoopIgnored", self.result["diagnostics"])
+
+    def test_text_width_requires_enabled_gate_bounded_values_and_absolute_mode(self) -> None:
+        self.assertNotIn("text:62:maxWidth", self.targets())
+        self.assertNotIn("text:63:maxWidth", self.targets())
+        self.assertNotIn("text:64:maxWidth", self.targets())
+        self.assertIn("layer 62 maxwidth: unsupportedHost", self.result["diagnostics"])
+        self.assertIn("layer 63 maxwidth: valueOutOfRange", self.result["diagnostics"])
+        self.assertIn("layer 64 maxwidth: relativeUnsupported", self.result["diagnostics"])
+
     def test_combined_animation_group_is_rejected(self) -> None:
         # 组内成员共享持有方的 clock，独立求值会让两条 lane 逐渐错相
         self.assertNotIn("layer:65:alpha", self.targets())
@@ -617,6 +678,7 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
                 "layer:42:scale",
                 "constant:30:1:1:multiply",
                 "layer:70:alpha",
+                "text:61:maxWidth",
                 "particle:80:alpha",
                 "particle:80:controlpoint:1",
             },

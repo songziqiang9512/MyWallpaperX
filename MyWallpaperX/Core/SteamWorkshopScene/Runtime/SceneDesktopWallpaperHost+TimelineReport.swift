@@ -82,6 +82,8 @@ extension SceneDesktopWallpaperHost {
             "layer \(layerID) effect \(effectIndex) pass \(passIndex) \(name)"
         case let .particle(layerID, field):
             "layer \(layerID) instanceoverride.\(particleFieldName(field))"
+        case let .text(layerID, field):
+            "layer \(layerID) text.\(field.rawValue)"
         default:
             "other"
         }

@@ -42,6 +42,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Runtime/SceneRenderDescriptor.swift",
     SOURCE_ROOT / "Runtime/SceneRenderDescriptor+Layer.swift",
     SOURCE_ROOT / "Runtime/SceneRenderDescriptor+AuthoredAssets.swift",
+    SOURCE_ROOT / "Text/SceneTextDescriptor.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "Properties/SceneSurfaceEvaluationTransaction.swift",
     SOURCE_ROOT / "Properties/SceneTimelineTargetCompiler.swift",
@@ -144,11 +145,6 @@ SCENE_FIXTURE = {
 HARNESS_SOURCE = r'''
 import Foundation
 
-struct SceneTextDescriptor: Codable {
-    let padding: Float
-    init(padding: Float = 0) { self.padding = padding }
-    static func parse(_ root: [String: Any]) -> SceneTextDescriptor { .init() }
-}
 enum SceneTextGeometry {
     static func expandedSize(authoredSize: [Float]?, padding: Float) -> [Float]? { authoredSize }
 }

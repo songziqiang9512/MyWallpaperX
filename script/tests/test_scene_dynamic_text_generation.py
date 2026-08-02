@@ -19,9 +19,15 @@ import Foundation
 @main
 enum Harness {
     static func main() throws {
-        let authored = SceneDynamicTextSignature(content: "A", pointSize: 8, colorRGB: [1, 1, 1])
-        let second = SceneDynamicTextSignature(content: "B", pointSize: 9, colorRGB: [1, 0, 0])
-        let latest = SceneDynamicTextSignature(content: "C", pointSize: 10, colorRGB: [0, 1, 0])
+        let authored = SceneDynamicTextSignature(
+            content: "A", pointSize: 8, colorRGB: [1, 1, 1], maxWidth: 100
+        )
+        let second = SceneDynamicTextSignature(
+            content: "B", pointSize: 9, colorRGB: [1, 0, 0], maxWidth: 200
+        )
+        let latest = SceneDynamicTextSignature(
+            content: "C", pointSize: 10, colorRGB: [0, 1, 0], maxWidth: 300
+        )
         var state = SceneDynamicTextGenerationState()
         state.registerInitial(layerID: 1, signature: authored, isReady: true)
         let initialReadyGeneration = state.readyGeneration(layerID: 1)
@@ -35,6 +41,13 @@ enum Harness {
         let latestAccepted = state.complete(layerID: 1, generation: generationC, succeeded: true)
         let readyAfterSuccess = state.readySignature(layerID: 1)!
         let generationAfterSuccess = state.readyGeneration(layerID: 1)
+
+        var scheduledState = SceneDynamicTextGenerationState()
+        scheduledState.registerInitial(layerID: 2, signature: authored, isReady: true)
+        let scheduledSecond = scheduledState.schedule(layerID: 2, signature: second)!
+        let queuedLatest = scheduledState.schedule(layerID: 2, signature: latest)
+        let staleCompletion = scheduledState.finish(scheduledSecond, succeeded: true)
+        let latestCompletion = scheduledState.finish(staleCompletion.next!, succeeded: true)
         state.reset()
         let payload: [String: Any] = [
             "duplicate": duplicate as Any,
@@ -47,6 +60,12 @@ enum Harness {
             "latestAccepted": latestAccepted,
             "readyAfterSuccess": readyAfterSuccess.content,
             "generationAfterSuccess": generationAfterSuccess as Any,
+            "queuedLatestStartedImmediately": queuedLatest != nil,
+            "scheduledStaleAccepted": staleCompletion.accepted,
+            "scheduledNextContent": staleCompletion.next?.signature.content as Any,
+            "scheduledLatestAccepted": latestCompletion.accepted,
+            "scheduledHasThirdTask": latestCompletion.next != nil,
+            "scheduledReadyWidth": scheduledState.readySignature(layerID: 2)?.maxWidth as Any,
             "readyAfterReset": state.readySignature(layerID: 1) as Any,
             "generationAfterReset": state.readyGeneration(layerID: 1) as Any,
         ]
@@ -102,6 +121,16 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
         )
         self.assertIsNone(self.result["readyAfterReset"])
         self.assertIsNone(self.result["generationAfterReset"])
+
+    def test_continuous_updates_keep_only_one_render_in_flight_and_then_latest(self) -> None:
+        self.assertFalse(self.result["queuedLatestStartedImmediately"])
+        # 单在途调度保证按 generation 完成；中间结果可安全发布，随后只追最新，
+        # 避免连续 Timeline 因永远落后一帧而饿死。
+        self.assertTrue(self.result["scheduledStaleAccepted"])
+        self.assertEqual(self.result["scheduledNextContent"], "C")
+        self.assertTrue(self.result["scheduledLatestAccepted"])
+        self.assertFalse(self.result["scheduledHasThirdTask"])
+        self.assertEqual(self.result["scheduledReadyWidth"], 300)
 
 
 if __name__ == "__main__":

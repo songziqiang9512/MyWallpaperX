@@ -49,7 +49,8 @@ struct SceneTextDescriptor: Codable {
 
     nonisolated func replacing(
         pointSize: Float? = nil,
-        colorRGB: [Float]? = nil
+        colorRGB: [Float]? = nil,
+        maxWidth: Float? = nil
     ) -> SceneTextDescriptor {
         SceneTextDescriptor(
             fontPath: fontPath,
@@ -63,7 +64,7 @@ struct SceneTextDescriptor: Codable {
             limitRows: limitRows,
             maxRows: maxRows,
             limitWidth: limitWidth,
-            maxWidth: maxWidth,
+            maxWidth: max(0, maxWidth ?? self.maxWidth),
             useEllipsis: useEllipsis,
             opaqueBackground: opaqueBackground,
             backgroundColorRGB: backgroundColorRGB,
