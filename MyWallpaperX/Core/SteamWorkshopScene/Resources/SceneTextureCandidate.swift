@@ -111,6 +111,7 @@ private extension SceneTextureLoadPurpose {
         case .phase: "phase"
         case .normal: "normal"
         case .depth: "depth"
+        default: "unsupported"
         }
     }
 }

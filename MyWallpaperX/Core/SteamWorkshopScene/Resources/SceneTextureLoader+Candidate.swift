@@ -29,6 +29,11 @@ extension SceneTextureLoader {
         guard case .loaded(let texture) = outcome else {
             return .failed(outcome)
         }
+        guard texture.textureType == .type2D else {
+            return .failed(.decodeFailed(
+                "typed slot candidate requires a 2D texture"
+            ))
+        }
         let isTex = url.pathExtension.lowercased() == "tex"
         let parsedContainer = texContainer(from: url, source: source)
         guard !isTex || parsedContainer != nil else {

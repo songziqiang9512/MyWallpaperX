@@ -145,11 +145,8 @@ final class SceneTextureLoader {
         )
     }
 
-    // Wallpaper Engine .tex containers wrap one or more compressed payloads;
-    // photographic textures typically embed a JPEG mipmap chain. We extract
-    // just the largest (first) JPEG or PNG payload and decode that. .tex
-    // variants using DXT/BC compression have no embedded standard image and
-    // are reported as such for diagnosis.
+    // TEX payloads may be raw, BC, embedded images, video, or a bounded volume;
+    // dispatch only after the container metadata has been preserved.
     private func loadWallpaperEngineTex(
         url: URL,
         source: SourceKey,
@@ -249,6 +246,14 @@ final class SceneTextureLoader {
     ) -> SceneTextureLoadOutcome {
         guard let firstMip = container.mips.first else {
             return .decodeFailed("TEX container has no mip data")
+        }
+
+        if container.isVolume || purpose.requiresVolumeTexture {
+            return SceneTextureMipUploader.uploadVolume(
+                container: container,
+                purpose: purpose,
+                device: device
+            )
         }
 
         if Self.isMP4Payload(firstMip.data) {

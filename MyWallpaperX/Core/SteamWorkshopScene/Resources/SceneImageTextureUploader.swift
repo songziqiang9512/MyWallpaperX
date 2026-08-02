@@ -12,15 +12,20 @@ enum SceneTextureLoadPurpose: Hashable {
     case phase
     case normal
     case depth
+    case lookupTable
 
     var preservesSourceChannels: Bool {
         switch self {
         case .premultipliedColor:
             false
         case .straightAlbedo, .preservedChannels, .mask, .noise, .flow, .phase,
-             .normal, .depth:
+             .normal, .depth, .lookupTable:
             true
         }
+    }
+
+    var requiresVolumeTexture: Bool {
+        self == .lookupTable
     }
 }
 

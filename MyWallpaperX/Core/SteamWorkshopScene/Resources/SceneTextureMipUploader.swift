@@ -4,6 +4,70 @@ import ImageIO
 import Metal
 
 enum SceneTextureMipUploader {
+    static func uploadVolume(
+        container: SceneTexContainer,
+        purpose: SceneTextureLoadPurpose,
+        device: MTLDevice
+    ) -> SceneTextureLoadOutcome {
+        guard container.isVolume else {
+            return .decodeFailed("lookup-table consumer requires a 3D TEX")
+        }
+        guard purpose.requiresVolumeTexture else {
+            return .decodeFailed("3D TEX requires a lookup-table consumer")
+        }
+        return uploadEmbeddedRGBAVolume(container: container, device: device)
+    }
+
+    static func uploadEmbeddedRGBAVolume(
+        container: SceneTexContainer,
+        device: MTLDevice
+    ) -> SceneTextureLoadOutcome {
+        guard container.isVolume,
+              container.format == 0,
+              container.imageCount == 1,
+              !container.isAnimated,
+              container.spriteFrames.isEmpty,
+              container.mips.count == 1,
+              let mip = container.mips.first,
+              mip.depth == container.textureDepth,
+              isEmbeddedImage(mip.data),
+              let source = CGImageSourceCreateWithData(mip.data as CFData, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
+              image.width == mip.width,
+              image.height == mip.height * mip.depth,
+              let rgba = SceneImageTextureUploader.rgbaData(
+                  image: image,
+                  width: image.width,
+                  height: image.height,
+                  purpose: .lookupTable
+              ) else {
+            return .decodeFailed("3D TEX requires one vertical RGBA slice atlas")
+        }
+        let descriptor = MTLTextureDescriptor()
+        descriptor.textureType = .type3D
+        descriptor.pixelFormat = .rgba8Unorm
+        descriptor.width = mip.width
+        descriptor.height = mip.height
+        descriptor.depth = mip.depth
+        descriptor.mipmapLevelCount = 1
+        descriptor.usage = .shaderRead
+        descriptor.storageMode = .shared
+        guard let texture = device.makeTexture(descriptor: descriptor) else {
+            return .textureAllocationFailed(width: mip.width, height: mip.height)
+        }
+        rgba.withUnsafeBytes { bytes in
+            texture.replace(
+                region: MTLRegionMake3D(0, 0, 0, mip.width, mip.height, mip.depth),
+                mipmapLevel: 0,
+                slice: 0,
+                withBytes: bytes.baseAddress!,
+                bytesPerRow: mip.width * 4,
+                bytesPerImage: mip.width * mip.height * 4
+            )
+        }
+        return .loaded(texture)
+    }
+
     static func uploadEmbeddedImages(
         _ mips: [SceneTexContainer.Mip],
         device: MTLDevice

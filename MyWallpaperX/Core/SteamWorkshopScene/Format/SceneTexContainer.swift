@@ -1,4 +1,3 @@
-import Compression
 import Foundation
 import Metal
 
@@ -13,7 +12,15 @@ struct SceneTexContainer {
     struct Mip {
         let width: Int
         let height: Int
+        let depth: Int
         let data: Data
+
+        init(width: Int, height: Int, depth: Int = 1, data: Data) {
+            self.width = width
+            self.height = height
+            self.depth = depth
+            self.data = data
+        }
     }
 
     struct Image {
@@ -32,6 +39,7 @@ struct SceneTexContainer {
     let flags: UInt32
     let textureWidth: Int
     let textureHeight: Int
+    let textureDepth: Int
     let imageWidth: Int
     let imageHeight: Int
     let containerVersion: ContainerVersion
@@ -40,11 +48,43 @@ struct SceneTexContainer {
     let images: [Image]
     let spriteFrames: [SpriteFrame]
 
+    init(
+        format: UInt32,
+        flags: UInt32,
+        textureWidth: Int,
+        textureHeight: Int,
+        textureDepth: Int = 1,
+        imageWidth: Int,
+        imageHeight: Int,
+        containerVersion: ContainerVersion,
+        freeImageFormat: Int32,
+        isVideoMp4: Bool,
+        images: [Image],
+        spriteFrames: [SpriteFrame]
+    ) {
+        self.format = format
+        self.flags = flags
+        self.textureWidth = textureWidth
+        self.textureHeight = textureHeight
+        self.textureDepth = textureDepth
+        self.imageWidth = imageWidth
+        self.imageHeight = imageHeight
+        self.containerVersion = containerVersion
+        self.freeImageFormat = freeImageFormat
+        self.isVideoMp4 = isVideoMp4
+        self.images = images
+        self.spriteFrames = spriteFrames
+    }
+
     var imageCount: Int { images.count }
     var mips: [Mip] { images.first?.mips ?? [] }
 
     var isAnimated: Bool {
         flags & 4 != 0
+    }
+
+    var isVolume: Bool {
+        textureDepth > 1 || mips.contains { $0.depth > 1 }
     }
 
     var metalPixelFormat: MTLPixelFormat? {
@@ -112,23 +152,27 @@ struct SceneTexContainerReader {
     private static let maximumImageCount = 512
     private static let maximumMipCount = 32
     private static let maximumMipMetadataEntryCount = 32
-    private static let maximumMipByteCount = 250_000_000
-    private static let maximumSpriteFrameCount = 65_536
-
-    private enum SpriteVersion: String {
-        case texs0001 = "TEXS0001"
-        case texs0002 = "TEXS0002"
-        case texs0003 = "TEXS0003"
-
-        var usesIntegerCoordinates: Bool { self == .texs0001 }
-        var hasAtlasSize: Bool { self == .texs0003 }
-    }
+    static let maximumMipByteCount = 250_000_000
+    static let maximumSpriteFrameCount = 65_536
+    static let maximumVolumeDimension = 256
+    static let maximumVolumeVoxelCount = 16_777_216
 
     func read(data: Data) throws -> SceneTexContainer {
         guard data.count >= 55,
-              data.starts(with: Data("TEXV0005\0TEXI0001\0".utf8)),
-              data[54] == 0,
-              let rawContainerVersion = String(data: data[46..<54], encoding: .ascii),
+              data.starts(with: Data("TEXV0005\0TEXI0001\0".utf8)) else {
+            throw ReadError.invalidHeader
+        }
+        let volumeHeader = data.count >= 59
+            && data[58] == 0
+            && String(data: data[50..<58], encoding: .ascii)?.hasPrefix("TEXB") == true
+        let markerOffset = volumeHeader ? 50 : 46
+        let markerEnd = markerOffset + 8
+        guard markerEnd < data.count,
+              data[markerEnd] == 0,
+              let rawContainerVersion = String(
+                  data: data[markerOffset..<markerEnd],
+                  encoding: .ascii
+              ),
               let declaredContainerVersion = SceneTexContainer.ContainerVersion(rawValue: rawContainerVersion) else {
             throw ReadError.invalidHeader
         }
@@ -137,10 +181,25 @@ struct SceneTexContainerReader {
         let flags = data.uint32LE(at: 22)
         let textureWidth = Int(data.uint32LE(at: 26))
         let textureHeight = Int(data.uint32LE(at: 30))
+        let textureDepth = volumeHeader ? Int(data.uint32LE(at: 42)) : 1
         let imageWidth = Int(data.uint32LE(at: 34))
         let imageHeight = Int(data.uint32LE(at: 38))
 
-        var offset = 55
+        if volumeHeader {
+            guard format == 0,
+                  flags & 4 == 0,
+                  (1 ... Self.maximumVolumeDimension).contains(textureWidth),
+                  (1 ... Self.maximumVolumeDimension).contains(textureHeight),
+                  (2 ... Self.maximumVolumeDimension).contains(textureDepth),
+                  textureWidth * textureHeight <= Self.maximumVolumeVoxelCount / textureDepth,
+                  imageWidth == textureWidth * textureDepth,
+                  imageHeight == textureHeight,
+                  declaredContainerVersion == .texb0004 else {
+                throw ReadError.invalidHeader
+            }
+        }
+
+        var offset = markerEnd + 1
         let imageCount = Int(data.uint32LE(at: offset))
         offset += 4
         guard imageCount > 0, imageCount <= Self.maximumImageCount else {
@@ -198,7 +257,8 @@ struct SceneTexContainerReader {
                     data: data,
                     offset: &offset,
                     containerVersion: effectiveContainerVersion,
-                    metadataEntryCount: mipMetadataEntryCount
+                    metadataEntryCount: mipMetadataEntryCount,
+                    volumeHeader: volumeHeader
                 )
                 if mipIndex == 0 {
                     imageSizes.append(SIMD2(Float(mip.width), Float(mip.height)))
@@ -212,6 +272,17 @@ struct SceneTexContainerReader {
               images.allSatisfy({ !$0.mips.isEmpty }) else {
             throw ReadError.invalidMipTable
         }
+        if volumeHeader {
+            guard imageCount == 1,
+                  images[0].mips.count == 1,
+                  images[0].mips[0].width == textureWidth,
+                  images[0].mips[0].height == textureHeight,
+                  images[0].mips[0].depth == textureDepth,
+                  freeImageFormat == 13,
+                  mipMetadataEntryCount == 0 else {
+                throw ReadError.invalidMipTable
+            }
+        }
         let spriteFrames = flags & 4 == 0
             ? []
             : try readSpriteFrames(data: data, offset: &offset, imageSizes: imageSizes)
@@ -221,6 +292,7 @@ struct SceneTexContainerReader {
             flags: flags,
             textureWidth: textureWidth,
             textureHeight: textureHeight,
+            textureDepth: textureDepth,
             imageWidth: imageWidth,
             imageHeight: imageHeight,
             containerVersion: effectiveContainerVersion,
@@ -231,158 +303,4 @@ struct SceneTexContainerReader {
         )
     }
 
-    private func readSpriteFrames(
-        data: Data,
-        offset: inout Int,
-        imageSizes: [SIMD2<Float>]
-    ) throws -> [SceneTexContainer.SpriteFrame] {
-        guard offset + 13 <= data.count,
-              data[offset + 8] == 0,
-              let rawVersion = String(data: data[offset..<(offset + 8)], encoding: .ascii),
-              let version = SpriteVersion(rawValue: rawVersion) else {
-            throw ReadError.invalidSpriteTable
-        }
-        offset += 9
-        let frameCount = Int(data.int32LE(at: offset))
-        offset += 4
-        guard frameCount >= 0, frameCount <= Self.maximumSpriteFrameCount else {
-            throw ReadError.invalidSpriteTable
-        }
-        if version.hasAtlasSize {
-            guard offset + 8 <= data.count,
-                  data.int32LE(at: offset) > 0,
-                  data.int32LE(at: offset + 4) > 0 else {
-                throw ReadError.invalidSpriteTable
-            }
-            offset += 8
-        }
-        let frameByteCount = 32
-        guard frameCount <= (data.count - offset) / frameByteCount else {
-            throw ReadError.invalidSpriteTable
-        }
-
-        var frames: [SceneTexContainer.SpriteFrame] = []
-        frames.reserveCapacity(frameCount)
-        for _ in 0..<frameCount {
-            let imageIndex = Int(data.int32LE(at: offset))
-            let duration = data.float32LE(at: offset + 4)
-            offset += 8
-            guard imageSizes.indices.contains(imageIndex), duration.isFinite, duration >= 0 else {
-                throw ReadError.invalidSpriteTable
-            }
-            let coordinates = (0..<6).map { index -> Float in
-                let coordinateOffset = offset + index * 4
-                return version.usesIntegerCoordinates
-                    ? Float(data.int32LE(at: coordinateOffset))
-                    : data.float32LE(at: coordinateOffset)
-            }
-            offset += 24
-            guard coordinates.allSatisfy(\.isFinite) else {
-                throw ReadError.invalidSpriteTable
-            }
-            let imageSize = imageSizes[imageIndex]
-            frames.append(.init(
-                imageIndex: imageIndex,
-                duration: duration,
-                origin: SIMD2(coordinates[0] / imageSize.x, coordinates[1] / imageSize.y),
-                xAxis: SIMD2(coordinates[2] / imageSize.x, coordinates[3] / imageSize.x),
-                yAxis: SIMD2(coordinates[4] / imageSize.y, coordinates[5] / imageSize.y)
-            ))
-        }
-        return frames
-    }
-
-    private func readMip(
-        data: Data,
-        offset: inout Int,
-        containerVersion: SceneTexContainer.ContainerVersion,
-        metadataEntryCount: Int
-    ) throws -> SceneTexContainer.Mip {
-        if containerVersion == .texb0004 {
-            for _ in 0..<metadataEntryCount {
-                guard offset + 8 <= data.count else {
-                    throw ReadError.invalidMipTable
-                }
-                offset += 8
-                try data.skipNullTerminatedString(at: &offset)
-                guard offset + 4 <= data.count else {
-                    throw ReadError.invalidMipTable
-                }
-                offset += 4
-            }
-        }
-
-        guard offset + 8 <= data.count else {
-            throw ReadError.invalidMipTable
-        }
-        let width = Int(data.uint32LE(at: offset))
-        offset += 4
-        let height = Int(data.uint32LE(at: offset))
-        offset += 4
-        guard width > 0, height > 0 else {
-            throw ReadError.invalidMipTable
-        }
-
-        var compressionCode: UInt32 = 0
-        var decodedByteCount = 0
-        if containerVersion != .texb0001 {
-            guard offset + 8 <= data.count else {
-                throw ReadError.invalidMipTable
-            }
-            compressionCode = data.uint32LE(at: offset)
-            offset += 4
-            decodedByteCount = Int(data.int32LE(at: offset))
-            offset += 4
-        }
-
-        guard offset + 4 <= data.count else {
-            throw ReadError.invalidMipTable
-        }
-        let storedByteCount = Int(data.int32LE(at: offset))
-        offset += 4
-        guard storedByteCount >= 0,
-              storedByteCount <= Self.maximumMipByteCount,
-              offset + storedByteCount <= data.count else {
-            throw ReadError.invalidMipTable
-        }
-
-        let storedBytes = data.subdata(in: offset..<(offset + storedByteCount))
-        offset += storedByteCount
-
-        let mipData: Data
-        switch compressionCode {
-        case 0:
-            mipData = storedBytes
-        case 1:
-            guard decodedByteCount > 0, decodedByteCount <= Self.maximumMipByteCount else {
-                throw ReadError.invalidMipTable
-            }
-            mipData = try decompressLZ4Raw(storedBytes, expectedSize: decodedByteCount)
-        default:
-            throw ReadError.unsupportedCompression(compressionCode)
-        }
-
-        return .init(width: width, height: height, data: mipData)
-    }
-
-    private func decompressLZ4Raw(_ compressed: Data, expectedSize: Int) throws -> Data {
-        var decoded = Data(count: expectedSize)
-        let actualSize = decoded.withUnsafeMutableBytes { destinationBuffer in
-            compressed.withUnsafeBytes { sourceBuffer in
-                compression_decode_buffer(
-                    destinationBuffer.bindMemory(to: UInt8.self).baseAddress!,
-                    expectedSize,
-                    sourceBuffer.bindMemory(to: UInt8.self).baseAddress!,
-                    compressed.count,
-                    nil,
-                    COMPRESSION_LZ4_RAW
-                )
-            }
-        }
-
-        guard actualSize == expectedSize else {
-            throw ReadError.decompressionFailed(expectedSize: expectedSize, actualSize: actualSize)
-        }
-        return decoded
-    }
 }
