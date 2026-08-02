@@ -22,6 +22,8 @@ extension SceneParticleDefinitionParser {
         case "boids": kind = .boids(Self.boids(root))
         case "vortex": kind = .vortex(Self.vortex(root))
         case "capvelocity": kind = .capVelocity(Self.capVelocity(root))
+        case "inheritvaluefromevent":
+            kind = .inheritEventColor(.init(root: root))
         default:
             kind = .unsupported(name)
             diagnostics.append(.init(

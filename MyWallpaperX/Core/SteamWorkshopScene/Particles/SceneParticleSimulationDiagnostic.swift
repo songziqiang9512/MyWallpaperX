@@ -9,7 +9,11 @@ nonisolated enum SceneParticleSimulationDiagnosticKind: String, Hashable, Sendab
     case colorListUnsupported
     case positionOffsetBounded
     case positionOffsetUnsupported
+    case eventColorInitializerBounded
+    case eventColorInitializerUnsupported
     case unsupportedOperator
+    case eventColorOperatorBounded
+    case eventColorOperatorUnsupported
     case boidsBounded
     case boidsUnsupported
     case vortexBounded
@@ -65,7 +69,8 @@ extension SceneParticleInitializer {
 extension SceneParticleSimulationMath {
     nonisolated static func diagnostics(
         _ definition: SceneParticleDefinition,
-        _ instanceOverride: SceneParticleInstanceOverride?
+        _ instanceOverride: SceneParticleInstanceOverride?,
+        eventColorContext: SceneParticleEventColorContext = .unavailable
     ) -> [SceneParticleSimulationDiagnostic] {
         var result = audioDiagnostics(definition)
         func add(_ kind: SceneParticleSimulationDiagnosticKind, _ name: String? = nil) {
@@ -158,6 +163,12 @@ extension SceneParticleSimulationMath {
                 add(initializer.boundedPositionOffset == nil
                     ? .positionOffsetUnsupported : .positionOffsetBounded,
                     "positionoffsetrandom")
+            case let .inheritEventColor(declaration):
+                add(declaration.isBoundedSetColor
+                    && eventColorContext.initializerColor != nil
+                    ? .eventColorInitializerBounded
+                    : .eventColorInitializerUnsupported,
+                    "inheritinitialvaluefromevent")
             case let .unsupported(name):
                 add(.unsupportedInitializer, name)
             default:
@@ -178,6 +189,12 @@ extension SceneParticleSimulationMath {
             case .capVelocity:
                 add(value.capVelocityPlan == nil
                     ? .capVelocityUnsupported : .capVelocityBounded, "capvelocity")
+            case let .inheritEventColor(declaration):
+                add(declaration.isBoundedSetColor
+                    && eventColorContext.operatorColor != nil
+                    ? .eventColorOperatorBounded
+                    : .eventColorOperatorUnsupported,
+                    "inheritvaluefromevent")
             case let .unsupported(name):
                 add(name.contains("controlpoint") ? .controlPointForceUnsupported : .unsupportedOperator, name)
             default:

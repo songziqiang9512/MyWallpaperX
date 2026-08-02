@@ -110,6 +110,8 @@ nonisolated struct SceneParticleDefinitionParser {
         case "angularvelocityrandom": kind = .angularVelocity
         case "turbulentvelocityrandom": kind = .turbulentVelocity
         case "positionoffsetrandom": kind = .positionOffset
+        case "inheritinitialvaluefromevent":
+            kind = .inheritEventColor(.init(root: root))
         default:
             kind = .unsupported(name)
             diagnostics.append(.init(kind: .unsupportedInitializer, path: "initializer", componentName: name))

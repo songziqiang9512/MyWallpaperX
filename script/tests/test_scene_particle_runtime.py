@@ -820,6 +820,83 @@ enum Harness {
             "particles/window-child.json", material: "materials/shared.json",
             lifetime: 2.0 / 60.0, rate: 60, under: directory
         )
+        try writeJSON([
+            "material": "materials/shared.json", "maxcount": 1,
+            "emitter": [["name": "sphererandom", "rate": 0, "instantaneous": 1]],
+            "initializer": [
+                ["name": "lifetimerandom", "min": 1, "max": 1],
+                ["name": "colorrandom", "min": "255 255 255", "max": "255 255 255"],
+            ],
+            "operator": [[
+                "name": "colorchange", "starttime": 0, "endtime": 1,
+                "startvalue": "1 1 1", "endvalue": "0 0 1",
+            ]],
+            "renderer": [["name": "sprite"]],
+            "children": [[
+                "name": "particles/inherit-follow-child.json", "type": "eventfollow",
+            ]],
+        ], to: directory.appendingPathComponent("particles/inherit-follow-root.json"))
+        try writeJSON([
+            "material": "materials/shared.json", "maxcount": 1,
+            "emitter": [["name": "sphererandom", "rate": 0, "instantaneous": 1]],
+            "initializer": [["name": "lifetimerandom", "min": 1, "max": 1]],
+            "operator": [["name": "inheritvaluefromevent"]],
+            "renderer": [["name": "sprite"]],
+        ], to: directory.appendingPathComponent("particles/inherit-follow-child.json"))
+        try writeJSON([
+            "material": "materials/shared.json", "maxcount": 1,
+            "emitter": [["name": "sphererandom", "rate": 0, "instantaneous": 1]],
+            "initializer": [
+                ["name": "lifetimerandom", "min": 1.0 / 60.0, "max": 1.0 / 60.0],
+                ["name": "colorrandom", "min": "51 102 153", "max": "51 102 153"],
+            ],
+            "renderer": [["name": "sprite"]],
+            "children": [[
+                "name": "particles/inherit-death-child.json", "type": "eventdeath",
+            ]],
+        ], to: directory.appendingPathComponent("particles/inherit-death-root.json"))
+        try writeJSON([
+            "material": "materials/shared.json", "maxcount": 1,
+            "emitter": [["name": "sphererandom", "rate": 0, "instantaneous": 1]],
+            "initializer": [
+                ["name": "lifetimerandom", "min": 1, "max": 1],
+                ["name": "inheritinitialvaluefromevent"],
+            ],
+            "renderer": [["name": "sprite"]],
+        ], to: directory.appendingPathComponent("particles/inherit-death-child.json"))
+        for (path, component): (String, [String: Any]) in [
+            ("particles/invalid-inherit-static.json", ["name": "inheritinitialvaluefromevent"]),
+            ("particles/invalid-inherit-death.json", ["name": "inheritvaluefromevent"]),
+            ("particles/invalid-inherit-follow.json", [
+                "name": "inheritvaluefromevent", "input": "setsize",
+            ]),
+        ] {
+            var initializers: [[String: Any]] = [
+                ["name": "lifetimerandom", "min": 1, "max": 1],
+            ]
+            var operators: [[String: Any]] = []
+            if component["name"] as? String == "inheritinitialvaluefromevent" {
+                initializers.append(component)
+            } else {
+                operators.append(component)
+            }
+            try writeJSON([
+                "material": "materials/shared.json", "maxcount": 1,
+                "emitter": [["name": "sphererandom", "rate": 0, "instantaneous": 1]],
+                "initializer": initializers,
+                "operator": operators,
+                "renderer": [["name": "sprite"]],
+            ], to: directory.appendingPathComponent(path))
+        }
+        try writeParticle(
+            "particles/invalid-inherit-root.json", material: "materials/shared.json",
+            rate: 0, instantaneous: 1,
+            children: [
+                ["name": "particles/invalid-inherit-static.json", "type": "static"],
+                ["name": "particles/invalid-inherit-death.json", "type": "eventdeath"],
+                ["name": "particles/invalid-inherit-follow.json", "type": "eventfollow"],
+            ], under: directory
+        )
 
         let descriptor = SceneRenderDescriptor(
             layers: [
@@ -828,8 +905,11 @@ enum Harness {
                 layer(12, "particles/budget-root.json"),
                 layer(13, "particles/audio-root.json"),
                 layer(14, "particles/window-root.json"),
+                layer(15, "particles/inherit-follow-root.json"),
+                layer(16, "particles/inherit-death-root.json"),
+                layer(17, "particles/invalid-inherit-root.json"),
             ],
-            renderOrderLayerIDs: [10, 11, 12, 13, 14],
+            renderOrderLayerIDs: [10, 11, 12, 13, 14, 15, 16, 17],
             materialPasses: [
                 .init(
                     materialPath: "materials/shared.json",
@@ -850,6 +930,8 @@ enum Harness {
         var boundedSizes: [Float] = []
         var budgetCounts: [Int] = []
         var windowCounts: [Int] = []
+        var inheritedFollowMatches: [Bool] = []
+        var inheritedDeathColors: [[Float]] = []
         for _ in 0..<6 {
             let batches = runtime.advance(by: 1.0 / 60.0)
             let instances = batches.first {
@@ -875,6 +957,23 @@ enum Harness {
             windowCounts.append(batches.first {
                 $0.particlePath == "particles/window-child.json"
             }?.instances.count ?? 0)
+            let followRootColor = batches.first {
+                $0.particlePath == "particles/inherit-follow-root.json"
+            }?.instances.first?.colorAndFrameMix
+            let followChildColor = batches.first {
+                $0.particlePath == "particles/inherit-follow-child.json"
+            }?.instances.first?.colorAndFrameMix
+            if let root = followRootColor, let child = followChildColor {
+                inheritedFollowMatches.append(
+                    abs(root.x - child.x) < 1e-6 && abs(root.y - child.y) < 1e-6
+                        && abs(root.z - child.z) < 1e-6
+                )
+            }
+            if let color = batches.first(where: {
+                $0.particlePath == "particles/inherit-death-child.json"
+            })?.instances.first?.colorAndFrameMix {
+                inheritedDeathColors.append([color.x, color.y, color.z])
+            }
         }
         return [
             "windowCounts": windowCounts,
@@ -884,8 +983,19 @@ enum Harness {
             "boundedCounts": boundedCounts,
             "boundedSizes": boundedSizes,
             "budgetCounts": budgetCounts,
+            "inheritedFollowMatches": inheritedFollowMatches,
+            "inheritedDeathColors": inheritedDeathColors,
+            "eventColorMarkers": runtime.diagnostics.compactMap {
+                $0.kind == .simulationLimitation && $0.detail?.contains("eventColor") == true
+                    ? $0.detail : nil
+            },
+            "invalidEventColorDetails": runtime.diagnostics.compactMap {
+                $0.layerID == 17 && $0.kind == .childSystemsUnsupported
+                    && $0.detail?.contains("eventColor") == true ? $0.detail : nil
+            },
             "childUnsupportedLayers": runtime.diagnostics.compactMap {
-                $0.kind == .childSystemsUnsupported && $0.layerID != 13 ? $0.layerID : nil
+                $0.kind == .childSystemsUnsupported && ![13, 17].contains($0.layerID)
+                    ? $0.layerID : nil
             },
             "budgetDetails": runtime.diagnostics.compactMap {
                 $0.layerID == 12 && $0.kind == .simulationLimitation ? $0.detail : nil
@@ -2600,6 +2710,21 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertEqual(set(result["childScaleDetails"]), {
             "particles/follow-child.json:childScaleBounded:scale=2.5,2.5,1.0",
             "particles/bounded-child.json:childScaleBounded:scale=0.2,0.2,0.2",
+        })
+        self.assertTrue(result["inheritedFollowMatches"])
+        self.assertTrue(all(result["inheritedFollowMatches"]))
+        self.assertTrue(result["inheritedDeathColors"])
+        for color in result["inheritedDeathColors"]:
+            for actual, expected in zip(color, [0.2, 0.4, 0.6]):
+                self.assertAlmostEqual(actual, expected, places=6)
+        self.assertEqual(set(result["eventColorMarkers"]), {
+            "particles/inherit-follow-child.json:eventColorOperatorBounded:setcolor",
+            "particles/inherit-death-child.json:eventColorInitializerBounded:setcolor",
+        })
+        self.assertEqual(set(result["invalidEventColorDetails"]), {
+            "particles/invalid-inherit-static.json:eventColorInitializerOutsideEventChild",
+            "particles/invalid-inherit-death.json:eventColorOperatorOutsideFollowChild",
+            "particles/invalid-inherit-follow.json:eventColorOperatorUnsupported",
         })
 
     def test_rate_only_event_children_stop_after_bounded_window(self) -> None:

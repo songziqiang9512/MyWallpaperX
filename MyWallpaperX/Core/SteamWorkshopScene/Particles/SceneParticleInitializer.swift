@@ -12,7 +12,46 @@ nonisolated enum SceneParticleInitializerKind: Equatable, Sendable {
     case angularVelocity
     case turbulentVelocity
     case positionOffset
+    case inheritEventColor(SceneParticleEventColorDeclaration)
     case unsupported(String)
+}
+
+nonisolated struct SceneParticleEventColorDeclaration: Equatable, Sendable {
+    let input: String?
+    let hasMalformedInput: Bool
+    let unsupportedFieldNames: [String]
+
+    nonisolated init(root: [String: Any]) {
+        input = root["input"] as? String
+        hasMalformedInput = root["input"] != nil && input == nil
+        let supported = Set(["id", "name", "input"])
+        unsupportedFieldNames = root.keys.filter { !supported.contains($0) }.sorted()
+    }
+
+    nonisolated var isBoundedSetColor: Bool {
+        !hasMalformedInput && unsupportedFieldNames.isEmpty
+            && (input == nil || input == "setcolor")
+    }
+}
+
+nonisolated enum SceneParticleEventColorContext: Equatable, Sendable {
+    case unavailable
+    case snapshot(SIMD3<Double>)
+    case follow(SIMD3<Double>)
+
+    nonisolated var initializerColor: SIMD3<Double>? {
+        switch self {
+        case .unavailable: nil
+        case let .snapshot(color), let .follow(color):
+            color.x.isFinite && color.y.isFinite && color.z.isFinite ? color : nil
+        }
+    }
+
+    nonisolated var operatorColor: SIMD3<Double>? {
+        guard case let .follow(color) = self,
+              color.x.isFinite, color.y.isFinite, color.z.isFinite else { return nil }
+        return color
+    }
 }
 
 nonisolated struct SceneParticleHSVColor: Equatable, Sendable {

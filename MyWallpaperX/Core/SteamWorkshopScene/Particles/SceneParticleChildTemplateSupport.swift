@@ -8,6 +8,12 @@ enum SceneParticleChildControlPointCopyAdmission {
     case unsupported(String)
 }
 
+enum SceneParticleChildEventColorAdmission {
+    case disabled
+    case supported([String])
+    case unsupported(String)
+}
+
 /// Project-owned bounded child transform profile. Screen-plane scale stays uniform;
 /// mirroring, rotation, nested scaling, ropes, and world-space movement remain fail-closed.
 struct SceneParticleChildTransform: Equatable {
@@ -57,6 +63,41 @@ struct SceneParticleChildTransform: Equatable {
 }
 
 enum SceneParticleChildTemplateSupport {
+    static func eventColorAdmission(
+        definition: SceneParticleDefinition,
+        trigger: SceneParticleChildTrigger
+    ) -> SceneParticleChildEventColorAdmission {
+        let initializers = definition.initializers.compactMap { initializer -> SceneParticleEventColorDeclaration? in
+            guard case let .inheritEventColor(value) = initializer.kind else { return nil }
+            return value
+        }
+        let operators = definition.operators.compactMap { value -> SceneParticleEventColorDeclaration? in
+            guard case let .inheritEventColor(declaration) = value.kind else { return nil }
+            return declaration
+        }
+        guard !initializers.isEmpty || !operators.isEmpty else { return .disabled }
+        guard initializers.allSatisfy(\.isBoundedSetColor) else {
+            return .unsupported("eventColorInitializerUnsupported")
+        }
+        guard operators.allSatisfy(\.isBoundedSetColor) else {
+            return .unsupported("eventColorOperatorUnsupported")
+        }
+        guard initializers.isEmpty || trigger != .staticChild else {
+            return .unsupported("eventColorInitializerOutsideEventChild")
+        }
+        guard operators.isEmpty || trigger == .follow else {
+            return .unsupported("eventColorOperatorOutsideFollowChild")
+        }
+        var markers: [String] = []
+        if !initializers.isEmpty {
+            markers.append("eventColorInitializerBounded:setcolor")
+        }
+        if !operators.isEmpty {
+            markers.append("eventColorOperatorBounded:setcolor")
+        }
+        return .supported(markers)
+    }
+
     static func rawParentControlPointOverride(
         childDefinition: SceneParticleDefinition,
         rootDefinition: SceneParticleDefinition,
@@ -198,6 +239,21 @@ enum SceneParticleChildTemplateSupport {
         case let .builtIn(key):
             guard let texture = builtInTextureRegistry.texture(for: key) else { return nil }
             return (texture, nil, .directImageFallback)
+        }
+    }
+}
+
+extension SceneParticleChildTemplate {
+    func eventColorContext(
+        for parent: SceneParticleState
+    ) -> SceneParticleEventColorContext {
+        switch trigger {
+        case .spawn, .death:
+            .snapshot(parent.color)
+        case .follow:
+            .follow(parent.color)
+        case .staticChild:
+            .unavailable
         }
     }
 }

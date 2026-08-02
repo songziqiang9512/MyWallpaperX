@@ -23,6 +23,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
     private var normalizedLives: [Double] = []
     var dynamicControlPoints: [Int: SIMD3<Double>] = [:]
     var audioInput = SceneParticleAudioInput.silent
+    var eventColorContext: SceneParticleEventColorContext
     private var stepSnapshotRecorder: SceneParticleStepSnapshotRecorder?
     var positionOscillationCache: [SceneParticleOscillationCacheKey: SceneParticlePositionOscillation] = [:]
 
@@ -35,7 +36,8 @@ nonisolated struct SceneParticleSimulator: Sendable {
         emissionDeadline: Double? = nil,
         layerImageEmissionMap: SceneParticleLayerImageEmissionMap? = nil,
         worldSpaceFrame: SceneParticleWorldSpaceFrame? = nil,
-        stepSnapshotPolicy: SceneParticleStepSnapshotPolicy? = nil
+        stepSnapshotPolicy: SceneParticleStepSnapshotPolicy? = nil,
+        eventColorContext: SceneParticleEventColorContext = .unavailable
     ) {
         self.definition = definition
         self.instanceOverride = instanceOverride
@@ -43,6 +45,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
         self.emissionDeadline = emissionDeadline
         self.layerImageEmissionMap = layerImageEmissionMap
         self.worldSpaceFrame = worldSpaceFrame
+        self.eventColorContext = eventColorContext
         self.hasWorldSpaceMovement = definition.operators.contains(
             where: \.isWorldSpaceMovement
         )
@@ -53,7 +56,9 @@ nonisolated struct SceneParticleSimulator: Sendable {
         self.fixedTimeStep = fixedTimeStep.isFinite && fixedTimeStep > 0 ? fixedTimeStep : 1.0 / 60.0
         let authoredMaximum = min(max(definition.maximumCount ?? 1, 0), 20_000)
         maximumParticleCount = min(authoredMaximum, max(particleBudget ?? authoredMaximum, 0))
-        diagnostics = SceneParticleSimulationMath.diagnostics(definition, instanceOverride)
+        diagnostics = SceneParticleSimulationMath.diagnostics(
+            definition, instanceOverride, eventColorContext: eventColorContext
+        )
         emitters = definition.emitters.indices.map {
             SceneParticleEmitterState(seed: seed, emitterIndex: $0)
         }
@@ -94,6 +99,11 @@ nonisolated struct SceneParticleSimulator: Sendable {
 
     nonisolated mutating func consumeStepSnapshots() -> [SceneParticleStepSnapshot] {
         stepSnapshotRecorder?.consume() ?? []
+    }
+
+    nonisolated mutating func updateFollowEventColor(_ color: SIMD3<Double>) {
+        guard case .follow = eventColorContext else { return }
+        eventColorContext = .follow(color)
     }
 
     private nonisolated mutating func warmUp(duration: Double) {
@@ -357,6 +367,10 @@ nonisolated struct SceneParticleSimulator: Sendable {
             applyVortex(value, duration: duration)
         case .capVelocity:
             applyCapVelocity(value)
+        case let .inheritEventColor(declaration):
+            guard declaration.isBoundedSetColor,
+                  let color = eventColorContext.operatorColor else { break }
+            for index in particles.indices { particles[index].color = color }
         case .unsupported:
             break
         }

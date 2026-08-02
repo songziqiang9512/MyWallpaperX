@@ -206,6 +206,16 @@ enum SceneParticleChildGraphExpansion {
                 ? "outsideStrictStaticProfile" : "outsideStrictEventProfile"
             return .rejected("\(path):\(profile)")
         }
+        switch SceneParticleChildTemplateSupport.eventColorAdmission(
+            definition: asset.definition, trigger: trigger
+        ) {
+        case .disabled:
+            break
+        case let .supported(markers):
+            performance.append(contentsOf: markers.map { "\(path):\($0)" })
+        case let .unsupported(detail):
+            return .rejected("\(path):\(detail)")
+        }
         if transform.hasScale {
             guard render.rope == nil,
                   asset.definition.children.isEmpty,
@@ -335,7 +345,8 @@ enum SceneParticleChildGraphExpansion {
 extension SceneParticleChildTemplate {
     func simulator(
         seed: UInt64,
-        emissionDeadline: Double? = nil
+        emissionDeadline: Double? = nil,
+        eventColorContext: SceneParticleEventColorContext = .unavailable
     ) -> SceneParticleSimulator {
         SceneParticleSimulator(
             definition: definition,
@@ -343,7 +354,8 @@ extension SceneParticleChildTemplate {
             seed: seed,
             particleBudget: particleBudget,
             emissionDeadline: emissionDeadline,
-            worldSpaceFrame: worldSpaceFrame
+            worldSpaceFrame: worldSpaceFrame,
+            eventColorContext: eventColorContext
         )
     }
 

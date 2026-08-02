@@ -156,6 +156,7 @@ final class SceneParticleChildRuntime {
                let parent = parentsByID[parentID]
             {
                 systems[index].origin = parent.position
+                systems[index].simulator.updateFollowEventColor(parent.color)
             }
             systems[index].simulator.advance(by: frameDelta)
             let births = systems[index].simulator.consumeBirthEvents()
@@ -207,6 +208,7 @@ final class SceneParticleChildRuntime {
                let particle = parent.particles[parentID]
             {
                 systems[index].origin = parent.origin + particle.position
+                systems[index].simulator.updateFollowEventColor(particle.color)
             }
             systems[index].simulator.advance(by: frameDelta)
             let births = systems[index].simulator.consumeBirthEvents()
@@ -271,7 +273,7 @@ final class SceneParticleChildRuntime {
                     scopeID: scopeID,
                     parentParticleID: nil,
                     origin: parentOrigin + event.position,
-                    eventID: event.id
+                    parentParticle: event
                 )
             }
         }
@@ -309,7 +311,7 @@ final class SceneParticleChildRuntime {
                     scopeID: scopeID,
                     parentParticleID: parent.id,
                     origin: parentOrigin + parent.position,
-                    eventID: parent.id
+                    parentParticle: parent
                 )
             }
         }
@@ -320,10 +322,10 @@ final class SceneParticleChildRuntime {
         scopeID: UInt64?,
         parentParticleID: UInt64?,
         origin: SIMD3<Double>,
-        eventID: UInt64
+        parentParticle: SceneParticleState
     ) {
         let seed = UInt64(bitPattern: Int64(layerID))
-            ^ eventID &* 0x9E37_79B9_7F4A_7C15
+            ^ parentParticle.id &* 0x9E37_79B9_7F4A_7C15
             ^ UInt64(template.index &+ 1) &* 0xBF58_476D_1CE4_E5B9
             ^ (scopeID ?? 0) &* 0x94D0_49BB_1331_11EB
             ^ nextSeed
@@ -343,7 +345,8 @@ final class SceneParticleChildRuntime {
             particleOrigins: [:],
             simulator: template.simulator(
                 seed: seed,
-                emissionDeadline: template.trigger == .follow ? nil : completion
+                emissionDeadline: template.trigger == .follow ? nil : completion,
+                eventColorContext: template.eventColorContext(for: parentParticle)
             )
         ))
         nextSystemID &+= 1

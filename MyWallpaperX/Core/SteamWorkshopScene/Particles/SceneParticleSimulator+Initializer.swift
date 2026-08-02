@@ -47,6 +47,11 @@ extension SceneParticleSimulator {
                         to: &particle.position
                     )
                 }
+            case let .inheritEventColor(declaration):
+                if declaration.isBoundedSetColor,
+                   let color = eventColorContext.initializerColor {
+                    particle.color = color
+                }
             case .unsupported:
                 break
             }

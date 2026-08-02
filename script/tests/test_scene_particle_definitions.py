@@ -34,6 +34,8 @@ enum Harness {
             try printJSON(syntheticResult())
         case "integer-safety":
             try printJSON(integerSafetyResult())
+        case "event-color":
+            try printJSON(eventColorResult())
         case "census":
             guard CommandLine.arguments.count == 3 else { throw HarnessError.missingSampleRoot }
             try printJSON(censusResult(rootPath: CommandLine.arguments[2]))
@@ -267,6 +269,59 @@ enum Harness {
         }
     }
 
+    private static func eventColorResult() -> [String: Any] {
+        let parser = SceneParticleDefinitionParser()
+        func definition(initializer: [String: Any], operator value: [String: Any])
+            -> SceneParticleDefinition {
+            parser.parse(root: [
+                "material": "p.json",
+                "emitter": [["name": "sphererandom", "instantaneous": 1]],
+                "initializer": [initializer],
+                "operator": [value],
+                "renderer": [["name": "sprite"]],
+            ])
+        }
+        let omitted = definition(
+            initializer: ["name": "inheritinitialvaluefromevent"],
+            operator: ["name": "inheritvaluefromevent"]
+        )
+        let explicit = definition(
+            initializer: ["name": "inheritinitialvaluefromevent", "input": "setcolor"],
+            operator: ["name": "inheritvaluefromevent", "input": "setcolor"]
+        )
+        let unsupported = definition(
+            initializer: ["name": "inheritinitialvaluefromevent", "input": "setsize"],
+            operator: ["name": "inheritvaluefromevent", "input": 3]
+        )
+        let extra = definition(
+            initializer: ["name": "inheritinitialvaluefromevent", "future": true],
+            operator: ["name": "inheritvaluefromevent", "input": "SetColor"]
+        )
+        func initializerBounded(_ value: SceneParticleDefinition) -> Bool {
+            guard case let .inheritEventColor(declaration) = value.initializers[0].kind else {
+                return false
+            }
+            return declaration.isBoundedSetColor
+        }
+        func operatorBounded(_ value: SceneParticleDefinition) -> Bool {
+            guard case let .inheritEventColor(declaration) = value.operators[0].kind else {
+                return false
+            }
+            return declaration.isBoundedSetColor
+        }
+        return [
+            "omittedInitializer": initializerBounded(omitted),
+            "omittedOperator": operatorBounded(omitted),
+            "explicitInitializer": initializerBounded(explicit),
+            "explicitOperator": operatorBounded(explicit),
+            "unsupportedInitializer": initializerBounded(unsupported),
+            "malformedOperator": operatorBounded(unsupported),
+            "extraInitializer": initializerBounded(extra),
+            "caseChangedOperator": operatorBounded(extra),
+            "recognizedDiagnostics": omitted.diagnostics.count + explicit.diagnostics.count,
+        ]
+    }
+
     private static func censusResult(rootPath: String) throws -> [String: Any] {
         let rootURL = URL(fileURLWithPath: rootPath, isDirectory: true)
         let sampleURLs = try FileManager.default.contentsOfDirectory(
@@ -457,6 +512,7 @@ enum Harness {
         case .angularVelocity: "angularvelocityrandom"
         case .turbulentVelocity: "turbulentvelocityrandom"
         case .positionOffset: "positionoffsetrandom"
+        case .inheritEventColor: "inheritinitialvaluefromevent"
         case let .unsupported(name): name
         }
     }
@@ -477,6 +533,7 @@ enum Harness {
         case .boids: "boids"
         case .vortex: "vortex"
         case .capVelocity: "capvelocity"
+        case .inheritEventColor: "inheritvaluefromevent"
         case let .unsupported(name): name
         }
     }
@@ -667,6 +724,18 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         self.assertEqual(result["validString"], 42)
         for key in ("fraction", "huge", "boolean", "nan", "infinity"):
             self.assertIsNone(result[key], key)
+
+    def test_event_color_inheritance_parser_keeps_a_bounded_setcolor_profile(self) -> None:
+        result = self.run_harness("event-color")
+        self.assertTrue(result["omittedInitializer"])
+        self.assertTrue(result["omittedOperator"])
+        self.assertTrue(result["explicitInitializer"])
+        self.assertTrue(result["explicitOperator"])
+        self.assertFalse(result["unsupportedInitializer"])
+        self.assertFalse(result["malformedOperator"])
+        self.assertFalse(result["extraInitializer"])
+        self.assertFalse(result["caseChangedOperator"])
+        self.assertEqual(result["recognizedDiagnostics"], 0)
 
 if __name__ == "__main__":
     unittest.main()
