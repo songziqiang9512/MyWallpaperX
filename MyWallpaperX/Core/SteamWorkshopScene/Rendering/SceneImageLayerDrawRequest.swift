@@ -18,6 +18,7 @@ struct SceneImageLayerMasks {
     let standardBlurEffects: [String: SceneStandardBlurEffectTextures]
     let waterFlowEffects: [String: SceneWaterFlowEffectTextures]
     let waterWavesEffects: [String: SceneWaterWavesEffectTextures]
+    let waterCausticsEffects: [String: SceneWaterCausticsEffectTextures]
     let cursorRippleEffects: [String: SceneCursorRippleEffectTextures]
     let opacityEffects: [String: SceneOpacityEffectTextures]
     let pulseEffects: [String: ScenePulseEffectTextures]
@@ -44,6 +45,7 @@ struct SceneImageLayerMasks {
             standardBlurEffects: standardBlurEffects,
             waterFlowEffects: waterFlowEffects,
             waterWavesEffects: waterWavesEffects,
+            waterCausticsEffects: waterCausticsEffects,
             cursorRippleEffects: cursorRippleEffects,
             opacityEffects: opacityEffects,
             pulseEffects: pulseEffects,
@@ -71,6 +73,7 @@ struct SceneImageLayerMasks {
         standardBlurEffects: [:],
         waterFlowEffects: [:],
         waterWavesEffects: [:],
+        waterCausticsEffects: [:],
         cursorRippleEffects: [:],
         opacityEffects: [:],
         pulseEffects: [:],
@@ -98,6 +101,7 @@ struct SceneImageLayerMasks {
             standardBlurEffects: [:],
             waterFlowEffects: [:],
             waterWavesEffects: [:],
+            waterCausticsEffects: [:],
             cursorRippleEffects: [:],
             opacityEffects: [:],
             pulseEffects: [:],

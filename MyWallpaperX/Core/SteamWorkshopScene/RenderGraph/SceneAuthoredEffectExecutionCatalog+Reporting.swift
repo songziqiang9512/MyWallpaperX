@@ -43,6 +43,7 @@ extension SceneAuthoredEffectExecutionCatalog {
             "authoredEffectGraphShakeCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.shakeCount })",
             "authoredEffectGraphWaterFlowCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.waterFlowCount })",
             "authoredEffectGraphWaterWavesCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.waterWavesCount })",
+            "authoredEffectGraphWaterCausticsCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.waterCausticsCount })",
             "authoredEffectGraphCursorRippleCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.cursorRippleCount })",
             "authoredEffectGraphCursorRippleIsolatedCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.isolatedCursorRippleCount })",
             "authoredEffectGraphCursorRippleOmittedEffects: \(isolatedCursorRippleDiagnostics.joined(separator: ";"))",

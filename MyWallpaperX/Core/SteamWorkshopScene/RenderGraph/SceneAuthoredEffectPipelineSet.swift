@@ -23,6 +23,7 @@ struct SceneAuthoredEffectPipelineSet {
     var shake: SceneShakePipeline? { repository.shake() }
     var waterFlow: SceneWaterFlowPipeline? { repository.waterFlow() }
     var waterWaves: SceneWaterWavesPipeline? { repository.waterWaves() }
+    var waterCaustics: SceneWaterCausticsPipeline? { repository.waterCaustics() }
     var cursorRipple: SceneCursorRipplePipeline? { repository.cursorRipple() }
     var foliageSway: SceneFoliageSwayPipeline? { repository.foliageSway() }
     var waterRipple: SceneWaterRipplePipeline? { repository.waterRipple() }

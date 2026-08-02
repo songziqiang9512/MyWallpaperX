@@ -120,6 +120,24 @@ class SceneMatrixContractTests(unittest.TestCase):
             runtime["time_of_day_effect_script_bindings"],
         )
 
+    def test_puppet_animation_contract_is_refreshed_when_tracked(self) -> None:
+        result = synthetic_result()
+        runtime = result["runtime"]
+        runtime["puppet_animation_layer_ids"] = [21, 44]
+        runtime["puppet_disjoint_additive_layer_ids"] = [21]
+        runtime["puppet_animation_clip_count"] = 3
+        sample = matrix_generator.matrix_sample(
+            result,
+            {
+                "expected_puppet_animation_layer_ids": [],
+                "expected_puppet_disjoint_additive_layer_ids": [],
+                "expected_puppet_animation_clip_count": 0,
+            },
+        )
+        self.assertEqual(sample["expected_puppet_animation_layer_ids"], [21, 44])
+        self.assertEqual(sample["expected_puppet_disjoint_additive_layer_ids"], [21])
+        self.assertEqual(sample["expected_puppet_animation_clip_count"], 3)
+
 
 if __name__ == "__main__":
     unittest.main()

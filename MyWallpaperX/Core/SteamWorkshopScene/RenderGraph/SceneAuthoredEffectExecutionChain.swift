@@ -101,6 +101,10 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         stages.filter { $0.waterWaves != nil }.count
     }
 
+    var waterCausticsCount: Int {
+        stages.filter { $0.waterCaustics != nil }.count
+    }
+
     var cursorRippleCount: Int {
         stages.filter { $0.cursorRipple != nil }.count
     }

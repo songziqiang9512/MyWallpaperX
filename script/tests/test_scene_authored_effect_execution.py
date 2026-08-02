@@ -378,6 +378,8 @@ enum SceneAuthoredWaterFlowPlanner {
 
 struct SceneWaterWavesExecutionPlan {}
 
+struct SceneWaterCausticsExecutionPlan {}
+
 enum SceneAuthoredWaterWavesPlanner {
     static func plan(
         graph: SceneAuthoredEffectRenderPlan,
@@ -385,6 +387,17 @@ enum SceneAuthoredWaterWavesPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneWaterWavesExecutionPlan? {
+        nil
+    }
+}
+
+enum SceneAuthoredWaterCausticsPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole
+    ) -> SceneWaterCausticsExecutionPlan? {
         nil
     }
 }
@@ -1217,6 +1230,7 @@ enum Harness {
             case .shake: backend = "shake"
             case .waterFlow: backend = "waterFlow"
             case .waterWaves: backend = "waterWaves"
+            case .waterCaustics: backend = "waterCaustics"
             case .cursorRipple: backend = "cursorRipple"
             case .foliageSway: backend = "foliageSway"
             case .waterRipple: backend = "waterRipple"

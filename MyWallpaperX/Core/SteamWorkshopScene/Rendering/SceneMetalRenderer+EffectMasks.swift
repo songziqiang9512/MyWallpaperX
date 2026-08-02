@@ -22,6 +22,7 @@ extension SceneMetalRenderer {
             standardBlurEffects: store.standardBlurEffects,
             waterFlowEffects: store.waterFlowEffects,
             waterWavesEffects: store.waterWavesEffects,
+            waterCausticsEffects: store.waterCausticsEffects,
             cursorRippleEffects: store.cursorRippleEffects,
             opacityEffects: store.opacityEffects,
             pulseEffects: store.pulseEffects,

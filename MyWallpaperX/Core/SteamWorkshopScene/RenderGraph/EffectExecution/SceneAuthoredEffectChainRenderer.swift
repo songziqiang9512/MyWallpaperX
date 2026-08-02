@@ -254,6 +254,11 @@ enum SceneAuthoredEffectChainRenderer {
                 waterWaves, sourceTexture: sourceTexture, masks: masks, targets: targets,
                 sourceUniforms: sourceUniforms, pipeline: pipeline, pipelines: pipelines,
                 time: time, commandBuffer: commandBuffer)
+        case .waterCaustics(let caustics):
+            return renderWaterCaustics(
+                caustics, sourceTexture: sourceTexture, masks: masks, auxMask: auxMask,
+                targets: targets, sourceUniforms: sourceUniforms, sourcePipeline: pipeline,
+                pipelines: pipelines, time: time, commandBuffer: commandBuffer)
         case .cursorRipple(let cursorRipple):
             return renderCursorRipple(
                 cursorRipple, sourceTexture: sourceTexture, masks: masks, targets: targets,

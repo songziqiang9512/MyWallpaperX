@@ -285,7 +285,7 @@ struct SceneImageLayerCompositor {
                             time: directUniforms.time,
                             commandBuffer: commandBuffer
                         )
-                    case .cursorRipple, .foliageSway, .waterRipple,
+                    case .cursorRipple, .foliageSway, .waterRipple, .waterCaustics,
                          .depthParallax, .xRay, .clippingMask,
                          .blend, .tint, .transform, .fisheyeZeroDistortion,
                          .pulse, .godrays, .shine, .spin,

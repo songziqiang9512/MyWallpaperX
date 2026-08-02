@@ -169,5 +169,5 @@ enum SceneBlendModeShaderSource {
     """
 
     /// 官方 `ApplyBlending` 分派表覆盖的模式编号上界；超出一律落回 Normal。
-    static let maximumMode = 32
+    nonisolated static let maximumMode = 32
 }

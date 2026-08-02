@@ -98,6 +98,11 @@ AUTHORED_EFFECT_RUNTIME_EXPECTATIONS = (
         "authored effect graph Water Waves count mismatch",
     ),
     RuntimeExpectation(
+        "expected_authored_effect_graph_water_caustics_count",
+        "water_caustics_count",
+        "authored effect graph Water Caustics count mismatch",
+    ),
+    RuntimeExpectation(
         "expected_authored_effect_graph_foliage_sway_count",
         "foliage_sway_count",
         "authored effect graph Foliage Sway count mismatch",

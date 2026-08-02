@@ -281,6 +281,10 @@ AUTHORED_EFFECT_GRAPH_WATER_WAVES_COUNT_RE = re.compile(
     r"^authoredEffectGraphWaterWavesCount: (?P<count>\d+)$",
     re.MULTILINE,
 )
+AUTHORED_EFFECT_GRAPH_WATER_CAUSTICS_COUNT_RE = re.compile(
+    r"^authoredEffectGraphWaterCausticsCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
 AUTHORED_EFFECT_GRAPH_FOLIAGE_SWAY_COUNT_RE = re.compile(
     r"^authoredEffectGraphFoliageSwayCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -1724,6 +1728,11 @@ def authored_effect_graph_water_waves_count(preview_text: str) -> int | None:
     return int(match.group("count")) if match is not None else None
 
 
+def authored_effect_graph_water_caustics_count(preview_text: str) -> int | None:
+    match = AUTHORED_EFFECT_GRAPH_WATER_CAUSTICS_COUNT_RE.search(preview_text)
+    return int(match.group("count")) if match is not None else None
+
+
 def authored_effect_graph_foliage_sway_count(preview_text: str) -> int | None:
     match = AUTHORED_EFFECT_GRAPH_FOLIAGE_SWAY_COUNT_RE.search(preview_text)
     return int(match.group("count")) if match is not None else None
@@ -1947,6 +1956,7 @@ def authored_effect_graph_failures(
     shake_count: int | None = None,
     water_flow_count: int | None = None,
     water_waves_count: int | None = None,
+    water_caustics_count: int | None = None,
     foliage_sway_count: int | None = None,
     water_ripple_count: int | None = None,
     depth_parallax_count: int | None = None,
@@ -2007,6 +2017,7 @@ def authored_effect_graph_failures(
         "shake_count": shake_count,
         "water_flow_count": water_flow_count,
         "water_waves_count": water_waves_count,
+        "water_caustics_count": water_caustics_count,
         "foliage_sway_count": foliage_sway_count,
         "water_ripple_count": water_ripple_count,
         "depth_parallax_count": depth_parallax_count,
@@ -2468,6 +2479,9 @@ def run_sample(
     authored_effect_graph_shake = authored_effect_graph_shake_count(preview_text)
     authored_effect_graph_water_flow = authored_effect_graph_water_flow_count(preview_text)
     authored_effect_graph_water_waves = authored_effect_graph_water_waves_count(preview_text)
+    authored_effect_graph_water_caustics = authored_effect_graph_water_caustics_count(
+        preview_text
+    )
     authored_effect_graph_foliage_sway = authored_effect_graph_foliage_sway_count(
         preview_text
     )
@@ -2641,6 +2655,7 @@ def run_sample(
         shake_count=authored_effect_graph_shake,
         water_flow_count=authored_effect_graph_water_flow,
         water_waves_count=authored_effect_graph_water_waves,
+        water_caustics_count=authored_effect_graph_water_caustics,
         foliage_sway_count=authored_effect_graph_foliage_sway,
         water_ripple_count=authored_effect_graph_water_ripple,
         depth_parallax_count=authored_effect_graph_depth_parallax,
@@ -3145,6 +3160,7 @@ def run_sample(
             "authored_effect_graph_shake_count": authored_effect_graph_shake,
             "authored_effect_graph_water_flow_count": authored_effect_graph_water_flow,
             "authored_effect_graph_water_waves_count": authored_effect_graph_water_waves,
+            "authored_effect_graph_water_caustics_count": authored_effect_graph_water_caustics,
             "authored_effect_graph_foliage_sway_count": authored_effect_graph_foliage_sway,
             "authored_effect_graph_water_ripple_count": authored_effect_graph_water_ripple,
             "authored_effect_graph_depth_parallax_count": authored_effect_graph_depth_parallax,

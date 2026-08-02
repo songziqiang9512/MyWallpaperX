@@ -483,6 +483,7 @@ struct SceneAuthoredEffectExecutionPlan {
         case shake(SceneShakeExecutionPlan)
         case waterFlow(SceneWaterFlowExecutionPlan)
         case waterWaves(SceneWaterWavesExecutionPlan)
+        case waterCaustics(SceneWaterCausticsExecutionPlan)
         case cursorRipple(SceneCursorRippleExecutionPlan)
         case foliageSway(SceneFoliageSwayExecutionPlan)
         case waterRipple(SceneWaterRippleExecutionPlan)
@@ -582,6 +583,11 @@ struct SceneAuthoredEffectExecutionPlan {
 
     var waterWaves: SceneWaterWavesExecutionPlan? {
         guard case .waterWaves(let plan) = backend else { return nil }
+        return plan
+    }
+
+    var waterCaustics: SceneWaterCausticsExecutionPlan? {
+        guard case .waterCaustics(let plan) = backend else { return nil }
         return plan
     }
 
@@ -685,6 +691,16 @@ struct SceneWaterWavesExecutionPlan {
 
 struct SceneWaterWavesEffectTextures {}
 
+struct SceneWaterCausticsExecutionPlan {
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+}
+
+struct SceneWaterCausticsEffectTextures {}
+
+struct SceneWaterCausticsPipeline {
+    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
+}
+
 struct SceneWaterWavesPipeline {
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
 }
@@ -765,6 +781,19 @@ struct SceneDepthParallaxPipeline {
 }
 
 extension SceneAuthoredEffectChainRenderer {
+    static func renderWaterCaustics(
+        _ plan: SceneWaterCausticsExecutionPlan,
+        sourceTexture: MTLTexture,
+        masks: SceneImageLayerMasks,
+        auxMask: MTLTexture?,
+        targets: SceneGraphRenderTargetTable,
+        sourceUniforms: SceneLayerFragmentUniforms,
+        sourcePipeline: SceneImageLayerPipeline,
+        pipelines: SceneAuthoredEffectPipelineSet,
+        time: Float,
+        commandBuffer: MTLCommandBuffer
+    ) -> MTLTexture? { nil }
+
     static func renderDepthParallax(
         _ depthParallax: SceneDepthParallaxExecutionPlan,
         sourceTexture: MTLTexture,
@@ -3088,6 +3117,7 @@ enum Harness {
             ],
             waterFlowEffects: [:],
             waterWavesEffects: [:],
+            waterCausticsEffects: [:],
             cursorRippleEffects: [:],
             opacityEffects: [:],
             pulseEffects: [:],
@@ -3300,6 +3330,7 @@ enum Harness {
                         standardBlurEffects: [:],
                         waterFlowEffects: [:],
                         waterWavesEffects: [:],
+                        waterCausticsEffects: [:],
                         cursorRippleEffects: [:],
                         opacityEffects: item.binds ? ["850#effect#0": SceneOpacityEffectTextures(
                             mask: mask,
@@ -3714,6 +3745,7 @@ enum Harness {
             standardBlurEffects: [:],
             waterFlowEffects: [:],
             waterWavesEffects: [:],
+            waterCausticsEffects: [:],
             cursorRippleEffects: [:],
             opacityEffects: [:],
             pulseEffects: [:],
@@ -4423,6 +4455,7 @@ enum Harness {
             standardBlurEffects: [:],
             waterFlowEffects: [:],
             waterWavesEffects: [:],
+            waterCausticsEffects: [:],
             cursorRippleEffects: [:],
             opacityEffects: [:],
             pulseEffects: [:],

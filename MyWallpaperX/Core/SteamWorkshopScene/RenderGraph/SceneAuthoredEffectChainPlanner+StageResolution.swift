@@ -201,6 +201,18 @@ extension SceneAuthoredEffectChainPlanner {
         ) {
             return stage(.waterWaves(waterWaves), stageGraph: stageGraph, inputRole: inputRole)
         }
+        if let waterCaustics = SceneAuthoredWaterCausticsPlanner.plan(
+            graph: stageGraph,
+            descriptor: descriptor,
+            shaderContracts: shaderContracts,
+            inputRole: inputRole
+        ) {
+            return stage(
+                .waterCaustics(waterCaustics),
+                stageGraph: stageGraph,
+                inputRole: inputRole
+            )
+        }
         if let cursorRipple = SceneAuthoredCursorRipplePlanner.plan(
             graph: stageGraph,
             descriptor: descriptor,

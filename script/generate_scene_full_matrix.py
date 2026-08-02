@@ -112,6 +112,13 @@ SCENE_SCRIPT_AUDIO_BARS_EXPECTATIONS = {
     "required_scene_script_audio_bars_succeeded_layer_ids": "scene_script_audio_bars_succeeded_layer_ids",
 }
 
+PUPPET_ANIMATION_EXPECTATIONS = {
+    "expected_puppet_animation_layer_ids": "puppet_animation_layer_ids",
+    "expected_puppet_disjoint_additive_layer_ids":
+        "puppet_disjoint_additive_layer_ids",
+    "expected_puppet_animation_clip_count": "puppet_animation_clip_count",
+}
+
 
 def capabilities(runtime):
     values = []
@@ -225,6 +232,13 @@ def matrix_sample(result, old):
     ) or any(key in old for key in SCENE_SCRIPT_AUDIO_BARS_EXPECTATIONS)
     if has_scene_script_audio_bars_contract:
         for expectation, metric in SCENE_SCRIPT_AUDIO_BARS_EXPECTATIONS.items():
+            sample[expectation] = runtime[metric]
+
+    has_puppet_animation_contract = bool(
+        runtime.get("puppet_animation_layer_ids")
+    ) or any(key in old for key in PUPPET_ANIMATION_EXPECTATIONS)
+    if has_puppet_animation_contract:
+        for expectation, metric in PUPPET_ANIMATION_EXPECTATIONS.items():
             sample[expectation] = runtime[metric]
 
     for key in PRESERVED_KEYS:

@@ -1698,6 +1698,32 @@ utility layer 763: skippedHidden kind=composition
         )
         self.assertIsNone(benchmark.authored_effect_graph_water_waves_count(""))
 
+    def test_authored_water_caustics_count_is_an_exact_gate(self) -> None:
+        preview = "authoredEffectGraphWaterCausticsCount: 4\n"
+        count = benchmark.authored_effect_graph_water_caustics_count(preview)
+        self.assertEqual(count, 4)
+        self.assertEqual(
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_water_caustics_count": 4},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                water_caustics_count=count,
+            ),
+            [],
+        )
+        self.assertIn(
+            "authored effect graph Water Caustics count mismatch",
+            benchmark.authored_effect_graph_failures(
+                {"expected_authored_effect_graph_water_caustics_count": 0},
+                {"succeeded_layer_ids": [], "failed_layer_ids": []},
+                [],
+                None,
+                water_caustics_count=count,
+            ),
+        )
+        self.assertIsNone(benchmark.authored_effect_graph_water_caustics_count(""))
+
     def test_authored_cursor_ripple_count_is_an_exact_gate(self) -> None:
         preview = (
             "authoredEffectGraphCursorRippleCount: 3\n"

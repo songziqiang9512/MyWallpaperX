@@ -307,6 +307,8 @@ enum SceneAuthoredWaterFlowPlanner {
 
 struct SceneWaterWavesExecutionPlan {}
 
+struct SceneWaterCausticsExecutionPlan {}
+
 enum SceneAuthoredWaterWavesPlanner {
     static func plan(
         graph: SceneAuthoredEffectRenderPlan,
@@ -314,6 +316,17 @@ enum SceneAuthoredWaterWavesPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneWaterWavesExecutionPlan? {
+        nil
+    }
+}
+
+enum SceneAuthoredWaterCausticsPlanner {
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole
+    ) -> SceneWaterCausticsExecutionPlan? {
         nil
     }
 }
