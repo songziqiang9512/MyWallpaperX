@@ -14,6 +14,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
+    SOURCE_ROOT / "Particles/SceneParticleInitializer.swift",
     SOURCE_ROOT / "Particles/SceneParticleAudioResponsePlan.swift",
     SOURCE_ROOT / "Particles/SceneParticleVortex.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
@@ -35,6 +36,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleOscillationCache.swift",
     SOURCE_ROOT / "Particles/SceneParticleStepSnapshotRecorder.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator.swift",
+    SOURCE_ROOT / "Particles/SceneParticleSimulator+Initializer.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+Random.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+InstanceOverride.swift",
     SOURCE_ROOT / "Format/ScenePkgReader.swift",
@@ -463,6 +465,50 @@ enum Harness {
             #""colors":["1 0 0"],"weights":[1]"#,
         ].map { fields -> SceneParticleSimulator in
             var value = simulator(colorListJSON(fields), seed: 43, step: 0.1)
+            value.advance(by: 0.1)
+            return value
+        }
+        var positionOffset = simulator(positionOffsetJSON, seed: 47, step: 0.1)
+        var positionOffsetRepeat = simulator(positionOffsetJSON, seed: 47, step: 0.1)
+        var positionOffsetDifferentSeed = simulator(positionOffsetJSON, seed: 48, step: 0.1)
+        var stockPositionOffset = simulator(
+            positionOffsetJSON(#""distance":150"#), seed: 47, step: 0.1
+        )
+        positionOffset.advance(by: 0.1)
+        positionOffsetRepeat.advance(by: 0.1)
+        positionOffsetDifferentSeed.advance(by: 0.1)
+        stockPositionOffset.advance(by: 0.1)
+        let positionOffsetDefinition = try SceneParticleDefinitionParser().parse(
+            root: object(positionOffsetJSON)
+        )
+        guard let positionOffsetPlan =
+            positionOffsetDefinition.initializers[1].boundedPositionOffset else {
+            throw HarnessError.invalidJSON
+        }
+        let positionOffsetEarly = SceneParticleSimulationMath.positionOffset(
+            positionOffsetPlan, position: .zero, time: 0,
+            particleID: 7, simulationSeed: 47
+        )
+        let positionOffsetLate = SceneParticleSimulationMath.positionOffset(
+            positionOffsetPlan, position: .zero, time: 2,
+            particleID: 7, simulationSeed: 47
+        )
+        let invalidPositionOffsets = [
+            "",
+            #""distance":-1"#,
+            #""distance":1000001"#,
+            #""distance":10,"directions":"1 0""#,
+            #""distance":10,"directions":"1.1 0 0""#,
+            #""distance":10,"octaves":0"#,
+            #""distance":10,"octaves":9"#,
+            #""distance":10,"octaves":1.5"#,
+            #""distance":10,"scale":-1"#,
+            #""distance":10,"scale":1000001"#,
+            #""distance":10,"timescale":1000001"#,
+            #""distance":10,"sign":"1 0 0""#,
+            #""distance":10,"future":1"#,
+        ].map { fields -> SceneParticleSimulator in
+            var value = simulator(positionOffsetJSON(fields), seed: 47, step: 0.1)
             value.advance(by: 0.1)
             return value
         }
@@ -977,6 +1023,22 @@ enum Harness {
                 vector($0.particles[0].color)
             },
             "invalidColorListDiagnostics": invalidColorLists.map {
+                $0.diagnostics.map(\.kind.rawValue)
+            },
+            "positionOffset": vector(positionOffset.particles[0].position),
+            "positionOffsetDeterministic":
+                positionOffset.particles == positionOffsetRepeat.particles,
+            "positionOffsetDifferentSeed":
+                positionOffset.particles != positionOffsetDifferentSeed.particles,
+            "positionOffsetDifferentTime": positionOffsetEarly != positionOffsetLate,
+            "positionOffsetDiagnostics": positionOffset.diagnostics.map(\.kind.rawValue),
+            "stockPositionOffset": vector(stockPositionOffset.particles[0].position),
+            "stockPositionOffsetDiagnostics":
+                stockPositionOffset.diagnostics.map(\.kind.rawValue),
+            "invalidPositionOffsetPositions": invalidPositionOffsets.map {
+                vector($0.particles[0].position)
+            },
+            "invalidPositionOffsetDiagnostics": invalidPositionOffsets.map {
                 $0.diagnostics.map(\.kind.rawValue)
             },
             "uniformSizeAmount": uniformSizeAmount,
@@ -1636,6 +1698,19 @@ enum Harness {
      "renderer":[{"name":"sprite"}]}
     """#
 
+    private static let positionOffsetJSON = positionOffsetJSON(
+        #""distance":100,"directions":"1 0 0","octaves":4,"scale":0.25,"timescale":2"#
+    )
+
+    private static func positionOffsetJSON(_ fields: String) -> String {
+        """
+        {"material":"p.json","maxcount":1,
+         "emitter":[{"name":"boxrandom","instantaneous":1,"distancemax":0}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"positionoffsetrandom",\(fields)}],
+         "renderer":[{"name":"sprite"}]}
+        """
+    }
+
     private static let uniformSizeJSON = #"""
     {"material":"p.json","maxcount":1,
      "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
@@ -2122,6 +2197,36 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(
             self.results["invalidColorListDiagnostics"],
             [["colorListUnsupported"]] * 6,
+        )
+
+    def test_position_offset_executes_project_owned_bounded_noise(self) -> None:
+        position = self.results["positionOffset"]
+        self.assertLessEqual(abs(position[0]), 100)
+        self.assertNotEqual(position[0], 0)
+        self.assertEqual(position[1:], [0, 0])
+        self.assertTrue(self.results["positionOffsetDeterministic"])
+        self.assertTrue(self.results["positionOffsetDifferentSeed"])
+        self.assertTrue(self.results["positionOffsetDifferentTime"])
+        self.assertEqual(
+            self.results["positionOffsetDiagnostics"], ["positionOffsetBounded"]
+        )
+
+        stock_position = self.results["stockPositionOffset"]
+        self.assertNotEqual(stock_position[:2], [0, 0])
+        self.assertEqual(stock_position[2], 0)
+        self.assertTrue(all(abs(value) <= 150 for value in stock_position))
+        self.assertEqual(
+            self.results["stockPositionOffsetDiagnostics"],
+            ["positionOffsetBounded"],
+        )
+
+    def test_position_offset_rejects_unknown_malformed_or_unbounded_profiles(self) -> None:
+        self.assertEqual(
+            self.results["invalidPositionOffsetPositions"], [[0, 0, 0]] * 13
+        )
+        self.assertEqual(
+            self.results["invalidPositionOffsetDiagnostics"],
+            [["positionOffsetUnsupported"]] * 13,
         )
 
     def test_random_initializer_exponent_biases_values_towards_minimum(self) -> None:

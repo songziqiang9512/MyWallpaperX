@@ -43,6 +43,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Properties/SceneTimelineTargetCompiler.swift",
     SOURCE_ROOT / "Properties/SceneTimelineTargetCompiler+Camera.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
+    SOURCE_ROOT / "Particles/SceneParticleInitializer.swift",
     SOURCE_ROOT / "Particles/SceneParticleVortex.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+Operator.swift",

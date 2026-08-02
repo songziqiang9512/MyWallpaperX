@@ -29,6 +29,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Rendering/SceneMatrix.swift",
     SCENE_ROOT / "Rendering/SceneFramebufferSnapshot.swift",
     SCENE_ROOT / "Particles/SceneParticleDefinition.swift",
+    SCENE_ROOT / "Particles/SceneParticleInitializer.swift",
     SCENE_ROOT / "Particles/SceneParticleAudioResponsePlan.swift",
     SCENE_ROOT / "Particles/SceneParticleVortex.swift",
     SCENE_ROOT / "Particles/SceneParticleDefinitionParser.swift",

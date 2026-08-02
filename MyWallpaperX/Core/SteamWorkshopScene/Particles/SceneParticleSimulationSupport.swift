@@ -200,6 +200,58 @@ nonisolated enum SceneParticleSimulationMath {
         first + (second - first) * amount
     }
 
+    static func positionOffset(
+        _ plan: SceneParticlePositionOffsetPlan,
+        position: SIMD3<Double>,
+        time: Double,
+        particleID: UInt64,
+        simulationSeed: UInt64
+    ) -> SIMD3<Double> {
+        guard position.x.isFinite, position.y.isFinite, position.z.isFinite,
+              time.isFinite else { return .zero }
+        var phaseRandom = SceneParticleRandomGenerator(
+            state: simulationSeed ^ (particleID &* 0x9E3779B97F4A7C15)
+        )
+        let phase = SIMD3(
+            phaseRandom.value(-4096, 4096),
+            phaseRandom.value(-4096, 4096),
+            phaseRandom.value(-4096, 4096)
+        )
+        let spatialScale = plan.scale * 0.001
+        let timePoint = time * plan.timeScale
+        var point = position * spatialScale + phase + SIMD3(
+            timePoint, timePoint * 0.754_877_666, timePoint * 1.324_717_957
+        )
+        guard point.x.isFinite, point.y.isFinite, point.z.isFinite,
+              abs(point.x) < 1e12, abs(point.y) < 1e12, abs(point.z) < 1e12 else {
+            return .zero
+        }
+
+        var amplitude = 1.0
+        var amplitudeSum = 0.0
+        var noise = SIMD3<Double>.zero
+        for _ in 0..<plan.octaves {
+            noise += SIMD3(
+                gradientNoise(point, seed: 0xD6E8FEB86659FD93),
+                gradientNoise(
+                    point + SIMD3(47.17, 73.31, 101.03),
+                    seed: 0xA0761D6478BD642F
+                ),
+                gradientNoise(
+                    point + SIMD3(83.29, 19.37, 61.43),
+                    seed: 0xE7037ED1A0B428DB
+                )
+            ) * amplitude
+            amplitudeSum += amplitude
+            amplitude *= 0.5
+            point *= 2
+        }
+        guard amplitudeSum > 0 else { return .zero }
+        noise /= amplitudeSum
+        for index in 0..<3 { noise[index] = min(max(noise[index], -1), 1) }
+        return noise * plan.directions * plan.distance
+    }
+
     static func turbulenceDirection(
         position: SIMD3<Double>,
         time: Double,

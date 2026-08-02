@@ -21,6 +21,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 PARTICLES_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Particles"
 DEFINITION_SOURCE = PARTICLES_ROOT / "SceneParticleDefinition.swift"
+INITIALIZER_SOURCE = PARTICLES_ROOT / "SceneParticleInitializer.swift"
 VORTEX_SOURCE = PARTICLES_ROOT / "SceneParticleVortex.swift"
 AUDIO_PLAN_SOURCE = PARTICLES_ROOT / "SceneParticleAudioResponsePlan.swift"
 PARSER_SOURCE = PARTICLES_ROOT / "SceneParticleDefinitionParser.swift"
@@ -187,6 +188,7 @@ class SceneParticleAudioDeclarationTests(unittest.TestCase):
         # 只编译声明、解析与诊断三段，避免拖入渲染/资源图等无关依赖。
         sources = [
             DEFINITION_SOURCE,
+            INITIALIZER_SOURCE,
             VORTEX_SOURCE,
             AUDIO_PLAN_SOURCE,
             PARSER_SOURCE,
@@ -304,7 +306,10 @@ class SceneParticleAudioSchemaContractTests(unittest.TestCase):
             )
 
     def test_audio_declaration_is_shared_by_all_three_component_kinds(self) -> None:
-        source = DEFINITION_SOURCE.read_text(encoding="utf-8")
+        source = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (DEFINITION_SOURCE, INITIALIZER_SOURCE)
+        )
         self.assertEqual(
             source.count("let audioResponse: SceneParticleAudioResponse"),
             3,

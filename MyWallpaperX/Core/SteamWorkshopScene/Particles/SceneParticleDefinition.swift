@@ -169,44 +169,6 @@ nonisolated struct SceneParticleEmitter: Equatable, Sendable {
     }
 }
 
-nonisolated enum SceneParticleInitializerKind: Equatable, Sendable {
-    case lifetime
-    case size
-    case velocity
-    case color
-    case colorList
-    case alpha
-    case rotation
-    case angularVelocity
-    case turbulentVelocity
-    case unsupported(String)
-}
-
-nonisolated struct SceneParticleTurbulentVelocity: Equatable, Sendable {
-    let forward: SceneParticleNumericValue?
-    let right: SceneParticleNumericValue?
-    let up: SceneParticleNumericValue?
-    let offset: Double?
-    let phaseMinimum: Double?
-    let phaseMaximum: Double?
-    let scale: Double?
-    let speedMinimum: Double?
-    let speedMaximum: Double?
-    let timeScale: Double?
-    let audioResponse: SceneParticleAudioResponse
-}
-
-nonisolated struct SceneParticleInitializer: Equatable, Sendable {
-    let id: Int?
-    let kind: SceneParticleInitializerKind
-    let minimum: SceneParticleNumericValue?
-    let maximum: SceneParticleNumericValue?
-    let exponent: Double?
-    let turbulentVelocity: SceneParticleTurbulentVelocity?
-    let colors: [SceneParticleNumericValue]?
-    let hasMalformedColorList: Bool
-}
-
 nonisolated enum SceneParticleOperatorKind: Equatable, Sendable {
     case movement
     case alphaFade

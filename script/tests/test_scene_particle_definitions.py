@@ -13,6 +13,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
+    SOURCE_ROOT / "Particles/SceneParticleInitializer.swift",
     SOURCE_ROOT / "Particles/SceneParticleVortex.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+Operator.swift",
@@ -65,7 +66,8 @@ enum Harness {
             {"id":16,"name":"angularVelocityRandom","min":"0 0 -1","max":"0 0 1"},
             {"id":17,"name":"turbulentVelocityRandom","forward":"0 1 0","right":"1 0 0","up":"0 0 1","offset":0.5,"phasemin":0.25,"phasemax":6.28,"scale":0.2,"speedmin":10,"speedmax":20,"timescale":0.1,"audioprocessingmode":1,"audioprocessingexponent":0.5,"audioprocessingfrequencystart":3,"audioprocessingfrequencyend":13,"audioprocessingbounds":"0.2 0.8"},
             {"id":18,"name":"colorList","colors":["1 0 0","0 1 0","0 0 1"]},
-            {"id":19,"name":"futureInitializer"}
+            {"id":19,"name":"positionOffsetRandom","directions":"1 0.5 0","distance":150,"octaves":4,"scale":0.25,"timescale":2},
+            {"id":20,"name":"futureInitializer"}
           ],
           "operator":[
             {"id":20,"name":"movement","flags":1,"gravity":"0 -9.8 0","drag":0.2},
@@ -169,6 +171,15 @@ enum Harness {
             "turbulentAudioMode": definition.initializers[7].turbulentVelocity?.audioResponse.mode ?? -1,
             "turbulentAudioBounds": definition.initializers[7].turbulentVelocity?.audioResponse.bounds?.vectorValue ?? [],
             "colorListColors": definition.initializers[8].colors?.compactMap(\.vectorValue) ?? [],
+            "positionOffsetDirections":
+                definition.initializers[9].positionOffset?.directions?.vectorValue ?? [],
+            "positionOffsetDistance":
+                definition.initializers[9].positionOffset?.distance ?? -1,
+            "positionOffsetOctaves":
+                definition.initializers[9].positionOffset?.octaves ?? -1,
+            "positionOffsetScale": definition.initializers[9].positionOffset?.scale ?? -1,
+            "positionOffsetTimeScale":
+                definition.initializers[9].positionOffset?.timeScale ?? -1,
             "operatorKinds": definition.operators.map { operatorName($0.kind) },
             "movementGravity": definition.operators[0].gravity?.vectorValue ?? [],
             "movementDrag": definition.operators[0].drag ?? -1,
@@ -434,6 +445,7 @@ enum Harness {
         case .rotation: "rotationrandom"
         case .angularVelocity: "angularvelocityrandom"
         case .turbulentVelocity: "turbulentvelocityrandom"
+        case .positionOffset: "positionoffsetrandom"
         case let .unsupported(name): name
         }
     }
@@ -562,7 +574,7 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         self.assertEqual(result["boxMaximumEmissionCount"], 32)
         self.assertFalse(result["boxPeriodicMalformed"])
         self.assertEqual(result["turbulentPhaseMinimum"], 0.25)
-        self.assertEqual(len(result["initializerKinds"]), 10)
+        self.assertEqual(len(result["initializerKinds"]), 11)
         self.assertEqual(result["turbulentTimeScale"], 0.1)
         self.assertEqual(result["turbulentAudioMode"], 1)
         self.assertEqual(result["turbulentAudioBounds"], [0.2, 0.8])
@@ -570,6 +582,11 @@ class SceneParticleDefinitionTests(unittest.TestCase):
             result["colorListColors"],
             [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
         )
+        self.assertEqual(result["positionOffsetDirections"], [1, 0.5, 0])
+        self.assertEqual(result["positionOffsetDistance"], 150)
+        self.assertEqual(result["positionOffsetOctaves"], 4)
+        self.assertEqual(result["positionOffsetScale"], 0.25)
+        self.assertEqual(result["positionOffsetTimeScale"], 2)
         self.assertEqual(len(result["operatorKinds"]), 14)
         self.assertEqual(result["movementGravity"], [0, -9.8, 0])
         self.assertEqual(result["movementDrag"], 0.2)

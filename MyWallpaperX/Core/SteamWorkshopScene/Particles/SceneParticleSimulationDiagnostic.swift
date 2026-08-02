@@ -5,6 +5,8 @@ nonisolated enum SceneParticleSimulationDiagnosticKind: String, Hashable, Sendab
     case unsupportedInitializer
     case colorListBounded
     case colorListUnsupported
+    case positionOffsetBounded
+    case positionOffsetUnsupported
     case unsupportedOperator
     case boidsBounded
     case boidsUnsupported
@@ -144,6 +146,10 @@ extension SceneParticleSimulationMath {
                     ? .colorListUnsupported : .colorListBounded, "colorlist")
             case .turbulentVelocity:
                 break
+            case .positionOffset:
+                add(initializer.boundedPositionOffset == nil
+                    ? .positionOffsetUnsupported : .positionOffsetBounded,
+                    "positionoffsetrandom")
             case let .unsupported(name):
                 add(.unsupportedInitializer, name)
             default:

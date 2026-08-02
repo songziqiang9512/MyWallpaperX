@@ -108,6 +108,7 @@ nonisolated struct SceneParticleDefinitionParser {
         case "rotationrandom": kind = .rotation
         case "angularvelocityrandom": kind = .angularVelocity
         case "turbulentvelocityrandom": kind = .turbulentVelocity
+        case "positionoffsetrandom": kind = .positionOffset
         default:
             kind = .unsupported(name)
             diagnostics.append(.init(kind: .unsupportedInitializer, path: "initializer", componentName: name))
@@ -125,6 +126,15 @@ nonisolated struct SceneParticleDefinitionParser {
             timeScale: Self.number(root["timescale"]),
             audioResponse: Self.audioResponse(root)
         ) : nil
+        let positionOffset: SceneParticlePositionOffset? = kind == .positionOffset ? .init(
+            directions: Self.numericValue(root["directions"]),
+            distance: Self.number(root["distance"]),
+            octaves: Self.integer(root["octaves"]),
+            scale: Self.number(root["scale"]),
+            timeScale: Self.number(root["timescale"]),
+            hasMalformedFields: Self.hasMalformedPositionOffsetFields(root),
+            unsupportedFieldNames: Self.unsupportedPositionOffsetFieldNames(root)
+        ) : nil
         let rawColors = root["colors"] as? [Any]
         let colors = rawColors?.compactMap(Self.numericValue)
         let hasMalformedColorList = kind == .colorList && (
@@ -136,9 +146,31 @@ nonisolated struct SceneParticleDefinitionParser {
             minimum: Self.numericValue(root["min"]),
             maximum: Self.numericValue(root["max"]),
             exponent: Self.number(root["exponent"]),
-            turbulentVelocity: turbulence, colors: colors,
+            turbulentVelocity: turbulence, positionOffset: positionOffset, colors: colors,
             hasMalformedColorList: hasMalformedColorList
         )
+    }
+
+    private nonisolated static func unsupportedPositionOffsetFieldNames(
+        _ root: [String: Any]
+    ) -> [String] {
+        let supported = Set([
+            "id", "name", "directions", "distance", "octaves", "scale", "timescale"
+        ])
+        return root.keys.filter { !supported.contains($0) }.sorted()
+    }
+
+    private nonisolated static func hasMalformedPositionOffsetFields(
+        _ root: [String: Any]
+    ) -> Bool {
+        func malformed(_ key: String, parsed: Any?) -> Bool {
+            root[key] != nil && parsed == nil
+        }
+        return malformed("directions", parsed: numericValue(root["directions"]))
+            || malformed("distance", parsed: number(root["distance"]))
+            || malformed("octaves", parsed: integer(root["octaves"]))
+            || malformed("scale", parsed: number(root["scale"]))
+            || malformed("timescale", parsed: number(root["timescale"]))
     }
 
     /// 粒子 audio response 声明。字段名只取 `audioprocessing*` 一套——effect 侧的
