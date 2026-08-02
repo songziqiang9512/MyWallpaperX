@@ -214,7 +214,7 @@ nonisolated enum SceneParticleOperatorKind: Equatable, Sendable {
     case controlPointAttract
     case turbulence
     case boids(SceneParticleBoids)
-    case vortex
+    case vortex(SceneParticleVortex)
     case unsupported(String)
 }
 

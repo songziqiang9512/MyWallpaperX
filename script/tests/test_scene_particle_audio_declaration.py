@@ -21,7 +21,9 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 PARTICLES_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Particles"
 DEFINITION_SOURCE = PARTICLES_ROOT / "SceneParticleDefinition.swift"
+VORTEX_SOURCE = PARTICLES_ROOT / "SceneParticleVortex.swift"
 PARSER_SOURCE = PARTICLES_ROOT / "SceneParticleDefinitionParser.swift"
+OPERATOR_PARSER_SOURCE = PARTICLES_ROOT / "SceneParticleDefinitionParser+Operator.swift"
 SIMULATION_SOURCE = PARTICLES_ROOT / "SceneParticleSimulationSupport.swift"
 BOIDS_SOURCE = PARTICLES_ROOT / "SceneParticleBoids.swift"
 CONTROL_POINT_FORCE_SOURCE = PARTICLES_ROOT / "SceneParticleControlPointForce.swift"
@@ -178,7 +180,9 @@ class SceneParticleAudioDeclarationTests(unittest.TestCase):
         # 只编译声明、解析与诊断三段，避免拖入渲染/资源图等无关依赖。
         sources = [
             DEFINITION_SOURCE,
+            VORTEX_SOURCE,
             PARSER_SOURCE,
+            OPERATOR_PARSER_SOURCE,
             BOIDS_SOURCE,
             SIMULATION_SOURCE,
             CONTROL_POINT_FORCE_SOURCE,

@@ -37,7 +37,9 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
     SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
+    SOURCE_ROOT / "Particles/SceneParticleVortex.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
+    SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+Operator.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
 ]
 

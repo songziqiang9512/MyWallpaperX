@@ -14,7 +14,9 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
+    SOURCE_ROOT / "Particles/SceneParticleVortex.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
+    SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+Operator.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
     SOURCE_ROOT / "Particles/SceneParticleWorldSpacePlan.swift",
     SOURCE_ROOT / "Particles/SceneParticleBoids.swift",
@@ -22,6 +24,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleControlPointForce.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+ControlPointForce.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+Boids.swift",
+    SOURCE_ROOT / "Particles/SceneParticleSimulator+Vortex.swift",
     SOURCE_ROOT / "Particles/SceneParticlePeriodicEmission.swift",
     SOURCE_ROOT / "Particles/SceneParticleLayerImageEmissionMap.swift",
     SOURCE_ROOT / "Particles/SceneParticleOscillationCache.swift",
@@ -476,6 +479,58 @@ enum Harness {
         )
         overflowTurbulence.advance(by: 0.1)
 
+        var vortex = simulator(vortexJSON(), seed: 81, step: 1)
+        vortex.advance(by: 1)
+        var vortexPartitioned = simulator(vortexJSON(), seed: 81, step: 0.25)
+        vortexPartitioned.advance(by: 0.5)
+        vortexPartitioned.advance(by: 0.5)
+        var reverseVortex = simulator(
+            vortexJSON(speedInner: "0", speedOuter: "-100"), seed: 81, step: 1
+        )
+        reverseVortex.advance(by: 1)
+        var yAxisVortex = simulator(
+            vortexJSON(axis: "0 1 0"), seed: 81, step: 1
+        )
+        yAxisVortex.advance(by: 1)
+        var infiniteAxisVortex = simulator(
+            vortexJSON(position: "10 0 100", distanceOuter: "100", flags: 1),
+            seed: 81, step: 1
+        )
+        infiniteAxisVortex.advance(by: 1)
+        var finiteAxisVortex = simulator(
+            vortexJSON(position: "10 0 100", distanceOuter: "100"), seed: 81, step: 1
+        )
+        finiteAxisVortex.advance(by: 1)
+        let vortexOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"speed":2}"#)
+        )
+        var overriddenVortex = simulator(
+            vortexJSON(), override: vortexOverride, seed: 81, step: 1
+        )
+        overriddenVortex.advance(by: 1)
+        var overrideDeniedVortex = simulator(
+            vortexJSON(systemFlags: 16), override: vortexOverride, seed: 81, step: 1
+        )
+        overrideDeniedVortex.advance(by: 1)
+        let invalidVortices = [
+            vortexJSON(axis: "0 0"),
+            vortexJSON(axis: "0 0 0"),
+            vortexJSON(distanceInner: "10", distanceOuter: "0"),
+            vortexJSON(speedOuter: "null"),
+            vortexJSON(flags: 2),
+            vortexJSON(extra: #", "future":1"#),
+            vortexJSON(extra: #", "blendinstart":0"#),
+            vortexJSON(extra: #", "audioprocessingmode":1"#),
+            vortexJSON(speedOuter: #""nan""#),
+            vortexJSON(distanceInner: "10", distanceOuter: "10"),
+        ].map { source -> SceneParticleSimulator in
+            var value = simulator(source, seed: 81, step: 1)
+            value.advance(by: 1)
+            return value
+        }
+        var vortexV2 = simulator(vortexV2JSON, seed: 81, step: 1)
+        vortexV2.advance(by: 1)
+
         var periodic = simulator(periodicJSON, seed: 101, step: 0.25)
         periodic.advance(by: 0.5)
         let periodicFirstWindowCount = periodic.particles.count
@@ -721,6 +776,21 @@ enum Harness {
             "movementBeforeTurbulencePosition":
                 vector(movementBeforeTurbulence.particles[0].position),
             "overflowTurbulenceVelocity": vector(overflowTurbulence.particles[0].velocity),
+            "vortexVelocity": vector(vortex.particles[0].velocity),
+            "vortexDiagnostics": vortex.diagnostics.map(\.kind.rawValue),
+            "vortexPartitioned": vortex.particles == vortexPartitioned.particles,
+            "reverseVortexVelocity": vector(reverseVortex.particles[0].velocity),
+            "yAxisVortexVelocity": vector(yAxisVortex.particles[0].velocity),
+            "infiniteAxisVortexVelocity": vector(infiniteAxisVortex.particles[0].velocity),
+            "finiteAxisVortexVelocity": vector(finiteAxisVortex.particles[0].velocity),
+            "overriddenVortexVelocity": vector(overriddenVortex.particles[0].velocity),
+            "overrideDeniedVortexVelocity": vector(overrideDeniedVortex.particles[0].velocity),
+            "invalidVortexVelocities": invalidVortices.map { vector($0.particles[0].velocity) },
+            "invalidVortexDiagnostics": invalidVortices.map {
+                $0.diagnostics.map(\.kind.rawValue).sorted()
+            },
+            "vortexV2Velocity": vector(vortexV2.particles[0].velocity),
+            "vortexV2Diagnostics": vortexV2.diagnostics.map(\.kind.rawValue),
             "periodicFirstWindowCount": periodicFirstWindowCount,
             "periodicDelayCount": periodicDelayCount,
             "periodicSecondWindowCount": periodicSecondWindowCount,
@@ -937,6 +1007,34 @@ enum Harness {
          "controlpoint":[{"id":1,"flags":\(flags),"offset":"\(pointOffset)"}\(controlPointSuffix)]}
         """
     }
+
+    private static func vortexJSON(
+        position: String = "10 0 0",
+        axis: String = "0 0 1",
+        distanceInner: String = "0",
+        distanceOuter: String = "10",
+        speedInner: String = "0",
+        speedOuter: String = "100",
+        flags: Int = 0,
+        systemFlags: Int = 0,
+        extra: String = ""
+    ) -> String {
+        """
+        {"material":"p.json","maxcount":1,"flags":\(systemFlags),
+         "emitter":[{"name":"boxrandom","instantaneous":1,"directions":"1 1 1","distancemin":"\(position)","distancemax":"\(position)"}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "operator":[{"name":"vortex","axis":"\(axis)","distanceinner":\(distanceInner),"distanceouter":\(distanceOuter),"speedinner":\(speedInner),"speedouter":\(speedOuter),"flags":\(flags)\(extra)}],
+         "renderer":[{"name":"sprite"}]}
+        """
+    }
+
+    private static let vortexV2JSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"10 0 0","distancemax":"10 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+     "operator":[{"name":"vortex_v2","distance":10,"speed":100}],
+     "renderer":[{"name":"sprite"}]}
+    """#
 
     private static let periodicJSON = #"""
     {"material":"p.json","maxcount":100,
@@ -1597,6 +1695,32 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["movementBeforeTurbulencePosition"], [0, 0, 0])
         self.assertEqual(self.results["overflowTurbulenceVelocity"], [0, 0, 0])
 
+    def test_classic_vortex_executes_bounded_axis_distance_and_speed(self) -> None:
+        self.assertEqual(self.results["vortexVelocity"], [0, 100, 0])
+        self.assertEqual(
+            self.results["vortexDiagnostics"],
+            ["emitterShapeBounded", "vortexBounded"],
+        )
+        self.assertTrue(self.results["vortexPartitioned"])
+        self.assertEqual(self.results["reverseVortexVelocity"], [0, -100, 0])
+        self.assertEqual(self.results["yAxisVortexVelocity"], [0, 0, -100])
+        self.assertEqual(self.results["infiniteAxisVortexVelocity"], [0, 10, 0])
+        finite = self.results["finiteAxisVortexVelocity"]
+        self.assertAlmostEqual(finite[0], 0)
+        self.assertAlmostEqual(finite[1], 100)
+        self.assertAlmostEqual(finite[2], 0)
+        self.assertEqual(self.results["overriddenVortexVelocity"], [0, 200, 0])
+        self.assertEqual(self.results["overrideDeniedVortexVelocity"], [0, 100, 0])
+
+    def test_classic_vortex_rejects_unknown_malformed_audio_and_unbounded_profiles(self) -> None:
+        self.assertEqual(self.results["invalidVortexVelocities"], [[0, 0, 0]] * 10)
+        for diagnostics in self.results["invalidVortexDiagnostics"]:
+            self.assertIn("vortexUnsupported", diagnostics)
+
+    def test_vortex_v2_remains_distinct_and_fail_closed(self) -> None:
+        self.assertEqual(self.results["vortexV2Velocity"], [0, 0, 0])
+        self.assertIn("unsupportedOperator", self.results["vortexV2Diagnostics"])
+
     def test_unsupported_capabilities_are_reported(self) -> None:
         self.assertEqual(
             self.results["diagnostics"],
@@ -1608,7 +1732,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
                 "dynamicOverrideIgnored",
                 "pointerControlPointUnsupported",
                 "unsupportedInitializer",
-                "unsupportedOperator",
+                "vortexUnsupported",
             ],
         )
 

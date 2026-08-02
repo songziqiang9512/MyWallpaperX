@@ -133,77 +133,11 @@ nonisolated struct SceneParticleDefinitionParser {
         )
     }
 
-    private nonisolated func parseOperator(
-        _ root: [String: Any],
-        diagnostics: inout [SceneParticleDiagnostic]
-    ) -> SceneParticleOperator {
-        let name = Self.componentName(root)
-        let kind: SceneParticleOperatorKind
-        switch name {
-        case "movement": kind = .movement
-        case "alphafade": kind = .alphaFade
-        case "alphachange": kind = .alphaChange
-        case "sizechange": kind = .sizeChange
-        case "colorchange": kind = .colorChange
-        case "angularmovement": kind = .angularMovement
-        case "oscillateposition": kind = .oscillatePosition
-        case "oscillatealpha": kind = .oscillateAlpha
-        case "oscillatesize": kind = .oscillateSize
-        case "controlpointattract": kind = .controlPointAttract
-        case "turbulence": kind = .turbulence
-        case "boids":
-            let scalarFields = [
-                "neighborthreshold", "separationfactor", "cohesionfactor", "alignmentfactor"
-            ]
-            let supportedFields = Set([
-                "id", "name", "flags", "neighborthreshold", "separationfactor",
-                "cohesionfactor", "alignmentfactor"
-            ])
-            kind = .boids(.init(
-                neighborThreshold: Self.number(root["neighborthreshold"]),
-                separationFactor: Self.number(root["separationfactor"]),
-                cohesionFactor: Self.number(root["cohesionfactor"]),
-                alignmentFactor: Self.number(root["alignmentfactor"]),
-                hasMalformedFields: scalarFields.contains {
-                    root[$0] != nil && !(root[$0] is NSNull) && Self.number(root[$0]) == nil
-                } || (root["flags"] != nil && Self.integer(root["flags"]) == nil),
-                unsupportedFieldNames: root.keys.filter { !supportedFields.contains($0) }.sorted()
-            ))
-        case "vortex": kind = .vortex
-        default:
-            kind = .unsupported(name)
-            diagnostics.append(.init(kind: .unsupportedOperator, path: "operator", componentName: name))
-        }
-        return SceneParticleOperator(
-            id: Self.integer(root["id"]), kind: kind,
-            rawFlags: Self.integer(root["flags"]) ?? 0,
-            gravity: Self.numericValue(root["gravity"]), drag: Self.number(root["drag"]),
-            force: Self.numericValue(root["force"]),
-            fadeInTime: Self.number(root["fadeintime"]), fadeOutTime: Self.number(root["fadeouttime"]),
-            startTime: Self.number(root["starttime"]), endTime: Self.number(root["endtime"]),
-            startValue: Self.numericValue(root["startvalue"]), endValue: Self.numericValue(root["endvalue"]),
-            frequencyMinimum: Self.number(root["frequencymin"]),
-            frequencyMaximum: Self.number(root["frequencymax"]),
-            scaleMinimum: Self.numericValue(root["scalemin"]),
-            scaleMaximum: Self.numericValue(root["scalemax"]),
-            phaseMinimum: Self.number(root["phasemin"]), phaseMaximum: Self.number(root["phasemax"]),
-            mask: Self.numericValue(root["mask"]),
-            blendInStart: Self.number(root["blendinstart"]), blendInEnd: Self.number(root["blendinend"]),
-            blendOutStart: Self.number(root["blendoutstart"]), blendOutEnd: Self.number(root["blendoutend"]),
-            controlPoint: Self.integer(root["controlpoint"]),
-            origin: Self.numericValue(root["origin"]), scale: Self.numericValue(root["scale"]),
-            timeScale: Self.number(root["timescale"]),
-            threshold: Self.number(root["threshold"]),
-            speedMinimum: Self.number(root["speedmin"]), speedMaximum: Self.number(root["speedmax"]),
-            audioResponse: Self.audioResponse(root)
-        )
-    }
-
     /// 粒子 audio response 声明。字段名只取 `audioprocessing*` 一套——effect 侧的
     /// `audiobounds`/`audioamount`/`audioexponent` 属于 shader constant schema，
     /// 45 样本语料中的粒子组件从未出现，早前把它们当作 fallback 会解析出恒为 nil 的
     /// 字段，同时漏掉真实存在的 `audioprocessingfrequencyend`。
-    private nonisolated static func audioResponse(
+    nonisolated static func audioResponse(
         _ root: [String: Any]
     ) -> SceneParticleAudioResponse {
         SceneParticleAudioResponse(
@@ -321,7 +255,7 @@ nonisolated struct SceneParticleDefinitionParser {
         (rawValue as? [Any] ?? []).compactMap { $0 as? [String: Any] }
     }
 
-    private nonisolated static func componentName(_ root: [String: Any]) -> String {
+    nonisolated static func componentName(_ root: [String: Any]) -> String {
         trimmed(root["name"] as? String)?.lowercased() ?? ""
     }
 
@@ -342,7 +276,7 @@ nonisolated struct SceneParticleDefinitionParser {
         )
     }
 
-    private nonisolated static func numericValue(_ rawValue: Any?) -> SceneParticleNumericValue? {
+    nonisolated static func numericValue(_ rawValue: Any?) -> SceneParticleNumericValue? {
         if let wrapper = rawValue as? [String: Any], let value = wrapper["value"] {
             return numericValue(value)
         }
@@ -366,7 +300,7 @@ nonisolated struct SceneParticleDefinitionParser {
         return nil
     }
 
-    private nonisolated static func number(_ rawValue: Any?) -> Double? {
+    nonisolated static func number(_ rawValue: Any?) -> Double? {
         numericValue(rawValue)?.scalarValue
     }
 

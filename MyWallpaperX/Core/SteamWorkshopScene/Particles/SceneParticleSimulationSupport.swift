@@ -5,6 +5,8 @@ nonisolated enum SceneParticleSimulationDiagnosticKind: String, Hashable, Sendab
     case unsupportedOperator
     case boidsBounded
     case boidsUnsupported
+    case vortexBounded
+    case vortexUnsupported
     case controlPointForceBounded
     case controlPointForceUnsupported
     case unsupportedRenderer
@@ -345,7 +347,7 @@ nonisolated enum SceneParticleSimulationMath {
             case .boids:
                 add(definition.boidsPlan(for: value) == nil ? .boidsUnsupported : .boidsBounded, "boids")
             case .vortex:
-                add(.unsupportedOperator, "vortex")
+                add(value.vortexPlan == nil ? .vortexUnsupported : .vortexBounded, "vortex")
             case let .unsupported(name):
                 add(name.contains("controlpoint") ? .controlPointForceUnsupported : .unsupportedOperator, name)
             default:

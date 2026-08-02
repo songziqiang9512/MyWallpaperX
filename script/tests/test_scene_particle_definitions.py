@@ -13,7 +13,9 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
+    SOURCE_ROOT / "Particles/SceneParticleVortex.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
+    SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+Operator.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
     SOURCE_ROOT / "Format/ScenePkgReader.swift",
 ]
@@ -76,7 +78,7 @@ enum Harness {
             {"id":28,"name":"oscillateSize","frequencymin":1,"frequencymax":2,"scalemin":0.5,"scalemax":1.5},
             {"id":29,"name":"controlPointAttract","controlpoint":2,"origin":"4 5 0","scale":512,"threshold":256},
             {"id":30,"name":"turbulence","mask":"1 1 0","phasemin":0.1,"phasemax":0.5,"scale":0.02,"speedmin":50,"speedmax":100,"timescale":0.25},
-            {"id":31,"name":"vortex","audioprocessingmode":1,"audioprocessingbounds":"0.3 0.7"},
+            {"id":31,"name":"vortex","axis":"0 1 0","distanceinner":2,"distanceouter":8,"speedinner":10,"speedouter":20,"flags":1,"audioprocessingmode":1,"audioprocessingbounds":"0.3 0.7"},
             {"id":32,"name":"futureOperator"}
           ],
           "renderer":[
@@ -117,6 +119,9 @@ enum Harness {
         )
         let diagnostics = Dictionary(grouping: definition.diagnostics, by: { $0.kind.rawValue })
             .mapValues(\.count)
+        guard case let .vortex(vortex) = definition.operators[11].kind else {
+            throw HarnessError.invalidJSON
+        }
         return [
             "material": definition.materialPath ?? "",
             "maxCount": definition.maximumCount ?? -1,
@@ -169,6 +174,11 @@ enum Harness {
             "turbulenceSpeedMaximum": definition.operators[10].speedMaximum ?? -1,
             "turbulenceTimeScale": definition.operators[10].timeScale ?? -1,
             "vortexAudioBounds": definition.operators[11].audioResponse.bounds?.vectorValue ?? [],
+            "vortexAxis": vortex.axis?.vectorValue ?? [],
+            "vortexDistances": [vortex.distanceInner ?? -1, vortex.distanceOuter ?? -1],
+            "vortexSpeeds": [vortex.speedInner ?? -1, vortex.speedOuter ?? -1],
+            "vortexMalformed": vortex.hasMalformedFields,
+            "vortexUnsupportedFields": vortex.unsupportedFieldNames,
             "rendererKinds": definition.renderers.map { rendererName($0.kind) },
             "spriteWorldSpace": definition.renderers[0].isWorldSpace,
             "ropeSegments": definition.renderers[2].segments ?? -1,
@@ -552,6 +562,11 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         self.assertEqual(result["turbulenceSpeedMaximum"], 100)
         self.assertEqual(result["turbulenceTimeScale"], 0.25)
         self.assertEqual(result["vortexAudioBounds"], [0.3, 0.7])
+        self.assertEqual(result["vortexAxis"], [0, 1, 0])
+        self.assertEqual(result["vortexDistances"], [2, 8])
+        self.assertEqual(result["vortexSpeeds"], [10, 20])
+        self.assertFalse(result["vortexMalformed"])
+        self.assertEqual(result["vortexUnsupportedFields"], [])
         self.assertEqual(
             result["rendererKinds"],
             ["sprite", "spritetrail", "rope", "ropetrail", "futurerenderer"],
