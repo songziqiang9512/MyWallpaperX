@@ -108,6 +108,8 @@
 
 2026-08-01 复核 Timeline Introduction、Modes 与 SceneScript [`ILayer`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/ILayer.html)：公开页确认 Timeline 动画实际 component property、Loop/Mirror/Single 播放方式，以及 layer 的 origin/angles/scale 属性；它们没有公开私有 serialized `relative` wire，也没有定义 relative value 与作者基值的合成公式。项目当前只把合法语料、既有 black-box 校准与自有正反门支持的 layer `origin`/`angles`/`scale` 解释为 additive composition；其他 host 的 relative 继续 fail closed，不能把该 clean-room 合同表述成官方内部实现。
 
+2026-08-02 复核 Timeline [Introduction](https://docs.wallpaperengine.io/en/scene/timeline/introduction.html) 与 [Modes](https://docs.wallpaperengine.io/en/scene/timeline/modes.html)：公开页确认默认 smoothing 使用 Bézier curve，control handle 可分别使用 both/left/right/none，none 形成 straight line；页面没有公开 serialized handle 的 X/Y 单位、数值范围或求根算法。项目对 44 份合法抽取 `scene.json` 的 48 animations / 180 keyframes / 112 segments 做机械交叉：自定义 X 乘回各自 segment span 稳定得到整数或半帧 offset，Y 与 property value 差值同域；因此当前只把 X 解释为 segment-normalized offset、Y 解释为 property-value offset，并以自有正反 fixture 锁定。该推断与 Windows 同相位数值/像素 golden 尚未等价，后续若 golden 冲突必须修正项目合同，不能把 corpus 推断写成官方私有实现。
+
 ### 1.7 User Properties
 
 - Overview：https://docs.wallpaperengine.io/en/scene/userproperties/overview.html

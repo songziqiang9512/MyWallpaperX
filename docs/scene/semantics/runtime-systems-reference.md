@@ -228,7 +228,7 @@ MyWallpaperX 当前按 alias → 包内文件 → 客户端自带（stock）→ 
 
 MyWallpaperX 当前的 `pointsize * 300 / 72` 直接来自官方 typings 对 `ITextLayer.pointsize` 的 300 DPI 说明，并由随包 `dino_run` 两个记分标签的作者 size 逐位复现，见 [E-TEXT-POINTSIZE](runtime-evidence-index.md#e-text-pointsize)。但 scene unit、raster backing scale 和 Retina 输出之间的精确关系仍需官方 Windows 对照，本地还对像素字号做了 1024 的夹取；实现和文档都不能把这一个换算提升为完整文字语义。
 
-第 6 条里的 width/line/ellipsis 约束现在按作者开关执行：`limitwidth`/`maxwidth` 压窄换行宽度、`limitrows`/`maxrows` 丢弃多余行、`limituseellipsis` 在末行补省略号并回退到不越界，两个数值在开关关闭时必须完全不生效（本机语料 393 个关闭态 layer 都带着编辑器默认 `maxwidth: 500`，其中 79 个作者宽度已超过 500）。absolute 单 lane Timeline `maxwidth` 仅在 `limitwidth=true` 且作者/关键帧都位于有限 `1...16384` 像素预算时驱动同一 CoreText consumer；relative、Combined、越界与非文字形态失败关闭。省略号的回退粒度和被裁断点仍未与 Windows 逐像素对照，见 [E-TEXT-LIMITS](runtime-evidence-index.md#e-text-limits)。
+第 6 条里的 width/line/ellipsis 约束现在按作者开关执行：`limitwidth`/`maxwidth` 压窄换行宽度、`limitrows`/`maxrows` 丢弃多余行、`limituseellipsis` 在末行补省略号并回退到不越界，两个数值在开关关闭时必须完全不生效（本机语料 393 个关闭态 layer 都带着编辑器默认 `maxwidth: 500`，其中 79 个作者宽度已超过 500）。absolute 单 lane Timeline `maxwidth` 仅在 `limitwidth=true` 且作者、关键帧和实际消费的 Bézier control values 都位于有限 `1...16384` 像素预算时驱动同一 CoreText consumer；relative、Combined、越界与非文字形态失败关闭。省略号的回退粒度和被裁断点仍未与 Windows 逐像素对照，见 [E-TEXT-LIMITS](runtime-evidence-index.md#e-text-limits)。
 
 ### 3.3 Text 验收
 
@@ -265,6 +265,8 @@ MyWallpaperX 当前的 `pointsize * 300 / 72` 直接来自官方 typings 对 `IT
 ### 4.3 求值与 FPS
 
 Timeline 由 runtime time 求值，不应按“每渲染帧加一个 keyframe step”。高低 FPS 下同一 wall-clock time 必须得到相同 property value。离线固定 timestep 也必须走相同曲线求值器。
+
+当前 `77883809` 的公共 evaluator 对每段消费 `start.front` / `end.back`：X 解释为 segment span 的归一化 offset，Y 解释为 property value offset，再按绝对 frame progress 二分反求 cubic parameter。缺失或禁用侧退化到对应端点，两侧禁用严格线性；enabled front/back X 分别只准 `0...1` / `-1...0`。该单位来自 44 份合法抽取场景中 48 animations / 180 keyframes / 112 segments 的 clean-room 机械定标，官方页面只确认默认 Bézier smoothing 和 left/right/none handle，不公开私有 JSON 单位。bounded text width 与 camera 另按实际消费的 control-value convex hull 守住预算；无 Windows 同相位数值或像素 golden。
 
 ## 5. SceneScript
 
@@ -458,8 +460,8 @@ Realtime Adapter              Offline Adapter
 | Text | CoreText 静态纹理、direct property 与 bounded Timeline width 动态重栅格、部分 font/pointsize/padding/scale | system/media、完整 alignment/effects/SceneScript、Windows 排版等价 |
 | Effect graph | 内存 `SceneRuntimeInput` 保存 EffectDefinition/authored graph/provider metadata、ShaderContract 与 binding program；十四类 strict backend 及 ordered chain 已执行，包含 stock Radial God Rays 五 pass / 双 half RT。Debug evidence schema 1 只作结构验证 | dynamic effect、generic compose/history、通用 material/pass、authored shader 语义等价、未知/Directional God Rays 或官方 Shadow/lighting；精确当前门见 [运行证据索引](runtime-evidence-index.md) |
 | Frame Context | 宿主单一 60 Hz driver；所有屏幕共享 frame index/host/scene/wall time 及 raw/simulation/dropped delta/discontinuity；particle/parallax 消费受控 simulation delta，shader/video/Timeline 保持 raw/absolute time；pause 冻结 scene time/frame index，resume 首帧不补 host gap | 真实系统 pause/sleep、seek/history、其他 simulation consumer、不同 FPS、离线实时等价或 Windows timing 已闭环 |
-| Dynamic target snapshot | 六类 typed value、主要 target 族、固定优先级、binding program、per-surface evaluation transaction/snapshot/generation；layer alpha、纯 solid color、direct text、bounded text width、exact Local Contrast/Opacity、受限 X-Ray target，以及 Timeline 的 effect constant/layer alpha/bounded relative layer transform/root particle scalar 子集有真实 producer/consumer | 非 layer-transform `relative`、Combined/tangent/其他 target、SceneScript 与多数 particle dynamic target 仍未 live；unsupported host 留诊断 |
-| Timeline | IR、绝对 scene-time evaluator 与 **47/48** typed target 子集已执行，覆盖 Loop/Single/Mirror/start-paused、effect constant/layer alpha、10 条 relative layer transform、7 条 root particle scalar override及 2 条 bounded text `maxwidth`；其中 6 条普通图层走共享 world-frame，4 条 `lspot` 保持 strict consumer | 公开资料未定义私有 `relative` wire/合成公式，当前 additive 合同仍是 bounded clean-room 校准；wrap-loop、Combined、tangent 与 event crossing 未完成，唯一 `zoom` 属 Combined camera `origin↔zoom`，不能宣称任意动画模式可用 |
+| Dynamic target snapshot | 六类 typed value、主要 target 族、固定优先级、binding program、per-surface evaluation transaction/snapshot/generation；layer alpha、纯 solid color、direct text、bounded text width、exact Local Contrast/Opacity、受限 X-Ray target，以及 Timeline 的 effect constant/layer alpha/bounded relative layer transform/root particle scalar/camera 子集有真实 producer/consumer | 非 layer-transform `relative`、generic Combined/其他 target、SceneScript 与多数 particle dynamic target 仍未 live；unsupported host 留诊断 |
+| Timeline | IR、绝对 scene-time evaluator、bounded 作者 Bézier handle 与 **48/48** typed authored-host 子集已执行，覆盖 Loop/Single/Mirror/start-paused、effect constant/layer alpha、9 条 relative layer transform、7 条 root particle scalar override、2 条 bounded text `maxwidth` 及 camera `origin/zoom` 两成员；5 条普通 transform 走共享 world-frame，4 条 `lspot` 保持 strict consumer，camera 组共享 owner clock 并原子进入 projection | 私有 `relative` 合成与 handle 单位均是 bounded clean-room 校准；wrap-loop smoothing、generic Combined、multiple path/3D camera、event crossing、其他 target 与 Windows 同相位 golden 未完成，不能宣称任意 Timeline 可用 |
 | SceneScript | 顶层 layer binding IR 为 `L1`；七个 exact text、两个 exact 64-band audio profile和 property-bound text Date/string update subset 为 `L3 bounded` | 通用 ECMAScript VM/API、`registerAudioBuffers`/`AudioBuffers`、`createLayer`/`ILayer` handles 可用 |
 | User Properties | 独立窗口、条件、默认/override、部分 target 与持久化；`texture`/`scenetexture` 内部归一；受限静态 consumer 可选择 PNG/JPEG；已注册 B0/direct text/X-Ray target 可无重建更新 | 全部样本属性可调、所有 texture target/variant/live value 已闭环 |
 | Texture Provider | frame identity/status/generation、named variant 隔离、property absent -> authored fallback、受限 file-backed property source；direct text/embedded MP4 使用显式 content generation，视频有 launch-scoped pause/rebuild/stop 合同；bounded current/previous media cover 还有旧 request 协作取消、last-ready/fallback 与一个严格 transition consumer | live system-media adapter、Texture Variants、generic video/material、effectful/nested provider、其余 provider cancellation 与单次 decode 抢占尚未闭环 |
@@ -471,7 +473,7 @@ Realtime Adapter              Offline Adapter
 1. D1-D4 的 property 子集已完成：稳定 target、v22 binding program、per-surface evaluation transaction/snapshot、原子 generation，以及 B0/direct text/X-Ray 真实 consumer；未迁移 target 继续使用 rebuild fallback。
 2. D6 ordered strict effect-chain 与十四类 strict backend 已完成受限执行，包含 `Blur Precise -> Shadow`、Water chain、pointer-driven X-Ray 与 `[Blur Precise, God Rays]` 正门；这些 profile 不升级通用 graph、Directional/COPYBG God Rays、官方 Shadow/lighting 或 authored shader。
 3. Provider Core 已为 dynamic text 与 bounded media cover闭合局部 generation/cancellation/last-ready；继续补通用 metadata/cancellation/teardown。nested/effectful provider 和通用 material consumer 放在 B1/B2 集成层，不能互相形成前置环。
-4. Direct dynamic text、bounded Timeline text width、X-Ray pointer、Timeline 的 **47/48** typed target 子集、16/32/64 audio 输入、两个 exact native 64-band profiles 与 bounded media cover 已完成；SceneScript core、Sound、通用 media、Combined camera zoom 与其余 particle 动态能力继续按 D10 的真实依赖接入。粒子 audio 在拿到官方求值公式证据前不接执行。
+4. Direct dynamic text、bounded Timeline text width、X-Ray pointer、Timeline 的 **48/48** authored-host typed target 与作者 Bézier handle、16/32/64 audio 输入、两个 exact native 64-band profiles 与 bounded media cover 已完成；SceneScript core、Sound、通用 media、generic Combined/multiple camera path/3D camera 与其余 particle 动态能力继续按 D10 的真实依赖接入。粒子 audio 在拿到官方求值公式证据前不接执行。
 5. exact stock Opacity、Tint mask 与 stock Radial God Rays 子集已完成；下一批从能力开发计划按公共依赖、真实样本收益和 fail-closed 边界重新选择，不新增 effect-name 或样本 ID 近似。
 6. 广度闭合后用固定、扩展和新下载样本矩阵暴露冲突，再用 Windows golden 校准 effect、text、particle 和动态值精度；最后扩 Puppet/3D/Lighting 与离线编码产品层。
 

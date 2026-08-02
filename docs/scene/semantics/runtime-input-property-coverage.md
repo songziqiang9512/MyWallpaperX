@@ -4,7 +4,7 @@
 >
 > 最近核对：2026-08-02
 >
-> 本页的 dynamic text / Timeline 实现基线为 `0d61f7cd`；精确全局当前状态见 [总覆盖台账](coverage-ledger.md)。
+> 本页的 Timeline 实现基线为 `77883809`，dynamic text width 基线为 `0d61f7cd`；精确全局当前状态见 [总覆盖台账](coverage-ledger.md)。
 >
 > 本专项的 direct text 定向门：`.codex/scene-dynamic-text-targeted-213-final-20260723-1907/report.json`；全局正式门统一见 [运行证据索引](runtime-evidence-index.md)。
 
@@ -65,7 +65,7 @@ B0 live-property 子阶段已从空 snapshot 脚手架合龙到真实 producer/c
 | parallax mouse influence | `L2` | 字段已进入 offset；当前还叠加 layer-to-camera 静态项，`0` 不保证所有 2D layer 完全不动 | 先锁定 `0` 关闭鼠标驱动的官方反例，再校准非零幅度 |
 | per-layer parallax depth / propagation | `L3` | 非零 depth、parent propagation 和阻断；[E-PARALLAX](runtime-evidence-index.md#e-parallax) | effect-local/3D 坐标 golden |
 | camera shake | `L1` | binding 名称可分类，renderer 不消费 | 独立 shake 状态和作者启用门 |
-| bounded 2D camera path origin/zoom | `L3 bounded` | 单一 default path 的 reciprocal Combined `origin` owner + `zoom` child 共用 owner clock，原子进入 image/particle/pointer projection；zoom 只准 `0.01...100` | 多 path selection/lifecycle、generic setter、Bézier 与 Windows golden |
+| bounded 2D camera path origin/zoom | `L3 bounded` | 单一 default path 的 reciprocal Combined `origin` owner + `zoom` child 共用 owner clock，原子进入 image/particle/pointer projection；zoom 只准 `0.01...100`，作者 Bézier control-value convex hull 也必须保持 origin/zoom/near/far 预算 | 多 path selection/lifecycle、generic setter、3D camera 与 Windows golden |
 | 3D camera / perspective runtime control | `L0` | 2D bounded path 不外推 3D Eye/Center/Up/FOV | 3D path identity、queue/lifecycle、typed projection 与运行门 |
 | environment/gravity/wind | `L0` | Scene general 无对应 IR | 与 particle/puppet/3D solver 共用输入 |
 | official Scene Bloom/HDR target identity | `L1` | `.scene(.bloomEnabled/.bloomThreshold)` 已定义；无 binding/producer | 稳定 authored path 和类型定义 |
@@ -118,9 +118,9 @@ Timeline 是带预定义时长的 component-property 动画，不是 Effect anim
 | dynamic `animation` wrapper presence | `L2` | 粒子 CP position/angles nested wrapper 已保留完整 Timeline IR；随包 7 处 particle Timeline 是其他 scalar override，仍只记 presence 并诊断 | 不得把 CP 子集外推为 generic particle Timeline |
 | animation identity / optional name | `L1` | 身份由宿主 JSON 路径（layer + host 属性名、layer + `instanceoverride.controlpoint*`，或 layer/effect/pass/constant 名）决定；官方 optional name 在随包 48 处中未出现，未保存 | 出现合法 fixture 后补 name 与 owner scope |
 | duration seconds / authored frame slots | `L2` | `fps`/`length` 原样保存，时长按 `length / fps` 换算（随包三例交叉验证 1.0s / 0.5s / 0.5s）；`smoothing`/`stiffness` 随包 16 处全为 null，只保真不解释 | 异常值（`length` 与末帧不符）无反例可依 |
-| component/property/axis target | `L3` | lane 以 `c0/c1/c2` 对应 component 下标，必须从 `c0` 起连续否则 fail-closed；已 typed 编译为 `.camera(.origin/.zoom)`、`.layer(.alpha/.origin/.angles/.scale)`、`.effectConstant`、`.text(.maxWidth)` 与 particle `.controlPoint`/`.controlPointAngles`。layer transform 仅在 `relative=true` 时准入 additive composition；唯一 camera 组按 relative origin + absolute zoom 准入，组内共用 owner clock；text width 仅准 `limitwidth=true`、absolute 单 lane、有限 `1...16384` 像素 | particle 仅 absolute position 有 root-emitter consumer；generic Combined、absolute layer transform 与其他非 layer-transform `relative` 没有经合法语料定标，继续拒绝 |
+| component/property/axis target | `L3` | lane 以 `c0/c1/c2` 对应 component 下标，必须从 `c0` 起连续否则 fail-closed；已 typed 编译为 `.camera(.origin/.zoom)`、`.layer(.alpha/.origin/.angles/.scale)`、`.effectConstant`、`.text(.maxWidth)` 与 particle `.controlPoint`/`.controlPointAngles`。layer transform 仅在 `relative=true` 时准入 additive composition；唯一 camera 组按 relative origin + absolute zoom 准入，组内共用 owner clock；text width 仅准 `limitwidth=true`、absolute 单 lane，且实际 Bézier segment 的端点/control values 全部位于有限 `1...16384` 像素 | particle 仅 absolute position 有 root-emitter consumer；generic Combined、absolute layer transform 与其他非 layer-transform `relative` 没有经合法语料定标，继续拒绝 |
 | `relative` composition | `L3 bounded` | 9 处 layer transform 以“作者基值 + 动画偏移”形成 typed additive binding：5 条 ordinary + 4 条 `lspot`；camera origin 另以相同 composition 进入 bounded Combined camera target。公开官方页只定义 property animation/modes 与 layer transform，不定义私有 serialized `relative` wire 或合成公式 | 合同来自合法语料、既有 black-box 校准与项目自有正反门；其他非 layer target、非有限基值或形态不完整均 fail closed，仍需 Windows golden |
-| keyframe frame/time/value | `L2` | `frame`/`value`/`front`/`back`/`lockangle`/`locklength` 六个键在 180 个真实 keyframe 上全部保真；帧号必须严格递增；缺失/`null` tangent 合法，存在但不是 object 的 tangent 报 `invalidTangent` 并整条 fail-closed | 同 frame 多 lane 与异常顺序目前只有负例门，无 Windows 对照 |
+| keyframe frame/time/value | `L3 bounded` | `frame`/`value`/`front`/`back`/`lockangle`/`locklength` 六个键在 180 个真实 keyframe 上全部保真；帧号严格递增；缺失/`null` tangent 合法，非 object 报 `invalidTangent`。enabled front X 只准 `0...1`、back X 只准 `-1...0`，已消费 control value 必须有限；未消费的首 back/末 front 不影响准入 | 同 frame 多 lane 与异常顺序目前只有负例门；handle 单位与范围无 Windows wire 对照 |
 | scene-time evaluation | `L3` | 纯函数 evaluator，同一 `sceneTime` 必得同一结果，不持播放状态、不逐帧累加；host 每帧算一次后经 per-surface transaction 写回；Scene pause 通过冻结共享 scene time 保持结果 | 未接 seek/discontinuity |
 | wrap-loop frames | `L1` | `wraploop` 已保真（随包 9 处），执行按普通 loop 降级并记 `wrapLoopIgnored` | 官方未公开首尾平滑算法，需合法 fixture |
 
@@ -144,7 +144,7 @@ Combined Animation 会把新的 property lane 加入一个已有 animation，并
 | Mirror | `L3` | 周期 `2*length` 的三角波，端点不重复采样；单测覆盖折返段与上行段同值。随包 6 处均为 relative layer transform，现已执行；`2938612768` 的 ordinary origin 有共享 world-frame 隔离正门，`3768903841` 的四束 `lspot` 有既有 strict 真实门 | 端点是否重复采样官方未定义，仍无 Windows 同相位 golden |
 | Single | `L3` | 到末帧后保持末值不回绕；真实执行 21 处 | — |
 | start paused | `L3` | 恒停首帧，真实执行 6 处；`2067939514` 为负门（同级脚本在 `mediaThumbnailChanged` 里调 `play()`，无 VM 时不得自动播放）；Scene pause 只冻结全局 clock，不改变 animation-local start-paused 状态 | animation-local play/stop/seek 仍需 VM/API |
-| Bézier `both/left/right/none` | `L1` | 每 keyframe 的左右 handle 与 `enabled` 已独立保真 | **求值不消费 tangent，一律线性**：handle 的 `x` 是「帧偏移」还是「归一化段长比例」两种解释不等价（`2067939514` 的 `0→15` 帧段在 frame=3.75 处分别约 0.767 与 0.970，线性 0.5，仅中点因对称巧合相同），需视觉定标后才能宣称 Bézier parity |
+| Bézier `both/left/right/none` | `L3 bounded` | 每 keyframe 左右 handle 与 `enabled` 独立保真；每段以 `start.front` / `end.back` 构造 cubic，X 作为 segment span 归一化 offset、Y 作为 property value offset，按 frame progress 二分反求 curve parameter。一侧关闭退化到对应端点，两侧关闭严格线性。44 场景 **48 animations / 180 keyframes / 112 segments** 中 178 个 enabled front/back 全部满足范围，自定义 handle 分布于四个样本；定向与 fixed13 见 [E-TIMELINE](runtime-evidence-index.md#e-timeline) | 单位来自合法语料机械定标而非公开私有 wire；无 Windows 同相位数值/像素 golden，`wraploop` 平滑仍独立缺失 |
 
 <a id="op-timeline-events"></a>
 ### 4.4 [Animation Events](https://docs.wallpaperengine.io/en/scene/timeline/animationevents.html)
@@ -294,7 +294,7 @@ User Shortcut 可由用户绑定 file、directory、web page 或 console command
 | point size | `L3` | authored `pointsize * 300 / 72` 官方 300 DPI 换算；[E-TEXT-POINTSIZE](runtime-evidence-index.md#e-text-pointsize) | Windows 逐像素对照、去掉本地 1024 px 字号夹取 |
 | alignment/padding geometry | `L3` | left/center/right × center/top/bottom 同时进入 CoreText 和 quad pivot；作者 `size` 是含 padding 外框，边对齐以内容边钉住 origin，动态扩框使用当前 render size 归一化 padding；[E-TEXT-PIVOT](runtime-evidence-index.md#e-text-pivot) | Windows 字体/像素 golden、effect 越界裁剪对照 |
 | baseline/`blockalign` | `L1` | 字段可见但未形成独立 baseline/block alignment 执行合同 | parser + CoreText baseline/块对齐正反门 |
-| row/width overflow limits | `L3` | `limitrows`/`maxrows`/`limitwidth`/`maxwidth`/`limituseellipsis` 进 IR 并由 CoreText 消费，两个数值只在对应开关打开时生效（语料 393 个关闭态带默认 `maxwidth: 500`，79 个已超宽）；bounded Timeline `maxwidth` 复用同一 CoreText consumer，并以每层单在途任务合并连续重栅格；[E-TEXT-LIMITS](runtime-evidence-index.md#e-text-limits) | Windows 逐像素对照省略号回退与断点、多屏连续宽度压力门 |
+| row/width overflow limits | `L3` | `limitrows`/`maxrows`/`limitwidth`/`maxwidth`/`limituseellipsis` 进 IR 并由 CoreText 消费，两个数值只在对应开关打开时生效（语料 393 个关闭态带默认 `maxwidth: 500`，79 个已超宽）；bounded Timeline `maxwidth` 复用同一 CoreText consumer，端点与实际消费的 Bézier controls 均需在预算内，并以每层单在途任务合并连续重栅格；[E-TEXT-LIMITS](runtime-evidence-index.md#e-text-limits) | Windows 逐像素对照省略号回退与断点、多屏连续宽度压力门 |
 | color/alpha | `L3` | 静态 descriptor 和 direct color generation consumer；[E-DYNAMIC-TEXT](runtime-evidence-index.md#e-dynamic-text) | premultiplied alpha 与 Windows golden |
 | outline/shadow/text effects | `L1` | 可见字段/effect 可能被保留 | 独立 style IR 与执行器 |
 | property-driven dynamic text | `L3` | 只更新变化 layer，重复值不生成；并发旧 generation/失败结果不覆盖 last-ready，连续 Timeline 则每层只保留一个在途任务、发布单调中间结果后只追最新 generation；真实 `2134765860` 三字段与 `2902406982` 两条 width Timeline 正门 | 长文本/emoji/多语言布局与多屏压力门 |
@@ -383,5 +383,5 @@ Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选
 2. 新增任何 live target 时，必须在同一能力切片中补稳定 identity/value semantic、compiler definition/instruction、真实 renderer/runtime consumer、原子失败、fallback 与 identity 运行门；缺一项就保留整场重建。
 3. B2 ordered strict scheduler、exact Workshop Shadow 与 stock Opacity `MASK=0` 已完成。`2902406982:[365,372,647,664]` 是 direct-binding live 正门；`2938612768:[165,454,626,629,924]` 是 SceneScript fail-closed 负门。optional mask、未知 fingerprint 或缺 consumer 的部分 live 继续拒绝。
 4. B2 同帧 copy/swap foundation、受限 history seed、Precise Blur interleave 与 stock Radial God Rays 双 half RT 已完成；真实 persistent/history consumer、generic compose 与 provider generation/cancel 仍未完成。
-5. Timeline 的 IR、绝对 scene-time evaluator 和 Workshop **48/48 authored host** 受限 consumer 已接入；唯一 default 2D camera Combined `origin↔zoom` 组已共用 owner clock 并原子进入 projection。该计数不外推 generic Timeline：particle relative/其他 field、普通 Combined、multiple path/3D camera、tangent、其余 target 与 event crossing 继续 fail closed。另有 stock-wire/project-fixture 证明 particle CP position/angles typed target，其中仅 absolute position 驱动 root emitter。SceneScript 文档级 inline binding 已对正式取证五类 owner/完整 target path/authored fallback/JSON value type 达到局部 `L1`，file/module、schema type、handle 与 VM 仍须在沙箱成立后接入同一 target 层。
+5. Timeline 的 IR、绝对 scene-time evaluator、bounded 作者 Bézier handle 和 Workshop **48/48 authored host** 受限 consumer 已接入；唯一 default 2D camera Combined `origin↔zoom` 组已共用 owner clock 并原子进入 projection。该计数不外推 generic Timeline：particle relative/其他 field、普通 Combined、multiple path/3D camera、其余 target、wrap-loop smoothing 与 event crossing 继续 fail closed。另有 stock-wire/project-fixture 证明 particle CP position/angles typed target，其中仅 absolute position 驱动 root emitter。SceneScript 文档级 inline binding 已对正式取证五类 owner/完整 target path/authored fallback/JSON value type 达到局部 `L1`，file/module、schema type、handle 与 VM 仍须在沙箱成立后接入同一 target 层。
 6. 16/32/64 档 audio provider 已有 consumer 驱动、失败归零和 teardown 门；当前开放 stock effect、三个 exact Workshop Audio Bars profile与两个 exact native property-script 64-band profile。新增 renderer consumer、通用 SceneScript `AudioBuffers` bridge/`average` 或 media provider仍须同批补作者未启用反例、fallback、generation/cancel 和 stop teardown。
