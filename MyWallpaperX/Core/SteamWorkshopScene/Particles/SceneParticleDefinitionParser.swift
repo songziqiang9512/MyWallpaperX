@@ -103,6 +103,7 @@ nonisolated struct SceneParticleDefinitionParser {
         case "sizerandom": kind = .size
         case "velocityrandom": kind = .velocity
         case "colorrandom": kind = .color
+        case "colorlist": kind = .colorList
         case "alpharandom": kind = .alpha
         case "rotationrandom": kind = .rotation
         case "angularvelocityrandom": kind = .angularVelocity
@@ -124,12 +125,19 @@ nonisolated struct SceneParticleDefinitionParser {
             timeScale: Self.number(root["timescale"]),
             audioResponse: Self.audioResponse(root)
         ) : nil
+        let rawColors = root["colors"] as? [Any]
+        let colors = rawColors?.compactMap(Self.numericValue)
+        let hasMalformedColorList = kind == .colorList && (
+            rawColors == nil || colors?.count != rawColors?.count
+                || root.keys.contains { !["id", "name", "colors"].contains($0) }
+        )
         return SceneParticleInitializer(
             id: Self.integer(root["id"]), kind: kind,
             minimum: Self.numericValue(root["min"]),
             maximum: Self.numericValue(root["max"]),
             exponent: Self.number(root["exponent"]),
-            turbulentVelocity: turbulence
+            turbulentVelocity: turbulence, colors: colors,
+            hasMalformedColorList: hasMalformedColorList
         )
     }
 

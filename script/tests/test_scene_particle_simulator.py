@@ -450,6 +450,22 @@ enum Harness {
         let colorAmount = (randomColor.x * 255 - 10) / 230
         let expectedGreen = (40 + 160 * colorAmount) / 255
         let expectedBlue = (80 + 80 * colorAmount) / 255
+        var colorList = simulator(colorListJSON, seed: 43, step: 0.1)
+        colorList.advance(by: 0.1)
+        var colorListThenColor = simulator(colorListThenColorJSON, seed: 43, step: 0.1)
+        colorListThenColor.advance(by: 0.1)
+        let invalidColorLists = [
+            #""colors":[]"#,
+            #""colors":["1 0 0","0 1 0","0 0 1","1 1 0","1 0 1","0 1 1","0.5 0 0","0 0.5 0","0 0 0.5","0.5 0.5 0.5","1 1 1"]"#,
+            #""colors":[0.5]"#,
+            #""colors":["1.1 0 0"]"#,
+            #""colors":["bad"]"#,
+            #""colors":["1 0 0"],"weights":[1]"#,
+        ].map { fields -> SceneParticleSimulator in
+            var value = simulator(colorListJSON(fields), seed: 43, step: 0.1)
+            value.advance(by: 0.1)
+            return value
+        }
         var uniformSize = simulator(uniformSizeJSON, seed: 17, step: 0.1)
         var biasedSize = simulator(biasedSizeJSON, seed: 17, step: 0.1)
         uniformSize.advance(by: 0.1)
@@ -954,6 +970,15 @@ enum Harness {
                 vector(longQuarterLifeOscillationPosition),
             "colorUsesSingleInterpolation": abs(randomColor.y - expectedGreen) < 1e-12
                 && abs(randomColor.z - expectedBlue) < 1e-12,
+            "colorListColors": colorList.particles.map { vector($0.color) },
+            "colorListDiagnostics": colorList.diagnostics.map(\.kind.rawValue),
+            "colorListThenColor": vector(colorListThenColor.particles[0].color),
+            "invalidColorListColors": invalidColorLists.map {
+                vector($0.particles[0].color)
+            },
+            "invalidColorListDiagnostics": invalidColorLists.map {
+                $0.diagnostics.map(\.kind.rawValue)
+            },
             "uniformSizeAmount": uniformSizeAmount,
             "biasedSizeAmount": biasedSizeAmount,
             "maximumSize": maximumSize.particles[0].size,
@@ -1591,6 +1616,26 @@ enum Harness {
      "renderer":[{"name":"sprite"}]}
     """#
 
+    private static let colorListJSON = colorListJSON(
+        #""colors":["1 0 0","0 1 0","0 0 1"]"#
+    )
+
+    private static func colorListJSON(_ fields: String) -> String {
+        """
+        {"material":"p.json","maxcount":30,
+         "emitter":[{"name":"boxrandom","instantaneous":30,"distancemax":0}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"colorrandom","min":"255 255 255","max":"255 255 255"},{"name":"colorlist",\(fields)}],
+         "renderer":[{"name":"sprite"}]}
+        """
+    }
+
+    private static let colorListThenColorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemax":0}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"colorlist","colors":["1 0 0"]},{"name":"colorrandom","min":"64 128 255","max":"64 128 255"}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
     private static let uniformSizeJSON = #"""
     {"material":"p.json","maxcount":1,
      "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
@@ -2062,6 +2107,22 @@ class SceneParticleSimulatorTests(unittest.TestCase):
 
     def test_color_initializer_interpolates_between_authored_colors(self) -> None:
         self.assertTrue(self.results["colorUsesSingleInterpolation"])
+
+    def test_color_list_selects_authored_members_in_initializer_order(self) -> None:
+        colors = {tuple(value) for value in self.results["colorListColors"]}
+        self.assertEqual(colors, {(1, 0, 0), (0, 1, 0), (0, 0, 1)})
+        self.assertEqual(self.results["colorListDiagnostics"], ["colorListBounded"])
+        self.assertEqual(
+            self.results["colorListThenColor"],
+            [64 / 255, 128 / 255, 1],
+        )
+
+    def test_color_list_rejects_malformed_or_unbounded_profiles(self) -> None:
+        self.assertEqual(self.results["invalidColorListColors"], [[1, 1, 1]] * 6)
+        self.assertEqual(
+            self.results["invalidColorListDiagnostics"],
+            [["colorListUnsupported"]] * 6,
+        )
 
     def test_random_initializer_exponent_biases_values_towards_minimum(self) -> None:
         uniform = self.results["uniformSizeAmount"]

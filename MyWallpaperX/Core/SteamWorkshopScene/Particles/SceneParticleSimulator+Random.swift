@@ -33,6 +33,14 @@ extension SceneParticleSimulator {
         return minimum + (maximum - minimum) * randomFactor(exponent: value.exponent)
     }
 
+    nonisolated mutating func randomColorFromList(
+        _ value: SceneParticleInitializer
+    ) -> SIMD3<Double>? {
+        guard let colors = value.boundedColorList else { return nil }
+        let index = min(Int(random.unit() * Double(colors.count)), colors.count - 1)
+        return colors[index]
+    }
+
     private nonisolated mutating func randomValue(
         _ first: Double,
         _ second: Double,

@@ -236,6 +236,8 @@ nonisolated struct SceneParticleSimulator: Sendable {
                 particle.color = randomColor(
                     initializer, defaults: (.zero, SIMD3(repeating: 255))
                 ) / 255
+            case .colorList:
+                if let color = randomColorFromList(initializer) { particle.color = color }
             case .alpha:
                 particle.alpha = randomScalar(initializer, defaults: (0.05, 1))
             case .rotation:

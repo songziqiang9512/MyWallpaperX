@@ -174,6 +174,7 @@ nonisolated enum SceneParticleInitializerKind: Equatable, Sendable {
     case size
     case velocity
     case color
+    case colorList
     case alpha
     case rotation
     case angularVelocity
@@ -202,6 +203,8 @@ nonisolated struct SceneParticleInitializer: Equatable, Sendable {
     let maximum: SceneParticleNumericValue?
     let exponent: Double?
     let turbulentVelocity: SceneParticleTurbulentVelocity?
+    let colors: [SceneParticleNumericValue]?
+    let hasMalformedColorList: Bool
 }
 
 nonisolated enum SceneParticleOperatorKind: Equatable, Sendable {

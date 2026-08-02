@@ -64,7 +64,8 @@ enum Harness {
             {"id":15,"name":"rotationRandom","min":"0 0 0","max":"0 0 6.28"},
             {"id":16,"name":"angularVelocityRandom","min":"0 0 -1","max":"0 0 1"},
             {"id":17,"name":"turbulentVelocityRandom","forward":"0 1 0","right":"1 0 0","up":"0 0 1","offset":0.5,"phasemin":0.25,"phasemax":6.28,"scale":0.2,"speedmin":10,"speedmax":20,"timescale":0.1,"audioprocessingmode":1,"audioprocessingexponent":0.5,"audioprocessingfrequencystart":3,"audioprocessingfrequencyend":13,"audioprocessingbounds":"0.2 0.8"},
-            {"id":18,"name":"futureInitializer"}
+            {"id":18,"name":"colorList","colors":["1 0 0","0 1 0","0 0 1"]},
+            {"id":19,"name":"futureInitializer"}
           ],
           "operator":[
             {"id":20,"name":"movement","flags":1,"gravity":"0 -9.8 0","drag":0.2},
@@ -167,6 +168,7 @@ enum Harness {
             "turbulentTimeScale": definition.initializers[7].turbulentVelocity?.timeScale ?? -1,
             "turbulentAudioMode": definition.initializers[7].turbulentVelocity?.audioResponse.mode ?? -1,
             "turbulentAudioBounds": definition.initializers[7].turbulentVelocity?.audioResponse.bounds?.vectorValue ?? [],
+            "colorListColors": definition.initializers[8].colors?.compactMap(\.vectorValue) ?? [],
             "operatorKinds": definition.operators.map { operatorName($0.kind) },
             "movementGravity": definition.operators[0].gravity?.vectorValue ?? [],
             "movementDrag": definition.operators[0].drag ?? -1,
@@ -427,6 +429,7 @@ enum Harness {
         case .size: "sizerandom"
         case .velocity: "velocityrandom"
         case .color: "colorrandom"
+        case .colorList: "colorlist"
         case .alpha: "alpharandom"
         case .rotation: "rotationrandom"
         case .angularVelocity: "angularvelocityrandom"
@@ -559,10 +562,14 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         self.assertEqual(result["boxMaximumEmissionCount"], 32)
         self.assertFalse(result["boxPeriodicMalformed"])
         self.assertEqual(result["turbulentPhaseMinimum"], 0.25)
-        self.assertEqual(len(result["initializerKinds"]), 9)
+        self.assertEqual(len(result["initializerKinds"]), 10)
         self.assertEqual(result["turbulentTimeScale"], 0.1)
         self.assertEqual(result["turbulentAudioMode"], 1)
         self.assertEqual(result["turbulentAudioBounds"], [0.2, 0.8])
+        self.assertEqual(
+            result["colorListColors"],
+            [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+        )
         self.assertEqual(len(result["operatorKinds"]), 14)
         self.assertEqual(result["movementGravity"], [0, -9.8, 0])
         self.assertEqual(result["movementDrag"], 0.2)
