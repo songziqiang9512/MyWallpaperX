@@ -330,6 +330,7 @@ nonisolated struct SceneParticleChild: Equatable, Sendable {
     let scale: SceneParticleNumericValue?
     let angles: SceneParticleNumericValue?
     let rawFlags: Int
+    let hasMalformedTransformFields: Bool
 }
 
 nonisolated enum SceneParticleDiagnosticKind: String, Equatable, Sendable {

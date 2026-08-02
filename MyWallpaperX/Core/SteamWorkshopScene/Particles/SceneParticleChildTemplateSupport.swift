@@ -8,6 +8,54 @@ enum SceneParticleChildControlPointCopyAdmission {
     case unsupported(String)
 }
 
+/// Project-owned bounded child transform profile. Screen-plane scale stays uniform;
+/// mirroring, rotation, nested scaling, ropes, and world-space movement remain fail-closed.
+struct SceneParticleChildTransform: Equatable {
+    private static let minimumScale = 1.0 / 1_024.0
+    private static let maximumScale = 1_024.0
+
+    let origin: SIMD3<Double>
+    let scale: SIMD3<Double>
+
+    var hasScale: Bool { scale != SIMD3(repeating: 1) }
+
+    init?(child: SceneParticleChild, allowsOrigin: Bool) {
+        guard !child.hasMalformedTransformFields,
+              let origin = Self.vector(child.origin, fallback: .zero),
+              let angles = Self.vector(child.angles, fallback: .zero),
+              let scale = Self.vector(child.scale, fallback: SIMD3(repeating: 1)),
+              angles == .zero,
+              allowsOrigin || origin == .zero,
+              scale.x == scale.y,
+              scale.x >= Self.minimumScale, scale.x <= Self.maximumScale,
+              scale.z >= Self.minimumScale, scale.z <= Self.maximumScale
+        else { return nil }
+        self.origin = origin
+        self.scale = scale
+    }
+
+    func position(_ value: SIMD3<Double>) -> SIMD3<Double> {
+        value * scale
+    }
+
+    func velocity(_ value: SIMD3<Double>) -> SIMD3<Double> {
+        value * scale
+    }
+
+    func size(_ value: Double) -> Double {
+        value * scale.x
+    }
+
+    private static func vector(
+        _ value: SceneParticleNumericValue?, fallback: SIMD3<Double>
+    ) -> SIMD3<Double>? {
+        guard let value else { return fallback }
+        guard case let .vector(components) = value, components.count == 3,
+              components.allSatisfy(\.isFinite) else { return nil }
+        return SIMD3(components[0], components[1], components[2])
+    }
+}
+
 enum SceneParticleChildTemplateSupport {
     static func rawParentControlPointOverride(
         childDefinition: SceneParticleDefinition,
@@ -70,17 +118,10 @@ enum SceneParticleChildTemplateSupport {
         ), count: values.count)
     }
 
-    static func staticOriginTranslation(_ child: SceneParticleChild) -> SIMD3<Double>? {
-        let origin = SceneParticleSimulationMath.vector(child.origin, fallback: .zero)
-        let angles = SceneParticleSimulationMath.vector(child.angles, fallback: .zero)
-        let scale = SceneParticleSimulationMath.vector(child.scale, fallback: SIMD3(repeating: 1))
-        guard origin.x.isFinite, origin.y.isFinite, origin.z.isFinite,
-              angles == .zero, scale == SIMD3(repeating: 1) else { return nil }
-        return origin
-    }
-
-    static func hasIdentityTransform(_ child: SceneParticleChild) -> Bool {
-        staticOriginTranslation(child) == .zero
+    static func transform(
+        _ child: SceneParticleChild, allowsOrigin: Bool
+    ) -> SceneParticleChildTransform? {
+        SceneParticleChildTransform(child: child, allowsOrigin: allowsOrigin)
     }
 
     private static func finiteVector(

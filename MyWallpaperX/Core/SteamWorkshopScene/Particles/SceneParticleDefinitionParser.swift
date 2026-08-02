@@ -232,14 +232,23 @@ nonisolated struct SceneParticleDefinitionParser {
     }
 
     private nonisolated func parseChild(_ root: [String: Any]) -> SceneParticleChild {
-        .init(
+        let origin = Self.numericValue(root["origin"])
+        let scale = Self.numericValue(root["scale"])
+        let angles = Self.numericValue(root["angles"])
+        let hasMalformedTransformFields = [
+            ("origin", origin), ("scale", scale), ("angles", angles),
+        ].contains { key, parsed in
+            root[key] != nil && !(root[key] is NSNull) && parsed == nil
+        }
+        return .init(
             id: Self.integer(root["id"]), path: Self.normalizedPath(root["name"] as? String),
             type: Self.trimmed(root["type"] as? String)?.lowercased(),
             maximumCount: Self.integer(root["maxcount"]),
             controlPointStartIndex: Self.integer(root["controlpointstartindex"]),
-            probability: Self.number(root["probability"]), origin: Self.numericValue(root["origin"]),
-            scale: Self.numericValue(root["scale"]), angles: Self.numericValue(root["angles"]),
-            rawFlags: Self.integer(root["flags"]) ?? 0
+            probability: Self.number(root["probability"]), origin: origin,
+            scale: scale, angles: angles,
+            rawFlags: Self.integer(root["flags"]) ?? 0,
+            hasMalformedTransformFields: hasMalformedTransformFields
         )
     }
 

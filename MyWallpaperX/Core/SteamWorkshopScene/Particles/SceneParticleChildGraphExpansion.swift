@@ -26,7 +26,7 @@ struct SceneParticleChildTemplate {
     let usesPerspective: Bool
     let worldSpaceFrame: SceneParticleWorldSpaceFrame?
     let probability: Double
-    let staticOrigin: SIMD3<Double>
+    let transform: SceneParticleChildTransform
     let maximumSystemCount: Int
     let particleBudget: Int
     let depth: Int
@@ -165,11 +165,9 @@ enum SceneParticleChildGraphExpansion {
         if depth > 1, trigger == .staticChild {
             return .rejected("\(label):nestedStaticChildUnsupported")
         }
-        let staticOrigin = trigger == .staticChild
-            ? SceneParticleChildTemplateSupport.staticOriginTranslation(child) : .zero
-        let supportsTransform = trigger == .staticChild
-            ? staticOrigin != nil : SceneParticleChildTemplateSupport.hasIdentityTransform(child)
-        guard supportsTransform,
+        guard let transform = SceneParticleChildTemplateSupport.transform(
+            child, allowsOrigin: trigger == .staticChild
+        ),
               child.controlPointStartIndex == nil,
               child.rawFlags == 0
         else {
@@ -207,6 +205,15 @@ enum SceneParticleChildGraphExpansion {
             let profile = trigger == .staticChild
                 ? "outsideStrictStaticProfile" : "outsideStrictEventProfile"
             return .rejected("\(path):\(profile)")
+        }
+        if transform.hasScale {
+            guard render.rope == nil,
+                  asset.definition.children.isEmpty,
+                  !asset.definition.operators.contains(where: \.isWorldSpaceMovement)
+            else { return .rejected("\(path):childScaleOutsideBoundedProfile") }
+            performance.append(
+                "\(path):childScaleBounded:scale=\(transform.scale.x),\(transform.scale.y),\(transform.scale.z)"
+            )
         }
         let instanceOverride: SceneParticleInstanceOverride?
         switch SceneParticleChildTemplateSupport.rawParentControlPointOverride(
@@ -313,7 +320,7 @@ enum SceneParticleChildGraphExpansion {
                 usesPerspective: asset.definition.flags.usesPerspective,
                 worldSpaceFrame: worldSpaceFrame,
                 probability: probability,
-                staticOrigin: staticOrigin ?? .zero,
+                transform: transform,
                 maximumSystemCount: maximum,
                 particleBudget: particleBudget,
                 depth: depth,
@@ -352,14 +359,15 @@ extension SceneParticleChildTemplate {
             age: Float(particle.age),
             lifetime: Float(particle.lifetime)
         )
+        let velocity = transform.velocity(particle.velocity)
         return SceneParticleGPUInstance(
-            position: (origin + particle.position).particleFloatValue,
-            size: Float(particle.size),
+            position: (origin + transform.position(particle.position)).particleFloatValue,
+            size: Float(transform.size(particle.size)),
             rotation: particle.rotation.particleFloatValue,
             color: particle.color.particleFloatValue,
             alpha: Float(particle.alpha) * layerAlpha,
-            velocity: particle.velocity.particleFloatValue,
-            trailStretch: trail?.stretch(for: particle.velocity),
+            velocity: velocity.particleFloatValue,
+            trailStretch: trail?.stretch(for: velocity),
             currentFrame: frames.current.orientedForTrail(trail != nil),
             nextFrame: frames.next?.orientedForTrail(trail != nil),
             currentFrameAspect: frames.currentAspect,

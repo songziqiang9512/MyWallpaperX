@@ -69,7 +69,7 @@ final class SceneParticleChildRuntime {
                     template.definition
                 ),
                 isWorldSpace: template.definition.flags.isWorldSpace,
-                origin: template.staticOrigin,
+                origin: template.transform.origin,
                 particleOrigins: [:],
                 simulator: template.simulator(
                     seed: UInt64(bitPattern: Int64(layerID))

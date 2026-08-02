@@ -763,6 +763,7 @@ enum Harness {
             velocityX: 60, lifetime: 4.0 / 60.0, moves: true, rate: 0, instantaneous: 1,
             children: [[
                 "name": "particles/follow-child.json", "type": "eventfollow", "maxcount": 1,
+                "scale": "2.5 2.5 1",
             ]], under: directory
         )
         try writeParticle(
@@ -774,6 +775,7 @@ enum Harness {
             lifetime: 1.0 / 60.0, rate: 0, instantaneous: 1,
             children: [[
                 "name": "particles/bounded-child.json", "type": "eventspawn",
+                "scale": "0.2 0.2 0.2",
             ]], under: directory
         )
         try writeParticle(
@@ -838,7 +840,9 @@ enum Harness {
         )
         var childCounts: [Int] = []
         var childPositions: [Float] = []
+        var childSizes: [Float] = []
         var boundedCounts: [Int] = []
+        var boundedSizes: [Float] = []
         var budgetCounts: [Int] = []
         var windowCounts: [Int] = []
         for _ in 0..<6 {
@@ -850,9 +854,16 @@ enum Harness {
             if let position = instances.first?.positionAndSize.x {
                 childPositions.append(position)
             }
-            boundedCounts.append(batches.first {
+            if let size = instances.first?.positionAndSize.w {
+                childSizes.append(size)
+            }
+            let boundedInstances = batches.first {
                 $0.particlePath == "particles/bounded-child.json"
-            }?.instances.count ?? 0)
+            }?.instances ?? []
+            boundedCounts.append(boundedInstances.count)
+            if let size = boundedInstances.first?.positionAndSize.w {
+                boundedSizes.append(size)
+            }
             budgetCounts.append(batches.first {
                 $0.particlePath == "particles/budget-child.json"
             }?.instances.count ?? 0)
@@ -864,7 +875,9 @@ enum Harness {
             "windowCounts": windowCounts,
             "childCounts": childCounts,
             "childPositions": childPositions,
+            "childSizes": childSizes,
             "boundedCounts": boundedCounts,
+            "boundedSizes": boundedSizes,
             "budgetCounts": budgetCounts,
             "childUnsupportedLayers": runtime.diagnostics.compactMap {
                 $0.kind == .childSystemsUnsupported && $0.layerID != 13 ? $0.layerID : nil
@@ -874,6 +887,10 @@ enum Harness {
             },
             "audioChildDetails": runtime.diagnostics.compactMap {
                 $0.layerID == 13 && $0.kind == .childSystemsUnsupported ? $0.detail : nil
+            },
+            "childScaleDetails": runtime.diagnostics.compactMap {
+                $0.kind == .simulationLimitation && $0.detail?.contains("childScaleBounded") == true
+                    ? $0.detail : nil
             },
         ]
     }
@@ -1790,6 +1807,11 @@ enum Harness {
                 ["name": "particles/origin-child.json", "type": "static", "origin": "1 2 3"],
                 ["name": "particles/angles-child.json", "type": "static", "angles": "1 0 0"],
                 ["name": "particles/scale-child.json", "type": "static", "scale": "2 2 2"],
+                ["name": "particles/zero-scale-child.json", "type": "static", "scale": "0 0 1"],
+                ["name": "particles/negative-scale-child.json", "type": "static", "scale": "-1 -1 1"],
+                ["name": "particles/nonuniform-scale-child.json", "type": "static", "scale": "2 3 1"],
+                ["name": "particles/huge-scale-child.json", "type": "static", "scale": "2048 2048 1"],
+                ["name": "particles/malformed-scale-child.json", "type": "static", "scale": "invalid"],
                 ["name": "particles/event-origin-child.json", "type": "eventspawn", "origin": "1 2 3"],
                 ["name": "particles/nan-origin-child.json", "type": "static", "origin": "nan 0 0"],
                 ["name": "particles/probability-child.json", "type": "static", "probability": 0.5],
@@ -1798,13 +1820,17 @@ enum Harness {
         )
         for path in [
             "particles/origin-child.json", "particles/angles-child.json",
-            "particles/scale-child.json", "particles/event-origin-child.json",
+            "particles/event-origin-child.json",
             "particles/nan-origin-child.json", "particles/probability-child.json",
         ] {
             try writeParticle(
                 path, material: "materials/shared.json", rate: 0, instantaneous: 1,
                 under: directory
             )
+        try writeParticle(
+            "particles/scale-child.json", material: "materials/shared.json",
+            velocityX: 4, moves: true, rate: 0, instantaneous: 1, under: directory
+        )
         try writeParticle(
             "particles/control-point-copy-root.json", material: "materials/shared.json",
             emitterControlPoint: 1, controlPointOffset: [0, 0, 0],
@@ -1946,6 +1972,19 @@ enum Harness {
                 batch.instances.first.map {
                     [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
                 }
+            },
+            "scaledStaticInstance": batches.first {
+                $0.layerID == 9 && $0.particlePath == "particles/scale-child.json"
+            }?.instances.first.map {
+                [
+                    "position": [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z],
+                    "size": [$0.positionAndSize.w],
+                    "velocity": [$0.velocityAndTrail.x, $0.velocityAndTrail.y, $0.velocityAndTrail.z],
+                ]
+            } ?? [:],
+            "staticChildScaleBounded": runtime.diagnostics.contains {
+                $0.layerID == 9
+                    && $0.detail == "particles/scale-child.json:childScaleBounded:scale=2.0,2.0,2.0"
             },
             "staticChildUnsupportedDetails": runtime.diagnostics.compactMap {
                 $0.layerID == 9 && $0.kind == .childSystemsUnsupported ? $0.detail : nil
@@ -2298,14 +2337,17 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         )
         self.assertEqual(
             result["batchLayerIDs"],
-            [2, 3, 4, 4, 4, 6, 7, 9, 9, 9, 9, 11, 13, 14, 16, 17, 17, 18, 19],
+            [2, 3, 4, 4, 4, 6, 7, 9, 9, 9, 9, 9, 11, 13, 14, 16, 17, 17, 18, 19],
         )
         self.assertGreater(result["activeParticleCount"], 0)
         self.assertGreater(result["childInstanceCount"], 0)
         self.assertTrue(result["childCullStates"])
         self.assertEqual(set(result["childCullStates"]), {"back"})
-        self.assertEqual(result["staticChildInstanceCount"], 3)
-        self.assertEqual(result["staticChildOrigins"], [[0, 0, 0], [0, 0, 0], [1, 2, 3]])
+        self.assertEqual(result["staticChildInstanceCount"], 4)
+        self.assertEqual(result["staticChildOrigins"][:3], [[0, 0, 0], [0, 0, 0], [1, 2, 3]])
+        self.assertEqual(result["scaledStaticInstance"]["size"], [16])
+        self.assertEqual(result["scaledStaticInstance"]["velocity"], [8, 0, 0])
+        self.assertTrue(result["staticChildScaleBounded"])
         # 内置纹理尺寸已对齐官方 .tex 的 imageWidth/imageHeight，非方形纹理不再按方形近似。
         self.assertEqual(result["batchTextureSizes"]["6"], [32, 128])
         self.assertEqual(result["batchTextureSizes"]["7"], [64, 64])
@@ -2343,7 +2385,11 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         )
         for path in [
             "particles/angles-child.json",
-            "particles/scale-child.json",
+            "particles/zero-scale-child.json",
+            "particles/negative-scale-child.json",
+            "particles/nonuniform-scale-child.json",
+            "particles/huge-scale-child.json",
+            "particles/malformed-scale-child.json",
             "particles/event-origin-child.json",
             "particles/nan-origin-child.json",
         ]:
@@ -2531,7 +2577,11 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         result = self.run_harness("eventfollow-synthetic")
         self.assertEqual(result["childCounts"], [0, 1, 2, 0, 0, 0])
         self.assertEqual(result["childPositions"], [2, 2])
+        self.assertEqual(result["childSizes"], [20, 20])
         self.assertEqual(result["boundedCounts"], [0, 1, 1, 1, 0, 0])
+        self.assertEqual(len(result["boundedSizes"]), 3)
+        for size in result["boundedSizes"]:
+            self.assertAlmostEqual(size, 1.6, places=5)
         self.assertEqual(result["budgetCounts"], [0, 64, 128, 192, 256, 320])
         self.assertEqual(result["childUnsupportedLayers"], [])
         self.assertIn(
@@ -2542,6 +2592,10 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             "particles/audio-child.json:outsideStrictEventProfile",
             result["audioChildDetails"],
         )
+        self.assertEqual(set(result["childScaleDetails"]), {
+            "particles/follow-child.json:childScaleBounded:scale=2.5,2.5,1.0",
+            "particles/bounded-child.json:childScaleBounded:scale=0.2,0.2,0.2",
+        })
 
     def test_rate_only_event_children_stop_after_bounded_window(self) -> None:
         result = self.run_harness("eventfollow-synthetic")
