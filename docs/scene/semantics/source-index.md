@@ -110,6 +110,8 @@
 
 2026-08-02 复核 Timeline [Introduction](https://docs.wallpaperengine.io/en/scene/timeline/introduction.html) 与 [Modes](https://docs.wallpaperengine.io/en/scene/timeline/modes.html)：公开页确认默认 smoothing 使用 Bézier curve，control handle 可分别使用 both/left/right/none，none 形成 straight line；页面没有公开 serialized handle 的 X/Y 单位、数值范围或求根算法。项目对 44 份合法抽取 `scene.json` 的 48 animations / 180 keyframes / 112 segments 做机械交叉：自定义 X 乘回各自 segment span 稳定得到整数或半帧 offset，Y 与 property value 差值同域；因此当前只把 X 解释为 segment-normalized offset、Y 解释为 property-value offset，并以自有正反 fixture 锁定。该推断与 Windows 同相位数值/像素 golden 尚未等价，后续若 golden 冲突必须修正项目合同，不能把 corpus 推断写成官方私有实现。
 
+2026-08-02 继续复核 Timeline [Introduction](https://docs.wallpaperengine.io/en/scene/timeline/introduction.html)：`Wrap loop frames` 的公开合同是编辑器自动创建到首帧的平滑过渡，页面没有声明播放器私有 JSON 或额外 runtime 算法。44 份合法场景中的 9 条 `wraploop=true` 与随包 stock `maintaindistancebetweencontrolpoints` 的 2 条声明都把末 keyframe 留在 `length` 前，且末 `front` / 首 `back` 的 X 乘跨周期 closing span 继续落在整数或半帧 offset。项目因此把 closing interval 解释成相同 cubic evaluator 的周期末/首段；这是官方作者方向 + 合法 wire 的 clean-room 合同，不是官方内部实现或 Windows 数值/像素 golden。
+
 ### 1.7 User Properties
 
 - Overview：https://docs.wallpaperengine.io/en/scene/userproperties/overview.html
