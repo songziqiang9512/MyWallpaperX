@@ -36,8 +36,8 @@ nonisolated struct SceneTimelineKeyframe: Codable, Equatable {
     let locksAngle: Bool?
     let locksLength: Bool?
 
-    /// 当前 keyframe 到 `end` 这一段实际消费的端点与 control value。首帧的 back 和末帧
-    /// 的 front 不属于任何段，不能让编辑器遗留值导致无谓拒绝。
+    /// 当前 keyframe 到 `end` 这一条普通相邻段消费的端点与 control value。首帧 back /
+    /// 末帧 front 只在 wrap-loop 闭合段消费，由 animation 级 helper 另行纳入。
     nonisolated func valuesIncludingEnabledControls(
         to end: SceneTimelineKeyframe
     ) -> [Double] {
@@ -86,6 +86,44 @@ nonisolated struct SceneTimelineAnimation: Codable, Equatable {
 
     nonisolated var componentCount: Int {
         lanes.count
+    }
+
+    /// `wraploop` 只对 Loop 有执行意义。合法作者 wire 把末关键帧留在 `length` 之前，
+    /// 播放器再把末帧与下一周期首帧连接成一段；范围外 keyframe 会让该段跨越哪个周期
+    /// 变得不唯一，因此执行层失败关闭。
+    nonisolated var hasExecutableWrapLoop: Bool {
+        guard options.wrapsLoop else { return true }
+        guard options.mode == .loop else { return false }
+        return lanes.allSatisfy { lane in
+            guard let first = lane.first, let last = lane.last else { return false }
+            return first.frame >= 0 && last.frame < options.length
+        }
+    }
+
+    /// 当前动画真正消费的端点与 Bézier control values。普通段使用 `start.front` /
+    /// `end.back`；wrap-loop 另消费末帧 `front` 与首帧 `back`。bounded target 必须检查
+    /// 这整个凸包，不能遗漏循环闭合段，也不能让单关键帧绕过作者值校验。
+    nonisolated func consumedControlValues(
+        in lane: [SceneTimelineKeyframe]
+    ) -> [Double] {
+        var values = lane.map(\.value)
+        for (start, end) in zip(lane, lane.dropFirst()) {
+            if let front = start.front, front.isEnabled {
+                values.append(start.value + front.y)
+            }
+            if let back = end.back, back.isEnabled {
+                values.append(end.value + back.y)
+            }
+        }
+        if options.wrapsLoop, let first = lane.first, let last = lane.last {
+            if let front = last.front, front.isEnabled {
+                values.append(last.value + front.y)
+            }
+            if let back = first.back, back.isEnabled {
+                values.append(first.value + back.y)
+            }
+        }
+        return values
     }
 }
 

@@ -45,8 +45,8 @@ nonisolated enum SceneTimelineTargetCompiler {
         case valueOutOfRange
         /// 同一 target 被多条 Timeline 写入，官方未定义优先级，全部拒绝。
         case duplicateTarget
-        /// 非阻断：`wraploop` 的首尾平滑算法未实现，按普通 loop 执行。
-        case wrapLoopIgnored
+        /// `wraploop` 只支持合法 Loop 周期内的闭合段；其他形态不能猜周期边界。
+        case invalidWrapLoop
     }
 
     private static let maximumDynamicTextWidth = 16_384.0
@@ -227,8 +227,9 @@ nonisolated enum SceneTimelineTargetCompiler {
             diagnostics.append("\(label): \(Diagnostic.componentMismatch.rawValue)")
             return
         }
-        if animation.options.wrapsLoop {
-            diagnostics.append("\(label): \(Diagnostic.wrapLoopIgnored.rawValue)")
+        guard animation.hasExecutableWrapLoop else {
+            diagnostics.append("\(label): \(Diagnostic.invalidWrapLoop.rawValue)")
+            return
         }
         candidates.append((
             SceneTimelineBinding(
@@ -292,10 +293,8 @@ nonisolated enum SceneTimelineTargetCompiler {
             return false
         }
         return animation.lanes.allSatisfy { lane in
-            zip(lane, lane.dropFirst()).allSatisfy { segment in
-                segment.0.valuesIncludingEnabledControls(to: segment.1).allSatisfy {
-                    $0.isFinite && $0 >= 1 && $0 <= maximumDynamicTextWidth
-                }
+            animation.consumedControlValues(in: lane).allSatisfy {
+                $0.isFinite && $0 >= 1 && $0 <= maximumDynamicTextWidth
             }
         }
     }

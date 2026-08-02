@@ -166,10 +166,28 @@ CASES = {
             "options": {"fps": 120, "length": 120, "mode": "single"},
         },
     },
+    # `3769688830` 的真实 wrap-loop alpha wire。末关键帧在 92，周期长 150；
+    # 92...150 必须消费末帧 front 与首帧 back，而不是保持 0.76 后跳回 0。
+    "wrap_custom": {
+        "value": 0,
+        "animation": {
+            "c0": [
+                keyframe(0, 0, back=(-0.61206897, 0.076)),
+                keyframe(13, 0, front=(0.58227848, 0.076), back=(-1, -0.012506329)),
+                keyframe(92, 0.76, front=(1, 0), back=(-0.86708861, 0)),
+            ],
+            "options": {
+                "fps": 30,
+                "length": 150,
+                "mode": "loop",
+                "wraploop": True,
+            },
+        },
+    },
 }
 
 # 采样点单位是秒。
-SAMPLES = [0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0]
+SAMPLES = [0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0]
 
 
 class SceneTimelineEvaluatorTests(unittest.TestCase):
@@ -307,6 +325,17 @@ class SceneTimelineEvaluatorTests(unittest.TestCase):
         self.assertAlmostEqual(self.at("offset_lane", 1.5)[1][0], 10.0)
         self.assertAlmostEqual(self.at("offset_lane", 2.0)[1][0], 15.0)
         self.assertAlmostEqual(self.at("offset_lane", 3.0)[1][0], 15.0)
+
+    def test_wrap_loop_interpolates_last_to_next_first_with_boundary_handles(self) -> None:
+        # frame 120 lies 28/58 through the real 92...150 wrap segment. Expected value
+        # is independently locked from the authored cubic, not copied from Swift output.
+        frame, values = self.at("wrap_custom", 4.0)
+        self.assertAlmostEqual(frame, 120.0)
+        self.assertAlmostEqual(values[0], 0.658276335495, places=10)
+        # Exact period boundary returns the authored first keyframe without duplicate endpoint.
+        frame, values = self.at("wrap_custom", 5.0)
+        self.assertAlmostEqual(frame, 0.0)
+        self.assertAlmostEqual(values[0], 0.0)
 
     def test_out_of_range_component_returns_nothing(self) -> None:
         for name in CASES:

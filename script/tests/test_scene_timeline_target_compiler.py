@@ -256,7 +256,7 @@ SCENE_FIXTURE = {
             "maxwidth": {
                 "value": 739,
                 "animation": animation(
-                    [[keyframe(0, 730), keyframe(60, 888)]],
+                    [[keyframe(0, 730), keyframe(59, 888)]],
                     options={"wraploop": True},
                 ),
             },
@@ -298,13 +298,13 @@ SCENE_FIXTURE = {
         },
         {
             "id": 70,
-            "name": "Wrap loop is downgraded not rejected",
+            "name": "Executable wrap loop",
             "image": "models/user/g.json",
             "size": "100 100",
             "alpha": {
                 "value": 1,
                 "animation": animation(
-                    [[keyframe(0, 0), keyframe(60, 1)]],
+                    [[keyframe(0, 0), keyframe(30, 1)]],
                     options={"wraploop": True},
                 ),
             },
@@ -646,7 +646,7 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
         self.assertEqual(binding["valueType"], "scalar")
         self.assertEqual(binding["authored"], "scalar(739.0)")
         self.assertEqual(binding["composition"], "absolute")
-        self.assertIn("layer 61 maxwidth: wrapLoopIgnored", self.result["diagnostics"])
+        self.assertNotIn("layer 61 maxwidth: invalidWrapLoop", self.result["diagnostics"])
 
     def test_text_width_requires_enabled_gate_bounded_values_and_absolute_mode(self) -> None:
         self.assertNotIn("text:62:maxWidth", self.targets())
@@ -674,13 +674,13 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
         ))
         text["maxwidth"]["animation"]["c0"][0]["back"]["y"] = -800
         text["maxwidth"]["animation"]["c0"][-1]["front"]["y"] = 2000
-        unused_controls = self.compile_fixture(
-            {"version": 3, "objects": [text]}, "unused-text-width-controls"
+        wrap_controls = self.compile_fixture(
+            {"version": 3, "objects": [text]}, "unsafe-wrap-text-width-controls"
         )
-        self.assertEqual(len(unused_controls["bindings"]), 1)
+        self.assertEqual(wrap_controls["bindings"], [])
         self.assertEqual(
-            unused_controls["diagnostics"],
-            ["layer 61 maxwidth: wrapLoopIgnored"],
+            wrap_controls["diagnostics"],
+            ["layer 61 maxwidth: valueOutOfRange"],
         )
 
     def test_combined_animation_group_is_rejected(self) -> None:
@@ -763,11 +763,35 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
         self.assertEqual(len(unused_controls["bindings"]), 2)
         self.assertEqual(unused_controls["diagnostics"], [])
 
-    def test_wrap_loop_is_downgraded_not_rejected(self) -> None:
-        # wraploop 未实现，但不能因此丢掉整条动画
+    def test_wrap_loop_compiles_without_degradation_diagnostic(self) -> None:
         binding = self.binding("layer:70:alpha")
         self.assertEqual(binding["mode"], "loop")
-        self.assertIn("layer 70 alpha: wrapLoopIgnored", self.result["diagnostics"])
+        self.assertNotIn("layer 70 alpha: invalidWrapLoop", self.result["diagnostics"])
+
+    def test_wrap_loop_requires_loop_mode_and_room_for_the_closing_segment(self) -> None:
+        layer = copy.deepcopy(next(
+            item for item in SCENE_FIXTURE["objects"] if item["id"] == 70
+        ))
+        layer["alpha"]["animation"]["options"]["mode"] = "mirror"
+        wrong_mode = self.compile_fixture(
+            {"version": 3, "objects": [layer]}, "invalid-wrap-mode"
+        )
+        self.assertEqual(wrong_mode["bindings"], [])
+        self.assertEqual(
+            wrong_mode["diagnostics"], ["layer 70 alpha: invalidWrapLoop"]
+        )
+
+        layer = copy.deepcopy(next(
+            item for item in SCENE_FIXTURE["objects"] if item["id"] == 70
+        ))
+        layer["alpha"]["animation"]["c0"][-1]["frame"] = 60
+        no_closing_span = self.compile_fixture(
+            {"version": 3, "objects": [layer]}, "invalid-wrap-span"
+        )
+        self.assertEqual(no_closing_span["bindings"], [])
+        self.assertEqual(
+            no_closing_span["diagnostics"], ["layer 70 alpha: invalidWrapLoop"]
+        )
 
     def test_absolute_particle_position_compiles_and_angle_stays_fail_closed(self) -> None:
         binding = self.binding("particle:80:controlpoint:1")

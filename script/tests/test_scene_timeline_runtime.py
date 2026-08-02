@@ -73,8 +73,13 @@ SCENE_FIXTURE = {
             "alpha": {
                 "value": 0.25,
                 "animation": {
-                    "c0": [keyframe(0, 0), keyframe(60, 1)],
-                    "options": {"fps": 30, "length": 60, "mode": "loop"},
+                    "c0": [keyframe(0, 0), keyframe(30, 1)],
+                    "options": {
+                        "fps": 30,
+                        "length": 60,
+                        "mode": "loop",
+                        "wraploop": True,
+                    },
                 },
             },
         },
@@ -310,7 +315,9 @@ enum Harness {
 
         // 走真实 resolver：断言 Timeline 值真的落进 snapshot 而不是被丢弃。
         var samples: [String: Any] = [:]
-        for (label, seconds) in [("t0", 0.0), ("half", 1.0), ("late", 5.0)] {
+        for (label, seconds) in [
+            ("t0", 0.0), ("half", 1.0), ("closing", 1.5), ("late", 5.0)
+        ] {
             var transaction = SceneSurfaceEvaluationTransaction()
             let values = SceneTimelineRuntime.values(program: program, sceneTime: seconds)
             let resolution = transaction.evaluate(
@@ -407,20 +414,24 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
         self.assertEqual(self.result["definitionCount"], 6)
 
     def test_resolver_accepts_every_timeline_value(self) -> None:
-        for label in ("t0", "half", "late"):
+        for label in ("t0", "half", "closing", "late"):
             with self.subTest(sample=label):
                 self.assertEqual(self.result["samples"][label]["diagnostics"], [])
 
     def test_timeline_outranks_the_user_property_on_a_shared_target(self) -> None:
-        # 同一 target 上 property 给 0.25，Timeline 在 t=1s（第 30 帧）给 0.5
+        # 同一 target 上 property 给 0.25，Timeline 在 t=1s（第 30 帧）给峰值 1
         entry = self.result["samples"]["half"]["layer10Alpha"]
         self.assertEqual(entry["source"], "timeline")
-        self.assertAlmostEqual(entry["value"], 0.5)
+        self.assertAlmostEqual(entry["value"], 1.0)
 
     def test_loop_wraps_while_single_holds_its_final_value(self) -> None:
-        # layer10 是 2 秒一圈的 loop：t=5s 落在第 30 帧，与 t=1s 同相位
+        # layer10 前半周期 0→1，后半周期由 wrap 段 1→0；t=1.5s 位于闭合段中点。
         self.assertAlmostEqual(
-            self.result["samples"]["late"]["layer10Alpha"]["value"], 0.5
+            self.result["samples"]["closing"]["layer10Alpha"]["value"], 0.5
+        )
+        # t=5s 落在第 30 帧，与 t=1s 同相位。
+        self.assertAlmostEqual(
+            self.result["samples"]["late"]["layer10Alpha"]["value"], 1.0
         )
         # constant 是 1 秒的 single：t=1s 已到末帧，t=5s 仍保持 0
         self.assertAlmostEqual(self.result["samples"]["half"]["constant"]["value"], 0.0)
@@ -428,7 +439,7 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
         self.assertAlmostEqual(self.result["samples"]["t0"]["constant"]["value"], 1.0)
 
     def test_start_paused_layer_never_leaves_its_first_frame(self) -> None:
-        for label in ("t0", "half", "late"):
+        for label in ("t0", "half", "closing", "late"):
             with self.subTest(sample=label):
                 entry = self.result["samples"][label]["layer30Alpha"]
                 self.assertAlmostEqual(entry["value"], 1.0)

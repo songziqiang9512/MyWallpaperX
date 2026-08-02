@@ -10,8 +10,9 @@ import Foundation
 /// offset；按 frame progress 反求唯一 curve parameter 后再求 value。禁用或缺失的 handle
 /// 退化到对应 keyframe anchor；两侧都关闭时几何曲线严格为直线。
 ///
-/// `isRelative` 与 `wrapsLoop` 同样不在这里处理：前者是「动画值怎样与作者基值合成」的
-/// 写回语义，后者是首尾平滑整形，都属于消费方而不是求值器。
+/// `isRelative` 不在这里处理：它是「动画值怎样与作者基值合成」的写回语义。
+/// `wrapsLoop` 则属于时间曲线本身：末关键帧到下一周期首关键帧使用同一个 Bézier 段
+/// 求值，其中末帧 `front` 与首帧 `back` 是该段的两个 control handles。
 nonisolated enum SceneTimelineEvaluator {
     /// 把绝对 scene time 映射到动画本地帧位置（单位是帧，不是秒）。
     ///
@@ -48,7 +49,8 @@ nonisolated enum SceneTimelineEvaluator {
         guard animation.lanes.indices.contains(component) else { return nil }
         return value(
             in: animation.lanes[component],
-            atFrame: framePosition(of: animation, sceneTime: sceneTime)
+            atFrame: framePosition(of: animation, sceneTime: sceneTime),
+            wrappingLength: wrappingLength(of: animation)
         )
     }
 
@@ -58,7 +60,10 @@ nonisolated enum SceneTimelineEvaluator {
         sceneTime: Double
     ) -> [Double] {
         let frame = framePosition(of: animation, sceneTime: sceneTime)
-        return animation.lanes.map { value(in: $0, atFrame: frame) }
+        let wrappingLength = wrappingLength(of: animation)
+        return animation.lanes.map {
+            value(in: $0, atFrame: frame, wrappingLength: wrappingLength)
+        }
     }
 
     /// 关键帧区间定位 + 作者 Bézier 插值。
@@ -67,11 +72,32 @@ nonisolated enum SceneTimelineEvaluator {
     /// 不外推。
     private nonisolated static func value(
         in lane: [SceneTimelineKeyframe],
-        atFrame frame: Double
+        atFrame frame: Double,
+        wrappingLength: Double?
     ) -> Double {
         guard let first = lane.first, let last = lane.last else { return 0 }
-        if frame <= first.frame { return first.value }
-        if frame >= last.frame { return last.value }
+        if frame < first.frame {
+            guard let wrappingLength else { return first.value }
+            let virtualStart = last.frame - wrappingLength
+            let span = first.frame - virtualStart
+            guard span > 0 else { return first.value }
+            return interpolatedValue(
+                from: last, to: first,
+                progress: (frame - virtualStart) / span
+            )
+        }
+        if frame == first.frame { return first.value }
+        if frame > last.frame {
+            guard let wrappingLength else { return last.value }
+            let virtualEnd = first.frame + wrappingLength
+            let span = virtualEnd - last.frame
+            guard span > 0 else { return last.value }
+            return interpolatedValue(
+                from: last, to: first,
+                progress: (frame - last.frame) / span
+            )
+        }
+        if frame == last.frame { return last.value }
         guard let upperIndex = lane.firstIndex(where: { $0.frame > frame }),
               upperIndex > 0
         else {
@@ -84,6 +110,14 @@ nonisolated enum SceneTimelineEvaluator {
         guard span > 0 else { return end.value }
         let progress = (frame - start.frame) / span
         return interpolatedValue(from: start, to: end, progress: progress)
+    }
+
+    private nonisolated static func wrappingLength(
+        of animation: SceneTimelineAnimation
+    ) -> Double? {
+        guard animation.options.wrapsLoop,
+              animation.hasExecutableWrapLoop else { return nil }
+        return animation.options.length
     }
 
     private nonisolated static func interpolatedValue(

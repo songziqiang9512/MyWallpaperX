@@ -40,6 +40,9 @@ nonisolated enum Scene2DCameraTimelineCompiler {
         guard origin.componentCount == 3, zoom.componentCount == 1 else {
             return rejected(labels, reason: "componentMismatch")
         }
+        guard origin.hasExecutableWrapLoop, zoom.hasExecutableWrapLoop else {
+            return rejected(labels, reason: "invalidWrapLoop")
+        }
         guard origin.isRelative, !zoom.isRelative,
               let authoredOrigin = layer.originXYZ,
               authoredOrigin.count == 3,
@@ -77,13 +80,9 @@ nonisolated enum Scene2DCameraTimelineCompiler {
             animation: animation(zoom, clock: clock),
             composition: .absolute
         )
-        var diagnostics: [String] = []
-        if clock.wrapsLoop {
-            diagnostics = labels.map { "\($0): wrapLoopIgnored" }
-        }
         return SceneTimelineProgram(
             bindings: [originBinding, zoomBinding],
-            diagnostics: diagnostics.sorted()
+            diagnostics: []
         )
     }
 
@@ -121,12 +120,10 @@ nonisolated enum Scene2DCameraTimelineCompiler {
         else { return false }
         for (index, lane) in animation.lanes.enumerated() {
             let base = Double(authored[index])
-            guard zip(lane, lane.dropFirst()).allSatisfy({ segment in
-                segment.0.valuesIncludingEnabledControls(to: segment.1).allSatisfy { control in
-                    let value = base + control
-                    let bounded = value.isFinite && abs(value) <= maximumOriginMagnitude
-                    return index == 2 ? bounded && value > nearZ && value < farZ : bounded
-                }
+            guard animation.consumedControlValues(in: lane).allSatisfy({ control in
+                let value = base + control
+                let bounded = value.isFinite && abs(value) <= maximumOriginMagnitude
+                return index == 2 ? bounded && value > nearZ && value < farZ : bounded
             }) else { return false }
         }
         return true
@@ -138,10 +135,8 @@ nonisolated enum Scene2DCameraTimelineCompiler {
     ) -> Bool {
         guard authored.isFinite, minimumZoom ... maximumZoom ~= authored else { return false }
         let lane = animation.lanes[0]
-        return zip(lane, lane.dropFirst()).allSatisfy { segment in
-            segment.0.valuesIncludingEnabledControls(to: segment.1).allSatisfy {
-                $0.isFinite && minimumZoom ... maximumZoom ~= $0
-            }
+        return animation.consumedControlValues(in: lane).allSatisfy {
+            $0.isFinite && minimumZoom ... maximumZoom ~= $0
         }
     }
 
