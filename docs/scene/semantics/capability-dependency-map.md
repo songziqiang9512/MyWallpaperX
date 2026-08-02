@@ -2,7 +2,7 @@
 
 > 状态：现役架构入口
 >
-> 最近核对：2026-08-01
+> 最近核对：2026-08-02
 >
 > 本页只维护依赖与完成门；精确当前提交、报告和测试总数统一见 [总覆盖台账](coverage-ledger.md) 与 [运行证据索引](runtime-evidence-index.md)。
 >
@@ -145,11 +145,11 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 
 | Runtime | 前置依赖 | 最小闭环 |
 |---|---|---|
-| Timeline | D2 + D3 | lossless IR、绝对 scene-time evaluator 与 typed writes 已完成，真实执行 45/48：effect constant 23、layer alpha 5、bounded relative layer transform 10、root particle scalar override 7，经既有 per-surface transaction 与 `.timeline` 优先级写回。6 条 ordinary `origin`/`angles`/`scale` 由共享 hierarchy-aware world-frame 消费，4 条 `lspot` Mirror angles 保持既有 strict consumer；7 条 particle alpha 由 fixed-step instance-override consumer 影响发射与新生粒子。tangent 只保真不消费、插值走线性；wrap-loop、Combined 分组、event crossing、`maxwidth`/`zoom`、particle relative/colorn/child/存量追溯仍待推进，非 layer-transform relative 继续 fail closed |
+| Timeline | D2 + D3 | lossless IR、绝对 scene-time evaluator 与 typed writes 已完成，真实执行 **47/48**：effect constant 23、layer alpha 5、bounded relative layer transform 10、root particle scalar override 7、bounded text `maxwidth` 2，经既有 per-surface transaction 与 `.timeline` 优先级写回。6 条 ordinary `origin`/`angles`/`scale` 由共享 hierarchy-aware world-frame 消费，4 条 `lspot` Mirror angles 保持既有 strict consumer；7 条 particle alpha 由 fixed-step instance-override consumer 影响发射与新生粒子；两条 text width 经动态 CoreText consumer 合并连续 generation。tangent 只保真不消费、插值走线性；wrap-loop、Combined 分组、event crossing、particle relative/colorn/child/存量追溯仍待推进。唯一 `zoom` 是 Combined camera `origin↔zoom` 成员，不能脱组执行；非 layer-transform relative 继续 fail closed |
 | Exact native property-script profiles | D0 + D4 + D7 + D8 + D9 | text 七 profile 与 audio bars 两 profile 已形成 bounded native `L3`；完整指纹准入、失败关闭，不开放 API |
 | Bounded property-bound text update | D2 + D3 + D4 + D5 + D9 | 唯一 `update(value)` 的无循环 Date/string AST 以语法和三层预算准入，复用 typed snapshot/dynamic text consumer；无 sample/layer/hash 旁路，但不等于 VM |
 | Generic SceneScript | D2 + D3 + D4 + D5 | 顶层 layer wrapper partial IR 与 bounded String update 子集已有；仍需 generic source/module/value IR、sandbox VM、lifecycle、typed handles/writes、events及 VM 级时间/内存预算 |
-| dynamic text | D3 + D5 + D9 | direct property、exact native profile 与 bounded text update 已完成 per-layer generation、stale cancellation、last-ready；system/media producer、非 String script target 与 layout fidelity仍待推进 |
+| dynamic text | D3 + D5 + D9 | direct property、exact native profile、bounded text update 与 bounded Timeline width 已完成 per-layer generation、并发 stale cancellation、单在途连续更新合并和 last-ready；system/media producer、非 String script target、长文本/多屏压力与 Windows layout fidelity 仍待推进 |
 | particle breadth | D2 + D3 + D4 + D5 + D8 + D9 | root direct User Property 八字段和 absolute scalar Timeline 七字段已复用统一 binding compiler、per-surface transaction/snapshot 与 fixed-step simulator，只覆盖作者 fallback 上的发射/新生粒子；静态 plain-image Layer Image 已复用 typed object dependency、base image texture 与 simulator；仅 rate root Sphere/Box 的 Random periodic 已复用 fixed-step simulation、独立确定性 schedule RNG 与 fail-closed diagnostics；root Sphere/Box emitter 已按 authored CP identity 0...7 准入，emitter speed、Directions/Sphere Sign、depth-one static child raw parent CP copy 与 exact pointer-lock Control Point Force 已各有有界门；Sprite Trail root/child 共用 omitted/`null` length 默认，bounded Rope 支持 subdivision、UV/smoothing/scrolling 与 child 隔离 topology。dynamic override 的 script/conflict/direct color/relative/Combined/child/存量追溯、standalone delay、periodic burst/max-per-period、动态/text/puppet Layer Image、control point angle/adjusted/world/cross-space、previous pointer 与其他 consumer、event/nested CP copy、force falloff、Rope animated texture/root-world/multi-renderer/ribbon join、通用 RopeTrail subdivision/UV、audio、collision，以及各项 WE 数值/RNG/分布/轨迹 golden 仍待闭合 |
 | audio/media | D4 + D5 | audio 侧已闭合 consumer-driven 16/32/64 host input、既有 effect consumers 与两个 native 64-band consumers；embedded MP4 image-layer 已有受限 SceneClock/provider generation/lifecycle；current/previous cover generation、replacement pending last-ready、clear/decode-failure fallback 与一个 strict authored transition profile 已闭合 bounded consumer。通用 SceneScript bridge/Sound/particle audio、live system media producer、event ordering、metadata/status/timeline、主动 decode cancel、多 surface/hot-plug 与其他 transition 仍未闭合 |
 
