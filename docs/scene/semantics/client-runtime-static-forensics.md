@@ -331,6 +331,14 @@ reset/teardown 会归零活动计数和 CPU buffer，遍历 root 与分组 child
 
 本次没有反编译、摘录或移植 Position Offset 的 FBM、随机、默认、空间、时间或数值公式，也没有恢复 32 位路径、运行顺序、Windows 轨迹或像素结果。原始地址、伪代码、函数体、临时 project、脚本和日志均未入库并已清理。项目 `968d86eb` 的字段预算、缺省 `1 1 0 / 3 / 1 / 1`、seed/particle/time/position 采样和 finite-octave gradient-noise 数学都是独立的 project-owned bounded approximation，只由公开行为、自有正反 fixture 与隔离 stock 运行约束，不是官方算法。
 
+### 5.11 Particle event value inheritance 字段与模式复核
+
+2026-08-02 在先读现役 Particle 专项表、资料库既有 initializer/operator field census、官方 Initializer/Operator 页面、editor string table、changelog 与合法 stock corpus 后，仍无法确认 `inheritinitialvaluefromevent` 和 `inheritvaluefromevent` 是否共用同一 `input` typed parser，也无法仅凭 stock omission 判定缺省 mode。本次只对资料库已登记、SHA-256 为 `40e2ce021e9352324fadb3b8f72b8ba2a7ee95b71cc571d5b9f84be75cd993b0` 的官方 2.8.42 `wallpaper64.exe` 做一个字段/模式归属问题的 bounded Ghidra 12.1.2 clean-room 复核。
+
+只保留以下高层结论：两个 component 名称进入同一 particle component dispatcher；各自锚点后都存在对 `input` 的直接引用；两者进入同一套 14-value typed parser；该表首项为 `setcolor`，未知值走独立 sentinel。结合公开页的 snapshot/continuous 行为、stock event-death/event-follow 双预览均省略 `input`、资料库 editor string table 的 14 个 mode 与 revision 4154/4175，足以支持项目建立共用 typed declaration，并把 `setcolor` 作为第一批有界 channel；不足以把任何其他 mode 推入执行。
+
+本次没有恢复或摘录省略 `input` 的官方默认、枚举数值、event 同帧顺序、parent state 生命周期、色彩空间、每帧复制时机、其他 channel 的转换公式或任何可移植 runtime 算法，也没有证明 32 位路径、Windows 数值或像素等价。原始地址、伪代码、函数体、脚本和日志均未入库。项目 `b9e60059` 把省略 `input` 视作 `setcolor` 是 stock omission 与上述高层结构共同约束下的 project-owned bounded inference，不是已确认的官方默认；显式小写 `setcolor` 与省略形态之外全部 fail closed。
+
 ## 6. SceneScript 的 module/engine/owner 机制
 
 ### 6.1 宿主层次
