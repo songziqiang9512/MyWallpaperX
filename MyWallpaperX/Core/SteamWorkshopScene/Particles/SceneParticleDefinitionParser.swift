@@ -103,6 +103,7 @@ nonisolated struct SceneParticleDefinitionParser {
         case "sizerandom": kind = .size
         case "velocityrandom": kind = .velocity
         case "colorrandom": kind = .color
+        case "hsvcolorrandom": kind = .hsvColor
         case "colorlist": kind = .colorList
         case "alpharandom": kind = .alpha
         case "rotationrandom": kind = .rotation
@@ -146,6 +147,7 @@ nonisolated struct SceneParticleDefinitionParser {
             minimum: Self.numericValue(root["min"]),
             maximum: Self.numericValue(root["max"]),
             exponent: Self.number(root["exponent"]),
+            hsvColor: kind == .hsvColor ? .init(root: root) : nil,
             turbulentVelocity: turbulence, positionOffset: positionOffset, colors: colors,
             hasMalformedColorList: hasMalformedColorList
         )

@@ -66,6 +66,7 @@ enum Harness {
             {"id":16,"name":"angularVelocityRandom","min":"0 0 -1","max":"0 0 1"},
             {"id":17,"name":"turbulentVelocityRandom","forward":"0 1 0","right":"1 0 0","up":"0 0 1","offset":0.5,"phasemin":0.25,"phasemax":6.28,"scale":0.2,"speedmin":10,"speedmax":20,"timescale":0.1,"audioprocessingmode":1,"audioprocessingexponent":0.5,"audioprocessingfrequencystart":3,"audioprocessingfrequencyend":13,"audioprocessingbounds":"0.2 0.8"},
             {"id":18,"name":"colorList","colors":["1 0 0","0 1 0","0 0 1"]},
+            {"id":21,"name":"hsvColorRandom","huemin":0,"huemax":1,"huesteps":6,"saturationmin":0.5,"saturationmax":1,"valuemin":0.25,"valuemax":0.75},
             {"id":19,"name":"positionOffsetRandom","directions":"1 0.5 0","distance":150,"octaves":4,"scale":0.25,"timescale":2},
             {"id":20,"name":"futureInitializer"}
           ],
@@ -171,15 +172,24 @@ enum Harness {
             "turbulentAudioMode": definition.initializers[7].turbulentVelocity?.audioResponse.mode ?? -1,
             "turbulentAudioBounds": definition.initializers[7].turbulentVelocity?.audioResponse.bounds?.vectorValue ?? [],
             "colorListColors": definition.initializers[8].colors?.compactMap(\.vectorValue) ?? [],
+            "hsvColorRange": [
+                definition.initializers[9].hsvColor?.hueMinimum ?? -1,
+                definition.initializers[9].hsvColor?.hueMaximum ?? -1,
+                definition.initializers[9].hsvColor?.saturationMinimum ?? -1,
+                definition.initializers[9].hsvColor?.saturationMaximum ?? -1,
+                definition.initializers[9].hsvColor?.valueMinimum ?? -1,
+                definition.initializers[9].hsvColor?.valueMaximum ?? -1,
+            ],
+            "hsvColorSteps": definition.initializers[9].hsvColor?.hueSteps ?? -1,
             "positionOffsetDirections":
-                definition.initializers[9].positionOffset?.directions?.vectorValue ?? [],
+                definition.initializers[10].positionOffset?.directions?.vectorValue ?? [],
             "positionOffsetDistance":
-                definition.initializers[9].positionOffset?.distance ?? -1,
+                definition.initializers[10].positionOffset?.distance ?? -1,
             "positionOffsetOctaves":
-                definition.initializers[9].positionOffset?.octaves ?? -1,
-            "positionOffsetScale": definition.initializers[9].positionOffset?.scale ?? -1,
+                definition.initializers[10].positionOffset?.octaves ?? -1,
+            "positionOffsetScale": definition.initializers[10].positionOffset?.scale ?? -1,
             "positionOffsetTimeScale":
-                definition.initializers[9].positionOffset?.timeScale ?? -1,
+                definition.initializers[10].positionOffset?.timeScale ?? -1,
             "operatorKinds": definition.operators.map { operatorName($0.kind) },
             "movementGravity": definition.operators[0].gravity?.vectorValue ?? [],
             "movementDrag": definition.operators[0].drag ?? -1,
@@ -440,6 +450,7 @@ enum Harness {
         case .size: "sizerandom"
         case .velocity: "velocityrandom"
         case .color: "colorrandom"
+        case .hsvColor: "hsvcolorrandom"
         case .colorList: "colorlist"
         case .alpha: "alpharandom"
         case .rotation: "rotationrandom"
@@ -574,7 +585,7 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         self.assertEqual(result["boxMaximumEmissionCount"], 32)
         self.assertFalse(result["boxPeriodicMalformed"])
         self.assertEqual(result["turbulentPhaseMinimum"], 0.25)
-        self.assertEqual(len(result["initializerKinds"]), 11)
+        self.assertEqual(len(result["initializerKinds"]), 12)
         self.assertEqual(result["turbulentTimeScale"], 0.1)
         self.assertEqual(result["turbulentAudioMode"], 1)
         self.assertEqual(result["turbulentAudioBounds"], [0.2, 0.8])
@@ -582,6 +593,8 @@ class SceneParticleDefinitionTests(unittest.TestCase):
             result["colorListColors"],
             [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
         )
+        self.assertEqual(result["hsvColorRange"], [0, 1, 0.5, 1, 0.25, 0.75])
+        self.assertEqual(result["hsvColorSteps"], 6)
         self.assertEqual(result["positionOffsetDirections"], [1, 0.5, 0])
         self.assertEqual(result["positionOffsetDistance"], 150)
         self.assertEqual(result["positionOffsetOctaves"], 4)

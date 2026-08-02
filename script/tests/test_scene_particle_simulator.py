@@ -468,6 +468,50 @@ enum Harness {
             value.advance(by: 0.1)
             return value
         }
+        var hsvColors = simulator(hsvColorJSON, seed: 44, step: 0.1)
+        hsvColors.advance(by: 0.1)
+        var fixedGrayHSV = simulator(
+            makeHSVColorJSON(
+                #""huemin":0.5,"huemax":0.5,"huesteps":1,"saturationmin":0,"saturationmax":0,"valuemin":0.25,"valuemax":0.25"#,
+                count: 1
+            ), seed: 44, step: 0.1
+        )
+        fixedGrayHSV.advance(by: 0.1)
+        var hsvThenColor = simulator(hsvThenColorJSON, seed: 44, step: 0.1)
+        hsvThenColor.advance(by: 0.1)
+        let invalidHSVColors = [
+            "",
+            #""huemin":-0.1,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
+            #""huemin":0,"huemax":1.1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
+            #""huemin":0.8,"huemax":0.2,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
+            #""huemin":0,"huemax":1,"huesteps":0,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
+            #""huemin":0,"huemax":1,"huesteps":1025,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
+            #""huemin":0,"huemax":1,"huesteps":1.5,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
+            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":-0.1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
+            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":0.8,"saturationmax":0.2,"valuemin":1,"valuemax":1"#,
+            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":0,"saturationmax":1.1,"valuemin":1,"valuemax":1"#,
+            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":-0.1,"valuemax":1"#,
+            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":0.8,"valuemax":0.2"#,
+            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":0,"valuemax":1.1"#,
+            #""huemin":"bad","huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
+            #""huemin":"0","huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
+            #""huemin":{"value":0},"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
+            #""huemin":false,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#,
+            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1,"future":1"#,
+            #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1"#,
+        ].map { fields -> SceneParticleSimulator in
+            var value = simulator(makeHSVColorJSON(fields, count: 1), seed: 44, step: 0.1)
+            value.advance(by: 0.1)
+            return value
+        }
+        let hsvColorOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"colorn":"0.5 1 1"}"#)
+        )
+        var hsvColorConflict = simulator(
+            makeHSVColorJSON(completeHSVColorFields, count: 1),
+            override: hsvColorOverride, seed: 44, step: 0.1
+        )
+        hsvColorConflict.advance(by: 0.1)
         var positionOffset = simulator(positionOffsetJSON, seed: 47, step: 0.1)
         var positionOffsetRepeat = simulator(positionOffsetJSON, seed: 47, step: 0.1)
         var positionOffsetDifferentSeed = simulator(positionOffsetJSON, seed: 48, step: 0.1)
@@ -1025,6 +1069,17 @@ enum Harness {
             "invalidColorListDiagnostics": invalidColorLists.map {
                 $0.diagnostics.map(\.kind.rawValue)
             },
+            "hsvColors": hsvColors.particles.map { vector($0.color) },
+            "hsvColorDiagnostics": hsvColors.diagnostics.map(\.kind.rawValue),
+            "fixedGrayHSV": vector(fixedGrayHSV.particles[0].color),
+            "hsvThenColor": vector(hsvThenColor.particles[0].color),
+            "invalidHSVColors": invalidHSVColors.map { vector($0.particles[0].color) },
+            "invalidHSVColorDiagnostics": invalidHSVColors.map {
+                $0.diagnostics.map(\.kind.rawValue)
+            },
+            "hsvColorConflict": vector(hsvColorConflict.particles[0].color),
+            "hsvColorConflictDiagnostics":
+                hsvColorConflict.diagnostics.map(\.kind.rawValue),
             "positionOffset": vector(positionOffset.particles[0].position),
             "positionOffsetDeterministic":
                 positionOffset.particles == positionOffsetRepeat.particles,
@@ -1698,6 +1753,27 @@ enum Harness {
      "renderer":[{"name":"sprite"}]}
     """#
 
+    private static let completeHSVColorFields = #""huemin":0,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1"#
+
+    private static let hsvColorJSON = makeHSVColorJSON(completeHSVColorFields)
+
+    private static func makeHSVColorJSON(_ fields: String, count: Int = 120) -> String {
+        let suffix = fields.isEmpty ? "" : ",\(fields)"
+        return """
+        {"material":"p.json","maxcount":\(count),
+         "emitter":[{"name":"boxrandom","instantaneous":\(count),"distancemax":0}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"hsvcolorrandom"\(suffix)}],
+         "renderer":[{"name":"sprite"}]}
+        """
+    }
+
+    private static let hsvThenColorJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","instantaneous":1,"distancemax":0}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"hsvcolorrandom","huemin":0,"huemax":1,"huesteps":6,"saturationmin":1,"saturationmax":1,"valuemin":1,"valuemax":1},{"name":"colorrandom","min":"64 128 255","max":"64 128 255"}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
     private static let positionOffsetJSON = positionOffsetJSON(
         #""distance":100,"directions":"1 0 0","octaves":4,"scale":0.25,"timescale":2"#
     )
@@ -2197,6 +2273,39 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(
             self.results["invalidColorListDiagnostics"],
             [["colorListUnsupported"]] * 6,
+        )
+
+    def test_hsv_color_random_executes_bounded_discrete_hues_in_authored_order(self) -> None:
+        colors = {
+            tuple(round(component, 9) for component in color)
+            for color in self.results["hsvColors"]
+        }
+        self.assertEqual(
+            colors,
+            {
+                (1, 0, 0),
+                (1, 1, 0),
+                (0, 1, 0),
+                (0, 1, 1),
+                (0, 0, 1),
+                (1, 0, 1),
+            },
+        )
+        self.assertEqual(self.results["hsvColorDiagnostics"], ["hsvColorBounded"])
+        self.assertEqual(self.results["fixedGrayHSV"], [0.25, 0.25, 0.25])
+        self.assertEqual(
+            self.results["hsvThenColor"], [64 / 255, 128 / 255, 1]
+        )
+
+    def test_hsv_color_random_rejects_incomplete_unbounded_or_color_override_profiles(self) -> None:
+        self.assertEqual(self.results["invalidHSVColors"], [[1, 1, 1]] * 19)
+        self.assertEqual(
+            self.results["invalidHSVColorDiagnostics"],
+            [["hsvColorUnsupported"]] * 19,
+        )
+        self.assertEqual(self.results["hsvColorConflict"], [0.25, 1, 1])
+        self.assertEqual(
+            self.results["hsvColorConflictDiagnostics"], ["hsvColorUnsupported"]
         )
 
     def test_position_offset_executes_project_owned_bounded_noise(self) -> None:

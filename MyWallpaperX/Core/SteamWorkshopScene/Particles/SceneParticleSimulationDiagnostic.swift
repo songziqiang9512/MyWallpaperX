@@ -3,6 +3,8 @@ import Foundation
 nonisolated enum SceneParticleSimulationDiagnosticKind: String, Hashable, Sendable {
     case unsupportedEmitter
     case unsupportedInitializer
+    case hsvColorBounded
+    case hsvColorUnsupported
     case colorListBounded
     case colorListUnsupported
     case positionOffsetBounded
@@ -141,6 +143,12 @@ extension SceneParticleSimulationMath {
         }
         for initializer in definition.initializers {
             switch initializer.kind {
+            case .hsvColor:
+                let hasOverrideConflict = !definition.flags.disablesColorOverrides
+                    && (instanceOverride?.color != nil
+                        || instanceOverride?.normalizedColor != nil)
+                add(initializer.boundedHSVColor == nil || hasOverrideConflict
+                    ? .hsvColorUnsupported : .hsvColorBounded, "hsvcolorrandom")
             case .colorList:
                 add(initializer.boundedColorList == nil
                     ? .colorListUnsupported : .colorListBounded, "colorlist")

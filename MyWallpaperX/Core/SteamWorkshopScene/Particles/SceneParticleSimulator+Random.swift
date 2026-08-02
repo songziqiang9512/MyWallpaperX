@@ -41,6 +41,25 @@ extension SceneParticleSimulator {
         return colors[index]
     }
 
+    nonisolated mutating func randomHSVColor(
+        _ value: SceneParticleInitializer
+    ) -> SIMD3<Double>? {
+        guard let plan = value.boundedHSVColor else { return nil }
+        let hueIndex = min(
+            Int(random.unit() * Double(plan.hueSteps)), plan.hueSteps - 1
+        )
+        let hue = plan.hue.lowerBound
+            + (plan.hue.upperBound - plan.hue.lowerBound)
+                * Double(hueIndex) / Double(plan.hueSteps)
+        let saturation = random.value(
+            plan.saturation.lowerBound, plan.saturation.upperBound
+        )
+        let brightness = random.value(plan.value.lowerBound, plan.value.upperBound)
+        return SceneParticleSimulationMath.hsvToRGB(
+            hue: hue, saturation: saturation, value: brightness
+        )
+    }
+
     private nonisolated mutating func randomValue(
         _ first: Double,
         _ second: Double,
@@ -139,5 +158,25 @@ extension SceneParticleSimulator {
         let outer = abs(rawMaximum)
         guard outer.isFinite, outer > 0 else { return 0 }
         return random.value(-outer, outer)
+    }
+}
+
+extension SceneParticleSimulationMath {
+    nonisolated static func hsvToRGB(
+        hue: Double, saturation: Double, value: Double
+    ) -> SIMD3<Double> {
+        let wrappedHue = hue - floor(hue)
+        let chroma = value * saturation
+        let sector = wrappedHue * 6
+        let intermediate = chroma * (1 - abs(sector.truncatingRemainder(dividingBy: 2) - 1))
+        let primary: SIMD3<Double> = switch Int(floor(sector)) % 6 {
+        case 0: SIMD3(chroma, intermediate, 0)
+        case 1: SIMD3(intermediate, chroma, 0)
+        case 2: SIMD3(0, chroma, intermediate)
+        case 3: SIMD3(0, intermediate, chroma)
+        case 4: SIMD3(intermediate, 0, chroma)
+        default: SIMD3(chroma, 0, intermediate)
+        }
+        return primary + SIMD3(repeating: value - chroma)
     }
 }
