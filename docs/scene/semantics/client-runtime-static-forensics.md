@@ -280,7 +280,13 @@ root/child 的普通帧顺序也已闭合：父 runtime 先完成上述 simulati
 
 reset/teardown 会归零活动计数和 CPU buffer，遍历 root 与分组 child，递归析构嵌套 child，并清空 vector/hash/index 容器。这支持项目为 particle runtime 建立显式递归 owner/reset 合同。仍未恢复的是随机状态/种子、各 component 的数学表达、所有 probability/capacity 边界、renderer 数学和视觉轨迹。
 
-### 5.6 官方 effect/particle corpus 对开发排序的约束
+### 5.6 Particle Control Point angle 结构复核
+
+2026-08-02 使用 Ghidra 12.1.2 对本资料库已记录且 SHA-256 匹配的 2.8.42 `wallpaper64.exe` 做单点复核。只记录可用于 clean-room 设计的高层结构：Sphere、Box、Vortex 与 Map Sequence 进入同一 particle component dispatcher；`controlpoint0...7` 与 `controlpointangle0...7` 在同一 instance property registry 内各自形成 typed vector family，并复用同类 typed accessor。它与 revision 4154 的 “emitter、vortex、map sequence around CP 可依赖 CP angles” 及 revision 4225 的 default CP angles 更新相互支持，表明 position/angle 应先组成共享 CP frame，再由合法 consumer 使用，而不应为每个样本建立单独旁路。
+
+本次没有从二进制提取或归档 Euler 顺序、矩阵表达、随机/积分算法、覆盖规则或任何可移植 payload；也没有确认 32 位实现等价。Ghidra 原始地址、伪代码和临时 project 均未入库并在复核后清理。因此项目 `7cce5fde` 的 X→Y→Z authored-radian 顺序、有限预算、Sphere/Box consumer 范围和 instance-current 替换 default 的行为仍是项目自有 bounded 合同，只由自有 fixture、stock/Workshop 方向性运行证据支撑，不是官方算法或 Windows 数值/像素 truth。
+
+### 5.7 官方 effect/particle corpus 对开发排序的约束
 
 本节只做字段与组合频率统计，不复制 payload。粒子范围与既有 corpus 一致：`assets/presets`、`assets/scenes/particleelementpreviews`、`assets/particles` 和默认 Scene，共 295 个路径、215 个不同 JSON payload。
 
