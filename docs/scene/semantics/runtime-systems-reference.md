@@ -86,6 +86,8 @@ General 层至少包含：
 
 Sphere/Box 共享的高价值字段包括 offset、direction/sign、distance min/max、control point、rate、instantaneous、duration、delay、periodic emission、speed min/max 和 audio response。
 
+当前 `594e52c4` 让已解析的 one-per-frame raw bit 2 按官方 display-frame 方向执行：每个 emitter 在一次 production `advance` 的全部 fixed steps 中共享一个 rate-emission 配额，而不是每个 1/60 step 各发一个；下一次 callback 才重置，prewarm 的离散模拟步分别重置。instantaneous 仍是独立一次性 burst，作者关闭和多 emitter 继续沿原合同。公开页只定义“每个显示帧一个”及 FPS 会影响数量，私有 bit 由合法 corpus 交叉确认；没有 Windows accumulator/backlog、不同 FPS count 或 Rope topology golden，因此仍是 bounded `L3`。
+
 Layer Image 的 emission bitmap 可以按需更新；官方特别说明只有动态纹理确实变化时才周期更新。时钟 text 是需要更新的例子，puppet 动画本身不要求每帧重建 emission bitmap。
 
 ### 2.3 Initializers
