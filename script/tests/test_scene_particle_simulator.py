@@ -78,6 +78,23 @@ enum Harness {
 
         var burst = simulator(durationJSON, seed: 1, step: 0.1)
         burst.advance(by: 0.5)
+        var onePerFrame = simulator(onePerFrameJSON, seed: 1, step: 0.1)
+        onePerFrame.advance(by: 0.3)
+        let onePerFrameCoarseCount = onePerFrame.particles.count
+        onePerFrame.advance(by: 0.3)
+        var onePerFramePartitioned = simulator(onePerFrameJSON, seed: 1, step: 0.1)
+        onePerFramePartitioned.advance(by: 0.1)
+        onePerFramePartitioned.advance(by: 0.1)
+        onePerFramePartitioned.advance(by: 0.1)
+        var onePerFrameAuthorOff = simulator(onePerFrameAuthorOffJSON, seed: 1, step: 0.1)
+        onePerFrameAuthorOff.advance(by: 0.3)
+        var twoOnePerFrameEmitters = simulator(
+            twoOnePerFrameEmittersJSON, seed: 1, step: 0.1
+        )
+        twoOnePerFrameEmitters.advance(by: 0.3)
+        let prewarmedOnePerFrame = simulator(
+            prewarmOnePerFrameJSON, seed: 1, step: 0.1
+        )
 
         var bounds = simulator(boundsJSON, seed: 7, step: 0.1)
         bounds.advance(by: 0.1)
@@ -761,6 +778,12 @@ enum Harness {
             "deathEventsDrain": death.consumeDeathEvents().isEmpty,
             "deathParticles": death.particles.count,
             "durationCount": burst.particles.count,
+            "onePerFrameCoarseCount": onePerFrameCoarseCount,
+            "onePerFrameSecondFrameCount": onePerFrame.particles.count,
+            "onePerFramePartitionedCount": onePerFramePartitioned.particles.count,
+            "onePerFrameAuthorOffCount": onePerFrameAuthorOff.particles.count,
+            "twoOnePerFrameEmittersCount": twoOnePerFrameEmitters.particles.count,
+            "prewarmOnePerFrameCount": prewarmedOnePerFrame.particles.count,
             "sphereMinimumRadius": sphereRadii.min() ?? -1,
             "sphereMaximumRadius": sphereRadii.max() ?? -1,
             "boxInBounds": boxOffsets.allSatisfy {
@@ -1100,6 +1123,28 @@ enum Harness {
      "emitter":[{"name":"boxrandom","instantaneous":3,"rate":100,"duration":0.25,"flags":2,"distancemin":"0 0 0","distancemax":"0 0 0"}],
      "initializer":[{"name":"lifetimerandom","min":10,"max":10}],"renderer":[{"name":"sprite"}]}
     """#
+
+    private static let onePerFrameJSON = #"""
+    {"material":"p.json","maxcount":100,
+     "emitter":[{"name":"boxrandom","rate":100,"flags":2,"distancemax":0}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+     "renderer":[{"name":"sprite"}]}
+    """#
+
+    private static let onePerFrameAuthorOffJSON = onePerFrameJSON.replacingOccurrences(
+        of: #""flags":2"#,
+        with: #""flags":0"#
+    )
+
+    private static let twoOnePerFrameEmittersJSON = onePerFrameJSON.replacingOccurrences(
+        of: #""emitter":[{"name":"boxrandom","rate":100,"flags":2,"distancemax":0}]"#,
+        with: #""emitter":[{"name":"boxrandom","rate":100,"flags":2,"distancemax":0},{"name":"boxrandom","rate":100,"flags":2,"distancemax":0}]"#
+    )
+
+    private static let prewarmOnePerFrameJSON = onePerFrameJSON.replacingOccurrences(
+        of: #""maxcount":100"#,
+        with: #""maxcount":100,"starttime":1"#
+    )
 
     private static let deathJSON = #"""
     {"material":"p.json","maxcount":1,
@@ -1760,6 +1805,12 @@ class SceneParticleSimulatorTests(unittest.TestCase):
 
     def test_rate_instantaneous_duration_and_one_per_frame(self) -> None:
         self.assertEqual(self.results["durationCount"], 4)
+        self.assertEqual(self.results["onePerFrameCoarseCount"], 1)
+        self.assertEqual(self.results["onePerFrameSecondFrameCount"], 2)
+        self.assertEqual(self.results["onePerFramePartitionedCount"], 3)
+        self.assertEqual(self.results["onePerFrameAuthorOffCount"], 30)
+        self.assertEqual(self.results["twoOnePerFrameEmittersCount"], 2)
+        self.assertEqual(self.results["prewarmOnePerFrameCount"], 10)
 
     def test_sphere_and_box_emitters_stay_in_authored_bounds(self) -> None:
         self.assertGreaterEqual(self.results["sphereMinimumRadius"], 2.0)

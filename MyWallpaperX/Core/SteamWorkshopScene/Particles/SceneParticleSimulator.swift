@@ -73,6 +73,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
         activeInstanceOverride = dynamicInstanceOverride ?? instanceOverride
         self.audioInput = audioInput
         guard duration.isFinite, duration > 0 else { return }
+        for index in emitters.indices { emitters[index].beginFrame() }
         accumulator += duration
         while accumulator + 1e-12 >= fixedTimeStep {
             step(by: fixedTimeStep)
@@ -99,7 +100,10 @@ nonisolated struct SceneParticleSimulator: Sendable {
         guard duration > 0 else { return }
         let count = min(max(Int(ceil(duration / fixedTimeStep)), 1), 240)
         let stepDuration = duration / Double(count)
-        for _ in 0..<count { step(by: stepDuration) }
+        for _ in 0..<count {
+            for index in emitters.indices { emitters[index].beginFrame() }
+            step(by: stepDuration)
+        }
     }
 
     private nonisolated mutating func step(by duration: Double) {
@@ -161,7 +165,9 @@ nonisolated struct SceneParticleSimulator: Sendable {
             let integral = floor(emitters[index].remainder + 1e-12)
             emitters[index].remainder -= integral
             count = Int(min(integral, Double(maximumParticleCount)))
-            if emitter.limitsToOnePerFrame { count = min(count, 1) }
+            count = emitters[index].boundedRateEmissionCount(
+                count, limitsToOnePerFrame: emitter.limitsToOnePerFrame
+            )
         }
         count = min(count, maximumParticleCount - particles.count)
         for _ in 0..<count {

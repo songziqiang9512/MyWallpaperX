@@ -25,6 +25,7 @@ nonisolated struct SceneParticleEmitterState: Sendable {
     var emittedInstantaneous = false
 
     private var initialDelayElapsed = 0.0
+    private var emittedRateThisFrame = false
     private var periodicIsEmitting = true
     private var periodicRemaining: Double?
     private var periodicRandom: SceneParticleRandomGenerator
@@ -33,6 +34,20 @@ nonisolated struct SceneParticleEmitterState: Sendable {
         periodicRandom = SceneParticleRandomGenerator(
             state: seed &+ UInt64(emitterIndex) &* 0x9E3779B97F4A7C15
         )
+    }
+
+    nonisolated mutating func beginFrame() {
+        emittedRateThisFrame = false
+    }
+
+    nonisolated mutating func boundedRateEmissionCount(
+        _ count: Int,
+        limitsToOnePerFrame: Bool
+    ) -> Int {
+        guard limitsToOnePerFrame else { return count }
+        guard count > 0, !emittedRateThisFrame else { return 0 }
+        emittedRateThisFrame = true
+        return 1
     }
 
     nonisolated mutating func scheduledActiveDuration(
