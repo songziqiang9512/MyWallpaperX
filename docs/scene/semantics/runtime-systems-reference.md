@@ -129,6 +129,8 @@ Operator 在粒子存活期间逐步更新状态。官方目录：
 
 Movement 的 gravity、worldspace、drag；Vortex/Boids 的邻域；Collision 的 bounce/slide/stop/delete 和 death event 都是独立语义。未知 operator 应记录 unsupported，不能静默忽略后仍统计该粒子系统完整支持。
 
+当前 `5cc7ee37` 开放 bounded Particle Audio Response：复用 host 的 left/right 16-band frame snapshot，只在资源加载确认合法 consumer 后声明 demand；一个 render frame 内的全部 fixed steps 读取同一 sanitized input。共享 evaluator 只接受 mode 1/2/3、frequency 0...15、finite ordered bounds 与有限正 exponent，按选定声道/频段 mean → linear bounds normalization → exponent 求值。root Sphere/Box rate-only emitter 乘 rate；Turbulent Velocity Random/Turbulence 以 `1 + response` 乘作者 phase，phase 0 保持无效；classic Vortex 仅在底层 distance/speed profile 已合法时乘 speed，静音停止。官方公开页只给出声道、频段、bounds/exponent 与上述 consumer 行为方向，因此 mean、默认、归一化和幅度全部是项目 clean-room 近似。child、Layer Image、复杂 emitter 组合、其他 operator 与缺底层参数的 Vortex 继续失败关闭；该子集不是 Windows 数值、轨迹或像素等价。
+
 ### 2.5 Renderers
 
 | Renderer | 官方语义 |
@@ -477,7 +479,7 @@ Realtime Adapter              Offline Adapter
 1. D1-D4 的 property 子集已完成：稳定 target、v22 binding program、per-surface evaluation transaction/snapshot、原子 generation，以及 B0/direct text/X-Ray 真实 consumer；未迁移 target 继续使用 rebuild fallback。
 2. D6 ordered strict effect-chain 与十四类 strict backend 已完成受限执行，包含 `Blur Precise -> Shadow`、Water chain、pointer-driven X-Ray 与 `[Blur Precise, God Rays]` 正门；这些 profile 不升级通用 graph、Directional/COPYBG God Rays、官方 Shadow/lighting 或 authored shader。
 3. Provider Core 已为 dynamic text 与 bounded media cover闭合局部 generation/cancellation/last-ready；继续补通用 metadata/cancellation/teardown。nested/effectful provider 和通用 material consumer 放在 B1/B2 集成层，不能互相形成前置环。
-4. Direct dynamic text、bounded Timeline text width、X-Ray pointer、Timeline 的 **48/48** authored-host typed target 与作者 Bézier handle、16/32/64 audio 输入、两个 exact native 64-band profiles 与 bounded media cover 已完成；SceneScript core、Sound、通用 media、generic Combined/multiple camera path/3D camera 与其余 particle 动态能力继续按 D10 的真实依赖接入。粒子 audio 在拿到官方求值公式证据前不接执行。
+4. Direct dynamic text、bounded Timeline text width、X-Ray pointer、Timeline 的 **48/48** authored-host typed target 与作者 Bézier handle、16/32/64 audio 输入、两个 exact native 64-band profiles、bounded Particle Audio Response 与 bounded media cover 已完成；SceneScript core、Sound、通用 media、generic Combined/multiple camera path/3D camera 与其余 particle 动态能力继续按 D10 的真实依赖接入。Particle audio 的其余 consumer/组合继续要求公开语义、合法 corpus 或 Windows golden 支撑，不因共享 evaluator 存在而自动开放。
 5. exact stock Opacity、Tint mask 与 stock Radial God Rays 子集已完成；下一批从能力开发计划按公共依赖、真实样本收益和 fail-closed 边界重新选择，不新增 effect-name 或样本 ID 近似。
 6. 广度闭合后用固定、扩展和新下载样本矩阵暴露冲突，再用 Windows golden 校准 effect、text、particle 和动态值精度；最后扩 Puppet/3D/Lighting 与离线编码产品层。
 

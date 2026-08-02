@@ -315,6 +315,14 @@ reset/teardown 会归零活动计数和 CPU buffer，遍历 root 与分组 child
 
 这些频率只用于开发排序和 fixture 选择，不把静态文件存在性提升为 MyWallpaperX 的执行等级，也不证明官方视觉结果。
 
+### 5.9 Particle Audio Response 归一化结构复核
+
+2026-08-02 对资料库已登记、SHA-256 为 `40e2ce021e9352324fadb3b8f72b8ba2a7ee95b71cc571d5b9f84be75cd993b0` 的官方 2.8.42 `wallpaper64.exe` 做一次范围明确的 Ghidra 12.1.2 clean-room 复核。该复核发生在本批证据顺序收紧之前；以后应先读现役专项表、资料库既有分析、官方网页与合法 corpus，只有结构性问题仍阻塞公共设计时才重复反编译。
+
+本次只保留以下高层结构：五个 `audioprocessing*` 字段由同一归一化路径处理；mode 缺失时关闭，exponent 默认值呈现为 2，frequency start/end 默认呈现为 0/1，频段索引在 16-band 范围内约束并按序处理。Sphere、Box、Layer Image、Turbulent Velocity、Turbulence 与 Vortex 已在既有共同 particle component dispatcher 证据中出现，因此 audio declaration 应先进入共享 typed plan，再由合法 consumer 各自准入，而不是按样本或组件复制解析分支。
+
+该复核没有恢复跨频段聚合、bounds 数值归一化、phase/rate/speed 的调制幅度、每帧采样时相或任何可移植 runtime 公式；也没有证明 32 位路径、Windows 轨迹或像素结果等价。原始地址、伪代码、函数体、临时 project 与日志均未入库，临时目录已清理。项目 `5cc7ee37` 的 frequency mean、linear bounds normalization、exponent、mode-only `0...1` bounds、`1 + response` phase 和 rate/speed scale 都是独立的 project-owned bounded approximation，只由公开行为、自有正反 fixture 与隔离样本证据约束，不是官方算法。
+
 ## 6. SceneScript 的 module/engine/owner 机制
 
 ### 6.1 宿主层次

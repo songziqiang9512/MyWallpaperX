@@ -21,6 +21,8 @@
 
 本轮固定官方文档 revision：[`b26412295cbfd0ee5cdceff67e2c95069527aa1b`](https://github.com/Wallpaper-Engine-Team/wallpaper-engine-docs/commit/b26412295cbfd0ee5cdceff67e2c95069527aa1b)，也是 2026-07-22 核验时的远端 `HEAD`。线上页面与源码发生漂移时，先对比该 revision，不从记忆猜改动。
 
+Scene 能力研究按以下顺序取证：先读现役专项表、总覆盖台账与运行证据索引，再读本资料库已经归档的官方客户端分析；仍不足时核对官方网页和合法 corpus。只有这些材料无法回答一个会阻塞公共设计的结构性问题时，才对已记录哈希的官方客户端做一次范围明确的 clean-room 反编译复核。不得把 Ghidra 变成每批默认步骤，也不得从客户端复制算法表达、payload、伪代码、地址或资产；静态结构不能代替项目自有正反门、隔离样本或 Windows golden。
+
 2026-07-22 sitemap 中 Scene 页面按首级目录计数：
 
 | 目录 | 页面数 | 主题 |
@@ -98,6 +100,8 @@
 2026-08-01 复核 Emitter 页：官方明确列出 Sphere Random、Box Random 与 Layer Image 三类 emitter；Speed Min/Max 与 Movement operator 共同定义粒子的最小/最大初始速度。Directions 是逐轴 multiplier：`1` 保持 Distance Max，`2` 使该轴加倍，`0` 消除该轴；Sign 只适用于 Sphere Random，每轴 `0` 为双向、`1` 为正向、`-1` 为负向。Random periodic emission 会周期性停止并重新开始发射，公开参数为最小/最大 periodic duration 与最小/最大 periodic delay。Layer Image 可使用普通纹理、text 或 puppet source，并另有复制 layer color、周期 bitmap update、继承 layer motion 与 random offset 选项。公开页不定义私有 JSON dependency wire、字段缺省值、速度随机序列、Directions/Sign 的 JSON 形态与项目 multiplier 上限、像素采样中心、alpha threshold、更新 generation、周期 RNG/边界 fixed-step 规则或随机分布公式，因此当前 bounded executor 只把这些公开事实用于准入边界，不据此宣称数值、分布或时序等价。组件目录和关键参数已经进入 [运行时系统语义](runtime-systems-reference.md)。
 
 2026-08-02 继续复核 [Emitter](https://docs.wallpaperengine.io/en/scene/particles/component/emitter.html) 页与客户端 changelog：官方明确把 Delay 定义为 emitter 开始前等待给定秒数；revision 4066 将 “particle initial emission delay” 与 random periodic emission 分列为两个新增项，支持把 initial delay 作为独立能力建账。2.8.42 静态属性 wire 的 Sphere Random 注册中包含 `delay`，随包 corpus 只有 thunderbolt preview/non-preview duplicate 的四处声明，唯一正值 `0.2` 同时带 `flags=4`、duration 和 max-per-period；45 份当前 Workshop package 没有 `delay` 声明。公开页与静态资料不提供 fixed-step 边界、duration/periodic 组合顺序、上限或 Windows timing golden；项目的 `3600 s` 预算、跨步 remainder 和 delay 后 duration 计时都是 bounded clean-room 合同，不是官方内部算法。
+
+2026-08-02 复核 [Emitter](https://docs.wallpaperengine.io/en/scene/particles/component/emitter.html) 与 [Operator](https://docs.wallpaperengine.io/en/scene/particles/component/operator.html) 页的 Particle Audio Response：公开页定义 left/right/center（center 合并左右声道）、16 个 frequency bands `0...15`、bounds fade range 与 exponent 的低/高响应偏置；Emitter 只在音频存在时 active，Turbulence 把 audio factor 加到 phase 且 phase 0 不生效，Vortex speed 随音频且静音停止。页面不公开跨频段聚合、bounds 的运行时归一化、默认 wire、每帧采样时相或数值公式。资料库既有 2.8.42 静态分析与一次 bounded 单点复核只支持五个 `audioprocessing*` 字段共用归一化结构、mode 缺省关闭、exponent 默认 2、frequency 默认 0/1 并在 16-band 范围内排序的高层方向；没有恢复 runtime evaluator 或调制幅度。项目 `5cc7ee37` 因此使用独立的 mean → linear bounds normalization → exponent 合同，并把 mode-only bounds `0...1`、`1 + response` phase 与 rate/speed scale 明确列为 project-owned approximation；见 [客户端运行时静态取证](client-runtime-static-forensics.md#59-particle-audio-response-归一化结构复核) 与 [E-PARTICLE](runtime-evidence-index.md#e-particle)。
 
 2026-08-01 复核 Control Point 与 Operator 页：官方公开 CP 索引为 0...7，CP 0 固定代表 system origin；Control Point 可提供 position、angles、pointer/world-space 行为，child 可选择 Copy from parent，Raw value 会跳过 child coordinate adjustment。Emitter 页另明确 Sphere/Box emitter 可附着到 Control Point。Control Point Force 会把附近粒子向 CP 拉近或推远，正 scale 吸引、负 scale 排斥，Maximum distance 限制作用范围；官方 pointer 示例要求使用 CP 1 或更高索引并启用 Lock to pointer，近中心减速/删除由另外两个 operator 承担。公开页不定义 `parentcontrolpoint`、raw-copy/pointer flag 等私有 JSON wire，也不公开 parent/child 坐标变换顺序、动态更新时相、角度复制、force falloff 或积分公式；项目只用公开行为约束能力边界，wire identity 由合法 authored 资产交叉确认，执行与负例使用项目自有 fixture。
 
