@@ -99,6 +99,8 @@
 
 2026-08-01 复核 Control Point 与 Operator 页：官方公开 CP 索引为 0...7，CP 0 固定代表 system origin；Control Point 可提供 position、angles、pointer/world-space 行为，child 可选择 Copy from parent，Raw value 会跳过 child coordinate adjustment。Emitter 页另明确 Sphere/Box emitter 可附着到 Control Point。Control Point Force 会把附近粒子向 CP 拉近或推远，正 scale 吸引、负 scale 排斥，Maximum distance 限制作用范围；官方 pointer 示例要求使用 CP 1 或更高索引并启用 Lock to pointer，近中心减速/删除由另外两个 operator 承担。公开页不定义 `parentcontrolpoint`、raw-copy/pointer flag 等私有 JSON wire，也不公开 parent/child 坐标变换顺序、动态更新时相、角度复制、force falloff 或积分公式；项目只用公开行为约束能力边界，wire identity 由合法 authored 资产交叉确认，执行与负例使用项目自有 fixture。
 
+2026-08-02 复核 [Operator](https://docs.wallpaperengine.io/en/scene/particles/component/operator.html) 与 [Control Point](https://docs.wallpaperengine.io/en/scene/particles/component/control_point.html) 页的 Vortex：公开页说明 Vortex 可围绕 axis 旋转，standard 形态按 inner/outer distance 与 speed 定义场，另有 ring、infinite axis、control point 与 center force 等作者选项；Control Point 可提供 position/angles。页面不公开私有 JSON 名称、flags 位、默认值、距离插值、每帧积分、单位或 2.8.42 数值公式。官方客户端静态审查 [windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md](../../reviews/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md)、[client-changelog-forensics.md](client-changelog-forensics.md) 与 [editor-string-table-forensics.md](editor-string-table-forensics.md) 只用于 clean-room 区分 classic v1 的 `axis/distanceinner/distanceouter/flags/speedinner/speedouter` 与 `vortex_v2` 的 ring/CP wire，并交叉确认 infinite-axis/CP-angle 能力演进；它们不提供可复制算法或官方 runtime truth。项目当前 v1 executor 的 right-hand tangential acceleration、flags 0/1 距离解释与 fixed-step 数学是有界项目合同，`vortex_v2`、audio/CP/center-force 与 Windows 轨迹等价继续保持 unknown/fail closed。
+
 ### 1.6 Timeline
 
 - https://docs.wallpaperengine.io/en/scene/timeline/introduction.html
