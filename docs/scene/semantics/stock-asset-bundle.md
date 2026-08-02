@@ -16,14 +16,14 @@ bundle 不设目录级的文件清单、文件数量或 preview 排除门禁。�
 
 ## 2. 运行与替换合同
 
-当前真实 consumer 只有两组：Particle material slot 0 会在样本本地资源缺失后直接读取 `assets/materials/particle/**/*.tex`；文字解析会在壁纸包内字体缺失后直接读取 `assets/fonts/<作者文件名>`。两条路径均不依赖 catalog 或替代文件名映射。
+当前真实 consumer 有两组播放 consumer 和一组有界资源 consumer：Particle material slot 0 会在样本本地资源缺失后直接读取 `assets/materials/particle/**/*.tex`；文字解析会在壁纸包内字体缺失后直接读取 `assets/fonts/<作者文件名>`；`.lookupTable` TEX loader 可直接解析并上传 `assets/materials/lut/*.tex` 的严格 3D volume profile。三条路径均不依赖 catalog 或替代文件名映射；LUT 路径目前只到 Metal `type3D` resource，不包含 Effect/material consumer。
 
-其余 Effect、material、shader、sidecar、LUT、normal、多纹理、SceneScript 和 zcompat 文件已经具备固定物理身份，但 consumer 仍按各专项能力表推进。后续实现必须直接复用本包现有路径，并以“包内现有文件被对应 consumer 实际读取”为资源链验收条件；不得再创建另一个 stock 资产包或另一套命名。
+其余 Effect、material、shader、sidecar、normal、多纹理、SceneScript 和 zcompat 文件，以及 LUT 的 effect/material binding，已经具备固定物理身份，但 consumer 仍按各专项能力表推进。后续实现必须直接复用本包现有路径，并以“包内现有文件被对应 consumer 实际读取”为资源链验收条件；不得再创建另一个 stock 资产包或另一套命名。
 
 占位生成器 `script/generate_scene_stock_asset_bundle.py` 与历史集合门 `script/tests/test_scene_stock_asset_bundle.py` 已随真实素材落地退役（`47e2fa8`）。bundle 内容不再有目录级门禁，由各 consumer 门验证运行时实际读取的资源。
 
 ## 3. 证据等级
 
 - A 级：2.8.42 固定客户端快照静态取证记录了 3,113 个相对路径、扩展名及目录归属。
-- 项目事实：Particle slot 0 可直接解码并上传包内 `particle/debris/debris1` 的 1024x128 R8 spritesheet；字体 consumer 可由 CoreText 打开官方命名字体。Particle slot 0 与字体 consumer 已进入 runtime。
+- 项目事实：Particle slot 0 可直接解码并上传包内 `particle/debris/debris1` 的 1024x128 R8 spritesheet；字体 consumer 可由 CoreText 打开官方命名字体；当前 28 个 `materials/lut` TEX 均经同一 strict profile 上传为 32×32×32 Metal 3D texture。Particle slot 0 与字体 consumer 已进入播放 runtime；LUT 仅完成资源 ingest/upload。
 - 未证明：未接入文件的官方加载时机、JSON/shader/sidecar 语义、TEX codec/尺寸/通道/mip/atlas/颜色空间和像素等价；这些仍需自有 fixture 与 Windows golden。

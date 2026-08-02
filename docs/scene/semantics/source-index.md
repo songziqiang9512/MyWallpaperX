@@ -236,6 +236,7 @@ Wallpaper Engine 2.8.42 / Steam build `23967692` 是一个固定版本证据快�
 
 - **SceneScript**：[运行时实现层合同](scenescript-runtime-implementation-contract.md) 记录 Vec/Mat、宿主桥、用户属性转换、自定义 script property builder、官方 JS module 和 engine/owner 生命周期；[binding target 取证](scenescript-binding-target-forensics.md) 记录 13 处内联脚本 wrapper、owner/target、authored value 与导出 hook。
 - **随包输入 corpus**：[官方默认工程 corpus](official-default-projects-fixture-inventory.md) 记录 19 个工程入口与 16 个 scene-shaped 工程；[stock 资产包](stock-asset-bundle.md) 记录项目自有资源对应关系。物理文件存在不升级 consumer 等级。
+- **3D LUT TEX**：历史 2.8.42 审计已记录 LUT header 相对普通 2D TEX 多一个 depth 字段；现役 stock corpus 的 28 个 `assets/materials/lut/*.tex` 进一步共同约束为 format 0、32×32×32、单 mip embedded vertical PNG atlas，`ccsimple.frag` 声明 `sampler3D`。这些现有资料已足够支持 `fdf36e6b` 的有界 reader/uploader，本批没有启动 Ghidra；它们仍不足以定义 LUT sampling、颜色空间、material binding 或 Windows pixel truth。
 - **Shader 与兼容记录**：[Shader source 前置合同](shader-prelude-and-backend-abstraction.md) 记录 source token、format branch 与 uniform census；[zcompat 取证](zcompat-backward-compatibility-forensics.md) 记录 patch record schema。未闭合的注入者、矩阵/NDC/Metal 映射、匹配方向和运行时机继续保持 unknown。
 - **编辑器与版本线索**：[客户端 changelog 取证](client-changelog-forensics.md) 记录内嵌 REV 3943-4401 的版本事实；[编辑器字符串表取证](editor-string-table-forensics.md) 记录 Scene wire 字段对应的官方名称和说明。
 
