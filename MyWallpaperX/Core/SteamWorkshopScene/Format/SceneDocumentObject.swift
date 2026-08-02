@@ -1,6 +1,47 @@
 import Foundation
 
 extension SceneDocument {
+    /// 编辑器生成的 2D camera path record。它没有可绘制内容，`path` 是作者路径身份；
+    /// Timeline consumer 只在单一 default-camera record 上准入 bounded origin/zoom 组。
+    struct Scene2DCameraPathDefinition: Codable, Equatable {
+        let camera: String
+        let path: String
+        let queueMode: String?
+        let zoom: Double?
+
+        nonisolated static func parse(
+            _ root: [String: Any]
+        ) -> Scene2DCameraPathDefinition? {
+            guard let camera = nonEmptyString(root["camera"]),
+                  let path = nonEmptyString(root["path"]) else { return nil }
+            return Scene2DCameraPathDefinition(
+                camera: camera,
+                path: path,
+                queueMode: nonEmptyString(root["queuemode"])?.lowercased(),
+                zoom: number(root["zoom"])
+            )
+        }
+
+        private nonisolated static func nonEmptyString(_ value: Any?) -> String? {
+            let string: String?
+            if let value = value as? String {
+                string = value
+            } else {
+                string = (value as? [String: Any])?["value"] as? String
+            }
+            guard let string else { return nil }
+            let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+
+        private nonisolated static func number(_ value: Any?) -> Double? {
+            if let value = value as? Double { return value }
+            if let value = value as? Int { return Double(value) }
+            if let wrapper = value as? [String: Any] { return number(wrapper["value"]) }
+            return nil
+        }
+    }
+
     /// 挂在 layer 级宿主属性上的作者 Timeline。
     ///
     /// 另外两条通路不走这里：effect constant 上的 Timeline 由 `ShaderValue.timeline`
@@ -10,9 +51,9 @@ extension SceneDocument {
     struct SceneObjectTimeline: Codable, Equatable {
         /// 作者 JSON 中的宿主属性名，同时也是 target 身份的一部分。
         ///
-        /// `maxwidth`/`zoom` 目前没有对应的 `SceneDynamicTarget`，但它们确实是 layer 级
-        /// 宿主属性，IR 先无损保留，能否写回由 target 编译阶段判定并诊断，不在解析期
-        /// 假装作者没写。
+        /// `maxwidth` 与 bounded 2D camera Combined `zoom` 已有 typed target；其余 zoom
+        /// 形态仍只在 IR 保真，能否写回由 target 编译阶段判定并诊断，不在解析期假装
+        /// 作者没写。
         enum Host: String, CaseIterable, Codable {
             case alpha
             case origin
@@ -67,6 +108,7 @@ extension SceneDocument {
     struct SceneObject: Identifiable {
         let id: Int
         let name: String?
+        var cameraPath: Scene2DCameraPathDefinition? = nil
         let imagePath: String?
         let particlePath: String?
         var spotLight: SceneSpotLightDefinition? = nil

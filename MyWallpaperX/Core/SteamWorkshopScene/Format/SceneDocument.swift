@@ -181,6 +181,7 @@ struct SceneDocumentLoader {
         return SceneDocument.SceneObject(
             id: id,
             name: root["name"] as? String,
+            cameraPath: SceneDocument.Scene2DCameraPathDefinition.parse(root),
             imagePath: imagePath,
             particlePath: normalizedPath(root["particle"] as? String),
             spotLight: SceneSpotLightDefinition.parse(root),

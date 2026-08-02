@@ -11,10 +11,15 @@ from pathlib import Path
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneDynamicSnapshot.swift"
+SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Properties"
+SOURCES = [
+    SOURCE_ROOT / "SceneDynamicSnapshot.swift",
+    SOURCE_ROOT / "SceneDynamicSnapshot+Camera.swift",
+]
 
 HARNESS = r'''
 import Foundation
+import simd
 
 @main
 enum Harness {
@@ -173,6 +178,24 @@ enum Harness {
         ).snapshot
         let layer12ControlPoints = controlPointSnapshot.particleControlPoints(layerID: 12)
         let layer12ParticleValues = controlPointSnapshot.particleInstanceValues(layerID: 12)
+        let cameraSnapshot = resolver.resolve(
+            frameIndex: 9,
+            generation: 3,
+            definitions: [
+                .init(
+                    target: .camera(.origin), valueType: .vector3,
+                    authoredValue: .vector3(0, 0, 500)
+                ),
+                .init(
+                    target: .camera(.zoom), valueType: .scalar,
+                    authoredValue: .scalar(1)
+                ),
+            ],
+            timelineValues: [
+                .camera(.origin): .vector3(-100, 682, 500),
+                .camera(.zoom): .scalar(2.4),
+            ]
+        ).snapshot.cameraTransform()
         let empty = SceneDynamicSnapshot.empty(frameIndex: 9, generation: 4)
         let payload: [String: Any] = [
             "coderRoundTrip": coderRoundTrip,
@@ -199,6 +222,10 @@ enum Harness {
             } ?? [],
             "otherLayerParticleValuesMissing":
                 controlPointSnapshot.particleInstanceValues(layerID: 13) == nil,
+            "cameraOrigin": [
+                cameraSnapshot.origin.x, cameraSnapshot.origin.y, cameraSnapshot.origin.z,
+            ],
+            "cameraZoom": cameraSnapshot.zoom,
             "empty": [empty.frameIndex, empty.generation, UInt64(empty.count)],
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
@@ -243,7 +270,7 @@ class SceneDynamicSnapshotTests(unittest.TestCase):
         harness.write_text(HARNESS, encoding="utf-8")
         binary = directory / "scene-dynamic-snapshot"
         compilation = subprocess.run(
-            ["swiftc", str(SOURCE), str(harness), "-o", str(binary)],
+            ["swiftc", *(str(source) for source in SOURCES), str(harness), "-o", str(binary)],
             capture_output=True,
             text=True,
         )
@@ -308,6 +335,10 @@ class SceneDynamicSnapshotTests(unittest.TestCase):
         self.assertEqual(self.result["layer12ParticleAlpha"], 0.35)
         self.assertEqual(self.result["layer12ParticleColor"], [0.2, 0.4, 0.6])
         self.assertTrue(self.result["otherLayerParticleValuesMissing"])
+
+    def test_camera_transform_reads_typed_origin_and_zoom_atomically(self) -> None:
+        self.assertEqual(self.result["cameraOrigin"], [-100, 682, 500])
+        self.assertAlmostEqual(self.result["cameraZoom"], 2.4, places=5)
 
 
 if __name__ == "__main__":

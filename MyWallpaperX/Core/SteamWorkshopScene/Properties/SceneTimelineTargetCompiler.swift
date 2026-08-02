@@ -35,7 +35,7 @@ nonisolated enum SceneTimelineTargetCompiler {
         case unsupportedHost
         /// 当前只为 layer transform 定标了作者基值加动画偏移；其他 relative 仍拒绝。
         case relativeUnsupported
-        /// Combined Animation：同组成员共享持有方的 clock/settings，分组语义未实现。
+        /// 普通 Combined Animation 尚未定标；受限 2D camera origin↔zoom 由专用编译器处理。
         case combinedAnimationUnsupported
         /// lane 数与 target 的值类型不符（例如 3 lane 写 scalar）。
         case componentMismatch
@@ -52,14 +52,19 @@ nonisolated enum SceneTimelineTargetCompiler {
     private static let maximumDynamicTextWidth = 16_384.0
 
     nonisolated static func compile(descriptor: SceneRenderDescriptor) -> SceneTimelineProgram {
+        let cameraProgram = Scene2DCameraTimelineCompiler.compile(descriptor: descriptor)
         var candidates: [(binding: SceneTimelineBinding, label: String)] = []
-        var diagnostics: [String] = []
+        var diagnostics = cameraProgram.diagnostics
 
         for layer in descriptor.layers {
             diagnostics.append(contentsOf: layer.timelineDiagnostics.map {
                 "layer \(layer.id) \($0)"
             })
             for timeline in layer.timelines {
+                if layer.cameraPath != nil,
+                   timeline.host == .origin || timeline.host == .zoom {
+                    continue
+                }
                 let label = "layer \(layer.id) \(timeline.host.rawValue)"
                 guard let resolved = layerTarget(host: timeline.host, layer: layer) else {
                     diagnostics.append("\(label): \(Diagnostic.unsupportedHost.rawValue)")
@@ -111,7 +116,7 @@ nonisolated enum SceneTimelineTargetCompiler {
         for candidate in candidates {
             occurrences[candidate.binding.target, default: 0] += 1
         }
-        var bindings: [SceneTimelineBinding] = []
+        var bindings = cameraProgram.bindings
         for candidate in candidates {
             if occurrences[candidate.binding.target, default: 0] > 1 {
                 diagnostics.append("\(candidate.label): \(Diagnostic.duplicateTarget.rawValue)")
@@ -271,8 +276,8 @@ nonisolated enum SceneTimelineTargetCompiler {
                 .scalar,
                 .scalar(Double(style.maxWidth))
             )
-        // size/color 有 target 但随包没有 Timeline 样本；zoom 的唯一真实形态属于
-        // Camera origin↔zoom Combined Animation，不能脱组猜成普通 layer scalar。
+        // size/color 有 target 但随包没有 Timeline 样本；zoom 的唯一真实形态由
+        // bounded 2D Camera Combined 编译器按组处理，不能脱组猜成普通 layer scalar。
         case .size, .color, .zoom:
             return nil
         }

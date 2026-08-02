@@ -76,6 +76,8 @@ extension SceneDesktopWallpaperHost {
 
     private nonisolated static func describe(_ target: SceneDynamicTarget) -> String {
         switch target {
+        case let .camera(field):
+            "camera \(field.rawValue)"
         case let .layer(layerID, field):
             "layer \(layerID) \(field.rawValue)"
         case let .effectConstant(layerID, effectIndex, passIndex, name):

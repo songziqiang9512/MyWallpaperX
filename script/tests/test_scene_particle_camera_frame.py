@@ -47,10 +47,26 @@ enum Harness {
         )
         let viewport = CGSize(width: 1280, height: 832)
         let frame = SceneParticleCameraFrame(camera: camera, viewportSize: viewport)
+        let dynamicOrigin = SIMD3<Float>(-100, 682, 500)
+        let dynamicFrame = SceneParticleCameraFrame(
+            camera: camera,
+            viewportSize: viewport,
+            cameraOrigin: dynamicOrigin,
+            cameraZoom: 2.4
+        )
         let center = SIMD4<Float>(960, 540, 0, 1)
         let edge = SIMD4<Float>(
             960 + frame.coverHalfExtents.x,
             540 + frame.coverHalfExtents.y,
+            0,
+            1
+        )
+        let dynamicCenter = SIMD4<Float>(
+            960 + dynamicOrigin.x, 540 + dynamicOrigin.y, 0, 1
+        )
+        let dynamicEdge = SIMD4<Float>(
+            dynamicCenter.x + dynamicFrame.coverHalfExtents.x,
+            dynamicCenter.y + dynamicFrame.coverHalfExtents.y,
             0,
             1
         )
@@ -129,8 +145,15 @@ enum Harness {
 
         let result: [String: Any] = [
             "coverHalfExtents": vector2(frame.coverHalfExtents),
+            "dynamicCoverHalfExtents": vector2(dynamicFrame.coverHalfExtents),
             "orthoCenterNDC": ndc(frame.orthographicViewProjection, center),
             "orthoEdgeNDC": ndc(frame.orthographicViewProjection, edge),
+            "dynamicCenterNDC": ndc(
+                dynamicFrame.orthographicViewProjection, dynamicCenter
+            ),
+            "dynamicEdgeNDC": ndc(
+                dynamicFrame.orthographicViewProjection, dynamicEdge
+            ),
             "perspectiveCenterNDC": ndc(frame.perspectiveViewProjection, center),
             "perspectiveEdgeNDC": ndc(frame.perspectiveViewProjection, edge),
             "selectedOrtho": frame.viewProjection(usesPerspective: false)
@@ -272,6 +295,22 @@ class SceneParticleCameraFrameTests(unittest.TestCase):
             self.assertAlmostEqual(self.result[key][1], -1, places=5)
         self.assertTrue(self.result["selectedOrtho"])
         self.assertTrue(self.result["selectedPerspective"])
+
+    def test_dynamic_2d_camera_origin_and_zoom_share_the_projection(self) -> None:
+        self.assertAlmostEqual(
+            self.result["dynamicCoverHalfExtents"][0],
+            self.result["coverHalfExtents"][0] / 2.4,
+            places=3,
+        )
+        self.assertAlmostEqual(
+            self.result["dynamicCoverHalfExtents"][1],
+            self.result["coverHalfExtents"][1] / 2.4,
+            places=3,
+        )
+        for component in self.result["dynamicCenterNDC"][:2]:
+            self.assertAlmostEqual(component, 0, places=5)
+        self.assertAlmostEqual(self.result["dynamicEdgeNDC"][0], 1, places=5)
+        self.assertAlmostEqual(self.result["dynamicEdgeNDC"][1], -1, places=5)
 
     def test_camera_axes_match_we_global_particle_camera(self) -> None:
         self.assertEqual(self.result["cameraRight"], [1, 0, 0])

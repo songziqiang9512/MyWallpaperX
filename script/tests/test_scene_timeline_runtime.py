@@ -46,6 +46,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "Properties/SceneSurfaceEvaluationTransaction.swift",
     SOURCE_ROOT / "Properties/SceneTimelineTargetCompiler.swift",
+    SOURCE_ROOT / "Properties/SceneTimelineTargetCompiler+Camera.swift",
     SOURCE_ROOT / "Properties/SceneTimelineRuntime.swift",
 ]
 
@@ -136,6 +137,41 @@ SCENE_FIXTURE = {
                     "c2": [keyframe(0, 0), keyframe(60, 3)],
                     "options": {"fps": 30, "length": 60, "mode": "loop"},
                     "relative": True,
+                },
+            },
+        },
+        {
+            "id": 50,
+            "name": "Combined camera path",
+            "camera": "default",
+            "path": "scripts/camera_path.json",
+            "queuemode": "sequential",
+            "origin": {
+                "value": "0 0 500",
+                "animation": {
+                    "c0": [keyframe(0, -100), keyframe(180, 0)],
+                    "c1": [keyframe(0, 682), keyframe(180, 0)],
+                    "c2": [keyframe(0, 0), keyframe(180, 0)],
+                    "options": {
+                        "fps": 30,
+                        "length": 180,
+                        "mode": "single",
+                        "children": [{"key": "zoom"}],
+                    },
+                    "relative": True,
+                },
+            },
+            "zoom": {
+                "value": 1,
+                "animation": {
+                    "c0": [keyframe(0, 2.4), keyframe(180, 1)],
+                    # 故意给 child 一套不同 clock；Combined 必须使用 owner clock。
+                    "options": {
+                        "fps": 5,
+                        "length": 5,
+                        "mode": "loop",
+                        "parent": {"key": "origin"},
+                    },
                 },
             },
         },
@@ -305,6 +341,18 @@ enum Harness {
                     "value": [x, y, z], "source": resolved.source.rawValue,
                 ]
             }
+            if let resolved = resolution.snapshot[.camera(.origin)],
+               case let .vector3(x, y, z) = resolved.value {
+                entry["cameraOrigin"] = [
+                    "value": [x, y, z], "source": resolved.source.rawValue,
+                ]
+            }
+            if let resolved = resolution.snapshot[.camera(.zoom)],
+               case let .scalar(value) = resolved.value {
+                entry["cameraZoom"] = [
+                    "value": value, "source": resolved.source.rawValue,
+                ]
+            }
             samples[label] = entry
         }
         payload["samples"] = samples
@@ -351,12 +399,12 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
         cls.temporary_directory.cleanup()
 
     def test_shared_target_is_not_duplicated_in_definitions(self) -> None:
-        # 四条 binding：两个 alpha、一个 constant、一个 relative transform
-        self.assertEqual(self.result["bindingCount"], 4)
+        # 六条 binding：既有四条 + camera origin/zoom 原子组。
+        self.assertEqual(self.result["bindingCount"], 6)
         # layer10 alpha 两边都声明，合并后只能有一份，否则 resolver 会整个丢弃
         self.assertEqual(self.result["sharedTargetDefinitionCount"], 1)
-        # 1 条 property + 3 条 timeline 独有
-        self.assertEqual(self.result["definitionCount"], 4)
+        # 1 条 property + 5 条 timeline 独有
+        self.assertEqual(self.result["definitionCount"], 6)
 
     def test_resolver_accepts_every_timeline_value(self) -> None:
         for label in ("t0", "half", "late"):
@@ -400,6 +448,24 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
             self.result["samples"]["half"]["relativeAngles"]["source"],
             "timeline",
         )
+
+    def test_combined_camera_members_share_the_owner_clock_and_snapshot(self) -> None:
+        self.assertEqual(
+            self.result["samples"]["t0"]["cameraOrigin"]["value"],
+            [-100, 682, 500],
+        )
+        self.assertAlmostEqual(
+            self.result["samples"]["late"]["cameraOrigin"]["value"][0],
+            -16.6666666667,
+        )
+        self.assertAlmostEqual(
+            self.result["samples"]["late"]["cameraZoom"]["value"],
+            1.2333333333,
+        )
+        for key in ("cameraOrigin", "cameraZoom"):
+            self.assertEqual(
+                self.result["samples"]["late"][key]["source"], "timeline"
+            )
 
 
 if __name__ == "__main__":

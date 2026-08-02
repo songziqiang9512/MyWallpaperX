@@ -45,6 +45,8 @@ nonisolated enum SceneDynamicValue: Codable, Equatable, Hashable, Sendable {
 }
 
 nonisolated enum SceneDynamicCameraField: String, Codable, Equatable, Hashable, Sendable {
+    case origin
+    case zoom
     case parallaxEnabled
     case parallaxAmount
     case parallaxDelay

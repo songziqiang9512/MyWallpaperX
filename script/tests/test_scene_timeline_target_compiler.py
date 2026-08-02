@@ -10,6 +10,7 @@ target 口径与 `SceneUserPropertyBindings` 一致：`effectIndex` 是 `objects
 
 from __future__ import annotations
 
+import copy
 import json
 import subprocess
 import tempfile
@@ -40,6 +41,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Text/SceneTextDescriptor.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "Properties/SceneTimelineTargetCompiler.swift",
+    SOURCE_ROOT / "Properties/SceneTimelineTargetCompiler+Camera.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
@@ -210,6 +212,38 @@ SCENE_FIXTURE = {
                 "animation": animation(
                     [[keyframe(0, 0), keyframe(60, 1)]],
                     options={"children": [{"key": "zoom"}]},
+                ),
+            },
+        },
+        {
+            "id": 66,
+            "name": "Bounded 2D camera path",
+            "camera": "default",
+            "path": "scripts/camera_path.json",
+            "queuemode": "random",
+            "origin": {
+                "value": "0 0 500",
+                "animation": animation(
+                    [
+                        [keyframe(0, -100), keyframe(180, 0)],
+                        [keyframe(0, 682), keyframe(180, 0)],
+                        [keyframe(0, 0), keyframe(180, 0)],
+                    ],
+                    mode="single",
+                    fps=30,
+                    length=180,
+                    relative=True,
+                    options={"children": [{"key": "zoom"}]},
+                ),
+            },
+            "zoom": {
+                "value": 1,
+                "animation": animation(
+                    [[keyframe(0, 2.4), keyframe(180, 1)]],
+                    mode="loop",
+                    fps=5,
+                    length=5,
+                    options={"parent": {"key": "origin"}},
                 ),
             },
         },
@@ -481,6 +515,7 @@ enum Harness {
 
     static func describe(_ target: SceneDynamicTarget) -> String {
         switch target {
+        case let .camera(field): "camera:\(field.rawValue)"
         case let .layer(layerID, field): "layer:\(layerID):\(field.rawValue)"
         case let .effectConstant(layerID, effectIndex, passIndex, name):
             "constant:\(layerID):\(effectIndex):\(passIndex):\(name)"
@@ -534,6 +569,7 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
         )
         if compilation.returncode != 0:
             raise RuntimeError(compilation.stderr)
+        cls.binary = binary
         completed = subprocess.run(
             [str(binary), str(scene)], check=True, capture_output=True, text=True
         )
@@ -550,6 +586,14 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
 
     def targets(self):
         return {b["target"] for b in self.result["bindings"]}
+
+    def compile_fixture(self, fixture, name):
+        scene = Path(self.temporary_directory.name) / f"{name}.json"
+        scene.write_text(json.dumps(fixture), encoding="utf-8")
+        completed = subprocess.run(
+            [str(self.binary), str(scene)], check=True, capture_output=True, text=True
+        )
+        return json.loads(completed.stdout)
 
     def test_layer_alpha_compiles_to_scalar_with_authored_base(self) -> None:
         binding = self.binding("layer:10:alpha")
@@ -619,6 +663,52 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
             "layer 65 alpha: combinedAnimationUnsupported", self.result["diagnostics"]
         )
 
+    def test_single_default_camera_path_uses_owner_clock_for_both_members(self) -> None:
+        origin = self.binding("camera:origin")
+        zoom = self.binding("camera:zoom")
+        self.assertEqual(origin["valueType"], "vector3")
+        self.assertEqual(origin["authored"], "vector3(0.0,0.0,500.0)")
+        self.assertEqual(origin["composition"], "additive")
+        self.assertEqual(zoom["valueType"], "scalar")
+        self.assertEqual(zoom["authored"], "scalar(1.0)")
+        self.assertEqual(zoom["composition"], "absolute")
+        # child 自带的 loop/5fps 不得形成第二套 clock。
+        self.assertEqual(origin["mode"], "single")
+        self.assertEqual(zoom["mode"], "single")
+
+    def test_multiple_camera_paths_and_unsafe_zoom_fail_closed(self) -> None:
+        camera = copy.deepcopy(next(
+            item for item in SCENE_FIXTURE["objects"] if item["id"] == 66
+        ))
+        second = copy.deepcopy(camera)
+        second["id"] = 67
+        multiple = self.compile_fixture(
+            {"version": 3, "objects": [camera, second]}, "multiple-camera-paths"
+        )
+        self.assertEqual(multiple["bindings"], [])
+        self.assertEqual(
+            multiple["diagnostics"],
+            [
+                "layer 66 origin: cameraPathSelectionUnsupported",
+                "layer 66 zoom: cameraPathSelectionUnsupported",
+                "layer 67 origin: cameraPathSelectionUnsupported",
+                "layer 67 zoom: cameraPathSelectionUnsupported",
+            ],
+        )
+
+        camera["zoom"]["animation"]["c0"][0]["value"] = 0
+        unsafe = self.compile_fixture(
+            {"version": 3, "objects": [camera]}, "unsafe-camera-zoom"
+        )
+        self.assertEqual(unsafe["bindings"], [])
+        self.assertEqual(
+            unsafe["diagnostics"],
+            [
+                "layer 66 origin: valueOutOfRange",
+                "layer 66 zoom: valueOutOfRange",
+            ],
+        )
+
     def test_wrap_loop_is_downgraded_not_rejected(self) -> None:
         # wraploop 未实现，但不能因此丢掉整条动画
         binding = self.binding("layer:70:alpha")
@@ -671,6 +761,8 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
         self.assertEqual(
             self.targets(),
             {
+                "camera:origin",
+                "camera:zoom",
                 "layer:10:alpha",
                 "layer:20:angles",
                 "layer:40:angles",

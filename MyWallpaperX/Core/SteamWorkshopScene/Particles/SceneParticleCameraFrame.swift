@@ -13,11 +13,15 @@ struct SceneParticleCameraFrame: Sendable {
 
     init(
         camera: SceneRenderDescriptor.CameraDescriptor,
-        viewportSize: CGSize
+        viewportSize: CGSize,
+        cameraOrigin: SIMD3<Float> = .zero,
+        cameraZoom: Float = 1
     ) {
         orthographicViewProjection = SceneCameraProjection.viewProjection(
             camera: camera,
-            viewportSize: viewportSize
+            viewportSize: viewportSize,
+            cameraOrigin: cameraOrigin,
+            cameraZoom: cameraZoom
         )
 
         let orthoWidth = camera.orthoWidth ?? Float(viewportSize.width)
@@ -38,11 +42,20 @@ struct SceneParticleCameraFrame: Sendable {
         coverHalfExtents = SceneCameraProjection.coverHalfExtents(
             orthoWidth: orthoWidth,
             orthoHeight: orthoHeight,
-            viewportSize: viewportSize
+            viewportSize: viewportSize,
+            zoom: cameraZoom
         )
 
-        let sceneCenter = SIMD3<Float>(orthoWidth * 0.5, orthoHeight * 0.5, 0)
-        let eye = sceneCenter + SIMD3<Float>(0, 0, Self.perspectiveEyeDistance)
+        let safeOrigin = cameraOrigin.x.isFinite && cameraOrigin.y.isFinite
+            && cameraOrigin.z.isFinite ? cameraOrigin : .zero
+        let sceneCenter = SIMD3<Float>(
+            orthoWidth * 0.5 + safeOrigin.x,
+            orthoHeight * 0.5 + safeOrigin.y,
+            0
+        )
+        let eyeDistance = safeOrigin.z > camera.nearZ
+            ? safeOrigin.z : Self.perspectiveEyeDistance
+        let eye = sceneCenter + SIMD3<Float>(0, 0, eyeDistance)
         cameraForward = Self.normalized(sceneCenter - eye, fallback: SIMD3(0, 0, -1))
         cameraRight = Self.normalized(
             simd_cross(cameraForward, SIMD3(0, 1, 0)),
@@ -54,7 +67,7 @@ struct SceneParticleCameraFrame: Sendable {
         )
 
         let visibleHeight = coverHalfExtents.y * 2
-        let fovY = 2 * atan(visibleHeight / (2 * Self.perspectiveEyeDistance))
+        let fovY = 2 * atan(visibleHeight / (2 * eyeDistance))
         let aspect = Float(viewportSize.width / viewportSize.height)
         let nearZ = max(camera.nearZ, 0.001)
         let farZ = max(camera.farZ, nearZ + 0.001)

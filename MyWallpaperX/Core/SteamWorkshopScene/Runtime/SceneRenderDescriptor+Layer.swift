@@ -5,6 +5,7 @@ extension SceneRenderDescriptor {
         let id: Int
         let layerIndex: Int
         let name: String?
+        var cameraPath: SceneDocument.Scene2DCameraPathDefinition? = nil
         let contentKind: String
         let imagePath: String?
         let particlePath: String?
