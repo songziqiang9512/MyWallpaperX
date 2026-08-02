@@ -166,6 +166,17 @@ nonisolated struct SceneDynamicResolvedValue: Equatable, Hashable, Sendable {
     let source: SceneDynamicSource
 }
 
+nonisolated struct SceneDynamicParticleValues: Equatable, Sendable {
+    let alpha: Double?
+    let size: Double?
+    let lifetime: Double?
+    let rate: Double?
+    let speed: Double?
+    let count: Double?
+    let brightness: Double?
+    let normalizedColor: SIMD3<Double>?
+}
+
 nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
     let frameIndex: UInt64
     let generation: UInt64
@@ -184,6 +195,29 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
                   case let .vector3(x, y, z) = resolved.value,
                   x.isFinite, y.isFinite, z.isFinite else { continue }
             result[index] = SIMD3(x, y, z)
+        }
+        return result
+    }
+    nonisolated func particleInstanceValues(layerID: Int) -> SceneDynamicParticleValues? {
+        func scalar(_ field: SceneDynamicParticleField) -> Double? {
+            guard let resolved = self[.particle(layerID: layerID, field: field)],
+                  case let .scalar(value) = resolved.value else { return nil }
+            return value
+        }
+        let color: SIMD3<Double>? = {
+            guard let value = self[.particle(layerID: layerID, field: .normalizedColor)],
+                  case let .vector3(x, y, z) = value.value else { return nil }
+            return SIMD3(x, y, z)
+        }()
+        let result = SceneDynamicParticleValues(
+            alpha: scalar(.alpha), size: scalar(.size), lifetime: scalar(.lifetime),
+            rate: scalar(.rate), speed: scalar(.speed), count: scalar(.count),
+            brightness: scalar(.brightness), normalizedColor: color
+        )
+        if result.alpha == nil, result.size == nil, result.lifetime == nil,
+           result.rate == nil, result.speed == nil, result.count == nil,
+           result.brightness == nil, result.normalizedColor == nil {
+            return nil
         }
         return result
     }

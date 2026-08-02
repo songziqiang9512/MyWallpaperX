@@ -5,7 +5,7 @@ extension SceneParticleSimulator {
         to particle: inout SceneParticleState,
         flags: SceneParticleSystemFlags
     ) {
-        guard let value = instanceOverride else { return }
+        guard let value = activeInstanceOverride else { return }
         if !flags.disablesLifetimeOverrides {
             particle.lifetime *= overrideScalar(value.lifetime)
         }

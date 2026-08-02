@@ -496,6 +496,43 @@ enum Harness {
                 property("mixedStrength", .slider, .number(0.5)),
             ])
         )
+        let particleTargets: [SceneDynamicTarget] = [
+            .particle(layerID: 120, field: .alpha),
+            .particle(layerID: 120, field: .normalizedColor),
+        ]
+        let particle = compiler.compile(
+            report: .init(bindings: [
+                binding("particleAlpha", .number(0.8), 120, .particle(
+                    layerID: 120, field: .alpha
+                )),
+                binding("particleColor", .string("1 1 1"), 120, .particle(
+                    layerID: 120, field: .normalizedColor
+                )),
+            ], diagnostics: []),
+            catalog: .init(definitions: [
+                property("particleAlpha", .slider, .number(1)),
+                property("particleColor", .color, .string("1 1 1")),
+            ])
+        )
+        let particleEvaluation = particle.program.evaluate(effectiveValues: [
+            "particleAlpha": .number(0.35),
+            "particleColor": .string("0.2 0.4 0.6"),
+        ])
+        let particleUser = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 10,
+            generation: 10,
+            definitions: particle.program.definitions,
+            userValues: particleEvaluation.userValues
+        ).snapshot
+        let directParticleColor = compiler.compile(
+            report: .init(bindings: [binding(
+                "particleColor", .string("255 255 255"), 121,
+                .particle(layerID: 121, field: .color)
+            )], diagnostics: []),
+            catalog: .init(definitions: [
+                property("particleColor", .color, .string("1 1 1")),
+            ])
+        )
 
         let alphaDefinition = compilation.program.definitions.first { $0.target == alphaTarget }!
         let alphaInstruction = compilation.program.instructions.first { $0.target == alphaTarget }!
@@ -628,6 +665,13 @@ enum Harness {
             "mixedLocalContrastCount": mixedLocalContrast.program.instructions.count,
             "mixedLocalContrastCodes": codes(mixedLocalContrast.diagnostics),
             "mixedLocalContrastRebuild": mixedLocalContrast.program.rebuildRequiredPropertyKeys,
+            "particleCount": particle.program.instructions.count,
+            "particleTargets": particle.program.instructions.map(\.target) == particleTargets,
+            "particleCodes": codes(particle.diagnostics),
+            "particleUser": particleTargets.map { resolved(particleUser[$0]) },
+            "particleRuntimeCodes": codes(particleEvaluation.diagnostics),
+            "directParticleColorCount": directParticleColor.program.instructions.count,
+            "directParticleColorCodes": codes(directParticleColor.diagnostics),
             "structureCodes": structureCodes,
             "structureInstructionCounts": structureInstructionCounts,
             "structureDecodeRejected": structureDecodeRejected,
@@ -853,6 +897,21 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
         self.assertEqual(self.result["mixedKeyCount"], 1)
         self.assertEqual(self.result["mixedKeyRebuild"], ["opacity"])
         self.assertTrue(self.result["mixedKeyRoundTrip"])
+
+    def test_particle_scalar_and_normalized_color_are_live_typed_targets(self) -> None:
+        self.assertEqual(self.result["particleCount"], 2)
+        self.assertTrue(self.result["particleTargets"])
+        self.assertEqual(self.result["particleCodes"], [])
+        self.assertEqual(
+            self.result["particleUser"],
+            [
+                ["scalar(0.35)", "userProperty"],
+                ["vector3(0.2, 0.4, 0.6)", "userProperty"],
+            ],
+        )
+        self.assertEqual(self.result["particleRuntimeCodes"], [])
+        self.assertEqual(self.result["directParticleColorCount"], 0)
+        self.assertEqual(self.result["directParticleColorCodes"], ["unsupportedTarget"])
 
     def test_direct_local_contrast_strength_compiles_as_scalar_target(self) -> None:
         self.assertEqual(self.result["localContrastCount"], 1)

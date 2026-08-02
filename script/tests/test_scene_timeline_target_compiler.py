@@ -41,6 +41,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Properties/SceneTimelineTargetCompiler.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
+    SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
 ]
 
 
@@ -229,6 +230,23 @@ SCENE_FIXTURE = {
             "name": "Particle control points",
             "particle": "particles/cp.json",
             "instanceoverride": {
+                "alpha": {
+                    "value": 0.8,
+                    "animation": animation([[keyframe(0, 0.8), keyframe(30, 0.2)]]),
+                },
+                "size": {
+                    "value": 1,
+                    "animation": animation(
+                        [[keyframe(0, 0), keyframe(30, 1)]], relative=True
+                    ),
+                },
+                "count": {
+                    "value": 1,
+                    "animation": animation([
+                        [keyframe(0, 1), keyframe(30, 2)],
+                        [keyframe(0, 1), keyframe(30, 2)],
+                    ]),
+                },
                 "controlpoint1": {
                     "value": "10 20 30",
                     "animation": animation(
@@ -423,6 +441,9 @@ enum Harness {
             "constant:\(layerID):\(effectIndex):\(passIndex):\(name)"
         case let .particle(layerID, field):
             switch field {
+            case .alpha: "particle:\(layerID):alpha"
+            case .size: "particle:\(layerID):size"
+            case .count: "particle:\(layerID):count"
             case let .controlPoint(index): "particle:\(layerID):controlpoint:\(index)"
             case let .controlPointAngles(index): "particle:\(layerID):angles:\(index)"
             default: "particle:\(layerID):other"
@@ -553,6 +574,21 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
             self.result["diagnostics"],
         )
 
+    def test_absolute_particle_scalar_compiles_and_unbounded_forms_stay_closed(self) -> None:
+        binding = self.binding("particle:80:alpha")
+        self.assertEqual(binding["valueType"], "scalar")
+        self.assertEqual(binding["authored"], "scalar(0.8)")
+        self.assertNotIn("particle:80:size", self.targets())
+        self.assertNotIn("particle:80:count", self.targets())
+        self.assertIn(
+            "layer 80 instanceoverride.size: relativeUnsupported",
+            self.result["diagnostics"],
+        )
+        self.assertIn(
+            "layer 80 instanceoverride.count: componentMismatch",
+            self.result["diagnostics"],
+        )
+
     def test_particle_timeline_rejects_lane_mismatch_and_invalid_authored_vector(self) -> None:
         self.assertNotIn("particle:80:controlpoint:2", self.targets())
         self.assertNotIn("particle:80:controlpoint:3", self.targets())
@@ -581,6 +617,7 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
                 "layer:42:scale",
                 "constant:30:1:1:multiply",
                 "layer:70:alpha",
+                "particle:80:alpha",
                 "particle:80:controlpoint:1",
             },
         )

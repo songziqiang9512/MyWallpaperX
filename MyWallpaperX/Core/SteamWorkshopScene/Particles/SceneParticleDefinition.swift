@@ -359,7 +359,7 @@ nonisolated struct SceneParticleBoundValue: Codable, Equatable, Sendable {
     let hasAnimation: Bool
 
     nonisolated var isStaticZeroScalar: Bool {
-        guard !hasScript, !hasAnimation,
+        guard userPropertyKey == nil, !hasScript, !hasAnimation,
               let scalar = value?.scalarValue,
               scalar.isFinite else {
             return false

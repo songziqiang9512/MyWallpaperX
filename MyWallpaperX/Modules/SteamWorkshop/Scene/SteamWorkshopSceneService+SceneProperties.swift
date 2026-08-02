@@ -232,6 +232,10 @@ extension SteamWorkshopService {
         switch target {
         case .layerVisibility, .layerAlpha, .text:
             return true
+        case let .particle(layerID, _):
+            return renderDescriptor.layers.contains {
+                $0.id == layerID && $0.contentKind == "particle"
+            }
         case let .layerColor(layerID):
             return renderDescriptor.layers.contains {
                 $0.id == layerID && $0.contentKind == "solid"

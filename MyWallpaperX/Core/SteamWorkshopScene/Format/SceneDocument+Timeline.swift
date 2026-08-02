@@ -18,8 +18,8 @@ extension SceneDocumentLoader {
         return (animations, diagnostics)
     }
 
-    /// 保真 particle instance control-point Timeline。这里只识别 0...7 的公开索引，
-    /// absolute/relative、lane 数和 Combined Animation 的执行准入留给 target compiler。
+    /// 保真 particle instance Timeline。absolute/relative、lane 数和 Combined Animation
+    /// 的执行准入留给 target compiler。
     nonisolated static func particleTimelines(
         _ rawValue: Any?
     ) -> (animations: [SceneDocument.SceneParticleTimeline], diagnostics: [String]) {
@@ -28,6 +28,20 @@ extension SceneDocumentLoader {
         }
         var animations: [SceneDocument.SceneParticleTimeline] = []
         var diagnostics: [String] = []
+        let scalarHosts: [(String, SceneDocument.SceneParticleTimeline.Field)] = [
+            ("alpha", .alpha), ("size", .size), ("lifetime", .lifetime),
+            ("rate", .rate), ("speed", .speed), ("count", .count),
+            ("brightness", .brightness),
+        ]
+        for (host, field) in scalarHosts {
+            let result = SceneTimelineAnimationParser.parse(host: root[host])
+            if let animation = result.animation {
+                animations.append(.init(index: nil, field: field, animation: animation))
+            }
+            diagnostics.append(contentsOf: result.diagnostics.map {
+                "instanceoverride.\(host):\($0.token)"
+            })
+        }
         for index in 0 ..< 8 {
             let hosts: [(String, SceneDocument.SceneParticleTimeline.Field)] = [
                 ("controlpoint\(index)", .position),

@@ -25,6 +25,14 @@ extension SceneDesktopWallpaperHost {
             case "solid":
                 targets.insert(.layer(layerID: layer.id, field: .alpha))
                 targets.insert(.layer(layerID: layer.id, field: .color))
+            case "particle":
+                let fields: [SceneDynamicParticleField] = [
+                    .alpha, .size, .lifetime, .rate, .speed, .count,
+                    .brightness, .normalizedColor,
+                ]
+                targets.formUnion(fields.map {
+                    .particle(layerID: layer.id, field: $0)
+                })
             case "composition", "project", "fullscreen":
                 if utilityPlans[layer.id]?.shouldCapture == true {
                     targets.insert(.layer(layerID: layer.id, field: .alpha))

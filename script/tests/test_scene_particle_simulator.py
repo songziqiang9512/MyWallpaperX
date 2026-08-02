@@ -115,6 +115,24 @@ enum Harness {
         overridden.advance(by: 0.25)
         let overriddenParticle = overridden.particles[0]
         overridden.advance(by: 1.0)
+        let authoredLiveOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"alpha":{"user":"alpha","value":1},"size":{"user":"size","value":1},"count":{"user":"count","value":1},"colorn":{"user":"color","value":"1 1 1"}}"#)
+        )
+        var liveOverride = simulator(
+            liveOverrideDefinitionJSON, override: authoredLiveOverride, seed: 1, step: 0.25
+        )
+        let zeroCountOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"count":0}"#)
+        )
+        liveOverride.advance(by: 0.25, dynamicInstanceOverride: zeroCountOverride)
+        let liveZeroCount = liveOverride.particles.count
+        let currentOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"alpha":0.25,"size":3,"count":2,"colorn":"0.5 1 0.25"}"#)
+        )
+        liveOverride.advance(by: 0.25, dynamicInstanceOverride: currentOverride)
+        let liveParticle = liveOverride.particles[0]
+        liveOverride.advance(by: 0.25)
+        let fallbackParticle = liveOverride.particles.last!
         var colorDenied = simulator(
             overrideDefinition(flags: 8), override: parsedOverride, seed: 1, step: 0.25
         )
@@ -635,6 +653,15 @@ enum Harness {
                 $0.diagnostics.map(\.kind.rawValue)
             },
             "overrideDiagnostics": overridden.diagnostics.map(\.kind.rawValue),
+            "liveOverrideDiagnostics": liveOverride.diagnostics.map(\.kind.rawValue),
+            "liveZeroCount": liveZeroCount,
+            "liveDynamicCount": liveOverride.particles.count - 1,
+            "liveDynamicAlpha": liveParticle.alpha,
+            "liveDynamicSize": liveParticle.size,
+            "liveDynamicColor": vector(liveParticle.color),
+            "liveFallbackAlpha": fallbackParticle.alpha,
+            "liveFallbackSize": fallbackParticle.size,
+            "liveFallbackColor": vector(fallbackParticle.color),
             "operatorAlpha": operatorParticle.alpha,
             "operatorSize": operatorParticle.size,
             "operatorColor": vector(operatorParticle.color),
@@ -833,6 +860,13 @@ enum Harness {
 
     private static let overrideJSON = #"""
     {"alpha":0.5,"size":{"user":"size_prop","value":3},"lifetime":2,"rate":2,"speed":4,"count":0.5,"brightness":2,"colorn":"0.5 0.25 1"}
+    """#
+
+    private static let liveOverrideDefinitionJSON = #"""
+    {"material":"p.json","maxcount":16,"flags":0,
+     "emitter":[{"name":"boxrandom","rate":4,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"sizerandom","min":2,"max":2}],
+     "renderer":[{"name":"sprite"}]}
     """#
 
     private static let dynamicControlPointJSON = #"""
@@ -1357,14 +1391,25 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["worldMovementPosition"], [2, 0, 0])
         self.assertEqual(self.results["worldMovementLocalVelocity"], [4, 0, 0])
 
-    def test_static_instance_overrides_apply_and_dynamic_binding_is_diagnosed(self) -> None:
+    def test_static_instance_overrides_apply_and_supported_user_binding_is_admitted(self) -> None:
         self.assertEqual(self.results["overrideLifetime"], 4)
         self.assertEqual(self.results["overrideSize"], 6)
         self.assertEqual(self.results["overrideVelocity"], [4, 0, 0])
         self.assertEqual(self.results["overrideAlpha"], 0.25)
         self.assertEqual(self.results["overrideColor"], [0.5, 0.125, 2])
         self.assertEqual(self.results["overrideEmissionCount"], 5)
-        self.assertIn("dynamicOverrideIgnored", self.results["overrideDiagnostics"])
+        self.assertNotIn("dynamicOverrideIgnored", self.results["overrideDiagnostics"])
+
+    def test_dynamic_instance_override_applies_per_step_then_restores_authored_values(self) -> None:
+        self.assertEqual(self.results["liveOverrideDiagnostics"], [])
+        self.assertEqual(self.results["liveZeroCount"], 0)
+        self.assertEqual(self.results["liveDynamicCount"], 2)
+        self.assertEqual(self.results["liveDynamicAlpha"], 0.25)
+        self.assertEqual(self.results["liveDynamicSize"], 6)
+        self.assertEqual(self.results["liveDynamicColor"], [0.25, 1, 0.0625])
+        self.assertEqual(self.results["liveFallbackAlpha"], 1)
+        self.assertEqual(self.results["liveFallbackSize"], 2)
+        self.assertEqual(self.results["liveFallbackColor"], [1, 1, 1])
 
     def test_general_flags_deny_only_the_matching_instance_override(self) -> None:
         self.assertEqual(self.results["colorDeniedColor"], [2, 2, 2])

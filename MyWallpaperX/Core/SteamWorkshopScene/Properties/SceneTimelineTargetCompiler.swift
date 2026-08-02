@@ -76,22 +76,18 @@ nonisolated enum SceneTimelineTargetCompiler {
             })
             for timeline in layer.particleTimelines {
                 let label = "layer \(layer.id) instanceoverride.\(timeline.hostLabel)"
-                guard let authoredValue = particleAuthoredValue(
+                guard let target = particleTarget(
                     timeline: timeline,
                     override: layer.particleInstanceOverride
                 ) else {
                     diagnostics.append("\(label): \(Diagnostic.invalidAuthoredValue.rawValue)")
                     continue
                 }
-                let field: SceneDynamicParticleField = switch timeline.field {
-                case .position: .controlPoint(timeline.index)
-                case .angles: .controlPointAngles(timeline.index)
-                }
                 append(
                     animation: timeline.animation,
-                    target: .particle(layerID: layer.id, field: field),
-                    valueType: .vector3,
-                    authoredValue: authoredValue,
+                    target: .particle(layerID: layer.id, field: target.field),
+                    valueType: target.valueType,
+                    authoredValue: target.authoredValue,
                     label: label,
                     into: &candidates,
                     diagnostics: &diagnostics
@@ -152,25 +148,41 @@ nonisolated enum SceneTimelineTargetCompiler {
         }
     }
 
-    private nonisolated static func particleAuthoredValue(
+    private nonisolated static func particleTarget(
         timeline: SceneDocument.SceneParticleTimeline,
         override: SceneParticleInstanceOverride?
-    ) -> SceneDynamicValue? {
+    ) -> (field: SceneDynamicParticleField, valueType: SceneDynamicValueType,
+          authoredValue: SceneDynamicValue)? {
         let boundValue: SceneParticleBoundValue?
+        let field: SceneDynamicParticleField
         switch timeline.field {
+        case .alpha: (boundValue, field) = (override?.alpha, .alpha)
+        case .size: (boundValue, field) = (override?.size, .size)
+        case .lifetime: (boundValue, field) = (override?.lifetime, .lifetime)
+        case .rate: (boundValue, field) = (override?.rate, .rate)
+        case .speed: (boundValue, field) = (override?.speed, .speed)
+        case .count: (boundValue, field) = (override?.count, .count)
+        case .brightness: (boundValue, field) = (override?.brightness, .brightness)
         case .position:
-            boundValue = override?.controlPoints[timeline.index]
+            guard let index = timeline.index else { return nil }
+            boundValue = override?.controlPoints[index]
+            field = .controlPoint(index)
         case .angles:
-            boundValue = override?.controlPointAngles[timeline.index]
+            guard let index = timeline.index else { return nil }
+            boundValue = override?.controlPointAngles[index]
+            field = .controlPointAngles(index)
         }
         guard boundValue?.userPropertyKey == nil,
-              boundValue?.hasScript == false,
-              case let .vector(values)? = boundValue?.value,
-              values.count == 3,
-              values.allSatisfy({ $0.isFinite }) else {
-            return nil
+              boundValue?.hasScript == false else { return nil }
+        switch timeline.field {
+        case .position, .angles:
+            guard case let .vector(values)? = boundValue?.value,
+                  values.count == 3, values.allSatisfy({ $0.isFinite }) else { return nil }
+            return (field, .vector3, .vector3(values[0], values[1], values[2]))
+        default:
+            guard case let .scalar(value)? = boundValue?.value, value.isFinite else { return nil }
+            return (field, .scalar, .scalar(value))
         }
-        return .vector3(values[0], values[1], values[2])
     }
 
     private nonisolated static func append(

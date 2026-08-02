@@ -90,12 +90,12 @@ enum Harness {
           "children":[{"id":40,"name":"Particles\\Child.json","type":"eventSpawn","maxcount":80,"controlpointstartindex":2,"probability":0.75,"origin":"1 2 3","scale":"2 2 1","angles":"0 0 1","flags":1}],
           "override":{
             "id":99,
-            "alpha":0.8,
+            "alpha":{"script":null,"value":0.8},
             "size":{"user":"particle_size","value":2.5},
             "lifetime":{"script":"return 2;","value":2},
             "rate":{"animation":{},"value":4},
-            "speed":1.5,
-            "count":0.5,
+            "speed":{"script":{},"value":1.5},
+            "count":{"animation":"malformed","value":0.5},
             "brightness":3,
             "color":"255 128 0",
             "colorn":{"user":{"name":"particle_color"},"value":"1 0.5 0"},
@@ -189,9 +189,12 @@ enum Harness {
             "diagnostics": diagnostics,
             "overrideID": override.id ?? -1,
             "overrideAlpha": override.alpha?.value?.scalarValue ?? -1,
+            "overrideAlphaScript": override.alpha?.hasScript ?? true,
             "overrideSizeUser": override.size?.userPropertyKey ?? "",
             "overrideLifetimeScript": override.lifetime?.hasScript ?? false,
             "overrideRateAnimation": override.rate?.hasAnimation ?? false,
+            "overrideSpeedScript": override.speed?.hasScript ?? false,
+            "overrideCountAnimation": override.count?.hasAnimation ?? false,
             "overrideNormalizedColorUser": override.normalizedColor?.userPropertyKey ?? "",
             "overrideControlPoint": override.controlPoints[2]?.value?.vectorValue ?? [],
             "overrideControlPointAngle": override.controlPointAngles[2]?.value?.vectorValue ?? [],
@@ -579,9 +582,12 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         )
         self.assertEqual(result["overrideID"], 99)
         self.assertEqual(result["overrideAlpha"], 0.8)
+        self.assertFalse(result["overrideAlphaScript"])
         self.assertEqual(result["overrideSizeUser"], "particle_size")
         self.assertTrue(result["overrideLifetimeScript"])
         self.assertTrue(result["overrideRateAnimation"])
+        self.assertTrue(result["overrideSpeedScript"])
+        self.assertTrue(result["overrideCountAnimation"])
         self.assertEqual(result["overrideNormalizedColorUser"], "particle_color")
         self.assertEqual(result["overrideControlPoint"], [100, 200, 0])
         self.assertEqual(result["overrideControlPointAngle"], [0, 0, 1])

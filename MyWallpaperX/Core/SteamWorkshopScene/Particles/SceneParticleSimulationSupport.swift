@@ -372,18 +372,24 @@ nonisolated enum SceneParticleSimulationMath {
             add(pointerPoints.allSatisfy(\.hasBoundedPointerInput) ? .pointerControlPointBounded : .pointerControlPointUnsupported, "sources=\(pointerPoints.count)")
         }
 
-        let unsupportedBoundValues = [instanceOverride?.alpha, instanceOverride?.size,
-                                      instanceOverride?.lifetime, instanceOverride?.rate,
-                                      instanceOverride?.speed, instanceOverride?.count,
-                                      instanceOverride?.brightness, instanceOverride?.color,
-                                      instanceOverride?.normalizedColor].compactMap { $0 }
-            + (instanceOverride?.controlPointAngles.values.map { $0 } ?? [])
+        let scalarValues = [instanceOverride?.alpha, instanceOverride?.size,
+                            instanceOverride?.lifetime, instanceOverride?.rate,
+                            instanceOverride?.speed, instanceOverride?.count,
+                            instanceOverride?.brightness].compactMap { $0 }
+        let unsupportedScalarBinding = scalarValues.contains {
+            $0.hasScript || ($0.userPropertyKey != nil && $0.hasAnimation)
+        }
+        let unsupportedColorBinding = [instanceOverride?.color].compactMap { $0 }.contains {
+            $0.userPropertyKey != nil || $0.hasScript || $0.hasAnimation
+        } || [instanceOverride?.normalizedColor].compactMap { $0 }.contains {
+            $0.hasScript || $0.hasAnimation
+        }
         let unsupportedControlPointBindings = instanceOverride?.controlPoints.values.contains {
             $0.userPropertyKey != nil || $0.hasScript
+        } ?? false || instanceOverride?.controlPointAngles.values.contains {
+            $0.userPropertyKey != nil || $0.hasScript
         } ?? false
-        if unsupportedBoundValues.contains(where: {
-            $0.userPropertyKey != nil || $0.hasScript || $0.hasAnimation
-        }) || unsupportedControlPointBindings {
+        if unsupportedScalarBinding || unsupportedColorBinding || unsupportedControlPointBindings {
             add(.dynamicOverrideIgnored, "instanceoverride")
         }
         return result

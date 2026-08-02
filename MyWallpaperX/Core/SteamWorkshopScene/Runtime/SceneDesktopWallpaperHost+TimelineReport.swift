@@ -80,8 +80,28 @@ extension SceneDesktopWallpaperHost {
             "layer \(layerID) \(field.rawValue)"
         case let .effectConstant(layerID, effectIndex, passIndex, name):
             "layer \(layerID) effect \(effectIndex) pass \(passIndex) \(name)"
+        case let .particle(layerID, field):
+            "layer \(layerID) instanceoverride.\(particleFieldName(field))"
         default:
             "other"
+        }
+    }
+
+    private nonisolated static func particleFieldName(
+        _ field: SceneDynamicParticleField
+    ) -> String {
+        switch field {
+        case .alpha: "alpha"
+        case .size: "size"
+        case .lifetime: "lifetime"
+        case .rate: "rate"
+        case .speed: "speed"
+        case .count: "count"
+        case .brightness: "brightness"
+        case .color: "color"
+        case .normalizedColor: "colorn"
+        case let .controlPoint(index): "controlpoint\(index)"
+        case let .controlPointAngles(index): "controlpointangle\(index)"
         }
     }
 }

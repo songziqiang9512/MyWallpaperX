@@ -10,6 +10,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
     private(set) var simulationTime = 0.0
     let definition: SceneParticleDefinition
     let instanceOverride: SceneParticleInstanceOverride?
+    var activeInstanceOverride: SceneParticleInstanceOverride?
     private let emissionDeadline: Double?
     private let layerImageEmissionMap: SceneParticleLayerImageEmissionMap?
     private let worldSpaceFrame: SceneParticleWorldSpaceFrame?
@@ -37,6 +38,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
     ) {
         self.definition = definition
         self.instanceOverride = instanceOverride
+        self.activeInstanceOverride = instanceOverride
         self.emissionDeadline = emissionDeadline
         self.layerImageEmissionMap = layerImageEmissionMap
         self.worldSpaceFrame = worldSpaceFrame
@@ -62,9 +64,11 @@ nonisolated struct SceneParticleSimulator: Sendable {
 
     nonisolated mutating func advance(
         by duration: Double,
-        dynamicControlPoints: [Int: SIMD3<Double>] = [:]
+        dynamicControlPoints: [Int: SIMD3<Double>] = [:],
+        dynamicInstanceOverride: SceneParticleInstanceOverride? = nil
     ) {
         self.dynamicControlPoints = dynamicControlPoints
+        activeInstanceOverride = dynamicInstanceOverride ?? instanceOverride
         guard duration.isFinite, duration > 0 else { return }
         accumulator += duration
         while accumulator + 1e-12 >= fixedTimeStep {
@@ -129,8 +133,8 @@ nonisolated struct SceneParticleSimulator: Sendable {
         let emitter = definition.emitters[index]
         if case .unsupported = emitter.kind { return }
         if emitter.usesRandomPeriodicEmission,
-           instanceOverride?.rate != nil || instanceOverride?.count != nil { return }
-        let rateScale = max(0, overrideScalar(instanceOverride?.rate))
+           activeInstanceOverride?.rate != nil || activeInstanceOverride?.count != nil { return }
+        let rateScale = max(0, overrideScalar(activeInstanceOverride?.rate))
         emitters[index].elapsed += duration * rateScale
         if let limit = emitter.duration, limit > 0, emitters[index].elapsed > limit + 1e-12 { return }
         let activeDuration = emitters[index].activeDuration(
@@ -148,7 +152,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
             let authoredRate = emitter.rate ?? 5
             let countScale = definition.flags.disablesCountOverrides
                 ? 1
-                : max(0, overrideScalar(instanceOverride?.count))
+                : max(0, overrideScalar(activeInstanceOverride?.count))
             let scaledRate = (authoredRate.isFinite ? authoredRate : 0)
                 * countScale * rateScale
             let rate = scaledRate.isFinite ? max(0, scaledRate) : 0
@@ -342,7 +346,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
                   rawMinimumSpeed.isFinite, rawMaximumSpeed.isFinite else { break }
             let minimumSpeed = max(rawMinimumSpeed, 0)
             let maximumSpeed = max(rawMaximumSpeed, minimumSpeed)
-            let speedOverride = overrideScalar(instanceOverride?.speed)
+            let speedOverride = overrideScalar(activeInstanceOverride?.speed)
             for index in particles.indices {
                 let phase = turbulenceRandom(
                     value.phaseMinimum ?? 0, value.phaseMaximum ?? 0,
@@ -383,7 +387,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
         }
         if let dynamic = dynamicControlPoints[source] {
             result += dynamic
-        } else if let override = instanceOverride?.controlPoints[source] {
+        } else if let override = activeInstanceOverride?.controlPoints[source] {
             result += SceneParticleSimulationMath.vector(override.value, fallback: .zero)
         }
         return result

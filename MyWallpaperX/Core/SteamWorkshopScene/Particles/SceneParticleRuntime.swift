@@ -270,7 +270,16 @@ final class SceneParticleRuntime {
         for index in layers.indices {
             let pointerValues = layers[index].definition.pointerControlPointValues(at: pointerLocalPositions[layers[index].layerID])
             let controlPoints = dynamicValues.particleControlPoints(layerID: layers[index].layerID).merging(pointerValues) { _, pointer in pointer }
-            layers[index].simulator.advance(by: frameDelta, dynamicControlPoints: controlPoints)
+            let dynamicOverride = dynamicValues.particleInstanceValues(
+                layerID: layers[index].layerID
+            )
+            let instanceOverride = layers[index].simulator.instanceOverride?.resolving(
+                dynamicOverride
+            )
+            layers[index].simulator.advance(
+                by: frameDelta, dynamicControlPoints: controlPoints,
+                dynamicInstanceOverride: instanceOverride
+            )
             let births = layers[index].simulator.consumeBirthEvents()
             let deaths = layers[index].simulator.consumeDeathEvents()
             if let childRuntime = layers[index].childRuntime {

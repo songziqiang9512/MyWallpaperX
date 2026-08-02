@@ -65,6 +65,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleSimulator.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+Random.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+InstanceOverride.swift",
+    SOURCE_ROOT / "Particles/SceneParticleInstanceOverride+Dynamic.swift",
     SOURCE_ROOT / "Particles/SceneParticleChildLifecycle.swift",
     SOURCE_ROOT / "Particles/SceneParticleChildTemplateSupport.swift",
     SOURCE_ROOT / "Particles/SceneParticleTrailRenderPlan.swift",
@@ -313,6 +314,8 @@ enum Harness {
             try printJSON(syntheticRope())
         case "dynamic-control-point-synthetic":
             try printJSON(syntheticDynamicControlPoint())
+        case "dynamic-instance-override-synthetic":
+            try printJSON(syntheticDynamicInstanceOverride())
         case "synthetic":
             try printJSON(synthetic())
         default:
@@ -1652,6 +1655,74 @@ enum Harness {
         ]
     }
 
+    private static func syntheticDynamicInstanceOverride() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "mwx-particle-dynamic-override-\(UUID().uuidString)", isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        try writeParticle(
+            "particles/live-override.json", material: "materials/shared.json",
+            lifetime: 10, rate: 4, under: directory
+        )
+        let descriptor = SceneRenderDescriptor(
+            layers: [layer(
+                91, "particles/live-override.json", particleAlpha: 0,
+                particleSize: 1, particleCount: 1,
+                particleNormalizedColor: SIMD3(1, 1, 1), alphaHasUser: true
+            )],
+            renderOrderLayerIDs: [91],
+            materialPasses: [.init(
+                materialPath: "materials/shared.json", shaderPath: "genericparticle",
+                texturePaths: ["shared.png"], blending: "additive"
+            )]
+        )
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let runtime = SceneParticleRuntime(
+            descriptor: descriptor, cacheDirectory: directory, device: device
+        )
+        let alpha = SceneDynamicTarget.particle(layerID: 91, field: .alpha)
+        let size = SceneDynamicTarget.particle(layerID: 91, field: .size)
+        let count = SceneDynamicTarget.particle(layerID: 91, field: .count)
+        let color = SceneDynamicTarget.particle(layerID: 91, field: .normalizedColor)
+        let definitions = [
+            SceneDynamicTargetDefinition(target: alpha, valueType: .scalar, authoredValue: .scalar(0)),
+            .init(target: size, valueType: .scalar, authoredValue: .scalar(1)),
+            .init(target: count, valueType: .scalar, authoredValue: .scalar(1)),
+            .init(target: color, valueType: .vector3, authoredValue: .vector3(1, 1, 1)),
+        ]
+        let resolver = SceneDynamicSnapshotResolver()
+        func snapshot(_ values: [SceneDynamicTarget: SceneDynamicValue]) -> SceneDynamicSnapshot {
+            resolver.resolve(
+                frameIndex: 1, generation: 1, definitions: definitions, userValues: values
+            ).snapshot
+        }
+        let zero = runtime.advance(by: 0.25, dynamicValues: snapshot([count: .scalar(0)]))
+        let dynamic = runtime.advance(by: 0.25, dynamicValues: snapshot([
+            alpha: .scalar(0.25), size: .scalar(3), count: .scalar(2),
+            color: .vector3(0.5, 1, 0.25),
+        ]))
+        let fallback = runtime.advance(by: 0.25)
+        let dynamicParticle = dynamic.first?.instances.first
+        let fallbackParticle = fallback.first?.instances.last
+        return [
+            "zeroCount": zero.first?.instances.count ?? 0,
+            "dynamicCount": dynamic.first?.instances.count ?? 0,
+            "dynamicAlpha": dynamicParticle?.rotationAndAlpha.w ?? -1,
+            "dynamicSize": dynamicParticle?.positionAndSize.w ?? -1,
+            "dynamicColor": dynamicParticle.map {
+                [$0.colorAndFrameMix.x, $0.colorAndFrameMix.y, $0.colorAndFrameMix.z]
+            } ?? [],
+            "fallbackCount": fallback.first?.instances.count ?? 0,
+            "fallbackAlpha": fallbackParticle?.rotationAndAlpha.w ?? -1,
+            "fallbackSize": fallbackParticle?.positionAndSize.w ?? -1,
+            "fallbackColor": fallbackParticle.map {
+                [$0.colorAndFrameMix.x, $0.colorAndFrameMix.y, $0.colorAndFrameMix.z]
+            } ?? [],
+        ]
+    }
+
     private static func synthetic() throws -> [String: Any] {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("mwx-particle-runtime-\(UUID().uuidString)", isDirectory: true)
@@ -1925,29 +1996,44 @@ enum Harness {
         _ path: String,
         visible: Bool = true,
         particleAlpha: Double? = nil,
+        particleSize: Double? = nil,
+        particleCount: Double? = nil,
+        particleNormalizedColor: SIMD3<Double>? = nil,
+        alphaHasUser: Bool = false,
         alphaHasScript: Bool = false,
         controlPoint: SIMD3<Double>? = nil,
         controlPointHasAnimation: Bool = false
     ) -> SceneRenderDescriptor.Layer {
         .init(
             id: id, name: nil, contentKind: "particle", particlePath: path,
-            particleInstanceOverride: (particleAlpha != nil || controlPoint != nil) ?
+            particleInstanceOverride: (particleAlpha != nil || particleSize != nil
+                || particleCount != nil || particleNormalizedColor != nil
+                || controlPoint != nil) ?
                 SceneParticleInstanceOverride(
                     id: nil,
                     alpha: particleAlpha.map { value in SceneParticleBoundValue(
                         value: .scalar(value),
-                        userPropertyKey: "foreground",
+                        userPropertyKey: alphaHasUser ? "foreground" : nil,
                         hasScript: alphaHasScript,
                         hasAnimation: false
                     ) },
-                    size: nil,
+                    size: particleSize.map { SceneParticleBoundValue(
+                        value: .scalar($0), userPropertyKey: "size",
+                        hasScript: false, hasAnimation: false
+                    ) },
                     lifetime: nil,
                     rate: nil,
                     speed: nil,
-                    count: nil,
+                    count: particleCount.map { SceneParticleBoundValue(
+                        value: .scalar($0), userPropertyKey: "count",
+                        hasScript: false, hasAnimation: false
+                    ) },
                     brightness: nil,
                     color: nil,
-                    normalizedColor: nil,
+                    normalizedColor: particleNormalizedColor.map { SceneParticleBoundValue(
+                        value: .vector([$0.x, $0.y, $0.z]), userPropertyKey: "color",
+                        hasScript: false, hasAnimation: false
+                    ) },
                     controlPoints: controlPoint.map { value in [
                         1: SceneParticleBoundValue(
                             value: .vector([value.x, value.y, value.z]),
@@ -2293,6 +2379,18 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             result["positions"],
             [[11, 21, 31], [-4, 7, 8], [3, 4, 5]],
         )
+
+    def test_runtime_consumes_dynamic_instance_override_then_restores_authored_values(self) -> None:
+        result = self.run_harness("dynamic-instance-override-synthetic")
+        self.assertEqual(result["zeroCount"], 0)
+        self.assertEqual(result["dynamicCount"], 2)
+        self.assertAlmostEqual(result["dynamicAlpha"], 0.25)
+        self.assertAlmostEqual(result["dynamicSize"], 24)
+        self.assertEqual(result["dynamicColor"], [0.25, 1, 0.0625])
+        self.assertEqual(result["fallbackCount"], 3)
+        self.assertAlmostEqual(result["fallbackAlpha"], 0)
+        self.assertAlmostEqual(result["fallbackSize"], 8)
+        self.assertEqual(result["fallbackColor"], [1, 1, 1])
 
     def test_rope_trail_runtime_builds_multisegment_batches_and_fails_closed(self) -> None:
         result = self.run_harness("rope-trail-synthetic")

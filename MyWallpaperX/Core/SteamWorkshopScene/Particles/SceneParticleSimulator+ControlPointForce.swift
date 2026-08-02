@@ -31,7 +31,7 @@ nonisolated extension SceneParticleSimulator {
         }
         if let dynamic = dynamicControlPoints[identity] {
             result += dynamic
-        } else if let override = instanceOverride?.controlPoints[identity] {
+        } else if let override = activeInstanceOverride?.controlPoints[identity] {
             result += SceneParticleSimulationMath.vector(override.value, fallback: .zero)
         }
         return result.x.isFinite && result.y.isFinite && result.z.isFinite ? result : nil

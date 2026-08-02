@@ -25,12 +25,17 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
         case color
     }
 
+    enum ParticleField: String, Codable {
+        case alpha, size, lifetime, rate, speed, count, brightness, color, normalizedColor
+    }
+
     case layerVisibility(layerID: Int)
     case layerAlpha(layerID: Int)
     case layerColor(layerID: Int)
     case effectVisibility(layerID: Int, effectIndex: Int, effectPath: String?)
     case camera(field: String)
     case text(layerID: Int, field: TextField)
+    case particle(layerID: Int, field: ParticleField)
     case shaderValue(
         layerID: Int,
         effectIndex: Int,
@@ -46,7 +51,7 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
             return true
         case let .camera(field):
             return field == "cameraparallax" || field == "camerashake"
-        case .layerAlpha, .layerColor, .text, .shaderValue, .unsupported:
+        case .layerAlpha, .layerColor, .text, .particle, .shaderValue, .unsupported:
             return false
         }
     }
@@ -176,6 +181,28 @@ nonisolated struct SceneUserPropertyBindingParser {
            Self.key(components[2]) == "color",
            object["text"] == nil {
             return .layerColor(layerID: layerID)
+        }
+        if components.count == 4,
+           Self.key(components[2]) == "instanceoverride",
+           let field = Self.key(components[3]),
+           let override = object["instanceoverride"] as? [String: Any],
+           let wrapper = override[field] as? [String: Any] {
+            guard wrapper["script"] == nil || wrapper["script"] is NSNull,
+                  wrapper["animation"] == nil || wrapper["animation"] is NSNull else {
+                return .unsupported(reason: "粒子 instance override 存在冲突动态来源")
+            }
+            switch field {
+            case "alpha": return .particle(layerID: layerID, field: .alpha)
+            case "size": return .particle(layerID: layerID, field: .size)
+            case "lifetime": return .particle(layerID: layerID, field: .lifetime)
+            case "rate": return .particle(layerID: layerID, field: .rate)
+            case "speed": return .particle(layerID: layerID, field: .speed)
+            case "count": return .particle(layerID: layerID, field: .count)
+            case "brightness": return .particle(layerID: layerID, field: .brightness)
+            case "color": return .particle(layerID: layerID, field: .color)
+            case "colorn": return .particle(layerID: layerID, field: .normalizedColor)
+            default: break
+            }
         }
         if components.count == 5,
            Self.key(components[2]) == "effects",

@@ -38,6 +38,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
+    SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
 ]
 
 
@@ -143,6 +144,13 @@ SCENE_FIXTURE = {
             "name": "Particle control-point timelines",
             "particle": "particles/cp.json",
             "instanceoverride": {
+                "alpha": {
+                    "value": 0.75,
+                    "animation": {
+                        "c0": [keyframe(0, 0.75), keyframe(30, 0.25)],
+                        "options": {"fps": 30, "length": 30, "mode": "loop"},
+                    },
+                },
                 "controlpoint1": {
                     "value": "10 20 30",
                     "animation": {
@@ -376,6 +384,7 @@ class SceneTimelineDocumentTests(unittest.TestCase):
         self.assertEqual(
             entry["particleTimelines"],
             [
+                {"host": "alpha", "componentCount": 1, "isRelative": False},
                 {"host": "controlpoint1", "componentCount": 3, "isRelative": False},
                 {"host": "controlpointangle1", "componentCount": 3, "isRelative": True},
             ],

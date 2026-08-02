@@ -337,8 +337,8 @@ nonisolated struct SceneParticleDefinitionParser {
         return .init(
             value: numericValue(wrapper?["value"] ?? rawValue),
             userPropertyKey: userKey,
-            hasScript: wrapper?["script"] != nil,
-            hasAnimation: wrapper?["animation"] != nil
+            hasScript: wrapper?["script"].map { !($0 is NSNull) } ?? false,
+            hasAnimation: wrapper?["animation"].map { !($0 is NSNull) } ?? false
         )
     }
 

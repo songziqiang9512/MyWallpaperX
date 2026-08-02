@@ -47,10 +47,12 @@ enum Harness {
           "tint":{"type":"color","text":"Tint","order":4,"value":"1 1 1"},
           "mode":{"type":"combo","text":"Mode","order":5,"value":"1","options":[{"label":"One","value":"1"},{"label":"Two","value":"2"}]},
           "caption":{"type":"textinput","text":"Caption","order":6,"value":"Default"},
-          "note":{"type":"text","text":"Read only","order":7,"value":"Note"},
-          "officialTexture":{"type":"texture","text":"Official Texture","order":8,"value":""},
-          "sceneTexture":{"type":"scenetexture","text":"Scene Texture","order":9,"value":"default.tex"},
-          "future":{"type":"futuretype","text":"Future","order":10,"value":"x"}
+          "particleAmount":{"type":"slider","text":"Particle Amount","order":7,"value":1},
+          "particleTint":{"type":"color","text":"Particle Tint","order":8,"value":"1 1 1"},
+          "note":{"type":"text","text":"Read only","order":9,"value":"Note"},
+          "officialTexture":{"type":"texture","text":"Official Texture","order":10,"value":""},
+          "sceneTexture":{"type":"scenetexture","text":"Scene Texture","order":11,"value":"default.tex"},
+          "future":{"type":"futuretype","text":"Future","order":12,"value":"x"}
         }}}
         """#
         let sceneJSON = #"""
@@ -68,6 +70,10 @@ enum Harness {
               "passes":[{"constantshadervalues":{"strength":{"user":"size","value":1}}}]
             }],
             "alpha":{"user":"size","value":0.5},
+            "instanceoverride":{
+              "count":{"user":"particleAmount","value":0.5},
+              "colorn":{"user":"particleTint","value":"0 0 0"}
+            },
             "scriptproperties":{"label":{"user":"caption","value":"fallback"}},
             "opacity":{"user":"missing","value":0.25},
             "brightness":{"user":{"name":"mode","condition":"2"},"value":0.2},
@@ -87,6 +93,8 @@ enum Harness {
                 "caption": .string("Hello"),
                 "size": .number(42),
                 "tint": .string("0.2 0.4 0.6"),
+                "particleAmount": .number(2.5),
+                "particleTint": .string("0.3 0.5 0.7"),
                 "unknown": .string("ignored")
             ]
         )
@@ -99,6 +107,7 @@ enum Harness {
         let kinds = Dictionary(grouping: catalog.definitions, by: \.kind.rawValue)
             .mapValues(\.count)
         let definitionsByKey = Dictionary(uniqueKeysWithValues: catalog.definitions.map { ($0.key, $0) })
+        let particleOverride = object["instanceoverride"] as? [String: Any] ?? [:]
         return [
             "definitionCount": catalog.definitions.count,
             "definitionKinds": kinds,
@@ -112,6 +121,10 @@ enum Harness {
             "bindingCount": resolution.bindingReport.bindings.count,
             "conditionalBindingCount": resolution.bindingReport.conditionalBindingCount,
             "unsupportedBindingCount": resolution.bindingReport.unsupportedBindings.count,
+            "particleBindingCount": resolution.bindingReport.bindings.filter {
+                if case .particle = $0.target { return true }
+                return false
+            }.count,
             "resolvedBindingCount": resolution.resolvedBindingCount,
             "diagnostics": diagnostics,
             "cameraParallax": wrapperValue(resolution.root["general"], key: "cameraparallax"),
@@ -122,6 +135,8 @@ enum Harness {
             "effectVisible": wrapperValue(effect, key: "visible"),
             "shaderStrength": wrapperValue(shaderValues, key: "strength"),
             "layerAlpha": wrapperValue(object, key: "alpha"),
+            "particleCount": wrapperValue(particleOverride, key: "count"),
+            "particleColor": wrapperValue(particleOverride, key: "colorn"),
             "unsupportedNestedDirect": wrapperValue(object["scriptproperties"], key: "label"),
             "missingFallback": wrapperValue(object, key: "opacity"),
             "unsupportedConditionalFallback": wrapperValue(object, key: "brightness")
@@ -205,6 +220,7 @@ enum Harness {
         case .effectVisibility: "effectVisibility"
         case .camera: "camera"
         case .text: "text"
+        case .particle: "particle"
         case .shaderValue: "shaderValue"
         case .unsupported: "unsupported"
         }
@@ -294,18 +310,18 @@ class SceneUserPropertyTests(unittest.TestCase):
 
     def test_definition_and_recursive_binding_resolution(self) -> None:
         result = self.run_harness("synthetic")
-        self.assertEqual(result["definitionCount"], 10)
+        self.assertEqual(result["definitionCount"], 12)
         self.assertEqual(result["unsupportedDefinitionCount"], 1)
         self.assertEqual(result["firstDefinition"], "heading")
         self.assertEqual(
             result["definitionKinds"],
             {
                 "bool": 1,
-                "color": 1,
+                "color": 2,
                 "combo": 1,
                 "group": 1,
                 "scenetexture": 2,
-                "slider": 1,
+                "slider": 2,
                 "text": 1,
                 "textinput": 1,
                 "unsupported": 1,
@@ -316,10 +332,11 @@ class SceneUserPropertyTests(unittest.TestCase):
         self.assertEqual(result["officialTextureRuntimeType"], "texture")
         self.assertEqual(result["sceneTextureRuntimeType"], "scenetexture")
         self.assertTrue(result["unknownOverrideIgnored"])
-        self.assertEqual(result["bindingCount"], 11)
+        self.assertEqual(result["bindingCount"], 13)
         self.assertEqual(result["conditionalBindingCount"], 2)
         self.assertEqual(result["unsupportedBindingCount"], 3)
-        self.assertEqual(result["resolvedBindingCount"], 9)
+        self.assertEqual(result["resolvedBindingCount"], 11)
+        self.assertEqual(result["particleBindingCount"], 2)
         self.assertEqual(result["cameraParallax"], True)
         self.assertEqual(result["layerVisible"], True)
         self.assertEqual(result["text"], "Hello")
@@ -328,6 +345,8 @@ class SceneUserPropertyTests(unittest.TestCase):
         self.assertEqual(result["effectVisible"], True)
         self.assertEqual(result["shaderStrength"], 42)
         self.assertEqual(result["layerAlpha"], 42)
+        self.assertEqual(result["particleCount"], 2.5)
+        self.assertEqual(result["particleColor"], "0.3 0.5 0.7")
         self.assertEqual(result["unsupportedNestedDirect"], "Hello")
         self.assertEqual(result["missingFallback"], 0.25)
         self.assertEqual(result["unsupportedConditionalFallback"], 0.2)

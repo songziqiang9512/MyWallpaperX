@@ -137,6 +137,10 @@ enum Harness {
             layerID: 13,
             field: .controlPoint(3)
         )
+        let particleAlpha = SceneDynamicTarget.particle(layerID: 12, field: .alpha)
+        let particleColor = SceneDynamicTarget.particle(
+            layerID: 12, field: .normalizedColor
+        )
         let controlPointSnapshot = resolver.resolve(
             frameIndex: 8,
             generation: 2,
@@ -151,6 +155,16 @@ enum Harness {
                     valueType: .vector3,
                     authoredValue: .vector3(4, 5, 6)
                 ),
+                .init(target: particleAlpha, valueType: .scalar, authoredValue: .scalar(1)),
+                .init(
+                    target: particleColor,
+                    valueType: .vector3,
+                    authoredValue: .vector3(1, 1, 1)
+                ),
+            ],
+            userValues: [
+                particleAlpha: .scalar(0.35),
+                particleColor: .vector3(0.2, 0.4, 0.6),
             ],
             timelineValues: [
                 controlPoint: .vector3(10, 20, 30),
@@ -158,6 +172,7 @@ enum Harness {
             ]
         ).snapshot
         let layer12ControlPoints = controlPointSnapshot.particleControlPoints(layerID: 12)
+        let layer12ParticleValues = controlPointSnapshot.particleInstanceValues(layerID: 12)
         let empty = SceneDynamicSnapshot.empty(frameIndex: 9, generation: 4)
         let payload: [String: Any] = [
             "coderRoundTrip": coderRoundTrip,
@@ -178,6 +193,12 @@ enum Harness {
             "collisionOrder": collisionForward.diagnostics.map { targetPath($0.target) },
             "layer12ControlPoint3": layer12ControlPoints[3].map { [$0.x, $0.y, $0.z] } ?? [],
             "layer12ControlPointCount": layer12ControlPoints.count,
+            "layer12ParticleAlpha": layer12ParticleValues?.alpha ?? -1,
+            "layer12ParticleColor": layer12ParticleValues?.normalizedColor.map {
+                [$0.x, $0.y, $0.z]
+            } ?? [],
+            "otherLayerParticleValuesMissing":
+                controlPointSnapshot.particleInstanceValues(layerID: 13) == nil,
             "empty": [empty.frameIndex, empty.generation, UInt64(empty.count)],
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
@@ -282,6 +303,11 @@ class SceneDynamicSnapshotTests(unittest.TestCase):
     def test_particle_control_point_snapshot_is_scoped_to_one_layer(self) -> None:
         self.assertEqual(self.result["layer12ControlPoint3"], [10, 20, 30])
         self.assertEqual(self.result["layer12ControlPointCount"], 1)
+
+    def test_particle_instance_values_are_typed_and_scoped_to_one_layer(self) -> None:
+        self.assertEqual(self.result["layer12ParticleAlpha"], 0.35)
+        self.assertEqual(self.result["layer12ParticleColor"], [0.2, 0.4, 0.6])
+        self.assertTrue(self.result["otherLayerParticleValuesMissing"])
 
 
 if __name__ == "__main__":

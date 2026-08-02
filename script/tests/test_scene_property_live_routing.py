@@ -19,6 +19,10 @@ EDITOR_SOURCE = REPOSITORY_ROOT / (
     "MyWallpaperX/Modules/SteamWorkshop/Scene/"
     "SteamWorkshopScenePropertyEditorView.swift"
 )
+LIVE_CONSUMERS_SOURCE = REPOSITORY_ROOT / (
+    "MyWallpaperX/Core/SteamWorkshopScene/Runtime/"
+    "SceneDesktopWallpaperHost+LiveConsumers.swift"
+)
 
 
 def method_body(source: str, signature: str) -> str:
@@ -41,6 +45,7 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         cls.service = SERVICE_SOURCE.read_text(encoding="utf-8")
         cls.texture = TEXTURE_SOURCE.read_text(encoding="utf-8")
         cls.editor = EDITOR_SOURCE.read_text(encoding="utf-8")
+        cls.live_consumers = LIVE_CONSUMERS_SOURCE.read_text(encoding="utf-8")
 
     def test_single_update_persists_before_live_attempt_and_rebuilds_on_rejection(self) -> None:
         update = method_body(self.service, "func updateScenePropertyValue(")
@@ -111,10 +116,28 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
             context,
         )
         self.assertIn("case let .layerColor(layerID):", support)
-        self.assertIn('$0.id == layerID && $0.contentKind == "solid"', support)
-        self.assertNotIn('$0.contentKind == "image"', support)
-        self.assertNotIn('$0.contentKind == "text"', support)
-        self.assertNotIn('$0.contentKind == "particle"', support)
+        layer_color = support[
+            support.index("case let .layerColor(layerID):") : support.index(
+                "case let .camera(field):"
+            )
+        ]
+        self.assertIn('$0.id == layerID && $0.contentKind == "solid"', layer_color)
+        self.assertNotIn('$0.contentKind == "image"', layer_color)
+        self.assertNotIn('$0.contentKind == "text"', layer_color)
+        self.assertNotIn('$0.contentKind == "particle"', layer_color)
+
+    def test_particle_properties_are_actionable_only_for_particle_layers(self) -> None:
+        support = method_body(self.service, "private func supportsScenePropertyTarget(")
+        self.assertIn("case let .particle(layerID, _):", support)
+        self.assertIn('$0.id == layerID && $0.contentKind == "particle"', support)
+        consumers = method_body(self.live_consumers, "static func activeLiveConsumerTargets(")
+        self.assertIn('case "particle":', consumers)
+        for field in (
+            ".alpha", ".size", ".lifetime", ".rate", ".speed", ".count",
+            ".brightness", ".normalizedColor",
+        ):
+            self.assertIn(field, consumers)
+        self.assertIn(".particle(layerID: layer.id, field: $0)", consumers)
 
     def test_local_contrast_controls_require_the_strict_execution_catalog(self) -> None:
         context = method_body(self.service, "func scenePropertyContext(")

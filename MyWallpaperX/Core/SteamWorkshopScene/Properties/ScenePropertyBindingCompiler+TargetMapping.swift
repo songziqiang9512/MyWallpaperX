@@ -22,6 +22,19 @@ extension ScenePropertyBindingCompiler {
             case .color:
                 (.text(layerID: layerID, field: .color), .vector3, .color)
             }
+        case let .particle(layerID, field):
+            switch field {
+            case .alpha: particleScalar(layerID, .alpha)
+            case .size: particleScalar(layerID, .size)
+            case .lifetime: particleScalar(layerID, .lifetime)
+            case .rate: particleScalar(layerID, .rate)
+            case .speed: particleScalar(layerID, .speed)
+            case .count: particleScalar(layerID, .count)
+            case .brightness: particleScalar(layerID, .brightness)
+            case .normalizedColor:
+                (.particle(layerID: layerID, field: .normalizedColor), .vector3, .color)
+            case .color: nil
+            }
         case let .shaderValue(layerID, effectIndex, passIndex, name, effectPath)
             where normalized(effectPath) == "effects/localcontrast/effect.json"
                 && passIndex == 3 && name.lowercased() == "strength":
@@ -147,5 +160,12 @@ extension ScenePropertyBindingCompiler {
             .scalar,
             .slider
         )
+    }
+
+    private nonisolated static func particleScalar(
+        _ layerID: Int,
+        _ field: SceneDynamicParticleField
+    ) -> (SceneDynamicTarget, SceneDynamicValueType, SceneUserPropertyKind) {
+        (.particle(layerID: layerID, field: field), .scalar, .slider)
     }
 }
