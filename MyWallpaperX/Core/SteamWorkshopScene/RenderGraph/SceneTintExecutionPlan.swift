@@ -2,7 +2,9 @@ import simd
 
 nonisolated struct SceneTintExecutionPlan {
     nonisolated struct ConstantBinding: Equatable {
-        let propertyKey: String
+        /// Non-nil for a user-property producer. Timeline producers write the same typed
+        /// dynamic target and therefore do not need a property key.
+        let propertyKey: String?
         let layerID: Int
         let effectIndex: Int
         let constantName: String

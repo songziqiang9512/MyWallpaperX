@@ -320,22 +320,46 @@ enum SceneAuthoredTintPlanner {
         return (Float(component), source)
     }
 
-    /// 用户绑定走 `.effectConstant` 动态目标；`script`/`animation` 形态的
-    /// `valueKind == "binding"` 但 `userBinding == nil`，在这里被拒绝。
+    /// 用户属性与已通过 Timeline parser 的动画共用 `.effectConstant` 动态目标。
+    /// SceneScript、未知 wrapper 字段和带诊断的 Timeline 继续失败关闭。
     private nonisolated static func constantSource(
         _ value: SceneDocument.ShaderValue,
         staticKind: String,
         name: String,
         effect: Graph.EffectKey
     ) -> ConstantSource? {
-        guard let propertyKey = value.userBinding?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        else {
-            return value.valueKind.lowercased() == staticKind ? .constant : nil
+        if let rawPropertyKey = value.userBinding {
+            let propertyKey = rawPropertyKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !propertyKey.isEmpty,
+                  value.valueKind.lowercased() == "binding" else {
+                return nil
+            }
+            return .bound(SceneTintExecutionPlan.ConstantBinding(
+                propertyKey: propertyKey,
+                layerID: effect.layerID,
+                effectIndex: effect.effectIndex,
+                constantName: name
+            ))
         }
-        guard !propertyKey.isEmpty, value.valueKind.lowercased() == "binding" else { return nil }
+
+        if value.valueKind.lowercased() == staticKind {
+            return .constant
+        }
+        guard value.valueKind.lowercased() == "binding",
+              staticKind == "number",
+              let timeline = value.timeline,
+              value.timelineDiagnostics.isEmpty,
+              value.scriptSource == nil,
+              value.bindingKeys == ["animation", "value"],
+              timeline.isRelative == false,
+              timeline.options.parent == nil,
+              timeline.options.children.isEmpty,
+              timeline.componentCount == 1,
+              timeline.hasExecutableWrapLoop else {
+            return nil
+        }
         return .bound(SceneTintExecutionPlan.ConstantBinding(
-            propertyKey: propertyKey,
+            propertyKey: nil,
             layerID: effect.layerID,
             effectIndex: effect.effectIndex,
             constantName: name

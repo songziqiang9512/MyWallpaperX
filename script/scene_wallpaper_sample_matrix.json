@@ -1876,6 +1876,7 @@
         17,
         44,
         47,
+        157,
         698
       ],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
@@ -1886,9 +1887,10 @@
       "expected_authored_effect_graph_spin_count": 1,
       "expected_authored_effect_graph_shake_count": 1,
       "expected_authored_effect_graph_water_flow_count": 4,
-      "expected_authored_effect_graph_water_waves_count": 0,
-      "expected_authored_effect_graph_chain_count": 2,
-      "expected_authored_effect_graph_stage_count": 8,
+      "expected_authored_effect_graph_water_waves_count": 1,
+      "expected_authored_effect_graph_tint_count": 1,
+      "expected_authored_effect_graph_chain_count": 3,
+      "expected_authored_effect_graph_stage_count": 10,
       "expected_route_only_effect_count": 2
     }
   ]

@@ -111,11 +111,26 @@ import Foundation
 import simd
 
 struct SceneDocument {
+    struct Timeline {
+        struct Options {
+            let parent: Int?
+            let children: [Int]
+        }
+        let isRelative: Bool
+        let options: Options
+        let componentCount: Int
+        let hasExecutableWrapLoop: Bool
+    }
+
     struct ShaderValue {
         let rawValue: String
         let valueKind: String
         let userBinding: String?
         let components: [Double]?
+        let timeline: Timeline?
+        let timelineDiagnostics: [String]
+        let scriptSource: String?
+        let bindingKeys: [String]
     }
 }
 
@@ -177,10 +192,20 @@ enum Harness {
         var color: [Double] = [0.25, 0.6, 0.9]
         var colorKind = "vector"
         var colorBinding: String?
+        var colorTimeline = false
+        var colorBindingKeys: [String]?
         var includesColor = true
         var alpha = 0.4
         var alphaKind = "number"
         var alphaBinding: String?
+        var alphaTimeline = false
+        var alphaTimelineRelative = false
+        var alphaTimelineParent: Int?
+        var alphaTimelineComponentCount = 1
+        var alphaTimelineExecutable = true
+        var alphaTimelineDiagnostics: [String] = []
+        var alphaScriptSource: String?
+        var alphaBindingKeys: [String]?
         var includesAlpha = true
         var extraInstanceConstant = false
         var instanceCombos: [String: Int] = [:]
@@ -223,13 +248,30 @@ enum Harness {
     static func value(
         _ components: [Double],
         kind: String,
-        binding: String? = nil
+        binding: String? = nil,
+        timeline: Bool = false,
+        timelineRelative: Bool = false,
+        timelineParent: Int? = nil,
+        timelineComponentCount: Int = 1,
+        timelineExecutable: Bool = true,
+        timelineDiagnostics: [String] = [],
+        scriptSource: String? = nil,
+        bindingKeys: [String]? = nil
     ) -> SceneDocument.ShaderValue {
         .init(
             rawValue: components.map { String($0) }.joined(separator: " "),
             valueKind: kind,
             userBinding: binding,
-            components: components
+            components: components,
+            timeline: timeline ? .init(
+                isRelative: timelineRelative,
+                options: .init(parent: timelineParent, children: []),
+                componentCount: timelineComponentCount,
+                hasExecutableWrapLoop: timelineExecutable
+            ) : nil,
+            timelineDiagnostics: timelineDiagnostics,
+            scriptSource: scriptSource,
+            bindingKeys: bindingKeys ?? (binding == nil ? [] : ["user", "value"])
         )
     }
 
@@ -239,14 +281,24 @@ enum Harness {
             result["color"] = value(
                 options.color,
                 kind: options.colorKind,
-                binding: options.colorBinding
+                binding: options.colorBinding,
+                timeline: options.colorTimeline,
+                bindingKeys: options.colorBindingKeys
             )
         }
         if options.includesAlpha {
             result["alpha"] = value(
                 [options.alpha],
                 kind: options.alphaKind,
-                binding: options.alphaBinding
+                binding: options.alphaBinding,
+                timeline: options.alphaTimeline,
+                timelineRelative: options.alphaTimelineRelative,
+                timelineParent: options.alphaTimelineParent,
+                timelineComponentCount: options.alphaTimelineComponentCount,
+                timelineExecutable: options.alphaTimelineExecutable,
+                timelineDiagnostics: options.alphaTimelineDiagnostics,
+                scriptSource: options.alphaScriptSource,
+                bindingKeys: options.alphaBindingKeys
             )
         }
         if options.extraInstanceConstant {
@@ -546,6 +598,13 @@ enum Harness {
         boundOptions.alphaKind = "binding"
         boundOptions.alphaBinding = "newproperty51"
         let boundPlan = planned(descriptorOptions: boundOptions, contracts: contracts)!
+        var timelineOptions = Options()
+        timelineOptions.alphaKind = "binding"
+        timelineOptions.alphaTimeline = true
+        timelineOptions.alphaBindingKeys = ["animation", "value"]
+        let timelinePlan = planned(
+            descriptorOptions: timelineOptions, contracts: contracts
+        )!
         let colorTarget = boundPlan.colorBinding!.dynamicTarget
         let alphaTarget = boundPlan.alphaBinding!.dynamicTarget
         let definitions = [
@@ -611,6 +670,24 @@ enum Harness {
 
         var colorScript = Options(); colorScript.colorKind = "binding"
         var alphaScript = Options(); alphaScript.alphaKind = "binding"
+        alphaScript.alphaScriptSource = "'unknown'"
+        alphaScript.alphaBindingKeys = ["script", "value"]
+        var diagnosedTimeline = timelineOptions
+        diagnosedTimeline.alphaTimelineDiagnostics = ["invalidWrapLoop"]
+        var extraTimelineKey = timelineOptions
+        extraTimelineKey.alphaBindingKeys = ["animation", "extra", "value"]
+        var colorTimeline = Options()
+        colorTimeline.colorKind = "binding"
+        colorTimeline.colorTimeline = true
+        colorTimeline.colorBindingKeys = ["animation", "value"]
+        var relativeTimeline = timelineOptions
+        relativeTimeline.alphaTimelineRelative = true
+        var combinedTimeline = timelineOptions
+        combinedTimeline.alphaTimelineParent = 7
+        var multiLaneTimeline = timelineOptions
+        multiLaneTimeline.alphaTimelineComponentCount = 2
+        var nonExecutableTimeline = timelineOptions
+        nonExecutableTimeline.alphaTimelineExecutable = false
         var colorWrongKind = Options(); colorWrongKind.colorBinding = "newproperty50"
         var alphaWrongKind = Options(); alphaWrongKind.alphaBinding = "newproperty51"
         var emptyColorBinding = Options()
@@ -738,6 +815,9 @@ enum Harness {
                 && boundPlan.alphaBinding!.propertyKey == "newproperty51"
                 && boundPlan.alphaBinding!.constantName == "alpha"
                 && boundPlan.liveConsumerTargets.count == 2,
+            "timelineBindingAccepted": timelinePlan.alphaBinding?.propertyKey == nil
+                && timelinePlan.alphaBinding?.dynamicTarget == alphaTarget
+                && timelinePlan.liveConsumerTargets == [alphaTarget],
             "snapshotApplied": liveColor == SIMD3<Float>(0.1, 0.2, 0.3)
                 && boundPlan.resolvedAlpha(in: liveSnapshot) == 0.75,
             "snapshotFallback": fallbackColor == SIMD3<Float>(0.25, 0.6, 0.9)
@@ -757,6 +837,11 @@ enum Harness {
                 .allSatisfy { !accepted(graphOptions: $0, contracts: contracts) },
             "definitionRejected": definitionRejected,
             "sceneScriptRejected": [colorScript, alphaScript]
+                .allSatisfy { !accepted(descriptorOptions: $0, contracts: contracts) },
+            "invalidTimelineRejected": [
+                diagnosedTimeline, extraTimelineKey, colorTimeline, relativeTimeline,
+                combinedTimeline, multiLaneTimeline, nonExecutableTimeline,
+            ]
                 .allSatisfy { !accepted(descriptorOptions: $0, contracts: contracts) },
             "wrongBindingKindRejected": [colorWrongKind, alphaWrongKind]
                 .allSatisfy { !accepted(descriptorOptions: $0, contracts: contracts) },
