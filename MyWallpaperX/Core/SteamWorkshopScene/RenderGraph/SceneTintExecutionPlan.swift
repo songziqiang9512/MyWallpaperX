@@ -49,12 +49,19 @@ nonisolated struct SceneTintExecutionPlan {
     }
 
     nonisolated func resolvedAlpha(in snapshot: SceneDynamicSnapshot) -> Float {
-        guard let target = alphaBinding?.dynamicTarget,
-              case let .scalar(rawValue) = snapshot[target]?.value
+        guard let binding = alphaBinding,
+              case let .scalar(rawValue) = snapshot[binding.dynamicTarget]?.value
         else {
             return staticOrFallbackAlpha
         }
         let value = Float(rawValue)
-        return value.isFinite && (0 ... 1).contains(value) ? value : staticOrFallbackAlpha
+        guard value.isFinite else { return staticOrFallbackAlpha }
+        // Bézier handles may intentionally overshoot an endpoint by a small amount. Timeline
+        // values follow shader saturation semantics so a continuous curve cannot turn into a
+        // one-frame static fallback. User-property injections retain the strict range check.
+        if binding.propertyKey == nil {
+            return min(max(value, 0), 1)
+        }
+        return (0 ... 1).contains(value) ? value : staticOrFallbackAlpha
     }
 }

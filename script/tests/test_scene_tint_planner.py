@@ -631,6 +631,18 @@ enum Harness {
             definitions: definitions,
             userValues: [colorTarget: .vector3(1.5, 0.2, 0.3), alphaTarget: .scalar(1.5)]
         ).snapshot
+        let negativeOvershootSnapshot = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 3,
+            generation: 3,
+            definitions: definitions,
+            timelineValues: [alphaTarget: .scalar(-0.017034483)]
+        ).snapshot
+        let positiveOvershootSnapshot = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 4,
+            generation: 4,
+            definitions: definitions,
+            timelineValues: [alphaTarget: .scalar(1.017034483)]
+        ).snapshot
 
         var prior = GraphOptions(); prior.priorInput = true
         var blocker = GraphOptions(); blocker.blocker = true
@@ -822,6 +834,9 @@ enum Harness {
                 && boundPlan.resolvedAlpha(in: liveSnapshot) == 0.75,
             "snapshotFallback": fallbackColor == SIMD3<Float>(0.25, 0.6, 0.9)
                 && boundPlan.resolvedAlpha(in: invalidSnapshot) == 0.4,
+            "timelineOvershootClamped":
+                timelinePlan.resolvedAlpha(in: negativeOvershootSnapshot) == 0
+                && timelinePlan.resolvedAlpha(in: positiveOvershootSnapshot) == 1,
             "priorInputAccepted": accepted(
                 graphOptions: prior, contracts: contracts, role: .priorEffectOutput
             ),
