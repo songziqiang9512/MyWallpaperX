@@ -32,6 +32,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneShaderContract.swift",
     SOURCE_ROOT / "RenderGraph/SceneShaderContractLoader.swift",
     SOURCE_ROOT / "RenderGraph/SceneWaterWavesShaderProfile.swift",
+    SOURCE_ROOT / "RenderGraph/SceneWaterWavesAssetFamily.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredWaterWavesPlanner.swift",
 ]
 
@@ -78,6 +79,7 @@ struct SceneRenderDescriptor {
         let id: String
         let materialPath: String
         let materialRawSHA256: String
+        let shaderPathIndependentSHA256: String
         let passIndex: Int
         let shaderPath: String?
         let texturePaths: [String]
@@ -102,6 +104,12 @@ enum Harness {
     static let definitionPath = "effects/waterwaves/effect.json"
     static let materialPath = "materials/effects/waterwaves.json"
     static let shaderIdentity = "effects/waterwaves"
+    static let relocatedDefinitionPath =
+        "effects/workshop/912345678/waterwaves/effect.json"
+    static let relocatedMaterialPath =
+        "materials/workshop/912345678/effects/waterwaves.json"
+    static let relocatedShaderIdentity =
+        "workshop/912345678/effects/waterwaves"
 
     struct Options {
         var constants: [String: SceneDocument.ShaderValue] = [
@@ -143,6 +151,23 @@ enum Harness {
     }
 
     static func descriptor(_ options: Options) -> SceneRenderDescriptor {
+        descriptor(
+            options,
+            definitionPath: definitionPath,
+            materialPath: materialPath,
+            shaderIdentity: shaderIdentity,
+            materialSemanticSHA256:
+                "f07dfa1b7f21c1c99742c66dfa14ab8c747ebc78a1a7573680329950ad40e121"
+        )
+    }
+
+    static func descriptor(
+        _ options: Options,
+        definitionPath: String,
+        materialPath: String,
+        shaderIdentity: String,
+        materialSemanticSHA256: String
+    ) -> SceneRenderDescriptor {
         let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
             passIndex: 0,
             texturePaths: options.paths,
@@ -162,6 +187,7 @@ enum Harness {
             materialPath: materialPath,
             materialRawSHA256:
                 "2d465e099edb237ace15febe68a19eb833702a636972830bb43409e961c246b5",
+            shaderPathIndependentSHA256: materialSemanticSHA256,
             passIndex: 0,
             shaderPath: shaderIdentity,
             texturePaths: [],
@@ -199,8 +225,8 @@ enum Harness {
             framebuffers: [],
             dependencies: [
                 materialPath,
-                "shaders/effects/waterwaves.frag",
-                "shaders/effects/waterwaves.vert",
+                "shaders/\(shaderIdentity).frag",
+                "shaders/\(shaderIdentity).vert",
             ],
             functions: nil,
             gizmos: options.includeGizmos ? gizmos() : nil,
@@ -226,6 +252,10 @@ enum Harness {
     }
 
     static func graph() -> Graph {
+        graph(definitionPath: definitionPath, materialPath: materialPath)
+    }
+
+    static func graph(definitionPath: String, materialPath: String) -> Graph {
         let key = Graph.EffectKey(
             layerID: 20, effectIndex: 0, descriptorID: "20#effect#21"
         )
@@ -276,15 +306,46 @@ enum Harness {
         )
     }
 
+    static func relocatedPlan(
+        _ options: Options,
+        contracts: [SceneShaderContract],
+        materialSemanticSHA256: String =
+            "f07dfa1b7f21c1c99742c66dfa14ab8c747ebc78a1a7573680329950ad40e121"
+    ) -> SceneWaterWavesExecutionPlan? {
+        SceneAuthoredWaterWavesPlanner.plan(
+            graph: graph(
+                definitionPath: relocatedDefinitionPath,
+                materialPath: relocatedMaterialPath
+            ),
+            descriptor: descriptor(
+                options,
+                definitionPath: relocatedDefinitionPath,
+                materialPath: relocatedMaterialPath,
+                shaderIdentity: relocatedShaderIdentity,
+                materialSemanticSHA256: materialSemanticSHA256
+            ),
+            shaderContracts: contracts,
+            inputRole: .layerSource
+        )
+    }
+
     static func main() throws {
         let roots = CommandLine.arguments.dropFirst().map {
             URL(fileURLWithPath: $0, isDirectory: true)
         }
         let loader = SceneShaderContractLoader()
         // 顺序：stock, reversed(v1-b), directV1(v1-c), directV1MaskCombo(v1-d), v2
-        let contracts = roots.map {
+        let contracts = roots.prefix(5).map {
             loader.load(shaderReferences: [shaderIdentity], rootURL: $0)
         }
+        let relocatedContracts = loader.load(
+            shaderReferences: [relocatedShaderIdentity],
+            rootURL: roots[5]
+        )
+        let mutatedContracts = loader.load(
+            shaderReferences: [shaderIdentity],
+            rootURL: roots[6]
+        )
         let profiles = contracts.map { SceneWaterWavesShaderProfile.resolve($0) }
 
         var stockOptions = Options()
@@ -322,6 +383,12 @@ enum Harness {
             "perspective": value([0], kind: "number"),
         ]
         let v2Plan = planned(v2Options, contracts: contracts[4])
+
+        var relocatedOptions = legacyFull
+        let relocatedExecution = relocatedPlan(
+            relocatedOptions,
+            contracts: relocatedContracts
+        )
 
         var legacyExponent = Options()
         legacyExponent.includeGizmos = false
@@ -384,6 +451,33 @@ enum Harness {
             "v2Planned": v2Plan != nil
                 && v2Plan!.shaderProfile == .legacyV2
                 && v2Plan!.direction == 0.5,
+            "relocatedAnnotationOrderPlanned": relocatedExecution != nil
+                && relocatedExecution!.shaderProfile == .legacyDirectV1
+                && relocatedExecution!.direction == 1.5
+                && relocatedExecution!.maskTexturePath == "masks/waves_mask_a",
+            "relocatedAssetFamilyDerived": {
+                guard let assets = SceneWaterWavesAssetFamily(
+                    definitionPath: relocatedDefinitionPath
+                ) else { return false }
+                return assets.materialPath == relocatedMaterialPath
+                    && assets.shaderIdentity == relocatedShaderIdentity
+                    && assets.dependencies == [
+                        relocatedMaterialPath,
+                        "shaders/\(relocatedShaderIdentity).frag",
+                        "shaders/\(relocatedShaderIdentity).vert",
+                    ]
+                    && SceneWaterWavesAssetFamily(
+                        definitionPath: "effects/workshop/../waterwaves/effect.json"
+                    ) == nil
+            }(),
+            "relocatedMaterialShapeRejected": relocatedPlan(
+                relocatedOptions,
+                contracts: relocatedContracts,
+                materialSemanticSHA256: "wrong"
+            ) == nil,
+            "shaderMathMutationRejected": SceneWaterWavesShaderProfile.resolve(
+                mutatedContracts
+            ) == nil,
             "legacyExponentRejected": planned(
                 legacyExponent, contracts: contracts[1]
             ) == nil,
@@ -435,6 +529,46 @@ class SceneWaterWavesProfileTests(unittest.TestCase):
                     base64.b64decode(entry["frag"])
                 )
                 roots.append(variant_root)
+
+            import base64
+
+            relocated_root = root / "relocated"
+            relocated_dir = (
+                relocated_root / "shaders/workshop/912345678/effects"
+            )
+            relocated_dir.mkdir(parents=True)
+            direct = legacy["direct-v1"]
+            (relocated_dir / "waterwaves.vert").write_bytes(
+                base64.b64decode(direct["vert"])
+            )
+            direct_fragment = base64.b64decode(direct["frag"])
+            original_annotation = (
+                b'{"material":"mask","label":"ui_editor_properties_opacity_mask",'
+                b'"mode":"opacitymask","default":"util/white",'
+                b'"paintdefaultcolor":"0 0 0 1"}'
+            )
+            reordered_annotation = (
+                b'{"default":"util/white","label":"ui_editor_properties_opacity_mask",'
+                b'"material":"mask","mode":"opacitymask",'
+                b'"paintdefaultcolor":"0 0 0 1"}'
+            )
+            self.assertIn(original_annotation, direct_fragment)
+            (relocated_dir / "waterwaves.frag").write_bytes(
+                direct_fragment.replace(original_annotation, reordered_annotation)
+            )
+            roots.append(relocated_root)
+
+            mutated_root = root / "mutated"
+            mutated_dir = mutated_root / "shaders/effects"
+            mutated_dir.mkdir(parents=True)
+            (mutated_dir / "waterwaves.vert").write_bytes(
+                base64.b64decode(direct["vert"])
+            )
+            self.assertIn(b"sin(distance)", direct_fragment)
+            (mutated_dir / "waterwaves.frag").write_bytes(
+                direct_fragment.replace(b"sin(distance)", b"cos(distance)")
+            )
+            roots.append(mutated_root)
 
             harness = root / "Harness.swift"
             executable = root / "waterwaves-harness"

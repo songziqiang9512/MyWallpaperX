@@ -1,9 +1,9 @@
 import CryptoKit
 import Foundation
 
-/// 官方 `effects/waterwaves` 的逐指纹 shader profile。
+/// 官方 `effects/waterwaves` 的逐语义指纹 shader profile。
 ///
-/// 语料 45 样本携带 6 种 waterwaves shader 源，其中 5 种可执行：
+/// 语料 45 样本携带 6 种 waterwaves shader 语义，其中 5 种可执行：
 /// - `stock2842`：2.8.42 原版（exponent/DUALWAVES/PERSPECTIVE/TIMEOFFSET combo 全量）；
 /// - `legacyReversedDirection`（仅 `2131872317`）：v1 结构，方向基向量 `(0,-1)`（stock 为
 ///   `(0,1)`，同一 authored direction 波向相反，执行时按 +π 归一）、无 `g_Exponent`
@@ -13,8 +13,10 @@ import Foundation
 /// - `legacyV2`：stock 减 DUALWAVES 段、保留标量 `g_Perspective`，combos 全空时与
 ///   stock exponent=1 同语义。
 /// 第六种（`1553008362`/`1636394814`，label-as-key 语料）实例全部使用编辑器 label 作常量键，
-/// 无可执行实例，不纳入白名单。语料全部 `perspective` 常量为 0，planner 只接受 0，
-/// 因此执行端无需 perspective 修正项。
+/// 无可执行实例，不纳入白名单。语义指纹只归一换行和 shader 注解 JSON 的字段顺序；
+/// shader 代码、声明、注解值及其他注释仍逐字节参与哈希。这样作者把同一 effect 搬入
+/// 新资源命名空间或 JSON writer 改变字段顺序时可复用，而代码变化仍失败关闭。语料全部
+/// `perspective` 常量为 0，planner 只接受 0，因此执行端无需 perspective 修正项。
 nonisolated enum SceneWaterWavesShaderProfile: Equatable {
     case stock2842
     case legacyReversedDirection
@@ -30,9 +32,8 @@ nonisolated enum SceneWaterWavesShaderProfile: Equatable {
 
     private struct Fingerprint {
         let profile: SceneWaterWavesShaderProfile
-        let canonicalSHA256: String
-        let vertexSHA256: String
-        let fragmentSHA256: String
+        let semanticVertexSHA256: String
+        let semanticFragmentSHA256: String
     }
 
     /// v1 基向量 `(0,-1)` 等价于 stock 基向量下 direction + π。
@@ -62,28 +63,39 @@ nonisolated enum SceneWaterWavesShaderProfile: Equatable {
     }
 
     static func resolve(_ contracts: [SceneShaderContract]) -> SceneWaterWavesShaderProfile? {
-        let matches = contracts.filter { normalized($0.identity) == shaderIdentity }
+        resolve(
+            contracts,
+            shaderIdentity: stockShaderIdentity,
+            vertexPath: stockVertexPath,
+            fragmentPath: stockFragmentPath
+        )
+    }
+
+    static func resolve(
+        _ contracts: [SceneShaderContract],
+        shaderIdentity: String,
+        vertexPath: String,
+        fragmentPath: String
+    ) -> SceneWaterWavesShaderProfile? {
+        let expectedIdentity = normalized(shaderIdentity)
+        let matches = contracts.filter { normalized($0.identity) == expectedIdentity }
         guard matches.count == 1, let contract = matches.first,
               contract.sourceKind == .authoredSource,
               contract.diagnostics.isEmpty,
               contract.stages.count == 2,
+              canonicalHash(contract) == contract.canonicalSHA256,
+              let vertex = contract.stages.first(where: { $0.kind == .vertex }),
+              let fragment = contract.stages.first(where: { $0.kind == .fragment }),
+              normalized(vertex.relativePath) == normalized(vertexPath),
+              normalized(fragment.relativePath) == normalized(fragmentPath),
+              vertex.rawSHA256 == sha256(Data(vertex.source.utf8)),
+              fragment.rawSHA256 == sha256(Data(fragment.source.utf8)),
               let fingerprint = fingerprints.first(where: {
-                  $0.canonicalSHA256 == contract.canonicalSHA256
-              }),
-              canonicalHash(contract) == fingerprint.canonicalSHA256
+                  semanticSourceSHA256(vertex.source) == $0.semanticVertexSHA256
+                      && semanticSourceSHA256(fragment.source)
+                          == $0.semanticFragmentSHA256
+              })
         else {
-            return nil
-        }
-        let expected: [(SceneShaderContract.StageKind, String, String)] = [
-            (.vertex, vertexPath, fingerprint.vertexSHA256),
-            (.fragment, fragmentPath, fingerprint.fragmentSHA256),
-        ]
-        guard zip(contract.stages, expected).allSatisfy({ stage, expected in
-            stage.kind == expected.0
-                && normalized(stage.relativePath) == expected.1
-                && stage.rawSHA256 == expected.2
-                && sha256(Data(stage.source.utf8)) == expected.2
-        }) else {
             return nil
         }
         return fingerprint.profile
@@ -106,49 +118,80 @@ nonisolated enum SceneWaterWavesShaderProfile: Equatable {
         value.replacingOccurrences(of: "\\", with: "/").lowercased()
     }
 
+    private static func semanticSourceSHA256(_ source: String) -> String {
+        let normalizedNewlines = source
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        let canonical = normalizedNewlines
+            .components(separatedBy: "\n")
+            .map(canonicalizingAnnotationJSON)
+            .joined(separator: "\n")
+        return sha256(Data(canonical.utf8))
+    }
+
+    private static func canonicalizingAnnotationJSON(_ line: String) -> String {
+        guard let comment = line.range(of: "//"),
+              let brace = line[comment.upperBound...].firstIndex(of: "{") else {
+            return line
+        }
+        let candidate = line[brace...].trimmingCharacters(in: .whitespaces)
+        guard let data = candidate.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data),
+              JSONSerialization.isValidJSONObject(object),
+              let canonicalData = try? JSONSerialization.data(
+                  withJSONObject: object,
+                  options: [.sortedKeys, .withoutEscapingSlashes]
+              ),
+              let canonical = String(data: canonicalData, encoding: .utf8) else {
+            return line
+        }
+        return String(line[..<brace]) + canonical
+    }
+
     private static func sha256(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
-    private static let shaderIdentity = "effects/waterwaves"
-    private static let vertexPath = "shaders/effects/waterwaves.vert"
-    private static let fragmentPath = "shaders/effects/waterwaves.frag"
+    private static let stockShaderIdentity = "effects/waterwaves"
+    private static let stockVertexPath = "shaders/effects/waterwaves.vert"
+    private static let stockFragmentPath = "shaders/effects/waterwaves.frag"
 
-    private static let legacyV1VertexSHA256 =
-        "ee89723a81ddc4e9f3f229b265abbfaa0bca2ec314d5eb65b3fd2e4ab78434bf"
-    private static let legacyV1FragmentSHA256 =
-        "e14c75b9d406fb32c9d46ddcfcb69b2ccef38e4986a4a208556f3cfd516419f4"
+    private static let legacyV1VertexSemanticSHA256 =
+        "26a9575aa3571c0bc0ac37d201a557c7cdb29ed5d89cc5c533b5515e5a5fb1c1"
+    private static let legacyV1FragmentSemanticSHA256 =
+        "49e425b8757696807e9eb887e6afeee5f0eecdec94082709443dcf9034d4d47b"
 
     private static let fingerprints = [
         Fingerprint(
             profile: .stock2842,
-            canonicalSHA256: "0aa56eeed43aa54d09ced6993f742c07a5dc0cfd1dcd89873f1fb22142e68831",
-            vertexSHA256: "188d1e33de160e86708329ed1401cdc546426293e1f0b66b041d5cd556fe388f",
-            fragmentSHA256: "18df156687addc31957922f782ec5da44a126619b0ffd60c1b69557d2512d50e"
+            semanticVertexSHA256:
+                "b452cc7e255eb3259a6c479c4c30729190774f1cfa3d0609eeb4268ed48f13f8",
+            semanticFragmentSHA256:
+                "abab624859fcb41a87e46cd5b20b2d12982133407939b555f4f87204f6d63d04"
         ),
         Fingerprint(
             profile: .legacyReversedDirection,
-            canonicalSHA256: "df6fb6941d3ded5d2c5a9b53320251a9c710eeb9a75d8aeff5004bd2b1865961",
-            vertexSHA256: "89424bfb56ca911fcfd422495ee5aecc9c4b19384f936413979b1a1e036a1a8d",
-            fragmentSHA256: legacyV1FragmentSHA256
+            semanticVertexSHA256:
+                "fa1df7ac0f197e8f7dc9cb2337b0b4fbd8fcbe7ccfb63e44c7445f6acd5f367b",
+            semanticFragmentSHA256: legacyV1FragmentSemanticSHA256
         ),
         Fingerprint(
             profile: .legacyDirectV1,
-            canonicalSHA256: "42275943a4de898cafbb03c1b99b965fcb88b5884b8a9c07e88cc9212318bf82",
-            vertexSHA256: legacyV1VertexSHA256,
-            fragmentSHA256: legacyV1FragmentSHA256
+            semanticVertexSHA256: legacyV1VertexSemanticSHA256,
+            semanticFragmentSHA256: legacyV1FragmentSemanticSHA256
         ),
         Fingerprint(
             profile: .legacyDirectV1,
-            canonicalSHA256: "a1509d2f25023875f3cb5b0d549c79e4385b14001242f5b9f517f47f0c8b813b",
-            vertexSHA256: legacyV1VertexSHA256,
-            fragmentSHA256: "08a948f94e3c1c1e073a7eb91a0f58b6d0f813462813d945d33d41cbf3e9b0c3"
+            semanticVertexSHA256: legacyV1VertexSemanticSHA256,
+            semanticFragmentSHA256:
+                "ea5bd087ca039e7f80ef86ab4b9891fc6aba87959b7a083d24d6f98c3dc525cf"
         ),
         Fingerprint(
             profile: .legacyV2,
-            canonicalSHA256: "3d25007f0c6b6b96c1c174c716ee24a82245848d915da9d3c492d5b9e3ba029b",
-            vertexSHA256: "a2ca9476e99f64406ccd2750704e1ca86906670a124e636b2bec533cb73bc24a",
-            fragmentSHA256: "efa1f32c3a33734c99689f7e4ccd992f71b6827eb5d1ba5572e163853ac3b45b"
+            semanticVertexSHA256:
+                "0f344bd3efa959f9f404d961cb1e26b18765ef0954dd5a8ee374c46967720894",
+            semanticFragmentSHA256:
+                "b15e105051e8df3b6d7520b7860532d66f221556fd1b90f781ef3f58b50b7bb3"
         ),
     ]
 }

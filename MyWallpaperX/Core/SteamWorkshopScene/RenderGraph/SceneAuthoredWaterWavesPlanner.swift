@@ -46,9 +46,21 @@ enum SceneAuthoredWaterWavesPlanner {
 
         let effect = graph.effects[0]
         let node = graph.nodes[0]
-        guard normalized(effect.definitionPath) == definitionPath,
-              let profile = SceneWaterWavesShaderProfile.resolve(shaderContracts),
-              validDefinition(in: descriptor, path: effect.definitionPath, profile: profile),
+        guard let assets = SceneWaterWavesAssetFamily(
+                  definitionPath: effect.definitionPath
+              ),
+              let profile = SceneWaterWavesShaderProfile.resolve(
+                  shaderContracts,
+                  shaderIdentity: assets.shaderIdentity,
+                  vertexPath: assets.vertexPath,
+                  fragmentPath: assets.fragmentPath
+              ),
+              validDefinition(
+                  in: descriptor,
+                  path: effect.definitionPath,
+                  profile: profile,
+                  assets: assets
+              ),
               effect.nodeIndices == [node.nodeIndex],
               SceneAuthoredEffectInputValidator.accepts(
                   effect.input,
@@ -57,9 +69,9 @@ enum SceneAuthoredWaterWavesPlanner {
               ),
               effect.output == effectOutput(effect.key),
               graph.finalOutput == effect.output,
-              validNode(node, effect: effect),
-              validMaterialDescriptor(in: descriptor),
-              let instance = instancePass(effect: effect, layer: layer),
+              validNode(node, effect: effect, assets: assets),
+              validMaterialDescriptor(in: descriptor, assets: assets),
+              let instance = instancePass(effect: effect, layer: layer, assets: assets),
               let maskPath = maskPath(from: instance, profile: profile),
               let parameters = parameters(
                   from: instance.constantShaderValues,
@@ -74,7 +86,8 @@ enum SceneAuthoredWaterWavesPlanner {
                   resolved,
                   maskPath: maskPath,
                   parameters: parameters,
-                  profile: profile
+                  profile: profile,
+                  assets: assets
               ) else {
             return nil
         }
@@ -94,13 +107,16 @@ enum SceneAuthoredWaterWavesPlanner {
     }
 
     nonisolated static func containsCandidate(graph: Graph) -> Bool {
-        graph.effects.contains { normalized($0.definitionPath) == definitionPath }
+        graph.effects.contains {
+            SceneWaterWavesAssetFamily(definitionPath: $0.definitionPath) != nil
+        }
     }
 
     private nonisolated static func validDefinition(
         in descriptor: SceneRenderDescriptor,
         path: String,
-        profile: SceneWaterWavesShaderProfile
+        profile: SceneWaterWavesShaderProfile,
+        assets: SceneWaterWavesAssetFamily
     ) -> Bool {
         let matches = descriptor.effectDefinitions.filter {
             normalized($0.relativePath) == normalized(path)
@@ -115,7 +131,7 @@ enum SceneAuthoredWaterWavesPlanner {
               definition.previewPath == "preview/project.json",
               definition.editable == nil,
               definition.framebuffers.isEmpty,
-              definition.dependencies.map(normalized) == dependencies,
+              definition.dependencies.map(normalized) == assets.dependencies,
               definition.functions == nil,
               definition.gizmos == (profile.expectsGizmos ? expectedGizmos : nil),
               definition.extraFields.isEmpty,
@@ -125,7 +141,7 @@ enum SceneAuthoredWaterWavesPlanner {
             return false
         }
         return pass.passIndex == 0
-            && normalized(pass.materialPath ?? "") == materialPath
+            && normalized(pass.materialPath ?? "") == assets.materialPath
             && pass.target == nil
             && pass.bindings.isEmpty
             && pass.compose == nil
@@ -137,15 +153,16 @@ enum SceneAuthoredWaterWavesPlanner {
 
     private nonisolated static func validNode(
         _ node: Graph.Node,
-        effect: Graph.Effect
+        effect: Graph.Effect,
+        assets: SceneWaterWavesAssetFamily
     ) -> Bool {
         node.effect == effect.key
             && node.definitionPassIndex == 0
             && node.materialOrdinal == 0
             && node.instancePassIndex == 0
             && node.kind == .material
-            && normalized(node.materialPath ?? "") == materialPath
-            && normalized(node.materialPassID ?? "") == materialPassID
+            && normalized(node.materialPath ?? "") == assets.materialPath
+            && normalized(node.materialPassID ?? "") == assets.materialPassID
             && node.target == effect.output
             && node.bindings.isEmpty
             && node.commandSource == nil
@@ -155,16 +172,18 @@ enum SceneAuthoredWaterWavesPlanner {
     }
 
     private nonisolated static func validMaterialDescriptor(
-        in descriptor: SceneRenderDescriptor
+        in descriptor: SceneRenderDescriptor,
+        assets: SceneWaterWavesAssetFamily
     ) -> Bool {
         let matches = descriptor.materialPasses.filter {
-            normalized($0.id) == materialPassID
+            normalized($0.id) == assets.materialPassID
         }
         guard matches.count == 1, let material = matches.first else { return false }
-        return normalized(material.materialPath) == materialPath
-            && material.materialRawSHA256 == materialSHA256
+        return normalized(material.materialPath) == assets.materialPath
+            && material.shaderPathIndependentSHA256
+                == SceneWaterWavesAssetFamily.materialSemanticSHA256
             && material.passIndex == 0
-            && normalized(material.shaderPath ?? "") == shaderIdentity
+            && normalized(material.shaderPath ?? "") == assets.shaderIdentity
             && material.texturePaths.isEmpty
             && material.textureSlots.isEmpty
             && material.userTextureInputs.isEmpty
@@ -178,12 +197,13 @@ enum SceneAuthoredWaterWavesPlanner {
 
     private nonisolated static func instancePass(
         effect: Graph.Effect,
-        layer: SceneRenderDescriptor.Layer
+        layer: SceneRenderDescriptor.Layer,
+        assets: SceneWaterWavesAssetFamily
     ) -> SceneRenderDescriptor.EffectDescriptor.PassDescriptor? {
         guard layer.effects.indices.contains(effect.key.effectIndex) else { return nil }
         let descriptor = layer.effects[effect.key.effectIndex]
         guard descriptor.id == effect.key.descriptorID,
-              normalized(descriptor.file) == definitionPath,
+              normalized(descriptor.file) == assets.definitionPath,
               descriptor.visible != false,
               descriptor.passes.count == 1,
               let pass = descriptor.passes.first,
@@ -221,9 +241,10 @@ enum SceneAuthoredWaterWavesPlanner {
         _ material: SceneResolvedMaterialNode,
         maskPath: MaskResolution,
         parameters: Parameters,
-        profile: SceneWaterWavesShaderProfile
+        profile: SceneWaterWavesShaderProfile,
+        assets: SceneWaterWavesAssetFamily
     ) -> Bool {
-        guard normalized(material.shaderPath) == shaderIdentity,
+        guard normalized(material.shaderPath) == assets.shaderIdentity,
               material.textureSlots.count == 8,
               assetPath(material.textureSlots[1]) == maskPath.path,
               material.textureSlots.enumerated().allSatisfy({
@@ -353,17 +374,6 @@ enum SceneAuthoredWaterWavesPlanner {
         value.replacingOccurrences(of: "\\", with: "/").lowercased()
     }
 
-    private nonisolated static let definitionPath = "effects/waterwaves/effect.json"
-    private nonisolated static let materialPath = "materials/effects/waterwaves.json"
-    private nonisolated static let materialPassID = "\(materialPath)#0"
-    private nonisolated static let materialSHA256 =
-        "2d465e099edb237ace15febe68a19eb833702a636972830bb43409e961c246b5"
-    private nonisolated static let shaderIdentity = "effects/waterwaves"
-    private nonisolated static let dependencies = [
-        materialPath,
-        "shaders/effects/waterwaves.frag",
-        "shaders/effects/waterwaves.vert",
-    ]
     private nonisolated static let expectedGizmos = SceneJSONValue.array([
         .object([
             "condition": .object(["PERSPECTIVE": .number(1)]),

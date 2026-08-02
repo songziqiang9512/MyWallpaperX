@@ -32,6 +32,11 @@ struct SceneAssetCatalog {
 
         let relativePath: String
         let rawSHA256: String
+        /// Canonical material JSON with every pass-local shader identity replaced by a
+        /// stable marker. Strict planners can use this together with an independently
+        /// validated shader path/contract to recognize a byte-identical material shape
+        /// after an author relocates the effect into another resource namespace.
+        let shaderPathIndependentSHA256: String
         let passes: [Pass]
 
         var id: String { relativePath }
@@ -268,8 +273,31 @@ struct SceneAssetCatalogLoader {
             rawSHA256: SHA256.hash(data: data)
                 .map { String(format: "%02x", $0) }
                 .joined(),
+            shaderPathIndependentSHA256: shaderPathIndependentSHA256(root),
             passes: passes
         )
+    }
+
+    nonisolated private func shaderPathIndependentSHA256(
+        _ root: [String: Any]
+    ) -> String {
+        var canonical = root
+        if var passes = canonical["passes"] as? [[String: Any]] {
+            for index in passes.indices where passes[index]["shader"] is String {
+                passes[index]["shader"] = "$shader"
+            }
+            canonical["passes"] = passes
+        }
+        guard JSONSerialization.isValidJSONObject(canonical),
+              let data = try? JSONSerialization.data(
+                  withJSONObject: canonical,
+                  options: [.sortedKeys]
+              ) else {
+            return ""
+        }
+        return SHA256.hash(data: data)
+            .map { String(format: "%02x", $0) }
+            .joined()
     }
 
     /// 随包 material 同时使用规范拼写与历史兼容拼写（`depthtesting`/`depthwriting`/`culling`），

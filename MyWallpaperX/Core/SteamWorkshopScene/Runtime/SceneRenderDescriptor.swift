@@ -211,6 +211,7 @@ struct SceneRenderDescriptorBuilder {
                     id: "\(material.relativePath)#\(index)",
                     materialPath: material.relativePath,
                     materialRawSHA256: material.rawSHA256,
+                    shaderPathIndependentSHA256: material.shaderPathIndependentSHA256,
                     passIndex: index,
                     shaderPath: pass.shader,
                     texturePaths: pass.textures,

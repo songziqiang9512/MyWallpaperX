@@ -61,6 +61,16 @@ private struct PassState: Codable {
     let userShaderValues: [String: String]
 }
 
+private struct HashState: Codable {
+    let raw: String
+    let shaderPathIndependent: String
+}
+
+private struct CatalogState: Codable {
+    let states: [String: [PassState]]
+    let hashes: [String: HashState]
+}
+
 @main
 private enum MaterialRenderStateHarness {
     static func main() throws {
@@ -79,9 +89,18 @@ private enum MaterialRenderStateHarness {
                 )
             }
         }
+        let hashes = catalog.materials.reduce(into: [String: HashState]()) {
+            $0[$1.relativePath] = HashState(
+                raw: $1.rawSHA256,
+                shaderPathIndependent: $1.shaderPathIndependentSHA256
+            )
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
-        FileHandle.standardOutput.write(try encoder.encode(states))
+        FileHandle.standardOutput.write(try encoder.encode(CatalogState(
+            states: states,
+            hashes: hashes
+        )))
     }
 }
 """
@@ -123,6 +142,24 @@ MATERIALS = {
             "alphawriting": "enabled",
             "constantshadervalues": {"roughness": 0.5},
             "usershadervalues": {"schemecolor": "tint", "bgcolor": "tint2"},
+        }]
+    },
+    "shader_path_a": {
+        "passes": [{
+            "blending": "normal",
+            "cullmode": "nocull",
+            "depthtest": "disabled",
+            "depthwrite": "disabled",
+            "shader": "effects/waterwaves",
+        }]
+    },
+    "shader_path_b": {
+        "passes": [{
+            "blending": "normal",
+            "cullmode": "nocull",
+            "depthtest": "disabled",
+            "depthwrite": "disabled",
+            "shader": "workshop/912345678/effects/waterwaves",
         }]
     },
 }
@@ -172,7 +209,8 @@ class SceneMaterialRenderStateTests(unittest.TestCase):
                 capture_output=True,
                 text=True,
             )
-        cls.states = json.loads(completed.stdout)
+        cls.result = json.loads(completed.stdout)
+        cls.states = cls.result["states"]
 
     @classmethod
     def tearDownClass(cls):
@@ -210,6 +248,19 @@ class SceneMaterialRenderStateTests(unittest.TestCase):
             "alphaWriting": "enabled",
             "userShaderValues": {"schemecolor": "tint", "bgcolor": "tint2"},
         }])
+
+    def test_shader_path_independent_hash_preserves_shape_across_relocation(self):
+        first = self.result["hashes"]["materials/shader_path_a.json"]
+        second = self.result["hashes"]["materials/shader_path_b.json"]
+        self.assertNotEqual(first["raw"], second["raw"])
+        self.assertEqual(
+            first["shaderPathIndependent"],
+            second["shaderPathIndependent"],
+        )
+        self.assertEqual(
+            first["shaderPathIndependent"],
+            "f07dfa1b7f21c1c99742c66dfa14ab8c747ebc78a1a7573680329950ad40e121",
+        )
 
 
 if __name__ == "__main__":

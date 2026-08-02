@@ -32,6 +32,7 @@ extension SceneRenderDescriptor {
         let id: String
         let materialPath: String
         let materialRawSHA256: String
+        let shaderPathIndependentSHA256: String
         let passIndex: Int
         let shaderPath: String?
         let texturePaths: [String]

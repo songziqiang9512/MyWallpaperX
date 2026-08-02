@@ -28,8 +28,7 @@ enum SceneWaterWavesEffectTextureLoader {
         var textures: [String: SceneWaterWavesEffectTextures] = [:]
         var messages: [String] = []
         for effect in layer.effects where effectIDs.contains(effect.id) {
-            guard effect.file.replacingOccurrences(of: "\\", with: "/").lowercased()
-                == "effects/waterwaves/effect.json",
+            guard SceneWaterWavesAssetFamily(definitionPath: effect.file) != nil,
                 effect.passes.count == 1,
                 let pass = effect.passes.first
             else {
