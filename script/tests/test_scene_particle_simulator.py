@@ -204,6 +204,68 @@ enum Harness {
             ), seed: 1, step: 1
         )
         outOfRangeControlPointSource.advance(by: 1)
+        let stockAngleOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(stockControlPointAngleOverrideJSON)
+        )
+        var stockControlPointAngles = simulator(
+            stockControlPointAngleJSON, override: stockAngleOverride, seed: 1, step: 1
+        )
+        stockControlPointAngles.advance(by: 1)
+        var angleSpatial = simulator(controlPointAngleSpatialJSON, seed: 1, step: 1)
+        angleSpatial.advance(by: 1)
+        let replacementOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"controlpointangle1":"0 0 -1.5707963267948966"}"#)
+        )
+        var replacementAngle = simulator(
+            controlPointDefaultAngleJSON, override: replacementOverride, seed: 1, step: 1
+        )
+        replacementAngle.advance(by: 1)
+        let xyzRotation = SceneParticleSimulationMath.rotateXYZ(
+            SIMD3(1, 2, 3),
+            by: SIMD3(repeating: Double.pi / 2)
+        )
+        let invalidDefinitionAngles = [
+            #""angles":"1 2""#,
+            #""angles":"nan 0 0""#,
+            #""angles":"1000001 0 0""#,
+            #""angles":1"#,
+            #""angles":"bad""#,
+            #""angles":"0 0 1","flags":1"#,
+            #""angles":"0 0 1","flags":2"#,
+            #""angles":"0 0 1","flags":4"#,
+            #""angles":"0 0 1","parentcontrolpoint":0"#,
+            #""angles":"0 0 1","offset":2"#,
+        ].map { fields -> SceneParticleSimulator in
+            var value = simulator(controlPointAngleJSON(pointFields: fields), seed: 1, step: 1)
+            value.advance(by: 1)
+            return value
+        }
+        let invalidAngleOverrides = [
+            #"{"controlpointangle1":1}"#,
+            #"{"controlpointangle1":{"user":"angle","value":"0 0 1"}}"#,
+            #"{"controlpointangle1":{"script":"x","value":"0 0 1"}}"#,
+            #"{"controlpointangle1":{"animation":{},"value":"0 0 1"}}"#,
+            #"{"controlpointangle1":"0 0 1000001"}"#,
+            #"{"controlpoint1":{"user":"position","value":"0 0 0"},"controlpointangle1":"0 0 1"}"#,
+        ].map { source -> SceneParticleSimulator in
+            let override = SceneParticleDefinitionParser().parseInstanceOverride(
+                try! object(source)
+            )
+            var value = simulator(
+                controlPointAngleJSON(pointFields: #""offset":"0 0 0""#),
+                override: override, seed: 1, step: 1
+            )
+            value.advance(by: 1)
+            return value
+        }
+        let angledLayerDefinition = SceneParticleDefinitionParser().parse(
+            root: try object(controlPointAngleLayerImageJSON)
+        )
+        var angledLayerImage = SceneParticleSimulator(
+            definition: angledLayerDefinition, seed: 1, fixedTimeStep: 1,
+            layerImageEmissionMap: .init(positions: [.zero])
+        )
+        angledLayerImage.advance(by: 1)
         var fixedEmitterSpeed = simulator(
             emitterSpeedJSON(#""speedmin":3,"speedmax":3"#), seed: 1, step: 1
         )
@@ -758,6 +820,28 @@ enum Harness {
                 duplicateControlPoint, outOfRangeControlPoint,
                 missingControlPointID, outOfRangeControlPointSource,
             ].map { $0.diagnostics.map(\.kind.rawValue) },
+            "stockControlPointAnglePositions": stockControlPointAngles.particles.map {
+                vector($0.position)
+            },
+            "stockControlPointAngleVelocities": stockControlPointAngles.particles.map {
+                vector($0.velocity)
+            },
+            "stockControlPointAngleDiagnostics":
+                stockControlPointAngles.diagnostics.map(\.kind.rawValue),
+            "controlPointAngleSpatialPosition":
+                angleSpatial.particles.first.map { vector($0.position) } ?? [],
+            "controlPointAngleSpatialVelocity":
+                angleSpatial.particles.first.map { vector($0.velocity) } ?? [],
+            "controlPointDefaultReplacementVelocity":
+                replacementAngle.particles.first.map { vector($0.velocity) } ?? [],
+            "controlPointXYZRotation": vector(xyzRotation),
+            "invalidControlPointAngleCounts":
+                (invalidDefinitionAngles + invalidAngleOverrides + [angledLayerImage])
+                    .map(\.particles.count),
+            "invalidControlPointAngleDiagnostics":
+                (invalidDefinitionAngles + invalidAngleOverrides + [angledLayerImage]).map {
+                    $0.diagnostics.map(\.kind.rawValue)
+                },
             "fixedEmitterSpeedPosition":
                 fixedEmitterSpeed.particles.first.map { vector($0.position) } ?? [],
             "fixedEmitterSpeedVelocity":
@@ -1122,6 +1206,55 @@ enum Harness {
             .dropLast())
         return prefix + #", "controlpoint":"# + points + "}"
     }
+
+    private static let stockControlPointAngleJSON = #"""
+    {"material":"p.json","maxcount":2,
+     "emitter":[
+       {"name":"sphererandom","controlpoint":1,"instantaneous":1,"distancemin":0,"distancemax":0},
+       {"name":"sphererandom","controlpoint":2,"instantaneous":1,"distancemin":0,"distancemax":0}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"velocityrandom","min":"0 -200 0","max":"0 -200 0"}],
+     "renderer":[{"name":"sprite"}],
+     "controlpoint":[{"id":1,"flags":16},{"id":2,"flags":16}]}
+    """#
+
+    private static let stockControlPointAngleOverrideJSON = #"""
+    {"controlpoint1":"22 0 0","controlpoint2":"-22 0 0",
+     "controlpointangle1":"0 0 -0.52360","controlpointangle2":"0 0 0.52360"}
+    """#
+
+    private static let controlPointAngleSpatialJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","controlpoint":1,"instantaneous":1,"origin":"4 5 6","directions":"1 1 1","distancemin":"1 2 3","distancemax":"1 2 3"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"velocityrandom","min":"1 0 0","max":"1 0 0"}],
+     "renderer":[{"name":"sprite"}],
+     "controlpoint":[{"id":1,"offset":"10 20 30","angles":"0 0 1.5707963267948966"}]}
+    """#
+
+    private static let controlPointDefaultAngleJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"boxrandom","controlpoint":1,"instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"velocityrandom","min":"1 0 0","max":"1 0 0"}],
+     "renderer":[{"name":"sprite"}],
+     "controlpoint":[{"id":1,"angles":"0 0 1.5707963267948966"}]}
+    """#
+
+    private static func controlPointAngleJSON(pointFields: String) -> String {
+        """
+        {"material":"p.json","maxcount":1,
+         "emitter":[{"name":"boxrandom","controlpoint":1,"instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "renderer":[{"name":"sprite"}],
+         "controlpoint":[{"id":1,\(pointFields)}]}
+        """
+    }
+
+    private static let controlPointAngleLayerImageJSON = #"""
+    {"material":"p.json","maxcount":1,
+     "emitter":[{"name":"layerimage","controlpoint":1,"instantaneous":1}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+     "renderer":[{"name":"sprite"}],
+     "controlpoint":[{"id":1,"angles":"0 0 1"}]}
+    """#
 
     private static func emitterSpeedJSON(_ fields: String, count: Int = 1) -> String {
         """
@@ -1757,6 +1890,41 @@ class SceneParticleSimulatorTests(unittest.TestCase):
             self.results["invalidControlPointDiagnostics"],
             [["controlPointEmitterUnsupported"]] * 4,
         )
+
+    def test_static_control_point_angles_rotate_emitter_frame_and_velocity(self) -> None:
+        self.assertEqual(
+            self.results["stockControlPointAnglePositions"],
+            [[22, 0, 0], [-22, 0, 0]],
+        )
+        velocities = self.results["stockControlPointAngleVelocities"]
+        self.assertAlmostEqual(velocities[0][0], -100, places=3)
+        self.assertAlmostEqual(velocities[0][1], -173.2048, places=3)
+        self.assertAlmostEqual(velocities[1][0], 100, places=3)
+        self.assertAlmostEqual(velocities[1][1], -173.2048, places=3)
+        self.assertEqual(
+            self.results["stockControlPointAngleDiagnostics"],
+            ["controlPointEmitterBounded", "controlPointEmitterAnglesBounded"],
+        )
+        spatial_position = self.results["controlPointAngleSpatialPosition"]
+        spatial_velocity = self.results["controlPointAngleSpatialVelocity"]
+        for actual, expected in zip(spatial_position, [3, 25, 39], strict=True):
+            self.assertAlmostEqual(actual, expected)
+        for actual, expected in zip(spatial_velocity, [0, 1, 0], strict=True):
+            self.assertAlmostEqual(actual, expected)
+
+    def test_static_instance_angle_replaces_default_and_xyz_order_is_shared(self) -> None:
+        velocity = self.results["controlPointDefaultReplacementVelocity"]
+        for actual, expected in zip(velocity, [0, -1, 0], strict=True):
+            self.assertAlmostEqual(actual, expected)
+        rotation = self.results["controlPointXYZRotation"]
+        for actual, expected in zip(rotation, [3, 2, -1], strict=True):
+            self.assertAlmostEqual(actual, expected)
+
+    def test_control_point_angles_fail_closed_outside_bounded_static_contract(self) -> None:
+        self.assertEqual(self.results["invalidControlPointAngleCounts"], [0] * 17)
+        for diagnostics in self.results["invalidControlPointAngleDiagnostics"]:
+            self.assertIn("controlPointEmitterUnsupported", diagnostics)
+            self.assertIn("controlPointEmitterAnglesUnsupported", diagnostics)
 
     def test_emitter_speed_uses_bounded_range_and_rejects_invalid_values(self) -> None:
         self.assertEqual(self.results["fixedEmitterSpeedPosition"], [5, 0, 0])

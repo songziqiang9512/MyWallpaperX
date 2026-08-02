@@ -268,13 +268,28 @@ nonisolated enum SceneParticleSimulationMath {
         let controlPointEmitters = definition.emitters.filter { $0.controlPoint != nil }
         if !controlPointEmitters.isEmpty {
             if controlPointEmitters.allSatisfy({ emitter in
-                emitter.controlPoint.map {
-                    supportsControlPointSource($0, in: definition)
-                } ?? true
+                definition.emitterControlPointFrame(
+                    for: emitter, instanceOverride: instanceOverride,
+                    dynamicControlPoints: [:]
+                ) != nil
             }) {
                 add(.controlPointEmitterBounded, "sources=\(controlPointEmitters.count)")
             } else {
-                add(.controlPointEmitterUnsupported, "identity")
+                add(.controlPointEmitterUnsupported, "admission")
+            }
+            let angledEmitters = controlPointEmitters.filter {
+                definition.hasAuthoredEmitterAngles($0, instanceOverride: instanceOverride)
+            }
+            if !angledEmitters.isEmpty {
+                let supported = angledEmitters.allSatisfy {
+                    definition.emitterControlPointFrame(
+                        for: $0, instanceOverride: instanceOverride,
+                        dynamicControlPoints: [:]
+                    ) != nil
+                }
+                add(supported ? .controlPointEmitterAnglesBounded
+                              : .controlPointEmitterAnglesUnsupported,
+                    "sources=\(angledEmitters.count)")
             }
         }
         let speedEmitters = definition.emitters.filter {
@@ -368,9 +383,9 @@ nonisolated enum SceneParticleSimulationMath {
             $0.hasScript || $0.hasAnimation
         }
         let unsupportedControlPointBindings = instanceOverride?.controlPoints.values.contains {
-            $0.userPropertyKey != nil || $0.hasScript
+            $0.userPropertyKey != nil || $0.hasScript || $0.hasAnimation
         } ?? false || instanceOverride?.controlPointAngles.values.contains {
-            $0.userPropertyKey != nil || $0.hasScript
+            $0.userPropertyKey != nil || $0.hasScript || $0.hasAnimation
         } ?? false
         if unsupportedScalarBinding || unsupportedColorBinding || unsupportedControlPointBindings {
             add(.dynamicOverrideIgnored, "instanceoverride")

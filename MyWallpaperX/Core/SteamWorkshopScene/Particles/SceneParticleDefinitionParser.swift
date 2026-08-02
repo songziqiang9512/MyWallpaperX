@@ -211,9 +211,23 @@ nonisolated struct SceneParticleDefinitionParser {
     }
 
     private nonisolated func parseControlPoint(_ root: [String: Any]) -> SceneParticleControlPoint {
-        .init(
-            id: Self.integer(root["id"]), rawFlags: Self.integer(root["flags"]) ?? 0,
-            offset: Self.numericValue(root["offset"]), angles: Self.numericValue(root["angles"]), parentControlPoint: Self.integer(root["parentcontrolpoint"])
+        func malformed(_ key: String, parsed: Any?) -> Bool {
+            root[key] != nil && !(root[key] is NSNull) && parsed == nil
+        }
+        let id = Self.integer(root["id"])
+        let flags = Self.integer(root["flags"])
+        let offset = Self.numericValue(root["offset"])
+        let angles = Self.numericValue(root["angles"])
+        let parent = Self.integer(root["parentcontrolpoint"])
+        return .init(
+            id: id, rawFlags: flags ?? 0, offset: offset, angles: angles,
+            parentControlPoint: parent,
+            hasAuthoredAngles: root["angles"] != nil && !(root["angles"] is NSNull),
+            hasMalformedFields: malformed("id", parsed: id)
+                || malformed("flags", parsed: flags)
+                || malformed("offset", parsed: offset)
+                || malformed("angles", parsed: angles)
+                || malformed("parentcontrolpoint", parsed: parent)
         )
     }
 

@@ -171,7 +171,10 @@ nonisolated struct SceneParticleSimulator: Sendable {
     private nonisolated mutating func makeParticle(
         _ emitter: SceneParticleEmitter
     ) -> SceneParticleState? {
-        guard var position = emitterOrigin(emitter), emitter.hasBoundedDirectionsAndSign else { return nil }
+        guard let frame = definition.emitterControlPointFrame(
+            for: emitter, instanceOverride: activeInstanceOverride,
+            dynamicControlPoints: dynamicControlPoints
+        ), emitter.hasBoundedDirectionsAndSign else { return nil }
         var velocity = SIMD3<Double>.zero
         let relative: SIMD3<Double>
         switch emitter.kind {
@@ -185,7 +188,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
         case .unsupported:
             return nil
         }
-        position += relative
+        let position = frame.position(for: relative)
         guard let speedRange = emitter.boundedSpeedRange else { return nil }
         let speed = random.value(speedRange.lowerBound, speedRange.upperBound)
         let length = SceneParticleSimulationMath.length(relative)
@@ -199,6 +202,7 @@ nonisolated struct SceneParticleSimulator: Sendable {
         )
         nextParticleID &+= 1
         applyInitializers(to: &particle)
+        particle.velocity = frame.direction(for: particle.velocity)
         applyInstanceOverride(to: &particle, flags: definition.flags)
         if hasWorldSpaceMovement, let worldSpaceFrame {
             particle.velocity = worldSpaceFrame.localDirection(particle.velocity)
@@ -375,23 +379,6 @@ nonisolated struct SceneParticleSimulator: Sendable {
         case .unsupported:
             break
         }
-    }
-
-    private nonisolated func emitterOrigin(_ emitter: SceneParticleEmitter) -> SIMD3<Double>? {
-        var result = SceneParticleSimulationMath.vector(emitter.origin, fallback: .zero)
-        guard let source = emitter.controlPoint else { return result }
-        guard SceneParticleSimulationMath.supportsControlPointSource(
-            source, in: definition
-        ) else { return nil }
-        if let point = definition.controlPoints.first(where: { $0.id == source }) {
-            result += SceneParticleSimulationMath.vector(point.offset, fallback: .zero)
-        }
-        if let dynamic = dynamicControlPoints[source] {
-            result += dynamic
-        } else if let override = activeInstanceOverride?.controlPoints[source] {
-            result += SceneParticleSimulationMath.vector(override.value, fallback: .zero)
-        }
-        return result
     }
 
 }

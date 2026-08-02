@@ -311,6 +311,8 @@ nonisolated struct SceneParticleControlPoint: Equatable, Sendable {
     let offset: SceneParticleNumericValue?
     let angles: SceneParticleNumericValue?
     let parentControlPoint: Int?
+    let hasAuthoredAngles: Bool
+    let hasMalformedFields: Bool
 
     nonisolated var followsPointer: Bool { rawFlags & 1 != 0 }
     nonisolated var isWorldSpace: Bool { rawFlags & 2 != 0 }
