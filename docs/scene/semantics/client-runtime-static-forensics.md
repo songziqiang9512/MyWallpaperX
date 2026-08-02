@@ -323,6 +323,14 @@ reset/teardown 会归零活动计数和 CPU buffer，遍历 root 与分组 child
 
 该复核没有恢复跨频段聚合、bounds 数值归一化、phase/rate/speed 的调制幅度、每帧采样时相或任何可移植 runtime 公式；也没有证明 32 位路径、Windows 轨迹或像素结果等价。原始地址、伪代码、函数体、临时 project 与日志均未入库，临时目录已清理。项目 `5cc7ee37` 的 frequency mean、linear bounds normalization、exponent、mode-only `0...1` bounds、`1 + response` phase 和 rate/speed scale 都是独立的 project-owned bounded approximation，只由公开行为、自有正反 fixture 与隔离样本证据约束，不是官方算法。
 
+### 5.10 Particle Position Offset Random 字段注册复核
+
+2026-08-02 在先读现役 Particle 专项表、既有 2.8.42 静态审计、官方 Initializer 页面与合法 stock corpus 后，仍无法判定 `directions/sign/octaves` 是否属于 `positionoffsetrandom` 的实际字段注册。本次只对资料库已登记、SHA-256 为 `40e2ce021e9352324fadb3b8f72b8ba2a7ee95b71cc571d5b9f84be75cd993b0` 的官方 2.8.42 `wallpaper64.exe` 做一个字段归属问题的 bounded Ghidra 12.1.2 clean-room 复核。
+
+只保留以下高层结论：引用 `positionoffsetrandom` 的组件注册函数也直接引用 `directions`、`distance`、`octaves`、`scale` 与 `timescale`；`sign` 没有直接 code/data 引用，也没有可验证的一跳函数关联。结合随包 standalone 预览的 `distance=150` 和 lightning preset 的 `distance/scale/timescale`，可把前述五字段安全地纳入项目 typed declaration；字符串表邻接不足以把 `sign` 推进同一 wire 合同，因此继续失败关闭。
+
+本次没有反编译、摘录或移植 Position Offset 的 FBM、随机、默认、空间、时间或数值公式，也没有恢复 32 位路径、运行顺序、Windows 轨迹或像素结果。原始地址、伪代码、函数体、临时 project、脚本和日志均未入库并已清理。项目 `968d86eb` 的字段预算、缺省 `1 1 0 / 3 / 1 / 1`、seed/particle/time/position 采样和 finite-octave gradient-noise 数学都是独立的 project-owned bounded approximation，只由公开行为、自有正反 fixture 与隔离 stock 运行约束，不是官方算法。
+
 ## 6. SceneScript 的 module/engine/owner 机制
 
 ### 6.1 宿主层次
