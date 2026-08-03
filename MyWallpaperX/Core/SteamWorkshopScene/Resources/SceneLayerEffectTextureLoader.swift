@@ -23,7 +23,9 @@ enum SceneLayerEffectTextureLoader {
         godraysEffectIDs: Set<String> = [],
         shineEffectIDs: Set<String> = [],
         userPropertyTextures: [String: MTLTexture] = [:],
-        userPropertyTextureCandidates: [String: SceneTextureCandidate] = [:],
+        userPropertyTextureStates: [
+            SceneUserPropertyTextureIdentity: SceneTextureProviderState
+        ] = [:],
         straightAlbedoUserPropertyTextures: [String: MTLTexture] = [:],
         preservedUserPropertyTextures: [String: MTLTexture] = [:]
     ) -> SceneLayerEffectTextures {
@@ -83,7 +85,7 @@ enum SceneLayerEffectTextureLoader {
         let blend = SceneBlendEffectTextureLoader.load(
             for: layer, effectIDs: blendEffectIDs, resolver: resolver, loader: loader,
             device: device,
-            userPropertyTextureCandidates: userPropertyTextureCandidates
+            userPropertyTextureStates: userPropertyTextureStates
         )
         let shake = SceneShakeEffectTextureLoader.load(
             for: layer,

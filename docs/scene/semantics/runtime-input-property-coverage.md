@@ -2,9 +2,9 @@
 
 > 状态：现役专项表
 >
-> 最近核对：2026-08-02
+> 最近核对：2026-08-03
 >
-> 本页的 Timeline 实现基线为 `77883809`，dynamic text width 基线为 `0d61f7cd`；精确全局当前状态见 [总覆盖台账](coverage-ledger.md)。
+> 本页的 Timeline 与各 bounded consumer 历史基线保留在对应证据包；R3 provider/atomic material program 的现役状态见 [E-MATERIAL-PROGRAM](runtime-evidence-index.md#e-material-program)，精确全局当前状态见 [总覆盖台账](coverage-ledger.md)。
 >
 > 本专项的 direct text 定向门：`.codex/scene-dynamic-text-targeted-213-final-20260723-1907/report.json`；全局正式门统一见 [运行证据索引](runtime-evidence-index.md)。
 
@@ -28,7 +28,7 @@ HostFrameInputs(time, properties, audio, media)
   -> renderer / text / particle / provider consumers
 ```
 
-高优先级输入无效时保留最近一个合法低优先级值；未知目标、重复定义和非有限数值 fail-closed。纹理内容不进入普通 value 字典，只传 provider identity、状态和 generation。共享时间、用户属性、音频和媒体可以在 host 捕获一次；viewport、pointer、矩阵、surface provider、SceneScript 实例和最终 dynamic snapshot 必须按 surface 隔离。
+高优先级输入无效时保留最近一个合法低优先级值；未知目标、重复定义和非有限数值 fail-closed。这条规则只适用于普通 value 通道；纹理 provider 使用 R3 的 explicit-absent-only 合同，missing、pending、unavailable、incomplete 或 identity mismatch 都不得回退低优先级纹理。纹理内容不进入普通 value 字典，只传 provider identity、状态和 generation。共享时间、用户属性、音频和媒体可以在 host 捕获一次；viewport、pointer、矩阵、surface provider、SceneScript 实例和最终 dynamic snapshot 必须按 surface 隔离。
 
 ## 2. Frame Context 与动态目标
 
@@ -230,7 +230,7 @@ Combo option 的显示 label 与 hidden value 是两个字段；binding、Displa
 |---|---|---|---|
 | `texture` / observed `scenetexture` identity | `L1` | 两种 raw type 归一并保留 runtimeType | 只证明当前 parser 兼容归一，不宣称所有版本 schema 等价 |
 | PNG/JPEG picker/bookmark/provider | `L3` | security scope、decode、per-screen upload 和受限 static image-blend consumer；[E-PROVIDER](runtime-evidence-index.md#e-provider) | cancellation、更多格式和通用 material |
-| authored texture fallback | `L3` | property absent/unavailable 时受限 candidate 回退作者 layer；[E-PROVIDER](runtime-evidence-index.md#e-provider) | 推广至 image albedo/effect mask/particle/material 全目标 |
+| authored texture fallback | `L3 bounded` | 现役受限 consumer与R3 material contract只在选中property identity被生产者**显式发布为absent**时回退作者纹理；missing state、pending、unavailable、ready publication不完整或identity不匹配均失败关闭，不能把故障解释成“用户未选择”；[E-PROVIDER](runtime-evidence-index.md#e-provider)、[E-MATERIAL-PROGRAM](runtime-evidence-index.md#e-material-program) | 推广至image albedo/effect mask/particle/material GPU consumer，并补更多provider lifecycle门 |
 | generic image/video replacement targets | `L0` | effect mask、particle texture、video 和普通 albedo 没有通用 consumer | target/slot identity、自动尺寸映射、格式、generation 和 teardown |
 
 <a id="op-user-texture-variants"></a>
@@ -358,7 +358,7 @@ Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选
 | current cover identity/provider | `L3 bounded` | producer-agnostic inbox 原子发布 encoded current；共享 store 为每代建立可取消 request，新代使排队旧任务在 ImageIO 前退出，并在 current/previous decode/upload 边界协作停止已开始的旧任务；publication 仍以 request identity + requested generation 拒绝过期 completion。replacement decode 未完成时继续发布 last-ready current/content generation，最长边限制为 256，ready 后再换代广播所有 surface；当前只有隔离 debug producer，见 [E-MEDIA-THUMBNAIL](runtime-evidence-index.md#e-media-thumbnail) | 单次 ImageIO 调用不可抢占；macOS live producer、权限/播放器 lifecycle、结构化 decode status telemetry 与真实切歌门仍缺失 |
 | previous cover identity/provider | `L3 bounded` | 每次不同 current 提交时 inbox 原 current 原子移入 previous；store 成功 ready 后才同时发布新 current/previous，A→B→C 后 current=C、previous=B。显式 clear 完成后两者都为空；严格 profile 由各 surface 观察同一 content generation 并启动 per-layer transition，重建只观察当前代，不重复播放 | live producer、多 surface/hot-plug、device loss 与其他 consumer |
 | authored placeholder fallback | `L3 bounded` | 首次没有 current、显式 clear 完成或 replacement decode 最终失败时不覆盖作者 image/solid；已有 current 的 replacement pending 继续显示 last-ready，不再瞬时闪回 placeholder。只为 normal/full-strength、单纹理 current Blend 和通用 `mediaThumbnailChanged(event){ thisObject.visible=event.hasThumbnail; }` 可见性合同准入 layer-source replacement | 其他 Blend mode/强度/transform/mask、多纹理、任意脚本或 generic effect consumer |
-| authored cover transition graph | `L3 bounded` | 只接受内容指纹、effect/material/shader、三槽/previous identity、常量、两关键帧 `Single + Start paused` 和 `mediaThumbnailChanged` stop/play 结构完整匹配的 profile；媒体 generation 变化触发 per-surface pause-safe 项目自有 gradient wipe。缺 gradient/脚本、重复/loop/未知 profile 或没有 current consumer 均失败关闭；见 [E-MEDIA-THUMBNAIL](runtime-evidence-index.md#e-media-thumbnail) | generic Blend Gradient、edge glow/其他常量/曲线、通用 SceneScript event dispatch、真实平台切歌与 Windows timing/pixel golden |
+| authored cover transition graph | `L3 bounded` | 只接受内容指纹、effect/material/shader、三槽/previous identity、常量、两关键帧 `Single + Start paused` 和合法 Workshop 语料中的 guarded `mediaThumbnailChanged` stop/play 结构完整匹配 profile；媒体 generation 变化触发 per-surface pause-safe 项目自有 gradient wipe。当前官方公开配方只展示 `play()`，所以 stop/play 是该 bounded corpus profile 的准入事实，不是通用官方要求。缺 gradient/脚本、重复/loop/未知 profile 或没有 current consumer 均失败关闭；见 [E-MEDIA-THUMBNAIL](runtime-evidence-index.md#e-media-thumbnail) | generic Blend Gradient、direct-play 变体、edge glow/其他常量/曲线、通用 SceneScript event dispatch、真实平台切歌与 Windows timing/pixel golden |
 | recommended cover extent policy | `L2` | encoded input 限 16 MiB，ImageIO thumbnail 保持比例且最长边限 256；只接受可解码 PNG/JPEG 路径作为隔离证据输入 | 非方形/异常 profile 的 GPU 几何门、色彩空间/orientation 与 Windows decode golden |
 | live platform media producer | `L0` | 公共 inbox 已提供 producer 边界，但产品没有读取其他 macOS app 当前播放封面的系统 adapter | 选择可公开/可授权的系统来源，定义 start/pause/stop、缺封面、切歌和多播放器仲裁 |
 
@@ -366,8 +366,8 @@ Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选
 
 | provider 能力 | 等级 | 当前能力 | 下一门 |
 |---|---|---|---|
-| layer/named/property identity/status/generation | `L3` | 受限 provider 有 ready/pending/unavailable；静态 resource generation 与 named frame epoch 分离；direct text、embedded MP4 和 bounded current/previous cover 以显式 content generation publication 进入 frame registry，stale generation、同代换纹理和 publication/texture 不匹配均拒绝；media cover 旧 request 在 decode/upload 边界协作取消，replacement pending 继续发布 last-ready generation，clear/failure 最终回到作者 fallback；[E-PROVIDER](runtime-evidence-index.md#e-provider) / [E-MEDIA-THUMBNAIL](runtime-evidence-index.md#e-media-thumbnail) | 其他 media transition/variant、通用 metadata、其他 provider 的主动取消、单次 decode 抢占与 platform producer/consumer 生命周期 |
-| authored fallback chain | `L3` | 受限 static image blend；[E-PROVIDER](runtime-evidence-index.md#e-provider) | 推广至 material/effect/nested consumer |
+| layer/named/graph/asset/property/system identity/status/generation | `L3 bounded；generic carrier L2` | R3统一`SceneFrameTextureIdentity`与`SceneTextureProviderPublication(requestIdentity,candidate,contentGeneration)`；immutable frame snapshot同时冻结frame index、ready/incomplete/absent/pending/unavailable，字典missing仍可区分。candidate的identity/generation/purpose/content、physical/mapped、UV、sampler raw flags必须同代，stale、purpose/identity不匹配与半 publication均拒绝；既有direct text、embedded MP4和bounded current/previous cover生命周期不变；[E-PROVIDER](runtime-evidence-index.md#e-provider)、[E-MATERIAL-PROGRAM](runtime-evidence-index.md#e-material-program) | graph FBO/effectOutput在command边界的publication、其他provider主动取消、device loss、platform producer/consumer生命周期与通用GPU consumer |
+| authored fallback chain | `L3 bounded` | 受限static Blend现与R3 material resolver共用explicit-absent-only规则；missing/pending/unavailable/incomplete不能落回较低优先级作者候选；[E-PROVIDER](runtime-evidence-index.md#e-provider)、[E-MATERIAL-PROGRAM](runtime-evidence-index.md#e-material-program) | 推广至material/effect/nested GPU consumer，并逐类证明producer的absent语义 |
 | property PNG/JPEG | `L3` | bookmark/security scope/decode/per-screen upload；[E-PROVIDER](runtime-evidence-index.md#e-provider) | cancellation、更多格式、通用 material |
 | multi-image TEX sprite playback | `L3 bounded` | BC1/2/3、axis-aligned/integer/same-extent frame 的 launch-scoped native autoplay；source 按 file generation/device 跨 surface 去重，destination 按实例计费并随 playback 释放，设备 allocation 聚合预算 384 MiB；SceneClock pause/resume/rebuild 保持同一 scene-time 映射，完整 stop 随 launch context 释放。精确 delayed-loop script profile 另使用实例级、timer-free 状态机执行 initial delay、末帧 reset 与独立随机等待；[E-PUPPET-BC](runtime-evidence-index.md#e-puppet-bc) | dynamic replacement、旋转/trimmed/fractional/异尺寸 frame、通用 SceneScript handle/detach/join/rate/pause/seek/command/timer、Windows timing/color/alpha golden |
 | embedded MP4 image layer | `L3 bounded` | TEX payload 由 launch-scoped registry 管理，按共享 SceneClock 映射 item time；同 frame 去重、成功帧换代，pause 保帧、resume/rebuild 连续、stop 释放；[E-VIDEO](runtime-evidence-index.md#e-video) | 真实系统 pause/hot-plug、seek、loop 首帧/黑场、codec/device-loss 与 Windows parity |
@@ -375,8 +375,8 @@ Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选
 | named primary variant producer | `L3` | bounded `_a` current-frame publication；[E-UTILITY](runtime-evidence-index.md#e-utility) | 通用 target/extent/format |
 | named secondary variant identity | `L2` | registry identity 保留 `_b` | producer/consumer flow 尚未执行 |
 | Texture Variant provider | `L0` | 无 variant schema/selection | property selection + authored fallback |
-| system/media provider identity | `L1` | enum/reference 脚手架 | producer、consumer、teardown |
-| generic material slots `0...7` | `L2` | nullable hole、candidate order、combo 保留 | shader annotation 驱动 slot type 与 ready selection |
+| system/media provider identity | `L2 carrier` | Template保留exact system demand；production snapshot缺少唯一purpose、publication不完整或lifecycle未证时明确发布/解释为unavailable，不伪造absent。current/previous cover的既有bounded producer仍走独立已证合同 | 统一live producer、purpose仲裁、consumer、pause/rebuild/stop与teardown |
+| generic material slots `0...7` | `L2 atomic program` | Template固定保留8项及hole，候选低到高保存provenance；Program在同一frame/resource/dynamic snapshot内把active variant/reflection、purpose/readiness、candidate metadata、uniform/state/color与exact/semantic identity原子化。`material` annotation只是lookup key，不是purpose；production审计固定`gpuEncoded=0` | R4唯一executor消费Program，并补unproven regular asset purpose、更多state/color/helper与graph command publication |
 
 ## 10. 下一实现顺序
 
@@ -386,3 +386,4 @@ Scene 不复用 Web 的固定 FFT 频段/频率合同；SceneScript 按作者选
 4. B2 同帧 copy/swap foundation、受限 history seed、Precise Blur interleave 与 stock Radial God Rays 双 half RT 已完成；真实 persistent/history consumer、generic compose 与 provider generation/cancel 仍未完成。
 5. Timeline 的 IR、绝对 scene-time evaluator、bounded 作者 Bézier handle、Loop wrap 闭合段和 Workshop **48/48 authored host** 受限 consumer 已接入；唯一 default 2D camera Combined `origin↔zoom` 组已共用 owner clock 并原子进入 projection。该计数不外推 generic Timeline：particle relative/其他 field、普通 Combined、multiple path/3D camera、其余 target与 event crossing 继续 fail closed。另有 stock-wire/project-fixture 证明 particle CP position/angles typed target，其中仅 absolute position 驱动 root emitter。SceneScript 文档级 inline binding 已对正式取证五类 owner/完整 target path/authored fallback/JSON value type达到局部 `L1`，file/module、schema type、handle 与 VM 仍须在沙箱成立后接入同一 target 层。
 6. 16/32/64 档 audio provider 已有 consumer 驱动、失败归零和 teardown 门；当前开放 stock effect、三个 exact Workshop Audio Bars profile与两个 exact native property-script 64-band profile。新增 renderer consumer、通用 SceneScript `AudioBuffers` bridge/`average` 或 media provider仍须同批补作者未启用反例、fallback、generation/cancel 和 stop teardown。
+7. **R3已完成**：8槽Template、exact provider publication、immutable frame snapshot与atomic Program已接入production raw graph的一次性CPU审计；只有explicit absent允许fallback，`gpuEncoded=0`。下一步由R4在同一Program/graph-node边界接唯一executor，不能在renderer内重做资源优先级或purpose判断。

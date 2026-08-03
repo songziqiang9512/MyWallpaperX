@@ -38,6 +38,11 @@ enum SceneTextureLoadPurpose: Hashable {
     case phase
     case normal
     case depth
+    case lookupTable
+
+    var requiresVolumeTexture: Bool {
+        self == .lookupTable
+    }
 }
 
 struct SceneDepthParallaxExecutionPlan {
@@ -143,6 +148,7 @@ enum Harness {
             identity: .file(path: "/fixture/depth.tex"),
             generation: .immutable(revision: 42),
             purpose: purpose,
+            content: .data,
             physicalSize: physical,
             mappedSize: mapped,
             uvTransform: transform,

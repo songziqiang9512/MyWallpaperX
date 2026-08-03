@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 import Metal
 
 final class SceneMediaThumbnailTransitionRenderer {
@@ -120,8 +121,24 @@ final class SceneMediaThumbnailTransitionRenderer {
                 continue
             }
             state.publicationGeneration &+= 1
+            let size = CGSize(width: target.width, height: target.height)
             publications[layerID] = SceneTextureProviderPublication(
-                texture: target,
+                requestIdentity: .layerSource(layerID),
+                candidate: SceneTextureCandidate(
+                    texture: target,
+                    identity: .provider(
+                        .mediaThumbnailTransition(layerID: layerID)
+                    ),
+                    generation: .provider(
+                        contentGeneration: state.publicationGeneration
+                    ),
+                    purpose: .premultipliedColor,
+                    content: .color(.resolved(.premultipliedAlpha)),
+                    physicalSize: size,
+                    mappedSize: size,
+                    uvTransform: .identity,
+                    sampling: .linearClamp
+                ),
                 contentGeneration: state.publicationGeneration
             )
             states[layerID] = state

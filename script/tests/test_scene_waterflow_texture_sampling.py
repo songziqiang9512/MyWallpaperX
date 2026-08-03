@@ -37,6 +37,11 @@ enum SceneTextureLoadPurpose: Hashable {
     case phase
     case normal
     case depth
+    case lookupTable
+
+    var requiresVolumeTexture: Bool {
+        self == .lookupTable
+    }
 }
 
 struct SceneWaterFlowExecutionPlan {
@@ -204,6 +209,7 @@ enum Harness {
             identity: .builtIn(name: "flow"),
             generation: .immutable(revision: 1),
             purpose: flowPurpose,
+            content: .data,
             physicalSize: CGSize(width: flow.width, height: flow.height),
             mappedSize: CGSize(width: mappedFlowWidth, height: flow.height),
             uvTransform: SceneTextureUVTransform(
@@ -218,6 +224,7 @@ enum Harness {
             identity: .builtIn(name: "phase"),
             generation: .immutable(revision: 1),
             purpose: .phase,
+            content: .data,
             physicalSize: CGSize(width: phase.width, height: phase.height),
             mappedSize: CGSize(width: phase.width, height: phase.height),
             uvTransform: .identity,

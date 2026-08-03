@@ -704,11 +704,21 @@ enum Harness {
         sampling: SceneTextureSampling = .linearClamp
     ) -> SceneTextureCandidate {
         let size = CGSize(width: texture.width, height: texture.height)
+        let content: SceneTextureContent
+        switch purpose {
+        case .premultipliedColor:
+            content = .color(.resolved(.premultipliedAlpha))
+        case .straightAlbedo:
+            content = .color(.resolved(.straightAlpha))
+        default:
+            content = .data
+        }
         return SceneTextureCandidate(
             texture: texture,
             identity: .builtIn(name: "refraction-test"),
             generation: .immutable(revision: 1),
             purpose: purpose,
+            content: content,
             physicalSize: size,
             mappedSize: size,
             uvTransform: .identity,

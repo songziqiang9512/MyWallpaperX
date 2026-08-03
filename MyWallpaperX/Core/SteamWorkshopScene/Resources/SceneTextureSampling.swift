@@ -1,6 +1,24 @@
 import Metal
 
-nonisolated struct SceneTextureSampling: Equatable, Sendable {
+/// Alpha representation carried by texture publications and authored shader
+/// boundaries. Storage format alone never determines this value.
+nonisolated enum SceneShaderColorRepresentation: String, Codable, Hashable, Sendable {
+    case opaque
+    case straightAlpha = "straight-alpha"
+    case premultipliedAlpha = "premultiplied-alpha"
+}
+
+nonisolated enum SceneShaderColorRepresentationResolution: Codable, Hashable, Sendable {
+    case unresolved
+    case resolved(SceneShaderColorRepresentation)
+
+    var isResolved: Bool {
+        guard case .resolved = self else { return false }
+        return true
+    }
+}
+
+nonisolated struct SceneTextureSampling: Equatable, Hashable, Sendable {
     enum Filter: String, Equatable, Sendable {
         case linear
         case nearest
@@ -14,20 +32,46 @@ nonisolated struct SceneTextureSampling: Equatable, Sendable {
     let filter: Filter
     let addressMode: AddressMode
     let usesClampBorderFallback: Bool
+    /// Exact authored TEX flags. Direct image uploads have no authored flag word.
+    let rawFlags: UInt32?
+
+    /// R3 Program admission is intentionally narrower than the legacy sampler.
+    /// Only the proven no-interpolation and clamp-UV bits are executable.
+    var isResolvedForMaterialProgram: Bool {
+        guard let rawFlags else { return true }
+        return rawFlags & ~UInt32(0b11) == 0
+    }
+
+    /// Preserve the legacy effective-sampler equality used by existing image
+    /// routes. Program admission inspects `rawFlags` separately before use.
+    static func == (lhs: SceneTextureSampling, rhs: SceneTextureSampling) -> Bool {
+        lhs.filter == rhs.filter
+            && lhs.addressMode == rhs.addressMode
+            && lhs.usesClampBorderFallback == rhs.usesClampBorderFallback
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(filter)
+        hasher.combine(addressMode)
+        hasher.combine(usesClampBorderFallback)
+    }
 
     static let directImageFallback = SceneTextureSampling(
         filter: .linear,
         addressMode: .clampToEdge,
-        usesClampBorderFallback: false
+        usesClampBorderFallback: false,
+        rawFlags: nil
     )
     static let linearClamp = directImageFallback
     static let linearRepeat = SceneTextureSampling(
         filter: .linear,
         addressMode: .repeatWrap,
-        usesClampBorderFallback: false
+        usesClampBorderFallback: false,
+        rawFlags: nil
     )
 
     init(texFlags: UInt32) {
+        rawFlags = texFlags
         filter = texFlags & 1 == 0 ? .linear : .nearest
         usesClampBorderFallback = texFlags & 8 != 0
         addressMode = usesClampBorderFallback || texFlags & 2 != 0
@@ -38,11 +82,13 @@ nonisolated struct SceneTextureSampling: Equatable, Sendable {
     private init(
         filter: Filter,
         addressMode: AddressMode,
-        usesClampBorderFallback: Bool
+        usesClampBorderFallback: Bool,
+        rawFlags: UInt32?
     ) {
         self.filter = filter
         self.addressMode = addressMode
         self.usesClampBorderFallback = usesClampBorderFallback
+        self.rawFlags = rawFlags
     }
 }
 

@@ -5,7 +5,7 @@ struct SceneMetalRenderer {
     let device: MTLDevice
     let commandQueue: MTLCommandQueue
     let renderDescriptor: SceneRenderDescriptor
-    private let imageCompositor: SceneImageLayerCompositor
+    let imageCompositor: SceneImageLayerCompositor
     private let pipelineRepository: SceneImageEffectPipelineRepository
     private let visibleLayerIDs: Set<Int>
     // Cached transforms propagate parent pivot/orientation without double-scaling child quads.
@@ -26,7 +26,8 @@ struct SceneMetalRenderer {
         renderDescriptor: SceneRenderDescriptor,
         authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog,
         sceneScriptAudioBarsProgram: SceneScriptAudioBarsProgram = .empty,
-        pipelineRepository: SceneImageEffectPipelineRepository
+        pipelineRepository: SceneImageEffectPipelineRepository,
+        resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge? = nil
     ) {
         let device = pipelineRepository.device
         guard let commandQueue = device.makeCommandQueue() else {
@@ -37,7 +38,8 @@ struct SceneMetalRenderer {
         self.renderDescriptor = renderDescriptor
         self.pipelineRepository = pipelineRepository
         self.imageCompositor = SceneImageLayerCompositor(
-            pipelineRepository: pipelineRepository
+            pipelineRepository: pipelineRepository,
+            resolvedMaterialRuntime: resolvedMaterialRuntime
         )
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: renderDescriptor)
         self.visibleLayerIDs = visibleLayerIDs
@@ -73,6 +75,9 @@ struct SceneMetalRenderer {
         imageTextures: SceneBaseImageTextureSnapshot,
         dynamicTextRenderSizes: [Int: [Float]] = [:],
         userPropertyTextures: [String: MTLTexture] = [:],
+        userPropertyTextureStates: [
+            SceneUserPropertyTextureIdentity: SceneTextureProviderState
+        ] = [:],
         mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot = .empty,
         spriteAnimations: [Int: SceneSpriteAnimation],
         effectTextures: SceneLayerEffectTextureStore,
@@ -124,7 +129,14 @@ struct SceneMetalRenderer {
             target: drawable.texture,
             clearColor: sceneClearColor
         )
-        beginTextureFrame(imageTextures, userPropertyTextures, mediaThumbnail)
+        beginTextureFrame(
+            imageTextures,
+            userPropertyTextures,
+            userPropertyTextureStates,
+            mediaThumbnail,
+            frameContext
+        )
+        defer { imageCompositor.endResolvedMaterialFrame() }
         for layer in orderedLayers {
             defer {
                 renderUtilityPlans(

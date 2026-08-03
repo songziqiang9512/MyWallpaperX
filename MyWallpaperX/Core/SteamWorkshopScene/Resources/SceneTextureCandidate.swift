@@ -2,9 +2,103 @@ import CoreGraphics
 import Metal
 import simd
 
+/// Canonical identity for one safe relative path in the Scene virtual resource
+/// namespace. It is an identity value only; resolving it to an URL remains the
+/// responsibility of `SceneResourceView`.
+nonisolated struct SceneVFSAssetPath: Hashable, Sendable {
+    let value: String
+
+    init?(_ rawValue: String) {
+        var path = rawValue.replacingOccurrences(of: "\\", with: "/")
+        while path.hasPrefix("./") { path.removeFirst(2) }
+        guard !path.isEmpty,
+              !path.hasPrefix("/"),
+              !path.contains(":"),
+              !path.unicodeScalars.contains(where: {
+                  $0.value < 32 || $0.value == 127
+              }) else {
+            return nil
+        }
+        let components = path.split(separator: "/", omittingEmptySubsequences: false)
+        guard components.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }) else {
+            return nil
+        }
+        value = components.joined(separator: "/").lowercased()
+    }
+}
+
+/// Purpose is part of the lookup identity because one authored asset may be
+/// decoded into different representations for color and data consumers.
+nonisolated struct SceneAssetTextureIdentity: Hashable, Sendable {
+    let path: SceneVFSAssetPath
+    let purpose: SceneTextureLoadPurpose
+
+    init(path: SceneVFSAssetPath, purpose: SceneTextureLoadPurpose) {
+        self.path = path
+        self.purpose = purpose
+    }
+
+    init?(virtualPath: String, purpose: SceneTextureLoadPurpose) {
+        guard let path = SceneVFSAssetPath(virtualPath) else { return nil }
+        self.init(path: path, purpose: purpose)
+    }
+
+    var reportToken: String {
+        "asset:\(path.value):\(purpose.reportToken)"
+    }
+}
+
+/// A user-authored property key is qualified by the representation requested
+/// by the consumer. The same source URL may therefore publish more than one
+/// non-aliasing resource atom.
+nonisolated struct SceneUserPropertyTextureIdentity: Hashable, Sendable {
+    let propertyKey: String
+    let purpose: SceneTextureLoadPurpose
+
+    init?(propertyKey rawKey: String, purpose: SceneTextureLoadPurpose) {
+        let key = rawKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty,
+              !key.unicodeScalars.contains(where: {
+                  $0.value < 32 || $0.value == 127
+              }) else {
+            return nil
+        }
+        propertyKey = key
+        self.purpose = purpose
+    }
+
+    var reportToken: String {
+        "property:\(propertyKey.utf8.count)#\(propertyKey):\(purpose.reportToken)"
+    }
+}
+
+nonisolated enum SceneTextureProviderIdentity: Hashable, Sendable {
+    case dynamicText(layerID: Int)
+    case mediaThumbnailCurrent
+    case mediaThumbnailPrevious
+    case mediaThumbnailTransition(layerID: Int)
+    case video(layerID: Int, lifecycleEpoch: UInt64)
+
+    var reportToken: String {
+        switch self {
+        case let .dynamicText(layerID):
+            return "dynamic-text:\(layerID)"
+        case .mediaThumbnailCurrent:
+            return "media-thumbnail:current"
+        case .mediaThumbnailPrevious:
+            return "media-thumbnail:previous"
+        case let .mediaThumbnailTransition(layerID):
+            return "media-thumbnail-transition:\(layerID)"
+        case let .video(layerID, lifecycleEpoch):
+            return "video:\(layerID):epoch:\(lifecycleEpoch)"
+        }
+    }
+}
+
 nonisolated enum SceneTextureResourceIdentity: Hashable, Sendable {
     case file(path: String)
     case builtIn(name: String)
+    case provider(SceneTextureProviderIdentity)
 }
 
 nonisolated struct SceneTextureFileRevision: Hashable, Sendable {
@@ -21,6 +115,21 @@ nonisolated enum SceneTextureResourceGeneration: Hashable, Sendable {
         revision: SceneTextureFileRevision
     )
     case immutable(revision: UInt64)
+    case provider(contentGeneration: UInt64)
+}
+
+nonisolated enum SceneTextureContent: Hashable, Sendable {
+    case color(SceneShaderColorRepresentationResolution)
+    case data
+
+    var isResolved: Bool {
+        switch self {
+        case let .color(resolution):
+            return resolution.isResolved
+        case .data:
+            return true
+        }
+    }
 }
 
 /// Immutable texture and slot metadata published as one value. Consumers must
@@ -32,6 +141,7 @@ struct SceneTextureCandidate {
     let identity: SceneTextureResourceIdentity
     let generation: SceneTextureResourceGeneration
     let purpose: SceneTextureLoadPurpose
+    let content: SceneTextureContent
     let physicalSize: CGSize
     let mappedSize: CGSize
     let uvTransform: SceneTextureUVTransform
@@ -73,6 +183,7 @@ struct SceneTextureCandidate {
     var diagnosticSummary: String {
         let scale = axisAlignedMappedUVScale(expectedPurpose: purpose) ?? .zero
         return "purpose=\(purpose.diagnosticName)"
+            + " content=\(content.diagnosticName)"
             + " physical=\(Int(physicalSize.width))x\(Int(physicalSize.height))"
             + " mapped=\(Int(mappedSize.width))x\(Int(mappedSize.height))"
             + " uvScale=\(scale.x),\(scale.y)"
@@ -97,6 +208,53 @@ struct SceneTextureCandidate {
         abs(lhs.x - rhs.x) <= 0.000_001
             && abs(lhs.y - rhs.y) <= 0.000_001
     }
+}
+
+private extension SceneTextureContent {
+    var diagnosticName: String {
+        switch self {
+        case .color(.unresolved):
+            return "color/unresolved"
+        case let .color(.resolved(representation)):
+            return "color/\(representation.rawValue)"
+        case .data:
+            return "data"
+        }
+    }
+}
+
+extension SceneTextureLoadPurpose {
+    init?(reportToken: String) {
+        switch reportToken {
+        case "premultiplied-color": self = .premultipliedColor
+        case "straight-albedo": self = .straightAlbedo
+        case "preserved-channels": self = .preservedChannels
+        case "mask": self = .mask
+        case "noise": self = .noise
+        case "flow": self = .flow
+        case "phase": self = .phase
+        case "normal": self = .normal
+        case "depth": self = .depth
+        case "lookup-table": self = .lookupTable
+        default: return nil
+        }
+    }
+
+    var reportToken: String {
+        switch self {
+        case .premultipliedColor: "premultiplied-color"
+        case .straightAlbedo: "straight-albedo"
+        case .preservedChannels: "preserved-channels"
+        case .mask: "mask"
+        case .noise: "noise"
+        case .flow: "flow"
+        case .phase: "phase"
+        case .normal: "normal"
+        case .depth: "depth"
+        case .lookupTable: "lookup-table"
+        }
+    }
+
 }
 
 private extension SceneTextureLoadPurpose {

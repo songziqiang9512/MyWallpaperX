@@ -10,6 +10,7 @@ extension SceneAuthoredShaderFrameInputs {
             + Double((components.minute ?? 0) * 60)
             + Double(components.second ?? 0)
             + Double(components.nanosecond ?? 0) / 1_000_000_000
+        frameIndex = frameContext.frameIndex
         screenSize = frameContext.screenSize
         sceneTime = Float(frameContext.sceneTime)
         dayTime = Float(elapsedSeconds / 86_400)

@@ -83,7 +83,8 @@ enum Harness {
             fragmentFunctionName: "fragment",
             uniformLayout: layout,
             textureBindings: [.init(name: "g_Texture0", slot: 0)],
-            staticLoopWork: 1
+            staticLoopWork: 1,
+            colorTransfer: .unresolved
         )
         let renderState = SceneMaterialRenderState.compile(
             blending: "normal",
@@ -111,6 +112,7 @@ enum Harness {
         textureSizes: [Int: CGSize] = [0: CGSize(width: 32, height: 16)]
     ) -> SceneAuthoredShaderUniformInputs {
         .init(
+            frameIndex: 17,
             renderSize: CGSize(width: 32, height: 16),
             screenSize: screenSize,
             modelViewProjection: simd_float4x4(columns: (
@@ -177,6 +179,7 @@ enum Harness {
             "scalar": float(data, 192),
         ]
         let result: [String: Any] = [
+            "frameIndexPreserved": inputs().frameIndex == 17,
             "byteCount": data.count,
             "floats": floats,
             "int0": int(data, 160),
@@ -291,6 +294,7 @@ class SceneAuthoredShaderUniformBinderTests(unittest.TestCase):
         self.assertEqual([result["int0"], result["int1"]], [-2, 3])
         self.assertEqual([result["uint0"], result["uint1"]], [4, 5])
         for key in (
+            "frameIndexPreserved",
             "float3PaddingZero",
             "missingTextureRejected",
             "invalidScreenRejected",

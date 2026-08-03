@@ -16,8 +16,9 @@ nonisolated struct SceneImageBlendRenderPlan {
 
     nonisolated var executedUserPropertyKeys: Set<String> {
         operationsByConsumerLayerID.values.reduce(into: Set<String>()) { keys, operation in
-            for case let .userProperty(key) in operation.textureSelection.candidates {
-                keys.insert(key)
+            for case let .materialUserProperty(identity)
+                in operation.textureSelection.candidates {
+                keys.insert(identity.propertyKey)
             }
         }
     }
@@ -153,8 +154,14 @@ nonisolated struct SceneImageBlendRenderPlan {
               texturePropertyKeys.contains(input.1.value) else {
             return nil
         }
+        guard let property = SceneUserPropertyTextureIdentity(
+            propertyKey: input.1.value,
+            purpose: .premultipliedColor
+        ) else {
+            return nil
+        }
         return SceneFrameTextureSelection(candidates: [
-            .userProperty(input.1.value),
+            .materialUserProperty(property),
             fallback,
         ])
     }

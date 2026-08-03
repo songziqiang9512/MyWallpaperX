@@ -25,7 +25,7 @@ extension SceneAuthoredShaderExecutionPlanner {
 
     nonisolated static func prepareShaderStages(
         contract: SceneShaderContract,
-        material: SceneResolvedMaterialNode,
+        combos: [String: Int],
         textureReadiness: [Int: Bool] = [:]
     ) -> SceneEffectStageBackendCompileResult<SceneShaderPreparedProgram> {
         let graph: SceneShaderSourceGraph
@@ -62,7 +62,7 @@ extension SceneAuthoredShaderExecutionPlanner {
             contract: contract,
             graph: graph,
             initialSources: schemaSources,
-            combos: material.combos,
+            combos: combos,
             textureReadiness: textureReadiness
         )
         let baseline: StablePreparation
@@ -85,7 +85,7 @@ extension SceneAuthoredShaderExecutionPlanner {
                 contract: contract,
                 graph: graph,
                 initialSources: probeSeed,
-                combos: material.combos,
+                combos: combos,
                 textureReadiness: textureReadiness
             ), alternate.signature != baseline.signature {
                 return unstableVariantFailure("active-schema-ambiguous")

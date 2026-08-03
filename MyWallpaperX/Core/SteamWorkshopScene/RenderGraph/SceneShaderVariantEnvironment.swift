@@ -38,21 +38,7 @@ nonisolated struct SceneShaderPreparedSource: Codable, Equatable, Sendable {
     let preparedSHA256: String
 }
 
-/// R2 records color representation as an explicit unresolved contract instead
-/// of inheriting the compositor's premultiplied convention by accident. R3 is
-/// responsible for resolving both sides atomically with texture/state binding.
-nonisolated enum SceneShaderColorRepresentation: String, Codable, Equatable, Sendable {
-    case opaque
-    case straightAlpha = "straight-alpha"
-    case premultipliedAlpha = "premultiplied-alpha"
-}
-
-nonisolated enum SceneShaderColorRepresentationResolution: Codable, Equatable, Sendable {
-    case unresolved
-    case resolved(SceneShaderColorRepresentation)
-}
-
-nonisolated struct SceneShaderColorContract: Codable, Equatable, Sendable {
+nonisolated struct SceneShaderColorContract: Codable, Equatable, Hashable, Sendable {
     let framebufferInput: SceneShaderColorRepresentationResolution
     let fragmentOutput: SceneShaderColorRepresentationResolution
 

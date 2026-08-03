@@ -15,13 +15,17 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
+    SCENE_ROOT / "Format/SceneJSONValue.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
     SCENE_ROOT / "Format/SceneTexDataReader.swift",
     SCENE_ROOT / "Format/SceneTexContainer.swift",
     SCENE_ROOT / "Format/SceneBCTextureDecoder.swift",
     SCENE_ROOT / "Resources/SceneTextureSampling.swift",
     SCENE_ROOT / "Resources/SceneTextureUVTransform.swift",
     SCENE_ROOT / "Resources/SceneTextureCandidate.swift",
+    SCENE_ROOT / "Resources/SceneNamedTextureReference.swift",
     SCENE_ROOT / "Resources/SceneTextureSlotBinding.swift",
+    SCENE_ROOT / "Resources/SceneFrameTextureRegistry.swift",
     SCENE_ROOT / "Resources/SceneTextureProviderPublication.swift",
     SCENE_ROOT / "Resources/SceneImageTextureUploader.swift",
     SCENE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
@@ -542,14 +546,52 @@ enum Harness {
             candidate: baseDirect.candidate,
             layerID: 7
         )
+        let initialBasePublication = baseStore.publications[7]
+        let staticCandidatePublicationPreservesRevision =
+            initialBasePublication?.candidate.identity
+                == baseDirect.candidate?.identity
+            && initialBasePublication?.candidate.generation
+                == baseDirect.candidate?.generation
+            && initialBasePublication?.candidate.purpose
+                == baseDirect.candidate?.purpose
+            && initialBasePublication?.candidate.content
+                == baseDirect.candidate?.content
+            && initialBasePublication?.candidate.uvTransform.xAxis
+                == baseDirect.candidate?.uvTransform.xAxis
+            && initialBasePublication?.candidate.sampling
+                == baseDirect.candidate?.sampling
+            && initialBasePublication?.isComplete == true
         baseStore[7] = baseCropped.texture
         let baseStoreReplacementClearsCandidate =
             baseStore.candidates[7] == nil
+                && baseStore.publications[7] == nil
         baseStore.set(
             baseDirect.texture,
             candidate: baseDirect.candidate,
             layerID: 7
         )
+        let typedStaticSnapshot = baseStore.snapshot(
+            textures: [7: baseDirect.texture]
+        )
+        let replacementPublication = SceneTextureProviderPublication(
+            requestIdentity: .layerSource(7),
+            candidate: croppedColor,
+            contentGeneration: 99
+        )
+        let replacementSnapshot = typedStaticSnapshot.replacingLayerSources([
+            7: replacementPublication
+        ])
+        let replacementCandidate = replacementSnapshot
+            .explicitLayerSources[7]?.candidate
+        let replacementPublicationPreservesMetadata =
+            replacementSnapshot[7] === croppedColor.texture
+            && replacementCandidate?.identity == croppedColor.identity
+            && replacementCandidate?.generation == croppedColor.generation
+            && replacementCandidate?.content == croppedColor.content
+            && replacementCandidate?.uvTransform.xAxis
+                == croppedColor.uvTransform.xAxis
+            && replacementCandidate?.sampling == croppedColor.sampling
+            && replacementSnapshot.explicitLayerSources[7]?.isComplete == true
         let mismatchedSnapshot = baseStore.snapshot(
             textures: [7: baseCropped.texture]
         )
@@ -562,7 +604,8 @@ enum Harness {
             textures: [7: baseDirect.texture],
             explicitLayerSources: [
                 7: SceneTextureProviderPublication(
-                    texture: baseCropped.texture,
+                    requestIdentity: .layerSource(7),
+                    candidate: baseCropped.candidate!,
                     contentGeneration: 1
                 )
             ]
@@ -923,6 +966,10 @@ enum Harness {
             "baseCandidateFailureTerminal": baseCandidateFailureTerminal,
             "baseStoreReplacementClearsCandidate":
                 baseStoreReplacementClearsCandidate,
+            "staticCandidatePublicationPreservesRevision":
+                staticCandidatePublicationPreservesRevision,
+            "replacementPublicationPreservesMetadata":
+                replacementPublicationPreservesMetadata,
             "baseSnapshotDropsMismatchedCandidate":
                 baseSnapshotDropsMismatchedCandidate,
             "baseSnapshotRejectsMismatchedPublication":
@@ -994,6 +1041,7 @@ enum Harness {
             identity: source.identity,
             generation: source.generation,
             purpose: source.purpose,
+            content: source.content,
             physicalSize: physicalSize ?? source.physicalSize,
             mappedSize: mappedSize ?? source.mappedSize,
             uvTransform: uvTransform ?? source.uvTransform,
@@ -1483,6 +1531,8 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "baseSnapshotDropsMismatchedCandidate": True,
                 "baseSnapshotRejectsMismatchedPublication": True,
                 "baseStoreReplacementClearsCandidate": True,
+                "staticCandidatePublicationPreservesRevision": True,
+                "replacementPublicationPreservesMetadata": True,
                 "baseUnparsedLegacy": True,
                 "croppedColorMapped": [4, 4],
                 "croppedColorPhysical": [4, 4],

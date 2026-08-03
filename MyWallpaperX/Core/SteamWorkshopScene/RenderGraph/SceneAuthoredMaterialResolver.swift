@@ -1,7 +1,7 @@
 import Foundation
 
 nonisolated struct SceneResolvedMaterialNode {
-    enum TextureProvenance: String {
+    enum TextureProvenance: String, Codable, Hashable, Sendable {
         case material
         case instance
         case userTexture
@@ -27,7 +27,7 @@ nonisolated struct SceneResolvedMaterialNode {
         var provenance: TextureProvenance { candidates[candidates.count - 1].provenance }
     }
 
-    struct RenderState {
+    struct RenderState: Hashable, Sendable {
         let blending: String?
         let depthTest: String?
         let depthWrite: String?
@@ -40,6 +40,7 @@ nonisolated struct SceneResolvedMaterialNode {
     let textureSlots: [TextureSlot?]
     let combos: [String: Int]
     let constants: [String: SceneDocument.ShaderValue]
+    let userShaderValues: [String: String]
     let renderState: RenderState
 }
 
@@ -109,6 +110,7 @@ enum SceneAuthoredMaterialResolver {
             textureSlots: slots,
             combos: combos,
             constants: constants,
+            userShaderValues: material.userShaderValues,
             renderState: .init(
                 blending: material.blending,
                 depthTest: material.depthTest,

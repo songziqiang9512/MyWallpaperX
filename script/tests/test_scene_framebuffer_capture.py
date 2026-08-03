@@ -138,6 +138,40 @@ import Dispatch
 import Metal
 import simd
 
+enum SceneTextureProviderState {}
+struct SceneFrameTextureRegistrySnapshot {}
+
+enum SceneFrameTextureRegistry {
+    enum ProviderStatus {}
+}
+
+enum SceneMediaThumbnailTextureStore {
+    struct Snapshot {}
+}
+
+final class SceneResolvedMaterialRuntimeBridge {
+    var assetStates: [SceneAssetTextureIdentity: SceneTextureProviderState] { [:] }
+
+    func systemProviderBlocks(
+        for snapshot: SceneMediaThumbnailTextureStore.Snapshot
+    ) -> [String: SceneFrameTextureRegistry.ProviderStatus] {
+        [:]
+    }
+
+    func beginFrame(
+        textureSnapshot: SceneFrameTextureRegistrySnapshot,
+        dynamicSnapshot: SceneDynamicSnapshot,
+        frameInputs: SceneAuthoredShaderFrameInputs
+    ) {}
+
+    func endFrame() {}
+
+    func auditResolvedMaterials(
+        graph: SceneAuthoredEffectRenderPlan,
+        targets: SceneGraphRenderTargetTable
+    ) {}
+}
+
 enum SceneMediaThumbnailTransitionTexture {
     struct Arguments {
         let texture: MTLTexture
@@ -1181,7 +1215,7 @@ struct SceneStandardBlurPlan {
     }
 }
 
-enum SceneTextureLoadPurpose {
+enum SceneTextureLoadPurpose: Hashable {
     case premultipliedColor
     case straightAlbedo
     case preservedChannels
@@ -1191,6 +1225,11 @@ enum SceneTextureLoadPurpose {
     case phase
     case normal
     case depth
+    case lookupTable
+
+    var requiresVolumeTexture: Bool {
+        self == .lookupTable
+    }
 }
 
 struct SceneStandardBlurEffectTextures {
@@ -3231,11 +3270,21 @@ enum Harness {
             height: texture.height
         )
         let scale = Float(mappedSize.width / physicalSize.width)
+        let content: SceneTextureContent
+        switch purpose {
+        case .premultipliedColor:
+            content = .color(.resolved(.premultipliedAlpha))
+        case .straightAlbedo:
+            content = .color(.resolved(.straightAlpha))
+        default:
+            content = .data
+        }
         return SceneTextureCandidate(
             texture: texture,
             identity: .builtIn(name: name),
             generation: .immutable(revision: 1),
             purpose: purpose,
+            content: content,
             physicalSize: physicalSize,
             mappedSize: mappedSize,
             uvTransform: SceneTextureUVTransform(
@@ -3559,6 +3608,7 @@ enum Harness {
             identity: .builtIn(name: "authored-blend-fixture"),
             generation: .immutable(revision: 1),
             purpose: .premultipliedColor,
+            content: .color(.resolved(.premultipliedAlpha)),
             physicalSize: CGSize(width: 1, height: 1),
             mappedSize: CGSize(width: 1, height: 1),
             uvTransform: .identity,

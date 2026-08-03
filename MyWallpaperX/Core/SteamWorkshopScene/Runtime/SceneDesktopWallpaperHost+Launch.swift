@@ -4,6 +4,8 @@ import Metal
 struct SceneDesktopWallpaperLaunchContext {
     let runtimeInput: SceneRuntimeInput
     let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
+    let resolvedMaterialCatalog: SceneResolvedMaterialRuntimeCatalog
+    let materialAssetCatalog: SceneMaterialAssetTextureCatalog
     let pipelineRepository: SceneImageEffectPipelineRepository
     let spriteTextureLoader: SceneMultiImageSpriteTextureLoader
     let timelineProgram: SceneTimelineProgram
@@ -17,6 +19,33 @@ struct SceneDesktopWallpaperLaunchContext {
     let resourceView: SceneResourceView
     let logURL: URL?
     let recordID: String?
+
+    var resolvedMaterialStartupReportLines: [String] {
+        resolvedMaterialCatalog.reportLines + materialAssetCatalog.reportLines + [
+            "resolved material system providers: schema=r3-system-provider-v1"
+                + " demands=\(resolvedMaterialCatalog.systemProviderDemands.count)"
+                + " missingState=unavailable"
+                + " reason=snapshot-lifecycle-unproven"
+        ]
+    }
+
+    func makeResolvedMaterialRuntime() -> SceneResolvedMaterialRuntimeBridge {
+        .init(
+            catalog: resolvedMaterialCatalog,
+            assets: materialAssetCatalog
+        )
+    }
+
+    func appendResolvedMaterialStartupReport() {
+        guard let logURL,
+              let existing = try? String(contentsOf: logURL, encoding: .utf8) else {
+            return
+        }
+        let separator = existing.isEmpty || existing.hasSuffix("\n") ? "" : "\n"
+        let lines = resolvedMaterialStartupReportLines
+        try? (existing + separator + lines.joined(separator: "\n") + "\n")
+            .write(to: logURL, atomically: true, encoding: .utf8)
+    }
 }
 
 enum SceneDesktopWallpaperHostLaunchError: LocalizedError {
@@ -55,6 +84,11 @@ extension SceneDesktopWallpaperHost {
             authoredPlans: runtimeInput.authoredEffectRenderPlans,
             shaderContracts: runtimeInput.shaderContracts
         )
+        let resolvedMaterialCatalog = SceneResolvedMaterialRuntimeCatalog(
+            descriptor: runtimeInput.renderDescriptor,
+            authoredPlans: runtimeInput.authoredEffectRenderPlans,
+            shaderContracts: runtimeInput.shaderContracts
+        )
         let timeOfDayEffectScriptProgram = SceneTimeOfDayEffectScriptProgram(
             bindings: authoredEffectCatalog.chainsByLayerID.keys.sorted().flatMap { layerID in
                 authoredEffectCatalog.chainsByLayerID[layerID]?.stages.compactMap {
@@ -74,9 +108,17 @@ extension SceneDesktopWallpaperHost {
         guard let device = MTLCreateSystemDefaultDevice() else {
             throw SceneDesktopWallpaperHostLaunchError.noSurface
         }
+        let materialAssetCatalog = SceneMaterialAssetTextureCatalog(
+            demands: resolvedMaterialCatalog.assetDemands,
+            resourceView: model.diagnostics.resourceView,
+            descriptor: runtimeInput.renderDescriptor,
+            device: device
+        )
         try activate(SceneDesktopWallpaperLaunchContext(
             runtimeInput: runtimeInput,
             authoredEffectCatalog: authoredEffectCatalog,
+            resolvedMaterialCatalog: resolvedMaterialCatalog,
+            materialAssetCatalog: materialAssetCatalog,
             pipelineRepository: SceneImageEffectPipelineRepository(device: device),
             spriteTextureLoader: SceneMultiImageSpriteTextureLoader(),
             timelineProgram: SceneTimelineTargetCompiler.compile(
@@ -107,4 +149,5 @@ extension SceneDesktopWallpaperHost {
         ))
         return model
     }
+
 }

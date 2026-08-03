@@ -14,6 +14,8 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 HOST_SOURCE = SOURCE_ROOT / "Runtime/SceneDesktopWallpaperHost.swift"
 SWIFT_SOURCES = [
+    SOURCE_ROOT / "Format/SceneJSONValue.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "Format/SceneTexDataReader.swift",
     SOURCE_ROOT / "Format/SceneTexContainer.swift",
     SOURCE_ROOT / "Format/SceneBCTextureDecoder.swift",
@@ -24,6 +26,10 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneTextureSampling.swift",
     SOURCE_ROOT / "Resources/SceneTextureUVTransform.swift",
     SOURCE_ROOT / "Resources/SceneTextureCandidate.swift",
+    SOURCE_ROOT / "Resources/SceneNamedTextureReference.swift",
+    SOURCE_ROOT / "Resources/SceneTextureSlotBinding.swift",
+    SOURCE_ROOT / "Resources/SceneTextureProviderPublication.swift",
+    SOURCE_ROOT / "Resources/SceneFrameTextureRegistry.swift",
     SOURCE_ROOT / "Resources/SceneTextureLoader+Candidate.swift",
     SOURCE_ROOT / "Properties/SceneUserPropertyTextureLoader.swift",
 ]
@@ -68,6 +74,18 @@ enum Harness {
         try Data(contentsOf: pngURL).write(to: unsupportedURL)
 
         let loader = SceneUserPropertyTextureLoader()
+        let absentIdentity = SceneUserPropertyTextureIdentity(
+            propertyKey: "not-selected",
+            purpose: .premultipliedColor
+        )!
+        let maskIdentity = SceneUserPropertyTextureIdentity(
+            propertyKey: "png",
+            purpose: .mask
+        )!
+        let brokenFlowIdentity = SceneUserPropertyTextureIdentity(
+            propertyKey: "broken",
+            purpose: .flow
+        )!
         let result = loader.load(
             urlsByPropertyKey: [
                 "png": pngURL,
@@ -75,6 +93,9 @@ enum Harness {
                 "jpg": jpgURL,
                 "broken": invalidURL,
                 "unsupported": unsupportedURL,
+            ],
+            requestedIdentities: [
+                absentIdentity, maskIdentity, brokenFlowIdentity,
             ],
             straightAlbedoPropertyKeys: ["jpeg", "png"],
             preservedPropertyKeys: ["png"],
@@ -212,6 +233,41 @@ enum Harness {
         let straightAlbedoDimensions = result.straightAlbedoTextures.mapValues {
             ["width": $0.width, "height": $0.height]
         }
+        let publicationTokens = result.publications.keys.map(\.reportToken).sorted()
+        let publicationAtomsComplete = result.publications.allSatisfy {
+            identity, publication in
+            publication.isComplete
+                && identity.purpose == publication.candidate.purpose
+                && publication.requestIdentity
+                    == .materialUserProperty(identity)
+                && publication.contentGeneration == 1
+        }
+        let publicationTexturesMatchPurpose = result.publications.allSatisfy {
+            identity, publication in
+            switch identity.purpose {
+            case .premultipliedColor:
+                return result.textures[identity.propertyKey] === publication.texture
+            case .straightAlbedo:
+                return result.straightAlbedoTextures[identity.propertyKey]
+                    === publication.texture
+            case .preservedChannels:
+                return result.preservedTextures[identity.propertyKey] === publication.texture
+            default:
+                guard case let .ready(statePublication) =
+                        result.providerStates[identity] else { return false }
+                return statePublication.texture === publication.texture
+            }
+        }
+        let unavailableTokens = result.providerStates.compactMap {
+            identity, state -> String? in
+            guard case .unavailable = state else { return nil }
+            return identity.reportToken
+        }.sorted()
+        let absentTokens = result.providerStates.compactMap {
+            identity, state -> String? in
+            guard case .absent = state else { return nil }
+            return identity.reportToken
+        }.sorted()
         let payload: [String: Any] = [
             "loadedKeys": result.textures.keys.sorted(),
             "candidateKeys": result.textureCandidates.keys.sorted(),
@@ -228,6 +284,11 @@ enum Harness {
             "dimensions": dimensions,
             "preservedDimensions": preservedDimensions,
             "straightAlbedoDimensions": straightAlbedoDimensions,
+            "publicationTokens": publicationTokens,
+            "publicationAtomsComplete": publicationAtomsComplete,
+            "publicationTexturesMatchPurpose": publicationTexturesMatchPurpose,
+            "unavailableTokens": unavailableTokens,
+            "absentTokens": absentTokens,
             "colorPixels": try pixels(result.textures["png"]),
             "preservedPixels": try pixels(result.preservedTextures["png"]),
             "reversedColorPixels": try pixels(reversedColor),
@@ -237,12 +298,20 @@ enum Harness {
             "reportLines": result.reportLines,
             "retryLoadedKeys": retry.textures.keys.sorted(),
             "retryCandidateKeys": retry.textureCandidates.keys.sorted(),
+            "retryPublicationTokens": retry.publications.keys.map(\.reportToken).sorted(),
+            "retryUnavailableTokens": retry.providerStates.compactMap {
+                identity, state -> String? in
+                guard case .unavailable = state else { return nil }
+                return identity.reportToken
+            }.sorted(),
             "retryPreservedLoadedKeys": retry.preservedTextures.keys.sorted(),
             "retryReportLines": retry.reportLines,
             "emptyLoadedKeys": empty.textures.keys.sorted(),
             "emptyCandidateKeys": empty.textureCandidates.keys.sorted(),
             "emptyPreservedLoadedKeys": empty.preservedTextures.keys.sorted(),
             "emptyStraightAlbedoLoadedKeys": empty.straightAlbedoTextures.keys.sorted(),
+            "emptyPublicationTokens": empty.publications.keys.map(\.reportToken).sorted(),
+            "emptyProviderStateCount": empty.providerStates.count,
             "emptyReportLines": empty.reportLines,
             "reusedTexture": reusedTexture,
             "reusedPreservedTexture": reusedPreservedTexture,
@@ -481,6 +550,34 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
         self.assertTrue(self.result["candidatePurpose"])
         self.assertEqual(self.result["candidatePhysicalMapped"], [2, 1, 2, 1])
 
+    def test_all_requested_roles_publish_purpose_qualified_atoms(self) -> None:
+        self.assertEqual(
+            self.result["publicationTokens"],
+            [
+                "property:3#jpg:premultiplied-color",
+                "property:3#png:mask",
+                "property:3#png:premultiplied-color",
+                "property:3#png:preserved-channels",
+                "property:3#png:straight-albedo",
+                "property:4#jpeg:premultiplied-color",
+                "property:4#jpeg:straight-albedo",
+            ],
+        )
+        self.assertTrue(self.result["publicationAtomsComplete"])
+        self.assertTrue(self.result["publicationTexturesMatchPurpose"])
+        self.assertEqual(
+            self.result["unavailableTokens"],
+            [
+                "property:11#unsupported:premultiplied-color",
+                "property:6#broken:flow",
+                "property:6#broken:premultiplied-color",
+            ],
+        )
+        self.assertEqual(
+            self.result["absentTokens"],
+            ["property:12#not-selected:premultiplied-color"],
+        )
+
     def test_requested_property_has_a_separate_preserved_texture(self) -> None:
         self.assertEqual(self.result["preservedLoadedKeys"], ["png"])
         self.assertEqual(
@@ -554,6 +651,11 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
     def test_failed_retry_does_not_retain_an_old_texture(self) -> None:
         self.assertEqual(self.result["retryLoadedKeys"], [])
         self.assertEqual(self.result["retryCandidateKeys"], [])
+        self.assertEqual(self.result["retryPublicationTokens"], [])
+        self.assertEqual(
+            self.result["retryUnavailableTokens"],
+            ["property:3#png:premultiplied-color"],
+        )
         self.assertEqual(
             [
                 self.result["retryReportLines"][0],
@@ -575,6 +677,8 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
         self.assertEqual(self.result["emptyCandidateKeys"], [])
         self.assertEqual(self.result["emptyPreservedLoadedKeys"], [])
         self.assertEqual(self.result["emptyStraightAlbedoLoadedKeys"], [])
+        self.assertEqual(self.result["emptyPublicationTokens"], [])
+        self.assertEqual(self.result["emptyProviderStateCount"], 0)
         self.assertEqual(self.result["emptyReportLines"], [])
 
     def test_loader_reuses_unchanged_textures_but_invalidates_changed_user_files(self) -> None:

@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 import Metal
 
-enum SceneTextureLoadPurpose: Hashable {
+nonisolated enum SceneTextureLoadPurpose: Hashable, Sendable {
     case premultipliedColor
     case straightAlbedo
     case preservedChannels

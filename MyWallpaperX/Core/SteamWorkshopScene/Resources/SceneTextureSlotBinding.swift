@@ -14,26 +14,6 @@ struct SceneTextureSlotBinding {
     let slotIndex: Int
     let candidate: SceneTextureCandidate
 
-    /// Resolve the highest-priority ready candidate without letting an absent
-    /// override suppress an authored fallback. Candidate order is low to high
-    /// priority, matching material -> instance -> user/provider selection.
-    static func resolveFinalCandidate(
-        slotIndex: Int,
-        candidates: [SceneTextureCandidate?]
-    ) -> SceneTextureSlotBinding? {
-        for candidate in candidates.reversed() {
-            guard let candidate,
-                  let binding = SceneTextureSlotBinding(
-                      slotIndex: slotIndex,
-                      candidate: candidate
-                  ) else {
-                continue
-            }
-            return binding
-        }
-        return nil
-    }
-
     init?(
         slotIndex: Int,
         candidate: SceneTextureCandidate
@@ -50,6 +30,7 @@ struct SceneTextureSlotBinding {
     var identity: SceneTextureResourceIdentity { candidate.identity }
     var generation: SceneTextureResourceGeneration { candidate.generation }
     var purpose: SceneTextureLoadPurpose { candidate.purpose }
+    var content: SceneTextureContent { candidate.content }
     var physicalSize: CGSize { candidate.physicalSize }
     var mappedSize: CGSize { candidate.mappedSize }
     var uvTransform: SceneTextureUVTransform { candidate.uvTransform }
@@ -119,7 +100,28 @@ struct SceneTextureSlotBinding {
             && candidate.texture.mipmapLevelCount > 0
             && candidate.texture.usage.contains(.shaderRead)
             && candidate.pixelFormat != .invalid
+            && !candidate.purpose.requiresVolumeTexture
+            && valid(content: candidate.content, purpose: candidate.purpose)
             && valid(candidate.uvTransform)
+    }
+
+    private static func valid(
+        content: SceneTextureContent,
+        purpose: SceneTextureLoadPurpose
+    ) -> Bool {
+        switch (purpose, content) {
+        case (.premultipliedColor, .color(.resolved(.premultipliedAlpha))),
+             (.premultipliedColor, .color(.resolved(.opaque))),
+             (.straightAlbedo, .color(.resolved(.straightAlpha))),
+             (.straightAlbedo, .color(.resolved(.opaque))):
+            return true
+        case (.premultipliedColor, _), (.straightAlbedo, _):
+            return false
+        case (_, .data):
+            return true
+        default:
+            return false
+        }
     }
 
     private static func valid(_ size: CGSize) -> Bool {

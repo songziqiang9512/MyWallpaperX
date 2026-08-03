@@ -15,7 +15,8 @@ struct SceneBaseImageTextureSnapshot {
         var validatedPublications: [Int: SceneTextureProviderPublication] = [:]
         for (layerID, publication) in explicitLayerSources {
             guard let texture = textures[layerID],
-                  texture === publication.texture else {
+                  texture === publication.texture,
+                  publication.requestIdentity == .layerSource(layerID) else {
                 validatedTextures[layerID] = nil
                 continue
             }
@@ -50,7 +51,8 @@ struct SceneBaseImageTextureSnapshot {
         var nextTextures = textures
         var nextPublications = explicitLayerSources
         for (layerID, publication) in replacements {
-            guard nextTextures[layerID] != nil else { continue }
+            guard nextTextures[layerID] != nil,
+                  publication.requestIdentity == .layerSource(layerID) else { continue }
             nextTextures[layerID] = publication.texture
             nextPublications[layerID] = publication
         }
@@ -65,12 +67,15 @@ struct SceneBaseImageTextureSnapshot {
 struct SceneBaseImageTextureStore {
     private(set) var textures: [Int: MTLTexture] = [:]
     private(set) var candidates: [Int: SceneTextureCandidate] = [:]
+    private(set) var publications: [Int: SceneTextureProviderPublication] = [:]
+    private var contentGeneration: UInt64 = 0
 
     subscript(layerID: Int) -> MTLTexture? {
         get { textures[layerID] }
         set {
             textures[layerID] = newValue
             candidates[layerID] = nil
+            publications[layerID] = nil
         }
     }
 
@@ -80,8 +85,17 @@ struct SceneBaseImageTextureStore {
         layerID: Int
     ) {
         textures[layerID] = texture
-        candidates[layerID] = candidate.flatMap {
+        let matchingCandidate = candidate.flatMap {
             $0.texture === texture ? $0 : nil
+        }
+        candidates[layerID] = matchingCandidate
+        contentGeneration &+= 1
+        publications[layerID] = matchingCandidate.flatMap {
+            Self.publication(
+                for: $0,
+                layerID: layerID,
+                contentGeneration: contentGeneration
+            )
         }
     }
 
@@ -89,6 +103,7 @@ struct SceneBaseImageTextureStore {
         textures.merge(incoming) { _, value in value }
         for layerID in incoming.keys {
             candidates[layerID] = nil
+            publications[layerID] = nil
         }
     }
 
@@ -96,10 +111,28 @@ struct SceneBaseImageTextureStore {
         textures: [Int: MTLTexture],
         explicitLayerSources: [Int: SceneTextureProviderPublication] = [:]
     ) -> SceneBaseImageTextureSnapshot {
-        SceneBaseImageTextureSnapshot(
+        var combinedPublications = publications.filter { layerID, publication in
+            textures[layerID] === publication.texture
+        }
+        combinedPublications.merge(explicitLayerSources) { _, replacement in
+            replacement
+        }
+        return SceneBaseImageTextureSnapshot(
             textures: textures,
-            explicitLayerSources: explicitLayerSources,
+            explicitLayerSources: combinedPublications,
             candidates: candidates
+        )
+    }
+
+    private static func publication(
+        for candidate: SceneTextureCandidate,
+        layerID: Int,
+        contentGeneration: UInt64
+    ) -> SceneTextureProviderPublication? {
+        return SceneTextureProviderPublication(
+            requestIdentity: .layerSource(layerID),
+            candidate: candidate,
+            contentGeneration: contentGeneration
         )
     }
 }

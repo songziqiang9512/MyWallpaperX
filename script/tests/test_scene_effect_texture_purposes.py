@@ -14,6 +14,7 @@ TEXTURE_LOADING = (
     RESOURCE_ROOT / "SceneLayerEffectTextureLoader+TextureLoading.swift"
 )
 XRAY_LOADER = RESOURCE_ROOT / "SceneXRayEffectTextureLoader.swift"
+BLEND_LOADER = RESOURCE_ROOT / "SceneBlendEffectTextureLoader.swift"
 TEXTURE_CANDIDATE = RESOURCE_ROOT / "SceneTextureCandidate.swift"
 SLOT_BINDING = RESOURCE_ROOT / "SceneTextureSlotBinding.swift"
 WATER_FLOW_LOADER = RESOURCE_ROOT / "SceneWaterFlowEffectTextureLoader.swift"
@@ -147,6 +148,18 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
             view,
         )
 
+    def test_blend_property_override_uses_explicit_provider_state(self) -> None:
+        blend = BLEND_LOADER.read_text(encoding="utf-8")
+        view = METAL_VIEW.read_text(encoding="utf-8")
+        self.assertIn("userPropertyTextureStates", blend)
+        self.assertIn("case .absent", blend)
+        self.assertIn("case .pending", blend)
+        self.assertIn("case .unavailable", blend)
+        self.assertIn("publication.requestIdentity == .materialUserProperty(identity)", blend)
+        self.assertNotIn("userPropertyTextureCandidates", blend)
+        self.assertIn("renderDescriptor.texturePropertyKeys", view)
+        self.assertIn("userPropertyTextureLoad.providerStates", view)
+
     def test_typed_candidate_and_slot_binding_reach_bounded_consumers(self) -> None:
         candidate = TEXTURE_CANDIDATE.read_text(encoding="utf-8")
         slot_binding = SLOT_BINDING.read_text(encoding="utf-8")
@@ -173,6 +186,7 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
             "let identity: SceneTextureResourceIdentity",
             "let generation: SceneTextureResourceGeneration",
             "let purpose: SceneTextureLoadPurpose",
+            "let content: SceneTextureContent",
             "let physicalSize: CGSize",
             "let mappedSize: CGSize",
             "let uvTransform: SceneTextureUVTransform",

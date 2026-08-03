@@ -15,7 +15,15 @@ ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SOURCES = [
     SCENE / "Runtime/SceneMediaThumbnailInbox.swift",
+    SCENE / "Format/SceneJSONValue.swift",
+    SCENE / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
+    SCENE / "Resources/SceneTextureSampling.swift",
+    SCENE / "Resources/SceneTextureUVTransform.swift",
+    SCENE / "Resources/SceneTextureCandidate.swift",
+    SCENE / "Resources/SceneNamedTextureReference.swift",
+    SCENE / "Resources/SceneTextureSlotBinding.swift",
     SCENE / "Resources/SceneTextureProviderPublication.swift",
+    SCENE / "Resources/SceneFrameTextureRegistry.swift",
     SCENE / "Resources/SceneImageTextureUploader.swift",
     SCENE / "Resources/SceneMediaThumbnailTextureStore.swift",
 ]
@@ -129,6 +137,8 @@ _ = inbox.publish(c)
 store.update(from: inbox.latest())
 decodingQueue.resume()
 let third = waitFor(store, generation: 3)
+let layerRequest = SceneFrameTextureIdentity.layerSource(77)
+let layerPublication = third.current?.publication(for: layerRequest)
 let rapidDecodeCount = decodeCounter.value
 let duplicateAccepted = inbox.publish(c)
 let duplicateGeneration = inbox.latest().generation
@@ -158,6 +168,27 @@ let result: [String: Any] = [
     "generation": third.generation,
     "currentPixel": pixel(third.current?.texture),
     "previousPixel": pixel(third.publications["$mediaPreviousThumbnail"]?.texture),
+    "currentPublicationComplete": third.current?.isComplete == true,
+    "currentRequestExact": third.current?.requestIdentity
+        == .system(SceneMediaThumbnailBindingProgram.currentIdentity),
+    "systemAndLayerRequestsAreDistinctAtoms":
+        layerPublication?.requestIdentity == layerRequest
+        && layerPublication?.requestIdentity != third.current?.requestIdentity
+        && layerPublication?.texture === third.current?.texture
+        && layerPublication?.contentGeneration == third.current?.contentGeneration,
+    "currentPublicationPremultiplied":
+        third.current?.candidate.purpose == .premultipliedColor
+        && third.current?.candidate.content
+            == .color(.resolved(.premultipliedAlpha))
+        && third.current?.candidate.identity
+            == .provider(.mediaThumbnailCurrent)
+        && third.current?.candidate.generation
+            == .provider(contentGeneration: third.generation),
+    "previousPublicationComplete":
+        third.publications["$mediaPreviousThumbnail"]?.isComplete == true,
+    "previousRequestExact":
+        third.publications["$mediaPreviousThumbnail"]?.requestIdentity
+            == .system(SceneMediaThumbnailBindingProgram.previousIdentity),
     "rapidDecodeCount": rapidDecodeCount,
     "duplicateAccepted": duplicateAccepted,
     "duplicateGenerationStable": duplicateGeneration == 3,
@@ -206,6 +237,12 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         self.assertEqual(result["generation"], 3)
         self.assertEqual(result["currentPixel"], [0, 0, 255, 255])
         self.assertEqual(result["previousPixel"], [0, 255, 0, 255])
+        self.assertTrue(result["currentPublicationComplete"])
+        self.assertTrue(result["currentRequestExact"])
+        self.assertTrue(result["systemAndLayerRequestsAreDistinctAtoms"])
+        self.assertTrue(result["currentPublicationPremultiplied"])
+        self.assertTrue(result["previousPublicationComplete"])
+        self.assertTrue(result["previousRequestExact"])
         self.assertEqual(result["rapidDecodeCount"], 2)
         self.assertTrue(result["duplicateAccepted"])
         self.assertTrue(result["duplicateGenerationStable"])

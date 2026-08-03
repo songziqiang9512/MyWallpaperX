@@ -248,6 +248,7 @@ final class SceneDesktopWallpaperHost {
                 sceneScriptAudioBarsProgram: launchContext.sceneScriptAudioBarsProgram,
                 mediaThumbnailBindings: launchContext.mediaThumbnailBindings,
                 pipelineRepository: launchContext.pipelineRepository,
+                resolvedMaterialRuntime: launchContext.makeResolvedMaterialRuntime(),
                 userPropertyTextureURLs: launchContext.userPropertyTextureURLs,
                 frame: frame
             ) else {
@@ -268,6 +269,7 @@ final class SceneDesktopWallpaperHost {
                     spriteTextureLoader: launchContext.spriteTextureLoader,
                     logURL: launchContext.logURL
                 )
+                launchContext.appendResolvedMaterialStartupReport()
                 Self.appendTimelineReport(
                     to: launchContext.logURL,
                     program: launchContext.timelineProgram

@@ -26,6 +26,7 @@ enum SceneAuthoredShaderRenderer {
             source: source,
             target: target,
             inputs: SceneAuthoredShaderUniformInputs(
+                frameIndex: frame.frameIndex,
                 renderSize: CGSize(width: target.width, height: target.height),
                 screenSize: frame.screenSize,
                 modelViewProjection: modelViewProjection,

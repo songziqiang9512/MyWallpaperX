@@ -247,6 +247,13 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
             "timing.hostTime",
             "contentGeneration",
             "lifecycle.planFrame(",
+            "requestIdentity: .layerSource(layerID)",
+            "candidate: SceneTextureCandidate(",
+            "identity: .provider(.video(",
+            "lifecycleEpoch: epoch",
+            "generation: .provider(contentGeneration: contentGeneration)",
+            "purpose: .premultipliedColor",
+            "content: .color(.unresolved)",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.source)

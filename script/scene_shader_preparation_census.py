@@ -85,6 +85,7 @@ CURRENT_SOURCE_PATHS = (
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderExecutionPlan.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderUniformBinder.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredScrollShaderProfile.swift",
+    "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneTextureSampling.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantEnvironment.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderDirective.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantResolver.swift",
@@ -701,7 +702,7 @@ private enum CorpusHarness {
         }
         let result = SceneAuthoredShaderExecutionPlanner.prepareShaderStages(
             contract: contract,
-            material: material,
+            combos: material.combos,
             textureReadiness: [:]
         )
         switch result {

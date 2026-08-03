@@ -74,6 +74,7 @@ enum SceneWaterFlowEffectTextureLoader {
                     identity: .builtIn(name: phasePath),
                     generation: .immutable(revision: 1),
                     purpose: .phase,
+                    content: .data,
                     physicalSize: CGSize(width: $0.width, height: $0.height),
                     mappedSize: CGSize(width: $0.width, height: $0.height),
                     uvTransform: .identity,

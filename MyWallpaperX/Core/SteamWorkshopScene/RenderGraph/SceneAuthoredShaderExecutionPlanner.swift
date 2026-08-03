@@ -140,7 +140,7 @@ nonisolated enum SceneAuthoredShaderExecutionPlanner {
         }
         let preparationResult = prepareShaderStages(
             contract: contract,
-            material: material
+            combos: material.combos
         )
         if !contract.stages.allSatisfy({ $0.includes.isEmpty }) {
             switch preparationResult {

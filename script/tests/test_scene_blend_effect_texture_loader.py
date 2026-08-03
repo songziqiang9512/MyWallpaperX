@@ -37,6 +37,23 @@ import ImageIO
 import Metal
 import simd
 
+enum SceneFrameTextureIdentity: Equatable {
+    case materialUserProperty(SceneUserPropertyTextureIdentity)
+}
+
+struct SceneTextureProviderPublication {
+    let requestIdentity: SceneFrameTextureIdentity
+    let candidate: SceneTextureCandidate
+    let isComplete: Bool
+}
+
+enum SceneTextureProviderState {
+    case ready(SceneTextureProviderPublication)
+    case absent
+    case pending
+    case unavailable
+}
+
 final class SceneVideoTextureSource {
     init?(
         layerID: Int,
@@ -158,6 +175,15 @@ enum Harness {
             texture: propertyTexture,
             identity: "property:\(propertyKey)"
         )
+        let propertyIdentity = SceneUserPropertyTextureIdentity(
+            propertyKey: propertyKey,
+            purpose: .premultipliedColor
+        )!
+        let propertyPublication = SceneTextureProviderPublication(
+            requestIdentity: .materialUserProperty(propertyIdentity),
+            candidate: propertyCandidate,
+            isComplete: true
+        )
         let validInputs: [SceneEffectTextureInput?] = [
             nil,
             .init(kind: .property, value: propertyKey),
@@ -165,43 +191,87 @@ enum Harness {
         let property = load(
             inputs: validInputs,
             urlsByPath: [assetPath: texURL],
-            userPropertyTextureCandidates: [propertyKey: propertyCandidate],
+            userPropertyTextureStates: [propertyIdentity: .ready(propertyPublication)],
             device: device
         )
         let fallback = load(
             inputs: validInputs,
             urlsByPath: [assetPath: texURL],
-            userPropertyTextureCandidates: [:],
+            userPropertyTextureStates: [propertyIdentity: .absent],
+            device: device
+        )
+        let missingState = load(
+            inputs: validInputs,
+            urlsByPath: [assetPath: texURL],
+            userPropertyTextureStates: [:],
+            device: device
+        )
+        let pending = load(
+            inputs: validInputs,
+            urlsByPath: [assetPath: texURL],
+            userPropertyTextureStates: [propertyIdentity: .pending],
+            device: device
+        )
+        let unavailable = load(
+            inputs: validInputs,
+            urlsByPath: [assetPath: texURL],
+            userPropertyTextureStates: [propertyIdentity: .unavailable],
+            device: device
+        )
+        let otherIdentity = SceneUserPropertyTextureIdentity(
+            propertyKey: "other-property",
+            purpose: .premultipliedColor
+        )!
+        let wrongPublication = SceneTextureProviderPublication(
+            requestIdentity: .materialUserProperty(otherIdentity),
+            candidate: propertyCandidate,
+            isComplete: true
+        )
+        let invalidReady = load(
+            inputs: validInputs,
+            urlsByPath: [assetPath: texURL],
+            userPropertyTextureStates: [propertyIdentity: .ready(wrongPublication)],
+            device: device
+        )
+        let incompletePublication = SceneTextureProviderPublication(
+            requestIdentity: .materialUserProperty(propertyIdentity),
+            candidate: propertyCandidate,
+            isComplete: false
+        )
+        let incompleteReady = load(
+            inputs: validInputs,
+            urlsByPath: [assetPath: texURL],
+            userPropertyTextureStates: [propertyIdentity: .ready(incompletePublication)],
             device: device
         )
         let missing = load(
             inputs: validInputs,
             urlsByPath: [:],
-            userPropertyTextureCandidates: [:],
+            userPropertyTextureStates: [propertyIdentity: .absent],
             device: device
         )
         let corrupt = load(
             inputs: validInputs,
             urlsByPath: [assetPath: corruptURL],
-            userPropertyTextureCandidates: [:],
+            userPropertyTextureStates: [propertyIdentity: .absent],
             device: device
         )
         let system = load(
             inputs: [nil, .init(kind: .system, value: "$mediaThumbnail")],
             urlsByPath: [assetPath: texURL],
-            userPropertyTextureCandidates: [propertyKey: propertyCandidate],
+            userPropertyTextureStates: [propertyIdentity: .ready(propertyPublication)],
             device: device
         )
         let emptyProperty = load(
             inputs: [nil, .init(kind: .property, value: "")],
             urlsByPath: [assetPath: texURL],
-            userPropertyTextureCandidates: [propertyKey: propertyCandidate],
+            userPropertyTextureStates: [propertyIdentity: .ready(propertyPublication)],
             device: device
         )
         let malformed = load(
             inputs: [.init(kind: .property, value: propertyKey)],
             urlsByPath: [assetPath: texURL],
-            userPropertyTextureCandidates: [propertyKey: propertyCandidate],
+            userPropertyTextureStates: [propertyIdentity: .ready(propertyPublication)],
             device: device
         )
 
@@ -236,6 +306,16 @@ enum Harness {
                 fallbackArguments?.uvScale.y ?? -1,
             ],
             "fallbackReported": fallback.message.contains("blend effect texture OK"),
+            "missingStateFailsClosed": missingState.textures[effectID] == nil,
+            "missingStateReported": missingState.message.contains("missing state"),
+            "pendingFailsClosed": pending.textures[effectID] == nil,
+            "pendingReported": pending.message.contains("pending"),
+            "unavailableFailsClosed": unavailable.textures[effectID] == nil,
+            "unavailableReported": unavailable.message.contains("unavailable"),
+            "invalidReadyFailsClosed": invalidReady.textures[effectID] == nil,
+            "invalidReadyReported": invalidReady.message.contains("invalid publication"),
+            "incompleteReadyFailsClosed": incompleteReady.textures[effectID] == nil,
+            "incompleteReadyReported": incompleteReady.message.contains("invalid publication"),
             "missingStayedFailed": missing.textures[effectID] == nil,
             "missingReported": missing.message.contains(
                 "blend effect texture missing \(assetPath)"
@@ -261,7 +341,9 @@ enum Harness {
     static func load(
         inputs: [SceneEffectTextureInput?],
         urlsByPath: [String: URL],
-        userPropertyTextureCandidates: [String: SceneTextureCandidate],
+        userPropertyTextureStates: [
+            SceneUserPropertyTextureIdentity: SceneTextureProviderState
+        ],
         device: MTLDevice
     ) -> (textures: [String: SceneBlendEffectTextures], message: String) {
         let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
@@ -282,7 +364,7 @@ enum Harness {
             resolver: .init(urlsByPath: urlsByPath),
             loader: SceneTextureLoader(),
             device: device,
-            userPropertyTextureCandidates: userPropertyTextureCandidates
+            userPropertyTextureStates: userPropertyTextureStates
         )
     }
 
@@ -295,6 +377,7 @@ enum Harness {
             identity: .builtIn(name: identity),
             generation: .immutable(revision: 1),
             purpose: .premultipliedColor,
+            content: .color(.resolved(.premultipliedAlpha)),
             physicalSize: CGSize(width: texture.width, height: texture.height),
             mappedSize: CGSize(width: texture.width, height: texture.height),
             uvTransform: .identity,
@@ -443,12 +526,25 @@ class SceneBlendEffectTextureLoaderTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
 
-    def test_property_texture_wins_and_missing_property_falls_back(self) -> None:
+    def test_ready_property_wins_and_only_absent_falls_back(self) -> None:
         self.assertTrue(self.result["propertyWins"], self.result)
         self.assertTrue(self.result["propertyUsesIdentityUV"], self.result)
         self.assertTrue(self.result["propertyReported"], self.result)
         self.assertTrue(self.result["fallbackLoadedAuthoredTex"], self.result)
         self.assertTrue(self.result["fallbackReported"], self.result)
+        for key in (
+            "missingStateFailsClosed",
+            "missingStateReported",
+            "pendingFailsClosed",
+            "pendingReported",
+            "unavailableFailsClosed",
+            "unavailableReported",
+            "invalidReadyFailsClosed",
+            "invalidReadyReported",
+            "incompleteReadyFailsClosed",
+            "incompleteReadyReported",
+        ):
+            self.assertTrue(self.result[key], (key, self.result))
 
     def test_authored_tex_mapped_uv_scale_is_retained(self) -> None:
         self.assertEqual(self.result["fallbackMappedUV"], [0.5, 0.75], self.result)

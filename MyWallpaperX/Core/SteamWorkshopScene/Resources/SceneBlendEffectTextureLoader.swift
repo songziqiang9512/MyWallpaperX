@@ -38,13 +38,20 @@ enum SceneBlendEffectTextureLoader {
         let propertyKey: String?
     }
 
+    private struct CandidateSelection {
+        let candidate: SceneTextureCandidate?
+        let message: String
+    }
+
     static func load(
         for layer: SceneRenderDescriptor.Layer,
         effectIDs: Set<String>,
         resolver: SceneTexturePathResolver,
         loader: SceneTextureLoader,
         device: MTLDevice,
-        userPropertyTextureCandidates: [String: SceneTextureCandidate]
+        userPropertyTextureStates: [
+            SceneUserPropertyTextureIdentity: SceneTextureProviderState
+        ]
     ) -> (textures: [String: SceneBlendEffectTextures], message: String) {
         var textures: [String: SceneBlendEffectTextures] = [:]
         var messages: [String] = []
@@ -66,16 +73,20 @@ enum SceneBlendEffectTextureLoader {
                 loader: loader,
                 device: device
             )
-            let propertyCandidate = selection.propertyKey.flatMap {
-                userPropertyTextureCandidates[$0]
-            }
-            guard let binding = SceneTextureSlotBinding.resolveFinalCandidate(
-                slotIndex: 1,
-                candidates: [loaded.candidate, propertyCandidate]
-            ) else {
-                messages.append(assetURL == nil
+            let selected = selectCandidate(
+                propertyKey: selection.propertyKey,
+                states: userPropertyTextureStates,
+                authoredCandidate: loaded.candidate,
+                authoredMessage: assetURL == nil
                     ? "; blend effect texture missing \(selection.assetPath)"
-                    : loaded.message)
+                    : loaded.message
+            )
+            guard let selectedCandidate = selected.candidate,
+                  let binding = SceneTextureSlotBinding(
+                slotIndex: 1,
+                candidate: selectedCandidate
+            ) else {
+                messages.append(selected.message)
                 continue
             }
             textures[effect.id] = SceneBlendEffectTextures(
@@ -83,14 +94,61 @@ enum SceneBlendEffectTextureLoader {
                 assetPath: selection.assetPath,
                 propertyKey: selection.propertyKey
             )
-            if let propertyKey = selection.propertyKey,
-               propertyCandidate?.texture === binding.texture {
-                messages.append("; blend property texture OK \(propertyKey)")
-            } else {
-                messages.append(loaded.message)
-            }
+            messages.append(selected.message)
         }
         return (textures, messages.joined())
+    }
+
+    private static func selectCandidate(
+        propertyKey: String?,
+        states: [SceneUserPropertyTextureIdentity: SceneTextureProviderState],
+        authoredCandidate: SceneTextureCandidate?,
+        authoredMessage: String
+    ) -> CandidateSelection {
+        guard let propertyKey else {
+            return .init(candidate: authoredCandidate, message: authoredMessage)
+        }
+        guard let identity = SceneUserPropertyTextureIdentity(
+            propertyKey: propertyKey,
+            purpose: .premultipliedColor
+        ) else {
+            return .init(
+                candidate: nil,
+                message: "; blend property texture invalid identity"
+            )
+        }
+        guard let state = states[identity] else {
+            return .init(
+                candidate: nil,
+                message: "; blend property texture missing state \(propertyKey)"
+            )
+        }
+        switch state {
+        case .absent:
+            return .init(candidate: authoredCandidate, message: authoredMessage)
+        case .pending:
+            return .init(
+                candidate: nil,
+                message: "; blend property texture pending \(propertyKey)"
+            )
+        case .unavailable:
+            return .init(
+                candidate: nil,
+                message: "; blend property texture unavailable \(propertyKey)"
+            )
+        case let .ready(publication):
+            guard publication.requestIdentity == .materialUserProperty(identity),
+                  publication.isComplete else {
+                return .init(
+                    candidate: nil,
+                    message: "; blend property texture invalid publication \(propertyKey)"
+                )
+            }
+            return .init(
+                candidate: publication.candidate,
+                message: "; blend property texture OK \(propertyKey)"
+            )
+        }
     }
 
     private static func selection(

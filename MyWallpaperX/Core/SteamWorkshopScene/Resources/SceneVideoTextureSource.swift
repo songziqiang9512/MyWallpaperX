@@ -8,10 +8,26 @@ final class SceneVideoTextureSource {
         let contentGeneration: UInt64
         let itemTime: TimeInterval
         let epoch: UInt64
+        let layerID: Int
 
         var publication: SceneTextureProviderPublication {
-            SceneTextureProviderPublication(
-                texture: texture,
+            let size = CGSize(width: texture.width, height: texture.height)
+            return SceneTextureProviderPublication(
+                requestIdentity: .layerSource(layerID),
+                candidate: SceneTextureCandidate(
+                    texture: texture,
+                    identity: .provider(.video(
+                        layerID: layerID,
+                        lifecycleEpoch: epoch
+                    )),
+                    generation: .provider(contentGeneration: contentGeneration),
+                    purpose: .premultipliedColor,
+                    content: .color(.unresolved),
+                    physicalSize: size,
+                    mappedSize: size,
+                    uvTransform: .identity,
+                    sampling: .linearClamp
+                ),
                 contentGeneration: contentGeneration
             )
         }
@@ -22,6 +38,7 @@ final class SceneVideoTextureSource {
     private let videoOutput: AVPlayerItemVideoOutput
     private let textureCache: CVMetalTextureCache
     private let temporaryFileURL: URL
+    private let layerID: Int
     private var endObserver: NSObjectProtocol?
     private var lifecycle = SceneVideoProviderLifecycleState(epoch: 0)
     private var currentCVMetalTexture: CVMetalTexture?
@@ -36,6 +53,7 @@ final class SceneVideoTextureSource {
         cacheDirectory: URL,
         device: MTLDevice
     ) {
+        self.layerID = layerID
         let outputDirectory = cacheDirectory
             .appendingPathComponent(".mywallpaperx-scene-video-payloads", isDirectory: true)
         do {
@@ -166,7 +184,8 @@ final class SceneVideoTextureSource {
             texture: texture,
             contentGeneration: contentGeneration,
             itemTime: plan.itemTime,
-            epoch: plan.epoch
+            epoch: plan.epoch,
+            layerID: layerID
         )
         needsPlayerAnchor = false
         lastFrame = frame

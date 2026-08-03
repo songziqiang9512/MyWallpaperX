@@ -218,6 +218,7 @@ struct SceneRenderDescriptor {
         let userTextureInputs: [SceneEffectTextureInput?]
         let combos: [String: Int]
         let constantShaderValues: [String: SceneDocument.ShaderValue]
+        var userShaderValues: [String: String] { [:] }
         let blending: String?
         let depthTest: String?
         let depthWrite: String?

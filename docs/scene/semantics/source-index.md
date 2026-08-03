@@ -1,6 +1,6 @@
 # Scene 资料来源与证据索引
 
-> 核验日期：2026-08-02
+> 核验日期：2026-08-03
 >
 > 网络核验使用系统代理 `http://127.0.0.1:7897`。
 >
@@ -60,7 +60,7 @@ Scene 能力研究按以下顺序取证：先读现役专项表、总覆盖台�
 
 2026-08-02 复核官方 [Blur Precise effect](https://docs.wallpaperengine.io/en/scene/effects/effect/blurprecise.html) 与 [Effects overview](https://docs.wallpaperengine.io/en/scene/effects/overview.html)：公开页把它定义为作用于完整 layer 的精确 Gaussian blur，并允许作者调整 kernel size 与 X/Y scale；更大的 kernel 增加模糊范围和性能成本，overview 只把其更清晰的轮廓/光束表现作为选择方向。页面不公开私有 `KERNEL` 数值映射、采样权重、`ENABLEMASK`/`MASK` wire、pass/RT 结构或跨后端舍入。项目当前 `KERNEL=0/1/2` identity 来自合法 authored 语料与 stock 结构研究，GPU 使用项目自有 large/7-tap binomial/3-tap binomial profile；不得把这些系数写成官方算法或 Windows 像素等价。
 
-2026-08-02 复核官方 [Blend Gradient effect](https://docs.wallpaperengine.io/en/scene/effects/effect/blendgradient.html)、[Album Cover](https://docs.wallpaperengine.io/en/scene/audiovisualizer/albumcover.html) 与 [Timeline modes](https://docs.wallpaperengine.io/en/scene/timeline/modes.html)：公开页确认 Blend Gradient 用 gradient 控制两张纹理的混合，Album Cover 配方把 previous cover 绑定到该输入，并以 `Single`、`Start paused` Timeline 和 `mediaThumbnailChanged` stop/play 重启过渡。页面不公开私有 JSON、shader 数学、edge 公式或 Windows 事件时序；项目 bounded profile 的内容指纹、slot/constant/wire 准入和项目自有 Metal wipe 来自合法 authored 语料与正反门，不能表述成 generic Blend Gradient 或 Windows 像素等价。
+2026-08-03 复核官方 [Blend Gradient effect](https://docs.wallpaperengine.io/en/scene/effects/effect/blendgradient.html)、[Album Cover](https://docs.wallpaperengine.io/en/scene/audiovisualizer/albumcover.html) 与 [Timeline modes](https://docs.wallpaperengine.io/en/scene/timeline/modes.html)：公开页确认 Blend Gradient 用 gradient 控制两张纹理的混合，Album Cover 配方把 previous cover 绑定到该输入，并以 `Single`、`Start paused` Timeline 在 `mediaThumbnailChanged` 中调用 `play()`。当前公开示例没有要求先 `stop()`，也没有公开重复 `play()` 时是否从头开始的私有状态机。合法 Workshop 语料另有受保护的 `stop(); play()` 和直接 `play()` 两种作者形态；它们只证明 Timeline 数值生产者可由 SceneScript 控制附件触发，不得被建模成两个竞争的数值 producer。页面不公开私有 JSON、shader 数学、edge 公式或 Windows 事件时序；项目 bounded profile 的内容指纹、slot/constant/wire 准入和项目自有 Metal wipe 来自合法 authored 语料与正反门，不能表述成 generic Blend Gradient 或 Windows 像素等价。
 
 ### 1.3 Parallax
 
@@ -151,6 +151,8 @@ Scene 能力研究按以下顺序取证：先读现役专项表、总覆盖台�
 Group 与 display condition 在 Overview 中定义。Texture Variants 不能由 SceneScript 切换。
 
 官方可下载的 [user property sample](https://docs.wallpaperengine.io/samples/user_property_sample.zip) 提供 `project.json`、`scene.json` 与 SceneScript 实例；本轮只通过管道静态读取，未运行其中的 shader 或二进制。它证明用户属性 raw instance 的一种当前形态，不构成完整版本化 schema。
+
+2026-08-03 R3资料归纳：官方Variables页只确认`T0...T7`的索引纹理表面、combo/uniform annotation与built-in入口；Texture property页确认用户未选择替换文件时使用作者原始导入纹理；Album Cover/Timeline公开示例确认Timeline数值可由事件中的`play()`触发。既有[官方客户端运行机制静态取证](client-runtime-static-forensics.md)又只在clean-room边界确认slot不压缩，以及default/user/system/provider/state/variant汇入resolved material状态的控制流方向。以上足以约束项目自有Template/Program的分层、exact identity与“显式absent才回退”安全边界，但不公开完整candidate优先级、purpose、normal/depth、alpha/write-mask、SceneScript状态机或任何shader算法；R3因此保留unknown fail-closed，没有复制官方payload/shader/算法，也无需新增Ghidra取证。
 
 ### 1.8 Audio 与 Media
 

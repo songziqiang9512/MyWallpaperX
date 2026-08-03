@@ -12,6 +12,10 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Text/SceneDynamicTextGenerationState.swift"
+STORE_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Text/SceneDynamicTextTextureStore.swift"
+)
 
 HARNESS = r'''
 import Foundation
@@ -131,6 +135,19 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
         self.assertTrue(self.result["scheduledLatestAccepted"])
         self.assertFalse(self.result["scheduledHasThirdTask"])
         self.assertEqual(self.result["scheduledReadyWidth"], 300)
+
+    def test_ready_texture_publication_declares_premultiplied_metadata(self) -> None:
+        source = STORE_SOURCE.read_text(encoding="utf-8")
+        for token in (
+            "SceneTextureProviderPublication(",
+            "requestIdentity: .layerSource(layerID)",
+            "candidate: SceneTextureCandidate(",
+            "identity: .provider(.dynamicText(layerID: layerID))",
+            "generation: .provider(contentGeneration: generation)",
+            "purpose: .premultipliedColor",
+            "content: .color(.resolved(.premultipliedAlpha))",
+        ):
+            self.assertIn(token, source)
 
 
 if __name__ == "__main__":

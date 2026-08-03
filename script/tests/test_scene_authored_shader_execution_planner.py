@@ -44,6 +44,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderExecutionPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderUniformBinder.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredScrollShaderProfile.swift",
+    SCENE_ROOT / "Resources/SceneTextureSampling.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantEnvironment.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderDirective.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver.swift",
@@ -386,7 +387,7 @@ enum Harness {
             : loadedContract
         return SceneAuthoredShaderExecutionPlanner.prepareShaderStages(
             contract: contract,
-            material: material,
+            combos: material.combos,
             textureReadiness: textureReadiness
         )
     }
@@ -592,6 +593,7 @@ enum Harness {
             SIMD4(0, 0, 0, 1)
         ))
         let inputs = SceneAuthoredShaderUniformInputs(
+            frameIndex: 1,
             renderSize: size,
             screenSize: CGSize(width: 1920, height: 1080),
             modelViewProjection: mvp,
@@ -684,6 +686,7 @@ enum Harness {
         }
         let size = CGSize(width: dimension, height: dimension)
         let inputs = SceneAuthoredShaderUniformInputs(
+            frameIndex: 1,
             renderSize: size,
             screenSize: size,
             modelViewProjection: simd_float4x4(columns: (
@@ -736,7 +739,8 @@ enum Harness {
             fragmentFunctionName: original.fragmentFunctionName,
             uniformLayout: original.uniformLayout,
             textureBindings: original.textureBindings,
-            staticLoopWork: original.staticLoopWork
+            staticLoopWork: original.staticLoopWork,
+            colorTransfer: .unresolved
         )
         let invalid = SceneAuthoredShaderExecutionPlan(
             cacheKey: plan.cacheKey,
@@ -792,7 +796,8 @@ enum Harness {
                 fragmentFunctionName: original.fragmentFunctionName,
                 uniformLayout: original.uniformLayout,
                 textureBindings: original.textureBindings,
-                staticLoopWork: original.staticLoopWork
+                staticLoopWork: original.staticLoopWork,
+                colorTransfer: .unresolved
             ),
             renderState: plan.renderState,
             mappedSize: plan.mappedSize,

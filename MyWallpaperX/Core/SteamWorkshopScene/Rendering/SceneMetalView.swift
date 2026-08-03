@@ -27,7 +27,7 @@ class SceneMetalView: NSView {
         renderDescriptor: SceneRenderDescriptor, authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog,
         sceneScriptAudioBarsProgram: SceneScriptAudioBarsProgram = .empty,
         mediaThumbnailBindings: SceneMediaThumbnailBindingProgram = .empty,
-        pipelineRepository: SceneImageEffectPipelineRepository,
+        pipelineRepository: SceneImageEffectPipelineRepository, resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge,
         userPropertyTextureURLs: [String: URL] = [:],
         frame: NSRect
     ) {
@@ -35,7 +35,7 @@ class SceneMetalView: NSView {
             renderDescriptor: renderDescriptor,
             authoredEffectCatalog: authoredEffectCatalog,
             sceneScriptAudioBarsProgram: sceneScriptAudioBarsProgram,
-            pipelineRepository: pipelineRepository
+            pipelineRepository: pipelineRepository, resolvedMaterialRuntime: resolvedMaterialRuntime
         ) else { return nil }
         self.metalDevice = renderer.device
         self.renderer = renderer
@@ -51,6 +51,7 @@ class SceneMetalView: NSView {
         let preservedPropertyKeys = Set(xRayDeclarations.compactMap(\.haloPropertyKey))
         self.userPropertyTextureLoad = SceneUserPropertyTextureLoader().load(
             urlsByPropertyKey: userPropertyTextureURLs,
+            requestedIdentities: resolvedMaterialRuntime.userPropertyDemands(including: renderDescriptor.texturePropertyKeys),
             straightAlbedoPropertyKeys: straightAlbedoPropertyKeys,
             preservedPropertyKeys: preservedPropertyKeys,
             device: renderer.device
@@ -113,7 +114,7 @@ class SceneMetalView: NSView {
                 loader: loader,
                 device: metalDevice,
                 userPropertyTextures: userPropertyTextureLoad.textures,
-                userPropertyTextureCandidates: userPropertyTextureLoad.textureCandidates,
+                userPropertyTextureStates: userPropertyTextureLoad.providerStates,
                 straightAlbedoUserPropertyTextures: userPropertyTextureLoad.straightAlbedoTextures,
                 preservedUserPropertyTextures: userPropertyTextureLoad.preservedTextures
             )
@@ -365,6 +366,7 @@ class SceneMetalView: NSView {
             imageTextures: frameImageTextures,
             dynamicTextRenderSizes: dynamicTextSnapshot?.renderSizes ?? [:],
             userPropertyTextures: userPropertyTextureLoad.textures,
+            userPropertyTextureStates: userPropertyTextureLoad.providerStates,
             mediaThumbnail: mediaThumbnailSnapshot,
             spriteAnimations: spriteAnimations,
             effectTextures: effectTextures,

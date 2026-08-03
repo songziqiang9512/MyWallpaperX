@@ -101,15 +101,49 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         var textures: [String: MTLTexture] = [:]
         var publications: [String: SceneTextureProviderPublication] = [:]
         let current = currentTexture.map {
-            SceneTextureProviderPublication(texture: $0, contentGeneration: readyGeneration)
+            let size = CGSize(width: $0.width, height: $0.height)
+            return SceneTextureProviderPublication(
+                requestIdentity: .system(
+                    SceneMediaThumbnailBindingProgram.currentIdentity
+                ),
+                candidate: SceneTextureCandidate(
+                    texture: $0,
+                    identity: .provider(.mediaThumbnailCurrent),
+                    generation: .provider(contentGeneration: readyGeneration),
+                    purpose: .premultipliedColor,
+                    content: .color(.resolved(.premultipliedAlpha)),
+                    physicalSize: size,
+                    mappedSize: size,
+                    uvTransform: .identity,
+                    sampling: .linearClamp
+                ),
+                contentGeneration: readyGeneration
+            )
         }
         if let current {
             textures[SceneMediaThumbnailBindingProgram.currentIdentity] = current.texture
             publications[SceneMediaThumbnailBindingProgram.currentIdentity] = current
         }
         if let previousTexture {
+            let size = CGSize(
+                width: previousTexture.width,
+                height: previousTexture.height
+            )
             let previous = SceneTextureProviderPublication(
-                texture: previousTexture,
+                requestIdentity: .system(
+                    SceneMediaThumbnailBindingProgram.previousIdentity
+                ),
+                candidate: SceneTextureCandidate(
+                    texture: previousTexture,
+                    identity: .provider(.mediaThumbnailPrevious),
+                    generation: .provider(contentGeneration: readyGeneration),
+                    purpose: .premultipliedColor,
+                    content: .color(.resolved(.premultipliedAlpha)),
+                    physicalSize: size,
+                    mappedSize: size,
+                    uvTransform: .identity,
+                    sampling: .linearClamp
+                ),
                 contentGeneration: readyGeneration
             )
             textures[SceneMediaThumbnailBindingProgram.previousIdentity] = previous.texture

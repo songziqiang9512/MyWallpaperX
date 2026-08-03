@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import Metal
 
@@ -64,12 +65,27 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         defer { lock.unlock() }
         let publications = Dictionary(uniqueKeysWithValues: currentTextures.compactMap {
             layerID, texture in
-            generationState.readyGeneration(layerID: layerID).map {
-                (
+            generationState.readyGeneration(layerID: layerID).map { generation in
+                let size = CGSize(
+                    width: texture.width,
+                    height: texture.height
+                )
+                return (
                     layerID,
                     SceneTextureProviderPublication(
-                        texture: texture,
-                        contentGeneration: $0
+                        requestIdentity: .layerSource(layerID),
+                        candidate: SceneTextureCandidate(
+                            texture: texture,
+                            identity: .provider(.dynamicText(layerID: layerID)),
+                            generation: .provider(contentGeneration: generation),
+                            purpose: .premultipliedColor,
+                            content: .color(.resolved(.premultipliedAlpha)),
+                            physicalSize: size,
+                            mappedSize: size,
+                            uvTransform: .identity,
+                            sampling: .linearClamp,
+                        ),
+                        contentGeneration: generation
                     )
                 )
             }

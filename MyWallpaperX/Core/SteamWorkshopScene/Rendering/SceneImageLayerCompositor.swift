@@ -5,18 +5,51 @@ struct SceneImageLayerCompositor {
     private let authoredEffectPipelines: SceneAuthoredEffectPipelineSet
     private let pipelineRepository: SceneImageEffectPipelineRepository
     private let colorBlendPipelineSlot: ScenePipelineSlot<SceneLayerColorBlendPipeline>
+    private let resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge?
 
     init?(device: MTLDevice) {
         self.init(pipelineRepository: SceneImageEffectPipelineRepository(device: device))
     }
 
-    init(pipelineRepository: SceneImageEffectPipelineRepository) {
+    init(
+        pipelineRepository: SceneImageEffectPipelineRepository,
+        resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge? = nil
+    ) {
         self.pipelineRepository = pipelineRepository
+        self.resolvedMaterialRuntime = resolvedMaterialRuntime
         authoredEffectPipelines = .init(repository: pipelineRepository)
         let device = pipelineRepository.device
         colorBlendPipelineSlot = .init {
             SceneLayerColorBlendPipeline(device: device)
         }
+    }
+
+    var resolvedMaterialAssetStates: [
+        SceneAssetTextureIdentity: SceneTextureProviderState
+    ] {
+        resolvedMaterialRuntime?.assetStates ?? [:]
+    }
+
+    func resolvedMaterialSystemProviderBlocks(
+        _ snapshot: SceneMediaThumbnailTextureStore.Snapshot
+    ) -> [String: SceneFrameTextureRegistry.ProviderStatus] {
+        resolvedMaterialRuntime?.systemProviderBlocks(for: snapshot) ?? [:]
+    }
+
+    func beginResolvedMaterialFrame(
+        textureSnapshot: SceneFrameTextureRegistrySnapshot,
+        dynamicSnapshot: SceneDynamicSnapshot,
+        frameInputs: SceneAuthoredShaderFrameInputs
+    ) {
+        resolvedMaterialRuntime?.beginFrame(
+            textureSnapshot: textureSnapshot,
+            dynamicSnapshot: dynamicSnapshot,
+            frameInputs: frameInputs
+        )
+    }
+
+    func endResolvedMaterialFrame() {
+        resolvedMaterialRuntime?.endFrame()
     }
 
     @discardableResult
@@ -135,6 +168,12 @@ struct SceneImageLayerCompositor {
                     )
                     return false
                 }
+                for pair in zip(authoredChain.stages, targets) {
+                    resolvedMaterialRuntime?.auditResolvedMaterials(
+                        graph: pair.0.renderGraph,
+                        targets: pair.1
+                    )
+                }
                 renderedTexture = mainPass.encodeOffscreen { commandBuffer in
                     SceneAuthoredEffectChainRenderer.render(
                         sourceTexture: request.texture,
@@ -166,6 +205,10 @@ struct SceneImageLayerCompositor {
                 ) else {
                     return false
                 }
+                resolvedMaterialRuntime?.auditResolvedMaterials(
+                    graph: authoredPlan.renderGraph,
+                    targets: targets
+                )
                 renderedTexture = mainPass.encodeOffscreen { commandBuffer -> MTLTexture? in
                     SceneStandaloneAuthoredEffectRenderer.render(
                         plan: authoredPlan,

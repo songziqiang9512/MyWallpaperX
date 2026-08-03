@@ -57,6 +57,11 @@ enum SceneTextureLoadPurpose: Hashable {
     case phase
     case normal
     case depth
+    case lookupTable
+
+    var requiresVolumeTexture: Bool {
+        self == .lookupTable
+    }
 }
 
 @main

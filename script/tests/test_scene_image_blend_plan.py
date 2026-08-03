@@ -13,8 +13,15 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
+    SOURCE_ROOT / "Format/SceneJSONValue.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
     SOURCE_ROOT / "Resources/SceneNamedTextureReference.swift",
+    SOURCE_ROOT / "Resources/SceneImageTextureUploader.swift",
+    SOURCE_ROOT / "Resources/SceneTextureSampling.swift",
+    SOURCE_ROOT / "Resources/SceneTextureUVTransform.swift",
+    SOURCE_ROOT / "Resources/SceneTextureCandidate.swift",
+    SOURCE_ROOT / "Resources/SceneTextureSlotBinding.swift",
     SOURCE_ROOT / "Resources/SceneTextureProviderPublication.swift",
     SOURCE_ROOT / "Resources/SceneFrameTextureRegistry.swift",
     SOURCE_ROOT / "Rendering/SceneImageBlendRenderPlan.swift",
@@ -22,6 +29,13 @@ SWIFT_SOURCES = [
 
 HARNESS_SOURCE = r'''
 import Foundation
+import Metal
+
+enum SceneTextureLoadOutcome {
+    case loaded(MTLTexture)
+    case decodeFailed(String)
+    case textureAllocationFailed(width: Int, height: Int)
+}
 
 struct SceneDocument {
     struct ShaderValue {
@@ -258,7 +272,7 @@ class SceneImageBlendPlanTests(unittest.TestCase):
     def test_property_provider_preserves_authored_layer_fallback(self) -> None:
         self.assertEqual(
             self.result["propertyCandidates"],
-            ["property:newproperty25", "layer:100"],
+            ["property:13#newproperty25:premultiplied-color", "layer:100"],
         )
         self.assertTrue(self.result["propertyUsesInitialAlpha"])
 

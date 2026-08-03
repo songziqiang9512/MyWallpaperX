@@ -33,7 +33,7 @@ nonisolated struct SceneAuthoredShaderFrontendDiagnostic: Equatable {
     let column: Int?
 }
 
-nonisolated enum SceneAuthoredShaderValueType: String, CaseIterable {
+nonisolated enum SceneAuthoredShaderValueType: String, CaseIterable, Hashable, Sendable {
     case bool
     case int
     case uint
@@ -109,8 +109,8 @@ nonisolated enum SceneAuthoredShaderValueType: String, CaseIterable {
     }
 }
 
-nonisolated struct SceneAuthoredShaderUniformLayout: Equatable {
-    struct Field: Equatable {
+nonisolated struct SceneAuthoredShaderUniformLayout: Equatable, Hashable, Sendable {
+    struct Field: Equatable, Hashable, Sendable {
         let name: String
         let type: SceneAuthoredShaderValueType
         let offset: Int
@@ -120,8 +120,14 @@ nonisolated struct SceneAuthoredShaderUniformLayout: Equatable {
     let byteSize: Int
 }
 
+nonisolated enum SceneShaderColorTransfer: Equatable, Hashable, Sendable {
+    case passthrough(textureSlot: Int)
+    case opaque
+    case unresolved
+}
+
 nonisolated struct SceneAuthoredShaderProgram {
-    struct TextureBinding: Equatable {
+    struct TextureBinding: Equatable, Hashable, Sendable {
         let name: String
         let slot: Int
     }
@@ -132,6 +138,25 @@ nonisolated struct SceneAuthoredShaderProgram {
     let uniformLayout: SceneAuthoredShaderUniformLayout
     let textureBindings: [TextureBinding]
     let staticLoopWork: Int
+    let colorTransfer: SceneShaderColorTransfer
+
+    init(
+        metalSource: String,
+        vertexFunctionName: String,
+        fragmentFunctionName: String,
+        uniformLayout: SceneAuthoredShaderUniformLayout,
+        textureBindings: [TextureBinding],
+        staticLoopWork: Int,
+        colorTransfer: SceneShaderColorTransfer
+    ) {
+        self.metalSource = metalSource
+        self.vertexFunctionName = vertexFunctionName
+        self.fragmentFunctionName = fragmentFunctionName
+        self.uniformLayout = uniformLayout
+        self.textureBindings = textureBindings
+        self.staticLoopWork = staticLoopWork
+        self.colorTransfer = colorTransfer
+    }
 
     func offscreenSize(viewportSize: CGSize) -> CGSize? {
         guard viewportSize.width.isFinite,

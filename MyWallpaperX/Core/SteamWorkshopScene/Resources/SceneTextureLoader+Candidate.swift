@@ -89,6 +89,16 @@ extension SceneTextureLoader {
                 "file changed while loading: \(url.lastPathComponent)"
             ))
         }
+        let content: SceneTextureContent
+        switch purpose {
+        case .premultipliedColor:
+            content = .color(.resolved(.premultipliedAlpha))
+        case .straightAlbedo:
+            content = .color(.resolved(.straightAlpha))
+        case .preservedChannels, .mask, .noise, .flow, .phase, .normal,
+             .depth, .lookupTable:
+            content = .data
+        }
         return .loaded(SceneTextureCandidate(
             texture: texture,
             identity: .file(path: source.path),
@@ -103,6 +113,7 @@ extension SceneTextureLoader {
                 )
             ),
             purpose: purpose,
+            content: content,
             physicalSize: physicalSize,
             mappedSize: mappedSize,
             uvTransform: SceneTextureUVTransform(

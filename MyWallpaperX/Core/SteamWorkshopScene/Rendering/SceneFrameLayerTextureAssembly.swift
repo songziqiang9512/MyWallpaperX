@@ -21,7 +21,9 @@ enum SceneFrameLayerTextureAssembly {
         if let current = mediaThumbnail?.current {
             for layerID in mediaBindings.currentLayerIDs where textures[layerID] != nil {
                 textures[layerID] = current.texture
-                publications[layerID] = current
+                publications[layerID] = current.publication(
+                    for: .layerSource(layerID)
+                )
             }
         }
         for (layerID, source) in videoSources {

@@ -319,6 +319,7 @@ enum Harness {
         switch candidate.identity {
         case .file: return "file"
         case .builtIn: return "builtIn"
+        case .provider: return "provider"
         }
     }
 
@@ -327,6 +328,7 @@ enum Harness {
         switch candidate.generation {
         case .file: return "file"
         case .immutable: return "immutable"
+        case .provider: return "provider"
         }
     }
 

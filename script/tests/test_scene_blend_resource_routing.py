@@ -33,27 +33,52 @@ struct SceneBlendExecutionPlan {
 
 struct SceneTextureLoader {}
 
-enum SceneTextureLoadPurpose {
+enum SceneTextureLoadPurpose: Hashable {
     case premultipliedColor
     case preservedChannels
     case depth
+}
+
+struct SceneUserPropertyTextureIdentity: Hashable {
+    let propertyKey: String
+    let purpose: SceneTextureLoadPurpose
+
+    init?(propertyKey: String, purpose: SceneTextureLoadPurpose) {
+        guard !propertyKey.isEmpty else { return nil }
+        self.propertyKey = propertyKey
+        self.purpose = purpose
+    }
+}
+
+enum SceneFrameTextureIdentity: Equatable {
+    case materialUserProperty(SceneUserPropertyTextureIdentity)
 }
 
 struct SceneTextureCandidate {
     let texture: MTLTexture
 }
 
+struct SceneTextureProviderPublication {
+    let requestIdentity: SceneFrameTextureIdentity
+    let candidate: SceneTextureCandidate
+    let isComplete: Bool
+}
+
+enum SceneTextureProviderState {
+    case ready(SceneTextureProviderPublication)
+    case absent
+    case pending
+    case unavailable
+}
+
 struct SceneTextureSlotBinding {
     let slotIndex: Int
     let candidate: SceneTextureCandidate
 
-    static func resolveFinalCandidate(
-        slotIndex: Int,
-        candidates: [SceneTextureCandidate?]
-    ) -> SceneTextureSlotBinding? {
-        candidates.reversed().compactMap { $0 }.first.map {
-            SceneTextureSlotBinding(slotIndex: slotIndex, candidate: $0)
-        }
+    init?(slotIndex: Int, candidate: SceneTextureCandidate) {
+        guard (0..<8).contains(slotIndex) else { return nil }
+        self.slotIndex = slotIndex
+        self.candidate = candidate
     }
 
     var texture: MTLTexture { candidate.texture }
@@ -165,32 +190,41 @@ enum Harness {
             )
         }
 
+        let propertyIdentity = SceneUserPropertyTextureIdentity(
+            propertyKey: propertyKey,
+            purpose: .premultipliedColor
+        )!
         let authored = load(
             resolver: resolver(package: package, loose: loose, stock: stock),
-            userPropertyTextureCandidates: [:],
+            userPropertyTextureStates: [propertyIdentity: .absent],
             device: device
         )
         let looseFallback = load(
             resolver: resolver(package: nil, loose: loose, stock: stock),
-            userPropertyTextureCandidates: [:],
+            userPropertyTextureStates: [propertyIdentity: .absent],
             device: device
         )
         let stockFallback = load(
             resolver: resolver(package: nil, loose: empty, stock: stock),
-            userPropertyTextureCandidates: [:],
+            userPropertyTextureStates: [propertyIdentity: .absent],
             device: device
         )
         let propertyTexture = makeTexture(device: device, label: "property")
+        let propertyCandidate = SceneTextureCandidate(texture: propertyTexture)
         let property = load(
             resolver: resolver(package: package, loose: loose, stock: stock),
-            userPropertyTextureCandidates: [
-                propertyKey: SceneTextureCandidate(texture: propertyTexture),
+            userPropertyTextureStates: [
+                propertyIdentity: .ready(.init(
+                    requestIdentity: .materialUserProperty(propertyIdentity),
+                    candidate: propertyCandidate,
+                    isComplete: true
+                )),
             ],
             device: device
         )
         let missing = load(
             resolver: resolver(package: nil, loose: empty, stock: nil),
-            userPropertyTextureCandidates: [:],
+            userPropertyTextureStates: [propertyIdentity: .absent],
             device: device
         )
 
@@ -221,7 +255,9 @@ enum Harness {
 
     static func load(
         resolver: SceneTexturePathResolver,
-        userPropertyTextureCandidates: [String: SceneTextureCandidate],
+        userPropertyTextureStates: [
+            SceneUserPropertyTextureIdentity: SceneTextureProviderState
+        ],
         device: MTLDevice
     ) -> (textures: [String: SceneBlendEffectTextures], message: String) {
         let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
@@ -242,7 +278,7 @@ enum Harness {
             resolver: resolver,
             loader: SceneTextureLoader(),
             device: device,
-            userPropertyTextureCandidates: userPropertyTextureCandidates
+            userPropertyTextureStates: userPropertyTextureStates
         )
     }
 
@@ -290,10 +326,11 @@ class SceneBlendResourceRoutingTests(unittest.TestCase):
                 str(binary),
             ],
             cwd=REPOSITORY_ROOT,
-            check=True,
             capture_output=True,
             text=True,
         )
+        if completed.returncode != 0:
+            raise RuntimeError(completed.stderr)
         runtime = root / "runtime"
         completed = subprocess.run(
             [str(binary), str(runtime)],

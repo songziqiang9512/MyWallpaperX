@@ -1,0 +1,400 @@
+import Foundation
+
+/// The only assembly boundary from runtime facts to an executable material
+/// program. Every identity is projected from validated facts here; callers do
+/// not provide cache keys, color claims, or partially packed uniform buffers.
+nonisolated enum SceneResolvedMaterialProgramDerivation {
+    typealias Program = SceneResolvedMaterialProgram
+    typealias Template = SceneResolvedMaterialTemplate
+
+    static func derive(_ input: Program.AssemblyInput) -> Program.Derived? {
+        guard validPreparedStages(input.preparedShader),
+              input.renderState.matchesFullscreenOverwrite(
+                  alphaWriting: .unspecified
+              ),
+              let frontend = recompile(input.preparedShader),
+              let textures = resolveTextures(
+                  input.textureSlots,
+                  frontend: frontend
+              ),
+              let uniforms = resolveUniforms(
+                  input.resolvedUniforms,
+                  layout: frontend.uniformLayout,
+                  activeTextureSlots: Set(textures.activeSlots)
+              ),
+              let graphRole = SceneResolvedMaterialProgramIdentity.graphRole(
+                  input.graphRole,
+                  textureSlots: input.textureSlots,
+                  activeTextureSlots: Set(textures.activeSlots)
+              ),
+              let color = resolveColor(
+                  transfer: frontend.colorTransfer,
+                  textureSlots: input.textureSlots
+              ) else {
+            return nil
+        }
+
+        let renderState = SceneResolvedMaterialProgramIdentity.renderState(
+            input.renderState
+        )
+        let shader = SceneResolvedMaterialProgramIdentity.shader(
+            frontend,
+            schemaVersion: input.preparedShader.vertex.frontendSchemaVersion
+        )
+        let colorIdentity = Program.ColorContractIdentity(
+            framebufferInput: SceneResolvedMaterialProgramIdentity.color(
+                color.framebufferInput
+            ),
+            fragmentOutput: SceneResolvedMaterialProgramIdentity.color(
+                color.fragmentOutput
+            )
+        )
+        let semantic = Program.SemanticIdentity(
+            shader: shader,
+            textureSlots: textures.semantic,
+            activeUniforms: uniforms.semantic,
+            renderState: renderState,
+            colorContract: colorIdentity,
+            graphRole: graphRole
+        )
+        let exact = Program.ExactIdentity(
+            semanticIdentity: semantic,
+            prepared: SceneResolvedMaterialProgramIdentity.prepared(
+                input.preparedShader
+            ),
+            textureSlots: textures.exact,
+            uniformBytes: uniforms.bytes,
+            dynamicUniforms: uniforms.dynamic
+        )
+        return Program.Derived(
+            frontendProgram: frontend,
+            uniformBytes: uniforms.bytes,
+            colorContract: SceneShaderColorContract(
+                framebufferInput: .resolved(color.framebufferInput),
+                fragmentOutput: .resolved(color.fragmentOutput)
+            ),
+            semanticIdentity: semantic,
+            exactIdentity: exact
+        )
+    }
+
+    private struct TextureProjection {
+        let activeSlots: [Int]
+        let semantic: [Program.TextureSemanticIdentity?]
+        let exact: [Program.ExactTextureIdentity?]
+    }
+
+    private struct UniformProjection {
+        let bytes: Data
+        let semantic: [Program.ActiveUniformIdentity]
+        let dynamic: [Program.ExactDynamicUniformIdentity]
+    }
+
+    private struct ColorProjection {
+        let framebufferInput: SceneShaderColorRepresentation
+        let fragmentOutput: SceneShaderColorRepresentation
+    }
+
+    private static func validPreparedStages(
+        _ prepared: SceneShaderPreparedProgram
+    ) -> Bool {
+        let currentSchema = SceneShaderVariantEnvironment.frontendSchemaVersion
+        return prepared.vertex.stage == .vertex
+            && prepared.fragment.stage == .fragment
+            && prepared.vertex.frontendSchemaVersion == currentSchema
+            && prepared.fragment.frontendSchemaVersion == currentSchema
+            && prepared.vertex.sourceDialect == .wallpaperEngineGLSLLike
+            && prepared.fragment.sourceDialect == .wallpaperEngineGLSLLike
+            && prepared.vertex.backend == .mwxMetal
+            && prepared.fragment.backend == .mwxMetal
+            && !prepared.cacheKey.isEmpty
+            && digestFields(prepared.vertex).allSatisfy { !$0.isEmpty }
+            && digestFields(prepared.fragment).allSatisfy { !$0.isEmpty }
+    }
+
+    private static func digestFields(
+        _ source: SceneShaderPreparedSource
+    ) -> [String] {
+        [source.dependencySHA256, source.variantSHA256, source.preparedSHA256]
+    }
+
+    private static func recompile(
+        _ prepared: SceneShaderPreparedProgram
+    ) -> SceneAuthoredShaderProgram? {
+        let output = SceneAuthoredShaderFrontend.compile(
+            vertexSource: prepared.vertex.source,
+            fragmentSource: prepared.fragment.source
+        )
+        guard output.diagnostics.isEmpty,
+              let program = output.program,
+              uniqueAndValid(program.uniformLayout) else {
+            return nil
+        }
+        return program
+    }
+
+    private static func uniqueAndValid(
+        _ layout: SceneAuthoredShaderUniformLayout
+    ) -> Bool {
+        guard layout.byteSize >= 0,
+              layout.byteSize <= 4_096,
+              layout.byteSize.isMultiple(of: 16),
+              Set(layout.fields.map(\.name)).count == layout.fields.count else {
+            return false
+        }
+        var end = 0
+        for field in layout.fields {
+            guard !field.name.isEmpty,
+                  field.offset >= end,
+                  field.offset.isMultiple(of: field.type.alignment),
+                  field.offset <= layout.byteSize - field.type.byteSize else {
+                return false
+            }
+            end = field.offset + field.type.byteSize
+        }
+        return end <= layout.byteSize
+    }
+
+    private static func resolveTextures(
+        _ slots: [Program.TextureSlot?],
+        frontend: SceneAuthoredShaderProgram
+    ) -> TextureProjection? {
+        guard slots.count == 8 else { return nil }
+        let activeSlots = frontend.textureBindings.map(\.slot)
+        guard activeSlots == activeSlots.sorted(),
+              Set(activeSlots).count == activeSlots.count,
+              activeSlots.allSatisfy({ (0 ..< 8).contains($0) }),
+              slots.enumerated().compactMap({ index, slot in
+                  slot == nil ? nil : index
+              }) == activeSlots else {
+            return nil
+        }
+
+        var semantic = Array<Program.TextureSemanticIdentity?>(
+            repeating: nil,
+            count: 8
+        )
+        var exact = Array<Program.ExactTextureIdentity?>(
+            repeating: nil,
+            count: 8
+        )
+        var deviceRegistryID: UInt64?
+        for index in activeSlots {
+            guard let slot = slots[index],
+                  slot.index == index,
+                  SceneResolvedMaterialProgramIdentity.registryIdentity(
+                      slot.registryIdentity,
+                      matches: slot.reference,
+                      purpose: slot.expectedPurpose
+                  ),
+                  slot.resource.publication.requestIdentity == slot.registryIdentity,
+                  slot.expectedPurpose == slot.resource.publication.candidate.purpose,
+                  slot.resource.publication.isComplete,
+                  slot.resource.publication.candidate.sampling
+                      .isResolvedForMaterialProgram,
+                  SceneTextureSlotBinding(
+                      slotIndex: index,
+                      candidate: slot.resource.publication.candidate
+                  ) != nil,
+                  let referenceKind = SceneResolvedMaterialProgramIdentity
+                      .textureReferenceKind(slot.reference),
+                  let content = SceneResolvedMaterialProgramIdentity.textureContent(
+                      slot.resource.publication.candidate.content
+                  ) else {
+                return nil
+            }
+            let candidate = slot.resource.publication.candidate
+            let exactIdentity = SceneResolvedMaterialProgramIdentity.exactTexture(slot)
+            guard deviceRegistryID == nil || deviceRegistryID == exactIdentity.deviceRegistryID else {
+                return nil
+            }
+            deviceRegistryID = exactIdentity.deviceRegistryID
+            semantic[index] = .init(
+                slot: index,
+                referenceKind: referenceKind,
+                purpose: slot.expectedPurpose,
+                content: content,
+                sampling: candidate.sampling
+            )
+            exact[index] = exactIdentity
+        }
+        return TextureProjection(
+            activeSlots: activeSlots,
+            semantic: semantic,
+            exact: exact
+        )
+    }
+
+    private static func resolveUniforms(
+        _ resolved: [Program.ResolvedUniform],
+        layout: SceneAuthoredShaderUniformLayout,
+        activeTextureSlots: Set<Int>
+    ) -> UniformProjection? {
+        guard resolved.count == layout.fields.count else { return nil }
+        var bytes = Data(count: layout.byteSize)
+        var semantic: [Program.ActiveUniformIdentity] = []
+        var dynamic: [Program.ExactDynamicUniformIdentity] = []
+        for (field, value) in zip(layout.fields, resolved) {
+            guard value.field == field,
+                  value.encodedValue.count == field.type.byteSize,
+                  let source = uniformSourceIdentity(
+                      value.source,
+                      field: field,
+                      activeTextureSlots: activeTextureSlots
+                  ) else {
+                return nil
+            }
+            bytes.replaceSubrange(
+                field.offset ..< field.offset + field.type.byteSize,
+                with: value.encodedValue
+            )
+            semantic.append(.init(
+                fieldName: field.name,
+                fieldType: field.type.rawValue,
+                fieldOffset: field.offset,
+                source: source
+            ))
+            if case let .dynamic(
+                declared,
+                target,
+                resolvedSource,
+                controlAttachments
+            ) = value.source {
+                dynamic.append(.init(
+                    target: target,
+                    declaredSource: declared,
+                    resolvedSource: resolvedSource,
+                    controlAttachments: controlAttachments
+                ))
+            }
+        }
+        return UniformProjection(
+            bytes: bytes,
+            semantic: semantic,
+            dynamic: dynamic
+        )
+    }
+
+    private static func uniformSourceIdentity(
+        _ source: Program.ResolvedUniform.Source,
+        field: SceneAuthoredShaderUniformLayout.Field,
+        activeTextureSlots: Set<Int>
+    ) -> Program.UniformSourceSchema? {
+        let expectedHost = hostUniform(
+            field,
+            activeTextureSlots: activeTextureSlots
+        )
+        switch source {
+        case let .host(host):
+            guard host == expectedHost else { return nil }
+            return .host(host)
+        case .staticValue:
+            guard expectedHost == nil else { return nil }
+            return .staticValue
+        case let .dynamic(declared, _, resolved, _):
+            guard expectedHost == nil,
+                  let kind = dynamicKind(declared, resolved: resolved) else {
+                return nil
+            }
+            return .dynamic(kind)
+        }
+    }
+
+    private static func hostUniform(
+        _ field: SceneAuthoredShaderUniformLayout.Field,
+        activeTextureSlots: Set<Int>
+    ) -> Program.HostUniform? {
+        switch (field.name, field.type) {
+        case ("mwxRenderSize", .float2): return .renderSize
+        case ("g_ModelViewProjectionMatrix", .float4x4):
+            return .modelViewProjection
+        case ("g_Time", .float): return .time
+        case ("g_Daytime", .float): return .dayTime
+        case ("g_Frametime", .float): return .frameTime
+        case ("g_PointerPosition", .float2): return .pointerPosition
+        case ("g_PointerPositionLast", .float2): return .pointerPositionLast
+        case ("g_Screen", .float3): return .screen
+        case ("g_TexelSize", .float2):
+            return .texelSize(scaleBitPattern: Double(1).bitPattern)
+        case ("g_TexelSizeHalf", .float2):
+            return .texelSize(scaleBitPattern: Double(0.5).bitPattern)
+        default:
+            for slot in activeTextureSlots.sorted()
+            where field.name == "g_Texture\(slot)Resolution"
+                && field.type == .float4 {
+                return .textureResolution(slot: slot)
+            }
+            return nil
+        }
+    }
+
+    private static func dynamicKind(
+        _ declared: Template.DynamicUniformSource,
+        resolved: SceneDynamicSource
+    ) -> Program.DynamicSourceKind? {
+        if resolved == .authored {
+            return switch declared {
+            case .userProperty: .userProperty
+            case .timeline: .timeline
+            case .sceneScript: .sceneScript
+            }
+        }
+        switch (declared, resolved) {
+        case (.userProperty, .userProperty): return .userProperty
+        case (.timeline, .timeline): return .timeline
+        case (.sceneScript, .sceneScript): return .sceneScript
+        default: return nil
+        }
+    }
+
+    static func hasResolvedColorContract(
+        transfer: SceneShaderColorTransfer,
+        textureSlots: [Program.TextureSlot?]
+    ) -> Bool {
+        resolveColor(transfer: transfer, textureSlots: textureSlots) != nil
+    }
+
+    private static func resolveColor(
+        transfer: SceneShaderColorTransfer,
+        textureSlots: [Program.TextureSlot?]
+    ) -> ColorProjection? {
+        var graphRepresentations: Set<SceneShaderColorRepresentation> = []
+        for slot in textureSlots.compactMap({ $0 }) {
+            guard case .graph = slot.reference else { continue }
+            switch slot.resource.publication.candidate.content {
+            case let .color(.resolved(representation)):
+                graphRepresentations.insert(representation)
+            case .color(.unresolved):
+                return nil
+            case .data:
+                continue
+            }
+        }
+        guard graphRepresentations.count == 1,
+              let framebufferInput = graphRepresentations.first else {
+            return nil
+        }
+
+        let fragmentOutput: SceneShaderColorRepresentation
+        switch transfer {
+        case .unresolved:
+            return nil
+        case .opaque:
+            fragmentOutput = .opaque
+        case let .passthrough(slot):
+            guard (0 ..< textureSlots.count).contains(slot),
+                  let texture = textureSlots[slot] else {
+                return nil
+            }
+            guard case let .color(.resolved(representation)) =
+                    texture.resource.publication.candidate.content else {
+                return nil
+            }
+            fragmentOutput = representation
+        }
+        return .init(
+            framebufferInput: framebufferInput,
+            fragmentOutput: fragmentOutput
+        )
+    }
+}

@@ -3,6 +3,7 @@ import Foundation
 import simd
 
 nonisolated struct SceneAuthoredShaderFrameInputs {
+    let frameIndex: UInt64
     let screenSize: CGSize
     let sceneTime: Float
     let dayTime: Float
@@ -12,6 +13,7 @@ nonisolated struct SceneAuthoredShaderFrameInputs {
 }
 
 nonisolated struct SceneAuthoredShaderUniformInputs {
+    let frameIndex: UInt64
     let renderSize: CGSize
     let screenSize: CGSize
     let modelViewProjection: simd_float4x4
@@ -21,6 +23,30 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
     let pointerCurrentNDC: SIMD2<Float>
     let pointerPreviousNDC: SIMD2<Float>
     let texturePhysicalSizes: [Int: CGSize]
+
+    init(
+        frameIndex: UInt64,
+        renderSize: CGSize,
+        screenSize: CGSize,
+        modelViewProjection: simd_float4x4,
+        sceneTime: Float,
+        dayTime: Float,
+        frameTime: Float,
+        pointerCurrentNDC: SIMD2<Float>,
+        pointerPreviousNDC: SIMD2<Float>,
+        texturePhysicalSizes: [Int: CGSize]
+    ) {
+        self.frameIndex = frameIndex
+        self.renderSize = renderSize
+        self.screenSize = screenSize
+        self.modelViewProjection = modelViewProjection
+        self.sceneTime = sceneTime
+        self.dayTime = dayTime
+        self.frameTime = frameTime
+        self.pointerCurrentNDC = pointerCurrentNDC
+        self.pointerPreviousNDC = pointerPreviousNDC
+        self.texturePhysicalSizes = texturePhysicalSizes
+    }
 }
 
 nonisolated enum SceneAuthoredShaderUniformBinder {

@@ -1,6 +1,6 @@
 import simd
 
-struct SceneTextureUVTransform {
+struct SceneTextureUVTransform: Equatable, Hashable, Sendable {
     let origin: SIMD2<Float>
     let xAxis: SIMD2<Float>
     let yAxis: SIMD2<Float>
