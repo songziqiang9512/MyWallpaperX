@@ -80,7 +80,12 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneEffectRuntimeSupport.swift",
     SOURCE_ROOT / "Effects/SceneEffectRuntimePlan.swift",
     SOURCE_ROOT / "Effects/SceneEffectRuntimeModel.swift",
+    SOURCE_ROOT / "Effects/SceneEffectStageRuntimeDisposition.swift",
+    SOURCE_ROOT / "Effects/SceneLegacyEffectPlanningDecision.swift",
+    SOURCE_ROOT / "Effects/SceneLegacyEffectPlanningDecision+Inline.swift",
+    SOURCE_ROOT / "Effects/SceneLegacyEffectPlanningDecision+Execution.swift",
     SOURCE_ROOT / "Effects/SceneOffscreenEffectRenderer.swift",
+    SOURCE_ROOT / "Effects/SceneOffscreenEffectRenderer+LegacyTelemetry.swift",
     SOURCE_ROOT / "Effects/SceneOffscreenEffectRenderer+Capture.swift",
     SOURCE_ROOT / "Runtime/SceneAudioSpectrum.swift",
     SOURCE_ROOT / "Runtime/SceneAudioResponse.swift",
@@ -89,6 +94,10 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneFilmGrainExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneLightShaftsExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer.swift",
+    SOURCE_ROOT
+    / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+SpecializedStage.swift",
+    SOURCE_ROOT
+    / "RenderGraph/EffectExecution/SceneStandaloneAuthoredEffectRenderer.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+CursorRipple.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+WaterRipple.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Rays.swift",
@@ -119,10 +128,13 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Rendering/SceneImageLayerCompositor+Uniforms.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerMainPassRenderer.swift",
     SOURCE_ROOT / "Runtime/SceneGPUCompletionTelemetry.swift",
+    SOURCE_ROOT / "Runtime/SceneEffectExecutionFrameTrace.swift",
+    SOURCE_ROOT / "Runtime/SceneEffectExecutionTelemetry.swift",
 ]
 
 HARNESS_SOURCE = r'''
 import Foundation
+import Dispatch
 import Metal
 import simd
 
@@ -182,9 +194,11 @@ struct SceneRenderDescriptor {
         let file: String
         let visible: Bool?
         let passes: [PassDescriptor]
+        var id: String { file }
     }
 
     struct Layer {
+        let id: Int = 0
         let contentKind: String
         let colorRGB: [Float]?
         let colorBlendMode: Int?
@@ -339,7 +353,28 @@ struct SceneWorkshopAudioHueShiftExecutionPlan: Sendable {
 }
 
 struct SceneAuthoredShaderExecutionPlan: Sendable {
+    enum Profile: Sendable {
+        case genericFramebuffer
+        case scroll
+
+        var stableName: String {
+            switch self {
+            case .genericFramebuffer: "generic-framebuffer"
+            case .scroll: "scroll"
+            }
+        }
+    }
+
     let offscreenSize: CGSize?
+    let profile: Profile
+
+    init(
+        offscreenSize: CGSize?,
+        profile: Profile = .genericFramebuffer
+    ) {
+        self.offscreenSize = offscreenSize
+        self.profile = profile
+    }
 
     func offscreenSize(for requestedSize: CGSize) -> CGSize? { offscreenSize }
 }
@@ -498,6 +533,44 @@ struct SceneAuthoredEffectExecutionPlan {
         case godrays(SceneGodraysPlan)
         case shine(SceneShineExecutionPlan)
         case authoredShader(SceneAuthoredShaderExecutionPlan)
+
+        var stableName: String {
+            switch self {
+            case .preciseGaussian: "precise-gaussian"
+            case .standardBlur: "standard-blur"
+            case .localContrast: "local-contrast"
+            case .opacity: "opacity"
+            case .colorKey: "color-key"
+            case .colorGrading: "color-grading"
+            case .workshopShiftHue: "workshop-shift-hue"
+            case .workshopAudioBars: "workshop-audio-bars"
+            case .workshopGradient: "workshop-gradient"
+            case .workshopAudioHueShift: "workshop-audio-hue-shift"
+            case .workshopShadow: "workshop-shadow"
+            case .spin: "spin"
+            case .proceduralNoise: "procedural-noise"
+            case .filmGrain: "film-grain"
+            case .lightShafts: "light-shafts"
+            case .shake: "shake"
+            case .waterFlow: "water-flow"
+            case .waterWaves: "water-waves"
+            case .waterCaustics: "water-caustics"
+            case .cursorRipple: "cursor-ripple"
+            case .foliageSway: "foliage-sway"
+            case .waterRipple: "water-ripple"
+            case .depthParallax: "depth-parallax"
+            case .xRay: "x-ray"
+            case .clippingMask: "clipping-mask"
+            case .blend: "blend"
+            case .tint: "tint"
+            case .transform: "transform"
+            case .fisheyeZeroDistortion: "fisheye-zero-distortion"
+            case .pulse: "pulse"
+            case .godrays: "godrays"
+            case .shine: "shine"
+            case .authoredShader: "authored-shader"
+            }
+        }
     }
 
     let layerID: Int
@@ -564,6 +637,10 @@ struct SceneAuthoredEffectExecutionPlan {
     var authoredShader: SceneAuthoredShaderExecutionPlan? {
         guard case .authoredShader(let plan) = backend else { return nil }
         return plan
+    }
+
+    var executionFamilyStableName: String {
+        authoredShader?.profile.stableName ?? backend.stableName
     }
 
     var blend: SceneBlendExecutionPlan? {
@@ -1012,6 +1089,11 @@ struct SceneAuthoredEffectExecutionChain {
 }
 
 struct SceneIrisInlineSuffixPlan {
+    let effectKey = SceneAuthoredEffectRenderPlan.EffectKey(
+        layerID: 0,
+        effectIndex: 0,
+        descriptorID: "framebuffer-harness-iris"
+    )
     var inputs: SceneLayerEffectInputs { .neutral }
 }
 
@@ -1488,10 +1570,27 @@ enum Harness {
         let telemetry = SceneGPUCompletionTelemetry(phase: "utility-capture")
         telemetry.record(layerID: 701, encoded: drew, on: commandBuffer)
         telemetry.record(layerID: 702, encoded: false, on: commandBuffer)
+        telemetry.record(layerID: 703, encoded: false, on: commandBuffer)
+        telemetry.record(layerID: 703, encoded: true, on: commandBuffer)
+        let telemetryHandlersCompleted = DispatchSemaphore(value: 0)
+        commandBuffer.addCompletedHandler { _ in
+            telemetryHandlersCompleted.signal()
+        }
         mainPass.finishEnsuringClear()
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
         guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
+        guard telemetryHandlersCompleted.wait(timeout: .now() + 5) == .success else {
+            throw HarnessError.telemetryCompletionTimedOut
+        }
+        let telemetryEvidence: [String: Any] = [
+            "completionHandler": gpuTelemetrySnapshotEvidence(telemetry.snapshot(layerID: 701)),
+            "encodingFailure": gpuTelemetrySnapshotEvidence(telemetry.snapshot(layerID: 702)),
+            "failureThenCompletion": gpuTelemetrySnapshotEvidence(
+                telemetry.snapshot(layerID: 703)
+            ),
+            "reducer": gpuTelemetryReducerEvidence(),
+        ]
 
         let noDependency = try dependencyBlendPixel(
             device: device, queue: queue, pipeline: pipeline, compositor: compositor,
@@ -1815,9 +1914,67 @@ enum Harness {
             "xRayThreeTextureRoute": xRayThreeTextureRoute,
             "filmGrain": filmGrain,
             "baseColorCandidate": baseColorCandidate,
+            "gpuCompletionTelemetry": telemetryEvidence,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
+    }
+
+    static func gpuTelemetryReducerEvidence() -> [String: Any] {
+        var failureThenSuccess = SceneGPUCompletionTelemetryReducer()
+        let failureThenSuccessReports = [
+            failureThenSuccess.reduce(.encodingFailed)?.rawValue ?? "none",
+            failureThenSuccess.reduce(
+                .commandBufferCompleted(succeeded: true)
+            )?.rawValue ?? "none",
+        ]
+
+        var successThenFailure = SceneGPUCompletionTelemetryReducer()
+        let firstSuccessReport = successThenFailure.reduce(
+            .commandBufferCompleted(succeeded: true)
+        )?.rawValue ?? "none"
+        let observesAfterFirstSuccess = successThenFailure.needsCommandBufferObservation
+        let laterFailureReport = successThenFailure.reduce(
+            .commandBufferCompleted(succeeded: false)
+        )?.rawValue ?? "none"
+        let successThenFailureReports = [
+            firstSuccessReport,
+            laterFailureReport,
+        ]
+
+        var repeated = SceneGPUCompletionTelemetryReducer()
+        let repeatedReports = [
+            repeated.reduce(.encodingFailed)?.rawValue ?? "none",
+            repeated.reduce(.encodingFailed)?.rawValue ?? "none",
+            repeated.reduce(.commandBufferCompleted(succeeded: true))?.rawValue ?? "none",
+            repeated.reduce(.commandBufferCompleted(succeeded: true))?.rawValue ?? "none",
+            repeated.reduce(.commandBufferCompleted(succeeded: false))?.rawValue ?? "none",
+        ]
+
+        return [
+            "failureThenSuccessReports": failureThenSuccessReports,
+            "failureThenSuccess": gpuTelemetrySnapshotEvidence(failureThenSuccess.snapshot),
+            "successThenFailureReports": successThenFailureReports,
+            "successThenFailure": gpuTelemetrySnapshotEvidence(successThenFailure.snapshot),
+            "observesAfterFirstSuccess": observesAfterFirstSuccess,
+            "observesAfterBothCommandBufferOutcomes": (
+                successThenFailure.needsCommandBufferObservation
+            ),
+            "repeatedReports": repeatedReports,
+            "repeated": gpuTelemetrySnapshotEvidence(repeated.snapshot),
+        ]
+    }
+
+    static func gpuTelemetrySnapshotEvidence(
+        _ snapshot: SceneGPUCompletionTelemetrySnapshot
+    ) -> [String: Bool] {
+        [
+            "encodingFailureObserved": snapshot.encodingFailureObserved,
+            "commandBufferSuccessObserved": snapshot.commandBufferSuccessObserved,
+            "commandBufferFailureObserved": snapshot.commandBufferFailureObserved,
+            "reportedSuccess": snapshot.reportedSuccess,
+            "reportedFailure": snapshot.reportedFailure,
+        ]
     }
 
     static func filmGrainEvidence(
@@ -4847,6 +5004,7 @@ enum Harness {
         case authoredBlendUnavailable
         case encoderUnavailable
         case commandFailed
+        case telemetryCompletionTimedOut
         case drawRefused
         case readbackFailed
     }
@@ -4928,6 +5086,87 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
     def test_capture_telemetry_waits_for_gpu_completion(self) -> None:
         self.assertIn("phase=utility-capture layer=701 status=succeeded", self.stderr)
         self.assertIn("phase=utility-capture layer=702 status=failed", self.stderr)
+
+        evidence = self.result["gpuCompletionTelemetry"]
+        self.assertEqual(
+            evidence["completionHandler"],
+            {
+                "encodingFailureObserved": False,
+                "commandBufferSuccessObserved": True,
+                "commandBufferFailureObserved": False,
+                "reportedSuccess": True,
+                "reportedFailure": False,
+            },
+        )
+        self.assertEqual(
+            evidence["encodingFailure"],
+            {
+                "encodingFailureObserved": True,
+                "commandBufferSuccessObserved": False,
+                "commandBufferFailureObserved": False,
+                "reportedSuccess": False,
+                "reportedFailure": True,
+            },
+        )
+
+    def test_gpu_completion_telemetry_keeps_independent_sticky_facts(self) -> None:
+        evidence = self.result["gpuCompletionTelemetry"]
+        self.assertEqual(
+            evidence["failureThenCompletion"],
+            {
+                "encodingFailureObserved": True,
+                "commandBufferSuccessObserved": True,
+                "commandBufferFailureObserved": False,
+                "reportedSuccess": True,
+                "reportedFailure": True,
+            },
+        )
+        self.assertEqual(
+            evidence["reducer"]["failureThenSuccessReports"],
+            ["failed", "succeeded"],
+        )
+        self.assertEqual(
+            evidence["reducer"]["failureThenSuccess"],
+            evidence["failureThenCompletion"],
+        )
+        self.assertEqual(
+            evidence["reducer"]["successThenFailureReports"],
+            ["succeeded", "failed"],
+        )
+        self.assertTrue(evidence["reducer"]["observesAfterFirstSuccess"])
+        self.assertFalse(
+            evidence["reducer"]["observesAfterBothCommandBufferOutcomes"]
+        )
+        self.assertEqual(
+            evidence["reducer"]["successThenFailure"],
+            {
+                "encodingFailureObserved": False,
+                "commandBufferSuccessObserved": True,
+                "commandBufferFailureObserved": True,
+                "reportedSuccess": True,
+                "reportedFailure": True,
+            },
+        )
+
+    def test_gpu_completion_telemetry_logs_each_status_at_most_once(self) -> None:
+        evidence = self.result["gpuCompletionTelemetry"]["reducer"]
+        self.assertEqual(
+            evidence["repeatedReports"],
+            ["failed", "none", "succeeded", "none", "none"],
+        )
+        self.assertEqual(
+            evidence["repeated"],
+            {
+                "encodingFailureObserved": True,
+                "commandBufferSuccessObserved": True,
+                "commandBufferFailureObserved": True,
+                "reportedSuccess": True,
+                "reportedFailure": True,
+            },
+        )
+        for status in ("failed", "succeeded"):
+            message = f"phase=utility-capture layer=703 status={status}"
+            self.assertEqual(self.stderr.count(message), 1, self.stderr)
 
     def test_dependency_blend_modes_preserve_source_alpha(self) -> None:
         self.assert_pixel_close(self.result["noDependencyBGRA"], [32, 64, 128, 128])

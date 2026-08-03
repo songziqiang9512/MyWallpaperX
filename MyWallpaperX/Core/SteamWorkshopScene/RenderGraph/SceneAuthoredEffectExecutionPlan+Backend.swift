@@ -202,6 +202,10 @@ extension SceneAuthoredEffectExecutionPlan {
         return plan
     }
 
+    nonisolated var executionFamilyStableName: String {
+        authoredShader?.profile.stableName ?? backend.stableName
+    }
+
     nonisolated var liveConsumerTargets: Set<SceneDynamicTarget> {
         var targets = Set<SceneDynamicTarget>()
         if let target = localContrast?.liveStrengthTarget { targets.insert(target) }

@@ -16,9 +16,10 @@
     "RenderGraph": {
       "EffectExecution": {
         "file_globs": [
-          "SceneAuthoredEffectChainRenderer*.swift"
+          "SceneAuthoredEffectChainRenderer*.swift",
+          "SceneStandaloneAuthoredEffectRenderer*.swift"
         ],
-        "responsibility": "Ordered authored-effect chain GPU execution and its backend extensions."
+        "responsibility": "Authored-effect GPU execution renderer type families, including ordered chains and standalone plans."
       }
     }
   },

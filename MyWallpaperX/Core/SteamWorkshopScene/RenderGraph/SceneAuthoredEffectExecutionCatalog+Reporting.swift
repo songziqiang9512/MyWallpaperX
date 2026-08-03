@@ -16,6 +16,44 @@ extension SceneAuthoredEffectExecutionCatalog {
         let isolatedShineDiagnostics = isolatedDiagnostics {
             $0.isolatedShineOmittedEffectPaths
         }
+        let activityCounts = countMap(
+            SceneAuthoredEffectStageAdmission.Activity.allCases,
+            value: \.activity
+        )
+        let strictAdmissionCounts = countMap(
+            SceneAuthoredEffectStageAdmission.StrictAdmission.allCases,
+            value: \.strictAdmission
+        )
+        let coverageCounts = countMap(
+            SceneAuthoredEffectStageAdmission.Coverage.allCases,
+            value: \.coverage
+        )
+        let activeCount = stageAdmissions.filter { $0.activity == .active }.count
+        let inactiveActivityCount = stageAdmissions.filter {
+            $0.activity != .active
+        }.count
+        let inactiveStrictCount = stageAdmissions.filter {
+            $0.strictAdmission == .inactive
+        }.count
+        let activeStrictCount = stageAdmissions.filter {
+            $0.strictAdmission != .inactive
+        }.count
+        let parsedKeys = stageAdmissions.map(\.key)
+        let strictAdmissionKeys = stageAdmissions.compactMap { admission in
+            switch admission.strictAdmission {
+            case .admittedDedicated, .admittedGeneric:
+                admission.key
+            case .inactive, .notAdmitted:
+                nil
+            }
+        }
+        let chainStages = chainsByLayerID.values.flatMap(\.stages)
+        let chainStageIdentityValid = chainStages.allSatisfy {
+            $0.renderGraph.effects.count == 1
+        }
+        let chainStageKeys = chainStages.compactMap { stage in
+            stage.renderGraph.effects.first?.key
+        }
         return [
             "authoredEffectGraphPlannedCount: \(chainsByLayerID.count)",
             "authoredEffectGraphMaterialNodeCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.materialNodeCount })",
@@ -27,6 +65,16 @@ extension SceneAuthoredEffectExecutionCatalog {
             "authoredEffectGraphLegacyBlurBlockedLayerIDs: \(legacyGaussianBlurBlockedLayerIDs.sorted().map(String.init).joined(separator: ","))",
             "authoredEffectGraphChainCount: \(chainsByLayerID.values.filter { $0.stages.count > 1 }.count)",
             "authoredEffectGraphStageCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.stages.count })",
+            "authoredEffectStageDescriptorCount: \(descriptorEffectStageCount)",
+            "authoredEffectStageParsedCount: \(stageAdmissions.count)",
+            "authoredEffectStageActivityCounts: \(activityCounts)",
+            "authoredEffectStageStrictAdmissionCounts: \(strictAdmissionCounts)",
+            "authoredEffectStageCoverageCounts: \(coverageCounts)",
+            "authoredEffectStageDescriptorIdentityConserved: \(descriptorIdentityConserved(parsedKeys))",
+            "authoredEffectStageActivityConserved: \(activityCount == descriptorEffectStageCount)",
+            "authoredEffectStageInactiveAdmissionConserved: \(inactiveActivityCount == inactiveStrictCount)",
+            "authoredEffectStageActiveAdmissionConserved: \(activeCount == activeStrictCount)",
+            "authoredEffectStageStrictIdentityConserved: \(strictIdentityConserved(admissionKeys: strictAdmissionKeys, chainKeys: chainStageKeys, chainStageIdentityValid: chainStageIdentityValid))",
             "authoredEffectGraphLocalContrastCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.localContrastCount })",
             "authoredEffectGraphOpacityCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.opacityCount })",
             "authoredEffectGraphColorKeyCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.colorKeyCount })",
@@ -68,7 +116,7 @@ extension SceneAuthoredEffectExecutionCatalog {
             "authoredEffectGraphScrollCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.scrollCount })",
             "authoredEffectGraphXRayPrefixCount: \(xRayPrefixOmittedEffectPathsByLayerID.count)",
             "authoredEffectGraphXRayPrefixOmittedEffects: \(xRayPrefixOmittedEffectPathsByLayerID.sorted(by: { $0.key < $1.key }).map { "\($0.key)=\($0.value.joined(separator: ","))" }.joined(separator: ";"))",
-        ]
+        ] + stageAdmissions.map(\.reportLine)
     }
 
     private func isolatedDiagnostics(
@@ -79,5 +127,40 @@ extension SceneAuthoredEffectExecutionCatalog {
             guard !omitted.isEmpty else { return nil }
             return "layer=\(entry.key),omitted=\(omitted.joined(separator: ","))"
         }
+    }
+
+    private func countMap<Value: RawRepresentable & Equatable>(
+        _ values: [Value],
+        value: KeyPath<SceneAuthoredEffectStageAdmission, Value>
+    ) -> String where Value.RawValue == String {
+        values.map { candidate in
+            let count = stageAdmissions.filter { $0[keyPath: value] == candidate }.count
+            return "\(candidate.rawValue)=\(count)"
+        }.joined(separator: ",")
+    }
+
+    private var activityCount: Int {
+        SceneAuthoredEffectStageAdmission.Activity.allCases.reduce(0) { total, activity in
+            total + stageAdmissions.filter { $0.activity == activity }.count
+        }
+    }
+
+    private func descriptorIdentityConserved(
+        _ parsedKeys: [SceneAuthoredEffectRenderPlan.EffectKey]
+    ) -> Bool {
+        parsedKeys.count == descriptorEffectStageCount
+            && Set(parsedKeys).count == parsedKeys.count
+            && Set(parsedKeys) == descriptorEffectStageKeys
+    }
+
+    private func strictIdentityConserved(
+        admissionKeys: [SceneAuthoredEffectRenderPlan.EffectKey],
+        chainKeys: [SceneAuthoredEffectRenderPlan.EffectKey],
+        chainStageIdentityValid: Bool
+    ) -> Bool {
+        chainStageIdentityValid
+            && admissionKeys.count == Set(admissionKeys).count
+            && chainKeys.count == Set(chainKeys).count
+            && Set(admissionKeys) == Set(chainKeys)
     }
 }

@@ -27,6 +27,7 @@ struct SceneRenderDescriptor {
 
 enum SceneTextureLoadPurpose: String {
     case premultipliedColor
+    case straightAlbedo
     case preservedChannels
     case mask
     case depth
@@ -126,8 +127,8 @@ enum Harness {
             resolver: resolver,
             loader: loader,
             device: device,
+            straightAlbedoUserPropertyTextures: ["bottom": propertyBlend],
             preservedUserPropertyTextures: [
-                "bottom": propertyBlend,
                 "style": propertyHalo,
             ]
         )
@@ -143,7 +144,7 @@ enum Harness {
             resolver: resolver,
             loader: loader,
             device: device,
-            preservedUserPropertyTextures: ["bottom": propertyBlend]
+            straightAlbedoUserPropertyTextures: ["bottom": propertyBlend]
         )
 
         let payload: [String: Any] = [
@@ -225,7 +226,7 @@ class SceneXRayTextureLoaderTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls._temporary_directory.cleanup()
 
-    def test_property_overrides_use_the_preserved_map(self) -> None:
+    def test_property_overrides_use_role_typed_maps(self) -> None:
         self.assertTrue(self.result["propertyBlendSelected"])
         self.assertTrue(self.result["propertyHaloSelected"])
         self.assertTrue(self.result["propertyOpacityAuthored"])
@@ -243,7 +244,7 @@ class SceneXRayTextureLoaderTests(unittest.TestCase):
         self.assertEqual(
             self.result["purposes"],
             {
-                "xray blend": "preservedChannels",
+                "xray blend": "straightAlbedo",
                 "xray halo": "preservedChannels",
                 "xray opacity": "mask",
             },

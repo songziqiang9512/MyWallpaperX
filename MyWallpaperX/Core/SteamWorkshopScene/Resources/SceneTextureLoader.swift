@@ -264,6 +264,7 @@ final class SceneTextureLoader {
             let uploaded = purpose.preservesSourceChannels
                 ? SceneTextureMipUploader.uploadEmbeddedDataImages(
                     container.mips,
+                    purpose: purpose,
                     device: device
                 )
                 : SceneTextureMipUploader.uploadEmbeddedImages(

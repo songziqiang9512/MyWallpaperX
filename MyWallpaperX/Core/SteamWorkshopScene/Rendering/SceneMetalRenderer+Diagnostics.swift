@@ -1,5 +1,7 @@
 extension SceneMetalRenderer {
-    func runtimeReportLines() -> [String] {
+    func runtimeReportLines(
+        effectTextures: SceneLayerEffectTextureStore
+    ) -> [String] {
         let utilityLines = SceneUtilityLayerRuntimePlanner.reportLines(
             descriptor: renderDescriptor,
             authoredEffectCatalog: authoredEffectCatalog
@@ -7,7 +9,25 @@ extension SceneMetalRenderer {
         let candidateCount = renderDescriptor.layers.filter {
             $0.contentKind == "spotLight"
         }.count
+        let resourceAvailability = Dictionary(uniqueKeysWithValues:
+            renderDescriptor.layers.filter { !$0.effects.isEmpty }.map { layer in
+                (layer.id, SceneLegacyEffectResourceAvailability(
+                    hasIrisMask: effectTextures.irisMasks[layer.id] != nil,
+                    hasOpacityMask: effectTextures.opacityMasks[layer.id] != nil,
+                    hasWaterMask: effectTextures.waterMasks[layer.id] != nil,
+                    hasFoliageMask: effectTextures.foliageMasks[layer.id] != nil,
+                    hasWaterRippleNormal:
+                        effectTextures.waterRippleNormals[layer.id] != nil
+                ))
+            }
+        )
+        let dispositionLines = SceneEffectRuntimeDispositionCatalog(
+            descriptor: renderDescriptor,
+            authoredCatalog: authoredEffectCatalog,
+            resourcesByLayerID: resourceAvailability
+        ).reportLines
         return utilityLines + authoredEffectCatalog.reportLines
+            + dispositionLines
             + spotLightRuntime.reportLines(candidateCount: candidateCount)
     }
 

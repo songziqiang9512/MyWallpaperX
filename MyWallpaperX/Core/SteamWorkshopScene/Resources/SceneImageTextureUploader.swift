@@ -84,6 +84,16 @@ enum SceneImageTextureUploader {
         purpose: SceneTextureLoadPurpose
     ) -> Data? {
         if purpose.preservesSourceChannels {
+            if purpose == .straightAlbedo, imageHasNoAlpha(image) {
+                // For an explicitly opaque source, straight and premultiplied
+                // RGB are identical because alpha is exactly one. This makes
+                // bounded raster/downscale safe without weakening data roles.
+                return rasterizedRGBA(
+                    image,
+                    width: width,
+                    height: height
+                )
+            }
             // Straight/data consumers cannot safely reconstruct source
             // channels from a premultiplied representation: RGB at alpha zero
             // is already irrecoverable and fractional alpha loses precision.
@@ -102,6 +112,17 @@ enum SceneImageTextureUploader {
             width: width,
             height: height
         )
+    }
+
+    private static func imageHasNoAlpha(_ image: CGImage) -> Bool {
+        switch image.alphaInfo {
+        case .none, .noneSkipLast, .noneSkipFirst:
+            true
+        case .premultipliedLast, .premultipliedFirst, .last, .first, .alphaOnly:
+            false
+        @unknown default:
+            false
+        }
     }
 
     private static func sourceRGBA(

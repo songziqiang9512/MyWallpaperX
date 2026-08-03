@@ -53,7 +53,9 @@ SWIFT_SOURCES = [
 ]
 
 HARNESS = r'''
+import CoreGraphics
 import Foundation
+import ImageIO
 import Metal
 import simd
 
@@ -195,6 +197,27 @@ enum Harness {
             loader: loader,
             device: device
         )
+        let oversizedSameSourceURL = directory.appendingPathComponent(
+            "oversized-same-source.tex"
+        )
+        try makeTex(
+            format: 0,
+            textureWidth: 4_097,
+            textureHeight: 2,
+            imageWidth: 4_097,
+            imageHeight: 2,
+            payload: try makeOpaquePNG(width: 4_097, height: 2)
+        ).write(to: oversizedSameSourceURL)
+        let oversizedSameSourceRejected = SceneParticleRefractionTextureLoader.load(
+            colorSource: .file(oversizedSameSourceURL),
+            declaration: SceneParticleRefractionDeclaration(
+                normalTextureSource: .file(oversizedSameSourceURL),
+                amount: 0.25,
+                overbright: 1
+            ),
+            textureLoader: loader,
+            device: device
+        ) == nil
         let invalidMappedURL = directory.appendingPathComponent(
             "invalid-mapped-normal.tex"
         )
@@ -348,6 +371,7 @@ enum Harness {
                     !sameFile.binding.usesStaticNormalCandidate,
                 "sameFileSharesUpload":
                     sameFile.color === sameFileNormal.texture,
+                "oversizedSameSourceRejected": oversizedSameSourceRejected,
                 "clampBorderLegacy":
                     !clampBorder.binding.usesStaticNormalCandidate
                         && clampBorderNormal.sampling.usesClampBorderFallback,
@@ -605,6 +629,40 @@ enum Harness {
         )
     }
 
+    private static func makeOpaquePNG(width: Int, height: Int) throws -> Data {
+        let pixels = Data(repeating: 255, count: width * height * 4)
+        guard let provider = CGDataProvider(data: pixels as CFData),
+              let image = CGImage(
+                  width: width,
+                  height: height,
+                  bitsPerComponent: 8,
+                  bitsPerPixel: 32,
+                  bytesPerRow: width * 4,
+                  space: CGColorSpaceCreateDeviceRGB(),
+                  bitmapInfo: CGBitmapInfo(
+                      rawValue: CGImageAlphaInfo.noneSkipLast.rawValue
+                  ),
+                  provider: provider,
+                  decode: nil,
+                  shouldInterpolate: false,
+                  intent: .defaultIntent
+              ),
+              let data = CFDataCreateMutable(nil, 0),
+              let destination = CGImageDestinationCreateWithData(
+                  data,
+                  "public.png" as CFString,
+                  1,
+                  nil
+              ) else {
+            throw HarnessError.texture
+        }
+        CGImageDestinationAddImage(destination, image, nil)
+        guard CGImageDestinationFinalize(destination) else {
+            throw HarnessError.texture
+        }
+        return data as Data
+    }
+
     private static func makeTex(
         format: UInt32,
         flags: UInt32 = 0,
@@ -779,6 +837,7 @@ class SceneParticleRefractionPixelTests(unittest.TestCase):
         self.assertTrue(routes["multiImageLegacy"], routes)
         self.assertTrue(routes["sameFileLegacy"], routes)
         self.assertTrue(routes["sameFileSharesUpload"], routes)
+        self.assertTrue(routes["oversizedSameSourceRejected"], routes)
         self.assertTrue(routes["clampBorderLegacy"], routes)
         self.assertTrue(routes["invalidMappedRejected"], routes)
         self.assertTrue(routes["wrongPurposeRejected"], routes)

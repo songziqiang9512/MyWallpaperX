@@ -23,7 +23,9 @@ struct SceneImageLayerCompositor {
     func draw(
         _ request: SceneImageLayerDrawRequest,
         pipeline: SceneImageLayerPipeline,
-        mainPass: SceneMainPassEncoder
+        mainPass: SceneMainPassEncoder,
+        executionTrace: SceneEffectExecutionFrameTrace? = nil,
+        executionOrigin: SceneEffectExecutionOrigin = .image
     ) -> Bool {
         guard (request.dependencyEffect.map {
             ($0.slotIndex == 1 && ($0.blendMode == 0 || $0.blendMode == 5))
@@ -39,7 +41,21 @@ struct SceneImageLayerCompositor {
         let auxMask = masks.iris ?? masks.opacity
         let runtimeAuthoredPlan = request.authoredEffectPlan
             ?? request.authoredEffectChain?.singleStage
-        let effectPlan = SceneEffectRuntimePlanner.plan(
+        let usesAuthoredExecution = request.authoredEffectPlan != nil
+            || request.authoredEffectChain != nil
+        let legacyDecision = usesAuthoredExecution ? nil
+            : SceneEffectRuntimePlanner.legacyPlanningDecision(
+                for: request.layer,
+                resources: SceneLegacyEffectResourceAvailability(
+                    hasIrisMask: masks.iris != nil,
+                    hasOpacityMask: masks.opacity != nil,
+                    hasWaterMask: masks.water != nil,
+                    hasFoliageMask: masks.foliage != nil,
+                    hasWaterRippleNormal: masks.waterRippleNormal != nil
+                ),
+                blocksLegacyGaussianBlur: request.blocksLegacyGaussianBlur
+            )
+        let effectPlan = legacyDecision?.runtimePlan ?? SceneEffectRuntimePlanner.plan(
             for: request.layer,
             hasIrisMask: masks.iris != nil,
             hasOpacityMask: masks.opacity != nil && masks.iris == nil,
@@ -51,6 +67,12 @@ struct SceneImageLayerCompositor {
         )
         guard request.authoredEffectChain != nil
             || effectPlan.skipsUnsupportedComposite == false else {
+            executionTrace?.recordRouteOperation(
+                layerID: request.layer.id,
+                origin: executionOrigin,
+                operation: "legacy-composite-admission",
+                outcome: .failed(reasonCode: "unsupported-composite")
+            )
             return false
         }
         let routesOffscreen = effectPlan.offscreenPassCount > 0
@@ -105,6 +127,12 @@ struct SceneImageLayerCompositor {
                     requestedWidth: requestedOffscreenWidth,
                     requestedHeight: requestedOffscreenHeight
                 ) else {
+                    executionTrace?.recordRouteOperation(
+                        layerID: request.layer.id,
+                        origin: executionOrigin,
+                        operation: "authored-target-allocation",
+                        outcome: .failed(reasonCode: "graph-targets-unavailable")
+                    )
                     return false
                 }
                 renderedTexture = mainPass.encodeOffscreen { commandBuffer in
@@ -125,7 +153,9 @@ struct SceneImageLayerCompositor {
                         audioSpectrum: request.audioSpectrum,
                         authoredShaderFrameInputs: request.authoredShaderFrameInputs,
                         dependencyEffect: request.dependencyEffect,
-                        commandBuffer: commandBuffer
+                        commandBuffer: commandBuffer,
+                        executionTrace: executionTrace,
+                        executionOrigin: executionOrigin
                     )
                 }
             } else if let authoredPlan = request.authoredEffectPlan {
@@ -137,170 +167,33 @@ struct SceneImageLayerCompositor {
                     return false
                 }
                 renderedTexture = mainPass.encodeOffscreen { commandBuffer -> MTLTexture? in
-                    guard targets.encodeInitialTargetClear(commandBuffer: commandBuffer) else {
-                        return nil
-                    }
-                    switch authoredPlan.backend {
-                    case .preciseGaussian:
-                        guard let gaussianBlurPipeline =
-                            authoredEffectPipelines.gaussianBlur else {
-                            return nil
-                        }
-                        return SceneOffscreenEffectRenderer.renderPreciseBlur(
-                            executionPlan: authoredPlan,
-                            sourceTexture: request.texture,
-                            waterMaskTexture: masks.water,
-                            foliageMaskTexture: masks.foliage,
-                            auxMaskTexture: auxMask,
-                            targets: targets,
-                            sourceUniforms: directUniforms,
-                            pipeline: pipeline,
-                            gaussianBlurPipeline: gaussianBlurPipeline,
-                            commandBuffer: commandBuffer
-                        )
-                    case .standardBlur(let blur):
-                        guard let standardBlurPipeline =
-                            authoredEffectPipelines.standardBlur else {
-                            return nil
-                        }
-                        return SceneOffscreenEffectRenderer.renderStandardBlur(
-                            sourceTexture: request.texture,
-                            masks: masks,
-                            targets: targets,
-                            plan: blur,
-                            sourceUniforms: directUniforms,
-                            pipeline: pipeline,
-                            standardBlurPipeline: standardBlurPipeline,
-                            commandBuffer: commandBuffer
-                        )
-                    case .localContrast(let contrast):
-                        guard let localContrastPipeline =
-                            authoredEffectPipelines.localContrast else {
-                            return nil
-                        }
-                        return SceneOffscreenEffectRenderer.renderLocalContrast(
-                            sourceTexture: request.texture,
-                            waterMaskTexture: masks.water,
-                            foliageMaskTexture: masks.foliage,
-                            auxMaskTexture: auxMask,
-                            targets: targets,
-                            plan: contrast,
-                            strength: request.localContrastStrength
-                                ?? contrast.staticOrFallbackStrength,
-                            sourceUniforms: directUniforms,
-                            pipeline: pipeline,
-                            localContrastPipeline: localContrastPipeline,
-                            commandBuffer: commandBuffer
-                        )
-                    case .opacity(let opacity):
-                        let alpha = opacity.resolvedAlpha(in: request.dynamicValues)
-                        guard let opacityPipeline = authoredEffectPipelines.opacity,
-                              targets.plan.logicalTargets.isEmpty,
-                              SceneOffscreenEffectRenderer.captureSource(
-                                  sourceTexture: request.texture,
-                                  waterMaskTexture: masks.water,
-                                  foliageMaskTexture: masks.foliage,
-                                  auxMaskTexture: auxMask,
-                                  target: targets.inputTexture,
-                                  sourceUniforms: directUniforms,
-                                  pipeline: pipeline,
-                                  commandBuffer: commandBuffer
-                              ) else {
-                            return nil
-                        }
-                        return SceneOpacityRenderer.render(
-                            alpha: alpha,
-                            // 这条分支的 capture 用的是 effectPlan.inputs，遮罩已在
-                            // EFFECT_OPACITY_MASK 里乘过，这里再乘一次就是双乘。
-                            mask: nil,
-                            maskUVScale: SIMD2(repeating: 1),
-                            inputTexture: targets.inputTexture,
-                            outputTexture: targets.outputTexture,
-                            pipeline: opacityPipeline,
-                            commandBuffer: commandBuffer
-                        )
-                    case .workshopShadow(let shadow):
-                        guard let workshopShadowPipeline =
-                            authoredEffectPipelines.workshopShadow else {
-                            return nil
-                        }
-                        return SceneOffscreenEffectRenderer.renderWorkshopShadow(
-                            sourceTexture: request.texture,
-                            waterMaskTexture: masks.water,
-                            foliageMaskTexture: masks.foliage,
-                            auxMaskTexture: auxMask,
-                            targets: targets,
-                            plan: shadow,
-                            sourceUniforms: directUniforms,
-                            pipeline: pipeline,
-                            workshopShadowPipeline: workshopShadowPipeline,
-                            commandBuffer: commandBuffer
-                        )
-                    case .shake(let shake):
-                        guard let resources = masks.shakeEffects[shake.effectKey.descriptorID],
-                              let shakePipeline = authoredEffectPipelines.shake,
-                              targets.plan.logicalTargets.isEmpty,
-                              SceneOffscreenEffectRenderer.captureSource(
-                                  sourceTexture: request.texture,
-                                  waterMaskTexture: masks.water,
-                                  foliageMaskTexture: masks.foliage,
-                                  auxMaskTexture: auxMask,
-                                  target: targets.inputTexture,
-                                  sourceUniforms: directUniforms,
-                                  pipeline: pipeline,
-                                  commandBuffer: commandBuffer
-                              ) else {
-                            return nil
-                        }
-                        return SceneShakeRenderer.render(
-                            plan: shake,
-                            resources: resources,
-                            time: directUniforms.time,
-                            audioPulse: shake.audio.map {
-                                SceneAudioResponse.evaluate(
-                                    spectrum: request.audioSpectrum,
-                                    parameters: $0
-                                )
-                            },
-                            inputTexture: targets.inputTexture,
-                            outputTexture: targets.outputTexture,
-                            pipeline: shakePipeline,
-                            commandBuffer: commandBuffer
-                        )
-                    case .waterFlow:
-                        return nil
-                    case .waterWaves(let waterWaves):
-                        guard let waterWavesPipeline =
-                            authoredEffectPipelines.waterWaves else {
-                            return nil
-                        }
-                        return SceneWaterWavesRenderer.renderCaptured(
-                            plan: waterWaves,
-                            sourceTexture: request.texture,
-                            masks: masks,
-                            targets: targets,
-                            sourceUniforms: directUniforms,
-                            sourcePipeline: pipeline,
-                            waterWavesPipeline: waterWavesPipeline,
-                            time: directUniforms.time,
-                            commandBuffer: commandBuffer
-                        )
-                    case .cursorRipple, .foliageSway, .waterRipple, .waterCaustics,
-                         .depthParallax, .xRay, .clippingMask,
-                         .blend, .tint, .transform, .fisheyeZeroDistortion,
-                         .pulse, .godrays, .shine, .spin,
-                         .proceduralNoise, .filmGrain, .lightShafts,
-                         .colorKey, .colorGrading,
-                         .workshopShiftHue, .workshopAudioBars, .workshopGradient,
-                         .workshopAudioHueShift, .authoredShader:
-                        return nil
-                    }
+                    SceneStandaloneAuthoredEffectRenderer.render(
+                        plan: authoredPlan,
+                        sourceTexture: request.texture,
+                        masks: masks,
+                        targets: targets,
+                        dynamicValues: request.dynamicValues,
+                        localContrastStrength: request.localContrastStrength,
+                        sourceUniforms: directUniforms,
+                        audioSpectrum: request.audioSpectrum,
+                        sourcePipeline: pipeline,
+                        pipelines: authoredEffectPipelines,
+                        commandBuffer: commandBuffer,
+                        executionTrace: executionTrace,
+                        executionOrigin: executionOrigin
+                    )
                 }
             } else {
                 guard let textures = pool.textures(
                     width: requestedOffscreenWidth,
                     height: requestedOffscreenHeight
-                ) else {
+                ), let legacyDecision else {
+                    executionTrace?.recordRouteOperation(
+                        layerID: request.layer.id,
+                        origin: executionOrigin,
+                        operation: "legacy-target-allocation",
+                        outcome: .failed(reasonCode: "offscreen-textures-unavailable")
+                    )
                     return false
                 }
                 renderedTexture = mainPass.encodeOffscreen { commandBuffer in
@@ -335,7 +228,10 @@ struct SceneImageLayerCompositor {
                         perspectiveOpacityPipeline: effectPlan.perspectiveOpacity == nil
                             ? nil
                             : pipelineRepository.perspectiveOpacity(),
-                        commandBuffer: commandBuffer
+                        commandBuffer: commandBuffer,
+                        legacyDecision: legacyDecision,
+                        executionTrace: executionTrace,
+                        executionOrigin: executionOrigin
                     )
                 }
             }
@@ -364,7 +260,7 @@ struct SceneImageLayerCompositor {
                     ? nil
                     : request.dependencyEffect?.blendMode
             )
-            return SceneImageLayerMainPassRenderer.draw(
+            let composited = SceneImageLayerMainPassRenderer.draw(
                 texture: finalTexture,
                 masks: irisSuffix == nil ? .empty : masks,
                 mvp: request.mvp,
@@ -377,6 +273,36 @@ struct SceneImageLayerCompositor {
                 colorBlendPipeline: colorBlendPipeline,
                 mainPass: mainPass
             )
+            if let irisSuffix {
+                executionTrace?.recordExact(
+                    identity: SceneEffectExecutionIdentity(
+                        layerID: irisSuffix.effectKey.layerID,
+                        effectIndex: irisSuffix.effectKey.effectIndex,
+                        descriptorID: irisSuffix.effectKey.descriptorID
+                    ),
+                    origin: executionOrigin,
+                    family: "iris-inline",
+                    backend: "iris-inline",
+                    outcome: composited
+                        ? .encodedOutput
+                        : .failed(reasonCode: "main-pass-returned-false")
+                )
+            } else if !composited, request.authoredEffectChain != nil {
+                executionTrace?.recordRouteOperation(
+                    layerID: request.layer.id,
+                    origin: executionOrigin,
+                    operation: "layer-final-composite",
+                    outcome: .failed(reasonCode: "main-pass-returned-false")
+                )
+            } else if !composited, legacyDecision != nil {
+                executionTrace?.recordRouteOperation(
+                    layerID: request.layer.id,
+                    origin: executionOrigin,
+                    operation: "legacy-final-composite",
+                    outcome: .failed(reasonCode: "main-pass-returned-false")
+                )
+            }
+            return composited
         }
         if request.requiresSourceCopy
             || request.authoredEffectPlan != nil
@@ -385,7 +311,7 @@ struct SceneImageLayerCompositor {
             return false
         }
 
-        return SceneImageLayerMainPassRenderer.draw(
+        let rendered = SceneImageLayerMainPassRenderer.draw(
             texture: request.texture,
             masks: masks,
             mvp: request.mvp,
@@ -396,5 +322,24 @@ struct SceneImageLayerCompositor {
             colorBlendPipeline: colorBlendPipeline,
             mainPass: mainPass
         )
+        legacyDecision?.recordInlineExecution(
+            trace: executionTrace,
+            origin: executionOrigin,
+            backend: "image-layer-pipeline",
+            outcome: rendered
+                ? .encodedOutput
+                : .failed(reasonCode: "main-pass-returned-false")
+        )
+        if let legacyDecision, !legacyDecision.dispositions.isEmpty {
+            executionTrace?.recordRouteOperation(
+                layerID: request.layer.id,
+                origin: executionOrigin,
+                operation: "legacy-direct-layer",
+                outcome: rendered
+                    ? .encoded
+                    : .failed(reasonCode: "main-pass-returned-false")
+            )
+        }
+        return rendered
     }
 }

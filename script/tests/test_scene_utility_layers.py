@@ -16,6 +16,9 @@ SOURCE = SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift"
 RUNTIME_PLAN_SOURCE = SOURCE_ROOT / "Rendering/SceneUtilityLayerRuntimePlan.swift"
 UTILITY_RENDERER_SOURCE = SOURCE_ROOT / "Rendering/SceneUtilityLayerRenderer.swift"
 METAL_RENDERER_SOURCE = SOURCE_ROOT / "Rendering/SceneMetalRenderer.swift"
+UTILITY_FRAME_RENDERER_SOURCE = (
+    SOURCE_ROOT / "Rendering/SceneUtilityPlanFrameRenderer.swift"
+)
 DEPENDENCY_RUNTIME_SOURCE = SOURCE_ROOT / "RenderGraph/SceneDependencyFrameRuntime.swift"
 METAL_RENDERER_MASKS_SOURCE = (
     SOURCE_ROOT / "Rendering/SceneMetalRenderer+EffectMasks.swift"
@@ -150,7 +153,8 @@ class SceneUtilityLayerTests(unittest.TestCase):
 
     def test_planned_utility_chain_loads_and_receives_effect_resources(self) -> None:
         metal_view = METAL_VIEW_SOURCE.read_text(encoding="utf-8")
-        metal_renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8")
+        metal_renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8") \
+            + UTILITY_FRAME_RENDERER_SOURCE.read_text(encoding="utf-8")
         metal_renderer_masks = METAL_RENDERER_MASKS_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
             "utilityPlans[layer.id]?.shouldCapture == true && chain != nil",
@@ -170,7 +174,8 @@ class SceneUtilityLayerTests(unittest.TestCase):
 
     def test_utility_capture_receives_the_frame_audio_snapshot(self) -> None:
         utility_renderer = UTILITY_RENDERER_SOURCE.read_text(encoding="utf-8")
-        metal_renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8")
+        metal_renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8") \
+            + UTILITY_FRAME_RENDERER_SOURCE.read_text(encoding="utf-8")
         self.assertIn("audioSpectrum: SceneAudioSpectrumSnapshot", utility_renderer)
         self.assertIn("audioSpectrum: audioSpectrum", utility_renderer)
         self.assertIn("audioSpectrum: frameContext.audioSpectrum", metal_renderer)
@@ -178,7 +183,8 @@ class SceneUtilityLayerTests(unittest.TestCase):
     def test_composition_capture_receives_named_dependency_atomically(self) -> None:
         runtime_plan = RUNTIME_PLAN_SOURCE.read_text(encoding="utf-8")
         utility_renderer = UTILITY_RENDERER_SOURCE.read_text(encoding="utf-8")
-        metal_renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8")
+        metal_renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8") \
+            + UTILITY_FRAME_RENDERER_SOURCE.read_text(encoding="utf-8")
         dependency_runtime = DEPENDENCY_RUNTIME_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
             "dependencyPlan.bindingsByConsumerLayerID[layer.id] != nil",

@@ -4,6 +4,7 @@ import Metal
 struct SceneUserPropertyTextureLoadResult {
     let textures: [String: MTLTexture]
     let textureCandidates: [String: SceneTextureCandidate]
+    let straightAlbedoTextures: [String: MTLTexture]
     let preservedTextures: [String: MTLTexture]
     let reportLines: [String]
 }
@@ -17,6 +18,7 @@ struct SceneUserPropertyTextureLoader {
 
     func load(
         urlsByPropertyKey: [String: URL],
+        straightAlbedoPropertyKeys: Set<String> = [],
         preservedPropertyKeys: Set<String> = [],
         device: MTLDevice
     ) -> SceneUserPropertyTextureLoadResult {
@@ -24,6 +26,7 @@ struct SceneUserPropertyTextureLoader {
             return SceneUserPropertyTextureLoadResult(
                 textures: [:],
                 textureCandidates: [:],
+                straightAlbedoTextures: [:],
                 preservedTextures: [:],
                 reportLines: []
             )
@@ -31,6 +34,7 @@ struct SceneUserPropertyTextureLoader {
         let loader = SceneTextureLoader()
         var textures: [String: MTLTexture] = [:]
         var textureCandidates: [String: SceneTextureCandidate] = [:]
+        var straightAlbedoTextures: [String: MTLTexture] = [:]
         var preservedTextures: [String: MTLTexture] = [:]
         var reportLines = ["sceneUserTextureRequestedCount: \(urlsByPropertyKey.count)"]
 
@@ -73,41 +77,74 @@ struct SceneUserPropertyTextureLoader {
                     )
                 }
             }
-            guard preservedPropertyKeys.contains(key) else { continue }
-            switch loader.load(
-                from: url,
-                purpose: .preservedChannels,
-                device: device
-            ) {
-            case let .loaded(texture):
-                preservedTextures[key] = texture
-                reportLines.append(
-                    "scene user texture \(key) preserved: OK "
-                        + "\(url.lastPathComponent) -> \(texture.width)x\(texture.height)"
-                )
-            case let .decodeFailed(message):
-                reportLines.append(
-                    "scene user texture \(key) preserved: decode failed (\(message))"
-                )
-            case let .textureAllocationFailed(width, height):
-                reportLines.append(
-                    "scene user texture \(key) preserved: allocation failed at "
-                        + "\(width)x\(height)"
-                )
-            case .unsupportedFormat, .unsupportedTexFormat,
-                 .texNoEmbeddedImage, .texContainsVideoPayload:
-                reportLines.append(
-                    "scene user texture \(key) preserved: unsupported image payload"
-                )
+            if straightAlbedoPropertyKeys.contains(key) {
+                switch loader.load(
+                    from: url,
+                    purpose: .straightAlbedo,
+                    device: device
+                ) {
+                case let .loaded(texture):
+                    straightAlbedoTextures[key] = texture
+                    reportLines.append(
+                        "scene user texture \(key) straight albedo: OK "
+                            + "\(url.lastPathComponent) -> \(texture.width)x\(texture.height)"
+                    )
+                case let .decodeFailed(message):
+                    reportLines.append(
+                        "scene user texture \(key) straight albedo: decode failed (\(message))"
+                    )
+                case let .textureAllocationFailed(width, height):
+                    reportLines.append(
+                        "scene user texture \(key) straight albedo: allocation failed at "
+                            + "\(width)x\(height)"
+                    )
+                case .unsupportedFormat, .unsupportedTexFormat,
+                     .texNoEmbeddedImage, .texContainsVideoPayload:
+                    reportLines.append(
+                        "scene user texture \(key) straight albedo: unsupported image payload"
+                    )
+                }
+            }
+            if preservedPropertyKeys.contains(key) {
+                switch loader.load(
+                    from: url,
+                    purpose: .preservedChannels,
+                    device: device
+                ) {
+                case let .loaded(texture):
+                    preservedTextures[key] = texture
+                    reportLines.append(
+                        "scene user texture \(key) preserved: OK "
+                            + "\(url.lastPathComponent) -> \(texture.width)x\(texture.height)"
+                    )
+                case let .decodeFailed(message):
+                    reportLines.append(
+                        "scene user texture \(key) preserved: decode failed (\(message))"
+                    )
+                case let .textureAllocationFailed(width, height):
+                    reportLines.append(
+                        "scene user texture \(key) preserved: allocation failed at "
+                            + "\(width)x\(height)"
+                    )
+                case .unsupportedFormat, .unsupportedTexFormat,
+                     .texNoEmbeddedImage, .texContainsVideoPayload:
+                    reportLines.append(
+                        "scene user texture \(key) preserved: unsupported image payload"
+                    )
+                }
             }
         }
         reportLines.append("sceneUserTextureLoadedCount: \(textures.count)")
+        reportLines.append(
+            "sceneUserTextureStraightAlbedoLoadedCount: \(straightAlbedoTextures.count)"
+        )
         reportLines.append(
             "sceneUserTexturePreservedLoadedCount: \(preservedTextures.count)"
         )
         return SceneUserPropertyTextureLoadResult(
             textures: textures,
             textureCandidates: textureCandidates,
+            straightAlbedoTextures: straightAlbedoTextures,
             preservedTextures: preservedTextures,
             reportLines: reportLines
         )

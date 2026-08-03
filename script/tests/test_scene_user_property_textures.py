@@ -76,15 +76,25 @@ enum Harness {
                 "broken": invalidURL,
                 "unsupported": unsupportedURL,
             ],
+            straightAlbedoPropertyKeys: ["jpeg", "png"],
             preservedPropertyKeys: ["png"],
             device: device
         )
         let sharedLoader = SceneTextureLoader()
         let embeddedDataOutcome = SceneTextureMipUploader.uploadEmbeddedDataImages(
             [.init(width: 2, height: 1, data: try Data(contentsOf: pngURL))],
+            purpose: .preservedChannels,
             device: device
         )
         guard let embeddedDataOutcome else { throw HarnessError.textureRead }
+        let embeddedStraightAlbedoOutcome = SceneTextureMipUploader.uploadEmbeddedDataImages(
+            [.init(width: 3, height: 2, data: try Data(contentsOf: jpegURL))],
+            purpose: .straightAlbedo,
+            device: device
+        )
+        guard let embeddedStraightAlbedoOutcome else {
+            throw HarnessError.textureRead
+        }
         let premultipliedDataRejected = SceneImageTextureUploader.rgbaData(
             image: try makePremultipliedImage(),
             width: 1,
@@ -106,6 +116,26 @@ enum Harness {
             width: 1,
             height: 1,
             purpose: .preservedChannels
+        ) == nil
+        guard let resizedOpaqueAlbedo = SceneImageTextureUploader.rgbaData(
+            image: try makeOpaqueImage(),
+            width: 1,
+            height: 1,
+            purpose: .straightAlbedo
+        ) else {
+            throw HarnessError.textureRead
+        }
+        let resizedTransparentAlbedoRejected = SceneImageTextureUploader.rgbaData(
+            image: try makeStraightImage(),
+            width: 2,
+            height: 1,
+            purpose: .straightAlbedo
+        ) == nil
+        let premultipliedAlbedoRejected = SceneImageTextureUploader.rgbaData(
+            image: try makePremultipliedImage(),
+            width: 1,
+            height: 1,
+            purpose: .straightAlbedo
         ) == nil
         guard let explicitBigData = SceneImageTextureUploader.rgbaData(
             image: try makeImage(
@@ -179,6 +209,9 @@ enum Harness {
         let preservedDimensions = result.preservedTextures.mapValues {
             ["width": $0.width, "height": $0.height]
         }
+        let straightAlbedoDimensions = result.straightAlbedoTextures.mapValues {
+            ["width": $0.width, "height": $0.height]
+        }
         let payload: [String: Any] = [
             "loadedKeys": result.textures.keys.sorted(),
             "candidateKeys": result.textureCandidates.keys.sorted(),
@@ -191,13 +224,16 @@ enum Harness {
                 candidate?.mappedSize.height ?? -1,
             ],
             "preservedLoadedKeys": result.preservedTextures.keys.sorted(),
+            "straightAlbedoLoadedKeys": result.straightAlbedoTextures.keys.sorted(),
             "dimensions": dimensions,
             "preservedDimensions": preservedDimensions,
+            "straightAlbedoDimensions": straightAlbedoDimensions,
             "colorPixels": try pixels(result.textures["png"]),
             "preservedPixels": try pixels(result.preservedTextures["png"]),
             "reversedColorPixels": try pixels(reversedColor),
             "reversedPreservedPixels": try pixels(reversedPreserved),
             "embeddedDataPixels": try pixels(embeddedDataOutcome),
+            "embeddedStraightAlbedoPixels": try pixels(embeddedStraightAlbedoOutcome),
             "reportLines": result.reportLines,
             "retryLoadedKeys": retry.textures.keys.sorted(),
             "retryCandidateKeys": retry.textureCandidates.keys.sorted(),
@@ -206,6 +242,7 @@ enum Harness {
             "emptyLoadedKeys": empty.textures.keys.sorted(),
             "emptyCandidateKeys": empty.textureCandidates.keys.sorted(),
             "emptyPreservedLoadedKeys": empty.preservedTextures.keys.sorted(),
+            "emptyStraightAlbedoLoadedKeys": empty.straightAlbedoTextures.keys.sorted(),
             "emptyReportLines": empty.reportLines,
             "reusedTexture": reusedTexture,
             "reusedPreservedTexture": reusedPreservedTexture,
@@ -214,6 +251,9 @@ enum Harness {
             "premultipliedDataRejected": premultipliedDataRejected,
             "resizedDataRejected": resizedDataRejected,
             "decodedDataRejected": decodedDataRejected,
+            "resizedOpaqueAlbedo": [UInt8](resizedOpaqueAlbedo),
+            "resizedTransparentAlbedoRejected": resizedTransparentAlbedoRejected,
+            "premultipliedAlbedoRejected": premultipliedAlbedoRejected,
             "explicitBigPixels": [UInt8](explicitBigData),
             "explicitLittlePixels": [UInt8](explicitLittleData),
         ]
@@ -289,6 +329,31 @@ enum Harness {
             pixels: [231, 17, 149, 0],
             alphaInfo: .last
         )
+    }
+
+    private static func makeOpaqueImage() throws -> CGImage {
+        guard let provider = CGDataProvider(data: Data([
+            240, 80, 40, 0,
+            40, 160, 220, 0,
+        ]) as CFData),
+              let image = CGImage(
+                  width: 2,
+                  height: 1,
+                  bitsPerComponent: 8,
+                  bitsPerPixel: 32,
+                  bytesPerRow: 8,
+                  space: CGColorSpaceCreateDeviceRGB(),
+                  bitmapInfo: CGBitmapInfo(
+                      rawValue: CGImageAlphaInfo.noneSkipLast.rawValue
+                  ),
+                  provider: provider,
+                  decode: nil,
+                  shouldInterpolate: false,
+                  intent: .defaultIntent
+              ) else {
+            throw HarnessError.imageWrite
+        }
+        return image
     }
 
     private static func makeImage(
@@ -393,7 +458,11 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
         self.assertEqual(self.result["loadedKeys"], ["jpeg", "jpg", "png"])
         self.assertEqual(self.result["candidateKeys"], ["jpeg", "jpg", "png"])
         self.assertEqual(self.result["reportLines"][0], "sceneUserTextureRequestedCount: 5")
-        self.assertEqual(self.result["reportLines"][-2], "sceneUserTextureLoadedCount: 3")
+        self.assertEqual(self.result["reportLines"][-3], "sceneUserTextureLoadedCount: 3")
+        self.assertEqual(
+            self.result["reportLines"][-2],
+            "sceneUserTextureStraightAlbedoLoadedCount: 2",
+        )
         self.assertEqual(
             self.result["reportLines"][-1],
             "sceneUserTexturePreservedLoadedCount: 1",
@@ -419,6 +488,19 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
             {"png": {"height": 1, "width": 2}},
         )
         self.assertTrue(self.result["differentPurposeTexture"])
+
+    def test_xray_property_roles_publish_separate_straight_albedo(self) -> None:
+        self.assertEqual(
+            self.result["straightAlbedoLoadedKeys"],
+            ["jpeg", "png"],
+        )
+        self.assertEqual(
+            self.result["straightAlbedoDimensions"],
+            {
+                "jpeg": {"height": 2, "width": 3},
+                "png": {"height": 1, "width": 2},
+            },
+        )
 
     def test_png_channel_purpose_preserves_hidden_and_straight_rgb(self) -> None:
         self.assertEqual(
@@ -447,6 +529,16 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
         self.assertTrue(self.result["resizedDataRejected"])
         self.assertTrue(self.result["decodedDataRejected"])
 
+    def test_straight_albedo_only_resizes_explicitly_opaque_images(self) -> None:
+        self.assertEqual(self.result["resizedOpaqueAlbedo"][-1], 255)
+        self.assertTrue(self.result["embeddedStraightAlbedoPixels"])
+        self.assertEqual(
+            set(self.result["embeddedStraightAlbedoPixels"][3::4]),
+            {255},
+        )
+        self.assertTrue(self.result["resizedTransparentAlbedoRejected"])
+        self.assertTrue(self.result["premultipliedAlbedoRejected"])
+
     def test_explicit_32_bit_byte_orders_preserve_rgba_channels(self) -> None:
         expected = [231, 17, 149, 0]
         self.assertEqual(self.result["explicitBigPixels"], expected)
@@ -465,12 +557,14 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
         self.assertEqual(
             [
                 self.result["retryReportLines"][0],
+                self.result["retryReportLines"][-3],
                 self.result["retryReportLines"][-2],
                 self.result["retryReportLines"][-1],
             ],
             [
                 "sceneUserTextureRequestedCount: 1",
                 "sceneUserTextureLoadedCount: 0",
+                "sceneUserTextureStraightAlbedoLoadedCount: 0",
                 "sceneUserTexturePreservedLoadedCount: 0",
             ],
         )
@@ -480,6 +574,7 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
         self.assertEqual(self.result["emptyLoadedKeys"], [])
         self.assertEqual(self.result["emptyCandidateKeys"], [])
         self.assertEqual(self.result["emptyPreservedLoadedKeys"], [])
+        self.assertEqual(self.result["emptyStraightAlbedoLoadedKeys"], [])
         self.assertEqual(self.result["emptyReportLines"], [])
 
     def test_loader_reuses_unchanged_textures_but_invalidates_changed_user_files(self) -> None:

@@ -24,6 +24,7 @@ enum SceneLayerEffectTextureLoader {
         shineEffectIDs: Set<String> = [],
         userPropertyTextures: [String: MTLTexture] = [:],
         userPropertyTextureCandidates: [String: SceneTextureCandidate] = [:],
+        straightAlbedoUserPropertyTextures: [String: MTLTexture] = [:],
         preservedUserPropertyTextures: [String: MTLTexture] = [:]
     ) -> SceneLayerEffectTextures {
         let iris = loadTexture(
@@ -166,6 +167,7 @@ enum SceneLayerEffectTextureLoader {
             resolver: resolver,
             loader: loader,
             device: device,
+            straightAlbedoUserPropertyTextures: straightAlbedoUserPropertyTextures,
             preservedUserPropertyTextures: preservedUserPropertyTextures
         )
         let opacityEffects = SceneOpacityEffectTextureLoader.load(

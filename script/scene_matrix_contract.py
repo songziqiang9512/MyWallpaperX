@@ -23,6 +23,259 @@ class RuntimeExpectation:
         return self.matrix_key.removeprefix("expected_")
 
 
+@dataclass(frozen=True)
+class NestedRuntimeExpectation:
+    matrix_key: str
+    report_path: tuple[str, ...]
+    failure_message: str
+    comparison: str = "exact"
+
+    @property
+    def metric_key(self) -> str:
+        return self.report_path[-1]
+
+
+EFFECT_EXECUTION_EXACT_KINDS = frozenset({
+    "strict-dedicated",
+    "strict-generic",
+    "strict-inline-suffix",
+    "legacy-exact-inline",
+    "legacy-exact-offscreen",
+})
+EFFECT_EXECUTION_AGGREGATE_KINDS = frozenset({
+    "legacy-coalesced-inline",
+    "legacy-coalesced-offscreen",
+})
+EFFECT_EXECUTION_ROUTE_GROUP_KINDS = frozenset({
+    "direct",
+    "authored",
+    "legacy-offscreen",
+    "offscreen-passthrough",
+    "composite-refused",
+})
+
+
+@dataclass(frozen=True)
+class EffectExecutionStaticDemand:
+    static_is_valid: bool
+    eligible_exact_effect_count: int = 0
+    eligible_aggregate_subject_count: int = 0
+    route_group_count: int = 0
+
+    @property
+    def has_demand(self) -> bool:
+        return bool(
+            self.eligible_exact_effect_count
+            or self.eligible_aggregate_subject_count
+            or self.route_group_count
+        )
+
+    @property
+    def requires_evidence(self) -> bool:
+        return not self.static_is_valid or self.has_demand
+
+
+def effect_execution_static_demand(
+    disposition: dict[str, object] | None,
+) -> EffectExecutionStaticDemand:
+    if not (
+        isinstance(disposition, dict)
+        and disposition.get("has_evidence") is True
+        and disposition.get("schema_version") == 1
+        and disposition.get("validation_failures") == []
+    ):
+        return EffectExecutionStaticDemand(static_is_valid=False)
+
+    records = disposition.get("records")
+    groups = disposition.get("groups")
+    if not (
+        isinstance(records, list)
+        and all(isinstance(record, dict) for record in records)
+        and isinstance(groups, list)
+        and all(isinstance(group, dict) for group in groups)
+    ):
+        return EffectExecutionStaticDemand(static_is_valid=False)
+
+    group_kinds = {group.get("kind") for group in groups}
+    if not group_kinds.issubset(
+        EFFECT_EXECUTION_ROUTE_GROUP_KINDS | {"inactive"}
+    ):
+        return EffectExecutionStaticDemand(static_is_valid=False)
+
+    aggregate_subjects = {
+        (record.get("layer_id"), record.get("family"))
+        for record in records
+        if record.get("kind") in EFFECT_EXECUTION_AGGREGATE_KINDS
+    }
+    return EffectExecutionStaticDemand(
+        static_is_valid=True,
+        eligible_exact_effect_count=sum(
+            record.get("kind") in EFFECT_EXECUTION_EXACT_KINDS
+            for record in records
+        ),
+        eligible_aggregate_subject_count=len(aggregate_subjects),
+        route_group_count=sum(
+            group.get("kind") in EFFECT_EXECUTION_ROUTE_GROUP_KINDS
+            for group in groups
+        ),
+    )
+
+
+EFFECT_STAGE_ADMISSION_EXPECTATIONS = (
+    NestedRuntimeExpectation(
+        "expected_effect_stage_admission_schema",
+        ("runtime", "authored_effect_stage_admission", "schema_version"),
+        "effect stage admission schema mismatch",
+        comparison="integer",
+    ),
+    NestedRuntimeExpectation(
+        "expected_effect_stage_descriptor_count",
+        ("runtime", "authored_effect_stage_admission", "descriptor_count"),
+        "effect stage admission descriptor count mismatch",
+        comparison="integer",
+    ),
+    NestedRuntimeExpectation(
+        "expected_effect_stage_parsed_count",
+        ("runtime", "authored_effect_stage_admission", "parsed_count"),
+        "effect stage admission parsed count mismatch",
+        comparison="integer",
+    ),
+    NestedRuntimeExpectation(
+        "expected_effect_stage_activity_counts",
+        ("runtime", "authored_effect_stage_admission", "activity_counts"),
+        "effect stage admission activity counts mismatch",
+    ),
+    NestedRuntimeExpectation(
+        "expected_effect_stage_strict_admission_counts",
+        (
+            "runtime",
+            "authored_effect_stage_admission",
+            "strict_admission_counts",
+        ),
+        "effect stage admission strict counts mismatch",
+    ),
+    NestedRuntimeExpectation(
+        "expected_effect_stage_coverage_counts",
+        ("runtime", "authored_effect_stage_admission", "coverage_counts"),
+        "effect stage admission coverage counts mismatch",
+    ),
+    NestedRuntimeExpectation(
+        "expected_effect_stage_admission_sha256",
+        ("runtime", "authored_effect_stage_admission", "canonical_sha256"),
+        "effect stage admission sha256 mismatch",
+    ),
+)
+
+
+EFFECT_RUNTIME_DISPOSITION_EXPECTATIONS = (
+    NestedRuntimeExpectation(
+        "expected_effect_runtime_disposition_schema",
+        ("runtime", "effect_runtime_disposition", "schema_version"),
+        "effect runtime disposition schema mismatch",
+        comparison="integer",
+    ),
+    NestedRuntimeExpectation(
+        "expected_effect_runtime_disposition_record_count",
+        ("runtime", "effect_runtime_disposition", "record_count"),
+        "effect runtime disposition record count mismatch",
+        comparison="integer",
+    ),
+    NestedRuntimeExpectation(
+        "expected_effect_runtime_disposition_group_count",
+        ("runtime", "effect_runtime_disposition", "group_count"),
+        "effect runtime disposition group count mismatch",
+        comparison="integer",
+    ),
+    NestedRuntimeExpectation(
+        "expected_effect_runtime_disposition_kind_counts",
+        ("runtime", "effect_runtime_disposition", "kind_counts"),
+        "effect runtime disposition kind counts mismatch",
+    ),
+    NestedRuntimeExpectation(
+        "expected_effect_runtime_disposition_attribution_counts",
+        ("runtime", "effect_runtime_disposition", "attribution_counts"),
+        "effect runtime disposition attribution counts mismatch",
+    ),
+    NestedRuntimeExpectation(
+        "expected_effect_runtime_disposition_role_counts",
+        ("runtime", "effect_runtime_disposition", "role_counts"),
+        "effect runtime disposition role counts mismatch",
+    ),
+    NestedRuntimeExpectation(
+        "expected_effect_runtime_disposition_group_kind_counts",
+        ("runtime", "effect_runtime_disposition", "group_kind_counts"),
+        "effect runtime disposition group kind counts mismatch",
+    ),
+    NestedRuntimeExpectation(
+        "expected_effect_runtime_disposition_sha256",
+        ("runtime", "effect_runtime_disposition", "canonical_sha256"),
+        "effect runtime disposition sha256 mismatch",
+    ),
+)
+
+
+EFFECT_EXECUTION_EXPECTATIONS = (
+    NestedRuntimeExpectation(
+        "expected_effect_execution_schema",
+        ("runtime", "effect_execution", "schema_version"),
+        "effect execution schema mismatch",
+        comparison="integer",
+    ),
+    NestedRuntimeExpectation(
+        "expected_effect_execution_eligible_exact_effect_count",
+        ("runtime", "effect_execution", "eligible_exact_effect_count"),
+        "effect execution eligible exact count mismatch",
+        comparison="integer",
+    ),
+    NestedRuntimeExpectation(
+        "expected_effect_execution_observed_eligible_exact_effect_count",
+        (
+            "runtime",
+            "effect_execution",
+            "observed_eligible_exact_effect_count",
+        ),
+        "effect execution observed exact count mismatch",
+        comparison="integer",
+    ),
+    NestedRuntimeExpectation(
+        "expected_effect_execution_eligible_exact_gap_count",
+        ("runtime", "effect_execution", "eligible_exact_gap_count"),
+        "effect execution exact gap count mismatch",
+        comparison="integer",
+    ),
+    NestedRuntimeExpectation(
+        "expected_effect_execution_eligible_aggregate_subject_count",
+        (
+            "runtime",
+            "effect_execution",
+            "eligible_aggregate_subject_count",
+        ),
+        "effect execution eligible aggregate count mismatch",
+        comparison="integer",
+    ),
+    NestedRuntimeExpectation(
+        "expected_effect_execution_observed_eligible_aggregate_subject_count",
+        (
+            "runtime",
+            "effect_execution",
+            "observed_eligible_aggregate_subject_count",
+        ),
+        "effect execution observed aggregate count mismatch",
+        comparison="integer",
+    ),
+    NestedRuntimeExpectation(
+        "expected_effect_execution_eligible_aggregate_gap_count",
+        (
+            "runtime",
+            "effect_execution",
+            "eligible_aggregate_gap_count",
+        ),
+        "effect execution aggregate gap count mismatch",
+        comparison="integer",
+    ),
+)
+
+
 AUTHORED_EFFECT_RUNTIME_EXPECTATIONS = (
     RuntimeExpectation(
         "expected_authored_effect_graph_local_contrast_count",

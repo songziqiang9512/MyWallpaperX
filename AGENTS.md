@@ -90,7 +90,7 @@ Swift/Metal 测试若受模块缓存权限阻塞，先将 `CLANG_MODULE_CACHE_PA
 | `Text` | 文字 descriptor、font、geometry、texture 与 dynamic text |
 | `Particles` | 粒子 definition、parser、simulation、pipeline、texture 与 trail |
 
-- 当前已落地的二级目录为 `RenderGraph/EffectExecution`，用于 `SceneAuthoredEffectChainRenderer*` 主类型及其全部 backend extensions；其余类别目前仍平铺，三级源码目录保持受控。
+- 当前已落地的二级目录为 `RenderGraph/EffectExecution`，用于 authored-effect GPU execution 的完整 renderer 类型族；当前包括 `SceneAuthoredEffectChainRenderer*` 与 `SceneStandaloneAuthoredEffectRenderer*`，其余类别目前仍平铺，三级源码目录保持受控。
 - 同一主类型与其 extension 必须在同一目录；不得新增 `Misc`、`Common`、`Helpers` 等兜底目录，也不得为未来能力预建空目录。
 - 只有现有九类不能表达一组已经落地、具有共同生命周期或清晰依赖边界的多个文件时，才考虑新增一级目录。
 - 当目录密度、共同生命周期或职责边界表明有必要时，可灵活新增二级目录，不要求预先固定全局分组方案；同批同步本规则、布局 manifest、自动门、受影响文档链接和测试源码路径，并按完整类型族迁移。

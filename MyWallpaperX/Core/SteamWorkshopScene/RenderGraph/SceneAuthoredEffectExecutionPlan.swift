@@ -34,6 +34,10 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
     let hiddenEligibleLayerIDs: [Int]
     let legacyGaussianBlurBlockedLayerIDs: Set<Int>
     let xRayPrefixOmittedEffectPathsByLayerID: [Int: [String]]
+    let stageAdmissions: [SceneAuthoredEffectStageAdmission]
+    let chainAdmissionsByLayerID: [Int: SceneAuthoredEffectChainAdmission]
+    let descriptorEffectStageCount: Int
+    let descriptorEffectStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey>
 
     var plansByLayerID: [Int: SceneAuthoredEffectExecutionPlan] {
         chainsByLayerID.compactMapValues(\.singleStage)
@@ -45,21 +49,40 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
         shaderContracts: [SceneShaderContract] = []
     ) {
         let visible = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
+        descriptorEffectStageCount = descriptor.layers.reduce(0) {
+            $0 + $1.effects.count
+        }
+        descriptorEffectStageKeys = Set(descriptor.layers.flatMap { layer in
+            layer.effects.enumerated().map { effectIndex, effect in
+                SceneAuthoredEffectRenderPlan.EffectKey(
+                    layerID: layer.id,
+                    effectIndex: effectIndex,
+                    descriptorID: effect.id
+                )
+            }
+        })
         let grouped = Dictionary(grouping: authoredPlans, by: \.layerID)
         var eligible: [Int: SceneAuthoredEffectExecutionChain] = [:]
         var xRayPrefixes: [Int: [String]] = [:]
+        var chainAdmissions: [Int: SceneAuthoredEffectChainAdmission] = [:]
         for (layerID, candidates) in grouped where candidates.count == 1 {
-            let graph = candidates[0]
-            guard let chain = SceneAuthoredEffectChainPlanner.plan(
+            guard let graph = candidates.first else { continue }
+            let admission = SceneAuthoredEffectChainPlanner.admit(
                 graph: graph,
                 descriptor: descriptor,
                 shaderContracts: shaderContracts
-            ) else { continue }
+            )
+            chainAdmissions[layerID] = admission
+            guard let chain = admission.chain else { continue }
             eligible[layerID] = chain
-            if chain.stages.count < graph.effects.count {
-                xRayPrefixes[layerID] = graph.effects
-                    .dropFirst(chain.stages.count)
-                    .map(\.definitionPath)
+            if case .accepted(_, .xRayPrefix(let omittedKeys)) = admission {
+                let omittedPaths = omittedKeys.compactMap { omittedKey in
+                    graph.effects.first(where: { $0.key == omittedKey })?
+                        .definitionPath
+                }
+                if omittedPaths.count == omittedKeys.count {
+                    xRayPrefixes[layerID] = omittedPaths
+                }
             }
         }
         let visibleEligible = eligible.filter { visible.contains($0.key) }
@@ -68,6 +91,23 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
             visibleEligible[$0.key] != nil
         }
         hiddenEligibleLayerIDs = eligible.keys.filter { !visible.contains($0) }.sorted()
+        chainAdmissionsByLayerID = chainAdmissions
+        stageAdmissions = descriptor.layers.flatMap { layer in
+            SceneAuthoredEffectStageAdmissionBuilder.make(
+                layer: layer,
+                graphCandidates: grouped[layer.id] ?? [],
+                chainAdmission: chainAdmissions[layer.id],
+                layerIsVisible: visible.contains(layer.id)
+            )
+        }.sorted {
+            if $0.key.layerID != $1.key.layerID {
+                return $0.key.layerID < $1.key.layerID
+            }
+            if $0.key.effectIndex != $1.key.effectIndex {
+                return $0.key.effectIndex < $1.key.effectIndex
+            }
+            return $0.key.descriptorID < $1.key.descriptorID
+        }
         let preciseBlurCandidateLayers = Set(authoredPlans.compactMap { graph in
             SceneAuthoredEffectExecutionPlanner.containsAuthoredPreciseBlurCandidate(
                 graph: graph,

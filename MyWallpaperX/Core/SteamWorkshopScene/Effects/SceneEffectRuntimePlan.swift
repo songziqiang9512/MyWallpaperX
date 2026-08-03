@@ -363,7 +363,7 @@ enum SceneEffectRuntimePlanner {
         }
     }
 
-    private static func shouldRouteEffectOffscreen(path: String, passCount: Int) -> Bool {
+    static func shouldRouteEffectOffscreen(path: String, passCount: Int) -> Bool {
         if isInlineEffectPath(path) { return false }
         if passCount > 1 { return true }
         return isSinglePassOffscreenEffectPath(path)

@@ -1,17 +1,87 @@
 import Foundation
 @preconcurrency import Metal
 
-nonisolated final class SceneGPUCompletionTelemetry: @unchecked Sendable {
-    private enum Status {
-        case pending
-        case failed
-        case succeeded
+nonisolated enum SceneGPUCompletionTelemetryEvent: Sendable {
+    case encodingFailed
+    case commandBufferCompleted(succeeded: Bool)
+}
+
+nonisolated enum SceneGPUCompletionTelemetryLogStatus: String, Sendable {
+    case failed
+    case succeeded
+}
+
+nonisolated struct SceneGPUCompletionTelemetrySnapshot: Equatable, Sendable {
+    let encodingFailureObserved: Bool
+    let commandBufferSuccessObserved: Bool
+    let commandBufferFailureObserved: Bool
+    let reportedSuccess: Bool
+    let reportedFailure: Bool
+
+    static let empty = SceneGPUCompletionTelemetrySnapshot(
+        encodingFailureObserved: false,
+        commandBufferSuccessObserved: false,
+        commandBufferFailureObserved: false,
+        reportedSuccess: false,
+        reportedFailure: false
+    )
+}
+
+nonisolated struct SceneGPUCompletionTelemetryReducer: Sendable {
+    private var encodingFailureObserved = false
+    private var commandBufferSuccessObserved = false
+    private var commandBufferFailureObserved = false
+    private var reportedSuccess = false
+    private var reportedFailure = false
+
+    var snapshot: SceneGPUCompletionTelemetrySnapshot {
+        SceneGPUCompletionTelemetrySnapshot(
+            encodingFailureObserved: encodingFailureObserved,
+            commandBufferSuccessObserved: commandBufferSuccessObserved,
+            commandBufferFailureObserved: commandBufferFailureObserved,
+            reportedSuccess: reportedSuccess,
+            reportedFailure: reportedFailure
+        )
     }
 
+    var needsCommandBufferObservation: Bool {
+        !(commandBufferSuccessObserved && commandBufferFailureObserved)
+    }
+
+    mutating func reduce(
+        _ event: SceneGPUCompletionTelemetryEvent
+    ) -> SceneGPUCompletionTelemetryLogStatus? {
+        switch event {
+        case .encodingFailed:
+            encodingFailureObserved = true
+            return reportFailureOnce()
+        case .commandBufferCompleted(let succeeded):
+            if succeeded {
+                commandBufferSuccessObserved = true
+                return reportSuccessOnce()
+            }
+            commandBufferFailureObserved = true
+            return reportFailureOnce()
+        }
+    }
+
+    private mutating func reportSuccessOnce() -> SceneGPUCompletionTelemetryLogStatus? {
+        guard !reportedSuccess else { return nil }
+        reportedSuccess = true
+        return .succeeded
+    }
+
+    private mutating func reportFailureOnce() -> SceneGPUCompletionTelemetryLogStatus? {
+        guard !reportedFailure else { return nil }
+        reportedFailure = true
+        return .failed
+    }
+}
+
+nonisolated final class SceneGPUCompletionTelemetry: @unchecked Sendable {
     private let lock = NSLock()
     private let phase: String
-    private var statuses: [Int: Status] = [:]
-    private var reportedFailures: Set<Int> = []
+    private var reducers: [Int: SceneGPUCompletionTelemetryReducer] = [:]
 
     init(phase: String) {
         self.phase = phase
@@ -23,36 +93,40 @@ nonisolated final class SceneGPUCompletionTelemetry: @unchecked Sendable {
             return
         }
         let shouldObserve = withLock {
-            guard statuses[layerID] != .pending, statuses[layerID] != .succeeded else { return false }
-            statuses[layerID] = .pending
-            return true
+            reducers[layerID]?.needsCommandBufferObservation ?? true
         }
         guard shouldObserve else { return }
         commandBuffer.addCompletedHandler { [weak self] completed in
-            self?.complete(layerID: layerID, succeeded: completed.status == .completed)
+            self?.consume(
+                layerID: layerID,
+                event: .commandBufferCompleted(succeeded: completed.status == .completed)
+            )
         }
     }
 
     func recordFailure(layerID: Int) {
-        complete(layerID: layerID, succeeded: false)
+        consume(layerID: layerID, event: .encodingFailed)
     }
 
-    private func complete(layerID: Int, succeeded: Bool) {
-        let shouldReport = withLock {
-            if succeeded {
-                guard statuses[layerID] != .succeeded else { return false }
-                statuses[layerID] = .succeeded
-                return true
-            }
-            statuses[layerID] = .failed
-            return reportedFailures.insert(layerID).inserted
+    func snapshot(layerID: Int) -> SceneGPUCompletionTelemetrySnapshot {
+        withLock {
+            reducers[layerID]?.snapshot ?? .empty
         }
-        guard shouldReport else { return }
+    }
+
+    private func consume(layerID: Int, event: SceneGPUCompletionTelemetryEvent) {
+        let status = withLock {
+            var reducer = reducers[layerID] ?? SceneGPUCompletionTelemetryReducer()
+            let status = reducer.reduce(event)
+            reducers[layerID] = reducer
+            return status
+        }
+        guard let status else { return }
         NSLog(
             "MWX DEBUG SCENE: phase=%@ layer=%d status=%@",
             phase,
             layerID,
-            succeeded ? "succeeded" : "failed"
+            status.rawValue
         )
     }
 

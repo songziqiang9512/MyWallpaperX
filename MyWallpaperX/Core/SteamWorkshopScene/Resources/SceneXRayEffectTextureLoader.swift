@@ -38,6 +38,7 @@ enum SceneXRayEffectTextureLoader {
         resolver: SceneTexturePathResolver,
         loader: SceneTextureLoader,
         device: MTLDevice,
+        straightAlbedoUserPropertyTextures: [String: MTLTexture] = [:],
         preservedUserPropertyTextures: [String: MTLTexture] = [:]
     ) -> (textures: SceneXRayEffectTextures?, message: String) {
         guard let declaration = SceneXRayRuntimePlanner.declaration(for: layer) else {
@@ -47,12 +48,12 @@ enum SceneXRayEffectTextureLoader {
         let blend = SceneLayerEffectTextureLoader.loadTexture(
             url: blendURL,
             label: "xray blend",
-            purpose: .preservedChannels,
+            purpose: .straightAlbedo,
             loader: loader,
             device: device
         )
         let propertyBlend = declaration.blendPropertyKey.flatMap {
-            preservedUserPropertyTextures[$0]
+            straightAlbedoUserPropertyTextures[$0]
         }
         guard let blendTexture = propertyBlend ?? blend.texture else {
             let missing = blendURL == nil

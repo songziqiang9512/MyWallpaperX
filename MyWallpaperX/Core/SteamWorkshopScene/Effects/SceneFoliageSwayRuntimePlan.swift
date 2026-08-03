@@ -10,23 +10,42 @@ nonisolated struct SceneFoliageSwayPlan {
     let direction: Float
 }
 
+nonisolated struct SceneFoliageSwaySelection {
+    let effectIndex: Int
+    let plan: SceneFoliageSwayPlan
+}
+
 nonisolated enum SceneFoliageSwayRuntimePlanner {
     static func plan(
         for layer: SceneRenderDescriptor.Layer,
         hasMask: Bool
     ) -> SceneFoliageSwayPlan? {
-        let effects = layer.effects.filter {
-            $0.visible != false
-                && $0.file.localizedLowercase == "effects/foliagesway/effect.json"
+        selection(for: layer, hasMask: hasMask)?.plan
+    }
+
+    static func selection(
+        for layer: SceneRenderDescriptor.Layer,
+        hasMask: Bool
+    ) -> SceneFoliageSwaySelection? {
+        let effects = layer.effects.enumerated().filter {
+            $0.element.visible != false
+                && $0.element.file.localizedLowercase
+                    == "effects/foliagesway/effect.json"
         }
-        guard effects.count == 1,
-              let effect = effects.first,
-              let pass = effect.passes.first,
+        guard effects.count == 1, let selected = effects.first else {
+            return nil
+        }
+        let effect = selected.element
+        guard let pass = effect.passes.first,
               combo("MODE", in: pass) ?? 0 == 0,
               !SceneEffectMaskSemantics.declaresMask(in: effect) || hasMask else {
             return nil
         }
-        return plan(for: pass)
+        guard let plan = plan(for: pass) else { return nil }
+        return SceneFoliageSwaySelection(
+            effectIndex: selected.offset,
+            plan: plan
+        )
     }
 
     static func plan(

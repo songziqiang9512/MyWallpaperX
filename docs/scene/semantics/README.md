@@ -72,6 +72,7 @@ Scene 文档按四层使用，后续开发不要从取证记录直接跳到“�
 | 某条结论来自官方、样本还是第三方实现 | [资料来源与证据索引](source-index.md) |
 | 某条 `L3` 到底由哪些代码、自动测试和运行/GPU 结果支撑 | [运行证据索引](runtime-evidence-index.md) |
 | 已选批次的详细实施顺序、样本和测试门 | [Scene 播放能力开发计划](../scene-capability-development-plan-2026-07-22.md) |
+| 当前解析到合成链路重构的阶段、断点和每批验收条件 | [Scene Render Chain 重构计划](../scene-render-chain-refactor-plan-2026-08-03.md)（执行计划，不是能力事实入口） |
 
 ### 2.1 源码目录导航
 
@@ -176,5 +177,5 @@ scene.json / scene.pkg / assets
 - 新发现的字段先标证据等级和样本来源，再判断是否进入实现。
 - 官方文档或 `lib.sceneScript.d.ts` 版本变化时，更新 [资料来源与证据索引](source-index.md) 的核验日期和差异。
 - 第三方播放器与官方资料冲突时，记录其偏差，不修正文档去迎合第三方行为。
-- Scene 源码导航以根 `AGENTS.md` 的九类职责和 [`script/scene_source_layout.json`](../../../script/scene_source_layout.json) 为准。当前二级簇 `RenderGraph/EffectExecution` 收纳 ordered authored-effect chain renderer 及其 backend extensions；其他类别目前仍平铺，达到维护需要时可增加职责清晰的二级目录。目录调整必须同步布局 manifest、自动门、测试源码路径和文档代码链接。
+- Scene 源码导航以根 `AGENTS.md` 的九类职责和 [`script/scene_source_layout.json`](../../../script/scene_source_layout.json) 为准。当前二级簇 `RenderGraph/EffectExecution` 收纳 authored-effect GPU execution 的完整 renderer 类型族，包括 ordered chain 与 standalone plan renderer；其他类别目前仍平铺，达到维护需要时可增加职责清晰的二级目录。目录调整必须同步布局 manifest、自动门、测试源码路径和文档代码链接。
 - `test_scene_semantics_coverage.py` 自动校验布局 manifest 与本目录相对 Markdown 链接，不复制或锁定动态基线、报告计数和路线结论。

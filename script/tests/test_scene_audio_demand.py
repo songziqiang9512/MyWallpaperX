@@ -24,6 +24,10 @@ FRAME_DRIVER_SOURCE = (
 )
 FRAME_CONTEXT_SOURCE = SCENE_ROOT / "Runtime/SceneFrameContext.swift"
 CHAIN_RENDERER_SOURCE = SCENE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer.swift"
+SPECIALIZED_STAGE_SOURCE = (
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+SpecializedStage.swift"
+)
 WORKSHOP_STAGE_SOURCE = (
     SCENE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+WorkshopStage.swift"
 )
@@ -108,14 +112,21 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
 
     def test_spectrum_reaches_the_shake_backend(self) -> None:
         self.assertIn("let audioSpectrum: SceneAudioSpectrumSnapshot", FRAME_CONTEXT_SOURCE.read_text(encoding="utf-8"))
-        chain = CHAIN_RENDERER_SOURCE.read_text(encoding="utf-8")
+        chain = CHAIN_RENDERER_SOURCE.read_text(encoding="utf-8") \
+            + SPECIALIZED_STAGE_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
-            "SceneAudioResponse.evaluate(spectrum: audioSpectrum, parameters: $0)",
+            "SceneAudioResponse.evaluate(",
             chain,
             "chain 路径必须用共享求值器，不得就地另写一份公式",
         )
+        self.assertIn("spectrum: audioSpectrum", chain)
+        self.assertIn("parameters: $0", chain)
         compositor = COMPOSITOR_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("spectrum: request.audioSpectrum", compositor)
+        self.assertGreaterEqual(
+            compositor.count("audioSpectrum: request.audioSpectrum"),
+            2,
+            "chain 与 standalone 路径都必须收到同一帧频谱",
+        )
 
     def test_spectrum_reaches_both_workshop_audio_bars_profiles(self) -> None:
         workshop_stage = WORKSHOP_STAGE_SOURCE.read_text(encoding="utf-8")

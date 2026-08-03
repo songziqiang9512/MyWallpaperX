@@ -18,7 +18,9 @@ enum SceneAuthoredEffectChainRenderer {
         audioSpectrum: SceneAudioSpectrumSnapshot,
         authoredShaderFrameInputs: SceneAuthoredShaderFrameInputs?,
         dependencyEffect: SceneDependencyEffectInput?,
-        commandBuffer: MTLCommandBuffer
+        commandBuffer: MTLCommandBuffer,
+        executionTrace: SceneEffectExecutionFrameTrace? = nil,
+        executionOrigin: SceneEffectExecutionOrigin = .image
     ) -> MTLTexture? {
         guard !chain.stages.isEmpty,
               chain.stages.count == targets.count,
@@ -26,6 +28,12 @@ enum SceneAuthoredEffectChainRenderer {
               targets.allSatisfy({
                   $0.encodeInitialTargetClear(commandBuffer: commandBuffer)
               }) else {
+            executionTrace?.recordRouteOperation(
+                layerID: chain.layerID,
+                origin: executionOrigin,
+                operation: "authored-chain-preflight",
+                outcome: .failed(reasonCode: "topology-target-or-clear")
+            )
             return nil
         }
 
@@ -33,7 +41,16 @@ enum SceneAuthoredEffectChainRenderer {
         for index in chain.stages.indices {
             let stage = chain.stages[index]
             let isFirstStage = index == chain.stages.startIndex
-            guard let output = renderStage(
+            guard let effectKey = stage.renderGraph.effects.first?.key else {
+                executionTrace?.recordRouteOperation(
+                    layerID: chain.layerID,
+                    origin: executionOrigin,
+                    operation: "authored-stage-identity",
+                    outcome: .failed(reasonCode: "missing-effect-key")
+                )
+                return nil
+            }
+            let output = renderStage(
                 stage,
                 sourceTexture: currentSource,
                 masks: isFirstStage ? masks : masks.authoredEffectResourcesOnly,
@@ -52,7 +69,21 @@ enum SceneAuthoredEffectChainRenderer {
                 authoredShaderFrameInputs: authoredShaderFrameInputs,
                 dependencyEffect: dependencyEffect,
                 commandBuffer: commandBuffer
-            ) else {
+            )
+            executionTrace?.recordExact(
+                identity: SceneEffectExecutionIdentity(
+                    layerID: effectKey.layerID,
+                    effectIndex: effectKey.effectIndex,
+                    descriptorID: effectKey.descriptorID
+                ),
+                origin: executionOrigin,
+                family: stage.executionFamilyStableName,
+                backend: stage.backend.stableName,
+                outcome: output == nil
+                    ? .failed(reasonCode: "backend-returned-no-output")
+                    : .encodedOutput
+            )
+            guard let output else {
 #if DEBUG
                 print(
                     "MWX authored effect chain stage failed layer=\(chain.layerID) "
@@ -216,184 +247,22 @@ enum SceneAuthoredEffectChainRenderer {
             )
         case .lightShafts:
             return nil
-        case .shake(let shake):
-            guard let resources = masks.shakeEffects[shake.effectKey.descriptorID],
-                  let shakePipeline = pipelines.shake,
-                  targets.plan.logicalTargets.isEmpty,
-                  SceneOffscreenEffectRenderer.captureSource(
-                      sourceTexture: sourceTexture,
-                      waterMaskTexture: masks.water,
-                      foliageMaskTexture: masks.foliage,
-                      auxMaskTexture: auxMask,
-                      target: targets.inputTexture,
-                      sourceUniforms: sourceUniforms,
-                      pipeline: pipeline,
-                      commandBuffer: commandBuffer
-                  ) else {
-                return nil
-            }
-            return SceneShakeRenderer.render(
-                plan: shake,
-                resources: resources,
-                time: time,
-                audioPulse: shake.audio.map {
-                    SceneAudioResponse.evaluate(spectrum: audioSpectrum, parameters: $0)
-                },
-                inputTexture: targets.inputTexture,
-                outputTexture: targets.outputTexture,
-                pipeline: shakePipeline,
-                commandBuffer: commandBuffer
-            )
-        case .waterFlow(let waterFlow):
-            return renderWaterFlow(
-                waterFlow, sourceTexture: sourceTexture, masks: masks, targets: targets,
-                sourceUniforms: sourceUniforms, pipeline: pipeline, pipelines: pipelines,
-                time: time, commandBuffer: commandBuffer)
-        case .waterWaves(let waterWaves):
-            return renderWaterWaves(
-                waterWaves, sourceTexture: sourceTexture, masks: masks, targets: targets,
-                sourceUniforms: sourceUniforms, pipeline: pipeline, pipelines: pipelines,
-                time: time, commandBuffer: commandBuffer)
-        case .waterCaustics(let caustics):
-            return renderWaterCaustics(
-                caustics, sourceTexture: sourceTexture, masks: masks, auxMask: auxMask,
-                targets: targets, sourceUniforms: sourceUniforms, sourcePipeline: pipeline,
-                pipelines: pipelines, time: time, commandBuffer: commandBuffer)
-        case .cursorRipple(let cursorRipple):
-            return renderCursorRipple(
-                cursorRipple, sourceTexture: sourceTexture, masks: masks, targets: targets,
-                sourceUniforms: sourceUniforms, pipeline: pipeline, pipelines: pipelines,
-                cursorUV: cursorUV, previousCursorUV: previousCursorUV, pointerIsInside: pointerIsInside,
-                previousPointerIsInside: previousPointerIsInside, frameTime: frameTime,
-                commandBuffer: commandBuffer)
-        case .foliageSway(let foliage):
-            guard targets.plan.logicalTargets.isEmpty,
-                  let resources = masks.foliageSwayEffects[foliage.effectKey.descriptorID],
-                  let foliageSwayPipeline = pipelines.foliageSway else {
-                return nil
-            }
-            return SceneFoliageSwayRenderer.render(
-                plan: foliage,
-                sourceTexture: sourceTexture,
-                resources: resources,
-                target: targets.outputTexture,
-                time: time,
-                pipeline: foliageSwayPipeline,
-                commandBuffer: commandBuffer
-            )
-        case .waterRipple(let ripple):
-            return renderWaterRipple(
-                ripple,
-                sourceTexture: sourceTexture,
-                masks: masks,
-                targets: targets,
-                pipelines: pipelines,
-                time: time,
-                commandBuffer: commandBuffer
-            )
-        case .depthParallax(let depthParallax):
-            return renderDepthParallax(
-                depthParallax, sourceTexture: sourceTexture, masks: masks,
-                auxMask: auxMask, targets: targets,
-                sourceUniforms: sourceUniforms, pipeline: pipeline,
-                pipelines: pipelines,
-                cursorUV: cursorUV,
-                pointerIsInside: pointerIsInside,
-                commandBuffer: commandBuffer
-            )
-        case .xRay(let xRay):
-            return renderXRay(
-                xRay, sourceTexture: sourceTexture, masks: masks, auxMask: auxMask,
-                targets: targets, dynamicValues: dynamicValues,
+        case .shake, .waterFlow, .waterWaves, .waterCaustics,
+             .cursorRipple, .foliageSway, .waterRipple, .depthParallax,
+             .xRay, .clippingMask, .blend, .tint, .transform,
+             .fisheyeZeroDistortion, .godrays, .shine, .pulse,
+             .authoredShader:
+            return renderSpecializedStage(
+                stage, sourceTexture: sourceTexture, masks: masks,
+                auxMask: auxMask, targets: targets, dynamicValues: dynamicValues,
                 sourceUniforms: sourceUniforms, pipeline: pipeline,
                 pipelines: pipelines, cursorUV: cursorUV,
-                pointerIsInside: pointerIsInside, commandBuffer: commandBuffer
-            )
-        case .clippingMask(let clippingMask):
-            return renderClippingMask(
-                clippingMask,
-                sourceTexture: sourceTexture,
-                masks: masks,
-                targets: targets,
-                sourceUniforms: sourceUniforms,
-                dependencyEffect: dependencyEffect,
-                pipeline: pipeline,
-                commandBuffer: commandBuffer
-            )
-        case .blend(let blend):
-            guard let blendPipeline = pipelines.blend else { return nil }
-            return renderBlend(
-                blend,
-                sourceTexture: sourceTexture,
-                masks: masks,
-                auxMask: auxMask,
-                targets: targets,
-                dynamicValues: dynamicValues,
-                sourceUniforms: sourceUniforms,
-                sourcePipeline: pipeline,
-                blendPipeline: blendPipeline,
-                commandBuffer: commandBuffer
-            )
-        case .tint(let tint):
-            guard let tintPipeline = pipelines.tint else { return nil }
-            return renderTint(
-                tint,
-                sourceTexture: sourceTexture,
-                masks: masks,
-                auxMask: auxMask,
-                targets: targets,
-                dynamicValues: dynamicValues,
-                sourceUniforms: sourceUniforms,
-                pipeline: pipeline,
-                tintPipeline: tintPipeline,
-                commandBuffer: commandBuffer
-            )
-        case .transform, .fisheyeZeroDistortion:
-            return renderTransformOrFisheye(
-                stage, sourceTexture: sourceTexture,
-                masks: masks,
-                auxMask: auxMask,
-                targets: targets,
-                sourceUniforms: sourceUniforms,
-                pipeline: pipeline,
-                pipelines: pipelines,
-                commandBuffer: commandBuffer
-            )
-        case .godrays(let godrays):
-            return renderGodrays(
-                godrays, source: sourceTexture, masks: masks, targets: targets,
-                uniforms: sourceUniforms, sourcePipeline: pipeline,
-                pipelines: pipelines, time: time, commandBuffer: commandBuffer
-            )
-        case .shine(let shine):
-            return renderShine(
-                shine, source: sourceTexture, masks: masks, targets: targets,
-                uniforms: sourceUniforms, sourcePipeline: pipeline,
-                pipelines: pipelines, time: time, commandBuffer: commandBuffer
-            )
-        case .pulse(let pulse):
-            guard let pulsePipeline = pipelines.pulse else { return nil }
-            return renderPulse(
-                pulse,
-                sourceTexture: sourceTexture,
-                masks: masks,
-                auxMask: auxMask,
-                targets: targets,
-                dynamicValues: dynamicValues,
-                sourceUniforms: sourceUniforms,
-                pipeline: pipeline,
-                pulsePipeline: pulsePipeline,
-                time: time,
-                audioSpectrum: audioSpectrum,
-                commandBuffer: commandBuffer
-            )
-        case .authoredShader(let shader):
-            guard let authoredShaderPipeline = pipelines.authoredShader else { return nil }
-            return renderAuthoredShader(
-                shader, sourceTexture: sourceTexture, masks: masks, auxMask: auxMask,
-                targets: targets, sourceUniforms: sourceUniforms,
-                frame: authoredShaderFrameInputs, pipeline: pipeline,
-                pipelineCache: authoredShaderPipeline, commandBuffer: commandBuffer
+                previousCursorUV: previousCursorUV,
+                pointerIsInside: pointerIsInside,
+                previousPointerIsInside: previousPointerIsInside,
+                frameTime: frameTime, time: time, audioSpectrum: audioSpectrum,
+                authoredShaderFrameInputs: authoredShaderFrameInputs,
+                dependencyEffect: dependencyEffect, commandBuffer: commandBuffer
             )
         }
     }

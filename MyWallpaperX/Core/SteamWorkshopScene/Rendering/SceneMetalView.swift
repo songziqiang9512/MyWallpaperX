@@ -44,17 +44,14 @@ class SceneMetalView: NSView {
             pipelineRepository: pipelineRepository
         )
         self.solidLayerTexture = SceneSolidLayerTexture.make(device: renderer.device)
-        let preservedPropertyKeys = Set(renderDescriptor.layers.flatMap { layer -> [String] in
-            guard let declaration = SceneXRayRuntimePlanner.declaration(for: layer) else {
-                return []
-            }
-            return [
-                declaration.blendPropertyKey,
-                declaration.haloPropertyKey,
-            ].compactMap { $0 }
-        })
+        let xRayDeclarations = renderDescriptor.layers.compactMap {
+            SceneXRayRuntimePlanner.declaration(for: $0)
+        }
+        let straightAlbedoPropertyKeys = Set(xRayDeclarations.compactMap(\.blendPropertyKey))
+        let preservedPropertyKeys = Set(xRayDeclarations.compactMap(\.haloPropertyKey))
         self.userPropertyTextureLoad = SceneUserPropertyTextureLoader().load(
             urlsByPropertyKey: userPropertyTextureURLs,
+            straightAlbedoPropertyKeys: straightAlbedoPropertyKeys,
             preservedPropertyKeys: preservedPropertyKeys,
             device: renderer.device
         )
@@ -117,6 +114,7 @@ class SceneMetalView: NSView {
                 device: metalDevice,
                 userPropertyTextures: userPropertyTextureLoad.textures,
                 userPropertyTextureCandidates: userPropertyTextureLoad.textureCandidates,
+                straightAlbedoUserPropertyTextures: userPropertyTextureLoad.straightAlbedoTextures,
                 preservedUserPropertyTextures: userPropertyTextureLoad.preservedTextures
             )
             loadedEffectTextures.merge(layerID: layer.id, textures: textures)
@@ -129,7 +127,6 @@ class SceneMetalView: NSView {
         let imageLayers = renderer.renderDescriptor.layers.filter(\.isImageRenderable)
         report.append("imageLayerCount: \(imageLayers.count)")
         report.append("solidLayerCount: \(imageLayers.filter { $0.contentKind == "solid" }.count)")
-        report.append(contentsOf: renderer.runtimeReportLines())
         report.append(contentsOf: mediaThumbnailCoordinator.program.reportLines())
         report.append(contentsOf: SceneImageBlendRenderPlan(
             descriptor: renderer.renderDescriptor, visibleLayerIDs:
@@ -293,6 +290,7 @@ class SceneMetalView: NSView {
                 )
             }
         }
+        report.append(contentsOf: renderer.runtimeReportLines(effectTextures: loadedEffectTextures))
         dynamicTextTextures = SceneDynamicTextTextureStore(
             descriptor: renderer.renderDescriptor,
             cacheDirectory: cacheDirectory,

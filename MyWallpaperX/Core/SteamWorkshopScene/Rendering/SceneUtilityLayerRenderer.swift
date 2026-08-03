@@ -22,7 +22,8 @@ enum SceneUtilityLayerRenderer {
         pipeline: SceneImageLayerPipeline,
         compositor: SceneImageLayerCompositor,
         offscreenTexturePool: SceneOffscreenTexturePool,
-        mainPass: SceneMainPassEncoder
+        mainPass: SceneMainPassEncoder,
+        executionTrace: SceneEffectExecutionFrameTrace? = nil
     ) -> Bool {
         guard plan.shouldCapture,
               let geometry = SceneCaptureGeometryResolver.resolve(
@@ -31,6 +32,12 @@ enum SceneUtilityLayerRenderer {
                   viewportSize: viewportSize
               ) else {
             return false
+        }
+        let executionOrigin: SceneEffectExecutionOrigin
+        switch plan.kind {
+        case .composition: executionOrigin = .utilityComposition
+        case .project: executionOrigin = .utilityProject
+        case .fullscreen: executionOrigin = .utilityFullscreen
         }
         return mainPass.withReadableTarget { sourceTexture, _ in
             compositor.draw(
@@ -58,7 +65,9 @@ enum SceneUtilityLayerRenderer {
                     audioSpectrum: audioSpectrum
                 ),
                 pipeline: pipeline,
-                mainPass: mainPass
+                mainPass: mainPass,
+                executionTrace: executionTrace,
+                executionOrigin: executionOrigin
             )
         } ?? false
     }

@@ -107,8 +107,10 @@ enum SceneTextureMipUploader {
 
     static func uploadEmbeddedDataImages(
         _ mips: [SceneTexContainer.Mip],
+        purpose: SceneTextureLoadPurpose,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome? {
+        guard purpose.preservesSourceChannels else { return nil }
         let images = mips.compactMap { mip -> CGImage? in
             guard isEmbeddedImage(mip.data),
                   let source = CGImageSourceCreateWithData(mip.data as CFData, nil) else {
@@ -137,7 +139,7 @@ enum SceneTextureMipUploader {
                 image: image,
                 width: image.width,
                 height: image.height,
-                purpose: .preservedChannels
+                purpose: purpose
             ) else {
                 return .decodeFailed("embedded data image mip rasterization failed")
             }

@@ -9,22 +9,42 @@ nonisolated struct SceneWaterRippleNormalPlan {
     let strength: Float
 }
 
+nonisolated struct SceneWaterRippleNormalSelection {
+    let effectIndex: Int
+    let plan: SceneWaterRippleNormalPlan
+}
+
 nonisolated enum SceneWaterRippleRuntimePlanner {
     static func plan(
         for layer: SceneRenderDescriptor.Layer,
         hasNormalTexture: Bool
     ) -> SceneWaterRippleNormalPlan? {
+        selection(for: layer, hasNormalTexture: hasNormalTexture)?.plan
+    }
+
+    static func selection(
+        for layer: SceneRenderDescriptor.Layer,
+        hasNormalTexture: Bool
+    ) -> SceneWaterRippleNormalSelection? {
         guard hasNormalTexture,
-              let effect = layer.effects.first(where: {
-                  $0.visible != false && $0.file.localizedLowercase.contains("waterripple")
-              }), let pass = effect.passes.first,
+              let selected = layer.effects.enumerated().first(where: {
+                  $0.element.visible != false
+                      && $0.element.file.localizedLowercase.contains("waterripple")
+              }) else {
+            return nil
+        }
+        let effect = selected.element
+        guard let pass = effect.passes.first,
               pass.textureSlots.indices.contains(2), pass.textureSlots[2] != nil,
               maskIsDisabled(in: pass),
               combo("SPECULAR", in: pass) != 1,
               let plan = plan(for: pass) else {
             return nil
         }
-        return plan
+        return SceneWaterRippleNormalSelection(
+            effectIndex: selected.offset,
+            plan: plan
+        )
     }
 
     static func plan(

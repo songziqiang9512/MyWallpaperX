@@ -11,22 +11,40 @@ nonisolated struct SceneGradientColorPlan {
     let axis: Int
 }
 
+nonisolated struct SceneGradientColorSelection {
+    let effectIndices: [Int]
+    let plan: SceneGradientColorPlan
+}
+
 nonisolated enum SceneGradientColorRuntimePlanner {
     nonisolated static func plan(
         for layer: SceneRenderDescriptor.Layer
     ) -> SceneGradientColorPlan? {
-        let visibleEffects = layer.effects.filter { $0.visible != false }
+        selection(for: layer)?.plan
+    }
+
+    nonisolated static func selection(
+        for layer: SceneRenderDescriptor.Layer
+    ) -> SceneGradientColorSelection? {
+        let visibleEffects = layer.effects.enumerated().filter {
+            $0.element.visible != false
+        }
         guard visibleEffects.count == 1 || visibleEffects.count == 2,
               let first = visibleEffects.first,
-              let plan = plan(for: first) else {
+              let plan = plan(for: first.element) else {
             return nil
         }
         if visibleEffects.count == 2 {
-            guard visibleEffects[1].file.localizedLowercase.contains("clipping_mask") else {
+            guard visibleEffects[1].element.file.localizedLowercase.contains(
+                "clipping_mask"
+            ) else {
                 return nil
             }
         }
-        return plan
+        return SceneGradientColorSelection(
+            effectIndices: visibleEffects.map(\.offset),
+            plan: plan
+        )
     }
 
     nonisolated static func plan(

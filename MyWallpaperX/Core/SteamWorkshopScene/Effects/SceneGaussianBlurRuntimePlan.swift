@@ -22,34 +22,61 @@ struct SceneGaussianBlurPlan {
     }
 }
 
+struct SceneGaussianBlurSelection {
+    let effectIndex: Int
+    let plan: SceneGaussianBlurPlan
+}
+
 enum SceneGaussianBlurRuntimePlanner {
     static func plan(for layer: SceneRenderDescriptor.Layer) -> SceneGaussianBlurPlan? {
-        if let effect = layer.effects.first(where: {
-            $0.visible != false && $0.file.localizedLowercase.contains("/blurprecise/")
+        selection(for: layer)?.plan
+    }
+
+    static func selection(
+        for layer: SceneRenderDescriptor.Layer
+    ) -> SceneGaussianBlurSelection? {
+        if let selected = layer.effects.enumerated().first(where: {
+            $0.element.visible != false
+                && $0.element.file.localizedLowercase.contains("/blurprecise/")
         }) {
-            return SceneGaussianBlurPlan(
-                horizontalStep: preciseScale(in: effect.passes.first, component: 0),
-                verticalStep: preciseScale(
-                    in: effect.passes.dropFirst().first ?? effect.passes.first,
-                    component: 1
-                ),
-                sampleResolutionScale: 1,
-                isPrecise: true
+            let effect = selected.element
+            return SceneGaussianBlurSelection(
+                effectIndex: selected.offset,
+                plan: SceneGaussianBlurPlan(
+                    horizontalStep: preciseScale(
+                        in: effect.passes.first,
+                        component: 0
+                    ),
+                    verticalStep: preciseScale(
+                        in: effect.passes.dropFirst().first ?? effect.passes.first,
+                        component: 1
+                    ),
+                    sampleResolutionScale: 1,
+                    isPrecise: true
+                )
             )
         }
-        guard let effect = layer.effects.first(where: {
-            $0.visible != false && $0.file.localizedLowercase.contains("/blur/effect.json")
+        guard let selected = layer.effects.enumerated().first(where: {
+            $0.element.visible != false
+                && $0.element.file.localizedLowercase.contains("/blur/effect.json")
         }) else {
             return nil
         }
+        let effect = selected.element
         let verticalPass = effect.passes.count > 2
             ? effect.passes[2]
             : effect.passes.dropFirst().first
-        return SceneGaussianBlurPlan(
-            horizontalStep: coarseScale(in: effect.passes.dropFirst().first, component: 0),
-            verticalStep: coarseScale(in: verticalPass, component: 1),
-            sampleResolutionScale: 4,
-            isPrecise: false
+        return SceneGaussianBlurSelection(
+            effectIndex: selected.offset,
+            plan: SceneGaussianBlurPlan(
+                horizontalStep: coarseScale(
+                    in: effect.passes.dropFirst().first,
+                    component: 0
+                ),
+                verticalStep: coarseScale(in: verticalPass, component: 1),
+                sampleResolutionScale: 4,
+                isPrecise: false
+            )
         )
     }
 

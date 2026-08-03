@@ -199,88 +199,11 @@ enum SceneAuthoredEffectChainPlanner {
         descriptor: SceneRenderDescriptor,
         shaderContracts: [SceneShaderContract]
     ) -> SceneAuthoredEffectExecutionChain? {
-        guard graph.blockers.isEmpty,
-              !graph.effects.isEmpty,
-              descriptor.layers.filter({ $0.id == graph.layerID }).count == 1,
-              validOuterChain(graph) else {
-#if DEBUG
-            print("MWX authored effect chain rejected layer=\(graph.layerID) reason=outer-chain")
-#endif
-            return nil
-        }
-
-        var stages: [SceneAuthoredEffectExecutionPlan] = []
-        stages.reserveCapacity(graph.effects.count)
-        for (ordinal, effect) in graph.effects.enumerated() {
-            guard let stageGraph = stageGraph(effect: effect, in: graph) else {
-#if DEBUG
-                print(
-                    "MWX authored effect chain rejected layer=\(graph.layerID) "
-                        + "effect=\(effect.definitionPath) index=\(ordinal) reason=stage-graph"
-                )
-#endif
-                return nil
-            }
-            let inputRole: SceneAuthoredEffectInputRole = ordinal == 0
-                ? .layerSource
-                : .priorEffectOutput
-            let stage = resolveStage(
-                stageGraph: stageGraph,
-                inputRole: inputRole,
-                descriptor: descriptor,
-                shaderContracts: shaderContracts
-            )
-            guard let stage else {
-                if let suffix = irisInlineSuffix(
-                    plannedStages: stages,
-                    unsupportedOrdinal: ordinal,
-                    graph: graph,
-                    descriptor: descriptor,
-                    shaderContracts: shaderContracts
-                ) {
-                    return suffix
-                }
-                if let isolated = isolatedCursorRippleChain(
-                    graph: graph,
-                    descriptor: descriptor,
-                    shaderContracts: shaderContracts
-                ) {
-                    return isolated
-                }
-                if let isolated = isolatedShineChain(
-                    graph: graph,
-                    descriptor: descriptor,
-                    shaderContracts: shaderContracts
-                ) {
-                    return isolated
-                }
-                if let prefix = xRayPrefix(
-                    plannedStages: stages,
-                    unsupportedOrdinal: ordinal,
-                    graph: graph,
-                    descriptor: descriptor
-                ) {
-                    return prefix
-                }
-#if DEBUG
-                print(
-                    "MWX authored effect chain rejected layer=\(graph.layerID) "
-                        + "effect=\(effect.definitionPath) index=\(ordinal) reason=unsupported-stage"
-                )
-#endif
-                return nil
-            }
-            stages.append(stage)
-        }
-        // 这里只能按假设的 2048² 输入估算，不能据此拒绝真实的小纹理长链。
-        // SceneOffscreenTexturePool 会在拿到实际 extent 后按精确字节数原子准入，
-        // 超出 128 MiB 的链仍会在分配前整条拒绝且不破坏现有 resident state。
-
-        return SceneAuthoredEffectExecutionChain(
-            layerID: graph.layerID,
-            renderGraph: graph,
-            stages: stages
-        )
+        admit(
+            graph: graph,
+            descriptor: descriptor,
+            shaderContracts: shaderContracts
+        ).chain
     }
 
     nonisolated static func fitsDefaultTextureBudget(
@@ -324,74 +247,11 @@ enum SceneAuthoredEffectChainPlanner {
         return (Double(resolved.width) * Double(resolved.height)) / (2048 * 2048)
     }
 
-    private nonisolated static func validOuterChain(_ graph: Graph) -> Bool {
-        let layerSource = SceneAuthoredEffectInputValidator.layerSource(layerID: graph.layerID)
-        var expectedInput = layerSource
-        var seenEffects = Set<Graph.EffectKey>()
-        var seenNodeIndices = Set<Int>()
-        var lastEffectIndex: Int?
-
-        for effect in graph.effects {
-            guard effect.key.layerID == graph.layerID,
-                  effect.key.effectIndex >= 0,
-                  !effect.key.descriptorID.isEmpty,
-                  seenEffects.insert(effect.key).inserted,
-                  lastEffectIndex.map({ effect.key.effectIndex > $0 }) ?? true,
-                  effect.input == expectedInput,
-                  validOutput(effect.output, effect: effect.key, layerID: graph.layerID),
-                  !effect.nodeIndices.isEmpty,
-                  effect.nodeIndices.allSatisfy({ seenNodeIndices.insert($0).inserted }) else {
-                return false
-            }
-            expectedInput = effect.output
-            lastEffectIndex = effect.key.effectIndex
-        }
-
-        guard graph.finalOutput == expectedInput,
-              seenNodeIndices == Set(graph.nodes.map(\.nodeIndex)),
-              graph.nodes.allSatisfy({ seenEffects.contains($0.effect) }),
-              graph.renderTargets.allSatisfy({
-                  $0.texture.effect.map(seenEffects.contains) == true
-              }) else {
-            return false
-        }
-        return true
-    }
-
     nonisolated static func stageGraph(
         effect: Graph.Effect,
         in graph: Graph
     ) -> Graph? {
-        let nodesByIndex = Dictionary(grouping: graph.nodes, by: \.nodeIndex)
-        var nodes: [Graph.Node] = []
-        nodes.reserveCapacity(effect.nodeIndices.count)
-        for nodeIndex in effect.nodeIndices {
-            guard let matches = nodesByIndex[nodeIndex], matches.count == 1,
-                  let node = matches.first, node.effect == effect.key else {
-                return nil
-            }
-            nodes.append(node)
-        }
-        let targets = graph.renderTargets.filter { $0.texture.effect == effect.key }
-        return Graph(
-            layerID: graph.layerID,
-            effects: [effect],
-            renderTargets: targets,
-            nodes: nodes,
-            finalOutput: effect.output,
-            blockers: []
-        )
-    }
-
-    private nonisolated static func validOutput(
-        _ output: Graph.TextureIdentity,
-        effect: Graph.EffectKey,
-        layerID: Int
-    ) -> Bool {
-        output.kind == .effectOutput
-            && output.layerID == layerID
-            && output.effect == effect
-            && output.name == nil
+        stageGraphAdmission(effect: effect, in: graph).graph
     }
 
     // The default 128 MiB pool guarantees eight 2048x2048 BGRA textures.

@@ -73,7 +73,7 @@ EXPECTED_PURPOSES = {
     "waterripple effect normal": "normal",
     "depthparallax depth": "depth",
     "waterwaves mask": "mask",
-    "xray blend": "preservedChannels",
+    "xray blend": "straightAlbedo",
     "xray halo": "preservedChannels",
     "xray opacity": "mask",
 }
@@ -130,13 +130,18 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
         )[0]
         self.assertNotIn("loadCandidate(", legacy_body)
 
-    def test_xray_property_inputs_use_the_preserved_texture_map(self) -> None:
+    def test_xray_property_inputs_use_role_typed_texture_maps(self) -> None:
         xray = XRAY_LOADER.read_text(encoding="utf-8")
         view = METAL_VIEW.read_text(encoding="utf-8")
-        self.assertEqual(xray.count("preservedUserPropertyTextures[$0]"), 2)
+        self.assertEqual(xray.count("straightAlbedoUserPropertyTextures[$0]"), 1)
+        self.assertEqual(xray.count("preservedUserPropertyTextures[$0]"), 1)
         self.assertNotIn("userPropertyTextures[$0]", xray)
-        self.assertIn("declaration.blendPropertyKey", view)
-        self.assertIn("declaration.haloPropertyKey", view)
+        self.assertIn(r"\.blendPropertyKey", view)
+        self.assertIn(r"\.haloPropertyKey", view)
+        self.assertIn(
+            "straightAlbedoUserPropertyTextures: userPropertyTextureLoad.straightAlbedoTextures",
+            view,
+        )
         self.assertIn(
             "preservedUserPropertyTextures: userPropertyTextureLoad.preservedTextures",
             view,

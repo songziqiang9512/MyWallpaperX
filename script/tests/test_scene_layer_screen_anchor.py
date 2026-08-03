@@ -22,6 +22,9 @@ SWIFT_SOURCES = [
 ]
 TRANSFORMS_SOURCE = SCENE_ROOT / "Rendering/SceneMetalRenderer+LayerTransforms.swift"
 RENDERER_SOURCE = SCENE_ROOT / "Rendering/SceneMetalRenderer.swift"
+UTILITY_FRAME_RENDERER_SOURCE = (
+    SCENE_ROOT / "Rendering/SceneUtilityPlanFrameRenderer.swift"
+)
 
 # 随包 `projects/defaultprojects/dino_run/scene.json`：general.orthogonalprojection
 # 是 343x193，两个记分标签都是 anchor=topright、origin.x=341.42999，
@@ -410,9 +413,20 @@ class SceneLayerScreenAnchorTests(unittest.TestCase):
         ))
         # 三个 imageModelMatrix 调用点都要喂真实的 cover 半宽高。
         renderer = RENDERER_SOURCE.read_text(encoding="utf-8")
-        self.assertEqual(renderer.count("imageModelMatrix("), 3)
+        utility_frame_renderer = UTILITY_FRAME_RENDERER_SOURCE.read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("SceneUtilityPlanFrameRenderer.render(", renderer)
+        self.assertEqual(renderer.count("imageModelMatrix("), 2)
+        self.assertEqual(utility_frame_renderer.count("imageModelMatrix("), 1)
         self.assertEqual(
-            renderer.count("visibleHalfExtents: cameraFrame.coverHalfExtents"), 3
+            renderer.count("visibleHalfExtents: cameraFrame.coverHalfExtents"), 2
+        )
+        self.assertEqual(
+            utility_frame_renderer.count(
+                "visibleHalfExtents: cameraFrame.coverHalfExtents"
+            ),
+            1,
         )
 
 

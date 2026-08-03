@@ -23,6 +23,21 @@ import scene_preview_visual_evidence as visual
 import generate_scene_full_matrix as matrix_generator
 
 
+def static_effect_disposition(
+    *,
+    records: list[dict[str, object]] | None = None,
+    groups: list[dict[str, object]] | None = None,
+    validation_failures: list[str] | None = None,
+) -> dict[str, object]:
+    return {
+        "has_evidence": True,
+        "schema_version": 1,
+        "records": records or [],
+        "groups": groups or [],
+        "validation_failures": validation_failures or [],
+    }
+
+
 def shader_stage(identity: str, kind: str, source: str) -> dict[str, object]:
     suffix = "vert" if kind == "vertex" else "frag"
     return {
@@ -42,6 +57,190 @@ def runtime_evidence(runtime_input: dict[str, object]) -> dict[str, object]:
         "sourceEntryPath": "scene.json",
         "runtimeInput": runtime_input,
     }
+
+
+def effect_runtime_disposition_preview() -> str:
+    coverage = (
+        "inactive=1,complete=2,terminal-inline-prefix=0,"
+        "terminal-inline-suffix=1,isolated-accepted=0,isolated-omitted=0,"
+        "prefix-accepted=0,prefix-omitted=0,rejected-missing-graph=0,"
+        "rejected-ambiguous-graph=0,rejected-chain=8,"
+        "rejected-graph-mismatch=0,rejected-invariant=0"
+    )
+    kind_counts = (
+        "inactive=1,strict-dedicated=1,strict-generic=1,"
+        "strict-inline-suffix=1,omitted-by-strict-chain=1,"
+        "legacy-exact-inline=1,legacy-exact-offscreen=1,"
+        "legacy-structural-member=0,"
+        "legacy-coalesced-inline=1,legacy-coalesced-offscreen=0,"
+        "legacy-shadowed=1,"
+        "route-only-member=1,composite-refused=1,unsupported=1,"
+        "unattributed=0"
+    )
+    return "\n".join([
+        "authoredEffectGraphStageCount: 2",
+        "authoredEffectStageDescriptorCount: 12",
+        "authoredEffectStageParsedCount: 12",
+        "authoredEffectStageActivityCounts: author-disabled=1,layer-hidden=0,active=11",
+        "authoredEffectStageStrictAdmissionCounts: inactive=1,admitted-dedicated=1,admitted-generic=1,not-admitted=9",
+        f"authoredEffectStageCoverageCounts: {coverage}",
+        "authoredEffectStageDescriptorIdentityConserved: true",
+        "authoredEffectStageActivityConserved: true",
+        "authoredEffectStageInactiveAdmissionConserved: true",
+        "authoredEffectStageActiveAdmissionConserved: true",
+        "authoredEffectStageStrictIdentityConserved: true",
+        "authoredEffectStageAdmission: layer=1 effect=0 descriptor=1%23effect%230 activity=author-disabled strict=inactive coverage=inactive backend=- profile=- reason=- path=effects/disabled/effect.json",
+        "authoredEffectStageAdmission: layer=2 effect=0 descriptor=2%23effect%230 activity=active strict=admitted-dedicated coverage=complete backend=opacity profile=- reason=- path=effects/opacity/effect.json",
+        "authoredEffectStageAdmission: layer=2 effect=1 descriptor=2%23effect%231 activity=active strict=admitted-generic coverage=complete backend=authored-shader profile=generic-fragment reason=- path=effects/generic/effect.json",
+        "authoredEffectStageAdmission: layer=2 effect=2 descriptor=2%23effect%232 activity=active strict=not-admitted coverage=terminal-inline-suffix backend=- profile=- reason=terminal-inline-suffix path=effects/iris/effect.json",
+        "authoredEffectStageAdmission: layer=2 effect=3 descriptor=2%23effect%233 activity=active strict=not-admitted coverage=rejected-chain backend=- profile=- reason=unsupported-stage path=effects/omitted/effect.json",
+        "authoredEffectStageAdmission: layer=3 effect=0 descriptor=3%23effect%230 activity=active strict=not-admitted coverage=rejected-chain backend=- profile=- reason=unsupported-stage path=effects/chromatic/effect.json",
+        "authoredEffectStageAdmission: layer=3 effect=1 descriptor=3%23effect%231 activity=active strict=not-admitted coverage=rejected-chain backend=- profile=- reason=unsupported-stage path=effects/chromatic/effect.json",
+        "authoredEffectStageAdmission: layer=4 effect=0 descriptor=4%23effect%230 activity=active strict=not-admitted coverage=rejected-chain backend=- profile=- reason=unsupported-stage path=effects/capture/effect.json",
+        "authoredEffectStageAdmission: layer=5 effect=0 descriptor=5%23effect%230 activity=active strict=not-admitted coverage=rejected-chain backend=- profile=- reason=unsupported-stage path=effects/bloom/effect.json",
+        "authoredEffectStageAdmission: layer=5 effect=1 descriptor=5%23effect%231 activity=active strict=not-admitted coverage=rejected-chain backend=- profile=- reason=unsupported-stage path=effects/blur/effect.json",
+        "authoredEffectStageAdmission: layer=6 effect=0 descriptor=6%23effect%230 activity=active strict=not-admitted coverage=rejected-chain backend=- profile=- reason=unsupported-stage path=effects/composite/effect.json",
+        "authoredEffectStageAdmission: layer=7 effect=0 descriptor=7%23effect%230 activity=active strict=not-admitted coverage=rejected-chain backend=- profile=- reason=unsupported-stage path=effects/unknown/effect.json",
+        "effectStageRuntimeDispositionSchema: 1",
+        "effectStageRuntimeRouteScope: effect-induced-static",
+        "effectStageRuntimeDispositionCount: 12",
+        f"effectStageRuntimeDispositionKindCounts: {kind_counts}",
+        "effectStageRuntimeDispositionAttributionCounts: exact-key=8,layer-aggregate=2,none=2",
+        "effectStageRuntimeDispositionRoleCounts: owner=5,aggregate-contributor=1,member=5,none=1",
+        "effectStaticRouteGroupCount: 7",
+        "effectStaticRouteGroupKindCounts: inactive=1,direct=2,authored=1,legacy-offscreen=1,offscreen-passthrough=1,composite-refused=1",
+        "effectStageRuntimeDescriptorIdentityConserved: true",
+        "effectStageRuntimeGroupIdentityConserved: true",
+        "effectStageRuntimeStrictIdentityConserved: true",
+        "effectStaticRouteGroup: layer=1 scope=effect-induced-static kind=inactive effects=0 owners=0 aggregate=0 reason=no-active-effect",
+        "effectStaticRouteGroup: layer=2 scope=effect-induced-static kind=authored effects=4 owners=3 aggregate=0 reason=-",
+        "effectStaticRouteGroup: layer=3 scope=effect-induced-static kind=direct effects=2 owners=1 aggregate=1 reason=-",
+        "effectStaticRouteGroup: layer=4 scope=effect-induced-static kind=offscreen-passthrough effects=1 owners=0 aggregate=0 reason=no-implemented-offscreen-stage",
+        "effectStaticRouteGroup: layer=5 scope=effect-induced-static kind=legacy-offscreen effects=2 owners=1 aggregate=0 reason=-",
+        "effectStaticRouteGroup: layer=6 scope=effect-induced-static kind=composite-refused effects=1 owners=0 aggregate=0 reason=legacy-composite-refused",
+        "effectStaticRouteGroup: layer=7 scope=effect-induced-static kind=direct effects=1 owners=0 aggregate=0 reason=-",
+        "effectStageRuntimeDisposition: layer=1 effect=0 descriptor=1%23effect%230 kind=inactive attribution=none family=- group=- role=none reason=author-disabled path=effects/disabled/effect.json",
+        "effectStageRuntimeDisposition: layer=2 effect=0 descriptor=2%23effect%230 kind=strict-dedicated attribution=exact-key family=opacity group=2 role=owner reason=- path=effects/opacity/effect.json",
+        "effectStageRuntimeDisposition: layer=2 effect=1 descriptor=2%23effect%231 kind=strict-generic attribution=exact-key family=generic-fragment group=2 role=owner reason=- path=effects/generic/effect.json",
+        "effectStageRuntimeDisposition: layer=2 effect=2 descriptor=2%23effect%232 kind=strict-inline-suffix attribution=exact-key family=iris-inline group=2 role=owner reason=terminal-inline-suffix path=effects/iris/effect.json",
+        "effectStageRuntimeDisposition: layer=2 effect=3 descriptor=2%23effect%233 kind=omitted-by-strict-chain attribution=exact-key family=- group=2 role=member reason=unsupported-stage path=effects/omitted/effect.json",
+        "effectStageRuntimeDisposition: layer=3 effect=0 descriptor=3%23effect%230 kind=legacy-exact-inline attribution=exact-key family=chromatic-aberration group=3 role=owner reason=- path=effects/chromatic/effect.json",
+        "effectStageRuntimeDisposition: layer=3 effect=1 descriptor=3%23effect%231 kind=legacy-coalesced-inline attribution=layer-aggregate family=chromatic-aberration group=3 role=aggregate-contributor reason=multiple-instances-coalesced-to-one-flag path=effects/chromatic/effect.json",
+        "effectStageRuntimeDisposition: layer=4 effect=0 descriptor=4%23effect%230 kind=route-only-member attribution=exact-key family=declared-multipass group=4 role=member reason=capture-or-neutral-copy-only path=effects/capture/effect.json",
+        "effectStageRuntimeDisposition: layer=5 effect=0 descriptor=5%23effect%230 kind=legacy-exact-offscreen attribution=exact-key family=bloom group=5 role=owner reason=- path=effects/bloom/effect.json",
+        "effectStageRuntimeDisposition: layer=5 effect=1 descriptor=5%23effect%231 kind=legacy-shadowed attribution=exact-key family=blur group=5 role=member reason=shadowed-by-legacy-precedence path=effects/blur/effect.json",
+        "effectStageRuntimeDisposition: layer=6 effect=0 descriptor=6%23effect%230 kind=composite-refused attribution=layer-aggregate family=unsupported-composite group=6 role=member reason=waterflow-waterripple-perspective-opacity path=effects/composite/effect.json",
+        "effectStageRuntimeDisposition: layer=7 effect=0 descriptor=7%23effect%230 kind=unsupported attribution=none family=unknown group=7 role=member reason=no-legacy-visual-route path=effects/unknown/effect.json",
+    ])
+
+
+def effect_cpu_event(
+    *,
+    frame: int,
+    origin: str,
+    subject: str,
+    layer: int,
+    effect: int | None,
+    descriptor: str | None,
+    family: str,
+    backend: str,
+    outcome: str = "encoded-output",
+    reason: str = "-",
+) -> dict[str, object]:
+    effect_token = "-" if effect is None else str(effect)
+    descriptor_token = "-" if descriptor is None else descriptor
+    return {
+        "line": (
+            f"schema=1 axis=effect-cpu-invocation frame={frame} origin={origin} "
+            f"subject={subject} layer={layer} effect={effect_token} "
+            f"descriptor={descriptor_token} family={family} backend={backend} "
+            f"outcome={outcome} reason={reason}"
+        ),
+        "canonical": (
+            f"effect|origin={origin}|subject={subject}|layer={layer}"
+            f"|effect={effect_token}|descriptor={descriptor_token}"
+            f"|family={family}|backend={backend}|outcome={outcome}"
+            f"|reason={reason}"
+        ),
+        "subject": (
+            origin,
+            subject,
+            layer,
+            effect,
+            descriptor_token,
+            family,
+            backend,
+        ),
+        "outcome": outcome,
+    }
+
+
+def effect_route_event(
+    *,
+    frame: int,
+    origin: str,
+    layer: int,
+    operation: str,
+    outcome: str = "encoded",
+    reason: str = "-",
+) -> dict[str, object]:
+    return {
+        "line": (
+            f"schema=1 axis=effect-route-operation frame={frame} "
+            f"origin={origin} layer={layer} operation={operation} "
+            f"outcome={outcome} reason={reason}"
+        ),
+        "canonical": (
+            f"route|origin={origin}|layer={layer}|operation={operation}"
+            f"|outcome={outcome}|reason={reason}"
+        ),
+        "subject": (origin, layer, operation),
+        "outcome": outcome,
+    }
+
+
+def effect_execution_log(
+    frame: int,
+    cpu_events: list[dict[str, object]],
+    route_events: list[dict[str, object]],
+    *,
+    status: str = "completed",
+    count_overrides: dict[str, int] | None = None,
+    cohort_override: str | None = None,
+) -> str:
+    attempted = {event["subject"] for event in cpu_events}
+    returned = {
+        event["subject"] for event in cpu_events
+        if event["outcome"] == "encoded-output"
+    }
+    failed = {
+        event["subject"] for event in cpu_events
+        if event["outcome"] == "failed"
+    }
+    routes = {event["subject"] for event in route_events}
+    counts = {
+        "attempted": len(attempted),
+        "returned": len(returned),
+        "failed": len(failed),
+        "routes": len(routes),
+    }
+    counts.update(count_overrides or {})
+    cohort = cohort_override or hashlib.sha256("\n".join(sorted({
+        str(event["canonical"]) for event in cpu_events + route_events
+    })).encode("utf-8")).hexdigest()
+    frame_line = (
+        f"schema=1 axis=scene-frame-command-buffer frame={frame} "
+        f"attemptedEffects={counts['attempted']} "
+        f"returnedOutputs={counts['returned']} "
+        f"failedInvocations={counts['failed']} "
+        f"routeOperations={counts['routes']} cohortSHA256={cohort} "
+        f"status={status}"
+    )
+    return "\n".join([
+        *(str(event["line"]) for event in cpu_events),
+        *(str(event["line"]) for event in route_events),
+        frame_line,
+    ])
 
 
 class SceneWallpaperBenchmarkTests(unittest.TestCase):
@@ -1412,14 +1611,14 @@ utility layer 763: skippedHidden kind=composition
             ],
         )
 
-    def test_utility_capture_execution_prefers_eventual_success(self) -> None:
+    def test_utility_capture_execution_preserves_failure_after_success(self) -> None:
         metrics = benchmark.utility_capture_execution_metrics(
             "phase=utility-capture layer=530 status=failed\n"
             "phase=utility-capture layer=530 status=succeeded\n"
             "phase=utility-capture layer=410 status=failed\n"
         )
         self.assertEqual(metrics["succeeded_layer_ids"], [530])
-        self.assertEqual(metrics["failed_layer_ids"], [410])
+        self.assertEqual(metrics["failed_layer_ids"], [410, 530])
 
     def test_authored_effect_graph_execution_is_a_strict_layer_gate(self) -> None:
         metrics = benchmark.authored_effect_graph_execution_metrics(
@@ -1428,15 +1627,15 @@ utility layer 763: skippedHidden kind=composition
             "phase=authored-effect-graph layer=76 status=succeeded\n"
         )
         self.assertEqual(metrics["succeeded_layer_ids"], [68, 76])
-        self.assertEqual(metrics["failed_layer_ids"], [])
-        self.assertEqual(
+        self.assertEqual(metrics["failed_layer_ids"], [68])
+        self.assertIn(
+            "authored effect graph layer 68 failed",
             benchmark.authored_effect_graph_failures(
                 {"expected_authored_effect_graph_succeeded_layer_ids": [68, 76]},
                 metrics,
                 [],
                 None,
             ),
-            [],
         )
         self.assertIn(
             "authored effect graph succeeded layer IDs mismatch",
@@ -2502,6 +2701,1298 @@ utility layer 763: skippedHidden kind=composition
             ),
         )
 
+    def test_effect_stage_admission_metrics_are_structured_and_conserved(self) -> None:
+        coverage = (
+            "inactive=1,complete=1,terminal-inline-prefix=0,"
+            "terminal-inline-suffix=0,isolated-accepted=0,isolated-omitted=0,"
+            "prefix-accepted=0,prefix-omitted=0,rejected-missing-graph=0,"
+            "rejected-ambiguous-graph=0,rejected-chain=1,"
+            "rejected-graph-mismatch=0,rejected-invariant=0"
+        )
+        preview = "\n".join([
+            "authoredEffectGraphStageCount: 1",
+            "authoredEffectStageDescriptorCount: 3",
+            "authoredEffectStageParsedCount: 3",
+            "authoredEffectStageActivityCounts: author-disabled=1,layer-hidden=0,active=2",
+            "authoredEffectStageStrictAdmissionCounts: inactive=1,admitted-dedicated=1,admitted-generic=0,not-admitted=1",
+            f"authoredEffectStageCoverageCounts: {coverage}",
+            "authoredEffectStageDescriptorIdentityConserved: true",
+            "authoredEffectStageActivityConserved: true",
+            "authoredEffectStageInactiveAdmissionConserved: true",
+            "authoredEffectStageActiveAdmissionConserved: true",
+            "authoredEffectStageStrictIdentityConserved: true",
+            "authoredEffectStageAdmission: layer=1 effect=0 descriptor=1%23effect%230 activity=author-disabled strict=inactive coverage=inactive backend=- profile=- reason=- path=effects/disabled/effect.json",
+            "authoredEffectStageAdmission: layer=1 effect=1 descriptor=1%23effect%231 activity=active strict=admitted-dedicated coverage=complete backend=opacity profile=- reason=- path=effects/opacity/effect.json",
+            "authoredEffectStageAdmission: layer=1 effect=2 descriptor=1%23effect%232 activity=active strict=not-admitted coverage=rejected-chain backend=- profile=- reason=unsupported-stage path=effects/unknown/effect.json",
+        ])
+        metrics = benchmark.authored_effect_stage_admission_metrics(preview)
+        self.assertTrue(metrics["has_evidence"])
+        self.assertEqual(metrics["schema_version"], 1)
+        self.assertEqual(metrics["descriptor_count"], 3)
+        self.assertEqual(metrics["parsed_count"], 3)
+        self.assertEqual(metrics["activity_counts"]["active"], 2)
+        self.assertEqual(metrics["strict_admission_counts"]["admitted-dedicated"], 1)
+        self.assertEqual(metrics["records"][0]["descriptor_id"], "1#effect#0")
+        self.assertEqual(metrics["validation_failures"], [])
+        self.assertEqual(len(metrics["canonical_sha256"]), 64)
+        self.assertEqual(
+            benchmark.authored_effect_stage_admission_failures(
+                {
+                    "expected_effect_stage_admission_schema": 1,
+                    "expected_effect_stage_descriptor_count": 3,
+                    "expected_effect_stage_parsed_count": 3,
+                    "expected_effect_stage_activity_counts": metrics[
+                        "activity_counts"
+                    ],
+                    "expected_effect_stage_strict_admission_counts": metrics[
+                        "strict_admission_counts"
+                    ],
+                    "expected_effect_stage_coverage_counts": metrics[
+                        "coverage_counts"
+                    ],
+                    "expected_effect_stage_admission_sha256": metrics["canonical_sha256"],
+                },
+                metrics,
+            ),
+            [],
+        )
+
+        duplicate = preview.replace(
+            "effect=2 descriptor=1%23effect%232",
+            "effect=1 descriptor=1%23effect%231",
+        )
+        duplicate_metrics = benchmark.authored_effect_stage_admission_metrics(duplicate)
+        self.assertIn(
+            "effect stage admission identity duplicated",
+            duplicate_metrics["validation_failures"],
+        )
+
+        invalid_combination = preview.replace(
+            "strict=not-admitted coverage=rejected-chain backend=- profile=- reason=unsupported-stage",
+            "strict=not-admitted coverage=complete backend=opacity profile=- reason=unsupported-stage",
+        )
+        invalid_combination_metrics = (
+            benchmark.authored_effect_stage_admission_metrics(invalid_combination)
+        )
+        self.assertIn(
+            "effect stage non-admitted state combination invalid",
+            invalid_combination_metrics["validation_failures"],
+        )
+
+        missing_stage_count_metrics = benchmark.authored_effect_stage_admission_metrics(
+            preview.replace("authoredEffectGraphStageCount: 1\n", "")
+        )
+        self.assertIn(
+            "effect stage chain stage count missing",
+            missing_stage_count_metrics["validation_failures"],
+        )
+
+        structural_rejection = preview.replace(
+            "coverage=rejected-chain backend=- profile=- reason=unsupported-stage",
+            "coverage=rejected-invariant backend=- profile=- reason=invalid-stage-identity",
+        ).replace(
+            "rejected-chain=1,rejected-graph-mismatch=0,rejected-invariant=0",
+            "rejected-chain=0,rejected-graph-mismatch=0,rejected-invariant=1",
+        )
+        structural_metrics = benchmark.authored_effect_stage_admission_metrics(
+            structural_rejection
+        )
+        self.assertIn(
+            "effect stage admission structural rejection: rejected-invariant",
+            structural_metrics["validation_failures"],
+        )
+
+    def test_effect_stage_admission_evidence_is_backward_compatible_until_expected(self) -> None:
+        metrics = benchmark.authored_effect_stage_admission_metrics("")
+        self.assertFalse(metrics["has_evidence"])
+        self.assertIsNone(metrics["schema_version"])
+        self.assertEqual(
+            benchmark.authored_effect_stage_admission_failures({}, metrics),
+            [],
+        )
+        self.assertEqual(
+            benchmark.authored_effect_stage_admission_failures(
+                {"expected_effect_stage_descriptor_count": 1},
+                metrics,
+            ),
+            ["effect stage admission evidence missing"],
+        )
+        self.assertEqual(
+            benchmark.authored_effect_stage_admission_failures(
+                {},
+                metrics,
+                require_evidence=True,
+            ),
+            ["effect stage admission evidence missing"],
+        )
+
+    def test_effect_stage_admission_matrix_family_must_be_complete(self) -> None:
+        coverage = (
+            "inactive=0,complete=1,terminal-inline-prefix=0,"
+            "terminal-inline-suffix=0,isolated-accepted=0,isolated-omitted=0,"
+            "prefix-accepted=0,prefix-omitted=0,rejected-missing-graph=0,"
+            "rejected-ambiguous-graph=0,rejected-chain=0,"
+            "rejected-graph-mismatch=0,rejected-invariant=0"
+        )
+        preview = "\n".join([
+            "authoredEffectGraphStageCount: 1",
+            "authoredEffectStageDescriptorCount: 1",
+            "authoredEffectStageParsedCount: 1",
+            "authoredEffectStageActivityCounts: author-disabled=0,layer-hidden=0,active=1",
+            "authoredEffectStageStrictAdmissionCounts: inactive=0,admitted-dedicated=1,admitted-generic=0,not-admitted=0",
+            f"authoredEffectStageCoverageCounts: {coverage}",
+            "authoredEffectStageDescriptorIdentityConserved: true",
+            "authoredEffectStageActivityConserved: true",
+            "authoredEffectStageInactiveAdmissionConserved: true",
+            "authoredEffectStageActiveAdmissionConserved: true",
+            "authoredEffectStageStrictIdentityConserved: true",
+            "authoredEffectStageAdmission: layer=1 effect=0 descriptor=1%23effect%230 activity=active strict=admitted-dedicated coverage=complete backend=opacity profile=- reason=- path=effects/opacity/effect.json",
+        ])
+        metrics = benchmark.authored_effect_stage_admission_metrics(preview)
+        self.assertEqual(metrics["validation_failures"], [])
+        self.assertEqual(
+            benchmark.authored_effect_stage_admission_failures(
+                {"expected_effect_stage_admission_schema": 1},
+                metrics,
+            ),
+            ["effect stage admission matrix contract incomplete"],
+        )
+
+    def test_effect_runtime_disposition_is_structured_joined_and_hashed(self) -> None:
+        preview = effect_runtime_disposition_preview()
+        admission = benchmark.authored_effect_stage_admission_metrics(preview)
+        metrics = benchmark.effect_runtime_disposition_metrics(preview, admission)
+
+        self.assertTrue(metrics["has_evidence"])
+        self.assertEqual(metrics["schema_version"], 1)
+        self.assertEqual(metrics["route_scope"], "effect-induced-static")
+        self.assertEqual(metrics["record_count"], 12)
+        self.assertEqual(metrics["group_count"], 7)
+        self.assertTrue(all(
+            group["scope"] == "effect-induced-static"
+            for group in metrics["groups"]
+        ))
+        self.assertEqual(metrics["validation_failures"], [])
+        self.assertEqual(len(metrics["canonical_sha256"]), 64)
+        self.assertEqual(
+            metrics["canonical_sha256"],
+            hashlib.sha256(json.dumps(
+                {
+                    "groups": metrics["groups"],
+                    "records": metrics["records"],
+                },
+                ensure_ascii=True,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")).hexdigest(),
+        )
+        records_by_kind = {
+            record["kind"]: record for record in metrics["records"]
+        }
+        self.assertEqual(records_by_kind["inactive"]["group_id"], None)
+        self.assertEqual(records_by_kind["strict-dedicated"]["role"], "owner")
+        self.assertEqual(records_by_kind["strict-generic"]["role"], "owner")
+        self.assertEqual(records_by_kind["strict-inline-suffix"]["role"], "owner")
+        self.assertEqual(
+            records_by_kind["omitted-by-strict-chain"]["role"],
+            "member",
+        )
+        self.assertEqual(
+            records_by_kind["legacy-coalesced-inline"]["attribution"],
+            "layer-aggregate",
+        )
+        self.assertEqual(records_by_kind["route-only-member"]["role"], "member")
+        self.assertEqual(records_by_kind["legacy-shadowed"]["role"], "member")
+        self.assertEqual(records_by_kind["composite-refused"]["role"], "member")
+        self.assertIn("unsupported", records_by_kind)
+
+        structural_preview = preview.replace(
+            "legacy-structural-member=0,legacy-coalesced-inline=1,legacy-coalesced-offscreen=0,legacy-shadowed=1",
+            "legacy-structural-member=1,legacy-coalesced-inline=1,legacy-coalesced-offscreen=0,legacy-shadowed=0",
+        ).replace(
+            "kind=legacy-shadowed attribution=exact-key family=blur group=5 role=member reason=shadowed-by-legacy-precedence",
+            "kind=legacy-structural-member attribution=exact-key family=gradient-color group=5 role=member reason=shape-only-legacy-member",
+        )
+        structural_metrics = benchmark.effect_runtime_disposition_metrics(
+            structural_preview
+        )
+        self.assertEqual(structural_metrics["validation_failures"], [])
+        self.assertEqual(
+            next(
+                record for record in structural_metrics["records"]
+                if record["kind"] == "legacy-structural-member"
+            )["role"],
+            "member",
+        )
+
+        coalesced_offscreen_preview = preview.replace(
+            "legacy-exact-offscreen=1,legacy-structural-member=0,legacy-coalesced-inline=1,legacy-coalesced-offscreen=0",
+            "legacy-exact-offscreen=0,legacy-structural-member=0,legacy-coalesced-inline=1,legacy-coalesced-offscreen=1",
+        ).replace(
+            "exact-key=8,layer-aggregate=2,none=2",
+            "exact-key=7,layer-aggregate=3,none=2",
+        ).replace(
+            "owner=5,aggregate-contributor=1,member=5,none=1",
+            "owner=4,aggregate-contributor=2,member=5,none=1",
+        ).replace(
+            "layer=5 scope=effect-induced-static kind=legacy-offscreen effects=2 owners=1 aggregate=0",
+            "layer=5 scope=effect-induced-static kind=legacy-offscreen effects=2 owners=0 aggregate=1",
+        ).replace(
+            "kind=legacy-exact-offscreen attribution=exact-key family=bloom group=5 role=owner reason=-",
+            "kind=legacy-coalesced-offscreen attribution=layer-aggregate family=water-ripple-normal group=5 role=aggregate-contributor reason=first-parameters-first-resolvable-normal",
+        )
+        coalesced_offscreen_metrics = (
+            benchmark.effect_runtime_disposition_metrics(
+                coalesced_offscreen_preview
+            )
+        )
+        self.assertEqual(
+            coalesced_offscreen_metrics["validation_failures"],
+            [],
+        )
+        self.assertEqual(
+            next(
+                record for record in coalesced_offscreen_metrics["records"]
+                if record["kind"] == "legacy-coalesced-offscreen"
+            )["role"],
+            "aggregate-contributor",
+        )
+
+        inline_passthrough_preview = preview.replace(
+            "legacy-exact-inline=1,legacy-exact-offscreen=1",
+            "legacy-exact-inline=2,legacy-exact-offscreen=1",
+        ).replace(
+            "route-only-member=1,composite-refused=1",
+            "route-only-member=0,composite-refused=1",
+        ).replace(
+            "owner=5,aggregate-contributor=1,member=5,none=1",
+            "owner=6,aggregate-contributor=1,member=4,none=1",
+        ).replace(
+            "layer=4 scope=effect-induced-static kind=offscreen-passthrough effects=1 owners=0 aggregate=0",
+            "layer=4 scope=effect-induced-static kind=offscreen-passthrough effects=1 owners=1 aggregate=0",
+        ).replace(
+            "kind=route-only-member attribution=exact-key family=declared-multipass group=4 role=member reason=capture-or-neutral-copy-only",
+            "kind=legacy-exact-inline attribution=exact-key family=opacity group=4 role=owner reason=-",
+        )
+        inline_passthrough_metrics = (
+            benchmark.effect_runtime_disposition_metrics(
+                inline_passthrough_preview
+            )
+        )
+        self.assertEqual(
+            inline_passthrough_metrics["validation_failures"],
+            [],
+        )
+
+        unsupported_only_passthrough_preview = preview.replace(
+            "route-only-member=1,composite-refused=1,unsupported=1",
+            "route-only-member=0,composite-refused=1,unsupported=2",
+        ).replace(
+            "exact-key=8,layer-aggregate=2,none=2",
+            "exact-key=7,layer-aggregate=2,none=3",
+        ).replace(
+            "kind=route-only-member attribution=exact-key family=declared-multipass group=4 role=member reason=capture-or-neutral-copy-only",
+            "kind=unsupported attribution=none family=declared-multipass group=4 role=member reason=no-legacy-visual-route",
+        )
+        unsupported_only_passthrough_metrics = (
+            benchmark.effect_runtime_disposition_metrics(
+                unsupported_only_passthrough_preview
+            )
+        )
+        self.assertIn(
+            "effect runtime disposition passthrough group invalid",
+            unsupported_only_passthrough_metrics["validation_failures"],
+        )
+
+        invalid_coalesced_offscreen = (
+            benchmark.effect_runtime_disposition_metrics(
+                coalesced_offscreen_preview.replace(
+                    "reason=first-parameters-first-resolvable-normal",
+                    "reason=claimed-exact-stage-execution",
+                )
+            )
+        )
+        self.assertIn(
+            "effect runtime disposition coalesced offscreen reason mismatch",
+            invalid_coalesced_offscreen["validation_failures"],
+        )
+
+        sample = {
+            expectation.matrix_key: metrics[expectation.metric_key]
+            for expectation in benchmark.EFFECT_RUNTIME_DISPOSITION_EXPECTATIONS
+        }
+        self.assertEqual(
+            benchmark.effect_runtime_disposition_failures(sample, metrics),
+            [],
+        )
+
+    def test_effect_runtime_disposition_rejects_semantic_and_join_drift(self) -> None:
+        preview = effect_runtime_disposition_preview()
+        mutations = {
+            "duplicate-key": (
+                preview.replace(
+                    "effectStageRuntimeDisposition: layer=7 effect=0 descriptor=7%23effect%230",
+                    "effectStageRuntimeDisposition: layer=6 effect=0 descriptor=6%23effect%230",
+                ),
+                "effect runtime disposition identity duplicated",
+            ),
+            "path-join": (
+                preview.replace(
+                    "reason=no-legacy-visual-route path=effects/unknown/effect.json",
+                    "reason=no-legacy-visual-route path=effects/other/effect.json",
+                ),
+                "effect runtime disposition definition path mismatch",
+            ),
+            "inactive-group": (
+                preview.replace(
+                    "kind=inactive attribution=none family=- group=- role=none",
+                    "kind=inactive attribution=none family=- group=1 role=none",
+                ),
+                "effect runtime disposition state group invalid",
+            ),
+            "strict-omission-became-legacy": (
+                preview.replace(
+                    "kind=omitted-by-strict-chain attribution=exact-key family=- group=2 role=member",
+                    "kind=legacy-exact-inline attribution=exact-key family=omitted group=2 role=owner",
+                ),
+                "effect runtime disposition conflicts with admission",
+            ),
+            "coalesced-claims-exact": (
+                preview.replace(
+                    "kind=legacy-coalesced-inline attribution=layer-aggregate",
+                    "kind=legacy-coalesced-inline attribution=exact-key",
+                ),
+                "effect runtime disposition state combination invalid",
+            ),
+            "route-only-claims-owner": (
+                preview.replace(
+                    "kind=route-only-member attribution=exact-key family=declared-multipass group=4 role=member",
+                    "kind=route-only-member attribution=exact-key family=declared-multipass group=4 role=owner",
+                ),
+                "effect runtime disposition state combination invalid",
+            ),
+            "composite-claims-exact": (
+                preview.replace(
+                    "kind=composite-refused attribution=layer-aggregate",
+                    "kind=composite-refused attribution=exact-key",
+                ),
+                "effect runtime disposition state combination invalid",
+            ),
+            "group-owner-count": (
+                preview.replace(
+                    "layer=5 scope=effect-induced-static kind=legacy-offscreen effects=2 owners=1 aggregate=0",
+                    "layer=5 scope=effect-induced-static kind=legacy-offscreen effects=2 owners=2 aggregate=0",
+                ),
+                "effect runtime disposition group owner count mismatch",
+            ),
+            "duplicate-group-layer": (
+                preview.replace(
+                    "effectStaticRouteGroup: layer=7 scope=effect-induced-static kind=direct",
+                    "effectStaticRouteGroup: layer=6 scope=effect-induced-static kind=direct",
+                ),
+                "effect runtime disposition route group layer duplicated",
+            ),
+            "group-scope": (
+                preview.replace(
+                    "effectStaticRouteGroup: layer=7 scope=effect-induced-static",
+                    "effectStaticRouteGroup: layer=7 scope=full-compositor",
+                ),
+                "effect runtime disposition group scope invalid",
+            ),
+            "failed-conservation": (
+                preview.replace(
+                    "effectStageRuntimeGroupIdentityConserved: true",
+                    "effectStageRuntimeGroupIdentityConserved: false",
+                ),
+                "effect runtime disposition Swift conservation failed",
+            ),
+            "unattributed": (
+                preview.replace(
+                    "kind=unsupported attribution=none family=unknown",
+                    "kind=unattributed attribution=none family=-",
+                ),
+                "effect runtime disposition contains unattributed stage",
+            ),
+        }
+        for name, (mutated, expected_failure) in mutations.items():
+            with self.subTest(name=name):
+                metrics = benchmark.effect_runtime_disposition_metrics(mutated)
+                self.assertIn(expected_failure, metrics["validation_failures"])
+
+    def test_effect_runtime_disposition_rejects_summary_and_matrix_drift(self) -> None:
+        preview = effect_runtime_disposition_preview()
+        malformed = benchmark.effect_runtime_disposition_metrics(
+            preview.replace("effectStageRuntimeDispositionSchema: 1\n", "")
+        )
+        self.assertIn(
+            "effect runtime disposition summary missing or malformed",
+            malformed["validation_failures"],
+        )
+        self.assertIn(
+            "effect runtime disposition schema unsupported",
+            malformed["validation_failures"],
+        )
+
+        metrics = benchmark.effect_runtime_disposition_metrics(preview)
+        self.assertEqual(metrics["validation_failures"], [])
+        self.assertEqual(
+            benchmark.effect_runtime_disposition_failures(
+                {"expected_effect_runtime_disposition_schema": 1},
+                metrics,
+            ),
+            ["effect runtime disposition matrix contract incomplete"],
+        )
+        sample = {
+            expectation.matrix_key: metrics[expectation.metric_key]
+            for expectation in benchmark.EFFECT_RUNTIME_DISPOSITION_EXPECTATIONS
+        }
+        sample["expected_effect_runtime_disposition_sha256"] = "0" * 64
+        self.assertIn(
+            "effect runtime disposition sha256 mismatch",
+            benchmark.effect_runtime_disposition_failures(sample, metrics),
+        )
+
+    def test_effect_runtime_disposition_evidence_is_backward_compatible(self) -> None:
+        metrics = benchmark.effect_runtime_disposition_metrics("")
+        self.assertFalse(metrics["has_evidence"])
+        self.assertIsNone(metrics["schema_version"])
+        self.assertEqual(
+            benchmark.effect_runtime_disposition_failures({}, metrics),
+            [],
+        )
+        self.assertEqual(
+            benchmark.effect_runtime_disposition_failures(
+                {}, metrics, require_evidence=True
+            ),
+            ["effect runtime disposition evidence missing"],
+        )
+        self.assertEqual(
+            benchmark.effect_runtime_disposition_failures(
+                {"expected_effect_runtime_disposition_record_count": 1},
+                metrics,
+            ),
+            ["effect runtime disposition evidence missing"],
+        )
+
+    def test_effect_runtime_disposition_can_be_required_from_cli(self) -> None:
+        old_argv = sys.argv
+        try:
+            sys.argv = [
+                "scene_wallpaper_benchmark.py",
+                "--app", "/tmp/MyWallpaperX",
+                "--sample-root", "/tmp/samples",
+                "--output-dir", "/tmp/results",
+                "--require-effect-runtime-disposition",
+            ]
+            args = benchmark.parse_args()
+        finally:
+            sys.argv = old_argv
+        self.assertTrue(args.require_effect_runtime_disposition)
+
+    def test_effect_execution_preserves_three_axes_and_static_identity(self) -> None:
+        disposition = benchmark.effect_runtime_disposition_metrics(
+            effect_runtime_disposition_preview()
+        )
+        exact = effect_cpu_event(
+            frame=7,
+            origin="strict-chain",
+            subject="effect",
+            layer=2,
+            effect=0,
+            descriptor="2%23effect%230",
+            family="opacity",
+            backend="opacity",
+        )
+        aggregate = effect_cpu_event(
+            frame=7,
+            origin="legacy-inline",
+            subject="aggregate",
+            layer=3,
+            effect=None,
+            descriptor=None,
+            family="chromatic-aberration",
+            backend="legacy-inline",
+        )
+        route = effect_route_event(
+            frame=7,
+            origin="offscreen-route",
+            layer=4,
+            operation="source-capture",
+        )
+        metrics = benchmark.effect_execution_metrics(
+            effect_execution_log(7, [exact, aggregate], [route]),
+            disposition,
+        )
+
+        self.assertTrue(metrics["has_evidence"])
+        self.assertEqual(metrics["schema_version"], 1)
+        self.assertEqual(metrics["axis_evidence"], {
+            "cpu_invocation": True,
+            "route_operation": True,
+            "frame_command_buffer": True,
+        })
+        self.assertEqual(metrics["cpu_invocation_count"], 2)
+        self.assertEqual(metrics["route_operation_count"], 1)
+        self.assertEqual(metrics["frame_observation_count"], 1)
+        self.assertEqual(metrics["validation_failures"], [])
+        self.assertEqual(
+            metrics["succeeded_exact_effects"][0]["definition_path"],
+            "effects/opacity/effect.json",
+        )
+        self.assertEqual(len(metrics["succeeded_exact_effects"]), 1)
+        self.assertEqual(len(metrics["succeeded_aggregates"]), 1)
+        self.assertEqual(
+            metrics["succeeded_aggregates"][0]["contributors"][0][
+                "effect_index"
+            ],
+            1,
+        )
+        self.assertEqual(metrics["eligible_exact_effect_count"], 5)
+        self.assertEqual(metrics["observed_eligible_exact_effect_count"], 1)
+        self.assertEqual(metrics["eligible_exact_gap_count"], 4)
+        self.assertEqual(len(metrics["unobserved_eligible_exact_effects"]), 4)
+        self.assertEqual(metrics["eligible_aggregate_subject_count"], 1)
+        self.assertEqual(
+            metrics["observed_eligible_aggregate_subject_count"], 1
+        )
+        self.assertEqual(metrics["eligible_aggregate_gap_count"], 0)
+        self.assertEqual(metrics["unobserved_eligible_aggregates"], [])
+        self.assertEqual(metrics["completed_frame_ids"], [7])
+        self.assertEqual(metrics["failed_frame_ids"], [])
+        self.assertEqual(
+            metrics["frames"][0]["cohort_sha256"],
+            str(effect_execution_log(7, [exact, aggregate], [route])).split(
+                "cohortSHA256=", 1
+            )[1].split()[0],
+        )
+        self.assertEqual(
+            metrics["canonical_sha256"],
+            hashlib.sha256(json.dumps(
+                {
+                    "cpu_invocation_transitions": [
+                        {"frame_id": 7, "event": event}
+                        for event in sorted([
+                            str(exact["canonical"]),
+                            str(aggregate["canonical"]),
+                        ])
+                    ],
+                    "route_operation_transitions": [{
+                        "frame_id": 7,
+                        "event": str(route["canonical"]),
+                    }],
+                    "frames": metrics["frames"],
+                },
+                ensure_ascii=True,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")).hexdigest(),
+        )
+        self.assertEqual(benchmark.effect_execution_failures(metrics), [])
+
+    def test_effect_execution_rejects_illegal_disposition_joins(self) -> None:
+        preview = effect_runtime_disposition_preview()
+        disposition = benchmark.effect_runtime_disposition_metrics(preview)
+        invalid_exact_cases = [
+            ("inactive", 1, 0, "1%23effect%230", "disabled"),
+            ("omitted", 2, 3, "2%23effect%233", "omitted"),
+            ("coalesced-as-exact", 3, 1, "3%23effect%231", "chromatic-aberration"),
+            ("route-only", 4, 0, "4%23effect%230", "declared-multipass"),
+            ("shadowed", 5, 1, "5%23effect%231", "blur"),
+            ("unsupported", 7, 0, "7%23effect%230", "unknown"),
+        ]
+        for name, layer, effect, descriptor, family in invalid_exact_cases:
+            with self.subTest(name=name):
+                event = effect_cpu_event(
+                    frame=1,
+                    origin="invalid-probe",
+                    subject="effect",
+                    layer=layer,
+                    effect=effect,
+                    descriptor=descriptor,
+                    family=family,
+                    backend="probe",
+                )
+                metrics = benchmark.effect_execution_metrics(
+                    effect_execution_log(1, [event], []),
+                    disposition,
+                )
+                self.assertIn(
+                    "effect execution exact disposition cannot invoke",
+                    metrics["validation_failures"],
+                )
+
+        composite = effect_cpu_event(
+            frame=2,
+            origin="invalid-probe",
+            subject="aggregate",
+            layer=6,
+            effect=None,
+            descriptor=None,
+            family="unsupported-composite",
+            backend="probe",
+        )
+        composite_metrics = benchmark.effect_execution_metrics(
+            effect_execution_log(2, [composite], []),
+            disposition,
+        )
+        self.assertIn(
+            "effect execution aggregate disposition cannot invoke",
+            composite_metrics["validation_failures"],
+        )
+
+        wrong_family = effect_cpu_event(
+            frame=3,
+            origin="strict-chain",
+            subject="effect",
+            layer=2,
+            effect=0,
+            descriptor="2%23effect%230",
+            family="not-opacity",
+            backend="opacity",
+        )
+        wrong_family_metrics = benchmark.effect_execution_metrics(
+            effect_execution_log(3, [wrong_family], []),
+            disposition,
+        )
+        self.assertIn(
+            "effect execution exact family mismatch",
+            wrong_family_metrics["validation_failures"],
+        )
+
+        wrong_aggregate_family = effect_cpu_event(
+            frame=3,
+            origin="legacy-inline",
+            subject="aggregate",
+            layer=3,
+            effect=None,
+            descriptor=None,
+            family="not-chromatic-aberration",
+            backend="legacy-inline",
+        )
+        wrong_aggregate_metrics = benchmark.effect_execution_metrics(
+            effect_execution_log(3, [wrong_aggregate_family], []),
+            disposition,
+        )
+        self.assertIn(
+            "effect execution aggregate family mismatch",
+            wrong_aggregate_metrics["validation_failures"],
+        )
+
+        structural_preview = preview.replace(
+            "legacy-structural-member=0,legacy-coalesced-inline=1,legacy-coalesced-offscreen=0,legacy-shadowed=1",
+            "legacy-structural-member=1,legacy-coalesced-inline=1,legacy-coalesced-offscreen=0,legacy-shadowed=0",
+        ).replace(
+            "kind=legacy-shadowed attribution=exact-key family=blur group=5 role=member reason=shadowed-by-legacy-precedence",
+            "kind=legacy-structural-member attribution=exact-key family=gradient-color group=5 role=member reason=shape-only-legacy-member",
+        )
+        structural_disposition = benchmark.effect_runtime_disposition_metrics(
+            structural_preview
+        )
+        structural = effect_cpu_event(
+            frame=4,
+            origin="invalid-probe",
+            subject="effect",
+            layer=5,
+            effect=1,
+            descriptor="5%23effect%231",
+            family="gradient-color",
+            backend="probe",
+        )
+        structural_metrics = benchmark.effect_execution_metrics(
+            effect_execution_log(4, [structural], []),
+            structural_disposition,
+        )
+        self.assertIn(
+            "effect execution exact disposition cannot invoke",
+            structural_metrics["validation_failures"],
+        )
+
+        unattributed_preview = preview.replace(
+            "composite-refused=1,unsupported=1,unattributed=0",
+            "composite-refused=1,unsupported=0,unattributed=1",
+        ).replace(
+            "kind=unsupported attribution=none family=unknown group=7 role=member reason=no-legacy-visual-route",
+            "kind=unattributed attribution=none family=- group=7 role=member reason=unattributed-runtime-stage",
+        )
+        unattributed_disposition = benchmark.effect_runtime_disposition_metrics(
+            unattributed_preview
+        )
+        unattributed = effect_cpu_event(
+            frame=5,
+            origin="invalid-probe",
+            subject="effect",
+            layer=7,
+            effect=0,
+            descriptor="7%23effect%230",
+            family="unknown",
+            backend="probe",
+        )
+        unattributed_metrics = benchmark.effect_execution_metrics(
+            effect_execution_log(5, [unattributed], []),
+            unattributed_disposition,
+        )
+        self.assertIn(
+            "effect execution static disposition unavailable or invalid",
+            unattributed_metrics["validation_failures"],
+        )
+
+    def test_effect_execution_aggregate_is_not_expanded_into_exact_successes(self) -> None:
+        disposition = benchmark.effect_runtime_disposition_metrics(
+            effect_runtime_disposition_preview()
+        )
+        aggregate = effect_cpu_event(
+            frame=11,
+            origin="legacy-inline",
+            subject="aggregate",
+            layer=3,
+            effect=None,
+            descriptor=None,
+            family="chromatic-aberration",
+            backend="legacy-inline",
+        )
+        metrics = benchmark.effect_execution_metrics(
+            effect_execution_log(11, [aggregate], []),
+            disposition,
+        )
+        self.assertEqual(metrics["succeeded_exact_effects"], [])
+        self.assertEqual(len(metrics["succeeded_aggregates"]), 1)
+        self.assertEqual(
+            metrics["succeeded_aggregates"][0]["contributors"][0][
+                "descriptor_id"
+            ],
+            "3#effect#1",
+        )
+
+    def test_effect_execution_decodes_tokens_before_static_family_join(self) -> None:
+        disposition = json.loads(json.dumps(
+            benchmark.effect_runtime_disposition_metrics(
+                effect_runtime_disposition_preview()
+            )
+        ))
+        record = next(
+            item for item in disposition["records"]
+            if item["layer_id"] == 2 and item["effect_index"] == 0
+        )
+        record["descriptor_id"] = "same descriptor"
+        record["family"] = "Tint Space"
+        event = effect_cpu_event(
+            frame=20,
+            origin="image",
+            subject="effect",
+            layer=2,
+            effect=0,
+            descriptor="same%20descriptor",
+            family="Tint%20Space",
+            backend="strict%20generic",
+        )
+        metrics = benchmark.effect_execution_metrics(
+            effect_execution_log(20, [event], []),
+            disposition,
+        )
+        self.assertEqual(metrics["validation_failures"], [])
+        self.assertEqual(metrics["cpu_invocations"][0]["family"], "Tint Space")
+        self.assertEqual(
+            metrics["cpu_invocations"][0]["backend"], "strict generic"
+        )
+        self.assertEqual(
+            metrics["succeeded_exact_effects"][0]["descriptor_id"],
+            "same descriptor",
+        )
+
+    def test_effect_execution_failure_is_sticky_across_completed_frame(self) -> None:
+        disposition = benchmark.effect_runtime_disposition_metrics(
+            effect_runtime_disposition_preview()
+        )
+        success = effect_cpu_event(
+            frame=12,
+            origin="strict-chain",
+            subject="effect",
+            layer=2,
+            effect=0,
+            descriptor="2%23effect%230",
+            family="opacity",
+            backend="opacity",
+        )
+        failure = effect_cpu_event(
+            frame=12,
+            origin="strict-chain",
+            subject="effect",
+            layer=2,
+            effect=0,
+            descriptor="2%23effect%230",
+            family="opacity",
+            backend="opacity",
+            outcome="failed",
+            reason="encoder-refused",
+        )
+        later_success = effect_cpu_event(
+            frame=13,
+            origin="strict-chain",
+            subject="effect",
+            layer=2,
+            effect=0,
+            descriptor="2%23effect%230",
+            family="opacity",
+            backend="opacity",
+        )
+        metrics = benchmark.effect_execution_metrics(
+            "\n".join([
+                effect_execution_log(12, [failure], [], status="completed"),
+                effect_execution_log(
+                    13, [later_success], [], status="completed"
+                ),
+            ]),
+            disposition,
+        )
+        self.assertEqual(metrics["completed_frame_ids"], [12, 13])
+        self.assertEqual(len(metrics["succeeded_exact_effects"]), 1)
+        self.assertEqual(len(metrics["failed_exact_effects"]), 1)
+        self.assertIn(
+            "effect execution exact identity both succeeded and failed",
+            metrics["validation_failures"],
+        )
+        failures = benchmark.effect_execution_failures(metrics)
+        self.assertIn("effect execution CPU invocation failed", failures)
+        self.assertNotIn(
+            "effect execution frame command buffer failed",
+            failures,
+        )
+
+        completed_only = benchmark.effect_execution_metrics(
+            effect_execution_log(
+                14,
+                [],
+                [],
+                count_overrides={"attempted": 1, "returned": 1},
+                cohort_override=hashlib.sha256(
+                    str(success["canonical"]).encode("utf-8")
+                ).hexdigest(),
+            ),
+            disposition,
+        )
+        self.assertEqual(completed_only["succeeded_exact_effects"], [])
+        self.assertEqual(completed_only["succeeded_aggregates"], [])
+        self.assertEqual(completed_only["validation_failures"], [])
+
+    def test_effect_execution_deduplicates_events_before_frame_contract(self) -> None:
+        disposition = benchmark.effect_runtime_disposition_metrics(
+            effect_runtime_disposition_preview()
+        )
+        event = effect_cpu_event(
+            frame=14,
+            origin="strict-chain",
+            subject="effect",
+            layer=2,
+            effect=1,
+            descriptor="2%23effect%231",
+            family="generic-fragment",
+            backend="authored-shader",
+        )
+        route = effect_route_event(
+            frame=14,
+            origin="strict-chain",
+            layer=2,
+            operation="authored-chain",
+        )
+        repeated_event = effect_cpu_event(
+            frame=15,
+            origin="strict-chain",
+            subject="effect",
+            layer=2,
+            effect=1,
+            descriptor="2%23effect%231",
+            family="generic-fragment",
+            backend="authored-shader",
+        )
+        repeated_route = effect_route_event(
+            frame=15,
+            origin="strict-chain",
+            layer=2,
+            operation="authored-chain",
+        )
+        metrics = benchmark.effect_execution_metrics(
+            "\n".join([
+                effect_execution_log(14, [event, event], [route, route]),
+                effect_execution_log(15, [repeated_event], [repeated_route]),
+            ]),
+            disposition,
+        )
+        self.assertEqual(metrics["cpu_invocation_count"], 1)
+        self.assertEqual(metrics["route_operation_count"], 1)
+        self.assertEqual(metrics["frame_observation_count"], 2)
+        self.assertEqual(metrics["frames"][0]["attempted_effects"], 1)
+        self.assertEqual(metrics["frames"][0]["route_operations"], 1)
+        self.assertEqual(metrics["validation_failures"], [])
+
+    def test_effect_execution_validates_frame_summary_relations_and_format(self) -> None:
+        disposition = benchmark.effect_runtime_disposition_metrics(
+            effect_runtime_disposition_preview()
+        )
+        event = effect_cpu_event(
+            frame=15,
+            origin="strict-chain",
+            subject="effect",
+            layer=2,
+            effect=0,
+            descriptor="2%23effect%230",
+            family="opacity",
+            backend="opacity",
+        )
+        bad_returned = benchmark.effect_execution_metrics(
+            effect_execution_log(
+                15,
+                [event],
+                [],
+                count_overrides={"attempted": 0},
+            ),
+            disposition,
+        )
+        self.assertIn(
+            "effect execution frame returned outputs exceed attempted effects",
+            bad_returned["validation_failures"],
+        )
+        bad_failed = benchmark.effect_execution_metrics(
+            effect_execution_log(
+                15,
+                [event],
+                [],
+                count_overrides={"attempted": 0, "returned": 0, "failed": 1},
+            ),
+            disposition,
+        )
+        self.assertIn(
+            "effect execution frame failed invocations exceed attempted effects",
+            bad_failed["validation_failures"],
+        )
+        opaque_valid_hash = benchmark.effect_execution_metrics(
+            effect_execution_log(15, [event], [], cohort_override="0" * 64),
+            disposition,
+        )
+        self.assertNotIn(
+            "effect execution frame summary malformed",
+            opaque_valid_hash["validation_failures"],
+        )
+        malformed_hash_log = effect_execution_log(15, [event], []).replace(
+            "cohortSHA256=", "cohortSHA256=x"
+        )
+        malformed_hash = benchmark.effect_execution_metrics(
+            malformed_hash_log,
+            disposition,
+        )
+        self.assertIn(
+            "effect execution frame summary malformed",
+            malformed_hash["validation_failures"],
+        )
+
+        first_summary = effect_execution_log(15, [event], [])
+        conflicting_summary = effect_execution_log(
+            15,
+            [],
+            [],
+            cohort_override="1" * 64,
+        ).splitlines()[-1]
+        duplicate_status = benchmark.effect_execution_metrics(
+            f"{first_summary}\n{conflicting_summary}",
+            disposition,
+        )
+        self.assertIn(
+            "effect execution frame status identity duplicated",
+            duplicate_status["validation_failures"],
+        )
+
+    def test_effect_execution_route_and_shared_buffer_failures_gate(self) -> None:
+        disposition = benchmark.effect_runtime_disposition_metrics(
+            effect_runtime_disposition_preview()
+        )
+        route = effect_route_event(
+            frame=16,
+            origin="offscreen-route",
+            layer=5,
+            operation="legacy-offscreen",
+            outcome="failed",
+            reason="encoder-refused",
+        )
+        metrics = benchmark.effect_execution_metrics(
+            "\n".join([
+                effect_execution_log(16, [], [route], status="failed"),
+                effect_execution_log(16, [], [route], status="completed"),
+            ]),
+            disposition,
+        )
+        self.assertEqual(metrics["completed_frame_ids"], [16])
+        self.assertEqual(metrics["failed_frame_ids"], [16])
+        self.assertNotIn(
+            "effect execution frame status identity duplicated",
+            metrics["validation_failures"],
+        )
+        failures = benchmark.effect_execution_failures(metrics)
+        self.assertIn("effect execution route operation failed", failures)
+        self.assertIn(
+            "effect execution frame command buffer failed",
+            failures,
+        )
+
+    def test_effect_execution_is_backward_compatible_and_cli_optional(self) -> None:
+        metrics = benchmark.effect_execution_metrics("")
+        self.assertFalse(metrics["has_evidence"])
+        self.assertEqual(benchmark.effect_execution_failures(metrics), [])
+        self.assertEqual(
+            benchmark.effect_execution_failures(metrics, require_evidence=True),
+            ["effect execution evidence missing"],
+        )
+        static_only = benchmark.effect_execution_metrics(
+            "",
+            benchmark.effect_runtime_disposition_metrics(
+                effect_runtime_disposition_preview()
+            ),
+        )
+        self.assertFalse(static_only["has_evidence"])
+        self.assertEqual(static_only["eligible_exact_effect_count"], 5)
+        self.assertEqual(static_only["eligible_exact_gap_count"], 5)
+        self.assertEqual(static_only["eligible_aggregate_subject_count"], 1)
+        self.assertEqual(static_only["eligible_aggregate_gap_count"], 1)
+        old_argv = sys.argv
+        try:
+            sys.argv = [
+                "scene_wallpaper_benchmark.py",
+                "--app", "/tmp/MyWallpaperX",
+                "--sample-root", "/tmp/samples",
+                "--output-dir", "/tmp/results",
+                "--require-effect-execution",
+            ]
+            args = benchmark.parse_args()
+        finally:
+            sys.argv = old_argv
+        self.assertTrue(args.require_effect_execution)
+
+    def test_effect_execution_matrix_contract_is_exact_and_complete(self) -> None:
+        disposition = benchmark.effect_runtime_disposition_metrics(
+            effect_runtime_disposition_preview()
+        )
+        metrics = benchmark.effect_execution_metrics(
+            effect_execution_log(21, [], []),
+            disposition,
+        )
+        sample = {
+            expectation.matrix_key: metrics[expectation.metric_key]
+            for expectation in benchmark.EFFECT_EXECUTION_EXPECTATIONS
+        }
+        self.assertEqual(
+            benchmark.effect_execution_failures(metrics, sample=sample),
+            [],
+        )
+
+        for expectation in benchmark.EFFECT_EXECUTION_EXPECTATIONS:
+            with self.subTest(matrix_key=expectation.matrix_key):
+                mismatched = dict(sample)
+                mismatched[expectation.matrix_key] = (
+                    int(mismatched[expectation.matrix_key]) + 1
+                )
+                self.assertIn(
+                    expectation.failure_message,
+                    benchmark.effect_execution_failures(
+                        metrics,
+                        sample=mismatched,
+                    ),
+                )
+
+        self.assertIn(
+            "effect execution matrix contract incomplete",
+            benchmark.effect_execution_failures(
+                metrics,
+                sample={"expected_effect_execution_schema": 1},
+            ),
+        )
+
+    def test_effect_execution_matrix_contract_is_optional_and_stable_only(self) -> None:
+        missing_metrics = benchmark.effect_execution_metrics("")
+        self.assertEqual(
+            benchmark.effect_execution_failures(
+                missing_metrics,
+                sample={"expected_effect_execution_schema": 1},
+            ),
+            ["effect execution evidence missing"],
+        )
+        self.assertEqual(
+            benchmark.effect_execution_failures(
+                missing_metrics,
+                sample={
+                    "expected_effect_execution_canonical_sha256": "0" * 64,
+                    "expected_effect_execution_completed_frame_ids": [1],
+                    "expected_effect_execution_cpu_invocation_count": 3,
+                },
+            ),
+            [],
+        )
+
+    def test_effect_execution_require_is_conditioned_on_static_demand(self) -> None:
+        empty_disposition = static_effect_disposition()
+        empty_metrics = benchmark.effect_execution_metrics(
+            "",
+            empty_disposition,
+        )
+        self.assertEqual(
+            benchmark.effect_execution_failures(
+                empty_metrics,
+                require_evidence=True,
+                static_disposition=empty_disposition,
+            ),
+            [],
+        )
+        stale_zero_sample = {
+            expectation.matrix_key: (
+                1 if expectation.metric_key == "schema_version" else 0
+            )
+            for expectation in benchmark.EFFECT_EXECUTION_EXPECTATIONS
+        }
+        self.assertEqual(
+            benchmark.effect_execution_failures(
+                empty_metrics,
+                require_evidence=True,
+                sample=stale_zero_sample,
+                static_disposition=empty_disposition,
+            ),
+            ["effect execution evidence missing"],
+        )
+
+        inactive_disposition = static_effect_disposition(groups=[{
+            "layer_id": 1,
+            "kind": "inactive",
+        }])
+        self.assertEqual(
+            benchmark.effect_execution_failures(
+                benchmark.effect_execution_metrics("", inactive_disposition),
+                require_evidence=True,
+                static_disposition=inactive_disposition,
+            ),
+            [],
+        )
+
+        invalid_disposition = static_effect_disposition(
+            validation_failures=["invalid static disposition"]
+        )
+        self.assertEqual(
+            benchmark.effect_execution_failures(
+                benchmark.effect_execution_metrics("", None),
+                require_evidence=True,
+                static_disposition=None,
+            ),
+            ["effect execution evidence missing"],
+        )
+        self.assertEqual(
+            benchmark.effect_execution_failures(
+                benchmark.effect_execution_metrics("", invalid_disposition),
+                require_evidence=True,
+                static_disposition=invalid_disposition,
+            ),
+            ["effect execution static disposition unavailable or invalid"],
+        )
+        invalid_route = effect_route_event(
+            frame=30,
+            origin="image",
+            layer=1,
+            operation="legacy-direct-layer",
+        )
+        self.assertIn(
+            "effect execution static disposition unavailable or invalid",
+            benchmark.effect_execution_failures(
+                benchmark.effect_execution_metrics(
+                    effect_execution_log(30, [], [invalid_route]),
+                    invalid_disposition,
+                ),
+                require_evidence=True,
+                static_disposition=invalid_disposition,
+            ),
+        )
+
+        exact_disposition = static_effect_disposition(
+            records=[{
+                "layer_id": 1,
+                "effect_index": 0,
+                "descriptor_id": "1#effect#0",
+                "definition_path": "effects/opacity/effect.json",
+                "family": "opacity",
+                "kind": "strict-dedicated",
+            }],
+            groups=[{"layer_id": 1, "kind": "authored"}],
+        )
+        self.assertEqual(
+            benchmark.effect_execution_failures(
+                benchmark.effect_execution_metrics("", exact_disposition),
+                require_evidence=True,
+                static_disposition=exact_disposition,
+            ),
+            ["effect execution evidence missing"],
+        )
+
+        for route_kind in (
+            "direct",
+            "authored",
+            "legacy-offscreen",
+            "offscreen-passthrough",
+            "composite-refused",
+        ):
+            disposition = static_effect_disposition(groups=[{
+                "layer_id": 1,
+                "kind": route_kind,
+            }])
+            with self.subTest(route_kind=route_kind):
+                self.assertEqual(
+                    benchmark.effect_execution_failures(
+                        benchmark.effect_execution_metrics("", disposition),
+                        require_evidence=True,
+                        static_disposition=disposition,
+                    ),
+                    ["effect execution evidence missing"],
+                )
+
+    def test_route_only_execution_registers_zero_counts_but_requires_evidence(
+        self,
+    ) -> None:
+        disposition = static_effect_disposition(groups=[{
+            "layer_id": 1,
+            "kind": "offscreen-passthrough",
+        }])
+        route = effect_route_event(
+            frame=31,
+            origin="image",
+            layer=1,
+            operation="legacy-neutral-copy",
+        )
+        metrics = benchmark.effect_execution_metrics(
+            effect_execution_log(31, [], [route]),
+            disposition,
+        )
+        sample = {
+            expectation.matrix_key: metrics[expectation.metric_key]
+            for expectation in benchmark.EFFECT_EXECUTION_EXPECTATIONS
+        }
+        self.assertEqual(sample["expected_effect_execution_schema"], 1)
+        self.assertTrue(all(
+            value == 0
+            for key, value in sample.items()
+            if key != "expected_effect_execution_schema"
+        ))
+        self.assertEqual(
+            benchmark.effect_execution_failures(
+                metrics,
+                require_evidence=True,
+                sample=sample,
+                static_disposition=disposition,
+            ),
+            [],
+        )
+
+        missing = benchmark.effect_execution_metrics("", disposition)
+        self.assertEqual(
+            benchmark.effect_execution_failures(
+                missing,
+                sample=sample,
+                static_disposition=disposition,
+            ),
+            ["effect execution evidence missing"],
+        )
+
     def test_authored_color_and_godrays_counts_are_exact_gates(self) -> None:
         preview = (
             "authoredEffectGraphTintCount: 24\n"
@@ -2585,7 +4076,7 @@ utility layer 763: skippedHidden kind=composition
             "phase=named-target-capture layer=84 status=failed\n"
         )
         self.assertEqual(named_metrics["succeeded_layer_ids"], [125])
-        self.assertEqual(named_metrics["failed_layer_ids"], [84])
+        self.assertEqual(named_metrics["failed_layer_ids"], [84, 125])
 
         binding_metrics = benchmark.named_target_binding_execution_metrics(
             "phase=named-target-binding layer=70 status=failed\n"
@@ -2593,7 +4084,7 @@ utility layer 763: skippedHidden kind=composition
             "phase=named-target-binding layer=182 status=failed\n"
         )
         self.assertEqual(binding_metrics["succeeded_layer_ids"], [70])
-        self.assertEqual(binding_metrics["failed_layer_ids"], [182])
+        self.assertEqual(binding_metrics["failed_layer_ids"], [70, 182])
         self.assertEqual(
             benchmark.named_target_binding_failures(
                 {"required_named_target_binding_succeeded_layer_ids": [70, 182]},

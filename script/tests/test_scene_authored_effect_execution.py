@@ -19,10 +19,13 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredLocalContrastPlanner.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainAdmission.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectStageGraphAdmission.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionChain.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainPlanner+StageResolution.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectXRayPrefix.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectStageAdmission.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredPreciseBlurPlanner+Topology.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredStandardBlurPlanner.swift",
@@ -31,7 +34,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
 ]
 CHAIN_PLANNER_SOURCE = (
-    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionChain.swift"
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainAdmission.swift"
 )
 # stage 解析（逐 planner 尝试 + backend 构造）拆在扩展文件中，文本标记检查读拼接。
 CHAIN_STAGE_RESOLUTION_SOURCE = (
@@ -42,6 +45,10 @@ CHAIN_BACKEND_SOURCE = (
 )
 CHAIN_RENDERER_SOURCE = (
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer.swift"
+)
+CHAIN_SPECIALIZED_STAGE_SOURCE = (
+    SOURCE_ROOT
+    / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+SpecializedStage.swift"
 )
 IRIS_SUFFIX_SOURCE = (
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectIrisInlineSuffix.swift"
@@ -405,7 +412,9 @@ enum SceneAuthoredWaterCausticsPlanner {
 struct SceneCursorRippleExecutionPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
 }
-struct SceneIrisInlineSuffixPlan {}
+struct SceneIrisInlineSuffixPlan {
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+}
 
 enum SceneAuthoredCursorRipplePlanner {
     static func plan(
@@ -642,6 +651,7 @@ struct SceneRenderDescriptor {
         }
 
         let id: String
+        let file: String
         let visible: Bool?
         let passes: [PassDescriptor]
     }
@@ -738,6 +748,7 @@ enum Harness {
         verticalCombos.merge(verticalExtraCombos) { _, replacement in replacement }
         return .init(
             id: "\(layerID)#effect#1",
+            file: "effects/workshop/blurprecise/effect.json",
             visible: true,
             passes: [
                 .init(
@@ -935,6 +946,7 @@ enum Harness {
         )
         return .init(
             id: "\(layerID)#effect#0",
+            file: "effects/blur/effect.json",
             visible: true,
             passes: [
                 .init(
@@ -1116,7 +1128,12 @@ enum Harness {
             layers: [
                 .init(
                     id: 99, parentID: nil, visible: true, contentKind: "image",
-                    effects: [.init(id: "resolver", visible: true, passes: [pass])]
+                    effects: [.init(
+                        id: "resolver",
+                        file: "effects/resolver/effect.json",
+                        visible: true,
+                        passes: [pass]
+                    )]
                 ),
             ],
             materialPasses: [
@@ -1178,7 +1195,12 @@ enum Harness {
                 compose: nil,
                 conditions: nil
             ))
-            descriptors.append(.init(id: key.descriptorID, visible: true, passes: []))
+            descriptors.append(.init(
+                id: key.descriptorID,
+                file: definitionPath,
+                visible: true,
+                passes: []
+            ))
             priorOutput = output
         }
         return (
@@ -1756,7 +1778,8 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         planner = CHAIN_PLANNER_SOURCE.read_text(encoding="utf-8") \
             + CHAIN_STAGE_RESOLUTION_SOURCE.read_text(encoding="utf-8")
         backend = CHAIN_BACKEND_SOURCE.read_text(encoding="utf-8")
-        renderer = CHAIN_RENDERER_SOURCE.read_text(encoding="utf-8")
+        renderer = CHAIN_RENDERER_SOURCE.read_text(encoding="utf-8") \
+            + CHAIN_SPECIALIZED_STAGE_SOURCE.read_text(encoding="utf-8")
         compositor = COMPOSITOR_SOURCE.read_text(encoding="utf-8")
         fixture = SAMPLE_STAGE_FIXTURES[sample_id]
 
@@ -1768,7 +1791,7 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         loop = planner.index("for (ordinal, effect) in graph.effects.enumerated()")
         append = planner.index("stages.append(stage)", loop)
         returned_chain = planner.index(
-            "return SceneAuthoredEffectExecutionChain(",
+            "chain: SceneAuthoredEffectExecutionChain(",
             append,
         )
         self.assertLess(loop, append)

@@ -10,6 +10,7 @@ extension SceneLayerEffectTextureLoader {
         device: MTLDevice,
         userPropertyTextures: [String: MTLTexture],
         userPropertyTextureCandidates: [String: SceneTextureCandidate],
+        straightAlbedoUserPropertyTextures: [String: MTLTexture],
         preservedUserPropertyTextures: [String: MTLTexture]
     ) -> SceneLayerEffectTextures {
         load(
@@ -46,6 +47,7 @@ extension SceneLayerEffectTextureLoader {
             shineEffectIDs: Set(stages.compactMap { $0.shine?.effectKey.descriptorID }),
             userPropertyTextures: userPropertyTextures,
             userPropertyTextureCandidates: userPropertyTextureCandidates,
+            straightAlbedoUserPropertyTextures: straightAlbedoUserPropertyTextures,
             preservedUserPropertyTextures: preservedUserPropertyTextures
         )
     }

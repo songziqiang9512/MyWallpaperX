@@ -39,7 +39,15 @@ enum SceneParticleRefractionTextureLoader {
         let normal: MTLTexture
         if sameSource {
             // Both semantic roles preserve the source channels, so an authored
-            // same-file binding can safely reuse its physical upload.
+            // same-file binding can reuse only an exact physical upload. An
+            // opaque color may be safely rasterized or downscaled for albedo,
+            // but that transformed texture must never stand in for normal data.
+            guard let firstMip = colorContainer.mips.first,
+                  color.width == firstMip.width,
+                  color.height == firstMip.height,
+                  color.mipmapLevelCount == colorContainer.mips.count else {
+                return nil
+            }
             normal = color
             normalCandidate = nil
         } else if normalContainer.imageCount == 1,

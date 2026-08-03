@@ -21,6 +21,7 @@ struct SceneMetalRenderer {
     private let utilityCaptureTelemetry = SceneGPUCompletionTelemetry(phase: "utility-capture")
     private let authoredEffectTelemetry = SceneGPUCompletionTelemetry(phase: "authored-effect-graph")
     private let sceneScriptAudioBarsTelemetry = SceneGPUCompletionTelemetry(phase: "scene-script-audio-bars")
+    private let effectExecutionTelemetry = SceneEffectExecutionTelemetry()
     init?(
         renderDescriptor: SceneRenderDescriptor,
         authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog,
@@ -91,6 +92,9 @@ struct SceneMetalRenderer {
             performanceTelemetry?.recordCommandBufferUnavailable()
             return
         }
+        let effectExecutionTrace = effectExecutionTelemetry.makeFrame(
+            frameIndex: frameContext.frameIndex
+        )
         encodeSourceUpdates?(commandBuffer)
         let imageTextures = imageTextures.replacingLayerSources(
             encodeLayerSourceUpdates?(commandBuffer) ?? [:]
@@ -134,7 +138,8 @@ struct SceneMetalRenderer {
                     viewportSize: viewportSize,
                     time: time,
                     mainPass: mainPass,
-                    commandBuffer: commandBuffer
+                    commandBuffer: commandBuffer,
+                    effectExecutionTrace: effectExecutionTrace
                 )
             }
             if let imagePipeline, dependencyRuntime.requiresCapture(for: layer.id) {
@@ -240,7 +245,15 @@ struct SceneMetalRenderer {
                     audioSpectrum: frameContext.audioSpectrum,
                     authoredShaderFrameInputs: .init(frameContext: frameContext)
                 )
-                let encoded = imageCompositor.draw(request, pipeline: imagePipeline, mainPass: mainPass)
+                let encoded = imageCompositor.draw(
+                    request,
+                    pipeline: imagePipeline,
+                    mainPass: mainPass,
+                    executionTrace: effectExecutionTrace,
+                    executionOrigin: Self.effectExecutionOrigin(
+                        for: layer.contentKind
+                    )
+                )
                 if authoredEffectChain != nil {
                     authoredEffectTelemetry.record(layerID: layer.id, encoded: encoded, on: commandBuffer)
                 }
@@ -253,29 +266,29 @@ struct SceneMetalRenderer {
                 break
             case "quad":
                 guard let plan = authoredEffectChain(for: layer.id)?.singleStage?.lightShafts,
-                      let resources = effectTextures.lightShaftsEffects[
-                          plan.effectKey.descriptorID
-                      ],
+                      let resources = effectTextures.lightShaftsEffects[plan.effectKey.descriptorID],
                       let pipeline = pipelineRepository.lightShafts(),
                       let model = lightShaftsModelMatrix(
                           for: layer, worldFramesByLayerID: frameWorldFrames,
                           parallaxMouseNormalized: parallaxMouseNormalized,
                           configuration: parallaxConfiguration
-                      ),
-                      let encoder = mainPass.encoder() else {
+                      ) else {
                     continue
                 }
-                let encoded = pipeline.draw(
+                let encoded = SceneLightShaftsLayerRenderer.draw(
                     plan: plan,
                     resources: resources,
-                    mvp: cameraFrame.orthographicViewProjection * model,
+                    model: model,
+                    viewProjection: cameraFrame.orthographicViewProjection,
                     time: time,
                     alpha: SceneDynamicLayerValues.alpha(
                         layerID: layer.id,
                         authoredValue: layer.alpha,
                         snapshot: frameContext.dynamicValues
                     ),
-                    encoder: encoder
+                    pipeline: pipeline,
+                    mainPass: mainPass,
+                    executionTrace: effectExecutionTrace
                 )
                 authoredEffectTelemetry.record(
                     layerID: layer.id,
@@ -318,6 +331,10 @@ struct SceneMetalRenderer {
         mainPass.finishEnsuringClear()
         encodeFrameReadback?(drawable.texture, commandBuffer)
         commandBuffer.present(drawable)
+        effectExecutionTelemetry.observeSharedCommandBuffer(
+            for: effectExecutionTrace,
+            on: commandBuffer
+        )
         performanceTelemetry?.recordSubmitted(on: commandBuffer)
         commandBuffer.commit()
         if let cpuStart {
@@ -338,63 +355,32 @@ struct SceneMetalRenderer {
         viewportSize: CGSize,
         time: Float,
         mainPass: SceneMainPassEncoder,
-        commandBuffer: MTLCommandBuffer
+        commandBuffer: MTLCommandBuffer,
+        effectExecutionTrace: SceneEffectExecutionFrameTrace
     ) {
         guard let plans = utilityPlansByTriggerLayerID[layerID], let imagePipeline,
               let offscreenTexturePool else {
             return
         }
-        for plan in plans {
-            guard let layer = layersByID[plan.layerID] else { continue }
-            let model = imageModelMatrix(
-                for: layer, worldFramesByLayerID: worldFramesByLayerID,
-                parallaxMouseNormalized: frameContext.cameraParallaxPosition,
-                configuration: parallaxConfiguration,
-                visibleHalfExtents: cameraFrame.coverHalfExtents
-            )
-            let mvp = cameraFrame.orthographicViewProjection * model
-            let cursorUV = SceneLayerCursorGeometry.layerUV(
-                mouseNormalized: frameContext.pointer.current, modelViewProjection: mvp
-            )
-            let authoredEffectChain = authoredEffectChain(for: layer.id)
-            let captured = SceneUtilityLayerRenderer.draw(
-                layer: layer,
-                plan: plan,
-                layerMVP: mvp,
-                viewportSize: viewportSize,
-                time: time,
-                finalCompositeAlpha: SceneDynamicLayerValues.alpha(
-                    layerID: layer.id, authoredValue: layer.alpha,
-                    snapshot: frameContext.dynamicValues
-                ),
-                masks: effectMasks(
-                    for: layer.id, in: effectTextures
-                ).authoredEffectResourcesOnly,
-                cursorUV: cursorUV ?? .zero,
-                pointerIsInside: frameContext.pointer.isInside && cursorUV != nil,
-                authoredEffectChain: authoredEffectChain,
-                dynamicValues: frameContext.dynamicValues,
-                audioSpectrum: frameContext.audioSpectrum,
-                blocksLegacyGaussianBlur: blocksLegacyGaussianBlur(for: layer.id),
-                dependencyEffect: dependencyRuntime.effectInput(
-                    for: layer.id, textureRegistry: textureRegistry
-                ),
-                pipeline: imagePipeline,
-                compositor: imageCompositor,
-                offscreenTexturePool: offscreenTexturePool,
-                mainPass: mainPass
-            )
-            utilityCaptureTelemetry.record(
-                layerID: layer.id, encoded: captured, on: commandBuffer
-            )
-            dependencyRuntime.recordBindingIfRequired(
-                for: layer.id, encoded: captured, on: commandBuffer
-            )
-            if authoredEffectChain != nil {
-                authoredEffectTelemetry.record(
-                    layerID: layer.id, encoded: captured, on: commandBuffer
-                )
-            }
-        }
+        SceneUtilityPlanFrameRenderer.render(
+            renderer: self,
+            plans: plans,
+            dependencyRuntime: dependencyRuntime,
+            imageCompositor: imageCompositor,
+            utilityCaptureTelemetry: utilityCaptureTelemetry,
+            authoredEffectTelemetry: authoredEffectTelemetry,
+            effectTextures: effectTextures,
+            imagePipeline: imagePipeline,
+            offscreenTexturePool: offscreenTexturePool,
+            frameContext: frameContext,
+            worldFramesByLayerID: worldFramesByLayerID,
+            cameraFrame: cameraFrame,
+            parallaxConfiguration: parallaxConfiguration,
+            viewportSize: viewportSize,
+            time: time,
+            mainPass: mainPass,
+            commandBuffer: commandBuffer,
+            effectExecutionTrace: effectExecutionTrace
+        )
     }
 }

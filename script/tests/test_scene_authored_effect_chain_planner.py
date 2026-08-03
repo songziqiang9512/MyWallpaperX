@@ -22,10 +22,13 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredLocalContrastPlanner.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainAdmission.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectStageGraphAdmission.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionChain.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainPlanner+StageResolution.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectXRayPrefix.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectStageAdmission.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionCatalog+Reporting.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredPreciseBlurPlanner+Topology.swift",
@@ -334,7 +337,9 @@ enum SceneAuthoredWaterCausticsPlanner {
 struct SceneCursorRippleExecutionPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
 }
-struct SceneIrisInlineSuffixPlan {}
+struct SceneIrisInlineSuffixPlan {
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+}
 
 enum SceneAuthoredCursorRipplePlanner {
     static func plan(
@@ -427,7 +432,10 @@ enum SceneAuthoredXRayPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneXRayExecutionPlan? {
-        nil
+        graph.effects.count == 1
+            && graph.effects.first?.definitionPath == "effects/xray/effect.json"
+            ? SceneXRayExecutionPlan()
+            : nil
     }
 }
 
@@ -562,6 +570,7 @@ struct SceneRenderDescriptor {
         }
 
         let id: String
+        let file: String
         let visible: Bool?
         let passes: [PassDescriptor]
     }
@@ -627,6 +636,7 @@ enum Harness {
 
     static func effectDescriptor(
         index: Int,
+        visible: Bool? = true,
         kernel: Int = 0,
         verticalCombos: [String: Int] = ["VERTICAL": 1, "ENABLEMASK": 1]
     ) -> SceneRenderDescriptor.EffectDescriptor {
@@ -638,7 +648,8 @@ enum Harness {
         }
         return .init(
             id: "42#effect#\(index)",
-            visible: true,
+            file: "effects/workshop/blurprecise/effect.json",
+            visible: visible,
             passes: [
                 .init(
                     passIndex: 0,
@@ -690,7 +701,8 @@ enum Harness {
 
     static func descriptor(
         visible: Bool = true,
-        unsupportedSecond: Bool = false
+        unsupportedSecond: Bool = false,
+        contentKind: String = "text"
     ) -> SceneRenderDescriptor {
         let secondCombos = unsupportedSecond
             ? ["VERTICAL": 2, "ENABLEMASK": 1]
@@ -701,7 +713,7 @@ enum Harness {
                     id: layerID,
                     parentID: nil,
                     visible: visible,
-                    contentKind: "text",
+                    contentKind: contentKind,
                     effects: [
                         effectDescriptor(index: 0),
                         effectDescriptor(index: 1, kernel: 1, verticalCombos: secondCombos),
@@ -716,6 +728,7 @@ enum Harness {
         discontinuousInput: Bool = false,
         duplicateNodeIndex: Bool = false,
         extraTarget: Bool = false,
+        firstDefinitionPath: String = "effects/workshop/blurprecise/effect.json",
         secondDefinitionPath: String = "effects/workshop/blurprecise/effect.json",
         hasBlocker: Bool = false
     ) -> Graph {
@@ -797,7 +810,7 @@ enum Harness {
         let effects = [
             Graph.Effect(
                 key: firstKey,
-                definitionPath: "effects/workshop/blurprecise/effect.json",
+                definitionPath: firstDefinitionPath,
                 input: source,
                 output: firstOutput,
                 nodeIndices: [0, 1]
@@ -936,7 +949,30 @@ enum Harness {
             "singleStageLayers": catalog.plansByLayerID.keys.sorted(),
             "hidden": catalog.hiddenEligibleLayerIDs,
             "legacyBlocked": catalog.legacyGaussianBlurBlockedLayerIDs.sorted(),
+            "xRayPrefixes": catalog.xRayPrefixOmittedEffectPathsByLayerID
+                .sorted(by: { $0.key < $1.key })
+                .map { "\($0.key)=\($0.value.joined(separator: ","))" },
+            "admissions": admissionState(catalog.stageAdmissions),
+            "reportLines": catalog.reportLines,
         ]
+    }
+
+    static func admissionState(
+        _ admissions: [SceneAuthoredEffectStageAdmission]
+    ) -> [[String: Any]] {
+        admissions.map { admission in
+            [
+                "layer": admission.key.layerID,
+                "effect": admission.key.effectIndex,
+                "descriptor": admission.key.descriptorID,
+                "activity": admission.activity.rawValue,
+                "strict": admission.strictAdmission.rawValue,
+                "coverage": admission.coverage.rawValue,
+                "backend": admission.backendName ?? "-",
+                "profile": admission.profileName ?? "-",
+                "reason": admission.reasonCode ?? "-",
+            ]
+        }
     }
 
     static func rejected(
@@ -948,6 +984,17 @@ enum Harness {
             descriptor: descriptor,
             shaderContracts: []
         ) == nil
+    }
+
+    static func rejectionCode(
+        graph: Graph,
+        descriptor: SceneRenderDescriptor
+    ) -> String {
+        SceneAuthoredEffectChainPlanner.admit(
+            graph: graph,
+            descriptor: descriptor,
+            shaderContracts: []
+        ).rejection?.code.rawValue ?? "accepted"
     }
 
     static func main() throws {
@@ -1042,10 +1089,47 @@ enum Harness {
             authoredPlans: [validGraph]
         )
         let firstOutput = validGraph.effects[0].output
+        let firstKey = validGraph.effects[0].key
+        let secondKey = validGraph.effects[1].key
+        let genericStage = SceneAuthoredEffectExecutionPlan(
+            layerID: layerID,
+            renderGraph: chain.stages[0].renderGraph,
+            backend: .authoredShader(SceneAuthoredShaderExecutionPlan()),
+            materialNodeCount: 1,
+            logicalRenderTargetCount: 0
+        )
+        func admissionVariant(
+            stages: [SceneAuthoredEffectExecutionPlan],
+            irisSuffix: SceneIrisInlineSuffixPlan? = nil,
+            coverage: SceneAuthoredEffectChainAdmission.Coverage
+        ) -> [[String: Any]] {
+            let variantChain = SceneAuthoredEffectExecutionChain(
+                layerID: layerID,
+                renderGraph: validGraph,
+                stages: stages,
+                irisInlineSuffix: irisSuffix
+            )
+            return admissionState(SceneAuthoredEffectStageAdmissionBuilder.make(
+                layer: validDescriptor.layers[0],
+                graphCandidates: [validGraph],
+                chainAdmission: .accepted(chain: variantChain, coverage: coverage),
+                layerIsVisible: true
+            ))
+        }
 
         let unsupportedDescriptor = descriptor(unsupportedSecond: true)
         let mixedGraph = chainGraph(
             secondDefinitionPath: "effects/water/effect.json"
+        )
+        let xRayPrefixCatalog = catalogState(
+            descriptor: descriptor(
+                unsupportedSecond: true,
+                contentKind: "composition"
+            ),
+            graphs: [chainGraph(
+                firstDefinitionPath: "effects/xray/effect.json",
+                secondDefinitionPath: "effects/unknown/effect.json"
+            )]
         )
         let failureCatalogs: [String: [String: Any]] = [
             "unsupportedSecond": catalogState(
@@ -1080,6 +1164,25 @@ enum Harness {
         let hiddenCatalog = SceneAuthoredEffectExecutionCatalog(
             descriptor: descriptor(visible: false),
             authoredPlans: [validGraph]
+        )
+        let inactiveDescriptor = SceneRenderDescriptor(
+            layers: [
+                .init(
+                    id: layerID,
+                    parentID: nil,
+                    visible: true,
+                    contentKind: "text",
+                    effects: [
+                        effectDescriptor(index: 0, visible: false),
+                        effectDescriptor(index: 1),
+                    ]
+                ),
+            ],
+            materialPasses: materials()
+        )
+        let inactiveCatalog = SceneAuthoredEffectExecutionCatalog(
+            descriptor: inactiveDescriptor,
+            authoredPlans: []
         )
         let simpleFisheye = SceneAuthoredEffectChainPlanner.plan(
             graph: simpleFisheyeGraph(),
@@ -1153,6 +1256,7 @@ enum Harness {
                 "legacyBlocked": catalog.legacyGaussianBlurBlockedLayerIDs.sorted(),
                 "liveTargetCount": catalog.liveConsumerTargets.count,
                 "executedPropertyKeys": catalog.executedUserPropertyKeys.sorted(),
+                "admissions": admissionState(catalog.stageAdmissions),
                 "reportLines": catalog.reportLines,
             ],
             "directRejections": [
@@ -1181,12 +1285,66 @@ enum Harness {
                     descriptor: unsupportedDescriptor
                 ),
             ],
+            "directRejectionCodes": [
+                "unsupportedSecond": rejectionCode(
+                    graph: validGraph,
+                    descriptor: unsupportedDescriptor
+                ),
+                "blocker": rejectionCode(
+                    graph: chainGraph(hasBlocker: true),
+                    descriptor: validDescriptor
+                ),
+                "discontinuousInput": rejectionCode(
+                    graph: chainGraph(discontinuousInput: true),
+                    descriptor: validDescriptor
+                ),
+                "duplicateNode": rejectionCode(
+                    graph: chainGraph(duplicateNodeIndex: true),
+                    descriptor: validDescriptor
+                ),
+                "extraTarget": rejectionCode(
+                    graph: chainGraph(extraTarget: true),
+                    descriptor: validDescriptor
+                ),
+                "mixedUnsupported": rejectionCode(
+                    graph: mixedGraph,
+                    descriptor: unsupportedDescriptor
+                ),
+            ],
+            "admissionVariants": [
+                "generic": admissionVariant(
+                    stages: [genericStage, chain.stages[1]],
+                    coverage: .complete
+                ),
+                "iris": admissionVariant(
+                    stages: [chain.stages[0]],
+                    irisSuffix: .init(effectKey: secondKey),
+                    coverage: .terminalIrisInlineSuffix(effect: secondKey)
+                ),
+                "prefix": admissionVariant(
+                    stages: [chain.stages[0]],
+                    coverage: .xRayPrefix(omitted: [secondKey])
+                ),
+                "isolation": admissionVariant(
+                    stages: [chain.stages[1]],
+                    coverage: .isolatedShine(
+                        executed: secondKey,
+                        omitted: [firstKey]
+                    )
+                ),
+            ],
+            "xRayPrefixCatalog": xRayPrefixCatalog,
             "failureCatalogs": failureCatalogs,
             "hidden": [
                 "chainLayers": hiddenCatalog.chainsByLayerID.keys.sorted(),
                 "singleStageLayers": hiddenCatalog.plansByLayerID.keys.sorted(),
                 "eligible": hiddenCatalog.hiddenEligibleLayerIDs,
                 "legacyBlocked": hiddenCatalog.legacyGaussianBlurBlockedLayerIDs.sorted(),
+                "admissions": admissionState(hiddenCatalog.stageAdmissions),
+            ],
+            "inactive": [
+                "admissions": admissionState(inactiveCatalog.stageAdmissions),
+                "reportLines": inactiveCatalog.reportLines,
             ],
             "simpleFisheye": [
                 "stageCount": simpleFisheye.stages.count,
@@ -1282,12 +1440,48 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         self.assertEqual(catalog["legacyBlocked"], [])
         self.assertEqual(catalog["liveTargetCount"], 0)
         self.assertEqual(catalog["executedPropertyKeys"], [])
+        self.assertEqual(
+            catalog["admissions"],
+            [
+                {
+                    "layer": 42,
+                    "effect": 0,
+                    "descriptor": "42#effect#0",
+                    "activity": "active",
+                    "strict": "admitted-dedicated",
+                    "coverage": "complete",
+                    "backend": "precise-gaussian",
+                    "profile": "-",
+                    "reason": "-",
+                },
+                {
+                    "layer": 42,
+                    "effect": 1,
+                    "descriptor": "42#effect#1",
+                    "activity": "active",
+                    "strict": "admitted-dedicated",
+                    "coverage": "complete",
+                    "backend": "precise-gaussian",
+                    "profile": "-",
+                    "reason": "-",
+                },
+            ],
+        )
         for line in (
             "authoredEffectGraphPlannedCount: 1",
             "authoredEffectGraphMaterialNodeCount: 4",
             "authoredEffectGraphLogicalRTCount: 2",
             "authoredEffectGraphChainCount: 1",
             "authoredEffectGraphStageCount: 2",
+            "authoredEffectStageDescriptorCount: 2",
+            "authoredEffectStageParsedCount: 2",
+            "authoredEffectStageActivityCounts: author-disabled=0,layer-hidden=0,active=2",
+            "authoredEffectStageStrictAdmissionCounts: inactive=0,admitted-dedicated=2,admitted-generic=0,not-admitted=0",
+            "authoredEffectStageDescriptorIdentityConserved: true",
+            "authoredEffectStageActivityConserved: true",
+            "authoredEffectStageInactiveAdmissionConserved: true",
+            "authoredEffectStageActiveAdmissionConserved: true",
+            "authoredEffectStageStrictIdentityConserved: true",
             "authoredEffectGraphLocalContrastCount: 0",
             "authoredEffectGraphWorkshopAudioBarsCount: 0",
             "authoredEffectGraphWorkshopGradientCount: 0",
@@ -1309,6 +1503,86 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
             self.assertEqual(catalog["singleStageLayers"], [], name)
             self.assertEqual(catalog["hidden"], [], name)
             self.assertEqual(catalog["legacyBlocked"], [42], name)
+            expected_coverages = {
+                "multipleCandidates": ["rejected-ambiguous-graph"] * 2,
+                "mixedUnsupported": [
+                    "rejected-chain",
+                    "rejected-graph-mismatch",
+                ],
+            }.get(name, ["rejected-chain"] * 2)
+            self.assertEqual(len(catalog["admissions"]), 2, name)
+            self.assertTrue(
+                all(item["activity"] == "active" for item in catalog["admissions"]),
+                name,
+            )
+            self.assertTrue(
+                all(item["strict"] == "not-admitted" for item in catalog["admissions"]),
+                name,
+            )
+            self.assertEqual(
+                [item["coverage"] for item in catalog["admissions"]],
+                expected_coverages,
+                name,
+            )
+
+        self.assertEqual(
+            self.result["directRejectionCodes"],
+            {
+                "unsupportedSecond": "unsupported-stage",
+                "blocker": "graph-blocked",
+                "discontinuousInput": "discontinuous-effect-input",
+                "duplicateNode": "duplicate-effect-node-reference",
+                "extraTarget": "unsupported-stage",
+                "mixedUnsupported": "unsupported-stage",
+            },
+        )
+        self.assertEqual(
+            [item["reason"] for item in self.result["failureCatalogs"]["unsupportedSecond"]["admissions"]],
+            ["discarded-strict-prefix", "unsupported-stage"],
+        )
+        self.assertEqual(
+            [item["reason"] for item in self.result["failureCatalogs"]["discontinuousInput"]["admissions"]],
+            ["discarded-strict-prefix", "discontinuous-effect-input"],
+        )
+
+    def test_partial_chain_coverage_and_generic_executor_are_explicit(self) -> None:
+        variants = self.result["admissionVariants"]
+        self.assertEqual(
+            [(item["strict"], item["coverage"], item["backend"], item["profile"])
+             for item in variants["generic"]],
+            [
+                ("admitted-generic", "complete", "authored-shader", "generic-framebuffer"),
+                ("admitted-dedicated", "complete", "precise-gaussian", "-"),
+            ],
+        )
+        self.assertEqual(
+            [(item["strict"], item["coverage"], item["reason"])
+             for item in variants["iris"]],
+            [
+                ("admitted-dedicated", "terminal-inline-prefix", "-"),
+                ("not-admitted", "terminal-inline-suffix", "terminal-inline-suffix"),
+            ],
+        )
+        self.assertEqual(
+            [(item["strict"], item["coverage"], item["reason"])
+             for item in variants["prefix"]],
+            [
+                ("admitted-dedicated", "prefix-accepted", "-"),
+                ("not-admitted", "prefix-omitted", "prefix-omitted"),
+            ],
+        )
+        self.assertEqual(
+            [(item["strict"], item["coverage"], item["reason"])
+             for item in variants["isolation"]],
+            [
+                ("not-admitted", "isolated-omitted", "isolated-omitted"),
+                ("admitted-dedicated", "isolated-accepted", "-"),
+            ],
+        )
+        self.assertEqual(
+            self.result["xRayPrefixCatalog"]["xRayPrefixes"],
+            ["42=effects/unknown/effect.json"],
+        )
 
     def test_hidden_complete_chain_is_not_runtime_eligible(self) -> None:
         hidden = self.result["hidden"]
@@ -1316,6 +1590,34 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         self.assertEqual(hidden["singleStageLayers"], [])
         self.assertEqual(hidden["eligible"], [42])
         self.assertEqual(hidden["legacyBlocked"], [])
+        self.assertEqual(
+            [(item["activity"], item["strict"], item["coverage"])
+             for item in hidden["admissions"]],
+            [("layer-hidden", "inactive", "inactive")] * 2,
+        )
+
+    def test_author_disabled_and_missing_graph_are_separate_axes(self) -> None:
+        inactive = self.result["inactive"]
+        self.assertEqual(
+            [(item["activity"], item["strict"], item["coverage"])
+             for item in inactive["admissions"]],
+            [
+                ("author-disabled", "inactive", "inactive"),
+                ("active", "not-admitted", "rejected-missing-graph"),
+            ],
+        )
+        for line in (
+            "authoredEffectStageDescriptorCount: 2",
+            "authoredEffectStageParsedCount: 2",
+            "authoredEffectStageActivityCounts: author-disabled=1,layer-hidden=0,active=1",
+            "authoredEffectStageStrictAdmissionCounts: inactive=1,admitted-dedicated=0,admitted-generic=0,not-admitted=1",
+            "authoredEffectStageDescriptorIdentityConserved: true",
+            "authoredEffectStageActivityConserved: true",
+            "authoredEffectStageInactiveAdmissionConserved: true",
+            "authoredEffectStageActiveAdmissionConserved: true",
+            "authoredEffectStageStrictIdentityConserved: true",
+        ):
+            self.assertIn(line, inactive["reportLines"])
 
     def test_simple_audio_bars_then_strict_fisheye_is_an_ordered_public_chain(self) -> None:
         chain = self.result["simpleFisheye"]
