@@ -80,6 +80,7 @@ nonisolated struct SceneAuthoredEffectChainRejection {
     let nodeIndex: Int?
     let observedCount: Int?
     let blockerReasons: [Graph.BlockerReason]
+    let stageCompileFailure: SceneEffectStageCompileFailure?
 
     init(
         code: Code,
@@ -89,7 +90,8 @@ nonisolated struct SceneAuthoredEffectChainRejection {
         definitionPath: String? = nil,
         nodeIndex: Int? = nil,
         observedCount: Int? = nil,
-        blockerReasons: [Graph.BlockerReason] = []
+        blockerReasons: [Graph.BlockerReason] = [],
+        stageCompileFailure: SceneEffectStageCompileFailure? = nil
     ) {
         self.code = code
         self.layerID = layerID
@@ -99,6 +101,7 @@ nonisolated struct SceneAuthoredEffectChainRejection {
         self.nodeIndex = nodeIndex
         self.observedCount = observedCount
         self.blockerReasons = blockerReasons
+        self.stageCompileFailure = stageCompileFailure
     }
 }
 
@@ -145,14 +148,23 @@ extension SceneAuthoredEffectChainPlanner {
             let inputRole: SceneAuthoredEffectInputRole = ordinal == 0
                 ? .layerSource
                 : .priorEffectOutput
-            if let stage = resolveStage(
+            let compileInput = SceneEffectStageCompileInput(
                 stageGraph: stageGraph,
+                authoredOrdinal: ordinal,
+                effectKey: effect.key,
+                definitionPath: effect.definitionPath,
                 inputRole: inputRole,
                 descriptor: descriptor,
                 shaderContracts: shaderContracts
-            ) {
+            )
+            let compileFailure: SceneEffectStageCompileFailure
+            switch compileStage(compileInput) {
+            case .accepted(let program):
+                let stage = program.executionPlan
                 stages.append(stage)
                 continue
+            case .unsupported(let failure):
+                compileFailure = failure
             }
             if let recovered = recoveredAdmission(
                 plannedStages: stages,
@@ -168,7 +180,8 @@ extension SceneAuthoredEffectChainPlanner {
                 layerID: graph.layerID,
                 effectOrdinal: ordinal,
                 effectKey: effect.key,
-                definitionPath: effect.definitionPath
+                definitionPath: effect.definitionPath,
+                stageCompileFailure: compileFailure
             ))
         }
 

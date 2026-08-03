@@ -54,6 +54,26 @@ extension SceneAuthoredEffectExecutionCatalog {
         let chainStageKeys = chainStages.compactMap { stage in
             stage.renderGraph.effects.first?.key
         }
+        let stageCompileFailures = chainAdmissionsByLayerID.values.compactMap {
+            $0.rejection?.stageCompileFailure
+        }
+        let compileFailureCodes = countedValues(
+            stageCompileFailures.map { $0.code.rawValue }
+        )
+        let compilerProbes = stageCompileFailures.flatMap(\.probes)
+        let compilerProbeOutcomes = countedValues(compilerProbes.map { probe in
+            switch probe.outcome {
+            case .notApplicable:
+                "not-applicable"
+            case .rejected:
+                "rejected"
+            }
+        })
+        let compilerFailureCodes = countedValues(compilerProbes.compactMap { probe in
+            guard case .rejected(let failure) = probe.outcome else { return nil }
+            return "\(failure.backend.rawValue)/\(failure.phase.rawValue)/"
+                + failure.code.rawValue
+        })
         return [
             "authoredEffectGraphPlannedCount: \(chainsByLayerID.count)",
             "authoredEffectGraphMaterialNodeCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.materialNodeCount })",
@@ -75,6 +95,10 @@ extension SceneAuthoredEffectExecutionCatalog {
             "authoredEffectStageInactiveAdmissionConserved: \(inactiveActivityCount == inactiveStrictCount)",
             "authoredEffectStageActiveAdmissionConserved: \(activeCount == activeStrictCount)",
             "authoredEffectStageStrictIdentityConserved: \(strictIdentityConserved(admissionKeys: strictAdmissionKeys, chainKeys: chainStageKeys, chainStageIdentityValid: chainStageIdentityValid))",
+            "authoredEffectStageCompileFailureCount: \(stageCompileFailures.count)",
+            "authoredEffectStageCompileFailureCodes: \(compileFailureCodes)",
+            "authoredEffectStageCompilerProbeOutcomeCounts: \(compilerProbeOutcomes)",
+            "authoredEffectStageCompilerFailureCodes: \(compilerFailureCodes)",
             "authoredEffectGraphLocalContrastCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.localContrastCount })",
             "authoredEffectGraphOpacityCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.opacityCount })",
             "authoredEffectGraphColorKeyCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.colorKeyCount })",
@@ -137,6 +161,14 @@ extension SceneAuthoredEffectExecutionCatalog {
             let count = stageAdmissions.filter { $0[keyPath: value] == candidate }.count
             return "\(candidate.rawValue)=\(count)"
         }.joined(separator: ",")
+    }
+
+    private func countedValues(_ values: [String]) -> String {
+        Dictionary(grouping: values, by: { $0 })
+            .map { key, values in (key, values.count) }
+            .sorted { $0.0 < $1.0 }
+            .map { "\($0.0)=\($0.1)" }
+            .joined(separator: ",")
     }
 
     private var activityCount: Int {

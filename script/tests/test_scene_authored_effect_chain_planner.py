@@ -17,6 +17,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneShaderContract.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneEffectStageCompileModel.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Clear.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
@@ -26,8 +27,10 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectStageGraphAdmission.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionChain.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainPlanner+StageResolution.swift",
+    SOURCE_ROOT / "RenderGraph/SceneEffectStageCompiler.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectXRayPrefix.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneEffectStageProgram.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectStageAdmission.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionCatalog+Reporting.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift",
@@ -126,6 +129,21 @@ struct SceneAuthoredShaderExecutionPlan {
 }
 
 enum SceneAuthoredShaderExecutionPlanner {
+    nonisolated(unsafe) static var compiledEffectIndices: [Int] = []
+
+    static func compile(
+        _ input: SceneEffectStageCompileInput
+    ) -> SceneEffectStageBackendCompileResult<SceneAuthoredShaderExecutionPlan> {
+        if let effectIndex = input.stageGraph.effects.first?.key.effectIndex {
+            compiledEffectIndices.append(effectIndex)
+        }
+        if input.stageGraph.effects.first?.definitionPath.lowercased()
+            == "effects/generic/effect.json" {
+            return .accepted(SceneAuthoredShaderExecutionPlan())
+        }
+        return .notApplicable
+    }
+
     static func plan(
         graph: SceneAuthoredEffectRenderPlan,
         descriptor: SceneRenderDescriptor,
@@ -181,25 +199,36 @@ enum SceneAuthoredWorkshopShiftHuePlanner {
 }
 
 enum SceneAuthoredWorkshopAudioBarsPlanner {
+    nonisolated(unsafe) static var callCount = 0
+
     static func plan(
         graph: SceneAuthoredEffectRenderPlan,
         descriptor: SceneRenderDescriptor,
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneWorkshopAudioBarsExecutionPlan? {
-        nil
+        callCount += 1
+        return graph.effects.first?.definitionPath.lowercased()
+            == "effects/overlap/effect.json" && inputRole == .layerSource
+            ? SceneWorkshopAudioBarsExecutionPlan(profile: .enhancedSegmented(shape: 7))
+            : nil
     }
 }
 
 enum SceneAuthoredWorkshopSimpleAudioBarsPlanner {
+    nonisolated(unsafe) static var callCount = 0
+
     static func plan(
         graph: SceneAuthoredEffectRenderPlan,
         descriptor: SceneRenderDescriptor,
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneWorkshopAudioBarsExecutionPlan? {
-        graph.effects.first?.definitionPath.lowercased()
-            == "effects/simple/effect.json" && inputRole == .layerSource
+        callCount += 1
+        let path = graph.effects.first?.definitionPath.lowercased()
+        return (path == "effects/simple/effect.json"
+            || path == "effects/overlap/effect.json")
+            && inputRole == .layerSource
             ? SceneWorkshopAudioBarsExecutionPlan(profile: .simple)
             : nil
     }
@@ -602,6 +631,224 @@ struct SceneRenderDescriptor {
     let materialPasses: [MaterialPassDescriptor]
 }
 
+nonisolated protocol HarnessDedicatedPlanner {
+    associatedtype DedicatedPlan
+
+    static var compilerBackend: SceneEffectStageCompilerBackend { get }
+
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole
+    ) -> DedicatedPlan?
+
+    static func isCandidate(_ input: SceneEffectStageCompileInput) -> Bool
+}
+
+extension HarnessDedicatedPlanner {
+    nonisolated static func isCandidate(
+        _ input: SceneEffectStageCompileInput
+    ) -> Bool {
+        false
+    }
+
+    nonisolated static func compile(
+        _ input: SceneEffectStageCompileInput
+    ) -> SceneEffectStageBackendCompileResult<DedicatedPlan> {
+        SceneEffectStageDedicatedCompilerAdapter.compile(
+            backend: compilerBackend,
+            candidate: { isCandidate(input) },
+            plan: {
+                plan(
+                    graph: input.stageGraph,
+                    descriptor: input.descriptor,
+                    shaderContracts: input.shaderContracts,
+                    inputRole: input.inputRole
+                )
+            }
+        )
+    }
+}
+
+extension SceneAuthoredEffectExecutionPlanner {
+    nonisolated static func compile(
+        _ input: SceneEffectStageCompileInput
+    ) -> SceneEffectStageBackendCompileResult<SceneAuthoredEffectExecutionPlan> {
+        SceneEffectStageDedicatedCompilerAdapter.compile(
+            backend: .preciseGaussian,
+            candidate: {
+                containsAuthoredPreciseBlurCandidate(
+                    graph: input.stageGraph,
+                    descriptor: input.descriptor
+                )
+            },
+            plan: {
+                plan(
+                    graph: input.stageGraph,
+                    descriptor: input.descriptor,
+                    inputRole: input.inputRole
+                )
+            }
+        )
+    }
+}
+
+extension SceneAuthoredStandardBlurPlanner {
+    nonisolated static func compile(
+        _ input: SceneEffectStageCompileInput
+    ) -> SceneEffectStageBackendCompileResult<SceneAuthoredEffectExecutionPlan> {
+        SceneEffectStageDedicatedCompilerAdapter.compile(
+            backend: .standardBlur,
+            candidate: { containsCandidate(graph: input.stageGraph) },
+            plan: {
+                plan(
+                    graph: input.stageGraph,
+                    descriptor: input.descriptor,
+                    inputRole: input.inputRole
+                )
+            }
+        )
+    }
+}
+
+extension SceneAuthoredLocalContrastPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneLocalContrastPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .localContrast }
+}
+extension SceneAuthoredOpacityPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneOpacityExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .opacity }
+}
+extension SceneAuthoredColorKeyPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneColorKeyExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .colorKey }
+}
+extension SceneAuthoredColorGradingPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneColorGradingExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .colorGrading }
+}
+extension SceneAuthoredWorkshopShiftHuePlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneWorkshopShiftHueExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .workshopShiftHue }
+}
+extension SceneAuthoredWorkshopAudioBarsPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneWorkshopAudioBarsExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .workshopAudioBars }
+}
+extension SceneAuthoredWorkshopSimpleAudioBarsPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneWorkshopAudioBarsExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend {
+        .workshopSimpleAudioBars
+    }
+}
+extension SceneAuthoredWorkshopGradientPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneWorkshopGradientExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .workshopGradient }
+}
+extension SceneAuthoredWorkshopAudioHueShiftPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneWorkshopAudioHueShiftExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend {
+        .workshopAudioHueShift
+    }
+}
+extension SceneAuthoredWorkshopShadowPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneWorkshopShadowExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .workshopShadow }
+}
+extension SceneAuthoredSpinPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneSpinExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .spin }
+}
+extension SceneAuthoredProceduralNoisePlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneProceduralNoiseExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .proceduralNoise }
+}
+extension SceneAuthoredFilmGrainPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneFilmGrainExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .filmGrain }
+}
+extension SceneAuthoredLightShaftsPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneLightShaftsExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .lightShafts }
+}
+extension SceneAuthoredShakePlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneShakeExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .shake }
+}
+extension SceneAuthoredWaterFlowPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneWaterFlowExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .waterFlow }
+
+    nonisolated static func isCandidate(_ input: SceneEffectStageCompileInput) -> Bool {
+        input.stageGraph.effects.contains {
+            $0.definitionPath.lowercased().hasPrefix("effects/waterflow/")
+        }
+    }
+}
+extension SceneAuthoredWaterWavesPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneWaterWavesExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .waterWaves }
+}
+extension SceneAuthoredWaterCausticsPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneWaterCausticsExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .waterCaustics }
+}
+extension SceneAuthoredCursorRipplePlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneCursorRippleExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .cursorRipple }
+}
+extension SceneAuthoredFoliageSwayPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneFoliageSwayExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .foliageSway }
+}
+extension SceneAuthoredWaterRipplePlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneWaterRippleExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .waterRipple }
+}
+extension SceneAuthoredDepthParallaxPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneDepthParallaxExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .depthParallax }
+}
+extension SceneAuthoredXRayPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneXRayExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .xRay }
+}
+extension SceneAuthoredClippingMaskPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneClippingMaskExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .clippingMask }
+}
+extension SceneAuthoredBlendPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneBlendExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .blend }
+}
+extension SceneAuthoredTintPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneTintExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .tint }
+}
+extension SceneAuthoredTransformPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneTransformExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .transform }
+}
+extension SceneAuthoredFisheyeZeroDistortionPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneFisheyeZeroDistortionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend {
+        .fisheyeZeroDistortion
+    }
+}
+extension SceneAuthoredPulsePlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = ScenePulseExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .pulse }
+}
+extension SceneAuthoredGodraysPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneGodraysPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .godrays }
+}
+extension SceneAuthoredShinePlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneShineExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .shine }
+}
+
 enum SceneLayerVisibility {
     static func visibleLayerIDs(in descriptor: SceneRenderDescriptor) -> Set<Int> {
         let layers = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
@@ -721,6 +968,21 @@ enum Harness {
                 ),
             ],
             materialPasses: materials()
+        )
+    }
+
+    static func threeStageDescriptor() -> SceneRenderDescriptor {
+        let base = descriptor(unsupportedSecond: true)
+        let layer = base.layers[0]
+        return .init(
+            layers: [.init(
+                id: layer.id,
+                parentID: layer.parentID,
+                visible: layer.visible,
+                contentKind: layer.contentKind,
+                effects: layer.effects + [effectDescriptor(index: 2, kernel: 1)]
+            )],
+            materialPasses: base.materialPasses
         )
     }
 
@@ -863,7 +1125,79 @@ enum Harness {
         )
     }
 
+    static func threeStageChainGraph() -> Graph {
+        let base = chainGraph()
+        let key = Graph.EffectKey(
+            layerID: layerID,
+            effectIndex: 2,
+            descriptorID: "42#effect#2"
+        )
+        let input = base.effects[1].output
+        let output = texture(.effectOutput, effect: key)
+        let target = texture(.framebuffer, effect: key, name: "third")
+        let effect = Graph.Effect(
+            key: key,
+            definitionPath: "effects/workshop/blurprecise/effect.json",
+            input: input,
+            output: output,
+            nodeIndices: [4, 5]
+        )
+        let horizontal = Graph.Node(
+            nodeIndex: 4,
+            effect: key,
+            definitionPassIndex: 0,
+            materialOrdinal: 0,
+            instancePassIndex: 0,
+            kind: .material,
+            materialPath: "materials/precise_x.json",
+            materialPassID: "materials/precise_x.json#0",
+            target: target,
+            bindings: [],
+            commandSource: nil,
+            commandTarget: nil,
+            compose: nil,
+            conditions: nil
+        )
+        let vertical = Graph.Node(
+            nodeIndex: 5,
+            effect: key,
+            definitionPassIndex: 1,
+            materialOrdinal: 1,
+            instancePassIndex: 1,
+            kind: .material,
+            materialPath: "materials/precise_y.json",
+            materialPassID: "materials/precise_y.json#0",
+            target: output,
+            bindings: [
+                .init(slot: 0, authoredName: "third", texture: target, conditions: nil),
+                .init(slot: 1, authoredName: "previous", texture: input, conditions: nil),
+            ],
+            commandSource: nil,
+            commandTarget: nil,
+            compose: nil,
+            conditions: nil
+        )
+        let renderTarget = Graph.RenderTarget(
+            texture: target,
+            extent: .init(kind: .input, first: nil, second: nil),
+            format: "rgba_backbuffer",
+            declaredUnique: false,
+            clear: nil,
+            uvs: nil,
+            conditions: nil
+        )
+        return .init(
+            layerID: layerID,
+            effects: base.effects + [effect],
+            renderTargets: base.renderTargets + [renderTarget],
+            nodes: base.nodes + [horizontal, vertical],
+            finalOutput: output,
+            blockers: []
+        )
+    }
+
     static func simpleFisheyeGraph(
+        audioBarsPath: String = "effects/simple/effect.json",
         fisheyePath: String = "effects/fisheye/effect.json"
     ) -> Graph {
         let firstKey = Graph.EffectKey(
@@ -906,7 +1240,7 @@ enum Harness {
             effects: [
                 .init(
                     key: firstKey,
-                    definitionPath: "effects/simple/effect.json",
+                    definitionPath: audioBarsPath,
                     input: source,
                     output: firstOutput,
                     nodeIndices: [0]
@@ -997,6 +1331,17 @@ enum Harness {
         ).rejection?.code.rawValue ?? "accepted"
     }
 
+    static func probeOutcomeName(
+        _ outcome: SceneEffectStageCompilerProbe.Outcome
+    ) -> String {
+        switch outcome {
+        case .notApplicable:
+            "not-applicable"
+        case .rejected(let failure):
+            "rejected:\(failure.phase.rawValue):\(failure.code.rawValue)"
+        }
+    }
+
     static func main() throws {
         let validDescriptor = descriptor()
         let validGraph = chainGraph()
@@ -1005,6 +1350,222 @@ enum Harness {
             descriptor: validDescriptor,
             shaderContracts: []
         )!
+        let firstEffect = validGraph.effects[0]
+        let firstStageGraph = SceneAuthoredEffectChainPlanner.stageGraph(
+            effect: firstEffect,
+            in: validGraph
+        )!
+        let firstCompile = SceneAuthoredEffectChainPlanner.compileStage(.init(
+            stageGraph: firstStageGraph,
+            authoredOrdinal: 0,
+            effectKey: firstEffect.key,
+            definitionPath: firstEffect.definitionPath,
+            inputRole: .layerSource,
+            descriptor: validDescriptor,
+            shaderContracts: []
+        ))
+        let firstProgram: SceneEffectStageProgram
+        guard case .accepted(let acceptedProgram) = firstCompile else {
+            fatalError("first dedicated stage must compile")
+        }
+        firstProgram = acceptedProgram
+        let firstCompilerBackend: String
+        switch firstProgram.selection {
+        case .dedicated(let backend):
+            firstCompilerBackend = backend.rawValue
+        case .authoredShader:
+            firstCompilerBackend = "authored-shader"
+        }
+        let firstLegacyPlan = chain.stages[0]
+        let firstProjectionPreserved =
+            firstProgram.authoredOrdinal == 0
+            && firstProgram.effectKey == firstEffect.key
+            && firstProgram.definitionPath == firstEffect.definitionPath
+            && firstProgram.inputRole == .layerSource
+            && firstProgram.executionPlan.layerID == firstLegacyPlan.layerID
+            && firstProgram.executionPlan.backend.stableName
+                == firstLegacyPlan.backend.stableName
+            && firstProgram.executionPlan.materialNodeCount
+                == firstLegacyPlan.materialNodeCount
+            && firstProgram.executionPlan.logicalRenderTargetCount
+                == firstLegacyPlan.logicalRenderTargetCount
+            && firstProgram.executionPlan.inputRole == firstLegacyPlan.inputRole
+            && firstProgram.executionPlan.usesLegacyComposeNormalization
+                == firstLegacyPlan.usesLegacyComposeNormalization
+            && firstProgram.executionPlan.renderGraph.effects.map(\.key)
+                == firstLegacyPlan.renderGraph.effects.map(\.key)
+            && firstProgram.executionPlan.renderGraph.nodes.map(\.nodeIndex)
+                == firstLegacyPlan.renderGraph.nodes.map(\.nodeIndex)
+            && firstProgram.executionPlan.renderGraph.renderTargets.count
+                == firstLegacyPlan.renderGraph.renderTargets.count
+        let firstInput = SceneEffectStageCompileInput(
+            stageGraph: firstStageGraph,
+            authoredOrdinal: 0,
+            effectKey: firstEffect.key,
+            definitionPath: firstEffect.definitionPath,
+            inputRole: .layerSource,
+            descriptor: validDescriptor,
+            shaderContracts: []
+        )
+        let backendInvariantRejected = SceneEffectStageProgram(
+            input: firstInput,
+            compilerBackend: .waterFlow,
+            executionPlan: firstLegacyPlan
+        ) == nil
+        let mismatchedGraph = Graph(
+            layerID: firstStageGraph.layerID,
+            effects: firstStageGraph.effects,
+            renderTargets: firstStageGraph.renderTargets,
+            nodes: [],
+            finalOutput: firstStageGraph.finalOutput,
+            blockers: firstStageGraph.blockers
+        )
+        let mismatchedGraphPlan = SceneAuthoredEffectExecutionPlan(
+            layerID: firstLegacyPlan.layerID,
+            renderGraph: mismatchedGraph,
+            backend: firstLegacyPlan.backend,
+            materialNodeCount: firstLegacyPlan.materialNodeCount,
+            logicalRenderTargetCount: firstLegacyPlan.logicalRenderTargetCount,
+            inputRole: firstLegacyPlan.inputRole,
+            usesLegacyComposeNormalization:
+                firstLegacyPlan.usesLegacyComposeNormalization
+        )
+        let graphInvariantRejected = SceneEffectStageProgram(
+            input: firstInput,
+            compilerBackend: .preciseGaussian,
+            executionPlan: mismatchedGraphPlan
+        ) == nil
+        let invariantAggregate = SceneEffectStageCompileResult.accepted(
+            firstLegacyPlan,
+            compilerBackend: .standardBlur,
+            input: firstInput,
+            precedingProbes: [.init(
+                backend: .preciseGaussian,
+                outcome: .notApplicable
+            )]
+        )
+        let invariantAggregateCode: String
+        let invariantAggregateOutcomes: [String]
+        switch invariantAggregate {
+        case .accepted:
+            invariantAggregateCode = "accepted"
+            invariantAggregateOutcomes = []
+        case .unsupported(let failure):
+            invariantAggregateCode = failure.code.rawValue
+            invariantAggregateOutcomes = failure.probes.map {
+                probeOutcomeName($0.outcome)
+            }
+        }
+
+        let overlapGraph = simpleFisheyeGraph(
+            audioBarsPath: "effects/overlap/effect.json"
+        )
+        let overlapEffect = overlapGraph.effects[0]
+        let overlapStageGraph = SceneAuthoredEffectChainPlanner.stageGraph(
+            effect: overlapEffect,
+            in: overlapGraph
+        )!
+        SceneAuthoredWorkshopAudioBarsPlanner.callCount = 0
+        SceneAuthoredWorkshopSimpleAudioBarsPlanner.callCount = 0
+        SceneAuthoredShaderExecutionPlanner.compiledEffectIndices = []
+        let overlapCompile = SceneAuthoredEffectChainPlanner.compileStage(.init(
+            stageGraph: overlapStageGraph,
+            authoredOrdinal: 0,
+            effectKey: overlapEffect.key,
+            definitionPath: overlapEffect.definitionPath,
+            inputRole: .layerSource,
+            descriptor: validDescriptor,
+            shaderContracts: []
+        ))
+        guard case .accepted(let overlapProgram) = overlapCompile else {
+            fatalError("overlapping Audio Bars stage must compile")
+        }
+        let overlapCompilerBackend: String
+        switch overlapProgram.selection {
+        case .dedicated(let backend):
+            overlapCompilerBackend = backend.rawValue
+        case .authoredShader:
+            overlapCompilerBackend = "authored-shader"
+        }
+        let overlapEnhancedCalls = SceneAuthoredWorkshopAudioBarsPlanner.callCount
+        let overlapSimpleCalls = SceneAuthoredWorkshopSimpleAudioBarsPlanner.callCount
+        let overlapGenericCalls = SceneAuthoredShaderExecutionPlanner.compiledEffectIndices
+
+        let genericGraph = simpleFisheyeGraph(
+            fisheyePath: "effects/generic/effect.json"
+        )
+        let genericEffect = genericGraph.effects[1]
+        let genericStageGraph = SceneAuthoredEffectChainPlanner.stageGraph(
+            effect: genericEffect,
+            in: genericGraph
+        )!
+        let genericCompile = SceneAuthoredEffectChainPlanner.compileStage(.init(
+            stageGraph: genericStageGraph,
+            authoredOrdinal: 1,
+            effectKey: genericEffect.key,
+            definitionPath: genericEffect.definitionPath,
+            inputRole: .priorEffectOutput,
+            descriptor: validDescriptor,
+            shaderContracts: []
+        ))
+        guard case .accepted(let genericProgram) = genericCompile else {
+            fatalError("generic authored stage must compile")
+        }
+        let genericSelectionIsAuthored: Bool
+        switch genericProgram.selection {
+        case .authoredShader:
+            genericSelectionIsAuthored = true
+        case .dedicated:
+            genericSelectionIsAuthored = false
+        }
+        let unknownGraph = simpleFisheyeGraph(
+            audioBarsPath: "effects/unknown/effect.json"
+        )
+        let unknownEffect = unknownGraph.effects[0]
+        let unknownStageGraph = SceneAuthoredEffectChainPlanner.stageGraph(
+            effect: unknownEffect,
+            in: unknownGraph
+        )!
+        let unknownCompile = SceneAuthoredEffectChainPlanner.compileStage(.init(
+            stageGraph: unknownStageGraph,
+            authoredOrdinal: 0,
+            effectKey: unknownEffect.key,
+            definitionPath: unknownEffect.definitionPath,
+            inputRole: .layerSource,
+            descriptor: validDescriptor,
+            shaderContracts: []
+        ))
+        let unknownProbes: [SceneEffectStageCompilerProbe]
+        switch unknownCompile {
+        case .accepted:
+            unknownProbes = []
+        case .unsupported(let failure):
+            unknownProbes = failure.probes
+        }
+        let waterFlowRejectedGraph = simpleFisheyeGraph(
+            audioBarsPath: "effects/waterflow/unsupported-profile/effect.json"
+        )
+        let waterFlowRejectedEffect = waterFlowRejectedGraph.effects[0]
+        let waterFlowRejectedStageGraph = SceneAuthoredEffectChainPlanner.stageGraph(
+            effect: waterFlowRejectedEffect,
+            in: waterFlowRejectedGraph
+        )!
+        let waterFlowRejectedCompile = SceneAuthoredEffectChainPlanner.compileStage(.init(
+            stageGraph: waterFlowRejectedStageGraph,
+            authoredOrdinal: 0,
+            effectKey: waterFlowRejectedEffect.key,
+            definitionPath: waterFlowRejectedEffect.definitionPath,
+            inputRole: .layerSource,
+            descriptor: validDescriptor,
+            shaderContracts: []
+        ))
+        let waterFlowRejectedProbes: [SceneEffectStageCompilerProbe]
+        switch waterFlowRejectedCompile {
+        case .accepted:
+            waterFlowRejectedProbes = []
+        case .unsupported(let failure):
+            waterFlowRejectedProbes = failure.probes
+        }
         let identityGraph = Graph(
             layerID: chain.stages[0].renderGraph.layerID,
             effects: chain.stages[0].renderGraph.effects,
@@ -1118,6 +1679,25 @@ enum Harness {
         }
 
         let unsupportedDescriptor = descriptor(unsupportedSecond: true)
+        let threeStageGraph = threeStageChainGraph()
+        let threeDescriptor = threeStageDescriptor()
+        SceneAuthoredShaderExecutionPlanner.compiledEffectIndices = []
+        let threeStageAdmission = SceneAuthoredEffectChainPlanner.admit(
+            graph: threeStageGraph,
+            descriptor: threeDescriptor,
+            shaderContracts: []
+        )
+        let threeStageCompilerCalls =
+            SceneAuthoredShaderExecutionPlanner.compiledEffectIndices
+        let threeStageAdmissions = SceneAuthoredEffectStageAdmissionBuilder.make(
+            layer: threeDescriptor.layers[0],
+            graphCandidates: [threeStageGraph],
+            chainAdmission: threeStageAdmission,
+            layerIsVisible: true
+        )
+        let threeStageCompileFailure = threeStageAdmission.rejection?
+            .stageCompileFailure
+        let threeStageProbes = threeStageCompileFailure?.probes ?? []
         let mixedGraph = chainGraph(
             secondDefinitionPath: "effects/water/effect.json"
         )
@@ -1195,6 +1775,61 @@ enum Harness {
         )
 
         let result: [String: Any] = [
+            "typedCompilation": [
+                "firstCompilerBackend": firstCompilerBackend,
+                "firstProjectionPreserved": firstProjectionPreserved,
+                "backendInvariantRejected": backendInvariantRejected,
+                "graphInvariantRejected": graphInvariantRejected,
+                "invariantAggregateCode": invariantAggregateCode,
+                "invariantAggregateOutcomes": invariantAggregateOutcomes,
+                "overlapCompilerBackend": overlapCompilerBackend,
+                "overlapEnhancedCalls": overlapEnhancedCalls,
+                "overlapSimpleCalls": overlapSimpleCalls,
+                "overlapGenericCalls": overlapGenericCalls,
+                "overlapPrecedingProbeCount": overlapProgram.precedingProbes.count,
+                "overlapPrecedingProbeOutcomes": overlapProgram.precedingProbes.map {
+                    probeOutcomeName($0.outcome)
+                },
+                "genericSelectionIsAuthored": genericSelectionIsAuthored,
+                "genericPrecedingProbeCount": genericProgram.precedingProbes.count,
+                "genericPrecedingProbeOutcomes": genericProgram.precedingProbes.map {
+                    probeOutcomeName($0.outcome)
+                },
+                "unknownProbeBackends": unknownProbes.map { $0.backend.rawValue },
+                "unknownProbeOutcomes": unknownProbes.map {
+                    probeOutcomeName($0.outcome)
+                },
+                "waterFlowRejectedProbeBackends": waterFlowRejectedProbes.map {
+                    $0.backend.rawValue
+                },
+                "waterFlowRejectedProbeOutcomes": waterFlowRejectedProbes.map {
+                    probeOutcomeName($0.outcome)
+                },
+                "threeStageChainRejected": threeStageAdmission.chain == nil,
+                "threeStageTopLevelReason":
+                    threeStageAdmission.rejection?.code.rawValue ?? "accepted",
+                "threeStageAdmissionReasons": threeStageAdmissions.map {
+                    $0.reasonCode ?? "-"
+                },
+                "threeStageCompilerCalls": threeStageCompilerCalls,
+                "aggregateReason": threeStageCompileFailure?.code.rawValue ?? "-",
+                "probeBackends": threeStageProbes.map { $0.backend.rawValue },
+                "probeOutcomes": threeStageProbes.map {
+                    probeOutcomeName($0.outcome)
+                },
+                "probeIdentityComplete":
+                    Set(threeStageProbes.map(\.backend))
+                        == Set(SceneEffectStageCompilerBackend.allCases),
+                "probeIdentityUnique":
+                    Set(threeStageProbes.map(\.backend)).count
+                        == threeStageProbes.count,
+                "outerGraphHasNoStageFailure":
+                    SceneAuthoredEffectChainPlanner.admit(
+                        graph: chainGraph(hasBlocker: true),
+                        descriptor: validDescriptor,
+                        shaderContracts: []
+                    ).rejection?.stageCompileFailure == nil,
+            ],
             "success": [
                 "effectOrder": chain.stages.map { $0.renderGraph.effects[0].key.effectIndex },
                 "nodeIndices": chain.stages.map { $0.renderGraph.nodes.map(\.nodeIndex) },
@@ -1482,6 +2117,10 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
             "authoredEffectStageInactiveAdmissionConserved: true",
             "authoredEffectStageActiveAdmissionConserved: true",
             "authoredEffectStageStrictIdentityConserved: true",
+            "authoredEffectStageCompileFailureCount: 0",
+            "authoredEffectStageCompileFailureCodes: ",
+            "authoredEffectStageCompilerProbeOutcomeCounts: ",
+            "authoredEffectStageCompilerFailureCodes: ",
             "authoredEffectGraphLocalContrastCount: 0",
             "authoredEffectGraphWorkshopAudioBarsCount: 0",
             "authoredEffectGraphWorkshopGradientCount: 0",
@@ -1493,6 +2132,134 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
             "authoredEffectGraphBlendCount: 0",
         ):
             self.assertIn(line, catalog["reportLines"])
+
+    def test_typed_stage_compilation_preserves_projection_and_failure_order(self) -> None:
+        typed = self.result["typedCompilation"]
+        self.assertEqual(typed["firstCompilerBackend"], "precise-gaussian")
+        self.assertTrue(typed["firstProjectionPreserved"])
+        self.assertTrue(typed["backendInvariantRejected"])
+        self.assertTrue(typed["graphInvariantRejected"])
+        self.assertEqual(typed["overlapCompilerBackend"], "workshop-audio-bars")
+        self.assertEqual(typed["overlapEnhancedCalls"], 1)
+        self.assertEqual(typed["overlapSimpleCalls"], 0)
+        self.assertEqual(typed["overlapGenericCalls"], [])
+        self.assertEqual(typed["overlapPrecedingProbeCount"], 7)
+        self.assertEqual(
+            typed["overlapPrecedingProbeOutcomes"],
+            ["not-applicable"] * 7,
+        )
+        self.assertTrue(typed["genericSelectionIsAuthored"])
+        self.assertEqual(typed["genericPrecedingProbeCount"], 33)
+        self.assertEqual(
+            typed["genericPrecedingProbeOutcomes"],
+            ["not-applicable"] * 33,
+        )
+        self.assertTrue(typed["threeStageChainRejected"])
+        self.assertEqual(typed["threeStageTopLevelReason"], "unsupported-stage")
+        self.assertEqual(
+            typed["threeStageAdmissionReasons"],
+            [
+                "discarded-strict-prefix",
+                "unsupported-stage",
+                "not-evaluated-after-chain-rejection",
+            ],
+        )
+        self.assertEqual(typed["threeStageCompilerCalls"], [1])
+        self.assertEqual(typed["aggregateReason"], "no-backend-accepted")
+        expected_backends = [
+            "precise-gaussian",
+            "standard-blur",
+            "local-contrast",
+            "opacity",
+            "color-key",
+            "color-grading",
+            "workshop-shift-hue",
+            "workshop-audio-bars",
+            "workshop-simple-audio-bars",
+            "workshop-gradient",
+            "workshop-audio-hue-shift",
+            "workshop-shadow",
+            "spin",
+            "procedural-noise",
+            "film-grain",
+            "light-shafts",
+            "shake",
+            "water-flow",
+            "water-waves",
+            "water-caustics",
+            "cursor-ripple",
+            "foliage-sway",
+            "water-ripple",
+            "depth-parallax",
+            "x-ray",
+            "clipping-mask",
+            "blend",
+            "tint",
+            "transform",
+            "fisheye-zero-distortion",
+            "pulse",
+            "godrays",
+            "shine",
+            "authored-shader",
+        ]
+        self.assertEqual(typed["probeBackends"], expected_backends)
+        self.assertEqual(typed["unknownProbeBackends"], expected_backends)
+        self.assertEqual(
+            typed["unknownProbeOutcomes"],
+            ["not-applicable"] * 34,
+        )
+        self.assertEqual(typed["waterFlowRejectedProbeBackends"], expected_backends)
+        water_flow_outcomes = ["not-applicable"] * 34
+        water_flow_outcomes[17] = (
+            "rejected:compatibility:dedicated-profile-rejected"
+        )
+        self.assertEqual(
+            typed["waterFlowRejectedProbeOutcomes"],
+            water_flow_outcomes,
+        )
+        self.assertTrue(typed["probeIdentityComplete"])
+        self.assertTrue(typed["probeIdentityUnique"])
+        self.assertEqual(
+            typed["probeOutcomes"],
+            ["rejected:compatibility:dedicated-profile-rejected"]
+                + ["not-applicable"] * 33,
+        )
+        self.assertTrue(typed["outerGraphHasNoStageFailure"])
+        report_lines = self.result["failureCatalogs"]["unsupportedSecond"][
+            "reportLines"
+        ]
+        self.assertIn("authoredEffectStageCompileFailureCount: 1", report_lines)
+        self.assertIn(
+            "authoredEffectStageCompileFailureCodes: no-backend-accepted=1",
+            report_lines,
+        )
+        self.assertIn(
+            "authoredEffectStageCompilerProbeOutcomeCounts: "
+            "not-applicable=33,rejected=1",
+            report_lines,
+        )
+        compiler_failures = next(
+            line for line in report_lines
+            if line.startswith("authoredEffectStageCompilerFailureCodes: ")
+        )
+        self.assertIn(
+            "precise-gaussian/compatibility/dedicated-profile-rejected=1",
+            compiler_failures,
+        )
+
+    def test_stage_program_invariant_is_a_typed_aggregate_failure(self) -> None:
+        typed = self.result["typedCompilation"]
+        self.assertEqual(
+            typed["invariantAggregateCode"],
+            "stage-program-invariant",
+        )
+        self.assertEqual(
+            typed["invariantAggregateOutcomes"],
+            [
+                "not-applicable",
+                "rejected:invariant:stage-program-invariant",
+            ],
+        )
 
     def test_invalid_second_stage_or_outer_graph_fails_the_whole_chain(self) -> None:
         for name, rejected in self.result["directRejections"].items():

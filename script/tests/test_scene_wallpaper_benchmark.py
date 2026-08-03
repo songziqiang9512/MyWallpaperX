@@ -2826,6 +2826,124 @@ utility layer 763: skippedHidden kind=composition
             ["effect stage admission evidence missing"],
         )
 
+    def test_effect_stage_compile_metrics_are_bounded_conserved_and_hashed(self) -> None:
+        empty_preview = "\n".join([
+            "authoredEffectStageCompileFailureCount: 0",
+            "authoredEffectStageCompileFailureCodes: ",
+            "authoredEffectStageCompilerProbeOutcomeCounts: ",
+            "authoredEffectStageCompilerFailureCodes: ",
+        ])
+        empty = benchmark.authored_effect_stage_compile_metrics(empty_preview)
+        self.assertTrue(empty["has_evidence"])
+        self.assertEqual(empty["schema_version"], 1)
+        self.assertEqual(empty["stage_failure_count"], 0)
+        self.assertEqual(empty["stage_failure_code_counts"], {})
+        self.assertEqual(
+            empty["compiler_probe_outcome_counts"],
+            {"not-applicable": 0, "rejected": 0},
+        )
+        self.assertEqual(empty["compiler_failure_code_counts"], {})
+        self.assertEqual(empty["validation_failures"], [])
+        self.assertEqual(len(empty["canonical_sha256"]), 64)
+
+        preview = "\n".join([
+            "authoredEffectStageCompileFailureCount: 2",
+            "authoredEffectStageCompileFailureCodes: "
+            "no-backend-accepted=1,stage-program-invariant=1",
+            "authoredEffectStageCompilerProbeOutcomeCounts: "
+            "not-applicable=33,rejected=2",
+            "authoredEffectStageCompilerFailureCodes: "
+            "authored-shader/material/material-texture-slot-unsupported=1,"
+            "water-flow/compatibility/dedicated-profile-rejected=1",
+        ])
+        metrics = benchmark.authored_effect_stage_compile_metrics(preview)
+        self.assertEqual(metrics["validation_failures"], [])
+        self.assertEqual(metrics["stage_failure_count"], 2)
+        self.assertEqual(
+            metrics["compiler_probe_outcome_counts"],
+            {"not-applicable": 33, "rejected": 2},
+        )
+        self.assertEqual(
+            metrics["compiler_failure_code_counts"][
+                "water-flow/compatibility/dedicated-profile-rejected"
+            ],
+            1,
+        )
+        reordered = preview.replace(
+            "no-backend-accepted=1,stage-program-invariant=1",
+            "stage-program-invariant=1,no-backend-accepted=1",
+        ).replace(
+            "not-applicable=33,rejected=2",
+            "rejected=2,not-applicable=33",
+        )
+        self.assertEqual(
+            benchmark.authored_effect_stage_compile_metrics(reordered)[
+                "canonical_sha256"
+            ],
+            metrics["canonical_sha256"],
+        )
+
+    def test_effect_stage_compile_metrics_reject_partial_or_invalid_summaries(self) -> None:
+        self.assertFalse(
+            benchmark.authored_effect_stage_compile_metrics("")["has_evidence"]
+        )
+        partial = benchmark.authored_effect_stage_compile_metrics(
+            "authoredEffectStageCompileFailureCount: 1\n"
+        )
+        self.assertIn(
+            "effect stage compile summary missing, duplicated, or malformed",
+            partial["validation_failures"],
+        )
+
+        duplicate = "\n".join([
+            "authoredEffectStageCompileFailureCount: 1",
+            "authoredEffectStageCompileFailureCount: 1",
+            "authoredEffectStageCompileFailureCodes: no-backend-accepted=1",
+            "authoredEffectStageCompilerProbeOutcomeCounts: rejected=1",
+            "authoredEffectStageCompilerFailureCodes: "
+            "water-flow/compatibility/dedicated-profile-rejected=1",
+        ])
+        self.assertIn(
+            "effect stage compile summary missing, duplicated, or malformed",
+            benchmark.authored_effect_stage_compile_metrics(duplicate)[
+                "validation_failures"
+            ],
+        )
+
+        invalid = "\n".join([
+            "authoredEffectStageCompileFailureCount: 1",
+            "authoredEffectStageCompileFailureCodes: no-backend-accepted=2",
+            "authoredEffectStageCompilerProbeOutcomeCounts: "
+            "not-applicable=35,rejected=2",
+            "authoredEffectStageCompilerFailureCodes: "
+            "water-flow/compatibility/dedicated-profile-rejected=1",
+        ])
+        failures = benchmark.authored_effect_stage_compile_metrics(invalid)[
+            "validation_failures"
+        ]
+        self.assertIn("effect stage compile failure count mismatch", failures)
+        self.assertIn("effect stage compiler rejection count mismatch", failures)
+        self.assertIn("effect stage compiler probe count exceeds bound", failures)
+
+        malformed = "\n".join([
+            "authoredEffectStageCompileFailureCount: 1",
+            "authoredEffectStageCompileFailureCodes: unknown-code=1",
+            "authoredEffectStageCompilerProbeOutcomeCounts: rejected=1",
+            "authoredEffectStageCompilerFailureCodes: "
+            "water-flow/compatibility=1",
+        ])
+        malformed_failures = benchmark.authored_effect_stage_compile_metrics(
+            malformed
+        )["validation_failures"]
+        self.assertIn(
+            "effect stage compile failure code counts malformed",
+            malformed_failures,
+        )
+        self.assertIn(
+            "effect stage compile compiler failure code counts malformed",
+            malformed_failures,
+        )
+
     def test_effect_stage_admission_matrix_family_must_be_complete(self) -> None:
         coverage = (
             "inactive=0,complete=1,terminal-inline-prefix=0,"

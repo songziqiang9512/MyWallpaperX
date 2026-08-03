@@ -419,6 +419,22 @@ AUTHORED_EFFECT_STAGE_ADMISSION_RE = re.compile(
     r"profile=(?P<profile>\S+) reason=(?P<reason>\S+) path=(?P<path>\S+)$",
     re.MULTILINE,
 )
+AUTHORED_EFFECT_STAGE_COMPILE_FAILURE_COUNT_RE = re.compile(
+    r"^authoredEffectStageCompileFailureCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
+AUTHORED_EFFECT_STAGE_COMPILE_FAILURE_CODES_RE = re.compile(
+    r"^authoredEffectStageCompileFailureCodes: ?(?P<counts>[^\r\n]*)$",
+    re.MULTILINE,
+)
+AUTHORED_EFFECT_STAGE_COMPILER_PROBE_OUTCOMES_RE = re.compile(
+    r"^authoredEffectStageCompilerProbeOutcomeCounts: ?(?P<counts>[^\r\n]*)$",
+    re.MULTILINE,
+)
+AUTHORED_EFFECT_STAGE_COMPILER_FAILURE_CODES_RE = re.compile(
+    r"^authoredEffectStageCompilerFailureCodes: ?(?P<counts>[^\r\n]*)$",
+    re.MULTILINE,
+)
 EFFECT_RUNTIME_DISPOSITION_SCHEMA_RE = re.compile(
     r"^effectStageRuntimeDispositionSchema: (?P<version>\d+)$",
     re.MULTILINE,
@@ -2258,6 +2274,172 @@ def authored_effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]
         "coverage_counts": coverage_counts,
         "conservation": conservation,
         "records": records,
+        "canonical_sha256": canonical_sha256,
+        "validation_failures": failures,
+    }
+
+
+def _stage_compile_count_map(
+    raw: str,
+    *,
+    key_pattern: re.Pattern[str],
+    maximum_entries: int,
+    allowed_keys: set[str] | None = None,
+) -> dict[str, int] | None:
+    raw = raw.strip()
+    if len(raw) > 32 * 1024:
+        return None
+    if not raw:
+        return {}
+    items = raw.split(",")
+    if len(items) > maximum_entries:
+        return None
+    result: dict[str, int] = {}
+    for item in items:
+        key, separator, value = item.partition("=")
+        if (
+            not separator
+            or key in result
+            or len(key) > 128
+            or key_pattern.fullmatch(key) is None
+            or not value.isdigit()
+            or (allowed_keys is not None and key not in allowed_keys)
+        ):
+            return None
+        result[key] = int(value)
+    return result
+
+
+def authored_effect_stage_compile_metrics(preview_text: str) -> dict[str, Any]:
+    line_specs = (
+        (
+            "authoredEffectStageCompileFailureCount:",
+            AUTHORED_EFFECT_STAGE_COMPILE_FAILURE_COUNT_RE,
+        ),
+        (
+            "authoredEffectStageCompileFailureCodes:",
+            AUTHORED_EFFECT_STAGE_COMPILE_FAILURE_CODES_RE,
+        ),
+        (
+            "authoredEffectStageCompilerProbeOutcomeCounts:",
+            AUTHORED_EFFECT_STAGE_COMPILER_PROBE_OUTCOMES_RE,
+        ),
+        (
+            "authoredEffectStageCompilerFailureCodes:",
+            AUTHORED_EFFECT_STAGE_COMPILER_FAILURE_CODES_RE,
+        ),
+    )
+    if not any(prefix in preview_text for prefix, _ in line_specs):
+        return {
+            "has_evidence": False,
+            "schema_version": None,
+            "stage_failure_count": None,
+            "stage_failure_code_counts": {},
+            "compiler_probe_outcome_counts": {},
+            "compiler_failure_code_counts": {},
+            "canonical_sha256": None,
+            "validation_failures": [],
+        }
+
+    matches = {
+        prefix: list(pattern.finditer(preview_text))
+        for prefix, pattern in line_specs
+    }
+    failures: list[str] = []
+    if any(len(values) != 1 for values in matches.values()):
+        failures.append(
+            "effect stage compile summary missing, duplicated, or malformed"
+        )
+
+    count_matches = matches["authoredEffectStageCompileFailureCount:"]
+    stage_failure_count = (
+        int(count_matches[0].group("count"))
+        if len(count_matches) == 1
+        else None
+    )
+
+    token_pattern = re.compile(r"[a-z0-9-]+")
+    compiler_failure_pattern = re.compile(
+        r"[a-z0-9-]+/[a-z0-9-]+/[a-z0-9-]+"
+    )
+
+    def parsed_map(
+        prefix: str,
+        *,
+        key_pattern: re.Pattern[str],
+        maximum_entries: int,
+        allowed_keys: set[str] | None = None,
+    ) -> dict[str, int] | None:
+        values = matches[prefix]
+        if len(values) != 1:
+            return None
+        return _stage_compile_count_map(
+            values[0].group("counts"),
+            key_pattern=key_pattern,
+            maximum_entries=maximum_entries,
+            allowed_keys=allowed_keys,
+        )
+
+    stage_failure_codes = parsed_map(
+        "authoredEffectStageCompileFailureCodes:",
+        key_pattern=token_pattern,
+        maximum_entries=2,
+        allowed_keys={"no-backend-accepted", "stage-program-invariant"},
+    )
+    probe_outcomes = parsed_map(
+        "authoredEffectStageCompilerProbeOutcomeCounts:",
+        key_pattern=token_pattern,
+        maximum_entries=2,
+        allowed_keys={"not-applicable", "rejected"},
+    )
+    compiler_failure_codes = parsed_map(
+        "authoredEffectStageCompilerFailureCodes:",
+        key_pattern=compiler_failure_pattern,
+        maximum_entries=256,
+    )
+    for name, value in (
+        ("failure code", stage_failure_codes),
+        ("probe outcome", probe_outcomes),
+        ("compiler failure code", compiler_failure_codes),
+    ):
+        if value is None:
+            failures.append(f"effect stage compile {name} counts malformed")
+
+    normalized_stage_codes = stage_failure_codes or {}
+    normalized_probe_outcomes = {
+        key: (probe_outcomes or {}).get(key, 0)
+        for key in ("not-applicable", "rejected")
+    }
+    normalized_compiler_codes = compiler_failure_codes or {}
+    if stage_failure_count is not None and stage_failure_codes is not None:
+        if sum(stage_failure_codes.values()) != stage_failure_count:
+            failures.append("effect stage compile failure count mismatch")
+    if probe_outcomes is not None and compiler_failure_codes is not None:
+        if (
+            sum(compiler_failure_codes.values())
+            != normalized_probe_outcomes["rejected"]
+        ):
+            failures.append("effect stage compiler rejection count mismatch")
+    if stage_failure_count is not None and probe_outcomes is not None:
+        if sum(probe_outcomes.values()) > stage_failure_count * 34:
+            failures.append("effect stage compiler probe count exceeds bound")
+
+    canonical_payload = {
+        "stage_failure_count": stage_failure_count,
+        "stage_failure_code_counts": normalized_stage_codes,
+        "compiler_probe_outcome_counts": normalized_probe_outcomes,
+        "compiler_failure_code_counts": normalized_compiler_codes,
+    }
+    canonical_sha256 = hashlib.sha256(json.dumps(
+        canonical_payload,
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")).hexdigest()
+    return {
+        "has_evidence": True,
+        "schema_version": 1,
+        **canonical_payload,
         "canonical_sha256": canonical_sha256,
         "validation_failures": failures,
     }
@@ -4206,6 +4388,9 @@ def run_sample(
     authored_effect_stage_admission = authored_effect_stage_admission_metrics(
         preview_text
     )
+    authored_effect_stage_compile = authored_effect_stage_compile_metrics(
+        preview_text
+    )
     effect_runtime_disposition = effect_runtime_disposition_metrics(
         preview_text,
         authored_effect_stage_admission,
@@ -4375,6 +4560,7 @@ def run_sample(
         authored_effect_stage_admission,
         require_evidence=require_effect_stage_admission,
     ))
+    failures.extend(authored_effect_stage_compile["validation_failures"])
     failures.extend(effect_runtime_disposition_failures(
         sample,
         effect_runtime_disposition,
@@ -4883,6 +5069,7 @@ def run_sample(
             "authored_effect_graph_chain_count": authored_effect_graph_chain["chain_count"],
             "authored_effect_graph_stage_count": authored_effect_graph_chain["stage_count"],
             "authored_effect_stage_admission": authored_effect_stage_admission,
+            "authored_effect_stage_compile": authored_effect_stage_compile,
             "effect_runtime_disposition": effect_runtime_disposition,
             "effect_execution": effect_execution,
             "named_target_capture_succeeded_layer_ids": named_target_capture_execution["succeeded_layer_ids"],

@@ -5,325 +5,297 @@ nonisolated enum SceneAuthoredShaderExecutionPlanner {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias Plan = SceneAuthoredShaderExecutionPlan
 
+    static let compilerBackend: SceneEffectStageCompilerBackend = .authoredShader
+
+    /// Compatibility projection for callers that have not migrated to typed
+    /// admission. The compile result below is the single planning authority.
     static func plan(
         graph: Graph,
         descriptor: SceneRenderDescriptor,
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole
     ) -> Plan? {
+        compile(.init(
+            stageGraph: graph,
+            inputRole: inputRole,
+            descriptor: descriptor,
+            shaderContracts: shaderContracts
+        )).acceptedPlan
+    }
+
+    static func compile(
+        _ input: SceneEffectStageCompileInput
+    ) -> SceneEffectStageBackendCompileResult<Plan> {
+        let graph = input.stageGraph
+        guard graph.blockers.isEmpty else {
+            return rejected(
+                phase: .graph,
+                code: .graphBlocked,
+                details: graph.blockers.map { String(describing: $0.reason) }
+            )
+        }
+
         let materialNodes = graph.nodes.filter { $0.kind == .material }
-        guard graph.blockers.isEmpty,
-              graph.effects.count == 1,
+        guard graph.effects.count == 1,
               graph.nodes.count == 1,
               materialNodes.count == 1,
-              graph.renderTargets.isEmpty,
-              let layer = descriptor.layers.first(where: { $0.id == graph.layerID }),
-              ["image", "solid", "text"].contains(layer.contentKind),
-              let mappedSize = mappedSize(layer),
-              validTopology(
-                  graph: graph,
-                  node: materialNodes[0],
-                  layer: layer,
-                  inputRole: inputRole
-              ) else {
-            return nil
+              graph.renderTargets.isEmpty else {
+            return .notApplicable
         }
+        guard let layer = input.descriptor.layers.first(where: {
+            $0.id == graph.layerID
+        }) else {
+            return rejected(phase: .topology, code: .layerMissing)
+        }
+        guard ["image", "solid", "text"].contains(layer.contentKind) else {
+            return rejected(
+                phase: .topology,
+                code: .unsupportedContentKind,
+                details: [layer.contentKind]
+            )
+        }
+        guard let mappedSize = mappedSize(layer) else {
+            return rejected(phase: .topology, code: .invalidMappedSize)
+        }
+
         let node = materialNodes[0]
+        if let failure = topologyFailure(
+            graph: graph,
+            node: node,
+            layer: layer,
+            inputRole: input.inputRole
+        ) {
+            return .rejected(failure)
+        }
+
         let resolution = SceneAuthoredMaterialResolver.resolve(
             node: node,
             graph: graph,
-            descriptor: descriptor
+            descriptor: input.descriptor
         )
-        guard resolution.isResolved,
-              let material = resolution.node,
-              let renderState = compiledRenderState(for: material),
-              let materialDescriptor = descriptor.materialPasses.first(where: {
-                  $0.id == node.materialPassID
-              }),
-              materialDescriptor.userShaderValues.isEmpty,
-              let contract = matchingContract(
-                  material.shaderPath,
-                  shaderContracts: shaderContracts
-              ),
-              let vertex = contract.stages.first(where: { $0.kind == .vertex }),
-              let fragment = contract.stages.first(where: { $0.kind == .fragment }) else {
-            return nil
+        guard resolution.isResolved, let material = resolution.node else {
+            return rejected(
+                phase: .material,
+                code: .materialResolutionFailed,
+                details: resolution.issues.isEmpty
+                    ? ["resolved-node-missing"]
+                    : resolution.issues
+            )
         }
+        let hasOnlyEmptyTextureSlots = material.textureSlots.allSatisfy { $0 == nil }
+        guard hasOnlyEmptyTextureSlots else {
+            return rejected(
+                phase: .material,
+                code: .materialTextureSlotUnsupported
+            )
+        }
+        guard material.combos.isEmpty else {
+            return rejected(phase: .material, code: .materialComboUnsupported)
+        }
+        guard let renderState = SceneMaterialRenderState.compile(
+            blending: material.renderState.blending,
+            depthTest: material.renderState.depthTest,
+            depthWrite: material.renderState.depthWrite,
+            cullMode: material.renderState.cullMode,
+            alphaWriting: material.renderState.alphaWriting
+        ) else {
+            return rejected(phase: .material, code: .renderStateInvalid)
+        }
+        guard renderState.matchesFullscreenOverwrite(
+            alphaWriting: .unspecified
+        ) else {
+            return rejected(
+                phase: .material,
+                code: .renderStateNotFullscreenOverwrite
+            )
+        }
+        guard let materialDescriptor = input.descriptor.materialPasses.first(where: {
+            $0.id == node.materialPassID
+        }) else {
+            return rejected(phase: .invariant, code: .materialDescriptorMissing)
+        }
+        guard materialDescriptor.userShaderValues.isEmpty else {
+            return rejected(
+                phase: .material,
+                code: .dynamicUserShaderValueUnsupported
+            )
+        }
+
+        let contractResult = matchingContract(
+            material.shaderPath,
+            shaderContracts: input.shaderContracts
+        )
+        let contract: SceneShaderContract
+        switch contractResult {
+        case .accepted(let value):
+            contract = value
+        case .notApplicable:
+            return rejected(phase: .invariant, code: .shaderStageMissing)
+        case .rejected(let failure):
+            return .rejected(failure)
+        }
+        guard let vertex = contract.stages.first(where: { $0.kind == .vertex }),
+              let fragment = contract.stages.first(where: { $0.kind == .fragment }) else {
+            return rejected(phase: .invariant, code: .shaderStageMissing)
+        }
+
         let frontend = SceneAuthoredShaderFrontend.compile(
             vertexSource: vertex.source,
             fragmentSource: fragment.source
         )
-        guard let program = frontend.program,
-              frontend.diagnostics.isEmpty else {
-            return nil
+        guard frontend.diagnostics.isEmpty else {
+            return rejected(
+                phase: .shaderFrontend,
+                code: .shaderFrontendDiagnostic,
+                details: frontend.diagnostics.map { $0.code.rawValue }
+            )
         }
+        guard let program = frontend.program else {
+            return rejected(
+                phase: .invariant,
+                code: .shaderFrontendInvariant
+            )
+        }
+
         let scrollProfile = SceneAuthoredScrollShaderProfile.resolve(
             graph: graph,
-            descriptor: descriptor,
+            descriptor: input.descriptor,
             contract: contract,
             program: program
         )
-        guard let framebufferSlots = framebufferSlots(
-                  program: program,
-                  contract: contract,
-                  inferredSlots: scrollProfile?.inferredFramebufferSlots ?? []
-              ),
-              let uniformBindings = uniformBindings(
-                  program: program,
-                  constants: material.constants,
-                  contract: contract,
-                  framebufferSlots: Set(framebufferSlots)
-              ) else {
-            return nil
+        let bindingResult = BindingCompiler.compile(
+            program: program,
+            contract: contract,
+            constants: material.constants,
+            inferredFramebufferSlots: scrollProfile?.inferredFramebufferSlots ?? []
+        )
+        let bindings: BindingCompilation
+        switch bindingResult {
+        case .accepted(let value):
+            bindings = value
+        case .notApplicable:
+            return rejected(phase: .invariant, code: .uniformBindingInvariant)
+        case .rejected(let failure):
+            return .rejected(failure)
         }
-        return Plan(
+
+        return .accepted(Plan(
             cacheKey: contract.canonicalSHA256,
             program: program,
             renderState: renderState,
             mappedSize: mappedSize,
-            framebufferTextureSlots: framebufferSlots,
-            uniformBindings: uniformBindings,
+            framebufferTextureSlots: bindings.framebufferSlots,
+            uniformBindings: bindings.uniformBindings,
             profile: scrollProfile == nil ? .genericFramebuffer : .scroll
+        ))
+    }
+
+    static func compilerFailure(
+        phase: SceneEffectStageCompilerFailure.Phase,
+        code: SceneEffectStageCompilerFailure.Code,
+        details: [String] = []
+    ) -> SceneEffectStageCompilerFailure {
+        .init(
+            backend: compilerBackend,
+            phase: phase,
+            code: code,
+            details: details
         )
     }
 
-    private static func validTopology(
+    private static func rejected<Value>(
+        phase: SceneEffectStageCompilerFailure.Phase,
+        code: SceneEffectStageCompilerFailure.Code,
+        details: [String] = []
+    ) -> SceneEffectStageBackendCompileResult<Value> {
+        .rejected(compilerFailure(phase: phase, code: code, details: details))
+    }
+
+    private static func topologyFailure(
         graph: Graph,
         node: Graph.Node,
         layer: SceneRenderDescriptor.Layer,
         inputRole: SceneAuthoredEffectInputRole
-    ) -> Bool {
+    ) -> SceneEffectStageCompilerFailure? {
         let effect = graph.effects[0]
-        guard layer.effects.indices.contains(effect.key.effectIndex) else { return false }
-        let descriptor = layer.effects[effect.key.effectIndex]
-        return descriptor.id == effect.key.descriptorID
-            && descriptor.visible != false
-            && effect.nodeIndices == [node.nodeIndex]
-            && SceneAuthoredEffectInputValidator.accepts(
-                effect.input,
-                layerID: graph.layerID,
-                role: inputRole
-            )
-            && effect.output == graph.finalOutput
-            && node.effect == effect.key
-            && node.target == effect.output
-            && node.bindings.isEmpty
-    }
-
-    private static func compiledRenderState(
-        for material: SceneResolvedMaterialNode
-    ) -> SceneMaterialRenderState? {
-        guard material.textureSlots.allSatisfy { $0 == nil },
-              material.combos.isEmpty,
-              let renderState = SceneMaterialRenderState.compile(
-                  blending: material.renderState.blending,
-                  depthTest: material.renderState.depthTest,
-                  depthWrite: material.renderState.depthWrite,
-                  cullMode: material.renderState.cullMode,
-                  alphaWriting: material.renderState.alphaWriting
-              ),
-              renderState.matchesFullscreenOverwrite(
-                  alphaWriting: .unspecified
-              ) else {
-            return nil
+        guard layer.effects.indices.contains(effect.key.effectIndex) else {
+            return compilerFailure(phase: .topology, code: .effectIndexOutOfRange)
         }
-        return renderState
+        let descriptor = layer.effects[effect.key.effectIndex]
+        guard descriptor.id == effect.key.descriptorID else {
+            return compilerFailure(phase: .topology, code: .descriptorIDMismatch)
+        }
+        guard descriptor.visible != false else {
+            return compilerFailure(phase: .topology, code: .descriptorDisabled)
+        }
+        guard effect.nodeIndices == [node.nodeIndex] else {
+            return compilerFailure(phase: .topology, code: .nodeCoverageMismatch)
+        }
+        guard SceneAuthoredEffectInputValidator.accepts(
+            effect.input,
+            layerID: graph.layerID,
+            role: inputRole
+        ) else {
+            return compilerFailure(phase: .topology, code: .inputRoleMismatch)
+        }
+        guard effect.output == graph.finalOutput else {
+            return compilerFailure(phase: .topology, code: .finalOutputMismatch)
+        }
+        guard node.effect == effect.key else {
+            return compilerFailure(phase: .topology, code: .nodeEffectMismatch)
+        }
+        guard node.target == effect.output else {
+            return compilerFailure(phase: .topology, code: .nodeTargetMismatch)
+        }
+        guard node.bindings.isEmpty else {
+            return compilerFailure(
+                phase: .topology,
+                code: .explicitNodeBindingUnsupported
+            )
+        }
+        return nil
     }
 
     private static func matchingContract(
         _ shaderPath: String,
         shaderContracts: [SceneShaderContract]
-    ) -> SceneShaderContract? {
+    ) -> SceneEffectStageBackendCompileResult<SceneShaderContract> {
         let matches = shaderContracts.filter {
             normalized($0.identity) == normalized(shaderPath)
         }
-        guard matches.count == 1,
-              let contract = matches.first,
-              contract.sourceKind == .authoredSource,
-              contract.diagnostics.isEmpty,
-              contract.stages.count == 2,
-              Set(contract.stages.map(\.kind)) == Set([.vertex, .fragment]),
-              contract.stages.allSatisfy({ $0.includes.isEmpty }) else {
-            return nil
+        guard !matches.isEmpty else {
+            return rejected(phase: .shaderContract, code: .shaderContractMissing)
         }
-        return contract
-    }
-
-    private static func framebufferSlots(
-        program: SceneAuthoredShaderProgram,
-        contract: SceneShaderContract,
-        inferredSlots: Set<Int>
-    ) -> [Int]? {
-        var slots: [Int] = []
-        for texture in program.textureBindings {
-            let annotated = contract.stages.contains { stage in
-                stage.declarations.contains { declaration in
-                    declaration.kind == .uniform
-                        && declaration.type == "sampler2D"
-                        && declaration.name == texture.name
-                        && stage.annotations.contains {
-                            $0.line == declaration.line && isFramebuffer($0.value)
-                    }
-                }
-            }
-            guard annotated || inferredSlots.contains(texture.slot) else { return nil }
-            slots.append(texture.slot)
+        guard matches.count == 1, let contract = matches.first else {
+            return rejected(phase: .shaderContract, code: .shaderContractAmbiguous)
         }
-        return slots.sorted()
-    }
-
-    private static func isFramebuffer(_ value: SceneJSONValue) -> Bool {
-        guard case .object(let object) = value,
-              object["material"]?.stringValue?.localizedLowercase == "framebuffer" else {
-            return false
+        guard contract.sourceKind == .authoredSource else {
+            return rejected(
+                phase: .shaderContract,
+                code: .shaderSourceKindUnsupported
+            )
         }
-        return true
-    }
-
-    private static func uniformBindings(
-        program: SceneAuthoredShaderProgram,
-        constants: [String: SceneDocument.ShaderValue],
-        contract: SceneShaderContract,
-        framebufferSlots: Set<Int>
-    ) -> [Plan.UniformBinding]? {
-        guard let materialKeys = materialConstantKeys(
-            program: program,
-            contract: contract
-        ) else {
-            return nil
+        guard contract.diagnostics.isEmpty else {
+            return rejected(
+                phase: .shaderContract,
+                code: .shaderContractDiagnostic,
+                details: contract.diagnostics.map { $0.code.rawValue }
+            )
         }
-        var bindings: [Plan.UniformBinding] = []
-        for field in program.uniformLayout.fields {
-            let source: Plan.UniformBinding.Source?
-            switch (field.name, field.type) {
-            case ("mwxRenderSize", .float2):
-                source = .renderSize
-            case ("g_ModelViewProjectionMatrix", .float4x4):
-                source = .modelViewProjection
-            case ("g_Time", .float):
-                source = .time
-            case ("g_Daytime", .float):
-                source = .dayTime
-            case ("g_Frametime", .float):
-                source = .frameTime
-            case ("g_PointerPosition", .float2):
-                source = .pointerPosition
-            case ("g_PointerPositionLast", .float2):
-                source = .pointerPositionLast
-            case ("g_Screen", .float3):
-                source = .screen
-            case ("g_TexelSize", .float2):
-                source = .texelSize(scale: 1)
-            case ("g_TexelSizeHalf", .float2):
-                source = .texelSize(scale: 0.5)
-            default:
-                source = textureBuiltin(field, framebufferSlots: framebufferSlots)
-                    ?? constant(
-                        field,
-                        authored: constants,
-                        materialKey: materialKeys[field.name]
-                    )
-            }
-            guard let source else { return nil }
-            bindings.append(.init(field: field, source: source))
+        guard contract.stages.count == 2,
+              Set(contract.stages.map(\.kind)) == Set([.vertex, .fragment]) else {
+            return rejected(
+                phase: .shaderContract,
+                code: .shaderStageSetUnsupported
+            )
         }
-        return bindings
-    }
-
-    private static func materialConstantKeys(
-        program: SceneAuthoredShaderProgram,
-        contract: SceneShaderContract
-    ) -> [String: String]? {
-        let uniformNames = Set(program.uniformLayout.fields.map(\.name))
-        var keysByUniform: [String: String] = [:]
-        var uniformByKey: [String: String] = [:]
-        for stage in contract.stages {
-            for declaration in stage.declarations
-            where declaration.kind == .uniform
-                && declaration.type.caseInsensitiveCompare("sampler2D") != .orderedSame
-                && uniformNames.contains(declaration.name) {
-                let annotations = stage.annotations.filter {
-                    $0.line == declaration.line
-                }
-                for annotation in annotations {
-                    guard case .object(let object) = annotation.value,
-                          let rawKey = object["material"] else {
-                        continue
-                    }
-                    guard let key = rawKey.stringValue,
-                          !key.isEmpty,
-                          key == key.trimmingCharacters(
-                              in: .whitespacesAndNewlines
-                          ) else {
-                        return nil
-                    }
-                    if let existing = keysByUniform[declaration.name],
-                       existing != key {
-                        return nil
-                    }
-                    if let owner = uniformByKey[key],
-                       owner != declaration.name {
-                        return nil
-                    }
-                    keysByUniform[declaration.name] = key
-                    uniformByKey[key] = declaration.name
-                }
-            }
+        guard contract.stages.allSatisfy({ $0.includes.isEmpty }) else {
+            return rejected(
+                phase: .shaderContract,
+                code: .shaderIncludeUnsupported
+            )
         }
-        return keysByUniform
-    }
-
-    private static func textureBuiltin(
-        _ field: SceneAuthoredShaderUniformLayout.Field,
-        framebufferSlots: Set<Int>
-    ) -> Plan.UniformBinding.Source? {
-        for slot in framebufferSlots {
-            if field.name == "g_Texture\(slot)Resolution", field.type == .float4 {
-                return .textureResolution(slot: slot)
-            }
-        }
-        return nil
-    }
-
-    private static func constant(
-        _ field: SceneAuthoredShaderUniformLayout.Field,
-        authored: [String: SceneDocument.ShaderValue],
-        materialKey: String?
-    ) -> Plan.UniformBinding.Source? {
-        var matches: [SceneDocument.ShaderValue] = []
-        if let value = authored[field.name] {
-            matches.append(value)
-        }
-        if let materialKey,
-           materialKey != field.name,
-           let value = authored[materialKey] {
-            matches.append(value)
-        }
-        guard matches.count == 1,
-              let value = matches.first,
-              value.userBinding == nil,
-              value.timeline == nil,
-              value.timelineDiagnostics.isEmpty,
-              let components = value.components,
-              components.count == componentCount(field.type),
-              SceneAuthoredShaderUniformBinder.canEncodeConstant(
-                  components,
-                  as: field.type
-              ) else {
-            return nil
-        }
-        return .constant(components)
-    }
-
-    private static func componentCount(_ type: SceneAuthoredShaderValueType) -> Int {
-        switch type {
-        case .bool, .int, .uint, .float: 1
-        case .int2, .uint2, .float2: 2
-        case .int3, .uint3, .float3: 3
-        case .int4, .uint4, .float4, .float2x2: 4
-        case .float3x3: 9
-        case .float4x4: 16
-        }
+        return .accepted(contract)
     }
 
     private static func mappedSize(_ layer: SceneRenderDescriptor.Layer) -> CGSize? {

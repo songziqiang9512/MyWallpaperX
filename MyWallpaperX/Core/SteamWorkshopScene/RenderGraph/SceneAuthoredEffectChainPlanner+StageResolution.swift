@@ -1,389 +1,241 @@
 import Foundation
 
-extension SceneAuthoredEffectChainPlanner {
-    /// 对单个 stage graph 依次尝试全部 strict backend planner；
-    /// 命中顺序与既有调度一致（blur 系优先，随后按接入顺序）。
-    nonisolated static func resolveStage(
-        stageGraph: Graph,
-        inputRole: SceneAuthoredEffectInputRole,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract]
-    ) -> SceneAuthoredEffectExecutionPlan? {
-        if let preciseBlur = SceneAuthoredEffectExecutionPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            inputRole: inputRole
-        ) {
-            return preciseBlur
-        }
-        if let standardBlur = SceneAuthoredStandardBlurPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            inputRole: inputRole
-        ) {
-            return standardBlur
-        }
-        if let localContrast = SceneAuthoredLocalContrastPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(
-                .localContrast(localContrast),
-                stageGraph: stageGraph,
-                inputRole: inputRole,
-                materialNodeCount: 4,
-                logicalRenderTargetCount: 2
-            )
-        }
-        if let opacity = SceneAuthoredOpacityPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(.opacity(opacity), stageGraph: stageGraph, inputRole: inputRole)
-        }
-        if let colorKey = SceneAuthoredColorKeyPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(.colorKey(colorKey), stageGraph: stageGraph, inputRole: inputRole)
-        }
-        if let colorGrading = SceneAuthoredColorGradingPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(
-                .colorGrading(colorGrading),
-                stageGraph: stageGraph,
-                inputRole: inputRole
-            )
-        }
-        if let shiftHue = SceneAuthoredWorkshopShiftHuePlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(
-                .workshopShiftHue(shiftHue),
-                stageGraph: stageGraph,
-                inputRole: inputRole
-            )
-        }
-        if let audioBars = SceneAuthoredWorkshopAudioBarsPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(
-                .workshopAudioBars(audioBars),
-                stageGraph: stageGraph,
-                inputRole: inputRole
-            )
-        }
-        if let audioBars = SceneAuthoredWorkshopSimpleAudioBarsPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(
-                .workshopAudioBars(audioBars),
-                stageGraph: stageGraph,
-                inputRole: inputRole
-            )
-        }
-        if let gradient = SceneAuthoredWorkshopGradientPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(
-                .workshopGradient(gradient),
-                stageGraph: stageGraph,
-                inputRole: inputRole
-            )
-        }
-        if let audioHueShift = SceneAuthoredWorkshopAudioHueShiftPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(
-                .workshopAudioHueShift(audioHueShift),
-                stageGraph: stageGraph,
-                inputRole: inputRole
-            )
-        }
-        if let workshopShadow = SceneAuthoredWorkshopShadowPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(
-                .workshopShadow(workshopShadow),
-                stageGraph: stageGraph,
-                inputRole: inputRole
-            )
-        }
-        if let spin = SceneAuthoredSpinPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(.spin(spin), stageGraph: stageGraph, inputRole: inputRole)
-        }
-        if let proceduralNoise = SceneAuthoredProceduralNoisePlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(
-                .proceduralNoise(proceduralNoise),
-                stageGraph: stageGraph,
-                inputRole: inputRole
-            )
-        }
-        if let filmGrain = SceneAuthoredFilmGrainPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(.filmGrain(filmGrain), stageGraph: stageGraph, inputRole: inputRole)
-        }
-        if let lightShafts = SceneAuthoredLightShaftsPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(
-                .lightShafts(lightShafts),
-                stageGraph: stageGraph,
-                inputRole: inputRole
-            )
-        }
-        if let shake = SceneAuthoredShakePlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(.shake(shake), stageGraph: stageGraph, inputRole: inputRole)
-        }
-        if let waterFlow = SceneAuthoredWaterFlowPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(.waterFlow(waterFlow), stageGraph: stageGraph, inputRole: inputRole)
-        }
-        if let waterWaves = SceneAuthoredWaterWavesPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(.waterWaves(waterWaves), stageGraph: stageGraph, inputRole: inputRole)
-        }
-        if let waterCaustics = SceneAuthoredWaterCausticsPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(
-                .waterCaustics(waterCaustics),
-                stageGraph: stageGraph,
-                inputRole: inputRole
-            )
-        }
-        if let cursorRipple = SceneAuthoredCursorRipplePlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(
-                .cursorRipple(cursorRipple),
-                stageGraph: stageGraph,
-                inputRole: inputRole,
-                materialNodeCount: 3,
-                logicalRenderTargetCount: 2
-            )
-        }
-        if let foliageSway = SceneAuthoredFoliageSwayPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(
-                .foliageSway(foliageSway),
-                stageGraph: stageGraph,
-                inputRole: inputRole
-            )
-        }
-        if let waterRipple = SceneAuthoredWaterRipplePlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(
-                .waterRipple(waterRipple),
-                stageGraph: stageGraph,
-                inputRole: inputRole
-            )
-        }
-        if let depthParallax = SceneAuthoredDepthParallaxPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(
-                .depthParallax(depthParallax),
-                stageGraph: stageGraph,
-                inputRole: inputRole
-            )
-        }
-        if let xRay = SceneAuthoredXRayPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(.xRay(xRay), stageGraph: stageGraph, inputRole: inputRole)
-        }
-        if let clippingMask = SceneAuthoredClippingMaskPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(
-                .clippingMask(clippingMask),
-                stageGraph: stageGraph,
-                inputRole: inputRole
-            )
-        }
-        if let blend = SceneAuthoredBlendPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(.blend(blend), stageGraph: stageGraph, inputRole: inputRole)
-        }
-        if let tint = SceneAuthoredTintPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(.tint(tint), stageGraph: stageGraph, inputRole: inputRole)
-        }
-        if let transform = SceneAuthoredTransformPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(.transform(transform), stageGraph: stageGraph, inputRole: inputRole)
-        }
-        if let fisheye = SceneAuthoredFisheyeZeroDistortionPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(
-                .fisheyeZeroDistortion(fisheye),
-                stageGraph: stageGraph,
-                inputRole: inputRole
-            )
-        }
-        if let pulse = SceneAuthoredPulsePlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(.pulse(pulse), stageGraph: stageGraph, inputRole: inputRole)
-        }
-        if let godrays = SceneAuthoredGodraysPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(
-                .godrays(godrays),
-                stageGraph: stageGraph,
-                inputRole: inputRole,
-                materialNodeCount: 5,
-                logicalRenderTargetCount: 2
-            )
-        }
-        if let shine = SceneAuthoredShinePlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(
-                .shine(shine),
-                stageGraph: stageGraph,
-                inputRole: inputRole,
-                materialNodeCount: 5,
-                logicalRenderTargetCount: 2
-            )
-        }
-        if let authoredShader = SceneAuthoredShaderExecutionPlanner.plan(
-            graph: stageGraph,
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            inputRole: inputRole
-        ) {
-            return stage(
-                .authoredShader(authoredShader),
-                stageGraph: stageGraph,
-                inputRole: inputRole
-            )
-        }
-        return nil
-    }
+nonisolated enum SceneEffectDedicatedStageResolution {
+    case accepted(
+        backend: SceneEffectStageCompilerBackend,
+        executionPlan: SceneAuthoredEffectExecutionPlan,
+        precedingProbes: [SceneEffectStageCompilerProbe]
+    )
+    case exhausted(probes: [SceneEffectStageCompilerProbe])
+}
 
-    private nonisolated static func stage(
-        _ backend: SceneAuthoredEffectExecutionPlan.Backend,
-        stageGraph: Graph,
-        inputRole: SceneAuthoredEffectInputRole,
-        materialNodeCount: Int = 1,
-        logicalRenderTargetCount: Int = 0
-    ) -> SceneAuthoredEffectExecutionPlan {
-        SceneAuthoredEffectExecutionPlan(
-            layerID: stageGraph.layerID,
-            renderGraph: stageGraph,
-            backend: backend,
-            materialNodeCount: materialNodeCount,
-            logicalRenderTargetCount: logicalRenderTargetCount,
-            inputRole: inputRole
+extension SceneAuthoredEffectChainPlanner {
+    /// Ordered dedicated compilers preserve the legacy first-match order while
+    /// distinguishing stages outside a compiler family from same-family stages
+    /// rejected by that compiler's exact fail-closed profile.
+    nonisolated static func resolveDedicatedStage(
+        _ input: SceneEffectStageCompileInput
+    ) -> SceneEffectDedicatedStageResolution {
+        let stageGraph = input.stageGraph
+        let inputRole = input.inputRole
+        typealias Probe = (
+            backend: SceneEffectStageCompilerBackend,
+            compile: () -> SceneEffectStageBackendCompileResult<SceneAuthoredEffectExecutionPlan>
         )
+        let probes: [Probe] = [
+            (.preciseGaussian, {
+                SceneAuthoredEffectExecutionPlanner.compile(input)
+            }),
+            (.standardBlur, {
+                SceneAuthoredStandardBlurPlanner.compile(input)
+            }),
+            (.localContrast, {
+                SceneAuthoredLocalContrastPlanner.compile(input).mapAccepted {
+                    stage(
+                        .localContrast($0),
+                        stageGraph: stageGraph,
+                        inputRole: inputRole,
+                        materialNodeCount: 4,
+                        logicalRenderTargetCount: 2
+                    )
+                }
+            }),
+            (.opacity, {
+                SceneAuthoredOpacityPlanner.compile(input).mapAccepted {
+                    stage(.opacity($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.colorKey, {
+                SceneAuthoredColorKeyPlanner.compile(input).mapAccepted {
+                    stage(.colorKey($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.colorGrading, {
+                SceneAuthoredColorGradingPlanner.compile(input).mapAccepted {
+                    stage(.colorGrading($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.workshopShiftHue, {
+                SceneAuthoredWorkshopShiftHuePlanner.compile(input).mapAccepted {
+                    stage(.workshopShiftHue($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.workshopAudioBars, {
+                SceneAuthoredWorkshopAudioBarsPlanner.compile(input).mapAccepted {
+                    stage(.workshopAudioBars($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.workshopSimpleAudioBars, {
+                SceneAuthoredWorkshopSimpleAudioBarsPlanner.compile(input).mapAccepted {
+                    stage(.workshopAudioBars($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.workshopGradient, {
+                SceneAuthoredWorkshopGradientPlanner.compile(input).mapAccepted {
+                    stage(.workshopGradient($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.workshopAudioHueShift, {
+                SceneAuthoredWorkshopAudioHueShiftPlanner.compile(input).mapAccepted {
+                    stage(.workshopAudioHueShift($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.workshopShadow, {
+                SceneAuthoredWorkshopShadowPlanner.compile(input).mapAccepted {
+                    stage(.workshopShadow($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.spin, {
+                SceneAuthoredSpinPlanner.compile(input).mapAccepted {
+                    stage(.spin($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.proceduralNoise, {
+                SceneAuthoredProceduralNoisePlanner.compile(input).mapAccepted {
+                    stage(.proceduralNoise($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.filmGrain, {
+                SceneAuthoredFilmGrainPlanner.compile(input).mapAccepted {
+                    stage(.filmGrain($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.lightShafts, {
+                SceneAuthoredLightShaftsPlanner.compile(input).mapAccepted {
+                    stage(.lightShafts($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.shake, {
+                SceneAuthoredShakePlanner.compile(input).mapAccepted {
+                    stage(.shake($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.waterFlow, {
+                SceneAuthoredWaterFlowPlanner.compile(input).mapAccepted {
+                    stage(.waterFlow($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.waterWaves, {
+                SceneAuthoredWaterWavesPlanner.compile(input).mapAccepted {
+                    stage(.waterWaves($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.waterCaustics, {
+                SceneAuthoredWaterCausticsPlanner.compile(input).mapAccepted {
+                    stage(.waterCaustics($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.cursorRipple, {
+                SceneAuthoredCursorRipplePlanner.compile(input).mapAccepted {
+                    stage(
+                        .cursorRipple($0),
+                        stageGraph: stageGraph,
+                        inputRole: inputRole,
+                        materialNodeCount: 3,
+                        logicalRenderTargetCount: 2
+                    )
+                }
+            }),
+            (.foliageSway, {
+                SceneAuthoredFoliageSwayPlanner.compile(input).mapAccepted {
+                    stage(.foliageSway($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.waterRipple, {
+                SceneAuthoredWaterRipplePlanner.compile(input).mapAccepted {
+                    stage(.waterRipple($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.depthParallax, {
+                SceneAuthoredDepthParallaxPlanner.compile(input).mapAccepted {
+                    stage(.depthParallax($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.xRay, {
+                SceneAuthoredXRayPlanner.compile(input).mapAccepted {
+                    stage(.xRay($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.clippingMask, {
+                SceneAuthoredClippingMaskPlanner.compile(input).mapAccepted {
+                    stage(.clippingMask($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.blend, {
+                SceneAuthoredBlendPlanner.compile(input).mapAccepted {
+                    stage(.blend($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.tint, {
+                SceneAuthoredTintPlanner.compile(input).mapAccepted {
+                    stage(.tint($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.transform, {
+                SceneAuthoredTransformPlanner.compile(input).mapAccepted {
+                    stage(.transform($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.fisheyeZeroDistortion, {
+                SceneAuthoredFisheyeZeroDistortionPlanner.compile(input).mapAccepted {
+                    stage(
+                        .fisheyeZeroDistortion($0),
+                        stageGraph: stageGraph,
+                        inputRole: inputRole
+                    )
+                }
+            }),
+            (.pulse, {
+                SceneAuthoredPulsePlanner.compile(input).mapAccepted {
+                    stage(.pulse($0), stageGraph: stageGraph, inputRole: inputRole)
+                }
+            }),
+            (.godrays, {
+                SceneAuthoredGodraysPlanner.compile(input).mapAccepted {
+                    stage(
+                        .godrays($0),
+                        stageGraph: stageGraph,
+                        inputRole: inputRole,
+                        materialNodeCount: 5,
+                        logicalRenderTargetCount: 2
+                    )
+                }
+            }),
+            (.shine, {
+                SceneAuthoredShinePlanner.compile(input).mapAccepted {
+                    stage(
+                        .shine($0),
+                        stageGraph: stageGraph,
+                        inputRole: inputRole,
+                        materialNodeCount: 5,
+                        logicalRenderTargetCount: 2
+                    )
+                }
+            }),
+        ]
+
+        var precedingProbes: [SceneEffectStageCompilerProbe] = []
+        precedingProbes.reserveCapacity(probes.count)
+        for probe in probes {
+            switch probe.compile() {
+            case .accepted(let executionPlan):
+                return .accepted(
+                    backend: probe.backend,
+                    executionPlan: executionPlan,
+                    precedingProbes: precedingProbes
+                )
+            case .notApplicable:
+                precedingProbes.append(.init(
+                    backend: probe.backend,
+                    outcome: .notApplicable
+                ))
+            case .rejected(let failure):
+                precedingProbes.append(.init(
+                    backend: probe.backend,
+                    outcome: .rejected(failure)
+                ))
+            }
+        }
+        return .exhausted(probes: precedingProbes)
     }
 }

@@ -17,14 +17,17 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneShaderContract.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneEffectStageCompileModel.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredLocalContrastPlanner.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainAdmission.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectStageGraphAdmission.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionChain.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainPlanner+StageResolution.swift",
+    SOURCE_ROOT / "RenderGraph/SceneEffectStageCompiler.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectXRayPrefix.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneEffectStageProgram.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectStageAdmission.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredPreciseBlurPlanner+Topology.swift",
@@ -84,20 +87,20 @@ SAMPLE_STAGE_FIXTURES = {
 }
 
 STAGE_SOURCE_MARKERS = {
-    "shake": ("SceneAuthoredShakePlanner.plan", "case shake", "case .shake"),
+    "shake": ("SceneAuthoredShakePlanner.compile", "case shake", "case .shake"),
     "foliageSway": (
-        "SceneAuthoredFoliageSwayPlanner.plan",
+        "SceneAuthoredFoliageSwayPlanner.compile",
         "case foliageSway",
         "case .foliageSway",
     ),
-    "xRay": ("SceneAuthoredXRayPlanner.plan", "case xRay", "case .xRay"),
+    "xRay": ("SceneAuthoredXRayPlanner.compile", "case xRay", "case .xRay"),
     "waterFlow": (
-        "SceneAuthoredWaterFlowPlanner.plan",
+        "SceneAuthoredWaterFlowPlanner.compile",
         "case waterFlow",
         "case .waterFlow",
     ),
     "waterRipple": (
-        "SceneAuthoredWaterRipplePlanner.plan",
+        "SceneAuthoredWaterRipplePlanner.compile",
         "case waterRipple",
         "case .waterRipple",
     ),
@@ -202,6 +205,12 @@ struct SceneAuthoredShaderExecutionPlan: Sendable {
 }
 
 enum SceneAuthoredShaderExecutionPlanner {
+    static func compile(
+        _ input: SceneEffectStageCompileInput
+    ) -> SceneEffectStageBackendCompileResult<SceneAuthoredShaderExecutionPlan> {
+        .notApplicable
+    }
+
     static func plan(
         graph: SceneAuthoredEffectRenderPlan,
         descriptor: SceneRenderDescriptor,
@@ -681,6 +690,205 @@ struct SceneRenderDescriptor {
 
     let layers: [Layer]
     let materialPasses: [MaterialPassDescriptor]
+}
+
+nonisolated protocol HarnessDedicatedPlanner {
+    associatedtype DedicatedPlan
+
+    static var compilerBackend: SceneEffectStageCompilerBackend { get }
+
+    static func plan(
+        graph: SceneAuthoredEffectRenderPlan,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        inputRole: SceneAuthoredEffectInputRole
+    ) -> DedicatedPlan?
+}
+
+extension HarnessDedicatedPlanner {
+    nonisolated static func compile(
+        _ input: SceneEffectStageCompileInput
+    ) -> SceneEffectStageBackendCompileResult<DedicatedPlan> {
+        SceneEffectStageDedicatedCompilerAdapter.compile(
+            backend: compilerBackend,
+            candidate: { false },
+            plan: {
+                plan(
+                    graph: input.stageGraph,
+                    descriptor: input.descriptor,
+                    shaderContracts: input.shaderContracts,
+                    inputRole: input.inputRole
+                )
+            }
+        )
+    }
+}
+
+extension SceneAuthoredEffectExecutionPlanner {
+    nonisolated static func compile(
+        _ input: SceneEffectStageCompileInput
+    ) -> SceneEffectStageBackendCompileResult<SceneAuthoredEffectExecutionPlan> {
+        SceneEffectStageDedicatedCompilerAdapter.compile(
+            backend: .preciseGaussian,
+            candidate: { false },
+            plan: {
+                plan(
+                    graph: input.stageGraph,
+                    descriptor: input.descriptor,
+                    inputRole: input.inputRole
+                )
+            }
+        )
+    }
+}
+
+extension SceneAuthoredStandardBlurPlanner {
+    nonisolated static func compile(
+        _ input: SceneEffectStageCompileInput
+    ) -> SceneEffectStageBackendCompileResult<SceneAuthoredEffectExecutionPlan> {
+        SceneEffectStageDedicatedCompilerAdapter.compile(
+            backend: .standardBlur,
+            candidate: { false },
+            plan: {
+                plan(
+                    graph: input.stageGraph,
+                    descriptor: input.descriptor,
+                    inputRole: input.inputRole
+                )
+            }
+        )
+    }
+}
+
+extension SceneAuthoredLocalContrastPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneLocalContrastPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .localContrast }
+}
+extension SceneAuthoredOpacityPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneOpacityExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .opacity }
+}
+extension SceneAuthoredColorKeyPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneColorKeyExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .colorKey }
+}
+extension SceneAuthoredColorGradingPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneColorGradingExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .colorGrading }
+}
+extension SceneAuthoredWorkshopShiftHuePlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneWorkshopShiftHueExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .workshopShiftHue }
+}
+extension SceneAuthoredWorkshopAudioBarsPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneWorkshopAudioBarsExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .workshopAudioBars }
+}
+extension SceneAuthoredWorkshopSimpleAudioBarsPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneWorkshopAudioBarsExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend {
+        .workshopSimpleAudioBars
+    }
+}
+extension SceneAuthoredWorkshopGradientPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneWorkshopGradientExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .workshopGradient }
+}
+extension SceneAuthoredWorkshopAudioHueShiftPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneWorkshopAudioHueShiftExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend {
+        .workshopAudioHueShift
+    }
+}
+extension SceneAuthoredWorkshopShadowPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneWorkshopShadowExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .workshopShadow }
+}
+extension SceneAuthoredSpinPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneSpinExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .spin }
+}
+extension SceneAuthoredProceduralNoisePlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneProceduralNoiseExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .proceduralNoise }
+}
+extension SceneAuthoredFilmGrainPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneFilmGrainExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .filmGrain }
+}
+extension SceneAuthoredLightShaftsPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneLightShaftsExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .lightShafts }
+}
+extension SceneAuthoredShakePlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneShakeExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .shake }
+}
+extension SceneAuthoredWaterFlowPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneWaterFlowExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .waterFlow }
+}
+extension SceneAuthoredWaterWavesPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneWaterWavesExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .waterWaves }
+}
+extension SceneAuthoredWaterCausticsPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneWaterCausticsExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .waterCaustics }
+}
+extension SceneAuthoredCursorRipplePlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneCursorRippleExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .cursorRipple }
+}
+extension SceneAuthoredFoliageSwayPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneFoliageSwayExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .foliageSway }
+}
+extension SceneAuthoredWaterRipplePlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneWaterRippleExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .waterRipple }
+}
+extension SceneAuthoredDepthParallaxPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneDepthParallaxExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .depthParallax }
+}
+extension SceneAuthoredXRayPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneXRayExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .xRay }
+}
+extension SceneAuthoredClippingMaskPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneClippingMaskExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .clippingMask }
+}
+extension SceneAuthoredBlendPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneBlendExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .blend }
+}
+extension SceneAuthoredTintPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneTintExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .tint }
+}
+extension SceneAuthoredTransformPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneTransformExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .transform }
+}
+extension SceneAuthoredFisheyeZeroDistortionPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneFisheyeZeroDistortionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend {
+        .fisheyeZeroDistortion
+    }
+}
+extension SceneAuthoredPulsePlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = ScenePulseExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .pulse }
+}
+extension SceneAuthoredGodraysPlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneGodraysPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .godrays }
+}
+extension SceneAuthoredShinePlanner: HarnessDedicatedPlanner {
+    typealias DedicatedPlan = SceneShineExecutionPlan
+    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .shine }
 }
 
 enum SceneLayerVisibility {

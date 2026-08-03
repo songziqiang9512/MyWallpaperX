@@ -81,10 +81,6 @@ enum SceneAuthoredColorGradingPlanner {
         )
     }
 
-    nonisolated static func containsCandidate(graph: Graph) -> Bool {
-        !graph.effects.isEmpty
-    }
-
     private nonisolated static func assetProfile(
         descriptor: SceneRenderDescriptor,
         definitionPath authoredPath: String,

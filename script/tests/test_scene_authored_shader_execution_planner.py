@@ -23,6 +23,7 @@ from scene_real_test_fixtures import sample_cache_root
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
+    SCENE_ROOT / "RenderGraph/SceneEffectStageCompileModel.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
     SCENE_ROOT / "RenderGraph/SceneMaterialRenderState.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",
@@ -38,6 +39,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderUniformBinder.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredScrollShaderProfile.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderExecutionPlanner.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderExecutionPlanner+Bindings.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderPipelineCache.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderRenderer.swift",
 ]
@@ -308,6 +310,127 @@ enum Harness {
             shaderContracts: contracts(identity, root: root),
             inputRole: role
         )
+    }
+
+    static func compile(
+        identity: String,
+        root: URL,
+        options: Options = .init(),
+        priorInput: Bool = false,
+        role: SceneAuthoredEffectInputRole = .layerSource,
+        blocker: Bool = false,
+        definitionPath: String = "effects/test/effect.json",
+        resolvedMaterialPath: String = materialPath,
+        constantOverrides: [String: SceneDocument.ShaderValue]? = nil
+    ) -> SceneEffectStageBackendCompileResult<SceneAuthoredShaderExecutionPlan> {
+        let graph = graph(
+            priorInput: priorInput,
+            blocker: blocker,
+            definitionPath: definitionPath,
+            resolvedMaterialPath: resolvedMaterialPath
+        )
+        return SceneAuthoredShaderExecutionPlanner.compile(.init(
+            stageGraph: graph,
+            inputRole: role,
+            descriptor: descriptor(
+                identity: identity,
+                options: options,
+                resolvedMaterialPath: resolvedMaterialPath,
+                constantOverrides: constantOverrides
+            ),
+            shaderContracts: contracts(identity, root: root)
+        ))
+    }
+
+    static func failureCode(
+        identity: String,
+        root: URL,
+        options: Options = .init(),
+        priorInput: Bool = false,
+        role: SceneAuthoredEffectInputRole = .layerSource,
+        blocker: Bool = false
+    ) -> String? {
+        guard case .rejected(let failure) = compile(
+            identity: identity,
+            root: root,
+            options: options,
+            priorInput: priorInput,
+            role: role,
+            blocker: blocker
+        ) else {
+            return nil
+        }
+        return failure.code.rawValue
+    }
+
+    static func failureSnapshot(
+        identity: String,
+        root: URL,
+        options: Options = .init(),
+        blocker: Bool = false
+    ) -> [String]? {
+        guard case .rejected(let failure) = compile(
+            identity: identity,
+            root: root,
+            options: options,
+            blocker: blocker
+        ) else {
+            return nil
+        }
+        return [
+            failure.backend.rawValue,
+            failure.phase.rawValue,
+            failure.code.rawValue,
+        ] + failure.details
+    }
+
+    static func planSnapshot(_ plan: SceneAuthoredShaderExecutionPlan?) -> [String] {
+        guard let plan else { return ["nil"] }
+        let fields = plan.program.uniformLayout.fields.map {
+            "\($0.name):\($0.type.rawValue):\($0.offset)"
+        }
+        let textures = plan.program.textureBindings.map { "\($0.name):\($0.slot)" }
+        let bindings = plan.uniformBindings.map { binding in
+            let source: String
+            switch binding.source {
+            case .renderSize: source = "render-size"
+            case .modelViewProjection: source = "model-view-projection"
+            case .time: source = "time"
+            case .dayTime: source = "day-time"
+            case .frameTime: source = "frame-time"
+            case .pointerPosition: source = "pointer-position"
+            case .pointerPositionLast: source = "pointer-position-last"
+            case .screen: source = "screen"
+            case .texelSize(let scale): source = "texel-size:\(scale)"
+            case .textureResolution(let slot): source = "texture-resolution:\(slot)"
+            case .constant(let components): source = "constant:\(components)"
+            }
+            return "\(binding.field.name):\(binding.field.type.rawValue):"
+                + "\(binding.field.offset):\(source)"
+        }
+        let profile = plan.profile == .scroll ? "scroll" : "generic-framebuffer"
+        let state = plan.renderState
+        let offscreen = plan.offscreenSize(for: CGSize(width: 71, height: 93))
+        return [
+            plan.cacheKey,
+            plan.program.metalSource,
+            plan.program.vertexFunctionName,
+            plan.program.fragmentFunctionName,
+            "uniform-byte-size=\(plan.program.uniformLayout.byteSize)",
+            "static-loop-work=\(plan.program.staticLoopWork)",
+            "state=\(state.blending.rawValue):\(state.depthTest.rawValue):"
+                + "\(state.depthWrite.rawValue):\(state.cullMode.rawValue):"
+                + "\(state.alphaWriting.rawValue)",
+            "raw-state=\(state.rawValues.blending ?? "-"):"
+                + "\(state.rawValues.depthTest ?? "-"):"
+                + "\(state.rawValues.depthWrite ?? "-"):"
+                + "\(state.rawValues.cullMode ?? "-"):"
+                + "\(state.rawValues.alphaWriting ?? "-")",
+            "mapped=\(plan.mappedSize.width)x\(plan.mappedSize.height)",
+            "slots=\(plan.framebufferTextureSlots)",
+            "profile=\(profile)",
+            "offscreen=\(offscreen?.width ?? -1)x\(offscreen?.height ?? -1)",
+        ] + fields + textures + bindings
     }
 
     static func scrollPlan(
@@ -645,6 +768,10 @@ enum Harness {
         let realRoot = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let syntheticRoot = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
         let generic = plan(identity: "effects/generic", root: syntheticRoot)
+        let typedGeneric = compile(
+            identity: "effects/generic",
+            root: syntheticRoot
+        ).acceptedPlan
         let annotated = plan(identity: "effects/annotated", root: syntheticRoot)
         let real = plan(identity: "effects/myfirstshader", root: realRoot)
         let stockScrollRoot = URL(
@@ -698,6 +825,101 @@ enum Harness {
         var video = Options(); video.contentKind = "video"
         var composition = Options(); composition.contentKind = "composition"
 
+        let typedFailureCodes = [
+            "blocked": failureCode(
+                identity: "effects/generic",
+                root: syntheticRoot,
+                blocker: true
+            ),
+            "external": failureCode(
+                identity: "effects/generic",
+                root: syntheticRoot,
+                options: external
+            ),
+            "combo": failureCode(
+                identity: "effects/generic",
+                root: syntheticRoot,
+                options: combo
+            ),
+            "bound": failureCode(
+                identity: "effects/generic",
+                root: syntheticRoot,
+                options: bound
+            ),
+            "userShader": failureCode(
+                identity: "effects/generic",
+                root: syntheticRoot,
+                options: userShader
+            ),
+            "alphaWriting": failureCode(
+                identity: "effects/generic",
+                root: syntheticRoot,
+                options: alphaWriting
+            ),
+            "alphaWritingUnknown": failureCode(
+                identity: "effects/generic",
+                root: syntheticRoot,
+                options: alphaWritingUnknown
+            ),
+            "missingSize": failureCode(
+                identity: "effects/generic",
+                root: syntheticRoot,
+                options: missingSize
+            ),
+            "video": failureCode(
+                identity: "effects/generic",
+                root: syntheticRoot,
+                options: video
+            ),
+            "wrongRole": failureCode(
+                identity: "effects/generic",
+                root: syntheticRoot,
+                priorInput: true,
+                role: .layerSource
+            ),
+            "noannotation": failureCode(
+                identity: "effects/noannotation",
+                root: syntheticRoot
+            ),
+            "unknown": failureCode(
+                identity: "effects/unknown",
+                root: syntheticRoot
+            ),
+            "included": failureCode(
+                identity: "effects/included",
+                root: syntheticRoot
+            ),
+            "annotatedambiguous": failureCode(
+                identity: "effects/annotatedambiguous",
+                root: syntheticRoot
+            ),
+            "aliascollision": failureCode(
+                identity: "effects/aliascollision",
+                root: syntheticRoot
+            ),
+        ]
+        let structuralGraph = graph()
+        let structurallyNotApplicable: Bool
+        let structuralResult = SceneAuthoredShaderExecutionPlanner.compile(.init(
+            stageGraph: Graph(
+                layerID: structuralGraph.layerID,
+                effects: structuralGraph.effects,
+                renderTargets: structuralGraph.renderTargets,
+                nodes: structuralGraph.nodes + structuralGraph.nodes,
+                finalOutput: structuralGraph.finalOutput,
+                blockers: structuralGraph.blockers
+            ),
+            inputRole: .layerSource,
+            descriptor: descriptor(identity: "effects/generic"),
+            shaderContracts: contracts("effects/generic", root: syntheticRoot)
+        ))
+        switch structuralResult {
+        case .notApplicable:
+            structurallyNotApplicable = true
+        case .accepted, .rejected:
+            structurallyNotApplicable = false
+        }
+
         let rejectedOptions = [
             external, combo, bound, userShader, alphaWriting, alphaWritingDefault,
             alphaWritingUnknown, blending, translucent, missingSize, video,
@@ -722,6 +944,55 @@ enum Harness {
         scrollExternal.externalTexture = true
         let result: [String: Any] = [
             "genericAccepted": generic != nil,
+            "typedAdapterPlanIdentical":
+                planSnapshot(generic) == planSnapshot(typedGeneric),
+            "typedFailureCodesStable": typedFailureCodes == [
+                "blocked": "graph-blocked",
+                "external": "material-texture-slot-unsupported",
+                "combo": "material-combo-unsupported",
+                "bound": "dynamic-uniform-unsupported",
+                "userShader": "dynamic-user-shader-value-unsupported",
+                "alphaWriting": "render-state-not-fullscreen-overwrite",
+                "alphaWritingUnknown": "render-state-invalid",
+                "missingSize": "invalid-mapped-size",
+                "video": "unsupported-content-kind",
+                "wrongRole": "input-role-mismatch",
+                "noannotation": "framebuffer-slot-unproven",
+                "unknown": "uniform-source-missing",
+                "included": "shader-include-unsupported",
+                "annotatedambiguous": "uniform-source-ambiguous",
+                "aliascollision": "material-key-collision",
+            ],
+            "typedFailureMetadataStable": [
+                "blocked": failureSnapshot(
+                    identity: "effects/generic",
+                    root: syntheticRoot,
+                    blocker: true
+                ),
+                "video": failureSnapshot(
+                    identity: "effects/generic",
+                    root: syntheticRoot,
+                    options: video
+                ),
+                "noannotation": failureSnapshot(
+                    identity: "effects/noannotation",
+                    root: syntheticRoot
+                ),
+            ] == [
+                "blocked": [
+                    "authored-shader", "graph", "graph-blocked",
+                    "unsupportedCondition",
+                ],
+                "video": [
+                    "authored-shader", "topology", "unsupported-content-kind",
+                    "video",
+                ],
+                "noannotation": [
+                    "authored-shader", "texture-binding",
+                    "framebuffer-slot-unproven", "g_Texture0", "slot=0",
+                ],
+            ],
+            "structurallyNotApplicable": structurallyNotApplicable,
             "genericContractPreserved": generic.map {
                 $0.framebufferTextureSlots == [0]
                     && $0.mappedSize == CGSize(width: 128, height: 128)
