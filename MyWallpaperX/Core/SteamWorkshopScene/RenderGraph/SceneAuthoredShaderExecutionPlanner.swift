@@ -138,12 +138,61 @@ nonisolated enum SceneAuthoredShaderExecutionPlanner {
               let fragment = contract.stages.first(where: { $0.kind == .fragment }) else {
             return rejected(phase: .invariant, code: .shaderStageMissing)
         }
+        let preparationResult = prepareShaderStages(
+            contract: contract,
+            material: material
+        )
+        if !contract.stages.allSatisfy({ $0.includes.isEmpty }) {
+            switch preparationResult {
+            case .accepted:
+                return rejected(
+                    phase: .shaderContract,
+                    code: .shaderIncludeUnsupported
+                )
+            case .notApplicable:
+                return rejected(
+                    phase: .invariant,
+                    code: .shaderPreparationInvariant
+                )
+            case .rejected(let failure): return .rejected(failure)
+            }
+        }
 
+        // The prepared program is an R2 diagnostic handoff, not a new execution
+        // authority. An R1-compatible raw program remains accepted even when
+        // the bounded preprocessor rejects syntax it does not yet model. R3 must
+        // resolve texture providers and color representation before prepared
+        // source can become executable.
         let frontend = SceneAuthoredShaderFrontend.compile(
             vertexSource: vertex.source,
             fragmentSource: fragment.source
         )
         guard frontend.diagnostics.isEmpty else {
+            let prepared: SceneShaderPreparedProgram
+            switch preparationResult {
+            case .accepted(let value): prepared = value
+            case .notApplicable:
+                return rejected(
+                    phase: .invariant,
+                    code: .shaderPreparationInvariant
+                )
+            case .rejected(let failure): return .rejected(failure)
+            }
+            let preparedFrontend = SceneAuthoredShaderFrontend.compile(
+                vertexSource: prepared.vertex.source,
+                fragmentSource: prepared.fragment.source
+            )
+            let unresolvedColorReasons = unresolvedColorContractReasons(contract)
+            if preparedFrontend.diagnostics.isEmpty,
+               preparedFrontend.program != nil,
+               !unresolvedColorReasons.isEmpty,
+               !prepared.colorContract.isResolved {
+                return rejected(
+                    phase: .compatibility,
+                    code: .shaderColorContractUnproven,
+                    details: unresolvedColorReasons
+                )
+            }
             return rejected(
                 phase: .shaderFrontend,
                 code: .shaderFrontendDiagnostic,
@@ -156,7 +205,6 @@ nonisolated enum SceneAuthoredShaderExecutionPlanner {
                 code: .shaderFrontendInvariant
             )
         }
-
         let scrollProfile = SceneAuthoredScrollShaderProfile.resolve(
             graph: graph,
             descriptor: input.descriptor,
@@ -287,12 +335,6 @@ nonisolated enum SceneAuthoredShaderExecutionPlanner {
             return rejected(
                 phase: .shaderContract,
                 code: .shaderStageSetUnsupported
-            )
-        }
-        guard contract.stages.allSatisfy({ $0.includes.isEmpty }) else {
-            return rejected(
-                phase: .shaderContract,
-                code: .shaderIncludeUnsupported
             )
         }
         return .accepted(contract)

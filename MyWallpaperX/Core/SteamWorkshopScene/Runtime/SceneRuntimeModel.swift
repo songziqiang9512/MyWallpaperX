@@ -11,6 +11,25 @@ struct SceneRuntimeModel {
     let authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan]
     let runtimeInput: SceneRuntimeInput
     let diagnostics: SceneDiagnosticsReport
+
+    /// Compatibility inputs remain two independent provenance-bearing facts.
+    /// No unverified rule is applied merely by exposing this context.
+    nonisolated var compatibilityContext: SceneCompatibilityContext {
+        SceneCompatibilityContext(
+            projectVersion: .init(
+                value: project.declaredVersion,
+                sourceKind: .projectJSON,
+                sourceRelativePath: "project.json",
+                fieldName: "version"
+            ),
+            sceneVersion: .init(
+                value: sceneDocument.declaredVersion,
+                sourceKind: .sceneEntry,
+                sourceRelativePath: project.entryPath,
+                fieldName: "version"
+            )
+        )
+    }
 }
 
 struct SceneRuntimeModelBuilder {

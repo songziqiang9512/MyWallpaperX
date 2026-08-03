@@ -27,6 +27,7 @@ nonisolated struct SceneShaderContract: Codable, Equatable, Sendable {
         case unreadableSource
         case invalidUTF8
         case malformedAnnotation
+        case unterminatedBlockComment
     }
 
     struct Include: Codable, Equatable, Sendable {
@@ -38,8 +39,49 @@ nonisolated struct SceneShaderContract: Codable, Equatable, Sendable {
     struct Annotation: Codable, Equatable, Sendable {
         let marker: String?
         let value: SceneJSONValue
+        /// Exact numeric view used by the R2 variant compiler. `value` remains
+        /// the legacy projection encoded into `canonicalSHA256`.
+        let variantValue: SceneShaderAnnotationValue
         let raw: String
         let line: Int
+
+        private enum CodingKeys: String, CodingKey {
+            case marker, value, raw, line
+        }
+
+        init(
+            marker: String?,
+            value: SceneJSONValue,
+            variantValue: SceneShaderAnnotationValue? = nil,
+            raw: String,
+            line: Int
+        ) {
+            self.marker = marker
+            self.value = value
+            self.variantValue = variantValue ?? .init(legacyValue: value)
+            self.raw = raw
+            self.line = line
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            marker = try container.decodeIfPresent(String.self, forKey: .marker)
+            value = try container.decode(SceneJSONValue.self, forKey: .value)
+            raw = try container.decode(String.self, forKey: .raw)
+            line = try container.decode(Int.self, forKey: .line)
+            variantValue = SceneShaderAnnotationValue(
+                rawAnnotation: raw,
+                marker: marker
+            ) ?? .init(legacyValue: value)
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encodeIfPresent(marker, forKey: .marker)
+            try container.encode(value, forKey: .value)
+            try container.encode(raw, forKey: .raw)
+            try container.encode(line, forKey: .line)
+        }
     }
 
     struct Declaration: Codable, Equatable, Sendable {
@@ -74,6 +116,117 @@ nonisolated struct SceneShaderContract: Codable, Equatable, Sendable {
     let stages: [Stage]
     let diagnostics: [Diagnostic]
     let canonicalSHA256: String
+    /// Deterministic VFS snapshot for authored stage/include preparation. It is
+    /// intentionally separate from `canonicalSHA256`, whose legacy root-stage
+    /// identity remains the compatibility key used by existing strict profiles.
+    let sourceGraph: SceneShaderSourceGraph?
+
+    init(
+        identity: String,
+        sourceKind: SourceKind,
+        stages: [Stage],
+        diagnostics: [Diagnostic],
+        canonicalSHA256: String,
+        sourceGraph: SceneShaderSourceGraph? = nil
+    ) {
+        self.identity = identity
+        self.sourceKind = sourceKind
+        self.stages = stages
+        self.diagnostics = diagnostics
+        self.canonicalSHA256 = canonicalSHA256
+        self.sourceGraph = sourceGraph
+    }
+}
+
+/// Loss-preserving JSON view for shader annotations. Foundation can decode an
+/// authored Int64 exactly even when it cannot be represented by `Double`.
+nonisolated indirect enum SceneShaderAnnotationValue: Decodable, Equatable, Sendable {
+    case null
+    case bool(Bool)
+    case integer(Int64)
+    case number(Double)
+    case string(String)
+    case array([SceneShaderAnnotationValue])
+    case object([String: SceneShaderAnnotationValue])
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() {
+            self = .null
+        } else if let value = try? container.decode(Bool.self) {
+            self = .bool(value)
+        } else if let value = try? container.decode(Decimal.self) {
+            let number = NSDecimalNumber(decimal: value)
+            if let integer = Int64(number.stringValue) {
+                self = .integer(integer)
+            } else {
+                self = .number(number.doubleValue)
+            }
+        } else if let value = try? container.decode(String.self) {
+            self = .string(value)
+        } else if let value = try? container.decode([SceneShaderAnnotationValue].self) {
+            self = .array(value)
+        } else {
+            self = .object(try container.decode([String: SceneShaderAnnotationValue].self))
+        }
+    }
+
+    init(legacyValue: SceneJSONValue) {
+        switch legacyValue {
+        case .null: self = .null
+        case .bool(let value): self = .bool(value)
+        case .number(let value):
+            self = abs(value) <= 9_007_199_254_740_991
+                ? Int64(exactly: value).map(Self.integer) ?? .number(value)
+                : .number(value)
+        case .string(let value): self = .string(value)
+        case .array(let values): self = .array(values.map(Self.init(legacyValue:)))
+        case .object(let values):
+            self = .object(values.mapValues(Self.init(legacyValue:)))
+        }
+    }
+
+    init?(rawAnnotation: String, marker: String?) {
+        guard rawAnnotation.hasPrefix("//") else { return nil }
+        let body = String(rawAnnotation.dropFirst(2))
+        let payload: String
+        if let marker, let range = body.range(of: marker) {
+            payload = String(body[range.upperBound...])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if marker.caseInsensitiveCompare("[PASS]") == .orderedSame {
+                self = .string(payload)
+                return
+            }
+        } else {
+            payload = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        guard let data = payload.data(using: .utf8),
+              let decoded = try? JSONDecoder().decode(Self.self, from: data) else {
+            return nil
+        }
+        self = decoded
+    }
+
+    var boolValue: Bool? {
+        guard case .bool(let value) = self else { return nil }
+        return value
+    }
+
+    var integerValue: Int64? {
+        switch self {
+        case .integer(let value): return value
+        case .number(let value):
+            guard value.isFinite,
+                  abs(value) <= 9_007_199_254_740_991 else { return nil }
+            return Int64(exactly: value)
+        default: return nil
+        }
+    }
+
+    var stringValue: String? {
+        guard case .string(let value) = self else { return nil }
+        return value
+    }
 }
 
 nonisolated struct SceneShaderContractSourceParser {
@@ -104,6 +257,7 @@ nonisolated struct SceneShaderContractSourceParser {
         var annotations: [SceneShaderContract.Annotation] = []
         var declarations: [SceneShaderContract.Declaration] = []
         var diagnostics: [SceneShaderContract.Diagnostic] = []
+        var inBlockComment = false
 
         for (offset, substring) in source.split(
             omittingEmptySubsequences: false,
@@ -111,7 +265,11 @@ nonisolated struct SceneShaderContractSourceParser {
         ).enumerated() {
             let lineNumber = offset + 1
             let line = String(substring)
-            let code = line.range(of: "//").map { String(line[..<$0.lowerBound]) } ?? line
+            let lexical = SceneShaderLexicalScanner.scan(
+                line,
+                inBlockComment: &inBlockComment
+            )
+            let code = lexical.code
 
             if let match = firstMatch(includePattern, in: code),
                let path = capture(1, match: match, in: code) {
@@ -136,9 +294,8 @@ nonisolated struct SceneShaderContractSourceParser {
                 ))
             }
 
-            guard let commentRange = line.range(of: "//") else { continue }
-            let raw = String(line[commentRange.lowerBound...])
-            let body = String(line[commentRange.upperBound...])
+            guard let raw = lexical.lineCommentRaw else { continue }
+            let body = String(raw.dropFirst(2))
             let markerMatch = firstMatch(markerPattern, in: body)
             let marker = markerMatch.flatMap { capture(1, match: $0, in: body) }
             let jsonText: String?
@@ -162,6 +319,7 @@ nonisolated struct SceneShaderContractSourceParser {
                 annotations.append(.init(
                     marker: marker,
                     value: .string(jsonText),
+                    variantValue: .string(jsonText),
                     raw: raw,
                     line: lineNumber
                 ))
@@ -173,7 +331,11 @@ nonisolated struct SceneShaderContractSourceParser {
                     with: jsonData,
                     options: [.fragmentsAllowed]
                   ),
-                  let value = SceneJSONValue(jsonObject: object) else {
+                  let value = SceneJSONValue(jsonObject: object),
+                  let variantValue = try? JSONDecoder().decode(
+                    SceneShaderAnnotationValue.self,
+                    from: jsonData
+                  ) else {
                 diagnostics.append(.init(
                     code: .malformedAnnotation,
                     message: "Shader annotation contains malformed JSON.",
@@ -182,7 +344,21 @@ nonisolated struct SceneShaderContractSourceParser {
                 ))
                 continue
             }
-            annotations.append(.init(marker: marker, value: value, raw: raw, line: lineNumber))
+            annotations.append(.init(
+                marker: marker,
+                value: value,
+                variantValue: variantValue,
+                raw: raw,
+                line: lineNumber
+            ))
+        }
+        if inBlockComment {
+            diagnostics.append(.init(
+                code: .unterminatedBlockComment,
+                message: "Shader source ends inside a block comment.",
+                relativePath: stageRelativePath,
+                line: nil
+            ))
         }
         return Result(
             includes: includes,
@@ -216,36 +392,5 @@ nonisolated struct SceneShaderContractSourceParser {
     nonisolated private func arraySize(_ suffix: String?) -> Int? {
         guard let suffix, suffix.count >= 2 else { return nil }
         return Int(suffix.dropFirst().dropLast().trimmingCharacters(in: .whitespaces))
-    }
-}
-
-nonisolated enum SceneShaderContractPath {
-    nonisolated static func normalizedRelativePath(
-        base: String,
-        path: String
-    ) -> String? {
-        let normalized = path.replacingOccurrences(of: "\\", with: "/")
-        guard !normalized.hasPrefix("/"), !hasDrivePrefix(normalized) else { return nil }
-
-        var components = base.split(separator: "/").map(String.init)
-        for component in normalized.split(separator: "/", omittingEmptySubsequences: false) {
-            switch component {
-            case "", ".":
-                continue
-            case "..":
-                guard !components.isEmpty else { return nil }
-                components.removeLast()
-            default:
-                components.append(String(component))
-            }
-        }
-        return components.isEmpty ? nil : components.joined(separator: "/")
-    }
-
-    nonisolated private static func hasDrivePrefix(_ path: String) -> Bool {
-        guard path.count >= 2 else { return false }
-        let start = path.startIndex
-        let next = path.index(after: start)
-        return path[start].isLetter && path[next] == ":"
     }
 }

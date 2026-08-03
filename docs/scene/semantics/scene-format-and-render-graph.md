@@ -22,6 +22,8 @@
 
 播放器应把 loose files、包文件和用户替换资源挂到一个规范化、只读的资源命名空间。任何绝对路径、`..` 越界、包内重复名称或资源循环都必须受控失败。
 
+R2 在既有 `SceneResourceView` 上为 shader 另建完整候选 source graph：package、loose 与 stock 候选各自保存 provenance/content identity，stage root 与 include edge 共用路径安全、冲突、缺失、循环和预算诊断。旧 ShaderContract 的 raw stage projection仍按 R1 规则生成，source graph 不能反向改写它或扩大 GPU admission。当前 package -> loose -> stock 顺序是 MyWallpaperX 的明确 VFS policy，不是已经证明的官方所有客户端版本优先级。
+
 ## 2. `project.json`
 
 当前样本稳定出现的顶层职责：
@@ -51,6 +53,10 @@ true
 ```
 
 也可能包含 `script` 与 `scriptproperties`。解析器必须保留静态值、用户绑定和脚本三部分，不能只递归取出 `value` 后丢掉动态来源。
+
+### 2.3 版本是独立声明事实
+
+project 与 scene 的 version 现在分别保留为 missing、合法整数、类型错误或越界事实，并记录各自 provenance。两者不会被折叠成一个猜测的 effective version，也不会自动注入默认、macro 或 compatibility patch。只有现役文档、合法跨版本资产或 clean-room 运行证据能证明某条版本规则时，才允许把它登记为公共 normalization；未知形态继续失败关闭。
 
 ## 3. `scene.json`
 
@@ -283,6 +289,10 @@ blend、depth 和 cull 属于 material/pass 语义。未知 blend mode 不能无
 
 `8474ace` 已将这条链路的第一层合同写入 interpretation v19：对 authored vertex/fragment stage 保存完整 UTF-8 source、raw SHA-256、相对路径、include reference/line、annotation raw/structured value/marker/line、uniform/attribute/varying declaration、diagnostic 与 canonical SHA；精确 host built-in identity 使用无 stage 合同。路径穿越、shader root/stage/include symlink escape、无效 UTF-8、缺失 stage、畸形 annotation 和重复 identity 均 fail closed。该实现是 line-based、loss-preserving 的 L1 source contract，不是完整 AST，也没有 include expansion、macro/permutation preprocessing、translation、stage link、compile、typed default consumption、uniform upload 或 GPU execution。
 
+R2 在这份历史 raw contract 旁新增 bounded preparation，而不是改写它：source graph 可展开有界 include，directive evaluator 支持 object-like `#define/#undef`、条件栈与 relational/equality 分层的整数/布尔表达式；macro expansion 区分 code、string、character、line/block comment，selected/host macro 保留 defined/undefined 所有权。只有 active 非 directive 行贡献 annotation/declaration/diagnostic，输出 dependency digest、逐行 source map 与 prepared identity；exact `[COMBO]` 的数值以 Decimal-first exact Int64 carrier 保存，sampler readiness/requirement、explicit material value、active options 和 annotation default 进入带 provenance 的 typed variant。fixed-point 以词法无条件 root/include schema 为 immutable base，对最多 8 个条件候选穷举非空子集；多个 stable prepared signature 报歧义，候选数或估算累计工作超过 256 MiB 报审计预算。backend/version/platform/texture-format macro仍是 host-owned requirement，当前 Metal backend没有 verified provider；function-like/cross-language macro/prelude、`#elif`、directive-line annotation、完整 shader translation与 stage execution也未实现。
+
+prepared program 另有显式 input/output color representation carrier，但普通 authored pass 当前标为 unresolved；如果旧 raw frontend本来失败，prepared source即使成功也会以 `shader-color-contract-unproven` 关闭，不能扩大 renderer准入。若旧 raw frontend本来成功，R2 preparation failure只作为诊断，不缩小原有 accepted subset。这一双轨只服务迁移守恒；R3 必须把同代 texture/provider/reflection/state/color原子化，R4 才能由唯一 graph executor消费。
+
 `136d35c` 没有改变上述通用结论。它只在 stock Local Contrast strict planner 中核对三份 authored shader contract 的 identity、canonical SHA、stage path、raw SHA 和 source SHA，再调用项目内手写 MSL；Gaussian `scale=(1,1)` 与 combine `strength=1` 的缺省值只在这个 exact profile 内解释。该路径不预处理、翻译或编译 authored source，也不建立通用 uniform binder。
 
 `b541867` 同样没有改变上述 authored shader 边界。它只按作者 effect 顺序组合已由 strict planner 接受的手写 backend，并验证 layer source -> effect output 的输入连续性；每个 Local Contrast stage 从同一 per-surface snapshot 单独取得 strength。这个 scheduler 不读取任意 shader source，也不执行 copy/swap/compose/history/condition/function。
@@ -365,7 +375,7 @@ HDR、video HDR 和 display-output 等最终路径应拥有 typed output-mode/tr
 | Scene/object IR | format 25 继承 v24 attachment frame，并增加 authored Puppet `animationlayers` 的 id/animation/additive/blend/blend-in/out/time/rate/static-or-bound visibility；bounded runtime 消费 disjoint-bone additive 与 typed visibility | 保持 raw/typed 双层合同；保存声明不等于支持冲突 mixing/权重、SceneScript visibility 或动画 attachment |
 | base image color | 普通 image 与 solid 在进入 effect/color blend 前消费作者 `g_Color4 × brightness`；text 的同名字段留给 CoreText，避免双重着色；mode 31 继续执行既有 `A + B × opacity` | 动态 non-solid color binding、线性/显示色空间和 Windows SDR/HDR 裁剪 golden |
 | dependency | graph 已结构化区分固定 `previous`、effect-scoped RT 和 copy/swap；十四类 strict backend 与 ordered chain 已消费 effect target table，并闭合整链 identity/continuity、allocation/cache/LRU 事务、末段合成与 reset；Precise Blur interleave、Shake/Foliage/Water/X-Ray/God Rays 链已执行；bounded frame registry 按另一命名空间处理 named target、property-authored fallback 和受限 PNG/JPEG property source；exact composition Clipping Mask 的 capture/binding 共用显式可执行 consumer 集合，拒绝的 SceneScript alpha consumer 不再触发 provider capture | 共享 material pass executor 仍是目标；并行补 system/media/video/variant/effectful/nested source、真实 persistent/history consumer、compose 与更多经过合同门的 topology |
-| material/shader | sparse-slot candidate resolver、ShaderContract v1、strict precise/standard Blur、stock Local Contrast、exact Workshop Shadow、stock Opacity、Shake、Foliage Sway、Water Ripple、Water Waves、Water Flow 与 X-Ray 共十一类 backend 已落地；运行时整体仍以手写 MSL 近似为主 | 补 typed shader defaults、preprocessor/translation/compile、通用 provider consumer、nested target 和更多 pass。现有 strict backend 不代表 official generic shader 或 Windows pixel parity |
+| material/shader | sparse-slot candidate resolver、ShaderContract v1 与 R2 bounded preparation 已落地：declared compatibility facts、独立 source graph、include/directive evaluator、typed combo/readiness variant、active source map/digest 与 unresolved color gate可审计；strict precise/standard Blur、stock Local Contrast、exact Workshop Shadow、Opacity、Shake、Foliage/Water/X-Ray 等运行时仍以手写 MSL 或既有 bounded frontend 为主，GPU admission未扩面 | R3 补同代 typed shader default/provider/reflection/state/color material program，R4 补跨语言 translation/compile 与唯一 graph executor；R5 在迁移族同一提交删除被替代 dedicated planner/backend、`fallbackGraph`、`.legacyContract`、旧 root projection/source adapter、重复 telemetry/projection 与旧链测试，并比较 probe/backend/legacy authority/Scene 文件与 LOC/两档小文件六轴。现有 preparation/strict backend都不代表 official generic shader或 Windows pixel parity |
 | local deformation | exact stock Shake flow-map profile 为受限 `L3`；Foliage/Water 等仍有不同程度近似 | 继续按 [Effects 全集](effects-reference.md) 补 dynamic Shake、输入、空间、mask 与 sampler 合同 |
 | live values | format 25 继承 binding program；layer alpha、solid color、direct text、Local Contrast/Opacity consumer 已执行；Timeline 的 **48/48** 现役 authored host 已进入受限 typed target/绝对时钟/作者 Bézier evaluator，并执行 9 条 Loop wrap 闭合段，覆盖 effect constant、layer alpha、bounded relative transform、root particle scalar、text width 与单一 default 2D camera Combined；Puppet animation visibility 的 direct User Property binding 编译为 typed bool target 并逐帧消费；通用 SceneScript 未接入 | generic Combined、其他 relative/target、multiple path/3D camera、Puppet SceneScript visibility 与 event crossing 继续 fail closed；Timeline 精确子项以 [覆盖台账 §6.1](coverage-ledger.md#61-timeline-与-scenescript) 为准 |
 

@@ -25,6 +25,9 @@ PLAYBACK_SOURCE = (
 ASSET_CATALOG_SOURCE = SCENE_ROOT / "Resources/SceneAssetCatalog.swift"
 SHADER_CONTRACT_SOURCE = SCENE_ROOT / "RenderGraph/SceneShaderContract.swift"
 SHADER_CONTRACT_LOADER_SOURCE = SCENE_ROOT / "RenderGraph/SceneShaderContractLoader.swift"
+SHADER_CONTRACT_GRAPH_LOADER_SOURCE = (
+    SCENE_ROOT / "RenderGraph/SceneShaderContractLoader+SourceGraph.swift"
+)
 SWIFT_SOURCES = [
     SCENE_ROOT / "Properties/SceneUserProperty.swift",
     SCENE_ROOT / "Properties/SceneUserPropertyBindings.swift",
@@ -34,8 +37,14 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
     SCENE_ROOT / "Properties/ScenePropertyBindingProgramValidator.swift",
     SCENE_ROOT / "Format/SceneJSONValue.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
     SHADER_CONTRACT_SOURCE,
+    SCENE_ROOT / "Resources/SceneResourceIndex.swift",
+    SCENE_ROOT / "Resources/SceneResourceView.swift",
+    SCENE_ROOT / "Resources/SceneShaderSourceResolver.swift",
+    SCENE_ROOT / "Resources/SceneShaderSourceGraphBuilder.swift",
     SHADER_CONTRACT_LOADER_SOURCE,
+    SHADER_CONTRACT_GRAPH_LOADER_SOURCE,
     RUNTIME_INPUT_SOURCE,
 ]
 
@@ -179,9 +188,10 @@ class SceneRuntimeInputTests(unittest.TestCase):
         source = ASSET_CATALOG_SOURCE.read_text(encoding="utf-8")
         self.assertIn("let shaderContracts: [SceneShaderContract]", source)
         self.assertIn("SceneShaderContractLoader().load(", source)
-        self.assertIn("shaderContracts: shaderReferences.flatMap { reference in", source)
-        self.assertIn("shaderReferences: [reference]", source)
-        self.assertIn("rootURL: shaderRootURL(", source)
+        self.assertIn("shaderReferences: shaderReferences", source)
+        self.assertIn("resourceView: resourceView", source)
+        self.assertNotIn("shaderReferences.flatMap", source)
+        self.assertNotIn("shaderRootURL", source)
 
 
 if __name__ == "__main__":

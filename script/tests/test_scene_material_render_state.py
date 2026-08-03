@@ -12,6 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
+    SCENE_ROOT / "Format/SceneCompatibilityContext.swift",
     SCENE_ROOT / "Format/SceneDocument+NumericParsing.swift",
     SCENE_ROOT / "Format/SceneProject.swift",
     SCENE_ROOT / "Properties/SceneUserProperty.swift",
@@ -21,8 +22,12 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneAssetCatalog.swift",
     SCENE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
     SCENE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",
+    SCENE_ROOT / "Resources/SceneShaderSourceGraphBuilder.swift",
+    SCENE_ROOT / "Resources/SceneShaderSourceResolver.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderContractLoader.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderContractLoader+SourceGraph.swift",
 ]
 
 # SceneDocument 的完整图会拉入 particle/utility/puppet/text 全套，与 material pass 解析无关，

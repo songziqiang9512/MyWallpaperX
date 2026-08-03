@@ -41,7 +41,7 @@ struct SceneDocument {
     }
 
     let sourceURL: URL
-    let version: Int?
+    let declaredVersion: SceneDeclaredInteger
     let camera: CameraDescriptor
     let general: GeneralDescriptor
     let objectCount: Int
@@ -121,7 +121,7 @@ struct SceneDocumentLoader {
 
         return SceneDocument(
             sourceURL: sourceURL,
-            version: root["version"] as? Int,
+            declaredVersion: SceneDeclaredInteger.parse(root: sourceRoot, fieldName: "version"),
             camera: Self.parseCamera(root["camera"] as? [String: Any]),
             general: Self.parseGeneral(root["general"] as? [String: Any]),
             objectCount: rawObjects.count,

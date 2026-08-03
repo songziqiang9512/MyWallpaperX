@@ -5,6 +5,7 @@ struct SceneProject {
     let projectFileURL: URL
     let entryPath: String
     let packageURL: URL?
+    let declaredVersion: SceneDeclaredInteger
     let title: String?
     let supportsAudioProcessing: Bool
     let userProperties: SceneUserPropertyCatalog
@@ -62,6 +63,10 @@ struct SceneProjectLoader {
             packageURL: SceneProjectLoader.scenePackageURL(
                 in: rootURL,
                 entryPath: resolvedEntryPath
+            ),
+            declaredVersion: SceneDeclaredInteger.parse(
+                root: root,
+                fieldName: "version"
             ),
             title: root["title"] as? String,
             supportsAudioProcessing: general?["supportsaudioprocessing"] as? Bool ?? false,

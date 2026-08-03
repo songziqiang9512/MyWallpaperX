@@ -26,8 +26,14 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneEffectStageCompileModel.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
     SCENE_ROOT / "RenderGraph/SceneMaterialRenderState.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",
+    SCENE_ROOT / "Resources/SceneShaderSourceGraphBuilder.swift",
+    SCENE_ROOT / "Resources/SceneShaderSourceResolver.swift",
+    SCENE_ROOT / "Resources/SceneResourceView.swift",
+    SCENE_ROOT / "Resources/SceneResourceIndex.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderContractLoader.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderContractLoader+SourceGraph.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontendModel.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLexer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLoopAnalyzer.swift",
@@ -38,7 +44,13 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderExecutionPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderUniformBinder.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredScrollShaderProfile.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderVariantEnvironment.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderDirective.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+Schema.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderPreprocessor.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderExecutionPlanner.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderExecutionPlanner+Preparation.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderExecutionPlanner+Bindings.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderPipelineCache.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderRenderer.swift",
@@ -160,7 +172,8 @@ enum Harness {
             constants = constantOverrides
         } else {
             switch identity {
-            case "effects/generic":
+            case "effects/generic", "effects/legacycomboschema",
+                 "effects/ambiguousinteger", "effects/suffixnumeric":
                 constants = ["g_Strength": value(0.75, bound: options.userBinding)]
             case "effects/annotated":
                 constants = ["Strength label": value(0.75)]
@@ -340,6 +353,73 @@ enum Harness {
             ),
             shaderContracts: contracts(identity, root: root)
         ))
+    }
+
+    static func preparationResult(
+        identity: String,
+        root: URL,
+        options: Options = .init(),
+        graphless: Bool = false,
+        textureReadiness: [Int: Bool] = [:]
+    ) -> SceneEffectStageBackendCompileResult<SceneShaderPreparedProgram>? {
+        let stageGraph = graph()
+        let renderDescriptor = descriptor(identity: identity, options: options)
+        guard let node = stageGraph.nodes.first else { return nil }
+        let resolution = SceneAuthoredMaterialResolver.resolve(
+            node: node,
+            graph: stageGraph,
+            descriptor: renderDescriptor
+        )
+        guard resolution.isResolved,
+              let material = resolution.node,
+              let loadedContract = contracts(identity, root: root).first else {
+            return nil
+        }
+        let contract = graphless
+            ? SceneShaderContract(
+                identity: loadedContract.identity,
+                sourceKind: loadedContract.sourceKind,
+                stages: loadedContract.stages,
+                diagnostics: loadedContract.diagnostics,
+                canonicalSHA256: loadedContract.canonicalSHA256
+            )
+            : loadedContract
+        return SceneAuthoredShaderExecutionPlanner.prepareShaderStages(
+            contract: contract,
+            material: material,
+            textureReadiness: textureReadiness
+        )
+    }
+
+    static func preparedStages(
+        identity: String,
+        root: URL,
+        options: Options = .init(),
+        graphless: Bool = false,
+        textureReadiness: [Int: Bool] = [:]
+    ) -> SceneShaderPreparedProgram? {
+        preparationResult(
+            identity: identity,
+            root: root,
+            options: options,
+            graphless: graphless,
+            textureReadiness: textureReadiness
+        )?.acceptedPlan
+    }
+
+    static func preparationFailureDetails(
+        identity: String,
+        root: URL,
+        options: Options = .init(),
+        textureReadiness: [Int: Bool] = [:]
+    ) -> [String]? {
+        guard case let .rejected(failure)? = preparationResult(
+            identity: identity,
+            root: root,
+            options: options,
+            textureReadiness: textureReadiness
+        ) else { return nil }
+        return [failure.code.rawValue] + failure.details
     }
 
     static func failureCode(
@@ -889,6 +969,10 @@ enum Harness {
                 identity: "effects/included",
                 root: syntheticRoot
             ),
+            "conditional": failureCode(
+                identity: "effects/conditionalreflection",
+                root: syntheticRoot
+            ),
             "annotatedambiguous": failureCode(
                 identity: "effects/annotatedambiguous",
                 root: syntheticRoot
@@ -959,7 +1043,8 @@ enum Harness {
                 "wrongRole": "input-role-mismatch",
                 "noannotation": "framebuffer-slot-unproven",
                 "unknown": "uniform-source-missing",
-                "included": "shader-include-unsupported",
+                "included": "shader-include-missing",
+                "conditional": "shader-color-contract-unproven",
                 "annotatedambiguous": "uniform-source-ambiguous",
                 "aliascollision": "material-key-collision",
             ],
@@ -1024,6 +1109,250 @@ enum Harness {
             ].allSatisfy {
                 plan(identity: "effects/\($0)", root: syntheticRoot) == nil
             },
+            "includeAndComboPrepared": {
+                let base = preparedStages(
+                    identity: "effects/includedok",
+                    root: syntheticRoot
+                )
+                let variant = preparedStages(
+                    identity: "effects/includedok",
+                    root: syntheticRoot,
+                    options: combo
+                )
+                return base != nil && variant != nil
+                    && base?.cacheKey != variant?.cacheKey
+                    && base?.fragment.source != variant?.fragment.source
+            }(),
+            "expandedExecutionStillGuarded":
+                failureCode(
+                    identity: "effects/includedok",
+                    root: syntheticRoot
+                ) == "shader-include-unsupported"
+                && failureCode(
+                    identity: "effects/generic",
+                    root: syntheticRoot,
+                    options: combo
+                ) == "material-combo-unsupported"
+                && failureCode(
+                    identity: "effects/conditionalreflection",
+                    root: syntheticRoot
+                ) == "shader-color-contract-unproven"
+                && failureCode(
+                    identity: "effects/duplicatedefine",
+                    root: syntheticRoot
+                ) == "shader-color-contract-unproven"
+                && failureCode(
+                    identity: "effects/crossdefine",
+                    root: syntheticRoot
+                ) == "shader-color-contract-unproven",
+            "r1LeadingZeroAcceptancePreserved":
+                plan(
+                    identity: "effects/ambiguousinteger",
+                    root: syntheticRoot
+                ) != nil,
+            "r1SuffixAcceptancePreserved":
+                plan(
+                    identity: "effects/suffixnumeric",
+                    root: syntheticRoot
+                ) != nil,
+            "boundedPreparationRejectsLeadingZero":
+                preparedStages(
+                    identity: "effects/ambiguousinteger",
+                    root: syntheticRoot
+                ) == nil,
+            "boundedPreparationRejectsSuffix":
+                preparedStages(
+                    identity: "effects/suffixnumeric",
+                    root: syntheticRoot
+                ) == nil,
+            "legacyComboSchemaPreserved": plan(
+                identity: "effects/legacycomboschema",
+                root: syntheticRoot
+            ) != nil,
+            "graphlessFallbackBounded": {
+                let loaded = preparedStages(
+                    identity: "effects/generic",
+                    root: syntheticRoot
+                )
+                let fallback = preparedStages(
+                    identity: "effects/generic",
+                    root: syntheticRoot,
+                    graphless: true
+                )
+                let includedRejected = preparedStages(
+                    identity: "effects/includedok",
+                    root: syntheticRoot,
+                    graphless: true
+                ) == nil
+                return loaded != nil
+                    && loaded?.cacheKey == fallback?.cacheKey
+                    && loaded?.vertex.source == fallback?.vertex.source
+                    && loaded?.fragment.source == fallback?.fragment.source
+                    && includedRejected
+            }(),
+            "inactiveReflectionFiltered": {
+                let base = preparedStages(
+                    identity: "effects/conditionalreflection",
+                    root: syntheticRoot
+                )
+                let variant = preparedStages(
+                    identity: "effects/conditionalreflection",
+                    root: syntheticRoot,
+                    options: combo
+                )
+                let baseNames = base?.fragment.activeDeclarations.map {
+                    $0.declaration.name
+                } ?? []
+                let variantNames = variant?.fragment.activeDeclarations.map {
+                    $0.declaration.name
+                } ?? []
+                return !baseNames.contains("u_Inactive")
+                    && variantNames.contains("u_Inactive")
+            }(),
+            "activeSchemaFixedPoint": {
+                let inactive = preparedStages(
+                    identity: "effects/inactiveschema",
+                    root: syntheticRoot
+                )
+                let inactiveInclude = preparedStages(
+                    identity: "effects/inactiveinclude",
+                    root: syntheticRoot
+                )
+                let included = preparedStages(
+                    identity: "effects/includedschema",
+                    root: syntheticRoot
+                )
+                let readinessMissing = preparedStages(
+                    identity: "effects/includedreadiness",
+                    root: syntheticRoot
+                )
+                let readinessReady = preparedStages(
+                    identity: "effects/includedreadiness",
+                    root: syntheticRoot,
+                    textureReadiness: [2: true]
+                )
+                let oscillating = preparedStages(
+                    identity: "effects/oscillatingschema",
+                    root: syntheticRoot
+                )
+                let bootstrapped = preparedStages(
+                    identity: "effects/bootstrapschema",
+                    root: syntheticRoot
+                )
+                let positiveSelf = preparedStages(
+                    identity: "effects/positiveselfschema",
+                    root: syntheticRoot
+                )
+                let explicitPositive = preparedStages(
+                    identity: "effects/positiveselfschema",
+                    root: syntheticRoot,
+                    options: combo
+                )
+                let mutual = preparedStages(
+                    identity: "effects/mutualschema",
+                    root: syntheticRoot
+                )
+                let hiddenSubset = preparedStages(
+                    identity: "effects/hiddensubsetschema",
+                    root: syntheticRoot
+                )
+                let mutuallyExclusive = preparedStages(
+                    identity: "effects/mutuallyexclusiveschema",
+                    root: syntheticRoot
+                )
+                let readinessSelfMissing = preparedStages(
+                    identity: "effects/readinessselfschema",
+                    root: syntheticRoot
+                )
+                let readinessSelfReady = preparedStages(
+                    identity: "effects/readinessselfschema",
+                    root: syntheticRoot,
+                    textureReadiness: [2: true]
+                )
+                let localAnchor = preparedStages(
+                    identity: "effects/localanchorschema",
+                    root: syntheticRoot
+                )
+                let unrelatedGuard = preparedStages(
+                    identity: "effects/unrelatedguardschema",
+                    root: syntheticRoot
+                )
+                let explicitUndef = preparedStages(
+                    identity: "effects/undefanchorschema",
+                    root: syntheticRoot
+                )
+                let ambiguityBudget = preparationFailureDetails(
+                    identity: "effects/ambiguitybudgetschema",
+                    root: syntheticRoot
+                )
+                let ambiguityWorkBudget = preparationFailureDetails(
+                    identity: "effects/ambiguityworkbudgetschema",
+                    root: syntheticRoot
+                )
+                let inactiveNames = inactive?.fragment.activeDeclarations.map {
+                    $0.declaration.name
+                } ?? []
+                let includedNames = included?.fragment.activeDeclarations.map {
+                    $0.declaration.name
+                } ?? []
+                let readyNames = readinessReady?.fragment.activeDeclarations.map {
+                    $0.declaration.name
+                } ?? []
+                let bootstrappedNames = bootstrapped?.fragment.activeDeclarations.map {
+                    $0.declaration.name
+                } ?? []
+                return !inactiveNames.contains("u_ShouldStayInactive")
+                    && inactiveInclude?.fragment.dependencies.contains {
+                        $0.relativePath.hasSuffix("hidden_schema.inc")
+                    } == false
+                    && includedNames.contains("u_FromIncludedSchema")
+                    && readinessMissing == nil
+                    && readyNames.contains("u_FromReadyInclude")
+                    && oscillating == nil
+                    && bootstrappedNames.contains("u_Bootstrapped")
+                    && !bootstrappedNames.contains("u_ProvisionalBad")
+                    && positiveSelf == nil
+                    && preparationFailureDetails(
+                        identity: "effects/positiveselfschema",
+                        root: syntheticRoot
+                    ) == ["shader-variant-invalid", "active-schema-ambiguous"]
+                    && explicitPositive != nil
+                    && mutual == nil
+                    && preparationFailureDetails(
+                        identity: "effects/mutualschema",
+                        root: syntheticRoot
+                    ) == ["shader-variant-invalid", "active-schema-ambiguous"]
+                    && hiddenSubset == nil
+                    && preparationFailureDetails(
+                        identity: "effects/hiddensubsetschema",
+                        root: syntheticRoot
+                    ) == ["shader-variant-invalid", "active-schema-ambiguous"]
+                    && mutuallyExclusive == nil
+                    && preparationFailureDetails(
+                        identity: "effects/mutuallyexclusiveschema",
+                        root: syntheticRoot
+                    ) == ["shader-variant-invalid", "active-schema-ambiguous"]
+                    && readinessSelfMissing != nil
+                    && readinessSelfReady == nil
+                    && preparationFailureDetails(
+                        identity: "effects/readinessselfschema",
+                        root: syntheticRoot,
+                        textureReadiness: [2: true]
+                    ) == ["shader-variant-invalid", "active-schema-ambiguous"]
+                    && localAnchor != nil
+                    && unrelatedGuard != nil
+                    && explicitUndef != nil
+                    && ambiguityBudget == [
+                        "shader-variant-invalid", "active-schema-audit-budget",
+                    ]
+                    && ambiguityWorkBudget == [
+                        "shader-variant-invalid", "active-schema-audit-budget",
+                    ]
+                    && inactive?.colorContract.isResolved == false
+                    && inactiveInclude?.colorContract.isResolved == false
+                    && included?.colorContract.isResolved == false
+                    && readinessReady?.colorContract.isResolved == false
+            }(),
             "realAccepted": real != nil,
             "realContractPreserved": real.map {
                 $0.framebufferTextureSlots == [0]
@@ -1200,6 +1529,197 @@ void main() {{
 '''
 
 
+def included_fragment_source() -> str:
+    return r'''
+#include "shared.inc"
+uniform sampler2D g_Texture0; // {"material":"framebuffer","hidden":true}
+varying vec2 v_TexCoord;
+void main() {
+    vec4 color = texture2D(g_Texture0, v_TexCoord);
+#if OPTION == 1
+    gl_FragColor = vec4(color.rgb, color.a);
+#else
+    gl_FragColor = vec4(color.rgb * SHARED_SCALE, color.a);
+#endif
+}
+'''
+
+
+def conditional_reflection_source() -> str:
+    return r'''
+#if OPTION
+uniform float u_Inactive; // {"material":"inactive","default":1}
+#endif
+''' + fragment_source()
+
+
+def inactive_schema_source() -> str:
+    return r'''
+#if SWITCH
+uniform float u_HiddenCombo; // [COMBO] {"combo":"HIDDEN","default":1}
+uniform float u_Disabled; // [COMBO_OFF] {"combo":"DISABLED","default":1}
+uniform sampler2D g_Texture7; // {"combo":"HIDDEN_READINESS"}
+uniform float u_Bad; // [COMBO] {broken
+#endif
+#if HIDDEN
+uniform float u_ShouldStayInactive;
+#endif
+''' + fragment_source()
+
+
+def included_schema_source() -> str:
+    return r'''
+#include "schema.inc"
+#if INCLUDED_SCHEMA
+uniform float u_FromIncludedSchema;
+#endif
+''' + fragment_source()
+
+
+def inactive_include_source() -> str:
+    return r'''
+#if 0
+#include "hidden_schema.inc"
+#endif
+''' + fragment_source()
+
+
+def included_readiness_source() -> str:
+    return r'''
+#include "readiness_schema.inc"
+#if INCLUDED_READY
+uniform float u_FromReadyInclude;
+#endif
+''' + fragment_source()
+
+
+def oscillating_schema_source() -> str:
+    return r'''
+#if !TOGGLE
+uniform float u_Toggle; // [COMBO] {"combo":"TOGGLE","default":1}
+#endif
+''' + fragment_source()
+
+
+def bootstrap_schema_source() -> str:
+    return r'''
+uniform float u_Mode; // [COMBO] {"combo":"BOOT_MODE","default":1}
+#if BOOT_MODE
+uniform float u_Bootstrapped;
+#else
+uniform float u_ProvisionalBad; // [COMBO] {broken
+#endif
+''' + fragment_source()
+
+
+def positive_self_schema_source() -> str:
+    return r'''
+#if OPTION
+uniform float u_Option; // [COMBO] {"combo":"OPTION","default":1}
+ACTIVE_OPTION
+#else
+INACTIVE_OPTION
+#endif
+''' + fragment_source()
+
+
+def mutual_schema_source() -> str:
+    return r'''
+#if FIRST
+#include "mutual_schema.inc"
+#endif
+#if SECOND
+uniform float u_First; // [COMBO] {"combo":"FIRST","default":1}
+#endif
+''' + fragment_source()
+
+
+def readiness_self_schema_source() -> str:
+    return r'''
+#if SELF_READY
+uniform sampler2D g_Texture2; // {"combo":"SELF_READY"}
+#endif
+''' + fragment_source()
+
+
+def mutually_exclusive_schema_source() -> str:
+    return r'''
+#if !MODE
+uniform float u_ModeZero; // [COMBO] {"combo":"MODE","default":0}
+#else
+uniform float u_ModeOne; // [COMBO] {"combo":"MODE","default":1}
+#endif
+''' + fragment_source()
+
+
+def hidden_subset_schema_source() -> str:
+    return r'''
+#if defined(A)
+uniform float u_B0; // [COMBO] {"combo":"B","default":0,"require":{"A":0}}
+#endif
+#if defined(B)
+uniform float u_A0; // [COMBO] {"combo":"A","default":0,"require":{"B":0}}
+#endif
+#if defined(D)
+uniform float u_A2; // [COMBO] {"combo":"A","default":2,"require":{"D":0}}
+#endif
+#if NEVER
+uniform float u_D0; // [COMBO] {"combo":"D","default":0,"require":{"A":0}}
+#endif
+''' + fragment_source()
+
+
+def local_anchor_schema_source() -> str:
+    return r'''
+#define ENABLE_LOCAL 1
+#if ENABLE_LOCAL
+uniform float u_LocalMode; // [COMBO] {"combo":"LOCAL_MODE","default":1}
+#endif
+#if LOCAL_MODE
+uniform float u_LocalActive;
+#endif
+''' + fragment_source()
+
+
+def unrelated_guard_schema_source() -> str:
+    return r'''
+#if UNKNOWN_FEATURE
+uniform float u_Unrelated; // [COMBO] {"combo":"UNRELATED_MODE","default":1}
+#endif
+''' + fragment_source()
+
+
+def undef_anchor_schema_source() -> str:
+    return r'''
+#undef OPTION
+#if OPTION
+uniform float u_Undefined; // [COMBO] {"combo":"OPTION","default":1}
+#endif
+''' + fragment_source()
+
+
+def ambiguity_budget_schema_source() -> str:
+    candidates = []
+    for index in range(9):
+        candidates.append(
+            f'''#if UNKNOWN_{index}
+uniform float u_Mode{index}; // [COMBO] {{"combo":"MODE_{index}","default":1}}
+#endif'''
+        )
+    return "\n".join(candidates) + fragment_source()
+
+
+def ambiguity_work_budget_schema_source() -> str:
+    candidates = []
+    for index in range(8):
+        candidates.append(
+            f'''#if UNKNOWN_{index}
+uniform float u_Work{index}; // [COMBO] {{"combo":"WORK_{index}","default":1}}
+#endif'''
+        )
+    return "\n".join(candidates) + "\n/*" + ("x" * 100_000) + "*/\n" + fragment_source()
+
+
 class SceneAuthoredShaderExecutionPlannerTests(unittest.TestCase):
     def test_generic_and_real_contracts_share_bounded_admission(self) -> None:
         if shutil.which("swiftc") is None:
@@ -1241,7 +1761,33 @@ class SceneAuthoredShaderExecutionPlannerTests(unittest.TestCase):
                 "aliascollision": annotated_fragment_source(alias_collision=True),
                 "noannotation": fragment_source(annotation=False),
                 "unknown": fragment_source(unknown=True),
-                "included": '#include "shared.inc"\n' + fragment_source(),
+                "included": '#include "missing.inc"\n' + fragment_source(),
+                "includedok": included_fragment_source(),
+                "conditionalreflection": conditional_reflection_source(),
+                "inactiveschema": inactive_schema_source(),
+                "inactiveinclude": inactive_include_source(),
+                "includedschema": included_schema_source(),
+                "includedreadiness": included_readiness_source(),
+                "oscillatingschema": oscillating_schema_source(),
+                "bootstrapschema": bootstrap_schema_source(),
+                "positiveselfschema": positive_self_schema_source(),
+                "mutualschema": mutual_schema_source(),
+                "hiddensubsetschema": hidden_subset_schema_source(),
+                "mutuallyexclusiveschema": mutually_exclusive_schema_source(),
+                "readinessselfschema": readiness_self_schema_source(),
+                "localanchorschema": local_anchor_schema_source(),
+                "unrelatedguardschema": unrelated_guard_schema_source(),
+                "undefanchorschema": undef_anchor_schema_source(),
+                "ambiguitybudgetschema": ambiguity_budget_schema_source(),
+                "ambiguityworkbudgetschema": ambiguity_work_budget_schema_source(),
+                "duplicatedefine": "#define DUPLICATE 1\n#define DUPLICATE 1\n"
+                    + fragment_source(),
+                "crossdefine": "#define CROSS_STAGE 2\n" + fragment_source(),
+                "ambiguousinteger": "#define AMBIGUOUS 010\n" + fragment_source(),
+                "suffixnumeric": "#define INTEGER_SUFFIX 1u\n#define FLOAT_SUFFIX 1.0f\n"
+                    + fragment_source(),
+                "legacycomboschema": '// [COMBO] {"combo":"LEGACY_DEFAULT","default":1}\n'
+                    + fragment_source(),
             }.items():
                 (shader_root / f"{identity}.vert").write_text(
                     textwrap.dedent(VERTEX_SOURCE), encoding="utf-8"
@@ -1249,6 +1795,32 @@ class SceneAuthoredShaderExecutionPlannerTests(unittest.TestCase):
                 (shader_root / f"{identity}.frag").write_text(
                     textwrap.dedent(source), encoding="utf-8"
                 )
+            (shader_root / "crossdefine.vert").write_text(
+                "#define CROSS_STAGE 1\n" + textwrap.dedent(VERTEX_SOURCE),
+                encoding="utf-8",
+            )
+            (synthetic_root / "shaders/shared.inc").write_text(
+                "#define SHARED_SCALE 0.5\n",
+                encoding="utf-8",
+            )
+            (synthetic_root / "shaders/schema.inc").write_text(
+                '// [COMBO] {"combo":"INCLUDED_SCHEMA","default":1}\n',
+                encoding="utf-8",
+            )
+            (synthetic_root / "shaders/hidden_schema.inc").write_text(
+                'uniform float u_Disabled; // [COMBO_OFF] {"combo":"DISABLED","default":1}\n'
+                'uniform sampler2D g_Texture7; // {"combo":"HIDDEN_READINESS"}\n'
+                'uniform float u_Bad; // [COMBO] {broken\n',
+                encoding="utf-8",
+            )
+            (synthetic_root / "shaders/readiness_schema.inc").write_text(
+                'uniform sampler2D g_Texture2; // {"combo":"INCLUDED_READY"}\n',
+                encoding="utf-8",
+            )
+            (synthetic_root / "shaders/mutual_schema.inc").write_text(
+                'uniform float u_Second; // [COMBO] {"combo":"SECOND","default":1}\n',
+                encoding="utf-8",
+            )
 
             harness = root / "Harness.swift"
             harness.write_text(HARNESS, encoding="utf-8")

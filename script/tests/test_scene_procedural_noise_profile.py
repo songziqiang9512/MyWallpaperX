@@ -22,8 +22,14 @@ SOURCE_ROOT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 REAL_SAMPLE_CACHE = sample_cache_root("3767460992")
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
+    SOURCE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
     SOURCE_ROOT / "RenderGraph/SceneShaderContract.swift",
+    SOURCE_ROOT / "Resources/SceneShaderSourceGraphBuilder.swift",
+    SOURCE_ROOT / "Resources/SceneShaderSourceResolver.swift",
+    SOURCE_ROOT / "Resources/SceneResourceView.swift",
+    SOURCE_ROOT / "Resources/SceneResourceIndex.swift",
     SOURCE_ROOT / "RenderGraph/SceneShaderContractLoader.swift",
+    SOURCE_ROOT / "RenderGraph/SceneShaderContractLoader+SourceGraph.swift",
     SOURCE_ROOT / "RenderGraph/SceneProceduralNoiseShaderProfile.swift",
 ]
 

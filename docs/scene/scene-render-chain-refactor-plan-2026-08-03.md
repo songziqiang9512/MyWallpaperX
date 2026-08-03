@@ -6,7 +6,7 @@
 >
 > 事实边界：本文记录问题假设、迁移顺序、验收门和进度，不是当前能力等级或运行基线的权威入口。能力事实仍以 [`semantics/coverage-ledger.md`](semantics/coverage-ledger.md)、专项覆盖表和 [`semantics/runtime-evidence-index.md`](semantics/runtime-evidence-index.md) 为准。
 >
-> 工作分支：`codex/scene-capability-baseline`。计划建立快照为 `896cbb1b`；R0 已由独立阶段提交 `a1d469f3` 闭合，R1 的现役状态与证据见第 5、8、9 节。
+> 工作分支：`codex/scene-capability-baseline`。计划建立快照为 `896cbb1b`；R0 已由独立阶段提交 `a1d469f3` 闭合，R1 已由独立阶段提交 `9d655ce2` 闭合，R2 的现役状态与证据见第 5、8、9 节。
 
 ## 1. 重构目标
 
@@ -130,7 +130,9 @@ project / scene.pkg / TEX / stock assets
 
 当前状态必须诚实表述为“已有可保留的公共 IR 与资源/RenderGraph 地基，正在向统一能力架构迁移”，不能表述为“已经与官方底层一致”。R1 仍保留 33 个 dedicated planner 和 legacy fallback，且 generic shader frontend、material binder、logical resource lifecycle 与 graph executor 尚未闭合，因此当前执行层与目标架构仍有显著偏差。R2-R5 的目的正是把这些并行执行面收敛为以下唯一主链：
 
-`compatibility normalization -> typed effect/material IR -> shader source/variant -> prepared material program -> typed logical resource -> unified graph executor -> compositor/evidence`
+`compatibility normalization -> typed effect/material IR -> VFS/source schema -> material/provider readiness -> variant/preprocess -> active frontend/reflection -> atomic material program -> typed logical resource -> unified graph executor -> compositor/evidence`
+
+其中 material readiness、texture-derived combo、active variant 与 reflection 形成有界回路，不得把“先 variant、后 binder”误写成互不相干的线性步骤：source/include annotation 先给出候选 schema，resolver 只计算候选 readiness，variant 据此选择 active source，frontend/reflection 再与最终 texture/uniform/state 一起原子编译成 material program。任何一步未知都保持 fail closed，不能回退到 effect 路径或样本身份选择另一套算法。
 
 每个大阶段提交前必须回答并在进度记录中留下证据：
 
@@ -139,6 +141,10 @@ project / scene.pkg / TEX / stock assets
 3. 新增能力是否进入上述唯一主链，是否同时减少或明确排期替代等价的 dedicated/legacy 权限；若 dedicated、legacy 或 effect 专用分支数量净增长且没有对应退役证据，暂停下一阶段并重新审查方向。
 4. 重新统计 generic compiled/executed、dedicated、legacy、route-only、unsupported 与稳定失败原因的样本/阶段分布；结构门通过只证明链路守恒，真实样本还必须按风险补多相位视觉证据。
 5. 官方资料、公开文档或必要的 Ghidra 只用于核对控制流、数据形状、版本选择、资源优先级和失败边界；不得把观察到的官方算法表达、shader、payload 或资产带入实现。
+6. 阶段是否扩大了生产 GPU 准入面；若颜色表示、typed binding 或 graph lifecycle 仍未闭合，新 parser/preprocessor 能力只能产出可审计的 prepared program 与稳定拒绝，不得因为“现在能编译”就提前进入 renderer。
+7. 新主链取代旧权限时必须在迁移族同一提交登记并删除对应 dedicated planner/backend、`fallbackGraph`、`.legacyContract`、旧 root projection/source adapter、重复 telemetry/projection 与只服务旧路径的测试；提交前比较 dedicated probe、runtime backend、legacy authority、Scene Swift 文件/LOC、`<3 KiB` 与 `<1 KiB` 文件数。已替代代码仍可达、或上述规模净增长而没有逐项理由时，R5 不得完成。
+
+R2-R4 允许有界双轨只为保持 R1 像素 oracle 与证明迁移前后接纳不漂移，不得借迁移期新增另一套 effect/sample/path/hash 专用执行分支。R5 是删除和合并门，不只是给 legacy 改名：同一生命周期、同一调用者且合并后仍满足 400 行合同的薄 planner/plan/renderer 应收回完整职责文件；独立 IR、IO、安全边界或会把文件推过 400 行的类型不得为减少文件数机械合并，更不得新建 `Common`/`Helpers` 式兜底文件。
 
 只有 R4 建成唯一 graph executor、R5 将已迁移族的旧权限隔离，并由跨版本跨样本证据证明同一 typed program 路径实际执行后，才可把执行架构描述为“基本收敛”。在此之前，每次汇报都应区分方向一致、结构迁移完成与视觉兼容完成，不能用其中一项替代另外两项。
 
@@ -148,13 +154,13 @@ project / scene.pkg / TEX / stock assets
 |---|---|---|---|
 | R0 端到端证据合同 | **已完成**（admission、static disposition、CPU invocation、route operation 与 shared-frame status 已分轴；修复后 full45 为 44/45，唯一红项是独立 particle baseline 偏差） | typed chain admission、descriptor stage ledger、runtime report 聚合、守恒测试 | 1296 个 descriptor effect 在当前 full45 快照中逐个有唯一 activity/strict admission；legacy/route-only/execution 分轴且不重复计数；矩阵 PASS 不能掩盖 unsupported/route-only |
 | R1 统一 compile/admission model | **已完成**（统一 typed input/result/program、planner-owned family classification、完整身份守恒与可持久化的有界失败汇总已落地；没有扩大准入或修改像素 backend） | `SceneEffectStageProgram`、共享 compile input/result，专用与 authored shader backend 的有序 probe 与稳定失败原因 | 现有 strict execution plan 与 GPU fixture 保持；chain planner 不再把 34 次无原因 Optional 作为最终诊断，完整顺序、首个命中与 recovery 合同有自动门 |
-| R2 shader preprocessor/variant | 待开始 | directive AST/evaluator、include resolver、combo/default variant、source map/cache key | 项目自有 fixture 覆盖嵌套条件、`#undef`、缺 include、循环 include、未知 directive；真实 contract 的 frontend 通过率按 feature 分类提升，不以放宽错误为目标 |
-| R3 通用 material binder | 待开始 | slot 0...7、graph/asset/user/provider、sampler、resolution/mapped/UV、constant/dynamic uniform、typed state | nullable slot 不压缩；candidate generation/metadata 原子；跨 revision 同语义得到同一 typed program，未知 purpose/state 失败关闭 |
-| R4 unified graph executor | 待开始 | material/copy/swap/compose 的唯一执行入口和 logical target lifecycle | authored 顺序、effect input/output、command ordinal、RT extent/format/clear/unique 守恒；不通过 legacy planner 重新解释 layer |
-| R5 迁移 strict backend / 隔离 legacy | 待开始 | 既有 dedicated backend 逐族接入 unified executor，删除相应 fallback 权限 | 每迁移一族同时有正例、版本变体、默认关闭/坏 slot/坏 state 反例；同族多个样本受益后才移除旧路径 |
+| R2 compatibility/source/variant/frontend preparation | **已完成，待本阶段独立提交落地** | typed compatibility context（只保存已声明版本、字段存在性与 provenance，不猜默认）、VFS source graph、directive/include evaluator、typed environment/combo variant、active source/schema/source map/cache key、frontend preparation handoff、shader input/output color representation 类型与 fail-closed 准入门 | 项目自有 fixture 覆盖嵌套条件、`#undef`、缺 include、循环 include、VFS 同名候选冲突、未知 directive/环境 define、exact numeric、active-only metadata、macro 所有权、词法隔离与 fixed-point 歧义/预算；45 样本可复现 census 证明 raw/canonical 与 planner compile admission 相对 R1 无扩大/丢失；在 R3 颜色/binder 合同闭合前不扩大现役 renderer 准入 |
+| R3 原子 material binder / color contract | 待开始 | slot 0...7、graph/asset/user/provider、sampler、resolution/mapped/UV、constant/dynamic uniform、typed state，以及 shader input/output straight/premultiplied/opaque 表示，原子形成 `ResolvedMaterialProgram` | nullable slot 不压缩；candidate generation/purpose/physical/mapped/UV/sampler、active variant/reflection、state 与颜色表示同代；跨 revision 同语义得到同一 typed program，未知 purpose/state/representation 失败关闭 |
+| R4 unified graph executor | 待开始 | condition/function、material、shader `[PASS]`、copy/swap/compose 的唯一执行入口，logical target/history lifecycle 与 scene final-output 边界 | authored 顺序、effect input/output、command ordinal、RT extent/format/clear/unique、persistent swap/history、read/write hazard、compose pair、resize/reparse/reset generation 与 final output 守恒；不通过 legacy planner 重新解释 layer |
+| R5 迁移 strict backend / 删除旧权限 | 待开始 | 既有 dedicated backend 逐族接入 unified executor；同一迁移提交删除对应 planner/backend、`fallbackGraph`、`.legacyContract`、旧 root projection/source adapter、重复 telemetry/projection 与旧链测试，合并同生命周期薄文件 | 每迁移一族同时有正例、版本变体、默认关闭/坏 slot/坏 state 反例；同族多个样本受益后同一提交移除旧路径；按 dedicated probe/runtime backend/legacy authority/Scene 文件与 LOC/`<3 KiB`/`<1 KiB` 六轴证明净收敛，已替代路径不可达后才完成 |
 | R6 局部动态与水流视觉闭环 | 待开始 | Twirl/Shimmer/Iris/Foliage/Water/Depth 等在公共 executor 上执行 | `3766387484` 与 `3768724269` 同时恢复局部而非整头运动；`3769688830` 鱼群/水流跨相位可见且尾巴颜色不回归；外部 mask ROI 稳定 |
 
-R0 是防止继续误判的基础，但不能被表述为视觉修复；R1-R5 也不能用“frontend 能编译”替代实际 GPU pass 和合成证据。
+R0 是防止继续误判的基础，但不能被表述为视觉修复；R1-R5 也不能用“frontend 能编译”替代实际 GPU pass 和合成证据。R0-R6 当前收敛的是 2D authored effect 主链，不等于把 Particle、Text、SceneScript、Puppet、Video 与 Lighting/HDR 强塞进同一 material executor；这些系统可保留各自 runtime，但必须共用 identity、compatibility、resource、frame/provider、typed graph 与 lifecycle 地基。
 
 ## 6. 验收矩阵
 
@@ -303,6 +309,19 @@ Ghidra 只记录控制流、数据形状、顺序和失败边界；不复制官�
 - 本批没有改变样本集合、矩阵合同、effect 准入面、renderer、Metal shader、纹理绑定或 compositor，也没有修改 fixed13/full45 expectation。完整顺序/投影门、全 Scene GPU fixtures 与六样本现役 consumer 已覆盖 R1 的共享风险，因此没有惯性重跑 fixed13/full45；R0 的 full45 仍是 44/45 overall FAIL。现有资料足以完成 typed 边界，本阶段没有启动 Ghidra。
 - R1 提交前架构方向复核结论：本阶段消除了 dedicated 与 generic 之间 compile/admission 结果不可比较、失败不可持久审计的公共瓶颈，并以项目自有 harness 和六个不同真实样本证明同一 typed 边界；生产代码没有新增 workshop/sample ID、layer ID 或资源 hash 的算法分派。但 33 个 dedicated planner、legacy fallback 和多套 GPU 执行入口均尚未退役，因此只能表述为“方向一致且完成一段结构迁移”，不能表述为“已与官方底层一致”或“视觉兼容完成”。R2 进入前按第 4.3 节硬门锁定唯一主链，若后续专用/legacy 权限净增长而没有等价退役证据，暂停实现并重新审查路线。
 
+### 2026-08-03：R2 compatibility/source/variant preparation 闭环
+
+- project 与 scene version 现在分别保留 missing/value/invalid-type/out-of-range 和 provenance；没有 `effectiveVersion`，也不按版本猜默认、注入 macro 或 compatibility patch。`SceneResourceView` 之上另建独立 source graph，保存 package/loose/stock 候选、stage root、include edge、内容 identity、冲突和预算；R1 的 vertex-first/same-root raw stage projection保持逐字同义，R2 graph不能改写它。package -> loose -> stock 是当前项目 VFS policy，不是已证明的官方全版本优先级。
+- bounded preprocessor 支持 object-like `#define/#undef`、`#if/#ifdef/#ifndef/#else/#endif`、relational 高于 equality 的整数/布尔表达式与 include 展开，输出 dependency digest、逐行 source map、active annotation/declaration 和 prepared identity。macro expansion 区分 code/string/character/line-comment/block-comment，selected macro 保存 defined/undefined 三态，host-owned macro 的 define/undef 均不可由 authored source 改写；只有 active 行贡献诊断与 metadata。function-like macro、`#elif`、未知/畸形 directive、active directive-line annotation、缺失/冲突/循环 include、输入/输出/深度/token 预算超限均稳定失败关闭；backend/version/platform/texture-format define 为 host-owned requirement，当前没有 verified Metal provider。
+- exact case-sensitive `[COMBO]`、material explicit value、annotation default/active options/`require/requireany` 与 sampler readiness 进入带 provenance 的 typed schema；annotation 数值以 Decimal-first exact Int64 carrier 保存，Int64 两端可接受、越界和 unsafe legacy Double 拒绝。fixed-point 以词法无条件 root/include schema 为 immutable base，对最多 8 个条件候选穷举所有非空子集；不同 stable prepared signature 报 `active-schema-ambiguous`，候选数或 `probe × 16 rounds × graph bytes` 估算超过 256 MiB 报 `active-schema-audit-budget`。positive/cross-include/readiness bootstrap、隐藏有效子集、互斥 fixed point、material/local define/undef anchor 与预算边界均有项目自有 fixture。
+- prepared program 显式携带 input/output `opaque/straight-alpha/premultiplied-alpha` 与 resolved/unresolved 状态。普通 authored pass当前为 unresolved：旧 raw frontend失败但 preparation成功时仍以 `shader-color-contract-unproven` 拒绝；旧 raw frontend成功时，preparation失败只作诊断而不缩小R1 accepted subset。prepared cache identity尚未进入现役 execution plan/renderer/pipeline cache，这条双轨只服务迁移守恒，R3必须原子闭合 texture/provider/reflection/state/color后才能接管。
+- 45 样本 planner/preparation census 覆盖 **434 contracts / 728 material passes**：R1 与 current planner compile admission 均为 **accepted 1 / rejected 727**，唯一 accepted identity 不变，new/lost accepted 均为 0；current preparation 为 **93 accepted / 635 rejected**。同一 current harness 连续两次原始结果逐字节一致，raw/canonical diff 均为 0；正式报告 `.codex/scene-chain-r2-preparation-census-20260803-v1/report.json` SHA-256 `2e535ccceb0fa381ca909217e7f1e4a16b434b3ea2b279a57c43d64b0ebf1b5e`。该口径使用真实 material/shader 加合成最小单-pass graph，不是完整 authored graph、App、GPU 或视觉证据。
+- 最终 `python3 script/run_scene_tests.py --scope scene -j 4` 为 **173 modules / 119.4 s / ALL OK**，Swift code health 为 **784 files / 44 locked legacy / 400-line limit**，`script/build_and_run.sh verify` 成功。签名 App executable SHA-256 `c2b631a07b7dbe78b3d2aeb4d98d2cbfab462cd2fa33e05259009ca258072836`、CDHash `188f0b4483b0dda48ed3df6c81f8b4253d93bac1`、Team `H9QWU9XN8R`，`codesign --verify --deep --strict` 通过。
+- 隔离报告 `.codex/scene-chain-r2-preparation-20260803-v1/report.json` SHA-256 `f478dac02e332d4f7e0fafd01482b539986fd69078f3cb6d53a82cae548f5d63`，对三个 strict 控制组及 `3766387484`、`3769688830`、`3768903841` 为 **6/6 PASS**、loaded ratio 均为 1、ready/after 均非黑且有运动、运行 failed frame 均为 0；preview 比较仅为 advisory、`gating=false`，admission/disposition/execution validation、exact execution demand gap、failed invocation/route/command-buffer frame 均为 0。`3766387484` / `3769688830` 仍分别保留 1 / 6 个 `no-backend-accepted` stage failure；报告只证明现役结构运行无回归，不证明局部头发、人物整体动态、鱼群水流、烟花方向性或 Windows 像素/动态一致，尾巴颜色未触碰。
+- R1/HEAD 规模为 **499 Swift / 78,143 LOC / 185 `<3 KiB` / 59 `<1 KiB`**；R2 为 **510 / 81,746 / 186 / 59**，净增 11 文件 / 3,603 行 / +1 / 0。11 个新 Swift 文件贡献 3,406 行，没有 `<1 KiB`，只有 84 行 / 2,970 字节的 `SceneCompatibilityContext.swift` 小于 3 KiB，且它是跨 Project/Document/Runtime 使用的独立 IR；其余文件因独立 IO/IR/状态机边界或合并后会超过 400 行而不机械合并。33 个 dedicated probe、34 个 compiler identity、33 个 runtime backend 与 4 个旧 planner 顶层 authority 调用点均无净增长；旧 authority 尚未被 R2 取代，故本阶段不提前删除。
+- R2 提交前已把原 `SceneShaderVariant.swift` 中 prepared/variant/color/digest DTO 并回 `SceneShaderVariantEnvironment.swift`，把 preprocessor diagnostic/expression syntax 并回 `SceneShaderDirective.swift`，删除一个职责混合文件；合并后两文件为 385 / 392 行，仍满足 400 行合同。R5 在新 VFS/program/executor 分别取得唯一权威后，按迁移族在同一提交删除 `fallbackGraph`、`.legacyContract` provenance、旧 root projection/source adapter、对应 dedicated/legacy planner/backend、重复 telemetry/projection 和只服务旧路径的测试，并刷新 dedicated probe、runtime backend、legacy authority、Scene 文件/LOC、两档小文件六轴，不能只把旧链改名保留。
+- 本阶段现役文档、样本project/shader、既有官方公开资料与clean-room分析已足以界定parser -> source resolver -> variant preparation -> material/graph handoff边界，没有启动Ghidra。R2方向与官方公开的资源、preprocessor、material/variant、graph分层一致，但尚未建立官方等价实现、单一executor或跨版本向下兼容承诺。
+
 ## 9. 下一动作
 
 1. **已完成**：R0-C legacy direct/offscreen 实际编码点接入与 strict generic family 回连；pure reducer、legacy decision、framebuffer、authored execution、code health、App verify 与 Scene 全量均已重跑。
@@ -312,5 +331,8 @@ Ghidra 只记录控制流、数据形状、顺序和失败边界；不复制官�
 5. **已完成**：公共 static demand、typed straight-albedo、embedded purpose 透传和 REFRACT 同源物理守恒已闭合；新签名 App 的 5 样本定向门、相关共享测试、Scene 全量与 verify 均通过，telemetry 保持 sticky。
 6. **已完成**：修复后 full45 为 44/45；唯一红项是独立的 `2067939514` 粒子偏差。R0 scoped matrix 已按 45 admission / 45 disposition / 44 execution demand 刷新，刷新后正式 consumer 三样本门 3/3 通过；该结论不写成全矩阵 PASS。
 7. **已完成**：R1 建立 dedicated 与 authored-shader 共享的 typed compile/admission result；34 项顺序、first-match、generic fallback、完整 program invariant 与有界失败报告均有门，现有 backend 像素路径继续作为迁移 oracle。
-8. **下一阶段**：从 R2 建立基于 `SceneResourceView` 的 shader source graph、include digest/source map、directive evaluator 和 typed variant environment，不新增按 effect/path/hash 分派的可见算法；R1 阶段提交不混入 R2 实现。
-9. R3 在 prepared material pass 前闭合 shader input/output color representation 与同代 texture metadata；随后用普通单 material pass 跨路径/跨样本验证，不按 Opacity、ColorKey、hash 或样本 ID 分派。
+8. **已完成**：R2 建立 typed compatibility provenance、基于 `SceneResourceView` 的候选完整 source graph、include digest/source map、directive evaluator、typed variant environment 与 active frontend handoff；同名不同内容、未知版本/format/platform 语义保持可审计的 fail closed，没有新增按 effect/path/hash 分派的可见算法。
+9. **已完成**：R2 只把 include/combo contract 准备到 active source/schema/cache identity；普通 authored pass 的 shader input/output color representation显式 unresolved，现役 generic renderer准入没有因预处理成功而扩大。R2 在本阶段独立提交后才进入 R3。
+10. **下一阶段**：R3 把 shader input/output color representation、同代 texture metadata、active variant/reflection 与 typed state 原子编入普通 material pass；用跨路径/跨样本合同验证，不按 Opacity、ColorKey、hash 或样本 ID 分派。
+11. R4 的完成门同时包含 condition/function、shader `[PASS]`、persistent swap/history、resize/reparse/reset generation、compose pair 与 scene final output，不能只证明单个 material pass 能编码。
+12. R5 先对职责薄、迁移边界清楚的 dedicated family 做机械试点，再处理会制造整层近似的 legacy inline/water/foliage 聚合；每个迁移提交都必须同时删除被替代入口并刷新六轴规模账，禁止只加新 executor、把旧代码留作默认回退。

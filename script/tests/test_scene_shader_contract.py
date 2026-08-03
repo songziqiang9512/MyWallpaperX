@@ -15,8 +15,14 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",
+    SCENE_ROOT / "Resources/SceneShaderSourceGraphBuilder.swift",
+    SCENE_ROOT / "Resources/SceneShaderSourceResolver.swift",
+    SCENE_ROOT / "Resources/SceneResourceView.swift",
+    SCENE_ROOT / "Resources/SceneResourceIndex.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderContractLoader.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderContractLoader+SourceGraph.swift",
 ]
 
 HARNESS = r"""
@@ -24,7 +30,15 @@ import Foundation
 
 private struct Output: Codable {
     let contracts: [SceneShaderContract]
+    let mixedContract: SceneShaderContract?
+    let packageVertexContract: SceneShaderContract?
+    let largeRawStageCount: Int
+    let largeDiagnosticCodes: [String]
+    let largeGraphBudgetExceeded: Bool
+    let hiddenRawStageCount: Int
+    let hiddenGraphNodeCount: Int
     let reversedCanonical: [String: String]
+    let reversedDependency: [String: String]
     let roundTripEqual: Bool
 }
 
@@ -56,14 +70,64 @@ private struct ShaderContractHarness {
         let reversedCanonical = Dictionary(
             uniqueKeysWithValues: reversed.map { ($0.identity, $0.canonicalSHA256) }
         )
+        let reversedDependency = Dictionary(
+            uniqueKeysWithValues: reversed.compactMap { contract in
+                contract.sourceGraph.map {
+                    (contract.identity, $0.dependencySHA256)
+                }
+            }
+        )
         let encodedContracts = try JSONEncoder().encode(contracts)
         let decodedContracts = try JSONDecoder().decode(
             [SceneShaderContract].self,
             from: encodedContracts
         )
+        let mixedContract = loader.load(
+            shaderReferences: ["effects/mixed"],
+            resourceView: SceneResourceView(
+                projectRootURL: rootURL.appendingPathComponent("mixed-loose"),
+                packageRootURL: rootURL.appendingPathComponent("mixed-package"),
+                stockAssetsRootURL: nil
+            )
+        ).first
+        let packageVertexContract = loader.load(
+            shaderReferences: ["effects/packagevertex"],
+            resourceView: SceneResourceView(
+                projectRootURL: rootURL.appendingPathComponent("mixed-loose"),
+                packageRootURL: rootURL.appendingPathComponent("mixed-package"),
+                stockAssetsRootURL: nil
+            )
+        ).first
+        let large = loader.load(
+            shaderReferences: ["effects/large"],
+            rootURL: rootURL
+        ).first
+        let largeGraphBudgetExceeded = large?.sourceGraph?.edges.contains { edge in
+            guard edge.parentVirtualPath == nil else { return false }
+            switch edge.outcome {
+            case .graphBudgetExceeded, .failed(.fileTooLarge): return true
+            default: return false
+            }
+        } ?? false
+        let hidden = loader.load(
+            shaderReferences: [".hidden/effects/foo"],
+            resourceView: SceneResourceView(
+                projectRootURL: rootURL.appendingPathComponent("hidden-loose"),
+                packageRootURL: rootURL.appendingPathComponent("hidden-package"),
+                stockAssetsRootURL: nil
+            )
+        ).first
         let output = Output(
             contracts: contracts,
+            mixedContract: mixedContract,
+            packageVertexContract: packageVertexContract,
+            largeRawStageCount: large?.stages.count ?? 0,
+            largeDiagnosticCodes: large?.diagnostics.map(\.code.rawValue) ?? [],
+            largeGraphBudgetExceeded: largeGraphBudgetExceeded,
+            hiddenRawStageCount: hidden?.stages.count ?? 0,
+            hiddenGraphNodeCount: hidden?.sourceGraph?.nodes.count ?? 0,
             reversedCanonical: reversedCanonical,
+            reversedDependency: reversedDependency,
             roundTripEqual: decodedContracts == contracts
         )
         let encoder = JSONEncoder()
@@ -183,6 +247,42 @@ class SceneShaderContractTests(unittest.TestCase):
             )
             (effects / "includesymlink.frag").write_text("void main() {}\n", encoding="utf-8")
 
+            mixed_package = root / "mixed-package/shaders/effects"
+            mixed_loose = root / "mixed-loose/shaders/effects"
+            mixed_package.mkdir(parents=True)
+            mixed_loose.mkdir(parents=True)
+            (mixed_package / "mixed.frag").write_text(
+                "// package fragment\nvoid main() {}\n", encoding="utf-8"
+            )
+            (mixed_loose / "mixed.vert").write_text(
+                "// loose vertex\nvoid main() {}\n", encoding="utf-8"
+            )
+            (mixed_loose / "mixed.frag").write_text(
+                "// loose fragment\nvoid main() {}\n", encoding="utf-8"
+            )
+            (mixed_package / "packagevertex.vert").write_text(
+                "// package vertex\nvoid main() {}\n", encoding="utf-8"
+            )
+            (mixed_loose / "packagevertex.vert").write_text(
+                "// loose vertex\nvoid main() {}\n", encoding="utf-8"
+            )
+            (mixed_loose / "packagevertex.frag").write_text(
+                "// loose fragment\nvoid main() {}\n", encoding="utf-8"
+            )
+
+            (effects / "large.vert").write_text(
+                "//" + ("x" * 530_000) + "\nvoid main() {}\n",
+                encoding="utf-8",
+            )
+            (effects / "large.frag").write_text("void main() {}\n", encoding="utf-8")
+
+            hidden_package = root / "hidden-package"
+            hidden_loose = root / "hidden-loose/shaders/.hidden/effects"
+            hidden_package.mkdir()
+            hidden_loose.mkdir(parents=True)
+            (hidden_loose / "foo.vert").write_text("void main() {}\n", encoding="utf-8")
+            (hidden_loose / "foo.frag").write_text("void main() {}\n", encoding="utf-8")
+
             completed = subprocess.run(
                 [str(self.binary), str(root)],
                 cwd=REPO_ROOT,
@@ -209,6 +309,27 @@ class SceneShaderContractTests(unittest.TestCase):
         self.assertEqual(identities, sorted(identities))
         self.assertEqual(len(identities), len(set(identities)))
         by_identity = {contract["identity"]: contract for contract in contracts}
+        mixed = output["mixedContract"]
+        self.assertEqual(self._diagnostic_codes(mixed), [])
+        self.assertEqual(
+            [stage["source"].splitlines()[0] for stage in mixed["stages"]],
+            ["// loose vertex", "// loose fragment"],
+        )
+        self.assertEqual(
+            {node["provenance"] for node in mixed["sourceGraph"]["nodes"]},
+            {"package", "loose"},
+        )
+        package_vertex = output["packageVertexContract"]
+        self.assertIn("missingFragmentStage", self._diagnostic_codes(package_vertex))
+        self.assertEqual(
+            [stage["source"].splitlines()[0] for stage in package_vertex["stages"]],
+            ["// package vertex"],
+        )
+        self.assertEqual(output["largeRawStageCount"], 2)
+        self.assertEqual(output["largeDiagnosticCodes"], [])
+        self.assertTrue(output["largeGraphBudgetExceeded"])
+        self.assertEqual(output["hiddenRawStageCount"], 0)
+        self.assertEqual(output["hiddenGraphNodeCount"], 2)
 
         good = by_identity["effects/good"]
         self.assertEqual(good["sourceKind"], "authoredSource")
@@ -224,6 +345,29 @@ class SceneShaderContractTests(unittest.TestCase):
             "raw": '#include "../headers/common.h"',
             "relativePath": "../headers/common.h",
         }])
+        source_graph = good["sourceGraph"]
+        self.assertEqual(
+            [root["virtualPath"] for root in source_graph["roots"]],
+            ["shaders/effects/good.frag", "shaders/effects/good.vert"],
+        )
+        nodes_by_path = {
+            node["virtualPath"]: node for node in source_graph["nodes"]
+        }
+        self.assertEqual(
+            set(nodes_by_path),
+            {
+                "shaders/effects/good.frag",
+                "shaders/effects/good.vert",
+                "shaders/headers/common.h",
+            },
+        )
+        self.assertEqual(nodes_by_path["shaders/effects/good.vert"]["provenance"], "loose")
+        self.assertEqual(
+            nodes_by_path["shaders/headers/common.h"]["rawSHA256"],
+            hashlib.sha256(b"#define COMMON 1\n").hexdigest(),
+        )
+        self.assertEqual(len(source_graph["edges"]), 3)
+        self.assertRegex(source_graph["dependencySHA256"], re.compile(r"^[0-9a-f]{64}$"))
 
         vertex_declarations = {value["name"]: value for value in vertex["declarations"]}
         self.assertEqual(vertex_declarations["a_Position"]["kind"], "attribute")
@@ -286,6 +430,12 @@ class SceneShaderContractTests(unittest.TestCase):
             contract["identity"]: contract["canonicalSHA256"] for contract in contracts
         }
         self.assertEqual(output["reversedCanonical"], canonical_by_identity)
+        dependency_by_identity = {
+            contract["identity"]: contract["sourceGraph"]["dependencySHA256"]
+            for contract in contracts
+            if contract.get("sourceGraph") is not None
+        }
+        self.assertEqual(output["reversedDependency"], dependency_by_identity)
         for canonical in canonical_by_identity.values():
             self.assertRegex(canonical, re.compile(r"^[0-9a-f]{64}$"))
         self.assertNotEqual(good["canonicalSHA256"], vertex["rawSHA256"])

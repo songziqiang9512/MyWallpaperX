@@ -20,6 +20,7 @@ from scene_real_test_fixtures import sample_cache_root
 
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontendModel.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLexer.swift",

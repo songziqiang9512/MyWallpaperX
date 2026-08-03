@@ -26,7 +26,7 @@ nonisolated struct SceneShaderContractLoader {
 
     nonisolated init() {}
 
-    nonisolated func load(
+    nonisolated func loadLegacyProjection(
         shaderReferences: [String],
         rootURL: URL
     ) -> [SceneShaderContract] {

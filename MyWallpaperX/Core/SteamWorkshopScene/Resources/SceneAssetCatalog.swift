@@ -139,16 +139,10 @@ struct SceneAssetCatalogLoader {
             materials: materials,
             effectDefinitions: effectDefinitions,
             effectDefinitionDiagnostics: effectResults.compactMap(\.diagnostic),
-            shaderContracts: shaderReferences.flatMap { reference in
-                SceneShaderContractLoader().load(
-                    shaderReferences: [reference],
-                    rootURL: shaderRootURL(
-                        for: reference,
-                        resourceView: resourceView,
-                        fallback: rootURL
-                    )
-                )
-            }
+            shaderContracts: SceneShaderContractLoader().load(
+                shaderReferences: shaderReferences,
+                resourceView: resourceView
+            )
         )
     }
 
@@ -162,27 +156,6 @@ struct SceneAssetCatalogLoader {
             return
         }
         resources.append(resource)
-    }
-
-    nonisolated private func shaderRootURL(
-        for reference: String,
-        resourceView: SceneResourceView,
-        fallback: URL
-    ) -> URL {
-        var identity = reference.replacingOccurrences(of: "\\", with: "/")
-        for suffix in [".vert", ".frag", ".json"]
-        where identity.localizedLowercase.hasSuffix(suffix) {
-            identity.removeLast(suffix.count)
-            break
-        }
-        for suffix in [".vert", ".frag"] {
-            if let resource = resourceView.resource(
-                relativePath: "shaders/" + identity + suffix
-            ), let rootURL = resourceView.rootURL(containing: resource.url) {
-                return rootURL
-            }
-        }
-        return fallback
     }
 
     nonisolated private static func isUtilityModelPath(_ path: String) -> Bool {

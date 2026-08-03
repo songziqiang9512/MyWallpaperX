@@ -2,7 +2,7 @@
 
 > 状态：现役架构入口
 >
-> 最近核对：2026-08-02
+> 最近核对：2026-08-03
 >
 > 本页只维护依赖与完成门；精确当前提交、报告和测试总数统一见 [总覆盖台账](coverage-ledger.md) 与 [运行证据索引](runtime-evidence-index.md)。
 >
@@ -41,6 +41,8 @@ D3 + D4 + D5 + D6 + D7 + D8
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
 | project/scene/PKG/TEX/resource ingest | 常见 2D 子集 `L3`；严格 `TEXV0005/TEXI0001/TEXB0004` format-0 vertical-PNG 3D LUT profile 可保留 depth 并上传 Metal volume | LUT material/effect consumer、其他 volume 版本/codec/mip、version、case、duplicate、symlink、损坏和 VFS golden |
+| project/scene declared compatibility facts | `L2`；project 与 scene version 分别保留 missing/value/invalid/out-of-range 及 provenance，不合成 effective version，也不按版本猜默认 | 只有合法文档/资料和跨版本 fixture 支撑后才登记 compatibility default/patch rule；未知版本继续失败关闭 |
+| shader source VFS graph | `L2 bounded`；在同一 `SceneResourceView` 上保留 package/loose/stock 候选、provenance、冲突、include edge/content digest 与预算，旧 raw stage projection不被改写 | package -> loose -> stock 只是当前项目 policy；仍需 verified official/version precedence、动态 resource generation 与 executor consumer |
 | object/content/effect/material/particle/script source preservation | 混合 `L0-L3`；SceneScript 文档级 inline binding 已保真五类 owner/完整 target path/properties/authored fallback/JSON value type，局部 `L1` | raw + typed round-trip；file/module、schema-resolved value type、handle 与未知 owner 可诊断，不静默丢失 |
 | typed renderer input | `a77b875` 起宿主接收原始项目目录与属性覆盖，解析后直接构建内存 `SceneRuntimeInput`；生产播放不再生成或读取私有解释 JSON/preview log | 已闭合：Debug 结构证据只写入显式 evidence directory 的 `scene-runtime-evidence.json`（schema 1），不作为播放输入；固定 13 样本 raw-root 门 13/13 |
 
@@ -120,8 +122,8 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| material pass/slot hole/combo/constant/render state | IR `L2` 已增加 loss-preserving 五项 raw state 与 observed-enum typed compiler；exact Cursor Ripple、受限 authored shader 和 particle admission 已各自消费固定 tuple，unknown/incomplete state 失败关闭。受限 authored shader 还可用 uniform 声明同行的精确字符串 `material` 键定位静态 constant；direct+alias、alias collision 与动态值拒绝。Blur、stock Local Contrast、exact Workshop Shadow、exact stock Opacity、Shake、Water Waves 与 Water Flow 等既有 profile 子集仍为 `L3`，并继续用完整 authored fingerprint 约束 | generic Metal state translator/cache、`alphawriting=default`、arbitrary blend/depth/cull/alpha、typed annotation default/slot/provider schema、variant key 与通用 executor 仍未完成 |
-| shader source/include/annotation/declaration | ShaderContract v1 安全保存完整 source/raw hash、stage、include reference、annotation、uniform/attribute/varying declaration、diagnostic 与 canonical identity；bounded framebuffer-only frontend 已消费 stage link、typed uniform layout 与精确 `material` constant-key annotation，Local Contrast 等 strict profile 仍只把 exact identity/fingerprint 用作手写 MSL 准入 | typed annotation/default schema、include expansion、macro/permutation preprocessor、外部 material slot/provider、完整 GLSL 与通用 executor |
+| material pass/slot hole/combo/constant/render state | IR `L2` 已增加 loss-preserving 五项 raw state 与 observed-enum typed compiler；R2 将 explicit material combo、exact `[COMBO]` default/active options/requirement 与 sampler readiness schema 解析为带 provenance 的 active variant。annotation 数值用 Decimal-first exact Int64 carrier，selected macro 保存 defined/undefined 三态；fixed-point 从词法无条件 root/include schema 出发，对最多 8 个条件候选穷举子集，多个 stable signature 或 256 MiB 累计工作预算超限均失败关闭。exact Cursor Ripple、受限 authored shader 和 particle admission 仍只消费既有固定 tuple | production material binder 尚未提供同代 provider readiness；generic state translator/cache、`alphawriting=default`、arbitrary blend/depth/cull/alpha、完整 annotation/default 与唯一 executor 仍未完成 |
+| shader source/include/annotation/declaration | ShaderContract v1 保留完整 source/raw identity、stage/include/annotation/declaration；R2 独立 source graph 与 bounded preprocessor 又形成 active source/schema/source map、dependency/variant/prepared identity 及 unresolved input/output color carrier。只有 active 非 directive 行贡献 metadata/diagnostic；expression precedence 与 string/character/comment lexical state 有项目自有门。host-owned backend/version/platform/texture-format define 无 provider即失败关闭；现役 GPU frontend仍使用旧 raw contract | verified environment provider、function-like/cross-language prelude、完整 annotation/default、同代 material slot/provider/reflection/state、resolved color contract、完整 GLSL 与唯一 executor；directive-line annotation 顺序未获官方证据，继续显式关闭 |
 | built-in uniforms | bounded authored frontend 已消费 time/pointer/matrix、framebuffer resolution 与静态 constant direct/annotation key 子集 | per-slot material resolution、audio、effect/local matrices、color/alpha、动态 user/timeline contract |
 
 <a id="d8"></a>
@@ -138,7 +140,7 @@ B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color
 <a id="d9"></a>
 ### D9 Generic 2D execution layer
 
-这一层只消费 `D0-D8` 的统一合同：base layer compositor、共享 material pass executor、effect profile registry、particle geometry/material、text texture generation。当前共享层仍是目标，而不是已经完成的事实；`b541867` 已完成有界的 ordered strict effect-chain 调度，`809b75e`、`e505a9e`、`31ae557` 与 `94aebc5` 分别闭合 Blur/Shadow、Blur/Shake、重复 Water Waves 与 `Water Flow -> Opacity` 真实 chain，但它们都只连接 catalog 中每个 stage 均有严格 backend 的链，不能替代 generic material/pass executor，也不能升级官方 Shadow/lighting 或动态 effect variants。若某项需要在 renderer 内重新解析 JSON、猜 effect 名称、重新决定属性优先级或自行保存 history，说明底座仍有缺口，应回到对应 D 层修复。
+这一层只消费 `D0-D8` 的统一合同：base layer compositor、共享 material pass executor、effect profile registry、particle geometry/material、text texture generation。当前共享层仍是目标，而不是已经完成的事实；R2 只把 source/variant 准备到 typed program 边界，没有新增 generic executor、renderer/pipeline authority 或 GPU admission。现役 33 个 dedicated planner、33 个 runtime backend、4 个旧 planner 顶层 authority 调用点、legacy fallback 与多个 GPU 入口仍保留作迁移 oracle，必须在 R4 建成唯一 executor 后由 R5 按迁移族在同一提交删除，不能只改名继续可达。R5 清单包括对应 dedicated planner/backend、`fallbackGraph`、`.legacyContract`、旧 root projection/source adapter、重复 telemetry/projection 和只服务旧链的测试；提交前比较 dedicated probes、runtime backends、legacy authority sites、Scene Swift 文件/LOC、`<3 KiB`、`<1 KiB` 六轴。`b541867` 等既有 ordered strict chain 仍只连接 catalog 中每个 stage 均有严格 backend 的链，不能替代 generic material/pass executor，也不能升级官方 Shadow/lighting 或动态 effect variants。若某项需要在 renderer 内重新解析 JSON、猜 effect 名称、重新决定属性优先级或自行保存 history，说明底座仍有缺口，应回到对应 D 层修复。
 
 <a id="d10"></a>
 ### D10 System runtimes
