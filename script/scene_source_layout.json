@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "source_root": "MyWallpaperX/Core/SteamWorkshopScene",
   "top_level_directories": [
     "Effects",
@@ -31,5 +31,228 @@
     "Common",
     "Helpers",
     "Misc"
-  ]
+  ],
+  "render_chain_authority_ratchet": {
+    "rules": [
+      {
+        "id": "canonical-compositor-entry",
+        "description": "The compositor is the only product entry into the resolved-material graph executor.",
+        "pattern": "SceneResolvedMaterialGraphComposition\\.executeClaimed\\(",
+        "baseline_occurrences": 1,
+        "allowed_files": [
+          "Rendering/SceneImageLayerCompositor.swift"
+        ]
+      },
+      {
+        "id": "canonical-runtime-entry",
+        "description": "The composition helper is the only runtime call into the claimed submission coordinator.",
+        "pattern": "runtime\\.executeClaimed\\(",
+        "baseline_occurrences": 1,
+        "allowed_files": [
+          "Rendering/SceneResolvedMaterialGraphComposition.swift"
+        ]
+      },
+      {
+        "id": "legacy-product-authority",
+        "description": "Legacy planner calls still reachable from product planning are frozen until each family migrates.",
+        "pattern": "SceneEffectRuntimePlanner\\.(?:legacyPlanningDecision|plan|runtimeSummary|offscreenPassCount)\\(",
+        "baseline_occurrences": 4,
+        "scope_files": [
+          "Rendering/SceneImageLayerCompositor.swift",
+          "Rendering/SceneUtilityLayerRuntimePlan.swift",
+          "Text/SceneTextTextureLoader.swift"
+        ],
+        "allowed_files": [
+          "Rendering/SceneImageLayerCompositor.swift",
+          "Rendering/SceneUtilityLayerRuntimePlan.swift",
+          "Text/SceneTextTextureLoader.swift"
+        ]
+      },
+      {
+        "id": "legacy-observation-authority",
+        "description": "Diagnostics and static disposition may observe the legacy planner but cannot grow new references.",
+        "pattern": "SceneEffectRuntimePlanner\\.(?:legacyPlanningDecision|plan|runtimeSummary|offscreenPassCount)\\(",
+        "baseline_occurrences": 3,
+        "scope_files": [
+          "Rendering/SceneMetalRenderer+Diagnostics.swift",
+          "Runtime/SceneEffectRuntimeDispositionCatalog.swift"
+        ],
+        "allowed_files": [
+          "Rendering/SceneMetalRenderer+Diagnostics.swift",
+          "Runtime/SceneEffectRuntimeDispositionCatalog.swift"
+        ]
+      },
+      {
+        "id": "legacy-authority-total",
+        "description": "All external legacy planner references are frozen so a new product or observation owner cannot appear in another file.",
+        "pattern": "SceneEffectRuntimePlanner\\.(?:legacyPlanningDecision|plan|runtimeSummary|offscreenPassCount)\\(",
+        "baseline_occurrences": 7,
+        "allowed_files": [
+          "Rendering/SceneImageLayerCompositor.swift",
+          "Rendering/SceneMetalRenderer+Diagnostics.swift",
+          "Rendering/SceneUtilityLayerRuntimePlan.swift",
+          "Runtime/SceneEffectRuntimeDispositionCatalog.swift",
+          "Text/SceneTextTextureLoader.swift"
+        ]
+      },
+      {
+        "id": "main-pass-writers",
+        "description": "Direct main-pass encoder writers remain explicit while object and utility paths migrate to the frame scheduler.",
+        "pattern": "(?:\\bmainPass|\\bframe\\.mainPass)\\.encoder\\(\\)",
+        "baseline_occurrences": 7,
+        "allowed_files": [
+          "Rendering/SceneLayerColorBlendPipeline.swift",
+          "Rendering/SceneLightShaftsLayerRenderer.swift",
+          "Rendering/SceneMetalRenderer+Particles.swift",
+          "Rendering/SceneScriptAudioBarsRenderer.swift",
+          "Rendering/SceneSpotLightRuntime.swift"
+        ]
+      },
+      {
+        "id": "dedicated-probes",
+        "description": "Ordered dedicated compiler probes are frozen until their product owner is transferred.",
+        "pattern": "^\\s*\\(\\.[A-Za-z][A-Za-z0-9_]*,\\s*\\{",
+        "baseline_occurrences": 33,
+        "scope_files": [
+          "RenderGraph/SceneAuthoredEffectChainPlanner+StageResolution.swift"
+        ],
+        "allowed_files": [
+          "RenderGraph/SceneAuthoredEffectChainPlanner+StageResolution.swift"
+        ]
+      },
+      {
+        "id": "compiler-identities",
+        "description": "Compiler identity enum cases are a ratcheted inventory, not an extensible fallback list.",
+        "pattern": "^    case [A-Za-z][A-Za-z0-9_]*(?:\\s*=|\\s*$)",
+        "start_marker": "nonisolated enum SceneEffectStageCompilerBackend",
+        "end_marker": "nonisolated struct SceneEffectStageCompilerFailure",
+        "baseline_occurrences": 34,
+        "scope_files": [
+          "RenderGraph/SceneEffectStageCompileModel.swift"
+        ],
+        "allowed_files": [
+          "RenderGraph/SceneEffectStageCompileModel.swift"
+        ]
+      },
+      {
+        "id": "runtime-backends",
+        "description": "Dedicated runtime backend cases are frozen until their execution owner is removed.",
+        "pattern": "^        case [A-Za-z][A-Za-z0-9_]*\\(",
+        "start_marker": "extension SceneAuthoredEffectExecutionPlan {",
+        "end_marker": "    var gaussianBlur:",
+        "baseline_occurrences": 33,
+        "scope_files": [
+          "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift"
+        ],
+        "allowed_files": [
+          "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift"
+        ]
+      },
+      {
+        "id": "legacy-recovery-kinds",
+        "description": "The four existing recovery kinds are frozen until each omission path is absorbed by the graph scheduler.",
+        "pattern": "^        case (?:terminalIrisInlineSuffix|xRayPrefix|isolatedCursorRipple|isolatedShine)$",
+        "start_marker": "enum LegacyRecoveryKind: Equatable {",
+        "end_marker": "    enum ExecutionRoute {",
+        "baseline_occurrences": 4,
+        "scope_files": [
+          "RenderGraph/SceneAuthoredEffectExecutionChain+Route.swift"
+        ],
+        "allowed_files": [
+          "RenderGraph/SceneAuthoredEffectExecutionChain+Route.swift"
+        ]
+      },
+      {
+        "id": "hardcoded-expected-sha",
+        "description": "Expected SHA literals remain an explicit migration inventory and cannot increase.",
+        "pattern": "\\\"[0-9a-fA-F]{64}\\\"",
+        "baseline_occurrences": 251,
+        "allowed_files": [
+          "RenderGraph/SceneAuthoredBlendPlanner.swift",
+          "RenderGraph/SceneAuthoredClippingMaskPlanner.swift",
+          "RenderGraph/SceneAuthoredColorGradingPlanner.swift",
+          "RenderGraph/SceneAuthoredColorKeyPlanner.swift",
+          "RenderGraph/SceneAuthoredCursorRipplePlanner.swift",
+          "RenderGraph/SceneAuthoredDepthParallaxPlanner.swift",
+          "RenderGraph/SceneAuthoredFilmGrainPlanner.swift",
+          "RenderGraph/SceneAuthoredFisheyeZeroDistortionPlanner.swift",
+          "RenderGraph/SceneAuthoredFoliageSwayPlanner.swift",
+          "RenderGraph/SceneAuthoredIrisInlineSuffixPlanner.swift",
+          "RenderGraph/SceneAuthoredLightShaftsPlanner+AssetValidation.swift",
+          "RenderGraph/SceneAuthoredLocalContrastPlanner.swift",
+          "RenderGraph/SceneAuthoredOpacityPlanner.swift",
+          "RenderGraph/SceneAuthoredPulsePlanner.swift",
+          "RenderGraph/SceneAuthoredScrollShaderProfile.swift",
+          "RenderGraph/SceneAuthoredShakePlanner.swift",
+          "RenderGraph/SceneAuthoredShinePlanner.swift",
+          "RenderGraph/SceneAuthoredSpinPlanner.swift",
+          "RenderGraph/SceneAuthoredTransformPlanner.swift",
+          "RenderGraph/SceneAuthoredWaterFlowPlanner.swift",
+          "RenderGraph/SceneAuthoredWaterRipplePlanner.swift",
+          "RenderGraph/SceneAuthoredWorkshopAudioBarsPlanner.swift",
+          "RenderGraph/SceneAuthoredWorkshopAudioHueShiftPlanner.swift",
+          "RenderGraph/SceneAuthoredWorkshopGradientPlanner.swift",
+          "RenderGraph/SceneAuthoredWorkshopShadowPlanner.swift",
+          "RenderGraph/SceneAuthoredWorkshopShiftHuePlanner.swift",
+          "RenderGraph/SceneAuthoredWorkshopSimpleAudioBarsPlanner+Profile.swift",
+          "RenderGraph/SceneAuthoredXRayPlanner.swift",
+          "RenderGraph/SceneBlendShaderProfile.swift",
+          "RenderGraph/SceneCursorRippleShaderProfile.swift",
+          "RenderGraph/SceneDepthParallaxShaderProfile.swift",
+          "RenderGraph/SceneFisheyeZeroDistortionShaderProfile.swift",
+          "RenderGraph/SceneFoliageSwayShaderProfile.swift",
+          "RenderGraph/SceneGodraysShaderProfile.swift",
+          "RenderGraph/SceneIrisInlineSuffixPlan.swift",
+          "RenderGraph/SceneProceduralNoiseShaderProfile.swift",
+          "RenderGraph/ScenePulseShaderProfile.swift",
+          "RenderGraph/SceneShakeShaderProfile.swift",
+          "RenderGraph/SceneTintAssetProfile.swift",
+          "RenderGraph/SceneTintShaderProfile.swift",
+          "RenderGraph/SceneTransformShaderProfile.swift",
+          "RenderGraph/SceneWaterCausticsAssetProfile.swift",
+          "RenderGraph/SceneWaterFlowShaderProfile.swift",
+          "RenderGraph/SceneWaterRippleShaderProfile.swift",
+          "RenderGraph/SceneWaterWavesAssetFamily.swift",
+          "RenderGraph/SceneWaterWavesShaderProfile.swift",
+          "Runtime/SceneMediaThumbnailTransitionCompiler.swift",
+          "Runtime/SceneScriptAudioBarsCompiler.swift",
+          "Runtime/SceneTextureAnimationScriptCompiler.swift",
+          "Text/SceneTextScriptCompiler.swift"
+        ]
+      },
+      {
+        "id": "numeric-workshop-selector",
+        "description": "Numeric Workshop paths are frozen until source profiles become public typed capabilities.",
+        "pattern": "workshop/[0-9]+",
+        "baseline_occurrences": 70,
+        "allowed_files": [
+          "Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
+          "RenderGraph/SceneAuthoredClippingMaskPlanner.swift",
+          "RenderGraph/SceneAuthoredScrollShaderProfile.swift",
+          "RenderGraph/SceneAuthoredWorkshopAudioBarsPlanner.swift",
+          "RenderGraph/SceneAuthoredWorkshopAudioHueShiftPlanner.swift",
+          "RenderGraph/SceneAuthoredWorkshopGradientPlanner.swift",
+          "RenderGraph/SceneAuthoredWorkshopShadowPlanner.swift",
+          "RenderGraph/SceneAuthoredWorkshopShiftHuePlanner.swift",
+          "RenderGraph/SceneAuthoredWorkshopSimpleAudioBarsPlanner+Profile.swift",
+          "RenderGraph/SceneClippingMaskContract.swift",
+          "RenderGraph/SceneDependencyRenderPlan.swift",
+          "RenderGraph/SceneProceduralNoiseShaderProfile.swift",
+          "Runtime/SceneScriptAudioBarsCompiler.swift"
+        ]
+      },
+      {
+        "id": "named-workshop-selector",
+        "description": "Named Workshop source profiles are frozen until they are replaced by generic source contracts.",
+        "pattern": "workshop[0-9]+",
+        "baseline_occurrences": 34,
+        "allowed_files": [
+          "RenderGraph/SceneAuthoredScrollShaderProfile.swift",
+          "Text/SceneTextScriptCompiler.swift",
+          "Text/SceneTextScriptProgram.swift",
+          "Text/SceneTextScriptRuntime.swift"
+        ]
+      }
+    ]
+  }
 }

@@ -5,6 +5,8 @@ from __future__ import annotations
 import fnmatch
 import json
 import re
+import subprocess
+import tempfile
 import unittest
 from collections import defaultdict
 from pathlib import Path
@@ -47,10 +49,155 @@ def markdown_link_targets(text: str) -> list[str]:
     return targets
 
 
+def swift_without_comments(text: str) -> str:
+    output: list[str] = []
+    index = 0
+    block_depth = 0
+    state = "code"
+    while index < len(text):
+        if state == "line-comment":
+            if text[index] == "\n":
+                output.append("\n")
+                state = "code"
+            else:
+                output.append(" ")
+            index += 1
+            continue
+        if state == "block-comment":
+            if text.startswith("/*", index):
+                output.extend("  ")
+                block_depth += 1
+                index += 2
+            elif text.startswith("*/", index):
+                output.extend("  ")
+                block_depth -= 1
+                index += 2
+                if block_depth == 0:
+                    state = "code"
+            else:
+                output.append("\n" if text[index] == "\n" else " ")
+                index += 1
+            continue
+        if state == "string":
+            output.append(text[index])
+            if text[index] == "\\" and index + 1 < len(text):
+                output.append(text[index + 1])
+                index += 2
+            else:
+                if text[index] == '"':
+                    state = "code"
+                index += 1
+            continue
+        if state == "multiline-string":
+            if text.startswith('"""', index):
+                output.extend('"""')
+                index += 3
+                state = "code"
+            else:
+                output.append(text[index])
+                index += 1
+            continue
+        if text.startswith("//", index):
+            output.extend("  ")
+            index += 2
+            state = "line-comment"
+        elif text.startswith("/*", index):
+            output.extend("  ")
+            index += 2
+            block_depth = 1
+            state = "block-comment"
+        elif text.startswith('"""', index):
+            output.extend('"""')
+            index += 3
+            state = "multiline-string"
+        elif text[index] == '"':
+            output.append('"')
+            index += 1
+            state = "string"
+        else:
+            output.append(text[index])
+            index += 1
+    return "".join(output)
+
+
+def render_chain_authority_violations(
+    source_root: Path,
+    rules: list[dict[str, object]],
+) -> list[str]:
+    violations: list[str] = []
+    all_sources = sorted(source_root.rglob("*.swift"))
+    for rule in rules:
+        rule_id = str(rule["id"])
+        pattern = re.compile(str(rule["pattern"]), re.MULTILINE)
+        allowed_files = [str(value) for value in rule["allowed_files"]]
+        scope_files = [str(value) for value in rule.get("scope_files", [])]
+        sources = (
+            [source_root / relative for relative in scope_files]
+            if scope_files
+            else all_sources
+        )
+        matches_by_file: dict[str, int] = {}
+        for source in sources:
+            if not source.is_file():
+                violations.append(f"{rule_id}: scope file is missing: {source}")
+                continue
+            relative = source.relative_to(source_root).as_posix()
+            searchable = swift_without_comments(source.read_text(encoding="utf-8"))
+            start_marker = rule.get("start_marker")
+            end_marker = rule.get("end_marker")
+            if start_marker is not None:
+                start = searchable.find(str(start_marker))
+                if start < 0:
+                    violations.append(
+                        f"{rule_id}: start marker missing in {relative}"
+                    )
+                    continue
+                searchable = searchable[start:]
+            if end_marker is not None:
+                end = searchable.find(str(end_marker))
+                if end < 0:
+                    violations.append(f"{rule_id}: end marker missing in {relative}")
+                    continue
+                searchable = searchable[:end]
+            count = len(pattern.findall(searchable))
+            if count:
+                matches_by_file[relative] = count
+
+        actual_files = sorted(matches_by_file)
+        actual_occurrences = sum(matches_by_file.values())
+        baseline_occurrences = int(rule["baseline_occurrences"])
+        if actual_files != allowed_files:
+            violations.append(
+                f"{rule_id}: files {actual_files} != baseline {allowed_files}"
+            )
+        if actual_occurrences != baseline_occurrences:
+            violations.append(
+                f"{rule_id}: occurrences {actual_occurrences} != baseline "
+                f"{baseline_occurrences}; ratchet the manifest when authority shrinks"
+            )
+    return violations
+
+
+def committed_scene_layout() -> dict[str, object] | None:
+    result = subprocess.run(
+        ["git", "show", "HEAD:script/scene_source_layout.json"],
+        cwd=REPOSITORY_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return None
+
+
 class SceneSemanticsCoverageTests(unittest.TestCase):
     def test_scene_sources_follow_the_documented_directory_layout(self) -> None:
         layout = json.loads(SCENE_LAYOUT_PATH.read_text(encoding="utf-8"))
-        self.assertEqual(layout["schema_version"], 1)
+        self.assertEqual(layout["schema_version"], 2)
         self.assertEqual(
             REPOSITORY_ROOT / layout["source_root"],
             SCENE_SOURCE_ROOT,
@@ -139,6 +286,103 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             [],
             "Scene source layout violations:\n" + "\n".join(misplaced),
         )
+
+    def test_render_chain_authority_matches_the_ratcheted_inventory(self) -> None:
+        layout = json.loads(SCENE_LAYOUT_PATH.read_text(encoding="utf-8"))
+        rules = layout["render_chain_authority_ratchet"]["rules"]
+        ids = [rule["id"] for rule in rules]
+        self.assertEqual(len(ids), len(set(ids)))
+        for rule in rules:
+            self.assertEqual(rule["allowed_files"], sorted(rule["allowed_files"]))
+            if "scope_files" in rule:
+                self.assertEqual(rule["scope_files"], sorted(rule["scope_files"]))
+        violations = render_chain_authority_violations(SCENE_SOURCE_ROOT, rules)
+        self.assertEqual(
+            violations,
+            [],
+            "Render-chain authority ratchet violations:\n" + "\n".join(violations),
+        )
+
+    def test_render_chain_ratchet_cannot_rise_above_committed_baseline(self) -> None:
+        committed = committed_scene_layout()
+        if committed is None or "render_chain_authority_ratchet" not in committed:
+            self.skipTest("the committed checkout predates the R4-0 authority ratchet")
+        previous = {
+            rule["id"]: rule
+            for rule in committed["render_chain_authority_ratchet"]["rules"]
+        }
+        current = {
+            rule["id"]: rule
+            for rule in json.loads(SCENE_LAYOUT_PATH.read_text(encoding="utf-8"))[
+                "render_chain_authority_ratchet"
+            ]["rules"]
+        }
+        violations: list[str] = []
+        for rule_id, old_rule in previous.items():
+            new_rule = current.get(rule_id)
+            if new_rule is None:
+                violations.append(f"{rule_id}: committed rule was removed")
+                continue
+            if int(new_rule["baseline_occurrences"]) > int(old_rule["baseline_occurrences"]):
+                violations.append(f"{rule_id}: baseline occurrence increased")
+            if not set(new_rule["allowed_files"]).issubset(old_rule["allowed_files"]):
+                violations.append(f"{rule_id}: allowed file set increased")
+            if not set(new_rule.get("scope_files", [])).issubset(
+                old_rule.get("scope_files", [])
+            ):
+                violations.append(f"{rule_id}: scope file set increased")
+        self.assertEqual(violations, [])
+
+    def test_render_chain_ratchet_rejects_new_owner_recovery_and_selector(self) -> None:
+        rules = [
+            {
+                "id": "owner",
+                "pattern": r"OWNER\(",
+                "baseline_occurrences": 1,
+                "allowed_files": ["Owner.swift"],
+            },
+            {
+                "id": "recovery",
+                "pattern": r"^    case [A-Za-z]+$",
+                "baseline_occurrences": 1,
+                "allowed_files": ["Recovery.swift"],
+                "scope_files": ["Recovery.swift"],
+            },
+            {
+                "id": "selector",
+                "pattern": r"workshop/[0-9]+",
+                "baseline_occurrences": 1,
+                "allowed_files": ["Selector.swift"],
+            },
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "Owner.swift").write_text(
+                "OWNER()\n// OWNER() is documentation only.\n",
+                encoding="utf-8",
+            )
+            (root / "Recovery.swift").write_text(
+                "enum Recovery {\n    case iris\n}\n",
+                encoding="utf-8",
+            )
+            (root / "Selector.swift").write_text(
+                'let path = "workshop/123/effect.json"\n',
+                encoding="utf-8",
+            )
+            self.assertEqual(render_chain_authority_violations(root, rules), [])
+
+            (root / "Unexpected.swift").write_text(
+                'OWNER()\nlet path = "workshop/456/effect.json"\n',
+                encoding="utf-8",
+            )
+            (root / "Recovery.swift").write_text(
+                "enum Recovery {\n    case iris\n    case shine\n}\n",
+                encoding="utf-8",
+            )
+            violations = render_chain_authority_violations(root, rules)
+            self.assertTrue(any(value.startswith("owner:") for value in violations))
+            self.assertTrue(any(value.startswith("recovery:") for value in violations))
+            self.assertTrue(any(value.startswith("selector:") for value in violations))
 
     def test_relative_markdown_links_in_semantics_directory_exist(self) -> None:
         missing: list[str] = []
