@@ -194,10 +194,11 @@ enum SceneAuthoredEffectExecutionPlanner {
                   targetsByIdentity[verticalInput] != nil else {
                 return nil
             }
-            let uniqueIdentity = commandNode.kind == .swap ? verticalInput : nil
-            guard graph.renderTargets.allSatisfy({
-                $0.declaredUnique == ($0.texture == uniqueIdentity)
-            }) else {
+            let commandTargetsMustBeUnique = commandNode.kind == .swap
+            guard targetsByIdentity[horizontalTarget]?.declaredUnique
+                    == commandTargetsMustBeUnique,
+                  targetsByIdentity[verticalInput]?.declaredUnique
+                    == commandTargetsMustBeUnique else {
                 return nil
             }
         } else {

@@ -74,6 +74,7 @@ nonisolated struct SceneUserPropertyTextureIdentity: Hashable, Sendable {
 
 nonisolated enum SceneTextureProviderIdentity: Hashable, Sendable {
     case dynamicText(layerID: Int)
+    case graph(allocationGeneration: UInt64, physicalToken: String)
     case mediaThumbnailCurrent
     case mediaThumbnailPrevious
     case mediaThumbnailTransition(layerID: Int)
@@ -83,6 +84,9 @@ nonisolated enum SceneTextureProviderIdentity: Hashable, Sendable {
         switch self {
         case let .dynamicText(layerID):
             return "dynamic-text:\(layerID)"
+        case let .graph(allocationGeneration, physicalToken):
+            return "graph:allocation:\(allocationGeneration):"
+                + "physical:\(physicalToken.utf8.count)#\(physicalToken)"
         case .mediaThumbnailCurrent:
             return "media-thumbnail:current"
         case .mediaThumbnailPrevious:

@@ -262,20 +262,43 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         tokens: [SceneAuthoredShaderToken],
         body: Range<Int>
     ) -> Bool {
-        let controlFlow: Set<String> = [
-            "if", "else", "for", "while", "do", "switch", "case", "discard", "return",
-        ]
+        let functionExits: Set<String> = ["discard", "return"]
         guard !body.contains(where: {
-            tokens[$0].kind == .identifier && controlFlow.contains(tokens[$0].text)
+            tokens[$0].kind == .identifier && functionExits.contains(tokens[$0].text)
         }) else {
             return false
         }
         var braceDepth = 0
-        for index in body.lowerBound...assignment {
-            if tokens[index].text == "{" { braceDepth += 1 }
-            if tokens[index].text == "}" { braceDepth -= 1 }
+        var parenthesisDepth = 0
+        var bracketDepth = 0
+        var statementStart = body.lowerBound + 1
+        for index in body.lowerBound..<assignment {
+            switch tokens[index].text {
+            case "{":
+                braceDepth += 1
+            case "}":
+                braceDepth -= 1
+                if braceDepth == 1 && parenthesisDepth == 0 && bracketDepth == 0 {
+                    statementStart = index + 1
+                }
+            case "(": parenthesisDepth += 1
+            case ")": parenthesisDepth -= 1
+            case "[": bracketDepth += 1
+            case "]": bracketDepth -= 1
+            case ";" where braceDepth == 1 && parenthesisDepth == 0 && bracketDepth == 0:
+                statementStart = index + 1
+            default: break
+            }
         }
-        return braceDepth == 1
+        guard braceDepth == 1, parenthesisDepth == 0, bracketDepth == 0 else {
+            return false
+        }
+        let directControllers: Set<String> = [
+            "if", "else", "for", "while", "do", "switch", "case",
+        ]
+        return !tokens[statementStart..<assignment].contains {
+            $0.kind == .identifier && directControllers.contains($0.text)
+        }
     }
 
     private static func assignmentExpression(

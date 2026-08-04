@@ -4,7 +4,7 @@ extension SceneAuthoredEffectExecutionCatalog {
     var reportLines: [String] {
         let transformDiagnostics = chainsByLayerID.sorted(by: { $0.key < $1.key }).flatMap {
             entry in
-            entry.value.stages.compactMap(\.transform).flatMap { transform in
+            entry.value.executionStages.compactMap(\.transform).flatMap { transform in
                 transform.staticFallbackDiagnostics.map {
                     "layer=\(entry.key),\($0.reportValue)"
                 }
@@ -47,7 +47,7 @@ extension SceneAuthoredEffectExecutionCatalog {
                 nil
             }
         }
-        let chainStages = chainsByLayerID.values.flatMap(\.stages)
+        let chainStages = chainsByLayerID.values.flatMap(\.executionStages)
         let chainStageIdentityValid = chainStages.allSatisfy {
             $0.renderGraph.effects.count == 1
         }
@@ -83,8 +83,8 @@ extension SceneAuthoredEffectExecutionCatalog {
             "authoredEffectGraphHiddenEligibleLayerIDs: \(hiddenEligibleLayerIDs.map(String.init).joined(separator: ","))",
             "authoredEffectGraphLegacyBlurBlockedCount: \(legacyGaussianBlurBlockedLayerIDs.count)",
             "authoredEffectGraphLegacyBlurBlockedLayerIDs: \(legacyGaussianBlurBlockedLayerIDs.sorted().map(String.init).joined(separator: ","))",
-            "authoredEffectGraphChainCount: \(chainsByLayerID.values.filter { $0.stages.count > 1 }.count)",
-            "authoredEffectGraphStageCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.stages.count })",
+            "authoredEffectGraphChainCount: \(chainsByLayerID.values.filter { $0.executionStages.count > 1 }.count)",
+            "authoredEffectGraphStageCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.executionStages.count })",
             "authoredEffectStageDescriptorCount: \(descriptorEffectStageCount)",
             "authoredEffectStageParsedCount: \(stageAdmissions.count)",
             "authoredEffectStageActivityCounts: \(activityCounts)",

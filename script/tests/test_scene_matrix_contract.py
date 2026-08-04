@@ -22,6 +22,8 @@ from scene_matrix_contract import (
     EFFECT_EXECUTION_ROUTE_GROUP_KINDS,
     EFFECT_RUNTIME_DISPOSITION_EXPECTATIONS,
     EFFECT_STAGE_ADMISSION_EXPECTATIONS,
+    RESOLVED_MATERIAL_GRAPH_BACKEND,
+    RESOLVED_MATERIAL_GRAPH_EXPECTATIONS,
     effect_execution_static_demand,
 )
 
@@ -48,6 +50,47 @@ def synthetic_result(sample_id: str = "fixture") -> dict[str, object]:
         },
         "passed": True,
         "runtime": runtime,
+    }
+
+
+def resolved_material_graph_runtime(
+    accepted_layer_ids: list[int],
+) -> dict[str, object]:
+    positive = bool(accepted_layer_ids)
+    count = len(accepted_layer_ids)
+    return {
+        "has_evidence": True,
+        "execution_succeeded": positive,
+        "zero_contract_succeeded": not positive,
+        "contract_succeeded": True,
+        "succeeded_layer_ids": list(accepted_layer_ids),
+        "capability": {
+            "has_evidence": True,
+            "accepted_count": count,
+            "accepted_layer_ids": list(accepted_layer_ids),
+        },
+        "executor": {
+            "has_evidence": True,
+            "claimed_count": count,
+            "encoded_count": count,
+            "failure_count": 0,
+            "deferred_count": 0,
+            "pending_max": count,
+            "gpu_encoded_count": count,
+        },
+        "graph_observations": {
+            "observation_count": count * 2,
+            "successful_gpu_completed_layer_ids": list(accepted_layer_ids),
+            "compositor_consumed_layer_ids": list(accepted_layer_ids),
+            "next_frame_layer_ids": list(accepted_layer_ids),
+        },
+        "exact_backend": {
+            "backend": RESOLVED_MATERIAL_GRAPH_BACKEND,
+            "complete_layer_ids": list(accepted_layer_ids),
+            "unexpected_layer_ids": [],
+        },
+        "layer_routes": {"legacy_conflict_layer_ids": []},
+        "validation_failures": [],
     }
 
 
@@ -491,6 +534,67 @@ class SceneMatrixContractTests(unittest.TestCase):
         ):
             self.assertNotIn(excluded, joined)
 
+    def test_resolved_material_graph_registry_tracks_only_succeeded_layers(
+        self,
+    ) -> None:
+        self.assertEqual(len(RESOLVED_MATERIAL_GRAPH_EXPECTATIONS), 1)
+        expectation = RESOLVED_MATERIAL_GRAPH_EXPECTATIONS[0]
+        self.assertEqual(
+            expectation.matrix_key,
+            "expected_resolved_material_graph_succeeded_layer_ids",
+        )
+        self.assertEqual(expectation.report_path, (
+            "runtime",
+            "resolved_material_graph_execution",
+            "succeeded_layer_ids",
+        ))
+        self.assertEqual(expectation.comparison, "sorted_list")
+
+    def test_resolved_material_graph_matrix_accepts_positive_and_zero_contracts(
+        self,
+    ) -> None:
+        expectation_key = RESOLVED_MATERIAL_GRAPH_EXPECTATIONS[0].matrix_key
+        for accepted_layer_ids in ([20], []):
+            with self.subTest(accepted_layer_ids=accepted_layer_ids):
+                result = synthetic_result()
+                result["runtime"]["resolved_material_graph_execution"] = (
+                    resolved_material_graph_runtime(accepted_layer_ids)
+                )
+                self.assertEqual(
+                    matrix_generator.resolved_material_graph_execution_values(
+                        result,
+                        {expectation_key: accepted_layer_ids},
+                    ),
+                    {expectation_key: accepted_layer_ids},
+                )
+                refreshed = matrix_generator.matrix_sample(
+                    result,
+                    {
+                        "id": "fixture",
+                        "project_sha256": "c" * 64,
+                        "package_sha256": "d" * 64,
+                        expectation_key: [],
+                    },
+                )
+                self.assertEqual(refreshed[expectation_key], accepted_layer_ids)
+
+    def test_resolved_material_graph_matrix_rejects_false_success_and_zero_activity(
+        self,
+    ) -> None:
+        positive = synthetic_result()
+        positive_execution = resolved_material_graph_runtime([20])
+        positive_execution["graph_observations"]["next_frame_layer_ids"] = []
+        positive["runtime"]["resolved_material_graph_execution"] = positive_execution
+        with self.assertRaisesRegex(ValueError, "success intersection invalid"):
+            matrix_generator.resolved_material_graph_execution_values(positive)
+
+        zero = synthetic_result()
+        zero_execution = resolved_material_graph_runtime([])
+        zero_execution["executor"]["claimed_count"] = 1
+        zero["runtime"]["resolved_material_graph_execution"] = zero_execution
+        with self.assertRaisesRegex(ValueError, "zero contract invalid"):
+            matrix_generator.resolved_material_graph_execution_values(zero)
+
     def test_effect_execution_static_demand_is_shared_and_fail_closed(
         self,
     ) -> None:
@@ -551,12 +655,13 @@ class SceneMatrixContractTests(unittest.TestCase):
         )
 
     def test_tracked_matrices_have_no_unclassified_sample_keys(self) -> None:
-        r0_expectation_keys = {
+        nested_expectation_keys = {
             expectation.matrix_key
             for expectations in (
                 EFFECT_STAGE_ADMISSION_EXPECTATIONS,
                 EFFECT_RUNTIME_DISPOSITION_EXPECTATIONS,
                 EFFECT_EXECUTION_EXPECTATIONS,
+                RESOLVED_MATERIAL_GRAPH_EXPECTATIONS,
             )
             for expectation in expectations
         }
@@ -567,16 +672,16 @@ class SceneMatrixContractTests(unittest.TestCase):
             matrix = json.loads((REPOSITORY_ROOT / relative_path).read_text())
             for old_sample in matrix["samples"]:
                 with self.subTest(matrix=relative_path, sample=old_sample["id"]):
-                    old_without_r0 = {
+                    old_without_nested = {
                         key: value for key, value in old_sample.items()
-                        if key not in r0_expectation_keys
+                        if key not in nested_expectation_keys
                     }
                     refreshed = matrix_generator.matrix_sample(
                         synthetic_result(old_sample["id"]),
-                        old_without_r0,
+                        old_without_nested,
                     )
                     self.assertEqual(
-                        set(old_sample) - {"package_file"} - r0_expectation_keys,
+                        set(old_sample) - {"package_file"} - nested_expectation_keys,
                         set(old_sample).intersection(refreshed),
                     )
 
@@ -1133,6 +1238,7 @@ class SceneMatrixContractTests(unittest.TestCase):
                 *EFFECT_STAGE_ADMISSION_EXPECTATIONS,
                 *EFFECT_RUNTIME_DISPOSITION_EXPECTATIONS,
                 *EFFECT_EXECUTION_EXPECTATIONS,
+                *RESOLVED_MATERIAL_GRAPH_EXPECTATIONS,
             )
         }
         self.assertFalse(registered_keys.intersection(sample))

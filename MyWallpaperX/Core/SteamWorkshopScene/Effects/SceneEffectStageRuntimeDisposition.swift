@@ -69,6 +69,15 @@ nonisolated struct SceneEffectStageRuntimeDisposition {
     }
 }
 
+/// Stable exact-effect identity and family projected from static runtime
+/// disposition. Render backends consume this value but do not derive it.
+nonisolated struct SceneEffectExactRuntimeSubject: Hashable {
+    typealias EffectKey = SceneAuthoredEffectRenderPlan.EffectKey
+
+    let key: EffectKey
+    let family: String
+}
+
 nonisolated struct SceneEffectStaticRouteGroup {
     typealias EffectKey = SceneAuthoredEffectRenderPlan.EffectKey
 

@@ -88,7 +88,8 @@ enum Harness {
         _ index: Int,
         key: Graph.EffectKey,
         target: Graph.TextureIdentity,
-        reads: [Graph.TextureIdentity]
+        reads: [Graph.TextureIdentity],
+        compose: SceneJSONValue? = nil
     ) -> Graph.Node {
         .init(
             nodeIndex: index,
@@ -103,7 +104,7 @@ enum Harness {
             bindings: reads.enumerated().map { binding($0.element, slot: $0.offset) },
             commandSource: nil,
             commandTarget: nil,
-            compose: nil,
+            compose: compose,
             conditions: nil
         )
     }
@@ -432,6 +433,68 @@ enum Harness {
         guard case .success(let commandsPlan) = commandsResult else {
             fatalError("command fixture rejected")
         }
+        let motionBlur = graph(
+            targets: [
+                target(q1, extent: inputExtent, unique: true),
+                target(q2, extent: inputExtent),
+            ],
+            nodes: [
+                node(0, key: key, target: q2, reads: [input, q1]),
+                commandNode(1, kind: .copy, key: key, source: q2, target: q1),
+                node(2, key: key, target: output, reads: [q2]),
+            ],
+            key: key,
+            input: input,
+            output: output
+        )
+        let motionBlurPlan = requirePlan(motionBlur, materialNodeCount: 2)
+        let transparentClear = SceneJSONValue.array([
+            .number(0), .number(0), .number(0), .number(0),
+        ])
+        let clearMismatchCopy = graph(
+            targets: [
+                target(q1, extent: inputExtent, clear: transparentClear),
+                target(q2, extent: inputExtent),
+            ],
+            nodes: [
+                node(0, key: key, target: q1, reads: [input]),
+                commandNode(1, kind: .copy, key: key, source: q1, target: q2),
+                node(2, key: key, target: output, reads: [q2]),
+            ],
+            key: key,
+            input: input,
+            output: output
+        )
+        let clearMismatchCopyPlan = requirePlan(
+            clearMismatchCopy,
+            materialNodeCount: 2
+        )
+        let swapNodes = [
+            node(0, key: key, target: q1, reads: [input]),
+            node(1, key: key, target: q2, reads: [input]),
+            commandNode(2, kind: .swap, key: key, source: q1, target: q2),
+            node(3, key: key, target: output, reads: [q1]),
+        ]
+        let uniqueMismatchSwap = graph(
+            targets: [
+                target(q1, extent: inputExtent, unique: true),
+                target(q2, extent: inputExtent),
+            ],
+            nodes: swapNodes,
+            key: key,
+            input: input,
+            output: output
+        )
+        let clearMismatchSwap = graph(
+            targets: [
+                target(q1, extent: inputExtent, clear: transparentClear),
+                target(q2, extent: inputExtent),
+            ],
+            nodes: swapNodes,
+            key: key,
+            input: input,
+            output: output
+        )
         let incompatibleCommands = graph(
             targets: [target(q1, extent: inputExtent), target(q2, extent: scaleFour)],
             nodes: commands.nodes,
@@ -484,6 +547,100 @@ enum Harness {
         )
         guard case .success(let persistentHistoryPlan) = persistentHistoryResult else {
             fatalError("persistent history fixture rejected")
+        }
+        let clearSeedMaterial = graph(
+            targets: [
+                target(q1, extent: scaleFour),
+                target(q2, extent: scaleFour, clear: transparentClear),
+            ],
+            nodes: history.nodes,
+            key: key,
+            input: input,
+            output: output
+        )
+        let clearSeedMaterialPlan = requirePlan(
+            clearSeedMaterial,
+            materialNodeCount: 3
+        )
+        let clearSeedCopy = graph(
+            targets: [
+                target(q1, extent: inputExtent, clear: transparentClear),
+                target(q2, extent: inputExtent),
+            ],
+            nodes: [
+                commandNode(0, kind: .copy, key: key, source: q1, target: q2),
+                node(1, key: key, target: q1, reads: [input]),
+                node(2, key: key, target: output, reads: [q2]),
+            ],
+            key: key,
+            input: input,
+            output: output
+        )
+        let clearSeedCopyPlan = requirePlan(clearSeedCopy, materialNodeCount: 2)
+        let clearSeedSwap = graph(
+            targets: [
+                target(q1, extent: inputExtent, clear: transparentClear),
+                target(q2, extent: inputExtent, clear: transparentClear),
+            ],
+            nodes: [
+                commandNode(0, kind: .swap, key: key, source: q1, target: q2),
+                node(1, key: key, target: output, reads: [q1]),
+            ],
+            key: key,
+            input: input,
+            output: output
+        )
+        let clearSeedSwapPlan = requirePlan(clearSeedSwap, materialNodeCount: 1)
+        let composeFalse = graph(
+            targets: [],
+            nodes: [node(
+                0, key: key, target: output, reads: [input], compose: .bool(false)
+            )],
+            key: key,
+            input: input,
+            output: output
+        )
+        let composeTrue = graph(
+            targets: [],
+            nodes: [node(
+                0, key: key, target: output, reads: [input], compose: .bool(true)
+            )],
+            key: key,
+            input: input,
+            output: output
+        )
+        let composeString = graph(
+            targets: [],
+            nodes: [node(
+                0, key: key, target: output, reads: [input],
+                compose: .string("false")
+            )],
+            key: key,
+            input: input,
+            output: output
+        )
+        let composeFalsePlan = requirePlan(composeFalse, materialNodeCount: 1)
+        let composeTransition = graph(
+            targets: [],
+            nodes: [
+                node(
+                    0, key: key, target: output, reads: [input],
+                    compose: .bool(true)
+                ),
+                node(1, key: key, target: output, reads: [input]),
+            ],
+            key: key,
+            input: input,
+            output: output
+        )
+        guard case .success(let genericComposePlan) =
+            SceneGraphRenderTargetPlan.make(
+                graph: composeTransition,
+                inputRole: .layerSource,
+                inputWidth: 1920,
+                inputHeight: 1080
+            ) else {
+            fatalError("typed compose target plan rejected")
         }
         let rippleBuffer1 = texture(.framebuffer, key: key, name: "_rt_EightBuffer1")
         let rippleBuffer2 = texture(.framebuffer, key: key, name: "_rt_EightBuffer2")
@@ -584,6 +741,14 @@ enum Harness {
             "malformedClearFailure": failure(malformedClear),
             "commandTargets": targetSummary(commandsPlan),
             "persistentHistoryTargets": targetSummary(persistentHistoryPlan),
+            "clearSeedMaterialTargets": targetSummary(clearSeedMaterialPlan),
+            "clearSeedCopyTargets": targetSummary(clearSeedCopyPlan),
+            "clearSeedSwapTargets": targetSummary(clearSeedSwapPlan),
+            "clearSeedSwapCommands": clearSeedSwapPlan.commands.map(\.kind.rawValue),
+            "composeFalseAccepted": composeFalsePlan.logicalTargets.isEmpty,
+            "composeTrueFailure": failure(composeTrue, materialNodeCount: 1),
+            "composeStringFailure": failure(composeString, materialNodeCount: 1),
+            "genericComposeAccepted": genericComposePlan.output == output,
             "cursorHistoryTargets": targetSummary(cursorHistoryPlan),
             "commands": commandsPlan.commands.map {
                 [
@@ -593,6 +758,31 @@ enum Harness {
                     "target": $0.target.name ?? "",
                 ]
             },
+            "motionBlurCommands": motionBlurPlan.commands.map {
+                [
+                    "node": $0.nodeIndex,
+                    "kind": $0.kind.rawValue,
+                    "source": $0.source.name ?? "",
+                    "target": $0.target.name ?? "",
+                ]
+            },
+            "motionBlurTargets": targetSummary(motionBlurPlan),
+            "motionBlurUnique": motionBlurPlan.logicalTargets.map(\.isUnique),
+            "clearMismatchCopyCommands": clearMismatchCopyPlan.commands.map {
+                [
+                    "node": $0.nodeIndex,
+                    "kind": $0.kind.rawValue,
+                    "source": $0.source.name ?? "",
+                    "target": $0.target.name ?? "",
+                ]
+            },
+            "clearMismatchCopyClears": clearSummary(clearMismatchCopyPlan),
+            "uniqueMismatchSwapFailure": failure(
+                uniqueMismatchSwap, materialNodeCount: 3
+            ),
+            "clearMismatchSwapFailure": failure(
+                clearMismatchSwap, materialNodeCount: 3
+            ),
             "incompatibleCommandFailure": failure(
                 incompatibleCommands, materialNodeCount: 3
             ),
@@ -759,6 +949,30 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
             ],
         )
 
+    def test_authored_clear_is_a_defined_seed_for_every_first_read_shape(self) -> None:
+        material = self.result["clearSeedMaterialTargets"]
+        copy = self.result["clearSeedCopyTargets"]
+        swap = self.result["clearSeedSwapTargets"]
+        self.assertEqual(
+            [(target["name"], target["historySeed"]) for target in material],
+            [("q1", False), ("q2", True)],
+        )
+        self.assertEqual(
+            [(target["name"], target["historySeed"]) for target in copy],
+            [("q1", True), ("q2", False)],
+        )
+        self.assertEqual(
+            [(target["name"], target["historySeed"]) for target in swap],
+            [("q1", True), ("q2", True)],
+        )
+        self.assertEqual(self.result["clearSeedSwapCommands"], ["swap"])
+
+    def test_compose_false_is_absent_but_other_raw_shapes_fail_closed(self) -> None:
+        self.assertTrue(self.result["composeFalseAccepted"])
+        self.assertEqual(self.result["composeTrueFailure"], "executionMismatch")
+        self.assertEqual(self.result["composeStringFailure"], "executionMismatch")
+        self.assertTrue(self.result["genericComposeAccepted"])
+
     def test_cursor_ripple_admits_only_its_named_history_and_fit_extent(self) -> None:
         self.assertEqual(
             self.result["cursorHistoryTargets"],
@@ -825,6 +1039,56 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
         )
         self.assertEqual(
             self.result["incompatibleCommandFailure"],
+            "unsupportedTargetDescriptor",
+        )
+
+    def test_copy_uses_storage_compatibility_but_swap_requires_full_descriptor(self) -> None:
+        self.assertEqual(
+            self.result["motionBlurCommands"],
+            [{"node": 1, "kind": "copy", "source": "q2", "target": "q1"}],
+        )
+        self.assertEqual(
+            self.result["motionBlurTargets"],
+            [
+                {
+                    "name": "q1",
+                    "size": [1920, 1080],
+                    "format": "rgbaBackbuffer",
+                    "firstWrite": 1,
+                    "lastWrite": 1,
+                    "firstRead": 0,
+                    "lastRead": 0,
+                    "persistent": True,
+                    "historySeed": True,
+                },
+                {
+                    "name": "q2",
+                    "size": [1920, 1080],
+                    "format": "rgbaBackbuffer",
+                    "firstWrite": 0,
+                    "lastWrite": 0,
+                    "firstRead": 1,
+                    "lastRead": 2,
+                    "persistent": False,
+                    "historySeed": False,
+                },
+            ],
+        )
+        self.assertEqual(self.result["motionBlurUnique"], [True, False])
+        self.assertEqual(
+            self.result["clearMismatchCopyCommands"],
+            [{"node": 1, "kind": "copy", "source": "q1", "target": "q2"}],
+        )
+        self.assertEqual(
+            self.result["clearMismatchCopyClears"],
+            [[0.0, 0.0, 0.0, 0.0], []],
+        )
+        self.assertEqual(
+            self.result["uniqueMismatchSwapFailure"],
+            "unsupportedTargetDescriptor",
+        )
+        self.assertEqual(
+            self.result["clearMismatchSwapFailure"],
             "unsupportedTargetDescriptor",
         )
 

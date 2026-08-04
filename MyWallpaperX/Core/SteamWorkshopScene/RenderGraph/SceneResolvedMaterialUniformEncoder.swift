@@ -8,22 +8,24 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
         _ field: SceneAuthoredShaderUniformLayout.Field,
         slots: [Program.TextureSlot?]
     ) -> Program.HostUniform? {
-        switch (field.name, field.type) {
-        case ("mwxRenderSize", .float2): .renderSize
-        case ("g_ModelViewProjectionMatrix", .float4x4): .modelViewProjection
-        case ("g_Time", .float): .time
-        case ("g_Daytime", .float): .dayTime
-        case ("g_Frametime", .float): .frameTime
-        case ("g_PointerPosition", .float2): .pointerPosition
-        case ("g_PointerPositionLast", .float2): .pointerPositionLast
-        case ("g_Screen", .float3): .screen
-        case ("g_TexelSize", .float2):
-            .texelSize(scaleBitPattern: Double(1).bitPattern)
-        case ("g_TexelSizeHalf", .float2):
-            .texelSize(scaleBitPattern: Double(0.5).bitPattern)
-        default:
-            textureResolution(field, slots: slots)
-        }
+        hostUniform(
+            field,
+            activeTextureSlots: Set(slots.enumerated().compactMap {
+                $0.element == nil ? nil : $0.offset
+            })
+        )
+    }
+
+    /// Host-uniform schema is a shader-variant fact. Concrete texture resources
+    /// are intentionally absent so launch/first-use compilation can cache it.
+    static func hostUniform(
+        _ field: SceneAuthoredShaderUniformLayout.Field,
+        activeTextureSlots: Set<Int>
+    ) -> Program.HostUniform? {
+        SceneResolvedMaterialHostUniformSchema.resolve(
+            field,
+            activeTextureSlots: activeTextureSlots
+        )
     }
 
     static func encodeHost(
@@ -152,20 +154,6 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
             }
             return data
         }
-    }
-
-    private static func textureResolution(
-        _ field: SceneAuthoredShaderUniformLayout.Field,
-        slots: [Program.TextureSlot?]
-    ) -> Program.HostUniform? {
-        guard field.type == .float4,
-              field.name.hasPrefix("g_Texture"),
-              field.name.hasSuffix("Resolution") else { return nil }
-        let start = field.name.index(field.name.startIndex, offsetBy: "g_Texture".count)
-        let end = field.name.index(field.name.endIndex, offsetBy: -"Resolution".count)
-        guard start < end, let slot = Int(field.name[start ..< end]),
-              slots.indices.contains(slot), slots[slot] != nil else { return nil }
-        return .textureResolution(slot: slot)
     }
 
     private static func encodeSize(

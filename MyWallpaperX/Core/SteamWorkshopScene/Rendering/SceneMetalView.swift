@@ -16,7 +16,7 @@ class SceneMetalView: NSView {
     var particlePlayback: SceneParticlePlaybackState?
     private var dynamicTextTextures: SceneDynamicTextTextureStore?
     private let mediaThumbnailCoordinator: SceneMediaThumbnailCoordinator
-    private let offscreenTexturePool: SceneOffscreenTexturePool
+    let offscreenTexturePool: SceneOffscreenTexturePool
     var pointerState = SceneSurfacePointerState()
     var parallaxPointerSmoother: SceneParallaxPointerSmoother
     var trackingArea: NSTrackingArea?
@@ -106,7 +106,7 @@ class SceneMetalView: NSView {
         var puppetRecomposeBytes = 0
         // 所有渲染层都要装载 effect 实例资源，mp4 payload 视频层也不能遗漏。
         func loadEffectTextures(for layer: SceneRenderDescriptor.Layer) -> SceneLayerEffectTextures {
-            let stages = renderer.authoredEffectChain(for: layer.id)?.stages ?? []
+            let stages = renderer.authoredEffectChain(for: layer.id)?.executionStages ?? []
             let textures = SceneLayerEffectTextureLoader.load(
                 for: layer,
                 stages: stages,
@@ -375,21 +375,21 @@ class SceneMetalView: NSView {
             particlePipeline: particlePlayback?.pipeline,
             offscreenTexturePool: offscreenTexturePool,
             frameContext: frameContext,
-            encodeSourceUpdates: { [puppetPlaybackStates, spriteAnimations] commandBuffer in
+            encodeSourceUpdates: { [puppetPlaybackStates, spriteAnimations] commandBuffer, transaction in
                 for animation in spriteAnimations.values {
                     animation.encode(
                         sceneTime: Float(frameContext.sceneTime), wallDate: frameContext.wallDate,
-                        commandBuffer: commandBuffer
+                        commandBuffer: commandBuffer, transaction: transaction
                     )
                 }
                 for playback in puppetPlaybackStates.values {
-                    playback.encode(sceneTime: frameContext.sceneTime, dynamicValues: frameContext.dynamicValues, commandBuffer: commandBuffer)
+                    playback.encode(sceneTime: frameContext.sceneTime, dynamicValues: frameContext.dynamicValues, commandBuffer: commandBuffer, transaction: transaction)
                 }
             },
-            encodeLayerSourceUpdates: { [mediaThumbnailCoordinator] commandBuffer in
+            encodeLayerSourceUpdates: { [mediaThumbnailCoordinator] commandBuffer, transaction in
                 mediaThumbnailCoordinator.encodeTransition(
                     media: mediaThumbnailSnapshot, sceneTime: frameContext.sceneTime,
-                    commandBuffer: commandBuffer
+                    commandBuffer: commandBuffer, transaction: transaction
                 )
             },
             encodeFrameReadback: frameReadback,

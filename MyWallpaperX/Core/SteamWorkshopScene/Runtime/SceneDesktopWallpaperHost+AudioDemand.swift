@@ -36,7 +36,7 @@ extension SceneDesktopWallpaperHost {
         hasParticleAudioConsumer
             || sceneScriptAudioBarsProgram.hasAudioConsumer
             || catalog.chainsByLayerID.values.contains { chain in
-            chain.stages.contains {
+            chain.executionStages.contains {
                 $0.shake?.audio != nil
                     || $0.pulse?.audio != nil
                     || $0.workshopAudioBars != nil

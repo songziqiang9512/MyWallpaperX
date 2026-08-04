@@ -17,9 +17,13 @@
       "EffectExecution": {
         "file_globs": [
           "SceneAuthoredEffectChainRenderer*.swift",
-          "SceneStandaloneAuthoredEffectRenderer*.swift"
+          "SceneStandaloneAuthoredEffectRenderer*.swift",
+          "SceneGraphResourcePassEncoder.swift",
+          "SceneResolvedMaterialExecutionCapability*.swift",
+          "SceneResolvedMaterialGraphExecutor*.swift",
+          "SceneResolvedMaterialPassEncoder.swift"
         ],
-        "responsibility": "Authored-effect GPU execution renderer type families, including ordered chains and standalone plans."
+        "responsibility": "Authored-effect GPU execution type families, including ordered chains, resolved material graphs, resource commands, and standalone plans."
       }
     }
   },

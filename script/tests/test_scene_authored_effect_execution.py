@@ -24,9 +24,11 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainAdmission.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectStageGraphAdmission.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionChain.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionChain+Route.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectChainPlanner+StageResolution.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectStageCompiler.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectXRayPrefix.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectStageRebase.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectStageProgram.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectStageAdmission.swift",
@@ -420,7 +422,9 @@ enum SceneAuthoredWaterCausticsPlanner {
 }
 
 struct SceneCursorRippleExecutionPlan {
+    let layerID: Int
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+    let renderGraph: SceneAuthoredEffectRenderPlan
 }
 struct SceneIrisInlineSuffixPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
@@ -439,7 +443,7 @@ enum SceneAuthoredCursorRipplePlanner {
 
 extension SceneAuthoredEffectChainPlanner {
     static func irisInlineSuffix(
-        plannedStages: [SceneAuthoredEffectExecutionPlan],
+        plannedPrograms: [SceneEffectStageProgram],
         unsupportedOrdinal: Int,
         graph: Graph,
         descriptor: SceneRenderDescriptor,
@@ -625,7 +629,13 @@ enum SceneAuthoredGodraysPlanner {
     }
 }
 
-struct SceneShineExecutionPlan {}
+struct SceneShineExecutionPlan {
+    let layerID: Int
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+    let renderGraph: SceneAuthoredEffectRenderPlan
+    let firstHalfTarget: SceneAuthoredEffectRenderPlan.TextureIdentity
+    let secondHalfTarget: SceneAuthoredEffectRenderPlan.TextureIdentity
+}
 
 enum SceneAuthoredShinePlanner {
     static func plan(
@@ -1077,7 +1087,9 @@ enum Harness {
     static func interleavedGraph(
         commandKind: Graph.NodeKind,
         commandAfterVertical: Bool = false,
-        commandCompose: SceneJSONValue? = nil
+        commandCompose: SceneJSONValue? = nil,
+        sourceUnique: Bool? = nil,
+        targetUnique: Bool? = nil
     ) -> Graph {
         let layerID = 10
         let key = Graph.EffectKey(
@@ -1130,12 +1142,15 @@ enum Harness {
             renderTargets: [
                 .init(
                     texture: first, extent: .init(kind: .input, first: nil, second: nil),
-                    format: "rgba_backbuffer", declaredUnique: false, clear: nil,
+                    format: "rgba_backbuffer",
+                    declaredUnique: sourceUnique ?? (commandKind == .swap),
+                    clear: nil,
                     uvs: nil, conditions: nil
                 ),
                 .init(
                     texture: second, extent: .init(kind: .input, first: nil, second: nil),
-                    format: "rgba_backbuffer", declaredUnique: commandKind == .swap,
+                    format: "rgba_backbuffer",
+                    declaredUnique: targetUnique ?? (commandKind == .swap),
                     clear: nil, uvs: nil, conditions: nil
                 ),
             ],
@@ -1366,6 +1381,144 @@ enum Harness {
         }
     }
 
+    static func materialOnlyResolverEvidence() -> [String: Any] {
+        let layerID = 99
+        let key = Graph.EffectKey(
+            layerID: layerID, effectIndex: 0, descriptorID: "material-only"
+        )
+        let source = texture(.layerSource, layerID: layerID)
+        let output = texture(.effectOutput, layerID: layerID, effect: key)
+        let node = Graph.Node(
+            nodeIndex: 0, effect: key, definitionPassIndex: 0, materialOrdinal: 0,
+            instancePassIndex: nil, kind: .material,
+            materialPath: "materials/material-only.json",
+            materialPassID: "materials/material-only.json#0", target: output,
+            bindings: [
+                .init(
+                    slot: 1, authoredName: "previous", texture: source,
+                    conditions: nil
+                ),
+            ],
+            commandSource: nil, commandTarget: nil, compose: nil, conditions: nil
+        )
+        let graph = Graph(
+            layerID: layerID,
+            effects: [
+                .init(
+                    key: key, definitionPath: "effects/material-only/effect.json",
+                    input: source, output: output, nodeIndices: [0]
+                ),
+            ],
+            renderTargets: [], nodes: [node], finalOutput: output, blockers: []
+        )
+        let material = SceneRenderDescriptor.MaterialPassDescriptor(
+            id: "materials/material-only.json#0",
+            materialPath: "materials/material-only.json",
+            shaderPath: "effects/material-only",
+            textureSlots: ["textures/material-zero", nil, "textures/material-two"],
+            userTextureInputs: [], combos: ["STATIC_MODE": 7],
+            constantShaderValues: [
+                "gain": .init(components: [0.25, 0.75]),
+            ],
+            blending: "normal", depthTest: "disabled", depthWrite: "disabled",
+            cullMode: "nocull"
+        )
+        let descriptor = SceneRenderDescriptor(
+            layers: [
+                .init(
+                    id: layerID, parentID: nil, visible: true,
+                    contentKind: "image",
+                    effects: [
+                        .init(
+                            id: key.descriptorID,
+                            file: "effects/material-only/effect.json",
+                            visible: true, passes: []
+                        ),
+                    ]
+                ),
+            ],
+            materialPasses: [material]
+        )
+        let resolution = SceneAuthoredMaterialResolver.resolve(
+            node: node, graph: graph, descriptor: descriptor
+        )
+
+        let dynamicDescriptor = SceneRenderDescriptor(
+            layers: [
+                .init(
+                    id: layerID, parentID: nil, visible: true,
+                    contentKind: "image",
+                    effects: [
+                        .init(
+                            id: key.descriptorID,
+                            file: "effects/material-only/effect.json",
+                            visible: true,
+                            passes: [
+                                .init(
+                                    passIndex: 0, textureSlots: [],
+                                    userTextureInputs: [], combos: [:],
+                                    constantShaderValues: [
+                                        "gain": .init(
+                                            userBinding: "user.gain", components: nil
+                                        ),
+                                    ]
+                                ),
+                            ]
+                        ),
+                    ]
+                ),
+            ],
+            materialPasses: [material]
+        )
+        let dynamicResolution = SceneAuthoredMaterialResolver.resolve(
+            node: node, graph: graph, descriptor: dynamicDescriptor
+        )
+
+        guard let resolved = resolution.node else {
+            return [
+                "resolved": false,
+                "issues": resolution.issues,
+                "dynamicPassWithoutIdentityRejected": !dynamicResolution.isResolved,
+            ]
+        }
+        let slot0Asset: String = {
+            guard let slot = resolved.textureSlots[0],
+                  case .asset(let path) = slot.source else { return "" }
+            return path
+        }()
+        let slot1Binding: [String: Any] = {
+            guard let slot = resolved.textureSlots[1],
+                  case .graph(let identity) = slot.source else { return [:] }
+            return [
+                "provenance": slot.provenance.rawValue,
+                "kind": identity.kind.rawValue,
+                "layerID": identity.layerID,
+            ]
+        }()
+        let slot2Asset: String = {
+            guard let slot = resolved.textureSlots[2],
+                  case .asset(let path) = slot.source else { return "" }
+            return path
+        }()
+        return [
+            "resolved": resolution.isResolved,
+            "issues": resolution.issues,
+            "shader": resolved.shaderPath,
+            "slot0Asset": slot0Asset,
+            "slot1Binding": slot1Binding,
+            "slot2Asset": slot2Asset,
+            "slotProvenance": resolved.textureSlots.prefix(3).map {
+                $0?.provenance.rawValue ?? "hole"
+            },
+            "staticMode": resolved.combos["STATIC_MODE"] ?? -1,
+            "gain": resolved.constants["gain"]?.components ?? [],
+            "dynamicPassWithoutIdentityRejected":
+                dynamicResolution.node == nil
+                && dynamicResolution.issues
+                    == ["Effect instance pass does not match the graph ordinal."],
+        ]
+    }
+
     static func sampleChain(
         layerID: Int,
         stageNames: [String]
@@ -1440,7 +1593,7 @@ enum Harness {
     static func stageEvidence(
         _ chain: SceneAuthoredEffectExecutionChain?
     ) -> [[Any]] {
-        chain?.stages.map { stage in
+        chain?.executionStages.map { stage in
             let effectIndex = stage.renderGraph.effects[0].key.effectIndex
             let backend: String
             switch stage.backend {
@@ -1775,7 +1928,16 @@ enum Harness {
                 ),
                 descriptor: descriptor
             ) == nil,
+            "swapSourceOnlyUniqueRejected": SceneAuthoredEffectExecutionPlanner.plan(
+                graph: interleavedGraph(commandKind: .swap, targetUnique: false),
+                descriptor: descriptor
+            ) == nil,
+            "swapTargetOnlyUniqueRejected": SceneAuthoredEffectExecutionPlanner.plan(
+                graph: interleavedGraph(commandKind: .swap, sourceUnique: false),
+                descriptor: descriptor
+            ) == nil,
             "precedence": resolverPrecedence(),
+            "materialOnly": materialOnlyResolverEvidence(),
             "extraEffectRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10, extraEffect: true), descriptor: descriptor) == nil,
             "blockerRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10, blockers: [blocker]), descriptor: descriptor) == nil,
             "uniqueRejected": SceneAuthoredEffectExecutionPlanner.plan(graph: graph(layerID: 10, unique: true), descriptor: descriptor) == nil,
@@ -1902,6 +2064,8 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertTrue(self.result["swapInterleavedPlanned"])
         self.assertTrue(self.result["lateCommandRejected"])
         self.assertTrue(self.result["composedCommandRejected"])
+        self.assertTrue(self.result["swapSourceOnlyUniqueRejected"])
+        self.assertTrue(self.result["swapTargetOnlyUniqueRejected"])
 
     def test_precise_blur_accepts_all_bounded_kernel_sizes(self) -> None:
         self.assertTrue(self.result["legacyComposePlanned"])
@@ -1939,6 +2103,29 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
                 ["hole"], ["hole"], ["hole"], ["hole"], ["hole"],
             ],
         )
+
+    def test_material_only_descriptor_preserves_material_payload(self) -> None:
+        evidence = self.result["materialOnly"]
+        self.assertTrue(evidence["resolved"])
+        self.assertEqual(evidence["issues"], [])
+        self.assertEqual(evidence["shader"], "effects/material-only")
+        self.assertEqual(evidence["slot0Asset"], "textures/material-zero")
+        self.assertEqual(
+            evidence["slot1Binding"],
+            {
+                "provenance": "explicitBinding",
+                "kind": "layerSource",
+                "layerID": 99,
+            },
+        )
+        self.assertEqual(evidence["slot2Asset"], "textures/material-two")
+        self.assertEqual(
+            evidence["slotProvenance"],
+            ["material", "explicitBinding", "material"],
+        )
+        self.assertEqual(evidence["staticMode"], 7)
+        self.assertEqual(evidence["gain"], [0.25, 0.75])
+        self.assertTrue(evidence["dynamicPassWithoutIdentityRejected"])
 
     def test_unsupported_graph_shapes_fail_closed(self) -> None:
         for key in (
@@ -1999,9 +2186,9 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
             f"{sample_id} fixture must preserve authored effect indexes",
         )
         loop = planner.index("for (ordinal, effect) in graph.effects.enumerated()")
-        append = planner.index("stages.append(stage)", loop)
+        append = planner.index("stagePrograms.append(program)", loop)
         returned_chain = planner.index(
-            "chain: SceneAuthoredEffectExecutionChain(",
+            "guard let chain = SceneAuthoredEffectExecutionChain.complete(",
             append,
         )
         self.assertLess(loop, append)
@@ -2107,10 +2294,11 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         compositor = COMPOSITOR_SOURCE.read_text(encoding="utf-8")
 
         for marker in (
-            "!plannedStages.isEmpty",
+            "!plannedPrograms.isEmpty",
             "unsupportedOrdinal == graph.effects.count - 1",
-            "plannedStages.count == unsupportedOrdinal",
+            "plannedPrograms.count == unsupportedOrdinal",
             "inputRole: .priorEffectOutput",
+            "kind: .terminalIrisInlineSuffix",
             "irisInlineSuffix: suffix",
         ):
             self.assertIn(marker, suffix)

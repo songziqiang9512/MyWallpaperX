@@ -1,3 +1,4 @@
+import Foundation
 import Metal
 
 /// One provider publication atom. The logical request is exact; all physical
@@ -93,6 +94,55 @@ enum SceneTextureProviderState {
 struct SceneFrameTextureResource {
     let publication: SceneTextureProviderPublication
     let resourceGeneration: UInt64
+
+    /// Rebinds one already validated graph allocation to another logical graph
+    /// request. Swap changes only this request identity; the physical provider,
+    /// texture and both generations remain the same immutable atom.
+    func rewrappedForGraphIdentity(
+        _ identity: SceneAuthoredEffectRenderPlan.TextureIdentity
+    ) -> Self? {
+        guard isCompleteGraphResource,
+              identity.isValidGraphPublicationIdentity else { return nil }
+        let result = Self(
+            publication: publication.publication(for: .graph(identity)),
+            resourceGeneration: resourceGeneration
+        )
+        return result.isCompleteGraphResource ? result : nil
+    }
+
+    var isCompleteGraphResource: Bool {
+        guard resourceGeneration > 0,
+              resourceGeneration == publication.contentGeneration,
+              publication.isComplete,
+              case .graph(let request) = publication.requestIdentity,
+              request.isValidGraphPublicationIdentity,
+              case let .provider(.graph(allocationGeneration, physicalToken)) =
+                  publication.candidate.identity,
+              allocationGeneration > 0,
+              !physicalToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              case .provider(let generation) = publication.candidate.generation,
+              generation == resourceGeneration,
+              publication.candidate.purpose == .premultipliedColor,
+              publication.candidate.physicalSize
+                  == publication.candidate.mappedSize,
+              publication.candidate.uvTransform == .identity,
+              publication.candidate.sampling == .directImageFallback,
+              publication.candidate.sampling.rawFlags == nil,
+              publication.candidate.texture.usage.contains(.renderTarget),
+              publication.candidate.texture.mipmapLevelCount == 1,
+              let uvScale = publication.candidate.axisAlignedMappedUVScale(
+                  expectedPurpose: .premultipliedColor
+              ), uvScale.x == 1, uvScale.y == 1 else {
+            return false
+        }
+        switch publication.candidate.content {
+        case .color(.resolved(.opaque)),
+             .color(.resolved(.premultipliedAlpha)):
+            return true
+        case .color(.resolved(.straightAlpha)), .color(.unresolved), .data:
+            return false
+        }
+    }
 }
 
 enum SceneFrameTextureIncompleteResource {
@@ -123,5 +173,52 @@ struct SceneFrameTextureRegistrySnapshot {
     func resource(for identity: SceneFrameTextureIdentity) -> SceneFrameTextureResource? {
         guard case let .ready(resource) = entries[identity] else { return nil }
         return resource
+    }
+
+    /// Returns a value-only graph overlay. Every replacement is validated
+    /// before the copied dictionary is changed, so one invalid graph atom
+    /// cannot produce a partial snapshot.
+    func overlayingGraphResources(
+        _ resources: [
+            SceneAuthoredEffectRenderPlan.TextureIdentity: SceneFrameTextureResource
+        ]
+    ) -> Self? {
+        guard resources.allSatisfy({ identity, resource in
+            identity.isValidGraphPublicationIdentity
+                && resource.publication.requestIdentity == .graph(identity)
+                && resource.isCompleteGraphResource
+        }) else { return nil }
+
+        var overlaid = entries
+        for (identity, resource) in resources {
+            overlaid[.graph(identity)] = .ready(resource)
+        }
+        return Self(
+            frameEpoch: frameEpoch,
+            frameIndex: frameIndex,
+            entries: overlaid
+        )
+    }
+}
+
+private extension SceneAuthoredEffectRenderPlan.TextureIdentity {
+    var isValidGraphPublicationIdentity: Bool {
+        switch kind {
+        case .layerSource:
+            return effect == nil && name == nil
+        case .effectOutput:
+            return validEffect && name == nil
+        case .framebuffer:
+            return validEffect
+                && name?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        case .unresolved:
+            return false
+        }
+    }
+
+    var validEffect: Bool {
+        effect?.layerID == layerID
+            && (effect?.effectIndex ?? -1) >= 0
+            && effect?.descriptorID.isEmpty == false
     }
 }

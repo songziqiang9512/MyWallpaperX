@@ -5,9 +5,10 @@ extension SceneAuthoredEffectChainRenderer {
         chain: SceneAuthoredEffectExecutionChain,
         targets: [SceneGraphRenderTargetTable]
     ) -> Bool {
+        let executionStages = chain.executionStages
         var previousOutput: SceneAuthoredEffectRenderPlan.TextureIdentity?
-        for index in chain.stages.indices {
-            let stage = chain.stages[index]
+        for index in executionStages.indices {
+            let stage = executionStages[index]
             let table = targets[index]
             guard stage.layerID == chain.layerID,
                   table.plan.layerID == chain.layerID,
@@ -16,7 +17,7 @@ extension SceneAuthoredEffectChainRenderer {
                   table.plan.output == stage.renderGraph.finalOutput else {
                 return false
             }
-            if index == chain.stages.startIndex {
+            if index == executionStages.startIndex {
                 guard stage.inputRole == .layerSource else { return false }
             } else {
                 guard stage.inputRole == .priorEffectOutput,

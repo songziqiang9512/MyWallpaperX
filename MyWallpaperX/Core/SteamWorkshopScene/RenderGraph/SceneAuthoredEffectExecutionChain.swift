@@ -3,110 +3,109 @@ import Foundation
 nonisolated struct SceneAuthoredEffectExecutionChain {
     let layerID: Int
     let renderGraph: SceneAuthoredEffectRenderPlan
-    let stages: [SceneAuthoredEffectExecutionPlan]
+    let stagePrograms: [SceneEffectStageProgram]
+    let legacyRecoveryStages: [SceneAuthoredEffectExecutionPlan]
+    let executionRoute: ExecutionRoute
     let irisInlineSuffix: SceneIrisInlineSuffixPlan?
     let isolatedCursorRippleOmittedEffectPaths: [String]
     let isolatedShineOmittedEffectPaths: [String]
 
-    init(
-        layerID: Int,
-        renderGraph: SceneAuthoredEffectRenderPlan,
-        stages: [SceneAuthoredEffectExecutionPlan],
-        irisInlineSuffix: SceneIrisInlineSuffixPlan? = nil,
-        isolatedCursorRippleOmittedEffectPaths: [String] = [],
-        isolatedShineOmittedEffectPaths: [String] = []
-    ) {
-        self.layerID = layerID
-        self.renderGraph = renderGraph
-        self.stages = stages
-        self.irisInlineSuffix = irisInlineSuffix
-        self.isolatedCursorRippleOmittedEffectPaths =
-            isolatedCursorRippleOmittedEffectPaths
-        self.isolatedShineOmittedEffectPaths = isolatedShineOmittedEffectPaths
+    var executionStages: [SceneAuthoredEffectExecutionPlan] {
+        switch executionRoute {
+        case .completePrograms:
+            stagePrograms.map(\.executionPlan)
+        case .legacyRecovery:
+            legacyRecoveryStages.isEmpty
+                ? stagePrograms.map(\.executionPlan)
+                : legacyRecoveryStages
+        }
     }
 
     var singleStage: SceneAuthoredEffectExecutionPlan? {
-        stages.count == 1 ? stages[0] : nil
+        let projectedExecutionStages = executionStages
+        return projectedExecutionStages.count == 1
+            ? projectedExecutionStages[0]
+            : nil
     }
 
     var materialNodeCount: Int {
-        stages.reduce(0) { $0 + $1.materialNodeCount }
+        executionStages.reduce(0) { $0 + $1.materialNodeCount }
     }
 
     var logicalRenderTargetCount: Int {
-        stages.reduce(0) { $0 + $1.logicalRenderTargetCount }
+        executionStages.reduce(0) { $0 + $1.logicalRenderTargetCount }
     }
 
     var localContrastCount: Int {
-        stages.filter { $0.localContrast != nil }.count
+        executionStages.filter { $0.localContrast != nil }.count
     }
 
     var opacityCount: Int {
-        stages.filter { $0.opacity != nil }.count
+        executionStages.filter { $0.opacity != nil }.count
     }
 
     var colorKeyCount: Int {
-        stages.filter { $0.colorKey != nil }.count
+        executionStages.filter { $0.colorKey != nil }.count
     }
 
     var colorGradingCount: Int {
-        stages.filter { $0.colorGrading != nil }.count
+        executionStages.filter { $0.colorGrading != nil }.count
     }
 
     var workshopShiftHueCount: Int {
-        stages.filter { $0.workshopShiftHue != nil }.count
+        executionStages.filter { $0.workshopShiftHue != nil }.count
     }
 
     var workshopAudioBarsCount: Int {
-        stages.filter { $0.workshopAudioBars != nil }.count
+        executionStages.filter { $0.workshopAudioBars != nil }.count
     }
 
     var workshopGradientCount: Int {
-        stages.filter { $0.workshopGradient != nil }.count
+        executionStages.filter { $0.workshopGradient != nil }.count
     }
 
     var workshopAudioHueShiftCount: Int {
-        stages.filter { $0.workshopAudioHueShift != nil }.count
+        executionStages.filter { $0.workshopAudioHueShift != nil }.count
     }
 
     var workshopShadowCount: Int {
-        stages.filter { $0.workshopShadow != nil }.count
+        executionStages.filter { $0.workshopShadow != nil }.count
     }
 
     var spinCount: Int {
-        stages.filter { $0.spin != nil }.count
+        executionStages.filter { $0.spin != nil }.count
     }
 
     var proceduralNoiseCount: Int {
-        stages.filter { $0.proceduralNoise != nil }.count
+        executionStages.filter { $0.proceduralNoise != nil }.count
     }
 
     var filmGrainCount: Int {
-        stages.filter { $0.filmGrain != nil }.count
+        executionStages.filter { $0.filmGrain != nil }.count
     }
 
     var lightShaftsCount: Int {
-        stages.filter { $0.lightShafts != nil }.count
+        executionStages.filter { $0.lightShafts != nil }.count
     }
 
     var shakeCount: Int {
-        stages.filter { $0.shake != nil }.count
+        executionStages.filter { $0.shake != nil }.count
     }
 
     var waterFlowCount: Int {
-        stages.filter { $0.waterFlow != nil }.count
+        executionStages.filter { $0.waterFlow != nil }.count
     }
 
     var waterWavesCount: Int {
-        stages.filter { $0.waterWaves != nil }.count
+        executionStages.filter { $0.waterWaves != nil }.count
     }
 
     var waterCausticsCount: Int {
-        stages.filter { $0.waterCaustics != nil }.count
+        executionStages.filter { $0.waterCaustics != nil }.count
     }
 
     var cursorRippleCount: Int {
-        stages.filter { $0.cursorRipple != nil }.count
+        executionStages.filter { $0.cursorRipple != nil }.count
     }
 
     var isolatedCursorRippleCount: Int {
@@ -114,15 +113,15 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
     }
 
     var foliageSwayCount: Int {
-        stages.filter { $0.foliageSway != nil }.count
+        executionStages.filter { $0.foliageSway != nil }.count
     }
 
     var waterRippleCount: Int {
-        stages.filter { $0.waterRipple != nil }.count
+        executionStages.filter { $0.waterRipple != nil }.count
     }
 
     var depthParallaxCount: Int {
-        stages.filter { $0.depthParallax != nil }.count
+        executionStages.filter { $0.depthParallax != nil }.count
     }
 
     var irisInlineSuffixCount: Int {
@@ -130,39 +129,39 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
     }
 
     var xRayCount: Int {
-        stages.filter { $0.xRay != nil }.count
+        executionStages.filter { $0.xRay != nil }.count
     }
 
     var clippingMaskCount: Int {
-        stages.filter { $0.clippingMask != nil }.count
+        executionStages.filter { $0.clippingMask != nil }.count
     }
 
     var blendCount: Int {
-        stages.filter { $0.blend != nil }.count
+        executionStages.filter { $0.blend != nil }.count
     }
 
     var tintCount: Int {
-        stages.filter { $0.tint != nil }.count
+        executionStages.filter { $0.tint != nil }.count
     }
 
     var transformCount: Int {
-        stages.filter { $0.transform != nil }.count
+        executionStages.filter { $0.transform != nil }.count
     }
 
     var fisheyeZeroDistortionCount: Int {
-        stages.filter { $0.fisheyeZeroDistortion != nil }.count
+        executionStages.filter { $0.fisheyeZeroDistortion != nil }.count
     }
 
     var pulseCount: Int {
-        stages.filter { $0.pulse != nil }.count
+        executionStages.filter { $0.pulse != nil }.count
     }
 
     var godraysCount: Int {
-        stages.filter { $0.godrays != nil }.count
+        executionStages.filter { $0.godrays != nil }.count
     }
 
     var shineCount: Int {
-        stages.filter { $0.shine != nil }.count
+        executionStages.filter { $0.shine != nil }.count
     }
 
     var isolatedShineCount: Int {
@@ -170,24 +169,26 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
     }
 
     var authoredShaderCount: Int {
-        stages.filter { $0.authoredShader != nil }.count
+        executionStages.filter { $0.authoredShader != nil }.count
     }
     var scrollCount: Int {
-        stages.filter { $0.authoredShader?.profile == .scroll }.count
+        executionStages.filter { $0.authoredShader?.profile == .scroll }.count
     }
 
     func authoredShaderOffscreenSize(for requestedSize: CGSize) -> CGSize? {
-        stages.compactMap { $0.authoredShader?.offscreenSize(for: requestedSize) }.min {
+        executionStages.compactMap {
+            $0.authoredShader?.offscreenSize(for: requestedSize)
+        }.min {
             $0.width * $0.height < $1.width * $1.height
         }
     }
 
     var liveConsumerTargets: Set<SceneDynamicTarget> {
-        Set(stages.flatMap(\.liveConsumerTargets))
+        Set(executionStages.flatMap(\.liveConsumerTargets))
     }
 
     var executedUserPropertyKeys: Set<String> {
-        Set(stages.flatMap { $0.blend?.executedUserPropertyKeys ?? [] })
+        Set(executionStages.flatMap { $0.blend?.executedUserPropertyKeys ?? [] })
     }
 }
 

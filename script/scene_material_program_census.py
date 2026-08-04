@@ -165,6 +165,13 @@ enum SceneResolvedMaterialProgramDerivation {
     ) -> SceneResolvedMaterialProgram.Derived? {
         nil
     }
+
+    static func deriveCompiled(
+        _ input: SceneResolvedMaterialProgram.AssemblyInput,
+        frontend: SceneAuthoredShaderProgram
+    ) -> SceneResolvedMaterialProgram.Derived? {
+        nil
+    }
 }
 
 enum SceneAuthoredShaderExecutionPlanner {

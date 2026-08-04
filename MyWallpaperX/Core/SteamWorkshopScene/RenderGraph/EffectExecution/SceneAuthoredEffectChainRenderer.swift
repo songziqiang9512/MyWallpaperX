@@ -22,8 +22,9 @@ enum SceneAuthoredEffectChainRenderer {
         executionTrace: SceneEffectExecutionFrameTrace? = nil,
         executionOrigin: SceneEffectExecutionOrigin = .image
     ) -> MTLTexture? {
-        guard !chain.stages.isEmpty,
-              chain.stages.count == targets.count,
+        let executionStages = chain.executionStages
+        guard !executionStages.isEmpty,
+              executionStages.count == targets.count,
               validTopology(chain: chain, targets: targets),
               targets.allSatisfy({
                   $0.encodeInitialTargetClear(commandBuffer: commandBuffer)
@@ -38,9 +39,9 @@ enum SceneAuthoredEffectChainRenderer {
         }
 
         var currentSource = sourceTexture
-        for index in chain.stages.indices {
-            let stage = chain.stages[index]
-            let isFirstStage = index == chain.stages.startIndex
+        for index in executionStages.indices {
+            let stage = executionStages[index]
+            let isFirstStage = index == executionStages.startIndex
             guard let effectKey = stage.renderGraph.effects.first?.key else {
                 executionTrace?.recordRouteOperation(
                     layerID: chain.layerID,

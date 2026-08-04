@@ -175,26 +175,6 @@ extension SceneAuthoredEffectRenderPlanner {
         )
     }
 
-    nonisolated static func commandCompatible(
-        _ kind: Plan.NodeKind,
-        source: SceneEffectDefinition.Framebuffer,
-        target: SceneEffectDefinition.Framebuffer
-    ) -> Bool {
-        guard storageCompatible(source, target) else { return false }
-        guard kind == .swap else { return kind == .copy || kind == .unknownCommand }
-        return source.unique == target.unique
-            && source.uvs == target.uvs
-            && source.clear == target.clear
-            && source.conditions == target.conditions
-    }
-
-    nonisolated private static func storageCompatible(
-        _ lhs: SceneEffectDefinition.Framebuffer,
-        _ rhs: SceneEffectDefinition.Framebuffer
-    ) -> Bool {
-        targetExtent(lhs) == targetExtent(rhs) && lhs.format == rhs.format
-    }
-
     nonisolated static func validClear(_ clear: SceneJSONValue?) -> Bool {
         guard let clear else { return true }
         let components: [Double]

@@ -54,6 +54,20 @@ nonisolated struct SceneAuthoredMaterialResolution {
 enum SceneAuthoredMaterialResolver {
     typealias Graph = SceneAuthoredEffectRenderPlan
 
+    private struct InstanceOverlay {
+        let textureSlots: [String?]
+        let userTextureInputs: [SceneEffectTextureInput?]
+        let combos: [String: Int]
+        let constantShaderValues: [String: SceneDocument.ShaderValue]
+
+        static let empty = Self(
+            textureSlots: [],
+            userTextureInputs: [],
+            combos: [:],
+            constantShaderValues: [:]
+        )
+    }
+
     nonisolated static func resolve(
         node: Graph.Node,
         graph: Graph,
@@ -79,7 +93,11 @@ enum SceneAuthoredMaterialResolver {
         guard let shaderPath = material.shaderPath, !shaderPath.isEmpty else {
             return .init(node: nil, issues: ["Material shader path is missing."])
         }
-        guard let instancePass = instancePass(for: node, graph: graph, descriptor: descriptor) else {
+        guard let instance = instanceOverlay(
+            for: node,
+            graph: graph,
+            descriptor: descriptor
+        ) else {
             return .init(node: nil, issues: ["Effect instance pass does not match the graph ordinal."])
         }
 
@@ -92,18 +110,18 @@ enum SceneAuthoredMaterialResolver {
         )
         mergeUserTextures(material.userTextureInputs, into: &slots, issues: &issues)
         mergeAssets(
-            instancePass.textureSlots,
+            instance.textureSlots,
             provenance: .instance,
             into: &slots,
             issues: &issues
         )
-        mergeUserTextures(instancePass.userTextureInputs, into: &slots, issues: &issues)
+        mergeUserTextures(instance.userTextureInputs, into: &slots, issues: &issues)
         mergeBindings(node.bindings, into: &slots, issues: &issues)
 
         var combos = material.combos
-        instancePass.combos.forEach { combos[$0.key] = $0.value }
+        instance.combos.forEach { combos[$0.key] = $0.value }
         var constants = material.constantShaderValues
-        instancePass.constantShaderValues.forEach { constants[$0.key] = $0.value }
+        instance.constantShaderValues.forEach { constants[$0.key] = $0.value }
         let resolved = SceneResolvedMaterialNode(
             nodeIndex: node.nodeIndex,
             shaderPath: shaderPath,
@@ -122,11 +140,11 @@ enum SceneAuthoredMaterialResolver {
         return .init(node: issues.isEmpty ? resolved : nil, issues: issues)
     }
 
-    private nonisolated static func instancePass(
+    private nonisolated static func instanceOverlay(
         for node: Graph.Node,
         graph: Graph,
         descriptor: SceneRenderDescriptor
-    ) -> SceneRenderDescriptor.EffectDescriptor.PassDescriptor? {
+    ) -> InstanceOverlay? {
         guard graph.layerID == node.effect.layerID,
               let layer = descriptor.layers.first(where: { $0.id == graph.layerID }),
               layer.effects.indices.contains(node.effect.effectIndex),
@@ -134,13 +152,19 @@ enum SceneAuthoredMaterialResolver {
             return nil
         }
         let effect = layer.effects[node.effect.effectIndex]
-        guard effect.id == node.effect.descriptorID,
-              effect.passes.indices.contains(ordinal) else {
-            return nil
+        guard effect.id == node.effect.descriptorID else { return nil }
+        if effect.passes.isEmpty {
+            return node.instancePassIndex == nil ? .empty : nil
         }
+        guard effect.passes.indices.contains(ordinal) else { return nil }
         let pass = effect.passes[ordinal]
         guard node.instancePassIndex == pass.passIndex else { return nil }
-        return pass
+        return .init(
+            textureSlots: pass.textureSlots,
+            userTextureInputs: pass.userTextureInputs,
+            combos: pass.combos,
+            constantShaderValues: pass.constantShaderValues
+        )
     }
 
     private nonisolated static func mergeAssets(

@@ -108,6 +108,26 @@ struct SceneEffectRuntimeDispositionCatalog {
         ] + routeGroups.map(\.reportLine) + dispositions.map(\.reportLine)
     }
 
+    /// Projects only exact static owners for runtime evidence.  This is a
+    /// resource-backed telemetry view; it is deliberately not an admission
+    /// input and excludes aggregate, structural, omitted, and route-only
+    /// records.
+    var resolvedMaterialExecutionEvidenceSubjects:
+        [SceneEffectExactRuntimeSubject] {
+        dispositions.compactMap { disposition in
+            guard disposition.attribution == .exactKey,
+                  disposition.kind == .strictDedicated
+                    || disposition.kind == .strictGeneric
+                    || disposition.kind == .strictInlineSuffix
+                    || disposition.kind == .legacyExactInline
+                    || disposition.kind == .legacyExactOffscreen,
+                  let family = disposition.family,
+                  !family.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else { return nil }
+            return .init(key: disposition.key, family: family)
+        }
+    }
+
     private nonisolated static func inactiveDisposition(
         _ admission: Admission
     ) -> Disposition {

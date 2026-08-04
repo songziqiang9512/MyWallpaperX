@@ -2,6 +2,11 @@ import Metal
 import simd
 
 final class ScenePuppetPlaybackState {
+    private struct SubmissionState {
+        var frameSignature: [Int]?
+        var nextVertexBufferIndex = 0
+    }
+
     struct Output {
         let state: ScenePuppetPlaybackState
         let texture: MTLTexture
@@ -44,8 +49,9 @@ final class ScenePuppetPlaybackState {
     private let renderPipelineState: MTLRenderPipelineState
     private let layerWidth: Float
     private let layerHeight: Float
-    private var nextVertexBufferIndex = 0
-    private var lastEncodedFrameSignature: [Int]?
+    private let submissions = SceneSourceUpdateStateFIFO(
+        initial: SubmissionState()
+    )
 
     static func make(
         layerID: Int,
@@ -128,7 +134,8 @@ final class ScenePuppetPlaybackState {
     func encode(
         sceneTime: Double,
         dynamicValues: SceneDynamicSnapshot,
-        commandBuffer: MTLCommandBuffer
+        commandBuffer: MTLCommandBuffer,
+        transaction: SceneSourceUpdateTransaction
     ) {
         let frameIndices: [Int?] = selection.clips.map { clip in
             guard isVisible(clip.layer, dynamicValues: dynamicValues) else { return nil }
@@ -139,11 +146,10 @@ final class ScenePuppetPlaybackState {
             )
         }
         let signature = frameIndices.map { $0 ?? -1 }
-        guard signature != lastEncodedFrameSignature,
-              let positions = try? evaluator.deformedPositions(
-                  selection: selection,
-                  frameIndices: frameIndices
-              ) else { return }
+        guard let positions = try? evaluator.deformedPositions(
+            selection: selection,
+            frameIndices: frameIndices
+        ) else { return }
 
         let vertices = mesh.vertices.indices.map { index in
             SceneQuadVertex(
@@ -154,46 +160,57 @@ final class ScenePuppetPlaybackState {
                 texcoord: SIMD2(mesh.vertices[index].u, mesh.vertices[index].v)
             )
         }
-        let vertexBuffer = vertexBuffers[nextVertexBufferIndex]
-        nextVertexBufferIndex = (nextVertexBufferIndex + 1) % vertexBuffers.count
-        vertices.withUnsafeBytes { bytes in
-            guard let source = bytes.baseAddress else { return }
-            vertexBuffer.contents().copyMemory(from: source, byteCount: bytes.count)
-        }
+        submissions.update(transaction: transaction) { submission in
+            guard signature != submission.frameSignature else { return }
+            let vertexBuffer = vertexBuffers[submission.nextVertexBufferIndex]
+            submission.nextVertexBufferIndex =
+                (submission.nextVertexBufferIndex + 1) % vertexBuffers.count
+            vertices.withUnsafeBytes { bytes in
+                guard let source = bytes.baseAddress else { return }
+                vertexBuffer.contents().copyMemory(
+                    from: source,
+                    byteCount: bytes.count
+                )
+            }
 
-        let passDescriptor = MTLRenderPassDescriptor()
-        passDescriptor.colorAttachments[0].texture = targetTexture
-        passDescriptor.colorAttachments[0].loadAction = .clear
-        passDescriptor.colorAttachments[0].clearColor = MTLClearColor(
-            red: 0, green: 0, blue: 0, alpha: 0
-        )
-        passDescriptor.colorAttachments[0].storeAction = .store
-        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: passDescriptor) else {
-            return
+            let passDescriptor = MTLRenderPassDescriptor()
+            passDescriptor.colorAttachments[0].texture = targetTexture
+            passDescriptor.colorAttachments[0].loadAction = .clear
+            passDescriptor.colorAttachments[0].clearColor = MTLClearColor(
+                red: 0, green: 0, blue: 0, alpha: 0
+            )
+            passDescriptor.colorAttachments[0].storeAction = .store
+            guard let encoder = commandBuffer.makeRenderCommandEncoder(
+                descriptor: passDescriptor
+            ) else { return }
+            encoder.label = "Puppet animation layer \(layerID) frames \(signature)"
+            encoder.setRenderPipelineState(renderPipelineState)
+            encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+            var mvp = SceneMatrix.scale(SIMD3<Float>(2, 2, 1))
+            encoder.setVertexBytes(
+                &mvp,
+                length: MemoryLayout<simd_float4x4>.size,
+                index: 1
+            )
+            var uniforms = SceneLayerFragmentUniforms.neutral()
+            encoder.setFragmentBytes(
+                &uniforms,
+                length: MemoryLayout<SceneLayerFragmentUniforms>.size,
+                index: 0
+            )
+            for slot in 0...5 {
+                encoder.setFragmentTexture(atlasTexture, index: slot)
+            }
+            encoder.drawIndexedPrimitives(
+                type: .triangle,
+                indexCount: mesh.indices.count,
+                indexType: .uint16,
+                indexBuffer: indexBuffer,
+                indexBufferOffset: 0
+            )
+            encoder.endEncoding()
+            submission.frameSignature = signature
         }
-        encoder.label = "Puppet animation layer \(layerID) frames \(signature)"
-        encoder.setRenderPipelineState(renderPipelineState)
-        encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
-        var mvp = SceneMatrix.scale(SIMD3<Float>(2, 2, 1))
-        encoder.setVertexBytes(&mvp, length: MemoryLayout<simd_float4x4>.size, index: 1)
-        var uniforms = SceneLayerFragmentUniforms.neutral()
-        encoder.setFragmentBytes(
-            &uniforms,
-            length: MemoryLayout<SceneLayerFragmentUniforms>.size,
-            index: 0
-        )
-        for slot in 0...5 {
-            encoder.setFragmentTexture(atlasTexture, index: slot)
-        }
-        encoder.drawIndexedPrimitives(
-            type: .triangle,
-            indexCount: mesh.indices.count,
-            indexType: .uint16,
-            indexBuffer: indexBuffer,
-            indexBufferOffset: 0
-        )
-        encoder.endEncoding()
-        lastEncodedFrameSignature = signature
     }
 
     private func isVisible(

@@ -5,12 +5,11 @@ struct SceneImageLayerCompositor {
     private let authoredEffectPipelines: SceneAuthoredEffectPipelineSet
     private let pipelineRepository: SceneImageEffectPipelineRepository
     private let colorBlendPipelineSlot: ScenePipelineSlot<SceneLayerColorBlendPipeline>
-    private let resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge?
+    let resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge?
 
     init?(device: MTLDevice) {
         self.init(pipelineRepository: SceneImageEffectPipelineRepository(device: device))
     }
-
     init(
         pipelineRepository: SceneImageEffectPipelineRepository,
         resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge? = nil
@@ -24,57 +23,41 @@ struct SceneImageLayerCompositor {
         }
     }
 
-    var resolvedMaterialAssetStates: [
-        SceneAssetTextureIdentity: SceneTextureProviderState
-    ] {
-        resolvedMaterialRuntime?.assetStates ?? [:]
-    }
-
-    func resolvedMaterialSystemProviderBlocks(
-        _ snapshot: SceneMediaThumbnailTextureStore.Snapshot
-    ) -> [String: SceneFrameTextureRegistry.ProviderStatus] {
-        resolvedMaterialRuntime?.systemProviderBlocks(for: snapshot) ?? [:]
-    }
-
-    func beginResolvedMaterialFrame(
-        textureSnapshot: SceneFrameTextureRegistrySnapshot,
-        dynamicSnapshot: SceneDynamicSnapshot,
-        frameInputs: SceneAuthoredShaderFrameInputs
-    ) {
-        resolvedMaterialRuntime?.beginFrame(
-            textureSnapshot: textureSnapshot,
-            dynamicSnapshot: dynamicSnapshot,
-            frameInputs: frameInputs
-        )
-    }
-
-    func endResolvedMaterialFrame() {
-        resolvedMaterialRuntime?.endFrame()
-    }
-
     @discardableResult
     func draw(
         _ request: SceneImageLayerDrawRequest,
         pipeline: SceneImageLayerPipeline,
         mainPass: SceneMainPassEncoder,
+        frameTransaction: SceneSourceUpdateTransaction? = nil,
         executionTrace: SceneEffectExecutionFrameTrace? = nil,
-        executionOrigin: SceneEffectExecutionOrigin = .image
+        executionOrigin: SceneEffectExecutionOrigin = .image,
+        onLegacyAuthoredRouteSelected: (() -> Void)? = nil
     ) -> Bool {
+        let resolvedMaterialRoute = resolvedMaterialClaim(for: request)
+        guard !resolvedMaterialRoute.isRejected else { return false }
+        let resolvedMaterialClaim = resolvedMaterialRoute.execution
+
         guard (request.dependencyEffect.map {
             ($0.slotIndex == 1 && ($0.blendMode == 0 || $0.blendMode == 5))
                 || ($0.slotIndex == 3 && $0.blendMode == 0)
-        } ?? true) else { return false }
+        } ?? true) else {
+            return rejectResolvedMaterialClaim(resolvedMaterialClaim,
+                reasonCode: "dependency-input-invalid")
+        }
         let masks = request.masks
         let layerColorBlendMode = request.layer.colorBlendMode ?? 0
-        guard SceneLayerColorBlendRenderer.supports(layerColorBlendMode) else { return false }
-        let colorBlendPipeline = layerColorBlendMode == 0
-            ? nil
-            : colorBlendPipelineSlot.resolve()
-        guard layerColorBlendMode == 0 || colorBlendPipeline != nil else { return false }
+        guard SceneLayerColorBlendRenderer.supports(layerColorBlendMode) else {
+            return rejectResolvedMaterialClaim(resolvedMaterialClaim,
+                reasonCode: "layer-color-blend-unsupported")
+        }
+        let colorBlendPipeline = layerColorBlendMode == 0 ? nil : colorBlendPipelineSlot.resolve()
+        guard layerColorBlendMode == 0 || colorBlendPipeline != nil else {
+            return rejectResolvedMaterialClaim(resolvedMaterialClaim,
+                reasonCode: "layer-color-blend-pipeline-unavailable")
+        }
         let auxMask = masks.iris ?? masks.opacity
-        let runtimeAuthoredPlan = request.authoredEffectPlan
-            ?? request.authoredEffectChain?.singleStage
-        let usesAuthoredExecution = request.authoredEffectPlan != nil
+        let runtimeAuthoredPlan = request.authoredEffectPlan ?? request.authoredEffectChain?.singleStage
+        let usesAuthoredExecution = resolvedMaterialClaim != nil || request.authoredEffectPlan != nil
             || request.authoredEffectChain != nil
         let legacyDecision = usesAuthoredExecution ? nil
             : SceneEffectRuntimePlanner.legacyPlanningDecision(
@@ -88,17 +71,23 @@ struct SceneImageLayerCompositor {
                 ),
                 blocksLegacyGaussianBlur: request.blocksLegacyGaussianBlur
             )
-        let effectPlan = legacyDecision?.runtimePlan ?? SceneEffectRuntimePlanner.plan(
-            for: request.layer,
-            hasIrisMask: masks.iris != nil,
-            hasOpacityMask: masks.opacity != nil && masks.iris == nil,
-            hasWaterMask: masks.water != nil,
-            hasFoliageMask: masks.foliage != nil,
-            hasWaterRippleNormal: masks.waterRippleNormal != nil,
-            authoredEffectPlan: runtimeAuthoredPlan,
-            blocksLegacyGaussianBlur: request.blocksLegacyGaussianBlur
-        )
-        guard request.authoredEffectChain != nil
+        let effectPlan: SceneEffectRuntimePlan
+        if resolvedMaterialClaim != nil {
+            effectPlan = .neutral
+        } else {
+            effectPlan = legacyDecision?.runtimePlan ?? SceneEffectRuntimePlanner.plan(
+                for: request.layer,
+                hasIrisMask: masks.iris != nil,
+                hasOpacityMask: masks.opacity != nil && masks.iris == nil,
+                hasWaterMask: masks.water != nil,
+                hasFoliageMask: masks.foliage != nil,
+                hasWaterRippleNormal: masks.waterRippleNormal != nil,
+                authoredEffectPlan: runtimeAuthoredPlan,
+                blocksLegacyGaussianBlur: request.blocksLegacyGaussianBlur
+            )
+        }
+        guard resolvedMaterialClaim != nil
+            || request.authoredEffectChain != nil
             || effectPlan.skipsUnsupportedComposite == false else {
             executionTrace?.recordRouteOperation(
                 layerID: request.layer.id,
@@ -110,105 +99,71 @@ struct SceneImageLayerCompositor {
         }
         let routesOffscreen = effectPlan.offscreenPassCount > 0
             || request.requiresSourceCopy
+            || resolvedMaterialClaim != nil
             || request.authoredEffectChain != nil
             || layerColorBlendMode > 0
         guard !routesOffscreen
             || request.layer.contentKind != "solid"
             || request.offscreenSize != nil else {
-            return false
+            return rejectResolvedMaterialClaim(resolvedMaterialClaim,
+                reasonCode: "solid-offscreen-size-unavailable")
         }
-        let requestedOffscreenSize = request.resolvedOffscreenSize
-        let requestedOffscreenWidth = max(
-            1,
-            Int((requestedOffscreenSize?.width ?? CGFloat(request.texture.width)).rounded(.up))
-        )
-        let requestedOffscreenHeight = max(
-            1,
-            Int((requestedOffscreenSize?.height ?? CGFloat(request.texture.height)).rounded(.up))
-        )
-        let chainConsumesDependency =
-            request.authoredEffectChain != nil && request.dependencyEffect != nil
+        let chainConsumesDependency = request.authoredEffectChain != nil && request.dependencyEffect != nil
 
-        let sourceEffectInputs = request.authoredEffectChain == nil
+        let sourceEffectInputs = request.authoredEffectChain == nil && resolvedMaterialClaim == nil
             ? effectPlan.inputs
             : .neutral
-        guard let sourceTextureFrame = request.resolvedBaseTextureFrame() else {
-            return false
-        }
-        // 作者 `brightness` 是 layer 颜色乘数（随包 wave layer 用 3.0/4.0 做过曝发光），
-        // 超过 1 的部分由 render target 精度裁剪。`contentKind == "text"` 的 layer 纹理来自
-        // CoreText 栅格化，那一步已经乘过同一个 key（见 SceneTextTextureLoader），这里必须跳过。
-        let brightness = request.layer.contentKind == "text"
-            ? 1
-            : max(0, Float(request.layer.brightness ?? 1))
-        let usesAuthoredColor = request.layer.contentKind == "image" || request.layer.contentKind == "solid"
-        let baseTint = usesAuthoredColor ? request.uniforms.tint : SIMD3<Float>(repeating: 1)
-        let directUniforms = makeFragmentUniforms(
-            values: request.uniforms,
+        guard let directUniforms = sourceFragmentUniforms(
+            for: request,
             effectInputs: sourceEffectInputs,
-            textureFrame: sourceTextureFrame,
-            tint: baseTint * brightness,
-            foliageMaskUVScale: masks.foliageUVScale,
-            dependencyBlendMode: routesOffscreen ? nil : request.dependencyEffect?.blendMode
-        )
+            routesOffscreen: routesOffscreen
+        ) else {
+            return rejectResolvedMaterialClaim(resolvedMaterialClaim,
+                reasonCode: "base-texture-frame-invalid")
+        }
         if routesOffscreen,
            let pool = request.offscreenTexturePool {
             var renderedTexture: MTLTexture?
-            if let authoredChain = request.authoredEffectChain {
-                guard let targets = pool.graphTargets(
-                    for: authoredChain,
-                    requestedWidth: requestedOffscreenWidth,
-                    requestedHeight: requestedOffscreenHeight
-                ) else {
-                    executionTrace?.recordRouteOperation(
-                        layerID: request.layer.id,
-                        origin: executionOrigin,
-                        operation: "authored-target-allocation",
-                        outcome: .failed(reasonCode: "graph-targets-unavailable")
-                    )
+            var graphExecutionTicket: SceneResolvedMaterialRuntimeBridge.ExecutionTicket?
+            if let claim = resolvedMaterialClaim,
+               let resolvedMaterialRuntime {
+                switch SceneResolvedMaterialGraphComposition.executeClaimed(
+                    runtime: resolvedMaterialRuntime,
+                    claim: claim,
+                    request: request,
+                    mainPass: mainPass,
+                    executionTrace: executionTrace,
+                    executionOrigin: executionOrigin
+                ) {
+                case let .encoded(texture, ticket):
+                    (renderedTexture, graphExecutionTicket) = (texture, ticket)
+                case .failed:
                     return false
                 }
-                for pair in zip(authoredChain.stages, targets) {
-                    resolvedMaterialRuntime?.auditResolvedMaterials(
-                        graph: pair.0.renderGraph,
-                        targets: pair.1
-                    )
-                }
-                renderedTexture = mainPass.encodeOffscreen { commandBuffer in
-                    SceneAuthoredEffectChainRenderer.render(
-                        sourceTexture: request.texture,
-                        masks: masks,
-                        targets: targets,
-                        chain: authoredChain,
-                        dynamicValues: request.dynamicValues,
-                        sourceUniforms: directUniforms,
-                        pipeline: pipeline,
-                        pipelines: authoredEffectPipelines,
-                        cursorUV: request.uniforms.cursorUV,
-                        previousCursorUV: request.uniforms.previousCursorUV,
-                        pointerIsInside: request.uniforms.cursorIsInside,
-                        previousPointerIsInside: request.uniforms.previousCursorIsInside,
-                        frameTime: request.uniforms.frameTime,
-                        audioSpectrum: request.audioSpectrum,
-                        authoredShaderFrameInputs: request.authoredShaderFrameInputs,
-                        dependencyEffect: request.dependencyEffect,
-                        commandBuffer: commandBuffer,
-                        executionTrace: executionTrace,
-                        executionOrigin: executionOrigin
-                    )
-                }
+            } else if let authoredChain = request.authoredEffectChain {
+                onLegacyAuthoredRouteSelected?()
+                renderedTexture = renderLegacyAuthoredChain(
+                    authoredChain,
+                    request: request,
+                    pool: pool,
+                    sourceUniforms: directUniforms,
+                    pipeline: pipeline,
+                    pipelines: authoredEffectPipelines,
+                    mainPass: mainPass,
+                    frameTransaction: frameTransaction,
+                    executionTrace: executionTrace,
+                    executionOrigin: executionOrigin
+                )
             } else if let authoredPlan = request.authoredEffectPlan {
+                onLegacyAuthoredRouteSelected?()
+                let dimensions = legacyOffscreenDimensions(for: request)
                 guard let targets = pool.graphTargets(
                     for: authoredPlan,
-                    requestedWidth: requestedOffscreenWidth,
-                    requestedHeight: requestedOffscreenHeight
+                    requestedWidth: dimensions.width,
+                    requestedHeight: dimensions.height
                 ) else {
                     return false
                 }
-                resolvedMaterialRuntime?.auditResolvedMaterials(
-                    graph: authoredPlan.renderGraph,
-                    targets: targets
-                )
                 renderedTexture = mainPass.encodeOffscreen { commandBuffer -> MTLTexture? in
                     SceneStandaloneAuthoredEffectRenderer.render(
                         plan: authoredPlan,
@@ -227,9 +182,10 @@ struct SceneImageLayerCompositor {
                     )
                 }
             } else {
+                let dimensions = legacyOffscreenDimensions(for: request)
                 guard let textures = pool.textures(
-                    width: requestedOffscreenWidth,
-                    height: requestedOffscreenHeight
+                    width: dimensions.width,
+                    height: dimensions.height
                 ), let legacyDecision else {
                     executionTrace?.recordRouteOperation(
                         layerID: request.layer.id,
@@ -280,14 +236,18 @@ struct SceneImageLayerCompositor {
             }
             guard let finalTexture = renderedTexture ?? (
                 request.requiresSourceCopy
+                    || resolvedMaterialClaim != nil
                     || request.authoredEffectPlan != nil
                     || request.authoredEffectChain != nil
                     ? nil
                     : request.texture
             ) else {
-                return false
+                return rejectResolvedMaterialClaim(resolvedMaterialClaim,
+                    reasonCode: "final-offscreen-texture-unavailable")
             }
-            let irisSuffix = request.authoredEffectChain?.irisInlineSuffix
+            let irisSuffix = resolvedMaterialClaim == nil
+                ? request.authoredEffectChain?.irisInlineSuffix
+                : nil
             let finalValues = SceneImageLayerUniformValues(
                 time: request.uniforms.time,
                 alpha: request.finalCompositeAlpha ?? 1,
@@ -316,6 +276,16 @@ struct SceneImageLayerCompositor {
                 colorBlendPipeline: colorBlendPipeline,
                 mainPass: mainPass
             )
+            if let graphExecutionTicket {
+                guard consumeResolvedMaterialComposite(
+                    graphExecutionTicket,
+                    texture: finalTexture,
+                    consumed: composited,
+                    layerID: request.layer.id,
+                    executionTrace: executionTrace,
+                    executionOrigin: executionOrigin
+                ) else { return false }
+            }
             if let irisSuffix {
                 executionTrace?.recordExact(
                     identity: SceneEffectExecutionIdentity(
@@ -348,12 +318,13 @@ struct SceneImageLayerCompositor {
             return composited
         }
         if request.requiresSourceCopy
+            || resolvedMaterialClaim != nil
             || request.authoredEffectPlan != nil
             || request.authoredEffectChain != nil
             || (routesOffscreen && request.dependencyEffect != nil) {
-            return false
+            return rejectResolvedMaterialClaim(resolvedMaterialClaim,
+                reasonCode: "offscreen-pool-unavailable")
         }
-
         let rendered = SceneImageLayerMainPassRenderer.draw(
             texture: request.texture,
             masks: masks,

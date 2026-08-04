@@ -56,6 +56,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram+Derivation.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialUniformEncoder.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialShaderSchema.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityVariant.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureResolver.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgramFinalizer.swift",
 ]
@@ -303,13 +305,16 @@ private func template(
     _ shader: SceneShaderContract,
     slot: Int = 0,
     candidateCount: Int = 1,
+    includePrimaryCandidate: Bool = true,
     secondReference: Template.TextureReference? = nil,
     secondCandidates: [Template.TextureCandidate]? = nil,
     uniformDeclarations: [Template.UniformDeclaration] = [],
     renderState: SceneMaterialRenderState = state()
 ) -> Template {
     var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
-    slots[slot] = .init(index: slot, candidates: candidates(candidateCount))
+    if includePrimaryCandidate {
+        slots[slot] = .init(index: slot, candidates: candidates(candidateCount))
+    }
     if let secondCandidates {
         slots[1] = .init(index: 1, candidates: secondCandidates)
     } else if let secondReference {
@@ -326,7 +331,8 @@ private func template(
             effectInput: .layerSource,
             effectOutput: .effectOutput,
             nodeTarget: .effectOutput,
-            bindings: [.init(slot: slot, texture: .layerSource)]
+            bindings: includePrimaryCandidate
+                ? [.init(slot: slot, texture: .layerSource)] : []
         ),
         shaderContract: shader,
         diagnosticProvenance: .init(
@@ -558,6 +564,7 @@ private func finalize(
     device: MTLDevice,
     slot: Int = 0,
     candidateCount: Int = 1,
+    includePrimaryCandidate: Bool = true,
     secondReference: Template.TextureReference? = nil,
     secondCandidates: [Template.TextureCandidate]? = nil,
     additionalEntries: [
@@ -569,7 +576,8 @@ private func finalize(
     dynamicFrameIndex: UInt64 = 1,
     frameInputIndex: UInt64 = 1,
     dynamicSource: SceneDynamicSource? = nil,
-    renderState: SceneMaterialRenderState = state()
+    renderState: SceneMaterialRenderState = state(),
+    implicitFramebufferIdentity: Graph.TextureIdentity? = nil
 ) -> Result<Program, SceneResolvedMaterialFailure> {
     let frame = SceneResolvedMaterialFrameSnapshot.validated(
         textureSnapshot: snapshot(
@@ -594,13 +602,15 @@ private func finalize(
                     shader,
                     slot: slot,
                     candidateCount: candidateCount,
+                    includePrimaryCandidate: includePrimaryCandidate,
                     secondReference: secondReference,
                     secondCandidates: secondCandidates,
                     uniformDeclarations: uniformDeclarations,
                     renderState: renderState
                 ),
                 renderSize: CGSize(width: 640, height: 360),
-                modelViewProjection: matrix_identity_float4x4
+                modelViewProjection: matrix_identity_float4x4,
+                implicitFramebufferIdentity: implicitFramebufferIdentity
             )
         )
     }
@@ -696,6 +706,80 @@ private enum Harness {
                     + "\(failureToken(revisionB)); \(positiveDiagnostic(contract(revision: "debug")))"
             )
         }
+
+        let implicitFramebufferProgram = finalize(
+            shader: contract(
+                revision: "implicit-framebuffer",
+                samplerMetadata: #"{"material":"framebuffer"}"#
+            ),
+            device: device,
+            includePrimaryCandidate: false,
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let caseInsensitiveFramebufferProgram = finalize(
+            shader: contract(
+                revision: "implicit-framebuffer-case",
+                samplerMetadata: #"{"material":"Framebuffer"}"#
+            ),
+            device: device,
+            includePrimaryCandidate: false,
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let explicitFramebufferProgram = finalize(
+            shader: contract(
+                revision: "explicit-before-implicit",
+                samplerMetadata: #"{"material":"framebuffer"}"#
+            ),
+            device: device,
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let implicitFramebufferTyped: Bool = {
+            guard case let .success(program) = implicitFramebufferProgram,
+                  let slot = program.textureSlots[0],
+                  case let .graph(identity) = slot.reference else { return false }
+            return identity == graphTexture()
+                && slot.diagnosticSelectionProvenance == .implicitFramebuffer
+        }()
+        let explicitFramebufferPreserved: Bool = {
+            guard case let .success(program) = explicitFramebufferProgram,
+                  let slot = program.textureSlots[0] else { return false }
+            return slot.diagnosticSelectionProvenance
+                == .authored(.explicitBinding)
+        }()
+        let implicitDefaultPath = SceneVFSAssetPath(
+            "textures/implicit-default.tex"
+        )!
+        let shaderDefaultBeforeImplicit = finalize(
+            shader: contract(
+                revision: "shader-default-before-implicit",
+                samplerMetadata:
+                    #"{"material":"framebuffer","mode":"opacitymask","default":"textures/implicit-default.tex"}"#
+            ),
+            device: device,
+            includePrimaryCandidate: false,
+            additionalEntries: [
+                .asset(.init(
+                    path: implicitDefaultPath,
+                    purpose: .mask
+                )): readyStatus(
+                    device,
+                    identity: .asset(.init(
+                        path: implicitDefaultPath,
+                        purpose: .mask
+                    )),
+                    purpose: .mask,
+                    content: .data
+                ),
+            ],
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let shaderDefaultPreserved: Bool = {
+            guard case let .failure(failure) = shaderDefaultBeforeImplicit else {
+                return false
+            }
+            return failure.phase == .color
+                && failure.code == .colorContractUnproven
+        }()
 
         let tintField = programA.frontendProgram.uniformLayout.fields.first {
             $0.name == "u_Tint"
@@ -963,6 +1047,23 @@ private enum Harness {
             && programA.uniformBytes.subdata(in: encodedRange) == expectedRenderSize
 
         let failures: [String: String] = [
+            "nonFramebufferDoesNotInject": failureToken(finalize(
+                shader: contract(
+                    revision: "non-framebuffer-no-injection",
+                    samplerMetadata: #"{"material":"source"}"#
+                ),
+                device: device,
+                includePrimaryCandidate: false,
+                implicitFramebufferIdentity: graphTexture()
+            )),
+            "framebufferWithoutIdentity": failureToken(finalize(
+                shader: contract(
+                    revision: "framebuffer-without-identity",
+                    samplerMetadata: #"{"material":"framebuffer"}"#
+                ),
+                device: device,
+                includePrimaryCandidate: false
+            )),
             "regularGraphSampler": failureToken(finalize(
                 shader: contract(revision: "regular-graph-sampler"),
                 device: device
@@ -1147,6 +1248,13 @@ private enum Harness {
                 "assetReferenceTyped": failureToken(assetProgram) == "success",
                 "userReferenceTyped": failureToken(propertyProgram) == "success",
                 "providerReferenceTyped": failureToken(providerProgram) == "success",
+                "implicitFramebufferTyped": implicitFramebufferTyped,
+                "implicitFramebufferMaterialKeyCaseInsensitive":
+                    failureToken(caseInsensitiveFramebufferProgram) == "success",
+                "explicitFramebufferCandidatePreserved":
+                    explicitFramebufferPreserved,
+                "shaderDefaultPreservedBeforeImplicitFramebuffer":
+                    shaderDefaultPreserved,
                 "realPreparationObserved": !programA.preparedShader.cacheKey.isEmpty
                     && !programA.preparedShader.vertex.dependencies.isEmpty
                     && !programA.preparedShader.fragment.dependencies.isEmpty,
@@ -1255,6 +1363,8 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
 
     def test_purpose_selection_and_binding_fail_closed(self) -> None:
         expected = {
+            "nonFramebufferDoesNotInject": "texture/textureBindingInvalid",
+            "framebufferWithoutIdentity": "texture/textureBindingInvalid",
             "regularGraphSampler": "success",
             "customPurposeIgnored": "success",
             "unknownMode": "texture/activeSamplerSchemaInvalid",

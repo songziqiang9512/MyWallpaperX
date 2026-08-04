@@ -8,7 +8,6 @@ final class SceneMediaThumbnailTransitionRenderer {
         var startedAt: Double?
         var midpointReported = false
         var completionReported = false
-        var publicationGeneration: UInt64 = 0
     }
 
     private struct Output {
@@ -19,7 +18,10 @@ final class SceneMediaThumbnailTransitionRenderer {
 
     private let device: MTLDevice
     private let pipeline: SceneMediaThumbnailTransitionPipeline
-    private var states: [Int: PlaybackState] = [:]
+    private let submissions = SceneSourceUpdateStateFIFO<[Int: PlaybackState]>(
+        initial: [:]
+    )
+    private var lastIssuedPublicationGenerations: [Int: UInt64] = [:]
     private var outputs: [Int: Output] = [:]
 
     init(
@@ -35,120 +37,131 @@ final class SceneMediaThumbnailTransitionRenderer {
         resources: [Int: SceneMediaThumbnailTransitionTexture],
         media: SceneMediaThumbnailTextureStore.Snapshot,
         sceneTime: Double,
-        commandBuffer: MTLCommandBuffer
+        commandBuffer: MTLCommandBuffer,
+        transaction: SceneSourceUpdateTransaction
     ) -> [Int: SceneTextureProviderPublication] {
-        guard media.generation > 0,
-              sceneTime.isFinite,
-              let current = media.current,
-              let previous = media.publications[
-                  SceneMediaThumbnailBindingProgram.previousIdentity
-              ] else {
-            observeUnavailableGeneration(
-                media.generation,
-                plans: program.previousTransitionsByLayerID
-            )
-            return [:]
-        }
-
-        var publications: [Int: SceneTextureProviderPublication] = [:]
-        for (layerID, plan) in program.previousTransitionsByLayerID.sorted(
-            by: { $0.key < $1.key }
-        ) {
-            guard let gradient = resources[layerID]?.arguments(for: plan) else {
-                continue
-            }
-            var state = states[layerID] ?? PlaybackState()
-            if state.observedGeneration == nil {
-                state.observedGeneration = media.generation
-                states[layerID] = state
-                continue
-            }
-            if state.observedGeneration != media.generation {
-                state.observedGeneration = media.generation
-                state.startedAt = sceneTime
-                state.midpointReported = false
-                state.completionReported = false
-#if DEBUG
-                print(
-                    "MWX media thumbnail transition: layer=\(layerID)"
-                        + " generation=\(media.generation) phase=started"
-                        + " duration=\(plan.durationSeconds)"
+        submissions.update(transaction: transaction) { states in
+            guard media.generation > 0,
+                  sceneTime.isFinite,
+                  let current = media.current,
+                  let previous = media.publications[
+                      SceneMediaThumbnailBindingProgram.previousIdentity
+                  ] else {
+                observeUnavailableGeneration(
+                    media.generation,
+                    plans: program.previousTransitionsByLayerID,
+                    states: &states
                 )
-#endif
+                return [:]
             }
-            guard let startedAt = state.startedAt else {
-                states[layerID] = state
-                continue
-            }
-            let progress = min(max((sceneTime - startedAt) / plan.durationSeconds, 0), 1)
-            if progress >= 1 {
-                if !state.completionReported {
-                    state.completionReported = true
+
+            var publications: [Int: SceneTextureProviderPublication] = [:]
+            for (layerID, plan) in program.previousTransitionsByLayerID.sorted(
+                by: { $0.key < $1.key }
+            ) {
+                guard let gradient = resources[layerID]?.arguments(for: plan) else {
+                    continue
+                }
+                var state = states[layerID] ?? PlaybackState()
+                if state.observedGeneration == nil {
+                    state.observedGeneration = media.generation
+                    states[layerID] = state
+                    continue
+                }
+                if state.observedGeneration != media.generation {
+                    state.observedGeneration = media.generation
+                    state.startedAt = sceneTime
+                    state.midpointReported = false
+                    state.completionReported = false
 #if DEBUG
                     print(
                         "MWX media thumbnail transition: layer=\(layerID)"
-                            + " generation=\(media.generation) phase=completed"
+                            + " generation=\(media.generation) phase=started"
+                            + " duration=\(plan.durationSeconds)"
                     )
 #endif
                 }
-                state.startedAt = nil
-                states[layerID] = state
-                continue
-            }
-            if progress >= 0.5 && !state.midpointReported {
-                state.midpointReported = true
+                guard let startedAt = state.startedAt else {
+                    states[layerID] = state
+                    continue
+                }
+                let progress = min(max(
+                    (sceneTime - startedAt) / plan.durationSeconds, 0
+                ), 1)
+                if progress >= 1 {
+                    if !state.completionReported {
+                        state.completionReported = true
 #if DEBUG
-                print(
-                    "MWX media thumbnail transition: layer=\(layerID)"
-                        + " generation=\(media.generation) phase=midpoint"
-                )
+                        print(
+                            "MWX media thumbnail transition: layer=\(layerID)"
+                                + " generation=\(media.generation) phase=completed"
+                        )
 #endif
-            }
-            guard let target = outputTexture(
-                layerID: layerID,
-                width: current.texture.width,
-                height: current.texture.height
-            ), pipeline.encode(
-                current: current.texture,
-                previous: previous.texture,
-                gradient: gradient,
-                target: target,
-                amount: Float(1 - progress),
-                gradientScale: plan.gradientScale,
-                commandBuffer: commandBuffer
-            ) else {
+                    }
+                    state.startedAt = nil
+                    states[layerID] = state
+                    continue
+                }
+                if progress >= 0.5 && !state.midpointReported {
+                    state.midpointReported = true
+#if DEBUG
+                    print(
+                        "MWX media thumbnail transition: layer=\(layerID)"
+                            + " generation=\(media.generation) phase=midpoint"
+                    )
+#endif
+                }
+                guard lastIssuedPublicationGenerations[layerID, default: 0]
+                        < UInt64.max,
+                      let target = outputTexture(
+                          layerID: layerID,
+                          width: current.texture.width,
+                          height: current.texture.height
+                      ), pipeline.encode(
+                          current: current.texture,
+                          previous: previous.texture,
+                          gradient: gradient,
+                          target: target,
+                          amount: Float(1 - progress),
+                          gradientScale: plan.gradientScale,
+                          commandBuffer: commandBuffer
+                      ) else {
+                    states[layerID] = state
+                    continue
+                }
+                let publicationGeneration =
+                    lastIssuedPublicationGenerations[layerID, default: 0] + 1
+                lastIssuedPublicationGenerations[layerID] = publicationGeneration
+                let size = CGSize(width: target.width, height: target.height)
+                publications[layerID] = SceneTextureProviderPublication(
+                    requestIdentity: .layerSource(layerID),
+                    candidate: SceneTextureCandidate(
+                        texture: target,
+                        identity: .provider(
+                            .mediaThumbnailTransition(layerID: layerID)
+                        ),
+                        generation: .provider(
+                            contentGeneration: publicationGeneration
+                        ),
+                        purpose: .premultipliedColor,
+                        content: .color(.resolved(.premultipliedAlpha)),
+                        physicalSize: size,
+                        mappedSize: size,
+                        uvTransform: .identity,
+                        sampling: .linearClamp
+                    ),
+                    contentGeneration: publicationGeneration
+                )
                 states[layerID] = state
-                continue
             }
-            state.publicationGeneration &+= 1
-            let size = CGSize(width: target.width, height: target.height)
-            publications[layerID] = SceneTextureProviderPublication(
-                requestIdentity: .layerSource(layerID),
-                candidate: SceneTextureCandidate(
-                    texture: target,
-                    identity: .provider(
-                        .mediaThumbnailTransition(layerID: layerID)
-                    ),
-                    generation: .provider(
-                        contentGeneration: state.publicationGeneration
-                    ),
-                    purpose: .premultipliedColor,
-                    content: .color(.resolved(.premultipliedAlpha)),
-                    physicalSize: size,
-                    mappedSize: size,
-                    uvTransform: .identity,
-                    sampling: .linearClamp
-                ),
-                contentGeneration: state.publicationGeneration
-            )
-            states[layerID] = state
+            return publications
         }
-        return publications
     }
 
     private func observeUnavailableGeneration(
         _ generation: UInt64,
-        plans: [Int: SceneMediaThumbnailTransitionPlan]
+        plans: [Int: SceneMediaThumbnailTransitionPlan],
+        states: inout [Int: PlaybackState]
     ) {
         guard generation > 0 else { return }
         for layerID in plans.keys {

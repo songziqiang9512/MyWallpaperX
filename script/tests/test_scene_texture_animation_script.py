@@ -23,6 +23,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneTextureAnimationPlaybackClock.swift",
     SOURCE_ROOT / "Resources/SceneTextureUVTransform.swift",
     SOURCE_ROOT / "Rendering/SceneMetalPipeline.swift",
+    SOURCE_ROOT / "Rendering/SceneSourceUpdateTransaction.swift",
     SOURCE_ROOT / "Rendering/SceneSpriteAnimation.swift",
 ]
 

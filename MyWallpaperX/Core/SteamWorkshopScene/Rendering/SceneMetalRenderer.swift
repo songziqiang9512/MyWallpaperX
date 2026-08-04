@@ -12,14 +12,14 @@ struct SceneMetalRenderer {
     let worldFramesByLayerID: [Int: simd_float4x4]
     let parallaxByLayerID: [Int: SceneLayerParallax.Resolution]
     let layersByID: [Int: SceneRenderDescriptor.Layer]
-    private let utilityPlansByTriggerLayerID: [Int: [SceneUtilityLayerRuntimePlan]]
+    let utilityPlansByTriggerLayerID: [Int: [SceneUtilityLayerRuntimePlan]]
     let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
     let sceneScriptAudioBarsPlansByLayerID: [Int: SceneScriptAudioBarsPlan]
     let spotLightRuntime: SceneSpotLightRuntime
-    private let dependencyRuntime: SceneDependencyFrameRuntime
+    let dependencyRuntime: SceneDependencyFrameRuntime
     let textureRegistry = SceneFrameTextureRegistry()
-    private let utilityCaptureTelemetry = SceneGPUCompletionTelemetry(phase: "utility-capture")
-    private let authoredEffectTelemetry = SceneGPUCompletionTelemetry(phase: "authored-effect-graph")
+    let utilityCaptureTelemetry = SceneGPUCompletionTelemetry(phase: "utility-capture")
+    let authoredEffectTelemetry = SceneGPUCompletionTelemetry(phase: "authored-effect-graph")
     private let sceneScriptAudioBarsTelemetry = SceneGPUCompletionTelemetry(phase: "scene-script-audio-bars")
     private let effectExecutionTelemetry = SceneEffectExecutionTelemetry()
     init?(
@@ -86,23 +86,32 @@ struct SceneMetalRenderer {
         particlePipeline: SceneParticleMetalPipeline?,
         offscreenTexturePool: SceneOffscreenTexturePool?,
         frameContext: SceneFrameContext,
-        encodeSourceUpdates: ((MTLCommandBuffer) -> Void)? = nil,
-        encodeLayerSourceUpdates: ((MTLCommandBuffer) -> [Int: SceneTextureProviderPublication])? = nil,
+        encodeSourceUpdates: ((
+            MTLCommandBuffer, SceneSourceUpdateTransaction
+        ) -> Void)? = nil,
+        encodeLayerSourceUpdates: ((
+            MTLCommandBuffer, SceneSourceUpdateTransaction
+        ) -> [Int: SceneTextureProviderPublication])? = nil,
         encodeFrameReadback: ((MTLTexture, MTLCommandBuffer) -> Void)? = nil,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
         to drawable: CAMetalDrawable
     ) {
+        guard !imageCompositor.shouldDeferResolvedMaterialFrame else { return }
         let cpuStart = performanceTelemetry.map { _ in ProcessInfo.processInfo.systemUptime }
         guard let commandBuffer = commandQueue.makeCommandBuffer() else {
             performanceTelemetry?.recordCommandBufferUnavailable()
             return
         }
+        let sourceUpdateTransaction = SceneSourceUpdateTransaction()
+        defer { sourceUpdateTransaction.cancel() }
         let effectExecutionTrace = effectExecutionTelemetry.makeFrame(
             frameIndex: frameContext.frameIndex
         )
-        encodeSourceUpdates?(commandBuffer)
+        encodeSourceUpdates?(commandBuffer, sourceUpdateTransaction)
         let imageTextures = imageTextures.replacingLayerSources(
-            encodeLayerSourceUpdates?(commandBuffer) ?? [:]
+            encodeLayerSourceUpdates?(
+                commandBuffer, sourceUpdateTransaction
+            ) ?? [:]
         )
         let frameWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(descriptor: renderDescriptor,
             byID: layersByID, snapshot: frameContext.dynamicValues, staticFrames: worldFramesByLayerID)
@@ -124,35 +133,47 @@ struct SceneMetalRenderer {
         )
         let orderedLayers = renderDescriptor.renderOrderLayerIDs.compactMap { layersByID[$0] }
         let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)
+        guard let resolvedMaterialFrameTargetPlans = admitResolvedMaterialFrameTargets(
+            imageTextures: imageTextures,
+            dynamicTextRenderSizes: dynamicTextRenderSizes,
+            spriteAnimations: spriteAnimations,
+            effectTextures: effectTextures,
+            imagePipeline: imagePipeline,
+            userPropertyTextures: userPropertyTextures,
+            userPropertyStates: userPropertyTextureStates,
+            mediaThumbnail: mediaThumbnail,
+            offscreenTexturePool: offscreenTexturePool,
+            frameContext: frameContext,
+            worldFramesByLayerID: frameWorldFrames,
+            cameraFrame: cameraFrame,
+            parallaxConfiguration: parallaxConfiguration,
+            commandBuffer: commandBuffer
+        ) else { return }
         let mainPass = SceneMainPassEncoder(
             commandBuffer: commandBuffer,
             target: drawable.texture,
             clearColor: sceneClearColor
         )
-        beginTextureFrame(
-            imageTextures,
-            userPropertyTextures,
-            userPropertyTextureStates,
-            mediaThumbnail,
-            frameContext
-        )
-        defer { imageCompositor.endResolvedMaterialFrame() }
-        for layer in orderedLayers {
+        var stopsAfterClaimedFailure = false
+        frameLayers: for layer in orderedLayers {
             defer {
-                renderUtilityPlans(
-                    triggeredBy: layer.id,
-                    effectTextures: effectTextures,
-                    imagePipeline: imagePipeline,
-                    offscreenTexturePool: offscreenTexturePool,
-                    frameContext: frameContext, worldFramesByLayerID: frameWorldFrames,
-                    cameraFrame: cameraFrame,
-                    parallaxConfiguration: parallaxConfiguration,
-                    viewportSize: viewportSize,
-                    time: time,
-                    mainPass: mainPass,
-                    commandBuffer: commandBuffer,
-                    effectExecutionTrace: effectExecutionTrace
-                )
+                if !stopsAfterClaimedFailure {
+                    renderUtilityPlans(
+                        triggeredBy: layer.id,
+                        effectTextures: effectTextures,
+                        imagePipeline: imagePipeline,
+                        offscreenTexturePool: offscreenTexturePool,
+                        frameContext: frameContext, worldFramesByLayerID: frameWorldFrames,
+                        cameraFrame: cameraFrame,
+                        parallaxConfiguration: parallaxConfiguration,
+                        viewportSize: viewportSize,
+                        time: time,
+                        mainPass: mainPass,
+                        commandBuffer: commandBuffer,
+                        frameTransaction: sourceUpdateTransaction,
+                        effectExecutionTrace: effectExecutionTrace
+                    )
+                }
             }
             if let imagePipeline, dependencyRuntime.requiresCapture(for: layer.id) {
                 let providerModel = imageModelMatrix(
@@ -192,7 +213,6 @@ struct SceneMetalRenderer {
                     textureRegistry: textureRegistry
                 )
                 let authoredEffectChain = authoredEffectChain(for: layer.id)
-                let authoredEffectPlan = authoredEffectChain?.singleStage
                 if dependencyRuntime.requiresEffect(for: layer.id), dependencyEffect == nil {
                     dependencyRuntime.recordBindingFailure(for: layer.id)
                     continue
@@ -246,27 +266,34 @@ struct SceneMetalRenderer {
                         )
                     ),
                     offscreenTexturePool: offscreenTexturePool,
+                    resolvedMaterialFrameTargetPlan:
+                        resolvedMaterialFrameTargetPlans[layer.id],
                     offscreenSize: layer.contentKind == "solid" ? SceneCaptureGeometryResolver.projectedPixelSize(layerMVP: mvp, viewportSize: viewportSize) : nil,
                     requiresSourceCopy: false,
                     finalCompositeAlpha: nil,
                     dependencyEffect: dependencyEffect,
-                    authoredEffectPlan: authoredEffectPlan,
+                    authoredEffectPlan: authoredEffectChain?.singleStage,
                     blocksLegacyGaussianBlur: blocksLegacyGaussianBlur(for: layer.id),
                     authoredEffectChain: authoredEffectChain,
                     dynamicValues: frameContext.dynamicValues,
                     audioSpectrum: frameContext.audioSpectrum,
                     authoredShaderFrameInputs: .init(frameContext: frameContext)
                 )
+                var selectedLegacyAuthoredRoute = false
                 let encoded = imageCompositor.draw(
                     request,
                     pipeline: imagePipeline,
                     mainPass: mainPass,
+                    frameTransaction: sourceUpdateTransaction,
                     executionTrace: effectExecutionTrace,
                     executionOrigin: Self.effectExecutionOrigin(
                         for: layer.contentKind
-                    )
+                    ),
+                    onLegacyAuthoredRouteSelected: {
+                        selectedLegacyAuthoredRoute = true
+                    }
                 )
-                if authoredEffectChain != nil {
+                if selectedLegacyAuthoredRoute {
                     authoredEffectTelemetry.record(layerID: layer.id, encoded: encoded, on: commandBuffer)
                 }
                 dependencyRuntime.recordBindingIfRequired(
@@ -274,6 +301,11 @@ struct SceneMetalRenderer {
                     encoded: encoded,
                     on: commandBuffer
                 )
+                if !encoded,
+                   request.resolvedMaterialFrameTargetPlan != nil {
+                    stopsAfterClaimedFailure = true
+                    break frameLayers
+                }
             case "composition", "project", "fullscreen":
                 break
             case "quad":
@@ -342,57 +374,22 @@ struct SceneMetalRenderer {
 
         mainPass.finishEnsuringClear()
         encodeFrameReadback?(drawable.texture, commandBuffer)
+        guard imageCompositor.endResolvedMaterialFrame(on: commandBuffer) else {
+            return
+        }
         commandBuffer.present(drawable)
         effectExecutionTelemetry.observeSharedCommandBuffer(
             for: effectExecutionTrace,
             on: commandBuffer
         )
         performanceTelemetry?.recordSubmitted(on: commandBuffer)
+        sourceUpdateTransaction.arm(on: commandBuffer)
         commandBuffer.commit()
+        sourceUpdateTransaction.didSubmit()
         if let cpuStart {
             performanceTelemetry?.recordCPUFrame(
                 duration: ProcessInfo.processInfo.systemUptime - cpuStart
             )
         }
-    }
-
-    private func renderUtilityPlans(
-        triggeredBy layerID: Int,
-        effectTextures: SceneLayerEffectTextureStore,
-        imagePipeline: SceneImageLayerPipeline?,
-        offscreenTexturePool: SceneOffscreenTexturePool?,
-        frameContext: SceneFrameContext, worldFramesByLayerID: [Int: simd_float4x4],
-        cameraFrame: SceneParticleCameraFrame,
-        parallaxConfiguration: SceneLayerParallax.Configuration,
-        viewportSize: CGSize,
-        time: Float,
-        mainPass: SceneMainPassEncoder,
-        commandBuffer: MTLCommandBuffer,
-        effectExecutionTrace: SceneEffectExecutionFrameTrace
-    ) {
-        guard let plans = utilityPlansByTriggerLayerID[layerID], let imagePipeline,
-              let offscreenTexturePool else {
-            return
-        }
-        SceneUtilityPlanFrameRenderer.render(
-            renderer: self,
-            plans: plans,
-            dependencyRuntime: dependencyRuntime,
-            imageCompositor: imageCompositor,
-            utilityCaptureTelemetry: utilityCaptureTelemetry,
-            authoredEffectTelemetry: authoredEffectTelemetry,
-            effectTextures: effectTextures,
-            imagePipeline: imagePipeline,
-            offscreenTexturePool: offscreenTexturePool,
-            frameContext: frameContext,
-            worldFramesByLayerID: worldFramesByLayerID,
-            cameraFrame: cameraFrame,
-            parallaxConfiguration: parallaxConfiguration,
-            viewportSize: viewportSize,
-            time: time,
-            mainPass: mainPass,
-            commandBuffer: commandBuffer,
-            effectExecutionTrace: effectExecutionTrace
-        )
     }
 }

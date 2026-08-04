@@ -80,6 +80,17 @@ enum Harness {
             "opaque": transfer(
                 "vec3 total = vec3(0.2); gl_FragColor = vec4(total, 1.0);"
             ),
+            "closedControlFlowOpaque": transfer(
+                "vec3 total = vec3(0.2); " +
+                "for (int index = 0; index < 2; index++) { " +
+                "if (index > 0) { total += vec3(0.1); } " +
+                "} gl_FragColor = vec4(total, 1.0);"
+            ),
+            "closedConditionalPassthrough": transfer(
+                "float scale = 1.0; " +
+                "if (v_TexCoord.x > 0.5) { scale = 0.5; } " +
+                "gl_FragColor = texSample2D(g_Texture1, v_TexCoord);"
+            ),
             "arithmetic": transfer(
                 "gl_FragColor = texSample2D(g_Texture0, v_TexCoord) * 0.5;"
             ),
@@ -94,6 +105,10 @@ enum Harness {
             ),
             "conditionalOpaque": transfer(
                 "if (v_TexCoord.x > 0.5) gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);"
+            ),
+            "loopControlledOpaque": transfer(
+                "for (int index = 0; index < 2; index++) " +
+                "gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);"
             ),
             "earlyReturn": transfer(
                 "if (v_TexCoord.x < 0.0) return; gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);"
@@ -153,6 +168,10 @@ class SceneShaderColorContractTests(unittest.TestCase):
     def test_literal_one_alpha_proves_only_opaque_output(self) -> None:
         self.assertEqual(self.result["opaque"], "opaque")
 
+    def test_closed_control_flow_does_not_hide_root_output(self) -> None:
+        self.assertEqual(self.result["closedControlFlowOpaque"], "opaque")
+        self.assertEqual(self.result["closedConditionalPassthrough"], "slot:1")
+
     def test_alpha_math_and_non_linear_writes_remain_unproven(self) -> None:
         for key in (
             "arithmetic",
@@ -160,6 +179,7 @@ class SceneShaderColorContractTests(unittest.TestCase):
             "multipleWrites",
             "componentWrite",
             "conditionalOpaque",
+            "loopControlledOpaque",
             "earlyReturn",
             "discardedBranch",
         ):

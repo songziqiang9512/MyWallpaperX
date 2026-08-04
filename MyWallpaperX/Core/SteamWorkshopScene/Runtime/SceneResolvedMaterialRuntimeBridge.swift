@@ -1,40 +1,93 @@
-import CoreGraphics
 import Foundation
 import Metal
-import simd
 
-/// Per-surface CPU audit; R4 replaces it at the same graph-node boundary.
+/// Surface-scoped facade for the resolved-material graph runtime. The
+/// submission coordinator owns all mutable frame/GPU state; this type only
+/// exposes the renderer and provider-facing contract.
 final class SceneResolvedMaterialRuntimeBridge {
     typealias Graph = SceneAuthoredEffectRenderPlan
-    typealias Failure = SceneResolvedMaterialFailure
-    typealias LogSink = (String) -> Void
+    typealias State = SceneGraphExecutionState
+    typealias LogSink = @Sendable (String) -> Void
+    typealias ExactEffectSubject =
+        SceneResolvedMaterialExecutionCapabilityCatalog.ExactEffectSubject
 
-    private enum Outcome {
-        case accepted
-        case failure(Failure, disposition: String)
+    struct ClaimedExecution {
+        let layerID: Int
+        let admittedGraphs: [Graph]
+        let pairPlan: SceneLayerFullFramePairPlan
+        let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
+        let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
+
+        fileprivate init(
+            layerID: Int,
+            admittedGraphs: [Graph],
+            pairPlan: SceneLayerFullFramePairPlan,
+            fullFrameExtentPolicy: SceneFullFrameExtentPolicy,
+            token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
+        ) {
+            self.layerID = layerID
+            self.admittedGraphs = admittedGraphs
+            self.pairPlan = pairPlan
+            self.fullFrameExtentPolicy = fullFrameExtentPolicy
+            self.token = token
+        }
+    }
+
+    enum Claim {
+        case notMigrated
+        case rejected(reasonCode: String)
+        case claimed(ClaimedExecution)
+    }
+
+    struct ExecutionTicket: Hashable {
+        let identity, epoch: UInt64
+        let finalTextureIdentity: ObjectIdentifier
+    }
+
+    enum ExecutionResult {
+        case encoded(texture: MTLTexture, ticket: ExecutionTicket)
+        case failed(reasonCode: String)
+    }
+
+    enum CompositeOutcome {
+        case consumed
+        case failed(reasonCode: String)
+    }
+
+    struct FramePreparationRequest {
+        let claim: ClaimedExecution
+        let targetPlan: SceneResolvedMaterialFrameTargetPlan
+        let sourceTexture: MTLTexture
+        let sourceUniforms: SceneLayerFragmentUniforms
+        let sourcePipeline: SceneImageLayerPipeline
+    }
+
+    enum FramePreparationResult {
+        case ready
+        case rejected(reasonCode: String)
     }
 
     private let catalog: SceneResolvedMaterialRuntimeCatalog
     private let assets: SceneMaterialAssetTextureCatalog
-    private let logSink: LogSink
-    private var frame: SceneResolvedMaterialFrameSnapshot?
-    private var frameFailure: Failure?
-    private var outcomes: [SceneResolvedMaterialRuntimeCatalog.Key: Outcome] = [:]
-    private var finalizationAttemptedKeys: Set<
-        SceneResolvedMaterialRuntimeCatalog.Key
-    > = []
-    private var lastReportSignature: String?
-    private var frameIsActive = false
-    private var launchAuditCompleted = false
+    private let submissions: SceneResolvedMaterialSubmissionCoordinator
+    private let executionEvidenceLock = NSLock()
+    private var executionEvidenceByKey: [Graph.EffectKey: String] = [:]
+    private var executionEvidenceIssues: [String: Int] = [:]
 
     init(
         catalog: SceneResolvedMaterialRuntimeCatalog,
+        capabilities: SceneResolvedMaterialExecutionCapabilityCatalog,
         assets: SceneMaterialAssetTextureCatalog,
+        device: MTLDevice,
         logSink: @escaping LogSink = { NSLog("%@", $0) }
     ) {
         self.catalog = catalog
         self.assets = assets
-        self.logSink = logSink
+        submissions = .init(
+            device: device,
+            capabilities: capabilities,
+            logSink: logSink
+        )
     }
 
     var assetStates: [SceneAssetTextureIdentity: SceneTextureProviderState] {
@@ -44,6 +97,8 @@ final class SceneResolvedMaterialRuntimeBridge {
     var userPropertyDemands: Set<SceneUserPropertyTextureIdentity> {
         catalog.userPropertyDemands
     }
+
+    var shouldDeferFrame: Bool { submissions.shouldDeferFrame }
 
     func userPropertyDemands(
         including declaredPropertyKeys: [String]
@@ -59,13 +114,10 @@ final class SceneResolvedMaterialRuntimeBridge {
     func systemProviderBlocks(
         for snapshot: SceneMediaThumbnailTextureStore.Snapshot
     ) -> [String: SceneFrameTextureRegistry.ProviderStatus] {
-        let grouped = Dictionary(grouping: catalog.systemProviderDemands) {
-            $0.name
-        }
+        let grouped = Dictionary(grouping: catalog.systemProviderDemands, by: \.name)
         var blocks: [String: SceneFrameTextureRegistry.ProviderStatus] = [:]
         for name in grouped.keys.sorted() {
-            guard let demands = grouped[name],
-                  demands.count == 1,
+            guard let demands = grouped[name], demands.count == 1,
                   let demand = demands.first,
                   let publication = snapshot.publications[name],
                   let texture = snapshot.systemTextures[name],
@@ -85,167 +137,197 @@ final class SceneResolvedMaterialRuntimeBridge {
         dynamicSnapshot: SceneDynamicSnapshot,
         frameInputs: SceneAuthoredShaderFrameInputs
     ) {
-        guard !launchAuditCompleted else {
-            frameIsActive = false
-            return
-        }
-        frameIsActive = true
-        outcomes.removeAll(keepingCapacity: true)
-        finalizationAttemptedKeys.removeAll(keepingCapacity: true)
-        switch SceneResolvedMaterialFrameSnapshot.validated(
+        submissions.beginFrame(
             textureSnapshot: textureSnapshot,
             dynamicSnapshot: dynamicSnapshot,
             frameInputs: frameInputs
-        ) {
-        case let .success(snapshot):
-            frame = snapshot
-            frameFailure = nil
-        case let .failure(failure):
-            frame = nil
-            frameFailure = failure
+        )
+    }
+
+    func claim(
+        layerID: Int
+    ) -> Claim {
+        submissions.claim(layerID: layerID)
+    }
+
+    func preflightClaim(
+        layerID: Int
+    ) -> Claim {
+        submissions.preflightClaim(layerID: layerID)
+    }
+
+    func recordClaimedFailure(reasonCode: String) {
+        submissions.recordClaimedFailure(reasonCode: reasonCode)
+    }
+
+    /// Installs the static disposition projection after effect resources have
+    /// been loaded.  It is used only to label successful runtime evidence; it
+    /// never changes capability admission or claim state.
+    func installExecutionEvidence(_ subjects: [ExactEffectSubject]) {
+        executionEvidenceLock.lock()
+        defer { executionEvidenceLock.unlock() }
+        var installed: [Graph.EffectKey: String] = [:]
+        for (key, values) in Dictionary(grouping: subjects, by: \.key) {
+            guard values.count == 1, let subject = values.first else {
+                executionEvidenceIssues["duplicate-key", default: 0] += 1
+                continue
+            }
+            guard !subject.family.trimmingCharacters(
+                in: .whitespacesAndNewlines
+            ).isEmpty else {
+                executionEvidenceIssues["empty-family", default: 0] += 1
+                continue
+            }
+            installed[key] = subject.family
         }
-        for (key, entry) in catalog.entries {
-            if let frameFailure {
-                outcomes[key] = .failure(
-                    frameFailure,
-                    disposition: "frame-envelope-invalid"
-                )
-            } else if case let .failure(failure) = entry {
-                outcomes[key] = .failure(
-                    failure,
-                    disposition: "template-unavailable"
-                )
-            } else {
-                outcomes[key] = .failure(
-                    .init(
-                        phase: .graph,
-                        code: .graphNodeInvalid,
-                        details: ["audit-render-path-unavailable"]
-                    ),
-                    disposition: "render-path-unavailable"
-                )
+        executionEvidenceByKey = installed
+    }
+
+    func executionEvidenceFamily(for key: Graph.EffectKey) -> String? {
+        executionEvidenceLock.lock()
+        defer { executionEvidenceLock.unlock() }
+        return executionEvidenceByKey[key]
+    }
+
+    func executionEvidenceSubjects(
+        for claim: ClaimedExecution
+    ) -> [ExactEffectSubject] {
+        claim.admittedGraphs.flatMap { graph in
+            graph.effects.map {
+                .init(key: $0.key, family: "resolved-material")
             }
         }
     }
 
-    func auditResolvedMaterials(
-        graph: Graph,
-        targets: SceneGraphRenderTargetTable
-    ) {
-        guard frameIsActive else { return }
-        let materials = graph.nodes.filter { $0.kind == .material }
-        let commandStateUnavailable = graph.nodes.contains {
-            $0.kind == .copy || $0.kind == .swap
+    var executionEvidenceReportLines: [String] {
+        executionEvidenceLock.lock()
+        defer { executionEvidenceLock.unlock() }
+        var lines = [
+            "resolved material execution evidence: schema=r4-static-disposition-v1"
+                + " subjects=\(executionEvidenceByKey.count)"
+        ]
+        lines += executionEvidenceIssues.keys.sorted().map {
+            "resolved material execution evidence issue: \($0)"
+                + " count=\(executionEvidenceIssues[$0] ?? 0)"
         }
-        for node in materials {
-            let key = SceneResolvedMaterialRuntimeCatalog.Key(
-                effect: node.effect,
-                nodeIndex: node.nodeIndex
-            )
-            let result: Result<SceneResolvedMaterialProgram, Failure>
-            let disposition: String
-            if let failure = frameFailure {
-                result = .failure(failure)
-                disposition = "frame-envelope-invalid"
-            } else if commandStateUnavailable {
-                result = .failure(.init(
-                    phase: .graph,
-                    code: .graphNodeInvalid,
-                    details: ["audit-command-state-unavailable"]
-                ))
-                disposition = "command-state-unavailable"
-            } else if case let .failure(failure)? = catalog.entry(for: node) {
-                result = .failure(failure)
-                disposition = "template-unavailable"
-            } else if case let .template(template)? = catalog.entry(for: node),
-                      let frame,
-                      let targetIdentity = node.target,
-                      let target = targets.texture(for: targetIdentity),
-                      target.width > 0,
-                      target.height > 0 {
-                let width = Float(target.width)
-                let height = Float(target.height)
-                finalizationAttemptedKeys.insert(key)
-                result = SceneResolvedMaterialProgramFinalizer.finalize(
-                    frame.finalizationInput(
-                        template: template,
-                        renderSize: CGSize(
-                            width: target.width,
-                            height: target.height
-                        ),
-                        modelViewProjection: simd_float4x4(diagonal: SIMD4(
-                            2 / width,
-                            2 / height,
-                            1,
-                            1
-                        ))
-                    )
-                )
-                disposition = "finalization-failed"
-            } else {
-                result = .failure(.init(
-                    phase: .graph,
-                    code: .graphNodeInvalid
-                ))
-                disposition = "render-target-unavailable"
-            }
-            switch result {
-            case .success:
-                outcomes[key] = .accepted
-            case let .failure(failure):
-                outcomes[key] = .failure(failure, disposition: disposition)
-            }
-        }
+        return lines
+    }
+
+    func executeClaimed(
+        claim: ClaimedExecution,
+        commandBuffer: MTLCommandBuffer
+    ) -> ExecutionResult {
+        submissions.executeClaimed(
+            claim: claim,
+            commandBuffer: commandBuffer
+        )
+    }
+
+    func prepareFrame(
+        _ requests: [FramePreparationRequest],
+        pool: SceneOffscreenTexturePool?,
+        commandBuffer: MTLCommandBuffer
+    ) -> FramePreparationResult {
+        submissions.prepareFrame(
+            requests,
+            pool: pool,
+            commandBuffer: commandBuffer
+        )
+    }
+
+    func markComposite(
+        _ ticket: ExecutionTicket,
+        texture: MTLTexture,
+        consumed: Bool
+    ) -> CompositeOutcome {
+        submissions.markComposite(
+            ticket,
+            texture: texture,
+            consumed: consumed
+        )
+    }
+
+    @discardableResult
+    func sealFrame(on commandBuffer: MTLCommandBuffer) -> Bool {
+        submissions.sealFrame(on: commandBuffer)
     }
 
     @discardableResult
     func endFrame() -> [String] {
-        guard frameIsActive else {
-            return [
-                "resolved material runtime audit:"
-                    + " schema=r3-finalization-audit-v1 state=inactive"
-                    + " gpuEncoded=0"
-            ]
+        submissions.endFrame()
+    }
+
+    func invalidate(reason: SceneGraphExecutionResetReason) {
+        submissions.invalidate(reason: reason)
+    }
+}
+
+extension SceneResolvedMaterialSubmissionCoordinator {
+    func claim(layerID: Int) -> Bridge.Claim {
+        resolvedClaim(
+            layerID: layerID,
+            recordsClaim: true
+        )
+    }
+
+    func preflightClaim(layerID: Int) -> Bridge.Claim {
+        resolvedClaim(
+            layerID: layerID,
+            recordsClaim: false
+        )
+    }
+
+    private func resolvedClaim(
+        layerID: Int,
+        recordsClaim: Bool
+    ) -> Bridge.Claim {
+        guard let claim = capabilities.claim(layerID: layerID) else {
+            return .notMigrated
         }
-        let failures = outcomes.values.compactMap { outcome -> Failure? in
-            guard case let .failure(failure, _) = outcome else { return nil }
-            return failure
+        guard let capability = capabilities.resolve(claim.token),
+              capability.layerID == layerID,
+              capability.pairPlan.layerID == layerID,
+              capability.effectSubjectsAreConserved else {
+            return .rejected(reasonCode: "execution-capability-token-invalid")
         }
-        let dispositions = outcomes.values.compactMap { outcome -> String? in
-            guard case let .failure(_, disposition) = outcome else { return nil }
-            return disposition
+        let execution = Bridge.ClaimedExecution(
+            layerID: layerID,
+            admittedGraphs: capability.admittedProducts.map(\.graph),
+            pairPlan: capability.pairPlan,
+            fullFrameExtentPolicy: capability.fullFrameExtentPolicy,
+            token: claim.token
+        )
+        guard recordsClaim else { return .claimed(execution) }
+
+        lock.lock()
+        guard frameIsActive, framePreparationComplete,
+              !frameRequiresDrop, frameFailure == nil,
+              let identity = preparedLedgerByLayerID[layerID],
+              var ledger = activeByID[identity],
+              ledger.layerID == layerID,
+              ledger.capabilityToken == claim.token,
+              ledger.phase == .allocationCommitted,
+              !ledger.claimConsumed else {
+            lock.unlock()
+            return .rejected(reasonCode: "frame-candidate-not-prepared")
         }
-        var lines = [
-            "resolved material runtime audit: schema=r3-finalization-audit-v1"
-                + " mode=first-active-frame"
-                + " nodes=\(outcomes.count)"
-                + " finalizationAttempted=\(finalizationAttemptedKeys.count)"
-                + " accepted=\(outcomes.count - failures.count)"
-                + " failures=\(failures.count) gpuEncoded=0"
-        ]
-        let grouped = Dictionary(grouping: failures) {
-            "\($0.phase.rawValue):\($0.code.rawValue)"
+        ledger.claimConsumed = true
+        activeByID[identity] = ledger
+        frameClaimed += 1
+        lock.unlock()
+        return .claimed(execution)
+    }
+
+    func recordClaimedFailure(reasonCode: String) {
+        var emission = Emission()
+        lock.lock()
+        if frameIsActive {
+            emission = claimedFailureLocked(
+                reason: reasonCode.isEmpty
+                    ? "claimed-execution-failed" : reasonCode
+            )
         }
-        lines += grouped.keys.sorted().map {
-            "resolved material runtime failure: \($0)"
-                + " count=\(grouped[$0]?.count ?? 0)"
-        }
-        let dispositionGroups = Dictionary(grouping: dispositions) { $0 }
-        lines += dispositionGroups.keys.sorted().map {
-            "resolved material runtime disposition: code=\($0)"
-                + " count=\(dispositionGroups[$0]?.count ?? 0)"
-        }
-        let signature = lines.joined(separator: "\n")
-        if signature != lastReportSignature {
-            lastReportSignature = signature
-            lines.forEach(logSink)
-        }
-        frame = nil
-        frameFailure = nil
-        outcomes.removeAll(keepingCapacity: true)
-        finalizationAttemptedKeys.removeAll(keepingCapacity: true)
-        frameIsActive = false
-        launchAuditCompleted = true
-        return lines
+        lock.unlock()
+        emit(emission)
     }
 }

@@ -23,6 +23,8 @@ from scene_matrix_contract import (
     EFFECT_EXECUTION_EXPECTATIONS,
     EFFECT_RUNTIME_DISPOSITION_EXPECTATIONS,
     EFFECT_STAGE_ADMISSION_EXPECTATIONS,
+    RESOLVED_MATERIAL_GRAPH_BACKEND,
+    RESOLVED_MATERIAL_GRAPH_EXPECTATIONS,
     effect_execution_static_demand,
 )
 from web_benchmark_capture import (
@@ -514,6 +516,25 @@ SCENE_FRAME_COMMAND_BUFFER_RE = re.compile(
     r"routeOperations=(?P<routes>\d+) "
     r"cohortSHA256=(?P<cohort>[0-9a-fA-F]{64}) "
     r"status=(?P<status>completed|failed)"
+)
+RESOLVED_MATERIAL_LAYER_CAPABILITY_RE = re.compile(
+    r"resolved material execution capabilities: "
+    r"schema=r4-layer-capability-v2 "
+    r"candidates=(?P<candidates>\d+) accepted=(?P<accepted>\d+) "
+    r"rejected=(?P<rejected>\d+) variantLimit=(?P<variant_limit>\d+)(?=\s|$)"
+)
+RESOLVED_MATERIAL_LAYER_ROUTE_RE = re.compile(
+    r"resolved material execution capability: "
+    r"schema=r4-layer-route-v1 layer=(?P<id>\d+) status=accepted"
+)
+RESOLVED_MATERIAL_GRAPH_EXECUTOR_RE = re.compile(
+    r"resolved material runtime audit: schema=r4-graph-executor-v1 "
+    r"claimed=(?P<claimed>\d+) encoded=(?P<encoded>\d+) "
+    r"failures=(?P<failures>\d+) deferred=(?P<deferred>\d+) "
+    r"pending=(?P<pending>\d+) gpuEncoded=(?P<gpu_encoded>\d+)(?=\s|$)"
+)
+RESOLVED_MATERIAL_GRAPH_OBSERVATION_RE = re.compile(
+    r"schema=1 axis=graph-execution (?P<fields>[^\r\n]+)"
 )
 NAMED_TARGET_CAPTURE_EXECUTION_RE = re.compile(
     r"phase=named-target-capture layer=(?P<id>\d+) status=(?P<status>succeeded|failed)"
@@ -1766,6 +1787,785 @@ def utility_capture_execution_metrics(log_text: str) -> dict[str, Any]:
 
 def authored_effect_graph_execution_metrics(log_text: str) -> dict[str, Any]:
     return capture_execution_metrics(log_text, AUTHORED_EFFECT_GRAPH_EXECUTION_RE)
+
+
+def resolved_material_graph_exact_backend_metrics(
+    accepted_layer_ids: list[int],
+    effect_execution: dict[str, Any],
+    static_disposition: dict[str, Any] | None,
+) -> dict[str, Any]:
+    accepted_layers = set(accepted_layer_ids)
+    disposition_is_valid, _, eligible_exact, _ = (
+        _effect_execution_static_catalog(static_disposition)
+    )
+    required_by_layer: dict[int, set[tuple[int, str]]] = {
+        layer_id: set() for layer_id in accepted_layers
+    }
+    if disposition_is_valid:
+        for subject in eligible_exact:
+            layer_id = subject.get("layer_id")
+            effect_index = subject.get("effect_index")
+            descriptor_id = subject.get("descriptor_id")
+            if (
+                layer_id in accepted_layers
+                and isinstance(effect_index, int)
+                and not isinstance(effect_index, bool)
+                and isinstance(descriptor_id, str)
+            ):
+                required_by_layer[layer_id].add((effect_index, descriptor_id))
+
+    invocations = (
+        effect_execution.get("cpu_invocations", [])
+        if isinstance(effect_execution, dict)
+        else []
+    )
+    execution_is_well_formed = bool(
+        isinstance(effect_execution, dict)
+        and effect_execution.get("has_evidence") is True
+        and effect_execution.get("validation_failures") == []
+        and isinstance(invocations, list)
+        and all(isinstance(invocation, dict) for invocation in invocations)
+    )
+    successful_by_layer: dict[int, set[tuple[int, str]]] = {
+        layer_id: set() for layer_id in accepted_layers
+    }
+    wrong_backend_layer_ids: set[int] = set()
+    failed_layer_ids: set[int] = set()
+    malformed_layer_ids: set[int] = set()
+    resolved_backend_layer_ids: set[int] = set()
+    if isinstance(invocations, list):
+        for invocation in invocations:
+            if not isinstance(invocation, dict) or invocation.get("subject") != "effect":
+                continue
+            layer_id = invocation.get("layer_id")
+            if not isinstance(layer_id, int) or isinstance(layer_id, bool):
+                continue
+            if invocation.get("backend") == RESOLVED_MATERIAL_GRAPH_BACKEND:
+                resolved_backend_layer_ids.add(layer_id)
+            if layer_id not in accepted_layers:
+                continue
+            if invocation.get("backend") != RESOLVED_MATERIAL_GRAPH_BACKEND:
+                wrong_backend_layer_ids.add(layer_id)
+            if invocation.get("outcome") != "encoded-output":
+                failed_layer_ids.add(layer_id)
+            effect_index = invocation.get("effect_index")
+            descriptor_id = invocation.get("descriptor_id")
+            if (
+                invocation.get("join_valid") is not True
+                or not isinstance(effect_index, int)
+                or isinstance(effect_index, bool)
+                or not isinstance(descriptor_id, str)
+            ):
+                malformed_layer_ids.add(layer_id)
+                continue
+            if (
+                invocation.get("backend") == RESOLVED_MATERIAL_GRAPH_BACKEND
+                and invocation.get("outcome") == "encoded-output"
+            ):
+                successful_by_layer[layer_id].add((effect_index, descriptor_id))
+
+    complete_layer_ids = sorted(
+        layer_id for layer_id in accepted_layers
+        if disposition_is_valid
+        and execution_is_well_formed
+        and bool(required_by_layer[layer_id])
+        and required_by_layer[layer_id] == successful_by_layer[layer_id]
+        and layer_id not in wrong_backend_layer_ids
+        and layer_id not in failed_layer_ids
+        and layer_id not in malformed_layer_ids
+    )
+    missing_layer_ids = sorted(accepted_layers.difference(complete_layer_ids))
+    unexpected_layer_ids = sorted(
+        resolved_backend_layer_ids.difference(accepted_layers)
+    )
+    return {
+        "has_evidence": disposition_is_valid and execution_is_well_formed,
+        "backend": RESOLVED_MATERIAL_GRAPH_BACKEND,
+        "complete_layer_ids": complete_layer_ids,
+        "missing_layer_ids": missing_layer_ids,
+        "wrong_backend_layer_ids": sorted(wrong_backend_layer_ids),
+        "failed_layer_ids": sorted(failed_layer_ids),
+        "malformed_layer_ids": sorted(malformed_layer_ids),
+        "unexpected_layer_ids": unexpected_layer_ids,
+        "resolved_backend_layer_ids": sorted(resolved_backend_layer_ids),
+    }
+
+
+def resolved_material_graph_observation_metrics(
+    log_text: str,
+) -> dict[str, Any]:
+    payloads = [
+        match.group("fields").strip()
+        for match in RESOLVED_MATERIAL_GRAPH_OBSERVATION_RE.finditer(log_text)
+    ]
+    validation_failures: list[str] = []
+    terminal_successes: list[dict[str, Any]] = []
+    diagnostic_count = 0
+    failed_outcome_count = 0
+    gpu_failed_count = 0
+    if "schema=1 axis=graph-execution" in log_text and not payloads:
+        validation_failures.append(
+            "resolved material graph observation evidence malformed"
+        )
+
+    count_fields = {
+        "authored_nodes": "authoredNodes",
+        "material_nodes": "materialNodes",
+        "copy_nodes": "copyNodes",
+        "swap_nodes": "swapNodes",
+        "compose_nodes": "composeNodes",
+        "rejected_nodes": "rejectedNodes",
+    }
+    required_fields = {
+        "frame", "layer", "trigger", "transaction", *count_fields.values(),
+        "finalOutput", "physicalIdentity", "publication",
+        "publicationGeneration", "compositorConsumed", "outcome",
+        "gpuCompletion",
+    }
+    for payload in payloads:
+        tokens = [token.split("=", 1) for token in payload.split() if "=" in token]
+        fields = {key: value for key, value in tokens if key and value}
+        malformed = len(tokens) != len(payload.split()) or len(fields) != len(tokens)
+        trigger = fields.get("trigger", "")
+        if "diagnostic" in fields:
+            diagnostic_count += 1
+            continue
+        if malformed or not required_fields.issubset(fields):
+            validation_failures.append(
+                "resolved material graph observation evidence malformed"
+            )
+            continue
+        outcome = fields["outcome"]
+        gpu_completion = fields["gpuCompletion"]
+        if outcome == "failed":
+            failed_outcome_count += 1
+        elif outcome != "succeeded":
+            validation_failures.append(
+                "resolved material graph observation outcome invalid"
+            )
+        if gpu_completion == "failed":
+            gpu_failed_count += 1
+        elif gpu_completion not in {"completed", "-"}:
+            validation_failures.append(
+                "resolved material graph observation GPU completion invalid"
+            )
+        if outcome != "succeeded" or gpu_completion != "completed":
+            continue
+
+        try:
+            counts = {
+                key: int(fields[field]) for key, field in count_fields.items()
+            }
+            frame = int(fields["frame"])
+            layer_id = int(fields["layer"])
+            publication_generation = int(fields["publicationGeneration"])
+        except ValueError:
+            validation_failures.append(
+                "resolved material graph observation evidence malformed"
+            )
+            continue
+        outputs = (
+            fields["finalOutput"], fields["physicalIdentity"], fields["publication"]
+        )
+        terminal_failures = [
+            message for valid, message in (
+                (
+                    layer_id >= 0 and all(value >= 0 for value in counts.values()),
+                    "resolved material graph observation node count invalid",
+                ),
+                (
+                    counts["rejected_nodes"] == 0,
+                    "resolved material graph observation rejected nodes are nonzero",
+                ),
+                (
+                    counts["authored_nodes"] == counts["material_nodes"]
+                    + counts["copy_nodes"] + counts["swap_nodes"],
+                    "resolved material graph observation node conservation failed",
+                ),
+                (
+                    counts["compose_nodes"] <= counts["material_nodes"],
+                    "resolved material graph observation compose count invalid",
+                ),
+                (
+                    fields["transaction"] != "-" and "-" not in outputs,
+                    "resolved material graph observation final publication missing",
+                ),
+                (
+                    publication_generation > 0,
+                    "resolved material graph observation publication generation invalid",
+                ),
+                (
+                    fields["compositorConsumed"] in {"true", "false"},
+                    "resolved material graph observation compositor state invalid",
+                ),
+            ) if not valid
+        ]
+        validation_failures.extend(terminal_failures)
+        if terminal_failures:
+            continue
+        terminal_successes.append({
+            "frame": frame,
+            "layer_id": layer_id,
+            "trigger": trigger.split("+"),
+            "transaction": fields["transaction"],
+            **counts,
+            "final_output": outputs[0],
+            "final_physical": outputs[1],
+            "final_publication": outputs[2],
+            "publication_generation": publication_generation,
+            "compositor_consumed": fields["compositorConsumed"] == "true",
+            "outcome": outcome,
+            "gpu_completion": gpu_completion,
+        })
+
+    if diagnostic_count:
+        validation_failures.append(
+            "resolved material graph observation diagnostic reported"
+        )
+    if failed_outcome_count:
+        validation_failures.append(
+            "resolved material graph observation failed outcome reported"
+        )
+    if gpu_failed_count:
+        validation_failures.append(
+            "resolved material graph observation GPU failure reported"
+        )
+    successful_transactions = sorted({
+        observation["transaction"] for observation in terminal_successes
+    })
+    successful_layer_ids = sorted({
+        observation["layer_id"] for observation in terminal_successes
+    })
+    compositor_consumed_layer_ids = sorted({
+        observation["layer_id"]
+        for observation in terminal_successes
+        if observation["compositor_consumed"]
+    })
+    next_frame_layer_ids = sorted({
+        observation["layer_id"]
+        for observation in terminal_successes
+        if observation["compositor_consumed"]
+        and "next-frame" in observation["trigger"]
+    })
+    return {
+        "has_evidence": bool(payloads),
+        "schema_version": 1 if payloads else None,
+        "observation_count": len(payloads),
+        "terminal_success_count": len(terminal_successes),
+        "successful_transaction_count": len(successful_transactions),
+        "successful_transactions": successful_transactions,
+        "successful_gpu_completed_layer_ids": successful_layer_ids,
+        "compositor_consumed_layer_ids": compositor_consumed_layer_ids,
+        "next_frame_layer_ids": next_frame_layer_ids,
+        "next_frame_observed": bool(next_frame_layer_ids),
+        "terminal_compositor_consume_observed": any(
+            observation["compositor_consumed"] for observation in terminal_successes
+        ),
+        "diagnostic_count": diagnostic_count,
+        "failed_outcome_count": failed_outcome_count,
+        "gpu_failed_count": gpu_failed_count,
+        "terminal_success_observations": terminal_successes,
+        "validation_failures": list(dict.fromkeys(validation_failures)),
+    }
+
+
+def resolved_material_graph_execution_metrics(
+    preview_text: str,
+    log_text: str,
+    *,
+    effect_execution: dict[str, Any] | None = None,
+    static_disposition: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    graph_observations = resolved_material_graph_observation_metrics(log_text)
+    capability_observations = [
+        {
+            "candidate_count": int(match.group("candidates")),
+            "accepted_count": int(match.group("accepted")),
+            "rejected_count": int(match.group("rejected")),
+            "variant_limit": int(match.group("variant_limit")),
+        }
+        for match in RESOLVED_MATERIAL_LAYER_CAPABILITY_RE.finditer(preview_text)
+    ]
+    capability_failures: list[str] = []
+    if (
+        "schema=r4-layer-capability-v2" in preview_text
+        and not capability_observations
+    ):
+        capability_failures.append(
+            "resolved material graph capability evidence malformed"
+        )
+    capability_signatures = {
+        tuple(observation.values()) for observation in capability_observations
+    }
+    if len(capability_signatures) > 1:
+        capability_failures.append(
+            "resolved material graph capability evidence conflicts"
+        )
+    for observation in capability_observations:
+        if observation["candidate_count"] != (
+            observation["accepted_count"] + observation["rejected_count"]
+        ):
+            capability_failures.append(
+                "resolved material graph capability count conservation failed"
+            )
+        if observation["variant_limit"] <= 0:
+            capability_failures.append(
+                "resolved material graph capability variant limit invalid"
+            )
+    capability = capability_observations[-1] if capability_observations else None
+
+    route_lines = [
+        line.strip()
+        for line in preview_text.splitlines()
+        if "schema=r4-layer-route-v1" in line
+    ]
+    accepted_layer_observations: list[int] = []
+    malformed_route_count = 0
+    for line in route_lines:
+        match = RESOLVED_MATERIAL_LAYER_ROUTE_RE.fullmatch(line)
+        if match is None:
+            malformed_route_count += 1
+        else:
+            accepted_layer_observations.append(int(match.group("id")))
+    accepted_layer_ids = sorted(set(accepted_layer_observations))
+    accepted_layer_counts: dict[int, int] = {}
+    for layer_id in accepted_layer_observations:
+        accepted_layer_counts[layer_id] = accepted_layer_counts.get(layer_id, 0) + 1
+    duplicate_accepted_layer_ids = sorted(
+        layer_id
+        for layer_id, count in accepted_layer_counts.items()
+        if count > 1
+    )
+    if malformed_route_count:
+        capability_failures.append(
+            "resolved material graph accepted layer evidence malformed"
+        )
+    if duplicate_accepted_layer_ids:
+        capability_failures.append(
+            "resolved material graph accepted layer evidence duplicated"
+        )
+    if capability is None and accepted_layer_observations:
+        capability_failures.append(
+            "resolved material graph accepted layer evidence has no aggregate capability"
+        )
+    if capability is not None and (
+        len(accepted_layer_observations) != capability["accepted_count"]
+        or len(accepted_layer_ids) != capability["accepted_count"]
+    ):
+        capability_failures.append(
+            "resolved material graph accepted layer count conservation failed"
+        )
+
+    executor_observations = [
+        {
+            "claimed": int(match.group("claimed")),
+            "encoded": int(match.group("encoded")),
+            "failures": int(match.group("failures")),
+            "deferred": int(match.group("deferred")),
+            "pending": int(match.group("pending")),
+            "gpu_encoded": int(match.group("gpu_encoded")),
+        }
+        for match in RESOLVED_MATERIAL_GRAPH_EXECUTOR_RE.finditer(log_text)
+    ]
+    executor_failures: list[str] = []
+    if "schema=r4-graph-executor-v1" in log_text and not executor_observations:
+        executor_failures.append(
+            "resolved material graph executor evidence malformed"
+        )
+    for observation in executor_observations:
+        if observation["encoded"] > observation["claimed"]:
+            executor_failures.append(
+                "resolved material graph executor claim conservation failed"
+            )
+        if observation["gpu_encoded"] != observation["encoded"]:
+            executor_failures.append(
+                "resolved material graph executor GPU encode conservation failed"
+            )
+        if (
+            observation["failures"] == 0
+            and observation["deferred"] == 0
+            and observation["claimed"] != observation["encoded"]
+        ):
+            executor_failures.append(
+                "resolved material graph executor successful claim conservation failed"
+            )
+        if observation["failures"] > 0:
+            executor_failures.append(
+                "resolved material graph executor reported failures"
+            )
+
+    claimed_count = sum(value["claimed"] for value in executor_observations)
+    encoded_count = sum(value["encoded"] for value in executor_observations)
+    failure_count = sum(value["failures"] for value in executor_observations)
+    gpu_encoded_count = sum(
+        value["gpu_encoded"] for value in executor_observations
+    )
+    accepted_count = capability["accepted_count"] if capability else None
+    observed_layer_ids = graph_observations[
+        "successful_gpu_completed_layer_ids"
+    ]
+    compositor_consumed_layer_ids = graph_observations[
+        "compositor_consumed_layer_ids"
+    ]
+    next_frame_layer_ids = graph_observations["next_frame_layer_ids"]
+    accepted_layer_set = set(accepted_layer_ids)
+    if effect_execution is None:
+        effect_execution = effect_execution_metrics(log_text, static_disposition)
+    exact_backend = resolved_material_graph_exact_backend_metrics(
+        accepted_layer_ids,
+        effect_execution,
+        static_disposition,
+    )
+    if capability is None and (
+        executor_observations
+        or graph_observations["observation_count"] > 0
+        or exact_backend["resolved_backend_layer_ids"]
+    ):
+        capability_failures.append(
+            "resolved material graph activity has no capability evidence"
+        )
+    missing_gpu_completed_layer_ids = sorted(
+        accepted_layer_set.difference(observed_layer_ids)
+    )
+    missing_compositor_consumed_layer_ids = sorted(
+        accepted_layer_set.difference(compositor_consumed_layer_ids)
+    )
+    missing_next_frame_layer_ids = sorted(
+        accepted_layer_set.difference(next_frame_layer_ids)
+    )
+    missing_exact_backend_layer_ids = exact_backend["missing_layer_ids"]
+    missing_layer_ids = sorted(
+        set(missing_gpu_completed_layer_ids).union(
+            missing_compositor_consumed_layer_ids,
+            missing_next_frame_layer_ids,
+            missing_exact_backend_layer_ids,
+        )
+    )
+    unexpected_gpu_completed_layer_ids = sorted(
+        set(observed_layer_ids).difference(accepted_layer_set)
+    )
+    unexpected_compositor_consumed_layer_ids = sorted(
+        set(compositor_consumed_layer_ids).difference(accepted_layer_set)
+    )
+    unexpected_next_frame_layer_ids = sorted(
+        set(next_frame_layer_ids).difference(accepted_layer_set)
+    )
+    unexpected_exact_backend_layer_ids = exact_backend["unexpected_layer_ids"]
+    unexpected_layer_ids = sorted(
+        set(unexpected_gpu_completed_layer_ids).union(
+            unexpected_compositor_consumed_layer_ids,
+            unexpected_next_frame_layer_ids,
+            unexpected_exact_backend_layer_ids,
+        )
+    )
+    legacy_metrics = authored_effect_graph_execution_metrics(log_text)
+    legacy_layer_ids = set(legacy_metrics["succeeded_layer_ids"]).union(
+        legacy_metrics["failed_layer_ids"]
+    )
+    legacy_conflict_layer_ids = sorted(
+        accepted_layer_set.intersection(legacy_layer_ids)
+    )
+    if missing_gpu_completed_layer_ids:
+        capability_failures.append(
+            "resolved material graph accepted layer GPU completion missing"
+        )
+    if missing_compositor_consumed_layer_ids:
+        capability_failures.append(
+            "resolved material graph accepted layer compositor consumption missing"
+        )
+    if missing_next_frame_layer_ids:
+        capability_failures.append(
+            "resolved material graph accepted layer next-frame evidence missing"
+        )
+    if missing_exact_backend_layer_ids:
+        capability_failures.append(
+            "resolved material graph accepted layer exact backend evidence missing"
+        )
+    if exact_backend["wrong_backend_layer_ids"]:
+        capability_failures.append(
+            "resolved material graph accepted layer exact backend mismatch"
+        )
+    if exact_backend["failed_layer_ids"]:
+        capability_failures.append(
+            "resolved material graph accepted layer exact execution failed"
+        )
+    if exact_backend["malformed_layer_ids"]:
+        capability_failures.append(
+            "resolved material graph accepted layer exact evidence malformed"
+        )
+    if unexpected_gpu_completed_layer_ids:
+        capability_failures.append(
+            "resolved material graph non-accepted layer GPU completion observed"
+        )
+    if unexpected_compositor_consumed_layer_ids:
+        capability_failures.append(
+            "resolved material graph non-accepted layer compositor consumption observed"
+        )
+    if unexpected_next_frame_layer_ids:
+        capability_failures.append(
+            "resolved material graph non-accepted layer next-frame observed"
+        )
+    if unexpected_exact_backend_layer_ids:
+        capability_failures.append(
+            "resolved material graph non-accepted layer exact backend observed"
+        )
+    if legacy_conflict_layer_ids:
+        capability_failures.append(
+            "resolved material graph accepted layer selected legacy authored route"
+        )
+    if accepted_count is not None and accepted_count > 0:
+        if not executor_observations:
+            executor_failures.append(
+                "resolved material graph executor evidence missing"
+            )
+        if claimed_count <= 0:
+            executor_failures.append(
+                "resolved material graph executor claimed count is zero"
+            )
+        if encoded_count <= 0:
+            executor_failures.append(
+                "resolved material graph executor encoded count is zero"
+            )
+        if gpu_encoded_count <= 0:
+            executor_failures.append(
+                "resolved material graph executor GPU encoded count is zero"
+            )
+        if not graph_observations["has_evidence"]:
+            capability_failures.append(
+                "resolved material graph terminal evidence missing"
+            )
+        elif graph_observations["successful_transaction_count"] < 2:
+            capability_failures.append(
+                "resolved material graph successful transaction count below two"
+            )
+
+    zero_executor_counters = bool(
+        executor_observations
+        and claimed_count == 0
+        and encoded_count == 0
+        and failure_count == 0
+        and gpu_encoded_count == 0
+        and all(
+            observation["deferred"] == 0 and observation["pending"] == 0
+            for observation in executor_observations
+        )
+    )
+    validation_failures = (
+        capability_failures
+        + executor_failures
+        + graph_observations["validation_failures"]
+    )
+    if accepted_count == 0:
+        if not executor_observations:
+            validation_failures.append(
+                "resolved material graph zero contract executor evidence missing"
+            )
+        elif not zero_executor_counters:
+            validation_failures.append(
+                "resolved material graph zero contract executor counters nonzero"
+            )
+        if graph_observations["observation_count"] > 0:
+            validation_failures.append(
+                "resolved material graph zero contract observed graph execution"
+            )
+    validation_failures = list(dict.fromkeys(validation_failures))
+    succeeded_layer_ids = sorted(
+        accepted_layer_set
+        .intersection(observed_layer_ids)
+        .intersection(compositor_consumed_layer_ids)
+        .intersection(next_frame_layer_ids)
+        .intersection(exact_backend["complete_layer_ids"])
+        .difference(legacy_conflict_layer_ids)
+    )
+    execution_succeeded = bool(
+        capability is not None
+        and accepted_count is not None
+        and accepted_count > 0
+        and executor_observations
+        and claimed_count > 0
+        and encoded_count > 0
+        and gpu_encoded_count > 0
+        and failure_count == 0
+        and graph_observations["successful_transaction_count"] >= 2
+        and succeeded_layer_ids == accepted_layer_ids
+        and not missing_layer_ids
+        and not unexpected_layer_ids
+        and not legacy_conflict_layer_ids
+        and not validation_failures
+    )
+    route_evidence_complete = bool(
+        capability is not None
+        and len(accepted_layer_observations) == accepted_count
+        and len(accepted_layer_ids) == accepted_count
+        and not duplicate_accepted_layer_ids
+        and malformed_route_count == 0
+    )
+    zero_contract_succeeded = bool(
+        capability is not None
+        and accepted_count == 0
+        and route_evidence_complete
+        and zero_executor_counters
+        and graph_observations["observation_count"] == 0
+        and not legacy_conflict_layer_ids
+        and not unexpected_layer_ids
+        and not validation_failures
+    )
+    return {
+        "has_evidence": bool(
+            capability_observations
+            and route_evidence_complete
+            and executor_observations
+            and (
+                graph_observations["has_evidence"]
+                and exact_backend["has_evidence"]
+                if accepted_count and accepted_count > 0
+                else graph_observations["observation_count"] == 0
+            )
+        ),
+        "execution_succeeded": execution_succeeded,
+        "zero_contract_succeeded": zero_contract_succeeded,
+        "contract_succeeded": execution_succeeded or zero_contract_succeeded,
+        "succeeded_layer_ids": succeeded_layer_ids,
+        "capability": {
+            "has_evidence": bool(capability_observations),
+            "schema_version": (
+                "r4-layer-capability-v2" if capability_observations else None
+            ),
+            "observation_count": len(capability_observations),
+            "candidate_count": (
+                capability["candidate_count"] if capability else None
+            ),
+            "accepted_count": accepted_count,
+            "rejected_count": (
+                capability["rejected_count"] if capability else None
+            ),
+            "variant_limit": capability["variant_limit"] if capability else None,
+            "accepted_layer_ids": accepted_layer_ids,
+            "accepted_layer_observation_count": len(accepted_layer_observations),
+            "duplicate_accepted_layer_ids": duplicate_accepted_layer_ids,
+            "malformed_route_observation_count": malformed_route_count,
+        },
+        "executor": {
+            "has_evidence": bool(executor_observations),
+            "schema_version": (
+                "r4-graph-executor-v1" if executor_observations else None
+            ),
+            "observation_count": len(executor_observations),
+            "claimed_count": claimed_count,
+            "encoded_count": encoded_count,
+            "failure_count": failure_count,
+            "deferred_count": sum(
+                value["deferred"] for value in executor_observations
+            ),
+            "pending_max": max(
+                (value["pending"] for value in executor_observations),
+                default=0,
+            ),
+            "gpu_encoded_count": gpu_encoded_count,
+            "observations": executor_observations,
+        },
+        "graph_observations": graph_observations,
+        "exact_backend": exact_backend,
+        "layer_routes": {
+            "has_evidence": route_evidence_complete,
+            "schema_version": (
+                "r4-layer-route-v1" if route_lines else None
+            ),
+            "accepted_layer_ids": accepted_layer_ids,
+            "observed_layer_ids": observed_layer_ids,
+            "compositor_consumed_layer_ids": compositor_consumed_layer_ids,
+            "next_frame_layer_ids": next_frame_layer_ids,
+            "missing_layer_ids": missing_layer_ids,
+            "missing_gpu_completed_layer_ids": missing_gpu_completed_layer_ids,
+            "missing_compositor_consumed_layer_ids": (
+                missing_compositor_consumed_layer_ids
+            ),
+            "missing_next_frame_layer_ids": missing_next_frame_layer_ids,
+            "missing_exact_backend_layer_ids": missing_exact_backend_layer_ids,
+            "unexpected_layer_ids": unexpected_layer_ids,
+            "unexpected_gpu_completed_layer_ids": (
+                unexpected_gpu_completed_layer_ids
+            ),
+            "unexpected_compositor_consumed_layer_ids": (
+                unexpected_compositor_consumed_layer_ids
+            ),
+            "unexpected_next_frame_layer_ids": unexpected_next_frame_layer_ids,
+            "unexpected_exact_backend_layer_ids": (
+                unexpected_exact_backend_layer_ids
+            ),
+            "legacy_conflict_layer_ids": legacy_conflict_layer_ids,
+        },
+        "validation_failures": validation_failures,
+    }
+
+
+def resolved_material_graph_execution_failures(
+    metrics: dict[str, Any],
+    require_evidence: bool = False,
+    *,
+    sample: dict[str, Any] | None = None,
+) -> list[str]:
+    failures = list(metrics["validation_failures"])
+    sample = sample or {}
+    expectation = RESOLVED_MATERIAL_GRAPH_EXPECTATIONS[0]
+    expects_evidence = expectation.matrix_key in sample
+    if not require_evidence and not expects_evidence:
+        return list(dict.fromkeys(failures))
+
+    capability = metrics["capability"]
+    executor = metrics["executor"]
+    graph_observations = metrics["graph_observations"]
+    if not capability["has_evidence"]:
+        failures.append("resolved material graph capability evidence missing")
+        return list(dict.fromkeys(failures))
+
+    if expects_evidence:
+        expected_layer_ids = sample[expectation.matrix_key]
+        if not (
+            isinstance(expected_layer_ids, list)
+            and all(
+                isinstance(layer_id, int) and not isinstance(layer_id, bool)
+                and layer_id >= 0
+                for layer_id in expected_layer_ids
+            )
+            and expected_layer_ids == sorted(set(expected_layer_ids))
+        ):
+            failures.append(
+                "resolved material graph succeeded layer IDs expectation invalid"
+            )
+        elif metrics["succeeded_layer_ids"] != expected_layer_ids:
+            failures.append(expectation.failure_message)
+
+    if capability["accepted_count"] <= 0:
+        if require_evidence and not (
+            expects_evidence and metrics["zero_contract_succeeded"]
+        ):
+            failures.append(
+                "resolved material graph execution has no admitted capability"
+            )
+        if expects_evidence and not metrics["zero_contract_succeeded"]:
+            failures.append(
+                "resolved material graph zero contract not satisfied"
+            )
+        return list(dict.fromkeys(failures))
+    if not executor["has_evidence"]:
+        failures.append("resolved material graph executor evidence missing")
+        return list(dict.fromkeys(failures))
+    if executor["claimed_count"] <= 0:
+        failures.append("resolved material graph executor claimed count is zero")
+    if executor["encoded_count"] <= 0:
+        failures.append("resolved material graph executor encoded count is zero")
+    if executor["gpu_encoded_count"] <= 0:
+        failures.append("resolved material graph executor GPU encoded count is zero")
+    if executor["failure_count"] != 0:
+        failures.append("resolved material graph executor reported failures")
+    if not graph_observations["has_evidence"]:
+        failures.append("resolved material graph terminal evidence missing")
+    elif graph_observations["successful_transaction_count"] < 2:
+        failures.append(
+            "resolved material graph successful transaction count below two"
+        )
+    return list(dict.fromkeys(failures))
 
 
 def authored_effect_graph_legacy_blur_blocked_layer_ids(preview_text: str) -> list[int]:
@@ -4160,6 +4960,7 @@ def run_sample(
     require_effect_stage_admission: bool = False,
     require_effect_runtime_disposition: bool = False,
     require_effect_execution: bool = False,
+    require_graph_execution: bool = False,
 ) -> dict[str, Any]:
     sample_id = str(sample["id"])
     source = sample_root / "Scene" / sample_id
@@ -4399,6 +5200,14 @@ def run_sample(
         log_text,
         effect_runtime_disposition,
     )
+    resolved_material_graph_execution = (
+        resolved_material_graph_execution_metrics(
+            preview_text,
+            log_text,
+            effect_execution=effect_execution,
+            static_disposition=effect_runtime_disposition,
+        )
+    )
     route_only_effect_count = preview_text.count("offscreen route-only")
     named_target_capture_execution = named_target_capture_execution_metrics(log_text)
     named_target_binding_execution = named_target_binding_execution_metrics(log_text)
@@ -4571,6 +5380,11 @@ def run_sample(
         require_evidence=require_effect_execution,
         sample=sample,
         static_disposition=effect_runtime_disposition,
+    ))
+    failures.extend(resolved_material_graph_execution_failures(
+        resolved_material_graph_execution,
+        require_evidence=require_graph_execution,
+        sample=sample,
     ))
     succeeded_capture_ids = set(utility_capture_execution["succeeded_layer_ids"])
     if len(succeeded_capture_ids) < utility_runtime["capture_planned"]:
@@ -5072,6 +5886,9 @@ def run_sample(
             "authored_effect_stage_compile": authored_effect_stage_compile,
             "effect_runtime_disposition": effect_runtime_disposition,
             "effect_execution": effect_execution,
+            "resolved_material_graph_execution": (
+                resolved_material_graph_execution
+            ),
             "named_target_capture_succeeded_layer_ids": named_target_capture_execution["succeeded_layer_ids"],
             "named_target_capture_failed_layer_ids": named_target_capture_execution["failed_layer_ids"],
             "named_target_binding_succeeded_layer_ids": named_target_binding_execution["succeeded_layer_ids"],
@@ -5204,6 +6021,14 @@ def parse_args() -> argparse.Namespace:
             "shared frame execution evidence is absent"
         ),
     )
+    parser.add_argument(
+        "--require-graph-execution",
+        action="store_true",
+        help=(
+            "fail selected samples unless an admitted R4 material graph is "
+            "claimed and encoded on the GPU without executor failures"
+        ),
+    )
     return parser.parse_args()
 
 
@@ -5252,6 +6077,7 @@ def main() -> int:
                 args.require_effect_runtime_disposition
             ),
             require_effect_execution=args.require_effect_execution,
+            require_graph_execution=args.require_graph_execution,
         )
         for sample in matrix["samples"]
     ]

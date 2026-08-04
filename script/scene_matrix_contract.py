@@ -53,6 +53,7 @@ EFFECT_EXECUTION_ROUTE_GROUP_KINDS = frozenset({
     "offscreen-passthrough",
     "composite-refused",
 })
+RESOLVED_MATERIAL_GRAPH_BACKEND = "resolved-material-graph"
 
 
 @dataclass(frozen=True)
@@ -272,6 +273,20 @@ EFFECT_EXECUTION_EXPECTATIONS = (
         ),
         "effect execution aggregate gap count mismatch",
         comparison="integer",
+    ),
+)
+
+
+RESOLVED_MATERIAL_GRAPH_EXPECTATIONS = (
+    NestedRuntimeExpectation(
+        "expected_resolved_material_graph_succeeded_layer_ids",
+        (
+            "runtime",
+            "resolved_material_graph_execution",
+            "succeeded_layer_ids",
+        ),
+        "resolved material graph succeeded layer IDs mismatch",
+        comparison="sorted_list",
     ),
 )
 

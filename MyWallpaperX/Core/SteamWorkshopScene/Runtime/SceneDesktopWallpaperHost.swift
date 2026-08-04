@@ -38,8 +38,8 @@ final class SceneDesktopWallpaperHost {
     var launchContext: SceneDesktopWallpaperLaunchContext?
     private var observers: [NSObjectProtocol] = []
     var frameTimer: Timer?
-    private var screenReconciliationWorkItem: DispatchWorkItem?
-    private var screenTopology: [SceneScreenTopology] = []
+    var screenReconciliationWorkItem: DispatchWorkItem?
+    var screenTopology: [SceneScreenTopology] = []
     var sceneClock = SceneClock(hostTime: CACurrentMediaTime())
     var videoTextureSourceRegistry: SceneVideoTextureSourceRegistry?
     var nextVideoProviderEpoch: UInt64 = 0
@@ -61,6 +61,9 @@ final class SceneDesktopWallpaperHost {
     }
 
     func activate(_ context: SceneDesktopWallpaperLaunchContext) throws {
+        let teardownReason: SceneGraphExecutionResetReason = launchContext == nil
+            ? .surfaceStop
+            : .sceneSwitch
         screenReconciliationWorkItem?.cancel()
         screenReconciliationWorkItem = nil
         videoTextureSourceRegistry?.stop()
@@ -73,7 +76,10 @@ final class SceneDesktopWallpaperHost {
             in: context.authoredEffectCatalog,
             sceneScriptAudioBarsProgram: context.sceneScriptAudioBarsProgram
         ))
-        guard rebuildSurfaces(resetClock: true) else {
+        guard rebuildSurfaces(
+            resetClock: true,
+            teardownReason: teardownReason
+        ) else {
             stop()
             throw SceneDesktopWallpaperHostLaunchError.noSurface
         }
@@ -111,7 +117,7 @@ final class SceneDesktopWallpaperHost {
     }
 
     func stop() {
-        teardownSurfaces(clearContext: true)
+        teardownSurfaces(clearContext: true, reason: .surfaceStop)
     }
 
 #if DEBUG
@@ -177,7 +183,7 @@ final class SceneDesktopWallpaperHost {
             return
         }
         guard kind != .scene else { return }
-        stop()
+        teardownSurfaces(clearContext: true, reason: .sceneSwitch)
     }
 
     private func scheduleScreenConfigurationReconciliation() {
@@ -214,7 +220,10 @@ final class SceneDesktopWallpaperHost {
     }
 
     @discardableResult
-    private func rebuildSurfaces(resetClock: Bool = false) -> Bool {
+    private func rebuildSurfaces(
+        resetClock: Bool = false,
+        teardownReason: SceneGraphExecutionResetReason = .surfaceStop
+    ) -> Bool {
         guard let launchContext, let videoTextureSourceRegistry else { return false }
 
         let rebuildHostTime = CACurrentMediaTime()
@@ -226,7 +235,7 @@ final class SceneDesktopWallpaperHost {
 
         let screens = NSScreen.screens
         guard !screens.isEmpty else {
-            teardownSurfaces(clearContext: false)
+            teardownSurfaces(clearContext: false, reason: teardownReason)
             return false
         }
 
@@ -235,7 +244,7 @@ final class SceneDesktopWallpaperHost {
         }
         defer { scopedURLs.forEach { $0.stopAccessingSecurityScopedResource() } }
 
-        teardownSurfaces(clearContext: false)
+        teardownSurfaces(clearContext: false, reason: teardownReason)
 
         var created = false
         var wroteLog = false
@@ -319,7 +328,7 @@ final class SceneDesktopWallpaperHost {
         }
 
         if !created {
-            teardownSurfaces(clearContext: false)
+            teardownSurfaces(clearContext: false, reason: teardownReason)
             return false
         }
 
@@ -335,40 +344,6 @@ final class SceneDesktopWallpaperHost {
         screenTopology = SceneScreenTopology.capture()
         startFrameDriver()
         return true
-    }
-
-    private func teardownSurfaces(clearContext: Bool) {
-#if DEBUG
-        if Self.usesDebugEvidenceWindow, launchContext != nil {
-            NSLog(
-                "MWX DEBUG SCENE: phase=surface-teardown clearContext=%@ timer=%@ surfaces=%d",
-                clearContext ? "true" : "false",
-                frameTimer?.isValid == true ? "active" : "inactive",
-                surfaces.count
-            )
-        }
-#endif
-        if clearContext {
-            screenReconciliationWorkItem?.cancel()
-            screenReconciliationWorkItem = nil
-            screenTopology = []
-        }
-        frameTimer?.invalidate()
-        frameTimer = nil
-        for surface in surfaces.values {
-            surface.window.orderOut(nil)
-            surface.window.close()
-        }
-        surfaces.removeAll()
-        if clearContext {
-            SceneAudioSpectrumInbox.shared.setDemand(false)
-            videoTextureSourceRegistry?.stop()
-            videoTextureSourceRegistry = nil
-            launchContext = nil
-#if DEBUG
-            debugPointerOverride = nil
-#endif
-        }
     }
 
     private static func screenID(for screen: NSScreen) -> CGDirectDisplayID? {

@@ -36,11 +36,13 @@ extension SceneAuthoredEffectChainPlanner {
         let omitted = graph.effects.enumerated().compactMap {
             $0.offset == candidate.offset ? nil : $0.element.definitionPath
         }
-        return SceneAuthoredEffectExecutionChain(
+        return SceneAuthoredEffectExecutionChain.legacyRecovery(
             layerID: graph.layerID,
+            authoredRenderGraph: graph,
             renderGraph: rebasedGraph,
-            stages: [stage],
-            isolatedCursorRippleOmittedEffectPaths: omitted
+            legacyRecoveryStages: [stage],
+            kind: .isolatedCursorRipple,
+            omittedEffectPaths: omitted
         )
     }
 

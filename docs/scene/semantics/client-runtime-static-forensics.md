@@ -4,6 +4,8 @@
 >
 > 32/64 位交叉复核与 64 位机制深挖：2026-07-31
 >
+> R4 parser/executor 有界复核：2026-08-03
+>
 > 取证快照：Wallpaper Engine 2.8.42 / Steam build `23967692`
 >
 > 工具：Ghidra 12.1.2 headless、OpenJDK 21.0.12
@@ -85,6 +87,8 @@
 ```
 
 2026-07-31 的交叉复核为每个输入建立独立 `/private/tmp` Ghidra project，外部 library search 指向空目录；SceneScript 分析关闭全局 decompiler-switch、PDB、嵌入媒体和 Function ID 等与宿主合同无关的宽泛分析，避免把 V8 内部模板噪声混入证据。一次性 project、脚本和含地址的日志在文档核验后删除。
+
+2026-08-03 的 R4 复核没有扩大到 shader 数学或宽泛调用图。它只针对现有资料仍无法决定的四个公共边界重新分析同一哈希的 64 位主程序：condition 的合法结构、definition function 的目标展开与执行顺序、`[PASS]` 的归属，以及 raw `compose` 与普通 material pass 的关系。结论只以字段归属、节点类型、先后关系和 unknown 边界进入本文；临时 project、脚本、地址与反编译输出不属于仓库证据。
 
 Ghidra 报告的 PDB 缺失、少量不可读地址、无效构造和控制流恢复失败保留为限制；这些警告没有被当成客户端缺陷。
 
@@ -170,12 +174,16 @@ image-layer 的资源准备方法会重新折叠这些状态并取得 sampler；
 
 第二轮对 64 位 effect parser 的局部恢复把字段归属收窄为：
 
-- FBO：`format/scale/width/height/fit/unique/clear/uvs`；
-- pass：`conditions/command/source/target/compose/material`；
-- function：`action/repeat/index/conditions`；
+- FBO：`conditions/format/scale/width/height/fit/unique/clear/uvs`；
+- pass：`conditions/command/source/target/compose/material`，其中 material 引用另保留 `index/conditions`；
+- definition function：按名称登记的 `action/fbos`；当前可验证 action 只有 `clear`；
 - typed backbuffer：`rgb_backbuffer/rgba_backbuffer`。
 
-condition 在 FBO、pass 或 function 纳入结构前求值；`command` 与可选 `source/target` 保持独立字段；`compose:true` 设置独立状态并增加 compose 参与计数。`copy` / `swap` 被编译成与普通 material pass 不同的两个 command enum；未知 command literal 不产生新 enum，而落回 ordinary-pass shape，项目应对未知值 fail closed并报告诊断。
+`repeat` 是 FBO `uvs` 的已观察取值，不是 function 字段；`index/conditions` 属于 pass 内 material 引用，也不能挂到 function 上。此前把四者合并成 function schema 是字段邻域误归属，本轮已由 parser 的有界控制流复核纠正。
+
+condition 在 FBO、pass 或 material 引用纳入结构前由同一 evaluator 求值。可验证的作者形态是 condition array；每个 array 元素为以 combo 名称为 key 的 object，value 可为直接数值相等比较，或带数值和 `ge/gt/le/lt` 运算符的比较对象。所有有效条目共同决定准入，combo 表缺少 key 时客户端数值入口取零。客户端对非 array、非 object 和部分错误类型存在宽松行为；这些 malformed 路径不是兼容合同，MyWallpaperX 必须保真解析合法 AST 并对其余形态 fail closed，不能复制宽松降级。
+
+`command` 与可选 `source/target` 保持独立字段；`compose:true` 设置独立状态并增加 compose 参与计数。`copy` / `swap` 被编译成与普通 material pass 不同的两个 command enum；未知 command literal 不产生新 enum，而落回 ordinary-pass shape，项目应对未知值 fail closed并报告诊断。
 
 executor 又把三类节点的结构区别闭合：
 
@@ -197,7 +205,20 @@ command 的负向路径也不是统一的“缺字段即 no-op”：
 - 未解析 target 时 `copy` 不调用 target operation；未解析 source 时它跳过 source activation，但若 target 已解析仍会调用 target operation，因此会依赖当时的 ambient input。source/target 指向同一 identity 时也没有 alias guard；
 - `swap` 在任一 identity 未解析时直接返回；两个 identity 相同时 logical rewrite 为 no-op。两个不同 identity 最终若因非-unique cache 指向同一底层 target，静态路径没有额外 hazard 保护证据。
 
-compose 的 capture 对象也已收窄：layer 根据 compose 参与量准备最多两个 full-frame render target；ordinary pass 的默认 full-frame bind 读取当前 identity，外层在 compose pass 后切到另一 identity，后续 pass/effect 立即观察新成员。这说明 compose 是 layer-local full-frame pair 的推进，而不是任意 FBO copy。
+compose 的对象与时序已由 R4 的最后一次单点复核收窄为 layer-local full-frame pair，而不是 scene-background alias 或任意 FBO copy：
+
+- 没有 active effect 时，layer 直接走原有 base render 路径；至少一个 effect active 时才准备两个 full-frame 成员；
+- layer 以 active effect transition 与实际纳入的 raw compose transition 总数决定初始 current 的奇偶成员，使完整链结束后仍落到固定 final-output 成员；condition-false 的 FBO/pass/material 引用在 runtime pass vector 与 transition count 形成前已被移除；
+- effect 链开始前，layer 激活这个 parity-selected current，并调用一次 layer 自身的 base content render；这不是对已合成 scene background 的隐式捕获；
+- 每个 active effect 以 current 的另一成员作为 effect output。ordinary material pass 的缺省或显式负 full-frame bind 读取当时的 current；只有该 ordinary pass 实际执行且带 `compose:true` 时，current 才在该 pass 后推进到刚写入的成员，因此同一 effect 的下一 pass 立即读取新 current；
+- copy、swap 与 definition function 不推进 compose pair；effect 结束时其 output 成为下一 effect 的 current，所以无 raw compose 的普通 effect 也保持有序 chain handoff；
+- 链结束后，最终 current 的底层资源进入 layer final-output 对象，再交给正常 layer/compositor 路径。单独的 `_rt_FullFrameBuffer` lookup 受另一 effect flag 控制，raw compose 本身不建立这个 ambient provider。
+
+这些事实闭合了 pair 初始选择、base capture、同 effect 与跨 effect 的可见点，以及最终发布方向，足以约束项目的独立事务实现。它们不公开 material shader 数学、clear/alias 像素结果、另一个 ambient flag 的作者语义或跨版本实现细节；这些部分仍须以公开资料、合法资产和项目自有 fixture 单独证明。
+
+definition function 与逐帧 graph command 也是两条不同路径。parser 只在 function action 为 `clear`、`fbos` 为可枚举目标且至少一个名称能解析到已登记 FBO 时形成 function record。运行时按 function 名称找到该 record 后，依目标顺序逐个激活 FBO、应用目标保存的四分量 clear state、执行 clear，再恢复目标；未知名称不产生 clear。该结构允许项目建立 typed function registry 与显式调用命令，但没有证据把 function 自动挂到 create、resize、每帧或 compose 生命周期。
+
+shader frontend 的 R4 单点复核确认 `// [PASS]` 是 shader source metadata，不是 effect JSON pass、material ordinal 或 copy/swap/function command。2.8.42 可验证的 token 只有 `shadow`，解析结果与已编译 vertex/fragment shader metadata 一起缓存，并与独立的 3D shadow-caster 材质路径对应；有限调用邻域没有把二者闭合成可移植的通用 schedule。官方公开 [Shader Variables](https://docs.wallpaperengine.io/en/scene/shader/variables.html) 只定义 `[COMBO]`，没有公开 `[PASS]` 的通用作者合同；静态证据也没有证明任意 token 或 2D effect schedule。因此项目可保真携带已声明 pass metadata，但 2D 通用 material executor 遇到 active `[PASS]` 必须 fail closed，不能把它解释成第二次普通 draw。
 
 这些结果证明项目必须保留 typed command、FBO allocation policy 和 mutable logical-resource mapping，不能把 swap 实现为像素 blit，也不能让 command 消耗 material ordinal。静态路径仍未给出 copy 的 exact D3D primitive、颜色/采样转换、同资源 copy 结果、device-loss 后 history 可见结果或 clear 的像素解释。
 
@@ -552,7 +573,7 @@ media generation N
 
 1. **纹理**：format、purpose、physical/mapped、UV、sampler、alpha/color 与 generation 必须共同进入 identity；`nointerpolation/clampuvs` 分别进入 filter/address policy，cache key 不得只取这两个布尔位；动态写入必须由显式 generation/reprepare 合同承接；
 2. **RenderGraph**：condition 先于 admission；ordinary/copy/swap/compose 保持 typed node；copy 是 target operation，swap 改 logical mapping，compose 推进 layer-local full-frame pair；FBO 的 authored extent、fit、scale、unique、clear 与 UV policy 必须分别保真，resource mapping 必须受 effect/reset generation 治理；
-3. **Material/shader**：indexed slot 不压缩；default/user/provider/state/variant 有来源可追踪的合并结果；
+3. **Material/shader**：indexed slot 不压缩；default/user/provider/state/variant 有来源可追踪的合并结果；`[PASS]` 是独立 shader metadata，未证明的 2D schedule 不得降级成普通 material draw；
 4. **Frame/output**：frame delta、wall date、readiness、surface 与 output mode 分离；
 5. **Reset**：scene switch/device/surface/provider completion 受同一 generation 事务治理；
 6. **SceneScript**：module、engine、owner 和 event bridge 分层；frametime/runtime/timer 共用 effective delta，timer/audio/storage/callback 与 owner 同寿命；script-record 注册顺序与 render topology 分离，并对 callback mutation 设置预算；

@@ -46,14 +46,16 @@ final class SceneMediaThumbnailCoordinator {
     func encodeTransition(
         media: SceneMediaThumbnailTextureStore.Snapshot,
         sceneTime: Double,
-        commandBuffer: MTLCommandBuffer
+        commandBuffer: MTLCommandBuffer,
+        transaction: SceneSourceUpdateTransaction
     ) -> [Int: SceneTextureProviderPublication] {
         transitionRenderer?.encode(
             program: program,
             resources: transitionTextures,
             media: media,
             sceneTime: sceneTime,
-            commandBuffer: commandBuffer
+            commandBuffer: commandBuffer,
+            transaction: transaction
         ) ?? [:]
     }
 }

@@ -1,6 +1,6 @@
 # Scene 资料来源与证据索引
 
-> 核验日期：2026-08-03
+> 核验日期：2026-08-04
 >
 > 网络核验使用系统代理 `http://127.0.0.1:7897`。
 >
@@ -154,6 +154,8 @@ Group 与 display condition 在 Overview 中定义。Texture Variants 不能由 
 
 2026-08-03 R3资料归纳：官方Variables页只确认`T0...T7`的索引纹理表面、combo/uniform annotation与built-in入口；Texture property页确认用户未选择替换文件时使用作者原始导入纹理；Album Cover/Timeline公开示例确认Timeline数值可由事件中的`play()`触发。既有[官方客户端运行机制静态取证](client-runtime-static-forensics.md)又只在clean-room边界确认slot不压缩，以及default/user/system/provider/state/variant汇入resolved material状态的控制流方向。以上足以约束项目自有Template/Program的分层、exact identity与“显式absent才回退”安全边界，但不公开完整candidate优先级、purpose、normal/depth、alpha/write-mask、SceneScript状态机或任何shader算法；R3因此保留unknown fail-closed，没有复制官方payload/shader/算法，也无需新增Ghidra取证。
 
+2026-08-03 R4 先复核现役 [Shader Syntax](https://docs.wallpaperengine.io/en/scene/shader/syntax.html)、[Shader Variables](https://docs.wallpaperengine.io/en/scene/shader/variables.html) 与 [Effects Introduction](https://docs.wallpaperengine.io/en/scene/effects/introduction.html)：官网确认 shader 经过自定义 preprocessor、公开 `[COMBO]`、effect 可有序组合并连接 layer，但没有公开 condition 私有 wire、definition function、raw compose pair 或 `[PASS]` schedule。为解决这些会阻塞统一 executor 的结构问题，对 source-index 已登记且哈希匹配的 2.8.42 `wallpaper64.exe` 做一次 bounded Ghidra clean-room 复核。结果纠正了旧字段误归属：condition 属于 FBO/pass/material 引用，function 只按名称读取 `action/fbos`，`repeat` 属于 FBO `uvs`；合法 condition 是 combo-keyed array/object 比较并支持 equality 与 `ge/gt/le/lt`；clear function 是显式有序 target 操作；raw compose 是 layer-local 双缓冲时序，先把 layer base content 捕获一次，再在实际执行的 ordinary compose pass 与 effect 边界推进 current，最终 current 回到普通 layer/compositor 输出，不能据此绑定 scene background；`[PASS]` 是独立 shader metadata，当前只验证 `shadow` 与 3D shadow 路径的对应，不能外推为通用 2D schedule。以上只约束 typed carrier、事务顺序与 fail-closed 边界，不包含地址、伪代码、shader、payload 或算法；详见 [客户端运行时静态取证 §5.1](client-runtime-static-forensics.md#51-parserresolverfrontend-与-graph-admission)。
+
 ### 1.8 Audio 与 Media
 
 - Audio Visualizer：https://docs.wallpaperengine.io/en/scene/audiovisualizer/overview.html
@@ -249,6 +251,12 @@ Wallpaper Engine 2.8.42 / Steam build `23967692` 是一个固定版本证据快�
 结构化客户端文档可由 `script/extract_wallpaper_engine_client_evidence.py` 针对同版本输入重新提取 changelog、locale 与 binary manifest；Ghidra 结论则按运行机制文档登记的方法和输入哈希独立复核。历史证据覆盖 `assets`、default projects/templates、声明文件、`locale` 字符串表、`ui/dist` 类型库与 `bin` 模块清单；不覆盖用户项目、配置或缓存。静态取证可以作为结构证据，但仍不能代替运行时 event order、history lifecycle、shader 数学或 Windows pixel golden。
 
 深层 executable 证据可进一步确认 resolver、binder、frontend 与生命周期结构；它仍不能代替颜色空间/alpha、性能、精确事件顺序或 Windows 视觉/声音 golden。静态结论不更新 [覆盖台账](coverage-ledger.md) 的任何能力等级。
+
+### 1.12 Metal 平台运行合同
+
+2026-08-04 复核 Apple [Command Organization and Execution Model](https://developer.apple.com/library/archive/documentation/Miscellaneous/Conceptual/MetalProgrammingGuide/Cmd-Submiss/Cmd-Submiss.html)、[`MTLHazardTrackingMode`](https://developer.apple.com/documentation/metal/mtlhazardtrackingmode) 与 [`default`](https://developer.apple.com/documentation/metal/mtlhazardtrackingmode/default)：同一 `MTLCommandQueue` 的 command buffer 按 enqueue 顺序执行，command buffer 是 Metal memory model 的 coherency boundary；普通独立 `MTLResource` 的 default hazard mode 会解析为 tracked，tracked resource 的后续写会等待此前读取完成，而 untracked resource 需要应用自行同步。当前 Scene renderer 使用 `MTLCommandQueue`，不把该合同外推到 Apple 文档明确排除自动 tracking 的 `MTL4CommandQueue`。
+
+据此，项目可独立实现一个窄的 history-free target 复用能力：只有旧 submission 已 enqueue、当前 command buffer 尚未 enqueue且来自同一 queue、全部共享纹理不是 untracked、chain 没有 history closure/pin，并继续受最多两个 submission 的公共上限约束时，才允许后续 frame 复用同一物理 allocation；任一条件未知均回到 copy-on-write 或失败关闭。当前 compositor 在每个 command buffer 内先写 graph target、再由 main pass 采样其 final texture，下一 buffer 的首次覆写因同 queue 顺序位于该读取之后。以上是由 Apple 公共同步合同和项目自身 encoder 顺序导出的 clean-room 安全边界，不是 Wallpaper Engine 私有 allocation 算法，也不能替代 GPU failure、反序 release、history 与真实样本运行门。
 
 ## 2. 真实样本证据
 
@@ -362,7 +370,7 @@ Reference Project/WaifuX-main
 2. `previous`、`original`、named RT、full-frame aliases 的全部内部命名和默认 binding precedence；
 3. FBO `unique/fit/uv/conditions` 的跨版本稳定性，以及 alias、clear 颜色解释和 device-loss/history 的完整生命周期；
 4. PKG/TEX/TEXB/MDL/Puppet 的完整版本矩阵；
-5. 内置 shader 数学、浮点/颜色空间和 DirectX sampling edge behavior；官方公开 `[COMBO]`，但没有给出 stock asset 中 `[COMBO_OFF]` / `[OFF_COMBO]` / `[COMBO_DISABLED]` 三种拼写与 `[PASS]` 的合同，随包普查见 [Shader source 前置合同审查](shader-prelude-and-backend-abstraction.md) §8；
+5. 内置 shader 数学、浮点/颜色空间和 DirectX sampling edge behavior；官方公开 `[COMBO]`，但没有给出 stock asset 中 `[COMBO_OFF]` / `[OFF_COMBO]` / `[COMBO_DISABLED]` 三种拼写的合同，也没有公开 `[PASS]` 的通用 token/schedule；2.8.42 仅闭合 `shadow` metadata 与 3D shadow 路径的对应，随包普查见 [Shader source 前置合同审查](shader-prelude-and-backend-abstraction.md) §8；
 6. SceneScript VM 的全部 ECMAScript edge cases、module runtime、全局 event order、未闭合的同帧冲突、异常传播和 resource limits；2.8.42 已恢复的 timer/owner 局部顺序见实现层合同，不能外推为全部运行语义；
 7. 粒子每个 component 的随机分布、seed、重复 module order、spawn debt、默认值和精确 integration method；
 8. text renderer 的 Windows 栅格化、系统字体 fallback、hinting、复杂 layout、ellipsis 与 color-font 行为；300 DPI point 的公开声明和当前受限换算已记录在运行输入覆盖表，但仍不是 Windows 像素 golden；

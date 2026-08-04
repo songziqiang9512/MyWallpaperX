@@ -138,14 +138,15 @@ private func node(
     key: Graph.EffectKey = effectKey(),
     target: Graph.TextureIdentity? = nil,
     binding: Graph.TextureIdentity? = nil,
-    bindingSlot: Int? = 1
+    bindingSlot: Int? = 1,
+    instancePassIndex: Int? = 3
 ) -> Graph.Node {
     .init(
         nodeIndex: index,
         effect: key,
         definitionPassIndex: 0,
         materialOrdinal: 0,
-        instancePassIndex: 3,
+        instancePassIndex: instancePassIndex,
         kind: .material,
         materialPath: "materials/pass.json",
         materialPassID: "materials/pass.json#0",
@@ -376,6 +377,28 @@ enum Harness {
             constants: constants,
             userShaderValues: ["g_Strength": " strength "]
         )))
+        let materialOnlyGraph = graph(nodes: [node(
+            binding: layerSource(),
+            instancePassIndex: nil
+        )])
+        let materialOnlyStatic = template(compile(
+            material(constants: [
+                "g_Static": .init(rawValue: "0.5", components: [0.5]),
+            ]),
+            graph: materialOnlyGraph
+        ))
+        let materialOnlyDynamicFailure = failure(compile(
+            material(
+                constants: [
+                    "g_Dynamic": .init(
+                        rawValue: "0.5",
+                        userBinding: "strength",
+                        components: [0.5]
+                    ),
+                ]
+            ),
+            graph: materialOnlyGraph
+        ))
         let staticDeclaration = dynamicTemplate?.uniformDeclarations.first {
             $0.name == "g_Static"
         }
@@ -567,6 +590,12 @@ enum Harness {
                 && failure(compile(material(slots: Array(repeating: nil, count: 7))))?.code
                     == .textureSlotsInvalid,
             "staticExactBits": exactStaticBits,
+            "materialOnlyStaticDoesNotRequireInstancePass":
+                materialOnlyStatic?.uniformDeclarations.first?.name == "g_Static",
+            "materialOnlyDynamicStillRequiresPassIdentity":
+                materialOnlyDynamicFailure?.phase == .graph
+                    && materialOnlyDynamicFailure?.boundedDetails
+                        == ["pass-missing-for-dynamic-uniform"],
             "constantFallbackMergedWithDynamic": mergedDynamic,
             "multipleValueContributorsPreserved": duplicateDynamic?
                 .uniformDeclarations.first.map { declaration in

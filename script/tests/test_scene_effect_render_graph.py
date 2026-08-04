@@ -18,6 +18,13 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlanner.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlanner+Resolution.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Clear.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
+    SOURCE_ROOT / "RenderGraph/SceneLayerFullFramePairPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphExecutionState.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphExecutionState+Validation.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphExecutionState+Identity.swift",
 ]
 
 
@@ -85,6 +92,83 @@ COMPOSE = {
     "passes": [{"material": "materials/compose.json", "compose": True}],
     "fbos": [],
 }
+
+COMPOSE_FALSE = {
+    "passes": [{"material": "materials/compose-false.json", "compose": False}],
+    "fbos": [],
+}
+
+COMPOSE_STRING = {
+    "passes": [{"material": "materials/compose-string.json", "compose": "false"}],
+    "fbos": [],
+}
+
+SEMANTIC_SWAP = {
+    "passes": [
+        {"command": "swap", "source": "a", "target": "b"},
+        {
+            "material": "materials/semantic-swap.json",
+            "bind": [{"name": "b", "index": 0}],
+            "compose": False,
+        },
+    ],
+    "fbos": [
+        {
+            "name": "a",
+            "scale": 1,
+            "format": "RGBA_BACKBUFFER",
+            "clear": "0 0 0 0",
+        },
+        {
+            "name": "b",
+            "scale": 1,
+            "format": "rgba_backbuffer",
+            "unique": False,
+            "clear": [0, 0, 0, 0],
+        },
+    ],
+}
+
+
+def incompatible_swap(
+    source: dict[str, object], target: dict[str, object]
+) -> dict[str, object]:
+    return {
+        "passes": [
+            {"command": "swap", "source": "a", "target": "b"},
+            {
+                "material": "materials/incompatible-swap.json",
+                "bind": [{"name": "b", "index": 0}],
+            },
+        ],
+        "fbos": [
+            {"name": "a", **source},
+            {"name": "b", **target},
+        ],
+    }
+
+
+INCOMPATIBLE_EXTENT = incompatible_swap(
+    {"scale": 1, "format": "rgba_backbuffer", "unique": True},
+    {"scale": 2, "format": "rgba_backbuffer", "unique": True},
+)
+INCOMPATIBLE_FORMAT = incompatible_swap(
+    {"scale": 1, "format": "rgba_backbuffer", "unique": True},
+    {"scale": 1, "format": "rgba8888", "unique": True},
+)
+INCOMPATIBLE_UNIQUE = incompatible_swap(
+    {"scale": 1, "format": "rgba_backbuffer", "unique": True},
+    {"scale": 1, "format": "rgba_backbuffer", "unique": False},
+)
+INCOMPATIBLE_CLEAR = incompatible_swap(
+    {
+        "scale": 1,
+        "format": "rgba_backbuffer",
+        "unique": True,
+        "clear": [0, 0, 0, 0],
+    },
+    {"scale": 1, "format": "rgba_backbuffer", "unique": True},
+)
 
 LEGACY_COMPOSE = {
     "passes": [
@@ -177,9 +261,23 @@ struct SceneRenderDescriptor {
     let materialPasses: [MaterialPassDescriptor]
 }
 
+struct SceneCursorRippleExecutionPlan {
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+}
+
+struct SceneAuthoredEffectExecutionPlan {
+    let layerID: Int
+    let materialNodeCount: Int
+    let logicalRenderTargetCount: Int
+    let inputRole: SceneAuthoredEffectInputRole
+    let cursorRipple: SceneCursorRippleExecutionPlan?
+}
+
 @main
 enum Harness {
     typealias Plan = SceneAuthoredEffectRenderPlan
+    typealias TargetPlan = SceneGraphRenderTargetPlan
+    typealias State = SceneGraphExecutionState
 
     static func effect(_ id: String, _ file: String, passCount: Int) -> SceneRenderDescriptor.EffectDescriptor {
         .init(
@@ -200,11 +298,66 @@ enum Harness {
         ].joined(separator: ":")
     }
 
+    static func targetPlan(
+        _ graph: Plan
+    ) -> Result<TargetPlan, TargetPlan.Failure> {
+        TargetPlan.make(
+            executionPlan: .init(
+                layerID: graph.layerID,
+                materialNodeCount: graph.nodes.filter { $0.kind == .material }.count,
+                logicalRenderTargetCount: graph.renderTargets.count,
+                inputRole: .layerSource,
+                cursorRipple: nil
+            ),
+            graph: graph,
+            inputWidth: 64,
+            inputHeight: 32
+        )
+    }
+
+    static func targetPlanFailure(_ graph: Plan) -> String {
+        switch targetPlan(graph) {
+        case .success: return "success"
+        case .failure(let failure): return failure.rawValue
+        }
+    }
+
+    static func pairStep(_ graph: Plan) -> SceneLayerFullFramePairPlan.EffectStep {
+        guard case let .success(pair) = SceneLayerFullFramePairPlan.make(
+            conditionPrunedGraphs: [graph]
+        ), pair.effects.count == 1, let step = pair.effects.first else {
+            fatalError("full-frame pair plan failed")
+        }
+        return step
+    }
+
+    static func allocation(_ plan: TargetPlan) -> State.Allocation {
+        let logical = Dictionary(uniqueKeysWithValues: plan.logicalTargets.map {
+            ($0.identity, $0)
+        })
+        var resources: [Plan.TextureIdentity: State.Resource] = [:]
+        for (index, identity) in plan.logicalTargets.map(\.identity).enumerated() {
+            let target = logical[identity]
+            resources[identity] = .init(
+                token: .init(rawValue: "raw-graph-\(index)"),
+                descriptor: .init(
+                    extent: target?.extent ?? plan.inputExtent,
+                    format: target?.format ?? .rgbaBackbuffer,
+                    isUnique: target?.isUnique ?? false,
+                    initialClear: target?.initialClear
+                )
+            )
+        }
+        return .init(generation: 1, resources: resources)
+    }
+
     static func main() throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let names = [
             "blur", "motion", "legacy-compose", "composed-extent",
-            "fluid", "compose", "malformed",
+            "fluid", "compose", "compose-false", "compose-string",
+            "semantic-swap", "incompatible-extent", "incompatible-format",
+            "incompatible-unique", "incompatible-clear", "malformed",
         ]
         let definitions = try names.map { name in
             try SceneEffectDefinitionLoader().load(
@@ -238,6 +391,27 @@ enum Harness {
             .init(id: 70, effects: [
                 effect("composed-a", "effects/composed-extent/effect.json", passCount: 2),
             ]),
+            .init(id: 75, effects: [
+                effect("compose-false-a", "effects/compose-false/effect.json", passCount: 1),
+            ]),
+            .init(id: 80, effects: [
+                effect("compose-string-a", "effects/compose-string/effect.json", passCount: 1),
+            ]),
+            .init(id: 85, effects: [
+                effect("semantic-swap-a", "effects/semantic-swap/effect.json", passCount: 1),
+            ]),
+            .init(id: 90, effects: [
+                effect("extent-a", "effects/incompatible-extent/effect.json", passCount: 1),
+            ]),
+            .init(id: 91, effects: [
+                effect("format-a", "effects/incompatible-format/effect.json", passCount: 1),
+            ]),
+            .init(id: 92, effects: [
+                effect("unique-a", "effects/incompatible-unique/effect.json", passCount: 1),
+            ]),
+            .init(id: 93, effects: [
+                effect("clear-a", "effects/incompatible-clear/effect.json", passCount: 1),
+            ]),
         ]
         let plans = SceneAuthoredEffectRenderPlanner.plans(for: .init(
             layers: layers,
@@ -253,10 +427,48 @@ enum Harness {
         let scoped = byLayer[50]!
         let malformed = byLayer[60]!
         let composed = byLayer[70]!
+        let composeFalse = byLayer[75]!
+        let composeString = byLayer[80]!
+        let semanticSwap = byLayer[85]!
+        let incompatibleExtent = byLayer[90]!
+        let incompatibleFormat = byLayer[91]!
+        let incompatibleUnique = byLayer[92]!
+        let incompatibleClear = byLayer[93]!
         let motionTargets = Dictionary(uniqueKeysWithValues: motion.renderTargets.map {
             ($0.texture.name ?? "", $0)
         })
         let composedExtent = composed.renderTargets[0].extent
+        guard case .success(let composeFalseTargetPlan) = targetPlan(composeFalse) else {
+            fatalError("compose false target plan failed")
+        }
+        let composeFalseStateAccepted: Bool
+        switch State.reduce(
+            graph: composeFalse,
+            targetPlan: composeFalseTargetPlan,
+            pairStep: pairStep(composeFalse),
+            allocation: allocation(composeFalseTargetPlan),
+            effectGeneration: 1,
+            resetGeneration: 1
+        ) {
+        case .success: composeFalseStateAccepted = true
+        case .failure: composeFalseStateAccepted = false
+        }
+        guard case .success(let semanticTargetPlan) = targetPlan(semanticSwap) else {
+            fatalError("semantic descriptor swap target plan failed")
+        }
+        let semanticState = State.reduce(
+            graph: semanticSwap,
+            targetPlan: semanticTargetPlan,
+            pairStep: pairStep(semanticSwap),
+            allocation: allocation(semanticTargetPlan),
+            effectGeneration: 1,
+            resetGeneration: 1
+        )
+        let semanticStateAccepted: Bool
+        switch semanticState {
+        case .success: semanticStateAccepted = true
+        case .failure: semanticStateAccepted = false
+        }
 
         let result: [String: Any] = [
             "blurKinds": blur.nodes.map { $0.kind.rawValue },
@@ -290,6 +502,27 @@ enum Harness {
                         + node.bindings.map { $0.texture.kind.rawValue }
                 }
             )).sorted(),
+            "composeFalseBlockers": composeFalse.blockers.map { $0.reason.rawValue },
+            "composeFalsePlanFailure": targetPlanFailure(composeFalse),
+            "composeFalseStateAccepted": composeFalseStateAccepted,
+            "composeStringBlockers": composeString.blockers.map { $0.reason.rawValue },
+            "semanticSwapBlockers": semanticSwap.blockers.map { $0.reason.rawValue },
+            "semanticSwapHistory": semanticTargetPlan.logicalTargets.map {
+                $0.lifetime.requiresHistorySeed
+            },
+            "semanticSwapUnique": semanticTargetPlan.logicalTargets.map(\.isUnique),
+            "semanticSwapClearCount": semanticTargetPlan.logicalTargets.filter {
+                $0.initialClear != nil
+            }.count,
+            "semanticSwapStateAccepted": semanticStateAccepted,
+            "incompatibleRawBlockers": [
+                incompatibleExtent, incompatibleFormat,
+                incompatibleUnique, incompatibleClear,
+            ].map { $0.blockers.map(\.reason.rawValue) },
+            "incompatiblePlanFailures": [
+                incompatibleExtent, incompatibleFormat,
+                incompatibleUnique, incompatibleClear,
+            ].map(targetPlanFailure),
             "legacyComposeStructural": legacyCompose.isStructurallyResolved,
             "legacyComposeBlockers": legacyCompose.blockers.map { $0.reason.rawValue },
             "legacyComposeTargets": legacyCompose.nodes.map { textureKey($0.target) },
@@ -338,6 +571,13 @@ class SceneEffectRenderGraphTests(unittest.TestCase):
             "motion": MOTION,
             "fluid": FLUID,
             "compose": COMPOSE,
+            "compose-false": COMPOSE_FALSE,
+            "compose-string": COMPOSE_STRING,
+            "semantic-swap": SEMANTIC_SWAP,
+            "incompatible-extent": INCOMPATIBLE_EXTENT,
+            "incompatible-format": INCOMPATIBLE_FORMAT,
+            "incompatible-unique": INCOMPATIBLE_UNIQUE,
+            "incompatible-clear": INCOMPATIBLE_CLEAR,
             "legacy-compose": LEGACY_COMPOSE,
             "composed-extent": COMPOSED_EXTENT,
             "malformed": MALFORMED,
@@ -398,6 +638,26 @@ class SceneEffectRenderGraphTests(unittest.TestCase):
     def test_compose_true_fails_closed_without_scene_texture_guess(self) -> None:
         self.assertIn("unsupportedCompose", self.result["composeBlockers"])
         self.assertNotIn("sceneCompose", self.result["composeTextureKinds"])
+
+    def test_compose_false_flows_from_raw_planner_through_state(self) -> None:
+        self.assertEqual(self.result["composeFalseBlockers"], [])
+        self.assertEqual(self.result["composeFalsePlanFailure"], "success")
+        self.assertTrue(self.result["composeFalseStateAccepted"])
+        self.assertIn("unsupportedCompose", self.result["composeStringBlockers"])
+
+    def test_descriptor_semantics_are_resolved_once_by_target_plan(self) -> None:
+        self.assertEqual(self.result["semanticSwapBlockers"], [])
+        self.assertEqual(self.result["semanticSwapHistory"], [True, True])
+        self.assertEqual(self.result["semanticSwapUnique"], [False, False])
+        self.assertEqual(self.result["semanticSwapClearCount"], 2)
+        self.assertTrue(self.result["semanticSwapStateAccepted"])
+
+    def test_true_descriptor_incompatibility_fails_at_target_plan(self) -> None:
+        self.assertEqual(self.result["incompatibleRawBlockers"], [[], [], [], []])
+        self.assertEqual(
+            self.result["incompatiblePlanFailures"],
+            ["unsupportedTargetDescriptor"] * 4,
+        )
 
     def test_legacy_two_pass_compose_expands_to_explicit_intermediate(self) -> None:
         self.assertTrue(self.result["legacyComposeStructural"])

@@ -21,11 +21,16 @@ extension SceneMetalRenderer {
                 ))
             }
         )
-        let dispositionLines = SceneEffectRuntimeDispositionCatalog(
+        let dispositionCatalog = SceneEffectRuntimeDispositionCatalog(
             descriptor: renderDescriptor,
             authoredCatalog: authoredEffectCatalog,
             resourcesByLayerID: resourceAvailability
-        ).reportLines
+        )
+        imageCompositor.resolvedMaterialRuntime?.installExecutionEvidence(
+            dispositionCatalog.resolvedMaterialExecutionEvidenceSubjects
+        )
+        let dispositionLines = dispositionCatalog.reportLines
+            + (imageCompositor.resolvedMaterialRuntime?.executionEvidenceReportLines ?? [])
         return utilityLines + authoredEffectCatalog.reportLines
             + dispositionLines
             + spotLightRuntime.reportLines(candidateCount: candidateCount)
@@ -88,10 +93,15 @@ extension SceneMetalRenderer {
         hasWaterMask: Bool = false,
         hasFoliageMask: Bool = false
     ) -> String? {
-        if let chain = authoredEffectChain(for: layer.id), chain.stages.count > 1 {
-            let suffix = chain.irisInlineSuffix == nil ? "" : "; iris inline suffix"
-            return "effect runtime authored-chain; \(chain.stages.count) stage(s); "
-                + "\(chain.materialNodeCount) material pass(es)\(suffix)"
+        if let chain = authoredEffectChain(for: layer.id) {
+            let executionStageCount = chain.executionStages.count
+            if executionStageCount > 1 {
+                let suffix = chain.irisInlineSuffix == nil
+                    ? ""
+                    : "; iris inline suffix"
+                return "effect runtime authored-chain; \(executionStageCount) stage(s); "
+                    + "\(chain.materialNodeCount) material pass(es)\(suffix)"
+            }
         }
         return SceneEffectRuntimePlanner.runtimeSummary(
             for: layer,

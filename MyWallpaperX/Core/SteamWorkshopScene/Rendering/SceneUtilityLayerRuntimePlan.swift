@@ -218,11 +218,11 @@ enum SceneUtilityLayerRuntimePlanner {
         guard !visible.isEmpty,
               let chain = catalog.chainsByLayerID[layer.id],
               catalog.xRayPrefixOmittedEffectPathsByLayerID[layer.id] == nil,
-              chain.stages.count == visible.count,
-              chain.stages.count == chain.renderGraph.effects.count else {
+              chain.executionStages.count == visible.count,
+              chain.executionStages.count == chain.renderGraph.effects.count else {
             return false
         }
-        return chain.stages.allSatisfy(\.supportsUtilityCapture)
+        return chain.executionStages.allSatisfy(\.supportsUtilityCapture)
     }
 }
 

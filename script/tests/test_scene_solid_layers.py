@@ -524,7 +524,7 @@ class SceneSolidLayerTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         shader = (SOURCE_ROOT / "Rendering/SceneMetalPipeline.swift").read_text(encoding="utf-8")
         self.assertRegex(
-            compositor,
+            compositor_uniforms,
             re.compile(
                 r'usesAuthoredColor[^=]{0,40}=\s*request\.layer\.contentKind\s*==\s*"image"'
                 r'[\s\S]{0,120}request\.layer\.contentKind\s*==\s*"solid"'
@@ -544,17 +544,20 @@ class SceneSolidLayerTests(unittest.TestCase):
         self.assertEqual(self.result["descriptorBrightness"], [-1, 3, 4])
         self.assertEqual(self.result["brightnessContentKinds"], ["image", "text"])
 
-        compositor = (SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift").read_text(
-            encoding="utf-8"
-        )
+        compositor_uniforms = (
+            SOURCE_ROOT / "Rendering/SceneImageLayerCompositor+Uniforms.swift"
+        ).read_text(encoding="utf-8")
         self.assertRegex(
-            compositor,
+            compositor_uniforms,
             re.compile(
                 r'request\.layer\.contentKind == "text"'
                 r"[\s\S]{0,160}request\.layer\.brightness \?\? 1"
             ),
         )
-        self.assertRegex(compositor, re.compile(r"tint\s*:\s*baseTint \* brightness"))
+        self.assertRegex(
+            compositor_uniforms,
+            re.compile(r"tint\s*:\s*tint \* brightness"),
+        )
 
     def test_puppet_animation_layer_round_trips_into_descriptor(self) -> None:
         self.assertEqual(

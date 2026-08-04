@@ -23,7 +23,9 @@ enum SceneUtilityLayerRenderer {
         compositor: SceneImageLayerCompositor,
         offscreenTexturePool: SceneOffscreenTexturePool,
         mainPass: SceneMainPassEncoder,
-        executionTrace: SceneEffectExecutionFrameTrace? = nil
+        frameTransaction: SceneSourceUpdateTransaction,
+        executionTrace: SceneEffectExecutionFrameTrace? = nil,
+        onLegacyAuthoredRouteSelected: (() -> Void)? = nil
     ) -> Bool {
         guard plan.shouldCapture,
               let geometry = SceneCaptureGeometryResolver.resolve(
@@ -66,8 +68,10 @@ enum SceneUtilityLayerRenderer {
                 ),
                 pipeline: pipeline,
                 mainPass: mainPass,
+                frameTransaction: frameTransaction,
                 executionTrace: executionTrace,
-                executionOrigin: executionOrigin
+                executionOrigin: executionOrigin,
+                onLegacyAuthoredRouteSelected: onLegacyAuthoredRouteSelected
             )
         } ?? false
     }

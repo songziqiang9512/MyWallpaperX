@@ -238,6 +238,7 @@ nonisolated struct SceneResolvedMaterialProgram {
     enum TextureSelectionProvenance: Hashable {
         case authored(SceneResolvedMaterialNode.TextureProvenance)
         case shaderDefault
+        case implicitFramebuffer
     }
 
     enum UniformSourceSchema: Hashable {
@@ -282,6 +283,7 @@ nonisolated struct SceneResolvedMaterialProgram {
         let renderState: SceneMaterialRenderState
         let graphRole: SceneResolvedMaterialTemplate.GraphRole
     }
+
     struct Derived {
         let frontendProgram: SceneAuthoredShaderProgram
         let uniformBytes: Data
@@ -307,6 +309,17 @@ nonisolated struct SceneResolvedMaterialProgram {
         return Self(input: input, derived: derived)
     }
 
+    static func assembleCompiled(
+        _ input: AssemblyInput,
+        frontend: SceneAuthoredShaderProgram
+    ) -> Self? {
+        guard let derived = SceneResolvedMaterialProgramDerivation.deriveCompiled(
+            input,
+            frontend: frontend
+        ) else { return nil }
+        return Self(input: input, derived: derived)
+    }
+
     private init(input: AssemblyInput, derived: Derived) {
         preparedShader = input.preparedShader
         frontendProgram = derived.frontendProgram
@@ -317,5 +330,53 @@ nonisolated struct SceneResolvedMaterialProgram {
         colorContract = derived.colorContract
         semanticIdentity = derived.semanticIdentity
         exactIdentity = derived.exactIdentity
+    }
+}
+
+/// Single schema authority shared by first-variant compilation, per-frame
+/// binding and Program identity validation.
+nonisolated enum SceneResolvedMaterialHostUniformSchema {
+    typealias Program = SceneResolvedMaterialProgram
+
+    static func resolve(
+        _ field: SceneAuthoredShaderUniformLayout.Field,
+        activeTextureSlots: Set<Int>
+    ) -> Program.HostUniform? {
+        switch (field.name, field.type) {
+        case ("mwxRenderSize", .float2): .renderSize
+        case ("g_ModelViewProjectionMatrix", .float4x4): .modelViewProjection
+        case ("g_Time", .float): .time
+        case ("g_Daytime", .float): .dayTime
+        case ("g_Frametime", .float): .frameTime
+        case ("g_PointerPosition", .float2): .pointerPosition
+        case ("g_PointerPositionLast", .float2): .pointerPositionLast
+        case ("g_Screen", .float3): .screen
+        case ("g_TexelSize", .float2):
+            .texelSize(scaleBitPattern: Double(1).bitPattern)
+        case ("g_TexelSizeHalf", .float2):
+            .texelSize(scaleBitPattern: Double(0.5).bitPattern)
+        default:
+            textureResolution(field, activeTextureSlots: activeTextureSlots)
+        }
+    }
+
+    private static func textureResolution(
+        _ field: SceneAuthoredShaderUniformLayout.Field,
+        activeTextureSlots: Set<Int>
+    ) -> Program.HostUniform? {
+        guard field.type == .float4,
+              field.name.hasPrefix("g_Texture"),
+              field.name.hasSuffix("Resolution") else { return nil }
+        let start = field.name.index(
+            field.name.startIndex,
+            offsetBy: "g_Texture".count
+        )
+        let end = field.name.index(
+            field.name.endIndex,
+            offsetBy: -"Resolution".count
+        )
+        guard start < end, let slot = Int(field.name[start ..< end]),
+              activeTextureSlots.contains(slot) else { return nil }
+        return .textureResolution(slot: slot)
     }
 }

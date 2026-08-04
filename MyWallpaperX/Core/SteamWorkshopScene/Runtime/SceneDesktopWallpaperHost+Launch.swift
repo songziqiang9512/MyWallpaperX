@@ -5,6 +5,8 @@ struct SceneDesktopWallpaperLaunchContext {
     let runtimeInput: SceneRuntimeInput
     let authoredEffectCatalog: SceneAuthoredEffectExecutionCatalog
     let resolvedMaterialCatalog: SceneResolvedMaterialRuntimeCatalog
+    let resolvedMaterialExecutionCapabilities:
+        SceneResolvedMaterialExecutionCapabilityCatalog
     let materialAssetCatalog: SceneMaterialAssetTextureCatalog
     let pipelineRepository: SceneImageEffectPipelineRepository
     let spriteTextureLoader: SceneMultiImageSpriteTextureLoader
@@ -21,7 +23,9 @@ struct SceneDesktopWallpaperLaunchContext {
     let recordID: String?
 
     var resolvedMaterialStartupReportLines: [String] {
-        resolvedMaterialCatalog.reportLines + materialAssetCatalog.reportLines + [
+        resolvedMaterialCatalog.reportLines
+            + resolvedMaterialExecutionCapabilities.reportLines
+            + materialAssetCatalog.reportLines + [
             "resolved material system providers: schema=r3-system-provider-v1"
                 + " demands=\(resolvedMaterialCatalog.systemProviderDemands.count)"
                 + " missingState=unavailable"
@@ -32,7 +36,9 @@ struct SceneDesktopWallpaperLaunchContext {
     func makeResolvedMaterialRuntime() -> SceneResolvedMaterialRuntimeBridge {
         .init(
             catalog: resolvedMaterialCatalog,
-            assets: materialAssetCatalog
+            capabilities: resolvedMaterialExecutionCapabilities,
+            assets: materialAssetCatalog,
+            device: pipelineRepository.device
         )
     }
 
@@ -84,16 +90,80 @@ extension SceneDesktopWallpaperHost {
             authoredPlans: runtimeInput.authoredEffectRenderPlans,
             shaderContracts: runtimeInput.shaderContracts
         )
-        let resolvedMaterialCatalog = SceneResolvedMaterialRuntimeCatalog(
+        let timelineProgram = SceneTimelineTargetCompiler.compile(
+            descriptor: runtimeInput.renderDescriptor
+        )
+        let sceneScriptAudioBarsProgram = SceneScriptAudioBarsCompiler.compile(
             descriptor: runtimeInput.renderDescriptor,
-            authoredPlans: runtimeInput.authoredEffectRenderPlans,
             shaderContracts: runtimeInput.shaderContracts
         )
+        typealias VisibilityOwner =
+            SceneResolvedMaterialExecutionCapabilityAdmission
+                .DynamicEffectVisibilityOwner
+        var dynamicEffectVisibilityOwners = Set<VisibilityOwner>()
+        for definition in runtimeInput.propertyBindingProgram.definitions {
+            guard case let .effectVisibility(layerID, effectIndex) =
+                    definition.target else { continue }
+            dynamicEffectVisibilityOwners.insert(.init(
+                layerID: layerID,
+                effectIndex: effectIndex
+            ))
+        }
+        for binding in timelineProgram.bindings {
+            guard case let .effectVisibility(layerID, effectIndex) =
+                    binding.definition.target else { continue }
+            dynamicEffectVisibilityOwners.insert(.init(
+                layerID: layerID,
+                effectIndex: effectIndex
+            ))
+        }
+        for binding in model.sceneDocument.scriptBindings {
+            guard binding.owner.kind == .effect,
+                  binding.targetKey == "visible",
+                  let layerID = binding.owner.objectID,
+                  let effectIndex = binding.owner.effectIndex else { continue }
+            dynamicEffectVisibilityOwners.insert(.init(
+                layerID: layerID,
+                effectIndex: effectIndex
+            ))
+        }
+        let resolvedMaterialAdmissionCandidates =
+            SceneResolvedMaterialExecutionCapabilityAdmission.compile(
+                descriptor: runtimeInput.renderDescriptor,
+                authoredPlans: runtimeInput.authoredEffectRenderPlans,
+                dynamicEffectVisibilityOwners: dynamicEffectVisibilityOwners,
+                specializedLayerIDs: Set(
+                    sceneScriptAudioBarsProgram.plans.map(\.layerID)
+                )
+            )
+        let resolvedMaterialCatalog = SceneResolvedMaterialRuntimeCatalog(
+            descriptor: runtimeInput.renderDescriptor,
+            admissionCandidates: resolvedMaterialAdmissionCandidates,
+            shaderContracts: runtimeInput.shaderContracts
+        )
+        let resolvedMaterialExecutionCapabilities =
+            SceneResolvedMaterialExecutionCapabilityCatalog(
+                admissionCandidates: resolvedMaterialAdmissionCandidates,
+                materialCatalog: resolvedMaterialCatalog,
+                dynamicProducers: .init(
+                    userProperties: Set(
+                        runtimeInput.propertyBindingProgram.instructions.map {
+                            .init(
+                                propertyKey: $0.propertyKey,
+                                target: $0.target
+                            )
+                        }
+                    ),
+                    timelineTargets: Set(timelineProgram.bindings.map(\.target)),
+                    sceneScriptTargets: []
+                )
+            )
         let timeOfDayEffectScriptProgram = SceneTimeOfDayEffectScriptProgram(
             bindings: authoredEffectCatalog.chainsByLayerID.keys.sorted().flatMap { layerID in
-                authoredEffectCatalog.chainsByLayerID[layerID]?.stages.compactMap {
-                    $0.blend?.dynamicMultiplyBinding
-                } ?? []
+                authoredEffectCatalog.chainsByLayerID[layerID]?
+                    .executionStages.compactMap {
+                        $0.blend?.dynamicMultiplyBinding
+                    } ?? []
             }
         )
         let currentMediaThumbnailBindings = SceneMediaThumbnailBindingCompiler.compile(
@@ -118,20 +188,17 @@ extension SceneDesktopWallpaperHost {
             runtimeInput: runtimeInput,
             authoredEffectCatalog: authoredEffectCatalog,
             resolvedMaterialCatalog: resolvedMaterialCatalog,
+            resolvedMaterialExecutionCapabilities:
+                resolvedMaterialExecutionCapabilities,
             materialAssetCatalog: materialAssetCatalog,
             pipelineRepository: SceneImageEffectPipelineRepository(device: device),
             spriteTextureLoader: SceneMultiImageSpriteTextureLoader(),
-            timelineProgram: SceneTimelineTargetCompiler.compile(
-                descriptor: runtimeInput.renderDescriptor
-            ),
+            timelineProgram: timelineProgram,
             textScriptProgram: SceneTextScriptCompiler.compile(
                 descriptor: runtimeInput.renderDescriptor
             ),
             timeOfDayEffectScriptProgram: timeOfDayEffectScriptProgram,
-            sceneScriptAudioBarsProgram: SceneScriptAudioBarsCompiler.compile(
-                descriptor: runtimeInput.renderDescriptor,
-                shaderContracts: runtimeInput.shaderContracts
-            ),
+            sceneScriptAudioBarsProgram: sceneScriptAudioBarsProgram,
             mediaThumbnailBindings: mediaThumbnailBindings,
             liveState: ScenePropertyLiveUpdateState(
                 program: runtimeInput.propertyBindingProgram,

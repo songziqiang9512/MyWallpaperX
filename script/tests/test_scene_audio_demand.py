@@ -38,12 +38,30 @@ SIMPLE_AUDIO_BARS_PIPELINE_SOURCE = (
     SCENE_ROOT / "Effects/SceneWorkshopSimpleAudioBarsPipeline.swift"
 )
 COMPOSITOR_SOURCE = SCENE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
+LEGACY_AUTHORED_COMPOSITOR_SOURCE = (
+    SCENE_ROOT / "Rendering/SceneImageLayerCompositor+LegacyAuthored.swift"
+)
 SHAKE_PIPELINE_SOURCE = SCENE_ROOT / "Effects/SceneShakePipeline.swift"
 SHAKE_PLANNER_AUDIO_SOURCE = SCENE_ROOT / "RenderGraph/SceneAuthoredShakePlanner+Audio.swift"
 AUDIO_ADMISSION_SOURCE = SCENE_ROOT / "RenderGraph/SceneAudioResponseAdmission.swift"
 PULSE_CONSTANTS_SOURCE = (
     SCENE_ROOT / "RenderGraph/SceneAuthoredPulsePlanner+Constants.swift"
 )
+
+
+def swift_body(source: str, signature: str) -> str:
+    signature_start = source.index(signature)
+    body_start = source.index("{", signature_start)
+    depth = 0
+    for position in range(body_start, len(source)):
+        character = source[position]
+        if character == "{":
+            depth += 1
+        elif character == "}":
+            depth -= 1
+            if depth == 0:
+                return source[body_start + 1:position]
+    raise AssertionError(f"unterminated Swift body: {signature}")
 
 
 class SceneAudioDemandWiringTests(unittest.TestCase):
@@ -65,32 +83,53 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
         )
 
     def test_host_claims_and_revokes_demand_across_the_lifecycle(self) -> None:
-        source = HOST_SOURCE.read_text(encoding="utf-8")
-        activate_index = source.index(
-            "func activate(_ context: SceneDesktopWallpaperLaunchContext) throws"
+        host = HOST_SOURCE.read_text(encoding="utf-8")
+        frame_driver = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        activate = swift_body(
+            host,
+            "func activate(_ context: SceneDesktopWallpaperLaunchContext) throws",
         )
-        demand_index = source.index(
-            "SceneAudioSpectrumInbox.shared.setDemand(Self.requiresAudioSpectrum(",
-            activate_index,
+        demand_index = activate.index(
+            "SceneAudioSpectrumInbox.shared.setDemand(Self.requiresAudioSpectrum("
         )
-        self.assertIn("in: context.authoredEffectCatalog", source[demand_index:])
+        rebuild_index = activate.index("guard rebuildSurfaces(")
+        self.assertIn("in: context.authoredEffectCatalog", activate[demand_index:])
         self.assertIn(
             "sceneScriptAudioBarsProgram: context.sceneScriptAudioBarsProgram",
-            source[demand_index:],
+            activate[demand_index:],
         )
         self.assertLess(
             demand_index,
-            source.index("guard rebuildSurfaces(resetClock: true)", activate_index),
+            rebuild_index,
             "launch 时必须在创建 surface 前按 consumer 存在性声明需求",
         )
-        self.assertIn(
-            "SceneAudioSpectrumInbox.shared.setDemand(false)",
-            source,
-            "teardown 必须撤销需求，否则停止播放后仍在采集",
+        self.assertIn("resetClock: true", activate[rebuild_index:])
+        self.assertIn("teardownReason: teardownReason", activate[rebuild_index:])
+
+        teardown = swift_body(frame_driver, "func teardownSurfaces(")
+        revoke_index = teardown.index(
+            "SceneAudioSpectrumInbox.shared.setDemand(false)"
+        )
+        clear_context_index = teardown.rfind(
+            "if clearContext {", 0, revoke_index
+        )
+        self.assertGreaterEqual(
+            clear_context_index,
+            0,
+            "surface-only rebuild must keep the Scene audio demand alive",
+        )
+        clear_context = swift_body(
+            teardown[clear_context_index:], "if clearContext {"
         )
         self.assertIn(
+            "SceneAudioSpectrumInbox.shared.setDemand(false)", clear_context,
+            "teardown 必须撤销需求，否则停止播放后仍在采集",
+        )
+        rebuild = swift_body(host, "private func rebuildSurfaces(")
+        self.assertIn("teardownSurfaces(clearContext: false", rebuild)
+        self.assertIn(
             "updateAudioSpectrumDemand(launchContext, hasParticleAudioConsumer:",
-            source,
+            rebuild,
             "particle graph 只有在 surface 装载并确认 bounded consumer 后才声明需求",
         )
 
@@ -121,7 +160,8 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
         )
         self.assertIn("spectrum: audioSpectrum", chain)
         self.assertIn("parameters: $0", chain)
-        compositor = COMPOSITOR_SOURCE.read_text(encoding="utf-8")
+        compositor = COMPOSITOR_SOURCE.read_text(encoding="utf-8") \
+            + LEGACY_AUTHORED_COMPOSITOR_SOURCE.read_text(encoding="utf-8")
         self.assertGreaterEqual(
             compositor.count("audioSpectrum: request.audioSpectrum"),
             2,

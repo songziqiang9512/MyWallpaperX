@@ -24,6 +24,10 @@ final class SceneImageBlendRuntime {
         self.targetPool = SceneNamedRenderTargetPool(device: device)
     }
 
+    func requiresPreparation(for layerID: Int) -> Bool {
+        plan.operationsByConsumerLayerID[layerID] != nil
+    }
+
     func preparedTexture(
         for consumerLayerID: Int,
         sourceTexture: MTLTexture,

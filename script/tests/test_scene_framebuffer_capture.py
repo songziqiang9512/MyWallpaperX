@@ -18,7 +18,21 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Clear.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphExecutionState.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphExecutionState+Validation.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphExecutionState+Identity.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetTable.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetTable+Mapped.swift",
+    SOURCE_ROOT / "RenderGraph/SceneLayerFullFramePairPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetChainPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetLease.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetLease+Publication.swift",
+    SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureResidency.swift",
+    SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache.swift",
+    SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache+SharedPair.swift",
+    SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache+Batch.swift",
+    SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureFramePreflight.swift",
+    SOURCE_ROOT / "RenderGraph/ScenePersistentGraphTargetAllocator.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphCommandRuntime.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphNodeScheduler.swift",
     SOURCE_ROOT / "Rendering/SceneMatrix.swift",
@@ -27,10 +41,12 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Runtime/SceneTextureAnimationPlaybackPlan.swift",
     SOURCE_ROOT / "Resources/SceneTextureAnimationPlaybackClock.swift",
     SOURCE_ROOT / "Rendering/SceneSpriteAnimation.swift",
+    SOURCE_ROOT / "Rendering/SceneSourceUpdateTransaction.swift",
     SOURCE_ROOT / "Rendering/SceneMainPassEncoder.swift",
     SOURCE_ROOT / "Rendering/SceneFramebufferSnapshot.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenResolutionPolicy.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTexturePool.swift",
+    SOURCE_ROOT / "RenderGraph/SceneOffscreenTexturePool+LegacyChain.swift",
     SOURCE_ROOT / "Resources/SceneTextureSampling.swift",
     SOURCE_ROOT / "Resources/SceneTextureCandidate.swift",
     SOURCE_ROOT / "Resources/SceneTextureSlotBinding.swift",
@@ -124,7 +140,9 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Rendering/SceneImageEffectPipelineRepository.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectPipelineSet.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift",
+    SOURCE_ROOT / "Rendering/SceneResolvedMaterialGraphComposition.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift",
+    SOURCE_ROOT / "Rendering/SceneImageLayerCompositor+LegacyAuthored.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerCompositor+Uniforms.swift",
     SOURCE_ROOT / "Rendering/SceneImageLayerMainPassRenderer.swift",
     SOURCE_ROOT / "Runtime/SceneGPUCompletionTelemetry.swift",
@@ -138,6 +156,43 @@ import Dispatch
 import Metal
 import simd
 
+final class ExactEvidenceLogRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [String] = []
+
+    func append(_ value: String) {
+        lock.lock()
+        storage.append(value)
+        lock.unlock()
+    }
+
+    var lines: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storage
+    }
+}
+
+nonisolated enum SceneFrameTextureIdentity: Hashable {
+    case graph(SceneAuthoredEffectRenderPlan.TextureIdentity)
+}
+
+struct SceneTextureProviderPublication {
+    let requestIdentity: SceneFrameTextureIdentity
+    let candidate: SceneTextureCandidate
+    let contentGeneration: UInt64
+}
+
+struct SceneFrameTextureResource {
+    let publication: SceneTextureProviderPublication
+    let resourceGeneration: UInt64
+
+    var isCompleteGraphResource: Bool {
+        resourceGeneration > 0
+            && resourceGeneration == publication.contentGeneration
+    }
+}
+
 enum SceneTextureProviderState {}
 struct SceneFrameTextureRegistrySnapshot {}
 
@@ -149,8 +204,80 @@ enum SceneMediaThumbnailTextureStore {
     struct Snapshot {}
 }
 
+enum SceneGraphExecutionResetReason {
+    case sceneSwitch, surfaceStop
+}
+
+enum SceneResolvedMaterialExecutionCapabilityCatalog {
+    struct Token: Hashable { let rawValue: Int }
+}
+
 final class SceneResolvedMaterialRuntimeBridge {
+    struct ExecutionTicket: Hashable { let identity: Int }
+    struct ExactEffectSubject {
+        let key: SceneAuthoredEffectRenderPlan.EffectKey
+        let family: String
+    }
+    struct ClaimedExecution {
+        let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
+        let layerID: Int
+        let admittedGraphs: [SceneAuthoredEffectRenderPlan]
+        let pairPlan: SceneLayerFullFramePairPlan
+        let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
+    }
+
+    enum ClaimResult {
+        case notMigrated
+        case rejected(reasonCode: String)
+        case claimed(ClaimedExecution)
+    }
+
+    enum ExecutionResult {
+        case encoded(texture: MTLTexture, ticket: ExecutionTicket)
+        case failed(reasonCode: String)
+    }
+
+    enum CompositeOutcome {
+        case consumed
+        case failed(reasonCode: String)
+    }
+
+    struct FramePreparationRequest {
+        let claim: ClaimedExecution
+        let targetPlan: SceneResolvedMaterialFrameTargetPlan
+        let sourceTexture: MTLTexture
+        let sourceUniforms: SceneLayerFragmentUniforms
+        let sourcePipeline: SceneImageLayerPipeline
+    }
+
+    enum FramePreparationResult {
+        case ready
+        case rejected(reasonCode: String)
+    }
+
+    let executionShouldSucceed: Bool
+    let claimRejectionReason: String?
+    let claimedExecution: ClaimedExecution?
+    let compositeFailureReason: String?
+    private(set) var executeCallCount = 0
+    private(set) var markCompositeCallCount = 0
+    private(set) var claimedFailureReasons: [String] = []
+    private var preparedTexture: MTLTexture?
+
+    init(
+        executionShouldSucceed: Bool = true,
+        claimRejectionReason: String? = nil,
+        claimedExecution: ClaimedExecution? = nil,
+        compositeFailureReason: String? = nil
+    ) {
+        self.executionShouldSucceed = executionShouldSucceed
+        self.claimRejectionReason = claimRejectionReason
+        self.claimedExecution = claimedExecution
+        self.compositeFailureReason = compositeFailureReason
+    }
+
     var assetStates: [SceneAssetTextureIdentity: SceneTextureProviderState] { [:] }
+    var shouldDeferFrame: Bool { false }
 
     func systemProviderBlocks(
         for snapshot: SceneMediaThumbnailTextureStore.Snapshot
@@ -165,6 +292,89 @@ final class SceneResolvedMaterialRuntimeBridge {
     ) {}
 
     func endFrame() {}
+
+    func invalidate(reason: SceneGraphExecutionResetReason) {}
+
+    func claim(layerID: Int) -> ClaimResult {
+        if let claimRejectionReason {
+            return .rejected(reasonCode: claimRejectionReason)
+        }
+        if let claimedExecution, claimedExecution.layerID == layerID {
+            return .claimed(claimedExecution)
+        }
+        return .notMigrated
+    }
+
+    func preflightClaim(layerID: Int) -> ClaimResult {
+        claim(layerID: layerID)
+    }
+
+    func recordClaimedFailure(reasonCode: String) {
+        claimedFailureReasons.append(reasonCode)
+    }
+
+    func executeClaimed(
+        claim: ClaimedExecution,
+        commandBuffer: MTLCommandBuffer
+    ) -> ExecutionResult {
+        _ = claim
+        _ = commandBuffer
+        executeCallCount += 1
+        return executionShouldSucceed && preparedTexture != nil
+            ? .encoded(
+                texture: preparedTexture!,
+                ticket: .init(identity: executeCallCount)
+            )
+            : .failed(reasonCode: "fixture-executor-failed")
+    }
+
+    func executionEvidenceFamily(
+        for key: SceneAuthoredEffectRenderPlan.EffectKey
+    ) -> String? {
+        "generic-framebuffer"
+    }
+
+    func executionEvidenceSubjects(
+        for claim: ClaimedExecution
+    ) -> [ExactEffectSubject] {
+        claim.admittedGraphs.flatMap { graph in
+            graph.effects.map {
+                .init(key: $0.key, family: "resolved-material")
+            }
+        }
+    }
+
+    func prepareFrame(
+        _ requests: [FramePreparationRequest],
+        pool: SceneOffscreenTexturePool?,
+        commandBuffer: MTLCommandBuffer
+    ) -> FramePreparationResult {
+        _ = pool
+        _ = commandBuffer
+        guard requests.count == 1 else {
+            return .rejected(reasonCode: "fixture-frame-preparation-invalid")
+        }
+        preparedTexture = requests[0].sourceTexture
+        return .ready
+    }
+
+    func sealFrame(on commandBuffer: MTLCommandBuffer) -> Bool { true }
+
+    func markComposite(
+        _ ticket: ExecutionTicket,
+        texture: MTLTexture,
+        consumed: Bool
+    ) -> CompositeOutcome {
+        _ = ticket
+        _ = texture
+        markCompositeCallCount += 1
+        if let compositeFailureReason {
+            claimedFailureReasons.append(compositeFailureReason)
+            return .failed(reasonCode: compositeFailureReason)
+        }
+        return consumed
+            ? .consumed : .failed(reasonCode: "fixture-composite-not-consumed")
+    }
 
     func auditResolvedMaterials(
         graph: SceneAuthoredEffectRenderPlan,
@@ -1103,20 +1313,22 @@ struct ScenePulseEffectTextures {
 struct SceneAuthoredEffectExecutionChain {
     let layerID: Int
     let renderGraph: SceneAuthoredEffectRenderPlan
-    let stages: [SceneAuthoredEffectExecutionPlan]
+    let executionStages: [SceneAuthoredEffectExecutionPlan]
 
     var irisInlineSuffix: SceneIrisInlineSuffixPlan? { nil }
 
     var singleStage: SceneAuthoredEffectExecutionPlan? {
-        stages.count == 1 ? stages[0] : nil
+        executionStages.count == 1 ? executionStages[0] : nil
     }
 
     var clippingMaskCount: Int {
-        stages.filter { $0.clippingMask != nil }.count
+        executionStages.filter { $0.clippingMask != nil }.count
     }
 
     func authoredShaderOffscreenSize(for requestedSize: CGSize) -> CGSize? {
-        stages.compactMap { $0.authoredShader?.offscreenSize(for: requestedSize) }.min {
+        executionStages.compactMap {
+            $0.authoredShader?.offscreenSize(for: requestedSize)
+        }.min {
             $0.width * $0.height < $1.width * $1.height
         }
     }
@@ -1268,6 +1480,51 @@ enum Harness {
         .init(kind: kind, layerID: layerID, effect: effect, name: name)
     }
 
+    static func committedChainTargets(
+        pool: SceneOffscreenTexturePool,
+        chain: SceneAuthoredEffectExecutionChain,
+        width: Int,
+        height: Int
+    ) -> [SceneGraphRenderTargetTable]? {
+        if pool.usesPairOnlyLegacyTargets(for: chain) {
+            return pool.graphTargets(
+                for: chain,
+                requestedWidth: width,
+                requestedHeight: height
+            )
+        }
+        guard let commandBuffer = pool.device.makeCommandQueue()?.makeCommandBuffer(),
+              let framePlan = pool.framePlanForPersistentGraphTargets(
+                  for: chain,
+                  requestedWidth: width,
+                  requestedHeight: height,
+                  orderingContext: .init(commandBuffer: commandBuffer)
+              ), let prepared = pool.preparePersistentGraphTargets(
+                  framePlan: framePlan
+              ), let commit = prepared.commitAndPin(
+                  historyTokensByEffect: [:],
+                  commandBuffer: commandBuffer
+              ) else { return nil }
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else {
+            commit.releaseAll()
+            return nil
+        }
+        commit.releaseAll()
+        return commit.leases.map(\.table)
+    }
+
+    static func submitFrame(
+        _ commandBuffer: MTLCommandBuffer,
+        transaction: SceneSourceUpdateTransaction
+    ) {
+        transaction.arm(on: commandBuffer)
+        commandBuffer.commit()
+        transaction.didSubmit()
+        commandBuffer.waitUntilCompleted()
+    }
+
     static func preciseBlurGraph(
         layerID: Int = 10,
         commandKind: Graph.NodeKind? = nil,
@@ -1370,7 +1627,7 @@ enum Harness {
                     ? .init(kind: .scale, first: 1, second: nil)
                     : .init(kind: .input, first: nil, second: nil),
                 format: "rgba_backbuffer",
-                declaredUnique: false,
+                declaredUnique: commandKind == .swap,
                 clear: nil,
                 uvs: nil,
                 conditions: nil
@@ -1800,6 +2057,12 @@ enum Harness {
             pipeline: pipeline,
             compositor: compositor
         )
+        let legacyUnsubmittedRollback = try legacyUnsubmittedRollbackEvidence(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            compositor: compositor
+        )
         let authoredStandardBlurOverridesLegacy = standardBlurOverridesLegacy()
         let standardBlurAlphaAwareDownsample = try alphaAwareDownsamplePixel(
             device: device,
@@ -1870,6 +2133,11 @@ enum Harness {
             pipeline: pipeline,
             compositor: compositor
         )
+        let resolvedMaterialComposition = try resolvedMaterialCompositionEvidence(
+            device: device,
+            queue: queue,
+            pipeline: pipeline
+        )
         let filmGrain = try filmGrainEvidence(device: device, queue: queue)
         let baseColorCandidate = try baseColorCandidateEvidence(
             device: device,
@@ -1930,6 +2198,7 @@ enum Harness {
             "authoredBlendRuntimeSummary": authoredBlendRuntimeSummary as Any,
             "authoredTintChainPixels": authoredTintChainPixels,
             "authoredFailedChain": authoredFailedChain,
+            "legacyUnsubmittedRollback": legacyUnsubmittedRollback,
             "authoredStandardBlurOverridesLegacy": authoredStandardBlurOverridesLegacy,
             "standardBlurAlphaAwareDownsampleBGRA": standardBlurAlphaAwareDownsample,
             "standardBlurMaskPixels": standardBlurMaskPixels,
@@ -1951,6 +2220,7 @@ enum Harness {
             "clippedGradientTopBGRA": clippedGradientPixels[0],
             "solidMappedEffectExtent": solidMappedEffectExtent,
             "xRayThreeTextureRoute": xRayThreeTextureRoute,
+            "resolvedMaterialComposition": resolvedMaterialComposition,
             "filmGrain": filmGrain,
             "baseColorCandidate": baseColorCandidate,
             "gpuCompletionTelemetry": telemetryEvidence,
@@ -2365,6 +2635,8 @@ enum Harness {
             target: target,
             clearColor: MTLClearColorMake(0, 0, 0, 0)
         )
+        let frameTransaction = SceneSourceUpdateTransaction()
+        defer { frameTransaction.cancel() }
         let drew = compositor.draw(
             SceneImageLayerDrawRequest(
                 layer: layer,
@@ -2386,12 +2658,12 @@ enum Harness {
                 blocksLegacyGaussianBlur: false
             ),
             pipeline: pipeline,
-            mainPass: mainPass
+            mainPass: mainPass,
+            frameTransaction: frameTransaction
         )
         guard drew else { throw HarnessError.drawRefused }
         mainPass.finishEnsuringClear()
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
+        submitFrame(commandBuffer, transaction: frameTransaction)
         guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
         return pixel(target, x: 4, y: 4)
     }
@@ -2421,6 +2693,8 @@ enum Harness {
             target: target,
             clearColor: MTLClearColorMake(0, 0, 0, 0)
         )
+        let frameTransaction = SceneSourceUpdateTransaction()
+        defer { frameTransaction.cancel() }
         let drew = compositor.draw(
             SceneImageLayerDrawRequest(
                 layer: layer,
@@ -2444,12 +2718,12 @@ enum Harness {
                 authoredEffectChain: authoredClippingMaskChain()
             ),
             pipeline: pipeline,
-            mainPass: mainPass
+            mainPass: mainPass,
+            frameTransaction: frameTransaction
         )
         guard drew else { throw HarnessError.drawRefused }
         mainPass.finishEnsuringClear()
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
+        submitFrame(commandBuffer, transaction: frameTransaction)
         guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
         return pixel(target, x: 4, y: 4)
     }
@@ -2718,6 +2992,8 @@ enum Harness {
             target: target,
             clearColor: MTLClearColorMake(0, 0, 0, 0)
         )
+        let frameTransaction = SceneSourceUpdateTransaction()
+        defer { frameTransaction.cancel() }
         let drew = compositor.draw(
             SceneImageLayerDrawRequest(
                 layer: SceneRenderDescriptor.Layer(
@@ -2741,15 +3017,15 @@ enum Harness {
                 authoredEffectChain: chain
             ),
             pipeline: pipeline,
-            mainPass: mainPass
+            mainPass: mainPass,
+            frameTransaction: frameTransaction
         )
         guard drew else { throw HarnessError.drawRefused }
         mainPass.finishEnsuringClear()
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
+        submitFrame(commandBuffer, transaction: frameTransaction)
         guard commandBuffer.status == .completed,
-              let table = pool.graphTargets(
-                  for: chain, requestedWidth: width, requestedHeight: height
+              let table = committedChainTargets(
+                  pool: pool, chain: chain, width: width, height: height
               )?.first else {
             throw HarnessError.commandFailed
         }
@@ -3355,6 +3631,8 @@ enum Harness {
             target: target,
             clearColor: MTLClearColorMake(0, 0, 0, 0)
         )
+        let frameTransaction = SceneSourceUpdateTransaction()
+        defer { frameTransaction.cancel() }
         guard compositor.draw(
             SceneImageLayerDrawRequest(
                 layer: standardBlurLayer(),
@@ -3376,16 +3654,16 @@ enum Harness {
                 dynamicValues: .empty(frameIndex: 17)
             ),
             pipeline: pipeline,
-            mainPass: mainPass
+            mainPass: mainPass,
+            frameTransaction: frameTransaction
         ) else {
             throw HarnessError.drawRefused
         }
         mainPass.finishEnsuringClear()
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
+        submitFrame(commandBuffer, transaction: frameTransaction)
         guard commandBuffer.status == .completed,
-              let tables = pool.graphTargets(
-                for: chain, requestedWidth: size, requestedHeight: size
+              let tables = committedChainTargets(
+                  pool: pool, chain: chain, width: size, height: size
               ), tables.count == 2 else {
             throw HarnessError.commandFailed
         }
@@ -3396,12 +3674,28 @@ enum Harness {
         let secondInput = try textureBytes(tables[1].inputTexture, queue: queue)
         let secondOutput = try textureBytes(tables[1].outputTexture, queue: queue)
         let mainOutput = try textureBytes(target, queue: queue)
+        let chainPairObjects = Set(tables.flatMap {
+            [
+                ObjectIdentifier($0.fullFramePair.first),
+                ObjectIdentifier($0.fullFramePair.second),
+            ]
+        })
+        let allocationCount = pool.residentAllocationCount
+        let textureCount = pool.residentTextureCount
+        pool.reset()
         return [
             "encoded": true,
             "sourceToFirstInputDelta": maxDifference(sourceBytes, firstInput),
             "firstOutputToSecondInputDelta": maxDifference(firstOutput, secondInput),
             "firstToSecondOutputDelta": maxDifference(firstOutput, secondOutput),
             "secondOutputToMainDelta": maxDifference(secondOutput, mainOutput),
+            "firstCaptureUsesDistinctAtom": source !== tables[0].inputTexture,
+            "secondCaptureAliasesPriorOutput": tables[0].outputTexture
+                === tables[1].inputTexture,
+            "chainPairPhysicalObjectCount": chainPairObjects.count,
+            "residentAllocationCount": allocationCount,
+            "residentTextureCount": textureCount,
+            "resetReleasedCompletedSubmission": pool.residentAllocationCount == 0,
         ]
     }
 
@@ -3424,6 +3718,8 @@ enum Harness {
                 target: target,
                 clearColor: MTLClearColorMake(0, 0, 0, 0)
             )
+            let frameTransaction = SceneSourceUpdateTransaction()
+            defer { frameTransaction.cancel() }
             let snapshot = SceneDynamicSnapshot(
                 strengthsByEffectIndex: [:],
                 opacitiesByEffectIndex: liveAlpha.map { [0: $0] } ?? [:]
@@ -3453,13 +3749,13 @@ enum Harness {
                     dynamicValues: snapshot
                 ),
                 pipeline: pipeline,
-                mainPass: mainPass
+                mainPass: mainPass,
+                frameTransaction: frameTransaction
             ) else {
                 throw HarnessError.drawRefused
             }
             mainPass.finishEnsuringClear()
-            commandBuffer.commit()
-            commandBuffer.waitUntilCompleted()
+            submitFrame(commandBuffer, transaction: frameTransaction)
             guard commandBuffer.status == .completed else {
                 throw HarnessError.commandFailed
             }
@@ -3500,6 +3796,8 @@ enum Harness {
                 target: target,
                 clearColor: MTLClearColorMake(0, 0, 0, 0)
             )
+            let frameTransaction = SceneSourceUpdateTransaction()
+            defer { frameTransaction.cancel() }
             let effect = SceneRenderDescriptor.EffectDescriptor(
                 file: "effects/opacity/effect.json",
                 visible: true,
@@ -3565,7 +3863,8 @@ enum Harness {
                     dynamicValues: SceneDynamicSnapshot.empty(frameIndex: 0)
                 ),
                 pipeline: pipeline,
-                mainPass: mainPass
+                mainPass: mainPass,
+                frameTransaction: frameTransaction
             )
             if item.key == "missingMask" {
                 out["missingMaskRefused"] = !encoded
@@ -3573,8 +3872,7 @@ enum Harness {
             }
             guard encoded else { throw HarnessError.drawRefused }
             mainPass.finishEnsuringClear()
-            commandBuffer.commit()
-            commandBuffer.waitUntilCompleted()
+            submitFrame(commandBuffer, transaction: frameTransaction)
             guard commandBuffer.status == .completed else {
                 throw HarnessError.commandFailed
             }
@@ -3625,6 +3923,8 @@ enum Harness {
             target: target,
             clearColor: MTLClearColorMake(0, 0, 0, 0)
         )
+        let frameTransaction = SceneSourceUpdateTransaction()
+        defer { frameTransaction.cancel() }
         let encoded = compositor.draw(
             SceneImageLayerDrawRequest(
                 layer: SceneRenderDescriptor.Layer(
@@ -3655,19 +3955,20 @@ enum Harness {
                 dynamicValues: SceneDynamicSnapshot.empty(frameIndex: 0)
             ),
             pipeline: pipeline,
-            mainPass: mainPass
+            mainPass: mainPass,
+            frameTransaction: frameTransaction
         )
         guard encoded else { throw HarnessError.drawRefused }
         mainPass.finishEnsuringClear()
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
+        submitFrame(commandBuffer, transaction: frameTransaction)
         guard commandBuffer.status == .completed else {
             throw HarnessError.commandFailed
         }
-        guard let stageTargets = pool.graphTargets(
-            for: chain,
-            requestedWidth: 1,
-            requestedHeight: 1
+        guard let stageTargets = committedChainTargets(
+            pool: pool,
+            chain: chain,
+            width: 1,
+            height: 1
         )?.first else {
             throw HarnessError.authoredBlendUnavailable
         }
@@ -3705,6 +4006,8 @@ enum Harness {
             target: target,
             clearColor: MTLClearColorMake(0, 0, 0, 0)
         )
+        let frameTransaction = SceneSourceUpdateTransaction()
+        defer { frameTransaction.cancel() }
         let encoded = compositor.draw(
             SceneImageLayerDrawRequest(
                 layer: SceneRenderDescriptor.Layer(
@@ -3728,19 +4031,20 @@ enum Harness {
                 dynamicValues: SceneDynamicSnapshot.empty(frameIndex: 0)
             ),
             pipeline: pipeline,
-            mainPass: mainPass
+            mainPass: mainPass,
+            frameTransaction: frameTransaction
         )
         guard encoded else { throw HarnessError.drawRefused }
         mainPass.finishEnsuringClear()
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
+        submitFrame(commandBuffer, transaction: frameTransaction)
         guard commandBuffer.status == .completed else {
             throw HarnessError.commandFailed
         }
-        guard let stageTargets = pool.graphTargets(
-            for: chain,
-            requestedWidth: 1,
-            requestedHeight: 1
+        guard let stageTargets = committedChainTargets(
+            pool: pool,
+            chain: chain,
+            width: 1,
+            height: 1
         )?.first else {
             throw HarnessError.baseTextureUnavailable
         }
@@ -3784,6 +4088,8 @@ enum Harness {
                 target: target,
                 clearColor: MTLClearColorMake(0, 0, 0, 0)
             )
+            let frameTransaction = SceneSourceUpdateTransaction()
+            defer { frameTransaction.cancel() }
             guard compositor.draw(
                 SceneImageLayerDrawRequest(
                     layer: SceneRenderDescriptor.Layer(
@@ -3815,13 +4121,13 @@ enum Harness {
                     dynamicValues: SceneDynamicSnapshot.empty(frameIndex: 0)
                 ),
                 pipeline: pipeline,
-                mainPass: mainPass
+                mainPass: mainPass,
+                frameTransaction: frameTransaction
             ) else {
                 throw HarnessError.drawRefused
             }
             mainPass.finishEnsuringClear()
-            commandBuffer.commit()
-            commandBuffer.waitUntilCompleted()
+            submitFrame(commandBuffer, transaction: frameTransaction)
             guard commandBuffer.status == .completed else {
                 throw HarnessError.commandFailed
             }
@@ -3850,6 +4156,8 @@ enum Harness {
             target: target,
             clearColor: MTLClearColorMake(0, 0, 0, 0)
         )
+        let frameTransaction = SceneSourceUpdateTransaction()
+        defer { frameTransaction.cancel() }
         let encoded = compositor.draw(
             SceneImageLayerDrawRequest(
                 layer: standardBlurLayer(),
@@ -3871,22 +4179,88 @@ enum Harness {
                 dynamicValues: .empty(frameIndex: 18)
             ),
             pipeline: pipeline,
-            mainPass: mainPass
+            mainPass: mainPass,
+            frameTransaction: frameTransaction
         )
         mainPass.finishEnsuringClear()
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
+        submitFrame(commandBuffer, transaction: frameTransaction)
         guard commandBuffer.status == .completed,
-              let tables = pool.graphTargets(
-                for: chain, requestedWidth: size, requestedHeight: size
+              let tables = committedChainTargets(
+                  pool: pool, chain: chain, width: size, height: size
               ), tables.count == 2 else {
             throw HarnessError.commandFailed
         }
         let firstOutput = try textureBytes(tables[0].outputTexture, queue: queue)
+        let residentAllocationCount = pool.residentAllocationCount
+        pool.reset()
         return [
             "encoded": encoded,
             "mainPixel": pixel(target, x: size / 2, y: size / 2),
             "firstStageProducedPixels": firstOutput.contains(where: { $0 != 0 }),
+            "residentAllocationCount": residentAllocationCount,
+            "resetReleasedFailedSubmission": pool.residentAllocationCount == 0,
+        ]
+    }
+
+    static func legacyUnsubmittedRollbackEvidence(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline,
+        compositor: SceneImageLayerCompositor
+    ) throws -> [String: Any] {
+        let size = 8
+        guard let source = makeTexture(
+                  device: device, size: size, usage: .shaderRead
+              ), let target = makeTexture(
+                  device: device,
+                  size: size,
+                  usage: [.renderTarget, .shaderRead]
+              ), let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.metalUnavailable
+        }
+        fillPremultipliedCheckerboard(source)
+        let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
+        let frameTransaction = SceneSourceUpdateTransaction()
+        defer { frameTransaction.cancel() }
+        let mainPass = SceneMainPassEncoder(
+            commandBuffer: commandBuffer,
+            target: target,
+            clearColor: MTLClearColorMake(0, 0, 0, 0)
+        )
+        let encoded = compositor.draw(
+            SceneImageLayerDrawRequest(
+                layer: standardBlurLayer(),
+                texture: source,
+                masks: .empty,
+                textureFrame: .identity,
+                mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+                uniforms: SceneImageLayerUniformValues(
+                    time: 0, alpha: 1, cursorUV: .zero
+                ),
+                offscreenTexturePool: pool,
+                offscreenSize: nil,
+                requiresSourceCopy: false,
+                finalCompositeAlpha: nil,
+                dependencyEffect: nil,
+                authoredEffectPlan: nil,
+                blocksLegacyGaussianBlur: false,
+                authoredEffectChain: authoredTwoStageBlurChain(),
+                dynamicValues: .empty(frameIndex: 20)
+            ),
+            pipeline: pipeline,
+            mainPass: mainPass,
+            frameTransaction: frameTransaction
+        )
+        mainPass.finishEnsuringClear()
+        let committedBeforeCancel = pool.residentAllocationCount == 2
+        frameTransaction.cancel()
+        frameTransaction.cancel()
+        pool.reset()
+        return [
+            "encoded": encoded,
+            "commandBufferWasNotSubmitted": commandBuffer.status == .notEnqueued,
+            "commitWasPinned": committedBeforeCancel,
+            "rollbackReleasedCommit": pool.residentAllocationCount == 0,
         ]
     }
 
@@ -3914,8 +4288,21 @@ enum Harness {
         guard let textures = pool.textures(width: size, height: size) else {
             throw HarnessError.metalUnavailable
         }
+        let chain = xRayChain(layerID: 2998757800)
+        guard let graphTargets = committedChainTargets(
+            pool: pool,
+            chain: chain,
+            width: size,
+            height: size
+        ), graphTargets.count == 1 else {
+            throw HarnessError.metalUnavailable
+        }
         let poolTextures = [textures.primary, textures.secondary, textures.tertiary]
         let resources = [source, blend, opacity]
+        let graphTextures = [
+            graphTargets[0].inputTexture,
+            graphTargets[0].outputTexture,
+        ]
         let poolIsPairwiseDistinct = poolTextures.indices.allSatisfy { first in
             poolTextures.indices.allSatisfy { second in
                 first == second || poolTextures[first] !== poolTextures[second]
@@ -3928,6 +4315,14 @@ enum Harness {
             resources.indices.allSatisfy { second in
                 first == second || resources[first] !== resources[second]
             }
+        }
+        let graphTargetsAreDistinct = graphTextures[0] !== graphTextures[1]
+        let graphTargetsDoNotAliasInputs = graphTextures.allSatisfy { graphTexture in
+            resources.allSatisfy { graphTexture !== $0 }
+        }
+        let graphTargetsDoNotAliasGenericPool = graphTextures.allSatisfy {
+            graphTexture in
+            poolTextures.allSatisfy { graphTexture !== $0 }
         }
         let layer = SceneRenderDescriptor.Layer(
             contentKind: "image",
@@ -3966,6 +4361,8 @@ enum Harness {
             target: target,
             clearColor: MTLClearColorMake(0, 0, 0, 0)
         )
+        let frameTransaction = SceneSourceUpdateTransaction()
+        defer { frameTransaction.cancel() }
         let encoded = compositor.draw(
             SceneImageLayerDrawRequest(
                 layer: layer,
@@ -3986,15 +4383,15 @@ enum Harness {
                 dependencyEffect: nil,
                 authoredEffectPlan: nil,
                 blocksLegacyGaussianBlur: false,
-                authoredEffectChain: xRayChain(layerID: 2998757800),
+                authoredEffectChain: chain,
                 dynamicValues: .empty(frameIndex: 19)
             ),
             pipeline: pipeline,
-            mainPass: mainPass
+            mainPass: mainPass,
+            frameTransaction: frameTransaction
         )
         mainPass.finishEnsuringClear()
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
+        submitFrame(commandBuffer, transaction: frameTransaction)
         guard commandBuffer.status == .completed else {
             throw HarnessError.commandFailed
         }
@@ -4003,20 +4400,320 @@ enum Harness {
         let mainPixel = pixel(target, x: center, y: center)
         let sourcePixel = pixel(source, x: center, y: center)
         let blendPixel = pixel(blend, x: center, y: center)
-        let poolPixels = try poolTextures.map { texture -> [UInt8] in
-            let bytes = try textureBytes(texture, queue: queue)
-            let offset = ((center * texture.width) + center) * 4
-            return Array(bytes[offset..<(offset + 4)])
-        }
+        let graphOutputBytes = try textureBytes(
+            graphTargets[0].outputTexture,
+            queue: queue
+        )
+        let graphOutputOffset = ((center * size) + center) * 4
+        let graphOutputPixel = Array(
+            graphOutputBytes[graphOutputOffset..<(graphOutputOffset + 4)]
+        )
         return [
             "encoded": encoded,
             "poolIsPairwiseDistinct": poolIsPairwiseDistinct,
             "resourcesDoNotAliasPool": resourcesDoNotAliasPool,
             "resourcesArePairwiseDistinct": resourcesArePairwiseDistinct,
+            "graphTargetsAreDistinct": graphTargetsAreDistinct,
+            "graphTargetsDoNotAliasInputs": graphTargetsDoNotAliasInputs,
+            "graphTargetsDoNotAliasGenericPool": graphTargetsDoNotAliasGenericPool,
             "mainPixel": mainPixel,
             "sourcePixel": sourcePixel,
             "blendPixel": blendPixel,
-            "mainMatchesPoolOutput": poolPixels.contains(mainPixel),
+            "mainMatchesGraphOutput": mainPixel == graphOutputPixel,
+        ]
+    }
+
+    static func resolvedMaterialCompositionEvidence(
+        device: MTLDevice,
+        queue: MTLCommandQueue,
+        pipeline: SceneImageLayerPipeline
+    ) throws -> [String: Any] {
+        let size = 8
+        guard let source = makeTexture(
+            device: device,
+            size: size,
+            usage: .shaderRead
+        ) else { throw HarnessError.metalUnavailable }
+        let graph = xRayChain(layerID: 0).renderGraph
+        let pairPlan: SceneLayerFullFramePairPlan
+        switch SceneLayerFullFramePairPlan.make(conditionPrunedGraphs: [graph]) {
+        case let .success(value): pairPlan = value
+        case .failure: throw HarnessError.drawRefused
+        }
+        let claim = SceneResolvedMaterialRuntimeBridge.ClaimedExecution(
+            token: .init(rawValue: 1),
+            layerID: graph.layerID,
+            admittedGraphs: [graph],
+            pairPlan: pairPlan,
+            fullFrameExtentPolicy: .standard
+        )
+        let layer = SceneRenderDescriptor.Layer(
+            contentKind: "image",
+            colorRGB: nil,
+            colorBlendMode: nil,
+            effects: []
+        )
+        let request = SceneImageLayerDrawRequest(
+            layer: layer,
+            texture: source,
+            masks: .empty,
+            textureFrame: .identity,
+            mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+            uniforms: SceneImageLayerUniformValues(
+                time: 0,
+                alpha: 1,
+                cursorUV: .zero
+            ),
+            offscreenTexturePool: nil,
+            offscreenSize: nil,
+            requiresSourceCopy: false,
+            finalCompositeAlpha: nil,
+            dependencyEffect: nil,
+            authoredEffectPlan: nil,
+            blocksLegacyGaussianBlur: false
+        )
+
+        func makePass() throws -> (SceneMainPassEncoder, MTLCommandBuffer) {
+            guard let target = makeTexture(
+                device: device,
+                size: size,
+                usage: [.renderTarget, .shaderRead]
+            ), let commandBuffer = queue.makeCommandBuffer() else {
+                throw HarnessError.metalUnavailable
+            }
+            return (
+                SceneMainPassEncoder(
+                    commandBuffer: commandBuffer,
+                    target: target,
+                    clearColor: MTLClearColorMake(0, 0, 0, 0)
+                ),
+                commandBuffer
+            )
+        }
+
+        func frameRequest(
+            pool: SceneOffscreenTexturePool,
+            commandBuffer: MTLCommandBuffer
+        ) throws -> SceneImageLayerDrawRequest {
+            let result = SceneResolvedMaterialGraphComposition.preflight(
+                requests: [.init(
+                    claim: claim,
+                    fullFrameExtentPolicy: claim.fullFrameExtentPolicy,
+                    requestedWidth: size,
+                    requestedHeight: size
+                )],
+                pool: pool,
+                commandBuffer: commandBuffer
+            )
+            guard case let .ready(plans) = result,
+                  let plan = plans[claim.layerID] else {
+                throw HarnessError.drawRefused
+            }
+            return SceneImageLayerDrawRequest(
+                layer: request.layer,
+                texture: request.texture,
+                masks: request.masks,
+                textureFrame: request.textureFrame,
+                mvp: request.mvp,
+                uniforms: request.uniforms,
+                offscreenTexturePool: pool,
+                resolvedMaterialFrameTargetPlan: plan,
+                offscreenSize: request.offscreenSize,
+                requiresSourceCopy: request.requiresSourceCopy,
+                finalCompositeAlpha: request.finalCompositeAlpha,
+                dependencyEffect: request.dependencyEffect,
+                authoredEffectPlan: request.authoredEffectPlan,
+                blocksLegacyGaussianBlur: request.blocksLegacyGaussianBlur
+            )
+        }
+
+        let successRuntime = SceneResolvedMaterialRuntimeBridge()
+        let successRecorder = ExactEvidenceLogRecorder()
+        let successTrace = SceneEffectExecutionTelemetry(
+            logSink: { successRecorder.append($0) }
+        ).makeFrame(frameIndex: 701)
+        let (successPass, successBuffer) = try makePass()
+        let successPool = SceneOffscreenTexturePool(
+            device: device, maxDimension: size
+        )
+        let successRequest = try frameRequest(
+            pool: successPool, commandBuffer: successBuffer
+        )
+        guard let successPlan = successRequest.resolvedMaterialFrameTargetPlan,
+              case .ready = successRuntime.prepareFrame(
+                  [.init(
+                      claim: claim,
+                      targetPlan: successPlan,
+                      sourceTexture: source,
+                      sourceUniforms: .neutral(),
+                      sourcePipeline: pipeline
+                  )],
+                  pool: successPool,
+                  commandBuffer: successBuffer
+              ) else { throw HarnessError.drawRefused }
+        let successResult = SceneResolvedMaterialGraphComposition.executeClaimed(
+            runtime: successRuntime,
+            claim: claim,
+            request: successRequest,
+            mainPass: successPass,
+            executionTrace: successTrace,
+            executionOrigin: .image
+        )
+        let successWasEncoded: Bool
+        switch successResult {
+        case let .encoded(texture, ticket):
+            successWasEncoded = texture === source && ticket.identity == 1
+        case .failed:
+            successWasEncoded = false
+        }
+        successPass.finishEnsuringClear()
+        successBuffer.commit()
+        successBuffer.waitUntilCompleted()
+
+        let failedRuntime = SceneResolvedMaterialRuntimeBridge(
+            executionShouldSucceed: false
+        )
+        let failedRecorder = ExactEvidenceLogRecorder()
+        let failedTrace = SceneEffectExecutionTelemetry(
+            logSink: { failedRecorder.append($0) }
+        ).makeFrame(frameIndex: 702)
+        let (failedPass, failedBuffer) = try makePass()
+        let failedPool = SceneOffscreenTexturePool(
+            device: device, maxDimension: size
+        )
+        let failedRequest = try frameRequest(
+            pool: failedPool, commandBuffer: failedBuffer
+        )
+        guard let failedPlan = failedRequest.resolvedMaterialFrameTargetPlan,
+              case .ready = failedRuntime.prepareFrame(
+                  [.init(
+                      claim: claim,
+                      targetPlan: failedPlan,
+                      sourceTexture: source,
+                      sourceUniforms: .neutral(),
+                      sourcePipeline: pipeline
+                  )],
+                  pool: failedPool,
+                  commandBuffer: failedBuffer
+              ) else { throw HarnessError.drawRefused }
+        let failedResult = SceneResolvedMaterialGraphComposition.executeClaimed(
+            runtime: failedRuntime,
+            claim: claim,
+            request: failedRequest,
+            mainPass: failedPass,
+            executionTrace: failedTrace,
+            executionOrigin: .image
+        )
+        let executorFailureStayedClosed: Bool
+        switch failedResult {
+        case .failed: executorFailureStayedClosed = true
+        case .encoded: executorFailureStayedClosed = false
+        }
+        failedPass.finishEnsuringClear()
+        failedBuffer.commit()
+        failedBuffer.waitUntilCompleted()
+
+        let allocationRuntime = SceneResolvedMaterialRuntimeBridge()
+        let (allocationPass, allocationBuffer) = try makePass()
+        let allocationResult = SceneResolvedMaterialGraphComposition.preflight(
+            requests: [.init(
+                claim: claim,
+                fullFrameExtentPolicy: claim.fullFrameExtentPolicy,
+                requestedWidth: size,
+                requestedHeight: size
+            )],
+            pool: SceneOffscreenTexturePool(
+                device: device, maxDimension: size, residentByteBudget: 0
+            ),
+            commandBuffer: allocationBuffer
+        )
+        let allocationFailureReason: String?
+        switch allocationResult {
+        case let .rejected(reasonCode): allocationFailureReason = reasonCode
+        case .ready, .deferred: allocationFailureReason = nil
+        }
+        let allocationFailureStayedClosed =
+            allocationFailureReason == "frame-target-plan-rejected"
+        allocationPass.finishEnsuringClear()
+        allocationBuffer.commit()
+        allocationBuffer.waitUntilCompleted()
+
+        let compositeRuntime = SceneResolvedMaterialRuntimeBridge(
+            claimedExecution: claim,
+            compositeFailureReason: "fixture-composite-rejected"
+        )
+        let composite = SceneImageLayerCompositor(
+            pipelineRepository: SceneImageEffectPipelineRepository(device: device),
+            resolvedMaterialRuntime: compositeRuntime
+        )
+        let (compositePass, compositeBuffer) = try makePass()
+        let compositePool = SceneOffscreenTexturePool(
+            device: device, maxDimension: size
+        )
+        let compositeRequest = try frameRequest(
+            pool: compositePool,
+            commandBuffer: compositeBuffer
+        )
+        guard let compositePlan = compositeRequest.resolvedMaterialFrameTargetPlan,
+              case .ready = compositeRuntime.prepareFrame(
+                  [.init(
+                      claim: claim,
+                      targetPlan: compositePlan,
+                      sourceTexture: source,
+                      sourceUniforms: .neutral(),
+                      sourcePipeline: pipeline
+                  )],
+                  pool: compositePool,
+                  commandBuffer: compositeBuffer
+              ) else { throw HarnessError.drawRefused }
+        let compositeFailureStayedClosed = !composite.draw(
+            compositeRequest,
+            pipeline: pipeline,
+            mainPass: compositePass
+        )
+        compositePass.finishEnsuringClear()
+        compositeBuffer.commit()
+        compositeBuffer.waitUntilCompleted()
+
+        let rejectedRuntime = SceneResolvedMaterialRuntimeBridge(
+            claimRejectionReason: "fixture-route-rejected"
+        )
+        let rejectedCompositor = SceneImageLayerCompositor(
+            pipelineRepository: SceneImageEffectPipelineRepository(device: device),
+            resolvedMaterialRuntime: rejectedRuntime
+        )
+        let rejectedRoute = rejectedCompositor.resolvedMaterialClaim(for: request)
+        let rejectedClaimStayedClosed = rejectedRoute.isRejected
+            && rejectedRoute.execution == nil
+            && rejectedRuntime.claimedFailureReasons == ["fixture-route-rejected"]
+
+        guard successBuffer.status == .completed,
+              failedBuffer.status == .completed,
+              allocationBuffer.status == .completed,
+              compositeBuffer.status == .completed else {
+            throw HarnessError.commandFailed
+        }
+        return [
+            "successWasEncoded": successWasEncoded,
+            "successExecuteCalls": successRuntime.executeCallCount,
+            "successFailureReasons": successRuntime.claimedFailureReasons,
+            "executorFailureStayedClosed": executorFailureStayedClosed,
+            "executorFailureExecuteCalls": failedRuntime.executeCallCount,
+            "executorFailureReasons": failedRuntime.claimedFailureReasons,
+            "successExactEvidence": successRecorder.lines.filter {
+                $0.contains("axis=effect-cpu-invocation")
+            },
+            "failedExactEvidence": failedRecorder.lines.filter {
+                $0.contains("axis=effect-cpu-invocation")
+            },
+            "allocationFailureStayedClosed": allocationFailureStayedClosed,
+            "allocationFailureReason": allocationFailureReason ?? "missing",
+            "allocationFailureExecuteCalls": allocationRuntime.executeCallCount,
+            "allocationFailureReasons": allocationRuntime.claimedFailureReasons,
+            "compositeFailureStayedClosed": compositeFailureStayedClosed,
+            "compositeFailureMarkCalls": compositeRuntime.markCompositeCallCount,
+            "compositeFailureReasons": compositeRuntime.claimedFailureReasons,
+            "rejectedClaimStayedClosed": rejectedClaimStayedClosed,
         ]
     }
 
@@ -4075,7 +4772,7 @@ enum Harness {
         return SceneAuthoredEffectExecutionChain(
             layerID: layerID,
             renderGraph: graph,
-            stages: [stage]
+            executionStages: [stage]
         )
     }
 
@@ -4311,7 +5008,7 @@ enum Harness {
         return SceneAuthoredEffectExecutionChain(
             layerID: layerID,
             renderGraph: graph,
-            stages: [first, second]
+            executionStages: [first, second]
         )
     }
 
@@ -4365,7 +5062,7 @@ enum Harness {
         return SceneAuthoredEffectExecutionChain(
             layerID: layerID,
             renderGraph: graph,
-            stages: [stage]
+            executionStages: [stage]
         )
     }
 
@@ -4427,7 +5124,7 @@ enum Harness {
         return SceneAuthoredEffectExecutionChain(
             layerID: layerID,
             renderGraph: graph,
-            stages: [stage]
+            executionStages: [stage]
         )
     }
 
@@ -4489,7 +5186,7 @@ enum Harness {
         return SceneAuthoredEffectExecutionChain(
             layerID: layerID,
             renderGraph: graph,
-            stages: [stage]
+            executionStages: [stage]
         )
     }
 
@@ -4559,7 +5256,7 @@ enum Harness {
         return SceneAuthoredEffectExecutionChain(
             layerID: layerID,
             renderGraph: graph,
-            stages: [stage]
+            executionStages: [stage]
         )
     }
 
@@ -4582,7 +5279,8 @@ enum Harness {
         )
         return SceneEffectRuntimePlanner.runtimeSummary(
             for: layer,
-            authoredEffectPlan: authoredBlendChain(multiply: 0.5).stages[0]
+            authoredEffectPlan:
+                authoredBlendChain(multiply: 0.5).executionStages[0]
         )
     }
 
@@ -4636,7 +5334,7 @@ enum Harness {
         return SceneAuthoredEffectExecutionChain(
             layerID: layerID,
             renderGraph: graph,
-            stages: [stage]
+            executionStages: [stage]
         )
     }
 
@@ -4737,14 +5435,14 @@ enum Harness {
         return SceneAuthoredEffectExecutionChain(
             layerID: layerID,
             renderGraph: graph,
-            stages: [stage]
+            executionStages: [stage]
         )
     }
 
     static func authoredFailingSecondStageChain() -> SceneAuthoredEffectExecutionChain {
         let valid = authoredTwoStageBlurChain()
-        let first = valid.stages[0]
-        let second = valid.stages[1]
+        let first = valid.executionStages[0]
+        let second = valid.executionStages[1]
         let duplicateTarget = second.renderGraph.renderTargets[0].texture
         let invalidContrast = SceneLocalContrastPlan(
             firstQuarterTarget: duplicateTarget,
@@ -4763,7 +5461,7 @@ enum Harness {
         return SceneAuthoredEffectExecutionChain(
             layerID: valid.layerID,
             renderGraph: valid.renderGraph,
-            stages: [first, failingSecond]
+            executionStages: [first, failingSecond]
         )
     }
 
@@ -5063,6 +5761,23 @@ enum Harness {
 
 
 class SceneFramebufferCaptureTests(unittest.TestCase):
+    def test_legacy_authored_commit_is_owned_by_the_frame_transaction(self) -> None:
+        compositor = (
+            SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
+        ).read_text(encoding="utf-8")
+        compositor += (
+            SOURCE_ROOT / "Rendering/SceneImageLayerCompositor+LegacyAuthored.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "frameTransaction: SceneSourceUpdateTransaction",
+            compositor,
+        )
+        self.assertIn("frameTransaction.registerResolution(", compositor)
+        self.assertNotIn(
+            "commandBuffer.addCompletedHandler { _ in commit.releaseAll() }",
+            compositor,
+        )
+
     @classmethod
     def setUpClass(cls) -> None:
         if shutil.which("swiftc") is None:
@@ -5356,6 +6071,18 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertLessEqual(evidence["firstOutputToSecondInputDelta"], 1, evidence)
         self.assertGreater(evidence["firstToSecondOutputDelta"], 1, evidence)
         self.assertLessEqual(evidence["secondOutputToMainDelta"], 2, evidence)
+        self.assertTrue(evidence["firstCaptureUsesDistinctAtom"], evidence)
+        self.assertTrue(evidence["secondCaptureAliasesPriorOutput"], evidence)
+        self.assertEqual(evidence["chainPairPhysicalObjectCount"], 2, evidence)
+        self.assertEqual(evidence["residentAllocationCount"], 2, evidence)
+        self.assertEqual(evidence["residentTextureCount"], 5, evidence)
+        self.assertTrue(evidence["resetReleasedCompletedSubmission"], evidence)
+
+        capture_source = (
+            SOURCE_ROOT / "Effects/SceneOffscreenEffectRenderer+Capture.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("sourceTexture === target", capture_source)
+        self.assertNotIn("sourceTexture.width == target.width", capture_source)
 
     def test_solid_effect_chain_uses_mapped_extent_instead_of_one_pixel_provider(self) -> None:
         evidence = self.result["solidMappedEffectExtent"]
@@ -5501,8 +6228,17 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertFalse(evidence["encoded"])
         self.assertTrue(evidence["firstStageProducedPixels"])
         self.assertEqual(evidence["mainPixel"], [0, 0, 0, 0])
+        self.assertEqual(evidence["residentAllocationCount"], 2)
+        self.assertTrue(evidence["resetReleasedFailedSubmission"])
 
-    def test_xray_shared_three_texture_route_has_no_alias_and_propagates_output(
+    def test_unsubmitted_legacy_commit_rolls_back_with_the_frame(self) -> None:
+        evidence = self.result["legacyUnsubmittedRollback"]
+        self.assertTrue(evidence["encoded"], evidence)
+        self.assertTrue(evidence["commandBufferWasNotSubmitted"], evidence)
+        self.assertTrue(evidence["commitWasPinned"], evidence)
+        self.assertTrue(evidence["rollbackReleasedCommit"], evidence)
+
+    def test_xray_graph_target_route_has_no_alias_and_propagates_output(
         self,
     ) -> None:
         evidence = self.result["xRayThreeTextureRoute"]
@@ -5510,9 +6246,50 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertTrue(evidence["poolIsPairwiseDistinct"], evidence)
         self.assertTrue(evidence["resourcesDoNotAliasPool"], evidence)
         self.assertTrue(evidence["resourcesArePairwiseDistinct"], evidence)
-        self.assertTrue(evidence["mainMatchesPoolOutput"], evidence)
+        self.assertTrue(evidence["graphTargetsAreDistinct"], evidence)
+        self.assertTrue(evidence["graphTargetsDoNotAliasInputs"], evidence)
+        self.assertTrue(evidence["graphTargetsDoNotAliasGenericPool"], evidence)
+        self.assertTrue(evidence["mainMatchesGraphOutput"], evidence)
         self.assertNotEqual(evidence["mainPixel"], evidence["sourcePixel"], evidence)
         self.assert_pixel_close(evidence["mainPixel"], evidence["blendPixel"], 2)
+
+    def test_production_resolved_material_composition_executes_and_fails_closed(
+        self,
+    ) -> None:
+        evidence = self.result["resolvedMaterialComposition"]
+        self.assertTrue(evidence["successWasEncoded"], evidence)
+        self.assertEqual(evidence["successExecuteCalls"], 1, evidence)
+        self.assertEqual(evidence["successFailureReasons"], [], evidence)
+        self.assertTrue(evidence["executorFailureStayedClosed"], evidence)
+        self.assertEqual(evidence["executorFailureExecuteCalls"], 1, evidence)
+        self.assertEqual(evidence["executorFailureReasons"], [], evidence)
+        self.assertEqual(len(evidence["successExactEvidence"]), 1, evidence)
+        success_exact = evidence["successExactEvidence"][0]
+        self.assertIn("subject=effect", success_exact)
+        self.assertIn("family=generic-framebuffer", success_exact)
+        self.assertIn("backend=resolved-material-graph", success_exact)
+        self.assertIn("outcome=encoded-output", success_exact)
+        self.assertEqual(evidence["failedExactEvidence"], [], evidence)
+        self.assertTrue(evidence["allocationFailureStayedClosed"], evidence)
+        self.assertEqual(
+            evidence["allocationFailureReason"],
+            "frame-target-plan-rejected",
+            evidence,
+        )
+        self.assertEqual(evidence["allocationFailureExecuteCalls"], 0, evidence)
+        self.assertEqual(
+            evidence["allocationFailureReasons"],
+            [],
+            evidence,
+        )
+        self.assertTrue(evidence["compositeFailureStayedClosed"], evidence)
+        self.assertEqual(evidence["compositeFailureMarkCalls"], 1, evidence)
+        self.assertEqual(
+            evidence["compositeFailureReasons"],
+            ["fixture-composite-rejected"],
+            evidence,
+        )
+        self.assertTrue(evidence["rejectedClaimStayedClosed"], evidence)
 
     def test_standard_blur_downsample_is_alpha_aware(self) -> None:
         self.assert_pixel_close(

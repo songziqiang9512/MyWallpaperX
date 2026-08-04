@@ -2,15 +2,15 @@ import Foundation
 
 extension SceneAuthoredEffectChainPlanner {
     nonisolated static func xRayPrefix(
-        plannedStages: [SceneAuthoredEffectExecutionPlan],
+        plannedPrograms: [SceneEffectStageProgram],
         unsupportedOrdinal: Int,
         graph: Graph,
         descriptor: SceneRenderDescriptor
     ) -> SceneAuthoredEffectExecutionChain? {
         guard unsupportedOrdinal == 1,
               graph.effects.count > unsupportedOrdinal,
-              plannedStages.count == 1,
-              let stage = plannedStages.first,
+              plannedPrograms.count == 1,
+              let stage = plannedPrograms.first?.executionPlan,
               stage.xRay != nil,
               stage.inputRole == .layerSource,
               descriptor.layers.first(where: { $0.id == graph.layerID })?.contentKind
@@ -24,10 +24,12 @@ extension SceneAuthoredEffectChainPlanner {
                 + "omitted=\(omitted)"
         )
 #endif
-        return SceneAuthoredEffectExecutionChain(
+        return SceneAuthoredEffectExecutionChain.legacyRecovery(
             layerID: graph.layerID,
+            authoredRenderGraph: graph,
             renderGraph: stage.renderGraph,
-            stages: plannedStages
+            stagePrograms: plannedPrograms,
+            kind: .xRayPrefix
         )
     }
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""R3 production catalog/resource bridge contracts."""
+"""R4 resolved-material bridge, submission, and resource contracts."""
 
 from __future__ import annotations
 
@@ -24,9 +24,80 @@ ASSET_CATALOG = (
     SCENE_ROOT / "Resources/SceneMaterialAssetTextureCatalog.swift"
 )
 LAUNCH = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
-HOST = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost.swift"
 TEXTURE_FRAME = SCENE_ROOT / "Rendering/SceneMetalRenderer+TextureFrame.swift"
 COMPOSITOR = SCENE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
+GRAPH_COMPOSITION = (
+    SCENE_ROOT / "Rendering/SceneResolvedMaterialGraphComposition.swift"
+)
+RENDERER_DIAGNOSTICS = (
+    SCENE_ROOT / "Rendering/SceneMetalRenderer+Diagnostics.swift"
+)
+FRAME_PREFLIGHT = (
+    SCENE_ROOT / "Rendering/SceneResolvedMaterialFramePreflight.swift"
+)
+TARGET_ALLOCATOR = (
+    SCENE_ROOT / "RenderGraph/ScenePersistentGraphTargetAllocator.swift"
+)
+TARGET_CACHE = (
+    SCENE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache.swift"
+)
+TARGET_SHARED_PAIR = (
+    SCENE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache+SharedPair.swift"
+)
+TARGET_BATCH = (
+    SCENE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache+Batch.swift"
+)
+TARGET_PREFLIGHT = (
+    SCENE_ROOT / "RenderGraph/SceneOffscreenTextureFramePreflight.swift"
+)
+OFFSCREEN_RESOLUTION_POLICY = (
+    SCENE_ROOT / "RenderGraph/SceneOffscreenResolutionPolicy.swift"
+)
+DRAW_REQUEST = SCENE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift"
+UTILITY_FRAME_RENDERER = (
+    SCENE_ROOT / "Rendering/SceneUtilityPlanFrameRenderer.swift"
+)
+METAL_RENDERER = SCENE_ROOT / "Rendering/SceneMetalRenderer.swift"
+METAL_VIEW_FRAME_CONTEXT = (
+    SCENE_ROOT / "Rendering/SceneMetalView+FrameContext.swift"
+)
+METAL_VIEW = SCENE_ROOT / "Rendering/SceneMetalView.swift"
+HOST = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost.swift"
+HOST_FRAME_DRIVER = (
+    SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+)
+SUBMISSION_COORDINATOR = (
+    SCENE_ROOT / "Runtime/SceneResolvedMaterialSubmissionCoordinator.swift"
+)
+SUBMISSION_COMPLETION = (
+    SCENE_ROOT
+    / "Runtime/SceneResolvedMaterialSubmissionCoordinator+Completion.swift"
+)
+SUBMISSION_LIFECYCLE = (
+    SCENE_ROOT
+    / "Runtime/SceneResolvedMaterialSubmissionCoordinator+Lifecycle.swift"
+)
+SUBMISSION_FRAME_COMMIT = (
+    SCENE_ROOT
+    / "Runtime/SceneResolvedMaterialSubmissionCoordinator+FrameCommit.swift"
+)
+GRAPH_OBSERVATION = SCENE_ROOT / "Runtime/SceneGraphExecutionObservation.swift"
+GRAPH_TELEMETRY = SCENE_ROOT / "Runtime/SceneGraphExecutionTelemetry.swift"
+GRAPH_OBSERVATION_BUILDER = (
+    SCENE_ROOT / "Runtime/SceneResolvedMaterialGraphObservationBuilder.swift"
+)
+SUBMISSION_SWIFT_SOURCES = [
+    GRAPH_OBSERVATION,
+    GRAPH_TELEMETRY,
+    GRAPH_OBSERVATION_BUILDER,
+    OFFSCREEN_RESOLUTION_POLICY,
+    RUNTIME_BRIDGE,
+    SUBMISSION_COORDINATOR,
+    SUBMISSION_LIFECYCLE,
+    SUBMISSION_COMPLETION,
+    SUBMISSION_FRAME_COMMIT,
+]
+
 
 ASSET_HARNESS = r'''
 import Foundation
@@ -132,6 +203,7 @@ enum Harness {
 }
 '''
 
+
 VFS_SUPPORT = r'''
 import Foundation
 
@@ -170,41 +242,10 @@ enum Harness {
 }
 '''
 
-RUNTIME_BRIDGE_HARNESS = r'''
+
+SUBMISSION_COORDINATOR_FIXTURE = r'''
 import Foundation
-import simd
-
-struct SceneTextureLoadPurpose: Hashable {
-    let name: String
-    static let premultipliedColor = Self(name: "premultiplied-color")
-}
-struct SceneAssetTextureIdentity: Hashable {}
-enum SceneTextureProviderState { case unavailable }
-struct SceneUserPropertyTextureIdentity: Hashable {
-    let propertyKey: String
-    let purpose: SceneTextureLoadPurpose
-
-    init?(propertyKey: String, purpose: SceneTextureLoadPurpose) {
-        guard !propertyKey.isEmpty else { return nil }
-        self.propertyKey = propertyKey
-        self.purpose = purpose
-    }
-}
-struct SceneResolvedMaterialTemplate {}
-struct SceneResolvedMaterialProgram {}
-
-struct SceneResolvedMaterialFailure: Error {
-    enum Phase: String { case graph }
-    enum Code: String { case graphNodeInvalid }
-    let phase: Phase
-    let code: Code
-    let details: [String]
-    init(phase: Phase, code: Code, details: [String] = []) {
-        self.phase = phase
-        self.code = code
-        self.details = details
-    }
-}
+import Metal
 
 struct SceneAuthoredEffectRenderPlan {
     struct EffectKey: Hashable {
@@ -212,221 +253,2065 @@ struct SceneAuthoredEffectRenderPlan {
         let effectIndex: Int
         let descriptorID: String
     }
-    struct TextureIdentity: Hashable { let value: Int }
-    enum NodeKind { case material, copy, swap }
-    struct Node {
-        let kind: NodeKind
-        let effect: EffectKey
-        let nodeIndex: Int
-        let target: TextureIdentity?
+    enum TextureKind: Hashable { case framebuffer, effectOutput, layerSource }
+    struct TextureIdentity: Hashable {
+        let kind: TextureKind
+        let layerID: Int
+        let effect: EffectKey?
+        let name: String?
     }
+    enum NodeKind: Equatable { case material, copy, swap }
+    struct Node {
+        let nodeIndex: Int
+        let kind: NodeKind
+        let materialOrdinal: Int?
+        let commandSource: TextureIdentity?
+        let commandTarget: TextureIdentity?
+
+        init(
+            nodeIndex: Int,
+            kind: NodeKind,
+            materialOrdinal: Int? = nil,
+            commandSource: TextureIdentity? = nil,
+            commandTarget: TextureIdentity? = nil
+        ) {
+            self.nodeIndex = nodeIndex
+            self.kind = kind
+            self.materialOrdinal = materialOrdinal
+            self.commandSource = commandSource
+            self.commandTarget = commandTarget
+        }
+    }
+    struct Effect { let key: EffectKey }
+    let layerID: Int
+    let effects: [Effect]
     let nodes: [Node]
 }
 
-struct SceneResolvedMaterialRuntimeCatalog {
-    struct Key: Hashable {
-        let effect: SceneAuthoredEffectRenderPlan.EffectKey
+struct SceneLayerFullFramePairPlan {
+    enum Member { case zero, one }
+    struct NodeStep {
         let nodeIndex: Int
+        let kind: SceneAuthoredEffectRenderPlan.NodeKind
+        let rotatesAfterNode: Bool
     }
-    enum Entry {
-        case template(SceneResolvedMaterialTemplate)
-        case failure(SceneResolvedMaterialFailure)
+    struct EffectStep {
+        let effect: SceneAuthoredEffectRenderPlan.EffectKey
+        let inputIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity
+        let outputIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity
+        let inputMember: Member
+        let outputMember: Member
+        let nodes: [NodeStep]
     }
-    struct SystemProviderDemand: Hashable {
-        let name: String
-        let purpose: SceneTextureLoadPurpose
+    let layerID: Int
+}
+
+struct SceneGraphExecutionState {
+    typealias Identity = SceneAuthoredEffectRenderPlan.TextureIdentity
+    static let maximumNodeCount = 512
+    static let maximumLogicalBindingCount = 512
+    struct PhysicalToken: Hashable { let rawValue: String }
+    struct VersionedResource {
+        let token: PhysicalToken
+        let contentGeneration: UInt64
     }
-    let entries: [Key: Entry]
-    let userPropertyDemands: Set<SceneUserPropertyTextureIdentity>
-    let systemProviderDemands: Set<SystemProviderDemand>
-    func entry(for node: SceneAuthoredEffectRenderPlan.Node) -> Entry? {
-        entries[.init(effect: node.effect, nodeIndex: node.nodeIndex)]
+    enum InitializationReason { case authoredClear }
+    struct MaterialBinding {}
+    struct MaterialTarget {}
+    enum Intent {
+        case initialize(
+            identity: Identity,
+            resource: VersionedResource,
+            reason: InitializationReason
+        )
+        case material(
+            nodeIndex: Int,
+            materialOrdinal: Int,
+            bindings: [MaterialBinding],
+            target: MaterialTarget?
+        )
+        case copy(
+            nodeIndex: Int,
+            commandOrdinal: Int,
+            source: Identity,
+            sourceResource: VersionedResource,
+            target: Identity,
+            targetResource: VersionedResource
+        )
+        case swap(
+            nodeIndex: Int,
+            commandOrdinal: Int,
+            source: Identity,
+            sourceResource: VersionedResource,
+            target: Identity,
+            targetResource: VersionedResource
+        )
+    }
+    struct Transaction {
+        let intents: [Intent]
+        let mappingBefore: [Identity: VersionedResource]
+        let mappingAfter: [Identity: VersionedResource]
+        let allocationGeneration: UInt64
+        let effectGeneration: UInt64
+        let resetGeneration: UInt64
+    }
+    struct Transition {
+        let nextState: SceneGraphExecutionState
+        let transaction: Transaction
+    }
+    let effectGeneration: UInt64?
+    let resetGeneration: UInt64?
+    let allocationGeneration: UInt64?
+    let logicalMapping: [Identity: VersionedResource]
+    let historyLogicalIdentities: Set<Identity>
+    let historyClosureIdentities: Set<Identity>
+}
+
+enum SceneTextureLoadPurpose: Hashable { case premultipliedColor }
+enum SceneTextureProviderIdentity: Hashable {
+    case graph(allocationGeneration: UInt64, physicalToken: String)
+    var reportToken: String {
+        switch self {
+        case let .graph(generation, token): return "graph:\(generation):\(token)"
+        }
+    }
+}
+enum SceneTextureCandidateIdentity: Hashable {
+    case provider(SceneTextureProviderIdentity)
+    case file(String)
+    case builtIn(String)
+}
+enum SceneFrameTextureIdentity: Hashable {
+    case graph(SceneAuthoredEffectRenderPlan.TextureIdentity)
+    case system(String)
+
+    var reportToken: String {
+        switch self {
+        case let .graph(identity):
+            let effect = identity.effect.map {
+                "\($0.layerID):\($0.effectIndex):\($0.descriptorID)"
+            } ?? "none"
+            return "graph:\(identity.kind):\(identity.layerID):\(effect):\(identity.name ?? "none")"
+        case let .system(name): return "system:\(name)"
+        }
     }
 }
 
-struct SceneMaterialAssetTextureCatalog {
-    let states: [SceneAssetTextureIdentity: SceneTextureProviderState]
+enum SceneShaderStableDigest {
+    static func hash(_ data: Data) -> String { "data-\(data.count)" }
+    static func hash(_ graph: SceneAuthoredEffectRenderPlan) -> String {
+        "graph-\(graph.layerID)-\(graph.nodes.count)"
+    }
 }
-struct SceneFrameTextureRegistrySnapshot { let valid: Bool }
+struct SceneTextureCandidate {
+    let texture: MTLTexture
+    let identity: SceneTextureCandidateIdentity
+    let purpose: SceneTextureLoadPurpose
+}
+struct SceneTextureProviderPublication {
+    let requestIdentity: SceneFrameTextureIdentity
+    let candidate: SceneTextureCandidate
+    let contentGeneration: UInt64
+    var texture: MTLTexture { candidate.texture }
+    var isComplete: Bool { contentGeneration > 0 }
+    func isSameAtom(as other: Self) -> Bool {
+        requestIdentity == other.requestIdentity
+            && candidate.identity == other.candidate.identity
+            && contentGeneration == other.contentGeneration
+            && texture === other.texture
+    }
+}
+struct SceneFrameTextureResource {
+    let publication: SceneTextureProviderPublication
+    let resourceGeneration: UInt64
+    var isCompleteGraphResource: Bool {
+        resourceGeneration > 0
+            && publication.contentGeneration == resourceGeneration
+    }
+}
+
+enum SceneResolvedMaterialInFlightCapacity {
+    static let maximumSubmissions = 2
+}
+
+struct SceneGraphRenderTargetPlan: Equatable { let identity: Int }
+struct SceneGraphRenderTargetTable { let plan: SceneGraphRenderTargetPlan }
+struct SceneGraphRenderTargetLease {
+    struct FullFramePair {
+        let first: SceneGraphExecutionState.PhysicalToken
+        let second: SceneGraphExecutionState.PhysicalToken
+    }
+    let table: SceneGraphRenderTargetTable
+    let generation: UInt64
+    let texturesByToken: [SceneGraphExecutionState.PhysicalToken: MTLTexture]
+    let fullFramePair: FullFramePair
+}
+
+final class SceneGraphRenderTargetResidencyPin: @unchecked Sendable {
+    typealias EffectKey = SceneAuthoredEffectRenderPlan.EffectKey
+    typealias Token = SceneGraphExecutionState.PhysicalToken
+    enum Purpose: Hashable { case submission, history(EffectKey, Set<Token>) }
+    let purpose: Purpose
+    let generation: UInt64
+    private(set) var active = true
+    private(set) var releaseCount = 0
+    init(purpose: Purpose, generation: UInt64) {
+        self.purpose = purpose
+        self.generation = generation
+    }
+    func release() {
+        guard active else { return }
+        active = false
+        releaseCount += 1
+    }
+}
+
+final class ScenePreparedPersistentGraphTargets {
+    typealias EffectKey = SceneAuthoredEffectRenderPlan.EffectKey
+    typealias Token = SceneGraphExecutionState.PhysicalToken
+    struct HistoryRehydrateCopy {}
+    struct Commit {
+        let leases: [SceneGraphRenderTargetLease]
+        let submissionPin: SceneGraphRenderTargetResidencyPin
+        let historyPinsByEffect: [EffectKey: SceneGraphRenderTargetResidencyPin]
+        func releaseAll() {
+            submissionPin.release()
+            historyPinsByEffect.values.forEach { $0.release() }
+        }
+    }
+    let leases: [SceneGraphRenderTargetLease]
+    let historyRehydrateCopiesByEffect: [EffectKey: [HistoryRehydrateCopy]]
+    private var action: (([EffectKey: Set<Token>], MTLCommandBuffer?) -> Commit?)?
+    init(
+        leases: [SceneGraphRenderTargetLease] = [],
+        historyRehydrateCopiesByEffect: [EffectKey: [HistoryRehydrateCopy]] = [:],
+        action: (([EffectKey: Set<Token>], MTLCommandBuffer?) -> Commit?)? = nil
+    ) {
+        self.leases = leases
+        self.historyRehydrateCopiesByEffect = historyRehydrateCopiesByEffect
+        self.action = action
+    }
+    func commitAndPin(
+        historyTokensByEffect: [EffectKey: Set<Token>],
+        commandBuffer: MTLCommandBuffer? = nil
+    ) -> Commit? {
+        let current = action
+        action = nil
+        return current?(historyTokensByEffect, commandBuffer)
+    }
+}
+
+enum SceneResolvedMaterialExecutionCapabilityAdmission {
+    static let maximumEffectsPerLayer = 512
+    static let maximumNodesPerLayer = 65_536
+}
+final class SceneResolvedMaterialExecutionCapabilityCatalog {
+    struct Token: Hashable { let value: Int }
+    struct Claim { let token: Token }
+    struct AdmittedProduct { let graph: SceneAuthoredEffectRenderPlan }
+    struct ExactEffectSubject: Hashable {
+        let key: SceneAuthoredEffectRenderPlan.EffectKey
+        let family: String
+    }
+    struct ChainCapability {
+        let layerID: Int
+        let pairPlan: SceneLayerFullFramePairPlan
+        let admittedProducts: [AdmittedProduct]
+        let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
+        var effectSubjectsAreConserved: Bool {
+            let expected = admittedProducts.flatMap { $0.graph.effects.map(\.key) }
+            return !expected.isEmpty && Set(expected).count == expected.count
+        }
+    }
+    let capabilitiesByLayerID: [Int: ChainCapability]
+    let resolvesClaims: Bool
+    init(
+        capability: ChainCapability? = nil,
+        additionalCapabilities: [ChainCapability] = [],
+        resolvesClaims: Bool = true
+    ) {
+        let values = ([capability].compactMap { $0 } + additionalCapabilities)
+        self.capabilitiesByLayerID = Dictionary(
+            uniqueKeysWithValues: values.map { ($0.layerID, $0) }
+        )
+        self.resolvesClaims = resolvesClaims
+    }
+    func claim(layerID: Int) -> Claim? {
+        capabilitiesByLayerID[layerID] == nil
+            ? nil : .init(token: .init(value: layerID))
+    }
+    func resolve(_ token: Token) -> ChainCapability? {
+        resolvesClaims ? capabilitiesByLayerID[token.value] : nil
+    }
+}
+
+struct SceneGraphRenderTargetChainPlan {
+    struct Key { let layerID: Int }
+    let key: Key
+}
+struct ScenePersistentGraphTargetFramePlan {
+    let chainPlan: SceneGraphRenderTargetChainPlan
+}
+struct SceneResolvedMaterialFrameTargetPlan {
+    let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
+    let allocation: ScenePersistentGraphTargetFramePlan
+}
+final class SceneOffscreenTexturePool {
+    typealias Factory = (
+        ScenePersistentGraphTargetFramePlan
+    ) -> ScenePreparedPersistentGraphTargets?
+    let factory: Factory
+    private(set) var batchCommitCount = 0
+    init(
+        prepared: ScenePreparedPersistentGraphTargets? = .init(),
+        factory: Factory? = nil
+    ) {
+        self.factory = factory ?? { _ in prepared }
+    }
+    func preparePersistentGraphTargets(
+        framePlan: ScenePersistentGraphTargetFramePlan
+    ) -> ScenePreparedPersistentGraphTargets? {
+        factory(framePlan)
+    }
+    func preparePersistentGraphTargets(
+        framePlans: [ScenePersistentGraphTargetFramePlan]
+    ) -> [ScenePreparedPersistentGraphTargets]? {
+        let values = framePlans.compactMap(factory)
+        return values.count == framePlans.count ? values : nil
+    }
+    func commitAndPinPersistentGraphTargets(
+        _ targets: [ScenePreparedPersistentGraphTargets],
+        historyTokensByTarget: [[ScenePreparedPersistentGraphTargets.EffectKey:
+            Set<ScenePreparedPersistentGraphTargets.Token>]],
+        commandBuffer: MTLCommandBuffer
+    ) -> [ScenePreparedPersistentGraphTargets.Commit]? {
+        guard targets.count == historyTokensByTarget.count else { return nil }
+        let commits = zip(targets, historyTokensByTarget).compactMap {
+            $0.0.commitAndPin(
+                historyTokensByEffect: $0.1,
+                commandBuffer: commandBuffer
+            )
+        }
+        guard commits.count == targets.count else {
+            commits.forEach { $0.releaseAll() }
+            return nil
+        }
+        batchCommitCount += 1
+        return commits
+    }
+}
+
+struct SceneLayerFragmentUniforms {}
+struct SceneImageLayerPipeline {}
+struct SceneResolvedMaterialFailure: Error {}
+struct SceneFrameTextureRegistrySnapshot { let frameIndex: UInt64; let valid: Bool }
 struct SceneDynamicSnapshot {}
 struct SceneAuthoredShaderFrameInputs {}
-struct SceneResolvedMaterialFinalizationInput {}
-
 struct SceneResolvedMaterialFrameSnapshot {
+    let frameIndex: UInt64
     static func validated(
         textureSnapshot: SceneFrameTextureRegistrySnapshot,
         dynamicSnapshot: SceneDynamicSnapshot,
         frameInputs: SceneAuthoredShaderFrameInputs
     ) -> Result<Self, SceneResolvedMaterialFailure> {
-        textureSnapshot.valid
-            ? .success(.init())
-            : .failure(.init(phase: .graph, code: .graphNodeInvalid))
-    }
-    func finalizationInput(
-        template: SceneResolvedMaterialTemplate,
-        renderSize: CGSize,
-        modelViewProjection: simd_float4x4
-    ) -> SceneResolvedMaterialFinalizationInput {
-        .init()
+        _ = dynamicSnapshot
+        _ = frameInputs
+        return textureSnapshot.valid
+            ? .success(.init(frameIndex: textureSnapshot.frameIndex))
+            : .failure(.init())
     }
 }
 
-enum SceneResolvedMaterialProgramFinalizer {
-    static var calls = 0
-    static func finalize(
-        _ input: SceneResolvedMaterialFinalizationInput
-    ) -> Result<SceneResolvedMaterialProgram, SceneResolvedMaterialFailure> {
-        calls += 1
-        return .success(.init())
+struct SceneAssetTextureIdentity: Hashable { let value: String }
+enum SceneTextureProviderState { case unavailable }
+struct SceneUserPropertyTextureIdentity: Hashable {
+    let propertyKey: String
+    let purpose: SceneTextureLoadPurpose
+    init?(propertyKey: String, purpose: SceneTextureLoadPurpose) {
+        guard !propertyKey.isEmpty else { return nil }
+        self.propertyKey = propertyKey
+        self.purpose = purpose
     }
 }
-
-struct StubTarget { let width: Int; let height: Int }
-struct SceneGraphRenderTargetTable {
-    let targets: [SceneAuthoredEffectRenderPlan.TextureIdentity: StubTarget]
-    func texture(
-        for identity: SceneAuthoredEffectRenderPlan.TextureIdentity
-    ) -> StubTarget? {
-        targets[identity]
-    }
-}
-
-final class StubTexture {}
-enum SceneFrameTextureIdentity: Equatable { case system(String) }
-struct StubCandidate { let purpose: SceneTextureLoadPurpose }
-struct SceneTextureProviderPublication {
-    let requestIdentity: SceneFrameTextureIdentity
-    let texture: StubTexture
-    let candidate: StubCandidate
-    let isComplete: Bool
-}
-enum SceneFrameTextureRegistry {
-    enum ProviderStatus { case unavailable }
-}
+enum SceneFrameTextureRegistry { enum ProviderStatus { case unavailable } }
 enum SceneMediaThumbnailTextureStore {
     struct Snapshot {
-        let systemTextures: [String: StubTexture]
         let publications: [String: SceneTextureProviderPublication]
+        let systemTextures: [String: MTLTexture]
     }
+}
+struct SceneResolvedMaterialRuntimeCatalog {
+    struct SystemProviderDemand: Hashable {
+        let name: String
+        let purpose: SceneTextureLoadPurpose
+    }
+    let userPropertyDemands: Set<SceneUserPropertyTextureIdentity>
+    let systemProviderDemands: Set<SystemProviderDemand>
+}
+struct SceneMaterialAssetTextureCatalog {
+    let states: [SceneAssetTextureIdentity: SceneTextureProviderState]
+}
+
+final class SceneResolvedMaterialGraphExecutor {
+    typealias Graph = SceneAuthoredEffectRenderPlan
+    typealias State = SceneGraphExecutionState
+    enum Failure: String, Error {
+        case unavailable = "fixture-preflight-unavailable"
+    }
+    struct PreparedTransition {
+        let effect: Graph.EffectKey
+        let graph: Graph
+        let pairStep: SceneLayerFullFramePairPlan.EffectStep
+        let transition: State.Transition
+        let frameResources: [Graph.TextureIdentity: SceneFrameTextureResource]
+        let persistentResources: [Graph.TextureIdentity: SceneFrameTextureResource]
+        let effectOutputResource: SceneFrameTextureResource
+        let programCacheKeys: [String]
+    }
+    struct PreparedChain {
+        let transitions: [PreparedTransition]
+        let finalResource: SceneFrameTextureResource
+        let finalTexture: MTLTexture
+        let historyTokensByEffect: [Graph.EffectKey: Set<State.PhysicalToken>]
+    }
+    static var prepareCallCount = 0
+    static var prepareTokens: [Int] = []
+    static var preparedByToken: [Int: PreparedChain] = [:]
+    static var encodeSucceeds = false
+    init?(
+        device: MTLDevice,
+        capabilities: SceneResolvedMaterialExecutionCapabilityCatalog
+    ) { _ = device; _ = capabilities }
+    func prepare(
+        token: SceneResolvedMaterialExecutionCapabilityCatalog.Token,
+        leases: [SceneGraphRenderTargetLease],
+        historyRehydrateCopiesByEffect: [Graph.EffectKey: [ScenePreparedPersistentGraphTargets.HistoryRehydrateCopy]],
+        frame: SceneResolvedMaterialFrameSnapshot,
+        sourceTexture: MTLTexture,
+        sourceUniforms: SceneLayerFragmentUniforms,
+        sourcePipeline: SceneImageLayerPipeline,
+        commandBuffer: MTLCommandBuffer,
+        previousStates: [Graph.EffectKey: State],
+        previousGraphResources: [Graph.EffectKey: [Graph.TextureIdentity: SceneFrameTextureResource]],
+        effectGeneration: UInt64,
+        resetGeneration: UInt64
+    ) -> Result<PreparedChain, Failure> {
+        _ = token; _ = leases; _ = historyRehydrateCopiesByEffect; _ = frame
+        _ = sourceTexture; _ = sourceUniforms; _ = sourcePipeline; _ = commandBuffer
+        _ = previousStates; _ = previousGraphResources
+        _ = effectGeneration; _ = resetGeneration
+        Self.prepareCallCount += 1
+        Self.prepareTokens.append(token.value)
+        return Self.preparedByToken[token.value].map(Result.success)
+            ?? .failure(.unavailable)
+    }
+    func encode(_ value: PreparedChain, commandBuffer: MTLCommandBuffer) -> Bool {
+        _ = value; _ = commandBuffer; return Self.encodeSucceeds
+    }
+    func reset() -> Bool { true }
+}
+
+private typealias Coordinator = SceneResolvedMaterialSubmissionCoordinator
+private typealias Graph = SceneAuthoredEffectRenderPlan
+private typealias State = SceneGraphExecutionState
+
+private let effect = Graph.EffectKey(
+    layerID: 7, effectIndex: 0, descriptorID: "fixture"
+)
+private let historyIdentity = Graph.TextureIdentity(
+    kind: .framebuffer, layerID: 7, effect: effect, name: "history"
+)
+private let observationOutputIdentity = Graph.TextureIdentity(
+    kind: .effectOutput, layerID: 7, effect: effect, name: "pair-output"
+)
+
+private func effect(for layerID: Int) -> Graph.EffectKey {
+    layerID == 7 ? effect : .init(
+        layerID: layerID,
+        effectIndex: 0,
+        descriptorID: "fixture-\(layerID)"
+    )
+}
+
+private func outputIdentity(for layerID: Int) -> Graph.TextureIdentity {
+    let value = effect(for: layerID)
+    return .init(
+        kind: .effectOutput,
+        layerID: layerID,
+        effect: value,
+        name: "pair-output-\(layerID)"
+    )
+}
+
+private func makeTexture(_ device: MTLDevice, _ label: String) -> MTLTexture {
+    let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+        pixelFormat: .bgra8Unorm,
+        width: 2,
+        height: 2,
+        mipmapped: false
+    )
+    descriptor.usage = [.shaderRead, .renderTarget]
+    guard let texture = device.makeTexture(descriptor: descriptor) else {
+        fatalError("texture unavailable")
+    }
+    texture.label = label
+    return texture
+}
+
+private func makeResource(
+    texture: MTLTexture,
+    token: String,
+    generation: UInt64
+) -> SceneFrameTextureResource {
+    .init(
+        publication: .init(
+            requestIdentity: .graph(historyIdentity),
+            candidate: .init(
+                texture: texture,
+                identity: .provider(.graph(
+                    allocationGeneration: generation,
+                    physicalToken: token
+                )),
+                purpose: .premultipliedColor
+            ),
+            contentGeneration: 1
+        ),
+        resourceGeneration: 1
+    )
+}
+
+private func makeTail(
+    device: MTLDevice,
+    token: String,
+    generation: UInt64,
+    pin: SceneGraphRenderTargetResidencyPin,
+    reset: UInt64 = 1
+) -> Coordinator.Tail {
+    let versioned = State.VersionedResource(
+        token: .init(rawValue: token),
+        contentGeneration: 1
+    )
+    let state = State(
+        effectGeneration: 1,
+        resetGeneration: reset,
+        allocationGeneration: generation,
+        logicalMapping: [historyIdentity: versioned],
+        historyLogicalIdentities: [historyIdentity],
+        historyClosureIdentities: [historyIdentity]
+    )
+    return .init(
+        state: state,
+        persistentResources: [
+            historyIdentity: makeResource(
+                texture: makeTexture(device, "history-\(token)"),
+                token: token,
+                generation: generation
+            )
+        ],
+        historyPin: pin,
+        mappingGeneration: generation
+    )
+}
+
+private func makePrepared(
+    device: MTLDevice,
+    texture: MTLTexture? = nil
+) -> SceneResolvedMaterialGraphExecutor.PreparedChain {
+    let final = texture ?? makeTexture(device, "final")
+    return .init(
+        transitions: [],
+        finalResource: makeResource(texture: final, token: "final", generation: 1),
+        finalTexture: final,
+        historyTokensByEffect: [:]
+    )
+}
+
+private func makeObservationTransition(
+    device: MTLDevice
+) -> SceneResolvedMaterialGraphExecutor.PreparedTransition {
+    let resource = SceneFrameTextureResource(
+        publication: .init(
+            requestIdentity: .graph(observationOutputIdentity),
+            candidate: .init(
+                texture: makeTexture(device, "observation-output"),
+                identity: .provider(.graph(
+                    allocationGeneration: 3,
+                    physicalToken: "observation-output-token"
+                )),
+                purpose: .premultipliedColor
+            ),
+            contentGeneration: 1
+        ),
+        resourceGeneration: 1
+    )
+    let graph = Graph(
+        layerID: 7,
+        effects: [.init(key: effect)],
+        nodes: [.init(
+            nodeIndex: 0,
+            kind: .material,
+            materialOrdinal: 0
+        )]
+    )
+    let nextState = State(
+        effectGeneration: 4,
+        resetGeneration: 5,
+        allocationGeneration: 3,
+        logicalMapping: [:],
+        historyLogicalIdentities: [],
+        historyClosureIdentities: []
+    )
+    let transaction = State.Transaction(
+        intents: [.material(
+            nodeIndex: 0,
+            materialOrdinal: 0,
+            bindings: [],
+            target: nil
+        )],
+        mappingBefore: [:],
+        mappingAfter: [:],
+        allocationGeneration: 3,
+        effectGeneration: 4,
+        resetGeneration: 5
+    )
+    return .init(
+        effect: effect,
+        graph: graph,
+        pairStep: .init(
+            effect: effect,
+            inputIdentity: observationOutputIdentity,
+            outputIdentity: observationOutputIdentity,
+            inputMember: .zero,
+            outputMember: .zero,
+            nodes: [.init(
+                nodeIndex: 0,
+                kind: .material,
+                rotatesAfterNode: true
+            )]
+        ),
+        transition: .init(nextState: nextState, transaction: transaction),
+        frameResources: [:],
+        persistentResources: [:],
+        effectOutputResource: resource,
+        programCacheKeys: ["fixture-program"]
+    )
+}
+
+private func makeObservedPrepared(
+    device: MTLDevice
+) -> SceneResolvedMaterialGraphExecutor.PreparedChain {
+    let transition = makeObservationTransition(device: device)
+    return .init(
+        transitions: [transition],
+        finalResource: transition.effectOutputResource,
+        finalTexture: transition.effectOutputResource.publication.texture,
+        historyTokensByEffect: [:]
+    )
+}
+
+private func makeAtomicPrepared(
+    device: MTLDevice,
+    layerID: Int,
+    generation: UInt64
+) -> SceneResolvedMaterialGraphExecutor.PreparedChain {
+    let key = effect(for: layerID)
+    let output = outputIdentity(for: layerID)
+    let texture = makeTexture(device, "atomic-final-\(layerID)")
+    let resource = SceneFrameTextureResource(
+        publication: .init(
+            requestIdentity: .graph(output),
+            candidate: .init(
+                texture: texture,
+                identity: .provider(.graph(
+                    allocationGeneration: generation,
+                    physicalToken: "atomic-output-\(layerID)"
+                )),
+                purpose: .premultipliedColor
+            ),
+            contentGeneration: 1
+        ),
+        resourceGeneration: 1
+    )
+    let graph = Graph(
+        layerID: layerID,
+        effects: [.init(key: key)],
+        nodes: [.init(nodeIndex: 0, kind: .material, materialOrdinal: 0)]
+    )
+    let state = State(
+        effectGeneration: 1,
+        resetGeneration: 1,
+        allocationGeneration: generation,
+        logicalMapping: [:],
+        historyLogicalIdentities: [],
+        historyClosureIdentities: []
+    )
+    let transaction = State.Transaction(
+        intents: [.material(
+            nodeIndex: 0,
+            materialOrdinal: 0,
+            bindings: [],
+            target: nil
+        )],
+        mappingBefore: [:],
+        mappingAfter: [:],
+        allocationGeneration: generation,
+        effectGeneration: 1,
+        resetGeneration: 1
+    )
+    let transition = SceneResolvedMaterialGraphExecutor.PreparedTransition(
+        effect: key,
+        graph: graph,
+        pairStep: .init(
+            effect: key,
+            inputIdentity: output,
+            outputIdentity: output,
+            inputMember: .zero,
+            outputMember: .zero,
+            nodes: [.init(
+                nodeIndex: 0,
+                kind: .material,
+                rotatesAfterNode: true
+            )]
+        ),
+        transition: .init(nextState: state, transaction: transaction),
+        frameResources: [:],
+        persistentResources: [:],
+        effectOutputResource: resource,
+        programCacheKeys: ["atomic-program-\(layerID)"]
+    )
+    return .init(
+        transitions: [transition],
+        finalResource: resource,
+        finalTexture: texture,
+        historyTokensByEffect: [:]
+    )
+}
+
+private func makeAtomicTargets(
+    layerID: Int,
+    generation: UInt64
+) -> (
+    prepared: ScenePreparedPersistentGraphTargets,
+    commit: ScenePreparedPersistentGraphTargets.Commit
+) {
+    let lease = SceneGraphRenderTargetLease(
+        table: .init(plan: .init(identity: layerID)),
+        generation: generation,
+        texturesByToken: [:],
+        fullFramePair: .init(
+            first: .init(rawValue: "pair-\(layerID)-zero"),
+            second: .init(rawValue: "pair-\(layerID)-one")
+        )
+    )
+    let commit = ScenePreparedPersistentGraphTargets.Commit(
+        leases: [lease],
+        submissionPin: .init(purpose: .submission, generation: generation),
+        historyPinsByEffect: [:]
+    )
+    return (
+        .init(leases: [lease], action: { _, _ in commit }),
+        commit
+    )
+}
+
+private func makeCommittedObservationBase() -> State {
+    .init(
+        effectGeneration: 3,
+        resetGeneration: 4,
+        allocationGeneration: 2,
+        logicalMapping: [historyIdentity: .init(
+            token: .init(rawValue: "committed-history-token"),
+            contentGeneration: 7
+        )],
+        historyLogicalIdentities: [historyIdentity],
+        historyClosureIdentities: [historyIdentity]
+    )
+}
+
+private func makeCommit(
+    generation: UInt64,
+    historyPin: SceneGraphRenderTargetResidencyPin? = nil
+) -> ScenePreparedPersistentGraphTargets.Commit {
+    .init(
+        leases: [],
+        submissionPin: .init(purpose: .submission, generation: generation),
+        historyPinsByEffect: historyPin.map { [effect: $0] } ?? [:]
+    )
+}
+
+private func makeLedger(
+    coordinator: Coordinator,
+    identity: UInt64,
+    commandBuffer: MTLCommandBuffer,
+    prepared: SceneResolvedMaterialGraphExecutor.PreparedChain,
+    commit: ScenePreparedPersistentGraphTargets.Commit,
+    blueprint: Coordinator.CandidateBlueprint? = nil,
+    candidate: [Graph.EffectKey: Coordinator.Tail]? = nil,
+    phase: Coordinator.LedgerPhase,
+    submissionID: UInt64? = nil,
+    claimed: Bool = true,
+    consumed: Bool = false
+) -> Coordinator.PreparedLedger {
+    .init(
+        identity: identity,
+        epoch: coordinator.executionEpoch,
+        frameIndex: identity,
+        layerID: 7,
+        capabilityToken: .init(value: 7),
+        prepared: prepared,
+        commandBuffer: commandBuffer,
+        committedBaseTails: coordinator.committedTails,
+        blueprint: blueprint,
+        candidateTails: candidate,
+        commit: commit,
+        phase: phase,
+        claimConsumed: claimed,
+        ticketConsumed: consumed,
+        compositorConsumed: consumed,
+        submissionID: submissionID
+    )
+}
+
+private func makeCapabilities(
+    layerIDs: [Int] = [7],
+    resolvesClaims: Bool = true
+) -> SceneResolvedMaterialExecutionCapabilityCatalog {
+    let capabilities = layerIDs.map { layerID ->
+        SceneResolvedMaterialExecutionCapabilityCatalog.ChainCapability in
+        let key = effect(for: layerID)
+        let graph = Graph(
+            layerID: layerID,
+            effects: [.init(key: key)],
+            nodes: [.init(nodeIndex: 0, kind: .material)]
+        )
+        return .init(
+            layerID: layerID,
+            pairPlan: .init(layerID: layerID),
+            admittedProducts: [.init(graph: graph)],
+            fullFrameExtentPolicy: .standard
+        )
+    }
+    return .init(
+        capability: capabilities.first,
+        additionalCapabilities: Array(capabilities.dropFirst()),
+        resolvesClaims: resolvesClaims
+    )
+}
+
+private final class LogRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [String] = []
+
+    func append(_ value: String) {
+        lock.lock()
+        storage.append(value)
+        lock.unlock()
+    }
+
+    var lines: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storage
+    }
+}
+
+private func makeCoordinator(
+    _ device: MTLDevice,
+    layerIDs: [Int] = [7],
+    resolvesClaims: Bool = true,
+    logSink: @escaping Coordinator.LogSink = { _ in }
+) -> Coordinator {
+    .init(
+        device: device,
+        capabilities: makeCapabilities(
+            layerIDs: layerIDs,
+            resolvesClaims: resolvesClaims
+        ),
+        logSink: logSink
+    )
+}
+
+private func seedPendingSuccess(
+    coordinator: Coordinator,
+    identity: UInt64,
+    commandBuffer: MTLCommandBuffer,
+    tail: Coordinator.Tail?,
+    commit: ScenePreparedPersistentGraphTargets.Commit,
+    prepared: SceneResolvedMaterialGraphExecutor.PreparedChain? = nil
+) {
+    _ = coordinator.observeCommandBufferLocked(commandBuffer)
+    let ledger = makeLedger(
+        coordinator: coordinator,
+        identity: identity,
+        commandBuffer: commandBuffer,
+        prepared: prepared ?? makePrepared(device: commandBuffer.device),
+        commit: commit,
+        candidate: tail.map { [effect: $0] } ?? [:],
+        phase: .sealed,
+        submissionID: identity,
+        consumed: true
+    )
+    coordinator.activeByID[identity] = ledger
+    coordinator.pendingSubmissions.append(.init(
+        identity: identity,
+        ledgerIDs: [identity],
+        commandBufferIdentities: [ObjectIdentifier(commandBuffer)],
+        finalTails: tail.map { [effect: $0] } ?? [:],
+        successObservationsByLedger: [identity: []],
+        gpuStatus: nil,
+        cancellationReason: nil,
+        retiredHistoryPins: []
+    ))
+    coordinator.scheduledTails = tail.map { [effect: $0] } ?? [:]
+}
+
+private struct CancellationResult {
+    let graphLines: [String]
+    let releasedPins: Bool
+    let clearedState: Bool
+}
+
+private func runPendingCancellation(
+    device: MTLDevice,
+    queue: MTLCommandQueue,
+    reasonCode: String,
+    gpuStatus: SceneGraphExecutionGPUCompletionStatus,
+    consumed: Bool = true
+) -> CancellationResult {
+    let recorder = LogRecorder()
+    let coordinator = makeCoordinator(
+        device,
+        logSink: { recorder.append($0) }
+    )
+    let commandBuffer = queue.makeCommandBuffer()!
+    _ = coordinator.observeCommandBufferLocked(commandBuffer)
+    let historyPin = SceneGraphRenderTargetResidencyPin(
+        purpose: .history(effect, [.init(rawValue: "cancelled-history")]),
+        generation: 3
+    )
+    let retiredPin = SceneGraphRenderTargetResidencyPin(
+        purpose: .history(effect, [.init(rawValue: "retired-history")]),
+        generation: 2
+    )
+    let commit = makeCommit(generation: 3, historyPin: historyPin)
+    let tail = makeTail(
+        device: device,
+        token: "cancelled-history",
+        generation: 3,
+        pin: historyPin
+    )
+    coordinator.activeByID[1] = makeLedger(
+        coordinator: coordinator,
+        identity: 1,
+        commandBuffer: commandBuffer,
+        prepared: makeObservedPrepared(device: device),
+        commit: commit,
+        candidate: [effect: tail],
+        phase: .sealed,
+        submissionID: 1,
+        consumed: consumed
+    )
+    coordinator.pendingSubmissions = [.init(
+        identity: 1,
+        ledgerIDs: [1],
+        commandBufferIdentities: [ObjectIdentifier(commandBuffer)],
+        finalTails: [effect: tail],
+        successObservationsByLedger: [1: []],
+        gpuStatus: nil,
+        cancellationReason: reasonCode,
+        retiredHistoryPins: [retiredPin]
+    )]
+    coordinator.completeCommandBuffer(
+        identity: ObjectIdentifier(commandBuffer),
+        status: gpuStatus
+    )
+    return .init(
+        graphLines: recorder.lines.filter {
+            $0.contains("axis=graph-execution")
+        },
+        releasedPins: commit.submissionPin.releaseCount == 1
+            && historyPin.releaseCount == 1
+            && retiredPin.releaseCount == 1,
+        clearedState: coordinator.activeByID.isEmpty
+            && coordinator.pendingSubmissions.isEmpty
+    )
+}
+
+private func recordedFailure(
+    _ result: CancellationResult,
+    reasonCode: String,
+    gpuStatus: SceneGraphExecutionGPUCompletionStatus?
+) -> Bool {
+    let gpu = gpuStatus?.rawValue ?? "-"
+    return result.releasedPins
+        && result.clearedState
+        && result.graphLines.contains {
+            $0.contains("outcome=failed")
+                && $0.contains("failure=\(reasonCode)")
+                && $0.contains("gpuCompletion=\(gpu)")
+                && !$0.contains("diagnostic=")
+        }
 }
 
 @main
 enum Harness {
     static func main() throws {
-        let effect = SceneAuthoredEffectRenderPlan.EffectKey(
-            layerID: 7,
-            effectIndex: 3,
-            descriptorID: "raw"
-        )
-        let target = SceneAuthoredEffectRenderPlan.TextureIdentity(value: 1)
-        let node = SceneAuthoredEffectRenderPlan.Node(
-            kind: .material,
-            effect: effect,
-            nodeIndex: 4,
-            target: target
-        )
-        let graph = SceneAuthoredEffectRenderPlan(nodes: [node])
-        let observedKey = SceneResolvedMaterialRuntimeCatalog.Key(
-            effect: effect,
-            nodeIndex: 4
-        )
-        let rawOnlyKey = SceneResolvedMaterialRuntimeCatalog.Key(
-            effect: .init(layerID: 8, effectIndex: 0, descriptorID: "raw-only"),
-            nodeIndex: 0
-        )
-        let purpose = SceneTextureLoadPurpose(name: "color")
-        let catalog = SceneResolvedMaterialRuntimeCatalog(
-            entries: [
-                observedKey: .template(.init()),
-                rawOnlyKey: .template(.init()),
-            ],
-            userPropertyDemands: [],
-            systemProviderDemands: [.init(name: "current", purpose: purpose)]
-        )
-        let rawBridge = SceneResolvedMaterialRuntimeBridge(
-            catalog: catalog,
-            assets: .init(states: [:])
-        )
-        rawBridge.beginFrame(
-            textureSnapshot: .init(valid: true),
-            dynamicSnapshot: .init(),
-            frameInputs: .init()
-        )
-        let rawReport = rawBridge.endFrame().joined(separator: "\n")
-
-        let bridge = SceneResolvedMaterialRuntimeBridge(
-            catalog: catalog,
-            assets: .init(states: [:])
-        )
-        let declaredDemands = bridge.userPropertyDemands(
-            including: ["declared", ""]
-        )
-        bridge.beginFrame(
-            textureSnapshot: .init(valid: true),
-            dynamicSnapshot: .init(),
-            frameInputs: .init()
-        )
-        bridge.auditResolvedMaterials(
-            graph: graph,
-            targets: .init(targets: [target: .init(width: 16, height: 8)])
-        )
-        let observedReport = bridge.endFrame().joined(separator: "\n")
-        let callsAfterFrame = SceneResolvedMaterialProgramFinalizer.calls
-        bridge.beginFrame(
-            textureSnapshot: .init(valid: true),
-            dynamicSnapshot: .init(),
-            frameInputs: .init()
-        )
-        bridge.auditResolvedMaterials(
-            graph: graph,
-            targets: .init(targets: [target: .init(width: 16, height: 8)])
-        )
-        let repeatedReport = bridge.endFrame().joined(separator: "\n")
-
-        let missing = bridge.systemProviderBlocks(for: .init(
-            systemTextures: [:],
-            publications: [:]
-        ))
-        let texture = StubTexture()
-        let publication = SceneTextureProviderPublication(
-            requestIdentity: .system("current"),
-            texture: texture,
-            candidate: .init(purpose: purpose),
-            isComplete: true
-        )
-        let ready = bridge.systemProviderBlocks(for: .init(
-            systemTextures: ["current": texture],
-            publications: ["current": publication]
-        ))
-        let mismatch = bridge.systemProviderBlocks(for: .init(
-            systemTextures: ["current": texture],
-            publications: ["current": .init(
-                requestIdentity: .system("current"),
-                texture: texture,
-                candidate: .init(purpose: .init(name: "mask")),
-                isComplete: true
-            )]
-        ))
-        func status(
-            _ values: [String: SceneFrameTextureRegistry.ProviderStatus]
-        ) -> String {
-            guard let value = values["current"] else { return "ready" }
-            switch value { case .unavailable: return "unavailable" }
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let queue = device.makeCommandQueue() else {
+            print("{\"metalAvailable\":false}")
+            return
         }
-        let output: [String: Any] = [
-            "rawReport": rawReport,
-            "observedReport": observedReport,
-            "repeatedReport": repeatedReport,
-            "callsAfterFrame": callsAfterFrame,
-            "callsAfterInactiveAudit": SceneResolvedMaterialProgramFinalizer.calls,
-            "missing": status(missing),
-            "ready": status(ready),
-            "mismatch": status(mismatch),
-            "declaredDemandCount": declaredDemands.count,
-            "declaredDemandPurpose": declaredDemands.first?.purpose.name ?? "",
+        var results: [String: Bool] = [:]
+
+        do {
+            let recorder = LogRecorder()
+            let coordinator = makeCoordinator(
+                device,
+                logSink: { recorder.append($0) }
+            )
+            coordinator.invalidate(reason: .surfaceStop)
+            results["normalInvalidateHasNoGraphDiagnostic"] = recorder.lines
+                .allSatisfy { !$0.contains("axis=graph-execution diagnostic=") }
+        }
+
+        for (key, reason) in [
+            ("deviceLossInvalidateHasGraphDiagnostic", SceneGraphExecutionResetReason.deviceLoss),
+            ("executorInvalidateHasGraphDiagnostic", SceneGraphExecutionResetReason.executorInvalidation),
+        ] {
+            let recorder = LogRecorder()
+            let coordinator = makeCoordinator(
+                device,
+                logSink: { recorder.append($0) }
+            )
+            coordinator.invalidate(reason: reason)
+            results[key] = recorder.lines.contains {
+                $0.contains("axis=graph-execution diagnostic=")
+                    && $0.contains("runtime-invalidated-\(reason.rawValue)")
+            }
+        }
+
+        for (key, reason) in [
+            ("pendingSurfaceStopCancelsSilently", SceneGraphExecutionResetReason.surfaceStop),
+            ("pendingSceneSwitchCancelsSilently", SceneGraphExecutionResetReason.sceneSwitch),
+        ] {
+            let cancellation = runPendingCancellation(
+                device: device,
+                queue: queue,
+                reasonCode: reason.rawValue,
+                gpuStatus: .completed
+            )
+            results[key] = cancellation.graphLines.isEmpty
+                && cancellation.releasedPins
+                && cancellation.clearedState
+        }
+
+        for (key, reason) in [
+            ("resizeReprepareRemainsFailure", SceneGraphExecutionResetReason.resizeReprepare),
+            ("effectReparseRemainsFailure", SceneGraphExecutionResetReason.effectReparse),
+            ("deviceLossRemainsFailure", SceneGraphExecutionResetReason.deviceLoss),
+            ("executorInvalidationRemainsFailure", SceneGraphExecutionResetReason.executorInvalidation),
+        ] {
+            let cancellation = runPendingCancellation(
+                device: device,
+                queue: queue,
+                reasonCode: reason.rawValue,
+                gpuStatus: .completed
+            )
+            results[key] = recordedFailure(
+                cancellation,
+                reasonCode: reason.rawValue,
+                gpuStatus: nil
+            )
+        }
+
+        let unknownCancellation = runPendingCancellation(
+            device: device,
+            queue: queue,
+            reasonCode: "fixture-invariant-failure",
+            gpuStatus: .completed
+        )
+        results["unknownCancellationRemainsFailure"] = recordedFailure(
+            unknownCancellation,
+            reasonCode: "fixture-invariant-failure",
+            gpuStatus: nil
+        )
+
+        let failedSurfaceStop = runPendingCancellation(
+            device: device,
+            queue: queue,
+            reasonCode: SceneGraphExecutionResetReason.surfaceStop.rawValue,
+            gpuStatus: .failed
+        )
+        results["surfaceStopGPUFailureRemainsFailure"] = recordedFailure(
+            failedSurfaceStop,
+            reasonCode: SceneGraphExecutionResetReason.surfaceStop.rawValue,
+            gpuStatus: .failed
+        )
+
+        let invalidSurfaceStop = runPendingCancellation(
+            device: device,
+            queue: queue,
+            reasonCode: SceneGraphExecutionResetReason.surfaceStop.rawValue,
+            gpuStatus: .completed,
+            consumed: false
+        )
+        results["invalidSurfaceStopLedgerRemainsFailure"] = recordedFailure(
+            invalidSurfaceStop,
+            reasonCode: "lifecycle-cancellation-ledger-invariant-rejected",
+            gpuStatus: nil
+        )
+
+        do {
+            let prepared = makeObservationTransition(device: device)
+            let success = try SceneResolvedMaterialGraphObservationBuilder.make(
+                prepared,
+                frameIndex: 10,
+                transactionID: 12,
+                executionEpoch: 11,
+                mappingGeneration: 9,
+                resetReason: .initial,
+                terminalEffect: effect,
+                outcome: .succeeded,
+                gpu: .completed
+            )
+            let succeeded: Bool
+            if case .succeeded = success.outcome { succeeded = true }
+            else { succeeded = false }
+            results["productionObservationBuilderSuccess"] = succeeded
+                && success.identity.layerID == 7
+                && success.nodeCounts.authored == 1
+                && success.nodeCounts.material == 1
+                && success.nodeCounts.rejected == 0
+                && success.nodeCounts.compose == 1
+                && success.composeSlotBefore == .primary
+                && success.composeSlotAfter == .primary
+                && success.finalOutput?.physicalIdentity
+                    == "observation-output-token"
+                && success.compositorConsumed
+                && success.gpuCompletionStatus == .completed
+                && success.resetReason == .initial
+                && success.allocationGeneration == 3
+                && success.mappingGeneration == 9
+                && success.transactionIdentity == "r4:11:12:0"
+                && success.programIdentity == "fixture-program"
+
+            let failed = try SceneResolvedMaterialGraphObservationBuilder.make(
+                prepared,
+                frameIndex: 10,
+                transactionID: 13,
+                executionEpoch: 11,
+                mappingGeneration: 8,
+                resetReason: .effectReparse,
+                committedBaseState: makeCommittedObservationBase(),
+                terminalEffect: effect,
+                outcome: .failed(reasonCode: "fixture-gpu-failed"),
+                gpu: .failed
+            )
+            let failedWithExpectedReason: Bool
+            if case let .failed(reason) = failed.outcome {
+                failedWithExpectedReason = reason == "fixture-gpu-failed"
+            } else {
+                failedWithExpectedReason = false
+            }
+            results["productionObservationBuilderFailure"] =
+                failedWithExpectedReason
+                && failed.nodeCounts.authored == 1
+                && failed.nodeCounts.material == 0
+                && failed.nodeCounts.rejected == 1
+                && failed.nodeCounts.compose == 0
+                && failed.composeSlotBefore == .none
+                && failed.composeSlotAfter == .none
+                && failed.finalOutput == nil
+                && !failed.compositorConsumed
+                && failed.gpuCompletionStatus == .failed
+                && failed.resetReason == nil
+                && failed.allocationGeneration == 2
+                && failed.mappingGeneration == 8
+                && failed.historyState == .reused
+        }
+
+        do {
+            let coordinator = makeCoordinator(device)
+            let admitted: Bool
+            switch coordinator.preflightClaim(layerID: 7) {
+            case .claimed: admitted = true
+            case .rejected, .notMigrated: admitted = false
+            }
+            results["claimUsesCentralCapabilityAdmission"] = admitted
+                && coordinator.frameClaimed == 0
+        }
+
+        do {
+            let coordinator = makeCoordinator(device)
+            let buffer = queue.makeCommandBuffer()!
+            coordinator.beginFrame(
+                textureSnapshot: .init(frameIndex: 2, valid: true),
+                dynamicSnapshot: .init(),
+                frameInputs: .init()
+            )
+            let rejectedBeforePrepare: Bool
+            switch coordinator.claim(layerID: 7) {
+            case let .rejected(reasonCode):
+                rejectedBeforePrepare = reasonCode == "frame-candidate-not-prepared"
+            case .claimed, .notMigrated:
+                rejectedBeforePrepare = false
+            }
+            let emptyOutcome = coordinator.prepareFrame(
+                [],
+                pool: nil,
+                commandBuffer: buffer
+            )
+            let emptyReady: Bool
+            if case .ready = emptyOutcome { emptyReady = true }
+            else { emptyReady = false }
+            results["claimWaitsForAtomicFramePreparation"] =
+                rejectedBeforePrepare
+                && emptyReady
+                && coordinator.framePreparationComplete
+                && coordinator.frameClaimed == 0
+                && coordinator.activeByID.isEmpty
+                && coordinator.sealFrame(on: buffer)
+            _ = coordinator.endFrame()
+        }
+
+        do {
+            SceneResolvedMaterialGraphExecutor.prepareCallCount = 0
+            SceneResolvedMaterialGraphExecutor.prepareTokens = []
+            SceneResolvedMaterialGraphExecutor.encodeSucceeds = false
+            SceneResolvedMaterialGraphExecutor.preparedByToken = [
+                7: makeAtomicPrepared(device: device, layerID: 7, generation: 1),
+            ]
+            let coordinator = makeCoordinator(device, layerIDs: [7, 8])
+            let buffer = queue.makeCommandBuffer()!
+            coordinator.beginFrame(
+                textureSnapshot: .init(frameIndex: 3, valid: true),
+                dynamicSnapshot: .init(),
+                frameInputs: .init()
+            )
+            func claim(_ layerID: Int) ->
+                SceneResolvedMaterialRuntimeBridge.ClaimedExecution {
+                switch coordinator.preflightClaim(layerID: layerID) {
+                case let .claimed(value): return value
+                case let .rejected(reasonCode): fatalError(reasonCode)
+                case .notMigrated: fatalError("claim unavailable")
+                }
+            }
+            let claim7 = claim(7)
+            let claim8 = claim(8)
+            let targets7 = makeAtomicTargets(layerID: 7, generation: 1)
+            let targets8 = makeAtomicTargets(layerID: 8, generation: 2)
+            let pool = SceneOffscreenTexturePool(factory: { plan in
+                switch plan.chainPlan.key.layerID {
+                case 7: targets7.prepared
+                case 8: targets8.prepared
+                default: nil
+                }
+            })
+            let outcome = coordinator.prepareFrame(
+                [
+                    .init(
+                        claim: claim7,
+                        targetPlan: .init(
+                            token: claim7.token,
+                            allocation: .init(chainPlan: .init(key: .init(layerID: 7)))
+                        ),
+                        sourceTexture: makeTexture(device, "atomic-source-7"),
+                        sourceUniforms: .init(),
+                        sourcePipeline: .init()
+                    ),
+                    .init(
+                        claim: claim8,
+                        targetPlan: .init(
+                            token: claim8.token,
+                            allocation: .init(chainPlan: .init(key: .init(layerID: 8)))
+                        ),
+                        sourceTexture: makeTexture(device, "atomic-source-8"),
+                        sourceUniforms: .init(),
+                        sourcePipeline: .init()
+                    ),
+                ],
+                pool: pool,
+                commandBuffer: buffer
+            )
+            let reason: String
+            switch outcome {
+            case let .rejected(value): reason = value
+            case .ready: reason = "ready"
+            }
+            let postFailureClaimRejected: Bool
+            switch coordinator.claim(layerID: 7) {
+            case let .rejected(reasonCode):
+                postFailureClaimRejected =
+                    reasonCode == "frame-candidate-not-prepared"
+            case .claimed, .notMigrated:
+                postFailureClaimRejected = false
+            }
+            results["secondPreparationFailureRollsBackWholeFrame"] =
+                reason == "whole-chain-preflight-fixture-preflight-unavailable"
+                && SceneResolvedMaterialGraphExecutor.prepareTokens == [7, 8]
+                && targets7.commit.submissionPin.releaseCount == 0
+                && pool.batchCommitCount == 0
+                && coordinator.activeByID.isEmpty
+                && coordinator.activeTransactions.isEmpty
+                && coordinator.preparedLedgerByLayerID.isEmpty
+                && !coordinator.framePreparationComplete
+                && coordinator.frameRequiresDrop
+                && coordinator.frameClaimed == 0
+                && postFailureClaimRejected
+            targets7.commit.releaseAll()
+            targets8.commit.releaseAll()
+            SceneResolvedMaterialGraphExecutor.preparedByToken = [:]
+        }
+
+        do {
+            SceneResolvedMaterialGraphExecutor.prepareCallCount = 0
+            SceneResolvedMaterialGraphExecutor.prepareTokens = []
+            SceneResolvedMaterialGraphExecutor.encodeSucceeds = true
+            SceneResolvedMaterialGraphExecutor.preparedByToken = [
+                7: makeAtomicPrepared(device: device, layerID: 7, generation: 1),
+                8: makeAtomicPrepared(device: device, layerID: 8, generation: 2),
+            ]
+            let coordinator = makeCoordinator(device, layerIDs: [7, 8])
+            let buffer = queue.makeCommandBuffer()!
+            coordinator.beginFrame(
+                textureSnapshot: .init(frameIndex: 4, valid: true),
+                dynamicSnapshot: .init(),
+                frameInputs: .init()
+            )
+            func preflightClaim(_ layerID: Int) ->
+                SceneResolvedMaterialRuntimeBridge.ClaimedExecution {
+                switch coordinator.preflightClaim(layerID: layerID) {
+                case let .claimed(value): return value
+                case let .rejected(reasonCode): fatalError(reasonCode)
+                case .notMigrated: fatalError("claim unavailable")
+                }
+            }
+            let preflight7 = preflightClaim(7)
+            let preflight8 = preflightClaim(8)
+            let targets7 = makeAtomicTargets(layerID: 7, generation: 1)
+            let targets8 = makeAtomicTargets(layerID: 8, generation: 2)
+            let pool = SceneOffscreenTexturePool(factory: { plan in
+                plan.chainPlan.key.layerID == 7
+                    ? targets7.prepared : targets8.prepared
+            })
+            let prepared = coordinator.prepareFrame(
+                [
+                    .init(
+                        claim: preflight7,
+                        targetPlan: .init(
+                            token: preflight7.token,
+                            allocation: .init(chainPlan: .init(key: .init(layerID: 7)))
+                        ),
+                        sourceTexture: makeTexture(device, "success-source-7"),
+                        sourceUniforms: .init(),
+                        sourcePipeline: .init()
+                    ),
+                    .init(
+                        claim: preflight8,
+                        targetPlan: .init(
+                            token: preflight8.token,
+                            allocation: .init(chainPlan: .init(key: .init(layerID: 8)))
+                        ),
+                        sourceTexture: makeTexture(device, "success-source-8"),
+                        sourceUniforms: .init(),
+                        sourcePipeline: .init()
+                    ),
+                ],
+                pool: pool,
+                commandBuffer: buffer
+            )
+            let atomicallyPublished: Bool
+            if case .ready = prepared {
+                atomicallyPublished = coordinator.framePreparationComplete
+                    && coordinator.activeByID.count == 2
+                    && Set(coordinator.preparedLedgerByLayerID.keys) == [7, 8]
+                    && coordinator.frameClaimed == 0
+            } else {
+                atomicallyPublished = false
+            }
+            func consume(_ layerID: Int) -> Bool {
+                let claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution
+                switch coordinator.claim(layerID: layerID) {
+                case let .claimed(value): claim = value
+                case .rejected, .notMigrated: return false
+                }
+                switch coordinator.executeClaimed(
+                    claim: claim,
+                    commandBuffer: buffer
+                ) {
+                case let .encoded(texture, ticket):
+                    let outcome = coordinator.markComposite(
+                        ticket,
+                        texture: texture,
+                        consumed: true
+                    )
+                    if case .consumed = outcome { return true }
+                    return false
+                case .failed:
+                    return false
+                }
+            }
+            let consumed = consume(7) && consume(8)
+            let composited = coordinator.activeByID.values.allSatisfy {
+                $0.phase == .composited && $0.compositorConsumed
+            }
+            let sealed = coordinator.sealFrame(on: buffer)
+            let oneSubmission = coordinator.pendingSubmissions.count == 1
+                && coordinator.pendingSubmissions[0].ledgerIDs.count == 2
+            coordinator.completeCommandBuffer(
+                identity: ObjectIdentifier(buffer),
+                status: .completed
+            )
+            results["twoCandidatesPublishConsumeAndCommitAtomically"] =
+                atomicallyPublished
+                && SceneResolvedMaterialGraphExecutor.prepareTokens == [7, 8]
+                && consumed && composited && sealed && oneSubmission
+                && coordinator.frameClaimed == 2
+                && coordinator.frameEncoded == 2
+                && coordinator.activeByID.isEmpty
+                && coordinator.pendingSubmissions.isEmpty
+                && pool.batchCommitCount == 1
+                && targets7.commit.submissionPin.releaseCount == 1
+                && targets8.commit.submissionPin.releaseCount == 1
+            _ = coordinator.endFrame()
+            SceneResolvedMaterialGraphExecutor.preparedByToken = [:]
+            SceneResolvedMaterialGraphExecutor.encodeSucceeds = false
+        }
+
+        do {
+            let coordinator = makeCoordinator(device)
+            let exact: Bool
+            switch coordinator.preflightClaim(layerID: 7) {
+            case let .claimed(claim):
+                exact = claim.admittedGraphs.flatMap {
+                    $0.effects.map(\.key)
+                } == [effect]
+            case .rejected, .notMigrated:
+                exact = false
+            }
+            results["claimCarriesGraphIdentityOnly"] = exact
+        }
+
+        do {
+            let bridge = SceneResolvedMaterialRuntimeBridge(
+                catalog: .init(
+                    userPropertyDemands: [],
+                    systemProviderDemands: []
+                ),
+                capabilities: makeCapabilities(layerIDs: [7, 8]),
+                assets: .init(states: [:]),
+                device: device
+            )
+            let key7 = effect(for: 7)
+            let key8 = effect(for: 8)
+            let fallback7: SceneResolvedMaterialRuntimeBridge.ExactEffectSubject
+            let fallback8: SceneResolvedMaterialRuntimeBridge.ExactEffectSubject
+            guard case let .claimed(claim7) = bridge.preflightClaim(layerID: 7),
+                  case let .claimed(claim8) = bridge.preflightClaim(layerID: 8),
+                  let first7 = bridge.executionEvidenceSubjects(for: claim7).first,
+                  let first8 = bridge.executionEvidenceSubjects(for: claim8).first else {
+                fatalError("fixture capability claims unavailable")
+            }
+            fallback7 = first7
+            fallback8 = first8
+            results["bridgeDerivesNeutralEvidenceSubjectsAfterClaim"] =
+                fallback7.key == key7 && fallback7.family == "resolved-material"
+                && fallback8.key == key8 && fallback8.family == "resolved-material"
+            bridge.installExecutionEvidence([
+                .init(key: key7, family: "generic-framebuffer"),
+            ])
+            results["executionEvidenceOverridesFallbackFamily"] =
+                bridge.executionEvidenceFamily(for: fallback7.key)
+                    == "generic-framebuffer"
+            results["missingExecutionEvidenceKeepsFallbackIsolated"] =
+                bridge.executionEvidenceFamily(for: fallback8.key) == nil
+
+            bridge.installExecutionEvidence([
+                .init(key: key7, family: "generic-framebuffer"),
+                .init(key: key7, family: "generic-framebuffer"),
+                .init(key: key8, family: "second-family"),
+            ])
+            results["malformedExecutionEvidenceDropsOnlyInvalidKey"] =
+                bridge.executionEvidenceFamily(for: key7) == nil
+                && bridge.executionEvidenceFamily(for: key8) == "second-family"
+                && bridge.executionEvidenceReportLines.contains {
+                    $0.contains("issue: duplicate-key count=1")
+                }
+
+            bridge.installExecutionEvidence([
+                .init(key: key7, family: "  "),
+                .init(key: key8, family: "second-family"),
+            ])
+            results["emptyExecutionFamilyDropsOnlyInvalidKey"] =
+                bridge.executionEvidenceFamily(for: key7) == nil
+                && bridge.executionEvidenceFamily(for: key8) == "second-family"
+                && bridge.executionEvidenceReportLines.contains {
+                    $0.contains("issue: empty-family count=1")
+                }
+        }
+
+        do {
+            let coordinator = makeCoordinator(device, resolvesClaims: false)
+            coordinator.frameIsActive = true
+            let reason: String
+            switch coordinator.preflightClaim(layerID: 7) {
+            case let .rejected(reasonCode): reason = reasonCode
+            case .claimed: reason = "claimed"
+            case .notMigrated: reason = "not-migrated"
+            }
+            coordinator.recordClaimedFailure(reasonCode: reason)
+            results["invalidCapabilityTokenRejectsWithoutLegacyFallback"] =
+                reason == "execution-capability-token-invalid"
+                && coordinator.frameClaimed == 0
+                && coordinator.frameFailures == 1
+                && coordinator.frameRequiresDrop
+        }
+
+        do {
+            let recorder = LogRecorder()
+            let coordinator = makeCoordinator(
+                device,
+                logSink: { recorder.append($0) }
+            )
+            let buffer = queue.makeCommandBuffer()!
+            coordinator.frameIsActive = true
+            coordinator.frame = .init(frameIndex: 1)
+            let claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution
+            switch coordinator.preflightClaim(layerID: 7) {
+            case let .claimed(value): claim = value
+            case let .rejected(reasonCode): fatalError(reasonCode)
+            case .notMigrated: fatalError("claim unavailable")
+            }
+            let targetPlan = SceneResolvedMaterialFrameTargetPlan(
+                token: claim.token,
+                allocation: .init(chainPlan: .init(key: .init(layerID: 7)))
+            )
+            let outcome = coordinator.prepareFrame(
+                [.init(
+                    claim: claim,
+                    targetPlan: targetPlan,
+                    sourceTexture: makeTexture(device, "preflight-source"),
+                    sourceUniforms: .init(),
+                    sourcePipeline: .init()
+                )],
+                pool: .init(),
+                commandBuffer: buffer
+            )
+            let expected = "whole-chain-preflight-fixture-preflight-unavailable"
+            let reason: String
+            switch outcome {
+            case let .rejected(value): reason = value
+            case .ready: reason = "ready"
+            }
+            results["preflightFailureReasonReachesCoordinatorEvidence"] =
+                reason == expected
+                && recorder.lines.contains {
+                    $0.contains("axis=graph-execution diagnostic=\(expected)")
+                }
+                && coordinator.frameClaimed == 0
+                && coordinator.frameFailures == 1
+                && coordinator.frameRequiresDrop
+        }
+
+        do {
+            let coordinator = makeCoordinator(device)
+            let buffer = queue.makeCommandBuffer()!
+            let prepared = makePrepared(device: device)
+            let firstCommit = makeCommit(generation: 1)
+            let secondCommit = makeCommit(generation: 1)
+            coordinator.frameIsActive = true
+            coordinator.activeByID[1] = makeLedger(
+                coordinator: coordinator, identity: 1,
+                commandBuffer: buffer, prepared: prepared,
+                commit: firstCommit, phase: .allocationCommitted,
+                claimed: false
+            )
+            coordinator.activeByID[2] = makeLedger(
+                coordinator: coordinator, identity: 2,
+                commandBuffer: buffer, prepared: prepared,
+                commit: secondCommit, phase: .allocationCommitted
+            )
+            coordinator.activeTransactions = [1, 2]
+            coordinator.preparedLedgerByLayerID = [7: 1]
+            coordinator.framePreparationComplete = true
+            let claimed: Bool
+            switch coordinator.claim(layerID: 7) {
+            case .claimed: claimed = true
+            case .rejected: claimed = false
+            case .notMigrated: claimed = false
+            }
+            coordinator.recordClaimedFailure(reasonCode: "post-claim-failed")
+            results["postClaimFailureDropsWholeFrame"] = claimed
+                && coordinator.frameClaimed == 1
+                && coordinator.frameFailures == 1
+                && coordinator.frameRequiresDrop
+                && coordinator.activeByID.isEmpty
+                && firstCommit.submissionPin.releaseCount == 1
+                && secondCommit.submissionPin.releaseCount == 1
+                && coordinator.resetGeneration == 1
+        }
+
+        do {
+            let coordinator = makeCoordinator(device)
+            let firstBuffer = queue.makeCommandBuffer()!
+            let foreignBuffer = queue.makeCommandBuffer()!
+            let commit = makeCommit(generation: 1)
+            coordinator.frameIsActive = true
+            coordinator.frame = .init(frameIndex: 1)
+            coordinator.activeByID[1] = makeLedger(
+                coordinator: coordinator, identity: 1,
+                commandBuffer: firstBuffer,
+                prepared: makePrepared(device: device),
+                commit: commit, phase: .allocationCommitted
+            )
+            coordinator.activeTransactions = [1]
+            coordinator.preparedLedgerByLayerID = [7: 1]
+            coordinator.framePreparationComplete = true
+            SceneResolvedMaterialGraphExecutor.prepareCallCount = 0
+            let claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution
+            switch coordinator.preflightClaim(layerID: 7) {
+            case let .claimed(value): claim = value
+            case let .rejected(reasonCode): fatalError(reasonCode)
+            case .notMigrated: fatalError("claim unavailable")
+            }
+            let outcome = coordinator.executeClaimed(
+                claim: claim,
+                commandBuffer: foreignBuffer
+            )
+            let reason: String
+            switch outcome {
+            case let .failed(value): reason = value
+            case .encoded: reason = "encoded"
+            }
+            results["foreignBufferRejectedBeforePrepare"] =
+                reason == "prepared-frame-consumption-rejected"
+                && SceneResolvedMaterialGraphExecutor.prepareCallCount == 0
+                && coordinator.activeByID.isEmpty
+                && commit.submissionPin.releaseCount == 1
+        }
+
+        do {
+            let coordinator = makeCoordinator(device)
+            let buffer = queue.makeCommandBuffer()!
+            let texture = makeTexture(device, "ticket-final")
+            let historyPin = SceneGraphRenderTargetResidencyPin(
+                purpose: .history(effect, [.init(rawValue: "A")]),
+                generation: 1
+            )
+            let tail = makeTail(
+                device: device, token: "A", generation: 1, pin: historyPin
+            )
+            let commit = makeCommit(generation: 1, historyPin: historyPin)
+            coordinator.frameIsActive = true
+            _ = coordinator.observeCommandBufferLocked(buffer)
+            coordinator.activeByID[1] = makeLedger(
+                coordinator: coordinator, identity: 1,
+                commandBuffer: buffer,
+                prepared: makePrepared(device: device, texture: texture),
+                commit: commit, candidate: [effect: tail], phase: .encoded
+            )
+            coordinator.activeTransactions = [1]
+            let ticket = SceneResolvedMaterialRuntimeBridge.ExecutionTicket(
+                identity: 1,
+                epoch: coordinator.executionEpoch,
+                finalTextureIdentity: ObjectIdentifier(texture)
+            )
+            let firstOutcome = coordinator.markComposite(
+                ticket, texture: texture, consumed: true
+            )
+            let firstWasConsumed: Bool
+            if case .consumed = firstOutcome { firstWasConsumed = true }
+            else { firstWasConsumed = false }
+            let consumedOnce = coordinator.activeByID[1]?.phase == .composited
+                && coordinator.activeByID[1]?.ticketConsumed == true
+            let reusedOutcome = coordinator.markComposite(
+                ticket, texture: texture, consumed: true
+            )
+            let reuseReason: String?
+            if case let .failed(reasonCode) = reusedOutcome {
+                reuseReason = reasonCode
+            } else {
+                reuseReason = nil
+            }
+            results["ticketIsSingleConsumption"] = firstWasConsumed
+                && reuseReason == "final-composite-ticket-reused"
+                && consumedOnce
+                && coordinator.activeByID.isEmpty
+                && coordinator.frameRequiresDrop
+                && commit.submissionPin.releaseCount == 1
+                && historyPin.releaseCount == 1
+        }
+
+        do {
+            let coordinator = makeCoordinator(device)
+            let buffer = queue.makeCommandBuffer()!
+            _ = coordinator.observeCommandBufferLocked(buffer)
+            let oldPin = SceneGraphRenderTargetResidencyPin(
+                purpose: .history(effect, [.init(rawValue: "A")]), generation: 1
+            )
+            let oldTail = makeTail(
+                device: device, token: "A", generation: 1, pin: oldPin
+            )
+            coordinator.committedTails = [effect: oldTail]
+            coordinator.scheduledTails = coordinator.committedTails
+            let newPin = SceneGraphRenderTargetResidencyPin(
+                purpose: .history(effect, [.init(rawValue: "B")]), generation: 2
+            )
+            let newTail = makeTail(
+                device: device, token: "B", generation: 2, pin: newPin
+            )
+            let commit = makeCommit(generation: 2, historyPin: newPin)
+            let ledger = makeLedger(
+                coordinator: coordinator, identity: 1,
+                commandBuffer: buffer, prepared: makePrepared(device: device),
+                commit: commit, candidate: [effect: newTail],
+                phase: .sealed, submissionID: 1, consumed: true
+            )
+            coordinator.activeByID[1] = ledger
+            coordinator.pendingSubmissions = [.init(
+                identity: 1, ledgerIDs: [1],
+                commandBufferIdentities: [ObjectIdentifier(buffer)],
+                finalTails: [effect: newTail],
+                successObservationsByLedger: [1: []], gpuStatus: nil,
+                cancellationReason: nil, retiredHistoryPins: []
+            )]
+            coordinator.invalidate(reason: .surfaceStop)
+            let heldBeforeCallback = oldPin.active && newPin.active
+                && commit.submissionPin.active
+                && coordinator.pendingSubmissions.count == 1
+                && coordinator.committedTails.isEmpty
+            coordinator.completeCommandBuffer(
+                identity: ObjectIdentifier(buffer), status: .completed
+            )
+            results["invalidateDefersPinReleaseUntilTerminal"] = heldBeforeCallback
+                && !oldPin.active && !newPin.active
+                && !commit.submissionPin.active
+                && oldPin.releaseCount == 1 && newPin.releaseCount == 1
+                && coordinator.pendingSubmissions.isEmpty
+                && coordinator.committedTails.isEmpty
+        }
+
+        do {
+            let coordinator = makeCoordinator(device)
+            let first = queue.makeCommandBuffer()!
+            let second = queue.makeCommandBuffer()!
+            _ = coordinator.observeCommandBufferLocked(first)
+            _ = coordinator.observeCommandBufferLocked(second)
+            let retired = SceneGraphRenderTargetResidencyPin(
+                purpose: .history(effect, [.init(rawValue: "old")]), generation: 1
+            )
+            let firstCommit = makeCommit(generation: 2)
+            let secondCommit = makeCommit(generation: 3)
+            coordinator.activeByID[1] = makeLedger(
+                coordinator: coordinator, identity: 1, commandBuffer: first,
+                prepared: makePrepared(device: device), commit: firstCommit,
+                phase: .sealed, submissionID: 9
+            )
+            coordinator.activeByID[2] = makeLedger(
+                coordinator: coordinator, identity: 2, commandBuffer: second,
+                prepared: makePrepared(device: device), commit: secondCommit,
+                phase: .sealed, submissionID: 9
+            )
+            coordinator.pendingSubmissions = [.init(
+                identity: 9, ledgerIDs: [1, 2],
+                commandBufferIdentities: [
+                    ObjectIdentifier(first), ObjectIdentifier(second)
+                ],
+                finalTails: [:], successObservationsByLedger: [:],
+                gpuStatus: nil, cancellationReason: "aggregate-cancelled",
+                retiredHistoryPins: [retired]
+            )]
+            coordinator.completeCommandBuffer(
+                identity: ObjectIdentifier(second), status: .completed
+            )
+            let reverseHeld = coordinator.pendingSubmissions.count == 1
+                && retired.active && firstCommit.submissionPin.active
+                && secondCommit.submissionPin.active
+            coordinator.completeCommandBuffer(
+                identity: ObjectIdentifier(first), status: .completed
+            )
+            results["aggregateBarrierWaitsForAllBuffers"] = reverseHeld
+                && coordinator.pendingSubmissions.isEmpty
+                && !retired.active && !firstCommit.submissionPin.active
+                && !secondCommit.submissionPin.active
+        }
+
+        do {
+            let coordinator = makeCoordinator(device)
+            let first = queue.makeCommandBuffer()!
+            let pinA = SceneGraphRenderTargetResidencyPin(
+                purpose: .history(effect, [.init(rawValue: "queue-A")]),
+                generation: 1
+            )
+            let tailA = makeTail(
+                device: device, token: "queue-A", generation: 1, pin: pinA
+            )
+            let commitA = makeCommit(generation: 1, historyPin: pinA)
+            seedPendingSuccess(
+                coordinator: coordinator, identity: 1,
+                commandBuffer: first, tail: tailA, commit: commitA
+            )
+            let successor = queue.makeCommandBuffer()!
+            let stateBeforeDeferredFrame = (
+                coordinator.nextTransactionID,
+                coordinator.executionEpoch,
+                coordinator.commandBufferRecords.count
+            )
+            coordinator.beginFrame(
+                textureSnapshot: .init(frameIndex: 2, valid: true),
+                dynamicSnapshot: .init(),
+                frameInputs: .init()
+            )
+            results["historyPendingDefersDescendantBeforeFramePrepare"] =
+                coordinator.shouldDeferFrame
+                && coordinator.frameRequiresDrop
+                && coordinator.frameWaitsForPendingSubmission
+                && coordinator.frameDeferred == 1
+                && coordinator.nextTransactionID == stateBeforeDeferredFrame.0
+                && coordinator.executionEpoch == stateBeforeDeferredFrame.1
+                && coordinator.commandBufferRecords.count
+                    == stateBeforeDeferredFrame.2
+                && coordinator.commandBufferRecords[
+                    ObjectIdentifier(successor)
+                ] == nil
+                && coordinator.activeTransactions.isEmpty
+                && coordinator.preparedLedgerByLayerID.isEmpty
+            _ = coordinator.endFrame()
+            coordinator.completeCommandBuffer(
+                identity: ObjectIdentifier(first), status: .completed
+            )
+        }
+
+        do {
+            let coordinator = makeCoordinator(device)
+            let first = queue.makeCommandBuffer()!
+            let second = queue.makeCommandBuffer()!
+            let commitA = makeCommit(generation: 1)
+            let commitB = makeCommit(generation: 2)
+            seedPendingSuccess(
+                coordinator: coordinator, identity: 1,
+                commandBuffer: first, tail: nil, commit: commitA
+            )
+            let firstLeavesCapacity = !coordinator.shouldDeferFrame
+            seedPendingSuccess(
+                coordinator: coordinator, identity: 2,
+                commandBuffer: second, tail: nil, commit: commitB
+            )
+            let stateBeforeDeferredFrame = (
+                coordinator.nextTransactionID,
+                coordinator.executionEpoch,
+                coordinator.effectGeneration,
+                coordinator.resetGeneration
+            )
+            coordinator.beginFrame(
+                textureSnapshot: .init(frameIndex: 3, valid: true),
+                dynamicSnapshot: .init(),
+                frameInputs: .init()
+            )
+            let capacityDefersWithoutAdvancing = coordinator.frameRequiresDrop
+                && coordinator.frameWaitsForPendingSubmission
+                && coordinator.frameDeferred == 1
+                && coordinator.pendingSubmissions.count == 2
+                && coordinator.activeByID.count == 2
+                && stateBeforeDeferredFrame.0 == coordinator.nextTransactionID
+                && stateBeforeDeferredFrame.1 == coordinator.executionEpoch
+                && stateBeforeDeferredFrame.2 == coordinator.effectGeneration
+                && stateBeforeDeferredFrame.3 == coordinator.resetGeneration
+                && coordinator.scheduledTails.isEmpty
+            _ = coordinator.endFrame()
+
+            coordinator.completeCommandBuffer(
+                identity: ObjectIdentifier(second), status: .completed
+            )
+            let reverseCompletionHeld = coordinator.pendingSubmissions.count == 2
+                && coordinator.committedTails.isEmpty
+                && commitA.submissionPin.active && commitB.submissionPin.active
+            coordinator.completeCommandBuffer(
+                identity: ObjectIdentifier(first), status: .completed
+            )
+            results["twoPendingSubmissionsUseBoundedCapacity"] = firstLeavesCapacity
+                && capacityDefersWithoutAdvancing
+                && Coordinator.maximumPendingSubmissions
+                    == SceneResolvedMaterialInFlightCapacity.maximumSubmissions
+            results["reverseGPUCompletionCommitsOnlyFromQueueHead"] =
+                reverseCompletionHeld
+                && coordinator.pendingSubmissions.isEmpty
+                && coordinator.activeByID.isEmpty
+                && coordinator.committedTails.isEmpty
+                && coordinator.scheduledTails.isEmpty
+                && commitA.submissionPin.releaseCount == 1
+                && commitB.submissionPin.releaseCount == 1
+        }
+
+        do {
+            let recorder = LogRecorder()
+            let coordinator = makeCoordinator(
+                device,
+                logSink: { recorder.append($0) }
+            )
+            let first = queue.makeCommandBuffer()!
+            let second = queue.makeCommandBuffer()!
+            let commitA = makeCommit(generation: 1)
+            let commitB = makeCommit(generation: 2)
+            seedPendingSuccess(
+                coordinator: coordinator, identity: 1,
+                commandBuffer: first,
+                tail: nil,
+                commit: commitA,
+                prepared: makeObservedPrepared(device: device)
+            )
+            seedPendingSuccess(
+                coordinator: coordinator, identity: 2,
+                commandBuffer: second,
+                tail: nil,
+                commit: commitB,
+                prepared: makeObservedPrepared(device: device)
+            )
+            let epochBeforeFailure = coordinator.executionEpoch
+            coordinator.completeCommandBuffer(
+                identity: ObjectIdentifier(first), status: .failed
+            )
+            let independentSuccessRemains = !coordinator.shouldDeferFrame
+                && coordinator.executionEpoch == epochBeforeFailure
+                && coordinator.pendingSubmissions.count == 1
+                && coordinator.pendingSubmissions[0].identity == 2
+                && coordinator.pendingSubmissions[0].cancellationReason == nil
+                && coordinator.committedTails.isEmpty
+                && coordinator.scheduledTails.isEmpty
+                && commitA.submissionPin.releaseCount == 1
+                && commitB.submissionPin.active
+            coordinator.completeCommandBuffer(
+                identity: ObjectIdentifier(second), status: .completed
+            )
+            let failureLines = recorder.lines.filter {
+                $0.contains("axis=graph-execution")
+                    && $0.contains("outcome=failed")
+            }
+            results["historyFreeFailureDoesNotCancelIndependentSuccess"] =
+                independentSuccessRemains
+                && coordinator.pendingSubmissions.isEmpty
+                && coordinator.activeByID.isEmpty
+                && coordinator.committedTails.isEmpty
+                && coordinator.scheduledTails.isEmpty
+                && !coordinator.shouldDeferFrame
+                && commitA.submissionPin.releaseCount == 1
+                && commitB.submissionPin.releaseCount == 1
+                && failureLines.contains {
+                    $0.contains("failure=gpu-command-buffer-failed")
+                        && $0.contains("gpuCompletion=failed")
+                }
+                && !failureLines.contains {
+                    $0.contains("failure=ancestor-transaction-invalidated")
+                }
+        }
+
+        do {
+            let coordinator = makeCoordinator(device)
+            let buffer = queue.makeCommandBuffer()!
+            _ = coordinator.observeCommandBufferLocked(buffer)
+            coordinator.frameIsActive = true
+            coordinator.frame = .init(frameIndex: 4)
+            let firstCommit = makeCommit(generation: 1)
+            let secondCommit = makeCommit(generation: 1)
+            coordinator.activeByID[1] = makeLedger(
+                coordinator: coordinator, identity: 1, commandBuffer: buffer,
+                prepared: makePrepared(device: device), commit: firstCommit,
+                blueprint: .init(
+                    states: [:], resources: [:], mappingGenerations: [:],
+                    resetReasons: [:]
+                ),
+                candidate: [:], phase: .composited, consumed: true
+            )
+            coordinator.activeByID[2] = makeLedger(
+                coordinator: coordinator, identity: 2, commandBuffer: buffer,
+                prepared: makePrepared(device: device), commit: secondCommit,
+                blueprint: .init(
+                    states: [:], resources: [:], mappingGenerations: [:],
+                    resetReasons: [:]
+                ),
+                candidate: [:], phase: .composited, consumed: true
+            )
+            coordinator.activeTransactions = [1, 2]
+            let sealed = coordinator.sealFrame(on: buffer)
+            results["sameFrameTransactionsSealAsOneSubmission"] = sealed
+                && coordinator.pendingSubmissions.count == 1
+                && coordinator.pendingSubmissions[0].ledgerIDs == [1, 2]
+                && coordinator.pendingSubmissions[0].commandBufferIdentities
+                    == [ObjectIdentifier(buffer)]
+                && coordinator.activeTransactions.isEmpty
+                && coordinator.activeByID.count == 2
+        }
+
+        do {
+            let coordinator = makeCoordinator(device)
+            let bufferA = queue.makeCommandBuffer()!
+            let pinA = SceneGraphRenderTargetResidencyPin(
+                purpose: .history(effect, [.init(rawValue: "A")]), generation: 1
+            )
+            let tailA = makeTail(
+                device: device, token: "A", generation: 1, pin: pinA
+            )
+            let commitA = makeCommit(generation: 1, historyPin: pinA)
+            seedPendingSuccess(
+                coordinator: coordinator, identity: 1,
+                commandBuffer: bufferA, tail: tailA, commit: commitA
+            )
+            coordinator.completeCommandBuffer(
+                identity: ObjectIdentifier(bufferA), status: .completed
+            )
+            let resetAfterA = coordinator.resetGeneration
+
+            let bufferB = queue.makeCommandBuffer()!
+            let pinB = SceneGraphRenderTargetResidencyPin(
+                purpose: .history(effect, [.init(rawValue: "B")]), generation: 2
+            )
+            let tailB = makeTail(
+                device: device, token: "B", generation: 2, pin: pinB
+            )
+            let commitB = makeCommit(generation: 2, historyPin: pinB)
+            seedPendingSuccess(
+                coordinator: coordinator, identity: 2,
+                commandBuffer: bufferB, tail: tailB, commit: commitB
+            )
+            coordinator.completeCommandBuffer(
+                identity: ObjectIdentifier(bufferB), status: .failed
+            )
+            let baseForC = coordinator.scheduledTails[effect]
+            let reusedA = baseForC?.state.logicalMapping[historyIdentity]?
+                .token.rawValue == "A"
+                && baseForC?.historyPin === pinA
+                && coordinator.resetGeneration == resetAfterA
+
+            let bufferC = queue.makeCommandBuffer()!
+            let pinC = SceneGraphRenderTargetResidencyPin(
+                purpose: .history(effect, [.init(rawValue: "A")]), generation: 1
+            )
+            let tailC = makeTail(
+                device: device, token: "A", generation: 1, pin: pinC
+            )
+            let commitC = makeCommit(generation: 1, historyPin: pinC)
+            seedPendingSuccess(
+                coordinator: coordinator, identity: 3,
+                commandBuffer: bufferC, tail: tailC, commit: commitC
+            )
+            coordinator.completeCommandBuffer(
+                identity: ObjectIdentifier(bufferC), status: .completed
+            )
+            results["aSuccessBFailureCReusesAWithoutReset"] = reusedA
+                && commitB.submissionPin.releaseCount == 1
+                && pinB.releaseCount == 1
+                && pinA.releaseCount == 1
+                && !pinA.active && pinC.active
+                && coordinator.committedTails[effect]?.historyPin === pinC
+                && coordinator.resetGeneration == resetAfterA
+        }
+
+        let payload: [String: Any] = [
+            "metalAvailable": true,
+            "results": results,
         ]
         let data = try JSONSerialization.data(
-            withJSONObject: output,
+            withJSONObject: payload,
             options: [.sortedKeys]
         )
         print(String(decoding: data, as: UTF8.self))
@@ -436,19 +2321,12 @@ enum Harness {
 
 
 class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
-    def test_static_catalog_is_built_from_raw_graph_nodes(self) -> None:
-        source = RUNTIME_CATALOG.read_text(encoding="utf-8")
-        self.assertIn("authoredPlans: [Graph]", source)
-        self.assertIn("for graph in authoredPlans", source)
-        self.assertIn("node.kind == .material", source)
-        self.assertIn("let effect: Graph.EffectKey", source)
-        self.assertIn("let nodeIndex: Int", source)
-        self.assertNotIn("SceneAuthoredEffectExecutionCatalog", source)
-        self.assertNotIn("sampleID", source)
-
     def test_resource_demands_share_schema_and_never_guess_regular_assets(self) -> None:
         source = RUNTIME_CATALOG.read_text(encoding="utf-8")
-        self.assertIn("SceneResolvedMaterialShaderSchema.unconditionalSamplers", source)
+        self.assertIn(
+            "SceneResolvedMaterialShaderSchema.unconditionalSamplers",
+            source,
+        )
         self.assertIn("sampler.purpose(for: reference)", source)
         self.assertIn("userPropertyDemands", source)
         self.assertIn("systemProviderDemands", source)
@@ -467,92 +2345,368 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("let states:", source)
         self.assertNotIn("sampleID", source)
 
+    def test_claimed_route_is_current_and_all_post_claim_failures_close(self) -> None:
+        composition = GRAPH_COMPOSITION.read_text(encoding="utf-8")
+        diagnostics = RENDERER_DIAGNOSTICS.read_text(encoding="utf-8")
+        frame_preflight = FRAME_PREFLIGHT.read_text(encoding="utf-8")
+        compositor = COMPOSITOR.read_text(encoding="utf-8")
+        bridge = RUNTIME_BRIDGE.read_text(encoding="utf-8")
+
+        self.assertIn("static func executeClaimed(", composition)
+        self.assertIn("static func preflight(", composition)
+        self.assertIn("admittedGraphs: request.claim.admittedGraphs", composition)
+        self.assertIn("pairPlan: request.claim.pairPlan", composition)
+        self.assertIn("pool.preflightPersistentGraphTargets", composition)
+        self.assertIn("framePlan.token == claim.token", composition)
+        self.assertIn(
+            "for subject in runtime.executionEvidenceSubjects(for: claim)",
+            composition,
+        )
+        self.assertNotIn("exactEffectSubjects", bridge)
+        self.assertIn("runtime.executionEvidenceFamily(for: subject.key)", composition)
+        self.assertIn(
+            "?? subject.family",
+            composition,
+        )
+        self.assertIn("let dispositionCatalog =", diagnostics)
+        self.assertEqual(
+            diagnostics.count("SceneEffectRuntimeDispositionCatalog("),
+            1,
+        )
+        self.assertIn("installExecutionEvidence(", diagnostics)
+        self.assertIn(
+            "dispositionCatalog.resolvedMaterialExecutionEvidenceSubjects",
+            diagnostics,
+        )
+        self.assertIn('backend: "resolved-material-graph"', composition)
+        self.assertNotIn("authored-effect-graph", composition)
+        self.assertIn(
+            'runtime.recordClaimedFailure(\n'
+            '                reasonCode: "frame-target-plan-consumption-failed"',
+            composition,
+        )
+        self.assertNotIn("SceneAuthoredEffectChainRenderer", composition)
+        self.assertIn(
+            "let resolvedMaterialRoute = resolvedMaterialClaim(for: request)",
+            compositor,
+        )
+        self.assertIn(
+            "guard !resolvedMaterialRoute.isRejected else { return false }",
+            compositor,
+        )
+        self.assertIn("case .notMigrated:\n            return .legacy", composition)
+        self.assertIn("case rejected(reasonCode: String)", composition)
+        self.assertIn("case let .rejected(reasonCode):", composition)
+        self.assertIn("switch route {", frame_preflight)
+        self.assertIn(
+            "case let .rejected(reasonCode):\n"
+            "                return .rejected(reasonCode: reasonCode)",
+            frame_preflight,
+        )
+        self.assertNotIn(
+            "guard let claim = route.execution else { continue }",
+            frame_preflight,
+        )
+        self.assertIn(
+            "resolvedMaterialRuntime.recordClaimedFailure(reasonCode: reasonCode)",
+            composition,
+        )
+        self.assertIn("func rejectResolvedMaterialClaim(", composition)
+        self.assertIn(
+            "resolvedMaterialRuntime?.recordClaimedFailure(reasonCode: reasonCode)",
+            composition,
+        )
+        self.assertGreaterEqual(
+            compositor.count("rejectResolvedMaterialClaim(resolvedMaterialClaim"),
+            7,
+        )
+        self.assertIn("case .failed:\n                    return false", compositor)
+        self.assertIn("switch resolvedMaterialRuntime.markComposite(", composition)
+        self.assertIn("case let .failed(reasonCode):", composition)
+        self.assertIn('operation: "r4-final-composite"', composition)
+        self.assertIn("consumeResolvedMaterialComposite(", compositor)
+        self.assertIn("return false", compositor)
+        self.assertNotIn("requiresDependencyEffect", bridge)
+        self.assertIn("func recordClaimedFailure(reasonCode: String)", bridge)
+        self.assertNotIn("recordClaimedFailure()", bridge)
+
+    def test_execution_evidence_is_installed_after_resources_before_frames(self) -> None:
+        view = METAL_VIEW.read_text(encoding="utf-8")
+        host = HOST.read_text(encoding="utf-8")
+
+        report = view.index(
+            "renderer.runtimeReportLines(effectTextures: loadedEffectTextures)"
+        )
+        self.assertLess(view.rfind("loadEffectTextures(for: layer)", 0, report), report)
+
+        load = host.index("metalView.loadImageLayers(")
+        register = host.index("surfaces[screenID] = Surface(", load)
+        start = host.index("startFrameDriver()", register)
+        self.assertLess(load, register)
+        self.assertLess(register, start)
+
+    def test_legacy_authored_gpu_telemetry_follows_selected_route(self) -> None:
+        compositor = COMPOSITOR.read_text(encoding="utf-8")
+        renderer = METAL_RENDERER.read_text(encoding="utf-8")
+
+        claimed = compositor.index("if let claim = resolvedMaterialClaim")
+        legacy_chain = compositor.index(
+            "} else if let authoredChain = request.authoredEffectChain",
+            claimed,
+        )
+        chain_callback = compositor.index(
+            "onLegacyAuthoredRouteSelected?()",
+            legacy_chain,
+        )
+        legacy_standalone = compositor.index(
+            "} else if let authoredPlan = request.authoredEffectPlan",
+            chain_callback,
+        )
+        standalone_callback = compositor.index(
+            "onLegacyAuthoredRouteSelected?()",
+            legacy_standalone,
+        )
+        self.assertLess(claimed, legacy_chain)
+        self.assertNotIn(
+            "onLegacyAuthoredRouteSelected?()",
+            compositor[claimed:legacy_chain],
+        )
+        self.assertLess(legacy_chain, chain_callback)
+        self.assertLess(chain_callback, legacy_standalone)
+        self.assertLess(legacy_standalone, standalone_callback)
+        self.assertEqual(
+            compositor.count("onLegacyAuthoredRouteSelected?()"),
+            2,
+        )
+
+        route_flag = renderer.index("var selectedLegacyAuthoredRoute = false")
+        route_callback = renderer.index(
+            "onLegacyAuthoredRouteSelected:",
+            route_flag,
+        )
+        telemetry_guard = renderer.index(
+            "if selectedLegacyAuthoredRoute {",
+            route_callback,
+        )
+        telemetry_record = renderer.index(
+            "authoredEffectTelemetry.record(",
+            telemetry_guard,
+        )
+        self.assertLess(route_flag, route_callback)
+        self.assertLess(route_callback, telemetry_guard)
+        self.assertLess(telemetry_guard, telemetry_record)
+
+    def test_frame_ordering_context_reaches_reserve_and_commit(self) -> None:
+        frame_preflight = FRAME_PREFLIGHT.read_text(encoding="utf-8")
+        composition = GRAPH_COMPOSITION.read_text(encoding="utf-8")
+        target_preflight = TARGET_PREFLIGHT.read_text(encoding="utf-8")
+        allocator = TARGET_ALLOCATOR.read_text(encoding="utf-8")
+        cache = TARGET_CACHE.read_text(encoding="utf-8")
+        batch = TARGET_BATCH.read_text(encoding="utf-8")
+        coordinator = SUBMISSION_COORDINATOR.read_text(encoding="utf-8")
+
+        self.assertIn("commandBuffer: commandBuffer", frame_preflight)
+        self.assertIn("commandBuffer: MTLCommandBuffer", frame_preflight)
+        self.assertIn("commandBuffer: MTLCommandBuffer? = nil", composition)
+        self.assertIn("orderingContext: orderingContext", composition)
+        self.assertIn("let orderingContext", composition)
+        self.assertIn("orderingContext: contexts.first", target_preflight)
+        self.assertIn("orderingContext: orderingContext", allocator)
+        self.assertIn("reservation.orderingContext", batch)
+        self.assertIn("submissionPins", cache + batch)
+        self.assertNotIn("submissionPins = Set<UUID>()", allocator)
+        commit = coordinator.index("pool.commitAndPinPersistentGraphTargets(")
+        encode = coordinator.index("executor.encode(ledger.prepared", commit)
+        self.assertIn(
+            "commandBuffer: commandBuffer",
+            coordinator[commit:encode],
+        )
+
+    def test_normal_invalidation_is_not_a_graph_failure_diagnostic(self) -> None:
+        lifecycle = SUBMISSION_LIFECYCLE.read_text(encoding="utf-8")
+        frame_commit = SUBMISSION_FRAME_COMMIT.read_text(encoding="utf-8")
+        completion = SUBMISSION_COMPLETION.read_text(encoding="utf-8")
+
+        self.assertIn("case .surfaceStop, .sceneSwitch:", lifecycle)
+        self.assertIn(
+            'emission.diagnostics.append("runtime-invalidated-\\(reason.rawValue)")',
+            lifecycle,
+        )
+        self.assertIn("failActiveFrameLocked(reason:", lifecycle)
+        self.assertIn("case cancelled", completion)
+        self.assertIn(
+            "case SceneGraphExecutionResetReason.surfaceStop.rawValue,",
+            completion,
+        )
+        self.assertIn(
+            "SceneGraphExecutionResetReason.sceneSwitch.rawValue:",
+            completion,
+        )
+        self.assertNotIn("SceneGraphExecutionResetReason(rawValue:", completion)
+        self.assertIn("emission.diagnostics.append(reason)", frame_commit)
+        self.assertIn("emission.diagnostics.append(headReason)", completion)
+
+    def test_observer_precedes_encoding_and_frame_uses_one_buffer(self) -> None:
+        coordinator = SUBMISSION_COORDINATOR.read_text(encoding="utf-8")
+        frame_commit = SUBMISSION_FRAME_COMMIT.read_text(encoding="utf-8")
+        completion = SUBMISSION_COMPLETION.read_text(encoding="utf-8")
+
+        observer = coordinator.index("observeCommandBufferLocked(commandBuffer)")
+        prepared = coordinator.index("guard case let .success(prepared)", observer)
+        allocation_commit = coordinator.index(
+            "pool.commitAndPinPersistentGraphTargets(", prepared
+        )
+        ledger = coordinator.index("activeByID[identity] = .init(", allocation_commit)
+        encode = coordinator.index("executor.encode(ledger.prepared", ledger)
+        self.assertLess(observer, prepared)
+        self.assertLess(prepared, allocation_commit)
+        self.assertLess(allocation_commit, ledger)
+        self.assertLess(ledger, encode)
+        self.assertIn("commandBuffer: commandBuffer", coordinator)
+        self.assertIn("ledger.commandBuffer === commandBuffer", coordinator)
+        self.assertIn('"prepared-frame-consumption-rejected"', coordinator)
+        self.assertEqual(frame_commit.count("addCompletedHandler"), 1)
+        self.assertIn(
+            "guard commandBuffer.status == .notEnqueued",
+            frame_commit,
+        )
+        seal = frame_commit.index("func sealFrame(on commandBuffer")
+        self.assertNotIn("addCompletedHandler", frame_commit[seal:])
+        self.assertIn("func completeCommandBuffer(", completion)
+        self.assertIn("commandBufferIdentities", completion)
+
+    def test_production_frame_is_sealed_before_command_buffer_commit(self) -> None:
+        compositor = (SCENE_ROOT / "Rendering/SceneResolvedMaterialGraphComposition.swift").read_text(
+            encoding="utf-8"
+        )
+        renderer = METAL_RENDERER.read_text(encoding="utf-8")
+        frame_end = renderer.index(
+            "imageCompositor.endResolvedMaterialFrame(on: commandBuffer)"
+        )
+        abandon_unsealed = renderer.index("return", frame_end)
+        command_commit = renderer.index("commandBuffer.commit()", frame_end)
+        self.assertIn(
+            "return resolvedMaterialRuntime?.sealFrame(on: commandBuffer) ?? true",
+            compositor,
+        )
+        self.assertLess(frame_end, command_commit)
+        self.assertLess(abandon_unsealed, command_commit)
+        self.assertIn(
+            "guard imageCompositor.endResolvedMaterialFrame(on: commandBuffer) else {\n"
+            "            return\n"
+            "        }",
+            renderer,
+        )
+
+    def test_surface_lifecycle_releases_runtime_before_pool_reset(self) -> None:
+        bridge = RUNTIME_BRIDGE.read_text(encoding="utf-8")
+        view = METAL_VIEW_FRAME_CONTEXT.read_text(encoding="utf-8")
+        host = HOST.read_text(encoding="utf-8")
+        host_driver = HOST_FRAME_DRIVER.read_text(encoding="utf-8")
+
+        self.assertIn("submissions.invalidate(reason: reason)", bridge)
+        invalidate = view.index(
+            "invalidateResolvedMaterialRuntime(reason: reason)"
+        )
+        pool_reset = view.index("offscreenTexturePool.reset()", invalidate)
+        self.assertLess(invalidate, pool_reset)
+        self.assertIn(
+            "teardownSurfaces(clearContext: true, reason: .surfaceStop)",
+            host,
+        )
+        self.assertIn(
+            "teardownSurfaces(clearContext: true, reason: .sceneSwitch)",
+            host,
+        )
+        self.assertIn(
+            "teardownReason: SceneGraphExecutionResetReason = .surfaceStop",
+            host,
+        )
+        self.assertIn(
+            "surface.metalView.invalidateResolvedMaterialRuntime(reason: reason)",
+            host_driver,
+        )
+        self.assertNotIn("clearContext\n            ? .sceneSwitch", host_driver)
+
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
-    def test_runtime_bridge_counts_raw_nodes_and_closes_frame_lifecycle(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="mwx-r3-runtime-bridge-") as directory:
+    def test_current_submission_coordinator_lifecycle_behaviors(self) -> None:
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-r4-submission-coordinator-"
+        ) as directory:
             root = Path(directory)
             harness = root / "Harness.swift"
-            binary = root / "runtime-bridge"
-            harness.write_text(RUNTIME_BRIDGE_HARNESS, encoding="utf-8")
+            binary = root / "submission-coordinator"
+            harness.write_text(SUBMISSION_COORDINATOR_FIXTURE, encoding="utf-8")
             compilation = subprocess.run(
                 [
-                    "xcrun", "--sdk", "macosx", "swiftc",
-                    str(RUNTIME_BRIDGE), str(harness),
-                    "-framework", "Metal",
-                    "-module-cache-path", str(root / "module-cache"),
-                    "-o", str(binary),
+                    "xcrun",
+                    "--sdk",
+                    "macosx",
+                    "swiftc",
+                    "-parse-as-library",
+                    *(str(source) for source in SUBMISSION_SWIFT_SOURCES),
+                    str(harness),
+                    "-framework",
+                    "Metal",
+                    "-module-cache-path",
+                    str(root / "module-cache"),
+                    "-o",
+                    str(binary),
                 ],
                 capture_output=True,
                 text=True,
             )
             self.assertEqual(compilation.returncode, 0, compilation.stderr)
             completed = subprocess.run(
-                [str(binary)], check=True, capture_output=True, text=True
+                [str(binary)],
+                check=True,
+                capture_output=True,
+                text=True,
             )
             result = json.loads(completed.stdout)
-            self.assertIn(
-                "nodes=2 finalizationAttempted=0 accepted=0 failures=2",
-                result["rawReport"],
-            )
-            self.assertIn(
-                "code=render-path-unavailable count=2",
-                result["rawReport"],
-            )
-            self.assertIn(
-                "nodes=2 finalizationAttempted=1 accepted=1 failures=1",
-                result["observedReport"],
-            )
-            self.assertIn("mode=first-active-frame", result["observedReport"])
-            self.assertIn(
-                "code=render-path-unavailable count=1",
-                result["observedReport"],
-            )
-            self.assertIn("state=inactive", result["repeatedReport"])
-            self.assertEqual(result["callsAfterFrame"], 1)
-            self.assertEqual(result["callsAfterInactiveAudit"], 1)
-            self.assertEqual(result["missing"], "unavailable")
-            self.assertEqual(result["ready"], "ready")
-            self.assertEqual(result["mismatch"], "unavailable")
-            self.assertEqual(result["declaredDemandCount"], 1)
-            self.assertEqual(result["declaredDemandPurpose"], "premultiplied-color")
-
-    def test_production_wiring_uses_frame_snapshot_without_gpu_admission(self) -> None:
-        launch = LAUNCH.read_text(encoding="utf-8")
-        host = HOST.read_text(encoding="utf-8")
-        texture_frame = TEXTURE_FRAME.read_text(encoding="utf-8")
-        compositor = COMPOSITOR.read_text(encoding="utf-8")
-        runtime_bridge = RUNTIME_BRIDGE.read_text(encoding="utf-8")
-        self.assertIn("SceneResolvedMaterialRuntimeCatalog", launch)
-        self.assertIn("SceneMaterialAssetTextureCatalog", launch)
-        self.assertIn("assetStates:", texture_frame)
-        self.assertIn("SceneResolvedMaterialFrameSnapshot.validated", runtime_bridge)
-        self.assertIn("for (key, entry) in catalog.entries", runtime_bridge)
-        self.assertIn("finalizationAttempted=", runtime_bridge)
-        self.assertIn("auditResolvedMaterials", compositor)
-        self.assertIn("gpuEncoded=0", runtime_bridge)
-        self.assertIn('logSink: @escaping LogSink = { NSLog("%@", $0) }', runtime_bridge)
-        self.assertIn("lines.forEach(logSink)", runtime_bridge)
-        self.assertNotIn("sourceIsExact", runtime_bridge + compositor)
-        self.assertNotIn("FileHandle", runtime_bridge)
-        self.assertIn("resolvedMaterialStartupReportLines", launch)
-        self.assertIn("appendResolvedMaterialStartupReport", host)
-        self.assertIn("missingState=unavailable", launch)
-        self.assertIn("systemProviderBlocks", runtime_bridge)
-        self.assertIn("textureRegistry.set(status, for: .system(name))", texture_frame)
-        registry_begin = texture_frame.index("textureRegistry.beginFrame")
-        system_blocks = texture_frame.index("resolvedMaterialSystemProviderBlocks")
-        snapshot = texture_frame.index("textureRegistry.snapshot()")
-        envelope_begin = texture_frame.index("beginResolvedMaterialFrame")
-        self.assertLess(registry_begin, system_blocks)
-        self.assertLess(system_blocks, snapshot)
-        self.assertLess(registry_begin, envelope_begin)
-        self.assertLess(envelope_begin, snapshot)
-        chain_audit = compositor.index("auditResolvedMaterials")
-        chain_render = compositor.index("SceneAuthoredEffectChainRenderer.render")
-        standalone_audit = compositor.index("auditResolvedMaterials", chain_audit + 1)
-        standalone_render = compositor.index("SceneStandaloneAuthoredEffectRenderer.render")
-        self.assertLess(chain_audit, chain_render)
-        self.assertLess(standalone_audit, standalone_render)
+            if not result["metalAvailable"]:
+                self.skipTest("Metal device unavailable")
+            expected = {
+                "normalInvalidateHasNoGraphDiagnostic",
+                "deviceLossInvalidateHasGraphDiagnostic",
+                "executorInvalidateHasGraphDiagnostic",
+                "pendingSurfaceStopCancelsSilently",
+                "pendingSceneSwitchCancelsSilently",
+                "resizeReprepareRemainsFailure",
+                "effectReparseRemainsFailure",
+                "deviceLossRemainsFailure",
+                "executorInvalidationRemainsFailure",
+                "unknownCancellationRemainsFailure",
+                "surfaceStopGPUFailureRemainsFailure",
+                "invalidSurfaceStopLedgerRemainsFailure",
+                "productionObservationBuilderSuccess",
+                "productionObservationBuilderFailure",
+                "claimUsesCentralCapabilityAdmission",
+                "claimCarriesGraphIdentityOnly",
+                "bridgeDerivesNeutralEvidenceSubjectsAfterClaim",
+                "executionEvidenceOverridesFallbackFamily",
+                "missingExecutionEvidenceKeepsFallbackIsolated",
+                "malformedExecutionEvidenceDropsOnlyInvalidKey",
+                "emptyExecutionFamilyDropsOnlyInvalidKey",
+                "invalidCapabilityTokenRejectsWithoutLegacyFallback",
+                "preflightFailureReasonReachesCoordinatorEvidence",
+                "claimWaitsForAtomicFramePreparation",
+                "secondPreparationFailureRollsBackWholeFrame",
+                "twoCandidatesPublishConsumeAndCommitAtomically",
+                "postClaimFailureDropsWholeFrame",
+                "foreignBufferRejectedBeforePrepare",
+                "ticketIsSingleConsumption",
+                "invalidateDefersPinReleaseUntilTerminal",
+                "aggregateBarrierWaitsForAllBuffers",
+                "historyPendingDefersDescendantBeforeFramePrepare",
+                "twoPendingSubmissionsUseBoundedCapacity",
+                "reverseGPUCompletionCommitsOnlyFromQueueHead",
+                "historyFreeFailureDoesNotCancelIndependentSuccess",
+                "sameFrameTransactionsSealAsOneSubmission",
+                "aSuccessBFailureCReusesAWithoutReset",
+            }
+            self.assertEqual(set(result["results"]), expected)
+            self.assertTrue(all(result["results"].values()), result)
 
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
     def test_asset_states_keep_purpose_absence_and_failure_distinct(self) -> None:

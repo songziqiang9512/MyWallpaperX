@@ -47,6 +47,22 @@ final class SceneVideoTextureSource {
     ) { return nil }
 }
 
+final class SceneSourceUpdateTransaction {
+    private var rollbacks: [() -> Void] = []
+
+    func registerRollback(_ action: @escaping () -> Void) {
+        rollbacks.append(action)
+    }
+
+    func commit() { rollbacks.removeAll() }
+
+    func cancel() {
+        let actions = rollbacks
+        rollbacks.removeAll()
+        for action in actions.reversed() { action() }
+    }
+}
+
 @main
 enum Harness {
     static func main() throws {
@@ -155,25 +171,42 @@ enum Harness {
         ) {
             result["crossImageAnimationAccepted"] = true
             let queue = device.makeCommandQueue()!
+            do {
+                let abandonedBuffer = queue.makeCommandBuffer()!
+                let abandonedTransaction = SceneSourceUpdateTransaction()
+                playback.encode(
+                    sceneTime: 0,
+                    wallDate: Date(timeIntervalSince1970: 0),
+                    commandBuffer: abandonedBuffer,
+                    transaction: abandonedTransaction
+                )
+                abandonedTransaction.cancel()
+            }
             let firstBuffer = queue.makeCommandBuffer()!
+            let firstTransaction = SceneSourceUpdateTransaction()
             playback.encode(
                 sceneTime: 0,
                 wallDate: Date(timeIntervalSince1970: 0),
-                commandBuffer: firstBuffer
+                commandBuffer: firstBuffer,
+                transaction: firstTransaction
             )
             firstBuffer.commit()
+            firstTransaction.commit()
             firstBuffer.waitUntilCompleted()
             result["crossImageFrame0Pixel"] = try readFirstPixel(
                 texture: playback.texture,
                 device: device
             )
             let secondBuffer = queue.makeCommandBuffer()!
+            let secondTransaction = SceneSourceUpdateTransaction()
             playback.encode(
                 sceneTime: 0.04,
                 wallDate: Date(timeIntervalSince1970: 0),
-                commandBuffer: secondBuffer
+                commandBuffer: secondBuffer,
+                transaction: secondTransaction
             )
             secondBuffer.commit()
+            secondTransaction.commit()
             secondBuffer.waitUntilCompleted()
             result["crossImageFrame1Pixel"] = try readFirstPixel(
                 texture: playback.texture,
@@ -190,6 +223,7 @@ enum Harness {
                 && submissionTracker.begin(frameIndex: 0) == nil
         if let firstSubmission {
             submissionTracker.complete(firstSubmission, succeeded: false)
+            submissionTracker.cancel(firstSubmission)
         }
         let retriedSubmission = submissionTracker.begin(frameIndex: 0)
         result["failedSubmissionCanRetry"] = retriedSubmission != nil
@@ -200,6 +234,11 @@ enum Harness {
         result["staleFailureKeepsNewerSubmission"] =
             newerSubmission != nil
                 && submissionTracker.begin(frameIndex: 1) == nil
+        if let newerSubmission {
+            submissionTracker.cancel(newerSubmission)
+        }
+        result["cancelledSubmissionCanRetry"] =
+            submissionTracker.begin(frameIndex: 1) != nil
 
         guard let residentCosts = SceneMultiImageSpriteTextureCost.estimate(
             container: animated,
@@ -732,6 +771,7 @@ class SceneBCTextureUploaderTests(unittest.TestCase):
         self.assertTrue(self.result["sameFrameSubmissionDeduplicated"])
         self.assertTrue(self.result["failedSubmissionCanRetry"])
         self.assertTrue(self.result["staleFailureKeepsNewerSubmission"])
+        self.assertTrue(self.result["cancelledSubmissionCanRetry"])
 
     def test_resident_budget_shares_sources_but_counts_each_output(self) -> None:
         self.assertTrue(self.result["residentBudgetDeduplicatesSource"])

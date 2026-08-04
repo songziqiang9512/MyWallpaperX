@@ -59,6 +59,16 @@ final class SceneVideoTextureSource {
     ) { return nil }
 }
 
+final class SceneSourceUpdateTransaction {
+    private var rollbacks: [() -> Void] = []
+
+    func registerRollback(_ action: @escaping () -> Void) {
+        rollbacks.append(action)
+    }
+
+    func commit() { rollbacks.removeAll() }
+}
+
 @main
 enum Harness {
     static func main() throws {
@@ -493,24 +503,30 @@ enum Harness {
             throw HarnessError.loadFailed
         }
         let firstFrameCommandBuffer = commandQueue.makeCommandBuffer()!
+        let firstFrameTransaction = SceneSourceUpdateTransaction()
         crossImageAnimation.encode(
             sceneTime: 0,
             wallDate: Date(timeIntervalSince1970: 0),
-            commandBuffer: firstFrameCommandBuffer
+            commandBuffer: firstFrameCommandBuffer,
+            transaction: firstFrameTransaction
         )
         firstFrameCommandBuffer.commit()
+        firstFrameTransaction.commit()
         firstFrameCommandBuffer.waitUntilCompleted()
         let crossImageFrame0Pixel = try readFirstPixel(
             texture: baseCrossImageSprite.texture,
             device: device
         )
         let secondFrameCommandBuffer = commandQueue.makeCommandBuffer()!
+        let secondFrameTransaction = SceneSourceUpdateTransaction()
         crossImageAnimation.encode(
             sceneTime: 0.04,
             wallDate: Date(timeIntervalSince1970: 0),
-            commandBuffer: secondFrameCommandBuffer
+            commandBuffer: secondFrameCommandBuffer,
+            transaction: secondFrameTransaction
         )
         secondFrameCommandBuffer.commit()
+        secondFrameTransaction.commit()
         secondFrameCommandBuffer.waitUntilCompleted()
         let crossImageFrame1Pixel = try readFirstPixel(
             texture: baseCrossImageSprite.texture,

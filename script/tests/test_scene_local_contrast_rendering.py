@@ -19,6 +19,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Clear.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetTable.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetTable+Mapped.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphCommandRuntime.swift",
     SOURCE_ROOT / "Effects/SceneLocalContrastPipeline.swift",
     SOURCE_ROOT / "Effects/SceneLocalContrastRenderer.swift",
@@ -89,6 +90,7 @@ enum Harness {
             identity: identity,
             extent: .init(width: 2, height: 2),
             format: format,
+            isUnique: false,
             lifetime: .init(
                 firstWriteNodeIndex: firstWrite,
                 lastWriteNodeIndex: lastWrite,
@@ -103,7 +105,7 @@ enum Harness {
         device: MTLDevice,
         intermediateFormat: TargetPlan.TextureFormat = .rgba8888
     ) -> TargetTable {
-        let plan = TargetPlan(
+        let plan = TargetPlan.testingPlan(
             layerID: layerID,
             input: inputIdentity,
             output: outputIdentity,
@@ -494,6 +496,8 @@ class SceneLocalContrastRenderingTests(unittest.TestCase):
                 "swiftc",
                 *(str(path) for path in SWIFT_SOURCES),
                 str(harness),
+                "-D",
+                "SCENE_GRAPH_TESTING",
                 "-framework",
                 "Metal",
                 "-o",

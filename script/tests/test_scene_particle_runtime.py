@@ -100,6 +100,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneTextureLoader+Candidate.swift",
     SOURCE_ROOT / "Runtime/SceneTextureAnimationPlaybackPlan.swift",
     SOURCE_ROOT / "Resources/SceneTextureAnimationPlaybackClock.swift",
+    SOURCE_ROOT / "Rendering/SceneSourceUpdateTransaction.swift",
     SOURCE_ROOT / "Rendering/SceneSpriteAnimation.swift",
     SOURCE_ROOT / "Rendering/SceneLayerVisibility.swift",
     SOURCE_ROOT / "Particles/SceneParticleChildGraphExpansion.swift",

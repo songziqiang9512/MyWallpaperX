@@ -2,6 +2,17 @@ import CoreGraphics
 import QuartzCore
 
 extension SceneMetalView {
+    var shouldDeferResolvedMaterialFrame: Bool {
+        renderer.imageCompositor.shouldDeferResolvedMaterialFrame
+    }
+
+    func invalidateResolvedMaterialRuntime(
+        reason: SceneGraphExecutionResetReason
+    ) {
+        renderer.imageCompositor.invalidateResolvedMaterialRuntime(reason: reason)
+        offscreenTexturePool.reset()
+    }
+
     func makeFrameContext(
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot,

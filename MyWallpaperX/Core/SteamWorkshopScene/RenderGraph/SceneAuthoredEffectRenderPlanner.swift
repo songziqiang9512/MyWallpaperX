@@ -101,7 +101,9 @@ enum SceneAuthoredEffectRenderPlanner {
                         detail: "Framebuffer \(framebuffer.name) has an unsupported extent."
                     ))
                 }
-                if !supportedFramebufferFormats.contains(framebuffer.format ?? "") {
+                if !supportedFramebufferFormats.contains(
+                    framebuffer.format?.lowercased() ?? ""
+                ) {
                     blockers.append(blocker(
                         key,
                         reason: .unsupportedFramebufferFormat,
@@ -272,21 +274,6 @@ enum SceneAuthoredEffectRenderPlanner {
                         passIndex: pass.passIndex,
                         reason: .incompatibleCommand,
                         detail: "Copy/swap requires distinct declared source and target framebuffers."
-                    ))
-                } else if let sourceName = pass.source,
-                          let targetName = pass.target,
-                          let sourceDefinition = framebufferDefinitions[sourceName],
-                          let targetDefinition = framebufferDefinitions[targetName],
-                          !commandCompatible(
-                            kind,
-                            source: sourceDefinition,
-                            target: targetDefinition
-                          ) {
-                    blockers.append(blocker(
-                        key,
-                        passIndex: pass.passIndex,
-                        reason: .incompatibleCommand,
-                        detail: "Copy/swap source and target framebuffer descriptors differ."
                     ))
                 }
                 nodes.append(.init(

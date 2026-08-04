@@ -4,6 +4,11 @@ import Metal
 struct SceneGraphRenderTargetTable {
     typealias Graph = SceneAuthoredEffectRenderPlan
 
+    struct FullFramePair {
+        let first: MTLTexture
+        let second: MTLTexture
+    }
+
     enum Failure: String, Error {
         case invalidPlan
         case invalidByteBudget
@@ -12,11 +17,15 @@ struct SceneGraphRenderTargetTable {
         case textureAllocationFailed
         case textureAllocationAliased
         case borrowedTextureInvalid
+        case mappedTextureInvalid
+        case mappedTextureAliased
     }
 
     let plan: SceneGraphRenderTargetPlan
     let inputTexture: MTLTexture
     let outputTexture: MTLTexture
+    let fullFramePair: FullFramePair
+    let inputOutputAliased: Bool
     let residentByteCost: Int
 
     private let texturesByIdentity: [Graph.TextureIdentity: MTLTexture]
@@ -28,7 +37,33 @@ struct SceneGraphRenderTargetTable {
     }
 
     var residentTextureCount: Int {
-        texturesByIdentity.count
+        orderedPhysicalTextures.count
+    }
+
+    var orderedPhysicalTextures: [MTLTexture] {
+        var objects = Set<ObjectIdentifier>()
+        return ([fullFramePair.first, fullFramePair.second]
+            + plan.logicalTargets.compactMap { texturesByIdentity[$0.identity] })
+            .filter { objects.insert(ObjectIdentifier($0)).inserted }
+    }
+
+    init(
+        plan: SceneGraphRenderTargetPlan,
+        inputTexture: MTLTexture,
+        outputTexture: MTLTexture,
+        fullFramePair: FullFramePair,
+        inputOutputAliased: Bool,
+        residentByteCost: Int,
+        texturesByIdentity: [Graph.TextureIdentity: MTLTexture]
+    ) {
+        self.plan = plan
+        self.inputTexture = inputTexture
+        self.outputTexture = outputTexture
+        self.fullFramePair = fullFramePair
+        self.inputOutputAliased = inputOutputAliased
+        self.residentByteCost = residentByteCost
+        self.texturesByIdentity = texturesByIdentity
+        initializationState = InitializationState()
     }
 
     func texture(for identity: Graph.TextureIdentity) -> MTLTexture? {
@@ -89,7 +124,7 @@ struct SceneGraphRenderTargetTable {
 
         var totalByteCost = 0
         for specification in specifications {
-            guard let byteCost = byteCost(for: specification) else {
+            guard let byteCost = Self.byteCost(for: specification) else {
                 return .failure(.byteCostOverflow)
             }
             let (nextTotal, overflow) = totalByteCost.addingReportingOverflow(byteCost)
@@ -127,9 +162,10 @@ struct SceneGraphRenderTargetTable {
             plan: plan,
             inputTexture: inputTexture,
             outputTexture: outputTexture,
+            fullFramePair: .init(first: inputTexture, second: outputTexture),
+            inputOutputAliased: false,
             residentByteCost: totalByteCost,
-            texturesByIdentity: textures,
-            initializationState: InitializationState()
+            texturesByIdentity: textures
         ))
     }
 
@@ -152,23 +188,24 @@ struct SceneGraphRenderTargetTable {
             plan: plan,
             inputTexture: inputTexture,
             outputTexture: outputTexture,
+            fullFramePair: .init(first: inputTexture, second: outputTexture),
+            inputOutputAliased: false,
             residentByteCost: 0,
             texturesByIdentity: [
                 plan.input: inputTexture,
                 plan.output: outputTexture,
-            ],
-            initializationState: InitializationState()
+            ]
         ))
     }
 
-    private struct Specification {
+    struct Specification {
         let identity: Graph.TextureIdentity
         let extent: SceneGraphRenderTargetPlan.PixelExtent
         let format: SceneGraphRenderTargetPlan.TextureFormat
         let role: String
     }
 
-    private static func specifications(
+    static func specifications(
         for plan: SceneGraphRenderTargetPlan
     ) -> [Specification]? {
         guard let effect = plan.output.effect,
@@ -213,7 +250,7 @@ struct SceneGraphRenderTargetTable {
         return specifications
     }
 
-    private static func byteCost(for specification: Specification) -> Int? {
+    static func byteCost(for specification: Specification) -> Int? {
         let (pixelCount, pixelOverflow) = specification.extent.width.multipliedReportingOverflow(
             by: specification.extent.height
         )
@@ -281,6 +318,21 @@ struct SceneGraphRenderTargetTable {
             && texture.height == extent.height
             && texture.mipmapLevelCount == 1
             && texture.sampleCount == 1
+            && texture.usage.contains(.renderTarget)
+            && texture.usage.contains(.shaderRead)
+    }
+
+    static func validMappedTexture(
+        _ texture: MTLTexture,
+        specification: Specification
+    ) -> Bool {
+        texture.textureType == .type2D
+            && texture.pixelFormat == pixelFormat(for: specification.format)
+            && texture.width == specification.extent.width
+            && texture.height == specification.extent.height
+            && texture.mipmapLevelCount == 1
+            && texture.sampleCount == 1
+            && texture.storageMode == .private
             && texture.usage.contains(.renderTarget)
             && texture.usage.contains(.shaderRead)
     }

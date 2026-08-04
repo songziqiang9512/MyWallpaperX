@@ -19,6 +19,11 @@ HOST_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift"
 )
+HOST_FRAME_DRIVER_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
+    / "SceneDesktopWallpaperHost+FrameDriver.swift"
+)
 VIEW_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView.swift"
@@ -295,6 +300,7 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
 class SceneVideoProviderOwnershipContractTests(unittest.TestCase):
     def test_launch_registry_survives_surface_rebuild_and_stops_with_scene(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")
+        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         registry = REGISTRY_SOURCE.read_text(encoding="utf-8")
         view = VIEW_SOURCE.read_text(encoding="utf-8")
         assembly = ASSEMBLY_SOURCE.read_text(encoding="utf-8")
@@ -326,17 +332,25 @@ class SceneVideoProviderOwnershipContractTests(unittest.TestCase):
             "videoSourceRegistry: videoTextureSourceRegistry",
             rebuild,
         )
+        self.assertIn("teardownSurfaces(clearContext: false", rebuild)
         self.assertNotIn(
             "videoTextureSourceRegistry = SceneVideoTextureSourceRegistry(",
             rebuild,
         )
 
-        teardown = swift_block(host, "private func teardownSurfaces(")
+        teardown = swift_block(frame_driver, "func teardownSurfaces(")
         self.assertIsNotNone(teardown)
         assert teardown is not None
-        self.assertIn("if clearContext", teardown)
-        self.assertIn("videoTextureSourceRegistry?.stop()", teardown)
-        self.assertIn("videoTextureSourceRegistry = nil", teardown)
+        stop_index = teardown.index("videoTextureSourceRegistry?.stop()")
+        clear_context_index = teardown.rfind("if clearContext {", 0, stop_index)
+        self.assertGreaterEqual(clear_context_index, 0)
+        clear_context = swift_block(
+            teardown[clear_context_index:], "if clearContext {"
+        )
+        self.assertIsNotNone(clear_context)
+        assert clear_context is not None
+        self.assertIn("videoTextureSourceRegistry?.stop()", clear_context)
+        self.assertIn("videoTextureSourceRegistry = nil", clear_context)
 
         self.assertIn("if let source = sources[identity]", registry)
         self.assertIn("sources[identity] = source", registry)

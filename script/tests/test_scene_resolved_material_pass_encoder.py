@@ -1,0 +1,686 @@
+#!/usr/bin/env python3
+
+"""R4 atomic material Program preflight, pipeline cache and Metal encoding gate."""
+
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+import unittest
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+SWIFT_SOURCES = [
+    SCENE_ROOT / "Format/SceneJSONValue.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderVariantEnvironment.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
+    SCENE_ROOT / "RenderGraph/SceneMaterialRenderState.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontendModel.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLexer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLoopAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontend.swift",
+    SCENE_ROOT / "Resources/SceneTextureSampling.swift",
+    SCENE_ROOT / "Resources/SceneTextureUVTransform.swift",
+    SCENE_ROOT / "Resources/SceneTextureCandidate.swift",
+    SCENE_ROOT / "Resources/SceneTextureSlotBinding.swift",
+    SCENE_ROOT / "Resources/SceneTextureProviderPublication.swift",
+    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram.swift",
+    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgramIdentity.swift",
+    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram+Derivation.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder.swift",
+]
+
+
+SUPPORT = r'''
+import Foundation
+import Metal
+
+nonisolated enum SceneTextureLoadPurpose: Hashable, Sendable {
+    case premultipliedColor, straightAlbedo, preservedChannels, mask, noise
+    case flow, phase, normal, depth, lookupTable
+    var requiresVolumeTexture: Bool { self == .lookupTable }
+}
+
+nonisolated struct SceneResolvedMaterialNode {
+    enum TextureProvenance: String, Hashable {
+        case material, instance, userTexture, explicitBinding
+    }
+}
+
+nonisolated enum SceneDynamicTarget: Hashable {
+    case effectConstant(layerID: Int, effectIndex: Int, passIndex: Int, name: String)
+}
+
+nonisolated enum SceneDynamicSource: Hashable {
+    case authored, userProperty, timeline, sceneScript
+}
+
+nonisolated enum SceneFrameTextureIdentity: Hashable {
+    case layerSource(Int)
+    case namedLayerTarget(String)
+    case graph(SceneAuthoredEffectRenderPlan.TextureIdentity)
+    case asset(SceneAssetTextureIdentity)
+    case userProperty(String)
+    case materialUserProperty(SceneUserPropertyTextureIdentity)
+    case system(String)
+}
+'''
+
+
+HARNESS = r'''
+import CoreGraphics
+import Foundation
+import Metal
+import simd
+
+private typealias Program = SceneResolvedMaterialProgram
+private typealias Template = SceneResolvedMaterialTemplate
+private typealias Graph = SceneAuthoredEffectRenderPlan
+
+private let vertexSource = """
+attribute vec3 a_Position;
+attribute vec2 a_TexCoord;
+varying vec2 v_TexCoord;
+void main() {
+    v_TexCoord = a_TexCoord;
+    gl_Position = vec4(a_Position, 1.0);
+}
+"""
+
+private func fragment(
+    outputSlot: Int,
+    uniformName: String = "g_Gain",
+    unresolved: Bool = false
+) -> String {
+    let expression = unresolved
+        ? "texSample2D(g_Texture0, v_TexCoord) * g_Gain"
+        : "texSample2D(g_Texture\(outputSlot), v_TexCoord)"
+    return """
+    varying vec2 v_TexCoord;
+    uniform sampler2D g_Texture0;
+    uniform sampler2D g_Texture3;
+    uniform float \(uniformName);
+    void main() {
+        gl_FragColor = \(expression);
+    }
+    """
+}
+
+private func prepared(
+    marker: String,
+    fragmentSource: String
+) -> SceneShaderPreparedProgram {
+    func stage(
+        _ kind: SceneShaderContract.StageKind,
+        source: String
+    ) -> SceneShaderPreparedSource {
+        .init(
+            frontendSchemaVersion: SceneShaderVariantEnvironment.frontendSchemaVersion,
+            sourceDialect: .wallpaperEngineGLSLLike,
+            backend: .mwxMetal,
+            stage: kind,
+            rootRelativePath: "\(marker)/\(kind.rawValue).shader",
+            source: source,
+            sourceMap: [],
+            activeAnnotations: [],
+            activeDeclarations: [],
+            dependencies: [],
+            dependencySHA256: "dependency-\(marker)-\(kind.rawValue)",
+            variantSHA256: "variant-\(marker)-\(kind.rawValue)",
+            preparedSHA256: "prepared-\(marker)-\(kind.rawValue)"
+        )
+    }
+    return .init(
+        vertex: stage(.vertex, source: vertexSource),
+        fragment: stage(.fragment, source: fragmentSource),
+        colorContract: .unresolvedAuthoredPass,
+        cacheKey: "cache-\(marker)"
+    )
+}
+
+private func state() -> SceneMaterialRenderState {
+    SceneMaterialRenderState.compile(
+        blending: "normal",
+        depthTest: "disabled",
+        depthWrite: "disabled",
+        cullMode: "nocull",
+        alphaWriting: nil
+    )!
+}
+
+private func graphIdentity(_ marker: Int = 1) -> Graph.TextureIdentity {
+    let effect = Graph.EffectKey(
+        layerID: marker,
+        effectIndex: marker,
+        descriptorID: "descriptor-\(marker)"
+    )
+    return .init(
+        kind: .framebuffer,
+        layerID: marker,
+        effect: effect,
+        name: "framebuffer-\(marker)"
+    )
+}
+
+private func texture(
+    device: MTLDevice,
+    format: MTLPixelFormat = .rgba8Unorm,
+    width: Int = 2,
+    height: Int = 2,
+    usage: MTLTextureUsage = .shaderRead,
+    fill: [UInt8]? = nil
+) -> MTLTexture {
+    let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+        pixelFormat: format,
+        width: width,
+        height: height,
+        mipmapped: false
+    )
+    descriptor.storageMode = .shared
+    descriptor.usage = usage
+    let result = device.makeTexture(descriptor: descriptor)!
+    if let fill {
+        result.replace(
+            region: MTLRegionMake2D(0, 0, width, height),
+            mipmapLevel: 0,
+            withBytes: fill,
+            bytesPerRow: width * 4
+        )
+    }
+    return result
+}
+
+private func target(
+    device: MTLDevice,
+    format: MTLPixelFormat = .rgba8Unorm,
+    width: Int = 2,
+    height: Int = 2,
+    usage: MTLTextureUsage = [.renderTarget, .shaderRead]
+) -> MTLTexture {
+    texture(
+        device: device,
+        format: format,
+        width: width,
+        height: height,
+        usage: usage
+    )
+}
+
+private func slot(
+    device: MTLDevice,
+    index: Int,
+    texture: MTLTexture,
+    content: SceneTextureContent,
+    purpose: SceneTextureLoadPurpose,
+    sampling: SceneTextureSampling,
+    marker: Int = 1
+) -> Program.TextureSlot {
+    let reference: Template.TextureReference
+    let registry: SceneFrameTextureIdentity
+    if index == 0 {
+        let identity = graphIdentity(marker)
+        reference = .graph(identity)
+        registry = .graph(identity)
+    } else {
+        let path = SceneVFSAssetPath("assets/slot\(index)-\(marker).tex")!
+        reference = .asset(path)
+        registry = .asset(.init(path: path, purpose: purpose))
+    }
+    let generation = UInt64(marker)
+    let publication = SceneTextureProviderPublication(
+        requestIdentity: registry,
+        candidate: .init(
+            texture: texture,
+            identity: .provider(.video(layerID: marker, lifecycleEpoch: 1)),
+            generation: .provider(contentGeneration: generation),
+            purpose: purpose,
+            content: content,
+            physicalSize: CGSize(width: texture.width, height: texture.height),
+            mappedSize: CGSize(width: texture.width, height: texture.height),
+            uvTransform: .identity,
+            sampling: sampling
+        ),
+        contentGeneration: generation
+    )
+    return .init(
+        index: index,
+        reference: reference,
+        registryIdentity: registry,
+        diagnosticSelectionProvenance: .authored(.explicitBinding),
+        expectedPurpose: purpose,
+        resource: .init(publication: publication, resourceGeneration: generation)
+    )
+}
+
+private func slots(_ values: Program.TextureSlot...) -> [Program.TextureSlot?] {
+    var result = Array<Program.TextureSlot?>(repeating: nil, count: 8)
+    for value in values { result[value.index] = value }
+    return result
+}
+
+private func bytes<T>(_ value: T) -> Data {
+    var copy = value
+    return withUnsafeBytes(of: &copy) { Data($0) }
+}
+
+private func uniforms(
+    shader: SceneShaderPreparedProgram,
+    malformed: Bool = false
+) -> [Program.ResolvedUniform] {
+    let frontend = SceneAuthoredShaderFrontend.compile(
+        vertexSource: shader.vertex.source,
+        fragmentSource: shader.fragment.source
+    ).program!
+    return frontend.uniformLayout.fields.map { field in
+        let value: Data
+        if field.name == "mwxRenderSize" {
+            value = bytes(SIMD2<Float>(2, 2))
+        } else if malformed {
+            value = bytes(SIMD2<Float>(0.5, 0.5))
+        } else {
+            value = bytes(Float(0.5))
+        }
+        let source: Program.ResolvedUniform.Source = field.name == "mwxRenderSize"
+            ? .host(.renderSize)
+            : .staticValue
+        return .init(field: field, source: source, encodedValue: value)
+    }
+}
+
+private func program(
+    device: MTLDevice,
+    marker: Int,
+    outputSlot: Int,
+    slot0Texture: MTLTexture? = nil,
+    slot3Texture: MTLTexture? = nil,
+    slot3Content: SceneTextureContent = .color(.resolved(.opaque)),
+    slot3Purpose: SceneTextureLoadPurpose = .straightAlbedo,
+    slot3Sampling: SceneTextureSampling = .init(texFlags: 1),
+    uniformName: String = "g_Gain",
+    unresolved: Bool = false,
+    malformedUniform: Bool = false
+) -> Program? {
+    let shader = prepared(
+        marker: "program-\(marker)",
+        fragmentSource: fragment(
+            outputSlot: outputSlot,
+            uniformName: uniformName,
+            unresolved: unresolved
+        )
+    )
+    let first = slot(
+        device: device,
+        index: 0,
+        texture: slot0Texture ?? texture(device: device),
+        content: .color(.resolved(.premultipliedAlpha)),
+        purpose: .premultipliedColor,
+        sampling: .directImageFallback,
+        marker: marker
+    )
+    let third = slot(
+        device: device,
+        index: 3,
+        texture: slot3Texture ?? texture(device: device),
+        content: slot3Content,
+        purpose: slot3Purpose,
+        sampling: slot3Sampling,
+        marker: marker + 100
+    )
+    return Program.assemble(.init(
+        preparedShader: shader,
+        textureSlots: slots(first, third),
+        resolvedUniforms: uniforms(shader: shader, malformed: malformedUniform),
+        renderState: state(),
+        graphRole: .init(
+            effectInput: .layerSource,
+            effectOutput: .effectOutput,
+            nodeTarget: .framebuffer,
+            bindings: [.init(slot: 0, texture: .framebuffer)]
+        )
+    ))
+}
+
+private func pixels(_ texture: MTLTexture) -> [UInt8] {
+    var result = [UInt8](repeating: 0, count: texture.width * texture.height * 4)
+    texture.getBytes(
+        &result,
+        bytesPerRow: texture.width * 4,
+        from: MTLRegionMake2D(0, 0, texture.width, texture.height),
+        mipmapLevel: 0
+    )
+    return result
+}
+
+@main
+private enum Harness {
+    static func main() throws {
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let queue = device.makeCommandQueue(),
+              let encoder = SceneResolvedMaterialPassEncoder(device: device) else {
+            print("{\"metalAvailable\":false}")
+            return
+        }
+
+        let color = [UInt8](repeating: 0, count: 16).enumerated().map {
+            [$0.offset % 4 == 0 ? UInt8(37) :
+             $0.offset % 4 == 1 ? UInt8(109) :
+             $0.offset % 4 == 2 ? UInt8(211) : UInt8(255)]
+        }.flatMap { $0 }
+        let authoredTexture = texture(device: device, fill: color)
+        let baseline = program(
+            device: device,
+            marker: 1,
+            outputSlot: 3,
+            slot3Texture: authoredTexture
+        )!
+        let rgbaTarget = target(device: device)
+        let first = encoder.prepare(program: baseline, target: rgbaTarget)
+        let attemptsAfterFirst = encoder.pipelineCompilationAttemptCount
+        let second = encoder.prepare(program: baseline, target: rgbaTarget)
+        let pipelineCacheReused = second != nil
+            && encoder.pipelineCompilationAttemptCount == attemptsAfterFirst
+
+        let changedSampling = program(
+            device: device,
+            marker: 2,
+            outputSlot: 3,
+            slot3Sampling: .init(texFlags: 3)
+        )!
+        let samplingVariant = encoder.prepare(
+            program: changedSampling,
+            target: rgbaTarget
+        )
+        let cacheReusedAcrossResources = encoder.pipelineCompilationAttemptCount == 1
+
+        var encoded = false
+        var gpuCompleted = false
+        var outputMatches = false
+        var committedBufferRejected = false
+        if let first, let command = queue.makeCommandBuffer() {
+            encoded = encoder.encode(first, commandBuffer: command)
+            command.commit()
+            command.waitUntilCompleted()
+            gpuCompleted = command.status == .completed && command.error == nil
+            committedBufferRejected = !encoder.encode(
+                first,
+                commandBuffer: command
+            )
+            outputMatches = Set(stride(from: 0, to: 16, by: 4).map {
+                Array(pixels(rgbaTarget)[$0 ..< $0 + 4])
+            }) == Set([[37, 109, 211, 255]])
+        }
+
+        let bgraTarget = target(device: device, format: .bgra8Unorm)
+        let bgraPrepared = encoder.prepare(program: baseline, target: bgraTarget)
+        let separateFormatPipeline = bgraPrepared != nil
+            && encoder.pipelineCompilationAttemptCount == 2
+
+        let straight = program(
+            device: device,
+            marker: 3,
+            outputSlot: 3,
+            slot3Content: .color(.resolved(.straightAlpha))
+        )!
+        let attemptsBeforeColorGate = encoder.pipelineCompilationAttemptCount
+        let straightRejected = encoder.prepare(
+            program: straight,
+            target: rgbaTarget
+        ) == nil && encoder.pipelineCompilationAttemptCount == attemptsBeforeColorGate
+        let unresolvedRejectedUpstream = program(
+            device: device,
+            marker: 4,
+            outputSlot: 0,
+            unresolved: true
+        ) == nil
+
+        let aliasTexture = target(device: device)
+        let aliasProgram = program(
+            device: device,
+            marker: 5,
+            outputSlot: 0,
+            slot0Texture: aliasTexture
+        )!
+        let aliasRejected = encoder.prepare(
+            program: aliasProgram,
+            target: aliasTexture
+        ) == nil
+
+        let shortGraphTexture = texture(
+            device: device,
+            width: 1,
+            height: 1,
+            fill: [32, 64, 96, 128]
+        )
+        let shortGraph = program(
+            device: device,
+            marker: 6,
+            outputSlot: 0,
+            slot0Texture: shortGraphTexture
+        )!
+        let crossExtentTarget = target(device: device)
+        let crossExtentPrepared = encoder.prepare(
+            program: shortGraph,
+            target: crossExtentTarget
+        )
+        var crossExtentEncoded = false
+        var crossExtentGPUCompleted = false
+        var crossExtentOutputMatches = false
+        if let crossExtentPrepared, let command = queue.makeCommandBuffer() {
+            crossExtentEncoded = encoder.encode(
+                crossExtentPrepared,
+                commandBuffer: command
+            )
+            command.commit()
+            command.waitUntilCompleted()
+            crossExtentGPUCompleted = command.status == .completed
+                && command.error == nil
+            let output = pixels(crossExtentTarget)
+            crossExtentOutputMatches = stride(from: 0, to: 16, by: 4)
+                .allSatisfy { Array(output[$0 ..< $0 + 4]) == [32, 64, 96, 128] }
+        }
+
+        let r8Target = target(device: device, format: .r8Unorm)
+        let formatRejected = encoder.prepare(
+            program: baseline,
+            target: r8Target
+        ) == nil
+        let readOnlyTarget = target(device: device, usage: .shaderRead)
+        let missingRenderTargetRejected = encoder.prepare(
+            program: baseline,
+            target: readOnlyTarget
+        ) == nil
+        let writeOnlyTarget = target(device: device, usage: .renderTarget)
+        let missingShaderReadRejected = encoder.prepare(
+            program: baseline,
+            target: writeOnlyTarget
+        ) == nil
+
+        let noReadTexture = texture(device: device, usage: .renderTarget)
+        let inputUsageRejectedUpstream = program(
+            device: device,
+            marker: 7,
+            outputSlot: 0,
+            slot0Texture: noReadTexture
+        ) == nil
+        let malformedUniformRejectedUpstream = program(
+            device: device,
+            marker: 8,
+            outputSlot: 0,
+            malformedUniform: true
+        ) == nil
+
+        let invalidMetal = program(
+            device: device,
+            marker: 9,
+            outputSlot: 0,
+            uniformName: "operator"
+        )!
+        let attemptsBeforeFailure = encoder.pipelineCompilationAttemptCount
+        let firstFailure = encoder.prepare(
+            program: invalidMetal,
+            target: rgbaTarget
+        ) == nil
+        let attemptsAfterFailure = encoder.pipelineCompilationAttemptCount
+        let secondFailure = encoder.prepare(
+            program: invalidMetal,
+            target: rgbaTarget
+        ) == nil
+        let failureNegativeCached = firstFailure
+            && secondFailure
+            && attemptsAfterFailure == attemptsBeforeFailure + 1
+            && encoder.pipelineCompilationAttemptCount == attemptsAfterFailure
+            && encoder.failedPipelineCount == 1
+
+        let preparedBeforeReset = second
+        encoder.reset()
+        let resetClearedCache = encoder.cachedPipelineCount == 0
+            && encoder.pipelineCompilationAttemptCount == 0
+            && encoder.failedPipelineCount == 0
+        var stalePreparedRejected = false
+        if let preparedBeforeReset, let staleCommand = queue.makeCommandBuffer() {
+            stalePreparedRejected = !encoder.encode(
+                preparedBeforeReset,
+                commandBuffer: staleCommand
+            )
+        }
+        let preparedAfterReset = encoder.prepare(
+            program: baseline,
+            target: rgbaTarget
+        )
+
+        var crossDeviceExercised = false
+        var crossDeviceRejected = true
+        if let other = MTLCopyAllDevices().first(where: {
+            $0.registryID != device.registryID
+        }) {
+            crossDeviceExercised = true
+            let otherTarget = target(device: other)
+            crossDeviceRejected = encoder.prepare(
+                program: baseline,
+                target: otherTarget
+            ) == nil
+        }
+
+        let results: [String: Bool] = [
+            "metalAvailable": true,
+            "prepared": first != nil,
+            "pipelineCompiledOnce": attemptsAfterFirst == 1,
+            "pipelineCacheReused": pipelineCacheReused,
+            "cacheReusedAcrossResources": cacheReusedAcrossResources,
+            "authoredSlotsPreserved": first?.bindingSlots == [0, 3],
+            "typedSamplersPreserved": first?.bindingSamplings
+                == [.directImageFallback, .init(texFlags: 1)],
+            "uniformLayoutPreserved": first?.uniformByteCount
+                == baseline.frontendProgram.uniformLayout.byteSize,
+            "opaqueOutputPublished": first?.fragmentOutput == .opaque,
+            "premultipliedOutputPublished": crossExtentPrepared?.fragmentOutput
+                == .premultipliedAlpha,
+            "commandsEncoded": encoded,
+            "gpuCompleted": gpuCompleted,
+            "committedCommandBufferRejected": committedBufferRejected,
+            "outputMatches": outputMatches,
+            "rgbaAndBgraSupported": separateFormatPipeline,
+            "straightOutputRejectedBeforeCompile": straightRejected,
+            "unresolvedOutputRejectedUpstream": unresolvedRejectedUpstream,
+            "inputTargetAliasRejected": aliasRejected,
+            "crossExtentGraphPrepared": crossExtentPrepared != nil,
+            "crossExtentGraphEncoded": crossExtentEncoded,
+            "crossExtentGraphGPUCompleted": crossExtentGPUCompleted,
+            "crossExtentGraphOutputMatches": crossExtentOutputMatches,
+            "targetFormatRejected": formatRejected,
+            "missingRenderTargetRejected": missingRenderTargetRejected,
+            "missingShaderReadRejected": missingShaderReadRejected,
+            "inputUsageRejectedUpstream": inputUsageRejectedUpstream,
+            "uniformMismatchRejectedUpstream": malformedUniformRejectedUpstream,
+            "pipelineFailureNegativeCached": failureNegativeCached,
+            "resetClearsCache": resetClearedCache,
+            "resetInvalidatesPreparedPass": stalePreparedRejected,
+            "prepareAfterReset": preparedAfterReset != nil,
+            "crossDeviceRejectedWhenAvailable": crossDeviceRejected,
+        ]
+        let payload: [String: Any] = [
+            "results": results,
+            "crossDeviceExercised": crossDeviceExercised,
+        ]
+        let data = try JSONSerialization.data(
+            withJSONObject: payload,
+            options: [.sortedKeys]
+        )
+        FileHandle.standardOutput.write(data)
+    }
+}
+'''
+
+
+@unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
+class SceneResolvedMaterialPassEncoderTests(unittest.TestCase):
+    def test_program_is_prepared_and_encoded_atomically(self) -> None:
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-resolved-material-pass-"
+        ) as directory:
+            root = Path(directory)
+            support = root / "Support.swift"
+            harness = root / "Harness.swift"
+            binary = root / "resolved-material-pass-test"
+            support.write_text(SUPPORT, encoding="utf-8")
+            harness.write_text(HARNESS, encoding="utf-8")
+            environment = os.environ.copy()
+            environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
+            environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-cache")
+            compilation = subprocess.run(
+                [
+                    "xcrun",
+                    "--sdk",
+                    "macosx",
+                    "swiftc",
+                    "-parse-as-library",
+                    str(support),
+                    *(str(path) for path in SWIFT_SOURCES),
+                    str(harness),
+                    "-framework",
+                    "Metal",
+                    "-framework",
+                    "CoreGraphics",
+                    "-module-cache-path",
+                    str(root / "module-cache"),
+                    "-o",
+                    str(binary),
+                ],
+                cwd=REPOSITORY_ROOT,
+                env=environment,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(compilation.returncode, 0, compilation.stderr)
+            completed = subprocess.run(
+                [str(binary)],
+                cwd=REPOSITORY_ROOT,
+                env=environment,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+        payload = json.loads(completed.stdout)
+        results = payload["results"]
+        if not results["metalAvailable"]:
+            self.skipTest("Metal is unavailable")
+        self.assertEqual(
+            [name for name, passed in results.items() if not passed],
+            [],
+            payload,
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

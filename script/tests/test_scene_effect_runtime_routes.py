@@ -692,6 +692,14 @@ enum Harness {
                     "role": $0.routeRole.rawValue,
                 ] as [String: Any]
             },
+            "resolvedMaterialSubjects": catalog
+                .resolvedMaterialExecutionEvidenceSubjects.map {
+                    [
+                        "id": $0.key.descriptorID,
+                        "index": $0.key.effectIndex,
+                        "family": $0.family,
+                    ] as [String: Any]
+                },
         ]
     }
 
@@ -1103,6 +1111,14 @@ class SceneEffectRuntimeRouteTests(unittest.TestCase):
         self.assertIsNone(records["disabled"]["group"])
         self.assertEqual(records["inactive-only"]["kind"], "inactive")
         self.assertIsNone(records["inactive-only"]["group"])
+        self.assertEqual(
+            decision["resolvedMaterialSubjects"],
+            [
+                {"id": "generic", "index": 0, "family": "scroll"},
+                {"id": "iris", "index": 1, "family": "iris-inline"},
+                {"id": "xray", "index": 0, "family": "xray"},
+            ],
+        )
 
     def execution_lines(self, backend: str) -> list[str]:
         return [

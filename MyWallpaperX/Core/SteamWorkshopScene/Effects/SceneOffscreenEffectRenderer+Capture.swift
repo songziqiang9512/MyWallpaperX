@@ -24,6 +24,7 @@ extension SceneOffscreenEffectRenderer {
         pipeline: SceneImageLayerPipeline,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
+        if sourceTexture === target { return true }
         guard let encoder = beginEncoder(commandBuffer: commandBuffer, target: target) else {
             return false
         }

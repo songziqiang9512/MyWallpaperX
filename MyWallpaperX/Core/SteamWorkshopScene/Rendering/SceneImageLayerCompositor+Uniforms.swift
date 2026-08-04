@@ -1,17 +1,18 @@
+import CoreGraphics
+import Metal
 import simd
 
-extension SceneLayerEffectInputs {
-    static let neutral = SceneLayerEffectInputs(
-        flags: [],
-        params0: .zero,
-        params1: .zero,
-        params2: .zero,
-        params3: .zero,
-        params4: .zero
-    )
-}
-
 extension SceneImageLayerCompositor {
+    var shouldDeferResolvedMaterialFrame: Bool {
+        resolvedMaterialRuntime?.shouldDeferFrame == true
+    }
+
+    func invalidateResolvedMaterialRuntime(
+        reason: SceneGraphExecutionResetReason
+    ) {
+        resolvedMaterialRuntime?.invalidate(reason: reason)
+    }
+
     func makeFragmentUniforms(
         values: SceneImageLayerUniformValues,
         effectInputs: SceneLayerEffectInputs,
@@ -40,6 +41,47 @@ extension SceneImageLayerCompositor {
             effectParams5: SIMD4(foliageMaskUVScale.x, foliageMaskUVScale.y, 0, 0),
             textureFrame0: textureFrame.uniform0,
             textureFrame1: textureFrame.uniform1
+        )
+    }
+
+    func sourceFragmentUniforms(
+        for request: SceneImageLayerDrawRequest,
+        effectInputs: SceneLayerEffectInputs,
+        routesOffscreen: Bool
+    ) -> SceneLayerFragmentUniforms? {
+        guard let textureFrame = request.resolvedBaseTextureFrame() else {
+            return nil
+        }
+        let brightness = request.layer.contentKind == "text"
+            ? 1 : max(0, Float(request.layer.brightness ?? 1))
+        let usesAuthoredColor = request.layer.contentKind == "image"
+            || request.layer.contentKind == "solid"
+        let tint = usesAuthoredColor
+            ? request.uniforms.tint : SIMD3<Float>(repeating: 1)
+        return makeFragmentUniforms(
+            values: request.uniforms,
+            effectInputs: effectInputs,
+            textureFrame: textureFrame,
+            tint: tint * brightness,
+            foliageMaskUVScale: request.masks.foliageUVScale,
+            dependencyBlendMode: routesOffscreen
+                ? nil : request.dependencyEffect?.blendMode
+        )
+    }
+
+    func legacyOffscreenDimensions(
+        for request: SceneImageLayerDrawRequest,
+        authoredChain: SceneAuthoredEffectExecutionChain? = nil
+    ) -> (width: Int, height: Int) {
+        let desired = request.offscreenSize ?? CGSize(
+            width: CGFloat(request.texture.width),
+            height: CGFloat(request.texture.height)
+        )
+        let resolved = authoredChain?
+            .authoredShaderOffscreenSize(for: desired) ?? desired
+        return (
+            max(1, Int(resolved.width.rounded(.up))),
+            max(1, Int(resolved.height.rounded(.up)))
         )
     }
 }

@@ -4,13 +4,25 @@ import Foundation
 /// snapshot before any Program can enter GPU admission.
 nonisolated enum SceneResolvedMaterialTextureResolver {
     typealias Failure = SceneResolvedMaterialFailure
+    typealias Graph = SceneAuthoredEffectRenderPlan
     typealias Program = SceneResolvedMaterialProgram
     typealias Template = SceneResolvedMaterialTemplate
 
     struct Resolution {
-        let prepared: SceneShaderPreparedProgram
-        let frontend: SceneAuthoredShaderProgram
+        let variant: SceneResolvedMaterialCompiledVariant
         let slots: [Program.TextureSlot?]
+
+        var prepared: SceneShaderPreparedProgram { variant.preparedShader }
+        var frontend: SceneAuthoredShaderProgram { variant.frontendProgram }
+    }
+
+    struct LaunchReadinessProjection {
+        let requiredMask: UInt8
+        let optionalMask: UInt8
+
+        func mask(optionalAvailability: UInt8) -> UInt8 {
+            requiredMask | (optionalMask & optionalAvailability)
+        }
     }
 
     private enum Selection: Hashable {
@@ -23,72 +35,110 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         case internalDefault(String)
     }
 
-    private struct ShaderResolution {
-        let prepared: SceneShaderPreparedProgram
-        let frontend: SceneAuthoredShaderProgram
-        let selections: [Selection]
-        let samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
-    }
-
     static func resolve(
         _ input: SceneResolvedMaterialFinalizationInput
     ) throws -> Resolution {
-        let shader = try resolveShader(input)
+        guard let cache = SceneResolvedMaterialVariantCache(
+            template: input.template,
+            maximumVariantCount: 8
+        ) else { throw failure(.activeSamplerSchemaInvalid) }
+        switch cache.resolve(input) {
+        case let .success(variant):
+            return try resolve(input, variant: variant)
+        case let .failure(error):
+            throw error
+        }
+    }
+
+    static func resolve(
+        _ input: SceneResolvedMaterialFinalizationInput,
+        variant: SceneResolvedMaterialCompiledVariant
+    ) throws -> Resolution {
+        guard try readinessMask(input, samplers: variant.activeSamplers)
+                == variant.readinessMask else {
+            throw failure(.identityInvariant, phase: .invariant)
+        }
         return .init(
-            prepared: shader.prepared,
-            frontend: shader.frontend,
-            slots: try textureSlots(input, shader: shader)
+            variant: variant,
+            slots: try textureSlots(input, variant: variant)
         )
     }
 
-    private static func resolveShader(
-        _ input: SceneResolvedMaterialFinalizationInput
-    ) throws -> ShaderResolution {
-        let seed: [Int: SceneResolvedMaterialShaderSchema.Sampler]
+    /// Projects every source that can win the runtime precedence walk without
+    /// consulting a frame. Assets and user selections may be explicitly absent;
+    /// graph and system providers are required for any executable frame.
+    static func launchReadinessProjection(
+        template: Template,
+        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        implicitFramebufferIdentity: Graph.TextureIdentity?
+    ) -> Result<LaunchReadinessProjection, Failure> {
         do {
-            seed = try SceneResolvedMaterialShaderSchema.unconditionalSamplers(
-                input.template
-            )
-        } catch {
-            throw failure(.activeSamplerSchemaInvalid)
-        }
-        var selections = try textureSelections(input, samplers: seed)
-        var seen: Set<[Selection]> = []
-        for _ in 0 ..< 8 {
-            guard seen.insert(selections).inserted else {
-                throw failure(
-                    .shaderPreparationFailed,
-                    phase: .preparation,
-                    details: ["texture-schema-cycle"]
-                )
-            }
-            let prepared = try prepare(
-                input.template,
-                readiness: try textureReadiness(input, selections: selections)
-            )
-            let frontend = try compileFrontend(prepared)
-            let samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
-            do {
-                samplers = try SceneResolvedMaterialShaderSchema.activeSamplers(prepared)
-            } catch {
+            guard template.textureSlots.count == 8,
+                  samplers.allSatisfy({ (0 ..< 8).contains($0.key) }) else {
                 throw failure(.activeSamplerSchemaInvalid)
             }
-            let next = try textureSelections(input, samplers: samplers)
-            if next == selections {
-                return .init(
-                    prepared: prepared,
-                    frontend: frontend,
-                    selections: selections,
-                    samplers: samplers
-                )
+            var required: UInt8 = 0
+            var optional: UInt8 = 0
+            for index in 0 ..< 8 {
+                let bit = UInt8(1) << UInt8(index)
+                let sampler = samplers[index]
+                var reachesFallback = true
+                var hasOptionalSource = false
+                if let slot = template.textureSlots[index] {
+                    guard slot.index == index else {
+                        throw failure(.identityInvariant, phase: .invariant)
+                    }
+                    for candidate in slot.candidates.reversed() {
+                        guard let sampler,
+                              sampler.purpose(for: candidate.reference) != nil else {
+                            throw failure(.texturePurposeUnproven, slot: index)
+                        }
+                        switch candidate.reference {
+                        case .asset, .userProperty:
+                            hasOptionalSource = true
+                        case .provider, .graph:
+                            required |= bit
+                            reachesFallback = false
+                        }
+                        if !reachesFallback { break }
+                    }
+                }
+                if reachesFallback, let sampler {
+                    switch sampler.defaultTexture {
+                    case let .asset(path):
+                        let reference = Template.TextureReference.asset(path)
+                        guard sampler.purpose(for: reference) != nil else {
+                            throw failure(.texturePurposeUnproven, slot: index)
+                        }
+                        hasOptionalSource = true
+                    case .internalTarget:
+                        throw failure(.textureBindingInvalid, slot: index)
+                    case nil:
+                        break
+                    }
+                    if sampler.materialKey?.caseInsensitiveCompare("framebuffer")
+                            == .orderedSame,
+                       let identity = implicitFramebufferIdentity {
+                        guard identity.kind == .layerSource
+                                || identity.kind == .effectOutput,
+                              identity.name == nil,
+                              sampler.purpose(for: .graph(identity)) != nil else {
+                            throw failure(.textureReferenceInvalid, slot: index)
+                        }
+                        required |= bit
+                    }
+                }
+                if required & bit == 0, hasOptionalSource { optional |= bit }
             }
-            selections = next
+            return .success(.init(
+                requiredMask: required,
+                optionalMask: optional
+            ))
+        } catch let error as Failure {
+            return .failure(error)
+        } catch {
+            return .failure(failure(.identityInvariant, phase: .invariant))
         }
-        throw failure(
-            .shaderPreparationFailed,
-            phase: .preparation,
-            details: ["texture-schema-budget"]
-        )
     }
 
     private static func textureSelections(
@@ -129,6 +179,28 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
             case nil: break
             }
         }
+        for (slot, sampler) in samplers {
+            guard case .absent = result[slot],
+                  sampler.materialKey?.caseInsensitiveCompare("framebuffer")
+                    == .orderedSame,
+                  let identity = input.implicitFramebufferIdentity else {
+                continue
+            }
+            guard identity.kind == .layerSource
+                    || identity.kind == .effectOutput,
+                  identity.name == nil else {
+                throw failure(.textureReferenceInvalid, slot: slot)
+            }
+            let reference = Template.TextureReference.graph(identity)
+            if let selection = try referenceSelection(
+                reference,
+                purpose: sampler.purpose(for: reference),
+                provenance: .implicitFramebuffer,
+                input: input
+            ) {
+                result[slot] = selection
+            }
+        }
         return result
     }
 
@@ -159,15 +231,15 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         return nil
     }
 
-    private static func textureReadiness(
+    static func readinessMask(
         _ input: SceneResolvedMaterialFinalizationInput,
-        selections: [Selection]
-    ) throws -> [Int: Bool] {
-        var readiness: [Int: Bool] = [:]
+        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
+    ) throws -> UInt8 {
+        let selections = try textureSelections(input, samplers: samplers)
+        var mask: UInt8 = 0
         for (slot, selection) in selections.enumerated() {
             switch selection {
-            case .absent:
-                readiness[slot] = false
+            case .absent: break
             case .internalDefault:
                 throw failure(.textureBindingInvalid, slot: slot)
             case let .reference(reference, purpose, _):
@@ -180,64 +252,28 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                     purpose: purpose,
                     slot: slot
                 )
-                readiness[slot] = true
+                mask |= UInt8(1) << UInt8(slot)
             }
         }
-        return readiness
-    }
-
-    private static func prepare(
-        _ template: Template,
-        readiness: [Int: Bool]
-    ) throws -> SceneShaderPreparedProgram {
-        switch SceneAuthoredShaderExecutionPlanner.prepareShaderStages(
-            contract: template.shaderContract,
-            combos: template.comboValues,
-            textureReadiness: readiness
-        ) {
-        case let .accepted(prepared):
-            return prepared
-        case let .rejected(rejection):
-            throw failure(
-                .shaderPreparationFailed,
-                phase: .preparation,
-                details: [rejection.phase.rawValue, rejection.code.rawValue]
-                    + rejection.details
-            )
-        case .notApplicable:
-            throw failure(.identityInvariant, phase: .invariant)
-        }
-    }
-
-    private static func compileFrontend(
-        _ prepared: SceneShaderPreparedProgram
-    ) throws -> SceneAuthoredShaderProgram {
-        let result = SceneAuthoredShaderFrontend.compile(
-            vertexSource: prepared.vertex.source,
-            fragmentSource: prepared.fragment.source
-        )
-        guard result.diagnostics.isEmpty, let program = result.program else {
-            throw failure(
-                .shaderFrontendFailed,
-                phase: .frontend,
-                details: result.diagnostics.map { $0.code.rawValue }
-            )
-        }
-        return program
+        return mask
     }
 
     private static func textureSlots(
         _ input: SceneResolvedMaterialFinalizationInput,
-        shader: ShaderResolution
+        variant: SceneResolvedMaterialCompiledVariant
     ) throws -> [Program.TextureSlot?] {
-        let bindingSlots = shader.frontend.textureBindings.map(\.slot)
+        let selections = try textureSelections(
+            input,
+            samplers: variant.activeSamplers
+        )
+        let bindingSlots = variant.frontendProgram.textureBindings.map(\.slot)
         guard Set(bindingSlots).count == bindingSlots.count else {
             throw failure(.activeSamplerSchemaInvalid)
         }
         var result = Array<Program.TextureSlot?>(repeating: nil, count: 8)
-        for binding in shader.frontend.textureBindings {
+        for binding in variant.frontendProgram.textureBindings {
             guard result.indices.contains(binding.slot),
-                  let sampler = shader.samplers[binding.slot],
+                  let sampler = variant.activeSamplers[binding.slot],
                   sampler.name == binding.name else {
                 throw failure(.activeSamplerSchemaInvalid, slot: binding.slot)
             }
@@ -246,7 +282,7 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                 selectedPurpose,
                 provenance
             ) =
-                    shader.selections[binding.slot] else {
+                    selections[binding.slot] else {
                 throw failure(.textureBindingInvalid, slot: binding.slot)
             }
             guard let purpose = sampler.purpose(for: reference) else {

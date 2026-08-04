@@ -102,17 +102,17 @@ class SceneUtilityLayerTests(unittest.TestCase):
         runtime_plan = RUNTIME_PLAN_SOURCE.read_text(encoding="utf-8")
         self.assertIn("supportsCompleteAuthoredCapture", runtime_plan)
         self.assertIn(
-            "chain.stages.count == visible.count",
+            "chain.executionStages.count == visible.count",
             runtime_plan,
             "utility capture must not silently truncate a visible effect suffix",
         )
         self.assertIn(
-            "chain.stages.count == chain.renderGraph.effects.count",
+            "chain.executionStages.count == chain.renderGraph.effects.count",
             runtime_plan,
             "utility capture must represent the complete authored graph",
         )
         self.assertIn(
-            "chain.stages.allSatisfy(\\.supportsUtilityCapture)",
+            "chain.executionStages.allSatisfy(\\.supportsUtilityCapture)",
             runtime_plan,
             "every stage must explicitly admit utility capture",
         )
@@ -179,6 +179,38 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertIn("audioSpectrum: SceneAudioSpectrumSnapshot", utility_renderer)
         self.assertIn("audioSpectrum: audioSpectrum", utility_renderer)
         self.assertIn("audioSpectrum: frameContext.audioSpectrum", metal_renderer)
+
+    def test_utility_authored_telemetry_follows_compositor_route_selection(self) -> None:
+        utility_renderer = UTILITY_RENDERER_SOURCE.read_text(encoding="utf-8")
+        frame_renderer = UTILITY_FRAME_RENDERER_SOURCE.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "onLegacyAuthoredRouteSelected: (() -> Void)? = nil",
+            utility_renderer,
+        )
+        self.assertIn(
+            "onLegacyAuthoredRouteSelected: onLegacyAuthoredRouteSelected",
+            utility_renderer,
+        )
+        route_flag = frame_renderer.index(
+            "var selectedLegacyAuthoredRoute = false"
+        )
+        callback = frame_renderer.index(
+            "onLegacyAuthoredRouteSelected:",
+            route_flag,
+        )
+        guard = frame_renderer.index(
+            "if selectedLegacyAuthoredRoute {",
+            callback,
+        )
+        record = frame_renderer.index(
+            "authoredEffectTelemetry.record(",
+            guard,
+        )
+        self.assertLess(route_flag, callback)
+        self.assertLess(callback, guard)
+        self.assertLess(guard, record)
+        self.assertNotIn("if authoredEffectChain != nil", frame_renderer)
 
     def test_composition_capture_receives_named_dependency_atomically(self) -> None:
         runtime_plan = RUNTIME_PLAN_SOURCE.read_text(encoding="utf-8")

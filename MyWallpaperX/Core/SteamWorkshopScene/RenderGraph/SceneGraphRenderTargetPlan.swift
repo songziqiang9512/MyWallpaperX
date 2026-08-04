@@ -32,6 +32,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         let identity: Graph.TextureIdentity
         let extent: PixelExtent
         let format: TextureFormat
+        let isUnique: Bool
         let lifetime: Lifetime
         let initialClear: ClearColor?
     }
@@ -69,7 +70,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
     let logicalTargets: [LogicalTarget]
     let commands: [Command]
 
-    init(
+    private init(
         layerID: Int,
         input: Graph.TextureIdentity,
         output: Graph.TextureIdentity,
@@ -87,35 +88,92 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         self.commands = commands
     }
 
+#if SCENE_GRAPH_TESTING
+    static func testingPlan(
+        layerID: Int,
+        input: Graph.TextureIdentity,
+        output: Graph.TextureIdentity,
+        inputRole: SceneAuthoredEffectInputRole = .layerSource,
+        inputExtent: PixelExtent,
+        logicalTargets: [LogicalTarget],
+        commands: [Command] = []
+    ) -> Self {
+        Self(
+            layerID: layerID,
+            input: input,
+            output: output,
+            inputRole: inputRole,
+            inputExtent: inputExtent,
+            logicalTargets: logicalTargets,
+            commands: commands
+        )
+    }
+#endif
+
     static func make(
         executionPlan: SceneAuthoredEffectExecutionPlan,
         graph: Graph,
         inputWidth: Int,
         inputHeight: Int
     ) -> Result<Self, Failure> {
+        let materialNodeCount = graph.nodes.filter { $0.kind == .material }.count
+        guard executionPlan.layerID == graph.layerID,
+              executionPlan.materialNodeCount == materialNodeCount,
+              executionPlan.logicalRenderTargetCount == graph.renderTargets.count else {
+            return .failure(.executionMismatch)
+        }
+        return makeValidated(
+            graph: graph,
+            inputRole: executionPlan.inputRole,
+            inputWidth: inputWidth,
+            inputHeight: inputHeight,
+            legacyExecutionPlan: executionPlan
+        )
+    }
+
+    /// R4 entry point for one immutable condition-pruned authored graph.
+    /// Dedicated backends are not consulted for target or history semantics.
+    static func make(
+        graph: Graph,
+        inputRole: SceneAuthoredEffectInputRole,
+        inputWidth: Int,
+        inputHeight: Int
+    ) -> Result<Self, Failure> {
+        makeValidated(
+            graph: graph,
+            inputRole: inputRole,
+            inputWidth: inputWidth,
+            inputHeight: inputHeight,
+            legacyExecutionPlan: nil
+        )
+    }
+
+    private static func makeValidated(
+        graph: Graph,
+        inputRole: SceneAuthoredEffectInputRole,
+        inputWidth: Int,
+        inputHeight: Int,
+        legacyExecutionPlan: SceneAuthoredEffectExecutionPlan?
+    ) -> Result<Self, Failure> {
         guard inputWidth > 0, inputHeight > 0 else {
             return .failure(.invalidInputExtent)
         }
-        let materialNodeCount = graph.nodes.filter { $0.kind == .material }.count
-        guard executionPlan.layerID == graph.layerID,
-              graph.blockers.isEmpty,
+        guard graph.blockers.isEmpty,
               graph.effects.count == 1,
-              executionPlan.materialNodeCount == materialNodeCount,
-              executionPlan.logicalRenderTargetCount == graph.renderTargets.count,
               let effect = graph.effects.first,
               effect.nodeIndices == graph.nodes.map(\.nodeIndex),
               graph.finalOutput == effect.output else {
             return .failure(.executionMismatch)
         }
         guard validEffectKey(effect.key, layerID: graph.layerID),
-              let inputRole = SceneAuthoredEffectInputValidator.role(
+              let resolvedInputRole = SceneAuthoredEffectInputValidator.role(
                 for: effect.input,
                 layerID: graph.layerID
               ),
               validOutput(effect.output, effect: effect.key, layerID: graph.layerID) else {
             return .failure(.incompleteIdentity)
         }
-        guard inputRole == executionPlan.inputRole else {
+        guard resolvedInputRole == inputRole else {
             return .failure(.executionMismatch)
         }
 
@@ -133,19 +191,50 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             }
         }
 
+        var descriptors: [Graph.TextureIdentity: TargetDescriptor] = [:]
+        descriptors.reserveCapacity(graph.renderTargets.count)
+        for target in graph.renderTargets {
+            guard let descriptor = targetDescriptor(
+                target,
+                inputWidth: inputWidth,
+                inputHeight: inputHeight
+            ) else {
+                return .failure(.unsupportedTargetDescriptor)
+            }
+            descriptors[target.texture] = descriptor
+        }
+
         var firstReads: [Graph.TextureIdentity: Int] = [:]
         var lastReads: [Graph.TextureIdentity: Int] = [:]
         var firstWrites: [Graph.TextureIdentity: Int] = [:]
         var lastWrites: [Graph.TextureIdentity: Int] = [:]
         var historySeedTargets = Set<Graph.TextureIdentity>()
         var outputWriteCount = 0
+        var outputComposeFlags: [Bool] = []
         var previousNodeIndex: Int?
         var commands: [Command] = []
 
+        func permitsFirstRead(_ identity: Graph.TextureIdentity) -> Bool {
+            guard let descriptor = descriptors[identity] else { return false }
+            return descriptor.initialClear != nil || permitsHistorySeed(
+                identity,
+                legacyExecutionPlan: legacyExecutionPlan,
+                declarations: declarations
+            )
+        }
+
         for node in graph.nodes {
             guard node.effect == effect.key,
-                  node.compose == nil,
                   node.conditions == nil else {
+                return .failure(.executionMismatch)
+            }
+            let composes: Bool
+            switch node.compose {
+            case nil, .some(.bool(false)): composes = false
+            case .some(.bool(true)): composes = true
+            default: return .failure(.executionMismatch)
+            }
+            if composes, legacyExecutionPlan != nil {
                 return .failure(.executionMismatch)
             }
             if let previousNodeIndex, node.nodeIndex <= previousNodeIndex {
@@ -170,21 +259,10 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
                             return .failure(.invalidAccess)
                         }
                         if firstWrites[binding.texture] == nil {
-                            guard permitsHistorySeed(
-                                binding.texture,
-                                executionPlan: executionPlan,
-                                declarations: declarations
-                            ) else {
+                            guard permitsFirstRead(binding.texture) else {
                                 return .failure(.historyRequired)
                             }
                             historySeedTargets.insert(binding.texture)
-                        }
-                        guard permitsHistorySeed(
-                            binding.texture,
-                            executionPlan: executionPlan,
-                            declarations: declarations
-                        ) || firstWrites[binding.texture] != nil else {
-                            return .failure(.historyRequired)
                         }
                         firstReads[binding.texture] =
                             firstReads[binding.texture] ?? node.nodeIndex
@@ -200,7 +278,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
 
                 switch target.kind {
                 case .framebuffer:
-                    guard declarations[target] != nil else {
+                    guard !composes, declarations[target] != nil else {
                         return .failure(.invalidAccess)
                     }
                     firstWrites[target] = firstWrites[target] ?? node.nodeIndex
@@ -210,11 +288,13 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
                         return .failure(.invalidAccess)
                     }
                     outputWriteCount += 1
+                    outputComposeFlags.append(composes)
                 case .layerSource, .unresolved:
                     return .failure(.invalidAccess)
                 }
             case .copy, .swap:
-                guard node.target == nil,
+                guard !composes,
+                      node.target == nil,
                       node.bindings.isEmpty,
                       node.materialOrdinal == nil,
                       node.instancePassIndex == nil,
@@ -223,30 +303,21 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
                       let source = node.commandSource,
                       let target = node.commandTarget,
                       source != target,
-                      let sourceDeclaration = declarations[source],
-                      let targetDeclaration = declarations[target] else {
+                      declarations[source] != nil,
+                      declarations[target] != nil else {
                     return .failure(.invalidAccess)
                 }
-                guard let sourceDescriptor = targetDescriptor(
-                    sourceDeclaration,
-                    inputWidth: inputWidth,
-                    inputHeight: inputHeight
-                ), let targetDescriptor = targetDescriptor(
-                    targetDeclaration,
-                    inputWidth: inputWidth,
-                    inputHeight: inputHeight
-                ), sourceDescriptor == targetDescriptor else {
+                guard let sourceDescriptor = descriptors[source],
+                      let targetDescriptor = descriptors[target],
+                      sourceDescriptor.storageCompatible(with: targetDescriptor),
+                      node.kind != .swap || sourceDescriptor == targetDescriptor else {
                     return .failure(.unsupportedTargetDescriptor)
                 }
                 if firstWrites[source] == nil {
-                    guard declarations[source]?.declaredUnique == true else {
+                    guard permitsFirstRead(source) else {
                         return .failure(.historyRequired)
                     }
                     historySeedTargets.insert(source)
-                }
-                guard declarations[source]?.declaredUnique == true
-                    || firstWrites[source] != nil else {
-                    return .failure(.historyRequired)
                 }
                 firstReads[source] = firstReads[source] ?? node.nodeIndex
                 lastReads[source] = node.nodeIndex
@@ -254,14 +325,10 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
                 let commandKind: CommandKind
                 if node.kind == .swap {
                     if firstWrites[target] == nil {
-                        guard declarations[target]?.declaredUnique == true else {
+                        guard permitsFirstRead(target) else {
                             return .failure(.historyRequired)
                         }
                         historySeedTargets.insert(target)
-                    }
-                    guard declarations[target]?.declaredUnique == true
-                        || firstWrites[target] != nil else {
-                        return .failure(.historyRequired)
                     }
                     firstReads[target] = firstReads[target] ?? node.nodeIndex
                     lastReads[target] = node.nodeIndex
@@ -284,7 +351,11 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             }
         }
 
-        guard outputWriteCount == 1 else { return .failure(.missingOutput) }
+        guard outputWriteCount == outputComposeFlags.count,
+              outputComposeFlags.last == false,
+              outputComposeFlags.dropLast().allSatisfy({ $0 }) else {
+            return .failure(.missingOutput)
+        }
         var targets: [LogicalTarget] = []
         targets.reserveCapacity(graph.renderTargets.count)
         for target in graph.renderTargets {
@@ -292,11 +363,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
                   let lastWrite = lastWrites[target.texture] else {
                 return .failure(.unwrittenTarget)
             }
-            guard let descriptor = targetDescriptor(
-                target,
-                inputWidth: inputWidth,
-                inputHeight: inputHeight
-            ) else {
+            guard let descriptor = descriptors[target.texture] else {
                 return .failure(.unsupportedTargetDescriptor)
             }
             var lifetime = Lifetime(
@@ -310,6 +377,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
                 identity: target.texture,
                 extent: descriptor.extent,
                 format: descriptor.format,
+                isUnique: descriptor.isUnique,
                 lifetime: lifetime,
                 initialClear: descriptor.initialClear
             ))
@@ -326,74 +394,4 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         ))
     }
 
-    private struct TargetDescriptor: Equatable {
-        let extent: PixelExtent
-        let format: TextureFormat
-        let initialClear: ClearColor?
-    }
-
-    private static func targetDescriptor(
-        _ target: Graph.RenderTarget,
-        inputWidth: Int,
-        inputHeight: Int
-    ) -> TargetDescriptor? {
-        guard let extent = pixelExtent(
-            target.extent,
-            inputWidth: inputWidth,
-            inputHeight: inputHeight
-        ), let format = textureFormat(target.format),
-              target.uvs == nil,
-              target.conditions == nil else {
-            return nil
-        }
-        let initialClear: ClearColor?
-        if let authoredClear = target.clear {
-            guard let zeroClear = zeroClear(authoredClear) else { return nil }
-            initialClear = zeroClear
-        } else {
-            initialClear = nil
-        }
-        return TargetDescriptor(
-            extent: extent,
-            format: format,
-            initialClear: initialClear
-        )
-    }
-
-    private static func textureFormat(_ authored: String?) -> TextureFormat? {
-        switch authored?.lowercased() {
-        case "rgba_backbuffer":
-            return .rgbaBackbuffer
-        case "rgba8888":
-            return .rgba8888
-        default:
-            return nil
-        }
-    }
-
-    private static func validEffectKey(_ key: Graph.EffectKey, layerID: Int) -> Bool {
-        key.layerID == layerID && key.effectIndex >= 0 && !key.descriptorID.isEmpty
-    }
-
-    private static func validOutput(
-        _ identity: Graph.TextureIdentity,
-        effect: Graph.EffectKey,
-        layerID: Int
-    ) -> Bool {
-        identity.kind == .effectOutput
-            && identity.layerID == layerID
-            && identity.effect == effect
-            && identity.name == nil
-    }
-
-    private static func validTargetIdentity(
-        _ identity: Graph.TextureIdentity,
-        effect: Graph.EffectKey,
-        layerID: Int
-    ) -> Bool {
-        identity.kind == .framebuffer
-            && identity.layerID == layerID
-            && identity.effect == effect
-            && identity.name?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-    }
 }

@@ -103,8 +103,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
         guard let node = nodesByIndex[material.nodeIndex]?.first,
               let owner = owners[material.nodeIndex],
               let effect = effectsByKey[owner]?.first,
-              node.kind == .material,
-              node.instancePassIndex != nil
+              node.kind == .material
         else { throw graphFailure("material-node-invalid") }
         return .init(node: node, effect: effect, textureUniverse: universe)
     }
@@ -204,7 +203,6 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
     private static func uniformDeclarations(
         _ material: SceneResolvedMaterialNode, node: Graph.Node
     ) throws -> UniformProjection {
-        guard let passIndex = node.instancePassIndex else { throw graphFailure("pass-missing") }
         let names = Set(material.constants.keys).union(material.userShaderValues.keys).sorted()
         var values: [Template.UniformDeclaration] = []
         var diagnostics: [Template.DiagnosticProvenance.UniformSource] = []
@@ -234,6 +232,8 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
             if dynamic.valueContributors.isEmpty && dynamic.controlAttachments.isEmpty {
                 value = .staticExact(fallback!)
             } else {
+                guard let passIndex = node.instancePassIndex
+                else { throw graphFailure("pass-missing-for-dynamic-uniform") }
                 value = .dynamic(.init(
                     target: .effectConstant(
                         layerID: node.effect.layerID,

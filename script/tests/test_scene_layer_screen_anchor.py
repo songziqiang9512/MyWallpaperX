@@ -22,6 +22,9 @@ SWIFT_SOURCES = [
 ]
 TRANSFORMS_SOURCE = SCENE_ROOT / "Rendering/SceneMetalRenderer+LayerTransforms.swift"
 RENDERER_SOURCE = SCENE_ROOT / "Rendering/SceneMetalRenderer.swift"
+EFFECT_EXECUTION_SOURCE = (
+    SCENE_ROOT / "Rendering/SceneMetalRenderer+EffectExecution.swift"
+)
 UTILITY_FRAME_RENDERER_SOURCE = (
     SCENE_ROOT / "Rendering/SceneUtilityPlanFrameRenderer.swift"
 )
@@ -413,10 +416,12 @@ class SceneLayerScreenAnchorTests(unittest.TestCase):
         ))
         # 三个 imageModelMatrix 调用点都要喂真实的 cover 半宽高。
         renderer = RENDERER_SOURCE.read_text(encoding="utf-8")
+        effect_execution = EFFECT_EXECUTION_SOURCE.read_text(encoding="utf-8")
         utility_frame_renderer = UTILITY_FRAME_RENDERER_SOURCE.read_text(
             encoding="utf-8"
         )
-        self.assertIn("SceneUtilityPlanFrameRenderer.render(", renderer)
+        self.assertIn("renderUtilityPlans(", renderer)
+        self.assertIn("SceneUtilityPlanFrameRenderer.render(", effect_execution)
         self.assertEqual(renderer.count("imageModelMatrix("), 2)
         self.assertEqual(utility_frame_renderer.count("imageModelMatrix("), 1)
         self.assertEqual(

@@ -470,11 +470,14 @@ class SceneFrameContextTests(unittest.TestCase):
         )
 
         rebuild = swift_body(
-            host, "private func rebuildSurfaces(resetClock: Bool = false) -> Bool"
+            host, "private func rebuildSurfaces("
         )
         self.assertIn("startFrameDriver()", rebuild)
         self.assertNotIn("setPlaybackPaused(false)", rebuild)
         self.assertNotIn("sceneClock.resume(hostTime:", rebuild)
+        self.assertIn("let remainsPaused = sceneClock.isPaused", rebuild)
+        self.assertIn("if remainsPaused {", rebuild)
+        self.assertIn("sceneClock.pause(hostTime: hostTime)", rebuild)
 
     def test_global_playback_control_delegates_active_scene_state(self) -> None:
         playback_control = PLAYBACK_CONTROL_SOURCE.read_text(encoding="utf-8")

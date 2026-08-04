@@ -176,7 +176,10 @@ final class SceneSpriteFrameSubmissionTracker {
     }
 
     func complete(_ token: Token, succeeded: Bool) {
-        guard !succeeded else { return }
+        if !succeeded { cancel(token) }
+    }
+
+    func cancel(_ token: Token) {
         lock.lock()
         defer { lock.unlock() }
         if latest?.id == token.id {
@@ -226,7 +229,12 @@ final class SceneMultiImageSpritePlayback: SceneSpriteTexturePlayback {
         }
     }
 
-    func encode(sceneTime: Float, wallDate: Date, commandBuffer: MTLCommandBuffer) {
+    func encode(
+        sceneTime: Float,
+        wallDate: Date,
+        commandBuffer: MTLCommandBuffer,
+        transaction: SceneSourceUpdateTransaction
+    ) {
         let frameIndex = playbackClock?.frameIndex(
             at: sceneTime,
             wallDate: wallDate
@@ -250,6 +258,9 @@ final class SceneMultiImageSpritePlayback: SceneSpriteTexturePlayback {
             sourceTexture: textureSet.textures[frame.imageIndex],
             destinationTexture: texture
         )
+        transaction.registerRollback { [weak self] in
+            self?.submissionTracker.cancel(submission)
+        }
         commandBuffer.addCompletedHandler { [weak self] completed in
             self?.submissionTracker.complete(
                 submission,

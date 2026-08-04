@@ -139,11 +139,8 @@ EffectDefinition
     source?
     target?
     conditions?
-  functions[]?
-    action
-    repeat?
-    index?
-    conditions?
+  functions{}? (named registry)
+    <name> { action, fbos[] }
   gizmos? / extraFields
   unknownFieldPaths[]
 ```
@@ -152,7 +149,7 @@ EffectDefinition
 
 `Almamu/linux-wallpaperengine` 的 `EffectParser.cpp:19-114` 可交叉确认 `name/description/group/preview`、dependencies、ordered passes、material/bind/command/source/target，以及 FBO `name/format/scale/unique` 这一通用子集。它不解析 `compose`、conditions、functions、gizmos、clear、fit、absolute extent 或 UV；这些扩展字段仍来自合法样本/WE-compatible assets 的 B/C 级观察，不能因第三方 parser 缺失而从 IR 删除。该源码树也不附带 stock effect definitions，因此不能校验每个 effect 的具体参数和 pass 数。
 
-Wallpaper Engine 2.8.42 的 64 位官方客户端静态 parser 进一步确认：FBO 集中读取 `format/scale/width/height/fit/unique/clear/uvs`，pass 集中读取 `conditions/command/source/target/compose/material`，function 集中读取 `action/repeat/index/conditions`，并区分 `rgb_backbuffer/rgba_backbuffer`。condition 在对应 FBO、pass 或 function 纳入结构前求值；`command` 与可选 `source/target` 保持独立字段；`compose:true` 设置独立状态并增加 compose 参与计数。
+Wallpaper Engine 2.8.42 的 64 位官方客户端静态 parser 进一步确认：FBO 集中读取 `conditions/format/scale/width/height/fit/unique/clear/uvs`，pass 集中读取 `conditions/command/source/target/compose/material`，pass 内 material 引用另带 `index/conditions`，definition function 则按名称读取 `action/fbos`，并区分 `rgb_backbuffer/rgba_backbuffer`。`repeat` 是已观察的 FBO `uvs` 取值，不是 function 字段。condition 在对应 FBO、pass 或 material 引用纳入结构前求值；`command` 与可选 `source/target` 保持独立字段；`compose:true` 设置独立状态并增加 compose 参与计数。
 
 后续 resource prepare/executor 静态链补足了实现形状：缺省 FBO extent 来自 layer，显式 `width/height` 覆盖，`fit` 保持比例限制长边，`scale` 再作为 allocation divisor；非-unique FBO 走 name/extent/format cache key，`unique:true` 把 effect identity 纳入 key。四分量 `clear` 在 create/resize prepare 后执行，不是 frame executor 的逐帧 clear；`uvs:"repeat"` 会改变底层创建 policy，但 exact sampler address mode 仍未闭合。ordinary/copy/swap 为不同节点路径，swap 改写后续 logical index，effect resize/reprepare 不复位 mapping、effect reparse 才复位；compose 在 pass 后推进 layer-local full-frame pair。copy 的 exact pixel primitive、ambient-input/alias 结果、clear 的颜色解释和 device-loss history 仍未知，方法与限制见 [官方客户端运行机制静态取证](client-runtime-static-forensics.md)。
 
@@ -168,13 +165,13 @@ pass 顺序是执行合同。典型类型：
 
 - 单 pass：source + optional mask -> output；
 - ping-pong：downsample -> horizontal -> vertical -> combine；
-- scene compose：先捕获该 layer 后方场景，再执行折射/混合；
+- layer-local compose：先把 layer 自身的 base content 写入双缓冲 current，再按 ordinary pass/effect boundary 推进 current；需要 scene background 的效果必须由独立 provider 显式满足；
 - stateful：本帧输入 + history RT -> 新 history -> final combine；
 - command：显式 copy source -> target 或 swap 资源 identity/handle，不运行 material shader，也不消耗 material ordinal。
 
 ### 5.3 `previous` 不是“当前屏幕”
 
-在观察到的内置定义中，`previous` 是当前 effect 开始前的固定输入：同一 effect 内所有引用都解析为同一 identity，不是“上一 pass 的 target”；只有整个 effect 完成后，effect chain 的输入才前进到该 effect 输出。它与以下资源都不同：
+`previous` 不是“已经画到屏幕上的内容”，也不是任意上一 pass 的 target。2.8.42 的逐 pass 路径表明它读取 layer-local pair 在该 pass 执行时的 current：没有 raw compose 时，同一 effect 内 current 不变，因此所有 `previous` 都仍是 effect-start input；某个 ordinary `compose:true` pass 成功后 current 才推进，后续 pass 的 `previous` 随即读取新成员；effect boundary 再把最终 output 交给下一 effect。它与以下资源都不同：
 
 - 原始、未处理的 layer texture；
 - 已经绘制到 Scene 的下方背景；
@@ -187,9 +184,11 @@ pass 顺序是执行合同。典型类型：
 
 ### 5.4 `compose`
 
-官方 Refraction 行为明确需要先捕获 layer 后面的场景，再用 normal map 折射；但私有 definition 中 raw `compose:true` 是否在所有 effect 上都等价于这一输入，当前证据不足。v16 保留 raw compose 并阻断通用执行，不能仅看到 `compose:true` 就绑定 scene background；经逐 definition 验证后再映射具体 provider。
+官方 Refraction 的视觉语义可能另需 scene background，但 raw `compose:true` 本身不创建或选择该 provider。2.8.42 的有界执行链确认它是 layer-local 双缓冲调度标记：至少一个 effect active 时，layer 按 active effect 与已纳入 compose transition 的总数选择初始 current，把 layer 自身的 base content 只渲染一次到该成员；每个 effect 写另一成员，并在 effect 边界把 effect output 交给下一个 effect。
 
-官方客户端 parser 证明 `compose` 是独立状态而非 material 名称的别名，并维护 compose 参与计数。executor 进一步确认：标记 pass 执行完成后，外层按 authored 顺序推进 full-frame 输出对的当前 identity，因此 compose 至少是明确的 composition/ping-pong boundary。它仍没有给出被捕获的 scene 对象、捕获发生时点、clear/alias 或多 compose 节点的像素语义。
+raw 标记只附着在 ordinary material pass。该 pass 的缺省/负 full-frame 输入读取当时的 current；只有 pass 实际执行后才在同一 effect 内把 current 推进到刚写入成员，下一 pass 随即观察新内容。condition-false 结构在 pass vector/count 形成前已被排除，copy/swap/function 也不会推进 pair。链结束后最终 current 进入 layer final-output 与普通 compositor 路径。`_rt_FullFrameBuffer` 受另一 effect flag 控制，不能因看到 raw compose 就绑定 scene background。
+
+项目的通用实现因此应表达“base capture 一次 + effect boundary + compose ordinary-pass boundary + final publication”的 typed transaction，而不是为 Refraction 或某个样本建立专用背景抓取。clear/alias 的 exact 像素语义、独立 ambient flag 的作者含义与跨版本差异仍保持 fail closed。
 
 ### 5.5 copy 与 swap
 
@@ -209,9 +208,15 @@ Motion Blur 等定义含显式 `copy source -> target`，Fluid Simulation 定义
 2.8.42 客户端的 Ghidra 静态执行路径确认，condition 在受影响 pass/FBO/bind 纳入执行图之前求值。目标执行合同：
 
 - 不满足条件的节点不分配 RT、不构建 material，也不留下部分 texture binding；
-- 运算符集合以 [客户端 changelog 取证](client-changelog-forensics.md) 的版本事实为入口，避免在多份文档重复名单；
-- 缺值、类型转换、相等比较与跨版本默认仍是 unknown，未经 fixture 不猜测；
+- 合法 condition 以 array 保存；元素 object 的 key 是 combo identity，value 可为直接数值相等比较，或带数值和 `ge/gt/le/lt` 的比较 object；有效条目共同决定准入；
+- 缺少 combo key 时 2.8.42 的数值入口取零，但非 array、非 object、错误类型和跨版本默认不是可复制的宽松合同，项目必须在 typed AST admission 时 fail closed；
 - condition 改变时，graph identity、resource allocation 与输出切换必须是同一事务。
+
+### 5.7 Definition function 与 shader `[PASS]` 不是 graph pass
+
+definition function 是按名称登记的显式调用目标，不是逐帧自动 command。当前闭合的 action 只有 `clear`：parser 把 `fbos` 名称解析为已有 target identity，运行时收到 function 名称后按声明顺序逐个激活、clear、恢复。没有证据把它自动绑定到 create、resize、frame 或 compose；未解析 action/target 继续 fail closed。
+
+shader `// [PASS]` 又属于 shader frontend metadata，不占 effect material ordinal。2.8.42 当前能验证的 token 只有 `shadow`，并与 3D shadow-caster 路径对应；官方 [Shader Variables](https://docs.wallpaperengine.io/en/scene/shader/variables.html) 只公开 `[COMBO]`，没有公开任意 `[PASS]` token 或 2D schedule。R4 2D material executor 因此只保真携带 metadata，遇到 active `[PASS]` 时拒绝执行，不能把它猜成额外 ordinary draw。
 
 ## 6. Render target 与生命周期
 

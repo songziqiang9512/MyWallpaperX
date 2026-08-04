@@ -54,7 +54,7 @@ nonisolated struct SceneEffectStageProgram {
         self.executionPlan = executionPlan
     }
 
-    private nonisolated static func graphsMatch(
+    nonisolated static func graphsMatch(
         _ lhs: SceneAuthoredEffectRenderPlan,
         _ rhs: SceneAuthoredEffectRenderPlan
     ) -> Bool {

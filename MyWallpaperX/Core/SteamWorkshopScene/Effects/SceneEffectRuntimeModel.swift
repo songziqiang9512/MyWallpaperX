@@ -7,6 +7,11 @@ struct SceneLayerEffectInputs {
     let params2: SIMD4<Float>
     let params3: SIMD4<Float>
     let params4: SIMD4<Float>
+
+    static let neutral = Self(
+        flags: [], params0: .zero, params1: .zero, params2: .zero,
+        params3: .zero, params4: .zero
+    )
 }
 
 struct SceneBloomPlan {
@@ -27,4 +32,16 @@ struct SceneEffectRuntimePlan {
     let perspectiveOpacity: ScenePerspectiveOpacityPlan?
     let offscreenPassCount: Int
     let skipsUnsupportedComposite: Bool
+
+    static let neutral = Self(
+        inputs: .neutral,
+        gaussianBlur: nil,
+        standardBlur: nil,
+        bloom: nil,
+        gradientColor: nil,
+        waterRippleNormal: nil,
+        perspectiveOpacity: nil,
+        offscreenPassCount: 0,
+        skipsUnsupportedComposite: false
+    )
 }

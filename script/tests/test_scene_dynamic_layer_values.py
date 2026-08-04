@@ -15,10 +15,16 @@ SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 DYNAMIC_SOURCE = SCENE_ROOT / "Properties/SceneDynamicSnapshot.swift"
 LAYER_VALUES_SOURCE = SCENE_ROOT / "Properties/SceneDynamicLayerValues.swift"
 RENDERER_SOURCE = SCENE_ROOT / "Rendering/SceneMetalRenderer.swift"
+EFFECT_EXECUTION_SOURCE = (
+    SCENE_ROOT / "Rendering/SceneMetalRenderer+EffectExecution.swift"
+)
 UTILITY_FRAME_RENDERER_SOURCE = (
     SCENE_ROOT / "Rendering/SceneUtilityPlanFrameRenderer.swift"
 )
 COMPOSITOR_SOURCE = SCENE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
+COMPOSITOR_UNIFORMS_SOURCE = (
+    SCENE_ROOT / "Rendering/SceneImageLayerCompositor+Uniforms.swift"
+)
 UTILITY_SOURCE = SCENE_ROOT / "Rendering/SceneUtilityLayerRenderer.swift"
 
 HARNESS = r'''
@@ -201,18 +207,20 @@ class SceneDynamicLayerValuesTests(unittest.TestCase):
         utility_frame_renderer = UTILITY_FRAME_RENDERER_SOURCE.read_text(
             encoding="utf-8"
         )
+        effect_execution = EFFECT_EXECUTION_SOURCE.read_text(encoding="utf-8")
         image_case = renderer.split('case "image", "solid", "text":', 1)[1].split(
             'case "composition", "project", "fullscreen":', 1
         )[0]
         _, particle_tail = renderer.split(
             'case "composition", "project", "fullscreen":', 1
         )[1].split('case "particle":', 1)
-        utility_dispatch = renderer.split("private func renderUtilityPlans(", 1)[1]
+        utility_dispatch = effect_execution.split("func renderUtilityPlans(", 1)[1]
         particle_case = particle_tail.split("default:", 1)[0]
         self.assertIn("SceneDynamicLayerValues.alpha(", image_case)
         self.assertIn("SceneDynamicLayerValues.color(", image_case)
         self.assertIn("snapshot: frameContext.dynamicValues", image_case)
         self.assertIn("alpha: layerAlpha", image_case)
+        self.assertIn("renderUtilityPlans(", renderer)
         self.assertIn("SceneUtilityPlanFrameRenderer.render(", utility_dispatch)
         self.assertIn("SceneDynamicLayerValues.alpha(", utility_frame_renderer)
         self.assertIn(
@@ -227,14 +235,13 @@ class SceneDynamicLayerValuesTests(unittest.TestCase):
         self.assertNotIn("Float(layer.alpha ?? 1)", renderer)
         self.assertNotIn("Float(layer.alpha ?? 1)", utility_frame_renderer)
 
-        compositor = COMPOSITOR_SOURCE.read_text(encoding="utf-8")
-        self.assertIn(
-            'request.layer.contentKind == "image" || request.layer.contentKind == "solid"',
-            compositor,
-        )
+        compositor_uniforms = COMPOSITOR_UNIFORMS_SOURCE.read_text(encoding="utf-8")
         self.assertRegex(
-            compositor,
-            r"baseTint\s*=\s*usesAuthoredColor\s*\?\s*request\.uniforms\.tint"
+            compositor_uniforms,
+            r'usesAuthoredColor[\s\S]{0,80}request\.layer\.contentKind == "image"'
+            r'[\s\S]{0,100}request\.layer\.contentKind == "solid"'
+            r"[\s\S]{0,100}tint\s*=\s*usesAuthoredColor"
+            r"\s*\?\s*request\.uniforms\.tint"
             r"\s*:\s*SIMD3<Float>\(repeating:\s*1\)",
         )
 

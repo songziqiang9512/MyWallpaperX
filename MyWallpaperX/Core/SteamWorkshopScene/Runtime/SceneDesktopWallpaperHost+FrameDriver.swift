@@ -2,6 +2,44 @@ import AppKit
 import QuartzCore
 
 extension SceneDesktopWallpaperHost {
+    func teardownSurfaces(
+        clearContext: Bool,
+        reason: SceneGraphExecutionResetReason
+    ) {
+#if DEBUG
+        if Self.usesDebugEvidenceWindow, launchContext != nil {
+            NSLog(
+                "MWX DEBUG SCENE: phase=surface-teardown clearContext=%@ timer=%@ surfaces=%d",
+                clearContext ? "true" : "false",
+                frameTimer?.isValid == true ? "active" : "inactive",
+                surfaces.count
+            )
+        }
+#endif
+        if clearContext {
+            screenReconciliationWorkItem?.cancel()
+            screenReconciliationWorkItem = nil
+            screenTopology = []
+        }
+        frameTimer?.invalidate()
+        frameTimer = nil
+        for surface in surfaces.values {
+            surface.metalView.invalidateResolvedMaterialRuntime(reason: reason)
+            surface.window.orderOut(nil)
+            surface.window.close()
+        }
+        surfaces.removeAll()
+        if clearContext {
+            SceneAudioSpectrumInbox.shared.setDemand(false)
+            videoTextureSourceRegistry?.stop()
+            videoTextureSourceRegistry = nil
+            launchContext = nil
+#if DEBUG
+            debugPointerOverride = nil
+#endif
+        }
+    }
+
     func startFrameDriver() {
         frameTimer?.invalidate()
 #if DEBUG
@@ -75,6 +113,9 @@ extension SceneDesktopWallpaperHost {
             wallDate: timing.wallDate
         )
         for surface in surfaces.values {
+            guard !surface.metalView.shouldDeferResolvedMaterialFrame else {
+                continue
+            }
 #if DEBUG
             let mainFrameStart = ProcessInfo.processInfo.systemUptime
 #endif

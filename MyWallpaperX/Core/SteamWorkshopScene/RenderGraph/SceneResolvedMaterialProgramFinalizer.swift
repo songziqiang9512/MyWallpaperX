@@ -8,6 +8,8 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
     fileprivate let dynamicSnapshot: SceneDynamicSnapshot
     fileprivate let frameInputs: SceneAuthoredShaderFrameInputs
 
+    var frameIndex: UInt64 { frameInputs.frameIndex }
+
     static func validated(
         textureSnapshot: SceneFrameTextureRegistrySnapshot,
         dynamicSnapshot: SceneDynamicSnapshot,
@@ -30,14 +32,41 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
     func finalizationInput(
         template: SceneResolvedMaterialTemplate,
         renderSize: CGSize,
-        modelViewProjection: simd_float4x4
+        modelViewProjection: simd_float4x4,
+        implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity? = nil
     ) -> SceneResolvedMaterialFinalizationInput {
         .init(
             template: template,
             frameSnapshot: self,
             renderSize: renderSize,
-            modelViewProjection: modelViewProjection
+            modelViewProjection: modelViewProjection,
+            implicitFramebufferIdentity: implicitFramebufferIdentity
         )
+    }
+
+    func replacingTextureSnapshot(
+        _ replacement: SceneFrameTextureRegistrySnapshot
+    ) -> Self? {
+        guard replacement.frameEpoch == textureSnapshot.frameEpoch,
+              replacement.frameIndex == textureSnapshot.frameIndex else {
+            return nil
+        }
+        return .init(
+            textureSnapshot: replacement,
+            dynamicSnapshot: dynamicSnapshot,
+            frameInputs: frameInputs
+        )
+    }
+
+    func overlayingGraphResources(
+        _ resources: [
+            SceneAuthoredEffectRenderPlan.TextureIdentity: SceneFrameTextureResource
+        ]
+    ) -> Self? {
+        guard let replacement = textureSnapshot.overlayingGraphResources(resources) else {
+            return nil
+        }
+        return replacingTextureSnapshot(replacement)
     }
 }
 
@@ -46,6 +75,9 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
     fileprivate let frameSnapshot: SceneResolvedMaterialFrameSnapshot
     let renderSize: CGSize
     let modelViewProjection: simd_float4x4
+    /// Current full-frame graph input for shader samplers that explicitly
+    /// declare `material: "framebuffer"` without an authored texture binding.
+    let implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity?
 
     var textureSnapshot: SceneFrameTextureRegistrySnapshot {
         frameSnapshot.textureSnapshot
@@ -82,12 +114,14 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
         template: SceneResolvedMaterialTemplate,
         frameSnapshot: SceneResolvedMaterialFrameSnapshot,
         renderSize: CGSize,
-        modelViewProjection: simd_float4x4
+        modelViewProjection: simd_float4x4,
+        implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity?
     ) {
         self.template = template
         self.frameSnapshot = frameSnapshot
         self.renderSize = renderSize
         self.modelViewProjection = modelViewProjection
+        self.implicitFramebufferIdentity = implicitFramebufferIdentity
     }
 }
 
@@ -99,13 +133,34 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
     static func finalize(
         _ input: SceneResolvedMaterialFinalizationInput
     ) -> Result<Program, Failure> {
+        guard let cache = SceneResolvedMaterialVariantCache(
+            template: input.template,
+            maximumVariantCount: 8
+        ) else {
+            return .failure(failure(.texture, .activeSamplerSchemaInvalid))
+        }
+        return finalize(input, variantCache: cache)
+    }
+
+    static func finalize(
+        _ input: SceneResolvedMaterialFinalizationInput,
+        variantCache: SceneResolvedMaterialVariantCache
+    ) -> Result<Program, Failure> {
         do {
             guard input.template.renderState.matchesFullscreenOverwrite(
                 alphaWriting: .unspecified
             ) else {
                 throw failure(.state, .renderStateInvalid)
             }
-            let texture = try SceneResolvedMaterialTextureResolver.resolve(input)
+            let variant: SceneResolvedMaterialCompiledVariant
+            switch variantCache.resolve(input) {
+            case let .success(value): variant = value
+            case let .failure(error): throw error
+            }
+            let texture = try SceneResolvedMaterialTextureResolver.resolve(
+                input,
+                variant: variant
+            )
             guard SceneResolvedMaterialProgramDerivation.hasResolvedColorContract(
                 transfer: texture.frontend.colorTransfer,
                 textureSlots: texture.slots
@@ -116,17 +171,22 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
             let uniforms = try resolvedUniforms(
                 input,
                 uniformInputs: uniformInputs,
-                prepared: texture.prepared,
-                frontend: texture.frontend,
+                variant: variant,
                 slots: texture.slots
             )
-            guard let program = Program.assemble(.init(
-                preparedShader: texture.prepared,
+            guard let graphRole = effectiveGraphRole(
+                input.template.graphRole,
+                slots: texture.slots
+            ) else {
+                throw failure(.invariant, .identityInvariant)
+            }
+            guard let program = Program.assembleCompiled(.init(
+                preparedShader: variant.preparedShader,
                 textureSlots: texture.slots,
                 resolvedUniforms: uniforms,
                 renderState: input.template.renderState,
-                graphRole: input.template.graphRole
-            )) else {
+                graphRole: graphRole
+            ), frontend: variant.frontendProgram) else {
                 throw failure(.invariant, .identityInvariant)
             }
             return .success(program)
@@ -137,27 +197,53 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
         }
     }
 
+    private static func effectiveGraphRole(
+        _ authored: Template.GraphRole,
+        slots: [Program.TextureSlot?]
+    ) -> Template.GraphRole? {
+        var bindings = authored.bindings
+        var bindingBySlot: [Int: Template.GraphBindingRole] = [:]
+        for binding in bindings {
+            guard bindingBySlot.updateValue(
+                binding,
+                forKey: binding.slot
+            ) == nil else { return nil }
+        }
+        for slot in slots.compactMap({ $0 }) {
+            guard slot.diagnosticSelectionProvenance == .implicitFramebuffer else {
+                continue
+            }
+            guard case let .graph(identity) = slot.reference,
+                  let texture = Template.GraphTextureRole(
+                      rawValue: identity.kind.rawValue
+                  ) else { return nil }
+            let binding = Template.GraphBindingRole(
+                slot: slot.index,
+                texture: texture
+            )
+            if let existing = bindingBySlot[slot.index] {
+                guard existing == binding else { return nil }
+            } else {
+                bindingBySlot[slot.index] = binding
+                bindings.append(binding)
+            }
+        }
+        return .init(
+            effectInput: authored.effectInput,
+            effectOutput: authored.effectOutput,
+            nodeTarget: authored.nodeTarget,
+            bindings: bindings.sorted { $0.slot < $1.slot }
+        )
+    }
+
     private static func resolvedUniforms(
         _ input: SceneResolvedMaterialFinalizationInput,
         uniformInputs: SceneAuthoredShaderUniformInputs,
-        prepared: SceneShaderPreparedProgram,
-        frontend: SceneAuthoredShaderProgram,
+        variant: SceneResolvedMaterialCompiledVariant,
         slots: [Program.TextureSlot?]
     ) throws -> [Program.ResolvedUniform] {
-        let nonHostFields = frontend.uniformLayout.fields.filter {
-            SceneResolvedMaterialUniformEncoder.hostUniform($0, slots: slots) == nil
-        }
-        let schemas: [String: SceneResolvedMaterialShaderSchema.Uniform]
-        do {
-            schemas = try SceneResolvedMaterialShaderSchema.activeUniforms(
-                nonHostFields,
-                prepared: prepared
-            )
-        } catch {
-            throw failure(.uniform, .uniformBindingInvalid)
-        }
-        return try frontend.uniformLayout.fields.map { field in
-            let schema = schemas[field.name]
+        return try variant.frontendProgram.uniformLayout.fields.map { field in
+            let schema = variant.activeUniforms[field.name]
             let keys = Set(schema?.materialKeys ?? [field.name])
             let declarations = input.template.uniformDeclarations.filter {
                 keys.contains($0.name)

@@ -168,6 +168,7 @@ struct SceneImageLayerDrawRequest {
     let mvp: simd_float4x4
     let uniforms: SceneImageLayerUniformValues
     let offscreenTexturePool: SceneOffscreenTexturePool?
+    var resolvedMaterialFrameTargetPlan: SceneResolvedMaterialFrameTargetPlan? = nil
     let offscreenSize: CGSize?
     let requiresSourceCopy: Bool
     let finalCompositeAlpha: Float?
@@ -179,14 +180,6 @@ struct SceneImageLayerDrawRequest {
     var audioSpectrum: SceneAudioSpectrumSnapshot = .silent
     var localContrastStrength: Float? = nil
     var authoredShaderFrameInputs: SceneAuthoredShaderFrameInputs? = nil
-
-    var resolvedOffscreenSize: CGSize? {
-        let desired = offscreenSize ?? CGSize(
-            width: CGFloat(texture.width),
-            height: CGFloat(texture.height)
-        )
-        return authoredEffectChain?.authoredShaderOffscreenSize(for: desired) ?? offscreenSize
-    }
 
     func resolvedBaseTextureFrame() -> SceneTextureUVTransform? {
         guard let baseTextureCandidate else {

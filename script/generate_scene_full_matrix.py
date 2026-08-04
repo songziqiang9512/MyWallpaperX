@@ -11,6 +11,8 @@ from scene_matrix_contract import (
     EFFECT_EXECUTION_EXPECTATIONS,
     EFFECT_RUNTIME_DISPOSITION_EXPECTATIONS,
     EFFECT_STAGE_ADMISSION_EXPECTATIONS,
+    RESOLVED_MATERIAL_GRAPH_BACKEND,
+    RESOLVED_MATERIAL_GRAPH_EXPECTATIONS,
     effect_execution_static_demand,
     optional_group_is_active,
 )
@@ -604,6 +606,129 @@ def effect_execution_values(
     }
 
 
+def resolved_material_graph_execution_values(
+    result: dict,
+    old_sample: dict | None = None,
+) -> dict | None:
+    expectation = RESOLVED_MATERIAL_GRAPH_EXPECTATIONS[0]
+    runtime = result.get("runtime")
+    execution = (
+        runtime.get("resolved_material_graph_execution")
+        if isinstance(runtime, dict)
+        else None
+    )
+    capability = execution.get("capability") if isinstance(execution, dict) else None
+    expects_evidence = expectation.matrix_key in (old_sample or {})
+    has_capability_evidence = bool(
+        isinstance(capability, dict)
+        and capability.get("has_evidence") is True
+    )
+    if not has_capability_evidence and not expects_evidence:
+        return None
+    if not isinstance(execution, dict) or not has_capability_evidence:
+        raise ValueError(
+            f"sample {result.get('id')} resolved material graph evidence missing"
+        )
+    if execution.get("validation_failures") != []:
+        raise ValueError(
+            f"sample {result.get('id')} resolved material graph validation failed"
+        )
+
+    def layer_ids(value: object) -> list[int] | None:
+        if not (
+            isinstance(value, list)
+            and all(
+                isinstance(layer_id, int) and not isinstance(layer_id, bool)
+                and layer_id >= 0
+                for layer_id in value
+            )
+            and value == sorted(set(value))
+        ):
+            return None
+        return value
+
+    accepted_count = capability.get("accepted_count")
+    accepted_layer_ids = layer_ids(capability.get("accepted_layer_ids"))
+    succeeded_layer_ids = layer_ids(execution.get("succeeded_layer_ids"))
+    executor = execution.get("executor")
+    observations = execution.get("graph_observations")
+    routes = execution.get("layer_routes")
+    exact_backend = execution.get("exact_backend")
+    if (
+        not isinstance(accepted_count, int)
+        or isinstance(accepted_count, bool)
+        or accepted_count < 0
+        or accepted_layer_ids is None
+        or len(accepted_layer_ids) != accepted_count
+        or succeeded_layer_ids is None
+        or not isinstance(executor, dict)
+        or executor.get("has_evidence") is not True
+        or not isinstance(observations, dict)
+        or not isinstance(routes, dict)
+        or not isinstance(exact_backend, dict)
+        or exact_backend.get("backend") != RESOLVED_MATERIAL_GRAPH_BACKEND
+    ):
+        raise ValueError(
+            f"sample {result.get('id')} resolved material graph summary invalid"
+        )
+
+    gpu_layer_ids = layer_ids(observations.get("successful_gpu_completed_layer_ids"))
+    compositor_layer_ids = layer_ids(observations.get("compositor_consumed_layer_ids"))
+    next_frame_layer_ids = layer_ids(observations.get("next_frame_layer_ids"))
+    exact_layer_ids = layer_ids(exact_backend.get("complete_layer_ids"))
+    legacy_conflicts = layer_ids(routes.get("legacy_conflict_layer_ids"))
+    if any(value is None for value in (
+        gpu_layer_ids,
+        compositor_layer_ids,
+        next_frame_layer_ids,
+        exact_layer_ids,
+        legacy_conflicts,
+    )):
+        raise ValueError(
+            f"sample {result.get('id')} resolved material graph layer evidence invalid"
+        )
+    computed_succeeded = sorted(
+        set(accepted_layer_ids)
+        .intersection(gpu_layer_ids)
+        .intersection(compositor_layer_ids)
+        .intersection(next_frame_layer_ids)
+        .intersection(exact_layer_ids)
+        .difference(legacy_conflicts)
+    )
+    if computed_succeeded != succeeded_layer_ids:
+        raise ValueError(
+            f"sample {result.get('id')} resolved material graph success intersection invalid"
+        )
+
+    if accepted_count == 0:
+        zero_fields = (
+            "claimed_count", "encoded_count", "failure_count",
+            "deferred_count", "pending_max", "gpu_encoded_count",
+        )
+        if (
+            execution.get("zero_contract_succeeded") is not True
+            or execution.get("contract_succeeded") is not True
+            or succeeded_layer_ids
+            or any(executor.get(field) != 0 for field in zero_fields)
+            or observations.get("observation_count") != 0
+            or exact_backend.get("unexpected_layer_ids") != []
+            or legacy_conflicts
+        ):
+            raise ValueError(
+                f"sample {result.get('id')} resolved material graph zero contract invalid"
+            )
+    elif (
+        execution.get("execution_succeeded") is not True
+        or execution.get("contract_succeeded") is not True
+        or succeeded_layer_ids != accepted_layer_ids
+    ):
+        raise ValueError(
+            f"sample {result.get('id')} resolved material graph positive contract invalid"
+        )
+
+    return {expectation.matrix_key: succeeded_layer_ids}
+
+
 def scoped_effect_stage_admission_matrix(
     report: dict,
     old_matrix: dict,
@@ -825,6 +950,10 @@ def matrix_sample(result, old):
     if execution_values is not None:
         sample.update(execution_values)
 
+    graph_execution_values = resolved_material_graph_execution_values(result, old)
+    if graph_execution_values is not None:
+        sample.update(graph_execution_values)
+
     for key in PRESERVED_KEYS:
         if key in old:
             sample[key] = old[key]
@@ -832,6 +961,10 @@ def matrix_sample(result, old):
     optional_execution_keys = {
         expectation.matrix_key for expectation in EFFECT_EXECUTION_EXPECTATIONS
     }
+    optional_execution_keys.update(
+        expectation.matrix_key
+        for expectation in RESOLVED_MATERIAL_GRAPH_EXPECTATIONS
+    )
     unhandled_keys = sorted(
         set(old) - set(sample) - {"package_file"} - optional_execution_keys
     )

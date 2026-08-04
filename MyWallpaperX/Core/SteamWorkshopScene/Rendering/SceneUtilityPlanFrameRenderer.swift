@@ -21,6 +21,7 @@ enum SceneUtilityPlanFrameRenderer {
         time: Float,
         mainPass: SceneMainPassEncoder,
         commandBuffer: MTLCommandBuffer,
+        frameTransaction: SceneSourceUpdateTransaction,
         effectExecutionTrace: SceneEffectExecutionFrameTrace
     ) {
         for plan in plans {
@@ -38,39 +39,54 @@ enum SceneUtilityPlanFrameRenderer {
                 modelViewProjection: mvp
             )
             let authoredEffectChain = renderer.authoredEffectChain(for: layer.id)
-            let captured = SceneUtilityLayerRenderer.draw(
-                layer: layer,
-                plan: plan,
-                layerMVP: mvp,
-                viewportSize: viewportSize,
-                time: time,
-                finalCompositeAlpha: SceneDynamicLayerValues.alpha(
-                    layerID: layer.id,
-                    authoredValue: layer.alpha,
-                    snapshot: frameContext.dynamicValues
-                ),
-                masks: renderer.effectMasks(
-                    for: layer.id,
-                    in: effectTextures
-                ).authoredEffectResourcesOnly,
-                cursorUV: cursorUV ?? .zero,
-                pointerIsInside: frameContext.pointer.isInside && cursorUV != nil,
-                authoredEffectChain: authoredEffectChain,
-                dynamicValues: frameContext.dynamicValues,
-                audioSpectrum: frameContext.audioSpectrum,
-                blocksLegacyGaussianBlur: renderer.blocksLegacyGaussianBlur(
-                    for: layer.id
-                ),
-                dependencyEffect: dependencyRuntime.effectInput(
-                    for: layer.id,
-                    textureRegistry: renderer.textureRegistry
-                ),
-                pipeline: imagePipeline,
-                compositor: imageCompositor,
-                offscreenTexturePool: offscreenTexturePool,
-                mainPass: mainPass,
-                executionTrace: effectExecutionTrace
+            let requiresDependencyEffect = dependencyRuntime.requiresEffect(
+                for: layer.id
             )
+            let dependencyEffect = dependencyRuntime.effectInput(
+                for: layer.id,
+                textureRegistry: renderer.textureRegistry
+            )
+            var selectedLegacyAuthoredRoute = false
+            let captured: Bool
+            if requiresDependencyEffect && dependencyEffect == nil {
+                dependencyRuntime.recordBindingFailure(for: layer.id)
+                captured = false
+            } else {
+                captured = SceneUtilityLayerRenderer.draw(
+                    layer: layer,
+                    plan: plan,
+                    layerMVP: mvp,
+                    viewportSize: viewportSize,
+                    time: time,
+                    finalCompositeAlpha: SceneDynamicLayerValues.alpha(
+                        layerID: layer.id,
+                        authoredValue: layer.alpha,
+                        snapshot: frameContext.dynamicValues
+                    ),
+                    masks: renderer.effectMasks(
+                        for: layer.id,
+                        in: effectTextures
+                    ).authoredEffectResourcesOnly,
+                    cursorUV: cursorUV ?? .zero,
+                    pointerIsInside: frameContext.pointer.isInside && cursorUV != nil,
+                    authoredEffectChain: authoredEffectChain,
+                    dynamicValues: frameContext.dynamicValues,
+                    audioSpectrum: frameContext.audioSpectrum,
+                    blocksLegacyGaussianBlur: renderer.blocksLegacyGaussianBlur(
+                        for: layer.id
+                    ),
+                    dependencyEffect: dependencyEffect,
+                    pipeline: imagePipeline,
+                    compositor: imageCompositor,
+                    offscreenTexturePool: offscreenTexturePool,
+                    mainPass: mainPass,
+                    frameTransaction: frameTransaction,
+                    executionTrace: effectExecutionTrace,
+                    onLegacyAuthoredRouteSelected: {
+                        selectedLegacyAuthoredRoute = true
+                    }
+                )
+            }
             utilityCaptureTelemetry.record(
                 layerID: layer.id,
                 encoded: captured,
@@ -81,7 +97,7 @@ enum SceneUtilityPlanFrameRenderer {
                 encoded: captured,
                 on: commandBuffer
             )
-            if authoredEffectChain != nil {
+            if selectedLegacyAuthoredRoute {
                 authoredEffectTelemetry.record(
                     layerID: layer.id,
                     encoded: captured,

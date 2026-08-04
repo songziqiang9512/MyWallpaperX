@@ -4,7 +4,12 @@ import Metal
 import simd
 
 protocol SceneSpriteTexturePlayback: AnyObject {
-    func encode(sceneTime: Float, wallDate: Date, commandBuffer: MTLCommandBuffer)
+    func encode(
+        sceneTime: Float,
+        wallDate: Date,
+        commandBuffer: MTLCommandBuffer,
+        transaction: SceneSourceUpdateTransaction
+    )
 }
 
 private final class SceneSpriteAnimationPlaybackState {
@@ -102,11 +107,17 @@ struct SceneSpriteAnimation {
         return transform(for: frames[frames.count - 1])
     }
 
-    func encode(sceneTime: Float, wallDate: Date, commandBuffer: MTLCommandBuffer) {
+    func encode(
+        sceneTime: Float,
+        wallDate: Date,
+        commandBuffer: MTLCommandBuffer,
+        transaction: SceneSourceUpdateTransaction
+    ) {
         texturePlayback?.encode(
             sceneTime: sceneTime,
             wallDate: wallDate,
-            commandBuffer: commandBuffer
+            commandBuffer: commandBuffer,
+            transaction: transaction
         )
     }
 

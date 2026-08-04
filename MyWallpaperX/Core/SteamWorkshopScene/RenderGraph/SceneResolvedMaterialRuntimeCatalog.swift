@@ -1,11 +1,13 @@
 import Foundation
 
-/// Scene-lifetime catalog of raw material nodes, independent of strict renderer
-/// admission.
+/// Scene-lifetime catalog of executable material nodes. Templates and resource
+/// demands are compiled only after graph condition/function admission succeeds.
 nonisolated struct SceneResolvedMaterialRuntimeCatalog {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias Template = SceneResolvedMaterialTemplate
     typealias Failure = SceneResolvedMaterialFailure
+    typealias AdmissionCandidate =
+        SceneResolvedMaterialExecutionCapabilityAdmission.Candidate
 
     struct Key: Hashable {
         let effect: Graph.EffectKey
@@ -61,14 +63,19 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
 
     init(
         descriptor: SceneRenderDescriptor,
-        authoredPlans: [Graph],
+        admissionCandidates: [AdmissionCandidate],
         shaderContracts: [SceneShaderContract]
     ) {
         var records: [Key: [(graph: Graph, node: Graph.Node)]] = [:]
-        for graph in authoredPlans {
-            for node in graph.nodes where node.kind == .material {
-                records[Key(effect: node.effect, nodeIndex: node.nodeIndex), default: []]
-                    .append((graph, node))
+        for candidate in admissionCandidates {
+            guard case let .success(admitted) = candidate.result else { continue }
+            for product in admitted.products {
+                for node in product.graph.nodes where node.kind == .material {
+                    records[
+                        Key(effect: node.effect, nodeIndex: node.nodeIndex),
+                        default: []
+                    ].append((product.graph, node))
+                }
             }
         }
 
@@ -148,7 +155,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         }
         let accepted = entries.count - failures.count
         var lines = [
-            "resolved material catalog: schema=r3-atomic-material-v1"
+            "resolved material catalog: schema=r4-executable-material-v1"
                 + " nodes=\(entries.count) templates=\(accepted) failures=\(failures.count)",
             demandSummary("asset", count: assetDemands.count),
             demandSummary("user-property", count: userPropertyDemands.count),

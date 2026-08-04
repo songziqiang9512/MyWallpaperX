@@ -19,6 +19,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Clear.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetPlan+Extent.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetTable.swift",
+    SOURCE_ROOT / "RenderGraph/SceneGraphRenderTargetTable+Mapped.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphCommandRuntime.swift",
     SOURCE_ROOT / "RenderGraph/SceneGraphNodeScheduler.swift",
 ]
@@ -60,6 +61,7 @@ enum Harness {
         width: Int,
         height: Int,
         format: TargetPlan.TextureFormat = .rgbaBackbuffer,
+        isUnique: Bool = false,
         firstWrite: Int,
         lastWrite: Int,
         firstRead: Int?,
@@ -78,6 +80,7 @@ enum Harness {
             identity: identity,
             extent: .init(width: width, height: height),
             format: format,
+            isUnique: isUnique,
             lifetime: lifetime,
             initialClear: initialClear
         )
@@ -108,7 +111,7 @@ enum Harness {
         let output = identity(.effectOutput, layerID: 44, effect: effect)
         let first = identity(.framebuffer, layerID: 44, effect: effect, name: "first")
         let second = identity(.framebuffer, layerID: 44, effect: effect, name: "second")
-        let plan = TargetPlan(
+        let plan = TargetPlan.testingPlan(
             layerID: 44,
             input: input,
             output: output,
@@ -283,7 +286,7 @@ enum Harness {
         let output = identity(.effectOutput, effect: effect)
         let quarterA = identity(.framebuffer, effect: effect, name: "quarterA")
         let quarterB = identity(.framebuffer, effect: effect, name: "quarterB")
-        let plan = TargetPlan(
+        let plan = TargetPlan.testingPlan(
             layerID: 10,
             input: input,
             output: output,
@@ -301,7 +304,7 @@ enum Harness {
                 ),
             ]
         )
-        let historyPlan = TargetPlan(
+        let historyPlan = TargetPlan.testingPlan(
             layerID: 10,
             input: input,
             output: output,
@@ -314,7 +317,7 @@ enum Harness {
                 )
             ]
         )
-        let authoredClearPlan = TargetPlan(
+        let authoredClearPlan = TargetPlan.testingPlan(
             layerID: 10,
             input: input,
             output: output,
@@ -460,13 +463,118 @@ enum Harness {
             secondTable.texture(for: quarterB)!,
             secondTable.outputTexture,
         ].map(ObjectIdentifier.init))
+        let mappedTextures: [Graph.TextureIdentity: MTLTexture] = [
+            input: table.inputTexture,
+            quarterA: quarterATexture,
+            quarterB: quarterBTexture,
+            output: table.outputTexture,
+        ]
+        let mappedValid: Bool
+        switch TargetTable.makeMapped(
+            plan: plan, device: device, texturesByIdentity: mappedTextures
+        ) {
+        case .success(let mapped):
+            mappedValid = mapped.inputTexture === table.inputTexture
+                && mapped.outputTexture === table.outputTexture
+                && mapped.residentTextureCount == 4
+                && mapped.residentByteCost == exactBudget
+        case .failure:
+            mappedValid = false
+        }
+        var aliasedMappedTextures = mappedTextures
+        aliasedMappedTextures[output] = table.inputTexture
+        let controlledEndpointAliasValid: Bool
+        switch TargetTable.makeMapped(
+            plan: plan,
+            device: device,
+            texturesByIdentity: aliasedMappedTextures,
+            fullFramePair: .init(
+                first: table.inputTexture,
+                second: table.outputTexture
+            ),
+            expectsInputOutputAlias: true
+        ) {
+        case .success(let mapped):
+            controlledEndpointAliasValid = mapped.inputOutputAliased
+                && mapped.inputTexture === mapped.outputTexture
+                && mapped.fullFramePair.first === table.inputTexture
+                && mapped.fullFramePair.second === table.outputTexture
+                && mapped.residentTextureCount == 4
+                && mapped.residentByteCost == exactBudget
+        case .failure:
+            controlledEndpointAliasValid = false
+        }
+        let mappedAliasFailure = failure(TargetTable.makeMapped(
+            plan: plan,
+            device: device,
+            texturesByIdentity: aliasedMappedTextures
+        ))
+        let unexpectedDistinctEndpointFailure = failure(TargetTable.makeMapped(
+            plan: plan,
+            device: device,
+            texturesByIdentity: mappedTextures,
+            fullFramePair: .init(
+                first: table.inputTexture,
+                second: table.outputTexture
+            ),
+            expectsInputOutputAlias: true
+        ))
+        var pairAliasedFramebufferTextures = aliasedMappedTextures
+        pairAliasedFramebufferTextures[quarterA] = table.outputTexture
+        let pairAliasedFramebufferFailure = failure(TargetTable.makeMapped(
+            plan: plan,
+            device: device,
+            texturesByIdentity: pairAliasedFramebufferTextures,
+            fullFramePair: .init(
+                first: table.inputTexture,
+                second: table.outputTexture
+            ),
+            expectsInputOutputAlias: true
+        ))
+        var siblingAliasedFramebufferTextures = aliasedMappedTextures
+        siblingAliasedFramebufferTextures[quarterB] = quarterATexture
+        let siblingAliasedFramebufferFailure = failure(TargetTable.makeMapped(
+            plan: plan,
+            device: device,
+            texturesByIdentity: siblingAliasedFramebufferTextures,
+            fullFramePair: .init(
+                first: table.inputTexture,
+                second: table.outputTexture
+            ),
+            expectsInputOutputAlias: true
+        ))
+        var incompleteMappedTextures = mappedTextures
+        incompleteMappedTextures.removeValue(forKey: quarterB)
+        let mappedIncompleteFailure = failure(TargetTable.makeMapped(
+            plan: plan,
+            device: device,
+            texturesByIdentity: incompleteMappedTextures
+        ))
+        let invalidUsageDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm,
+            width: plan.inputExtent.width,
+            height: plan.inputExtent.height,
+            mipmapped: false
+        )
+        invalidUsageDescriptor.usage = [.shaderRead]
+        invalidUsageDescriptor.storageMode = .private
+        guard let invalidUsageTexture = device.makeTexture(
+            descriptor: invalidUsageDescriptor
+        ) else { fatalError("mapped invalid-usage fixture failed") }
+        var invalidUsageMappedTextures = mappedTextures
+        invalidUsageMappedTextures[output] = invalidUsageTexture
+        let mappedUsageFailure = failure(TargetTable.makeMapped(
+            plan: plan,
+            device: device,
+            texturesByIdentity: invalidUsageMappedTextures
+        ))
         let otherEffect = Graph.EffectKey(
             layerID: 10,
             effectIndex: 3,
             descriptorID: "10#effect#3"
         )
         let unknown = identity(.framebuffer, effect: otherEffect, name: "quarterA")
-        let copyPlan = TargetPlan(
+        let copyPlan = TargetPlan.testingPlan(
             layerID: plan.layerID,
             input: input,
             output: output,
@@ -551,7 +659,7 @@ enum Harness {
             )
         )
 
-        let swapPlan = TargetPlan(
+        let swapPlan = TargetPlan.testingPlan(
             layerID: copyPlan.layerID,
             input: copyPlan.input,
             output: copyPlan.output,
@@ -582,7 +690,7 @@ enum Harness {
             swapRuntime.texture(for: quarterA) === swapTargetBefore
                 && swapRuntime.texture(for: quarterB) === swapSourceBefore
 
-        let incompatiblePlan = TargetPlan(
+        let incompatiblePlan = TargetPlan.testingPlan(
             layerID: copyPlan.layerID,
             input: copyPlan.input,
             output: copyPlan.output,
@@ -627,7 +735,7 @@ enum Harness {
         )
         let scheduledPattern = Array(0..<16).map { UInt8($0 * 7) }
 
-        let duplicatePlan = TargetPlan(
+        let duplicatePlan = TargetPlan.testingPlan(
             layerID: plan.layerID,
             input: input,
             output: output,
@@ -637,7 +745,7 @@ enum Harness {
                 plan.logicalTargets[0],
             ]
         )
-        let overflowPlan = TargetPlan(
+        let overflowPlan = TargetPlan.testingPlan(
             layerID: plan.layerID,
             input: input,
             output: output,
@@ -649,7 +757,7 @@ enum Harness {
             effectIndex: 2,
             descriptorID: "11#effect#2"
         )
-        let invalidIdentityPlan = TargetPlan(
+        let invalidIdentityPlan = TargetPlan.testingPlan(
             layerID: plan.layerID,
             input: input,
             output: output,
@@ -662,7 +770,7 @@ enum Harness {
                 ),
             ]
         )
-        let whitespaceNamePlan = TargetPlan(
+        let whitespaceNamePlan = TargetPlan.testingPlan(
             layerID: plan.layerID,
             input: input,
             output: output,
@@ -689,6 +797,14 @@ enum Harness {
             "unknownIdentityIsNil": table.texture(for: unknown) == nil,
             "allResourcesDistinct": objectIDs.count == textures.count,
             "separateAllocationsDistinct": objectIDs.isDisjoint(with: secondObjectIDs),
+            "mappedValid": mappedValid,
+            "controlledEndpointAliasValid": controlledEndpointAliasValid,
+            "mappedAliasFailure": mappedAliasFailure,
+            "unexpectedDistinctEndpointFailure": unexpectedDistinctEndpointFailure,
+            "pairAliasedFramebufferFailure": pairAliasedFramebufferFailure,
+            "siblingAliasedFramebufferFailure": siblingAliasedFramebufferFailure,
+            "mappedIncompleteFailure": mappedIncompleteFailure,
+            "mappedUsageFailure": mappedUsageFailure,
             "inputOutputFormat": table.inputTexture.pixelFormat == .bgra8Unorm
                 && table.outputTexture.pixelFormat == .bgra8Unorm,
             "framebufferFormats": quarterATexture.pixelFormat == .rgba8Unorm
@@ -756,6 +872,8 @@ class SceneGraphRenderTargetTableTests(unittest.TestCase):
                 "swiftc",
                 *(str(path) for path in SWIFT_SOURCES),
                 str(harness),
+                "-D",
+                "SCENE_GRAPH_TESTING",
                 "-framework",
                 "Metal",
                 "-o",
@@ -789,6 +907,25 @@ class SceneGraphRenderTargetTableTests(unittest.TestCase):
         self.assertEqual(self.result["outputSize"], [9, 7])
         self.assertEqual(self.result["quarterASize"], [2, 1])
         self.assertEqual(self.result["quarterBSize"], [2, 1])
+
+    def test_mapped_entry_revalidates_complete_physical_contract(self) -> None:
+        self.assertTrue(self.result["mappedValid"])
+        self.assertTrue(self.result["controlledEndpointAliasValid"])
+        self.assertEqual(self.result["mappedAliasFailure"], "mappedTextureAliased")
+        self.assertEqual(
+            self.result["unexpectedDistinctEndpointFailure"],
+            "mappedTextureAliased",
+        )
+        self.assertEqual(
+            self.result["pairAliasedFramebufferFailure"],
+            "mappedTextureInvalid",
+        )
+        self.assertEqual(
+            self.result["siblingAliasedFramebufferFailure"],
+            "mappedTextureAliased",
+        )
+        self.assertEqual(self.result["mappedIncompleteFailure"], "mappedTextureInvalid")
+        self.assertEqual(self.result["mappedUsageFailure"], "mappedTextureInvalid")
 
     def test_reports_exact_resident_cost_and_texture_contract(self) -> None:
         self.assertEqual(self.result["residentBytes"], 520)

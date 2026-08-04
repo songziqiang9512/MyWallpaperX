@@ -2,15 +2,15 @@ import Foundation
 
 extension SceneAuthoredEffectChainPlanner {
     nonisolated static func irisInlineSuffix(
-        plannedStages: [SceneAuthoredEffectExecutionPlan],
+        plannedPrograms: [SceneEffectStageProgram],
         unsupportedOrdinal: Int,
         graph: Graph,
         descriptor: SceneRenderDescriptor,
         shaderContracts: [SceneShaderContract]
     ) -> SceneAuthoredEffectExecutionChain? {
-        guard !plannedStages.isEmpty,
+        guard !plannedPrograms.isEmpty,
               unsupportedOrdinal == graph.effects.count - 1,
-              plannedStages.count == unsupportedOrdinal,
+              plannedPrograms.count == unsupportedOrdinal,
               let effect = graph.effects.last,
               let stageGraph = stageGraph(effect: effect, in: graph),
               let suffix = SceneAuthoredIrisInlineSuffixPlanner.plan(
@@ -19,11 +19,11 @@ extension SceneAuthoredEffectChainPlanner {
                   shaderContracts: shaderContracts,
                   inputRole: .priorEffectOutput
               ),
-              let finalStage = plannedStages.last else {
+              let finalStage = plannedPrograms.last?.executionPlan else {
             return nil
         }
-        let includedEffects = Set(plannedStages.compactMap {
-            $0.renderGraph.effects.first?.key
+        let includedEffects = Set(plannedPrograms.compactMap {
+            $0.executionPlan.renderGraph.effects.first?.key
         })
         let prefixGraph = Graph(
             layerID: graph.layerID,
@@ -41,10 +41,12 @@ extension SceneAuthoredEffectChainPlanner {
                 + "layer=\(graph.layerID) effect=\(effect.definitionPath)"
         )
 #endif
-        return SceneAuthoredEffectExecutionChain(
+        return SceneAuthoredEffectExecutionChain.legacyRecovery(
             layerID: graph.layerID,
+            authoredRenderGraph: graph,
             renderGraph: prefixGraph,
-            stages: plannedStages,
+            stagePrograms: plannedPrograms,
+            kind: .terminalIrisInlineSuffix,
             irisInlineSuffix: suffix
         )
     }

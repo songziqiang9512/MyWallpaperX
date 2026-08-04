@@ -2,11 +2,18 @@
 
 > 建立日期：2026-08-03
 >
-> 文档状态：现役执行计划，随本批工作持续更新。
+> 文档状态：现役执行计划；2026-08-04 已提交 R4 partial checkpoint，剩余 owner 迁移下次继续。
 >
 > 事实边界：本文记录问题假设、迁移顺序、验收门和进度，不是当前能力等级或运行基线的权威入口。能力事实仍以 [`semantics/coverage-ledger.md`](semantics/coverage-ledger.md)、专项覆盖表和 [`semantics/runtime-evidence-index.md`](semantics/runtime-evidence-index.md) 为准。
 >
-> 工作分支：`codex/scene-capability-baseline`。计划建立快照为 `896cbb1b`；R0 已由独立阶段提交 `a1d469f3` 闭合，R1 已由独立阶段提交 `9d655ce2` 闭合，R2 已由独立阶段提交 `57cc94dc` 闭合，R3 由本页所在独立阶段提交闭合；现役状态与证据见第 5、8、9 节。
+> 工作分支：`codex/scene-capability-baseline`。计划建立快照为 `896cbb1b`；R0 已由独立阶段提交 `a1d469f3` 闭合，R1 已由独立阶段提交 `9d655ce2` 闭合，R2 已由独立阶段提交 `57cc94dc` 闭合，R3 已由独立阶段提交 `588faf40` 闭合。R4 partial checkpoint 已在其上提交；R4 仍未完成，现役状态与证据见第 0、5、8、9 节。
+
+## 0. 快速接手
+
+- **能力与运行事实**：继续从 [`semantics/README.md`](semantics/README.md) 进入专项表，并以 [`semantics/coverage-ledger.md`](semantics/coverage-ledger.md) 和 [`semantics/runtime-evidence-index.md`](semantics/runtime-evidence-index.md) 的 R4 partial checkpoint 为准；本文只记录重构路线、剩余迁移和复验门。
+- **Git 断点**：分支 `codex/scene-capability-baseline`，R4 checkpoint 已提交在当前 R3 HEAD 之上；本轮提交前盘点为 93 个已跟踪文件修改、48 个未跟踪文件。未跟踪的 R4 Swift 与测试文件属于同一实现 lane，不是可清理残留。
+- **架构判断**：新代码已朝“样本声明需求 -> typed capability -> 公共调度/资源 -> 公共执行/合成”收敛，capability 现在直接来自 raw authored graph admission，审计的新链没有按 sample/workshop/path/hash 选择可见算法；effect classification 只在资源加载后投影为 telemetry family，new capability 不再以它作为 admission authority。旧 extent、多个产品 owner 和 legacy route 仍可达，所以产品整体尚未形成唯一能力池，也不能表述为已与官方架构对齐。
+- **阶段边界**：当前停在 R4，不进入 R5，不处理单样本视觉缺口，不启动新的 Ghidra 复核。下次先读“2026-08-04 暂停交接点”和第 9 节，再从当前 dirty lane 做所有权、构建和门禁复验。
 
 ## 1. 重构目标
 
@@ -122,7 +129,7 @@ project / scene.pkg / TEX / stock assets
 3. **Resolved material program**：把 graph source、asset/user/provider texture、nullable slot、sampler、built-in、constant、dynamic uniform 和 render state 原子编译成可执行 pass。
 4. **Unified graph executor**：唯一负责 authored material/copy/swap/compose 顺序和 logical target 推进；专用 backend 只实现已验证 pass/program，不改变 graph 拓扑。
 5. **Stage disposition ledger**：每个 authored stage 必须唯一归类并记录 reason/provenance，且总数守恒。
-6. **Legacy quarantine**：已存在 graph 的 layer 不得因 strict 准入失败而静默转成整层近似；迁移期间只按已验证 family 逐步关闭 legacy，避免一次性制造不可诊断的大面积回退。
+6. **Legacy migration convergence**：已存在 graph 的 layer 不得因 strict 准入失败而静默转成整层近似；旧 planner/backend/fallback 必须按公共 capability family 逐批接入同一 executor，并在同批撤销等价执行权限。R4 结束前迁完产品执行权限，R5 不再承接行为迁移。
 
 ### 4.3 架构方向复核门
 
@@ -142,11 +149,13 @@ project / scene.pkg / TEX / stock assets
 4. 重新统计 generic compiled/executed、dedicated、legacy、route-only、unsupported 与稳定失败原因的样本/阶段分布；结构门通过只证明链路守恒，真实样本还必须按风险补多相位视觉证据。
 5. 官方资料、公开文档或必要的 Ghidra 只用于核对控制流、数据形状、版本选择、资源优先级和失败边界；不得把观察到的官方算法表达、shader、payload 或资产带入实现。
 6. 阶段是否扩大了生产 GPU 准入面；若颜色表示、typed binding 或 graph lifecycle 仍未闭合，新 parser/preprocessor 能力只能产出可审计的 prepared program 与稳定拒绝，不得因为“现在能编译”就提前进入 renderer。
-7. 新主链取代旧权限时必须在迁移族同一提交登记并删除对应 dedicated planner/backend、`fallbackGraph`、`.legacyContract`、旧 root projection/source adapter、重复 telemetry/projection 与只服务旧路径的测试；提交前比较 dedicated probe、runtime backend、legacy authority、Scene Swift 文件/LOC、`<3 KiB` 与 `<1 KiB` 文件数。已替代代码仍可达、或上述规模净增长而没有逐项理由时，R5 不得完成。
+7. 新主链取代旧权限时必须在迁移族同一提交登记并撤销对应 dedicated planner/backend、`fallbackGraph`、`.legacyContract`、旧 root projection/source adapter 与重复 telemetry/projection 的产品执行权；能安全删除的实现和只服务旧路径的测试同批删除，仍承担像素 oracle 的代码只能进入明确不可达的验证隔离。提交前比较 dedicated probe、runtime backend、legacy authority、Scene Swift 文件/LOC、`<3 KiB` 与 `<1 KiB` 文件数。任一已替代产品路径仍可达、同一 stage 可由两套 runtime 执行、或存在 sample/layer/path/hash 驱动的算法选择时，R4 不得完成，R5 不得开始。
 
-R2-R4 允许有界双轨只为保持 R1 像素 oracle 与证明迁移前后接纳不漂移，不得借迁移期新增另一套 effect/sample/path/hash 专用执行分支。R5 是删除和合并门，不只是给 legacy 改名：同一生命周期、同一调用者且合并后仍满足 400 行合同的薄 planner/plan/renderer 应收回完整职责文件；独立 IR、IO、安全边界或会把文件推过 400 行的类型不得为减少文件数机械合并，更不得新建 `Common`/`Helpers` 式兜底文件。
+R2-R4 允许的有界双轨只用于保持 R1 像素 oracle、逐族迁移和证明接纳不漂移；同一产品 frame/stage 在任何时刻都只能有一个执行 owner，不得借迁移期新增另一套 effect/sample/path/hash 专用执行分支。每个迁移波次必须以“公共 capability 接管、旧 owner 撤权、双写与 fallback 为零、跨样本或跨 revision 正反例通过”的独立提交闭合。最后一个旧产品 owner 撤权且静态门确认无样本身份算法分支之后，才允许结束 R4。
 
-只有 R4 建成唯一 graph executor、R5 将已迁移族的旧权限隔离，并由跨版本跨样本证据证明同一 typed program 路径实际执行后，才可把执行架构描述为“基本收敛”。在此之前，每次汇报都应区分方向一致、结构迁移完成与视觉兼容完成，不能用其中一项替代另外两项。
+R5 是纯删除、合并和最终证据收口门，不再修改 stage 的产品执行 owner，也不再迁移像素行为：同一生命周期、同一调用者且合并后仍满足 400 行合同的薄 planner/plan/renderer 应收回完整职责文件；独立 IR、IO、安全边界或会把文件推过 400 行的类型不得为减少文件数机械合并，更不得新建 `Common`/`Helpers` 式兜底文件。若 R5 才发现仍需迁移旧 owner，立即退回 R4，不得以收尾名义继续双轨。
+
+只有 R4 建成唯一 graph executor、把全部旧产品执行权限迁移并撤权，R5 删除残留脚手架和重复结构，并由跨版本跨样本证据证明同一 typed program 路径实际执行后，才可把执行架构描述为“基本收敛”。在此之前，每次汇报都应区分方向一致、结构迁移完成与视觉兼容完成，不能用其中一项替代另外两项。
 
 ## 5. 实施批次
 
@@ -156,8 +165,8 @@ R2-R4 允许有界双轨只为保持 R1 像素 oracle 与证明迁移前后接�
 | R1 统一 compile/admission model | **已完成**（统一 typed input/result/program、planner-owned family classification、完整身份守恒与可持久化的有界失败汇总已落地；没有扩大准入或修改像素 backend） | `SceneEffectStageProgram`、共享 compile input/result，专用与 authored shader backend 的有序 probe 与稳定失败原因 | 现有 strict execution plan 与 GPU fixture 保持；chain planner 不再把 34 次无原因 Optional 作为最终诊断，完整顺序、首个命中与 recovery 合同有自动门 |
 | R2 compatibility/source/variant/frontend preparation | **已完成**（独立提交 `57cc94dc`） | typed compatibility context（只保存已声明版本、字段存在性与 provenance，不猜默认）、VFS source graph、directive/include evaluator、typed environment/combo variant、active source/schema/source map/cache key、frontend preparation handoff、shader input/output color representation 类型与 fail-closed 准入门 | 项目自有 fixture 覆盖嵌套条件、`#undef`、缺 include、循环 include、VFS 同名候选冲突、未知 directive/环境 define、exact numeric、active-only metadata、macro 所有权、词法隔离与 fixed-point 歧义/预算；45 样本可复现 census 证明 raw/canonical 与 planner compile admission 相对 R1 无扩大/丢失；在 R3 颜色/binder 合同闭合前不扩大现役 renderer 准入 |
 | R3 原子 material binder / color contract | **已完成，由本页所在独立阶段提交闭合** | 固定 8 槽 `SceneResolvedMaterialTemplate`、同代 `SceneResolvedMaterialProgram`、exact/semantic identity、typed graph/asset/user/system provider publication、sampler/physical/mapped/UV/generation、constant/dynamic uniform、typed state 与 conservative color transfer；生产链只做一次性 CPU 审计，`gpuEncoded=0` | nullable slot 不压缩；只有显式 absent 才允许较低优先级作者资源，missing/pending/unavailable/incomplete/未知 purpose/state/color 全部失败关闭；45 样本 census、跨 provider fixture、完整 Scene 测试、签名构建与四样本运行证明结构和性能守恒，R4 前不扩大 GPU 准入 |
-| R4 unified graph executor | 待开始 | condition/function、material、shader `[PASS]`、copy/swap/compose 的唯一执行入口，logical target/history lifecycle 与 scene final-output 边界 | authored 顺序、effect input/output、command ordinal、RT extent/format/clear/unique、persistent swap/history、read/write hazard、compose pair、resize/reparse/reset generation 与 final output 守恒；不通过 legacy planner 重新解释 layer |
-| R5 迁移 strict backend / 删除旧权限 | 待开始 | 既有 dedicated backend 逐族接入 unified executor；同一迁移提交删除对应 planner/backend、`fallbackGraph`、`.legacyContract`、旧 root projection/source adapter、重复 telemetry/projection 与旧链测试，合并同生命周期薄文件 | 每迁移一族同时有正例、版本变体、默认关闭/坏 slot/坏 state 反例；同族多个样本受益后同一提交移除旧路径；按 dedicated probe/runtime backend/legacy authority/Scene 文件与 LOC/`<3 KiB`/`<1 KiB` 六轴证明净收敛，已替代路径不可达后才完成 |
+| R4 unified graph executor / 旧 owner 迁移 | **partial checkpoint 已提交；核心新链已闭合，旧 owner 未迁完** | condition/function、material、shader `[PASS]`、copy/swap/compose 的唯一执行入口，logical target/history lifecycle 与 scene final-output 边界；既有 dedicated/legacy 产品执行 owner 按公共 capability family 分波次接入并撤权 | authored 顺序、effect input/output、command ordinal、RT extent/format/clear/unique、persistent swap/history、read/write hazard、compose pair、resize/reparse/reset generation 与 final output 守恒；每族同时有正例、版本变体和坏 slot/state 反例；同一 stage 无双 owner、无旧 fallback 重解释、无 sample/layer/path/hash 算法分支；最后一个旧产品 owner 撤权后才完成 |
+| R5 删除残留 / 合并薄层 / 最终证据收口 | 待开始；不得承接产品行为迁移 | 删除已经不可达的 planner/backend、`fallbackGraph`、`.legacyContract`、旧 root projection/source adapter、重复 telemetry/projection 与旧链测试；合并同生命周期薄文件；同步权威语义文档和最终矩阵 | R5 开始时产品执行已是单一权威；按 dedicated probe/runtime backend/legacy authority/Scene 文件与 LOC/`<3 KiB`/`<1 KiB` 六轴证明净收敛；完整门与代表性多相位视觉证据通过；若发现仍需迁移 owner 则退回 R4 |
 | R6 局部动态与水流视觉闭环 | 待开始 | Twirl/Shimmer/Iris/Foliage/Water/Depth 等在公共 executor 上执行 | `3766387484` 与 `3768724269` 同时恢复局部而非整头运动；`3769688830` 鱼群/水流跨相位可见且尾巴颜色不回归；外部 mask ROI 稳定 |
 
 R0 是防止继续误判的基础，但不能被表述为视觉修复；R1-R5 也不能用“frontend 能编译”替代实际 GPU pass 和合成证据。R0-R6 当前收敛的是 2D authored effect 主链，不等于把 Particle、Text、SceneScript、Puppet、Video 与 Lighting/HDR 强塞进同一 material executor；这些系统可保留各自 runtime，但必须共用 identity、compatibility、resource、frame/provider、typed graph 与 lifecycle 地基。
@@ -336,6 +345,98 @@ Ghidra 只记录控制流、数据形状、顺序和失败边界；不复制官�
 - Scene源码规模从R2的 **510 Swift / 81,746 LOC / 186 `<3 KiB` / 59 `<1 KiB`** 变为 **521 / 86,163 / 186 / 57**，净增11文件 / 4,417行 / 0 / -2。新增文件分别承载Template/Program/identity/finalizer/schema/derivation/uniform、launch VFS asset IO与per-surface runtime lifecycle，合并后会跨职责或超过400行；没有新增dedicated probe、compiler identity、runtime backend或legacy authority。33/34/33/4四轴保持不变，旧GPU权限尚未被R3取代，故本阶段不提前删除，R5的同提交退役门不变。
 - 本阶段所需的资源优先级边界、8槽、variant/material分层、Texture property未选时回退原图、Timeline与SceneScript职责、sampler/purpose及graph lifecycle均已由现役文档、官方公开资料和既有clean-room分析支撑，因此没有启动Ghidra。结论只能写为“R3原子Program地基与官方公开分层方向一致”；R4唯一executor、graph FBO/effectOutput在command边界的typed publication、跨语言helper、更多purpose/state/color以及system/video/variant生命周期仍未完成。`3766387484`局部头发、`3769688830`人物/鱼群水流和`3768903841`烟花也未由R3修复，尾巴颜色未触碰，不能宣称官方或视觉等价。
 
+### 2026-08-04：R4 统一 executor 进行中（架构复核断点）
+
+- R4-A 已形成但尚未提交的可保留地基包括：planner compile-product 对象身份、catalog owner/capability token 的 O(1) claim、正负结果均缓存的有界 texture-readiness variant cache、以及 Finalizer 复用 cached frontend/schema 的路径。这些只解决静态能力声明和逐帧重编译，不代表 graph executor 已正确。
+- 现役文档、stock Fluid/Refraction 结构与官网仍不足以决定 raw condition/function/compose 的运行顺序，因此仅对 source-index 已登记且哈希匹配的 2.8.42 64 位客户端做了 bounded clean-room 单点复核；没有复制地址、伪代码、shader、payload 或算法。临时 Ghidra project、脚本和日志在中性结论写回正式文档后均已删除。
+- condition 的最小公共 provider 被收窄为 effect-scope immutable snapshot：每个 material 的显式 combos 先由同 ordinal instance override 覆盖，再跨 material 只接受唯一 provider或同值 provider；冲突、reserved host key、非零 shader default/readiness 来源不明均失败关闭。FBO/pass/bind 共用该 snapshot，并必须在 RT allocation、material construction 与 compose transition count 前裁掉 false 结构。
+- raw compose 已确认不是 scene-background 特例，而是 layer-local 两成员 full-frame pair：有 active effect 时按 `active effect count + admitted compose transition count` 的奇偶选择初始 current，先把 layer base content 只渲染一次到 current；effect 写 opposite 并在 effect boundary 推进，实际执行的 ordinary `compose:true` pass 另在 effect 内推进；condition-false/copy/swap/function 不推进；最终 current 发布到正常 layer/compositor。`_rt_FullFrameBuffer` 是另一受控入口，raw compose 不建立该 provider。
+- 提交前复核据此否决了第一版“每个 stage 重新 capture 到独立 input、再写另一个 output”的草案。即使该草案可用两个物理槽，它仍会为每个 effect 多做一次整帧 copy，无法表达 parity、多 compose 和 fixed final member，属于与已核实架构分叉；相关实现和旧断言不得进入 R4 提交。
+- R4 当前改为先建立纯值 `current/opposite` pair plan，再让 whole-chain allocation、executor、submission coordinator 与 compositor 共同消费同一计划。history 必须使用 copy-on-write 或等价物理隔离，GPU 失败后不得把已经写坏的 current submission texture重新暴露为上一帧 committed history；condition/function、`[PASS]` 负门、pair、history、终态观察与真实样本证据全部闭合前不提交 R4。
+- 当前未提交实现已把首批 GPU cohort 收窄到可见的 direct image/solid/text compositor layer，并排除 utility owner、named dependency consumer 与 SceneScript Audio Bars 专用路由；capability-owned claim 后任一失败均失败关闭，不回退旧 authored renderer。逐层运行门同时检查 `accepted -> GPU completed -> compositor consumed` 缺失、非 accepted layer 越权执行，以及 accepted layer 出现 legacy authored route；Scene 全量 **190 modules ALL OK**、benchmark **99/99**、代码健康 **826 Swift / 44 locked legacy / 400-line limit** 与签名 Debug verify 已通过。这些仍只是提交前结构证据。
+- 隔离真实正例 `3141421197` 的首次 R4 GPU 门 `.codex/scene-chain-r4-graph-20260804-v2/report.json` 正确标为 **FAIL**：layer 20 被 capability 接纳并 claim，但 596 次 whole-chain preflight 全部拒绝，executor `claimed/encoded/failure/gpuEncoded=1/0/1/0`，逐层 GPU/compositor 守恒均缺失且画面为空。由该隔离副本的 `project.json`、effect/material 与 shader 倒查确认，material/graph 没有显式 slot binding，而 fragment sampler 通过 `material: "framebuffer"` 注解声明当前 full-frame input；旧公共 authored-shader planner能解析该语义，R4 Finalizer却只消费显式 graph bindings，导致 active sampler 0 无资源。根因属于共享 material annotation -> typed graph input 桥，不是样本特例；现役资料已足以支撑独立实现，本断点没有启动新的 Ghidra 分析。公共 implicit-framebuffer bridge 落地后的 `v3` App 日志仍只给出粗粒度 `whole-chain-preflight-material-rejected`，不能把该日志写成 typed 定位证据；随后通过 Finalizer/color analyzer 的定向测试与源码回溯，把第二个断点收敛到 `colorContractUnproven`：原 analyzer 因 `main` 中存在已闭合的循环或条件，错误否定后续函数根级唯一 `gl_FragColor` 写入。修复只放行已闭合的前置控制流；输出受条件/循环直接支配、`return`/`discard`、多次或分量写入仍失败关闭，且没有样本、shader hash 或路径分支。
+- 重建后的 `.codex/scene-chain-r4-graph-20260804-v4/report.json` 整体仍标为 **FAIL**，但仅剩 `authored effect graph succeeded layer IDs mismatch` 和 `effect execution evidence missing` 两个旧证据合同问题；R4 执行本身已为 `accepted/claimed/encoded/failure/gpuEncoded=1/1/1/0/1`，layer 20 两个跨帧 transaction 均取得 terminal publication、`compositorConsumed=true`和 `gpuCompletion=completed`，无 legacy-route conflict。ready/after 均非黑，两相位画面显示完整链条旋涡且运动量 `meanDelta=0.0845 / changedRatio=0.9509`；这证明当前 bounded 正例已实际进入统一 executor，不等于旧 telemetry 权威已迁移或更广泛的视觉等价。无 effect candidate 哨兵 `.codex/scene-chain-r4-zero-20260804-v1/report.json` 为 **1/1 PASS**：capability/executor `0/0/0/0`、loaded ratio 1、failed frame/drawable miss 0，没有越权制造 graph 活动。
+- exact-effect CPU evidence、`resolved-material-graph` backend 与逐层 next-frame 合同接入后，相关 18 个模块共 **250 tests PASS**，Swift code health、`git diff --check`、Python compile 与签名 Debug verify 均通过；这只证明合同和构建闭合。随后真实正例 `.codex/scene-chain-r4-graph-20260804-v5/report.json` 仍正确标为 **FAIL**：586 次 claim 中 293 次编码成功、293 次以 `graph-target-allocation-failed` 失败，成功与失败逐帧严格交替；driver callback 约 59.96 FPS，但 submitted/completed 只有 30.08/29.88 FPS。根因是 coordinator 已允许两个 submission 在途，而 persistent graph cache 仍把唯一 current generation 的 submission pin 当成不可再分配，属于公共多帧 target residency/lease 缺口；必须让 pinned generation 与新 writable generation 物理隔离并继续受 byte budget、generation、history/submission pin 和 reset 合同约束，不能通过降低门禁或样本绕过闭合。
+- whole-frame residency dry-run、两代物理 ring、反序 release、reset invalidation 与 history demotion 落地后，`.codex/scene-chain-r4-graph-20260804-v6/report.json` 首次在 `--require-graph-execution` 下 **1/1 PASS**：149 submitted / 149 completed / 0 failed，统一 backend、GPU completion、compositor consumption、next-frame 与 exact effect 都闭合，ready/after 非黑且相位运动存在。它同时暴露性能尚未闭合：driver 59.968 FPS，但 submitted/completed 仍只有 **29.883 FPS**，149 个 GPU 样本全部超过 16.67 ms；预算只有一代时，dry-run 会在旧 generation 被 GPU pin 的每个间隔帧主动 defer，虽消除了 v5 的交替 allocation failure，却把吞吐串行化。因此 v6 只能作为正确性进展，不能作为 executor 核心检查点通过。
+- 对 whole-frame dry-run 的独立审查又发现两个 fail-closed 缺口：短暂 submission pin 释放后若持久 history 与当前请求仍超过预算，应立即 hard reject，不能先 defer 一帧；capability preflight 的 `.rejected` 也不能因 route 只投影 optional claim 而被当成 legacy 跳过。两处已改为 residual-history 模拟和 reason-bearing rejected route，新增 mixed history + transient 正反例；驻留池 **24 tests PASS**、runtime bridge **11 tests PASS**。后续吞吐优化仅考虑无 history chain 在同一已排序 `MTLCommandQueue` 上复用 tracked 物理纹理；旧 buffer 未 enqueue、queue 不同/未知、history closure/pin 非空、untracked texture 或第三个在途 submission 一律继续 COW/失败关闭。该边界符合 Apple 公开的同 queue enqueue 顺序与 tracked resource 自动 hazard 同步合同，但仍须由实现、反序 release/GPU failure 门和真实正例复跑共同证明，不能仅凭 API 文档宣称安全。
+- bounded same-queue 复用落地后的根审查又修正了两个公共合同漏洞：预检 reservation 的 ordering context 现在必须与 coordinator 实际编码的 `MTLCommandBuffer` 为同一对象且仍为 `.notEnqueued`，已提交/完成 context 在 empty 与 idle cache 均于纹理工厂前拒绝；同一 chain 的 current + retired 全 generation submission pin 总数在 pure preflight、reserve 与 commit 三层统一限制为 2，第三次提交不能通过 COW 绕开。共享 generation 的正反序 release、reset invalidation、stale reservation、history COW/GPU failure 组合门均保持闭合；共享上限从纯 `ChainPlan` 移到 lease/residency 所有权范围，未新增文件或放宽 private。offscreen pool、texture publication 与 runtime bridge 共 **39 tests PASS**，benchmark **103 tests PASS**，Swift code health为 **828 files / 44 locked legacy / 400-line limit**，`git diff --check` 与 `script/build_and_run.sh verify` 通过。
+- `.codex/scene-chain-r4-graph-20260804-v7/report.json` 在正例 `3141421197` 上为 **1/1 PASS**：driver `60.028 FPS`，274 submitted / 272 completed / 0 failed，submitted/completed 为 **55.005 / 54.604 FPS**，两个 terminal transaction 使用同一 physical generation且 exact backend、GPU completion、compositor consumption、next-frame 全闭合；相比 v6 的约 29.9 FPS，隔帧 defer 已解除。GPU frame p50/p95 仍为 `26.246 / 30.612 ms`，因此这是 executor 吞吐检查点进展，不是性能或官方视觉收口。首次零候选复跑同时暴露 benchmark 的 flag/zero-contract 分叉：报告已经 `zero_contract_succeeded=true`，CLI 却仍无条件要求非零 accepted。公共修复改为只有矩阵显式声明空 succeeded-layer 期望且完整 zero contract 成立时才通过，缺矩阵期望、非空期望或任一越权活动继续失败关闭；`.codex/scene-chain-r4-graph-20260804-v7-zero-v2/report.json` 对 `3766415113` 为 **1/1 PASS**。当前仍需 Scene 全量、fixed13、full45、权威文档同步与 scoped commit，不能提前进入 R4-0 或 R5。
+- Scene 全量随后已重跑并为 **190 modules / 190 ALL OK**；首轮 fixed13 `.codex/scene-chain-r4-core-fixed13-20260804-v1/report.json` 则正确停在 **7/13 PASS、6 FAIL**，因此 full45 未启动。失败不是六个样本特例，而是四组共享合同：`3122339805` 与 `3768903841` 的 capability 在 claim 后才发现 shader variant preparation 不可执行，`3747492842` 在 claim 后才发现 texture purpose 闭包未证明，三者又把其余 19 个 claim 连锁为 `frame-command-buffer-invalidated`；`2902406982` 的 34 层 cohort 因 R4 丢失普通 effect 的 2048 resolution class，被按 4096 级估成约 `156.881 MiB` 而超过 128 MiB，按现役普通等级应约 `54.881 MiB`；`2131872317:82` 是 0 authored-FBO、无 history 的 pair-only chain，合法 allocation generation 更换被空资源字典相等误判为 persistent-state mismatch；`2131872317:13` 与 `2998757800:23` 还证明旧 authored chain 已因逐 stage 独立 full-frame pair 从旧约 `27/33.15 MiB` 膨胀为约 `144/132.59 MiB` 并分配失败。snapshot、utility、named-target 与 live-property 红项均在首个 frame/target 失败后连锁，暂不单独修补。
+- fixed13 据此新增提交前原子门：launch capability 只登记静态可达的 variant/schema 候选；frame admission 必须在任何 main-pass/legacy 写入前冻结同一 snapshot，完成全部 candidate 的 compositor 条件、实际 texture purpose/uniform/pipeline finalization、chain-wide target reservation 与有序 graph preparation，再一次性签发 frame-scoped prepared claim。纯模拟 target preflight 后逐层 reserve/commit 不够，因为多个 reservation 会共享旧 cache revision并互相变 stale；需要 batch reservation/commit/pin，pending 只 defer，静态不支持保持 `notMigrated`，claim 后不再动态回退 legacy。旧 authored chain 同时改用同一 chain-wide pair/lease allocator，不能继续每 stage 各配一套 full-frame pair。0-FBO pair generation 与 persistent-FBO generation 必须分责，非空 FBO/history/token/rehydrate 门不得放宽。以上都是 R4 executor/allocator 地基，不是 R5 清理，也不通过抬高预算、忽略门禁或样本/layer/hash 分支解决。
+- 用户于本断点进一步收紧阶段边界：不赶进 R5，先把遗留产品执行 owner 全部安全迁入统一架构。只读权限审计确认同一 image/solid/text 仍有新 graph、old authored chain、standalone、legacy offscreen、legacy inline 五个产品执行面，另有 utility/dependency、Image Blend、quad Light Shafts、四类 recovery 与脚本/source exact profile。结构基线为 **33 dedicated probes / 34 compiler identities / 33 runtime backends / 4 recovery kinds**；生产源码另有 **50 个文件、251 个硬编码 64 位 SHA 字符串**，以及数字 Workshop path **13 文件/70 处**、Workshop 命名 profile **4 文件/34 处**，两类 Workshop selector 合计 16 个唯一文件。计算出的 digest 用于 identity/cache/integrity/evidence 可以保留；与硬编码 expected digest 或 Workshop namespace 比较并据此解锁 renderer、常量或 profile 的行为属于算法 dispatch，必须逐族退出产品选择。完整权限清单、零双 owner/零 sample-layer-path-hash 算法分支门、迁移波次回归和旧 owner 撤权仍是 R4 未完成工作，之后才执行 full45 里程碑与 R5 纯清理收口。
+
+#### 2026-08-04 暂停交接点（历史）：R4 核心尚未提交
+
+**冻结状态（已由下方 checkpoint supersede）**
+
+- 用户要求先停下来收尾后，所有并行写入已经停止；本断点不再扩能力、不开始下一迁移波次、不运行 fixed13/full45，也不提交未闭合的 R4。
+- 当时分支仍停在 R3 提交 `588faf40`，冻结盘点为 92 个 tracked modified、45 个 untracked；该数字仅是历史接手快照。之后 R4 lane 已完成复核并提交，当前以本 checkpoint 和权威语义文档为准。
+- 当时两份权威文档刻意不登记 R4；本 checkpoint 已补登记结构证据，但不提升能力等级，也不把 fixed13 写成全量基线。三份 clean-room 资料 `client-runtime-static-forensics.md`、`scene-format-and-render-graph.md`、`source-index.md` 的中性研究增量仍不等于产品能力完成。
+- 收尾只读审计 `python3 script/audit_codex_artifacts.py --fail-on-candidates` 报告 `.codex current=5.29 GiB`、**196 个 stale candidates / 22.62 GiB**，其中包括约 0.92 GiB 的本轮 fixed13 失败现场和多批历史矩阵。当前没有完成逐项归属、唯一证据与可重建性裁决，因此本次一个都未删除；恢复时先保留 R4 报告，其他候选待阶段检查点后的独立清场预览与用户确认。
+
+**目标能力池与当前架构判断**
+
+```text
+sample declaration
+  -> unified parser / typed IR
+  -> typed capability demand
+  -> public capability catalog admission
+  -> shared frame scheduler / resource lifecycle / ordering
+  -> public executor and compositor
+  -> explicit runtime evidence
+```
+
+- 样本只能声明版本化数据、资源、shader、graph 和属性；不能选择产品代码路径。sample/workshop/layer/path/hash 只能承担测试定位、实例身份、缓存、完整性或 fail-closed provenance，不能解锁 renderer、常量或近似算法。
+- 当时未提交的新链已经用结构、条件、资源与 typed program 形成 candidate/admitted layer、capability token、full-frame pair plan、whole-frame target batch、frame transaction、submission coordinator 与 GPU/compositor evidence；审计范围内没有按样本身份选择算法。旧 authored chain 也已开始复用 chain-wide allocator，并把 direct/utility 资源提交挂到共享 `SceneSourceUpdateTransaction`，claim 后主链失败会阻止本帧后续 legacy/utility 编码。
+- 这只说明方向与官方公开的 data-driven 分层性质一致，不说明产品整体已经同构或向下兼容。以下旧权威仍阻止“唯一能力池”结论：
+  1. launch 仍通过 `SceneEffectRuntimeDispositionCatalog` 在资源加载后投影 effect family 供 telemetry 使用；该 family 已不再是 new capability admission authority，但仍属于旧 evidence projection，后续可清理。
+  2. `SceneResolvedMaterialFramePreflight` 的 target extent 已由 typed claim policy 提供，new capability 不再调用旧 `authoredEffectChain.authoredShaderOffscreenSize`；旧 authored chain/plan 仍作为 legacy draw request owner 可达。
+  3. `.notMigrated -> .legacy` 和 old authored chain、standalone、legacy offscreen/inline、utility/dependency 等产品 owner 仍可达；R4 还没有完成“一阶段一个 owner”的迁移合同。
+  4. launch `executableLayerIDs`、frame preflight 的 content/audio 排除和 runtime claim 分散决定准入；需要收敛成一个 typed capability admission。动态 visibility、condition schema、clear/function 与 SceneScript dynamic producer 当前保持 fail closed，后续只能作为公共能力补入。
+  5. `markComposite` 当前已返回显式 `CompositeOutcome`，ticket/texture invariant 失败会立即形成 rejected route 并在 frame transaction 中回滚；后续 legacy/utility 编码由共享 source transaction 短路。仍需在 legacy authored frame batch 迁移中证明跨 owner 的终态守恒。
+
+#### 2026-08-04 R4 partial checkpoint：统一 graph 地基已提交
+
+- 本次 checkpoint 已将 raw authored graph admission、typed capability token/pair plan、frame snapshot freeze、variant/texture/uniform/pipeline finalization、whole-chain target preflight/batch reservation、prepared claim、统一 graph executor、terminal composition、GPU completion、rollback 与 next-frame evidence 串成同一主链。正例 `3141421197` 的 R4 graph report 已证明 accepted/claimed/encoded/GPU/compositor/next-frame 闭合；零候选样本保持 zero-contract 通过。
+- 当前 fixed13 定向子集 `.codex/scene-chain-r4-core-fixed13-20260804-v2/report.json` 为 **4/6 PASS**。通过样本为 `2131872317`、`2998757800`、`3122339805`、`3747492842`；`2902406982` 的 layers `167/177/530` 与 `3768903841` 的 layers `181/188/202/211/220/232` 仍因 legacy authored route 的 `authored-target-allocation / graph-targets-unavailable` 失败。该红项指向旧路径逐 chain reserve/commit 的 persistent target allocation，不是新 graph validation 新增的样本特例。
+- 同一 image/solid/text 仍有五个产品执行面：R4 resolved-material graph executor、old authored chain、standalone authored renderer、legacy offscreen、legacy inline/direct layer；utility/dependency capture、Image Blend、quad Light Shafts、四类 recovery、dedicated probes/compiler/backend 与 Workshop/hash selectors 仍未迁完。结构基线仍为 **33 / 34 / 33 / 4**，不能宣称 R4 完成，也不能进入 R5。
+- 下次从公共 legacy authored frame batch 继续：先收集普通 image/solid/text 与 utility capture plans，统一 prepare/commit/pin，并把 tables 注入 compositor；完成后再按 R4-0 至 R4-6 逐族撤销旧 owner。full45 本次未运行，保留上述失败现场，不删除 `.codex` 报告。
+
+**冻结前最后一轮已运行验证**
+
+| 验证 | 结果 | 证据边界 |
+|---|---:|---|
+| `git diff --check` | PASS | 只证明 patch whitespace/marker 健康 |
+| `python3 script/check_code_health.py --check --base-ref HEAD` | PASS：829 Swift / 44 locked legacy / 400-line limit | 覆盖最后一轮 Swift patch |
+| `test_scene_source_update_transaction.py` | 3/3 PASS | source transaction exactly-once release 与失败关闭 |
+| `test_scene_framebuffer_capture.py` | 42/42 PASS | frame transaction、claimed failure 短路与 capture 合同 |
+| `test_scene_offscreen_texture_pool.py` | 27/27 PASS | whole-frame batch、revision replay、reset/history/pending isolation |
+| `test_scene_resolved_material_runtime_bridge.py` | 12/12 PASS | batch prepare/commit 与 submission lifecycle |
+
+以下证据**没有覆盖最后一轮 patch**，恢复时必须视为历史线索而不是当前 PASS：此前 Scene 全量 190/190、`script/build_and_run.sh verify`、`3141421197` 的 v7 正例/零候选样本结果。首轮 fixed13 报告 `.codex/scene-chain-r4-core-fixed13-20260804-v1/report.json` 为 **7/13 PASS、6 FAIL**，它产生在最后一轮公共修复之前且尚未复跑；full45 按门禁从未启动。当前 App 是否编译、完整 Scene 是否仍全绿、失败样本是否恢复及多相位视觉状态均为 **pending**。
+
+**下次恢复顺序**
+
+1. 先核对 `git status --short --branch`、全部 untracked 文件归属和 diff；确认没有新的并行 writer 后，审查最后一轮 transaction/batch patch，不能丢弃或机械重做。
+2. 先消除上述旧 classification、old extent 和分散 admission 三个架构依赖，再让 `markComposite` 返回显式失败结果并立即短路；不得用 sample/layer/path/hash 分支绕过。
+3. 重跑四个定向模块、Swift code health 与 `git diff --check`；随后按核心执行链风险运行 Scene 全量、`script/build_and_run.sh verify`，确认当前 App 真正加载该实现。
+4. 先复跑 fixed13 中对应共享根因的定向样本，再跑 fixed13。只有 fixed13 通过且定向证据无法排除跨样本风险时，才运行 full45；固定门与完整门必须分别报告。
+5. executor 核心检查点满足后，先同步语义权威文档并做独立 scoped commit；再按 R4-0 至 R4-6 逐族迁移，每族同提交撤销旧 owner。最后一个旧产品 owner 撤权、静态算法 selector 归零且 R4 里程碑证据闭合前，不进入 R5。
+
+**恢复期间禁止**：不要把当前 dirty lane 宣称为现役能力；不要为 `3766387484`、`3769688830`、`3768903841` 增加专属适配；不要抬高显存预算、放宽 fail-closed 或用 hash 解锁算法制造矩阵通过；现役资料足够时不要启动 Ghidra；不要删除本段列出的 `.codex` 失败/交接现场，清理须先完成只读归属审计并另行确认。
+
+#### R4 旧权限安全迁移波次
+
+每个波次均以“公共 capability 接管、被替代 owner 同提交撤权、旧 exact/route 双写为零、跨样本或跨 revision 正反例通过”闭合。只增加新 executor 而保留旧默认 fallback 不算迁移。
+
+1. **R4-0 权限冻结门**：把 canonical executor 调用点、legacy authority、main-pass writer、dedicated probe/compiler/backend、recovery、硬编码 expected SHA 与 Workshop selector 写入现有 layout/semantics 机器门；禁止基线上升，并随每个后续提交 ratchet。不得另建一次性小脚本。
+2. **R4-1 generic authored material**：让通用 frontend、implicit framebuffer、uniform、sampler、render state、color contract 与单/多 pass Program 覆盖原 authored-shader accepted subset；删除被 chain 遮蔽的 standalone 产品调用，并在正例全集、跨 revision 与坏 slot/state/color 反例闭合后撤销旧 `.authoredShader` backend、旧 pipeline cache 与 Scroll exact profile。
+3. **R4-2 普通 material 能力族**：按 color/tint/opacity/transform/shift-hue/film-grain/pulse、动态 uniform/provider、blend/depth/cull/alpha-writing 等共享语义扩 binder/executor；每族同提交删除对应 probe、backend case、planner/profile/hash selector、旧 renderer dispatch 与只服务旧路径的测试，不把原 switch 原样搬进新 executor。
+4. **R4-3 graph resource 与多 pass**：闭合 logical target、copy/swap、persistent/history、clear/function/condition、compose pair、hazard、resize/reparse/reset generation，再迁移 blur/bloom/local-contrast/water/cursor/depth/xray/shine/godrays 等族；完成后删除 old chain renderer，并把 Iris/X-Ray/Cursor Ripple/Shine 四类 omission/rebase recovery 归零。
+5. **R4-4 cross-layer/utility/dependency**：让 named target、dependency texture、clipping 与 utility composition/project/fullscreen 进入同一 graph scheduler；撤销 Image Blend 独立 effect executor、utility 对 old compositor/chain 的调用、legacy inline/offscreen planner/renderer 与 `SceneEffectRuntimePlanner` 的产品执行调用。最终 layer color blend 保留为共享 compositor 能力。
+6. **R4-5 脚本与 source profile 去样本化**：Text、texture animation、media transition、Audio Bars exact source/asset profile 分别迁到有界 AST/interpreter、通用 timer/event、typed source provider、SceneScript object/audio/instancing 能力；未完成时保持 unsupported/fail-closed，不再用 exact profile 近似。完成门是生产源码 hardcoded expected SHA 与数字 Workshop selector 为零。
+7. **R4-6 对象路径统一调度**：Light Shafts 从 quad 特判直写迁入共享 effect/scheduler；Particle、SpotLight、Puppet、Video 可保留领域 runtime，但只能发布 typed source/draw packet 并共用 identity/frame/resource/lifecycle，不能成为 effect fallback 或样本 profile authority。所有 main-pass writer 必须进入显式 allowlist 并由公共 frame scheduler 唯一排序。
+
 ## 9. 下一动作
 
 1. **已完成**：R0-C legacy direct/offscreen 实际编码点接入与 strict generic family 回连；pure reducer、legacy decision、framebuffer、authored execution、code health、App verify 与 Scene 全量均已重跑。
@@ -348,5 +449,6 @@ Ghidra 只记录控制流、数据形状、顺序和失败边界；不复制官�
 8. **已完成**：R2 建立 typed compatibility provenance、基于 `SceneResourceView` 的候选完整 source graph、include digest/source map、directive evaluator、typed variant environment 与 active frontend handoff；同名不同内容、未知版本/format/platform 语义保持可审计的 fail closed，没有新增按 effect/path/hash 分派的可见算法。
 9. **已完成**：R2 只把 include/combo contract 准备到 active source/schema/cache identity；普通 authored pass 的 shader input/output color representation显式 unresolved，现役 generic renderer准入没有因预处理成功而扩大；独立阶段提交为 `57cc94dc`。
 10. **已完成**：R3 把同代 texture/provider、active variant/reflection、uniform bytes、typed state与保守颜色合同原子编入 `SceneResolvedMaterialProgram`，并用45样本静态census、production一次性审计、完整Scene测试和四样本性能门验证；`gpuEncoded=0`，没有按effect/path/hash或样本ID分派，也没有宣称视觉修复。
-11. **下一阶段**：R4 在同一Program/graph-node边界建立唯一executor；完成门同时包含condition/function、shader `[PASS]`、persistent swap/history、resize/reparse/reset generation、compose pair与scene final output，不能只证明单个material pass能编码。
-12. R5 先对职责薄、迁移边界清楚的 dedicated family 做机械试点，再处理会制造整层近似的 legacy inline/water/foliage 聚合；每个迁移提交都必须同时删除被替代入口并刷新六轴规模账，禁止只加新 executor、把旧代码留作默认回退。
+11. **R4 partial checkpoint 已提交，R4 未完成**：raw graph capability admission、typed extent、whole-frame batch、frame/source transaction、显式 `CompositeOutcome`、统一 executor 与 GPU/compositor/next-frame evidence 已进入当前检查点。最新 fixed13 定向子集为 **4/6 PASS**；`2902406982` 与 `3768903841` 仍在 legacy authored route 的 persistent target allocation 失败。下次从公共 legacy authored frame batch 继续，完成普通 image/solid/text 与 utility capture 的统一 prepare/commit/pin；full45 未运行，旧 owner 全部撤权前不进入 R5。
+12. **R4 后续而非 R5**：先提交 R4-0 可机读权限冻结门，再依次推进 R4-1 至 R4-6 的 capability family 迁移。每个迁移提交都必须同时撤销被替代产品入口，降低 authority/hash/path/recovery ratchet，并刷新 dedicated probe/runtime backend/legacy authority/文件与 LOC/小文件六轴规模账；禁止只加新 executor、把旧代码留作默认回退。除完整矩阵合同再次变化或定向/固定门无法排除跨样本风险外，迁移波次不惯性运行 full45；最后一个旧 owner 撤权后的 R4 里程碑必须再运行完整门。
+13. **R5 准入门**：最后一个旧产品 owner 已撤权；新旧 exact/route telemetry 不双写；产品源码没有 sample/layer/path/hash 驱动的可见算法选择；跨版本跨样本正反门和 full45 里程碑通过。R5 此后只删除不可达脚手架、合并薄文件、同步权威文档和做最终证据收口；发现行为迁移缺口必须退回 R4。

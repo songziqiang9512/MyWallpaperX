@@ -8,11 +8,27 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
     typealias Template = SceneResolvedMaterialTemplate
 
     static func derive(_ input: Program.AssemblyInput) -> Program.Derived? {
+        guard let frontend = compileFrontend(input.preparedShader) else { return nil }
+        return derive(input, frontend: frontend)
+    }
+
+    static func deriveCompiled(
+        _ input: Program.AssemblyInput,
+        frontend: SceneAuthoredShaderProgram
+    ) -> Program.Derived? {
+        guard validPreparedStages(input.preparedShader),
+              uniqueAndValid(frontend.uniformLayout) else { return nil }
+        return derive(input, frontend: frontend)
+    }
+
+    private static func derive(
+        _ input: Program.AssemblyInput,
+        frontend: SceneAuthoredShaderProgram
+    ) -> Program.Derived? {
         guard validPreparedStages(input.preparedShader),
               input.renderState.matchesFullscreenOverwrite(
                   alphaWriting: .unspecified
               ),
-              let frontend = recompile(input.preparedShader),
               let textures = resolveTextures(
                   input.textureSlots,
                   frontend: frontend
@@ -95,7 +111,7 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
         let fragmentOutput: SceneShaderColorRepresentation
     }
 
-    private static func validPreparedStages(
+    static func validPreparedStages(
         _ prepared: SceneShaderPreparedProgram
     ) -> Bool {
         let currentSchema = SceneShaderVariantEnvironment.frontendSchemaVersion
@@ -118,7 +134,7 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
         [source.dependencySHA256, source.variantSHA256, source.preparedSHA256]
     }
 
-    private static func recompile(
+    private static func compileFrontend(
         _ prepared: SceneShaderPreparedProgram
     ) -> SceneAuthoredShaderProgram? {
         let output = SceneAuthoredShaderFrontend.compile(
@@ -133,7 +149,7 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
         return program
     }
 
-    private static func uniqueAndValid(
+    static func uniqueAndValid(
         _ layout: SceneAuthoredShaderUniformLayout
     ) -> Bool {
         guard layout.byteSize >= 0,
@@ -280,7 +296,7 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
         field: SceneAuthoredShaderUniformLayout.Field,
         activeTextureSlots: Set<Int>
     ) -> Program.UniformSourceSchema? {
-        let expectedHost = hostUniform(
+        let expectedHost = SceneResolvedMaterialHostUniformSchema.resolve(
             field,
             activeTextureSlots: activeTextureSlots
         )
@@ -297,34 +313,6 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
                 return nil
             }
             return .dynamic(kind)
-        }
-    }
-
-    private static func hostUniform(
-        _ field: SceneAuthoredShaderUniformLayout.Field,
-        activeTextureSlots: Set<Int>
-    ) -> Program.HostUniform? {
-        switch (field.name, field.type) {
-        case ("mwxRenderSize", .float2): return .renderSize
-        case ("g_ModelViewProjectionMatrix", .float4x4):
-            return .modelViewProjection
-        case ("g_Time", .float): return .time
-        case ("g_Daytime", .float): return .dayTime
-        case ("g_Frametime", .float): return .frameTime
-        case ("g_PointerPosition", .float2): return .pointerPosition
-        case ("g_PointerPositionLast", .float2): return .pointerPositionLast
-        case ("g_Screen", .float3): return .screen
-        case ("g_TexelSize", .float2):
-            return .texelSize(scaleBitPattern: Double(1).bitPattern)
-        case ("g_TexelSizeHalf", .float2):
-            return .texelSize(scaleBitPattern: Double(0.5).bitPattern)
-        default:
-            for slot in activeTextureSlots.sorted()
-            where field.name == "g_Texture\(slot)Resolution"
-                && field.type == .float4 {
-                return .textureResolution(slot: slot)
-            }
-            return nil
         }
     }
 

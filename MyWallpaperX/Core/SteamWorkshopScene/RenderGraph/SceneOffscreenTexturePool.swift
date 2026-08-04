@@ -1,4 +1,32 @@
+import Foundation
 import Metal
+
+extension SceneResolvedMaterialInFlightCapacity {
+    static func admitsNewSubmission(
+        _ entries: [SceneOffscreenTextureAllocationCache.Entry],
+        chainKey: SceneGraphRenderTargetChainPlan.Key
+    ) -> Bool {
+        admitsNewSubmission(entries.compactMap { entry in
+            guard case .chain(let chain) = entry.allocation,
+                  chain.plan.key == chainKey else { return nil }
+            return entry.submissionPins.count
+        })
+    }
+
+    static func admitsNewAllocation(
+        _ allocations: [SceneOffscreenTextureAllocationCache.Allocation],
+        chainKey: SceneGraphRenderTargetChainPlan.Key,
+        replacingGenerations: Set<UInt64>
+    ) -> Bool {
+        var unmatched = replacingGenerations
+        let retainedCount = allocations.reduce(into: 0) { count, allocation in
+            guard case .chain(let chain) = allocation,
+                  chain.plan.key == chainKey else { return }
+            if unmatched.remove(chain.generation) == nil { count += 1 }
+        }
+        return unmatched.isEmpty && retainedCount < maximumSubmissions
+    }
+}
 
 final class SceneOffscreenTexturePool {
     struct Pair {
@@ -7,50 +35,21 @@ final class SceneOffscreenTexturePool {
         let tertiary: MTLTexture
     }
 
-    private let device: MTLDevice
-    private let pixelFormat: MTLPixelFormat
+    let device: MTLDevice
+    let pixelFormat: MTLPixelFormat
+    typealias AllocationCache = SceneOffscreenTextureAllocationCache
+    typealias CacheKey = AllocationCache.Key
+    typealias Allocation = AllocationCache.Allocation
+    typealias Candidate = AllocationCache.Candidate
 
-    private enum CacheKey: Hashable {
-        case pair(width: Int, height: Int)
-        case graph(SceneAuthoredEffectRenderPlan.EffectKey)
-    }
+    let maxDimension: Int
+    let residentByteBudget: Int
+    let allocationCache: AllocationCache
+    let residencyDomainID = UUID()
 
-    private enum Allocation {
-        case pair(Pair)
-        case graph(SceneGraphRenderTargetTable)
-
-        var textureCount: Int {
-            switch self {
-            case .pair:
-                return 3
-            case .graph(let table):
-                return table.residentTextureCount
-            }
-        }
-    }
-
-    private struct Entry {
-        let allocation: Allocation
-        let byteCost: Int
-        var lastAccess: UInt64
-    }
-
-    private let maxDimension: Int
-    // This caps cache residency after a transaction commits. Graph replacements
-    // build their candidate first, so transient driver allocations can exceed it.
-    private let residentByteBudget: Int
-    private var cachedAllocations: [CacheKey: Entry] = [:]
-    private var accessCounter: UInt64 = 0
-
-    private(set) var residentByteCost = 0
-
-    var residentAllocationCount: Int {
-        cachedAllocations.count
-    }
-
-    var residentTextureCount: Int {
-        cachedAllocations.values.reduce(0) { $0 + $1.allocation.textureCount }
-    }
+    var residentAllocationCount: Int { allocationCache.residentAllocationCount }
+    var residentTextureCount: Int { allocationCache.residentTextureCount }
+    var residentByteCost: Int { allocationCache.residentByteCost }
 
     init(
         device: MTLDevice,
@@ -61,7 +60,9 @@ final class SceneOffscreenTexturePool {
         self.device = device
         self.pixelFormat = pixelFormat
         self.maxDimension = max(maxDimension, 1)
-        self.residentByteBudget = max(residentByteBudget, 0)
+        let normalizedBudget = max(residentByteBudget, 0)
+        self.residentByteBudget = normalizedBudget
+        allocationCache = .init(byteBudget: normalizedBudget)
     }
 
     func textures(for sourceTexture: MTLTexture) -> Pair? {
@@ -81,31 +82,12 @@ final class SceneOffscreenTexturePool {
             )
         )
         let key = CacheKey.pair(width: width, height: height)
-        accessCounter &+= 1
-        if var cached = cachedAllocations[key], case .pair(let pair) = cached.allocation {
-            cached.lastAccess = accessCounter
-            cachedAllocations[key] = cached
-            return pair
+        if let cached = allocationCache.cachedPair(for: key) {
+            return cached
         }
-
-        guard let byteCost = byteCost(width: width, height: height, textureCount: 3),
-              byteCost <= residentByteBudget else {
-            return nil
-        }
-        evictUntilAffordable(byteCost)
-
-        let label = "pair:\(width)x\(height)"
-        guard let primary = makeTexture(width: width, height: height, label: "SceneOffscreenA \(label)"),
-              let secondary = makeTexture(width: width, height: height, label: "SceneOffscreenB \(label)"),
-              let tertiary = makeTexture(width: width, height: height, label: "SceneOffscreenC \(label)") else {
-            return nil
-        }
-
-        let pair = Pair(primary: primary, secondary: secondary, tertiary: tertiary)
-        cachedAllocations[key] = Entry(
-            allocation: .pair(pair), byteCost: byteCost, lastAccess: accessCounter
-        )
-        residentByteCost += byteCost
+        guard let candidate = pairCandidate(width: width, height: height),
+              allocationCache.commit([candidate]),
+              case .pair(let pair, _) = candidate.allocation else { return nil }
         return pair
     }
 
@@ -114,7 +96,19 @@ final class SceneOffscreenTexturePool {
         requestedWidth: Int,
         requestedHeight: Int
     ) -> SceneGraphRenderTargetTable? {
-        return graphTargetTransaction(
+        graphTargetLease(
+            for: executionPlan,
+            requestedWidth: requestedWidth,
+            requestedHeight: requestedHeight
+        )?.table
+    }
+
+    func graphTargetLease(
+        for executionPlan: SceneAuthoredEffectExecutionPlan,
+        requestedWidth: Int,
+        requestedHeight: Int
+    ) -> SceneGraphRenderTargetLease? {
+        graphTargetLeaseTransaction(
             stages: [executionPlan],
             layerID: executionPlan.layerID,
             validatesChainOrder: false,
@@ -123,250 +117,230 @@ final class SceneOffscreenTexturePool {
         )?.first
     }
 
-    func graphTargets(
+    func framePlanForPersistentGraphTargets(
         for chain: SceneAuthoredEffectExecutionChain,
         requestedWidth: Int,
-        requestedHeight: Int
-    ) -> [SceneGraphRenderTargetTable]? {
-        if chain.stages.allSatisfy({ $0.logicalRenderTargetCount == 0 }) {
-            return sharedGraphTargets(
-                for: chain,
-                requestedWidth: requestedWidth,
-                requestedHeight: requestedHeight
-            )
-        }
-        return graphTargetTransaction(
-            stages: chain.stages,
-            layerID: chain.layerID,
-            validatesChainOrder: true,
-            requestedWidth: requestedWidth,
-            requestedHeight: requestedHeight
+        requestedHeight: Int,
+        orderingContext: SceneGraphCommandQueueOrderingContext? = nil
+    ) -> ScenePersistentGraphTargetFramePlan? {
+        let stages = chain.executionStages
+        guard pixelFormat == .bgra8Unorm,
+              !usesPairOnlyLegacyTargets(for: chain),
+              let prepared = targetPlans(
+                  stages: stages,
+                  layerID: chain.layerID,
+                  validatesChainOrder: true,
+                  enforcesExactExtent: true,
+                  requestedWidth: requestedWidth,
+                  requestedHeight: requestedHeight
+              ), case .success(let pairPlan) = SceneLayerFullFramePairPlan.make(
+                  conditionPrunedGraphs: stages.map(\.renderGraph)
+              ), case .success(let chainPlan) = SceneGraphRenderTargetChainPlan.make(
+                  plans: prepared.plans,
+                  pairPlan: pairPlan,
+                  byteBudget: residentByteBudget,
+                  pairStorage: .shared
+              ), prepared.plans.last?.output == chain.renderGraph.finalOutput,
+              chainPlan.historyEffects.isEmpty,
+              chainPlan.stages.allSatisfy({
+                  $0.pairStep.inputMember != $0.pairStep.outputMember
+              }) else { return nil }
+        return .init(
+            residencyDomainID: residencyDomainID,
+            chainPlan: chainPlan,
+            orderingContext: orderingContext
         )
     }
 
-    private func sharedGraphTargets(
-        for chain: SceneAuthoredEffectExecutionChain,
+    /// Allocates effect-keyed candidates without publishing them to cache/LRU
+    /// residency. The coordinator commits and pins only after graph preflight.
+    func preparePersistentGraphTargets(
+        admittedGraphs: [SceneAuthoredEffectRenderPlan],
+        pairPlan: SceneLayerFullFramePairPlan,
+        extentPolicy: SceneFullFrameExtentPolicy = .standard,
         requestedWidth: Int,
         requestedHeight: Int
-    ) -> [SceneGraphRenderTargetTable]? {
-        guard pixelFormat == .bgra8Unorm, !chain.stages.isEmpty else { return nil }
-        let dimensionLimit = SceneOffscreenResolutionPolicy.maximumDimension(
-            hardLimit: maxDimension,
-            includesAuthoredShader: chain.stages.contains { $0.authoredShader != nil }
-        )
-        let (width, height) = SceneOffscreenResolutionPolicy.limitedDimensions(
-            width: requestedWidth,
-            height: requestedHeight,
-            maximumDimension: dimensionLimit
-        )
-        guard let pair = textures(
-            width: width,
-            height: height,
-            maximumDimension: dimensionLimit
-        ) else { return nil }
-        let inputs = [pair.primary, pair.tertiary, pair.secondary]
-        let outputs = [pair.secondary, pair.primary, pair.tertiary]
-        var priorOutput: SceneAuthoredEffectRenderPlan.TextureIdentity?
-        var tables: [SceneGraphRenderTargetTable] = []
-        tables.reserveCapacity(chain.stages.count)
-        for (index, stage) in chain.stages.enumerated() {
-            guard stage.layerID == chain.layerID,
-                  case .success(let plan) = SceneGraphRenderTargetPlan.make(
-                      executionPlan: stage,
-                      graph: stage.renderGraph,
-                      inputWidth: width,
-                      inputHeight: height
-                  ) else {
-                return nil
-            }
-            if let priorOutput {
-                guard plan.inputRole == .priorEffectOutput,
-                      plan.input == priorOutput else { return nil }
-            } else {
-                guard plan.inputRole == .layerSource else { return nil }
-            }
-            let rotation = index % inputs.count
-            guard case .success(let table) = SceneGraphRenderTargetTable.makeBorrowed(
-                plan: plan,
-                inputTexture: inputs[rotation],
-                outputTexture: outputs[rotation]
-            ) else {
-                return nil
-            }
-            tables.append(table)
-            priorOutput = plan.output
-        }
-        return priorOutput == chain.renderGraph.finalOutput ? tables : nil
+    ) -> ScenePreparedPersistentGraphTargets? {
+        guard pixelFormat == .bgra8Unorm,
+              let prepared = persistentTargetPlans(
+                  admittedGraphs: admittedGraphs,
+                  pairPlan: pairPlan,
+                  extentPolicy: extentPolicy,
+                  requestedWidth: requestedWidth,
+                  requestedHeight: requestedHeight
+              ), case .success(let plan) = SceneGraphRenderTargetChainPlan.make(
+                  plans: prepared.plans,
+                  pairPlan: pairPlan,
+                  byteBudget: residentByteBudget
+              ) else { return nil }
+        return ScenePersistentGraphTargetAllocator(
+            device: device, cache: allocationCache
+        ).prepare(plan: plan)
     }
 
-    private func graphTargetTransaction(
+    private func graphTargetLeaseTransaction(
         stages: [SceneAuthoredEffectExecutionPlan],
         layerID: Int,
         validatesChainOrder: Bool,
         requestedWidth: Int,
         requestedHeight: Int
-    ) -> [SceneGraphRenderTargetTable]? {
-        guard pixelFormat == .bgra8Unorm else { return nil }
+    ) -> [SceneGraphRenderTargetLease]? {
+        guard let prepared = graphTargetLeaseCandidates(
+            stages: stages,
+            layerID: layerID,
+            validatesChainOrder: validatesChainOrder,
+            requestedWidth: requestedWidth,
+            requestedHeight: requestedHeight
+        ), allocationCache.commit(prepared.candidates) else { return nil }
+        return prepared.leases
+    }
+
+    private func graphTargetLeaseCandidates(
+        stages: [SceneAuthoredEffectExecutionPlan],
+        layerID: Int,
+        validatesChainOrder: Bool,
+        requestedWidth: Int,
+        requestedHeight: Int
+    ) -> (leases: [SceneGraphRenderTargetLease], candidates: [Candidate])? {
+        guard pixelFormat == .bgra8Unorm,
+              let prepared = targetPlans(
+                  stages: stages,
+                  layerID: layerID,
+                  validatesChainOrder: validatesChainOrder,
+                  enforcesExactExtent: true,
+                  requestedWidth: requestedWidth,
+                  requestedHeight: requestedHeight
+              ) else { return nil }
+        let plans = prepared.plans
+
+        var candidates: [Candidate] = []
+        var leases: [SceneGraphRenderTargetLease] = []
+        var uniqueKeys = Set<CacheKey>()
+        candidates.reserveCapacity(plans.count)
+        leases.reserveCapacity(plans.count)
+        for plan in plans {
+            guard let effect = plan.output.effect else { return nil }
+            let key = CacheKey.graph(effect)
+            guard uniqueKeys.insert(key).inserted else { return nil }
+            let lease: SceneGraphRenderTargetLease
+            if let cached = allocationCache.allocation(for: key),
+               case .graph(let existing) = cached,
+               existing.table.plan == plan {
+                lease = existing
+            } else {
+                guard case .success(let table) = SceneGraphRenderTargetTable.make(
+                    plan: plan,
+                    device: device,
+                    byteBudget: residentByteBudget
+                ), let textures = SceneGraphRenderTargetLease.orderedTextures(
+                    for: table
+                ), let physicalIdentity = allocationCache.issuePhysicalIdentity(
+                    textures: textures
+                ), case .success(let created) = SceneGraphRenderTargetLease.make(
+                    table: table,
+                    generation: physicalIdentity.generation,
+                    tokenForTexture: physicalIdentity.token(for:)
+                ) else { return nil }
+                lease = created
+            }
+            candidates.append(.init(
+                key: key,
+                allocation: .graph(lease),
+                byteCost: lease.table.residentByteCost
+            ))
+            leases.append(lease)
+        }
+        return (leases, candidates)
+    }
+
+    func persistentTargetPlans(
+        admittedGraphs: [SceneAuthoredEffectRenderPlan],
+        pairPlan: SceneLayerFullFramePairPlan,
+        extentPolicy: SceneFullFrameExtentPolicy = .standard,
+        requestedWidth: Int,
+        requestedHeight: Int
+    ) -> (plans: [SceneGraphRenderTargetPlan], width: Int, height: Int)? {
+        guard !admittedGraphs.isEmpty,
+              admittedGraphs.count == pairPlan.effects.count,
+              admittedGraphs.allSatisfy({ $0.layerID == pairPlan.layerID }) else {
+            return nil
+        }
+        guard let size = SceneOffscreenResolutionPolicy.resolvedDimensions(
+            width: requestedWidth,
+            height: requestedHeight,
+            hardLimit: maxDimension,
+            policy: extentPolicy
+        ) else { return nil }
+        var plans: [SceneGraphRenderTargetPlan] = []
+        plans.reserveCapacity(admittedGraphs.count)
+        for (index, values) in zip(admittedGraphs, pairPlan.effects).enumerated() {
+            let (graph, pairStep) = values
+            let inputRole: SceneAuthoredEffectInputRole = index == 0
+                ? .layerSource : .priorEffectOutput
+            guard graph.effects.first?.key == pairStep.effect,
+                  case .success(let plan) = SceneGraphRenderTargetPlan.make(
+                      graph: graph,
+                      inputRole: inputRole,
+                      inputWidth: size.0,
+                      inputHeight: size.1
+                  ), plan.input == pairStep.inputIdentity,
+                  plan.output == pairStep.outputIdentity else { return nil }
+            plans.append(plan)
+        }
+        return (plans, size.0, size.1)
+    }
+
+    func targetPlans(
+        stages: [SceneAuthoredEffectExecutionPlan],
+        layerID: Int,
+        validatesChainOrder: Bool,
+        enforcesExactExtent: Bool,
+        requestedWidth: Int,
+        requestedHeight: Int
+    ) -> (plans: [SceneGraphRenderTargetPlan], width: Int, height: Int)? {
         guard !stages.isEmpty, stages.allSatisfy({ $0.layerID == layerID }) else {
             return nil
         }
-        let dimensionLimit = SceneOffscreenResolutionPolicy.maximumDimension(
+        let limit = SceneOffscreenResolutionPolicy.maximumDimension(
             hardLimit: maxDimension,
             includesAuthoredShader: stages.contains { $0.authoredShader != nil }
         )
-        let (width, height) = SceneOffscreenResolutionPolicy.limitedDimensions(
+        let size = SceneOffscreenResolutionPolicy.limitedDimensions(
             width: requestedWidth,
             height: requestedHeight,
-            maximumDimension: dimensionLimit
+            maximumDimension: limit
         )
-        if stages.contains(where: \.requiresExactInputExtent),
+        if enforcesExactExtent && stages.contains(where: \.requiresExactInputExtent),
            (requestedWidth <= 0 || requestedHeight <= 0
-               || width != requestedWidth || height != requestedHeight) {
+               || size.0 != requestedWidth || size.1 != requestedHeight) {
             return nil
         }
-
         var plans: [SceneGraphRenderTargetPlan] = []
-        plans.reserveCapacity(stages.count)
         var priorOutput: SceneAuthoredEffectRenderPlan.TextureIdentity?
         for stage in stages {
             guard case .success(let plan) = SceneGraphRenderTargetPlan.make(
                 executionPlan: stage,
                 graph: stage.renderGraph,
-                inputWidth: width,
-                inputHeight: height
+                inputWidth: size.0,
+                inputHeight: size.1
             ) else { return nil }
-            if validatesChainOrder {
-                if let priorOutput {
-                    guard plan.inputRole == .priorEffectOutput,
-                          plan.input == priorOutput else { return nil }
-                } else {
-                    guard plan.inputRole == .layerSource else { return nil }
-                }
+            if validatesChainOrder, let priorOutput {
+                guard plan.inputRole == .priorEffectOutput,
+                      plan.input == priorOutput else { return nil }
+            } else if validatesChainOrder {
+                guard plan.inputRole == .layerSource else { return nil }
             }
             plans.append(plan)
             priorOutput = plan.output
         }
-
-        var keys: [CacheKey] = []
-        var tables: [SceneGraphRenderTargetTable] = []
-        var uniqueKeys = Set<CacheKey>()
-        keys.reserveCapacity(plans.count)
-        tables.reserveCapacity(plans.count)
-        for plan in plans {
-            guard let effect = plan.output.effect else { return nil }
-            let key = CacheKey.graph(effect)
-            guard uniqueKeys.insert(key).inserted else { return nil }
-            keys.append(key)
-            if let cached = cachedAllocations[key],
-               case .graph(let table) = cached.allocation,
-               table.plan == plan {
-                tables.append(table)
-                continue
-            }
-            guard case .success(let table) = SceneGraphRenderTargetTable.make(
-                plan: plan,
-                device: device,
-                byteBudget: residentByteBudget
-            ) else { return nil }
-            tables.append(table)
-        }
-
-        var incomingByteCost = 0
-        for table in tables {
-            let (nextCost, overflow) = incomingByteCost.addingReportingOverflow(
-                table.residentByteCost
-            )
-            guard !overflow else { return nil }
-            incomingByteCost = nextCost
-        }
-        guard let victims = evictionKeys(
-            incomingByteCost: incomingByteCost,
-            replacing: uniqueKeys
-        ) else { return nil }
-
-        var nextAccess = accessCounter
-        let entries = tables.map { table -> Entry in
-            nextAccess &+= 1
-            return Entry(
-                allocation: .graph(table),
-                byteCost: table.residentByteCost,
-                lastAccess: nextAccess
-            )
-        }
-
-        var nextAllocations = cachedAllocations
-        for victim in victims {
-            nextAllocations.removeValue(forKey: victim)
-        }
-        for key in keys {
-            nextAllocations.removeValue(forKey: key)
-        }
-        for (key, entry) in zip(keys, entries) {
-            nextAllocations[key] = entry
-        }
-        let nextResidentByteCost = nextAllocations.values.reduce(0) { $0 + $1.byteCost }
-        guard nextResidentByteCost <= residentByteBudget else { return nil }
-        cachedAllocations = nextAllocations
-        residentByteCost = nextResidentByteCost
-        accessCounter = nextAccess
-        return tables
+        return (plans, size.0, size.1)
     }
 
     func reset() {
-        cachedAllocations.removeAll()
-        residentByteCost = 0
-        accessCounter = 0
+        allocationCache.reset()
     }
 
-    private func evictUntilAffordable(_ incomingByteCost: Int) {
-        while !cachedAllocations.isEmpty,
-              residentByteCost > residentByteBudget - incomingByteCost,
-              let oldest = cachedAllocations.min(by: {
-                  $0.value.lastAccess < $1.value.lastAccess
-              }) {
-            removeCachedAllocation(for: oldest.key)
-        }
-    }
-
-    private func evictionKeys(
-        incomingByteCost: Int,
-        replacing keys: Set<CacheKey>
-    ) -> [CacheKey]? {
-        guard incomingByteCost <= residentByteBudget else { return nil }
-        var replacedByteCost = 0
-        for key in keys {
-            let (nextCost, overflow) = replacedByteCost.addingReportingOverflow(
-                cachedAllocations[key]?.byteCost ?? 0
-            )
-            guard !overflow else { return nil }
-            replacedByteCost = nextCost
-        }
-        let retainedByteCost = residentByteCost - replacedByteCost
-        guard retainedByteCost >= 0 else { return nil }
-        let (initialProjectedCost, overflow) = retainedByteCost.addingReportingOverflow(
-            incomingByteCost
-        )
-        guard !overflow else { return nil }
-        var projectedByteCost = initialProjectedCost
-        if projectedByteCost <= residentByteBudget { return [] }
-
-        var victims: [CacheKey] = []
-        let candidates = cachedAllocations
-            .filter { !keys.contains($0.key) }
-            .sorted { $0.value.lastAccess < $1.value.lastAccess }
-        for candidate in candidates where projectedByteCost > residentByteBudget {
-            victims.append(candidate.key)
-            projectedByteCost -= candidate.value.byteCost
-        }
-        return projectedByteCost <= residentByteBudget ? victims : nil
-    }
-
-    private func removeCachedAllocation(for key: CacheKey) {
-        guard let removed = cachedAllocations.removeValue(forKey: key) else { return }
-        residentByteCost -= removed.byteCost
-    }
-
-    private func byteCost(width: Int, height: Int, textureCount: Int) -> Int? {
+    func byteCost(width: Int, height: Int, textureCount: Int) -> Int? {
         let (pixels, pixelOverflow) = width.multipliedReportingOverflow(by: height)
         guard !pixelOverflow else { return nil }
         let (bytes, byteOverflow) = pixels.multipliedReportingOverflow(by: 4)
@@ -375,7 +349,7 @@ final class SceneOffscreenTexturePool {
         return totalOverflow ? nil : total
     }
 
-    private func makeTexture(width: Int, height: Int, label: String) -> MTLTexture? {
+    func makeTexture(width: Int, height: Int, label: String) -> MTLTexture? {
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: pixelFormat,
             width: width,

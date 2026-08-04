@@ -38,6 +38,10 @@ final class SceneDependencyFrameRuntime {
         plan.requiredProviderLayerIDs.contains(providerLayerID)
     }
 
+    func requiresSourcePreparation(for consumerLayerID: Int) -> Bool {
+        imageBlendRuntime?.requiresPreparation(for: consumerLayerID) == true
+    }
+
     func effectInput(
         for consumerLayerID: Int,
         textureRegistry: SceneFrameTextureRegistry

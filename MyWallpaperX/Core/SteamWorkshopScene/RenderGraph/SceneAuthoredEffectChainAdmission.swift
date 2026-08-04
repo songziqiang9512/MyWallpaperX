@@ -68,6 +68,8 @@ nonisolated struct SceneAuthoredEffectChainRejection {
         case stageNodeAmbiguous = "stage-node-ambiguous"
         case stageNodeEffectMismatch = "stage-node-effect-mismatch"
         case unsupportedStage = "unsupported-stage"
+        case stageProgramConservationViolation =
+            "stage-program-conservation-violation"
         case recoveryInvariantViolation = "recovery-invariant-violation"
         case duplicateGraph = "duplicate-graph"
     }
@@ -135,8 +137,8 @@ extension SceneAuthoredEffectChainPlanner {
             return reject(rejection)
         }
 
-        var stages: [SceneAuthoredEffectExecutionPlan] = []
-        stages.reserveCapacity(graph.effects.count)
+        var stagePrograms: [SceneEffectStageProgram] = []
+        stagePrograms.reserveCapacity(graph.effects.count)
         for (ordinal, effect) in graph.effects.enumerated() {
             let stageGraph: Graph
             switch stageGraphAdmission(effect: effect, in: graph) {
@@ -160,14 +162,13 @@ extension SceneAuthoredEffectChainPlanner {
             let compileFailure: SceneEffectStageCompileFailure
             switch compileStage(compileInput) {
             case .accepted(let program):
-                let stage = program.executionPlan
-                stages.append(stage)
+                stagePrograms.append(program)
                 continue
             case .unsupported(let failure):
                 compileFailure = failure
             }
             if let recovered = recoveredAdmission(
-                plannedStages: stages,
+                plannedPrograms: stagePrograms,
                 unsupportedOrdinal: ordinal,
                 graph: graph,
                 descriptor: descriptor,
@@ -185,25 +186,38 @@ extension SceneAuthoredEffectChainPlanner {
             ))
         }
 
-        return .accepted(
-            chain: SceneAuthoredEffectExecutionChain(
+        guard let chain = SceneAuthoredEffectExecutionChain.complete(
+            layerID: graph.layerID,
+            renderGraph: graph,
+            stagePrograms: stagePrograms
+        ) else {
+            let violation = SceneAuthoredEffectExecutionChain
+                .firstProgramConservationViolation(
+                    stagePrograms,
+                    layerID: graph.layerID,
+                    renderGraph: graph
+                )
+            return reject(.init(
+                code: .stageProgramConservationViolation,
                 layerID: graph.layerID,
-                renderGraph: graph,
-                stages: stages
-            ),
-            coverage: .complete
-        )
+                effectOrdinal: violation?.ordinal,
+                effectKey: violation?.effectKey,
+                definitionPath: violation?.definitionPath,
+                observedCount: stagePrograms.count
+            ))
+        }
+        return .accepted(chain: chain, coverage: .complete)
     }
 
     private nonisolated static func recoveredAdmission(
-        plannedStages: [SceneAuthoredEffectExecutionPlan],
+        plannedPrograms: [SceneEffectStageProgram],
         unsupportedOrdinal: Int,
         graph: Graph,
         descriptor: SceneRenderDescriptor,
         shaderContracts: [SceneShaderContract]
     ) -> SceneAuthoredEffectChainAdmission? {
         if let chain = irisInlineSuffix(
-            plannedStages: plannedStages,
+            plannedPrograms: plannedPrograms,
             unsupportedOrdinal: unsupportedOrdinal,
             graph: graph,
             descriptor: descriptor,
@@ -229,12 +243,12 @@ extension SceneAuthoredEffectChainPlanner {
             return isolatedAdmission(chain: chain, graph: graph, cursorRipple: false)
         }
         if let chain = xRayPrefix(
-            plannedStages: plannedStages,
+            plannedPrograms: plannedPrograms,
             unsupportedOrdinal: unsupportedOrdinal,
             graph: graph,
             descriptor: descriptor
         ) {
-            let accepted = Set(chain.stages.compactMap {
+            let accepted = Set(chain.executionStages.compactMap {
                 $0.renderGraph.effects.first?.key
             })
             let omitted = graph.effects.map(\.key).filter { !accepted.contains($0) }
@@ -248,7 +262,7 @@ extension SceneAuthoredEffectChainPlanner {
         graph: Graph,
         cursorRipple: Bool
     ) -> SceneAuthoredEffectChainAdmission {
-        let executedKeys = chain.stages.compactMap {
+        let executedKeys = chain.executionStages.compactMap {
             $0.renderGraph.effects.first?.key
         }
         guard executedKeys.count == 1, let executed = executedKeys.first else {

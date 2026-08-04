@@ -159,7 +159,7 @@ enum SceneAuthoredEffectStageAdmissionBuilder {
         chain: SceneAuthoredEffectExecutionChain,
         chainCoverage: SceneAuthoredEffectChainAdmission.Coverage
     ) -> Admission {
-        let stageMatches = chain.stages.filter {
+        let stageMatches = chain.executionStages.filter {
             $0.renderGraph.effects.count == 1
                 && $0.renderGraph.effects.first?.key == key
         }
