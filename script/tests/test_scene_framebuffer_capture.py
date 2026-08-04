@@ -2601,8 +2601,7 @@ enum Harness {
             target: target,
             clearColor: MTLClearColorMake(0, 0, 0, 0)
         )
-        let encoded = compositor.draw(
-            SceneImageLayerDrawRequest(
+        var request = SceneImageLayerDrawRequest(
                 layer: SceneRenderDescriptor.Layer(
                     contentKind: "image",
                     colorRGB: nil,
@@ -2624,7 +2623,18 @@ enum Harness {
                 dependencyEffect: nil,
                 authoredEffectPlan: effectPlan,
                 blocksLegacyGaussianBlur: false
-            ),
+            )
+        if let effectPlan, let offscreenPool {
+            request.legacyAuthoredFrameTables = try prepareStandaloneAuthoredTables(
+                plan: effectPlan,
+                pool: offscreenPool,
+                width: source.width,
+                height: source.height,
+                commandBuffer: commandBuffer
+            )
+        }
+        let encoded = compositor.draw(
+            request,
             pipeline: pipeline,
             mainPass: mainPass
         )
@@ -2634,6 +2644,7 @@ enum Harness {
         guard commandBuffer.status == .completed else {
             throw HarnessError.commandFailed
         }
+        request.legacyAuthoredFrameTables?.commit.releaseAll()
         return encoded
     }
 
@@ -3231,7 +3242,7 @@ enum Harness {
         let layer = SceneRenderDescriptor.Layer(
             contentKind: "image", colorRGB: nil, colorBlendMode: nil, effects: []
         )
-        try drawAuthoredBlur(
+        let frameTables = try drawAuthoredBlur(
             source: source,
             target: target,
             layer: layer,
@@ -3241,9 +3252,9 @@ enum Harness {
             pipeline: pipeline,
             compositor: compositor
         )
-        guard let table = pool.graphTargets(
-            for: plan, requestedWidth: size, requestedHeight: size
-        ), let intermediateIdentity = table.plan.logicalTargets.first?.identity,
+        guard frameTables.tables.count == 1,
+        let table = frameTables.tables.first,
+        let intermediateIdentity = table.plan.logicalTargets.first?.identity,
         let intermediate = table.texture(for: intermediateIdentity),
         let blur = plan.gaussianBlur,
         let referenceHorizontal = makeTexture(
@@ -3418,7 +3429,7 @@ enum Harness {
         fillPremultipliedCheckerboard(source)
         let plan = authoredStandardBlurPlan()
         let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
-        try drawAuthoredBlur(
+        let frameTables = try drawAuthoredBlur(
             source: source,
             target: target,
             layer: standardBlurLayer(),
@@ -3428,9 +3439,8 @@ enum Harness {
             pipeline: pipeline,
             compositor: compositor
         )
-        guard let table = pool.graphTargets(
-            for: plan, requestedWidth: size, requestedHeight: size
-        ) else {
+        guard frameTables.tables.count == 1,
+              let table = frameTables.tables.first else {
             throw HarnessError.drawRefused
         }
         let intermediates = table.plan.logicalTargets.sorted {
@@ -4888,6 +4898,31 @@ enum Harness {
         )
     }
 
+    static func prepareStandaloneAuthoredTables(
+        plan: SceneAuthoredEffectExecutionPlan,
+        pool: SceneOffscreenTexturePool,
+        width: Int,
+        height: Int,
+        commandBuffer: MTLCommandBuffer
+    ) throws -> SceneOffscreenTexturePool.LegacyAuthoredFrameTables {
+        let orderingContext = SceneGraphCommandQueueOrderingContext(
+            commandBuffer: commandBuffer
+        )
+        guard let framePlan = pool.legacyAuthoredStageFramePlan(
+            for: plan,
+            requestedWidth: width,
+            requestedHeight: height,
+            orderingContext: orderingContext
+        ) else { throw HarnessError.drawRefused }
+        guard let frameTables = pool.prepareLegacyAuthoredFrameBatch(
+            framePlans: [framePlan],
+            orderingContext: orderingContext
+        ), let tables = frameTables[plan.layerID] else {
+            throw HarnessError.drawRefused
+        }
+        return tables
+    }
+
     static func drawAuthoredBlur(
         source: MTLTexture,
         target: MTLTexture,
@@ -4898,17 +4933,24 @@ enum Harness {
         pipeline: SceneImageLayerPipeline,
         compositor: SceneImageLayerCompositor,
         masks: SceneImageLayerMasks = .empty
-    ) throws {
+    ) throws -> SceneOffscreenTexturePool.LegacyAuthoredFrameTables {
         guard let commandBuffer = queue.makeCommandBuffer() else {
             throw HarnessError.metalUnavailable
         }
+        let frameTables = try prepareStandaloneAuthoredTables(
+            plan: plan,
+            pool: pool,
+            width: source.width,
+            height: source.height,
+            commandBuffer: commandBuffer
+        )
+        defer { frameTables.commit.releaseAll() }
         let mainPass = SceneMainPassEncoder(
             commandBuffer: commandBuffer,
             target: target,
             clearColor: MTLClearColorMake(0, 0, 0, 0)
         )
-        guard compositor.draw(
-            SceneImageLayerDrawRequest(
+        var request = SceneImageLayerDrawRequest(
                 layer: layer,
                 texture: source,
                 masks: masks,
@@ -4924,7 +4966,10 @@ enum Harness {
                 dependencyEffect: nil,
                 authoredEffectPlan: plan,
                 blocksLegacyGaussianBlur: false
-            ),
+            )
+        request.legacyAuthoredFrameTables = frameTables
+        guard compositor.draw(
+            request,
             pipeline: pipeline,
             mainPass: mainPass
         ) else {
@@ -4934,6 +4979,7 @@ enum Harness {
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
         guard commandBuffer.status == .completed else { throw HarnessError.commandFailed }
+        return frameTables
     }
 
     static func alphaAwareDownsamplePixel(

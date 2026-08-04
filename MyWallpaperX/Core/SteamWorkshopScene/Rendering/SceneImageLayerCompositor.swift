@@ -156,12 +156,14 @@ struct SceneImageLayerCompositor {
                 )
             } else if let authoredPlan = request.authoredEffectPlan {
                 onLegacyAuthoredRouteSelected?()
-                let dimensions = legacyOffscreenDimensions(for: request)
-                guard let targets = pool.graphTargets(
-                    for: authoredPlan,
-                    requestedWidth: dimensions.width,
-                    requestedHeight: dimensions.height
-                ) else {
+                guard let frameTables = request.legacyAuthoredFrameTables,
+                      frameTables.tables.count == 1 else {
+                    executionTrace?.recordRouteOperation(
+                        layerID: request.layer.id,
+                        origin: executionOrigin,
+                        operation: "standalone-authored-frame-tables",
+                        outcome: .failed(reasonCode: "frame-tables-unavailable")
+                    )
                     return false
                 }
                 renderedTexture = mainPass.encodeOffscreen { commandBuffer -> MTLTexture? in
@@ -169,7 +171,7 @@ struct SceneImageLayerCompositor {
                         plan: authoredPlan,
                         sourceTexture: request.texture,
                         masks: masks,
-                        targets: targets,
+                        targets: frameTables.tables[0],
                         dynamicValues: request.dynamicValues,
                         localContrastStrength: request.localContrastStrength,
                         sourceUniforms: directUniforms,

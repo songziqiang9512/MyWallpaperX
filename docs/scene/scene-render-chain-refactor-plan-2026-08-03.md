@@ -432,7 +432,8 @@ sample declaration
 - 本批已把生产普通 image/solid/text authored chain 与 utility composition/project/fullscreen capture 的 target 生命周期收敛为同一 frame batch：先做 shared-pair byte-cost 预检，再在同一 pending command buffer 下统一 reserve、实体化、收集 commit request，并一次性发布 pair、chain、pin、LRU 与 revision。pair-only chain 使用独立的两纹理 `sharedGraphPair` allocation；通用旧 `.pair` 三纹理兼容路径仍保留给未迁移入口。
 - compositor 的 authored chain 路径现在只消费 frame-local render-target tables，不再 per-chain `graphTargets`/reserve/commit；renderer coordinator 统一准备 tables，并通过一个 `SceneSourceUpdateTransaction` resolution action 释放全部提交。utility 预分配 extent 与 dispatch 共用同一 `imageModelMatrix` 和 `SceneCaptureGeometryResolver`。
 - 本批代码/测试验证：offscreen texture pool **30/30**、framebuffer capture **42/42**、source update transaction **3/3**、utility layers **10/10**、resolved material runtime bridge **13/13**；Scene 全量 **190 modules / ALL OK**；Swift code health **834 files / 44 locked legacy / 400-line limit**；`git diff --check` 与 `script/build_and_run.sh verify` 通过。
-- 证据边界：本批没有修改样本或矩阵合同，未运行 fixed13、full45 或 benchmark；因此不能把上述结构/模块门表述为 fixed13/full45 PASS、视觉等价或 R4 完成。旧 standalone authored plan、persistent `preparePersistentGraphTargets` 通用 API、legacy offscreen/inline、dedicated owner 与 selector 仍可达，下一批继续做 owner 迁移。
+- 后续 owned-history follow-up 又让含 persistent FBO/history 的 chain 在同一 frame batch 中选择 owned pair，并从 lease 的 history closure 导出守恒 token set 一次性 pin；standalone authored plan 也纳入 renderer batch，compositor 不再调用 per-plan `graphTargets`。旧 pool `graphTargets` 与 `preparePersistentGraphTargets` 通用 API 仍保留给 allocator harness/未迁移调用，但不再是普通层或 utility 的 standalone 产品绘制入口。
+- 证据边界：本批没有修改样本或矩阵合同，未运行 fixed13、full45 或 benchmark；因此不能把上述结构/模块门表述为 fixed13/full45 PASS、视觉等价或 R4 完成。legacy offscreen/inline、dedicated owner、通用 persistent API 与 selector 仍可达，下一批继续做 owner 迁移。
 
 每个波次均以“公共 capability 接管、被替代 owner 同提交撤权、旧 exact/route 双写为零、跨样本或跨 revision 正反例通过”闭合。只增加新 executor 而保留旧默认 fallback 不算迁移。
 

@@ -19,11 +19,44 @@ extension SceneOffscreenTexturePool {
         requestedHeight: Int,
         orderingContext: SceneGraphCommandQueueOrderingContext? = nil
     ) -> ScenePersistentGraphTargetFramePlan? {
-        let stages = chain.executionStages
+        legacyAuthoredFramePlan(
+            stages: chain.executionStages,
+            layerID: chain.layerID,
+            finalOutput: chain.renderGraph.finalOutput,
+            requestedWidth: requestedWidth,
+            requestedHeight: requestedHeight,
+            orderingContext: orderingContext
+        )
+    }
+
+    func legacyAuthoredStageFramePlan(
+        for stage: SceneAuthoredEffectExecutionPlan,
+        requestedWidth: Int,
+        requestedHeight: Int,
+        orderingContext: SceneGraphCommandQueueOrderingContext? = nil
+    ) -> ScenePersistentGraphTargetFramePlan? {
+        legacyAuthoredFramePlan(
+            stages: [stage],
+            layerID: stage.layerID,
+            finalOutput: stage.renderGraph.finalOutput,
+            requestedWidth: requestedWidth,
+            requestedHeight: requestedHeight,
+            orderingContext: orderingContext
+        )
+    }
+
+    private func legacyAuthoredFramePlan(
+        stages: [SceneAuthoredEffectExecutionPlan],
+        layerID: Int,
+        finalOutput: SceneAuthoredEffectRenderPlan.TextureIdentity,
+        requestedWidth: Int,
+        requestedHeight: Int,
+        orderingContext: SceneGraphCommandQueueOrderingContext?
+    ) -> ScenePersistentGraphTargetFramePlan? {
         guard pixelFormat == .bgra8Unorm,
               let prepared = targetPlans(
                   stages: stages,
-                  layerID: chain.layerID,
+                  layerID: layerID,
                   validatesChainOrder: true,
                   enforcesExactExtent: true,
                   requestedWidth: requestedWidth,
@@ -31,18 +64,29 @@ extension SceneOffscreenTexturePool {
               ),
               case let .success(pairPlan) = SceneLayerFullFramePairPlan.make(
                   conditionPrunedGraphs: stages.map(\.renderGraph)
-              ),
-              case let .success(chainPlan) = SceneGraphRenderTargetChainPlan.make(
-                  plans: prepared.plans,
-                  pairPlan: pairPlan,
-                  byteBudget: residentByteBudget,
-                  pairStorage: .shared
-              ),
-              prepared.plans.last?.output == chain.renderGraph.finalOutput,
-              chainPlan.historyEffects.isEmpty,
-              chainPlan.stages.allSatisfy({
-                  $0.pairStep.inputMember != $0.pairStep.outputMember
-              }) else { return nil }
+              ), prepared.plans.last?.output == finalOutput else { return nil }
+
+        let chainPlan: SceneGraphRenderTargetChainPlan
+        switch SceneGraphRenderTargetChainPlan.make(
+            plans: prepared.plans,
+            pairPlan: pairPlan,
+            byteBudget: residentByteBudget,
+            pairStorage: .shared
+        ) {
+        case .success(let shared):
+            chainPlan = shared
+        case .failure:
+            guard case let .success(owned) = SceneGraphRenderTargetChainPlan.make(
+                plans: prepared.plans,
+                pairPlan: pairPlan,
+                byteBudget: residentByteBudget,
+                pairStorage: .owned
+            ) else { return nil }
+            chainPlan = owned
+        }
+        guard chainPlan.stages.allSatisfy({
+            $0.pairStep.inputMember != $0.pairStep.outputMember
+        }) else { return nil }
         return .init(
             residencyDomainID: residencyDomainID,
             chainPlan: chainPlan,
@@ -164,9 +208,13 @@ extension SceneOffscreenTexturePool {
             reservations: reservations
         ) else { return nil }
         var requests: [ScenePreparedPersistentGraphTargets.CommitRequest] = []
-        for prepared in allocatorPrepared {
+        for (framePlan, prepared) in zip(framePlans, allocatorPrepared) {
+            guard let historyTokens = legacyHistoryTokens(
+                plan: framePlan.chainPlan,
+                prepared: prepared
+            ) else { return nil }
             guard let request = prepared.takeCommitRequest(
-                historyTokensByEffect: [:],
+                historyTokensByEffect: historyTokens,
                 commandBuffer: orderingContext.commandBuffer
             ) else { return nil }
             requests.append(request)
@@ -187,6 +235,29 @@ extension SceneOffscreenTexturePool {
             )
         }
         return tables
+    }
+
+    private func legacyHistoryTokens(
+        plan: SceneGraphRenderTargetChainPlan,
+        prepared: ScenePreparedPersistentGraphTargets
+    ) -> [SceneAuthoredEffectRenderPlan.EffectKey:
+        Set<SceneGraphExecutionState.PhysicalToken>]? {
+        guard plan.stages.count == prepared.leases.count else { return nil }
+        var result: [SceneAuthoredEffectRenderPlan.EffectKey:
+            Set<SceneGraphExecutionState.PhysicalToken>] = [:]
+        for (stage, lease) in zip(plan.stages, prepared.leases) {
+            let identities = stage.historyClosureIdentities
+            guard let effect = stage.plan.output.effect else { return nil }
+            if identities.isEmpty { continue }
+            let tokens = Set(identities.compactMap {
+                lease.allocation.resources[$0]?.token
+            })
+            guard tokens.count == identities.count,
+                  result.updateValue(tokens, forKey: effect) == nil else {
+                return nil
+            }
+        }
+        return Set(result.keys) == plan.historyEffects ? result : nil
     }
 
     // MARK: - Standard pair (3-texture, kept for legacy offscreen path)

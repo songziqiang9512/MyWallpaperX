@@ -1106,6 +1106,50 @@ enum Harness {
         let legacyBatchPairIsolation = genericPairObjects.count == 3
             && genericPairObjects.isDisjoint(with: legacyBatchSharedObjects)
 
+        let legacyBatchHistoryPool = SceneOffscreenTexturePool(
+            device: device,
+            maxDimension: 64,
+            residentByteBudget: 2_000
+        )
+        guard let legacyBatchHistoryBuffer = device.makeCommandQueue()?
+            .makeCommandBuffer() else {
+            fatalError("legacy history batch command buffer unavailable")
+        }
+        let legacyBatchHistoryOrdering = SceneGraphCommandQueueOrderingContext(
+            commandBuffer: legacyBatchHistoryBuffer
+        )
+        let legacyBatchHistoryFixture = historySwapFixture(effectIndex: 705)
+        let legacyBatchHistoryEffect = legacyBatchHistoryFixture.execution
+            .renderGraph.effects[0].key
+        let legacyBatchHistoryChain = SceneAuthoredEffectExecutionChain(
+            layerID: 10,
+            executionStages: [legacyBatchHistoryFixture.execution]
+        )
+        guard let legacyBatchHistoryPlan = legacyBatchHistoryPool
+            .legacyAuthoredChainFramePlan(
+                for: legacyBatchHistoryChain,
+                requestedWidth: 8,
+                requestedHeight: 8,
+                orderingContext: legacyBatchHistoryOrdering
+            ), let legacyBatchHistoryEntry = legacyBatchHistoryPool
+            .prepareLegacyAuthoredFrameBatch(
+                framePlans: [legacyBatchHistoryPlan],
+                orderingContext: legacyBatchHistoryOrdering
+            )?[legacyBatchHistoryChain.layerID],
+              let historyPin = legacyBatchHistoryEntry.commit
+                .historyPinsByEffect[legacyBatchHistoryEffect]
+        else { fatalError("legacy history batch unavailable") }
+        let legacyBatchOwnedHistoryPinned =
+            legacyBatchHistoryPlan.chainPlan.pairStorage == .owned
+            && legacyBatchHistoryPlan.chainPlan.historyEffects
+                == Set([legacyBatchHistoryEffect])
+            && historyPin.effect == legacyBatchHistoryEffect
+            && legacyBatchHistoryEntry.commit.sharedPairPin == nil
+            && legacyBatchHistoryPool.residentAllocationCount == 1
+            && legacyBatchHistoryPool.residentTextureCount
+                == legacyBatchHistoryPlan.chainPlan.slots.count
+        legacyBatchHistoryEntry.commit.releaseAll()
+
         let legacyBatchOverBudgetPool = SceneOffscreenTexturePool(
             device: device,
             maxDimension: 64,
@@ -3304,6 +3348,7 @@ enum Harness {
                 sharedPairOrderedReuseAndReleaseStable,
             "legacyBatchColdCommitExact": legacyBatchColdCommitExact,
             "legacyBatchPairIsolation": legacyBatchPairIsolation,
+            "legacyBatchOwnedHistoryPinned": legacyBatchOwnedHistoryPinned,
             "legacyBatchOverBudgetRejected": legacyBatchOverBudgetRejected,
             "legacyBatchMaterializationFailureIsAtomic":
                 legacyBatchMaterializationFailureIsAtomic,
@@ -3611,6 +3656,7 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
     def test_legacy_frame_batch_is_atomic_and_pair_storage_isolated(self) -> None:
         self.assertTrue(self.result["legacyBatchColdCommitExact"])
         self.assertTrue(self.result["legacyBatchPairIsolation"])
+        self.assertTrue(self.result["legacyBatchOwnedHistoryPinned"])
         self.assertTrue(self.result["legacyBatchOverBudgetRejected"])
         self.assertTrue(self.result["legacyBatchMaterializationFailureIsAtomic"])
         self.assertTrue(self.result["legacyBatchWrongBufferRejected"])

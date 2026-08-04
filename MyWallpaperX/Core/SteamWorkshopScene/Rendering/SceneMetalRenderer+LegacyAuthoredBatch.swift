@@ -52,9 +52,9 @@ extension SceneMetalRenderer {
             // Already claimed by resolved-material path.
             guard resolvedMaterialPlans[layer.id] == nil else { continue }
             guard imageTextures[layer.id] != nil else { continue }
-            guard let chain = authoredEffectChain(for: layer.id) else {
-                continue
-            }
+            let chain = authoredEffectChain(for: layer.id)
+            let standalonePlan = chain == nil ? authoredEffectPlan(for: layer.id) : nil
+            guard chain != nil || standalonePlan != nil else { continue }
             guard seenLayerIDs.insert(layer.id).inserted else { continue }
 
             let desiredSize = layerOffscreenSize(
@@ -67,14 +67,22 @@ extension SceneMetalRenderer {
                 parallaxConfiguration: parallaxConfiguration,
                 parallaxMouse: frameContext.cameraParallaxPosition
             )
-            guard let framePlan = offscreenTexturePool
-                .legacyAuthoredChainFramePlan(
-                    for: chain,
-                    requestedWidth: max(1, Int(desiredSize.width.rounded(.up))),
-                    requestedHeight: max(1, Int(desiredSize.height.rounded(.up))),
+            let width = max(1, Int(desiredSize.width.rounded(.up)))
+            let height = max(1, Int(desiredSize.height.rounded(.up)))
+            let framePlan: ScenePersistentGraphTargetFramePlan? = if let chain {
+                offscreenTexturePool.legacyAuthoredChainFramePlan(
+                    for: chain, requestedWidth: width, requestedHeight: height,
                     orderingContext: orderingContext
                 )
-            else { return nil }
+            } else if let standalonePlan {
+                offscreenTexturePool.legacyAuthoredStageFramePlan(
+                    for: standalonePlan, requestedWidth: width,
+                    requestedHeight: height, orderingContext: orderingContext
+                )
+            } else {
+                nil
+            }
+            guard let framePlan else { return nil }
             framePlans.append(framePlan)
         }
 
@@ -87,9 +95,10 @@ extension SceneMetalRenderer {
                 guard resolvedMaterialPlans[plan.layerID] == nil else {
                     continue
                 }
-                guard let chain = authoredEffectChain(
-                    for: plan.layerID
-                ) else { continue }
+                let chain = authoredEffectChain(for: plan.layerID)
+                let standalonePlan = chain == nil
+                    ? authoredEffectPlan(for: plan.layerID) : nil
+                guard chain != nil || standalonePlan != nil else { continue }
                 guard let layer = layersByID[plan.layerID] else {
                     continue
                 }
@@ -104,18 +113,23 @@ extension SceneMetalRenderer {
                     parallaxConfiguration: parallaxConfiguration,
                     parallaxMouse: frameContext.cameraParallaxPosition
                 )
-                guard let framePlan = offscreenTexturePool
-                    .legacyAuthoredChainFramePlan(
-                        for: chain,
-                        requestedWidth: max(
-                            1, Int(desiredSize.width.rounded(.up))
-                        ),
-                        requestedHeight: max(
-                            1, Int(desiredSize.height.rounded(.up))
-                        ),
+                let width = max(1, Int(desiredSize.width.rounded(.up)))
+                let height = max(1, Int(desiredSize.height.rounded(.up)))
+                let framePlan: ScenePersistentGraphTargetFramePlan? = if let chain {
+                    offscreenTexturePool.legacyAuthoredChainFramePlan(
+                        for: chain, requestedWidth: width,
+                        requestedHeight: height,
                         orderingContext: orderingContext
                     )
-                else { return nil }
+                } else if let standalonePlan {
+                    offscreenTexturePool.legacyAuthoredStageFramePlan(
+                        for: standalonePlan, requestedWidth: width,
+                        requestedHeight: height, orderingContext: orderingContext
+                    )
+                } else {
+                    nil
+                }
+                guard let framePlan else { return nil }
                 framePlans.append(framePlan)
             }
         }
