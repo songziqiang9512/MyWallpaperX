@@ -25,7 +25,8 @@ enum SceneUtilityLayerRenderer {
         mainPass: SceneMainPassEncoder,
         frameTransaction: SceneSourceUpdateTransaction,
         executionTrace: SceneEffectExecutionFrameTrace? = nil,
-        onLegacyAuthoredRouteSelected: (() -> Void)? = nil
+        onLegacyAuthoredRouteSelected: (() -> Void)? = nil,
+        legacyAuthoredFrameTables: SceneOffscreenTexturePool.LegacyAuthoredFrameTables? = nil
     ) -> Bool {
         guard plan.shouldCapture,
               let geometry = SceneCaptureGeometryResolver.resolve(
@@ -42,8 +43,7 @@ enum SceneUtilityLayerRenderer {
         case .fullscreen: executionOrigin = .utilityFullscreen
         }
         return mainPass.withReadableTarget { sourceTexture, _ in
-            compositor.draw(
-                SceneImageLayerDrawRequest(
+            var request = SceneImageLayerDrawRequest(
                     layer: layer,
                     texture: sourceTexture,
                     masks: masks,
@@ -65,7 +65,10 @@ enum SceneUtilityLayerRenderer {
                     authoredEffectChain: authoredEffectChain,
                     dynamicValues: dynamicValues,
                     audioSpectrum: audioSpectrum
-                ),
+                )
+            request.legacyAuthoredFrameTables = legacyAuthoredFrameTables
+            return compositor.draw(
+                request,
                 pipeline: pipeline,
                 mainPass: mainPass,
                 frameTransaction: frameTransaction,

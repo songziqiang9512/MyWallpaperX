@@ -33,6 +33,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureResidency.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache+SharedPair.swift",
+    SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache+LegacyBatch.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache+Batch.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureFramePreflight.swift",
     SOURCE_ROOT / "RenderGraph/ScenePersistentGraphTargetAllocator.swift",
@@ -304,10 +305,10 @@ enum Harness {
 
     static func directFixture(
         effectIndex: Int,
+        layerID: Int = 10,
         precise: Bool = false,
         input authoredInput: Graph.TextureIdentity? = nil
     ) -> Fixture {
-        let layerID = 10
         let key = Graph.EffectKey(
             layerID: layerID,
             effectIndex: effectIndex,
@@ -808,7 +809,7 @@ enum Harness {
         let chainTables = chainLeases.map(\.table)
         let chainHit = chainHitLeases.map(\.table)
 
-        let sharedFBOChains: [SceneAuthoredEffectExecutionChain] = (0..<5).map {
+        let sharedFBOChains: [SceneAuthoredEffectExecutionChain] = (0..<6).map {
             offset in
             let stage = fixture(
                 effectIndex: 600 + offset,
@@ -891,26 +892,29 @@ enum Harness {
             == 128 * 1_024 * 1_024
         sharedFBOCommandBuffer.commit()
         sharedFBOCommandBuffer.waitUntilCompleted()
-        let sharedFBOPairBeforeRelease = sharedFBOPool.textures(
-            width: 2_048, height: 2_048
-        )?.primary
+        let sharedPairKey = SceneOffscreenTextureAllocationCache.Key
+            .sharedGraphPair(width: 2_048, height: 2_048)
+        func currentSharedFBOPair() -> SceneOffscreenTexturePool.SharedGraphPair? {
+            guard case let .sharedGraphPair(pair, _) = sharedFBOPool
+                .allocationCache.allocation(for: sharedPairKey) else { return nil }
+            return pair
+        }
+        let sharedFBOPairBeforeRelease = currentSharedFBOPair()?.first
         sharedFBOCommits[0].releaseAll()
-        let sharedFBOPairAfterOneRelease = sharedFBOPool.textures(
-            width: 2_048, height: 2_048
-        )?.primary
+        let sharedFBOPairAfterOneRelease = currentSharedFBOPair()?.first
         let sharedFBOPairRetainedAfterOneRelease =
             sharedFBOPairBeforeRelease === sharedFBOPairAfterOneRelease
         sharedFBOCommits.dropFirst().forEach { $0.releaseAll() }
-        let sharedFBOPairAfterAllRelease = sharedFBOPool.textures(
-            width: 2_048, height: 2_048
-        )?.primary
+        let sharedFBOPairAfterAllRelease = currentSharedFBOPair()?.first
         let sharedFBOPairRetainedAfterAllRelease =
             sharedFBOPairAfterOneRelease === sharedFBOPairAfterAllRelease
 
         let overBudgetSharedFBOPool = SceneOffscreenTexturePool(
             device: device,
             maxDimension: 2_048,
-            residentByteBudget: 128 * 1_024 * 1_024 - 1
+            // 2-texture shared pair (33,554,432) + 1 FBO (16,777,216) fits
+            // but 2+ FBOs exceed 50 MiB.
+            residentByteBudget: 50 * 1_024 * 1_024
         )
         guard let overBudgetCommandBuffer = device.makeCommandQueue()?
             .makeCommandBuffer() else {
@@ -929,7 +933,7 @@ enum Harness {
                 framePlans: overBudgetPlans
             ) == nil
             && overBudgetSharedFBOPool.residentAllocationCount == 1
-            && overBudgetSharedFBOPool.residentTextureCount == 3
+            && overBudgetSharedFBOPool.residentTextureCount == 2
 
         let sharedPairOrderingPool = SceneOffscreenTexturePool(
             device: device,
@@ -1026,21 +1030,209 @@ enum Harness {
         func directChain(
             stageCount: Int,
             firstEffectIndex: Int,
+            layerID: Int = 10,
             precise: Bool = false
         ) -> SceneAuthoredEffectExecutionChain {
             var fixtures: [Fixture] = []
             for offset in 0..<stageCount {
                 fixtures.append(directFixture(
                     effectIndex: firstEffectIndex + offset,
+                    layerID: layerID,
                     precise: precise,
                     input: fixtures.last?.execution.renderGraph.finalOutput
                 ))
             }
             return .init(
-                layerID: 10,
+                layerID: layerID,
                 executionStages: fixtures.map(\.execution)
             )
         }
+
+        let legacyBatchPool = SceneOffscreenTexturePool(
+            device: device,
+            maxDimension: 64,
+            residentByteBudget: 10_000
+        )
+        guard let legacyBatchBuffer = device.makeCommandQueue()?.makeCommandBuffer()
+        else { fatalError("legacy batch command buffer unavailable") }
+        let legacyBatchOrdering = SceneGraphCommandQueueOrderingContext(
+            commandBuffer: legacyBatchBuffer
+        )
+        let legacyBatchChain = directChain(
+            stageCount: 2,
+            firstEffectIndex: 700,
+            layerID: 810
+        )
+        guard let legacyBatchPlan = legacyBatchPool.legacyAuthoredChainFramePlan(
+            for: legacyBatchChain,
+            requestedWidth: 8,
+            requestedHeight: 8,
+            orderingContext: legacyBatchOrdering
+        ) else { fatalError("legacy batch plan unavailable") }
+        var legacyBatchFactoryAttempts = 0
+        guard let legacyBatchTables = legacyBatchPool.prepareLegacyAuthoredFrameBatch(
+            framePlans: [legacyBatchPlan],
+            orderingContext: legacyBatchOrdering,
+            textureFactory: { descriptor, label in
+                legacyBatchFactoryAttempts += 1
+                let texture = device.makeTexture(descriptor: descriptor)
+                texture?.label = label
+                return texture
+            }
+        ), let legacyBatchEntry = legacyBatchTables[810],
+              let legacyBatchLease = legacyBatchEntry.commit.leases.first else {
+            fatalError("legacy pair-only batch failed")
+        }
+        let legacyBatchSharedObjects = Set([
+            ObjectIdentifier(legacyBatchLease.table.fullFramePair.first),
+            ObjectIdentifier(legacyBatchLease.table.fullFramePair.second),
+        ])
+        let legacyBatchColdCommitExact = legacyBatchFactoryAttempts == 2
+            && legacyBatchTables.count == 1
+            && legacyBatchEntry.tables.count == 2
+            && legacyBatchLease.generation
+                != legacyBatchLease.fullFramePairGeneration
+            && legacyBatchSharedObjects.count == 2
+            && legacyBatchPool.residentAllocationCount == 2
+            && legacyBatchPool.residentTextureCount == 2
+            && legacyBatchPool.residentByteCost == 512
+        guard let genericPair = legacyBatchPool.textures(width: 8, height: 8)
+        else { fatalError("generic pair unavailable after legacy batch") }
+        let genericPairObjects = Set([
+            ObjectIdentifier(genericPair.primary),
+            ObjectIdentifier(genericPair.secondary),
+            ObjectIdentifier(genericPair.tertiary),
+        ])
+        let legacyBatchPairIsolation = genericPairObjects.count == 3
+            && genericPairObjects.isDisjoint(with: legacyBatchSharedObjects)
+
+        let legacyBatchOverBudgetPool = SceneOffscreenTexturePool(
+            device: device,
+            maxDimension: 64,
+            residentByteBudget: 511
+        )
+        guard let legacyBatchOverBudgetBuffer = device.makeCommandQueue()?
+            .makeCommandBuffer() else {
+            fatalError("legacy batch over-budget buffer unavailable")
+        }
+        let legacyBatchOverBudgetOrdering = SceneGraphCommandQueueOrderingContext(
+            commandBuffer: legacyBatchOverBudgetBuffer
+        )
+        guard let legacyBatchOverBudgetPlan = legacyBatchOverBudgetPool
+            .legacyAuthoredChainFramePlan(
+                for: directChain(
+                    stageCount: 1,
+                    firstEffectIndex: 710,
+                    layerID: 811
+                ),
+                requestedWidth: 8,
+                requestedHeight: 8,
+                orderingContext: legacyBatchOverBudgetOrdering
+            ) else { fatalError("legacy batch over-budget plan unavailable") }
+        let overBudgetRevision = legacyBatchOverBudgetPool.allocationCache.revision
+        let overBudgetAccess = legacyBatchOverBudgetPool.allocationCache.accessCounter
+        var legacyBatchOverBudgetFactoryAttempts = 0
+        let legacyBatchOverBudgetRejected = legacyBatchOverBudgetPool
+            .prepareLegacyAuthoredFrameBatch(
+                framePlans: [legacyBatchOverBudgetPlan],
+                orderingContext: legacyBatchOverBudgetOrdering,
+                textureFactory: { descriptor, label in
+                    legacyBatchOverBudgetFactoryAttempts += 1
+                    let texture = device.makeTexture(descriptor: descriptor)
+                    texture?.label = label
+                    return texture
+                }
+            ) == nil
+            && legacyBatchOverBudgetFactoryAttempts == 0
+            && legacyBatchOverBudgetPool.residentAllocationCount == 0
+            && legacyBatchOverBudgetPool.residentTextureCount == 0
+            && legacyBatchOverBudgetPool.allocationCache.revision == overBudgetRevision
+            && legacyBatchOverBudgetPool.allocationCache.accessCounter == overBudgetAccess
+
+        let legacyBatchFailurePool = SceneOffscreenTexturePool(
+            device: device,
+            maxDimension: 64,
+            residentByteBudget: 10_000
+        )
+        guard let legacyBatchFailureBuffer = device.makeCommandQueue()?
+            .makeCommandBuffer() else {
+            fatalError("legacy batch failure buffer unavailable")
+        }
+        let legacyBatchFailureOrdering = SceneGraphCommandQueueOrderingContext(
+            commandBuffer: legacyBatchFailureBuffer
+        )
+        let legacyBatchFailurePlans = [
+            (directChain(stageCount: 1, firstEffectIndex: 720, layerID: 812), 8),
+            (directChain(stageCount: 1, firstEffectIndex: 730, layerID: 813), 16),
+        ].compactMap { chain, width in
+            legacyBatchFailurePool.legacyAuthoredChainFramePlan(
+                for: chain,
+                requestedWidth: width,
+                requestedHeight: 8,
+                orderingContext: legacyBatchFailureOrdering
+            )
+        }
+        guard legacyBatchFailurePlans.count == 2 else {
+            fatalError("legacy batch failure plans unavailable")
+        }
+        let failureRevision = legacyBatchFailurePool.allocationCache.revision
+        let failureAccess = legacyBatchFailurePool.allocationCache.accessCounter
+        var legacyBatchFailureFactoryAttempts = 0
+        let legacyBatchMaterializationFailureIsAtomic = legacyBatchFailurePool
+            .prepareLegacyAuthoredFrameBatch(
+                framePlans: legacyBatchFailurePlans,
+                orderingContext: legacyBatchFailureOrdering,
+                textureFactory: { descriptor, label in
+                    legacyBatchFailureFactoryAttempts += 1
+                    guard legacyBatchFailureFactoryAttempts != 3 else { return nil }
+                    let texture = device.makeTexture(descriptor: descriptor)
+                    texture?.label = label
+                    return texture
+                }
+            ) == nil
+            && legacyBatchFailureFactoryAttempts == 3
+            && legacyBatchFailurePool.residentAllocationCount == 0
+            && legacyBatchFailurePool.residentTextureCount == 0
+            && legacyBatchFailurePool.allocationCache.revision == failureRevision
+            && legacyBatchFailurePool.allocationCache.accessCounter == failureAccess
+
+        guard let legacyBatchWrongPreparedBuffer = device.makeCommandQueue()?
+            .makeCommandBuffer(),
+              let legacyBatchWrongActualBuffer = device.makeCommandQueue()?
+                .makeCommandBuffer() else {
+            fatalError("legacy batch wrong-buffer fixtures unavailable")
+        }
+        let legacyBatchWrongPool = SceneOffscreenTexturePool(
+            device: device,
+            maxDimension: 64,
+            residentByteBudget: 10_000
+        )
+        guard let legacyBatchWrongPlan = legacyBatchWrongPool
+            .legacyAuthoredChainFramePlan(
+                for: directChain(
+                    stageCount: 1,
+                    firstEffectIndex: 740,
+                    layerID: 814
+                ),
+                requestedWidth: 8,
+                requestedHeight: 8,
+                orderingContext: .init(commandBuffer: legacyBatchWrongPreparedBuffer)
+            ) else { fatalError("legacy batch wrong-buffer plan unavailable") }
+        var legacyBatchWrongBufferFactoryAttempts = 0
+        let legacyBatchWrongBufferRejected = legacyBatchWrongPool
+            .prepareLegacyAuthoredFrameBatch(
+                framePlans: [legacyBatchWrongPlan],
+                orderingContext: .init(commandBuffer: legacyBatchWrongActualBuffer),
+                textureFactory: { descriptor, label in
+                    legacyBatchWrongBufferFactoryAttempts += 1
+                    let texture = device.makeTexture(descriptor: descriptor)
+                    texture?.label = label
+                    return texture
+                }
+            ) == nil
+            && legacyBatchWrongBufferFactoryAttempts == 0
+            && legacyBatchWrongPool.residentAllocationCount == 0
+
         let directEightPool = SceneOffscreenTexturePool(
             device: device,
             maxDimension: 64,
@@ -1118,7 +1310,7 @@ enum Harness {
         let legacyCommitFailurePool = SceneOffscreenTexturePool(
             device: device,
             maxDimension: 64,
-            residentByteBudget: 1_200
+            residentByteBudget: 10_000
         )
         guard let orderingBuffer = device.makeCommandQueue()?.makeCommandBuffer(),
               let wrongBuffer = device.makeCommandQueue()?.makeCommandBuffer(),
@@ -1136,7 +1328,7 @@ enum Harness {
                 historyTokensByEffect: [:],
                 commandBuffer: wrongBuffer
             ) == nil && legacyCommitFailurePool.residentAllocationCount == 1
-                && legacyCommitFailurePool.residentTextureCount == 3
+                && legacyCommitFailurePool.residentTextureCount == 2
 
         let legacyHistoryPool = SceneOffscreenTexturePool(
             device: device,
@@ -3110,6 +3302,12 @@ enum Harness {
             "differentQueueSharedPairRejected": differentQueueSharedPairRejected,
             "sharedPairOrderedReuseAndReleaseStable":
                 sharedPairOrderedReuseAndReleaseStable,
+            "legacyBatchColdCommitExact": legacyBatchColdCommitExact,
+            "legacyBatchPairIsolation": legacyBatchPairIsolation,
+            "legacyBatchOverBudgetRejected": legacyBatchOverBudgetRejected,
+            "legacyBatchMaterializationFailureIsAtomic":
+                legacyBatchMaterializationFailureIsAtomic,
+            "legacyBatchWrongBufferRejected": legacyBatchWrongBufferRejected,
             "directEightChainAllocationCount": directEightPool.residentAllocationCount,
             "directEightChainTextureCount": directEightPool.residentTextureCount,
             "directEightChainBytes": directEightPool.residentByteCost,
@@ -3395,8 +3593,8 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         self.assertTrue(self.result["chainStableReuse"])
         self.assertTrue(self.result["chainLeaseGenerationsStable"])
         self.assertEqual(self.result["chainAllocationCount"], 2)
-        self.assertEqual(self.result["chainTextureCount"], 5)
-        self.assertEqual(self.result["chainBytes"], 800)
+        self.assertEqual(self.result["chainTextureCount"], 4)
+        self.assertEqual(self.result["chainBytes"], 544)
 
     def test_legacy_fbo_chains_share_pair_with_separate_residency(self) -> None:
         self.assertTrue(self.result["sharedFBOFramePairShared"])
@@ -3410,15 +3608,24 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         self.assertTrue(self.result["differentQueueSharedPairRejected"])
         self.assertTrue(self.result["sharedPairOrderedReuseAndReleaseStable"])
 
+    def test_legacy_frame_batch_is_atomic_and_pair_storage_isolated(self) -> None:
+        self.assertTrue(self.result["legacyBatchColdCommitExact"])
+        self.assertTrue(self.result["legacyBatchPairIsolation"])
+        self.assertTrue(self.result["legacyBatchOverBudgetRejected"])
+        self.assertTrue(self.result["legacyBatchMaterializationFailureIsAtomic"])
+        self.assertTrue(self.result["legacyBatchWrongBufferRejected"])
+
     def test_legacy_multi_stage_chains_use_one_chain_wide_pair(self) -> None:
         self.assertEqual(self.result["directEightChainAllocationCount"], 1)
         self.assertEqual(self.result["directEightChainTextureCount"], 3)
         self.assertEqual(self.result["directEightChainBytes"], 768)
-        self.assertEqual(self.result["directEightChainPhysicalObjects"], 3)
+        # Pair-only legacy chains now use 2-member ping-pong (primary/secondary)
+        # instead of the old 3-texture rotation (primary/tertiary/secondary).
+        self.assertEqual(self.result["directEightChainPhysicalObjects"], 2)
         self.assertEqual(self.result["directSixChainAllocationCount"], 1)
         self.assertEqual(self.result["directSixChainTextureCount"], 3)
         self.assertEqual(self.result["directSixChainBytes"], 768)
-        self.assertEqual(self.result["directSixChainPhysicalObjects"], 3)
+        self.assertEqual(self.result["directSixChainPhysicalObjects"], 2)
         self.assertTrue(self.result["directPairStable"])
         self.assertTrue(self.result["directPairSharedAcrossChains"])
         self.assertTrue(self.result["directPairPersistentPlanRejected"])

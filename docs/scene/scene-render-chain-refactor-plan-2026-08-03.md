@@ -2,7 +2,7 @@
 
 > 建立日期：2026-08-03
 >
-> 文档状态：现役执行计划；2026-08-04 已提交 R4 partial checkpoint，剩余 owner 迁移下次继续。
+> 文档状态：现役执行计划；2026-08-05 已提交 R4 legacy authored frame-batch checkpoint，剩余 owner 迁移继续进行。
 >
 > 事实边界：本文记录问题假设、迁移顺序、验收门和进度，不是当前能力等级或运行基线的权威入口。能力事实仍以 [`semantics/coverage-ledger.md`](semantics/coverage-ledger.md)、专项覆盖表和 [`semantics/runtime-evidence-index.md`](semantics/runtime-evidence-index.md) 为准。
 >
@@ -426,6 +426,13 @@ sample declaration
 **恢复期间禁止**：不要把当前 dirty lane 宣称为现役能力；不要为 `3766387484`、`3769688830`、`3768903841` 增加专属适配；不要抬高显存预算、放宽 fail-closed 或用 hash 解锁算法制造矩阵通过；现役资料足够时不要启动 Ghidra；不要删除本段列出的 `.codex` 失败/交接现场，清理须先完成只读归属审计并另行确认。
 
 #### R4 旧权限安全迁移波次
+
+#### 2026-08-05 legacy authored frame batch checkpoint
+
+- 本批已把生产普通 image/solid/text authored chain 与 utility composition/project/fullscreen capture 的 target 生命周期收敛为同一 frame batch：先做 shared-pair byte-cost 预检，再在同一 pending command buffer 下统一 reserve、实体化、收集 commit request，并一次性发布 pair、chain、pin、LRU 与 revision。pair-only chain 使用独立的两纹理 `sharedGraphPair` allocation；通用旧 `.pair` 三纹理兼容路径仍保留给未迁移入口。
+- compositor 的 authored chain 路径现在只消费 frame-local render-target tables，不再 per-chain `graphTargets`/reserve/commit；renderer coordinator 统一准备 tables，并通过一个 `SceneSourceUpdateTransaction` resolution action 释放全部提交。utility 预分配 extent 与 dispatch 共用同一 `imageModelMatrix` 和 `SceneCaptureGeometryResolver`。
+- 本批代码/测试验证：offscreen texture pool **30/30**、framebuffer capture **42/42**、source update transaction **3/3**、utility layers **10/10**、resolved material runtime bridge **13/13**；Scene 全量 **190 modules / ALL OK**；Swift code health **834 files / 44 locked legacy / 400-line limit**；`git diff --check` 与 `script/build_and_run.sh verify` 通过。
+- 证据边界：本批没有修改样本或矩阵合同，未运行 fixed13、full45 或 benchmark；因此不能把上述结构/模块门表述为 fixed13/full45 PASS、视觉等价或 R4 完成。旧 standalone authored plan、persistent `preparePersistentGraphTargets` 通用 API、legacy offscreen/inline、dedicated owner 与 selector 仍可达，下一批继续做 owner 迁移。
 
 每个波次均以“公共 capability 接管、被替代 owner 同提交撤权、旧 exact/route 双写为零、跨样本或跨 revision 正反例通过”闭合。只增加新 executor 而保留旧默认 fallback 不算迁移。
 

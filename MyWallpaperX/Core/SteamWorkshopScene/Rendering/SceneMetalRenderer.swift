@@ -7,7 +7,7 @@ struct SceneMetalRenderer {
     let renderDescriptor: SceneRenderDescriptor
     let imageCompositor: SceneImageLayerCompositor
     private let pipelineRepository: SceneImageEffectPipelineRepository
-    private let visibleLayerIDs: Set<Int>
+    let visibleLayerIDs: Set<Int>
     // Cached transforms propagate parent pivot/orientation without double-scaling child quads.
     let worldFramesByLayerID: [Int: simd_float4x4]
     let parallaxByLayerID: [Int: SceneLayerParallax.Resolution]
@@ -149,31 +149,31 @@ struct SceneMetalRenderer {
             parallaxConfiguration: parallaxConfiguration,
             commandBuffer: commandBuffer
         ) else { return }
+        guard let legacyAuthoredFrameTables = Self.prepareAndRegisterLegacyAuthoredBatch(
+            renderer: self, resolvedMaterialPlans: resolvedMaterialFrameTargetPlans,
+            offscreenTexturePool: offscreenTexturePool, imageTextures: imageTextures,
+            dynamicTextRenderSizes: dynamicTextRenderSizes, frameContext: frameContext,
+            worldFramesByLayerID: frameWorldFrames, cameraFrame: cameraFrame,
+            parallaxConfiguration: parallaxConfiguration, commandBuffer: commandBuffer,
+            compositor: imageCompositor, transaction: sourceUpdateTransaction
+        ) else { return }
+        var stopsAfterClaimedFailure = false
         let mainPass = SceneMainPassEncoder(
             commandBuffer: commandBuffer,
             target: drawable.texture,
             clearColor: sceneClearColor
         )
-        var stopsAfterClaimedFailure = false
         frameLayers: for layer in orderedLayers {
             defer {
-                if !stopsAfterClaimedFailure {
-                    renderUtilityPlans(
-                        triggeredBy: layer.id,
-                        effectTextures: effectTextures,
-                        imagePipeline: imagePipeline,
-                        offscreenTexturePool: offscreenTexturePool,
-                        frameContext: frameContext, worldFramesByLayerID: frameWorldFrames,
-                        cameraFrame: cameraFrame,
-                        parallaxConfiguration: parallaxConfiguration,
-                        viewportSize: viewportSize,
-                        time: time,
-                        mainPass: mainPass,
-                        commandBuffer: commandBuffer,
-                        frameTransaction: sourceUpdateTransaction,
-                        effectExecutionTrace: effectExecutionTrace
-                    )
-                }
+                if !stopsAfterClaimedFailure { renderUtilityPlans(triggeredBy: layer.id,
+                    effectTextures: effectTextures, imagePipeline: imagePipeline,
+                    offscreenTexturePool: offscreenTexturePool, frameContext: frameContext,
+                    worldFramesByLayerID: frameWorldFrames, cameraFrame: cameraFrame,
+                    parallaxConfiguration: parallaxConfiguration, viewportSize: viewportSize,
+                    time: time, mainPass: mainPass, commandBuffer: commandBuffer,
+                    frameTransaction: sourceUpdateTransaction,
+                    effectExecutionTrace: effectExecutionTrace,
+                    legacyAuthoredFrameTables: legacyAuthoredFrameTables) }
             }
             if let imagePipeline, dependencyRuntime.requiresCapture(for: layer.id) {
                 let providerModel = imageModelMatrix(
@@ -243,7 +243,7 @@ struct SceneMetalRenderer {
                     mouseNormalized: frameContext.pointer.previous,
                     modelViewProjection: mvp
                 )
-                let request = SceneImageLayerDrawRequest(
+                var request = SceneImageLayerDrawRequest(
                     layer: layer,
                     texture: preparedTexture,
                     baseTextureCandidate: imageTextures.candidate(for: layer.id, matching: preparedTexture),
@@ -279,6 +279,7 @@ struct SceneMetalRenderer {
                     audioSpectrum: frameContext.audioSpectrum,
                     authoredShaderFrameInputs: .init(frameContext: frameContext)
                 )
+                request.legacyAuthoredFrameTables = legacyAuthoredFrameTables[layer.id]
                 var selectedLegacyAuthoredRoute = false
                 let encoded = imageCompositor.draw(
                     request,

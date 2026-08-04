@@ -17,101 +17,12 @@ final class SceneOffscreenTextureAllocationCache {
     func issuePhysicalIdentity(textures: [MTLTexture]) -> PhysicalIdentity? {
         identityIssuer.issue(textures: textures)
     }
-    var residentByteCost: Int { locked { cost(residents) ?? Int.max } }
 
-    func preflightChains(
-        _ plans: [SceneGraphRenderTargetChainPlan],
-        orderingContext: SceneGraphCommandQueueOrderingContext? = nil,
-        requiredSharedPairKeys: Set<Key> = []
-    ) -> SceneOffscreenTextureFramePreflight.Result {
-        locked {
-            guard orderingContext?.isPending != false else {
-                return .rejected(reasonCode: "frame-target-ordering-context-invalid")
-            }
-            guard
-                  plans.allSatisfy({ plan in
-                      guard plan.pairStorage == .shared else { return true }
-                      guard let dimensions = plan.sharedPairDimensions else {
-                          return false
-                      }
-                      return requiredSharedPairKeys.contains(
-                          .pair(width: dimensions.width, height: dimensions.height)
-                      )
-                  }),
-                  requiredSharedPairKeys.allSatisfy({ key in
-                      guard case .pair = key,
-                            let entry = residents[.current(key)] else {
-                          return false
-                      }
-                      return if case .pair = entry.allocation { true } else { false }
-            }) else {
-                return .rejected(reasonCode: "frame-target-shared-pair-unavailable")
-            }
-            let snapshot = residents.enumerated().map { offset, value in
-                let (key, entry) = value
-                let location: SceneOffscreenTextureFramePreflight.Location = switch key {
-                case .current(.chain(let chainKey)): .currentChain(chainKey)
-                case .current: .currentOther
-                case .retired: .retired
-                case .history: .history
-                }
-                let (chainPlan, history): (
-                    SceneGraphRenderTargetChainPlan?, SceneGraphHistoryResidency?
-                ) = switch entry.allocation {
-                case .chain(let chain): (chain.plan, nil)
-                case .history(let value): (nil, value)
-                default: (nil, nil)
-                }
-                let demotedHistory: SceneGraphHistoryResidency?
-                if let historyEntry = entry.historyOnlyEntry(),
-                   case .history(let value) = historyEntry.allocation {
-                    demotedHistory = value
-                } else {
-                    demotedHistory = nil
-                }
-                let requiredByFrame: Bool = switch key {
-                case .current(let current): requiredSharedPairKeys.contains(current)
-                default: false
-                }
-                return SceneOffscreenTextureFramePreflight.Resident(
-                    id: offset,
-                    location: location,
-                    chainPlan: chainPlan,
-                    history: history,
-                    demotedHistory: demotedHistory,
-                    byteCost: entry.byteCost,
-                    submissionPinCount: entry.submissionPins.count,
-                    historyPinCount: entry.historyPins.count,
-                    permitsOrderedReuse: chainPlan.map {
-                        entry.permitsOrderedSubmissionReuse(
-                            for: $0, orderingContext: orderingContext
-                        )
-                    } ?? false,
-                    isResetInvalidated: entry.isResetInvalidated,
-                    lastAccess: entry.lastAccess,
-                    existedBeforeFrame: true,
-                    requiredByFrame: requiredByFrame
-                )
-            }
-            for plan in plans where plan.pairStorage == .shared {
-                guard let dimensions = plan.sharedPairDimensions,
-                      let entry = residents[.current(.pair(
-                          width: dimensions.width, height: dimensions.height
-                      ))],
-                      entry.permitsSharedPairReuse(orderingContext: orderingContext)
-                else {
-                    return .rejected(
-                        reasonCode: "frame-target-shared-pair-ordering-rejected"
-                    )
-                }
-            }
-            return SceneOffscreenTextureFramePreflight.evaluate(
-                plans: plans,
-                residents: snapshot,
-                byteBudget: byteBudget
-            )
-        }
+    func issueAllocationGeneration() -> UInt64? {
+        identityIssuer.issueGeneration()
     }
+    var residentByteCost: Int { locked { cost(residents) ?? Int.max } }
+    var preflightByteBudget: Int { byteBudget }
 
     func commit(_ candidates: [Candidate]) -> Bool {
         locked {
@@ -230,7 +141,7 @@ extension SceneOffscreenTextureAllocationCache {
             entry.historyPins.removeValue(forKey: identity)
             residents.removeValue(forKey: key)
             switch key {
-            case .current(.chain), .current(.pair):
+            case .current(.chain), .current(.pair), .current(.sharedGraphPair):
                 residents[key] = entry
             case .history(let chainKey, _):
                 if let history = entry.historyOnlyEntry() {
@@ -279,12 +190,17 @@ extension SceneOffscreenTextureAllocationCache {
     nonisolated enum Key: Hashable {
         case pair(width: Int, height: Int)
         case authoredPair(width: Int, height: Int)
+        case sharedGraphPair(width: Int, height: Int)
         case graph(EffectKey)
         case chain(SceneGraphRenderTargetChainPlan.Key)
     }
 
     enum Allocation {
         case pair(SceneOffscreenTexturePool.Pair, PhysicalIdentity)
+        case sharedGraphPair(
+            SceneOffscreenTexturePool.SharedGraphPair,
+            PhysicalIdentity
+        )
         case graph(SceneGraphRenderTargetLease)
         case chain(SceneGraphRenderTargetChainAllocation)
         case history(SceneGraphHistoryResidency)
@@ -292,6 +208,7 @@ extension SceneOffscreenTextureAllocationCache {
         var generation: UInt64 {
             switch self {
             case .pair(_, let identity): identity.generation
+            case .sharedGraphPair(_, let identity): identity.generation
             case .graph(let lease): lease.generation
             case .chain(let chain): chain.generation
             case .history(let history): history.generation
@@ -301,6 +218,7 @@ extension SceneOffscreenTextureAllocationCache {
         var textureCount: Int {
             switch self {
             case .pair: 3
+            case .sharedGraphPair: 2
             case .graph(let lease): lease.table.residentTextureCount
             case .chain(let chain): chain.textureCount
             case .history(let history): history.textureCount

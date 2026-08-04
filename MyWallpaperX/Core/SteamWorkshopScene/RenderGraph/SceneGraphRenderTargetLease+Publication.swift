@@ -21,15 +21,19 @@ final class SceneOffscreenTextureIdentityIssuer {
     private let lock = NSLock()
     private var lastGeneration: UInt64 = 0
 
+    func issueGeneration() -> UInt64? {
+        lock.lock()
+        defer { lock.unlock() }
+        return issueGenerationLocked()
+    }
+
     func issue(textures: [MTLTexture]) -> SceneOffscreenTexturePhysicalIdentity? {
         lock.lock()
         defer { lock.unlock() }
         let objects = textures.map(ObjectIdentifier.init)
         guard !textures.isEmpty,
               Set(objects).count == textures.count,
-              lastGeneration < UInt64.max else { return nil }
-        lastGeneration += 1
-        let generation = lastGeneration
+              let generation = issueGenerationLocked() else { return nil }
         var tokens: [ObjectIdentifier: Token] = [:]
         for (index, object) in objects.enumerated() {
             tokens[object] = Token(
@@ -38,6 +42,12 @@ final class SceneOffscreenTextureIdentityIssuer {
         }
         guard Set(tokens.values).count == textures.count else { return nil }
         return .init(generation: generation, tokensByTexture: tokens)
+    }
+
+    private func issueGenerationLocked() -> UInt64? {
+        guard lastGeneration < UInt64.max else { return nil }
+        lastGeneration += 1
+        return lastGeneration
     }
 }
 

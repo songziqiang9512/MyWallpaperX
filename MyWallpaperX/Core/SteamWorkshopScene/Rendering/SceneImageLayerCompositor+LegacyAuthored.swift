@@ -4,19 +4,15 @@ extension SceneImageLayerCompositor {
     func renderLegacyAuthoredChain(
         _ chain: SceneAuthoredEffectExecutionChain,
         request: SceneImageLayerDrawRequest,
-        pool: SceneOffscreenTexturePool,
+        pool _: SceneOffscreenTexturePool,
         sourceUniforms: SceneLayerFragmentUniforms,
         pipeline: SceneImageLayerPipeline,
         pipelines: SceneAuthoredEffectPipelineSet,
         mainPass: SceneMainPassEncoder,
-        frameTransaction: SceneSourceUpdateTransaction?,
+        frameTransaction _: SceneSourceUpdateTransaction?,
         executionTrace: SceneEffectExecutionFrameTrace?,
         executionOrigin: SceneEffectExecutionOrigin
     ) -> MTLTexture? {
-        let dimensions = legacyOffscreenDimensions(
-            for: request,
-            authoredChain: chain
-        )
         let render: ([SceneGraphRenderTargetTable], MTLCommandBuffer) -> MTLTexture? = {
             targets, commandBuffer in
             SceneAuthoredEffectChainRenderer.render(
@@ -50,41 +46,14 @@ extension SceneImageLayerCompositor {
             )
         }
 
-        if pool.usesPairOnlyLegacyTargets(for: chain) {
-            guard let targets = pool.graphTargets(
-                for: chain,
-                requestedWidth: dimensions.width,
-                requestedHeight: dimensions.height
-            ) else {
-                recordAllocationFailure()
-                return nil
-            }
-            return mainPass.encodeOffscreen { commandBuffer in
-                render(targets, commandBuffer)
-            }
+        // Frame-batch path ONLY — no per-chain reserve/commit fallback.
+        // The production renderer must prepare the batch before the loop.
+        guard let frameTables = request.legacyAuthoredFrameTables else {
+            recordAllocationFailure()
+            return nil
         }
-
-        guard let frameTransaction else { return nil }
         return mainPass.encodeOffscreen { commandBuffer in
-            guard let framePlan = pool.framePlanForPersistentGraphTargets(
-                for: chain,
-                requestedWidth: dimensions.width,
-                requestedHeight: dimensions.height,
-                orderingContext: .init(commandBuffer: commandBuffer)
-            ), let prepared = pool.preparePersistentGraphTargets(
-                framePlan: framePlan
-            ), let commit = prepared.commitAndPin(
-                historyTokensByEffect: [:],
-                commandBuffer: commandBuffer
-            ) else {
-                recordAllocationFailure()
-                return nil
-            }
-            frameTransaction.registerResolution(
-                completed: { commit.releaseAll() },
-                rollback: { commit.releaseAll() }
-            )
-            return render(commit.leases.map(\.table), commandBuffer)
+            render(frameTables.tables, commandBuffer)
         }
     }
 }

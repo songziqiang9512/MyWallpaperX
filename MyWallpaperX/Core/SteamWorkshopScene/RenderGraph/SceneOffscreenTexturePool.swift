@@ -35,6 +35,11 @@ final class SceneOffscreenTexturePool {
         let tertiary: MTLTexture
     }
 
+    struct SharedGraphPair {
+        let first: MTLTexture
+        let second: MTLTexture
+    }
+
     let device: MTLDevice
     let pixelFormat: MTLPixelFormat
     typealias AllocationCache = SceneOffscreenTextureAllocationCache

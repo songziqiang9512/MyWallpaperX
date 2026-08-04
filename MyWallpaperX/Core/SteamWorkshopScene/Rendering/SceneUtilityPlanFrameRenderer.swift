@@ -22,7 +22,8 @@ enum SceneUtilityPlanFrameRenderer {
         mainPass: SceneMainPassEncoder,
         commandBuffer: MTLCommandBuffer,
         frameTransaction: SceneSourceUpdateTransaction,
-        effectExecutionTrace: SceneEffectExecutionFrameTrace
+        effectExecutionTrace: SceneEffectExecutionFrameTrace,
+        legacyAuthoredFrameTables: [Int: SceneOffscreenTexturePool.LegacyAuthoredFrameTables] = [:]
     ) {
         for plan in plans {
             guard let layer = renderer.layersByID[plan.layerID] else { continue }
@@ -84,7 +85,8 @@ enum SceneUtilityPlanFrameRenderer {
                     executionTrace: effectExecutionTrace,
                     onLegacyAuthoredRouteSelected: {
                         selectedLegacyAuthoredRoute = true
-                    }
+                    },
+                    legacyAuthoredFrameTables: legacyAuthoredFrameTables[layer.id]
                 )
             }
             utilityCaptureTelemetry.record(

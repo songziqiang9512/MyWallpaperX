@@ -18,7 +18,8 @@ extension SceneMetalRenderer {
         mainPass: SceneMainPassEncoder,
         commandBuffer: MTLCommandBuffer,
         frameTransaction: SceneSourceUpdateTransaction,
-        effectExecutionTrace: SceneEffectExecutionFrameTrace
+        effectExecutionTrace: SceneEffectExecutionFrameTrace,
+        legacyAuthoredFrameTables: [Int: SceneOffscreenTexturePool.LegacyAuthoredFrameTables] = [:]
     ) {
         guard let plans = utilityPlansByTriggerLayerID[layerID],
               let imagePipeline, let offscreenTexturePool else { return }
@@ -41,7 +42,8 @@ extension SceneMetalRenderer {
             mainPass: mainPass,
             commandBuffer: commandBuffer,
             frameTransaction: frameTransaction,
-            effectExecutionTrace: effectExecutionTrace
+            effectExecutionTrace: effectExecutionTrace,
+            legacyAuthoredFrameTables: legacyAuthoredFrameTables
         )
     }
 

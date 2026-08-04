@@ -1,5 +1,4 @@
 import Foundation
-
 struct SceneGraphChainAllocationReservation {
     let revision: UUID
     let resetEpoch: UUID
@@ -12,40 +11,62 @@ struct SceneGraphChainAllocationReservation {
     let consumedRetiredGeneration: UInt64?
     let sharedPair: SceneOffscreenTextureAllocationCache.SharedPair?
 }
-
 extension SceneOffscreenTextureAllocationCache {
     func reserveChains(
         plans: [SceneGraphRenderTargetChainPlan],
         orderingContext: SceneGraphCommandQueueOrderingContext? = nil
     ) -> [ChainReservation]? {
         locked {
-            guard !plans.isEmpty,
-                  Set(plans.map(\.key)).count == plans.count,
-                  orderingContext?.isPending != false else { return nil }
-            var result: [ChainReservation] = []
-            for plan in plans {
-                guard let reservation = reserveChainLocked(
-                    plan: plan,
-                    orderingContext: orderingContext
-                ) else { return nil }
-                result.append(reservation)
-            }
-            return result
+            reserveChainsLocked(
+                plans: plans,
+                orderingContext: orderingContext,
+                pendingSharedPairs: [:]
+            )
         }
+    }
+
+    func reserveChainsLocked(
+        plans: [SceneGraphRenderTargetChainPlan],
+        orderingContext: SceneGraphCommandQueueOrderingContext?,
+        pendingSharedPairs: [Key: SharedPair]
+    ) -> [ChainReservation]? {
+        guard !plans.isEmpty,
+              Set(plans.map(\.key)).count == plans.count,
+              orderingContext?.isPending != false else { return nil }
+        var result: [ChainReservation] = []
+        for plan in plans {
+            guard let reservation = reserveChainLocked(
+                plan: plan,
+                orderingContext: orderingContext,
+                pendingSharedPairs: pendingSharedPairs
+            ) else { return nil }
+            result.append(reservation)
+        }
+        return result
     }
 
     private func reserveChainLocked(
         plan: SceneGraphRenderTargetChainPlan,
-        orderingContext: SceneGraphCommandQueueOrderingContext?
+        orderingContext: SceneGraphCommandQueueOrderingContext?,
+        pendingSharedPairs: [Key: SharedPair] = [:]
     ) -> ChainReservation? {
         let byteCost = plan.residentByteCost
         let sharedPair: SharedPair?
         if plan.pairStorage == .shared {
-            guard let value = currentSharedPairLocked(for: plan) else { return nil }
+            guard let dimensions = plan.sharedPairDimensions else { return nil }
+            let key = Key.sharedGraphPair(
+                width: dimensions.width, height: dimensions.height
+            )
+            guard let value = currentSharedPairLocked(for: plan)
+                    ?? pendingSharedPairs[key] else { return nil }
             sharedPair = value
-            guard residents[.current(value.key)]?.permitsSharedPairReuse(
-                orderingContext: orderingContext
-            ) == true else { return nil }
+            if let entry = residents[.current(value.key)] {
+                guard entry.permitsSharedPairReuse(
+                    orderingContext: orderingContext
+                ) else { return nil }
+            } else {
+                guard pendingSharedPairs[value.key] != nil else { return nil }
+            }
         } else {
             sharedPair = nil
         }
@@ -163,9 +184,20 @@ extension SceneOffscreenTextureAllocationCache {
             sharedPair: sharedPair
         )
     }
-
     func commitAndPin(
         _ requests: [ScenePreparedPersistentGraphTargets.CommitRequest]
+    ) -> [ScenePreparedPersistentGraphTargets.Commit]? {
+        commitAndPin(
+            requests,
+            legacySnapshot: nil,
+            sharedPairCandidates: []
+        )
+    }
+
+    func commitAndPin(
+        _ requests: [ScenePreparedPersistentGraphTargets.CommitRequest],
+        legacySnapshot: LegacyBatchSnapshot?,
+        sharedPairCandidates: [Candidate]
     ) -> [ScenePreparedPersistentGraphTargets.Commit]? {
         locked {
             typealias Effective = (
@@ -177,6 +209,14 @@ extension SceneOffscreenTextureAllocationCache {
             guard !requests.isEmpty,
                   Set(requests.map(\.candidate.key)).count == requests.count,
                   requests.allSatisfy({ $0.cache === self }) else { return nil }
+            if let legacySnapshot {
+                guard validateLegacySharedPairCandidatesLocked(
+                    sharedPairCandidates,
+                    snapshot: legacySnapshot
+                ) != nil else { return nil }
+            } else {
+                guard sharedPairCandidates.isEmpty else { return nil }
+            }
             var effective: [Effective] = []
             for request in requests {
                 let candidate = request.candidate
@@ -198,6 +238,7 @@ extension SceneOffscreenTextureAllocationCache {
                 if original.revision == revision {
                     reservation = original
                 } else {
+                    guard legacySnapshot == nil else { return nil }
                     guard let refreshed = reserveChainLocked(
                         plan: chain.plan,
                         orderingContext: original.orderingContext
@@ -210,6 +251,11 @@ extension SceneOffscreenTextureAllocationCache {
             }
             var next = residents
             var access = accessCounter
+            guard stageLegacySharedPairCandidatesLocked(
+                sharedPairCandidates,
+                values: &next,
+                access: &access
+            ) else { return nil }
             var pinRecords: [(
                 chain: SceneGraphRenderTargetChainAllocation,
                 submission: UUID,
@@ -293,7 +339,7 @@ extension SceneOffscreenTextureAllocationCache {
                 if let sharedPair = reservation.sharedPair {
                     let pairKey = ResidentKey.current(sharedPair.key)
                     guard var pairEntry = next[pairKey],
-                          case .pair(_, let identity) = pairEntry.allocation,
+                          case .sharedGraphPair(_, let identity) = pairEntry.allocation,
                           identity.generation == sharedPair.identity.generation,
                           pairEntry.permitsSharedPairReuse(
                               orderingContext: reservation.orderingContext
@@ -341,42 +387,14 @@ extension SceneOffscreenTextureAllocationCache {
             guard evictToFit(
                 &next,
                 incomingCost: 0,
-                protected: Set(requests.map(\.candidate.key))
+                protected: Set(
+                    requests.map(\.candidate.key)
+                        + sharedPairCandidates.map(\.key)
+                )
             ) else { return nil }
             apply((next, access))
             return pinRecords.map(makeCommit)
         }
-    }
-
-    private func consumeRetired(
-        _ reservation: ChainReservation,
-        candidate: SceneGraphRenderTargetChainAllocation,
-        values: inout [ResidentKey: Entry]
-    ) -> Bool {
-        guard let generation = reservation.consumedRetiredGeneration else {
-            return reservation.reusableAllocation == nil
-        }
-        let key = ResidentKey.retired(generation)
-        guard let retired = values.removeValue(forKey: key),
-              !retired.isPinned,
-              !retired.isResetInvalidated,
-              case .chain(let old) = retired.allocation,
-              old.generation == generation,
-              old.plan.key == candidate.plan.key else { return false }
-        guard let reusable = reservation.reusableAllocation else { return true }
-        return reusable.generation == generation
-            && candidate.generation != generation
-            && reusable.plan == candidate.plan
-            && old.plan == reusable.plan
-            && old.plan.slots
-                .filter { slot in
-                    if case .fullFrame = slot.kind { return false }
-                    return true
-                }
-                .allSatisfy { slot in
-                    old.texturesBySlot[slot.id]
-                        === candidate.texturesBySlot[slot.id]
-                }
     }
 
 }

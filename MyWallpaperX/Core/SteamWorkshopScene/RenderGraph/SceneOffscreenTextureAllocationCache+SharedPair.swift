@@ -21,6 +21,7 @@ struct SceneOffscreenTextureAllocationCandidate {
     var keyMatchesAllocation: Bool {
         switch (key, allocation) {
         case (.pair, .pair), (.authoredPair, .pair): true
+        case (.sharedGraphPair, .sharedGraphPair): true
         case (.graph(let effect), .graph(let lease)):
             lease.table.plan.output.effect == effect
         default: false
@@ -31,7 +32,7 @@ struct SceneOffscreenTextureAllocationCandidate {
 extension SceneOffscreenTextureAllocationCache {
     struct SharedPair {
         let key: Key
-        let pair: SceneOffscreenTexturePool.Pair
+        let pair: SceneOffscreenTexturePool.SharedGraphPair
         let identity: PhysicalIdentity
     }
 
@@ -52,10 +53,13 @@ extension SceneOffscreenTextureAllocationCache {
         for plan: SceneGraphRenderTargetChainPlan
     ) -> SharedPair? {
         guard let dimensions = plan.sharedPairDimensions else { return nil }
-        let key = Key.pair(width: dimensions.width, height: dimensions.height)
+        let key = Key.sharedGraphPair(
+            width: dimensions.width,
+            height: dimensions.height
+        )
         guard let entry = residents[.current(key)],
               !entry.isResetInvalidated,
-              case .pair(let pair, let identity) = entry.allocation else {
+              case .sharedGraphPair(let pair, let identity) = entry.allocation else {
             return nil
         }
         return .init(key: key, pair: pair, identity: identity)
@@ -131,7 +135,8 @@ extension SceneOffscreenTextureAllocationCache.Entry {
     func permitsSharedPairReuse(
         orderingContext: SceneGraphCommandQueueOrderingContext?
     ) -> Bool {
-        guard case .pair = allocation, !isResetInvalidated else { return false }
+        guard case .sharedGraphPair = allocation,
+              !isResetInvalidated else { return false }
         guard !submissionPins.isEmpty else { return true }
         guard let orderingContext, orderingContext.isPending else { return false }
         let current = orderingContext.commandBuffer
@@ -155,7 +160,10 @@ extension SceneOffscreenTexturePool {
             guard let dimensions = framePlan.chainPlan.sharedPairDimensions else {
                 return nil
             }
-            keys.insert(.pair(width: dimensions.width, height: dimensions.height))
+            keys.insert(.sharedGraphPair(
+                width: dimensions.width,
+                height: dimensions.height
+            ))
         }
         return keys
     }
@@ -165,20 +173,24 @@ extension SceneOffscreenTexturePool {
     ) -> Bool {
         for key in keys.sorted(by: { lhs, rhs in
             switch (lhs, rhs) {
-            case let (.pair(lw, lh), .pair(rw, rh)):
+            case let (.sharedGraphPair(lw, lh), .sharedGraphPair(rw, rh)):
                 return (lw, lh) < (rw, rh)
             default:
                 return false
             }
         }) {
-            guard case .pair(let width, let height) = key else { return false }
+            guard case .sharedGraphPair(let width, let height) = key else {
+                return false
+            }
             guard allocationCache.allocation(for: key) != nil
-                || textures(
-                    width: width,
-                    height: height,
-                    maximumDimension: max(width, height)
-                ) != nil else { return false }
+                || {
+                    guard let candidate = sharedPairCandidate(
+                        width: width, height: height
+                    ) else { return false }
+                    return allocationCache.commit([candidate])
+                }() else { return false }
         }
         return true
     }
+
 }

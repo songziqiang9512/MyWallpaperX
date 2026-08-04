@@ -14,6 +14,7 @@ SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 RENDERER = SCENE / "Rendering/SceneMetalRenderer.swift"
 COMPOSITOR = SCENE / "Rendering/SceneImageLayerCompositor.swift"
 LEGACY_COMPOSITOR = SCENE / "Rendering/SceneImageLayerCompositor+LegacyAuthored.swift"
+LEGACY_BATCH = SCENE / "Rendering/SceneMetalRenderer+LegacyAuthoredBatch.swift"
 TRANSACTION = SCENE / "Rendering/SceneSourceUpdateTransaction.swift"
 EFFECT_EXECUTION = SCENE / "Rendering/SceneMetalRenderer+EffectExecution.swift"
 UTILITY_PLAN = SCENE / "Rendering/SceneUtilityPlanFrameRenderer.swift"
@@ -216,11 +217,14 @@ enum Harness {
             "frameTransaction: SceneSourceUpdateTransaction",
             compositor,
         )
-        self.assertIn("frameTransaction.registerResolution(", compositor)
+        self.assertNotIn("frameTransaction.registerResolution(", compositor)
         self.assertNotIn(
             "commandBuffer.addCompletedHandler { _ in commit.releaseAll() }",
             compositor,
         )
+        legacy_batch = LEGACY_BATCH.read_text(encoding="utf-8")
+        self.assertEqual(legacy_batch.count("transaction.registerResolution("), 1)
+        self.assertIn("prepareAndRegisterLegacyAuthoredBatch(", source)
         for path in (EFFECT_EXECUTION, UTILITY_PLAN, UTILITY_LAYER):
             utility_source = path.read_text(encoding="utf-8")
             self.assertIn("frameTransaction: SceneSourceUpdateTransaction", utility_source)

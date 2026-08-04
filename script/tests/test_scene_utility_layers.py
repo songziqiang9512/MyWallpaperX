@@ -19,6 +19,9 @@ METAL_RENDERER_SOURCE = SOURCE_ROOT / "Rendering/SceneMetalRenderer.swift"
 UTILITY_FRAME_RENDERER_SOURCE = (
     SOURCE_ROOT / "Rendering/SceneUtilityPlanFrameRenderer.swift"
 )
+LEGACY_BATCH_SOURCE = (
+    SOURCE_ROOT / "Rendering/SceneMetalRenderer+LegacyAuthoredBatch.swift"
+)
 DEPENDENCY_RUNTIME_SOURCE = SOURCE_ROOT / "RenderGraph/SceneDependencyFrameRuntime.swift"
 METAL_RENDERER_MASKS_SOURCE = (
     SOURCE_ROOT / "Rendering/SceneMetalRenderer+EffectMasks.swift"
@@ -211,6 +214,22 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertLess(callback, guard)
         self.assertLess(guard, record)
         self.assertNotIn("if authoredEffectChain != nil", frame_renderer)
+
+    def test_legacy_batch_utility_extent_matches_dispatch_geometry_inputs(self) -> None:
+        batch = LEGACY_BATCH_SOURCE.read_text(encoding="utf-8")
+        utility_extent = batch.split(
+            "private func utilityOffscreenSize(", maxsplit=1
+        )[1]
+        self.assertIn("let model = imageModelMatrix(", utility_extent)
+        self.assertIn("worldFramesByLayerID: worldFramesByLayerID", utility_extent)
+        self.assertIn("parallaxMouseNormalized: parallaxMouse", utility_extent)
+        self.assertIn("configuration: parallaxConfiguration", utility_extent)
+        self.assertIn("visibleHalfExtents: cameraFrame.coverHalfExtents", utility_extent)
+        self.assertIn("SceneCaptureGeometryResolver.resolve(", utility_extent)
+        self.assertNotIn(
+            "worldFramesByLayerID[layer.id] ?? matrix_identity_float4x4",
+            utility_extent,
+        )
 
     def test_composition_capture_receives_named_dependency_atomically(self) -> None:
         runtime_plan = RUNTIME_PLAN_SOURCE.read_text(encoding="utf-8")

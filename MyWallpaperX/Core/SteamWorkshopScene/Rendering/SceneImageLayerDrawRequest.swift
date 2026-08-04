@@ -169,6 +169,9 @@ struct SceneImageLayerDrawRequest {
     let uniforms: SceneImageLayerUniformValues
     let offscreenTexturePool: SceneOffscreenTexturePool?
     var resolvedMaterialFrameTargetPlan: SceneResolvedMaterialFrameTargetPlan? = nil
+    /// Frame-local legacy authored batch tables, set by the renderer before
+    /// the main-pass loop. The compositor reads only — never reserves/commits.
+    var legacyAuthoredFrameTables: SceneOffscreenTexturePool.LegacyAuthoredFrameTables? = nil
     let offscreenSize: CGSize?
     let requiresSourceCopy: Bool
     let finalCompositeAlpha: Float?

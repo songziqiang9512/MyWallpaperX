@@ -30,6 +30,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureResidency.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache+SharedPair.swift",
+    SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache+LegacyBatch.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureAllocationCache+Batch.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTextureFramePreflight.swift",
     SOURCE_ROOT / "RenderGraph/ScenePersistentGraphTargetAllocator.swift",
@@ -1515,6 +1516,33 @@ enum Harness {
         return commit.leases.map(\.table)
     }
 
+    static func legacyFrameTables(
+        pool: SceneOffscreenTexturePool,
+        chain: SceneAuthoredEffectExecutionChain,
+        width: Int,
+        height: Int,
+        commandBuffer: MTLCommandBuffer,
+        transaction: SceneSourceUpdateTransaction
+    ) -> SceneOffscreenTexturePool.LegacyAuthoredFrameTables? {
+        let ordering = SceneGraphCommandQueueOrderingContext(
+            commandBuffer: commandBuffer
+        )
+        guard let plan = pool.legacyAuthoredChainFramePlan(
+            for: chain,
+            requestedWidth: width,
+            requestedHeight: height,
+            orderingContext: ordering
+        ), let tables = pool.prepareLegacyAuthoredFrameBatch(
+            framePlans: [plan],
+            orderingContext: ordering
+        )?[chain.layerID] else { return nil }
+        transaction.registerResolution(
+            completed: { tables.commit.releaseAll() },
+            rollback: { tables.commit.releaseAll() }
+        )
+        return tables
+    }
+
     static func submitFrame(
         _ commandBuffer: MTLCommandBuffer,
         transaction: SceneSourceUpdateTransaction
@@ -2695,6 +2723,16 @@ enum Harness {
         )
         let frameTransaction = SceneSourceUpdateTransaction()
         defer { frameTransaction.cancel() }
+        let chain = authoredClippingMaskChain()
+        let pool = SceneOffscreenTexturePool(device: device)
+        guard let frameTables = legacyFrameTables(
+            pool: pool,
+            chain: chain,
+            width: 8,
+            height: 8,
+            commandBuffer: commandBuffer,
+            transaction: frameTransaction
+        ) else { throw HarnessError.commandFailed }
         let drew = compositor.draw(
             SceneImageLayerDrawRequest(
                 layer: layer,
@@ -2705,7 +2743,8 @@ enum Harness {
                 uniforms: SceneImageLayerUniformValues(
                     time: 0, alpha: 1, cursorUV: .zero
                 ),
-                offscreenTexturePool: SceneOffscreenTexturePool(device: device),
+                offscreenTexturePool: pool,
+                legacyAuthoredFrameTables: frameTables,
                 offscreenSize: nil,
                 requiresSourceCopy: false,
                 finalCompositeAlpha: nil,
@@ -2715,7 +2754,7 @@ enum Harness {
                 ),
                 authoredEffectPlan: nil,
                 blocksLegacyGaussianBlur: false,
-                authoredEffectChain: authoredClippingMaskChain()
+                authoredEffectChain: chain
             ),
             pipeline: pipeline,
             mainPass: mainPass,
@@ -2994,6 +3033,14 @@ enum Harness {
         )
         let frameTransaction = SceneSourceUpdateTransaction()
         defer { frameTransaction.cancel() }
+        guard let frameTables = legacyFrameTables(
+            pool: pool,
+            chain: chain,
+            width: width,
+            height: height,
+            commandBuffer: commandBuffer,
+            transaction: frameTransaction
+        ) else { throw HarnessError.commandFailed }
         let drew = compositor.draw(
             SceneImageLayerDrawRequest(
                 layer: SceneRenderDescriptor.Layer(
@@ -3008,6 +3055,7 @@ enum Harness {
                     time: 0, alpha: 1, cursorUV: .zero, tint: SIMD3(repeating: 1)
                 ),
                 offscreenTexturePool: pool,
+                legacyAuthoredFrameTables: frameTables,
                 offscreenSize: CGSize(width: CGFloat(width), height: CGFloat(height)),
                 requiresSourceCopy: false,
                 finalCompositeAlpha: nil,
@@ -3024,9 +3072,7 @@ enum Harness {
         mainPass.finishEnsuringClear()
         submitFrame(commandBuffer, transaction: frameTransaction)
         guard commandBuffer.status == .completed,
-              let table = committedChainTargets(
-                  pool: pool, chain: chain, width: width, height: height
-              )?.first else {
+              let table = frameTables.tables.first else {
             throw HarnessError.commandFailed
         }
         let output = try textureBytes(table.outputTexture, queue: queue)
@@ -3633,6 +3679,14 @@ enum Harness {
         )
         let frameTransaction = SceneSourceUpdateTransaction()
         defer { frameTransaction.cancel() }
+        guard let frameTables = legacyFrameTables(
+            pool: pool,
+            chain: chain,
+            width: size,
+            height: size,
+            commandBuffer: commandBuffer,
+            transaction: frameTransaction
+        ) else { throw HarnessError.commandFailed }
         guard compositor.draw(
             SceneImageLayerDrawRequest(
                 layer: standardBlurLayer(),
@@ -3644,6 +3698,7 @@ enum Harness {
                     time: 3, alpha: 0.5, cursorUV: SIMD2(0.25, 0.75)
                 ),
                 offscreenTexturePool: pool,
+                legacyAuthoredFrameTables: frameTables,
                 offscreenSize: nil,
                 requiresSourceCopy: false,
                 finalCompositeAlpha: nil,
@@ -3661,10 +3716,8 @@ enum Harness {
         }
         mainPass.finishEnsuringClear()
         submitFrame(commandBuffer, transaction: frameTransaction)
-        guard commandBuffer.status == .completed,
-              let tables = committedChainTargets(
-                  pool: pool, chain: chain, width: size, height: size
-              ), tables.count == 2 else {
+        let tables = frameTables.tables
+        guard commandBuffer.status == .completed, tables.count == 2 else {
             throw HarnessError.commandFailed
         }
 
@@ -3720,6 +3773,16 @@ enum Harness {
             )
             let frameTransaction = SceneSourceUpdateTransaction()
             defer { frameTransaction.cancel() }
+            let chain = authoredOpacityChain()
+            let pool = SceneOffscreenTexturePool(device: device, maxDimension: 1)
+            guard let frameTables = legacyFrameTables(
+                pool: pool,
+                chain: chain,
+                width: 1,
+                height: 1,
+                commandBuffer: commandBuffer,
+                transaction: frameTransaction
+            ) else { throw HarnessError.commandFailed }
             let snapshot = SceneDynamicSnapshot(
                 strengthsByEffectIndex: [:],
                 opacitiesByEffectIndex: liveAlpha.map { [0: $0] } ?? [:]
@@ -3736,16 +3799,15 @@ enum Harness {
                     uniforms: SceneImageLayerUniformValues(
                         time: 0, alpha: 1, cursorUV: .zero
                     ),
-                    offscreenTexturePool: SceneOffscreenTexturePool(
-                        device: device, maxDimension: 1
-                    ),
+                    offscreenTexturePool: pool,
+                    legacyAuthoredFrameTables: frameTables,
                     offscreenSize: nil,
                     requiresSourceCopy: false,
                     finalCompositeAlpha: nil,
                     dependencyEffect: nil,
                     authoredEffectPlan: nil,
                     blocksLegacyGaussianBlur: false,
-                    authoredEffectChain: authoredOpacityChain(),
+                    authoredEffectChain: chain,
                     dynamicValues: snapshot
                 ),
                 pipeline: pipeline,
@@ -3798,6 +3860,20 @@ enum Harness {
             )
             let frameTransaction = SceneSourceUpdateTransaction()
             defer { frameTransaction.cancel() }
+            let pool = SceneOffscreenTexturePool(device: device, maxDimension: 1)
+            let frameTables = item.chain.flatMap {
+                legacyFrameTables(
+                    pool: pool,
+                    chain: $0,
+                    width: 1,
+                    height: 1,
+                    commandBuffer: commandBuffer,
+                    transaction: frameTransaction
+                )
+            }
+            guard item.chain == nil || frameTables != nil else {
+                throw HarnessError.commandFailed
+            }
             let effect = SceneRenderDescriptor.EffectDescriptor(
                 file: "effects/opacity/effect.json",
                 visible: true,
@@ -3850,9 +3926,8 @@ enum Harness {
                     textureFrame: .identity,
                     mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
                     uniforms: SceneImageLayerUniformValues(time: 0, alpha: 1, cursorUV: .zero),
-                    offscreenTexturePool: SceneOffscreenTexturePool(
-                        device: device, maxDimension: 1
-                    ),
+                    offscreenTexturePool: pool,
+                    legacyAuthoredFrameTables: frameTables,
                     offscreenSize: nil,
                     requiresSourceCopy: false,
                     finalCompositeAlpha: nil,
@@ -3925,6 +4000,14 @@ enum Harness {
         )
         let frameTransaction = SceneSourceUpdateTransaction()
         defer { frameTransaction.cancel() }
+        guard let frameTables = legacyFrameTables(
+            pool: pool,
+            chain: chain,
+            width: 1,
+            height: 1,
+            commandBuffer: commandBuffer,
+            transaction: frameTransaction
+        ) else { throw HarnessError.commandFailed }
         let encoded = compositor.draw(
             SceneImageLayerDrawRequest(
                 layer: SceneRenderDescriptor.Layer(
@@ -3945,6 +4028,7 @@ enum Harness {
                 mvp: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
                 uniforms: SceneImageLayerUniformValues(time: 0, alpha: 1, cursorUV: .zero),
                 offscreenTexturePool: pool,
+                legacyAuthoredFrameTables: frameTables,
                 offscreenSize: nil,
                 requiresSourceCopy: false,
                 finalCompositeAlpha: nil,
@@ -3964,12 +4048,7 @@ enum Harness {
         guard commandBuffer.status == .completed else {
             throw HarnessError.commandFailed
         }
-        guard let stageTargets = committedChainTargets(
-            pool: pool,
-            chain: chain,
-            width: 1,
-            height: 1
-        )?.first else {
+        guard let stageTargets = frameTables.tables.first else {
             throw HarnessError.authoredBlendUnavailable
         }
         return [
@@ -4008,6 +4087,14 @@ enum Harness {
         )
         let frameTransaction = SceneSourceUpdateTransaction()
         defer { frameTransaction.cancel() }
+        guard let frameTables = legacyFrameTables(
+            pool: pool,
+            chain: chain,
+            width: 1,
+            height: 1,
+            commandBuffer: commandBuffer,
+            transaction: frameTransaction
+        ) else { throw HarnessError.commandFailed }
         let encoded = compositor.draw(
             SceneImageLayerDrawRequest(
                 layer: SceneRenderDescriptor.Layer(
@@ -4021,6 +4108,7 @@ enum Harness {
                     time: 0, alpha: 0.5, cursorUV: .zero
                 ),
                 offscreenTexturePool: pool,
+                legacyAuthoredFrameTables: frameTables,
                 offscreenSize: nil,
                 requiresSourceCopy: false,
                 finalCompositeAlpha: nil,
@@ -4040,12 +4128,7 @@ enum Harness {
         guard commandBuffer.status == .completed else {
             throw HarnessError.commandFailed
         }
-        guard let stageTargets = committedChainTargets(
-            pool: pool,
-            chain: chain,
-            width: 1,
-            height: 1
-        )?.first else {
+        guard let stageTargets = frameTables.tables.first else {
             throw HarnessError.baseTextureUnavailable
         }
         return [
@@ -4090,6 +4173,19 @@ enum Harness {
             )
             let frameTransaction = SceneSourceUpdateTransaction()
             defer { frameTransaction.cancel() }
+            let chain = authoredTintChain(
+                blendMode: blendMode,
+                maskPath: masked ? "masks/tint_mask_test" : nil
+            )
+            let pool = SceneOffscreenTexturePool(device: device, maxDimension: 1)
+            guard let frameTables = legacyFrameTables(
+                pool: pool,
+                chain: chain,
+                width: 1,
+                height: 1,
+                commandBuffer: commandBuffer,
+                transaction: frameTransaction
+            ) else { throw HarnessError.commandFailed }
             guard compositor.draw(
                 SceneImageLayerDrawRequest(
                     layer: SceneRenderDescriptor.Layer(
@@ -4105,19 +4201,15 @@ enum Harness {
                     uniforms: SceneImageLayerUniformValues(
                         time: 0, alpha: 1, cursorUV: .zero
                     ),
-                    offscreenTexturePool: SceneOffscreenTexturePool(
-                        device: device, maxDimension: 1
-                    ),
+                    offscreenTexturePool: pool,
+                    legacyAuthoredFrameTables: frameTables,
                     offscreenSize: nil,
                     requiresSourceCopy: false,
                     finalCompositeAlpha: nil,
                     dependencyEffect: nil,
                     authoredEffectPlan: nil,
                     blocksLegacyGaussianBlur: false,
-                    authoredEffectChain: authoredTintChain(
-                        blendMode: blendMode,
-                        maskPath: masked ? "masks/tint_mask_test" : nil
-                    ),
+                    authoredEffectChain: chain,
                     dynamicValues: SceneDynamicSnapshot.empty(frameIndex: 0)
                 ),
                 pipeline: pipeline,
@@ -4158,6 +4250,14 @@ enum Harness {
         )
         let frameTransaction = SceneSourceUpdateTransaction()
         defer { frameTransaction.cancel() }
+        guard let frameTables = legacyFrameTables(
+            pool: pool,
+            chain: chain,
+            width: size,
+            height: size,
+            commandBuffer: commandBuffer,
+            transaction: frameTransaction
+        ) else { throw HarnessError.commandFailed }
         let encoded = compositor.draw(
             SceneImageLayerDrawRequest(
                 layer: standardBlurLayer(),
@@ -4169,6 +4269,7 @@ enum Harness {
                     time: 0, alpha: 1, cursorUV: .zero
                 ),
                 offscreenTexturePool: pool,
+                legacyAuthoredFrameTables: frameTables,
                 offscreenSize: nil,
                 requiresSourceCopy: false,
                 finalCompositeAlpha: nil,
@@ -4184,10 +4285,8 @@ enum Harness {
         )
         mainPass.finishEnsuringClear()
         submitFrame(commandBuffer, transaction: frameTransaction)
-        guard commandBuffer.status == .completed,
-              let tables = committedChainTargets(
-                  pool: pool, chain: chain, width: size, height: size
-              ), tables.count == 2 else {
+        let tables = frameTables.tables
+        guard commandBuffer.status == .completed, tables.count == 2 else {
             throw HarnessError.commandFailed
         }
         let firstOutput = try textureBytes(tables[0].outputTexture, queue: queue)
@@ -4222,6 +4321,15 @@ enum Harness {
         let pool = SceneOffscreenTexturePool(device: device, maxDimension: size)
         let frameTransaction = SceneSourceUpdateTransaction()
         defer { frameTransaction.cancel() }
+        let chain = authoredTwoStageBlurChain()
+        guard let frameTables = legacyFrameTables(
+            pool: pool,
+            chain: chain,
+            width: size,
+            height: size,
+            commandBuffer: commandBuffer,
+            transaction: frameTransaction
+        ) else { throw HarnessError.commandFailed }
         let mainPass = SceneMainPassEncoder(
             commandBuffer: commandBuffer,
             target: target,
@@ -4238,13 +4346,14 @@ enum Harness {
                     time: 0, alpha: 1, cursorUV: .zero
                 ),
                 offscreenTexturePool: pool,
+                legacyAuthoredFrameTables: frameTables,
                 offscreenSize: nil,
                 requiresSourceCopy: false,
                 finalCompositeAlpha: nil,
                 dependencyEffect: nil,
                 authoredEffectPlan: nil,
                 blocksLegacyGaussianBlur: false,
-                authoredEffectChain: authoredTwoStageBlurChain(),
+                authoredEffectChain: chain,
                 dynamicValues: .empty(frameIndex: 20)
             ),
             pipeline: pipeline,
@@ -4289,20 +4398,8 @@ enum Harness {
             throw HarnessError.metalUnavailable
         }
         let chain = xRayChain(layerID: 2998757800)
-        guard let graphTargets = committedChainTargets(
-            pool: pool,
-            chain: chain,
-            width: size,
-            height: size
-        ), graphTargets.count == 1 else {
-            throw HarnessError.metalUnavailable
-        }
         let poolTextures = [textures.primary, textures.secondary, textures.tertiary]
         let resources = [source, blend, opacity]
-        let graphTextures = [
-            graphTargets[0].inputTexture,
-            graphTargets[0].outputTexture,
-        ]
         let poolIsPairwiseDistinct = poolTextures.indices.allSatisfy { first in
             poolTextures.indices.allSatisfy { second in
                 first == second || poolTextures[first] !== poolTextures[second]
@@ -4315,14 +4412,6 @@ enum Harness {
             resources.indices.allSatisfy { second in
                 first == second || resources[first] !== resources[second]
             }
-        }
-        let graphTargetsAreDistinct = graphTextures[0] !== graphTextures[1]
-        let graphTargetsDoNotAliasInputs = graphTextures.allSatisfy { graphTexture in
-            resources.allSatisfy { graphTexture !== $0 }
-        }
-        let graphTargetsDoNotAliasGenericPool = graphTextures.allSatisfy {
-            graphTexture in
-            poolTextures.allSatisfy { graphTexture !== $0 }
         }
         let layer = SceneRenderDescriptor.Layer(
             contentKind: "image",
@@ -4363,6 +4452,28 @@ enum Harness {
         )
         let frameTransaction = SceneSourceUpdateTransaction()
         defer { frameTransaction.cancel() }
+        guard let frameTables = legacyFrameTables(
+            pool: pool,
+            chain: chain,
+            width: size,
+            height: size,
+            commandBuffer: commandBuffer,
+            transaction: frameTransaction
+        ) else { throw HarnessError.commandFailed }
+        let graphTargets = frameTables.tables
+        guard graphTargets.count == 1 else { throw HarnessError.commandFailed }
+        let graphTextures = [
+            graphTargets[0].inputTexture,
+            graphTargets[0].outputTexture,
+        ]
+        let graphTargetsAreDistinct = graphTextures[0] !== graphTextures[1]
+        let graphTargetsDoNotAliasInputs = graphTextures.allSatisfy { graphTexture in
+            resources.allSatisfy { graphTexture !== $0 }
+        }
+        let graphTargetsDoNotAliasGenericPool = graphTextures.allSatisfy {
+            graphTexture in
+            poolTextures.allSatisfy { graphTexture !== $0 }
+        }
         let encoded = compositor.draw(
             SceneImageLayerDrawRequest(
                 layer: layer,
@@ -4377,6 +4488,7 @@ enum Harness {
                     cursorIsInside: true
                 ),
                 offscreenTexturePool: pool,
+                legacyAuthoredFrameTables: frameTables,
                 offscreenSize: nil,
                 requiresSourceCopy: false,
                 finalCompositeAlpha: nil,
@@ -5772,11 +5884,15 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             "frameTransaction: SceneSourceUpdateTransaction",
             compositor,
         )
-        self.assertIn("frameTransaction.registerResolution(", compositor)
+        self.assertNotIn("frameTransaction.registerResolution(", compositor)
         self.assertNotIn(
             "commandBuffer.addCompletedHandler { _ in commit.releaseAll() }",
             compositor,
         )
+        coordinator = (
+            SOURCE_ROOT / "Rendering/SceneMetalRenderer+LegacyAuthoredBatch.swift"
+        ).read_text(encoding="utf-8")
+        self.assertEqual(coordinator.count("transaction.registerResolution("), 1)
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -6075,7 +6191,7 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
         self.assertTrue(evidence["secondCaptureAliasesPriorOutput"], evidence)
         self.assertEqual(evidence["chainPairPhysicalObjectCount"], 2, evidence)
         self.assertEqual(evidence["residentAllocationCount"], 2, evidence)
-        self.assertEqual(evidence["residentTextureCount"], 5, evidence)
+        self.assertEqual(evidence["residentTextureCount"], 4, evidence)
         self.assertTrue(evidence["resetReleasedCompletedSubmission"], evidence)
 
         capture_source = (

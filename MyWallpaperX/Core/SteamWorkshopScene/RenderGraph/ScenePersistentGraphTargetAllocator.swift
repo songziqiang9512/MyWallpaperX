@@ -47,6 +47,14 @@ struct ScenePersistentGraphTargetAllocator {
               let reservations = cache.reserveChains(
                   plans: plans, orderingContext: orderingContext
               ) else { return nil }
+        return prepare(plans: plans, reservations: reservations)
+    }
+
+    func prepare(
+        plans: [ChainPlan],
+        reservations: [SceneOffscreenTextureAllocationCache.ChainReservation]
+    ) -> [ScenePreparedPersistentGraphTargets]? {
+        guard !plans.isEmpty, plans.count == reservations.count else { return nil }
         var result: [ScenePreparedPersistentGraphTargets] = []
         for (plan, reservation) in zip(plans, reservations) {
             guard valid(seed: reservation.historySeed, for: plan),
@@ -81,8 +89,7 @@ struct ScenePersistentGraphTargetAllocator {
             : plan.slots
         let sharedPair: SceneOffscreenTextureAllocationCache.SharedPair?
         if plan.pairStorage == .shared {
-            guard let value = reservation.sharedPair,
-                  !framebufferSlots.isEmpty else { return nil }
+            guard let value = reservation.sharedPair else { return nil }
             sharedPair = value
         } else {
             sharedPair = nil
@@ -111,32 +118,38 @@ struct ScenePersistentGraphTargetAllocator {
         }
         var allTexturesBySlot = texturesBySlot
         if let sharedPair {
-            allTexturesBySlot[plan.fullFramePair.zeroSlot] = sharedPair.pair.primary
-            allTexturesBySlot[plan.fullFramePair.oneSlot] = sharedPair.pair.secondary
+            allTexturesBySlot[plan.fullFramePair.zeroSlot] = sharedPair.pair.first
+            allTexturesBySlot[plan.fullFramePair.oneSlot] = sharedPair.pair.second
         }
         guard allTexturesBySlot.count == plan.slots.count else { return nil }
         let framebufferTextures = framebufferSlots.compactMap {
             texturesBySlot[$0.id]
         }
-        guard framebufferTextures.count == framebufferSlots.count,
-              let identity = cache.issuePhysicalIdentity(textures: framebufferTextures)
-        else { return nil }
+        guard framebufferTextures.count == framebufferSlots.count else {
+            return nil
+        }
+        let identity = framebufferTextures.isEmpty
+            ? nil
+            : cache.issuePhysicalIdentity(textures: framebufferTextures)
+        guard framebufferTextures.isEmpty || identity != nil else { return nil }
 
         var tokenBySlot: [Int: Token] = [:]
-        for slot in framebufferSlots {
-            guard let texture = texturesBySlot[slot.id],
-                  let token = identity.token(for: texture) else { return nil }
-            tokenBySlot[slot.id] = token
+        if let identity {
+            for slot in framebufferSlots {
+                guard let texture = texturesBySlot[slot.id],
+                      let token = identity.token(for: texture) else { return nil }
+                tokenBySlot[slot.id] = token
+            }
         }
         if let sharedPair {
             guard let zeroToken = sharedPair.identity.token(
-                for: sharedPair.pair.primary
+                for: sharedPair.pair.first
             ), let oneToken = sharedPair.identity.token(
-                for: sharedPair.pair.secondary
+                for: sharedPair.pair.second
             ) else { return nil }
             tokenBySlot[plan.fullFramePair.zeroSlot] = zeroToken
             tokenBySlot[plan.fullFramePair.oneSlot] = oneToken
-        } else {
+        } else if let identity {
             for slot in plan.slots where pairSlots.contains(slot.id) {
                 guard let texture = allTexturesBySlot[slot.id],
                       let token = identity.token(for: texture) else { return nil }
@@ -144,6 +157,8 @@ struct ScenePersistentGraphTargetAllocator {
             }
         }
 
+        guard let allocationGeneration = identity?.generation
+            ?? cache.issueAllocationGeneration() else { return nil }
         var leases: [SceneGraphRenderTargetLease] = []
         for stage in plan.stages {
             let mapped = Dictionary(uniqueKeysWithValues: stage.slotByIdentity.compactMap {
@@ -165,18 +180,20 @@ struct ScenePersistentGraphTargetAllocator {
             if let sharedPair {
                 guard case .success(let created) = SceneGraphRenderTargetLease.make(
                     table: table,
-                    generation: identity.generation,
-                    tokenForTexture: identity.token(for:),
+                    generation: allocationGeneration,
+                    tokenForTexture: identity?.token(for:)
+                        ?? sharedPair.identity.token(for:),
                     fullFramePairGeneration: sharedPair.identity.generation,
                     tokenForPairTexture: sharedPair.identity.token(for:)
                 ) else { return nil }
                 lease = created
             } else {
-                guard case .success(let created) = SceneGraphRenderTargetLease.make(
-                    table: table,
-                    generation: identity.generation,
-                    tokenForTexture: identity.token(for:)
-                ) else { return nil }
+                guard let identity,
+                      case .success(let created) = SceneGraphRenderTargetLease.make(
+                          table: table,
+                          generation: identity.generation,
+                          tokenForTexture: identity.token(for:)
+                      ) else { return nil }
                 lease = created
             }
             leases.append(lease)
@@ -185,7 +202,7 @@ struct ScenePersistentGraphTargetAllocator {
             plan: plan,
             leases: leases,
             texturesBySlot: allTexturesBySlot,
-            generation: identity.generation,
+            generation: allocationGeneration,
             tokenBySlot: tokenBySlot,
             fullFramePairGeneration: sharedPair?.identity.generation
         ) else { return nil }
