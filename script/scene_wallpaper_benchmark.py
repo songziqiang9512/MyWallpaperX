@@ -3767,11 +3767,20 @@ def effect_runtime_disposition_metrics(
             admission = admission_by_identity[identity]
             group = groups_by_layer.get(record["layer_id"])
             group_kind = group["kind"] if group is not None else None
+            resolved_material_owner = (
+                record["kind"] == "strict-generic"
+                and record["family"] == "resolved-material"
+                and record["reason"] == "resolved-material-capability-owner"
+                and group_kind == "authored"
+            )
             if record["definition_path"] != admission["definition_path"]:
                 failures.append("effect runtime disposition definition path mismatch")
             if admission["activity"] != "active":
                 expected_kind = "inactive"
                 expected_reason = admission["activity"]
+            elif resolved_material_owner:
+                expected_kind = "strict-generic"
+                expected_reason = "resolved-material-capability-owner"
             elif admission["strict_admission"] == "admitted-dedicated":
                 expected_kind = "strict-dedicated"
                 expected_reason = admission["reason"]
@@ -3796,7 +3805,7 @@ def effect_runtime_disposition_metrics(
                 record["family"] != admission["backend"]
             ):
                 failures.append("effect runtime disposition dedicated family mismatch")
-            if expected_kind == "strict-generic" and (
+            if expected_kind == "strict-generic" and not resolved_material_owner and (
                 record["family"] != (
                     admission["profile"] or admission["backend"]
                 )

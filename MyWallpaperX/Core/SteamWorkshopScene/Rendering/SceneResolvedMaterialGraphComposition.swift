@@ -232,6 +232,10 @@ extension SceneImageLayerCompositor {
         resolvedMaterialRuntime?.recordClaimedFailure(reasonCode: reasonCode)
     }
 
+    func deferResolvedMaterialFrame() -> Bool {
+        resolvedMaterialRuntime?.deferPreparedFrame() ?? true
+    }
+
     var resolvedMaterialAssetStates: [
         SceneAssetTextureIdentity: SceneTextureProviderState
     ] {

@@ -24,7 +24,9 @@ extension SceneMetalRenderer {
         let dispositionCatalog = SceneEffectRuntimeDispositionCatalog(
             descriptor: renderDescriptor,
             authoredCatalog: authoredEffectCatalog,
-            resourcesByLayerID: resourceAvailability
+            resourcesByLayerID: resourceAvailability,
+            resolvedMaterialSubjects: imageCompositor.resolvedMaterialRuntime?
+                .runtimeDispositionSubjects ?? []
         )
         imageCompositor.resolvedMaterialRuntime?.installExecutionEvidence(
             dispositionCatalog.resolvedMaterialExecutionEvidenceSubjects

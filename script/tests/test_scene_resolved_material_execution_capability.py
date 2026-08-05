@@ -837,6 +837,19 @@ private enum Harness {
             materials: materialCatalog(graph: raw, omitNode: 1),
             admissionCandidates: admissionCandidates
         )
+        let expectedDispositionSubjects = capability.admittedProducts.flatMap {
+            $0.graph.effects.map {
+                SceneEffectExactRuntimeSubject(
+                    key: $0.key,
+                    family: "resolved-material"
+                )
+            }
+        }
+        let dispositionOwnership = success.runtimeDispositionOwnership(
+            token: claim.token,
+            subjects: expectedDispositionSubjects
+        )
+        let foreignClaim = secondCatalog.claim(layerID: layerID)!
         let specializedCandidates =
             SceneResolvedMaterialExecutionCapabilityAdmission.compile(
                 descriptor: desc,
@@ -987,6 +1000,31 @@ private enum Harness {
                 && success.claim(layerID: layerID + 1) == nil,
             "token": success.resolve(claim.token) === capability
                 && secondCatalog.resolve(claim.token) == nil,
+            "dispositionOwnership": [
+                "valid": dispositionOwnership?.subjects.map(\.key)
+                    == expectedDispositionSubjects.map(\.key),
+                "automatic": success.runtimeDispositionOwnerships.count == 1
+                    && success.runtimeDispositionOwnerships[0].layerID == layerID,
+                "duplicateRejected": success.runtimeDispositionOwnership(
+                    token: claim.token,
+                    subjects: expectedDispositionSubjects
+                        + [expectedDispositionSubjects[0]]
+                ) == nil,
+                "subjectMismatchRejected": success.runtimeDispositionOwnership(
+                    token: claim.token,
+                    subjects: Array(expectedDispositionSubjects.dropLast())
+                ) == nil,
+                "familyMismatchRejected": success.runtimeDispositionOwnership(
+                    token: claim.token,
+                    subjects: expectedDispositionSubjects.map {
+                        .init(key: $0.key, family: "legacy-owner")
+                    }
+                ) == nil,
+                "foreignTokenRejected": success.runtimeDispositionOwnership(
+                    token: foreignClaim.token,
+                    subjects: expectedDispositionSubjects
+                ) == nil,
+            ],
             "products": capability.admittedProducts.count,
             "effectIndices": capability.pairPlan.effects.map {
                 $0.effect.effectIndex
@@ -1208,7 +1246,8 @@ private func fragmentSource(
     secondMetadata: String? = nil,
     conditionalSecond: Bool = false,
     frontendInvalid: Bool = false,
-    invalidSamplerSlot: Bool = false
+    invalidSamplerSlot: Bool = false,
+    colorUnproven: Bool = false
 ) -> String {
     let comboAnnotation = comboMetadata.map { "// \($0)" } ?? ""
     let varyingType = frontendInvalid ? "vec3" : "vec2"
@@ -1221,13 +1260,15 @@ private func fragmentSource(
         ? "#if EXTRA\n\(rawSecondDeclaration)\n#endif"
         : rawSecondDeclaration
     let output: String
-    if secondMetadata == nil {
+    if colorUnproven {
+        output = "vec4 color = texSample2D(\(firstName), v_TexCoord);"
+            + " color.rgb *= 0.5; gl_FragColor = color;"
+    } else if secondMetadata == nil {
         output = "gl_FragColor = texSample2D(\(firstName), v_TexCoord);"
     } else if conditionalSecond {
         output = """
         #if EXTRA
-        gl_FragColor = texSample2D(\(firstName), v_TexCoord)
-            * texSample2D(g_Texture1, v_TexCoord);
+        gl_FragColor = texSample2D(\(firstName), v_TexCoord);
         #else
         gl_FragColor = texSample2D(\(firstName), v_TexCoord);
         #endif
@@ -1254,7 +1295,8 @@ private func contract(
     secondMetadata: String? = nil,
     conditionalSecond: Bool = false,
     frontendInvalid: Bool = false,
-    invalidSamplerSlot: Bool = false
+    invalidSamplerSlot: Bool = false,
+    colorUnproven: Bool = false
 ) -> SceneShaderContract {
     func stage(
         _ kind: SceneShaderContract.StageKind,
@@ -1281,7 +1323,8 @@ private func contract(
         secondMetadata: secondMetadata,
         conditionalSecond: conditionalSecond,
         frontendInvalid: frontendInvalid,
-        invalidSamplerSlot: invalidSamplerSlot
+        invalidSamplerSlot: invalidSamplerSlot,
+        colorUnproven: colorUnproven
     )
     let stages = [
         stage(.vertex, path: "\(revision)/root.vert", source: vertexSource),
@@ -1552,6 +1595,14 @@ private enum EnvelopeHarness {
                 slots: slots(primary: graphCandidate())
             )
         )
+        let colorFailure = catalog(
+            graph: boundGraph,
+            template: materialTemplate(
+                graph: boundGraph,
+                shader: contract("color-failure", colorUnproven: true),
+                slots: slots(primary: graphCandidate())
+            )
+        )
         let purposeFailure = catalog(
             graph: boundGraph,
             template: materialTemplate(
@@ -1671,6 +1722,7 @@ private enum EnvelopeHarness {
             "shaderFailure": rejection(shaderFailure),
             "frontendFailure": rejection(frontendFailure),
             "samplerSchemaFailure": rejection(samplerSchemaFailure),
+            "colorFailure": rejection(colorFailure),
             "purposeFailure": rejection(purposeFailure),
             "defaultPurposeFailure": rejection(defaultPurposeFailure),
             "implicitPositiveClaim": implicitPositive.claim(layerID: layerID) != nil,
@@ -1789,10 +1841,10 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             launch,
         )
         self.assertIn("case let .success(materials):", capability)
-        self.assertNotIn("executionEvidenceSubjects", capability)
-        self.assertNotIn("exactEffectSubjects", capability)
-        self.assertNotIn("evidenceProjectionIssues", capability)
-        self.assertNotIn('family: "resolved-material"', capability)
+        self.assertIn("runtimeDispositionOwnership(", capability)
+        self.assertIn("runtimeDispositionOwnerships", capability)
+        self.assertIn("Set(keys) == Set(expected)", capability)
+        self.assertNotIn("sampleID", capability)
 
         self.assertIn("admissionCandidates: [AdmissionCandidate]", runtime_catalog)
         self.assertIn("for candidate in admissionCandidates", runtime_catalog)
@@ -1851,6 +1903,17 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         payload = json.loads(completed.stdout)
         self.assertTrue(payload["claim"])
         self.assertTrue(payload["token"])
+        self.assertEqual(
+            payload["dispositionOwnership"],
+            {
+                "valid": True,
+                "automatic": True,
+                "duplicateRejected": True,
+                "subjectMismatchRejected": True,
+                "familyMismatchRejected": True,
+                "foreignTokenRejected": True,
+            },
+        )
         self.assertEqual(payload["products"], 2)
         self.assertEqual(payload["effectIndices"], [0, 2])
         self.assertEqual(payload["pairTransitions"], 3)
@@ -1997,6 +2060,10 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn(
             "material-variant-envelope-sampler-schema",
             payload["samplerSchemaFailure"],
+        )
+        self.assertIn(
+            "material-variant-envelope-color-contract",
+            payload["colorFailure"],
         )
         self.assertIn(
             "material-variant-envelope-texture-purpose",

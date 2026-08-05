@@ -117,6 +117,11 @@ enum Harness {
                 "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
                 "color.a *= 0.5; gl_FragColor = vec4(color.rgb, color.a);"
             ),
+            "mutatedLocalOutput": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "float delta = dot(color.rgb, vec3(1.0)); " +
+                "color.a *= delta; gl_FragColor = color;"
+            ),
             "straightRGBMath": transfer(
                 "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
                 "gl_FragColor = vec4(color.rgb * 0.5, color.a * 0.5);"
@@ -136,6 +141,22 @@ enum Harness {
             ),
             "localAlpha": transfer(
                 "vec4 c = texSample2D(g_Texture0, v_TexCoord); c.a = 0.5; gl_FragColor = c;"
+            ),
+            "conditionalLocalAlpha": transfer(
+                "vec4 c = texSample2D(g_Texture0, v_TexCoord); " +
+                "if (v_TexCoord.x > 0.5) { c.a *= 0.5; } gl_FragColor = c;"
+            ),
+            "localRGBWrite": transfer(
+                "vec4 c = texSample2D(g_Texture0, v_TexCoord); " +
+                "c.rgb *= 0.5; c.a *= 0.5; gl_FragColor = c;"
+            ),
+            "multipleLocalAlphaWrites": transfer(
+                "vec4 c = texSample2D(g_Texture0, v_TexCoord); " +
+                "c.a *= 0.5; c.a += 0.1; gl_FragColor = c;"
+            ),
+            "wholeLocalWrite": transfer(
+                "vec4 c = texSample2D(g_Texture0, v_TexCoord); " +
+                "c = vec4(1.0); c.a *= 0.5; gl_FragColor = c;"
             ),
             "multipleWrites": transfer(
                 "gl_FragColor = texSample2D(g_Texture0, v_TexCoord); gl_FragColor = vec4(1.0);"
@@ -227,6 +248,8 @@ class SceneShaderColorContractTests(unittest.TestCase):
         self.assertEqual(
             self.result["closedControlFlowStraightAlpha"], "straight-slot:0"
         )
+        self.assertEqual(self.result["localAlpha"], "straight-slot:0")
+        self.assertEqual(self.result["mutatedLocalOutput"], "straight-slot:0")
 
     def test_straight_alpha_boundary_is_emitted_only_for_proven_programs(self) -> None:
         source = self.result["straightMetal"]
@@ -239,11 +262,14 @@ class SceneShaderColorContractTests(unittest.TestCase):
     def test_alpha_math_and_non_linear_writes_remain_unproven(self) -> None:
         for key in (
             "arithmetic",
-            "localAlpha",
             "modifiedStraightLocal",
             "straightRGBMath",
             "mixedSampleAlpha",
             "sampledMaskAlpha",
+            "conditionalLocalAlpha",
+            "localRGBWrite",
+            "multipleLocalAlphaWrites",
+            "wholeLocalWrite",
             "multipleWrites",
             "componentWrite",
             "conditionalOpaque",

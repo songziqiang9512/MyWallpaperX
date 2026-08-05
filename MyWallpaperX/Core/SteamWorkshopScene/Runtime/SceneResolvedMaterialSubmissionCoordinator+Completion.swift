@@ -1,6 +1,36 @@
 import Foundation
+import Metal
 
 extension SceneResolvedMaterialSubmissionCoordinator {
+    func deferPreparedFrame() -> Bool {
+        var emission = Emission()
+        lock.lock()
+        guard frameIsActive, !frameSealed, !frameRequiresDrop,
+              frameFailure == nil, frameFailures == 0,
+              activeTransactions.allSatisfy({ identity in
+                  guard let ledger = activeByID[identity] else { return false }
+                  return ledger.phase == .allocationCommitted
+                      && !ledger.claimConsumed
+                      && ledger.commandBuffer.status == .notEnqueued
+              }) else {
+            lock.unlock()
+            return false
+        }
+        for identity in activeTransactions.reversed() {
+            emission.append(terminalizeLedgerLocked(identity, as: .cancelled))
+        }
+        activeTransactions.removeAll(keepingCapacity: true)
+        preparedLedgerByLayerID.removeAll(keepingCapacity: true)
+        restoreScheduledTailsLocked()
+        pruneCommandBufferRecordsLocked()
+        frameRequiresDrop = true
+        framePreparationComplete = false
+        frameDeferred += 1
+        lock.unlock()
+        emit(emission)
+        return true
+    }
+
     enum LedgerTerminal {
         case succeeded(
             observations: [SceneGraphExecutionObservation],

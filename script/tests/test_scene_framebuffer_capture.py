@@ -48,6 +48,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneOffscreenResolutionPolicy.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTexturePool.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTexturePool+LegacyChain.swift",
+    SOURCE_ROOT / "RenderGraph/SceneOffscreenTexturePool+LegacyBatchResult.swift",
     SOURCE_ROOT / "Resources/SceneTextureSampling.swift",
     SOURCE_ROOT / "Resources/SceneTextureCandidate.swift",
     SOURCE_ROOT / "Resources/SceneTextureSlotBinding.swift",
@@ -293,6 +294,8 @@ final class SceneResolvedMaterialRuntimeBridge {
     ) {}
 
     func endFrame() {}
+
+    func deferPreparedFrame() -> Bool { true }
 
     func invalidate(reason: SceneGraphExecutionResetReason) {}
 
@@ -5919,6 +5922,20 @@ enum Harness {
 
 
 class SceneFramebufferCaptureTests(unittest.TestCase):
+    def test_resolved_material_waits_for_base_source_before_runtime_begin(
+        self,
+    ) -> None:
+        source = (
+            SOURCE_ROOT / "Rendering/SceneResolvedMaterialFramePreflight.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "guard let texture = imageTextures[layer.id] else {\n"
+            "                return .deferred\n"
+            "            }",
+            source,
+        )
+        self.assertNotIn("frame-source-texture-unavailable", source)
+
     def test_legacy_authored_commit_is_owned_by_the_frame_transaction(self) -> None:
         compositor = (
             SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
@@ -5939,6 +5956,26 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             SOURCE_ROOT / "Rendering/SceneMetalRenderer+LegacyAuthoredBatch.swift"
         ).read_text(encoding="utf-8")
         self.assertEqual(coordinator.count("transaction.registerResolution("), 1)
+
+    def test_legacy_only_batch_abort_does_not_pollute_graph_executor(self) -> None:
+        source = (
+            SOURCE_ROOT / "Rendering/SceneMetalRenderer+LegacyAuthoredBatch.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "case .deferred:\n"
+            "            guard !resolvedMaterialPlans.isEmpty else {\n"
+            "                _ = compositor.endResolvedMaterialFrame(on: commandBuffer)\n"
+            "                return nil\n"
+            "            }",
+            source,
+        )
+        self.assertIn(
+            "case let .rejected(reasonCode):\n"
+            "            if !resolvedMaterialPlans.isEmpty {\n"
+            "                compositor.recordResolvedMaterialFramePreflightFailure(reasonCode)\n"
+            "            }",
+            source,
+        )
 
     @classmethod
     def setUpClass(cls) -> None:

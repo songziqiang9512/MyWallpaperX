@@ -44,6 +44,7 @@ final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             case uniformSchema = "uniform-schema"
             case texturePurpose = "texture-purpose"
             case textureBinding = "texture-binding"
+            case colorContract = "color-contract"
             case invariant
         }
 
@@ -61,6 +62,7 @@ final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                 case .texturePurposeUnproven: .texturePurpose
                 case .textureBindingInvalid, .textureReferenceInvalid:
                     .textureBinding
+                case .colorContractUnproven: .colorContract
                 default: .invariant
                 }
             }
@@ -180,6 +182,10 @@ final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                 if next == mask {
                     guard let invalid = variant.frontendProgram.textureBindings
                         .first(where: { mask & (1 << UInt8($0.slot)) == 0 }) else {
+                        if variant.frontendProgram.colorTransfer == .unresolved {
+                            return .failure(.material(Self.failure(
+                                .colorContractUnproven, phase: .color)))
+                        }
                         stable = true
                         break
                     }
@@ -363,7 +369,6 @@ final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             activeUniforms: uniforms
         )
     }
-
     private static func hasInternalDefault(
         _ samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
     ) -> Bool {

@@ -41,6 +41,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneOffscreenResolutionPolicy.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTexturePool.swift",
     SOURCE_ROOT / "RenderGraph/SceneOffscreenTexturePool+LegacyChain.swift",
+    SOURCE_ROOT / "RenderGraph/SceneOffscreenTexturePool+LegacyBatchResult.swift",
 ]
 
 
@@ -1780,6 +1781,41 @@ enum Harness {
             inflightAllocator.prepare(plan: inflightPlan) == nil
             && inflightFactoryAttempts == attemptsAtCapacity
             && SceneResolvedMaterialInFlightCapacity.maximumSubmissions == 2
+        let requiredSharedResidencySurvivesTransientCapacityDeferral =
+            SceneOffscreenTextureFramePreflight.evaluate(
+                plans: [inflightPlan],
+                residents: [
+                    .init(
+                        id: 0, location: .currentChain(inflightPlan.key),
+                        chainPlan: inflightPlan, history: nil,
+                        demotedHistory: nil,
+                        byteCost: inflightPlan.residentByteCost,
+                        submissionPinCount: 1, historyPinCount: 0,
+                        permitsOrderedReuse: false,
+                        isResetInvalidated: false, lastAccess: 1,
+                        existedBeforeFrame: true, requiredByFrame: false
+                    ),
+                    .init(
+                        id: 1, location: .retired,
+                        chainPlan: inflightPlan, history: nil,
+                        demotedHistory: nil,
+                        byteCost: inflightPlan.residentByteCost,
+                        submissionPinCount: 1, historyPinCount: 0,
+                        permitsOrderedReuse: false,
+                        isResetInvalidated: false, lastAccess: 2,
+                        existedBeforeFrame: true, requiredByFrame: false
+                    ),
+                    .init(
+                        id: 2, location: .currentOther,
+                        chainPlan: nil, history: nil, demotedHistory: nil,
+                        byteCost: 128, submissionPinCount: 2,
+                        historyPinCount: 0, permitsOrderedReuse: true,
+                        isResetInvalidated: false, lastAccess: 3,
+                        existedBeforeFrame: true, requiredByFrame: true
+                    ),
+                ],
+                byteBudget: inflightPlan.residentByteCost * 2 + 128
+            ) == .temporarilyBlocked
         inflightCommit1.submissionPin.release()
         guard let inflightPrepared3 = inflightAllocator.prepare(plan: inflightPlan),
               let inflightCommit3 = inflightPrepared3.commitAndPin(
@@ -3430,6 +3466,8 @@ enum Harness {
             "inFlightAllocationsAreDistinct": inFlightAllocationsAreDistinct,
             "inFlightCapacityFailsBeforeAllocation":
                 inFlightCapacityFailsBeforeAllocation,
+            "requiredSharedResidencySurvivesTransientCapacityDeferral":
+                requiredSharedResidencySurvivesTransientCapacityDeferral,
             "stableTwoSlotRingAvoidsTextureChurn":
                 stableTwoSlotRingAvoidsTextureChurn,
             "resetInvalidatedSlotNeverReentersRing":
@@ -3775,6 +3813,11 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
     def test_two_inflight_generations_are_bounded_and_reusable(self) -> None:
         self.assertTrue(self.result["inFlightAllocationsAreDistinct"])
         self.assertTrue(self.result["inFlightCapacityFailsBeforeAllocation"])
+        self.assertTrue(
+            self.result[
+                "requiredSharedResidencySurvivesTransientCapacityDeferral"
+            ]
+        )
         self.assertTrue(self.result["stableTwoSlotRingAvoidsTextureChurn"])
         self.assertTrue(self.result["resetInvalidatedSlotNeverReentersRing"])
         self.assertTrue(self.result["pinnedSecondSlotBudgetFailsBeforeAllocation"])

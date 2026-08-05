@@ -111,9 +111,7 @@ extension SceneMetalRenderer {
                 claim = value
             }
             guard let texture = imageTextures[layer.id] else {
-                return .rejected(
-                    reasonCode: "frame-source-texture-unavailable"
-                )
+                return .deferred
             }
             let desiredSize: CGSize
             if layer.contentKind == "solid" {

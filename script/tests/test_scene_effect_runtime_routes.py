@@ -564,6 +564,10 @@ enum Harness {
             18,
             effect("inactive-only", "effects/blur/effect.json", visible: false)
         )
+        let migratedLayer = layer(
+            19,
+            effect("migrated", "effects/custom/material/effect.json")
+        )
         let strictKeys = strictLayer.effects.enumerated().map { index, effect in
             SceneAuthoredEffectRenderPlan.EffectKey(
                 layerID: strictLayer.id,
@@ -585,6 +589,11 @@ enum Harness {
                 descriptorID: effect.id
             )
         }
+        let migratedKey = SceneAuthoredEffectRenderPlan.EffectKey(
+            layerID: migratedLayer.id,
+            effectIndex: 0,
+            descriptorID: migratedLayer.effects[0].id
+        )
         let admissions = [
             SceneAuthoredEffectStageAdmission(
                 key: strictKeys[0],
@@ -656,8 +665,18 @@ enum Harness {
                 profileName: nil,
                 reasonCode: nil
             ),
+            SceneAuthoredEffectStageAdmission(
+                key: migratedKey,
+                definitionPath: migratedLayer.effects[0].file,
+                activity: .active,
+                strictAdmission: .notAdmitted,
+                coverage: .prefixOmitted,
+                backendName: nil,
+                profileName: nil,
+                reasonCode: "unsupported-stage"
+            ),
         ]
-        let allKeys = strictKeys + prefixKeys + inactiveKeys
+        let allKeys = strictKeys + prefixKeys + inactiveKeys + [migratedKey]
         let authored = SceneAuthoredEffectExecutionCatalog(
             stageAdmissions: admissions,
             chainsByLayerID: [7: Marker(), 13: Marker()],
@@ -667,15 +686,31 @@ enum Harness {
         )
         let catalog = SceneEffectRuntimeDispositionCatalog(
             descriptor: SceneRenderDescriptor(
-                layers: [strictLayer, prefixLayer, inactiveLayer]
+                layers: [strictLayer, prefixLayer, inactiveLayer, migratedLayer]
             ),
             authoredCatalog: authored,
+            resourcesByLayerID: [:],
+            resolvedMaterialSubjects: [
+                .init(key: migratedKey, family: "resolved-material"),
+            ]
+        )
+        let unmigrated = SceneEffectRuntimeDispositionCatalog(
+            descriptor: SceneRenderDescriptor(layers: [migratedLayer]),
+            authoredCatalog: .init(
+                stageAdmissions: [admissions.last!],
+                chainsByLayerID: [:],
+                legacyGaussianBlurBlockedLayerIDs: [],
+                descriptorEffectStageCount: 1,
+                descriptorEffectStageKeys: [migratedKey]
+            ),
             resourcesByLayerID: [:]
         )
         return [
             "descriptorConserved": catalog.descriptorIdentityConserved,
             "groupConserved": catalog.groupIdentityConserved,
             "strictConserved": catalog.strictIdentityConserved,
+            "resolvedConserved": catalog.resolvedMaterialOwnershipConserved,
+            "unmigratedKind": unmigrated.dispositions.first?.kind.rawValue ?? "-",
             "groups": catalog.routeGroups.map {
                 [
                     "layer": $0.layerID,
@@ -690,6 +725,8 @@ enum Harness {
                     "kind": $0.kind.rawValue,
                     "group": $0.routeGroupID.map { $0 as Any } ?? NSNull(),
                     "role": $0.routeRole.rawValue,
+                    "family": $0.family.map { $0 as Any } ?? NSNull(),
+                    "reason": $0.reasonCode.map { $0 as Any } ?? NSNull(),
                 ] as [String: Any]
             },
             "resolvedMaterialSubjects": catalog
@@ -1088,7 +1125,9 @@ class SceneEffectRuntimeRouteTests(unittest.TestCase):
         self.assertTrue(decision["descriptorConserved"])
         self.assertTrue(decision["groupConserved"])
         self.assertTrue(decision["strictConserved"])
-        self.assertEqual(set(groups), {7, 13, 18})
+        self.assertTrue(decision["resolvedConserved"])
+        self.assertEqual(decision["unmigratedKind"], "unsupported")
+        self.assertEqual(set(groups), {7, 13, 18, 19})
         self.assertEqual(groups[7]["kind"], "authored")
         self.assertEqual(groups[7]["effects"], 2)
         self.assertEqual(groups[7]["owners"], ["generic", "iris"])
@@ -1098,6 +1137,8 @@ class SceneEffectRuntimeRouteTests(unittest.TestCase):
         self.assertEqual(groups[18]["kind"], "inactive")
         self.assertEqual(groups[18]["effects"], 0)
         self.assertEqual(groups[18]["owners"], [])
+        self.assertEqual(groups[19]["kind"], "authored")
+        self.assertEqual(groups[19]["owners"], ["migrated"])
         self.assertEqual(records["generic"]["kind"], "strict-generic")
         self.assertEqual(records["iris"]["kind"], "strict-inline-suffix")
         self.assertEqual(records["xray"]["kind"], "strict-dedicated")
@@ -1111,12 +1152,23 @@ class SceneEffectRuntimeRouteTests(unittest.TestCase):
         self.assertIsNone(records["disabled"]["group"])
         self.assertEqual(records["inactive-only"]["kind"], "inactive")
         self.assertIsNone(records["inactive-only"]["group"])
+        self.assertEqual(records["migrated"]["kind"], "strict-generic")
+        self.assertEqual(records["migrated"]["family"], "resolved-material")
+        self.assertEqual(
+            records["migrated"]["reason"],
+            "resolved-material-capability-owner",
+        )
         self.assertEqual(
             decision["resolvedMaterialSubjects"],
             [
                 {"id": "generic", "index": 0, "family": "scroll"},
                 {"id": "iris", "index": 1, "family": "iris-inline"},
                 {"id": "xray", "index": 0, "family": "xray"},
+                {
+                    "id": "migrated",
+                    "index": 0,
+                    "family": "resolved-material",
+                },
             ],
         )
 

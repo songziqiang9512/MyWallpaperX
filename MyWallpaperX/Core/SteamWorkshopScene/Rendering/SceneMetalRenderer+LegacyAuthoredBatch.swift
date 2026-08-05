@@ -26,8 +26,8 @@ extension SceneMetalRenderer {
         cameraFrame: SceneParticleCameraFrame,
         parallaxConfiguration: SceneLayerParallax.Configuration,
         commandBuffer: MTLCommandBuffer
-    ) -> [Int: SceneOffscreenTexturePool.LegacyAuthoredFrameTables]? {
-        guard let offscreenTexturePool else { return [:] }
+    ) -> SceneOffscreenTexturePool.LegacyAuthoredFrameBatchResult {
+        guard let offscreenTexturePool else { return .ready([:]) }
         let orderingContext = SceneGraphCommandQueueOrderingContext(
             commandBuffer: commandBuffer
         )
@@ -73,7 +73,9 @@ extension SceneMetalRenderer {
                 for: chain, requestedWidth: width, requestedHeight: height,
                 orderingContext: orderingContext
             )
-            guard let framePlan else { return nil }
+            guard let framePlan else {
+                return .rejected(reasonCode: "legacy-authored-frame-plan-unavailable")
+            }
             framePlans.append(framePlan)
         }
 
@@ -110,14 +112,18 @@ extension SceneMetalRenderer {
                     requestedHeight: height,
                     orderingContext: orderingContext
                 )
-                guard let framePlan else { return nil }
+                guard let framePlan else {
+                    return .rejected(
+                        reasonCode: "legacy-authored-frame-plan-unavailable"
+                    )
+                }
                 framePlans.append(framePlan)
             }
         }
 
-        guard !framePlans.isEmpty else { return [:] }
+        guard !framePlans.isEmpty else { return .ready([:]) }
 
-        return offscreenTexturePool.prepareLegacyAuthoredFrameBatch(
+        return offscreenTexturePool.prepareLegacyAuthoredFrameBatchResult(
             framePlans: framePlans,
             orderingContext: orderingContext
         )
@@ -140,7 +146,7 @@ extension SceneMetalRenderer {
         compositor: SceneImageLayerCompositor,
         transaction: SceneSourceUpdateTransaction
     ) -> [Int: SceneOffscreenTexturePool.LegacyAuthoredFrameTables]? {
-        guard let tables = renderer.prepareLegacyAuthoredFrameBatch(
+        let result = renderer.prepareLegacyAuthoredFrameBatch(
             resolvedMaterialPlans: resolvedMaterialPlans,
             offscreenTexturePool: offscreenTexturePool,
             imageTextures: imageTextures,
@@ -150,7 +156,29 @@ extension SceneMetalRenderer {
             cameraFrame: cameraFrame,
             parallaxConfiguration: parallaxConfiguration,
             commandBuffer: commandBuffer
-        ) else {
+        )
+        let tables: [Int: SceneOffscreenTexturePool.LegacyAuthoredFrameTables]
+        switch result {
+        case let .ready(value):
+            tables = value
+        case .deferred:
+            guard !resolvedMaterialPlans.isEmpty else {
+                _ = compositor.endResolvedMaterialFrame(on: commandBuffer)
+                return nil
+            }
+            guard compositor.deferResolvedMaterialFrame() else {
+                compositor.recordResolvedMaterialFramePreflightFailure(
+                    "legacy-authored-frame-defer-rejected"
+                )
+                _ = compositor.endResolvedMaterialFrame(on: commandBuffer)
+                return nil
+            }
+            _ = compositor.endResolvedMaterialFrame(on: commandBuffer)
+            return nil
+        case let .rejected(reasonCode):
+            if !resolvedMaterialPlans.isEmpty {
+                compositor.recordResolvedMaterialFramePreflightFailure(reasonCode)
+            }
             _ = compositor.endResolvedMaterialFrame(on: commandBuffer)
             return nil
         }

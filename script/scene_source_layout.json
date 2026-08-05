@@ -224,9 +224,8 @@
         "id": "numeric-workshop-selector",
         "description": "Numeric Workshop paths are frozen until source profiles become public typed capabilities.",
         "pattern": "workshop/[0-9]+",
-        "baseline_occurrences": 70,
+        "baseline_occurrences": 69,
         "allowed_files": [
-          "Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
           "RenderGraph/SceneAuthoredClippingMaskPlanner.swift",
           "RenderGraph/SceneAuthoredScrollShaderProfile.swift",
           "RenderGraph/SceneAuthoredWorkshopAudioBarsPlanner.swift",

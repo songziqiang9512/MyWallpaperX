@@ -3111,6 +3111,39 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(records_by_kind["composite-refused"]["role"], "member")
         self.assertIn("unsupported", records_by_kind)
 
+        migrated_preview = preview.replace(
+            "strict-dedicated=1,strict-generic=1",
+            "strict-dedicated=1,strict-generic=2",
+        ).replace(
+            "composite-refused=1,unsupported=1",
+            "composite-refused=1,unsupported=0",
+        ).replace(
+            "exact-key=8,layer-aggregate=2,none=2",
+            "exact-key=9,layer-aggregate=2,none=1",
+        ).replace(
+            "owner=5,aggregate-contributor=1,member=5,none=1",
+            "owner=6,aggregate-contributor=1,member=4,none=1",
+        ).replace(
+            "inactive=1,direct=2,authored=1",
+            "inactive=1,direct=1,authored=2",
+        ).replace(
+            "layer=7 scope=effect-induced-static kind=direct effects=1 owners=0",
+            "layer=7 scope=effect-induced-static kind=authored effects=1 owners=1",
+        ).replace(
+            "kind=unsupported attribution=none family=unknown group=7 role=member reason=no-legacy-visual-route",
+            "kind=strict-generic attribution=exact-key family=resolved-material group=7 role=owner reason=resolved-material-capability-owner",
+        )
+        migrated_metrics = benchmark.effect_runtime_disposition_metrics(
+            migrated_preview
+        )
+        self.assertEqual(migrated_metrics["validation_failures"], [])
+        migrated_record = next(
+            record for record in migrated_metrics["records"]
+            if record["layer_id"] == 7
+        )
+        self.assertEqual(migrated_record["kind"], "strict-generic")
+        self.assertEqual(migrated_record["family"], "resolved-material")
+
         structural_preview = preview.replace(
             "legacy-structural-member=0,legacy-coalesced-inline=1,legacy-coalesced-offscreen=0,legacy-shadowed=1",
             "legacy-structural-member=1,legacy-coalesced-inline=1,legacy-coalesced-offscreen=0,legacy-shadowed=0",

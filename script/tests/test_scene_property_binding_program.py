@@ -204,7 +204,7 @@ enum Harness {
             layerID: 64,
             effectIndex: 0,
             passIndex: 0,
-            name: "bar color"
+            name: "Bar Color"
         )
         let audioBarsColor = compiler.compile(
             report: .init(bindings: [binding(
@@ -236,7 +236,7 @@ enum Harness {
                 layerID: 151,
                 effectIndex: 0,
                 passIndex: 0,
-                name: "bar color"
+                name: "Bar Color"
             ),
             SceneDynamicTarget.effectConstant(
                 layerID: 151,
@@ -308,7 +308,7 @@ enum Harness {
                 layerID: $0,
                 effectIndex: 0,
                 passIndex: 0,
-                name: "alpha"
+                name: $0 == 365 ? "Alpha" : "alpha"
             )
         }
         let opacity = compiler.compile(
@@ -354,7 +354,7 @@ enum Harness {
             layerID: 69,
             effectIndex: 0,
             passIndex: 0,
-            name: "size"
+            name: "Size"
         )
         let xRayBindings = compiler.compile(
             report: .init(bindings: [
@@ -1007,16 +1007,10 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
         )
         self.assertEqual(self.result["relocatedAudioBarsRuntimeCodes"], [])
 
-    def test_other_simple_audio_bars_color_targets_remain_closed(self) -> None:
-        self.assertEqual(self.result["unsupportedAudioBarsColorCount"], 0)
-        self.assertEqual(
-            self.result["unsupportedAudioBarsColorCodes"],
-            ["unsupportedTarget"] * 3,
-        )
-        self.assertEqual(
-            self.result["unsupportedAudioBarsColorRebuild"],
-            ["audioWrongName", "audioWrongPass", "audioWrongPath"],
-        )
+    def test_direct_color_targets_do_not_depend_on_effect_path_pass_or_name(self) -> None:
+        self.assertEqual(self.result["unsupportedAudioBarsColorCount"], 3)
+        self.assertEqual(self.result["unsupportedAudioBarsColorCodes"], [])
+        self.assertEqual(self.result["unsupportedAudioBarsColorRebuild"], [])
 
     def test_direct_opacity_alpha_compiles_four_live_scalar_targets(self) -> None:
         self.assertEqual(self.result["opacityCount"], 4)
@@ -1058,27 +1052,15 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
         )
         self.assertEqual(self.result["xRayRuntimeCodes"], [])
 
-    def test_other_opacity_targets_remain_unsupported_and_rebuild(self) -> None:
-        self.assertEqual(self.result["unsupportedOpacityCount"], 0)
-        self.assertEqual(
-            self.result["unsupportedOpacityCodes"],
-            ["unsupportedTarget"] * 3,
-        )
-        self.assertEqual(
-            self.result["unsupportedOpacityRebuild"],
-            ["opacityWrongName", "opacityWrongPass", "opacityWrongPath"],
-        )
+    def test_direct_scalar_targets_do_not_depend_on_effect_path_pass_or_name(self) -> None:
+        self.assertEqual(self.result["unsupportedOpacityCount"], 3)
+        self.assertEqual(self.result["unsupportedOpacityCodes"], [])
+        self.assertEqual(self.result["unsupportedOpacityRebuild"], [])
 
-    def test_other_shader_value_targets_remain_unsupported_and_rebuild(self) -> None:
-        self.assertEqual(self.result["unsupportedShaderCount"], 0)
-        self.assertEqual(
-            self.result["unsupportedShaderCodes"],
-            ["unsupportedTarget"] * 4,
-        )
-        self.assertEqual(
-            self.result["unsupportedShaderRebuild"],
-            ["missingPath", "wrongName", "wrongPass", "wrongPath"],
-        )
+    def test_generic_scalar_targets_accept_arbitrary_effect_identity(self) -> None:
+        self.assertEqual(self.result["unsupportedShaderCount"], 4)
+        self.assertEqual(self.result["unsupportedShaderCodes"], [])
+        self.assertEqual(self.result["unsupportedShaderRebuild"], [])
 
     def test_invalid_local_contrast_bindings_fail_closed_and_rebuild(self) -> None:
         self.assertEqual(self.result["conditionalLocalContrastCount"], 0)
@@ -1100,16 +1082,21 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
             ["invalidStrength"],
         )
 
-    def test_mixed_supported_and_unsupported_shader_bindings_keep_rebuild(self) -> None:
-        self.assertEqual(self.result["mixedLocalContrastCount"], 1)
-        self.assertEqual(
-            self.result["mixedLocalContrastCodes"],
-            ["unsupportedTarget"],
-        )
-        self.assertEqual(
-            self.result["mixedLocalContrastRebuild"],
-            ["mixedStrength"],
-        )
+    def test_one_property_can_drive_distinct_direct_shader_targets(self) -> None:
+        self.assertEqual(self.result["mixedLocalContrastCount"], 2)
+        self.assertEqual(self.result["mixedLocalContrastCodes"], [])
+        self.assertEqual(self.result["mixedLocalContrastRebuild"], [])
+
+    def test_shader_target_mapping_has_no_effect_or_workshop_selector(self) -> None:
+        source = (
+            SOURCE_ROOT
+            / "Properties/ScenePropertyBindingCompiler+TargetMapping.swift"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("isSimpleAudioBars", source)
+        self.assertNotIn("effects/localcontrast/effect.json", source)
+        self.assertNotIn("effects/opacity/effect.json", source)
+        self.assertNotIn("effects/tint/effect.json", source)
+        self.assertNotIn("workshop/2084198056", source)
 
     def test_cached_program_structure_is_validated_fail_closed(self) -> None:
         self.assertEqual(

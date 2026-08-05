@@ -172,14 +172,26 @@ nonisolated struct ScenePropertyBindingCompiler {
         let sortedBindings = report.bindings.sorted(by: Self.bindingOrder)
         var targetBindings: [SceneDynamicTarget: [SceneUserPropertyBinding]] = [:]
         for binding in sortedBindings {
-            guard let target = Self.map(binding.target)?.target else { continue }
+            let definitions = propertiesByKey[binding.reference.key] ?? []
+            let propertyKind = definitions.count == 1 ? definitions[0].kind : nil
+            guard let target = Self.map(
+                binding,
+                propertyKind: propertyKind
+            )?.target else { continue }
             targetBindings[target, default: []].append(binding)
         }
         var definitions: [SceneDynamicTargetDefinition] = []
         var instructions: [ScenePropertyBindingInstruction] = []
 
         for binding in sortedBindings {
-            guard let mapped = Self.map(binding.target) else {
+            let propertyDefinitions = propertiesByKey[binding.reference.key] ?? []
+            let propertyKind = propertyDefinitions.count == 1
+                ? propertyDefinitions[0].kind
+                : nil
+            guard let mapped = Self.map(
+                binding,
+                propertyKind: propertyKind
+            ) else {
                 rebuildRequiredKeys.insert(binding.reference.key)
                 diagnostics.append(Self.compileDiagnostic(
                     code: .unsupportedTarget,
@@ -200,7 +212,6 @@ nonisolated struct ScenePropertyBindingCompiler {
                     message: "当前 binding program 仅接受 direct binding。"
                 ))
             }
-            let propertyDefinitions = propertiesByKey[binding.reference.key] ?? []
             switch propertyDefinitions.count {
             case 0:
                 isValid = false

@@ -68,6 +68,7 @@ final class SceneResolvedMaterialRuntimeBridge {
     }
 
     private let catalog: SceneResolvedMaterialRuntimeCatalog
+    private let capabilities: SceneResolvedMaterialExecutionCapabilityCatalog
     private let assets: SceneMaterialAssetTextureCatalog
     private let submissions: SceneResolvedMaterialSubmissionCoordinator
     private let executionEvidenceLock = NSLock()
@@ -82,6 +83,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         logSink: @escaping LogSink = { NSLog("%@", $0) }
     ) {
         self.catalog = catalog
+        self.capabilities = capabilities
         self.assets = assets
         submissions = .init(
             device: device,
@@ -99,6 +101,10 @@ final class SceneResolvedMaterialRuntimeBridge {
     }
 
     var shouldDeferFrame: Bool { submissions.shouldDeferFrame }
+
+    var runtimeDispositionSubjects: [ExactEffectSubject] {
+        capabilities.runtimeDispositionOwnerships.flatMap(\.subjects)
+    }
 
     func userPropertyDemands(
         including declaredPropertyKeys: [String]
@@ -158,6 +164,10 @@ final class SceneResolvedMaterialRuntimeBridge {
 
     func recordClaimedFailure(reasonCode: String) {
         submissions.recordClaimedFailure(reasonCode: reasonCode)
+    }
+
+    func deferPreparedFrame() -> Bool {
+        submissions.deferPreparedFrame()
     }
 
     /// Installs the static disposition projection after effect resources have

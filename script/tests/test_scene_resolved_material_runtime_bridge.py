@@ -513,6 +513,10 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let key: SceneAuthoredEffectRenderPlan.EffectKey
         let family: String
     }
+    struct RuntimeDispositionOwnership {
+        let layerID: Int
+        let subjects: [ExactEffectSubject]
+    }
     struct ChainCapability {
         let layerID: Int
         let pairPlan: SceneLayerFullFramePairPlan
@@ -542,6 +546,19 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     }
     func resolve(_ token: Token) -> ChainCapability? {
         resolvesClaims ? capabilitiesByLayerID[token.value] : nil
+    }
+    var runtimeDispositionOwnerships: [RuntimeDispositionOwnership] {
+        capabilitiesByLayerID.keys.sorted().compactMap { layerID in
+            guard let capability = capabilitiesByLayerID[layerID] else { return nil }
+            return .init(
+                layerID: layerID,
+                subjects: capability.admittedProducts.flatMap { product in
+                    product.graph.effects.map {
+                        .init(key: $0.key, family: "resolved-material")
+                    }
+                }
+            )
+        }
     }
 }
 
@@ -2084,6 +2101,37 @@ enum Harness {
 
         do {
             let coordinator = makeCoordinator(device)
+            let buffer = queue.makeCommandBuffer()!
+            let commit = makeCommit(generation: 1)
+            coordinator.beginFrame(
+                textureSnapshot: .init(frameIndex: 20, valid: true),
+                dynamicSnapshot: .init(),
+                frameInputs: .init()
+            )
+            coordinator.activeByID[1] = makeLedger(
+                coordinator: coordinator,
+                identity: 1,
+                commandBuffer: buffer,
+                prepared: makePrepared(device: device),
+                commit: commit,
+                phase: .allocationCommitted,
+                claimed: false
+            )
+            coordinator.activeTransactions = [1]
+            coordinator.preparedLedgerByLayerID = [effect.layerID: 1]
+            let deferred = coordinator.deferPreparedFrame()
+            let report = coordinator.endFrame().last ?? ""
+            results["preparedFrameDeferralCancelsWithoutFailure"] = deferred
+                && !commit.submissionPin.active
+                && commit.submissionPin.releaseCount == 1
+                && coordinator.activeByID.isEmpty
+                && coordinator.activeTransactions.isEmpty
+                && coordinator.preparedLedgerByLayerID.isEmpty
+                && report.contains("failures=0 deferred=1")
+        }
+
+        do {
+            let coordinator = makeCoordinator(device)
             let first = queue.makeCommandBuffer()!
             let second = queue.makeCommandBuffer()!
             let commitA = makeCommit(generation: 1)
@@ -2374,6 +2422,8 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             1,
         )
         self.assertIn("installExecutionEvidence(", diagnostics)
+        self.assertIn("resolvedMaterialSubjects:", diagnostics)
+        self.assertIn("runtimeDispositionSubjects", diagnostics)
         self.assertIn(
             "dispositionCatalog.resolvedMaterialExecutionEvidenceSubjects",
             diagnostics,
@@ -2699,6 +2749,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "invalidateDefersPinReleaseUntilTerminal",
                 "aggregateBarrierWaitsForAllBuffers",
                 "historyPendingDefersDescendantBeforeFramePrepare",
+                "preparedFrameDeferralCancelsWithoutFailure",
                 "twoPendingSubmissionsUseBoundedCapacity",
                 "reverseGPUCompletionCommitsOnlyFromQueueHead",
                 "historyFreeFailureDoesNotCancelIndependentSuccess",

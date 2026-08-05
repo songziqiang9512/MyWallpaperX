@@ -235,8 +235,9 @@ enum SceneOffscreenTextureFramePreflight {
                 residual.append(value)
                 continue
             }
-            guard !value.requiredByFrame else {
-                return .rejected(reasonCode: "frame-target-residency-invariant")
+            if value.requiredByFrame {
+                residual.append(value)
+                continue
             }
             if value.isResetInvalidated { continue }
             if let history = value.demotedHistory {

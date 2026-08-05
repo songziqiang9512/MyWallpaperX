@@ -4,22 +4,44 @@ struct SceneEffectRuntimeDispositionCatalog {
     typealias Admission = SceneAuthoredEffectStageAdmission
     typealias Disposition = SceneEffectStageRuntimeDisposition
     typealias EffectKey = SceneAuthoredEffectRenderPlan.EffectKey
-
     let dispositions: [Disposition]
     let routeGroups: [SceneEffectStaticRouteGroup]
     let descriptorIdentityConserved: Bool
     let groupIdentityConserved: Bool
     let strictIdentityConserved: Bool
-
+    let resolvedMaterialOwnershipConserved: Bool
     init(
         descriptor: SceneRenderDescriptor,
         authoredCatalog: SceneAuthoredEffectExecutionCatalog,
-        resourcesByLayerID: [Int: SceneLegacyEffectResourceAvailability]
+        resourcesByLayerID: [Int: SceneLegacyEffectResourceAvailability],
+        resolvedMaterialSubjects: [SceneEffectExactRuntimeSubject] = []
     ) {
         let admissionsByLayerID = Dictionary(
             grouping: authoredCatalog.stageAdmissions,
             by: \.key.layerID
         )
+        let subjectsByLayerID = Dictionary(
+            grouping: resolvedMaterialSubjects,
+            by: \.key.layerID
+        )
+        var resolvedLayerIDs = Set<Int>()
+        var ownershipConserved = true
+        for (layerID, subjects) in subjectsByLayerID {
+            let activeKeys = Set((admissionsByLayerID[layerID] ?? []).compactMap {
+                $0.activity == .active ? $0.key : nil
+            })
+            let keys = subjects.map(\.key)
+            guard !keys.isEmpty,
+                  Set(keys).count == keys.count, Set(keys) == activeKeys,
+                  subjects.allSatisfy({
+                      $0.key.layerID == layerID && $0.family == "resolved-material"
+                  }) else {
+                ownershipConserved = false
+                continue
+            }
+            resolvedLayerIDs.insert(layerID)
+        }
+        resolvedMaterialOwnershipConserved = ownershipConserved
         var records: [Disposition] = []
         var groups: [SceneEffectStaticRouteGroup] = []
         for layer in descriptor.layers where !layer.effects.isEmpty {
@@ -34,6 +56,27 @@ struct SceneEffectRuntimeDispositionCatalog {
                     ownerKeys: [],
                     aggregateContributorKeys: [],
                     reasonCode: "no-active-effect"
+                ))
+                continue
+            }
+            if resolvedLayerIDs.contains(layer.id) {
+                let migrated = admissions.map { admission in
+                    admission.activity == .active
+                        ? Self.disposition(
+                            admission,
+                            kind: .strictGeneric,
+                            family: "resolved-material",
+                            role: .owner,
+                            reason: "resolved-material-capability-owner"
+                        )
+                        : Self.inactiveDisposition(admission)
+                }
+                records.append(contentsOf: migrated)
+                groups.append(Self.routeGroup(
+                    layerID: layer.id,
+                    kind: .authored,
+                    dispositions: migrated,
+                    reason: nil
                 ))
                 continue
             }
@@ -88,7 +131,8 @@ struct SceneEffectRuntimeDispositionCatalog {
         strictIdentityConserved = Self.strictMappingsAreConserved(
             admissions: authoredCatalog.stageAdmissions,
             dispositions: dispositions,
-            strictLayerIDs: Set(authoredCatalog.chainsByLayerID.keys)
+            strictLayerIDs: Set(authoredCatalog.chainsByLayerID.keys),
+            resolvedLayerIDs: resolvedLayerIDs
         )
     }
 
@@ -105,6 +149,7 @@ struct SceneEffectRuntimeDispositionCatalog {
             "effectStageRuntimeDescriptorIdentityConserved: \(descriptorIdentityConserved)",
             "effectStageRuntimeGroupIdentityConserved: \(groupIdentityConserved)",
             "effectStageRuntimeStrictIdentityConserved: \(strictIdentityConserved)",
+            "effectStageRuntimeResolvedMaterialOwnershipConserved: \(resolvedMaterialOwnershipConserved)",
         ] + routeGroups.map(\.reportLine) + dispositions.map(\.reportLine)
     }
 
@@ -190,7 +235,8 @@ struct SceneEffectRuntimeDispositionCatalog {
         _ admission: Admission,
         kind: Disposition.Kind,
         family: String?,
-        role: Disposition.RouteRole
+        role: Disposition.RouteRole,
+        reason: String? = nil
     ) -> Disposition {
         Disposition(
             key: admission.key,
@@ -200,7 +246,7 @@ struct SceneEffectRuntimeDispositionCatalog {
             family: family,
             routeGroupID: admission.key.layerID,
             routeRole: role,
-            reasonCode: admission.reasonCode
+            reasonCode: reason ?? admission.reasonCode
         )
     }
 
@@ -263,7 +309,8 @@ struct SceneEffectRuntimeDispositionCatalog {
     private nonisolated static func strictMappingsAreConserved(
         admissions: [Admission],
         dispositions: [Disposition],
-        strictLayerIDs: Set<Int>
+        strictLayerIDs: Set<Int>,
+        resolvedLayerIDs: Set<Int>
     ) -> Bool {
         let keys = dispositions.map(\.key)
         guard dispositions.count == admissions.count,
@@ -282,6 +329,13 @@ struct SceneEffectRuntimeDispositionCatalog {
                 return disposition.kind == .inactive
                     && disposition.routeGroupID == nil
                     && disposition.routeRole == .none
+            }
+            if resolvedLayerIDs.contains(admission.key.layerID) {
+                return disposition.kind == .strictGeneric
+                    && disposition.attribution == .exactKey
+                    && disposition.family == "resolved-material"
+                    && disposition.routeRole == .owner
+                    && disposition.reasonCode == "resolved-material-capability-owner"
             }
             if strictLayerIDs.contains(admission.key.layerID) {
                 switch admission.strictAdmission {

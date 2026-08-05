@@ -37,7 +37,78 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         ) {
             return .straightAlpha(textureSlot: slot)
         }
+        if let slot = mutatedStraightAlphaSlot(
+            expression,
+            outputAssignment: assignment,
+            tokens: tokens,
+            body: main.bodyRange
+        ) {
+            return .straightAlpha(textureSlot: slot)
+        }
         return isOpaqueVectorConstruction(expression) ? .opaque : .unresolved
+    }
+
+    /// Proves the equivalent local form:
+    /// `vec4 color = sample(...); color.a <op>= ...; gl_FragColor = color;`.
+    /// The sampled RGB may be read but never written, and exactly one root-level
+    /// alpha write is required. The Metal emitter can therefore unpremultiply
+    /// the sampled slot before authored math and premultiply the final output.
+    private static func mutatedStraightAlphaSlot(
+        _ expression: ArraySlice<SceneAuthoredShaderToken>,
+        outputAssignment: Int,
+        tokens: [SceneAuthoredShaderToken],
+        body: Range<Int>
+    ) -> Int? {
+        let output = Array(expression)
+        guard output.count == 1, output[0].kind == .identifier else {
+            return nil
+        }
+        let colorName = output[0].text
+        let definitions = body.filter { index in
+            index + 1 < outputAssignment
+                && tokens[index].text == colorName
+                && index > body.lowerBound
+                && ["vec4", "float4"].contains(tokens[index - 1].text)
+                && tokens[index + 1].text == "="
+        }
+        guard definitions.count == 1,
+              let definition = definitions.first,
+              isUnconditionalWrite(definition, tokens: tokens, body: body),
+              let initializer = assignmentExpression(
+                  after: definition,
+                  in: tokens,
+                  body: body
+              ),
+              let slot = directTextureSampleSlot(initializer) else {
+            return nil
+        }
+        let sampleCalls = body.filter {
+            ["texSample2D", "texture2D"].contains(tokens[$0].text)
+        }
+        guard sampleCalls.count == 1 else { return nil }
+
+        let assignmentOperators: Set<String> = ["=", "+=", "-=", "*=", "/="]
+        var alphaWrites = 0
+        for use in tokens.indices where use > definition && use < outputAssignment
+            && tokens[use].text == colorName {
+            guard use + 2 < outputAssignment,
+                  tokens[use + 1].text == ".",
+                  ["rgb", "a"].contains(tokens[use + 2].text) else {
+                return nil
+            }
+            let member = tokens[use + 2].text
+            let next = use + 3 < outputAssignment ? tokens[use + 3].text : ""
+            guard !assignmentOperators.contains(next) || member == "a" else {
+                return nil
+            }
+            if member == "a", assignmentOperators.contains(next) {
+                guard isUnconditionalWrite(use, tokens: tokens, body: body) else {
+                    return nil
+                }
+                alphaWrites += 1
+            }
+        }
+        return alphaWrites == 1 ? slot : nil
     }
 
     private static func straightAlphaSlot(

@@ -36,6 +36,16 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let layerID: Int
     }
 
+    struct RuntimeDispositionOwnership {
+        let layerID: Int
+        let subjects: [ExactEffectSubject]
+
+        fileprivate init(layerID: Int, subjects: [ExactEffectSubject]) {
+            self.layerID = layerID
+            self.subjects = subjects
+        }
+    }
+
     final class MaterialCapability {
         let key: MaterialKey
         let template: Template
@@ -148,6 +158,49 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
               let capability = capabilitiesByLayerID[token.layerID],
               token.capabilityID == capability.capabilityID else { return nil }
         return capability
+    }
+
+    func runtimeDispositionOwnership(
+        token: Token,
+        subjects: [ExactEffectSubject]
+    ) -> RuntimeDispositionOwnership? {
+        guard let capability = resolve(token),
+              capability.effectSubjectsAreConserved else { return nil }
+        let expected = capability.admittedProducts.flatMap {
+            $0.graph.effects.map(\.key)
+        }
+        let keys = subjects.map(\.key)
+        guard !subjects.isEmpty,
+              Set(keys).count == keys.count,
+              Set(keys) == Set(expected),
+              subjects.allSatisfy({
+                  $0.key.layerID == capability.layerID
+                      && $0.family == "resolved-material"
+              }) else { return nil }
+        return .init(
+            layerID: capability.layerID,
+            subjects: subjects.sorted {
+                if $0.key.effectIndex != $1.key.effectIndex {
+                    return $0.key.effectIndex < $1.key.effectIndex
+                }
+                return $0.key.descriptorID < $1.key.descriptorID
+            }
+        )
+    }
+
+    var runtimeDispositionOwnerships: [RuntimeDispositionOwnership] {
+        capabilitiesByLayerID.keys.sorted().compactMap { layerID in
+            guard let claim = claim(layerID: layerID),
+                  let capability = resolve(claim.token) else { return nil }
+            return runtimeDispositionOwnership(
+                token: claim.token,
+                subjects: capability.admittedProducts.flatMap { product in
+                    product.graph.effects.map {
+                        .init(key: $0.key, family: "resolved-material")
+                    }
+                }
+            )
+        }
     }
 
     var reportLines: [String] {

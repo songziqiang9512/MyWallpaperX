@@ -2,6 +2,38 @@ import Foundation
 
 extension ScenePropertyBindingCompiler {
     nonisolated static func map(
+        _ binding: SceneUserPropertyBinding,
+        propertyKind: SceneUserPropertyKind?
+    ) -> (
+        target: SceneDynamicTarget,
+        valueType: SceneDynamicValueType,
+        propertyKind: SceneUserPropertyKind
+    )? {
+        guard case let .shaderValue(
+            layerID, effectIndex, passIndex, name, _
+        ) = binding.target else {
+            return map(binding.target)
+        }
+        guard layerID >= 0, effectIndex >= 0, passIndex >= 0,
+              !name.isEmpty,
+              name == name.trimmingCharacters(in: .whitespacesAndNewlines),
+              let shape = shaderValueShape(
+                  fallback: binding.fallbackValue,
+                  propertyKind: propertyKind
+              ) else { return nil }
+        return (
+            .effectConstant(
+                layerID: layerID,
+                effectIndex: effectIndex,
+                passIndex: passIndex,
+                name: name
+            ),
+            shape.valueType,
+            shape.propertyKind
+        )
+    }
+
+    nonisolated static func map(
         _ target: SceneUserPropertyBindingTarget
     ) -> (
         target: SceneDynamicTarget,
@@ -44,85 +76,12 @@ extension ScenePropertyBindingCompiler {
                 (.particle(layerID: layerID, field: .normalizedColor), .vector3, .color)
             case .color: nil
             }
-        case let .shaderValue(layerID, effectIndex, passIndex, name, effectPath)
-            where normalized(effectPath) == "effects/localcontrast/effect.json"
-                && passIndex == 3 && name.lowercased() == "strength":
-            effectConstant(
-                layerID: layerID,
-                effectIndex: effectIndex,
-                passIndex: passIndex,
-                name: "strength"
-            )
-        case let .shaderValue(layerID, effectIndex, passIndex, name, effectPath)
-            where normalized(effectPath) == "effects/opacity/effect.json"
-                && passIndex == 0 && name.lowercased() == "alpha":
-            effectConstant(
-                layerID: layerID,
-                effectIndex: effectIndex,
-                passIndex: passIndex,
-                name: "alpha"
-            )
         case let .effectVisibility(layerID, effectIndex, effectPath)
             where normalized(effectPath) == "effects/xray/effect.json":
             (
                 .effectVisibility(layerID: layerID, effectIndex: effectIndex),
                 .bool,
                 .bool
-            )
-        case let .shaderValue(layerID, effectIndex, passIndex, name, effectPath)
-            where normalized(effectPath) == "effects/xray/effect.json"
-                && passIndex == 0
-                && (name.lowercased() == "size" || name.lowercased() == "multiply"):
-            effectConstant(
-                layerID: layerID,
-                effectIndex: effectIndex,
-                passIndex: passIndex,
-                name: name.lowercased()
-            )
-        case let .shaderValue(layerID, effectIndex, passIndex, name, effectPath)
-            where normalized(effectPath) == "effects/tint/effect.json"
-                && passIndex == 0 && name.lowercased() == "alpha":
-            effectConstant(
-                layerID: layerID,
-                effectIndex: effectIndex,
-                passIndex: passIndex,
-                name: "alpha"
-            )
-        case let .shaderValue(layerID, effectIndex, passIndex, name, effectPath)
-            where normalized(effectPath) == "effects/tint/effect.json"
-                && passIndex == 0 && name.lowercased() == "color":
-            (
-                .effectConstant(
-                    layerID: layerID,
-                    effectIndex: effectIndex,
-                    passIndex: passIndex,
-                    name: "color"
-                ),
-                .vector3,
-                .color
-            )
-        case let .shaderValue(layerID, effectIndex, passIndex, name, effectPath)
-            where isSimpleAudioBars(effectPath)
-                && passIndex == 0 && name.lowercased() == "bar color":
-            (
-                .effectConstant(
-                    layerID: layerID,
-                    effectIndex: effectIndex,
-                    passIndex: passIndex,
-                    name: "bar color"
-                ),
-                .vector3,
-                .color
-            )
-        case let .shaderValue(layerID, effectIndex, passIndex, name, effectPath)
-            where isSimpleAudioBars(effectPath)
-                && passIndex == 0
-                && name.lowercased() == "ui_editor_properties_opacity":
-            effectConstant(
-                layerID: layerID,
-                effectIndex: effectIndex,
-                passIndex: passIndex,
-                name: "ui_editor_properties_opacity"
             )
         default:
             nil
@@ -133,42 +92,25 @@ extension ScenePropertyBindingCompiler {
         path?.replacingOccurrences(of: "\\", with: "/").lowercased()
     }
 
-    private nonisolated static func isSimpleAudioBars(_ path: String?) -> Bool {
-        guard let path = normalized(path),
-              path.hasPrefix("effects/") else {
-            return false
+    private nonisolated static func shaderValueShape(
+        fallback: SceneUserPropertyValue?,
+        propertyKind: SceneUserPropertyKind?
+    ) -> (
+        valueType: SceneDynamicValueType,
+        propertyKind: SceneUserPropertyKind
+    )? {
+        switch (propertyKind, fallback) {
+        case (.slider, _):
+            (.scalar, .slider)
+        case (.color, _):
+            (.vector3, .color)
+        case (nil, .number):
+            (.scalar, .slider)
+        case (nil, .string):
+            (.vector3, .color)
+        default:
+            nil
         }
-        let tail = "workshop/2084198056/simple_audio_bars/effect.json"
-        let relative = String(path.dropFirst("effects/".count))
-        guard relative.hasSuffix(tail) else { return false }
-        let namespace = String(relative.dropLast(tail.count))
-        if namespace.isEmpty { return true }
-        let components = namespace.split(
-            separator: "/",
-            omittingEmptySubsequences: true
-        )
-        return components.count == 2
-            && components[0] == "workshop"
-            && !components[1].isEmpty
-            && components[1].allSatisfy(\.isNumber)
-    }
-
-    private nonisolated static func effectConstant(
-        layerID: Int,
-        effectIndex: Int,
-        passIndex: Int,
-        name: String
-    ) -> (SceneDynamicTarget, SceneDynamicValueType, SceneUserPropertyKind) {
-        (
-            .effectConstant(
-                layerID: layerID,
-                effectIndex: effectIndex,
-                passIndex: passIndex,
-                name: name
-            ),
-            .scalar,
-            .slider
-        )
     }
 
     private nonisolated static func particleScalar(

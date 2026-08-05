@@ -4367,7 +4367,7 @@
         "offscreen-passthrough": 0,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "a979ed224d0a259e3596a54564bbee6bb974ac9ebdb98b3e0000e9df50e5e015",
+      "expected_effect_runtime_disposition_sha256": "4486af8c85ae6ad00223025516c415b24b9e6c51183ff579b414b2fb4b7c4b1e",
       "expected_effect_execution_schema": 1,
       "expected_effect_execution_eligible_exact_effect_count": 1,
       "expected_effect_execution_observed_eligible_exact_effect_count": 1,
@@ -5496,6 +5496,9 @@
       "expected_authored_effect_graph_succeeded_layer_ids": [
         434
       ],
+      "expected_resolved_material_graph_succeeded_layer_ids": [
+        186
+      ],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
       "expected_authored_effect_graph_opacity_count": 0,
@@ -5559,7 +5562,7 @@
       "expected_effect_runtime_disposition_kind_counts": {
         "inactive": 1,
         "strict-dedicated": 1,
-        "strict-generic": 0,
+        "strict-generic": 1,
         "strict-inline-suffix": 0,
         "omitted-by-strict-chain": 3,
         "legacy-exact-inline": 1,
@@ -5570,32 +5573,32 @@
         "legacy-shadowed": 0,
         "route-only-member": 0,
         "composite-refused": 0,
-        "unsupported": 5,
+        "unsupported": 4,
         "unattributed": 0
       },
       "expected_effect_runtime_disposition_attribution_counts": {
-        "exact-key": 7,
+        "exact-key": 8,
         "layer-aggregate": 0,
-        "none": 6
+        "none": 5
       },
       "expected_effect_runtime_disposition_role_counts": {
-        "owner": 4,
+        "owner": 5,
         "aggregate-contributor": 0,
-        "member": 8,
+        "member": 7,
         "none": 1
       },
       "expected_effect_runtime_disposition_group_kind_counts": {
         "inactive": 0,
-        "direct": 4,
-        "authored": 1,
+        "direct": 3,
+        "authored": 2,
         "legacy-offscreen": 2,
         "offscreen-passthrough": 0,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "988d6bd55a44173a7ab90a7454e4f0b7009be64128c3130ee92e3bfaafe8c58c",
+      "expected_effect_runtime_disposition_sha256": "ef7ca117f5e2a1ca96fd7e2eaa340bd94ba447ff9db7bec5a90c33968534a2fc",
       "expected_effect_execution_schema": 1,
-      "expected_effect_execution_eligible_exact_effect_count": 4,
-      "expected_effect_execution_observed_eligible_exact_effect_count": 3,
+      "expected_effect_execution_eligible_exact_effect_count": 5,
+      "expected_effect_execution_observed_eligible_exact_effect_count": 4,
       "expected_effect_execution_eligible_exact_gap_count": 1,
       "expected_effect_execution_eligible_aggregate_subject_count": 0,
       "expected_effect_execution_observed_eligible_aggregate_subject_count": 0,
@@ -7730,7 +7733,7 @@
         "offscreen-passthrough": 0,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "7069417449da5d222912e902f8d47e041947c9cefeac2d9a440b5d00dc680d2c",
+      "expected_effect_runtime_disposition_sha256": "eb76f1823dfd726817dc608c8dbc818e572f77cb85a73500f44b9225cc874248",
       "expected_effect_execution_schema": 1,
       "expected_effect_execution_eligible_exact_effect_count": 1,
       "expected_effect_execution_observed_eligible_exact_effect_count": 1,
