@@ -2,7 +2,7 @@
 
 > 建立日期：2026-08-03
 >
-> 文档状态：现役执行计划；2026-08-05 已提交 R4 legacy authored frame-batch checkpoint，剩余 owner 迁移继续进行。
+> 文档状态：现役执行计划；2026-08-06 已提交 R4 unified material graph ownership checkpoint，R4 仍未完成。
 >
 > 事实边界：本文记录问题假设、迁移顺序、验收门和进度，不是当前能力等级或运行基线的权威入口。能力事实仍以 [`semantics/coverage-ledger.md`](semantics/coverage-ledger.md)、专项覆盖表和 [`semantics/runtime-evidence-index.md`](semantics/runtime-evidence-index.md) 为准。
 >
@@ -11,9 +11,9 @@
 ## 0. 快速接手
 
 - **能力与运行事实**：继续从 [`semantics/README.md`](semantics/README.md) 进入专项表，并以 [`semantics/coverage-ledger.md`](semantics/coverage-ledger.md) 和 [`semantics/runtime-evidence-index.md`](semantics/runtime-evidence-index.md) 的 R4 partial checkpoint 为准；本文只记录重构路线、剩余迁移和复验门。
-- **Git 断点**：分支 `codex/scene-capability-baseline`，R4 checkpoint 已提交在当前 R3 HEAD 之上；本轮提交前盘点为 93 个已跟踪文件修改、48 个未跟踪文件。未跟踪的 R4 Swift 与测试文件属于同一实现 lane，不是可清理残留。
+- **Git 断点**：分支 `codex/scene-capability-baseline`，最新代码检查点为 `07e8481e`；该提交只包含 R4 公共 material graph capability、正式测试和证据解析器，没有 matrix 或权威能力台账变更。恢复时先核对 `git status`、最近两次提交和本页最新 checkpoint，不再从历史计划全量重扫。
 - **架构判断**：新代码已朝“样本声明需求 -> typed capability -> 公共调度/资源 -> 公共执行/合成”收敛，capability 现在直接来自 raw authored graph admission，审计的新链没有按 sample/workshop/path/hash 选择可见算法；effect classification 只在资源加载后投影为 telemetry family，new capability 不再以它作为 admission authority。旧 extent、多个产品 owner 和 legacy route 仍可达，所以产品整体尚未形成唯一能力池，也不能表述为已与官方架构对齐。
-- **阶段边界**：当前停在 R4，不进入 R5，不处理单样本视觉缺口，不启动新的 Ghidra 复核。下次先读“2026-08-04 暂停交接点”和第 9 节，再从当前 dirty lane 做所有权、构建和门禁复验。
+- **阶段边界**：当前停在 R4，不进入 R5，不处理单样本视觉缺口，不启动新的 Ghidra 复核。下次从“2026-08-06 R4-2 unified material graph ownership checkpoint”和第 9 节恢复，先处理公共逐帧 CPU 开销与对应旧 owner 撤权，不重做本批能力调查。
 
 ## 1. 重构目标
 
@@ -468,6 +468,15 @@ sample declaration
 - fresh full45 `.codex/scene-chain-r4-resolved-owner-full45-20260805-v2/report.json` 为 **44/45，非 PASS**，唯一红项仍是 `2067939514` 的既有 particle candidate/skipped-transparent 偏差；R4 graph/disposition 新红项已清零。报告 SHA-256 `fa32d0a8b61b819aa5393820b75a69c713051f1c194c904e6d5f77bbdc7d8980`，full matrix SHA-256 `51ca2dfe1e8191913f0b1a7c9d329e90534a83fc65931c87852dccd0aa4ca1d3`。当前 Scene 全量 **190/190 ALL OK**，capability **3/3**、framebuffer **44/44**、offscreen **30/30**、code health **836 Swift / 44 locked legacy / 400-line limit** 与签名 `verify` 通过；App executable SHA-256 `bf532a9a04fdf836d437812379a3f3b9839fdd105264f80dbb533b9d8f353b19`，CDHash `e70392146290aa8de6dfac39c6b24c174bf6645f`，Team `H9QWU9XN8R`。
 - 这批只闭合 dynamic material 的公共编译入口、resolved owner 归因和 frame lifecycle 边界；旧 `.authoredShader` backend/pipeline/Scroll、legacy offscreen/inline、dedicated/utility/audio profile owner 尚未按 capability family 全部撤权。R4-2 仍未完成，不进入 R5，也不将 44/45 写成 full45 PASS 或视觉等价。
 
+#### 2026-08-06 R4-2 unified material graph ownership checkpoint
+
+- 代码检查点 `07e8481e` 继续扩展同一 public Program/binder/executor，而不是为样本或 effect 名称增加适配：frontend 新增有界 static/float-uniform loop、固定 varying array 与 disabled-combo 合同；launch catalog 以 bounded sampler reachability 收集 typed asset/user/system/default 需求；straight-alpha preserving 与 graph-only independent-alpha signal 进入同一 color contract；相邻 effect output、multi-effect ingress 与 self/primary/`previous` graph-internal dependency 由 typed identity 接管。外部 layer dependency、named reference、未知 purpose/state/color、越界 loop/varying 和非 graph alpha-signal 继续失败关闭。
+- 提交前审查修复了一个公共语义错误：bounded-loop 原实现会按 uniform 名称全局钳制上下界，连循环外颜色/归一化计算也会被改写；现只钳制已准入循环头的具体 token，循环外引用保持 authored value。新增回归断言与 Metal compile 门覆盖该边界。生产新增行没有 sample/layer/path/hash/Workshop selector，样本身份只用于下述隔离证据。
+- 验证为受影响模块 **168/168 tests PASS**，Scene 全量 **190 modules / 194.5 s / ALL OK**，Swift code health **853 files / 44 locked legacy / 400-line limit**，`git diff --check` 与签名 `script/build_and_run.sh verify` 通过。提交候选 App executable SHA-256 `599e7b84cb5059b2eab49bc765899d606b6b9f5e6d3e93b97897778bb672a42e`，CDHash `562da514e94bf9d82a30d096e2ae3abbee07495c`，Team `H9QWU9XN8R`。
+- 新鲜隔离报告 `.codex/scene-chain-r4-bounded-loop-20260806-v26/report.json` 的 overall 仍为 **FAIL**，仅因冻结 matrix 仍期待 old authored succeeded-layer 与旧 disposition kind/hash；本批刻意没有修改 fixed13/full45 matrix。报告内新链合同自身闭合：13/13 layer accepted，route 为 `r4-layer-route-v2`、malformed `0`；51 个 effect 全部归因 `strict-generic`；五次 executor observation 累计 claimed/encoded/GPU `65/65/65`、failure/deferred `0/0`；13 个 accepted layer 的 GPU completion、compositor consumption、next-frame 与 exact `resolved-material-graph` 集合完全一致，graph validation failure 为空。报告 SHA-256 `c2f88a87e589918101b65e861df759a410a1fe91f72f58ca62a49d16c40e1883`。这证明公共执行接管，不证明 matrix PASS、全样本兼容或视觉等价。
+- 性能尚未闭合：同一 v26 的 GPU p50/p95 为 `13.615/13.615 ms`、failed frame `0`，但 CPU frame p50/p95 为 `1976.812/1984.826 ms`、main-frame p95 `1988.346 ms`，driver/submitted/completed 仅约 `0.503/0.503/0.335 FPS`。下批必须先定位公共 per-frame CPU 重复工作或缓存失效，不能以扩大预算、降低门禁或样本分支掩盖；在吞吐恢复并有跨 revision 正反门之前，本 checkpoint 只能视为所有权/正确性进展。
+- `.codex` 收尾审计报告 current `5.33 GiB`、257 个 historical candidates / `42.20 GiB`；其中包含本批 v26 与多批仍可能是唯一失败现场的证据，未完成逐项归属裁决，因此本批没有删除任何候选。
+
 每个波次均以“公共 capability 接管、被替代 owner 同提交撤权、旧 exact/route 双写为零、跨样本或跨 revision 正反例通过”闭合。只增加新 executor 而保留旧默认 fallback 不算迁移。
 
 1. **R4-0 权限冻结门（已完成）**：canonical executor 调用点、legacy authority、main-pass writer、dedicated probe/compiler/backend、recovery、硬编码 expected SHA 与 Workshop selector 已进入现有 layout/semantics 机器门；后续提交只能降低对应 occurrence/file/scope。未迁移的权限仍是 R4 工作，不得把冻结表述为撤权。
@@ -492,5 +501,6 @@ sample declaration
 10. **已完成**：R3 把同代 texture/provider、active variant/reflection、uniform bytes、typed state与保守颜色合同原子编入 `SceneResolvedMaterialProgram`，并用45样本静态census、production一次性审计、完整Scene测试和四样本性能门验证；`gpuEncoded=0`，没有按effect/path/hash或样本ID分派，也没有宣称视觉修复。
 11. **R4 partial checkpoint 已提交，R4 未完成**：raw graph capability admission、typed extent、whole-frame batch、frame/source transaction、显式 `CompositeOutcome`、统一 executor 与 GPU/compositor/next-frame evidence 已进入当前检查点；普通 image/solid/text、utility 与 standalone target 已统一 frame batch。R4-2 follow-up 又闭合通用 `shaderValue` dynamic target、resolved owner 归因、legacy-only defer/reject 隔离和 launch color 合同门。根因代表门 **6/6 PASS**，Scene 全量 **190/190 ALL OK**；fresh full45 为 **44/45，非 PASS**，唯一红项仍是既有粒子偏差。
 12. **R4-2 bounded macro preparation checkpoint，owner 未迁移**：共享 preprocessor 现支持有界 function-like macro（普通/零参数、嵌套、宏作为实参、object alias 调用）和有界 object-like token sequence，并保持 variadic、stringize/paste、递归、引号、跨行 replacement、`#elif` 与预算越界失败关闭。45 样本 preparation 从 **93/728** 提升到 **116/728**，material census 的 R2 variant bootstrap 从 **340/1400** 提升到 **446/1400**，但 GPU admission 严格保持 **1/728**。四样本定向运行 **4/4 PASS**，统一 resolved graph 均为 `accepted=0`；因此本批只扩大公共 preparation 能力，没有撤销 Pulse、Audio Bars 或任何旧 owner，R4-2 仍未完成。
-13. **下一步仍是 R4-2，而非转样本或进 R5**：沿公共 dependency ownership 与 typed texture binding 闭合下一个 capability family，以 public Program/binder/executor 接管为先，在同一 scoped commit 撤销被替代 probe、backend case、planner/profile/hash/path selector、renderer dispatch 与旧证据双写，并下调 authority ratchet。样本 ID/layer/path/hash 只用于矩阵期望与证据，绝不选择运行算法。除完整矩阵合同再次变化或定向/固定门无法排除跨样本风险外，迁移波次不惯性运行 full45；最后一个旧 owner 撤权后的 R4 里程碑必须再运行完整门。
-14. **R5 准入门**：最后一个旧产品 owner 已撤权；新旧 exact/route telemetry 不双写；产品源码没有 sample/layer/path/hash 驱动的可见算法选择；跨版本跨样本正反门和 full45 里程碑通过。R5 此后只删除不可达脚手架、合并薄文件、同步权威文档和做最终证据收口；发现行为迁移缺口必须退回 R4。
+13. **R4-2 unified material graph ownership checkpoint 已完成，R4-2 未完成**：代码 `07e8481e` 已把 bounded shader frontend、typed reachable texture/default、straight/independent-alpha color contract、multi-effect ingress 与 graph-internal dependency 串入同一 executor；新鲜 v26 证明 13 layer / 51 effect 的 accepted、GPU、compositor、next-frame 与 exact backend 守恒。旧 matrix 三项 owner 期望未改，overall 仍为 FAIL；dedicated planner/backend/profile 实现仍可达，且约 `1.98 s` 的公共 CPU frame 开销未闭合，因此不能宣称该 owner family 已安全收口。
+14. **唯一下一项仍是 R4-2，而非转样本或进 R5**：从 `07e8481e` 和 v26 恢复，先在公共 Program/finalizer/pipeline/graph scheduler 链定位逐帧 CPU 重复工作或 cache identity 失效，以同 capability family 的跨 revision 正反例证明吞吐恢复；随后同批撤销已由统一 executor 替代的 dedicated probe、backend case、planner/profile/hash/path selector、renderer dispatch 与旧证据双写，并下调 authority ratchet。样本 ID/layer/path/hash 只用于证据，绝不选择算法；本动作不修改 fixed13/full45 matrix，除非 owner 合同正式迁移且对应共享风险无法由定向门覆盖。
+15. **R5 准入门**：最后一个旧产品 owner 已撤权；新旧 exact/route telemetry 不双写；产品源码没有 sample/layer/path/hash 驱动的可见算法选择；跨版本跨样本正反门和 full45 里程碑通过。R5 此后只删除不可达脚手架、合并薄文件、同步权威文档和做最终证据收口；发现行为迁移缺口必须退回 R4。
