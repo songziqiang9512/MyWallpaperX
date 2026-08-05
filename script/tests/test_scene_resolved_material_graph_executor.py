@@ -513,7 +513,8 @@ private func shaderContract(
     pass: Bool,
     internalDefault: Bool = false,
     frontendInvalid: Bool = false,
-    implicitFramebuffer: Bool = false
+    implicitFramebuffer: Bool = false,
+    implicitFramebufferAnnotation: Bool = true
 ) -> SceneShaderContract {
     func stage(
         _ kind: SceneShaderContract.StageKind,
@@ -535,14 +536,20 @@ private func shaderContract(
         )
     }
     let prefix = "fixture/executor-\(nodeIndex)"
-    let fragment = implicitFramebuffer ? """
+    let fragment = implicitFramebuffer ? (implicitFramebufferAnnotation ? """
     varying vec2 v_TexCoord;
     uniform sampler2D g_Texture0; // {"material":"framebuffer","hidden":true}
     uniform vec4 g_Texture0Resolution;
     void main() {
         gl_FragColor = vec4(g_Texture0Resolution.xy * 0.0, 0.0, 1.0);
     }
-    """ : fragmentSource(
+    """ : """
+    varying vec2 v_TexCoord;
+    uniform sampler2D g_Texture0;
+    void main() {
+        gl_FragColor = texSample2D(g_Texture0, v_TexCoord);
+    }
+    """ ) : fragmentSource(
         pass: pass,
         internalDefault: internalDefault,
         frontendInvalid: frontendInvalid
@@ -592,7 +599,8 @@ private func implicitFramebufferTemplate(
     let contract = shaderContract(
         nodeIndex: node.nodeIndex,
         pass: false,
-        implicitFramebuffer: true
+        implicitFramebuffer: true,
+        implicitFramebufferAnnotation: false
     )
     return Template.validated(
         textureSlots: Array(repeating: nil, count: 8),
@@ -2141,7 +2149,7 @@ private enum Harness {
 
         let results: [String: Bool] = [
             "ordinaryCanClaim": ordinaryCapabilities.claim(ordinaryChain) != nil,
-            "implicitFramebufferAnnotationBindsEffectInput":
+            "implicitFramebufferStructuralInferenceBindsEffectInput":
                 failureCode(implicitFramebufferPreparation) == "success",
             "foreignCatalogTokenRejected": lateCapabilities.resolve(
                 ordinaryClaim.token

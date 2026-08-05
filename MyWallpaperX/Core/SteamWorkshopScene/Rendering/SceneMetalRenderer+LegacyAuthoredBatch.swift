@@ -52,9 +52,9 @@ extension SceneMetalRenderer {
             // Already claimed by resolved-material path.
             guard resolvedMaterialPlans[layer.id] == nil else { continue }
             guard imageTextures[layer.id] != nil else { continue }
-            let chain = authoredEffectChain(for: layer.id)
-            let standalonePlan = chain == nil ? authoredEffectPlan(for: layer.id) : nil
-            guard chain != nil || standalonePlan != nil else { continue }
+            guard let chain = authoredEffectChain(for: layer.id) else { continue }
+            // `plansByLayerID` is only a single-stage projection of a chain;
+            // do not reserve a second standalone batch owner.
             guard seenLayerIDs.insert(layer.id).inserted else { continue }
 
             let desiredSize = layerOffscreenSize(
@@ -69,19 +69,10 @@ extension SceneMetalRenderer {
             )
             let width = max(1, Int(desiredSize.width.rounded(.up)))
             let height = max(1, Int(desiredSize.height.rounded(.up)))
-            let framePlan: ScenePersistentGraphTargetFramePlan? = if let chain {
-                offscreenTexturePool.legacyAuthoredChainFramePlan(
-                    for: chain, requestedWidth: width, requestedHeight: height,
-                    orderingContext: orderingContext
-                )
-            } else if let standalonePlan {
-                offscreenTexturePool.legacyAuthoredStageFramePlan(
-                    for: standalonePlan, requestedWidth: width,
-                    requestedHeight: height, orderingContext: orderingContext
-                )
-            } else {
-                nil
-            }
+            let framePlan = offscreenTexturePool.legacyAuthoredChainFramePlan(
+                for: chain, requestedWidth: width, requestedHeight: height,
+                orderingContext: orderingContext
+            )
             guard let framePlan else { return nil }
             framePlans.append(framePlan)
         }
@@ -95,10 +86,9 @@ extension SceneMetalRenderer {
                 guard resolvedMaterialPlans[plan.layerID] == nil else {
                     continue
                 }
-                let chain = authoredEffectChain(for: plan.layerID)
-                let standalonePlan = chain == nil
-                    ? authoredEffectPlan(for: plan.layerID) : nil
-                guard chain != nil || standalonePlan != nil else { continue }
+                guard let chain = authoredEffectChain(for: plan.layerID) else {
+                    continue
+                }
                 guard let layer = layersByID[plan.layerID] else {
                     continue
                 }
@@ -115,20 +105,11 @@ extension SceneMetalRenderer {
                 )
                 let width = max(1, Int(desiredSize.width.rounded(.up)))
                 let height = max(1, Int(desiredSize.height.rounded(.up)))
-                let framePlan: ScenePersistentGraphTargetFramePlan? = if let chain {
-                    offscreenTexturePool.legacyAuthoredChainFramePlan(
-                        for: chain, requestedWidth: width,
-                        requestedHeight: height,
-                        orderingContext: orderingContext
-                    )
-                } else if let standalonePlan {
-                    offscreenTexturePool.legacyAuthoredStageFramePlan(
-                        for: standalonePlan, requestedWidth: width,
-                        requestedHeight: height, orderingContext: orderingContext
-                    )
-                } else {
-                    nil
-                }
+                let framePlan = offscreenTexturePool.legacyAuthoredChainFramePlan(
+                    for: chain, requestedWidth: width,
+                    requestedHeight: height,
+                    orderingContext: orderingContext
+                )
                 guard let framePlan else { return nil }
                 framePlans.append(framePlan)
             }

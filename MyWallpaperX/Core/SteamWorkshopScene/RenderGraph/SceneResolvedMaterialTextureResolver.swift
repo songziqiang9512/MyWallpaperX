@@ -64,9 +64,7 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         )
     }
 
-    /// Projects every source that can win the runtime precedence walk without
-    /// consulting a frame. Assets and user selections may be explicitly absent;
-    /// graph and system providers are required for any executable frame.
+    /// Projects runtime texture precedence without consulting a frame.
     static func launchReadinessProjection(
         template: Template,
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
@@ -74,7 +72,7 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
     ) -> Result<LaunchReadinessProjection, Failure> {
         do {
             guard template.textureSlots.count == 8,
-                  samplers.allSatisfy({ (0 ..< 8).contains($0.key) }) else {
+                  samplers.keys.allSatisfy((0 ..< 8).contains) else {
                 throw failure(.activeSamplerSchemaInvalid)
             }
             var required: UInt8 = 0
@@ -116,8 +114,7 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                     case nil:
                         break
                     }
-                    if sampler.materialKey?.caseInsensitiveCompare("framebuffer")
-                            == .orderedSame,
+                    if sampler.materialKey?.caseInsensitiveCompare("framebuffer") == .orderedSame,
                        let identity = implicitFramebufferIdentity {
                         guard identity.kind == .layerSource
                                 || identity.kind == .effectOutput,
@@ -129,6 +126,15 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                     }
                 }
                 if required & bit == 0, hasOptionalSource { optional |= bit }
+            }
+            for slot in SceneResolvedMaterialShaderSchema.implicitFramebufferSlots(template: template, samplers: samplers) {
+                guard let identity = implicitFramebufferIdentity,
+                      (identity.kind == .layerSource
+                          || identity.kind == .effectOutput),
+                      identity.name == nil else {
+                    throw failure(.textureReferenceInvalid, slot: slot)
+                }
+                required |= UInt8(1) << UInt8(slot)
             }
             return .success(.init(
                 requiredMask: required,
@@ -195,6 +201,23 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
             if let selection = try referenceSelection(
                 reference,
                 purpose: sampler.purpose(for: reference),
+                provenance: .implicitFramebuffer,
+                input: input
+            ) {
+                result[slot] = selection
+            }
+        }
+        for slot in SceneResolvedMaterialShaderSchema.implicitFramebufferSlots(template: input.template, samplers: samplers) {
+            guard case .absent = result[slot],
+                  let identity = input.implicitFramebufferIdentity,
+                  identity.kind == .layerSource || identity.kind == .effectOutput,
+                  identity.name == nil else {
+                throw failure(.textureReferenceInvalid, slot: slot)
+            }
+            let reference = Template.TextureReference.graph(identity)
+            if let selection = try referenceSelection(
+                reference,
+                purpose: samplers[slot]?.purpose(for: reference),
                 provenance: .implicitFramebuffer,
                 input: input
             ) {

@@ -60,7 +60,9 @@ enum SceneUtilityLayerRenderer {
                     requiresSourceCopy: true,
                     finalCompositeAlpha: finalCompositeAlpha,
                     dependencyEffect: dependencyEffect,
-                    authoredEffectPlan: authoredEffectChain?.singleStage,
+                    // Utility capture is owned by the chain when one exists;
+                    // a standalone plan would create a second product owner.
+                    authoredEffectPlan: nil,
                     blocksLegacyGaussianBlur: blocksLegacyGaussianBlur,
                     authoredEffectChain: authoredEffectChain,
                     dynamicValues: dynamicValues,

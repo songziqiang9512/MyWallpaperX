@@ -1589,7 +1589,9 @@ private enum EnvelopeHarness {
             graph: unboundGraph,
             template: materialTemplate(
                 graph: unboundGraph,
-                shader: contract("implicit-negative"),
+                // A second sampler makes the historical source ambiguous;
+                // it must remain fail-closed without an explicit binding.
+                shader: contract("implicit-negative", secondMetadata: "{}"),
                 slots: slots()
             )
         )

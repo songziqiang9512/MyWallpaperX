@@ -436,6 +436,13 @@ sample declaration
 - 运行补证：`.codex/scene-chain-r4-persistent-targeted-20260805-v1/report.json` 对原 persistent 红项 `2902406982` / `3768903841` 为 **2/2 PASS**；随后 `.codex/scene-chain-r4-persistent-fixed13-20260805-v1/report.json` 为完整 fixed13 **13/13 PASS**。两门均为 10 秒窗口并显式要求 admission、disposition、execution 三轴，loaded ratio 全 1、graph failed layer 与 report failure 均为空。full45 未运行，preview 只作 advisory，因此不能从本门宣称视觉等价或 R4 完成。
 - legacy offscreen/inline、dedicated owner、通用 persistent API 与 selector 仍可达，下一批继续做 owner 迁移。
 
+#### 2026-08-05 R4-1 generic material bridge follow-up
+
+- 生产 image/solid/text 与 utility request 不再发布被 authored chain 遮蔽的 single-stage standalone projection；legacy frame batch 只为真实 authored chain 建立兼容 batch owner。旧 standalone renderer/backend 本身仍保留给尚未迁移入口，未做删除或隐式回退。
+- `SceneResolvedMaterialShaderSchema` 新增结构性 implicit framebuffer 推断：仅当 authored texture slots、graph bindings、shader defaults/material annotation 均为空，且唯一 sampler 为 regular `g_Texture0` 时绑定当前 layer/effect graph input；多 sampler、候选、default、binding、命名 graph identity 均继续 fail closed。launch readiness 与 frame texture selection 使用同一 provenance/identity 合同，项目自有无 annotation fixture 已通过。
+- 当前验证：Scene 全量 **190 modules / ALL OK**；Swift code health **834 files / 44 locked legacy / 400-line limit**；定向 graph/capability/runtime bridge/framebuffer/offscreen/chain/utility/semantics 门均通过；`script/build_and_run.sh verify` 成功。隔离三样本门 `.codex/scene-chain-r4-r1-implicit-20260805-v1/report.json` 为 **2/3 PASS**：`3141421197` graph `1/1` 闭合，`3769688830` 保持旧 authored chain 成功且 graph accepted `0`，`3768020435` capability 已接纳 layer `389` 但 whole-chain 首断仍为共享 `colorContractUnproven`，未形成 GPU/compositor 证据。
+- 该 follow-up 只收敛 implicit input 与重复 standalone projection，不提升 generic material 能力等级，也不撤销 `.authoredShader` backend、pipeline cache 或 Scroll profile；下一步先闭合公共 color contract，再迁移 Water Waves/Scroll 混合链并同步撤权。full45 未运行，保留本批失败现场，不能宣称 R4 完成或 Wallpaper Engine parity。
+
 #### 2026-08-05 R4-0 权限冻结门
 
 - `script/scene_source_layout.json` 升为 schema 2，在既有 layout manifest 中加入 13 条 render-chain authority ratchet；`test_scene_semantics_coverage.py` 统一扫描 Swift 注释剥离后的调用与保留字符串 selector，不另建一次性脚本。当前冻结 1 个 canonical compositor entry、1 个 canonical runtime entry、legacy product/observation `4/3`、main-pass writer 7、dedicated probe/compiler/backend/recovery `33/34/33/4`、hardcoded SHA `251 / 50 files`、numeric Workshop path `70 / 13 files` 与 named Workshop profile `34 / 4 files`。

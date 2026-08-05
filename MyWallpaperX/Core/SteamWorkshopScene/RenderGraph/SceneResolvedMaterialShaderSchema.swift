@@ -73,6 +73,28 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         try samplerSchemas(records(prepared))
     }
 
+    /// A small compatibility normalization for historical authored materials
+    /// that omitted the explicit framebuffer annotation. It is structural:
+    /// only a single regular `g_Texture0` sampler with no authored texture
+    /// candidates/default/bindings may infer the current graph input. Any
+    /// additional sampler or authored source remains fail-closed.
+    static func implicitFramebufferSlots(
+        template: Template,
+        samplers: [Int: Sampler]
+    ) -> Set<Int> {
+        guard template.textureSlots.allSatisfy({ $0 == nil }),
+              template.graphRole.bindings.isEmpty,
+              samplers.count == 1,
+              let sampler = samplers[0],
+              sampler.name == "g_Texture0",
+              sampler.mode == .regular,
+              sampler.materialKey == nil,
+              sampler.defaultTexture == nil else {
+            return []
+        }
+        return [0]
+    }
+
     static func activeUniforms(
         _ fields: [SceneAuthoredShaderUniformLayout.Field],
         prepared: SceneShaderPreparedProgram

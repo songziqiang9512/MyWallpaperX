@@ -272,7 +272,9 @@ struct SceneMetalRenderer {
                     requiresSourceCopy: false,
                     finalCompositeAlpha: nil,
                     dependencyEffect: dependencyEffect,
-                    authoredEffectPlan: authoredEffectChain?.singleStage,
+                    // A single-stage projection is already represented by the
+                    // chain. Do not publish it as a second product owner.
+                    authoredEffectPlan: nil,
                     blocksLegacyGaussianBlur: blocksLegacyGaussianBlur(for: layer.id),
                     authoredEffectChain: authoredEffectChain,
                     dynamicValues: frameContext.dynamicValues,
