@@ -27,13 +27,14 @@ nonisolated struct SceneShaderPreprocessor {
     }
 }
 
-private extension SceneShaderPreprocessor {
+extension SceneShaderPreprocessor {
     nonisolated struct State {
         let graph: SceneShaderSourceGraph
         let environment: SceneShaderVariantEnvironment
         let limits: Limits
         let selectedDefinitions: [String: SceneShaderMacroDefinition]
         var macros: [String: SceneShaderMacroValue]
+        var functionMacros: [String: SceneShaderFunctionMacro] = [:]
         var conditions: [ConditionalFrame] = []
         var outputLines: [String] = []
         var sourceMap: [SceneShaderSourceMapEntry] = []
@@ -189,98 +190,6 @@ private extension SceneShaderPreprocessor {
 
         var currentActive: Bool { conditions.last?.isActive ?? true }
 
-        mutating func handle(
-            _ directive: SceneShaderDirective,
-            node: SceneShaderSourceGraph.Node,
-            line: Int,
-            floor: Int,
-            stack: [String]
-        ) throws {
-            switch directive {
-            case let .define(name, value):
-                guard currentActive else { return }
-                if let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name) {
-                    throw unresolvedEnvironment(name, requirement, node.virtualPath, line)
-                }
-                if let selected = selectedDefinitions[name] {
-                    guard selected == .defined(value) else {
-                        throw failure(.conflictingMacro, "Selected macro '\(name)' cannot be redefined by source.", node.virtualPath, line)
-                    }
-                    macros[name] = value
-                    return
-                }
-                if let existing = macros[name], existing != value {
-                    throw failure(.conflictingMacro, "Macro '\(name)' is redefined with another value.", node.virtualPath, line)
-                }
-                macros[name] = value
-            case let .undef(name):
-                guard currentActive else { return }
-                if let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name) {
-                    throw unresolvedEnvironment(name, requirement, node.virtualPath, line)
-                }
-                if let selected = selectedDefinitions[name] {
-                    guard selected == .undefined else {
-                        throw failure(.conflictingMacro, "Selected macro '\(name)' cannot be undefined by source.", node.virtualPath, line)
-                    }
-                    return
-                }
-                macros.removeValue(forKey: name)
-            case let .include(path):
-                guard currentActive else { return }
-                try include(path, node: node, line: line, stack: stack)
-            case let .ifExpression(expression):
-                let parent = currentActive
-                let result = parent
-                    ? try evaluate(expression, path: node.virtualPath, line: line)
-                    : false
-                conditions.append(.init(
-                    parentActive: parent,
-                    branchWasTrue: result,
-                    isActive: parent && result,
-                    sawElse: false
-                ))
-            case let .ifdef(name, inverted):
-                let parent = currentActive
-                if parent,
-                   macros[name] == nil,
-                   let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name) {
-                    throw unresolvedEnvironment(name, requirement, node.virtualPath, line)
-                }
-                let result = parent && macros[name] != nil
-                let selected = inverted ? !result : result
-                conditions.append(.init(
-                    parentActive: parent,
-                    branchWasTrue: selected,
-                    isActive: parent && selected,
-                    sawElse: false
-                ))
-            case .elseDirective:
-                guard conditions.count > floor else {
-                    throw failure(.unmatchedElse, "Shader #else has no matching conditional.", node.virtualPath, line)
-                }
-                guard !conditions[conditions.count - 1].sawElse else {
-                    throw failure(.duplicateElse, "Shader conditional contains more than one #else.", node.virtualPath, line)
-                }
-                conditions[conditions.count - 1].sawElse = true
-                conditions[conditions.count - 1].isActive = conditions.last!.parentActive
-                    && !conditions.last!.branchWasTrue
-                conditions[conditions.count - 1].branchWasTrue = true
-            case .endif:
-                guard conditions.count > floor else {
-                    throw failure(.unmatchedEndif, "Shader #endif has no matching conditional.", node.virtualPath, line)
-                }
-                conditions.removeLast()
-            case let .unsupported(name):
-                throw failure(.unsupportedDirective, "Shader directive '#\(name)' is unsupported.", node.virtualPath, line)
-            case let .unknown(name):
-                throw failure(.unknownDirective, "Shader directive '#\(name)' is unknown.", node.virtualPath, line)
-            case .functionLikeMacro:
-                throw failure(.functionLikeMacro, "Function-like shader macros are unsupported.", node.virtualPath, line)
-            case let .malformed(message):
-                throw failure(.malformedDirective, message, node.virtualPath, line)
-            }
-        }
-
         mutating func include(
             _ path: String,
             node: SceneShaderSourceGraph.Node,
@@ -324,13 +233,26 @@ private extension SceneShaderPreprocessor {
         }
 
         mutating func expand(_ line: SceneShaderLexicalLine, path: String, line lineNumber: Int) throws -> String {
-            let macroTable = macros
-            return try SceneShaderLexicalExpander.expand(line) { name in
-                if macroTable[name] == nil,
-                   let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name) {
-                    throw unresolvedEnvironment(name, requirement, path, lineNumber)
+            do {
+                return try SceneShaderLexicalExpander.expand(
+                    line,
+                    objectMacros: macros,
+                    functionMacros: functionMacros,
+                    limits: limits
+                ) { name in
+                    if let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name) {
+                        throw Failure(diagnostics: [Diagnostic(
+                            code: .unresolvedEnvironmentDefine,
+                            message: "Shader macro '\(name)' requires an explicit \(requirement.rawValue) source.",
+                            relativePath: path,
+                            line: lineNumber
+                        )])
+                    }
                 }
-                return macroTable[name]
+            } catch let error as SceneShaderMacroExpansionError {
+                let code: DiagnosticCode = error.kind == .budgetExceeded
+                    ? .budgetExceeded : .functionLikeMacro
+                throw failure(code, error.message, path, lineNumber)
             }
         }
 
@@ -352,12 +274,17 @@ private extension SceneShaderPreprocessor {
         func evaluate(_ expression: String, path: String, line: Int) throws -> Bool {
             do {
                 let tokens = try ExpressionLexer.tokenize(expression, limit: limits.maximumExpressionTokens)
-                for case let .identifier(name) in tokens where name != "defined" && macros[name] == nil {
+                for case let .identifier(name) in tokens
+                    where name != "defined" && macros[name] == nil && functionMacros[name] == nil {
                     if let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name) {
                         throw unresolvedEnvironment(name, requirement, path, line)
                     }
                 }
-                var parser = ExpressionParser(tokens: tokens, macros: macros)
+                var parser = ExpressionParser(
+                    tokens: tokens,
+                    macros: macros,
+                    definedNames: Set(macros.keys).union(functionMacros.keys)
+                )
                 return try parser.parse() != 0
             } catch let failure as Failure {
                 throw failure

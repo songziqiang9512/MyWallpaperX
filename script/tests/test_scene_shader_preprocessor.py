@@ -18,8 +18,10 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneShaderSourceGraph.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderDirective.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderMacroExpansion.swift",
     SCENE_ROOT / "Resources/SceneTextureSampling.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantEnvironment.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderPreprocessor+Directive.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderPreprocessor.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+Schema.swift",
@@ -184,6 +186,8 @@ private func definitionDescriptions(
             value = "integer:\(integer)"
         case let .defined(.floatingLiteral(literal)):
             value = "floating:\(literal)"
+        case let .defined(.tokenSequence(tokens)):
+            value = "tokens:\(tokens)"
         }
         return (binding.name, value)
     })
@@ -605,9 +609,74 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     )
     var checks = ["conditional_includes"]
 
+    try write(
+        """
+        #define DOUBLE(value) ((value) + (value))
+        #define APPLY(value, function) function(value)
+        #define SUM(left, right) ((left) + (right))
+        #define ALIAS SUM
+        #define OFFSET (1 + 2)
+        #define ZERO() 0
+        #define TEMP(value) value
+        #ifdef TEMP
+        float functionDefined = 1;
+        #endif
+        #undef TEMP
+        #ifndef TEMP
+        float functionUndefined = 1;
+        #endif
+        float doubled = DOUBLE(3);
+        float applied = APPLY(4, DOUBLE);
+        float aliased = ALIAS(vec2(1, 2).x, 5);
+        float zero = ZERO();
+        float offset = OFFSET;
+        float reference = DOUBLE;
+        const char* label = "DOUBLE(9)"; // APPLY(8, DOUBLE)
+        """,
+        to: looseRoot,
+        "shaders/macros/functions.frag"
+    )
+    view = resourceView(loose: looseRoot)
+    let functionPrepared = try prepared(
+        rootPath: "shaders/macros/functions.frag",
+        graph: graph("shaders/macros/functions.frag", view: view),
+        environment: environment()
+    )
+    for expected in [
+        "float doubled = ((3) + (3));",
+        "float applied = ((4) + (4));",
+        "float aliased = ((vec2(1, 2).x) + (5));",
+        "float zero = 0;",
+        "float offset = (1 + 2);",
+        "float functionDefined = 1;",
+        "float functionUndefined = 1;",
+        "float reference = DOUBLE;",
+        "\"DOUBLE(9)\"; // APPLY(8, DOUBLE)",
+    ] {
+        try expect(
+            functionPrepared.source.contains(expected),
+            "Bounded function-like macro expansion omitted \(expected): \(functionPrepared.source)"
+        )
+    }
+    checks.append("function_macros")
+
     let failureSources: [(String, String, SceneShaderPreprocessor.DiagnosticCode)] = [
         ("elif", "#if 0\n#elif 1\nVALUE\n#endif", .unsupportedDirective),
-        ("function", "#define F(x) x\nVALUE", .functionLikeMacro),
+        ("function_variadic", "#define F(...) 1\nVALUE", .functionLikeMacro),
+        ("function_paste", "#define F(x) x ## x\nVALUE", .functionLikeMacro),
+        ("function_stringize", "#define F(x) #x\nVALUE", .functionLikeMacro),
+        ("function_quoted", "#define F(x) \"x\"\nVALUE", .functionLikeMacro),
+        ("function_duplicate", "#define F(x, x) x\nVALUE", .functionLikeMacro),
+        ("function_recursive", "#define F(x) F(x)\nF(1)", .functionLikeMacro),
+        ("function_arity", "#define F(x) x\nF(1, 2)", .functionLikeMacro),
+        ("function_empty_argument", "#define F(x) x\nF()", .functionLikeMacro),
+        ("function_invocation", "#define F(x) x\nF(1", .functionLikeMacro),
+        ("function_redefinition", "#define F(x) x\n#define F(x) (x + 1)", .conflictingMacro),
+        ("function_kind_change", "#define F(x) x\n#define F 1", .conflictingMacro),
+        ("object_kind_change", "#define F 1\n#define F(x) x", .conflictingMacro),
+        ("function_parameter_budget", "#define F(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q) a", .budgetExceeded),
+        ("object_quoted", "#define VALUE \"quoted\"\nVALUE", .malformedDirective),
+        ("object_unbalanced", "#define VALUE (1 + 2\nVALUE", .malformedDirective),
         ("unknown", "#pragma once\nVALUE", .unknownDirective),
         ("joined_name", "#if0\nBAD\n#endif", .unknownDirective),
         ("unmatched_else", "#else\nVALUE", .unmatchedElse),
@@ -824,7 +893,83 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
             maximumInputBytes: 1_024,
             maximumOutputBytes: 1_024,
             maximumOutputLines: 1,
-            maximumExpressionTokens: 512
+            maximumExpressionTokens: 512,
+            maximumFunctionMacroParameters: 16,
+            maximumMacroExpansionDepth: 32,
+            maximumMacroExpansionTokens: 16_384,
+            maximumMacroExpansionBytes: 1_024 * 1_024
+        )
+    )
+    try write(
+        "#define DUP(value) value value\nDUP(1)",
+        to: looseRoot,
+        "shaders/budget/macro_tokens.frag"
+    )
+    view = resourceView(loose: looseRoot)
+    try expectFailure(
+        rootPath: "shaders/budget/macro_tokens.frag",
+        graph: graph("shaders/budget/macro_tokens.frag", view: view),
+        environment: environment(),
+        code: .budgetExceeded,
+        limits: .init(
+            maximumIncludeDepth: 32,
+            maximumDependencies: 256,
+            maximumInputBytes: 1_024,
+            maximumOutputBytes: 1_024,
+            maximumOutputLines: 100,
+            maximumExpressionTokens: 512,
+            maximumFunctionMacroParameters: 16,
+            maximumMacroExpansionDepth: 32,
+            maximumMacroExpansionTokens: 4,
+            maximumMacroExpansionBytes: 1_024
+        )
+    )
+    try write(
+        "#define A B\n#define B C\n#define C 1\nA",
+        to: looseRoot,
+        "shaders/budget/macro_depth.frag"
+    )
+    view = resourceView(loose: looseRoot)
+    try expectFailure(
+        rootPath: "shaders/budget/macro_depth.frag",
+        graph: graph("shaders/budget/macro_depth.frag", view: view),
+        environment: environment(),
+        code: .budgetExceeded,
+        limits: .init(
+            maximumIncludeDepth: 32,
+            maximumDependencies: 256,
+            maximumInputBytes: 1_024,
+            maximumOutputBytes: 1_024,
+            maximumOutputLines: 100,
+            maximumExpressionTokens: 512,
+            maximumFunctionMacroParameters: 16,
+            maximumMacroExpansionDepth: 2,
+            maximumMacroExpansionTokens: 16_384,
+            maximumMacroExpansionBytes: 1_024
+        )
+    )
+    try write(
+        "#define BIG 123456789\nBIG",
+        to: looseRoot,
+        "shaders/budget/macro_bytes.frag"
+    )
+    view = resourceView(loose: looseRoot)
+    try expectFailure(
+        rootPath: "shaders/budget/macro_bytes.frag",
+        graph: graph("shaders/budget/macro_bytes.frag", view: view),
+        environment: environment(),
+        code: .budgetExceeded,
+        limits: .init(
+            maximumIncludeDepth: 32,
+            maximumDependencies: 256,
+            maximumInputBytes: 1_024,
+            maximumOutputBytes: 1_024,
+            maximumOutputLines: 100,
+            maximumExpressionTokens: 512,
+            maximumFunctionMacroParameters: 16,
+            maximumMacroExpansionDepth: 32,
+            maximumMacroExpansionTokens: 16_384,
+            maximumMacroExpansionBytes: 10
         )
     )
     checks.append("preprocessor_budget")
@@ -1150,6 +1295,7 @@ class SceneShaderPreprocessorTests(unittest.TestCase):
             self.run_mode("preprocessor"),
             [
                 "conditional_includes",
+                "function_macros",
                 "directive_failures",
                 "directive_annotation_placement",
                 "missing_cycle",

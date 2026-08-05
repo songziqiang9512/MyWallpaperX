@@ -2,6 +2,7 @@ import Foundation
 
 nonisolated enum SceneShaderDirective {
     case define(String, SceneShaderMacroValue)
+    case defineFunction(SceneShaderFunctionMacro)
     case undef(String)
     case include(String)
     case ifExpression(String)
@@ -10,7 +11,7 @@ nonisolated enum SceneShaderDirective {
     case endif
     case unsupported(String)
     case unknown(String)
-    case functionLikeMacro
+    case unsupportedFunctionMacro(String)
     case malformed(String)
 
     static func parse(_ line: String) -> SceneShaderDirective? {
@@ -53,7 +54,12 @@ nonisolated enum SceneShaderDirective {
             return .malformed("Malformed #define directive.")
         }
         let suffix = operand.dropFirst(name.count)
-        if suffix.first == "(" { return .functionLikeMacro }
+        if suffix.first == "(" {
+            switch SceneShaderFunctionMacro.parse(name: identifier, suffix: suffix) {
+            case let .success(macro): return .defineFunction(macro)
+            case let .failure(failure): return .unsupportedFunctionMacro(failure.message)
+            }
+        }
         let value = suffix.trimmingCharacters(in: .whitespaces)
         guard !value.contains("//") else {
             return .malformed("Inline comments are not valid macro values.")
@@ -71,7 +77,10 @@ nonisolated enum SceneShaderDirective {
         if SceneShaderMacroValue.isFloatingLiteral(value) {
             return .define(identifier, .floatingLiteral(value))
         }
-        return .malformed("Only bare or numeric object-like macros are supported.")
+        if SceneShaderMacroReplacement.isSupported(value) {
+            return .define(identifier, .tokenSequence(value))
+        }
+        return .malformed("Object-like shader macro replacement is unsupported or unbalanced.")
     }
 
     private static func parseInclude(_ operand: String) -> SceneShaderDirective {
@@ -118,6 +127,10 @@ extension SceneShaderPreprocessor {
         let maximumOutputBytes: Int
         let maximumOutputLines: Int
         let maximumExpressionTokens: Int
+        let maximumFunctionMacroParameters: Int
+        let maximumMacroExpansionDepth: Int
+        let maximumMacroExpansionTokens: Int
+        let maximumMacroExpansionBytes: Int
 
         static let `default` = Limits(
             maximumIncludeDepth: 32,
@@ -125,7 +138,11 @@ extension SceneShaderPreprocessor {
             maximumInputBytes: 2 * 1_024 * 1_024,
             maximumOutputBytes: 2 * 1_024 * 1_024,
             maximumOutputLines: 100_000,
-            maximumExpressionTokens: 512
+            maximumExpressionTokens: 512,
+            maximumFunctionMacroParameters: 16,
+            maximumMacroExpansionDepth: 32,
+            maximumMacroExpansionTokens: 16_384,
+            maximumMacroExpansionBytes: 1_024 * 1_024
         )
     }
 
@@ -134,48 +151,6 @@ extension SceneShaderPreprocessor {
         var branchWasTrue: Bool
         var isActive: Bool
         var sawElse: Bool
-    }
-}
-
-nonisolated enum SceneShaderLexicalExpander {
-    static func expand(
-        _ line: SceneShaderLexicalLine,
-        macro: (String) throws -> SceneShaderMacroValue?
-    ) rethrows -> String {
-        var result = ""
-        for segment in line.segments {
-            if segment.kind == .code {
-                result += try expandCode(segment.text, macro: macro)
-            } else {
-                result += segment.text
-            }
-        }
-        return result
-    }
-
-    private static func expandCode(
-        _ code: String,
-        macro: (String) throws -> SceneShaderMacroValue?
-    ) rethrows -> String {
-        var result = ""
-        var index = code.startIndex
-        while index < code.endIndex {
-            let character = code[index]
-            guard character == "_" || character.isLetter else {
-                result.append(character)
-                index = code.index(after: index)
-                continue
-            }
-            let start = index
-            index = code.index(after: index)
-            while index < code.endIndex,
-                  code[index] == "_" || code[index].isLetter || code[index].isNumber {
-                index = code.index(after: index)
-            }
-            let name = String(code[start ..< index])
-            result += try macro(name)?.replacement ?? name
-        }
-        return result
     }
 }
 
@@ -284,6 +259,7 @@ extension SceneShaderPreprocessor {
     nonisolated struct ExpressionParser {
         let tokens: [ExpressionToken]
         let macros: [String: SceneShaderMacroValue]
+        let definedNames: Set<String>
         var index = 0
 
         mutating func parse() throws -> Int64 {
@@ -363,7 +339,7 @@ extension SceneShaderPreprocessor {
                     if parenthesized, !consume(.rightParen) {
                         throw ExpressionError(message: "defined is missing a closing parenthesis.")
                     }
-                    return macros[identifier] == nil ? 0 : 1
+                    return definedNames.contains(identifier) ? 1 : 0
                 }
                 guard let macro = macros[name] else { return 0 }
                 guard let value = macro.expressionValue else {

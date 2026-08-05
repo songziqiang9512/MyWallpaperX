@@ -265,12 +265,12 @@ extension SceneAuthoredShaderExecutionPlanner {
                         } else {
                             mergedDefines[name] = value
                         }
-                    case .bare:
+                    case .bare, .tokenSequence:
                         reasons.insert("prepared-directive")
                     }
-                case .undef, .include, .ifExpression, .ifdef, .elseDirective,
-                     .endif, .unsupported, .unknown, .functionLikeMacro,
-                     .malformed:
+                case .defineFunction, .undef, .include, .ifExpression, .ifdef,
+                     .elseDirective, .endif, .unsupported, .unknown,
+                     .unsupportedFunctionMacro, .malformed:
                     reasons.insert("prepared-directive")
                 }
             }

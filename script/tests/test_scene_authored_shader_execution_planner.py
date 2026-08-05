@@ -48,8 +48,10 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneTextureSampling.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantEnvironment.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderDirective.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderMacroExpansion.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+Schema.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderPreprocessor+Directive.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderPreprocessor.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderExecutionPlanner.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderExecutionPlanner+Preparation.swift",
@@ -1166,11 +1168,11 @@ enum Harness {
                     identity: "effects/ambiguousinteger",
                     root: syntheticRoot
                 ) == nil,
-            "boundedPreparationRejectsSuffix":
+            "boundedPreparationPreservesSuffixTokens":
                 preparedStages(
                     identity: "effects/suffixnumeric",
                     root: syntheticRoot
-                ) == nil,
+                ) != nil,
             "legacyComboSchemaPreserved": plan(
                 identity: "effects/legacycomboschema",
                 root: syntheticRoot

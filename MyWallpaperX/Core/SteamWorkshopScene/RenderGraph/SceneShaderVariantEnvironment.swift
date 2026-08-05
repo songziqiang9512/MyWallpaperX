@@ -92,12 +92,13 @@ nonisolated enum SceneShaderMacroValue: Codable, Equatable, Sendable {
     case bare
     case integer(Int64)
     case floatingLiteral(String)
+    case tokenSequence(String)
 
     var expressionValue: Int64? {
         switch self {
         case .bare: 1
         case let .integer(value): value
-        case .floatingLiteral: nil
+        case .floatingLiteral, .tokenSequence: nil
         }
     }
 
@@ -106,6 +107,7 @@ nonisolated enum SceneShaderMacroValue: Codable, Equatable, Sendable {
         case .bare: "1"
         case let .integer(value): String(value)
         case let .floatingLiteral(value): value
+        case let .tokenSequence(value): value
         }
     }
 
@@ -164,7 +166,7 @@ nonisolated struct SceneShaderVariantFailure: Error, Codable, Equatable, Sendabl
 }
 
 nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
-    static let frontendSchemaVersion = 3
+    static let frontendSchemaVersion = 4
 
     let sourceDialect: SceneShaderSourceDialect
     let backend: SceneShaderBackendIdentity
@@ -348,6 +350,13 @@ nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
                 code: .invalidValue,
                 identifier: binding.name,
                 message: "Shader macro floating literal is invalid."
+            )
+        }
+        if case .defined(.tokenSequence) = binding.definition {
+            throw SceneShaderVariantFailure(
+                code: .invalidValue,
+                identifier: binding.name,
+                message: "Shader combo values cannot inject source macro token sequences."
             )
         }
     }

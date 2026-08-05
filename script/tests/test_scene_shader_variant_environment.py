@@ -18,8 +18,10 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneTextureSampling.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantEnvironment.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderDirective.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderMacroExpansion.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+Schema.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderPreprocessor+Directive.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderPreprocessor.swift",
 ]
 
@@ -245,6 +247,19 @@ private func runIdentityAndEnvironmentFixtures() throws -> [String] {
                 "Host-owned combo \(name) returned the wrong failure."
             )
         }
+    }
+
+    do {
+        _ = try environment([.init(
+            name: "MODE",
+            definition: .defined(.tokenSequence("OTHER_MODE"))
+        )])
+        throw HarnessFailure(description: "A combo injected a source macro token sequence.")
+    } catch let failure as SceneShaderVariantFailure {
+        try expect(
+            failure.code == .invalidValue,
+            "Source-only macro tokens returned the wrong combo failure."
+        )
     }
 
     let ordered = try environment([

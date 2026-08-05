@@ -275,9 +275,7 @@ class SceneShaderPreparationCensusTests(unittest.TestCase):
                 sum(report["summary"]["gpu_admission"]["current"].values()),
                 5,
             )
-            self.assertEqual(sum(report["summary"]["preparation"].values()), 5)
-            self.assertIn("accepted", report["summary"]["preparation"])
-            self.assertIn("rejected", report["summary"]["preparation"])
+            self.assertEqual(report["summary"]["preparation"], {"accepted": 5})
             self.assertEqual(len(report["results"]["baseline"]["passes"]), 5)
             self.assertEqual(len(report["results"]["current"]["passes"]), 5)
             parser_boundary = next(
@@ -286,6 +284,13 @@ class SceneShaderPreparationCensusTests(unittest.TestCase):
                 if item["materialPath"].endswith("production-parser-boundary.json")
             )
             self.assertEqual(parser_boundary["gpuAdmission"], "accepted")
+            readiness = next(
+                item
+                for item in report["results"]["current"]["passes"]
+                if item["materialPath"].endswith("readiness.json")
+            )
+            self.assertEqual(readiness["preparation"], "accepted")
+            self.assertEqual(readiness["gpuAdmission"], "rejected")
             self.assertNotIn(str(root), report_bytes.decode("utf-8"))
             self.assertNotIn(
                 "uniform mat4 g_ModelViewProjectionMatrix;",

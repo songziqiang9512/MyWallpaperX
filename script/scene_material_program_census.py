@@ -65,8 +65,10 @@ CURRENT_SOURCE_PATHS = (
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneEffectStageCompileModel.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantEnvironment.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderDirective.swift",
+    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderMacroExpansion.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantResolver.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantResolver+Schema.swift",
+    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderPreprocessor+Directive.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderPreprocessor.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderExecutionPlanner+Preparation.swift",
 )
