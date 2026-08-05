@@ -25,6 +25,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneShaderPreprocessor.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+Schema.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+DisabledCombo.swift",
     SCENE_ROOT / "Resources/SceneShaderSourceResolver.swift",
     SCENE_ROOT / "Resources/SceneShaderSourceGraphBuilder.swift",
 ]

@@ -31,6 +31,8 @@ nonisolated struct SceneAuthoredShaderSyntaxUnit {
     let declarations: [Declaration]
     let functions: [Function]
     let staticLoopWork: Int
+    let boundedLoopUniformReferences: [SceneAuthoredShaderToken: Int]
+    let constantParameterArraysByFunctionIndex: [Int: Set<String>]
 }
 
 nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
@@ -141,6 +143,7 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
             functions: functions,
             tokens: tokens,
             defines: lexerOutput.defines,
+            declarations: declarations,
             stage: stage
         )
         guard loopResult.diagnostics.isEmpty else {
@@ -153,7 +156,10 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
                 defines: lexerOutput.defines,
                 declarations: declarations,
                 functions: functions,
-                staticLoopWork: max(1, loopResult.work)
+                staticLoopWork: max(1, loopResult.work),
+                boundedLoopUniformReferences: loopResult.boundedUniformReferences,
+                constantParameterArraysByFunctionIndex:
+                    loopResult.constantParameterArraysByFunctionIndex
             ),
             diagnostics: []
         )

@@ -37,7 +37,13 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityAdmission.swift",
     SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift",
+    SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+EnvelopeDiagnostics.swift",
     EXECUTOR_SOURCE,
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+Preparation.swift",
@@ -100,6 +106,14 @@ enum SceneLayerVisibility {
 }
 
 struct SceneDependencyRenderPlan {
+    struct Reference: Hashable {
+        let consumerLayerID: Int
+        let providerLayerID: Int
+        let slot: SceneEffectPassSlot
+        let variant: SceneNamedTextureReference.Variant
+    }
+
+    let references: [Reference]
     let namedReferenceConsumerLayerIDs: Set<Int>
 
     init(
@@ -108,6 +122,7 @@ struct SceneDependencyRenderPlan {
     ) {
         _ = descriptor
         _ = visibleLayerIDs
+        references = []
         namedReferenceConsumerLayerIDs = []
     }
 }

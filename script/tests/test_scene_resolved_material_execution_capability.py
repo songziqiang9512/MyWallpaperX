@@ -25,6 +25,10 @@ CAPABILITY_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift"
 )
+DEPENDENCY_OWNERSHIP_SOURCE = (
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift"
+)
 RUNTIME_CATALOG_SOURCE = (
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialRuntimeCatalog.swift"
 )
@@ -41,7 +45,13 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityAdmission.swift",
     SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift",
+    SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+EnvelopeDiagnostics.swift",
 ]
 
 PROGRAM_FINALIZER_TEST_SOURCE = (
@@ -56,6 +66,10 @@ ENVELOPE_SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneOffscreenResolutionPolicy.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+EnvelopeDiagnostics.swift",
 ]
 
 
@@ -94,7 +108,7 @@ struct SceneRenderDescriptor {
         var authoredDependencies: [Int] = []
         var parentID: Int? = nil
         var visible: Bool? = true
-        var namedReferenceConsumer = false
+        var namedReferences: [SceneDependencyRenderPlan.Reference] = []
     }
 
     struct MaterialPassDescriptor {
@@ -127,14 +141,30 @@ enum SceneLayerVisibility {
 }
 
 struct SceneDependencyRenderPlan {
+    struct Reference: Hashable {
+        enum Variant: Hashable { case primary, secondary, unspecified }
+
+        let consumerLayerID: Int
+        let providerLayerID: Int
+        let slot: SceneEffectPassSlot
+        let variant: Variant
+    }
+
+    let references: [Reference]
     let namedReferenceConsumerLayerIDs: Set<Int>
 
     init(descriptor: SceneRenderDescriptor, visibleLayerIDs: Set<Int>) {
-        namedReferenceConsumerLayerIDs = Set(descriptor.layers.compactMap {
-            visibleLayerIDs.contains($0.id) && $0.namedReferenceConsumer
-                ? $0.id : nil
+        references = descriptor.layers.flatMap(\.namedReferences)
+        namedReferenceConsumerLayerIDs = Set(references.compactMap {
+            visibleLayerIDs.contains($0.consumerLayerID) ? $0.consumerLayerID : nil
         })
     }
+}
+
+struct SceneEffectPassSlot: Hashable {
+    let effectID: String
+    let passIndex: Int
+    let slotIndex: Int
 }
 
 struct SceneCursorRippleExecutionPlan {
@@ -283,7 +313,9 @@ enum SceneResolvedMaterialShaderSchema {
     }
 }
 
-struct SceneResolvedMaterialFailure: Error {}
+struct SceneResolvedMaterialFailure: Error {
+    let boundedDetails: [String] = []
+}
 
 struct SceneResolvedMaterialRuntimeCatalog {
     typealias Graph = SceneAuthoredEffectRenderPlan
@@ -322,10 +354,16 @@ struct SceneResolvedMaterialRuntimeCatalog {
 
 final class SceneResolvedMaterialVariantCache {
     enum LaunchEnvelopeFailure: Error {
-        enum Kind: String { case invariant }
-        case invariant
+        enum Kind: String { case capacity, invariant }
+        case capacity
+        case material(SceneResolvedMaterialFailure)
 
-        var kind: Kind { .invariant }
+        var kind: Kind {
+            switch self {
+            case .capacity: .capacity
+            case .material: .invariant
+            }
+        }
     }
 
     init?(
@@ -402,6 +440,25 @@ private func binding(_ identity: Graph.TextureIdentity) -> Graph.Binding {
         authoredName: identity.name ?? "previous",
         texture: identity,
         conditions: nil
+    )
+}
+
+private func namedReference(
+    effectID: String = "second-active",
+    providerLayerID: Int = layerID,
+    passIndex: Int = 0,
+    slotIndex: Int = 0,
+    variant: SceneDependencyRenderPlan.Reference.Variant = .primary
+) -> SceneDependencyRenderPlan.Reference {
+    .init(
+        consumerLayerID: layerID,
+        providerLayerID: providerLayerID,
+        slot: .init(
+            effectID: effectID,
+            passIndex: passIndex,
+            slotIndex: slotIndex
+        ),
+        variant: variant
     )
 }
 
@@ -558,7 +615,7 @@ private func descriptor(
     dependencyLayerIDs: [Int] = [],
     authoredDependencies: [Int] = [],
     parentVisible: Bool? = nil,
-    namedReferenceConsumer: Bool = false
+    namedReferences: [SceneDependencyRenderPlan.Reference] = []
 ) -> SceneRenderDescriptor {
     let firstPasses = (0 ..< 4).map {
         SceneRenderDescriptor.PassDescriptor(
@@ -617,7 +674,7 @@ private func descriptor(
             authoredDependencies: authoredDependencies,
             parentID: parentID,
             visible: true,
-            namedReferenceConsumer: namedReferenceConsumer
+            namedReferences: namedReferences
         )]
     if let parentVisible {
         layers.append(.init(
@@ -828,6 +885,15 @@ private enum Harness {
             graphs: [raw],
             materials: materialCatalog(graph: raw, omitNode: 1),
             admissionCandidates: admissionCandidates
+        )
+        let graphInternalDescriptor = descriptor(
+            dependencyLayerIDs: [layerID],
+            namedReferences: [namedReference()]
+        )
+        let graphInternalCatalog = catalog(
+            descriptor: graphInternalDescriptor,
+            graphs: [raw],
+            materials: materialCatalog(graph: raw, omitNode: 1)
         )
         let claim = success.claim(layerID: layerID)!
         let capability = success.resolve(claim.token)!
@@ -1048,6 +1114,13 @@ private enum Harness {
                 "requiresExactInputExtent": capability.fullFrameExtentPolicy
                     .requiresExactInputExtent,
             ],
+            "dependencyOwnership": [
+                "none": capability.dependencyOwnership.reportKind,
+                "graphInternal": graphInternalCatalog.claim(layerID: layerID) != nil,
+                "graphInternalReport": graphInternalCatalog.reportLines.first(where: {
+                    $0.contains("status=accepted")
+                }) ?? "",
+            ],
             "capacity": [
                 "effects": SceneResolvedMaterialExecutionCapabilityAdmission
                     .maximumEffectsPerLayer,
@@ -1059,7 +1132,7 @@ private enum Harness {
             ],
             "report": success.reportLines.first ?? "",
             "acceptedRouteLines": success.reportLines.filter {
-                $0.contains("schema=r4-layer-route-v1")
+                $0.contains("schema=r4-layer-route-v2")
             },
             "rejections": [
                 "omitted": reportHas(
@@ -1141,7 +1214,51 @@ private enum Harness {
                     reason: "execution-route-dependency-owner"
                 ),
                 "namedReference": admissionRejects(
-                    descriptor(namedReferenceConsumer: true),
+                    descriptor(namedReferences: [namedReference()]),
+                    raw: raw,
+                    reason: "execution-route-dependency-owner"
+                ),
+                "selfReferenceMissingPrior": admissionRejects(
+                    descriptor(
+                        dependencyLayerIDs: [layerID],
+                        namedReferences: [namedReference(effectID: firstKey.descriptorID)]
+                    ),
+                    raw: raw,
+                    reason: "execution-route-dependency-owner"
+                ),
+                "selfReferenceSecondary": admissionRejects(
+                    descriptor(
+                        dependencyLayerIDs: [layerID],
+                        namedReferences: [namedReference(variant: .secondary)]
+                    ),
+                    raw: raw,
+                    reason: "execution-route-dependency-owner"
+                ),
+                "selfReferenceWrongSlot": admissionRejects(
+                    descriptor(
+                        dependencyLayerIDs: [layerID],
+                        namedReferences: [namedReference(slotIndex: 1)]
+                    ),
+                    raw: raw,
+                    reason: "execution-route-dependency-owner"
+                ),
+                "selfReferenceExternalExtra": admissionRejects(
+                    descriptor(
+                        dependencyLayerIDs: [layerID],
+                        namedReferences: [
+                            namedReference(),
+                            namedReference(providerLayerID: 42, slotIndex: 1),
+                        ]
+                    ),
+                    raw: raw,
+                    reason: "execution-route-dependency-owner"
+                ),
+                "selfReferenceAuthoredExtra": admissionRejects(
+                    descriptor(
+                        dependencyLayerIDs: [layerID],
+                        authoredDependencies: [layerID],
+                        namedReferences: [namedReference()]
+                    ),
                     raw: raw,
                     reason: "execution-route-dependency-owner"
                 ),
@@ -1165,6 +1282,25 @@ private enum Harness {
 
 ENVELOPE_SUPPORT = PROGRAM_FINALIZER_FIXTURE["SUPPORT"] + r'''
 
+enum SceneResolvedMaterialDependencyOwnership: Equatable {
+    case none
+    case graphInternal(referenceCount: Int)
+
+    var reportKind: String {
+        switch self {
+        case .none: "none"
+        case .graphInternal: "graph-internal"
+        }
+    }
+
+    var referenceCount: Int {
+        switch self {
+        case .none: 0
+        case let .graphInternal(referenceCount): referenceCount
+        }
+    }
+}
+
 struct SceneEffectExactRuntimeSubject: Hashable {
     let key: SceneAuthoredEffectRenderPlan.EffectKey
     let family: String
@@ -1180,6 +1316,7 @@ struct SceneResolvedMaterialAdmittedLayer {
     let layerID: Int
     let products: [SceneGraphAdmissionProduct]
     let pairPlan: SceneLayerFullFramePairPlan
+    let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
 }
 
 enum SceneResolvedMaterialExecutionCapabilityAdmission {
@@ -1247,7 +1384,9 @@ private func fragmentSource(
     conditionalSecond: Bool = false,
     frontendInvalid: Bool = false,
     invalidSamplerSlot: Bool = false,
-    colorUnproven: Bool = false
+    colorUnproven: Bool = false,
+    samplesSecond: Bool = true,
+    observesSecond: Bool = false
 ) -> String {
     let comboAnnotation = comboMetadata.map { "// \($0)" } ?? ""
     let varyingType = frontendInvalid ? "vec3" : "vec2"
@@ -1261,9 +1400,11 @@ private func fragmentSource(
         : rawSecondDeclaration
     let output: String
     if colorUnproven {
-        output = "vec4 color = texSample2D(\(firstName), v_TexCoord);"
-            + " color.rgb *= 0.5; gl_FragColor = color;"
-    } else if secondMetadata == nil {
+        output = "gl_FragColor = texSample2D(\(firstName), v_TexCoord) * 0.5;"
+    } else if observesSecond {
+        output = "float observed = texSample2D(g_Texture1, v_TexCoord).r;"
+            + " gl_FragColor = texSample2D(\(firstName), v_TexCoord);"
+    } else if secondMetadata == nil || !samplesSecond {
         output = "gl_FragColor = texSample2D(\(firstName), v_TexCoord);"
     } else if conditionalSecond {
         output = """
@@ -1296,7 +1437,9 @@ private func contract(
     conditionalSecond: Bool = false,
     frontendInvalid: Bool = false,
     invalidSamplerSlot: Bool = false,
-    colorUnproven: Bool = false
+    colorUnproven: Bool = false,
+    samplesSecond: Bool = true,
+    observesSecond: Bool = false
 ) -> SceneShaderContract {
     func stage(
         _ kind: SceneShaderContract.StageKind,
@@ -1324,7 +1467,9 @@ private func contract(
         conditionalSecond: conditionalSecond,
         frontendInvalid: frontendInvalid,
         invalidSamplerSlot: invalidSamplerSlot,
-        colorUnproven: colorUnproven
+        colorUnproven: colorUnproven,
+        samplesSecond: samplesSecond,
+        observesSecond: observesSecond
     )
     let stages = [
         stage(.vertex, path: "\(revision)/root.vert", source: vertexSource),
@@ -1513,7 +1658,8 @@ private func catalog(
     let admitted = SceneResolvedMaterialAdmittedLayer(
         layerID: layerID,
         products: [.init(graph: graph)],
-        pairPlan: .init()
+        pairPlan: .init(),
+        dependencyOwnership: .none
     )
     return .init(
         admissionCandidates: [.init(
@@ -1625,6 +1771,34 @@ private enum EnvelopeHarness {
                 slots: slots(primary: graphCandidate())
             )
         )
+        let staticAssetDefaultPositive = catalog(
+            graph: boundGraph,
+            template: materialTemplate(
+                graph: boundGraph,
+                shader: contract(
+                    "static-asset-default-positive",
+                    secondMetadata:
+                        #"{"mode":"flowmask","default":"textures/default-flow.tex"}"#,
+                    samplesSecond: false
+                ),
+                slots: slots(primary: graphCandidate())
+            )
+        )
+        let authoredAssetPositive = catalog(
+            graph: boundGraph,
+            template: materialTemplate(
+                graph: boundGraph,
+                shader: contract(
+                    "authored-asset-positive",
+                    secondMetadata: #"{"material":"normal"}"#,
+                    observesSecond: true
+                ),
+                slots: slots(
+                    primary: graphCandidate(),
+                    second: assetCandidate("textures/normal.tex")
+                )
+            )
+        )
         let implicitPositive = catalog(
             graph: unboundGraph,
             template: materialTemplate(
@@ -1725,6 +1899,22 @@ private enum EnvelopeHarness {
             "colorFailure": rejection(colorFailure),
             "purposeFailure": rejection(purposeFailure),
             "defaultPurposeFailure": rejection(defaultPurposeFailure),
+            "staticAssetDefaultClaim": staticAssetDefaultPositive.claim(
+                layerID: layerID
+            ) != nil,
+            "staticAssetDefaultFailure": rejection(staticAssetDefaultPositive),
+            "staticAssetDefaultCounters": counters(
+                staticAssetDefaultPositive,
+                graph: boundGraph
+            ),
+            "authoredAssetClaim": authoredAssetPositive.claim(
+                layerID: layerID
+            ) != nil,
+            "authoredAssetFailure": rejection(authoredAssetPositive),
+            "authoredAssetCounters": counters(
+                authoredAssetPositive,
+                graph: boundGraph
+            ),
             "implicitPositiveClaim": implicitPositive.claim(layerID: layerID) != nil,
             "implicitPositiveCounters": counters(
                 implicitPositive,
@@ -1777,6 +1967,9 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         runtime_catalog = RUNTIME_CATALOG_SOURCE.read_text(encoding="utf-8")
         admission = ADMISSION_SOURCE.read_text(encoding="utf-8")
         capability = CAPABILITY_SOURCE.read_text(encoding="utf-8")
+        dependency_ownership = DEPENDENCY_OWNERSHIP_SOURCE.read_text(
+            encoding="utf-8"
+        )
 
         compile_call = (
             "SceneResolvedMaterialExecutionCapabilityAdmission.compile("
@@ -1829,12 +2022,22 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             "SceneLayerVisibility.visibleLayerIDs(in: descriptor)",
             '["image", "solid", "text"].contains(layer.contentKind)',
             "case .none = layer.utilityLayer",
-            "layer.dependencyLayerIDs.isEmpty",
-            "layer.authoredDependencies.isEmpty",
-            "!namedReferenceConsumerLayerIDs.contains(layer.id)",
+            "SceneResolvedMaterialDependencyOwnershipCompiler",
+            "dependencyOwnership != nil",
             "specializedLayerIDs.contains(layer.id)",
         ):
             self.assertIn(contract, admission)
+        for contract in (
+            "layer.dependencyLayerIDs == [layer.id]",
+            "layer.authoredDependencies.isEmpty",
+            "$0.consumerLayerID == layer.id",
+            "$0.providerLayerID == layer.id",
+            "$0.variant == .primary",
+            "binding.authoredName == \"previous\"",
+            "binding.texture == effect.input",
+        ):
+            self.assertIn(contract, dependency_ownership)
+        self.assertNotIn("sampleID", dependency_ownership)
         self.assertIn(
             "specializedLayerIDs: Set(\n"
             "                    sceneScriptAudioBarsProgram.plans.map(\\.layerID)",
@@ -1946,8 +2149,21 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             payload["acceptedRouteLines"],
             [
                 "resolved material execution capability: "
-                "schema=r4-layer-route-v1 layer=880 status=accepted"
+                "schema=r4-layer-route-v2 layer=880 status=accepted "
+                "dependency=none dependencyReferences=0"
             ],
+        )
+        self.assertEqual(
+            payload["dependencyOwnership"],
+            {
+                "none": "none",
+                "graphInternal": True,
+                "graphInternalReport": (
+                    "resolved material execution capability: "
+                    "schema=r4-layer-route-v2 layer=880 status=accepted "
+                    "dependency=graph-internal dependencyReferences=1"
+                ),
+            },
         )
         self.assertEqual(
             payload["rejections"],
@@ -1972,6 +2188,11 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "legacyDependency": True,
                 "authoredDependency": True,
                 "namedReference": True,
+                "selfReferenceMissingPrior": True,
+                "selfReferenceSecondary": True,
+                "selfReferenceWrongSlot": True,
+                "selfReferenceExternalExtra": True,
+                "selfReferenceAuthoredExtra": True,
                 "specializedOwner": True,
             },
         )
@@ -1987,6 +2208,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "SceneResolvedMaterialExecutionCapabilityVariant.swift",
                 "SceneResolvedMaterialTextureResolver.swift",
                 "SceneAuthoredShaderColorTransferAnalyzer.swift",
+                "SceneAuthoredShaderSameSlotMixAnalyzer.swift",
+                "SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
                 "SceneAuthoredShaderFrontend.swift",
                 "SceneAuthoredShaderExecutionPlanner+Preparation.swift",
                 "SceneShaderContract.swift",
@@ -2072,6 +2295,18 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn(
             "material-variant-envelope-texture-purpose",
             payload["defaultPurposeFailure"],
+        )
+        self.assertTrue(payload["staticAssetDefaultClaim"], payload)
+        self.assertEqual(payload["staticAssetDefaultFailure"], "")
+        self.assertEqual(
+            payload["staticAssetDefaultCounters"],
+            {"cached": 1, "prepared": 1, "frontend": 1, "capacity": 0},
+        )
+        self.assertTrue(payload["authoredAssetClaim"], payload)
+        self.assertEqual(payload["authoredAssetFailure"], "")
+        self.assertEqual(
+            payload["authoredAssetCounters"],
+            {"cached": 1, "prepared": 1, "frontend": 1, "capacity": 0},
         )
         self.assertTrue(payload["implicitPositiveClaim"])
         self.assertEqual(

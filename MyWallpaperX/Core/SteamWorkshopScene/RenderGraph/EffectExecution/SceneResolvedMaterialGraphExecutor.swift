@@ -18,7 +18,11 @@ final class SceneResolvedMaterialGraphExecutor {
         case historyRejected
         case graphPublicationRejected
         case graphStructureRejected
-        case materialFinalizerRejected(SceneResolvedMaterialFailure)
+        case materialFinalizerRejected(
+            nodeIndex: Int,
+            materialOrdinal: Int,
+            failure: SceneResolvedMaterialFailure
+        )
         case materialPassEncoderRejected
         case resourceCommandRejected
         case captureRejected
@@ -35,8 +39,9 @@ final class SceneResolvedMaterialGraphExecutor {
             case .historyRejected: "history-rejected"
             case .graphPublicationRejected: "graph-publication-rejected"
             case .graphStructureRejected: "graph-structure-rejected"
-            case let .materialFinalizerRejected(failure):
-                "material-finalizer-\(failure.phase.rawValue)-\(failure.code.rawValue)"
+            case let .materialFinalizerRejected(nodeIndex, ordinal, failure):
+                "node-\(nodeIndex)-material-\(ordinal)-finalizer-"
+                    + "\(failure.phase.rawValue)-\(failure.code.rawValue)"
             case .materialPassEncoderRejected: "material-pass-encoder-rejected"
             case .resourceCommandRejected: "resource-command-rejected"
             case .captureRejected: "capture-rejected"
@@ -261,6 +266,8 @@ final class SceneResolvedMaterialGraphExecutor {
 
         guard pair.member == capability.pairPlan.terminalMember,
               pair.member == Pair.fixedTerminalMember,
+              pair.representation == .opaque
+                || pair.representation == .premultipliedAlpha,
               let terminal = transitions.last?.effectOutputResource,
               terminal.publication.requestIdentity
                 == .graph(capability.pairPlan.terminalOutputIdentity),

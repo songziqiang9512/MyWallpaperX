@@ -78,7 +78,11 @@ extension SceneResolvedMaterialGraphExecutor {
                 case let .success(value):
                     program = value
                 case let .failure(failure):
-                    return .materialFinalizerRejected(failure)
+                    return .materialFinalizerRejected(
+                        nodeIndex: nodeIndex,
+                        materialOrdinal: ordinal,
+                        failure: failure
+                    )
                 }
                 guard let prepared = materialEncoder.prepare(
                     program: program,

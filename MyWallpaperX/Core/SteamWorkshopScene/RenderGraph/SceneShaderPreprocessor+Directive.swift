@@ -74,6 +74,7 @@ extension SceneShaderPreprocessor.State {
             let parent = currentActive
             if parent,
                macros[name] == nil, functionMacros[name] == nil,
+               selectedDefinitions[name] == nil,
                let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name) {
                 throw unresolvedEnvironment(name, requirement, node.virtualPath, line)
             }

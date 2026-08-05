@@ -218,12 +218,12 @@ final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                     == template.diagnosticProvenance.nodeIndex else {
                 throw Self.failure(.identityInvariant, phase: .invariant)
             }
-            var samplers = seedSamplers
+            var activeSamplers = try SceneResolvedMaterialShaderSchema.bootstrapSamplers(template)
             var seen: Set<UInt8> = []
             for _ in 0 ..< Self.maximumReadinessPasses {
                 let mask = try SceneResolvedMaterialTextureResolver.readinessMask(
                     input,
-                    samplers: samplers
+                    samplers: activeSamplers
                 )
                 guard seen.insert(mask).inserted else {
                     throw Self.failure(
@@ -238,7 +238,7 @@ final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                     samplers: variant.activeSamplers
                 )
                 if next == mask { return .success(variant) }
-                samplers = variant.activeSamplers
+                activeSamplers = variant.activeSamplers
             }
             throw Self.failure(
                 .shaderPreparationFailed,
@@ -323,7 +323,7 @@ final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             throw failure(
                 .shaderFrontendFailed,
                 phase: .frontend,
-                details: frontendOutput.diagnostics.map { $0.code.rawValue }
+                details: SceneResolvedMaterialExecutionCapabilityDiagnostics.frontendFailure(template: template, output: frontendOutput)
             )
         }
         let samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]

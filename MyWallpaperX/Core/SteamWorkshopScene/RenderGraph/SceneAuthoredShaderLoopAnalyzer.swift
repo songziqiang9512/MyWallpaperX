@@ -3,12 +3,16 @@ import Foundation
 nonisolated enum SceneAuthoredShaderLoopAnalyzer {
     struct Output {
         let work: Int
+        let boundedUniformReferences: [SceneAuthoredShaderToken: Int]
+        let constantParameterArraysByFunctionIndex: [Int: Set<String>]
         let diagnostics: [SceneAuthoredShaderFrontendDiagnostic]
     }
 
     private struct FunctionWork {
         var loopWork = 0
         var calls: [Int: Int] = [:]
+        var boundedUniformReferences: [SceneAuthoredShaderToken: Int] = [:]
+        var constantParameterArrays: Set<String> = []
     }
 
     private static let maximumLoopIterations = 256
@@ -18,6 +22,7 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
         functions: [SceneAuthoredShaderSyntaxUnit.Function],
         tokens: [SceneAuthoredShaderToken],
         defines: [String: String],
+        declarations: [SceneAuthoredShaderSyntaxUnit.Declaration],
         stage: SceneShaderContract.StageKind
     ) -> Output {
         let indicesByName = Dictionary(grouping: functions.indices) {
@@ -27,21 +32,37 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
         for index in functions.indices {
             let result = functionWork(
                 in: functions[index].bodyRange,
+                functionBody: functions[index].bodyRange,
                 tokens: tokens,
                 defines: defines,
+                declarations: declarations,
+                parameterArrays: SceneAuthoredShaderBoundedLoopAdmission.parameterArrays(
+                    in: functions[index].parameterRange,
+                    tokens: tokens
+                ),
                 functionIndicesByName: indicesByName,
                 multiplier: 1,
                 stage: stage
             )
             if !result.diagnostics.isEmpty {
-                return Output(work: 0, diagnostics: result.diagnostics)
+                return Output(
+                    work: 0,
+                    boundedUniformReferences: [:],
+                    constantParameterArraysByFunctionIndex: [:],
+                    diagnostics: result.diagnostics
+                )
             }
             directWork[index] = result.work
         }
         guard let mainIndex = functions.indices.first(where: {
             functions[$0].name == "main"
         }) else {
-            return Output(work: 0, diagnostics: [])
+            return Output(
+                work: 0,
+                boundedUniformReferences: [:],
+                constantParameterArraysByFunctionIndex: [:],
+                diagnostics: []
+            )
         }
         let total = expandedWork(
             for: mainIndex,
@@ -49,7 +70,11 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
             path: []
         )
         guard total <= maximumStaticLoopWork else {
-            return Output(work: total, diagnostics: [.init(
+            return Output(
+                work: total,
+                boundedUniformReferences: [:],
+                constantParameterArraysByFunctionIndex: [:],
+                diagnostics: [.init(
                 code: .loopBudgetExceeded,
                 message: "Shader expanded static work \(total) exceeds \(maximumStaticLoopWork).",
                 stage: stage,
@@ -57,7 +82,34 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
                 column: nil
             )])
         }
-        return Output(work: total, diagnostics: [])
+        var bounds: [SceneAuthoredShaderToken: Int] = [:]
+        for work in directWork.values {
+            guard SceneAuthoredShaderBoundedLoopAdmission.mergeBounds(
+                work.boundedUniformReferences,
+                into: &bounds
+            ) else {
+                return Output(
+                    work: total,
+                    boundedUniformReferences: [:],
+                    constantParameterArraysByFunctionIndex: [:],
+                    diagnostics: [.init(
+                    code: .dynamicLoop,
+                    message: "One loop-bound uniform has conflicting array extents.",
+                    stage: stage,
+                    line: nil,
+                    column: nil
+                )])
+            }
+        }
+        let constantArrays = directWork.compactMapValues { work in
+            work.constantParameterArrays.isEmpty ? nil : work.constantParameterArrays
+        }
+        return Output(
+            work: total,
+            boundedUniformReferences: bounds,
+            constantParameterArraysByFunctionIndex: constantArrays,
+            diagnostics: []
+        )
     }
 
     private struct FunctionWorkOutput {
@@ -67,8 +119,11 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
 
     private static func functionWork(
         in range: Range<Int>,
+        functionBody: Range<Int>,
         tokens: [SceneAuthoredShaderToken],
         defines: [String: String],
+        declarations: [SceneAuthoredShaderSyntaxUnit.Declaration],
+        parameterArrays: [String: Int],
         functionIndicesByName: [String: [Int]],
         multiplier: Int,
         stage: SceneShaderContract.StageKind
@@ -92,19 +147,30 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
             guard cursor + 1 < tokens.count,
                   tokens[cursor + 1].text == "(",
                   let close = matchingDelimiter(at: cursor + 1, tokens: tokens),
-                  let iterations = loopIterations(
+                  let body = statementRange(after: close, tokens: tokens),
+                  let loop = loopAdmission(
                       header: (cursor + 2)..<close,
+                      body: body,
+                      functionBody: functionBody,
+                      loopIndex: cursor,
                       tokens: tokens,
-                      defines: defines
+                      defines: defines,
+                      declarations: declarations,
+                      parameterArrays: parameterArrays
                   ),
-                  iterations <= maximumLoopIterations,
-                  let body = statementRange(after: close, tokens: tokens) else {
+                  loop.iterations <= maximumLoopIterations,
+                  SceneAuthoredShaderBoundedLoopAdmission.mergeBounds(
+                      loop.boundedUniformReferences,
+                      into: &result.boundedUniformReferences
+                  ) else {
                 return FunctionWorkOutput(work: .init(), diagnostics: [diagnostic(
                     "Shader for-loop must have a static bound of at most \(maximumLoopIterations).",
                     token: tokens[cursor],
                     stage: stage
                 )])
             }
+            result.constantParameterArrays.formUnion(loop.constantParameterArrays)
+            let iterations = loop.iterations
             let (weightedIterations, overflow) = multiplier.multipliedReportingOverflow(
                 by: iterations
             )
@@ -114,8 +180,11 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
             }
             let nested = functionWork(
                 in: body,
+                functionBody: functionBody,
                 tokens: tokens,
                 defines: defines,
+                declarations: declarations,
+                parameterArrays: parameterArrays,
                 functionIndicesByName: functionIndicesByName,
                 multiplier: weightedIterations,
                 stage: stage
@@ -163,7 +232,12 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
     }
 
     private static func merge(_ source: FunctionWork, into target: inout FunctionWork) -> Bool {
-        guard add(source.loopWork, to: &target.loopWork) else { return false }
+        guard add(source.loopWork, to: &target.loopWork),
+              SceneAuthoredShaderBoundedLoopAdmission.mergeBounds(
+                  source.boundedUniformReferences,
+                  into: &target.boundedUniformReferences
+              ) else { return false }
+        target.constantParameterArrays.formUnion(source.constantParameterArrays)
         for (index, count) in source.calls {
             guard add(count, to: &target.calls[index, default: 0]) else { return false }
         }
@@ -183,46 +257,36 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
         )])
     }
 
-    private static func loopIterations(
+    private static func loopAdmission(
         header: Range<Int>,
+        body: Range<Int>,
+        functionBody: Range<Int>,
+        loopIndex: Int,
         tokens: [SceneAuthoredShaderToken],
-        defines: [String: String]
-    ) -> Int? {
-        let parts = split(range: header, separator: ";", tokens: tokens)
-        guard parts.count == 3 else { return nil }
-        var initialization = Array(tokens[parts[0]].map(\.text))
-        if initialization.first == "int" { initialization.removeFirst() }
-        guard initialization.count == 3,
-              initialization[1] == "=",
-              let start = integer(initialization[2], defines: defines) else {
-            return nil
+        defines: [String: String],
+        declarations: [SceneAuthoredShaderSyntaxUnit.Declaration],
+        parameterArrays: [String: Int]
+    ) -> SceneAuthoredShaderBoundedLoopAdmission.Result? {
+        if let iterations = SceneAuthoredShaderStaticLoopAdmission.iterations(
+            header: header,
+            functionBody: functionBody,
+            loopIndex: loopIndex,
+            tokens: tokens,
+            defines: defines
+        ) {
+            return .init(
+                iterations: iterations,
+                boundedUniformReferences: [:],
+                constantParameterArrays: []
+            )
         }
-        let variable = initialization[0]
-        let condition = Array(tokens[parts[1]].map(\.text))
-        guard condition.count == 3,
-              condition[0] == variable,
-              ["<", "<="].contains(condition[1]),
-              let end = integer(condition[2], defines: defines) else {
-            return nil
-        }
-        let increment = Array(tokens[parts[2]].map(\.text))
-        let step: Int
-        if increment == [variable, "++"] || increment == ["++", variable] {
-            step = 1
-        } else if increment.count == 3,
-                  increment[0] == variable,
-                  increment[1] == "+=",
-                  let value = integer(increment[2], defines: defines), value > 0 {
-            step = value
-        } else {
-            return nil
-        }
-        let distance = end - start + (condition[1] == "<=" ? 1 : 0)
-        return distance <= 0 ? 0 : (distance + step - 1) / step
-    }
-
-    private static func integer(_ token: String, defines: [String: String]) -> Int? {
-        Int(defines[token] ?? token)
+        return SceneAuthoredShaderBoundedLoopAdmission.compile(
+            header: header,
+            body: body,
+            tokens: tokens,
+            declarations: declarations,
+            parameterArrays: parameterArrays
+        )
     }
 
     private static func split(

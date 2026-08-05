@@ -53,6 +53,15 @@ nonisolated enum SceneShaderVariantResolver {
         }
 
         let explicit = explicitCombos.mapValues(Int64.init)
+        if let disabled = schemas.first(where: {
+            $0.isDisabledCombo && explicit[$0.combo] != nil
+        }) {
+            return .failure(.init(
+                code: .disabledComboAnnotation,
+                combo: disabled.combo,
+                message: "Disabled shader combo cannot be overridden by authored material data."
+            ))
+        }
         let providerNames = Set(schemas.map(\.combo)).union(explicit.keys)
         var baseDefinitions = Dictionary(
             uniqueKeysWithValues: Set(schemas.map(\.combo)).map {

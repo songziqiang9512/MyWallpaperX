@@ -319,7 +319,7 @@ extension SceneResolvedMaterialGraphExecutor {
     ) -> SceneShaderColorRepresentation? {
         guard case let .color(.resolved(value)) =
                 resource.publication.candidate.content,
-              value == .opaque || value == .premultipliedAlpha else { return nil }
+              value != .straightAlpha else { return nil }
         return value
     }
 

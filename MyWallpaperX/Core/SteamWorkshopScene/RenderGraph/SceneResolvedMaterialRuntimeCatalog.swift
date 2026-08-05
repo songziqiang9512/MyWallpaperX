@@ -42,6 +42,14 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 case .system: "system"
                 }
             }
+
+            var reportValue: String {
+                switch self {
+                case let .asset(path): "asset:\(path.value)"
+                case let .userProperty(key): "user-property:\(key)"
+                case let .system(name): "system:\(name)"
+                }
+            }
         }
 
         let key: Key
@@ -130,6 +138,9 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 Self.collectResourceDemands(
                     template,
                     key: key,
+                    implicitFramebufferIdentity: record.graph.effects.first {
+                        $0.key == key.effect
+                    }?.input,
                     demands: &demands,
                     userDemands: &userDemands,
                     systemDemands: &systemDemands,
@@ -180,70 +191,118 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
     private static func collectResourceDemands(
         _ template: Template,
         key: Key,
+        implicitFramebufferIdentity: Graph.TextureIdentity?,
         demands: inout Set<SceneAssetTextureIdentity>,
         userDemands: inout Set<SceneUserPropertyTextureIdentity>,
         systemDemands: inout Set<SystemProviderDemand>,
         issues: inout Set<ResourceDemandIssue>
     ) {
-        let samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
+        let samplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
         do {
-            samplers = try SceneResolvedMaterialShaderSchema.unconditionalSamplers(template)
+            samplers = try SceneResolvedMaterialShaderSchema.reachableSamplers(
+                template,
+                implicitFramebufferIdentity: implicitFramebufferIdentity
+            )
         } catch {
+#if DEBUG
+            print(
+                "MWX resolved material sampler reachability rejection:"
+                    + " effect=\(key.effect.effectIndex) node=\(key.nodeIndex)"
+                    + " error=\(String(describing: error))"
+            )
+#endif
             for slot in template.textureSlots.compactMap({ $0 }) {
-                for candidate in slot.candidates {
+                for candidate in demandProjection(for: slot).candidates {
                     recordUnproven(
                         candidate.reference,
                         key: key,
                         slot: slot.index,
                         code: .samplerSchemaUnavailable,
+                        sampler: nil,
                         issues: &issues
                     )
                 }
             }
             return
         }
-        for slot in template.textureSlots.compactMap({ $0 }) {
-            for candidate in slot.candidates {
+        for slotIndex in 0 ..< 8 {
+            let projection = demandProjection(
+                for: template.textureSlots[slotIndex]
+            )
+            for candidate in projection.candidates {
                 let reference = candidate.reference
-                guard let purpose = samplers[slot.index]?.purpose(for: reference) else {
+                guard let slotSamplers = samplers[slotIndex], !slotSamplers.isEmpty else {
                     recordUnproven(
                         reference,
                         key: key,
-                        slot: slot.index,
+                        slot: slotIndex,
                         code: .purposeUnproven,
+                        sampler: nil,
                         issues: &issues
                     )
                     continue
                 }
-                switch reference {
-                case let .asset(path):
-                    demands.insert(.init(path: path, purpose: purpose))
-                case let .userProperty(request):
-                    if let identity = SceneUserPropertyTextureIdentity(
-                        propertyKey: request.key,
-                        purpose: purpose
-                    ) {
-                        userDemands.insert(identity)
+                for sampler in slotSamplers {
+                    guard let purpose = sampler.purpose(for: reference) else {
+                        recordUnproven(
+                            reference,
+                            key: key,
+                            slot: slotIndex,
+                            code: .purposeUnproven,
+                            sampler: sampler,
+                            issues: &issues
+                        )
+                        continue
                     }
-                case let .provider(.system(name)):
-                    systemDemands.insert(.init(name: name, purpose: purpose))
-                case .graph:
-                    break
+                    switch reference {
+                    case let .asset(path):
+                        demands.insert(.init(path: path, purpose: purpose))
+                    case let .userProperty(request):
+                        if let identity = SceneUserPropertyTextureIdentity(
+                            propertyKey: request.key,
+                            purpose: purpose
+                        ) {
+                            userDemands.insert(identity)
+                        }
+                    case let .provider(.system(name)):
+                        systemDemands.insert(.init(name: name, purpose: purpose))
+                    case .graph:
+                        break
+                    }
                 }
             }
-        }
-        for sampler in samplers.values {
-            guard case let .asset(path)? = sampler.defaultTexture else { continue }
-            let reference = Template.TextureReference.asset(path)
-            guard let purpose = sampler.purpose(for: reference) else {
-                issues.insert(.init(
-                    key: key, slot: sampler.slot,
-                    reference: .asset(path), code: .purposeUnproven
-                ))
-                continue
+            guard projection.reachesDefault else { continue }
+            for sampler in samplers[slotIndex] ?? [] {
+                guard case let .asset(path)? = sampler.defaultTexture else { continue }
+                let reference = Template.TextureReference.asset(path)
+                guard let purpose = sampler.purpose(for: reference) else {
+                    Self.diagnoseUnproven(
+                        .asset(path), key: key, slot: sampler.slot,
+                        code: .purposeUnproven, sampler: sampler
+                    )
+                    issues.insert(.init(
+                        key: key, slot: sampler.slot,
+                        reference: .asset(path), code: .purposeUnproven
+                    ))
+                    continue
+                }
+                demands.insert(.init(path: path, purpose: purpose))
             }
-            demands.insert(.init(path: path, purpose: purpose))
         }
+    }
+
+    private static func demandProjection(
+        for slot: Template.TextureSlot?
+    ) -> (candidates: [Template.TextureCandidate], reachesDefault: Bool) {
+        guard let slot else { return ([], true) }
+        var candidates: [Template.TextureCandidate] = []
+        for candidate in slot.candidates.reversed() {
+            candidates.append(candidate)
+            if case .graph = candidate.reference {
+                return (candidates, false)
+            }
+        }
+        return (candidates, true)
     }
 
     private static func recordUnproven(
@@ -251,6 +310,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         key: Key,
         slot: Int,
         code: ResourceDemandIssue.Code,
+        sampler: SceneResolvedMaterialShaderSchema.Sampler?,
         issues: inout Set<ResourceDemandIssue>
     ) {
         let unresolved: ResourceDemandIssue.Reference
@@ -264,7 +324,39 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         case .graph:
             return
         }
+        diagnoseUnproven(
+            unresolved, key: key, slot: slot, code: code, sampler: sampler
+        )
         issues.insert(.init(key: key, slot: slot, reference: unresolved, code: code))
+    }
+
+    private static func diagnoseUnproven(
+        _ reference: ResourceDemandIssue.Reference,
+        key: Key,
+        slot: Int,
+        code: ResourceDemandIssue.Code,
+        sampler: SceneResolvedMaterialShaderSchema.Sampler?
+    ) {
+#if DEBUG
+        let samplerName = sampler?.name ?? "<missing>"
+        let samplerMode = sampler.map { String(describing: $0.mode) } ?? "<missing>"
+        let materialKey = sampler?.materialKey ?? "<none>"
+        let defaultTexture = sampler.map { sampler in
+            switch sampler.defaultTexture {
+            case let .asset(path): "asset:\(path.value)"
+            case let .internalTarget(name): "internal:\(name)"
+            case nil: "<none>"
+            }
+        } ?? "<missing>"
+        print(
+            "MWX resolved material resource demand rejection:"
+                + " effect=\(key.effect.effectIndex) node=\(key.nodeIndex)"
+                + " slot=\(slot) reference=\(reference.reportValue)"
+                + " reason=\(code.rawValue)"
+                + " sampler=\(samplerName) mode=\(samplerMode)"
+                + " material=\(materialKey) default=\(defaultTexture)"
+        )
+#endif
     }
 
     private func demandSummary(_ kind: String, count: Int) -> String {

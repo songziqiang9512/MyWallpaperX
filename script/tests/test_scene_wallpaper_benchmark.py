@@ -4011,7 +4011,8 @@ utility layer 763: skippedHidden kind=composition
             "schema=r4-layer-capability-v2 candidates=2 accepted=1 "
             "rejected=1 variantLimit=8\n"
             "resolved material execution capability: "
-            "schema=r4-layer-route-v1 layer=68 status=accepted\n"
+            "schema=r4-layer-route-v2 layer=68 status=accepted "
+            "dependency=none dependencyReferences=0\n"
         )
         log_text = "\n".join([
             "resolved material runtime audit: schema=r4-graph-executor-v1 "
@@ -4089,7 +4090,7 @@ utility layer 763: skippedHidden kind=composition
         )
         self.assertEqual(metrics["layer_routes"], {
             "has_evidence": True,
-            "schema_version": "r4-layer-route-v1",
+            "schema_version": "r4-layer-route-v2",
             "accepted_layer_ids": [68],
             "observed_layer_ids": [68],
             "compositor_consumed_layer_ids": [68],

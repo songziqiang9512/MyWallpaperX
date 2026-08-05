@@ -24,6 +24,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneMaterialRenderState.swift",
+    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialEffectIngress.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTemplateCompiler.swift",
 ]
 
@@ -499,6 +500,26 @@ enum Harness {
         ])))
 
         let baseNode = node(binding: layerSource())
+        let previousOutput = effectOutput(effectKey(1))
+        var chainedSlots = [SceneResolvedMaterialNode.TextureSlot?].emptySlots
+        chainedSlots[1] = .init(index: 1, candidates: [.init(
+            source: .graph(previousOutput), provenance: .explicitBinding
+        )])
+        let chainedTemplate = template(compile(
+            material(slots: chainedSlots), graph: graph(input: previousOutput)
+        ))
+        let selfInputFailure = failure(compile(
+            material(), graph: graph(input: effectOutput(effectKey()))
+        ))
+        let foreignLayerInput = Graph.TextureIdentity(
+            kind: .effectOutput,
+            layerID: 99,
+            effect: .init(layerID: 99, effectIndex: 1, descriptorID: "foreign"),
+            name: nil
+        )
+        let foreignInputFailure = failure(compile(
+            material(), graph: graph(input: foreignLayerInput)
+        ))
         let blockedGraph = graph(blockers: [.init(
             effect: effectKey(),
             definitionPassIndex: nil,
@@ -578,6 +599,10 @@ enum Harness {
                     referenceToken($0.reference)
                 } == "property:tintTexture",
             "typedGraphRole": projected?.graphRole == expectedRole,
+            "priorEffectOutputIsTypedIngress": chainedTemplate?.graphRole.effectInput
+                == .effectOutput
+                && chainedTemplate?.graphRole.bindings
+                    == [.init(slot: 1, texture: .effectOutput)],
             "combosDeterministic": projected?.combos.map(\.name) == ["A_COMBO", "Z_COMBO"],
             "stateParsedOnly": template(compile(material(blending: "additive")))?
                 .renderState.blending == .additive,
@@ -632,6 +657,8 @@ enum Harness {
             },
             "blockedGraphRejected": failure(compile(material(), graph: blockedGraph))?.phase
                 == .graph,
+            "invalidEffectIngressRejected": selfInputFailure?.code == .graphNodeInvalid
+                && foreignInputFailure?.code == .graphNodeInvalid,
             "duplicateNodeRejected": failure(compile(
                 material(), graph: duplicateNodeGraph
             ))?.code == .graphNodeInvalid,
@@ -760,6 +787,7 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             "precedenceLowToHigh",
             "typedRequests",
             "typedGraphRole",
+            "priorEffectOutputIsTypedIngress",
             "combosDeterministic",
             "stateParsedOnly",
         ])
@@ -769,6 +797,7 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             "unknownFailsClosed",
             "slotShapeFailsClosed",
             "blockedGraphRejected",
+            "invalidEffectIngressRejected",
             "duplicateNodeRejected",
             "orphanNodeRejected",
             "duplicatePartitionRejected",

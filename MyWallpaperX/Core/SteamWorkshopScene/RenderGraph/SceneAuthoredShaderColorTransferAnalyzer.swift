@@ -13,6 +13,28 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         }
         let tokens = fragment.tokens
         let outputUses = tokens.indices.filter { tokens[$0].text == "gl_FragColor" }
+        if outputUses.count != 1,
+           let transfer = SceneAuthoredShaderIndependentAlphaAnalyzer.analyze(
+            outputUses: outputUses,
+            fragment: fragment,
+            main: main
+        ) {
+            return transfer
+        }
+        if let slot = SceneAuthoredShaderSameSlotMixAnalyzer.analyze(
+            outputUses: outputUses,
+            fragment: fragment,
+            main: main
+        ) {
+            return .passthrough(textureSlot: slot)
+        }
+        if let slot = SceneAuthoredShaderOpaqueInputAlphaAnalyzer.analyze(
+            outputUses: outputUses,
+            fragment: fragment,
+            main: main
+        ) {
+            return .straightAlphaPreserving(textureSlot: slot)
+        }
         guard outputUses.count == 1,
               let assignment = outputUses.first,
               assignment + 1 < tokens.count,
@@ -44,6 +66,13 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
             body: main.bodyRange
         ) {
             return .straightAlpha(textureSlot: slot)
+        }
+        if let transfer = SceneAuthoredShaderIndependentAlphaAnalyzer.analyze(
+            outputUses: outputUses,
+            fragment: fragment,
+            main: main
+        ) {
+            return transfer
         }
         return isOpaqueVectorConstruction(expression) ? .opaque : .unresolved
     }
@@ -177,7 +206,7 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         return intermediateUses.isEmpty ? slot : nil
     }
 
-    private static func isUnconditionalWrite(
+    static func isUnconditionalWrite(
         _ assignment: Int,
         tokens: [SceneAuthoredShaderToken],
         body: Range<Int>
@@ -221,7 +250,7 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         }
     }
 
-    private static func assignmentExpression(
+    static func assignmentExpression(
         after assignment: Int,
         in tokens: [SceneAuthoredShaderToken],
         body: Range<Int>
@@ -249,7 +278,7 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         return nil
     }
 
-    private static func directTextureSampleSlot(
+    static func directTextureSampleSlot(
         _ expression: ArraySlice<SceneAuthoredShaderToken>
     ) -> Int? {
         let tokens = Array(expression)

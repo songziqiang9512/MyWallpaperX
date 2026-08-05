@@ -38,8 +38,13 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             for reference: Template.TextureReference
         ) -> SceneTextureLoadPurpose? {
             if let purpose = mode.explicitPurpose { return purpose }
-            guard case .graph = reference else { return nil }
-            return .premultipliedColor
+            if case .graph = reference { return .premultipliedColor }
+            return switch materialKey?.lowercased() {
+            case "albedo": .straightAlbedo
+            case "noise": .noise
+            case "normal": .normal
+            default: nil
+            }
         }
     }
 

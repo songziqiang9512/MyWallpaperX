@@ -209,6 +209,7 @@ extension SceneShaderVariantResolver {
     nonisolated struct Schema: Equatable {
         nonisolated enum Origin: Equatable {
             case authoredCombo
+            case disabledCombo
             case textureReadiness(slot: Int)
         }
 
@@ -224,7 +225,11 @@ extension SceneShaderVariantResolver {
             return slot
         }
 
-        var isAuthoredComboMarker: Bool { origin == .authoredCombo }
+        var isAuthoredComboMarker: Bool {
+            origin == .authoredCombo || origin == .disabledCombo
+        }
+
+        var isDisabledCombo: Bool { origin == .disabledCombo }
     }
 
     nonisolated static func schemas(
@@ -262,12 +267,12 @@ extension SceneShaderVariantResolver {
                     message: "Shader combo annotation has no valid identifier."
                 )
             }
-            if isDisabled(annotation.marker) {
-                throw Failure(
-                    code: .disabledComboAnnotation,
-                    combo: combo,
-                    message: "Disabled shader combo annotation is recognized but not enabled."
-                )
+            if let disabled = try disabledComboSchema(
+                annotation: annotation,
+                object: object,
+                combo: combo
+            ) {
+                return disabled
             }
             let requireAny: Bool
             if let rawRequireAny = object["requireany"] {
@@ -313,7 +318,7 @@ extension SceneShaderVariantResolver {
         }
     }
 
-    private nonisolated static func integer(
+    nonisolated static func integer(
         _ value: SceneShaderAnnotationValue?,
         combo: String
     ) throws -> Int64? {
@@ -329,7 +334,7 @@ extension SceneShaderVariantResolver {
         return integer
     }
 
-    private nonisolated static func options(
+    nonisolated static func options(
         _ value: SceneShaderAnnotationValue?,
         combo: String
     ) throws -> Set<Int64>? {
@@ -349,7 +354,7 @@ extension SceneShaderVariantResolver {
         return Set(parsed)
     }
 
-    private nonisolated static func requirements(
+    nonisolated static func requirements(
         _ value: SceneShaderAnnotationValue?,
         combo: String
     ) throws -> [String: Int64] {
@@ -384,11 +389,5 @@ extension SceneShaderVariantResolver {
               let slot = Int(declaration.name.dropFirst("g_Texture".count)),
               (0 ... 7).contains(slot) else { return nil }
         return slot
-    }
-
-    private nonisolated static func isDisabled(_ marker: String?) -> Bool {
-        guard let marker else { return false }
-        return ["[COMBO_DISABLED]", "[OFF_COMBO]", "[COMBO_OFF]"]
-            .contains(marker)
     }
 }

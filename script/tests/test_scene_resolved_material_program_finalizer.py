@@ -28,17 +28,24 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneShaderMacroExpansion.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+Schema.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+DisabledCombo.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderPreprocessor+Directive.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderPreprocessor.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneMaterialRenderState.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontendModel.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLexer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderBoundedLoopAdmission.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStaticLoopAdmission.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLoopAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVaryingArrayEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontend.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderExecutionPlan.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderUniformBinder.swift",
@@ -57,11 +64,16 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgramIdentity.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram+Derivation.swift",
+    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram+ColorDerivation.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialUniformEncoder.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialShaderSchema.swift",
+    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialShaderSchema+Reachability.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityVariant.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Diagnostics.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureResolver.swift",
+    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureResolver+Launch.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgramFinalizer.swift",
 ]
 
@@ -140,28 +152,41 @@ private typealias Template = SceneResolvedMaterialTemplate
 
 private let fixtureLayerID = 42
 
-private let vertexSource = """
-attribute vec3 a_Position;
-attribute vec2 a_TexCoord;
-varying vec2 v_TexCoord;
-void main() {
-    v_TexCoord = a_TexCoord;
-    gl_Position = vec4(a_Position, 1.0);
+private func vertexSource(samplerMetadata: String?) -> String {
+    let sampler = samplerMetadata.map {
+        "uniform sampler2D g_Texture0; // \($0)"
+    } ?? ""
+    return """
+    attribute vec3 a_Position;
+    attribute vec2 a_TexCoord;
+    varying vec2 v_TexCoord;
+    \(sampler)
+    void main() {
+        v_TexCoord = a_TexCoord;
+        gl_Position = vec4(a_Position, 1.0);
+    }
+    """
 }
-"""
 
 private func fragmentSource(
     samplerMetadata: String?,
     uniformMetadata: String?,
     secondSamplerMetadata: String?,
+    conditionalSecondSampler: Bool,
     arithmetic: Bool = false,
     audioSpectrum: Bool = false
 ) -> String {
     let annotation = samplerMetadata.map { " // \($0)" } ?? ""
     let uniformAnnotation = uniformMetadata.map { " // \($0)" } ?? ""
-    let secondSampler = secondSamplerMetadata.map {
-        "uniform sampler2D g_Texture1; // \($0)"
+    let secondSampler = secondSamplerMetadata.map { metadata in
+        let declaration = "uniform sampler2D g_Texture1; // \(metadata)"
+        return conditionalSecondSampler
+            ? "#if EXTRA == 1\n\(declaration)\n#endif"
+            : declaration
     } ?? ""
+    let combo = conditionalSecondSampler
+        ? #"// [COMBO] {"combo":"EXTRA","default":1}"#
+        : ""
     let output = arithmetic
         ? "texSample2D(g_Texture0, v_TexCoord) * 0.5"
         : "texSample2D(g_Texture0, v_TexCoord)"
@@ -178,6 +203,7 @@ private func fragmentSource(
         : ""
     return """
     varying vec2 v_TexCoord;
+    \(combo)
     uniform sampler2D g_Texture0;\(annotation)
     \(secondSampler)
     \(audioUniforms)
@@ -193,8 +219,10 @@ private func fragmentSource(
 private func contract(
     revision: String,
     samplerMetadata: String? = nil,
+    vertexSamplerMetadata: String? = nil,
     uniformMetadata: String? = #"{"material":"Tint","default":"1 0.5 0.25"}"#,
     secondSamplerMetadata: String? = nil,
+    conditionalSecondSampler: Bool = false,
     arithmetic: Bool = false,
     audioSpectrum: Bool = false
 ) -> SceneShaderContract {
@@ -218,7 +246,11 @@ private func contract(
         )
     }
     let stages = [
-        stage(.vertex, path: "\(revision)/root.vert", source: vertexSource),
+        stage(
+            .vertex,
+            path: "\(revision)/root.vert",
+            source: vertexSource(samplerMetadata: vertexSamplerMetadata)
+        ),
         stage(
             .fragment,
             path: "\(revision)/root.frag",
@@ -226,6 +258,7 @@ private func contract(
                 samplerMetadata: samplerMetadata,
                 uniformMetadata: uniformMetadata,
                 secondSamplerMetadata: secondSamplerMetadata,
+                conditionalSecondSampler: conditionalSecondSampler,
                 arithmetic: arithmetic,
                 audioSpectrum: audioSpectrum
             )
@@ -656,9 +689,14 @@ private func failureToken(
 
 private func samplerPurposeToken(
     _ metadata: String?,
+    vertexMetadata: String? = nil,
     assetReference: Bool = false
 ) -> String {
-    let shader = contract(revision: "sampler-schema", samplerMetadata: metadata)
+    let shader = contract(
+        revision: "sampler-schema",
+        samplerMetadata: metadata,
+        vertexSamplerMetadata: vertexMetadata
+    )
     guard case let .accepted(prepared) =
             SceneAuthoredShaderExecutionPlanner.prepareShaderStages(
                 contract: shader,
@@ -671,6 +709,43 @@ private func samplerPurposeToken(
         let reference: Template.TextureReference = assetReference
             ? .asset(SceneVFSAssetPath("textures/fixture.tex")!)
             : .graph(graphTexture())
+        return sampler.purpose(for: reference)?.reportToken ?? "unproven"
+    } catch {
+        return "schema-invalid"
+    }
+}
+
+private func reachableConditionalPurposeToken() -> String {
+    let shader = contract(
+        revision: "conditional-sampler-schema",
+        samplerMetadata: #"{"material":"framebuffer"}"#,
+        secondSamplerMetadata:
+            #"{"material":"albedo","default":"textures/conditional.tex"}"#,
+        conditionalSecondSampler: true
+    )
+    var conditionalTemplate = template(
+        shader,
+        secondReference: .asset(
+            SceneVFSAssetPath("textures/conditional.tex")!
+        )
+    )
+    conditionalTemplate = Template.validated(
+        textureSlots: conditionalTemplate.textureSlots,
+        combos: [.init(name: "EXTRA", value: 1)],
+        uniformDeclarations: conditionalTemplate.uniformDeclarations,
+        renderState: conditionalTemplate.renderState,
+        graphRole: conditionalTemplate.graphRole,
+        shaderContract: conditionalTemplate.shaderContract,
+        diagnosticProvenance: conditionalTemplate.diagnosticProvenance
+    )!
+    do {
+        guard let sampler = try SceneResolvedMaterialShaderSchema.reachableSamplers(
+            conditionalTemplate,
+            implicitFramebufferIdentity: graphTexture()
+        )[1]?.first else { return "missing" }
+        let reference = Template.TextureReference.asset(
+            SceneVFSAssetPath("textures/conditional.tex")!
+        )
         return sampler.purpose(for: reference)?.reportToken ?? "unproven"
     } catch {
         return "schema-invalid"
@@ -1339,6 +1414,32 @@ private enum Harness {
             "samplerSchema": [
                 "regularGraph": samplerPurposeToken(nil),
                 "regularAsset": samplerPurposeToken(nil, assetReference: true),
+                "albedoAsset": samplerPurposeToken(
+                    #"{"material":"albedo"}"#,
+                    assetReference: true
+                ),
+                "noiseAsset": samplerPurposeToken(
+                    #"{"material":"noise"}"#,
+                    assetReference: true
+                ),
+                "normalAsset": samplerPurposeToken(
+                    #"{"material":"normal"}"#,
+                    assetReference: true
+                ),
+                "normalAssetCaseInsensitive": samplerPurposeToken(
+                    #"{"material":"Normal"}"#,
+                    assetReference: true
+                ),
+                "unknownMaterialAsset": samplerPurposeToken(
+                    #"{"material":"unknown"}"#,
+                    assetReference: true
+                ),
+                "conflictingMaterial": samplerPurposeToken(
+                    #"{"material":"normal"}"#,
+                    vertexMetadata: #"{"material":"noise"}"#,
+                    assetReference: true
+                ),
+                "reachableConditionalAlbedo": reachableConditionalPurposeToken(),
                 "customPurposeIgnored": samplerPurposeToken(#"{"purpose":"mask"}"#),
                 "opacityMask": samplerPurposeToken(#"{"mode":"opacitymask"}"#),
                 "rgbMask": samplerPurposeToken(#"{"mode":"rgbmask"}"#),
@@ -1472,6 +1573,13 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             {
                 "regularGraph": "premultiplied-color",
                 "regularAsset": "unproven",
+                "albedoAsset": "straight-albedo",
+                "noiseAsset": "noise",
+                "normalAsset": "normal",
+                "normalAssetCaseInsensitive": "normal",
+                "unknownMaterialAsset": "unproven",
+                "conflictingMaterial": "schema-invalid",
+                "reachableConditionalAlbedo": "straight-albedo",
                 "customPurposeIgnored": "premultiplied-color",
                 "opacityMask": "mask",
                 "rgbMask": "preserved-channels",

@@ -141,7 +141,11 @@ nonisolated struct SceneAuthoredShaderUniformLayout: Equatable, Hashable, Sendab
 
 nonisolated enum SceneShaderColorTransfer: Equatable, Hashable, Sendable {
     case passthrough(textureSlot: Int)
+    case straightAlphaPreserving(textureSlot: Int)
     case straightAlpha(textureSlot: Int)
+    case independentAlphaSignal(textureSlot: Int)
+    case independentAlphaSignalPreserving(textureSlot: Int)
+    case independentAlphaSignalCompositing(signalSlot: Int, colorSlot: Int)
     case opaque
     case unresolved
 }
@@ -197,8 +201,8 @@ nonisolated struct SceneAuthoredShaderFrontendOutput {
     let diagnostics: [SceneAuthoredShaderFrontendDiagnostic]
 }
 
-nonisolated struct SceneAuthoredShaderToken: Equatable {
-    enum Kind: Equatable {
+nonisolated struct SceneAuthoredShaderToken: Hashable {
+    enum Kind: Hashable {
         case identifier
         case number
         case symbol

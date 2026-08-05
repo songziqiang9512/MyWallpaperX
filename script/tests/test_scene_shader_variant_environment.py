@@ -21,6 +21,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneShaderMacroExpansion.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+Schema.swift",
+    SCENE_ROOT / "RenderGraph/SceneShaderVariantResolver+DisabledCombo.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderPreprocessor+Directive.swift",
     SCENE_ROOT / "RenderGraph/SceneShaderPreprocessor.swift",
 ]
@@ -308,11 +309,18 @@ private func runEnvironmentRequirementFixtures() throws -> [String] {
         environment: plain,
         code: .unresolvedEnvironmentDefine
     )
-    try expectFailure(
-        "#ifdef HLSL\nACTIVE\n#endif",
-        environment: plain,
-        code: .unresolvedEnvironmentDefine
-    )
+    switch preprocess(
+        "#ifdef HLSL_SM30\nBAD\n#else\nNON_HLSL\n#endif",
+        environment: plain
+    ) {
+    case let .success(prepared):
+        try expect(
+            prepared.source == "NON_HLSL",
+            "The GLSL-like frontend selected an HLSL backend branch."
+        )
+    case let .failure(failure):
+        throw HarnessFailure(description: "Known non-HLSL branch failed: \(failure).")
+    }
     try expectFailure(
         "#ifdef PLATFORM_ANDROID\nACTIVE\n#endif",
         environment: plain,
@@ -513,6 +521,39 @@ private func runReadinessFixtures() throws -> [String] {
         disabledFailure.code == .disabledComboAnnotation,
         "Disabled combo marker was silently ignored or enabled."
     )
+    let disabledZero = makeStage(
+        "uniform float u_Disabled; // [COMBO_OFF] {\"combo\":\"DISABLED\",\"default\":0,\"options\":[0,1]}"
+    )
+    let disabledZeroEnvironment = try resolved(variant(disabledZero))
+    let disabledZeroResolution = try resolution(
+        disabledZeroEnvironment,
+        "DISABLED"
+    )
+    try expect(
+        disabledZeroResolution.binding.definition == .defined(.integer(0))
+            && disabledZeroResolution.schemaDeclared,
+        "An exact disabled-zero combo did not stay disabled."
+    )
+    let disabledOverride = try failure(variant(
+        disabledZero,
+        explicit: ["DISABLED": 1]
+    ))
+    try expect(
+        disabledOverride.code == .disabledComboAnnotation,
+        "Authored data overrode an explicitly disabled combo."
+    )
+    for source in [
+        "uniform float u_MissingDefault; // [COMBO_OFF] {\"combo\":\"DISABLED\"}",
+        "uniform float u_BooleanDefault; // [COMBO_OFF] {\"combo\":\"DISABLED\",\"default\":false}",
+        "uniform float u_EmptyRequirement; // [COMBO_OFF] {\"combo\":\"DISABLED\",\"default\":0,\"require\":{}}",
+        "uniform float u_FalseRequireAny; // [COMBO_OFF] {\"combo\":\"DISABLED\",\"default\":0,\"requireany\":false}",
+    ] {
+        let strictDisabledFailure = try failure(variant(makeStage(source)))
+        try expect(
+            strictDisabledFailure.code == .disabledComboAnnotation,
+            "A disabled combo without an exact zero-only contract was accepted."
+        )
+    }
 
     let outOfRangeInteger = makeStage(
         "uniform float u_Large; // [COMBO] {\"combo\":\"LARGE\",\"default\":9223372036854775808}"

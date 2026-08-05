@@ -146,6 +146,7 @@ final class SceneResolvedMaterialPassEncoder {
         switch resolution {
         case .resolved(.opaque): return .opaque
         case .resolved(.premultipliedAlpha): return .premultipliedAlpha
+        case .resolved(.independentAlphaSignal): return .independentAlphaSignal
         case .resolved(.straightAlpha), .unresolved: return nil
         }
     }

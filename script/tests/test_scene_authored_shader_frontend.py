@@ -24,11 +24,17 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneShaderContract.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontendModel.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLexer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderBoundedLoopAdmission.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStaticLoopAdmission.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLoopAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVaryingArrayEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontend.swift",
 ]
 
@@ -41,6 +47,7 @@ private struct HarnessOutput: Codable {
     let staticLoopWork: Int?
     let offscreenWidth: Int?
     let offscreenHeight: Int?
+    let metalSource: String?
     let metalError: String?
 }
 
@@ -84,6 +91,7 @@ private struct AuthoredShaderFrontendHarness {
             offscreenHeight: output.program?.offscreenSize(
                 viewportSize: CGSize(width: 3840, height: 2160)
             ).map { Int($0.height) },
+            metalSource: output.program?.metalSource,
             metalError: metalError
         ))
         FileHandle.standardOutput.write(encoded)
@@ -221,6 +229,302 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertEqual(dynamic["diagnosticCodes"], ["dynamicLoop"])
         self.assertEqual(unbounded["diagnosticCodes"], ["unsupportedControlFlow"])
 
+    def test_function_root_const_int_loop_bound_compiles_to_metal(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            #define CAST_SAMPLE_COUNT 30
+            varying vec2 v_TexCoord;
+            void main() {
+                const int sampleCount = CAST_SAMPLE_COUNT;
+                float value = 0.0;
+                for (int index = 0; index < sampleCount; ++index) {
+                    value += v_TexCoord.x;
+                }
+                gl_FragColor = vec4(value);
+            }
+            """,
+        )
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertEqual(output["staticLoopWork"], 30)
+        self.assertIsNone(output.get("metalError"))
+
+    def test_const_int_loop_bound_rejects_unproven_or_mutable_forms(self):
+        fixtures = [
+            """
+            void main() {
+                int sampleCount = 30;
+                for (int index = 0; index < sampleCount; ++index) {}
+                gl_FragColor = vec4(1.0);
+            }
+            """,
+            """
+            void main() {
+                const float sampleCount = 30.0;
+                for (int index = 0; index < sampleCount; ++index) {}
+                gl_FragColor = vec4(1.0);
+            }
+            """,
+            """
+            void main() {
+                if (true) { const int sampleCount = 30; }
+                for (int index = 0; index < sampleCount; ++index) {}
+                gl_FragColor = vec4(1.0);
+            }
+            """,
+            """
+            void main() {
+                const int sampleCount = 30;
+                if (true) { const int sampleCount = 20; }
+                for (int index = 0; index < sampleCount; ++index) {}
+                gl_FragColor = vec4(1.0);
+            }
+            """,
+            """
+            void main() {
+                const int sampleCount = 30;
+                for (int index = 0; index < sampleCount; ++index) {}
+                sampleCount = 20;
+                gl_FragColor = vec4(1.0);
+            }
+            """,
+            """
+            void main() {
+                for (int index = 0; index < sampleCount; ++index) {}
+                const int sampleCount = 30;
+                gl_FragColor = vec4(1.0);
+            }
+            """,
+            """
+            void main() {
+                const int sampleCount = 300;
+                for (int index = 0; index < sampleCount; ++index) {}
+                gl_FragColor = vec4(1.0);
+            }
+            """,
+        ]
+        for fragment_source in fixtures:
+            with self.subTest(fragment_source=fragment_source):
+                output = self.compile(
+                    VERTEX_SOURCE,
+                    fragment_source,
+                    metal=False,
+                )
+                self.assertEqual(output["diagnosticCodes"], ["dynamicLoop"])
+
+    def test_uniform_bounded_parameter_array_loop_compiles_to_metal(self):
+        output = self.compile(
+            """
+            uniform mat4 g_ModelViewProjectionMatrix;
+            uniform float g_AudioSpectrum16Left[16];
+            uniform float g_AudioSpectrum16Right[16];
+            uniform float g_RangeMinimum;
+            uniform float g_RangeMaximum;
+            attribute vec3 a_Position;
+            attribute vec2 a_TexCoord;
+            varying float v_Value;
+            float accumulate(float bufferLeft[16], float bufferRight[16]) {
+                float value = 0.0;
+                for (int index = int(g_RangeMinimum);
+                     index <= int(g_RangeMaximum);
+                     ++index) {
+                    value += bufferLeft[index];
+                    value += bufferRight[index];
+                }
+                return value / (g_RangeMaximum - g_RangeMinimum + 1.0);
+            }
+            void main() {
+                gl_Position = mul(vec4(a_Position, 1.0),
+                    g_ModelViewProjectionMatrix);
+                v_Value = accumulate(
+                    g_AudioSpectrum16Left,
+                    g_AudioSpectrum16Right
+                );
+            }
+            """,
+            """
+            varying float v_Value;
+            void main() { gl_FragColor = vec4(v_Value); }
+            """,
+        )
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertIsNone(output.get("metalError"))
+        self.assertGreaterEqual(output["staticLoopWork"], 16)
+        self.assertIn(
+            "clamp(mwxUniforms.g_RangeMinimum, 0.0, 15.0)",
+            output["metalSource"],
+        )
+        self.assertIn(
+            "clamp(mwxUniforms.g_RangeMaximum, 0.0, 15.0)",
+            output["metalSource"],
+        )
+        self.assertEqual(
+            output["metalSource"].count(
+                "clamp(mwxUniforms.g_RangeMinimum, 0.0, 15.0)"
+            ),
+            1,
+        )
+        self.assertEqual(
+            output["metalSource"].count(
+                "clamp(mwxUniforms.g_RangeMaximum, 0.0, 15.0)"
+            ),
+            1,
+        )
+        self.assertIn(
+            "mwxUniforms.g_RangeMaximum - mwxUniforms.g_RangeMinimum",
+            output["metalSource"],
+        )
+
+    def test_fixed_float_varying_array_compiles_to_metal(self):
+        output = self.compile(
+            """
+            attribute vec3 a_Position;
+            attribute vec2 a_TexCoord;
+            varying vec2 v_Samples[3];
+            void main() {
+                gl_Position = vec4(a_Position, 1.0);
+                v_Samples[0] = a_TexCoord;
+                v_Samples[1] = a_TexCoord + vec2(0.1);
+                v_Samples[2] = a_TexCoord - vec2(0.1);
+            }
+            """,
+            """
+            varying vec2 v_Samples[3];
+            void main() {
+                gl_FragColor = vec4(
+                    v_Samples[0] + v_Samples[1] + v_Samples[2],
+                    0.0,
+                    1.0
+                );
+            }
+            """,
+        )
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertIsNone(output.get("metalError"))
+
+    def test_varying_array_rejects_mismatch_integer_and_excessive_shapes(self):
+        fixtures = [
+            ("vec2", 3, "vec2", 4),
+            ("ivec2", 3, "ivec2", 3),
+            ("vec2", 17, "vec2", 17),
+        ]
+        for vertex_type, vertex_count, fragment_type, fragment_count in fixtures:
+            with self.subTest(
+                vertex_type=vertex_type,
+                vertex_count=vertex_count,
+                fragment_type=fragment_type,
+                fragment_count=fragment_count,
+            ):
+                output = self.compile(
+                    f"""
+                    attribute vec3 a_Position;
+                    varying {vertex_type} v_Samples[{vertex_count}];
+                    void main() {{
+                        gl_Position = vec4(a_Position, 1.0);
+                        v_Samples[0] = {vertex_type}(0);
+                    }}
+                    """,
+                    f"""
+                    varying {fragment_type} v_Samples[{fragment_count}];
+                    void main() {{ gl_FragColor = vec4(v_Samples[0], 0.0, 1.0); }}
+                    """,
+                    metal=False,
+                )
+                self.assertIn(
+                    output["diagnosticCodes"][0],
+                    ["unsupportedType", "stageLinkMismatch"],
+                )
+
+        dynamic_index = self.compile(
+            """
+            attribute vec3 a_Position;
+            varying vec2 v_Samples[3];
+            void main() {
+                gl_Position = vec4(a_Position, 1.0);
+                v_Samples[0] = vec2(0.0);
+            }
+            """,
+            """
+            uniform int g_Index;
+            varying vec2 v_Samples[3];
+            void main() { gl_FragColor = vec4(v_Samples[g_Index], 0.0, 1.0); }
+            """,
+            metal=False,
+        )
+        self.assertEqual(dynamic_index["diagnosticCodes"], ["unsupportedType"])
+
+    def test_uniform_bounded_parameter_array_loop_rejects_unproven_shapes(self):
+        fixtures = [
+            """
+            uniform float g_Minimum;
+            uniform float g_Maximum;
+            float accumulate(float values[16]) {
+                float value = 0.0;
+                for (int index = int(g_Minimum); index <= int(g_Maximum); ++index) {
+                    value += values[index] + float(index);
+                }
+                return value;
+            }
+            void main() { gl_FragColor = vec4(1.0); }
+            """,
+            """
+            uniform float g_Minimum;
+            uniform float g_Maximum;
+            float accumulate(float left[16], float right[32]) {
+                float value = 0.0;
+                for (int index = int(g_Minimum); index <= int(g_Maximum); ++index) {
+                    value += left[index] + right[index];
+                }
+                return value;
+            }
+            void main() { gl_FragColor = vec4(1.0); }
+            """,
+            """
+            uniform int g_Minimum;
+            uniform float g_Maximum;
+            float accumulate(float values[16]) {
+                float value = 0.0;
+                for (int index = int(g_Minimum); index <= int(g_Maximum); ++index) {
+                    value += values[index];
+                }
+                return value;
+            }
+            void main() { gl_FragColor = vec4(1.0); }
+            """,
+            """
+            uniform float g_Minimum;
+            uniform float g_Maximum;
+            float accumulate(float values[257]) {
+                float value = 0.0;
+                for (int index = int(g_Minimum); index <= int(g_Maximum); ++index) {
+                    value += values[index];
+                }
+                return value;
+            }
+            void main() { gl_FragColor = vec4(1.0); }
+            """,
+            """
+            uniform float g_Minimum;
+            uniform float g_Maximum;
+            float accumulate(float values[16]) {
+                float value = 0.0;
+                for (int index = int(g_Minimum); index <= int(g_Maximum); index += 1) {
+                    value += values[index];
+                }
+                return value;
+            }
+            void main() { gl_FragColor = vec4(1.0); }
+            """,
+        ]
+        for fragment_source in fixtures:
+            with self.subTest(fragment_source=fragment_source):
+                output = self.compile(
+                    VERTEX_SOURCE,
+                    fragment_source,
+                    metal=False,
+                )
+                self.assertEqual(output["diagnosticCodes"], ["dynamicLoop"])
+
     def test_recursion_and_static_work_over_budget_fail_closed(self):
         recursive = self.compile(
             VERTEX_SOURCE,
@@ -302,16 +606,52 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         )
         self.assertEqual(output["diagnosticCodes"], ["stageLinkMismatch"])
 
+    def test_unused_fragment_varying_does_not_require_a_vertex_output(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            varying vec2 v_TexCoord;
+            varying vec2 v_Unused;
+            void main() { gl_FragColor = vec4(v_TexCoord, 0.0, 1.0); }
+            """,
+        )
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertIsNone(output.get("metalError"))
+
+    def test_unused_uniform_does_not_enter_the_runtime_abi(self):
+        output = self.compile(
+            """
+            uniform mat4 g_ModelViewProjectionMatrix;
+            uniform vec4 g_Texture1Resolution;
+            attribute vec3 a_Position;
+            attribute vec2 a_TexCoord;
+            varying vec2 v_TexCoord;
+            void main() {
+                gl_Position = mul(vec4(a_Position, 1.0),
+                    g_ModelViewProjectionMatrix);
+                v_TexCoord = a_TexCoord;
+            }
+            """,
+            """
+            varying vec2 v_TexCoord;
+            void main() { gl_FragColor = vec4(v_TexCoord, 0.0, 1.0); }
+            """,
+        )
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertNotIn("g_Texture1Resolution", output["metalSource"])
+        self.assertIsNone(output.get("metalError"))
+
     def test_uniform_upload_budget_fails_closed(self):
         declarations = "\n".join(
             f"uniform vec4 u_Value{index};" for index in range(300)
         )
+        references = " + ".join(f"u_Value{index}" for index in range(300))
         output = self.compile(
             VERTEX_SOURCE,
             f"""
             {declarations}
             varying vec2 v_TexCoord;
-            void main() {{ gl_FragColor = vec4(v_TexCoord, 0.0, 1.0); }}
+            void main() {{ gl_FragColor = {references}; }}
             """,
             metal=False,
         )

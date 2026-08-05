@@ -2372,7 +2372,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
     def test_resource_demands_share_schema_and_never_guess_regular_assets(self) -> None:
         source = RUNTIME_CATALOG.read_text(encoding="utf-8")
         self.assertIn(
-            "SceneResolvedMaterialShaderSchema.unconditionalSamplers",
+            "SceneResolvedMaterialShaderSchema.reachableSamplers",
             source,
         )
         self.assertIn("sampler.purpose(for: reference)", source)
@@ -2380,7 +2380,15 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("systemProviderDemands", source)
         self.assertIn("sampler-schema-unavailable", source)
         self.assertIn("texture-purpose-unproven", source)
+        self.assertIn("sampler=\\(samplerName)", source)
+        self.assertIn("mode=\\(samplerMode)", source)
+        self.assertIn("material=\\(materialKey)", source)
+        self.assertIn("default=\\(defaultTexture)", source)
         self.assertNotIn("purpose: .premultipliedColor", source)
+        self.assertIn("slot.candidates.reversed()", source)
+        self.assertIn("if case .graph = candidate.reference", source)
+        self.assertIn("return (candidates, false)", source)
+        self.assertIn("guard projection.reachesDefault", source)
 
     def test_asset_catalog_is_eager_exact_and_fail_closed(self) -> None:
         source = ASSET_CATALOG.read_text(encoding="utf-8")

@@ -101,19 +101,27 @@ struct SceneTextureSlotBinding {
             && candidate.texture.usage.contains(.shaderRead)
             && candidate.pixelFormat != .invalid
             && !candidate.purpose.requiresVolumeTexture
-            && valid(content: candidate.content, purpose: candidate.purpose)
+            && valid(
+                content: candidate.content,
+                purpose: candidate.purpose,
+                identity: candidate.identity
+            )
             && valid(candidate.uvTransform)
     }
 
     private static func valid(
         content: SceneTextureContent,
-        purpose: SceneTextureLoadPurpose
+        purpose: SceneTextureLoadPurpose,
+        identity: SceneTextureResourceIdentity
     ) -> Bool {
         switch (purpose, content) {
         case (.premultipliedColor, .color(.resolved(.premultipliedAlpha))),
              (.premultipliedColor, .color(.resolved(.opaque))),
              (.straightAlbedo, .color(.resolved(.straightAlpha))),
              (.straightAlbedo, .color(.resolved(.opaque))):
+            return true
+        case (.premultipliedColor, .color(.resolved(.independentAlphaSignal))):
+            guard case .provider(.graph) = identity else { return false }
             return true
         case (.premultipliedColor, _), (.straightAlbedo, _):
             return false

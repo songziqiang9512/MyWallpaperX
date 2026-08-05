@@ -68,6 +68,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let pairPlan: SceneLayerFullFramePairPlan
         let materials: [MaterialKey: MaterialCapability]
         let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
+        let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
 
         fileprivate let capabilityID = UUID()
 
@@ -80,6 +81,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             pairPlan = admitted.pairPlan
             self.materials = materials
             fullFrameExtentPolicy = .standard
+            dependencyOwnership = admitted.dependencyOwnership
         }
 
         func material(for node: Graph.Node) -> MaterialCapability? {
@@ -215,9 +217,17 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             "resolved material execution capability rejection: \($0)"
                 + " count=\(rejectedReasons[$0] ?? 0)"
         }
-        result += capabilitiesByLayerID.keys.sorted().map {
-            "resolved material execution capability: schema=r4-layer-route-v1"
-                + " layer=\($0) status=accepted"
+        result += capabilitiesByLayerID.keys.sorted().map { layerID in
+            guard let dependency = capabilitiesByLayerID[layerID]?
+                .dependencyOwnership else {
+                return "resolved material execution capability: schema=r4-layer-route-v2"
+                    + " layer=\(layerID) status=accepted"
+                    + " dependency=missing dependencyReferences=0"
+            }
+            return "resolved material execution capability: schema=r4-layer-route-v2"
+                + " layer=\(layerID) status=accepted"
+                + " dependency=\(dependency.reportKind)"
+                + " dependencyReferences=\(dependency.referenceCount)"
         }
         return result
     }
@@ -240,12 +250,15 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             for node in product.graph.nodes {
                 guard case .material = node.kind else { continue }
                 let key = MaterialKey(effect: node.effect, nodeIndex: node.nodeIndex)
-                guard !demandIssueKeys.contains(key),
-                      case let .template(template)? = materialCatalog.entry(for: node),
-                      exactTemplate(template, node: node, effect: effect),
-                      template.renderState.matchesFullscreenOverwrite(
-                          alphaWriting: .unspecified
-                      ), materials[key] == nil else {
+                guard let template =
+                        SceneResolvedMaterialExecutionCapabilityTemplateAdmission.resolve(
+                            node: node,
+                            effect: effect,
+                            key: key,
+                            materialCatalog: materialCatalog,
+                            demandIssueKeys: demandIssueKeys,
+                            existingKeys: Set(materials.keys)
+                        ) else {
                     return .failure(rejection("material-template-unsupported"))
                 }
                 guard let variants = SceneResolvedMaterialVariantCache(
@@ -259,6 +272,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 if case let .failure(failure) = variants.precompileLaunchEnvelope(
                     implicitFramebufferIdentity: effect.input
                 ) {
+                    SceneResolvedMaterialExecutionCapabilityEnvelopeDiagnostics
+                        .launchEnvelopeFailure(template: template, failure: failure)
                     return .failure(rejection(
                         "material-variant-envelope-\(failure.kind.rawValue)"
                     ))
@@ -281,47 +296,6 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             return .failure(rejection("material-capability-empty"))
         }
         return .success(materials)
-    }
-
-    private static func exactTemplate(
-        _ template: Template,
-        node: Graph.Node,
-        effect: Graph.Effect
-    ) -> Bool {
-        guard template.diagnosticProvenance.nodeIndex == node.nodeIndex,
-              let input = Template.GraphTextureRole(
-                  rawValue: effect.input.kind.rawValue
-              ), let output = Template.GraphTextureRole(
-                  rawValue: effect.output.kind.rawValue
-              ), let targetKind = node.target?.kind,
-              let target = Template.GraphTextureRole(
-                  rawValue: targetKind.rawValue
-              ) else { return false }
-        let roles = node.bindings.compactMap { binding -> Template.GraphBindingRole? in
-            guard let slot = binding.slot,
-                  let texture = Template.GraphTextureRole(
-                      rawValue: binding.texture.kind.rawValue
-                  ) else { return nil }
-            return .init(slot: slot, texture: texture)
-        }
-        guard roles.count == node.bindings.count,
-              template.graphRole == .init(
-                  effectInput: input,
-                  effectOutput: output,
-                  nodeTarget: target,
-                  bindings: roles
-              ) else { return false }
-        let admittedBindings = Dictionary(grouping: node.bindings, by: \.slot)
-        for index in template.textureSlots.indices {
-            let graphReferences = template.textureSlots[index]?.candidates.compactMap {
-                candidate -> Graph.TextureIdentity? in
-                guard case let .graph(identity) = candidate.reference else { return nil }
-                return identity
-            } ?? []
-            let expected = (admittedBindings[index] ?? []).map(\.texture)
-            guard graphReferences == expected else { return false }
-        }
-        return true
     }
 
     /// This launch-time gate is intentionally no broader than Finalizer's

@@ -16,15 +16,6 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         var frontend: SceneAuthoredShaderProgram { variant.frontendProgram }
     }
 
-    struct LaunchReadinessProjection {
-        let requiredMask: UInt8
-        let optionalMask: UInt8
-
-        func mask(optionalAvailability: UInt8) -> UInt8 {
-            requiredMask | (optionalMask & optionalAvailability)
-        }
-    }
-
     private enum Selection: Hashable {
         case absent
         case reference(
@@ -62,89 +53,6 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
             variant: variant,
             slots: try textureSlots(input, variant: variant)
         )
-    }
-
-    /// Projects runtime texture precedence without consulting a frame.
-    static func launchReadinessProjection(
-        template: Template,
-        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
-        implicitFramebufferIdentity: Graph.TextureIdentity?
-    ) -> Result<LaunchReadinessProjection, Failure> {
-        do {
-            guard template.textureSlots.count == 8,
-                  samplers.keys.allSatisfy((0 ..< 8).contains) else {
-                throw failure(.activeSamplerSchemaInvalid)
-            }
-            var required: UInt8 = 0
-            var optional: UInt8 = 0
-            for index in 0 ..< 8 {
-                let bit = UInt8(1) << UInt8(index)
-                let sampler = samplers[index]
-                var reachesFallback = true
-                var hasOptionalSource = false
-                if let slot = template.textureSlots[index] {
-                    guard slot.index == index else {
-                        throw failure(.identityInvariant, phase: .invariant)
-                    }
-                    for candidate in slot.candidates.reversed() {
-                        guard let sampler,
-                              sampler.purpose(for: candidate.reference) != nil else {
-                            throw failure(.texturePurposeUnproven, slot: index)
-                        }
-                        switch candidate.reference {
-                        case .asset, .userProperty:
-                            hasOptionalSource = true
-                        case .provider, .graph:
-                            required |= bit
-                            reachesFallback = false
-                        }
-                        if !reachesFallback { break }
-                    }
-                }
-                if reachesFallback, let sampler {
-                    switch sampler.defaultTexture {
-                    case let .asset(path):
-                        let reference = Template.TextureReference.asset(path)
-                        guard sampler.purpose(for: reference) != nil else {
-                            throw failure(.texturePurposeUnproven, slot: index)
-                        }
-                        hasOptionalSource = true
-                    case .internalTarget:
-                        throw failure(.textureBindingInvalid, slot: index)
-                    case nil:
-                        break
-                    }
-                    if sampler.materialKey?.caseInsensitiveCompare("framebuffer") == .orderedSame,
-                       let identity = implicitFramebufferIdentity {
-                        guard identity.kind == .layerSource
-                                || identity.kind == .effectOutput,
-                              identity.name == nil,
-                              sampler.purpose(for: .graph(identity)) != nil else {
-                            throw failure(.textureReferenceInvalid, slot: index)
-                        }
-                        required |= bit
-                    }
-                }
-                if required & bit == 0, hasOptionalSource { optional |= bit }
-            }
-            for slot in SceneResolvedMaterialShaderSchema.implicitFramebufferSlots(template: template, samplers: samplers) {
-                guard let identity = implicitFramebufferIdentity,
-                      (identity.kind == .layerSource
-                          || identity.kind == .effectOutput),
-                      identity.name == nil else {
-                    throw failure(.textureReferenceInvalid, slot: slot)
-                }
-                required |= UInt8(1) << UInt8(slot)
-            }
-            return .success(.init(
-                requiredMask: required,
-                optionalMask: optional
-            ))
-        } catch let error as Failure {
-            return .failure(error)
-        } catch {
-            return .failure(failure(.identityInvariant, phase: .invariant))
-        }
     }
 
     private static func textureSelections(

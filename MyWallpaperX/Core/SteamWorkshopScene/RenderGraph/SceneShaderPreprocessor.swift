@@ -233,6 +233,7 @@ extension SceneShaderPreprocessor {
         }
 
         mutating func expand(_ line: SceneShaderLexicalLine, path: String, line lineNumber: Int) throws -> String {
+            let definitions = selectedDefinitions
             do {
                 return try SceneShaderLexicalExpander.expand(
                     line,
@@ -240,7 +241,8 @@ extension SceneShaderPreprocessor {
                     functionMacros: functionMacros,
                     limits: limits
                 ) { name in
-                    if let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name) {
+                    if definitions[name] == nil,
+                       let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name) {
                         throw Failure(diagnostics: [Diagnostic(
                             code: .unresolvedEnvironmentDefine,
                             message: "Shader macro '\(name)' requires an explicit \(requirement.rawValue) source.",
@@ -275,7 +277,9 @@ extension SceneShaderPreprocessor {
             do {
                 let tokens = try ExpressionLexer.tokenize(expression, limit: limits.maximumExpressionTokens)
                 for case let .identifier(name) in tokens
-                    where name != "defined" && macros[name] == nil && functionMacros[name] == nil {
+                    where name != "defined" && macros[name] == nil
+                        && functionMacros[name] == nil
+                        && selectedDefinitions[name] == nil {
                     if let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name) {
                         throw unresolvedEnvironment(name, requirement, path, line)
                     }

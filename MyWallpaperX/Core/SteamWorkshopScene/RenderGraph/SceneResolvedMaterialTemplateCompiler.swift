@@ -70,7 +70,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
             guard effect.key.layerID == graph.layerID,
                   !effect.nodeIndices.isEmpty,
                   Set(effect.nodeIndices).count == effect.nodeIndices.count,
-                  validTexture(effect.input, layerID: graph.layerID, effects: effectKeys),
+                  SceneResolvedMaterialEffectIngress.accepts(effect.input, layerID: graph.layerID, owner: effect.key),
                   validTexture(effect.output, layerID: graph.layerID, effects: effectKeys),
                   effect.output.kind == .effectOutput,
                   effect.output.effect == effect.key else {

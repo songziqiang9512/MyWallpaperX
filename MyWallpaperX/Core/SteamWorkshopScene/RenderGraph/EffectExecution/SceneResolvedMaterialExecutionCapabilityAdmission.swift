@@ -6,6 +6,7 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
     let layerID: Int
     let products: [SceneGraphAdmissionProduct]
     let pairPlan: SceneLayerFullFramePairPlan
+    let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
 }
 
 /// Raw-graph conservation and condition/function admission for one launch.
@@ -59,11 +60,19 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                     result: .failure(failure("descriptor-layer-count"))
                 )
             }
+            let dependencyOwnership = SceneResolvedMaterialDependencyOwnershipCompiler
+                .compile(
+                    layer: layer,
+                    graph: (rawGroups[layerID]?.count == 1)
+                        ? rawGroups[layerID]?.first : nil,
+                    references: dependencyPlan.references.filter {
+                        $0.consumerLayerID == layerID
+                    }
+                )
             if let reason = executionRouteRejection(
                 layer,
                 visibleLayerIDs: visibleLayerIDs,
-                namedReferenceConsumerLayerIDs:
-                    dependencyPlan.namedReferenceConsumerLayerIDs,
+                dependencyOwnership: dependencyOwnership,
                 specializedLayerIDs: specializedLayerIDs
             ) {
                 return .init(
@@ -87,7 +96,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                 )
             }
             let graphs = rawGroups[layerID] ?? []
-            guard graphs.count == 1, let graph = graphs.first else {
+            guard graphs.count == 1, let graph = graphs.first,
+                  let dependencyOwnership else {
                 return .init(
                     layerID: layerID,
                     result: .failure(failure("raw-graph-count"))
@@ -99,7 +109,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                     graph: graph,
                     layer: layer,
                     activeEffects: activeEffects,
-                    descriptor: descriptor
+                    descriptor: descriptor,
+                    dependencyOwnership: dependencyOwnership
                 )
             )
         }
@@ -108,7 +119,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
     private static func executionRouteRejection(
         _ layer: SceneRenderDescriptor.Layer,
         visibleLayerIDs: Set<Int>,
-        namedReferenceConsumerLayerIDs: Set<Int>,
+        dependencyOwnership: SceneResolvedMaterialDependencyOwnership?,
         specializedLayerIDs: Set<Int>
     ) -> String? {
         guard visibleLayerIDs.contains(layer.id) else {
@@ -120,9 +131,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         guard case .none = layer.utilityLayer else {
             return "execution-route-utility-owner"
         }
-        guard layer.dependencyLayerIDs.isEmpty,
-              layer.authoredDependencies.isEmpty,
-              !namedReferenceConsumerLayerIDs.contains(layer.id) else {
+        guard dependencyOwnership != nil else {
             return "execution-route-dependency-owner"
         }
         guard !specializedLayerIDs.contains(layer.id) else {
@@ -135,7 +144,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         graph: Graph,
         layer: SceneRenderDescriptor.Layer,
         activeEffects: [(offset: Int, element: SceneRenderDescriptor.EffectDescriptor)],
-        descriptor: SceneRenderDescriptor
+        descriptor: SceneRenderDescriptor,
+        dependencyOwnership: SceneResolvedMaterialDependencyOwnership
     ) -> Result<SceneResolvedMaterialAdmittedLayer, Failure> {
         do {
             guard graph.effects.count <= maximumEffectsPerLayer,
@@ -193,7 +203,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
             return .success(.init(
                 layerID: graph.layerID,
                 products: products,
-                pairPlan: pair
+                pairPlan: pair,
+                dependencyOwnership: dependencyOwnership
             ))
         } catch let rejection as Failure {
             return .failure(rejection)

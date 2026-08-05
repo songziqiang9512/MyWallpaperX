@@ -137,7 +137,8 @@ struct SceneFrameTextureResource {
         }
         switch publication.candidate.content {
         case .color(.resolved(.opaque)),
-             .color(.resolved(.premultipliedAlpha)):
+             .color(.resolved(.premultipliedAlpha)),
+             .color(.resolved(.independentAlphaSignal)):
             return true
         case .color(.resolved(.straightAlpha)), .color(.unresolved), .data:
             return false

@@ -1,6 +1,26 @@
 import Foundation
 
 nonisolated enum SceneAuthoredShaderMetalSource {
+    static func mergedDefines(
+        _ first: [String: String],
+        _ second: [String: String]
+    ) -> (defines: [String: String]?, diagnostics: [SceneAuthoredShaderFrontendDiagnostic]) {
+        var result = first
+        for (name, value) in second {
+            if let existing = result[name], existing != value {
+                return (nil, [.init(
+                    code: .malformedDefine,
+                    message: "Shader stages define '\(name)' with conflicting values.",
+                    stage: nil,
+                    line: nil,
+                    column: nil
+                )])
+            }
+            result[name] = value
+        }
+        return (result, [])
+    }
+
     static func prelude(
         defines: [String: String],
         colorTransfer: SceneShaderColorTransfer
@@ -41,11 +61,22 @@ nonisolated enum SceneAuthoredShaderMetalSource {
     }
 
     static func stageStructs(
-        varyings: [(String, SceneAuthoredShaderValueType)]
+        varyings: [(String, SceneAuthoredShaderValueType, Int?)]
     ) -> String {
-        let fields = varyings.enumerated().map { index, varying in
-            "    \(varying.1.metalName) \(varying.0) [[user(locn\(index))]];"
-        }.joined(separator: "\n")
+        var location = 0
+        var fields: [String] = []
+        for varying in varyings {
+            let elementCount = varying.2 ?? 1
+            for element in 0..<elementCount {
+                let suffix = varying.2 == nil ? "" : "_\(element)"
+                fields.append(
+                    "    \(varying.1.metalName) \(varying.0)\(suffix) "
+                        + "[[user(locn\(location))]];"
+                )
+                location += 1
+            }
+        }
+        let fieldSource = fields.joined(separator: "\n")
         return """
         struct SceneAuthoredVertexAttributes {
             float3 a_Position;
@@ -54,12 +85,12 @@ nonisolated enum SceneAuthoredShaderMetalSource {
 
         struct SceneAuthoredVertexOutput {
             float4 position [[position]];
-        \(fields)
+        \(fieldSource)
         };
 
         struct SceneAuthoredFragmentInput {
             float4 position [[position]];
-        \(fields)
+        \(fieldSource)
         };
         """
     }
@@ -97,10 +128,13 @@ nonisolated enum SceneAuthoredShaderMetalSource {
     ) -> String {
         let resources = wrapperResourceParameters(textures: textures)
         let arguments = contextArguments(stage: .fragment, textures: textures)
-        let result = if case .straightAlpha = colorTransfer {
-            "mwxPremultiply(mwxFragColor)"
-        } else {
-            "mwxFragColor"
+        let result: String
+        switch colorTransfer {
+        case .straightAlphaPreserving, .straightAlpha,
+             .independentAlphaSignalCompositing:
+            result = "mwxPremultiply(mwxFragColor)"
+        default:
+            result = "mwxFragColor"
         }
         return """
         fragment float4 sceneAuthoredFragment(
@@ -117,7 +151,13 @@ nonisolated enum SceneAuthoredShaderMetalSource {
     private static func colorBoundaryHelpers(
         for transfer: SceneShaderColorTransfer
     ) -> String {
-        guard case .straightAlpha = transfer else { return "" }
+        switch transfer {
+        case .straightAlphaPreserving, .straightAlpha, .independentAlphaSignal,
+             .independentAlphaSignalCompositing:
+            break
+        default:
+            return ""
+        }
         return """
         float4 mwxUnpremultiply(float4 color) {
             const float alpha = saturate(color.a);
@@ -134,7 +174,29 @@ nonisolated enum SceneAuthoredShaderMetalSource {
         """
     }
 
-    private static func contextArguments(
+    static func contextParameterList(
+        stage: SceneShaderContract.StageKind,
+        textures: [SceneAuthoredShaderProgram.TextureBinding]
+    ) -> String {
+        var parameters = stage == .vertex
+            ? [
+                "SceneAuthoredVertexAttributes mwxAttributes",
+                "thread SceneAuthoredVertexOutput &mwxOutput",
+                "constant SceneAuthoredUniforms &mwxUniforms",
+            ]
+            : [
+                "SceneAuthoredFragmentInput mwxInput",
+                "thread float4 &mwxFragColor",
+                "constant SceneAuthoredUniforms &mwxUniforms",
+            ]
+        for texture in textures {
+            parameters.append("texture2d<float> mwxTexture\(texture.slot)")
+            parameters.append("sampler mwxSampler\(texture.slot)")
+        }
+        return parameters.joined(separator: ", ")
+    }
+
+    static func contextArguments(
         stage: SceneShaderContract.StageKind,
         textures: [SceneAuthoredShaderProgram.TextureBinding]
     ) -> String {
@@ -146,6 +208,10 @@ nonisolated enum SceneAuthoredShaderMetalSource {
             arguments.append("mwxSampler\(texture.slot)")
         }
         return arguments.joined(separator: ", ")
+    }
+
+    static func functionPrefix(_ stage: SceneShaderContract.StageKind) -> String {
+        stage == .vertex ? "mwxV_" : "mwxF_"
     }
 
     private static func wrapperResourceParameters(

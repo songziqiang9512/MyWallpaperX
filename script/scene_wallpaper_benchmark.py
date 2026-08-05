@@ -523,9 +523,15 @@ RESOLVED_MATERIAL_LAYER_CAPABILITY_RE = re.compile(
     r"candidates=(?P<candidates>\d+) accepted=(?P<accepted>\d+) "
     r"rejected=(?P<rejected>\d+) variantLimit=(?P<variant_limit>\d+)(?=\s|$)"
 )
-RESOLVED_MATERIAL_LAYER_ROUTE_RE = re.compile(
+RESOLVED_MATERIAL_LAYER_ROUTE_V1_RE = re.compile(
     r"resolved material execution capability: "
     r"schema=r4-layer-route-v1 layer=(?P<id>\d+) status=accepted"
+)
+RESOLVED_MATERIAL_LAYER_ROUTE_V2_RE = re.compile(
+    r"resolved material execution capability: "
+    r"schema=r4-layer-route-v2 layer=(?P<id>\d+) status=accepted "
+    r"dependency=(?P<dependency>none|graph-internal) "
+    r"dependencyReferences=(?P<dependency_references>\d+)"
 )
 RESOLVED_MATERIAL_GRAPH_EXECUTOR_RE = re.compile(
     r"resolved material runtime audit: schema=r4-graph-executor-v1 "
@@ -2117,16 +2123,30 @@ def resolved_material_graph_execution_metrics(
     route_lines = [
         line.strip()
         for line in preview_text.splitlines()
-        if "schema=r4-layer-route-v1" in line
+        if "schema=r4-layer-route-v" in line
     ]
     accepted_layer_observations: list[int] = []
+    route_schema_versions: list[str] = []
     malformed_route_count = 0
     for line in route_lines:
-        match = RESOLVED_MATERIAL_LAYER_ROUTE_RE.fullmatch(line)
-        if match is None:
-            malformed_route_count += 1
-        else:
-            accepted_layer_observations.append(int(match.group("id")))
+        current = RESOLVED_MATERIAL_LAYER_ROUTE_V2_RE.fullmatch(line)
+        if current is not None:
+            dependency = current.group("dependency")
+            reference_count = int(current.group("dependency_references"))
+            if (dependency == "none" and reference_count != 0) or (
+                dependency == "graph-internal" and reference_count == 0
+            ):
+                malformed_route_count += 1
+                continue
+            accepted_layer_observations.append(int(current.group("id")))
+            route_schema_versions.append("r4-layer-route-v2")
+            continue
+        legacy = RESOLVED_MATERIAL_LAYER_ROUTE_V1_RE.fullmatch(line)
+        if legacy is not None:
+            accepted_layer_observations.append(int(legacy.group("id")))
+            route_schema_versions.append("r4-layer-route-v1")
+            continue
+        malformed_route_count += 1
     accepted_layer_ids = sorted(set(accepted_layer_observations))
     accepted_layer_counts: dict[int, int] = {}
     for layer_id in accepted_layer_observations:
@@ -2139,6 +2159,11 @@ def resolved_material_graph_execution_metrics(
     if malformed_route_count:
         capability_failures.append(
             "resolved material graph accepted layer evidence malformed"
+        )
+    route_schema_version_set = set(route_schema_versions)
+    if len(route_schema_version_set) > 1:
+        capability_failures.append(
+            "resolved material graph accepted layer evidence schema conflicts"
         )
     if duplicate_accepted_layer_ids:
         capability_failures.append(
@@ -2469,7 +2494,8 @@ def resolved_material_graph_execution_metrics(
         "layer_routes": {
             "has_evidence": route_evidence_complete,
             "schema_version": (
-                "r4-layer-route-v1" if route_lines else None
+                next(iter(route_schema_version_set))
+                if len(route_schema_version_set) == 1 else None
             ),
             "accepted_layer_ids": accepted_layer_ids,
             "observed_layer_ids": observed_layer_ids,

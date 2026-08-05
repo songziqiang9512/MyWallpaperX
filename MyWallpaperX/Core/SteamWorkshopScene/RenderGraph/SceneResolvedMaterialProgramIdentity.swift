@@ -20,7 +20,11 @@ extension SceneResolvedMaterialProgram {
 
         enum ColorTransfer: Hashable {
             case passthrough(Int)
+            case straightAlphaPreserving(Int)
             case straightAlpha(Int)
+            case independentAlphaSignal(Int)
+            case independentAlphaSignalPreserving(Int)
+            case independentAlphaSignalCompositing(signalSlot: Int, colorSlot: Int)
             case opaque
         }
 
@@ -38,6 +42,7 @@ extension SceneResolvedMaterialProgram {
         case opaque
         case straightAlpha
         case premultipliedAlpha
+        case independentAlphaSignal
     }
 
     enum TextureReferenceKind: Hashable {
@@ -59,6 +64,7 @@ extension SceneResolvedMaterialProgram {
         case opaque
         case straightAlpha
         case premultipliedAlpha
+        case independentAlphaSignal
     }
 
     struct ColorContractIdentity: Hashable {
@@ -165,7 +171,18 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
         let transfer: Program.ShaderSemanticIdentity.ColorTransfer
         switch frontend.colorTransfer {
         case let .passthrough(slot): transfer = .passthrough(slot)
+        case let .straightAlphaPreserving(slot):
+            transfer = .straightAlphaPreserving(slot)
         case let .straightAlpha(slot): transfer = .straightAlpha(slot)
+        case let .independentAlphaSignal(slot):
+            transfer = .independentAlphaSignal(slot)
+        case let .independentAlphaSignalPreserving(slot):
+            transfer = .independentAlphaSignalPreserving(slot)
+        case let .independentAlphaSignalCompositing(signalSlot, colorSlot):
+            transfer = .independentAlphaSignalCompositing(
+                signalSlot: signalSlot,
+                colorSlot: colorSlot
+            )
         case .opaque: transfer = .opaque
         case .unresolved:
             preconditionFailure("Unresolved color transfer passed derivation guard.")
@@ -233,6 +250,8 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
         case .color(.resolved(.opaque)): return .opaque
         case .color(.resolved(.straightAlpha)): return .straightAlpha
         case .color(.resolved(.premultipliedAlpha)): return .premultipliedAlpha
+        case .color(.resolved(.independentAlphaSignal)):
+            return .independentAlphaSignal
         }
     }
 
@@ -284,6 +303,7 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
         case .opaque: return .opaque
         case .straightAlpha: return .straightAlpha
         case .premultipliedAlpha: return .premultipliedAlpha
+        case .independentAlphaSignal: return .independentAlphaSignal
         }
     }
 

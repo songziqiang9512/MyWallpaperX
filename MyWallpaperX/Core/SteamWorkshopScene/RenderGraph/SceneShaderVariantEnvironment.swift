@@ -166,7 +166,7 @@ nonisolated struct SceneShaderVariantFailure: Error, Codable, Equatable, Sendabl
 }
 
 nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
-    static let frontendSchemaVersion = 4
+    static let frontendSchemaVersion = 5
 
     let sourceDialect: SceneShaderSourceDialect
     let backend: SceneShaderBackendIdentity
@@ -256,9 +256,13 @@ nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
     }
 
     func selectedMacroDefinitions() -> [String: SceneShaderMacroDefinition] {
-        Dictionary(uniqueKeysWithValues: (environmentDefines + combos).map {
+        var result = Dictionary(uniqueKeysWithValues: (environmentDefines + combos).map {
             ($0.name, $0.definition)
         })
+        for name in ["HLSL", "HLSL_SM30", "HLSL_SM40", "HLSL_GS40"] {
+            result[name] = .undefined
+        }
+        return result
     }
 
     static func unresolvedRequirement(

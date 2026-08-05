@@ -24,11 +24,17 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneMaterialRenderState.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontendModel.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLexer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderBoundedLoopAdmission.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStaticLoopAdmission.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLoopAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVaryingArrayEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontend.swift",
     SCENE_ROOT / "Resources/SceneTextureSampling.swift",
     SCENE_ROOT / "Resources/SceneTextureUVTransform.swift",
@@ -38,6 +44,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgramIdentity.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram+Derivation.swift",
+    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram+ColorDerivation.swift",
 ]
 
 
@@ -127,6 +134,18 @@ uniform float g_Gain;
 void main() {
     vec4 color = texSample2D(g_Texture0, v_TexCoord);
     gl_FragColor = vec4(color.rgb, color.a * g_Gain);
+}
+"""
+
+private let opaqueAlphaPreservingFragment = """
+varying vec2 v_TexCoord;
+uniform sampler2D g_Texture0;
+uniform float g_Gain;
+void main() {
+    vec4 sampled = texSample2D(g_Texture0, v_TexCoord);
+    vec4 color = sampled;
+    color.rgb *= g_Gain;
+    gl_FragColor = saturate(color);
 }
 """
 
@@ -406,6 +425,16 @@ private func hasStraightAlphaBoundary(_ program: Program?) -> Bool {
     return program.semanticIdentity.colorContract.fragmentOutput == .premultipliedAlpha
 }
 
+private func hasStraightAlphaPreservingBoundary(_ program: Program?) -> Bool {
+    guard let program,
+          case .straightAlphaPreserving(0) =
+            program.semanticIdentity.shader.colorTransfer else {
+        return false
+    }
+    return program.semanticIdentity.colorContract.fragmentOutput
+        == .premultipliedAlpha
+}
+
 @main
 private enum Harness {
     static func main() throws {
@@ -601,6 +630,22 @@ private enum Harness {
             ))
         ) == nil
 
+        let opaqueAlphaPrepared = prepared(
+            revision: "opaque-alpha-preserving",
+            fragment: opaqueAlphaPreservingFragment
+        )
+        let opaqueAlphaAccepted = assemble(
+            prepared: opaqueAlphaPrepared,
+            textureSlots: slots(textureSlot(
+                device: device,
+                content: .color(.resolved(.opaque))
+            ))
+        )
+        let opaqueAlphaPremultipliedAccepted = assemble(
+            prepared: opaqueAlphaPrepared,
+            textureSlots: slots(firstSlot)
+        )
+
         let twoSlotPrepared = prepared(
             revision: "two-color-inputs",
             fragment: """
@@ -643,6 +688,21 @@ private enum Harness {
             prepared: twoSlotPrepared,
             textureSlots: slots(firstSlot, secondSlot)
         ) == nil
+        let signalSlot = textureSlot(
+            device: device,
+            content: .color(.resolved(.independentAlphaSignal))
+        )
+        let compositingProjection = SceneResolvedMaterialProgramDerivation.resolveColor(
+            transfer: .independentAlphaSignalCompositing(
+                signalSlot: 0,
+                colorSlot: 1
+            ),
+            textureSlots: slots(signalSlot, textureSlot(
+                device: device,
+                slot: 1,
+                marker: 2
+            ))
+        )
 
         let padding = Array(baseline.uniformBytes[4 ..< 8])
         let results: [String: Bool] = [
@@ -707,8 +767,16 @@ private enum Harness {
             "straightOpaqueAccepted": hasStraightAlphaBoundary(straightOpaque),
             "straightInputRejected": straightInputRejected,
             "straightDataRejected": straightDataRejected,
+            "opaqueAlphaAccepted": hasStraightAlphaPreservingBoundary(
+                opaqueAlphaAccepted
+            ),
+            "opaqueAlphaPremultipliedAccepted":
+                hasStraightAlphaPreservingBoundary(opaqueAlphaPremultipliedAccepted),
             "ambiguousFramebufferRepresentationRejected":
                 ambiguousFramebufferRepresentation,
+            "independentSignalCompositeAccepted":
+                compositingProjection?.framebufferInput == .premultipliedAlpha
+                && compositingProjection?.fragmentOutput == .premultipliedAlpha,
             "metalKeyDerived": baseline.metalCompileStateKey(
                 attachmentPixelFormat: .bgra8Unorm,
                 sampleCount: 1,

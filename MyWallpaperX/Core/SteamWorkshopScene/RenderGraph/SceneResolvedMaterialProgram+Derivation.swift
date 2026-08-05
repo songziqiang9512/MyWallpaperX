@@ -106,11 +106,6 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
         let dynamic: [Program.ExactDynamicUniformIdentity]
     }
 
-    private struct ColorProjection {
-        let framebufferInput: SceneShaderColorRepresentation
-        let fragmentOutput: SceneShaderColorRepresentation
-    }
-
     static func validPreparedStages(
         _ prepared: SceneShaderPreparedProgram
     ) -> Bool {
@@ -337,63 +332,4 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
         }
     }
 
-    static func hasResolvedColorContract(
-        transfer: SceneShaderColorTransfer,
-        textureSlots: [Program.TextureSlot?]
-    ) -> Bool {
-        resolveColor(transfer: transfer, textureSlots: textureSlots) != nil
-    }
-
-    private static func resolveColor(
-        transfer: SceneShaderColorTransfer,
-        textureSlots: [Program.TextureSlot?]
-    ) -> ColorProjection? {
-        var graphRepresentations: Set<SceneShaderColorRepresentation> = []
-        for slot in textureSlots.compactMap({ $0 }) {
-            guard case .graph = slot.reference else { continue }
-            switch slot.resource.publication.candidate.content {
-            case let .color(.resolved(representation)):
-                graphRepresentations.insert(representation)
-            case .color(.unresolved):
-                return nil
-            case .data:
-                continue
-            }
-        }
-        guard graphRepresentations.count == 1,
-              let framebufferInput = graphRepresentations.first else {
-            return nil
-        }
-
-        let fragmentOutput: SceneShaderColorRepresentation
-        switch transfer {
-        case .unresolved:
-            return nil
-        case .opaque:
-            fragmentOutput = .opaque
-        case let .passthrough(slot):
-            guard (0 ..< textureSlots.count).contains(slot),
-                  let texture = textureSlots[slot] else {
-                return nil
-            }
-            guard case let .color(.resolved(representation)) =
-                    texture.resource.publication.candidate.content else {
-                return nil
-            }
-            fragmentOutput = representation
-        case let .straightAlpha(slot):
-            guard (0 ..< textureSlots.count).contains(slot),
-                  let texture = textureSlots[slot],
-                  case let .color(.resolved(representation)) =
-                    texture.resource.publication.candidate.content,
-                  representation == .opaque || representation == .premultipliedAlpha else {
-                return nil
-            }
-            fragmentOutput = .premultipliedAlpha
-        }
-        return .init(
-            framebufferInput: framebufferInput,
-            fragmentOutput: fragmentOutput
-        )
-    }
 }

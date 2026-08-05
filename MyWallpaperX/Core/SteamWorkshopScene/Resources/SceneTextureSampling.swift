@@ -6,6 +6,7 @@ nonisolated enum SceneShaderColorRepresentation: String, Codable, Hashable, Send
     case opaque
     case straightAlpha = "straight-alpha"
     case premultipliedAlpha = "premultiplied-alpha"
+    case independentAlphaSignal = "independent-alpha-signal"
 }
 
 nonisolated enum SceneShaderColorRepresentationResolution: Codable, Hashable, Sendable {
