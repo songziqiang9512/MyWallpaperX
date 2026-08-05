@@ -19,6 +19,7 @@ extension SceneResolvedMaterialProgram {
 
         enum ColorTransfer: Hashable {
             case passthrough(Int)
+            case straightAlpha(Int)
             case opaque
         }
 
@@ -162,6 +163,7 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
         let transfer: Program.ShaderSemanticIdentity.ColorTransfer
         switch frontend.colorTransfer {
         case let .passthrough(slot): transfer = .passthrough(slot)
+        case let .straightAlpha(slot): transfer = .straightAlpha(slot)
         case .opaque: transfer = .opaque
         case .unresolved:
             preconditionFailure("Unresolved color transfer passed derivation guard.")

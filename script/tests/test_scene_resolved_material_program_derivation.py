@@ -28,6 +28,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontend.swift",
     SCENE_ROOT / "Resources/SceneTextureSampling.swift",
     SCENE_ROOT / "Resources/SceneTextureUVTransform.swift",
@@ -119,16 +120,27 @@ void main() {
 }
 """
 
+private let straightAlphaFragment = """
+varying vec2 v_TexCoord;
+uniform sampler2D g_Texture0;
+uniform float g_Gain;
+void main() {
+    vec4 color = texSample2D(g_Texture0, v_TexCoord);
+    gl_FragColor = vec4(color.rgb, color.a * g_Gain);
+}
+"""
+
 private func prepared(
     revision: String,
-    fragment: String = passthroughFragment
+    fragment: String = passthroughFragment,
+    frontendSchemaVersion: Int = SceneShaderVariantEnvironment.frontendSchemaVersion
 ) -> SceneShaderPreparedProgram {
     func stage(
         _ kind: SceneShaderContract.StageKind,
         source: String
     ) -> SceneShaderPreparedSource {
         SceneShaderPreparedSource(
-            frontendSchemaVersion: SceneShaderVariantEnvironment.frontendSchemaVersion,
+            frontendSchemaVersion: frontendSchemaVersion,
             sourceDialect: .wallpaperEngineGLSLLike,
             backend: .mwxMetal,
             stage: kind,
@@ -386,6 +398,14 @@ private func assemble(
     ))
 }
 
+private func hasStraightAlphaBoundary(_ program: Program?) -> Bool {
+    guard let program,
+          case .straightAlpha(0) = program.semanticIdentity.shader.colorTransfer else {
+        return false
+    }
+    return program.semanticIdentity.colorContract.fragmentOutput == .premultipliedAlpha
+}
+
 @main
 private enum Harness {
     static func main() throws {
@@ -543,6 +563,43 @@ private enum Harness {
             prepared: arithmeticPrepared,
             textureSlots: slots(firstSlot)
         ) == nil
+        let staleFrontendSchema = assemble(
+            prepared: prepared(
+                revision: "stale-frontend-schema",
+                frontendSchemaVersion: SceneShaderVariantEnvironment.frontendSchemaVersion - 1
+            ),
+            textureSlots: slots(firstSlot)
+        ) == nil
+
+        let straightPrepared = prepared(
+            revision: "straight-alpha-boundary",
+            fragment: straightAlphaFragment
+        )
+        let straightPremultiplied = assemble(
+            prepared: straightPrepared,
+            textureSlots: slots(firstSlot)
+        )
+        let straightOpaque = assemble(
+            prepared: straightPrepared,
+            textureSlots: slots(textureSlot(
+                device: device,
+                content: .color(.resolved(.opaque))
+            ))
+        )
+        let straightInputRejected = assemble(
+            prepared: straightPrepared,
+            textureSlots: slots(textureSlot(
+                device: device,
+                content: .color(.resolved(.straightAlpha))
+            ))
+        ) == nil
+        let straightDataRejected = assemble(
+            prepared: straightPrepared,
+            textureSlots: slots(textureSlot(
+                device: device,
+                content: .data
+            ))
+        ) == nil
 
         let twoSlotPrepared = prepared(
             revision: "two-color-inputs",
@@ -643,6 +700,13 @@ private enum Harness {
             "nonGraphWithGraphBindingRejected": nonGraphWithGraphBinding,
             "unresolvedPublicationRejected": unresolvedPublication,
             "unresolvedTransferRejected": unresolvedTransfer,
+            "staleFrontendSchemaRejected": staleFrontendSchema,
+            "straightPremultipliedAccepted": hasStraightAlphaBoundary(
+                straightPremultiplied
+            ),
+            "straightOpaqueAccepted": hasStraightAlphaBoundary(straightOpaque),
+            "straightInputRejected": straightInputRejected,
+            "straightDataRejected": straightDataRejected,
             "ambiguousFramebufferRepresentationRejected":
                 ambiguousFramebufferRepresentation,
             "metalKeyDerived": baseline.metalCompileStateKey(

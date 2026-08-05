@@ -1,10 +1,14 @@
 import Foundation
 
 nonisolated enum SceneAuthoredShaderMetalSource {
-    static func prelude(defines: [String: String]) -> String {
+    static func prelude(
+        defines: [String: String],
+        colorTransfer: SceneShaderColorTransfer
+    ) -> String {
         let authoredDefines = defines.sorted { $0.key < $1.key }.map {
             "#define \($0.key) \($0.value)"
         }.joined(separator: "\n")
+        let colorBoundary = colorBoundaryHelpers(for: colorTransfer)
         return """
         #include <metal_stdlib>
         using namespace metal;
@@ -18,6 +22,7 @@ nonisolated enum SceneAuthoredShaderMetalSource {
         #define saturate(x) clamp((x), 0.0, 1.0)
         #define lerp mix
         \(authoredDefines)
+        \(colorBoundary)
         """
     }
 
@@ -86,10 +91,16 @@ nonisolated enum SceneAuthoredShaderMetalSource {
     }
 
     static func fragmentWrapper(
-        textures: [SceneAuthoredShaderProgram.TextureBinding]
+        textures: [SceneAuthoredShaderProgram.TextureBinding],
+        colorTransfer: SceneShaderColorTransfer
     ) -> String {
         let resources = wrapperResourceParameters(textures: textures)
         let arguments = contextArguments(stage: .fragment, textures: textures)
+        let result = if case .straightAlpha = colorTransfer {
+            "mwxPremultiply(mwxFragColor)"
+        } else {
+            "mwxFragColor"
+        }
         return """
         fragment float4 sceneAuthoredFragment(
             SceneAuthoredFragmentInput mwxInput [[stage_in]],
@@ -97,7 +108,27 @@ nonisolated enum SceneAuthoredShaderMetalSource {
         ) {
             float4 mwxFragColor = float4(0.0);
             mwxF_main(\(arguments));
-            return mwxFragColor;
+            return \(result);
+        }
+        """
+    }
+
+    private static func colorBoundaryHelpers(
+        for transfer: SceneShaderColorTransfer
+    ) -> String {
+        guard case .straightAlpha = transfer else { return "" }
+        return """
+        float4 mwxUnpremultiply(float4 color) {
+            const float alpha = saturate(color.a);
+            const float3 rgb = alpha > 0.0
+                ? saturate(color.rgb / alpha)
+                : float3(0.0);
+            return float4(rgb, alpha);
+        }
+
+        float4 mwxPremultiply(float4 color) {
+            const float alpha = saturate(color.a);
+            return float4(saturate(color.rgb) * alpha, alpha);
         }
         """
     }

@@ -25,6 +25,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontend.swift",
 ]
 
@@ -43,7 +44,7 @@ private func fragment(_ body: String) -> String {
     """
 }
 
-private func transfer(_ body: String) -> String {
+private func program(_ body: String) -> SceneAuthoredShaderProgram? {
     let vertex = """
     attribute vec3 a_Position;
     attribute vec2 a_TexCoord;
@@ -53,15 +54,24 @@ private func transfer(_ body: String) -> String {
         gl_Position = vec4(a_Position, 1.0);
     }
     """
-    let result = SceneAuthoredShaderFrontend.compile(
+    return SceneAuthoredShaderFrontend.compile(
         vertexSource: vertex,
         fragmentSource: fragment(body)
-    ).program?.colorTransfer ?? .unresolved
+    ).program
+}
+
+private func transfer(_ body: String) -> String {
+    let result = program(body)?.colorTransfer ?? .unresolved
     switch result {
     case .opaque: return "opaque"
     case .unresolved: return "unresolved"
     case .passthrough(let slot): return "slot:\(slot)"
+    case .straightAlpha(let slot): return "straight-slot:\(slot)"
     }
+}
+
+private func metal(_ body: String) -> String {
+    program(body)?.metalSource ?? ""
 }
 
 @main
@@ -91,6 +101,36 @@ enum Harness {
                 "if (v_TexCoord.x > 0.5) { scale = 0.5; } " +
                 "gl_FragColor = texSample2D(g_Texture1, v_TexCoord);"
             ),
+            "straightAlpha": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "float mask = 0.5; " +
+                "gl_FragColor = vec4(color.rgb, color.a * mask);"
+            ),
+            "closedControlFlowStraightAlpha": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "float mask = 1.0; " +
+                "for (int index = 0; index < 2; index++) { " +
+                "if (index > 0) { mask *= 0.5; } } " +
+                "gl_FragColor = vec4(color.rgb, color.a * mask);"
+            ),
+            "modifiedStraightLocal": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "color.a *= 0.5; gl_FragColor = vec4(color.rgb, color.a);"
+            ),
+            "straightRGBMath": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "gl_FragColor = vec4(color.rgb * 0.5, color.a * 0.5);"
+            ),
+            "mixedSampleAlpha": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 other = texSample2D(g_Texture1, v_TexCoord); " +
+                "gl_FragColor = vec4(color.rgb, color.a * other.a);"
+            ),
+            "sampledMaskAlpha": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "float mask = texSample2D(g_Texture1, v_TexCoord).r; " +
+                "gl_FragColor = vec4(color.rgb, color.a * mask);"
+            ),
             "arithmetic": transfer(
                 "gl_FragColor = texSample2D(g_Texture0, v_TexCoord) * 0.5;"
             ),
@@ -115,6 +155,16 @@ enum Harness {
             ),
             "discardedBranch": transfer(
                 "if (v_TexCoord.x < 0.0) discard; gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);"
+            ),
+            "straightMetal": metal(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "gl_FragColor = vec4(color.rgb, color.a * 0.5);"
+            ),
+            "passthroughMetal": metal(
+                "gl_FragColor = texSample2D(g_Texture0, v_TexCoord);"
+            ),
+            "opaqueMetal": metal(
+                "gl_FragColor = vec4(0.2, 0.3, 0.4, 1.0);"
             ),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -172,10 +222,28 @@ class SceneShaderColorContractTests(unittest.TestCase):
         self.assertEqual(self.result["closedControlFlowOpaque"], "opaque")
         self.assertEqual(self.result["closedConditionalPassthrough"], "slot:1")
 
+    def test_straight_alpha_boundary_is_proven_from_a_single_source(self) -> None:
+        self.assertEqual(self.result["straightAlpha"], "straight-slot:0")
+        self.assertEqual(
+            self.result["closedControlFlowStraightAlpha"], "straight-slot:0"
+        )
+
+    def test_straight_alpha_boundary_is_emitted_only_for_proven_programs(self) -> None:
+        source = self.result["straightMetal"]
+        self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
+        self.assertIn("return mwxPremultiply(mwxFragColor);", source)
+        for key in ("passthroughMetal", "opaqueMetal"):
+            self.assertNotIn("mwxUnpremultiply", self.result[key], key)
+            self.assertNotIn("mwxPremultiply", self.result[key], key)
+
     def test_alpha_math_and_non_linear_writes_remain_unproven(self) -> None:
         for key in (
             "arithmetic",
             "localAlpha",
+            "modifiedStraightLocal",
+            "straightRGBMath",
+            "mixedSampleAlpha",
+            "sampledMaskAlpha",
             "multipleWrites",
             "componentWrite",
             "conditionalOpaque",

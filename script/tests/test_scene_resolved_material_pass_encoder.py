@@ -28,6 +28,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontend.swift",
     SCENE_ROOT / "Resources/SceneTextureSampling.swift",
     SCENE_ROOT / "Resources/SceneTextureUVTransform.swift",
@@ -116,6 +117,17 @@ private func fragment(
     }
     """
 }
+
+private let straightAlphaFragment = """
+varying vec2 v_TexCoord;
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture3;
+uniform float g_Gain;
+void main() {
+    vec4 color = texSample2D(g_Texture0, v_TexCoord);
+    gl_FragColor = vec4(color.rgb, color.a * g_Gain);
+}
+"""
 
 private func prepared(
     marker: String,
@@ -276,6 +288,7 @@ private func bytes<T>(_ value: T) -> Data {
 
 private func uniforms(
     shader: SceneShaderPreparedProgram,
+    gain: Float = 0.5,
     malformed: Bool = false
 ) -> [Program.ResolvedUniform] {
     let frontend = SceneAuthoredShaderFrontend.compile(
@@ -289,7 +302,7 @@ private func uniforms(
         } else if malformed {
             value = bytes(SIMD2<Float>(0.5, 0.5))
         } else {
-            value = bytes(Float(0.5))
+            value = bytes(gain)
         }
         let source: Program.ResolvedUniform.Source = field.name == "mwxRenderSize"
             ? .host(.renderSize)
@@ -309,11 +322,13 @@ private func program(
     slot3Sampling: SceneTextureSampling = .init(texFlags: 1),
     uniformName: String = "g_Gain",
     unresolved: Bool = false,
+    fragmentSource: String? = nil,
+    gain: Float = 0.5,
     malformedUniform: Bool = false
 ) -> Program? {
     let shader = prepared(
         marker: "program-\(marker)",
-        fragmentSource: fragment(
+        fragmentSource: fragmentSource ?? fragment(
             outputSlot: outputSlot,
             uniformName: uniformName,
             unresolved: unresolved
@@ -340,7 +355,11 @@ private func program(
     return Program.assemble(.init(
         preparedShader: shader,
         textureSlots: slots(first, third),
-        resolvedUniforms: uniforms(shader: shader, malformed: malformedUniform),
+        resolvedUniforms: uniforms(
+            shader: shader,
+            gain: gain,
+            malformed: malformedUniform
+        ),
         renderState: state(),
         graphRole: .init(
             effectInput: .layerSource,
@@ -490,6 +509,57 @@ private enum Harness {
                 .allSatisfy { Array(output[$0 ..< $0 + 4]) == [32, 64, 96, 128] }
         }
 
+        let premultipliedPixel = texture(
+            device: device,
+            width: 1,
+            height: 1,
+            fill: [64, 32, 16, 128]
+        )
+        let straightCases: [(Float, [UInt8])] = [
+            (0.0, [0, 0, 0, 0]),
+            (0.5, [32, 16, 8, 64]),
+            (1.0, [64, 32, 16, 128]),
+        ]
+        var straightBoundaryPrepared = true
+        var straightBoundaryGPUCompleted = true
+        var straightBoundaryPixelsMatch = true
+        var straightBoundaryPremultiplied = true
+        for (index, testCase) in straightCases.enumerated() {
+            let straightProgram = program(
+                device: device,
+                marker: 20 + index,
+                outputSlot: 0,
+                slot0Texture: premultipliedPixel,
+                fragmentSource: straightAlphaFragment,
+                gain: testCase.0
+            )!
+            let output = target(device: device, width: 1, height: 1)
+            guard let prepared = encoder.prepare(program: straightProgram, target: output),
+                  prepared.fragmentOutput == .premultipliedAlpha,
+                  let command = queue.makeCommandBuffer() else {
+                straightBoundaryPrepared = false
+                continue
+            }
+            guard encoder.encode(prepared, commandBuffer: command) else {
+                straightBoundaryPrepared = false
+                continue
+            }
+            command.commit()
+            command.waitUntilCompleted()
+            straightBoundaryGPUCompleted = straightBoundaryGPUCompleted
+                && command.status == .completed
+                && command.error == nil
+            let actual = pixels(output)
+            straightBoundaryPixelsMatch = straightBoundaryPixelsMatch
+                && zip(actual, testCase.1).allSatisfy {
+                    abs(Int($0.0) - Int($0.1)) <= 1
+                }
+            straightBoundaryPremultiplied = straightBoundaryPremultiplied
+                && actual[0] <= actual[3]
+                && actual[1] <= actual[3]
+                && actual[2] <= actual[3]
+        }
+
         let r8Target = target(device: device, format: .r8Unorm)
         let formatRejected = encoder.prepare(
             program: baseline,
@@ -598,6 +668,10 @@ private enum Harness {
             "crossExtentGraphEncoded": crossExtentEncoded,
             "crossExtentGraphGPUCompleted": crossExtentGPUCompleted,
             "crossExtentGraphOutputMatches": crossExtentOutputMatches,
+            "straightBoundaryPrepared": straightBoundaryPrepared,
+            "straightBoundaryGPUCompleted": straightBoundaryGPUCompleted,
+            "straightBoundaryPixelsMatch": straightBoundaryPixelsMatch,
+            "straightBoundaryPremultiplied": straightBoundaryPremultiplied,
             "targetFormatRejected": formatRejected,
             "missingRenderTargetRejected": missingRenderTargetRejected,
             "missingShaderReadRejected": missingShaderReadRejected,

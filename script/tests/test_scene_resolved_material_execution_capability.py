@@ -1923,6 +1923,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "SceneResolvedMaterialShaderSchema.swift",
                 "SceneResolvedMaterialExecutionCapabilityVariant.swift",
                 "SceneResolvedMaterialTextureResolver.swift",
+                "SceneAuthoredShaderColorTransferAnalyzer.swift",
                 "SceneAuthoredShaderFrontend.swift",
                 "SceneAuthoredShaderExecutionPlanner+Preparation.swift",
                 "SceneShaderContract.swift",

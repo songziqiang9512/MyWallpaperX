@@ -379,6 +379,15 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
                 return nil
             }
             fragmentOutput = representation
+        case let .straightAlpha(slot):
+            guard (0 ..< textureSlots.count).contains(slot),
+                  let texture = textureSlots[slot],
+                  case let .color(.resolved(representation)) =
+                    texture.resource.publication.candidate.content,
+                  representation == .opaque || representation == .premultipliedAlpha else {
+                return nil
+            }
+            fragmentOutput = .premultipliedAlpha
         }
         return .init(
             framebufferInput: framebufferInput,

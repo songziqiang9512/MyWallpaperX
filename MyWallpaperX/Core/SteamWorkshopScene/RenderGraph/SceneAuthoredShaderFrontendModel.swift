@@ -122,6 +122,7 @@ nonisolated struct SceneAuthoredShaderUniformLayout: Equatable, Hashable, Sendab
 
 nonisolated enum SceneShaderColorTransfer: Equatable, Hashable, Sendable {
     case passthrough(textureSlot: Int)
+    case straightAlpha(textureSlot: Int)
     case opaque
     case unresolved
 }

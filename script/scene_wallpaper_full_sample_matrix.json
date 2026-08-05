@@ -7634,7 +7634,8 @@
       "required_named_target_binding_succeeded_layer_ids": [],
       "expected_image_blend_planned": 0,
       "required_image_blend_succeeded_layer_ids": [],
-      "expected_authored_effect_graph_succeeded_layer_ids": [
+      "expected_authored_effect_graph_succeeded_layer_ids": [],
+      "expected_resolved_material_graph_succeeded_layer_ids": [
         389
       ],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],

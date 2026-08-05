@@ -13,6 +13,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         let varyingNames: Set<String>
         let attributeNames: Set<String>
         let texturesByName: [String: SceneAuthoredShaderProgram.TextureBinding]
+        let straightAlphaTextureSlot: Int?
     }
 
     static func emit(
@@ -21,7 +22,8 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         uniforms: [(String, SceneAuthoredShaderValueType)],
         uniformLayout: SceneAuthoredShaderUniformLayout,
         textures: [SceneAuthoredShaderProgram.TextureBinding],
-        varyings: [(String, SceneAuthoredShaderValueType)]
+        varyings: [(String, SceneAuthoredShaderValueType)],
+        colorTransfer: SceneShaderColorTransfer
     ) -> Output {
         let defineResult = mergedDefines(vertex.defines, fragment.defines)
         guard let defines = defineResult.defines else {
@@ -51,15 +53,20 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             attributeNames: Set(vertex.declarations.filter {
                 $0.storage == .attribute
             }.map(\.name)),
-            texturesByName: texturesByName
+            texturesByName: texturesByName,
+            straightAlphaTextureSlot: nil
         )
+        let straightAlphaTextureSlot: Int?
+        if case let .straightAlpha(slot) = colorTransfer { straightAlphaTextureSlot = slot }
+        else { straightAlphaTextureSlot = nil }
         let fragmentContext = Context(
             unit: fragment,
             functionNames: Set(fragment.functions.map(\.name)),
             uniformNames: uniformNames,
             varyingNames: varyingNames,
             attributeNames: [],
-            texturesByName: texturesByName
+            texturesByName: texturesByName,
+            straightAlphaTextureSlot: straightAlphaTextureSlot
         )
         let vertexEmission = emitStage(context: vertexContext, textures: textures)
         let fragmentEmission = emitStage(context: fragmentContext, textures: textures)
@@ -70,13 +77,19 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             return Output(source: nil, diagnostics: diagnostics)
         }
         let source = [
-            SceneAuthoredShaderMetalSource.prelude(defines: defines),
+            SceneAuthoredShaderMetalSource.prelude(
+                defines: defines,
+                colorTransfer: colorTransfer
+            ),
             SceneAuthoredShaderMetalSource.uniformStruct(layout: uniformLayout),
             SceneAuthoredShaderMetalSource.stageStructs(varyings: varyings),
             vertexCode,
             fragmentCode,
             SceneAuthoredShaderMetalSource.vertexWrapper(textures: textures),
-            SceneAuthoredShaderMetalSource.fragmentWrapper(textures: textures),
+            SceneAuthoredShaderMetalSource.fragmentWrapper(
+                textures: textures,
+                colorTransfer: colorTransfer
+            ),
         ].joined(separator: "\n\n")
         return Output(source: source, diagnostics: [])
     }
@@ -280,8 +293,12 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         guard coordinate.diagnostics.isEmpty else {
             return .init(source: nil, nextIndex: nil, diagnostic: coordinate.diagnostics.first)
         }
+        let sample = "mwxTexture\(texture.slot).sample(mwxSampler\(texture.slot), \(coordinate.source))"
+        let source = context.straightAlphaTextureSlot == texture.slot
+            ? "mwxUnpremultiply(\(sample))"
+            : sample
         return .init(
-            source: "mwxTexture\(texture.slot).sample(mwxSampler\(texture.slot), \(coordinate.source))",
+            source: source,
             nextIndex: close + 1,
             diagnostic: nil
         )
