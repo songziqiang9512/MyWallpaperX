@@ -172,19 +172,24 @@ final class SceneResolvedMaterialPassEncoder {
               program.exactIdentity.uniformBytes == program.uniformBytes,
               program.resolvedUniforms.count == layout.fields.count,
               Set(layout.fields.map(\.name)).count == layout.fields.count,
-              program.semanticIdentity.shader.uniformFields == layout.fields.map({
-                  .init(name: $0.name, valueType: $0.type.rawValue, offset: $0.offset)
-              }) else {
+            program.semanticIdentity.shader.uniformFields == layout.fields.map({
+                .init(
+                    name: $0.name,
+                    valueType: $0.type.rawValue,
+                    arrayCount: $0.arrayCount,
+                    offset: $0.offset
+                )
+            }) else {
             return false
         }
         var occupied = Set<Int>()
         for (field, resolved) in zip(layout.fields, program.resolvedUniforms) {
-            let end = field.offset + field.type.byteSize
+            let end = field.offset + field.storageByteSize
             guard resolved.field == field,
                   field.offset >= 0,
                   field.offset.isMultiple(of: field.type.alignment),
                   end <= layout.byteSize,
-                  resolved.encodedValue.count == field.type.byteSize,
+                  resolved.encodedValue.count == field.storageByteSize,
                   Data(program.uniformBytes[field.offset ..< end]) == resolved.encodedValue,
                   (field.offset ..< end).allSatisfy({ !occupied.contains($0) }) else {
                 return false

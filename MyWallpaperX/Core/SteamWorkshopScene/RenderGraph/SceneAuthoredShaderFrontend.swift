@@ -2,7 +2,7 @@ import Foundation
 
 nonisolated enum SceneAuthoredShaderFrontend {
     private struct Validation {
-        let uniforms: [(String, SceneAuthoredShaderValueType)]
+        let uniforms: [(String, SceneAuthoredShaderValueType, Int?)]
         let textures: [SceneAuthoredShaderProgram.TextureBinding]
         let varyings: [(String, SceneAuthoredShaderValueType)]
         let diagnostics: [SceneAuthoredShaderFrontendDiagnostic]
@@ -119,8 +119,9 @@ nonisolated enum SceneAuthoredShaderFrontend {
             ))
         }
 
-        var uniforms: [(String, SceneAuthoredShaderValueType)] = []
+        var uniforms: [(String, SceneAuthoredShaderValueType, Int?)] = []
         var uniformTypes: [String: SceneAuthoredShaderValueType] = [:]
+        var uniformArrayCounts: [String: Int?] = [:]
         var textures: [SceneAuthoredShaderProgram.TextureBinding] = []
         var textureNames: Set<String> = []
         for unit in [vertex, fragment] {
@@ -142,9 +143,9 @@ nonisolated enum SceneAuthoredShaderFrontend {
                     }
                     continue
                 }
-                guard declaration.arraySize == nil,
-                      let type = SceneAuthoredShaderValueType(authoredName: declaration.typeName),
-                      type != .bool else {
+                guard let type = SceneAuthoredShaderValueType(
+                    authoredName: declaration.typeName
+                ), type != .bool else {
                     diagnostics.append(.init(
                         code: .unsupportedType,
                         message: "Uniform '\(declaration.name)' has an unsupported type or array shape.",
@@ -154,16 +155,37 @@ nonisolated enum SceneAuthoredShaderFrontend {
                     ))
                     continue
                 }
-                if let existing = uniformTypes[declaration.name], existing != type {
+                let arrayCount = declaration.arraySize
+                guard arrayCount == nil || isAudioSpectrumArray(
+                    name: declaration.name,
+                    type: type,
+                    count: arrayCount
+                ) else {
                     diagnostics.append(.init(
-                        code: .duplicateDeclaration,
-                        message: "Uniform '\(declaration.name)' has conflicting stage types.",
+                        code: .unsupportedType,
+                        message: "Uniform '\(declaration.name)' has an unsupported array shape.",
                         stage: unit.stage,
                         line: declaration.line,
                         column: nil
                     ))
-                } else if uniformTypes.updateValue(type, forKey: declaration.name) == nil {
-                    uniforms.append((declaration.name, type))
+                    continue
+                }
+                if let existing = uniformTypes[declaration.name] {
+                    if existing != type || uniformArrayCounts[declaration.name] != arrayCount {
+                        diagnostics.append(.init(
+                            code: .duplicateDeclaration,
+                            message: existing == type
+                                ? "Uniform '\(declaration.name)' has conflicting array shapes."
+                                : "Uniform '\(declaration.name)' has conflicting stage types.",
+                            stage: unit.stage,
+                            line: declaration.line,
+                            column: nil
+                        ))
+                    }
+                } else {
+                    uniformTypes[declaration.name] = type
+                    uniformArrayCounts[declaration.name] = arrayCount
+                    uniforms.append((declaration.name, type, arrayCount))
                 }
             }
         }
@@ -208,15 +230,23 @@ nonisolated enum SceneAuthoredShaderFrontend {
     }
 
     private static func makeUniformLayout(
-        _ uniforms: [(String, SceneAuthoredShaderValueType)]
+        _ uniforms: [(String, SceneAuthoredShaderValueType, Int?)]
     ) -> SceneAuthoredShaderUniformLayout? {
         var fields: [SceneAuthoredShaderUniformLayout.Field] = []
         var offset = 0
-        for (name, type) in uniforms + [("mwxRenderSize", .float2)] {
+        for (name, type, arrayCount) in uniforms
+            + [("mwxRenderSize", .float2, nil)] {
             let remainder = offset % type.alignment
             if remainder != 0 { offset += type.alignment - remainder }
-            fields.append(.init(name: name, type: type, offset: offset))
-            let (next, overflow) = offset.addingReportingOverflow(type.byteSize)
+            fields.append(.init(
+                name: name,
+                type: type,
+                arrayCount: arrayCount,
+                offset: offset
+            ))
+            let (next, overflow) = offset.addingReportingOverflow(
+                type.byteSize * (arrayCount ?? 1)
+            )
             guard !overflow else { return nil }
             offset = next
         }
@@ -224,5 +254,18 @@ nonisolated enum SceneAuthoredShaderFrontend {
         if remainder != 0 { offset += 16 - remainder }
         guard offset <= 4_096 else { return nil }
         return .init(fields: fields, byteSize: offset)
+    }
+
+    private static func isAudioSpectrumArray(
+        name: String,
+        type: SceneAuthoredShaderValueType,
+        count: Int?
+    ) -> Bool {
+        guard type == .float,
+              let count,
+              [16, 32, 64].contains(count) else { return false }
+        return ["Left", "Right"].contains { channel in
+            name == "g_AudioSpectrum\(count)\(channel)"
+        }
     }
 }

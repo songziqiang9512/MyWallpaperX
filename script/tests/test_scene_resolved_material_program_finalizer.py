@@ -152,7 +152,8 @@ private func fragmentSource(
     samplerMetadata: String?,
     uniformMetadata: String?,
     secondSamplerMetadata: String?,
-    arithmetic: Bool = false
+    arithmetic: Bool = false,
+    audioSpectrum: Bool = false
 ) -> String {
     let annotation = samplerMetadata.map { " // \($0)" } ?? ""
     let uniformAnnotation = uniformMetadata.map { " // \($0)" } ?? ""
@@ -162,13 +163,26 @@ private func fragmentSource(
     let output = arithmetic
         ? "texSample2D(g_Texture0, v_TexCoord) * 0.5"
         : "texSample2D(g_Texture0, v_TexCoord)"
+    let audioUniforms = audioSpectrum
+        ? """
+        uniform float g_AudioSpectrum16Left[16];
+        uniform float g_AudioSpectrum32Right[32];
+        uniform float g_AudioSpectrum64Left[64];
+        uniform float g_AudioSpectrum64Right[64];
+        """
+        : ""
+    let audioProbe = audioSpectrum
+        ? "float audioProbe = g_AudioSpectrum16Left[3] + g_AudioSpectrum32Right[5] + g_AudioSpectrum64Left[7] + g_AudioSpectrum64Right[9];"
+        : ""
     return """
     varying vec2 v_TexCoord;
     uniform sampler2D g_Texture0;\(annotation)
     \(secondSampler)
+    \(audioUniforms)
     uniform vec3 u_Tint;\(uniformAnnotation)
     uniform float g_Time; // {"default":99}
     void main() {
+        \(audioProbe)
         gl_FragColor = \(output);
     }
     """
@@ -179,7 +193,8 @@ private func contract(
     samplerMetadata: String? = nil,
     uniformMetadata: String? = #"{"material":"Tint","default":"1 0.5 0.25"}"#,
     secondSamplerMetadata: String? = nil,
-    arithmetic: Bool = false
+    arithmetic: Bool = false,
+    audioSpectrum: Bool = false
 ) -> SceneShaderContract {
     func stage(
         _ kind: SceneShaderContract.StageKind,
@@ -209,7 +224,8 @@ private func contract(
                 samplerMetadata: samplerMetadata,
                 uniformMetadata: uniformMetadata,
                 secondSamplerMetadata: secondSamplerMetadata,
-                arithmetic: arithmetic
+                arithmetic: arithmetic,
+                audioSpectrum: audioSpectrum
             )
         ),
     ]
@@ -514,7 +530,10 @@ private func uniformInputs() -> SceneAuthoredShaderUniformInputs {
     )
 }
 
-private func frameInputs(frameIndex: UInt64) -> SceneAuthoredShaderFrameInputs {
+private func frameInputs(
+    frameIndex: UInt64,
+    audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs = .silent
+) -> SceneAuthoredShaderFrameInputs {
     .init(
         frameIndex: frameIndex,
         screenSize: CGSize(width: 1920, height: 1080),
@@ -522,7 +541,8 @@ private func frameInputs(frameIndex: UInt64) -> SceneAuthoredShaderFrameInputs {
         dayTime: 0.5,
         frameTime: 1 / 60,
         pointerCurrentNDC: SIMD2(0.25, -0.5),
-        pointerPreviousNDC: .zero
+        pointerPreviousNDC: .zero,
+        audioSpectrum: audioSpectrum
     )
 }
 
@@ -578,7 +598,8 @@ private func finalize(
     frameInputIndex: UInt64 = 1,
     dynamicSource: SceneDynamicSource? = nil,
     renderState: SceneMaterialRenderState = state(),
-    implicitFramebufferIdentity: Graph.TextureIdentity? = nil
+    implicitFramebufferIdentity: Graph.TextureIdentity? = nil,
+    audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs = .silent
 ) -> Result<Program, SceneResolvedMaterialFailure> {
     let frame = SceneResolvedMaterialFrameSnapshot.validated(
         textureSnapshot: snapshot(
@@ -591,7 +612,10 @@ private func finalize(
             frameIndex: dynamicFrameIndex,
             source: dynamicSource
         ),
-        frameInputs: frameInputs(frameIndex: frameInputIndex)
+        frameInputs: frameInputs(
+            frameIndex: frameInputIndex,
+            audioSpectrum: audioSpectrum
+        )
     )
     switch frame {
     case let .failure(failure):
@@ -686,6 +710,12 @@ private func positiveDiagnostic(_ shader: SceneShaderContract) -> String {
 
 @main
 private enum Harness {
+    static func float(_ data: Data, at offset: Int) -> Float {
+        data.withUnsafeBytes {
+            $0.loadUnaligned(fromByteOffset: offset, as: Float.self)
+        }
+    }
+
     static func main() throws {
         guard let device = MTLCreateSystemDefaultDevice() else {
             print("{\"metalAvailable\":false}")
@@ -707,6 +737,44 @@ private enum Harness {
                     + "\(failureToken(revisionB)); \(positiveDiagnostic(contract(revision: "debug")))"
             )
         }
+
+        let audioInputs = SceneAuthoredShaderAudioSpectrumInputs(
+            left16: (0 ..< 16).map { Float($0 + 1) },
+            right16: Array(repeating: 0, count: 16),
+            left32: Array(repeating: 0, count: 32),
+            right32: (0 ..< 32).map { Float(100 + $0) },
+            left64: (0 ..< 64).map { Float(200 + $0) },
+            right64: (0 ..< 64).map { Float(300 + $0) }
+        )
+        let audioProgramResult = finalize(
+            shader: contract(revision: "audio-spectrum", audioSpectrum: true),
+            device: device,
+            audioSpectrum: audioInputs
+        )
+        let audioSpectrumEncoded: Bool = {
+            guard case let .success(program) = audioProgramResult else {
+                return false
+            }
+            guard let left16 = program.frontendProgram.uniformLayout.fields.first(
+                where: { $0.name == "g_AudioSpectrum16Left" }
+            ), let right32 = program.frontendProgram.uniformLayout.fields.first(
+                where: { $0.name == "g_AudioSpectrum32Right" }
+            ), let left64 = program.frontendProgram.uniformLayout.fields.first(
+                where: { $0.name == "g_AudioSpectrum64Left" }
+            ), let right64 = program.frontendProgram.uniformLayout.fields.first(
+                where: { $0.name == "g_AudioSpectrum64Right" }
+            ) else {
+                return false
+            }
+            return left16.arrayCount == 16
+                && right32.arrayCount == 32
+                && left64.arrayCount == 64
+                && right64.arrayCount == 64
+                && float(program.uniformBytes, at: left16.offset + 3 * 4) == 4
+                && float(program.uniformBytes, at: right32.offset + 5 * 4) == 105
+                && float(program.uniformBytes, at: left64.offset + 7 * 4) == 207
+                && float(program.uniformBytes, at: right64.offset + 9 * 4) == 309
+        }()
 
         let implicitFramebufferProgram = finalize(
             shader: contract(
@@ -1260,6 +1328,7 @@ private enum Harness {
                     && !programA.preparedShader.vertex.dependencies.isEmpty
                     && !programA.preparedShader.fragment.dependencies.isEmpty,
                 "frontendObserved": programA.frontendProgram.textureBindings.map(\.slot) == [0],
+                "audioSpectrumArraysEncoded": audioSpectrumEncoded,
             ],
             "identity": [
                 "semanticStable": programA.semanticIdentity == programB.semanticIdentity,

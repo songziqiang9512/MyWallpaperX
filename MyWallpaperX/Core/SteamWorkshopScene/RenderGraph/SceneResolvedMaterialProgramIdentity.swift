@@ -14,6 +14,7 @@ extension SceneResolvedMaterialProgram {
         struct UniformField: Hashable {
             let name: String
             let valueType: String
+            let arrayCount: Int?
             let offset: Int
         }
 
@@ -68,6 +69,7 @@ extension SceneResolvedMaterialProgram {
     struct ActiveUniformIdentity: Hashable {
         let fieldName: String
         let fieldType: String
+        let arrayCount: Int?
         let fieldOffset: Int
         let source: UniformSourceSchema
     }
@@ -174,7 +176,12 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
             vertexFunctionName: frontend.vertexFunctionName,
             fragmentFunctionName: frontend.fragmentFunctionName,
             uniformFields: frontend.uniformLayout.fields.map {
-                .init(name: $0.name, valueType: $0.type.rawValue, offset: $0.offset)
+                .init(
+                    name: $0.name,
+                    valueType: $0.type.rawValue,
+                    arrayCount: $0.arrayCount,
+                    offset: $0.offset
+                )
             },
             textureSlots: frontend.textureBindings.map(\.slot),
             colorTransfer: transfer

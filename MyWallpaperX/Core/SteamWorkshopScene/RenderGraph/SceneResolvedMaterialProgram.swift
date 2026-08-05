@@ -231,6 +231,8 @@ nonisolated struct SceneResolvedMaterialProgram {
         case pointerPosition, pointerPositionLast, screen
         case texelSize(scaleBitPattern: UInt64)
         case textureResolution(slot: Int)
+        case audioSpectrumLeft(count: Int)
+        case audioSpectrumRight(count: Int)
     }
 
     enum DynamicSourceKind: Hashable { case userProperty, timeline, sceneScript }
@@ -357,6 +359,7 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
             .texelSize(scaleBitPattern: Double(0.5).bitPattern)
         default:
             textureResolution(field, activeTextureSlots: activeTextureSlots)
+                ?? audioSpectrum(field)
         }
     }
 
@@ -378,5 +381,19 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
         guard start < end, let slot = Int(field.name[start ..< end]),
               activeTextureSlots.contains(slot) else { return nil }
         return .textureResolution(slot: slot)
+    }
+
+    private static func audioSpectrum(
+        _ field: SceneAuthoredShaderUniformLayout.Field
+    ) -> Program.HostUniform? {
+        guard field.type == .float,
+              let count = field.arrayCount,
+              [16, 32, 64].contains(count) else { return nil }
+        switch field.name {
+        case "g_AudioSpectrum\(count)Left": return .audioSpectrumLeft(count: count)
+        case "g_AudioSpectrum\(count)Right": return .audioSpectrumRight(count: count)
+        default:
+            return nil
+        }
     }
 }

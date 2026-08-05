@@ -113,7 +113,26 @@ nonisolated struct SceneAuthoredShaderUniformLayout: Equatable, Hashable, Sendab
     struct Field: Equatable, Hashable, Sendable {
         let name: String
         let type: SceneAuthoredShaderValueType
+        /// Fixed-size host arrays keep their element type while preserving
+        /// the authored declaration shape in the uniform ABI.
+        let arrayCount: Int?
         let offset: Int
+
+        init(
+            name: String,
+            type: SceneAuthoredShaderValueType,
+            arrayCount: Int? = nil,
+            offset: Int
+        ) {
+            self.name = name
+            self.type = type
+            self.arrayCount = arrayCount
+            self.offset = offset
+        }
+
+        var storageByteSize: Int {
+            type.byteSize * (arrayCount ?? 1)
+        }
     }
 
     let fields: [Field]

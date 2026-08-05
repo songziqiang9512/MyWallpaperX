@@ -86,6 +86,20 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
                 candidate.mappedSize.width,
                 candidate.mappedSize.height,
             ].map(Double.init), as: type)
+        case let .audioSpectrumLeft(count):
+            return encodeSpectrum(
+                inputs.audioSpectrum,
+                left: true,
+                count: count,
+                type: type
+            )
+        case let .audioSpectrumRight(count):
+            return encodeSpectrum(
+                inputs.audioSpectrum,
+                left: false,
+                count: count,
+                type: type
+            )
         }
     }
 
@@ -181,6 +195,35 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
             Double((min(1, max(-1, value.x)) + 1) * 0.5),
             Double((1 - min(1, max(-1, value.y))) * 0.5),
         ], as: type)
+    }
+
+    private static func encodeSpectrum(
+        _ inputs: SceneAuthoredShaderAudioSpectrumInputs,
+        left: Bool,
+        count: Int,
+        type: SceneAuthoredShaderValueType
+    ) -> Data? {
+        guard type == .float else { return nil }
+        let low = left ? inputs.left16 : inputs.right16
+        let medium = left ? inputs.left32 : inputs.right32
+        let extended = left ? inputs.left64 : inputs.right64
+        let values: [Float]
+        switch count {
+        case 16: values = low
+        case 32: values = medium
+        case 64: values = extended
+        default: return nil
+        }
+        guard values.count == count, values.allSatisfy(\.isFinite) else { return nil }
+        var data = Data(count: type.byteSize * count)
+        for (index, value) in values.enumerated() {
+            guard write(
+                value,
+                at: index * MemoryLayout<Float>.stride,
+                into: &data
+            ) else { return nil }
+        }
+        return data
     }
 
     private static func valid(_ size: CGSize) -> Bool {

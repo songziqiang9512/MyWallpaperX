@@ -30,7 +30,8 @@ nonisolated enum SceneAuthoredShaderMetalSource {
         layout: SceneAuthoredShaderUniformLayout
     ) -> String {
         let fields = layout.fields.map {
-            "    \($0.type.metalName) \($0.name);"
+            let suffix = $0.arrayCount.map { "[\($0)]" } ?? ""
+            return "    \($0.type.metalName) \($0.name)\(suffix);"
         }.joined(separator: "\n")
         return """
         struct SceneAuthoredUniforms {

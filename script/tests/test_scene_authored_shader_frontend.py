@@ -317,6 +317,83 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         )
         self.assertEqual(output["diagnosticCodes"], ["invalidUniformLayout"])
 
+    def test_audio_spectrum_arrays_are_public_and_other_arrays_fail_closed(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform float g_AudioSpectrum16Left[16];
+            uniform float g_AudioSpectrum16Right[16];
+            uniform float g_AudioSpectrum32Left[32];
+            uniform float g_AudioSpectrum32Right[32];
+            uniform float g_AudioSpectrum64Left[64];
+            uniform float g_AudioSpectrum64Right[64];
+            varying vec2 v_TexCoord;
+            void main() {
+                float value = g_AudioSpectrum16Left[0]
+                    + g_AudioSpectrum32Right[1]
+                    + g_AudioSpectrum64Left[2];
+                gl_FragColor = vec4(value + v_TexCoord.x);
+            }
+            """,
+        )
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertIsNone(output.get("metalError"))
+
+        unknown = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform float g_Unknown[16];
+            varying vec2 v_TexCoord;
+            void main() { gl_FragColor = vec4(g_Unknown[0]); }
+            """,
+            metal=False,
+        )
+        self.assertEqual(unknown["diagnosticCodes"], ["unsupportedType"])
+
+        invalid_count = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform float g_AudioSpectrum15Left[15];
+            varying vec2 v_TexCoord;
+            void main() { gl_FragColor = vec4(g_AudioSpectrum15Left[0]); }
+            """,
+            metal=False,
+        )
+        self.assertEqual(invalid_count["diagnosticCodes"], ["unsupportedType"])
+
+        invalid_type = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform vec4 g_AudioSpectrum16Left[16];
+            varying vec2 v_TexCoord;
+            void main() { gl_FragColor = g_AudioSpectrum16Left[0]; }
+            """,
+            metal=False,
+        )
+        self.assertEqual(invalid_type["diagnosticCodes"], ["unsupportedType"])
+
+        conflicting_shape = self.compile(
+            """
+            uniform mat4 g_ModelViewProjectionMatrix;
+            uniform float g_AudioSpectrum16Left;
+            attribute vec3 a_Position;
+            attribute vec2 a_TexCoord;
+            varying vec2 v_TexCoord;
+            void main() {
+                gl_Position = mul(vec4(a_Position, 1.0),
+                    g_ModelViewProjectionMatrix);
+                v_TexCoord = a_TexCoord;
+            }
+            """,
+            """
+            uniform float g_AudioSpectrum16Left[16];
+            varying vec2 v_TexCoord;
+            void main() { gl_FragColor = vec4(g_AudioSpectrum16Left[0]); }
+            """,
+            metal=False,
+        )
+        self.assertEqual(conflicting_shape["diagnosticCodes"], ["duplicateDeclaration"])
+
     def test_isolated_314_shader_enters_the_same_frontend(self):
         cache = sample_cache_root("3141421197")
         vertex = cache / "shaders/effects/myfirstshader.vert"

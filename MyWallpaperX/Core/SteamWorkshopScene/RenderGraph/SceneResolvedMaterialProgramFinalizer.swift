@@ -106,7 +106,8 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
                         ($0.index, $0.resource.publication.candidate.physicalSize)
                     }
                 }
-            )
+            ),
+            audioSpectrum: frameSnapshot.frameInputs.audioSpectrum
         )
     }
 

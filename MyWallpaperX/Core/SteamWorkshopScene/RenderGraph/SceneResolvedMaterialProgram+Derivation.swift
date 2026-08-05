@@ -163,10 +163,11 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
             guard !field.name.isEmpty,
                   field.offset >= end,
                   field.offset.isMultiple(of: field.type.alignment),
-                  field.offset <= layout.byteSize - field.type.byteSize else {
+                  field.arrayCount.map({ (1 ... 64).contains($0) }) ?? true,
+                  field.offset <= layout.byteSize - field.storageByteSize else {
                 return false
             }
-            end = field.offset + field.type.byteSize
+            end = field.offset + field.storageByteSize
         }
         return end <= layout.byteSize
     }
@@ -252,7 +253,7 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
         var dynamic: [Program.ExactDynamicUniformIdentity] = []
         for (field, value) in zip(layout.fields, resolved) {
             guard value.field == field,
-                  value.encodedValue.count == field.type.byteSize,
+                  value.encodedValue.count == field.storageByteSize,
                   let source = uniformSourceIdentity(
                       value.source,
                       field: field,
@@ -261,12 +262,13 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
                 return nil
             }
             bytes.replaceSubrange(
-                field.offset ..< field.offset + field.type.byteSize,
+                field.offset ..< field.offset + field.storageByteSize,
                 with: value.encodedValue
             )
             semantic.append(.init(
                 fieldName: field.name,
                 fieldType: field.type.rawValue,
+                arrayCount: field.arrayCount,
                 fieldOffset: field.offset,
                 source: source
             ))

@@ -17,5 +17,14 @@ extension SceneAuthoredShaderFrameInputs {
         frameTime = Float(frameContext.frameTime)
         pointerCurrentNDC = frameContext.pointerCurrent
         pointerPreviousNDC = frameContext.pointerPrevious
+        let spectrum = frameContext.audioSpectrum
+        audioSpectrum = .init(
+            left16: spectrum.left,
+            right16: spectrum.right,
+            left32: spectrum.left32,
+            right32: spectrum.right32,
+            left64: spectrum.left64,
+            right64: spectrum.right64
+        )
     }
 }

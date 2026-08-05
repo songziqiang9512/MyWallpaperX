@@ -19,7 +19,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
     static func emit(
         vertex: SceneAuthoredShaderSyntaxUnit,
         fragment: SceneAuthoredShaderSyntaxUnit,
-        uniforms: [(String, SceneAuthoredShaderValueType)],
+        uniforms: [(String, SceneAuthoredShaderValueType, Int?)],
         uniformLayout: SceneAuthoredShaderUniformLayout,
         textures: [SceneAuthoredShaderProgram.TextureBinding],
         varyings: [(String, SceneAuthoredShaderValueType)],

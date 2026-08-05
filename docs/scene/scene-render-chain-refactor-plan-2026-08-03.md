@@ -452,6 +452,13 @@ sample declaration
 - 自动门：semantics **5/5 tests PASS**（提交后 ratchet 基线比较已启用）、Scene 全量 **190 modules / 164.7 s / ALL OK**、Swift code health **834 files / 44 locked legacy / 400-line limit**、`git diff --check` 与 `script/build_and_run.sh verify` 通过。R4-0 没有迁移产品像素行为，故不重复 fixed13，也不运行 full45。
 - 本门只冻结现状，不把 `33/34/33/4`、legacy authority、main-pass writer、SHA/Workshop selector 写成受支持能力。R4-1 至 R4-6 必须继续按 capability family 同提交接管与撤权；最后一个旧 owner 撤权前 R4 未完成，R5 不得开始。
 
+#### 2026-08-05 R4-2 typed audio-spectrum uniform-array slice
+
+- 本批从公共 RenderGraph 输入合同切入，不为任何 sample/layer/workshop/hash 增加分支：`SceneAudioSpectrumSnapshot` 的 16/32/64 左右声道值经 `SceneAuthoredShaderFrameInputs` 进入统一 `SceneResolvedMaterialProgramFinalizer`，由 host-uniform schema 识别 `g_AudioSpectrum{16|32|64}{Left|Right}`，并由同一 `SceneResolvedMaterialUniformEncoder` 按固定数组 ABI 写入 Program uniform bytes。frontend/Metal emitter/source、semantic/exact identity、pass encoder 和布局验证同时保留 array shape/byte size，未知数组名、非 float、非法长度与跨 stage 形状冲突继续 fail closed。
+- 项目自有正反门已补入 `test_scene_authored_shader_frontend.py` 与 `test_scene_resolved_material_program_finalizer.py`：16/32/64 左右数组可生成 Metal、最终化并按索引读回非零 fixture；未知数组、15 档、非 float 和跨 stage 冲突均被拒绝。当前定向验证为 frontend **10/10**、finalizer **7/7**、execution capability **3/3**、graph executor **1/1**、runtime bridge **13/13**；code health **835 files / 44 locked legacy / 400-line limit**、`git diff --check` 与 `script/build_and_run.sh verify` 通过。
+- 新鲜隔离运行 `.codex/scene-chain-r4-audio-3747492842-20260805-v1/report.json` 在 `--audio-spectrum-fixture` 下 **1/1 PASS**，driver FPS `60.0579`、startup ready `3545.3 ms`；但该样本的 capability 仍是 `accepted=0`，并保留 `dynamic-uniform-unavailable=1`、`execution-route-content-kind=4`、`material-variant-envelope-texture-purpose=2`。因此这次运行只证明输入注入与既有链路未回归，不能声称真实样本已由新 graph executor 编码，也不能把残余 rejection 归因于音频数组。后续需先完成公共动态 producer/purpose 合同，再以同一 executor 重新取得真实 GPU/compositor evidence。
+- 该切片仍属于 R4-2 进行中：旧 authored/standalone/dedicated/audio profile owner 没有撤权，未新增 fallback 或双写；R4-2 只有在真实候选进入统一 executor、旧 owner 同提交撤权、跨样本正反门闭合后才可记为完成。R5 继续禁止启动。
+
 每个波次均以“公共 capability 接管、被替代 owner 同提交撤权、旧 exact/route 双写为零、跨样本或跨 revision 正反例通过”闭合。只增加新 executor 而保留旧默认 fallback 不算迁移。
 
 1. **R4-0 权限冻结门（已完成）**：canonical executor 调用点、legacy authority、main-pass writer、dedicated probe/compiler/backend、recovery、硬编码 expected SHA 与 Workshop selector 已进入现有 layout/semantics 机器门；后续提交只能降低对应 occurrence/file/scope。未迁移的权限仍是 R4 工作，不得把冻结表述为撤权。
@@ -475,5 +482,5 @@ sample declaration
 9. **已完成**：R2 只把 include/combo contract 准备到 active source/schema/cache identity；普通 authored pass 的 shader input/output color representation显式 unresolved，现役 generic renderer准入没有因预处理成功而扩大；独立阶段提交为 `57cc94dc`。
 10. **已完成**：R3 把同代 texture/provider、active variant/reflection、uniform bytes、typed state与保守颜色合同原子编入 `SceneResolvedMaterialProgram`，并用45样本静态census、production一次性审计、完整Scene测试和四样本性能门验证；`gpuEncoded=0`，没有按effect/path/hash或样本ID分派，也没有宣称视觉修复。
 11. **R4 partial checkpoint 已提交，R4 未完成**：raw graph capability admission、typed extent、whole-frame batch、frame/source transaction、显式 `CompositeOutcome`、统一 executor 与 GPU/compositor/next-frame evidence 已进入当前检查点；普通 image/solid/text、utility 与 standalone target 已统一 frame batch。persistent 定向为 **2/2 PASS**，完整 fixed13 为 **13/13 PASS**。full45 未运行，旧 owner 全部撤权前不进入 R5。
-12. **R4 后续而非 R5**：R4-0 可机读权限冻结门已完成；下一步从 R4-1 generic authored material 开始，依次推进 R4-2 至 R4-6。每个迁移提交都必须同时撤销被替代产品入口，降低 authority/hash/path/recovery ratchet，并刷新 dedicated probe/runtime backend/legacy authority/文件与 LOC/小文件六轴规模账；禁止只加新 executor、把旧代码留作默认回退。除完整矩阵合同再次变化或定向/固定门无法排除跨样本风险外，迁移波次不惯性运行 full45；最后一个旧 owner 撤权后的 R4 里程碑必须再运行完整门。
+12. **R4 后续而非 R5**：R4-0 可机读权限冻结门已完成，R4-1 generic authored material 已形成 straight-alpha 跨样本接管；R4-2 已开始公共 typed audio-array ABI，但真实 graph GPU 接管与旧 owner 撤权尚未闭合。后续依次推进 R4-2 至 R4-6；每个完成的迁移族都必须同时撤销被替代产品入口，降低 authority/hash/path/recovery ratchet，并刷新 dedicated probe/runtime backend/legacy authority/文件与 LOC/小文件六轴规模账。除完整矩阵合同再次变化或定向/固定门无法排除跨样本风险外，迁移波次不惯性运行 full45；最后一个旧 owner 撤权后的 R4 里程碑必须再运行完整门。
 13. **R5 准入门**：最后一个旧产品 owner 已撤权；新旧 exact/route telemetry 不双写；产品源码没有 sample/layer/path/hash 驱动的可见算法选择；跨版本跨样本正反门和 full45 里程碑通过。R5 此后只删除不可达脚手架、合并薄文件、同步权威文档和做最终证据收口；发现行为迁移缺口必须退回 R4。
