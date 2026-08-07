@@ -36,6 +36,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectXRayPrefix.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectStageRebase.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionCatalog+ResolvedMaterial.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectStageProgram.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectStageAdmission.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionCatalog+Reporting.swift",
@@ -47,6 +48,11 @@ SWIFT_SOURCES = [
 
 HARNESS = r'''
 import Foundation
+
+struct SceneEffectExactRuntimeSubject: Hashable {
+    let key: SceneAuthoredEffectRenderPlan.EffectKey
+    let family: String
+}
 
 struct SceneDocument {
     struct ShaderValue {
@@ -122,43 +128,6 @@ struct SceneProceduralNoiseExecutionPlan: Sendable {
 }
 struct SceneFilmGrainExecutionPlan: Sendable {}
 struct SceneLightShaftsExecutionPlan: Sendable {}
-struct SceneAuthoredShaderExecutionPlan {
-    enum Profile {
-        case genericFramebuffer
-        case scroll
-    }
-
-    let offscreenSize: CGSize? = nil
-    let profile: Profile = .genericFramebuffer
-
-    func offscreenSize(for requestedSize: CGSize) -> CGSize? { offscreenSize }
-}
-
-enum SceneAuthoredShaderExecutionPlanner {
-    nonisolated(unsafe) static var compiledEffectIndices: [Int] = []
-
-    static func compile(
-        _ input: SceneEffectStageCompileInput
-    ) -> SceneEffectStageBackendCompileResult<SceneAuthoredShaderExecutionPlan> {
-        if let effectIndex = input.stageGraph.effects.first?.key.effectIndex {
-            compiledEffectIndices.append(effectIndex)
-        }
-        if input.stageGraph.effects.first?.definitionPath.lowercased()
-            == "effects/generic/effect.json" {
-            return .accepted(SceneAuthoredShaderExecutionPlan())
-        }
-        return .notApplicable
-    }
-
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole
-    ) -> SceneAuthoredShaderExecutionPlan? {
-        nil
-    }
-}
 
 enum SceneAuthoredOpacityPlanner {
     static func plan(
@@ -1388,8 +1357,6 @@ enum Harness {
         switch firstProgram.selection {
         case .dedicated(let backend):
             firstCompilerBackend = backend.rawValue
-        case .authoredShader:
-            firstCompilerBackend = "authored-shader"
         }
         let firstLegacyPlan = chain.executionStages[0]
         let firstProjectionPreserved =
@@ -1482,7 +1449,6 @@ enum Harness {
         )!
         SceneAuthoredWorkshopAudioBarsPlanner.callCount = 0
         SceneAuthoredWorkshopSimpleAudioBarsPlanner.callCount = 0
-        SceneAuthoredShaderExecutionPlanner.compiledEffectIndices = []
         let overlapCompile = SceneAuthoredEffectChainPlanner.compileStage(.init(
             stageGraph: overlapStageGraph,
             authoredOrdinal: 0,
@@ -1499,12 +1465,9 @@ enum Harness {
         switch overlapProgram.selection {
         case .dedicated(let backend):
             overlapCompilerBackend = backend.rawValue
-        case .authoredShader:
-            overlapCompilerBackend = "authored-shader"
         }
         let overlapEnhancedCalls = SceneAuthoredWorkshopAudioBarsPlanner.callCount
         let overlapSimpleCalls = SceneAuthoredWorkshopSimpleAudioBarsPlanner.callCount
-        let overlapGenericCalls = SceneAuthoredShaderExecutionPlanner.compiledEffectIndices
 
         let genericGraph = simpleFisheyeGraph(
             fisheyePath: "effects/generic/effect.json"
@@ -1523,15 +1486,12 @@ enum Harness {
             descriptor: validDescriptor,
             shaderContracts: []
         ))
-        guard case .accepted(let genericProgram) = genericCompile else {
-            fatalError("generic authored stage must compile")
-        }
-        let genericSelectionIsAuthored: Bool
-        switch genericProgram.selection {
-        case .authoredShader:
-            genericSelectionIsAuthored = true
-        case .dedicated:
-            genericSelectionIsAuthored = false
+        let genericProbes: [SceneEffectStageCompilerProbe]
+        switch genericCompile {
+        case .accepted:
+            genericProbes = []
+        case .unsupported(let failure):
+            genericProbes = failure.probes
         }
         let unknownGraph = simpleFisheyeGraph(
             audioBarsPath: "effects/unknown/effect.json"
@@ -1664,21 +1624,25 @@ enum Harness {
             descriptor: validDescriptor,
             authoredPlans: [validGraph]
         )
+        let resolvedSubjects = validGraph.effects.map {
+            SceneEffectExactRuntimeSubject(
+                key: $0.key,
+                family: "resolved-material"
+            )
+        }
+        let resolvedCatalog = SceneAuthoredEffectExecutionCatalog(
+            descriptor: validDescriptor,
+            authoredPlans: [validGraph],
+            resolvedMaterialSubjects: resolvedSubjects
+        )
+        let partialResolvedCatalog = SceneAuthoredEffectExecutionCatalog(
+            descriptor: validDescriptor,
+            authoredPlans: [validGraph],
+            resolvedMaterialSubjects: Array(resolvedSubjects.prefix(1))
+        )
         let firstOutput = validGraph.effects[0].output
         let firstKey = validGraph.effects[0].key
         let secondKey = validGraph.effects[1].key
-        let genericStage = SceneAuthoredEffectExecutionPlan(
-            layerID: layerID,
-            renderGraph: chain.executionStages[0].renderGraph,
-            backend: .authoredShader(SceneAuthoredShaderExecutionPlan()),
-            materialNodeCount: 1,
-            logicalRenderTargetCount: 0
-        )
-        let genericVariantProgram = SceneEffectStageProgram(
-            input: firstInput,
-            compilerBackend: .authoredShader,
-            executionPlan: genericStage
-        )!
         func admissionVariant(
             chain: SceneAuthoredEffectExecutionChain,
             coverage: SceneAuthoredEffectChainAdmission.Coverage
@@ -1706,11 +1670,6 @@ enum Harness {
                 "legacy-isolated-shine"
             }
         }
-        let genericVariantChain = SceneAuthoredEffectExecutionChain.complete(
-            layerID: layerID,
-            renderGraph: validGraph,
-            stagePrograms: [genericVariantProgram, chain.stagePrograms[1]]
-        )!
         let irisVariantChain = SceneAuthoredEffectExecutionChain.legacyRecovery(
             layerID: layerID,
             authoredRenderGraph: validGraph,
@@ -1851,14 +1810,11 @@ enum Harness {
         let unsupportedDescriptor = descriptor(unsupportedSecond: true)
         let threeStageGraph = threeStageChainGraph()
         let threeDescriptor = threeStageDescriptor()
-        SceneAuthoredShaderExecutionPlanner.compiledEffectIndices = []
         let threeStageAdmission = SceneAuthoredEffectChainPlanner.admit(
             graph: threeStageGraph,
             descriptor: threeDescriptor,
             shaderContracts: []
         )
-        let threeStageCompilerCalls =
-            SceneAuthoredShaderExecutionPlanner.compiledEffectIndices
         let threeStageAdmissions = SceneAuthoredEffectStageAdmissionBuilder.make(
             layer: threeDescriptor.layers[0],
             graphCandidates: [threeStageGraph],
@@ -1955,14 +1911,12 @@ enum Harness {
                 "overlapCompilerBackend": overlapCompilerBackend,
                 "overlapEnhancedCalls": overlapEnhancedCalls,
                 "overlapSimpleCalls": overlapSimpleCalls,
-                "overlapGenericCalls": overlapGenericCalls,
                 "overlapPrecedingProbeCount": overlapProgram.precedingProbes.count,
                 "overlapPrecedingProbeOutcomes": overlapProgram.precedingProbes.map {
                     probeOutcomeName($0.outcome)
                 },
-                "genericSelectionIsAuthored": genericSelectionIsAuthored,
-                "genericPrecedingProbeCount": genericProgram.precedingProbes.count,
-                "genericPrecedingProbeOutcomes": genericProgram.precedingProbes.map {
+                "genericProbeBackends": genericProbes.map { $0.backend.rawValue },
+                "genericProbeOutcomes": genericProbes.map {
                     probeOutcomeName($0.outcome)
                 },
                 "unknownProbeBackends": unknownProbes.map { $0.backend.rawValue },
@@ -1981,7 +1935,6 @@ enum Harness {
                 "threeStageAdmissionReasons": threeStageAdmissions.map {
                     $0.reasonCode ?? "-"
                 },
-                "threeStageCompilerCalls": threeStageCompilerCalls,
                 "aggregateReason": threeStageCompileFailure?.code.rawValue ?? "-",
                 "probeBackends": threeStageProbes.map { $0.backend.rawValue },
                 "probeOutcomes": threeStageProbes.map {
@@ -2015,7 +1968,6 @@ enum Harness {
                 "selections": chain.stagePrograms.map { program in
                     switch program.selection {
                     case .dedicated(let backend): backend.rawValue
-                    case .authoredShader: "authored-shader"
                     }
                 },
                 "projectionConserved": zip(
@@ -2188,6 +2140,22 @@ enum Harness {
                 "admissions": admissionState(catalog.stageAdmissions),
                 "reportLines": catalog.reportLines,
             ],
+            "resolvedCatalog": [
+                "chainLayers": resolvedCatalog.chainsByLayerID.keys.sorted(),
+                "resolvedKeys": resolvedCatalog.resolvedMaterialStageKeys.map {
+                    $0.effectIndex
+                }.sorted(),
+                "legacyBlocked": resolvedCatalog
+                    .legacyGaussianBlurBlockedLayerIDs.sorted(),
+                "admissions": admissionState(resolvedCatalog.stageAdmissions),
+                "strictConserved": resolvedCatalog.reportLines.contains(
+                    "authoredEffectStageStrictIdentityConserved: true"
+                ),
+                "partialChainLayers": partialResolvedCatalog
+                    .chainsByLayerID.keys.sorted(),
+                "partialResolvedKeys": partialResolvedCatalog
+                    .resolvedMaterialStageKeys.map { $0.effectIndex }.sorted(),
+            ],
             "directRejections": [
                 "unsupportedSecond": rejected(
                     graph: validGraph,
@@ -2241,10 +2209,6 @@ enum Harness {
                 ),
             ],
             "admissionVariants": [
-                "generic": admissionVariant(
-                    chain: genericVariantChain,
-                    coverage: .complete
-                ),
                 "iris": admissionVariant(
                     chain: irisVariantChain,
                     coverage: .terminalIrisInlineSuffix(effect: secondKey)
@@ -2428,6 +2392,27 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         ):
             self.assertIn(line, catalog["reportLines"])
 
+    def test_resolved_material_capability_owns_static_admission(self) -> None:
+        catalog = self.result["resolvedCatalog"]
+        self.assertEqual(catalog["chainLayers"], [])
+        self.assertEqual(catalog["resolvedKeys"], [0, 1])
+        self.assertEqual(catalog["legacyBlocked"], [])
+        self.assertTrue(catalog["strictConserved"])
+        self.assertEqual(
+            [record["strict"] for record in catalog["admissions"]],
+            ["admitted-generic", "admitted-generic"],
+        )
+        self.assertEqual(
+            [record["backend"] for record in catalog["admissions"]],
+            ["resolved-material", "resolved-material"],
+        )
+        self.assertEqual(
+            [record["profile"] for record in catalog["admissions"]],
+            ["program", "program"],
+        )
+        self.assertEqual(catalog["partialChainLayers"], [42])
+        self.assertEqual(catalog["partialResolvedKeys"], [])
+
     def test_typed_stage_compilation_preserves_projection_and_failure_order(self) -> None:
         typed = self.result["typedCompilation"]
         self.assertEqual(typed["firstCompilerBackend"], "precise-gaussian")
@@ -2437,17 +2422,10 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         self.assertEqual(typed["overlapCompilerBackend"], "workshop-audio-bars")
         self.assertEqual(typed["overlapEnhancedCalls"], 1)
         self.assertEqual(typed["overlapSimpleCalls"], 0)
-        self.assertEqual(typed["overlapGenericCalls"], [])
         self.assertEqual(typed["overlapPrecedingProbeCount"], 7)
         self.assertEqual(
             typed["overlapPrecedingProbeOutcomes"],
             ["not-applicable"] * 7,
-        )
-        self.assertTrue(typed["genericSelectionIsAuthored"])
-        self.assertEqual(typed["genericPrecedingProbeCount"], 33)
-        self.assertEqual(
-            typed["genericPrecedingProbeOutcomes"],
-            ["not-applicable"] * 33,
         )
         self.assertTrue(typed["threeStageChainRejected"])
         self.assertEqual(typed["threeStageTopLevelReason"], "unsupported-stage")
@@ -2459,7 +2437,6 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
                 "not-evaluated-after-chain-rejection",
             ],
         )
-        self.assertEqual(typed["threeStageCompilerCalls"], [1])
         self.assertEqual(typed["aggregateReason"], "no-backend-accepted")
         expected_backends = [
             "precise-gaussian",
@@ -2495,16 +2472,20 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
             "pulse",
             "godrays",
             "shine",
-            "authored-shader",
         ]
+        self.assertEqual(typed["genericProbeBackends"], expected_backends)
+        self.assertEqual(
+            typed["genericProbeOutcomes"],
+            ["not-applicable"] * 33,
+        )
         self.assertEqual(typed["probeBackends"], expected_backends)
         self.assertEqual(typed["unknownProbeBackends"], expected_backends)
         self.assertEqual(
             typed["unknownProbeOutcomes"],
-            ["not-applicable"] * 34,
+            ["not-applicable"] * 33,
         )
         self.assertEqual(typed["waterFlowRejectedProbeBackends"], expected_backends)
-        water_flow_outcomes = ["not-applicable"] * 34
+        water_flow_outcomes = ["not-applicable"] * 33
         water_flow_outcomes[17] = (
             "rejected:compatibility:dedicated-profile-rejected"
         )
@@ -2517,7 +2498,7 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         self.assertEqual(
             typed["probeOutcomes"],
             ["rejected:compatibility:dedicated-profile-rejected"]
-                + ["not-applicable"] * 33,
+                + ["not-applicable"] * 32,
         )
         self.assertTrue(typed["outerGraphHasNoStageFailure"])
         report_lines = self.result["failureCatalogs"]["unsupportedSecond"][
@@ -2530,7 +2511,7 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         )
         self.assertIn(
             "authoredEffectStageCompilerProbeOutcomeCounts: "
-            "not-applicable=33,rejected=1",
+            "not-applicable=32,rejected=1",
             report_lines,
         )
         compiler_failures = next(
@@ -2671,16 +2652,8 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
             ["discarded-strict-prefix", "discontinuous-effect-input"],
         )
 
-    def test_partial_chain_coverage_and_generic_executor_are_explicit(self) -> None:
+    def test_partial_chain_coverage_is_explicit(self) -> None:
         variants = self.result["admissionVariants"]
-        self.assertEqual(
-            [(item["strict"], item["coverage"], item["backend"], item["profile"])
-             for item in variants["generic"]],
-            [
-                ("admitted-generic", "complete", "authored-shader", "generic-framebuffer"),
-                ("admitted-dedicated", "complete", "precise-gaussian", "-"),
-            ],
-        )
         self.assertEqual(
             [(item["strict"], item["coverage"], item["reason"])
              for item in variants["iris"]],

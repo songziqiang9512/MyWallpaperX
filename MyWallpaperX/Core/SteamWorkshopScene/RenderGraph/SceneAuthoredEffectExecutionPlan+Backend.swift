@@ -34,7 +34,6 @@ extension SceneAuthoredEffectExecutionPlan {
         case pulse(ScenePulseExecutionPlan)
         case godrays(SceneGodraysPlan)
         case shine(SceneShineExecutionPlan)
-        case authoredShader(SceneAuthoredShaderExecutionPlan)
     }
 
     var gaussianBlur: SceneGaussianBlurPlan? {
@@ -197,13 +196,8 @@ extension SceneAuthoredEffectExecutionPlan {
         return plan
     }
 
-    nonisolated var authoredShader: SceneAuthoredShaderExecutionPlan? {
-        guard case .authoredShader(let plan) = backend else { return nil }
-        return plan
-    }
-
     nonisolated var executionFamilyStableName: String {
-        authoredShader?.profile.stableName ?? backend.stableName
+        backend.stableName
     }
 
     nonisolated var liveConsumerTargets: Set<SceneDynamicTarget> {

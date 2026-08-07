@@ -270,10 +270,18 @@ class SceneShaderPreparationCensusTests(unittest.TestCase):
             self.assertEqual(report["comparison"]["raw_projection_diff"]["count"], 0)
             self.assertEqual(report["comparison"]["canonical_diff"]["count"], 0)
             self.assertEqual(report["comparison"]["newly_accepted"], [])
-            self.assertEqual(report["comparison"]["lost_accepted"], [])
+            self.assertEqual(report["comparison"]["current_accepted"], [])
+            self.assertEqual(
+                report["comparison"]["lost_accepted"],
+                report["comparison"]["baseline_accepted"],
+            )
             self.assertEqual(
                 sum(report["summary"]["gpu_admission"]["current"].values()),
                 5,
+            )
+            self.assertEqual(
+                report["summary"]["gpu_admission"]["current"],
+                {"removed": 5},
             )
             self.assertEqual(report["summary"]["preparation"], {"accepted": 5})
             self.assertEqual(len(report["results"]["baseline"]["passes"]), 5)
@@ -283,14 +291,14 @@ class SceneShaderPreparationCensusTests(unittest.TestCase):
                 for item in report["results"]["current"]["passes"]
                 if item["materialPath"].endswith("production-parser-boundary.json")
             )
-            self.assertEqual(parser_boundary["gpuAdmission"], "accepted")
+            self.assertEqual(parser_boundary["gpuAdmission"], "removed")
             readiness = next(
                 item
                 for item in report["results"]["current"]["passes"]
                 if item["materialPath"].endswith("readiness.json")
             )
             self.assertEqual(readiness["preparation"], "accepted")
-            self.assertEqual(readiness["gpuAdmission"], "rejected")
+            self.assertEqual(readiness["gpuAdmission"], "removed")
             self.assertNotIn(str(root), report_bytes.decode("utf-8"))
             self.assertNotIn(
                 "uniform mat4 g_ModelViewProjectionMatrix;",

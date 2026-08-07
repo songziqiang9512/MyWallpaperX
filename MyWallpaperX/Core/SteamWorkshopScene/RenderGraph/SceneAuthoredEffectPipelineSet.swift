@@ -37,5 +37,4 @@ struct SceneAuthoredEffectPipelineSet {
     var pulse: ScenePulsePipeline? { repository.pulse() }
     var godrays: SceneGodraysPipeline? { repository.godrays() }
     var shine: SceneShinePipeline? { repository.shine() }
-    var authoredShader: SceneAuthoredShaderPipelineCache? { repository.authoredShader() }
 }

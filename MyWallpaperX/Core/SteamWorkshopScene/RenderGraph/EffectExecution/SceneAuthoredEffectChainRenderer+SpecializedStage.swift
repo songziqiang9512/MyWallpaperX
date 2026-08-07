@@ -18,7 +18,6 @@ extension SceneAuthoredEffectChainRenderer {
         frameTime: Float,
         time: Float,
         audioSpectrum: SceneAudioSpectrumSnapshot,
-        authoredShaderFrameInputs: SceneAuthoredShaderFrameInputs?,
         dependencyEffect: SceneDependencyEffectInput?,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
@@ -176,18 +175,6 @@ extension SceneAuthoredEffectChainRenderer {
                 dynamicValues: dynamicValues, sourceUniforms: sourceUniforms,
                 pipeline: pipeline, pulsePipeline: pulsePipeline,
                 time: time, audioSpectrum: audioSpectrum,
-                commandBuffer: commandBuffer
-            )
-        case .authoredShader(let shader):
-            guard let authoredShaderPipeline = pipelines.authoredShader else {
-                return nil
-            }
-            return renderAuthoredShader(
-                shader, sourceTexture: sourceTexture, masks: masks,
-                auxMask: auxMask, targets: targets,
-                sourceUniforms: sourceUniforms,
-                frame: authoredShaderFrameInputs, pipeline: pipeline,
-                pipelineCache: authoredShaderPipeline,
                 commandBuffer: commandBuffer
             )
         default:

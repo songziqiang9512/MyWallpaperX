@@ -16,7 +16,6 @@ enum SceneAuthoredEffectChainRenderer {
         previousPointerIsInside: Bool,
         frameTime: Float,
         audioSpectrum: SceneAudioSpectrumSnapshot,
-        authoredShaderFrameInputs: SceneAuthoredShaderFrameInputs?,
         dependencyEffect: SceneDependencyEffectInput?,
         commandBuffer: MTLCommandBuffer,
         executionTrace: SceneEffectExecutionFrameTrace? = nil,
@@ -67,7 +66,6 @@ enum SceneAuthoredEffectChainRenderer {
                 frameTime: frameTime,
                 time: sourceUniforms.time,
                 audioSpectrum: audioSpectrum,
-                authoredShaderFrameInputs: authoredShaderFrameInputs,
                 dependencyEffect: dependencyEffect,
                 commandBuffer: commandBuffer
             )
@@ -114,7 +112,6 @@ enum SceneAuthoredEffectChainRenderer {
         frameTime: Float,
         time: Float,
         audioSpectrum: SceneAudioSpectrumSnapshot,
-        authoredShaderFrameInputs: SceneAuthoredShaderFrameInputs?,
         dependencyEffect: SceneDependencyEffectInput?,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
@@ -251,8 +248,7 @@ enum SceneAuthoredEffectChainRenderer {
         case .shake, .waterFlow, .waterWaves, .waterCaustics,
              .cursorRipple, .foliageSway, .waterRipple, .depthParallax,
              .xRay, .clippingMask, .blend, .tint, .transform,
-             .fisheyeZeroDistortion, .godrays, .shine, .pulse,
-             .authoredShader:
+             .fisheyeZeroDistortion, .godrays, .shine, .pulse:
             return renderSpecializedStage(
                 stage, sourceTexture: sourceTexture, masks: masks,
                 auxMask: auxMask, targets: targets, dynamicValues: dynamicValues,
@@ -262,7 +258,6 @@ enum SceneAuthoredEffectChainRenderer {
                 pointerIsInside: pointerIsInside,
                 previousPointerIsInside: previousPointerIsInside,
                 frameTime: frameTime, time: time, audioSpectrum: audioSpectrum,
-                authoredShaderFrameInputs: authoredShaderFrameInputs,
                 dependencyEffect: dependencyEffect, commandBuffer: commandBuffer
             )
         }

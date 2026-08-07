@@ -30,7 +30,6 @@ extension SceneImageLayerCompositor {
                 previousPointerIsInside: request.uniforms.previousCursorIsInside,
                 frameTime: request.uniforms.frameTime,
                 audioSpectrum: request.audioSpectrum,
-                authoredShaderFrameInputs: request.authoredShaderFrameInputs,
                 dependencyEffect: request.dependencyEffect,
                 commandBuffer: commandBuffer,
                 executionTrace: executionTrace,

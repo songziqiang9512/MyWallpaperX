@@ -53,7 +53,7 @@ extension SceneAuthoredEffectExecutionCatalog {
         }
         let chainStageKeys = chainStages.compactMap { stage in
             stage.renderGraph.effects.first?.key
-        }
+        } + Array(resolvedMaterialStageKeys)
         let stageCompileFailures = chainAdmissionsByLayerID.values.compactMap {
             $0.rejection?.stageCompileFailure
         }
@@ -136,8 +136,8 @@ extension SceneAuthoredEffectExecutionCatalog {
             "authoredEffectGraphShineCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.shineCount })",
             "authoredEffectGraphShineIsolatedCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.isolatedShineCount })",
             "authoredEffectGraphShineOmittedEffects: \(isolatedShineDiagnostics.joined(separator: ";"))",
-            "authoredEffectGraphAuthoredShaderCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.authoredShaderCount })",
-            "authoredEffectGraphScrollCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.scrollCount })",
+            "authoredEffectGraphAuthoredShaderCount: 0",
+            "authoredEffectGraphScrollCount: 0",
             "authoredEffectGraphXRayPrefixCount: \(xRayPrefixOmittedEffectPathsByLayerID.count)",
             "authoredEffectGraphXRayPrefixOmittedEffects: \(xRayPrefixOmittedEffectPathsByLayerID.sorted(by: { $0.key < $1.key }).map { "\($0.key)=\($0.value.joined(separator: ","))" }.joined(separator: ";"))",
         ] + stageAdmissions.map(\.reportLine)

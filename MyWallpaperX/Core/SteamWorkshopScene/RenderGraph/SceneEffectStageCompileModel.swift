@@ -69,7 +69,6 @@ nonisolated enum SceneEffectStageCompilerBackend: String, CaseIterable, Hashable
     case pulse
     case godrays
     case shine
-    case authoredShader = "authored-shader"
 }
 
 /// Stable failure emitted by one migrated backend compiler. `details` carries

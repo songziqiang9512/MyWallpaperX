@@ -454,7 +454,7 @@ class SceneEffectExecutionTelemetryTests(unittest.TestCase):
         self.assertNotIn("stage gpu", joined)
         self.assertNotIn("succeeded", joined)
 
-    def test_authored_execution_uses_profile_family_and_backend_identity(self) -> None:
+    def test_dedicated_execution_uses_single_backend_identity(self) -> None:
         chain = CHAIN_RENDERER_SOURCE.read_text(encoding="utf-8")
         standalone = STANDALONE_RENDERER_SOURCE.read_text(encoding="utf-8")
         plan_backend = PLAN_BACKEND_SOURCE.read_text(encoding="utf-8")
@@ -462,10 +462,8 @@ class SceneEffectExecutionTelemetryTests(unittest.TestCase):
         self.assertIn("backend: stage.backend.stableName", chain)
         self.assertIn("family: plan.executionFamilyStableName", standalone)
         self.assertIn("backend: plan.backend.stableName", standalone)
-        self.assertIn(
-            "authoredShader?.profile.stableName ?? backend.stableName",
-            plan_backend,
-        )
+        self.assertIn("backend.stableName", plan_backend)
+        self.assertNotIn("authoredShader", plan_backend)
 
     @staticmethod
     def _field(line: str, name: str) -> str:

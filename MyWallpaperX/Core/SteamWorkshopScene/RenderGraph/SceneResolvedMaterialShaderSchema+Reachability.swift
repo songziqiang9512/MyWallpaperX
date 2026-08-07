@@ -11,7 +11,7 @@ extension SceneResolvedMaterialShaderSchema {
         let readiness = Dictionary(uniqueKeysWithValues: (0 ..< 8).map {
             ($0, false)
         })
-        switch SceneAuthoredShaderExecutionPlanner.prepareShaderStages(
+        switch SceneAuthoredShaderPreparation.prepareShaderStages(
             contract: template.shaderContract,
             combos: template.comboValues,
             textureReadiness: readiness
@@ -37,7 +37,7 @@ extension SceneResolvedMaterialShaderSchema {
                 ($0, mask & (UInt8(1) << UInt8($0)) != 0)
             })
             let prepared: SceneShaderPreparedProgram
-            switch SceneAuthoredShaderExecutionPlanner.prepareShaderStages(
+            switch SceneAuthoredShaderPreparation.prepareShaderStages(
                 contract: template.shaderContract,
                 combos: template.comboValues,
                 textureReadiness: readiness

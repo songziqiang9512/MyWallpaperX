@@ -25,6 +25,14 @@ CAPABILITY_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift"
 )
+VARIANT_CACHE_SOURCE = (
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityVariant.swift"
+)
+SHADER_REACHABILITY_SOURCE = (
+    SCENE_ROOT
+    / "RenderGraph/SceneResolvedMaterialShaderSchema+Reachability.swift"
+)
 DEPENDENCY_OWNERSHIP_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift"
@@ -1960,6 +1968,23 @@ private enum EnvelopeHarness {
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
+    def test_runtime_variant_resolution_starts_from_launch_envelope_seed(
+        self,
+    ) -> None:
+        variant_cache = VARIANT_CACHE_SOURCE.read_text(encoding="utf-8")
+        reachability = SHADER_REACHABILITY_SOURCE.read_text(encoding="utf-8")
+        resolve_start = variant_cache.index("    func resolve(")
+        resolve_end = variant_cache.index(
+            "    private func bootstrapSamplersLocked(", resolve_start
+        )
+        resolve_body = variant_cache[resolve_start:resolve_end]
+
+        self.assertIn("var activeSamplers = try bootstrapSamplersLocked()", resolve_body)
+        self.assertIn("private var cachedBootstrapSamplers:", variant_cache)
+        self.assertNotIn("prepareShaderStages", resolve_body)
+        self.assertNotIn(".bootstrapSamplers(", resolve_body)
+        self.assertIn("static func bootstrapSamplers(", reachability)
+
     def test_launch_uses_one_admitted_batch_for_templates_demands_and_claims(
         self,
     ) -> None:
@@ -2211,7 +2236,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "SceneAuthoredShaderSameSlotMixAnalyzer.swift",
                 "SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
                 "SceneAuthoredShaderFrontend.swift",
-                "SceneAuthoredShaderExecutionPlanner+Preparation.swift",
+                "SceneAuthoredShaderPreparation.swift",
+                "SceneAuthoredShaderPreparation+Support.swift",
                 "SceneShaderContract.swift",
                 "SceneShaderPreprocessor.swift",
             }.issubset(source_names)

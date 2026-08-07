@@ -120,7 +120,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+WaterRipple.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Rays.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Blend.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+AuthoredShader.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Opacity.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+AudioBars.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+SimpleAudioBars.swift",
@@ -600,51 +599,7 @@ struct SceneWorkshopAudioHueShiftExecutionPlan: Sendable {
     let audio: SceneAudioResponse.Parameters
 }
 
-struct SceneAuthoredShaderExecutionPlan: Sendable {
-    enum Profile: Sendable {
-        case genericFramebuffer
-        case scroll
-
-        var stableName: String {
-            switch self {
-            case .genericFramebuffer: "generic-framebuffer"
-            case .scroll: "scroll"
-            }
-        }
-    }
-
-    let offscreenSize: CGSize?
-    let profile: Profile
-
-    init(
-        offscreenSize: CGSize?,
-        profile: Profile = .genericFramebuffer
-    ) {
-        self.offscreenSize = offscreenSize
-        self.profile = profile
-    }
-
-    func offscreenSize(for requestedSize: CGSize) -> CGSize? { offscreenSize }
-}
-
 struct SceneAuthoredShaderFrameInputs: Sendable {}
-
-final class SceneAuthoredShaderPipelineCache {
-    init?(device: MTLDevice) {}
-}
-
-enum SceneAuthoredShaderRenderer {
-    static func encode(
-        plan: SceneAuthoredShaderExecutionPlan,
-        source: MTLTexture,
-        target: MTLTexture,
-        frame: SceneAuthoredShaderFrameInputs,
-        pipelineCache: SceneAuthoredShaderPipelineCache,
-        commandBuffer: MTLCommandBuffer
-    ) -> Bool {
-        false
-    }
-}
 
 // 与 SceneOpacityEffectTextureLoader.swift 里的同名结构保持一致的替身：那个文件还依赖
 // SceneTexturePathResolver/SceneTextureLoader，整条链拉进来会和本 harness 自带的
@@ -780,7 +735,6 @@ struct SceneAuthoredEffectExecutionPlan {
         case pulse(ScenePulseExecutionPlan)
         case godrays(SceneGodraysPlan)
         case shine(SceneShineExecutionPlan)
-        case authoredShader(SceneAuthoredShaderExecutionPlan)
 
         var stableName: String {
             switch self {
@@ -816,7 +770,6 @@ struct SceneAuthoredEffectExecutionPlan {
             case .pulse: "pulse"
             case .godrays: "godrays"
             case .shine: "shine"
-            case .authoredShader: "authored-shader"
             }
         }
     }
@@ -882,13 +835,8 @@ struct SceneAuthoredEffectExecutionPlan {
         return plan
     }
 
-    var authoredShader: SceneAuthoredShaderExecutionPlan? {
-        guard case .authoredShader(let plan) = backend else { return nil }
-        return plan
-    }
-
     var executionFamilyStableName: String {
-        authoredShader?.profile.stableName ?? backend.stableName
+        backend.stableName
     }
 
     var blend: SceneBlendExecutionPlan? {
@@ -1329,13 +1277,6 @@ struct SceneAuthoredEffectExecutionChain {
         executionStages.filter { $0.clippingMask != nil }.count
     }
 
-    func authoredShaderOffscreenSize(for requestedSize: CGSize) -> CGSize? {
-        executionStages.compactMap {
-            $0.authoredShader?.offscreenSize(for: requestedSize)
-        }.min {
-            $0.width * $0.height < $1.width * $1.height
-        }
-    }
 }
 
 struct SceneIrisInlineSuffixPlan {

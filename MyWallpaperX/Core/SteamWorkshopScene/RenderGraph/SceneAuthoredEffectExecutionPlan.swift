@@ -36,6 +36,7 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
     let xRayPrefixOmittedEffectPathsByLayerID: [Int: [String]]
     let stageAdmissions: [SceneAuthoredEffectStageAdmission]
     let chainAdmissionsByLayerID: [Int: SceneAuthoredEffectChainAdmission]
+    let resolvedMaterialStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey>
     let descriptorEffectStageCount: Int
     let descriptorEffectStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey>
 
@@ -46,7 +47,8 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
     init(
         descriptor: SceneRenderDescriptor,
         authoredPlans: [SceneAuthoredEffectRenderPlan],
-        shaderContracts: [SceneShaderContract] = []
+        shaderContracts: [SceneShaderContract] = [],
+        resolvedMaterialSubjects: [SceneEffectExactRuntimeSubject] = []
     ) {
         let visible = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         descriptorEffectStageCount = descriptor.layers.reduce(0) {
@@ -62,10 +64,18 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
             }
         })
         let grouped = Dictionary(grouping: authoredPlans, by: \.layerID)
+        let resolvedKeysByLayerID = Self.validResolvedMaterialKeys(
+            descriptor: descriptor,
+            authoredPlansByLayerID: grouped,
+            subjects: resolvedMaterialSubjects,
+            visibleLayerIDs: visible
+        )
+        resolvedMaterialStageKeys = Set(resolvedKeysByLayerID.values.flatMap { $0 })
         var eligible: [Int: SceneAuthoredEffectExecutionChain] = [:]
         var xRayPrefixes: [Int: [String]] = [:]
         var chainAdmissions: [Int: SceneAuthoredEffectChainAdmission] = [:]
-        for (layerID, candidates) in grouped where candidates.count == 1 {
+        for (layerID, candidates) in grouped
+        where candidates.count == 1 && resolvedKeysByLayerID[layerID] == nil {
             guard let graph = candidates.first else { continue }
             let admission = SceneAuthoredEffectChainPlanner.admit(
                 graph: graph,
@@ -97,7 +107,8 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
                 layer: layer,
                 graphCandidates: grouped[layer.id] ?? [],
                 chainAdmission: chainAdmissions[layer.id],
-                layerIsVisible: visible.contains(layer.id)
+                layerIsVisible: visible.contains(layer.id),
+                resolvedMaterialKeys: resolvedKeysByLayerID[layer.id] ?? []
             )
         }.sorted {
             if $0.key.layerID != $1.key.layerID {
@@ -122,6 +133,7 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
             .union(standardBlurCandidateLayers)
             .intersection(visible)
             .subtracting(chainsByLayerID.keys)
+            .subtracting(resolvedKeysByLayerID.keys)
     }
 
     var liveConsumerTargets: Set<SceneDynamicTarget> {
@@ -131,6 +143,7 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
     var executedUserPropertyKeys: Set<String> {
         Set(chainsByLayerID.values.flatMap(\.executedUserPropertyKeys))
     }
+
 }
 
 enum SceneAuthoredEffectExecutionPlanner {

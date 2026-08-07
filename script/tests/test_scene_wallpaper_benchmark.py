@@ -78,7 +78,7 @@ def effect_runtime_disposition_preview() -> str:
         "unattributed=0"
     )
     return "\n".join([
-        "authoredEffectGraphStageCount: 2",
+        "authoredEffectGraphStageCount: 1",
         "authoredEffectStageDescriptorCount: 12",
         "authoredEffectStageParsedCount: 12",
         "authoredEffectStageActivityCounts: author-disabled=1,layer-hidden=0,active=11",
@@ -91,7 +91,7 @@ def effect_runtime_disposition_preview() -> str:
         "authoredEffectStageStrictIdentityConserved: true",
         "authoredEffectStageAdmission: layer=1 effect=0 descriptor=1%23effect%230 activity=author-disabled strict=inactive coverage=inactive backend=- profile=- reason=- path=effects/disabled/effect.json",
         "authoredEffectStageAdmission: layer=2 effect=0 descriptor=2%23effect%230 activity=active strict=admitted-dedicated coverage=complete backend=opacity profile=- reason=- path=effects/opacity/effect.json",
-        "authoredEffectStageAdmission: layer=2 effect=1 descriptor=2%23effect%231 activity=active strict=admitted-generic coverage=complete backend=authored-shader profile=generic-fragment reason=- path=effects/generic/effect.json",
+        "authoredEffectStageAdmission: layer=2 effect=1 descriptor=2%23effect%231 activity=active strict=admitted-generic coverage=complete backend=resolved-material profile=program reason=- path=effects/generic/effect.json",
         "authoredEffectStageAdmission: layer=2 effect=2 descriptor=2%23effect%232 activity=active strict=not-admitted coverage=terminal-inline-suffix backend=- profile=- reason=terminal-inline-suffix path=effects/iris/effect.json",
         "authoredEffectStageAdmission: layer=2 effect=3 descriptor=2%23effect%233 activity=active strict=not-admitted coverage=rejected-chain backend=- profile=- reason=unsupported-stage path=effects/omitted/effect.json",
         "authoredEffectStageAdmission: layer=3 effect=0 descriptor=3%23effect%230 activity=active strict=not-admitted coverage=rejected-chain backend=- profile=- reason=unsupported-stage path=effects/chromatic/effect.json",
@@ -121,7 +121,7 @@ def effect_runtime_disposition_preview() -> str:
         "effectStaticRouteGroup: layer=7 scope=effect-induced-static kind=direct effects=1 owners=0 aggregate=0 reason=-",
         "effectStageRuntimeDisposition: layer=1 effect=0 descriptor=1%23effect%230 kind=inactive attribution=none family=- group=- role=none reason=author-disabled path=effects/disabled/effect.json",
         "effectStageRuntimeDisposition: layer=2 effect=0 descriptor=2%23effect%230 kind=strict-dedicated attribution=exact-key family=opacity group=2 role=owner reason=- path=effects/opacity/effect.json",
-        "effectStageRuntimeDisposition: layer=2 effect=1 descriptor=2%23effect%231 kind=strict-generic attribution=exact-key family=generic-fragment group=2 role=owner reason=- path=effects/generic/effect.json",
+        "effectStageRuntimeDisposition: layer=2 effect=1 descriptor=2%23effect%231 kind=strict-generic attribution=exact-key family=resolved-material group=2 role=owner reason=resolved-material-capability-owner path=effects/generic/effect.json",
         "effectStageRuntimeDisposition: layer=2 effect=2 descriptor=2%23effect%232 kind=strict-inline-suffix attribution=exact-key family=iris-inline group=2 role=owner reason=terminal-inline-suffix path=effects/iris/effect.json",
         "effectStageRuntimeDisposition: layer=2 effect=3 descriptor=2%23effect%233 kind=omitted-by-strict-chain attribution=exact-key family=- group=2 role=member reason=unsupported-stage path=effects/omitted/effect.json",
         "effectStageRuntimeDisposition: layer=3 effect=0 descriptor=3%23effect%230 kind=legacy-exact-inline attribution=exact-key family=chromatic-aberration group=3 role=owner reason=- path=effects/chromatic/effect.json",
@@ -2866,6 +2866,42 @@ utility layer 763: skippedHidden kind=composition
             invalid_combination_metrics["validation_failures"],
         )
 
+        generic_preview = preview.replace(
+            "admitted-dedicated=1,admitted-generic=0",
+            "admitted-dedicated=1,admitted-generic=1",
+        ).replace(
+            "not-admitted=1",
+            "not-admitted=0",
+        ).replace(
+            "complete=1",
+            "complete=2",
+        ).replace(
+            "rejected-chain=1",
+            "rejected-chain=0",
+        ).replace(
+            "strict=not-admitted coverage=rejected-chain backend=- profile=- reason=unsupported-stage",
+            "strict=admitted-generic coverage=complete backend=resolved-material profile=program reason=-",
+        )
+        generic_metrics = benchmark.authored_effect_stage_admission_metrics(
+            generic_preview
+        )
+        self.assertEqual(generic_metrics["validation_failures"], [])
+
+        for invalid_owner in (
+            "backend=authored-shader profile=program",
+            "backend=resolved-material profile=generic-fragment",
+        ):
+            invalid_generic_metrics = benchmark.authored_effect_stage_admission_metrics(
+                generic_preview.replace(
+                    "backend=resolved-material profile=program",
+                    invalid_owner,
+                )
+            )
+            self.assertIn(
+                "effect stage generic owner invalid",
+                invalid_generic_metrics["validation_failures"],
+            )
+
         missing_stage_count_metrics = benchmark.authored_effect_stage_admission_metrics(
             preview.replace("authoredEffectGraphStageCount: 1\n", "")
         )
@@ -3818,13 +3854,13 @@ utility layer 763: skippedHidden kind=composition
         )
         event = effect_cpu_event(
             frame=14,
-            origin="strict-chain",
+            origin="resolved-material-graph",
             subject="effect",
             layer=2,
             effect=1,
             descriptor="2%23effect%231",
-            family="generic-fragment",
-            backend="authored-shader",
+            family="resolved-material",
+            backend="resolved-material-graph",
         )
         route = effect_route_event(
             frame=14,
@@ -3834,13 +3870,13 @@ utility layer 763: skippedHidden kind=composition
         )
         repeated_event = effect_cpu_event(
             frame=15,
-            origin="strict-chain",
+            origin="resolved-material-graph",
             subject="effect",
             layer=2,
             effect=1,
             descriptor="2%23effect%231",
-            family="generic-fragment",
-            backend="authored-shader",
+            family="resolved-material",
+            backend="resolved-material-graph",
         )
         repeated_route = effect_route_event(
             frame=15,

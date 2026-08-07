@@ -96,9 +96,11 @@
       "required_image_blend_succeeded_layer_ids": [],
       "expected_authored_effect_graph_succeeded_layer_ids": [
         13,
-        23,
         74,
-        78,
+        78
+      ],
+      "expected_resolved_material_graph_succeeded_layer_ids": [
+        23,
         82
       ],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
@@ -106,11 +108,11 @@
       "expected_authored_effect_graph_opacity_count": 0,
       "expected_authored_effect_graph_opacity_layer_ids": [],
       "expected_authored_effect_graph_workshop_shadow_count": 0,
-      "expected_authored_effect_graph_shake_count": 3,
+      "expected_authored_effect_graph_shake_count": 2,
       "expected_authored_effect_graph_water_flow_count": 0,
-      "expected_authored_effect_graph_water_waves_count": 7,
-      "expected_authored_effect_graph_chain_count": 4,
-      "expected_authored_effect_graph_stage_count": 19,
+      "expected_authored_effect_graph_water_waves_count": 5,
+      "expected_authored_effect_graph_chain_count": 3,
+      "expected_authored_effect_graph_stage_count": 16,
       "expected_route_only_effect_count": 0
     },
     {
@@ -1899,10 +1901,12 @@
         56,
         59,
         157,
+        698
+      ],
+      "expected_resolved_material_graph_succeeded_layer_ids": [
         245,
         297,
-        574,
-        698
+        574
       ],
       "expected_authored_effect_graph_legacy_blur_blocked_layer_ids": [],
       "expected_authored_effect_graph_local_contrast_count": 0,
@@ -1912,11 +1916,11 @@
       "expected_authored_effect_graph_spin_count": 1,
       "expected_authored_effect_graph_shake_count": 1,
       "expected_authored_effect_graph_water_flow_count": 4,
-      "expected_authored_effect_graph_water_waves_count": 9,
+      "expected_authored_effect_graph_water_waves_count": 3,
       "expected_authored_effect_graph_water_caustics_count": 4,
       "expected_authored_effect_graph_tint_count": 5,
-      "expected_authored_effect_graph_chain_count": 10,
-      "expected_authored_effect_graph_stage_count": 30,
+      "expected_authored_effect_graph_chain_count": 7,
+      "expected_authored_effect_graph_stage_count": 21,
       "expected_route_only_effect_count": 2,
       "expected_authored_effect_graph_water_ripple_count": 2
     }

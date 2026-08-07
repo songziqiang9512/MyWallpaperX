@@ -33,10 +33,10 @@ SHAKE_RENDERER = EFFECT_ROOT / "SceneShakeRenderer.swift"
 FOLIAGE_RENDERER = EFFECT_ROOT / "SceneFoliageSwayRenderer.swift"
 RIPPLE_RENDERER = EFFECT_ROOT / "SceneWaterRippleRenderer.swift"
 OFFSCREEN_RENDERER = EFFECT_ROOT / "SceneOffscreenEffectRenderer.swift"
-AUTHORED_SHADER_PLANNER = (
+RESOLVED_TEMPLATE_COMPILER = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph"
-    / "SceneAuthoredShaderExecutionPlanner.swift"
+    / "SceneResolvedMaterialTemplateCompiler.swift"
 )
 METAL_VIEW = (
     REPOSITORY_ROOT
@@ -179,7 +179,7 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
             FOLIAGE_RENDERER,
             RIPPLE_RENDERER,
         )
-        planner = AUTHORED_SHADER_PLANNER.read_text(encoding="utf-8")
+        resolved_template = RESOLVED_TEMPLATE_COMPILER.read_text(encoding="utf-8")
 
         for field in (
             "let texture: MTLTexture",
@@ -220,8 +220,12 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
             self.assertIn("resolvedArguments(for: plan)", source)
             self.assertIn(".sampling", source)
         self.assertIn(
-            "material.textureSlots.allSatisfy { $0 == nil }",
-            planner,
+            "guard authored.count == 8",
+            resolved_template,
+        )
+        self.assertIn(
+            "guard slot.index == index, !slot.candidates.isEmpty",
+            resolved_template,
         )
 
 

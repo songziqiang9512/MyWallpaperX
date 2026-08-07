@@ -68,7 +68,8 @@ enum SceneAuthoredEffectStageAdmissionBuilder {
         layer: SceneRenderDescriptor.Layer,
         graphCandidates: [Graph],
         chainAdmission: SceneAuthoredEffectChainAdmission?,
-        layerIsVisible: Bool
+        layerIsVisible: Bool,
+        resolvedMaterialKeys: Set<Graph.EffectKey> = []
     ) -> [Admission] {
         layer.effects.enumerated().map { effectIndex, descriptorEffect in
             let key = Graph.EffectKey(
@@ -117,6 +118,17 @@ enum SceneAuthoredEffectStageAdmissionBuilder {
                     strictAdmission: .notAdmitted,
                     coverage: .rejectedGraphMismatch,
                     reasonCode: "graph-mismatch"
+                )
+            }
+            if resolvedMaterialKeys.contains(key) {
+                return admission(
+                    key: key,
+                    path: descriptorEffect.file,
+                    activity: .active,
+                    strictAdmission: .admittedGeneric,
+                    coverage: .complete,
+                    backendName: "resolved-material",
+                    profileName: "program"
                 )
             }
             guard let chainAdmission else {
@@ -180,12 +192,9 @@ enum SceneAuthoredEffectStageAdmissionBuilder {
                 key: key,
                 path: path,
                 activity: .active,
-                strictAdmission: stage.authoredShader == nil
-                    ? .admittedDedicated
-                    : .admittedGeneric,
+                strictAdmission: .admittedDedicated,
                 coverage: coverage,
-                backendName: stage.backend.stableName,
-                profileName: stage.authoredShader?.profile.stableName
+                backendName: stage.backend.stableName
             )
         }
         if let omitted = omittedCoverage(for: key, chainCoverage: chainCoverage) {
@@ -323,16 +332,6 @@ extension SceneAuthoredEffectExecutionPlan.Backend {
         case .pulse: "pulse"
         case .godrays: "godrays"
         case .shine: "shine"
-        case .authoredShader: "authored-shader"
-        }
-    }
-}
-
-extension SceneAuthoredShaderExecutionPlan.Profile {
-    nonisolated var stableName: String {
-        switch self {
-        case .genericFramebuffer: "generic-framebuffer"
-        case .scroll: "scroll"
         }
     }
 }

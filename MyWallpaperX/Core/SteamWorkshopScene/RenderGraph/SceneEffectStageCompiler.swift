@@ -7,7 +7,6 @@ extension SceneAuthoredEffectChainPlanner {
     nonisolated static func compileStage(
         _ input: SceneEffectStageCompileInput
     ) -> SceneEffectStageCompileResult {
-        var probes: [SceneEffectStageCompilerProbe]
         switch resolveDedicatedStage(input) {
         case .accepted(let backend, let executionPlan, let precedingProbes):
             return .accepted(
@@ -17,37 +16,11 @@ extension SceneAuthoredEffectChainPlanner {
                 precedingProbes: precedingProbes
             )
         case .exhausted(let dedicatedProbes):
-            probes = dedicatedProbes
-        }
-        switch SceneAuthoredShaderExecutionPlanner.compile(input) {
-        case .accepted(let authoredShader):
-            let executionPlan = stage(
-                .authoredShader(authoredShader),
-                stageGraph: input.stageGraph,
-                inputRole: input.inputRole
-            )
-            return .accepted(
-                executionPlan,
-                compilerBackend: .authoredShader,
-                input: input,
-                precedingProbes: probes
-            )
-        case .notApplicable:
-            probes.append(.init(
-                backend: .authoredShader,
-                outcome: .notApplicable
-            ))
-        case .rejected(let failure):
-            probes.append(.init(
-                backend: .authoredShader,
-                outcome: .rejected(failure)
+            return .unsupported(.init(
+                code: .noBackendAccepted,
+                probes: dedicatedProbes
             ))
         }
-
-        return .unsupported(.init(
-            code: .noBackendAccepted,
-            probes: probes
-        ))
     }
 
     nonisolated static func stage(

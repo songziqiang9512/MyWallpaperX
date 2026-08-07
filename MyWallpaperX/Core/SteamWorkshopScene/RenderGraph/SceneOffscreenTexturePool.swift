@@ -308,7 +308,7 @@ final class SceneOffscreenTexturePool {
         }
         let limit = SceneOffscreenResolutionPolicy.maximumDimension(
             hardLimit: maxDimension,
-            includesAuthoredShader: stages.contains { $0.authoredShader != nil }
+            includesAuthoredShader: false
         )
         let size = SceneOffscreenResolutionPolicy.limitedDimensions(
             width: requestedWidth,

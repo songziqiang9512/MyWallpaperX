@@ -126,7 +126,7 @@
         "pattern": "^    case [A-Za-z][A-Za-z0-9_]*(?:\\s*=|\\s*$)",
         "start_marker": "nonisolated enum SceneEffectStageCompilerBackend",
         "end_marker": "nonisolated struct SceneEffectStageCompilerFailure",
-        "baseline_occurrences": 34,
+        "baseline_occurrences": 33,
         "scope_files": [
           "RenderGraph/SceneEffectStageCompileModel.swift"
         ],
@@ -140,7 +140,7 @@
         "pattern": "^        case [A-Za-z][A-Za-z0-9_]*\\(",
         "start_marker": "extension SceneAuthoredEffectExecutionPlan {",
         "end_marker": "    var gaussianBlur:",
-        "baseline_occurrences": 33,
+        "baseline_occurrences": 32,
         "scope_files": [
           "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift"
         ],
@@ -166,7 +166,7 @@
         "id": "hardcoded-expected-sha",
         "description": "Expected SHA literals remain an explicit migration inventory and cannot increase.",
         "pattern": "\\\"[0-9a-fA-F]{64}\\\"",
-        "baseline_occurrences": 251,
+        "baseline_occurrences": 244,
         "allowed_files": [
           "RenderGraph/SceneAuthoredBlendPlanner.swift",
           "RenderGraph/SceneAuthoredClippingMaskPlanner.swift",
@@ -182,7 +182,6 @@
           "RenderGraph/SceneAuthoredLocalContrastPlanner.swift",
           "RenderGraph/SceneAuthoredOpacityPlanner.swift",
           "RenderGraph/SceneAuthoredPulsePlanner.swift",
-          "RenderGraph/SceneAuthoredScrollShaderProfile.swift",
           "RenderGraph/SceneAuthoredShakePlanner.swift",
           "RenderGraph/SceneAuthoredShinePlanner.swift",
           "RenderGraph/SceneAuthoredSpinPlanner.swift",
@@ -224,10 +223,9 @@
         "id": "numeric-workshop-selector",
         "description": "Numeric Workshop paths are frozen until source profiles become public typed capabilities.",
         "pattern": "workshop/[0-9]+",
-        "baseline_occurrences": 69,
+        "baseline_occurrences": 59,
         "allowed_files": [
           "RenderGraph/SceneAuthoredClippingMaskPlanner.swift",
-          "RenderGraph/SceneAuthoredScrollShaderProfile.swift",
           "RenderGraph/SceneAuthoredWorkshopAudioBarsPlanner.swift",
           "RenderGraph/SceneAuthoredWorkshopAudioHueShiftPlanner.swift",
           "RenderGraph/SceneAuthoredWorkshopGradientPlanner.swift",
@@ -244,9 +242,8 @@
         "id": "named-workshop-selector",
         "description": "Named Workshop source profiles are frozen until they are replaced by generic source contracts.",
         "pattern": "workshop[0-9]+",
-        "baseline_occurrences": 34,
+        "baseline_occurrences": 30,
         "allowed_files": [
-          "RenderGraph/SceneAuthoredScrollShaderProfile.swift",
           "Text/SceneTextScriptCompiler.swift",
           "Text/SceneTextScriptProgram.swift",
           "Text/SceneTextScriptRuntime.swift"

@@ -131,9 +131,6 @@ enum SceneEffectRuntimePlanner {
         if authoredEffectPlan?.standardBlur != nil {
             return "\(foliage)effect runtime standard-blur-authored; \(passCount) declared pass(es)"
         }
-        if authoredEffectPlan?.authoredShader != nil {
-            return "\(foliage)effect runtime authored-shader; \(passCount) declared pass(es)"
-        }
         if authoredEffectPlan?.blend != nil {
             return "\(foliage)effect runtime blend-authored; \(passCount) declared pass(es)"
         }

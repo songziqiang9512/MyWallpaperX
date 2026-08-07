@@ -170,10 +170,9 @@ extension SceneOffscreenTextureAllocationCache {
         _ candidates: [Candidate],
         snapshot: LegacyBatchSnapshot
     ) -> [Key: SharedPair]? {
-        guard snapshot.revision == revision,
-              snapshot.resetEpoch == resetEpoch,
+        guard snapshot.resetEpoch == resetEpoch,
               Set(snapshot.pendingSharedPairByteCosts.keys).isSubset(
-                of: snapshot.requiredSharedPairKeys
+                  of: snapshot.requiredSharedPairKeys
               ),
               Set(candidates.map(\.key))
                 == Set(snapshot.pendingSharedPairByteCosts.keys),
@@ -193,6 +192,16 @@ extension SceneOffscreenTextureAllocationCache {
                   ) == nil else { return nil }
         }
         return result
+    }
+
+    func pendingLegacySharedPairsLocked(
+        candidates: [Candidate],
+        snapshot: LegacyBatchSnapshot?
+    ) -> [Key: SharedPair]? {
+        guard let snapshot else { return candidates.isEmpty ? [:] : nil }
+        return validateLegacySharedPairCandidatesLocked(
+            candidates, snapshot: snapshot
+        )
     }
 
     func stageLegacySharedPairCandidatesLocked(

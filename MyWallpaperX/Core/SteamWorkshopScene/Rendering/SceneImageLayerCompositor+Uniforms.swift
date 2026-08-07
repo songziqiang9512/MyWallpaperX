@@ -70,18 +70,15 @@ extension SceneImageLayerCompositor {
     }
 
     func legacyOffscreenDimensions(
-        for request: SceneImageLayerDrawRequest,
-        authoredChain: SceneAuthoredEffectExecutionChain? = nil
+        for request: SceneImageLayerDrawRequest
     ) -> (width: Int, height: Int) {
         let desired = request.offscreenSize ?? CGSize(
             width: CGFloat(request.texture.width),
             height: CGFloat(request.texture.height)
         )
-        let resolved = authoredChain?
-            .authoredShaderOffscreenSize(for: desired) ?? desired
         return (
-            max(1, Int(resolved.width.rounded(.up))),
-            max(1, Int(resolved.height.rounded(.up)))
+            max(1, Int(desired.width.rounded(.up))),
+            max(1, Int(desired.height.rounded(.up)))
         )
     }
 }

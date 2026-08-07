@@ -47,9 +47,9 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontend.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderExecutionPlan.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderUniformBinder.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderExecutionPlanner+Preparation.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrameInputs.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderPreparation.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderPreparation+Support.swift",
     SCENE_ROOT / "Resources/SceneImageTextureUploader.swift",
     SCENE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
     SCENE_ROOT / "Resources/SceneTextureMipUploader.swift",
@@ -70,6 +70,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialShaderSchema+Reachability.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityVariant.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityVariant+LaunchEnvelope.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Diagnostics.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialTextureResolver.swift",
@@ -116,18 +118,6 @@ nonisolated enum SceneEffectStageBackendCompileResult<Value> {
     case notApplicable
     case rejected(SceneEffectStageCompilerFailure)
     case accepted(Value)
-}
-
-nonisolated enum SceneAuthoredShaderExecutionPlanner {
-    static let compilerBackend = SceneEffectStageCompilerBackend.authoredShader
-
-    static func compilerFailure(
-        phase: SceneEffectStageCompilerFailure.Phase,
-        code: SceneEffectStageCompilerFailure.Code,
-        details: [String] = []
-    ) -> SceneEffectStageCompilerFailure {
-        .init(backend: compilerBackend, phase: phase, code: code, details: details)
-    }
 }
 
 nonisolated struct SceneResolvedMaterialNode {
@@ -698,7 +688,7 @@ private func samplerPurposeToken(
         vertexSamplerMetadata: vertexMetadata
     )
     guard case let .accepted(prepared) =
-            SceneAuthoredShaderExecutionPlanner.prepareShaderStages(
+            SceneAuthoredShaderPreparation.prepareShaderStages(
                 contract: shader,
                 combos: [:],
                 textureReadiness: [0: true]
@@ -753,7 +743,7 @@ private func reachableConditionalPurposeToken() -> String {
 }
 
 private func positiveDiagnostic(_ shader: SceneShaderContract) -> String {
-    switch SceneAuthoredShaderExecutionPlanner.prepareShaderStages(
+    switch SceneAuthoredShaderPreparation.prepareShaderStages(
         contract: shader,
         combos: [:],
         textureReadiness: [0: true]

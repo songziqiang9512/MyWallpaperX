@@ -72,7 +72,8 @@ CURRENT_SOURCE_PATHS = (
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantResolver+DisabledCombo.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderPreprocessor+Directive.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderPreprocessor.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderExecutionPlanner+Preparation.swift",
+    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderPreparation.swift",
+    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderPreparation+Support.swift",
 )
 
 
@@ -175,23 +176,6 @@ enum SceneResolvedMaterialProgramDerivation {
         frontend: SceneAuthoredShaderProgram
     ) -> SceneResolvedMaterialProgram.Derived? {
         nil
-    }
-}
-
-enum SceneAuthoredShaderExecutionPlanner {
-    static let compilerBackend: SceneEffectStageCompilerBackend = .authoredShader
-
-    static func compilerFailure(
-        phase: SceneEffectStageCompilerFailure.Phase,
-        code: SceneEffectStageCompilerFailure.Code,
-        details: [String] = []
-    ) -> SceneEffectStageCompilerFailure {
-        .init(
-            backend: compilerBackend,
-            phase: phase,
-            code: code,
-            details: details
-        )
     }
 }
 
@@ -970,7 +954,7 @@ private enum MaterialProgramCensusHarness {
         combos: [String: Int],
         readiness: [Int: Bool]
     ) -> PreparationRecord {
-        switch SceneAuthoredShaderExecutionPlanner.prepareShaderStages(
+        switch SceneAuthoredShaderPreparation.prepareShaderStages(
             contract: contract,
             combos: combos,
             textureReadiness: readiness

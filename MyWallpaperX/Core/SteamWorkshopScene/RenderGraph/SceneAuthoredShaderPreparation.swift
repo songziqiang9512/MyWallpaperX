@@ -1,6 +1,18 @@
 import Foundation
 
-extension SceneAuthoredShaderExecutionPlanner {
+nonisolated struct SceneAuthoredShaderPreparationFailure {
+    let phase: SceneEffectStageCompilerFailure.Phase
+    let code: SceneEffectStageCompilerFailure.Code
+    let details: [String]
+}
+
+nonisolated enum SceneAuthoredShaderPreparationResult<Value> {
+    case notApplicable
+    case rejected(SceneAuthoredShaderPreparationFailure)
+    case accepted(Value)
+}
+
+nonisolated enum SceneAuthoredShaderPreparation {
     private nonisolated struct PreparedPair {
         let vertex: SceneShaderPreparedSource
         let fragment: SceneShaderPreparedSource
@@ -27,14 +39,14 @@ extension SceneAuthoredShaderExecutionPlanner {
         contract: SceneShaderContract,
         combos: [String: Int],
         textureReadiness: [Int: Bool] = [:]
-    ) -> SceneEffectStageBackendCompileResult<SceneShaderPreparedProgram> {
+    ) -> SceneAuthoredShaderPreparationResult<SceneShaderPreparedProgram> {
         let graph: SceneShaderSourceGraph
         if let loadedGraph = contract.sourceGraph {
             graph = loadedGraph
         } else if contract.stages.allSatisfy({ $0.includes.isEmpty }) {
             graph = fallbackGraph(for: contract)
         } else {
-            return .rejected(compilerFailure(
+            return .rejected(failure(
                 phase: .shaderPreprocessor,
                 code: .shaderSourceGraphMissing
             ))
@@ -44,7 +56,7 @@ extension SceneAuthoredShaderExecutionPlanner {
             guard let node = graph.node(at: stage.relativePath),
                   node.source == stage.source,
                   node.rawSHA256.caseInsensitiveCompare(stage.rawSHA256) == .orderedSame else {
-                return .rejected(compilerFailure(
+                return .rejected(failure(
                     phase: .shaderPreprocessor,
                     code: .shaderSourceIdentityMismatch,
                     details: [stage.kind.rawValue]
@@ -70,7 +82,7 @@ extension SceneAuthoredShaderExecutionPlanner {
         case .accepted(let value): baseline = value
         case .rejected(let failure): return .rejected(failure)
         case .notApplicable:
-            return .rejected(compilerFailure(
+            return .rejected(failure(
                 phase: .invariant,
                 code: .shaderPreparationInvariant
             ))
@@ -100,7 +112,7 @@ extension SceneAuthoredShaderExecutionPlanner {
         initialSources: [SceneShaderVariantSchemaSource],
         combos: [String: Int],
         textureReadiness: [Int: Bool]
-    ) -> SceneEffectStageBackendCompileResult<StablePreparation> {
+    ) -> SceneAuthoredShaderPreparationResult<StablePreparation> {
         var schemaSources = initialSources
         var previousSignature: String?
         var signatures: Set<String> = []
@@ -145,7 +157,7 @@ extension SceneAuthoredShaderExecutionPlanner {
         schemaSources: [SceneShaderVariantSchemaSource],
         combos: [String: Int],
         textureReadiness: [Int: Bool]
-    ) -> SceneEffectStageBackendCompileResult<PreparedPair> {
+    ) -> SceneAuthoredShaderPreparationResult<PreparedPair> {
         let vertex = prepare(
             .vertex,
             contract: contract,
@@ -222,8 +234,8 @@ extension SceneAuthoredShaderExecutionPlanner {
 
     private nonisolated static func unstableVariantFailure<Value>(
         _ reason: String
-    ) -> SceneEffectStageBackendCompileResult<Value> {
-        .rejected(compilerFailure(
+    ) -> SceneAuthoredShaderPreparationResult<Value> {
+        .rejected(failure(
             phase: .shaderPreprocessor,
             code: .shaderVariantInvalid,
             details: [reason]
@@ -285,9 +297,9 @@ extension SceneAuthoredShaderExecutionPlanner {
         schemaSources: [SceneShaderVariantSchemaSource],
         combos: [String: Int],
         textureReadiness: [Int: Bool]
-    ) -> SceneEffectStageBackendCompileResult<SceneShaderPreparedSource> {
+    ) -> SceneAuthoredShaderPreparationResult<SceneShaderPreparedSource> {
         guard let stage = contract.stages.first(where: { $0.kind == kind }) else {
-            return .rejected(compilerFailure(
+            return .rejected(failure(
                 phase: .invariant,
                 code: .shaderStageMissing
             ))
@@ -302,7 +314,7 @@ extension SceneAuthoredShaderExecutionPlanner {
         switch variantResult {
         case .success(let value): environment = value
         case .failure(let failure):
-            return .rejected(compilerFailure(
+            return .rejected(Self.failure(
                 phase: .shaderPreprocessor,
                 code: .shaderVariantInvalid,
                 details: [failure.code.rawValue, failure.combo ?? "<none>"]
@@ -322,9 +334,9 @@ extension SceneAuthoredShaderExecutionPlanner {
 
     private nonisolated static func preprocessorFailure(
         _ failure: SceneShaderPreprocessor.Failure
-    ) -> SceneEffectStageCompilerFailure {
+    ) -> SceneAuthoredShaderPreparationFailure {
         guard let diagnostic = failure.diagnostics.first else {
-            return compilerFailure(
+            return Self.failure(
                 phase: .invariant,
                 code: .shaderPreparationInvariant
             )
@@ -349,52 +361,11 @@ extension SceneAuthoredShaderExecutionPlanner {
              .unterminatedBlockComment, .unsupportedAnnotationPlacement:
             code = .shaderPreprocessorDiagnostic
         }
-        return compilerFailure(
+        return Self.failure(
             phase: .shaderPreprocessor,
             code: code,
             details: failure.diagnostics.map { $0.code.rawValue }
         )
     }
 
-    private nonisolated static func fallbackGraph(
-        for contract: SceneShaderContract
-    ) -> SceneShaderSourceGraph {
-        let roots = contract.stages.map {
-            SceneShaderSourceGraph.RootRequest(
-                label: $0.kind.rawValue,
-                virtualPath: $0.relativePath
-            )
-        }
-        let nodes = contract.stages.map {
-            SceneShaderSourceGraph.Node(
-                virtualPath: $0.relativePath,
-                provenance: .legacyContract,
-                source: $0.source,
-                rawSHA256: $0.rawSHA256,
-                byteCount: $0.source.utf8.count
-            )
-        }
-        let edges = contract.stages.map {
-            SceneShaderSourceGraph.Edge(
-                parentVirtualPath: nil,
-                line: nil,
-                request: $0.relativePath,
-                candidates: [.init(
-                    virtualPath: $0.relativePath,
-                    provenance: .legacyContract,
-                    outcome: .resolved(
-                        rawSHA256: $0.rawSHA256
-                    )
-                )],
-                outcome: .resolved(virtualPath: $0.relativePath)
-            )
-        }
-        return .init(
-            roots: roots,
-            nodes: nodes,
-            edges: edges,
-            diagnostics: [],
-            dependencySHA256: contract.canonicalSHA256
-        )
-    }
 }

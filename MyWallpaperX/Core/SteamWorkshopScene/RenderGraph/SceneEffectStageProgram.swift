@@ -6,7 +6,6 @@ import Foundation
 nonisolated struct SceneEffectStageProgram {
     enum Selection {
         case dedicated(SceneEffectStageCompilerBackend)
-        case authoredShader
     }
 
     let authoredOrdinal: Int
@@ -45,11 +44,7 @@ nonisolated struct SceneEffectStageProgram {
         self.definitionPath = definitionPath
         self.inputRole = input.inputRole
         self.stageGraph = input.stageGraph
-        if compilerBackend == .authoredShader {
-            selection = .authoredShader
-        } else {
-            selection = .dedicated(compilerBackend)
-        }
+        selection = .dedicated(compilerBackend)
         self.precedingProbes = precedingProbes
         self.executionPlan = executionPlan
     }
@@ -102,8 +97,7 @@ nonisolated struct SceneEffectStageProgram {
              (.fisheyeZeroDistortion, .fisheyeZeroDistortion),
              (.pulse, .pulse),
              (.godrays, .godrays),
-             (.shine, .shine),
-             (.authoredShader, .authoredShader):
+             (.shine, .shine):
             return true
         case (.workshopAudioBars, .workshopAudioBars(let plan)):
             if case .enhancedSegmented = plan.profile { return true }

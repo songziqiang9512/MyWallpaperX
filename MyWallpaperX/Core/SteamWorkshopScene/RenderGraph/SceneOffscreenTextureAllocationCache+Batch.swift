@@ -209,14 +209,9 @@ extension SceneOffscreenTextureAllocationCache {
             guard !requests.isEmpty,
                   Set(requests.map(\.candidate.key)).count == requests.count,
                   requests.allSatisfy({ $0.cache === self }) else { return nil }
-            if let legacySnapshot {
-                guard validateLegacySharedPairCandidatesLocked(
-                    sharedPairCandidates,
-                    snapshot: legacySnapshot
-                ) != nil else { return nil }
-            } else {
-                guard sharedPairCandidates.isEmpty else { return nil }
-            }
+            guard let pendingSharedPairs = pendingLegacySharedPairsLocked(
+                candidates: sharedPairCandidates, snapshot: legacySnapshot
+            ) else { return nil }
             var effective: [Effective] = []
             for request in requests {
                 let candidate = request.candidate
@@ -238,10 +233,10 @@ extension SceneOffscreenTextureAllocationCache {
                 if original.revision == revision {
                     reservation = original
                 } else {
-                    guard legacySnapshot == nil else { return nil }
                     guard let refreshed = reserveChainLocked(
                         plan: chain.plan,
-                        orderingContext: original.orderingContext
+                        orderingContext: original.orderingContext,
+                        pendingSharedPairs: pendingSharedPairs
                     ), reservationStillMatches(original, refreshed) else {
                         return nil
                     }

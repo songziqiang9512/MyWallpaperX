@@ -1241,6 +1241,59 @@ enum Harness {
             && legacyBatchFailurePool.allocationCache.revision == failureRevision
             && legacyBatchFailurePool.allocationCache.accessCounter == failureAccess
 
+        let legacyBatchRebasePool = SceneOffscreenTexturePool(
+            device: device, maxDimension: 64, residentByteBudget: 8_192
+        )
+        let legacyBatchRebaseUnrelated = directFixture(effectIndex: 706)
+        guard let legacyBatchRebasePrepared = legacyBatchRebasePool
+            .preparePersistentGraphTargets(
+                admittedGraphs: admittedGraphs([legacyBatchRebaseUnrelated]),
+                pairPlan: pairPlan([legacyBatchRebaseUnrelated]),
+                requestedWidth: 8,
+                requestedHeight: 8
+            ), let legacyBatchRebaseUnrelatedCommit = legacyBatchRebasePrepared
+                .commitAndPin(historyTokensByEffect: [:]),
+              let legacyBatchRebaseBuffer = device.makeCommandQueue()?
+                .makeCommandBuffer() else {
+            fatalError("legacy batch rebase fixtures unavailable")
+        }
+        let legacyBatchRebaseOrdering = SceneGraphCommandQueueOrderingContext(
+            commandBuffer: legacyBatchRebaseBuffer
+        )
+        let legacyBatchRebaseChain = directChain(
+            stageCount: 1,
+            firstEffectIndex: 707,
+            layerID: 811
+        )
+        guard let legacyBatchRebasePlan = legacyBatchRebasePool
+            .legacyAuthoredChainFramePlan(
+                for: legacyBatchRebaseChain,
+                requestedWidth: 8,
+                requestedHeight: 8,
+                orderingContext: legacyBatchRebaseOrdering
+            ) else { fatalError("legacy batch rebase plan unavailable") }
+        let legacyBatchRebaseRevision = legacyBatchRebasePool
+            .allocationCache.revision
+        var legacyBatchRebaseFactoryAttempts = 0
+        let legacyBatchRebaseTables = legacyBatchRebasePool
+            .prepareLegacyAuthoredFrameBatch(
+                framePlans: [legacyBatchRebasePlan],
+                orderingContext: legacyBatchRebaseOrdering,
+                textureFactory: { descriptor, _ in
+                    legacyBatchRebaseFactoryAttempts += 1
+                    if legacyBatchRebaseFactoryAttempts == 1 {
+                        legacyBatchRebaseUnrelatedCommit.releaseAll()
+                    }
+                    return device.makeTexture(descriptor: descriptor)
+                }
+            )
+        let legacyBatchUnrelatedReleaseRevalidatesCommit =
+            legacyBatchRebaseTables?[811] != nil
+                && legacyBatchRebaseFactoryAttempts == 2
+                && legacyBatchRebasePool.allocationCache.revision
+                    != legacyBatchRebaseRevision
+        legacyBatchRebaseTables?[811]?.commit.releaseAll()
+
         guard let legacyBatchWrongPreparedBuffer = device.makeCommandQueue()?
             .makeCommandBuffer(),
               let legacyBatchWrongActualBuffer = device.makeCommandQueue()?
@@ -3388,6 +3441,8 @@ enum Harness {
             "legacyBatchOverBudgetRejected": legacyBatchOverBudgetRejected,
             "legacyBatchMaterializationFailureIsAtomic":
                 legacyBatchMaterializationFailureIsAtomic,
+            "legacyBatchUnrelatedReleaseRevalidatesCommit":
+                legacyBatchUnrelatedReleaseRevalidatesCommit,
             "legacyBatchWrongBufferRejected": legacyBatchWrongBufferRejected,
             "directEightChainAllocationCount": directEightPool.residentAllocationCount,
             "directEightChainTextureCount": directEightPool.residentTextureCount,
@@ -3697,6 +3752,9 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         self.assertTrue(self.result["legacyBatchOwnedHistoryPinned"])
         self.assertTrue(self.result["legacyBatchOverBudgetRejected"])
         self.assertTrue(self.result["legacyBatchMaterializationFailureIsAtomic"])
+        self.assertTrue(
+            self.result["legacyBatchUnrelatedReleaseRevalidatesCommit"]
+        )
         self.assertTrue(self.result["legacyBatchWrongBufferRejected"])
 
     def test_legacy_multi_stage_chains_use_one_chain_wide_pair(self) -> None:

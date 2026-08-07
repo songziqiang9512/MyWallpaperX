@@ -3031,6 +3031,12 @@ def authored_effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]
         if admitted and record["reason"] is not None:
             failures.append("effect stage admitted record has rejection reason")
             break
+        if record["strict_admission"] == "admitted-generic" and (
+            record["backend"] != "resolved-material"
+            or record["profile"] != "program"
+        ):
+            failures.append("effect stage generic owner invalid")
+            break
         if active and not admitted and record["reason"] is None:
             failures.append("effect stage non-admitted reason missing")
             break
@@ -3078,12 +3084,11 @@ def authored_effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]
     if chain_stage_match is None:
         failures.append("effect stage chain stage count missing")
     elif strict_counts is not None:
-        admitted_count = (
+        if (
             strict_counts["admitted-dedicated"]
-            + strict_counts["admitted-generic"]
-        )
-        if admitted_count != int(chain_stage_match.group("count")):
-            failures.append("effect stage strict count differs from chain stage count")
+            != int(chain_stage_match.group("count"))
+        ):
+            failures.append("effect stage dedicated count differs from chain stage count")
     canonical_sha256 = hashlib.sha256(json.dumps(
         records,
         ensure_ascii=True,

@@ -30,6 +30,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectXRayPrefix.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectStageRebase.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan.swift",
+    SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionCatalog+ResolvedMaterial.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectStageProgram.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectStageAdmission.swift",
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift",
@@ -113,6 +114,11 @@ STAGE_SOURCE_MARKERS = {
 HARNESS = r'''
 import Foundation
 
+struct SceneEffectExactRuntimeSubject: Hashable {
+    let key: SceneAuthoredEffectRenderPlan.EffectKey
+    let family: String
+}
+
 struct SceneDocument {
     struct ShaderValue {
         let valueKind: String
@@ -187,42 +193,6 @@ struct SceneProceduralNoiseExecutionPlan: Sendable {
 }
 struct SceneFilmGrainExecutionPlan: Sendable {}
 struct SceneLightShaftsExecutionPlan: Sendable {}
-struct SceneAuthoredShaderExecutionPlan: Sendable {
-    enum Profile: Sendable {
-        case genericFramebuffer
-        case scroll
-    }
-
-    let offscreenSize: CGSize?
-    let profile: Profile
-
-    init(
-        offscreenSize: CGSize?,
-        profile: Profile = .genericFramebuffer
-    ) {
-        self.offscreenSize = offscreenSize
-        self.profile = profile
-    }
-
-    func offscreenSize(for requestedSize: CGSize) -> CGSize? { offscreenSize }
-}
-
-enum SceneAuthoredShaderExecutionPlanner {
-    static func compile(
-        _ input: SceneEffectStageCompileInput
-    ) -> SceneEffectStageBackendCompileResult<SceneAuthoredShaderExecutionPlan> {
-        .notApplicable
-    }
-
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole
-    ) -> SceneAuthoredShaderExecutionPlan? {
-        nil
-    }
-}
 
 enum SceneAuthoredOpacityPlanner {
     static func plan(
@@ -1629,7 +1599,6 @@ enum Harness {
             case .pulse: backend = "pulse"
             case .godrays: backend = "godrays"
             case .shine: backend = "shine"
-            case .authoredShader: backend = "authoredShader"
             }
             return [effectIndex, backend]
         } ?? []

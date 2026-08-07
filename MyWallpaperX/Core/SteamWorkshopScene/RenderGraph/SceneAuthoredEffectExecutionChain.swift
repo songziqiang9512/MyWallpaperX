@@ -168,21 +168,6 @@ nonisolated struct SceneAuthoredEffectExecutionChain {
         isolatedShineOmittedEffectPaths.isEmpty ? 0 : shineCount
     }
 
-    var authoredShaderCount: Int {
-        executionStages.filter { $0.authoredShader != nil }.count
-    }
-    var scrollCount: Int {
-        executionStages.filter { $0.authoredShader?.profile == .scroll }.count
-    }
-
-    func authoredShaderOffscreenSize(for requestedSize: CGSize) -> CGSize? {
-        executionStages.compactMap {
-            $0.authoredShader?.offscreenSize(for: requestedSize)
-        }.min {
-            $0.width * $0.height < $1.width * $1.height
-        }
-    }
-
     var liveConsumerTargets: Set<SceneDynamicTarget> {
         Set(executionStages.flatMap(\.liveConsumerTargets))
     }

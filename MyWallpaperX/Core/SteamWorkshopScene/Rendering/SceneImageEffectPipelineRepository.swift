@@ -68,7 +68,6 @@ final class SceneImageEffectPipelineRepository {
     private let pulseSlot: ScenePipelineSlot<ScenePulsePipeline>
     private let godraysSlot: ScenePipelineSlot<SceneGodraysPipeline>
     private let shineSlot: ScenePipelineSlot<SceneShinePipeline>
-    private let authoredShaderSlot: ScenePipelineSlot<SceneAuthoredShaderPipelineCache>
     private let bloomSlot: ScenePipelineSlot<SceneBloomPipeline>
     private let gradientColorSlot: ScenePipelineSlot<SceneGradientColorPipeline>
     private let perspectiveOpacitySlot: ScenePipelineSlot<ScenePerspectiveOpacityPipeline>
@@ -111,7 +110,6 @@ final class SceneImageEffectPipelineRepository {
         pulseSlot = .init { ScenePulsePipeline(device: device) }
         godraysSlot = .init { SceneGodraysPipeline(device: device) }
         shineSlot = .init { SceneShinePipeline(device: device) }
-        authoredShaderSlot = .init { SceneAuthoredShaderPipelineCache(device: device) }
         bloomSlot = .init { SceneBloomPipeline(device: device) }
         gradientColorSlot = .init { SceneGradientColorPipeline(device: device) }
         perspectiveOpacitySlot = .init { ScenePerspectiveOpacityPipeline(device: device) }
@@ -161,9 +159,6 @@ final class SceneImageEffectPipelineRepository {
     func pulse() -> ScenePulsePipeline? { pulseSlot.resolve() }
     func godrays() -> SceneGodraysPipeline? { godraysSlot.resolve() }
     func shine() -> SceneShinePipeline? { shineSlot.resolve() }
-    func authoredShader() -> SceneAuthoredShaderPipelineCache? {
-        authoredShaderSlot.resolve()
-    }
     func bloom() -> SceneBloomPipeline? { bloomSlot.resolve() }
     func gradientColor() -> SceneGradientColorPipeline? { gradientColorSlot.resolve() }
     func perspectiveOpacity() -> ScenePerspectiveOpacityPipeline? {

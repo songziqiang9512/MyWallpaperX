@@ -35,40 +35,6 @@ final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
     typealias Template = SceneResolvedMaterialTemplate
     typealias Variant = SceneResolvedMaterialCompiledVariant
 
-    enum LaunchEnvelopeFailure: Error {
-        enum Kind: String {
-            case capacity
-            case shaderPreparation = "shader-preparation"
-            case frontend
-            case samplerSchema = "sampler-schema"
-            case uniformSchema = "uniform-schema"
-            case texturePurpose = "texture-purpose"
-            case textureBinding = "texture-binding"
-            case colorContract = "color-contract"
-            case invariant
-        }
-
-        case capacity
-        case material(Failure)
-
-        var kind: Kind {
-            switch self {
-            case .capacity: .capacity
-            case let .material(failure): switch failure.code {
-                case .shaderPreparationFailed: .shaderPreparation
-                case .shaderFrontendFailed: .frontend
-                case .activeSamplerSchemaInvalid: .samplerSchema
-                case .uniformBindingInvalid: .uniformSchema
-                case .texturePurposeUnproven: .texturePurpose
-                case .textureBindingInvalid, .textureReferenceInvalid:
-                    .textureBinding
-                case .colorContractUnproven: .colorContract
-                default: .invariant
-                }
-            }
-        }
-    }
-
     private enum Entry {
         case ready(Variant)
         case failed(Failure)
@@ -90,6 +56,9 @@ final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
     private var shaderPreparations = 0
     private var frontendCompilations = 0
     private var capacityRejections = 0
+    private var cachedBootstrapSamplers: [
+        Int: SceneResolvedMaterialShaderSchema.Sampler
+    ]?
 
     init?(
         template: Template,
@@ -203,6 +172,13 @@ final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                 )))
             }
         }
+        do { _ = try bootstrapSamplersLocked() }
+        catch let failure as Failure { return .failure(.material(failure)) }
+        catch {
+            return .failure(.material(Self.failure(
+                .identityInvariant, phase: .invariant
+            )))
+        }
         return .success(reached.sorted())
     }
 
@@ -218,7 +194,7 @@ final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                     == template.diagnosticProvenance.nodeIndex else {
                 throw Self.failure(.identityInvariant, phase: .invariant)
             }
-            var activeSamplers = try SceneResolvedMaterialShaderSchema.bootstrapSamplers(template)
+            var activeSamplers = try bootstrapSamplersLocked()
             var seen: Set<UInt8> = []
             for _ in 0 ..< Self.maximumReadinessPasses {
                 let mask = try SceneResolvedMaterialTextureResolver.readinessMask(
@@ -249,6 +225,23 @@ final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             return .failure(failure)
         } catch {
             return .failure(Self.failure(.identityInvariant, phase: .invariant))
+        }
+    }
+
+    private func bootstrapSamplersLocked() throws -> [
+        Int: SceneResolvedMaterialShaderSchema.Sampler
+    ] {
+        if let cachedBootstrapSamplers { return cachedBootstrapSamplers }
+        do {
+            let value = try SceneResolvedMaterialShaderSchema.bootstrapSamplers(template)
+            cachedBootstrapSamplers = value
+            return value
+        } catch {
+            throw Self.failure(
+                .activeSamplerSchemaInvalid,
+                phase: .preparation,
+                details: ["bootstrap-variant"]
+            )
         }
     }
 
@@ -293,7 +286,7 @@ final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             ($0, readinessMask & (1 << UInt8($0)) != 0)
         })
         let prepared: SceneShaderPreparedProgram
-        switch SceneAuthoredShaderExecutionPlanner.prepareShaderStages(
+        switch SceneAuthoredShaderPreparation.prepareShaderStages(
             contract: template.shaderContract,
             combos: template.comboValues,
             textureReadiness: readiness

@@ -85,11 +85,6 @@ extension SceneDesktopWallpaperHost {
             throw SceneDesktopWallpaperHostLaunchError.missingPackageCache
         }
         let runtimeInput = model.runtimeInput
-        let authoredEffectCatalog = SceneAuthoredEffectExecutionCatalog(
-            descriptor: runtimeInput.renderDescriptor,
-            authoredPlans: runtimeInput.authoredEffectRenderPlans,
-            shaderContracts: runtimeInput.shaderContracts
-        )
         let timelineProgram = SceneTimelineTargetCompiler.compile(
             descriptor: runtimeInput.renderDescriptor
         )
@@ -158,6 +153,14 @@ extension SceneDesktopWallpaperHost {
                     sceneScriptTargets: []
                 )
             )
+        let resolvedMaterialSubjects = resolvedMaterialExecutionCapabilities
+            .runtimeDispositionOwnerships.flatMap(\.subjects)
+        let authoredEffectCatalog = SceneAuthoredEffectExecutionCatalog(
+            descriptor: runtimeInput.renderDescriptor,
+            authoredPlans: runtimeInput.authoredEffectRenderPlans,
+            shaderContracts: runtimeInput.shaderContracts,
+            resolvedMaterialSubjects: resolvedMaterialSubjects
+        )
         let timeOfDayEffectScriptProgram = SceneTimeOfDayEffectScriptProgram(
             bindings: authoredEffectCatalog.chainsByLayerID.keys.sorted().flatMap { layerID in
                 authoredEffectCatalog.chainsByLayerID[layerID]?

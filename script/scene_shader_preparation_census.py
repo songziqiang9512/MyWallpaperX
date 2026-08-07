@@ -89,9 +89,6 @@ CURRENT_SOURCE_PATHS = (
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderFrontend.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderExecutionPlan.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderUniformBinder.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredScrollShaderProfile.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneTextureSampling.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantEnvironment.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderDirective.swift",
@@ -101,9 +98,8 @@ CURRENT_SOURCE_PATHS = (
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderVariantResolver+DisabledCombo.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderPreprocessor+Directive.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneShaderPreprocessor.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderExecutionPlanner.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderExecutionPlanner+Preparation.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderExecutionPlanner+Bindings.swift",
+    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderPreparation.swift",
+    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredShaderPreparation+Support.swift",
 )
 
 
@@ -669,12 +665,21 @@ private enum CorpusHarness {
         descriptor: SceneRenderDescriptor,
         contract: SceneShaderContract
     ) -> Outcome {
+#if R2_CURRENT
+        .init(
+            status: "removed",
+            phase: nil,
+            code: nil,
+            details: []
+        )
+#else
         outcome(SceneAuthoredShaderExecutionPlanner.compile(.init(
             stageGraph: graph,
             inputRole: .layerSource,
             descriptor: descriptor,
             shaderContracts: [contract]
         )))
+#endif
     }
 
 #if R2_CURRENT
@@ -710,7 +715,7 @@ private enum CorpusHarness {
                 program: nil
             )
         }
-        let result = SceneAuthoredShaderExecutionPlanner.prepareShaderStages(
+        let result = SceneAuthoredShaderPreparation.prepareShaderStages(
             contract: contract,
             combos: material.combos,
             textureReadiness: [:]
@@ -775,6 +780,19 @@ private enum CorpusHarness {
             details: failure.details
         )
     }
+
+#if R2_CURRENT
+    private static func failureOutcome(
+        _ failure: SceneAuthoredShaderPreparationFailure
+    ) -> Outcome {
+        .init(
+            status: "rejected",
+            phase: failure.phase.rawValue,
+            code: failure.code.rawValue,
+            details: failure.details
+        )
+    }
+#endif
 
     private static func graph(_ material: MaterialPass) -> Graph {
         let descriptorID = "census:\(material.materialPath)#\(material.passIndex)"
@@ -1425,7 +1443,11 @@ def validate_corpus_output(
         raise CensusError(f"{implementation} material pass conservation failed")
     if sum(int(sample.get("shaderReferences", -1)) for sample in samples) != len(contracts):
         raise CensusError(f"{implementation} contract conservation failed")
-    valid_gpu = {"accepted", "rejected", "not-applicable"}
+    valid_gpu = (
+        {"removed"}
+        if implementation == "r2-worktree"
+        else {"accepted", "rejected", "not-applicable"}
+    )
     if any(item.get("gpuAdmission") not in valid_gpu for item in passes):
         raise CensusError(f"{implementation} contains an invalid GPU status")
     expected_preparation = (
@@ -1622,8 +1644,10 @@ def build_report(
     sdk_version: str,
 ) -> dict[str, Any]:
     comparison = compare_outputs(baseline, current)
-    if comparison["newly_accepted"] or comparison["lost_accepted"]:
-        raise CensusError("GPU admission changed between baseline and current")
+    if comparison["newly_accepted"]:
+        raise CensusError("removed authored-shader owner still accepts current passes")
+    if any(item.get("gpuAdmission") != "removed" for item in current["passes"]):
+        raise CensusError("current census did not retire the authored-shader GPU owner")
     if comparison["raw_projection_diff"]["count"]:
         raise CensusError("legacy raw shader projection changed")
     if comparison["canonical_diff"]["count"]:
@@ -1705,11 +1729,13 @@ def build_report(
             "resource_precedence": ["package", "loose", "stock"],
             "legacy_projection": "vertex-first-same-root-v1",
             "graph_projection": "synthetic-single-material-stage-v1",
-            "gpu_admission": "SceneAuthoredShaderExecutionPlanner.compile",
-            "preparation": "resolve-material-then-prepareShaderStages-empty-readiness",
+            "baseline_gpu_admission": "SceneAuthoredShaderExecutionPlanner.compile",
+            "current_gpu_admission": "removed; resolved-material runtime evidence is authoritative",
+            "preparation": "resolve-material-then-SceneAuthoredShaderPreparation.prepareShaderStages-empty-readiness",
             "evidence_boundaries": [
                 "planner-level only; no App, Metal runtime, benchmark, or visual execution",
                 "real material and shader resources are evaluated in a synthetic single-stage graph",
+                "current removed status proves old planner revocation, not resolved-material GPU admission",
                 "preparation accepted is not GPU admission, execution, or visual support",
                 "empty texture readiness intentionally classifies unresolved provider dependencies",
             ],
