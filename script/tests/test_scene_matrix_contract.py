@@ -14,6 +14,7 @@ if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 
 import generate_scene_full_matrix as matrix_generator
+from scene_matrix_suite import load_scene_matrix
 from scene_matrix_contract import (
     AUTHORED_EFFECT_RUNTIME_EXPECTATIONS,
     EFFECT_EXECUTION_AGGREGATE_KINDS,
@@ -669,7 +670,7 @@ class SceneMatrixContractTests(unittest.TestCase):
             "script/scene_wallpaper_sample_matrix.json",
             "script/scene_wallpaper_full_sample_matrix.json",
         ):
-            matrix = json.loads((REPOSITORY_ROOT / relative_path).read_text())
+            matrix = load_scene_matrix(REPOSITORY_ROOT / relative_path)
             for old_sample in matrix["samples"]:
                 with self.subTest(matrix=relative_path, sample=old_sample["id"]):
                     old_without_nested = {

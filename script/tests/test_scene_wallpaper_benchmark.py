@@ -498,11 +498,44 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             )
             self.assertEqual(benchmark.load_matrix(path)["samples"][0]["id"], "1")
 
+    def test_load_matrix_accepts_digest_pinned_suite(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-scene-matrix-") as directory:
+            root = Path(directory)
+            base_path = root / "base.json"
+            suite_path = root / "suite.json"
+            base_path.write_text(
+                json.dumps({
+                    "schema_version": 1,
+                    "name": "base",
+                    "samples": [{"id": "1", "value": "base"}],
+                }),
+                encoding="utf-8",
+            )
+            suite_path.write_text(
+                json.dumps({
+                    "schema_version": 2,
+                    "name": "suite",
+                    "base_matrix": "base.json",
+                    "base_matrix_sha256": hashlib.sha256(
+                        base_path.read_bytes()
+                    ).hexdigest(),
+                    "sample_ids": ["1"],
+                    "sample_overrides": {
+                        "1": {"set": {"value": "suite"}}
+                    },
+                }),
+                encoding="utf-8",
+            )
+
+            matrix = benchmark.load_matrix(suite_path)
+            self.assertEqual(matrix["name"], "suite")
+            self.assertEqual(matrix["samples"], [{"id": "1", "value": "suite"}])
+
     def test_load_matrix_rejects_unknown_schema(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-matrix-") as directory:
             path = Path(directory) / "matrix.json"
             path.write_text(
-                json.dumps({"schema_version": 2, "samples": []}),
+                json.dumps({"schema_version": 99, "samples": []}),
                 encoding="utf-8",
             )
             with self.assertRaises(ValueError):

@@ -48,15 +48,22 @@ Scene 事实按类型使用唯一入口，历史计划或低层材料不得覆�
 
 ## 4. 验证选择
 
-按影响面选择最小充分集合，不默认全量运行：
+按影响面选择最小充分集合，不默认全量运行。优先使用统一入口先解释、再执行；在脏工作区中用可重复的 `--path` 只声明本批拥有的文件：
 
-| 改动范围 | 至少验证 |
+```bash
+python3 script/verify_scene_change.py --phase checkpoint --base HEAD --path <path> --run
+```
+
+验证分为四级，同一份未变化源码已由较高一级覆盖的检查不得手工重复：
+
+| 阶段 | 使用时机 | 至少验证 |
 | --- | --- |
-| 单一解析分支、effect profile 或样本逻辑 | 对应单元/模块测试和定向隔离样本 |
-| 公共解析、属性、缓存、资源链或运行时 | 相关测试集合和能覆盖受影响分支的定向隔离样本；仅在定向集合无法覆盖共享风险时增加固定门 |
-| RenderGraph 行为、核心执行链路或公共依赖 | Scene 全量测试、代码健康和 `script/build_and_run.sh verify`；固定门按下述触发条件决定 |
-| 字节不变的 Scene 目录迁移 | 布局/链接门、受路径影响的测试、代码健康和 `script/build_and_run.sh verify`；首次改变布局合同再跑一次 Scene 全量测试 |
-| 真实样本新增/移除、完整矩阵合同变化、发布或里程碑收口 | 重建隔离副本并运行完整快照门 |
+| `inner` | 编码循环 | 受影响的单元/Swift harness；不构建、不启动 App、不跑矩阵 |
+| `checkpoint` | 一个独立问题准备提交 | 受影响测试；Swift 产品代码再跑代码健康与 `script/build_and_run.sh verify` |
+| `integration` | 公共 RenderGraph、资源、属性或运行时批次准备交付 | Scene 全量测试、代码健康、构建启动与受影响定向隔离样本 |
+| `milestone` | 样本/矩阵变化、发布或里程碑 | 先按风险选择 fixed；仅在便宜证据仍不能排除风险时运行 full |
+
+目录迁移继续按布局/链接门、受路径影响测试、代码健康和 build verify 验证；首次改变布局合同再增加 Scene 全量测试。CI 没有私有 Workshop corpus 时可显式记录原因跳过运行样本，但不得把该结果写成运行证据。
 
 `script/scene_wallpaper_sample_matrix.json` 是固定回归门，`script/scene_wallpaper_full_sample_matrix.json` 是当前真实 Scene 目录的完整快照门。两者有重叠但不可互相替代，报告必须分别说明；部分样本或矩阵缺失不得写成 PASS。
 
@@ -66,12 +73,14 @@ Scene 事实按类型使用唯一入口，历史计划或低层材料不得覆�
 
 Swift/Metal 测试若受模块缓存权限阻塞，先将 `CLANG_MODULE_CACHE_PATH` 与 `SWIFT_MODULECACHE_PATH` 指向 `/private/tmp` 下的专用目录，再区分环境失败与产品回归。
 
+每个新增 gate 必须在 `script/scene_validation_gates.json` 声明所保护风险、触发条件、成本、串行要求和退役条件。迁移期 occurrence/count ratchet 在迁移完成后必须删除或收敛为稳定架构不变量，不得永久保留阶段性快照数字。
+
 ## 5. Swift 代码健康
 
 - 新增或未列入 `script/code_health_baseline.json` 的 Swift 文件不得超过 400 个物理行。不得压缩语句、删除合理空行或降低可读性规避限制。
 - 历史超限文件只能保持或缩小；触达时先判断能否按真实职责拆出独立声明或 extension。只有有复用、独立生命周期或可明显降低复杂度时才新增类型、协议、包装层或文件。
 - 拆分须保持行为、命名和访问边界。不得为跨文件访问批量放宽 `private`，也不得为满足行数机械切开强耦合流程。
-- 修改 Swift 后、构建前和提交前运行：`python3 script/check_code_health.py --check --base-ref HEAD`。文件缩短时先运行 `python3 script/check_code_health.py --ratchet-baseline`，再执行检查。
+- 每份未变化的 Swift diff 在 checkpoint 前至少通过一次 `python3 script/check_code_health.py --check --base-ref HEAD`；`script/build_and_run.sh` 内的成功结果已满足同一源码版本，不再重复。文件缩短时先运行 `python3 script/check_code_health.py --ratchet-baseline`，再执行检查。
 - 未经用户明确批准，不得新增历史例外、提高额度、移除源码根目录或提高 400 行阈值。新增 Swift 源码根目录、Tests 或 helper target 时必须纳入扫描；远端比较使用 `--base-ref <base-ref>`。
 
 ## 6. Scene 源码布局

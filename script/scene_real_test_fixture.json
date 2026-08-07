@@ -1,6 +1,9 @@
 {
-  "schema_version": 1,
-  "sample_root": ".codex/scene-transform-full45-20260728/Scene",
-  "runtime_homes": ".codex/scene-nested-child-full45-20260727/runtime-homes",
-  "report": ".codex/scene-cursor-ripple-full45-20260729-v2/report.json"
+  "schema_version": 2,
+  "local_config": ".codex/scene_real_test_fixture.local.json",
+  "environment": {
+    "sample_root": "MWX_SCENE_TEST_SAMPLE_ROOT",
+    "runtime_homes": "MWX_SCENE_TEST_RUNTIME_HOMES",
+    "report": "MWX_SCENE_TEST_REPORT"
+  }
 }

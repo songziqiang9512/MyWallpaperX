@@ -16,6 +16,7 @@ from scene_matrix_contract import (
     effect_execution_static_demand,
     optional_group_is_active,
 )
+from scene_matrix_suite import compact_suite_payload, load_scene_matrix
 
 
 RUNTIME_EVIDENCE_METRICS = [
@@ -194,6 +195,8 @@ def validate_report_identity(
         raise ValueError("benchmark report summary is malformed")
     passed_count = sum(result.get("passed") is True for result in report_samples)
     all_passed = passed_count == len(report_samples)
+    # A compact suite is portable only beside its tracked base. External
+    # review outputs stay expanded instead of writing a broken relative link.
     if (
         summary.get("sample_count") != len(report_samples)
         or summary.get("passed_count") != passed_count
@@ -1006,7 +1009,8 @@ def main() -> None:
     old_matrix_path = args.old_matrix.expanduser().resolve()
     output_path = args.output.expanduser().resolve()
     report = json.loads(report_path.read_text())
-    old_matrix = json.loads(old_matrix_path.read_text())
+    old_matrix_payload = json.loads(old_matrix_path.read_text())
+    old_matrix = load_scene_matrix(old_matrix_path)
     if args.scope == "effect-stage-admission":
         matrix = scoped_effect_stage_admission_matrix(
             report,
@@ -1040,7 +1044,22 @@ def main() -> None:
                 for sample_id in sorted(old_by_id)
             ],
         }
-    output_path.write_text(json.dumps(matrix, ensure_ascii=False, indent=2) + "\n")
+    output_payload = matrix
+    if (
+        old_matrix_payload.get("schema_version") == 2
+        and output_path.parent == old_matrix_path.parent
+    ):
+        raw_base = old_matrix_payload.get("base_matrix")
+        if not isinstance(raw_base, str):
+            raise ValueError("Scene matrix suite has no base_matrix")
+        output_payload = compact_suite_payload(
+            old_matrix_path.parent / raw_base,
+            matrix,
+            suite_path=output_path,
+        )
+    output_path.write_text(
+        json.dumps(output_payload, ensure_ascii=False, indent=2) + "\n"
+    )
 
 
 if __name__ == "__main__":

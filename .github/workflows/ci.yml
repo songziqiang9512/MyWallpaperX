@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    tags-ignore:
+      - "**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Select and run repository gates
+    runs-on: macos-26
+
+    env:
+      CLANG_MODULE_CACHE_PATH: ${{ runner.temp }}/mwx-clang-module-cache
+      SWIFT_MODULECACHE_PATH: ${{ runner.temp }}/mwx-swift-module-cache
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve validation range
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_BEFORE: ${{ github.event.before }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          BASE_REF="$EVENT_BEFORE"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BASE_REF="$PR_BASE_SHA"
+          fi
+          if [ -z "$BASE_REF" ] || [[ "$BASE_REF" =~ ^0+$ ]]; then
+            git fetch --no-tags origin main
+            BASE_REF="$(git merge-base HEAD origin/main)"
+          fi
+          echo "BASE_REF=$BASE_REF" >> "$GITHUB_ENV"
+
+      - name: Run selected gates
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          PHASE=checkpoint
+          if [ "$EVENT_NAME" = "pull_request" ] || [ "$REF_NAME" = "main" ]; then
+            PHASE=integration
+          fi
+          python3 script/verify_scene_change.py \
+            --base "$BASE_REF" \
+            --phase "$PHASE" \
+            --ci \
+            --skip-runtime \
+            --reason "GitHub CI has no private isolated Workshop corpus" \
+            --run

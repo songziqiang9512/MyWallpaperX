@@ -4,35 +4,32 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
+
+from scene_real_test_fixture_config import load_fixture_config
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = Path(__file__).with_name("scene_real_test_fixture.json")
 
 
-def configured_path(key: str, override_name: str) -> Path:
-    override = os.environ.get(override_name)
-    if override:
-        return Path(override).expanduser().resolve()
-    config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-    if config.get("schema_version") != 1:
-        raise ValueError(f"unsupported Scene real fixture config: {CONFIG_PATH}")
-    configured = Path(config[key])
-    return (
-        configured.resolve()
-        if configured.is_absolute()
-        else (REPOSITORY_ROOT / configured).resolve()
-    )
+def configured_path(key: str) -> Path:
+    config = load_fixture_config(CONFIG_PATH, REPOSITORY_ROOT)
+    configured = config.get(key)
+    if not isinstance(configured, str):
+        raise ValueError(
+            f"Scene fixture {key} is not configured; set the documented environment "
+            "override or .codex/scene_real_test_fixture.local.json"
+        )
+    return Path(configured)
 
 
 def sample_root() -> Path:
-    return configured_path("sample_root", "MWX_SCENE_TEST_SAMPLE_ROOT")
+    return configured_path("sample_root")
 
 
 def runtime_homes_root() -> Path:
-    return configured_path("runtime_homes", "MWX_SCENE_TEST_RUNTIME_HOMES")
+    return configured_path("runtime_homes")
 
 
 def sample_cache_root(sample_id: str) -> Path:
@@ -46,7 +43,7 @@ def sample_cache_root(sample_id: str) -> Path:
 
 
 def sample_runtime_evidence_path(sample_id: str) -> Path:
-    report_path = configured_path("report", "MWX_SCENE_TEST_REPORT")
+    report_path = configured_path("report")
     if not report_path.is_file():
         return report_path.parent / "__unavailable__"
     report = json.loads(report_path.read_text(encoding="utf-8"))

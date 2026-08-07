@@ -24,9 +24,15 @@ import tarfile
 import tempfile
 from typing import Any, Iterable, Sequence
 
-
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = Path(__file__).resolve()
+SCRIPT_DIRECTORY = SCRIPT_PATH.parent
+if str(SCRIPT_DIRECTORY) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIRECTORY))
+
+from scene_real_test_fixture_config import load_fixture_config
+
+
 DEFAULT_FIXTURE = SCRIPT_PATH.with_name("scene_real_test_fixture.json")
 DEFAULT_MATRIX = SCRIPT_PATH.with_name("scene_wallpaper_full_sample_matrix.json")
 DEFAULT_STOCK_ROOT = (
@@ -1180,10 +1186,11 @@ def validate_inputs(
 ) -> dict[str, Any]:
     fixture_path = fixture_path.expanduser().resolve(strict=True)
     matrix_path = matrix_path.expanduser().resolve(strict=True)
-    fixture = load_json_object(fixture_path, "fixture")
+    try:
+        fixture = load_fixture_config(fixture_path, REPOSITORY_ROOT)
+    except ValueError as error:
+        raise CensusError(str(error)) from error
     matrix = load_json_object(matrix_path, "matrix")
-    if fixture.get("schema_version") != 1:
-        raise CensusError("fixture schema_version must be 1")
     if matrix.get("schema_version") != 1 or not isinstance(matrix.get("samples"), list):
         raise CensusError("matrix schema_version must be 1 with a samples array")
 

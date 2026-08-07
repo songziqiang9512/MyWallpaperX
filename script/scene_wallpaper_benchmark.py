@@ -27,6 +27,7 @@ from scene_matrix_contract import (
     RESOLVED_MATERIAL_GRAPH_EXPECTATIONS,
     effect_execution_static_demand,
 )
+from scene_matrix_suite import load_scene_matrix
 from web_benchmark_capture import (
     AppIdentityError,
     discard_staged_app,
@@ -703,9 +704,7 @@ def summarize_performance(results: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def load_matrix(path: Path) -> dict[str, Any]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    if payload.get("schema_version") != 1 or not isinstance(payload.get("samples"), list):
-        raise ValueError(f"invalid Scene matrix: {path}")
+    payload = load_scene_matrix(path)
     for sample in payload["samples"]:
         if not isinstance(sample, dict):
             raise ValueError(f"invalid Scene matrix sample: {path}")

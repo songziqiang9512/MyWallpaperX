@@ -8,6 +8,8 @@ import json
 import subprocess
 from pathlib import Path
 
+from scene_real_test_fixture_config import load_fixture_config
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 CODEX_ROOT = REPOSITORY_ROOT / ".codex"
@@ -16,15 +18,14 @@ ALWAYS_KEEP = (
     CODEX_ROOT / "config.toml",
     CODEX_ROOT / "environments",
     CODEX_ROOT / "DerivedData",
+    CODEX_ROOT / "scene_real_test_fixture.local.json",
 )
 
 
 def required_paths() -> tuple[list[Path], list[str]]:
-    config = json.loads(FIXTURE_CONFIG.read_text(encoding="utf-8"))
-    if config.get("schema_version") != 1:
-        raise ValueError(f"unsupported Scene real fixture config: {FIXTURE_CONFIG}")
+    config = load_fixture_config(FIXTURE_CONFIG, REPOSITORY_ROOT)
     configured = [
-        (REPOSITORY_ROOT / value).resolve()
+        Path(value).resolve()
         for key, value in config.items()
         if key != "schema_version" and isinstance(value, str)
     ]

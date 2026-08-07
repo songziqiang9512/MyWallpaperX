@@ -1,0 +1,158 @@
+{
+  "schema_version": 1,
+  "gates": {
+    "focused-tests": {
+      "risk": "The changed contract regresses its nearest executable unit or Swift harness.",
+      "trigger": "Every code, test, matrix, layout, or semantics change with a mapped test group.",
+      "cost": "low-to-medium",
+      "serialized": false,
+      "retirement": "Replace only when an equivalent path-to-test selector preserves nearest-contract coverage."
+    },
+    "scene-all-tests": {
+      "risk": "A shared Scene contract breaks a consumer outside the focused test group.",
+      "trigger": "Integration or milestone validation for Scene product source changes.",
+      "cost": "medium",
+      "serialized": false,
+      "retirement": "Retire only when dependency-aware coverage can prove the same cross-module risk with a smaller set."
+    },
+    "code-health": {
+      "risk": "A Swift change adds a new oversized file or expands a locked legacy exception.",
+      "trigger": "Swift changes when the selected build command does not already run code health.",
+      "cost": "low",
+      "serialized": false,
+      "retirement": "Retire only if the compiler or another mandatory gate enforces the same file-size ratchet."
+    },
+    "build-verify": {
+      "risk": "The product target no longer builds or the built app cannot launch.",
+      "trigger": "Checkpoint or later validation for product, project, or bundled resource changes.",
+      "cost": "medium",
+      "serialized": true,
+      "retirement": "Replace only with a gate that builds the same product target and verifies launchability."
+    },
+    "targeted-sample": {
+      "risk": "Executable unit coverage passes while the affected real Scene path is visually or structurally broken.",
+      "trigger": "Integration validation for Scene product source changes.",
+      "cost": "medium",
+      "serialized": true,
+      "retirement": "Retire only when an equally representative reproducible runtime corpus becomes mandatory elsewhere."
+    },
+    "fixed13": {
+      "risk": "A shared behavior regresses multiple stable representative samples.",
+      "trigger": "Milestone validation only when targeted evidence cannot cover the documented cross-sample risk.",
+      "cost": "high",
+      "serialized": true,
+      "retirement": "Retire when a reviewed representative suite supersedes fixed13 and preserves its regression role."
+    },
+    "full45": {
+      "risk": "A sample-set, matrix, release, or broad shared-runtime change regresses the complete tracked corpus.",
+      "trigger": "Release, milestone, sample/matrix contract change, or an unexplained risk remaining after cheaper gates.",
+      "cost": "very-high",
+      "serialized": true,
+      "retirement": "Retire when the authoritative real-sample snapshot contract moves to a verified replacement gate."
+    }
+  },
+  "path_groups": [
+    {
+      "id": "format",
+      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Format/**"],
+      "keywords": ["pkg", "tex", "document", "runtime_input"]
+    },
+    {
+      "id": "runtime",
+      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Runtime/**"],
+      "keywords": ["runtime", "frame_context", "performance"]
+    },
+    {
+      "id": "properties",
+      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Properties/**"],
+      "keywords": ["property", "dynamic"]
+    },
+    {
+      "id": "resources",
+      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Resources/**"],
+      "keywords": ["resource", "texture", "video"]
+    },
+    {
+      "id": "rendering",
+      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Rendering/**"],
+      "keywords": ["rendering", "framebuffer", "image_layer", "capture"]
+    },
+    {
+      "id": "render-graph",
+      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/**"],
+      "keywords": ["authored_effect", "graph", "offscreen", "resolved_material", "shader"]
+    },
+    {
+      "id": "effects",
+      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Effects/**"],
+      "keywords": ["effect", "rendering", "planner"]
+    },
+    {
+      "id": "text",
+      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Text/**"],
+      "keywords": ["text"]
+    },
+    {
+      "id": "particles",
+      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Particles/**"],
+      "keywords": ["particle"]
+    },
+    {
+      "id": "semantics",
+      "patterns": [
+        "AGENTS.md",
+        "docs/scene/semantics/**",
+        "script/scene_source_layout.json"
+      ],
+      "modules": ["test_scene_semantics_coverage"]
+    },
+    {
+      "id": "matrix",
+      "patterns": [
+        "script/scene_matrix_contract.py",
+        "script/scene_matrix_suite.py",
+        "script/generate_scene_full_matrix.py",
+        "script/scene_wallpaper_*matrix.json",
+        "script/scene_wallpaper_benchmark.py"
+      ],
+      "modules": [
+        "test_scene_matrix_contract",
+        "test_scene_matrix_suite",
+        "test_scene_wallpaper_benchmark"
+      ]
+    },
+    {
+      "id": "real-fixture",
+      "patterns": [
+        "script/scene_real_test_fixture.json",
+        "script/scene_real_test_fixture_config.py",
+        "script/scene_real_test_fixtures.py",
+        "script/audit_codex_artifacts.py"
+      ],
+      "modules": [
+        "test_scene_real_test_fixture_config",
+        "test_scene_real_test_fixtures",
+        "test_audit_codex_artifacts"
+      ]
+    },
+    {
+      "id": "shader-census",
+      "patterns": ["script/scene_shader_preparation_census.py"],
+      "modules": ["test_scene_shader_preparation_census"]
+    },
+    {
+      "id": "material-census",
+      "patterns": ["script/scene_material_program_census.py"],
+      "modules": ["test_scene_material_program_census"]
+    },
+    {
+      "id": "validation-governance",
+      "patterns": [
+        "script/verify_scene_change.py",
+        "script/scene_validation_gates.json",
+        ".github/workflows/**"
+      ],
+      "modules": ["test_verify_scene_change"]
+    }
+  ]
+}
