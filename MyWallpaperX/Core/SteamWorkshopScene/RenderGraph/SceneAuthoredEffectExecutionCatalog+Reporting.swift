@@ -53,7 +53,7 @@ extension SceneAuthoredEffectExecutionCatalog {
         }
         let chainStageKeys = chainStages.compactMap { stage in
             stage.renderGraph.effects.first?.key
-        } + Array(resolvedMaterialStageKeys)
+        } + Array(unifiedExecutionStageKeys)
         let stageCompileFailures = chainAdmissionsByLayerID.values.compactMap {
             $0.rejection?.stageCompileFailure
         }
@@ -101,7 +101,6 @@ extension SceneAuthoredEffectExecutionCatalog {
             "authoredEffectStageCompilerFailureCodes: \(compilerFailureCodes)",
             "authoredEffectGraphLocalContrastCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.localContrastCount })",
             "authoredEffectGraphOpacityCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.opacityCount })",
-            "authoredEffectGraphColorKeyCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.colorKeyCount })",
             "authoredEffectGraphColorGradingCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.colorGradingCount })",
             "authoredEffectGraphWorkshopShiftHueCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.workshopShiftHueCount })",
             "authoredEffectGraphWorkshopAudioBarsCount: \(chainsByLayerID.values.reduce(0) { $0 + $1.workshopAudioBarsCount })",

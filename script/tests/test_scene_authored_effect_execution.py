@@ -168,7 +168,6 @@ struct SceneOpacityExecutionPlan: Sendable {
     func resolvedAlpha(in snapshot: SceneDynamicSnapshot) -> Float { 1 }
 }
 
-struct SceneColorKeyExecutionPlan: Sendable {}
 struct SceneColorGradingExecutionPlan: Sendable {}
 struct SceneWorkshopShiftHueExecutionPlan: Sendable {}
 struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
@@ -201,17 +200,6 @@ enum SceneAuthoredOpacityPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneOpacityExecutionPlan? {
-        nil
-    }
-}
-
-enum SceneAuthoredColorKeyPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneColorKeyExecutionPlan? {
         nil
     }
 }
@@ -749,10 +737,6 @@ extension SceneAuthoredLocalContrastPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredOpacityPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneOpacityExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .opacity }
-}
-extension SceneAuthoredColorKeyPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneColorKeyExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .colorKey }
 }
 extension SceneAuthoredColorGradingPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneColorGradingExecutionPlan
@@ -1571,7 +1555,6 @@ enum Harness {
             case .standardBlur: backend = "standardBlur"
             case .localContrast: backend = "localContrast"
             case .opacity: backend = "opacity"
-            case .colorKey: backend = "colorKey"
             case .colorGrading: backend = "colorGrading"
             case .workshopShiftHue: backend = "workshopShiftHue"
             case .workshopAudioBars: backend = "workshopAudioBars"

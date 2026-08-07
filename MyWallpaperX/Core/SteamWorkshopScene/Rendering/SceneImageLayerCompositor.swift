@@ -2,7 +2,7 @@ import Metal
 import simd
 
 struct SceneImageLayerCompositor {
-    private let authoredEffectPipelines: SceneAuthoredEffectPipelineSet
+    let authoredEffectPipelines: SceneAuthoredEffectPipelineSet
     private let pipelineRepository: SceneImageEffectPipelineRepository
     private let colorBlendPipelineSlot: ScenePipelineSlot<SceneLayerColorBlendPipeline>
     let resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge?

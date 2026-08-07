@@ -71,7 +71,6 @@ nonisolated struct SceneEffectStageProgram {
              (.standardBlur, .standardBlur),
              (.localContrast, .localContrast),
              (.opacity, .opacity),
-             (.colorKey, .colorKey),
              (.colorGrading, .colorGrading),
              (.workshopShiftHue, .workshopShiftHue),
              (.workshopGradient, .workshopGradient),

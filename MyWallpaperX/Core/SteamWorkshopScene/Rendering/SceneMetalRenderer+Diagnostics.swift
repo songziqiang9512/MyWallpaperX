@@ -46,6 +46,23 @@ extension SceneMetalRenderer {
         authoredEffectCatalog.chainsByLayerID[layerID]
     }
 
+    func unifiedDedicatedEffectStages(
+        for layerID: Int
+    ) -> [SceneAuthoredEffectExecutionPlan] {
+        imageCompositor.resolvedMaterialRuntime?.dedicatedEffectStages(
+            for: layerID
+        ) ?? []
+    }
+
+    func effectTextureStages(
+        for layerID: Int
+    ) -> [SceneAuthoredEffectExecutionPlan] {
+        let unified = unifiedDedicatedEffectStages(for: layerID)
+        return unified.isEmpty
+            ? authoredEffectChain(for: layerID)?.executionStages ?? []
+            : unified
+    }
+
     func blocksLegacyGaussianBlur(for layerID: Int) -> Bool {
         authoredEffectCatalog.legacyGaussianBlurBlockedLayerIDs.contains(layerID)
     }

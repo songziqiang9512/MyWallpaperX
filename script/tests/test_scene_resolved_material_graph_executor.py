@@ -41,12 +41,16 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift",
     SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift",
+    SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+EnvelopeDiagnostics.swift",
     EXECUTOR_SOURCE,
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+Preparation.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+DedicatedPreparation.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+Validation.swift",
 ]
@@ -142,6 +146,32 @@ struct SceneAuthoredEffectExecutionChain {
     var executionStages: [SceneAuthoredEffectExecutionPlan] {
         stagePrograms.map(\.executionPlan)
     }
+}
+
+final class SceneResolvedMaterialRuntimeBridge {
+    struct DedicatedFrameInputs { let time: Float = 0 }
+}
+
+enum SceneAuthoredEffectChainRenderer {
+    struct PreparedStage {}
+    enum StagePreparation {
+        case ready(PreparedStage)
+        case rejected(reason: String)
+    }
+
+    static func prepareStage(
+        _ stage: SceneAuthoredEffectExecutionPlan,
+        sourceTexture: MTLTexture,
+        targets: SceneGraphRenderTargetTable,
+        inputs: SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs,
+        sourcePipeline: SceneImageLayerPipeline,
+        time: Float
+    ) -> StagePreparation { .rejected(reason: "fixture-stage-unavailable") }
+
+    static func encodePreparedStage(
+        _ stage: PreparedStage,
+        commandBuffer: MTLCommandBuffer
+    ) -> Bool { false }
 }
 
 struct SceneResolvedMaterialRuntimeCatalog {
@@ -1136,6 +1166,7 @@ private func runHistoryScenario(
         sourceTexture: makeSource(device),
         sourceUniforms: .neutral(),
         sourcePipeline: sourcePipeline,
+        dedicatedInputs: .init(),
         commandBuffer: firstBuffer,
         previousStates: [:],
         previousGraphResources: [:],
@@ -1201,6 +1232,7 @@ private func runHistoryScenario(
         sourceTexture: nextSource,
         sourceUniforms: .neutral(),
         sourcePipeline: sourcePipeline,
+        dedicatedInputs: .init(),
         commandBuffer: noCopiesBuffer,
         previousStates: [effect: previous],
         previousGraphResources: [effect: transition.persistentResources],
@@ -1222,6 +1254,7 @@ private func runHistoryScenario(
             sourceTexture: nextSource,
             sourceUniforms: .neutral(),
             sourcePipeline: sourcePipeline,
+            dedicatedInputs: .init(),
             commandBuffer: incompleteBuffer,
             previousStates: [effect: previous],
             previousGraphResources: [effect: transition.persistentResources],
@@ -1242,6 +1275,7 @@ private func runHistoryScenario(
             sourceTexture: nextSource,
             sourceUniforms: .neutral(),
             sourcePipeline: sourcePipeline,
+            dedicatedInputs: .init(),
             commandBuffer: unexpectedBuffer,
             previousStates: [effect: previous],
             previousGraphResources: [effect: transition.persistentResources],
@@ -1265,6 +1299,7 @@ private func runHistoryScenario(
             sourceTexture: nextSource,
             sourceUniforms: .neutral(),
             sourcePipeline: sourcePipeline,
+            dedicatedInputs: .init(),
             commandBuffer: buffer,
             previousStates: [effect: previous],
             previousGraphResources: [effect: transition.persistentResources],
@@ -1465,6 +1500,7 @@ private enum Harness {
             sourceTexture: source,
             sourceUniforms: .neutral(),
             sourcePipeline: sourcePipeline,
+            dedicatedInputs: .init(),
             commandBuffer: implicitFramebufferBuffer,
             previousStates: [:],
             previousGraphResources: [:],
@@ -1483,6 +1519,7 @@ private enum Harness {
             sourceTexture: makeSource(device, usage: .renderTarget),
             sourceUniforms: .neutral(),
             sourcePipeline: sourcePipeline,
+            dedicatedInputs: .init(),
             commandBuffer: unreadableCaptureBuffer,
             previousStates: [:],
             previousGraphResources: [:],
@@ -1638,6 +1675,7 @@ private enum Harness {
             sourceTexture: source,
             sourceUniforms: .neutral(),
             sourcePipeline: sourcePipeline,
+            dedicatedInputs: .init(),
             commandBuffer: preparationBuffer,
             previousStates: [:],
             previousGraphResources: [:],
@@ -1687,6 +1725,7 @@ private enum Harness {
             sourceTexture: source,
             sourceUniforms: .neutral(),
             sourcePipeline: sourcePipeline,
+            dedicatedInputs: .init(),
             commandBuffer: lateBuffer,
             previousStates: [:],
             previousGraphResources: [:],
@@ -1741,6 +1780,7 @@ private enum Harness {
             sourceTexture: source,
             sourceUniforms: .neutral(),
             sourcePipeline: sourcePipeline,
+            dedicatedInputs: .init(),
             commandBuffer: composeBuffer,
             previousStates: [:],
             previousGraphResources: [:],
@@ -1778,6 +1818,7 @@ private enum Harness {
             sourceTexture: source,
             sourceUniforms: .neutral(),
             sourcePipeline: sourcePipeline,
+            dedicatedInputs: .init(),
             commandBuffer: secondFrameBuffer,
             previousStates: [effect: firstTransition.transition.nextState],
             previousGraphResources: [effect: firstTransition.persistentResources],
@@ -1909,6 +1950,7 @@ private enum Harness {
             sourceTexture: source,
             sourceUniforms: .neutral(),
             sourcePipeline: sourcePipeline,
+            dedicatedInputs: .init(),
             commandBuffer: mixedBuffer,
             previousStates: [:],
             previousGraphResources: [:],
@@ -1949,6 +1991,7 @@ private enum Harness {
             sourceTexture: source,
             sourceUniforms: .neutral(),
             sourcePipeline: sourcePipeline,
+            dedicatedInputs: .init(),
             commandBuffer: freshCopyBuffer,
             previousStates: [:],
             previousGraphResources: [:],
@@ -2046,6 +2089,7 @@ private enum Harness {
             sourceTexture: source,
             sourceUniforms: .neutral(),
             sourcePipeline: sourcePipeline,
+            dedicatedInputs: .init(),
             commandBuffer: copyMismatchBuffer,
             previousStates: [:],
             previousGraphResources: [:],
@@ -2111,6 +2155,7 @@ private enum Harness {
             sourceTexture: source,
             sourceUniforms: .neutral(),
             sourcePipeline: sourcePipeline,
+            dedicatedInputs: .init(),
             commandBuffer: swapMismatchBuffer,
             previousStates: [:],
             previousGraphResources: [:],
@@ -2319,6 +2364,15 @@ private enum Harness {
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneResolvedMaterialGraphExecutorTests(unittest.TestCase):
     def test_production_executor_preflights_and_executes_atomic_graph(self) -> None:
+        preparation = (
+            SCENE_ROOT
+            / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+Preparation.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            '"dedicated:\\(SceneShaderStableDigest.hash(program.stageGraph))"',
+            preparation,
+        )
+        self.assertIn("programKeys.append(", preparation)
         with tempfile.TemporaryDirectory(
             prefix="mwx-resolved-material-graph-executor-"
         ) as directory:

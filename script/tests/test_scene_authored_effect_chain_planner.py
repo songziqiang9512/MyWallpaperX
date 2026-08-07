@@ -103,7 +103,6 @@ struct SceneOpacityExecutionPlan: Sendable {
     func resolvedAlpha(in snapshot: SceneDynamicSnapshot) -> Float { 1 }
 }
 
-struct SceneColorKeyExecutionPlan: Sendable {}
 struct SceneColorGradingExecutionPlan: Sendable {}
 struct SceneWorkshopShiftHueExecutionPlan: Sendable {}
 struct SceneWorkshopAudioBarsExecutionPlan: Sendable {
@@ -136,17 +135,6 @@ enum SceneAuthoredOpacityPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneOpacityExecutionPlan? {
-        nil
-    }
-}
-
-enum SceneAuthoredColorKeyPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneColorKeyExecutionPlan? {
         nil
     }
 }
@@ -703,10 +691,6 @@ extension SceneAuthoredLocalContrastPlanner: HarnessDedicatedPlanner {
 extension SceneAuthoredOpacityPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneOpacityExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .opacity }
-}
-extension SceneAuthoredColorKeyPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneColorKeyExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .colorKey }
 }
 extension SceneAuthoredColorGradingPlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = SceneColorGradingExecutionPlan
@@ -2142,7 +2126,7 @@ enum Harness {
             ],
             "resolvedCatalog": [
                 "chainLayers": resolvedCatalog.chainsByLayerID.keys.sorted(),
-                "resolvedKeys": resolvedCatalog.resolvedMaterialStageKeys.map {
+                "resolvedKeys": resolvedCatalog.unifiedExecutionStageKeys.map {
                     $0.effectIndex
                 }.sorted(),
                 "legacyBlocked": resolvedCatalog
@@ -2154,7 +2138,7 @@ enum Harness {
                 "partialChainLayers": partialResolvedCatalog
                     .chainsByLayerID.keys.sorted(),
                 "partialResolvedKeys": partialResolvedCatalog
-                    .resolvedMaterialStageKeys.map { $0.effectIndex }.sorted(),
+                    .unifiedExecutionStageKeys.map { $0.effectIndex }.sorted(),
             ],
             "directRejections": [
                 "unsupportedSecond": rejected(
@@ -2422,10 +2406,10 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         self.assertEqual(typed["overlapCompilerBackend"], "workshop-audio-bars")
         self.assertEqual(typed["overlapEnhancedCalls"], 1)
         self.assertEqual(typed["overlapSimpleCalls"], 0)
-        self.assertEqual(typed["overlapPrecedingProbeCount"], 7)
+        self.assertEqual(typed["overlapPrecedingProbeCount"], 6)
         self.assertEqual(
             typed["overlapPrecedingProbeOutcomes"],
-            ["not-applicable"] * 7,
+            ["not-applicable"] * 6,
         )
         self.assertTrue(typed["threeStageChainRejected"])
         self.assertEqual(typed["threeStageTopLevelReason"], "unsupported-stage")
@@ -2443,7 +2427,6 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
             "standard-blur",
             "local-contrast",
             "opacity",
-            "color-key",
             "color-grading",
             "workshop-shift-hue",
             "workshop-audio-bars",
@@ -2476,17 +2459,17 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         self.assertEqual(typed["genericProbeBackends"], expected_backends)
         self.assertEqual(
             typed["genericProbeOutcomes"],
-            ["not-applicable"] * 33,
+            ["not-applicable"] * len(expected_backends),
         )
         self.assertEqual(typed["probeBackends"], expected_backends)
         self.assertEqual(typed["unknownProbeBackends"], expected_backends)
         self.assertEqual(
             typed["unknownProbeOutcomes"],
-            ["not-applicable"] * 33,
+            ["not-applicable"] * len(expected_backends),
         )
         self.assertEqual(typed["waterFlowRejectedProbeBackends"], expected_backends)
-        water_flow_outcomes = ["not-applicable"] * 33
-        water_flow_outcomes[17] = (
+        water_flow_outcomes = ["not-applicable"] * len(expected_backends)
+        water_flow_outcomes[expected_backends.index("water-flow")] = (
             "rejected:compatibility:dedicated-profile-rejected"
         )
         self.assertEqual(
@@ -2498,7 +2481,7 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         self.assertEqual(
             typed["probeOutcomes"],
             ["rejected:compatibility:dedicated-profile-rejected"]
-                + ["not-applicable"] * 32,
+                + ["not-applicable"] * (len(expected_backends) - 1),
         )
         self.assertTrue(typed["outerGraphHasNoStageFailure"])
         report_lines = self.result["failureCatalogs"]["unsupportedSecond"][
@@ -2511,7 +2494,7 @@ class SceneAuthoredEffectChainPlannerTests(unittest.TestCase):
         )
         self.assertIn(
             "authoredEffectStageCompilerProbeOutcomeCounts: "
-            "not-applicable=32,rejected=1",
+            "not-applicable=31,rejected=1",
             report_lines,
         )
         compiler_failures = next(

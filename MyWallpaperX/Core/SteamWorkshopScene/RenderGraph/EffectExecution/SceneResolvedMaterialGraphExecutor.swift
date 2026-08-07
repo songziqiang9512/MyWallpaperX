@@ -24,6 +24,7 @@ final class SceneResolvedMaterialGraphExecutor {
             failure: SceneResolvedMaterialFailure
         )
         case materialPassEncoderRejected
+        case dedicatedLeafRejected(reason: String)
         case resourceCommandRejected
         case captureRejected
         case encodeRejected
@@ -43,6 +44,8 @@ final class SceneResolvedMaterialGraphExecutor {
                 "node-\(nodeIndex)-material-\(ordinal)-finalizer-"
                     + "\(failure.phase.rawValue)-\(failure.code.rawValue)"
             case .materialPassEncoderRejected: "material-pass-encoder-rejected"
+            case .dedicatedLeafRejected(let reason):
+                "dedicated-leaf-rejected-\(reason)"
             case .resourceCommandRejected: "resource-command-rejected"
             case .captureRejected: "capture-rejected"
             case .encodeRejected: "encode-rejected"
@@ -94,6 +97,7 @@ final class SceneResolvedMaterialGraphExecutor {
     enum Command {
         case resource(SceneGraphResourcePassEncoder.PreparedCommand)
         case material(SceneResolvedMaterialPassEncoder.PreparedPass)
+        case dedicated(SceneAuthoredEffectChainRenderer.PreparedStage)
     }
 
     let device: MTLDevice
@@ -127,6 +131,7 @@ final class SceneResolvedMaterialGraphExecutor {
         sourceTexture: MTLTexture,
         sourceUniforms: SceneLayerFragmentUniforms,
         sourcePipeline: SceneImageLayerPipeline,
+        dedicatedInputs: SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs,
         commandBuffer: MTLCommandBuffer,
         previousStates: [Graph.EffectKey: State],
         previousGraphResources: [
@@ -172,8 +177,9 @@ final class SceneResolvedMaterialGraphExecutor {
         ]
         var transitions: [PreparedTransition] = []
 
-        for index in capability.admittedProducts.indices {
-            let product = capability.admittedProducts[index]
+        for index in capability.stages.indices {
+            let stageCapability = capability.stages[index]
+            let product = stageCapability.product
             let graph = product.graph
             let pairStep = capability.pairPlan.effects[index]
             let lease = leases[index]
@@ -230,9 +236,13 @@ final class SceneResolvedMaterialGraphExecutor {
                 transition: transition,
                 graph: graph,
                 pairStep: pairStep,
+                stageCapability: stageCapability,
                 capability: capability,
                 lease: lease,
                 frame: frame,
+                sourcePipeline: sourcePipeline,
+                time: dedicatedInputs.time,
+                dedicatedInputs: dedicatedInputs,
                 pair: &pair,
                 publications: &publications,
                 commands: &commands,
@@ -302,6 +312,11 @@ final class SceneResolvedMaterialGraphExecutor {
                 encoded = resourceEncoder?.encode(value, commandBuffer: commandBuffer) == true
             case let .material(value):
                 encoded = materialEncoder.encode(value, commandBuffer: commandBuffer)
+            case let .dedicated(value):
+                encoded = SceneAuthoredEffectChainRenderer.encodePreparedStage(
+                    value,
+                    commandBuffer: commandBuffer
+                )
             }
             guard encoded else { return false }
         }

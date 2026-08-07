@@ -69,7 +69,7 @@ enum SceneAuthoredEffectStageAdmissionBuilder {
         graphCandidates: [Graph],
         chainAdmission: SceneAuthoredEffectChainAdmission?,
         layerIsVisible: Bool,
-        resolvedMaterialKeys: Set<Graph.EffectKey> = []
+        unifiedExecutionSubjects: [SceneEffectExactRuntimeSubject] = []
     ) -> [Admission] {
         layer.effects.enumerated().map { effectIndex, descriptorEffect in
             let key = Graph.EffectKey(
@@ -120,15 +120,16 @@ enum SceneAuthoredEffectStageAdmissionBuilder {
                     reasonCode: "graph-mismatch"
                 )
             }
-            if resolvedMaterialKeys.contains(key) {
+            if let subject = unifiedExecutionSubjects.first(where: { $0.key == key }) {
                 return admission(
                     key: key,
                     path: descriptorEffect.file,
                     activity: .active,
-                    strictAdmission: .admittedGeneric,
+                    strictAdmission: subject.family == "resolved-material"
+                        ? .admittedGeneric : .admittedDedicated,
                     coverage: .complete,
-                    backendName: "resolved-material",
-                    profileName: "program"
+                    backendName: subject.family,
+                    profileName: subject.family == "resolved-material" ? "program" : nil
                 )
             }
             guard let chainAdmission else {
@@ -304,7 +305,6 @@ extension SceneAuthoredEffectExecutionPlan.Backend {
         case .standardBlur: "standard-blur"
         case .localContrast: "local-contrast"
         case .opacity: "opacity"
-        case .colorKey: "color-key"
         case .colorGrading: "color-grading"
         case .workshopShiftHue: "workshop-shift-hue"
         case .workshopAudioBars: "workshop-audio-bars"

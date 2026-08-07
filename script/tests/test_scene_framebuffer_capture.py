@@ -60,8 +60,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneLocalContrastRenderer.swift",
     SOURCE_ROOT / "Effects/SceneOpacityPipeline.swift",
     SOURCE_ROOT / "Effects/SceneOpacityRenderer.swift",
-    SOURCE_ROOT / "Effects/SceneColorKeyPipeline.swift",
-    SOURCE_ROOT / "Effects/SceneColorKeyRenderer.swift",
     SOURCE_ROOT / "Effects/SceneColorGradingPipeline.swift",
     SOURCE_ROOT / "Effects/SceneFisheyeZeroDistortionPipeline.swift",
     SOURCE_ROOT / "Effects/SceneWorkshopShiftHuePipeline.swift",
@@ -125,7 +123,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+SimpleAudioBars.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+AudioHueShift.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+WorkshopGradient.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+ColorKey.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+ColorGrading.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Pulse.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+ShiftHue.swift",
@@ -214,6 +211,19 @@ enum SceneResolvedMaterialExecutionCapabilityCatalog {
 }
 
 final class SceneResolvedMaterialRuntimeBridge {
+    struct DedicatedFrameInputs {
+        let masks: SceneImageLayerMasks
+        let dynamicValues: SceneDynamicSnapshot
+        let pipelines: SceneAuthoredEffectPipelineSet
+        let cursorUV: SIMD2<Float>
+        let previousCursorUV: SIMD2<Float>
+        let pointerIsInside: Bool
+        let previousPointerIsInside: Bool
+        let frameTime: Float
+        let time: Float
+        let audioSpectrum: SceneAudioSpectrumSnapshot
+        let dependencyEffect: SceneDependencyEffectInput?
+    }
     struct ExecutionTicket: Hashable { let identity: Int }
     struct ExactEffectSubject {
         let key: SceneAuthoredEffectRenderPlan.EffectKey
@@ -520,15 +530,6 @@ struct SceneOpacityExecutionPlan: Equatable, Sendable {
     }
 }
 
-struct SceneColorKeyExecutionPlan: Sendable {
-    let keyAlpha: Float
-    let fuzziness: Float
-    let tolerance: Float
-    let keyColor: SIMD3<Float>
-    let invert: Bool
-    let flatten: Bool
-}
-
 struct SceneColorGradingExecutionPlan: Sendable {
     let luminance: Float
     let saturation: Float
@@ -701,13 +702,12 @@ struct SceneLightShaftsEffectTextures {
     }
 }
 
-struct SceneAuthoredEffectExecutionPlan {
+    struct SceneAuthoredEffectExecutionPlan {
     enum Backend {
         case preciseGaussian(SceneGaussianBlurPlan)
         case standardBlur(SceneStandardBlurPlan)
         case localContrast(SceneLocalContrastPlan)
         case opacity(SceneOpacityExecutionPlan)
-        case colorKey(SceneColorKeyExecutionPlan)
         case colorGrading(SceneColorGradingExecutionPlan)
         case workshopShiftHue(SceneWorkshopShiftHueExecutionPlan)
         case workshopAudioBars(SceneWorkshopAudioBarsExecutionPlan)
@@ -736,13 +736,23 @@ struct SceneAuthoredEffectExecutionPlan {
         case godrays(SceneGodraysPlan)
         case shine(SceneShineExecutionPlan)
 
+        var supportsUnifiedPairLeaf: Bool {
+            switch self {
+            case .workshopShiftHue, .workshopAudioBars, .workshopGradient,
+                 .workshopAudioHueShift, .workshopShadow, .spin,
+                 .proceduralNoise, .filmGrain, .shake:
+                return true
+            default:
+                return false
+            }
+        }
+
         var stableName: String {
             switch self {
             case .preciseGaussian: "precise-gaussian"
             case .standardBlur: "standard-blur"
             case .localContrast: "local-contrast"
             case .opacity: "opacity"
-            case .colorKey: "color-key"
             case .colorGrading: "color-grading"
             case .workshopShiftHue: "workshop-shift-hue"
             case .workshopAudioBars: "workshop-audio-bars"

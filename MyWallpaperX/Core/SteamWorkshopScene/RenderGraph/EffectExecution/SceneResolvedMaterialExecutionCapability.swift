@@ -21,7 +21,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         static let empty = Self(userProperties: [], timelineTargets: [], sceneScriptTargets: [])
     }
 
-    private struct Rejection: Error {
+    struct Rejection: Error {
         let code: String
     }
 
@@ -51,7 +51,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let template: Template
         let variants: SceneResolvedMaterialVariantCache
 
-        fileprivate init(
+        init(
             key: MaterialKey,
             template: Template,
             variants: SceneResolvedMaterialVariantCache
@@ -62,9 +62,45 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         }
     }
 
+    enum StageCapability {
+        case resolved(
+            product: SceneGraphAdmissionProduct,
+            materials: [MaterialKey: MaterialCapability]
+        )
+        case dedicated(
+            product: SceneGraphAdmissionProduct,
+            program: SceneEffectStageProgram,
+            family: String
+        )
+
+        var product: SceneGraphAdmissionProduct {
+            switch self {
+            case .resolved(let product, _), .dedicated(let product, _, _): product
+            }
+        }
+
+        var subject: ExactEffectSubject? {
+            guard let key = product.graph.effects.first?.key else { return nil }
+            switch self {
+            case .resolved:
+                return .init(key: key, family: "resolved-material")
+            case .dedicated(_, _, let family):
+                return .init(key: key, family: family)
+            }
+        }
+
+        /// Projects only the dedicated leaf's execution plan for resource
+        /// loading. Resolved material stages own their resources elsewhere.
+        var dedicatedExecutionPlan: SceneAuthoredEffectExecutionPlan? {
+            guard case .dedicated(_, let program, _) = self else { return nil }
+            return program.executionPlan
+        }
+    }
+
     final class ChainCapability {
         let layerID: Int
         let admittedProducts: [SceneGraphAdmissionProduct]
+        let stages: [StageCapability]
         let pairPlan: SceneLayerFullFramePairPlan
         let materials: [MaterialKey: MaterialCapability]
         let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
@@ -74,10 +110,12 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
 
         fileprivate init(
             admitted: SceneResolvedMaterialAdmittedLayer,
+            stages: [StageCapability],
             materials: [MaterialKey: MaterialCapability]
         ) {
             layerID = admitted.layerID
             admittedProducts = admitted.products
+            self.stages = stages
             pairPlan = admitted.pairPlan
             self.materials = materials
             fullFrameExtentPolicy = .standard
@@ -94,7 +132,10 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
 
         var effectSubjectsAreConserved: Bool {
             let keys = admittedProducts.flatMap { $0.graph.effects.map(\.key) }
+            let subjects = stages.compactMap(\.subject)
             return !keys.isEmpty && Set(keys).count == keys.count
+                && subjects.count == keys.count
+                && subjects.map(\.key) == keys
         }
     }
 
@@ -110,6 +151,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         ],
         materialCatalog: SceneResolvedMaterialRuntimeCatalog,
         dynamicProducers: DynamicProducerCatalog = .empty,
+        dedicatedStageFamilies: [Graph.EffectKey: String] = [:],
+        dedicatedLeafKeys: Set<Graph.EffectKey> = [],
         maximumVariantsPerMaterial: Int = 16
     ) {
         let demandIssues = Set(materialCatalog.resourceDemandIssues.map(\.key))
@@ -122,19 +165,23 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             case let .failure(failure):
                 rejected[failure.code, default: 0] += 1
             case let .success(admitted):
-                switch Self.compileMaterials(
+                switch Self.compileStages(
                     admitted,
                     materialCatalog: materialCatalog,
                     demandIssueKeys: demandIssues,
                     dynamicProducers: dynamicProducers,
+                    dedicatedStagePrograms: candidate.dedicatedStagePrograms,
+                    dedicatedStageFamilies: dedicatedStageFamilies,
+                    dedicatedLeafKeys: dedicatedLeafKeys,
                     maximumVariantsPerMaterial: maximumVariantsPerMaterial
                 ) {
                 case let .failure(failure):
                     rejected[failure.code, default: 0] += 1
-                case let .success(materials):
+                case let .success(compiled):
                     accepted[candidate.layerID] = .init(
                         admitted: admitted,
-                        materials: materials
+                        stages: compiled.stages,
+                        materials: compiled.materials
                     )
                 }
             }
@@ -168,17 +215,16 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     ) -> RuntimeDispositionOwnership? {
         guard let capability = resolve(token),
               capability.effectSubjectsAreConserved else { return nil }
-        let expected = capability.admittedProducts.flatMap {
-            $0.graph.effects.map(\.key)
-        }
+        let expected = capability.stages.compactMap(\.subject)
         let keys = subjects.map(\.key)
         guard !subjects.isEmpty,
               Set(keys).count == keys.count,
-              Set(keys) == Set(expected),
-              subjects.allSatisfy({
-                  $0.key.layerID == capability.layerID
-                      && $0.family == "resolved-material"
-              }) else { return nil }
+              Set(keys) == Set(expected.map(\.key)),
+              Dictionary(uniqueKeysWithValues: subjects.map { ($0.key, $0.family) })
+                == Dictionary(uniqueKeysWithValues: expected.map { ($0.key, $0.family) }),
+              subjects.allSatisfy({ $0.key.layerID == capability.layerID }) else {
+            return nil
+        }
         return .init(
             layerID: capability.layerID,
             subjects: subjects.sorted {
@@ -196,11 +242,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                   let capability = resolve(claim.token) else { return nil }
             return runtimeDispositionOwnership(
                 token: claim.token,
-                subjects: capability.admittedProducts.flatMap { product in
-                    product.graph.effects.map {
-                        .init(key: $0.key, family: "resolved-material")
-                    }
-                }
+                subjects: capability.stages.compactMap(\.subject)
             )
         }
     }
@@ -232,76 +274,10 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         return result
     }
 
-    private static func compileMaterials(
-        _ admitted: SceneResolvedMaterialAdmittedLayer,
-        materialCatalog: SceneResolvedMaterialRuntimeCatalog,
-        demandIssueKeys: Set<MaterialKey>,
-        dynamicProducers: DynamicProducerCatalog,
-        maximumVariantsPerMaterial: Int
-    ) -> Result<[MaterialKey: MaterialCapability], Rejection> {
-        guard (1 ... 256).contains(maximumVariantsPerMaterial) else {
-            return .failure(rejection("material-variant-envelope-capacity"))
-        }
-        var materials: [MaterialKey: MaterialCapability] = [:]
-        for product in admitted.products {
-            guard let effect = product.graph.effects.first else {
-                return .failure(rejection("material-template-unsupported"))
-            }
-            for node in product.graph.nodes {
-                guard case .material = node.kind else { continue }
-                let key = MaterialKey(effect: node.effect, nodeIndex: node.nodeIndex)
-                guard let template =
-                        SceneResolvedMaterialExecutionCapabilityTemplateAdmission.resolve(
-                            node: node,
-                            effect: effect,
-                            key: key,
-                            materialCatalog: materialCatalog,
-                            demandIssueKeys: demandIssueKeys,
-                            existingKeys: Set(materials.keys)
-                        ) else {
-                    return .failure(rejection("material-template-unsupported"))
-                }
-                guard let variants = SceneResolvedMaterialVariantCache(
-                    template: template,
-                    maximumVariantCount: maximumVariantsPerMaterial
-                ) else {
-                    return .failure(rejection(
-                        "material-variant-envelope-sampler-schema"
-                    ))
-                }
-                if case let .failure(failure) = variants.precompileLaunchEnvelope(
-                    implicitFramebufferIdentity: effect.input
-                ) {
-                    SceneResolvedMaterialExecutionCapabilityEnvelopeDiagnostics
-                        .launchEnvelopeFailure(template: template, failure: failure)
-                    return .failure(rejection(
-                        "material-variant-envelope-\(failure.kind.rawValue)"
-                    ))
-                }
-                guard dynamicUniformsAreExecutable(
-                    template,
-                    node: node,
-                    producers: dynamicProducers
-                ) else {
-                    return .failure(rejection("dynamic-uniform-unavailable"))
-                }
-                materials[key] = .init(
-                    key: key,
-                    template: template,
-                    variants: variants
-                )
-            }
-        }
-        guard !materials.isEmpty else {
-            return .failure(rejection("material-capability-empty"))
-        }
-        return .success(materials)
-    }
-
     /// This launch-time gate is intentionally no broader than Finalizer's
     /// per-frame policy. It prevents a predictable post-claim failure from
     /// suppressing the still-authoritative legacy route.
-    private static func dynamicUniformsAreExecutable(
+    static func dynamicUniformsAreExecutable(
         _ template: Template,
         node: Graph.Node,
         producers: DynamicProducerCatalog
@@ -342,7 +318,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         return true
     }
 
-    private static func rejection(_ code: String) -> Rejection {
+    static func rejection(_ code: String) -> Rejection {
         .init(code: code)
     }
 }

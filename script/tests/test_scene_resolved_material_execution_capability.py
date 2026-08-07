@@ -57,6 +57,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift",
     SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift",
+    SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+EnvelopeDiagnostics.swift",
@@ -75,6 +77,8 @@ ENVELOPE_SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift",
     SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift",
+    SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+EnvelopeDiagnostics.swift",
@@ -92,6 +96,12 @@ struct SceneEffectDefinition {
 struct SceneEffectExactRuntimeSubject: Hashable {
     let key: SceneAuthoredEffectRenderPlan.EffectKey
     let family: String
+}
+
+struct SceneEffectStageProgram {
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+    let stageGraph: SceneAuthoredEffectRenderPlan
+    let executionPlan: SceneAuthoredEffectExecutionPlan
 }
 
 struct SceneRenderDescriptor {
@@ -615,6 +625,113 @@ private func rawGraph(
     )
 }
 
+private func pairOnlyGraph() -> Graph {
+    let firstInput = source()
+    let firstOutput = output(firstKey)
+    let secondOutput = output(secondKey)
+    let firstNode = material(
+        index: 0,
+        ordinal: 0,
+        effect: firstKey,
+        target: firstOutput,
+        input: firstInput
+    )
+    let secondNode = material(
+        index: 1,
+        ordinal: 0,
+        effect: secondKey,
+        target: secondOutput,
+        input: firstOutput
+    )
+    return .init(
+        layerID: layerID,
+        effects: [
+            .init(
+                key: firstKey,
+                definitionPath: "effects/first/effect.json",
+                input: firstInput,
+                output: firstOutput,
+                nodeIndices: [firstNode.nodeIndex]
+            ),
+            .init(
+                key: secondKey,
+                definitionPath: "effects/second/effect.json",
+                input: firstOutput,
+                output: secondOutput,
+                nodeIndices: [secondNode.nodeIndex]
+            ),
+        ],
+        renderTargets: [],
+        nodes: [firstNode, secondNode],
+        finalOutput: secondOutput,
+        blockers: []
+    )
+}
+
+private func pairOnlyDescriptor() -> SceneRenderDescriptor {
+    .init(
+        layers: [.init(
+            id: layerID,
+            effects: [
+                .init(
+                    id: firstKey.descriptorID,
+                    file: "effects/first/effect.json",
+                    visible: true,
+                    passes: [.init(passIndex: 0, combos: [:])]
+                ),
+                .init(
+                    id: "hidden-middle",
+                    file: "effects/hidden/effect.json",
+                    visible: false,
+                    passes: []
+                ),
+                .init(
+                    id: secondKey.descriptorID,
+                    file: "effects/second/effect.json",
+                    visible: true,
+                    passes: [.init(passIndex: 0, combos: [:])]
+                ),
+            ]
+        )],
+        materialPasses: [
+            .init(id: "m0", materialPath: "materials/m0.json", combos: [:]),
+            .init(id: "m1", materialPath: "materials/m1.json", combos: [:]),
+        ],
+        effectDefinitions: [
+            .init(relativePath: "effects/first/effect.json", functions: nil),
+            .init(relativePath: "effects/second/effect.json", functions: nil),
+        ]
+    )
+}
+
+private func dedicatedProgram(
+    graph: Graph,
+    effectIndex: Int,
+    inputRole: SceneAuthoredEffectInputRole
+) -> SceneEffectStageProgram {
+    let effect = graph.effects[effectIndex]
+    let nodes = graph.nodes.filter { $0.effect == effect.key }
+    let stageGraph = Graph(
+        layerID: layerID,
+        effects: [effect],
+        renderTargets: [],
+        nodes: nodes,
+        finalOutput: effect.output,
+        blockers: []
+    )
+    return .init(
+        effectKey: effect.key,
+        stageGraph: stageGraph,
+        executionPlan: .init(
+            layerID: layerID,
+            materialNodeCount: nodes.count,
+            logicalRenderTargetCount: 0,
+            inputRole: inputRole,
+            cursorRipple: nil
+        )
+    )
+}
+
 private func descriptor(
     ambiguousDefinition: Bool = false,
     withFunctions: Bool = false,
@@ -1067,6 +1184,24 @@ private enum Harness {
             ),
             admissionCandidates: admissionCandidates
         )
+        let pairGraph = pairOnlyGraph()
+        let pairDescriptor = pairOnlyDescriptor()
+        let dedicatedBeforeResolvedCandidates =
+            SceneResolvedMaterialExecutionCapabilityAdmission.compile(
+                descriptor: pairDescriptor,
+                authoredPlans: [pairGraph],
+                dedicatedStagePrograms: [dedicatedProgram(
+                    graph: pairGraph,
+                    effectIndex: 0,
+                    inputRole: .layerSource
+                )]
+            )
+        let dedicatedBeforeResolvedCatalog = Catalog(
+            admissionCandidates: dedicatedBeforeResolvedCandidates,
+            materialCatalog: materialCatalog(graph: pairGraph),
+            dedicatedStageFamilies: [firstKey: "fixture-dedicated"],
+            dedicatedLeafKeys: [firstKey]
+        )
 
         let firstProduct = capability.admittedProducts[0]
         let result: [String: Any] = [
@@ -1189,6 +1324,10 @@ private enum Harness {
                     unverifiedSceneScriptCatalog,
                     "dynamic-uniform-unavailable"
                 ),
+                "dedicatedBeforeResolved": reportHas(
+                    dedicatedBeforeResolvedCatalog,
+                    "mixed-chain-resolved-prefix-required"
+                ) && dedicatedBeforeResolvedCatalog.claim(layerID: layerID) == nil,
                 "routeUnavailable": reportHas(
                     routeUnavailableCatalog,
                     "execution-route-specialized-owner"
@@ -1309,6 +1448,18 @@ enum SceneResolvedMaterialDependencyOwnership: Equatable {
     }
 }
 
+struct SceneAuthoredEffectExecutionPlan {
+    let logicalRenderTargetCount: Int
+}
+
+struct SceneEffectStageProgram {
+    typealias ExecutionPlan = SceneAuthoredEffectExecutionPlan
+
+    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
+    let stageGraph: SceneAuthoredEffectRenderPlan
+    let executionPlan: ExecutionPlan
+}
+
 struct SceneEffectExactRuntimeSubject: Hashable {
     let key: SceneAuthoredEffectRenderPlan.EffectKey
     let family: String
@@ -1333,6 +1484,7 @@ enum SceneResolvedMaterialExecutionCapabilityAdmission {
     struct Candidate {
         let layerID: Int
         let result: Result<SceneResolvedMaterialAdmittedLayer, Failure>
+        let dedicatedStagePrograms: [SceneEffectStageProgram] = []
     }
 }
 
@@ -2068,10 +2220,14 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             "                    sceneScriptAudioBarsProgram.plans.map(\\.layerID)",
             launch,
         )
-        self.assertIn("case let .success(materials):", capability)
+        self.assertIn("case let .success(compiled):", capability)
+        self.assertIn("stages: compiled.stages", capability)
         self.assertIn("runtimeDispositionOwnership(", capability)
         self.assertIn("runtimeDispositionOwnerships", capability)
-        self.assertIn("Set(keys) == Set(expected)", capability)
+        self.assertIn(
+            "Set(keys) == Set(expected.map(\\.key))",
+            capability,
+        )
         self.assertNotIn("sampleID", capability)
 
         self.assertIn("admissionCandidates: [AdmissionCandidate]", runtime_catalog)
@@ -2206,6 +2362,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "multipleProducer": True,
                 "missingProducer": True,
                 "unverifiedSceneScript": True,
+                "dedicatedBeforeResolved": True,
                 "routeUnavailable": True,
                 "hiddenParent": True,
                 "unsupportedContent": True,

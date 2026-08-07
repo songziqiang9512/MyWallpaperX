@@ -106,7 +106,7 @@ class SceneMetalView: NSView {
         var puppetRecomposeBytes = 0
         // 所有渲染层都要装载 effect 实例资源，mp4 payload 视频层也不能遗漏。
         func loadEffectTextures(for layer: SceneRenderDescriptor.Layer) -> SceneLayerEffectTextures {
-            let stages = renderer.authoredEffectChain(for: layer.id)?.executionStages ?? []
+            let stages = renderer.effectTextureStages(for: layer.id)
             let textures = SceneLayerEffectTextureLoader.load(
                 for: layer,
                 stages: stages,

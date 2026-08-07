@@ -10,6 +10,39 @@ nonisolated enum SceneEffectDedicatedStageResolution {
 }
 
 extension SceneAuthoredEffectChainPlanner {
+    /// Produces partial native leaves without granting them chain-topology
+    /// ownership. Stages with no dedicated owner are intentionally omitted so
+    /// the resolved Program capability may become their sole execution owner.
+    nonisolated static func compileDedicatedLeaves(
+        graph: Graph,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract]
+    ) -> [SceneEffectStageProgram] {
+        graph.effects.enumerated().compactMap { ordinal, effect in
+            guard case let .accepted(stageGraph) = stageGraphAdmission(
+                effect: effect,
+                in: graph
+            ) else { return nil }
+            let input = SceneEffectStageCompileInput(
+                stageGraph: stageGraph,
+                authoredOrdinal: ordinal,
+                effectKey: effect.key,
+                definitionPath: effect.definitionPath,
+                inputRole: ordinal == 0 ? .layerSource : .priorEffectOutput,
+                descriptor: descriptor,
+                shaderContracts: shaderContracts
+            )
+            guard case let .accepted(backend, plan, probes) =
+                    resolveDedicatedStage(input) else { return nil }
+            return SceneEffectStageProgram(
+                input: input,
+                compilerBackend: backend,
+                executionPlan: plan,
+                precedingProbes: probes
+            )
+        }
+    }
+
     /// Ordered dedicated compilers preserve the legacy first-match order while
     /// distinguishing stages outside a compiler family from same-family stages
     /// rejected by that compiler's exact fail-closed profile.
@@ -43,11 +76,6 @@ extension SceneAuthoredEffectChainPlanner {
             (.opacity, {
                 SceneAuthoredOpacityPlanner.compile(input).mapAccepted {
                     stage(.opacity($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
-            }),
-            (.colorKey, {
-                SceneAuthoredColorKeyPlanner.compile(input).mapAccepted {
-                    stage(.colorKey($0), stageGraph: stageGraph, inputRole: inputRole)
                 }
             }),
             (.colorGrading, {

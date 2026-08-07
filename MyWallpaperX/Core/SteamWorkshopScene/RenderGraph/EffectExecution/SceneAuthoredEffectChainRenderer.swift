@@ -96,7 +96,7 @@ enum SceneAuthoredEffectChainRenderer {
         return currentSource
     }
 
-    private static func renderStage(
+    static func renderStage(
         _ stage: SceneAuthoredEffectExecutionPlan,
         sourceTexture: MTLTexture,
         masks: SceneImageLayerMasks,
@@ -169,7 +169,7 @@ enum SceneAuthoredEffectChainRenderer {
                 sourceUniforms: sourceUniforms, pipeline: pipeline,
                 opacityPipeline: opacityPipeline, commandBuffer: commandBuffer
             )
-        case .colorKey, .colorGrading:
+        case .colorGrading:
             return renderColorStage(
                 stage, sourceTexture: sourceTexture, masks: masks, auxMask: auxMask,
                 targets: targets, sourceUniforms: sourceUniforms,

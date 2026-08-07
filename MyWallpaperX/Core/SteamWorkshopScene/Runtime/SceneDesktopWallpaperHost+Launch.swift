@@ -122,10 +122,26 @@ extension SceneDesktopWallpaperHost {
                 effectIndex: effectIndex
             ))
         }
+        let dedicatedStageLeaves = runtimeInput.authoredEffectRenderPlans.flatMap {
+            SceneAuthoredEffectChainPlanner.compileDedicatedLeaves(
+                graph: $0,
+                descriptor: runtimeInput.renderDescriptor,
+                shaderContracts: runtimeInput.shaderContracts
+            )
+        }
+        let dedicatedStageFamilies = Dictionary(
+            uniqueKeysWithValues: dedicatedStageLeaves.map {
+                ($0.effectKey, $0.executionPlan.backend.stableName)
+            }
+        )
+        let dedicatedLeafKeys = Set(dedicatedStageLeaves.compactMap {
+            $0.executionPlan.backend.supportsUnifiedPairLeaf ? $0.effectKey : nil
+        })
         let resolvedMaterialAdmissionCandidates =
             SceneResolvedMaterialExecutionCapabilityAdmission.compile(
                 descriptor: runtimeInput.renderDescriptor,
                 authoredPlans: runtimeInput.authoredEffectRenderPlans,
+                dedicatedStagePrograms: dedicatedStageLeaves,
                 dynamicEffectVisibilityOwners: dynamicEffectVisibilityOwners,
                 specializedLayerIDs: Set(
                     sceneScriptAudioBarsProgram.plans.map(\.layerID)
@@ -151,7 +167,9 @@ extension SceneDesktopWallpaperHost {
                     ),
                     timelineTargets: Set(timelineProgram.bindings.map(\.target)),
                     sceneScriptTargets: []
-                )
+                ),
+                dedicatedStageFamilies: dedicatedStageFamilies,
+                dedicatedLeafKeys: dedicatedLeafKeys
             )
         let resolvedMaterialSubjects = resolvedMaterialExecutionCapabilities
             .runtimeDispositionOwnerships.flatMap(\.subjects)

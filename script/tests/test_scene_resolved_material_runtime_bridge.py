@@ -505,6 +505,7 @@ enum SceneResolvedMaterialExecutionCapabilityAdmission {
     static let maximumEffectsPerLayer = 512
     static let maximumNodesPerLayer = 65_536
 }
+struct SceneAuthoredEffectExecutionPlan {}
 final class SceneResolvedMaterialExecutionCapabilityCatalog {
     struct Token: Hashable { let value: Int }
     struct Claim { let token: Token }
@@ -517,10 +518,23 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let layerID: Int
         let subjects: [ExactEffectSubject]
     }
+    struct StageCapability {
+        let subject: ExactEffectSubject?
+        let dedicatedExecutionPlan: SceneAuthoredEffectExecutionPlan?
+
+        init(
+            subject: ExactEffectSubject?,
+            dedicatedExecutionPlan: SceneAuthoredEffectExecutionPlan? = nil
+        ) {
+            self.subject = subject
+            self.dedicatedExecutionPlan = dedicatedExecutionPlan
+        }
+    }
     struct ChainCapability {
         let layerID: Int
         let pairPlan: SceneLayerFullFramePairPlan
         let admittedProducts: [AdmittedProduct]
+        let stages: [StageCapability]
         let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
         var effectSubjectsAreConserved: Bool {
             let expected = admittedProducts.flatMap { $0.graph.effects.map(\.key) }
@@ -552,11 +566,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             guard let capability = capabilitiesByLayerID[layerID] else { return nil }
             return .init(
                 layerID: layerID,
-                subjects: capability.admittedProducts.flatMap { product in
-                    product.graph.effects.map {
-                        .init(key: $0.key, family: "resolved-material")
-                    }
-                }
+                subjects: capability.stages.compactMap(\.subject)
             )
         }
     }
@@ -620,6 +630,10 @@ final class SceneOffscreenTexturePool {
 
 struct SceneLayerFragmentUniforms {}
 struct SceneImageLayerPipeline {}
+struct SceneImageLayerMasks {}
+struct SceneAuthoredEffectPipelineSet {}
+struct SceneAudioSpectrumSnapshot {}
+struct SceneDependencyEffectInput {}
 struct SceneResolvedMaterialFailure: Error {}
 struct SceneFrameTextureRegistrySnapshot { let frameIndex: UInt64; let valid: Bool }
 struct SceneDynamicSnapshot {}
@@ -669,6 +683,22 @@ struct SceneMaterialAssetTextureCatalog {
     let states: [SceneAssetTextureIdentity: SceneTextureProviderState]
 }
 
+extension SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs {
+    static let fixture = Self(
+        masks: .init(),
+        dynamicValues: .init(),
+        pipelines: .init(),
+        cursorUV: .zero,
+        previousCursorUV: .zero,
+        pointerIsInside: false,
+        previousPointerIsInside: false,
+        frameTime: 1 / 60,
+        time: 0,
+        audioSpectrum: .init(),
+        dependencyEffect: nil
+    )
+}
+
 final class SceneResolvedMaterialGraphExecutor {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias State = SceneGraphExecutionState
@@ -707,6 +737,7 @@ final class SceneResolvedMaterialGraphExecutor {
         sourceTexture: MTLTexture,
         sourceUniforms: SceneLayerFragmentUniforms,
         sourcePipeline: SceneImageLayerPipeline,
+        dedicatedInputs: SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs,
         commandBuffer: MTLCommandBuffer,
         previousStates: [Graph.EffectKey: State],
         previousGraphResources: [Graph.EffectKey: [Graph.TextureIdentity: SceneFrameTextureResource]],
@@ -714,7 +745,8 @@ final class SceneResolvedMaterialGraphExecutor {
         resetGeneration: UInt64
     ) -> Result<PreparedChain, Failure> {
         _ = token; _ = leases; _ = historyRehydrateCopiesByEffect; _ = frame
-        _ = sourceTexture; _ = sourceUniforms; _ = sourcePipeline; _ = commandBuffer
+        _ = sourceTexture; _ = sourceUniforms; _ = sourcePipeline
+        _ = dedicatedInputs; _ = commandBuffer
         _ = previousStates; _ = previousGraphResources
         _ = effectGeneration; _ = resetGeneration
         Self.prepareCallCount += 1
@@ -1105,6 +1137,10 @@ private func makeCapabilities(
             layerID: layerID,
             pairPlan: .init(layerID: layerID),
             admittedProducts: [.init(graph: graph)],
+            stages: [.init(subject: .init(
+                key: key,
+                family: "resolved-material"
+            ))],
             fullFrameExtentPolicy: .standard
         )
     }
@@ -1534,7 +1570,8 @@ enum Harness {
                         ),
                         sourceTexture: makeTexture(device, "atomic-source-7"),
                         sourceUniforms: .init(),
-                        sourcePipeline: .init()
+                        sourcePipeline: .init(),
+                        dedicatedInputs: .fixture
                     ),
                     .init(
                         claim: claim8,
@@ -1544,7 +1581,8 @@ enum Harness {
                         ),
                         sourceTexture: makeTexture(device, "atomic-source-8"),
                         sourceUniforms: .init(),
-                        sourcePipeline: .init()
+                        sourcePipeline: .init(),
+                        dedicatedInputs: .fixture
                     ),
                 ],
                 pool: pool,
@@ -1621,7 +1659,8 @@ enum Harness {
                         ),
                         sourceTexture: makeTexture(device, "success-source-7"),
                         sourceUniforms: .init(),
-                        sourcePipeline: .init()
+                        sourcePipeline: .init(),
+                        dedicatedInputs: .fixture
                     ),
                     .init(
                         claim: preflight8,
@@ -1631,7 +1670,8 @@ enum Harness {
                         ),
                         sourceTexture: makeTexture(device, "success-source-8"),
                         sourceUniforms: .init(),
-                        sourcePipeline: .init()
+                        sourcePipeline: .init(),
+                        dedicatedInputs: .fixture
                     ),
                 ],
                 pool: pool,
@@ -1809,7 +1849,8 @@ enum Harness {
                     targetPlan: targetPlan,
                     sourceTexture: makeTexture(device, "preflight-source"),
                     sourceUniforms: .init(),
-                    sourcePipeline: .init()
+                    sourcePipeline: .init(),
+                    dedicatedInputs: .fixture
                 )],
                 pool: .init(),
                 commandBuffer: buffer
@@ -2491,6 +2532,10 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
     def test_execution_evidence_is_installed_after_resources_before_frames(self) -> None:
         view = METAL_VIEW.read_text(encoding="utf-8")
         host = HOST.read_text(encoding="utf-8")
+        bridge = RUNTIME_BRIDGE.read_text(encoding="utf-8")
+        renderer = (SCENE_ROOT / "Rendering/SceneMetalRenderer+Diagnostics.swift").read_text(
+            encoding="utf-8"
+        )
 
         report = view.index(
             "renderer.runtimeReportLines(effectTextures: loadedEffectTextures)"
@@ -2502,6 +2547,11 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         start = host.index("startFrameDriver()", register)
         self.assertLess(load, register)
         self.assertLess(register, start)
+        self.assertIn("func dedicatedEffectStages(", bridge)
+        self.assertIn("compactMap(\\.dedicatedExecutionPlan)", bridge)
+        self.assertIn("func unifiedDedicatedEffectStages(", renderer)
+        self.assertIn("func effectTextureStages(", renderer)
+        self.assertIn("renderer.effectTextureStages(for: layer.id)", view)
 
     def test_legacy_authored_gpu_telemetry_follows_selected_route(self) -> None:
         compositor = COMPOSITOR.read_text(encoding="utf-8")

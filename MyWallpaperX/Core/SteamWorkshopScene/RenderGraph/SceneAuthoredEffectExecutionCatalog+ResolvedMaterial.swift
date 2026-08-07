@@ -11,7 +11,10 @@ extension SceneAuthoredEffectExecutionCatalog {
         var result: [Int: Set<SceneAuthoredEffectRenderPlan.EffectKey>] = [:]
         for (layerID, layerSubjects) in grouped {
             guard visibleLayerIDs.contains(layerID),
-                  layerSubjects.allSatisfy({ $0.family == "resolved-material" }),
+                  layerSubjects.allSatisfy({
+                      !$0.family.trimmingCharacters(in: .whitespacesAndNewlines)
+                        .isEmpty
+                  }),
                   Set(layerSubjects.map(\.key)).count == layerSubjects.count,
                   descriptor.layers.filter({ $0.id == layerID }).count == 1,
                   let layer = descriptor.layers.first(where: { $0.id == layerID }),

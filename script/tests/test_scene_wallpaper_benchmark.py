@@ -2887,6 +2887,38 @@ utility layer 763: skippedHidden kind=composition
         )
         self.assertEqual(generic_metrics["validation_failures"], [])
 
+        unified_leaf_metrics = benchmark.authored_effect_stage_admission_metrics(
+            generic_preview.replace(
+                "admitted-dedicated=1,admitted-generic=1",
+                "admitted-dedicated=2,admitted-generic=1",
+            ).replace(
+                "authoredEffectStageDescriptorCount: 3",
+                "authoredEffectStageDescriptorCount: 4",
+            ).replace(
+                "authoredEffectStageParsedCount: 3",
+                "authoredEffectStageParsedCount: 4",
+            ).replace(
+                "author-disabled=1,layer-hidden=0,active=2",
+                "author-disabled=1,layer-hidden=0,active=3",
+            ).replace(
+                "inactive=1,complete=2",
+                "inactive=1,complete=3",
+            ) + "\n"
+            "authoredEffectStageAdmission: layer=2 effect=0 "
+            "descriptor=2%23effect%230 activity=active "
+            "strict=admitted-dedicated coverage=complete backend=shake "
+            "profile=- reason=- path=effects/shake/effect.json"
+        )
+        self.assertEqual(unified_leaf_metrics["validation_failures"], [])
+
+        excess_chain = benchmark.authored_effect_stage_admission_metrics(
+            preview.replace("authoredEffectGraphStageCount: 1", "authoredEffectGraphStageCount: 2")
+        )
+        self.assertIn(
+            "effect stage chain count exceeds dedicated admission count",
+            excess_chain["validation_failures"],
+        )
+
         for invalid_owner in (
             "backend=authored-shader profile=program",
             "backend=resolved-material profile=generic-fragment",

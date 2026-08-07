@@ -6,14 +6,40 @@ extension SceneResolvedMaterialGraphExecutor {
         transition: State.Transition,
         graph: Graph,
         pairStep: Pair.EffectStep,
+        stageCapability:
+            SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability,
         capability: SceneResolvedMaterialExecutionCapabilityCatalog.ChainCapability,
         lease: SceneGraphRenderTargetLease,
         frame: SceneResolvedMaterialFrameSnapshot,
+        sourcePipeline: SceneImageLayerPipeline,
+        time: Float,
+        dedicatedInputs: SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs,
         pair: inout PairAtom,
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
         commands: inout [Command],
         programKeys: inout [String]
     ) -> Failure? {
+        if case let .dedicated(_, program, _) = stageCapability {
+            let failure = prepareDedicated(
+                program: program,
+                transition: transition,
+                graph: graph,
+                pairStep: pairStep,
+                lease: lease,
+                sourcePipeline: sourcePipeline,
+                time: time,
+                inputs: dedicatedInputs,
+                pair: &pair,
+                publications: &publications,
+                commands: &commands
+            )
+            if failure == nil {
+                programKeys.append(
+                    "dedicated:\(SceneShaderStableDigest.hash(program.stageGraph))"
+                )
+            }
+            return failure
+        }
         let nodes = Dictionary(uniqueKeysWithValues: graph.nodes.map {
             ($0.nodeIndex, $0)
         })

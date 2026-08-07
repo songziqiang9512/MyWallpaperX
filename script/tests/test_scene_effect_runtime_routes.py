@@ -32,6 +32,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Runtime/SceneEffectExecutionTelemetry.swift",
     SOURCE_ROOT / "Effects/SceneLegacyEffectPlanningDecision+Execution.swift",
     SOURCE_ROOT / "Runtime/SceneEffectRuntimeDispositionCatalog.swift",
+    SOURCE_ROOT / "Runtime/SceneEffectRuntimeDispositionCatalog+Conservation.swift",
 ]
 
 HARNESS = r'''
@@ -669,11 +670,11 @@ enum Harness {
                 key: migratedKey,
                 definitionPath: migratedLayer.effects[0].file,
                 activity: .active,
-                strictAdmission: .notAdmitted,
-                coverage: .prefixOmitted,
-                backendName: nil,
-                profileName: nil,
-                reasonCode: "unsupported-stage"
+                strictAdmission: .admittedGeneric,
+                coverage: .complete,
+                backendName: "resolved-material",
+                profileName: "program",
+                reasonCode: nil
             ),
         ]
         let allKeys = strictKeys + prefixKeys + inactiveKeys + [migratedKey]

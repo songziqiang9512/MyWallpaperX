@@ -257,7 +257,21 @@ extension SceneMetalRenderer {
                 targetPlan: plan,
                 sourceTexture: texture,
                 sourceUniforms: sourceUniforms,
-                sourcePipeline: imagePipeline
+                sourcePipeline: imagePipeline,
+                dedicatedInputs: .init(
+                    masks: masks.authoredEffectResourcesOnly,
+                    dynamicValues: frameContext.dynamicValues,
+                    pipelines: imageCompositor.authoredEffectPipelines,
+                    cursorUV: cursor ?? .zero,
+                    previousCursorUV: previousCursor ?? cursor ?? .zero,
+                    pointerIsInside: frameContext.pointer.isInside && cursor != nil,
+                    previousPointerIsInside:
+                        frameContext.pointer.isInside && previousCursor != nil,
+                    frameTime: Float(frameContext.frameTime),
+                    time: time,
+                    audioSpectrum: frameContext.audioSpectrum,
+                    dependencyEffect: nil
+                )
             ))
         }
         return result.count == plans.count ? result : nil

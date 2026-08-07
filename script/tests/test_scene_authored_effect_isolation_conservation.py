@@ -141,7 +141,6 @@ nonisolated struct SceneAuthoredEffectExecutionPlan {
 
     var localContrast: HarnessMarkerPlan? { nil }
     var opacity: HarnessMarkerPlan? { nil }
-    var colorKey: HarnessMarkerPlan? { nil }
     var colorGrading: HarnessMarkerPlan? { nil }
     var workshopShiftHue: HarnessMarkerPlan? { nil }
     var workshopAudioBars: HarnessMarkerPlan? { nil }

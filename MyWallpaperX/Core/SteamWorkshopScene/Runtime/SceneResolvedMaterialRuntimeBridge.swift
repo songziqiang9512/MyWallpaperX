@@ -60,6 +60,21 @@ final class SceneResolvedMaterialRuntimeBridge {
         let sourceTexture: MTLTexture
         let sourceUniforms: SceneLayerFragmentUniforms
         let sourcePipeline: SceneImageLayerPipeline
+        let dedicatedInputs: DedicatedFrameInputs
+    }
+
+    struct DedicatedFrameInputs {
+        let masks: SceneImageLayerMasks
+        let dynamicValues: SceneDynamicSnapshot
+        let pipelines: SceneAuthoredEffectPipelineSet
+        let cursorUV: SIMD2<Float>
+        let previousCursorUV: SIMD2<Float>
+        let pointerIsInside: Bool
+        let previousPointerIsInside: Bool
+        let frameTime: Float
+        let time: Float
+        let audioSpectrum: SceneAudioSpectrumSnapshot
+        let dependencyEffect: SceneDependencyEffectInput?
     }
 
     enum FramePreparationResult {
@@ -202,11 +217,21 @@ final class SceneResolvedMaterialRuntimeBridge {
     func executionEvidenceSubjects(
         for claim: ClaimedExecution
     ) -> [ExactEffectSubject] {
-        claim.admittedGraphs.flatMap { graph in
-            graph.effects.map {
-                .init(key: $0.key, family: "resolved-material")
-            }
+        guard let runtimeClaim = capabilities.resolve(claim.token) else { return [] }
+        return runtimeClaim.stages.compactMap(\.subject)
+    }
+
+    /// Returns dedicated leaf plans owned by the unified capability for a
+    /// layer. This projection keeps resource loading on the same owner as
+    /// runtime admission and never consults the legacy authored catalog.
+    func dedicatedEffectStages(
+        for layerID: Int
+    ) -> [SceneAuthoredEffectExecutionPlan] {
+        guard let claimed = capabilities.claim(layerID: layerID),
+              let runtimeClaim = capabilities.resolve(claimed.token) else {
+            return []
         }
+        return runtimeClaim.stages.compactMap(\.dedicatedExecutionPlan)
     }
 
     var executionEvidenceReportLines: [String] {

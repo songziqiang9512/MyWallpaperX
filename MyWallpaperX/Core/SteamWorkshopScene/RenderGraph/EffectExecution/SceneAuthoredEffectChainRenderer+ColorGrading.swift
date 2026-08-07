@@ -13,14 +13,6 @@ extension SceneAuthoredEffectChainRenderer {
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         switch stage.backend {
-        case .colorKey(let colorKey):
-            guard let pipeline = pipelines.colorKey else { return nil }
-            return renderColorKey(
-                colorKey, sourceTexture: sourceTexture, masks: masks,
-                auxMask: auxMask, targets: targets, sourceUniforms: sourceUniforms,
-                pipeline: sourcePipeline, colorKeyPipeline: pipeline,
-                commandBuffer: commandBuffer
-            )
         case .colorGrading(let colorGrading):
             guard let pipeline = pipelines.colorGrading else { return nil }
             return renderColorGrading(

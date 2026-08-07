@@ -6,7 +6,6 @@ extension SceneAuthoredEffectExecutionPlan {
         case standardBlur(SceneStandardBlurPlan)
         case localContrast(SceneLocalContrastPlan)
         case opacity(SceneOpacityExecutionPlan)
-        case colorKey(SceneColorKeyExecutionPlan)
         case colorGrading(SceneColorGradingExecutionPlan)
         case workshopShiftHue(SceneWorkshopShiftHueExecutionPlan)
         case workshopAudioBars(SceneWorkshopAudioBarsExecutionPlan)
@@ -34,6 +33,17 @@ extension SceneAuthoredEffectExecutionPlan {
         case pulse(ScenePulseExecutionPlan)
         case godrays(SceneGodraysPlan)
         case shine(SceneShineExecutionPlan)
+
+        var supportsUnifiedPairLeaf: Bool {
+            switch self {
+            case .workshopShiftHue, .workshopAudioBars, .workshopGradient,
+                 .workshopAudioHueShift, .workshopShadow, .spin,
+                 .proceduralNoise, .filmGrain, .shake:
+                return true
+            default:
+                return false
+            }
+        }
     }
 
     var gaussianBlur: SceneGaussianBlurPlan? {
@@ -53,11 +63,6 @@ extension SceneAuthoredEffectExecutionPlan {
 
     nonisolated var opacity: SceneOpacityExecutionPlan? {
         guard case .opacity(let plan) = backend else { return nil }
-        return plan
-    }
-
-    nonisolated var colorKey: SceneColorKeyExecutionPlan? {
-        guard case .colorKey(let plan) = backend else { return nil }
         return plan
     }
 

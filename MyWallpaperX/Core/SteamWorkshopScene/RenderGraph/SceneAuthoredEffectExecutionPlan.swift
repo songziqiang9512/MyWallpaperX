@@ -26,7 +26,6 @@ nonisolated struct SceneAuthoredEffectExecutionPlan {
         self.inputRole = inputRole
         self.usesLegacyComposeNormalization = usesLegacyComposeNormalization
     }
-
 }
 
 nonisolated struct SceneAuthoredEffectExecutionCatalog {
@@ -36,7 +35,7 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
     let xRayPrefixOmittedEffectPathsByLayerID: [Int: [String]]
     let stageAdmissions: [SceneAuthoredEffectStageAdmission]
     let chainAdmissionsByLayerID: [Int: SceneAuthoredEffectChainAdmission]
-    let resolvedMaterialStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey>
+    let unifiedExecutionStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey>
     let descriptorEffectStageCount: Int
     let descriptorEffectStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey>
 
@@ -70,7 +69,13 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
             subjects: resolvedMaterialSubjects,
             visibleLayerIDs: visible
         )
-        resolvedMaterialStageKeys = Set(resolvedKeysByLayerID.values.flatMap { $0 })
+        let unifiedSubjects = resolvedMaterialSubjects.filter {
+            resolvedKeysByLayerID[$0.key.layerID]?.contains($0.key) == true
+        }
+        let unifiedSubjectsByLayerID = Dictionary(
+            grouping: unifiedSubjects, by: \.key.layerID
+        )
+        unifiedExecutionStageKeys = Set(unifiedSubjects.map(\.key))
         var eligible: [Int: SceneAuthoredEffectExecutionChain] = [:]
         var xRayPrefixes: [Int: [String]] = [:]
         var chainAdmissions: [Int: SceneAuthoredEffectChainAdmission] = [:]
@@ -108,7 +113,7 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
                 graphCandidates: grouped[layer.id] ?? [],
                 chainAdmission: chainAdmissions[layer.id],
                 layerIsVisible: visible.contains(layer.id),
-                resolvedMaterialKeys: resolvedKeysByLayerID[layer.id] ?? []
+                unifiedExecutionSubjects: unifiedSubjectsByLayerID[layer.id] ?? []
             )
         }.sorted {
             if $0.key.layerID != $1.key.layerID {
@@ -135,15 +140,12 @@ nonisolated struct SceneAuthoredEffectExecutionCatalog {
             .subtracting(chainsByLayerID.keys)
             .subtracting(resolvedKeysByLayerID.keys)
     }
-
     var liveConsumerTargets: Set<SceneDynamicTarget> {
         Set(chainsByLayerID.values.flatMap(\.liveConsumerTargets))
     }
-
     var executedUserPropertyKeys: Set<String> {
         Set(chainsByLayerID.values.flatMap(\.executedUserPropertyKeys))
     }
-
 }
 
 enum SceneAuthoredEffectExecutionPlanner {

@@ -3085,10 +3085,10 @@ def authored_effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]
         failures.append("effect stage chain stage count missing")
     elif strict_counts is not None:
         if (
-            strict_counts["admitted-dedicated"]
-            != int(chain_stage_match.group("count"))
+            int(chain_stage_match.group("count"))
+            > strict_counts["admitted-dedicated"]
         ):
-            failures.append("effect stage dedicated count differs from chain stage count")
+            failures.append("effect stage chain count exceeds dedicated admission count")
     canonical_sha256 = hashlib.sha256(json.dumps(
         records,
         ensure_ascii=True,
