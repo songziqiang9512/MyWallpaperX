@@ -69,6 +69,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneTextureSampling.swift",
     SCENE_ROOT / "Resources/SceneTextureUVTransform.swift",
     SCENE_ROOT / "Resources/SceneTextureCandidate.swift",
+    SCENE_ROOT / "Resources/SceneStockTextureSemanticRegistry.swift",
     SCENE_ROOT / "Resources/SceneTextureSlotBinding.swift",
     SCENE_ROOT / "Resources/SceneTextureProviderPublication.swift",
     SCENE_ROOT / "Resources/SceneNamedTextureReference.swift",
@@ -79,6 +80,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram+ColorDerivation.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialUniformEncoder.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialShaderSchema.swift",
+    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialShaderSchema+SamplerPurpose.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialShaderSchema+Reachability.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityVariant.swift",

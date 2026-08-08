@@ -33,19 +33,6 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         let mode: TextureMode
         let materialKey: String?
         let defaultTexture: DefaultTexture?
-
-        func purpose(
-            for reference: Template.TextureReference
-        ) -> SceneTextureLoadPurpose? {
-            if let purpose = mode.explicitPurpose { return purpose }
-            if case .graph = reference { return .premultipliedColor }
-            return switch materialKey?.lowercased() {
-            case "albedo": .straightAlbedo
-            case "noise": .noise
-            case "normal": .normal
-            default: nil
-            }
-        }
     }
 
     struct Uniform: Hashable {
@@ -104,7 +91,9 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
               sampler.materialKey == nil,
               sampler.defaultTexture == nil,
               samplers.allSatisfy({ slot, auxiliary in
-                  slot == 0 || auxiliary.mode.explicitPurpose != nil
+                  slot == 0
+                      || auxiliary.mode.explicitPurpose != nil
+                      || auxiliary.hasTypedAuxiliaryDefault
               }),
               template.textureSlots.enumerated().allSatisfy({ index, slot in
                   guard index != 0, let slot else { return true }

@@ -40,6 +40,9 @@ DEPENDENCY_OWNERSHIP_SOURCE = (
 RUNTIME_CATALOG_SOURCE = (
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialRuntimeCatalog.swift"
 )
+EFFECT_BACKEND_SOURCE = (
+    SCENE_ROOT / "RenderGraph/SceneAuthoredEffectExecutionPlan+Backend.swift"
+)
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredEffectRenderPlan.swift",
@@ -2276,6 +2279,20 @@ private enum EnvelopeHarness {
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
+    def test_film_grain_prefers_program_and_keeps_dedicated_fallback(self) -> None:
+        source = EFFECT_BACKEND_SOURCE.read_text(encoding="utf-8")
+        leaf_start = source.index("        var supportsUnifiedPairLeaf: Bool")
+        yield_start = source.index(
+            "    nonisolated var yieldsToResolvedMaterialProgram: Bool"
+        )
+        leaf_body = source[leaf_start:yield_start]
+        yield_end = source.index("\n    var gaussianBlur:", yield_start)
+        yield_body = source[yield_start:yield_end]
+
+        self.assertNotIn(".filmGrain", leaf_body)
+        self.assertIn("case .opacity, .tint, .filmGrain:", yield_body)
+        self.assertIn("case filmGrain(SceneFilmGrainExecutionPlan)", source)
+
     def test_runtime_variant_resolution_starts_from_launch_envelope_seed(
         self,
     ) -> None:
@@ -2549,6 +2566,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             {
                 "SceneResolvedMaterialProgram.swift",
                 "SceneResolvedMaterialShaderSchema.swift",
+                "SceneResolvedMaterialShaderSchema+SamplerPurpose.swift",
+                "SceneStockTextureSemanticRegistry.swift",
                 "SceneResolvedMaterialExecutionCapabilityVariant.swift",
                 "SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
                 "SceneResolvedMaterialTextureResolver.swift",

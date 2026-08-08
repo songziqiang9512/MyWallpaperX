@@ -58,6 +58,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneTextureSampling.swift",
     SCENE_ROOT / "Resources/SceneTextureUVTransform.swift",
     SCENE_ROOT / "Resources/SceneTextureCandidate.swift",
+    SCENE_ROOT / "Resources/SceneStockTextureSemanticRegistry.swift",
     SCENE_ROOT / "Resources/SceneTextureSlotBinding.swift",
     SCENE_ROOT / "Resources/SceneTextureProviderPublication.swift",
     SCENE_ROOT / "Resources/SceneNamedTextureReference.swift",
@@ -68,6 +69,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram+ColorDerivation.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialUniformEncoder.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialShaderSchema.swift",
+    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialShaderSchema+SamplerPurpose.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialShaderSchema+Reachability.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityVariant.swift",
@@ -783,7 +785,8 @@ private func failureToken(
 private func samplerPurposeToken(
     _ metadata: String?,
     vertexMetadata: String? = nil,
-    assetReference: Bool = false
+    assetReference: Bool = false,
+    assetPath: String = "textures/fixture.tex"
 ) -> String {
     let shader = contract(
         revision: "sampler-schema",
@@ -800,9 +803,33 @@ private func samplerPurposeToken(
         guard let sampler = try SceneResolvedMaterialShaderSchema
             .activeSamplers(prepared)[0] else { return "missing" }
         let reference: Template.TextureReference = assetReference
-            ? .asset(SceneVFSAssetPath("textures/fixture.tex")!)
+            ? .asset(SceneVFSAssetPath(assetPath)!)
             : .graph(graphTexture())
         return sampler.purpose(for: reference)?.reportToken ?? "unproven"
+    } catch {
+        return "schema-invalid"
+    }
+}
+
+private func implicitFramebufferProjectionToken(
+    defaultAssetPath: String
+) -> String {
+    let shader = contract(
+        revision: "implicit-stock-default-\(defaultAssetPath.replacingOccurrences(of: "/", with: "-"))",
+        secondSamplerMetadata: "{\"default\":\"\(defaultAssetPath)\"}"
+    )
+    guard case let .accepted(prepared) =
+            SceneAuthoredShaderPreparation.prepareShaderStages(
+                contract: shader,
+                combos: [:],
+                textureReadiness: [0: true, 1: true]
+            ) else { return "preparation-failed" }
+    do {
+        let samplers = try SceneResolvedMaterialShaderSchema.activeSamplers(prepared)
+        return SceneResolvedMaterialShaderSchema.implicitFramebufferSlots(
+            template: template(shader, includePrimaryCandidate: false),
+            samplers: samplers
+        ).sorted().map(String.init).joined(separator: ",")
     } catch {
         return "schema-invalid"
     }
@@ -978,6 +1005,70 @@ private enum Harness {
                   case let .graph(identity) = slot.reference else { return false }
             return identity == graphTexture()
                 && slot.diagnosticSelectionProvenance == .implicitFramebuffer
+        }()
+        let stockNoisePath = SceneVFSAssetPath("util/noise")!
+        let stockNoiseIdentity = SceneAssetTextureIdentity(
+            path: stockNoisePath,
+            purpose: .noise
+        )
+        let stockDefaultProgram = finalize(
+            shader: contract(
+                revision: "stock-default-program",
+                secondSamplerMetadata: #"{"default":"util/noise"}"#
+            ),
+            device: device,
+            includePrimaryCandidate: false,
+            additionalEntries: [
+                .asset(stockNoiseIdentity): readyStatus(
+                    device,
+                    identity: .asset(stockNoiseIdentity),
+                    purpose: .noise,
+                    content: .data
+                ),
+            ],
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let stockDefaultProgramPreservesSnapshotAtoms: Bool = {
+            guard case let .success(program) = stockDefaultProgram,
+                  let source = program.textureSlots[0],
+                  let noise = program.textureSlots[1],
+                  case let .graph(sourceReference) = source.reference,
+                  case let .asset(noiseReference) = noise.reference,
+                  case let .provider(sourceGeneration) =
+                      source.resource.publication.candidate.generation,
+                  case let .provider(noiseGeneration) =
+                      noise.resource.publication.candidate.generation,
+                  case .color(.resolved(.premultipliedAlpha)) =
+                      source.resource.publication.candidate.content,
+                  case .data = noise.resource.publication.candidate.content else {
+                return false
+            }
+            let sourceCandidate = source.resource.publication.candidate
+            let noiseCandidate = noise.resource.publication.candidate
+            return program.frontendProgram.textureBindings.map(\.slot) == [0, 1]
+                && sourceReference == graphTexture()
+                && noiseReference == stockNoisePath
+                && source.registryIdentity == .graph(graphTexture())
+                && noise.registryIdentity == .asset(stockNoiseIdentity)
+                && source.diagnosticSelectionProvenance == .implicitFramebuffer
+                && noise.diagnosticSelectionProvenance == .shaderDefault
+                && source.expectedPurpose == .premultipliedColor
+                && noise.expectedPurpose == .noise
+                && source.resource.resourceGeneration == 1
+                && noise.resource.resourceGeneration == 7
+                && source.resource.publication.contentGeneration == 1
+                && noise.resource.publication.contentGeneration == 7
+                && sourceGeneration == 1
+                && noiseGeneration == 7
+                && sourceCandidate.physicalSize == CGSize(width: 2, height: 2)
+                && sourceCandidate.mappedSize == CGSize(width: 2, height: 2)
+                && noiseCandidate.physicalSize == CGSize(width: 2, height: 2)
+                && noiseCandidate.mappedSize == CGSize(width: 2, height: 2)
+                && sourceCandidate.sampling == .directImageFallback
+                && noiseCandidate.sampling == .directImageFallback
+                && sourceCandidate.sampling.rawFlags == nil
+                && noiseCandidate.sampling.rawFlags == nil
+                && sourceCandidate.texture !== noiseCandidate.texture
         }()
         let explicitFramebufferPreserved: Bool = {
             guard case let .success(program) = explicitFramebufferProgram,
@@ -1671,6 +1762,8 @@ private enum Harness {
                 "optionalMaskWithResourceAccepted":
                     optionalMaskWithResourceAccepted,
                 "implicitFramebufferTyped": implicitFramebufferTyped,
+                "stockDefaultProgramPreservesSnapshotAtoms":
+                    stockDefaultProgramPreservesSnapshotAtoms,
                 "implicitFramebufferMaterialKeyCaseInsensitive":
                     failureToken(caseInsensitiveFramebufferProgram) == "success",
                 "explicitFramebufferCandidatePreserved":
@@ -1706,6 +1799,16 @@ private enum Harness {
                     #"{"material":"Normal"}"#,
                     assetReference: true
                 ),
+                "registeredStockNoise": samplerPurposeToken(
+                    nil,
+                    assetReference: true,
+                    assetPath: "util/noise"
+                ),
+                "registeredStockPurposeConflict": samplerPurposeToken(
+                    #"{"mode":"opacitymask"}"#,
+                    assetReference: true,
+                    assetPath: "util/noise"
+                ),
                 "unknownMaterialAsset": samplerPurposeToken(
                     #"{"material":"unknown"}"#,
                     assetReference: true
@@ -1725,6 +1828,14 @@ private enum Harness {
                 "normalFormat": samplerPurposeToken(#"{"format":"normalmap"}"#),
                 "genericFormat": samplerPurposeToken(#"{"format":"rgba8"}"#),
                 "unknownMode": samplerPurposeToken(#"{"mode":"mystery"}"#),
+            ],
+            "implicitFramebufferSchema": [
+                "registeredStockDefault": implicitFramebufferProjectionToken(
+                    defaultAssetPath: "util/noise"
+                ),
+                "unknownDefault": implicitFramebufferProjectionToken(
+                    defaultAssetPath: "textures/unknown-default.tex"
+                ),
             ],
             "failures": failures,
         ]
@@ -1854,6 +1965,8 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "noiseAsset": "noise",
                 "normalAsset": "normal",
                 "normalAssetCaseInsensitive": "normal",
+                "registeredStockNoise": "noise",
+                "registeredStockPurposeConflict": "unproven",
                 "unknownMaterialAsset": "unproven",
                 "conflictingMaterial": "schema-invalid",
                 "reachableConditionalAlbedo": "straight-albedo",
@@ -1866,6 +1979,15 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "normalFormat": "schema-invalid",
                 "genericFormat": "schema-invalid",
                 "unknownMode": "schema-invalid",
+            },
+        )
+
+    def test_registered_stock_default_unblocks_only_typed_implicit_input(self) -> None:
+        self.assertEqual(
+            self.result["implicitFramebufferSchema"],
+            {
+                "registeredStockDefault": "0",
+                "unknownDefault": "",
             },
         )
 

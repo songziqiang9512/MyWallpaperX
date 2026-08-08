@@ -7588,8 +7588,8 @@
       },
       "expected_effect_stage_strict_admission_counts": {
         "inactive": 13,
-        "admitted-dedicated": 20,
-        "admitted-generic": 4,
+        "admitted-dedicated": 19,
+        "admitted-generic": 5,
         "not-admitted": 2
       },
       "expected_effect_stage_coverage_counts": {
@@ -7607,14 +7607,14 @@
         "rejected-graph-mismatch": 0,
         "rejected-invariant": 0
       },
-      "expected_effect_stage_admission_sha256": "226aa6988ed58f3744d7452fc1f71d23a57d358daae4cf3792bbb4f6ddb70e0a",
+      "expected_effect_stage_admission_sha256": "dcd2752ef82c8d591b133e5ae094be8aa6535f326eb25b5ff40d83dc55ae0222",
       "expected_effect_runtime_disposition_schema": 1,
       "expected_effect_runtime_disposition_record_count": 39,
       "expected_effect_runtime_disposition_group_count": 8,
       "expected_effect_runtime_disposition_kind_counts": {
         "inactive": 13,
-        "strict-dedicated": 20,
-        "strict-generic": 4,
+        "strict-dedicated": 19,
+        "strict-generic": 5,
         "strict-inline-suffix": 0,
         "omitted-by-strict-chain": 0,
         "legacy-exact-inline": 0,
@@ -7647,7 +7647,7 @@
         "offscreen-passthrough": 2,
         "composite-refused": 0
       },
-      "expected_effect_runtime_disposition_sha256": "523869766bbe26bd825e7475f6ddbd20bb626771514c050d4ec309dbeca5b408",
+      "expected_effect_runtime_disposition_sha256": "28967dc9f6f891b6242becd87969b9ac55f67623379820240df2bd426c486be4",
       "expected_effect_execution_schema": 1,
       "expected_effect_execution_eligible_exact_effect_count": 24,
       "expected_effect_execution_observed_eligible_exact_effect_count": 24,
