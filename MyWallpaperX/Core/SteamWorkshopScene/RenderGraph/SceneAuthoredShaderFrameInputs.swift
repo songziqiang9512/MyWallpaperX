@@ -28,6 +28,7 @@ nonisolated struct SceneAuthoredShaderFrameInputs {
     let frameTime: Float
     let pointerCurrentNDC: SIMD2<Float>
     let pointerPreviousNDC: SIMD2<Float>
+    let parallaxPositionNDC: SIMD2<Float>
     let audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs
 
     init(
@@ -38,6 +39,7 @@ nonisolated struct SceneAuthoredShaderFrameInputs {
         frameTime: Float,
         pointerCurrentNDC: SIMD2<Float>,
         pointerPreviousNDC: SIMD2<Float>,
+        parallaxPositionNDC: SIMD2<Float> = .zero,
         audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs = .silent
     ) {
         self.frameIndex = frameIndex
@@ -47,6 +49,7 @@ nonisolated struct SceneAuthoredShaderFrameInputs {
         self.frameTime = frameTime
         self.pointerCurrentNDC = pointerCurrentNDC
         self.pointerPreviousNDC = pointerPreviousNDC
+        self.parallaxPositionNDC = parallaxPositionNDC
         self.audioSpectrum = audioSpectrum
     }
 }
@@ -56,11 +59,14 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
     let renderSize: CGSize
     let screenSize: CGSize
     let modelViewProjection: simd_float4x4
+    let effectTextureProjectionMatrix: simd_float4x4
+    let effectTextureProjectionMatrixInverse: simd_float4x4
     let sceneTime: Float
     let dayTime: Float
     let frameTime: Float
     let pointerCurrentNDC: SIMD2<Float>
     let pointerPreviousNDC: SIMD2<Float>
+    let parallaxPositionNDC: SIMD2<Float>
     let texturePhysicalSizes: [Int: CGSize]
     let audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs
 
@@ -69,11 +75,14 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
         renderSize: CGSize,
         screenSize: CGSize,
         modelViewProjection: simd_float4x4,
+        effectTextureProjectionMatrix: simd_float4x4 = matrix_identity_float4x4,
+        effectTextureProjectionMatrixInverse: simd_float4x4,
         sceneTime: Float,
         dayTime: Float,
         frameTime: Float,
         pointerCurrentNDC: SIMD2<Float>,
         pointerPreviousNDC: SIMD2<Float>,
+        parallaxPositionNDC: SIMD2<Float> = .zero,
         texturePhysicalSizes: [Int: CGSize],
         audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs = .silent
     ) {
@@ -81,11 +90,14 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
         self.renderSize = renderSize
         self.screenSize = screenSize
         self.modelViewProjection = modelViewProjection
+        self.effectTextureProjectionMatrix = effectTextureProjectionMatrix
+        self.effectTextureProjectionMatrixInverse = effectTextureProjectionMatrixInverse
         self.sceneTime = sceneTime
         self.dayTime = dayTime
         self.frameTime = frameTime
         self.pointerCurrentNDC = pointerCurrentNDC
         self.pointerPreviousNDC = pointerPreviousNDC
+        self.parallaxPositionNDC = parallaxPositionNDC
         self.texturePhysicalSizes = texturePhysicalSizes
         self.audioSpectrum = audioSpectrum
     }

@@ -116,6 +116,7 @@ enum Harness {
     struct Options {
         var contentKind = "image"
         var effectCount = 1
+        var precedingEffect = false
         var visible: Bool? = true
         var instancePassCount = 1
         var slots: [String?] = [nil, Harness.depthPath]
@@ -167,6 +168,7 @@ enum Harness {
         var condition = false
         var wrongOutput = false
         var priorInput = false
+        var effectIndex = 0
     }
 
     static func value(
@@ -272,7 +274,17 @@ enum Harness {
 
     static func descriptor(_ options: Options = .init()) -> SceneRenderDescriptor {
         let effect = effect(options)
-        let effects = Array(repeating: effect, count: options.effectCount)
+        let effects = options.precedingEffect
+            ? [
+                .init(
+                    id: "85#effect#prior",
+                    file: "effects/other/effect.json",
+                    visible: true,
+                    passes: []
+                ),
+                effect,
+            ]
+            : Array(repeating: effect, count: options.effectCount)
         let material = SceneRenderDescriptor.MaterialPassDescriptor(
             id: "\(options.materialPath)#0",
             materialPath: options.materialPath,
@@ -316,12 +328,12 @@ enum Harness {
     static func graph(_ options: GraphOptions = .init()) -> Graph {
         let key = Graph.EffectKey(
             layerID: layerID,
-            effectIndex: 0,
+            effectIndex: options.effectIndex,
             descriptorID: effectID
         )
         let priorKey = Graph.EffectKey(
             layerID: layerID,
-            effectIndex: 0,
+            effectIndex: max(0, options.effectIndex - 1),
             descriptorID: "prior"
         )
         let input = Graph.TextureIdentity(
@@ -476,7 +488,6 @@ enum Harness {
         var definitionExtra = Options(); definitionExtra.definitionExtra = true
         var duplicateDefinition = Options(); duplicateDefinition.duplicateDefinition = true
         var hidden = Options(); hidden.visible = false
-        var extraEffect = Options(); extraEffect.effectCount = 2
         var extraInstancePass = Options(); extraInstancePass.instancePassCount = 2
         var badSlots = Options(); badSlots.slots = [depthPath]
         var slotZero = Options(); slotZero.slots = [depthPath, nil]
@@ -508,7 +519,7 @@ enum Harness {
             wrongHash, wrongMaterialHash, wrongVersion, wrongReplacement,
             wrongGroup, wrongPerformance, extraDefinitionPass,
             definitionBinding, definitionExtra, duplicateDefinition, hidden,
-            extraEffect, extraInstancePass, badSlots, slotZero, badPaths,
+            extraInstancePass, badSlots, slotZero, badPaths,
             userTexture, badQuality, extraCombo, missingConstant,
             extraConstant, boundConstant, timelineConstant, zeroScale,
             largeScale, badSensitivity, badCenter, video, materialPath,
@@ -529,6 +540,10 @@ enum Harness {
         var condition = GraphOptions(); condition.condition = true
         var output = GraphOptions(); output.wrongOutput = true
         var prior = GraphOptions(); prior.priorInput = true
+        var stageLocalOptions = Options(); stageLocalOptions.precedingEffect = true
+        var stageLocalGraph = GraphOptions()
+        stageLocalGraph.priorInput = true
+        stageLocalGraph.effectIndex = 1
         let graphRejections = [
             blocker, graphEffect, graphNode, graphTarget, graphDefinition,
             nodeKind, graphMaterial, binding, command, condition, output,
@@ -568,6 +583,12 @@ enum Harness {
                 graphOptions: prior,
                 contracts: contracts,
                 role: .layerSource
+            ),
+            "stageLocalPriorOutputAccepted": accepted(
+                options: stageLocalOptions,
+                graphOptions: stageLocalGraph,
+                contracts: contracts,
+                role: .priorEffectOutput
             ),
             "contractsRejected": contractMutations.allSatisfy {
                 !accepted(contracts: mutate(contracts, mode: $0))

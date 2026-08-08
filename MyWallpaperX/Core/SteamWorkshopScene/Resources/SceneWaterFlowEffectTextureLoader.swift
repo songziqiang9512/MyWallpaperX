@@ -11,6 +11,8 @@ struct SceneWaterFlowEffectTextures {
     func matches(_ plan: SceneWaterFlowExecutionPlan) -> Bool {
         guard let flowCandidate,
               let phaseCandidate,
+              !flowCandidate.sampling.usesClampBorderFallback,
+              !phaseCandidate.sampling.usesClampBorderFallback,
               flowCandidate.axisAlignedMappedUVScale(expectedPurpose: .flow) != nil,
               let phaseUVScale = phaseCandidate.axisAlignedMappedUVScale(
                   expectedPurpose: .phase

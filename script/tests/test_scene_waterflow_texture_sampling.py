@@ -177,6 +177,7 @@ enum Harness {
 
     static func render(
         phaseSampling: SceneTextureSampling,
+        flowSampling: SceneTextureSampling = SceneTextureSampling(texFlags: 3),
         mappedFlowWidth: Int = 1,
         flowPurpose: SceneTextureLoadPurpose = .flow,
         device: MTLDevice,
@@ -217,7 +218,7 @@ enum Harness {
                 xAxis: SIMD2(scale, 0),
                 yAxis: SIMD2(0, 1)
             ),
-            sampling: SceneTextureSampling(texFlags: 3)
+            sampling: flowSampling
         )
         let phaseCandidate = SceneTextureCandidate(
             texture: phase,
@@ -291,6 +292,19 @@ enum Harness {
             queue: queue,
             pipeline: pipeline
         )
+        let flowClampBorder = render(
+            phaseSampling: .linearClamp,
+            flowSampling: SceneTextureSampling(texFlags: 8),
+            device: device,
+            queue: queue,
+            pipeline: pipeline
+        )
+        let phaseClampBorder = render(
+            phaseSampling: SceneTextureSampling(texFlags: 8),
+            device: device,
+            queue: queue,
+            pipeline: pipeline
+        )
         let changed = (0..<(size * size)).filter { pixel in
             let offset = pixel * 4
             return clamp.1[offset..<(offset + 4)] != repeating.1[offset..<(offset + 4)]
@@ -305,6 +319,8 @@ enum Harness {
             "changedPixels": changed,
             "mappedChangedPixels": mappedChanged,
             "wrongPurposeRejected": !wrongPurpose.0,
+            "flowClampBorderRejected": !flowClampBorder.0,
+            "phaseClampBorderRejected": !phaseClampBorder.0,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -354,6 +370,8 @@ class SceneWaterFlowTextureSamplingTests(unittest.TestCase):
         self.assertGreater(result["changedPixels"], 128, result)
         self.assertGreater(result["mappedChangedPixels"], 128, result)
         self.assertTrue(result["wrongPurposeRejected"], result)
+        self.assertTrue(result["flowClampBorderRejected"], result)
+        self.assertTrue(result["phaseClampBorderRejected"], result)
 
 
 if __name__ == "__main__":

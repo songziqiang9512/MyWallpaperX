@@ -2,7 +2,7 @@ import Foundation
 
 nonisolated enum SceneAuthoredShaderFrontend {
     private struct Validation {
-        let uniforms: [(String, SceneAuthoredShaderValueType, Int?)]
+        let uniforms: [SceneAuthoredShaderUniformDeclaration]
         let textures: [SceneAuthoredShaderProgram.TextureBinding]
         let varyings: [(String, SceneAuthoredShaderValueType, Int?)]
         let omittedVertexStatementRanges: [Range<Int>]
@@ -141,21 +141,16 @@ nonisolated enum SceneAuthoredShaderFrontend {
             ))
         }
 
-        var uniforms: [(String, SceneAuthoredShaderValueType, Int?)] = []
-        var uniformTypes: [String: SceneAuthoredShaderValueType] = [:]
-        var uniformArrayCounts: [String: Int?] = [:]
+        var uniforms: [SceneAuthoredShaderUniformDeclaration] = []
+        var seenUniforms: Set<String> = []
         var textures: [SceneAuthoredShaderProgram.TextureBinding] = []
         var textureNames: Set<String> = []
-        let referencedUniformNames = Set([vertex, fragment].flatMap { unit in
-            unit.declarations.compactMap { declaration -> String? in
-                guard declaration.storage == .uniform,
-                      declaration.typeName != "sampler2D",
-                      declarationIsReferenced(declaration.name, in: unit) else {
-                    return nil
-                }
-                return declaration.name
+        let uniformStages = Dictionary(grouping: [vertex, fragment].flatMap { unit in
+            unit.declarations.compactMap { declaration in
+                declaration.storage == .uniform && declaration.typeName != "sampler2D"
+                    ? (declaration.name, unit.stage) : nil
             }
-        })
+        }, by: \.0).mapValues { Set($0.map(\.1)) }
         for unit in [vertex, fragment] {
             for declaration in unit.declarations where declaration.storage == .uniform {
                 if declaration.typeName == "sampler2D" {
@@ -203,26 +198,21 @@ nonisolated enum SceneAuthoredShaderFrontend {
                     ))
                     continue
                 }
-                if let existing = uniformTypes[declaration.name] {
-                    if existing != type || uniformArrayCounts[declaration.name] != arrayCount {
-                        diagnostics.append(.init(
-                            code: .duplicateDeclaration,
-                            message: existing == type
-                                ? "Uniform '\(declaration.name)' has conflicting array shapes."
-                                : "Uniform '\(declaration.name)' has conflicting stage types.",
-                            stage: unit.stage,
-                            line: declaration.line,
-                            column: nil
-                        ))
-                    }
-                } else {
-                    uniformTypes[declaration.name] = type
-                    uniformArrayCounts[declaration.name] = arrayCount
-                    if !deadBindings.omittedUniformNames.contains(declaration.name),
-                       referencedUniformNames.contains(declaration.name)
-                           || !isTextureResolutionUniformName(declaration.name) {
-                        uniforms.append((declaration.name, type, arrayCount))
-                    }
+                let identity = "\(unit.stage.rawValue):\(declaration.name)"
+                if seenUniforms.insert(identity).inserted,
+                   !deadBindings.omittedUniformNames.contains(declaration.name),
+                   declarationIsReferenced(declaration.name, in: unit)
+                       || !isTextureResolutionUniformName(declaration.name) {
+                    let fieldName = uniformStages[declaration.name]?.count == 1
+                        ? declaration.name
+                        : "mwx\(unit.stage == .vertex ? "V" : "F")_\(declaration.name)"
+                    uniforms.append(.init(
+                        authoredName: declaration.name,
+                        fieldName: fieldName,
+                        type: type,
+                        arrayCount: arrayCount,
+                        stage: unit.stage
+                    ))
                 }
             }
         }
@@ -300,16 +290,18 @@ nonisolated enum SceneAuthoredShaderFrontend {
     }
 
     private static func makeUniformLayout(
-        _ uniforms: [(String, SceneAuthoredShaderValueType, Int?)]
+        _ uniforms: [SceneAuthoredShaderUniformDeclaration]
     ) -> SceneAuthoredShaderUniformLayout? {
         var fields: [SceneAuthoredShaderUniformLayout.Field] = []
         var offset = 0
-        for (name, type, arrayCount) in uniforms
-            + [("mwxRenderSize", .float2, nil)] {
+        for uniform in uniforms {
+            let (type, arrayCount) = (uniform.type, uniform.arrayCount)
             let remainder = offset % type.alignment
             if remainder != 0 { offset += type.alignment - remainder }
             fields.append(.init(
-                name: name,
+                name: uniform.fieldName,
+                authoredName: uniform.authoredName,
+                stage: uniform.stage,
                 type: type,
                 arrayCount: arrayCount,
                 offset: offset
@@ -320,6 +312,11 @@ nonisolated enum SceneAuthoredShaderFrontend {
             guard !overflow else { return nil }
             offset = next
         }
+        let internalType = SceneAuthoredShaderValueType.float2
+        let internalRemainder = offset % internalType.alignment
+        if internalRemainder != 0 { offset += internalType.alignment - internalRemainder }
+        fields.append(.init(name: "mwxRenderSize", type: internalType, offset: offset))
+        offset += internalType.byteSize
         let remainder = offset % 16
         if remainder != 0 { offset += 16 - remainder }
         guard offset <= 4_096 else { return nil }

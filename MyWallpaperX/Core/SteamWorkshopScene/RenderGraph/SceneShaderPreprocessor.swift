@@ -92,6 +92,7 @@ extension SceneShaderPreprocessor {
             let annotationLines = Dictionary(grouping: parsed.annotations, by: \.line)
             let declarationLines = Dictionary(grouping: parsed.declarations, by: \.line)
             let lines = node.source.split(omittingEmptySubsequences: false, whereSeparator: { $0.isNewline })
+            let recoverableEndifLines = Self.recoverableRedundantEndifLines(in: lines)
             var inBlockComment = false
             for (offset, substring) in lines.enumerated() {
                 let lineNumber = offset + 1
@@ -117,6 +118,11 @@ extension SceneShaderPreprocessor {
                                 lineNumber
                             )
                         }
+                    }
+                    if case .endif = directive,
+                       recoverableEndifLines.contains(lineNumber),
+                       conditions.count == floor {
+                        continue
                     }
                     try handle(directive, node: node, line: lineNumber, floor: floor, stack: stack)
                 } else if currentActive {

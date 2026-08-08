@@ -27,10 +27,12 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderDeadBindingAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVectorConversion.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVaryingArrayEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontend.swift",
@@ -150,6 +152,51 @@ enum Harness {
                 "gl_FragColor = texSample2D(g_Texture0, v_TexCoord); " +
                 "gl_FragColor = mix(gl_FragColor, texSample2D(g_Texture0, " +
                 "v_TexCoord * 0.5), g_ScalarWeight);"
+            ),
+            "sameSlotAliasReplacement": transfer(
+                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
+                "float mask = texSample2D(g_Texture1, v_TexCoord).r; " +
+                "vec4 shifted = texSample2D(g_Texture0, v_TexCoord + mask); " +
+                "base = shifted; gl_FragColor = base;"
+            ),
+            "nestedSameSlotMixGraph": transfer(
+                "float phase = texSample2D(g_Texture1, v_TexCoord).r; " +
+                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 flow = mix(texSample2D(g_Texture0, v_TexCoord * 0.5), " +
+                "texSample2D(g_Texture0, v_TexCoord * 0.75), v_TexCoord.x); " +
+                "vec4 second = mix(texSample2D(g_Texture0, v_TexCoord + 0.1), " +
+                "texSample2D(g_Texture0, v_TexCoord + 0.2), v_TexCoord.y); " +
+                "flow = mix(flow, second, smoothstep(0.2, 0.8, phase)); " +
+                "gl_FragColor = mix(base, flow, length(v_TexCoord));"
+            ),
+            "nestedDifferentSlotMixGraph": transfer(
+                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 flow = mix(texSample2D(g_Texture0, v_TexCoord * 0.5), " +
+                "texSample2D(g_Texture1, v_TexCoord * 0.75), v_TexCoord.x); " +
+                "gl_FragColor = mix(base, flow, g_ScalarWeight);"
+            ),
+            "conditionalNestedMixGraph": transfer(
+                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 flow = texSample2D(g_Texture0, v_TexCoord * 0.5); " +
+                "if (g_ScalarWeight > 0.5) { " +
+                "flow = mix(flow, base, g_ScalarWeight); } " +
+                "gl_FragColor = mix(base, flow, g_ScalarWeight);"
+            ),
+            "differentSlotAliasReplacement": transfer(
+                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 shifted = texSample2D(g_Texture1, v_TexCoord); " +
+                "base = shifted; gl_FragColor = base;"
+            ),
+            "conditionalAliasReplacement": transfer(
+                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 shifted = texSample2D(g_Texture0, v_TexCoord * 0.5); " +
+                "if (g_ScalarWeight > 0.5) { base = shifted; } " +
+                "gl_FragColor = base;"
+            ),
+            "modifiedAliasReplacement": transfer(
+                "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 shifted = texSample2D(g_Texture0, v_TexCoord * 0.5); " +
+                "shifted.rgb *= 0.5; base = shifted; gl_FragColor = base;"
             ),
             "opaqueInputRGBTransform": transfer(
                 "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
@@ -365,6 +412,23 @@ class SceneShaderColorContractTests(unittest.TestCase):
     def test_same_slot_scalar_mix_preserves_one_color_source(self) -> None:
         self.assertEqual(self.result["sameSlotScalarMix"], "slot:0")
         self.assertEqual(self.result["sameSlotUniformMix"], "slot:0")
+
+    def test_same_slot_alias_replacement_preserves_one_color_source(self) -> None:
+        self.assertEqual(self.result["sameSlotAliasReplacement"], "slot:0")
+        for key in (
+            "differentSlotAliasReplacement",
+            "conditionalAliasReplacement",
+        ):
+            self.assertEqual(self.result[key], "unresolved", key)
+        self.assertEqual(
+            self.result["modifiedAliasReplacement"],
+            "signal-preserving-slot:0",
+        )
+
+    def test_nested_same_slot_mix_graph_is_bounded_and_fail_closed(self) -> None:
+        self.assertEqual(self.result["nestedSameSlotMixGraph"], "slot:0")
+        self.assertEqual(self.result["nestedDifferentSlotMixGraph"], "unresolved")
+        self.assertEqual(self.result["conditionalNestedMixGraph"], "unresolved")
 
     def test_rgb_only_local_flow_uses_a_straight_color_boundary(self) -> None:
         self.assertEqual(

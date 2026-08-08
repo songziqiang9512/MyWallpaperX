@@ -946,13 +946,27 @@ struct SceneWaterFlowExecutionPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
 }
 
-struct SceneWaterFlowEffectTextures {}
+struct SceneWaterFlowEffectTextures {
+    func matches(_ plan: SceneWaterFlowExecutionPlan) -> Bool { false }
+}
 
 struct SceneWaterFlowPipeline {
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
 }
 
 enum SceneWaterFlowRenderer {
+    static func render(
+        plan: SceneWaterFlowExecutionPlan,
+        resources: SceneWaterFlowEffectTextures,
+        time: Float,
+        inputTexture: MTLTexture,
+        outputTexture: MTLTexture,
+        pipeline: SceneWaterFlowPipeline,
+        commandBuffer: MTLCommandBuffer
+    ) -> MTLTexture? {
+        nil
+    }
+
     static func renderCaptured(
         plan: SceneWaterFlowExecutionPlan,
         sourceTexture: MTLTexture,
@@ -1036,7 +1050,15 @@ enum SceneCursorRippleRenderer {
 struct SceneFoliageSwayExecutionPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
 }
-struct SceneFoliageSwayEffectTextures {}
+struct SceneFoliageSwayEffectTextures {
+    struct ResolvedArguments {}
+
+    func resolvedArguments(
+        for plan: SceneFoliageSwayExecutionPlan
+    ) -> ResolvedArguments? {
+        nil
+    }
+}
 struct SceneFoliageSwayPipeline {
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
 }
@@ -1058,7 +1080,15 @@ enum SceneFoliageSwayRenderer {
 struct SceneDepthParallaxExecutionPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
 }
-struct SceneDepthParallaxEffectTextures {}
+struct SceneDepthParallaxEffectTextures {
+    struct ResolvedArguments {}
+
+    func resolvedArguments(
+        for plan: SceneDepthParallaxExecutionPlan
+    ) -> ResolvedArguments? {
+        nil
+    }
+}
 struct SceneDepthParallaxPipeline {
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
 }

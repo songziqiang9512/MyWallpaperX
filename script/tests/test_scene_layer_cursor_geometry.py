@@ -43,6 +43,14 @@ enum Harness {
         let projected = transformedMVP * local
         let normalized = SIMD2(projected.x, projected.y) / projected.w
         let singular = SceneMatrix.scale(SIMD3(0, 1, 1))
+        let inverseRestoresKnownPoint: Bool = {
+            guard let inverse = SceneLayerCursorGeometry.inverseModelViewProjection(
+                transformedMVP
+            ) else { return false }
+            let restored = inverse * projected
+            return abs(restored.x / restored.w - local.x) < 0.00001
+                && abs(restored.y / restored.w - local.y) < 0.00001
+        }()
         let result: [String: Any] = [
             "identityCenter": pair(SceneLayerCursorGeometry.layerUV(
                 mouseNormalized: .zero,
@@ -60,6 +68,9 @@ enum Harness {
                 mouseNormalized: .zero,
                 modelViewProjection: singular
             ) == nil,
+            "inverseRestoresKnownPoint": inverseRestoresKnownPoint,
+            "singularInverseRejected":
+                SceneLayerCursorGeometry.inverseModelViewProjection(singular) == nil,
             "particleLocalPosition": triple(SceneParticlePointerProjection.localPosition(
                 mouseNormalized: normalized,
                 isInside: true,
@@ -149,6 +160,10 @@ class SceneLayerCursorGeometryTests(unittest.TestCase):
 
     def test_singular_transform_is_rejected(self) -> None:
         self.assertTrue(self.result["singularRejected"])
+        self.assertTrue(self.result["singularInverseRejected"])
+
+    def test_public_inverse_matches_layer_local_projection(self) -> None:
+        self.assertTrue(self.result["inverseRestoresKnownPoint"])
 
 
 if __name__ == "__main__":

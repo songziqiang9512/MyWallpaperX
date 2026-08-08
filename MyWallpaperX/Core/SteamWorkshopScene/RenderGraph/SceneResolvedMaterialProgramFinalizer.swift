@@ -33,6 +33,7 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
         template: SceneResolvedMaterialTemplate,
         renderSize: CGSize,
         modelViewProjection: simd_float4x4,
+        effectTextureProjectionMatrixInverse: simd_float4x4,
         implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity? = nil
     ) -> SceneResolvedMaterialFinalizationInput {
         .init(
@@ -40,6 +41,7 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
             frameSnapshot: self,
             renderSize: renderSize,
             modelViewProjection: modelViewProjection,
+            effectTextureProjectionMatrixInverse: effectTextureProjectionMatrixInverse,
             implicitFramebufferIdentity: implicitFramebufferIdentity
         )
     }
@@ -75,6 +77,7 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
     fileprivate let frameSnapshot: SceneResolvedMaterialFrameSnapshot
     let renderSize: CGSize
     let modelViewProjection: simd_float4x4
+    let effectTextureProjectionMatrixInverse: simd_float4x4
     /// Current full-frame graph input for shader samplers that explicitly
     /// declare `material: "framebuffer"` without an authored texture binding.
     let implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity?
@@ -95,11 +98,16 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
             renderSize: renderSize,
             screenSize: frameSnapshot.frameInputs.screenSize,
             modelViewProjection: modelViewProjection,
+            effectTextureProjectionMatrix:
+                effectTextureProjectionMatrixInverse.inverse,
+            effectTextureProjectionMatrixInverse: effectTextureProjectionMatrixInverse,
             sceneTime: frameSnapshot.frameInputs.sceneTime,
             dayTime: frameSnapshot.frameInputs.dayTime,
             frameTime: frameSnapshot.frameInputs.frameTime,
             pointerCurrentNDC: frameSnapshot.frameInputs.pointerCurrentNDC,
             pointerPreviousNDC: frameSnapshot.frameInputs.pointerPreviousNDC,
+            parallaxPositionNDC:
+                frameSnapshot.frameInputs.parallaxPositionNDC,
             texturePhysicalSizes: Dictionary(
                 uniqueKeysWithValues: textureSlots.compactMap { slot in
                     slot.map {
@@ -116,12 +124,14 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
         frameSnapshot: SceneResolvedMaterialFrameSnapshot,
         renderSize: CGSize,
         modelViewProjection: simd_float4x4,
+        effectTextureProjectionMatrixInverse: simd_float4x4,
         implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity?
     ) {
         self.template = template
         self.frameSnapshot = frameSnapshot
         self.renderSize = renderSize
         self.modelViewProjection = modelViewProjection
+        self.effectTextureProjectionMatrixInverse = effectTextureProjectionMatrixInverse
         self.implicitFramebufferIdentity = implicitFramebufferIdentity
     }
 }

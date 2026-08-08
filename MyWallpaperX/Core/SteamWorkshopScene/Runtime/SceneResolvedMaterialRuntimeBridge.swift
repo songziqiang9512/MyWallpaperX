@@ -1,5 +1,6 @@
 import Foundation
 import Metal
+import simd
 
 /// Surface-scoped facade for the resolved-material graph runtime. The
 /// submission coordinator owns all mutable frame/GPU state; this type only
@@ -71,6 +72,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         let previousCursorUV: SIMD2<Float>
         let pointerIsInside: Bool
         let previousPointerIsInside: Bool
+        let effectTextureProjectionMatrixInverse: simd_float4x4
         let frameTime: Float
         let time: Float
         let audioSpectrum: SceneAudioSpectrumSnapshot

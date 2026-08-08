@@ -24,6 +24,13 @@ final class SceneResolvedMaterialGraphExecutor {
             failure: SceneResolvedMaterialFailure
         )
         case materialPassEncoderRejected
+        case materialPassPreparationRejected(
+            stageIndex: Int,
+            nodeIndex: Int,
+            materialOrdinal: Int,
+            programKey: String,
+            failure: SceneResolvedMaterialPassEncoder.PreparationFailure
+        )
         case dedicatedLeafRejected(reason: String)
         case resourceCommandRejected
         case captureRejected
@@ -44,6 +51,11 @@ final class SceneResolvedMaterialGraphExecutor {
                 "node-\(nodeIndex)-material-\(ordinal)-finalizer-"
                     + "\(failure.phase.rawValue)-\(failure.code.rawValue)"
             case .materialPassEncoderRejected: "material-pass-encoder-rejected"
+            case let .materialPassPreparationRejected(
+                stageIndex, nodeIndex, ordinal, programKey, failure
+            ):
+                "stage-\(stageIndex)-node-\(nodeIndex)-material-\(ordinal)-"
+                    + "program-\(programKey.prefix(12))-pass-\(failure.code)-rejected"
             case .dedicatedLeafRejected(let reason):
                 "dedicated-leaf-rejected-\(reason)"
             case .resourceCommandRejected: "resource-command-rejected"
@@ -233,6 +245,7 @@ final class SceneResolvedMaterialGraphExecutor {
 
             var programKeys: [String] = []
             if let failure = prepare(
+                stageIndex: index,
                 transition: transition,
                 graph: graph,
                 pairStep: pairStep,

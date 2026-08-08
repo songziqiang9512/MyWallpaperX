@@ -73,15 +73,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         guard stages.count == admitted.products.count,
               stages.contains(where: { if case .resolved = $0 { true } else { false } })
         else { return .failure(rejection("resolved-stage-empty")) }
-        let containsDedicated = stages.contains {
-            if case .dedicated = $0 { return true }
-            return false
-        }
-        if containsDedicated {
-            guard case .resolved = stages.first else {
-                return .failure(rejection("mixed-chain-resolved-prefix-required"))
-            }
-        }
         return .success(.init(stages: stages, materials: allMaterials))
     }
 

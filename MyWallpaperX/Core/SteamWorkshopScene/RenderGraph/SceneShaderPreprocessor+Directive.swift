@@ -1,6 +1,65 @@
 import Foundation
 
 extension SceneShaderPreprocessor.State {
+    /// Some shipped authored sources contain one duplicated top-level
+    /// `#endif` between two otherwise balanced conditional blocks. Accept the
+    /// inert duplicate only for that complete structural shape; a standalone,
+    /// trailing, repeated, or code-separated unmatched directive still fails.
+    nonisolated static func recoverableRedundantEndifLines(
+        in lines: [Substring]
+    ) -> Set<Int> {
+        var depth = 0
+        var inBlockComment = false
+        var justClosedTopLevel = false
+        var pendingCandidate: Int?
+        var recovered: [Int] = []
+
+        for (offset, substring) in lines.enumerated() {
+            let lexical = SceneShaderLexicalScanner.scan(
+                String(substring),
+                inBlockComment: &inBlockComment
+            )
+            let code = lexical.code.trimmingCharacters(in: .whitespaces)
+            guard !code.isEmpty else { continue }
+            guard let directive = SceneShaderDirective.parse(code) else {
+                if pendingCandidate != nil { return [] }
+                justClosedTopLevel = false
+                continue
+            }
+            switch directive {
+            case .ifExpression, .ifdef:
+                if let candidate = pendingCandidate {
+                    recovered.append(candidate)
+                    pendingCandidate = nil
+                }
+                depth += 1
+                justClosedTopLevel = false
+            case .endif:
+                if depth > 0 {
+                    depth -= 1
+                    justClosedTopLevel = depth == 0
+                } else if justClosedTopLevel,
+                          pendingCandidate == nil,
+                          recovered.isEmpty {
+                    pendingCandidate = offset + 1
+                    justClosedTopLevel = false
+                } else {
+                    return []
+                }
+            case .elseDirective:
+                guard depth > 0, pendingCandidate == nil else { return [] }
+                justClosedTopLevel = false
+            default:
+                if pendingCandidate != nil { return [] }
+                justClosedTopLevel = false
+            }
+        }
+        guard depth == 0,
+              pendingCandidate == nil,
+              recovered.count == 1 else { return [] }
+        return Set(recovered)
+    }
+
     nonisolated mutating func handle(
         _ directive: SceneShaderDirective,
         node: SceneShaderSourceGraph.Node,

@@ -28,6 +28,20 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         ) {
             return .passthrough(textureSlot: slot)
         }
+        if let slot = SceneAuthoredShaderSameSlotMixAnalyzer.analyzeAliasReplacement(
+            outputUses: outputUses,
+            fragment: fragment,
+            main: main
+        ) {
+            return .passthrough(textureSlot: slot)
+        }
+        if let slot = SceneAuthoredShaderSameSlotMixGraphAnalyzer.analyze(
+            outputUses: outputUses,
+            fragment: fragment,
+            main: main
+        ) {
+            return .passthrough(textureSlot: slot)
+        }
         if let slot = SceneAuthoredShaderOpaqueInputAlphaAnalyzer.analyze(
             outputUses: outputUses,
             fragment: fragment,

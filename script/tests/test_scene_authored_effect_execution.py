@@ -57,6 +57,18 @@ CHAIN_SPECIALIZED_STAGE_SOURCE = (
     SOURCE_ROOT
     / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+SpecializedStage.swift"
 )
+CHAIN_TOPOLOGY_SOURCE = (
+    SOURCE_ROOT
+    / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+Topology.swift"
+)
+CHAIN_WATER_FLOW_SOURCE = (
+    SOURCE_ROOT
+    / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+CursorRipple.swift"
+)
+CHAIN_DEPTH_PARALLAX_SOURCE = (
+    SOURCE_ROOT
+    / "RenderGraph/EffectExecution/SceneAuthoredEffectChainRenderer+DepthParallax.swift"
+)
 IRIS_SUFFIX_SOURCE = (
     SOURCE_ROOT / "RenderGraph/SceneAuthoredEffectIrisInlineSuffix.swift"
 )
@@ -1997,6 +2009,41 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
+
+    def test_authored_material_backends_yield_to_resolved_program(self) -> None:
+        backend = CHAIN_BACKEND_SOURCE.read_text(encoding="utf-8")
+        leaf_start = backend.index("        var supportsUnifiedPairLeaf: Bool")
+        yield_start = backend.index(
+            "    nonisolated var yieldsToResolvedMaterialProgram: Bool",
+            leaf_start,
+        )
+        leaf_body = backend[leaf_start:yield_start]
+        yield_end = backend.index("\n    var gaussianBlur:", yield_start)
+        yield_body = backend[yield_start:yield_end]
+        topology = CHAIN_TOPOLOGY_SOURCE.read_text(encoding="utf-8")
+
+        for backend_name in (".waterFlow", ".foliageSway", ".depthParallax"):
+            self.assertNotIn(backend_name, leaf_body)
+            self.assertIn(backend_name, yield_body)
+        self.assertIn(".lightShafts", yield_body)
+        self.assertIn("case .waterFlow(let plan):", topology)
+        self.assertIn("inputs.masks.waterFlowEffects[", topology)
+        self.assertIn("resources.matches(plan)", topology)
+        self.assertIn("case .foliageSway(let plan):", topology)
+        self.assertIn("inputs.masks.foliageSwayEffects[", topology)
+        self.assertIn("resources.resolvedArguments(for: plan)", topology)
+        self.assertIn('"foliage-sway-resource-missing"', topology)
+        self.assertIn('"foliage-sway-pipeline-missing"', topology)
+        self.assertIn("case .depthParallax(let plan):", topology)
+        self.assertIn("inputs.masks.depthParallaxEffects[", topology)
+        self.assertIn('"depth-parallax-resource-missing"', topology)
+
+        water_flow = CHAIN_WATER_FLOW_SOURCE.read_text(encoding="utf-8")
+        depth = CHAIN_DEPTH_PARALLAX_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("targets.inputTexture === sourceTexture", water_flow)
+        self.assertIn("SceneWaterFlowRenderer.render(", water_flow)
+        self.assertIn("targets.inputTexture === sourceTexture", depth)
+        self.assertIn("SceneDepthParallaxRenderer.render(", depth)
 
     def test_only_effectively_visible_complete_graph_is_planned(self) -> None:
         self.assertEqual(self.result["planned"], [10])

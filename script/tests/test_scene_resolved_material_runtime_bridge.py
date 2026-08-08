@@ -692,6 +692,9 @@ extension SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs {
         previousCursorUV: .zero,
         pointerIsInside: false,
         previousPointerIsInside: false,
+        effectTextureProjectionMatrixInverse: .init(
+            diagonal: .init(repeating: 1)
+        ),
         frameTime: 1 / 60,
         time: 0,
         audioSpectrum: .init(),

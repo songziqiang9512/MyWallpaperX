@@ -35,15 +35,13 @@ enum SceneAuthoredDepthParallaxPlanner {
         shaderContracts: [SceneShaderContract],
         inputRole: SceneAuthoredEffectInputRole = .layerSource
     ) -> SceneDepthParallaxExecutionPlan? {
-        guard inputRole == .layerSource,
-              graph.blockers.isEmpty,
+        guard graph.blockers.isEmpty,
               graph.effects.count == 1,
               graph.nodes.count == 1,
               graph.renderTargets.isEmpty,
               descriptor.layers.filter({ $0.id == graph.layerID }).count == 1,
               let layer = descriptor.layers.first(where: { $0.id == graph.layerID }),
-              layer.contentKind == "image",
-              layer.effects.count == 1 else {
+              layer.contentKind == "image" else {
             return nil
         }
 
@@ -178,8 +176,7 @@ enum SceneAuthoredDepthParallaxPlanner {
         effect: Graph.Effect,
         layer: SceneRenderDescriptor.Layer
     ) -> SceneRenderDescriptor.EffectDescriptor.PassDescriptor? {
-        guard effect.key.effectIndex == 0,
-              layer.effects.indices.contains(effect.key.effectIndex) else {
+        guard layer.effects.indices.contains(effect.key.effectIndex) else {
             return nil
         }
         let descriptor = layer.effects[effect.key.effectIndex]

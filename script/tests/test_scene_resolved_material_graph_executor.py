@@ -149,7 +149,10 @@ struct SceneAuthoredEffectExecutionChain {
 }
 
 final class SceneResolvedMaterialRuntimeBridge {
-    struct DedicatedFrameInputs { let time: Float = 0 }
+    struct DedicatedFrameInputs {
+        let time: Float = 0
+        let effectTextureProjectionMatrixInverse = matrix_identity_float4x4
+    }
 }
 
 enum SceneAuthoredEffectChainRenderer {
@@ -1840,7 +1843,8 @@ private enum Harness {
             readyVariantFrame.finalizationInput(
                 template: cacheTemplate,
                 renderSize: CGSize(width: extent.width, height: extent.height),
-                modelViewProjection: Executor.fullTargetMVP(firstTexture)
+                modelViewProjection: Executor.fullTargetMVP(firstTexture),
+                effectTextureProjectionMatrixInverse: matrix_identity_float4x4
             )
         )
         let absentVariantFrame: SceneResolvedMaterialFrameSnapshot = {
@@ -1870,7 +1874,8 @@ private enum Harness {
             absentVariantFrame.finalizationInput(
                 template: cacheTemplate,
                 renderSize: CGSize(width: extent.width, height: extent.height),
-                modelViewProjection: Executor.fullTargetMVP(firstTexture)
+                modelViewProjection: Executor.fullTargetMVP(firstTexture),
+                effectTextureProjectionMatrixInverse: matrix_identity_float4x4
             )
         )
         let overflowRejected: Bool
@@ -1899,7 +1904,8 @@ private enum Harness {
         let failingInput = readyVariantFrame.finalizationInput(
             template: failingTemplate,
             renderSize: CGSize(width: extent.width, height: extent.height),
-            modelViewProjection: Executor.fullTargetMVP(firstTexture)
+            modelViewProjection: Executor.fullTargetMVP(firstTexture),
+            effectTextureProjectionMatrixInverse: matrix_identity_float4x4
         )
         let firstFailedVariant = failingVariantCache.resolve(failingInput)
         let failedCountsAfterFirst = failingVariantCache.counters

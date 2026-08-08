@@ -64,6 +64,136 @@ nonisolated enum SceneAuthoredShaderSameSlotMixAnalyzer {
         return slot
     }
 
+    /// Proves a root-local replacement whose original and replacement colors
+    /// are both direct samples of the same texture slot. Auxiliary samples may
+    /// drive coordinates or scalar masks, but neither color local may be
+    /// conditionally assigned, member-written, or otherwise reused.
+    static func analyzeAliasReplacement(
+        outputUses: [Int],
+        fragment: SceneAuthoredShaderSyntaxUnit,
+        main: SceneAuthoredShaderSyntaxUnit.Function
+    ) -> Int? {
+        let tokens = fragment.tokens
+        guard outputUses.count == 1,
+              let output = outputUses.first,
+              main.bodyRange.contains(output),
+              SceneAuthoredShaderColorTransferAnalyzer.isUnconditionalWrite(
+                  output,
+                  tokens: tokens,
+                  body: main.bodyRange
+              ),
+              let outputExpression = SceneAuthoredShaderColorTransferAnalyzer
+                  .assignmentExpression(
+                      after: output,
+                      in: tokens,
+                      body: main.bodyRange
+                  ),
+              outputExpression.count == 1,
+              outputExpression.first?.kind == .identifier,
+              let outputName = outputExpression.first?.text,
+              let outputDefinition = uniqueVectorDefinition(
+                  named: outputName,
+                  before: output,
+                  tokens: tokens,
+                  body: main.bodyRange
+              ),
+              SceneAuthoredShaderColorTransferAnalyzer.isUnconditionalWrite(
+                  outputDefinition,
+                  tokens: tokens,
+                  body: main.bodyRange
+              ),
+              let outputInitializer = SceneAuthoredShaderColorTransferAnalyzer
+                  .assignmentExpression(
+                      after: outputDefinition,
+                      in: tokens,
+                      body: main.bodyRange
+                  ),
+              let slot = SceneAuthoredShaderColorTransferAnalyzer
+                  .directTextureSampleSlot(outputInitializer) else {
+            return nil
+        }
+
+        let replacements = main.bodyRange.filter { index in
+            index > outputDefinition && index < output
+                && tokens[index].text == outputName
+                && index + 1 < tokens.count
+                && tokens[index + 1].text == "="
+        }
+        guard replacements.count == 1,
+              let replacement = replacements.first,
+              SceneAuthoredShaderColorTransferAnalyzer.isUnconditionalWrite(
+                  replacement,
+                  tokens: tokens,
+                  body: main.bodyRange
+              ),
+              let replacementExpression = SceneAuthoredShaderColorTransferAnalyzer
+                  .assignmentExpression(
+                      after: replacement,
+                      in: tokens,
+                      body: main.bodyRange
+                  ),
+              replacementExpression.count == 1,
+              replacementExpression.first?.kind == .identifier,
+              let aliasName = replacementExpression.first?.text,
+              aliasName != outputName,
+              let aliasDefinition = uniqueVectorDefinition(
+                  named: aliasName,
+                  before: replacement,
+                  tokens: tokens,
+                  body: main.bodyRange
+              ),
+              aliasDefinition > outputDefinition,
+              SceneAuthoredShaderColorTransferAnalyzer.isUnconditionalWrite(
+                  aliasDefinition,
+                  tokens: tokens,
+                  body: main.bodyRange
+              ),
+              let aliasInitializer = SceneAuthoredShaderColorTransferAnalyzer
+                  .assignmentExpression(
+                      after: aliasDefinition,
+                      in: tokens,
+                      body: main.bodyRange
+                  ),
+              SceneAuthoredShaderColorTransferAnalyzer
+                  .directTextureSampleSlot(aliasInitializer) == slot else {
+            return nil
+        }
+
+        let outputNameUses = Set(main.bodyRange.filter {
+            tokens[$0].text == outputName
+        })
+        let aliasNameUses = Set(main.bodyRange.filter {
+            tokens[$0].text == aliasName
+        })
+        guard outputNameUses == Set([
+            outputDefinition,
+            replacement,
+            outputExpression.startIndex,
+        ]), aliasNameUses == Set([
+            aliasDefinition,
+            replacementExpression.startIndex,
+        ]) else {
+            return nil
+        }
+        return slot
+    }
+
+    private static func uniqueVectorDefinition(
+        named name: String,
+        before boundary: Int,
+        tokens: [SceneAuthoredShaderToken],
+        body: Range<Int>
+    ) -> Int? {
+        let definitions = body.filter { index in
+            index > body.lowerBound && index < boundary
+                && tokens[index].text == name
+                && ["vec4", "float4"].contains(tokens[index - 1].text)
+                && index + 1 < tokens.count
+                && tokens[index + 1].text == "="
+        }
+        return definitions.count == 1 ? definitions[0] : nil
+    }
+
     private static func callArguments(
         named name: String,
         expression: ArraySlice<SceneAuthoredShaderToken>

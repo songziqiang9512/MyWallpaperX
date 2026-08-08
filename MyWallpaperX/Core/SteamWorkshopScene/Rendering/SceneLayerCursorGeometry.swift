@@ -17,9 +17,9 @@ enum SceneLayerCursorGeometry {
         mouseNormalized: SIMD2<Float>,
         modelViewProjection: simd_float4x4
     ) -> SIMD3<Float>? {
-        let determinant = simd_determinant(modelViewProjection)
-        guard determinant.isFinite, abs(determinant) > 1e-8 else { return nil }
-        let inverse = simd_inverse(modelViewProjection)
+        guard let inverse = inverseModelViewProjection(modelViewProjection) else {
+            return nil
+        }
         guard let near = localPoint(
             SIMD4(mouseNormalized.x, mouseNormalized.y, 0, 1),
             inverse: inverse
@@ -35,6 +35,23 @@ enum SceneLayerCursorGeometry {
         guard distance.isFinite else { return nil }
         let local = near + direction * distance
         return local.x.isFinite && local.y.isFinite && local.z.isFinite ? local : nil
+    }
+
+    static func inverseModelViewProjection(
+        _ modelViewProjection: simd_float4x4
+    ) -> simd_float4x4? {
+        let determinant = simd_determinant(modelViewProjection)
+        guard determinant.isFinite, abs(determinant) > 1e-8 else { return nil }
+        let inverse = simd_inverse(modelViewProjection)
+        let columns = [
+            inverse.columns.0, inverse.columns.1,
+            inverse.columns.2, inverse.columns.3,
+        ]
+        guard columns.allSatisfy({ column in
+            column.x.isFinite && column.y.isFinite
+                && column.z.isFinite && column.w.isFinite
+        }) else { return nil }
+        return inverse
     }
 
     private static func localPoint(

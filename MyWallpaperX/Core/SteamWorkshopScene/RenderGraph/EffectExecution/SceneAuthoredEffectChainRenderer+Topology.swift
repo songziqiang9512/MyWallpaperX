@@ -124,6 +124,29 @@ extension SceneAuthoredEffectChainRenderer {
                 return "film-grain-resource-mismatch"
             }
             return pipelines.filmGrain == nil ? "film-grain-pipeline-missing" : nil
+        case .waterFlow(let plan):
+            guard let resources = inputs.masks.waterFlowEffects[
+                plan.effectKey.descriptorID
+            ], resources.matches(plan) else {
+                return "water-flow-resource-missing"
+            }
+            return pipelines.waterFlow == nil ? "water-flow-pipeline-missing" : nil
+        case .foliageSway(let plan):
+            guard let resources = inputs.masks.foliageSwayEffects[
+                plan.effectKey.descriptorID
+            ], resources.resolvedArguments(for: plan) != nil else {
+                return "foliage-sway-resource-missing"
+            }
+            return pipelines.foliageSway == nil
+                ? "foliage-sway-pipeline-missing" : nil
+        case .depthParallax(let plan):
+            guard let resources = inputs.masks.depthParallaxEffects[
+                plan.effectKey.descriptorID
+            ], resources.resolvedArguments(for: plan) != nil else {
+                return "depth-parallax-resource-missing"
+            }
+            return pipelines.depthParallax == nil
+                ? "depth-parallax-pipeline-missing" : nil
         case .shake(let plan):
             guard inputs.masks.shakeEffects[plan.effectKey.descriptorID] != nil else {
                 return "shake-resource-missing"

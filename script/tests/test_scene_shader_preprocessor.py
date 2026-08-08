@@ -661,6 +661,25 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     }
     checks.append("function_macros")
 
+    try write(
+        "#if 1\nFIRST\n#endif\n\n#endif\n\n#if 1\nSECOND\n#endif",
+        to: looseRoot,
+        "shaders/logic/redundant_top_level_endif.frag"
+    )
+    view = resourceView(loose: looseRoot)
+    let redundantEndif = try prepared(
+        rootPath: "shaders/logic/redundant_top_level_endif.frag",
+        graph: graph("shaders/logic/redundant_top_level_endif.frag", view: view),
+        environment: environment()
+    )
+    try expect(
+        redundantEndif.source.contains("FIRST")
+            && redundantEndif.source.contains("SECOND")
+            && !redundantEndif.source.contains("#endif"),
+        "The bounded duplicated top-level #endif shape was not normalized."
+    )
+    checks.append("redundant_top_level_endif")
+
     let failureSources: [(String, String, SceneShaderPreprocessor.DiagnosticCode)] = [
         ("elif", "#if 0\n#elif 1\nVALUE\n#endif", .unsupportedDirective),
         ("function_variadic", "#define F(...) 1\nVALUE", .functionLikeMacro),
@@ -683,6 +702,9 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
         ("unmatched_else", "#else\nVALUE", .unmatchedElse),
         ("duplicate_else", "#if 0\n#else\n#else\n#endif", .duplicateElse),
         ("unmatched_endif", "#endif", .unmatchedEndif),
+        ("trailing_redundant_endif", "#if 1\nVALUE\n#endif\n#endif", .unmatchedEndif),
+        ("code_separated_redundant_endif", "#if 1\nA\n#endif\n#endif\nVALUE\n#if 1\nB\n#endif", .unmatchedEndif),
+        ("repeated_redundant_endif", "#if 1\nA\n#endif\n#endif\n#if 1\nB\n#endif\n#endif\n#if 1\nC\n#endif", .unmatchedEndif),
         ("unterminated", "#if 1\nVALUE", .unterminatedConditional),
     ]
     for (name, source, _) in failureSources {
@@ -1297,6 +1319,7 @@ class SceneShaderPreprocessorTests(unittest.TestCase):
             [
                 "conditional_includes",
                 "function_macros",
+                "redundant_top_level_endif",
                 "directive_failures",
                 "directive_annotation_placement",
                 "missing_cycle",

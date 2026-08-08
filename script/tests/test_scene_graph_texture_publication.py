@@ -52,10 +52,12 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderDeadBindingAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVectorConversion.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVaryingArrayEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontend.swift",
@@ -75,6 +77,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneNamedTextureReference.swift",
     SCENE_ROOT / "Resources/SceneFrameTextureRegistry.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram.swift",
+    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialHostUniformSchema.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgramIdentity.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram+Derivation.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram+ColorDerivation.swift",
@@ -395,7 +398,8 @@ private func resolveProgram(
         value.finalizationInput(
             template: template(),
             renderSize: CGSize(width: 2, height: 2),
-            modelViewProjection: matrix_identity_float4x4
+            modelViewProjection: matrix_identity_float4x4,
+            effectTextureProjectionMatrixInverse: matrix_identity_float4x4
         )
     )
 }

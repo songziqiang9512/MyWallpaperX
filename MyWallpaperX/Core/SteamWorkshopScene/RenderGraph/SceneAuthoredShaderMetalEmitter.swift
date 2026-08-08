@@ -9,7 +9,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
     private struct Context {
         let unit: SceneAuthoredShaderSyntaxUnit
         let functionNames: Set<String>
-        let uniformNames: Set<String>
+        let uniformNames: [String: String]
         let varyingNames: Set<String>
         let varyingArrayCounts: [String: Int]
         let attributeNames: Set<String>
@@ -21,7 +21,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
     static func emit(
         vertex: SceneAuthoredShaderSyntaxUnit,
         fragment: SceneAuthoredShaderSyntaxUnit,
-        uniforms: [(String, SceneAuthoredShaderValueType, Int?)],
+        uniforms: [SceneAuthoredShaderUniformDeclaration],
         uniformLayout: SceneAuthoredShaderUniformLayout,
         textures: [SceneAuthoredShaderProgram.TextureBinding],
         varyings: [(String, SceneAuthoredShaderValueType, Int?)],
@@ -49,7 +49,8 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             }
         }
         let texturesByName = Dictionary(uniqueKeysWithValues: textures.map { ($0.name, $0) })
-        let uniformNames = Set(uniforms.map(\.0))
+        let vertexUniformNames = SceneAuthoredShaderUniformDeclaration.fieldNames(in: uniforms, for: .vertex)
+        let fragmentUniformNames = SceneAuthoredShaderUniformDeclaration.fieldNames(in: uniforms, for: .fragment)
         let varyingNames = Set(varyings.map(\.0))
         let varyingArrayCounts: [String: Int] = Dictionary(uniqueKeysWithValues:
             varyings.compactMap { varying in
@@ -59,7 +60,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         let vertexContext = Context(
             unit: vertex,
             functionNames: Set(vertex.functions.map(\.name)),
-            uniformNames: uniformNames,
+            uniformNames: vertexUniformNames,
             varyingNames: varyingNames,
             varyingArrayCounts: varyingArrayCounts,
             attributeNames: Set(vertex.declarations.filter {
@@ -82,7 +83,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         let fragmentContext = Context(
             unit: fragment,
             functionNames: Set(fragment.functions.map(\.name)),
-            uniformNames: uniformNames,
+            uniformNames: fragmentUniformNames,
             varyingNames: varyingNames,
             varyingArrayCounts: varyingArrayCounts,
             attributeNames: [],
@@ -131,7 +132,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             !omitted.contains(where: { $0.contains(index) })
         }
         if let token = globalIndices.map({ context.unit.tokens[$0] }).first(where: {
-            context.uniformNames.contains($0.text)
+            context.uniformNames[$0.text] != nil
                 || context.varyingNames.contains($0.text)
                 || context.attributeNames.contains($0.text)
         }) {
@@ -221,9 +222,17 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
     ) -> TokenEmission {
         var output: [String] = []
         var diagnostics: [SceneAuthoredShaderFrontendDiagnostic] = []
+        let narrowingBoundaries = SceneAuthoredShaderVectorConversion.assignmentBoundaries(
+            in: tokens, unit: context.unit)
         var index = 0
         while index < tokens.count {
             let token = tokens[index]
+            if let count = narrowingBoundaries.starts[index] {
+                output.append(String(repeating: "(", count: count))
+            }
+            if let suffixes = narrowingBoundaries.ends[index] {
+                output.append(suffixes.map { ").\($0)" }.joined())
+            }
             if let reference = SceneAuthoredShaderVaryingArrayEmitter.reference(
                 tokens: tokens,
                 index: index,
@@ -271,7 +280,16 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
                 && context.functionNames.contains(token.text)
                 && index + 1 < tokens.count
                 && tokens[index + 1].text == "("
-            output.append(translatedToken(token, context: context))
+            let translated = translatedToken(token, context: context)
+            if let suffix = SceneAuthoredShaderVectorConversion.suffix(
+                forIdentifierAt: index,
+                in: tokens,
+                unit: context.unit
+            ) {
+                output.append("(\(translated)).\(suffix)")
+            } else {
+                output.append(translated)
+            }
             if isUserCall {
                 output.append("(")
                 output.append(SceneAuthoredShaderMetalSource.contextArguments(
@@ -294,10 +312,11 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         context: Context
     ) -> String {
         if token.text == "in" { return "" }
-        if let maximum = context.unit.boundedLoopUniformReferences[token] {
-            return "clamp(mwxUniforms.\(token.text), 0.0, \(maximum).0)"
+        if let maximum = context.unit.boundedLoopUniformReferences[token],
+           let field = context.uniformNames[token.text] {
+            return "clamp(mwxUniforms.\(field), 0.0, \(maximum).0)"
         }
-        if context.uniformNames.contains(token.text) { return "mwxUniforms.\(token.text)" }
+        if let field = context.uniformNames[token.text] { return "mwxUniforms.\(field)" }
         if context.varyingNames.contains(token.text) {
             return context.unit.stage == .vertex
                 ? "mwxOutput.\(token.text)"
@@ -333,7 +352,10 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         context: Context,
         textures: [SceneAuthoredShaderProgram.TextureBinding]
     ) -> SampleEmission {
-        guard let close = matchingParenthesis(tokens: tokens, opening: start + 1),
+        guard let close = SceneAuthoredShaderVectorConversion.matchingParenthesis(
+                  tokens: tokens,
+                  opening: start + 1
+              ),
               let comma = topLevelComma(tokens: tokens, range: (start + 2)..<close),
               comma == start + 3,
               let texture = context.texturesByName[tokens[start + 2].text] else {
@@ -350,29 +372,17 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             return .init(source: nil, nextIndex: nil, diagnostic: coordinate.diagnostics.first)
         }
         let sample = "mwxTexture\(texture.slot).sample(mwxSampler\(texture.slot), \(coordinate.source))"
-        let source = context.unpremultipliedTextureSlot == texture.slot
+        let sampledSource = context.unpremultipliedTextureSlot == texture.slot
             ? "mwxUnpremultiply(\(sample))"
             : sample
+        let suffix = SceneAuthoredShaderVectorConversion.suffixForTextureSample(
+            tokens: tokens, start: start, closing: close)
+        let source = suffix.map { "(\(sampledSource)).\($0)" } ?? sampledSource
         return .init(
             source: source,
             nextIndex: close + 1,
             diagnostic: nil
         )
-    }
-
-    private static func matchingParenthesis(
-        tokens: [SceneAuthoredShaderToken],
-        opening: Int
-    ) -> Int? {
-        var depth = 0
-        for index in opening..<tokens.count {
-            if tokens[index].text == "(" { depth += 1 }
-            if tokens[index].text == ")" {
-                depth -= 1
-                if depth == 0 { return index }
-            }
-        }
-        return nil
     }
 
     private static func topLevelComma(

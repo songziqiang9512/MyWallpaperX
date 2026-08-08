@@ -5,6 +5,34 @@ import Metal
 /// encoded. A chain executor can therefore prepare every pass first and only
 /// start its command buffer after the complete transaction is admissible.
 final class SceneResolvedMaterialPassEncoder {
+    enum PreparationFailure: Error, Equatable {
+        case fragmentOutputRejected
+        case targetRejected
+        case uniformsRejected
+        case bindingsRejected
+        case compileStateKeyRejected
+        case renderStateRejected
+        case libraryCompilationRejected(diagnostic: String)
+        case vertexFunctionRejected
+        case fragmentFunctionRejected
+        case pipelineCompilationRejected(diagnostic: String)
+
+        var code: String {
+            switch self {
+            case .fragmentOutputRejected: "fragment-output"
+            case .targetRejected: "target"
+            case .uniformsRejected: "uniforms"
+            case .bindingsRejected: "bindings"
+            case .compileStateKeyRejected: "compile-state-key"
+            case .renderStateRejected: "render-state"
+            case .libraryCompilationRejected: "library-compilation"
+            case .vertexFunctionRejected: "vertex-function"
+            case .fragmentFunctionRejected: "fragment-function"
+            case .pipelineCompilationRejected: "pipeline-compilation"
+            }
+        }
+    }
+
     struct PreparedPass {
         let fragmentOutput: SceneShaderColorRepresentation
         let bindingSlots: [Int]
@@ -28,7 +56,7 @@ final class SceneResolvedMaterialPassEncoder {
 
     private enum PipelineEntry {
         case ready(MTLRenderPipelineState)
-        case failed
+        case failed(PreparationFailure)
     }
 
     private let device: MTLDevice
@@ -59,19 +87,31 @@ final class SceneResolvedMaterialPassEncoder {
         program: SceneResolvedMaterialProgram,
         target: MTLTexture
     ) -> PreparedPass? {
-        guard let fragmentOutput = acceptedOutput(program.colorContract.fragmentOutput),
-              validTarget(target),
-              validUniforms(program),
-              let bindings = validatedBindings(program, target: target),
-              let key = program.metalCompileStateKey(
-                  attachmentPixelFormat: target.pixelFormat,
-                  sampleCount: target.sampleCount,
-                  device: device
-              ),
-              let cached = pipeline(for: key, program: program, target: target) else {
-            return nil
+        try? prepareResult(program: program, target: target).get()
+    }
+
+    func prepareResult(
+        program: SceneResolvedMaterialProgram,
+        target: MTLTexture
+    ) -> Result<PreparedPass, PreparationFailure> {
+        guard let fragmentOutput = acceptedOutput(program.colorContract.fragmentOutput)
+        else { return .failure(.fragmentOutputRejected) }
+        guard validTarget(target) else { return .failure(.targetRejected) }
+        guard validUniforms(program) else { return .failure(.uniformsRejected) }
+        guard let bindings = validatedBindings(program, target: target) else {
+            return .failure(.bindingsRejected)
         }
-        return PreparedPass(
+        guard let key = program.metalCompileStateKey(
+            attachmentPixelFormat: target.pixelFormat,
+            sampleCount: target.sampleCount,
+            device: device
+        ) else { return .failure(.compileStateKeyRejected) }
+        let cached: (pipeline: MTLRenderPipelineState, generation: UInt64)
+        switch pipeline(for: key, program: program, target: target) {
+        case let .success(value): cached = value
+        case let .failure(failure): return .failure(failure)
+        }
+        return .success(PreparedPass(
             fragmentOutput: fragmentOutput,
             bindingSlots: bindings.map(\.slot),
             bindingSamplings: bindings.map(\.sampling),
@@ -82,7 +122,7 @@ final class SceneResolvedMaterialPassEncoder {
             target: target,
             bindings: bindings,
             uniformBytes: program.uniformBytes
-        )
+        ))
     }
 
     /// `true` means the render commands were appended. GPU completion remains
@@ -276,31 +316,41 @@ final class SceneResolvedMaterialPassEncoder {
         for key: SceneResolvedMaterialProgram.MetalCompileStateKey,
         program: SceneResolvedMaterialProgram,
         target: MTLTexture
-    ) -> (pipeline: MTLRenderPipelineState, generation: UInt64)? {
+    ) -> Result<
+        (pipeline: MTLRenderPipelineState, generation: UInt64),
+        PreparationFailure
+    > {
         lock.lock()
         defer { lock.unlock() }
         if let entry = entries[key] {
-            guard case let .ready(pipeline) = entry else { return nil }
-            return (pipeline, resetGeneration)
+            switch entry {
+            case let .ready(pipeline): return .success((pipeline, resetGeneration))
+            case let .failed(failure): return .failure(failure)
+            }
         }
         compilationAttempts += 1
         guard program.renderState.matchesFullscreenOverwrite(
-                  alphaWriting: .unspecified
-              ),
-              let library = try? device.makeLibrary(
-                  source: program.frontendProgram.metalSource,
-                  options: nil
-              ),
-              let vertex = library.makeFunction(
-                  name: program.frontendProgram.vertexFunctionName
-              ),
-              let fragment = library.makeFunction(
-                  name: program.frontendProgram.fragmentFunctionName
-              ) else {
-            entries[key] = .failed
-            failedPipelines += 1
-            return nil
+            alphaWriting: .unspecified
+        ) else { return cacheFailure(.renderStateRejected, for: key) }
+        let library: MTLLibrary
+        do {
+            library = try device.makeLibrary(
+                source: program.frontendProgram.metalSource,
+                options: nil
+            )
+        } catch {
+            let failure = PreparationFailure.libraryCompilationRejected(
+                diagnostic: String(describing: error)
+            )
+            NSLog("MWX resolved material Metal library rejection: %@", String(describing: error))
+            return cacheFailure(failure, for: key)
         }
+        guard let vertex = library.makeFunction(
+            name: program.frontendProgram.vertexFunctionName
+        ) else { return cacheFailure(.vertexFunctionRejected, for: key) }
+        guard let fragment = library.makeFunction(
+            name: program.frontendProgram.fragmentFunctionName
+        ) else { return cacheFailure(.fragmentFunctionRejected, for: key) }
         let descriptor = MTLRenderPipelineDescriptor()
         descriptor.label = "Scene resolved material pass"
         descriptor.vertexFunction = vertex
@@ -309,15 +359,31 @@ final class SceneResolvedMaterialPassEncoder {
         descriptor.colorAttachments[0].pixelFormat = target.pixelFormat
         descriptor.colorAttachments[0].isBlendingEnabled = false
         descriptor.colorAttachments[0].writeMask = .all
-        guard let pipeline = try? device.makeRenderPipelineState(
-                  descriptor: descriptor
-              ) else {
-            entries[key] = .failed
-            failedPipelines += 1
-            return nil
+        do {
+            let pipeline = try device.makeRenderPipelineState(descriptor: descriptor)
+            entries[key] = .ready(pipeline)
+            return .success((pipeline, resetGeneration))
+        } catch {
+            let failure = PreparationFailure.pipelineCompilationRejected(
+                diagnostic: String(describing: error)
+            )
+            NSLog("MWX resolved material Metal pipeline rejection: %@", String(describing: error))
+            return cacheFailure(failure, for: key)
         }
-        entries[key] = .ready(pipeline)
-        return (pipeline, resetGeneration)
+    }
+
+    private func cacheFailure(
+        _ failure: PreparationFailure,
+        for key: SceneResolvedMaterialProgram.MetalCompileStateKey
+    ) -> Result<
+        (pipeline: MTLRenderPipelineState, generation: UInt64),
+        PreparationFailure
+    > {
+        if entries[key] == nil {
+            entries[key] = .failed(failure)
+            failedPipelines += 1
+        }
+        return .failure(failure)
     }
 
     private func withLock<T>(_ body: () -> T) -> T {

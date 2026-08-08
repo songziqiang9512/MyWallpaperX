@@ -3,6 +3,7 @@ import Metal
 
 extension SceneResolvedMaterialGraphExecutor {
     func prepare(
+        stageIndex: Int,
         transition: State.Transition,
         graph: Graph,
         pairStep: Pair.EffectStep,
@@ -95,6 +96,8 @@ extension SceneResolvedMaterialGraphExecutor {
                         template: material.template,
                         renderSize: CGSize(width: target.width, height: target.height),
                         modelViewProjection: Self.fullTargetMVP(target),
+                        effectTextureProjectionMatrixInverse:
+                            dedicatedInputs.effectTextureProjectionMatrixInverse,
                         implicitFramebufferIdentity: pairStep.inputIdentity
                     ),
                     variantCache: material.variants
@@ -110,10 +113,22 @@ extension SceneResolvedMaterialGraphExecutor {
                         failure: failure
                     )
                 }
-                guard let prepared = materialEncoder.prepare(
+                let passPreparation = materialEncoder.prepareResult(
                     program: program,
                     target: target
-                ) else { return .materialPassEncoderRejected }
+                )
+                guard case let .success(prepared) = passPreparation else {
+                    guard case let .failure(failure) = passPreparation else {
+                        return .materialPassEncoderRejected
+                    }
+                    return .materialPassPreparationRejected(
+                        stageIndex: stageIndex,
+                        nodeIndex: nodeIndex,
+                        materialOrdinal: ordinal,
+                        programKey: program.preparedShader.cacheKey,
+                        failure: failure
+                    )
+                }
                 commands.append(.material(prepared))
                 programKeys.append(program.preparedShader.cacheKey)
 

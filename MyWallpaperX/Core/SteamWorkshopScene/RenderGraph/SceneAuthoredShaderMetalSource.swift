@@ -33,12 +33,16 @@ nonisolated enum SceneAuthoredShaderMetalSource {
         #include <metal_stdlib>
         using namespace metal;
 
+        float3x3 mwxCast3x3(float4x4 value) {
+            return float3x3(value[0].xyz, value[1].xyz, value[2].xyz);
+        }
+
         #define mul(x, y) ((y) * (x))
         #define frac fract
         #define CAST2(x) float2(x)
         #define CAST3(x) float3(x)
         #define CAST4(x) float4(x)
-        #define CAST3X3(x) float3x3(x)
+        #define CAST3X3(x) mwxCast3x3(x)
         #define saturate(x) clamp((x), 0.0, 1.0)
         #define lerp mix
         \(authoredDefines)

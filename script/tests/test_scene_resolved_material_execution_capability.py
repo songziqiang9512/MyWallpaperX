@@ -425,6 +425,8 @@ private func key(_ index: Int, _ id: String) -> Graph.EffectKey {
 
 private let firstKey = key(0, "first-active")
 private let secondKey = key(2, "second-active")
+private let thirdKey = key(3, "third-active")
+private let fourthKey = key(4, "fourth-active")
 
 private func source() -> Graph.TextureIdentity {
     SceneAuthoredEffectInputValidator.layerSource(layerID: layerID)
@@ -712,6 +714,77 @@ private func pairOnlyDescriptor() -> SceneRenderDescriptor {
     )
 }
 
+private func alternatingPairGraph() -> Graph {
+    let keys = [firstKey, secondKey, thirdKey, fourthKey]
+    var current = source()
+    var nodes: [Graph.Node] = []
+    var effects: [Graph.Effect] = []
+    for (index, effectKey) in keys.enumerated() {
+        let next = output(effectKey)
+        let node = material(
+            index: index,
+            ordinal: 0,
+            effect: effectKey,
+            target: next,
+            input: current
+        )
+        nodes.append(node)
+        effects.append(.init(
+            key: effectKey,
+            definitionPath: "effects/alternating-\(index)/effect.json",
+            input: current,
+            output: next,
+            nodeIndices: [node.nodeIndex]
+        ))
+        current = next
+    }
+    return .init(
+        layerID: layerID,
+        effects: effects,
+        renderTargets: [],
+        nodes: nodes,
+        finalOutput: current,
+        blockers: []
+    )
+}
+
+private func alternatingPairDescriptor() -> SceneRenderDescriptor {
+    let keys = [firstKey, secondKey, thirdKey, fourthKey]
+    var effects = keys.enumerated().map { index, effectKey in
+        SceneRenderDescriptor.EffectDescriptor(
+            id: effectKey.descriptorID,
+            file: "effects/alternating-\(index)/effect.json",
+            visible: true,
+            passes: [.init(passIndex: 0, combos: [:])]
+        )
+    }
+    effects.insert(.init(
+        id: "hidden-middle",
+        file: "effects/hidden/effect.json",
+        visible: false,
+        passes: []
+    ), at: 1)
+    return .init(
+        layers: [.init(
+            id: layerID,
+            effects: effects
+        )],
+        materialPasses: keys.indices.map {
+            .init(
+                id: "m\($0)",
+                materialPath: "materials/m\($0).json",
+                combos: [:]
+            )
+        },
+        effectDefinitions: keys.indices.map {
+            .init(
+                relativePath: "effects/alternating-\($0)/effect.json",
+                functions: nil
+            )
+        }
+    )
+}
+
 private func dedicatedProgram(
     graph: Graph,
     effectIndex: Int,
@@ -875,7 +948,8 @@ private func template(
 private func materialCatalog(
     graph: Graph,
     omitNode: Int? = nil,
-    uniformsByNode: [Int: [Template.UniformDeclaration]] = [:]
+    uniformsByNode: [Int: [Template.UniformDeclaration]] = [:],
+    demandIssueNodes: Set<Int> = []
 ) -> SceneResolvedMaterialRuntimeCatalog {
     var entries: [
         SceneResolvedMaterialRuntimeCatalog.Key:
@@ -891,7 +965,14 @@ private func materialCatalog(
             )
         )
     }
-    return .init(entries: entries, resourceDemandIssues: [])
+    let demandIssues = Set(graph.nodes.compactMap { node in
+        demandIssueNodes.contains(node.nodeIndex)
+            ? SceneResolvedMaterialRuntimeCatalog.ResourceDemandIssue(
+                key: .init(effect: node.effect, nodeIndex: node.nodeIndex)
+            )
+            : nil
+    })
+    return .init(entries: entries, resourceDemandIssues: demandIssues)
 }
 
 private func catalog(
@@ -1234,6 +1315,38 @@ private enum Harness {
             dedicatedStageFamilies: [firstKey: "fixture-dedicated"],
             dedicatedLeafKeys: [firstKey]
         )
+        let alternatingGraph = alternatingPairGraph()
+        let alternatingCandidates =
+            SceneResolvedMaterialExecutionCapabilityAdmission.compile(
+                descriptor: alternatingPairDescriptor(),
+                authoredPlans: [alternatingGraph],
+                dedicatedStagePrograms: [
+                    dedicatedProgram(
+                        graph: alternatingGraph,
+                        effectIndex: 0,
+                        inputRole: .layerSource
+                    ),
+                    dedicatedProgram(
+                        graph: alternatingGraph,
+                        effectIndex: 2,
+                        inputRole: .priorEffectOutput
+                    ),
+                ]
+            )
+        let alternatingCatalog = Catalog(
+            admissionCandidates: alternatingCandidates,
+            materialCatalog: materialCatalog(
+                graph: alternatingGraph,
+                demandIssueNodes: [0, 2]
+            ),
+            dedicatedStageFamilies: [
+                firstKey: "fixture-dedicated",
+                thirdKey: "fixture-dedicated",
+            ],
+            dedicatedLeafKeys: [firstKey, thirdKey]
+        )
+        let alternatingCapability = alternatingCatalog.claim(layerID: layerID)
+            .flatMap { alternatingCatalog.resolve($0.token) }
         let resolvedBeforeDedicatedCandidates =
             SceneResolvedMaterialExecutionCapabilityAdmission.compile(
                 descriptor: pairDescriptor,
@@ -1402,10 +1515,31 @@ private enum Harness {
                     unverifiedSceneScriptCatalog,
                     "dynamic-uniform-unavailable"
                 ),
-                "dedicatedBeforeResolved": reportHas(
-                    dedicatedBeforeResolvedCatalog,
-                    "mixed-chain-resolved-prefix-required"
-                ) && dedicatedBeforeResolvedCatalog.claim(layerID: layerID) == nil,
+                "dedicatedBeforeResolved":
+                    dedicatedBeforeResolvedCatalog.claim(layerID: layerID) != nil,
+                "alternatingMixedOrder": alternatingCapability != nil,
+                "alternatingMixedOrderContract": alternatingCapability.map { capability in
+                    let keys = capability.stages.compactMap(\.subject).map(\.key)
+                    let families = capability.stages.compactMap(\.subject).map(\.family)
+                    let steps = capability.pairPlan.effects
+                    let continuous = zip(steps.dropLast(), steps.dropFirst())
+                        .allSatisfy { previous, next in
+                            previous.outputIdentity == next.inputIdentity
+                                && previous.outputMember == next.inputMember
+                        }
+                    return keys == [firstKey, secondKey, thirdKey, fourthKey]
+                        && families == [
+                            "fixture-dedicated",
+                            "resolved-material",
+                            "fixture-dedicated",
+                            "resolved-material",
+                        ]
+                        && steps.map(\.effect) == keys
+                        && continuous
+                        && capability.pairPlan.terminalOutputIdentity
+                            == output(fourthKey)
+                        && capability.pairPlan.terminalMember == .zero
+                } ?? false,
                 "resolvedBeforeDedicated":
                     resolvedBeforeDedicatedCatalog.claim(layerID: layerID) != nil,
                 "emptyDedicatedLeafAllowlist":
@@ -2279,7 +2413,7 @@ private enum EnvelopeHarness {
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
-    def test_film_grain_prefers_program_and_keeps_dedicated_fallback(self) -> None:
+    def test_authored_material_families_prefer_program_and_keep_fallback(self) -> None:
         source = EFFECT_BACKEND_SOURCE.read_text(encoding="utf-8")
         leaf_start = source.index("        var supportsUnifiedPairLeaf: Bool")
         yield_start = source.index(
@@ -2289,8 +2423,15 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         yield_end = source.index("\n    var gaussianBlur:", yield_start)
         yield_body = source[yield_start:yield_end]
 
-        self.assertNotIn(".filmGrain", leaf_body)
-        self.assertIn("case .opacity, .tint, .filmGrain:", yield_body)
+        for backend_name in (
+            ".filmGrain",
+            ".lightShafts",
+            ".waterFlow",
+            ".foliageSway",
+            ".depthParallax",
+        ):
+            self.assertNotIn(backend_name, leaf_body)
+            self.assertIn(backend_name, yield_body)
         self.assertIn("case filmGrain(SceneFilmGrainExecutionPlan)", source)
 
     def test_runtime_variant_resolution_starts_from_launch_envelope_seed(
@@ -2536,6 +2677,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "missingProducer": True,
                 "unverifiedSceneScript": True,
                 "dedicatedBeforeResolved": True,
+                "alternatingMixedOrder": True,
+                "alternatingMixedOrderContract": True,
                 "resolvedBeforeDedicated": True,
                 "emptyDedicatedLeafAllowlist": True,
                 "fallbackDedicatedLeaf": True,
@@ -2573,6 +2716,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "SceneResolvedMaterialTextureResolver.swift",
                 "SceneAuthoredShaderColorTransferAnalyzer.swift",
                 "SceneAuthoredShaderSameSlotMixAnalyzer.swift",
+                "SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
                 "SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
                 "SceneAuthoredShaderFrontend.swift",
                 "SceneAuthoredShaderPreparation.swift",

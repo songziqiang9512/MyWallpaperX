@@ -51,6 +51,10 @@ LIVE_CONSUMERS_SOURCE = (
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+LiveConsumers.swift"
 )
 VIEW_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView.swift"
+VIEW_FRAME_CONTEXT_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView+FrameContext.swift"
+)
 PARTICLE_PLAYBACK_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticlePlaybackState.swift"
@@ -387,6 +391,15 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertEqual(self.result["context"]["pointerPrevious"], [0.25, -0.5])
         self.assertEqual(self.result["context"]["canvas"], [1920, 1080])
         self.assertEqual(self.result["context"]["screen"], [3024, 1964])
+
+    def test_view_publishes_camera_parallax_only_when_the_camera_enables_it(self) -> None:
+        source = VIEW_FRAME_CONTEXT_SOURCE.read_text(encoding="utf-8")
+        make_context = swift_body(source, "func makeFrameContext(")
+        self.assertIn("pointer: pointerState", make_context)
+        self.assertIn(
+            "cameraParallaxPosition: camera.parallaxEnabled ? parallax : .zero",
+            make_context,
+        )
 
     def test_host_owns_the_only_scene_frame_timer_and_per_surface_snapshots(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")

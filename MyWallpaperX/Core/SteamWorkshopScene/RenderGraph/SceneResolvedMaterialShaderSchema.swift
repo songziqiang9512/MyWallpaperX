@@ -11,15 +11,7 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         case opacityMask
         case rgbMask
         case flowMask
-
-        var explicitPurpose: SceneTextureLoadPurpose? {
-            switch self {
-            case .regular: nil
-            case .opacityMask: .mask
-            case .rgbMask: .preservedChannels
-            case .flowMask: .flow
-            }
-        }
+        case depth
     }
 
     enum DefaultTexture: Hashable {
@@ -73,40 +65,6 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         })
     }
 
-    /// A small compatibility normalization for historical authored materials
-    /// that omitted the explicit framebuffer annotation. It is structural:
-    /// one regular `g_Texture0` may infer the current graph input when every
-    /// auxiliary sampler has a typed data purpose and no auxiliary graph
-    /// binding. Untyped or second-color inputs remain fail-closed.
-    static func implicitFramebufferSlots(
-        template: Template,
-        samplers: [Int: Sampler]
-    ) -> Set<Int> {
-        guard template.graphRole.bindings.isEmpty,
-              template.textureSlots.indices.contains(0),
-              template.textureSlots[0] == nil,
-              let sampler = samplers[0],
-              sampler.name == "g_Texture0",
-              sampler.mode == .regular,
-              sampler.materialKey == nil,
-              sampler.defaultTexture == nil,
-              samplers.allSatisfy({ slot, auxiliary in
-                  slot == 0
-                      || auxiliary.mode.explicitPurpose != nil
-                      || auxiliary.hasTypedAuxiliaryDefault
-              }),
-              template.textureSlots.enumerated().allSatisfy({ index, slot in
-                  guard index != 0, let slot else { return true }
-                  return slot.candidates.allSatisfy { candidate in
-                      if case .graph = candidate.reference { return false }
-                      return true
-                  }
-              }) else {
-            return []
-        }
-        return [0]
-    }
-
     static func activeUniforms(
         _ fields: [SceneAuthoredShaderUniformLayout.Field],
         prepared: SceneShaderPreparedProgram
@@ -115,21 +73,22 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         var result: [String: Uniform] = [:]
         var keyOwners: [String: String] = [:]
         for field in fields {
-            let schema = try uniformSchema(field.name, records: allRecords)
+            let schema = try uniformSchema(field, records: allRecords)
             guard result.updateValue(schema, forKey: field.name) == nil else {
                 throw Issue.uniform(field.name)
             }
             for key in schema.materialKeys {
-                if let owner = keyOwners[key], owner != field.name {
+                if let owner = keyOwners[key], owner != field.authoredName {
                     throw Issue.uniform(key)
                 }
-                keyOwners[key] = field.name
+                keyOwners[key] = field.authoredName
             }
         }
         return result
     }
 
     private struct Record {
+        let stage: SceneShaderContract.StageKind?
         let sourcePath: String
         let declaration: SceneShaderContract.Declaration
         let annotations: [SceneShaderContract.Annotation]
@@ -141,6 +100,7 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         sources.flatMap { source in
             source.declarations.map { declaration in
                 .init(
+                    stage: nil,
                     sourcePath: source.relativePath,
                     declaration: declaration,
                     annotations: source.annotations.filter {
@@ -156,24 +116,27 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
     ) -> [Record] {
         let annotations = prepared.all.flatMap(\.activeAnnotations)
         var seen: Set<String> = []
-        return prepared.all.flatMap(\.activeDeclarations).compactMap { active in
-            let declaration = active.declaration
-            let identity = [
-                active.sourcePath, String(declaration.line),
-                declaration.kind.rawValue, declaration.type, declaration.name,
-            ].joined(separator: "\u{1f}")
-            guard seen.insert(identity).inserted else { return nil }
-            return .init(
-                sourcePath: active.sourcePath,
-                declaration: declaration,
-                annotations: annotations.compactMap { annotation in
-                    guard annotation.sourcePath == active.sourcePath,
-                          annotation.annotation.line == declaration.line else {
-                        return nil
+        return prepared.all.flatMap { source in
+            source.activeDeclarations.compactMap { active in
+                let declaration = active.declaration
+                let identity = [
+                    source.stage.rawValue, active.sourcePath, String(declaration.line),
+                    declaration.kind.rawValue, declaration.type, declaration.name,
+                ].joined(separator: "\u{1f}")
+                guard seen.insert(identity).inserted else { return nil }
+                return .init(
+                    stage: source.stage,
+                    sourcePath: active.sourcePath,
+                    declaration: declaration,
+                    annotations: annotations.compactMap { annotation in
+                        guard annotation.sourcePath == active.sourcePath,
+                              annotation.annotation.line == declaration.line else {
+                            return nil
+                        }
+                        return annotation.annotation
                     }
-                    return annotation.annotation
-                }
-            )
+                )
+            }
         }
     }
 
@@ -196,9 +159,11 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                 }
             }
             let mode = try textureMode(value("mode", in: objects), name: name)
-            guard try value("format", in: objects) == nil else {
-                throw Issue.sampler(name)
-            }
+            try validateTextureFormat(
+                value("format", in: objects),
+                mode: mode,
+                name: name
+            )
             let material = try normalizedString(value("material", in: objects), name: name)
             let defaultTexture = try textureDefault(value("default", in: objects), name: name)
             let schema = Sampler(
@@ -217,14 +182,16 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
     }
 
     private static func uniformSchema(
-        _ name: String,
+        _ field: SceneAuthoredShaderUniformLayout.Field,
         records: [Record]
     ) throws -> Uniform {
+        let name = field.authoredName
         do {
             let declarations = records.filter {
                 $0.declaration.kind == .uniform
                     && !isSampler2D($0.declaration.type)
                     && $0.declaration.name == name
+                    && (field.stage == nil || $0.stage == field.stage)
             }
             guard !declarations.isEmpty else { throw Issue.uniform(name) }
             let objects = declarations.flatMap { record in
@@ -250,7 +217,7 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                 )
             }
             return .init(
-                name: name,
+                name: field.name,
                 materialKeys: [name] + (material.map { [$0] } ?? []),
                 defaultValue: fallback
             )
@@ -284,7 +251,21 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         case "opacitymask": .opacityMask
         case "rgbmask": .rgbMask
         case "flowmask": .flowMask
+        case "depth": .depth
         default: throw Issue.sampler(name)
+        }
+    }
+
+    private static func validateTextureFormat(
+        _ value: SceneShaderAnnotationValue?,
+        mode: TextureMode,
+        name: String
+    ) throws {
+        guard let value else { return }
+        guard mode == .depth,
+              let raw = value.stringValue,
+              raw.caseInsensitiveCompare("r8") == .orderedSame else {
+            throw Issue.sampler(name)
         }
     }
 

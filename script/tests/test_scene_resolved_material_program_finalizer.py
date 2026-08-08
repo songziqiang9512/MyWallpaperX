@@ -41,10 +41,12 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderDeadBindingAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVectorConversion.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVaryingArrayEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderColorTransferAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSameSlotMixGraphAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrontend.swift",
@@ -64,6 +66,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneNamedTextureReference.swift",
     SCENE_ROOT / "Resources/SceneFrameTextureRegistry.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram.swift",
+    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialHostUniformSchema.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgramIdentity.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram+Derivation.swift",
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialProgram+ColorDerivation.swift",
@@ -146,10 +149,12 @@ private typealias Program = SceneResolvedMaterialProgram
 private typealias Template = SceneResolvedMaterialTemplate
 
 private let fixtureLayerID = 42
+private let effectProjectionInverse = simd_float4x4(diagonal: SIMD4(2, 3, 4, 5))
 
 private func vertexSource(
     samplerMetadata: String?,
-    deadMaskCoordinates: Bool = false
+    deadMaskCoordinates: Bool = false,
+    stageLocalUniforms: Bool = false
 ) -> String {
     let sampler = samplerMetadata.map {
         "uniform sampler2D g_Texture0; // \($0)"
@@ -166,17 +171,34 @@ private func vertexSource(
         );
         """
         : ""
+    let stageLocalUniform = stageLocalUniforms
+        ? #"uniform float g_Gain; // {"material":"vertexGain","default":2}"#
+        : ""
+    let stageLocalProbe = stageLocalUniforms ? "float vertexProbe = g_Gain;" : ""
     return """
+    #if 1
+    uniform mat4 g_EffectTextureProjectionMatrix;
+    uniform mat4 g_EffectTextureProjectionMatrixInverse;
+    uniform vec2 g_ParallaxPosition;
+    #endif
+    #endif
+    #if 1
     attribute vec3 a_Position;
     attribute vec2 a_TexCoord;
     varying \(varyingType) v_TexCoord;
     \(sampler)
     \(resolution)
+    \(stageLocalUniform)
     void main() {
+        \(stageLocalProbe)
         v_TexCoord.xy = a_TexCoord;
         \(maskCoordinates)
-        gl_Position = vec4(a_Position, 1.0);
+        gl_Position = mul(
+            vec4(a_Position, 1.0),
+            g_EffectTextureProjectionMatrixInverse
+        );
     }
+    #endif
     """
 }
 
@@ -188,7 +210,8 @@ private func fragmentSource(
     arithmetic: Bool = false,
     audioSpectrum: Bool = false,
     maskedAlpha: Bool = false,
-    optionalMask: Bool = false
+    optionalMask: Bool = false,
+    stageLocalUniforms: Bool = false
 ) -> String {
     let annotation = samplerMetadata.map { " // \($0)" } ?? ""
     let uniformAnnotation = uniformMetadata.map { " // \($0)" } ?? ""
@@ -247,6 +270,10 @@ private func fragmentSource(
     let audioProbe = audioSpectrum
         ? "float audioProbe = g_AudioSpectrum16Left[3] + g_AudioSpectrum32Right[5] + g_AudioSpectrum64Left[7] + g_AudioSpectrum64Right[9];"
         : ""
+    let stageLocalUniform = stageLocalUniforms
+        ? #"uniform float g_Gain; // {"material":"fragmentGain","default":3}"#
+        : ""
+    let stageLocalProbe = stageLocalUniforms ? "float fragmentProbe = g_Gain;" : ""
     return """
     varying \(optionalMask ? "vec4" : "vec2") v_TexCoord;
     \(combo)
@@ -256,7 +283,9 @@ private func fragmentSource(
     uniform vec3 u_Tint;\(uniformAnnotation)
     \(alphaUniform)
     uniform float g_Time; // {"default":99}
+    \(stageLocalUniform)
     void main() {
+        \(stageLocalProbe)
         \(audioProbe)
         \(output)
     }
@@ -274,7 +303,8 @@ private func contract(
     audioSpectrum: Bool = false,
     maskedAlpha: Bool = false,
     optionalMask: Bool = false,
-    deadMaskCoordinates: Bool = false
+    deadMaskCoordinates: Bool = false,
+    stageLocalUniforms: Bool = false
 ) -> SceneShaderContract {
     func stage(
         _ kind: SceneShaderContract.StageKind,
@@ -301,7 +331,8 @@ private func contract(
             path: "\(revision)/root.vert",
             source: vertexSource(
                 samplerMetadata: vertexSamplerMetadata,
-                deadMaskCoordinates: deadMaskCoordinates
+                deadMaskCoordinates: deadMaskCoordinates,
+                stageLocalUniforms: stageLocalUniforms
             )
         ),
         stage(
@@ -315,7 +346,8 @@ private func contract(
                 arithmetic: arithmetic,
                 audioSpectrum: audioSpectrum,
                 maskedAlpha: maskedAlpha,
-                optionalMask: optionalMask
+                optionalMask: optionalMask,
+                stageLocalUniforms: stageLocalUniforms
             )
         ),
     ]
@@ -631,11 +663,14 @@ private func uniformInputs() -> SceneAuthoredShaderUniformInputs {
         renderSize: CGSize(width: 640, height: 360),
         screenSize: CGSize(width: 1920, height: 1080),
         modelViewProjection: matrix_identity_float4x4,
+        effectTextureProjectionMatrix: effectProjectionInverse.inverse,
+        effectTextureProjectionMatrixInverse: effectProjectionInverse,
         sceneTime: 2,
         dayTime: 0.5,
         frameTime: 1 / 60,
         pointerCurrentNDC: SIMD2(0.25, -0.5),
         pointerPreviousNDC: SIMD2.zero,
+        parallaxPositionNDC: SIMD2(0.5, -0.25),
         texturePhysicalSizes: [0: CGSize(width: 2, height: 2)]
     )
 }
@@ -652,6 +687,7 @@ private func frameInputs(
         frameTime: 1 / 60,
         pointerCurrentNDC: SIMD2(0.25, -0.5),
         pointerPreviousNDC: .zero,
+        parallaxPositionNDC: SIMD2(0.5, -0.25),
         audioSpectrum: audioSpectrum
     )
 }
@@ -765,6 +801,7 @@ private func finalize(
                 ),
                 renderSize: CGSize(width: 640, height: 360),
                 modelViewProjection: matrix_identity_float4x4,
+                effectTextureProjectionMatrixInverse: effectProjectionInverse,
                 implicitFramebufferIdentity: implicitFramebufferIdentity
             )
         )
@@ -828,6 +865,31 @@ private func implicitFramebufferProjectionToken(
         let samplers = try SceneResolvedMaterialShaderSchema.activeSamplers(prepared)
         return SceneResolvedMaterialShaderSchema.implicitFramebufferSlots(
             template: template(shader, includePrimaryCandidate: false),
+            samplers: samplers
+        ).sorted().map(String.init).joined(separator: ",")
+    } catch {
+        return "schema-invalid"
+    }
+}
+
+private func implicitFramebufferCandidateProjectionToken(
+    assetPath: String
+) -> String {
+    let shader = contract(revision: "implicit-stock-candidate")
+    guard case let .accepted(prepared) =
+            SceneAuthoredShaderPreparation.prepareShaderStages(
+                contract: shader,
+                combos: [:],
+                textureReadiness: [0: true, 1: true]
+            ) else { return "preparation-failed" }
+    do {
+        let samplers = try SceneResolvedMaterialShaderSchema.activeSamplers(prepared)
+        return SceneResolvedMaterialShaderSchema.implicitFramebufferSlots(
+            template: template(
+                shader,
+                includePrimaryCandidate: false,
+                secondReference: .asset(SceneVFSAssetPath(assetPath)!)
+            ),
             samplers: samplers
         ).sorted().map(String.init).joined(separator: ",")
     } catch {
@@ -971,6 +1033,30 @@ private enum Harness {
                 && float(program.uniformBytes, at: right32.offset + 5 * 4) == 105
                 && float(program.uniformBytes, at: left64.offset + 7 * 4) == 207
                 && float(program.uniformBytes, at: right64.offset + 9 * 4) == 309
+        }()
+        let stageLocalProgram = finalize(
+            shader: contract(
+                revision: "stage-local-uniforms",
+                stageLocalUniforms: true
+            ),
+            device: device
+        )
+        let stageLocalUniformsEncoded: Bool = {
+            guard case let .success(program) = stageLocalProgram,
+                  let vertex = program.frontendProgram.uniformLayout.fields.first(
+                      where: { $0.name == "mwxV_g_Gain" }
+                  ),
+                  let fragment = program.frontendProgram.uniformLayout.fields.first(
+                      where: { $0.name == "mwxF_g_Gain" }
+                  ) else {
+                return false
+            }
+            return vertex.authoredName == "g_Gain"
+                && fragment.authoredName == "g_Gain"
+                && vertex.stage == .vertex
+                && fragment.stage == .fragment
+                && float(program.uniformBytes, at: vertex.offset) == 2
+                && float(program.uniformBytes, at: fragment.offset) == 3
         }()
 
         let implicitFramebufferProgram = finalize(
@@ -1548,6 +1634,31 @@ private enum Harness {
                 == programA.frontendProgram.uniformLayout.byteSize
             && !programA.uniformBytes.isEmpty
             && programA.uniformBytes.subdata(in: encodedRange) == expectedRenderSize
+        let effectProjectionField = programA.frontendProgram.uniformLayout.fields.first {
+            $0.name == "g_EffectTextureProjectionMatrixInverse"
+        }!
+        let effectProjectionEncoded = [0, 5, 10, 15].enumerated().allSatisfy {
+            index, component in
+            float(programA.uniformBytes, at: effectProjectionField.offset + component * 4)
+                == Float(index + 2)
+        }
+        let forwardProjectionField = programA.frontendProgram.uniformLayout.fields.first {
+            $0.name == "g_EffectTextureProjectionMatrix"
+        }!
+        let expectedForwardDiagonal: [Float] = [0.5, 1.0 / 3.0, 0.25, 0.2]
+        let forwardProjectionEncoded = [0, 5, 10, 15].enumerated().allSatisfy {
+            index, component in
+            abs(float(
+                programA.uniformBytes,
+                at: forwardProjectionField.offset + component * 4
+            ) - expectedForwardDiagonal[index]) < 0.000_001
+        }
+        let parallaxField = programA.frontendProgram.uniformLayout.fields.first {
+            $0.name == "g_ParallaxPosition"
+        }!
+        let parallaxPositionEncoded =
+            float(programA.uniformBytes, at: parallaxField.offset) == 0.75
+            && float(programA.uniformBytes, at: parallaxField.offset + 4) == 0.625
 
         let failures: [String: String] = [
             "nonFramebufferDoesNotInject": failureToken(finalize(
@@ -1750,9 +1861,13 @@ private enum Harness {
                     && programA.textureSlots[0] != nil
                     && programA.textureSlots.dropFirst().allSatisfy { $0 == nil },
                 "uniformLayoutCorrect": uniformLayoutCorrect,
+                "effectProjectionInverseEncoded": effectProjectionEncoded,
+                "effectProjectionEncoded": forwardProjectionEncoded,
+                "parallaxPositionEncoded": parallaxPositionEncoded,
                 "shaderUniformDefault": tintDefaultCorrect,
                 "hostIgnoresShaderDefault": hostDefaultIgnored,
                 "explicitUniformOverridesDefault": explicitOverrideCorrect,
+                "stageLocalUniformsEncoded": stageLocalUniformsEncoded,
                 "assetReferenceTyped": failureToken(assetProgram) == "success",
                 "userReferenceTyped": failureToken(propertyProgram) == "success",
                 "providerReferenceTyped": failureToken(providerProgram) == "success",
@@ -1804,6 +1919,21 @@ private enum Harness {
                     assetReference: true,
                     assetPath: "util/noise"
                 ),
+                "registeredStockWaterFlowPhase": samplerPurposeToken(
+                    nil,
+                    assetReference: true,
+                    assetPath: "effects/waterflowphase"
+                ),
+                "registeredStockShimmerGradient": samplerPurposeToken(
+                    nil,
+                    assetReference: true,
+                    assetPath: "gradient/gradient_ferro_fluid"
+                ),
+                "registeredStockCloudNoise": samplerPurposeToken(
+                    nil,
+                    assetReference: true,
+                    assetPath: "util/clouds_256"
+                ),
                 "registeredStockPurposeConflict": samplerPurposeToken(
                     #"{"mode":"opacitymask"}"#,
                     assetReference: true,
@@ -1825,6 +1955,12 @@ private enum Harness {
                 "flowMask": samplerPurposeToken(#"{"mode":"flowmask"}"#),
                 "normal": samplerPurposeToken(#"{"mode":"normal"}"#),
                 "depth": samplerPurposeToken(#"{"mode":"depth"}"#),
+                "depthR8": samplerPurposeToken(
+                    #"{"mode":"depth","format":"r8"}"#
+                ),
+                "depthWrongFormat": samplerPurposeToken(
+                    #"{"mode":"depth","format":"rgba8"}"#
+                ),
                 "normalFormat": samplerPurposeToken(#"{"format":"normalmap"}"#),
                 "genericFormat": samplerPurposeToken(#"{"format":"rgba8"}"#),
                 "unknownMode": samplerPurposeToken(#"{"mode":"mystery"}"#),
@@ -1833,6 +1969,10 @@ private enum Harness {
                 "registeredStockDefault": implicitFramebufferProjectionToken(
                     defaultAssetPath: "util/noise"
                 ),
+                "registeredAuthoredCandidate":
+                    implicitFramebufferCandidateProjectionToken(
+                        assetPath: "effects/waterflowphase"
+                    ),
                 "unknownDefault": implicitFramebufferProjectionToken(
                     defaultAssetPath: "textures/unknown-default.tex"
                 ),
@@ -1966,6 +2106,9 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "normalAsset": "normal",
                 "normalAssetCaseInsensitive": "normal",
                 "registeredStockNoise": "noise",
+                "registeredStockWaterFlowPhase": "phase",
+                "registeredStockShimmerGradient": "preserved-channels",
+                "registeredStockCloudNoise": "noise",
                 "registeredStockPurposeConflict": "unproven",
                 "unknownMaterialAsset": "unproven",
                 "conflictingMaterial": "schema-invalid",
@@ -1975,7 +2118,9 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "rgbMask": "preserved-channels",
                 "flowMask": "flow",
                 "normal": "schema-invalid",
-                "depth": "schema-invalid",
+                "depth": "depth",
+                "depthR8": "depth",
+                "depthWrongFormat": "schema-invalid",
                 "normalFormat": "schema-invalid",
                 "genericFormat": "schema-invalid",
                 "unknownMode": "schema-invalid",
@@ -1987,6 +2132,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             self.result["implicitFramebufferSchema"],
             {
                 "registeredStockDefault": "0",
+                "registeredAuthoredCandidate": "0",
                 "unknownDefault": "",
             },
         )

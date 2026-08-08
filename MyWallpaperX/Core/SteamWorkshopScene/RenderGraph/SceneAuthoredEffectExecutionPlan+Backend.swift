@@ -51,7 +51,8 @@ extension SceneAuthoredEffectExecutionPlan {
     /// compile the authored stage.
     nonisolated var yieldsToResolvedMaterialProgram: Bool {
         switch backend {
-        case .opacity, .tint, .filmGrain:
+        case .opacity, .tint, .filmGrain, .lightShafts, .waterFlow,
+             .foliageSway, .depthParallax:
             return true
         default:
             return false

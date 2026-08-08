@@ -111,7 +111,12 @@ nonisolated enum SceneAuthoredShaderValueType: String, CaseIterable, Hashable, S
 
 nonisolated struct SceneAuthoredShaderUniformLayout: Equatable, Hashable, Sendable {
     struct Field: Equatable, Hashable, Sendable {
+        /// Metal ABI name. It is stage-qualified only when the authored name
+        /// is declared by both stages and therefore denotes two stage-local
+        /// constant bindings.
         let name: String
+        let authoredName: String
+        let stage: SceneShaderContract.StageKind?
         let type: SceneAuthoredShaderValueType
         /// Fixed-size host arrays keep their element type while preserving
         /// the authored declaration shape in the uniform ABI.
@@ -120,11 +125,15 @@ nonisolated struct SceneAuthoredShaderUniformLayout: Equatable, Hashable, Sendab
 
         init(
             name: String,
+            authoredName: String? = nil,
+            stage: SceneShaderContract.StageKind? = nil,
             type: SceneAuthoredShaderValueType,
             arrayCount: Int? = nil,
             offset: Int
         ) {
             self.name = name
+            self.authoredName = authoredName ?? name
+            self.stage = stage
             self.type = type
             self.arrayCount = arrayCount
             self.offset = offset
@@ -137,6 +146,23 @@ nonisolated struct SceneAuthoredShaderUniformLayout: Equatable, Hashable, Sendab
 
     let fields: [Field]
     let byteSize: Int
+}
+
+nonisolated struct SceneAuthoredShaderUniformDeclaration {
+    let authoredName: String
+    let fieldName: String
+    let type: SceneAuthoredShaderValueType
+    let arrayCount: Int?
+    let stage: SceneShaderContract.StageKind
+
+    static func fieldNames(
+        in declarations: [Self],
+        for stage: SceneShaderContract.StageKind
+    ) -> [String: String] {
+        Dictionary(uniqueKeysWithValues: declarations.filter {
+            $0.stage == stage
+        }.map { ($0.authoredName, $0.fieldName) })
+    }
 }
 
 nonisolated enum SceneShaderColorTransfer: Equatable, Hashable, Sendable {

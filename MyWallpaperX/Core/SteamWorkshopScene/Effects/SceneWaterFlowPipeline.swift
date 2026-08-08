@@ -151,6 +151,8 @@ struct SceneWaterFlowPipeline {
             plan: plan,
             time: time,
             maskUVScale: maskUVScale,
+            flowSampling: flowSampling,
+            phaseSampling: phaseSampling,
             commandBuffer: commandBuffer
         ) else {
             return false
@@ -198,12 +200,16 @@ struct SceneWaterFlowPipeline {
         plan: SceneWaterFlowExecutionPlan,
         time: Float,
         maskUVScale: SIMD2<Float>,
+        flowSampling: SceneTextureSampling,
+        phaseSampling: SceneTextureSampling,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
         let auxiliaryFormats: Set<MTLPixelFormat> = [
             .r8Unorm, .rg8Unorm, .rgba8Unorm, .bgra8Unorm,
         ]
         return time.isFinite
+            && !flowSampling.usesClampBorderFallback
+            && !phaseSampling.usesClampBorderFallback
             && (0.01...2).contains(plan.speed)
             && (0.01...2).contains(plan.strength)
             && (0.01...10).contains(plan.phaseScale)

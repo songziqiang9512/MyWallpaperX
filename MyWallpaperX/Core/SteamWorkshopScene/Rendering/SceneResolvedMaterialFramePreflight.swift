@@ -189,6 +189,10 @@ extension SceneMetalRenderer {
                 visibleHalfExtents: cameraFrame.coverHalfExtents
             )
             let mvp = cameraFrame.orthographicViewProjection * model
+            guard let effectTextureProjectionMatrixInverse =
+                    SceneLayerCursorGeometry.inverseModelViewProjection(mvp) else {
+                return nil
+            }
             let cursor = SceneLayerCursorGeometry.layerUV(
                 mouseNormalized: frameContext.pointer.current,
                 modelViewProjection: mvp
@@ -267,6 +271,8 @@ extension SceneMetalRenderer {
                     pointerIsInside: frameContext.pointer.isInside && cursor != nil,
                     previousPointerIsInside:
                         frameContext.pointer.isInside && previousCursor != nil,
+                    effectTextureProjectionMatrixInverse:
+                        effectTextureProjectionMatrixInverse,
                     frameTime: Float(frameContext.frameTime),
                     time: time,
                     audioSpectrum: frameContext.audioSpectrum,

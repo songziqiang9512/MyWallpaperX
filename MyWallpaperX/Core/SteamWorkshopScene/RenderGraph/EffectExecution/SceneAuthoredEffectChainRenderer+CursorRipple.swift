@@ -13,7 +13,20 @@ extension SceneAuthoredEffectChainRenderer {
         time: Float,
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
-        guard let effectPipeline = pipelines.waterFlow else { return nil }
+        guard targets.plan.logicalTargets.isEmpty,
+              let resources = masks.waterFlowEffects[plan.effectKey.descriptorID],
+              let effectPipeline = pipelines.waterFlow else { return nil }
+        if targets.inputTexture === sourceTexture {
+            return SceneWaterFlowRenderer.render(
+                plan: plan,
+                resources: resources,
+                time: time,
+                inputTexture: sourceTexture,
+                outputTexture: targets.outputTexture,
+                pipeline: effectPipeline,
+                commandBuffer: commandBuffer
+            )
+        }
         return SceneWaterFlowRenderer.renderCaptured(
             plan: plan, sourceTexture: sourceTexture, masks: masks, targets: targets,
             sourceUniforms: sourceUniforms, sourcePipeline: pipeline,

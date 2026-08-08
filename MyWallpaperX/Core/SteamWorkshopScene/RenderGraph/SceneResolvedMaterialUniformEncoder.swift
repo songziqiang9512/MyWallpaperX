@@ -38,18 +38,17 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
         case .renderSize:
             return encodeSize(inputs.renderSize, type: type)
         case .modelViewProjection:
-            guard type == .float4x4 else { return nil }
-            let matrix = inputs.modelViewProjection
-            return encodeComponents([
-                matrix.columns.0.x, matrix.columns.0.y,
-                matrix.columns.0.z, matrix.columns.0.w,
-                matrix.columns.1.x, matrix.columns.1.y,
-                matrix.columns.1.z, matrix.columns.1.w,
-                matrix.columns.2.x, matrix.columns.2.y,
-                matrix.columns.2.z, matrix.columns.2.w,
-                matrix.columns.3.x, matrix.columns.3.y,
-                matrix.columns.3.z, matrix.columns.3.w,
-            ].map(Double.init), as: type)
+            return encodeMatrix(inputs.modelViewProjection, type: type)
+        case .effectTextureProjectionMatrix:
+            return encodeMatrix(
+                inputs.effectTextureProjectionMatrix,
+                type: type
+            )
+        case .effectTextureProjectionMatrixInverse:
+            return encodeMatrix(
+                inputs.effectTextureProjectionMatrixInverse,
+                type: type
+            )
         case .time:
             return encodeScalar(inputs.sceneTime, type: type)
         case .dayTime:
@@ -62,6 +61,8 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
             return encodePointer(inputs.pointerCurrentNDC, type: type)
         case .pointerPositionLast:
             return encodePointer(inputs.pointerPreviousNDC, type: type)
+        case .parallaxPosition:
+            return encodePointer(inputs.parallaxPositionNDC, type: type)
         case .screen:
             guard type == .float3, valid(inputs.screenSize) else { return nil }
             let width = Double(inputs.screenSize.width)
@@ -176,6 +177,23 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
     ) -> Data? {
         guard type == .float2, valid(size) else { return nil }
         return encodeComponents([size.width, size.height].map(Double.init), as: type)
+    }
+
+    private static func encodeMatrix(
+        _ matrix: simd_float4x4,
+        type: SceneAuthoredShaderValueType
+    ) -> Data? {
+        guard type == .float4x4 else { return nil }
+        return encodeComponents([
+            matrix.columns.0.x, matrix.columns.0.y,
+            matrix.columns.0.z, matrix.columns.0.w,
+            matrix.columns.1.x, matrix.columns.1.y,
+            matrix.columns.1.z, matrix.columns.1.w,
+            matrix.columns.2.x, matrix.columns.2.y,
+            matrix.columns.2.z, matrix.columns.2.w,
+            matrix.columns.3.x, matrix.columns.3.y,
+            matrix.columns.3.z, matrix.columns.3.w,
+        ].map(Double.init), as: type)
     }
 
     private static func encodeScalar(

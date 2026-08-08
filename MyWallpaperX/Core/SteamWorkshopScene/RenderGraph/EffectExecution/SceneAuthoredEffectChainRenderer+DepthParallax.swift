@@ -18,8 +18,22 @@ extension SceneAuthoredEffectChainRenderer {
               let resources = masks.depthParallaxEffects[
                   depthParallax.effectKey.descriptorID
               ],
-              let depthParallaxPipeline = pipelines.depthParallax,
-              SceneOffscreenEffectRenderer.captureSource(
+              let depthParallaxPipeline = pipelines.depthParallax else {
+            return nil
+        }
+        if targets.inputTexture === sourceTexture {
+            return SceneDepthParallaxRenderer.render(
+                plan: depthParallax,
+                resources: resources,
+                sourceTexture: sourceTexture,
+                target: targets.outputTexture,
+                cursorUV: cursorUV,
+                pointerIsInside: pointerIsInside,
+                pipeline: depthParallaxPipeline,
+                commandBuffer: commandBuffer
+            )
+        }
+        guard SceneOffscreenEffectRenderer.captureSource(
                   sourceTexture: sourceTexture,
                   waterMaskTexture: masks.water,
                   foliageMaskTexture: masks.foliage,

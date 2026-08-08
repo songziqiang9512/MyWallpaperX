@@ -280,6 +280,19 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
                 constantParameterArrays: []
             )
         }
+        if let iterations = SceneAuthoredShaderStaticLoopAdmission.earlyExitIterations(
+            header: header,
+            functionBody: functionBody,
+            loopIndex: loopIndex,
+            tokens: tokens,
+            defines: defines
+        ) {
+            return .init(
+                iterations: iterations,
+                boundedUniformReferences: [:],
+                constantParameterArrays: []
+            )
+        }
         return SceneAuthoredShaderBoundedLoopAdmission.compile(
             header: header,
             body: body,

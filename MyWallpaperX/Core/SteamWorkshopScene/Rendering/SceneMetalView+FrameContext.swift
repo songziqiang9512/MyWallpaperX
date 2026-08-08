@@ -30,7 +30,7 @@ extension SceneMetalView {
             ),
             screenSize: screenSize,
             pointer: pointerState,
-            cameraParallaxPosition: parallax,
+            cameraParallaxPosition: camera.parallaxEnabled ? parallax : .zero,
             audioSpectrum: audioSpectrum
         )
     }
