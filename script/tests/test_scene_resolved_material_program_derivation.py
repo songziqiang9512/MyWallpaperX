@@ -28,6 +28,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStaticLoopAdmission.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLoopAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderDeadBindingAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVaryingArrayEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
@@ -127,6 +128,14 @@ void main() {
 }
 """
 
+private let proceduralOpaqueFragment = """
+varying vec2 v_TexCoord;
+uniform sampler2D g_Texture0;
+void main() {
+    gl_FragColor = vec4(v_TexCoord, 0.0, 1.0);
+}
+"""
+
 private let straightAlphaFragment = """
 varying vec2 v_TexCoord;
 uniform sampler2D g_Texture0;
@@ -134,6 +143,19 @@ uniform float g_Gain;
 void main() {
     vec4 color = texSample2D(g_Texture0, v_TexCoord);
     gl_FragColor = vec4(color.rgb, color.a * g_Gain);
+}
+"""
+
+private let maskedAlphaFragment = """
+varying vec2 v_TexCoord;
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture1;
+uniform float g_Gain;
+void main() {
+    vec4 color = texSample2D(g_Texture0, v_TexCoord);
+    float mask = texSample2D(g_Texture1, v_TexCoord).r;
+    color.a *= mask * g_Gain;
+    gl_FragColor = color;
 }
 """
 
@@ -448,6 +470,13 @@ private enum Harness {
             prepared: firstPrepared,
             textureSlots: slots(firstSlot)
         )!
+        let proceduralOpaque = assemble(
+            prepared: prepared(
+                revision: "procedural-opaque",
+                fragment: proceduralOpaqueFragment
+            ),
+            textureSlots: slots()
+        )
 
         let synonymState = assemble(
             prepared: firstPrepared,
@@ -630,6 +659,36 @@ private enum Harness {
             ))
         ) == nil
 
+        let maskedPrepared = prepared(
+            revision: "masked-alpha-boundary",
+            fragment: maskedAlphaFragment
+        )
+        let maskSlot = textureSlot(
+            device: device,
+            slot: 1,
+            marker: 41,
+            expectedPurpose: .mask,
+            publishedPurpose: .mask,
+            content: .data,
+            reference: .asset(SceneVFSAssetPath("assets/mask.tex")!)
+        )
+        let maskedDataAccepted = assemble(
+            prepared: maskedPrepared,
+            textureSlots: slots(firstSlot, maskSlot)
+        )
+        let maskedColorRejected = assemble(
+            prepared: maskedPrepared,
+            textureSlots: slots(firstSlot, textureSlot(
+                device: device,
+                slot: 1,
+                marker: 42,
+                expectedPurpose: .straightAlbedo,
+                publishedPurpose: .straightAlbedo,
+                content: .color(.resolved(.straightAlpha)),
+                reference: .asset(SceneVFSAssetPath("assets/second-color.tex")!)
+            ))
+        ) == nil
+
         let opaqueAlphaPrepared = prepared(
             revision: "opaque-alpha-preserving",
             fragment: opaqueAlphaPreservingFragment
@@ -754,6 +813,13 @@ private enum Harness {
             "rawSamplerFlagsExactOnly": baseline.semanticIdentity
                     == authoredClampVariant.semanticIdentity
                 && baseline.exactIdentity != authoredClampVariant.exactIdentity,
+            "proceduralOpaqueWithoutSampledInputAccepted":
+                proceduralOpaque?.textureSlots.allSatisfy({ $0 == nil }) == true
+                && proceduralOpaque?.semanticIdentity.graphRole.bindings.isEmpty == true
+                && proceduralOpaque?.semanticIdentity.colorContract.framebufferInput
+                    == .opaque
+                && proceduralOpaque?.semanticIdentity.colorContract.fragmentOutput
+                    == .opaque,
             "unsupportedStateRejected": unsupportedState,
             "mismatchedGraphBindingRejected": mismatchedGraphBinding,
             "invalidGraphBindingSlotRejected": invalidGraphBindingSlot,
@@ -767,6 +833,8 @@ private enum Harness {
             "straightOpaqueAccepted": hasStraightAlphaBoundary(straightOpaque),
             "straightInputRejected": straightInputRejected,
             "straightDataRejected": straightDataRejected,
+            "maskedDataAccepted": hasStraightAlphaBoundary(maskedDataAccepted),
+            "maskedColorRejected": maskedColorRejected,
             "opaqueAlphaAccepted": hasStraightAlphaPreservingBoundary(
                 opaqueAlphaAccepted
             ),

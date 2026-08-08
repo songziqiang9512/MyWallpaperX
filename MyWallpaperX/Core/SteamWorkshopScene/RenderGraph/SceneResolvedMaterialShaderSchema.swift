@@ -75,26 +75,44 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
     static func activeSamplers(
         _ prepared: SceneShaderPreparedProgram
     ) throws -> [Int: Sampler] {
-        try samplerSchemas(records(prepared))
+        guard let activeNames = SceneAuthoredShaderDeadBindingAnalyzer.activeSamplerNames(
+            vertexSource: prepared.vertex.source,
+            fragmentSource: prepared.fragment.source
+        ) else { throw Issue.sampler("prepared-frontend") }
+        return try samplerSchemas(records(prepared).filter {
+            $0.declaration.kind != .uniform
+                || !isSampler2D($0.declaration.type)
+                || activeNames.contains($0.declaration.name)
+        })
     }
 
     /// A small compatibility normalization for historical authored materials
     /// that omitted the explicit framebuffer annotation. It is structural:
-    /// only a single regular `g_Texture0` sampler with no authored texture
-    /// candidates/default/bindings may infer the current graph input. Any
-    /// additional sampler or authored source remains fail-closed.
+    /// one regular `g_Texture0` may infer the current graph input when every
+    /// auxiliary sampler has a typed data purpose and no auxiliary graph
+    /// binding. Untyped or second-color inputs remain fail-closed.
     static func implicitFramebufferSlots(
         template: Template,
         samplers: [Int: Sampler]
     ) -> Set<Int> {
-        guard template.textureSlots.allSatisfy({ $0 == nil }),
-              template.graphRole.bindings.isEmpty,
-              samplers.count == 1,
+        guard template.graphRole.bindings.isEmpty,
+              template.textureSlots.indices.contains(0),
+              template.textureSlots[0] == nil,
               let sampler = samplers[0],
               sampler.name == "g_Texture0",
               sampler.mode == .regular,
               sampler.materialKey == nil,
-              sampler.defaultTexture == nil else {
+              sampler.defaultTexture == nil,
+              samplers.allSatisfy({ slot, auxiliary in
+                  slot == 0 || auxiliary.mode.explicitPurpose != nil
+              }),
+              template.textureSlots.enumerated().allSatisfy({ index, slot in
+                  guard index != 0, let slot else { return true }
+                  return slot.candidates.allSatisfy { candidate in
+                      if case .graph = candidate.reference { return false }
+                      return true
+                  }
+              }) else {
             return []
         }
         return [0]

@@ -16,7 +16,7 @@ Scene 兼容的核心不是不断增加“看起来差不多”的效果分支�
 4. Timeline、SceneScript、用户属性、鼠标、音频和媒体只更新作者绑定的目标；
 5. 不支持的语义应显式降级，不能用整层位移、全局水波或静态占位冒充支持。
 
-运行证据使用两层矩阵：`script/scene_wallpaper_sample_matrix.json` 是固定回归门，`script/scene_wallpaper_full_sample_matrix.json` 是当前真实 Scene 目录的完整快照门。日常改动按影响面跑定向或固定门；样本增加、完整矩阵合同变化或里程碑收口时重跑完整快照门。现役结果和聚合缺口只在 [运行证据索引](runtime-evidence-index.md) 维护，专项表只链接该入口，避免重复数字随代码演进失真。
+运行证据使用两层矩阵：`script/scene_wallpaper_sample_matrix.json` 是固定回归 suite，按 digest 锁定 `script/scene_wallpaper_full_sample_matrix.json` 并只保存 13 个成员及其明确 override；加载时无损展开成既有矩阵合同。后者是当前真实 Scene 目录的完整快照门。日常改动按影响面跑定向门；fixed/full 只在 milestone 阶段按明确风险选择。现役结果和聚合缺口只在 [运行证据索引](runtime-evidence-index.md) 维护，专项表只链接该入口，避免重复数字随代码演进失真。
 
 这直接解释了此前的主要错误：
 
@@ -46,6 +46,7 @@ Scene 文档按四层使用，后续开发不要从取证记录直接跳到“�
 | 问题 | 先看 |
 |---|---|
 | 当前系统大盘、主要缺口和下一批次是什么 | [官方语义与实现覆盖台账](coverage-ledger.md) |
+| 过去各能力批次当时跑过什么、边界是什么 | [覆盖台账批次历史附录](coverage-ledger-history.md)，只作历史追溯 |
 | 179 个官方页面逐页落到哪个稳定合同 anchor、哪些只属于编辑器或平台决策 | [官方页面逐页表](official-page-map.md) |
 | 16 个官方目录组如何路由到专项能力表 | [官方页面分组映射](official-page-crosswalk.md) |
 | 公共能力先后依赖、哪些系统必须共用底座 | [能力依赖图](capability-dependency-map.md) |
@@ -68,6 +69,7 @@ Scene 文档按四层使用，后续开发不要从取证记录直接跳到“�
 | 某个 wire 字段在编辑器叫什么、粒子组件/blend/Timeline/scene options 的官方名称与定义 | [编辑器字符串表取证](editor-string-table-forensics.md) |
 | 官方各系统的实现库来源、bin 模块清单、官方元素预览视频在哪 | [客户端二进制与第三方依赖取证](client-binary-dependency-forensics.md)，只作模块/来源导航 |
 | 官方客户端的资源、resolver、RenderGraph、SceneScript、媒体与 surface 如何分层，32/64 位结构是否对应 | [官方客户端运行机制静态取证](client-runtime-static-forensics.md)，只作 clean-room 结构证据 |
+| MirageWallpaper 如何组织纹理、effect/FBO 合成、相机、鼠标、动态输入与最终呈现，哪些实现缺口不能照抄 | [MirageWallpaper Scene 显示链路静态研究](miragewallpaper-rendering-reference.md)，只作等级 D 的 clean-room 架构对照 |
 | 官方站当前有哪些 Scene 页面、某个 API 专页在哪里 | [官方页面全目录](official-page-catalog.md) |
 | 某条结论来自官方、样本还是第三方实现 | [资料来源与证据索引](source-index.md) |
 | 某条 `L3` 到底由哪些代码、自动测试和运行/GPU 结果支撑 | [运行证据索引](runtime-evidence-index.md) |
@@ -169,6 +171,7 @@ scene.json / scene.pkg / assets
 
 ## 7. 维护约定
 
+- 验证选择统一使用 `python3 script/verify_scene_change.py --phase <inner|checkpoint|integration|milestone>`；同一未变化源码已经由较高阶段覆盖的 gate 不重复运行，固定/完整矩阵必须写明升级原因。
 - 本目录记录稳定语义和实现合同，不记录单次调试流水账。
 - [覆盖台账](coverage-ledger.md) 只做系统摘要；Effect、粒子、SceneScript、Graph/Shader、运行输入/属性和高级对象的专项能力表分别是其逐项等级事实来源。
 - 实现前必须先查 [能力依赖图](capability-dependency-map.md)，再进入对应专项表查看作者条件、代码、测试、运行证据和下一门；不能从同系统某个 `L3` 子集推断整套能力。

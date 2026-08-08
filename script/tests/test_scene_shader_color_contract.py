@@ -25,6 +25,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStaticLoopAdmission.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLoopAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderDeadBindingAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVaryingArrayEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
@@ -216,6 +217,22 @@ enum Harness {
                 "float mask = texSample2D(g_Texture1, v_TexCoord).r; " +
                 "gl_FragColor = vec4(color.rgb, color.a * mask);"
             ),
+            "mutatedSampledMaskAlpha": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "float mask = texSample2D(g_Texture1, v_TexCoord).r; " +
+                "color.a *= mask * g_ScalarWeight; gl_FragColor = color;"
+            ),
+            "repeatedAuxiliarySample": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "float mask = texSample2D(g_Texture1, v_TexCoord).r; " +
+                "mask *= texSample2D(g_Texture1, v_TexCoord * 0.5).r; " +
+                "color.a *= mask; gl_FragColor = color;"
+            ),
+            "maskedRGBWrite": transfer(
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "float mask = texSample2D(g_Texture1, v_TexCoord).r; " +
+                "color.rgb *= mask; color.a *= mask; gl_FragColor = color;"
+            ),
             "arithmetic": transfer(
                 "gl_FragColor = texSample2D(g_Texture0, v_TexCoord) * 0.5;"
             ),
@@ -341,6 +358,9 @@ class SceneShaderColorContractTests(unittest.TestCase):
         )
         self.assertEqual(self.result["localAlpha"], "straight-slot:0")
         self.assertEqual(self.result["mutatedLocalOutput"], "straight-slot:0")
+        self.assertEqual(
+            self.result["mutatedSampledMaskAlpha"], "straight-slot:0"
+        )
 
     def test_same_slot_scalar_mix_preserves_one_color_source(self) -> None:
         self.assertEqual(self.result["sameSlotScalarMix"], "slot:0")
@@ -407,6 +427,8 @@ class SceneShaderColorContractTests(unittest.TestCase):
             "vectorWeightMix",
             "opaqueInputAlphaWrite",
             "opaqueInputWholeWrite",
+            "repeatedAuxiliarySample",
+            "maskedRGBWrite",
         ):
             self.assertEqual(self.result[key], "unresolved", key)
 

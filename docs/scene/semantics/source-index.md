@@ -324,7 +324,32 @@ Wallpaper Engine 2.8.42 / Steam build `23967692` 是一个固定版本证据快�
 
 因此它只用于理解结构和查踩坑，不能作为 golden runtime。
 
-### 3.2 其他同名/关联项目
+### 3.2 `laobamac/MirageWallpaper`
+
+- 仓库：https://github.com/laobamac/MirageWallpaper
+- 本轮本地固定 revision：`8893b25b3fb4abdd63d72e9fe31bdd59e765208a`（tag `v1.0.3`，2026-08-07）
+- 许可证：GPL-3.0；本项目只静态研究结构与行为边界，不复制源码、shader、纹理、payload、二进制或算法表达。
+- 定位：SwiftUI/AppKit 宿主 + 独立 C++20/Vulkan/MoltenVK Scene renderer。README 明确说明仍处早期，复杂作品可能存在 effect、脚本或材质差异。
+- 专题入口：[MirageWallpaper Scene 显示链路静态研究](miragewallpaper-rendering-reference.md)。该文档覆盖 frame order、TEX physical/mapped extent、slot/sampler、layer-local ping-pong、FBO/RenderGraph、render state、global Bloom、reflection、相机/fill、鼠标/SceneScript、文字、视频、粒子、surface/present，并把可借鉴结构与 Mirage 自身缺口分开记录。
+- 证据边界：等级 `D`。本轮未 build/run，没有 Mirage 与 Windows 的同步像素 golden；其项目自有 renderer 测试覆盖也不足以支撑兼容声明。文档中的静态链路不能更新 MyWallpaperX 覆盖等级。
+
+确认的高价值结构：
+
+- 对纹理物理/映射尺寸、UV、sampler、mip 和 slot identity 分层保存；
+- 非 fullscreen layer effect 使用独立 logical extent/camera 和 ping-pong target，screen-bound target 另行跟随 surface；
+- material pass、bind、FBO、copy/compose、linked layer、reflection 与 global post-process 进入版本化 RenderGraph；
+- 中间 effect 与最终 composite 的 blend/depth/cull、geometry、camera、alpha source 分离；
+- SceneScript、visibility、camera path、material animation、video/font provider 在同一帧按明确顺序提交。
+
+确认或疑似的非官方偏差：
+
+- sampler V 轴取 `wrapS`，`wrapT` 写到 W；TextureKey hash 未计入 `minFilter`；
+- global texel 与 HDR Bloom offset 存在 1920×1080 硬编码，HDR-named path 仍落到 RGBA8 UNORM；
+- SceneScript local cursor 等于 world，hit-test 仅 world AABB，未纳入 camera/fill/alpha/depth；
+- shadow atlas、闭合 volumetric graph、dynamic `sortLayer` 与完整透明粒子排序缺失或未闭合；
+- final present 只做 UNORM copy/linear blit，没有显式 tone map 或 display color management。
+
+### 3.3 其他同名/关联项目
 
 | 项目 | 结论 |
 |---|---|

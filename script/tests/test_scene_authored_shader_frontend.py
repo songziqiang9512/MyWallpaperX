@@ -28,6 +28,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStaticLoopAdmission.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLoopAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderDeadBindingAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVaryingArrayEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
@@ -45,6 +46,8 @@ import Metal
 private struct HarnessOutput: Codable {
     let diagnosticCodes: [String]
     let staticLoopWork: Int?
+    let textureSlots: [Int]?
+    let uniformNames: [String]?
     let offscreenWidth: Int?
     let offscreenHeight: Int?
     let metalSource: String?
@@ -85,6 +88,8 @@ private struct AuthoredShaderFrontendHarness {
         let encoded = try JSONEncoder().encode(HarnessOutput(
             diagnosticCodes: output.diagnostics.map { $0.code.rawValue },
             staticLoopWork: output.program?.staticLoopWork,
+            textureSlots: output.program?.textureBindings.map(\.slot),
+            uniformNames: output.program?.uniformLayout.fields.map(\.name),
             offscreenWidth: output.program?.offscreenSize(
                 viewportSize: CGSize(width: 3840, height: 2160)
             ).map { Int($0.width) },
@@ -180,6 +185,82 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         )
         self.assertEqual(output["diagnosticCodes"], [])
         self.assertIsNone(output.get("metalError"))
+
+    def test_dead_optional_sampler_and_resolution_varying_write_are_projected(self):
+        output = self.compile(
+            """
+            uniform vec4 g_Texture1Resolution;
+            attribute vec3 a_Position;
+            attribute vec2 a_TexCoord;
+            varying vec4 v_Coordinates;
+            void main() {
+                gl_Position = vec4(a_Position, 1.0);
+                v_Coordinates.xy = a_TexCoord;
+                v_Coordinates.zw = vec2(
+                    v_Coordinates.x * g_Texture1Resolution.z / g_Texture1Resolution.x,
+                    v_Coordinates.y * g_Texture1Resolution.w / g_Texture1Resolution.y
+                );
+            }
+            """,
+            """
+            uniform sampler2D g_Texture0;
+            uniform sampler2D g_Texture1;
+            varying vec4 v_Coordinates;
+            void main() {
+                gl_FragColor = texSample2D(g_Texture0, v_Coordinates.xy);
+            }
+            """,
+        )
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertEqual(output["textureSlots"], [0])
+        self.assertNotIn("g_Texture1Resolution", output["uniformNames"])
+        self.assertNotIn("g_Texture1Resolution", output["metalSource"])
+        self.assertIsNone(output.get("metalError"))
+
+    def test_inactive_sampler_resolution_stays_live_when_output_depends_on_it(self):
+        fixtures = [
+            (
+                "gl_Position = vec4(a_Position.xy * g_Texture1Resolution.xy, 0.0, 1.0);",
+                "v_Coordinates.xy = a_TexCoord;",
+                "v_Coordinates.xy",
+            ),
+            (
+                "gl_Position = vec4(a_Position, 1.0);",
+                "v_Coordinates.xy = a_TexCoord * g_Texture1Resolution.xy;",
+                "v_Coordinates.xy",
+            ),
+            (
+                "gl_Position = vec4(a_Position, 1.0);",
+                "v_Coordinates.zw = normalize(g_Texture1Resolution.xy);",
+                "v_Coordinates.xy",
+            ),
+        ]
+        for position, assignment, fragment_coordinates in fixtures:
+            with self.subTest(assignment=assignment):
+                output = self.compile(
+                    f"""
+                    uniform vec4 g_Texture1Resolution;
+                    attribute vec3 a_Position;
+                    attribute vec2 a_TexCoord;
+                    varying vec4 v_Coordinates;
+                    void main() {{
+                        {position}
+                        {assignment}
+                    }}
+                    """,
+                    f"""
+                    uniform sampler2D g_Texture0;
+                    uniform sampler2D g_Texture1;
+                    varying vec4 v_Coordinates;
+                    void main() {{
+                        gl_FragColor = texSample2D(g_Texture0, {fragment_coordinates});
+                    }}
+                    """,
+                )
+                self.assertEqual(output["textureSlots"], [0, 1])
+                self.assertIn("g_Texture1Resolution", output["uniformNames"])
+                self.assertIn("g_Texture1Resolution", output["metalSource"])
+                self.assertIsNone(output.get("metalError"))
 
     def test_overloaded_functions_do_not_crash_or_look_recursive(self):
         output = self.compile(

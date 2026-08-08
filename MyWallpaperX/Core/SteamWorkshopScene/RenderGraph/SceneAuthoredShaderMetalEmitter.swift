@@ -15,6 +15,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         let attributeNames: Set<String>
         let texturesByName: [String: SceneAuthoredShaderProgram.TextureBinding]
         let unpremultipliedTextureSlot: Int?
+        let omittedStatementRanges: [Range<Int>]
     }
 
     static func emit(
@@ -24,6 +25,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         uniformLayout: SceneAuthoredShaderUniformLayout,
         textures: [SceneAuthoredShaderProgram.TextureBinding],
         varyings: [(String, SceneAuthoredShaderValueType, Int?)],
+        omittedVertexStatementRanges: [Range<Int>],
         colorTransfer: SceneShaderColorTransfer
     ) -> Output {
         let defineResult = SceneAuthoredShaderMetalSource.mergedDefines(
@@ -64,7 +66,8 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
                 $0.storage == .attribute
             }.map(\.name)),
             texturesByName: texturesByName,
-            unpremultipliedTextureSlot: nil
+            unpremultipliedTextureSlot: nil,
+            omittedStatementRanges: omittedVertexStatementRanges
         )
         let unpremultipliedTextureSlot: Int?
         switch colorTransfer {
@@ -84,7 +87,8 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             varyingArrayCounts: varyingArrayCounts,
             attributeNames: [],
             texturesByName: texturesByName,
-            unpremultipliedTextureSlot: unpremultipliedTextureSlot
+            unpremultipliedTextureSlot: unpremultipliedTextureSlot,
+            omittedStatementRanges: []
         )
         let vertexEmission = emitStage(context: vertexContext, textures: textures)
         let fragmentEmission = emitStage(context: fragmentContext, textures: textures)
@@ -148,7 +152,11 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         var functions: [String] = []
         for (functionIndex, function) in context.unit.functions.enumerated() {
             let parameters = Array(context.unit.tokens[function.parameterRange])
-            let body = Array(context.unit.tokens[function.bodyRange])
+            let body = function.bodyRange.compactMap { index in
+                context.omittedStatementRanges.contains(where: { $0.contains(index) })
+                    ? nil
+                    : context.unit.tokens[index]
+            }
             let emittedParameters = emitTokens(
                 parameters,
                 context: context,

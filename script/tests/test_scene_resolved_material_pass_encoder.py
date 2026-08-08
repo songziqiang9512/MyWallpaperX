@@ -28,6 +28,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStaticLoopAdmission.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLoopAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderDeadBindingAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVaryingArrayEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
@@ -111,16 +112,25 @@ private func fragment(
     uniformName: String = "g_Gain",
     unresolved: Bool = false
 ) -> String {
-    let expression = unresolved
-        ? "texSample2D(g_Texture0, v_TexCoord) * g_Gain"
-        : "texSample2D(g_Texture\(outputSlot), v_TexCoord)"
+    let output = if unresolved {
+        "gl_FragColor = texSample2D(g_Texture0, v_TexCoord) * g_Gain;"
+    } else if outputSlot == 3 {
+        """
+        vec4 color = texSample2D(g_Texture0, v_TexCoord);
+        float mask = texSample2D(g_Texture3, v_TexCoord).r;
+        color.a *= mask;
+        gl_FragColor = color;
+        """
+    } else {
+        "gl_FragColor = texSample2D(g_Texture0, v_TexCoord);"
+    }
     return """
     varying vec2 v_TexCoord;
     uniform sampler2D g_Texture0;
     uniform sampler2D g_Texture3;
     uniform float \(uniformName);
     void main() {
-        gl_FragColor = \(expression);
+        \(output)
     }
     """
 }
@@ -133,6 +143,19 @@ uniform float g_Gain;
 void main() {
     vec4 color = texSample2D(g_Texture0, v_TexCoord);
     gl_FragColor = vec4(color.rgb, color.a * g_Gain);
+}
+"""
+
+private let maskedAlphaFragment = """
+varying vec2 v_TexCoord;
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture3;
+uniform float g_Gain;
+void main() {
+    vec4 color = texSample2D(g_Texture0, v_TexCoord);
+    float mask = texSample2D(g_Texture3, v_TexCoord).r;
+    color.a *= mask * g_Gain;
+    gl_FragColor = color;
 }
 """
 
@@ -323,9 +346,11 @@ private func program(
     marker: Int,
     outputSlot: Int,
     slot0Texture: MTLTexture? = nil,
+    slot0Content: SceneTextureContent = .color(.resolved(.premultipliedAlpha)),
+    slot0Purpose: SceneTextureLoadPurpose = .premultipliedColor,
     slot3Texture: MTLTexture? = nil,
-    slot3Content: SceneTextureContent = .color(.resolved(.opaque)),
-    slot3Purpose: SceneTextureLoadPurpose = .straightAlbedo,
+    slot3Content: SceneTextureContent = .data,
+    slot3Purpose: SceneTextureLoadPurpose = .mask,
     slot3Sampling: SceneTextureSampling = .init(texFlags: 1),
     uniformName: String = "g_Gain",
     unresolved: Bool = false,
@@ -345,8 +370,8 @@ private func program(
         device: device,
         index: 0,
         texture: slot0Texture ?? texture(device: device),
-        content: .color(.resolved(.premultipliedAlpha)),
-        purpose: .premultipliedColor,
+        content: slot0Content,
+        purpose: slot0Purpose,
         sampling: .directImageFallback,
         marker: marker
     )
@@ -359,9 +384,17 @@ private func program(
         sampling: slot3Sampling,
         marker: marker + 100
     )
+    let frontend = SceneAuthoredShaderFrontend.compile(
+        vertexSource: shader.vertex.source,
+        fragmentSource: shader.fragment.source
+    ).program!
+    let activeSlots = Set(frontend.textureBindings.map(\.slot))
+    var resolvedSlots = Array<Program.TextureSlot?>(repeating: nil, count: 8)
+    if activeSlots.contains(0) { resolvedSlots[0] = first }
+    if activeSlots.contains(3) { resolvedSlots[3] = third }
     return Program.assemble(.init(
         preparedShader: shader,
-        textureSlots: slots(first, third),
+        textureSlots: resolvedSlots,
         resolvedUniforms: uniforms(
             shader: shader,
             gain: gain,
@@ -372,7 +405,9 @@ private func program(
             effectInput: .layerSource,
             effectOutput: .effectOutput,
             nodeTarget: .framebuffer,
-            bindings: [.init(slot: 0, texture: .framebuffer)]
+            bindings: activeSlots.contains(0)
+                ? [.init(slot: 0, texture: .framebuffer)]
+                : []
         )
     ))
 }
@@ -404,11 +439,16 @@ private enum Harness {
              $0.offset % 4 == 2 ? UInt8(211) : UInt8(255)]
         }.flatMap { $0 }
         let authoredTexture = texture(device: device, fill: color)
+        let whiteMask = texture(
+            device: device,
+            fill: [UInt8](repeating: 255, count: 16)
+        )
         let baseline = program(
             device: device,
             marker: 1,
             outputSlot: 3,
-            slot3Texture: authoredTexture
+            slot0Texture: authoredTexture,
+            slot3Texture: whiteMask
         )!
         let rgbaTarget = target(device: device)
         let first = encoder.prepare(program: baseline, target: rgbaTarget)
@@ -455,8 +495,9 @@ private enum Harness {
         let straight = program(
             device: device,
             marker: 3,
-            outputSlot: 3,
-            slot3Content: .color(.resolved(.straightAlpha))
+            outputSlot: 0,
+            slot0Content: .color(.resolved(.straightAlpha)),
+            slot0Purpose: .straightAlbedo
         )!
         let attemptsBeforeColorGate = encoder.pipelineCompilationAttemptCount
         let straightRejected = encoder.prepare(
@@ -537,6 +578,8 @@ private enum Harness {
                 marker: 20 + index,
                 outputSlot: 0,
                 slot0Texture: premultipliedPixel,
+                slot3Content: .data,
+                slot3Purpose: .mask,
                 fragmentSource: straightAlphaFragment,
                 gain: testCase.0
             )!
@@ -565,6 +608,53 @@ private enum Harness {
                 && actual[0] <= actual[3]
                 && actual[1] <= actual[3]
                 && actual[2] <= actual[3]
+        }
+
+        let maskPixel = texture(
+            device: device,
+            width: 1,
+            height: 1,
+            fill: [128, 0, 0, 255]
+        )
+        let maskedProgram = program(
+            device: device,
+            marker: 30,
+            outputSlot: 0,
+            slot0Texture: premultipliedPixel,
+            slot3Texture: maskPixel,
+            slot3Content: .data,
+            slot3Purpose: .mask,
+            fragmentSource: maskedAlphaFragment,
+            gain: 0.5
+        )
+        let secondColorRejected = program(
+            device: device,
+            marker: 31,
+            outputSlot: 0,
+            slot0Texture: premultipliedPixel,
+            slot3Texture: maskPixel,
+            slot3Content: .color(.resolved(.straightAlpha)),
+            slot3Purpose: .straightAlbedo,
+            fragmentSource: maskedAlphaFragment,
+            gain: 0.5
+        ) == nil
+        var maskedBoundaryPrepared = false
+        var maskedBoundaryGPUCompleted = false
+        var maskedBoundaryPixelsMatch = false
+        let maskedTarget = target(device: device, width: 1, height: 1)
+        if let maskedProgram,
+           let prepared = encoder.prepare(program: maskedProgram, target: maskedTarget),
+           let command = queue.makeCommandBuffer() {
+            maskedBoundaryPrepared = prepared.fragmentOutput == .premultipliedAlpha
+            if encoder.encode(prepared, commandBuffer: command) {
+                command.commit()
+                command.waitUntilCompleted()
+                maskedBoundaryGPUCompleted = command.status == .completed
+                    && command.error == nil
+                maskedBoundaryPixelsMatch = zip(
+                    pixels(maskedTarget), [UInt8(16), 8, 4, 32]
+                ).allSatisfy { abs(Int($0.0) - Int($0.1)) <= 1 }
+            }
         }
 
         let r8Target = target(device: device, format: .r8Unorm)
@@ -660,7 +750,8 @@ private enum Harness {
                 == [.directImageFallback, .init(texFlags: 1)],
             "uniformLayoutPreserved": first?.uniformByteCount
                 == baseline.frontendProgram.uniformLayout.byteSize,
-            "opaqueOutputPublished": first?.fragmentOutput == .opaque,
+            "baselineOutputPremultiplied": first?.fragmentOutput
+                == .premultipliedAlpha,
             "premultipliedOutputPublished": crossExtentPrepared?.fragmentOutput
                 == .premultipliedAlpha,
             "commandsEncoded": encoded,
@@ -679,6 +770,10 @@ private enum Harness {
             "straightBoundaryGPUCompleted": straightBoundaryGPUCompleted,
             "straightBoundaryPixelsMatch": straightBoundaryPixelsMatch,
             "straightBoundaryPremultiplied": straightBoundaryPremultiplied,
+            "maskedBoundaryPrepared": maskedBoundaryPrepared,
+            "maskedBoundaryGPUCompleted": maskedBoundaryGPUCompleted,
+            "maskedBoundaryPixelsMatch": maskedBoundaryPixelsMatch,
+            "secondColorRejected": secondColorRejected,
             "targetFormatRejected": formatRejected,
             "missingRenderTargetRejected": missingRenderTargetRejected,
             "missingShaderReadRejected": missingShaderReadRejected,

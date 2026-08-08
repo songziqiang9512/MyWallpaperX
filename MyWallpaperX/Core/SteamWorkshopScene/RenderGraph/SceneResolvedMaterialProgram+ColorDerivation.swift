@@ -30,7 +30,15 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             }
         }
         let framebufferInput: SceneShaderColorRepresentation
-        if case let .independentAlphaSignalCompositing(signalSlot, colorSlot) = transfer {
+        if transfer == .opaque, graphRepresentations.isEmpty {
+            // An opaque procedural pass can declare an authored framebuffer
+            // sampler that the prepared variant never reads. Use one stable
+            // identity value without claiming or requiring a sampled input.
+            framebufferInput = .opaque
+        } else if case let .independentAlphaSignalCompositing(
+            signalSlot,
+            colorSlot
+        ) = transfer {
             guard representation(slot: signalSlot, textureSlots: textureSlots)
                     == .independentAlphaSignal,
                   let color = representation(slot: colorSlot, textureSlots: textureSlots),
@@ -74,7 +82,8 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                   let texture = textureSlots[slot],
                   case let .color(.resolved(representation)) =
                     texture.resource.publication.candidate.content,
-                  representation == .opaque || representation == .premultipliedAlpha else {
+                  representation == .opaque || representation == .premultipliedAlpha,
+                  auxiliarySlotsAreData(textureSlots, excluding: slot) else {
                 return nil
             }
             fragmentOutput = .premultipliedAlpha
@@ -107,5 +116,18 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
               case let .color(.resolved(value)) =
                 texture.resource.publication.candidate.content else { return nil }
         return value
+    }
+
+    private static func auxiliarySlotsAreData(
+        _ textureSlots: [Program.TextureSlot?],
+        excluding colorSlot: Int
+    ) -> Bool {
+        textureSlots.enumerated().allSatisfy { index, texture in
+            guard index != colorSlot, let texture else { return true }
+            if case .data = texture.resource.publication.candidate.content {
+                return true
+            }
+            return false
+        }
     }
 }

@@ -6,7 +6,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scene_real_test_fixture_config import load_fixture_config
+try:
+    from .scene_real_test_fixture_config import load_fixture_config
+except ImportError:
+    from scene_real_test_fixture_config import load_fixture_config
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]

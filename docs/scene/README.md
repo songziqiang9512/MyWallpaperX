@@ -12,12 +12,14 @@
 ## 历史实施快照
 
 - [Scene 播放能力开发计划](scene-capability-development-plan-2026-07-22.md)：2026-07-22 至 2026-07-27 的实施顺序、样本和测试门。
+- [覆盖台账批次历史附录](semantics/coverage-ledger-history.md)：从现役台账页首迁出的逐批 checkpoint；只用于追溯，不覆盖当前等级与运行基线。
 
 该文件用于追溯早期总体实施顺序，不用于选择下一项任务；Timeline 与 Audio 的现役合同、语料结论和剩余缺口已经分别进入运行输入专项表、Effect/粒子覆盖表、总台账和运行证据索引。下一步统一从专项覆盖表和能力依赖图选择。
 
 ## 公开参考
 
 - [资料来源与证据索引](semantics/source-index.md)：官方页面、样本、第三方实现和证据等级。
+- [MirageWallpaper Scene 显示链路静态研究](semantics/miragewallpaper-rendering-reference.md)：固定 revision 下的纹理、合成、effect、相机、鼠标及其他显示链路 clean-room 对照；不表示当前能力。
 - [官方参考快照](reference/official/)：版本化的公开 API 声明，仅供 API diff 和 fixture 研究，不进入 App bundle 或播放输入。
 
 ## 历史资料
@@ -26,6 +28,7 @@
 
 ## 使用规则
 
+- 日常验证先运行 `python3 script/verify_scene_change.py --phase checkpoint --base HEAD --path <path>` 查看按改动选择的最小门，再加 `--run` 执行；fixed/full 必须使用 milestone 阶段并记录原因。
 - 新的稳定语义、实现边界和证据更新进入 `semantics/` 的权威入口，不在历史报告中追加当前结论。
 - 新的官方公开文本或声明放入 `reference/` 时，必须在来源索引记录官方 URL、版本、校验值和可使用边界。
 - 删除或合并带日期的计划前，先把仍独有的合同迁入专项表并修复反向引用；未经确认保留原路径，不让历史文件继续承担现役状态。

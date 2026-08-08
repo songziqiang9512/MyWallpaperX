@@ -5,6 +5,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
         let uniforms: [(String, SceneAuthoredShaderValueType, Int?)]
         let textures: [SceneAuthoredShaderProgram.TextureBinding]
         let varyings: [(String, SceneAuthoredShaderValueType, Int?)]
+        let omittedVertexStatementRanges: [Range<Int>]
         let diagnostics: [SceneAuthoredShaderFrontendDiagnostic]
     }
 
@@ -42,6 +43,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
             uniformLayout: uniformLayout,
             textures: validation.textures,
             varyings: validation.varyings,
+            omittedVertexStatementRanges: validation.omittedVertexStatementRanges,
             colorTransfer: colorTransfer
         )
         guard let metalSource = emission.source, emission.diagnostics.isEmpty else {
@@ -76,6 +78,10 @@ nonisolated enum SceneAuthoredShaderFrontend {
         fragment: SceneAuthoredShaderSyntaxUnit
     ) -> Validation {
         var diagnostics: [SceneAuthoredShaderFrontendDiagnostic] = []
+        let deadBindings = SceneAuthoredShaderDeadBindingAnalyzer.analyze(
+            vertex: vertex,
+            fragment: fragment
+        )
         let vertexAttributes = vertex.declarations.filter { $0.storage == .attribute }
         let expectedAttributes: [String: SceneAuthoredShaderValueType] = [
             "a_Position": .float3,
@@ -164,7 +170,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
                         ))
                         continue
                     }
-                    if textureNames.insert(declaration.name).inserted {
+                    if deadBindings.activeSamplerNames.contains(declaration.name),
+                       textureNames.insert(declaration.name).inserted {
                         textures.append(.init(name: declaration.name, slot: slot))
                     }
                     continue
@@ -211,8 +218,9 @@ nonisolated enum SceneAuthoredShaderFrontend {
                 } else {
                     uniformTypes[declaration.name] = type
                     uniformArrayCounts[declaration.name] = arrayCount
-                    if referencedUniformNames.contains(declaration.name)
-                        || !isTextureResolutionUniformName(declaration.name) {
+                    if !deadBindings.omittedUniformNames.contains(declaration.name),
+                       referencedUniformNames.contains(declaration.name)
+                           || !isTextureResolutionUniformName(declaration.name) {
                         uniforms.append((declaration.name, type, arrayCount))
                     }
                 }
@@ -223,6 +231,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
             uniforms: uniforms,
             textures: textures,
             varyings: vertexVaryings,
+            omittedVertexStatementRanges: deadBindings.omittedVertexStatementRanges,
             diagnostics: diagnostics
         )
     }

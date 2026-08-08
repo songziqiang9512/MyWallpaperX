@@ -111,10 +111,10 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
               let slot = directTextureSampleSlot(initializer) else {
             return nil
         }
-        let sampleCalls = body.filter {
-            ["texSample2D", "texture2D"].contains(tokens[$0].text)
-        }
-        guard sampleCalls.count == 1 else { return nil }
+        guard let sampleSlots = textureSampleSlots(in: body, tokens: tokens),
+              sampleSlots.filter({ $0 == slot }).count == 1,
+              Set(sampleSlots.filter({ $0 != slot })).count == sampleSlots.count - 1
+        else { return nil }
 
         let assignmentOperators: Set<String> = ["=", "+=", "-=", "*=", "/="]
         var alphaWrites = 0
@@ -138,6 +138,22 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
             }
         }
         return alphaWrites == 1 ? slot : nil
+    }
+
+    private static func textureSampleSlots(
+        in range: Range<Int>,
+        tokens: [SceneAuthoredShaderToken]
+    ) -> [Int]? {
+        var slots: [Int] = []
+        for index in range where ["texSample2D", "texture2D"].contains(tokens[index].text) {
+            guard index + 2 < range.upperBound,
+                  tokens[index + 1].text == "(",
+                  let slot = textureSlot(tokens[index + 2].text) else {
+                return nil
+            }
+            slots.append(slot)
+        }
+        return slots
     }
 
     private static func straightAlphaSlot(

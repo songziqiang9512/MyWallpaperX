@@ -33,9 +33,13 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
             template: input.template,
             maximumVariantCount: 8
         ) else { throw failure(.activeSamplerSchemaInvalid) }
-        switch cache.resolve(input) {
-        case let .success(variant):
-            return try resolve(input, variant: variant)
+        switch cache.resolveSelection(input) {
+        case let .success(selection):
+            return try resolve(
+                input,
+                variant: selection.variant,
+                reachableSamplers: selection.reachableSamplers
+            )
         case let .failure(error):
             throw error
         }
@@ -43,27 +47,41 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
 
     static func resolve(
         _ input: SceneResolvedMaterialFinalizationInput,
-        variant: SceneResolvedMaterialCompiledVariant
+        variant: SceneResolvedMaterialCompiledVariant,
+        reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
     ) throws -> Resolution {
-        guard try readinessMask(input, samplers: variant.activeSamplers)
+        guard try readinessMask(
+            input,
+            samplers: variant.activeSamplers,
+            reachableSamplers: reachableSamplers
+        )
                 == variant.readinessMask else {
             throw failure(.identityInvariant, phase: .invariant)
         }
         return .init(
             variant: variant,
-            slots: try textureSlots(input, variant: variant)
+            slots: try textureSlots(
+                input,
+                variant: variant,
+                reachableSamplers: reachableSamplers
+            )
         )
     }
 
     private static func textureSelections(
         _ input: SceneResolvedMaterialFinalizationInput,
-        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
+        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
     ) throws -> [Selection] {
         var result = Array(repeating: Selection.absent, count: 8)
         for slot in input.template.textureSlots.compactMap({ $0 }) {
             let sampler = samplers[slot.index]
             for candidate in slot.candidates.reversed() {
-                let purpose = sampler?.purpose(for: candidate.reference)
+                let purpose = selectionPurpose(
+                    candidate.reference,
+                    activeSampler: sampler,
+                    reachableSamplers: reachableSamplers[slot.index] ?? []
+                )
                 guard let selection = try referenceSelection(
                     candidate.reference,
                     purpose: purpose,
@@ -164,9 +182,14 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
 
     static func readinessMask(
         _ input: SceneResolvedMaterialFinalizationInput,
-        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
+        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
     ) throws -> UInt8 {
-        let selections = try textureSelections(input, samplers: samplers)
+        let selections = try textureSelections(
+            input,
+            samplers: samplers,
+            reachableSamplers: reachableSamplers
+        )
         var mask: UInt8 = 0
         for (slot, selection) in selections.enumerated() {
             switch selection {
@@ -191,11 +214,13 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
 
     private static func textureSlots(
         _ input: SceneResolvedMaterialFinalizationInput,
-        variant: SceneResolvedMaterialCompiledVariant
+        variant: SceneResolvedMaterialCompiledVariant,
+        reachableSamplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
     ) throws -> [Program.TextureSlot?] {
         let selections = try textureSelections(
             input,
-            samplers: variant.activeSamplers
+            samplers: variant.activeSamplers,
+            reachableSamplers: reachableSamplers
         )
         let bindingSlots = variant.frontendProgram.textureBindings.map(\.slot)
         guard Set(bindingSlots).count == bindingSlots.count else {
@@ -238,6 +263,20 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
             )
         }
         return result
+    }
+
+    private static func selectionPurpose(
+        _ reference: Template.TextureReference,
+        activeSampler: SceneResolvedMaterialShaderSchema.Sampler?,
+        reachableSamplers: Set<SceneResolvedMaterialShaderSchema.Sampler>
+    ) -> SceneTextureLoadPurpose? {
+        if let activeSampler {
+            return activeSampler.purpose(for: reference)
+        }
+        let purposes = reachableSamplers.compactMap { $0.purpose(for: reference) }
+        guard purposes.count == reachableSamplers.count,
+              Set(purposes).count == 1 else { return nil }
+        return purposes.first
     }
 
     private static func runtimeIdentity(

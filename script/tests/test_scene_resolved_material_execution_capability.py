@@ -189,12 +189,15 @@ struct SceneCursorRippleExecutionPlan {
     let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
 }
 
+struct SceneOpacityExecutionPlan {}
+
 struct SceneAuthoredEffectExecutionPlan {
     let layerID: Int
     let materialNodeCount: Int
     let logicalRenderTargetCount: Int
     let inputRole: SceneAuthoredEffectInputRole
     let cursorRipple: SceneCursorRippleExecutionPlan?
+    let opacity: SceneOpacityExecutionPlan?
 }
 
 enum SceneGraphExecutionState {
@@ -707,7 +710,8 @@ private func pairOnlyDescriptor() -> SceneRenderDescriptor {
 private func dedicatedProgram(
     graph: Graph,
     effectIndex: Int,
-    inputRole: SceneAuthoredEffectInputRole
+    inputRole: SceneAuthoredEffectInputRole,
+    opacity: Bool = false
 ) -> SceneEffectStageProgram {
     let effect = graph.effects[effectIndex]
     let nodes = graph.nodes.filter { $0.effect == effect.key }
@@ -727,7 +731,8 @@ private func dedicatedProgram(
             materialNodeCount: nodes.count,
             logicalRenderTargetCount: 0,
             inputRole: inputRole,
-            cursorRipple: nil
+            cursorRipple: nil,
+            opacity: opacity ? .init() : nil
         )
     )
 }
@@ -1202,6 +1207,35 @@ private enum Harness {
             dedicatedStageFamilies: [firstKey: "fixture-dedicated"],
             dedicatedLeafKeys: [firstKey]
         )
+        let resolvedBeforeDedicatedCandidates =
+            SceneResolvedMaterialExecutionCapabilityAdmission.compile(
+                descriptor: pairDescriptor,
+                authoredPlans: [pairGraph],
+                dedicatedStagePrograms: [dedicatedProgram(
+                    graph: pairGraph,
+                    effectIndex: 1,
+                    inputRole: .priorEffectOutput,
+                    opacity: true
+                )]
+            )
+        let resolvedBeforeDedicatedCatalog = Catalog(
+            admissionCandidates: resolvedBeforeDedicatedCandidates,
+            materialCatalog: materialCatalog(graph: pairGraph, omitNode: 1),
+            dedicatedStageFamilies: [secondKey: "fixture-dedicated"],
+            dedicatedLeafKeys: [secondKey]
+        )
+        let emptyDedicatedLeafCatalog = Catalog(
+            admissionCandidates: resolvedBeforeDedicatedCandidates,
+            materialCatalog: materialCatalog(graph: pairGraph),
+            dedicatedStageFamilies: [secondKey: "fixture-dedicated"],
+            dedicatedLeafKeys: []
+        )
+        let fallbackDedicatedLeafCatalog = Catalog(
+            admissionCandidates: resolvedBeforeDedicatedCandidates,
+            materialCatalog: materialCatalog(graph: pairGraph, omitNode: 1),
+            dedicatedStageFamilies: [secondKey: "fixture-dedicated"],
+            dedicatedLeafKeys: []
+        )
 
         let firstProduct = capability.admittedProducts[0]
         let result: [String: Any] = [
@@ -1328,6 +1362,18 @@ private enum Harness {
                     dedicatedBeforeResolvedCatalog,
                     "mixed-chain-resolved-prefix-required"
                 ) && dedicatedBeforeResolvedCatalog.claim(layerID: layerID) == nil,
+                "resolvedBeforeDedicated":
+                    resolvedBeforeDedicatedCatalog.claim(layerID: layerID) != nil,
+                "emptyDedicatedLeafAllowlist":
+                    emptyDedicatedLeafCatalog.claim(layerID: layerID) != nil,
+                "fallbackDedicatedLeaf": reportHas(
+                    fallbackDedicatedLeafCatalog,
+                    "dedicated-leaf-unsupported"
+                ) && fallbackDedicatedLeafCatalog.claim(layerID: layerID) == nil,
+                "emptyDedicatedLeafDoesNotUseDedicated": !reportHas(
+                    emptyDedicatedLeafCatalog,
+                    "dedicated-leaf-unsupported"
+                ),
                 "routeUnavailable": reportHas(
                     routeUnavailableCatalog,
                     "execution-route-specialized-owner"
@@ -1448,8 +1494,11 @@ enum SceneResolvedMaterialDependencyOwnership: Equatable {
     }
 }
 
+struct SceneOpacityExecutionPlan {}
+
 struct SceneAuthoredEffectExecutionPlan {
     let logicalRenderTargetCount: Int
+    let opacity: SceneOpacityExecutionPlan?
 }
 
 struct SceneEffectStageProgram {
@@ -1546,7 +1595,8 @@ private func fragmentSource(
     invalidSamplerSlot: Bool = false,
     colorUnproven: Bool = false,
     samplesSecond: Bool = true,
-    observesSecond: Bool = false
+    observesSecond: Bool = false,
+    maskedAlpha: Bool = false
 ) -> String {
     let comboAnnotation = comboMetadata.map { "// \($0)" } ?? ""
     let varyingType = frontendInvalid ? "vec3" : "vec2"
@@ -1559,7 +1609,11 @@ private func fragmentSource(
         ? "#if EXTRA\n\(rawSecondDeclaration)\n#endif"
         : rawSecondDeclaration
     let output: String
-    if colorUnproven {
+    if maskedAlpha {
+        output = "vec4 color = texSample2D(\(firstName), v_TexCoord);"
+            + " float mask = texSample2D(g_Texture1, v_TexCoord).r;"
+            + " color.a *= mask * 0.5; gl_FragColor = color;"
+    } else if colorUnproven {
         output = "gl_FragColor = texSample2D(\(firstName), v_TexCoord) * 0.5;"
     } else if observesSecond {
         output = "float observed = texSample2D(g_Texture1, v_TexCoord).r;"
@@ -1569,7 +1623,10 @@ private func fragmentSource(
     } else if conditionalSecond {
         output = """
         #if EXTRA
-        gl_FragColor = texSample2D(\(firstName), v_TexCoord);
+        vec4 color = texSample2D(\(firstName), v_TexCoord);
+        float auxiliary = texSample2D(g_Texture1, v_TexCoord).r;
+        color.a *= auxiliary;
+        gl_FragColor = color;
         #else
         gl_FragColor = texSample2D(\(firstName), v_TexCoord);
         #endif
@@ -1599,7 +1656,8 @@ private func contract(
     invalidSamplerSlot: Bool = false,
     colorUnproven: Bool = false,
     samplesSecond: Bool = true,
-    observesSecond: Bool = false
+    observesSecond: Bool = false,
+    maskedAlpha: Bool = false
 ) -> SceneShaderContract {
     func stage(
         _ kind: SceneShaderContract.StageKind,
@@ -1629,7 +1687,8 @@ private func contract(
         invalidSamplerSlot: invalidSamplerSlot,
         colorUnproven: colorUnproven,
         samplesSecond: samplesSecond,
-        observesSecond: observesSecond
+        observesSecond: observesSecond,
+        maskedAlpha: maskedAlpha
     )
     let stages = [
         stage(.vertex, path: "\(revision)/root.vert", source: vertexSource),
@@ -1939,7 +1998,7 @@ private enum EnvelopeHarness {
                     "static-asset-default-positive",
                     secondMetadata:
                         #"{"mode":"flowmask","default":"textures/default-flow.tex"}"#,
-                    samplesSecond: false
+                    observesSecond: true
                 ),
                 slots: slots(primary: graphCandidate())
             )
@@ -1957,6 +2016,45 @@ private enum EnvelopeHarness {
                     primary: graphCandidate(),
                     second: assetCandidate("textures/normal.tex")
                 )
+            )
+        )
+        let maskMetadata = #"{"mode":"opacitymask","combo":"MASK"}"#
+        let maskedPositive = catalog(
+            graph: unboundGraph,
+            template: materialTemplate(
+                graph: unboundGraph,
+                shader: contract(
+                    "masked-positive",
+                    secondMetadata: maskMetadata,
+                    maskedAlpha: true
+                ),
+                slots: slots(second: assetCandidate("textures/mask.tex"))
+            )
+        )
+        let maskedMissingConflict = catalog(
+            graph: unboundGraph,
+            template: materialTemplate(
+                graph: unboundGraph,
+                shader: contract(
+                    "masked-missing-conflict",
+                    secondMetadata: maskMetadata,
+                    maskedAlpha: true
+                ),
+                slots: slots(),
+                combos: [.init(name: "MASK", value: 1)]
+            )
+        )
+        let maskedPresentConflict = catalog(
+            graph: unboundGraph,
+            template: materialTemplate(
+                graph: unboundGraph,
+                shader: contract(
+                    "masked-present-conflict",
+                    secondMetadata: maskMetadata,
+                    maskedAlpha: true
+                ),
+                slots: slots(second: assetCandidate("textures/mask.tex")),
+                combos: [.init(name: "MASK", value: 0)]
             )
         )
         let implicitPositive = catalog(
@@ -2008,7 +2106,8 @@ private enum EnvelopeHarness {
             shader: contract(
                 "capacity-two",
                 comboMetadata: #"[COMBO] {"combo":"EXTRA","default":1}"#,
-                secondMetadata: #"{"material":"framebuffer"}"#,
+                secondMetadata:
+                    #"{"mode":"flowmask","default":"textures/capacity-flow.tex"}"#,
                 conditionalSecond: true
             ),
             slots: slots(primary: graphCandidate()),
@@ -2075,6 +2174,11 @@ private enum EnvelopeHarness {
                 authoredAssetPositive,
                 graph: boundGraph
             ),
+            "maskedPositiveClaim": maskedPositive.claim(layerID: layerID) != nil,
+            "maskedPositiveFailure": rejection(maskedPositive),
+            "maskedPositiveCounters": counters(maskedPositive, graph: unboundGraph),
+            "maskedMissingConflict": rejection(maskedMissingConflict),
+            "maskedPresentConflict": rejection(maskedPresentConflict),
             "implicitPositiveClaim": implicitPositive.claim(layerID: layerID) != nil,
             "implicitPositiveCounters": counters(
                 implicitPositive,
@@ -2363,6 +2467,10 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "missingProducer": True,
                 "unverifiedSceneScript": True,
                 "dedicatedBeforeResolved": True,
+                "resolvedBeforeDedicated": True,
+                "emptyDedicatedLeafAllowlist": True,
+                "fallbackDedicatedLeaf": True,
+                "emptyDedicatedLeafDoesNotUseDedicated": True,
                 "routeUnavailable": True,
                 "hiddenParent": True,
                 "unsupportedContent": True,
@@ -2388,6 +2496,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "SceneResolvedMaterialProgram.swift",
                 "SceneResolvedMaterialShaderSchema.swift",
                 "SceneResolvedMaterialExecutionCapabilityVariant.swift",
+                "SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
                 "SceneResolvedMaterialTextureResolver.swift",
                 "SceneAuthoredShaderColorTransferAnalyzer.swift",
                 "SceneAuthoredShaderSameSlotMixAnalyzer.swift",
@@ -2454,6 +2563,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertEqual(
             payload["positiveCounters"],
             {"cached": 1, "prepared": 1, "frontend": 1, "capacity": 0},
+            payload,
         )
         self.assertIn(
             "material-variant-envelope-shader-preparation",
@@ -2491,6 +2601,18 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             payload["authoredAssetCounters"],
             {"cached": 1, "prepared": 1, "frontend": 1, "capacity": 0},
         )
+        self.assertTrue(payload["maskedPositiveClaim"], payload)
+        self.assertEqual(payload["maskedPositiveFailure"], "")
+        self.assertEqual(
+            payload["maskedPositiveCounters"],
+            {"cached": 1, "prepared": 1, "frontend": 1, "capacity": 0},
+        )
+        for key in ("maskedMissingConflict", "maskedPresentConflict"):
+            self.assertIn(
+                "material-variant-envelope-shader-preparation",
+                payload[key],
+                payload,
+            )
         self.assertTrue(payload["implicitPositiveClaim"])
         self.assertEqual(
             payload["implicitPositiveCounters"],

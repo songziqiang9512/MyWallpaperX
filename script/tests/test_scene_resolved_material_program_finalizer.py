@@ -39,6 +39,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderStaticLoopAdmission.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderLoopAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderSyntax.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderDeadBindingAnalyzer.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalSource.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderVaryingArrayEmitter.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredShaderMetalEmitter.swift",
@@ -70,6 +71,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialShaderSchema+Reachability.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityVariant.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityVariant+LaunchEnvelope.swift",
     SCENE_ROOT
@@ -142,17 +145,34 @@ private typealias Template = SceneResolvedMaterialTemplate
 
 private let fixtureLayerID = 42
 
-private func vertexSource(samplerMetadata: String?) -> String {
+private func vertexSource(
+    samplerMetadata: String?,
+    deadMaskCoordinates: Bool = false
+) -> String {
     let sampler = samplerMetadata.map {
         "uniform sampler2D g_Texture0; // \($0)"
     } ?? ""
+    let varyingType = deadMaskCoordinates ? "vec4" : "vec2"
+    let resolution = deadMaskCoordinates
+        ? "uniform vec4 g_Texture1Resolution;"
+        : ""
+    let maskCoordinates = deadMaskCoordinates
+        ? """
+        v_TexCoord.zw = vec2(
+            v_TexCoord.x * g_Texture1Resolution.z / g_Texture1Resolution.x,
+            v_TexCoord.y * g_Texture1Resolution.w / g_Texture1Resolution.y
+        );
+        """
+        : ""
     return """
     attribute vec3 a_Position;
     attribute vec2 a_TexCoord;
-    varying vec2 v_TexCoord;
+    varying \(varyingType) v_TexCoord;
     \(sampler)
+    \(resolution)
     void main() {
-        v_TexCoord = a_TexCoord;
+        v_TexCoord.xy = a_TexCoord;
+        \(maskCoordinates)
         gl_Position = vec4(a_Position, 1.0);
     }
     """
@@ -164,7 +184,9 @@ private func fragmentSource(
     secondSamplerMetadata: String?,
     conditionalSecondSampler: Bool,
     arithmetic: Bool = false,
-    audioSpectrum: Bool = false
+    audioSpectrum: Bool = false,
+    maskedAlpha: Bool = false,
+    optionalMask: Bool = false
 ) -> String {
     let annotation = samplerMetadata.map { " // \($0)" } ?? ""
     let uniformAnnotation = uniformMetadata.map { " // \($0)" } ?? ""
@@ -177,9 +199,41 @@ private func fragmentSource(
     let combo = conditionalSecondSampler
         ? #"// [COMBO] {"combo":"EXTRA","default":1}"#
         : ""
-    let output = arithmetic
-        ? "texSample2D(g_Texture0, v_TexCoord) * 0.5"
-        : "texSample2D(g_Texture0, v_TexCoord)"
+    let output: String
+    if maskedAlpha {
+        let mask = optionalMask
+            ? """
+            #if MASK
+            float mask = texSample2D(g_Texture1, v_TexCoord.zw).r;
+            #else
+            float mask = 1.0;
+            #endif
+            """
+            : "float mask = texSample2D(g_Texture1, v_TexCoord).r;"
+        output = """
+        vec4 color = texSample2D(g_Texture0, v_TexCoord.xy);
+        \(mask)
+        color.a *= mask * g_UserAlpha;
+        gl_FragColor = color;
+        """
+    } else {
+        let expression = arithmetic
+            ? "texSample2D(g_Texture0, v_TexCoord) * 0.5"
+            : "texSample2D(g_Texture0, v_TexCoord)"
+        if secondSamplerMetadata != nil {
+            output = """
+            vec4 color = \(expression);
+            float auxiliary = texSample2D(g_Texture1, v_TexCoord).r;
+            color.a *= auxiliary;
+            gl_FragColor = color;
+            """
+        } else {
+            output = "gl_FragColor = \(expression);"
+        }
+    }
+    let alphaUniform = maskedAlpha
+        ? "uniform float g_UserAlpha; // {\"material\":\"alpha\",\"default\":1.0}"
+        : ""
     let audioUniforms = audioSpectrum
         ? """
         uniform float g_AudioSpectrum16Left[16];
@@ -192,16 +246,17 @@ private func fragmentSource(
         ? "float audioProbe = g_AudioSpectrum16Left[3] + g_AudioSpectrum32Right[5] + g_AudioSpectrum64Left[7] + g_AudioSpectrum64Right[9];"
         : ""
     return """
-    varying vec2 v_TexCoord;
+    varying \(optionalMask ? "vec4" : "vec2") v_TexCoord;
     \(combo)
     uniform sampler2D g_Texture0;\(annotation)
     \(secondSampler)
     \(audioUniforms)
     uniform vec3 u_Tint;\(uniformAnnotation)
+    \(alphaUniform)
     uniform float g_Time; // {"default":99}
     void main() {
         \(audioProbe)
-        gl_FragColor = \(output);
+        \(output)
     }
     """
 }
@@ -214,7 +269,10 @@ private func contract(
     secondSamplerMetadata: String? = nil,
     conditionalSecondSampler: Bool = false,
     arithmetic: Bool = false,
-    audioSpectrum: Bool = false
+    audioSpectrum: Bool = false,
+    maskedAlpha: Bool = false,
+    optionalMask: Bool = false,
+    deadMaskCoordinates: Bool = false
 ) -> SceneShaderContract {
     func stage(
         _ kind: SceneShaderContract.StageKind,
@@ -239,7 +297,10 @@ private func contract(
         stage(
             .vertex,
             path: "\(revision)/root.vert",
-            source: vertexSource(samplerMetadata: vertexSamplerMetadata)
+            source: vertexSource(
+                samplerMetadata: vertexSamplerMetadata,
+                deadMaskCoordinates: deadMaskCoordinates
+            )
         ),
         stage(
             .fragment,
@@ -250,7 +311,9 @@ private func contract(
                 secondSamplerMetadata: secondSamplerMetadata,
                 conditionalSecondSampler: conditionalSecondSampler,
                 arithmetic: arithmetic,
-                audioSpectrum: audioSpectrum
+                audioSpectrum: audioSpectrum,
+                maskedAlpha: maskedAlpha,
+                optionalMask: optionalMask
             )
         ),
     ]
@@ -339,6 +402,26 @@ private func dynamicDeclaration(
             controlAttachments: controls,
             authoredFallback: staticValue([1, 0.5, 0.25]),
             authoredBindingKeys: ["animation", "script", "value"]
+        ))
+    )
+}
+
+private func dynamicAlphaDeclaration(
+    _ valueContributors: [Template.DynamicUniformSource]
+) -> Template.UniformDeclaration {
+    .init(
+        name: "alpha",
+        value: .dynamic(.init(
+            target: .effectConstant(
+                layerID: fixtureLayerID,
+                effectIndex: 0,
+                passIndex: 0,
+                name: "alpha"
+            ),
+            valueContributors: valueContributors,
+            controlAttachments: [],
+            authoredFallback: staticValue([1]),
+            authoredBindingKeys: ["value"]
         ))
     )
 }
@@ -575,30 +658,50 @@ private func dynamicSnapshot(
     frameIndex: UInt64,
     source: SceneDynamicSource?
 ) -> SceneDynamicSnapshot {
-    let target = SceneDynamicTarget.effectConstant(
+    let tintTarget = SceneDynamicTarget.effectConstant(
         layerID: fixtureLayerID,
         effectIndex: 0,
         passIndex: 0,
         name: "Tint"
     )
-    let value = SceneDynamicValue.vector3(1, 0.5, 0.25)
+    let alphaTarget = SceneDynamicTarget.effectConstant(
+        layerID: fixtureLayerID,
+        effectIndex: 0,
+        passIndex: 0,
+        name: "alpha"
+    )
+    let tintValue = SceneDynamicValue.vector3(1, 0.5, 0.25)
+    let alphaValue = SceneDynamicValue.scalar(0.25)
     var user: [SceneDynamicTarget: SceneDynamicValue] = [:]
     var timeline: [SceneDynamicTarget: SceneDynamicValue] = [:]
     var script: [SceneDynamicTarget: SceneDynamicValue] = [:]
     switch source {
-    case .userProperty: user[target] = value
-    case .timeline: timeline[target] = value
-    case .sceneScript: script[target] = value
+    case .userProperty:
+        user[tintTarget] = tintValue
+        user[alphaTarget] = alphaValue
+    case .timeline:
+        timeline[tintTarget] = tintValue
+        timeline[alphaTarget] = alphaValue
+    case .sceneScript:
+        script[tintTarget] = tintValue
+        script[alphaTarget] = alphaValue
     case .authored, nil: break
     }
     return SceneDynamicSnapshotResolver().resolve(
         frameIndex: frameIndex,
         generation: 1,
-        definitions: [.init(
-            target: target,
-            valueType: .vector3,
-            authoredValue: value
-        )],
+        definitions: [
+            .init(
+                target: tintTarget,
+                valueType: .vector3,
+                authoredValue: tintValue
+            ),
+            .init(
+                target: alphaTarget,
+                valueType: .scalar,
+                authoredValue: .scalar(1)
+            ),
+        ],
         userValues: user,
         timelineValues: timeline,
         sceneScriptValues: script
@@ -972,6 +1075,179 @@ private enum Harness {
                         content: .data
                     ),
             ]
+        )
+        let maskedPath = SceneVFSAssetPath("textures/masked-alpha.tex")!
+        let maskedIdentity = SceneFrameTextureIdentity.asset(.init(
+            path: maskedPath,
+            purpose: .mask
+        ))
+        let maskedShader = contract(
+            revision: "masked-alpha",
+            secondSamplerMetadata: maskMetadata,
+            maskedAlpha: true
+        )
+        let maskedProgram = finalize(
+            shader: maskedShader,
+            device: device,
+            includePrimaryCandidate: false,
+            secondReference: .asset(maskedPath),
+            additionalEntries: [
+                maskedIdentity: readyStatus(
+                    device,
+                    identity: maskedIdentity,
+                    purpose: .mask,
+                    content: .data
+                ),
+            ],
+            uniformDeclarations: [dynamicAlphaDeclaration([
+                .userProperty("opacity")
+            ])],
+            dynamicSource: .userProperty,
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let maskedDynamicAlphaEncoded: Bool = {
+            guard case let .success(program) = maskedProgram,
+                  let field = program.frontendProgram.uniformLayout.fields.first(
+                    where: { $0.name == "g_UserAlpha" }
+                  ),
+                  let maskSlot = program.textureSlots[1],
+                  case .data = maskSlot.resource.publication.candidate.content,
+                  case .straightAlpha(0) = program.semanticIdentity.shader.colorTransfer
+            else { return false }
+            return float(program.uniformBytes, at: field.offset) == 0.25
+                && program.semanticIdentity.colorContract.fragmentOutput
+                    == .premultipliedAlpha
+        }()
+        let optionalMaskProgram = finalize(
+            shader: contract(
+                revision: "optional-mask-with-dead-coordinates",
+                secondSamplerMetadata:
+                    #"{"mode":"opacitymask","combo":"MASK"}"#,
+                maskedAlpha: true,
+                optionalMask: true,
+                deadMaskCoordinates: true
+            ),
+            device: device,
+            includePrimaryCandidate: false,
+            uniformDeclarations: [staticDeclaration("alpha", components: [0.5])],
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let optionalMaskWithoutResourceAccepted: Bool = {
+            guard case let .success(program) = optionalMaskProgram else {
+                return false
+            }
+            return program.frontendProgram.textureBindings.map(\.slot) == [0]
+                && program.textureSlots[0] != nil
+                && program.textureSlots[1] == nil
+                && !program.frontendProgram.uniformLayout.fields.contains {
+                    $0.name == "g_Texture1Resolution"
+                }
+        }()
+        let optionalMaskWithResource = finalize(
+            shader: contract(
+                revision: "optional-mask-with-ready-resource",
+                secondSamplerMetadata:
+                    #"{"mode":"opacitymask","combo":"MASK"}"#,
+                maskedAlpha: true,
+                optionalMask: true,
+                deadMaskCoordinates: true
+            ),
+            device: device,
+            includePrimaryCandidate: false,
+            secondReference: .asset(maskedPath),
+            additionalEntries: [
+                maskedIdentity: readyStatus(
+                    device,
+                    identity: maskedIdentity,
+                    purpose: .mask,
+                    content: .data
+                ),
+            ],
+            uniformDeclarations: [staticDeclaration("alpha", components: [0.5])],
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let optionalMaskWithResourceAccepted: Bool = {
+            guard case let .success(program) = optionalMaskWithResource,
+                  let mask = program.textureSlots[1],
+                  mask.expectedPurpose == .mask,
+                  case .data = mask.resource.publication.candidate.content else {
+                return false
+            }
+            return program.frontendProgram.textureBindings.map(\.slot) == [0, 1]
+                && program.frontendProgram.uniformLayout.fields.contains {
+                    $0.name == "g_Texture1Resolution"
+                }
+        }()
+        let optionalUntypedMask = finalize(
+            shader: contract(
+                revision: "optional-mask-with-untyped-resource",
+                secondSamplerMetadata: #"{"combo":"MASK"}"#,
+                maskedAlpha: true,
+                optionalMask: true,
+                deadMaskCoordinates: true
+            ),
+            device: device,
+            includePrimaryCandidate: false,
+            secondReference: .asset(maskedPath),
+            additionalEntries: [
+                maskedIdentity: readyStatus(
+                    device,
+                    identity: maskedIdentity,
+                    purpose: .mask,
+                    content: .data
+                ),
+            ],
+            uniformDeclarations: [staticDeclaration("alpha", components: [0.5])],
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let maskedMissing = finalize(
+            shader: maskedShader,
+            device: device,
+            includePrimaryCandidate: false,
+            secondReference: .asset(maskedPath),
+            uniformDeclarations: [staticDeclaration("alpha", components: [0.5])],
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let maskedPending = finalize(
+            shader: maskedShader,
+            device: device,
+            includePrimaryCandidate: false,
+            secondReference: .asset(maskedPath),
+            additionalEntries: [maskedIdentity: .pending],
+            uniformDeclarations: [staticDeclaration("alpha", components: [0.5])],
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let maskedWrongPurpose = finalize(
+            shader: maskedShader,
+            device: device,
+            includePrimaryCandidate: false,
+            secondReference: .asset(maskedPath),
+            additionalEntries: [
+                maskedIdentity: readyStatus(
+                    device,
+                    identity: maskedIdentity,
+                    purpose: .straightAlbedo,
+                    content: .color(.resolved(.straightAlpha))
+                ),
+            ],
+            uniformDeclarations: [staticDeclaration("alpha", components: [0.5])],
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let maskedColorAuxiliary = finalize(
+            shader: maskedShader,
+            device: device,
+            includePrimaryCandidate: false,
+            secondReference: .asset(maskedPath),
+            additionalEntries: [
+                maskedIdentity: readyStatus(
+                    device,
+                    identity: maskedIdentity,
+                    purpose: .mask,
+                    content: .color(.resolved(.straightAlpha))
+                ),
+            ],
+            uniformDeclarations: [staticDeclaration("alpha", components: [0.5])],
+            implicitFramebufferIdentity: graphTexture()
         )
         let propertyRequest = Template.UserPropertyRequest(key: "fixtureMask")
         let propertyIdentity = SceneUserPropertyTextureIdentity(
@@ -1369,6 +1645,11 @@ private enum Harness {
                 shader: contract(revision: "arithmetic-output", arithmetic: true),
                 device: device
             )),
+            "maskedMissing": failureToken(maskedMissing),
+            "maskedPending": failureToken(maskedPending),
+            "maskedWrongPurpose": failureToken(maskedWrongPurpose),
+            "maskedColorAuxiliary": failureToken(maskedColorAuxiliary),
+            "optionalUntypedMask": failureToken(optionalUntypedMask),
         ]
 
         let result: [String: Any] = [
@@ -1384,6 +1665,11 @@ private enum Harness {
                 "assetReferenceTyped": failureToken(assetProgram) == "success",
                 "userReferenceTyped": failureToken(propertyProgram) == "success",
                 "providerReferenceTyped": failureToken(providerProgram) == "success",
+                "maskedDynamicAlphaEncoded": maskedDynamicAlphaEncoded,
+                "optionalMaskWithoutResourceAccepted":
+                    optionalMaskWithoutResourceAccepted,
+                "optionalMaskWithResourceAccepted":
+                    optionalMaskWithResourceAccepted,
                 "implicitFramebufferTyped": implicitFramebufferTyped,
                 "implicitFramebufferMaterialKeyCaseInsensitive":
                     failureToken(caseInsensitiveFramebufferProgram) == "success",
@@ -1547,6 +1833,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             ),
             "providerAbsentUsesShaderDefault": "success",
             "slotSchemaMismatch": "texture/texturePurposeUnproven",
+            "optionalUntypedMask": "texture/texturePurposeUnproven",
             "authoredOverridesShaderDefault": "success",
             "authoredFailureDoesNotUseShaderDefault": (
                 "texture/resourceSnapshotUnresolved"
@@ -1593,6 +1880,9 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "unsupportedSampler": "texture/textureMetadataIncomplete",
             "textureDynamicFrameMismatch": "invariant/frameSnapshotMismatch",
             "dynamicInputsFrameMismatch": "invariant/frameSnapshotMismatch",
+            "maskedMissing": "texture/resourceSnapshotUnresolved",
+            "maskedPending": "texture/resourceSnapshotUnresolved",
+            "maskedWrongPurpose": "texture/textureMetadataIncomplete",
         }
         self.assertEqual(
             {name: self.result["failures"][name] for name in expected},
@@ -1619,6 +1909,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "unsupportedState": "state/renderStateInvalid",
             "dataGraphInput": "texture/textureMetadataIncomplete",
             "arithmeticOutput": "color/colorContractUnproven",
+            "maskedColorAuxiliary": "texture/textureMetadataIncomplete",
         }
         self.assertEqual(
             {name: self.result["failures"][name] for name in expected},

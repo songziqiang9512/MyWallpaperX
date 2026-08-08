@@ -30,12 +30,13 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             guard let effect = product.graph.effects.first else {
                 return .failure(rejection("stage-effect-identity-missing"))
             }
-            if let program = programsByKey[effect.key]?.first {
+            let dedicatedProgram = programsByKey[effect.key]?.first
+            if let program = dedicatedProgram,
+               dedicatedLeafKeys.contains(effect.key) {
                 guard program.effectKey == effect.key,
                       program.stageGraph.effects.first?.key == effect.key,
                       program.executionPlan.logicalRenderTargetCount == 0,
-                      product.graph.renderTargets.isEmpty,
-                      (dedicatedLeafKeys.isEmpty || dedicatedLeafKeys.contains(effect.key)) else {
+                      product.graph.renderTargets.isEmpty else {
                     return .failure(rejection("dedicated-leaf-unsupported"))
                 }
                 stages.append(.dedicated(
@@ -44,6 +45,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     family: dedicatedStageFamilies[effect.key] ?? "dedicated-leaf"
                 ))
                 continue
+            }
+            if let program = dedicatedProgram, program.executionPlan.opacity == nil {
+                return .failure(rejection("dedicated-leaf-unsupported"))
             }
 
             switch compileMaterials(
@@ -55,6 +59,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 maximumVariantsPerMaterial: maximumVariantsPerMaterial
             ) {
             case .failure(let failure):
+                if dedicatedProgram != nil {
+                    return .failure(rejection("dedicated-leaf-unsupported"))
+                }
                 return .failure(failure)
             case .success(let materials):
                 allMaterials.merge(materials) { _, replacement in replacement }

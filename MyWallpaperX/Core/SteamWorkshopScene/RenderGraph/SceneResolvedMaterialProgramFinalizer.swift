@@ -153,14 +153,15 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
             ) else {
                 throw failure(.state, .renderStateInvalid)
             }
-            let variant: SceneResolvedMaterialCompiledVariant
-            switch variantCache.resolve(input) {
-            case let .success(value): variant = value
+            let selection: SceneResolvedMaterialVariantCache.Selection
+            switch variantCache.resolveSelection(input) {
+            case let .success(value): selection = value
             case let .failure(error): throw error
             }
             let texture = try SceneResolvedMaterialTextureResolver.resolve(
                 input,
-                variant: variant
+                variant: selection.variant,
+                reachableSamplers: selection.reachableSamplers
             )
             guard SceneResolvedMaterialProgramDerivation.hasResolvedColorContract(
                 transfer: texture.frontend.colorTransfer,
@@ -172,7 +173,7 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
             let uniforms = try resolvedUniforms(
                 input,
                 uniformInputs: uniformInputs,
-                variant: variant,
+                variant: selection.variant,
                 slots: texture.slots
             )
             guard let graphRole = effectiveGraphRole(
@@ -182,12 +183,12 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 throw failure(.invariant, .identityInvariant)
             }
             guard let program = Program.assembleCompiled(.init(
-                preparedShader: variant.preparedShader,
+                preparedShader: selection.variant.preparedShader,
                 textureSlots: texture.slots,
                 resolvedUniforms: uniforms,
                 renderState: input.template.renderState,
                 graphRole: graphRole
-            ), frontend: variant.frontendProgram) else {
+            ), frontend: selection.variant.frontendProgram) else {
                 throw failure(.invariant, .identityInvariant)
             }
             return .success(program)
