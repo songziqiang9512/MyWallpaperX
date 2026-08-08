@@ -111,8 +111,12 @@ nonisolated enum SceneAuthoredShaderMetalSource {
             };
             SceneAuthoredVertexAttributes mwxAttributes;
             mwxAttributes.a_TexCoord = coordinates[vertexID];
+            const float2 position = float2(
+                coordinates[vertexID].x,
+                1.0 - coordinates[vertexID].y
+            );
             mwxAttributes.a_Position = float3(
-                (coordinates[vertexID] - 0.5) * mwxUniforms.mwxRenderSize,
+                (position - 0.5) * mwxUniforms.mwxRenderSize,
                 0.0
             );
             SceneAuthoredVertexOutput mwxOutput;

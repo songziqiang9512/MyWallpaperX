@@ -433,11 +433,12 @@ private enum Harness {
             return
         }
 
-        let color = [UInt8](repeating: 0, count: 16).enumerated().map {
-            [$0.offset % 4 == 0 ? UInt8(37) :
-             $0.offset % 4 == 1 ? UInt8(109) :
-             $0.offset % 4 == 2 ? UInt8(211) : UInt8(255)]
-        }.flatMap { $0 }
+        // Four distinct quadrants keep a vertically mirrored pass from
+        // satisfying a set-of-colors assertion.
+        let color: [UInt8] = [
+            255, 0, 0, 255, 0, 255, 0, 255,
+            0, 0, 255, 255, 255, 255, 0, 255,
+        ]
         let authoredTexture = texture(device: device, fill: color)
         let whiteMask = texture(
             device: device,
@@ -482,9 +483,7 @@ private enum Harness {
                 first,
                 commandBuffer: command
             )
-            outputMatches = Set(stride(from: 0, to: 16, by: 4).map {
-                Array(pixels(rgbaTarget)[$0 ..< $0 + 4])
-            }) == Set([[37, 109, 211, 255]])
+            outputMatches = pixels(rgbaTarget) == color
         }
 
         let bgraTarget = target(device: device, format: .bgra8Unorm)

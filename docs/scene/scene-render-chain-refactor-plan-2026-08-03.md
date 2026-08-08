@@ -2,7 +2,7 @@
 
 > 建立日期：2026-08-03
 >
-> 文档状态：现役执行计划；2026-08-06 已提交 R4 unified material graph ownership checkpoint，R4 仍未完成。
+> 文档状态：现役执行计划；2026-08-08 已闭合普通 Opacity 迁移后暴露的统一材质 pass 方向回归，R4 仍未完成。
 >
 > 事实边界：本文记录问题假设、迁移顺序、验收门和进度，不是当前能力等级或运行基线的权威入口。能力事实仍以 [`semantics/coverage-ledger.md`](semantics/coverage-ledger.md)、专项覆盖表和 [`semantics/runtime-evidence-index.md`](semantics/runtime-evidence-index.md) 为准。
 >
@@ -11,9 +11,9 @@
 ## 0. 快速接手
 
 - **能力与运行事实**：继续从 [`semantics/README.md`](semantics/README.md) 进入专项表，并以 [`semantics/coverage-ledger.md`](semantics/coverage-ledger.md) 和 [`semantics/runtime-evidence-index.md`](semantics/runtime-evidence-index.md) 的 R4 partial checkpoint 为准；本文只记录重构路线、剩余迁移和复验门。
-- **Git 断点**：分支 `codex/scene-capability-baseline`，当前已提交基线为 `09905381`；本页最新 checkpoint 记录其上的 R4-2 性能、owner matrix 与 frame-batch lifecycle 收口。恢复时先核对 `git status`、最近两次提交和本页最新 checkpoint，不再从历史计划全量重扫。
+- **Git 断点**：分支 `codex/scene-capability-baseline`，本批修复前已提交基线为 `2b2b03df`；本页最新 checkpoint 记录其上的统一材质 pass 方向回归收口。恢复时先核对 `git status`、最近两次提交和本页最新 checkpoint，不再从历史计划全量重扫。
 - **架构判断**：新代码已朝“样本声明需求 -> typed capability -> 公共调度/资源 -> 公共执行/合成”收敛，capability 现在直接来自 raw authored graph admission，审计的新链没有按 sample/workshop/path/hash 选择可见算法；effect classification 只在资源加载后投影为 telemetry family，new capability 不再以它作为 admission authority。旧 extent、多个产品 owner 和 legacy route 仍可达，所以产品整体尚未形成唯一能力池，也不能表述为已与官方架构对齐。
-- **阶段边界**：当前停在 R4，不进入 R5，不处理单样本视觉缺口，不启动新的 Ghidra 复核。逐帧 CPU 热点、owner matrix/lifecycle 与独立 authored-shader 产品 owner 撤权已闭合；下次从“2026-08-07 R4-1 authored-shader product owner revocation closure”和第 9 节恢复，继续按 capability family 撤销仍可达的 dedicated/legacy/utility/audio 产品 owner。
+- **阶段边界**：当前停在 R4，不进入 R5，不启动新的 Ghidra 复核。逐帧 CPU 热点、owner matrix/lifecycle、独立 authored-shader 产品 owner 撤权与本次统一材质 pass 方向回归均已闭合；本批按用户要求在提交和临时产物审计后停止。后续恢复必须先从“2026-08-08 R4-2 resolved-material texture orientation regression closure”和第 9 节核对断点，再按 capability family 撤销仍可达的 dedicated/legacy/utility/audio 产品 owner。
 
 ## 1. 重构目标
 
@@ -510,6 +510,13 @@ sample declaration
 - 用户另报 `3743305891` 整体纹理 Y 轴倒置、`3088601835` 局部贴图疑似帽子倒置。当前 full45 只证明结构链、资源加载、GPU/compositor 和非黑输出，没有同相位方向视觉门，因此这两个问题明确未由 Opacity 批次修复。Opacity 提交后下一批必须沿 TEX/container orientation → upload/crop → physical/mapped UV → sampler → consumer 查公共根因，不得写 sample/layer/path/hash 分支。
 - 该波次只完成 R4-2 的普通 Opacity 子集；Tint、Transform、Film Grain 与其他 ordinary material family 仍待后续独立波次，R4-3/R4-4 未开始，R4 总体未完成，R5 未准入。
 
+#### 2026-08-08 R4-2 resolved-material texture orientation regression closure
+
+- 回归只出现在普通 Opacity 迁入统一 executor 后：公共 authored vertex wrapper 把同一组 coordinates 同时作为 texture UV 与 Metal full-target quad 几何，错误假定纹理 V 轴和 clip 几何 Y 同向，使 resolved-material 离屏 pass 每执行一次就垂直镜像一次。现役实现保持 `a_TexCoord` 不变，只对生成 `a_Position` 的几何 Y 做 `1-v`；没有改变 TEX/PNG/视频上传、physical/mapped extent、sampler、layer world transform，也没有样本、layer、路径或 hash 分支。该合同与 Mirage clean-room 资料中 source draw、effect pass、final composite 分层保真方向一致，但没有复制第三方源码或算法表达。
+- `test_scene_resolved_material_pass_encoder.py` 的 GPU 输入改为红/绿/蓝/黄四象限 2×2 纹理，并逐字节断言输出行序，旧的同色集合断言不再能漏过垂直镜像。聚焦 GPU 门通过；统一 inner 门通过；Scene 全量 **188 modules / 135.7 s / ALL OK**；code health **849 Swift / 44 locked legacy / 400-line limit** 与 `script/build_and_run.sh verify` 的 `BUILD SUCCEEDED` 通过。
+- 定向隔离报告 `.codex/scene-texture-orientation-r4-targeted-20260808-v3/report.json` 为 **2/2 PASS**：`3088601835` / `3743305891` loaded ratio 均 `1.0`、failed frame / drawable miss 均 `0`、sample-root residue 为空；resolved layer `54` 与视频 layer `23` 分别完成 claimed/encoded/GPU `64/64/64` 与 `6/6/6`，executor/graph/legacy conflict 均无失败。人工比较 Opacity 迁移前、回归后与本批 after 截图，确认前者后帽/兜帽重新贴合头脸，后者整体恢复头朝上。报告 SHA-256 `47c76a39eb4ad0e8bcce31af7f0b00fabcd7f3a2be32125483017b87f5ade917`。
+- 这只闭合公共 resolved-material pass 行序和两个用户报告的方向回归，不证明所有 TEX、视频、effect、跨 API 坐标、Windows 同相位像素或 Wallpaper Engine 等价。没有升级 fixed13/full45：非对称 GPU 门与两个真实受影响样本已直接覆盖本批共享风险，扩大矩阵不能提供更强方向性证据。按用户要求本批在提交、证据同步和临时产物审计后停止；Tint、Transform、Film Grain、R4-3、R4-4 与 R5 均不在本批继续。
+
 每个波次均以“公共 capability 接管、被替代 owner 同提交撤权、旧 exact/route 双写为零、跨样本或跨 revision 正反例通过”闭合。只增加新 executor 而保留旧默认 fallback 不算迁移。
 
 1. **R4-0 权限冻结门（已完成）**：canonical executor 调用点、legacy authority、main-pass writer、dedicated probe/compiler/backend、recovery、硬编码 expected SHA 与 Workshop selector 已进入现有 layout/semantics 机器门；后续提交只能降低对应 occurrence/file/scope。未迁移的权限仍是 R4 工作，不得把冻结表述为撤权。
@@ -536,5 +543,5 @@ sample declaration
 12. **R4-2 bounded macro preparation checkpoint，owner 未迁移**：共享 preprocessor 现支持有界 function-like macro（普通/零参数、嵌套、宏作为实参、object alias 调用）和有界 object-like token sequence，并保持 variadic、stringize/paste、递归、引号、跨行 replacement、`#elif` 与预算越界失败关闭。45 样本 preparation 从 **93/728** 提升到 **116/728**，material census 的 R2 variant bootstrap 从 **340/1400** 提升到 **446/1400**，但 GPU admission 严格保持 **1/728**。四样本定向运行 **4/4 PASS**，统一 resolved graph 均为 `accepted=0`；因此本批只扩大公共 preparation 能力，没有撤销 Pulse、Audio Bars 或任何旧 owner，R4-2 仍未完成。
 13. **R4-2 unified material graph ownership 性能/矩阵/lifecycle 已闭合，R4-2 未完成**：immutable bootstrap sampler 已改为 launch/cache-scoped，`1937925563` 恢复目标吞吐；七个 full45 样本共 22 层 / 68 stage 进入 resolved graph。`2131872317` 的 completion/revision 竞态由原 reservation identity 重验证闭合；定向 owner、fixed13 均 PASS，fresh full45 为 **44/45，非 PASS** 且只有既有粒子偏差。
 14. **R4-1 authored-shader 产品 owner 撤权已完成**：旧 compiler/backend/plan/planner/binder/pipeline/renderer/Scroll profile 已删除，generic stage 不再计入旧 chain；七样本 accepted/exact backend/compositor/next-frame 守恒，负例零接管，authority ratchet 五轴下降。该结论不包含其他 dedicated/legacy/utility/audio owner。
-15. **Opacity 提交后的下一独立 R4 共享链问题是纹理方向**：先用 `3743305891` 整体倒置与 `3088601835` 局部贴图倒置复现，从 TEX/container orientation、upload/crop、physical/mapped UV、sampler 到 consumer 验证统一坐标合同；样本 ID/layer/path/hash 只用于定位和证据，绝不选择翻转算法。修复并独立提交后，再按已被 unified Program/executor 覆盖的下一 capability family 继续比对 dedicated probe、backend case、planner/profile/hash/path selector、renderer dispatch 与旧 telemetry；R5 仍禁止启动。
+15. **已完成：Opacity 后统一材质 pass 纹理方向回归**：`3743305891` 整体倒置与 `3088601835` 局部帽子/兜帽倒置已定位为公共 vertex wrapper 混用 texture UV 与 Metal quad 几何 Y；现役实现只分离几何坐标，四象限 GPU 门及两个隔离真实样本方向证据通过，没有样本 ID/layer/path/hash 算法分支。本批按用户要求在提交和临时产物审计后停止，不继续下一 capability family；R4 仍未完成，R5 仍禁止启动。
 16. **R5 准入门**：最后一个旧产品 owner 已撤权；新旧 exact/route telemetry 不双写；产品源码没有 sample/layer/path/hash 驱动的可见算法选择；跨版本跨样本正反门和 full45 里程碑通过。R5 此后只删除不可达脚手架、合并薄文件、同步权威文档和做最终证据收口；发现行为迁移缺口必须退回 R4。
