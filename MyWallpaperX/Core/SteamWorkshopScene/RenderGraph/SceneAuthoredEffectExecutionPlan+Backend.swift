@@ -46,6 +46,18 @@ extension SceneAuthoredEffectExecutionPlan {
         }
     }
 
+    /// A migrated dedicated profile may remain as a bounded fallback, while
+    /// yielding product ownership whenever the shared Program path can fully
+    /// compile the authored stage.
+    nonisolated var yieldsToResolvedMaterialProgram: Bool {
+        switch backend {
+        case .opacity, .tint:
+            return true
+        default:
+            return false
+        }
+    }
+
     var gaussianBlur: SceneGaussianBlurPlan? {
         guard case .preciseGaussian(let plan) = backend else { return nil }
         return plan

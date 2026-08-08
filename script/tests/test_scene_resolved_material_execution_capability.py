@@ -198,6 +198,8 @@ struct SceneAuthoredEffectExecutionPlan {
     let inputRole: SceneAuthoredEffectInputRole
     let cursorRipple: SceneCursorRippleExecutionPlan?
     let opacity: SceneOpacityExecutionPlan?
+    var yieldsToResolvedMaterialProgram = false
+    var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
 
 enum SceneGraphExecutionState {
@@ -711,7 +713,8 @@ private func dedicatedProgram(
     graph: Graph,
     effectIndex: Int,
     inputRole: SceneAuthoredEffectInputRole,
-    opacity: Bool = false
+    opacity: Bool = false,
+    tint: Bool = false
 ) -> SceneEffectStageProgram {
     let effect = graph.effects[effectIndex]
     let nodes = graph.nodes.filter { $0.effect == effect.key }
@@ -732,7 +735,8 @@ private func dedicatedProgram(
             logicalRenderTargetCount: 0,
             inputRole: inputRole,
             cursorRipple: nil,
-            opacity: opacity ? .init() : nil
+            opacity: opacity ? .init() : nil,
+            yieldsToResolvedMaterialProgram: opacity || tint
         )
     )
 }
@@ -1126,6 +1130,26 @@ private enum Harness {
                 sceneScriptTargets: []
             )
         )
+        let validUserPropertyCatalog = catalog(
+            descriptor: desc,
+            graphs: [raw],
+            materials: materialCatalog(
+                graph: raw,
+                omitNode: 1,
+                uniformsByNode: [0: [dynamicUniform(
+                    contributors: [.userProperty("strength-property")]
+                )]]
+            ),
+            admissionCandidates: admissionCandidates,
+            dynamicProducers: .init(
+                userProperties: [.init(
+                    propertyKey: "strength-property",
+                    target: dynamicTarget()
+                )],
+                timelineTargets: [],
+                sceneScriptTargets: []
+            )
+        )
         let unknownScriptCatalog = catalog(
             descriptor: desc,
             graphs: [raw],
@@ -1234,6 +1258,23 @@ private enum Harness {
             admissionCandidates: resolvedBeforeDedicatedCandidates,
             materialCatalog: materialCatalog(graph: pairGraph, omitNode: 1),
             dedicatedStageFamilies: [secondKey: "fixture-dedicated"],
+            dedicatedLeafKeys: []
+        )
+        let resolvedBeforeTintCandidates =
+            SceneResolvedMaterialExecutionCapabilityAdmission.compile(
+                descriptor: pairDescriptor,
+                authoredPlans: [pairGraph],
+                dedicatedStagePrograms: [dedicatedProgram(
+                    graph: pairGraph,
+                    effectIndex: 1,
+                    inputRole: .priorEffectOutput,
+                    tint: true
+                )]
+            )
+        let resolvedBeforeTintCatalog = Catalog(
+            admissionCandidates: resolvedBeforeTintCandidates,
+            materialCatalog: materialCatalog(graph: pairGraph),
+            dedicatedStageFamilies: [secondKey: "tint"],
             dedicatedLeafKeys: []
         )
 
@@ -1374,6 +1415,15 @@ private enum Harness {
                     emptyDedicatedLeafCatalog,
                     "dedicated-leaf-unsupported"
                 ),
+                "tintYieldsToResolvedProgram":
+                    resolvedBeforeTintCatalog.claim(layerID: layerID) != nil
+                    && !reportHas(
+                        resolvedBeforeTintCatalog,
+                        "dedicated-leaf-unsupported"
+                    ),
+                "userPropertyLiveTarget":
+                    validUserPropertyCatalog.liveConsumerTargets
+                    == Set([dynamicTarget()]),
                 "routeUnavailable": reportHas(
                     routeUnavailableCatalog,
                     "execution-route-specialized-owner"
@@ -1499,6 +1549,8 @@ struct SceneOpacityExecutionPlan {}
 struct SceneAuthoredEffectExecutionPlan {
     let logicalRenderTargetCount: Int
     let opacity: SceneOpacityExecutionPlan?
+    var yieldsToResolvedMaterialProgram = false
+    var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
 
 struct SceneEffectStageProgram {
@@ -2471,6 +2523,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "emptyDedicatedLeafAllowlist": True,
                 "fallbackDedicatedLeaf": True,
                 "emptyDedicatedLeafDoesNotUseDedicated": True,
+                "tintYieldsToResolvedProgram": True,
+                "userPropertyLiveTarget": True,
                 "routeUnavailable": True,
                 "hiddenParent": True,
                 "unsupportedContent": True,

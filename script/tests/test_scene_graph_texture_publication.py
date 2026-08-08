@@ -147,6 +147,9 @@ struct SceneAuthoredEffectExecutionPlan {
     let inputRole: SceneAuthoredEffectInputRole
     let cursorRipple: SceneCursorRippleExecutionPlan?
     let opacity: SceneOpacityExecutionPlan? = nil
+
+    var yieldsToResolvedMaterialProgram: Bool { opacity != nil }
+    var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
 
 struct SceneGraphCommandRuntime {

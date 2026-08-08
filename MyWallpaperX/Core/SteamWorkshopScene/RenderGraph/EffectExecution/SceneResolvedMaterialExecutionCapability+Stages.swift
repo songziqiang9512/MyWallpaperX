@@ -46,7 +46,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 ))
                 continue
             }
-            if let program = dedicatedProgram, program.executionPlan.opacity == nil {
+            if let program = dedicatedProgram,
+               !program.executionPlan.yieldsToResolvedMaterialProgram {
                 return .failure(rejection("dedicated-leaf-unsupported"))
             }
 

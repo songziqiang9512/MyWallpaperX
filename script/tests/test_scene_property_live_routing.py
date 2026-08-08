@@ -173,6 +173,18 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         )
         self.assertIn("actionableKeys.formUnion(blendPlan.executedUserPropertyKeys)", context)
 
+    def test_resolved_material_property_targets_remain_live_after_owner_transfer(self) -> None:
+        consumers = method_body(self.live_consumers, "static func activeLiveConsumerTargets(")
+        self.assertIn(
+            "resolvedMaterialExecutionCapabilities:\n"
+            "            SceneResolvedMaterialExecutionCapabilityCatalog",
+            consumers,
+        )
+        self.assertIn(
+            "resolvedMaterialExecutionCapabilities.liveConsumerTargets",
+            consumers,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

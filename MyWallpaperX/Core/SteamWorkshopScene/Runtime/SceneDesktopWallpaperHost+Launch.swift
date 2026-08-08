@@ -226,7 +226,9 @@ extension SceneDesktopWallpaperHost {
                 effectiveValues: runtimeInput.effectivePropertyValues,
                 activeConsumerTargets: Self.activeLiveConsumerTargets(
                     in: runtimeInput.renderDescriptor,
-                    authoredEffectCatalog: authoredEffectCatalog
+                    authoredEffectCatalog: authoredEffectCatalog,
+                    resolvedMaterialExecutionCapabilities:
+                        resolvedMaterialExecutionCapabilities
                 )
             ),
             userPropertyTextureURLs: userPropertyTextureURLs,

@@ -555,7 +555,11 @@ class SceneFrameContextTests(unittest.TestCase):
         derivation = LIVE_CONSUMERS_SOURCE.read_text(encoding="utf-8")
         self.assertIn("static func activeLiveConsumerTargets(", derivation)
         self.assertIn(
-            "into: authoredEffectCatalog.liveConsumerTargets",
+            "var effectTargets = authoredEffectCatalog.liveConsumerTargets",
+            derivation,
+        )
+        self.assertIn(
+            "resolvedMaterialExecutionCapabilities.liveConsumerTargets",
             derivation,
         )
         self.assertIn('case "image":', derivation)

@@ -247,6 +247,30 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         }
     }
 
+    /// Dynamic uniforms owned by an admitted resolved chain remain live
+    /// property consumers after their legacy execution plans yield ownership.
+    var liveConsumerTargets: Set<SceneDynamicTarget> {
+        capabilitiesByLayerID.values.reduce(into: Set<SceneDynamicTarget>()) {
+            targets, capability in
+            for stage in capability.stages {
+                switch stage {
+                case .resolved(_, let materials):
+                    for material in materials.values {
+                        for declaration in material.template.uniformDeclarations {
+                            guard case let .dynamic(dynamic) = declaration.value,
+                                  dynamic.valueContributors.count == 1,
+                                  case .userProperty = dynamic.valueContributors[0]
+                            else { continue }
+                            targets.insert(dynamic.target)
+                        }
+                    }
+                case .dedicated(_, let program, _):
+                    targets.formUnion(program.executionPlan.liveConsumerTargets)
+                }
+            }
+        }
+    }
+
     var reportLines: [String] {
         var result = [
             "resolved material execution capabilities: schema=r4-layer-capability-v2"

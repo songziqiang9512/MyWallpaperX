@@ -2,7 +2,7 @@
   "schema_version": 2,
   "name": "scene-runtime-fixed13-2026-07-26",
   "base_matrix": "scene_wallpaper_full_sample_matrix.json",
-  "base_matrix_sha256": "579a028dc998cca627a740482ddd5716a004a40d01f82b1482714d984b2b9b5f",
+  "base_matrix_sha256": "70392048d1bac3d770f5ccdf0879573bcc4b22145a2fafb907541506632ceb70",
   "sample_ids": [
     "2131872317",
     "2802243144",
@@ -20,21 +20,6 @@
   ],
   "sample_overrides": {
     "2131872317": {
-      "set": {
-        "expected_authored_effect_graph_succeeded_layer_ids": [
-          13,
-          74,
-          78
-        ],
-        "expected_resolved_material_graph_succeeded_layer_ids": [
-          23,
-          82
-        ],
-        "expected_authored_effect_graph_shake_count": 2,
-        "expected_authored_effect_graph_water_waves_count": 5,
-        "expected_authored_effect_graph_chain_count": 3,
-        "expected_authored_effect_graph_stage_count": 16
-      },
       "remove": [
         "expected_authored_effect_graph_authored_shader_count",
         "expected_authored_effect_graph_blend_count",
@@ -565,12 +550,7 @@
     },
     "3769688830": {
       "set": {
-        "minimum_particle_loaded": 6,
-        "expected_resolved_material_graph_succeeded_layer_ids": [
-          245,
-          297,
-          574
-        ]
+        "minimum_particle_loaded": 6
       },
       "remove": [
         "expected_authored_effect_graph_authored_shader_count",
